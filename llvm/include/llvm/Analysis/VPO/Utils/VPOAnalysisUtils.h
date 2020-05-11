@@ -128,6 +128,12 @@ typedef SmallVector<Instruction *, 32> VPOSmallVectorInst;
 ///      Modifier = "SCALAR"
 ///      Id = QUAL_OMP_DEFAULTMAP_TO
 ///
+/// * Pointer to pointer operands to is/use_device_ptr clause. Example:
+///      FullName = "QUAL.OMP.USE_DEVICE_PTR:PTR_TO_PTR"
+///      BaseName = "QUAL.OMP.USE_DEVICE_PTR"
+///      Modifier = "PTR_TO_PTR"
+///      Id = QUAL_OMP_USE_DEVICE_PTR
+///
 /// Id is the enum corresponding to BaseName.
 class ClauseSpecifier {
 private:
@@ -149,6 +155,7 @@ private:
 #endif // INTEL_CUSTOMIZATION
   bool IsAggregate:1;
   bool IsPointer:1;
+  bool IsPointerToPointer:1;
   bool IsScalar:1;
   bool IsAlways:1;
   bool IsClose:1;
@@ -197,6 +204,7 @@ public:
   void setIsMapChainLink()         { IsMapChainLink = true; }
   void setIsAggregate()            { IsAggregate = true; }
   void setIsPointer()              { IsPointer = true; }
+  void setIsPointerToPointer()     { IsPointerToPointer = true; }
   void setIsScalar()               { IsScalar = true; }
   void setIsIV()                   { IsIV = true; }
   void setIsComplex()              { IsComplex = true; }
@@ -230,6 +238,7 @@ public:
 #endif // INTEL_CUSTOMIZATION
   bool getIsAggregate() const { return IsAggregate; }
   bool getIsPointer() const { return IsPointer; }
+  bool getIsPointerToPointer() const { return IsPointerToPointer; }
   bool getIsScalar() const { return IsScalar; }
   bool getIsIV() const { return IsIV; }
   bool getIsComplex() const { return IsComplex; }

@@ -175,7 +175,7 @@ for.end:
 ; CHECK: [[VPlannedBB2]]:
 ; CHECK:   [[SHUF2:%.*]] = shufflevector <2 x i1> [[CMP1]], <2 x i1> undef, <8 x i32> <i32 0, i32 0, i32 0, i32 0, i32 1, i32 1, i32 1, i32 1>
 ; CHECK:   [[PRED_PHI:%.*]] = select <8 x i1> [[SHUF2]], <8 x float> [[WIDE_SELECT1]], <8 x float>
-; CHECK:   br i1 [[EXIT_COND:%.*]], label [[MIDDLE_BLOCK:%.*]], label %vector.body
+; CHECK:   br i1 [[EXIT_COND:%.*]]
 
 
 ; This is a minimalist IR which is identical to the control-flow from one of the Embree kernels.

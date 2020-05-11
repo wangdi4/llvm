@@ -367,11 +367,15 @@ DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.4
 ; CHECK: [[SINCOS0:%[a-z0-9.]+]] = extractvalue{{.*}}[[SINCOSLO]], 0
 ; CHECK: [[SINCOS2:%[a-z0-9.]+]] = extractvalue{{.*}}[[SINCOSHI]], 0
 ; CHECK: [[COMBLO:%[a-z0-9.]+]] = shufflevector{{.*}}[[SINCOS0]]{{.*}}[[SINCOS2]]{{.*}}<16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
+; CHECK: [[SINCOSRETTMP:%[a-z0-9.]+]] = insertvalue { <16 x float>, <16 x float> } undef, <16 x float> [[COMBLO]], 0
 ; CHECK: [[SINCOS1:%[a-z0-9.]+]] = extractvalue{{.*}}[[SINCOSLO]], 1
 ; CHECK: [[SINCOS3:%[a-z0-9.]+]] = extractvalue{{.*}}[[SINCOSHI]], 1
 ; CHECK: [[COMBHI:%[a-z0-9.]+]] = shufflevector{{.*}}[[SINCOS1]]{{.*}}[[SINCOS3]]{{.*}}<16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
-; CHECK: fmul{{.*}}[[COMBLO]]
-; CHECK: fadd{{.*}}[[COMBHI]]
+; CHECK: [[SINCOSRET:%[a-z0-9.]+]] = insertvalue { <16 x float>, <16 x float> } [[SINCOSRETTMP]], <16 x float> [[COMBHI]], 1
+; CHECK: [[SINVAL:%[a-z0-9.]+]] = extractvalue { <16 x float>, <16 x float> } [[SINCOSRET]], 0
+; CHECK: [[COSVAL:%[a-z0-9.]+]] = extractvalue { <16 x float>, <16 x float> } [[SINCOSRET]], 1
+; CHECK: fmul{{.*}}[[SINVAL]]
+; CHECK: fadd{{.*}}[[COSVAL]]
 
 ; Function Attrs: noinline nounwind uwtable
 define dso_local void @foo4(float* noalias nocapture readonly %f, float* noalias nocapture %r) local_unnamed_addr #0 {

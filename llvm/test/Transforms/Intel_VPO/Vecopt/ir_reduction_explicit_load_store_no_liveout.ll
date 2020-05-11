@@ -5,11 +5,11 @@
 ; the reduction is not live-out of the loop.
 ; TODO: LinkedValues are not itemized due to unpredictable order (they are kept in a set).
 
-; RUN: opt -VPlanDriver -vplan-print-after-linearization -vplan-entities-dump -S < %s 2>&1 | FileCheck %s
+; RUN: opt -VPlanDriver -vplan-print-after-vpentity-instrs -vplan-entities-dump -S < %s 2>&1 | FileCheck %s
 
 define float @load_store_reduction_add(float* nocapture %a) {
 ; Check that reduction is imported as VPReduction.
-; CHECK-LABEL:  After predication and linearization
+; CHECK-LABEL:  After insertion VPEntities instructions:
 ; CHECK-NEXT:  Loop Entities of the loop with header [[BB0:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Reduction list
@@ -26,36 +26,31 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]:
-; CHECK-NEXT:     [DA: Div] float* [[VP_X]] = allocate-priv float*
-; CHECK-NEXT:     [DA: Div] float [[VP_X_RED_INIT]] = reduction-init float 0.000000e+00
-; CHECK-NEXT:     [DA: Div] store float [[VP_X_RED_INIT]] float* [[VP_X]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_IND_INIT]] = induction-init{add} i64 0 i64 1
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_INIT_STEP]] = induction-init-step{add} i64 1
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop for.body
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 1
+; CHECK-NEXT:     float* [[VP_X]] = allocate-priv float*
+; CHECK-NEXT:     float [[VP_X_RED_INIT]] = reduction-init float 0.000000e+00
+; CHECK-NEXT:     store float [[VP_X_RED_INIT]] float* [[VP_X]]
+; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT]] = induction-init{add} i64 0 i64 1
+; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT_STEP]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB0]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB0]]:
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB2]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB0]] ]
-; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB2]] ],  [ i64 [[VP_INDVARS_IV_NEXT]], [[BB0]] ]
-; CHECK-NEXT:     [DA: Div] float [[VP_ADD7]] = phi  [ float [[VP_X_RED_INIT]], [[BB2]] ],  [ float [[VP_ADD]], [[BB0]] ]
-; CHECK-NEXT:     [DA: Div] float* [[VP_A_GEP:%.*]] = getelementptr inbounds float* [[A0:%.*]] i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:     [DA: Div] float [[VP_A_LOAD:%.*]] = load float* [[VP_A_GEP]]
-; CHECK-NEXT:     [DA: Div] float [[VP_ADD]] = fadd float [[VP_ADD7]] float [[VP_A_LOAD]]
-; CHECK-NEXT:     [DA: Div] store float [[VP_ADD]] float* [[VP_X]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB3:BB[0-9]+]](i1 [[VP_VECTOR_LOOP_EXITCOND]]), [[BB0]](!i1 [[VP_VECTOR_LOOP_EXITCOND]])
+; CHECK-NEXT:     i64 [[VP_INDVARS_IV]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB2]] ],  [ i64 [[VP_INDVARS_IV_NEXT]], [[BB0]] ]
+; CHECK-NEXT:     float [[VP_ADD7]] = phi  [ float [[VP_X_RED_INIT]], [[BB2]] ],  [ float [[VP_ADD]], [[BB0]] ]
+; CHECK-NEXT:     float* [[VP_A_GEP:%.*]] = getelementptr inbounds float* [[A0:%.*]] i64 [[VP_INDVARS_IV]]
+; CHECK-NEXT:     float [[VP_A_LOAD:%.*]] = load float* [[VP_A_GEP]]
+; CHECK-NEXT:     float [[VP_ADD]] = fadd float [[VP_ADD7]] float [[VP_A_LOAD]]
+; CHECK-NEXT:     store float [[VP_ADD]] float* [[VP_X]]
+; CHECK-NEXT:     i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
+; CHECK-NEXT:     i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_INDVARS_IV_NEXT]] i64 1000
+; CHECK-NEXT:    SUCCESSORS(2):[[BB3:BB[0-9]+]](i1 [[VP_EXITCOND]]), [[BB0]](!i1 [[VP_EXITCOND]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]:
-; CHECK-NEXT:     [DA: Div] float [[VP1:%.*]] = load float* [[VP_X]]
-; CHECK-NEXT:     [DA: Uni] float [[VP_X_RED_FINAL]] = reduction-final{fadd} float [[VP1]] float [[X_PROMOTED0]]
-; CHECK-NEXT:     [DA: Uni] store float [[VP_X_RED_FINAL]] float* [[X0]]
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL]] = induction-final{add} i64 0 i64 1
+; CHECK-NEXT:     float [[VP1:%.*]] = load float* [[VP_X]]
+; CHECK-NEXT:     float [[VP_X_RED_FINAL]] = reduction-final{fadd} float [[VP1]] float [[X_PROMOTED0]]
+; CHECK-NEXT:     store float [[VP_X_RED_FINAL]] float* [[X0]]
+; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_FINAL]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
 ; CHECK-EMPTY:
@@ -86,8 +81,7 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-NEXT:    br label [[VECTOR_BODY0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  vector.body:
-; CHECK-NEXT:    [[INDEX0:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[INDEX_NEXT0:%.*]], [[VECTOR_BODY0]] ]
-; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP4:%.*]], [[VECTOR_BODY0]] ]
+; CHECK-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP5:%.*]], [[VECTOR_BODY0]] ]
 ; CHECK-NEXT:    [[UNI_PHI10:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP3:%.*]], [[VECTOR_BODY0]] ]
 ; CHECK-NEXT:    [[VEC_PHI0:%.*]] = phi <8 x i64> [ <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7>, [[VECTOR_PH0]] ], [ [[TMP2:%.*]], [[VECTOR_BODY0]] ]
 ; CHECK-NEXT:    [[VEC_PHI20:%.*]] = phi <8 x float> [ zeroinitializer, [[VECTOR_PH0]] ], [ [[TMP1:%.*]], [[VECTOR_BODY0]] ]
@@ -98,10 +92,8 @@ define float @load_store_reduction_add(float* nocapture %a) {
 ; CHECK-NEXT:    store <8 x float> [[TMP1]], <8 x float>* [[X_VEC0]], align 4
 ; CHECK-NEXT:    [[TMP2]] = add nuw nsw <8 x i64> [[VEC_PHI0]], <i64 8, i64 8, i64 8, i64 8, i64 8, i64 8, i64 8, i64 8>
 ; CHECK-NEXT:    [[TMP3]] = add nuw nsw i64 [[UNI_PHI10]], 8
-; CHECK-NEXT:    [[TMP4]] = add i64 [[UNI_PHI0]], 8
-; CHECK-NEXT:    [[TMP5:%.*]] = icmp eq i64 [[TMP4]], 1000
-; CHECK-NEXT:    [[INDEX_NEXT0]] = add i64 [[INDEX0]], 8
-; CHECK-NEXT:    [[TMP6:%.*]] = icmp eq i64 [[INDEX_NEXT0]], 1000
+; CHECK-NEXT:    [[TMP5]] = add i64 [[UNI_PHI0]], 8
+; CHECK-NEXT:    [[TMP6:%.*]] = icmp eq i64 [[TMP5]], 1000
 ; CHECK-NEXT:    br i1 [[TMP6]], label [[VPLANNEDBB0:%.*]], label [[VECTOR_BODY0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  VPlannedBB:
@@ -151,4 +143,3 @@ declare token @llvm.directive.region.entry()
 
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.directive.region.exit(token)
-

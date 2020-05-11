@@ -10,7 +10,7 @@
 #define VERSTR(x)  #x
 #define XSTR(x)    VERSTR(x)
 
-#define XMAIN_VERSION_NUMBER   "202100"
+#define XMAIN_VERSION_NUMBER   "202110"
 #define XMAIN_VERSION_STRING   "x.0"
 #define XMAIN_VERSION_MINOR     x
 #define XMAIN_VERSION_UPDATE    0

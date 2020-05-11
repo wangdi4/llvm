@@ -10,14 +10,13 @@
 ; RUN:     -mllvm -whole-program-read-trace %t.bc -o %t \
 ; RUN:     2>&1 | FileCheck %s
 
-; CHECK: WHOLE-PROGRAM-ANALYSIS: WHOLE PROGRAM READ
+; CHECK: WHOLE-PROGRAM-ANALYSIS: WHOLE PROGRAM READ TRACE
 ; CHECK: SYMBOL NAME: main
 ; CHECK:  RESULT: MAIN | RESOLVED BY LINKER
 
 ; CHECK: SYMBOLS RESOLVED BY LINKER: 1
 ; CHECK: SYMBOLS NOT RESOLVED BY LINKER: 1
-; CHECK: WHOLE PROGRAM NOT DETECTED
-; CHECK: whole program not read
+; CHECK: WHOLE PROGRAM READ:  NOT DETECTED
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

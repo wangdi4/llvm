@@ -28,7 +28,7 @@
 ; CHECK: sub
 
 ; Check that whole-program-assume is enabled
-; CHECK: whole-program-assume is enabled
+; CHECK: WHOLE PROGRAM ASSUME IS ENABLED
 
 ; Check that the internalization pass runs
 ; CHECK: Running pass: InternalizePass

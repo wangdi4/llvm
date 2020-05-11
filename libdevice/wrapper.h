@@ -21,8 +21,16 @@ DEVICE_EXTERNAL size_t __spirv_LocalInvocationId_x();
 DEVICE_EXTERNAL size_t __spirv_LocalInvocationId_y();
 DEVICE_EXTERNAL size_t __spirv_LocalInvocationId_z();
 
+#if INTEL_COLLAB
+// TODO: upstream this to intel/llvm.
+//       This declaration is not needed, since it is a builtin.
+//       We compile it as 'static' for the host. It does not fail for
+//       SYCL build, because of -fsycl-device-only.
+//       We do not have such a mode for OpenMP SPIR offload.
+#else  // INTEL_COLLAB
 DEVICE_EXTERNAL int
 __spirv_ocl_printf(const __attribute__((opencl_constant)) char *fmt, ...);
+#endif  // INTEL_COLLAB
 
 DEVICE_EXTERN_C
 void __devicelib_assert_fail(const char *expr, const char *file, int32_t line,

@@ -533,13 +533,11 @@ bool DTransTypeManager::isSimpleType(llvm::Type *Ty) const {
     return true;
   }
 
-  if (auto *VTy = dyn_cast<VectorType>(Ty)) {
+  if (isa<ScalableVectorType>(Ty))
     // TODO: We don't support scalable vector types in our model. If needed in
     // the future, changes will need to be made to DTransVectorType to support
     // it.
-    if (VTy->isScalable())
-      return false;
-  }
+    return false;
 
   return !hasPointerType(Ty);
 }
@@ -573,11 +571,11 @@ DTransType *DTransTypeManager::getOrCreateSimpleType(llvm::Type *Ty) {
     return LastTy;
   }
 
-  if (auto *VecTy = dyn_cast<VectorType>(Ty)) {
+  if (isa<ScalableVectorType>(Ty))
     // TODO: Scalable vector types not currently modeled.
-    if (VecTy->isScalable())
-      return nullptr;
+    return nullptr;
 
+  if (auto *VecTy = dyn_cast<VectorType>(Ty)) {
     llvm::Type *ElemType = VecTy->getElementType();
     if (ElemType->isPointerTy())
       return nullptr;

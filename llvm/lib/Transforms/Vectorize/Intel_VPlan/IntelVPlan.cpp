@@ -19,6 +19,7 @@
 #if INTEL_CUSTOMIZATION
 #include "IntelVPlan.h"
 #include "IntelVPOCodeGen.h"
+#include "IntelVPSOAAnalysis.h"
 #include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanVLSAnalysis.h"
 #include "VPlanHIR/IntelVPOCodeGenHIR.h"
@@ -57,8 +58,13 @@ static cl::opt<bool>
                 cl::desc("Print VP Operands using VPValue's Name member."));
 
 static cl::opt<bool> DumpExternalDefsHIR("vplan-dump-external-defs-hir",
-                                         cl::init(false), cl::Hidden,
+                                         cl::init(true), cl::Hidden,
                                          cl::desc("Print HIR VPExternalDefs."));
+
+static cl::opt<bool>
+    VPlanDumpDetails("vplan-dump-details", cl::init(false), cl::Hidden,
+                     cl::desc("Print VPlan instructions' details like "
+                              "underlying attributes/metadata."));
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 raw_ostream &llvm::vpo::operator<<(raw_ostream &OS, const VPValue &V) {
@@ -92,6 +98,7 @@ void ilist_traits<VPBasicBlock>::deleteNode(VPBasicBlock *VPBB) {}
 void VPInstruction::generateInstruction(VPTransformState &State,
                                         unsigned Part) {
 #if INTEL_CUSTOMIZATION
+  State.ILV->setBuilderDebugLoc(this->getDebugLocation());
   State.ILV->vectorizeInstruction(this);
   return;
 #endif
@@ -341,6 +348,14 @@ void VPInstruction::dump(raw_ostream &O,
                          const VPlanDivergenceAnalysis *DA) const {
   print(O, DA);
   O << "\n";
+  if (VPlanDumpDetails) {
+    // TODO: How to get Indent here?
+    O << "    DbgLoc: ";
+    getDebugLocation().print(O);
+    O << "\n";
+    // Print other attributes here when imported.
+    O << "\n";
+  }
 }
 #endif /* INTEL_CUSTOMIZATION */
 
@@ -503,21 +518,14 @@ void VPlan::execute(VPTransformState *State) {
   BasicBlock *VectorPreHeaderBB = State->CFG.PrevBB;
   BasicBlock *VectorHeaderBB = VectorPreHeaderBB->getSingleSuccessor();
   assert(VectorHeaderBB && "Loop preheader does not have a single successor.");
-  BasicBlock *VectorLatchBB = VectorHeaderBB;
+  // TODO: Represent all new BBs explicitly in the VPlan to remove any hidden
+  // dependencies/assumptions between BBs handling in VPCodeGen.cpp and this
+  // file.
   auto *HTerm = VectorHeaderBB->getTerminator();
-  assert(HTerm->getNumSuccessors() == 2 &&
-         "Unexpected vector loop header successors");
-  unsigned MidBlockSuccNum = HTerm->getSuccessor(0) == VectorHeaderBB ? 1 : 0;
-  BasicBlock *MiddleBlock = HTerm->getSuccessor(MidBlockSuccNum);
+  BasicBlock *MiddleBlock = HTerm->getSuccessor(0);
+
   auto CurrIP = State->Builder.saveIP();
 
-  // 1. Make room to generate basic blocks inside loop body if needed.
-  VectorLatchBB = VectorHeaderBB->splitBasicBlock(
-      VectorHeaderBB->getFirstInsertionPt(), "vector.body.latch");
-  Loop *L = State->LI->getLoopFor(VectorHeaderBB);
-  assert(L && "Unexpected null loop for Vector Header");
-  L->addBasicBlockToLoop(VectorLatchBB, *State->LI);
-  // Remove the edge between Header and Latch to allow other connections.
   // Temporarily terminate with unreachable until CFG is rewired.
   // Note: this asserts xform code's assumption that getFirstInsertionPt()
   // can be dereferenced into an Instruction.
@@ -527,10 +535,10 @@ void VPlan::execute(VPTransformState *State) {
   // Set insertion point to vector loop PH
   State->Builder.SetInsertPoint(VectorPreHeaderBB->getTerminator());
 
-  // 2. Generate code in loop body of vectorized version.
+  // Generate code in loop body of vectorized version.
   State->CFG.PrevVPBB = nullptr;
   State->CFG.PrevBB = VectorPreHeaderBB;
-  State->CFG.InsertBefore = VectorLatchBB;
+  State->CFG.InsertBefore = MiddleBlock;
 
   ReversePostOrderTraversal<VPBasicBlock *> RPOT(getEntryBlock());
   for (VPBasicBlock *BB : RPOT) {
@@ -538,7 +546,7 @@ void VPlan::execute(VPTransformState *State) {
     BB->execute(State);
   }
 
-  // 3. Fix the edges for blocks in VPBBsToFix list.
+  // Fix the edges for blocks in VPBBsToFix list.
   for (auto VPBB : State->CFG.VPBBsToFix) {
     BasicBlock *BB = State->CFG.VPBB2IRBB[VPBB];
     assert(BB && "Unexpected null basic block for VPBB");
@@ -552,32 +560,18 @@ void VPlan::execute(VPTransformState *State) {
     }
   }
 
-  // 4. Merge the temporary latch created with the last basic block filled.
+  // Create an unconditional branch from the Plan's exit block to the middle
+  // block that contains top-test for entering remainder.
   BasicBlock *LastBB = State->CFG.PrevBB;
   assert(isa<UnreachableInst>(LastBB->getTerminator()) &&
          "Expected VPlan CFG to terminate with unreachable");
 
-  // LastBB will be the outermost loop exit block. Get the latch BB.
-  BasicBlock *LatchBB = LastBB->getSinglePredecessor();
-  assert(LatchBB && "Unexpected null latch BB");
-
-  // Merge LatchBB with Latch.
-  LatchBB->getTerminator()->eraseFromParent();
-  BranchInst::Create(VectorLatchBB, LatchBB);
-
-  bool merged = MergeBlockIntoPredecessor(VectorLatchBB, nullptr, State->LI);
-  assert(merged && "Could not merge last basic block with latch.");
-  (void)merged;
-  VectorLatchBB = LatchBB;
-
-  // Insert LastBB between LatchBB and MiddleBlock. TODO - currently we
-  // assume MiddleBlock and LastBB do not have any PHIs. This will need
-  // to be addressed if this changes.
+  // TODO - currently we assume MiddleBlock and LastBB do not have any PHIs.
+  // This will need to be addressed if this changes.
   assert(!isa<PHINode>(MiddleBlock->begin()) &&
          "Middle block starts with a PHI");
   assert(!isa<PHINode>(LastBB->begin()) && "LastBB starts with a PHI");
 
-  LatchBB->getTerminator()->setSuccessor(MidBlockSuccNum, LastBB);
   LastBB->getTerminator()->eraseFromParent();
   BranchInst::Create(MiddleBlock, LastBB);
 
@@ -753,10 +747,10 @@ void VPlan::dump(raw_ostream &OS, bool DumpDA) const {
   formatted_raw_ostream FOS(OS);
   if (!getName().empty())
     FOS << "VPlan IR for: " << getName() << "\n";
-  if (DumpExternalDefsHIR) {
+  if (DumpExternalDefsHIR && VPExternalDefsHIR.size() > 0) {
     FOS << "External Defs Start:\n";
     for (auto &Def : VPExternalDefsHIR)
-      Def.printDetail(OS);
+      Def.printDetail(FOS);
     FOS << "External Defs End:\n";
   }
 

@@ -59,12 +59,8 @@ void MCObjectStreamer::addPendingLabel(MCSymbol* S) {
     CurSection->addPendingLabel(S, CurSubsectionIdx);
 
     // Add this Section to the list of PendingLabelSections.
-    auto SecIt = std::find(PendingLabelSections.begin(),
-                           PendingLabelSections.end(), CurSection);
-    if (SecIt == PendingLabelSections.end())
-      PendingLabelSections.push_back(CurSection);
-  }
-  else
+    PendingLabelSections.insert(CurSection);
+  } else
     // There is no Section / Subsection for this label yet.
     PendingLabels.push_back(S);
 }
@@ -171,7 +167,7 @@ void MCObjectStreamer::reset() {
   MCStreamer::reset();
 }
 
-void MCObjectStreamer::EmitFrames(MCAsmBackend *MAB) {
+void MCObjectStreamer::emitFrames(MCAsmBackend *MAB) {
   if (!getNumFrameInfos())
     return;
 
@@ -197,7 +193,7 @@ static bool CanReuseDataFragment(const MCDataFragment &F,
   if (!F.hasInstructions())
     return true;
   // When bundling is enabled, we don't want to add data to a fragment that
-  // already has instructions (see MCELFStreamer::EmitInstToData for details)
+  // already has instructions (see MCELFStreamer::emitInstToData for details)
   if (Assembler.isBundlingEnabled())
     return Assembler.getRelaxAll();
 
@@ -333,7 +329,7 @@ void MCObjectStreamer::emitWeakReference(MCSymbol *Alias,
   report_fatal_error("This file format doesn't support weak aliases.");
 }
 
-void MCObjectStreamer::ChangeSection(MCSection *Section,
+void MCObjectStreamer::changeSection(MCSection *Section,
                                      const MCExpr *Subsection) {
   changeSectionImpl(Section, Subsection);
 }
@@ -368,6 +364,13 @@ bool MCObjectStreamer::mayHaveInstructions(MCSection &Sec) const {
 
 void MCObjectStreamer::emitInstruction(const MCInst &Inst,
                                        const MCSubtargetInfo &STI) {
+  const MCSection &Sec = *getCurrentSectionOnly();
+  if (Sec.isVirtualSection()) {
+    getContext().reportError(Inst.getLoc(), Twine(Sec.getVirtualSectionKind()) +
+                                                " section '" + Sec.getName() +
+                                                "' cannot have instructions");
+    return;
+  }
   getAssembler().getBackend().emitInstructionBegin(*this, Inst);
   emitInstructionImpl(Inst, STI);
   getAssembler().getBackend().emitInstructionEnd(*this, Inst);
@@ -387,13 +390,11 @@ void MCObjectStreamer::emitInstructionImpl(const MCInst &Inst,
   // If this instruction doesn't need relaxation, just emit it as data.
   MCAssembler &Assembler = getAssembler();
   MCAsmBackend &Backend = Assembler.getBackend();
-#if INTEL_CUSTOMIZATION
   if (!(Backend.mayNeedRelaxation(Inst, STI) ||
         Backend.allowEnhancedRelaxation())) {
-    EmitInstToData(Inst, STI);
+    emitInstToData(Inst, STI);
     return;
   }
-#endif // INTEL_CUSTOMIZATION
 
   // Otherwise, relax and emit it as data if either:
   // - The RelaxAll flag was passed
@@ -402,20 +403,18 @@ void MCObjectStreamer::emitInstructionImpl(const MCInst &Inst,
   //   fragment.
   if (Assembler.getRelaxAll() ||
       (Assembler.isBundlingEnabled() && Sec->isBundleLocked())) {
-#if INTEL_CUSTOMIZATION
     MCInst Relaxed = Inst;
-#endif // INTEL_CUSTOMIZATION
     while (getAssembler().getBackend().mayNeedRelaxation(Relaxed, STI))
-      getAssembler().getBackend().relaxInstruction(Relaxed, STI, Relaxed);
-    EmitInstToData(Relaxed, STI);
+      getAssembler().getBackend().relaxInstruction(Relaxed, STI);
+    emitInstToData(Relaxed, STI);
     return;
   }
 
   // Otherwise emit to a separate fragment.
-  EmitInstToFragment(Inst, STI);
+  emitInstToFragment(Inst, STI);
 }
 
-void MCObjectStreamer::EmitInstToFragment(const MCInst &Inst,
+void MCObjectStreamer::emitInstToFragment(const MCInst &Inst,
                                           const MCSubtargetInfo &STI) {
   if (getAssembler().getRelaxAll() && getAssembler().isBundlingEnabled())
     llvm_unreachable("All instructions should have already been relaxed");
@@ -517,7 +516,7 @@ void MCObjectStreamer::emitDwarfAdvanceFrameAddr(const MCSymbol *LastLabel,
   insert(new MCDwarfCallFrameFragment(*AddrDelta));
 }
 
-void MCObjectStreamer::EmitCVLocDirective(unsigned FunctionId, unsigned FileNo,
+void MCObjectStreamer::emitCVLocDirective(unsigned FunctionId, unsigned FileNo,
                                           unsigned Line, unsigned Column,
                                           bool PrologueEnd, bool IsStmt,
                                           StringRef FileName, SMLoc Loc) {
@@ -533,25 +532,25 @@ void MCObjectStreamer::EmitCVLocDirective(unsigned FunctionId, unsigned FileNo,
                                           IsStmt);
 }
 
-void MCObjectStreamer::EmitCVLinetableDirective(unsigned FunctionId,
+void MCObjectStreamer::emitCVLinetableDirective(unsigned FunctionId,
                                                 const MCSymbol *Begin,
                                                 const MCSymbol *End) {
   getContext().getCVContext().emitLineTableForFunction(*this, FunctionId, Begin,
                                                        End);
-  this->MCStreamer::EmitCVLinetableDirective(FunctionId, Begin, End);
+  this->MCStreamer::emitCVLinetableDirective(FunctionId, Begin, End);
 }
 
-void MCObjectStreamer::EmitCVInlineLinetableDirective(
+void MCObjectStreamer::emitCVInlineLinetableDirective(
     unsigned PrimaryFunctionId, unsigned SourceFileId, unsigned SourceLineNum,
     const MCSymbol *FnStartSym, const MCSymbol *FnEndSym) {
   getContext().getCVContext().emitInlineLineTableForFunction(
       *this, PrimaryFunctionId, SourceFileId, SourceLineNum, FnStartSym,
       FnEndSym);
-  this->MCStreamer::EmitCVInlineLinetableDirective(
+  this->MCStreamer::emitCVInlineLinetableDirective(
       PrimaryFunctionId, SourceFileId, SourceLineNum, FnStartSym, FnEndSym);
 }
 
-void MCObjectStreamer::EmitCVDefRangeDirective(
+void MCObjectStreamer::emitCVDefRangeDirective(
     ArrayRef<std::pair<const MCSymbol *, const MCSymbol *>> Ranges,
     StringRef FixedSizePortion) {
   MCFragment *Frag =
@@ -559,17 +558,17 @@ void MCObjectStreamer::EmitCVDefRangeDirective(
   // Attach labels that were pending before we created the defrange fragment to
   // the beginning of the new fragment.
   flushPendingLabels(Frag, 0);
-  this->MCStreamer::EmitCVDefRangeDirective(Ranges, FixedSizePortion);
+  this->MCStreamer::emitCVDefRangeDirective(Ranges, FixedSizePortion);
 }
 
-void MCObjectStreamer::EmitCVStringTableDirective() {
+void MCObjectStreamer::emitCVStringTableDirective() {
   getContext().getCVContext().emitStringTable(*this);
 }
-void MCObjectStreamer::EmitCVFileChecksumsDirective() {
+void MCObjectStreamer::emitCVFileChecksumsDirective() {
   getContext().getCVContext().emitFileChecksums(*this);
 }
 
-void MCObjectStreamer::EmitCVFileChecksumOffsetDirective(unsigned FileNo) {
+void MCObjectStreamer::emitCVFileChecksumOffsetDirective(unsigned FileNo) {
   getContext().getCVContext().emitFileChecksumOffset(*this, FileNo);
 }
 
@@ -757,7 +756,7 @@ void MCObjectStreamer::emitAddrsigSym(const MCSymbol *Sym) {
   getAssembler().getWriter().addAddrsigSymbol(Sym);
 }
 
-void MCObjectStreamer::FinishImpl() {
+void MCObjectStreamer::finishImpl() {
   getContext().RemapDebugPaths();
 
   // If we are generating dwarf for assembly source files dump out the sections.

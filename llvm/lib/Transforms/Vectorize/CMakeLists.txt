@@ -20,6 +20,7 @@ add_llvm_component_library(LLVMVectorize
   Intel_VPlan/IntelVPLoopAnalysis.cpp
   Intel_VPlan/IntelVPOCodeGen.cpp
   Intel_VPlan/IntelVPlan.cpp
+  Intel_VPlan/IntelVPlanAlignmentAnalysis.cpp
   Intel_VPlan/IntelVPlanCFGBuilder.cpp
   Intel_VPlan/IntelVPlanClone.cpp
   Intel_VPlan/IntelVPlanCostModel.cpp
@@ -34,12 +35,15 @@ add_llvm_component_library(LLVMVectorize
   Intel_VPlan/IntelVPlanLoopInfo.cpp
   Intel_VPlan/IntelVPlanLoopUnroller.cpp
   Intel_VPlan/IntelVPlanPredicator.cpp
+  Intel_VPlan/IntelVPlanScalarEvolution.cpp
   Intel_VPlan/IntelVPlanSSADeconstruction.cpp
   Intel_VPlan/IntelVPlanSyncDependenceAnalysis.cpp
+  Intel_VPlan/IntelVPlanValueTracking.cpp
   Intel_VPlan/IntelVPlanVLSAnalysis.cpp
   Intel_VPlan/IntelVPlanVLSClient.cpp
   Intel_VPlan/IntelVPlanVectorShape.cpp
   Intel_VPlan/IntelVPlanVerifier.cpp
+  Intel_VPlan/IntelVPSOAAnalysis.cpp
   Intel_VPlan/VPlanHIR/IntelLoopVectorizationPlannerHIR.cpp
   Intel_VPlan/VPlanHIR/IntelVPOCodeGenHIR.cpp
   Intel_VPlan/VPlanHIR/IntelVPlanDecomposerHIR.cpp
@@ -50,6 +54,7 @@ add_llvm_component_library(LLVMVectorize
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms
+  ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms/Vectorize
 
   DEPENDS
   intrinsics_gen

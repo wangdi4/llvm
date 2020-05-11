@@ -15,8 +15,8 @@
 ; corresponding to [n1 * n2] and [n1 + n2] are added to the IV appropriately
 ; during decomposition when generating the accesses to farr/farr2.
 ;
-; The auto generated checks for external defs are replaced with CHECK-DAG
-; as the order of printing of external defs in non-deterministic. Auto
+; The auto generated checks for external defs are done using CHECK-DAG
+; as the order of printing of external defs is non-deterministic. Auto
 ; generated checks that were unnecessary were also removed.
 @arr = common dso_local local_unnamed_addr global [100 x [100 x i64]] zeroinitializer, align 16
 @farr2 = common dso_local local_unnamed_addr global [100 x float] zeroinitializer, align 16
@@ -26,11 +26,11 @@ define dso_local void @foo(i64 %n1, i64 %n2) {
 ;
 ; CHECK-LABEL:  Print after buildPlainCFG
 ; CHECK-NEXT:  External Defs Start:
-; CHECK-DAG:   [[VP0:%.*]] = ([[N10:%.*]] * [[N20:%.*]])
-; CHECK-DAG:   [[VP1:%.*]] = [[N10]] + [[N20]]
-; CHECK-DAG:   [[VP2:%.*]] = @farr2
-; CHECK-DAG:   [[VP4:%.*]] = @farr
-; CHECK-DAG:   [[VP5:%.*]] = @arr
+; CHECK-DAG:   [[VP0:%.*]] = {(%n1 * %n2)}
+; CHECK-DAG:   [[VP1:%.*]] = {%n1 + %n2}
+; CHECK-DAG:   [[VP2:%.*]] = {@farr2}
+; CHECK-DAG:   [[VP4:%.*]] = {@farr}
+; CHECK-DAG:   [[VP5:%.*]] = {@arr}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK:          i64 [[VP8:%.*]] = phi  [ i64 0, {{.*}} ],  [ i64 [[VP9:%.*]], {{.*}} ]
 ; CHECK-NEXT:     i64* [[VP10:%.*]] = getelementptr inbounds [100 x [100 x i64]]* @arr i64 0 i64 [[VP0]] i64 [[VP8]]

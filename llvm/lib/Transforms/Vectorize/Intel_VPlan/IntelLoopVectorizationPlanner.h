@@ -58,13 +58,14 @@ class LoopVectorizationPlanner {
 public:
 #if INTEL_CUSTOMIZATION
   LoopVectorizationPlanner(WRNVecLoopNode *WRL, Loop *Lp, LoopInfo *LI,
-                           ScalarEvolution *SE, const TargetLibraryInfo *TLI,
+                           ScalarEvolution *SE, VPlanScalarEvolution *VPSE,
+                           const TargetLibraryInfo *TLI,
                            const TargetTransformInfo *TTI, const DataLayout *DL,
                            class DominatorTree *DT,
                            VPOVectorizationLegality *Legal,
                            VPlanVLSAnalysis *VLSA)
       : WRLp(WRL), TLI(TLI), TTI(TTI), DL(DL), Legal(Legal), TheLoop(Lp),
-        LI(LI), SE(SE), DT(DT), VLSA(VLSA) {
+        LI(LI), SE(SE), VPSE(VPSE), DT(DT), VLSA(VLSA) {
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -81,6 +82,9 @@ public:
   /// of other related instructions. The function applies these optimizations
   /// to all VPlans.
   // void optimizePredicatedInstructions();
+
+  /// Select the best peeling variant for every VPlan.
+  void selectBestPeelingVariants();
 
   /// Record CM's decision and dispose of all other VPlans.
   // void setBestPlan(unsigned VF, unsigned UF);
@@ -110,7 +114,7 @@ public:
          VPlanLoopUnroller::VPInstUnrollPartTy *VPInstUnrollPart = nullptr);
 
   template <typename CostModelTy = VPlanCostModel>
-  void printCostModelAnalysisIfRequested();
+  void printCostModelAnalysisIfRequested(const std::string &Header);
 
   /// Generate the IR code for the body of the vectorized loop according to the
   /// best selected VPlan.
@@ -192,6 +196,9 @@ private:
 
   /// Scalar Evolution analysis.
   ScalarEvolution *SE;
+
+  /// VPlan Scalar Evolution Analysis.
+  VPlanScalarEvolution *VPSE;
 
   /// The dominators tree.
   class DominatorTree *DT;

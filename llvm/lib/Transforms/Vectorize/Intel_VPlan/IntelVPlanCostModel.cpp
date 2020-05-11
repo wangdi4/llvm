@@ -62,10 +62,11 @@ uint64_t VPlanVLSCostModel::getInstructionCost(const OVLSInstruction *I) const {
         MaybeAlign(0) /* Alignment */, 0 /* AddressSpace */);
   }
   if (auto Shuffle = dyn_cast<OVLSShuffle>(I)) {
-    SmallVector<uint32_t, 16> Mask;
+    SmallVector<int, 16> Mask;
     Shuffle->getShuffleMask(Mask);
     VectorType *VecTy = VectorType::get(ElemType, Mask.size());
-    return getShuffleCost(Mask, VecTy);
+    SmallVector<uint32_t, 16> UMask(Mask.begin(), Mask.end());
+    return getShuffleCost(UMask, VecTy);
   }
   llvm_unreachable("Unexpected OVLSInstruction.");
 }
@@ -439,9 +440,8 @@ void VPlanCostModel::printForVPBasicBlock(raw_ostream &OS,
   }
 }
 
-void VPlanCostModel::print(raw_ostream &OS) const {
-  OS << "Cost Model for VPlan " << Plan->getName() << " with VF = " << VF
-     << ":\n";
+void VPlanCostModel::print(raw_ostream &OS, const std::string &Header) const {
+  OS << "Cost Model for VPlan " << Header << " with VF = " << VF << ":\n";
   OS << "Total Cost: " << getCost() << '\n';
   LLVM_DEBUG(dbgs() << *Plan;);
 

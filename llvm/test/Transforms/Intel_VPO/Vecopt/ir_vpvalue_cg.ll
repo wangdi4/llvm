@@ -11,8 +11,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 define i32 @foo() local_unnamed_addr {
 ; CHECK-LABEL: @foo(
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP22:%.*]], [[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP23:%.*]], [[VECTOR_BODY:%.*]] ]
 ; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP21:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <16 x i64> [ <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7, i64 8, i64 9, i64 10, i64 11, i64 12, i64 13, i64 14, i64 15>, [[VECTOR_PH]] ], [ [[TMP20:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds [1024 x i32], [1024 x i32]* @a, i64 0, i64 [[UNI_PHI1]]
@@ -43,11 +42,9 @@ define i32 @foo() local_unnamed_addr {
 ; CHECK-NEXT:    store <16 x i32> [[TMP18]], <16 x i32>* [[TMP19]], align 4
 ; CHECK-NEXT:    [[TMP20]] = add nuw nsw <16 x i64> [[VEC_PHI]], <i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16, i64 16>
 ; CHECK-NEXT:    [[TMP21]] = add nuw nsw i64 [[UNI_PHI1]], 16
-; CHECK-NEXT:    [[TMP22]] = add i64 [[UNI_PHI]], 16
-; CHECK-NEXT:    [[TMP23:%.*]] = icmp ne i64 [[TMP22]], [[N_VEC:%.*]]
-; CHECK-NEXT:    [[INDEX_NEXT]] = add i64 [[INDEX]], 16
-; CHECK-NEXT:    [[TMP24:%.*]] = icmp eq i64 [[INDEX_NEXT]], [[N_VEC]]
-; CHECK-NEXT:    br i1 [[TMP24]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]]
+; CHECK-NEXT:    [[TMP23]] = add i64 [[UNI_PHI]], 16
+; CHECK-NEXT:    [[TMP24:%.*]] = icmp ne i64 [[TMP23]], [[N_VEC:%.*]]
+; CHECK-NEXT:    br i1 [[TMP24]], label [[VECTOR_BODY]], label [[VPLANNEDBB:%.*]]
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]

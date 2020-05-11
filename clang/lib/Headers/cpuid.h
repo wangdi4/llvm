@@ -24,6 +24,10 @@
 #define signature_CYRIX_ebx 0x69727943
 #define signature_CYRIX_edx 0x736e4978
 #define signature_CYRIX_ecx 0x64616574
+/* HYGON:   "HygonGenuine" */
+#define signature_HYGON_ebx 0x6f677948
+#define signature_HYGON_edx 0x6e65476e
+#define signature_HYGON_ecx 0x656e6975
 /* INTEL:   "GenuineIntel" */
 #define signature_INTEL_ebx 0x756e6547
 #define signature_INTEL_edx 0x49656e69
@@ -186,11 +190,9 @@
 /* INTEL_FEATURE_ISA_ULI */
 #define bit_ULI           0x00000020
 /* end INTEL_FEATURE_ISA_ULI */
-/* INTEL_FEATURE_ISA_TSXLDTRK */
-#define bit_TSXLDTRK      0x00010000
-/* end INTEL_FEATURE_ISA_TSXLDTRK */
 /* end INTEL_CUSTOMIZATION */
 #define bit_SERIALIZE     0x00004000
+#define bit_TSXLDTRK      0x00010000
 #define bit_PCONFIG       0x00040000
 #define bit_IBT           0x00100000
 /* INTEL_CUSTOMIZATION */

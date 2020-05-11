@@ -19,6 +19,22 @@ entry:
   ret <32 x i32> %res
 }
 
+; CMPLRLLVM-19311: Avoid to split instructions chain if it contains supported vector value.
+define <16 x i1> @overSplitTest(<16 x i32>* %x0_ptr, <16 x i32>* %y0_ptr, <16 x i64>* %x1_ptr, <16 x i64>* %y1_ptr) {
+; CHECK-LABEL: overSplitTest
+; CHECK:       %cmp0 = icmp sgt <16 x i32>
+; CHECK-NEXT:  %cmp1 = icmp sgt <16 x i64>
+entry:
+  %x0 = load <16 x i32>, <16 x i32>* %x0_ptr
+  %y0 = load <16 x i32>, <16 x i32>* %y0_ptr
+  %x1 = load <16 x i64>, <16 x i64>* %x1_ptr
+  %y1 = load <16 x i64>, <16 x i64>* %y1_ptr
+  %cmp0 = icmp sgt <16 x i32> %x0, %y0
+  %cmp1 = icmp sgt <16 x i64> %x1, %y1
+  %res = and <16 x i1> %cmp0, %cmp1
+  ret <16 x i1> %res
+}
+
 ; CMPLRLLVM-18547: Test for ConstantExpr split fail bug.
 @array0 = global [64 x i32] zeroinitializer
 @array1 = global [64 x i32] zeroinitializer
@@ -35,6 +51,92 @@ entry:
   %cond = and <16 x i1> %cmp0, %cmp1
   %res = select <16 x i1> %cond, <16 x i32*> %arrayIdx, <16 x i32*> getelementptr ([64 x i32], <16 x [64 x i32]*> <[64 x i32]* @array1, [64 x i32]* @array1, [64 x i32]* @array1, [64 x i32]* @array1, [64 x i32]* @array1, [64 x i32]* @array1, [64 x i32]* @array1, [64 x i32]* @array1, [64 x i32]* @array1, [64 x i32]* @array1, [64 x i32]* @array1, [64 x i32]* @array1, [64 x i32]* @array1, [64 x i32]* @array1, [64 x i32]* @array1, [64 x i32]* @array1>, <16 x i64> zeroinitializer, <16 x i64> <i64 0, i64 1, i64 2, i64 3, i64 4, i64 5, i64 6, i64 7, i64 8, i64 9, i64 10, i64 11, i64 12, i64 13, i64 14, i64 15>)
   ret <16 x i32*> %res
+}
+
+; CMPLRLLVM-19344: Test for split SelectInst when condition type is i1.
+define <32 x i1> @selectSplitTest(<32 x i32>* %x0_ptr, <32 x i32>* %y0_ptr, <32 x i32>* %z0_ptr, i1 %cond) {
+; CHECK-LABEL: selectSplitTest
+; CHECK:       %sel.l = select i1 %cond, <16 x i32> %x0.l, <16 x i32> %y0.l
+; CHECK-NEXT:  %sel.h = select i1 %cond, <16 x i32> %x0.h, <16 x i32> %y0.h
+entry:
+  %x0 = load <32 x i32>, <32 x i32>* %x0_ptr
+  %y0 = load <32 x i32>, <32 x i32>* %y0_ptr
+  %z0 = load <32 x i32>, <32 x i32>* %z0_ptr
+  %sel = select i1 %cond, <32 x i32> %x0, <32 x i32> %y0
+  %cmp0 = icmp sgt <32 x i32> %sel, %z0
+  %cmp1 = icmp sgt <32 x i32> %x0, %y0
+  %res = and <32 x i1> %cmp0, %cmp1
+  ret <32 x i1> %res
+}
+
+; CMPLRLLVM-18912: The splitting of %x1.tr generates two shufflevector instructions and InstMap
+; contains an element map %x1.tr to those shufflevector instructions. Then when updateInstChain
+; method try to "update" %x1 to trunc instruction, a shufflvector instruction should be generated
+; to "fuse" split instructions of %x1. This requires updateInstChain method should check if the
+; instruction being updated is supported before checking InstMap. Otherwise "fuse" instruction
+; won't be generated and this causes assertion fail in eraseInstSet method.
+define <32 x i1> @unsupportedInstSplitTest(<32 x i64>* %x0_ptr) {
+; CHECK-LABEL: unsupportedInstSplitTest
+; CHECK:       %fused{{.*}} = shufflevector <16 x i64> %x1.l, <16 x i64> %x1.h, <32 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15, i32 16, i32 17, i32 18, i32 19, i32 20, i32 21, i32 22, i32 23, i32 24, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30, i32 31>
+; CHECK-NEXT:  %x1.tr = trunc <32 x i64> %fused to <32 x i32>
+; CHECK-NEXT:  %x1.tr.l = shufflevector <32 x i32> %x1.tr, <32 x i32> undef, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
+; CHECK-NEXT:  %x1.tr.h = shufflevector <32 x i32> %x1.tr, <32 x i32> undef, <16 x i32> <i32 16, i32 17, i32 18, i32 19, i32 20, i32 21, i32 22, i32 23, i32 24, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30, i32 31>
+entry:
+  %x0 = load <32 x i64>, <32 x i64>* %x0_ptr
+  %x1 = add <32 x i64> %x0, <i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1, i64 1>
+  %x1.tr = trunc <32 x i64> %x1 to <32 x i32>
+  %cmp0 = icmp sgt <32 x i32> %x1.tr, <i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0>
+  %tmp0 = and <32 x i1> %cmp0, <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>
+  %cmp1 = icmp sgt <32 x i64> %x1, <i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0>
+  %tmp1 = and <32 x i1> %cmp1, <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>
+  %res = add <32 x i1> %tmp0, %cmp1
+  ret <32 x i1> %res
+}
+
+; CMPLRLLVM-19385: Test if shufflevector to split value can be reused.
+; %cmp0 %cmp4 %cmp5 can be split successfully. %cmp1 %cmp2 %cmp3 can't be split because %w0 is function parameter.
+; The splitting of %cmp0 generate shufflevector instructions to split %x0 and %y0.
+; It is expected those shufflevector instructions can be reused while split %cmp4 and %cmp5.
+define i32 @CSETest(<32 x i32>* %x0_ptr, <32 x i32>* %y0_ptr, <32 x i32>* %z0_ptr, <32 x i32> %w0) {
+; CHECK-LABEL: CSETest
+; CHECK:       %x0 = load <32 x i32>, <32 x i32>* %x0_ptr
+; CHECK-NEXT:  %x0.l = shufflevector <32 x i32> %x0, <32 x i32> undef, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
+; CHECK-NEXT:  %x0.h = shufflevector <32 x i32> %x0, <32 x i32> undef, <16 x i32> <i32 16, i32 17, i32 18, i32 19, i32 20, i32 21, i32 22, i32 23, i32 24, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30, i32 31>
+; CHECK-NEXT:  %y0 = load <32 x i32>, <32 x i32>* %y0_ptr
+; CHECK-NEXT:  %y0.l = shufflevector <32 x i32> %y0, <32 x i32> undef, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
+; CHECK-NEXT:  %y0.h = shufflevector <32 x i32> %y0, <32 x i32> undef, <16 x i32> <i32 16, i32 17, i32 18, i32 19, i32 20, i32 21, i32 22, i32 23, i32 24, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30, i32 31>
+; CHECK-NEXT:  %z0 = load <32 x i32>, <32 x i32>* %z0_ptr
+; CHECK-NEXT:  %z0.l = shufflevector <32 x i32> %z0, <32 x i32> undef, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7, i32 8, i32 9, i32 10, i32 11, i32 12, i32 13, i32 14, i32 15>
+; CHECK-NEXT:  %z0.h = shufflevector <32 x i32> %z0, <32 x i32> undef, <16 x i32> <i32 16, i32 17, i32 18, i32 19, i32 20, i32 21, i32 22, i32 23, i32 24, i32 25, i32 26, i32 27, i32 28, i32 29, i32 30, i32 31>
+; CHECK-NEXT:  %cmp0.l = icmp sgt <16 x i32> %x0.l, %y0.l
+entry:
+  %x0 = load <32 x i32>, <32 x i32>* %x0_ptr
+  %y0 = load <32 x i32>, <32 x i32>* %y0_ptr
+  %z0 = load <32 x i32>, <32 x i32>* %z0_ptr
+  %cmp0 = icmp sgt <32 x i32> %x0, %y0
+  %cmp1 = icmp sgt <32 x i32> %x0, %w0
+  %cmp2 = icmp sgt <32 x i32> %y0, %w0
+  %cmp3 = icmp sgt <32 x i32> %z0, %w0
+  %cmp4 = icmp sgt <32 x i32> %x0, %y0
+  %cmp5 = icmp sgt <32 x i32> %x0, %z0
+  %tmp0 = and <32 x i1> %cmp0, <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>
+  %tmp1 = and <32 x i1> %cmp1, <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>
+  %tmp2 = and <32 x i1> %cmp2, <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>
+  %tmp3 = and <32 x i1> %cmp3, <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>
+  %tmp4 = and <32 x i1> %cmp4, <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>
+  %tmp5 = and <32 x i1> %cmp5, <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>
+  %tmp0.bc = bitcast <32 x i1> %tmp0 to i32
+  %tmp1.bc = bitcast <32 x i1> %tmp1 to i32
+  %tmp2.bc = bitcast <32 x i1> %tmp2 to i32
+  %tmp3.bc = bitcast <32 x i1> %tmp3 to i32
+  %tmp4.bc = bitcast <32 x i1> %tmp4 to i32
+  %tmp5.bc = bitcast <32 x i1> %tmp5 to i32
+  %sum0 = add i32 %tmp0.bc, %tmp1.bc
+  %sum1 = add i32 %sum0, %tmp2.bc
+  %sum2 = add i32 %sum1, %tmp3.bc
+  %sum3 = add i32 %sum2, %tmp4.bc
+  %sum4 = add i32 %sum3, %tmp5.bc
+  ret i32 %sum4
 }
 
 define <32 x i1> @insertelementSplitTest(<32 x i32>* %data_ptr, i32 %val1, i32 %val2) {

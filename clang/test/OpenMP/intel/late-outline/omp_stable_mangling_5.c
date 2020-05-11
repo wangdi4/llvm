@@ -3,7 +3,7 @@
 // RUN: %clang_cc1 -main-file-name %s -fintel-compatibility -fopenmp -fopenmp-targets=spir64 -fopenmp-is-device -fopenmp-host-ir-file-path %t.bc -O0 -fintel-openmp-region -fopenmp-threadprivate-legacy -emit-llvm-bc -x c %s -emit-llvm -o - | FileCheck %s
 // expected-no-diagnostics
 
-// CHECK: [[VAR_I:@i_[0-9a-f]+]] = external {{.*}}global i32,
+// CHECK: [[VAR_I:@i]] = external {{.*}}global i32,
 static int i;
 
 void bar() {
@@ -21,4 +21,6 @@ void foo() {
 #pragma omp target map(tofrom:i)
   i = 3;
 }
+
+// CHECK-NOT: !{{[0-9]+}} = !{i32 {{[0-9]}}, !"{{[a-zA-Z_0-9]+}}i_{{[a-f0-9]+}}"{{.*}}, i32* @i}
 // end INTEL_COLLAB

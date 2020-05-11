@@ -184,6 +184,16 @@ static const char *(Andersens_Alloc_Intrinsics[]) = {
    nullptr 
 };
 
+// Fortran runtime routines for allocation.
+static const char *(Andersens_Allocatable_Intrinsics[]) = {
+  "for_alloc_allocatable", "for_allocate", nullptr
+};
+
+// Fortran runtime routines for deallocation.
+static const char *(Andersens_Dealloc_Intrinsics[]) = {
+  "for_dealloc_allocatable", "for_deallocate", nullptr
+};
+
 // Not handled lib calls yet: signal, atexit, strerror, strerror_r, localeconv,
 // fopen, fdopen, freopen 
 
@@ -535,11 +545,9 @@ bool AndersensAAResult::isSimilarType(Type *FPType, Type *TargetType,
   }
 
   // Array and vector types are Sequential types
-  if (SequentialType *FPSeqType = dyn_cast<SequentialType>(FPType)) {
-
+  if (isa<VectorType>(FPType) || isa<ArrayType>(FPType)) {
     // The target is also sequential type
-    if (SequentialType *TargetSeqType = dyn_cast<SequentialType>(TargetType)) {
-
+    if (isa<VectorType>(TargetType) || isa<ArrayType>(TargetType)) {
       // If the function pointer is array type, then the target must
       // be array type. Also, if the function pointer is vector type
       // then the target must be vector type.
@@ -552,17 +560,25 @@ bool AndersensAAResult::isSimilarType(Type *FPType, Type *TargetType,
         // We can use cast because we proved that the function pointer
         // and the target are vector types
         VectorType *TargetVector = cast<VectorType>(TargetType);
-        if (FPVector->getBitWidth() != TargetVector->getBitWidth())
+        if (FPVector->getPrimitiveSizeInBits() !=
+            TargetVector->getPrimitiveSizeInBits())
           return false;
+
+        // Check that the number of elements and their types match
+        if (FPVector->getNumElements() != TargetVector->getNumElements())
+          return false;
+        return isSimilarType(FPVector->getElementType(),
+                             TargetVector->getElementType(), TypesUsed);
       }
 
-     // Check that the number of elements match
-      if (FPSeqType->getNumElements() != TargetSeqType->getNumElements())
-        return false;
+      ArrayType *FPArray = cast<ArrayType>(FPType);
+      ArrayType *TargetArray = cast<ArrayType>(TargetType);
 
-      // Check that the type of the elements match
-      return isSimilarType(FPSeqType->getElementType(),
-                        TargetSeqType->getElementType(), TypesUsed);
+      // Check that the number of elements and their types match
+      if (FPArray->getNumElements() != TargetArray->getNumElements())
+        return false;
+      return isSimilarType(FPArray->getElementType(),
+                           TargetArray->getElementType(), TypesUsed);
     }
 
     // Sequential type mismatch
@@ -1471,15 +1487,14 @@ void AndersensAAResult::IdentifyObjects(Module &M) {
       // Treat malloc/calloc in InvokeInst also as memory object creators.
       if (isa<CallInst>(&*II) || isa<InvokeInst>(&*II)) {
         CallBase *CB = cast<CallBase>(&*II);
-        Value *Callee = CB->getCalledValue();
+        Value *Callee = CB->getCalledOperand();
         if (isa<InlineAsm>(Callee))
           ValueNodes[Callee] = NumObjects++;
 
-        if (const Function *F1 = CB->getCalledFunction()) {
-            if (findNameInTable(F1->getName(), Andersens_Alloc_Intrinsics)) {
-                  ObjectNodes[CB] = NumObjects++;
-           }
-        }
+        if (const Function *F1 = CB->getCalledFunction())
+          if (findNameInTable(F1->getName(), Andersens_Alloc_Intrinsics) ||
+              findNameInTable(F1->getName(), Andersens_Allocatable_Intrinsics))
+                ObjectNodes[CB] = NumObjects++;
       }
     }
   }
@@ -1743,6 +1758,27 @@ bool AndersensAAResult::AddConstraintsForExternalCall(CallBase *CB,
 
   // Skip it since there is no change in points-to info
   if (F->getName() == "llvm.va_end") {
+    return true;
+  }
+
+  // TODO: Restrict this code only to Fortran once "intel-lang=fortran"
+  // attribute is available for functions.
+  //
+  // No change in points-to info.
+  if (findNameInTable(F->getName(), Andersens_Dealloc_Intrinsics))
+    return true;
+
+  // Model these Fortran runtime lib calls like below:
+  //  *second_arg = dynamic_allocation;
+  //
+  if (findNameInTable(F->getName(), Andersens_Allocatable_Intrinsics)) {
+    unsigned SecondArg = getNode(CB->getArgOperand(1));
+    unsigned TempArg = GraphNodes.size();
+    GraphNodes.push_back(Node());
+    unsigned ObjectIndex = getObject(CB);
+    GraphNodes[ObjectIndex].setValue(CB);
+    CreateConstraint(Constraint::AddressOf, TempArg, ObjectIndex);
+    CreateConstraint(Constraint::Store, SecondArg, TempArg);
     return true;
   }
 
@@ -2401,9 +2437,9 @@ void AndersensAAResult::AddConstraintsForCall(CallBase *CB, Function *F) {
   // Callee can be found by parsing getCalledValue but it may not be 
   // useful due to mismatch of args and formals. Decided to go conservative. 
   //
-  if (F == nullptr && isa<ConstantExpr>(CB->getCalledValue())) {
+  if (F == nullptr && isa<ConstantExpr>(CB->getCalledOperand())) {
     AddConstraintsForInitActualsToUniversalSet(CB);
-    return; 
+    return;
   }
 
   if (F == nullptr) {
@@ -2429,23 +2465,22 @@ void AndersensAAResult::AddConstraintsForCall(CallBase *CB, Function *F) {
   AddConstraintsForDirectCall(CB, F);
 }
 
-void AndersensAAResult::checkCall(CallBase *CB) {
-  if (CB->getCalledFunction() &&
-      findNameInTable(CB->getCalledFunction()->getName(),
-                      Andersens_Alloc_Intrinsics)) {
-      unsigned ObjectIndex = getObject(CB);
-      GraphNodes[ObjectIndex].setValue(CB);
+void AndersensAAResult::checkCall(CallBase &CB) {
+  Function *F = CB.getCalledFunction();
+  if (F && findNameInTable(F->getName(), Andersens_Alloc_Intrinsics)) {
+      unsigned ObjectIndex = getObject(&CB);
+      GraphNodes[ObjectIndex].setValue(&CB);
       CreateConstraint(Constraint::AddressOf, 
-                       getNodeValue(*CB), ObjectIndex);
+                       getNodeValue(CB), ObjectIndex);
       return;
   }
-  if (isTrackableType(CB->getType()))
-    getNodeValue(*CB);
+  if (isTrackableType(CB.getType()))
+    getNodeValue(CB);
 
-  if (Function *F = CB->getCalledFunction()) {
-    AddConstraintsForCall(CB, F);
+  if (F) {
+    AddConstraintsForCall(&CB, F);
   } else {
-    AddConstraintsForCall(CB, nullptr);
+    AddConstraintsForCall(&CB, nullptr);
   }
 }
 
@@ -3572,7 +3607,7 @@ void AndersensAAResult::IndirectCallActualsToFormals(CallBase *CB, Function *F) 
 //
 void AndersensAAResult::ProcessIndirectCall(CallBase *CB) {
   SparseBitVector<> PointsToDiff;
-  Value* call_fptr = CB->getCalledValue();
+  Value *call_fptr = CB->getCalledOperand();
   assert(call_fptr && "Expecting function fptr");
   const Node *N = &GraphNodes[FindNode(getNode(call_fptr))];
 
@@ -4998,7 +5033,7 @@ IntelModRefImpl::isResolvable(Function *F) const {
   // Check if all call-sites can be resolved.
   for (auto &I : instructions(F))
     if (CallBase *Call = dyn_cast<CallBase>(&I)) {
-      const Value *V = Call->getCalledValue();
+      const Value *V = Call->getCalledOperand();
       if (isa<InlineAsm>(*V)) {
         DEBUG_WITH_TYPE("imr-collect",
                         dbgs() << F->getName() << ": has inline-asm\n");
@@ -5754,12 +5789,11 @@ ModRefInfo IntelModRefImpl::getModRefInfo(const CallBase *Call,
                                           AAQueryInfo &AAQI) {
   ModRefInfo Result = ModRefInfo::ModRef;
   const Value *Object = GetUnderlyingObject(Loc.Ptr, *DL);
+  const Function *F = Call->getCalledFunction();
 
   DEBUG_WITH_TYPE("imr-query",
                   dbgs() << "IntelModRefImpl::getModRefInfo("
-                         << (Call->getCalledFunction()
-                                 ? Call->getCalledFunction()->getName()
-                                 : "<indirect>")
+                         << (F ? F->getName() : "<indirect>")
                          << ", ");
 
   if (Object == nullptr) {
@@ -5773,7 +5807,6 @@ ModRefInfo IntelModRefImpl::getModRefInfo(const CallBase *Call,
                   dbgs() << (isa<GlobalValue>(Object) ? "[global]" : ""));
   DEBUG_WITH_TYPE("imr-query", dbgs() << ")\n");
 
-  const Function *F = Call->getCalledFunction();
   if (!F) {
     DEBUG_WITH_TYPE("imr-query", dbgs() << "  Indirect destination\n");
     return ModRefInfo::ModRef;
@@ -6027,7 +6060,7 @@ void AndersensAAResult::AnalyzeCalls() {
     ProcessCall(IndirectCallList[i]);
   for (unsigned i = 0, e = DirectCallList.size(); i != e; ++i) {
     CallBase *CB = DirectCallList[i];
-    const Value *V = CB->getCalledValue();
+    const Value *V = CB->getCalledOperand();
     if (isa<InlineAsm>(*V))
       continue;
 

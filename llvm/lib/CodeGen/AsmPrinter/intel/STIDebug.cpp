@@ -3587,7 +3587,7 @@ STITypeEnumerator* STIDebugImpl::lowerTypeEnumerator(
   std::string name;
 
   name = std::string(llvmType->getName());
-  value     = createNumericSignedInt(llvmType->getValue());
+  value = createNumericSignedInt(llvmType->getValue().getSExtValue());
   attribute = STI_ACCESS_PUBLIC; // FIXME: set correct attributes here!
 
   truncateName(name);
@@ -4144,13 +4144,12 @@ STISymbolVariable *STIDebugImpl::createSymbolVariableFromFrameIndex(
     const DILocalVariable *DIV,
     int frameIndex) {
   STILocation *location = nullptr;
-  unsigned int regnum;
+  Register regnum;
   int          offset;
 
   const TargetFrameLowering *TFL =
       ASM()->MF->getSubtarget().getFrameLowering();
 
-  regnum = 0;
   offset = TFL->getFrameIndexReference(*ASM()->MF, frameIndex, regnum);
 
   location = STILocation::createRegisterOffset(toSTIRegID(regnum), offset);

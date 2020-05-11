@@ -121,10 +121,6 @@ private:
   /// Sets the unique number associated with this WRegionNode.
   void setNextNumber() { Number = ++UniqueNum; }
 
-  /// True for regions that may potentially "invoke" "omp critical"
-  /// (either explicitly or down the call stack).
-  bool MayHaveOMPCritical = false;
-
 #if INTEL_CUSTOMIZATION
   /// True if the WRN came from HIR; false otherwise
   bool IsFromHIR;
@@ -703,9 +699,6 @@ public:
   void setDirID(int ID)          { DirID = ID; }
   int  getDirID()          const { return DirID; }
 
-  void setMayHaveOMPCritical(bool Value = true) { MayHaveOMPCritical = Value; }
-  bool mayHaveOMPCritical() const { return MayHaveOMPCritical; }
-
   // Derived Class Enumeration
 
   /// An enumeration to keep track of the concrete subclasses of
@@ -725,7 +718,7 @@ public:
     WRNTargetEnterData,               // IsTarget
     WRNTargetExitData,                // IsTarget
     WRNTargetUpdate,                  // IsTarget
-    WRNTargetVariant,
+    WRNTargetVariant,                 // IsTarget
     WRNTask,                          // IsTask
     WRNTaskloop,                      // IsTask, IsOmpLoop
 

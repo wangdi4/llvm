@@ -6,9 +6,9 @@
 
 ; REQUIRES:asserts
 
-; CHECK-DAG: SOAUnsafe = [1024 x i32]* %arr_e.priv
-; CHECK-DAG: SOASafe = i32* %index.lpriv
-; CHECK-DAG: SOASafe = [1024 x i32]* %arr_ne.priv
+; CHECK-DAG: SOAUnsafe = arr_e.priv
+; CHECK-DAG: SOASafe = index.lpriv
+; CHECK-DAG: SOASafe = arr_ne.priv
 
 ; Source-file: test.c
 ; int foo(int n1, int **out) {

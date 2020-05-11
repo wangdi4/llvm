@@ -39,7 +39,7 @@ public:
                             const bool UseVLSCost) const;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void print(raw_ostream &OS);
+  void print(raw_ostream &OS, const std::string &Header);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   ~VPlanCostModelProprietary() {}

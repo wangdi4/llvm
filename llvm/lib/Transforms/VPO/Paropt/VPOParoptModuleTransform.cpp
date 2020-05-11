@@ -25,13 +25,12 @@
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Transforms/VPO/Paropt/VPOParoptModuleTransform.h"
-
-#include "llvm/Transforms/VPO/Paropt/VPOParoptTpv.h"
-#include "llvm/Transforms/VPO/Paropt/VPOParoptTransform.h"
-
+#include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/GlobalStatus.h"
 #include "llvm/Transforms/Utils/Local.h"
+#include "llvm/Transforms/VPO/Paropt/VPOParoptModuleTransform.h"
+#include "llvm/Transforms/VPO/Paropt/VPOParoptTpv.h"
+#include "llvm/Transforms/VPO/Paropt/VPOParoptTransform.h"
 
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
@@ -53,10 +52,6 @@ static cl::opt<bool> VerifyIRAfterParopt(
 static cl::opt<bool> UseOffloadMetadata(
   "vpo-paropt-use-offload-metadata", cl::Hidden, cl::init(true),
   cl::desc("Use offload metadata created by clang in paropt lowering."));
-
-static cl::opt<bool> AssumeExternMayHaveOmpCritical(
-  "vpo-paropt-assume-extern-may-have-omp-critical", cl::Hidden, cl::init(false),
-  cl::desc("Assume that an external function call may contain omp critical."));
 
 // This table is used to change math function names (left column) to the
 // OCL builtin format (right column).
@@ -314,7 +309,8 @@ std::unordered_map<std::string, std::string> llvm::vpo::OCLBuiltin = {
 // To support the SPIRV target compilation stage of the OpenMP compilation
 // offloading to GPUs, we must translate the name of math functions (left
 // column in OCLBuiltin) to their OCL builtin counterparts.
-static void replaceMathFnWithOCLBuiltin(Function &F) {
+static bool replaceMathFnWithOCLBuiltin(Function &F) {
+  bool Changed = false;
   StringRef OldName = F.getName();
   auto Map = OCLBuiltin.find(std::string(OldName));
   if (Map != OCLBuiltin.end()) {
@@ -322,7 +318,10 @@ static void replaceMathFnWithOCLBuiltin(Function &F) {
     LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Replacing " << OldName << " with "
                       << NewName << '\n');
     F.setName(NewName);
+    Changed = true;
   }
+
+  return Changed;
 }
 
 // Given the original printf() declaration \p F coming in from clang:
@@ -440,139 +439,6 @@ void VPOParoptModuleTransform::replaceSincosWithOCLBuiltin(Function *F,
     }
 }
 
-void VPOParoptModuleTransform::collectMayHaveOMPCriticalFunctions(
-    std::function<TargetLibraryInfo &(Function &F)> TLIGetter) {
-  // Create call graph for the Module.
-  CallGraph MCG(M);
-  // Connect all orphan nodes to the entry node.
-  CallGraphNode *EntryNode = MCG.getExternalCallingNode();
-  for (auto &CGIt : MCG) {
-    CallGraphNode *CGN = CGIt.second.get();
-    if (CGN->getNumReferences() == 0 &&
-        // Skip external null nodes.
-        CGN->getFunction()) {
-      EntryNode->addCalledFunction(nullptr, CGN);
-    }
-  }
-
-  auto GetLibFunc = [&TLIGetter](Function *F) -> LibFunc {
-    if (!F)
-      return LibFunc::NotLibFunc;
-
-    TargetLibraryInfo &TLI = TLIGetter(*F);
-    LibFunc LF;
-    if (!TLI.getLibFunc(*F, LF))
-      return LibFunc::NotLibFunc;
-
-    return LF;
-  };
-
-#ifndef NDEBUG
-  for (auto &CGIt : MCG) {
-    Function *CGF = CGIt.second.get()->getFunction();
-    if (!CGF)
-      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": CallGraph Function: ";
-                 dbgs() << "(null)";
-                 dbgs() << "\n");
-    else
-      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": CallGraph Function: ";
-                 CGF->printAsOperand(dbgs());
-                 if (GetLibFunc(CGF) != LibFunc::NotLibFunc)
-                   dbgs() << " - is LibFunc";
-                 dbgs() << "\n");
-
-    // Print one level of the callees to get some information about the graph.
-    for (auto &CalleeNode :
-             make_range(CGIt.second.get()->begin(), CGIt.second.get()->end())) {
-      Function *CalleeF = CalleeNode.second->getFunction();
-      if (!CalleeF)
-        LLVM_DEBUG(dbgs() << __FUNCTION__ << ":\tCallGraph callee Function: ";
-                   dbgs() << "(null)";
-                   dbgs() << "\n");
-      else {
-        LLVM_DEBUG(dbgs() << __FUNCTION__ << ":\tCallGraph callee Function: ";
-                   CalleeF->printAsOperand(dbgs());
-                   if (GetLibFunc(CalleeF) != LibFunc::NotLibFunc)
-                     dbgs() << " - is LibFunc";
-                   dbgs() << "\n");
-      }
-    }
-  }
-
-  // Print out the DFS post-order list.
-  for (auto *CGN : post_order(&MCG)) {
-    Function *CGF = CGN->getFunction();
-    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Post-order: CallGraph Function: ";
-               if (CGF) {
-                 CGF->printAsOperand(dbgs());
-                 if (GetLibFunc(CGF) != LibFunc::NotLibFunc)
-                   dbgs() << " - is LibFunc";
-               } else
-                 dbgs() << "(null)";
-               dbgs() << "\n");
-  }
-#endif  // NDEBUG
-
-  // Mark __kmpc_critical() function.
-  for (auto &CGIt : MCG) {
-    Function *CGF = CGIt.second.get()->getFunction();
-    if (GetLibFunc(CGF) == LibFunc_kmpc_critical)
-      // We may probably break out of the loop here, but this will only
-      // be correct if only one function name qualifies as
-      // LibFunc_kmpc_critical.
-      MayHaveOMPCritical.insert(CGF);
-  }
-
-  // Propagate may-have-openmp-critical attribute across the call graph.
-  bool Updated;
-
-  do {
-    Updated = false;
-
-    for (auto &CGN : post_order(&MCG)) {
-      auto *CGF = CGN->getFunction();
-      if (!CGF)
-        // Skip external null nodes.
-        continue;
-
-      // Skip LibFunc's (e.g. sinf).
-      // They will have external null callee, but we do not expect
-      // OpenMP critical inside them.
-      auto &TLI = TLIGetter(*CGF);
-      LibFunc LF; // Not used.
-      if (TLI.getLibFunc(*CGF, LF))
-        continue;
-
-      if (MayHaveOMPCritical.find(CGF) !=
-          MayHaveOMPCritical.end())
-        // Function is already marked.
-        continue;
-
-      // Look for callees.
-      for (auto &Callee : make_range(CGN->begin(), CGN->end())) {
-        auto *CalleeF = Callee.second->getFunction();
-        // Check if there is an external null callee...
-        if ((!CalleeF && AssumeExternMayHaveOmpCritical) ||
-            // or the callee is marked already.
-            MayHaveOMPCritical.find(CalleeF) != MayHaveOMPCritical.end()) {
-          MayHaveOMPCritical.insert(CGF);
-          Updated = true;
-          break;
-        }
-      }
-    }
-  } while (Updated);
-
-#ifndef NDEBUG
-  for (auto *CGF : MayHaveOMPCritical) {
-    LLVM_DEBUG(dbgs() << __FUNCTION__ <<
-               ": Function marked as may-have-openmp-critical: ";
-               CGF->printAsOperand(dbgs());
-               dbgs() << "\n");
-  }
-#endif  // NDEBUG
-}
-
 // Perform paropt transformations for the module. Each module's function is
 // transformed by a separate VPOParoptTransform instance which performs
 // paropt transformations on a function level. Then, after tranforming all
@@ -593,25 +459,18 @@ bool VPOParoptModuleTransform::doParoptTransforms(
   }
 
   if (IsTargetSPIRV)
-    // For SPIR targets we have to know which functions may contain
-    // "omp critical" inside them. We use this information to check
-    // if an OpenMP region may call such a function.
-    // If a work sharing OpenMP region contains such a call, then
-    // the work sharing has to be done in a special way to make sure
-    // that calls of __kmpc_critical are convergent across WIs
-    // in the same sub-group, otherwise the program may experience
-    // hangs.
-    //
-    // Note that we have to run this before the functions renaming
-    // done in the loop below, otherwise the renamed library functions
-    // will not be classified as such.
-    // It is very unfortunate that we have to do the renaming,
-    // since it changes the call-graph, and, in general, invalidates
-    // any call-graph analysis done so far. Currently, we rely
-    // on the fact that the library functions are assumed not to
-    // use OpenMP critical, so the computed may-have-openmp-critical
-    // information is not affected by the renaming.
-    collectMayHaveOMPCriticalFunctions(TLIGetter);
+    // If Function F contains a "target" region, it will be extracted
+    // as a SPIR kernel function. If F is also "declare target", then
+    // its body will have to stay in IR, but calling the SPIR kernel
+    // from it is illegal. Moreover, even if we outline the "target"
+    // region as a normal SPIR function, the outlining will happen
+    // after all code generation done for the "target" region,
+    // which is only correct for "target" region, and invalid
+    // for a "declare target" function compiled as if there is no
+    // target region inside it. Here we create clones of Functions
+    // that contain "target" region and are "declare target" themselves.
+    // See details inside cloneDeclareTargetFunctions().
+    Changed |= cloneDeclareTargetFunctions();
 
   /// As new functions to be added, so we need to prepare the
   /// list of functions we want to work on in advance.
@@ -626,12 +485,15 @@ bool VPOParoptModuleTransform::doParoptTransforms(
           createOCLPrintfDecl(&*F);
           VPOParoptTransform::replacePrintfWithOCLBuiltin(&*F,
                                                           getOCLPrintfDecl());
-        } else if (FuncName == "sincos")
+          Changed = true;
+        } else if (FuncName == "sincos") {
           replaceSincosWithOCLBuiltin(&*F, true);  // double sincos
-        else if (FuncName == "sincosf")
+          Changed = true;
+        } else if (FuncName == "sincosf") {
           replaceSincosWithOCLBuiltin(&*F, false); // float sincosf
-        else
-          replaceMathFnWithOCLBuiltin(*F);
+          Changed = true;
+        } else
+          Changed |= replaceMathFnWithOCLBuiltin(*F);
       }
       continue;
     }
@@ -1125,17 +987,6 @@ void VPOParoptModuleTransform::loadOffloadMetadata() {
 
         assert(Var && "no global variable with given name");
         assert(Var->isTargetDeclare() && "must be a target declare variable");
-
-        // Force external linkage for target declare variables
-        // emitted for SPIRV target, otherwise they may be discarded
-        // by the device compiler (even though, they may be referenced
-        // by llvm.compiler.used). FEs must guarantee that static declare
-        // target variables are named uniquely, so that externalizing
-        // them does not cause conflicting definitions.
-        if (VPOAnalysisUtils::isTargetSPIRV(&M) &&
-            Var->getLinkage() == GlobalValue::InternalLinkage)
-          Var->setLinkage(GlobalValue::ExternalLinkage);
-
         addEntry(new VarEntry(Var, Name, Flags), Idx);
         break;
       }
@@ -1277,9 +1128,12 @@ bool VPOParoptModuleTransform::genOffloadEntries() {
     Constant *EntryInit = ConstantStruct::get(EntryTy, EntryInitBuffer);
 
     GlobalVariable *Entry =
-        new GlobalVariable(M, EntryInit->getType(),
-                           /*isConstant=*/true, GlobalValue::WeakAnyLinkage,
-                           EntryInit, ".omp_offloading.entry." + Name);
+        new GlobalVariable(M, EntryInit->getType(), /*isConstant=*/true,
+                           GlobalValue::WeakAnyLinkage, EntryInit,
+                           ".omp_offloading.entry." + Name,
+                           /*InsertBefore=*/nullptr,
+                           GlobalValue::ThreadLocalMode::NotThreadLocal,
+                           IsTargetSPIRV ? vpo::ADDRESS_SPACE_CONSTANT : 0);
 
     Entry->setTargetDeclare(true);
     Triple TT(M.getTargetTriple());
@@ -1318,7 +1172,38 @@ bool VPOParoptModuleTransform::genOffloadEntries() {
   return Changed;
 }
 
-bool VPOParoptModuleTransform::mayHaveOMPCritical(const Function *F) const {
-  return MayHaveOMPCritical.find(F) != MayHaveOMPCritical.end();
+bool VPOParoptModuleTransform::cloneDeclareTargetFunctions() const {
+  bool Changed = false;
+
+  SmallVector<Function *, 128> FuncList;
+  for (auto &F : M.functions())
+    if (!F.isDeclaration())
+      FuncList.push_back(&F);
+
+  for (auto F : FuncList) {
+    StringRef ContainsOmpTargetAttrName = "contains-openmp-target";
+    StringRef OmpTargetDeclareAttrName = "openmp-target-declare";
+    bool HasTargetConstruct = F->hasFnAttribute(ContainsOmpTargetAttrName);
+    bool IsFETargetDeclare = F->hasFnAttribute(OmpTargetDeclareAttrName);
+
+    if (!HasTargetConstruct || !IsFETargetDeclare)
+      continue;
+
+    // Function is both "declare target" and contains "target" region(s).
+    ValueToValueMapTy VMap;
+    Function *NewF = CloneFunction(F, VMap);
+    // The new Function is just a placeholder for the "target" region(s),
+    // and it should be removed from the Module after outlining.
+    // Clear "openmp-target-declare" attribute from it.
+    NewF->removeFnAttr(OmpTargetDeclareAttrName);
+    // The original Function may be invoked from "target" region(s),
+    // so we should compile it without "target" regions enclosed
+    // into it.
+    F->removeFnAttr(ContainsOmpTargetAttrName);
+    VPOUtils::stripDirectives(*F, { DIR_OMP_TARGET, DIR_OMP_END_TARGET });
+    Changed = true;
+  }
+
+  return Changed;
 }
 #endif // INTEL_COLLAB

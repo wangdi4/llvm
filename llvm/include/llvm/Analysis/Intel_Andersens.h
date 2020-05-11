@@ -604,9 +604,9 @@ private:
   // Instruction visitation methods for adding constraints
   friend class InstVisitor<AndersensAAResult>;
   void visitReturnInst(ReturnInst &RI);
-  void visitInvokeInst(InvokeInst &II) { checkCall(cast<CallBase>(&II)); }
+  void visitInvokeInst(InvokeInst &II) { checkCall(II); }
   void visitAddressInst(AddressInst &AI);
-  void visitCallInst(CallInst &CI) { checkCall(cast<CallBase>(&CI)); }
+  void visitCallInst(CallInst &CI) { checkCall(CI); }
   void visitAllocaInst(AllocaInst &AI);
   void visitLoadInst(LoadInst &LI);
   void visitStoreInst(StoreInst &SI);
@@ -636,7 +636,7 @@ private:
   void visitCatchReturnInst(CatchReturnInst &AI);
 
   void processWinEhOperands(Instruction &AI);
-  void checkCall(CallBase *CB);
+  void checkCall(CallBase &CB);
  
 };
 

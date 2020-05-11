@@ -47,6 +47,11 @@
 // CHK-COMMANDS: clang{{.*}} "-cc1" "-triple" "x86_64-unknown-linux-gnu" "-emit-obj" {{.*}} "-o" "[[TARGOBJ:.+\.o]]" "-x" "ir" "[[WRAPPERBC]]"
 // CHK-COMMANDS: ld{{.*}} "-o" {{.*}} "[[HOSTOBJ]]" "[[TARGOBJ]]" {{.*}} "-lomptarget"
 
+/// Check additional options passed through
+// RUN:   %clang -### -fiopenmp -o %t.out -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64="-DFOO -DBAR -mllvm -dummy-opt -Xclang -cc1dummy" %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHK-TARGOPTS %s
+// CHK-TARGOPTS: clang{{.*}} "-triple" "spir64" "-aux-triple" "x86_64-unknown-linux-gnu" "-emit-llvm-bc" {{.*}} "-D" "FOO" "-D" "BAR" {{.*}} "-cc1dummy" "-mllvm" "-dummy-opt" {{.*}} "-fopenmp-targets=spir64"
+
 /// ###########################################################################
 
 /// Check separate compilation with offloading - bundling actions
@@ -117,6 +122,11 @@
 // CHK-LINK-OPENCLBC: llvm-link{{.*}}libomptarget-opencl.bc
 
 /// ###########################################################################
+
+// Build a fat static lib that will be used for all tests
+// RUN: echo "void foo(void) {}" > %t1.cpp
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64 %t1.cpp -c -o %t1_bundle.o
+// RUN: llvm-ar cr %t.a %t1_bundle.o
 
 /// Check that driver partially links objects with offload library when -foffload-static-lib=<lib> is used.
 // RUN: touch %t.a

@@ -27,8 +27,8 @@ define void @foo(i32* nocapture readonly %arr) {
 ; CHECK:       pred.call.continue:
 ; CHECK-NEXT:    [[PREDICATE1:%.*]] = extractelement <2 x i1> [[TMP2]], i64 1
 ; CHECK-NEXT:    [[TMP6:%.*]] = icmp eq i1 [[PREDICATE1]], true
-; CHECK-NEXT:    br i1 [[TMP6]], label [[PRED_CALL_IF3:%.*]], label [[TMP7:%.*]]
-; CHECK:       pred.call.if3:
+; CHECK-NEXT:    br i1 [[TMP6]], label %[[PRED_CALL_IF3:.*]], label [[TMP7:%.*]]
+; CHECK:       [[PRED_CALL_IF3]]:
 ; CHECK-NEXT:    call fastcc void @baz(i32 [[DOTEXTRACT_1_:%.*]])
 ; CHECK-NEXT:    br label [[TMP7]]
 ; CHECK:       7:

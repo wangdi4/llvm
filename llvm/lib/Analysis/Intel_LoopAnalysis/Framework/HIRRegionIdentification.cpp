@@ -505,14 +505,16 @@ bool HIRRegionIdentification::isSupported(Type *Ty, bool IsGEPRelated,
                                           const Loop *Lp) {
   assert(Ty && "Type is null!");
 
-  while (isa<SequentialType>(Ty) || isa<PointerType>(Ty)) {
-    if (auto SeqTy = dyn_cast<SequentialType>(Ty)) {
-      if (IsGEPRelated && SeqTy->isVectorTy()) {
+  while (isa<ArrayType>(Ty) || isa<VectorType>(Ty) || isa<PointerType>(Ty)) {
+    if (Ty->isVectorTy()) {
+      if (IsGEPRelated) {
         printOptReportRemark(
             Lp, "GEP related vector types currently not supported.");
         return false;
       }
-      Ty = SeqTy->getElementType();
+      Ty = cast<VectorType>(Ty)->getElementType();
+    } else if (Ty->isArrayTy()) {
+      Ty = cast<ArrayType>(Ty)->getElementType();
     } else {
       Ty = Ty->getPointerElementType();
     }

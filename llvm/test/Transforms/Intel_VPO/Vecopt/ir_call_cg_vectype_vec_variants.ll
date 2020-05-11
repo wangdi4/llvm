@@ -9,8 +9,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define dso_local void @foo(<4 x float>* nocapture readonly %in, <4 x float>* nocapture %out) local_unnamed_addr {
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP6:%.*]], [[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP6:%.*]], [[VECTOR_BODY:%.*]] ]
 ; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ [[TMP4:%.*]], [[VECTOR_BODY]] ], [ 0, [[VECTOR_PH]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i64> [ [[TMP3:%.*]], [[VECTOR_BODY]] ], [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH]] ]
 ; CHECK-NEXT:    [[SCALAR_GEP:%.*]] = getelementptr inbounds <4 x float>, <4 x float>* [[IN:%.*]], i64 [[UNI_PHI1]]
@@ -24,9 +23,7 @@ define dso_local void @foo(<4 x float>* nocapture readonly %in, <4 x float>* noc
 ; CHECK-NEXT:    [[TMP4]] = add nuw nsw i64 [[UNI_PHI1]], 4
 ; CHECK-NEXT:    [[TMP6]] = add i64 [[UNI_PHI]], 4
 ; CHECK-NEXT:    [[TMP7:%.*]] = icmp eq i64 [[TMP6]], 1024
-; CHECK-NEXT:    [[INDEX_NEXT]] = add i64 [[INDEX]], 4
-; CHECK-NEXT:    [[TMP8:%.*]] = icmp eq i64 [[INDEX_NEXT]], 1024
-; CHECK-NEXT:    br i1 [[TMP8]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]]
+; CHECK-NEXT:    br i1 [[TMP7]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]]
 ;
 omp.inner.for.body.lr.ph:
   %i.lpriv = alloca i32, align 4

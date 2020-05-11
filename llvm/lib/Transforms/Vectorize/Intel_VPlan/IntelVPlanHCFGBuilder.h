@@ -101,7 +101,25 @@ public:
   /// Build hierarchical CFG for TheLoop. Update Plan with the resulting H-CFG.
   void buildHierarchicalCFG();
 
-  virtual void emitVectorLoopIV();
+  // So far only emits explict uniform Vector loop iv, but is expected to be
+  // extended to include all the peeling/main vector/remainder CFG/phis.
+  virtual void emitVecSpecifics();
+
+  // Emit uniform IV for the vector loop and rewrite backedge condition to use
+  // it:
+  //
+  //   header:
+  //     %iv = phi [ 0, preheader ], [ iv.next, latch ]
+  //
+  //   latch:
+  //     %iv.next = %iv + VF
+  //     %cond = %iv.next `icmp` TripCount
+  //     br i1 %cond
+  //
+  // The order of latch's successors isn't changed which is ensured by selecting
+  // proper icmp predicate (eq/ne). Original latch's CondBit is erased if there
+  // are no remaining uses of it after the transformation above.
+  void emitVectorLoopIV(VPValue *TripCount, VPValue *VF);
 };
 
 } // namespace vpo

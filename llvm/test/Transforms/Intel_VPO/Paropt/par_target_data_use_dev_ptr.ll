@@ -47,7 +47,7 @@ entry:
 ; CHECK:  call void @main.DIR.OMP.PARALLEL{{.+}}(i32* %{{.+}}, i32* %{{.+}}, i32** %array_device)
 
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.NUM_THREADS"(i32 1), "QUAL.OMP.SHARED"(i32** %array_device) ]
-  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.USE_DEVICE_PTR"(i32** %array_device) ]
+  %2 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.DATA"(), "QUAL.OMP.USE_DEVICE_PTR:PTR_TO_PTR"(i32** %array_device) ]
 
   %3 = load i32*, i32** %array_device, align 8
   %arrayidx2 = getelementptr inbounds i32, i32* %3, i64 0

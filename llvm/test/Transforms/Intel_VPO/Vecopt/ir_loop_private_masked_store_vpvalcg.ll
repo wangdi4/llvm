@@ -32,8 +32,7 @@ define void @foo(i64* nocapture %ip, i64* nocapture readonly %ip2) {
 ; CHECK-NEXT:    [[VAL_VEC_BC:%.*]] = bitcast <4 x i64>* [[VAL_VEC]] to i64*
 ; CHECK-NEXT:    [[VAL_VEC_BASE_ADDR:%.*]] = getelementptr i64, i64* [[VAL_VEC_BC]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP10:%.*]], [[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP9:%.*]], [[VECTOR_BODY:%.*]] ]
 ; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP8:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i64> [ <i64 0, i64 1, i64 2, i64 3>, [[VECTOR_PH]] ], [ [[TMP7:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    call void @llvm.lifetime.start.p0i8(i64 8, i8* [[DOTEXTRACT_0_:%.*]])

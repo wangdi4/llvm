@@ -36,7 +36,6 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/AssumptionCache.h"
@@ -52,11 +51,11 @@
 #include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/IR/AbstractCallSite.h" // INTEL
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
-#include "llvm/IR/CallSite.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
@@ -77,6 +76,7 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO.h"
 #include <algorithm>
@@ -109,7 +109,7 @@ static Function *
 doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
             SmallPtrSetImpl<Argument *> &ByValArgsToTransform,
             bool isCallback, // INTEL
-            Optional<function_ref<void(CallSite OldCS, CallSite NewCS)>>
+            Optional<function_ref<void(CallBase &OldCS, CallBase &NewCS)>>
                 ReplaceCallSite) {
   // Start by computing a new prototype for the function, which is the same as
   // the old function, but has modified arguments.
@@ -203,7 +203,7 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
         // not allowed to dereference ->begin() if size() is 0
 #if INTEL_CUSTOMIZATION
         Type *ParamTy = GetElementPtrInst::getIndexedType(
-            cast<PointerType>(I->getType()->getScalarType())->getElementType(),
+            cast<PointerType>(I->getType())->getElementType(),
             ArgIndex.second);
         if (isCallback && !isa<PointerType>(ParamTy))
           ParamTy = DL.getIntPtrType(I->getType());
@@ -254,11 +254,10 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
 #if INTEL_CUSTOMIZATION
     AbstractCallSite ACS(&*F->use_begin());
     assert(ACS.getCalledFunction() == F);
-    CallSite CS = ACS.getCallSite();
+    CallBase &CB = *(cast<CallBase>(ACS.getInstruction()));
 #endif // INTEL_CUSTOMIZATION
-    Instruction *Call = CS.getInstruction();
-    const AttributeList &CallPAL = CS.getAttributes();
-    IRBuilder<NoFolder> IRB(Call);
+    const AttributeList &CallPAL = CB.getAttributes();
+    IRBuilder<NoFolder> IRB(&CB);
 
 #if INTEL_CUSTOMIZATION
     // Build mapping between actual and formal arguments for the call site.
@@ -287,8 +286,7 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
     // appropriate.
     ArgNo = 0;
 #if INTEL_CUSTOMIZATION
-    for (CallSite::arg_iterator AI = CS.arg_begin(), E = CS.arg_end(); AI != E;
-         ++AI, ++ArgNo) {
+    for (auto AI = CB.arg_begin(), E = CB.arg_end(); AI != E; ++AI, ++ArgNo) {
       if (ACS.isCallbackCall() &&
           static_cast<unsigned>(ACS.getCallArgOperandNoForCallee()) == ArgNo) {
         // Use new function for the the callback call's callee operand.
@@ -377,7 +375,7 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
           // of the previous load.
           LoadInst *newLoad =
               IRB.CreateLoad(OrigLoad->getType(), V, V->getName() + ".val");
-          newLoad->setAlignment(MaybeAlign(OrigLoad->getAlignment()));
+          newLoad->setAlignment(OrigLoad->getAlign());
           // Transfer the AA info too.
           AAMDNodes AAInfo;
           OrigLoad->getAAMetadata(AAInfo);
@@ -390,33 +388,34 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
     }
 
     SmallVector<OperandBundleDef, 1> OpBundles;
-    CS.getOperandBundlesAsDefs(OpBundles);
+    CB.getOperandBundlesAsDefs(OpBundles);
 
-    CallSite NewCS;
+    CallBase *NewCS = nullptr;
 #if INTEL_CUSTOMIZATION
-    Function *NewF = ACS.isCallbackCall() ? CS.getCalledFunction() : NF;
+    Function *NewF = ACS.isCallbackCall() ? CB.getCalledFunction() : NF;
     FunctionType *FType = NewF->getFunctionType();
 #endif // INTEL_CUSTOMIZATION
-    if (InvokeInst *II = dyn_cast<InvokeInst>(Call)) {
-      NewCS =
-          InvokeInst::Create(FType, NewF, II->getNormalDest(), // INTEL
-                             II->getUnwindDest(), Args, OpBundles, "", Call);
+    if (InvokeInst *II = dyn_cast<InvokeInst>(&CB)) {
+#if INTEL_CUSTOMIZATION
+      NewCS = InvokeInst::Create(FType, NewF, II->getNormalDest(),
+                                 II->getUnwindDest(), Args, OpBundles, "", &CB);
+#endif // INTEL_CUSTOMIZATION
     } else {
       auto *NewCall =
-          CallInst::Create(FType, NewF, Args, OpBundles, "", Call); // INTEL
-      NewCall->setTailCallKind(cast<CallInst>(Call)->getTailCallKind());
+          CallInst::Create(FType, NewF, Args, OpBundles, "", &CB); // INTEL
+      NewCall->setTailCallKind(cast<CallInst>(&CB)->getTailCallKind());
       NewCS = NewCall;
     }
-    NewCS.setCallingConv(CS.getCallingConv());
-    NewCS.setAttributes(
+    NewCS->setCallingConv(CB.getCallingConv());
+    NewCS->setAttributes(
         AttributeList::get(F->getContext(), CallPAL.getFnAttributes(),
                            CallPAL.getRetAttributes(), ArgAttrVec));
-    NewCS->setDebugLoc(Call->getDebugLoc());
+    NewCS->setDebugLoc(CB.getDebugLoc());
     uint64_t W;
-    if (Call->extractProfTotalWeight(W))
+    if (CB.extractProfTotalWeight(W))
       NewCS->setProfWeight(W);
 #if INTEL_CUSTOMIZATION
-    MDNode *MD = Call->getMetadata(LLVMContext::MD_intel_profx);
+    MDNode *MD = CB.getMetadata(LLVMContext::MD_intel_profx);
     if (MD)
       NewCS->setMetadata(LLVMContext::MD_intel_profx, MD);
 #endif // INTEL_CUSTOMIZATION
@@ -425,16 +424,16 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
 
     // Update the callgraph to know that the callsite has been transformed.
     if (ReplaceCallSite)
-      (*ReplaceCallSite)(CS, NewCS);
+      (*ReplaceCallSite)(CB, *NewCS);
 
-    if (!Call->use_empty()) {
-      Call->replaceAllUsesWith(NewCS.getInstruction());
-      NewCS->takeName(Call);
+    if (!CB.use_empty()) {
+      CB.replaceAllUsesWith(NewCS);
+      NewCS->takeName(&CB);
     }
 
     // Finally, remove the old call from the program, reducing the use-count of
     // F.
-    Call->eraseFromParent();
+    CB.eraseFromParent();
 
 #if INTEL_CUSTOMIZATION
     // Remove dead constants referencing this function that may remain after
@@ -561,12 +560,8 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
           assert(It != ArgIndices.end() && "GEP not handled??");
         }
 
-        std::string NewName = std::string(I->getName());
-        for (unsigned i = 0, e = Operands.size(); i != e; ++i) {
-          NewName += "." + utostr(Operands[i]);
-        }
-        NewName += ".val";
-        TheArg->setName(NewName);
+        TheArg->setName(formatv("{0}.{1:$[.]}.val", I->getName(),
+                                make_range(Operands.begin(), Operands.end())));
 
         LLVM_DEBUG(dbgs() << "*** Promoted agg argument '" << TheArg->getName()
                           << "' of function '" << NF->getName() << "'\n");
@@ -929,12 +924,17 @@ bool ArgumentPromotionPass::isDenselyPacked(Type *type, const DataLayout &DL) {
   if (DL.getTypeSizeInBits(type) != DL.getTypeAllocSizeInBits(type))
     return false;
 
-  if (!isa<StructType>(type) && !isa<SequentialType>(type))
-    return true;
-
-  // For homogenous sequential types, check for padding within members.
-  if (SequentialType *seqTy = dyn_cast<SequentialType>(type))
+  // FIXME: This isn't the right way to check for padding in vectors with
+  // non-byte-size elements.
+  if (VectorType *seqTy = dyn_cast<VectorType>(type))
     return isDenselyPacked(seqTy->getElementType(), DL);
+
+  // For array types, check for padding within members.
+  if (ArrayType *seqTy = dyn_cast<ArrayType>(type))
+    return isDenselyPacked(seqTy->getElementType(), DL);
+
+  if (!isa<StructType>(type))
+    return true;
 
   // Check for padding within and between elements of a struct.
   StructType *StructTy = cast<StructType>(type);
@@ -996,7 +996,7 @@ bool ArgumentPromotionPass::areFunctionArgsABICompatible(
     AbstractCallSite CS(&U); // INTEL
     if (!CS)
       return false;
-    const Function *Caller = CS.getCallSite().getCaller(); // INTEL
+    const Function *Caller = CS.getInstruction()->getCaller(); // INTEL
     const Function *Callee = CS.getCalledFunction();
     if (!TTI.areFunctionArgsABICompatible(Caller, Callee, ArgsToPromote) ||
         !TTI.areFunctionArgsABICompatible(Caller, Callee, ByValArgsToTransform))
@@ -1012,7 +1012,7 @@ bool ArgumentPromotionPass::areFunctionArgsABICompatible(
 static Function *
 promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
                  unsigned MaxElements,
-                 Optional<function_ref<void(CallSite OldCS, CallSite NewCS)>>
+                 Optional<function_ref<void(CallBase &OldCS, CallBase &NewCS)>>
                      ReplaceCallSite,
                  const TargetTransformInfo &TTI) {
   // Don't perform argument promotion for naked functions; otherwise we can end
@@ -1060,7 +1060,7 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
 
     if (CS.isDirectCall()) {
       // Can't change signature of musttail callee
-      if (CS.getCallSite().isMustTailCall())
+      if (CS.getInstruction()->isMustTailCall())
         return nullptr;
 
       if (CS.getInstruction()->getParent()->getParent() == F)
@@ -1096,9 +1096,9 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
       F->removeParamAttr(ArgNo, Attribute::StructRet);
       F->addParamAttr(ArgNo, Attribute::NoAlias);
       for (Use &U : F->uses()) {
-        CallSite CS(U.getUser());
-        CS.removeParamAttr(ArgNo, Attribute::StructRet);
-        CS.addParamAttr(ArgNo, Attribute::NoAlias);
+        CallBase &CB = cast<CallBase>(*U.getUser());
+        CB.removeParamAttr(ArgNo, Attribute::StructRet);
+        CB.addParamAttr(ArgNo, Attribute::NoAlias);
       }
     }
 
@@ -1116,7 +1116,7 @@ promoteArguments(Function *F, function_ref<AAResults &(Function &F)> AARGetter,
 
             // And it should be passed to the broker as a vararg argument.
             // Otherwise we would need to change broker function signature.
-            Function *Broker = ACS.getCallSite().getCalledFunction();
+            Function *Broker = ACS.getInstruction()->getCalledFunction();
             assert(Broker && "Expecting broker function");
             if (!Broker->isVarArg() ||
                 static_cast<unsigned>(ArgNo) < Broker->arg_size())
@@ -1330,14 +1330,13 @@ bool ArgPromotion::runOnSCC(CallGraphSCC &SCC) {
       if (!OldF)
         continue;
 
-      auto ReplaceCallSite = [&](CallSite OldCS, CallSite NewCS) {
-        Function *Caller = OldCS.getInstruction()->getParent()->getParent();
+      auto ReplaceCallSite = [&](CallBase &OldCS, CallBase &NewCS) {
+        Function *Caller = OldCS.getParent()->getParent();
         CallGraphNode *NewCalleeNode =
             CG.getOrInsertFunction(NewCS.getCalledFunction());
         CallGraphNode *CallerNode = CG[Caller];
-        CallerNode->replaceCallEdge(*cast<CallBase>(OldCS.getInstruction()),
-                                    *cast<CallBase>(NewCS.getInstruction()),
-                                    NewCalleeNode);
+        CallerNode->replaceCallEdge(cast<CallBase>(OldCS),
+                                    cast<CallBase>(NewCS), NewCalleeNode);
       };
 
       const TargetTransformInfo &TTI =

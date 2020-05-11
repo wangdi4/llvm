@@ -13,8 +13,8 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/Triple.h"
-#include "llvm/IR/CallSite.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
@@ -94,7 +94,7 @@ public:
     MASSV,      // IBM MASS vector library.
     SVML,       // Intel short vector math library.
 #if INTEL_CUSTOMIZATION
-    Libmvec     // Glibc vector math library.
+    Libmvec,    // Glibc vector math library.
 #endif
   };
 
@@ -167,12 +167,12 @@ public:
 
   /// Return true if the function F has a vector equivalent with any
   /// vectorization factor.
-  bool isFunctionVectorizable(StringRef F, bool IsMasked) const; //INTEL
+  bool isFunctionVectorizable(StringRef F, bool IsMasked) const; // INTEL
 
   /// Return the name of the equivalent of F, vectorized with factor VF. If no
   /// such mapping exists, return the empty string.
   StringRef getVectorizedFunction(StringRef F, unsigned VF,
-                                  bool Masked=false) const; // INTEL
+                                  bool Masked = false) const; // INTEL
 
   /// Return true if the function F has a scalar equivalent, and set VF to be
   /// the vectorization factor.
@@ -298,11 +298,11 @@ public:
     return Impl->getLibFunc(FDecl, F);
   }
 
-  /// If a callsite does not have the 'nobuiltin' attribute, return if the
+  /// If a callbase does not have the 'nobuiltin' attribute, return if the
   /// called function is a known library function and set F to that function.
-  bool getLibFunc(ImmutableCallSite CS, LibFunc &F) const {
-    return !CS.isNoBuiltin() && CS.getCalledFunction() &&
-           getLibFunc(*(CS.getCalledFunction()), F);
+  bool getLibFunc(const CallBase &CB, LibFunc &F) const {
+    return !CB.isNoBuiltin() && CB.getCalledFunction() &&
+           getLibFunc(*(CB.getCalledFunction()), F);
   }
 
   /// Disables all builtins.
@@ -344,7 +344,7 @@ public:
 #endif
   StringRef getVectorizedFunction(StringRef F, unsigned VF,
                                   bool Masked=false) const { // INTEL
-    return Impl->getVectorizedFunction(F, VF, Masked);
+    return Impl->getVectorizedFunction(F, VF, Masked); // INTEL
   }
 
   /// Tests if the function is both available and a candidate for optimized code

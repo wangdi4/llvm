@@ -1190,10 +1190,6 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+hreset") {
       HasHRESET = true;
 #endif // INTEL_FEATURE_ISA_HRESET
-#if INTEL_FEATURE_ISA_TSXLDTRK
-    } else if (Feature == "+tsxldtrk") {
-      HasTSXLDTRK = true;
-#endif // INTEL_FEATURE_ISA_TSXLDTRK
 #if INTEL_FEATURE_ISA_AMX
     } else if (Feature == "+amx-bf16") {
       HasAMXBF16 = true;
@@ -1285,6 +1281,8 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
 #endif // INTEL_CUSTOMIZATION
     } else if (Feature == "+serialize") {
       HasSERIALIZE = true;
+    } else if (Feature == "+tsxldtrk") {
+      HasTSXLDTRK = true;
     }
     X86SSEEnum Level = llvm::StringSwitch<X86SSEEnum>(Feature)
                            .Case("+avx512f", AVX512F)
@@ -1725,11 +1723,6 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__HRESET__");
   Builder.defineMacro("__HRESET_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_HRESET
-#if INTEL_FEATURE_ISA_TSXLDTRK
-  if (HasTSXLDTRK)
-    Builder.defineMacro("__TSXLDTRK__");
-  Builder.defineMacro("__TSXLDTRK_SUPPORTED__");
-#endif // INTEL_FEATURE_ISA_TSXLDTRK
 #if INTEL_FEATURE_ISA_AMX
   if (HasAMXTILE)
     Builder.defineMacro("__AMXTILE__");
@@ -1851,6 +1844,8 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
 #endif // INTEL_CUSTOMIZATION
   if (HasSERIALIZE)
     Builder.defineMacro("__SERIALIZE__");
+  if (HasTSXLDTRK)
+    Builder.defineMacro("__TSXLDTRK__");
 
   // Each case falls through to the previous one here.
   switch (SSELevel) {
@@ -2077,11 +2072,6 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("rdseed", true)
       .Case("rtm", true)
       .Case("sahf", true)
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_TSXLDTRK
-      .Case("tsxldtrk", true)
-#endif // INTEL_FEATURE_ISA_TSXLDTRK
-#endif // INTEL_CUSTOMIZATION
       .Case("serialize", true)
       .Case("sgx", true)
       .Case("sha", true)
@@ -2095,6 +2085,7 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("sse4.2", true)
       .Case("sse4a", true)
       .Case("tbm", true)
+      .Case("tsxldtrk", true)
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_ULI
       .Case("uli", true)
@@ -2268,11 +2259,6 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("retpoline-external-thunk", HasRetpolineExternalThunk)
       .Case("rtm", HasRTM)
       .Case("sahf", HasLAHFSAHF)
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_TSXLDTRK
-      .Case("tsxldtrk", HasTSXLDTRK)
-#endif // INTEL_FEATURE_ISA_TSXLDTRK
-#endif // INTEL_CUSTOMIZATION
       .Case("serialize", HasSERIALIZE)
       .Case("sgx", HasSGX)
       .Case("sha", HasSHA)
@@ -2285,6 +2271,7 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("sse4.2", SSELevel >= SSE42)
       .Case("sse4a", XOPLevel >= SSE4A)
       .Case("tbm", HasTBM)
+      .Case("tsxldtrk", HasTSXLDTRK)
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_ULI
       .Case("uli", HasULI)

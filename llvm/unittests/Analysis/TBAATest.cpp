@@ -60,7 +60,8 @@ static std::pair <StoreInst*, LoadInst*> getFunctionWithLoadStore(Module *M, Str
                            dyn_cast<Value>(CharGlobal), BB);
 
   auto *IntPtrType = Type::getInt32PtrTy(C);
-  auto *LI = new LoadInst(ConstantPointerNull::get(IntPtrType), "load", BB);
+  auto *LI = new LoadInst(Type::getInt32Ty(C),
+                          ConstantPointerNull::get(IntPtrType), "load", BB);
 
   ReturnInst::Create(C, nullptr, BB);
 

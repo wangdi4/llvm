@@ -118,7 +118,7 @@ struct CandidateInfo {
     auto *FPMathOp = dyn_cast<FPMathOperator>(LLVMInst);
     auto *OBinOp = dyn_cast<OverflowingBinaryOperator>(LLVMInst);
 
-    return (Opcode == LLVMInst->getOpcode()) &&
+    return (!Inst->isCallInst() && Opcode == LLVMInst->getOpcode()) &&
            DDRefUtils::areEqual(LvalRef, Inst->getLvalDDRef()) &&
            DDRefUtils::areEqual(FirstRvalRef, Inst->getOperandDDRef(1)) &&
            (Inst->isCopyInst() ||

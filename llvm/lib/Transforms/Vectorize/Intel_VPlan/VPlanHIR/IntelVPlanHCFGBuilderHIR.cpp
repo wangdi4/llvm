@@ -58,7 +58,6 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeVisitor.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegion.h"
 #include "llvm/Pass.h"
-#include "llvm/PassAnalysisSupport.h"
 
 #define DEBUG_TYPE "VPlanHCFGBuilder"
 
@@ -1060,14 +1059,9 @@ public:
     Descriptor.setInductionBinOp(ID->getUpdateInstr());
     Descriptor.setBinOpcode(Instruction::BinaryOpsEnd);
     Type *IndTy = Descriptor.getInductionBinOp()->getType();
-    if (IndTy->isIntegerTy())
-      Descriptor.setKind(VPInduction::InductionKind::IK_IntInduction);
-    else if (IndTy->isPointerTy())
-      Descriptor.setKind(VPInduction::InductionKind::IK_PtrInduction);
-    else if (IndTy->isFloatingPointTy())
-      Descriptor.setKind(VPInduction::InductionKind::IK_FpInduction);
-    else
-      llvm_unreachable("Unsupported induction data type.");
+    VPInduction::InductionKind Kind;
+    std::tie(std::ignore, Kind) = Descriptor.getKindAndOpcodeFromTy(IndTy);
+    Descriptor.setKind(Kind);
     Descriptor.setStartPhi(nullptr);
     Descriptor.setStart(ID->getStart());
     Descriptor.setStep(ID->getStep());
@@ -1086,14 +1080,7 @@ public:
     const HLDDNode *HLNode = CurrValue.Ref->getHLDDNode();
     Descriptor.setStartPhi(
         dyn_cast<VPInstruction>(Decomposer.getVPValueForNode(HLNode)));
-    if (IndTy->isIntegerTy())
-      Descriptor.setKind(InductionDescriptor::IK_IntInduction);
-    else if (IndTy->isPointerTy())
-      Descriptor.setKind(InductionDescriptor::IK_PtrInduction);
-    else {
-      assert(IndTy->isFloatingPointTy() && "unexpected induction type");
-      Descriptor.setKind(InductionDescriptor::IK_FpInduction);
-    }
+    Descriptor.setKindAndOpcodeFromTy(IndTy);
     Descriptor.setStart(Descriptor.getStartPhi());
     int64_t Stride = CurrValue.Step->getSingleCanonExpr()->getConstant();
     Constant *Cstep = nullptr;
@@ -1113,7 +1100,6 @@ public:
       Cstep = ConstantInt::get(IndTy, Stride);
     Descriptor.setStep(Decomposer.getVPValueForConst(Cstep));
     Descriptor.setInductionBinOp(nullptr);
-    Descriptor.setBinOpcode(Instruction::Add);
     Descriptor.setAllocaInst(Descriptor.getStart());
   }
 };

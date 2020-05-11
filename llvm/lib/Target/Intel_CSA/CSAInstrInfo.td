@@ -127,12 +127,12 @@ def LCacheOperand : OperandWithDefaultOps <i32, (ops (i32 0))>
 
 // Operands for floating-point comparison operators
 foreach Kind = [ "FPOrdered", "FPSignaling" ] in {
-  def Kind ## AsmOperand : AsmOperandClass {
+  def Kind # AsmOperand : AsmOperandClass {
     let Name = Kind;
     let IsOptional = 1;
   }
-  def Kind ## Operand : OperandWithDefaultOps<i1, (ops (i1 0))> {
-    let ParserMatchClass = !cast<AsmOperandClass>(Kind ## AsmOperand);
+  def Kind # Operand : OperandWithDefaultOps<i1, (ops (i1 0))> {
+    let ParserMatchClass = !cast<AsmOperandClass>(Kind # AsmOperand);
     let PrintMethod = !strconcat("print", Kind, "Operand");
   }
 }
@@ -2222,12 +2222,12 @@ def FENCE : FMTGEN<?, ?,
 ////////////////////////////////////////////////////////////////////////////////
 
 foreach Kind = [ "Interval", "Signctl" ] in {
-  def Kind ## AsmOperand : AsmOperandClass {
+  def Kind # AsmOperand : AsmOperandClass {
     let Name = Kind;
     let IsOptional = 1;
   }
-  def Kind ## Operand : OperandWithDefaultOps<i64, (ops (i64 0))> {
-    let ParserMatchClass = !cast<AsmOperandClass>(Kind ## AsmOperand);
+  def Kind # Operand : OperandWithDefaultOps<i64, (ops (i64 0))> {
+    let ParserMatchClass = !cast<AsmOperandClass>(Kind # AsmOperand);
     let PrintMethod = !strconcat("print", Kind, "Operand");
   }
 }

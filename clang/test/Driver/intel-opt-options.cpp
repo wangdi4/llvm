@@ -25,6 +25,12 @@
 // RUN:  | FileCheck -check-prefix=LAYOUT_TRANS_3 %s
 // LAYOUT_TRANS_3: "-mllvm" "-dtrans-mem-layout-level=3"
 
+// RUN: %clang -qopt-mem-layout-trans=4 -### -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=LAYOUT_TRANS_4 %s
+// RUN: %clang_cl -Qopt-mem-layout-trans:4 -### -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=LAYOUT_TRANS_4 %s
+// LAYOUT_TRANS_4: "-mllvm" "-dtrans-mem-layout-level=4"
+
 // RUN: %clang -qopt-mem-layout-trans=8 -### -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=LAYOUT_TRANS_INVALID %s
 // RUN: %clang_cl -Qopt-mem-layout-trans:8 -### -c %s 2>&1 \

@@ -17,15 +17,9 @@
 #include "X86ISelLowering.h"
 #include "X86InstrInfo.h"
 #include "X86SelectionDAGInfo.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Triple.h"
-#include "llvm/CodeGen/GlobalISel/CallLowering.h"
-#include "llvm/CodeGen/GlobalISel/InstructionSelector.h"
-#include "llvm/CodeGen/GlobalISel/LegalizerInfo.h"
-#include "llvm/CodeGen/GlobalISel/RegisterBankInfo.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/IR/CallingConv.h"
-#include "llvm/Target/TargetMachine.h"
 #include <climits>
 #include <memory>
 
@@ -34,7 +28,13 @@
 
 namespace llvm {
 
+class CallLowering;
 class GlobalValue;
+class InstructionSelector;
+class LegalizerInfo;
+class RegisterBankInfo;
+class StringRef;
+class TargetMachine;
 
 /// The X86 backend supports a number of different styles of PIC.
 ///
@@ -430,11 +430,6 @@ protected:
   bool HasHRESET = false;
 #endif // INTEL_FEATURE_ISA_HRESET
 
-#if INTEL_FEATURE_ISA_TSXLDTRK
-  /// Processor supports TSXLDTRK instruction
-  bool HasTSXLDTRK = false;
-#endif // INTEL_FEATURE_ISA_TSXLDTRK
-
 #if INTEL_FEATURE_ISA_AMX
   /// Processor has AMX support
   bool HasAMXTILE = false;
@@ -499,6 +494,9 @@ protected:
 #endif // INTEL_CUSTOMIZATION
   /// Processor supports SERIALIZE instruction
   bool HasSERIALIZE = false;
+
+  /// Processor supports TSXLDTRK instruction
+  bool HasTSXLDTRK = false;
 
   /// Processor has a single uop BEXTR implementation.
   bool HasFastBEXTR = false;
@@ -865,11 +863,9 @@ public:
 #if INTEL_FEATURE_ISA_HRESET
   bool hasHRESET() const { return HasHRESET; }
 #endif // INTEL_FEATURE_ISA_HRESET
-#if INTEL_FEATURE_ISA_TSXLDTRK
-  bool hasTSXLDTRK() const { return HasTSXLDTRK; }
-#endif // INTEL_FEATURE_ISA_TSXLDTRK
 #endif // INTEL_CUSTOMIZATION
   bool hasSERIALIZE() const { return HasSERIALIZE; }
+  bool hasTSXLDTRK() const { return HasTSXLDTRK; }
   bool useRetpolineIndirectCalls() const { return UseRetpolineIndirectCalls; }
   bool useRetpolineIndirectBranches() const {
     return UseRetpolineIndirectBranches;

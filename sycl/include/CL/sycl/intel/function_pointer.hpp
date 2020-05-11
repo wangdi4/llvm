@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <CL/sycl/detail/export.hpp>
 #include <CL/sycl/device.hpp>
 #include <CL/sycl/program.hpp>
 #include <CL/sycl/stl.hpp>
@@ -17,8 +18,8 @@
 __SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
 namespace detail {
-cl_ulong getDeviceFunctionPointerImpl(device &D, program &P,
-                                      const char *FuncName);
+__SYCL_EXPORT cl_ulong getDeviceFunctionPointerImpl(device &D, program &P,
+                                                    const char *FuncName);
 }
 namespace intel {
 
@@ -80,7 +81,7 @@ device_func_ptr_holder_t get_device_func_ptr(FuncType F, const char *FuncName,
         PI_INVALID_OPERATION);
   }
 
-  return detail::getDeviceFunctionPointerImpl(D, P, FuncName);
+  return sycl::detail::getDeviceFunctionPointerImpl(D, P, FuncName);
 }
 } // namespace intel
 } // namespace sycl

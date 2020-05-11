@@ -6,10 +6,10 @@
 
 ; REQUIRES:asserts
 
-; CHECK-DAG: SOASafe = [1024 x i32]* %arr.priv
-; CHECK-DAG: SOASafe = [1024 x i32]* %arr_ne.priv
-; CHECK-DAG: SOAUnsafe = [1024 x i32]* %arr_e.priv
-; CHECK-DAG: SOASafe = i32* %index.lpriv
+; CHECK-DAG: SOASafe = arr.priv
+; CHECK-DAG: SOASafe = arr_ne.priv
+; CHECK-DAG: SOAUnsafe = arr_e.priv
+; CHECK-DAG: SOASafe = index.lpriv
 
 ; Source-file: test.c
 ;int arr[1024];

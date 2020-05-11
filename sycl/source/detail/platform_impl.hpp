@@ -8,12 +8,12 @@
 
 #pragma once
 #include <CL/sycl/detail/common.hpp>
-#include <CL/sycl/detail/force_device.hpp>
 #include <CL/sycl/detail/pi.hpp>
 #include <CL/sycl/info/info_desc.hpp>
 #include <CL/sycl/stl.hpp>
-#include <detail/plugin.hpp>
+#include <detail/force_device.hpp>
 #include <detail/platform_info.hpp>
+#include <detail/plugin.hpp>
 
 __SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
@@ -118,6 +118,14 @@ public:
   const plugin &getPlugin() const {
     assert(!MHostPlatform && "Plugin is not available for Host.");
     return *MPlugin;
+  }
+
+  /// Sets the platform implementation to use another plugin.
+  ///
+  /// \param PluginPtr is a pointer to a plugin instance
+  void setPlugin(std::shared_ptr<plugin> PluginPtr) {
+    assert(!MHostPlatform && "Plugin is not available for Host");
+    MPlugin = std::move(PluginPtr);
   }
 
 private:

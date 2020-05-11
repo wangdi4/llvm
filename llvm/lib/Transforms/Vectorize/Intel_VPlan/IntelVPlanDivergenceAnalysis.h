@@ -99,31 +99,9 @@ public:
   }
 
 private:
-  /// Initialize instructions with initial shapes and mark 'pinned' shapes.
-  void init();
-
   /// Propagate divergence to all instructions in the region.
   /// Divergence is seeded by calls to \p markDivergent.
   void computeImpl();
-
-  /// Make the shape for the \p Val immutable.
-  void setPinned(const VPValue &Val) { Pinned.insert(&Val); }
-
-  /// Set the shape for \p Val and make it immutable.
-  void setPinnedShape(const VPValue &Val, const VPVectorShape Shape) {
-    setPinned(Val);
-    updateVectorShape(&Val, Shape);
-  }
-
-  /// Push users of instructions with non-deterministic results on to the
-  /// Worklist.
-  void pushNonDeterministicInsts();
-
-  /// Set shapes for instructions with loop-invariant operands.
-  void initializeShapesForConstOpInsts();
-
-  /// Mark Loop-exit condition as uniforms.
-  void markLoopExitsAsUniforms();
 
   /// Push the instruction to the Worklist.
   bool pushToWorklist(const VPInstruction &I);
@@ -136,9 +114,6 @@ private:
 
   /// Whether \p I is part of the region.
   bool inRegion(const VPInstruction &I) const;
-
-  /// Mark \p UniVal as a value that is always uniform.
-  void addUniformOverride(const VPValue &UniVal);
 
   bool updatePHINode(const VPInstruction &Phi) const;
 
@@ -184,9 +159,6 @@ private:
     return DivergentLoops.insert(&VPLp).second;
   }
 
-  /// Return \p true if the value has 'pinned' shape.
-  bool isPinned(const VPValue &Val) const { return Pinned.count(&Val) != 0; }
-
   /// Return \p true if \p Loop is divergent.
   bool isDivergentLoop(const VPLoop &VPLp) const {
     return DivergentLoops.find(&VPLp) != DivergentLoops.end();
@@ -226,8 +198,9 @@ private:
   bool propagateJoinDivergence(const VPBasicBlock &JoinBlock,
                                const VPLoop *TermLoop);
 
-  /// Propagate induced value divergence due to control divergence in \p Term.
-  void propagateBranchDivergence(const VPValue &Cond); // INTEL
+  /// Propagate induced value divergence due to control divergence in the
+  /// CondBit of \p CondBlock.
+  void propagateBranchDivergence(const VPBasicBlock *CondBlock); // INTEL
 
   /// Propagate divergent caused by a divergent loop exit.
   ///
@@ -238,13 +211,6 @@ private:
   unsigned getTypeSizeInBytes(Type *Ty) const;
 
 #if INTEL_CUSTOMIZATION
-
-  /// Initialize shapes for LoopHeader.
-  void initializeShapesForLoopInvariantCode();
-
-  /// Initialize shapes before propagation.
-  void initializePhiShapes();
-
   /// Returns true if OldShape is not equal to NewShape.
   bool shapesAreDifferent(VPVectorShape OldShape, VPVectorShape NewShape);
 
@@ -309,14 +275,10 @@ private:
   /// Returns a VPConstant of \p Val.
   VPConstant* getConstantInt(int64_t Val);
 
-  /// Push operands of \p I to the worklist. Used when some operands vector
-  /// shapes are needed to compute the vector shape of \p I.
-  bool pushMissingOperands(const VPInstruction &I);
-
   /// Verify that there are no undefined shapes after divergence analysis.
   /// Also ensure that divergent/uniform properties are consistent with vector
   /// shapes.
-  void verifyVectorShapes(const VPLoop *VPLp);
+  void verifyVectorShapes();
 
   /// Verify the shape of each instruction in give Block \p VPBB.
   void verifyBasicBlock(const VPBasicBlock *VPBB);
@@ -344,9 +306,6 @@ private:
   // Use simplified code path for LCSSA form.
   bool IsLCSSAForm;
 
-  // Set of known-uniform values.
-  DenseSet<const VPValue *> UniformOverrides;
-
   // Blocks with joining divergent control from different predecessors.
   DenseSet<const VPBasicBlock *> DivergentJoinBlocks;
 
@@ -359,9 +318,10 @@ private:
   // Unique-elements of the Worklist.
   DenseSet<const VPInstruction*> OnWorklist;
 
-  // Internal list of values with 'pinned' values.
-  DenseSet<const VPValue *> Pinned;
-
+  // Keep track of instructions that form CondBits and the actual block(s)
+  // containing the CondBit.
+  using BlockVectorTy = SmallVector<const VPBasicBlock *, 4>;
+  DenseMap<const VPValue *, BlockVectorTy> CondBit2BlockMap;
 };
 
 } // namespace vpo

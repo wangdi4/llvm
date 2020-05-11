@@ -9,8 +9,7 @@ define void @foo1()  {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[TMP0:%.*]] = load <2 x i32>*, <2 x i32>** @arr2p, align 8
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[INDEX:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[INDEX_NEXT:%.*]], [[VECTOR_BODY:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP17:%.*]], [[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i64 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP17:%.*]], [[VECTOR_BODY:%.*]] ]
 ; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i64 [ 0, [[VECTOR_PH]] ], [ [[TMP15:%.*]], [[VECTOR_BODY]] ]
 ; CHECK:         [[SCALAR_GEP2:%.*]] = getelementptr inbounds <2 x i32>, <2 x i32>* [[TMP0]], i64 [[UNI_PHI1]]
 ; CHECK-NEXT:    [[TMP5:%.*]] = bitcast <2 x i32>* [[SCALAR_GEP2]] to <8 x i32>*
@@ -31,6 +30,8 @@ define void @foo1()  {
 ; CHECK-NEXT:    store <8 x i32> [[TMP12]], <8 x i32>* [[TMP13]], align 4
 ; CHECK:         [[TMP15]] = add nuw nsw i64 [[UNI_PHI1]], 4
 ; CHECK:         [[TMP17]] = add i64 [[UNI_PHI]], 4
+; CHECK-NEXT:    [[TMP18:%.*]] = icmp eq i64 [[TMP17]], 48
+; CHECK-NEXT:    br i1 [[TMP18]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]]
 ;
 entry:
   %0 = load <2 x i32>*, <2 x i32>** @arr2p, align 8

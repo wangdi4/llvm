@@ -4,8 +4,8 @@
 ; necessarily defined in the predecessor VPBB, but the value rather flows in
 ; from another predecessor in the control flow.
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-plain-cfg -S -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir"  -vplan-print-plain-cfg -S -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-plain-cfg -vplan-dump-external-defs-hir=0 -S -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir"  -vplan-print-plain-cfg -vplan-dump-external-defs-hir=0 -S -disable-output < %s 2>&1 | FileCheck %s
 
 ; Input HIR
 ; <73>    + DO i1 = 0, 1023, 1   <DO_LOOP>
@@ -70,7 +70,7 @@ define dso_local i32 @foo(i32 %N) local_unnamed_addr {
 ; CHECK-NEXT:    [[BB2]]:
 ; CHECK-NEXT:     i32 [[VP0:%.*]] = phi  [ i32 [[T2_0690:%.*]], [[BB1]] ],  [ i32 [[VP1:%.*]], [[BB3:BB[0-9]+]] ]
 ; CHECK-NEXT:     i64 [[VP2:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB3]] ]
-; CHECK-NEXT:     i32 [[VP4:%.*]] = bitcast i32 [[VP0]]
+; CHECK-NEXT:     i32 [[VP4:%.*]] = call i32 [[VP0]] i32 (i32)* @llvm.ssa.copy.i32
 ; CHECK-NEXT:     i32* [[VP5:%.*]] = getelementptr inbounds [1024 x i32]* @a i64 0 i64 [[VP2]]
 ; CHECK-NEXT:     i32 [[VP6:%.*]] = load i32* [[VP5]]
 ; CHECK-NEXT:     i64 [[VP7:%.*]] = sext i32 [[VP6]] to i64
@@ -82,7 +82,7 @@ define dso_local i32 @foo(i32 %N) local_unnamed_addr {
 ; CHECK-NEXT:       i64 [[VP9:%.*]] = add i64 [[VP2]] i64 1
 ; CHECK-NEXT:       i32* [[VP10:%.*]] = getelementptr inbounds [1024 x i32]* @a i64 0 i64 [[VP9]]
 ; CHECK-NEXT:       i32 [[VP11:%.*]] = load i32* [[VP10]]
-; CHECK-NEXT:       i32 [[VP12:%.*]] = bitcast i32 [[VP11]]
+; CHECK-NEXT:       i32 [[VP12:%.*]] = call i32 [[VP11]] i32 (i32)* @llvm.ssa.copy.i32
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB3]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
@@ -95,15 +95,15 @@ define dso_local i32 @foo(i32 %N) local_unnamed_addr {
 ; CHECK-NEXT:         i64 [[VP14:%.*]] = add i64 [[VP2]] i64 134
 ; CHECK-NEXT:         i32* [[VP15:%.*]] = getelementptr inbounds [1024 x i32]* @a i64 0 i64 [[VP14]]
 ; CHECK-NEXT:         i32 [[VP16:%.*]] = load i32* [[VP15]]
-; CHECK-NEXT:         i32 [[VP17:%.*]] = bitcast i32 [[VP16]]
-; CHECK-NEXT:         i32 [[VP18:%.*]] = bitcast i32 [[VP6]]
+; CHECK-NEXT:         i32 [[VP17:%.*]] = call i32 [[VP16]] i32 (i32)* @llvm.ssa.copy.i32
+; CHECK-NEXT:         i32 [[VP18:%.*]] = call i32 [[VP6]] i32 (i32)* @llvm.ssa.copy.i32
 ; CHECK-NEXT:        SUCCESSORS(1):[[BB8:BB[0-9]+]]
 ; CHECK-NEXT:        PREDECESSORS(1): [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB6]]:
-; CHECK-NEXT:         i32 [[VP19:%.*]] = bitcast i32 [[VP4]]
+; CHECK-NEXT:         i32 [[VP19:%.*]] = call i32 [[VP4]] i32 (i32)* @llvm.ssa.copy.i32
 ; CHECK-NEXT:         i32 [[VP20:%.*]] = mul i32 [[VP6]] i32 2
-; CHECK-NEXT:         i32 [[VP21:%.*]] = bitcast i32 [[VP20]]
+; CHECK-NEXT:         i32 [[VP21:%.*]] = call i32 [[VP20]] i32 (i32)* @llvm.ssa.copy.i32
 ; CHECK-NEXT:        SUCCESSORS(1):[[BB8]]
 ; CHECK-NEXT:        PREDECESSORS(1): [[BB4]]
 ; CHECK-EMPTY:
@@ -111,15 +111,15 @@ define dso_local i32 @foo(i32 %N) local_unnamed_addr {
 ; CHECK-NEXT:       i32 [[VP22:%.*]] = phi  [ i32 [[VP21]], [[BB6]] ],  [ i32 [[VP18]], [[BB7]] ]
 ; CHECK-NEXT:       i32 [[VP23:%.*]] = phi  [ i32 [[VP19]], [[BB6]] ],  [ i32 [[VP17]], [[BB7]] ]
 ; CHECK-NEXT:       i32 [[VP24:%.*]] = add i32 [[VP23]] i32 1024
-; CHECK-NEXT:       i32 [[VP25:%.*]] = bitcast i32 [[VP24]]
-; CHECK-NEXT:       i32 [[VP26:%.*]] = bitcast i32 [[VP22]]
+; CHECK-NEXT:       i32 [[VP25:%.*]] = call i32 [[VP24]] i32 (i32)* @llvm.ssa.copy.i32
+; CHECK-NEXT:       i32 [[VP26:%.*]] = call i32 [[VP22]] i32 (i32)* @llvm.ssa.copy.i32
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB3]]
 ; CHECK-NEXT:      PREDECESSORS(2): [[BB6]] [[BB7]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]:
 ; CHECK-NEXT:     i32 [[VP27:%.*]] = phi  [ i32 [[VP26]], [[BB8]] ],  [ i32 [[VP12]], [[BB5]] ]
 ; CHECK-NEXT:     i32 [[VP1]] = phi  [ i32 [[VP25]], [[BB8]] ],  [ i32 [[VP0]], [[BB5]] ]
-; CHECK-NEXT:     i32 [[VP28:%.*]] = bitcast i32 [[VP1]]
+; CHECK-NEXT:     i32 [[VP28:%.*]] = call i32 [[VP1]] i32 (i32)* @llvm.ssa.copy.i32
 ; CHECK-NEXT:     i32* [[VP29:%.*]] = getelementptr inbounds [1024 x i32]* @b i64 0 i64 [[VP2]]
 ; CHECK-NEXT:     store i32 [[VP27]] i32* [[VP29]]
 ; CHECK-NEXT:     i32 [[VP30:%.*]] = mul i32 [[N0:%.*]] i32 2
@@ -150,7 +150,6 @@ define dso_local i32 @foo(i32 %N) local_unnamed_addr {
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB9]]
-; CHECK-EMPTY:
 ;
 omp.inner.for.body.lr.ph:
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i8* null), "QUAL.OMP.NORMALIZED.UB"(i8* null) ]

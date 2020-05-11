@@ -10,7 +10,7 @@
 ; RUN:    2>&1 | FileCheck %s
 
 ; Check that main is a valid symbol
-; CHECK: WHOLE-PROGRAM-ANALYSIS: WHOLE PROGRAM READ
+; CHECK: WHOLE-PROGRAM-ANALYSIS: WHOLE PROGRAM READ TRACE
 ; CHECK: SYMBOL NAME: main
 ; CHECK: RESULT: MAIN | RESOLVED BY LINKER
 
@@ -23,7 +23,7 @@
 
 ; CHECK: SYMBOLS RESOLVED BY LINKER: 3
 ; CHECK: SYMBOLS NOT RESOLVED BY LINKER: 0
-; CHECK-NOT: whole program not read
+; CHECK: WHOLE PROGRAM READ:  DETECTED
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

@@ -30,7 +30,7 @@ define void @foo(i32* nocapture %ary) {
 ; CHECK-NEXT:   #5 <4 x 32> SStore
 ; CHECK-NEXT:   #6 <4 x 32> SStore
 ;
-; CHECK:       vector.body:
+; CHECK-LABEL: @foo
 ; CHECK:         [[MM_VECTORGEP:%.*]] = getelementptr inbounds i32, <4 x i32*> [[BROADCAST_SPLAT:%.*]], <4 x i64> [[VEC_PHI:%.*]]
 ; CHECK-NEXT:    [[MM_VECTORGEP_0:%.*]] = extractelement <4 x i32*> [[MM_VECTORGEP]], i64 0
 ; CHECK-NEXT:    [[GROUPPTR:%.*]] = bitcast i32* [[MM_VECTORGEP_0]] to <12 x i32>*
@@ -52,7 +52,6 @@ define void @foo(i32* nocapture %ary) {
 ; CHECK-NEXT:    [[MM_VECTORGEP_06:%.*]] = extractelement <4 x i32*> [[MM_VECTORGEP]], i64 0
 ; CHECK-NEXT:    [[GROUPPTR7:%.*]] = bitcast i32* [[MM_VECTORGEP_06]] to <12 x i32>*
 ; CHECK-NEXT:    store <12 x i32> [[GROUPSHUFFLE5]], <12 x i32>* [[GROUPPTR7]], align 4
-; CHECK:         br i1 %{{.*}}, label %{{.*}}, label %vector.body
 ;
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]

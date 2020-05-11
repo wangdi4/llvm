@@ -18,6 +18,7 @@
 #include "IntelVPlan.h"
 #include "IntelVPlanUtils.h"
 #include "IntelVPlanVLSAnalysis.h"
+#include "IntelVPSOAAnalysis.h"
 #include "llvm/Analysis/LoopAccessAnalysis.h"
 #include "llvm/Analysis/ScalarEvolutionExpander.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
@@ -304,46 +305,6 @@ void VPOCodeGen::emitVectorLoopEnteredCheck(Loop *L, BasicBlock *Bypass) {
   LoopBypassBlocks.push_back(BB);
 }
 
-PHINode *VPOCodeGen::createInductionVariable(Loop *L, Value *Start, Value *End,
-                                             Value *Step) {
-  BasicBlock *Header = L->getHeader();
-  BasicBlock *Latch = L->getLoopLatch();
-  // As we're just creating this loop, it's possible no latch exists
-  // yet. If so, use the header as this will be a single block loop.
-  if (!Latch)
-    Latch = Header;
-
-  IRBuilder<> Builder(&*Header->getFirstInsertionPt());
-  auto *Induction = Builder.CreatePHI(Start->getType(), 2, "index");
-
-  Builder.SetInsertPoint(Latch->getTerminator());
-
-  // Create i+1 and fill the PHINode.
-  Value *Next = Builder.CreateAdd(Induction, Step, "index.next");
-  Induction->addIncoming(Start, L->getLoopPreheader());
-  Induction->addIncoming(Next, Latch);
-
-  // Create the compare. Special case for 1-trip count vector loop by checking
-  // for End == Step and start value of zero. We rely on later optimizations to
-  // cleanup the loop. TODO: Consider modifying the vector code generation to
-  // avoid the vector loop altogether for such cases.
-  Value *ICmp;
-  ConstantInt *ConstStart = dyn_cast<ConstantInt>(Start);
-  if (End == Step && ConstStart && ConstStart->isZero())
-    ICmp = Builder.getInt1(true);
-  else
-    ICmp = Builder.CreateICmpEQ(Next, End);
-
-  BasicBlock *Exit = L->getExitBlock();
-  assert(Exit && "Exit block not found for loop.");
-  Builder.CreateCondBr(ICmp, Exit, Header);
-
-  // Now we have two terminators. Remove the old one from the block.
-  Latch->getTerminator()->eraseFromParent();
-
-  return Induction;
-}
-
 void VPOCodeGen::createEmptyLoop() {
 
   LoopScalarBody = OrigLoop->getHeader();
@@ -385,24 +346,15 @@ void VPOCodeGen::createEmptyLoop() {
 
   Lp->addBasicBlockToLoop(LoopVectorBody, *LI);
 
-  // Find the loop boundaries.
-  Value *Count = getOrCreateTripCount(Lp);
-
   // Now, compare the new count to zero. If it is zero skip the vector loop and
   // jump to the scalar loop.
   emitVectorLoopEnteredCheck(Lp, LoopScalarPreHeader);
 
+  // Find the loop boundaries.
+  Value *Count = getOrCreateTripCount(Lp);
   // CountRoundDown is a counter for the vectorized loop.
   // CountRoundDown = Count - Count % VF.
   Value *CountRoundDown = getOrCreateVectorTripCount(Lp);
-
-  Type *IdxTy = Legal->getWidestInductionType();
-  Value *StartIdx = ConstantInt::get(IdxTy, 0);
-  Constant *Step = ConstantInt::get(IdxTy, VF * UF);
-
-  // Create an induction variable in vector loop with a step equal to VF.
-  Induction = createInductionVariable(Lp, StartIdx, CountRoundDown, Step);
-
   // Add a check in the middle block to see if we have completed
   // all of the iterations in the first vector loop.
   // If (N - N%VF) == N, then we *don't* need to run the remainder.
@@ -448,6 +400,10 @@ void VPOCodeGen::updateAnalysis() {
   DT->changeImmediateDominator(LoopExitBlock, LoopBypassBlocks[0]);
 
   // LLVM_DEBUG(DT->verifyDomTree());
+}
+
+BasicBlock &VPOCodeGen::getFunctionEntryBlock() const {
+  return OrigLoop->getHeader()->getParent()->front();
 }
 
 /// Reverse vector \p Vec. \p OriginalVL specifies the original vector length
@@ -540,27 +496,6 @@ static bool isOrUsesVPInduction(VPInstruction *VPI) {
 // TODO: replace with a query to a real analysis.
 bool VPOCodeGen::needScalarCode(VPInstruction *V) {
   return isOrUsesVPInduction(V);
-}
-
-void VPOCodeGen::widenNonInductionPhi(VPPHINode *VPPhi) {
-  auto PhiTy = VPPhi->getType();
-  PHINode *NewPhi;
-  // FIXME: Replace with proper SVA.
-  bool EmitScalarOnly =
-      !Plan->getVPlanDA()->isDivergent(*VPPhi) && !MaskValue;
-  if (needScalarCode(VPPhi) || EmitScalarOnly) {
-    NewPhi = Builder.CreatePHI(PhiTy, VPPhi->getNumOperands(), "uni.phi");
-    VPScalarMap[VPPhi][0] = NewPhi;
-    ScalarPhisToFix[VPPhi] = NewPhi;
-  }
-  if (EmitScalarOnly)
-    return;
-  if (needVectorCode(VPPhi)) {
-    PhiTy = getWidenedType(PhiTy, VF);
-    NewPhi = Builder.CreatePHI(PhiTy, VPPhi->getNumOperands(), "vec.phi");
-    VPWidenMap[VPPhi] = NewPhi;
-    PhisToFix[VPPhi] = NewPhi;
-  }
 }
 
 std::unique_ptr<VectorVariant>
@@ -693,7 +628,7 @@ void VPOCodeGen::addMaskToSVMLCall(Function *OrigF, Value *CallMaskValue,
              cast<VectorType>(CallMaskValue->getType())->getNumElements() &&
          "Re-vectorization of SVML functions is not supported yet");
 
-  if (VecTy->getBitWidth() < 512) {
+  if (VecTy->getPrimitiveSizeInBits().getFixedSize() < 512) {
     // For 128-bit and 256-bit masked calls, mask value is appended to the
     // parameter list. For example:
     //
@@ -1994,8 +1929,8 @@ Value *VPOCodeGen::vectorizeInterleavedLoad(VPInstruction *VPLoad,
   auto *GroupLeaderVecTy = dyn_cast<VectorType>(GroupLeaderTy);
   unsigned OriginalVL =
       GroupLeaderVecTy ? GroupLeaderVecTy->getNumElements() : 1;
-  Constant *ShuffleMask = createVectorStrideMask(
-      Builder, InterleaveIndex, InterleaveFactor, VF, OriginalVL);
+  SmallVector<int, 64> ShuffleMask =
+      createVectorStrideMask(InterleaveIndex, InterleaveFactor, VF, OriginalVL);
   Value *GroupShuffle = Builder.CreateShuffleVector(
       GroupLoad, UndefValue::get(GroupLoad->getType()), ShuffleMask,
       "groupShuffle");
@@ -2167,8 +2102,8 @@ void VPOCodeGen::vectorizeInterleavedStore(VPInstruction *VPStoreArg,
 
     // Shuffle values into the correct order. A bit more sophisticated shuffle
     // mask is required if the original type is itself a vector type.
-    Constant *ShuffleMask =
-        createVectorInterleaveMask(Builder, VF, InterleaveFactor, OriginalVL);
+    SmallVector<int, 64> ShuffleMask =
+        createVectorInterleaveMask(VF, InterleaveFactor, OriginalVL);
     StoredValue = Builder.CreateShuffleVector(
         ConcatValue, UndefValue::get(ConcatValue->getType()), ShuffleMask,
         "groupShuffle");
@@ -2221,13 +2156,20 @@ void VPOCodeGen::vectorizeUnitStrideStore(VPInstruction *VPInst, int StrideVal,
     // to reverse the order of elements in the stored value.
     VecDataOp = reverseVector(VecDataOp);
 
+  Instruction *Store;
   if (MaskValue) {
     // Replicate the mask if VPInst is a vector instruction originally.
     Value *RepMaskValue = replicateVectorElts(MaskValue, OriginalVL, Builder,
                                               "replicatedMaskElts.");
-    Builder.CreateMaskedStore(VecDataOp, VecPtr, Alignment, RepMaskValue);
+    Store =
+        Builder.CreateMaskedStore(VecDataOp, VecPtr, Alignment, RepMaskValue);
   } else
-    Builder.CreateAlignedStore(VecDataOp, VecPtr, Alignment);
+    Store = Builder.CreateAlignedStore(VecDataOp, VecPtr, Alignment);
+
+  if (auto *DynPeeling =
+          dyn_cast_or_null<VPlanDynamicPeeling>(PreferredPeeling))
+    if (VPInst == DynPeeling->memref())
+      attachPreferredAlignmentMetadata(Store, DynPeeling->targetAlignment());
 }
 
 void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
@@ -2559,7 +2501,7 @@ void VPOCodeGen::vectorizeCallInstruction(VPInstruction *VPCall,
     //
     // 1) A select is already generated for call results that are live outside
     //    of the predicated region by using the predicated region's mask. See
-    //    widenNonInductionPhi().
+    //    vectorizeVPPHINode().
     //
     // 2) Currently, masked stores are always generated for call results stored
     //    to memory within a predicated region. See vectorizeStoreInstruction().
@@ -2718,14 +2660,15 @@ Value *VPOCodeGen::getScalarValue(VPValue *V, unsigned Lane) {
   // getScalarValue(Wide.Val, 1) would return <v1_1, v2_1>
   if (auto *ValVecTy = dyn_cast<VectorType>(V->getType())) {
     unsigned OrigNumElts = ValVecTy->getNumElements();
-    SmallVector<unsigned, 8> ShufMask;
+    SmallVector<int, 8> ShufMask;
     for (unsigned StartIdx = Lane * OrigNumElts,
                   EndIdx = (Lane * OrigNumElts) + OrigNumElts;
          StartIdx != EndIdx; ++StartIdx)
       ShufMask.push_back(StartIdx);
 
     Value *Shuff = Builder.CreateShuffleVector(
-        VecV, UndefValue::get(VecV->getType()), ShufMask, "extractsubvec.");
+        VecV, UndefValue::get(cast<VectorType>(VecV->getType())), ShufMask,
+        "extractsubvec.");
 
     VPScalarMap[V][Lane] = Shuff;
 
@@ -2800,7 +2743,7 @@ void VPOCodeGen::vectorizeExtractElement(VPInstruction *VPInst) {
   unsigned Index = OrigIndexVPConst->getZExtValue();
 
   // Extract subvector. The subvector should include VF elements.
-  SmallVector<unsigned, 8> ShufMask;
+  SmallVector<int, 8> ShufMask;
   unsigned WideNumElts = VF * OriginalVL;
   for (unsigned Idx = Index; Idx < WideNumElts; Idx += OriginalVL)
     ShufMask.push_back(Idx);
@@ -2898,7 +2841,7 @@ void VPOCodeGen::vectorizeInsertElement(VPInstruction *VPInst) {
 
   Value *ExtendSubVec =
       extendVector(NewSubVec, WideNumElts, Builder, NewSubVec->getName());
-  SmallVector<unsigned, 8> ShufMask2;
+  SmallVector<int, 8> ShufMask2;
   for (unsigned FirstVecIdx = 0, SecondVecIdx = WideNumElts;
        FirstVecIdx < WideNumElts; ++FirstVecIdx) {
     if ((FirstVecIdx % OriginalVL) == Index)
@@ -2923,7 +2866,7 @@ void VPOCodeGen::vectorizeShuffle(VPInstruction *VPInst) {
            "First operand of simple supported shuffle is not insertelement");
     VPValue *SplVal = cast<VPInstruction>(VPInst->getOperand(0))->getOperand(1);
     Value *Vec = getVectorValue(SplVal);
-    SmallVector<unsigned, 8> ShufMask;
+    SmallVector<int, 8> ShufMask;
     for (unsigned I = 0; I < OriginalVL; ++I)
       for (unsigned J = 0; J < VF; ++J)
         ShufMask.push_back(J);
@@ -2942,7 +2885,7 @@ void VPOCodeGen::vectorizeShuffle(VPInstruction *VPInst) {
   int InstVL = cast<VectorType>(VPInst->getType())->getNumElements();
   // All-zero mask case.
   if (isa<ConstantAggregateZero>(Mask)) {
-    SmallVector<unsigned, 8> ShufMask;
+    SmallVector<int, 8> ShufMask;
     int Repeat = InstVL / OriginalVL;
     for (int K = 0; K < Repeat; K++)
       for (unsigned I = 0; I < OriginalVL; ++I)
@@ -3025,14 +2968,6 @@ void VPOCodeGen::serializeWithPredication(VPInstruction *VPInst) {
 }
 
 void VPOCodeGen::serializeInstruction(VPInstruction *VPInst) {
-  // TODO: Allow serialization for all types and get rid of the assert below
-  // (CMPLRLLVM-19198).
-  // TODO: Handle serialization of aggregate type instructions.
-  assert((VPInst->getOpcode() == Instruction::Call ||
-          VPInst->getOpcode() == Instruction::InsertValue ||
-          VPInst->getOpcode() == Instruction::ExtractValue ||
-          !VPInst->getType()->isAggregateType()) &&
-         "Can't serialize aggregate type instructions.");
 
   unsigned Lanes =
       (!VPInst->mayHaveSideEffects() && isVPValueUniform(VPInst, Plan)) ||
@@ -3088,27 +3023,25 @@ void VPOCodeGen::vectorizeBlend(VPBlendInst *Blend) {
   VPWidenMap[Blend] = BlendVal;
 }
 
-void VPOCodeGen::vectorizeReductionPHI(VPPHINode *VPPhi,
-                                       PHINode *UnderlyingPhi) {
-  Type *ScalarTy = VPPhi->getType();
-  assert(!ScalarTy->isAggregateType() && "Unexpected reduction type");
-  assert(VPPhi->getParent()->getNumPredecessors() == 2 &&
-         "Unexpected reduction phi placement");
-  Type *VecTy = VectorType::get(ScalarTy, VF);
-  PHINode *VecPhi = PHINode::Create(VecTy, 2, "vec.phi",
-                                    &*LoopVectorBody->getFirstInsertionPt());
-  VPWidenMap[VPPhi] = VecPhi;
-
-  // We need an additional fixup.
-  PhisToFix[VPPhi] = VecPhi;
-}
-
 void VPOCodeGen::vectorizeVPPHINode(VPPHINode *VPPhi) {
-  if (VPEntities && VPEntities->isReductionPhi(VPPhi))
-    // Handle reductions.
-    vectorizeReductionPHI(VPPhi);
-  else
-    widenNonInductionPhi(VPPhi);
+  auto PhiTy = VPPhi->getType();
+  PHINode *NewPhi;
+  // FIXME: Replace with proper SVA.
+  bool EmitScalarOnly =
+      !Plan->getVPlanDA()->isDivergent(*VPPhi) && !MaskValue;
+  if (needScalarCode(VPPhi) || EmitScalarOnly) {
+    NewPhi = Builder.CreatePHI(PhiTy, VPPhi->getNumOperands(), "uni.phi");
+    VPScalarMap[VPPhi][0] = NewPhi;
+    ScalarPhisToFix[VPPhi] = NewPhi;
+  }
+  if (EmitScalarOnly)
+    return;
+  if (needVectorCode(VPPhi)) {
+    PhiTy = getWidenedType(PhiTy, VF);
+    NewPhi = Builder.CreatePHI(PhiTy, VPPhi->getNumOperands(), "vec.phi");
+    VPWidenMap[VPPhi] = NewPhi;
+    PhisToFix[VPPhi] = NewPhi;
+  }
 }
 
 void VPOCodeGen::vectorizeReductionFinal(VPReductionFinal *RedFinal) {
@@ -3400,6 +3333,14 @@ void VPOCodeGen::fixOutgoingValues() {
       fixInductionLastVal(*Induction,
                           cast<VPInductionFinal>(LastValPair.second));
   }
+}
+
+void VPOCodeGen::attachPreferredAlignmentMetadata(Instruction *Memref,
+                                                  Align PreferredAlignment) {
+  auto &C = Builder.getContext();
+  auto *CI = ConstantInt::get(Type::getInt32Ty(C), PreferredAlignment.value());
+  SmallVector<Metadata *, 1> Ops{ConstantAsMetadata::get(CI)};
+  Memref->setMetadata("intel.preferred_alignment", MDTuple::get(C, Ops));
 }
 
 void VPOCodeGen::fixLiveOutValues(VPInstruction *FinalVPInst, Value *LastVal) {

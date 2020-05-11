@@ -3,6 +3,7 @@ import os
 import shlex
 import sys
 
+import lit.reports
 import lit.util
 
 
@@ -57,7 +58,10 @@ def parse_args():
             help="Display all commandlines and output",
             action="store_true")
     format_group.add_argument("-o", "--output",
-            dest="output_path",
+            dest="reports",
+            action="append",
+            type=lit.reports.JsonReport,
+            default=[],
             help="Write test results to the provided path",
             metavar="PATH")
     format_group.add_argument("--no-progress-bar",
@@ -91,7 +95,6 @@ def parse_args():
             action="append",
             default=[])
     execution_group.add_argument("--time-tests",
-            dest="timeTests",
             help="Track elapsed wall time for each test",
             action="store_true")
     execution_group.add_argument("--no-execute",
@@ -99,7 +102,10 @@ def parse_args():
             help="Don't execute any tests (assume PASS)",
             action="store_true")
     execution_group.add_argument("--xunit-xml-output",
-            dest="xunit_output_file",
+            dest="reports",
+            action="append",
+            type=lit.reports.XunitReport,
+            default=[],
             help="Write XUnit-compatible XML test reports to the specified file")
     execution_group.add_argument("--timeout",
             dest="maxIndividualTestTime",
@@ -152,12 +158,10 @@ def parse_args():
             help="Enable debugging (for 'lit' development)",
             action="store_true")
     debug_group.add_argument("--show-suites",
-            dest="showSuites",
-            help="Show discovered test suites",
+            help="Show discovered test suites and exit",
             action="store_true")
     debug_group.add_argument("--show-tests",
-            dest="showTests",
-            help="Show all discovered tests",
+            help="Show all discovered tests and exit",
             action="store_true")
 
     # LIT is special: environment variables override command line arguments.

@@ -567,8 +567,10 @@ public:
   /// `__kmpc_end_critical` are successfully inserted, \b false otherwise.
   static bool genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
                                      Constant *TidPtr,
+                                     DominatorTree *DT,
+                                     LoopInfo *LI,
                                      bool IsTargetSPIRV,
-                                     const StringRef LockNameSuffix = "");
+                                     const Twine &LockNameSuffix = "");
 
   /// Generate a critical section around Instructions \p BeginInst and \p
   /// EndInst. The function emits calls to `__kmpc_critical` \b before \p
@@ -601,8 +603,10 @@ public:
   static bool genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
                                      Constant *TidPtr, Instruction *BeginInst,
                                      Instruction *EndInst,
+                                     DominatorTree *DT,
+                                     LoopInfo *LI,
                                      bool IsTargetSPIRV,
-                                     const StringRef LockNameSuffix);
+                                     const Twine &LockNameSuffix = "");
 
   /// Generate a call to query if the current thread is master thread or a
   /// call to end_master for the team of threadsi. Emitted call:
@@ -1512,7 +1516,7 @@ private:
   ///
   /// \returns The lock variable for the critical section to be generated.
   static GlobalVariable *
-  genKmpcCriticalLockVar(WRegionNode *W, const StringRef LockNameSuffix,
+  genKmpcCriticalLockVar(WRegionNode *W, const Twine &LockNameSuffix,
                          bool IsTargetSPIRV);
 
   /// Handles generation of a critical section around \p BeginInst and \p
@@ -1530,7 +1534,27 @@ private:
                                          Instruction *BeginInst,
                                          Instruction *EndInst,
                                          GlobalVariable *LockVar,
+                                         DominatorTree *DT,
+                                         LoopInfo *LI,
                                          bool IsTargetSPIRV);
+
+  /// Generates lane-by-lane execution loop for code inside a critical
+  /// section (guarded with __kmpc_critical/__kmpc_end_critical calls).
+  /// \p BeginInst and \p EndInst identify a piece of code that needs
+  /// to be wrapped into the loop. \p BeginInst must dominate \p EndInst,
+  /// and \p EndInst must post-dominate \p BeginInst.
+  /// The generated loop looks like this:
+  ///   for (int id = 0; id < get_sub_group_size(); ++id) {
+  ///     if (id != get_sub_group_local_id())
+  ///       continue;
+  ///     <BeginInst>
+  ///     ...
+  ///     <EndInst>
+  ///   }
+  static bool genCriticalLoopForSPIR(Instruction *BeginInst,
+                                     Instruction *EndInst,
+                                     DominatorTree *DT,
+                                     LoopInfo *LI);
 
   /// Generate a call to `__kmpc_[end_]taskgroup`.
   /// \code

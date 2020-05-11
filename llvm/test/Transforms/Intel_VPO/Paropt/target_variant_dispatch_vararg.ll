@@ -1,5 +1,7 @@
 ; RUN: opt -vpo-paropt-prepare -S < %s | FileCheck %s
 ; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -S | FileCheck %s
+; RUN: opt -vpo-paropt-prepare -S -vpo-paropt-use-raw-dev-ptr < %s | FileCheck %s
+; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -S -vpo-paropt-use-raw-dev-ptr | FileCheck %s
 ; Test for TARGET VARIANT DISPATCH construct where the base/variant functions
 ; are VarArg
 

@@ -120,7 +120,7 @@
 
 ; Call + float instructions
 ; CHECK-CG:  {{.*}} = sitofp i32 {{.*}} to float, !dbg ![[m33:.*]]
-; CHECK-CG:  {{.*}} = tail call float bitcast (float (...)* @bar to float ()*)() #3, !dbg ![[m33]]
+; CHECK-CG:  {{.*}} = tail call float bitcast (float (...)* @bar to float ()*)(), !dbg ![[m33]]
 ; CHECK-CG:  {{.*}} = fmul float {{.*}}, {{.*}}, !dbg ![[m33]]
 ; CHECK-CG:  {{.*}} = fadd float {{.*}}, {{.*}}, !dbg ![[m33]]
 ; CHECK-CG:  store float {{.*}}, float* {{.*}}, !dbg ![[m33]]
@@ -139,13 +139,13 @@
 ; CHECK-CG:  br i1 {{.*}}, label %then.22, label %ifmerge.22, !dbg ![[m45]]
 
 ; Load ref + CE
-; CHECK-CG:  {{.*}} = load i32, i32* %i1.i32, !dbg ![[m26]]
+; CHECK-CG:  {{.*}} = load i32, i32* %i1.i32, align 4, !dbg ![[m26]]
 ; CHECK-CG:  {{.*}} = add i32 {{.*}}, 1, !dbg ![[m26]]
 ; CHECK-CG:  %arrayIdx10 = getelementptr inbounds float, float* %a, i32 {{.*}}, !dbg ![[m26]]
 ; CHECK-CG:  %gepload11 = load float, float* %arrayIdx10, align 4, !dbg ![[m26]]
 
 ; Scalar store
-; CHECK-CG:  store float {{.*}}, float* {{.*}}, !dbg ![[m26]]
+; CHECK-CG:  store float {{.*}}, float* {{.*}}, align 4, !dbg ![[m26]]
 
 ; Select
 ; CHECK-CG:  %hir.selcmp.37 = fcmp une float {{.*}}, 0.000000e+00, !dbg ![[m25:.*]]
@@ -167,7 +167,7 @@ target datalayout = "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128"
 target triple = "i386-unknown-linux-gnu"
 
 ; Function Attrs: nounwind
-define void @foo(float* nocapture %a, float* nocapture %c) local_unnamed_addr #0 !dbg !7 {
+define void @foo(float* nocapture %a, float* nocapture %c) local_unnamed_addr !dbg !7 {
 entry:
   tail call void @llvm.dbg.value(metadata float* %a, i64 0, metadata !13, metadata !23), !dbg !24
   tail call void @llvm.dbg.value(metadata float* %c, i64 0, metadata !14, metadata !23), !dbg !24
@@ -184,7 +184,7 @@ for.body:                                         ; preds = %for.cond.backedge, 
   %x.060 = phi float [ 0.000000e+00, %entry ], [ %add, %for.cond.backedge ]
   %i.059 = phi i32 [ 0, %entry ], [ %add13, %for.cond.backedge ]
   %conv = sitofp i32 %i.059 to float, !dbg !30
-  %call = tail call float bitcast (float (...)* @bar to float ()*)() #3, !dbg !30
+  %call = tail call float bitcast (float (...)* @bar to float ()*)(), !dbg !30
   %mul = fmul float %conv, %call, !dbg !30
   %add = fadd float %x.060, %mul, !dbg !30
   tail call void @llvm.dbg.value(metadata float %add, i64 0, metadata !15, metadata !23), !dbg !25
@@ -198,7 +198,7 @@ if.then:                                          ; preds = %for.body
   %0 = load float, float* %arrayidx, align 4, !dbg !35, !tbaa !37
   %add5 = fadd float %add, %0, !dbg !35
   store float %add5, float* %arrayidx, align 4, !dbg !35, !tbaa !37
-  %call6 = tail call i32 bitcast (i32 (...)* @c1 to i32 ()*)() #3, !dbg !41
+  %call6 = tail call i32 bitcast (i32 (...)* @c1 to i32 ()*)(), !dbg !41
   %tobool = icmp ne i32 %call6, 0, !dbg !41
   %cmp7 = icmp sgt i32 %i.059, 0, !dbg !43
   %or.cond34 = and i1 %cmp7, %tobool, !dbg !41
@@ -222,18 +222,18 @@ if.end12:                                         ; preds = %if.then, %if.then9,
   %add22 = fadd float %conv17, %conv21, !dbg !50
   %arrayidx23 = getelementptr inbounds float, float* %c, i32 %i.059, !dbg !50
   store float %add22, float* %arrayidx23, align 4, !dbg !50, !tbaa !37
-  %call24 = tail call i32 bitcast (i32 (...)* @c1 to i32 ()*)() #3, !dbg !51
+  %call24 = tail call i32 bitcast (i32 (...)* @c1 to i32 ()*)(), !dbg !51
   switch i32 %call24, label %for.cond.backedge [
     i32 1, label %sw.bb
     i32 2, label %sw.bb29
   ], !dbg !51
 
 sw.bb:                                            ; preds = %if.end12
-  %call25 = tail call i32 bitcast (i32 (...)* @c2 to i32 ()*)() #3, !dbg !52
+  %call25 = tail call i32 bitcast (i32 (...)* @c2 to i32 ()*)(), !dbg !52
   br label %sw.epilog.sink.split, !dbg !54
 
 sw.bb29:                                          ; preds = %if.end12
-  %call30 = tail call i32 bitcast (i32 (...)* @c1 to i32 ()*)() #3, !dbg !55
+  %call30 = tail call i32 bitcast (i32 (...)* @c1 to i32 ()*)(), !dbg !55
   br label %sw.epilog.sink.split, !dbg !56
 
 sw.epilog.sink.split:                             ; preds = %sw.bb, %sw.bb29
@@ -251,19 +251,14 @@ for.cond.backedge:                                ; preds = %sw.epilog.sink.spli
   br i1 %exitcond, label %for.cond.cleanup, label %for.body, !dbg !27, !llvm.loop !60
 }
 
-declare float @bar(...) local_unnamed_addr #1
+declare float @bar(...) local_unnamed_addr
 
-declare i32 @c1(...) local_unnamed_addr #1
+declare i32 @c1(...) local_unnamed_addr
 
-declare i32 @c2(...) local_unnamed_addr #1
+declare i32 @c2(...) local_unnamed_addr
 
 ; Function Attrs: nounwind readnone
-declare void @llvm.dbg.value(metadata, i64, metadata, metadata) #2
-
-attributes #0 = { nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "pre_loopopt" "stack-protector-buffer-size"="8" "target-cpu"="pentium4" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="pentium4" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #2 = { nounwind readnone }
-attributes #3 = { nounwind }
+declare void @llvm.dbg.value(metadata, i64, metadata, metadata)
 
 !llvm.dbg.cu = !{!0}
 !llvm.module.flags = !{!3, !4}

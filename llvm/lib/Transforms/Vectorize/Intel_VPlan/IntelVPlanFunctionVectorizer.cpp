@@ -16,10 +16,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Vectorize/IntelVPlanFunctionVectorizer.h"
+
 #include "IntelVPlanCFGBuilder.h"
+#include "IntelVPlanLoopCFU.h"
+#include "IntelVPlanLoopExitCanonicalization.h"
+#include "IntelVPlanPredicator.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"
-#include "IntelVPlanLoopExitCanonicalization.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Utils.h"
@@ -36,6 +39,21 @@ static cl::opt<bool> DumpAfterLoopExitsCanonicalization(
     "print-after-vplan-func-vec-loop-exit-canon",
     cl::desc("Print after Loop Exits Canonicalizaiton for VPlan Function "
              "vectorization "),
+    cl::init(false), cl::Hidden);
+
+static cl::opt<bool> DumpAfterDA(
+    "print-after-vplan-func-vec-da",
+    cl::desc("Print after DA analysis for VPlan Function vectorization "),
+    cl::init(false), cl::Hidden);
+
+static cl::opt<bool> DumpAfterLoopCFU(
+    "print-after-vplan-func-vec-loop-cfu",
+    cl::desc("Print after LoopCFU for VPlan Function vectorization "),
+    cl::init(false), cl::Hidden);
+
+static cl::opt<bool> DumpAfterPredicator(
+    "print-after-vplan-func-vec-predicator",
+    cl::desc("Print after Predication for VPlan Function vectorization "),
     cl::init(false), cl::Hidden);
 
 using namespace llvm;
@@ -74,6 +92,33 @@ public:
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     if (DumpAfterLoopExitsCanonicalization)
       Plan->dump(outs());
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+    auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
+    Plan->setVPlanDA(std::move(VPDA));
+    Plan->getVPlanDA()->compute(Plan.get(), nullptr, VPLInfo,
+                                *Plan->getDT(), *Plan->getPDT(),
+                                false /*Not in LCSSA form*/);
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    if (DumpAfterDA)
+      Plan->dump(outs(), true);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+    VPlanLoopCFU LoopCFU(*Plan);
+    LoopCFU.run();
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    if (DumpAfterLoopCFU)
+      Plan->dump(outs(), true);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+    VPlanPredicator Predicator(*Plan.get());
+    Predicator.predicate();
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    if (DumpAfterPredicator)
+      Plan->dump(outs(), true);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
     return false;

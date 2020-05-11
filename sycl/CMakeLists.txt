@@ -2,15 +2,29 @@ cmake_minimum_required(VERSION 3.2)
 
 project(sycl-solution)
 # Requirements
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 option(SYCL_ENABLE_WERROR "Treat all warnings as errors in SYCL project" OFF)
+option(SYCL_ADD_DEV_VERSION_POSTFIX "Adds -V postfix to version string" ON)
+
+set(SYCL_MAJOR_VERSION 0)
+set(SYCL_MINOR_VERSION 1)
+set(SYCL_PATCH_VERSION 0)
+set(SYCL_DEV_ABI_VERSION 0)
+if (SYCL_ADD_DEV_VERSION_POSTFIX)
+  set(SYCL_VERSION_POSTFIX "-${SYCL_DEV_ABI_VERSION}")
+endif()
+set(SYCL_VERSION_STRING "${SYCL_MAJOR_VERSION}.${SYCL_MINOR_VERSION}.${SYCL_PATCH_VERSION}${SYCL_VERSION_POSTFIX}")
 
 # enable all warnings by default
 if (MSVC)
   set(CMAKE_CXX_FLAGS "/W4 ${CMAKE_CXX_FLAGS}")
+# INTEL_CUSTOMIZATION
+  add_definitions(
+    -wd4996 # Suppress 'function': was declared deprecated'
+  )
+# end INTEL_CUSTOMIZATION
 else ()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wno-deprecated-declarations")
 endif()
@@ -18,9 +32,6 @@ endif()
 if(SYCL_ENABLE_WERROR)
   if(MSVC)
     set(CMAKE_CXX_FLAGS "/WX ${CMAKE_CXX_FLAGS}")
-    add_definitions(
-      -wd4996 # Suppress 'function': was declared deprecated'
-    )
   else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
   endif()
@@ -257,7 +268,11 @@ add_subdirectory( source )
 
 # Auxilliary extras for SYCL headers/library
 if (NOT WIN32)
-  install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/xmethods/$<TARGET_FILE_NAME:sycl>-gdb.py" DESTINATION lib${LLVM_LIBDIR_SUFFIX} COMPONENT sycl-headers-extras)
+  install(FILES
+      "${CMAKE_CURRENT_SOURCE_DIR}/xmethods/libsycl.so-gdb.py"
+      RENAME "${CMAKE_CURRENT_SOURCE_DIR}/xmethods/$<TARGET_FILE_NAME:sycl>-gdb.py"
+      DESTINATION lib${LLVM_LIBDIR_SUFFIX}
+      COMPONENT sycl-headers-extras)
 endif()
 
 # SYCL toolchain builds all components: compiler, libraries, headers, etc.
@@ -281,15 +296,18 @@ add_custom_target( sycl-toolchain
   COMMENT "Building SYCL compiler toolchain..."
 )
 
+# Check if opencl-aot tool is enabled.
+list(FIND LLVM_ENABLE_PROJECTS opencl-aot OPENCL_AOT_FOUND)
+if(NOT OPENCL_AOT_FOUND EQUAL -1)
+  add_dependencies(sycl-toolchain opencl-aot)
+  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS opencl-aot)
+endif()
+
 if (SYCL_ENABLE_XPTI_TRACING)
   add_dependencies( sycl-toolchain xpti)
   if (MSVC)
     add_dependencies( sycl-toolchain xptid)
   endif()
-endif()
-
-if (NOT DEFINED LLVM_INCLUDE_TESTS)
-  set(LLVM_INCLUDE_TESTS ON)
 endif()
 
 option(SYCL_INCLUDE_TESTS
@@ -357,7 +375,6 @@ if(SYCL_BUILD_PI_CUDA)
   add_dependencies(sycl-toolchain libspirv-builtins pi_cuda)
   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS libspirv-builtins pi_cuda)
 endif()
-
 
 # Use it as fake dependency in order to force another command(s) to execute.
 add_custom_command(OUTPUT __force_it

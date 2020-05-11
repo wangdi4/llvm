@@ -10,10 +10,12 @@
 ; CHECK:   UNRESOLVED CALLSITES: 1
 ; CHECK:   LIBFUNCS NOT FOUND: 1
 ; CHECK:       dealloc
-; CHECK:   WHOLE PROGRAM NOT DETECTED
-; CHECK:   WHOLE PROGRAM SAFE is *NOT* determined:
-; CHECK:      whole program not seen;
-; CHECK:      whole program not read;
+; CHECK:  WHOLE PROGRAM RESULT:
+; CHECK:    MAIN DEFINITION:  DETECTED
+; CHECK:    LINKING AN EXECUTABLE:  NOT DETECTED
+; CHECK:    WHOLE PROGRAM READ:  NOT DETECTED
+; CHECK:    WHOLE PROGRAM SEEN:  NOT DETECTED
+; CHECK:    WHOLE PROGRAM SAFE:  NOT DETECTED
 
 %struct._IO_FILE = type { i32, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, %struct._IO_marker*, %struct._IO_FILE*, i32, i32, i64, i16, i8, [1 x i8], i8*, i64, i8*, i8*, i8*, i8*, i64, i32, [20 x i8] }
 %struct._IO_marker = type { %struct._IO_marker*, %struct._IO_FILE*, i32 }

@@ -104,7 +104,7 @@ if ("${LIBCXX_CXX_ABI_LIBNAME}" STREQUAL "libstdc++" OR
 elseif ("${LIBCXX_CXX_ABI_LIBNAME}" STREQUAL "libcxxabi")
   set(LIBCXX_CXX_ABI_INCLUDE_PATHS "${LIBCXX_SOURCE_DIR}/../libcxxabi/include")
 
-  if((LIBCXX_CXX_ABI_SYSTEM OR LIBCXX_STANDALONE_BUILD) AND NOT (LIBCXX_CXX_ABI_INTREE OR HAVE_LIBCXXABI))
+  if(LIBCXX_STANDALONE_BUILD AND NOT (LIBCXX_CXX_ABI_INTREE OR HAVE_LIBCXXABI))
     set(shared c++abi)
     set(static c++abi)
   else()
@@ -122,11 +122,11 @@ elseif ("${LIBCXX_CXX_ABI_LIBNAME}" STREQUAL "libcxxrt")
     "cxxrt" "cxxrt" "cxxabi.h;unwind.h;unwind-arm.h;unwind-itanium.h" ""
     )
 elseif ("${LIBCXX_CXX_ABI_LIBNAME}" STREQUAL "vcruntime")
- # Nothing TODO
+ # Nothing to do
 elseif ("${LIBCXX_CXX_ABI_LIBNAME}" STREQUAL "none")
   list(APPEND LIBCXX_COMPILE_FLAGS "-D_LIBCPP_BUILDING_HAS_NO_ABI_LIBRARY")
 elseif ("${LIBCXX_CXX_ABI_LIBNAME}" STREQUAL "default")
-  # Nothing TODO
+  # Nothing to do
 else()
   message(FATAL_ERROR
     "Unsupported c++ abi: '${LIBCXX_CXX_ABI_LIBNAME}'. \

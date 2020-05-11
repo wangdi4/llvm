@@ -16,13 +16,9 @@
 ; (n1 + n2) and the decomposition of (i1 + n1 + n2) / 9 plus the truncation
 ; to int of (i1 + n1 + n2) is done correctly.
 ;
-; The auto generated checks for external defs are replaced with CHECK-DAG
-; as the order of printing of external defs in non-deterministic. Auto
+; The auto generated checks for external defs are done using CHECK-DAG
+; as the order of printing of external defs is non-deterministic. Auto
 ; generated checks that were unnecessary were also removed.
-;
-; ** NOTE ** The check-dag for %n3 external def needs to be after the check-dag
-; for (%n1 + %n2). The test will otherwise fail as the check-dag for %n3 will
-; also match (%n1 + %n2). Please keep this in mind when updating the test.
 ;
 @longarr = dso_local local_unnamed_addr global [100 x i64] zeroinitializer, align 16
 @intarr = dso_local local_unnamed_addr global [100 x i32] zeroinitializer, align 16
@@ -30,15 +26,15 @@
 define void @foo(i64 %n1, i64 %n2, i64 %n3) {
 ; CHECK-LABEL:  Print after buildPlainCFG
 ; CHECK-NEXT:  External Defs Start:
-; CHECK-DAG:   [[VP3:%.*]] = [[N10:%.*]] + [[N20:%.*]]
-; CHECK-DAG:   [[VP0:%.*]] = [[N30:%.*]]
-; CHECK-DAG:   [[VP1:%.*]] = @longarr
-; CHECK-DAG:   [[VP2:%.*]] = @intarr
+; CHECK-DAG:   [[VP0:%.*]] = {%n3}
+; CHECK-DAG:   [[VP1:%.*]] = {@longarr}
+; CHECK-DAG:   [[VP2:%.*]] = {@intarr}
+; CHECK-DAG:   [[VP3:%.*]] = {%n1 + %n2}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK:          i64 [[VP4:%.*]] = phi  [ i64 0, {{.*}} ],  [ i64 [[VP5:%.*]], {{.*}} ]
 ; CHECK-NEXT:     i64 [[VP6:%.*]] = add i64 [[VP3]] i64 [[VP4]]
 ; CHECK-NEXT:     i64 [[VP7:%.*]] = sdiv i64 [[VP6]] i64 9
-; CHECK-NEXT:     i64 [[VP8:%.*]] = mul i64 [[N30]] i64 [[VP4]]
+; CHECK-NEXT:     i64 [[VP8:%.*]] = mul i64 [[N30:%.*]] i64 [[VP4]]
 ; CHECK-NEXT:     i64 [[VP9:%.*]] = add i64 [[VP8]] i64 111
 ; CHECK-NEXT:     i64* [[VP10:%.*]] = getelementptr inbounds [100 x i64]* @longarr i64 0 i64 [[VP9]]
 ; CHECK-NEXT:     store i64 [[VP7]] i64* [[VP10]]

@@ -16,7 +16,6 @@
 #define LLVM_TRANSFORMS_IPO_INTEL_IPCLONING_H
 
 #include "llvm/Analysis/LoopInfo.h"
-#include "llvm/IR/CallSite.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 

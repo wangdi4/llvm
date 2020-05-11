@@ -999,10 +999,12 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
           Cons = emitOpenMPDefaultConstructor(*IPriv);
         Des = emitOpenMPDestructor(Private->getType());
       }
-      addArg(Cons);
-      addArg(Des);
-      addArg(CombinerFn);
-      addArg(Init);
+      for (auto *FV : {Cons, Des, CombinerFn, Init}) {
+        addArg(FV);
+        if (auto *Fn = dyn_cast_or_null<llvm::Function>(FV))
+          if (CGF.getLangOpts().OpenMPIsDevice && CGF.CGM.inTargetRegion())
+            Fn->addFnAttr("openmp-target-declare", "true");
+      }
     }
     ++I;
     ++IPriv;
@@ -1619,6 +1621,8 @@ void OpenMPLateOutliner::emitOMPDestroyClause(const OMPDestroyClause *) {}
 void OpenMPLateOutliner::emitOMPDetachClause(const OMPDetachClause *) {}
 void OpenMPLateOutliner::emitOMPInclusiveClause(const OMPInclusiveClause *) {}
 void OpenMPLateOutliner::emitOMPExclusiveClause(const OMPExclusiveClause *) {}
+void OpenMPLateOutliner::emitOMPUsesAllocatorsClause(
+    const OMPUsesAllocatorsClause *) {}
 
 void OpenMPLateOutliner::addFenceCalls(bool IsBegin) {
   // Check current specific directive rather than directive kind (it can
@@ -2021,17 +2025,14 @@ operator<<(ArrayRef<OMPClause *> Clauses) {
         ClauseKind == OMPC_from)
       continue;
     switch (ClauseKind) {
-#define OPENMP_CLAUSE(Name, Class)                                             \
-  case OMPC_##Name:                                                            \
+#define OMP_CLAUSE_CLASS(Enum, Str, Class)                                     \
+  case llvm::omp::Clause::Enum:                                                \
     emit##Class(cast<Class>(C));                                               \
     break;
-#include "clang/Basic/OpenMPKinds.def"
-    case OMPC_match:
-    case OMPC_device_type:
-    case OMPC_uniform:
-    case OMPC_threadprivate:
-    case OMPC_unknown:
-      llvm_unreachable("Clause not allowed");
+#define OMP_CLAUSE_NO_CLASS(Enum, Str)                                         \
+  case llvm::omp::Clause::Enum:                                                \
+    llvm_unreachable("Clause not allowed");
+#include "llvm/Frontend/OpenMP/OMPKinds.def"
     }
   }
   if (!shouldSkipExplicitClause(OMPC_map) ||

@@ -7,10 +7,12 @@
 ; RUN: llvm-lto -exported-symbol=main -debug-only=whole-program-analysis -o %t2 %t1 2>&1 | FileCheck %s
 
 ; CHECK:   UNRESOLVED CALLSITES: 0
-; CHECK:   WHOLE PROGRAM DETECTED
-; CHECK:   WHOLE PROGRAM SAFE is *NOT* determined:
-; CHECK:        whole program not read;
-; CHECK:        not linking an executable;
+; CHECK:  WHOLE PROGRAM RESULT:
+; CHECK:    MAIN DEFINITION:  DETECTED
+; CHECK:    LINKING AN EXECUTABLE:  NOT DETECTED
+; CHECK:    WHOLE PROGRAM READ:  NOT DETECTED
+; CHECK:    WHOLE PROGRAM SEEN:  DETECTED
+; CHECK:    WHOLE PROGRAM SAFE:  NOT DETECTED
 
 %struct._IO_FILE = type { i32, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, i8*, %struct._IO_marker*, %struct._IO_FILE*, i32, i32, i64, i16, i8, [1 x i8], i8*, i64, i8*, i8*, i8*, i8*, i64, i32, [20 x i8] }
 %struct._IO_marker = type { %struct._IO_marker*, %struct._IO_FILE*, i32 }

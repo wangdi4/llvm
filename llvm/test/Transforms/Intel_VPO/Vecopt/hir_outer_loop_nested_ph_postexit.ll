@@ -39,55 +39,62 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define dso_local i64 @_Z3foollPlPA101_fb(i64 %n, i64 %m, i64* nocapture %ub, [101 x float]* nocapture %a, i1 zeroext %vec) local_unnamed_addr #0 {
 ; CHECK-LABEL:  Print after buildPlainCFG
+; CHECK-NEXT:  External Defs Start:
+; CHECK-DAG:     [[VP0:%.*]] = {%ret.021}
+; CHECK-DAG:     [[VP1:%.*]] = {%n + -1}
+; CHECK-DAG:     [[VP2:%.*]] = {%m + -1}
+; CHECK-DAG:     [[VP3:%.*]] = {%a}
+; CHECK-DAG:     [[VP4:%.*]] = {%ub}
+; CHECK-DAG:     [[VP5:%.*]] = {%m}
+; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]:
-; CHECK-NEXT:     i64 [[VP0:%.*]] = add i64 [[N0:%.*]] i64 -1
+; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]:
-; CHECK-NEXT:     i64 [[VP1:%.*]] = phi  [ i64 [[RET_0210:%.*]], [[BB1]] ],  [ i64 [[VP2:%.*]], [[BB3:BB[0-9]+]] ]
-; CHECK-NEXT:     i64 [[VP3:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP4:%.*]], [[BB3]] ]
-; CHECK-NEXT:     i64 [[VP5:%.*]] = bitcast i64 [[VP1]]
-; CHECK-NEXT:     i64 [[VP6:%.*]] = bitcast i64 [[VP3]]
-; CHECK-NEXT:     i64 [[VP7:%.*]] = bitcast i64 0
+; CHECK-NEXT:     i64 [[VP6:%.*]] = phi  [ i64 [[RET_0210:%.*]], [[BB1]] ],  [ i64 [[VP7:%.*]], [[BB3:BB[0-9]+]] ]
+; CHECK-NEXT:     i64 [[VP8:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP9:%.*]], [[BB3]] ]
+; CHECK-NEXT:     i64 [[VP10:%.*]] = call i64 [[VP6]] i64 (i64)* @llvm.ssa.copy.i64
+; CHECK-NEXT:     i64 [[VP11:%.*]] = call i64 [[VP8]] i64 (i64)* @llvm.ssa.copy.i64
+; CHECK-NEXT:     i64 [[VP12:%.*]] = call i64 0 i64 (i64)* @llvm.ssa.copy.i64
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]:
-; CHECK-NEXT:     float [[VP8:%.*]] = sitofp i64 [[VP3]] to float
-; CHECK-NEXT:     i64 [[VP9:%.*]] = add i64 [[M0:%.*]] i64 -1
+; CHECK-NEXT:     float [[VP13:%.*]] = sitofp i64 [[VP8]] to float
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB5:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]:
-; CHECK-NEXT:     i64 [[VP10:%.*]] = phi  [ i64 0, [[BB4]] ],  [ i64 [[VP11:%.*]], [[BB5]] ]
-; CHECK-NEXT:     float* [[VP12:%.*]] = getelementptr inbounds [101 x float]* [[A0:%.*]] i64 [[VP3]] i64 [[VP10]]
-; CHECK-NEXT:     store float [[VP8]] float* [[VP12]]
-; CHECK-NEXT:     i64 [[VP13:%.*]] = mul i64 3 i64 [[VP10]]
-; CHECK-NEXT:     i64 [[VP14:%.*]] = add i64 [[VP5]] i64 [[VP13]]
-; CHECK-NEXT:     i64* [[VP15:%.*]] = getelementptr inbounds i64* [[UB0:%.*]] i64 [[VP10]]
-; CHECK-NEXT:     store i64 [[VP14]] i64* [[VP15]]
-; CHECK-NEXT:     i64 [[VP16:%.*]] = mul i64 2 i64 [[VP10]]
-; CHECK-NEXT:     i64 [[VP17:%.*]] = add i64 [[VP5]] i64 [[VP16]]
-; CHECK-NEXT:     i64 [[VP18:%.*]] = add i64 [[VP17]] i64 2
-; CHECK-NEXT:     i64 [[VP11]] = add i64 [[VP10]] i64 1
-; CHECK-NEXT:     i1 [[VP19:%.*]] = icmp i64 [[VP11]] i64 [[VP9]]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB5]](i1 [[VP19]]), [[BB3]](!i1 [[VP19]])
+; CHECK-NEXT:     i64 [[VP14:%.*]] = phi  [ i64 0, [[BB4]] ],  [ i64 [[VP15:%.*]], [[BB5]] ]
+; CHECK-NEXT:     float* [[VP16:%.*]] = getelementptr inbounds [101 x float]* [[A0:%.*]] i64 [[VP8]] i64 [[VP14]]
+; CHECK-NEXT:     store float [[VP13]] float* [[VP16]]
+; CHECK-NEXT:     i64 [[VP17:%.*]] = mul i64 3 i64 [[VP14]]
+; CHECK-NEXT:     i64 [[VP18:%.*]] = add i64 [[VP10]] i64 [[VP17]]
+; CHECK-NEXT:     i64* [[VP19:%.*]] = getelementptr inbounds i64* [[UB0:%.*]] i64 [[VP14]]
+; CHECK-NEXT:     store i64 [[VP18]] i64* [[VP19]]
+; CHECK-NEXT:     i64 [[VP20:%.*]] = mul i64 2 i64 [[VP14]]
+; CHECK-NEXT:     i64 [[VP21:%.*]] = add i64 [[VP10]] i64 [[VP20]]
+; CHECK-NEXT:     i64 [[VP22:%.*]] = add i64 [[VP21]] i64 2
+; CHECK-NEXT:     i64 [[VP15]] = add i64 [[VP14]] i64 1
+; CHECK-NEXT:     i1 [[VP23:%.*]] = icmp i64 [[VP15]] i64 [[VP2]]
+; CHECK-NEXT:    SUCCESSORS(2):[[BB5]](i1 [[VP23]]), [[BB3]](!i1 [[VP23]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB4]] [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]:
-; CHECK-NEXT:     i64 [[VP20:%.*]] = phi  [ i64 [[VP1]], [[BB5]] ]
-; CHECK-NEXT:     i64 [[VP2]] = bitcast i64 [[VP18]]
-; CHECK-NEXT:     i64 [[VP21:%.*]] = bitcast i64 [[M0]]
-; CHECK-NEXT:     i64 [[VP22:%.*]] = bitcast i64 [[VP20]]
-; CHECK-NEXT:     i64 [[VP4]] = add i64 [[VP3]] i64 1
-; CHECK-NEXT:     i1 [[VP23:%.*]] = icmp i64 [[VP4]] i64 [[VP0]]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP23]]), [[BB6:BB[0-9]+]](!i1 [[VP23]])
+; CHECK-NEXT:     i64 [[VP24:%.*]] = phi  [ i64 [[VP6]], [[BB5]] ]
+; CHECK-NEXT:     i64 [[VP7]] = call i64 [[VP22]] i64 (i64)* @llvm.ssa.copy.i64
+; CHECK-NEXT:     i64 [[VP25:%.*]] = call i64 [[M0:%.*]] i64 (i64)* @llvm.ssa.copy.i64
+; CHECK-NEXT:     i64 [[VP26:%.*]] = call i64 [[VP24]] i64 (i64)* @llvm.ssa.copy.i64
+; CHECK-NEXT:     i64 [[VP9]] = add i64 [[VP8]] i64 1
+; CHECK-NEXT:     i1 [[VP27:%.*]] = icmp i64 [[VP9]] i64 [[VP1]]
+; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP27]]), [[BB6:BB[0-9]+]](!i1 [[VP27]])
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]:

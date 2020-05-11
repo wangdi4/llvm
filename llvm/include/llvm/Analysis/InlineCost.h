@@ -448,6 +448,41 @@ getInlineCost(CallBase &Call, Function *Callee, const InlineParams &Params,
               SmallSet<Function *, 20> *FuncsForDTrans, // INTEL
               ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE);
 
+#if INTEL_CUSTOMIZATION
+/// Returns a pair of InlineResult and InlineReason for a given call site.
+#endif // INTEL_CUSTOMIZATION
+/// Returns InlineResult::success() if the call site should be always inlined
+/// because of user directives, and the inlining is viable. Returns
+/// InlineResult::failure() if the inlining may never happen because of user
+/// directives or incompatibilities detectable without needing callee traversal.
+/// Otherwise returns None, meaning that inlining should be decided based on
+/// other criteria (e.g. cost modeling).
+#if INTEL_CUSTOMIZATION
+Optional<std::pair<InlineResult, InlineReportTypes::InlineReason>>
+getAttributeBasedInliningDecision(
+#endif // INTEL_CUSTOMIZATION
+    CallBase &Call, Function *Callee, TargetTransformInfo &CalleeTTI,
+    function_ref<const TargetLibraryInfo &(Function &)> GetTLI);
+
+/// Get the cost estimate ignoring thresholds. This is similar to getInlineCost
+/// when passed InlineParams::ComputeFullInlineCost, or a non-null ORE. It
+/// uses default InlineParams otherwise.
+/// Contrary to getInlineCost, which makes a threshold-based final evaluation of
+/// should/shouldn't inline, captured in InlineResult, getInliningCostEstimate
+/// returns:
+/// - None, if the inlining cannot happen (is illegal)
+/// - an integer, representing the cost.
+Optional<int> getInliningCostEstimate(
+    CallBase &Call, TargetTransformInfo &CalleeTTI,
+    std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
+    Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
+#if INTEL_CUSTOMIZATION
+    TargetLibraryInfo *TLI, InliningLoopInfoCache *ILIC,
+    InlineAggressiveInfo *AggI, SmallSet<CallBase *, 20> *CallSitesForFusion,
+    SmallSet<Function *, 20> *FuncsForDTrans,
+#endif // INTEL_CUSTOMIZATION
+    ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE);
+
 /// Minimal filter to detect invalid constructs for inlining.
 InlineResult isInlineViable(Function &Callee,                         // INTEL
                             InlineReportTypes::InlineReason& Reason); // INTEL

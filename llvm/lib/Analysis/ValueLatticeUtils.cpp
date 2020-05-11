@@ -12,7 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/ValueLatticeUtils.h"
-#include "llvm/IR/CallSite.h" // INTEL
+#include "llvm/IR/AbstractCallSite.h" // INTEL
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Instructions.h"
 using namespace llvm;

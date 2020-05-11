@@ -25,7 +25,7 @@
 ;   END REGION
 
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-linearization-hir=false -vplan-force-vf=4 -print-after=VPlanDriverHIR -vplan-print-after-ssa-deconstruction -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-linearization-hir=false -vplan-force-vf=4 -print-after=VPlanDriverHIR -vplan-print-after-ssa-deconstruction -vplan-dump-external-defs-hir=0 -disable-output < %s 2>&1 | FileCheck %s
 
 define void @foo(float* noalias nocapture %arr1, float* noalias nocapture %arr2, i32 %n1) {
 ; CHECK-LABEL:  After VPlan SSA deconstruction
@@ -46,14 +46,13 @@ define void @foo(float* noalias nocapture %arr1, float* noalias nocapture %arr2,
 ; CHECK-NEXT:     [DA: Div] float [[VP0:%.*]] = phi  [ float [[VP__RED_INIT]], [[BB1]] ],  [ float [[VP1:%.*]], [[BB3:BB[0-9]+]] ]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP2:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP4:%.*]] = icmp i32 [[N10:%.*]] i32 0
-; CHECK-NEXT:     [DA: Uni] i1 [[VP__NOT:%.*]] = not i1 [[VP4]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP4]]), [[BB5:BB[0-9]+]](!i1 [[VP4]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]:
 ; CHECK-NEXT:       [DA: Div] float* [[VP5:%.*]] = getelementptr inbounds float* [[ARR20:%.*]] i64 [[VP2]]
 ; CHECK-NEXT:       [DA: Div] float [[VP6:%.*]] = load float* [[VP5]]
-; CHECK-NEXT:       [DA: Div] float [[VP7:%.*]] = bitcast float [[VP6]]
+; CHECK-NEXT:       [DA: Div] float [[VP7:%.*]] = call float [[VP6]] float (float)* @llvm.ssa.copy.f32
 ; CHECK-NEXT:       [DA: Div] float [[VP8:%.*]] = hir-copy float [[VP0]] , OriginPhiId: 0
 ; CHECK-NEXT:       [DA: Div] float [[VP9:%.*]] = hir-copy float [[VP7]] , OriginPhiId: 1
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB3]]
@@ -62,7 +61,7 @@ define void @foo(float* noalias nocapture %arr1, float* noalias nocapture %arr2,
 ; CHECK-NEXT:      [[BB4]]:
 ; CHECK-NEXT:       [DA: Div] float* [[VP10:%.*]] = getelementptr inbounds float* [[ARR10:%.*]] i64 [[VP2]]
 ; CHECK-NEXT:       [DA: Div] float [[VP11:%.*]] = load float* [[VP10]]
-; CHECK-NEXT:       [DA: Div] float [[VP12:%.*]] = bitcast float [[VP11]]
+; CHECK-NEXT:       [DA: Div] float [[VP12:%.*]] = call float [[VP11]] float (float)* @llvm.ssa.copy.f32
 ; CHECK-NEXT:       [DA: Div] float [[VP13:%.*]] = hir-copy float [[VP0]] , OriginPhiId: 0
 ; CHECK-NEXT:       [DA: Div] float [[VP14:%.*]] = hir-copy float [[VP12]] , OriginPhiId: 1
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB3]]
@@ -97,33 +96,32 @@ define void @foo(float* noalias nocapture %arr1, float* noalias nocapture %arr2,
 ; CHECK-NEXT:  <26>               + DO i1 = 0, 99, 4   <DO_LOOP> <novectorize>
 ; CHECK-NEXT:  <28>               |   [[BB2]].{{[0-9]+}}:
 ; CHECK-NEXT:  <29>               |   [[WIDE_CMP_0:%.*]] = [[N10]] == 0
-; CHECK-NEXT:  <30>               |   [[DOTVEC0:%.*]] = [[WIDE_CMP_0]]  ^  -1
-; CHECK-NEXT:  <31>               |   [[UNIFCOND0:%.*]] = extractelement [[WIDE_CMP_0]],  0
-; CHECK-NEXT:  <32>               |   if ([[UNIFCOND0]] == 1)
-; CHECK-NEXT:  <32>               |   {
-; CHECK-NEXT:  <33>               |      goto [[BB4]].{{[0-9]+}}
-; CHECK-NEXT:  <32>               |   }
-; CHECK-NEXT:  <32>               |   else
-; CHECK-NEXT:  <32>               |   {
-; CHECK-NEXT:  <34>               |      goto [[BB5]].{{[0-9]+}}
-; CHECK-NEXT:  <32>               |   }
-; CHECK-NEXT:  <35>               |   [[BB5]].{{[0-9]+}}:
-; CHECK-NEXT:  <36>               |   [[LD_FALSE_VEC0:%.*]] = (<4 x float>*)([[ARR20]])[i1]
-; CHECK-NEXT:  <37>               |   [[MERGE_PHI_IN1_VEC0:%.*]] = [[LD_FALSE_VEC0]]
-; CHECK-NEXT:  <38>               |   [[PHI_TEMP0:%.*]] = [[RED_VAR0]]
-; CHECK-NEXT:  <39>               |   [[PHI_TEMP20:%.*]] = [[MERGE_PHI_IN1_VEC0]]
-; CHECK-NEXT:  <40>               |   goto [[BB3]].{{[0-9]+}}
-; CHECK-NEXT:  <41>               |   [[BB4]].{{[0-9]+}}:
-; CHECK-NEXT:  <42>               |   [[LD_TRUE_VEC0:%.*]] = (<4 x float>*)([[ARR10]])[i1]
-; CHECK-NEXT:  <43>               |   [[MERGE_PHI_IN1_VEC0]] = [[LD_TRUE_VEC0]]
-; CHECK-NEXT:  <44>               |   [[PHI_TEMP0]] = [[RED_VAR0]]
-; CHECK-NEXT:  <45>               |   [[PHI_TEMP20]] = [[MERGE_PHI_IN1_VEC0]]
-; CHECK-NEXT:  <46>               |   goto [[BB3]].{{[0-9]+}}
-; CHECK-NEXT:  <47>               |   [[BB3]].{{[0-9]+}}:
-; CHECK-NEXT:  <48>               |   [[RED_VAR0]] = [[PHI_TEMP20]]  +  [[RED_VAR0]]
+; CHECK-NEXT:  <30>               |   [[UNIFCOND0:%.*]] = extractelement [[WIDE_CMP_0]],  0
+; CHECK-NEXT:  <31>               |   if ([[UNIFCOND0]] == 1)
+; CHECK-NEXT:  <31>               |   {
+; CHECK-NEXT:  <32>               |      goto [[BB4]].{{[0-9]+}}
+; CHECK-NEXT:  <31>               |   }
+; CHECK-NEXT:  <31>               |   else
+; CHECK-NEXT:  <31>               |   {
+; CHECK-NEXT:  <33>               |      goto [[BB5]].{{[0-9]+}}
+; CHECK-NEXT:  <31>               |   }
+; CHECK-NEXT:  <34>               |   [[BB5]].{{[0-9]+}}:
+; CHECK-NEXT:  <35>               |   [[LD_FALSE_VEC0:%.*]] = (<4 x float>*)([[ARR20]])[i1]
+; CHECK-NEXT:  <36>               |   [[MERGE_PHI_IN1_VEC0:%.*]] = [[LD_FALSE_VEC0]]
+; CHECK-NEXT:  <37>               |   [[PHI_TEMP0:%.*]] = [[RED_VAR0]]
+; CHECK-NEXT:  <38>               |   [[PHI_TEMP20:%.*]] = [[MERGE_PHI_IN1_VEC0]]
+; CHECK-NEXT:  <39>               |   goto [[BB3]].{{[0-9]+}}
+; CHECK-NEXT:  <40>               |   [[BB4]].{{[0-9]+}}:
+; CHECK-NEXT:  <41>               |   [[LD_TRUE_VEC0:%.*]] = (<4 x float>*)([[ARR10]])[i1]
+; CHECK-NEXT:  <42>               |   [[MERGE_PHI_IN1_VEC0]] = [[LD_TRUE_VEC0]]
+; CHECK-NEXT:  <43>               |   [[PHI_TEMP0]] = [[RED_VAR0]]
+; CHECK-NEXT:  <44>               |   [[PHI_TEMP20]] = [[MERGE_PHI_IN1_VEC0]]
+; CHECK-NEXT:  <45>               |   goto [[BB3]].{{[0-9]+}}
+; CHECK-NEXT:  <46>               |   [[BB3]].{{[0-9]+}}:
+; CHECK-NEXT:  <47>               |   [[RED_VAR0]] = [[PHI_TEMP20]]  +  [[RED_VAR0]]
 ; CHECK-NEXT:  <26>               + END LOOP
 ; CHECK-NEXT:  <26>
-; CHECK-NEXT:  <49>               [[RED_PHI0]] = @llvm.experimental.vector.reduce.v2.fadd.f32.v4f32([[RED_PHI0]],  [[RED_VAR0]])
+; CHECK-NEXT:  <48>               [[RED_PHI0]] = @llvm.experimental.vector.reduce.v2.fadd.f32.v4f32([[RED_PHI0]],  [[RED_VAR0]])
 ; CHECK-NEXT:  <0>          END REGION
 ;
 

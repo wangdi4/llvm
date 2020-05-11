@@ -58,6 +58,9 @@ class CLCommaJoined<string name> : Option<["/", "-"], name, KIND_COMMAJOINED>,
 
 class CLCommaJoinedNoDpcpp<string name> : Option<["/", "-"], name, KIND_COMMAJOINED>,
   Group<cl_Group>, Flags<[CLOption, DriverOption, DpcppUnsupported]>;
+
+class CLJoinedNoDpcpp<string name> : Option<["/", "-"], name, KIND_JOINED>,
+  Group<cl_Group>, Flags<[CLOption, DriverOption, DpcppUnsupported]>;
 #endif // INTEL_CUSTOMIZATION
 
 // Aliases:
@@ -170,6 +173,7 @@ def : CLFlag<"Oy-">, Alias<_SLASH_O>, AliasArgs<["y-"]>,
 def _SLASH_Qansi_alias : CLFlag<"Qansi-alias">, Alias<fstrict_aliasing>,
   HelpText<"enable use of ANSI aliasing rules optimizations"
           " user asserts that the program adheres to these rules">;
+def _SLASH_Qbuiltin : CLFlag<"Qbuiltin">, Alias<fbuiltin>;
 def _SLASH_fp_EQ : CLJoined<"fp=">, Alias<ffp_model_EQ>,
   HelpText<"Controls the semantics of floating-point calculations.">;
 def _SLASH_fp_COL : CLJoined<"fp:">, Alias<ffp_model_EQ>;
@@ -183,14 +187,25 @@ def _SLASH_Qipo : CLFlag<"Qipo">, Alias<flto>,
 def _SLASH_Qipo_ : CLFlag<"Qipo-">, Alias<fno_lto>,
   HelpText<"Disable LTO mode (default)">;
 def _SLASH_Qnextgen : CLFlag<"Qnextgen">, Alias<_intel>;
+def _SLASH_Qno_builtin_ : CLJoined<"Qno-builtin-">, Alias<fno_builtin_>,
+  HelpText<"Disable implicit builtin knowledge of a specific function">;
 def _SLASH_Qopenmp : CLFlagNoDpcpp<"Qopenmp">, Alias<fopenmp>,
   HelpText<"Parse OpenMP pragmas and generate parallel code.">;
 def _SLASH_Qiopenmp : CLFlag<"Qiopenmp">, Alias<fiopenmp>;
+def _SLASH_Qopenmp_simd : CLFlagNoDpcpp<"Qopenmp-simd">, Alias<fopenmp_simd>,
+  HelpText<"Emit OpenMP code only for SIMD-based constructs.">;
+def _SLASH_Qopenmp_simd_ : CLFlagNoDpcpp<"Qopenmp-simd-">, Alias<fno_openmp_simd>;
+def _SLASH_Qiopenmp_simd : CLFlagNoDpcpp<"Qiopenmp-simd">, Alias<fiopenmp_simd>;
 def _SLASH_Qopenmp_targets_EQ : CLCommaJoinedNoDpcpp<"Qopenmp-targets=">,
   Alias<fopenmp_targets_EQ>;
 def _SLASH_Qopenmp_targets_COL : CLCommaJoinedNoDpcpp<"Qopenmp-targets:">,
   Alias<fopenmp_targets_EQ>, HelpText<"Specify comma-separated list of triples"
   " OpenMP offloading targets to be supported">;
+def _SLASH_Qopenmp_version_EQ : CLJoinedNoDpcpp<"Qopenmp-version=">,
+  Alias<fopenmp_version_EQ>;
+def _SLASH_Qopenmp_version_COL : CLJoinedNoDpcpp<"Qopenmp-version:">,
+  Alias<fopenmp_version_EQ>, HelpText<"Choose which OpenMP version to"
+  " link with.">;
 def _SLASH_Qopt_jump_tables : CLFlag<"Qopt-jump-tables">,
   Alias<fjump_tables>, HelpText<"Control the generation of jump tables">;
 def _SLASH_Qopt_jump_tables_ : CLFlag<"Qopt-jump-tables-">,
@@ -244,6 +259,19 @@ def _SLASH_Qx : CLJoined<"Qx">,
 def _SLASH_Qlong_double : CLFlag<"Qlong-double">,
   HelpText<"Enable 80-bit long double">;
 def _SLASH_Qlong_double_ : CLFlag<"Qlong-double-">;
+def _SLASH_Qimf_arch_consistency_EQ : CLJoined<"Qimf-arch-consistency=">,
+  Alias<fimf_arch_consistency_EQ>,HelpText<"Ensures that the math library "
+  "functions produce consistent results across different implementations "
+  "of the same architecture">;
+def _SLASH_Qimf_max_error_EQ : CLJoined<"Qimf-max-error=">,
+  Alias<fimf_max_error_EQ>,HelpText<"defines the maximum allowable relative "
+  "error, measured in ulps, for math library function results">;
+def _SLASH_Qtemplate_depth_COL : CLJoined<"Qtemplate-depth:">,
+  Alias<ftemplate_depth_EQ>, HelpText<"Control the depth in which recursive"
+  " templates are expanded">;
+def _SLASH_Qtemplate_depth_EQ : CLJoined<"Qtemplate-depth=">,
+  Alias<ftemplate_depth_EQ>;
+def : CLFlag<"S">, Alias<S>, HelpText<"Compile to assembly only, do not link">;
 #endif //INTEL_CUSTOMIZATION
 def _SLASH_QUESTION : CLFlag<"?">, Alias<help>,
   HelpText<"Display available options">;

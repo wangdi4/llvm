@@ -168,6 +168,7 @@ namespace {
       (void) llvm::createInstrProfilingLegacyPass();
       (void) llvm::createFunctionImportPass();
       (void) llvm::createFunctionInliningPass();
+      (void) llvm::createFunctionRecognizerLegacyPass(); // INTEL
       (void) llvm::createAlwaysInlinerLegacyPass();
       (void) llvm::createGlobalDCEPass();
       (void) llvm::createGlobalOptimizerPass();
@@ -297,6 +298,7 @@ namespace {
       (void) llvm::createHardwareLoopsPass();
       (void) llvm::createInjectTLIMappingsLegacyPass();
       (void) llvm::createUnifyLoopExitsPass();
+      (void) llvm::createFixIrreduciblePass();
 
       (void)new llvm::IntervalPartition();
       (void)new llvm::ScalarEvolutionWrapperPass();
@@ -376,6 +378,9 @@ namespace {
       (void) llvm::createDPCPPKernelVecClonePass();
       (void) llvm::createDPCPPKernelPostVecPass();
       (void) llvm::createDPCPPKernelWGLoopCreatorPass();
+      (void) llvm::createDPCPPKernelAnalysisPass();
+      (void) llvm::createPhiCanonicalizationPass();
+      (void) llvm::createRedundantPhiNodePass();
 
       // Optimize math calls
       (void) llvm::createMapIntrinToImlPass();

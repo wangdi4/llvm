@@ -1900,6 +1900,15 @@ private: // INTEL
   /// Constructs the original SCEV corresponding to this HIR SCEV by 
   /// re-parsing contained SCEVUnknowns.
   const SCEV *getOriginalSCEV(const SCEV *SC);
+
+  /// Returns true if \p Val's uses are known to be safe for propagation of
+  /// no-wrap flags. This function assumes that IR does not change during
+  /// analysis.
+  bool hasWrapSafeUses(const Value *Val, const Value *KnownSafeUse) const;
+
+  /// Returns true if we can safely propagate no-wrap flags from \p BinOp to it
+  /// SCEV form by analyzing its operands. This only works in HIR mode.
+  bool hasWrapSafeOperands(const BinaryOperator *BinOp) const;
 #endif  // INTEL_CUSTOMIZATION
 
   /// Try to match the Expr as "(L + R)<Flags>".

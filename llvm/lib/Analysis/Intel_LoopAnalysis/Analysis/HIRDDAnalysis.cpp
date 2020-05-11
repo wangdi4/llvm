@@ -475,6 +475,7 @@ void computeLoopStartStops(IterI Begin, IterI End, IterO Out) {
       *Out = *PrevOut;
     } else {
       PrevOut = Out;
+      PrevParentLoop = ParentLoop;
       *Out = I - Begin;
     }
     ++Out;

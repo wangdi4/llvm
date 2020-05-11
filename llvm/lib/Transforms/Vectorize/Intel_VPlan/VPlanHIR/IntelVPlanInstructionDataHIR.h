@@ -94,10 +94,9 @@ public:
 
   virtual void print(raw_ostream &OS) const = 0;
   virtual void printDetail(raw_ostream &OS) const {
-    formatted_raw_ostream FOS(OS);
-    FOS << " %vp" << (unsigned short)(unsigned long long)this << " = ";
+    OS << " %vp" << (unsigned short)(unsigned long long)this << " = {";
     print(OS);
-    FOS << "\n";
+    OS << "}\n";
   }
 
   unsigned char getSubclassID() const { return SubclassID; }
@@ -180,18 +179,17 @@ public:
     if (isUnitaryBlob())
       getBlob()->print(FOS);
     else
-      OS << "%vp" << (unsigned short)(unsigned long long)this;
+      FOS << "%vp" << (unsigned short)(unsigned long long)this;
   }
 
   void printDetail(raw_ostream &OS) const override {
-    formatted_raw_ostream FOS(OS);
-    FOS << " %vp" << (unsigned short)(unsigned long long)this << " = ";
+    OS << " %vp" << (unsigned short)(unsigned long long)this << " = {";
     if (isUnitaryBlob())
       print(OS);
     else {
       getBlob()->getBlobUtils().getBlob(getBlobIndex())->print(OS);
     }
-    FOS << "\n";
+    OS << "}\n";
   }
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
@@ -293,10 +291,9 @@ public:
   }
 
   void printDetail(raw_ostream &OS) const override {
-    formatted_raw_ostream FOS(OS);
-    FOS << " %vp" << (unsigned short)(unsigned long long)this << " = ";
-    getCanonExpr()->print(FOS);
-    FOS << "\n";
+    OS << " %vp" << (unsigned short)(unsigned long long)this << " = {";
+    getCanonExpr()->print(OS);
+    OS << "}\n";
   }
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.

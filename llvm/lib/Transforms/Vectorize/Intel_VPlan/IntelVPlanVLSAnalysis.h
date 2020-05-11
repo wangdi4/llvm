@@ -1,6 +1,6 @@
 //===- IntelVPlanVLSAnalysis.h - -------------------------------------------===/
 //
-//   Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+//   Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -27,6 +27,7 @@ namespace llvm {
 namespace vpo {
 
 class VPlan;
+class VPlanScalarEvolutionLLVM;
 
 /// VPlanVLSAnalysis class is used to collect all memory references in VPlan,
 /// pass them to OptVLS interface and store result internally, so there's no need
@@ -49,7 +50,7 @@ protected:
   // vectorizer.
   LLVMContext &Context;
   const DataLayout &DL;
-  ScalarEvolution *SE;
+  VPlanScalarEvolutionLLVM *VPSE;
   TargetTransformInfo *TTI;
 
   /// Finds a group for a given VPInstruction.
@@ -105,9 +106,9 @@ private:
 
 public:
   VPlanVLSAnalysis(const Loop *MainLoop, LLVMContext &Context,
-                   const DataLayout &DL, ScalarEvolution *SE,
+                   const DataLayout &DL, VPlanScalarEvolutionLLVM *VPSE,
                    TargetTransformInfo *TTI)
-      : MainLoop(MainLoop), Context(Context), DL(DL), SE(SE), TTI(TTI) {}
+      : MainLoop(MainLoop), Context(Context), DL(DL), VPSE(VPSE), TTI(TTI) {}
   virtual ~VPlanVLSAnalysis() {}
   /// Collect all memrefs within given VPlan and reflect given VF in
   /// each collected memref.
@@ -129,7 +130,7 @@ public:
 
   const Loop *getMainLoop() const { return MainLoop; }
   LLVMContext &getContext() const { return Context; }
-  ScalarEvolution *getSE() const { return SE; }
+  VPlanScalarEvolutionLLVM &getVPSE() const { return *VPSE; }
   const DataLayout &getDL() const { return DL; }
 };
 

@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #pragma once
+#include <CL/sycl/backend_types.hpp>
 #include <CL/sycl/detail/common.hpp>
 #include <CL/sycl/detail/pi.hpp>
 #include <CL/sycl/stl.hpp>
@@ -23,12 +24,13 @@ class plugin {
 public:
   plugin() = delete;
 
-  plugin(RT::PiPlugin Plugin, RT::Backend UseBackend) // INTEL
-      : MPlugin(Plugin), MBackend(UseBackend) {}  //INTEL
+  plugin(RT::PiPlugin Plugin, backend UseBackend)
+      : MPlugin(Plugin), MBackend(UseBackend) {}
 
   ~plugin() = default;
 
   const RT::PiPlugin &getPiPlugin() const { return MPlugin; }
+  RT::PiPlugin &getPiPlugin() { return MPlugin; }
 
   /// Checks return value from PI calls.
   ///
@@ -51,13 +53,13 @@ public:
   template <PiApiKind PiApiOffset, typename... ArgsT>
   RT::PiResult call_nocheck(ArgsT... Args) const {
     RT::PiFuncInfo<PiApiOffset> PiCallInfo;
-    if (pi::trace(pi::TraceLevel::PI_TRACE_CALLS)) { // INTEL
+    if (pi::trace(pi::TraceLevel::PI_TRACE_CALLS)) {
       std::string FnName = PiCallInfo.getFuncName();
       std::cout << "---> " << FnName << "(" << std::endl;
       RT::printArgs(Args...);
     }
     RT::PiResult R = PiCallInfo.getFuncPtr(MPlugin)(Args...);
-    if (pi::trace(pi::TraceLevel::PI_TRACE_CALLS)) { // INTEL
+    if (pi::trace(pi::TraceLevel::PI_TRACE_CALLS)) {
       std::cout << ") ---> ";
       RT::printArgs(R);
     }
@@ -73,13 +75,11 @@ public:
     checkPiResult(Err);
   }
 
-  RT::Backend getBackend(void) const { return MBackend; } // INTEL
+  backend getBackend(void) const { return MBackend; }
 
 private:
   RT::PiPlugin MPlugin;
-  bool MPiEnableTrace;
-
-  const RT::Backend MBackend; // INTEL
+  const backend MBackend;
 }; // class plugin
 } // namespace detail
 } // namespace sycl

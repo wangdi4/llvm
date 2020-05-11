@@ -94,9 +94,8 @@
 // 3. For those original instructions that will be erased, split its users
 // transitively. If there are some users can't be split, then generate a
 // shuffleVector instruction to 'unpack' split instructions and this
-// shuffleVector instruction will be inserted before the user (also supports
-// after definition). the user's operands will be updated after all instructions
-// are handled successfully.
+// shuffleVector instruction will be inserted before the user. the user's
+// operands will be updated after all instructions are handled successfully.
 //
 // 4. If all instructions are handled successfully, then erase the original
 // instructions which were split. Then update some original instruction's
@@ -107,7 +106,7 @@
 // be split. This is a heuristic method, if vector condition value is split many
 // times, bitwise binary operation (and/or) may generate more instructions than
 // we saved from unpack and split k-reg.
-// FIXME: Need a cost model.
+// TODO: Need a cost model.
 //
 // If the dependence graph of some instructions forms a cycle. (There is a
 // strong connected component.) This pass handles it in this way:
@@ -299,6 +298,9 @@ private:
   // Split InsertElementInst to new instruction.
   void createSplitInsertElementInst(InsertElementInst *I, unsigned Depth);
 
+  // Split SelectInst to new instruction.
+  void createSplitSelectInst(SelectInst *I, unsigned Depth);
+
   // Create shufflevector instructions to split value of instruction that we
   // can't handle.
   void createShufVecInstToSplit(Instruction *I, unsigned Depth);
@@ -366,6 +368,10 @@ private:
   // Mark new instructions when split an instruction transitively. those new
   // instructions will be erased if split failed.
   DenseSet<Instruction *> NInstSet;
+
+  // Mark instructions which are split with shufflevector. If split success, the
+  // split instructions should be kept in InstMap because they may be reused.
+  DenseSet<Instruction *> SplitWithSVInstSet;
 
   // Mark all new instructions that have been "settled". This set is used to
   // make sure all instructions will be split only once.
@@ -474,18 +480,25 @@ static raw_ostream &indentedDbgs(unsigned Depth) {
 #endif
 
 void X86SplitVectorValueType::cleanUpCache(bool SplitSucc) {
+
+  // InstMap.key\OInstSet (Relative Complement) are instructions which is split
+  // with shufflevector. Some of split instructions of them (A) have been
+  // settled in previous iteration while others (B) are created in this
+  // iteration. A could be reused in later iteration. If SplitSucc, B could also
+  // be reused. Otherwise only A should be kept in InstMap.
+  // Calculate A + B.
+  for (auto *OI : OInstSet)
+    InstMap.erase(OI);
+
   if (SplitSucc) {
     assert(WorkList.empty() && "WorkList must be empty!");
     assert(UnsvdPHIOpdMap.empty() && "UnsvdPHIOpdMap must be empty!");
-
-    // InstMap contains instructions which value is split with shuffervector.
-    // This shuffervector Instruction should be kept if SplitSucc. It may be
-    // reused again.
-    for (auto *II : OInstSet)
-      InstMap.erase(II);
-
   } else {
-    InstMap.clear();
+
+    // Calculate A. B is SplitWithSVInstSet.
+    for (auto *I : SplitWithSVInstSet)
+      InstMap.erase(I);
+
     UnsvdPHIOpdMap.clear();
     while (!WorkList.empty())
       WorkList.pop();
@@ -495,6 +508,7 @@ void X86SplitVectorValueType::cleanUpCache(bool SplitSucc) {
   InstActions.clear();
   NInstSet.clear();
   OInstSet.clear();
+  SplitWithSVInstSet.clear();
 }
 
 void X86SplitVectorValueType::takeAllInstAction() {
@@ -546,7 +560,7 @@ bool X86SplitVectorValueType::isSupportedOp(const Instruction *I) const {
     if (!is_splat(M))
       return false;
 
-    unsigned NumElmts = Op0->getType()->getVectorNumElements();
+    unsigned NumElmts = cast<VectorType>(Op0->getType())->getNumElements();
     int64_t Index = M[0];
 
     if (Index < 0 || Index >= NumElmts)
@@ -558,7 +572,7 @@ bool X86SplitVectorValueType::isSupportedOp(const Instruction *I) const {
   // InsertElementInst with constant index could be split.
   if (isa<InsertElementInst>(I)) {
     ConstantInt *Op2 = dyn_cast<ConstantInt>(I->getOperand(2));
-    unsigned NumElmts = I->getType()->getVectorNumElements();
+    unsigned NumElmts = cast<VectorType>(I->getType())->getNumElements();
     int64_t Index = Op2->getSExtValue();
 
     if (Index < 0 || Index >= NumElmts)
@@ -601,6 +615,9 @@ void X86SplitVectorValueType::createShufVecInstToSplit(Instruction *I,
       ConstantDataVector::get(VTy->getContext(), MaskVec));
 
   setInstName(I, NI0, NI1);
+
+  // Mark I is split with shufflevector.
+  SplitWithSVInstSet.insert(I);
 
   // Record new instructions.
   NInstSet.insert(NI0);
@@ -832,6 +849,51 @@ void X86SplitVectorValueType::createSplitShuffleVectorInst(ShuffleVectorInst *I,
              indentedDbgs(Depth) << *NI << "\n");
 }
 
+void X86SplitVectorValueType::createSplitSelectInst(SelectInst *I,
+                                                    unsigned Depth) {
+  if (isa<VectorType>(I->getCondition()->getType())) {
+    createSplitNormalInst(I, Depth);
+    return;
+  }
+
+  VectorType *VTy = cast<VectorType>(I->getType());
+  VectorType *HVTy = VTy->getHalfElementsVectorType(VTy);
+  Instruction *NI0 = I->clone();
+  Instruction *NI1 = I->clone();
+  NI0->mutateType(HVTy);
+  NI1->mutateType(HVTy);
+
+  for (unsigned OpI = 1; OpI < I->getNumOperands(); OpI++) {
+    setOperandOfSplitInst(I, NI0, OpI, 0);
+    setOperandOfSplitInst(I, NI1, OpI, 1);
+  }
+
+  // Condition of split SelectInst is same as original.
+  cast<SelectInst>(NI0)->setCondition(I->getCondition());
+  cast<SelectInst>(NI1)->setCondition(I->getCondition());
+
+  setInstName(I, NI0, NI1);
+
+  // Insert NI1 before I. Insert NI0 before NI1.
+  InsertInst(I, NI1).run();
+  InsertInst(NI1, NI0).run();
+
+  InstMap[I].push_back(NI0);
+  InstMap[I].push_back(NI1);
+
+  // Mark new instructions.
+  NInstSet.insert(NI0);
+  NInstSet.insert(NI1);
+
+  // Mark I to be erased.
+  OInstSet.insert(I);
+
+  LLVM_DEBUG(indentedDbgs(Depth)
+                 << "Create split instructions to replace: " << *I << "\n";
+             indentedDbgs(Depth) << *NI0 << "\n";
+             indentedDbgs(Depth) << *NI1 << "\n");
+}
+
 void X86SplitVectorValueType::createSplitNormalInst(Instruction *I,
                                                     unsigned Depth) {
   VectorType *VTy = cast<VectorType>(I->getType());
@@ -878,6 +940,9 @@ void X86SplitVectorValueType::createSplitInst(Instruction *I, unsigned Depth) {
     break;
   case Instruction::InsertElement:
     createSplitInsertElementInst(cast<InsertElementInst>(I), Depth);
+    break;
+  case Instruction::Select:
+    createSplitSelectInst(cast<SelectInst>(I), Depth);
   }
 }
 
@@ -887,6 +952,12 @@ bool X86SplitVectorValueType::updateInstChain() {
     WorkList.pop();
     LLVM_DEBUG(dbgs() << "Update usage of Value: "; I->printAsOperand(dbgs());
                dbgs() << "\n");
+
+    // Since this pass only split unsupported value (except condition vector).
+    // We can make sure the value of I must not be supported by target machine.
+    assert((I->getType()->getScalarType()->isIntegerTy(1) ||
+            (TTI->getNumberOfParts(I->getType()) > 1)) &&
+           "I must not be supported!");
 
     // I may be used many times in UI. The update proceduce will update all
     // value I in UI, so it is unnecessary to visit it again.
@@ -911,14 +982,14 @@ bool X86SplitVectorValueType::updateInstChain() {
       assert(!SettledNInstSet.count(I) &&
              "Candidate must be split previously!");
 
+      // InstMap contains unsupported instructions split with shufflevector.
+      // This check should be placed before InstMap check because those
+      // unsupported instructions may be the user of split instructions.
       if (!isSupportedOp(UI)) {
         createShufVecInstToFuse(I, UI, 1);
         continue;
       }
 
-      // User will now try to be split and replaced by new instructions && it
-      // is supported.
-      //
       // Some PHINodes have been presplit but it's operands haven't been
       // split yet. This step will update some of those operands that cause a
       // cycle reliance. The left operands will be updated later.
@@ -938,7 +1009,6 @@ bool X86SplitVectorValueType::updateInstChain() {
         continue;
       }
 
-      // Now we can make sure all UI in InstMap have been split completely.
       if (InstMap.count(UI))
         continue;
 
@@ -947,6 +1017,11 @@ bool X86SplitVectorValueType::updateInstChain() {
         // I is the first operand of UI and it has been split.
         if (isa<InsertElementInst>(UI))
           break;
+
+        // If cond of SelectInst isn't VectorType, just skip this operand.
+        if (isa<SelectInst>(UI) && OpI == 0 &&
+            !isa<VectorType>(UI->getOperand(0)->getType()))
+          continue;
 
         Value *OpdVal = UI->getOperand(OpI);
         if (!splitValueChainBottomUp(OpdVal, 2))
@@ -1012,6 +1087,21 @@ bool X86SplitVectorValueType::splitInstChainBottomUp(Instruction *I,
   // if split B is not in CA, then CA intersect B equals null set.
   assert(!SettledNInstSet.count(I) && "Candidate must be split previously!");
 
+  // Make sure not to split supported value.
+  // e.g. %cmp0 = icmp sgt <16 x i64> %x0, %y0
+  //      %cmp1 = icmp sgt <16 x i32> %x1, %y1
+  //      %tmp = and <16 x i1> %cmp0, %cmp1
+  // In this case, suppose target machine use avx512. The splitting of %cmp0
+  // causes the splitting of %cmp1 and the splitting of %x1 and % y1. %x1 and
+  // %y1 is supported by target machine so it shouldn't be split.
+  if (!I->getType()->getScalarType()->isIntegerTy(1) &&
+      TTI->getNumberOfParts(I->getType()) < 2) {
+    LLVM_DEBUG(indentedDbgs(Depth)
+               << "Find an instruction which shouldn't be split: " << *I
+               << "\n");
+    return false;
+  }
+
   if (!isSupportedOp(I)) {
     createShufVecInstToSplit(I, Depth);
     return true;
@@ -1027,6 +1117,11 @@ bool X86SplitVectorValueType::splitInstChainBottomUp(Instruction *I,
     // Only the first operand need to be split for InsertElementInst.
     if (isa<InsertElementInst>(I) && OpI > 0)
       break;
+
+    // If cond of SelectInst isn't VectorType, just skip this operand.
+    if (isa<SelectInst>(I) && OpI == 0 &&
+        !isa<VectorType>(I->getOperand(0)->getType()))
+      continue;
 
     Value *OpdVal = I->getOperand(OpI);
 
@@ -1105,7 +1200,8 @@ bool X86SplitVectorValueType::isCandidate(const Instruction *I) const {
     return false;
 
   Type *Ty = I->getType();
-  if (!Ty->isVectorTy() || !isPowerOf2_64(Ty->getVectorNumElements()))
+  if (!Ty->isVectorTy() ||
+      !isPowerOf2_64(cast<VectorType>(Ty)->getNumElements()))
     return false;
 
   if (TTI->getNumberOfParts(I->getOperand(0)->getType()) < 2)
@@ -1189,9 +1285,8 @@ bool X86SplitVectorValueType::runOnFunction(Function &F) {
 
       // Some cache need to be cleaned based on split status.
       cleanUpCache(SplitSucc);
+      Changed |= SplitSucc;
     }
-
-    Changed |= SplitSucc;
   }
 
   if (Changed) {
@@ -1368,7 +1463,7 @@ foldFusedShuffleVectorExtractElement(ExtractElementInst *I) {
   if (!match(I, m_ExtractElement(m_Value(VectorOp), m_ConstantInt(IndexOp))))
     return nullptr;
 
-  unsigned NumElmts = VectorOp->getType()->getVectorNumElements();
+  unsigned NumElmts = cast<VectorType>(VectorOp->getType())->getNumElements();
   int64_t Index = IndexOp->getSExtValue();
   if (Index < 0 || Index >= NumElmts)
     return nullptr;

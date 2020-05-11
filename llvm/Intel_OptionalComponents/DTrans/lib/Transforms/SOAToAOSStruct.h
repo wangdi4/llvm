@@ -1056,7 +1056,7 @@ private:
                                 const Value *FreePtr1,
                                 const Value *FreePtr2) const {
 
-    if (Call1->getCalledValue() != Call2->getCalledValue())
+    if (Call1->getCalledOperand() != Call2->getCalledOperand())
       return false;
 
     auto *Info = DTInfo.getCallInfo(Call1);
@@ -1430,10 +1430,10 @@ private:
                         unsigned Off1, unsigned Off2, bool Copy) const {
 
     if (!CtorDtorCheck::isThisArgNonInitialized(
-            DTInfo, TLI, cast<Function>(Call1->getCalledValue()),
+            DTInfo, TLI, cast<Function>(Call1->getCalledOperand()),
             DL.getTypeAllocSize(getSOAArrayType(S.StrType, Off1))) ||
         !CtorDtorCheck::isThisArgNonInitialized(
-            DTInfo, TLI, cast<Function>(Call2->getCalledValue()),
+            DTInfo, TLI, cast<Function>(Call2->getCalledOperand()),
             DL.getTypeAllocSize(getSOAArrayType(S.StrType, Off2))))
       return false;
 

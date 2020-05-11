@@ -174,8 +174,9 @@ CallInst *IntrinsicUtils::removeOperandBundlesFromCall(
   for (auto AI = CI->arg_begin(), AE = CI->arg_end(); AI != AE; AI++)
     Args.push_back(*AI);
 
-  auto *NewI =
-      CallInst::Create(CI->getCalledValue(), Args, OpBundlesUpdated, "", CI);
+  FunctionType *FnTy = CI->getFunctionType();
+  auto *NewI = CallInst::Create(FnTy, CI->getCalledOperand(), Args,
+                                OpBundlesUpdated, "", CI);
 
   NewI->takeName(CI);
   NewI->setCallingConv(CI->getCallingConv());

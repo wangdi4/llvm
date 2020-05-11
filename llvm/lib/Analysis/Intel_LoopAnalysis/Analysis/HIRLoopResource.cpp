@@ -179,7 +179,7 @@ struct LoopResourceInfo::LoopResourceVisitor::BlobCostEvaluator
 
   void visitTruncateExpr(const SCEVTruncateExpr *TruncBlob) {
     unsigned Cost = LRV.getNormalizedCost(
-        LRV.TTI.getOperationCost(Instruction::Trunc, TruncBlob->getType(),
+        LRV.TTI.getCastInstrCost(Instruction::Trunc, TruncBlob->getType(),
                                  TruncBlob->getOperand()->getType()));
     LRV.SelfLRI->addIntOps(Cost);
 
@@ -188,7 +188,7 @@ struct LoopResourceInfo::LoopResourceVisitor::BlobCostEvaluator
 
   void visitZeroExtendExpr(const SCEVZeroExtendExpr *ZExtBlob) {
     unsigned Cost = LRV.getNormalizedCost(
-        LRV.TTI.getOperationCost(Instruction::ZExt, ZExtBlob->getType(),
+        LRV.TTI.getCastInstrCost(Instruction::ZExt, ZExtBlob->getType(),
                                  ZExtBlob->getOperand()->getType()));
     LRV.SelfLRI->addIntOps(Cost);
 
@@ -197,7 +197,7 @@ struct LoopResourceInfo::LoopResourceVisitor::BlobCostEvaluator
 
   void visitSignExtendExpr(const SCEVSignExtendExpr *SExtBlob) {
     unsigned Cost = LRV.getNormalizedCost(
-        LRV.TTI.getOperationCost(Instruction::SExt, SExtBlob->getType(),
+        LRV.TTI.getCastInstrCost(Instruction::SExt, SExtBlob->getType(),
                                  SExtBlob->getOperand()->getType()));
     LRV.SelfLRI->addIntOps(Cost);
 
@@ -212,7 +212,7 @@ struct LoopResourceInfo::LoopResourceVisitor::BlobCostEvaluator
 
   void visitAddExpr(const SCEVAddExpr *AddBlob) {
     unsigned Cost = LRV.getNormalizedCost(
-        LRV.TTI.getOperationCost(Instruction::Add, AddBlob->getType()));
+        LRV.TTI.getArithmeticInstrCost(Instruction::Add, AddBlob->getType()));
     LRV.SelfLRI->addIntOps(Cost, AddBlob->getNumOperands() - 1);
 
     visitNAryExpr(cast<SCEVNAryExpr>(AddBlob));
@@ -220,7 +220,7 @@ struct LoopResourceInfo::LoopResourceVisitor::BlobCostEvaluator
 
   void visitMulExpr(const SCEVMulExpr *MulBlob) {
     unsigned Cost = LRV.getNormalizedCost(
-        LRV.TTI.getOperationCost(Instruction::Mul, MulBlob->getType()));
+        LRV.TTI.getArithmeticInstrCost(Instruction::Mul, MulBlob->getType()));
     LRV.SelfLRI->addIntOps(Cost, MulBlob->getNumOperands() - 1);
 
     visitNAryExpr(cast<SCEVNAryExpr>(MulBlob));
@@ -237,7 +237,7 @@ struct LoopResourceInfo::LoopResourceVisitor::BlobCostEvaluator
     }
 
     unsigned Cost = LRV.getNormalizedCost(
-        LRV.TTI.getOperationCost(OpCode, UDivBlob->getType()));
+        LRV.TTI.getArithmeticInstrCost(OpCode, UDivBlob->getType()));
 
     LRV.SelfLRI->addIntOps(Cost);
 
@@ -251,8 +251,9 @@ struct LoopResourceInfo::LoopResourceVisitor::BlobCostEvaluator
 
 private:
   void visitMinMaxExpr(const SCEVMinMaxExpr *Expr) {
-    unsigned Cost = LRV.getNormalizedCost(
-        LRV.TTI.getOperationCost(Instruction::ICmp, Expr->getType()));
+    unsigned Cost = LRV.getNormalizedCost(LRV.TTI.getCmpSelInstrCost(
+        Instruction::ICmp, Expr->getType(),
+        CmpInst::makeCmpResultType(Expr->getType())));
     LRV.SelfLRI->addIntOps(Cost, Expr->getNumOperands() - 1);
 
     visitNAryExpr(cast<SCEVNAryExpr>(Expr));
@@ -321,8 +322,8 @@ void LoopResourceInfo::LoopResourceVisitor::visit(unsigned BlobIndex,
   if (!FoundCoeff) {
     unsigned Cost =
         isPowerOf2_64(Coeff)
-            ? getNormalizedCost(TTI.getOperationCost(Instruction::Shl, BlobTy))
-            : getNormalizedCost(TTI.getOperationCost(Instruction::Mul, BlobTy));
+            ? getNormalizedCost(TTI.getArithmeticInstrCost(Instruction::Shl, BlobTy))
+            : getNormalizedCost(TTI.getArithmeticInstrCost(Instruction::Mul, BlobTy));
 
     SelfLRI->addIntOps(Cost);
   }
@@ -354,7 +355,7 @@ void LoopResourceInfo::LoopResourceVisitor::addCastCost(const CanonExpr *CE) {
                         ? Instruction::Trunc
                         : CE->isSExt() ? Instruction::SExt : Instruction::ZExt;
   unsigned Cost =
-      getNormalizedCost(TTI.getOperationCost(OpCode, DestTy, SrcTy));
+      getNormalizedCost(TTI.getCastInstrCost(OpCode, DestTy, SrcTy));
 
   SelfLRI->addIntOps(Cost);
 }
@@ -372,7 +373,7 @@ void LoopResourceInfo::LoopResourceVisitor::addDenominatorCost(
           ? Instruction::SDiv
           : isPowerOf2_64(Denom) ? Instruction::LShr : Instruction::UDiv;
   unsigned Cost =
-      getNormalizedCost(TTI.getOperationCost(OpCode, CE->getSrcType()));
+      getNormalizedCost(TTI.getArithmeticInstrCost(OpCode, CE->getSrcType()));
 
   SelfLRI->addIntOps(Cost);
 }
@@ -382,11 +383,11 @@ void LoopResourceInfo::LoopResourceVisitor::visit(const CanonExpr *CE,
   auto SrcTy = CE->getSrcType();
 
   unsigned AddCost =
-      getNormalizedCost(TTI.getOperationCost(Instruction::Add, SrcTy));
+      getNormalizedCost(TTI.getArithmeticInstrCost(Instruction::Add, SrcTy));
   unsigned MulCost =
-      getNormalizedCost(TTI.getOperationCost(Instruction::Mul, SrcTy));
+      getNormalizedCost(TTI.getArithmeticInstrCost(Instruction::Mul, SrcTy));
   unsigned ShlCost =
-      getNormalizedCost(TTI.getOperationCost(Instruction::Shl, SrcTy));
+      getNormalizedCost(TTI.getArithmeticInstrCost(Instruction::Shl, SrcTy));
 
   bool First = true;
   bool FoundVariantAdditive = false;
@@ -520,6 +521,9 @@ void LoopResourceInfo::LoopResourceVisitor::visit(const RegDDRef *Ref) {
   } else if (Ref->isLval()) {
     invalidateNonLinearBlobs(Ref);
     return;
+
+  } else if (Ref->isSelfBlob() || Ref->isConstant()) {
+    return;
   }
 
   unsigned CurLevel = Lp->getNestingLevel();
@@ -556,7 +560,7 @@ void LoopResourceInfo::LoopResourceVisitor::visit(const RegDDRef *Ref) {
 
         // Add cost of stride multiplication.
         if (Stride != 1) {
-          Cost = getNormalizedCost(TTI.getOperationCost(
+          Cost = getNormalizedCost(TTI.getArithmeticInstrCost(
               isPowerOf2_64(Stride) ? Instruction::Shl : Instruction::Mul,
               CE->getDestType()));
           SelfLRI->addIntOps(Cost);
@@ -564,7 +568,7 @@ void LoopResourceInfo::LoopResourceVisitor::visit(const RegDDRef *Ref) {
 
         // Add cost for addition of non-linear offset.
         Cost = getNormalizedCost(
-            TTI.getOperationCost(Instruction::Add, CE->getDestType()));
+            TTI.getArithmeticInstrCost(Instruction::Add, CE->getDestType()));
         SelfLRI->addIntOps(Cost);
 
         AccountForBase = false;
@@ -580,7 +584,7 @@ void LoopResourceInfo::LoopResourceVisitor::visit(const RegDDRef *Ref) {
   if (AccountForBase && HasNonZeroOffset) {
     // Add cost for base + offset.
     Cost = getNormalizedCost(
-        TTI.getOperationCost(Instruction::Add, CE->getDestType()));
+        TTI.getArithmeticInstrCost(Instruction::Add, CE->getDestType()));
     SelfLRI->addIntOps(Cost);
   }
 }
@@ -608,20 +612,20 @@ unsigned LoopResourceInfo::LoopResourceVisitor::getOperationCost(
   int Cost = LoopResourceInfo::OperationCost::BasicOp;
 
   if (isa<BinaryOperator>(Inst)) {
-    Cost = TTI.getOperationCost(Inst->getOpcode(), InstTy);
+    Cost = TTI.getArithmeticInstrCost(Inst->getOpcode(), InstTy);
 
   } else if (auto CInst = dyn_cast<CastInst>(Inst)) {
     Type *OpTy = CInst->getSrcTy();
-    Cost = TTI.getOperationCost(CInst->getOpcode(), InstTy, OpTy);
+    Cost = TTI.getCastInstrCost(CInst->getOpcode(), InstTy, OpTy);
 
   } else if (isa<CmpInst>(Inst) || isa<SelectInst>(Inst)) {
     // Use operand type here as the CmpInst's type is 'i1'.
     auto *CmpTy = (*HInst->rval_op_ddref_begin())->getDestType();
 
     PredicateTy Pred = HInst->getPredicate();
-    Cost = TTI.getOperationCost(
+    Cost = TTI.getCmpSelInstrCost(
         CmpInst::isIntPredicate(Pred) ? Instruction::ICmp : Instruction::FCmp,
-        CmpTy);
+        CmpTy, CmpInst::makeCmpResultType(CmpTy));
 
   } else if (Inst->mayReadOrWriteMemory()) {
     return LoopResourceInfo::OperationCost::MemOp;
@@ -661,10 +665,12 @@ void LoopResourceInfo::LoopResourceVisitor::visit(const HLInst *HInst) {
 
   if (isa<CmpInst>(Inst) || (IsSelect = isa<SelectInst>(Inst))) {
     IsFP = CmpInst::isFPPredicate(HInst->getPredicate());
+    // Use operand type here as the CmpInst's type is 'i1'.
+    auto *OpTy = (*HInst->rval_op_ddref_begin())->getDestType();
 
     if (IsSelect) {
-      unsigned SelectCost =
-          TTI.getOperationCost(Instruction::Select, Inst->getType());
+      unsigned SelectCost = TTI.getCmpSelInstrCost(
+          Instruction::Select, OpTy, CmpInst::makeCmpResultType(OpTy));
       SelfLRI->addIntOps(getNormalizedCost(SelectCost));
     }
 
@@ -681,17 +687,19 @@ void LoopResourceInfo::LoopResourceVisitor::addPredicateOps(Type *Ty,
 
   // Add number of logical operations as IntOps.
   if (Num > 1) {
-    Cost = getNormalizedCost(TTI.getOperationCost(Instruction::And, Ty));
+    Cost = getNormalizedCost(TTI.getArithmeticInstrCost(Instruction::And, Ty));
     SelfLRI->addIntOps(Cost, Num - 1);
   }
 
   // Add number of compares.
   if (Ty->isFPOrFPVectorTy()) {
-    Cost = getNormalizedCost(TTI.getOperationCost(Instruction::FCmp, Ty));
+    Cost = getNormalizedCost(TTI.getCmpSelInstrCost(
+        Instruction::FCmp, Ty, CmpInst::makeCmpResultType(Ty)));
     SelfLRI->addFPOps(Cost, Num);
 
   } else {
-    Cost = getNormalizedCost(TTI.getOperationCost(Instruction::ICmp, Ty));
+    Cost = getNormalizedCost(TTI.getCmpSelInstrCost(
+        Instruction::ICmp, Ty, CmpInst::makeCmpResultType(Ty)));
     SelfLRI->addIntOps(Cost, Num);
   }
 }
@@ -988,7 +996,7 @@ unsigned HIRLoopResource::getOperationCost(const Instruction &Inst) const {
   }
 
   return LoopResourceInfo::LoopResourceVisitor::getNormalizedCost(
-      TTI.getUserCost(&Inst));
+      TTI.getUserCost(&Inst, TargetTransformInfo::TCK_SizeAndLatency));
 }
 
 unsigned HIRLoopResource::getLLVMLoopCost(const Loop &Lp) {

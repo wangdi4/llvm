@@ -472,8 +472,9 @@ protected:
     new StoreInst(NewNF, Ref, AllocaInsPt);
 
     // And finally replace all private uses within loop body with the address
-    // loaded from the private refence.
-    auto *Rep = new LoadInst(Ref, New->getName() + ".in.loop", InLoopInsPt);
+    // loaded from the private reference.
+    auto *Rep = new LoadInst(New->getType(), Ref, New->getName() + ".in.loop",
+                             InLoopInsPt);
 
     // Save replacement value.
     Orig2Rep[I->getOrig()] = Rep;
@@ -520,7 +521,8 @@ protected:
     if (auto *CA = I->getCopyAssign())
       VPOParoptUtils::genCopyAssignCall(CA, Old, Rep, InsPt);
     else if (VPOUtils::canBeRegisterized(New->getAllocatedType(), DL))
-      new StoreInst(new LoadInst(Rep, "", InsPt), Old, InsPt);
+      new StoreInst(new LoadInst(New->getAllocatedType(), Rep, "", InsPt),
+                    Old, InsPt);
     else
       VPOUtils::genMemcpy(Old, Rep, DL, New->getAlignment(), InsPt);
   }
@@ -1269,7 +1271,8 @@ class VPOParoptTransform::CSALoopSplitter {
 
       // And finally replace all private uses within loop body with the address
       // loaded from the private refence.
-      auto *Rep = new LoadInst(Ref, New->getName() + ".in.loop", InLoopInsPt);
+      auto *Rep = new LoadInst(New->getType(), Ref, New->getName() + ".in.loop",
+                               InLoopInsPt);
 
       // Save replacement value.
       Orig2Rep[Old] = Rep;
@@ -1895,12 +1898,12 @@ bool VPOParoptTransform::translateCSAOmpRtlCalls() {
   bool Changed = false;
   for (auto BI = F->begin(); BI != F->end(); ++BI) {
     for (auto II = BI->begin(); II != BI->end();) {
-      CallSite CS(&*II++);
-      if (!CS)
+      auto *CB = dyn_cast<CallBase>(&*II++);
+      if (!CB)
         continue;
 
       LibFunc LF = NumLibFuncs;
-      if (!TLI->getLibFunc(CS, LF))
+      if (!TLI->getLibFunc(*CB, LF))
         continue;
 
       Value *Val = nullptr;
@@ -1919,16 +1922,16 @@ bool VPOParoptTransform::translateCSAOmpRtlCalls() {
         case LibFunc_omp_set_nested:
           break;
         case LibFunc_omp_init_lock:
-          genInitLock(CS.getArgument(0), CS.getInstruction());
+          genInitLock(CB->getArgOperand(0), CB);
           break;
         case LibFunc_omp_set_lock:
-          genSetLock(CS.getArgument(0), CS.getInstruction(), DT, LI);
+          genSetLock(CB->getArgOperand(0), CB, DT, LI);
           break;
         case LibFunc_omp_unset_lock:
-          genUnsetLock(CS.getArgument(0), CS.getInstruction());
+          genUnsetLock(CB->getArgOperand(0), CB);
           break;
         case LibFunc_omp_test_lock:
-          Val = genTestLock(CS.getArgument(0), CS.getInstruction());
+          Val = genTestLock(CB->getArgOperand(0), CB);
           break;
         case LibFunc_omp_destroy_lock:
           break;
@@ -1938,11 +1941,11 @@ bool VPOParoptTransform::translateCSAOmpRtlCalls() {
 
       Changed = true;
       if (Val)
-        CS->replaceAllUsesWith(Val);
-      if (auto *Invoke = dyn_cast<InvokeInst>(CS.getInstruction()))
-        BranchInst::Create(Invoke->getNormalDest(), CS.getInstruction());
-      BI = CS->getParent()->getIterator();
-      II = CS->eraseFromParent();
+        CB->replaceAllUsesWith(Val);
+      if (auto *Invoke = dyn_cast<InvokeInst>(CB))
+        BranchInst::Create(Invoke->getNormalDest(), CB);
+      BI = CB->getParent()->getIterator();
+      II = CB->eraseFromParent();
     }
   }
   return Changed;

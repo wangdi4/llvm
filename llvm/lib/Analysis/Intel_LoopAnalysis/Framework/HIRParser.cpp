@@ -1463,8 +1463,10 @@ bool HIRParser::isEssential(const Instruction *Inst) const {
 
   // TODO: Add exception handling and other miscellaneous instruction types
   // later.
-  if (isa<LoadInst>(Inst) || isa<StoreInst>(Inst) ||
-      (isa<CallInst>(Inst) && !isa<SubscriptInst>(Inst))) {
+  if (isa<CallInst>(Inst) && !isa<SubscriptInst>(Inst) &&
+      (cast<CallInst>(Inst)->getIntrinsicID() != Intrinsic::ssa_copy)) {
+    Ret = true;
+  } else if (isa<LoadInst>(Inst) || isa<StoreInst>(Inst)) {
     Ret = true;
   } else if (isRegionLiveOut(Inst)) {
     Ret = true;
@@ -2994,10 +2996,12 @@ void HIRParser::populateOffsets(const GEPOrSubsOperator *GEPOp,
   for (unsigned I = 1; I < NumOp; ++I) {
     assert(isa<GEPOperator>(GEPOp) && "Only GEP operators expected here");
 
-    if (auto SeqTy = dyn_cast<SequentialType>(CurTy)) {
-      CurTy = SeqTy->getElementType();
+    if (CurTy->isArrayTy()) {
+      CurTy = cast<ArrayType>(CurTy)->getElementType();
       Offsets.push_back(-1);
-
+    } else if (CurTy->isVectorTy()) {
+      CurTy = cast<VectorType>(CurTy)->getElementType();
+      Offsets.push_back(-1);
     } else {
       assert(isa<StructType>(CurTy) && "Unexpected type encountered!");
       auto StrucTy = cast<StructType>(CurTy);

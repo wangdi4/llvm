@@ -828,6 +828,8 @@ if(LLVM_USE_SANITIZER)
     elseif (LLVM_USE_SANITIZER STREQUAL "Thread")
       append_common_sanitizer_flags()
       append("-fsanitize=thread" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+    elseif (LLVM_USE_SANITIZER STREQUAL "DataFlow")
+      append("-fsanitize=dataflow" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
     elseif (LLVM_USE_SANITIZER STREQUAL "Address;Undefined" OR
             LLVM_USE_SANITIZER STREQUAL "Undefined;Address")
       append_common_sanitizer_flags()
@@ -982,6 +984,27 @@ if (LLVM_BUILD_INSTRUMENTED)
         CMAKE_SHARED_LINKER_FLAGS)
     endif()
   endif()
+endif()
+
+# When using clang-cl with an instrumentation-based tool, add clang's library
+# resource directory to the library search path. Because cmake invokes the
+# linker directly, it isn't sufficient to pass -fsanitize=* to the linker.
+if (CLANG_CL AND (LLVM_BUILD_INSTRUMENTED OR LLVM_USE_SANITIZER))
+  execute_process(
+    COMMAND ${CMAKE_CXX_COMPILER} /clang:-print-resource-dir
+    OUTPUT_VARIABLE clang_resource_dir
+    ERROR_VARIABLE clang_cl_stderr
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_STRIP_TRAILING_WHITESPACE
+    RESULT_VARIABLE clang_cl_exit_code)
+  if (NOT "${clang_cl_exit_code}" STREQUAL "0")
+    message(FATAL_ERROR
+      "Unable to invoke clang-cl to find resource dir: ${clang_cl_stderr}")
+  endif()
+  file(TO_CMAKE_PATH "${clang_resource_dir}" clang_resource_dir)
+  append("/libpath:${clang_resource_dir}/lib/windows"
+    CMAKE_EXE_LINKER_FLAGS
+    CMAKE_SHARED_LINKER_FLAGS)
 endif()
 
 if(LLVM_PROFDATA_FILE AND EXISTS ${LLVM_PROFDATA_FILE})
@@ -1285,9 +1308,9 @@ if(INTEL_CUSTOMIZATION)
       # to build Position Independent Executables.
       intel_add_sdl_linker_flag("-pie" PIE CMAKE_EXE_LINKER_FLAGS)
 
-      intel_add_sdl_linker_flag("-Wl,-Map=swlc_ip.map" MAP
-        CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
-        CMAKE_SHARED_LINKER_FLAGS)
+      #intel_add_sdl_linker_flag("-Wl,-Map=swlc_ip.map" MAP
+      #  CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
+      #  CMAKE_SHARED_LINKER_FLAGS)
     elseif(MSVC)
       if (LLVM_ENABLE_WERROR)
         # Force warnings as errors for link:
@@ -1373,9 +1396,9 @@ if(INTEL_CUSTOMIZATION)
         intel_add_sdl_flag("/Qspectre" QSPECTRE FUTURE)
       endif()
 
-      intel_add_sdl_linker_flag("/MAP:swlc_ip.map" MAP
-        CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
-        CMAKE_SHARED_LINKER_FLAGS)
+      #intel_add_sdl_linker_flag("/MAP:swlc_ip.map" MAP
+      #  CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
+      #  CMAKE_SHARED_LINKER_FLAGS)
     else()
       message(FATAL_ERROR "### INTEL: SDL build is currently unsupported. ###")
     endif()

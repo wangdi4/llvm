@@ -58,13 +58,20 @@ bool VPOUtils::stripDirectives(WRegionNode *W) {
   return Changed;
 }
 
-bool VPOUtils::stripDirectives(BasicBlock &BB) {
+bool VPOUtils::stripDirectives(BasicBlock &BB, ArrayRef<int> IDs) {
   SmallVector<Instruction *, 4> IntrinsicsToRemove;
   LLVMContext &C = BB.getContext();
 
   for (Instruction &I : BB)
-    if (VPOAnalysisUtils::isOpenMPDirective(&I))
-      IntrinsicsToRemove.push_back(&I);
+    if (VPOAnalysisUtils::isOpenMPDirective(&I)) {
+      int DirID = VPOAnalysisUtils::getDirectiveID(&I);
+      if (IDs.empty() ||
+          std::any_of(IDs.begin(), IDs.end(),
+                      [DirID](int ID) {
+                        return ID == DirID;
+                      }))
+        IntrinsicsToRemove.push_back(&I);
+    }
 
   if (IntrinsicsToRemove.empty())
     return false;
@@ -78,11 +85,11 @@ bool VPOUtils::stripDirectives(BasicBlock &BB) {
   return true;
 }
 
-bool VPOUtils::stripDirectives(Function &F) {
+bool VPOUtils::stripDirectives(Function &F, ArrayRef<int> IDs) {
   bool changed = false;
 
   for (BasicBlock &BB: F) {
-    changed |= stripDirectives(BB);
+    changed |= stripDirectives(BB, IDs);
   }
 
   return changed;

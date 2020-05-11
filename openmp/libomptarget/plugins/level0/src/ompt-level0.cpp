@@ -17,18 +17,14 @@ const char *omptDocument;
 ompt_interface_fn_t omptLookupEntries(const char *);
 void omptInitPlugin();
 
-#ifdef OMPTARGET_LEVEL0_DEBUG
 extern int DebugLevel;
 #define DP(...)                                                                \
   do {                                                                         \
     if (DebugLevel > 0) {                                                      \
-      DEBUGP("Target LEVEL0 RTL", __VA_ARGS__);                                \
+      fprintf(stderr, "%s --> ", "Target LEVEL0 RTL");                         \
+      fprintf(stderr, __VA_ARGS__);                                            \
     }                                                                          \
   } while (false)
-#else
-#define DP(...)                                                                \
-  {}
-#endif // OMPTARGET_LEVEL0_DEBUG
 
 ///
 /// OMPT entries for this device

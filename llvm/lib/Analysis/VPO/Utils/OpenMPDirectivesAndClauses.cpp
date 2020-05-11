@@ -29,12 +29,12 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
 #if INTEL_CUSTOMIZATION
       IsF90DopeVector(false), IsWILocal(false), IsAllocatable(false),
 #endif // INTEL_CUSTOMIZATION
-      IsAggregate(false), IsPointer(false), IsScalar(false), IsAlways(false),
-      IsClose(false), IsPresent(false), IsUnsigned(false), IsComplex(false),
-      IsConditional(false), IsScheduleMonotonic(false),
-      IsScheduleNonmonotonic(false), IsScheduleSimd(false),
-      IsMapAggrHead(false), IsMapAggr(false), IsMapChainLink(false),
-      IsIV(false) {
+      IsAggregate(false), IsPointer(false), IsPointerToPointer(false),
+      IsScalar(false), IsAlways(false), IsClose(false), IsPresent(false),
+      IsUnsigned(false), IsComplex(false), IsConditional(false),
+      IsScheduleMonotonic(false), IsScheduleNonmonotonic(false),
+      IsScheduleSimd(false), IsMapAggrHead(false), IsMapAggr(false),
+      IsMapChainLink(false), IsIV(false) {
   StringRef Base;  // BaseName
   StringRef Mod;   // Modifier
 
@@ -144,6 +144,9 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
           setIsMapChainLink();
         else if (ModSubString[i] == "IV")          // for linear clause
           setIsIV();
+        else if (ModSubString[i] == "PTR_TO_PTR") // For use_device_ptr operands
+                                                  // which need a dereference
+          setIsPointerToPointer();
         else
           llvm_unreachable("Unknown modifier string for clause");
       }

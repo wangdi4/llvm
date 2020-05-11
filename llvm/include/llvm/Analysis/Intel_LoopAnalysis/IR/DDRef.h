@@ -29,6 +29,7 @@ class formatted_raw_ostream;
 namespace loopopt {
 
 class CanonExpr;
+class HLNode;
 class HLDDNode;
 class HLLoop;
 class DDRefUtils;
@@ -186,9 +187,12 @@ public:
   /// Asserts if this DDRef does not represent a temp.
   bool isLiveOutOfParentLoop() const;
 
+  /// Returns Parent of DDRef.
+  const HLNode *getParent() const;
+  HLNode *getParent();
+
   /// Returns ParentLoop of DDRef.
   const HLLoop *getParentLoop() const;
-
   HLLoop *getParentLoop();
 
   /// Returns lexical ParentLoop of DDRef.

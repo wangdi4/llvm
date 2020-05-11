@@ -48,11 +48,6 @@ const LangASMap AMDGPUTargetInfo::AMDGPUDefIsGenMap = {
     Global,   // cuda_device
     Constant, // cuda_constant
     Local,    // cuda_shared
-    Global,   // sycl_global
-    Local,    // sycl_local
-    Constant, // sycl_constant
-    Private,  // sycl_private
-    Generic,  // sycl_generic
     Generic,  // ptr32_sptr
     Generic,  // ptr32_uptr
     Generic   // ptr64
@@ -68,11 +63,6 @@ const LangASMap AMDGPUTargetInfo::AMDGPUDefIsPrivMap = {
     Global,   // cuda_device
     Constant, // cuda_constant
     Local,    // cuda_shared
-    Global,   // sycl_global
-    Local,    // sycl_local
-    Constant, // sycl_constant
-    Private,  // sycl_private
-    Generic,  // sycl_generic
     Generic,  // ptr32_sptr
     Generic,  // ptr32_uptr
     Generic   // ptr64
@@ -372,4 +362,17 @@ void AMDGPUTargetInfo::setAuxTarget(const TargetInfo *Aux) {
   copyAuxTarget(Aux);
   LongDoubleFormat = SaveLongDoubleFormat;
   Float128Format = SaveFloat128Format;
+  // For certain builtin types support on the host target, claim they are
+  // support to pass the compilation of the host code during the device-side
+  // compilation.
+  // FIXME: As the side effect, we also accept `__float128` uses in the device
+  // code. To rejct these builtin types supported in the host target but not in
+  // the device target, one approach would support `device_builtin` attribute
+  // so that we could tell the device builtin types from the host ones. The
+  // also solves the different representations of the same builtin type, such
+  // as `size_t` in the MSVC environment.
+  if (Aux->hasFloat128Type()) {
+    HasFloat128 = true;
+    Float128Format = DoubleFormat;
+  }
 }

@@ -44,7 +44,6 @@ namespace llvm {
 class ArrayType;
 class IntegerType;
 class PointerType;
-class SequentialType;
 class StructType;
 class VectorType;
 template <class ConstantClass> struct ConstantAggrKeyType;
@@ -517,12 +516,13 @@ private:
 
 public:
   /// Return a ConstantVector with the specified constant in each element.
+  /// Note that this might not return an instance of ConstantVector
   static Constant *getSplat(ElementCount EC, Constant *Elt);
 
-  /// Specialize the getType() method to always return a VectorType,
+  /// Specialize the getType() method to always return a FixedVectorType,
   /// which reduces the amount of casting needed in parts of the compiler.
-  inline VectorType *getType() const {
-    return cast<VectorType>(Value::getType());
+  inline FixedVectorType *getType() const {
+    return cast<FixedVectorType>(Value::getType());
   }
 
   /// If all elements of the vector constant have the same value, return that
@@ -630,12 +630,6 @@ public:
   /// Note that this has to compute a new constant to return, so it isn't as
   /// efficient as getElementAsInteger/Float/Double.
   Constant *getElementAsConstant(unsigned i) const;
-
-  /// Specialize the getType() method to always return a SequentialType, which
-  /// reduces the amount of casting needed in parts of the compiler.
-  inline SequentialType *getType() const {
-    return cast<SequentialType>(Value::getType());
-  }
 
   /// Return the element type of the array/vector.
   Type *getElementType() const;
@@ -808,10 +802,10 @@ public:
   /// same value, return that value. Otherwise return NULL.
   Constant *getSplatValue() const;
 
-  /// Specialize the getType() method to always return a VectorType,
+  /// Specialize the getType() method to always return a FixedVectorType,
   /// which reduces the amount of casting needed in parts of the compiler.
-  inline VectorType *getType() const {
-    return cast<VectorType>(Value::getType());
+  inline FixedVectorType *getType() const {
+    return cast<FixedVectorType>(Value::getType());
   }
 
   /// Methods for support type inquiry through isa, cast, and dyn_cast:

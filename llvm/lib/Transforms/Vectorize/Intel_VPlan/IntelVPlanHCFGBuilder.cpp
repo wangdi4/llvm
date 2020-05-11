@@ -89,8 +89,12 @@ VPlanHCFGBuilder::VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, ScalarEvolution *SE,
   // TODO: Turn Verifier pointer into an object when Patch #3 of Patch Series
   // #1 lands into VPO and VPlanHCFGBuilderBase is removed.
   Verifier = std::make_unique<VPlanVerifier>(Lp, LI, DL);
-  assert((!WRLp || WRLp->getTheLoop<Loop>() == TheLoop) &&
-         "Inconsistent Loop information");
+
+  // FIXME: Uncomment assert once we support on-the-fly updates of the LoopInfo
+  // in our VPlan CodeGen. See a comment for the
+  // VPlanDriverImpl::runStandardMode<llvm::Loop> in IntelVPlanDriver.cpp.
+  // assert((!WRLp || WRLp->getTheLoop<Loop>() == TheLoop) &&
+  //        "Inconsistent Loop information");
 }
 
 VPlanHCFGBuilder::~VPlanHCFGBuilder() = default;
@@ -388,10 +392,6 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
   VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(MainLoop);
   VPBuilder VPIRBuilder;
   LE->insertVPInstructions(VPIRBuilder);
-  // FIXME: SOA Analysis should be decoupled from the LoopEntities and be done
-  // solely on VPInstructions giving us ability to schedule it later in pipeline
-  // (we don't really want to use LoopEntities beyond this point).
-  LE->doSOAAnalysis();
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     if (DumpAfterVPEntityInstructions) {
@@ -400,7 +400,7 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
     }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-  emitVectorLoopIV();
+  emitVecSpecifics();
 
   // Prepare/simplify CFG for hierarchical CFG construction
   simplifyPlainCFG();
@@ -577,8 +577,8 @@ public:
                   const InductionList::value_type &CurValue) {
     Descriptor.clear();
     const InductionDescriptor &ID = CurValue.second;
-    Descriptor.setStartPhi(dyn_cast<VPInstruction>(
-        Builder.getOrCreateVPOperand(CurValue.first)));
+    Descriptor.setStartPhi(
+        dyn_cast<VPInstruction>(Builder.getOrCreateVPOperand(CurValue.first)));
     Descriptor.setKind(ID.getKind());
     Descriptor.setStart(Builder.getOrCreateVPOperand(ID.getStartValue()));
     const SCEV *Step = ID.getStep();
@@ -601,11 +601,10 @@ public:
       assert(Descriptor.getStartPhi() &&
              "Induction descriptor does not have starting PHI.");
       Type *IndTy = Descriptor.getStartPhi()->getType();
-      (void)IndTy;
       assert((IndTy->isIntegerTy() || IndTy->isPointerTy()) &&
              "unexpected induction type");
       Descriptor.setInductionBinOp(nullptr);
-      Descriptor.setBinOpcode(Instruction::Add);
+      Descriptor.setKindAndOpcodeFromTy(IndTy);
     }
     Descriptor.setAllocaInst(nullptr);
   }
@@ -627,24 +626,18 @@ public:
            "expected pointer type for explicit induction");
     IndTy = IndTy->getPointerElementType();
     Type *StepTy = IndTy;
-    if (IndTy->isIntegerTy())
-      Descriptor.setKind(InductionDescriptor::IK_IntInduction);
-    else if (IndTy->isPointerTy()) {
-      Descriptor.setKind(InductionDescriptor::IK_PtrInduction);
+    Descriptor.setKindAndOpcodeFromTy(IndTy);
+    if (IndTy->isPointerTy()) {
       assert(isa<Instruction>(CurValue.first) &&
              "Linear descriptor is not an instruction.");
       const DataLayout &DL =
           cast<Instruction>(CurValue.first)->getModule()->getDataLayout();
       StepTy = DL.getIntPtrType(IndTy);
-    } else {
-      assert(IndTy->isFloatingPointTy() && "unexpected induction type");
-      Descriptor.setKind(InductionDescriptor::IK_FpInduction);
     }
     Value *Cstep = ConstantInt::get(StepTy, CurValue.second);
     Descriptor.setStep(Builder.getOrCreateVPOperand(Cstep));
 
     Descriptor.setInductionBinOp(nullptr);
-    Descriptor.setBinOpcode(Instruction::Add);
     assertIsSingleElementAlloca(CurValue.first);
     // Initialize the AllocaInst of the descriptor with the induction start
     // value. Explicit inductions always have a valid memory allocation.
@@ -908,15 +901,12 @@ void VPlanHCFGBuilder::passEntitiesToVPlan(VPLoopEntityConverterList &Cvts) {
   }
 }
 
-void VPlanHCFGBuilder::emitVectorLoopIV() {
+void VPlanHCFGBuilder::emitVecSpecifics() {
   auto *VPLInfo = Plan->getVPLoopInfo();
   VPLoop *CandidateLoop = *VPLInfo->begin();
 
-  auto *Header = CandidateLoop->getHeader();
   auto *PreHeader = CandidateLoop->getLoopPreheader();
-  auto *Latch = CandidateLoop->getLoopLatch();
   assert(PreHeader && "Single pre-header is expected!");
-  assert(Latch && "Single loop latch is expected!");
 
   Type *VectorLoopIVType = Legal->getWidestInductionType();
   if (!VectorLoopIVType) {
@@ -924,23 +914,34 @@ void VPlanHCFGBuilder::emitVectorLoopIV() {
     // that. Shouldn't happen outside stress/forced pipeline.
     VectorLoopIVType = Type::getInt64Ty(*Plan->getLLVMContext());
   }
-  auto *VPZero =
-      Plan->getVPConstant(ConstantInt::getNullValue(VectorLoopIVType));
   auto *VPOne = Plan->getVPConstant(ConstantInt::get(VectorLoopIVType, 1));
 
   VPBuilder Builder;
   Builder.setInsertPoint(PreHeader);
   auto *VF = Builder.createInductionInitStep(VPOne, Instruction::Add, "VF");
 
-  auto *OrigTC =
-      new VPOrigTripCountCalculation(TheLoop, CandidateLoop, VectorLoopIVType);
-  OrigTC->setName("orig.trip.count");
-  Builder.getInsertBlock()->insert(OrigTC, Builder.getInsertPoint());
+  auto *OrigTC = Builder.createOrigTripCountCalculation(TheLoop, CandidateLoop,
+                                                        VectorLoopIVType);
+  auto *TC = Builder.createVectorTripCountCalculation(OrigTC);
 
-  auto *TC = new VPVectorTripCountCalculation(OrigTC);
-  TC->setName("vector.trip.count");
-  Builder.getInsertBlock()->insert(TC, Builder.getInsertPoint());
+  emitVectorLoopIV(TC, VF);
+}
 
+void VPlanHCFGBuilder::emitVectorLoopIV(VPValue *TripCount, VPValue *VF) {
+  auto *VPLInfo = Plan->getVPLoopInfo();
+  VPLoop *CandidateLoop = *VPLInfo->begin();
+
+  auto *PreHeader = CandidateLoop->getLoopPreheader();
+  auto *Header = CandidateLoop->getHeader();
+  auto *Latch = CandidateLoop->getLoopLatch();
+  assert(PreHeader && "Single pre-header is expected!");
+  assert(Latch && "Single loop latch is expected!");
+
+  Type *VectorLoopIVType = TripCount->getType();
+  auto *VPZero =
+      Plan->getVPConstant(ConstantInt::getNullValue(VectorLoopIVType));
+
+  VPBuilder Builder;
   Builder.setInsertPoint(Header, Header->begin());
   auto *IV = Builder.createPhiInstruction(VectorLoopIVType, "vector.loop.iv");
   IV->addIncoming(VPZero, PreHeader);
@@ -949,7 +950,7 @@ void VPlanHCFGBuilder::emitVectorLoopIV() {
   IV->addIncoming(IVUpdate, Latch);
   auto *ExitCond = Builder.createCmpInst(
       Latch->getSuccessors()[0] == Header ? CmpInst::ICMP_NE : CmpInst::ICMP_EQ,
-      IVUpdate, TC, "vector.loop.exitcond");
+      IVUpdate, TripCount, "vector.loop.exitcond");
 
   VPValue *OrigExitCond = Latch->getCondBit();
   Latch->setCondBit(ExitCond);

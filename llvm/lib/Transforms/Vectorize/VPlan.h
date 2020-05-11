@@ -48,8 +48,6 @@
 
 namespace llvm {
 
-class LoopVectorizationLegality;
-class LoopVectorizationCostModel;
 class BasicBlock;
 class DominatorTree;
 class InnerLoopVectorizer;
@@ -59,6 +57,7 @@ class raw_ostream;
 class Value;
 class VPBasicBlock;
 class VPRegionBlock;
+class VPSlotTracker;
 class VPlan;
 class VPlanSlp;
 
@@ -329,6 +328,9 @@ struct VPTransformState {
   /// Values they correspond to.
   VPValue2ValueTy VPValue2Value;
 
+  /// Hold the canonical scalar IV of the vector loop (start=0, step=VF*UF).
+  Value *CanonicalIV = nullptr;
+
   /// Hold the trip count of the scalar loop.
   Value *TripCount = nullptr;
 
@@ -343,7 +345,6 @@ struct VPTransformState {
 class VPBlockBase {
   friend class VPBlockUtils;
 
-private:
   const unsigned char SubclassID; ///< Subclass identifier (for isa/dyn_cast).
 
   /// An optional name for the block.
@@ -595,7 +596,6 @@ class VPRecipeBase : public ilist_node_with_parent<VPRecipeBase, VPBasicBlock> {
   friend VPBasicBlock;
   friend class VPBlockUtils;
 
-private:
   const unsigned char SubclassID; ///< Subclass identifier (for isa/dyn_cast).
 
   /// Each VPRecipe belongs to a single VPBasicBlock.
@@ -613,11 +613,14 @@ public:
     VPInterleaveSC,
     VPPredInstPHISC,
     VPReplicateSC,
+    VPWidenCallSC,
+    VPWidenCanonicalIVSC,
     VPWidenGEPSC,
     VPWidenIntOrFpInductionSC,
     VPWidenMemoryInstructionSC,
     VPWidenPHISC,
     VPWidenSC,
+    VPWidenSelectSC
   };
 
   VPRecipeBase(const unsigned char SC) : SubclassID(SC) {}
@@ -639,7 +642,6 @@ public:
 #if INTEL_CUSTOMIZATION
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Each recipe prints itself.
-  void print(raw_ostream &O, const Twine &Indent);
   virtual void print(raw_ostream &O, const Twine &Indent,
                      VPSlotTracker &SlotTracker) const = 0;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
@@ -773,12 +775,16 @@ public:
 /// ingredient. This recipe covers most of the traditional vectorization cases
 /// where each ingredient transforms into a vectorized version of itself.
 class VPWidenRecipe : public VPRecipeBase {
-private:
   /// Hold the instruction to be widened.
   Instruction &Ingredient;
 
+  /// Hold VPValues for the operands of the ingredient.
+  VPUser User;
+
 public:
-  VPWidenRecipe(Instruction &I) : VPRecipeBase(VPWidenSC), Ingredient(I) {}
+  template <typename IterT>
+  VPWidenRecipe(Instruction &I, iterator_range<IterT> Operands)
+      : VPRecipeBase(VPWidenSC), Ingredient(I), User(Operands) {}
 
   ~VPWidenRecipe() override = default;
 
@@ -799,9 +805,76 @@ public:
 #endif // INTEL_CUSTOMIZATION
 };
 
+/// A recipe for widening Call instructions.
+class VPWidenCallRecipe : public VPRecipeBase {
+  /// Hold the call to be widened.
+  CallInst &Ingredient;
+
+  /// Hold VPValues for the arguments of the call.
+  VPUser User;
+
+public:
+  template <typename IterT>
+  VPWidenCallRecipe(CallInst &I, iterator_range<IterT> CallArguments)
+      : VPRecipeBase(VPWidenCallSC), Ingredient(I), User(CallArguments) {}
+
+  ~VPWidenCallRecipe() override = default;
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPRecipeBase *V) {
+    return V->getVPRecipeID() == VPRecipeBase::VPWidenCallSC;
+  }
+
+  /// Produce a widened version of the call instruction.
+  void execute(VPTransformState &State) override;
+
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  /// Print the recipe.
+  void print(raw_ostream &O, const Twine &Indent,
+             VPSlotTracker &SlotTracker) const override;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
+};
+
+/// A recipe for widening select instructions.
+class VPWidenSelectRecipe : public VPRecipeBase {
+private:
+  /// Hold the select to be widened.
+  SelectInst &Ingredient;
+
+  /// Is the condition of the select loop invariant?
+  bool InvariantCond;
+
+  /// Hold VPValues for the arguments of the call.
+  VPUser User;
+
+public:
+  VPWidenSelectRecipe(SelectInst &I, bool InvariantCond)
+      : VPRecipeBase(VPWidenSelectSC), Ingredient(I),
+        InvariantCond(InvariantCond) {}
+
+  ~VPWidenSelectRecipe() override = default;
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPRecipeBase *V) {
+    return V->getVPRecipeID() == VPRecipeBase::VPWidenSelectSC;
+  }
+
+  /// Produce a widened version of the select instruction.
+  void execute(VPTransformState &State) override;
+
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  /// Print the recipe.
+  void print(raw_ostream &O, const Twine &Indent,
+             VPSlotTracker &SlotTracker) const override;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
+};
+
 /// A recipe for handling GEP instructions.
 class VPWidenGEPRecipe : public VPRecipeBase {
-private:
   GetElementPtrInst *GEP;
   bool IsPtrLoopInvariant;
   SmallBitVector IsIndexLoopInvariant;
@@ -837,7 +910,6 @@ public:
 /// A recipe for handling phi nodes of integer and floating-point inductions,
 /// producing their vector and scalar values.
 class VPWidenIntOrFpInductionRecipe : public VPRecipeBase {
-private:
   PHINode *IV;
   TruncInst *Trunc;
 
@@ -866,7 +938,6 @@ public:
 
 /// A recipe for handling all phi nodes except for integer and FP inductions.
 class VPWidenPHIRecipe : public VPRecipeBase {
-private:
   PHINode *Phi;
 
 public:
@@ -893,26 +964,40 @@ public:
 /// A recipe for vectorizing a phi-node as a sequence of mask-based select
 /// instructions.
 class VPBlendRecipe : public VPRecipeBase {
-private:
   PHINode *Phi;
 
-  /// The blend operation is a User of a mask, if not null.
-  std::unique_ptr<VPUser> User;
+  /// The blend operation is a User of the incoming values and of their
+  /// respective masks, ordered [I0, M0, I1, M1, ...]. Note that a single value
+  /// might be incoming with a full mask for which there is no VPValue.
+  VPUser User;
 
 public:
-  VPBlendRecipe(PHINode *Phi, ArrayRef<VPValue *> Masks)
-      : VPRecipeBase(VPBlendSC), Phi(Phi) {
-    assert((Phi->getNumIncomingValues() == 1 ||
-            Phi->getNumIncomingValues() == Masks.size()) &&
-           "Expected the same number of incoming values and masks");
-    if (!Masks.empty())
-      User.reset(new VPUser(Masks));
+  VPBlendRecipe(PHINode *Phi, ArrayRef<VPValue *> Operands)
+      : VPRecipeBase(VPBlendSC), Phi(Phi), User(Operands) {
+    assert(Operands.size() > 0 &&
+           ((Operands.size() == 1) || (Operands.size() % 2 == 0)) &&
+           "Expected either a single incoming value or a positive even number "
+           "of operands");
   }
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPRecipeBase *V) {
     return V->getVPRecipeID() == VPRecipeBase::VPBlendSC;
   }
+
+  /// Return the number of incoming values, taking into account that a single
+  /// incoming value has no mask.
+  unsigned getNumIncomingValues() const {
+    return (User.getNumOperands() + 1) / 2;
+  }
+
+  /// Return incoming value number \p Idx.
+  VPValue *getIncomingValue(unsigned Idx) const {
+    return User.getOperand(Idx * 2);
+  }
+
+  /// Return mask number \p Idx.
+  VPValue *getMask(unsigned Idx) const { return User.getOperand(Idx * 2 + 1); }
 
   /// Generate the phi/select nodes.
   void execute(VPTransformState &State) override;
@@ -929,7 +1014,6 @@ public:
 /// VPInterleaveRecipe is a recipe for transforming an interleave group of load
 /// or stores into one wide load/store and shuffles.
 class VPInterleaveRecipe : public VPRecipeBase {
-private:
   const InterleaveGroup<Instruction> *IG;
   VPUser User;
 
@@ -978,7 +1062,6 @@ public:
 /// single copy of widened type for all lanes. If the instruction is known to be
 /// uniform only one copy, per lane zero, will be generated.
 class VPReplicateRecipe : public VPRecipeBase {
-private:
   /// The instruction being replicated.
   Instruction *Ingredient;
 
@@ -1028,7 +1111,6 @@ public:
 
 /// A recipe for generating conditional branches on the bits of a mask.
 class VPBranchOnMaskRecipe : public VPRecipeBase {
-private:
   std::unique_ptr<VPUser> User;
 
 public:
@@ -1068,7 +1150,6 @@ public:
 /// The phi nodes can be scalar or vector depending on the users of the value.
 /// This recipe works in concert with VPBranchOnMaskRecipe.
 class VPPredInstPHIRecipe : public VPRecipeBase {
-private:
   Instruction *PredInst;
 
 public:
@@ -1102,7 +1183,6 @@ public:
 /// TODO: We currently execute only per-part unless a specific instance is
 /// provided.
 class VPWidenMemoryInstructionRecipe : public VPRecipeBase {
-private:
   Instruction &Instr;
   VPUser User;
 
@@ -1155,6 +1235,39 @@ public:
   }
 
   /// Generate the wide load/store.
+  void execute(VPTransformState &State) override;
+
+#if INTEL_CUSTOMIZATION
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  /// Print the recipe.
+  void print(raw_ostream &O, const Twine &Indent,
+             VPSlotTracker &SlotTracker) const override;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+#endif // INTEL_CUSTOMIZATION
+};
+
+/// A Recipe for widening the canonical induction variable of the vector loop.
+class VPWidenCanonicalIVRecipe : public VPRecipeBase {
+  /// A VPValue representing the canonical vector IV.
+  VPValue Val;
+
+public:
+  VPWidenCanonicalIVRecipe() : VPRecipeBase(VPWidenCanonicalIVSC) {}
+  ~VPWidenCanonicalIVRecipe() override = default;
+
+  /// Return the VPValue representing the canonical vector induction variable of
+  /// the vector loop.
+  const VPValue *getVPValue() const { return &Val; }
+  VPValue *getVPValue() { return &Val; }
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPRecipeBase *V) {
+    return V->getVPRecipeID() == VPRecipeBase::VPWidenCanonicalIVSC;
+  }
+
+  /// Generate a canonical vector induction variable of the vector loop, with
+  /// start = {<Part*VF, Part*VF+1, ..., Part*VF+VF-1> for 0 <= Part < UF}, and
+  /// step = <VF*UF, VF*UF, ..., VF*UF>.
   void execute(VPTransformState &State) override;
 
 #if INTEL_CUSTOMIZATION
@@ -1255,7 +1368,6 @@ private:
 /// candidate VF's. The actual replication takes place only once the desired VF
 /// and UF have been determined.
 class VPRegionBlock : public VPBlockBase {
-private:
   /// Hold the Single Entry of the SESE region modelled by the VPRegionBlock.
   VPBlockBase *Entry;
 
@@ -1451,7 +1563,6 @@ struct GraphTraits<Inverse<VPRegionBlock *>>
   }
 };
 
-class VPSlotTracker;
 /// VPlan models a candidate for vectorization, encoding various decisions take
 /// to produce efficient output IR, including which branches, basic-blocks and
 /// output IR instructions to generate, and their cost. VPlan holds a
@@ -1461,7 +1572,6 @@ class VPlan {
   friend class VPlanPrinter;
   friend class VPSlotTracker;
 
-private:
   /// Hold the single entry to the Hierarchical CFG of the VPlan.
   VPBlockBase *Entry;
 
@@ -1502,10 +1612,9 @@ public:
     if (Entry)
       VPBlockBase::deleteCFG(Entry);
     for (auto &MapEntry : Value2VPValue)
-      if (MapEntry.second != BackedgeTakenCount)
-        delete MapEntry.second;
+      delete MapEntry.second;
     if (BackedgeTakenCount)
-      delete BackedgeTakenCount; // Delete once, if in Value2VPValue or not.
+      delete BackedgeTakenCount;
     for (VPValue *Def : VPExternalDefs)
       delete Def;
     for (VPValue *CBV : VPCBVs)
@@ -1575,6 +1684,16 @@ public:
 
   /// Dump the plan to stderr (for debugging).
   void dump() const;
+
+  /// Returns a range mapping the values the range \p Operands to their
+  /// corresponding VPValues.
+  iterator_range<mapped_iterator<Use *, std::function<VPValue *(Value *)>>>
+  mapToVPValues(User::op_range Operands) {
+    std::function<VPValue *(Value *)> Fn = [this](Value *Op) {
+      return getOrAddVPValue(Op);
+    };
+    return map_range(Operands, Fn);
+  }
 
 private:
   /// Add to the given dominator tree the header block and every new basic block
@@ -1762,7 +1881,6 @@ public:
 };
 
 class VPInterleavedAccessInfo {
-private:
   DenseMap<VPInstruction *, InterleaveGroup<VPInstruction> *>
       InterleaveGroupMap;
 
@@ -1806,7 +1924,6 @@ public:
 /// Class that maps (parts of) an existing VPlan to trees of combined
 /// VPInstructions.
 class VPlanSlp {
-private:
   enum class OpMode { Failed, Load, Opcode };
 
   /// A DenseMapInfo implementation for using SmallVector<VPValue *, 4> as

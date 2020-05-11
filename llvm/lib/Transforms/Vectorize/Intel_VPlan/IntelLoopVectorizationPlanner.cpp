@@ -23,6 +23,7 @@
 #include "IntelVPlanHCFGBuilder.h"
 #include "IntelVPlanLoopCFU.h"
 #include "IntelVPlanPredicator.h"
+#include "IntelVPSOAAnalysis.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
 #if INTEL_CUSTOMIZATION
@@ -176,6 +177,11 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
     Plan->getVPlanDA()->compute(Plan.get(), CandidateLoop, VPLInfo,
                                 *Plan->getDT(), *Plan->getPDT(),
                                 false /*Not in LCSSA form*/);
+
+    // Do SOA-analysis for loop-privates.
+    VPSOAAnalysis VPSOAA(*Plan.get(), *CandidateLoop);
+    VPSOAA.doSOAAnalysis();
+
     for (unsigned TmpVF = StartRangeVF; TmpVF < EndRangeVF; TmpVF *= 2)
       VPlans[TmpVF] = Plan;
 
@@ -189,6 +195,27 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
     VPlans[1] = VPlans[MinVF];
 
   return i;
+}
+
+void LoopVectorizationPlanner::selectBestPeelingVariants() {
+  std::map<VPlan *, VPlanPeelingAnalysis> VPPACache;
+
+  for (auto &Pair : VPlans) {
+    auto VF = Pair.first;
+    VPlan &Plan = *Pair.second;
+
+    if (VF == 1)
+      continue;
+
+    auto Found = VPPACache.find(&Plan);
+    if (Found == VPPACache.end()) {
+      VPlanPeelingAnalysis VPPA(*VPSE, *DL);
+      VPPA.collectMemrefs(Plan);
+      std::tie(Found, std::ignore) = VPPACache.emplace(&Plan, std::move(VPPA));
+    }
+
+    Plan.setPreferredPeeling(VF, Found->second.selectBestPeelingVariant(VF));
+  }
 }
 
 /// Evaluate cost model for available VPlans and find the best one.
@@ -399,13 +426,15 @@ void LoopVectorizationPlanner::unroll(
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 template <typename CostModelTy>
-void LoopVectorizationPlanner::printCostModelAnalysisIfRequested() {
+void LoopVectorizationPlanner::printCostModelAnalysisIfRequested(
+  const std::string &Header) {
   for (unsigned VFRequested : VPlanCostModelPrintAnalysisForVF) {
     if (!hasVPlanForVF(VFRequested)) {
       errs() << "VPlan for VF = " << VFRequested << " was not constructed\n";
       continue;
     }
     VPlan *Plan = getVPlanForVF(VFRequested);
+
 #if INTEL_CUSTOMIZATION
     CostModelTy CM(Plan, VFRequested, TTI, DL, VLSA);
 #else
@@ -416,15 +445,17 @@ void LoopVectorizationPlanner::printCostModelAnalysisIfRequested() {
     // control it would have been opt's output stream (via "-o" switch). As it
     // is not so, just pass stdout so that we would not be required to redirect
     // stderr to Filecheck.
-    CM.print(outs());
+    CM.print(outs(), Header);
   }
 }
 
 // Explicit instantiations.
 template void
-LoopVectorizationPlanner::printCostModelAnalysisIfRequested<VPlanCostModel>();
+LoopVectorizationPlanner::printCostModelAnalysisIfRequested<VPlanCostModel>(
+  const std::string &Header);
 template void LoopVectorizationPlanner::printCostModelAnalysisIfRequested<
-    VPlanCostModelProprietary>();
+    VPlanCostModelProprietary>(
+  const std::string &Header);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 // TODO: Current implementation is too aggressive and may lead to increase of

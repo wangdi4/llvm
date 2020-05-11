@@ -18,8 +18,7 @@ define dso_local void @func(i32 %n) local_unnamed_addr {
 ;
 ; LLVM-CG-LABEL: define dso_local void @func(
 ; LLVM-CG:       vector.body:
-; LLVM-CG-NEXT:    [[INDEX0:%.*]] = phi i64 [ 0, [[VECTOR_PH0:%.*]] ], [ [[INDEX_NEXT0:%.*]], [[PRED_ALLOCA_CONTINUE40:%.*]] ]
-; LLVM-CG-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0]] ], [ [[TMP20:%.*]], [[PRED_ALLOCA_CONTINUE40]] ]
+; LLVM-CG-NEXT:    [[UNI_PHI0:%.*]] = phi i64 [ 0, [[VECTOR_PH0:%.*]] ], [ [[TMP20:%.*]], [[PRED_ALLOCA_CONTINUE40:%.*]] ]
 ; LLVM-CG-NEXT:    [[UNI_PHI10:%.*]] = phi i64 [ [[TMP18:%.*]], [[PRED_ALLOCA_CONTINUE40]] ], [ 0, [[VECTOR_PH0]] ]
 ; LLVM-CG-NEXT:    [[VEC_PHI0:%.*]] = phi <2 x i64> [ [[TMP17:%.*]], [[PRED_ALLOCA_CONTINUE40]] ], [ <i64 0, i64 1>, [[VECTOR_PH0]] ]
 ; LLVM-CG-NEXT:    [[VEC_PHI_EXTRACT_1_0:%.*]] = extractelement <2 x i64> [[VEC_PHI0]], i32 1

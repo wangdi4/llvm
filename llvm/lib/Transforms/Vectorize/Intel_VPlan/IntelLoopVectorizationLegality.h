@@ -19,6 +19,7 @@
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELLOOPVECTORIZERLEGALITY_H
 
 #include "llvm/ADT/MapVector.h"
+#include "llvm/ADT/SetVector.h"
 #include "llvm/Analysis/IVDescriptors.h"
 
 namespace llvm {
@@ -58,10 +59,11 @@ public:
   using ReductionList = MapVector<PHINode *, RecurrenceDescriptor>;
 
   /// The list of explicit reduction variables.
-  using ExplicitReductionList = MapVector<PHINode *, std::pair<RecurrenceDescriptor, AllocaInst *>>;
-  using InMemoryReductionList = MapVector<AllocaInst *,
-                   std::pair<RecurrenceDescriptor::RecurrenceKind,
-                             RecurrenceDescriptor::MinMaxRecurrenceKind>>;
+  using ExplicitReductionList =
+      MapVector<PHINode *, std::pair<RecurrenceDescriptor, Value *>>;
+  using InMemoryReductionList =
+      MapVector<Value *, std::pair<RecurrenceDescriptor::RecurrenceKind,
+                                   RecurrenceDescriptor::MinMaxRecurrenceKind>>;
 
   /// InductionList saves induction variables and maps them to the
   /// induction descriptor.
@@ -100,7 +102,7 @@ public:
 
   /// Return a pointer to reduction var using the \p Phi node.
   /// (Explicit only)
-  AllocaInst *getReductionPtrByPhi(PHINode *Phi) {
+  Value *getReductionPtrByPhi(PHINode *Phi) {
     assert(ExplicitReductions.count(Phi) && "Exp reduction var is not found");
     return ExplicitReductions[Phi].second;
   }
@@ -293,12 +295,10 @@ private:
                               RecurrenceDescriptor::MinMaxRecurrenceKind Mrk =
                                   RecurrenceDescriptor::MRK_Invalid);
   /// Parsing Min/Max reduction patterns.
-  void parseMinMaxReduction(AllocaInst *V,
-                            RecurrenceDescriptor::RecurrenceKind Kind,
+  void parseMinMaxReduction(Value *V, RecurrenceDescriptor::RecurrenceKind Kind,
                             RecurrenceDescriptor::MinMaxRecurrenceKind Mrk);
   /// Parsing arithmetic reduction patterns.
-  void parseBinOpReduction(AllocaInst *V,
-                           RecurrenceDescriptor::RecurrenceKind Kind);
+  void parseBinOpReduction(Value *V, RecurrenceDescriptor::RecurrenceKind Kind);
 
   /// Return true if the explicit reduction uses Phi nodes.
   bool doesReductionUsePhiNodes(Value *RedVarPtr, PHINode *&LoopHeaderPhiNode,

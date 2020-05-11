@@ -47,7 +47,7 @@
 ;   END REGION
 
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-linearization-hir=false -vplan-force-vf=4 -print-after=VPlanDriverHIR -vplan-print-after-ssa-deconstruction -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-linearization-hir=false -vplan-force-vf=4 -print-after=VPlanDriverHIR -vplan-print-after-ssa-deconstruction -vplan-dump-external-defs-hir=0 -disable-output < %s 2>&1 | FileCheck %s
 
 define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; CHECK-LABEL:  After VPlan SSA deconstruction
@@ -69,7 +69,7 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; CHECK-NEXT:     [DA: Div] i64 [[VP2:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     [DA: Div] float* [[VP4:%.*]] = getelementptr inbounds float* [[ARR0:%.*]] i64 [[VP2]]
 ; CHECK-NEXT:     [DA: Div] float [[VP5:%.*]] = load float* [[VP4]]
-; CHECK-NEXT:     [DA: Div] float [[VP6:%.*]] = bitcast float [[VP5]]
+; CHECK-NEXT:     [DA: Div] float [[VP6:%.*]] =  call float [[VP5]] float (float)* @llvm.ssa.copy.f32
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP7:%.*]] = icmp i32 [[N10:%.*]] i32 0
 ; CHECK-NEXT:     [DA: Div] float [[VP8:%.*]] = hir-copy float [[VP0]] , OriginPhiId: 0
 ; CHECK-NEXT:     [DA: Div] float [[VP9:%.*]] = hir-copy float [[VP6]] , OriginPhiId: 1
@@ -86,36 +86,30 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]:
-; CHECK-NEXT:       [DA: Div] i1 [[VP_BB4_BR_VP__NOT:%.*]] = and i1 [[VP7]] i1 [[VP__NOT]]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_BB4_BR_:%.*]] = and i1 [[VP7]] i1 [[VP12]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP13:%.*]] = block-predicate i1 [[VP__NOT]]
+; CHECK-NEXT:       [DA: Div] float [[VP14:%.*]] = fadd float [[VP10]] float 2.000000e+00
+; CHECK-NEXT:       [DA: Div] float* [[VP15:%.*]] = getelementptr inbounds float* [[ARR0]] i64 [[VP2]]
+; CHECK-NEXT:       [DA: Div] store float [[VP14]] float* [[VP15]]
+; CHECK-NEXT:       [DA: Div] float [[VP16:%.*]] = call float [[VP14]] float (float)* @llvm.ssa.copy.f32
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB6:BB[0-9]+]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB6]]:
-; CHECK-NEXT:       [DA: Div] i1 [[VP13:%.*]] = block-predicate i1 [[VP_BB4_BR_VP__NOT]]
-; CHECK-NEXT:       [DA: Div] float [[VP14:%.*]] = fadd float [[VP10]] float 2.000000e+00
-; CHECK-NEXT:       [DA: Div] float* [[VP15:%.*]] = getelementptr inbounds float* [[ARR0]] i64 [[VP2]]
-; CHECK-NEXT:       [DA: Div] store float [[VP14]] float* [[VP15]]
-; CHECK-NEXT:       [DA: Div] float [[VP16:%.*]] = bitcast float [[VP14]]
-; CHECK-NEXT:      SUCCESSORS(1):[[BB7:BB[0-9]+]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB5]]
-; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB7]]:
-; CHECK-NEXT:       [DA: Div] i1 [[VP17:%.*]] = block-predicate i1 [[VP_BB4_BR_]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP17:%.*]] = block-predicate i1 [[VP12]]
 ; CHECK-NEXT:       [DA: Div] float [[VP18:%.*]] = fadd float [[VP10]] float 1.000000e+00
 ; CHECK-NEXT:       [DA: Div] float* [[VP19:%.*]] = getelementptr inbounds float* [[ARR0]] i64 [[VP2]]
 ; CHECK-NEXT:       [DA: Div] store float [[VP18]] float* [[VP19]]
-; CHECK-NEXT:       [DA: Div] float [[VP20:%.*]] = bitcast float [[VP18]]
+; CHECK-NEXT:       [DA: Div] float [[VP20:%.*]] = call float [[VP18]] float (float)* @llvm.ssa.copy.f32
 ; CHECK-NEXT:      SUCCESSORS(1):[[BLEND_BB0:blend.bb[0-9]+]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB6]]
+; CHECK-NEXT:      PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BLEND_BB0]]:
-; CHECK-NEXT:       [DA: Div] float [[VP21:%.*]] = blend [ float [[VP0]], i1 [[VP_BB4_BR_VP__NOT]] ], [ float [[VP0]], i1 [[VP_BB4_BR_]] ]
-; CHECK-NEXT:       [DA: Div] float [[VP22:%.*]] = blend [ float [[VP16]], i1 [[VP_BB4_BR_VP__NOT]] ], [ float [[VP20]], i1 [[VP_BB4_BR_]] ]
+; CHECK-NEXT:       [DA: Div] float [[VP21:%.*]] = blend [ float [[VP0]], i1 [[VP__NOT]] ], [ float [[VP0]], i1 [[VP12]] ]
+; CHECK-NEXT:       [DA: Div] float [[VP22:%.*]] = blend [ float [[VP16]], i1 [[VP__NOT]] ], [ float [[VP20]], i1 [[VP12]] ]
 ; CHECK-NEXT:       [DA: Div] float [[VP23:%.*]] = hir-copy float [[VP21]] , OriginPhiId: 0
 ; CHECK-NEXT:       [DA: Div] float [[VP24:%.*]] = hir-copy float [[VP22]] , OriginPhiId: 1
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB3]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB7]]
+; CHECK-NEXT:      PREDECESSORS(1): [[BB6]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]:
 ; CHECK-NEXT:     [DA: Div] float [[VP25:%.*]] = phi  [ float [[VP8]], [[BB2]] ],  [ float [[VP23]], [[BLEND_BB0]] ]
@@ -123,19 +117,19 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; CHECK-NEXT:     [DA: Div] float [[VP1]] = fadd float [[VP26]] float [[VP25]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP3]] = add i64 [[VP2]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP27:%.*]] = icmp i64 [[VP3]] i64 99
-; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP27]]), [[BB8:BB[0-9]+]](!i1 [[VP27]])
+; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP27]]), [[BB7:BB[0-9]+]](!i1 [[VP27]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB2]] [[BLEND_BB0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB8]]:
+; CHECK-NEXT:    [[BB7]]:
 ; CHECK-NEXT:     [DA: Uni] float [[VP__RED_FINAL:%.*]] = reduction-final{fadd} float [[VP1]] float [[RED_PHI0:%.*]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
-; CHECK-NEXT:    SUCCESSORS(1):[[BB9:BB[0-9]+]]
+; CHECK-NEXT:    SUCCESSORS(1):[[BB8:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB9]]:
+; CHECK-NEXT:    [[BB8]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB8]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB7]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  *** IR Dump After VPlan Vectorization Driver HIR ***
 ; CHECK-NEXT:  Function: foo
@@ -144,9 +138,9 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; CHECK-NEXT:  <37>               [[RED_VAR0:%.*]] = 0.000000e+00
 ; CHECK-NEXT:  <36>
 ; CHECK-NEXT:  <36>               + DO i1 = 0, 99, 4   <DO_LOOP> <novectorize>
-; CHECK-NEXT:  <67>               |   [[DOTVEC110:%.*]] = undef
-; CHECK-NEXT:  <63>               |   [[MERGE_PHI_IN_VEC0:%.*]] = undef
-; CHECK-NEXT:  <60>               |   [[DOTVEC90:%.*]] = undef
+; CHECK-NEXT:  <63>               |   [[DOTVEC90:%.*]] = undef
+; CHECK-NEXT:  <59>               |   [[MERGE_PHI_IN_VEC0:%.*]] = undef
+; CHECK-NEXT:  <56>               |   [[DOTVEC70:%.*]] = undef
 ; CHECK-NEXT:  <38>               |   [[BB2]].{{[0-9]+}}:
 ; CHECK-NEXT:  <39>               |   [[LD_VEC0:%.*]] = (<4 x float>*)([[ARR0]])[i1]
 ; CHECK-NEXT:  <40>               |   [[MERGE_PHI_IN_VEC0]] = [[LD_VEC0]]
@@ -169,28 +163,24 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; CHECK-NEXT:  <52>               |   [[DOTVEC60:%.*]] = [[WIDE_CMP_50]]  ^  -1
 ; CHECK-NEXT:  <53>               |   goto [[BB5]].{{[0-9]+}}
 ; CHECK-NEXT:  <54>               |   [[BB5]].{{[0-9]+}}:
-; CHECK-NEXT:  <55>               |   [[DOTVEC70:%.*]] = [[WIDE_CMP_0]]  &&  [[DOTVEC60]]
-; CHECK-NEXT:  <56>               |   [[DOTVEC80:%.*]] = [[WIDE_CMP_0]]  &&  [[WIDE_CMP_50]]
-; CHECK-NEXT:  <57>               |   goto [[BB6]].{{[0-9]+}}
-; CHECK-NEXT:  <58>               |   [[BB6]].{{[0-9]+}}:
-; CHECK-NEXT:  <59>               |   [[DOTVEC90]] = [[DOTVEC0]]  +  2.000000e+00
-; CHECK-NEXT:  <61>               |   (<4 x float>*)([[ARR0]])[i1] = [[DOTVEC90]]
-; CHECK-NEXT:  <62>               |   [[MERGE_PHI_IN_VEC0]] = [[DOTVEC90]]
-; CHECK-NEXT:  <64>               |   goto [[BB7]].{{[0-9]+}}
-; CHECK-NEXT:  <65>               |   [[BB7]].{{[0-9]+}}:
-; CHECK-NEXT:  <66>               |   [[DOTVEC110]] = [[DOTVEC0]]  +  1.000000e+00
-; CHECK-NEXT:  <68>               |   (<4 x float>*)([[ARR0]])[i1] = [[DOTVEC110]]
-; CHECK-NEXT:  <69>               |   [[MERGE_PHI_IN_VEC0]] = [[DOTVEC110]]
-; CHECK-NEXT:  <70>               |   goto [[BLEND_BB0]].{{[0-9]+}}
-; CHECK-NEXT:  <71>               |   [[BLEND_BB0]].{{[0-9]+}}:
-; CHECK-NEXT:  <72>               |   [[PHI_TEMP0]] = [[RED_VAR0]]
-; CHECK-NEXT:  <73>               |   [[PHI_TEMP30]] = [[MERGE_PHI_IN_VEC0]]
-; CHECK-NEXT:  <74>               |   goto [[BB3]].{{[0-9]+}}
-; CHECK-NEXT:  <75>               |   [[BB3]].{{[0-9]+}}:
-; CHECK-NEXT:  <76>               |   [[RED_VAR0]] = [[PHI_TEMP30]]  +  [[RED_VAR0]]
+; CHECK-NEXT:  <55>               |   [[DOTVEC70]] = [[DOTVEC0]]  +  2.000000e+00
+; CHECK-NEXT:  <57>               |   (<4 x float>*)([[ARR0]])[i1] = [[DOTVEC70]]
+; CHECK-NEXT:  <58>               |   [[MERGE_PHI_IN_VEC0]] = [[DOTVEC70]]
+; CHECK-NEXT:  <60>               |   goto [[BB6]].{{[0-9]+}}
+; CHECK-NEXT:  <61>               |   [[BB6]].{{[0-9]+}}:
+; CHECK-NEXT:  <62>               |   [[DOTVEC90]] = [[DOTVEC0]]  +  1.000000e+00
+; CHECK-NEXT:  <64>               |   (<4 x float>*)([[ARR0]])[i1] = [[DOTVEC90]]
+; CHECK-NEXT:  <65>               |   [[MERGE_PHI_IN_VEC0]] = [[DOTVEC90]]
+; CHECK-NEXT:  <66>               |   goto [[BLEND_BB0]].{{[0-9]+}}
+; CHECK-NEXT:  <67>               |   [[BLEND_BB0]].{{[0-9]+}}:
+; CHECK-NEXT:  <68>               |   [[PHI_TEMP0]] = [[RED_VAR0]]
+; CHECK-NEXT:  <69>               |   [[PHI_TEMP30]] = [[MERGE_PHI_IN_VEC0]]
+; CHECK-NEXT:  <70>               |   goto [[BB3]].{{[0-9]+}}
+; CHECK-NEXT:  <71>               |   [[BB3]].{{[0-9]+}}:
+; CHECK-NEXT:  <72>               |   [[RED_VAR0]] = [[PHI_TEMP30]]  +  [[RED_VAR0]]
 ; CHECK-NEXT:  <36>               + END LOOP
 ; CHECK-NEXT:  <36>
-; CHECK-NEXT:  <77>               [[RED_PHI0]] = @llvm.experimental.vector.reduce.v2.fadd.f32.v4f32([[RED_PHI0]],  [[RED_VAR0]])
+; CHECK-NEXT:  <73>               [[RED_PHI0]] = @llvm.experimental.vector.reduce.v2.fadd.f32.v4f32([[RED_PHI0]],  [[RED_VAR0]])
 ; CHECK-NEXT:  <0>          END REGION
 ;
 
@@ -232,4 +222,3 @@ for.inc:                                          ; preds = %for.body, %if.then
 for.end:                                          ; preds = %for.inc
   ret void
 }
-

@@ -48,6 +48,11 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: noinline norecurse nounwind uwtable
 define i32 @main() local_unnamed_addr #0 {
 ; CHECK-LABEL:  Print after buildPlainCFG
+; CHECK-NEXT:  External Defs Start:
+; CHECK-DAG:     [[VP0:%.*]] = {%mul10}
+; CHECK-DAG:     [[VP1:%.*]] = {@a}
+; CHECK-DAG:     [[VP2:%.*]] = {(trunc i64 %1 to i16)}
+; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -59,32 +64,31 @@ define i32 @main() local_unnamed_addr #0 {
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]:
-; CHECK-NEXT:     i32 [[VP0:%.*]] = phi  [ i32 [[MUL100:%.*]], [[BB1]] ],  [ i32 [[VP1:%.*]], [[BB3:BB[0-9]+]] ]
-; CHECK-NEXT:     i64 [[VP2:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB3]] ]
-; CHECK-NEXT:     i64 [[VP4:%.*]] = mul i64 -1 i64 [[VP2]]
-; CHECK-NEXT:     i64 [[VP5:%.*]] = add i64 [[VP4]] i64 8
-; CHECK-NEXT:     i32* [[VP6:%.*]] = getelementptr inbounds [9 x i32]* @a i64 0 i64 [[VP5]]
-; CHECK-NEXT:     i32 [[VP7:%.*]] = load i32* [[VP6]]
-; CHECK-NEXT:     i16 [[VP8:%.*]] = trunc i64 [[TMP1:%.*]] to i16
-; CHECK-NEXT:     i32 [[VP9:%.*]] = zext i16 [[VP8]] to i32
-; CHECK-NEXT:     i32 [[VP10:%.*]] = bitcast i32 [[VP9]]
-; CHECK-NEXT:     i1 [[VP11:%.*]] = icmp i32 [[VP7]] i32 0
-; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP11]]), [[BB3]](!i1 [[VP11]])
+; CHECK-NEXT:     i32 [[VP3:%.*]] = phi  [ i32 [[MUL100:%.*]], [[BB1]] ],  [ i32 [[VP4:%.*]], [[BB3:BB[0-9]+]] ]
+; CHECK-NEXT:     i64 [[VP5:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP6:%.*]], [[BB3]] ]
+; CHECK-NEXT:     i64 [[VP7:%.*]] = mul i64 -1 i64 [[VP5]]
+; CHECK-NEXT:     i64 [[VP8:%.*]] = add i64 [[VP7]] i64 8
+; CHECK-NEXT:     i32* [[VP9:%.*]] = getelementptr inbounds [9 x i32]* @a i64 0 i64 [[VP8]]
+; CHECK-NEXT:     i32 [[VP10:%.*]] = load i32* [[VP9]]
+; CHECK-NEXT:     i32 [[VP11:%.*]] = zext i16 [[VP2]] to i32
+; CHECK-NEXT:     i32 [[VP12:%.*]] = call i32 [[VP11]] i32 (i32)* @llvm.ssa.copy.i32
+; CHECK-NEXT:     i1 [[VP13:%.*]] = icmp i32 [[VP10]] i32 0
+; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP13]]), [[BB3]](!i1 [[VP13]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]:
-; CHECK-NEXT:       i32 [[VP12:%.*]] = udiv i32 2 i32 [[VP7]]
-; CHECK-NEXT:       i32 [[VP13:%.*]] = bitcast i32 [[VP12]]
+; CHECK-NEXT:       i32 [[VP14:%.*]] = udiv i32 2 i32 [[VP10]]
+; CHECK-NEXT:       i32 [[VP15:%.*]] = call i32 [[VP14]] i32 (i32)* @llvm.ssa.copy.i32
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB3]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]:
-; CHECK-NEXT:     i32 [[VP14:%.*]] = phi  [ i32 [[VP13]], [[BB4]] ],  [ i32 [[VP10]], [[BB2]] ]
-; CHECK-NEXT:     i32 [[VP15:%.*]] = phi  [ i32 [[VP0]], [[BB4]] ],  [ i32 [[VP0]], [[BB2]] ]
-; CHECK-NEXT:     i32 [[VP1]] = mul i32 [[VP15]] i32 [[VP14]]
-; CHECK-NEXT:     i64 [[VP3]] = add i64 [[VP2]] i64 1
-; CHECK-NEXT:     i1 [[VP16:%.*]] = icmp i64 [[VP3]] i64 7
-; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP16]]), [[BB5:BB[0-9]+]](!i1 [[VP16]])
+; CHECK-NEXT:     i32 [[VP16:%.*]] = phi  [ i32 [[VP15]], [[BB4]] ],  [ i32 [[VP12]], [[BB2]] ]
+; CHECK-NEXT:     i32 [[VP17:%.*]] = phi  [ i32 [[VP3]], [[BB4]] ],  [ i32 [[VP3]], [[BB2]] ]
+; CHECK-NEXT:     i32 [[VP4]] = mul i32 [[VP17]] i32 [[VP16]]
+; CHECK-NEXT:     i64 [[VP6]] = add i64 [[VP5]] i64 1
+; CHECK-NEXT:     i1 [[VP18:%.*]] = icmp i64 [[VP6]] i64 7
+; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP18]]), [[BB5:BB[0-9]+]](!i1 [[VP18]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB4]] [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]:

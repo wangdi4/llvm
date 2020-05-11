@@ -11,17 +11,20 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <algorithm>
 #include <cassert>
 #include <cstring>
 #include <fstream>
 #include <limits>
 #include <mutex>
 #include <string>
+#include <sstream>
 #include <thread>
 #include <vector>
 #include <ze_api.h>
 #include "omptargetplugin.h"
 #include "omptarget-tools.h"
+#include "rtl-trace.h"
 
 /// Host runtime routines being used
 extern "C" {
@@ -40,12 +43,6 @@ extern void omptInitPlugin();
 extern const char *omptDocument;
 extern ompt_interface_fn_t omptLookupEntries(const char *);
 
-#ifndef TARGET_NAME
-#define TARGET_NAME LEVEL0
-#endif
-
-#define STR(x) #x
-#define TO_STRING(x) STR(x)
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 #define ABS(x) ((x) < 0 ? -(x) : (x))
 
@@ -54,115 +51,7 @@ extern ompt_interface_fn_t omptLookupEntries(const char *);
 #define LEVEL0_ND_GROUP_SIZE 16 // Default group size for ND partitioning
 #define LEVEL0_MAX_GROUP_COUNT 64 // TODO: get it from HW
 
-#ifdef OMPTARGET_LEVEL0_DEBUG
 int DebugLevel = 0;
-#define DP(...)                                                                \
-  do {                                                                         \
-    if (DebugLevel > 0) {                                                      \
-      DEBUGP("Target " TO_STRING(TARGET_NAME) " RTL", __VA_ARGS__);            \
-    }                                                                          \
-  } while (0)
-#else
-#define DP(...)
-#endif // OMPTARGET_LEVEL0_DEBUG
-
-#define FATAL_ERROR(Msg)                                                       \
-  do {                                                                         \
-    fprintf(stderr, "Error: %s failed (%s) -- exiting...\n", __func__, Msg);   \
-    exit(EXIT_FAILURE);                                                        \
-  } while (0)
-
-/// For non-thread-safe functions
-#define CALL_ZE_RET_MTX(Ret, Fn, Mtx, ...)                                     \
-  do {                                                                         \
-    Mtx.lock();                                                                \
-    ze_result_t rc = Fn(__VA_ARGS__);                                          \
-    Mtx.unlock();                                                              \
-    if (rc != ZE_RESULT_SUCCESS) {                                             \
-      DP("Error: %s:%s failed with error code %d, %s\n", __func__, #Fn, rc,    \
-         getZeErrorName(rc));                                                  \
-      return Ret;                                                              \
-    }                                                                          \
-  } while (0)
-
-#define CALL_ZE_RET_FAIL_MTX(Fn, Mtx, ...)                                     \
-  CALL_ZE_RET_MTX(OFFLOAD_FAIL, Fn, Mtx, __VA_ARGS__)
-#define CALL_ZE_RET_NULL_MTX(Fn, Mtx, ...)                                     \
-  CALL_ZE_RET_MTX(NULL, Fn, Mtx, __VA_ARGS__)
-#define CALL_ZE_RET_ZERO_MTX(Fn, Mtx, ...)                                     \
-  CALL_ZE_RET_MTX(0, Fn, Mtx, __VA_ARGS__)
-
-/// For thread-safe functions
-#define CALL_ZE_RET(Ret, Fn, ...)                                              \
-  do {                                                                         \
-    ze_result_t rc = Fn(__VA_ARGS__);                                          \
-    if (rc != ZE_RESULT_SUCCESS) {                                             \
-      DP("Error: %s:%s failed with error code %d, %s\n", __func__, #Fn, rc,    \
-         getZeErrorName(rc));                                                  \
-      return Ret;                                                              \
-    }                                                                          \
-  } while (0)
-
-#define CALL_ZE_RET_FAIL(Fn, ...) CALL_ZE_RET(OFFLOAD_FAIL, Fn, __VA_ARGS__)
-#define CALL_ZE_RET_NULL(Fn, ...) CALL_ZE_RET(NULL, Fn, __VA_ARGS__)
-#define CALL_ZE_RET_ZERO(Fn, ...) CALL_ZE_RET(0, Fn, __VA_ARGS__)
-
-#define CALL_ZE_EXIT_FAIL(Fn, ...)                                             \
-  do {                                                                         \
-    ze_result_t rc = Fn(__VA_ARGS__);                                          \
-    if (rc != ZE_RESULT_SUCCESS) {                                             \
-      DP("Error: %s:%s failed with error code %d, %s\n", __func__, #Fn, rc,    \
-         getZeErrorName(rc));                                                  \
-      std::exit(EXIT_FAILURE);                                                 \
-    }                                                                          \
-  } while (0)
-
-#define FOREACH_ZE_ERROR_CODE(Fn)                                              \
-  Fn(ZE_RESULT_SUCCESS)                                                        \
-  Fn(ZE_RESULT_NOT_READY)                                                      \
-  Fn(ZE_RESULT_ERROR_DEVICE_LOST)                                              \
-  Fn(ZE_RESULT_ERROR_OUT_OF_HOST_MEMORY)                                       \
-  Fn(ZE_RESULT_ERROR_OUT_OF_DEVICE_MEMORY)                                     \
-  Fn(ZE_RESULT_ERROR_MODULE_BUILD_FAILURE)                                     \
-  Fn(ZE_RESULT_ERROR_INSUFFICIENT_PERMISSIONS)                                 \
-  Fn(ZE_RESULT_ERROR_NOT_AVAILABLE)                                            \
-  Fn(ZE_RESULT_ERROR_UNINITIALIZED)                                            \
-  Fn(ZE_RESULT_ERROR_UNSUPPORTED_VERSION)                                      \
-  Fn(ZE_RESULT_ERROR_UNSUPPORTED_FEATURE)                                      \
-  Fn(ZE_RESULT_ERROR_INVALID_ARGUMENT)                                         \
-  Fn(ZE_RESULT_ERROR_INVALID_NULL_HANDLE)                                      \
-  Fn(ZE_RESULT_ERROR_HANDLE_OBJECT_IN_USE)                                     \
-  Fn(ZE_RESULT_ERROR_INVALID_NULL_POINTER)                                     \
-  Fn(ZE_RESULT_ERROR_INVALID_SIZE)                                             \
-  Fn(ZE_RESULT_ERROR_UNSUPPORTED_SIZE)                                         \
-  Fn(ZE_RESULT_ERROR_UNSUPPORTED_ALIGNMENT)                                    \
-  Fn(ZE_RESULT_ERROR_INVALID_SYNCHRONIZATION_OBJECT)                           \
-  Fn(ZE_RESULT_ERROR_INVALID_ENUMERATION)                                      \
-  Fn(ZE_RESULT_ERROR_UNSUPPORTED_ENUMERATION)                                  \
-  Fn(ZE_RESULT_ERROR_UNSUPPORTED_IMAGE_FORMAT)                                 \
-  Fn(ZE_RESULT_ERROR_INVALID_NATIVE_BINARY)                                    \
-  Fn(ZE_RESULT_ERROR_INVALID_GLOBAL_NAME)                                      \
-  Fn(ZE_RESULT_ERROR_INVALID_KERNEL_NAME)                                      \
-  Fn(ZE_RESULT_ERROR_INVALID_FUNCTION_NAME)                                    \
-  Fn(ZE_RESULT_ERROR_INVALID_GROUP_SIZE_DIMENSION)                             \
-  Fn(ZE_RESULT_ERROR_INVALID_GLOBAL_WIDTH_DIMENSION)                           \
-  Fn(ZE_RESULT_ERROR_INVALID_KERNEL_ARGUMENT_INDEX)                            \
-  Fn(ZE_RESULT_ERROR_INVALID_KERNEL_ARGUMENT_SIZE)                             \
-  Fn(ZE_RESULT_ERROR_INVALID_KERNEL_ATTRIBUTE_VALUE)                           \
-  Fn(ZE_RESULT_ERROR_INVALID_COMMAND_LIST_TYPE)                                \
-  Fn(ZE_RESULT_ERROR_OVERLAPPING_REGIONS)                                      \
-  Fn(ZE_RESULT_ERROR_UNKNOWN)
-
-#ifdef OMPTARGET_LEVEL0_DEBUG
-#define CASE_TO_STRING(Num) case Num: return #Num;
-static const char *getZeErrorName(int32_t Error) {
-  switch (Error) {
-    FOREACH_ZE_ERROR_CODE(CASE_TO_STRING)
-  default:
-    return "ZE_RESULT_ERROR_UNKNOWN";
-  }
-}
-#endif // OMPTARGET_LEVEL0_DEBUG
 
 /// Per-device global entry table
 struct FuncOrGblEntryTy {
@@ -179,10 +68,57 @@ struct ModuleDataTy {
   int DeviceNum = -1;
 };
 
-/// Handles to be created for each threads
+/// RTL profile -- only host timer for now
+class RTLProfileTy {
+  struct TimeTy {
+    double HostTime = 0.0;
+    double DeviceTime = 0.0; // Not used for now
+  };
+  std::thread::id ThreadId;
+  std::map<std::string, TimeTy> Data;
+public:
+  static const int64_t MSEC_PER_SEC = 1000;
+  static const int64_t USEC_PER_SEC = 1000000;
+  static int64_t Multiplier;
+
+  RTLProfileTy() {
+    ThreadId = std::this_thread::get_id();
+  }
+
+  void printData(int32_t DeviceId, const char *DeviceName) {
+    std::ostringstream o;
+    o << ThreadId;
+    fprintf(stderr, "LIBOMPTARGET_PROFILE for OMP DEVICE(%" PRId32 ") %s"
+            ", Thread %s\n", DeviceId, DeviceName, o.str().c_str());
+    const char *unit = (Multiplier == MSEC_PER_SEC) ? "msec" : "usec";
+    fprintf(stderr, "-- Name: Host Time (%s)\n", unit);
+    double hostTotal = 0.0;
+    for (const auto &d : Data) {
+      double hostTime = d.second.HostTime * Multiplier;
+      fprintf(stderr, "-- %s: %.3f\n", d.first.c_str(), hostTime);
+      hostTotal += hostTime;
+    }
+    fprintf(stderr, "-- Total: %.3f\n", hostTotal);
+  }
+
+  void update(const char *Name, double Elapsed) {
+    std::string key(Name);
+    TimeTy &time = Data[key];
+    time.HostTime += Elapsed;
+  }
+
+  void update(std::string &Name, double Elapsed) {
+    TimeTy &time = Data[Name];
+    time.HostTime += Elapsed;
+  }
+};
+int64_t RTLProfileTy::Multiplier;
+
+/// Handles/data to be created for each threads
 struct PrivateHandlesTy {
   ze_command_list_handle_t CmdList = nullptr;
   ze_command_queue_handle_t CmdQueue = nullptr;
+  RTLProfileTy *Profile = nullptr;
 };
 
 thread_local PrivateHandlesTy ThreadLocalHandles;
@@ -223,8 +159,32 @@ static ze_fence_handle_t createFence(ze_command_queue_handle_t cmdQueue) {
   return fence;
 }
 
+/// RTL flags
+struct RTLFlagsTy {
+  uint64_t EnableProfile : 1;
+  uint64_t EnableTargetGlobals : 1;
+  uint64_t Reserved : 62;
+  RTLFlagsTy() : EnableProfile(0), EnableTargetGlobals(0), Reserved(0) {}
+};
+
 /// Device information
-struct RTLDeviceInfoTy {
+class RTLDeviceInfoTy {
+  /// Type of the device version of the offload table.
+  /// The type may not match the host offload table's type
+  /// due to extensions.
+  struct DeviceOffloadEntryTy {
+    /// Common part with the host offload table.
+    __tgt_offload_entry Base;
+    /// Length of the Base.name string in bytes including
+    /// the null terminator.
+    size_t NameSize;
+  };
+
+  /// Looks up an external global variable with the given \p Name
+  /// and \p Size in the device environment for device \p DeviceId.
+  void *getVarDeviceAddr(int32_t DeviceId, const char *Name, size_t Size);
+
+public:
   uint32_t NumDevices;
 
   // TODO: multiple device groups are required if two different types of devices
@@ -242,8 +202,11 @@ struct RTLDeviceInfoTy {
   std::vector<bool> Initialized;
   std::mutex *Mutexes;
   std::mutex *DataMutexes; // For internal data
+  std::vector<std::vector<DeviceOffloadEntryTy>> OffloadTables;
+  std::vector<std::vector<RTLProfileTy *>> Profiles;
 
   /// Flags, parameters, options
+  RTLFlagsTy Flags;
   int64_t RequiresFlags = OMP_REQ_UNDEFINED;
   uint32_t DataTransferLatency; // Emulated data transfer latency in us
   int32_t DeviceType;
@@ -258,11 +221,10 @@ struct RTLDeviceInfoTy {
   }
 
   void readEnvironmentVars() {
-#ifdef OMPTARGET_LEVEL0_DEBUG
     // Debug level
     if (char *env = getenv("LIBOMPTARGET_DEBUG"))
       DebugLevel = std::stoi(env);
-#endif
+
     // Data transfer latency
     if (char *env = getenv("LIBOMPTARGET_DATA_TRANSFER_LATENCY")) {
       std::string value(env);
@@ -289,6 +251,29 @@ struct RTLDeviceInfoTy {
     // Compilation options for IGC
     if (char *env = getenv("LIBOMPTARGET_LEVEL0_COMPILATION_OPTIONS"))
       CompilationOptions += env;
+
+    if (DeviceType == ZE_DEVICE_TYPE_GPU) {
+      // Intel Graphics compilers that do not support that option
+      // silently ignore it. Other OpenCL compilers may fail.
+      const char *env = std::getenv("LIBOMPTARGET_LEVEL0_TARGET_GLOBALS");
+      if (env && (env[0] == 'T' || env[0] == 't' || env[0] == '1')) {
+        CompilationOptions += " -cl-take-global-address ";
+        Flags.EnableTargetGlobals = 1;
+      }
+    }
+    // Profile
+    if (char *env = getenv("LIBOMPTARGET_PROFILE")) {
+      if ((env[0] == 'T' || env[0] == '1') &&
+          (env[1] == ',' || env[1] == '\0')) {
+        Flags.EnableProfile = 1;
+        RTLProfileTy::Multiplier = RTLProfileTy::MSEC_PER_SEC;
+        if (env[1] == ',') {
+          std::string unit(&env[2]);
+          if (unit == "usec" || unit == "unit_usec")
+            RTLProfileTy::Multiplier = RTLProfileTy::USEC_PER_SEC;
+        }
+      }
+    }
   }
 
   ze_command_list_handle_t getCmdList(int32_t DeviceId) {
@@ -314,6 +299,32 @@ struct RTLDeviceInfoTy {
     }
     return ThreadLocalHandles.CmdQueue;
   }
+
+  RTLProfileTy *getProfile(int32_t DeviceId) {
+    if (!ThreadLocalHandles.Profile && Flags.EnableProfile) {
+      ThreadLocalHandles.Profile = new RTLProfileTy();
+      DataMutexes[DeviceId].lock();
+      Profiles[DeviceId].push_back(ThreadLocalHandles.Profile);
+      DataMutexes[DeviceId].unlock();
+    }
+    return ThreadLocalHandles.Profile;
+  }
+
+  /// Loads the device version of the offload table for device \p DeviceId.
+  /// The table is expected to have \p NumEntries entries.
+  /// Returns true, if the load was successful, false - otherwise.
+  bool loadOffloadTable(int32_t DeviceId, size_t NumEntries);
+
+  /// Deallocates resources allocated for the device offload table
+  /// of \p DeviceId device.
+  void unloadOffloadTable(int32_t DeviceId);
+
+  /// Looks up an OpenMP declare target global variable with the given
+  /// \p Name and \p Size in the device environment for device \p DeviceId.
+  /// The lookup is first done via the device offload table. If it fails,
+  /// then the lookup falls back to non-OpenMP specific lookup on the device.
+  void *getOffloadVarDeviceAddr(
+      int32_t DeviceId, const char *Name, size_t Size);
 };
 
 /// Libomptarget-defined handler and argument.
@@ -331,6 +342,54 @@ typedef struct {
 
 static RTLDeviceInfoTy DeviceInfo;
 
+/// For scoped start/stop
+class ScopedTimerTy {
+  std::string Name;
+  double TimeStamp = 0.0;
+  bool Active = false;
+  RTLProfileTy *Profile = nullptr;
+public:
+  ScopedTimerTy(int32_t DeviceId, const char *name) : Name(name) {
+    Profile = DeviceInfo.getProfile(DeviceId);
+    start();
+  }
+  ScopedTimerTy(int32_t DeviceId, std::string name) : Name(name) {
+    Profile = DeviceInfo.getProfile(DeviceId);
+    start();
+  }
+  ~ScopedTimerTy() {
+    if (Active)
+      stop();
+  }
+  void start() {
+    if (!DeviceInfo.Flags.EnableProfile)
+      return;
+    if (!Profile) {
+      WARNING("Profile data are invalid");
+      return;
+    }
+    if (Active)
+      WARNING("Timer restarted");
+    TimeStamp = omp_get_wtime();
+    Active = true;
+  }
+  void stop() {
+    if (!DeviceInfo.Flags.EnableProfile)
+      return;
+    if (!Profile) {
+      WARNING("Profile data are invalid");
+      return;
+    }
+    if (!Active) {
+      WARNING("Timer is invalid");
+      return;
+    }
+    double currStamp = omp_get_wtime();
+    Profile->update(Name, currStamp - TimeStamp);
+    Active = false;
+  }
+};
+
 static void addDataTransferLatency() {
   if (DeviceInfo.DataTransferLatency == 0)
     return;
@@ -344,6 +403,12 @@ static void closeRTL() {
   for (uint32_t i = 0; i < DeviceInfo.NumDevices; i++) {
     if (!DeviceInfo.Initialized[i])
       continue;
+    if (DeviceInfo.Flags.EnableProfile) {
+      for (auto profile : DeviceInfo.Profiles[i]) {
+        profile->printData(i, DeviceInfo.DeviceProperties.name);
+        delete profile;
+      }
+    }
     if (omptEnabled.enabled) {
       OMPT_CALLBACK(ompt_callback_device_unload, i, 0 /* module ID */);
       OMPT_CALLBACK(ompt_callback_device_finalize, i);
@@ -364,6 +429,8 @@ static void closeRTL() {
     CALL_ZE_EXIT_FAIL(zeModuleDestroy, DeviceInfo.FuncGblEntries[i].Module);
     DeviceInfo.Mutexes[i].unlock();
 #endif
+    if (DeviceInfo.Flags.EnableTargetGlobals)
+      DeviceInfo.unloadOffloadTable(i);
   }
   delete[] DeviceInfo.Mutexes;
   delete[] DeviceInfo.DataMutexes;
@@ -495,6 +562,8 @@ int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo.Initialized.resize(DeviceInfo.NumDevices);
   DeviceInfo.Mutexes = new std::mutex[DeviceInfo.NumDevices];
   DeviceInfo.DataMutexes = new std::mutex[DeviceInfo.NumDevices];
+  DeviceInfo.OffloadTables.resize(DeviceInfo.NumDevices);
+  DeviceInfo.Profiles.resize(DeviceInfo.NumDevices);
 
   ze_device_compute_properties_t computeProperties = {};
   computeProperties.version = ZE_DEVICE_COMPUTE_PROPERTIES_VERSION_CURRENT;
@@ -555,9 +624,11 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
   };
   ze_module_handle_t module;
   ze_module_build_log_handle_t buildLog;
-  if (zeModuleCreate(DeviceInfo.Devices[DeviceId], &moduleDesc, &module,
-                     &buildLog) != ZE_RESULT_SUCCESS) {
-#ifdef OMPTARGET_LEVEL0_DEBUG
+  ScopedTimerTy tmModuleBuild(DeviceId, "ModuleBuild");
+  ze_result_t rc;
+  CALL_ZE_RC(rc, zeModuleCreate, DeviceInfo.Devices[DeviceId], &moduleDesc,
+             &module, &buildLog);
+  if (rc != ZE_RESULT_SUCCESS) {
     if (DebugLevel > 0) {
       size_t logSize;
       CALL_ZE_RET_NULL(zeModuleBuildLogGetString, buildLog, &logSize, nullptr);
@@ -570,34 +641,46 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
       logFile.close();
       DP("Error: module creation failed -- see %s for details.\n", logFileName);
     }
-#endif
     CALL_ZE_RET_NULL(zeModuleBuildLogDestroy, buildLog);
     return nullptr;
   }
   CALL_ZE_RET_NULL(zeModuleBuildLogDestroy, buildLog);
+  tmModuleBuild.stop();
 
+  DeviceInfo.FuncGblEntries[DeviceId].Module = module;
   auto &entries = DeviceInfo.FuncGblEntries[DeviceId].Entries;
   auto &kernels = DeviceInfo.FuncGblEntries[DeviceId].Kernels;
   entries.resize(numEntries);
   kernels.resize(numEntries);
+
+  if (DeviceInfo.Flags.EnableTargetGlobals &&
+      !DeviceInfo.loadOffloadTable(DeviceId, numEntries))
+    DP("Error: offload table loading failed.\n");
 
   for (uint32_t i = 0; i < numEntries; i++) {
     auto size = Image->EntriesBegin[i].size;
 
     if (size != 0) {
       // Entry is a global variable
-      void *tgtAddr = nullptr;
       auto hstAddr = Image->EntriesBegin[i].addr;
       auto name = Image->EntriesBegin[i].name;
-      // FIXME: unsupported in v0.2.2
-      //CALL_ZE_RET_NULL(zeModuleGetGlobalPointer, module, name, &tgtAddr);
+      void *tgtAddr = nullptr;
+      if (DeviceInfo.Flags.EnableTargetGlobals)
+        tgtAddr = DeviceInfo.getOffloadVarDeviceAddr(DeviceId, name, size);
+
       if (!tgtAddr) {
         tgtAddr = __tgt_rtl_data_alloc(DeviceId, size, hstAddr);
         __tgt_rtl_data_submit(DeviceId, tgtAddr, hstAddr, size);
         DeviceInfo.DataMutexes[DeviceId].lock();
         DeviceInfo.OwnedMemory[DeviceId].push_back(tgtAddr);
         DeviceInfo.DataMutexes[DeviceId].unlock();
+        DP("Error: global variable '%s' allocated. "
+          "Direct references will not work properly.\n", name);
       }
+
+      DP("Global variable mapped: Name = %s, Size = %zu, "
+         "HostPtr = " DPxMOD ", TgtPtr = " DPxMOD "\n",
+         name, size, DPxPTR(hstAddr), DPxPTR(tgtAddr));
       entries[i].addr = tgtAddr;
       entries[i].name = name;
       entries[i].size = size;
@@ -626,12 +709,9 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
     CALL_ZE_RET_NULL(zeKernelCreate, module, &kernelDesc, &kernels[i]);
     entries[i].addr = &kernels[i];
     entries[i].name = name;
-#ifdef OMPTARGET_LEVEL0_DEBUG
     // TODO: show kernel information
-#endif
   }
 
-  DeviceInfo.FuncGblEntries[DeviceId].Module = module;
   if (initModule(DeviceId) != OFFLOAD_SUCCESS)
     return nullptr;
   __tgt_target_table &table = DeviceInfo.FuncGblEntries[DeviceId].Table;
@@ -655,6 +735,7 @@ static void *allocData(int32_t DeviceId, int64_t Size, void *HstPtr,
   // TODO: this seems necessary for now -- check with L0 driver team for details
   std::unique_lock<std::mutex> allocLock(DeviceInfo.Mutexes[DeviceId]);
 
+  ScopedTimerTy tmDataAlloc(DeviceId, "DataAlloc");
   intptr_t offset = (intptr_t)HstPtr - (intptr_t)HstBase;
   size_t size = (offset < 0 && ABS(offset) >= Size) ? ABS(offset) + 1 : Size;
 
@@ -671,16 +752,16 @@ static void *allocData(int32_t DeviceId, int64_t Size, void *HstPtr,
                    LEVEL0_ALIGNMENT, DeviceInfo.Devices[DeviceId], &base);
   void *mem = (void *)((intptr_t)base + offset);
 
-#ifdef OMPTARGET_LEVEL0_DEBUG
-  void *actualBase = nullptr;
-  size_t actualSize = 0;
-  CALL_ZE_RET_NULL(zeDriverGetMemAddressRange, DeviceInfo.Driver, mem,
-                   &actualBase, &actualSize);
-  assert(base == actualBase && "Invalid memory address range!");
-  DP("Allocated device memory " DPxMOD " (Base: " DPxMOD
-     ", Size: %zu) for host ptr " DPxMOD "\n", DPxPTR(mem), DPxPTR(actualBase),
-     actualSize, DPxPTR(HstPtr));
-#endif
+  if (DebugLevel > 0) {
+    void *actualBase = nullptr;
+    size_t actualSize = 0;
+    CALL_ZE_RET_NULL(zeDriverGetMemAddressRange, DeviceInfo.Driver, mem,
+                     &actualBase, &actualSize);
+    assert(base == actualBase && "Invalid memory address range!");
+    DP("Allocated device memory " DPxMOD " (Base: " DPxMOD
+       ", Size: %zu) for host ptr " DPxMOD "\n", DPxPTR(mem), DPxPTR(actualBase),
+       actualSize, DPxPTR(HstPtr));
+  }
 
   return mem;
 }
@@ -744,9 +825,8 @@ static void endAsyncCommand(AsyncEventTy *Event,
   Event->Handler(Event->Arg);
 
   // Clean up internal data
-  if (zeFenceDestroy(Fence) != ZE_RESULT_SUCCESS ||
-      zeCommandListDestroy(CmdList) != ZE_RESULT_SUCCESS)
-    FATAL_ERROR("Failed to finalize asynchronous command\n");
+  CALL_ZE_EXIT_FAIL(zeFenceDestroy, Fence);
+  CALL_ZE_EXIT_FAIL(zeCommandListDestroy, CmdList);
 }
 
 // Template for Asynchronous command execution.
@@ -768,7 +848,7 @@ static int32_t beginAsyncCommand(ze_command_list_handle_t CmdList,
   std::thread waiter([](AsyncEventTy *event, ze_command_list_handle_t cmdList,
                         ze_fence_handle_t fence) {
     // Wait until the fence is signaled.
-    zeFenceHostSynchronize(fence, UINT32_MAX);
+    CALL_ZE_EXIT_FAIL(zeFenceHostSynchronize, fence, UINT32_MAX);
     // Invoke clean-up routine
     endAsyncCommand(event, cmdList, fence);
   }, Event, CmdList, Fence);
@@ -786,6 +866,8 @@ static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
                           int64_t Size, void *AsyncEvent) {
   if (Size == 0)
     return OFFLOAD_SUCCESS;
+
+  ScopedTimerTy tmDataWrite(DeviceId, "DataWrite");
 
   // Add synthetic delay for experiments
   addDataTransferLatency();
@@ -837,6 +919,14 @@ int32_t __tgt_rtl_data_submit(int32_t DeviceId, void *TgtPtr, void *HstPtr,
 }
 
 EXTERN
+int32_t
+__tgt_rtl_data_submit_async(int32_t DeviceId, void *TgtPtr, void *HstPtr,
+                            int64_t Size,
+                            __tgt_async_info *AsyncInfoPtr /*not used*/) {
+  return submitData(DeviceId, TgtPtr, HstPtr, Size, nullptr);
+}
+
+EXTERN
 int32_t __tgt_rtl_data_submit_nowait(int32_t DeviceId, void *TgtPtr,
                                      void *HstPtr, int64_t Size,
                                      void *AsyncEvent) {
@@ -847,6 +937,8 @@ static int32_t retrieveData(int32_t DeviceId, void *HstPtr, void *TgtPtr,
                             int64_t Size, void *AsyncEvent) {
   if (Size == 0)
     return OFFLOAD_SUCCESS;
+
+  ScopedTimerTy tmDataRead(DeviceId, "DataRead");
 
   // Add synthetic delay for experiments
   addDataTransferLatency();
@@ -894,6 +986,14 @@ static int32_t retrieveData(int32_t DeviceId, void *HstPtr, void *TgtPtr,
 EXTERN
 int32_t __tgt_rtl_data_retrieve(int32_t DeviceId, void *HstPtr, void *TgtPtr,
                                 int64_t Size) {
+  return retrieveData(DeviceId, HstPtr, TgtPtr, Size, nullptr);
+}
+
+EXTERN
+int32_t
+__tgt_rtl_data_retrieve_async(int32_t DeviceId, void *HstPtr, void *TgtPtr,
+                              int64_t Size,
+                              __tgt_async_info *AsyncInfoPtr /*not used*/) {
   return retrieveData(DeviceId, HstPtr, TgtPtr, Size, nullptr);
 }
 
@@ -989,7 +1089,7 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
                                    int32_t NumArgs, int32_t NumTeams,
                                    int32_t ThreadLimit, void *LoopDesc,
                                    void *AsyncEvent) {
-  assert((TgtEntryPtr && TgtArgs && TgtOffsets) && "Invalid kernel");
+  assert(TgtEntryPtr && "Invalid kernel");
   assert((NumTeams >= 0 && ThreadLimit >= 0) && "Invalid kernel work size");
   DP("Executing a kernel " DPxMOD "...\n", DPxPTR(TgtEntryPtr));
 
@@ -997,6 +1097,10 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
   std::unique_lock<std::mutex> kernelLock(DeviceInfo.Mutexes[DeviceId]);
 
   ze_kernel_handle_t kernel = *((ze_kernel_handle_t *)TgtEntryPtr);
+  ze_kernel_properties_t kernelProperties;
+  CALL_ZE_RET_FAIL(zeKernelGetProperties, kernel, &kernelProperties);
+  std::string tmName("Kernel#");
+  ScopedTimerTy tmKernel(DeviceId, tmName + kernelProperties.name);
 
   // Set arguments
   std::vector<void *> args(NumArgs);
@@ -1093,6 +1197,15 @@ int32_t __tgt_rtl_run_target_team_region(int32_t DeviceId, void *TgtEntryPtr,
 }
 
 EXTERN
+int32_t __tgt_rtl_run_target_team_region_async(
+    int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs, ptrdiff_t *TgtOffsets,
+    int32_t NumArgs, int32_t NumTeams, int32_t ThreadLimit,
+    uint64_t LoopTripCount, __tgt_async_info *AsyncInfoPtr /*not used*/) {
+  return runTargetTeamRegion(DeviceId, TgtEntryPtr, TgtArgs, TgtOffsets,
+                             NumArgs, NumTeams, ThreadLimit, nullptr, nullptr);
+}
+
+EXTERN
 int32_t __tgt_rtl_run_target_team_region_nowait(
     int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs, ptrdiff_t *TgtOffsets,
     int32_t NumArgs, int32_t NumTeams, int32_t ThreadLimit,
@@ -1106,6 +1219,15 @@ EXTERN
 int32_t __tgt_rtl_run_target_region(int32_t DeviceId, void *TgtEntryPtr,
                                     void **TgtArgs, ptrdiff_t *TgtOffsets,
                                     int32_t NumArgs) {
+  return runTargetTeamRegion(DeviceId, TgtEntryPtr, TgtArgs, TgtOffsets,
+                             NumArgs, 1, 0, nullptr, nullptr);
+}
+
+EXTERN
+int32_t
+__tgt_rtl_run_target_region_async(int32_t DeviceId, void *TgtEntryPtr, void **TgtArgs,
+                            ptrdiff_t *TgtOffsets, int32_t NumArgs,
+                            __tgt_async_info *AsyncInfoPtr /*not used*/) {
   return runTargetTeamRegion(DeviceId, TgtEntryPtr, TgtArgs, TgtOffsets,
                              NumArgs, 1, 0, nullptr, nullptr);
 }
@@ -1149,5 +1271,157 @@ EXTERN void *__tgt_rtl_create_buffer(int32_t DeviceId, void *TgtPtr) {
 
 EXTERN int32_t __tgt_rtl_release_buffer(void *TgtPtr) {
   return OFFLOAD_SUCCESS;
+}
+
+EXTERN int32_t __tgt_rtl_synchronize(int32_t device_id,
+                                     __tgt_async_info *async_info_ptr) {
+  return OFFLOAD_SUCCESS;
+}
+
+void *RTLDeviceInfoTy::getOffloadVarDeviceAddr(
+    int32_t DeviceId, const char *Name, size_t Size) {
+  DP("Looking up OpenMP global variable '%s' of size %zu bytes on device %d.\n",
+     Name, Size, DeviceId);
+
+  std::vector<DeviceOffloadEntryTy> &OffloadTable = OffloadTables[DeviceId];
+  if (!OffloadTable.empty()) {
+    size_t NameSize = strlen(Name) + 1;
+    auto I = std::lower_bound(
+        OffloadTable.begin(), OffloadTable.end(), Name,
+        [NameSize](const DeviceOffloadEntryTy &E, const char *Name) {
+          return strncmp(E.Base.name, Name, NameSize) < 0;
+        });
+
+    if (I != OffloadTable.end() &&
+        strncmp(I->Base.name, Name, NameSize) == 0) {
+      DP("Global variable '%s' found in the offload table at position %zu.\n",
+         Name, std::distance(OffloadTable.begin(), I));
+      return I->Base.addr;
+    }
+
+    DP("Error: global variable '%s' was not found in the offload table.\n",
+       Name);
+  } else
+    DP("Error: offload table is not loaded for device %d.\n", DeviceId);
+
+  // Fallback to the lookup by name.
+  return getVarDeviceAddr(DeviceId, Name, Size);
+}
+
+void *RTLDeviceInfoTy::getVarDeviceAddr(
+    int32_t DeviceId, const char *Name, size_t Size) {
+  void *TgtAddr = nullptr;
+  DP("Looking up device global variable '%s' of size %zu bytes on device %d.\n",
+     Name, Size, DeviceId);
+  CALL_ZE_RET_NULL(zeModuleGetGlobalPointer,
+                   FuncGblEntries[DeviceId].Module, Name, &TgtAddr);
+  DP("Global variable lookup succeeded.\n");
+  return TgtAddr;
+}
+
+bool RTLDeviceInfoTy::loadOffloadTable(int32_t DeviceId, size_t NumEntries) {
+  const char *OffloadTableSizeVarName = "__omp_offloading_entries_table_size";
+  void *OffloadTableSizeVarAddr =
+      getVarDeviceAddr(DeviceId, OffloadTableSizeVarName, sizeof(int64_t));
+
+  if (!OffloadTableSizeVarAddr) {
+    DP("Error: cannot get device value for global variable '%s'.\n",
+       OffloadTableSizeVarName);
+    return false;
+  }
+
+  int64_t TableSizeVal = 0;
+  __tgt_rtl_data_retrieve(DeviceId, &TableSizeVal,
+                          OffloadTableSizeVarAddr, sizeof(int64_t));
+  size_t TableSize = (size_t)TableSizeVal;
+
+  if ((TableSize % sizeof(DeviceOffloadEntryTy)) != 0) {
+    DP("Error: offload table size (%zu) is not a multiple of %zu.\n",
+       TableSize, sizeof(DeviceOffloadEntryTy));
+    return false;
+  }
+
+  size_t DeviceNumEntries = TableSize / sizeof(DeviceOffloadEntryTy);
+
+  if (NumEntries != DeviceNumEntries) {
+    DP("Error: number of entries in host and device "
+       "offload tables mismatch (%zu != %zu).\n",
+       NumEntries, DeviceNumEntries);
+    return false;
+  }
+
+  const char *OffloadTableVarName = "__omp_offloading_entries_table";
+  void *OffloadTableVarAddr =
+      getVarDeviceAddr(DeviceId, OffloadTableVarName, TableSize);
+  if (!OffloadTableVarAddr) {
+    DP("Error: cannot get device value for global variable '%s'.\n",
+       OffloadTableVarName);
+    return false;
+  }
+
+  OffloadTables[DeviceId].resize(DeviceNumEntries);
+  __tgt_rtl_data_retrieve(DeviceId, OffloadTables[DeviceId].data(),
+                          OffloadTableVarAddr, TableSize);
+  std::vector<DeviceOffloadEntryTy> &DeviceTable = OffloadTables[DeviceId];
+
+  size_t I = 0;
+  const char *PreviousName = "";
+
+  for (; I < DeviceNumEntries; ++I) {
+    DeviceOffloadEntryTy &Entry = DeviceTable[I];
+    size_t NameSize = Entry.NameSize;
+    void *NameTgtAddr = Entry.Base.name;
+    Entry.Base.name = nullptr;
+
+    if (NameSize == 0) {
+      DP("Error: offload entry (%zu) with 0 size.\n", I);
+      break;
+    }
+
+    Entry.Base.name = new char[NameSize];
+    __tgt_rtl_data_retrieve(DeviceId, Entry.Base.name,
+                            NameTgtAddr, NameSize);
+    if (strnlen(Entry.Base.name, NameSize) != NameSize - 1) {
+      DP("Error: offload entry's name has wrong size.\n");
+      break;
+    }
+
+    if (strncmp(PreviousName, Entry.Base.name, NameSize) >= 0) {
+      DP("Error: offload table is not sorted.\n"
+         "Error: previous name is '%s'.\n"
+         "Error:  current name is '%s'.\n",
+         PreviousName, Entry.Base.name);
+      break;
+    }
+    PreviousName = Entry.Base.name;
+  }
+
+  if (I != DeviceNumEntries) {
+    // Errors during the table processing.
+    // Deallocate all memory allocated in the loop.
+    for (size_t J = 0; J <= I; ++J) {
+      DeviceOffloadEntryTy &Entry = DeviceTable[J];
+      if (Entry.Base.name)
+        delete[] Entry.Base.name;
+    }
+
+    OffloadTables[DeviceId].clear();
+    return false;
+  }
+
+  if (DebugLevel > 0) {
+    DP("Device offload table loaded:\n");
+    for (size_t I = 0; I < DeviceNumEntries; ++I)
+      DP("\t%zu:\t%s\n", I, DeviceTable[I].Base.name);
+  }
+
+  return true;
+}
+
+void RTLDeviceInfoTy::unloadOffloadTable(int32_t DeviceId) {
+  for (auto &E : OffloadTables[DeviceId])
+    delete[] E.Base.name;
+
+  OffloadTables[DeviceId].clear();
 }
 #endif // INTEL_CUSTOMIZATION
