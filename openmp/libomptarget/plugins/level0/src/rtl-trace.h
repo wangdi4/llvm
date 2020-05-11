@@ -40,14 +40,11 @@ extern int DebugLevel;
 
 #define FATAL_ERROR(Msg)                                                       \
   do {                                                                         \
-    fprintf(stderr, "Error: %s failed (%s) -- exiting...\n", __func__, Msg);   \
+    DPLEVEL(-1, "Error: %s failed (%s) -- exiting...\n", __func__, Msg);       \
     exit(EXIT_FAILURE);                                                        \
   } while (0)
 
-#define WARNING(Msg)                                                           \
-  do {                                                                         \
-    fprintf(stderr, "Warning: %s\n", Msg);                                     \
-  } while (0)
+#define WARNING(...) DPLEVEL(-1, "Warning: " __VA_ARGS__)
 
 ///
 /// Wrappers for tracing ze API calls.
