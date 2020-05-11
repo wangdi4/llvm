@@ -39,7 +39,7 @@ public:
       : TheLoop(L), PSE(PSE), Induction(nullptr), WidestIndTy(nullptr) {}
 
   /// Returns true if it is legal to vectorize this loop.
-  bool canVectorize();
+  bool canVectorize(DominatorTree &DT, const CallInst *RegionEntry);
 
   void collectLoopUniformsForAnyVF();
 
@@ -287,6 +287,46 @@ public:
   // Return Pointer to LastPrivates map
   const PrivatesListTy &getLastPrivates() const { return LastPrivates; }
 
+  // Return the iterator-range to the list of privates loop-entities.
+  inline decltype(auto) privates() const {
+    return make_range(Privates.begin(), Privates.end());
+  }
+
+  // Return the iterator-range to the list of conditional privates.
+  inline decltype(auto) condPrivates() const {
+    return make_range(CondLastPrivates.begin(), CondLastPrivates.end());
+  }
+
+  // Return the iterator-range to the list of last-privates.
+  inline decltype(auto) lastPrivates() const {
+    return make_range(LastPrivates.begin(), LastPrivates.end());
+  }
+
+  // Return the iterator-range to the list of explicit reduction variables which
+  // are of 'Pointer Type'.
+  inline decltype(auto) explicitReductionVals() const {
+    return map_range(
+        make_filter_range(
+            make_range(ExplicitReductions.begin(), ExplicitReductions.end()),
+            [](auto &PHIRecDesc) {
+              return isa<PointerType>(PHIRecDesc.second.second->getType());
+            }),
+        [](auto &PHIRecDesc) { return PHIRecDesc.second.second; });
+  }
+
+  // Return the iterator-range to the list of in-memory reduction variables.
+  inline decltype(auto) inMemoryReductionVals() const {
+    return map_range(
+        make_range(InMemoryReductions.begin(), InMemoryReductions.end()),
+        [](auto &ValRecDesc) { return ValRecDesc.first; });
+  }
+
+  // Return the iterator-range to the list of 'linear' variables.
+  inline decltype(auto) linearVals() const {
+    return map_range(make_range(Linears.begin(), Linears.end()),
+                     [](auto &LinearStepPair) { return LinearStepPair.first; });
+  }
+
 private:
   // Find pattern inside the loop for matching the explicit
   // reduction variable \p V.
@@ -306,6 +346,16 @@ private:
   /// Return true if the explicit reduction variable uses private memory on
   /// each iteration.
   bool isReductionVarStoredInsideTheLoop(Value *RedVarPtr);
+
+  /// Check the safety of aliasing of OMP clause variables outside of the loop.
+  bool isAliasingSafe(DominatorTree &DT, const CallInst *RegionEntry);
+
+  /// Check the safety of aliasing of particular class of clause-variables in \p
+  /// LERange outside of the loop.
+  template <typename LoopEntitiesRange>
+  bool isEntityAliasingSafe(
+      const LoopEntitiesRange &LERange,
+      std::function<bool(const Instruction *)> IsAliasInRelevantScope);
 };
 
 } // namespace vpo
