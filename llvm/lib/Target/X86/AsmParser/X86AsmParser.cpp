@@ -2482,20 +2482,6 @@ bool X86AsmParser::ParseInstruction(ParseInstructionInfo &Info, StringRef Name,
         ForcedVEXEncoding = VEXEncoding_VEX;
       else if (Prefix == "vex3")
         ForcedVEXEncoding = VEXEncoding_VEX3;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_VNNI
-      else if (Prefix == "vex")
-        ForcedVEXEncoding = VEXEncoding_VEX;
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
-#if INTEL_FEATURE_ISA_AVX_BF16
-      else if (Prefix == "vex")
-        ForcedVEXEncoding = VEXEncoding_VEX;
-#endif // INTEL_FEATURE_ISA_AVX_BF16
-#if INTEL_FEATURE_ISA_AVX_IFMA
-      else if (Prefix == "vex")
-        ForcedVEXEncoding = VEXEncoding_VEX;
-#endif // INTEL_FEATURE_ISA_AVX_IFMA
-#endif // INTEL_CUSTOMIZATION
       else if (Prefix == "evex")
         ForcedVEXEncoding = VEXEncoding_EVEX;
       else
