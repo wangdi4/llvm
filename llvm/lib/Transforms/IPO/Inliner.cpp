@@ -28,6 +28,7 @@
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/CGSCCPassManager.h"
 #include "llvm/Analysis/CallGraph.h"
+#include "llvm/Analysis/InlineAdvisor.h"
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/LazyCallGraph.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
@@ -83,6 +84,7 @@ STATISTIC(NumCallsDeleted, "Number of call sites deleted, not inlined");
 STATISTIC(NumDeleted, "Number of functions deleted because all callers found");
 STATISTIC(NumMergedAllocas, "Number of allocas merged together");
 
+<<<<<<< HEAD
 // This weirdly named statistic tracks the number of times that, when attempting
 // to inline a function A into B, we analyze the callers of B in order to see
 // if those would be more profitable and blocked inline steps.
@@ -110,6 +112,8 @@ IntelInlineReportLevel("inline-report", cl::Hidden, cl::init(0),
   cl::Optional, cl::desc("Print inline report"));
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> 48fa355ed4bd5331d67fdb97642d737c8adf2e7f
 /// Flag to disable manual alloca merging.
 ///
 /// Merging of allocas was originally done as a stack-size saving technique
@@ -120,13 +124,6 @@ IntelInlineReportLevel("inline-report", cl::Hidden, cl::init(0),
 static cl::opt<bool>
     DisableInlinedAllocaMerging("disable-inlined-alloca-merging",
                                 cl::init(false), cl::Hidden);
-
-// An integer used to limit the cost of inline deferral.  The default negative
-// number tells shouldBeDeferred to only take the secondary cost into account.
-static cl::opt<int>
-    InlineDeferralScale("inline-deferral-scale",
-                        cl::desc("Scale to limit the cost of inline deferral"),
-                        cl::init(-1), cl::Hidden);
 
 namespace {
 
@@ -147,6 +144,7 @@ static cl::opt<InlinerFunctionImportStatsOpts> InlinerFunctionImportStats(
                           "printing of statistics for each inlined function")),
     cl::Hidden, cl::desc("Enable inliner stats for imported functions"));
 
+<<<<<<< HEAD
 /// Flag to add inline messages as callsite attributes 'inline-remark'.
 static cl::opt<bool>
     InlineRemarkAttribute("inline-remark-attribute", cl::init(false),
@@ -159,6 +157,9 @@ static cl::opt<bool>
 LegacyInlinerBase::LegacyInlinerBase(char &ID)
     : CallGraphSCCPass(ID), Report(IntelInlineReportLevel),
       MDReport(IntelInlineReportLevel) {}
+=======
+LegacyInlinerBase::LegacyInlinerBase(char &ID) : CallGraphSCCPass(ID) {}
+>>>>>>> 48fa355ed4bd5331d67fdb97642d737c8adf2e7f
 
 LegacyInlinerBase::LegacyInlinerBase(char &ID, bool InsertLifetime)
     : CallGraphSCCPass(ID), InsertLifetime(InsertLifetime),
@@ -343,6 +344,7 @@ static InlineResult inlineCallIfPossible(
   return IR; // success
 }
 
+<<<<<<< HEAD
 /// Return true if inlining of CB can block the caller from being
 /// inlined which is proved to be more beneficial. \p IC is the
 /// estimated inline cost associated with callsite \p CB.
@@ -571,6 +573,8 @@ shouldInline(CallBase &CB, function_ref<InlineCost(CallBase &CS)> GetInlineCost,
   return IC;
 }
 
+=======
+>>>>>>> 48fa355ed4bd5331d67fdb97642d737c8adf2e7f
 /// Return true if the specified inline history ID
 /// indicates an inline history that includes the specified function.
 static bool inlineHistoryIncludes(
@@ -696,6 +700,7 @@ bool LegacyInlinerBase::runOnSCC(CallGraphSCC &SCC) {
   return inlineCalls(SCC);
 }
 
+<<<<<<< HEAD
 static void emitInlinedInto(OptimizationRemarkEmitter &ORE, DebugLoc &DLoc,
                             const BasicBlock *Block, const Function &Callee,
                             const Function &Caller, const InlineCost &IC) {
@@ -723,6 +728,8 @@ static unsigned recursiveCallCount(Function &F) {
 }
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> 48fa355ed4bd5331d67fdb97642d737c8adf2e7f
 static bool
 inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
                 std::function<AssumptionCache &(Function &)> GetAssumptionCache,
