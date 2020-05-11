@@ -183,13 +183,10 @@ void initializeX86LoadValueInjectionRetHardeningPassPass(PassRegistry &);
 void initializeX86OptimizeLEAPassPass(PassRegistry &);
 void initializeX86PartialReductionPass(PassRegistry &);
 void initializeX86SpeculativeLoadHardeningPassPass(PassRegistry &);
-<<<<<<< HEAD
+void initializeX86SpeculativeExecutionSideEffectSuppressionPass(PassRegistry &);
 #if INTEL_CUSTOMIZATION
 void initializeGenerateLEAPassPass(PassRegistry &);
 #endif // INTEL_CUSTOMIZATION
-=======
-void initializeX86SpeculativeExecutionSideEffectSuppressionPass(PassRegistry &);
->>>>>>> bf95cf4a6816476afd76d5b981ea5fdcb9771999
 
 namespace X86AS {
 enum : unsigned {
