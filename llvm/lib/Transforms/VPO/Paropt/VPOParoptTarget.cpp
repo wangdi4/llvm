@@ -62,15 +62,6 @@ static cl::opt<bool>
                cl::init(false),
                cl::desc("Pass raw device ptr to variant dispatch."));
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CSA
-// Temporary option which is set to true when we are emitting binary vISA.
-static cl::opt<bool> CSAvISA("csa-visa",
-                             cl::desc("Customize IR for binary vISA"),
-                             cl::init(false), cl::ReallyHidden);
-#endif // INTEL_FEATURE_CSA
-#endif // INTEL_CUSTOMIZATION
-
 static cl::opt<uint32_t> FixedSIMDWidth(
     "vpo-paropt-fixed-simd-width", cl::Hidden, cl::init(0),
     cl::desc("Fixed SIMD width for all target regions in the module."));
@@ -738,14 +729,11 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
-  // Add "target.entry" attribute to the outlined function.
-  NewF->addFnAttr("omp.target.entry");
-
-  // Temporary set external linkage for outlined target regions when emitting
-  // binary vISA. This is a workaround for csa_as limitation that should be
-  // removed in future.
-  if (CSAvISA)
-    NewF->setLinkage(GlobalValue::ExternalLinkage);
+  if (isTargetCSA()) {
+    // Add "target.entry" attribute to the outlined function.
+    NewF->addFnAttr("omp.target.entry");
+    NewF->setLinkage(GlobalValue::WeakAnyLinkage);
+  }
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
   CallInst *NewCall = cast<CallInst>(NewF->user_back());

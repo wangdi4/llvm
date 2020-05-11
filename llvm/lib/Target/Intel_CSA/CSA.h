@@ -47,6 +47,7 @@ MachineFunctionPass *createCSASeqotToSeqOptimizationPass();
 MachineFunctionPass *createCSANameLICsPass();
 MachineFunctionPass *createCSARASReplayableLoadsDetectionPass();
 MachineFunctionPass *createCSADataflowVerifier();
+MachineFunctionPass *createCSABackedgeVerifier();
 MachineFunctionPass *createCSAGlobalFMAPass();
 // FunctionPass *createCSALowerStructArgsPass();
 Pass *createCSALoopPrepPass();
@@ -54,11 +55,13 @@ Pass *createCSAInnerLoopPrepPass();
 Pass *createCSALowerScratchpadsPass();
 Pass *createCSAReplaceAllocaWithMallocPass(CSATargetMachine &TM);
 Pass *createCSAMemopOrderingPass(const CSATargetMachine &TM);
+Pass *createCSACacheLocalizerPass();
 Pass *createParseAnnotateAttributesPass();
 
 void initializeCSAMemopOrderingPasses(PassRegistry &);
 void initializeCSAStreamingMemoryPass(PassRegistry &);
 void initializeCSACreateSelfContainedGraphPass(PassRegistry &);
+void initializeCSACacheLocalizerPass(PassRegistry &);
 
 bool shouldRunDataflowPass(const MachineFunction &MF);
 

@@ -36,6 +36,11 @@
 #include "llvm/IR/IntrinsicsAMDGPU.h"
 #include "llvm/IR/IntrinsicsARM.h"
 #include "llvm/IR/IntrinsicsBPF.h"
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+#include "llvm/IR/IntrinsicsCSA.h"
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/IR/IntrinsicsHexagon.h"
 #include "llvm/IR/IntrinsicsNVPTX.h"
 #include "llvm/IR/IntrinsicsPowerPC.h"
@@ -14926,7 +14931,8 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_csa_parallel_loop:
   case X86::BI__builtin_csa_spmdization:
   case X86::BI__builtin_csa_spmd:
-  case X86::BI__builtin_csa_spmd_worker_num: {
+  case X86::BI__builtin_csa_spmd_worker_num:
+  case X86::BI__builtin_csa_local_cache: {
     return UndefValue::get(ConvertType(E->getType())); // noop
   }
 #endif  // INTEL_FEATURE_CSA
@@ -15072,12 +15078,11 @@ Value *CodeGenFunction::EmitCSABuiltinExpr(unsigned BuiltinID,
   switch (BuiltinID) {
   case CSA::BI__builtin_csa_directive: {
     Value *X = EmitScalarExpr(E->getArg(0));
-    Value *Callee = CGM.getIntrinsic(Intrinsic::csa_directive,
-                                     X->getType());
+    Function *Callee = CGM.getIntrinsic(Intrinsic::csa_directive, X->getType());
     return Builder.CreateCall(Callee, X);
   }
   case CSA::BI__builtin_csa_parallel_loop: {
-    Value *Callee = CGM.getIntrinsic(Intrinsic::csa_parallel_loop);
+    Function *Callee = CGM.getIntrinsic(Intrinsic::csa_parallel_loop);
     return Builder.CreateCall(Callee);
   }
   case CSA::BI__builtin_csa_spmdization: {
@@ -15085,8 +15090,8 @@ Value *CodeGenFunction::EmitCSABuiltinExpr(unsigned BuiltinID,
     Value *Y = EmitScalarExpr(E->getArg(1));
     const Expr *SPMDStrExpr = E->getArg(1)->IgnoreParenCasts();
     StringRef Str = cast<StringLiteral>(SPMDStrExpr)->getString();
-    Value *Callee = CGM.getIntrinsic(Intrinsic::csa_spmdization,
-                                     {X->getType(), Y->getType()});
+    Function *Callee = CGM.getIntrinsic(Intrinsic::csa_spmdization,
+                                        {X->getType(), Y->getType()});
     return Builder.CreateCall(Callee,
                               {X, Builder.CreateBitCast(
                                       CGM.EmitAnnotationString(Str),
@@ -15095,37 +15100,50 @@ Value *CodeGenFunction::EmitCSABuiltinExpr(unsigned BuiltinID,
   case CSA::BI__builtin_csa_spmd: {
     Value *X = EmitScalarExpr(E->getArg(0));
     Value *Y = EmitScalarExpr(E->getArg(1));
-    Value *Callee = CGM.getIntrinsic(Intrinsic::csa_spmd,
-                                     {X->getType(), Y->getType()});
+    Function *Callee =
+        CGM.getIntrinsic(Intrinsic::csa_spmd, {X->getType(), Y->getType()});
     return Builder.CreateCall(Callee, {X, Y});
   }
   case CSA::BI__builtin_csa_spmd_worker_num: {
     //this will be replaced by omp_get_thread_num?
-    Value *Callee = CGM.getIntrinsic(Intrinsic::csa_spmd_worker_num, {});
+    Function *Callee = CGM.getIntrinsic(Intrinsic::csa_spmd_worker_num, {});
     return Builder.CreateCall(Callee, {});
   }
   case CSA::BI__builtin_csa_pipeline_loop: {
     Value *X = EmitScalarExpr(E->getArg(0));
-    Value *Callee = CGM.getIntrinsic(Intrinsic::csa_pipeline_loop,
-                                     X->getType());
+    Function *Callee =
+        CGM.getIntrinsic(Intrinsic::csa_pipeline_loop, X->getType());
     return Builder.CreateCall(Callee, X);
   }
-
+  case CSA::BI__builtin_csa_local_cache: {
+    Value *X = EmitScalarExpr(E->getArg(0));
+    Function *Callee =
+        CGM.getIntrinsic(Intrinsic::csa_local_cache, X->getType());
+    return Builder.CreateCall(Callee, X);
+  }
   case CSA::BI__builtin_csa_lic_init: {
     Value *X =  Builder.CreateZExtOrTrunc(EmitScalarExpr(E->getArg(0)), Int8Ty);
     Value *Y =  Builder.CreateZExt(EmitScalarExpr(E->getArg(1)), Int64Ty);
     Value *Z =  Builder.CreateZExt(EmitScalarExpr(E->getArg(2)), Int64Ty);
-    Value *Callee = CGM.getIntrinsic(Intrinsic::csa_lic_init);
+    Function *Callee = CGM.getIntrinsic(Intrinsic::csa_lic_init);
     return Builder.CreateCall(Callee, {X, Y, Z});
   }
-
+  case CSA::BI__builtin_csa_lic_preload: {
+    Value *X = Builder.CreateZExtOrTrunc(EmitScalarExpr(E->getArg(0)), Int32Ty);
+    const Expr *PtrArg = E->getArg(1);
+    Value *Y = EmitScalarExpr(PtrArg);
+    llvm::Type *OverloadTy = ConvertType(PtrArg->getType());
+    Function *Callee =
+        CGM.getIntrinsic(Intrinsic::csa_lic_preload, {OverloadTy});
+    return Builder.CreateCall(Callee, {X, Y});
+  }
   case CSA::BI__builtin_csa_lic_write: {
     Value *X =  Builder.CreateZExtOrTrunc(EmitScalarExpr(E->getArg(0)),
                                           Int32Ty);
     const Expr *PtrArg = E->getArg(1);
     Value *Y = EmitScalarExpr(PtrArg);
     llvm::Type *OverloadTy = ConvertType(PtrArg->getType());
-    Value *Callee = CGM.getIntrinsic(Intrinsic::csa_lic_write, {OverloadTy});
+    Function *Callee = CGM.getIntrinsic(Intrinsic::csa_lic_write, {OverloadTy});
     return Builder.CreateCall(Callee, {X, Y});
   }
 
@@ -15134,7 +15152,7 @@ Value *CodeGenFunction::EmitCSABuiltinExpr(unsigned BuiltinID,
     Value *T = EmitScalarExpr(PtrArg);
     Value *X =  Builder.CreateZExtOrTrunc(EmitScalarExpr(E->getArg(1)),
                                           Int32Ty);
-    Value *Callee = CGM.getIntrinsic(Intrinsic::csa_lic_read, T->getType());
+    Function *Callee = CGM.getIntrinsic(Intrinsic::csa_lic_read, T->getType());
     return Builder.CreateCall(Callee, {X});
   }
 
@@ -15148,9 +15166,85 @@ Value *CodeGenFunction::EmitCSABuiltinExpr(unsigned BuiltinID,
     Value *const Locality = (E->getNumArgs() > 3)
                               ? EmitScalarExpr(E->getArg(3))
                               : llvm::ConstantInt::get(Int32Ty, 3);
-    Value *const F =
-      CGM.getIntrinsic(Intrinsic::csa_gated_prefetch, Gate->getType());
+    Function *const F =
+        CGM.getIntrinsic(Intrinsic::csa_gated_prefetch, Gate->getType());
     return Builder.CreateCall(F, {Gate, Address, RW, Locality});
+  }
+
+  // SIMD 8x8 and 16x4 saturating integer addition (signed)
+  case CSA::BI__builtin_csa_addss8x8:
+  case CSA::BI__builtin_csa_addss16x4: {
+    Value *const Arg0 = EmitScalarExpr(E->getArg(0));
+    Value *const Arg1 = EmitScalarExpr(E->getArg(1));
+    llvm::Function *F = CGM.getIntrinsic(Intrinsic::sadd_sat, Arg0->getType());
+    return Builder.CreateCall(F, {Arg0, Arg1});
+  }
+
+  // SIMD 8x8 and 16x4 saturating integer addition (unsigned)
+  case CSA::BI__builtin_csa_addsu8x8:
+  case CSA::BI__builtin_csa_addsu16x4: {
+    Value *const Arg0 = EmitScalarExpr(E->getArg(0));
+    Value *const Arg1 = EmitScalarExpr(E->getArg(1));
+    llvm::Function *F = CGM.getIntrinsic(Intrinsic::uadd_sat, Arg0->getType());
+    return Builder.CreateCall(F, {Arg0, Arg1});
+  }
+
+  // SIMD 8x8 and 16x4 saturating integer subtraction (signed)
+  case CSA::BI__builtin_csa_subss8x8:
+  case CSA::BI__builtin_csa_subss16x4: {
+    Value *const Arg0 = EmitScalarExpr(E->getArg(0));
+    Value *const Arg1 = EmitScalarExpr(E->getArg(1));
+    llvm::Function *F = CGM.getIntrinsic(Intrinsic::ssub_sat, Arg0->getType());
+    return Builder.CreateCall(F, {Arg0, Arg1});
+  }
+
+  // SIMD 8x8 and 16x4 saturating integer subtraction (unsigned)
+  case CSA::BI__builtin_csa_subsu8x8:
+  case CSA::BI__builtin_csa_subsu16x4: {
+    Value *const Arg0 = EmitScalarExpr(E->getArg(0));
+    Value *const Arg1 = EmitScalarExpr(E->getArg(1));
+    llvm::Function *F = CGM.getIntrinsic(Intrinsic::usub_sat, Arg0->getType());
+    return Builder.CreateCall(F, {Arg0, Arg1});
+  }
+
+  // SIMD 8x8 and 16x4 min (signed)
+  case CSA::BI__builtin_csa_mins8x8:
+  case CSA::BI__builtin_csa_mins16x4: {
+    Value *const Arg0 = EmitScalarExpr(E->getArg(0));
+    Value *const Arg1 = EmitScalarExpr(E->getArg(1));
+    Value *Cmp = Builder.CreateICmp(ICmpInst::ICMP_SLT, Arg0, Arg1);
+    Value *Res = Builder.CreateSelect(Cmp, Arg0, Arg1);
+    return Res;
+  }
+
+  // SIMD 8x8 and 16x4 min (unsigned)
+  case CSA::BI__builtin_csa_minu8x8:
+  case CSA::BI__builtin_csa_minu16x4: {
+    Value *const Arg0 = EmitScalarExpr(E->getArg(0));
+    Value *const Arg1 = EmitScalarExpr(E->getArg(1));
+    Value *Cmp = Builder.CreateICmp(ICmpInst::ICMP_ULT, Arg0, Arg1);
+    Value *Res = Builder.CreateSelect(Cmp, Arg0, Arg1);
+    return Res;
+  }
+
+  // SIMD 8x8 and 16x4 max (signed)
+  case CSA::BI__builtin_csa_maxs8x8:
+  case CSA::BI__builtin_csa_maxs16x4: {
+    Value *const Arg0 = EmitScalarExpr(E->getArg(0));
+    Value *const Arg1 = EmitScalarExpr(E->getArg(1));
+    Value *Cmp = Builder.CreateICmp(ICmpInst::ICMP_SGT, Arg0, Arg1);
+    Value *Res = Builder.CreateSelect(Cmp, Arg0, Arg1);
+    return Res;
+  }
+
+  // SIMD 8x8 and 16x4 max (unsigned)
+  case CSA::BI__builtin_csa_maxu8x8:
+  case CSA::BI__builtin_csa_maxu16x4: {
+    Value *const Arg0 = EmitScalarExpr(E->getArg(0));
+    Value *const Arg1 = EmitScalarExpr(E->getArg(1));
+    Value *Cmp = Builder.CreateICmp(ICmpInst::ICMP_UGT, Arg0, Arg1);
+    Value *Res = Builder.CreateSelect(Cmp, Arg0, Arg1);
+    return Res;
   }
 
   default:

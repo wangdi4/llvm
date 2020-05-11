@@ -59,10 +59,11 @@ CSAInstPrinter::CSAInstPrinter(const MCAsmInfo &MAI, const MCInstrInfo &MII,
 
 bool CSAInstPrinter::WrapCsaAsm() { return WrapAsmOpt; }
 
-void CSAInstPrinter::printInst(const MCInst *MI, raw_ostream &O,
-                               StringRef Annot, const MCSubtargetInfo &STI) {
-  printInstruction(MI, O);
-  printAnnotation(O, Annot);
+void CSAInstPrinter::printInst(const MCInst *MI, uint64_t Address,
+                               StringRef Annot, const MCSubtargetInfo &STI,
+                               raw_ostream &OS) {
+  printInstruction(MI, Address, OS);
+  printAnnotation(OS, Annot);
 }
 
 // Include the auto-generated portion of the assembly writer.
@@ -118,6 +119,10 @@ void CSAInstPrinter::print##Asm##Operand(const MCInst *MI, unsigned OpNo, \
   static const char *names[] = { \
     __VA_ARGS__ \
   }; \
+  size_t count = sizeof(names) / sizeof(names[0]); \
+  /* Clip the value to the name size if it was sign extended. */ \
+  if (value & (1ULL << 63)) \
+    value = value % count; \
   assert(value < sizeof(names) / sizeof(names[0]) && \
     #Asm " operand is outside range of permissible values"); \
   O << names[value]; \
@@ -139,6 +144,33 @@ void CSAInstPrinter::printPrioOrderOperand(const MCInst *MI, unsigned OpNo,
   } else {
     // There are no fancy names for this one -- just "0" or "1".
     O << 0;
+  }
+}
+
+void CSAInstPrinter::printLCacheOperand(const MCInst *MI, unsigned OpNo,
+                                           raw_ostream &O,
+                                          const char *Modifier) {
+  // This operand is optional. Since it is always the last operand,
+  // we take care of the emission of the operand separator here
+  // so that the printing of the instruction stops at the previous
+  // operand if this operand is 0.
+  //
+  // Modifiers supported:
+  // name: Prints the cache name only.
+  // None/default: Prints a comma, and then the cache name.
+  bool NameOnly = Modifier && !std::strcmp(Modifier, "name");
+
+  const MCOperand &Op = MI->getOperand(OpNo);
+  assert(Op.isImm());
+  int64_t imm = Op.getImm();
+
+  if (imm != 0) {
+    if (not NameOnly) {
+      O << ", ";
+    }
+
+    O << "cache"; // This should be replaced with the enclosing function name.
+    printOperand(MI, OpNo, O, nullptr);
   }
 }
 

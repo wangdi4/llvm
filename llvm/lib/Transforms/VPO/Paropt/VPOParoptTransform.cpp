@@ -1372,7 +1372,6 @@ bool VPOParoptTransform::paroptTransforms() {
       if (Mode & ParPrepare)
         switch (W->getWRegionKindID()) {
           case WRegionNode::WRNAtomic:
-          case WRegionNode::WRNCritical:
           case WRegionNode::WRNTaskwait:
             Changed |= removeCompilerGeneratedFences(W);
             break;
@@ -1941,6 +1940,16 @@ bool VPOParoptTransform::paroptTransforms() {
       case WRegionNode::WRNCritical:
         if (Mode & ParPrepare) {
           debugPrintHeader(W, Mode);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+          if (isTargetCSA()) {
+            Changed |= removeCompilerGeneratedFences(W);
+            Changed |= genCSACritical(cast<WRNCriticalNode>(W));
+            RemoveDirectives = true;
+            break;
+          }
+#endif  // INTEL_FEATURE_CSA
+#endif  // INTEL_CUSTOMIZATION
           Changed |= genCriticalCode(cast<WRNCriticalNode>(W));
           RemoveDirectives = true;
         }
@@ -5539,13 +5548,14 @@ void VPOParoptTransform::registerizeLoopEssentialValues(
       resetValueInOmpClauseGeneric(W, V);
       // Only AllocaInst can be here.
       auto *AI = dyn_cast<AllocaInst>(V);
-      assert(AI && "Trying mem-to-reg for not an AllocaInst.");
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
-      if (AI == NormUB && !isAllocaPromotable(AI))
+      // For CSA UB does not need to be allocated as omp loops are not outlined.
+      if (V == NormUB && (!AI || !isAllocaPromotable(AI)))
         continue;
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
+      assert(AI && "Trying mem-to-reg for not an AllocaInst.");
       Allocas.push_back(AI);
     }
   }

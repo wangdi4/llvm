@@ -8,7 +8,7 @@ define void @test_lone_prefetch(i8* %addr) {
 
   call void @llvm.prefetch(i8* %addr, i32 0, i32 3, i32 1)
 ; CHECK: call void @llvm.csa.inord(i1 false)
-; CHECK-NEXT: call void @llvm.prefetch(i8* %addr, i32 0, i32 3, i32 1)
+; CHECK-NEXT: call void @llvm.prefetch.p0i8(i8* %addr, i32 0, i32 3, i32 1)
 ; CHECK-NEXT: %[[PREF:[a-z0-9_.]+]] = call i1 @llvm.csa.outord()
 ; CHECK-NOT: %[[PREF]]
 
@@ -25,13 +25,13 @@ define i8 @test_prefetch_load(i8* %addr) {
 
   call void @llvm.prefetch(i8* %addr, i32 0, i32 3, i32 1)
 ; CHECK: call void @llvm.csa.inord(i1 %[[LOAD]])
-; CHECK-NEXT: call void @llvm.prefetch(i8* %addr, i32 0, i32 3, i32 1)
+; CHECK-NEXT: call void @llvm.prefetch.p0i8(i8* %addr, i32 0, i32 3, i32 1)
 ; CHECK-NEXT: %[[LPREF:[a-z0-9_.]+]] = call i1 @llvm.csa.outord()
 ; CHECK-NOT: %[[LPREF]]
 
   call void @llvm.prefetch(i8* %addr, i32 1, i32 3, i32 1)
 ; CHECK: call void @llvm.csa.inord(i1 %[[LOAD]])
-; CHECK-NEXT: call void @llvm.prefetch(i8* %addr, i32 1, i32 3, i32 1)
+; CHECK-NEXT: call void @llvm.prefetch.p0i8(i8* %addr, i32 1, i32 3, i32 1)
 ; CHECK-NEXT: %[[SPREF:[a-z0-9_.]+]] = call i1 @llvm.csa.outord()
 ; CHECK-NOT: %[[SPREF]]
 
@@ -49,13 +49,13 @@ define void @test_prefetch_store(i8* %addr) {
 
   call void @llvm.prefetch(i8* %addr, i32 0, i32 3, i32 1)
 ; CHECK: call void @llvm.csa.inord(i1 false)
-; CHECK-NEXT: call void @llvm.prefetch(i8* %addr, i32 0, i32 3, i32 1)
+; CHECK-NEXT: call void @llvm.prefetch.p0i8(i8* %addr, i32 0, i32 3, i32 1)
 ; CHECK-NEXT: %[[LPREF:[a-z0-9_.]+]] = call i1 @llvm.csa.outord()
 ; CHECK-NOT: %[[LPREF]]
 
   call void @llvm.prefetch(i8* %addr, i32 1, i32 3, i32 1)
 ; CHECK: call void @llvm.csa.inord(i1 %[[STORE]])
-; CHECK-NEXT: call void @llvm.prefetch(i8* %addr, i32 1, i32 3, i32 1)
+; CHECK-NEXT: call void @llvm.prefetch.p0i8(i8* %addr, i32 1, i32 3, i32 1)
 ; CHECK-NEXT: %[[SPREF:[a-z0-9_.]+]] = call i1 @llvm.csa.outord()
 ; CHECK-NOT: %[[SPREF]]
 
@@ -72,13 +72,13 @@ define {i8, i1} @test_prefetch_atomic(i8* %addr) {
 
   call void @llvm.prefetch(i8* %addr, i32 0, i32 3, i32 1)
 ; CHECK: call void @llvm.csa.inord(i1 false)
-; CHECK-NEXT: call void @llvm.prefetch(i8* %addr, i32 0, i32 3, i32 1)
+; CHECK-NEXT: call void @llvm.prefetch.p0i8(i8* %addr, i32 0, i32 3, i32 1)
 ; CHECK-NEXT: %[[LPREF:[a-z0-9_.]+]] = call i1 @llvm.csa.outord()
 ; CHECK-NOT: %[[LPREF]]
 
   call void @llvm.prefetch(i8* %addr, i32 1, i32 3, i32 1)
 ; CHECK: call void @llvm.csa.inord(i1 %[[ATOMIC]])
-; CHECK-NEXT: call void @llvm.prefetch(i8* %addr, i32 1, i32 3, i32 1)
+; CHECK-NEXT: call void @llvm.prefetch.p0i8(i8* %addr, i32 1, i32 3, i32 1)
 ; CHECK-NEXT: %[[SPREF:[a-z0-9_.]+]] = call i1 @llvm.csa.outord()
 ; CHECK-NOT: %[[SPREF]]
 
@@ -97,14 +97,14 @@ define i8 @test_prefetch_offs(i8* %addr) {
   %addr_ahead = getelementptr inbounds i8, i8* %addr, i32 64
   call void @llvm.prefetch(i8* %addr_ahead, i32 0, i32 3, i32 1)
 ; CHECK: call void @llvm.csa.inord(i1 %[[LOAD]])
-; CHECK-NEXT: call void @llvm.prefetch(i8* %addr_ahead, i32 0, i32 3, i32 1)
+; CHECK-NEXT: call void @llvm.prefetch.p0i8(i8* %addr_ahead, i32 0, i32 3, i32 1)
 ; CHECK-NEXT: %[[APREF:[a-z0-9_.]+]] = call i1 @llvm.csa.outord()
 ; CHECK-NOT: %[[APREF]]
 
   %addr_behind = getelementptr inbounds i8, i8* %addr, i32 -64
   call void @llvm.prefetch(i8* %addr_behind, i32 0, i32 3, i32 1)
 ; CHECK: call void @llvm.csa.inord(i1 %[[LOAD]])
-; CHECK-NEXT: call void @llvm.prefetch(i8* %addr_behind, i32 0, i32 3, i32 1)
+; CHECK-NEXT: call void @llvm.prefetch.p0i8(i8* %addr_behind, i32 0, i32 3, i32 1)
 ; CHECK-NEXT: %[[BPREF:[a-z0-9_.]+]] = call i1 @llvm.csa.outord()
 ; CHECK-NOT: %[[BPREF]]
 
@@ -120,7 +120,7 @@ define i8 @test_prefetch_noalias(i8* noalias %addr, i8* noalias %addr1) {
 
   call void @llvm.prefetch(i8* %addr, i32 0, i32 3, i32 1)
 ; CHECK: call void @llvm.csa.inord(i1 false)
-; CHECK-NEXT: call void @llvm.prefetch(i8* %addr, i32 0, i32 3, i32 1)
+; CHECK-NEXT: call void @llvm.prefetch.p0i8(i8* %addr, i32 0, i32 3, i32 1)
 ; CHECK-NEXT: %[[APREF:[a-z0-9_.]+]] = call i1 @llvm.csa.outord()
 ; CHECK-NOT: %[[APREF]]
 
@@ -149,7 +149,7 @@ loop:
 
   call void @llvm.prefetch(i8* %addr, i32 0, i32 3, i32 1)
 ; CHECK: call void @llvm.csa.inord(i1 %[[LOAD]])
-; CHECK-NEXT: call void @llvm.prefetch(i8* %addr, i32 0, i32 3, i32 1)
+; CHECK-NEXT: call void @llvm.prefetch.p0i8(i8* %addr, i32 0, i32 3, i32 1)
 ; CHECK-NEXT: %[[PREF:[a-z0-9_.]+]] = call i1 @llvm.csa.outord()
 ; CHECK-NOT: %[[PREF]]
 
@@ -177,7 +177,7 @@ loop:
 
   call void @llvm.prefetch(i8* %addr, i32 0, i32 3, i32 1)
 ; CHECK: call void @llvm.csa.inord(i1 %[[PHI]])
-; CHECK-NEXT: call void @llvm.prefetch(i8* %addr, i32 0, i32 3, i32 1)
+; CHECK-NEXT: call void @llvm.prefetch.p0i8(i8* %addr, i32 0, i32 3, i32 1)
 ; CHECK-NEXT: %[[PREF:[a-z0-9_.]+]] = call i1 @llvm.csa.outord()
 ; CHECK-NOT: %[[PREF]]
 
@@ -220,7 +220,7 @@ nest:
 
   call void @llvm.prefetch(i8* %addr, i32 0, i32 3, i32 1)
 ; CHECK: call void @llvm.csa.inord(i1 %[[LOAD]])
-; CHECK-NEXT: call void @llvm.prefetch(i8* %addr, i32 0, i32 3, i32 1)
+; CHECK-NEXT: call void @llvm.prefetch.p0i8(i8* %addr, i32 0, i32 3, i32 1)
 ; CHECK-NEXT: %[[PREF:[a-z0-9_.]+]] = call i1 @llvm.csa.outord()
 ; CHECK-NOT: %[[PREF]]
 
@@ -256,7 +256,7 @@ nest:
 
   call void @llvm.prefetch(i8* %addr, i32 0, i32 3, i32 1)
 ; CHECK: call void @llvm.csa.inord(i1 %[[PHI]])
-; CHECK-NEXT: call void @llvm.prefetch(i8* %addr, i32 0, i32 3, i32 1)
+; CHECK-NEXT: call void @llvm.prefetch.p0i8(i8* %addr, i32 0, i32 3, i32 1)
 ; CHECK-NEXT: %[[PREF:[a-z0-9_.]+]] = call i1 @llvm.csa.outord()
 ; CHECK-NOT: %[[PREF]]
 
@@ -300,7 +300,7 @@ nest:
 
   call void @llvm.prefetch(i8* %addr, i32 0, i32 3, i32 1)
 ; CHECK: call void @llvm.csa.inord(i1 %[[PHI]])
-; CHECK-NEXT: call void @llvm.prefetch(i8* %addr, i32 0, i32 3, i32 1)
+; CHECK-NEXT: call void @llvm.prefetch.p0i8(i8* %addr, i32 0, i32 3, i32 1)
 ; CHECK-NEXT: %[[PREF:[a-z0-9_.]+]] = call i1 @llvm.csa.outord()
 ; CHECK-NOT: %[[PREF]]
 
@@ -346,7 +346,7 @@ loop:
 
   call void @llvm.prefetch(i8* %addr, i32 0, i32 3, i32 1)
 ; CHECK: call void @llvm.csa.inord(i1 %[[PHI]])
-; CHECK-NEXT: call void @llvm.prefetch(i8* %addr, i32 0, i32 3, i32 1)
+; CHECK-NEXT: call void @llvm.prefetch.p0i8(i8* %addr, i32 0, i32 3, i32 1)
 ; CHECK-NEXT: %[[PREF:[a-z0-9_.]+]] = call i1 @llvm.csa.outord()
 ; CHECK-NOT: %[[PREF]]
 
@@ -392,7 +392,7 @@ prefloop:
 
   call void @llvm.prefetch(i8* %addr, i32 1, i32 3, i32 1)
 ; CHECK: call void @llvm.csa.inord(i1 %[[PHI]])
-; CHECK-NEXT: call void @llvm.prefetch(i8* %addr, i32 1, i32 3, i32 1)
+; CHECK-NEXT: call void @llvm.prefetch.p0i8(i8* %addr, i32 1, i32 3, i32 1)
 ; CHECK-NEXT: %[[PREF:[a-z0-9_.]+]] = call i1 @llvm.csa.outord()
 ; CHECK-NOT: %[[PREF]]
 

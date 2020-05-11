@@ -7232,15 +7232,7 @@ void CGOpenMPRuntime::emitTargetOutlinedFunctionHelper(
 
   if (CGM.getLangOpts().OpenMPIsDevice) {
     OutlinedFnID = llvm::ConstantExpr::getBitCast(OutlinedFn, CGM.Int8PtrTy);
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CSA
-    OutlinedFn->setLinkage(CGM.getLangOpts().CSAvISA
-                               ? llvm::GlobalValue::ExternalLinkage
-                               : llvm::GlobalValue::WeakAnyLinkage);
-#else // INTEL_FEATURE_CSA
     OutlinedFn->setLinkage(llvm::GlobalValue::WeakAnyLinkage);
-#endif // INTEL_FEATURE_CSA
-#endif // INTEL_CUSTOMIZATION
     OutlinedFn->setDSOLocal(false);
   } else {
     std::string Name = getName({EntryFnName, "region_id"});
@@ -10990,6 +10982,9 @@ bool CGOpenMPRuntime::markAsGlobalTarget(GlobalDecl GD) {
   // a function that has a target region.  Lambda call functions that contain
   // target regions still must be emitted.
   if (CGM.getLangOpts().OpenMPLateOutline && !CGM.inTargetRegion() &&
+#if INTEL_CUSTOMIZATION
+      CGM.getLangOpts().OpenMPLateOutlineTarget &&
+#endif // INTEL_CUSTOMIZATION
       !isLambdaCallWithTarget(D))
     return true;
 #endif // INTEL_COLLAB

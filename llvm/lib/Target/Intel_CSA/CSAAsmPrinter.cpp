@@ -46,6 +46,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include "llvm/ADT/SmallSet.h"
 
 using namespace llvm;
 
@@ -118,7 +119,7 @@ class CSAAsmPrinter : public AsmPrinter {
   DebugLoc prevDebugLoc;
   bool ignoreLoc(const MachineInstr &);
   LineReader *reader;
-  // To record filename to ID mapping
+  bool isFirstFunc; // flag to specify if first function is being compiled
   bool doInitialization(Module &M) override;
   bool doFinalization(Module &M) override;
   void emitLineNumberAsDotLoc(const MachineInstr &);
@@ -129,21 +130,24 @@ class CSAAsmPrinter : public AsmPrinter {
   void emitParamList();
   void emitReturnVal();
   void setLICNames();
-  void EmitCallInstruction(const MachineInstr *);
-  void EmitContinueInstruction(const MachineInstr *);
-  void EmitAll0(const MachineInstr *);
-  void EmitSimpleEntryInstruction(MachineFunction *MF);
-  void EmitParamsResultsDecl(MachineInstr *, MachineInstr *);
-  void EmitTrampolineMarkers(const MachineInstr *);
-  void EmitCSAOperands(const MachineInstr *, raw_ostream &, int, int);
+  void emitCallInstruction(const MachineInstr *);
+  void emitContinueInstruction(const MachineInstr *);
+  void emitAll0(const MachineInstr *);
+  void emitSimpleEntryInstruction(MachineFunction *MF);
+  void emitParamsResultsDecl(MachineInstr *, MachineInstr *);
+  void emitTrampolineMarkers(const MachineInstr *);
+  void emitCSAOperands(const MachineInstr *, raw_ostream &, int, int);
   unsigned resultReg;
   void writeSmallFountain(const MachineInstr *MI);
 
-  void EmitLicGroup(CSALicGroup &group);
+  void emitLicGroup(CSALicGroup &group);
 
 public:
   CSAAsmPrinter(TargetMachine &TM, std::unique_ptr<MCStreamer> Streamer)
-      : AsmPrinter(TM, std::move(Streamer)), reader() { resultReg = 0; }
+      : AsmPrinter(TM, std::move(Streamer)), reader() {
+        resultReg = 0;
+        isFirstFunc = true;
+      }
 
   StringRef getPassName() const override { return "CSA: Assembly Printer"; }
 
@@ -151,19 +155,19 @@ public:
   bool PrintAsmOperand(const MachineInstr *MI, unsigned OpNo,
                        const char *ExtraCode, raw_ostream &O) override;
 
-  void EmitStartOfAsmFile(Module &) override;
-  void EmitEndOfAsmFile(Module &) override;
+  void emitStartOfAsmFile(Module &) override;
+  void emitEndOfAsmFile(Module &) override;
 
   bool runOnMachineFunction(MachineFunction &F) override;
-  void EmitFunctionEntryLabel() override;
-  void EmitFunctionBodyStart() override;
-  void EmitFunctionBodyEnd() override;
-  void EmitInstruction(const MachineInstr *MI) override;
-  void EmitConstantPool() override;
-  void EmitGlobalVariable(const GlobalVariable *GV) override;
+  void emitFunctionEntryLabel() override;
+  void emitFunctionBodyStart() override;
+  void emitFunctionBodyEnd() override;
+  void emitInstruction(const MachineInstr *MI) override;
+  void emitConstantPool() override;
+  void emitGlobalVariable(const GlobalVariable *GV) override;
 
-  void EmitCsaCodeSection();
-  void EmitScratchpad(MCSymbol *Symbol, bool isConstant, const Constant *Init);
+  void emitCsaCodeSection();
+  void emitScratchpad(MCSymbol *Symbol, bool isConstant, const Constant *Init);
 };
 } // end of anonymous namespace
 
@@ -186,20 +190,21 @@ bool CSAAsmPrinter::runOnMachineFunction(MachineFunction &MF) {
       O << "\t.unit\n";
     else
       O << "\t.unit sxu\n";
-    OutStreamer->EmitRawText(O.str());
+    OutStreamer->emitRawText(O.str());
 
     // If we have any scratchpads, emit them before the machine function.
     const Module &M = *MF.getFunction().getParent();
     for (const auto &GV: M.globals()) {
       if (isScratchpadAddressSpace(GV.getAddressSpace())) {
-        EmitScratchpad(getSymbol(&GV), GV.isConstant(), GV.getInitializer());
+        emitScratchpad(getSymbol(&GV), GV.isConstant(), GV.getInitializer());
       }
     }
   }
   AsmPrinter::runOnMachineFunction(MF);
 
   if (csa_utils::createSCG()) {
-    OutStreamer->EmitRawText(".endmodule");
+    OutStreamer->emitRawText(".endmodule");
+    isFirstFunc = false;
   }
   return false;
 }
@@ -282,7 +287,7 @@ bool CSAAsmPrinter::doInitialization(Module &M) {
   if (!M.getModuleInlineAsm().empty()) {
     OutStreamer->AddComment("Start of file scope inline assembly");
     OutStreamer->AddBlankLine();
-    OutStreamer->EmitRawText(StringRef(M.getModuleInlineAsm()));
+    OutStreamer->emitRawText(StringRef(M.getModuleInlineAsm()));
     OutStreamer->AddBlankLine();
     OutStreamer->AddComment("End of file scope inline assembly");
     OutStreamer->AddBlankLine();
@@ -344,20 +349,81 @@ bool CSAAsmPrinter::doFinalization(Module &M) {
   if (!csa_utils::createSCG()) {
     for (const auto &GV: M.globals()) {
       if (isScratchpadAddressSpace(GV.getAddressSpace())) {
-        EmitScratchpad(getSymbol(&GV), GV.isConstant(), GV.getInitializer());
+        emitScratchpad(getSymbol(&GV), GV.isConstant(), GV.getInitializer());
       }
     }
   }
   if (CSAInstPrinter::WrapCsaAsm()) {
     OutStreamer->AddBlankLine();
     if (!csa_utils::createSCG())
-      OutStreamer->EmitRawText(".endmodule\n");
+      OutStreamer->emitRawText(".endmodule\n");
   } else {
     if (!csa_utils::createSCG())
-      OutStreamer->EmitRawText(".endmodule\n");
+      OutStreamer->emitRawText(".endmodule\n");
   }
   bool result = AsmPrinter::doFinalization(M);
   return result;
+}
+// Copied from lib/MC/MCAsmStreamer.cpp
+static inline char toOctal(int X) { return (X&7)+'0'; }
+
+// Copied from lib/MC/MCAsmStreamer.cpp
+static void PrintQuotedString(StringRef Data, raw_ostream &OS) {
+  OS << '"';
+
+  for (unsigned i = 0, e = Data.size(); i != e; ++i) {
+    unsigned char C = Data[i];
+    if (C == '"' || C == '\\') {
+      OS << '\\' << (char)C;
+      continue;
+    }
+
+    if (isPrint((unsigned char)C)) {
+      OS << (char)C;
+      continue;
+    }
+
+    switch (C) {
+      case '\b': OS << "\\b"; break;
+      case '\f': OS << "\\f"; break;
+      case '\n': OS << "\\n"; break;
+      case '\r': OS << "\\r"; break;
+      case '\t': OS << "\\t"; break;
+      default:
+        OS << '\\';
+        OS << toOctal(C >> 6);
+        OS << toOctal(C >> 3);
+        OS << toOctal(C >> 0);
+        break;
+    }
+  }
+
+  OS << '"';
+}
+
+// Copied from lib/MC/MCAsmStreamer.cpp
+static void printDwarfFileDirective(unsigned FileNo, StringRef Directory,
+                                    StringRef Filename,
+                                    raw_svector_ostream &OS) {
+  SmallString<128> FullPathName;
+
+  if (!Directory.empty()) {
+    if (sys::path::is_absolute(Filename))
+      Directory = "";
+    else {
+      FullPathName = Directory;
+      sys::path::append(FullPathName, Filename);
+      Directory = "";
+      Filename = FullPathName;
+    }
+  }
+
+  OS << "\t.file\t" << FileNo << ' ';
+  if (!Directory.empty()) {
+    PrintQuotedString(Directory, OS);
+    OS << ' ';
+  }
+  PrintQuotedString(Filename, OS);
 }
 
 void CSAAsmPrinter::emitLineNumberAsDotLoc(const MachineInstr &MI) {
@@ -393,18 +459,18 @@ void CSAAsmPrinter::emitLineNumberAsDotLoc(const MachineInstr &MI) {
   std::stringstream temp;
 
   //
-  // EmitDwarfFileDirective() returns the file ID for the given
+  // emitDwarfFileDirective() returns the file ID for the given
   // file path.  It will only emit the file directive once
   // for each file.
   //
-  unsigned FileNo = OutStreamer->EmitDwarfFileDirective(0, dirName, fileName);
+  unsigned FileNo = OutStreamer->emitDwarfFileDirective(0, dirName, fileName);
 
   if (FileNo == 0)
     return;
 
   temp << "\t.loc " << FileNo << " " << curLoc.getLine()
        << " " << curLoc.getCol();
-  OutStreamer->EmitRawText(Twine(temp.str().c_str()));
+  OutStreamer->emitRawText(Twine(temp.str().c_str()));
 }
 
 void CSAAsmPrinter::emitSrcInText(StringRef filename, unsigned line) {
@@ -417,7 +483,7 @@ void CSAAsmPrinter::emitSrcInText(StringRef filename, unsigned line) {
   temp << " ";
   temp << reader->readLine(line);
   temp << "\n";
-  this->OutStreamer->EmitRawText(Twine(temp.str()));
+  this->OutStreamer->emitRawText(Twine(temp.str()));
 }
 
 LineReader *CSAAsmPrinter::getReader(std::string filename) {
@@ -469,7 +535,7 @@ void CSAAsmPrinter::emitParamList(const Function *F) {
     first = false;
   }
   if (!first)
-    OutStreamer->EmitRawText(O.str());
+    OutStreamer->emitRawText(O.str());
 }
 
 void CSAAsmPrinter::emitReturnVal(const Function *F) {
@@ -507,10 +573,10 @@ void CSAAsmPrinter::emitReturnVal(const Function *F) {
   // (Should really use the allocation.)
   O << " %r0";
 
-  OutStreamer->EmitRawText(O.str());
+  OutStreamer->emitRawText(O.str());
 }
 
-void CSAAsmPrinter::EmitCsaCodeSection() {
+void CSAAsmPrinter::emitCsaCodeSection() {
   // The .section directive for an ELF object as a name and 3 optional,
   // comma separated parts as detailed at
   // https://sourceware.org/binutils/docs/as/Section.html
@@ -532,7 +598,7 @@ void CSAAsmPrinter::EmitCsaCodeSection() {
   OutStreamer->SwitchSection(CsaSec);
 }
 
-void CSAAsmPrinter::EmitStartOfAsmFile(Module &M) {
+void CSAAsmPrinter::emitStartOfAsmFile(Module &M) {
 
   /* Disabled 2016/3/31.  Long term, we should only put this out if it
    * is not autounit.  The theory is if the compiler has done tailoring
@@ -541,7 +607,7 @@ void CSAAsmPrinter::EmitStartOfAsmFile(Module &M) {
   SmallString<128> Str;
   raw_svector_ostream O(Str);
   if (CSAInstPrinter::WrapCsaAsm()) {
-    EmitCsaCodeSection();
+    emitCsaCodeSection();
 
     // Emit a symbol for each of the functions pointing to the CSA code
     // block.
@@ -552,12 +618,12 @@ void CSAAsmPrinter::EmitStartOfAsmFile(Module &M) {
         if (!F.isDeclaration())
           OO << "\t.set " << *getSymbol(&F) << ", .csa.code.start\n";
       }
-      OutStreamer->EmitRawText(OO.str());
+      OutStreamer->emitRawText(OO.str());
     }
 
     // Start the CSA code block.
-    OutStreamer->EmitRawText(".csa.code.start:");
-    OutStreamer->EmitRawText("\t.ascii ");
+    OutStreamer->emitRawText(".csa.code.start:");
+    OutStreamer->emitRawText("\t.ascii ");
     startCSAAsmString(*OutStreamer);
     O << "\t.text\n";
   } 
@@ -575,30 +641,30 @@ void CSAAsmPrinter::EmitStartOfAsmFile(Module &M) {
     else
       O << "\t.unit sxu\n";
   }
-  OutStreamer->EmitRawText(O.str());
+  OutStreamer->emitRawText(O.str());
 
   // If we have any scratchpads, emit them before the machine function.
   if (!csa_utils::createSCG()) {
     for (const auto &GV: M.globals()) {
       if (isScratchpadAddressSpace(GV.getAddressSpace())) {
-        EmitScratchpad(getSymbol(&GV), GV.isConstant(), GV.getInitializer());
+        emitScratchpad(getSymbol(&GV), GV.isConstant(), GV.getInitializer());
       }
     }
   }
 }
 
-void CSAAsmPrinter::EmitEndOfAsmFile(Module &M) {
+void CSAAsmPrinter::emitEndOfAsmFile(Module &M) {
   if (CSAInstPrinter::WrapCsaAsm()) {
     OutStreamer->AddBlankLine();
     endCSAAsmString(*OutStreamer);
     OutStreamer->AddBlankLine();
     // Add the terminating null for the .csa section.
-    OutStreamer->EmitRawText("\t.asciz \"\"");
+    OutStreamer->emitRawText("\t.asciz \"\"");
     OutStreamer->PopSection();
   }
 }
 
-void CSAAsmPrinter::EmitFunctionEntryLabel() {
+void CSAAsmPrinter::emitFunctionEntryLabel() {
   SmallString<128> Str;
   raw_svector_ostream O(Str);
 
@@ -610,7 +676,7 @@ void CSAAsmPrinter::EmitFunctionEntryLabel() {
   // CMPLRS-49165: set compilation directory DWARF emission.
   //
   // With -fdwarf-directory-asm (default in ICX) and unset compilation
-  // directory EmitDwarfFileDirective will use new syntax for assembly
+  // directory emitDwarfFileDirective will use new syntax for assembly
   // .file directory:
   //     .file 1 "directory" "file"
   //
@@ -647,7 +713,7 @@ void CSAAsmPrinter::EmitFunctionEntryLabel() {
   // For now, this includes parameters and results
   O << "{";
 
-  OutStreamer->EmitRawText(O.str());
+  OutStreamer->emitRawText(O.str());
 
   emitReturnVal(F);
 
@@ -659,7 +725,7 @@ void CSAAsmPrinter::setLICNames(void) {
   const CSAMachineFunctionInfo *LMFI = MF->getInfo<CSAMachineFunctionInfo>();
   if (not ImplicitLicDefs) {
     for (unsigned index = 0, e = MRI->getNumVirtRegs(); index != e; ++index) {
-      unsigned vreg = TargetRegisterInfo::index2VirtReg(index);
+      unsigned vreg = Register::index2VirtReg(index);
       if (!MRI->reg_empty(vreg)) {
         StringRef name = LMFI->getLICName(vreg);
         if ((!EmitRegNames && !(csa_utils::isAlwaysDataFlowLinkageSet()))
@@ -672,7 +738,7 @@ void CSAAsmPrinter::setLICNames(void) {
   }
 }
 
-void CSAAsmPrinter::EmitLicGroup(CSALicGroup &licGroup) {
+void CSAAsmPrinter::emitLicGroup(CSALicGroup &licGroup) {
   // All lic group annotations are still experimental.
   if (!EmitExperimental)
     return;
@@ -685,24 +751,26 @@ void CSAAsmPrinter::EmitLicGroup(CSALicGroup &licGroup) {
   if (licGroup.LoopId) {
     O << ", csasim_loop_id=" << licGroup.LoopId;
   }
-  OutStreamer->EmitRawText(O.str());
+  OutStreamer->emitRawText(O.str());
 }
 
-void CSAAsmPrinter::EmitFunctionBodyStart() {
+void CSAAsmPrinter::emitFunctionBodyStart() {
   MRI  = &MF->getRegInfo();
   LMFI = MF->getInfo<CSAMachineFunctionInfo>();
   if (csa_utils::isAlwaysDataFlowLinkageSet()) {
     // Emit code for all entry points
     for (unsigned i = 0; i < LMFI->getNumCSAEntryPoints(); ++i) {
       const CSAEntryPoint &CSAEP = LMFI->getCSAEntryPoint(i);
-      EmitSimpleEntryInstruction(CSAEP.MF);
-      EmitParamsResultsDecl(CSAEP.EntryMI,CSAEP.ReturnMI);
+      const Function &F = CSAEP.MF->getFunction();
+      if (i != 0) emitLinkage(&F, getSymbol(&F));
+      emitSimpleEntryInstruction(CSAEP.MF);
+      emitParamsResultsDecl(CSAEP.EntryMI,CSAEP.ReturnMI);
     }
   }
   if (not ImplicitLicDefs) {
     auto printRegisterAttribs = [&](unsigned reg) {
       for (StringRef k : LMFI->getLICAttributes(reg)) {
-        OutStreamer->EmitRawText("\t.attrib " + k + " " +
+        OutStreamer->emitRawText("\t.attrib " + k + " " +
                                  LMFI->getLICAttribute(reg, k));
       }
     };
@@ -714,20 +782,20 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
       raw_svector_ostream O(Str);
 
       if (auto group = LMFI->getLICGroup(reg))
-        EmitLicGroup(*group);
+        emitLicGroup(*group);
 
       O << "\t.lic";
-      if (TargetRegisterInfo::isVirtualRegister(reg)) {
+      if (Register::isVirtualRegister(reg)) {
         if (unsigned depth = LMFI->getLICDepth(reg)) {
           O << "@" << depth;
         }
       }
-      if (TargetRegisterInfo::isVirtualRegister(reg))
+      if (Register::isVirtualRegister(reg))
         O << " .i" << LMFI->getLICSize(reg) << " ";
       else
         O << " .i64 ";
       O << "%" << name;
-      OutStreamer->EmitRawText(O.str());
+      OutStreamer->emitRawText(O.str());
     };
 
     // Generate declarations for each LIC by looping over the LIC classes,
@@ -753,7 +821,7 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
       // instruction. (Sometimes all such instructions are cleaned up by DIE.)
       if (reg != CSA::IGN && reg != CSA::NA && !MRI->reg_empty(reg)) {
         StringRef name = "";
-        if (TargetRegisterInfo::isVirtualRegister(reg))
+        if (Register::isVirtualRegister(reg))
           name = LMFI->getLICName(reg);
         else
           name = CSAInstPrinter::getRegisterName(reg);
@@ -761,7 +829,7 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
       }
     }
     for (unsigned index = 0, e = MRI->getNumVirtRegs(); index != e; ++index) {
-      unsigned vreg = TargetRegisterInfo::index2VirtReg(index);
+      unsigned vreg = Register::index2VirtReg(index);
       if (!MRI->reg_empty(vreg) && LMFI->getIsDeclared(vreg)) {
         if (csa_utils::isAlwaysDataFlowLinkageSet()) {
           if (LMFI->getNumCallSites() == 0) {
@@ -791,22 +859,51 @@ void CSAAsmPrinter::EmitFunctionBodyStart() {
       }
     }
   }
-  if (csa_utils::isAlwaysDataFlowLinkageSet())
-    OutStreamer->EmitRawText("{");
+  // For each CSA module, we forcibly emit the .file directive
+  // Each .file directive (one for each source file) is added
+  // exactly once at the beginning of the body of the CSA module
+  if (csa_utils::isAlwaysDataFlowLinkageSet()) {
+    OutStreamer->emitRawText("{");
+    DebugLoc curLoc;
+    // Set used to hold FileNos to avoid .file beign emitted twice
+    SmallSet<unsigned, 32> FileNos;
+    // We have already emitted the .file directives for the first file
+    if (!isFirstFunc) {
+      for (auto &MBB : *MF) {
+        for (auto &MI : MBB) {
+          curLoc = MI.getDebugLoc();
+          if (!curLoc)
+            continue;
+          auto *Scope = cast_or_null<DIScope>(curLoc.getScope());
+          if (!Scope)
+            continue;
+          StringRef fileName(Scope->getFilename());
+          StringRef dirName(Scope->getDirectory());
+          unsigned FileNo =
+              OutStreamer->emitDwarfFileDirective(0, dirName, fileName);
+          if (FileNos.count(FileNo) == 0) {
+            SmallString<128> Str;
+            raw_svector_ostream O(Str);
+            printDwarfFileDirective(FileNo, dirName, fileName, O);
+            OutStreamer->emitRawText(O.str());
+            FileNos.insert(FileNo);
+          }
+        }
+      }
+    }
+  }
 }
 
-void CSAAsmPrinter::EmitFunctionBodyEnd() {
-  OutStreamer->EmitRawText("}");
-}
+void CSAAsmPrinter::emitFunctionBodyEnd() { OutStreamer->emitRawText("}"); }
 
-void CSAAsmPrinter::EmitCSAOperands(const MachineInstr *MI, raw_ostream &O,
-  int startindex, int numopds) {
+void CSAAsmPrinter::emitCSAOperands(const MachineInstr *MI, raw_ostream &O,
+                                    int startindex, int numopds) {
   const CSAMachineFunctionInfo *LMFI = MF->getInfo<CSAMachineFunctionInfo>();
   for (int i=startindex; i<numopds; ++i) {
     unsigned reg = MI->getOperand(i).getReg();
     StringRef name = "";
     if (reg != CSA::IGN && reg != CSA::NA) {
-      if (TargetRegisterInfo::isVirtualRegister(reg))
+      if (Register::isVirtualRegister(reg))
         name = LMFI->getLICName(reg);
       else
         name = CSAInstPrinter::getRegisterName(reg);
@@ -817,17 +914,17 @@ void CSAAsmPrinter::EmitCSAOperands(const MachineInstr *MI, raw_ostream &O,
   }
 }
 
-void CSAAsmPrinter::EmitSimpleEntryInstruction(MachineFunction *CalleeMF) {
+void CSAAsmPrinter::emitSimpleEntryInstruction(MachineFunction *CalleeMF) {
   StringRef Linkage("dataflow");
   const Function &F = CalleeMF->getFunction();
   if (F.hasFnAttribute("__csa_attr_initializer"))
     Linkage = "initializer";
-  OutStreamer->EmitRawText("\t.entry\t" + CalleeMF->getFunction().getName() +
+  OutStreamer->emitRawText("\t.entry\t" + CalleeMF->getFunction().getName() +
                            ", " + Linkage);
 }
 
-void CSAAsmPrinter::EmitParamsResultsDecl(
-  MachineInstr *entryMI, MachineInstr *returnMI) {
+void CSAAsmPrinter::emitParamsResultsDecl(MachineInstr *entryMI,
+                                          MachineInstr *returnMI) {
   SmallString<128> Str;
   raw_svector_ostream O(Str);
   // Emit CSA parameters
@@ -848,13 +945,13 @@ void CSAAsmPrinter::EmitParamsResultsDecl(
           << LMFI->getLICName(reg) << "\n";
     }
   }
-  OutStreamer->EmitRawText(O.str());
+  OutStreamer->emitRawText(O.str());
 }
 
-void CSAAsmPrinter::EmitCallInstruction(const MachineInstr *MI) {
+void CSAAsmPrinter::emitCallInstruction(const MachineInstr *MI) {
   SmallString<128> Str;
   raw_svector_ostream O(Str);
-  O << "\t#.call\t";
+  O << "\t.call\t";
   const MachineOperand &MO = MI->getOperand(0);
   if (MO.isGlobal()) {
     const Function *F = dyn_cast<Function>(MO.getGlobal());
@@ -862,21 +959,21 @@ void CSAAsmPrinter::EmitCallInstruction(const MachineInstr *MI) {
   } else if (MO.isSymbol())
     O << MI->getOperand(0).getSymbolName();
   O << ", ";
-  EmitCSAOperands(MI,O,2,MI->getNumOperands());
+  emitCSAOperands(MI, O, 1, MI->getNumOperands());
   O << "\n";
-  OutStreamer->EmitRawText(O.str());
+  OutStreamer->emitRawText(O.str());
 }
 
-void CSAAsmPrinter::EmitContinueInstruction(const MachineInstr *MI) {
+void CSAAsmPrinter::emitContinueInstruction(const MachineInstr *MI) {
   SmallString<128> Str;
   raw_svector_ostream O(Str);
-  O << "\t#.continue\t";
-  EmitCSAOperands(MI,O,0,MI->getNumOperands());
+  O << "\t.continue\t";
+  emitCSAOperands(MI, O, 0, MI->getNumOperands());
   O << "\n";
-  OutStreamer->EmitRawText(O.str());
+  OutStreamer->emitRawText(O.str());
 }
 
-void CSAAsmPrinter::EmitAll0(const MachineInstr *MI) {
+void CSAAsmPrinter::emitAll0(const MachineInstr *MI) {
   const CSAMachineFunctionInfo *LMFI = MF->getInfo<CSAMachineFunctionInfo>();
   SmallString<128> Str;
   raw_svector_ostream O(Str);
@@ -894,7 +991,7 @@ void CSAAsmPrinter::EmitAll0(const MachineInstr *MI) {
     unsigned reg = MI->getOperand(i).getReg();
     StringRef name = "";
     if (reg != CSA::IGN && reg != CSA::NA) {
-      if (TargetRegisterInfo::isVirtualRegister(reg))
+      if (Register::isVirtualRegister(reg))
         name = LMFI->getLICName(reg);
       else
         name = CSAInstPrinter::getRegisterName(reg);
@@ -903,10 +1000,10 @@ void CSAAsmPrinter::EmitAll0(const MachineInstr *MI) {
     O << "%" << name;
   }
   O << "\n";
-  OutStreamer->EmitRawText(O.str());
+  OutStreamer->emitRawText(O.str());
 }
 
-void CSAAsmPrinter::EmitTrampolineMarkers(const MachineInstr *MI) {
+void CSAAsmPrinter::emitTrampolineMarkers(const MachineInstr *MI) {
   SmallString<128> Str;
   raw_svector_ostream O(Str);
   if (MI->getOpcode() == CSA::TRAMPOLINE_START)
@@ -914,25 +1011,31 @@ void CSAAsmPrinter::EmitTrampolineMarkers(const MachineInstr *MI) {
   if (MI->getOpcode() == CSA::TRAMPOLINE_END)
     O << "\t#.trampoline_end\t";
   O << "\n";
-  OutStreamer->EmitRawText(O.str());
+  OutStreamer->emitRawText(O.str());
 }
 
-void CSAAsmPrinter::EmitInstruction(const MachineInstr *MI) {
+void CSAAsmPrinter::emitInstruction(const MachineInstr *MI) {
   if (MI->getOpcode() == CSA::CSA_ENTRY) { return; }
   if (MI->getOpcode() == CSA::CSA_RETURN) return;
-  if (MI->getOpcode() == CSA::CSA_CALL) { EmitCallInstruction(MI); return; }
-  if (MI->getOpcode() == CSA::CSA_CONTINUE) {
-    EmitContinueInstruction(MI);
+  if (MI->getOpcode() == CSA::CSA_CALL) {
+    emitCallInstruction(MI);
     return;
   }
-  if (MI->getOpcode() == CSA::ALL0) { EmitAll0(MI); return; }
+  if (MI->getOpcode() == CSA::CSA_CONTINUE) {
+    emitContinueInstruction(MI);
+    return;
+  }
+  if (MI->getOpcode() == CSA::ALL0) {
+    emitAll0(MI);
+    return;
+  }
   if (MI->getOpcode() == CSA::TRAMPOLINE_START ||
       MI->getOpcode() == CSA::TRAMPOLINE_END) {
-    EmitTrampolineMarkers(MI);
+    emitTrampolineMarkers(MI);
     return;
   }
   if (MI->getFlag(MachineInstr::RasReplayable)) {
-      OutStreamer->EmitRawText("\t.attrib ras_replayable=true\n");
+    OutStreamer->emitRawText("\t.attrib ras_replayable=true\n");
   }
   CSAMCInstLower MCInstLowering(OutContext, *this);
   emitLineNumberAsDotLoc(*MI);
@@ -941,7 +1044,7 @@ void CSAAsmPrinter::EmitInstruction(const MachineInstr *MI) {
   EmitToStreamer(*OutStreamer, TmpInst);
 }
 
-void CSAAsmPrinter::EmitConstantPool() {
+void CSAAsmPrinter::emitConstantPool() {
   const MachineConstantPool *MCP                  = MF->getConstantPool();
   const std::vector<MachineConstantPoolEntry> &CP = MCP->getConstants();
   if (CP.empty())
@@ -960,11 +1063,11 @@ void CSAAsmPrinter::EmitConstantPool() {
     if (!Sym->isUndefined())
       continue;
 
-    EmitScratchpad(Sym, true, C);
+    emitScratchpad(Sym, true, C);
   }
 }
 
-void CSAAsmPrinter::EmitGlobalVariable(const GlobalVariable *GV) {
+void CSAAsmPrinter::emitGlobalVariable(const GlobalVariable *GV) {
   // Handle scratchpads differently from regular global variables.
   if (isScratchpadAddressSpace(GV->getAddressSpace())) {
     // These were emitted elsewhere.
@@ -986,11 +1089,11 @@ void CSAAsmPrinter::EmitGlobalVariable(const GlobalVariable *GV) {
     OutStreamer->PopSection();
   }
 
-  AsmPrinter::EmitGlobalVariable(GV);
+  AsmPrinter::emitGlobalVariable(GV);
 
   if (PutOnHost) {
-    EmitCsaCodeSection();
-    OutStreamer->EmitRawText("\t.ascii ");
+    emitCsaCodeSection();
+    OutStreamer->emitRawText("\t.ascii ");
     startCSAAsmString(*OutStreamer);
   }
 }
@@ -1001,12 +1104,12 @@ static void printValues(MCStreamer &Streamer, uint64_t Count, Func GetElement) {
     SmallString<128> Str;
     raw_svector_ostream O(Str);
     O << "\t.value " << format_hex(GetElement(i).getLimitedValue(), 10) << "\n";
-    Streamer.EmitRawText(O.str());
+    Streamer.emitRawText(O.str());
   }
 }
 
-void CSAAsmPrinter::EmitScratchpad(MCSymbol *Sym, bool IsConstant,
-    const Constant *CV) {
+void CSAAsmPrinter::emitScratchpad(MCSymbol *Sym, bool IsConstant,
+                                   const Constant *CV) {
   Sym->redefineIfPossible();
   const DataLayout &DL = getDataLayout();
   uint64_t Size = DL.getTypeAllocSize(CV->getType());
@@ -1023,7 +1126,7 @@ void CSAAsmPrinter::EmitScratchpad(MCSymbol *Sym, bool IsConstant,
   } else if (ValueTy->isArrayTy()) {
     ValueTy = ValueTy->getArrayElementType();
   } else if (ValueTy->isVectorTy()) {
-    ValueTy = ValueTy->getVectorElementType();
+    ValueTy = cast<VectorType>(ValueTy)->getElementType();
   }
 
   if (ValueTy->isPointerTy()) {
@@ -1060,7 +1163,7 @@ void CSAAsmPrinter::EmitScratchpad(MCSymbol *Sym, bool IsConstant,
     O << ".i" << (ValueSize * 8);
   }
   O << " " << Sym->getName() << "[" << EntryCount << "]\n";
-  OutStreamer->EmitRawText(O.str());
+  OutStreamer->emitRawText(O.str());
 
   // If there are values to emit, emit them now.
   if (isa<ConstantAggregateZero>(CV)) {

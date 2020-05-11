@@ -3318,9 +3318,6 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   if (Opts.OpenMPLateOutlineAllowUncollapsedLoops)
     Opts.OpenMPLateOutlineAllowUncollapsedLoops =
       !Args.hasArg(OPT_fintel_openmp_region_early_collapsed_loops);
-#if INTEL_FEATURE_CSA
-  Opts.CSAvISA = Args.hasArg(OPT_fcsa_visa);
-#endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
   if (Opts.OpenMPLateOutline) {

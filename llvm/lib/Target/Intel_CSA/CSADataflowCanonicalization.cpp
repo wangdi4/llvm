@@ -34,6 +34,7 @@ using namespace llvm;
 #define PASS_NAME "CSA: Dataflow simplification pass"
 
 STATISTIC(NumSwitchesAdded, "Number of switches added due to inversion");
+STATISTIC(NumFiltersToOncounts, "Number of filter0s converted to oncount0s");
 
 static cl::opt<bool>
   DisableSwitchInversion("csa-disable-swi", cl::Hidden,
@@ -81,11 +82,18 @@ private:
   /// is ignored with FILTER operations.
   bool createFilterOps(MachineInstr *MI);
 
+  // The following replaces filter0s driven by sequencers with oncount0s.
+  bool createOncountFromFilter(MachineInstr *MI);
+
   /// The following mini pass replaces MOV operations.
   bool eliminateMovInsts(MachineInstr *MI);
 
   /// The following mini pass pushes literals as late as possible.
   bool stopPipingLiterals(MachineInstr *MI);
+
+  /// The following mini pass optimizes picks of literal 1/0 values which are
+  /// equivalent to movs/nots of the control input.
+  bool convertLiteralMovNotPicks(MachineInstr *MI);
 
   MachineInstr *getDefinition(const MachineOperand &MO) const;
   void getUses(const MachineOperand &MO,
@@ -138,8 +146,9 @@ bool CSADataflowCanonicalizationPass::runOnMachineFunction(
     &CSADataflowCanonicalizationPass::eliminateMovInsts,
     &CSADataflowCanonicalizationPass::createFilterOps,
     &CSADataflowCanonicalizationPass::invertIgnoredSwitches,
-    &CSADataflowCanonicalizationPass::stopPipingLiterals
-  };
+    &CSADataflowCanonicalizationPass::stopPipingLiterals,
+    &CSADataflowCanonicalizationPass::convertLiteralMovNotPicks,
+    &CSADataflowCanonicalizationPass::createOncountFromFilter};
   for (auto func : functions) {
     if (func == &CSADataflowCanonicalizationPass::invertIgnoredSwitches &&
         DisableSwitchInversion)
@@ -254,6 +263,74 @@ bool CSADataflowCanonicalizationPass::createFilterOps(MachineInstr *MI) {
   }
 
   return false;
+}
+
+// This will transform a filter of the form:
+//   -, -, -, %end = seqotneN 0, %N, 1
+//   %out = filter0 %end, %in
+// with an oncount based on the sequencer's range:
+//   -, -, -, %end = seqotneN 0, %N, 1
+//   %out = oncount0 %N, %in
+bool CSADataflowCanonicalizationPass::createOncountFromFilter(MachineInstr *MI) {
+  if (MI->getOpcode() != CSA::FILTER0)
+    return false;
+
+  if (!MI->getOperand(1).isReg())
+    return false;
+
+  unsigned endStream = MI->getOperand(1).getReg();
+  MachineInstr *seqInst = MRI->getUniqueVRegDef(endStream);
+  if (!seqInst)
+    return false;
+
+  // Look for a sequencer with a known trip count. There are certainly other
+  // cases, but for now we look for a seqotne counting from 0 to N by 1.
+  if (TII->getGenericOpcode(seqInst->getOpcode()) != CSA::Generic::SEQOTNE)
+    return false;
+
+  // The control stream indicating the final value must be driving our filter0.
+  if (!seqInst->getOperand(3).isReg() || seqInst->getOperand(3).getReg() != endStream)
+    return false;
+
+  // Look for a start of literal 0...
+  if (!seqInst->getOperand(4).isImm() || seqInst->getOperand(4).getImm() != 0)
+    return false;
+
+  // ...and an increment of literal 1.
+  if (!seqInst->getOperand(6).isImm() || seqInst->getOperand(6).getImm() != 1)
+    return false;
+
+  // We've decided that we can make the transformation in this case. Bump the
+  // statistic.
+  NumFiltersToOncounts++;
+
+  // Before making any transformation, note whether or not the filter is the
+  // only user of the control stream.
+  bool exclusiveStreamUser = MRI->hasOneNonDBGUser(endStream);
+
+  // We then know that the filter0 is simply going to eat N-1 zeroes (and data
+  // values) and then emit a 0-bit data value on the Nth one. This can be
+  // replaced by an oncount0 which eats N values and then emits a 0-bit data
+  // value. The oncount potentially uses an additional integer resource, but in
+  // return we eliminate the need to send a control stream to do the eating.
+  MachineOperand &count = seqInst->getOperand(5);
+  BuildMI(*MI->getParent(), MI, MI->getDebugLoc(), TII->get(CSA::ONCOUNT0),
+      MI->getOperand(0).getReg()).add(count).add(MI->getOperand(2))
+    .addReg(CSA::NA).addReg(CSA::NA).addReg(CSA::NA)
+    ->setFlag(MachineInstr::NonSequential);
+
+  // If the endStream had no other users, redirect the sequencer's output to
+  // IGN. This could make the sequencer a dead op.
+  if (exclusiveStreamUser)
+    seqInst->getOperand(3).setReg(CSA::IGN);
+
+  //Finally, disconnect and schedule the filter0 for deletion.
+  for (MachineOperand &opnd : MI->operands())
+    if (opnd.isReg())
+      opnd.setReg(CSA::NA);
+
+  to_delete.push_back(MI);
+  return true;
 }
 
 // This will transform a switch of the form:
@@ -480,9 +557,9 @@ bool CSADataflowCanonicalizationPass::eliminateMovInsts(MachineInstr *MI) {
   unsigned destReg = MI->getOperand(0).getReg();
 
   // Moves involving physical registers should not be removed here
-  if (!TargetRegisterInfo::isVirtualRegister(srcReg))  return false;
-  if (!TargetRegisterInfo::isVirtualRegister(destReg)) return false;
-  if (!MRI->getUniqueVRegDef(destReg))                 return false;
+  if (!Register::isVirtualRegister(srcReg))  return false;
+  if (!Register::isVirtualRegister(destReg)) return false;
+  if (!MRI->getUniqueVRegDef(destReg))       return false;
 
   // If the opcode is a generic copy, replace it with a MOV instruction. This
   // prevents COPY->MOV conversion later in the pipeline from creating
@@ -521,4 +598,59 @@ bool CSADataflowCanonicalizationPass::eliminateMovInsts(MachineInstr *MI) {
   MI->getOperand(0).setReg(0);
   to_delete.push_back(MI);
   return true;
+}
+
+bool CSADataflowCanonicalizationPass::convertLiteralMovNotPicks(
+  MachineInstr *MI) {
+  if (!MI->getFlag(MachineInstr::NonSequential))
+    return false;
+
+  // Only look at picks.
+  if (TII->getGenericOpcode(MI->getOpcode()) != CSA::Generic::PICK)
+    return false;
+
+  // The inputs to the pick must both be literals.
+  if (!MI->getOperand(2).isImm() || !MI->getOperand(3).isImm())
+    return false;
+
+  // Drop any unused bits in the pick inputs.
+  const unsigned LicSize = TII->getLicSize(MI->getOpcode());
+  if (LicSize < 64) {
+    const uint64_t UsedInputBits = (1ull << LicSize) - 1;
+    MI->getOperand(2).setImm(MI->getOperand(2).getImm() & UsedInputBits);
+    MI->getOperand(3).setImm(MI->getOperand(3).getImm() & UsedInputBits);
+  }
+
+  // If the false input is 0 and the true input is 1, this pick is equivalent to
+  // a mov; replace it with one.
+  if (MI->getOperand(2).getImm() == 0 && MI->getOperand(3).getImm() == 1) {
+    auto Mov =
+      BuildMI(*MI->getParent(), MI, MI->getDebugLoc(), TII->get(CSA::MOV1))
+        .add(MI->getOperand(0))
+        .add(MI->getOperand(1));
+    Mov->setFlag(MachineInstr::NonSequential);
+
+    MI->getOperand(0).setReg(0);
+    to_delete.push_back(MI);
+    eliminateMovInsts(Mov);
+    return true;
+  }
+
+  // If the false input is 1 and the true input is 0, this pick is equivalent to
+  // a not; replace it with one.
+  if (MI->getOperand(2).getImm() == 1 && MI->getOperand(3).getImm() == 0) {
+    auto Not =
+      BuildMI(*MI->getParent(), MI, MI->getDebugLoc(), TII->get(CSA::NOT1))
+        .add(MI->getOperand(0))
+        .add(MI->getOperand(1));
+    Not->setFlag(MachineInstr::NonSequential);
+
+    MI->getOperand(0).setReg(0);
+    to_delete.push_back(MI);
+    for (auto &Use : MRI->use_nodbg_instructions(Not->getOperand(0).getReg()))
+      eliminateNotPicks(&Use);
+    return true;
+  }
+
+  return false;
 }

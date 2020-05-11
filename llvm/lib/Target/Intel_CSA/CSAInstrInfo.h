@@ -73,6 +73,8 @@ enum OpcodeClass {
   VARIANT_SIGNED = 2,
   /// This is an opcode that refers specifically to an unsigned integer.
   VARIANT_UNSIGNED = 3,
+  /// This is an opcode that refers specifically to a SIMD value.
+  VARIANT_SIMD = 4,
   /// This is used in some function calls to indicate that the desired class
   /// doesn't matter and any opcode suffices. This is the default argument,
   /// so it generally only matters if this doesn't appear.
@@ -102,17 +104,17 @@ public:
   const TargetRegisterInfo &getRegisterInfo() const { return RI; }
 
   void copyPhysReg(MachineBasicBlock &MBB, MachineBasicBlock::iterator I,
-                   const DebugLoc &DL, unsigned DestReg, unsigned SrcReg,
+                   const DebugLoc &DL, MCRegister DestReg, MCRegister SrcReg,
                    bool KillSrc) const override;
 
   void storeRegToStackSlot(MachineBasicBlock &MBB,
-                           MachineBasicBlock::iterator MI, unsigned SrcReg,
+                           MachineBasicBlock::iterator MI, Register SrcReg,
                            bool isKill, int FrameIndex,
                            const TargetRegisterClass *RC,
                            const TargetRegisterInfo *TRI) const override;
   void loadRegFromStackSlot(MachineBasicBlock &MBB,
-                            MachineBasicBlock::iterator MI, unsigned DestReg,
-                            int FrameIdx, const TargetRegisterClass *RC,
+                            MachineBasicBlock::iterator MI, Register DestReg,
+                            int FrameIndex, const TargetRegisterClass *RC,
                             const TargetRegisterInfo *TRI) const override;
 
   /*

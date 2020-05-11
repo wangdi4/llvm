@@ -28,7 +28,6 @@ def int_csa_directive : GCCBuiltin<"__builtin_csa_directive">,
 def int_csa_parallel_loop : GCCBuiltin<"__builtin_csa_parallel_loop">,
     Intrinsic<[], [], [IntrArgMemOnly]>;
 
-
 // llvm.csa.parallel_region_entry
 def int_csa_parallel_region_entry :
         GCCBuiltin<"__builtin_csa_parallel_region_entry">,
@@ -77,6 +76,10 @@ def int_csa_spmdization_entry : GCCBuiltin<"__builtin_csa_spmdization_entry">,
 def int_csa_spmdization_exit : GCCBuiltin<"__builtin_csa_spmdization_exit">,
     Intrinsic<[], [llvm_i32_ty], [IntrInaccessibleMemOrArgMemOnly]>;
 
+// llvm.csa.spmdization_local_cache
+def int_csa_spmdization_local_cache : GCCBuiltin<"__builtin_csa_spmdization_local_cache">,
+    Intrinsic<[], [llvm_i32_ty, llvm_i32_ty], [IntrInaccessibleMemOrArgMemOnly]>;
+
 // llvm.csa.pipeline_loop
 def int_csa_pipeline_loop : GCCBuiltin<"__builtin_csa_pipeline_loop">,
     Intrinsic<[], [llvm_i32_ty], [IntrArgMemOnly]>;
@@ -94,7 +97,101 @@ def int_csa_pipeline_loop_exit :
 def int_csa_pipelineable_loop_marker :
     Intrinsic<[], [llvm_i64_ty], [IntrInaccessibleMemOrArgMemOnly]>;
 
-// SIMD intrinsics.
+// llvm.csa.local_cache
+def int_csa_local_cache : GCCBuiltin<"__builtin_csa_local_cache">,
+    Intrinsic<[], [llvm_i32_ty], [IntrInaccessibleMemOrArgMemOnly]>;
+
+// llvm.csa.local_cache_region_begin
+def int_csa_local_cache_region_begin :
+    Intrinsic<[llvm_i32_ty], [llvm_i32_ty, llvm_i32_ty], [IntrInaccessibleMemOrArgMemOnly]>;
+
+// llvm.csa.local_cache_region_end
+def int_csa_local_cache_region_end :
+    Intrinsic<[], [llvm_i32_ty, llvm_i32_ty], [IntrInaccessibleMemOrArgMemOnly]>;
+
+// Scalar intrinsics
+def int_csa_clxmul8 : GCCBuiltin<"__builtin_csa_clxmul8">,
+    Intrinsic<[llvm_i16_ty], [llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
+
+def int_csa_clxmul16 : GCCBuiltin<"__builtin_csa_clxmul16">,
+    Intrinsic<[llvm_i32_ty], [llvm_i16_ty, llvm_i16_ty], [IntrNoMem]>;
+
+def int_csa_clxmul32 : GCCBuiltin<"__builtin_csa_clxmul32">,
+    Intrinsic<[llvm_i64_ty], [llvm_i32_ty, llvm_i32_ty], [IntrNoMem]>;
+
+def int_csa_rcp14f32: GCCBuiltin<"__builtin_csa_rcp14f32">,
+    Intrinsic<[llvm_float_ty], [llvm_float_ty], [IntrNoMem]>;
+
+def int_csa_rcp14f64: GCCBuiltin<"__builtin_csa_rcp14f64">,
+    Intrinsic<[llvm_double_ty], [llvm_double_ty], [IntrNoMem]>;
+
+def int_csa_rsqrt14f32: GCCBuiltin<"__builtin_csa_rsqrt14f32">,
+    Intrinsic<[llvm_float_ty], [llvm_float_ty], [IntrNoMem]>;
+
+def int_csa_rsqrt14f64: GCCBuiltin<"__builtin_csa_rsqrt14f64">,
+    Intrinsic<[llvm_double_ty], [llvm_double_ty], [IntrNoMem]>;
+
+def int_csa_ternlog_u1 : GCCBuiltin<"__builtin_csa_ternlog_u1">,
+    Intrinsic<[llvm_i1_ty], [llvm_i1_ty, llvm_i1_ty, llvm_i1_ty, llvm_i8_ty], [IntrNoMem]>;
+
+def int_csa_ternlog_u8 : GCCBuiltin<"__builtin_csa_ternlog_u8">,
+    Intrinsic<[llvm_i8_ty], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
+
+def int_csa_ternlog_u16 : GCCBuiltin<"__builtin_csa_ternlog_u16">,
+    Intrinsic<[llvm_i16_ty], [llvm_i16_ty, llvm_i16_ty, llvm_i16_ty, llvm_i8_ty], [IntrNoMem]>;
+
+def int_csa_ternlog_u32 : GCCBuiltin<"__builtin_csa_ternlog_u32">,
+    Intrinsic<[llvm_i32_ty], [llvm_i32_ty, llvm_i32_ty, llvm_i32_ty, llvm_i8_ty], [IntrNoMem]>;
+
+def int_csa_ternlog_u64 : GCCBuiltin<"__builtin_csa_ternlog_u64">,
+    Intrinsic<[llvm_i64_ty], [llvm_i64_ty, llvm_i64_ty, llvm_i64_ty, llvm_i8_ty], [IntrNoMem]>;
+
+// SIMD intrinsics (16x4).
+def int_csa_addf16x4 : GCCBuiltin<"__builtin_csa_addf16x4">,
+    Intrinsic<[llvm_v4f16_ty], [llvm_v4f16_ty, llvm_v4f16_ty,
+      llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
+
+def int_csa_subf16x4 : GCCBuiltin<"__builtin_csa_subf16x4">,
+    Intrinsic<[llvm_v4f16_ty], [llvm_v4f16_ty, llvm_v4f16_ty,
+      llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
+
+def int_csa_addsubf16x4 : GCCBuiltin<"__builtin_csa_addsubf16x4">,
+    Intrinsic<[llvm_v4f16_ty], [llvm_v4f16_ty, llvm_v4f16_ty,
+      llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
+
+def int_csa_subaddf16x4 : GCCBuiltin<"__builtin_csa_subaddf16x4">,
+    Intrinsic<[llvm_v4f16_ty], [llvm_v4f16_ty, llvm_v4f16_ty,
+      llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
+
+def int_csa_mulf16x4 : GCCBuiltin<"__builtin_csa_mulf16x4">,
+    Intrinsic<[llvm_v4f16_ty], [llvm_v4f16_ty, llvm_v4f16_ty,
+      llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
+
+def int_csa_fmaf16x4 : GCCBuiltin<"__builtin_csa_fmaf16x4">,
+    Intrinsic<[llvm_v4f16_ty], [llvm_v4f16_ty, llvm_v4f16_ty, llvm_v4f16_ty,
+      llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
+
+def int_csa_fmsf16x4 : GCCBuiltin<"__builtin_csa_fmsf16x4">,
+    Intrinsic<[llvm_v4f16_ty], [llvm_v4f16_ty, llvm_v4f16_ty, llvm_v4f16_ty,
+      llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
+
+def int_csa_fmrsf16x4 : GCCBuiltin<"__builtin_csa_fmrsf16x4">,
+    Intrinsic<[llvm_v4f16_ty], [llvm_v4f16_ty, llvm_v4f16_ty, llvm_v4f16_ty,
+      llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
+
+def int_csa_fmasf16x4 : GCCBuiltin<"__builtin_csa_fmasf16x4">,
+    Intrinsic<[llvm_v4f16_ty], [llvm_v4f16_ty, llvm_v4f16_ty, llvm_v4f16_ty,
+      llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
+
+def int_csa_fmsaf16x4 : GCCBuiltin<"__builtin_csa_fmsaf16x4">,
+    Intrinsic<[llvm_v4f16_ty], [llvm_v4f16_ty, llvm_v4f16_ty, llvm_v4f16_ty,
+      llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
+
+def int_csa_fnmsf16x4 : GCCBuiltin<"__builtin_csa_fnmsf16x4">,
+    Intrinsic<[llvm_v4f16_ty], [llvm_v4f16_ty, llvm_v4f16_ty, llvm_v4f16_ty,
+      llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
+
+// SIMD intrinsics (32x2).
 def int_csa_addf32x2 : GCCBuiltin<"__builtin_csa_addf32x2">,
     Intrinsic<[llvm_v2f32_ty], [llvm_v2f32_ty, llvm_v2f32_ty,
       llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
@@ -135,6 +232,127 @@ def int_csa_fmsaf32x2 : GCCBuiltin<"__builtin_csa_fmsaf32x2">,
     Intrinsic<[llvm_v2f32_ty], [llvm_v2f32_ty, llvm_v2f32_ty, llvm_v2f32_ty,
       llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
 
+def int_csa_fnmsf32x2 : GCCBuiltin<"__builtin_csa_fnmsf32x2">,
+    Intrinsic<[llvm_v2f32_ty], [llvm_v2f32_ty, llvm_v2f32_ty, llvm_v2f32_ty,
+      llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], [IntrNoMem]>;
+
+// Integer vector intrinsics //
+
+// Compute the bitwise AND of corresponding 8-bit integers in a and b,and set the
+// corresponding bit in the result if the result is non-zero.
+// int __m64_test_epi8(__m64i a, __m64i b)
+def int_csa_test8x8 : GCCBuiltin<"__builtin_csa_test8x8">,
+    Intrinsic<[llvm_i8_ty], [llvm_v8i8_ty, llvm_v8i8_ty], [IntrNoMem]>;
+
+// Compute the bitwise AND of corresponding 16-bit integers in a and b, and set the
+// corresponding bit in the result if the result is non-zero.
+// int __m64_test_epi16(__m64i a, __m64i b)
+def int_csa_test16x4 : GCCBuiltin<"__builtin_csa_test16x4">,
+    Intrinsic<[llvm_i8_ty], [llvm_v4i16_ty, llvm_v4i16_ty], [IntrNoMem]>;
+
+// Compute the bitwise AND of corresponding 32-bit integers in a and b, and set the
+// corresponding bit in the result if the result is non-zero.
+// int __m64_test_epi32(__m64i a, __m64i b)
+def int_csa_test32x2 : GCCBuiltin<"__builtin_csa_test32x2">,
+    Intrinsic<[llvm_i8_ty], [llvm_v2f32_ty, llvm_v2f32_ty], [IntrNoMem]>;
+
+// Compute the absolute value of packed 8-bit integers in a, and return the unsigned results.
+// __m64i __m64_abs_epi8(__m64i a)
+def int_csa_abs8x8 : GCCBuiltin<"__builtin_csa_abs8x8">,
+    Intrinsic<[llvm_v8i8_ty], [llvm_v8i8_ty], [IntrNoMem]>;
+
+// Compute the absolute value of packed 16-bit integers in a, and return the unsigned results.
+// __m64i __m64_abs_epi16(__m64i a)
+def int_csa_abs16x4 : GCCBuiltin<"__builtin_csa_abs16x4">,
+    Intrinsic<[llvm_v4i16_ty], [llvm_v4i16_ty], [IntrNoMem]>;
+
+// Compute the average of packed 8-bit integers in a, and return the results.
+// __m64i __m64_avg_epi8(__m64i a, __m64i b)
+def int_csa_avgs8x8 : GCCBuiltin<"__builtin_csa_avgs8x8">,
+    Intrinsic<[llvm_v8i8_ty], [llvm_v8i8_ty, llvm_v8i8_ty], [IntrNoMem]>;
+
+// Compute the average of packed unsigned 8-bit integers in a, and return the results.
+// __m64i __m64_avg_epu8(__m64i a, __m64i b)
+def int_csa_avgu8x8 : GCCBuiltin<"__builtin_csa_avgu8x8">,
+    Intrinsic<[llvm_v8i8_ty], [llvm_v8i8_ty, llvm_v8i8_ty], [IntrNoMem]>;
+
+// Compute the average of packed 16-bit integers in a, and return the results.
+// __m64i __m64_avg_epi16(__m64i a, __m64i b)
+def int_csa_avgs16x4 : GCCBuiltin<"__builtin_csa_avgs16x4">,
+    Intrinsic<[llvm_v4i16_ty], [llvm_v4i16_ty, llvm_v4i16_ty], [IntrNoMem]>;
+
+// Compute the average of packed unsigned 16-bit integers in a, and return the results.
+// __m64i __m64_avg_epu16(__m64i a, __m64i b)
+def int_csa_avgu16x4 : GCCBuiltin<"__builtin_csa_avgu16x4">,
+    Intrinsic<[llvm_v4i16_ty], [llvm_v4i16_ty, llvm_v4i16_ty], [IntrNoMem]>;
+
+// Create mask from the most significant bit of each 8-bit element in a, and return the result.
+// int __m64_movemask_epi8(__m64i a)
+def int_csa_movmsk8x8 : GCCBuiltin<"__builtin_csa_movmsk8x8">,
+    Intrinsic<[llvm_i8_ty], [llvm_v8i8_ty], [IntrNoMem]>;
+
+// Create mask from the most significant bit of each 16-bit element in a, and return the result.
+// int __m64_movemask_epi16(__m64i a)
+def int_csa_movmsk16x4 : GCCBuiltin<"__builtin_csa_movmsk16x4">,
+    Intrinsic<[llvm_i8_ty], [llvm_v4i16_ty], [IntrNoMem]>;
+
+// Blend packed 8-bit integers from a and b using the bits in mask. Each element is picked
+// from a if its corresponding bit in the mask is 0, and from b if it is 1.
+// __m64i _mm64_blend_epi8(unsigned char mask, __m64i a, __m64i b)
+def int_csa_blend8x8 : GCCBuiltin<"__builtin_csa_blend8x8">,
+    Intrinsic<[llvm_v8i8_ty], [llvm_i8_ty, llvm_v8i8_ty, llvm_v8i8_ty], [IntrNoMem]>;
+
+// Blend packed 16-bit integers from a and b using the bits in mask. Each element is picked
+// from a if its corresponding bit in the mask is 0, and from b if it is 1.
+// __m64i _mm64_blend_epi16(unsigned char mask, __m64i a, __m64i b)
+def int_csa_blend16x4 : GCCBuiltin<"__builtin_csa_blend16x4">,
+    Intrinsic<[llvm_v4i16_ty], [llvm_i8_ty, llvm_v4i16_ty, llvm_v4i16_ty], [IntrNoMem]>;
+
+// Blend packed 32-bit floating point numbers from a and b using the bits in mask. Each element
+// is picked from a if its corresponding bit in the mask is 0, and from b if it is 1.
+// __m64f _mm64_blend_ps(unsigned char mask, __m64f a, __m64f b)
+def int_csa_blend32x2 : GCCBuiltin<"__builtin_csa_blend32x2">,
+    Intrinsic<[llvm_v2f32_ty], [llvm_i8_ty, llvm_v2f32_ty, llvm_v2f32_ty], [IntrNoMem]>;
+
+// Comparison intrinsics for SIMD.
+def int_csa_cmp8x8 : GCCBuiltin<"__builtin_csa_cmp8x8">,
+    Intrinsic<[llvm_i8_ty], [llvm_v8i8_ty, llvm_v8i8_ty, llvm_i8_ty],
+      [IntrNoMem, ImmArg<2>]>;
+
+def int_csa_cmp16x4 : GCCBuiltin<"__builtin_csa_cmp16x4">,
+    Intrinsic<[llvm_i8_ty], [llvm_v4i16_ty, llvm_v4i16_ty, llvm_i8_ty],
+      [IntrNoMem, ImmArg<2>]>;
+
+def int_csa_cmpf16x4 : GCCBuiltin<"__builtin_csa_cmpf16x4">,
+    Intrinsic<[llvm_i8_ty], [llvm_v4f16_ty, llvm_v4f16_ty, llvm_i8_ty,
+                    llvm_i8_ty, llvm_i8_ty, llvm_i8_ty, llvm_i1_ty, llvm_i1_ty],
+      [IntrNoMem, ImmArg<2>, ImmArg<3>, ImmArg<4>, ImmArg<5>, ImmArg<6>, ImmArg<7>]>;
+
+def int_csa_cmpf32x2 : GCCBuiltin<"__builtin_csa_cmpf32x2">,
+    Intrinsic<[llvm_i8_ty], [llvm_v2f32_ty, llvm_v2f32_ty, llvm_i8_ty,
+                    llvm_i8_ty, llvm_i8_ty, llvm_i8_ty, llvm_i1_ty, llvm_i1_ty],
+      [IntrNoMem, ImmArg<2>, ImmArg<3>, ImmArg<4>, ImmArg<5>, ImmArg<6>, ImmArg<7>]>;
+
+def int_csa_maxf16x4 : GCCBuiltin<"__builtin_csa_maxf16x4">,
+    Intrinsic<[llvm_v4f16_ty], [llvm_v4f16_ty, llvm_v4f16_ty, llvm_i8_ty,
+                                llvm_i8_ty, llvm_i8_ty, llvm_i1_ty, llvm_i1_ty],
+      [IntrNoMem, ImmArg<2>, ImmArg<3>, ImmArg<4>, ImmArg<5>, ImmArg<6>]>;
+
+def int_csa_minf16x4 : GCCBuiltin<"__builtin_csa_minf16x4">,
+    Intrinsic<[llvm_v4f16_ty], [llvm_v4f16_ty, llvm_v4f16_ty, llvm_i8_ty,
+                                llvm_i8_ty, llvm_i8_ty, llvm_i1_ty, llvm_i1_ty],
+      [IntrNoMem, ImmArg<2>, ImmArg<3>, ImmArg<4>, ImmArg<5>, ImmArg<6>]>;
+
+def int_csa_maxf32x2 : GCCBuiltin<"__builtin_csa_maxf32x2">,
+    Intrinsic<[llvm_v2f32_ty], [llvm_v2f32_ty, llvm_v2f32_ty, llvm_i8_ty,
+                                llvm_i8_ty, llvm_i8_ty, llvm_i1_ty, llvm_i1_ty],
+      [IntrNoMem, ImmArg<2>, ImmArg<3>, ImmArg<4>, ImmArg<5>, ImmArg<6>]>;
+
+def int_csa_minf32x2 : GCCBuiltin<"__builtin_csa_minf32x2">,
+    Intrinsic<[llvm_v2f32_ty], [llvm_v2f32_ty, llvm_v2f32_ty, llvm_i8_ty,
+                                llvm_i8_ty, llvm_i8_ty, llvm_i1_ty, llvm_i1_ty],
+      [IntrNoMem, ImmArg<2>, ImmArg<3>, ImmArg<4>, ImmArg<5>, ImmArg<6>]>;
+
 // Intrinsics for specifying ordering edges attached to memory references.
 def int_csa_inord  : Intrinsic<[], [llvm_i1_ty], [] /* , "llvm.csa.inord"  */>;
 def int_csa_outord : Intrinsic<[llvm_i1_ty], [], [] /* , "llvm.csa.outord" */>;
@@ -160,6 +378,10 @@ def int_csa_lic_init :
     Intrinsic<[llvm_i32_ty], [llvm_i8_ty, llvm_i64_ty, llvm_i64_ty],
    []>;
 
+def int_csa_lic_preload :
+    Intrinsic<[], [llvm_i32_ty, llvm_any_ty],
+    [] /* , "llvm.csa.lic.init.val" */>;
+
 def int_csa_lic_write :
     Intrinsic<[], [llvm_i32_ty, llvm_any_ty],
     [] /* , "llvm.csa.lic.write" */>;
@@ -171,6 +393,10 @@ def int_csa_lic_read :
 // LIC Queues Lowering intrinsics
 def int_csa_lower_lic_init :
     Intrinsic<[], [llvm_i32_ty, llvm_i8_ty, llvm_i64_ty, llvm_i64_ty],
+    [IntrConvergent, IntrNoDuplicate]>;
+
+def int_csa_lower_lic_preload :
+    Intrinsic<[], [llvm_i32_ty, llvm_i64_ty],
     [IntrConvergent, IntrNoDuplicate]>;
 
 def int_csa_lower_lic_write :
@@ -221,6 +447,6 @@ def int_csa_pipeline_depth_token_take :
 def int_csa_pipeline_depth_token_return :
     Intrinsic<[], [llvm_ptr_ty, llvm_ptr_ty],
     [IntrInaccessibleMemOrArgMemOnly]>;
-
 }
+
 #endif // INTEL_FEATURE_CSA

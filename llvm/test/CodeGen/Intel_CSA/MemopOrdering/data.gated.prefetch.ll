@@ -8,7 +8,7 @@ define void @test_dgprefetch_i1(i1 %gate, i8* %addr) {
 
   call void @llvm.csa.gated.prefetch.i1(i1 %gate, i8* %addr, i32 0, i32 0)
 ; CHECK: call void @llvm.csa.inord(i1 %gate)
-; CHECK-NEXT: @llvm.prefetch(i8* %addr, i32 0, i32 0, i32 1)
+; CHECK-NEXT: @llvm.prefetch.p0i8(i8* %addr, i32 0, i32 0, i32 1)
 ; CHECK-NEXT: %{{[a-z0-9_.]+}} = call i1 @llvm.csa.outord()
   ret void
 }
@@ -23,7 +23,7 @@ define void @test_dgprefetch_i32(i32 %gate, i8* %addr) {
   ; The i32 value needs to be truncated to i1 to make LLVM happy.
 ; CHECK: %[[TRUNC:[a-z0-9_.]+]] = trunc i32 %gate to i1
 ; CHECK: call void @llvm.csa.inord(i1 %[[TRUNC]])
-; CHECK-NEXT: @llvm.prefetch(i8* %addr, i32 0, i32 3, i32 1)
+; CHECK-NEXT: @llvm.prefetch.p0i8(i8* %addr, i32 0, i32 3, i32 1)
 ; CHECK-NEXT: %{{[a-z0-9_.]+}} = call i1 @llvm.csa.outord()
   ret void
 }
@@ -40,7 +40,7 @@ define void @test_dgprefetch_float(float %gate, i8* %addr) {
 ; CHECK: %[[CAST:[a-z0-9_.]+]] = bitcast float %gate to i32
 ; CHECK: %[[TRUNC:[a-z0-9_.]+]] = trunc i32 %[[CAST]] to i1
 ; CHECK: call void @llvm.csa.inord(i1 %[[TRUNC]])
-; CHECK-NEXT: @llvm.prefetch(i8* %addr, i32 1, i32 0, i32 1)
+; CHECK-NEXT: @llvm.prefetch.p0i8(i8* %addr, i32 1, i32 0, i32 1)
 ; CHECK-NEXT: %{{[a-z0-9_.]+}} = call i1 @llvm.csa.outord()
   ret void
 }
@@ -57,7 +57,7 @@ define void @test_dgprefetch_double(double %gate, i8* %addr) {
 ; CHECK: %[[CAST:[a-z0-9_.]+]] = bitcast double %gate to i64
 ; CHECK: %[[TRUNC:[a-z0-9_.]+]] = trunc i64 %[[CAST]] to i1
 ; CHECK: call void @llvm.csa.inord(i1 %[[TRUNC]])
-; CHECK-NEXT: @llvm.prefetch(i8* %addr, i32 0, i32 0, i32 1)
+; CHECK-NEXT: @llvm.prefetch.p0i8(i8* %addr, i32 0, i32 0, i32 1)
 ; CHECK-NEXT: %{{[a-z0-9_.]+}} = call i1 @llvm.csa.outord()
   ret void
 }
@@ -74,7 +74,7 @@ define void @test_dgprefetch_f32x2(<2 x float> %gate, i8* %addr) {
 ; CHECK: %[[CAST:[a-z0-9_.]+]] = bitcast <2 x float> %gate to i64
 ; CHECK: %[[TRUNC:[a-z0-9_.]+]] = trunc i64 %[[CAST]] to i1
 ; CHECK: call void @llvm.csa.inord(i1 %[[TRUNC]])
-; CHECK-NEXT: @llvm.prefetch(i8* %addr, i32 0, i32 0, i32 1)
+; CHECK-NEXT: @llvm.prefetch.p0i8(i8* %addr, i32 0, i32 0, i32 1)
 ; CHECK-NEXT: %{{[a-z0-9_.]+}} = call i1 @llvm.csa.outord()
   ret void
 }
@@ -89,7 +89,7 @@ define void @test_dgprefetch_ptr(i32* %gate, i8* %addr) {
   ; The pointer value needs to be ptrtoint casted to i1 to make LLVM happy.
 ; CHECK: %[[CAST:[a-z0-9_.]+]] = ptrtoint i32* %gate to i1
 ; CHECK: call void @llvm.csa.inord(i1 %[[CAST]])
-; CHECK-NEXT: @llvm.prefetch(i8* %addr, i32 0, i32 0, i32 1)
+; CHECK-NEXT: @llvm.prefetch.p0i8(i8* %addr, i32 0, i32 0, i32 1)
 ; CHECK-NEXT: %{{[a-z0-9_.]+}} = call i1 @llvm.csa.outord()
   ret void
 }
@@ -108,7 +108,7 @@ define void @test_dgprefetch_array([2 x i32] %gate, i8* %addr) {
 ; CHECK: %[[CAST1:[a-z0-9_.]+]] = trunc i32 %[[V1]] to i1
 ; CHECK: %[[ALL:[a-z0-9_.]+]] = call i1 (...) @llvm.csa.all0(i1 %[[CAST0]], i1 %[[CAST1]])
 ; CHECK: call void @llvm.csa.inord(i1 %[[ALL]])
-; CHECK-NEXT: @llvm.prefetch(i8* %addr, i32 0, i32 0, i32 1)
+; CHECK-NEXT: @llvm.prefetch.p0i8(i8* %addr, i32 0, i32 0, i32 1)
 ; CHECK-NEXT: %{{[a-z0-9_.]+}} = call i1 @llvm.csa.outord()
   ret void
 }
@@ -134,7 +134,7 @@ define void @test_dgprefetch_struct({i1, i32, i32*, float, <2 x float>} %gate, i
 ; CHECK: %[[TRUNC4:[a-z0-9_.]+]] = trunc i64 %[[CAST4]] to i1
 ; CHECK: %[[ALL:[a-z0-9_.]+]] = call i1 (...) @llvm.csa.all0(i1 %[[V0]], i1 %[[CAST1]], i1 %[[CAST2]], i1 %[[TRUNC3]], i1 %[[TRUNC4]])
 ; CHECK: call void @llvm.csa.inord(i1 %[[ALL]])
-; CHECK-NEXT: @llvm.prefetch(i8* %addr, i32 0, i32 0, i32 1)
+; CHECK-NEXT: @llvm.prefetch.p0i8(i8* %addr, i32 0, i32 0, i32 1)
 ; CHECK-NEXT: %{{[a-z0-9_.]+}} = call i1 @llvm.csa.outord()
   ret void
 }
@@ -148,7 +148,7 @@ define void @test_dgprefetch_const(i8* %addr) {
   call void @llvm.csa.gated.prefetch.i32(i32 0, i8* %addr, i32 0, i32 0)
   ; This should be translated to an unordered prefetch.
 ; CHECK: call void @llvm.csa.inord(i1 false)
-; CHECK-NEXT: @llvm.prefetch(i8* %addr, i32 0, i32 0, i32 1)
+; CHECK-NEXT: @llvm.prefetch.p0i8(i8* %addr, i32 0, i32 0, i32 1)
 ; CHECK-NEXT: %{{[a-z0-9_.]+}} = call i1 @llvm.csa.outord()
   ret void
 }

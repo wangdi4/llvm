@@ -41,6 +41,7 @@ class CSAAsmParser : public MCTargetAsmParser {
   std::unique_ptr<CSAOperand> default##Asm##Operands();
 #include "AsmOperands.h"
   std::unique_ptr<CSAOperand> defaultPrioOrderOperands();
+  std::unique_ptr<CSAOperand> defaultLCacheOperands();
 
   bool parsePrePost(StringRef Type, int *OffsetValue);
 
@@ -50,6 +51,9 @@ class CSAAsmParser : public MCTargetAsmParser {
                         SMLoc NameLoc, OperandVector &Operands) override;
 
   bool ParseRegister(unsigned &RegNum, SMLoc &StartLoc, SMLoc &EndLoc) override;
+
+  OperandMatchResultTy tryParseRegister(unsigned &RegNo, SMLoc &StartLoc,
+                                        SMLoc &EndLoc) override;
 
   bool MatchAndEmitInstruction(SMLoc IdLoc, unsigned &Opcode,
                                OperandVector &Operands, MCStreamer &Out,
@@ -174,6 +178,8 @@ public:
 
   bool isPrioOrder() const { return isImm(); }
 
+  bool isLCache() const { return isImm(); }
+
   bool isMem() const { llvm_unreachable("No isMem"); }
 
   void print(raw_ostream &OS) const override {
@@ -194,7 +200,7 @@ public:
   }
 
   static std::unique_ptr<CSAOperand> CreateToken(StringRef Str, SMLoc Start) {
-    auto Op        = make_unique<CSAOperand>(TOKEN);
+    auto Op        = std::make_unique<CSAOperand>(TOKEN);
     Op->Tok.Data   = Str.data();
     Op->Tok.Length = Str.size();
     Op->StartLoc   = Start;
@@ -204,7 +210,7 @@ public:
 
   static std::unique_ptr<CSAOperand> createReg(unsigned RegNum, SMLoc Start,
                                                SMLoc End) {
-    auto Op        = make_unique<CSAOperand>(REGISTER);
+    auto Op        = std::make_unique<CSAOperand>(REGISTER);
     Op->Reg.RegNum = RegNum;
     Op->StartLoc   = Start;
     Op->EndLoc     = End;
@@ -213,7 +219,7 @@ public:
 
   static std::unique_ptr<CSAOperand> createImm(const MCExpr *Value, SMLoc Start,
                                                SMLoc End) {
-    auto Op       = make_unique<CSAOperand>(IMMEDIATE);
+    auto Op       = std::make_unique<CSAOperand>(IMMEDIATE);
     Op->Imm.Value = Value;
     Op->StartLoc  = Start;
     Op->EndLoc    = End;
@@ -267,6 +273,10 @@ public:
     addExpr(Inst, getImm());
   }
 
+  void addLCacheOperands(MCInst &Inst, unsigned N) const {
+    assert(N == 1 && "Invalid number of operands!");
+    addExpr(Inst, getImm());
+  }
 };
 
 bool CSAAsmParser::ParseDirective(AsmToken /*DirectiveId*/) { return true; }
@@ -280,7 +290,7 @@ bool CSAAsmParser::MatchAndEmitInstruction(SMLoc IdLoc, unsigned &Opcode,
 
   switch (MatchInstructionImpl(Operands, Inst, ErrorInfo, MatchingInlineAsm)) {
   case Match_Success:
-    Out.EmitInstruction(Inst, SubtargetInfo);
+    Out.emitInstruction(Inst, SubtargetInfo);
     Opcode = Inst.getOpcode();
     return false;
   case Match_MissingFeature:
@@ -347,13 +357,19 @@ std::unique_ptr<CSAOperand> CSAAsmParser::parseRegister() {
 
 bool CSAAsmParser::ParseRegister(unsigned &RegNum, SMLoc &StartLoc,
                                  SMLoc &EndLoc) {
+  return tryParseRegister(RegNum, StartLoc, EndLoc) != MatchOperand_Success;
+}
+
+OperandMatchResultTy CSAAsmParser::tryParseRegister(unsigned &RegNum,
+                                                    SMLoc &StartLoc,
+                                                    SMLoc &EndLoc) {
   const AsmToken &Tok            = getParser().getTok();
   StartLoc                       = Tok.getLoc();
   EndLoc                         = Tok.getEndLoc();
   std::unique_ptr<CSAOperand> Op = parseRegister();
   if (Op != nullptr)
     RegNum = Op->getReg();
-  return (Op == nullptr);
+  return (Op == nullptr) ? MatchOperand_NoMatch : MatchOperand_Success;
 }
 
 static int asmImmediateLabel(StringRef T) {
@@ -394,6 +410,7 @@ std::unique_ptr<CSAOperand> CSAAsmParser::parseImmediate() {
   case AsmToken::Dot:
     if (!Parser.parseExpression(ExprVal))
       return CSAOperand::createImm(ExprVal, Start, End);
+    return 0;
   default:
     return 0;
   }
@@ -413,6 +430,12 @@ std::unique_ptr<CSAOperand> CSAAsmParser::defaultOptionalRegOperands() {
 #include "AsmOperands.h"
 
 std::unique_ptr<CSAOperand> CSAAsmParser::defaultPrioOrderOperands() {
+  SMLoc loc = Parser.getTok().getLoc();
+  return CSAOperand::createImm(
+    MCConstantExpr::create(0, getContext()), loc, loc);
+}
+
+std::unique_ptr<CSAOperand> CSAAsmParser::defaultLCacheOperands() {
   SMLoc loc = Parser.getTok().getLoc();
   return CSAOperand::createImm(
     MCConstantExpr::create(0, getContext()), loc, loc);

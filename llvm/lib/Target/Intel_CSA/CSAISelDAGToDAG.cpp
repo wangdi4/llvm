@@ -83,65 +83,31 @@ FunctionPass *llvm::createCSAISelDag(CSATargetMachine &TM,
 
 // Match a register or immediate operand
 bool CSADAGToDAGISel::SelectRegImm(SDValue Opnd, SDValue &Result) {
-  if (ConstantSDNode *CN = dyn_cast<ConstantSDNode>(Opnd)) {
-    SDLoc dl(Opnd);
-    const ConstantInt &ci = *(CN->getConstantIntValue());
-    Result = CurDAG->getTargetConstant(ci, dl, CN->getValueType(0));
+
+  // Ignore bitcasts when looking for constants.
+  SDValue CV = Opnd;
+  if (CV->getOpcode() == ISD::BITCAST)
+    CV = CV->getOperand(0);
+
+  // Extract the bits if this is a constant; clear CV otherwise.
+  APInt ImmBits;
+  EVT ImmType =
+    EVT::getIntegerVT(*CurDAG->getContext(), CV.getValueSizeInBits());
+  if (const auto CN = dyn_cast<ConstantSDNode>(CV)) {
+    ImmBits = CN->getAPIntValue();
+  } else if (const auto CFN = dyn_cast<ConstantFPSDNode>(CV)) {
+    ImmBits = CFN->getValueAPF().bitcastToAPInt();
+  } else {
+    CV = SDValue{};
+  }
+
+  // If a constant was found, create a TargetConstant.
+  if (CV) {
+    Result = CurDAG->getTargetConstant(ImmBits, SDLoc{CV}, ImmType);
     return true;
   }
 
-  // Get the bits for FP types
-  // See also CSAMCInstLower.cpp::Lower, case MO_FPImmediate
-  if (ConstantFPSDNode *CN = dyn_cast<ConstantFPSDNode>(Opnd)) {
-    SDLoc dl(Opnd);
-    const ConstantFP *f = CN->getConstantFPValue();
-    APFloat apf         = f->getValueAPF();
-    bool ignored;
-    if (f->getType() == Type::getFloatTy(f->getContext()))
-      apf.convert(APFloat::IEEEdouble(), APFloat::rmNearestTiesToEven,
-                  &ignored);
-    double d = apf.convertToDouble();
-    if (f->getType()->getTypeID() == Type::FloatTyID) {
-      // Result = CurDAG->getTargetConstantFP(f, dl, EVT(MVT::f32)); ?
-      union {
-        int i;
-        float f;
-      } ifu;
-      ifu.f  = d;
-      Result = CurDAG->getTargetConstant(ifu.i, dl, MVT::i64);
-      return true;
-    } else if (f->getType()->getTypeID() == Type::DoubleTyID) {
-      // Result = CurDAG->getTargetConstantFP(f, dl, EVT(MVT::f64)); ?
-      union {
-        long long l;
-        double d;
-      } ldu;
-      ldu.d  = d;
-      Result = CurDAG->getTargetConstant(ldu.l, dl, MVT::i64);
-      return true;
-    }
-  }
-
-  // Vector types: match constant vectors
-  if (ISD::isBuildVectorOfConstantSDNodes(Opnd.getNode()) ||
-      ISD::isBuildVectorOfConstantFPSDNodes(Opnd.getNode())) {
-    APInt ImmValue(Opnd.getValueSizeInBits(), 0, false);
-    unsigned BitSize = Opnd.getScalarValueSizeInBits();
-    for (unsigned i = 0; i < Opnd->getNumOperands(); i++) {
-      SDValue Op = Opnd->getOperand(i);
-      if (auto ConstNode = dyn_cast<ConstantSDNode>(Op)) {
-        ImmValue.insertBits(ConstNode->getAPIntValue(), BitSize * i);
-      } else if (auto ConstNode = dyn_cast<ConstantFPSDNode>(Op)) {
-        ImmValue.insertBits(ConstNode->getValueAPF().bitcastToAPInt(),
-            BitSize * i);
-      }
-    }
-    Result = CurDAG->getTargetConstant(ImmValue, SDLoc(Opnd),
-        EVT::getIntegerVT(*CurDAG->getContext(), Opnd.getValueSizeInBits()));
-    return true;
-  }
-
-  // Fall back to register match
+  // Otherwise, fall back to a register match.
   Result = Opnd;
   return true;
 }
@@ -224,6 +190,53 @@ void CSADAGToDAGISel::Select(SDNode *Node) {
 
   // Custom selection
   switch (Node->getOpcode()) {
+  case ISD::SETCC: {
+    // This code here is to handle this special pattern that
+    // does SIMD min when the results are either 0 or 1.
+    //     t3: v8i8 = setcc t1, t2, setne:ch
+    //       t2: v8i8 = bitcast Constant:i64<0>
+    //
+    // Only continue the rewrite if
+    //       the result type is a vector type,
+    //   and the condition is ne,
+    //   and the second operand is bitcast constant 0.
+    EVT RVT = Node->getValueType(0);
+    if (!RVT.isVector()) break;
+
+    const ISD::CondCode CC = cast<CondCodeSDNode>(Node->getOperand(2))->get();
+    if (CC != ISD::SETNE) break;
+
+    SDNode* Op1 = Node->getOperand(1).getNode();
+    if (Op1->getOpcode() != ISD::BITCAST ||
+        Op1->getConstantOperandVal(0) != 0) break;
+
+    // Rewrite ISD::SETCC to CSA::MINU.
+    // Op0: Original first operand
+    // Op1: For i8, then it's 0x0101010101010101
+    //      For i16 then it's 0x0001000100010001
+    SmallVector<SDValue, 2> Ops;
+    Ops.push_back(Node->getOperand(0));
+    EVT VT = Op1->getValueType(0);
+    unsigned Opcode;
+    if (VT.getScalarSizeInBits() == 8) {
+      Opcode = CSA::MINU8X8;
+      Ops.push_back(CurDAG->getTargetConstant(0x0101010101010101, dl, MVT::i64));
+    } else if (VT.getScalarSizeInBits() == 16) {
+      Opcode = CSA::MINU16X4;
+      Ops.push_back(CurDAG->getTargetConstant(0x0001000100010001, dl, MVT::i64));
+    } else
+      report_fatal_error("Unsupported vector for MINU");
+
+    CurDAG->SelectNodeTo(Node, Opcode, VT, Ops);
+    return;
+  }
+  case ISD::BITCAST: {
+    // All types of the same size are forced into the same register classes
+    // anyways, so drop the bitcast entirely.
+    ReplaceUses(SDValue(Node, 0), Node->getOperand(0));
+    CurDAG->RemoveDeadNode(Node);
+    return;
+  }
   default:
     break;
   case ISD::FrameIndex: {
@@ -250,8 +263,13 @@ void CSADAGToDAGISel::Select(SDNode *Node) {
     default: llvm_unreachable("Unknown swizzle mask for CSA");
     }
     EVT VT = Node->getValueType(0);
+    SmallVector<int, 4> LaneMask = { LoLane, HiLane };
+    if (VT.getVectorNumElements() == 4) {
+      LaneMask.push_back(LoLane + 2);
+      LaneMask.push_back(HiLane + 2);
+    }
     SDValue Shuffle = CurDAG->getVectorShuffle(VT, dl, Node->getOperand(0),
-        CurDAG->getUNDEF(VT), { LoLane, HiLane });
+        CurDAG->getUNDEF(VT), LaneMask);
     ReplaceNode(Node, Shuffle.getNode());
     // Select the UNDEF value first...
     Select(Shuffle->getOperand(1).getNode());
@@ -262,14 +280,25 @@ void CSADAGToDAGISel::Select(SDNode *Node) {
     // We could match this in the tablegen, but the mask parameters aren't
     // operands that are exposed.
     MVT VT = Node->getSimpleValueType(0);
-    assert(VT.getSizeInBits() == 64 && VT.getScalarSizeInBits() == 32 &&
-        "Only supporting <2 x *32> vectors");
+    assert(VT.getSizeInBits() == 64 && "Only supporting 64-bit vectors");
 
     ArrayRef<int> Mask = cast<ShuffleVectorSDNode>(Node)->getMask();
-    CurDAG->SelectNodeTo(Node, CSA::SHUFI32X2, VT,
-        {Node->getOperand(0), Node->getOperand(1),
-        CurDAG->getTargetConstant(Mask[0], dl, MVT::i8),
-        CurDAG->getTargetConstant(Mask[1], dl, MVT::i8)});
+    SmallVector<SDValue, 6> Ops;
+    Ops.push_back(Node->getOperand(0));
+    Ops.push_back(Node->getOperand(1));
+    for (int El : Mask)
+      Ops.push_back(CurDAG->getTargetConstant(El, dl, MVT::i8));
+
+    unsigned Opcode;
+    if (VT.getScalarSizeInBits() == 32)
+      Opcode = CSA::SHUFI32X2;
+    else if (VT.getScalarSizeInBits() == 16)
+      Opcode = CSA::SHUFI16X4;
+    else if (VT.getScalarSizeInBits() == 8)
+      Opcode = CSA::SHUFI8X8;
+    else
+      report_fatal_error("Unsupported vector for shuffle");
+    CurDAG->SelectNodeTo(Node, Opcode, VT, Ops);
     return;
 
   // The shuffle vector instruction is quite literally the parameters of the

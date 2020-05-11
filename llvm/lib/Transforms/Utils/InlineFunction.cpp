@@ -53,6 +53,11 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+#include "llvm/IR/IntrinsicsCSA.h"
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/Metadata.h"

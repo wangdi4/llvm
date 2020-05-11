@@ -21,6 +21,7 @@
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/IntrinsicsCSA.h"
 
 #include <iterator>
 
@@ -66,6 +67,9 @@ static bool isOrderableIntrinsic(Intrinsic::ID ID) {
   case Intrinsic::prefetch:
   case Intrinsic::csa_pipeline_depth_token_take:
   case Intrinsic::csa_pipeline_depth_token_return:
+  case Intrinsic::csa_local_cache_region_begin:
+  case Intrinsic::csa_local_cache_region_end:
+  case Intrinsic::trap:
     return true;
   default:
     return false;
@@ -237,7 +241,8 @@ void CSAMemopOrderingBase::expandDataGatedPrefetches(Function &F) {
       // function.
       if (not PrefetchIntr) {
         PrefetchIntr =
-          Intrinsic::getDeclaration(F.getParent(), Intrinsic::prefetch);
+            Intrinsic::getDeclaration(F.getParent(), Intrinsic::prefetch,
+                                      DGPrefetch->getArgOperand(1)->getType());
       }
 
       // Construct the prefetch arguments. These are the same as the data-gated

@@ -163,14 +163,14 @@ void asm_wrapping_raw_ostream::write_impl(const char *Ptr, size_t Size) {
 }
 
 void llvm::startCSAAsmString(MCStreamer &OutStreamer) {
-  OutStreamer.EmitRawText(Twine(DELIMITER));
+  OutStreamer.emitRawText(Twine(DELIMITER));
 }
 
 void llvm::endCSAAsmString(MCStreamer &OutStreamer) {
-  OutStreamer.EmitRawText(Twine(DELIMITER));
+  OutStreamer.emitRawText(Twine(DELIMITER));
 }
 
 std::unique_ptr<formatted_raw_ostream>
 llvm::wrapStreamForCSAAsmWrapping(raw_ostream &ToWrap) {
-  return make_unique<formatted_wrapping_raw_ostream>(ToWrap);
+  return std::make_unique<formatted_wrapping_raw_ostream>(ToWrap);
 }
