@@ -158,6 +158,7 @@ InstructionSelector *createX86InstructionSelector(const X86TargetMachine &TM,
 
 FunctionPass *createX86LoadValueInjectionRetHardeningPass();
 FunctionPass *createX86SpeculativeLoadHardeningPass();
+FunctionPass *createX86SpeculativeExecutionSideEffectSuppression();
 
 void initializeX86SplitVectorValueTypePass(PassRegistry &); // INTEL
 void initializeX86CiscizationHelperPassPass(PassRegistry &); // INTEL
@@ -182,9 +183,13 @@ void initializeX86LoadValueInjectionRetHardeningPassPass(PassRegistry &);
 void initializeX86OptimizeLEAPassPass(PassRegistry &);
 void initializeX86PartialReductionPass(PassRegistry &);
 void initializeX86SpeculativeLoadHardeningPassPass(PassRegistry &);
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 void initializeGenerateLEAPassPass(PassRegistry &);
 #endif // INTEL_CUSTOMIZATION
+=======
+void initializeX86SpeculativeExecutionSideEffectSuppressionPass(PassRegistry &);
+>>>>>>> bf95cf4a6816476afd76d5b981ea5fdcb9771999
 
 namespace X86AS {
 enum : unsigned {
