@@ -103,7 +103,11 @@ void initializeAggressiveInstCombinerLegacyPassPass(PassRegistry&);
 void initializeAliasSetPrinterPass(PassRegistry&);
 void initializeAlignmentFromAssumptionsPass(PassRegistry&);
 void initializeAlwaysInlinerLegacyPassPass(PassRegistry&);
+<<<<<<< HEAD
 void initializeAndersensAAWrapperPassPass(PassRegistry&); // INTEL
+=======
+void initializeAssumeSimplifyPassLegacyPassPass(PassRegistry &);
+>>>>>>> da100de0a68fb3c17bf0856f432465c0721c841f
 void initializeOpenMPOptLegacyPassPass(PassRegistry &);
 void initializeArgPromotionPass(PassRegistry&);
 void initializeArrayUseWrapperPassPass(PassRegistry&); // INTEL
