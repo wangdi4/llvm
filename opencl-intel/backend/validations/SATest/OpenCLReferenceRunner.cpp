@@ -585,7 +585,8 @@ void OpenCLReferenceRunner::ReadKernelArgs(
 #undef COPY_INT
 #undef COPY_UINT
                 }
-            case Type::VectorTyID:
+            case Type::FixedVectorTyID:
+            case Type::ScalableVectorTyID:
                 {
                     std::size_t numOfElements =
                         dyn_cast<VectorType>(arg_it->getType())->getNumElements();
@@ -671,7 +672,8 @@ void* OpenCLReferenceRunner::GetPointerToTheArgValues( const IMemoryObject* buff
     case Type::FloatTyID:
     case Type::DoubleTyID:
     case Type::IntegerTyID:
-    case Type::VectorTyID:
+    case Type::FixedVectorTyID:
+    case Type::ScalableVectorTyID:
     case Type::StructTyID:
         {
             std::copy((char*)(buffer->GetDataPtr()), (char*)(buffer->GetDataPtr()) + buffDsc.GetSizeInBytes(), (char*)(outBuffer->GetDataPtr()));

@@ -29,10 +29,14 @@ OclBuiltinImpl udiv_svml = OclBuiltinImpl<udiv, uint32_types, 0, [{
     return __ocl_svml_$Target_udiv$VecLength($Arg0VarName, $Arg1VarName);
   }]>;
 
-OclBuiltinImpl idiv_expand = OclBuiltinImpl<idiv, [v16i32], 0, Expand2>;
-OclBuiltinImpl irem_expand = OclBuiltinImpl<irem, [v16i32], 0, Expand2>;
-OclBuiltinImpl udiv_expand = OclBuiltinImpl<udiv, [v16u32], 0, Expand2>;
-OclBuiltinImpl urem_expand = OclBuiltinImpl<urem, [v16u32], 0, Expand2>;
+OclBuiltinImpl idiv_expand = OclBuiltinImpl<idiv, [v16i32, v32i32, v64i32],
+                                            0, Expand2>;
+OclBuiltinImpl irem_expand = OclBuiltinImpl<irem, [v16i32, v32i32, v64i32],
+                                            0, Expand2>;
+OclBuiltinImpl udiv_expand = OclBuiltinImpl<udiv, [v16u32, v32u32, v64u32],
+                                            0, Expand2>;
+OclBuiltinImpl urem_expand = OclBuiltinImpl<urem, [v16u32, v32u32, v64u32],
+                                            0, Expand2>;
 
 OclBuiltinImpl idiv_promote = OclBuiltinImpl<idiv, [v2i32, v3i32], 0, Promote2>;
 OclBuiltinImpl irem_promote = OclBuiltinImpl<irem, [v2i32, v3i32], 0, Promote2>;

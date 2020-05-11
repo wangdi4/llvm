@@ -218,10 +218,10 @@ bool CLWGLoopBoundaries::runOnFunction(Function& F) {
   createWGLoopBoundariesFunction();
 
   // Remove all instructions marked for removal.
-  for (SmallPtrSet<Instruction *, 8>::iterator it = m_toRemove.begin(),
-    e = m_toRemove.end(); it != e; ++it) {
-    assert((*it)->getNumUses() == 0 && "no users expected");
-    if ((*it)->getNumUses() == 0) (*it)->eraseFromParent();
+  for (Instruction *I : m_toRemove) {
+    assert(I->getNumUses() == 0 && "no users expected");
+    if (I->getNumUses() == 0)
+      I->eraseFromParent();
   }
   intel::Statistic::pushFunctionStats(m_kernelStats, F, DEBUG_TYPE);
   return true;
@@ -878,19 +878,40 @@ void CLWGLoopBoundaries::replaceTidWithBound (bool isGID, unsigned dim,
   SmallVector<CallInst *, 4> tidCalls;
   if (isGID) LoopUtils::getAllCallInFunc(CompilationUtils::mangledGetGID(), m_F, tidCalls);
   else       LoopUtils::getAllCallInFunc(CompilationUtils::mangledGetLID(), m_F, tidCalls);
-  for (unsigned i=0; i<tidCalls.size(); ++i) {
-    CallInst *tidCall = tidCalls[i];
+  for (CallInst *tidCall : tidCalls) {
     assert(isa<ConstantInt>(tidCall->getArgOperand(0)) && "non const dim");
     ConstantInt *dimConst = cast<ConstantInt>(tidCall->getArgOperand(0));
     unsigned dimArg = dimConst->getZExtValue();
     if (dim == dimArg) {
+      // If toRep is an instruction, before replacing tidCall with toRep, we
+      // should recursively move all users of tidCall within the same basic
+      // block after toRep, so that toRep will dominate all its users.
+      if (Instruction *toRepIns = dyn_cast<Instruction>(toRep)) {
+        SmallVector<Instruction *, 16> WorkList;
+        WorkList.push_back(tidCall);
+        Instruction *InsertPoint = toRepIns;
+        BasicBlock *CurrBB = tidCall->getParent();
+        // As we've run CFG simplification pass before this pass, there should
+        // be no case that toRepIns and tidCall are not in the same basic
+        // block.
+        assert(CurrBB == toRepIns->getParent() &&
+               "toRepIns and tidCall must be in the same basic block.");
+        while (!WorkList.empty()) {
+          Instruction *I = WorkList.pop_back_val();
+          for (User *U : I->users()) {
+            Instruction *UI = dyn_cast<Instruction>(U);
+            if (!UI || UI->getParent() != CurrBB)
+              continue;
+            UI->moveAfter(InsertPoint);
+            InsertPoint = UI;
+            WorkList.push_back(UI);
+          }
+        }
+      }
+
       // We remove all calls at the end to avoid invalidating internal
       // data structures that keep information about tid calls.
       tidCall->replaceAllUsesWith(toRep);
-      // Move the instruction to where the 'call' instruction is, so that
-      // it will dominate all its uses.
-      if (Instruction *toRepIns = dyn_cast<Instruction>(toRep))
-        toRepIns->moveBefore(tidCall);
       m_toRemove.insert(tidCall);
     }
   }
@@ -1043,13 +1064,12 @@ bool CLWGLoopBoundaries::isEarlyExitBranch(BranchInst *Br, bool EETrueSide) {
 
   // Check that compares have supported pattern.
   TIDDescVec eeVec;
-  for(SmallVector<ICmpInst *, 4>::iterator cmpIt = compares.begin(),
-       cmpE = compares.end(); cmpIt != cmpE; ++cmpIt) {
+  for (ICmpInst *Cmp : compares) {
     // We need to be able to track the original tid call and the bound.
     Value *tid, *bound[2] = {0};
-    if (!traceBackCmp(*cmpIt, &bound[0], tid)) return false;
+    if (!traceBackCmp(Cmp, &bound[0], tid)) return false;
     // Finally we need to obtain the early exit description(s) into eeVec.
-    if (!obtainBoundaryEE(*cmpIt, &bound[0], tid, EETrueSide, eeVec)) return false;
+    if (!obtainBoundaryEE(Cmp, &bound[0], tid, EETrueSide, eeVec)) return false;
   }
   // All compares are valid, so we can add them to the TIDDesc.
   m_TIDDesc.append(eeVec.begin(), eeVec.end());

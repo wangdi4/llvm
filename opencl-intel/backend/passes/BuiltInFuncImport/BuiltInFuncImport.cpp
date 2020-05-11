@@ -151,7 +151,7 @@ namespace intel {
         // LLVM function, meaning the call is indirect. We need to check if a
         // called value is ConstantExpr that can use the function defined in
         // source module.
-        auto CE = dyn_cast<ConstantExpr>(InstCall->getCalledValue());
+        auto CE = dyn_cast<ConstantExpr>(InstCall->getCalledOperand());
         if (CE && CE->getOpcode() == Instruction::BitCast) {
           Value *CEOperand = CE->getOperand(0);
           if (auto CEFuncOperand = dyn_cast<Function>(CEOperand))

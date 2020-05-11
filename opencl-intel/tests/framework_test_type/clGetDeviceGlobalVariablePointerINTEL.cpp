@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2019 Intel Corporation.
+// Copyright 2019-2020 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -22,6 +22,11 @@
 extern cl_device_type gDeviceType;
 
 class GVPointerExtensionTest : public ::testing::Test {
+public:
+  GVPointerExtensionTest()
+      : m_platform(nullptr), m_device(nullptr), m_context(nullptr),
+        m_queue(nullptr), m_clGetDeviceGlobalVariablePointerINTEL(nullptr) {}
+
 protected:
   virtual void SetUp() {
     cl_int err = clGetPlatformIDs(1, &m_platform, nullptr);
@@ -50,25 +55,23 @@ protected:
   }
 
   virtual void TearDown() {
-    cl_int err = clReleaseCommandQueue(m_queue);
-    EXPECT_OCL_SUCCESS(err, "clReleaseCommandQueue");
-    err = clReleaseContext(m_context);
-    EXPECT_OCL_SUCCESS(err, "clReleaseContext");
+    cl_int err;
+    if (m_queue) {
+      err = clReleaseCommandQueue(m_queue);
+      EXPECT_OCL_SUCCESS(err, "clReleaseCommandQueue");
+    }
+    if (m_context) {
+      err = clReleaseContext(m_context);
+      EXPECT_OCL_SUCCESS(err, "clReleaseContext");
+    }
   }
 
   void CheckBuildError(cl_program &program, cl_int err) {
     if (CL_SUCCESS != err) {
-      size_t logSize = 0;
-      err = clGetProgramBuildInfo(program, m_device, CL_PROGRAM_BUILD_LOG, 0,
-                                  nullptr, &logSize);
-      ASSERT_OCL_SUCCESS(err, "clGetProgramBuildInfo");
-      std::string log("", logSize);
-      err = clGetProgramBuildInfo(program, m_device, CL_PROGRAM_BUILD_LOG,
-                                  logSize, &log[0], nullptr);
-      ASSERT_OCL_SUCCESS(err, "clGetProgramBuildInfo");
-      FAIL() << log << "\n";
+      std::string log;
+      ASSERT_NO_FATAL_FAILURE(GetBuildLog(m_device, program, log));
+      FAIL() << log;
     }
-    ASSERT_OCL_SUCCESS(err, "clBuildProgram");
   }
 
   // Build program from source and check global variable names.

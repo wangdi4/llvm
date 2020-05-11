@@ -258,11 +258,11 @@ namespace intel {
     switch (pInstr->getOpcode()) {
       case Instruction::Load : {
         LoadInst *pLoadInstr = cast<LoadInst>(pInstr);
-        LoadInst *pNewLoad = new LoadInst(pNewValue, pLoadInstr->getName(),
-                                    pLoadInstr->isVolatile(),
-                                    MaybeAlign(pLoadInstr->getAlignment()),
-                                    pLoadInstr->getOrdering(), pLoadInstr->getSyncScopeID(),
-                                    pLoadInstr);
+        Type *Ty = cast<PointerType>(pNewValue->getType())->getElementType();
+        LoadInst *pNewLoad = new LoadInst(
+            Ty, pNewValue, pLoadInstr->getName(), pLoadInstr->isVolatile(),
+            MaybeAlign(pLoadInstr->getAlignment()), pLoadInstr->getOrdering(),
+            pLoadInstr->getSyncScopeID(), pLoadInstr);
         pNewInstr = pNewLoad;
         break;
       }

@@ -309,6 +309,7 @@ add_opencl_library (${TARGET_NAME} SHARED
       CacheBinaryHandler
       CLElfLib
       emutls
+      fp_extend_trunc
       ${LLD_LIBS}
 
       # LLVM LIBS

@@ -90,5 +90,5 @@ attributes #1 = { nounwind readnone }
 !11 = !{!"", !"", !"", !"", !"", !"", !"", !"", !"", !"", !"", !"", !"", !"", !"", !""}
 !12 = !{!"int*", !"class.cl::sycl::range", !"class.cl::sycl::range", !"class.cl::sycl::range", !"int*", !"class.cl::sycl::range", !"class.cl::sycl::range", !"class.cl::sycl::range", !"int*", !"class.cl::sycl::range", !"class.cl::sycl::range", !"class.cl::sycl::range", !"int*", !"class.cl::sycl::range", !"class.cl::sycl::range", !"class.cl::sycl::range"}
 !13 = !{i1 true}
-!14 = !{i32 16}
-!15 = !{i32 8}
+!14 = !{i32 8}
+!15 = !{i32 16}

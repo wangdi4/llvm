@@ -139,9 +139,9 @@ static bool IsLoweringPossible(Instruction& I)
 {
     if(I.getOpcode() == Instruction::Call)
     {
-        CallSite CS (cast<Value>(&I));
+        CallBase *CB = cast<CallBase>(&I);
         // Check to see if this is an intrinsic function call...
-        Function *F = CS.getCalledFunction();
+        Function *F = CB->getCalledFunction();
         if (F && F->isDeclaration())
         {
             switch (F->getIntrinsicID())
@@ -181,7 +181,8 @@ InterpreterPluggable::RETCODE InterpreterPluggable::runWithPlugins()
     {
         CallInst *C= cast<CallInst>(&I);
         // To handle indirect function call getOperandValue is used instead of casting to the Function pointer.
-        Function *f = (Function*)GVTOP(getOperandValue(C->getCalledValue(), SF));
+        Function *f =
+            (Function *)GVTOP(getOperandValue(C->getCalledOperand(), SF));
         std::string fName = std::string(f->getName());
         std::size_t found = fName.find("barrier");
         if (found!=std::string::npos)

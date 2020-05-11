@@ -42,8 +42,8 @@ EnableSpecialization("specialize", cl::init(true), cl::Hidden,
 /// callIsSmall - If a call is likely to lower to a single target instruction,
 /// or is otherwise deemed small return true.
 /// TODO: Perhaps calls like memcpy, strcpy, etc?
-static bool estimateCallIsSmall(ImmutableCallSite CS) {
-  if (isa<IntrinsicInst>(CS.getInstruction()))
+static bool estimateCallIsSmall(const CallBase &CS) {
+  if (isa<IntrinsicInst>(&CS))
     return true;
 
   const Function *F = CS.getCalledFunction();
@@ -128,11 +128,11 @@ static unsigned estimateNumInsts(const BasicBlock *BB) {
 
     // Special handling for calls.
     if (isa<CallInst>(I) || isa<InvokeInst>(I)) {
-      ImmutableCallSite CS(cast<Instruction>(I));
+      auto *CB = cast<CallBase>(I);
 
-      if (!estimateCallIsSmall(CS)) {
+      if (!estimateCallIsSmall(*CB)) {
         // Each argument to a call takes on average one instruction to set up.
-        NumInsts += CS.arg_size();
+        NumInsts += CB->arg_size();
       }
     }
 
@@ -748,7 +748,8 @@ void FunctionSpecializer::specializeEdge(BypassInfo & bi) {
   // to jump over this section
   V_ASSERT( mask && "Unable to find incoming mask for block");
   Value *incoming = mask;
-  Value *l_incoming = new LoadInst(incoming, "", src->getTerminator());
+  Type *Ty = cast<PointerType>(incoming->getType())->getElementType();
+  Value *l_incoming = new LoadInst(Ty, incoming, "", src->getTerminator());
   CallInst *call_allzero =
     CallInst::Create(m_allzero, l_incoming, "jumpover", src->getTerminator());
   // replace previous branch instruction with conditional jump
@@ -795,9 +796,9 @@ void FunctionSpecializer::propagateMask(Value *mask_target, BasicBlock *header,
                                    BasicBlock *exitBlock, BasicBlock *footer) {
   V_ASSERT(mask_target && header && exitBlock && footer &&
            mask_target->getType() == PointerType::get(m_zero->getType(),0));
-  Value* non_bypass_mask =
-    new LoadInst(mask_target, mask_target->getName() + "_non_bypass",
-                 exitBlock->getTerminator());
+  Value *non_bypass_mask = new LoadInst(m_zero->getType(), mask_target,
+                                        mask_target->getName() + "_non_bypass",
+                                        exitBlock->getTerminator());
 
   PHINode* new_phi =
     PHINode::Create(non_bypass_mask->getType(), 2,

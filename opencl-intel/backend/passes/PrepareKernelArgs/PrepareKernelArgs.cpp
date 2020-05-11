@@ -146,12 +146,12 @@ namespace intel{
       } else if (arg.type == CL_KRNL_ARG_PTR_LOCAL) {
         // The argument is actually the size of the buffer
         Value *pPointerCast = builder.CreatePointerCast(pGEP, PointerType::get(m_SizetTy, 0));
-        LoadInst *BufferSize = builder.CreateLoad(pPointerCast);
+        LoadInst *BufferSize = builder.CreateAlignedLoad(
+            m_SizetTy, pPointerCast,
+            MaybeAlign(m_DL->getABITypeAlign(m_SizetTy)), false);
         // TODO: when buffer size is 0, we might want to set dummy address for debugging!
         const auto AllocaAddrSpace = m_DL->getAllocaAddrSpace();
-        // We can't use overload without explicit alloca addrspace because the BB does
-        // not have a parent yet.
-        AllocaInst *Allocation = builder.CreateAlloca(m_I8Ty, AllocaAddrSpace, BufferSize);
+
         // Set alignment of buffer to type size.
         unsigned Alignment = 16; // Cacheline
         Type* EltTy = callIt->getType()->getPointerElementType();
@@ -161,7 +161,11 @@ namespace intel{
         if (VecSize != 1 && VectorType::isValidElementType(EltTy))
           EltTy = VectorType::get(EltTy, VecSize);
         Alignment = llvm::NextPowerOf2(m_DL->getTypeAllocSize(EltTy) - 1);
-        Allocation->setAlignment(MaybeAlign(Alignment));
+        // We can't use overload without explicit alloca addrspace because the
+        // BB does not have a parent yet.
+        AllocaInst *Allocation = new AllocaInst(
+            m_I8Ty, AllocaAddrSpace, BufferSize, MaybeAlign(Alignment));
+        builder.Insert(Allocation);
         pArg = builder.CreatePointerCast(Allocation, callIt->getType());
       } else if (arg.type == CL_KRNL_ARG_PTR_BLOCK_LITERAL) {
           pArg = builder.CreateAddrSpaceCast(pGEP, callIt->getType());
@@ -176,12 +180,15 @@ namespace intel{
         // %vec = load int4 * %pVec {, align <alignment> }
         // foo(..., vec, ...)
 
-        Value* pPointerCast = builder.CreatePointerCast(pGEP, PointerType::get(callIt->getType(), 0));
-        LoadInst* pLoad = builder.CreateLoad(pPointerCast);
+        auto *DestTy = PointerType::get(callIt->getType(), 0);
+        Value *pPointerCast = builder.CreatePointerCast(pGEP, DestTy);
         size_t alignment = TypeAlignment::getAlignment(arg);
-        if (alignment > 0) {
-          pLoad->setAlignment(MaybeAlign(TypeAlignment::getAlignment(arg)));
-        }
+        MaybeAlign Align =
+            alignment > 0
+                ? MaybeAlign(alignment)
+                : m_DL->getABITypeAlign(DestTy->getPointerElementType());
+        LoadInst *pLoad = builder.CreateAlignedLoad(
+            DestTy->getPointerElementType(), pPointerCast, Align, false);
         pArg = pLoad;
       }
 
@@ -240,11 +247,13 @@ namespace intel{
           Type *slmType = ArrayType::get(m_I8Ty,
             slmSizeInBytes+STACK_PADDING_BUFFER*2);
           const auto AllocaAddrSpace = m_DL->getAllocaAddrSpace();
-          AllocaInst *slmBuffer = builder.CreateAlloca(slmType, AllocaAddrSpace);
           // Set alignment of implicit local buffer to max alignment.
           // TODO: we should choose the min required alignment size
-          slmBuffer->setAlignment(MaybeAlign(TypeAlignment::MAX_ALIGNMENT));
           // move argument up over the lower side padding.
+          AllocaInst *slmBuffer =
+              new AllocaInst(slmType, AllocaAddrSpace, nullptr,
+                             MaybeAlign(TypeAlignment::MAX_ALIGNMENT));
+          builder.Insert(slmBuffer);
           Value* castBuf = builder.CreatePointerCast(slmBuffer,
                                                      PointerType::get(m_I8Ty, 3));
           pArg = builder.CreateGEP(castBuf,
@@ -272,6 +281,7 @@ namespace intel{
         for (unsigned Dim = 0; Dim < MAX_WORK_DIM; ++Dim)
           LocalSize.push_back(
               m_IAA->GenerateGetEnqueuedLocalSize(WGInfo, Dim, builder));
+
         // Obtain values of NDRange Offsets for each dimension
         SmallVector<Value *, 4> GlobalOffsets;
         for (unsigned Dim = 0; Dim < MAX_WORK_DIM; ++Dim) {
@@ -313,10 +323,11 @@ namespace intel{
           BarrierBufferSize->setName("BarrierBufferSize");
           // alloca i8, %BarrierBufferSize
           const auto AllocaAddrSpace = m_DL->getAllocaAddrSpace();
-          AllocaInst *BarrierBuffer = builder.CreateAlloca(
-            m_I8Ty, AllocaAddrSpace, BarrierBufferSize);
           //TODO: we should choose the min required alignment size
-          BarrierBuffer->setAlignment(MaybeAlign(TypeAlignment::MAX_ALIGNMENT));
+          AllocaInst *BarrierBuffer =
+              new AllocaInst(m_I8Ty, AllocaAddrSpace, BarrierBufferSize,
+                             MaybeAlign(TypeAlignment::MAX_ALIGNMENT));
+          builder.Insert(BarrierBuffer);
           pArg = BarrierBuffer;
         }
         break;
@@ -340,7 +351,8 @@ namespace intel{
       if (m_useTLSGlobals) {
         assert(pArg && "No value was created for this TLS global!");
         GlobalVariable *GV = CompilationUtils::getTLSGlobal(m_pModule, i);
-        builder.CreateStore(pArg, GV);
+        builder.CreateAlignedStore(pArg, GV,
+                                   m_DL->getABITypeAlign(pArg->getType()));
       } else {
         assert(pArg && "No value was created for this implicit argument!");
         pArg->setName(ImplicitArgsUtils::getArgName(i));

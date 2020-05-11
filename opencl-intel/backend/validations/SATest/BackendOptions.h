@@ -35,6 +35,7 @@ public:
         m_DisableStackDump = runConfig.GetValue<bool>(RC_BR_USE_PIN_TRACE_MARKS, false);
         m_vectorizerType =
           runConfig.GetValue<VectorizerType>(RC_BR_VECTORIZER_TYPE, DEFAULT_VECTORIZER);
+        m_nativeSubgroups = runConfig.GetValue<bool>(RC_BR_NATIVE_SUBGROUPS, false);
     }
 
 
@@ -55,6 +56,8 @@ public:
         {
         case CL_DEV_BACKEND_OPTION_DISABLE_STACKDUMP:
             return m_DisableStackDump;
+        case CL_DEV_BACKEND_OPTION_NATIVE_SUBGROUPS:
+            return m_nativeSubgroups;
         default:
             return defaultValue;
         }
@@ -81,6 +84,7 @@ private:
     std::string m_TimePasses;
     bool        m_DisableStackDump;
     VectorizerType m_vectorizerType;
+    bool        m_nativeSubgroups;
 };
 
 
@@ -107,6 +111,7 @@ public:
         m_DumpIRDir = runConfig.GetValue<std::string>(RC_BR_DUMP_IR_DIR, "");
         m_dumpHeuristcIR = runConfig.GetValue<bool>(RC_BR_DUMP_HEURISTIC_IR, false);
         m_vectorizerType = runConfig.GetValue<VectorizerType>(RC_BR_VECTORIZER_TYPE, DEFAULT_VECTORIZER);
+        m_nativeSubgroups = runConfig.GetValue<bool>(RC_BR_NATIVE_SUBGROUPS, false);
     }
 
     virtual void InitTargetDescriptionSession(ICLDevBackendExecutionService* pExecutionService)
@@ -121,6 +126,8 @@ public:
             return m_useVTune;
         case CL_DEV_BACKEND_OPTION_DUMP_HEURISTIC_IR :
             return m_dumpHeuristcIR;
+        case CL_DEV_BACKEND_OPTION_NATIVE_SUBGROUPS :
+            return m_nativeSubgroups;
         default:
             return defaultValue;
         }
@@ -187,6 +194,7 @@ protected:
     std::string m_DumpIRDir;
     bool m_dumpHeuristcIR;
     VectorizerType m_vectorizerType;
+    bool m_nativeSubgroups;
 };
 
 

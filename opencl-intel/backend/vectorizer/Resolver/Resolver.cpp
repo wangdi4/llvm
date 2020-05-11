@@ -311,7 +311,9 @@ void FuncResolver::resolveLoadScalar(CallInst* caller, unsigned align) {
   V_ASSERT(!isa<VectorType>(caller->getArgOperand(0)->getType()) && "Bad op type");
 
   // Create the new load
-  LoadInst* loader = new LoadInst(caller->getArgOperand(1), "masked_load",
+  Type *Ty =
+      cast<PointerType>(caller->getArgOperand(1)->getType())->getElementType();
+  LoadInst* loader = new LoadInst(Ty, caller->getArgOperand(1), "masked_load",
       false, MaybeAlign(align), caller);
   VectorizerUtils::SetDebugLocBy(loader, caller);
   caller->replaceAllUsesWith(loader);
@@ -334,7 +336,8 @@ void FuncResolver::resolveLoadVector(CallInst* caller, unsigned align) {
   // Uniform mask for vector load.
   // Perform a single wide load and a single IF.
   if (!Mask->getType()->isVectorTy()) {
-    Instruction *loader = new LoadInst(Ptr, "vload", false, MaybeAlign(align),
+    Type *Ty = cast<PointerType>(Ptr->getType())->getElementType();
+    Instruction *loader = new LoadInst(Ty, Ptr, "vload", false, MaybeAlign(align),
                                        caller);
     VectorizerUtils::SetDebugLocBy(loader, caller);
     toPredicate(loader, Mask);
@@ -366,7 +369,8 @@ void FuncResolver::resolveLoadVector(CallInst* caller, unsigned align) {
     // (not using type from pointer as this functionality is planned to be removed.
     Instruction *GEP = GetElementPtrInst::Create(nullptr, Ptr, Idx, "vload", caller);
     Instruction *MaskBit = ExtractElementInst::Create(Mask, Idx, "exmask", caller);
-    Instruction *loader = new LoadInst(GEP, "vload", false, MaybeAlign(align),
+    Type *Ty = cast<GetElementPtrInst>(GEP)->getResultElementType();
+    Instruction *loader = new LoadInst(Ty, GEP, "vload", false, MaybeAlign(align),
                                        caller);
     Instruction* inserter = InsertElementInst::Create(
       Ret, loader, Idx, "vpack", caller);
@@ -691,7 +695,7 @@ void FuncResolver::resolveRetByVectorBuiltin(CallInst* caller) {
   Constant *constOne = ConstantInt::get(i32Ty, 1);
   Value *undefVal = UndefValue::get(caller->getType());
   Value *vectorRetVal = InsertElementInst::Create(undefVal, newCall, constZero, "insert.ret1", caller);
-  Instruction* secondRetVal = new LoadInst(AI, "load.ret2", caller);
+  Instruction* secondRetVal = new LoadInst(elTy, AI, "load.ret2", caller);
   vectorRetVal = InsertElementInst::Create(vectorRetVal, secondRetVal, constOne, "insert.ret2", caller);
 
   caller->replaceAllUsesWith(vectorRetVal);

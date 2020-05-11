@@ -15,7 +15,6 @@
 #ifndef LLI_PLUGIN_NEAT_H
 #define LLI_PLUGIN_NEAT_H
 
-#include "llvm/IR/CallSite.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
@@ -189,9 +188,11 @@ namespace llvm {
         void visitBitCastInst(BitCastInst &I);
         void visitExtractValueInst(ExtractValueInst &I);
         void visitInsertValueInst(InsertValueInst &I);
-        void visitCallSite(CallSite CS);
-        void visitCallInst(CallInst &I) { visitCallSite (CallSite (&I)); }
-        void visitInvokeInst(InvokeInst &I) { visitCallSite (CallSite (&I)); }
+        void visitCallSite(CallBase &CS);
+        void visitCallInst(CallInst &I) { visitCallSite(*cast<CallBase>(&I)); }
+        void visitInvokeInst(InvokeInst &I) {
+          visitCallSite(*cast<CallBase>(&I));
+        }
         void visitBranchInst(BranchInst &I);
 
         /// getOrEmitGlobalVariable - Return the address of the specified global

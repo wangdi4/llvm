@@ -1,64 +1,47 @@
+// INTEL CONFIDENTIAL
+//
+// Copyright 2015-2020 Intel Corporation.
+//
+// This software and the related documents are Intel copyrighted materials, and
+// your use of them is governed by the express license under which they were
+// provided to you (License). Unless the License provides otherwise, you may not
+// use, modify, copy, publish, distribute, disclose or transmit this software or
+// the related documents without Intel's prior written permission.
+//
+// This software and the related documents are provided as is, with no express
+// or implied warranties, other than those that are expressly stated in the
+// License.
+
 #ifndef __CL_BASE__
 #define __CL_BASE__
 
-#include <iostream>
-#include <gtest/gtest.h>
 #include "CL/cl.h"
-#include "test_utils.h"
-#include "CL/cl_platform.h"
 #include "cl_config.h"
-#include "common_utils.h"
+#include <gtest/gtest.h>
 
 using Intel::OpenCL::Utils::OPENCL_VERSION;
 
 extern cl_device_type gDeviceType;
 
-class CL_base : public testing::Test
-{
-    static cl_platform_id m_platform;
-    static cl_device_id m_device;
-    static cl_context m_context;
-    static cl_command_queue m_queue;
-    static bool m_hasFailure;
-    static OPENCL_VERSION m_version;
+class CL_base : public testing::Test {
+public:
+  CL_base()
+      : m_platform(nullptr), m_device(nullptr), m_context(nullptr),
+        m_queue(nullptr), m_version(OPENCL_VERSION::OPENCL_VERSION_UNKNOWN) {}
 
 protected:
+  virtual void SetUp() override;
 
-    static void SetUpTestCase();
+  virtual void TearDown() override;
 
-    cl_platform_id   GetPlatform()   { return m_platform; }
+  void GetSimpleSPIRV(std::vector<char> &spirv) const;
 
-    cl_device_id     GetDeviceID()   { return m_device;   }
-
-    cl_context       GetContext()    { return m_context;  }
-
-    cl_command_queue GetQueue()      { return m_queue;    }
-
-    OPENCL_VERSION   GetOCLVersion() { return m_version;  }
-
-    virtual void SetUp() final;
-
-    virtual void TearDown() final;
-
-    virtual void Init() = 0;
-
-    static void TearDownTestCase()
-    {
-        // Do not release OpenCL stub intantionally, want to check shutdown mechanism.
-    }
-
-    void GetSimpleSPIRV(std::vector<char>& spirv) const
-    {
-        std::string filename = get_exe_dir() + "test.spv";
-        std::fstream spirv_file(filename, std::fstream::in | std::fstream::binary | std::fstream::ate);
-        ASSERT_TRUE((bool)(spirv_file.is_open())) << " Error while opening " << filename << " file. ";
-
-        size_t length = spirv_file.tellg();
-        spirv_file.seekg(0, spirv_file.beg);
-
-        spirv.resize(length, 0);
-        spirv_file.read(&spirv[0], length);
-    }
+protected:
+  cl_platform_id m_platform;
+  cl_device_id m_device;
+  cl_context m_context;
+  cl_command_queue m_queue;
+  OPENCL_VERSION m_version;
 };
 
 #endif /*__CL_BASE__*/

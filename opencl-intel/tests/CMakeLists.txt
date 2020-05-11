@@ -34,10 +34,8 @@ set(RT_TEST_PARAMS
   rt_lit_site_config=${CMAKE_CURRENT_BINARY_DIR}/lit.site.cfg
 )
 
-# -s: Show less output, for example, don't show information on tests that pass.
-# -v: Show more information on tests failures, for example the entrie test
-# output instead of just the test result.
-set(RT_TEST_ARGS ${RT_TEST_ARGS} "-s" "-v")
+# Use the same args as LLVM
+set(RT_TEST_ARGS ${LLVM_LIT_ARGS} CACHE STRING "Options for LIT test")
 
 set(RT_TESTS_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 

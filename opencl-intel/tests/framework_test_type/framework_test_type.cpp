@@ -556,21 +556,6 @@ TEST(FrameworkTestType, Test_clTracingFunctionsDisabledCheckTest)
     EXPECT_TRUE(clTracingFunctionsDisabledCheckTest());
 }
 
-TEST_F(CL, DISABLED_Test_ZeroLocalSize)
-{
-    ZeroLocalSize();
-}
-
-TEST_F(CL, Test_CPUSignatureDefine)
-{
-    CPUSignatureDefine();
-}
-
-TEST_F(CL, Test_QueryInvalidParamNameFromCQueue_Negative)
-{
-    QueryInvalidParamNameFromCQueue_Negative();
-}
-
 TEST(FrameworkTestType, Test_ClkEventAsKernelArg)
 {
     EXPECT_TRUE(ClkEventAsKernelArg());
@@ -583,217 +568,17 @@ TEST(FrameworkTestType, Test_cl_DumpIRBeforeAfterPasses)
 }
 #endif
 
-/////////////////////////////////////////////////////////////////////
-//////////////      CL20 tests.        //////////////////////////////
-/////////////////////////////////////////////////////////////////////
-
-
-TEST_F(CL20, DoubleSetDefaultCommandQueue)
-{
-    DoubleSetDefaultCommandQueue();
-}
-
-TEST_F(CL20, clSVMMap_FINE_GRAIN)
-{
-    clSVMMap_FINE_GRAIN();
-}
-
-TEST_F(CL20, clSVMUnmap_FINE_GRAIN)
-{
-    clSVMUnmap_FINE_GRAIN();
-}
-
-/////////////////////////////////////////////////////////////////////
-//////////////   End of CL20 tests.    //////////////////////////////
-/////////////////////////////////////////////////////////////////////
-
 // cl_intel_subgroup test.
 TEST(INTEL_SUBGR, Test_GetKernelSubGroupInfoKHR)
 {
     clGetKernelSubGroupInfoKHR();
 }
 
-/////////////////////////////////////////////////////////////////////
-//////////////      CL21 tests.        //////////////////////////////
-/////////////////////////////////////////////////////////////////////
-
+// CL21 tests.
 TEST(CL21_depr, Test_CloneKernel)
 {
     EXPECT_TRUE(CloneKernel());
 }
-
-TEST_F(CL21, clSetDefaultDeviceCommandQueue_OOO)
-{
-    SetDefaultDeviceCommandQueueOOO();
-}
-
-TEST_F(CL21, clSetDefaultDeviceCommandQueue_OOO_Profiling)
-{
-    SetDefaultDeviceCommandQueueOOO_Profiling();
-}
-
-TEST_F(CL21, clSetDefaultDeviceCommandQueue_OOO_SubDevice)
-{
-    SetDefaultDeviceCommandQueueOOO_SubDevice();
-}
-
-TEST_F(CL21, clSetDefaultDeviceCommandQueue_Get_Default_Queue_Query)
-{
-    SetDefaultDeviceCommandQueue_Get_Default_Queue_Query();
-}
-
-TEST_F(CL21, clSetDefaultDeviceCommandQueue_Negative)
-{
-    SetDefaultDeviceCommandQueue_Negative();
-}
-
-TEST_F(CL21, clEnqueueSVMMigrateMem)
-{
-    EnqueueSVMMigrateMem_Positive();
-}
-TEST_F(CL21, clGetKernelSubGroupInfo_MAX_SB_SIZE)
-{
-    GetKernelSubGroupInfo_MAX_SB_SIZE();
-}
-
-TEST_F(CL21, clGetKernelSubGroupInfo_SG_COUNT)
-{
-    GetKernelSubGroupInfo_SG_COUNT();
-}
-
-TEST_F(CL21, clGetKernelSubGroupInfo_LOCAL_SIZE_FOR_SG_COUNT)
-{
-    GetKernelSubGroupInfo_LOCAL_SIZE_FOR_SG_COUNT();
-}
-
-TEST_F(CL21, clGetKernelSubGroupInfo_MAX_SB_SIZE_Negative)
-{
-    GetKernelSubGroupInfo_Negative();
-}
-
-TEST_F(CL21, clGetDeviceInfo_INDEPENDENT_PROGRESS)
-{
-    GetDeviceInfo_INDEPENDENT_PROGRESS();
-}
-
-TEST_F(CL21, clGetDeviceInfo_CL_DEVICE_MAX_NUM_SUB_GROUPS)
-{
-    GetDeviceInfo_CL_DEVICE_MAX_NUM_SUB_GROUPS();
-}
-
-TEST_F(CL21, DISABLED_clGetKernelSubGroupInfo_COMPILE_NUM_SUB_GROUPS)
-{
-    GetKernelSubGroupInfo_COMPILE_NUM_SUB_GROUPS();
-}
-
-TEST_F(CL21, clGetKernelSubGroupInfo_MAX_NUM_SUB_GROUPS)
-{
-    GetKernelSubGroupInfo_MAX_NUM_SUB_GROUPS();
-}
-
-TEST_F(CL21, clGetKernelWorkGroupInfo_SizeRet)
-{
-    GetKernelWorkGroupInfo_SizeRet();
-}
-
-TEST_F(CL21, clZeroSized_clEnqueueReadBuffer)
-{
-    ZeroSized_clEnqueueReadBuffer();
-}
-
-TEST_F(CL21, clZeroSized_clEnqueueWriteBuffer)
-{
-    ZeroSized_clEnqueueWriteBuffer();
-}
-
-TEST_F(CL21, clZeroSized_clEnqueueNDRangeKernel)
-{
-    ZeroSized_clEnqueueNDRangeKernel();
-}
-
-TEST_F(CL21, clZeroSized_clEnqueueCopyBuffer)
-{
-    ZeroSized_clEnqueueCopyBuffer();
-}
-
-TEST_F(CL21, clZeroSized_clEnqueueSVMFree)
-{
-    ZeroSized_clEnqueueSVMFree();
-}
-
-TEST_F(CL21, clZeroSized_clEnqueueSVMFree_Negative)
-{
-    ZeroSized_clEnqueueSVMFree_Negative();
-}
-
-TEST_F(CL21, clZeroSized_clEnqueueSVMMemcpy)
-{
-    ZeroSized_clEnqueueSVMMemcpy();
-}
-
-TEST_F(CL21, clZeroSized_clEnqueueSVMMemFill)
-{
-    ZeroSized_clEnqueueSVMMemFill();
-}
-
-TEST_F(CL21, Timers_GetPlatformInfo_DEVICE_TIMER_RESOLUTION)
-{
-    GetPlatformInfo_DEVICE_TIMER_RESOLUTION();
-}
-
-TEST_F(CL21, Timers_GetHostTimer_Negative)
-{
-    GetHostTimer_Negative();
-}
-
-TEST_F(CL21, Timers_GetDeviceAndHostTimer_Negative)
-{
-    GetDeviceAndHostTimer_Negative();
-}
-
-TEST_F(CL21, Timers_GetHostTimer)
-{
-    GetHostTimer();
-}
-
-TEST_F(CL21, Timers_GetDeviceAndHostTimer)
-{
-    GetDeviceAndHostTimer();
-}
-
-TEST_F(CL21, Test_CreateProgramWithIL)
-{
-    CreateProgramWithIL();
-}
-
-TEST_F(CL21, Test_CreateProgramWithIL_Negative)
-{
-    CreateProgramWithIL_Negative();
-}
-
-TEST_F(CL21, Test_CreateProgramWithIL_IL_VERSION)
-{
-    CreateProgramWithIL_IL_VERSION();
-}
-
-TEST_F(CL21, Test_CreateProgramWithIL_PROGRAM_IL)
-{
-    CreateProgramWithIL_PROGRAM_IL();
-}
-
-TEST_F(CL21, Test_CreateProgramWithIL_PROGRAM_IL_Negative)
-{
-    CreateProgramWithIL_PROGRAM_IL_Negative();
-}
-
-TEST_F(CL21, Test_BuildOptionsPropagate)
-{
-    BuildOptionsPropagate();
-}
-
-/////////////////////////////////////////////////////////////////////
-//////////////   End of CL21 tests.    //////////////////////////////
-/////////////////////////////////////////////////////////////////////
 
 TEST(FrameworkTestType, cl_device_local_mem_size_test)
 {
@@ -837,33 +622,15 @@ TEST(FrameworkTestType, Test_cl12_atomic_add_float)
     EXPECT_TRUE(cl12_atomic_add_float_test());
 }
 
-TEST(FrameworkTestType, Test_clFuncSignatureInconsistencyOnLinkageTest)
+TEST(FrameworkTestType, Test_clFuncIncompatParamASOnLinkageTest)
 {
-    clFuncSignatureInconsistencyOnLinkageTest();
+    clFuncIncompatParamASOnLinkageTest();
 }
 
-/////////////////////////////////////////////////////////////////////
-////////////////   NativeSubgroups tests. ///////////////////////////
-/////////////////////////////////////////////////////////////////////
-
-TEST_F(NativeSubgroups, NativeSubgroups_MAX_NUM_SUB_GROUPS)
+TEST(FrameworkTestType, Test_clFuncWrongNumParamsOnLinkageTest)
 {
-    NativeSubgroups_MAX_SB_SIZE();
+    clFuncWrongNumParamsOnLinkageTest();
 }
-
-TEST_F(NativeSubgroups, NativeSubgroups_SG_COUNT)
-{
-    NativeSubgroups_SG_COUNT();
-}
-
-TEST_F(NativeSubgroups, NativeSubgroups_LOCAL_SIZE_FOR_SG_COUNT)
-{
-    NativeSubgroups_LOCAL_SIZE_FOR_SG_COUNT();
-}
-
-/////////////////////////////////////////////////////////////////////
-////////////////   End of NativeSubgroups tests. ////////////////////
-/////////////////////////////////////////////////////////////////////
 
 CommandLineOption<std::string> deviceOption("--device_type");
 

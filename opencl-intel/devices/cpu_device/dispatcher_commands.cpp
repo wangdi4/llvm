@@ -854,7 +854,7 @@ int NDRange::Init(size_t region[], unsigned int &dimCount, size_t numberOfThread
     m_pImplicitArgs->WorkDim = cmdParams->work_dim;
     m_pImplicitArgs->RuntimeInterface = static_cast<IDeviceCommandManager*>(this);
     // Copy global_offset, global_size, uniform local_work_size, and non-uniform local_work_size
-    for(int i = 0; i < MAX_WORK_DIM; ++i)
+    for(unsigned int i = 0; i < cmdParams->work_dim; ++i)
     {
         m_pImplicitArgs->GlobalOffset[i] = cmdParams->glb_wrk_offs[i];
         m_pImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX][i]    = cmdParams->lcl_wrk_size[UNIFORM_WG_SIZE_INDEX][i];

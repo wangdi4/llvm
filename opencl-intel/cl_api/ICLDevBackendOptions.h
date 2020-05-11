@@ -73,6 +73,8 @@ enum ETransposeSize
     TRANSPOSE_SIZE_4  = 4,   // Force the vectorization with packetization size of 4
     TRANSPOSE_SIZE_8  = 8,   // Force the vectorization with packetization size of 8
     TRANSPOSE_SIZE_16 = 16,  // Force the vectorization with packetization size of 16
+    TRANSPOSE_SIZE_32 = 32,  // Force the vectorization with packetization size of 32
+    TRANSPOSE_SIZE_64 = 64,  // Force the vectorization with packetization size of 64
     TRANSPOSE_SIZE_NOT_SET
 };
 

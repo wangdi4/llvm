@@ -263,6 +263,8 @@ public:
     // Checks whether we can (as opposed to should) vectorize
     // this function.
     static bool canVectorize(Function &F, DominatorTree &DT, RuntimeServices* services);
+    // Checks for VPO.
+    static bool canVectorizeForVPO(Function &F, RuntimeServices *services);
 
   private:
     // Functions imported as is from old heuristic.

@@ -22,14 +22,14 @@
     vectorizationTo = #lenght; \
     kernelName = std::string("kernel_" + std::string(#lenght)); \
     kernelCode = \
-    "#pragma OPENCL EXTENSION cl_intel_vec_len_hint: enable\n" \
+    "#pragma OPENCL EXTENSION cl_intel_subgroups: enable\n" \
     "#pragma OPENCL EXTENSION cl_intel_required_subgroup_size: enable\n" \
     "__attribute__((intel_reqd_sub_group_size(" + std::string(#lenght) + ")))\n" \
     "__kernel void kernel_" + std::string(#lenght) + "(__global int* in,\n" \
     "                                                  __global int* out)\n" \
     "{\n" \
     "    size_t gid = get_global_id(0);\n" \
-    "    out[gid] = in[gid];\n" \
+    "    *out = sub_group_all(in[gid]);\n" \
     "}\n";
 
 extern cl_device_type gDeviceType;
@@ -51,17 +51,17 @@ struct SupportForKernelVector
 void intelReqdSubGroupSizeTest()
 {
     if (!SETENV("CL_CONFIG_CPU_ENABLE_NATIVE_SUBGROUPS", "True") ||
-        !SETENV("CL_CONFIG_CPU_VECTORIZER_TYPE", "volcano") ||
-        !SETENV("VOLCANO_ENABLE_INTEL_SUBGROUPS", "True")) {
+        !SETENV("CL_CONFIG_CPU_VECTORIZER_TYPE", "vpo")) {
       printf ("ERROR: ReqdSubGroupSize: Can't set environment variables. Test FAILED\n");
       FAIL();
       return;
     }
 
     std::string vectorizedString = "was successfully vectorized";
-    std::string notVectorizedString = "was not vectorized";
-    std::string expectedError = "Error! Specified intel_reqd_sub_group_size";
-    std::string warningString = "is not supported by the architecture. Fall back to autovectorization mode";
+    std::string notVectorizedString =
+        "Subgroup calls in scalar kernel or non-inlined subroutine can't be resolved!";
+    std::string expectedError = "CompilerException Checking vectorization factor failed";
+    std::string warningString = "Fall back to autovectorization mode";
 
     cl_device_id device;
     cl_context context;
@@ -166,8 +166,7 @@ void intelReqdSubGroupSizeTest()
     kernelVec.clear();
     clReleaseContext(context);
     if (!UNSETENV("CL_CONFIG_CPU_ENABLE_NATIVE_SUBGROUPS") ||
-        !UNSETENV("CL_CONFIG_CPU_VECTORIZER_TYPE") ||
-        !UNSETENV("VOLCANO_ENABLE_INTEL_SUBGROUPS")) {
+        !UNSETENV("CL_CONFIG_CPU_VECTORIZER_TYPE")) {
       printf ("ERROR: ReqdSubGroupSize: Can't unset environment variables. Test FAILED\n");
       FAIL();
       return;

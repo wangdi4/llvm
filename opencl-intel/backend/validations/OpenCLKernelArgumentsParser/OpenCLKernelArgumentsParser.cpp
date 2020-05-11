@@ -76,7 +76,8 @@ TypeDesc OpenCLKernelArgumentsParser::forParserStruct(StructType *structTy)
                 }
                 break;
             }
-        case Type::VectorTyID:
+        case Type::FixedVectorTyID:
+        case Type::ScalableVectorTyID:
             {
                 const VectorType *vectorTy = cast<VectorType>(structTy->getElementType(i));
                 std::size_t numOfElements = vectorTy->getNumElements();
@@ -188,7 +189,8 @@ TypeDesc OpenCLKernelArgumentsParser::forParserStruct(StructType *structTy)
                     }
 
 
-                case Type::VectorTyID:
+                case Type::FixedVectorTyID:
+                case Type::ScalableVectorTyID:
                     {
                         const VectorType *vectorTy = cast<VectorType>(ptr->getElementType());
                         std::size_t numOfElements = vectorTy->getNumElements();
@@ -324,7 +326,8 @@ TypeDesc OpenCLKernelArgumentsParser::forParserStruct(StructType *structTy)
                         }
                         break;
                     }
-                case Type::VectorTyID:
+                case Type::FixedVectorTyID:
+                case Type::ScalableVectorTyID:
                     {
                         const VectorType *vectorTy = cast<VectorType>(arrayTy->getElementType());
                         std::size_t numOfElements = vectorTy->getNumElements();
@@ -481,7 +484,8 @@ OCLKernelArgumentsList OpenCLKernelArgumentsParser::KernelArgumentsParser(const 
                 ListOfArguments.push_back(BufDesc);
                 break;
             }
-        case Type::VectorTyID:
+        case Type::FixedVectorTyID:
+        case Type::ScalableVectorTyID:
             {
                 std::size_t numOfElements =
                     dyn_cast<VectorType>(arg_it->getType())->getNumElements();
@@ -598,7 +602,8 @@ OCLKernelArgumentsList OpenCLKernelArgumentsParser::KernelArgumentsParser(const 
                     }
 
 
-                case Type::VectorTyID:
+                case Type::FixedVectorTyID:
+                case Type::ScalableVectorTyID:
                     {
                         const VectorType *vectorTy = cast<VectorType>(ptr->getElementType());
                         std::size_t numOfElements = vectorTy->getNumElements();

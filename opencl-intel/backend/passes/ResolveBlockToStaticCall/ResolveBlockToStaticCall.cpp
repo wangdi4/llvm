@@ -13,7 +13,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Support/Casting.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/IR/CallSite.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/ADT/SmallSet.h"
@@ -132,7 +131,7 @@ namespace intel {
     Function *resolvedFunc = nullptr;
 
     // %call1 = call i32 %8(i8* %6, i32 7)
-    I = CI->getCalledValue();
+    I = CI->getCalledOperand();
     assert(I->getType()->isPointerTy() &&
         "Not pointer type of CallInst argument");
 
@@ -275,8 +274,8 @@ namespace intel {
       "CallInst " << *CI << " to function " << resolvedFunc->getName() << "\n");
 
     // Create new call instruction with static call to resolved function
-    CallSite CS(CI);
-    SmallVector<Value*, 4> params(CS.arg_begin(), CS.arg_end());
+    CallBase *CB = cast<CallBase>(CI);
+    SmallVector<Value*, 4> params(CB->arg_begin(), CB->arg_end());
     CallInst *pNewCall = CallInst::Create(resolvedFunc, ArrayRef<Value*>(params), CI->getName(), CI);
     // Copy attributes from the callee which contains aligment for parameters
     pNewCall->setAttributes(resolvedFunc->getAttributes());

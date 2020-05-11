@@ -68,7 +68,7 @@ bool AddTLSGlobals::runOnModule(Module &M) {
         M, ArgType, false, GlobalValue::LinkOnceODRLinkage,
         UndefValue::get(ArgType), ImplicitArgsUtils::getArgName(i), nullptr,
         GlobalValue::GeneralDynamicTLSModel);
-    GV->setAlignment(M.getDataLayout().getPreferredAlignment(GV));
+    GV->setAlignment(MaybeAlign(M.getDataLayout().getPreferredAlignment(GV)));
     if (i == ImplicitArgsUtils::IA_SLM_BUFFER) {
       m_pLocalMemBase = GV;
     }

@@ -371,7 +371,7 @@ void inlineMaskToScalar(Function* scalarKernel, Function* maskedKernel) {
   InlineFunctionInfo inlineInfo;
   CallBase* callBase = dyn_cast<CallBase>(call);
   assert(callBase && "unexpected call");
-  InlineFunction(callBase, inlineInfo);
+  InlineFunction(*callBase, inlineInfo);
 
   // Erase the masked kernel.
   maskedKernel->eraseFromParent();

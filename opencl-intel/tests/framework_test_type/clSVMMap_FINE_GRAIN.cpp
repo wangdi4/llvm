@@ -1,6 +1,6 @@
 #include "CL20.h"
 
-void CL20::clSVMMap_FINE_GRAIN()
+TEST_F(CL20, clSVMMap_FINE_GRAIN)
 {
     // !! Assume that the device supports FINE_GRAIN_SYSTEM.
     // The test validate that the clEnqueueSVMMap initializes
@@ -53,7 +53,7 @@ void CL20::clSVMMap_FINE_GRAIN()
 
 
 
-void CL20::clSVMUnmap_FINE_GRAIN()
+TEST_F(CL20, clSVMUnmap_FINE_GRAIN)
 {
     // !! Assume that the device supports FINE_GRAIN_SYSTEM.
     // The test validate that the clEnqueueSVMUnmap initializes

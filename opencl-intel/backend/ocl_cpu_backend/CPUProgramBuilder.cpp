@@ -296,36 +296,6 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
             }
         }
 
-        {
-          auto kimd = KernelMetadataAPI(pFunc);
-
-          assert(!(kimd.VecLenHint.hasValue() && kimd.ReqdIntelSGSize.hasValue()) &&
-                 "Error! intel_vec_len_hint "
-                 "and intel_reqd_sub_group_size "
-                 "can't be specified at the same time!");
-
-          if (kimd.VecLenHint.hasValue() &&
-              SUPPORTED !=
-                  m_compiler.GetCpuId().isTransposeSizeSupported(
-                      (ETransposeSize)kimd.VecLenHint.get())) {
-            buildResult.LogS() << "Warning! Specified vectorization width "
-                                  "for kernel <"
-                               << spKernel->GetKernelName()
-                               << "> is not supported by the architecture. "
-                                  "Fall back to autovectorization mode.\n";
-          }
-          if (kimd.ReqdIntelSGSize.hasValue() &&
-              SUPPORTED !=
-                  m_compiler.GetCpuId().isTransposeSizeSupported(
-                      (ETransposeSize)kimd.ReqdIntelSGSize.get())) {
-            buildResult.LogS() << "Error! Specified intel_reqd_sub_group_size "
-                                  "for kernel <"
-                               << spKernel->GetKernelName()
-                               << "> is not supported.\n";
-            buildResult.SetBuildResult(CL_DEV_BUILD_ERROR);
-          }
-        }
-
         if ( dontVectorize )
         {
             buildResult.LogS() << "Vectorization of kernel <" << spKernel->GetKernelName() << "> was disabled by the developer\n";

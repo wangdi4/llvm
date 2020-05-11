@@ -65,6 +65,8 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
                     return m_serializeWorkGroups;
                 case CL_DEV_BACKEND_OPTION_STREAMING_ALWAYS:
                     return m_streamingAlways;
+                case CL_DEV_BACKEND_OPTION_NATIVE_SUBGROUPS:
+                    return m_enableNativeSubgroups;
                 default:
                     return defaultValue;
             }
@@ -104,10 +106,6 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
                 case CL_DEV_BACKEND_OPTION_VECTORIZER_TYPE:
                 {
                     return m_vectorizerType;
-                }
-                case CL_DEV_BACKEND_OPTION_NATIVE_SUBGROUPS:
-                {
-                    return m_enableNativeSubgroups;
                 }
                 default:
                     return defaultValue;

@@ -1,6 +1,6 @@
 #include "CL20.h"
 
-void CL20::DoubleSetDefaultCommandQueue()
+TEST_F(CL20, DoubleSetDefaultCommandQueue)
 {
     // Spec( 2.0 rev31, page 92) says:
     // There can only be one default device queue for each device within a context. 

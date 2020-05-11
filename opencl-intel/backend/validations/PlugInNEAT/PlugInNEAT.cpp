@@ -193,7 +193,7 @@ NEATGenericValue NEATPlugIn::getConstantValueFromValue (Value *V)
     if ( isa<UndefValue>(V) ) {
         // if operand value is 'undef' then no need to initialize NEATValue. It's already UNWRITTEN by default.
         // We need just set correct vector length for vector values.
-        if (Type::VectorTyID == V->getType()->getTypeID()) {
+        if (isa<VectorType>(V->getType())) {
             Ret.NEATVec.SetWidth(VectorWidthWrapper::ValueOf(cast<VectorType>(V->getType())->getNumElements()));
         }
     } else {
@@ -222,7 +222,9 @@ NEATGenericValue NEATPlugIn::getConstantValueFromValue (Value *V)
             }
             break;
             }
-        case Type::VectorTyID: {
+        case Type::FixedVectorTyID:
+        case Type::ScalableVectorTyID:
+         {
             const VectorType* VT = cast<VectorType>(V->getType());
             Ret.NEATVec.SetWidth(VectorWidthWrapper::ValueOf(VT->getNumElements()));
             for (unsigned int i = 0; i < VT->getNumElements(); ++i)
@@ -274,7 +276,9 @@ void NEATPlugIn::LoadValueFromMemory(NEATGenericValue &Result,
   case Type::PointerTyID:
     Result.PointerVal = *((PointerTy*)NEATPtr);
     break;
-  case Type::VectorTyID: {
+  case Type::FixedVectorTyID:
+  case Type::ScalableVectorTyID:
+                         {
     NEATValue* NEATValuePtr = (NEATValue*) NEATPtr;
     Result.NEATVec.SetWidth(VectorWidthWrapper::ValueOf(cast<VectorType>(Ty)->getNumElements()));
     for (unsigned i = 0; i < Result.NEATVec.GetSize(); ++i)
@@ -349,7 +353,8 @@ void NEATDataLayout ::InitMemory( void* Memory, const Type* Ty ) const
       break;
   case Type::IntegerTyID:
       return;
-  case Type::VectorTyID:
+  case Type::FixedVectorTyID:
+  case Type::ScalableVectorTyID:
       {
           const VectorType *VTy = cast<VectorType>(Ty);
           size_t toInitCount = VTy->getNumElements();
@@ -395,7 +400,8 @@ uint64_t NEATDataLayout ::getTypeStoreSize( const Type* Ty ) const
     return sizeof(NEATValue);
   case Type::IntegerTyID:
     return 0;
-  case Type::VectorTyID:
+  case Type::FixedVectorTyID:
+  case Type::ScalableVectorTyID:
       {
       const VectorType *VTy = cast<VectorType>(Ty);
       if (VTy->getNumElements() == 3) return getTypeStoreSize(VTy->getElementType())*4;
@@ -448,7 +454,9 @@ void NEATPlugIn::StoreValueToMemory(const NEATGenericValue &Val,
 
     *((PointerTy*)Ptr) = Val.PointerVal;
     break;
-  case Type::VectorTyID: {
+  case Type::FixedVectorTyID:
+  case Type::ScalableVectorTyID:
+                         {
     NEATValue* NEATValuePtr = (NEATValue*) Ptr;
     for (unsigned i = 0; i < Val.NEATVec.GetSize(); ++i)
     {
@@ -903,7 +911,8 @@ static void _CreateNEATBufferContainerByPtr(
         IMPLEMENT_PTR_FLOAT_VAL(TDOUBLE);
     case Type::IntegerTyID:
         return;
-    case Type::VectorTyID:
+  case Type::FixedVectorTyID:
+  case Type::ScalableVectorTyID:
         {
             elemDesc = elemDesc.GetSubTypeDesc(0);
             // obtain type of vector element
@@ -982,7 +991,9 @@ void llvm::CreateNEATBufferContainerMap( Function *in_F,
                 _CreateNEATBufferContainerByPtr( currBuffer,
                     cast<PointerType>(Ty), arg_it, out_NEATArgValues );
                 break;
-            case Type::VectorTyID: {
+            case Type::FixedVectorTyID:
+            case Type::ScalableVectorTyID:
+                                   {
                 const VectorType* VTy = cast<VectorType>(Ty);
                 if (VTy->getElementType()->isFloatingPointTy())
                 {
@@ -1045,7 +1056,8 @@ bool NEATDataLayout ::IsNEATSupported( const Type *Ty )
     return false;
   case Type::DoubleTyID:
     return true;
-  case Type::VectorTyID:
+  case Type::FixedVectorTyID:
+  case Type::ScalableVectorTyID:
     {
       const VectorType *VTy = dyn_cast<VectorType>(Ty);
       return IsNEATSupported(VTy->getElementType());
@@ -1536,7 +1548,7 @@ void NEATPlugIn::visitBitCastInst( BitCastInst &I )
             }
 
             // <n x float>* to float*, <n x double>* to double*
-            if(localSrcTy->getTypeID() == Type::VectorTyID) {
+            if(isa<VectorType>(localSrcTy)) {
                 Type::TypeID VecTypeID = dyn_cast<VectorType>(localSrcTy)->getElementType()->getTypeID();
                 if((VecTypeID == Type::FloatTyID && localDstTy->getTypeID() == Type::FloatTyID) ||
                     (VecTypeID == Type::DoubleTyID && localDstTy->getTypeID() == Type::DoubleTyID)){
@@ -1560,7 +1572,7 @@ void NEATPlugIn::visitBitCastInst( BitCastInst &I )
             }
 
             // float* to <n x float>*, double* to <n x double>*
-            if(localDstTy->getTypeID() == Type::VectorTyID) {
+            if(isa<VectorType>(localDstTy)) {
                 Type::TypeID VecTypeID = dyn_cast<VectorType>(localDstTy)->getElementType()->getTypeID();
                 if((VecTypeID == Type::FloatTyID && localSrcTy->getTypeID() == Type::FloatTyID) ||
                     (VecTypeID == Type::DoubleTyID && localSrcTy->getTypeID() == Type::DoubleTyID)){
@@ -1584,7 +1596,7 @@ void NEATPlugIn::visitBitCastInst( BitCastInst &I )
             }
 
             // <n x float>* to <m x float>*, <n x double>* to <m x double>*
-            if(localSrcTy->getTypeID() == Type::VectorTyID && localDstTy->getTypeID() == Type::VectorTyID) {
+            if(isa<VectorType>(localSrcTy) && isa<VectorType>(localDstTy)) {
                 Type::TypeID VecSrcTypeID = dyn_cast<VectorType>(localSrcTy)->getElementType()->getTypeID();
                 Type::TypeID VecDstTypeID = dyn_cast<VectorType>(localDstTy)->getElementType()->getTypeID();
                 if((VecSrcTypeID == Type::FloatTyID && VecDstTypeID == Type::FloatTyID) ||
@@ -1600,7 +1612,7 @@ void NEATPlugIn::visitBitCastInst( BitCastInst &I )
             throw Exception::NEATTrackFailure("NEATPlugin:Invalid arguments for bitcast instruction. Can't bitcast pointer.");
         }
         // vector to vector bitcast
-        else if (SrcTy->getTypeID() == Type::VectorTyID)
+        else if (isa<VectorType>(SrcTy))
         {
             Type::TypeID DstTypeID = dyn_cast<VectorType>(DstTy)->getElementType()->getTypeID();
             Type::TypeID SrcTypeID = dyn_cast<VectorType>(SrcTy)->getElementType()->getTypeID();
@@ -1719,11 +1731,11 @@ void NEATPlugIn::visitBitCastInst( BitCastInst &I )
 
             SetValue(&I, R, SF);
             return;
-        } // if (SrcTy->getTypeID() == Type::VectorTyID)
+        } // if (isa<VectorType>(SrcTy))
     } // if (SrcTy->getTypeID() == DstTy->getTypeID())
 
     // double value to <2 x float>
-    if (SrcTy->getTypeID() == Type::DoubleTyID && DstTy->getTypeID() == Type::VectorTyID)
+    if (SrcTy->getTypeID() == Type::DoubleTyID && isa<VectorType>(DstTy))
     {
         if (dyn_cast<VectorType>(DstTy)->getElementType()->getTypeID() == Type::FloatTyID)
         {
@@ -1737,7 +1749,7 @@ void NEATPlugIn::visitBitCastInst( BitCastInst &I )
         return;
     }
 
-    if (SrcTy->getTypeID() == Type::VectorTyID)
+    if (isa<VectorType>(SrcTy))
     {
         Type::TypeID SrcTypeID = dyn_cast<VectorType>(SrcTy)->getElementType()->getTypeID();
         if (SrcTypeID == Type::FloatTyID)
@@ -1785,7 +1797,7 @@ void NEATPlugIn::visitBitCastInst( BitCastInst &I )
         {
             double dVal = double(GV.IntVal.bitsToDouble());
             R.NEATVal = NEATValue(dVal);
-        } else if (DstTy->getTypeID() == Type::VectorTyID) {
+        } else if (isa<VectorType>(DstTy)) {
             assert (srcBitWidth == 64);    // i64 only is supported at the moment.
             assert(cast<VectorType>(DstTy)->getElementType()->isFloatTy());
             APInt intToBitcast = GV.IntVal;
@@ -1856,7 +1868,8 @@ void NEATPlugIn::visitExtractValueInst( ExtractValueInst &I )
         case Type::StructTyID:
           Dest.AggregateVal = TmpVal.AggregateVal;
           break;
-        case Type::VectorTyID:
+        case Type::FixedVectorTyID:
+        case Type::ScalableVectorTyID:
           Dest.NEATVec = TmpVal.NEATVec;
           break;
         case Type::PointerTyID:
@@ -1927,7 +1940,8 @@ void NEATPlugIn::visitInsertValueInst( InsertValueInst &I )
     case Type::StructTyID:
       pDest->AggregateVal = Src2.AggregateVal;
       break;
-    case Type::VectorTyID:
+    case Type::FixedVectorTyID:
+    case Type::ScalableVectorTyID:
       pDest->NEATVec = Src2.NEATVec;
       break;
     case Type::PointerTyID:
@@ -1942,7 +1956,7 @@ void NEATPlugIn::visitInsertValueInst( InsertValueInst &I )
 }
 
 
-void NEATPlugIn::visitCallSite( CallSite CS )
+void NEATPlugIn::visitCallSite( CallBase &CS )
 {
     // handle call instruction before execution
     HANDLE_EVENT(PRE_INST);
@@ -1969,12 +1983,13 @@ void NEATPlugIn::visitCallSite( CallSite CS )
     }
 
     // obtain Function reference from Interpreter
-    GenericValue SRC = m_pInterp->getOperandValueAdapter(CS.getCalledValue(), EC);
+    GenericValue SRC =
+        m_pInterp->getOperandValueAdapter(CS.getCalledOperand(), EC);
     Function *CalledF = (Function*)GVTOP(SRC);
 
     std::map<Value*, NEATGenericValue> ArgVals;
     Function::arg_iterator AI = CalledF->arg_begin(), AE = CalledF->arg_end();
-    for (CallSite::arg_iterator i = CS.arg_begin(),
+    for (auto i = CS.arg_begin(),
         e = CS.arg_end(); (i != e) || (AI != AE); ++AI, ++i) {
             Argument* A = &*AI;
             // use the NEAT supported arguments only
@@ -1999,9 +2014,9 @@ void NEATPlugIn::popStackAndReturnValueToCaller( const Type *RetTy, NEATGenericV
     // fill in the return value...
     ExecutionContext &CallingSF = (*m_pECStack)[m_pECStack->size()-2];
     NEATExecutionContext &SF = m_NECStack.back();
-    if (Instruction *I = CallingSF.Caller.getInstruction()) {
+    if (Instruction *I = CallingSF.Caller) {
       // Save result...
-      if (!CallingSF.Caller.getType()->isVoidTy())
+      if (!CallingSF.Caller->getType()->isVoidTy())
         SetValue(I, Result, SF);
     }
   }
@@ -2255,9 +2270,9 @@ void NEATPlugIn::execute_clamp(Function *F,
 // Method to obtain integer value by argument index.
 GenericValue NEATPlugIn::GetGenericArg(size_t ArgIdx) {
     ExecutionContext &CallingSF = m_pECStack->back();
-    CallSite CS(&(static_cast<CallInst&>(*CallingSF.CurInst)));
+    CallBase *CB = cast<CallBase>(CallingSF.CurInst);
     Value* arg = 0;
-    CallSite::arg_iterator i = CS.arg_begin();
+    auto i = CB->arg_begin();
     for (size_t j = 0; j < ArgIdx; ++j, ++i) {}
     arg = *i;
     return m_pInterp->getOperandValueAdapter(arg, CallingSF);
@@ -4101,7 +4116,7 @@ void NEATPlugIn::visitUIToFPInst( UIToFPInst &I )
   GenericValue Src1 = m_pInterp->getOperandValueAdapter(I.getOperand(0), EC);
   Type* RT = I.getType();
   NEATGenericValue Result;
-  if (Type::VectorTyID == ST->getTypeID())
+  if (isa<VectorType>(ST))
   {
     std::vector<uint64_t> vec;
     vec.resize(cast<VectorType>(RT)->getNumElements());
@@ -4146,7 +4161,7 @@ void NEATPlugIn::visitSIToFPInst( SIToFPInst &I )
   GenericValue Src1 = m_pInterp->getOperandValueAdapter(I.getOperand(0), EC);
   Type* RT = I.getType();
   NEATGenericValue Result;
-  if (Type::VectorTyID == ST->getTypeID())
+  if (isa<VectorType>(ST))
   {
     std::vector<int64_t> vec;
     vec.resize(cast<VectorType>(RT)->getNumElements());

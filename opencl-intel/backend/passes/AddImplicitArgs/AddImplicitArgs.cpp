@@ -131,9 +131,11 @@ namespace intel{
       }
 
       CallInst *pNewCall = CallInst::Create(
-          IsDirectCall ? pCall->getCalledFunction() : pCall->getCalledValue(),
+          FunctionCallee(pCall->getFunctionType(), pCall->getCalledOperand()),
           ArrayRef<Value *>(params), "", pCall);
       pNewCall->setCallingConv(pCall->getCallingConv());
+      pNewCall->setTailCall(pCall->getTailCallKind());
+      pNewCall->setDebugLoc(pCall->getDebugLoc());
       // Copy attributes from the callee which contains aligment for parameters
       if (IsDirectCall)
         pNewCall->setAttributes(pCall->getCalledFunction()->getAttributes());
@@ -211,7 +213,7 @@ namespace intel{
           CompilationUtils::isGlobalCtorDtorOrCPPFunc(pCallee)))
         continue;
       StringRef Name = IsDirectCall ? pCallee->getName()
-                                    : pCall->getCalledValue()->getName();
+                                    : pCall->getCalledOperand()->getName();
       Value **pCallArgs = new Value*[ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS];
       Function::arg_iterator IA = pNewF->arg_begin();
       // Skip over explicit args

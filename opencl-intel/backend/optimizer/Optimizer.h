@@ -14,10 +14,11 @@
 
 #pragma once
 
+#include "Compiler.h"
+
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/LegacyPassManager.h"
 
-#include <string>
 #include <vector>
 
 namespace intel {
@@ -51,6 +52,8 @@ public:
     bool hasUndefinedExternals() const;
 
     const std::vector<std::string>& GetUndefinedExternals() const;
+
+    const TStringToVFState& GetKernelVFStates() const;
 
     /// @brief recursion was detected after standard LLVM optimizations
     /// @return true if recursion was detected
@@ -97,9 +100,10 @@ private:
     std::vector<std::string> m_undefinedExternalFunctions;
     bool m_IsFpgaEmulator;
     bool m_IsEyeQEmulator;
+
+    // For OCLVPOCheckVF Pass
+    TStringToVFState m_kernelToVFState;
 };
-
-
 
 }}}
 
