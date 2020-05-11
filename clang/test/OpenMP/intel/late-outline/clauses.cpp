@@ -141,8 +141,8 @@ void baz(int);
 void bar3()
 {
   //CHECK: region.entry() [ "DIR.OMP.PARALLEL"()
-  //CHECK-SAME: "QUAL.OMP.SHARED"(i32* @_ZZ4bar3vE5st_b3)
   //CHECK-SAME: "QUAL.OMP.SHARED"(i32* @_ZL5st_b1)
+  //CHECK-SAME: "QUAL.OMP.SHARED"(i32* @_ZZ4bar3vE5st_b3)
   //CHECK: "DIR.OMP.END.PARALLEL"
   #pragma omp parallel
   {

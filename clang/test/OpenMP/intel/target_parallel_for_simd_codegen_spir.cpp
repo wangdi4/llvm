@@ -54,10 +54,10 @@ void foo1() {
 
   // CHECK: [[T1:%[0-9]+]] = call token @llvm.directive.region.entry()
   // CHECK-SAME: "DIR.OMP.PARALLEL.LOOP"()
-  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* [[OMP_LB_CAST]]),
+  // CHECK-SAME: "QUAL.OMP.SHARED"(i32 addrspace(4)* [[J_CAST]]),
   // CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(i32 addrspace(4)* [[OMP_IV_CAST]]),
-  // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(i32 addrspace(4)* [[OMP_UB_CAST]]),
-  // CHECK-SAME: "QUAL.OMP.SHARED"(i32 addrspace(4)* [[J_CAST]])
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* [[OMP_LB_CAST]]),
+  // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(i32 addrspace(4)* [[OMP_UB_CAST]])
 
   // CHECK: [[T2:%[0-9]+]] = call token @llvm.directive.region.entry()
   // CHECK-SAME: "DIR.OMP.SIMD"()

@@ -29,11 +29,11 @@ void foo2() {
   // CHECK: store i32 15, i32* [[OMP_UB]],
   // CHECK: [[T1:%[0-9]+]] = call token @llvm.directive.region.entry()
   // CHECK-SAME: "DIR.OMP.PARALLEL.LOOP"()
-  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[OMP_LB]]),
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[I]]),
+  // CHECK-SAME: "QUAL.OMP.SHARED"(i32* [[J]]),
   // CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(i32* [[OMP_IV]]),
-  // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(i32* [[OMP_UB]]),
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[I]])
-  // CHECK-SAME: "QUAL.OMP.SHARED"(i32* [[J]]
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[OMP_LB]]),
+  // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(i32* [[OMP_UB]])
   // CHECK: [[L1:%[0-9]+]] = load i32, i32* [[OMP_IV]], align 4
   // CHECK-NEXT: [[L2:%[0-9]+]] = load i32, i32* [[OMP_UB]], align 4
   // CHECK-NEXT: icmp sle i32 [[L1]], [[L2]]

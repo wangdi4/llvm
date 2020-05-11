@@ -1,10 +1,4 @@
 # INTEL_COLLAB
-if (WIN32)
-  # FIXME: resolve mangling issues on Windows.
-  add_custom_target(libompdevice)
-  return()
-endif()
-
 set(binary_dir "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
 if (WIN32)
   set(omp_compile_opts -Qiopenmp)

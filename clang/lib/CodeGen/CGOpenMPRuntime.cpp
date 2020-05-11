@@ -2715,48 +2715,7 @@ static void getTargetEntryUniqueInfo(ASTContext &C, SourceLocation Loc,
   FileID = ID.getFile();
   LineNum = PLoc.getLine();
 }
-#if INTEL_COLLAB
-static std::string getStableMangledName(StringRef MainFileName) {
-  // Create an MD5 of the path and the filename
-  llvm::MD5 Hash;
-  llvm::MD5::MD5Result Result;
-  SmallString<256> CWD;
-  llvm::sys::fs::current_path(CWD);
-  Hash.update(CWD);
-  Hash.update("/");
-  Hash.update(MainFileName);
-  Hash.final(Result);
-  SmallString<32> NameStr;
-  Hash.stringifyResult(Result, NameStr);
 
-  return std::string(NameStr);
-}
-
-/// Generate Itanium ABI mangled name for the given variable
-/// declaration. Static variables are additionally decorated
-/// with a suffix uniquely identifying the module being compiled.
-static std::string getUniqueItaniumABIMangledName(
-    const VarDecl *VD, const CodeGenModule &CGM) {
-  auto &Context = VD->getASTContext();
-  std::unique_ptr<MangleContext> MC{
-      ItaniumMangleContext::create(Context, Context.getDiagnostics())};
-  SmallString<256> Buffer;
-  llvm::raw_svector_ostream Out(Buffer);
-  MC->mangleName(VD, Out);
-  assert(!Buffer.empty() && "Itanium name mangling failed.");
-
-  SourceManager &SM = CGM.getContext().getSourceManager();
-  if (auto *MainFile = SM.getFileEntryForID(SM.getMainFileID())) {
-    StringRef MainFileName = MainFile->getName();
-    if (!MainFileName.empty() &&
-        VD->getStorageClass() == SC_Static && VD->hasGlobalStorage() &&
-        !VD->isLocalVarDecl() && !VD->isStaticDataMember())
-      Out << "_" << getStableMangledName(MainFileName);
-  }
-
-  return std::string(Buffer.str());
-}
-#endif  // INTEL_COLLAB
 Address CGOpenMPRuntime::getAddrOfDeclareTargetVar(const VarDecl *VD) {
   if (CGM.getLangOpts().OpenMPSimd)
     return Address::invalid();
@@ -10631,8 +10590,16 @@ bool CGOpenMPRuntime::emitTargetFunctions(GlobalDecl GD) {
   const ValueDecl *VD = cast<ValueDecl>(GD.getDecl());
   // Try to detect target regions in the function.
 #if INTEL_COLLAB
+  std::string ItaniumMangledName;
   if (const auto *FD = dyn_cast<FunctionDecl>(VD)) {
     StringRef Name = CGM.getMangledName(GD);
+#if INTEL_CUSTOMIZATION
+    if (CGM.getLangOpts().OpenMPLateOutlineTarget)
+#endif // INTEL_CUSTOMIZATION
+    if (CGM.getLangOpts().OpenMPLateOutline) {
+      ItaniumMangledName = CGM.getUniqueItaniumABIMangledName(GD);
+      Name = ItaniumMangledName;
+    }
     bool HasTargetRegions =
         scanForTargetRegionsFunctions(FD->getBody(), Name);
     if (!HasTargetRegions) {
@@ -10640,13 +10607,27 @@ bool CGOpenMPRuntime::emitTargetFunctions(GlobalDecl GD) {
       // mangled name for constructors and destructors, check with the
       // "Complete" name as well.  Both may be needed.
       if (isa<CXXConstructorDecl>(FD) && GD.getCtorType() == Ctor_Base) {
-        HasTargetRegions = scanForTargetRegionsFunctions(
-            FD->getBody(),
-            CGM.getMangledName(GD.getWithCtorType(Ctor_Complete)));
+        Name = CGM.getMangledName(GD.getWithCtorType(Ctor_Complete));
+#if INTEL_CUSTOMIZATION
+        if (CGM.getLangOpts().OpenMPLateOutlineTarget)
+#endif // INTEL_CUSTOMIZATION
+        if (CGM.getLangOpts().OpenMPLateOutline) {
+          ItaniumMangledName = CGM.getUniqueItaniumABIMangledName(
+              GD.getWithCtorType(Ctor_Complete));
+          Name = ItaniumMangledName;
+        }
+        HasTargetRegions = scanForTargetRegionsFunctions(FD->getBody(), Name);
       } else if (isa<CXXDestructorDecl>(FD) && GD.getDtorType() == Dtor_Base) {
-        HasTargetRegions = scanForTargetRegionsFunctions(
-            FD->getBody(),
-            CGM.getMangledName(GD.getWithDtorType(Dtor_Complete)));
+        Name = CGM.getMangledName(GD.getWithDtorType(Dtor_Complete));
+#if INTEL_CUSTOMIZATION
+        if (CGM.getLangOpts().OpenMPLateOutlineTarget)
+#endif // INTEL_CUSTOMIZATION
+        if (CGM.getLangOpts().OpenMPLateOutline) {
+          ItaniumMangledName = CGM.getUniqueItaniumABIMangledName(
+              GD.getWithDtorType(Dtor_Complete));
+          Name = ItaniumMangledName;
+        }
+        HasTargetRegions = scanForTargetRegionsFunctions(FD->getBody(), Name);
       }
     }
 
@@ -10696,14 +10677,37 @@ bool CGOpenMPRuntime::emitTargetGlobalVariable(GlobalDecl GD) {
   // mangling.
   QualType RDTy = cast<VarDecl>(GD.getDecl())->getType();
   if (const auto *RD = RDTy->getBaseElementTypeUnsafe()->getAsCXXRecordDecl()) {
+#if INTEL_COLLAB
+    std::string ItaniumMangledName;
+#endif  // INTEL_COLLAB
     for (const CXXConstructorDecl *Ctor : RD->ctors()) {
       StringRef ParentName =
           CGM.getMangledName(GlobalDecl(Ctor, Ctor_Complete));
+#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+      if (CGM.getLangOpts().OpenMPLateOutlineTarget)
+#endif // INTEL_CUSTOMIZATION
+      if (CGM.getLangOpts().OpenMPLateOutline) {
+        ItaniumMangledName = CGM.getUniqueItaniumABIMangledName(
+            GlobalDecl(Ctor, Ctor_Complete));
+        ParentName = ItaniumMangledName;
+      }
+#endif // INTEL_COLLAB
       scanForTargetRegionsFunctions(Ctor->getBody(), ParentName);
     }
     if (const CXXDestructorDecl *Dtor = RD->getDestructor()) {
       StringRef ParentName =
           CGM.getMangledName(GlobalDecl(Dtor, Dtor_Complete));
+#if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+      if (CGM.getLangOpts().OpenMPLateOutlineTarget)
+#endif // INTEL_CUSTOMIZATION
+      if (CGM.getLangOpts().OpenMPLateOutline) {
+        ItaniumMangledName = CGM.getUniqueItaniumABIMangledName(
+            GlobalDecl(Dtor, Dtor_Complete));
+        ParentName = ItaniumMangledName;
+      }
+#endif // INTEL_COLLAB
       scanForTargetRegionsFunctions(Dtor->getBody(), ParentName);
     }
   }
@@ -10784,8 +10788,11 @@ void CGOpenMPRuntime::registerTargetGlobalVariable(const VarDecl *VD,
       !HasRequiresUnifiedSharedMemory) {
     Flags = OffloadEntriesInfoManagerTy::OMPTargetGlobalVarEntryTo;
 #if INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+    if (CGM.getLangOpts().OpenMPLateOutlineTarget)
+#endif // INTEL_CUSTOMIZATION
     if (CGM.getLangOpts().OpenMPLateOutline) {
-      ItaniumMangledName = getUniqueItaniumABIMangledName(VD, CGM);
+      ItaniumMangledName = CGM.getUniqueItaniumABIMangledName(VD);
       VarName = ItaniumMangledName;
     } else
 #endif // INTEL_COLLAB

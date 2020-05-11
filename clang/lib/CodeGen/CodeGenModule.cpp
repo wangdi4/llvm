@@ -2124,6 +2124,45 @@ void CodeGenModule::SetTargetRegionFunctionAttributes(llvm::Function *Fn) {
       inTargetRegion())
     Fn->addFnAttr("openmp-target-declare", "true");
 }
+
+std::string CodeGenModule::getUniqueItaniumABIMangledName(GlobalDecl GD) {
+  auto GetStableMangledName = [](StringRef MainFileName) {
+    // Create an MD5 of the path and the filename
+    llvm::MD5 Hash;
+    llvm::MD5::MD5Result Result;
+    SmallString<256> CWD;
+    llvm::sys::fs::current_path(CWD);
+    Hash.update(CWD);
+    Hash.update("/");
+    Hash.update(MainFileName);
+    Hash.final(Result);
+    SmallString<32> NameStr;
+    Hash.stringifyResult(Result, NameStr);
+
+    return std::string(NameStr);
+  };
+
+  auto *Decl = GD.getDecl();
+  auto &Context = Decl->getASTContext();
+  std::unique_ptr<MangleContext> MC{
+      ItaniumMangleContext::create(Context, Context.getDiagnostics())};
+  SmallString<256> Buffer;
+  llvm::raw_svector_ostream Out(Buffer);
+  MC->mangleName(GD, Out);
+  assert(!Buffer.empty() && "Itanium name mangling failed.");
+
+  SourceManager &SM = getContext().getSourceManager();
+  if (auto *VD = dyn_cast<VarDecl>(Decl))
+    if (auto *MainFile = SM.getFileEntryForID(SM.getMainFileID())) {
+      StringRef MainFileName = MainFile->getName();
+      if (!MainFileName.empty() &&
+          VD->getStorageClass() == SC_Static && VD->hasGlobalStorage() &&
+          !VD->isLocalVarDecl() && !VD->isStaticDataMember())
+        Out << "_" << GetStableMangledName(MainFileName);
+    }
+
+  return std::string(Buffer.str());
+}
 #endif // INTEL_COLLAB
 
 void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
