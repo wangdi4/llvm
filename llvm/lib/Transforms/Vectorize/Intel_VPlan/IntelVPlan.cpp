@@ -353,8 +353,11 @@ void VPInstruction::dump(raw_ostream &O,
     O << "    DbgLoc: ";
     getDebugLocation().print(O);
     O << "\n";
+    O << "    OperatorFlags -\n";
+    O << "      FMF: " << hasFastMathFlags() << ", NSW: " << hasNoSignedWrap()
+      << ", NUW: " << hasNoUnsignedWrap() << ", Exact: " << isExact() << "\n";
     // Print other attributes here when imported.
-    O << "\n";
+    O << "    end of details\n\n";
   }
 }
 #endif /* INTEL_CUSTOMIZATION */

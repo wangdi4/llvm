@@ -215,8 +215,10 @@ struct DeviceTy {
                                  ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
                                  int32_t NumTeams, int32_t ThreadLimit,
                                  uint64_t LoopTripCount, void *AsyncData);
-  void *create_offload_pipe(bool);
-  int32_t release_offload_pipe(void *);
+  void *create_offload_queue(bool);
+  int32_t release_offload_queue(void *);
+  void *get_platform_handle();
+  void *get_device_handle();
   void *data_alloc_managed(int64_t Size);
   int32_t data_delete_managed(void *Ptr);
   int32_t is_managed_ptr(void *Ptr);

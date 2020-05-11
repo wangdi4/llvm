@@ -1241,7 +1241,7 @@ int32_t __tgt_rtl_run_target_region_nowait(int32_t DeviceId, void *TgtEntryPtr,
                              NumArgs, 1, 0, nullptr, AsyncEvent);
 }
 
-EXTERN void *__tgt_rtl_create_offload_pipe(int32_t DeviceId, bool IsAsync) {
+EXTERN void *__tgt_rtl_create_offload_queue(int32_t DeviceId, bool IsAsync) {
   // Create and return a new command queue for interop
   ze_command_queue_desc_t cmdQueueDesc = {
     ZE_COMMAND_QUEUE_DESC_VERSION_CURRENT,
@@ -1252,18 +1252,29 @@ EXTERN void *__tgt_rtl_create_offload_pipe(int32_t DeviceId, bool IsAsync) {
   };
   // TODO: check with MKL team and decide what to do with IsAsync
 
-  ze_command_queue_handle_t pipe = nullptr;
+  ze_command_queue_handle_t queue = nullptr;
   CALL_ZE_RET_NULL(zeCommandQueueCreate, DeviceInfo.Devices[DeviceId],
-                   &cmdQueueDesc, &pipe);
+                   &cmdQueueDesc, &queue);
   DP("%s returns a new asynchronous command queue " DPxMOD "\n", __func__,
-     DPxPTR(pipe));
-  return pipe;
+     DPxPTR(queue));
+  return queue;
 }
 
-EXTERN int32_t __tgt_rtl_release_offload_pipe(int32_t DeviceId, void *Pipe) {
+EXTERN int32_t __tgt_rtl_release_offload_queue(int32_t DeviceId, void *Pipe) {
   CALL_ZE_RET_FAIL(zeCommandQueueDestroy, (ze_command_queue_handle_t)Pipe);
   return OFFLOAD_SUCCESS;
 }
+
+EXTERN void *__tgt_rtl_create_get_platform_handle(int32_t device_id) {
+  auto driver = DeviceInfo.Driver;
+  return (void *) driver;
+}
+
+EXTERN void *__tgt_rtl_create_get_device_handle(int32_t device_id) {
+  auto device = DeviceInfo.Devices[device_id];
+  return (void *) device;
+}
+
 
 EXTERN void *__tgt_rtl_create_buffer(int32_t DeviceId, void *TgtPtr) {
   return TgtPtr;

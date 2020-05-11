@@ -1809,7 +1809,7 @@ int32_t __tgt_rtl_manifest_data_for_region(
   return OFFLOAD_SUCCESS;
 }
 
-EXTERN void *__tgt_rtl_create_offload_pipe(int32_t device_id, bool is_async) {
+EXTERN void *__tgt_rtl_create_offload_queue(int32_t device_id, bool is_async) {
   // Return a shared in-order queue for synchronous case if requested
   if (!is_async && DeviceInfo->Flags.UseInteropQueueInorderSharedSync) {
     DP("%s returns the shared in-order queue " DPxMOD "\n", __func__,
@@ -1856,15 +1856,21 @@ EXTERN void *__tgt_rtl_create_offload_pipe(int32_t device_id, bool is_async) {
 }
 
 // Release the command queue if it is a new in-order command queue.
-EXTERN int32_t __tgt_rtl_release_offload_pipe(int32_t device_id, void *pipe) {
-  cl_command_queue queue = (cl_command_queue)pipe;
-  if (queue != DeviceInfo->QueuesOOO[device_id] &&
-      queue != DeviceInfo->Queues[device_id]) {
-    INVOKE_CL_RET_FAIL(clReleaseCommandQueue, queue);
+EXTERN int32_t __tgt_rtl_release_offload_queue(int32_t device_id, void *queue) {
+  cl_command_queue tqueue = (cl_command_queue)queue;
+  if (tqueue != DeviceInfo->QueuesOOO[device_id] &&
+      tqueue != DeviceInfo->Queues[device_id]) {
+    INVOKE_CL_RET_FAIL(clReleaseCommandQueue, tqueue);
     DP("%s releases a separate in-order queue " DPxMOD "\n",__func__,
        DPxPTR(queue));
   }
   return OFFLOAD_SUCCESS;
+}
+
+
+EXTERN void *__tgt_rtl_create_get_platform_handle(int32_t device_id) {
+  auto context = DeviceInfo->CTX[device_id];
+  return (void *) context;
 }
 
 #if INTEL_CUSTOMIZATION

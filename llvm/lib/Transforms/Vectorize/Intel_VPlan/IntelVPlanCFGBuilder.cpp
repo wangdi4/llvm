@@ -195,8 +195,10 @@ VPlanCFGBuilderBase<CFGBuilder>::createVPInstruction(Instruction *Inst) {
           Inst->getOpcode(), Inst->getType(), VPOperands, Inst));
   }
 
-  // Import underlying debug location attached to this instruction.
+  // Import underlying debug location and Operator attributes attached to this
+  // instruction.
   NewVPInst->setDebugLocation(Inst->getDebugLoc());
+  NewVPInst->copyOperatorFlagsFrom(Inst);
   return NewVPInst;
 }
 

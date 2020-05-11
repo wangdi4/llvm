@@ -654,17 +654,29 @@ int32_t DeviceTy::run_team_region_nowait(void *TgtEntryPtr, void **TgtVarsPtr,
   return ret;
 }
 
-void *DeviceTy::create_offload_pipe(bool IsAsync) {
-  if (!RTL->create_offload_pipe)
+void *DeviceTy::create_offload_queue(bool IsAsync) {
+  if (!RTL->create_offload_queue)
     return nullptr;
-  return RTL->create_offload_pipe(RTLDeviceID, IsAsync);
+  return RTL->create_offload_queue(RTLDeviceID, IsAsync);
 }
 
-int32_t DeviceTy::release_offload_pipe(void *Pipe) {
-  if (RTL->release_offload_pipe)
-    return RTL->release_offload_pipe(RTLDeviceID, Pipe);
+int32_t DeviceTy::release_offload_queue(void *Queue) {
+  if (RTL->release_offload_queue)
+    return RTL->release_offload_queue(RTLDeviceID, Queue);
   else
     return OFFLOAD_SUCCESS;
+}
+
+void *DeviceTy::get_platform_handle() {
+  if (!RTL->get_platform_handle)
+    return nullptr;
+  return RTL->get_platform_handle(RTLDeviceID);
+}
+
+void *DeviceTy::get_device_handle() {
+  if (!RTL->get_device_handle)
+    return nullptr;
+  return RTL->get_device_handle(RTLDeviceID);
 }
 
 void *DeviceTy::data_alloc_managed(int64_t Size) {
