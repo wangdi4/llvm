@@ -759,8 +759,6 @@ void VPlanPredicator::transformPhisToBlends(VPBasicBlock *Block) {
     for (VPBasicBlock &BB : *Block->getParent()) {
       if (BB.getCondBit() == &OrigPhi)
         BB.setCondBit(OrigPhi.getIncomingValue(0u));
-      if (BB.getPredicate() == &OrigPhi)
-        BB.setPredicate(OrigPhi.getIncomingValue(0u));
     }
 
     PhisToRemove.push_back(&OrigPhi);
@@ -919,8 +917,8 @@ void VPlanPredicator::predicateAndLinearizeRegion(bool SearchLoopHack) {
           (!shouldPreserveUniformBranches() || DA->isDivergent(*Predicate))) {
         VPBuilder::InsertPointGuard Guard(Builder);
         Builder.setInsertPointAfterBlends(Block);
-        Block->setPredicate(Predicate);
         auto *BlockPredicateInst = Builder.createPred(Predicate);
+        Block->setBlockPredicate(BlockPredicateInst);
         Plan.getVPlanDA()->updateDivergence(*BlockPredicateInst);
       }
 
@@ -941,8 +939,8 @@ void VPlanPredicator::predicateAndLinearizeRegion(bool SearchLoopHack) {
     Block2Predicate[Block] = Predicate;
     if (Predicate &&
         (!shouldPreserveUniformBranches() || DA->isDivergent(*Predicate))) {
-      Block->setPredicate(Predicate);
       auto *BlockPredicateInst = Builder.createPred(Predicate);
+      Block->setBlockPredicate(BlockPredicateInst);
       Plan.getVPlanDA()->updateDivergence(*BlockPredicateInst);
     }
   }

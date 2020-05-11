@@ -108,19 +108,8 @@ void VPlanAllZeroBypass::createLiveOutPhisAndReplaceUsers(
     assert(VPPhi->getParent()->getNumPredecessors() == 2 &&
            "Parent block of phi is expected to have 2 predecessors for bypass");
     VPPhi->addIncoming(ValueOnAllZeroEdge, BypassBegin);
-    for (auto *User : LiveOutUsers) {
+    for (auto *User : LiveOutUsers)
       User->replaceUsesOfWith(LiveOut, VPPhi);
-      // If the user of a live-out value of the region is a block-predicate,
-      // then we must update the user's block predicate with the new phi.
-      if (VPInstruction *UserInst = dyn_cast<VPInstruction>(User)) {
-        if (UserInst->getOpcode() == VPInstruction::Pred) {
-          VPBasicBlock *UserParent = UserInst->getParent();
-          assert(LiveOut == UserParent->getPredicate() &&
-                 "Invalid replacement of old block-predicate instruction");
-          UserParent->setPredicate(VPPhi);
-        }
-      }
-    }
   }
 }
 

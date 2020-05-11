@@ -361,6 +361,27 @@ void VPBasicBlock::insertAfter(VPBasicBlock *InsertPos) {
    CurPlan->insertAfter(this, InsertPos);
 }
 
+VPValue *VPBasicBlock::getPredicate() {
+  if (!BlockPredicate)
+    return nullptr;
+  assert(BlockPredicate->getParent() == this &&
+         "Block predicate doesn't belong to this VPBasicBlock!");
+  return BlockPredicate->getOperand(0);
+}
+const VPValue *VPBasicBlock::getPredicate() const {
+  if (!BlockPredicate)
+    return nullptr;
+  assert(BlockPredicate->getParent() == this &&
+         "Block predicate doesn't belong to this VPBasicBlock!");
+  return BlockPredicate->getOperand(0);
+}
+void VPBasicBlock::setBlockPredicate(VPInstruction *BlockPredicate) {
+  assert(
+      (!BlockPredicate || BlockPredicate->getOpcode() == VPInstruction::Pred) &&
+      "VPBlockPredicate is expected!");
+  this->BlockPredicate = BlockPredicate;
+}
+
 void VPBasicBlock::insert(VPInstruction *Instruction, iterator InsertPt) {
   assert(Instruction && "No instruction to append.");
   assert(!Instruction->Parent && "Instruction already in VPlan");
@@ -733,30 +754,10 @@ VPBasicBlock *VPBasicBlock::splitBlock(iterator I, const Twine &NewBBName) {
 
   // Once instructions have been moved, determine which block has a
   // block-predicate instruction now.
-  VPValue *OrigPredicate = getPredicate();
-
-  auto IsBlockPredicateForBlock = [](const VPUser *U,
-                                     const VPBasicBlock *BB) -> bool {
-    auto *Inst = dyn_cast<VPInstruction>(U);
-    if (!Inst)
-      return false;
-    return Inst->getOpcode() == VPInstruction::Pred && Inst->getParent() == BB;
-  };
-  auto HasBlockPredicate = [=](const VPBasicBlock *BB) {
-    return OrigPredicate != nullptr &&
-           llvm::any_of(OrigPredicate->users(), [=](const VPUser *U) {
-             return IsBlockPredicateForBlock(U, BB);
-           });
-  };
-
-  bool NewBlockHasPredicate = HasBlockPredicate(NewBB);
-  if (NewBlockHasPredicate) {
-    setPredicate(nullptr);
-    NewBB->setPredicate(OrigPredicate);
-  }
-  assert(
-      (!OrigPredicate || HasBlockPredicate(this) || HasBlockPredicate(NewBB)) &&
-      "Block predicate was lost!");
+  VPInstruction *BlockPredicate = getBlockPredicate();
+  setBlockPredicate(nullptr);
+  if (BlockPredicate)
+    BlockPredicate->getParent()->setBlockPredicate(BlockPredicate);
 
   // Update incoming block of VPPHINodes in successors, if any
   for (auto &Successor : NewBB->getSuccessors()) {

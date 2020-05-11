@@ -188,7 +188,7 @@ public:
                              {LHS, RHS}, Name);
   }
 
-  VPValue *createPred(VPValue *Operand) {
+  VPInstruction *createPred(VPValue *Operand) {
     return createInstruction(VPInstruction::Pred, Operand->getType(),
                              {Operand});
   }
