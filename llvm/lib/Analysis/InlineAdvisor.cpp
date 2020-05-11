@@ -18,18 +18,43 @@
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Transforms/IPO/Intel_InlineReport.h" // INTEL
+#include "llvm/Transforms/IPO/Intel_MDInlineReport.h" // INTEL
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <sstream>
 
 using namespace llvm;
+using namespace InlineReportTypes; // INTEL
 #define DEBUG_TYPE "inline"
 
 // This weirdly named statistic tracks the number of times that, when attempting
 // to inline a function A into B, we analyze the callers of B in order to see
 // if those would be more profitable and blocked inline steps.
 STATISTIC(NumCallerCallersAnalyzed, "Number of caller-callers analyzed");
+
+#if INTEL_CUSTOMIZATION
+///
+/// \brief Inlining report level option
+///
+/// Specified with -inline-report=N
+///   N is a bit mask with the following interpretation of the bits
+///    0: No inlining report
+///    1: Simple inlining report
+///    2: Add inlining reasons
+///    4: Put the inlining reasons on the same line as the call sites
+///    8: Print the line and column info for each call site if available
+///   16: Print the file for each call site
+///   32: Print linkage info for each function and call site
+///   64: Print both early exit and real inlining costs
+///  128: Create metadata-based inline report
+///  256: Create composite inline report for an -flto compilation.
+///
+cl::opt<unsigned>
+IntelInlineReportLevel("inline-report", cl::Hidden, cl::init(0),
+  cl::Optional, cl::desc("Print inline report"));
+#endif // INTEL_CUSTOMIZATION
 
 /// Flag to add inline messages as callsite attributes 'inline-remark'.
 static cl::opt<bool>
@@ -60,8 +85,15 @@ bool llvm::shouldBeDeferred(
   // If the cost of inlining CB is non-positive, it is not going to prevent the
   // caller from being inlined into its callers and hence we don't need to
   // defer.
-  if (IC.getCost() <= 0)
-    return false;
+#if INTEL_CUSTOMIZATION
+  // FIXME: This was disabled in commit 26b322b1e in 2019/02/06. We need to
+  // check if it needs to stay commented out. Original message: Until the
+  // pulldown is complete, we will need to defer enabling this change, because
+  // it inhibits the deferring of inlining performed by
+  // worthInliningForStackComputations() in InlineCost.cpp.
+  //if (IC.getCost() <= 0)
+  //  return false;
+#endif // INTEL_CUSTOMIZATION
   // Try to detect the case where the current inlining candidate caller (call
   // it B) is a static or linkonce-ODR function and is an inlining candidate
   // elsewhere, and the current candidate callee (call it C) is large enough
@@ -181,7 +213,7 @@ void llvm::setInlineRemark(CallBase &CB, StringRef Message) {
 Optional<InlineCost>
 llvm::shouldInline(CallBase &CB,
                    function_ref<InlineCost(CallBase &CB)> GetInlineCost,
-                   OptimizationRemarkEmitter &ORE) {
+                   OptimizationRemarkEmitter &ORE, InlineReport *IR) { // INTEL
   using namespace ore;
 
   InlineCost IC = GetInlineCost(CB);
@@ -192,6 +224,14 @@ llvm::shouldInline(CallBase &CB,
   if (IC.isAlways()) {
     LLVM_DEBUG(dbgs() << "    Inlining " << inlineCostStr(IC)
                       << ", Call: " << CB << "\n");
+#if INTEL_CUSTOMIZATION
+    InlineReason Reason = IC.getInlineReason();
+    if (CB.hasFnAttr("inline-list"))
+      Reason = InlrInlineList;
+    if (IR != nullptr)
+      IR->setReasonIsInlined(&CB, Reason);
+    llvm::setMDReasonIsInlined(&CB, Reason);
+#endif // INTEL_CUSTOMIZATION
     return IC;
   }
 
@@ -205,6 +245,14 @@ llvm::shouldInline(CallBase &CB,
                << NV("Caller", Caller) << " because it should never be inlined "
                << IC;
       });
+#if INTEL_CUSTOMIZATION
+      InlineReason Reason = IC.getInlineReason();
+      if (CB.hasFnAttr("noinline-list"))
+        Reason = NinlrNoinlineList;
+      if (IR != nullptr)
+        IR->setReasonNotInlined(&CB, Reason);
+      llvm::setMDReasonNotInlined(&CB, Reason);
+#endif // INTEL_CUSTOMIZATION
     } else {
       ORE.emit([&]() {
         return OptimizationRemarkMissed(DEBUG_TYPE, "TooCostly", Call)
@@ -212,6 +260,11 @@ llvm::shouldInline(CallBase &CB,
                << NV("Caller", Caller) << " because too costly to inline "
                << IC;
       });
+#if INTEL_CUSTOMIZATION
+      if (IR != nullptr)
+        IR->setReasonNotInlined(&CB, IC);
+      llvm::setMDReasonNotInlined(&CB, IC);
+#endif // INTEL_CUSTOMIZATION
     }
     setInlineRemark(CB, inlineCostStr(IC));
     return None;
@@ -232,11 +285,22 @@ llvm::shouldInline(CallBase &CB,
     setInlineRemark(CB, "deferred");
     // IC does not bool() to false, so get an InlineCost that will.
     // This will not be inspected to make an error message.
+#if INTEL_CUSTOMIZATION
+    IC.setInlineReason(NinlrOuterInlining);
+    if (IR != nullptr)
+      IR->setReasonNotInlined(&CB, IC, TotalSecondaryCost);
+    llvm::setMDReasonNotInlined(&CB, IC, TotalSecondaryCost);
+#endif // INTEL_CUSTOMIZATION
     return None;
   }
 
   LLVM_DEBUG(dbgs() << "    Inlining " << inlineCostStr(IC) << ", Call: " << CB
                     << '\n');
+#if INTEL_CUSTOMIZATION
+  if (IR != nullptr)
+    IR->setReasonIsInlined(&CB, IC);
+  llvm::setMDReasonIsInlined(&CB, IC);
+#endif // INTEL_CUSTOMIZATION
   return IC;
 }
 

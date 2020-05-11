@@ -20,6 +20,7 @@ namespace llvm {
 class BasicBlock;
 class CallBase;
 class Function;
+class InlineReport; // INTEL
 class OptimizationRemarkEmitter;
 
 // Default (manual policy) decision making helper APIs. Shared with the legacy
@@ -39,7 +40,7 @@ bool shouldBeDeferred(Function *Caller, InlineCost IC, int &TotalSecondaryCost,
 /// inlining should not be attempted.
 Optional<InlineCost>
 shouldInline(CallBase &CB, function_ref<InlineCost(CallBase &CB)> GetInlineCost,
-             OptimizationRemarkEmitter &ORE);
+             OptimizationRemarkEmitter &ORE, InlineReport *IR); // INTEL
 
 /// Emit ORE message.
 void emitInlinedInto(OptimizationRemarkEmitter &ORE, DebugLoc DLoc,
