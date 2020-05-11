@@ -7,15 +7,13 @@
 
 #include <level_zero/ze_api.h>
 
-template<class To, class From>
-To pi_cast(From Value) {
+template <class To, class From> To pi_cast(From Value) {
   // TODO: see if more sanity checks are possible.
   assert(sizeof(From) == sizeof(To));
   return (To)(Value);
 }
 
-template<>
-uint32_t pi_cast(uint64_t Value) {
+template <> uint32_t pi_cast(uint64_t Value) {
   // Cast value and check that we don't lose any information.
   uint32_t CastedValue = (uint32_t)(Value);
   assert((uint64_t)CastedValue == Value);
@@ -156,7 +154,7 @@ struct _pi_queue {
   // The "is_blocking" tells if the wait for completion is requested.
   //
   pi_result executeCommandList(ze_command_list_handle_t ZeCommandList,
-                                   bool is_blocking = false);
+                               bool is_blocking = false);
 };
 
 struct _pi_mem {
@@ -194,7 +192,7 @@ struct _pi_mem {
 
   // Thread-safe methods to work with memory mappings
   pi_result addMapping(void *MappedTo, size_t Size, size_t Offset);
-  pi_result removeMapping(void *MappedTo, Mapping& MapInfo);
+  pi_result removeMapping(void *MappedTo, Mapping &MapInfo);
 
 protected:
   _pi_mem(pi_platform Plt, char *HostPtr)
@@ -216,8 +214,7 @@ struct _pi_buffer final : _pi_mem {
   // Buffer/Sub-buffer constructor
   _pi_buffer(pi_platform Plt, char *Mem, char *HostPtr,
              _pi_mem *Parent = nullptr, size_t Origin = 0, size_t Size = 0)
-      : _pi_mem(Plt, HostPtr), ZeMem{Mem}, SubBuffer{Parent, Origin,
-                                                          Size} {}
+      : _pi_mem(Plt, HostPtr), ZeMem{Mem}, SubBuffer{Parent, Origin, Size} {}
 
   void *getZeHandle() override { return ZeMem; }
 
@@ -287,16 +284,15 @@ struct _pi_event {
   pi_context Context;
 
   // Opaque data to hold any data needed for CommandType.
-  void * CommandData;
+  void *CommandData;
 
   // L0 doesn't do the reference counting, so we have to do.
   // Must be atomic to prevent data race when incrementing/decrementing.
   std::atomic<pi_uint32> RefCount;
 
   // Methods for translating PI events list into L0 events list
-  static ze_event_handle_t * createZeEventList(pi_uint32, const pi_event *);
+  static ze_event_handle_t *createZeEventList(pi_uint32, const pi_event *);
   static void deleteZeEventList(ze_event_handle_t *);
-
 };
 
 struct _pi_program {
