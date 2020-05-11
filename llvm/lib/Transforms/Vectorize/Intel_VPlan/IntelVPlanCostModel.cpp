@@ -210,7 +210,7 @@ bool VPlanCostModel::isUnitStrideLoadStore(const VPInstruction *VPInst) const {
     Plan->getVPlanDA()->isUnitStridePtr(getLoadStorePointerOperand(VPInst));
 }
 
-unsigned VPlanCostModel::getLoadStoreCost(const VPInstruction *VPInst) const {
+unsigned VPlanCostModel::getLoadStoreCost(const VPInstruction *VPInst) {
   Type *OpTy = getMemInstValueType(VPInst);
   assert(OpTy && "Can't get type of the load/store instruction!");
 
@@ -241,7 +241,7 @@ unsigned VPlanCostModel::getLoadStoreCost(const VPInstruction *VPInst) const {
   return VF*BaseCost;
 }
 
-unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) const {
+unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
   // TODO: For instruction that are not contained inside the loop we're
   // vectorizing, VF should not be considered. That includes the instructions
   // that are outside of any of the loops in the loopnest. However, before
@@ -410,7 +410,7 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) const {
   }
 }
 
-unsigned VPlanCostModel::getCost(const VPBasicBlock *VPBB) const {
+unsigned VPlanCostModel::getCost(const VPBasicBlock *VPBB) {
   unsigned Cost = 0;
   for (const VPInstruction &VPInst : *VPBB) {
     // FIXME: Use Block Frequency Info (or similar VPlan-specific analysis) to
@@ -424,7 +424,7 @@ unsigned VPlanCostModel::getCost(const VPBasicBlock *VPBB) const {
   return Cost;
 }
 
-unsigned VPlanCostModel::getCost() const {
+unsigned VPlanCostModel::getCost() {
   unsigned Cost = 0;
   for (auto *Block : depth_first(Plan->getEntryBlock()))
     Cost += getCost(Block);
@@ -433,21 +433,21 @@ unsigned VPlanCostModel::getCost() const {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPlanCostModel::printForVPInstruction(
-  raw_ostream &OS, const VPInstruction *VPInst) const {
+  raw_ostream &OS, const VPInstruction *VPInst) {
   OS << "  Cost " << getCostNumberString(getCost(VPInst)) << " for ";
   VPInst->print(OS);
   OS << '\n';
 }
 
 void VPlanCostModel::printForVPBasicBlock(raw_ostream &OS,
-                                          const VPBasicBlock *VPBB) const {
+                                          const VPBasicBlock *VPBB) {
   OS << "Analyzing VPBasicBlock " << VPBB->getName() << ", total cost: " <<
     getCostNumberString(getCost(VPBB)) << '\n';
   for (const VPInstruction &VPInst : *VPBB)
     printForVPInstruction(OS, &VPInst);
 }
 
-void VPlanCostModel::print(raw_ostream &OS, const std::string &Header) const {
+void VPlanCostModel::print(raw_ostream &OS, const std::string &Header) {
   OS << "Cost Model for VPlan " << Header << " with VF = " << VF << ":\n";
   OS << "Total Cost: " << getCost() << '\n';
   LLVM_DEBUG(dbgs() << *Plan;);
