@@ -282,6 +282,31 @@ bool VPOAnalysisUtils::isBeginDirective(BasicBlock *BB) {
   return VPOAnalysisUtils::isBeginDirective(&(BB->front()));
 }
 
+bool VPOAnalysisUtils::isBeginLoopDirective(int DirID) {
+  switch(DirID) {
+  case DIR_OMP_LOOP:
+  case DIR_OMP_PARALLEL_LOOP:
+  case DIR_OMP_SIMD:
+  case DIR_OMP_TASKLOOP:
+  case DIR_OMP_DISTRIBUTE:
+  case DIR_OMP_DISTRIBUTE_PARLOOP:
+  case DIR_OMP_GENERICLOOP:
+  case DIR_PRAGMA_BLOCK_LOOP:
+    return true;
+  }
+  return false;
+}
+
+bool VPOAnalysisUtils::isBeginLoopDirective(StringRef DirString) {
+  int DirID = VPOAnalysisUtils::getDirectiveID(DirString);
+  return VPOAnalysisUtils::isBeginLoopDirective(DirID);
+}
+
+bool VPOAnalysisUtils::isBeginLoopDirective(Instruction *I) {
+  int DirID = VPOAnalysisUtils::getDirectiveID(I);
+  return VPOAnalysisUtils::isBeginLoopDirective(DirID);
+}
+
 bool VPOAnalysisUtils::isEndDirective(int DirID) {
   switch(DirID) {
   case DIR_OMP_END_PARALLEL:
@@ -328,6 +353,31 @@ bool VPOAnalysisUtils::isEndDirective(Instruction *I) {
 
 bool VPOAnalysisUtils::isEndDirective(BasicBlock *BB) {
   return VPOAnalysisUtils::isEndDirective(&(BB->front()));
+}
+
+bool VPOAnalysisUtils::isEndLoopDirective(int DirID) {
+  switch(DirID) {
+  case DIR_OMP_END_LOOP:
+  case DIR_OMP_END_PARALLEL_LOOP:
+  case DIR_OMP_END_SIMD:
+  case DIR_OMP_END_TASKLOOP:
+  case DIR_OMP_END_DISTRIBUTE:
+  case DIR_OMP_END_DISTRIBUTE_PARLOOP:
+  case DIR_OMP_END_GENERICLOOP:
+  case DIR_PRAGMA_END_BLOCK_LOOP:
+    return true;
+  }
+  return false;
+}
+
+bool VPOAnalysisUtils::isEndLoopDirective(StringRef DirString) {
+  int DirID = VPOAnalysisUtils::getDirectiveID(DirString);
+  return VPOAnalysisUtils::isEndLoopDirective(DirID);
+}
+
+bool VPOAnalysisUtils::isEndLoopDirective(Instruction *I) {
+  int DirID = VPOAnalysisUtils::getDirectiveID(I);
+  return VPOAnalysisUtils::isEndLoopDirective(DirID);
 }
 
 bool VPOAnalysisUtils::isBeginOrEndDirective(int DirID) {

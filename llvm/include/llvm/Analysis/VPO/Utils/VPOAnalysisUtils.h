@@ -320,12 +320,24 @@ public:
     static bool isBeginDirective(Instruction *I);
     static bool isBeginDirective(BasicBlock *BB);
 
+    /// Return true for a directive that begins a loop region, such as
+    /// DIR_OMP_PARALLEL_LOOP and DIR_OMP_SIMD.
+    static bool isBeginLoopDirective(int DirID);
+    static bool isBeginLoopDirective(StringRef DirString);
+    static bool isBeginLoopDirective(Instruction *I);
+
     /// Return true for a directive that ends a region, such as
     /// DIR_OMP_END_PARALLEL and DIR_OMP_END_SIMD.
     static bool isEndDirective(int DirID);
     static bool isEndDirective(StringRef DirString);
     static bool isEndDirective(Instruction *I);
     static bool isEndDirective(BasicBlock *BB);
+
+    /// Return true for a directive that ends a loop region, such as
+    /// DIR_OMP_END_PARALLEL_LOOP and DIR_OMP_END_SIMD.
+    static bool isEndLoopDirective(int DirID);
+    static bool isEndLoopDirective(StringRef DirString);
+    static bool isEndLoopDirective(Instruction *I);
 
     /// Return true for a directive that begins or ends a region.
     static bool isBeginOrEndDirective(int DirID);

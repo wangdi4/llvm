@@ -146,6 +146,9 @@ public:
   /// Generate the alias_scope and no_alias metadata for the incoming BBs.
   static void genAliasSet(ArrayRef<BasicBlock *> BBs, AliasAnalysis *AA,
                           const DataLayout *DL);
+
+  /// Returns true if Lp has a directive.
+  static bool isLoopWithDirective(const Loop &Lp);
 #endif  // INTEL_CUSTOMIZATION
 
   /// Generate a memcpy call with the destination argument \p D and the source

@@ -510,5 +510,41 @@ void VPOUtils::genAliasSet(ArrayRef<BasicBlock *> BBs, AliasAnalysis *AA,
 
   calculateClique(MemoryInsns, BM);
 }
+
+/// Returns true if this bblock contains known loop begin/end directive. \p
+/// BeginDir flag indicates whether to look for begin or end directive.
+static bool containsLoopDirective(BasicBlock *BB) {
+  for (auto &Inst : *BB) {
+    if (VPOAnalysisUtils::isBeginLoopDirective(&Inst))
+      return true;
+  }
+
+  return false;
+}
+
+/// Traces a chain of single predecessor/successor bblocks starting from \p BB
+/// and looks for loop begin directive. Returns the bblock containing the
+/// directive.
+static BasicBlock *findLoopDirective(BasicBlock *BB) {
+  for (; BB != nullptr;) {
+    if (containsLoopDirective(BB))
+      return BB;
+    BB = BB->getSinglePredecessor();
+  }
+
+  return nullptr;
+}
+
+/// Returns true if Lp has a directive.
+bool VPOUtils::isLoopWithDirective(const Loop &Lp) {
+
+  BasicBlock *PreheaderBB = Lp.getLoopPreheader();
+  BasicBlock *BeginBB = findLoopDirective(PreheaderBB);
+
+  if (!BeginBB)
+    return false;
+
+  return true;
+}
 #endif // INTEL_CUSTOMIZATION
 #endif // INTEL_COLLAB

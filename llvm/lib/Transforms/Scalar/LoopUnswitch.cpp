@@ -75,6 +75,7 @@
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
+#include "llvm/Transforms/VPO/Utils/VPOUtils.h" // INTEL
 #include <algorithm>
 #include <cassert>
 #include <map>
@@ -321,6 +322,16 @@ bool LUAnalysisCache::countLoop(const Loop *L, const TargetTransformInfo &TTI,
                         << "duplicated!\n");
       return false;
     }
+#if INTEL_CUSTOMIZATION
+    // If loop unswitching is triggered on SIMD loop then SIMD directive will
+    // encapsulate if/else versions of the loop. This is not a valid input to
+    // HIR.
+    if (vpo::VPOUtils::isLoopWithDirective(*L)) {
+      LLVM_DEBUG(dbgs() << "NOT unswitching loop %" << L->getHeader()->getName()
+                        << ", since it has region directive\n");
+      return false;
+    }
+#endif // INTEL_CUSTOMIZATION
   }
 
   // Be careful. This links are good only before new loop addition.

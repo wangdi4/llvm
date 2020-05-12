@@ -149,6 +149,10 @@ def "DIR.VPO.END.AUTO.VEC" : Directive;
 #if INTEL_CUSTOMIZATION
 def "DIR.PRAGMA.IVDEP" : Directive;
 def "DIR.PRAGMA.END.IVDEP" : Directive;
+def "DIR.PRAGMA.BLOCK_LOOP" : Directive;
+def "DIR.PRAGMA.END.BLOCK_LOOP" : Directive;
+def "DIR.PRAGMA.DISTRIBUTE_POINT" : Directive;
+def "DIR.PRAGMA.END.DISTRIBUTE_POINT" : Directive;
 #endif // INTEL_CUSTOMIZATION
 
 
