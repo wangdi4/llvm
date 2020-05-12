@@ -96,7 +96,7 @@ cl_dev_err_code CPUCompileService::DumpJITCodeContainer(
                 std::string("Failed to open file for dump: ") + ec.message());
 
         Utils::ObjectDump &objDump = Utils::ObjectDump::getInstance();
-        if (llvm::Error err = objDump.disassembleAll(objBuffer.get(), out)) {
+        if (llvm::Error err = objDump.dumpObject(objBuffer.get(), out)) {
             llvm::logAllUnhandledErrors(std::move(err), llvm::errs());
             throw Exceptions::CompilerException("Failed to dump object buffer");
         }
