@@ -1830,6 +1830,9 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
   Function *vectorFunction = dyn_cast<Function>(vectFunctionConst.getCallee());
   V_ASSERT(vectorFunction && "Function type mismatch, caused a constant expression cast!");
 
+  // Remove returned attr to avoid the call being removed by InstCombiner.
+  vectorFunction->removeParamAttr(0, Attribute::Returned);
+
   // Create new instruction
   CallInst * newCall =
     CallInst::Create(vectorFunction, ArrayRef<Value*>(newArgs), "", CI);
