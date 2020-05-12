@@ -397,14 +397,9 @@ pi_result piProgramCreate(pi_context context, const void *il, size_t length,
   return err;
 }
 
-<<<<<<< HEAD
-pi_result OCL(piextProgramCreateWithNativeHandle)(pi_native_handle nativeHandle,
-                                                  pi_context, // INTEL
-                                                  pi_program *piProgram) {
-=======
 pi_result piextProgramCreateWithNativeHandle(pi_native_handle nativeHandle,
+                                             pi_context, // INTEL
                                              pi_program *piProgram) {
->>>>>>> f70662432d98bd170fd90d71df627ec66d67bc1f
   assert(piProgram != nullptr);
   *piProgram = reinterpret_cast<pi_program>(nativeHandle);
   return PI_SUCCESS;
@@ -923,7 +918,8 @@ pi_result piextUSMEnqueuePrefetch(pi_queue queue, const void *ptr, size_t size,
 /// \param event is the event that represents this operation
 // USM memadvise API to govern behavior of automatic migration mechanisms
 pi_result piextUSMEnqueueMemAdvise(pi_queue queue, const void *ptr,
-                                   size_t length, int advice, pi_event *event) {
+                                   size_t length, pi_mem_advice advice, // INTEL
+                                   pi_event *event) {
 
   return cast<pi_result>(
       clEnqueueMarkerWithWaitList(cast<cl_command_queue>(queue), 0, nullptr,
@@ -1154,14 +1150,8 @@ pi_result piPluginInit(pi_plugin *PluginInit) {
   _PI_CL(piKernelGetSubGroupInfo, clGetKernelSubGroupInfo)
   _PI_CL(piKernelRetain, clRetainKernel)
   _PI_CL(piKernelRelease, clReleaseKernel)
-<<<<<<< HEAD
-  _PI_CL(piextKernelSetArgMemObj, OCL(piextKernelSetArgMemObj))
-  _PI_CL(piKernelSetExecInfo, OCL(piKernelSetExecInfo))
-  _PI_CL(piextKernelSetArgPointer, OCL(piextKernelSetArgPointer))
-=======
   _PI_CL(piKernelSetExecInfo, piKernelSetExecInfo)
   _PI_CL(piextKernelSetArgPointer, piextKernelSetArgPointer)
->>>>>>> f70662432d98bd170fd90d71df627ec66d67bc1f
   // Event
   _PI_CL(piEventCreate, piEventCreate)
   _PI_CL(piEventGetInfo, clGetEventInfo)

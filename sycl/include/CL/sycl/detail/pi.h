@@ -1043,14 +1043,9 @@ piextProgramGetNativeHandle(pi_program program, pi_native_handle *nativeHandle);
 ///
 /// \param nativeHandle is the native handle to create PI program from.
 /// \param program is the PI program created from the native handle.
-<<<<<<< HEAD
-pi_result piextProgramCreateWithNativeHandle(pi_native_handle nativeHandle,
-                                             pi_context context, // INTEL
-                                             pi_program *program);
-=======
 __SYCL_EXPORT pi_result piextProgramCreateWithNativeHandle(
-    pi_native_handle nativeHandle, pi_program *program);
->>>>>>> f70662432d98bd170fd90d71df627ec66d67bc1f
+    pi_native_handle nativeHandle, pi_context context, // INTEL
+    pi_program *program);                              // INTEL
 
 //
 // Kernel
@@ -1127,17 +1122,10 @@ __SYCL_EXPORT pi_result piKernelSetExecInfo(pi_kernel kernel,
 //
 __SYCL_EXPORT pi_result piEventCreate(pi_context context, pi_event *ret_event);
 
-<<<<<<< HEAD
-pi_result piEventGetInfo(pi_event event,
-                         pi_event_info param_name,
-                         size_t param_value_size, void *param_value,
-                         size_t *param_value_size_ret);
-=======
-__SYCL_EXPORT pi_result piEventGetInfo(
-    pi_event event,
-    cl_event_info param_name, // TODO: untie from OpenCL
-    size_t param_value_size, void *param_value, size_t *param_value_size_ret);
->>>>>>> f70662432d98bd170fd90d71df627ec66d67bc1f
+__SYCL_EXPORT pi_result piEventGetInfo(pi_event event, pi_event_info param_name,
+                                       size_t param_value_size,
+                                       void *param_value,
+                                       size_t *param_value_size_ret);
 
 __SYCL_EXPORT pi_result piEventGetProfilingInfo(pi_event event,
                                                 pi_profiling_info param_name,
@@ -1453,15 +1441,10 @@ __SYCL_EXPORT pi_result piextUSMEnqueuePrefetch(
 /// \param advice is device specific advice
 /// \param event is the event that represents this operation
 // USM memadvise API to govern behavior of automatic migration mechanisms
-<<<<<<< HEAD
-pi_result piextUSMEnqueueMemAdvise(pi_queue queue, const void *ptr,
-                                   size_t length, pi_mem_advice advice,
-                                   pi_event *event);
-=======
 __SYCL_EXPORT pi_result piextUSMEnqueueMemAdvise(pi_queue queue,
                                                  const void *ptr, size_t length,
-                                                 int advice, pi_event *event);
->>>>>>> f70662432d98bd170fd90d71df627ec66d67bc1f
+                                                 pi_mem_advice advice, // INTEL
+                                                 pi_event *event);
 
 /// API to query information about USM allocated pointers
 /// Valid Queries:
