@@ -242,3 +242,8 @@
 // RUN: %clang_cl -# %s -c 2>&1 | FileCheck %s --check-prefix=CHECK-HASH
 // RUN: %clang -dryrun  %s -c 2>&1 | FileCheck %s --check-prefix=CHECK-HASH
 // CHECK-HASH: "-cc1"{{.*}}"-emit-obj"
+
+//Behavior with -qno-openmp/Qopenmp- option
+// RUN: %clang -### -c -qopenmp -qno-openmp %s 2>&1 | FileCheck -check-prefix CHECK-FOPENMP %s
+// RUN: %clang_cl -### -c /Qopenmp /Qopenmp- %s 2>&1 | FileCheck -check-prefix CHECK-FOPENMP %s
+// CHECK-FOPENMP-NOT: "-fopenmp"
