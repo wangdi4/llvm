@@ -495,6 +495,9 @@ void MathLibraryFunctionsReplacement::collectMathInstructions(Function &F) {
 // Try to convert sin/cos/sincos calls listed in GenSinCosInsts,
 // to OCL sincos format.
 bool MathLibraryFunctionsReplacement::genOCLSinCos() {
+  // FIXME DISABLED while CMPLRLLVM-12224 is being fixed.
+  return false;
+
   int NumConverted = 0;
   for (auto &&Handle : GenSinCosInsts) {
     auto *Call = cast_or_null<CallInst>(Handle);
