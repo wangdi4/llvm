@@ -36,7 +36,6 @@
 
 // List of all plugins that can support offloading.
 static const char *RTLNames[] = {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
     /* CSA target     */ "libomptarget.rtl.csa.so",
@@ -55,9 +54,7 @@ static const char *RTLNames[] = {
 #endif // INTEL_CUSTOMIZATION
 #endif // !_WIN32
 #endif // INTEL_COLLAB
-=======
     /* SX-Aurora VE target  */ "libomptarget.rtl.ve.so",
->>>>>>> 6b9e43c67e0b109881db2524ec5207c4a888e7f7
     /* PowerPC target */ "libomptarget.rtl.ppc64.so",
 #if INTEL_COLLAB
 #if _WIN32
