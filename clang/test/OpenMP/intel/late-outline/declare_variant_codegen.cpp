@@ -67,7 +67,7 @@ void caller2(int n, float* x, int dnum)
     float *a, *b, *c;
     //ALL: [[T0:%[0-9]+]] = {{.*}}region.entry(){{.*}}"DIR.OMP.TARGET.DATA"()
     //ALL: [[T1:%[0-9]+]] = {{.*}}region.entry(){{.*}}TARGET.VARIANT.DISPATCH
-    //ALL-SAME: "QUAL.OMP.USE_DEVICE_PTR"(float** %a
+    //ALL-SAME: "QUAL.OMP.USE_DEVICE_PTR:PTR_TO_PTR"(float** %a
     //ALL-SAME: float** %b{{.*}}, float** %c) ]
     #pragma omp target data map(tofrom:c[0:sizec]) map(to:a[0:sizea]) \
                             map(to:b[0:sizeb])

@@ -1573,9 +1573,9 @@ void RegDDRef::verify() const {
       assert(!LowerCE->hasIV() && "Dimension lower not expected to have IV!");
       assert(!StrideCE->hasIV() && "Dimension stride not expected to have IV!");
 
-      assert(LowerCE->getSrcType()->isIntegerTy() &&
+      assert(LowerCE->getSrcType()->isIntOrIntVectorTy() &&
              "Lower is not integer type!");
-      assert(StrideCE->getSrcType()->isIntegerTy() &&
+      assert(StrideCE->getSrcType()->isIntOrIntVectorTy() &&
              "Stride is not integer type!");
     }
   }

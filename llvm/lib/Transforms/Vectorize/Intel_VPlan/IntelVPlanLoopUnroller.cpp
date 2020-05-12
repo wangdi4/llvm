@@ -215,10 +215,5 @@ void VPlanLoopUnroller::run(VPInstUnrollPartTy *VPInstUnrollPart) {
 
   CurrentLatch->setCondBit(ValueMap[CurrentLatch->getCondBit()]);
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  if (VPlanPrintUnroll) {
-    outs() << "After VPlan loop unrolling\n";
-    Plan.dump(outs(), true);
-  }
-#endif
+  VPLAN_DUMP(VPlanPrintUnroll, "loop unrolling", Plan);
 }

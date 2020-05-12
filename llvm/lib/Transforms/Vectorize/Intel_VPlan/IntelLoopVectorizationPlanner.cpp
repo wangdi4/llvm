@@ -57,13 +57,13 @@ static cl::opt<bool>
     DisableVPlanPredicator("disable-vplan-predicator", cl::init(false),
                            cl::Hidden, cl::desc("Disable VPlan predicator."));
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::list<unsigned> VPlanCostModelPrintAnalysisForVF(
     "vplan-cost-model-print-analysis-for-vf", cl::Hidden, cl::CommaSeparated,
     cl::ZeroOrMore,
     cl::desc("Print detailed VPlan Cost Model Analysis report for the given "
              "VF. For testing/debug purposes only."));
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::opt<bool>
     PrintAfterLoopCFU("vplan-print-after-loop-cfu", cl::init(false), cl::Hidden,
                       cl::desc("Print VPlan after LoopCFU transformation."));
@@ -83,6 +83,12 @@ static cl::opt<bool> PrintAfterAllZeroBypass(
 static cl::opt<bool> DotAfterAllZeroBypass(
     "vplan-dot-after-all-zero-bypass", cl::init(false), cl::Hidden,
     cl::desc("Print VPlan digraph after all zero bypass insertion."));
+#else
+static constexpr bool PrintAfterLoopCFU = false;
+static constexpr bool PrintAfterLinearization = false;
+static constexpr bool DotAfterLinearization = false;
+static constexpr bool PrintAfterAllZeroBypass = false;
+static constexpr bool DotAfterAllZeroBypass = false;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 using namespace llvm;
@@ -396,12 +402,7 @@ void LoopVectorizationPlanner::predicate() {
       VPlanLoopCFU LoopCFU(*VPlan);
       LoopCFU.run();
     }
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    if (PrintAfterLoopCFU) {
-      outs() << "After Loop CFU transformation:\n";
-      VPlan->dump(outs(), VPlan->getVPlanDA());
-    }
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
+    VPLAN_DUMP(PrintAfterLoopCFU, "Loop CFU transformation", VPlan);
 
     // Predication "has" to be done even for the search loop hack. Our
     // idiom-matching code and CG currently expect that. Note that predicator
@@ -409,15 +410,8 @@ void LoopVectorizationPlanner::predicate() {
     VPlanPredicator VPP(*VPlan);
     VPP.predicate();
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    if (PrintAfterLinearization) {
-      outs() << "After predication and linearization\n";
-      VPlan->dump(outs(), true /* print DA info */);
-    }
-    if (DotAfterLinearization) {
-      outs() << *VPlan;
-    }
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
+    VPLAN_DUMP(PrintAfterLinearization, "predication and linearization", VPlan);
+    VPLAN_DOT(DotAfterLinearization, VPlan);
 
     PredicatedVPlans.insert(VPlan);
   }
@@ -440,15 +434,8 @@ void LoopVectorizationPlanner::insertAllZeroBypasses(VPlan *Plan) {
   AZB.collectAllZeroBypassRegions(AllZeroBypassRegions);
   AZB.insertAllZeroBypasses(AllZeroBypassRegions);
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  if (PrintAfterAllZeroBypass) {
-    outs() << "After all zero bypass insertion\n";
-    Plan->dump(outs(), true /* print DA info */);
-  }
-  if (DotAfterAllZeroBypass) {
-    outs() << *Plan;
-  }
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
+  VPLAN_DUMP(PrintAfterAllZeroBypass, "all zero bypass insertion", Plan);
+  VPLAN_DOT(DotAfterAllZeroBypass, Plan);
 }
 
 void LoopVectorizationPlanner::unroll(

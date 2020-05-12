@@ -72,10 +72,7 @@ public:
     Builder.buildCFG();
     Plan->setName(F.getName());
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    if (DumpAfterPlainCFG)
-      Plan->dump(outs());
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
+    VPLAN_DUMP(DumpAfterPlainCFG, *Plan);
 
     Plan->computeDT();
     Plan->computePDT();
@@ -89,10 +86,7 @@ public:
         mergeLoopExits(VPL);
       }
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    if (DumpAfterLoopExitsCanonicalization)
-      Plan->dump(outs());
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
+    VPLAN_DUMP(DumpAfterLoopExitsCanonicalization, *Plan);
 
     auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
     Plan->setVPlanDA(std::move(VPDA));

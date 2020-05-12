@@ -40,7 +40,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @c = common local_unnamed_addr global [1600 x i32] zeroinitializer, align 16
 
 define void @foo(i32 %factor) local_unnamed_addr {
-; CHECK-LABEL:  Print after buildPlainCFG
+; CHECK-LABEL:  VPlan after importing plain CFG
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:    [[VP3:%.*]] = {zext.i32.i64([[TMP0:%.*]]) + -1}
 ; CHECK-DAG:    [[VP0:%.*]] = {@c}

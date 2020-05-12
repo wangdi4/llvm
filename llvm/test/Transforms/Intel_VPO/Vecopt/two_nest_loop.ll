@@ -18,7 +18,7 @@
 ; Expected 2 all-zero-check VPInstructions created proving the recursivness
 ; of loopCFU calls.
 
-; CHECK-LABEL: After predication and linearization
+; CHECK-LABEL: VPlan after predication and linearization
 ; CHECK:        i1 [[ALLZERO_1:%vp.*]] = all-zero-check
 ; CHECK-NEXT: SUCCESSORS(1)
 ; CHECK:      Condition({{BB[0-9]+}}): [DA: Uni] i1  [[ALLZERO_1]] = all-zero-check
