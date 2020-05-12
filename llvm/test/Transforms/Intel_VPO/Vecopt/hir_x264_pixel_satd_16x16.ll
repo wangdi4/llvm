@@ -18,8 +18,8 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind readonly uwtable
 define hidden i32 @x264_pixel_satd_16x16(i8* nocapture readonly, i32, i8* nocapture readonly, i32) #0 {
-; CHECK-LABEL:  Print after buildPlainCFG
-; CHECK-LABEL:  Print after buildPlainCFG
+; CHECK-LABEL:  VPlan after importing plain CFG
+; CHECK-LABEL:  VPlan after importing plain CFG
 ; CHECK:          i64 [[VP7:%.*]] = phi  [ i64 0, {{.*}} ],  [ i64 [[VP8:%.*]], {{.*}} ]
 ; CHECK:          i32* [[VP75:%.*]] = getelementptr inbounds [8 x i32]* [[ALLOCA300:%.*]] i64 0 i64 [[VP7]]
 ; CHECK-NEXT:     i32 [[VP76:%.*]] = load i32* [[VP75]]
@@ -58,7 +58,7 @@ define hidden i32 @x264_pixel_satd_16x16(i8* nocapture readonly, i32, i8* nocapt
 ; CHECK-NEXT:     store i32 [[VP298]] i32* [[VP297]]
 ; CHECK-NEXT:     i64 [[VP8]] = add i64 [[VP7]] i64 1
 ; CHECK-NEXT:     i1 [[VP299:%.*]] = icmp i64 [[VP8]] i64 7
-; CHECK-LABEL:  Print after buildPlainCFG
+; CHECK-LABEL:  VPlan after importing plain CFG
 ;
   %5 = alloca [4 x [4 x i32]], align 16
   %6 = bitcast [4 x [4 x i32]]* %5 to i8*

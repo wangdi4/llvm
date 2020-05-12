@@ -338,17 +338,21 @@ bool HIRLoopCollapse::doPreliminaryChecks(void) {
     // If yes: save its trip count into UBTCArry;
     if (CurLp->isConstTripLoop(&TripCount)) {
       UBTCArry[LoopLevel].set(TripCount);
+      continue;
     }
-    // Check: is there ONLY 1 blob in the UBCE and UBCE can't have any IV?
-    //        Currently only "N-1" form of UB are handled.
-    // If yes: save its UBCE into UBTCArry;
-    else if (UBCE->numBlobs() == 1 && !UBCE->hasIV() &&
-             UBCE->getConstant() == -1) {
+
+    // Simplest case is single blob with constant==-1 and denominator==1.
+    // This ensures trip count equals the blob value. Other cases require
+    // changes to the blob (refer to convertToStandAloneBlob())
+    // TODO: Handle non-unit denominator.
+    if (UBCE->numBlobs() == 1 && !UBCE->hasIV() &&
+        UBCE->getDenominator() == 1 && UBCE->getConstant() == -1) {
       UBTCArry[LoopLevel].set(UBCE);
-    } else {
-      // Other cases are not supported!
-      break;
+      continue;
     }
+
+    // OTHER CASES NOT HANDLED
+    break;
   }
 
   NumCollapsableLoops = std::min(Count, NumCollapsableLoops);
@@ -633,8 +637,11 @@ bool HIRLoopCollapse::doTransform(HLLoop *const ToCollapseLp,
       AccumulatedTripCountCE->multiplyByConstant(
           UBTCArry[Level].getTripCount());
     } else {
-      AccumulatedTripCountCE->multiplyByBlob(
-          UBTCArry[Level].getUBCE()->getSingleBlobIndex());
+      auto UBCE = UBTCArry[Level].getUBCE();
+      assert(UBCE->getConstant() == -1 &&
+             "Expected UBCE with Blob to be of form '%n-1'\n");
+      AccumulatedTripCountCE->multiplyByConstant(UBCE->getSingleBlobCoeff());
+      AccumulatedTripCountCE->multiplyByBlob(UBCE->getSingleBlobIndex());
     }
   }
 

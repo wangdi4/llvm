@@ -17,7 +17,7 @@
 
 ; Function Attrs: norecurse nounwind readonly uwtable
 define dso_local i32 @peel_example(i32 %delta2, i32 %len_limit, i32* nocapture readonly %cur) local_unnamed_addr #0 {
-; CHECK-LABEL:  Print after building H-CFG:
+; CHECK-LABEL:  VPlan after building H-CFG:
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {-1 * zext.i32.i64(%delta2) + 1}
 ; CHECK-DAG:     [[VP1:%.*]] = {%len_limit + -2}

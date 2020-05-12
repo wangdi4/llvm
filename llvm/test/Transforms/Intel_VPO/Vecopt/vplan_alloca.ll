@@ -11,7 +11,7 @@
 ; serialization is a reasonable choice.
 
 define dso_local void @func(i32 %n) local_unnamed_addr {
-; LLVM-LABEL:  After predication and linearization
+; LLVM-LABEL:  VPlan after predication and linearization
 ; LLVM:     [DA: Div] i64 [[VP_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
 ; LLVM:     [DA: Div] i64 [[VP_IV:%.*]] = phi  [ i64 [[VP_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ],  [ i64 [[VP_IV_IND_INIT]], [[BB1:BB[0-9]+]] ]
 ; LLVM:     [DA: Div] [256 x i8]* [[VP_A_VAR:%.*]] = alloca i64 [[VP_IV]]
@@ -61,7 +61,7 @@ define dso_local void @func(i32 %n) local_unnamed_addr {
 ; LLVM-CG-NEXT:    [[TMP16:%.*]] = bitcast [256 x i8]** [[SCALAR_GEP0]] to <2 x [256 x i8]*>*
 ; LLVM-CG-NEXT:    store <2 x [256 x i8]*> [[TMP15]], <2 x [256 x i8]*>* [[TMP16]], align 8
 ;
-; HIR-LABEL:  After predication and linearization
+; HIR-LABEL:  VPlan after predication and linearization
 ; HIR:     [DA: Div] i64 [[VP2:%.*]] = phi  [ i64 [[VP__IND_INIT:%.*]], [[BB1:BB[0-9]+]] ],  [ i64 [[VP3:%.*]], [[BB3:BB[0-9]+]] ]
 ; HIR:     [DA: Div] [256 x i8]* [[VP6:%.*]] = alloca i64 [[VP2]]
 ;

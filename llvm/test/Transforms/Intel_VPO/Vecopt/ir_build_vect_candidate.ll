@@ -11,7 +11,7 @@
 ; Removed unnecessary auto-generated checks in generated vector code.
 ;
 define void @foo(i64* nocapture %larr) {
-; CHECK-LABEL:  After predication and linearization
+; CHECK-LABEL:  VPlan after predication and linearization
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
