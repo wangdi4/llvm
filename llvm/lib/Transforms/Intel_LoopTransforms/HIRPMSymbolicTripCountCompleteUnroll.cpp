@@ -42,7 +42,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 
-#include "HIRPMSymbolicTripCountCompleteUnrollImpl.h"
+#include "HIRPMSymbolicTripCountCompleteUnroll.h"
 
 #define OPT_SWITCH "hir-pm-symbolic-tripcount-completeunroll"
 #define DEBUG_TYPE OPT_SWITCH

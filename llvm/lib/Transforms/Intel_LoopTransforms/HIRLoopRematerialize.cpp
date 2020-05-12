@@ -49,7 +49,7 @@
 //       conservative).
 //       - Probably, taking care of in-between independent insts in
 //         rematerialization range.
-#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopRematerialize.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopRematerializePass.h"
 
 #include "HIRReroll.h"
 #include "llvm/ADT/SmallSet.h"

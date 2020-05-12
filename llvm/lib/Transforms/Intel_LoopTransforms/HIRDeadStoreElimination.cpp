@@ -26,7 +26,7 @@
 // END DO
 //
 //===----------------------------------------------------------------------===//
-#include "llvm/Transforms/Intel_LoopTransforms/HIRDeadStoreElimination.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRDeadStoreEliminationPass.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLocalityAnalysis.h"

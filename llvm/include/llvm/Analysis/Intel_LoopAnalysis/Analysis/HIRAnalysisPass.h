@@ -17,6 +17,7 @@
 #define LLVM_ANALYSIS_INTEL_LOOPANALYSIS_HIRANALYSISPASS_H
 
 #include "llvm/Pass.h"
+#include "llvm/IR/PassManager.h"
 
 #include "llvm/Support/Casting.h"
 
@@ -172,6 +173,20 @@ public:
 
   template <typename... Except> Invoke<Except...> invoke() {
     return Invoke<Except...>(*this);
+  }
+};
+
+template <typename AnalysisTy>
+class HIRAnalysisPrinterPass
+    : public PassInfoMixin<HIRAnalysisPrinterPass<AnalysisTy>> {
+  raw_ostream &OS;
+
+public:
+  explicit HIRAnalysisPrinterPass(raw_ostream &OS) : OS(OS) {}
+
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM) {
+    AM.getResult<AnalysisTy>(F).printAnalysis(OS);
+    return PreservedAnalyses::all();
   }
 };
 

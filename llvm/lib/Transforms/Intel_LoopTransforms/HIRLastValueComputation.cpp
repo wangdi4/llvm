@@ -13,7 +13,7 @@
 // This pass sinks a temp assignment to postexit by replacing IV by upper bound.
 //
 //===----------------------------------------------------------------------===//
-#include "llvm/Transforms/Intel_LoopTransforms/HIRLastValueComputation.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLastValueComputationPass.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
@@ -22,7 +22,7 @@
 
 #include "llvm/ADT/SmallSet.h"
 
-#include "HIRLastValueComputationImpl.h"
+#include "HIRLastValueComputation.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/InitializePasses.h"

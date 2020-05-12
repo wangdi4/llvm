@@ -343,19 +343,6 @@ public:
   HIRLoopLocality run(Function &F, FunctionAnalysisManager &AM);
 };
 
-class HIRLoopLocalityPrinterPass
-    : public PassInfoMixin<HIRLoopLocalityPrinterPass> {
-  raw_ostream &OS;
-
-public:
-  explicit HIRLoopLocalityPrinterPass(raw_ostream &OS) : OS(OS) {}
-
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM) {
-    AM.getResult<HIRLoopLocalityAnalysis>(F).printAnalysis(OS);
-    return PreservedAnalyses::all();
-  }
-};
-
 } // End namespace loopopt
 
 } // End namespace llvm

@@ -20,11 +20,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Transforms/Intel_LoopTransforms/HIRVecDirInsertPass.h"
 #include "ParVecDirectiveInsertion.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRVecDirInsert.h"
 
 #define DEBUG_TYPE "parvec-transform"
 

@@ -79,7 +79,7 @@
 //
 //
 //===----------------------------------------------------------------------===//
-#include "llvm/Transforms/Intel_LoopTransforms/HIRRuntimeDD.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRRuntimeDDPass.h"
 
 #include "llvm/Pass.h"
 
@@ -99,7 +99,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
-#include "HIRRuntimeDDImpl.h"
+#include "HIRRuntimeDD.h"
 
 #include <memory>
 

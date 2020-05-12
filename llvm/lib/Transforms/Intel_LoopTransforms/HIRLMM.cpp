@@ -73,7 +73,7 @@
 // -hir-lmm:          Perform HIR Loop Memory Motion
 // -disable-hir-lmm:  Disable/Bypass HIR Loop Memory Motion
 //
-#include "llvm/Transforms/Intel_LoopTransforms/HIRLMM.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLMMPass.h"
 
 #include "Intel_DTrans/Analysis/DTransFieldModRef.h"
 #include "Intel_DTrans/DTransCommon.h"
@@ -100,7 +100,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 
-#include "HIRLMMImpl.h"
+#include "HIRLMM.h"
 
 #define DEBUG_TYPE "hir-lmm"
 

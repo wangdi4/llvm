@@ -101,7 +101,7 @@
 // Only ADD(FADD) reductions operations are currently covered.
 // Only temp blob seeds are covered for self reduction insts.
 //
-#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReroll.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopRerollPass.h"
 
 #include "HIRReroll.h"
 #include "llvm/ADT/Statistic.h"

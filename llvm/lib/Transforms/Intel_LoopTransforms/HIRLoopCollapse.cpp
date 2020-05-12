@@ -61,7 +61,7 @@
 //    }
 //  }
 //
-#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopCollapse.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopCollapsePass.h"
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Function.h"
@@ -80,7 +80,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 
-#include "HIRLoopCollapseImpl.h"
+#include "HIRLoopCollapse.h"
 
 #define DEBUG_TYPE "hir-loop-collapse"
 

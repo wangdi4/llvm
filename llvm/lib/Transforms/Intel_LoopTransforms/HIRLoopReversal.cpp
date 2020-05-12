@@ -82,7 +82,7 @@
 // 2. Allow simple forward gotos in the same iteration
 // 3.
 //
-#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReversal.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReversalPass.h"
 
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
@@ -105,7 +105,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
-#include "HIRLoopReversalImpl.h"
+#include "HIRLoopReversal.h"
 
 #define DEBUG_TYPE "hir-loop-reversal"
 

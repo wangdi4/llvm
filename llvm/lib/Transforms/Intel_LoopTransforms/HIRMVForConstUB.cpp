@@ -14,7 +14,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Intel_LoopTransforms/HIRMVForConstUB.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRMVForConstUBPass.h"
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Function.h"

@@ -49,7 +49,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Intel_LoopTransforms/HIRTempCleanup.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTempCleanupPass.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"

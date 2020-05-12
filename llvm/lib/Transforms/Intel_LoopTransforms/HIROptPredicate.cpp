@@ -46,7 +46,7 @@
 //    the HLIf condition for OptPredicate.
 // 5. Add opt report messages.
 
-#include "llvm/Transforms/Intel_LoopTransforms/HIROptPredicate.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIROptPredicatePass.h"
 
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"

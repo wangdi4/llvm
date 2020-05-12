@@ -85,6 +85,7 @@
 //   @matmul_mkl_f32_(&((%.DopeVector1)[0]),  &((%.DopeVector2)[0]),
 //                    &((%.DopeVector3)[0]),  9,  0);
 
+#include "llvm/Transforms/Intel_LoopTransforms/HIRGenerateMKLCallPass.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/InitializePasses.h"
@@ -92,7 +93,6 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRGenerateMKLCall.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 

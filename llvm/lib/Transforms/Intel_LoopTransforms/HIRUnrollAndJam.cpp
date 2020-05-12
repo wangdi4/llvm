@@ -53,7 +53,7 @@
 //
 // TODO: Add opt-report messages.
 //===----------------------------------------------------------------------===//
-#include "llvm/Transforms/Intel_LoopTransforms/HIRUnrollAndJam.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRUnrollAndJamPass.h"
 #include "HIRUnroll.h"
 
 #include "llvm/ADT/Statistic.h"
