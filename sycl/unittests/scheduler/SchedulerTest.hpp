@@ -13,7 +13,6 @@
 
 class SchedulerTest : public ::testing::Test {
 protected:
-  sycl::queue MQueue;
   sycl::async_handler MAsyncHandler = [](sycl::exception_list ExceptionList) {
     for (sycl::exception_ptr_class ExceptionPtr : ExceptionList) {
       try {
@@ -25,6 +24,8 @@ protected:
       }
     }
   };
+
+  sycl::queue MQueue = sycl::queue(sycl::host_selector(), MAsyncHandler);
 
 public:
   void SetUp() override {

@@ -103,9 +103,6 @@ int default_selector::operator()(const device &dev) const {
   if (dev.is_cpu())
     Score += 300;
 
-  if (dev.is_host())
-    Score += 100;
-
   return Score;
 }
 
