@@ -708,6 +708,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i8* @_getdcwd(i32, i8*, i32)\n"
       "declare i32 @_getdrive()\n"
       "declare i32 @_getpid()\n"
+      "declare %struct* @_gmtime64(i64*)\n"
       "declare void @_invalid_parameter_noinfo_noreturn()\n"
       "declare %struct* @_localtime64(i64*)\n"
       "declare i64 @_lseeki64(i32, i64, i32)\n"
@@ -930,6 +931,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i32 @isatty(i32)\n"
       "declare i32 @iscntrl(i32)\n"
       "declare i32 @islower(i32)\n"
+      "declare i32 @isprint(i32)\n"
       "declare i32 @isspace(i32)\n"
       "declare i32 @isupper(i32)\n"
       "declare i32 @iswspace(i32)\n"
@@ -1033,7 +1035,9 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i32 @usleep(i32)\n"
       "declare i32 @vasprintf(i8*, i8*, %struct)\n"
       "declare i32 @waitpid(i32, i8*, i32)\n"
-      "declare i32 @wcstombs(i8*, i8*, i32)\n"
+      "declare i16* @wcscpy(i16*, i16*)\n"
+      "declare i16* @wcsncat(i16*, i16*, i64)\n"
+      "declare i64 @wcstombs(i8*, i8*, i64)\n"
 #endif // INTEL_CUSTOMIZATION
       );
 

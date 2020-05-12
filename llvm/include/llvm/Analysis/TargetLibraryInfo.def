@@ -1269,6 +1269,9 @@ TLI_DEFINE_STRING_INTERNAL("_getdrive")
 /// int _getpid()
 TLI_DEFINE_ENUM_INTERNAL(under_getpid)
 TLI_DEFINE_STRING_INTERNAL("_getpid")
+/// struct tm *_gmtime64( const __time64_t *sourceTime )
+TLI_DEFINE_ENUM_INTERNAL(under_gmtime64)
+TLI_DEFINE_STRING_INTERNAL("_gmtime64")
 /// void __cdecl _invalid_parameter_noinfo(void)
 TLI_DEFINE_ENUM_INTERNAL(under_invalid_parameter_noinfo_noreturn)
 TLI_DEFINE_STRING_INTERNAL("_invalid_parameter_noinfo_noreturn")
@@ -2050,6 +2053,9 @@ TLI_DEFINE_STRING_INTERNAL("isdigit")
 /// int islower(int c);
 TLI_DEFINE_ENUM_INTERNAL(islower)
 TLI_DEFINE_STRING_INTERNAL("islower")
+/// int isprint(int c)
+TLI_DEFINE_ENUM_INTERNAL(isprint)
+TLI_DEFINE_STRING_INTERNAL("isprint")
 /// int isspace(int c);
 TLI_DEFINE_ENUM_INTERNAL(isspace)
 TLI_DEFINE_STRING_INTERNAL("isspace")
@@ -3002,6 +3008,9 @@ TLI_DEFINE_STRING_INTERNAL("vsscanf")
 /// pid_t waitpid(pid_t pid, int *status, int options);
 TLI_DEFINE_ENUM_INTERNAL(waitpid)
 TLI_DEFINE_STRING_INTERNAL("waitpid")
+/// wchar_t *wcscpy(wchar_t *strDestination, const wchar_t *strSource);
+TLI_DEFINE_ENUM_INTERNAL(wcscpy)
+TLI_DEFINE_STRING_INTERNAL("wcscpy")
 #endif // INTEL_CUSTOMIZATION
 
 /// size_t wcslen (const wchar_t* wcs);
@@ -3009,6 +3018,9 @@ TLI_DEFINE_ENUM_INTERNAL(wcslen)
 TLI_DEFINE_STRING_INTERNAL("wcslen")
 
 #if INTEL_CUSTOMIZATION
+/// wchar_t *wcsncat(wchar_t *strDest, const wchar_t *strSource, size_t count);
+TLI_DEFINE_ENUM_INTERNAL(wcsncat)
+TLI_DEFINE_STRING_INTERNAL("wcsncat")
 /// size_t wcstombs (char* dest, const wchar_t* src, size_t max);
 TLI_DEFINE_ENUM_INTERNAL(wcstombs)
 TLI_DEFINE_STRING_INTERNAL("wcstombs")
