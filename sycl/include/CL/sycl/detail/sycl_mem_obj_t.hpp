@@ -264,11 +264,7 @@ public:
 
   void *allocateMem(ContextImplPtr Context, bool InitFromUserData,
                     void *HostPtr, RT::PiEvent &InteropEvent) override {
-<<<<<<< HEAD
-    throw std::runtime_error("Not implemented");
-=======
     throw runtime_error("Not implemented", PI_INVALID_OPERATION);
->>>>>>> 44954afb3aa6b492a1c77e97f0763385e9ba98d9
   }
 
   MemObjType getType() const override { return UNDEFINED; }
