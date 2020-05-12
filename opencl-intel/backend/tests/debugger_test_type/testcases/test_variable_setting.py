@@ -4,7 +4,7 @@ from testlib.debuggertestcase import DebuggerTestCase, expectedFailureGDB, expec
 # (global, local, private, volatile, regular and pointers) in gdb
 #
 class TestVariableSetting(DebuggerTestCase):
-    CLNAME = 'diffrent_declaration_types2.cl'
+    CLNAME = 'different_declaration_types2.cl'
 
     @skipNotGDBorCDB
     def test_variables_setting(self):
