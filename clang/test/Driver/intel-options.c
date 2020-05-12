@@ -213,6 +213,13 @@
 // RUN: %clang_cl -### -c /Qtemplate-depth=5 %s 2>&1 | FileCheck -check-prefix CHECK-TEMPLATE-DEPTH %s
 // CHECK-TEMPLATE-DEPTH: "-ftemplate-depth" "5"
 
+// Behavior with Qzero-initialized-in-bss and Qzero-initialized-in-bss- option
+// RUN: %clang_cl -### -c /Qzero-initialized-in-bss %s 2>&1 | FileCheck -check-prefix CHECK-ZERO %s
+// RUN: %clang_cl -### -c /Qzero-initialized-in-bss- %s 2>&1 | FileCheck -check-prefix CHECK-FNO-ZERO %s
+// CHECK-ZERO-NOT: "-mno-zero-initialized-in-bss"
+// CHECK-FNO-ZERO-NOT: "-fzero-initialized-in-bss"
+// CHECK-FNO-ZERO: "-mno-zero-initialized-in-bss"
+
 // -use-msasm alias to -fasm-blocks
 // RUN: %clang -### -c -use-msasm %s 2>&1 | FileCheck -check-prefix=CHECK-USE-MSASM %s
 // RUN: %clang -### -c -use_msasm %s 2>&1 | FileCheck -check-prefix=CHECK-USE-MSASM %s

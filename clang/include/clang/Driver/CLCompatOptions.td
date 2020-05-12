@@ -304,6 +304,10 @@ def _SLASH_Qvla : CLFlag<"Qvla">, HelpText<"Enable Variable Length "
   "Arrays (C99 feature)">;
 def _SLASH_Qvla_ : CLFlag<"Qvla-">, HelpText<"Disable(DEFAULT) "
   "Variable Length Arrays (C99 feature)">;
+def _SLASH_Qzero_initialized_in_bss : CLFlag<"Qzero-initialized-in-bss">,
+  Alias<fzero_initialized_in_bss>;
+def _SLASH_Qzero_initialized_in_bss_ : CLFlag<"Qzero-initialized-in-bss-">,
+  Alias<fno_zero_initialized_in_bss>;
 #endif //INTEL_CUSTOMIZATION
 def _SLASH_QUESTION : CLFlag<"?">, Alias<help>,
   HelpText<"Display available options">;
