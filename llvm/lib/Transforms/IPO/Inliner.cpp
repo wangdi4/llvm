@@ -84,10 +84,7 @@ STATISTIC(NumCallsDeleted, "Number of call sites deleted, not inlined");
 STATISTIC(NumDeleted, "Number of functions deleted because all callers found");
 STATISTIC(NumMergedAllocas, "Number of allocas merged together");
 
-#if INTEL_CUSTOMIZATION
-/// Inlining report level option. Defined in InlineAdvisor.cpp.
-extern cl::opt<unsigned> IntelInlineReportLevel;
-#endif // INTEL_CUSTOMIZATION
+extern cl::opt<unsigned> IntelInlineReportLevel; // INTEL
 
 /// Flag to disable manual alloca merging.
 ///

@@ -59,6 +59,11 @@ add_llvm_component_library(LLVMAnalysis
   Intel_WP.cpp
   Intel_XmainOptLevelPass.cpp
   Intel_MemRefAnalysis.cpp
+  Intel_InlineReport/Intel_InlineReport.cpp
+  Intel_InlineReport/Intel_MDInlineReport.cpp
+  Intel_InlineReport/Intel_InlineReportSetup.cpp
+  Intel_InlineReport/Intel_InlineReportCommon.cpp
+  Intel_InlineReport/Intel_InlineReportEmitter.cpp
 # end INTEL_CUSTOMIZATION
 # INTEL_COLLAB
   Directives.cpp
@@ -125,6 +130,8 @@ add_llvm_component_library(LLVMAnalysis
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Analysis
+  ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms
+  ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms/IPO
 
   DEPENDS
   intrinsics_gen

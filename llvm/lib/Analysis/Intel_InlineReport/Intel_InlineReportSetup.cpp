@@ -33,7 +33,24 @@
 using namespace llvm;
 using namespace MDInliningReport;
 
-extern cl::opt<unsigned> IntelInlineReportLevel;
+/// \brief Inlining report level option
+///
+/// Specified with -inline-report=N
+///   N is a bit mask with the following interpretation of the bits
+///    0: No inlining report
+///    1: Simple inlining report
+///    2: Add inlining reasons
+///    4: Put the inlining reasons on the same line as the call sites
+///    8: Print the line and column info for each call site if available
+///   16: Print the file for each call site
+///   32: Print linkage info for each function and call site
+///   64: Print both early exit and real inlining costs
+///  128: Create metadata-based inline report
+///  256: Create composite inline report for an -flto compilation.
+///
+cl::opt<unsigned>
+IntelInlineReportLevel("inline-report", cl::Hidden, cl::init(0),
+  cl::Optional, cl::desc("Print inline report"));
 
 #define DEBUG_TYPE "inlinereportsetup"
 
