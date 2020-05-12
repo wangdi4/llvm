@@ -15,6 +15,10 @@
 #pragma omp declare target
 // FIXME: teach clang to understand opencl_constant attribute during
 //        OpenMP offload compilation, and get rid of this specialization code.
+#ifndef __STDC_FORMAT_MACROS
+#define __STDC_FORMAT_MACROS
+#endif
+
 #include <inttypes.h>
 static const char assert_fmt[] =
     "%s:%" PRId32 ": %s: global id: [%" PRIu64 ",%" PRIu64 ",%" PRIu64 "], "
