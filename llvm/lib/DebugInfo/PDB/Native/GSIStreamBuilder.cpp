@@ -90,11 +90,18 @@ void GSIHashStreamBuilder::addSymbol(const codeview::CVSymbol &Symbol) {
 }
 
 namespace {
-LLVM_PACKED(struct PublicSym32Layout {
+#if INTEL_CUSTOMIZATION
+// FIXME: LLVM_PACKED was replaced with LLVM_PACKED_START/END to
+// resolve warnings about ignored attribute. It should be
+// reverted when the community has a fix for the warnings.
+LLVM_PACKED_START
+  struct PublicSym32Layout {
   RecordPrefix Prefix;
   PublicSym32Header Pub;
   // char Name[];
-});
+};
+LLVM_PACKED_END
+#endif // INTEL_CUSTOMIZATION
 }
 
 // Calculate how much memory this public needs when serialized.
