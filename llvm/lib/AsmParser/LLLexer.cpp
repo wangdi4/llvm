@@ -672,6 +672,7 @@ lltok::Kind LLLexer::LexIdentifier() {
 #endif // INTEL_CUSTOMIZATION
   KEYWORD(norecurse);
   KEYWORD(nonlazybind);
+  KEYWORD(nomerge);
   KEYWORD(nonnull);
   KEYWORD(noredzone);
   KEYWORD(noreturn);

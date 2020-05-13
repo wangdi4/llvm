@@ -214,6 +214,7 @@ enum Kind {
   kw_alwaysinline_recursive, // INTEL
   kw_norecurse,
   kw_nonlazybind,
+  kw_nomerge,
   kw_nonnull,
   kw_noredzone,
   kw_noreturn,
