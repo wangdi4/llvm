@@ -81,6 +81,13 @@ typedef void * (CL_API_CALL *clHostMemAllocINTELTy)(
     size_t size,
     cl_uint alignment,
     cl_int *errcodeRet);
+typedef void * (CL_API_CALL *clSharedMemAllocINTELTy)(
+    cl_context context,
+    cl_device_id device,
+    const cl_mem_properties_intel *properties,
+    size_t size,
+    cl_uint alignment,
+    cl_int *errcode_ret);
 typedef cl_int (CL_API_CALL *clMemFreeINTELTy)(
     cl_context context,
     const void *ptr);
@@ -213,6 +220,7 @@ struct ExtensionsTy {
   ExtensionStatusTy GetDeviceGlobalVariablePointer = ExtensionStatusUnknown;
   ExtensionStatusTy GetMemAllocInfoINTELPointer = ExtensionStatusUnknown;
   ExtensionStatusTy HostMemAllocINTELPointer = ExtensionStatusUnknown;
+  ExtensionStatusTy SharedMemAllocINTELPointer = ExtensionStatusUnknown;
   ExtensionStatusTy MemFreeINTELPointer = ExtensionStatusUnknown;
 #endif  // INTEL_CUSTOMIZATION
 
@@ -303,14 +311,16 @@ struct RTLFlagsTy {
   uint64_t EnableProfile : 1;
   uint64_t UseInteropQueueInorderAsync : 1;
   uint64_t UseInteropQueueInorderSharedSync : 1;
+  uint64_t UseHostMemForUSM : 1;
   // Add new flags here
-  uint64_t Reserved : 59;
+  uint64_t Reserved : 58;
   RTLFlagsTy() :
       LinkDeviceRTL(0),
       CollectDataTransferLatency(0),
       EnableProfile(0),
       UseInteropQueueInorderAsync(0),
       UseInteropQueueInorderSharedSync(0),
+      UseHostMemForUSM(0),
       Reserved(0) {}
 };
 
@@ -372,6 +382,7 @@ public:
   // device-specific within the same platform.
   clGetMemAllocInfoINTELTy clGetMemAllocInfoINTELFn = nullptr;
   clHostMemAllocINTELTy clHostMemAllocINTELFn = nullptr;
+  clSharedMemAllocINTELTy clSharedMemAllocINTELFn = nullptr;
   clMemFreeINTELTy clMemFreeINTELFn = nullptr;
   clGetDeviceGlobalVariablePointerINTELTy
       clGetDeviceGlobalVariablePointerINTELFn = nullptr;
@@ -390,8 +401,9 @@ public:
 
   RTLDeviceInfoTy() : numDevices(0), DataTransferLatency(0),
       DataTransferMethod(DATA_TRANSFER_METHOD_CLMEM) {
-    if (char *envStr = getenv("LIBOMPTARGET_DEBUG")) {
-      DebugLevel = std::stoi(envStr);
+    char *env;
+    if (env = readEnvVar("LIBOMPTARGET_DEBUG")) {
+      DebugLevel = std::stoi(env);
     }
     // set misc. flags
 
@@ -399,10 +411,8 @@ public:
     OMPThreadLimit = omp_get_thread_limit();
     DP("omp_get_thread_limit() returned %d\n", OMPThreadLimit);
 
-    const char *env;
-
 #if INTEL_CUSTOMIZATION
-    if (env = std::getenv("LIBOMPTARGET_OPENCL_SUBSCRIPTION_RATE")) {
+    if (env = readEnvVar("LIBOMPTARGET_OPENCL_SUBSCRIPTION_RATE")) {
       int32_t value = std::stoi(env);
 
       // Set some reasonable limits.
@@ -412,7 +422,7 @@ public:
 #endif  // INTEL_CUSTOMIZATION
 
     // Read LIBOMPTARGET_DATA_TRANSFER_LATENCY (experimental input)
-    if (env = std::getenv("LIBOMPTARGET_DATA_TRANSFER_LATENCY")) {
+    if (env = readEnvVar("LIBOMPTARGET_DATA_TRANSFER_LATENCY")) {
       std::string value(env);
       if (value.substr(0, 2) == "T,") {
         Flags.CollectDataTransferLatency = 1;
@@ -420,8 +430,11 @@ public:
         DataTransferLatency = (usec > 0) ? usec : 0;
       }
     }
+
     // Read LIBOMPTARGET_DATA_TRANSFER_METHOD
-    if (env = std::getenv("LIBOMPTARGET_DATA_TRANSFER_METHOD")) {
+    // Read LIBOMPTARGET_OPENCL_DATA_TRANSFER_METHOD
+    if (env = readEnvVar("LIBOMPTARGET_OPENCL_DATA_TRANSFER_METHOD",
+                         "LIBOMPTARGET_DATA_TRANSFER_METHOD")) {
       std::string value(env);
       DataTransferMethod = DATA_TRANSFER_METHOD_INVALID;
       if (value.size() == 1 && std::isdigit(value.c_str()[0])) {
@@ -430,36 +443,35 @@ public:
           DataTransferMethod = method;
       }
       if (DataTransferMethod == DATA_TRANSFER_METHOD_INVALID) {
-        DP("Warning: Invalid data transfer method (%s) selected"
-           " -- using default method.\n", env);
+        WARNING("Invalid data transfer method (%s) selected"
+                " -- using default method.\n", env);
         DataTransferMethod = DATA_TRANSFER_METHOD_CLMEM;
       }
     }
     // Read LIBOMPTARGET_DEVICETYPE
     DeviceType = CL_DEVICE_TYPE_GPU;
-    if (env = std::getenv("LIBOMPTARGET_DEVICETYPE")) {
+    if (env = readEnvVar("LIBOMPTARGET_DEVICETYPE")) {
       std::string value(env);
       if (value == "GPU" || value == "gpu")
         DeviceType = CL_DEVICE_TYPE_GPU;
-      else if (value == "ACCELERATOR" || value == "accelerator")
-        DeviceType = CL_DEVICE_TYPE_ACCELERATOR;
       else if (value == "CPU" || value == "cpu")
         DeviceType = CL_DEVICE_TYPE_CPU;
       else
-        DP("Warning: Invalid LIBOMPTARGET_DEVICETYPE=%s\n", env);
+        WARNING("Invalid or unsupported LIBOMPTARGET_DEVICETYPE=%s\n", env);
     }
     DP("Target device type is set to %s\n",
-       (DeviceType == CL_DEVICE_TYPE_GPU) ? "GPU" : (
-       (DeviceType == CL_DEVICE_TYPE_ACCELERATOR) ? "ACCELERATOR" : (
-       (DeviceType == CL_DEVICE_TYPE_CPU) ? "CPU" : "INVALID")));
+       (DeviceType == CL_DEVICE_TYPE_CPU) ? "CPU" : "GPU");
 
-    if (env = std::getenv("LIBOMPTARGET_LINK_OPENCL_DEVICE_RTL"))
+    // Read LIBOMPTARGET_OPENCL_LINK_DEVICE_RTL
+    if (env = readEnvVar("LIBOMPTARGET_OPENCL_LINK_DEVICE_RTL",
+                         "LIBOMPTARGET_LINK_OPENCL_DEVICE_RTL")) {
       if (std::stoi(env) != 0)
         Flags.LinkDeviceRTL = 1;
+    }
 
     // Read LIBOMPTARGET_PROFILE
     ProfileResolution = 1000;
-    if (env = std::getenv("LIBOMPTARGET_PROFILE")) {
+    if (env = readEnvVar("LIBOMPTARGET_PROFILE")) {
       std::istringstream value(env);
       std::string token;
       while (std::getline(value, token, ',')) {
@@ -470,16 +482,16 @@ public:
       }
     }
 
-    // Read LIBOMPTARGET_INTEROP_PIPE
+    // Read LIBOMPTARGET_OPENCL_INTEROP_QUEUE
     // Two independent options can be specified as follows.
     // -- inorder_async: use a new in-order queue for asynchronous case
     //    (default: shared out-of-order queue)
     // -- inorder_shared_sync: use the existing shared in-order queue for
     //    synchronous case (default: new in-order queue).
-    if (env = std::getenv("LIBOMPTARGET_INTEROP_PIPE")) {
+    if (env = readEnvVar("LIBOMPTARGET_OPENCL_INTEROP_QUEUE",
+                         "LIBOMPTARGET_INTEROP_PIPE")) {
       std::istringstream value(env);
       std::string token;
-      DP("LIBOMPTARGET_INTEROP_PIPE=%s was set\n", env);
       while (std::getline(value, token, ',')) {
         if (token == "inorder_async") {
           Flags.UseInteropQueueInorderAsync = 1;
@@ -491,10 +503,10 @@ public:
       }
     }
 
-    if (env = std::getenv("LIBOMPTARGET_OPENCL_COMPILATION_OPTIONS")) {
+    if (env = readEnvVar("LIBOMPTARGET_OPENCL_COMPILATION_OPTIONS")) {
       CompilationOptions += env;
     }
-    if (env = std::getenv("LIBOMPTARGET_OPENCL_LINKING_OPTIONS")) {
+    if (env = readEnvVar("LIBOMPTARGET_OPENCL_LINKING_OPTIONS")) {
       LinkingOptions += env;
     }
 #if INTEL_CUSTOMIZATION
@@ -502,10 +514,34 @@ public:
     // Intel Graphics compilers that do not support that option
     // silently ignore it.
     if (DeviceType == CL_DEVICE_TYPE_GPU &&
-        (!(env = std::getenv("LIBOMPTARGET_OPENCL_TARGET_GLOBALS")) ||
+        (!(env = readEnvVar("LIBOMPTARGET_OPENCL_TARGET_GLOBALS")) ||
          (env[0] != 'F' && env[0] != 'f' && env[0] != '0')))
       LinkingOptions += " -cl-take-global-address ";
 #endif  // INTEL_CUSTOMIZATION
+
+    // Read LIBOMPTARGET_USM_HOST_MEM
+    if (env = readEnvVar("LIBOMPTARGET_USM_HOST_MEM")) {
+      if (env[0] == 'T' || env[0] == 't' || env[0] == '1')
+        Flags.UseHostMemForUSM = 1;
+    }
+  }
+
+  /// Read environment variable value with optional deprecated name
+  char *readEnvVar(const char *Name, const char *OldName = nullptr) {
+    if (!Name)
+      return nullptr;
+    char *value = std::getenv(Name);
+    if (value || !OldName) {
+      if (value)
+        DP("ENV: %s=%s\n", Name, value);
+      return value;
+    }
+    value = std::getenv(OldName);
+    if (value) {
+      DP("ENV: %s=%s\n", OldName, value);
+      WARNING("%s is being deprecated. Use %s instead.\n", OldName, Name);
+    }
+    return value;
   }
 
   /// Loads the device version of the offload table for device \p DeviceId.
@@ -634,7 +670,7 @@ public:
     if (Status == TimerStatusTy::Running) {
       Status = TimerStatusTy::Disabled;
       WARNING("profiling timer '%s' for OpenMP device (%" PRId32 ") %s "
-              "is disabled due to start/stop mismatch.",
+              "is disabled due to start/stop mismatch.\n",
               Name.c_str(), DeviceId, DeviceInfo->Names[DeviceId].data());
       return;
     }
@@ -650,7 +686,7 @@ public:
     if (Status == TimerStatusTy::Running) {
       Status = TimerStatusTy::Disabled;
       WARNING("profiling timer '%s' for OpenMP device (%" PRId32 ") %s "
-              "is disabled due to start/stop mismatch.",
+              "is disabled due to start/stop mismatch.\n",
               Name.c_str(), DeviceId, DeviceInfo->Names[DeviceId].data());
       return;
     }
@@ -660,7 +696,7 @@ public:
     if (rc != CL_SUCCESS) {
       Status = TimerStatusTy::Disabled;
       WARNING("profiling timer '%s' for OpenMP device (%" PRId32 ") %s "
-              "is disabled due to invalid OpenCL timer.",
+              "is disabled due to invalid OpenCL timer.\n",
               Name.c_str(), DeviceId, DeviceInfo->Names[DeviceId].data());
       return;
     }
@@ -674,7 +710,7 @@ public:
     if (Status == TimerStatusTy::Paused) {
       Status = TimerStatusTy::Disabled;
       WARNING("profiling timer '%s' for OpenMP device (%" PRId32 ") %s "
-              "is disabled due to start/stop mismatch.",
+              "is disabled due to start/stop mismatch.\n",
               Name.c_str(), DeviceId, DeviceInfo->Names[DeviceId].data());
       return;
     }
@@ -685,7 +721,7 @@ public:
     if (rc != CL_SUCCESS) {
       Status = TimerStatusTy::Disabled;
       WARNING("profiling timer '%s' for OpenMP device (%" PRId32 ") %s "
-              "is disabled due to invalid OpenCL timer.",
+              "is disabled due to invalid OpenCL timer.\n",
               Name.c_str(), DeviceId, DeviceInfo->Names[DeviceId].data());
       return;
     }
@@ -693,7 +729,7 @@ public:
     if (DeviceTime < DeviceTimeTemp || HostTime < HostTimeTemp) {
       Status = TimerStatusTy::Disabled;
       WARNING("profiling timer '%s' for OpenMP device (%" PRId32 ") %s "
-              "is disabled due to timer overflow.",
+              "is disabled due to timer overflow.\n",
               Name.c_str(), DeviceId, DeviceInfo->Names[DeviceId].data());
       return;
     }
@@ -1026,6 +1062,7 @@ int32_t ExtensionsTy::getExtensionsInfoForDevice(int32_t DeviceNum) {
   if (Extensions.find("cl_intel_unified_shared_memory_preview") !=
       std::string::npos) {
     HostMemAllocINTELPointer = ExtensionStatusEnabled;
+    SharedMemAllocINTELPointer = ExtensionStatusEnabled;
     MemFreeINTELPointer = ExtensionStatusEnabled;
   }
 #endif  // INTEL_CUSTOMIZATION
@@ -1205,6 +1242,15 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
         reinterpret_cast<clHostMemAllocINTELTy>(fn);
     if (DeviceInfo->clHostMemAllocINTELFn)
       DP("Extension clHostMemAllocINTEL enabled.\n");
+  }
+  if (ext.SharedMemAllocINTELPointer == ExtensionStatusEnabled) {
+    void *fn = nullptr;
+    CALL_CL_RV(fn, clGetExtensionFunctionAddressForPlatform,
+               DeviceInfo->platformID, "clSharedMemAllocINTEL");
+    DeviceInfo->clSharedMemAllocINTELFn =
+        reinterpret_cast<clSharedMemAllocINTELTy>(fn);
+    if (DeviceInfo->clSharedMemAllocINTELFn)
+      DP("Extension clSharedMemAllocINTEL enabled.\n");
   }
   if (ext.MemFreeINTELPointer == ExtensionStatusEnabled) {
     void *fn = nullptr;
@@ -1731,7 +1777,7 @@ EXTERN int32_t __tgt_rtl_release_offload_queue(int32_t device_id, void *queue) {
 }
 
 
-EXTERN void *__tgt_rtl_create_get_platform_handle(int32_t device_id) {
+EXTERN void *__tgt_rtl_get_platform_handle(int32_t device_id) {
   auto context = DeviceInfo->CTX[device_id];
   return (void *) context;
 }
@@ -1739,8 +1785,10 @@ EXTERN void *__tgt_rtl_create_get_platform_handle(int32_t device_id) {
 #if INTEL_CUSTOMIZATION
 // Allocate a managed memory object.
 EXTERN void *__tgt_rtl_data_alloc_managed(int32_t device_id, int64_t size) {
-  if (!DeviceInfo->clHostMemAllocINTELFn) {
-    DP("clHostMemAllocINTEL is not available\n");
+  uint64_t useHostMem = DeviceInfo->Flags.UseHostMemForUSM;
+  if (useHostMem && !DeviceInfo->clHostMemAllocINTELFn ||
+      !useHostMem && !DeviceInfo->clSharedMemAllocINTELFn) {
+    DP("Managed memory allocator is not available\n");
     return nullptr;
   }
   cl_mem_properties_intel properties[] = {
@@ -1749,8 +1797,16 @@ EXTERN void *__tgt_rtl_data_alloc_managed(int32_t device_id, int64_t size) {
   auto &mutex = DeviceInfo->Mutexes[device_id];
   mutex.lock();
   void *mem;
-  CALL_CL_EXT_RVRC(mem, clHostMemAllocINTEL, DeviceInfo->clHostMemAllocINTELFn,
-      rc, DeviceInfo->CTX[device_id], properties, size, 0);
+  if (DeviceInfo->Flags.UseHostMemForUSM) {
+    CALL_CL_EXT_RVRC(
+        mem, clHostMemAllocINTEL, DeviceInfo->clHostMemAllocINTELFn, rc,
+        DeviceInfo->CTX[device_id], properties, size, 0);
+  } else {
+    cl_device_id device = DeviceInfo->deviceIDs[device_id];
+    CALL_CL_EXT_RVRC(
+        mem, clSharedMemAllocINTEL, DeviceInfo->clSharedMemAllocINTELFn, rc,
+        DeviceInfo->CTX[device_id], device, properties, size, 0);
+  }
   if (rc != CL_SUCCESS) {
     mutex.unlock();
     return nullptr;
