@@ -50,8 +50,8 @@ define i32 @main() local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after importing plain CFG
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%mul10}
-; CHECK-DAG:     [[VP1:%.*]] = {@a}
-; CHECK-DAG:     [[VP2:%.*]] = {(trunc i64 %1 to i16)}
+; CHECK-DAG:     [[VP1:%.*]] = {(trunc i64 %1 to i16)}
+; CHECK-DAG:     [[VP2:%.*]] = {@a}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
@@ -70,15 +70,15 @@ define i32 @main() local_unnamed_addr #0 {
 ; CHECK-NEXT:     i64 [[VP8:%.*]] = add i64 [[VP7]] i64 8
 ; CHECK-NEXT:     i32* [[VP9:%.*]] = getelementptr inbounds [9 x i32]* @a i64 0 i64 [[VP8]]
 ; CHECK-NEXT:     i32 [[VP10:%.*]] = load i32* [[VP9]]
-; CHECK-NEXT:     i32 [[VP11:%.*]] = zext i16 [[VP2]] to i32
-; CHECK-NEXT:     i32 [[VP12:%.*]] = call i32 [[VP11]] i32 (i32)* @llvm.ssa.copy.i32
+; CHECK-NEXT:     i32 [[VP11:%.*]] = zext i16 [[VP1]] to i32
+; CHECK-NEXT:     i32 [[VP12:%.*]] = hir-copy i32 [[VP11]] , OriginPhiId: -1
 ; CHECK-NEXT:     i1 [[VP13:%.*]] = icmp i32 [[VP10]] i32 0
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP13]]), [[BB3]](!i1 [[VP13]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]:
 ; CHECK-NEXT:       i32 [[VP14:%.*]] = udiv i32 2 i32 [[VP10]]
-; CHECK-NEXT:       i32 [[VP15:%.*]] = call i32 [[VP14]] i32 (i32)* @llvm.ssa.copy.i32
+; CHECK-NEXT:       i32 [[VP15:%.*]] = hir-copy i32 [[VP14]] , OriginPhiId: -1
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB3]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:

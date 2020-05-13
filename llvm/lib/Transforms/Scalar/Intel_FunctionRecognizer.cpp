@@ -476,6 +476,23 @@ static bool isQsortMed3(Function &F) {
     return true;
   };
 
+  //
+  // If every use of 'F(3)' is the called operand of an indirect call,
+  // mark those indirect calls with the 'must-be-qsort-compare' attribute.
+  //
+  auto MarkIndirectCalls = [](Function &F) -> bool {
+    Argument *CU = F.getArg(3);
+    for (User *U : CU->users()) {
+      auto CB = dyn_cast<CallBase>(U);
+      if (!CB || CB->getCalledOperand() != CU)
+        return false;
+    }
+    for (User *U : CU->users())
+      cast<CallBase>(U)->addAttribute(llvm::AttributeList::FunctionIndex,
+                                      "must-be-qsort-compare");
+    return true;
+  };
+
   DenseMapBBToV PHIMap;
 
   // This is the main code for isQsortMed3().
@@ -519,7 +536,11 @@ static bool isQsortMed3(Function &F) {
   if (!IsCmpSelBlock(BBF2, A0, A2, PLT, A0, A2, A3, PHIMap, &BBS1) ||
       BBS1 != BBPHI)
     return false;
-  return IsOKPHIBlock(BBPHI, PHIMap);
+  if (!IsOKPHIBlock(BBPHI, PHIMap))
+    return false;
+  if (!MarkIndirectCalls(F))
+    return false;
+  return true;
 }
 
 //
@@ -2964,6 +2985,29 @@ static bool isQsortSpecQsort(Function &F, Function **FSwapFunc,
            PHIN->getIncomingValue(1) == VPHINI;
   };
 
+  //
+  // Return 'true' if some use of arg #3 of 'F' is not:
+  //  (1) Used in a recursive call to 'F'.
+  //  (2) Arg #3 of 'FMed3'
+  //  (3) Used as the called operand in any indirect call.
+  //
+  auto BadCmpArgUse = [](Function &F, Function &FMed3) -> bool {
+    Argument *CU = F.getArg(3);
+    for (User *U : CU->users()) {
+      auto CB = dyn_cast<CallBase>(U);
+      if (!CB)
+        return false;
+      if (Function *Callee = CB->getCalledFunction()) {
+        if (Callee != &F && (Callee != &FMed3 || CB->getArgOperand(3) != CU))
+          return false;
+      } else {
+        if (CB->getCalledOperand() != CU)
+          return false;
+      }
+    }
+    return true;
+  };
+
   BasicBlock *BBE = &F.getEntryBlock();
   BasicBlock *BBL = nullptr;
   BasicBlock *BBX0 = nullptr;
@@ -3171,6 +3215,12 @@ static bool isQsortSpecQsort(Function &F, Function **FSwapFunc,
                            << ": Is not third direct branch block.\n");
     return false;
   }
+  if (!BadCmpArgUse(F, *FMed3X)) {
+    DEBUG_WITH_TYPE(FXNREC_VERBOSE, dbgs()
+                                        << "FXNREC: SPEC_QSORT: " << F.getName()
+                                        << ": Bad cmp arg use.\n");
+    return false;
+  }
   *FSwapFunc = FSwapFuncX;
   *FMed3 = FMed3X;
   return true;
@@ -3202,6 +3252,15 @@ static bool FunctionRecognizerImpl(Function &F) {
   Function *FMed3 = nullptr;
   if (isQsortSpecQsort(F, &FSwapFunc, &FMed3)) {
     F.addFnAttr("is-qsort-spec_qsort");
+    FSwapFunc->addFnAttr("must-be-qsort-swapfunc");
+    FMed3->addFnAttr("must-be-qsort-med3");
+    Argument *CmpUse = F.getArg(3);
+    for (User *U : CmpUse->users()) {
+      auto CB = cast<CallBase>(U);
+      if (!CB->getCalledFunction() && CB->getCalledOperand() == CmpUse)
+        CB->addAttribute(llvm::AttributeList::FunctionIndex,
+                         "must-be-qsort-compare");
+    }
     NumFunctionsRecognized++;
     LLVM_DEBUG(dbgs() << "FUNCTION-RECOGNIZER: FOUND QSORT-SPEC_QSORT "
                       << F.getName() << "\n");
