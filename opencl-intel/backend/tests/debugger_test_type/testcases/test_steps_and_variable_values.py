@@ -15,7 +15,7 @@ class TestStepsAndVariableValues(DebuggerTestCase):
 
     def test_in_nested_function_calls(self):
     #
-    #  Test - test the variable values query after making diffrent type of step (in, over and out)
+    #  Test - test the variable values query after making different type of step (in, over and out)
     #  TC-47, TC-48, TC-49
         gdb_offset = 0
         if self.use_gdb or self.use_cdb:
