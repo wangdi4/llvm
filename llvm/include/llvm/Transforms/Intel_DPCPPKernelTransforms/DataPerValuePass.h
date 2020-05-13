@@ -143,13 +143,6 @@ private:
   /// Returns SpecialValueType - speciality type of given value.
   SpecialValueType isSpecialValue(Value *V, bool IsWIRelated);
 
-  /// Return true if there is a barrier in one of the pathes between ValBB and
-  /// ValUsageBB basic blocks.
-  /// ValUsageBB basic block to start searching the path according to its
-  /// predecessors, ValBB basic block to stop searching the path when reach it,
-  /// Returns true if and only if find a barrier in one of the searched paths.
-  bool isCrossedByBarrier(BasicBlock *ValUsageBB, BasicBlock *ValBB);
-
   /// Calculates offsets of all values in Group-A and Group-B.1.
   /// F function to process its values.
   void calculateOffsets(Function &F);

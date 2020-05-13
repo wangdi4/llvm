@@ -128,7 +128,7 @@ void DataPerBarrier::FindBarrierPredecessors(Instruction *I) {
   Function *F = BB->getParent();
   InstSet &BarrierBBSet = SyncsPerFuncMap[F];
   BarrierRelated &InstBarrierRelated = BarrierPredecessorsMap[I];
-  InstVector &BarrierPredecessors = InstBarrierRelated.RelatedBarriers;
+  InstSet &BarrierPredecessors = InstBarrierRelated.RelatedBarriers;
   std::vector<BasicBlock *> BasicBlocksToHandle;
   BasicBlockSet BasicBlocksAddedForHandle;
 
@@ -149,7 +149,7 @@ void DataPerBarrier::FindBarrierPredecessors(Instruction *I) {
       Instruction *Inst = &*(PredBB->begin());
       if (BarrierBBSet.count(Inst)) {
         // This predecessor basic block conatins a barrier.
-        BarrierPredecessors.push_back(Inst);
+        BarrierPredecessors.insert(Inst);
         if (DataPerBarrierMap[Inst].Type == SyncTypeFiber) {
           // predecessor is a fiber instruction, update barrier related data.
           InstBarrierRelated.HasFiberRelated = true;
@@ -225,7 +225,7 @@ void DataPerBarrier::print(raw_ostream &OS, const Module *M) const {
     OS << "+" << BBB->getName() << "\n";
     OS << "has fiber instruction as predecessors: " << KV.second.HasFiberRelated
        << "\n";
-    const InstVector &IVec = KV.second.RelatedBarriers;
+    const InstSet &IVec = KV.second.RelatedBarriers;
     for (const Instruction *InstPred : IVec) {
       const BasicBlock *BB = InstPred->getParent();
       // Print barrier predecessor basic block name
