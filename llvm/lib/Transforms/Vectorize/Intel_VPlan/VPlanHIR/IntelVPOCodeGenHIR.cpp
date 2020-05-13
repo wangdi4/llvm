@@ -2046,6 +2046,7 @@ HLInst *VPOCodeGenHIR::widenInterleavedAccess(
       const RegDDRef *MemRef =
           cast<VPVLSClientMemrefHIR>(Grp->getFirstMemref())->getRegDDRef();
       RegDDRef *WMemRef = widenRef(MemRef, getVF() * InterleaveFactor, true);
+      assert(WMemRef && "The memory reference should not be null pointer");
       HLInst *WideLoad =
           HLNodeUtilities.createLoad(WMemRef, CurInst->getName() + ".vls.load");
       propagateMetadata(WMemRef, Grp);

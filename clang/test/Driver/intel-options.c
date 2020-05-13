@@ -74,7 +74,7 @@
 // RUN: | FileCheck -check-prefix=MFLAGS %s
 // MFLAGS-NOT: argument unused during compilation
 
-//Behavior with -static-intel options
+// Behavior with -static-intel options
 // RUN: %clang -### --intel -target x86_64-unknown-linux -static-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-STATIC %s
 // RUN: %clang -### --intel -target x86_64-unknown-linux -shared -static-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-STATIC %s
 // RUN: %clang -### --intel -target x86_64-unknown-linux -static -shared -static-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-STATIC %s
@@ -82,13 +82,13 @@
 // CHECK-INTEL-STATIC: "-Bstatic" "-lirc" "-Bdynamic"
 // CHECK-INTEL-STATIC: "-Bstatic" "-lsvml" "-Bdynamic"
 
-//Behavior with -shared-intel options
+// Behavior with -shared-intel options
 // RUN: %clang -### --intel -target x86_64-unknown-linux -static -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-SHARED %s
 // RUN: %clang -### --intel -target x86_64-unknown-linux -shared -static -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-SHARED %s
 // CHECK-INTEL-SHARED: "-Bdynamic" "-lirc" "-Bstatic"
 // CHECK-INTEL-SHARED: "-Bdynamic" "-lsvml" "-Bstatic"
 
-//Behavior with combination of -shared-intel and -static-intel options
+// Behavior with combination of -shared-intel and -static-intel options
 // RUN: %clang -### --intel -target x86_64-unknown-linux -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS %s
 // RUN: %clang -### --intel -target x86_64-unknown-linux -static %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS %s
 // RUN: %clang -### --intel -target x86_64-unknown-linux -shared -shared-intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS %s
@@ -135,6 +135,22 @@
 // RUN: %clang_cl -### /Qimf-max-error=5 -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-MAX %s
 // CHECK-FIMF-MAX: "-mGLOB_imf_attr=max-error:5"
 
+// RUN: %clang -### -fimf-absolute-error=none -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-ABSOLUTE %s
+// RUN: %clang_cl -### /Qimf-absolute-error=none -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-ABSOLUTE %s
+// CHECK-FIMF-ABSOLUTE: "-mGLOB_imf_attr=absolute-error:none"
+
+// RUN: %clang -### -fimf-accuracy-bits=none -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-ACCURACY %s
+// RUN: %clang_cl -### /Qimf-accuracy-bits=none -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-ACCURACY %s
+// CHECK-FIMF-ACCURACY: "-mGLOB_imf_attr=accuracy-bits:none"
+
+// RUN: %clang -### -fimf-domain-exclusion=none -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-EXCLUSION %s
+// RUN: %clang_cl -### /Qimf-domain-exclusion=none -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-EXCLUSION %s
+// CHECK-FIMF-EXCLUSION: "-mGLOB_imf_attr=domain-exclusion:none"
+
+// RUN: %clang -### -fimf-precision=none -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-PRECISION %s
+// RUN: %clang_cl -### /Qimf-precision=none -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-PRECISION %s
+// CHECK-FIMF-PRECISION: "-mGLOB_imf_attr=precision:none"
+
 // Behavior with -femit-class-debug-always option maps to -fstandalone-debug
 // RUN: %clang -### -c -g %s 2>&1 | FileCheck -check-prefix CHECK-DEBUG-INFO-KIND-DEFAULT %s
 // CHECK-DEBUG-INFO-KIND-DEFAULT: "-debug-info-kind=limited"
@@ -145,7 +161,7 @@
 // RUN: %clang -### -c -nolib_inline %s 2>&1 | FileCheck -check-prefix CHECK-NOLIB-INLINE %s
 // CHECK-NOLIB-INLINE: "-fno-builtin"
 
-//Behavior with -strict-ansi option
+// Behavior with -strict-ansi option
 // RUN: %clang -### -strict-ansi %s 2>&1 | FileCheck -check-prefix CHECK-STRICT-ANSI %s
 // RUN: %clang -### -strict_ansi %s 2>&1 | FileCheck -check-prefix CHECK-STRICT-ANSI %s
 // CHECK-STRICT-ANSI: "-pedantic"
@@ -173,7 +189,7 @@
 // CHECK-INLINE-LEVEL: "-fno-inline"
 // CHECK-INLINE-LEVEL: "-finline-hint-functions"
 
-//Behavior with /Qno-builtin- maps to -fno-builtin-
+// Behavior with /Qno-builtin- maps to -fno-builtin-
 // RUN: %clang_cl -### -c /Qno-builtin- %s 2>&1 | FileCheck -check-prefix CHECK-QNO-BUILTIN %s
 // RUN: %clang_cl -### -c /Qno-builtin-memset %s 2>&1 | FileCheck -check-prefix CHECK-QNO-BUILTIN-FUNC %s
 // CHECK-QNO-BUILTIN: "-fno-builtin-"
@@ -200,7 +216,7 @@
 // -use-msasm alias to -fasm-blocks
 // RUN: %clang -### -c -use-msasm %s 2>&1 | FileCheck -check-prefix=CHECK-USE-MSASM %s
 // RUN: %clang -### -c -use_msasm %s 2>&1 | FileCheck -check-prefix=CHECK-USE-MSASM %s
-//CHECK-USE-MSASM: "-fasm-blocks"
+// CHECK-USE-MSASM: "-fasm-blocks"
 
 // Behavior with fiopenmp-simd/Qiopenmp-simd option
 // RUN: %clang -### -c -fiopenmp-simd %s 2>&1 | FileCheck -check-prefix CHECK-QIOPENMP-SIMD %s
@@ -237,7 +253,7 @@
 // CHECK-FNO-ALN-NOT: "-function-alignment"
 // CHECK-FUN-ALN-EQ: "-function-alignment" "2"
 
-//Behavior with -dryrun and -# maps to -###
+// Behavior with -dryrun and -# maps to -###
 // RUN: %clang -# %s -c 2>&1 | FileCheck %s --check-prefix=CHECK-HASH
 // RUN: %clang_cl -# %s -c 2>&1 | FileCheck %s --check-prefix=CHECK-HASH
 // RUN: %clang -dryrun  %s -c 2>&1 | FileCheck %s --check-prefix=CHECK-HASH

@@ -1575,6 +1575,15 @@ if (INTEL_CUSTOMIZATION)
       )
     endif()
 
+    if (";${LLVM_INTEL_FEATURES};" MATCHES ";INTEL_INTERNAL_BUILD;")
+      list(APPEND INTEL_DEPLOY_COMPONENTS_LIST
+        # Deploy sanitizers for sanitized LIT testing.
+        # It should not harm to deploy them always for non-product builds.
+        clang_rt.msan-x86_64 clang_rt.msan_cxx-x86_64
+        clang_rt.msan-i386 clang_rt.msan_cxx-i386
+        )
+    endif()
+
     set(INTEL_OPENCL_DEPLOY_COMPONENTS_LIST
       # OpenCL components
       ocl-common_clang ocl-builtins ocl-builtins-shared
