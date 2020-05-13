@@ -959,12 +959,11 @@ ModulePassManager PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
                                                     bool DebugLogging) {
   ModulePassManager MPM(DebugLogging);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Parse -[no]inline-list option and set corresponding attributes.
   MPM.addPass(InlineListsPass());
 #endif // INTEL_CUSTOMIZATION
-=======
+
   // Require the GlobalsAA analysis for the module so we can query it within
   // the CGSCC pipeline.
   MPM.addPass(RequireAnalysisPass<GlobalsAA, Module>());
@@ -972,7 +971,6 @@ ModulePassManager PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
   // Require the ProfileSummaryAnalysis for the module so we can query it within
   // the inliner pass.
   MPM.addPass(RequireAnalysisPass<ProfileSummaryAnalysis, Module>());
->>>>>>> 5c10c6e0128a69442b55d324f010f94dbe7eebc9
 
   // Now begin the main postorder CGSCC pipeline.
   // FIXME: The current CGSCC pipeline has its origins in the legacy pass
@@ -1190,21 +1188,9 @@ ModulePassManager PassBuilder::buildModuleSimplificationPipeline(
   if (EnableSyntheticCounts && !PGOOpt)
     MPM.addPass(SyntheticCountsPropagation());
 
-<<<<<<< HEAD
-  // Require the GlobalsAA analysis for the module so we can query it within
-  // the CGSCC pipeline.
-  MPM.addPass(RequireAnalysisPass<GlobalsAA, Module>());
-
-  // Require the ProfileSummaryAnalysis for the module so we can query it within
-  // the inliner pass.
-  MPM.addPass(RequireAnalysisPass<ProfileSummaryAnalysis, Module>());
-
 #if INTEL_CUSTOMIZATION
   MPM.addPass(buildInlinerPipeline(Level, Phase, &InlPass, DebugLogging));
 #endif // INTEL_CUSTOMIZATION
-=======
-  MPM.addPass(buildInlinerPipeline(Level, Phase, DebugLogging));
->>>>>>> 5c10c6e0128a69442b55d324f010f94dbe7eebc9
   return MPM;
 }
 
