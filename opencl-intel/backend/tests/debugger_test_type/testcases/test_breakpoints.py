@@ -97,9 +97,9 @@ class TestBreakpoints(DebuggerTestCase):
         self.client.debug_run_finish()
 
     @expectedFailureCDB
-    def test_breakpoints_in_diffrent_call_level(self):
+    def test_breakpoints_in_different_call_level(self):
     #
-    # Test a simple usage of breakpoints set in diffrent function call level
+    # Test a simple usage of breakpoints set in different function call level
     # TC-7
         self.client.execute_debuggee(
             hostprog_name='ndrange_inout',
