@@ -1110,6 +1110,10 @@ private:
       // If the value being analyzed is a load instruction the loaded value
       // may inherit some alias information from the load's pointer operand.
       analyzeLoadInstruction(Load, Info);
+    } else if (auto *BC = dyn_cast<BitCastInst>(V)){
+      // If the value is a BitCast then we need to check if it used to load
+      // a zero element
+      analyzeBitCastInstruction(BC, Info);
     } else if (isa<ExtractValueInst>(V)) {
       // FIXME: Also analyze extract value instructions.
     }
@@ -1784,10 +1788,36 @@ private:
                       dbgs() << "Incomplete analysis derived from " << *Src
                              << "\n");
     }
+
+    // Check if the load represents the zero element of a structure.
+    Type *Pointee = nullptr;
+    Type *LoadedType = dtrans::getTypeForZeroElementLoaded(Load, &Pointee);
+    // Store the pointer alias
+    if (LoadedType && Pointee)
+      Info.addPointerTypeAlias(LoadedType);
+
     for (auto *AliasTy : SrcLPI.getPointerTypeAliasSet())
       if (AliasTy->isPointerTy() &&
           AliasTy->getPointerElementType()->isPointerTy())
         Info.addPointerTypeAlias(AliasTy->getPointerElementType());
+  }
+
+  void analyzeBitCastInstruction(BitCastInst *BC, LocalPointerInfo &Info) {
+    // If the BitCast is used to load the 0 element from a structure
+    // then we need find the structure that is being accessed
+    if (!BC)
+      return;
+
+    for (User *U : BC->users()) {
+      if (auto *Load = dyn_cast<LoadInst>(U)) {
+        // Check if the load represents the zero element of a structure.
+        Type *Pointee = nullptr;
+        Type *LoadedType = dtrans::getTypeForZeroElementLoaded(Load, &Pointee);
+        if (LoadedType && Pointee)
+          // Store the structure that is being accessed at 0
+          Info.addElementPointee(Pointee, 0);
+      }
+    }
   }
 
   bool isDerivedValue(Value *V) {

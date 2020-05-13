@@ -1127,3 +1127,137 @@ bool dtrans::hasPointerType(llvm::Type *Ty) {
 
   return false;
 }
+
+// If the loaded operand comes from a BitCast that points to a structure then
+// then there is a chance that is loading the Zero element. For example,
+// consider the following types:
+//
+//   %"class.outer" = type { %"class.inner" }
+//   %"class.inner" = type { %class.TestClass*, %class.TestClass*}
+//   %class.TestClass = type { i64, i64, i64}
+//
+// Then consider the following BitCast and Load instructions:
+//
+//   %1 = bitcast %"class.outer"* %0 to i64*
+//   %2 = load i64, i64* %1
+//
+// Assuming that %0 is a memory allocated space (GEP, argument, etc.), then
+// the instructions %1 and %2 mean that there is a load for the zero element
+// in %class.inner (%class.TestClass*). This function will return the pointer
+// type that is being loaded. Also, it will store the structure that
+// encapsulates the loaded pointer in the parameter Pointee.
+llvm::Type* dtrans::getTypeForZeroElementLoaded(LoadInst *Load,
+                                                llvm::Type **Pointee) {
+
+  // If the input type is a Structure, then return the casted form, else check
+  // if it is a Pointer type. If so, then check if the pointer's element is a
+  // a structure and return it. Else, return nullptr.
+  auto GetStructFromPtr = [](Type *PtrTy) -> StructType* {
+    if (!PtrTy)
+      return nullptr;
+
+    if (PtrTy->isStructTy())
+      return cast<StructType>(PtrTy);
+
+    PointerType *Ptr = dyn_cast<PointerType>(PtrTy);
+    if (!Ptr)
+      return nullptr;
+
+    StructType *Str = dyn_cast<StructType>(Ptr->getPointerElementType());
+    return Str;
+  };
+
+  if (!Load)
+    return nullptr;
+
+  BitCastInst *BCSrc = dyn_cast<BitCastInst>(Load->getPointerOperand());
+  if (!BCSrc)
+    return nullptr;
+
+  PointerType *OperandTy =
+      dyn_cast<PointerType>(Load->getPointerOperandType());
+  // Make sure that we are loading from a pointer to an integer type
+  if (!OperandTy || !OperandTy->getPointerElementType()->isIntegerTy())
+    return nullptr;
+
+  // Check the source
+  Value *Src = BCSrc->getOperand(0);
+  Type *SourceType = nullptr;
+
+  // NOTE: This function takes care for GEPs and Arguments, but there
+  // is the possibility to express the 0 entry of an Aggregate type as a
+  // BitCast and a Load.
+  if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(Src)) {
+    SourceType = GEP->getSourceElementType();
+    if (!GEP->hasAllConstantIndices())
+      return nullptr;
+
+    StructType *CurrStruct = GetStructFromPtr(SourceType);
+    if (!CurrStruct)
+      return nullptr;
+
+    unsigned NumIdx = GEP->getNumIndices();
+
+    // Byte flattened GEPs might need another analysis
+    if (NumIdx < 2)
+      return nullptr;
+
+    // If there is a GEP, first we need to traverse through the indices
+    // to know which structures are being collected. From there then
+    // we collect the 0 elements. This handles the following case:
+    //
+    //   %"class.outer" = type { %"class.inner1" }
+    //   %"class.inner1" = type { %"class.inner2", %"classinner2"}
+    //   %"class.inner2" = type { %class.TestClass*, %class.TestClass*}
+    //   %class.TestClass = type { i64, i64, i64}
+    //
+    //   %1 = getelementptr inbounds %"class.outer", %"class.outer"* %0,
+    //            i64 0, i32 0, i32 1
+    //   %2 = bitcast %"class.inner2"* %1 to i64*
+    //   %3 = load i64, i64* %2
+    //
+    // In the above example, %1 is a GEP that points to %"class.outer", entry 1
+    // from %"class.inner1". But the BitCast and Load represents that the entry
+    // 0 from %"class.inner2" will be loaded. We need first to traverse the GEP
+    // to make sure which structures it is pointing to and then collect the 0
+    // element.
+    for (unsigned I = 2; I <= NumIdx; I++) {
+      ConstantInt *IdxConst = cast<ConstantInt>(GEP->getOperand(I));
+      unsigned Idx = IdxConst->getZExtValue();
+      CurrStruct = dyn_cast<StructType>(CurrStruct->getElementType(Idx));
+      // If the last type collected is not a structure then don't continue.
+      // It might be that the GEP is not loading a structure or that the GEP
+      // has all the indices needed to collect the type. This case is not
+      // handled here.
+      if (!CurrStruct)
+        return nullptr;
+    }
+
+    // Else, there is more to catch, check the zero element
+    SourceType = cast<Type>(CurrStruct);
+  }
+  else if (isa<Argument>(Src))
+    SourceType = Src->getType();
+  else
+    return nullptr;
+
+  StructType *CurrTy = GetStructFromPtr(SourceType);
+  if (!CurrTy)
+    return nullptr;
+
+  while (CurrTy) {
+    Type *Element = CurrTy->getElementType(0);
+    if (Element->isStructTy()) {
+      CurrTy = cast<StructType>(Element);
+    }
+    else if (GetStructFromPtr(Element)) {
+      *Pointee = cast<Type>(CurrTy);
+      return Element;
+    } else {
+      CurrTy = nullptr;
+      break;
+    }
+  }
+
+  return nullptr;
+}
