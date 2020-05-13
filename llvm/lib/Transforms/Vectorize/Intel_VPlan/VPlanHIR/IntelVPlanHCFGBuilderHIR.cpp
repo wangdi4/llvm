@@ -307,6 +307,9 @@ private:
   /// Map between HLNode's that open a VPBasicBlock and such VPBasicBlock's.
   DenseMap<HLNode *, VPBasicBlock *> HLN2VPBB;
 
+  /// Hold condition bits for the blocks with multiple exits.
+  DenseMap<VPBasicBlock *, VPValue *> CondBits;
+
   /// Utility to create VPInstructions out of a HLNode.
   VPDecomposerHIR Decomposer;
 
@@ -388,13 +391,10 @@ void PlainCFGBuilderHIR::connectVPBBtoPreds(VPBasicBlock *VPBB) {
 
   for (VPBasicBlock *Pred : Predecessors) {
     VPBasicBlock *Succ = Pred->getSingleSuccessor();
-    VPValue *CondBit = Pred->getCondBit();
     if (Succ)
-      Pred->setTerminator(Succ, VPBB, CondBit);
-    else {
+      Pred->setTerminator(Succ, VPBB, CondBits[Pred]);
+    else
       Pred->setTerminator(VPBB);
-      Pred->setCondBit(CondBit);
-    }
   }
 
   Predecessors.clear();
@@ -486,7 +486,7 @@ void PlainCFGBuilderHIR::visit(HLLoop *HLp) {
   VPValue *LatchCondBit =
       Decomposer.createLoopIVNextAndBottomTest(HLp, Preheader, Latch);
   Latch->setTerminator(Header);
-  Latch->setCondBit(LatchCondBit);
+  CondBits[Latch] = LatchCondBit;
 
   // - Loop Exits -
   // Force creation of a new VPBB for Exit.
@@ -531,7 +531,7 @@ void PlainCFGBuilderHIR::visit(HLIf *HIf) {
   // TODO: Remove "not decomposed" when decomposing HLIfs.
   VPInstruction *CondBit =
       Decomposer.createVPInstructionsForNode(HIf, ActiveVPBB);
-  ConditionVPBB->setCondBit(CondBit);
+  CondBits[ConditionVPBB] = CondBit;
 
   // - Then branch -
   // Force creation of a new VPBB for Then branch even if the Then branch has no
