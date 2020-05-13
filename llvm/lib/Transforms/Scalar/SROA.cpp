@@ -1431,12 +1431,11 @@ static void speculatePHINodeLoads(PHINode &PN) {
     Instruction *TI = Pred->getTerminator();
     IRBuilderTy PredBuilder(TI);
 
-<<<<<<< HEAD
     SmallPtrSet<LoadInst *, 4> NewLoads;
     injectGEPsLoads(PredBuilder, cast<Instruction>(PN.user_back()), InVal, NewLoads);
     for (auto *NewLoad : NewLoads) {
       ++NumLoadsSpeculated;
-      NewLoad->setAlignment(Align);
+      NewLoad->setAlignment(Alignment);
       if (AATags)
         NewLoad->setAAMetadata(AATags);
       InjectedLoads[Pred] = NewLoad;
@@ -1444,17 +1443,6 @@ static void speculatePHINodeLoads(PHINode &PN) {
     }
 
     NewLoads.clear();
-=======
-    LoadInst *Load = PredBuilder.CreateLoad(
-        LoadTy, InVal,
-        (PN.getName() + ".sroa.speculate.load." + Pred->getName()));
-    ++NumLoadsSpeculated;
-    Load->setAlignment(Alignment);
-    if (AATags)
-      Load->setAAMetadata(AATags);
-    NewPN->addIncoming(Load, Pred);
-    InjectedLoads[Pred] = Load;
->>>>>>> fcfb3170a776f89dde4de8ee105c99e10660f455
   }
 
   // Rewrite all loads/loads-following-GEPs of the PN to use the new PHI.
