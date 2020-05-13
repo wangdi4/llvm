@@ -1321,13 +1321,12 @@ bool SimplifyCFGOpt::HoistThenElseCodeToIf(BranchInst *BI,
     if (!TTI.isProfitableToHoist(I1) || !TTI.isProfitableToHoist(I2))
       return Changed;
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
     // Do not hoist llvm.directive.region.entry/exit intrinsics.
     if (IntrinsicUtils::isDirective(I1))
       return Changed;
 #endif //INTEL_COLLAB
-=======
+
     // If any of the two call sites has nomerge attribute, stop hoisting.
     if (const auto *CB1 = dyn_cast<CallBase>(I1))
       if (CB1->cannotMerge())
@@ -1335,7 +1334,6 @@ bool SimplifyCFGOpt::HoistThenElseCodeToIf(BranchInst *BI,
     if (const auto *CB2 = dyn_cast<CallBase>(I2))
       if (CB2->cannotMerge())
         return Changed;
->>>>>>> cb22ab7403557941fd672a8fc3a16b1ef75a7842
 
     if (isa<DbgInfoIntrinsic>(I1) || isa<DbgInfoIntrinsic>(I2)) {
       assert (isa<DbgInfoIntrinsic>(I1) && isa<DbgInfoIntrinsic>(I2));
