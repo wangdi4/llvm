@@ -16,9 +16,9 @@
 ; need to be collected by the pointer type analyzer.
 %struct.test01 = type { i16, i16 }
 define internal void @test01() {
-  %p32 = alloca i32*, !dtrans_type !2, !dtrans_type !2
-  %vp16 = alloca <2 x i16*>, !dtrans_type !3, !dtrans_type !3
-  %ap16 = alloca [2 x i16*], !dtrans_type !5, !dtrans_type !5
+  %p32 = alloca i32*, !dtrans_type !2
+  %vp16 = alloca <2 x i16*>, !dtrans_type !3
+  %ap16 = alloca [2 x i16*], !dtrans_type !5
   %litp = alloca {i16*, i16*}, !dtrans_type !6
 
   %val_p32 = load i32*, i32** %p32

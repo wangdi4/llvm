@@ -21,7 +21,7 @@ define internal void @test01() {
   %v2 = load i8, i8* getelementptr (%struct.test01, %struct.test01* @test_var01, i64 0, i32 2, i32 0)
   ret void
 }
-; CHECK-LABEL: void @test01() {
+; CHECK-LABEL: void @test01()
 ; CHECK-CUR: %v0 = load i64, i64* getelementptr inbounds (%struct.test01, %struct.test01* @test_var01, i64 0, i32 0)
 ; CHECK-FUT: %v0 = load i64, p0 getelementptr inbounds (%struct.test01, p0 @test_var01, i64 0, i32 0)
 ; CHECK-CUR:         CE: i64* getelementptr inbounds (%struct.test01, %struct.test01* @test_var01, i64 0, i32 0)
@@ -52,8 +52,7 @@ define internal void @test01() {
 ; CHECK-NEXT:     Element pointees:
 ; CHECK-NEXT:        [25 x i8] @ 0
 
-; Test that an unhandled constant expression operator, PtrToIntOperator in
-; this case, gets marked as UNHANDLED.
+; Test PtrToIntOperator processing
 %struct.test02 = type { i64*, %struct.test02* }
 @test_var02 = internal global %struct.test02 zeroinitializer
 define internal void @test02() {
@@ -61,13 +60,16 @@ define internal void @test02() {
   store i64 ptrtoint (%struct.test02** getelementptr (%struct.test02, %struct.test02* @test_var02, i64 0, i32 1) to i64), i64* %local
   ret void
 }
-; CHECK-LABEL: void @test02() {
+; CHECK-LABEL: void @test02()
 ; CHECK-CUR:  store i64 ptrtoint (%struct.test02** getelementptr inbounds (%struct.test02, %struct.test02* @test_var02, i64 0, i32 1) to i64), i64* %local
 ; CHECK-FUT:  store i64 ptrtoint (p0 getelementptr inbounds (%struct.test02, p0 @test_var02, i64 0, i32 1) to i64), p0 %local
 ; CHECK-CUR:     CE: i64 ptrtoint (%struct.test02** getelementptr inbounds (%struct.test02, %struct.test02* @test_var02, i64 0, i32 1) to i64)
 ; CHECK-FUT:     CE: i64 ptrtoint (p0 getelementptr inbounds (%struct.test02, p0 @test_var02, i64 0, i32 1) to i64)
 ; CHECK-NEXT:       LocalPointerInfo:
-; CHECK-SAME: <UNHANDLED>
+; CHECK-NEXT:            Aliased types:
+; CHECK-NEXT:              %struct.test02**{{ *$}}
+; CHECK-NEXT:            Element pointees:
+; CHECK-NEXT:              %struct.test02 @ 1
 
 ; CHECK-CUR:     CE: %struct.test02** getelementptr inbounds (%struct.test02, %struct.test02* @test_var02, i64 0, i32 1)
 ; CHECK-FUT:     CE: p0 getelementptr inbounds (%struct.test02, p0 @test_var02, i64 0, i32 1)
@@ -78,6 +80,27 @@ define internal void @test02() {
 ; CHECK-NEXT:            %struct.test02 @ 1
 
 
+; Test that unhandled constant expression operators get marked as UNHANDLED.
+; AddOperator and IntToPtrOperator are not handled.
+%struct.test03 = type { i64, i64 }
+@test_var03 = internal global %struct.test03 zeroinitializer
+define internal void @test03() {
+  store %struct.test03* @test_var03, %struct.test03** inttoptr (i64 add (i64 4, i64 ptrtoint (%struct.test03* @test_var03 to i64)) to %struct.test03**)
+  ret void
+}
+; CHECK-LABEL: void @test03()
+; CHECK-CUR: store %struct.test03* @test_var03, %struct.test03** inttoptr (i64 add (i64 ptrtoint (%struct.test03* @test_var03 to i64), i64 4) to %struct.test03**)
+; CHECK-FUT: store p0 @test_var03, p0 inttoptr (i64 add (i64 ptrtoint (p0 @test_var03 to i64), i64 4) to p0)
+; CHECK-CUR:   CE: %struct.test03** inttoptr (i64 add (i64 ptrtoint (%struct.test03* @test_var03 to i64), i64 4) to %struct.test03**)
+; CHECK-FUT:   CE: p0 inttoptr (i64 add (i64 ptrtoint (p0 @test_var03 to i64), i64 4) to p0)
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-SAME: <UNHANDLED>
+
+; CHECK-CUR:   CE: i64 add (i64 ptrtoint (%struct.test03* @test_var03 to i64), i64 4)
+; CHECK-FUT:   CE: i64 add (i64 ptrtoint (p0 @test_var03 to i64), i64 4)
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-SAME: <UNHANDLED>
+
 !1 = !{i64 0, i32 0}  ; i64
 !2 = !{double 0.0e+00, i32 0}  ; double
 !3 = !{!"A", i32 25, !4}  ; [25 x i8]
@@ -87,5 +110,6 @@ define internal void @test02() {
 !7 = !{!"R", %struct.test02 zeroinitializer, i32 0}  ; %struct.test02
 !8 = !{!"S", %struct.test01 zeroinitializer, i32 3, !1, !2, !3} ; { i64, double, [25 x i8] }
 !9 = !{!"S", %struct.test02 zeroinitializer, i32 2, !5, !6} ; { i64*, %struct.test02* }
+!10 = !{!"S", %struct.test03 zeroinitializer, i32 2, !1, !1} ; { i64, i64 }
 
-!dtrans_types = !{!8, !9}
+!dtrans_types = !{!8, !9, !10}
