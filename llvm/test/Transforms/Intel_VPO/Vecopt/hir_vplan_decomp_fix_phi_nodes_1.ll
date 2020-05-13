@@ -31,10 +31,10 @@
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
 ; CHECK:         [[BB2]]:
 ; CHECK-NEXT:     i64 [[VP0:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB3:BB[0-9]+]] ]
-; CHECK:          i32 [[VP4:%.*]] = call i32 {{%vp.*}} i32 (i32)* @llvm.ssa.copy.i32
+; CHECK:          i32 [[VP4:%.*]] = hir-copy i32 {{%vp.*}} , OriginPhiId: -1
 ; CHECK:         SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP6:%vp.*]]), [[BB3]](!i1 [[VP6]])
 ; CHECK:           [[BB4]]:
-; CHECK:            i32 [[VP9:%.*]] = call i32 {{%vp.*}} i32 (i32)* @llvm.ssa.copy.i32
+; CHECK:            i32 [[VP9:%.*]] = hir-copy i32 {{%vp.*}} , OriginPhiId: -1
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB3]]
 ; CHECK:         [[BB3]]:
 ; CHECK-NEXT:     i32 [[VP10:%.*]] = phi  [ i32 [[VP9]], [[BB4]] ],  [ i32 [[VP4]], [[BB2]] ]

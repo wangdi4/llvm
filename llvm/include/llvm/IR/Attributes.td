@@ -294,5 +294,6 @@ def : MergeRule<"adjustCallerSSPLevel">;
 def : MergeRule<"adjustCallerStackProbes">;
 def : MergeRule<"adjustCallerStackProbeSize">;
 def : MergeRule<"adjustContainsRecProCloneAttr">;      // INTEL
+def : MergeRule<"adjustFunctionRecognizerAttr">;       // INTEL
 def : MergeRule<"adjustMinLegalVectorWidth">;
 def : MergeRule<"adjustNullPointerValidAttr">;

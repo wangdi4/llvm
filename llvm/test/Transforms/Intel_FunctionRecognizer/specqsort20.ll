@@ -1,21 +1,16 @@
+; REQUIRES: asserts
 ; UNSUPPORTED: windows
-; RUN: opt < %s -enable-dtrans -functionrecognizer -S 2>&1 | FileCheck %s
-; RUN: opt < %s -enable-dtrans -passes='function(functionrecognizer)' -S 2>&1 | FileCheck %s
+; RUN: opt < %s -enable-dtrans -functionrecognizer -debug-only=functionrecognizer,functionrecognizer-verbose -S 2>&1 | FileCheck %s
+; RUN: opt < %s -enable-dtrans -passes='function(functionrecognizer)' -debug-only=functionrecognizer,functionrecognizer-verbose -S 2>&1 | FileCheck %s
 
-; Test that on Linux @spec_qsort is recognized as a qsort spec_qsort.
-; This is the same test as specqsort01.ll, but does not require asserts.
+; Test that on Linux @spec_qsort is not recognized as a qsort spec_qsort,
+; because the comparison function argument is not always used in an
+; indirect call.
 
-; CHECK: declare{{.*}}@med3{{.*}} #0
-; CHECK: declare{{.*}}@swapfunc{{.*}} #1
-; CHECK: define{{.*}}@spec_qsort{{.*}} #2
-; CHECK: call{{.*}}%cmp({{.*}}) #3
-; CHECK: call{{.*}}%cmp({{.*}}) #3
-; CHECK: call{{.*}}%cmp({{.*}}) #3
-; CHECK: call{{.*}}%cmp({{.*}}) #3
-; CHECK: attributes #0 = { "must-be-qsort-med3" }
-; CHECK: attributes #1 = { "must-be-qsort-swapfunc" }
-; CHECK: attributes #2 = { "is-qsort-spec_qsort" }
-; CHECK: attributes #3 = { "must-be-qsort-compare" }
+; CHECK: FXNREC: SPEC_QSORT: spec_qsort: Bad cmp arg use.
+; CHECK-NOT: FUNCTION-RECOGNIZER: FOUND QSORT-SPEC_QSORT spec_qsort
+; CHECK: define{{.*}}@spec_qsort{{.*}}
+; CHECK-NOT: attributes #0 = { "is-qsort-spec_qsort" }
 
 declare i8* @med3(i8* %a, i8* %b, i8* %c, i32 (i8*, i8*)* %cmp)
 
@@ -23,6 +18,7 @@ declare void @swapfunc(i8* %a, i8* %b, i32 %n, i32 %swaptype_long, i32 %swaptype
 
 define dso_local void @spec_qsort(i8* %a, i64 %n, i64 %es, i32 (i8*, i8*)* %cmp) #0 {
 entry:
+  %joke = bitcast i32 (i8*, i8*)* %cmp to i8*
   br label %loop
 
 loop:                                             ; preds = %if.then292, %entry

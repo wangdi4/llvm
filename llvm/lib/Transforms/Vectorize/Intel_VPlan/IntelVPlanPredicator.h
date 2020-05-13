@@ -90,9 +90,25 @@ private:
   // "not" vpinstructions creation.
   DenseMap<VPValue *, VPValue *> Cond2NotCond;
 
-  // Set of blocks that were already split to insert "AND" calculation for
-  // PredicateTerms.
-  SmallPtrSet<VPBasicBlock *, 16> SplitBlocks;
+  // Predicate-related instructions (and/not/or) should be executed without the
+  // mask. As such, in general, we need to have a separate block for them.
+  //
+  // The problem here is that we want to delay phis-to-blend processing until
+  // after predicates are inserted and we don't want the phis to be modified
+  // prior to that in order to carry original information in their incoming
+  // blocks. Unfortunately, CFG modifications caused by the block splitting
+  // would update such phis too.
+  //
+  // The solution to this problem is to make predicate-related instruction
+  // insertion two-phase:
+  //  - 1) Insert instructions *into* the blocks that are possibly predicated
+  //  - do phis-to-blends processing
+  //  - 2) Split the blocks from 1)
+  //
+  // Record the split points in this map during
+  // createDefiningValueForPredicateTerm and use it to perform the actual
+  // splitting in the end of the predication process.
+  DenseMap<VPBasicBlock *, VPInstruction *> BlocksToSplit;
 
   // We don't emit block predicates for uniform blocks, thus need store the
   // predicate in a separate map.

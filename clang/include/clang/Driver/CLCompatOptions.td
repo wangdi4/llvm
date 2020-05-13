@@ -259,6 +259,8 @@ def _SLASH_Qmkl_EQ : CLJoined<"Qmkl=">, Alias<mkl_EQ>,
   "and bring in the associated headers">;
 def _SLASH_Qmkl_COL : CLJoined<"Qmkl:">, Alias<mkl_EQ>;
 def _SLASH_Qmkl : CLFlag<"Qmkl">, Alias<mkl_EQ>, AliasArgs<["parallel"]>;
+def _SLASH_QMP : CLFlag<"QMP">, Alias<MP>, HelpText<"Create phony target for "
+  "each dependency (other than main file)">;
 def _SLASH_Qtbb : CLFlag<"Qtbb">, Alias<tbb>,
   HelpText<"Link Intel(R) Threading Building Blocks (Intel(R) TBB) libraries "
   "and bring in the associated headers">;
@@ -304,6 +306,10 @@ def _SLASH_Qvla : CLFlag<"Qvla">, HelpText<"Enable Variable Length "
   "Arrays (C99 feature)">;
 def _SLASH_Qvla_ : CLFlag<"Qvla-">, HelpText<"Disable(DEFAULT) "
   "Variable Length Arrays (C99 feature)">;
+def _SLASH_Qzero_initialized_in_bss : CLFlag<"Qzero-initialized-in-bss">,
+  Alias<fzero_initialized_in_bss>;
+def _SLASH_Qzero_initialized_in_bss_ : CLFlag<"Qzero-initialized-in-bss-">,
+  Alias<fno_zero_initialized_in_bss>;
 #endif //INTEL_CUSTOMIZATION
 def _SLASH_QUESTION : CLFlag<"?">, Alias<help>,
   HelpText<"Display available options">;

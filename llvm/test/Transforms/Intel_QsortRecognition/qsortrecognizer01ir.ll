@@ -1,23 +1,44 @@
-; REQUIRES: asserts
-; RUN: opt < %s -qsortrecognizer -debug-only=qsortrecognizer -qsort-unit-test -qsort-test-swap -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='module(qsortrecognizer)' -debug-only=qsortrecognizer -qsort-unit-test -qsort-test-swap -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -qsortrecognizer -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(qsortrecognizer)' -S 2>&1 | FileCheck %s
 
-; Check that the computation of swap is recognized
+; Check that the qsortrecognizer recognizes @spec_qsort.40 as a spec qsort,
+; by marking it with the 'is-qsort' attribute.
+; This is the same test as qsortrecognizer01.ll, but does not require asserts.
 
-; CHECK: QsortRec: Checking computation of swap in qsort_swap
-; CHECK: QsortRec: Computation of swap in qsort_swap PASSED Test.
-; CHECK: QsortRec: Checking computation of swap in qsort_swap
-; CHECK: QsortRec: Computation of swap in qsort_swap PASSED Test.
-; CHECK: FOUND QSORT
+; CHECK: define{{.*}}@spec_qsort.40{{.*}}#1
+; CHECK: attributes #1 = { "is-qsort" "is-qsort-spec_qsort" }
 
-%struct.arc = type { i32, i64, %struct.node*, %struct.node*, i16, %struct.arc*, %struct.arc*, i64, i64 }
-%struct.node = type { i64, i32, %struct.node*, %struct.node*, %struct.node*, %struct.node*, %struct.arc*, %struct.arc*, %struct.arc*, %struct.arc*, i64, i64, i32, i32 }
-%struct.basket = type { %struct.arc*, i64, i64, i64 }
+%__SOADT___DFR___DFT_struct.arc = type { i64, i32, i32, i64, i64, i32, i16 }
 
-declare i32 @arc_compare(%struct.arc** nocapture readonly %arg, %struct.arc** nocapture readonly %arg1)
+define internal i32 @arc_compare.55.85.115(%__SOADT___DFR___DFT_struct.arc** nocapture readonly %0, %__SOADT___DFR___DFT_struct.arc** nocapture readonly %1) #2 {
+  %3 = load %__SOADT___DFR___DFT_struct.arc*, %__SOADT___DFR___DFT_struct.arc** %0, align 8
+  %4 = getelementptr %__SOADT___DFR___DFT_struct.arc, %__SOADT___DFR___DFT_struct.arc* %3, i64 0, i32 0
+  %5 = load i64, i64* %4, align 8
+  %6 = load %__SOADT___DFR___DFT_struct.arc*, %__SOADT___DFR___DFT_struct.arc** %1, align 8
+  %7 = getelementptr %__SOADT___DFR___DFT_struct.arc, %__SOADT___DFR___DFT_struct.arc* %6, i64 0, i32 0
+  %8 = load i64, i64* %7, align 8
+  %9 = icmp sgt i64 %5, %8
+  br i1 %9, label %19, label %10
 
-; Function Attrs: nounwind uwtable
-define internal fastcc void @qsort_swap(i8* %0, i64 %1) unnamed_addr {
+10:                                               ; preds = %2
+  %11 = icmp slt i64 %5, %8
+  br i1 %11, label %19, label %12
+
+12:                                               ; preds = %10
+  %13 = getelementptr inbounds %__SOADT___DFR___DFT_struct.arc, %__SOADT___DFR___DFT_struct.arc* %3, i64 0, i32 1
+  %14 = load i32, i32* %13, align 8
+  %15 = getelementptr inbounds %__SOADT___DFR___DFT_struct.arc, %__SOADT___DFR___DFT_struct.arc* %6, i64 0, i32 1
+  %16 = load i32, i32* %15, align 8
+  %17 = icmp slt i32 %14, %16
+  %18 = select i1 %17, i32 -1, i32 1
+  ret i32 %18
+
+19:                                               ; preds = %10, %2
+  %20 = phi i32 [ 1, %2 ], [ -1, %10 ]
+  ret i32 %20
+}
+
+define internal fastcc void @spec_qsort.40(i8* %0, i64 %1) unnamed_addr #0 {
   %3 = ptrtoint i8* %0 to i64
   %4 = icmp ult i64 %1, 7
   br i1 %4, label %5, label %32
@@ -42,9 +63,9 @@ define internal fastcc void @qsort_swap(i8* %0, i64 %1) unnamed_addr {
 16:                                               ; preds = %13, %23
   %17 = phi i8* [ %18, %23 ], [ %14, %13 ]
   %18 = getelementptr inbounds i8, i8* %17, i64 -8
-  %19 = bitcast i8* %18 to %struct.arc**
-  %20 = bitcast i8* %17 to %struct.arc**
-  %21 = tail call i32 @arc_compare(%struct.arc** nonnull %19, %struct.arc** %20) #12
+  %19 = bitcast i8* %18 to %__SOADT___DFR___DFT_struct.arc**
+  %20 = bitcast i8* %17 to %__SOADT___DFR___DFT_struct.arc**
+  %21 = tail call i32 @arc_compare.55.85.115(%__SOADT___DFR___DFT_struct.arc** nonnull %19, %__SOADT___DFR___DFT_struct.arc** %20) #1
   %22 = icmp sgt i32 %21, 0
   br i1 %22, label %23, label %29
 
@@ -85,13 +106,13 @@ define internal fastcc void @qsort_swap(i8* %0, i64 %1) unnamed_addr {
   %47 = getelementptr inbounds i8, i8* %34, i64 %46
   %48 = shl i64 %46, 1
   %49 = getelementptr inbounds i8, i8* %34, i64 %48
-  %50 = bitcast i8* %34 to %struct.arc**
-  %51 = bitcast i8* %47 to %struct.arc**
-  %52 = tail call i32 @arc_compare(%struct.arc** %50, %struct.arc** %51) #12
+  %50 = bitcast i8* %34 to %__SOADT___DFR___DFT_struct.arc**
+  %51 = bitcast i8* %47 to %__SOADT___DFR___DFT_struct.arc**
+  %52 = tail call i32 @arc_compare.55.85.115(%__SOADT___DFR___DFT_struct.arc** %50, %__SOADT___DFR___DFT_struct.arc** %51) #1
   %53 = icmp slt i32 %52, 0
-  %54 = bitcast i8* %47 to %struct.arc**
-  %55 = bitcast i8* %49 to %struct.arc**
-  %56 = tail call i32 @arc_compare(%struct.arc** %54, %struct.arc** %55) #12
+  %54 = bitcast i8* %47 to %__SOADT___DFR___DFT_struct.arc**
+  %55 = bitcast i8* %49 to %__SOADT___DFR___DFT_struct.arc**
+  %56 = tail call i32 @arc_compare.55.85.115(%__SOADT___DFR___DFT_struct.arc** %54, %__SOADT___DFR___DFT_struct.arc** %55) #1
   br i1 %53, label %57, label %65
 
 57:                                               ; preds = %45
@@ -99,9 +120,9 @@ define internal fastcc void @qsort_swap(i8* %0, i64 %1) unnamed_addr {
   br i1 %58, label %73, label %59
 
 59:                                               ; preds = %57
-  %60 = bitcast i8* %34 to %struct.arc**
-  %61 = bitcast i8* %49 to %struct.arc**
-  %62 = tail call i32 @arc_compare(%struct.arc** %60, %struct.arc** %61) #12
+  %60 = bitcast i8* %34 to %__SOADT___DFR___DFT_struct.arc**
+  %61 = bitcast i8* %49 to %__SOADT___DFR___DFT_struct.arc**
+  %62 = tail call i32 @arc_compare.55.85.115(%__SOADT___DFR___DFT_struct.arc** %60, %__SOADT___DFR___DFT_struct.arc** %61) #1
   %63 = icmp slt i32 %62, 0
   %64 = select i1 %63, i8* %49, i8* %34
   br label %73
@@ -111,9 +132,9 @@ define internal fastcc void @qsort_swap(i8* %0, i64 %1) unnamed_addr {
   br i1 %66, label %73, label %67
 
 67:                                               ; preds = %65
-  %68 = bitcast i8* %34 to %struct.arc**
-  %69 = bitcast i8* %49 to %struct.arc**
-  %70 = tail call i32 @arc_compare(%struct.arc** %68, %struct.arc** %69) #12
+  %68 = bitcast i8* %34 to %__SOADT___DFR___DFT_struct.arc**
+  %69 = bitcast i8* %49 to %__SOADT___DFR___DFT_struct.arc**
+  %70 = tail call i32 @arc_compare.55.85.115(%__SOADT___DFR___DFT_struct.arc** %68, %__SOADT___DFR___DFT_struct.arc** %69) #1
   %71 = icmp slt i32 %70, 0
   %72 = select i1 %71, i8* %34, i8* %49
   br label %73
@@ -123,13 +144,13 @@ define internal fastcc void @qsort_swap(i8* %0, i64 %1) unnamed_addr {
   %75 = sub i64 0, %46
   %76 = getelementptr inbounds i8, i8* %38, i64 %75
   %77 = getelementptr inbounds i8, i8* %38, i64 %46
-  %78 = bitcast i8* %76 to %struct.arc**
-  %79 = bitcast i8* %38 to %struct.arc**
-  %80 = tail call i32 @arc_compare(%struct.arc** %78, %struct.arc** %79) #12
+  %78 = bitcast i8* %76 to %__SOADT___DFR___DFT_struct.arc**
+  %79 = bitcast i8* %38 to %__SOADT___DFR___DFT_struct.arc**
+  %80 = tail call i32 @arc_compare.55.85.115(%__SOADT___DFR___DFT_struct.arc** %78, %__SOADT___DFR___DFT_struct.arc** %79) #1
   %81 = icmp slt i32 %80, 0
-  %82 = bitcast i8* %38 to %struct.arc**
-  %83 = bitcast i8* %77 to %struct.arc**
-  %84 = tail call i32 @arc_compare(%struct.arc** %82, %struct.arc** %83) #12
+  %82 = bitcast i8* %38 to %__SOADT___DFR___DFT_struct.arc**
+  %83 = bitcast i8* %77 to %__SOADT___DFR___DFT_struct.arc**
+  %84 = tail call i32 @arc_compare.55.85.115(%__SOADT___DFR___DFT_struct.arc** %82, %__SOADT___DFR___DFT_struct.arc** %83) #1
   br i1 %81, label %85, label %93
 
 85:                                               ; preds = %73
@@ -137,9 +158,9 @@ define internal fastcc void @qsort_swap(i8* %0, i64 %1) unnamed_addr {
   br i1 %86, label %101, label %87
 
 87:                                               ; preds = %85
-  %88 = bitcast i8* %76 to %struct.arc**
-  %89 = bitcast i8* %77 to %struct.arc**
-  %90 = tail call i32 @arc_compare(%struct.arc** %88, %struct.arc** %89) #12
+  %88 = bitcast i8* %76 to %__SOADT___DFR___DFT_struct.arc**
+  %89 = bitcast i8* %77 to %__SOADT___DFR___DFT_struct.arc**
+  %90 = tail call i32 @arc_compare.55.85.115(%__SOADT___DFR___DFT_struct.arc** %88, %__SOADT___DFR___DFT_struct.arc** %89) #1
   %91 = icmp slt i32 %90, 0
   %92 = select i1 %91, i8* %77, i8* %76
   br label %101
@@ -149,9 +170,9 @@ define internal fastcc void @qsort_swap(i8* %0, i64 %1) unnamed_addr {
   br i1 %94, label %101, label %95
 
 95:                                               ; preds = %93
-  %96 = bitcast i8* %76 to %struct.arc**
-  %97 = bitcast i8* %77 to %struct.arc**
-  %98 = tail call i32 @arc_compare(%struct.arc** %96, %struct.arc** %97) #12
+  %96 = bitcast i8* %76 to %__SOADT___DFR___DFT_struct.arc**
+  %97 = bitcast i8* %77 to %__SOADT___DFR___DFT_struct.arc**
+  %98 = tail call i32 @arc_compare.55.85.115(%__SOADT___DFR___DFT_struct.arc** %96, %__SOADT___DFR___DFT_struct.arc** %97) #1
   %99 = icmp slt i32 %98, 0
   %100 = select i1 %99, i8* %76, i8* %77
   br label %101
@@ -161,13 +182,13 @@ define internal fastcc void @qsort_swap(i8* %0, i64 %1) unnamed_addr {
   %103 = sub i64 0, %48
   %104 = getelementptr inbounds i8, i8* %43, i64 %103
   %105 = getelementptr inbounds i8, i8* %43, i64 %75
-  %106 = bitcast i8* %104 to %struct.arc**
-  %107 = bitcast i8* %105 to %struct.arc**
-  %108 = tail call i32 @arc_compare(%struct.arc** %106, %struct.arc** %107) #12
+  %106 = bitcast i8* %104 to %__SOADT___DFR___DFT_struct.arc**
+  %107 = bitcast i8* %105 to %__SOADT___DFR___DFT_struct.arc**
+  %108 = tail call i32 @arc_compare.55.85.115(%__SOADT___DFR___DFT_struct.arc** %106, %__SOADT___DFR___DFT_struct.arc** %107) #1
   %109 = icmp slt i32 %108, 0
-  %110 = bitcast i8* %105 to %struct.arc**
-  %111 = bitcast i8* %43 to %struct.arc**
-  %112 = tail call i32 @arc_compare(%struct.arc** %110, %struct.arc** %111) #12
+  %110 = bitcast i8* %105 to %__SOADT___DFR___DFT_struct.arc**
+  %111 = bitcast i8* %43 to %__SOADT___DFR___DFT_struct.arc**
+  %112 = tail call i32 @arc_compare.55.85.115(%__SOADT___DFR___DFT_struct.arc** %110, %__SOADT___DFR___DFT_struct.arc** %111) #1
   br i1 %109, label %113, label %121
 
 113:                                              ; preds = %101
@@ -175,9 +196,9 @@ define internal fastcc void @qsort_swap(i8* %0, i64 %1) unnamed_addr {
   br i1 %114, label %129, label %115
 
 115:                                              ; preds = %113
-  %116 = bitcast i8* %104 to %struct.arc**
-  %117 = bitcast i8* %43 to %struct.arc**
-  %118 = tail call i32 @arc_compare(%struct.arc** %116, %struct.arc** %117) #12
+  %116 = bitcast i8* %104 to %__SOADT___DFR___DFT_struct.arc**
+  %117 = bitcast i8* %43 to %__SOADT___DFR___DFT_struct.arc**
+  %118 = tail call i32 @arc_compare.55.85.115(%__SOADT___DFR___DFT_struct.arc** %116, %__SOADT___DFR___DFT_struct.arc** %117) #1
   %119 = icmp slt i32 %118, 0
   %120 = select i1 %119, i8* %43, i8* %104
   br label %129
@@ -187,9 +208,9 @@ define internal fastcc void @qsort_swap(i8* %0, i64 %1) unnamed_addr {
   br i1 %122, label %129, label %123
 
 123:                                              ; preds = %121
-  %124 = bitcast i8* %104 to %struct.arc**
-  %125 = bitcast i8* %43 to %struct.arc**
-  %126 = tail call i32 @arc_compare(%struct.arc** %124, %struct.arc** %125) #12
+  %124 = bitcast i8* %104 to %__SOADT___DFR___DFT_struct.arc**
+  %125 = bitcast i8* %43 to %__SOADT___DFR___DFT_struct.arc**
+  %126 = tail call i32 @arc_compare.55.85.115(%__SOADT___DFR___DFT_struct.arc** %124, %__SOADT___DFR___DFT_struct.arc** %125) #1
   %127 = icmp slt i32 %126, 0
   %128 = select i1 %127, i8* %104, i8* %43
   br label %129
@@ -198,13 +219,13 @@ define internal fastcc void @qsort_swap(i8* %0, i64 %1) unnamed_addr {
   %130 = phi i8* [ %43, %40 ], [ %120, %115 ], [ %128, %123 ], [ %105, %113 ], [ %105, %121 ]
   %131 = phi i8* [ %38, %40 ], [ %102, %115 ], [ %102, %123 ], [ %102, %113 ], [ %102, %121 ]
   %132 = phi i8* [ %34, %40 ], [ %74, %115 ], [ %74, %123 ], [ %74, %113 ], [ %74, %121 ]
-  %133 = bitcast i8* %132 to %struct.arc**
-  %134 = bitcast i8* %131 to %struct.arc**
-  %135 = tail call i32 @arc_compare(%struct.arc** %133, %struct.arc** %134) #12
+  %133 = bitcast i8* %132 to %__SOADT___DFR___DFT_struct.arc**
+  %134 = bitcast i8* %131 to %__SOADT___DFR___DFT_struct.arc**
+  %135 = tail call i32 @arc_compare.55.85.115(%__SOADT___DFR___DFT_struct.arc** %133, %__SOADT___DFR___DFT_struct.arc** %134) #1
   %136 = icmp slt i32 %135, 0
-  %137 = bitcast i8* %131 to %struct.arc**
-  %138 = bitcast i8* %130 to %struct.arc**
-  %139 = tail call i32 @arc_compare(%struct.arc** %137, %struct.arc** %138) #12
+  %137 = bitcast i8* %131 to %__SOADT___DFR___DFT_struct.arc**
+  %138 = bitcast i8* %130 to %__SOADT___DFR___DFT_struct.arc**
+  %139 = tail call i32 @arc_compare.55.85.115(%__SOADT___DFR___DFT_struct.arc** %137, %__SOADT___DFR___DFT_struct.arc** %138) #1
   br i1 %136, label %140, label %148
 
 140:                                              ; preds = %129
@@ -212,9 +233,9 @@ define internal fastcc void @qsort_swap(i8* %0, i64 %1) unnamed_addr {
   br i1 %141, label %156, label %142
 
 142:                                              ; preds = %140
-  %143 = bitcast i8* %132 to %struct.arc**
-  %144 = bitcast i8* %130 to %struct.arc**
-  %145 = tail call i32 @arc_compare(%struct.arc** %143, %struct.arc** %144) #12
+  %143 = bitcast i8* %132 to %__SOADT___DFR___DFT_struct.arc**
+  %144 = bitcast i8* %130 to %__SOADT___DFR___DFT_struct.arc**
+  %145 = tail call i32 @arc_compare.55.85.115(%__SOADT___DFR___DFT_struct.arc** %143, %__SOADT___DFR___DFT_struct.arc** %144) #1
   %146 = icmp slt i32 %145, 0
   %147 = select i1 %146, i8* %130, i8* %132
   br label %156
@@ -224,9 +245,9 @@ define internal fastcc void @qsort_swap(i8* %0, i64 %1) unnamed_addr {
   br i1 %149, label %156, label %150
 
 150:                                              ; preds = %148
-  %151 = bitcast i8* %132 to %struct.arc**
-  %152 = bitcast i8* %130 to %struct.arc**
-  %153 = tail call i32 @arc_compare(%struct.arc** %151, %struct.arc** %152) #12
+  %151 = bitcast i8* %132 to %__SOADT___DFR___DFT_struct.arc**
+  %152 = bitcast i8* %130 to %__SOADT___DFR___DFT_struct.arc**
+  %153 = tail call i32 @arc_compare.55.85.115(%__SOADT___DFR___DFT_struct.arc** %151, %__SOADT___DFR___DFT_struct.arc** %152) #1
   %154 = icmp slt i32 %153, 0
   %155 = select i1 %154, i8* %132, i8* %130
   br label %156
@@ -258,9 +279,9 @@ define internal fastcc void @qsort_swap(i8* %0, i64 %1) unnamed_addr {
   %174 = phi i8* [ %191, %189 ], [ %171, %166 ]
   %175 = phi i8* [ %192, %189 ], [ %170, %166 ]
   %176 = phi i32 [ %190, %189 ], [ %167, %166 ]
-  %177 = bitcast i8* %175 to %struct.arc**
-  %178 = bitcast i8* %34 to %struct.arc**
-  %179 = tail call i32 @arc_compare(%struct.arc** %177, %struct.arc** %178) #12
+  %177 = bitcast i8* %175 to %__SOADT___DFR___DFT_struct.arc**
+  %178 = bitcast i8* %34 to %__SOADT___DFR___DFT_struct.arc**
+  %179 = tail call i32 @arc_compare.55.85.115(%__SOADT___DFR___DFT_struct.arc** %177, %__SOADT___DFR___DFT_struct.arc** %178) #1
   %180 = icmp slt i32 %179, 1
   br i1 %180, label %181, label %194
 
@@ -296,9 +317,9 @@ define internal fastcc void @qsort_swap(i8* %0, i64 %1) unnamed_addr {
   %200 = phi i8* [ %218, %215 ], [ %169, %194 ]
   %201 = phi i8* [ %217, %215 ], [ %168, %194 ]
   %202 = phi i32 [ %216, %215 ], [ %195, %194 ]
-  %203 = bitcast i8* %200 to %struct.arc**
-  %204 = bitcast i8* %34 to %struct.arc**
-  %205 = tail call i32 @arc_compare(%struct.arc** %203, %struct.arc** %204) #12
+  %203 = bitcast i8* %200 to %__SOADT___DFR___DFT_struct.arc**
+  %204 = bitcast i8* %34 to %__SOADT___DFR___DFT_struct.arc**
+  %205 = tail call i32 @arc_compare.55.85.115(%__SOADT___DFR___DFT_struct.arc** %203, %__SOADT___DFR___DFT_struct.arc** %204) #1
   %206 = icmp sgt i32 %205, -1
   br i1 %206, label %207, label %220
 
@@ -355,9 +376,9 @@ define internal fastcc void @qsort_swap(i8* %0, i64 %1) unnamed_addr {
 239:                                              ; preds = %236, %246
   %240 = phi i8* [ %241, %246 ], [ %237, %236 ]
   %241 = getelementptr inbounds i8, i8* %240, i64 -8
-  %242 = bitcast i8* %241 to %struct.arc**
-  %243 = bitcast i8* %240 to %struct.arc**
-  %244 = tail call i32 @arc_compare(%struct.arc** nonnull %242, %struct.arc** %243) #12
+  %242 = bitcast i8* %241 to %__SOADT___DFR___DFT_struct.arc**
+  %243 = bitcast i8* %240 to %__SOADT___DFR___DFT_struct.arc**
+  %244 = tail call i32 @arc_compare.55.85.115(%__SOADT___DFR___DFT_struct.arc** nonnull %242, %__SOADT___DFR___DFT_struct.arc** %243) #1
   %245 = icmp sgt i32 %244, 0
   br i1 %245, label %246, label %252
 
@@ -407,7 +428,7 @@ define internal fastcc void @qsort_swap(i8* %0, i64 %1) unnamed_addr {
   %278 = getelementptr inbounds i64, i64* %272, i64 1
   store i64 %275, i64* %272, align 8
   %279 = add nsw i64 %274, -1
-  %280 = icmp sgt i64 %279, 0
+  %280 = icmp sgt i64 %274, 1
   br i1 %280, label %271, label %281
 
 281:                                              ; preds = %271, %255
@@ -443,7 +464,7 @@ define internal fastcc void @qsort_swap(i8* %0, i64 %1) unnamed_addr {
   %306 = getelementptr inbounds i64, i64* %300, i64 1
   store i64 %303, i64* %300, align 8
   %307 = add nsw i64 %302, -1
-  %308 = icmp sgt i64 %307, 0
+  %308 = icmp sgt i64 %302, 1
   br i1 %308, label %299, label %309
 
 309:                                              ; preds = %299, %281
@@ -452,7 +473,7 @@ define internal fastcc void @qsort_swap(i8* %0, i64 %1) unnamed_addr {
 
 311:                                              ; preds = %309
   %312 = lshr i64 %259, 3
-  tail call fastcc void @qsort_swap(i8* %34, i64 %312)
+  tail call fastcc void @spec_qsort.40(i8* %34, i64 %312)
   br label %313
 
 313:                                              ; preds = %311, %309
@@ -470,3 +491,8 @@ define internal fastcc void @qsort_swap(i8* %0, i64 %1) unnamed_addr {
 321:                                              ; preds = %313, %252, %234, %29, %5
   ret void
 }
+
+attributes #0 = { "is-qsort-spec_qsort" }
+attributes #1 = { "must-be-qsort-compare" }
+attributes #2 = { "is-qsort-compare" }
+

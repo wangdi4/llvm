@@ -62,7 +62,7 @@ define dso_local i32 @_Z3fooiPKaPaa(i32 %n, i8* nocapture readonly %a, i8* nocap
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]:
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP11:%.*]] = block-predicate i1 [[VP7]]
-; CHECK-NEXT:       [DA: Div] i64 [[VP12:%.*]] = call i64 [[VP3]] i64 (i64)* @llvm.ssa.copy.i64
+; CHECK-NEXT:       [DA: Uni] i64 [[VP12:%.*]] = hir-copy i64 [[VP3]] , OriginPhiId: -1
 ; CHECK-NEXT:       [DA: Uni] br cleanup.loopexit.split.loop.exit
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB7]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB2]]
