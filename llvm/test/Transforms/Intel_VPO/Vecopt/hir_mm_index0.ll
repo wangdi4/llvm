@@ -57,13 +57,12 @@
 ;VPVAL_CG-NEXT:            %red.var1 = %tmp.024;
 ;VPVAL_CG:                 + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 1073741823> <nounroll> <novectorize>
 ;VPVAL_CG-NEXT:            |   %.vec = sext.<4 x i32>.<4 x i64>(i1 + <i32 0, i32 1, i32 2, i32 3>);
-;VPVAL_CG-NEXT:            |   %uni.idx = extractelement %.vec,  0;
-;VPVAL_CG-NEXT:            |   %.vec3 = (<4 x i32>*)(%ordering)[%uni.idx];
+;VPVAL_CG-NEXT:            |   %uni.idx = extractelement &((<4 x i32*>)(%ordering)[%.vec]),  0;
+;VPVAL_CG-NEXT:            |   %.vec3 = (<4 x i32>*)(%uni.idx)[0];
 ;VPVAL_CG-NEXT:            |   %.vec4 = %.vec3 > %red.var;
 ;VPVAL_CG-NEXT:            |   %red.var1 = (%.vec3 > %red.var) ? i1 + <i32 0, i32 1, i32 2, i32 3> : %red.var1;
 ;VPVAL_CG-NEXT:            |   %.vec6 = %.vec3 > %red.var;
 ;VPVAL_CG-NEXT:            |   %red.var = (%.vec3 > %red.var) ? %.vec3 : %red.var;
-;VPVAL_CG-NEXT:            |   %.vec8 = i1 + <i32 0, i32 1, i32 2, i32 3> + 4;
 ;VPVAL_CG-NEXT:            + END LOOP
 ;VPVAL_CG:                 %best.023 = @llvm.experimental.vector.reduce.smax.v4i32(%red.var);
 ;VPVAL_CG-NEXT:            %idx.blend = (%best.023 == %red.var) ? %red.var1 : <i32 2147483647, i32 2147483647, i32 2147483647, i32 2147483647>;

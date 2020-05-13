@@ -2,8 +2,9 @@
 
 ; Test to check VPlan unroller for an auto-vectorized loop with SafeReduction.
 
-; RUN: opt -S < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -vplan-force-uf=3 -vplan-print-after-unroll -print-after=VPlanDriverHIR -disable-output 2>&1 | FileCheck %s
-; RUN: opt -S < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -vplan-force-uf=3 -enable-vp-value-codegen-hir -print-after=VPlanDriverHIR -disable-output 2>&1 | FileCheck %s --check-prefix=VPVALCG
+; RUN: opt -S < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -vplan-force-uf=3 -vplan-print-after-unroll -disable-output 2>&1 | FileCheck %s
+; RUN: opt -S < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -vplan-force-uf=3 -enable-vp-value-codegen-hir=0 -print-after=VPlanDriverHIR -disable-output 2>&1 | FileCheck %s --check-prefix=CGCHECK
+; RUN: opt -S < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -vplan-force-uf=3 -enable-vp-value-codegen-hir -print-after=VPlanDriverHIR -disable-output 2>&1 | FileCheck %s --check-prefix=CGCHECK
 
 ; int foo(int *a, int n) {
 ;   int acc = 0;
@@ -32,8 +33,8 @@ define dso_local i32 @foo(i32* nocapture readonly %a, i32 %n) local_unnamed_addr
 ; CHECK-LABEL:  VPlan after loop unrolling
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=4
 ; CHECK-NEXT:  External Defs Start:
-; CHECK-DAG:     [[VP0:%.*]] = {zext.i32.i64(%n) + -1}
-; CHECK-DAG:     [[VP1:%.*]] = {%acc.08}
+; CHECK-DAG:     [[VP0:%.*]] = {%acc.08}
+; CHECK-DAG:     [[VP1:%.*]] = {zext.i32.i64(%n) + -1}
 ; CHECK-DAG:     [[VP2:%.*]] = {%a}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
@@ -55,7 +56,7 @@ define dso_local i32 @foo(i32* nocapture readonly %a, i32 %n) local_unnamed_addr
 ; CHECK-NEXT:     [DA: Div] i32 [[VP8:%.*]] = load i32* [[VP7]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP9:%.*]] = add i32 [[VP8]] i32 [[VP3]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP10:%.*]] = add i64 [[VP5]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP11:%.*]] = icmp i64 [[VP10]] i64 [[VP0]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP11:%.*]] = icmp i64 [[VP10]] i64 [[VP1]]
 ; CHECK-NEXT:    SUCCESSORS(1):cloned.[[BB4:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] cloned.[[BB3]]
 ; CHECK-EMPTY:
@@ -64,7 +65,7 @@ define dso_local i32 @foo(i32* nocapture readonly %a, i32 %n) local_unnamed_addr
 ; CHECK-NEXT:     [DA: Div] i32 [[VP13:%.*]] = load i32* [[VP12]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP14:%.*]] = add i32 [[VP13]] i32 [[VP9]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP15:%.*]] = add i64 [[VP10]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP16:%.*]] = icmp i64 [[VP15]] i64 [[VP0]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP16:%.*]] = icmp i64 [[VP15]] i64 [[VP1]]
 ; CHECK-NEXT:    SUCCESSORS(1):cloned.[[BB3]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
@@ -73,7 +74,7 @@ define dso_local i32 @foo(i32* nocapture readonly %a, i32 %n) local_unnamed_addr
 ; CHECK-NEXT:     [DA: Div] i32 [[VP18:%.*]] = load i32* [[VP17]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP4]] = add i32 [[VP18]] i32 [[VP14]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP6]] = add i64 [[VP15]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP19:%.*]] = icmp i64 [[VP6]] i64 [[VP0]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP19:%.*]] = icmp i64 [[VP6]] i64 [[VP1]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP19]]), [[BB5:BB[0-9]+]](!i1 [[VP19]])
 ; CHECK-NEXT:    PREDECESSORS(1): cloned.[[BB4]]
 ; CHECK-EMPTY:
@@ -87,63 +88,31 @@ define dso_local i32 @foo(i32* nocapture readonly %a, i32 %n) local_unnamed_addr
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
-; CHECK-EMPTY:
-; CHECK-NEXT:  *** IR Dump After VPlan Vectorization Driver HIR ***
-; CHECK-NEXT:  Function: foo
-; CHECK-EMPTY:
-; CHECK-NEXT:  <0>          BEGIN REGION { modified }
-; CHECK-NEXT:  <14>               [[TGU0:%.*]] = (zext.i32.i64([[N0:%.*]]))/u12
-; CHECK-NEXT:  <16>               if (0 <u 12 * [[TGU0]])
-; CHECK-NEXT:  <16>               {
-; CHECK-NEXT:  <18>                     [[RED_VAR0:%.*]] = 0
-; CHECK-NEXT:  <19>                     [[RED_VAR0]] = insertelement [[RED_VAR0]],  [[ACC_080]],  0
-; CHECK-NEXT:  <15>                  + DO i1 = 0, 12 * [[TGU0]] + -1, 12   <DO_LOOP>  <MAX_TC_EST = 357913941> <nounroll> <novectorize>
-; CHECK-NEXT:  <20>                  |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[A0]])[i1]
-; CHECK-NEXT:  <21>                  |   [[RED_VAR0]] = [[DOTVEC0]]  +  [[RED_VAR0]]
-; CHECK-NEXT:  <22>                  |   [[UNI_IDX0:%.*]] = extractelement i1 + <i64 0, i64 1, i64 2, i64 3> + 4,  0
-; CHECK-NEXT:  <23>                  |   [[DOTVEC20:%.*]] = (<4 x i32>*)([[A0]])[%uni.idx]
-; CHECK-NEXT:  <24>                  |   [[RED_VAR0]] = [[DOTVEC20]]  +  [[RED_VAR0]]
-; CHECK-NEXT:  <25>                  |   [[UNI_IDX40:%.*]] = extractelement i1 + <i64 0, i64 1, i64 2, i64 3> + 8,  0
-; CHECK-NEXT:  <26>                  |   [[DOTVEC50:%.*]] = (<4 x i32>*)([[A0]])[%uni.idx4]
-; CHECK-NEXT:  <27>                  |   [[RED_VAR0]] = [[DOTVEC50]]  +  [[RED_VAR0]]
-; CHECK-NEXT:  <15>                  + END LOOP
-; CHECK-NEXT:  <28>                     [[ACC_080]] = @llvm.experimental.vector.reduce.add.v4i32([[RED_VAR0]])
-; CHECK-NEXT:  <16>               }
-; CHECK-NEXT:  <11>
-; CHECK-NEXT:  <11>               + DO i1 = 12 * [[TGU0]], zext.i32.i64([[N0]]) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 11> <nounroll> <novectorize> <max_trip_count = 11>
-; CHECK-NEXT:  <4>                |   [[ACC_080]] = ([[A0]])[i1]  +  [[ACC_080]]
-; CHECK-NEXT:  <11>               + END LOOP
-; CHECK-NEXT:  <0>          END REGION
 ;
-; VPVALCG-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
-; VPVALCG-NEXT:  Function: foo
-; VPVALCG-EMPTY:
-; VPVALCG-NEXT:  <0>          BEGIN REGION { modified }
-; VPVALCG-NEXT:  <14>               [[TGU0:%.*]] = (zext.i32.i64([[N0:%.*]]))/u12
-; VPVALCG-NEXT:  <16>               if (0 <u 12 * [[TGU0]])
-; VPVALCG-NEXT:  <16>               {
-; VPVALCG-NEXT:  <18>                     [[RED_VAR0:%.*]] = 0
-; VPVALCG-NEXT:  <19>                     [[RED_VAR0]] = insertelement [[RED_VAR0]],  [[ACC_080:%.*]],  0
-; VPVALCG-NEXT:  <15>                  + DO i1 = 0, 12 * [[TGU0]] + -1, 12   <DO_LOOP>  <MAX_TC_EST = 357913941> <nounroll> <novectorize>
-; VPVALCG-NEXT:  <20>                  |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[A0:%.*]])[i1]
-; VPVALCG-NEXT:  <21>                  |   [[RED_VAR0]] = [[DOTVEC0]]  +  [[RED_VAR0]]
-; VPVALCG-NEXT:  <22>                  |   [[DOTVEC20:%.*]] = i1 + <i64 0, i64 1, i64 2, i64 3>  +  4
-; VPVALCG-NEXT:  <23>                  |   [[UNI_IDX0:%.*]] = extractelement [[DOTVEC20]],  0
-; VPVALCG-NEXT:  <24>                  |   [[DOTVEC30:%.*]] = (<4 x i32>*)([[A0]])[%uni.idx]
-; VPVALCG-NEXT:  <25>                  |   [[RED_VAR0]] = [[DOTVEC30]]  +  [[RED_VAR0]]
-; VPVALCG-NEXT:  <26>                  |   [[DOTVEC50:%.*]] = [[DOTVEC20]]  +  4
-; VPVALCG-NEXT:  <27>                  |   [[UNI_IDX60:%.*]] = extractelement [[DOTVEC50]],  0
-; VPVALCG-NEXT:  <28>                  |   [[DOTVEC70:%.*]] = (<4 x i32>*)([[A0]])[%uni.idx6]
-; VPVALCG-NEXT:  <29>                  |   [[RED_VAR0]] = [[DOTVEC70]]  +  [[RED_VAR0]]
-; VPVALCG-NEXT:  <30>                  |   [[DOTVEC90:%.*]] = [[DOTVEC50]]  +  4
-; VPVALCG-NEXT:  <15>                  + END LOOP
-; VPVALCG-NEXT:  <31>                     [[ACC_080]] = @llvm.experimental.vector.reduce.add.v4i32([[RED_VAR0]])
-; VPVALCG-NEXT:  <16>               }
-; VPVALCG-NEXT:  <11>
-; VPVALCG-NEXT:  <11>               + DO i1 = 12 * [[TGU0]], zext.i32.i64([[N0]]) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 11> <nounroll> <novectorize> <max_trip_count = 11>
-; VPVALCG-NEXT:  <4>                |   [[ACC_080]] = ([[A0]])[i1]  +  [[ACC_080]]
-; VPVALCG-NEXT:  <11>               + END LOOP
-; VPVALCG-NEXT:  <0>          END REGION
+; CGCHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; CGCHECK-NEXT:  Function: foo
+; CGCHECK-EMPTY:
+; CGCHECK-NEXT:  <0>          BEGIN REGION { modified }
+; CGCHECK-NEXT:  <14>               [[TGU0:%.*]] = (zext.i32.i64([[N0:%.*]]))/u12
+; CGCHECK-NEXT:  <16>               if (0 <u 12 * [[TGU0]])
+; CGCHECK-NEXT:  <16>               {
+; CGCHECK-NEXT:  <18>                     [[RED_VAR0:%.*]] = 0
+; CGCHECK-NEXT:  <19>                     [[RED_VAR0]] = insertelement [[RED_VAR0]],  [[ACC_080:%.*]],  0
+; CGCHECK-NEXT:  <15>                  + DO i1 = 0, 12 * [[TGU0]] + -1, 12   <DO_LOOP>  <MAX_TC_EST = 357913941> <nounroll> <novectorize>
+; CGCHECK-NEXT:  <20>                  |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[A0:%.*]])[i1]
+; CGCHECK-NEXT:  <21>                  |   [[RED_VAR0]] = [[DOTVEC0]]  +  [[RED_VAR0]]
+; CGCHECK-NEXT:  <22>                  |   [[DOTVEC20:%.*]] = (<4 x i32>*)([[A0]])[i1 + 4]
+; CGCHECK-NEXT:  <23>                  |   [[RED_VAR0]] = [[DOTVEC20]]  +  [[RED_VAR0]]
+; CGCHECK-NEXT:  <24>                  |   [[DOTVEC40:%.*]] = (<4 x i32>*)([[A0]])[i1 + 8]
+; CGCHECK-NEXT:  <25>                  |   [[RED_VAR0]] = [[DOTVEC40]]  +  [[RED_VAR0]]
+; CGCHECK-NEXT:  <15>                  + END LOOP
+; CGCHECK-NEXT:  <26>                  [[ACC_080]] = @llvm.experimental.vector.reduce.add.v4i32([[RED_VAR0]])
+; CGCHECK-NEXT:  <16>               }
+; CGCHECK-NEXT:  <11>
+; CGCHECK-NEXT:  <11>               + DO i1 = 12 * [[TGU0]], zext.i32.i64([[N0]]) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 11> <nounroll> <novectorize> <max_trip_count = 11>
+; CGCHECK-NEXT:  <4>                |   [[ACC_080]] = ([[A0]])[i1]  +  [[ACC_080]]
+; CGCHECK-NEXT:  <11>               + END LOOP
+; CGCHECK-NEXT:  <0>          END REGION
 ;
 entry:
   %cmp6 = icmp sgt i32 %n, 0

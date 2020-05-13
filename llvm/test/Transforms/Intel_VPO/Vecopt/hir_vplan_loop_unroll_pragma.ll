@@ -13,8 +13,8 @@ define dso_local void @_Z3fooPii(i32* nocapture %a, i32 %n) local_unnamed_addr #
 ; CHECK-LABEL:  VPlan after loop unrolling
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=4
 ; CHECK-NEXT:  External Defs Start:
-; CHECK-DAG:     [[VP0:%.*]] = {sext.i32.i64(%n) + -1}
-; CHECK-DAG:     [[VP1:%.*]] = {%a}
+; CHECK-DAG:     [[VP0:%.*]] = {%a}
+; CHECK-DAG:     [[VP1:%.*]] = {sext.i32.i64(%n) + -1}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
@@ -35,7 +35,7 @@ define dso_local void @_Z3fooPii(i32* nocapture %a, i32 %n) local_unnamed_addr #
 ; CHECK-NEXT:     [DA: Div] i32* [[VP7:%.*]] = getelementptr inbounds i32* [[A0]] i64 [[VP2]]
 ; CHECK-NEXT:     [DA: Div] store i32 [[VP6]] i32* [[VP7]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP8:%.*]] = add i64 [[VP2]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP9:%.*]] = icmp i64 [[VP8]] i64 [[VP0]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP9:%.*]] = icmp i64 [[VP8]] i64 [[VP1]]
 ; CHECK-NEXT:    SUCCESSORS(1):cloned.[[BB4:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] cloned.[[BB3]]
 ; CHECK-EMPTY:
@@ -46,7 +46,7 @@ define dso_local void @_Z3fooPii(i32* nocapture %a, i32 %n) local_unnamed_addr #
 ; CHECK-NEXT:     [DA: Div] i32* [[VP13:%.*]] = getelementptr inbounds i32* [[A0]] i64 [[VP8]]
 ; CHECK-NEXT:     [DA: Div] store i32 [[VP12]] i32* [[VP13]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP14:%.*]] = add i64 [[VP8]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP15:%.*]] = icmp i64 [[VP14]] i64 [[VP0]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP15:%.*]] = icmp i64 [[VP14]] i64 [[VP1]]
 ; CHECK-NEXT:    SUCCESSORS(1):cloned.[[BB3]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
@@ -57,7 +57,7 @@ define dso_local void @_Z3fooPii(i32* nocapture %a, i32 %n) local_unnamed_addr #
 ; CHECK-NEXT:     [DA: Div] i32* [[VP19:%.*]] = getelementptr inbounds i32* [[A0]] i64 [[VP14]]
 ; CHECK-NEXT:     [DA: Div] store i32 [[VP18]] i32* [[VP19]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP3]] = add i64 [[VP14]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP20:%.*]] = icmp i64 [[VP3]] i64 [[VP0]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP20:%.*]] = icmp i64 [[VP3]] i64 [[VP1]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP20]]), [[BB5:BB[0-9]+]](!i1 [[VP20]])
 ; CHECK-NEXT:    PREDECESSORS(1): cloned.[[BB4]]
 ; CHECK-EMPTY:
@@ -103,21 +103,11 @@ define dso_local void @_Z3fooPii(i32* nocapture %a, i32 %n) local_unnamed_addr #
 ; VPVALCG-NEXT:  <25>               {
 ; VPVALCG-NEXT:  <24>                  + DO i1 = 0, 12 * [[TGU0]] + -1, 12   <DO_LOOP> <nounroll> <novectorize>
 ; VPVALCG-NEXT:  <27>                  |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[A0:%.*]])[i1]
-; VPVALCG-NEXT:  <28>                  |   [[DOTVEC20:%.*]] = [[DOTVEC0]]  +  1
-; VPVALCG-NEXT:  <29>                  |   (<4 x i32>*)([[A0]])[i1] = [[DOTVEC20]]
-; VPVALCG-NEXT:  <30>                  |   [[DOTVEC30:%.*]] = i1 + <i64 0, i64 1, i64 2, i64 3>  +  4
-; VPVALCG-NEXT:  <31>                  |   [[UNI_IDX0:%.*]] = extractelement [[DOTVEC30]],  0
-; VPVALCG-NEXT:  <32>                  |   [[DOTVEC40:%.*]] = (<4 x i32>*)([[A0]])[%uni.idx]
-; VPVALCG-NEXT:  <33>                  |   [[DOTVEC50:%.*]] = [[DOTVEC40]]  +  1
-; VPVALCG-NEXT:  <34>                  |   [[UNI_IDX60:%.*]] = extractelement [[DOTVEC30]],  0
-; VPVALCG-NEXT:  <35>                  |   (<4 x i32>*)([[A0]])[%uni.idx6] = [[DOTVEC50]]
-; VPVALCG-NEXT:  <36>                  |   [[DOTVEC70:%.*]] = [[DOTVEC30]]  +  4
-; VPVALCG-NEXT:  <37>                  |   [[UNI_IDX80:%.*]] = extractelement [[DOTVEC70]],  0
-; VPVALCG-NEXT:  <38>                  |   [[DOTVEC90:%.*]] = (<4 x i32>*)([[A0]])[%uni.idx8]
-; VPVALCG-NEXT:  <39>                  |   [[DOTVEC100:%.*]] = [[DOTVEC90]]  +  1
-; VPVALCG-NEXT:  <40>                  |   [[UNI_IDX110:%.*]] = extractelement [[DOTVEC70]],  0
-; VPVALCG-NEXT:  <41>                  |   (<4 x i32>*)([[A0]])[%uni.idx11] = [[DOTVEC100]]
-; VPVALCG-NEXT:  <42>                  |   [[DOTVEC120:%.*]] = [[DOTVEC70]]  +  4
+; VPVALCG-NEXT:  <28>                  |   (<4 x i32>*)([[A0]])[i1] = [[DOTVEC0]] + 1
+; VPVALCG-NEXT:  <29>                  |   [[DOTVEC20:%.*]] = (<4 x i32>*)([[A0]])[i1 + 4]
+; VPVALCG-NEXT:  <30>                  |   (<4 x i32>*)([[A0]])[i1 + 4] = 1 + [[DOTVEC20]]
+; VPVALCG-NEXT:  <31>                  |   [[DOTVEC30:%.*]] = (<4 x i32>*)([[A0]])[i1 + 8]
+; VPVALCG-NEXT:  <32>                  |   (<4 x i32>*)([[A0]])[i1 + 8] = 1 + [[DOTVEC30]]
 ; VPVALCG-NEXT:  <24>                  + END LOOP
 ; VPVALCG-NEXT:  <25>               }
 ; VPVALCG-NEXT:  <22>

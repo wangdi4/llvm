@@ -37,10 +37,8 @@
 ; CHECK-NEXT:           |      %red.var = insertelement %red.var,  %sum.135,  0;
 ; CHECK-NEXT:           |   + DO i2 = 0, zext.i32.i64(%div) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 9>
 ; CHECK-NEXT:           |   |   + DO i3 = 0, 19, 4   <DO_LOOP> <novectorize>
-; CHECK-NEXT:           |   |   |   %.vec = 10 * i2  +  i3 + <i64 0, i64 1, i64 2, i64 3>;
-; CHECK-NEXT:           |   |   |   %uni.idx = extractelement %.vec,  0;
-; CHECK-NEXT:           |   |   |   %.vec4 = (<4 x i32>*)(@A)[0][i1][%uni.idx];
-; CHECK-NEXT:           |   |   |   %red.var = %.vec4  +  %red.var;
+; CHECK-NEXT:           |   |   |   %.vec = (<4 x i32>*)(@A)[0][i1][10 * i2 + i3];
+; CHECK-NEXT:           |   |   |   %red.var = %.vec  +  %red.var;
 ; CHECK-NEXT:           |   |   + END LOOP
 ; CHECK-NEXT:           |   + END LOOP
 ; CHECK-NEXT:           |      %sum.135 = @llvm.experimental.vector.reduce.add.v4i32(%red.var);
