@@ -6588,6 +6588,38 @@ let TargetPrefix = "x86" in {
       : GCCBuiltin<"__builtin_ia32_t2transposewt1">,
         Intrinsic<[], [llvm_i8_ty, llvm_ptr_ty, llvm_i64_ty, llvm_i64_ty],
                   [ImmArg<0>]>;
+  def int_x86_t4rqntlvbz0
+      : GCCBuiltin<"__builtin_ia32_t4rqntlvbz0">,
+        Intrinsic<[], [llvm_i8_ty, llvm_ptr_ty, llvm_i64_ty],
+                  [ImmArg<0>]>;
+  def int_x86_t4rqntlvbz0t1
+      : GCCBuiltin<"__builtin_ia32_t4rqntlvbz0t1">,
+        Intrinsic<[], [llvm_i8_ty, llvm_ptr_ty, llvm_i64_ty],
+                  [ImmArg<0>]>;
+  def int_x86_t4rqntlvbz1
+      : GCCBuiltin<"__builtin_ia32_t4rqntlvbz1">,
+        Intrinsic<[], [llvm_i8_ty, llvm_ptr_ty, llvm_i64_ty],
+                  [ImmArg<0>]>;
+  def int_x86_t4rqntlvbz1t1
+      : GCCBuiltin<"__builtin_ia32_t4rqntlvbz1t1">,
+        Intrinsic<[], [llvm_i8_ty, llvm_ptr_ty, llvm_i64_ty],
+                  [ImmArg<0>]>;
+  def int_x86_t4rqntlvbz2
+      : GCCBuiltin<"__builtin_ia32_t4rqntlvbz2">,
+        Intrinsic<[], [llvm_i8_ty, llvm_ptr_ty, llvm_i64_ty],
+                  [ImmArg<0>]>;
+  def int_x86_t4rqntlvbz2t1
+      : GCCBuiltin<"__builtin_ia32_t4rqntlvbz2t1">,
+        Intrinsic<[], [llvm_i8_ty, llvm_ptr_ty, llvm_i64_ty],
+                  [ImmArg<0>]>;
+  def int_x86_t4rqntlvbz3
+      : GCCBuiltin<"__builtin_ia32_t4rqntlvbz3">,
+        Intrinsic<[], [llvm_i8_ty, llvm_ptr_ty, llvm_i64_ty],
+                  [ImmArg<0>]>;
+  def int_x86_t4rqntlvbz3t1
+      : GCCBuiltin<"__builtin_ia32_t4rqntlvbz3t1">,
+        Intrinsic<[], [llvm_i8_ty, llvm_ptr_ty, llvm_i64_ty],
+                  [ImmArg<0>]>;
 }
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 

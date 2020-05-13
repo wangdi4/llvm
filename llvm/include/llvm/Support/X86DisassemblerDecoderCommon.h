@@ -475,6 +475,12 @@ enum OperandEncoding {
 #else // INTEL_FEATURE_ISA_AMX_LNC
 #define Z16T_ENUM_ENTRY
 #endif // INTEL_FEATURE_ISA_AMX_LNC
+
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+#define XTQ_ENUM_ENTRY ENUM_ENTRY(TYPE_TMM_QUAD,  "tile quad")
+#else // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+#define XTQ_ENUM_ENTRY
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 #endif // INTEL_CUSTOMIZATION
 
 // Semantic interpretations of instruction operands.
@@ -508,6 +514,7 @@ enum OperandEncoding {
   ENUM_ENTRY(TYPE_VK_PAIR,    "mask register pair")                            \
   XTP_ENUM_ENTRY                                                               \
   Z16T_ENUM_ENTRY                                                              \
+  XTQ_ENUM_ENTRY                                                               \
   ENUM_ENTRY(TYPE_SEGMENTREG, "Segment register operand")                      \
   ENUM_ENTRY(TYPE_DEBUGREG,   "Debug register operand")                        \
   ENUM_ENTRY(TYPE_CONTROLREG, "Control register operand")                      \

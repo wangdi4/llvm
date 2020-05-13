@@ -22,7 +22,22 @@
   __builtin_ia32_t2transposew(tdst, base, stride, src)
 #define _tile_2transposewt1(tdst, base, stride, src)                           \
   __builtin_ia32_t2transposewt1(tdst, base, stride, src)
-
+#define _tile_4rqntlvbz0(tdst, base, stride)                                   \
+  __builtin_ia32_t4rqntlvbz0(tdst, base, stride)
+#define _tile_4rqntlvbz0t1(tdst, base, stride)                                 \
+  __builtin_ia32_t4rqntlvbz0t1(tdst, base, stride)
+#define _tile_4rqntlvbz1(tdst, base, stride)                                   \
+  __builtin_ia32_t4rqntlvbz1(tdst, base, stride)
+#define _tile_4rqntlvbz1t1(tdst, base, stride)                                 \
+  __builtin_ia32_t4rqntlvbz1t1(tdst, base, stride)
+#define _tile_4rqntlvbz2(tdst, base, stride)                                   \
+  __builtin_ia32_t4rqntlvbz2(tdst, base, stride)
+#define _tile_4rqntlvbz2t1(tdst, base, stride)                                 \
+  __builtin_ia32_t4rqntlvbz2t1(tdst, base, stride)
+#define _tile_4rqntlvbz3(tdst, base, stride)                                   \
+  __builtin_ia32_t4rqntlvbz3(tdst, base, stride)
+#define _tile_4rqntlvbz3t1(tdst, base, stride)                                 \
+  __builtin_ia32_t4rqntlvbz3t1(tdst, base, stride)
 #endif /* __x86_64__ */
 #endif /* __AMX_TRANSPOSE2INTRIN_H */
 /* end INTEL_FEATURE_ISA_AMX_TRANSPOSE2 */

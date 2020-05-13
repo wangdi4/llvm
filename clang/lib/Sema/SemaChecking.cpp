@@ -4082,6 +4082,14 @@ bool Sema::CheckX86BuiltinTileArguments(unsigned BuiltinID, CallExpr *TheCall) {
 #if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
   case X86::BI__builtin_ia32_t2transposew:
   case X86::BI__builtin_ia32_t2transposewt1:
+  case X86::BI__builtin_ia32_t4rqntlvbz0:
+  case X86::BI__builtin_ia32_t4rqntlvbz0t1:
+  case X86::BI__builtin_ia32_t4rqntlvbz1:
+  case X86::BI__builtin_ia32_t4rqntlvbz1t1:
+  case X86::BI__builtin_ia32_t4rqntlvbz2:
+  case X86::BI__builtin_ia32_t4rqntlvbz2t1:
+  case X86::BI__builtin_ia32_t4rqntlvbz3:
+  case X86::BI__builtin_ia32_t4rqntlvbz3t1:
     return CheckX86BuiltinTileArgumentsRange(TheCall, 0);
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 #if INTEL_FEATURE_ISA_AMX_CONVERT

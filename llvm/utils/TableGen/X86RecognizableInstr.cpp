@@ -1069,6 +1069,9 @@ OperandType RecognizableInstr::typeFromString(const std::string &s,
 #if INTEL_FEATURE_ISA_AMX_LNC
   TYPE("ZMM16Tuples",         TYPE_ZMM16_TUPLES)
 #endif // INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+  TYPE("VTILEQuad",           TYPE_TMM_QUAD)
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 #endif // INTEL_CUSTOMIZATION
   errs() << "Unhandled type string " << s << "\n";
   llvm_unreachable("Unhandled type string");
@@ -1233,6 +1236,9 @@ RecognizableInstr::roRegisterEncodingFromString(const std::string &s,
 #if INTEL_FEATURE_ISA_AMX_LNC
   ENCODING("ZMM16Tuples",     ENCODING_REG)
 #endif // INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+  ENCODING("VTILEQuad",       ENCODING_REG)
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 #endif // INTEL_CUSTOMIZATION
   errs() << "Unhandled reg/opcode register encoding " << s << "\n";
   llvm_unreachable("Unhandled reg/opcode register encoding");
