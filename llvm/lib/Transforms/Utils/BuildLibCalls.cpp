@@ -1440,6 +1440,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_ctime:
     Changed |= setDoesNotThrow(F);
     return Changed;
+  case LibFunc_DeleteCriticalSection:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
   case LibFunc_difftime:
   case LibFunc_under_difftime64:  // INTEL
     Changed |= setDoesNotAccessMemory(F);
@@ -1452,6 +1455,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_dup:
   case LibFunc_dup2:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_EnterCriticalSection:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_erfc:
@@ -1537,6 +1543,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_FindNextFileA:
     Changed |= setDoesNotThrow(F);
     return Changed;
+  case LibFunc_GetCurrentThreadId:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
   case LibFunc_GetFullPathNameA:
     Changed |= setDoesNotThrow(F);
     return Changed;
@@ -1544,6 +1553,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_GetProcAddress:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_GetShortPathNameW:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_GlobalMemoryStatus:
@@ -1570,6 +1582,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_hypotf:
     Changed |= setDoesNotAccessMemory(F);
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_InitializeCriticalSectionAndSpinCount:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_ioctl:
@@ -1622,6 +1637,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_kill:
     Changed |= setDoesNotThrow(F);
     return Changed;
+  case LibFunc_LeaveCriticalSection:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
   case LibFunc_link:
     Changed |= setDoesNotThrow(F);
     return Changed;
@@ -1664,6 +1682,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_mmap:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_MultiByteToWideChar:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_munmap:
@@ -1828,6 +1849,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_qsort_r:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_QueryPerformanceCounter:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_raise:
