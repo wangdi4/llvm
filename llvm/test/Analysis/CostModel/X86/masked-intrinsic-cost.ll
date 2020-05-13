@@ -1594,6 +1594,7 @@ define void @test_scatter_16i32(i32* %base, <16 x i32> %ind, i16 %mask, <16 x i3
 ; SKL-NEXT:  Cost Model: Found an estimated cost of 96 for instruction: call void @llvm.masked.scatter.v16i32.v16p0i32(<16 x i32> %val, <16 x i32*> %gep.random, i32 4, <16 x i1> %imask)
 ; SKL-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
 ;
+<<<<<<< HEAD
 ; KNL-LABEL: 'test_scatter_16i32'
 ; KNL-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %broadcast.splatinsert = insertelement <16 x i32*> undef, i32* %base, i32 0
 ; KNL-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %broadcast.splat = shufflevector <16 x i32*> %broadcast.splatinsert, <16 x i32*> undef, <16 x i32> zeroinitializer
@@ -1609,6 +1610,15 @@ define void @test_scatter_16i32(i32* %base, <16 x i32> %ind, i16 %mask, <16 x i3
 ; SKX-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %imask = bitcast i16 %mask to <16 x i1>
 ; SKX-NEXT:  Cost Model: Found an estimated cost of 16 for instruction: call void @llvm.masked.scatter.v16i32.v16p0i32(<16 x i32> %val, <16 x i32*> %gep.random, i32 4, <16 x i1> %imask)
 ; SKX-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
+=======
+; AVX512-LABEL: 'test_scatter_16i32'
+; AVX512-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %broadcast.splatinsert = insertelement <16 x i32*> undef, i32* %base, i32 0
+; AVX512-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %broadcast.splat = shufflevector <16 x i32*> %broadcast.splatinsert, <16 x i32*> undef, <16 x i32> zeroinitializer
+; AVX512-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: %gep.random = getelementptr i32, <16 x i32*> %broadcast.splat, <16 x i32> %ind
+; AVX512-NEXT:  Cost Model: Found an estimated cost of 1 for instruction: %imask = bitcast i16 %mask to <16 x i1>
+; AVX512-NEXT:  Cost Model: Found an estimated cost of 18 for instruction: call void @llvm.masked.scatter.v16i32.v16p0i32(<16 x i32> %val, <16 x i32*> %gep.random, i32 4, <16 x i1> %imask)
+; AVX512-NEXT:  Cost Model: Found an estimated cost of 0 for instruction: ret void
+>>>>>>> 6bbad7285c4b8a38fc9a3a0bd68eb3096f9d27bc
 ;
   %broadcast.splatinsert = insertelement <16 x i32*> undef, i32* %base, i32 0
   %broadcast.splat = shufflevector <16 x i32*> %broadcast.splatinsert, <16 x i32*> undef, <16 x i32> zeroinitializer
