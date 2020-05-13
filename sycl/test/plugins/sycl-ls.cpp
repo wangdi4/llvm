@@ -1,3 +1,8 @@
+// INTEL_CUSTOMIZATION
+// Disable until the self-build failure is fixed (CMPLRLLVM-19822).
+// UNSUPPORTED: windows
+// UNSUPPORTED: linux
+// end INTEL_CUSTOMIZATION
 // RUN: sycl-ls --verbose | grep "Device \[" | wc -l >%t.verbose.out
 // RUN: sycl-ls | wc -l >%t.concise.out
 // RUN: diff %t.verbose.out %t.concise.out
