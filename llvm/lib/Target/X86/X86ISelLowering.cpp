@@ -50743,26 +50743,26 @@ X86TargetLowering::getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
       break;
     case 'q':   // GENERAL_REGS in 64-bit mode, Q_REGS in 32-bit mode.
       if (Subtarget.is64Bit()) {
-        if (VT == MVT::i32 || VT == MVT::f32)
-          return std::make_pair(0U, &X86::GR32RegClass);
-        if (VT == MVT::i16)
-          return std::make_pair(0U, &X86::GR16RegClass);
         if (VT == MVT::i8 || VT == MVT::i1)
           return std::make_pair(0U, &X86::GR8RegClass);
-        if (VT == MVT::i64 || VT == MVT::f64)
+        if (VT == MVT::i16)
+          return std::make_pair(0U, &X86::GR16RegClass);
+        if (VT == MVT::i32 || VT == MVT::f32)
+          return std::make_pair(0U, &X86::GR32RegClass);
+        if (VT != MVT::f80)
           return std::make_pair(0U, &X86::GR64RegClass);
         break;
       }
       LLVM_FALLTHROUGH;
       // 32-bit fallthrough
     case 'Q':   // Q_REGS
-      if (VT == MVT::i32 || VT == MVT::f32)
-        return std::make_pair(0U, &X86::GR32_ABCDRegClass);
-      if (VT == MVT::i16)
-        return std::make_pair(0U, &X86::GR16_ABCDRegClass);
       if (VT == MVT::i8 || VT == MVT::i1)
         return std::make_pair(0U, &X86::GR8_ABCD_LRegClass);
-      if (VT == MVT::i64)
+      if (VT == MVT::i16)
+        return std::make_pair(0U, &X86::GR16_ABCDRegClass);
+      if (VT == MVT::i32 || VT == MVT::f32 || !Subtarget.is64Bit())
+        return std::make_pair(0U, &X86::GR32_ABCDRegClass);
+      if (VT != MVT::f80)
         return std::make_pair(0U, &X86::GR64_ABCDRegClass);
       break;
     case 'r':   // GENERAL_REGS
@@ -50773,15 +50773,19 @@ X86TargetLowering::getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
         return std::make_pair(0U, &X86::GR16RegClass);
       if (VT == MVT::i32 || VT == MVT::f32 || !Subtarget.is64Bit())
         return std::make_pair(0U, &X86::GR32RegClass);
-      return std::make_pair(0U, &X86::GR64RegClass);
+      if (VT != MVT::f80)
+        return std::make_pair(0U, &X86::GR64RegClass);
+      break;
     case 'R':   // LEGACY_REGS
       if (VT == MVT::i8 || VT == MVT::i1)
         return std::make_pair(0U, &X86::GR8_NOREXRegClass);
       if (VT == MVT::i16)
         return std::make_pair(0U, &X86::GR16_NOREXRegClass);
-      if (VT == MVT::i32 || !Subtarget.is64Bit())
+      if (VT == MVT::i32 || VT == MVT::f32 || !Subtarget.is64Bit())
         return std::make_pair(0U, &X86::GR32_NOREXRegClass);
-      return std::make_pair(0U, &X86::GR64_NOREXRegClass);
+      if (VT != MVT::f80)
+        return std::make_pair(0U, &X86::GR64_NOREXRegClass);
+      break;
     case 'f':  // FP Stack registers.
       // If SSE is enabled for this VT, use f80 to ensure the isel moves the
       // value to the correct fpstack register class.
