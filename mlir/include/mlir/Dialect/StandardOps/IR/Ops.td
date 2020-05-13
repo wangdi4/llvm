@@ -143,12 +143,14 @@ class ComplexFloatArithmeticOp<string mnemonic, list<OpTrait> traits = []> :
 //
 //   %0 = alloclike(%m)[%s] : memref<8x?xf32, (d0, d1)[s0] -> ((d0 + s0), d1)>
 //
-class AllocLikeOp<string mnemonic, list<OpTrait> traits = []> :
-    Std_Op<mnemonic, !listconcat(traits, [MemoryEffects<[MemAlloc]>])> {
+class AllocLikeOp<string mnemonic,
+                  Resource resource,
+                  list<OpTrait> traits = []> :
+    Std_Op<mnemonic, !listconcat([MemoryEffects<[MemAlloc<resource>]>], traits)> {
 
   let arguments = (ins Variadic<Index>:$value,
                    Confined<OptionalAttr<I64Attr>, [IntMinValue<0>]>:$alignment);
-  let results = (outs Res<AnyMemRef, "", [MemAlloc]>);
+  let results = (outs Res<AnyMemRef, "", [MemAlloc<resource>]>);
 
   let builders = [OpBuilder<
     "OpBuilder &builder, OperationState &result, MemRefType memrefType", [{
@@ -310,7 +312,7 @@ def AddIOp : IntArithmeticOp<"addi", [Commutative]> {
 // AllocOp
 //===----------------------------------------------------------------------===//
 
-def AllocOp : AllocLikeOp<"alloc"> {
+def AllocOp : AllocLikeOp<"alloc", DefaultResource> {
   let summary = "memory allocation operation";
   let description = [{
     The `alloc` operation allocates a region of memory, as specified by its
@@ -357,7 +359,7 @@ def AllocOp : AllocLikeOp<"alloc"> {
 // AllocaOp
 //===----------------------------------------------------------------------===//
 
-def AllocaOp : AllocLikeOp<"alloca"> {
+def AllocaOp : AllocLikeOp<"alloca", AutomaticAllocationScopeResource> {
   let summary = "stack memory allocation operation";
   let description = [{
     The `alloca` operation allocates memory on the stack, to be automatically
@@ -2674,8 +2676,18 @@ def SubViewOp : Std_Op<"subview", [
     struct Range {
       Value offset, size, stride;
     };
-    // TODO: retire `getRanges`.
-    SmallVector<Range, 8> getRanges();
+    /// Return the list of SubViewOp::Range (i.e. offset, size, stride). Each
+    /// Range entry contains either the dynamic value or a ConstantIndexOp
+    /// constructed with `b` at location `loc`.
+    SmallVector<Range, 8> getOrCreateRanges(OpBuilder &b, Location loc);
+
+    /// A subview result type can be fully inferred from the source type and the
+    /// static representation of offsets, sizes and strides. Special sentinels
+    /// encode the dynamic case.
+    static Type inferSubViewResultType(MemRefType sourceMemRefType,
+                                       ArrayRef<int64_t> staticOffsets,
+                                       ArrayRef<int64_t> staticSizes,
+                                       ArrayRef<int64_t> staticStrides);
 
     /// Return the rank of the result MemRefType.
     unsigned getRank() { return getType().getRank(); }
@@ -2748,7 +2760,6 @@ def SubViewOp : Std_Op<"subview", [
   }];
 
   let hasCanonicalizer = 1;
-  let hasFolder = 1;
 }
 
 //===----------------------------------------------------------------------===//
