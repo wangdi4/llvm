@@ -94,11 +94,15 @@ namespace intel {
       }
 
       // Update the weights if needed
+      SmallVector<BranchProbability, 4> EdgeProbabilities;
       for (unsigned i=0; i < br->getNumSuccessors(); ++i) {
         if (weights[i] != NormalWeight)
-          m_BPI->setEdgeProbability(I, i,
+          EdgeProbabilities.push_back(
             BranchProbability::getBranchProbability(weights[i], TakenWeight + NonTakenWeight));
+        else
+          EdgeProbabilities.push_back(m_BPI->getEdgeProbability(I, i));
       }
+      m_BPI->setEdgeProbability(I, EdgeProbabilities);
     }
     return false;
   }
