@@ -392,6 +392,8 @@ cl::opt<AttributorRunOption> AttributorRun(
                clEnumValN(AttributorRunOption::NONE, "none",
                           "disable attributor runs")));
 
+extern cl::opt<bool> EnableKnowledgeRetention;
+
 PassManagerBuilder::PassManagerBuilder() {
     OptLevel = 2;
     SizeLevel = 0;
@@ -670,6 +672,8 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   assert(OptLevel >= 1 && "Calling function optimizer with no optimization level!");
   MPM.add(createSROAPass());
   MPM.add(createEarlyCSEPass(true /* Enable mem-ssa. */)); // Catch trivial redundancies
+  if (EnableKnowledgeRetention)
+    MPM.add(createAssumeSimplifyPass());
 
   if (OptLevel > 1) {
     if (EnableGVNHoist)

@@ -335,8 +335,8 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
     if (!BaseTy)
       return UnknownCost;
     Type *VecTy = getVectorizedType(BaseTy, VF);
-    unsigned Cost =
-        TTI->getArithmeticInstrCost(Opcode, VecTy, Op1VK, Op2VK, Op1VP, Op2VP);
+    unsigned Cost = TTI->getArithmeticInstrCost(
+        Opcode, VecTy, TTI::TCK_RecipThroughput, Op1VK, Op2VK, Op1VP, Op2VP);
     return Cost;
   }
   case Instruction::ICmp:

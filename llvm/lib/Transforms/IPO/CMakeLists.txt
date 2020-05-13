@@ -24,11 +24,6 @@ add_llvm_component_library(LLVMipo
   Intel_AdvancedFastCall.cpp   # INTEL
   Intel_DeadArrayOpsElimination.cpp   # INTEL
   Intel_DopeVectorConstProp.cpp   # INTEL
-  Intel_InlineReport.cpp   # INTEL
-  Intel_MDInlineReport.cpp   # INTEL
-  Intel_InlineReportSetup.cpp # INTEL
-  Intel_InlineReportCommon.cpp   # INTEL
-  Intel_InlineReportEmitter.cpp # INTEL
   Intel_QsortRecognizer.cpp # INTEL
   InlineSimple.cpp
   Inliner.cpp

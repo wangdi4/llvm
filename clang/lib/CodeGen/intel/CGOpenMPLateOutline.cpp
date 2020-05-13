@@ -181,12 +181,13 @@ OpenMPLateOutliner::emitOpenMPCopyConstructor(const Expr *IPriv) {
     ImplicitCastExpr CastExpr(ImplicitCastExpr::OnStack,
                               C.getPointerType(ElemType), CK_BitCast, &SrcExpr,
                               VK_RValue);
-    UnaryOperator SRC(&CastExpr, UO_Deref, ElemType, VK_LValue, OK_Ordinary,
-                      SourceLocation(), /*CanOverflow=*/false);
+    UnaryOperator *SRC = UnaryOperator::Create(
+        C, &CastExpr, UO_Deref, ElemType, VK_LValue, OK_Ordinary,
+        SourceLocation(), /*CanOverflow=*/false, FPOptions(C.getLangOpts()));
 
     QualType CTy = ElemType;
     CTy.addConst();
-    ImplicitCastExpr NoOpCast(ImplicitCastExpr::OnStack, CTy, CK_NoOp, &SRC,
+    ImplicitCastExpr NoOpCast(ImplicitCastExpr::OnStack, CTy, CK_NoOp, SRC,
                               VK_LValue);
 
     SmallVector<Expr *, 8> ConstructorArgs;

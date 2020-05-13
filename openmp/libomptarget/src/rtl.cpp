@@ -54,6 +54,7 @@ static const char *RTLNames[] = {
 #endif // INTEL_CUSTOMIZATION
 #endif // !_WIN32
 #endif // INTEL_COLLAB
+    /* SX-Aurora VE target  */ "libomptarget.rtl.ve.so",
     /* PowerPC target */ "libomptarget.rtl.ppc64.so",
 #if INTEL_COLLAB
 #if _WIN32
