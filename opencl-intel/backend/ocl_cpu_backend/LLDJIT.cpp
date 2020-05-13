@@ -276,9 +276,10 @@ std::set<std::string> LLDJIT::getExternalSymbolsList(
 
     for (unsigned SI = 0, SE = Coff->getNumberOfSymbols(); SI != SE; ++SI) {
       Expected<llvm::object::COFFSymbolRef> Symbol = Coff->getSymbol(SI);
-      StringRef Name;
       assert(!errorToErrorCode(Symbol.takeError()));
-      Coff->getSymbolName(*Symbol, Name);
+      Expected<StringRef> NameOrErr = Coff->getSymbolName(*Symbol);
+      assert(!errorToErrorCode(NameOrErr.takeError()));
+      StringRef Name = *NameOrErr;
       if (Symbol->isUndefined())
         ExternalSymbols.insert(std::string(Name));
     }
