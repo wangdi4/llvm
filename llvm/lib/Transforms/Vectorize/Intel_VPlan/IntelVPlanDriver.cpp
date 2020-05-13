@@ -298,6 +298,7 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
     if ((VF * UF - 1) == TripCount->getAPInt()) {
       VPLoop *Lp = (*Plan->getVPLoopInfo()->begin());
       VPBasicBlock *Latch = Lp->getLoopLatch();
+      assert(Latch && "Latch should not be a null pointer.");
       VPBasicBlock *Header = Lp->getHeader();
       bool BackedgeOnTrue = Latch->getSuccessors()[0] == Header;
       auto &Context = Fn.getContext();

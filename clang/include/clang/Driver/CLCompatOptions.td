@@ -282,6 +282,18 @@ def _SLASH_Qimf_arch_consistency_EQ : CLJoined<"Qimf-arch-consistency=">,
 def _SLASH_Qimf_max_error_EQ : CLJoined<"Qimf-max-error=">,
   Alias<fimf_max_error_EQ>,HelpText<"defines the maximum allowable relative "
   "error, measured in ulps, for math library function results">;
+def _SLASH_Qimf_absolute_error_EQ : CLJoined<"Qimf-absolute-error=">,
+  Alias<fimf_absolute_error_EQ>,HelpText<"Define the maximum allowable "
+  "absolute error for math library function results">;
+def _SLASH_Qimf_accuracy_bits_EQ : CLJoined<"Qimf-accuracy-bits=">,
+  Alias<fimf_accuracy_bits_EQ>,HelpText<"Define the relative error, measured "
+  "by the number of correct bits,for math library function results">;
+def _SLASH_Qimf_domain_exclusion_EQ : CLJoined<"Qimf-domain-exclusion=">,
+  Alias<fimf_domain_exclusion_EQ>,HelpText<"Indicates the input arguments "
+  "domain on which math functions must provide correct results.">;
+def _SLASH_Qimf_precision_EQ : CLJoined<"Qimf-precision=">,
+  Alias<fimf_precision_EQ>,HelpText<"Defines the accuracy (precision) "
+  "for math library functions.">;
 def _SLASH_Qtemplate_depth_COL : CLJoined<"Qtemplate-depth:">,
   Alias<ftemplate_depth_EQ>, HelpText<"Control the depth in which recursive"
   " templates are expanded">;
