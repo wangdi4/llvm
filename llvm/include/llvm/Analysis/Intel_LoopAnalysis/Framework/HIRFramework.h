@@ -125,7 +125,11 @@ private:
   unsigned MaxSymbase;
 
   struct MaxTripCountEstimator;
+
   void estimateMaxTripCounts();
+
+  // Processes Ztts deferred by loop formation phase due to structural issues.
+  void processDeferredZtts();
 
   void runImpl();
 
