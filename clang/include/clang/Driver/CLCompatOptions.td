@@ -259,6 +259,8 @@ def _SLASH_Qmkl_EQ : CLJoined<"Qmkl=">, Alias<mkl_EQ>,
   "and bring in the associated headers">;
 def _SLASH_Qmkl_COL : CLJoined<"Qmkl:">, Alias<mkl_EQ>;
 def _SLASH_Qmkl : CLFlag<"Qmkl">, Alias<mkl_EQ>, AliasArgs<["parallel"]>;
+def _SLASH_QMP : CLFlag<"QMP">, Alias<MP>, HelpText<"Create phony target for "
+  "each dependency (other than main file)">;
 def _SLASH_Qtbb : CLFlag<"Qtbb">, Alias<tbb>,
   HelpText<"Link Intel(R) Threading Building Blocks (Intel(R) TBB) libraries "
   "and bring in the associated headers">;
