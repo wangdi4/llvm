@@ -421,11 +421,6 @@ def err_unexpected_token_in_nested_name_spec : Error<
   "'%0' cannot be a part of nested name specifier; did you mean ':'?">;
 def err_bool_redeclaration : Error<
   "redeclaration of C++ built-in type 'bool'">;
-// if INTEL_CUSTOMIZATION
-// CQ#376357: Allow bool redeclaration.
-def warn_bool_redeclaration : Warning<
-  err_bool_redeclaration.Text>, InGroup<IntelCompat>;
-// endif // INTEL_CUSTOMIZATION
 def warn_cxx98_compat_static_assert : Warning<
   "static_assert declarations are incompatible with C++98">,
   InGroup<CXX98Compat>, DefaultIgnore;

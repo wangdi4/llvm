@@ -1789,11 +1789,6 @@ def err_explicit_non_ctor_or_conv_function : Error<
 def err_static_not_bitfield : Error<"static member %0 cannot be a bit-field">;
 def err_static_out_of_line : Error<
   "'static' can only be specified inside the class definition">;
-//if INTEL_CUSTOMIZATION
-// CQ#376357: Allow static specifier for outline method definition.
-def warn_static_out_of_line : Warning<
-  err_static_out_of_line.Text>, InGroup<IntelCompat>;
-// endif // INTEL_CUSTOMIZATION
 def ext_static_out_of_line : ExtWarn<
   err_static_out_of_line.Text>,
   InGroup<MicrosoftTemplate>;
@@ -3682,12 +3677,6 @@ def warn_impcast_null_pointer_to_integer : Warning<
 def warn_impcast_floating_point_to_bool : Warning<
     "implicit conversion turns floating-point number into bool: %0 to %1">,
     InGroup<ImplicitConversionFloatingPointToBool>;
-//if INTEL_CUSTOMIZATION
-// Fix for CQ376357: -fpermissive illegal conversion.
-def warn_impcast_permissive_conversion : Warning<
-  "illegal implicit type conversion from %0 to %1 allowed in -fpermissive mode">,
-  InGroup<IntelCompat>;
-// endif //INTEL_CUSTOMIZATION
 def ext_ms_impcast_fn_obj : ExtWarn<
   "implicit conversion between pointer-to-function and pointer-to-object is a "
   "Microsoft extension">, InGroup<MicrosoftCast>;
@@ -6372,11 +6361,6 @@ def err_qualified_param_declarator : Error<
 def ext_out_of_line_declaration : ExtWarn<
   "out-of-line declaration of a member must be a definition">,
   InGroup<OutOfLineDeclaration>, DefaultError;
-// if INTEL_CUSTOMIZATION
-// CQ#376357
-def warn_out_of_line_declaration : Warning<
-  ext_out_of_line_declaration.Text>, InGroup<IntelCompat>;
-// endif INTEL_CUSTOMIZATION
 def err_member_extra_qualification : Error<
   "extra qualification on member %0">;
 def warn_member_extra_qualification : Warning<
@@ -6412,11 +6396,6 @@ def err_typecheck_pointer_arith_function_type : Error<
   "function type%select{|s}2 %1%select{| and %3}2">;
 def err_typecheck_pointer_arith_void_type : Error<
   "arithmetic on%select{ a|}0 pointer%select{|s}0 to void">;
-// if INTEL_CUSTOMIZATION
-// CQ#376357: void pointer arithmetics.
-def warn_typecheck_pointer_arith_void_type : Warning<
-  err_typecheck_pointer_arith_void_type.Text>, InGroup<IntelCompat>;
-// endif INTEL_CUSTOMIZATION
 def err_typecheck_decl_incomplete_type : Error<
   "variable has incomplete type %0">;
 def ext_typecheck_decl_incomplete_type : ExtWarn<

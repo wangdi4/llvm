@@ -3945,12 +3945,6 @@ Sema::PerformImplicitConversion(Expr *From, QualType ToType,
     return From;
 
   switch (ICS.getKind()) {
-#if INTEL_CUSTOMIZATION
-  case ImplicitConversionSequence::PermissiveConversion:
-    Diag(From->getBeginLoc(), diag::warn_impcast_permissive_conversion)
-        << From->getType() << ToType;
-    LLVM_FALLTHROUGH;
-#endif // INTEL_CUSTOMIZATION
   case ImplicitConversionSequence::StandardConversion: {
     ExprResult Res = PerformImplicitConversion(From, ToType, ICS.Standard,
                                                Action, CCK);
@@ -6317,9 +6311,7 @@ QualType Sema::CXXCheckConditionalOperands(ExprResult &Cond, ExprResult &LHS,
   //      performed to bring them to a common type, whose cv-qualification
   //      shall match the cv-qualification of either the second or the third
   //      operand. The result is of the common type.
-  QualType Composite = FindCompositePointerType(QuestionLoc, LHS, RHS, // INTEL
-                                 /*ConvertArgs=*/true, 
-                                 /*AllowGnuPermissive=*/false); // INTEL
+  QualType Composite = FindCompositePointerType(QuestionLoc, LHS, RHS);
   if (!Composite.isNull())
     return Composite;
 
@@ -6424,8 +6416,7 @@ mergeExceptionSpecs(Sema &S, FunctionProtoType::ExceptionSpecInfo ESI1,
 /// \param ConvertArgs If \c false, do not convert E1 and E2 to the target type.
 QualType Sema::FindCompositePointerType(SourceLocation Loc,
                                         Expr *&E1, Expr *&E2,
-                                        bool ConvertArgs, // INTEL
-                                        bool AllowGnuPermissive) { // INTEL
+                                        bool ConvertArgs) {
   assert(getLangOpts().CPlusPlus && "This function assumes C++");
 
   // C++1z [expr]p14:
@@ -6733,15 +6724,11 @@ QualType Sema::FindCompositePointerType(SourceLocation Loc,
     InitializationKind Kind =
         InitializationKind::CreateCopy(Loc, SourceLocation());
 
-    InitializationSequence E1ToC(
-        *this, Entity, Kind, E1, /*TopLevelOfInitList=*/false,   // INTEL
-        /*TreatUnavailableAsInvalid=*/true, AllowGnuPermissive); // INTEL
+    InitializationSequence E1ToC(*this, Entity, Kind, E1);
     if (!E1ToC)
       return QualType();
 
-    InitializationSequence E2ToC(
-        *this, Entity, Kind, E2, /*TopLevelOfInitList=*/false,   // INTEL
-        /*TreatUnavailableAsInvalid=*/true, AllowGnuPermissive); // INTEL
+    InitializationSequence E2ToC(*this, Entity, Kind, E2);
     if (!E2ToC)
       return QualType();
 

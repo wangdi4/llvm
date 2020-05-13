@@ -2747,8 +2747,6 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
       std::string(Args.getLastArgValue(OPT_fintel_driver_tempfile_name_EQ));
   // Fix for CQ#373517: compilation fails with 'redefinition of default
   // argument'.
-  Opts.GnuPermissive = Args.hasArg(OPT_gnu_permissive);
-
   Opts.Float128 = Opts.IntelQuad || (Opts.IntelCompat && Opts.GNUMode);
 
   // IntrinsicPromotion implementation.

@@ -1189,13 +1189,7 @@ void InitListChecker::CheckExplicitInitList(const InitializedEntity &Entity,
   // Don't complain for incomplete types, since we'll get an error elsewhere.
   if (Index < IList->getNumInits() && !T->isIncompleteType()) {
     // We have leftover initializers
-#if INTEL_CUSTOMIZATION
-    // CQ#376357: Allow excess initializers in permissive mode.
-    bool ExtraInitsIsError =
-        (SemaRef.getLangOpts().CPlusPlus &&
-         !(SemaRef.getLangOpts().IntelCompat &&
-           SemaRef.getLangOpts().GnuPermissive)) ||
-#endif // INTEL_CUSTOMIZATION
+    bool ExtraInitsIsError = SemaRef.getLangOpts().CPlusPlus ||
           (SemaRef.getLangOpts().OpenCL && T->isVectorType());
     hadError = ExtraInitsIsError;
     if (VerifyOnly) {
@@ -5546,11 +5540,10 @@ InitializationSequence::InitializationSequence(Sema &S,
                                                const InitializationKind &Kind,
                                                MultiExprArg Args,
                                                bool TopLevelOfInitList,
-                                               bool TreatUnavailableAsInvalid, // INTEL
-                                               bool AllowGnuPermissive) // INTEL
+                                               bool TreatUnavailableAsInvalid)
     : FailedCandidateSet(Kind.getLocation(), OverloadCandidateSet::CSK_Normal) {
   InitializeFrom(S, Entity, Kind, Args, TopLevelOfInitList,
-                 TreatUnavailableAsInvalid, AllowGnuPermissive); // INTEL
+                 TreatUnavailableAsInvalid);
 }
 
 /// Tries to get a FunctionDecl out of `E`. If it succeeds and we can take the
@@ -5605,8 +5598,7 @@ void InitializationSequence::InitializeFrom(Sema &S,
                                             const InitializationKind &Kind,
                                             MultiExprArg Args,
                                             bool TopLevelOfInitList,
-                                            bool TreatUnavailableAsInvalid, // INTEL
-                                            bool AllowGnuPermissive) { // INTEL
+                                            bool TreatUnavailableAsInvalid) {
   ASTContext &Context = S.Context;
 
   // Eliminate non-overload placeholder types in the arguments.  We
@@ -5908,7 +5900,7 @@ void InitializationSequence::InitializeFrom(Sema &S,
                               Sema::AllowedExplicit::None,
                               /*InOverloadResolution*/ false,
                               /*CStyle=*/Kind.isCStyleOrFunctionalCast(),
-                              allowObjCWritebackConversion, AllowGnuPermissive); // INTEL
+                              allowObjCWritebackConversion);
 
   if (ICS.isStandard() &&
       ICS.Standard.Second == ICK_Writeback_Conversion) {
@@ -9568,7 +9560,6 @@ static void DiagnoseNarrowingInInitList(Sema &S,
     break;
   case ImplicitConversionSequence::AmbiguousConversion:
   case ImplicitConversionSequence::EllipsisConversion:
-  case ImplicitConversionSequence::PermissiveConversion: // INTEL
   case ImplicitConversionSequence::BadConversion:
     return;
   }
