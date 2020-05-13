@@ -35,8 +35,8 @@ define dso_local void @divergent_control_flow(i32* nocapture %a, i32* nocapture 
 ; VPLAN-NEXT:     [DA: Div] i32 [[VP1:%.*]] = load i32* [[VP_ARRAYIDX]]
 ; VPLAN-NEXT:     [DA: Div] i32 [[VP2:%.*]] = and i32 [[VP1]] i32 1
 ; VPLAN-NEXT:     [DA: Div] i1 [[VP_TOBOOL:%.*]] = icmp i32 [[VP2]] i32 0
-; VPLAN-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX13:%.*]] = getelementptr inbounds i32* [[B0:%.*]] i64 [[VP_INDVARS_IV]]
 ; VPLAN-NEXT:     [DA: Div] i1 [[VP_TOBOOL_NOT:%.*]] = not i1 [[VP_TOBOOL]]
+; VPLAN-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX13:%.*]] = getelementptr inbounds i32* [[B0:%.*]] i64 [[VP_INDVARS_IV]]
 ; VPLAN-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
 ; VPLAN-NEXT:    PREDECESSORS(2): cloned.[[BB3]] [[BB1]]
 ; VPLAN-EMPTY:
@@ -66,8 +66,8 @@ define dso_local void @divergent_control_flow(i32* nocapture %a, i32* nocapture 
 ; VPLAN-NEXT:     [DA: Div] i32 [[VP6:%.*]] = load i32* [[VP_ARRAYIDX_1]]
 ; VPLAN-NEXT:     [DA: Div] i32 [[VP7:%.*]] = and i32 [[VP6]] i32 1
 ; VPLAN-NEXT:     [DA: Div] i1 [[VP_TOBOOL_1:%.*]] = icmp i32 [[VP7]] i32 0
-; VPLAN-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX13_1:%.*]] = getelementptr inbounds i32* [[B0]] i64 [[VP_INDVARS_IV_NEXT_1]]
 ; VPLAN-NEXT:     [DA: Div] i1 [[VP8:%.*]] = not i1 [[VP_TOBOOL_1]]
+; VPLAN-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX13_1:%.*]] = getelementptr inbounds i32* [[B0]] i64 [[VP_INDVARS_IV_NEXT_1]]
 ; VPLAN-NEXT:    SUCCESSORS(1):cloned.[[BB8:BB[0-9]+]]
 ; VPLAN-NEXT:    PREDECESSORS(1): [[BB6]]
 ; VPLAN-EMPTY:
@@ -97,8 +97,8 @@ define dso_local void @divergent_control_flow(i32* nocapture %a, i32* nocapture 
 ; VPLAN-NEXT:     [DA: Div] i32 [[VP14:%.*]] = load i32* [[VP_ARRAYIDX_2]]
 ; VPLAN-NEXT:     [DA: Div] i32 [[VP15:%.*]] = and i32 [[VP14]] i32 1
 ; VPLAN-NEXT:     [DA: Div] i1 [[VP_TOBOOL_2:%.*]] = icmp i32 [[VP15]] i32 0
-; VPLAN-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX13_2:%.*]] = getelementptr inbounds i32* [[B0]] i64 [[VP_INDVARS_IV_NEXT_2]]
 ; VPLAN-NEXT:     [DA: Div] i1 [[VP16:%.*]] = not i1 [[VP_TOBOOL_2]]
+; VPLAN-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX13_2:%.*]] = getelementptr inbounds i32* [[B0]] i64 [[VP_INDVARS_IV_NEXT_2]]
 ; VPLAN-NEXT:    SUCCESSORS(1):cloned.[[BB12:BB[0-9]+]]
 ; VPLAN-NEXT:    PREDECESSORS(1): cloned.[[BB10]]
 ; VPLAN-EMPTY:
@@ -161,8 +161,8 @@ define dso_local void @divergent_control_flow(i32* nocapture %a, i32* nocapture 
 ; CG-NEXT:    [[WIDE_LOAD0:%.*]] = load <4 x i32>, <4 x i32>* [[TMP0]], align 4
 ; CG-NEXT:    [[TMP1:%.*]] = and <4 x i32> [[WIDE_LOAD0]], <i32 1, i32 1, i32 1, i32 1>
 ; CG-NEXT:    [[TMP2:%.*]] = icmp eq <4 x i32> [[TMP1]], zeroinitializer
-; CG-NEXT:    [[SCALAR_GEP20:%.*]] = getelementptr inbounds i32, i32* [[B0]], i64 [[UNI_PHI10]]
 ; CG-NEXT:    [[TMP3:%.*]] = xor <4 x i1> [[TMP2]], <i1 true, i1 true, i1 true, i1 true>
+; CG-NEXT:    [[SCALAR_GEP20:%.*]] = getelementptr inbounds i32, i32* [[B0]], i64 [[UNI_PHI10]]
 ; CG-NEXT:    [[TMP4:%.*]] = bitcast i32* [[SCALAR_GEP20]] to <4 x i32>*
 ; CG-NEXT:    [[WIDE_MASKED_LOAD0:%.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0v4i32(<4 x i32>* [[TMP4]], i32 4, <4 x i1> [[TMP3]], <4 x i32> undef)
 ; CG-NEXT:    [[TMP5:%.*]] = bitcast i32* [[SCALAR_GEP0]] to <4 x i32>*
@@ -179,8 +179,8 @@ define dso_local void @divergent_control_flow(i32* nocapture %a, i32* nocapture 
 ; CG-NEXT:    [[WIDE_LOAD40:%.*]] = load <4 x i32>, <4 x i32>* [[TMP11]], align 4
 ; CG-NEXT:    [[TMP12:%.*]] = and <4 x i32> [[WIDE_LOAD40]], <i32 1, i32 1, i32 1, i32 1>
 ; CG-NEXT:    [[TMP13:%.*]] = icmp eq <4 x i32> [[TMP12]], zeroinitializer
-; CG-NEXT:    [[SCALAR_GEP50:%.*]] = getelementptr inbounds i32, i32* [[B0]], i64 [[TMP8]]
 ; CG-NEXT:    [[TMP14:%.*]] = xor <4 x i1> [[TMP13]], <i1 true, i1 true, i1 true, i1 true>
+; CG-NEXT:    [[SCALAR_GEP50:%.*]] = getelementptr inbounds i32, i32* [[B0]], i64 [[TMP8]]
 ; CG-NEXT:    [[TMP15:%.*]] = bitcast i32* [[SCALAR_GEP50]] to <4 x i32>*
 ; CG-NEXT:    [[WIDE_MASKED_LOAD60:%.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0v4i32(<4 x i32>* [[TMP15]], i32 4, <4 x i1> [[TMP14]], <4 x i32> undef)
 ; CG-NEXT:    [[TMP16:%.*]] = bitcast i32* [[SCALAR_GEP30]] to <4 x i32>*
@@ -197,8 +197,8 @@ define dso_local void @divergent_control_flow(i32* nocapture %a, i32* nocapture 
 ; CG-NEXT:    [[WIDE_LOAD90:%.*]] = load <4 x i32>, <4 x i32>* [[TMP22]], align 4
 ; CG-NEXT:    [[TMP23:%.*]] = and <4 x i32> [[WIDE_LOAD90]], <i32 1, i32 1, i32 1, i32 1>
 ; CG-NEXT:    [[TMP24:%.*]] = icmp eq <4 x i32> [[TMP23]], zeroinitializer
-; CG-NEXT:    [[SCALAR_GEP100:%.*]] = getelementptr inbounds i32, i32* [[B0]], i64 [[TMP19]]
 ; CG-NEXT:    [[TMP25:%.*]] = xor <4 x i1> [[TMP24]], <i1 true, i1 true, i1 true, i1 true>
+; CG-NEXT:    [[SCALAR_GEP100:%.*]] = getelementptr inbounds i32, i32* [[B0]], i64 [[TMP19]]
 ; CG-NEXT:    [[TMP26:%.*]] = bitcast i32* [[SCALAR_GEP100]] to <4 x i32>*
 ; CG-NEXT:    [[WIDE_MASKED_LOAD110:%.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0v4i32(<4 x i32>* [[TMP26]], i32 4, <4 x i1> [[TMP25]], <4 x i32> undef)
 ; CG-NEXT:    [[TMP27:%.*]] = bitcast i32* [[SCALAR_GEP80]] to <4 x i32>*
