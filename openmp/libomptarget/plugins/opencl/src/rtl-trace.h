@@ -123,11 +123,11 @@ static const char *getCLErrorName(int error) {
 
 #define FATAL_ERROR(msg)                                                       \
   do {                                                                         \
-    fprintf(stderr, "Error: %s failed (%s) -- exiting...\n", __func__, msg);   \
+    DPLEVEL(-1, "Error: %s failed (%s) -- exiting...\n", __func__, msg);       \
     exit(EXIT_FAILURE);                                                        \
   } while (0)
 
-#define WARNING(fmt, ...) fprintf(stderr, "Warning: " fmt "\n", __VA_ARGS__)
+#define WARNING(...) DPLEVEL(-1, "Warning: " __VA_ARGS__)
 
 #define TRACE_FN(Name) CLTR##Name
 #define TRACE_FN_ARG_BEGIN()                                                   \
@@ -815,6 +815,30 @@ cl_int TRACE_FN(clSetKernelExecInfo)(
   TRACE_FN_ARG_END();
   return rc;
 }
+
+#if INTEL_CUSTOMIZATION
+void *TRACE_FN(clSharedMemAllocINTEL)(
+    void *(CL_API_CALL *funcptr)(cl_context, cl_device_id,
+        const cl_mem_properties_intel *, size_t, cl_uint, cl_int *),
+    cl_context context,
+    cl_device_id device,
+    const cl_mem_properties_intel *properties,
+    size_t size,
+    cl_uint alignment,
+    cl_int *errcode_ret) {
+  auto ret = (*funcptr)(context, device, properties, size, alignment,
+                        errcode_ret);
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(context);
+  TRACE_FN_ARG_PTR(device);
+  TRACE_FN_ARG_PTR(properties);
+  TRACE_FN_ARG_SIZE(size);
+  TRACE_FN_ARG_UINT(alignment);
+  TRACE_FN_ARG_PTR(errcode_ret);
+  TRACE_FN_ARG_END();
+  return ret;
+}
+#endif // INTEL_CUSTOMIZATION
 
 void *TRACE_FN(clSVMAlloc)(
     cl_context context,
