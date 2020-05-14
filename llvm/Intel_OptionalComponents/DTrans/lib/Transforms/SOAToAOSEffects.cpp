@@ -519,8 +519,7 @@ SOAToAOSApproximationDebug::Ignore::~Ignore() {}
 
 SOAToAOSApproximationDebug::Ignore
 SOAToAOSApproximationDebug::run(Function &F, FunctionAnalysisManager &AM) {
-  const ModuleAnalysisManager &MAM =
-      AM.getResult<ModuleAnalysisManagerFunctionProxy>(F).getManager();
+  const auto &MAM = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F);
   auto *DTInfo = MAM.getCachedResult<DTransAnalysis>(*F.getParent());
   auto *TLI = AM.getCachedResult<TargetLibraryAnalysis>(F);
 

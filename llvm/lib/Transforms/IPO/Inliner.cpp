@@ -942,16 +942,12 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
   SmallSet<Function *, 20> FuncsForDTrans;  // INTEL
   assert(InitialC.size() > 0 && "Cannot handle an empty SCC!");
   Module &M = *InitialC.begin()->getFunction().getParent();
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-  InlineAggressiveInfo* AggI = MAM.getCachedResult<InlineAggAnalysis>(M);
+  InlineAggressiveInfo *AggI = MAMProxy.getCachedResult<InlineAggAnalysis>(M);
 #endif // INTEL_CUSTOMIZATION
-  ProfileSummaryInfo *PSI = MAM.getCachedResult<ProfileSummaryAnalysis>(M);
+  ProfileSummaryInfo *PSI = MAMProxy.getCachedResult<ProfileSummaryAnalysis>(M);
   CG.registerCGReport(&Report); // INTEL
   CG.registerCGReport(MDReport); // INTEL
-=======
-  ProfileSummaryInfo *PSI = MAMProxy.getCachedResult<ProfileSummaryAnalysis>(M);
->>>>>>> bd541b217f4d750391677144ccaa586874236f38
 
   if (!ImportedFunctionsStats &&
       InlinerFunctionImportStats != InlinerFunctionImportStatsOpts::No) {

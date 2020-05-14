@@ -275,6 +275,12 @@ public:
                                  unsigned &ArgumentIndex,
                                  unsigned &StructIndex) const;
 
+  /// Handle invalidation events in the new pass manager.
+  bool invalidate(Module &M, const PreservedAnalyses &PA,
+                  ModuleAnalysisManager::Invalidator &Inv) {
+    return false;
+  }
+
 private:
   void addCallInfo(llvm::Instruction *I, dtrans::CallInfo *Info);
   void destructCallInfo(dtrans::CallInfo *Info);

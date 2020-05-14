@@ -1330,8 +1330,7 @@ PreservedAnalyses LoopFullUnrollPass::run(Loop &L, LoopAnalysisManager &AM,
   OptimizationRemarkEmitter ORE(L.getHeader()->getParent());
 
 #if INTEL_CUSTOMIZATION
-  const auto &FAM =
-      AM.getResult<FunctionAnalysisManagerLoopProxy>(L, AR).getManager();
+  const auto &FAM = AM.getResult<FunctionAnalysisManagerLoopProxy>(L, AR);
   Function *F = L.getHeader()->getParent();
 
   auto *ORO = FAM.getCachedResult<OptReportOptionsAnalysis>(*F);

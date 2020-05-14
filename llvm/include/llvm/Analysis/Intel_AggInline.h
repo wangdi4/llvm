@@ -40,6 +40,12 @@ struct InlineAggressiveInfo {
 
   bool isAggInlineOccured(void);
 
+  /// Handle invalidation events in the new pass manager.
+  bool invalidate(Module &M, const PreservedAnalyses &PA,
+                  ModuleAnalysisManager::Invalidator &Inv) {
+    return false;
+  }
+
 private:
   AggInlGetTLITy GetTLI;
 
