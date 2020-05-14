@@ -99,6 +99,10 @@ public:
 #endif
   static void EnterExplicitData(WRNVecLoopNode *WRLp, VPOVectorizationLegality &Legal);
 
+  /// Post VPlan FrontEnd legality pass to verify validity of initial VPlan that
+  /// was contructed.
+  bool isVPlanLegalToProcess(const VPlan &Plan);
+
   /// Select the best plan and dispose all other VPlans.
   /// \Returns the selected vectorization factor.
   template <typename CostModelTy = VPlanCostModel>

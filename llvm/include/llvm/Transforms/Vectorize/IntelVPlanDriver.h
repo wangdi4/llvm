@@ -152,6 +152,8 @@ private:
   bool isSupported(loopopt::HLLoop *Lp);
   void collectAllLoops(SmallVectorImpl<loopopt::HLLoop *> &Loops);
   bool isVPlanCandidate(Function &Fn, loopopt::HLLoop *Lp);
+  // Delete intel intrinsic directives before/after the given loop.
+  void eraseLoopIntrins(loopopt::HLLoop *Lp, WRNVecLoopNode *WRLp);
 
 public:
   bool runImpl(Function &F, loopopt::HIRFramework *HIRF,

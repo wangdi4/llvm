@@ -53,7 +53,7 @@ public:
   VPOCodeGenHIR(TargetLibraryInfo *TLI, TargetTransformInfo *TTI,
                 HIRSafeReductionAnalysis *SRA, VPlanVLSAnalysis *VLSA,
                 const VPlan *Plan, Function &Fn, HLLoop *Loop,
-                LoopOptReportBuilder &LORB, WRNVecLoopNode *WRLp,
+                LoopOptReportBuilder &LORB,
                 const VPLoopEntityList *VPLoopEntities,
                 const HIRVectorizationLegality *HIRLegality,
                 const VPlanIdioms::Opcode SearchLoopType,
@@ -62,7 +62,7 @@ public:
       : TLI(TLI), TTI(TTI), SRA(SRA), Plan(Plan), VLSA(VLSA), Fn(Fn),
         Context(*Plan->getLLVMContext()), OrigLoop(Loop), PeelLoop(nullptr),
         MainLoop(nullptr), CurMaskValue(nullptr), NeedRemainderLoop(false),
-        TripCount(0), VF(0), UF(1), LORBuilder(LORB), WVecNode(WRLp),
+        TripCount(0), VF(0), UF(1), LORBuilder(LORB),
         VPLoopEntities(VPLoopEntities), HIRLegality(HIRLegality),
         SearchLoopType(SearchLoopType),
         SearchLoopPeelArrayRef(SearchLoopPeelArrayRef),
@@ -411,9 +411,6 @@ public:
   // specifies the symbase to set for the returned ref.
   RegDDRef *getMemoryRef(const VPValue *VPPtr, unsigned ScalSymbase);
 
-  // Delete intel intrinsic directives before and after the loop.
-  void eraseLoopIntrins();
-
   bool isSearchLoop() const {
     return VPlanIdioms::isAnySearchLoop(SearchLoopType);
   }
@@ -556,9 +553,6 @@ private:
   HLNode *RedInitInsertPoint = nullptr;
   HLNode *RedFinalInsertPoint = nullptr;
 
-  // WRegion VecLoop Node corresponding to AVRLoop
-  WRNVecLoopNode *WVecNode;
-
   // VPEntities present in current loop being vectorized. These include
   // reductions, inductions and privates.
   const VPLoopEntityList *VPLoopEntities;
@@ -662,11 +656,6 @@ private:
       HLNodeUtils::insertAfter(RedFinalInsertPoint, List);
     RedFinalInsertPoint = Save;
   }
-
-  // Erase loop intrinsics implementation - delete intel intrinsic directives
-  // before/after the loop based on the BeginDir which determines where we start
-  // the lookup.
-  void eraseLoopIntrinsImpl(bool BeginDir);
 
   /// Analyzes the memory references of \p OrigCall to determine stride. The
   /// resulting stride information is attached to the arguments of \p WideCall

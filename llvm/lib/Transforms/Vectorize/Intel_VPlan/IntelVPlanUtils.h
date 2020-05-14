@@ -94,6 +94,22 @@ inline bool isMemoryDependency(const Instruction *SrcI,
   return RAW || WAR;
 }
 
+/// Helper function to identify Types that are supported by VPlan for
+/// vectorization. AggregateType like structs and arrays are excluded from this
+/// list.
+// TODO: Allow AggregateType when all VPlan components are aware on how to
+// handle them. Example JIRA CMPLRLLVM-19870.
+inline bool isVPlanSupportedTy(Type *Ty) {
+  if (auto *VecTy = dyn_cast<VectorType>(Ty))
+    return VecTy->getElementType()->isSingleValueType();
+
+  if (!Ty->isVoidTy())
+    return VectorType::isValidElementType(Ty);
+
+  // VoidTy is trivial case.
+  return true;
+}
+
 /////////// VPValue version of common LLVM load/store utilities ///////////
 
 /// A helper function that returns the pointer operand of a load or store

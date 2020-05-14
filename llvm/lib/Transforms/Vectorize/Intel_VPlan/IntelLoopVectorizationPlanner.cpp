@@ -31,6 +31,7 @@
 #include "IntelVPlanClone.h"
 #include "IntelVPlanCostModelProprietary.h"
 #include "IntelVPlanIdioms.h"
+#include "IntelVPlanUtils.h"
 #include "VPlanHIR/IntelVPlanHCFGBuilderHIR.h"
 #endif // INTEL_CUSTOMIZATION
 
@@ -181,6 +182,13 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
     // TODO: revisit when we build multiple VPlans.
     std::shared_ptr<VPlan> Plan =
         buildInitialVPlan(StartRangeVF, EndRangeVF, Context, DL);
+
+    // Check legality of VPlan before proceeding with other transforms/analyses.
+    if (!isVPlanLegalToProcess(*Plan.get())) {
+      LLVM_DEBUG(
+          dbgs() << "LVP: VPlan is not legal to process, bailing out.\n");
+      return 0;
+    }
 
     auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
     Plan->setVPlanDA(std::move(VPDA));
@@ -606,6 +614,22 @@ void LoopVectorizationPlanner::EnterExplicitData(
     }
   }
 }
+
+bool LoopVectorizationPlanner::isVPlanLegalToProcess(const VPlan &Plan) {
+  for (const VPBasicBlock &VPBB : Plan) {
+    for (const VPInstruction &VPInst : VPBB) {
+      // 1. Is instruction type supported/handled by VPlan?
+      if (!isVPlanSupportedTy(VPInst.getType())) {
+        LLVM_DEBUG(dbgs() << "LVP: Unsupported type found.\n");
+        return false;
+      }
+    }
+  }
+
+  // All safety checks passed.
+  return true;
+}
+
 namespace llvm {
 namespace vpo {
 #if INTEL_CUSTOMIZATION

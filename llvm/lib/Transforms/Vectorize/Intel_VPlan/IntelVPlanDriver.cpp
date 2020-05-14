@@ -1012,6 +1012,10 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 
   if (!LVP.buildInitialVPlans(&Fn.getContext(), DL)) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");
+    // Erase intrinsics before and after the loop if this loop is an auto
+    // vectorization candidate.
+    if (WRLp->getIsAutoVec())
+      eraseLoopIntrins(Lp, WRLp);
     return false;
   }
 
@@ -1075,15 +1079,15 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
     VPlanIdioms::Opcode SearchLoopOpcode =
         VPlanIdioms::isSearchLoop(Plan, VF, true, PeelArrayRef);
     VPOCodeGenHIR VCodeGen(TLI, TTI, SafeRedAnalysis, &VLSA, Plan, Fn, Lp,
-                           LORBuilder, WRLp, Entities, &HIRVecLegal,
-                           SearchLoopOpcode, PeelArrayRef, VPInstUnrollPart);
+                           LORBuilder, Entities, &HIRVecLegal, SearchLoopOpcode,
+                           PeelArrayRef, VPInstUnrollPart);
     bool LoopIsHandled = (VF != 1 && VCodeGen.loopIsHandled(Lp, VF));
 
     // Erase intrinsics before and after the loop if we either vectorized the
     // loop or if this loop is an auto vectorization candidate. SIMD Intrinsics
     // are left around for loops that are not vectorized.
     if (LoopIsHandled || WRLp->getIsAutoVec())
-      VCodeGen.eraseLoopIntrins();
+      eraseLoopIntrins(Lp, WRLp);
 
     if (LoopIsHandled) {
       CandLoopsVectorized++;
@@ -1127,6 +1131,60 @@ bool VPlanDriverHIRImpl::isVPlanCandidate(Function &Fn, HLLoop *Lp) {
   // This function is only used in the LLVM-IR path to generate VPlan
   // candidates.
   return false;
+}
+
+void VPlanDriverHIRImpl::eraseLoopIntrins(HLLoop *Lp,
+                                          WRNVecLoopNode *WVecNode) {
+  auto RemoveIntrins = [](HLContainerTy::iterator StartIter,
+                          HLContainerTy::iterator EndIter,
+                          SmallSet<int, 2> &DirectiveIDs) {
+    for (auto Iter = StartIter; Iter != EndIter;) {
+      auto HInst = dyn_cast<HLInst>(&*Iter);
+
+      if (!HInst) {
+        break;
+      }
+
+      // Move to the next iterator now as HInst may get removed below
+      ++Iter;
+
+      if (auto *Inst = HInst->getIntrinCall()) {
+        Intrinsic::ID IntrinID = Inst->getIntrinsicID();
+
+        if (vpo::VPOAnalysisUtils::isRegionDirective(IntrinID)) {
+          StringRef DirStr = vpo::VPOAnalysisUtils::getDirectiveString(
+              const_cast<IntrinsicInst *>(Inst));
+
+          int DirID = vpo::VPOAnalysisUtils::getDirectiveID(DirStr);
+
+          if (DirectiveIDs.count(DirID))
+            HLNodeUtils::remove(HInst);
+        }
+      }
+    }
+  };
+
+  // List of begin/end directives IDs that must be removed.
+  SmallSet<int, 2> BeginOrEndDirIDs;
+
+  // 1. Remove intrinsics before loop.
+  auto BeginNode = WVecNode->getEntryHLNode();
+  assert(BeginNode && "Unexpected null entry node in WRNVecLoopNode");
+  BeginOrEndDirIDs.insert(DIR_OMP_SIMD);
+  BeginOrEndDirIDs.insert(DIR_VPO_AUTO_VEC);
+  RemoveIntrins(BeginNode->getIterator() /*StartIter*/,
+                Lp->getIterator() /*EndIter*/, BeginOrEndDirIDs);
+
+  // 2. Remove intrinsics after loop.
+  BeginOrEndDirIDs.clear();
+  BeginOrEndDirIDs.insert(DIR_OMP_END_SIMD);
+  BeginOrEndDirIDs.insert(DIR_VPO_END_AUTO_VEC);
+  auto ExitNode = WVecNode->getExitHLNode();
+  assert(ExitNode && "Unexpected null exit node in WRNVecLoopNode");
+  auto LastNode = HLNodeUtils::getLastLexicalChild(Lp->getParent(), Lp);
+  RemoveIntrins(ExitNode->getIterator() /*StartIter*/,
+                std::next(LastNode->getIterator()) /*EndIter*/,
+                BeginOrEndDirIDs);
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

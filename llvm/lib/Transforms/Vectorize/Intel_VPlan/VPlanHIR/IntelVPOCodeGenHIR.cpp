@@ -1053,63 +1053,6 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
   }
 }
 
-void VPOCodeGenHIR::eraseLoopIntrinsImpl(bool BeginDir) {
-  HLContainerTy::iterator StartIter;
-  HLContainerTy::iterator EndIter;
-  if (BeginDir) {
-    auto BeginNode = WVecNode->getEntryHLNode();
-    assert(BeginNode && "Unexpected null entry node in WRNVecLoopNode");
-    StartIter = BeginNode->getIterator();
-    EndIter = OrigLoop->getIterator();
-  } else {
-    auto ExitNode = WVecNode->getExitHLNode();
-    assert(ExitNode && "Unexpected null exit node in WRNVecLoopNode");
-    StartIter = ExitNode->getIterator();
-
-    auto LastNode =
-        HLNodeUtils::getLastLexicalChild(OrigLoop->getParent(), OrigLoop);
-    EndIter = std::next(LastNode->getIterator());
-  }
-
-  SmallSet<int, 2> BeginOrEndDirIDs;
-  if (BeginDir) {
-    BeginOrEndDirIDs.insert(DIR_OMP_SIMD);
-    BeginOrEndDirIDs.insert(DIR_VPO_AUTO_VEC);
-  } else {
-    BeginOrEndDirIDs.insert(DIR_OMP_END_SIMD);
-    BeginOrEndDirIDs.insert(DIR_VPO_END_AUTO_VEC);
-  }
-  for (auto Iter = StartIter; Iter != EndIter;) {
-    auto HInst = dyn_cast<HLInst>(&*Iter);
-
-    if (!HInst) {
-      break;
-    }
-
-    // Move to the next iterator now as HInst may get removed below
-    ++Iter;
-
-    if (auto *Inst = HInst->getIntrinCall()) {
-      Intrinsic::ID IntrinID = Inst->getIntrinsicID();
-
-      if (vpo::VPOAnalysisUtils::isRegionDirective(IntrinID)) {
-        StringRef DirStr = vpo::VPOAnalysisUtils::getDirectiveString(
-            const_cast<IntrinsicInst *>(Inst));
-
-        int DirID = vpo::VPOAnalysisUtils::getDirectiveID(DirStr);
-
-        if (BeginOrEndDirIDs.count(DirID))
-          HLNodeUtils::remove(HInst);
-      }
-    }
-  }
-}
-
-void VPOCodeGenHIR::eraseLoopIntrins() {
-  eraseLoopIntrinsImpl(true /* Intrinsics before loop */);
-  eraseLoopIntrinsImpl(false /* Intrinsics before loop */);
-}
-
 // This function replaces scalar math lib calls in the remainder loop with
 // the svml version used in the main vector loop in order to maintain
 // consistency of precision. See the example below:
