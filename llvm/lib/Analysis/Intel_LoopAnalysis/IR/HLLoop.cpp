@@ -1172,25 +1172,24 @@ void HLLoop::verify() const {
          "Found an empty Loop, assumption that there should be no empty loops");
 }
 
-bool HLLoop::hasDirective(int DirectiveID) const {
-  HLContainerTy::const_iterator Iter(*this);
-  auto First = getHLNodeUtils().getFirstLexicalChild(getParent(), this);
-  HLContainerTy::const_iterator FIter(*First);
-
-  while (Iter != FIter) {
-    --Iter;
-    const HLInst *I = dyn_cast<HLInst>(Iter);
-
+static bool nodeHasDirective(const HLNode *Node, int DirectiveID) {
+  while (Node = Node->getPrevNode()) {
+    const HLInst *I = dyn_cast<HLInst>(Node);
     // Loop, IF, Switch, etc.
-    if (!I) {
+    if (!I)
       return false;
-    }
-
-    if (I->isDirective(DirectiveID)) {
+    if (I->isDirective(DirectiveID))
       return true;
-    }
   }
+  return false;
+}
 
+bool HLLoop::hasDirective(int DirectiveID) const {
+  if (nodeHasDirective(this, DirectiveID))
+    return true;
+  // Allow SIMD loop detection inside if conditions inside SIMD region
+  if (auto *Parent = dyn_cast<HLIf>(getParent()))
+    return nodeHasDirective(Parent, DirectiveID);
   return false;
 }
 
