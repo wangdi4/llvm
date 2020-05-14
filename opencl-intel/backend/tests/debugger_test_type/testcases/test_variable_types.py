@@ -2,10 +2,10 @@ from testlib.debuggertestcase import DebuggerTestCase, expectedFailureCDB
 
 
 # Test a usage of query value for all variable types (global,local,private,volatile,restricted,regular and pointers)
-# in diffrent scopes (global, main, while, if, function)
+# in different scopes (global, main, while, if, function)
 #
 class TestVariableTypes(DebuggerTestCase):
-    CLNAME = 'diffrent_declaration_types.cl'
+    CLNAME = 'different_declaration_types.cl'
     CLNAME2 = 'all_types_declaration.cl'
     # these "defines" are for test_all_variable_types_are_available
     FUNCTION_ROW = 7
@@ -24,7 +24,7 @@ class TestVariableTypes(DebuggerTestCase):
 
     def test_all_variable_types_are_available(self):
     #
-    # Test - all variable types (global, local, arguments, volatile, restricted, private) in diffrent
+    # Test - all variable types (global, local, arguments, volatile, restricted, private) in different
     #        kind of blocks (in main, in an inner block in main, in a function)
     # TC-33, TC-34, TC-35, TC-40, TC-41, TC-42, TC-43
     #

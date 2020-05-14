@@ -160,6 +160,8 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
       // Function pointers support
       case spv::CapabilityFunctionPointersINTEL:
       case spv::CapabilityIndirectReferencesINTEL:
+      // Optimization hints
+      case spv::CapabilityOptimizationHintsINTEL:
       // Intel FPGA capabilities
       case spv::CapabilityFPGAMemoryAttributesINTEL:
       case spv::CapabilityFPGALoopControlsINTEL:
