@@ -3412,8 +3412,9 @@ class OffloadingActionBuilder final {
       if (auto *IA = dyn_cast<InputAction>(HostAction)) {
         OpenMPDeviceActions.clear();
 #if INTEL_CUSTOMIZATION
-        // Objects should already be consumed with -foffload-static-lib
-        if (Args.hasArg(options::OPT_foffload_static_lib_EQ) &&
+        // Objects should already be consumed when encountering a fat static
+        // library.
+        if (C.getDriver().getOffloadStaticLibSeen() &&
             IA->getType() == types::TY_Object &&
             isObjectFile(IA->getInputArg().getAsString(Args)))
           return ABRT_Inactive;
