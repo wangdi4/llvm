@@ -353,16 +353,10 @@ public:
 
   /// Construct the module pipeline that performs inlining as well as
   /// the inlining-driven cleanups.
-<<<<<<< HEAD
-  ModulePassManager buildInlinerPipeline(OptimizationLevel Level,
-                                         ThinLTOPhase Phase,
-                                         InlinerPass *InlPass, // INTEL
-                                         bool DebugLogging = false);
-=======
   ModuleInlinerWrapperPass buildInlinerPipeline(OptimizationLevel Level,
                                                 ThinLTOPhase Phase,
+                                                InlinerPass *InlPass, // INTEL
                                                 bool DebugLogging = false);
->>>>>>> d6695e18763a05b30cb336c18157175277da8f4b
 
   /// Construct the core LLVM module optimization pipeline.
   ///

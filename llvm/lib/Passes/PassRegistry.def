@@ -36,13 +36,10 @@ MODULE_ANALYSIS("xm-module-opt-level", XmainOptLevelAnalysis()) // INTEL
 MODULE_ANALYSIS("verify", VerifierAnalysis())
 MODULE_ANALYSIS("pass-instrumentation", PassInstrumentationAnalysis(PIC))
 MODULE_ANALYSIS("asan-globals-md", ASanGlobalsMetadataAnalysis())
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 MODULE_ANALYSIS("xm-optreport-options", OptReportOptionsAnalysis())
 #endif // INTEL_CUSTOMIZATION
-=======
 MODULE_ANALYSIS("inline-advisor", InlineAdvisorAnalysis())
->>>>>>> d6695e18763a05b30cb336c18157175277da8f4b
 
 #ifndef MODULE_ALIAS_ANALYSIS
 #define MODULE_ALIAS_ANALYSIS(NAME, CREATE_PASS)                               \

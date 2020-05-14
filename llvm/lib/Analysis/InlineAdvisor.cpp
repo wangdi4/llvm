@@ -15,19 +15,23 @@
 #include "llvm/Analysis/InlineAdvisor.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/InlineCost.h"
+#include "llvm/Analysis/Intel_AggInline.h" // INTEL
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
-#include "llvm/Transforms/IPO/Intel_InlineReport.h" // INTEL
-#include "llvm/Transforms/IPO/Intel_MDInlineReport.h" // INTEL
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/IPO/Intel_InlineReport.h"   // INTEL
+#include "llvm/Transforms/IPO/Intel_MDInlineReport.h" // INTEL
 
 #include <sstream>
 
 using namespace llvm;
 using namespace InlineReportTypes; // INTEL
+
+class InliningLoopInfoCache; // INTEL
+
 #define DEBUG_TYPE "inline"
 
 // This weirdly named statistic tracks the number of times that, when attempting
@@ -61,7 +65,10 @@ public:
         ORE(ORE), DLoc(CB.getDebugLoc()), Block(CB.getParent()) {}
 
 private:
-  void recordUnsuccessfulInliningImpl(const InlineResult &Result) override {
+  void recordUnsuccessfulInliningImpl(                  // INTEL
+      const InlineResult &Result, InlineReason *Reason, // INTEL
+      InlineReport *Report,                             // INTEL
+      InlineReportBuilder *MDReport) override {         // INTEL
     using namespace ore;
     llvm::setInlineRemark(*OriginalCB, std::string(Result.getFailureReason()) +
                                            "; " + inlineCostStr(*OIC));
@@ -71,6 +78,16 @@ private:
              << NV("Caller", Caller) << ": "
              << NV("Reason", Result.getFailureReason());
     });
+#if INTEL_CUSTOMIZATION
+    if (Report) {
+      Report->endUpdate();
+      Report->setReasonNotInlined(OriginalCB, Reason ? *Reason : NinlrNoReason);
+    }
+    if (MDReport) {
+      MDReport->endUpdate();
+      llvm::setMDReasonNotInlined(OriginalCB, Reason ? *Reason : NinlrNoReason);
+    }
+#endif // INTEL_CUSTOMIZATION
   }
 
   void recordInliningWithCalleeDeletedImpl() override {
@@ -96,12 +113,24 @@ private:
 } // namespace
 
 std::unique_ptr<InlineAdvice>
-DefaultInlineAdvisor::getAdvice(CallBase &CB, FunctionAnalysisManager &FAM) {
+#if INTEL_CUSTOMIZATION
+DefaultInlineAdvisor::getAdvice(CallBase &CB, FunctionAnalysisManager &FAM,
+                                InliningLoopInfoCache *ILIC,
+                                SmallSet<CallBase *, 20> *CallSitesForFusion,
+                                SmallSet<Function *, 20> *FuncsForDTrans,
+                                InlineReport *Report) {
+#endif // INTEL_CUSTOMIZATION
   Function &Callee = *CB.getCalledFunction();
   Function &F = *CB.getCaller();
   ProfileSummaryInfo *PSI = FAM.getResult<ModuleAnalysisManagerFunctionProxy>(F)
                                 .getCachedResult<ProfileSummaryAnalysis>(
                                     *CB.getParent()->getParent()->getParent());
+#if INTEL_CUSTOMIZATION
+  InlineAggressiveInfo *AggI =
+      FAM.getResult<ModuleAnalysisManagerFunctionProxy>(F)
+          .getCachedResult<InlineAggAnalysis>(
+              *CB.getParent()->getParent()->getParent());
+#endif // INTEL_CUSTOMIZATION
 
   auto &ORE = FAM.getResult<OptimizationRemarkEmitterAnalysis>(F);
   // FIXME: make GetAssumptionCache's decl similar to the other 2 below. May
@@ -124,10 +153,16 @@ DefaultInlineAdvisor::getAdvice(CallBase &CB, FunctionAnalysisManager &FAM) {
     bool RemarksEnabled =
         Callee.getContext().getDiagHandlerPtr()->isMissedOptRemarkEnabled(
             DEBUG_TYPE);
+#if INTEL_CUSTOMIZATION
+    if (IntelInlineReportLevel & InlineReportOptions::RealCost)
+      Params.ComputeFullInlineCost = true;
+#endif // INTEL_CUSTOMIZATION
     return getInlineCost(CB, Params, CalleeTTI, GetAssumptionCache, {GetBFI},
-                         GetTLI, PSI, RemarksEnabled ? &ORE : nullptr);
+                         GetTLI, ILIC, AggI, CallSitesForFusion, // INTEL
+                         FuncsForDTrans, PSI,                    // INTEL
+                         RemarksEnabled ? &ORE : nullptr);       // INTEL
   };
-  auto OIC = llvm::shouldInline(CB, GetInlineCost, ORE);
+  auto OIC = shouldInline(CB, GetInlineCost, ORE, Report); // INTEL
   return std::make_unique<DefaultInlineAdvice>(this, CB, OIC, ORE);
 }
 

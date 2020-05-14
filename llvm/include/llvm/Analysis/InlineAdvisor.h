@@ -20,13 +20,13 @@ namespace llvm {
 class BasicBlock;
 class CallBase;
 class Function;
-<<<<<<< HEAD
-class InlineReport; // INTEL
-=======
+class InlineReport;        // INTEL
+class InlineReportBuilder; // INTEL
 class Module;
->>>>>>> d6695e18763a05b30cb336c18157175277da8f4b
 class OptimizationRemarkEmitter;
 class PreservedAnalyses;
+
+using namespace InlineReportTypes; // INTEL
 
 /// There are 3 scenarios we can use the InlineAdvisor:
 /// - Default - use manual heuristics.
@@ -73,9 +73,14 @@ public:
   void recordInliningWithCalleeDeleted();
 
   /// Call after the decision for a call site was to not inline.
-  void recordUnsuccessfulInlining(const InlineResult &Result) {
+#if INTEL_CUSTOMIZATION
+  void recordUnsuccessfulInlining(const InlineResult &Result,
+                                  InlineReason *Reason = nullptr,
+                                  InlineReport *Report = nullptr,
+                                  InlineReportBuilder *MDReport = nullptr) {
+#endif // INTEL_CUSTOMIZATION
     markRecorded();
-    recordUnsuccessfulInliningImpl(Result);
+    recordUnsuccessfulInliningImpl(Result, Reason, Report, MDReport); // INTEL
   }
 
   /// Call to indicate inlining was not attempted.
@@ -93,7 +98,12 @@ protected:
 
   virtual void recordInliningImpl() {}
   virtual void recordInliningWithCalleeDeletedImpl() {}
-  virtual void recordUnsuccessfulInliningImpl(const InlineResult &Result) {}
+#if INTEL_CUSTOMIZATION
+  virtual void recordUnsuccessfulInliningImpl(
+      const InlineResult &Result, InlineReason *Reason = nullptr,
+      InlineReport *Report = nullptr, InlineReportBuilder *MDReport = nullptr) {
+  }
+#endif // INTEL_CUSTOMIZATION
   virtual void recordUnattemptedInliningImpl() {}
 
   InlineAdvisor *const Advisor;
@@ -122,7 +132,11 @@ public:
   /// be up-to-date wrt previous inlining decisions.
   /// Returns an InlineAdvice with the inlining recommendation.
   virtual std::unique_ptr<InlineAdvice>
-  getAdvice(CallBase &CB, FunctionAnalysisManager &FAM) = 0;
+  getAdvice(CallBase &CB, FunctionAnalysisManager &FAM,   // INTEL
+            InliningLoopInfoCache *ILIC,                  // INTEL
+            SmallSet<CallBase *, 20> *CallSitesForFusion, // INTEL
+            SmallSet<Function *, 20> *FuncsForDTrans,     // INTEL
+            InlineReport *Report) = 0;                    // INTEL
 
   /// This must be called when the Inliner pass is entered, to allow the
   /// InlineAdvisor update internal state, as result of function passes run
@@ -165,7 +179,11 @@ public:
 
 private:
   std::unique_ptr<InlineAdvice>
-  getAdvice(CallBase &CB, FunctionAnalysisManager &FAM) override;
+  getAdvice(CallBase &CB, FunctionAnalysisManager &FAM,             // INTEL
+            InliningLoopInfoCache *ILIC = nullptr,                  // INTEL
+            SmallSet<CallBase *, 20> *CallSitesForFusion = nullptr, // INTEL
+            SmallSet<Function *, 20> *FuncsForDTrans = nullptr,     // INTEL
+            InlineReport *Report = nullptr) override;               // INTEL
 
   void OnPassExit() override { freeDeletedFunctions(); }
   InlineParams Params;

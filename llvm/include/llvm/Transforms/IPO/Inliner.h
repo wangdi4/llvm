@@ -110,21 +110,13 @@ protected:
 /// passes be composed to achieve the same end result.
 class InlinerPass : public PassInfoMixin<InlinerPass> {
 public:
-<<<<<<< HEAD
-  InlinerPass(InlineParams Params = getInlineParams());     // INTEL
+  InlinerPass(); // INTEL
   ~InlinerPass();
   InlinerPass(InlinerPass &&Arg)
-      : Params(std::move(Arg.Params)),
-        ImportedFunctionsStats(std::move(Arg.ImportedFunctionsStats)), // INTEL
+      : ImportedFunctionsStats(std::move(Arg.ImportedFunctionsStats)), // INTEL
         Report(std::move(Arg.Report)),                                 // INTEL
         MDReport(std::move(Arg.MDReport))                              // INTEL
   {}                                                                   // INTEL
-=======
-  InlinerPass() = default;
-  ~InlinerPass();
-  InlinerPass(InlinerPass &&Arg)
-      : ImportedFunctionsStats(std::move(Arg.ImportedFunctionsStats)) {}
->>>>>>> d6695e18763a05b30cb336c18157175277da8f4b
 
   PreservedAnalyses run(LazyCallGraph::SCC &C, CGSCCAnalysisManager &AM,
                         LazyCallGraph &CG, CGSCCUpdateResult &UR);
@@ -135,14 +127,11 @@ private:
   InlineAdvisor &getAdvisor(const ModuleAnalysisManagerCGSCCProxy::Result &MAM,
                             Module &M);
   std::unique_ptr<ImportedFunctionsInliningStatistics> ImportedFunctionsStats;
-<<<<<<< HEAD
+  Optional<DefaultInlineAdvisor> OwnedDefaultAdvisor;
 
   // INTEL The inline report
   InlineReport Report; // INTEL
   InlineReportBuilder *MDReport; // INTEL
-=======
-  Optional<DefaultInlineAdvisor> OwnedDefaultAdvisor;
->>>>>>> d6695e18763a05b30cb336c18157175277da8f4b
 };
 
 /// Module pass, wrapping the inliner pass. This works in conjunction with the
@@ -156,7 +145,7 @@ public:
   ModuleInlinerWrapperPass(
       InlineParams Params = getInlineParams(), bool Debugging = false,
       InliningAdvisorMode Mode = InliningAdvisorMode::Default,
-      unsigned MaxDevirtIterations = 0);
+      unsigned MaxDevirtIterations = 0, InlinerPass *InlP = nullptr); // INTEL
   ModuleInlinerWrapperPass(ModuleInlinerWrapperPass &&Arg) = default;
 
   PreservedAnalyses run(Module &, ModuleAnalysisManager &);

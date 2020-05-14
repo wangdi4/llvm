@@ -868,7 +868,6 @@ void PassBuilder::addPGOInstrPasses(ModulePassManager &MPM, bool DebugLogging,
     // This should probably be lowered after performance testing.
     // FIXME: this comment is cargo culted from the old pass manager, revisit).
     IP.HintThreshold = 325;
-<<<<<<< HEAD
     IP.PrepareForLTO = PrepareForLTO; // INTEL
 
 #if INTEL_CUSTOMIZATION
@@ -876,13 +875,8 @@ void PassBuilder::addPGOInstrPasses(ModulePassManager &MPM, bool DebugLogging,
     MPM.addPass(InlineListsPass());
 #endif //INTEL_CUSTOMIZATION
 
-    CGSCCPassManager CGPipeline(DebugLogging);
-
-    CGPipeline.addPass(InlinerPass(IP));
-=======
     ModuleInlinerWrapperPass MIWP(IP, DebugLogging);
     CGSCCPassManager &CGPipeline = MIWP.getPM();
->>>>>>> d6695e18763a05b30cb336c18157175277da8f4b
 
     FunctionPassManager FPM;
     FPM.addPass(SROA());
@@ -969,15 +963,9 @@ getInlineParamsFromOptLevel(PassBuilder::OptimizationLevel Level) {
   return getInlineParams(Level.getSpeedupLevel(), Level.getSizeLevel());
 }
 
-<<<<<<< HEAD
-ModulePassManager PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
-                                                    ThinLTOPhase Phase,
-                                                    InlinerPass *InlP, // INTEL
-                                                    bool DebugLogging) {
-  ModulePassManager MPM(DebugLogging);
-=======
 ModuleInlinerWrapperPass
 PassBuilder::buildInlinerPipeline(OptimizationLevel Level, ThinLTOPhase Phase,
+                                  InlinerPass *InlP, // INTEL
                                   bool DebugLogging) {
   InlineParams IP = getInlineParamsFromOptLevel(Level);
   if (Phase == PassBuilder::ThinLTOPhase::PreLink && PGOOpt &&
@@ -985,13 +973,7 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level, ThinLTOPhase Phase,
     IP.HotCallSiteThreshold = 0;
 
   ModuleInlinerWrapperPass MIWP(IP, DebugLogging, UseInlineAdvisor,
-                                MaxDevirtIterations);
->>>>>>> d6695e18763a05b30cb336c18157175277da8f4b
-
-#if INTEL_CUSTOMIZATION
-  // Parse -[no]inline-list option and set corresponding attributes.
-  MPM.addPass(InlineListsPass());
-#endif // INTEL_CUSTOMIZATION
+                                MaxDevirtIterations, InlP);
 
   // Require the GlobalsAA analysis for the module so we can query it within
   // the CGSCC pipeline.
@@ -1012,26 +994,6 @@ PassBuilder::buildInlinerPipeline(OptimizationLevel Level, ThinLTOPhase Phase,
   // valuable as the inliner doesn't currently care whether it is inlining an
   // invoke or a call.
 
-<<<<<<< HEAD
-  // Run the inliner first. The theory is that we are walking bottom-up and so
-  // the callees have already been fully optimized, and we want to inline them
-  // into the callers so that our optimizations can reflect that.
-  // For PreLinkThinLTO pass, we disable hot-caller heuristic for sample PGO
-  // because it makes profile annotation in the backend inaccurate.
-#if INTEL_CUSTOMIZATION
-  if (InlP) {
-    MainCGPipeline.addPass(std::move(*InlP));
-  } else {
-    InlineParams IP = getInlineParamsFromOptLevel(Level);
-    if (Phase == ThinLTOPhase::PreLink && PGOOpt &&
-        PGOOpt->Action == PGOOptions::SampleUse)
-      IP.HotCallSiteThreshold = 0;
-    MainCGPipeline.addPass(InlinerPass(IP));
-  }
-#endif // INTEL_CUSTOMIZATION
-
-=======
->>>>>>> d6695e18763a05b30cb336c18157175277da8f4b
   if (AttributorRun & AttributorRunOption::CGSCC)
     MainCGPipeline.addPass(AttributorCGSCCPass());
 
@@ -1080,7 +1042,7 @@ ModulePassManager PassBuilder::buildModuleSimplificationPipeline(
   if (Phase == ThinLTOPhase::PreLink && PGOOpt &&
       PGOOpt->Action == PGOOptions::SampleUse)
     IP.HotCallSiteThreshold = 0;
-  InlinerPass InlPass(IP);
+  InlinerPass InlPass;
   MPM.addPass(InlineReportSetupPass(InlPass.getMDReport()));
 #endif // INTEL_CUSTOMIZATION
 
@@ -1211,6 +1173,11 @@ ModulePassManager PassBuilder::buildModuleSimplificationPipeline(
   // Synthesize function entry counts for non-PGO compilation.
   if (EnableSyntheticCounts && !PGOOpt)
     MPM.addPass(SyntheticCountsPropagation());
+
+#if INTEL_CUSTOMIZATION
+  // Parse -[no]inline-list option and set corresponding attributes.
+  MPM.addPass(InlineListsPass());
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
   MPM.addPass(buildInlinerPipeline(Level, Phase, &InlPass, DebugLogging));
@@ -1606,7 +1573,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
   }
 
 #if INTEL_CUSTOMIZATION
-  InlinerPass InlPass(getInlineParamsFromOptLevel(Level));
+  InlinerPass InlPass;
   MPM.addPass(InlineReportSetupPass(InlPass.getMDReport()));
 #endif // INTEL_CUSTOMIZATION
   if (PGOOpt && PGOOpt->Action == PGOOptions::SampleUse) {
@@ -1861,8 +1828,11 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
   // valuable as the inliner doesn't currently care whether it is inlining an
   // invoke or a call.
   // Run the inliner now.
-<<<<<<< HEAD
-  MPM.addPass(createModuleToPostOrderCGSCCPassAdaptor(std::move(InlPass)));
+  MPM.addPass(ModuleInlinerWrapperPass(getInlineParamsFromOptLevel(Level),
+                                       DebugLogging,                 // INTEL
+                                       InliningAdvisorMode::Default, // INTEL
+                                       0 /*MaxDevirtIterations*/,    // INTEL
+                                       &InlPass));                   // INTEL
 
 #if INTEL_INCLUDE_DTRANS
   // The global optimizer pass can convert function calls to use
@@ -1877,10 +1847,6 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
 
 #endif // INTEL_INCLUDE_DTRANS
 #endif // INTEL_CUSTOMIZATION
-=======
-  MPM.addPass(ModuleInlinerWrapperPass(getInlineParamsFromOptLevel(Level),
-                                       DebugLogging));
->>>>>>> d6695e18763a05b30cb336c18157175277da8f4b
 
   // Optimize globals again after we ran the inliner.
   MPM.addPass(GlobalOptPass());
