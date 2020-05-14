@@ -40,7 +40,8 @@ STATISTIC(NumNoAlias, "Number of function returns inferred as noalias");
 STATISTIC(NumNonNull, "Number of function returns inferred as nonnull returns");
 STATISTIC(NumReturnedArg, "Number of arguments inferred as returned");
 #if INTEL_CUSTOMIZATION
-STATISTIC(NumNoReturn, "Number of function inferred as noreturn");
+STATISTIC(NumNoReturn, "Number of functions inferred as noreturn");
+STATISTIC(NumFortran, "Number of functions inferred as Fortran");
 #endif // INTEL_CUSTOMIZATION
 
 static bool setDoesNotAccessMemory(Function &F) {
@@ -145,6 +146,14 @@ static bool setDoesNotReturn(Function &F) {
     return false;
   F.setDoesNotReturn();
   ++NumNoReturn;
+  return true;
+}
+
+static bool setFortran(Function &F) {
+  if (F.isFortran())
+    return false;
+  F.setFortran();
+  ++NumFortran;
   return true;
 }
 #endif // INTEL_CUSTOMIZATION
@@ -422,6 +431,12 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     Changed |= setDoesNotCapture(F, 0);
     return Changed;
+#if INTEL_CUSTOMIZATION
+  case LibFunc_cexp:
+    Changed |= setDoesNotAccessMemory(F);
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+#endif // INTEL_CUSTOMIZATION
   case LibFunc_calloc:
     Changed |= setDoesNotThrow(F);
     Changed |= setRetDoesNotAlias(F);
@@ -1390,9 +1405,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotReturn(F);
     return Changed;
   case LibFunc_ZSt28_Rb_tree_rebalance_for_erasePSt18_Rb_tree_node_baseRS_:
-    return Changed;
   case LibFunc_ZSt29_Rb_tree_insert_and_rebalancebPSt18_Rb_tree_node_baseS0_RS_:
-    return Changed;
   case LibFunc_ZSt7getlineIcSt11char_traitsIcESaIcEERSt13basic_istreamIT_T0_ES7_RSbIS4_S5_T1_ES4_:
     return Changed;
   case LibFunc_ZSt9terminatev:
@@ -1486,6 +1499,39 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setOnlyReadsMemory(F);
     Changed |= setOnlyAccessesArgMemory(F);
     Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_for_adjustl:
+  case LibFunc_for_alloc_allocatable:
+  case LibFunc_for_allocate:
+  case LibFunc_for_backspace:
+  case LibFunc_for_check_mult_overflow64:
+  case LibFunc_for_close:
+  case LibFunc_for_concat:
+  case LibFunc_for_cpstr:
+  case LibFunc_for_cpystr:
+  case LibFunc_for_dealloc_allocatable:
+  case LibFunc_for_deallocate:
+  case LibFunc_for_f90_index:
+  case LibFunc_for_getcmd_arg_err:
+  case LibFunc_for_iargc:
+  case LibFunc_for_open:
+  case LibFunc_for_read_int_fmt:
+  case LibFunc_for_read_seq_fmt:
+  case LibFunc_for_read_seq_lis:
+  case LibFunc_for_read_seq_lis_xmit:
+  case LibFunc_for_realloc_lhs:
+  case LibFunc_for_set_reentrancy:
+  case LibFunc_for_stop_core_quiet:
+  case LibFunc_for_trim:
+  case LibFunc_for_write_int_fmt:
+  case LibFunc_for_write_int_fmt_xmit:
+  case LibFunc_for_write_seq:
+  case LibFunc_for_write_seq_fmt:
+  case LibFunc_for_write_seq_fmt_xmit:
+  case LibFunc_for_write_seq_lis:
+  case LibFunc_for_write_seq_lis_xmit:
+  case LibFunc_for_write_seq_xmit:
+    Changed |= setFortran(F);
     return Changed;
   case LibFunc_fork:
     Changed |= setDoesNotThrow(F);
