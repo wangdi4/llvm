@@ -32,7 +32,6 @@ class ProfileSummaryInfo;
 class TargetTransformInfo;
 class TargetLibraryInfo;
 
-
 namespace InlineConstants {
 // Various thresholds used by inline cost analysis.
 /// Use when optsize (-Os) is specified.
@@ -63,7 +62,6 @@ const unsigned BasicBlockSuccRatio = 210; // INTEL
 } // namespace InlineConstants
 
 #if INTEL_CUSTOMIZATION
-
 
 /// \brief A cache to save loop related info during inlining of an SCC.
 ///
@@ -320,10 +318,17 @@ public:
 /// describes a reason.
 class InlineResult {
   const char *Message = nullptr;
+  InlineReportTypes::InlineReason IntelInlReason =    // INTEL
+      InlineReportTypes::InlineReason::NinlrNoReason; // INTEL
   InlineResult(const char *Message = nullptr) : Message(Message) {}
 
 public:
-  static InlineResult success() { return {}; }
+#if INTEL_CUSTOMIZATION
+  static InlineResult success() {
+    InlineResult IR;
+    return IR.setIntelInlReason(InlineReportTypes::InlineReason::InlrNoReason);
+  }
+#endif // INTEL_CUSTOMIZATION
   static InlineResult failure(const char *Reason) {
     return InlineResult(Reason);
   }
@@ -333,6 +338,13 @@ public:
            "getFailureReason should only be called in failure cases");
     return Message;
   }
+#if INTEL_CUSTOMIZATION
+  InlineReportTypes::InlineReason getIntelInlReason() { return IntelInlReason; }
+  InlineResult &setIntelInlReason(InlineReportTypes::InlineReason IR) {
+    IntelInlReason = IR;
+    return *this;
+  }
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// Thresholds to tune inline cost analysis. The inline cost analysis decides
@@ -448,19 +460,13 @@ getInlineCost(CallBase &Call, Function *Callee, const InlineParams &Params,
               InliningLoopInfoCache *ILIC = nullptr,                  // INTEL
               InlineAggressiveInfo *AggI = nullptr);                  // INTEL
 
-#if INTEL_CUSTOMIZATION
-/// Returns a pair of InlineResult and InlineReason for a given call site.
-#endif // INTEL_CUSTOMIZATION
 /// Returns InlineResult::success() if the call site should be always inlined
 /// because of user directives, and the inlining is viable. Returns
 /// InlineResult::failure() if the inlining may never happen because of user
 /// directives or incompatibilities detectable without needing callee traversal.
 /// Otherwise returns None, meaning that inlining should be decided based on
 /// other criteria (e.g. cost modeling).
-#if INTEL_CUSTOMIZATION
-Optional<std::pair<InlineResult, InlineReportTypes::InlineReason>>
-getAttributeBasedInliningDecision(
-#endif // INTEL_CUSTOMIZATION
+Optional<InlineResult> getAttributeBasedInliningDecision(
     CallBase &Call, Function *Callee, TargetTransformInfo &CalleeTTI,
     function_ref<const TargetLibraryInfo &(Function &)> GetTLI);
 
@@ -483,7 +489,7 @@ Optional<int> getInliningCostEstimate(
     InlineAggressiveInfo *AggI = nullptr);                  // INTEL
 
 /// Minimal filter to detect invalid constructs for inlining.
-InlineResult isInlineViable(Function &Callee,                         // INTEL
-                            InlineReportTypes::InlineReason& Reason); // INTEL
+InlineResult isInlineViable(Function &Callee);
 } // namespace llvm
+
 #endif

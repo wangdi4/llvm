@@ -243,7 +243,6 @@ InlineResult InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
 InlineResult InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
                             InlineReport *IR,
                             InlineReportBuilder *MDIR,
-                            InlineReportTypes::InlineReason* Reason,
                             AAResults *CalleeAAR = nullptr,
                             bool InsertLifetime = true,
                             Function *ForwardVarArgsTo = nullptr);
