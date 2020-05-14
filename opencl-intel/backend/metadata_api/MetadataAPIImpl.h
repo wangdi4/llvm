@@ -340,9 +340,9 @@ public:
     return (value_type)m_value;
   }
 
-  value_type get() {
+  value_type get() const {
     load();
-    return (value_type)m_value.get();
+    return static_cast<value_type>(m_value.get());
   }
 
   bool hasValue() const {
@@ -559,9 +559,9 @@ public:
   NamedMDValueAccessor(subject_type Global, const char *Id)
       : m_pGlobal(Global), m_pId(Id), m_mdValue(Global, Id) {}
 
-  bool hasValue() { return m_mdValue.hasValue(); }
+  bool hasValue() const { return m_mdValue.hasValue(); }
 
-  value_type get() { return m_mdValue.get(); }
+  value_type get() const { return m_mdValue.get(); }
 
   void set(const value_type &item) {
     T mdValue(m_pGlobal, m_pId, item);
