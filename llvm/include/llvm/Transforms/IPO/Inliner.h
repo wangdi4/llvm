@@ -11,6 +11,7 @@
 
 #include "llvm/Analysis/CGSCCPassManager.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
+#include "llvm/Analysis/InlineAdvisor.h"
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/LazyCallGraph.h"
 #include "llvm/ADT/SmallSet.h"    // INTEL
@@ -109,6 +110,7 @@ protected:
 /// passes be composed to achieve the same end result.
 class InlinerPass : public PassInfoMixin<InlinerPass> {
 public:
+<<<<<<< HEAD
   InlinerPass(InlineParams Params = getInlineParams());     // INTEL
   ~InlinerPass();
   InlinerPass(InlinerPass &&Arg)
@@ -117,6 +119,12 @@ public:
         Report(std::move(Arg.Report)),                                 // INTEL
         MDReport(std::move(Arg.MDReport))                              // INTEL
   {}                                                                   // INTEL
+=======
+  InlinerPass() = default;
+  ~InlinerPass();
+  InlinerPass(InlinerPass &&Arg)
+      : ImportedFunctionsStats(std::move(Arg.ImportedFunctionsStats)) {}
+>>>>>>> d6695e18763a05b30cb336c18157175277da8f4b
 
   PreservedAnalyses run(LazyCallGraph::SCC &C, CGSCCAnalysisManager &AM,
                         LazyCallGraph &CG, CGSCCUpdateResult &UR);
@@ -124,14 +132,52 @@ public:
   InlineReport& getReport() { return Report; } // INTEL
   InlineReportBuilder *getMDReport() { return MDReport; } // INTEL
 private:
-  InlineParams Params;
+  InlineAdvisor &getAdvisor(const ModuleAnalysisManagerCGSCCProxy::Result &MAM,
+                            Module &M);
   std::unique_ptr<ImportedFunctionsInliningStatistics> ImportedFunctionsStats;
+<<<<<<< HEAD
 
   // INTEL The inline report
   InlineReport Report; // INTEL
   InlineReportBuilder *MDReport; // INTEL
+=======
+  Optional<DefaultInlineAdvisor> OwnedDefaultAdvisor;
+>>>>>>> d6695e18763a05b30cb336c18157175277da8f4b
 };
 
+/// Module pass, wrapping the inliner pass. This works in conjunction with the
+/// InlineAdvisorAnalysis to facilitate inlining decisions taking into account
+/// module-wide state, that need to keep track of inter-inliner pass runs, for
+/// a given module. An InlineAdvisor is configured and kept alive for the
+/// duration of the ModuleInlinerWrapperPass::run.
+class ModuleInlinerWrapperPass
+    : public PassInfoMixin<ModuleInlinerWrapperPass> {
+public:
+  ModuleInlinerWrapperPass(
+      InlineParams Params = getInlineParams(), bool Debugging = false,
+      InliningAdvisorMode Mode = InliningAdvisorMode::Default,
+      unsigned MaxDevirtIterations = 0);
+  ModuleInlinerWrapperPass(ModuleInlinerWrapperPass &&Arg) = default;
+
+  PreservedAnalyses run(Module &, ModuleAnalysisManager &);
+
+  /// Allow adding more CGSCC passes, besides inlining. This should be called
+  /// before run is called, as part of pass pipeline building.
+  CGSCCPassManager &getPM() { return PM; }
+
+  /// Allow adding module-level analyses benefiting the contained CGSCC passes.
+  template <class T> void addRequiredModuleAnalysis() {
+    MPM.addPass(RequireAnalysisPass<T, Module>());
+  }
+
+private:
+  const InlineParams Params;
+  const InliningAdvisorMode Mode;
+  const unsigned MaxDevirtIterations;
+  const bool Debugging;
+  CGSCCPassManager PM;
+  ModulePassManager MPM;
+};
 } // end namespace llvm
 
 #endif // LLVM_TRANSFORMS_IPO_INLINER_H

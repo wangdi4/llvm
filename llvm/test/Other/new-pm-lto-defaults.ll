@@ -107,6 +107,7 @@
 ; CHECK-O2-NEXT: Running analysis: OuterAnalysisManagerProxy
 ; CHECK-EP-Peephole-NEXT: Running pass: NoOpFunctionPass
 ; CHECK-O2-NEXT: Finished llvm::Function pass manager run.
+<<<<<<< HEAD
 ; CHECK-O2-NEXT: Running pass: InlineListsPass                                        ;INTEL
 ; CHECK-O2-NEXT: Running pass: RequireAnalysisPass<{{.*}}AndersensAA                  ;INTEL
 ; CHECK-O2-NEXT: Running analysis: AndersensAA                                        ;INTEL
@@ -115,6 +116,16 @@
 ; CHECK-O2-NEXT: Running analysis: InlineAggAnalysis                                  ;INTEL
 ; CHECK-O2-NEXT: Running pass: ModuleToPostOrderCGSCCPassAdaptor<{{.*}}InlinerPass>
 ; INTEL_CUSTOMIZATION
+=======
+; CHECK-O2-NEXT: Running pass: ModuleInlinerWrapperPass
+; CHECK-O2-NEXT: Running analysis: InlineAdvisorAnalysis
+; CHECK-O2-NEXT: Starting llvm::Module pass manager run.
+; CHECK-O2-NEXT: Running pass: ModuleToPostOrderCGSCCPassAdaptor<{{.*}}PassManager{{.*}}>
+; CHECK-O2-NEXT: Starting CGSCC pass manager run.
+; CHECK-O2-NEXT: Running pass: InlinerPass
+; CHECK-O2-NEXT: Finished CGSCC pass manager run.
+; CHECK-O2-NEXT: Finished llvm::Module pass manager run.
+>>>>>>> d6695e18763a05b30cb336c18157175277da8f4b
 ; CHECK-O2-NEXT: Running pass: GlobalOptPass
 ; CHECK-O2-NEXT: Running pass: IntelIPOPrefetchPass
 ; CHECK-O2-NEXT: Running pass: PartialInlinerPass
