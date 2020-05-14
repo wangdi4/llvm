@@ -48738,6 +48738,144 @@ static SDValue matchPMADDWD_2(SelectionDAG &DAG, SDValue N0, SDValue N1,
                           PMADDBuilder);
 }
 
+#if INTEL_CUSTOMIZATION
+// Look for (vXi32 (add (sub A, B), (shl (sub C, D), 16))). See if we can
+// determine a relationship between A, C, B, and D that would allow us to
+// interleave the lower 16 bits of A and C elements. And B and D elements to
+// perform a single vXi32 subtract. This is possible if A and C come from
+// the same set of loads and have been zero extended from i8 for example.
+//
+// This is looking for a specific combination of operations that have been
+// observed after SLP vectorization and load coalescing of some real code.
+static SDValue combinePseudoi16VecAdd(SDNode *N, SelectionDAG &DAG,
+                                      const X86Subtarget &Subtarget) {
+  EVT VT = N->getValueType(0);
+
+  // Limit this transform to advanced optimizations on avx2 or better.
+  if (!Subtarget.hasAVX2() || !DAG.getTarget().Options.IntelAdvancedOptim)
+    return SDValue();
+
+  // Look specifically for v8i32.
+  if (VT != MVT::v8i32)
+    return SDValue();
+
+  SDValue LHS = N->getOperand(0);
+  SDValue RHS = N->getOperand(1);
+
+  // Canonicalize SUB to LHS.
+  if (LHS.getOpcode() != ISD::SUB)
+    std::swap(LHS, RHS);
+
+  // We need SUB and a SHL of another SUB.
+  if (LHS.getOpcode() != ISD::SUB || !LHS.hasOneUse() ||
+      RHS.getOpcode() != ISD::SHL || !RHS.hasOneUse() ||
+      RHS.getOperand(0).getOpcode() != ISD::SUB ||
+      !RHS.getOperand(0).hasOneUse())
+    return SDValue();
+
+  // We need a shift left by 16.
+  ConstantSDNode *ShAmtC = isConstOrConstSplat(RHS.getOperand(1));
+  if (!ShAmtC || ShAmtC->getAPIntValue() != 16)
+    return SDValue();
+
+  SDValue A = LHS.getOperand(0);
+  SDValue B = LHS.getOperand(1);
+  SDValue C = RHS.getOperand(0).getOperand(0);
+  SDValue D = RHS.getOperand(0).getOperand(1);
+
+  // All should be zero extends from v8i8.
+  if (A.getOpcode() != ISD::ZERO_EXTEND || !A.hasOneUse() ||
+      B.getOpcode() != ISD::ZERO_EXTEND || !B.hasOneUse() ||
+      C.getOpcode() != ISD::ZERO_EXTEND || !C.hasOneUse() ||
+      D.getOpcode() != ISD::ZERO_EXTEND || !D.hasOneUse())
+    return SDValue();
+
+  A = A.getOperand(0);
+  B = B.getOperand(0);
+  C = C.getOperand(0);
+  D = D.getOperand(0);
+
+  if (A.getValueType() != MVT::v8i8 ||
+      B.getValueType() != MVT::v8i8 ||
+      C.getValueType() != MVT::v8i8 ||
+      D.getValueType() != MVT::v8i8)
+    return SDValue();
+
+  // Each extend should come from a 2 operand concat_vectors.
+  if (A.getOpcode() != ISD::CONCAT_VECTORS || !A.hasOneUse() ||
+      B.getOpcode() != ISD::CONCAT_VECTORS || !B.hasOneUse() ||
+      C.getOpcode() != ISD::CONCAT_VECTORS || !C.hasOneUse() ||
+      D.getOpcode() != ISD::CONCAT_VECTORS || !D.hasOneUse())
+    return SDValue();
+  if (A.getNumOperands() != 2 || B.getNumOperands() != 2 ||
+      C.getNumOperands() != 2 || D.getNumOperands() != 2)
+    return SDValue();
+
+  // We have our 8 fragments now. Next we need to see if those common from
+  // 4 common roots.
+  SDValue A0 = A.getOperand(0);
+  SDValue A1 = A.getOperand(1);
+  SDValue B0 = B.getOperand(0);
+  SDValue B1 = B.getOperand(1);
+  SDValue C0 = C.getOperand(0);
+  SDValue C1 = C.getOperand(1);
+  SDValue D0 = D.getOperand(0);
+  SDValue D1 = D.getOperand(1);
+
+  // Each should be an extract_subvector.
+  if (A0.getOpcode() != ISD::EXTRACT_SUBVECTOR || !A0.hasOneUse() ||
+      A1.getOpcode() != ISD::EXTRACT_SUBVECTOR || !A1.hasOneUse() ||
+      B0.getOpcode() != ISD::EXTRACT_SUBVECTOR || !B0.hasOneUse() ||
+      B1.getOpcode() != ISD::EXTRACT_SUBVECTOR || !B1.hasOneUse() ||
+      C0.getOpcode() != ISD::EXTRACT_SUBVECTOR || !C0.hasOneUse() ||
+      C1.getOpcode() != ISD::EXTRACT_SUBVECTOR || !C1.hasOneUse() ||
+      D0.getOpcode() != ISD::EXTRACT_SUBVECTOR || !D0.hasOneUse() ||
+      D1.getOpcode() != ISD::EXTRACT_SUBVECTOR || !D1.hasOneUse())
+    return SDValue();
+
+  // Half of the extracts should come from element 0 and half from element 4.
+  if (!isNullConstant(A0.getOperand(1)) ||
+      !isa<ConstantSDNode>(C0.getOperand(1)) ||
+      C0.getConstantOperandAPInt(1) != 4)
+    return SDValue();
+  if (A1.getOperand(1) != A0.getOperand(1) ||
+      B0.getOperand(1) != A0.getOperand(1) ||
+      B1.getOperand(1) != A0.getOperand(1) ||
+      C1.getOperand(1) != C0.getOperand(1) ||
+      D0.getOperand(1) != C0.getOperand(1) ||
+      D1.getOperand(1) != C0.getOperand(1))
+    return SDValue();
+
+  // Grab our 4 roots and make sure they are each used in one other extract.
+  SDValue Load0 = A0.getOperand(0);
+  SDValue Load1 = A1.getOperand(0);
+  SDValue Load2 = B0.getOperand(0);
+  SDValue Load3 = B1.getOperand(0);
+  if (C0.getOperand(0) != Load0 ||
+      C1.getOperand(0) != Load1 ||
+      D0.getOperand(0) != Load2 ||
+      D1.getOperand(0) != Load3)
+    return SDValue();
+
+  // Concatenate the 4 roots in pairs to form 2 v16i8 vectors.
+  SDLoc dl(N);
+  LHS = DAG.getNode(ISD::CONCAT_VECTORS, dl, MVT::v16i8, Load0, Load1);
+  RHS = DAG.getNode(ISD::CONCAT_VECTORS, dl, MVT::v16i8, Load2, Load3);
+
+  // Interleave the lower 4 and upper 4 elements of each root in the pair.
+  LHS = DAG.getVectorShuffle(MVT::v16i8, dl, LHS, LHS,
+                             {0,4,1,5,2,6,3,7,8,12,9,13,10,14,11,15});
+  RHS = DAG.getVectorShuffle(MVT::v16i8, dl, RHS, RHS,
+                             {0,4,1,5,2,6,3,7,8,12,9,13,10,14,11,15});
+  LHS = DAG.getNode(ISD::ZERO_EXTEND, dl, MVT::v16i16, LHS);
+  RHS = DAG.getNode(ISD::ZERO_EXTEND, dl, MVT::v16i16, RHS);
+  LHS = DAG.getBitcast(MVT::v8i32, LHS);
+  RHS = DAG.getBitcast(MVT::v8i32, RHS);
+
+  return DAG.getNode(ISD::SUB, dl, MVT::v8i32, LHS, RHS);
+}
+#endif
+
 static SDValue combineAdd(SDNode *N, SelectionDAG &DAG,
                           TargetLowering::DAGCombinerInfo &DCI,
                           const X86Subtarget &Subtarget) {
@@ -48749,6 +48887,12 @@ static SDValue combineAdd(SDNode *N, SelectionDAG &DAG,
     return MAdd;
   if (SDValue MAdd = matchPMADDWD_2(DAG, Op0, Op1, SDLoc(N), VT, Subtarget))
     return MAdd;
+
+#if INTEL_CUSTOMIZATION
+  if (DCI.isBeforeLegalize() && VT.isVector())
+    if (SDValue V = combinePseudoi16VecAdd(N, DAG, Subtarget))
+      return V;
+#endif
 
   // Try to synthesize horizontal adds from adds of shuffles.
   if ((VT == MVT::v8i16 || VT == MVT::v4i32 || VT == MVT::v16i16 ||
