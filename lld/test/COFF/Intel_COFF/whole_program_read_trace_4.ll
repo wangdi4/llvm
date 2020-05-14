@@ -1,4 +1,4 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 ; This test checks that whole program read was achieved with wmain.
 
 ; RUN: llvm-as -o %T/wpt4.bc %s

@@ -1,4 +1,4 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 
 ; This test checks that whole program read was achieved even though all
 ; symbols are visibile outside the module. (In other words, none of the

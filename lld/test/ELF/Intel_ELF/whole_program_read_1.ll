@@ -1,4 +1,4 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 ; This test checks that whole program was achieved.
 
 ; RUN: opt %s -o %t.bc

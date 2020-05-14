@@ -1,4 +1,4 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 ; This test expects LTO to detect all used functions (0 funtions unresolved)
 ; since IR is available for all user defined routines. LTO doesn't expect IR
 ; for library routines like malloc, free, fprintf (known library functions).

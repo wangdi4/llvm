@@ -1,4 +1,4 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 ; This test checks if whole program is read by gold linker plugin. The
 ; test also checks if all symbols are inside the LTO unit (hidden visibility).
 

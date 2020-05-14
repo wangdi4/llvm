@@ -1,4 +1,4 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 ; This test checks if the whole program seen was achieved
 ; since add is internal and sub is not used.
 

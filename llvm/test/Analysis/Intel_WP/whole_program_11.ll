@@ -1,4 +1,4 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 ; This test checks that the globals @__ImageBase, @stderr and @.str aren't
 ; considered as visible outside LTO since they aren't functions.
 

@@ -1,4 +1,4 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 ; This test cheks if not whole program is read when one of the definitions is
 ; missing.
 

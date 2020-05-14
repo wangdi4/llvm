@@ -1,4 +1,4 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 ; Check that sub isn't in the list since there is no user for it
 
 ; RUN: llvm-as %s -o %t.bc

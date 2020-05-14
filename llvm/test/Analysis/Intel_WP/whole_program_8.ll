@@ -1,4 +1,4 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 ; Test that checks if whole program not seen was identified correctly. The test case
 ; is composed by a Base class, a Derived class and a Derived2 class. The function foo
 ; is declared as virtual in Base and the definition should be in Derived and Derived2.

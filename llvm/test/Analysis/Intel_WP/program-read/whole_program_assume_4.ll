@@ -1,4 +1,4 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 ; This test checks that the debug trace for whole program assume
 ; prints correctly. This test is the same as whole_program_assume_2.ll.
 

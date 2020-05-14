@@ -1,4 +1,4 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 ; This test checks if the whole program seen wasn't achieved
 ; since all symbols weren't internalized.
 

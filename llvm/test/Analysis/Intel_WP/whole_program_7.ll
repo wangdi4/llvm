@@ -1,4 +1,4 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 ; Test that checks if whole program seen was identified correctly.The test case
 ; is simple. It contains a Base class, Derived class and Derived2 class. The
 ; function foo is declared as virtual in Base and the definition can be found

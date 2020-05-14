@@ -1,4 +1,4 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 ; This test checks that the trace for whole program read prints
 ; the correct solution when @sub is an external function.
 

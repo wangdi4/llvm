@@ -1,4 +1,4 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 ; This test checks that whole program was achieved with wmain.
 
 ; RUN: llvm-as -o %T/wp4.bc %s

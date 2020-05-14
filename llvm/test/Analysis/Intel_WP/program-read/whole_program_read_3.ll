@@ -1,4 +1,4 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 ; This test checks if the __dso_handle was treated as linker added symbol
 ; during whole program read.
 

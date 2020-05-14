@@ -1,4 +1,4 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 ; Test that checks the libfuncs trace (-whole-program-trace-libfuncs) when
 ; -whole-program-trace is used.
 
