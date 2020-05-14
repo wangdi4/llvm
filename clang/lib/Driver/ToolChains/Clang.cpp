@@ -871,11 +871,10 @@ static void addPGOAndCoverageFlags(const ToolChain &TC, Compilation &C,
     }
   }
 
-  bool EmitCovNotes = Args.hasArg(options::OPT_ftest_coverage) ||
+  bool EmitCovNotes = Args.hasFlag(options::OPT_ftest_coverage,
+                                   options::OPT_fno_test_coverage, false) ||
                       Args.hasArg(options::OPT_coverage);
-  bool EmitCovData = Args.hasFlag(options::OPT_fprofile_arcs,
-                                  options::OPT_fno_profile_arcs, false) ||
-                     Args.hasArg(options::OPT_coverage);
+  bool EmitCovData = TC.needsGCovInstrumentation(Args);
   if (EmitCovNotes)
     CmdArgs.push_back("-femit-coverage-notes");
   if (EmitCovData)
@@ -1143,10 +1142,14 @@ void Clang::AddPreprocessingOptions(Compilation &C, const JobAction &JA,
       DepFile = "-";
     } else if (ArgMD->getOption().matches(options::OPT_MMD) &&
                Args.hasArg(options::OPT_fintelfpga) &&
-               !Args.hasArg(options::OPT_c)) {
-      // When generating dependency files for FPGA AOT, the output files will
-      // always be named after the source file.
-      DepFile = Args.MakeArgString(Twine(getBaseInputStem(Args, Inputs)) + ".d");
+               JA.isDeviceOffloading(Action::OFK_SYCL)) {
+      // Generate dependency files as temporary. These will be used for the
+      // aoc call/bundled during fat object creation
+      std::string BaseName(Clang::getBaseInputName(Args, Inputs[0]));
+      std::string DepTmpName =
+          C.getDriver().GetTemporaryPath(llvm::sys::path::stem(BaseName), "d");
+      DepFile = C.addTempFile(C.getArgs().MakeArgString(DepTmpName));
+      C.getDriver().addFPGATempDepFile(DepFile, BaseName);
     } else {
       DepFile = getDependencyFileName(Args, Inputs);
       C.addFailureResultFile(DepFile, &JA);
@@ -4429,6 +4432,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
         options::OPT_fno_function_sections,
         options::OPT_fdata_sections,
         options::OPT_fno_data_sections,
+        options::OPT_funique_internal_linkage_names,
+        options::OPT_fno_unique_internal_linkage_names,
         options::OPT_funique_section_names,
         options::OPT_fno_unique_section_names,
         options::OPT_mrestrict_it,
@@ -4734,6 +4739,13 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (Args.hasFlag(options::OPT_mrtd, options::OPT_mno_rtd, false))
     CmdArgs.push_back("-fdefault-calling-conv=stdcall");
 
+  if (Args.hasArg(options::OPT_fenable_matrix)) {
+    // enable-matrix is needed by both the LangOpts and by LLVM.
+    CmdArgs.push_back("-fenable-matrix");
+    CmdArgs.push_back("-mllvm");
+    CmdArgs.push_back("-enable-matrix");
+  }
+
   CodeGenOptions::FramePointerKind FPKeepKind =
                   getFramePointerKind(Args, RawTriple);
   const char *FPKeepKindStr = nullptr;
@@ -4830,16 +4842,37 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                    options::OPT__SLASH_Qlong_double_, false))
     CmdArgs.push_back("-fintel-long-double-size=80");
 
-  for (const Arg *A : Args.filtered(options::OPT_fimf_arch_consistency_EQ)) {
-       CmdArgs.push_back(Args.MakeArgString(
-           Twine("-mGLOB_imf_attr=arch-consistency:") + A->getValue()));
+  for (const Arg *A : Args) {
+    unsigned OptionID = A->getOption().getID();
+    switch (OptionID) {
+    case options::OPT_fimf_arch_consistency_EQ:
+      CmdArgs.push_back(Args.MakeArgString(
+          Twine("-mGLOB_imf_attr=arch-consistency:") + A->getValue()));
+      break;
+    case options::OPT_fimf_max_error_EQ:
+      CmdArgs.push_back(Args.MakeArgString(Twine("-mGLOB_imf_attr=max-error:") +
+                                           A->getValue()));
+      break;
+    case options::OPT_fimf_absolute_error_EQ:
+      CmdArgs.push_back(Args.MakeArgString(
+          Twine("-mGLOB_imf_attr=absolute-error:") + A->getValue()));
+      break;
+    case options::OPT_fimf_accuracy_bits_EQ:
+      CmdArgs.push_back(Args.MakeArgString(
+          Twine("-mGLOB_imf_attr=accuracy-bits:") + A->getValue()));
+      break;
+    case options::OPT_fimf_domain_exclusion_EQ:
+      CmdArgs.push_back(Args.MakeArgString(
+          Twine("-mGLOB_imf_attr=domain-exclusion:") + A->getValue()));
+      break;
+    case options::OPT_fimf_precision_EQ:
+      CmdArgs.push_back(Args.MakeArgString(Twine("-mGLOB_imf_attr=precision:") +
+                                           A->getValue()));
+      break;
+    default:
+      break;
+    }
   }
-
-  for (const Arg *A : Args.filtered(options::OPT_fimf_max_error_EQ)) {
-       CmdArgs.push_back(Args.MakeArgString(
-           Twine("-mGLOB_imf_attr=max-error:") + A->getValue()));
-  }
-
 #endif // INTEL_CUSTOMIZATION
 
   // Decide whether to use verbose asm. Verbose assembly is the default on
@@ -4863,8 +4896,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
   // Enable -mconstructor-aliases except on darwin, where we have to work around
   // a linker bug (see <rdar://problem/7651567>), and CUDA device code, where
-  // aliases aren't supported.
-  if (!RawTriple.isOSDarwin() && !RawTriple.isNVPTX())
+  // aliases aren't supported. Similarly, aliases aren't yet supported for AIX.
+  if (!RawTriple.isOSDarwin() && !RawTriple.isNVPTX() && !RawTriple.isOSAIX())
     CmdArgs.push_back("-mconstructor-aliases");
 
   // Darwin's kernel doesn't support guard variables; just die if we
@@ -5062,6 +5095,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (!Args.hasFlag(options::OPT_funique_section_names,
                     options::OPT_fno_unique_section_names, true))
     CmdArgs.push_back("-fno-unique-section-names");
+
+  if (Args.hasFlag(options::OPT_funique_internal_linkage_names,
+                   options::OPT_fno_unique_internal_linkage_names, false))
+    CmdArgs.push_back("-funique-internal-linkage-names");
 
   Args.AddLastArg(CmdArgs, options::OPT_finstrument_functions,
                   options::OPT_finstrument_functions_after_inlining,
@@ -5564,8 +5601,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
   Args.AddLastArg(CmdArgs, options::OPT_pthread);
 
-  if (Args.hasFlag(options::OPT_mspeculative_load_hardening, options::OPT_mno_speculative_load_hardening,
-                   false))
+  if (Args.hasFlag(options::OPT_mspeculative_load_hardening,
+                   options::OPT_mno_speculative_load_hardening, false))
     CmdArgs.push_back(Args.MakeArgString("-mspeculative-load-hardening"));
 
   RenderSSPOptions(TC, Args, CmdArgs, KernelOrKext);
@@ -7490,10 +7527,12 @@ void OffloadBundler::ConstructJob(Compilation &C, const JobAction &JA,
   // For -fintelfpga, when bundling objects we also want to bundle up the
   // named dependency file.
   if (IsFPGADepBundle) {
-    SmallString<128> CurOutput(Output.getFilename());
-    llvm::sys::path::replace_extension(CurOutput, "d");
-    UB += ',';
-    UB += CurOutput;
+    const char *BaseName = Clang::getBaseInputName(TCArgs, Inputs[0]);
+    SmallString<128> DepFile(C.getDriver().getFPGATempDepFile(BaseName));
+    if (!DepFile.empty()) {
+      UB += ',';
+      UB += DepFile;
+    }
   }
   CmdArgs.push_back(TCArgs.MakeArgString(UB));
 

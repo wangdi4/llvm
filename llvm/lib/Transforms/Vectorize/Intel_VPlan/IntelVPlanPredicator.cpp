@@ -98,9 +98,11 @@ VPValue *VPlanPredicator::getOrCreateNot(VPValue *Cond) {
 
   auto *Inst = dyn_cast<VPInstruction>(Cond);
   VPBuilder::InsertPointGuard Guard(Builder);
-  VPBasicBlock *InsertBB = Inst ? Inst->getParent() : Plan.getEntryBlock();
+  if (Inst)
+    Builder.setInsertPoint(Inst->getParent(), ++Inst->getIterator());
+  else
+    Builder.setInsertPoint(Plan.getEntryBlock());
 
-  Builder.setInsertPoint(InsertBB, InsertBB->end());
   auto *Not = Builder.createNot(Cond, Cond->getName() + ".not");
 
   Plan.getVPlanDA()->updateDivergence(*Not);
@@ -267,23 +269,18 @@ VPlanPredicator::createDefiningValueForPredicateTerm(PredicateTerm Term) {
     return Predicate;
 
   VPBuilder::InsertPointGuard Guard(Builder);
-  VPBasicBlock *PredicateInstsBB = nullptr;
   // TODO: Don't do splitting once we start preserving uniform control flow
   // and the Block is uniform.
-  if (SplitBlocks.count(Block))
-    PredicateInstsBB = Block->getSingleSuccessor();
-  else {
-    PredicateInstsBB =
-        VPBlockUtils::splitBlockEnd(Block, VPLI, Plan.getDT(), Plan.getPDT());
-    SplitBlocks.insert(Block);
-  }
-  Builder.setInsertPoint(PredicateInstsBB);
+  Builder.setInsertPoint(Block);
   // TODO: Once we start presrving uniform control flow, there will be no
   // need to create "and" for uniform predicate that is true on all incoming
   // edges.
   Val = Builder.createAnd(Predicate, Val,
                           Block->getName() + ".br." + Val->getName());
   Plan.getVPlanDA()->updateDivergence(*Val);
+  if (!BlocksToSplit.count(Block))
+    BlocksToSplit[Block] = cast<VPInstruction>(Val);
+
   return Val;
 }
 
@@ -994,6 +991,10 @@ void VPlanPredicator::predicateAndLinearizeRegion(bool SearchLoopHack) {
       }
       Blend->addIncoming(BlendTuple.getIncomingValue(), BlockPred);
     }
+  }
+  for (auto It : BlocksToSplit) {
+    (void)VPBlockUtils::splitBlock(It.first, It.second->getIterator(), VPLI,
+                                   &VPDomTree, Plan.getPDT());
   }
 }
 

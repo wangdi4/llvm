@@ -46,11 +46,12 @@ static cl::opt<bool, true> LoopMassagingEnabledOpt(
     cl::Hidden,
     cl::desc("Enable loop massaging in VPlan (Multiple to Singular Exit)"));
 
+#if INTEL_CUSTOMIZATION
+extern cl::opt<bool> EnableVPValueCodegen;
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::opt<bool> VPlanPrintAfterLoopMassaging(
     "vplan-print-after-loop-massaging", cl::init(false),
     cl::desc("Print plain dump after loop massaging"));
-
-#if INTEL_CUSTOMIZATION
 
 static cl::opt<bool>
     VPlanPrintSimplifyCFG("vplan-print-after-simplify-cfg", cl::init(false),
@@ -73,11 +74,17 @@ static cl::opt<bool> VPlanDotLoopMassaging(
     "vplan-dot-loop-massaging", cl::init(false), cl::Hidden,
     cl::desc("Print VPlan digraph after loop massaging."));
 
-extern cl::opt<bool> EnableVPValueCodegen;
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::opt<bool> DumpAfterVPEntityInstructions(
     "vplan-print-after-vpentity-instrs", cl::init(false), cl::Hidden,
     cl::desc("Print VPlan after insertion of VPEntity instructions."));
+#else
+static constexpr bool VPlanPrintSimplifyCFG = false;
+static constexpr bool VPlanPrintHCFG = false;
+static constexpr bool VPlanPrintPlainCFG = false;
+static constexpr bool VPlanDotPlainCFG = false;
+static constexpr bool VPlanDotLoopMassaging = false;
+static constexpr bool DumpAfterVPEntityInstructions = false;
+static constexpr bool VPlanPrintAfterLoopMassaging = false;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
 
@@ -263,21 +270,8 @@ void VPlanHCFGBuilder::simplifyPlainCFG() {
       mergeLoopExits(VPL);
       LLVM_DEBUG(Verifier->verifyLoops(Plan, VPDomTree, Plan->getVPLoopInfo()));
     }
-#if INTEL_CUSTOMIZATION
-    if (VPlanPrintAfterLoopMassaging) {
-      errs() << "Print after loop massaging:\n";
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-      Plan->dump();
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-    }
-
-    if (VPlanDotLoopMassaging) {
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-      outs() << *Plan;
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-    }
-#endif /* INTEL_CUSTOMIZATION */
-
+    VPLAN_DUMP(VPlanPrintAfterLoopMassaging, "loop massaging", Plan);
+    VPLAN_DOT(VPlanDotLoopMassaging, Plan);
     LLVM_DEBUG(dbgs() << "Dominator Tree After mergeLoopExits\n";
                VPDomTree.print(dbgs()));
   }
@@ -375,14 +369,7 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
   LLVM_DEBUG(dbgs() << "PostDominator Tree After buildPlainCFG:\n";
              Plan->getPDT()->print(dbgs()));
 
-#if INTEL_CUSTOMIZATION
-  if (VPlanPrintPlainCFG) {
-    errs() << "Print after buildPlainCFG\n";
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    Plan->dump();
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-  }
-#endif /* INTEL_CUSTOMIZATION */
+  VPLAN_DUMP(VPlanPrintPlainCFG, "importing plain CFG", Plan);
 
   // FIXME: Split Move everything after initial CFG construction into separate
   // transformation "passes" and schedule them in the planner/driver instead. We
@@ -393,32 +380,16 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
   VPBuilder VPIRBuilder;
   LE->insertVPInstructions(VPIRBuilder);
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    if (DumpAfterVPEntityInstructions) {
-      outs() << "After insertion VPEntities instructions:\n";
-      Plan->dump(outs(), Plan->getVPlanDA());
-    }
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
+  VPLAN_DUMP(DumpAfterVPEntityInstructions, "insertion VPEntities instructions",
+             Plan);
 
   emitVecSpecifics();
 
   // Prepare/simplify CFG for hierarchical CFG construction
   simplifyPlainCFG();
 
-#if INTEL_CUSTOMIZATION
-  if (VPlanPrintSimplifyCFG) {
-    errs() << "Print after simplify plain CFG\n";
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    Plan->dump();
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-  }
-
-  if (VPlanDotPlainCFG) {
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    outs() << *Plan;
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-  }
-#endif
+  VPLAN_DUMP(VPlanPrintSimplifyCFG, "simplify plain CFG", Plan);
+  VPLAN_DOT(VPlanDotPlainCFG, Plan);
 
   LLVM_DEBUG(Plan->setName("HCFGBuilder: After simplifyPlainCFG\n");
              dbgs() << *Plan);
@@ -438,15 +409,8 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
   LLVM_DEBUG(Plan->setName("HCFGBuilder: After building HCFG\n");
              dbgs() << *Plan;);
 
-#if INTEL_CUSTOMIZATION
-  if (VPlanPrintHCFG) {
-    errs() << "Print after building H-CFG:\n";
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    Plan->dump();
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-  }
+  VPLAN_DUMP(VPlanPrintHCFG, "building H-CFG", Plan);
   LLVM_DEBUG(Plan->dumpLivenessInfo(dbgs()));
-#endif
 }
 
 class PrivatesListCvt;

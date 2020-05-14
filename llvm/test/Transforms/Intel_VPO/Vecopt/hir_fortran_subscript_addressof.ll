@@ -24,14 +24,11 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nofree nounwind
 define double* @foo_(i32* noalias nocapture readonly %"foo_$NG") local_unnamed_addr {
-; CHECK-LABEL:  Print after buildPlainCFG
+; CHECK-LABEL:  VPlan after importing plain CFG
 ; CHECK:          i64 [[VP2:%.*]] = phi  [ i64 0, [[BB1:BB[0-9]+]] ],  [ i64 [[VP3:%.*]], [[BB2:BB[0-9]+]] ]
 ; CHECK-NEXT:     i64 [[VP4:%.*]] = sext i32 %"foo_$NG_fetch" to i64
 ; CHECK-NEXT:     i64 [[VP5:%.*]] = add i64 [[VP2]] i64 1
 ; CHECK-NEXT:     double* [[VP6:%.*]] = getelementptr inbounds [1 x [257 x [2 x double]]]* @mod1_mp_weight_ i64 0 i64 [[VP4]] i64 [[VP5]] i64 0
-
-; FIXME: Decomposer should not generate the call below. GEP was already generated.
-; CHECK-NEXT:     double* [[VP7:%.*]] = call double* [[VP6]] double* (i8, i64, i64, double*, i64)* @llvm.intel.subscript.p0f64.i64.i64.p0f64.i64
 ; CHECK-NEXT:     i64 [[VP3]] = add i64 [[VP2]] i64 1
 ;
 alloca:

@@ -1951,6 +1951,7 @@ adjustNullPointerValidAttr(Function &Caller, const Function &Callee) {
 }
 
 #if INTEL_CUSTOMIZATION
+
 /// If the inlined function has "contains-rec-pro-clone" attribute,
 /// set this attribute in the caller post inlining.
 static void
@@ -1958,6 +1959,27 @@ adjustContainsRecProCloneAttr(Function &Caller, const Function &Callee) {
   if (Callee.hasFnAttribute("contains-rec-pro-clone") &&
      !Caller.hasFnAttribute("contains-rec-pro-clone")) {
     Caller.addFnAttr("contains-rec-pro-clone");
+  }
+}
+
+///
+/// If the Caller was recognized by the Intel Function Recognizer, but the
+/// Callee was not, then the Function is no longer recognized.
+///
+static void adjustFunctionRecognizerAttr(Function &Caller,
+                                         const Function &Callee) {
+  //
+  // Note: Other Functions identified by the Intel Function Recognizer
+  // are leaf functions and do not need to be handled here.
+  //
+  if (Caller.hasFnAttribute("is-qsort-spec_qsort")) {
+    if (!(Callee.hasFnAttribute("must-be-qsort-med3") &&
+        Callee.hasFnAttribute("is-qsort-med3") ||
+        Callee.hasFnAttribute("must-be-qsort-swapfunc") &&
+        Callee.hasFnAttribute("is-qsort-swapfunc")))
+      Caller.removeFnAttr("is-qsort-spec_qsort");
+  } else if (Caller.hasFnAttribute("is-qsort-med3")) {
+    Caller.removeFnAttr("is-qsort-med3");
   }
 }
 #endif // INTEL_CUSTOMIZATION

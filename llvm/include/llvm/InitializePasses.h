@@ -104,6 +104,7 @@ void initializeAliasSetPrinterPass(PassRegistry&);
 void initializeAlignmentFromAssumptionsPass(PassRegistry&);
 void initializeAlwaysInlinerLegacyPassPass(PassRegistry&);
 void initializeAndersensAAWrapperPassPass(PassRegistry&); // INTEL
+void initializeAssumeSimplifyPassLegacyPassPass(PassRegistry &);
 void initializeOpenMPOptLegacyPassPass(PassRegistry &);
 void initializeArgPromotionPass(PassRegistry&);
 void initializeArrayUseWrapperPassPass(PassRegistry&); // INTEL

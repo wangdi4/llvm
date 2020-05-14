@@ -105,12 +105,14 @@ else(WIN32)
     ${binary_dir}/libomp-glibc${objext}
     DEPENDS wrapper.h device.h)
 endif(WIN32)
-# FIXME: resolve assertion in clang.
-#add_spv_file(
-#  ${CMAKE_CURRENT_SOURCE_DIR}/fallback-cassert.cpp
-#  ${binary_dir}/libomp-fallback-cassert.spv
-#  DEPENDS wrapper.h device.h
-#  )
+if (NOT WIN32)
+  # FIXME: resolve assertion in clang on Windows.
+  add_spv_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/fallback-cassert.cpp
+    ${binary_dir}/libomp-fallback-cassert.spv
+    DEPENDS wrapper.h device.h
+    )
+endif(NOT WIN32)
 
 # Standard math.
 add_obj_file(

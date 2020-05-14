@@ -226,13 +226,21 @@ int32_t __tgt_rtl_run_target_team_nd_region_nowait(
     int32_t ID, void *Entry, void **Args, ptrdiff_t *Offsets, int32_t NumArgs,
     int32_t NumTeams, int32_t ThreadLimit, void *LoopDesc, void *AsyncData);
 
-// Creates an opaque handle to a device-dependent offload pipe.
+// Creates an opaque handle to a device-dependent offload queue.
 EXTERN
-void *__tgt_rtl_create_offload_pipe(int32_t ID, bool IsAsync);
+void *__tgt_rtl_create_offload_queue(int32_t ID, bool IsAsync);
 
-// Releases a device-dependent offload pipe.
+// Releases a device-dependent offload queue.
 EXTERN
-int32_t __tgt_rtl_release_offload_pipe(int32_t ID, void *Pipe);
+int32_t __tgt_rtl_release_offload_queue(int32_t ID, void *Queue);
+
+// Creates an opaque handle to the platform handle.
+EXTERN
+void *__tgt_rtl_get_platform_handle(int32_t ID);
+
+// Creates an opaque handle to the  device  handle.
+EXTERN
+void *__tgt_rtl_get_device_handle(int32_t ID);
 
 // Allocate a managed memory object.
 EXTERN void *__tgt_rtl_data_alloc_managed(int32_t ID, int64_t Size);

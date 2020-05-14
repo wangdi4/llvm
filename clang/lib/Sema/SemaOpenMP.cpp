@@ -2970,15 +2970,14 @@ Sema::CheckOMPThreadPrivateDecl(SourceLocation Loc, ArrayRef<Expr *> VarList) {
 static OMPAllocateDeclAttr::AllocatorTypeTy
 getAllocatorKind(Sema &S, DSAStackTy *Stack, Expr *Allocator) {
   if (!Allocator)
-    return OMPAllocateDeclAttr::OMPDefaultMemAlloc;
+    return OMPAllocateDeclAttr::OMPNullMemAlloc;
   if (Allocator->isTypeDependent() || Allocator->isValueDependent() ||
       Allocator->isInstantiationDependent() ||
       Allocator->containsUnexpandedParameterPack())
     return OMPAllocateDeclAttr::OMPUserDefinedMemAlloc;
   auto AllocatorKindRes = OMPAllocateDeclAttr::OMPUserDefinedMemAlloc;
   const Expr *AE = Allocator->IgnoreParenImpCasts();
-  for (int I = OMPAllocateDeclAttr::OMPDefaultMemAlloc;
-       I < OMPAllocateDeclAttr::OMPUserDefinedMemAlloc; ++I) {
+  for (int I = 0; I < OMPAllocateDeclAttr::OMPUserDefinedMemAlloc; ++I) {
     auto AllocatorKind = static_cast<OMPAllocateDeclAttr::AllocatorTypeTy>(I);
     const Expr *DefAllocator = Stack->getAllocator(AllocatorKind);
     llvm::FoldingSetNodeID AEId, DAEId;
@@ -4600,6 +4599,10 @@ static bool checkNestingOfRegions(Sema &SemaRef, const DSAStackTy *Stack,
     if (!NestingProhibited &&
         !isOpenMPTargetExecutionDirective(CurrentRegion) &&
         !isOpenMPTargetDataManagementDirective(CurrentRegion) &&
+#if INTEL_COLLAB
+        !(CurrentRegion == OMPD_atomic &&
+          SemaRef.getLangOpts().OpenMPLateOutline) &&
+#endif // INTEL_COLLAB
         (ParentRegion == OMPD_teams || ParentRegion == OMPD_target_teams)) {
       // OpenMP [2.16, Nesting of Regions]
       // distribute, parallel, parallel sections, parallel workshare, and the
@@ -12870,8 +12873,7 @@ static bool findOMPAllocatorHandleT(Sema &S, SourceLocation Loc,
     return true;
   // Build the predefined allocator expressions.
   bool ErrorFound = false;
-  for (int I = OMPAllocateDeclAttr::OMPDefaultMemAlloc;
-       I < OMPAllocateDeclAttr::OMPUserDefinedMemAlloc; ++I) {
+  for (int I = 0; I < OMPAllocateDeclAttr::OMPUserDefinedMemAlloc; ++I) {
     auto AllocatorKind = static_cast<OMPAllocateDeclAttr::AllocatorTypeTy>(I);
     StringRef Allocator =
         OMPAllocateDeclAttr::ConvertAllocatorTypeTyToStr(AllocatorKind);

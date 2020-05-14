@@ -470,14 +470,13 @@ public:
   static bool blockIsLoopLatch(const VPBasicBlock *BB,
                                const VPLoopInfo *VPLInfo);
 
-private:
+public:
   static VPBasicBlock *splitBlock(VPBasicBlock *BB,
                                   VPBasicBlock::iterator BeforeIt,
                                   VPLoopInfo *VPLInfo,
                                   VPDominatorTree *DomTree = nullptr,
                                   VPPostDominatorTree *PostDomTree = nullptr);
 
-public:
   static VPBasicBlock *
   splitBlockBegin(VPBasicBlock *BB, VPLoopInfo *VPLInfo,
                   VPDominatorTree *DomTree = nullptr,

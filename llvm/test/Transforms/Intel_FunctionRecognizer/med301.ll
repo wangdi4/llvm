@@ -6,7 +6,9 @@
 
 ; CHECK: FUNCTION-RECOGNIZER: FOUND QSORT-MED3 med3
 ; CHECK: define{{.*}}@med3{{.*}} #0
+; CHECK: call{{.*}}%cmp({{.*}}) #1
 ; CHECK: attributes #0 = { "is-qsort-med3" }
+; CHECK: attributes #1 = { "must-be-qsort-compare" }
 
 define internal i8* @med3(i8* %a, i8* %b, i8* %c, i32 (i8*, i8*)* %cmp) #2 {
 entry:

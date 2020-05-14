@@ -680,7 +680,7 @@ void CodeGenModule::Release() {
   if (LangOpts.OpenCL) {
 #if INTEL_CUSTOMIZATION
     if (!getContext().isFPContractDisabled() &&
-        getLangOpts().getDefaultFPContractMode() != LangOptions::FPC_Off)
+        getLangOpts().getDefaultFPContractMode() != LangOptions::FPM_Off)
       getModule().getOrInsertNamedMetadata("opencl.enable.FP_CONTRACT");
 #endif // INTEL_CUSTOMIZATION
 

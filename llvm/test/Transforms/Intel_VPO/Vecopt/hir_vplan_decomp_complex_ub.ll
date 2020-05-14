@@ -28,7 +28,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
 define dso_local void @foo(i32 %n) local_unnamed_addr {
-; CHECK-LABEL:  Print after buildPlainCFG
+; CHECK-LABEL:  VPlan after importing plain CFG
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {@c}
 ; CHECK-DAG:     [[VP1:%.*]] = {@a}

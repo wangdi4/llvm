@@ -840,14 +840,11 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     auto UnOpCode = static_cast<Instruction::UnaryOps>(VPInst->getOpcode());
     Value *V = Builder.CreateUnOp(UnOpCode, Src);
 
-    // TODO: IR flags are not stored in VPInstruction (example FMF, wrapping
-    // flags). Use underlying IR flags if any
-    if (isa<Instruction>(V) && VPInst->getUnderlyingValue()) {
-      auto *IRValue = VPInst->getUnderlyingValue();
-      UnaryOperator *UnOp = cast<UnaryOperator>(IRValue);
-      UnaryOperator *VecOp = cast<UnaryOperator>(V);
-      VecOp->copyIRFlags(UnOp);
-    }
+    // Copy operator flags stored in VPInstruction (example FMF, wrapping
+    // flags).
+    if (auto *UnaryInst = dyn_cast<Instruction>(V))
+      VPInst->copyOperatorFlagsTo(UnaryInst);
+
     VPWidenMap[VPInst] = V;
     return;
   }
@@ -883,14 +880,11 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     auto BinOpCode = static_cast<Instruction::BinaryOps>(VPInst->getOpcode());
     Value *V = Builder.CreateBinOp(BinOpCode, A, B);
 
-    // TODO: IR flags are not stored in VPInstruction (example FMF, wrapping
-    // flags). Use underlying IR flags if any
-    if (isa<Instruction>(V) && VPInst->getUnderlyingValue()) {
-      auto *IRValue = VPInst->getUnderlyingValue();
-      BinaryOperator *BinOp = cast<BinaryOperator>(IRValue);
-      BinaryOperator *VecOp = cast<BinaryOperator>(V);
-      VecOp->copyIRFlags(BinOp);
-    }
+    // Copy operator flags stored in VPInstruction (example FMF, wrapping
+    // flags).
+    if (auto *BinaryInst = dyn_cast<Instruction>(V))
+      VPInst->copyOperatorFlagsTo(BinaryInst);
+
     VPWidenMap[VPInst] = V;
     // TODO: Need to check for scalar code generation for the most of
     // VPInstructions.
@@ -901,10 +895,8 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
           static_cast<Instruction::BinaryOps>(VPInst->getOpcode()), AScal,
           BScal);
       VPScalarMap[VPInst][0] = VScal;
-      if (auto Underlying = VPInst->getUnderlyingValue()) {
-        if (auto Inst = dyn_cast<Instruction>(VScal))
-          Inst->copyIRFlags(Underlying);
-      }
+      if (auto Inst = dyn_cast<Instruction>(VScal))
+        VPInst->copyOperatorFlagsTo(Inst);
     }
     return;
   }
@@ -935,12 +927,10 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     Value *B = getVectorValue(VPInst->getOperand(1));
     auto *FCmp = cast<VPCmpInst>(VPInst);
     Value *VecFCmp = Builder.CreateFCmp(FCmp->getPredicate(), A, B);
-    // TODO: Copy fast math flags. Currently not represented in VPlan. Use
-    // underlying IR flags if any.
-    if (isa<Instruction>(VecFCmp) && VPInst->getUnderlyingValue()) {
-      FCmpInst *UnderlyingFCmp = cast<FCmpInst>(VPInst->getUnderlyingValue());
-      cast<FCmpInst>(VecFCmp)->copyFastMathFlags(UnderlyingFCmp);
-    }
+    // Copy fast math flags.
+    if (auto *VecFCmpInst = dyn_cast<Instruction>(VecFCmp))
+      VPInst->copyOperatorFlagsTo(VecFCmpInst);
+
     VPWidenMap[VPInst] = VecFCmp;
     return;
   }
@@ -1547,9 +1537,9 @@ void VPOCodeGen::vectorizeOpenCLSinCos(VPInstruction *VPCall, bool IsMasked) {
   // %16 = call <8 x float> @_Z14sincos_ret2ptrDv8_fPS_S1_(<8 x float>
   //                                                       %wide.input,
   //                                                       <8 x float>*
-  //                                                       %cosPtr.vec,
+  //                                                       %sinPtr.vec,
   //                                                       <8 x float>*
-  //                                                       %sinPtr.vec)
+  //                                                       %cosPtr.vec)
   // %wide.sin.InitVal = load <8 x float>, <8 x float>* %SinPtr.vec
   // %wide.load2 = load <8 x float>, <8 x float>* %cosPtr.vec, align 4
 
@@ -1581,11 +1571,11 @@ void VPOCodeGen::vectorizeOpenCLSinCos(VPInstruction *VPCall, bool IsMasked) {
   WideSinPtr->insertAfter(WideCosPtr);
   WideSinPtr->setName("sinPtr.vec");
   VecArgs.push_back(Arg1);
-  VecArgs.push_back(WideCosPtr);
   VecArgs.push_back(WideSinPtr);
+  VecArgs.push_back(WideCosPtr);
   VecArgTys.push_back(Arg1->getType());
-  VecArgTys.push_back(WideCosPtr->getType());
   VecArgTys.push_back(WideSinPtr->getType());
+  VecArgTys.push_back(WideCosPtr->getType());
 
   Function *CalledFunc = getCalledFunction(VPCall);
   assert(CalledFunc && "Unexpected null call function.");
@@ -1594,10 +1584,9 @@ void VPOCodeGen::vectorizeOpenCLSinCos(VPInstruction *VPCall, bool IsMasked) {
                                 Intrinsic::not_intrinsic, nullptr, IsMasked);
   assert(VectorF && "Vector function not created.");
   CallInst *VecCall = Builder.CreateCall(VectorF, VecArgs);
-  // TODO: Fast math flags are not represented in VPValue yet, using underlying
-  // CallInst.
+  // Copy fast math flags represented in VPInstruction to VecCall.
   if (isa<FPMathOperator>(VecCall))
-    VecCall->copyFastMathFlags(UnderlyingCI);
+    VPCall->copyOperatorFlagsTo(VecCall);
 
   // Make sure we don't lose attributes at the call site. E.g., IMF
   // attributes are taken from call sites in MapIntrinToIml to refine
@@ -2468,14 +2457,12 @@ void VPOCodeGen::vectorizeCallInstruction(VPInstruction *VPCall,
     CallInst *VecCall = Builder.CreateCall(VectorF, VecArgs);
     CallResults.push_back(VecCall);
 
+    // Copy fast math flags represented in VPInstruction.
     // TODO: investigate why attempting to copy fast math flags for __read_pipe
     // fails. For now, just don't do the copy.
-    // TODO: Fast math flags are not represented in VPValue yet.
     if (isa<FPMathOperator>(VecCall) &&
         !isOpenCLReadChannel(CalledFunc->getName())) {
-#if 0
-      VecCall->copyFastMathFlags(Call);
-#endif
+      VPCall->copyOperatorFlagsTo(VecCall);
     }
 
     // Make sure we don't lose attributes at the call site. E.g., IMF

@@ -5,8 +5,17 @@
 ; Test that on Linux @spec_qsort is recognized as a qsort spec_qsort.
 ; This is the same test as specqsort01.ll, but does not require asserts.
 
-; CHECK: define{{.*}}@spec_qsort{{.*}}
-; CHECK: attributes #0 = { "is-qsort-spec_qsort" }
+; CHECK: declare{{.*}}@med3{{.*}} #0
+; CHECK: declare{{.*}}@swapfunc{{.*}} #1
+; CHECK: define{{.*}}@spec_qsort{{.*}} #2
+; CHECK: call{{.*}}%cmp({{.*}}) #3
+; CHECK: call{{.*}}%cmp({{.*}}) #3
+; CHECK: call{{.*}}%cmp({{.*}}) #3
+; CHECK: call{{.*}}%cmp({{.*}}) #3
+; CHECK: attributes #0 = { "must-be-qsort-med3" }
+; CHECK: attributes #1 = { "must-be-qsort-swapfunc" }
+; CHECK: attributes #2 = { "is-qsort-spec_qsort" }
+; CHECK: attributes #3 = { "must-be-qsort-compare" }
 
 declare i8* @med3(i8* %a, i8* %b, i8* %c, i32 (i8*, i8*)* %cmp)
 

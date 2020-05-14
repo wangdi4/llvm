@@ -59,6 +59,11 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/ADT/ilist.h"
+#if INTEL_CUSTOMIZATION
+// It is not a good idea to include analyses headers in IR directory.
+// FIXME: Refactor the code to resolve this.
+#include "llvm/Analysis/Intel_OptReport/LoopOptReport.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/Attributes.h"
@@ -397,6 +402,9 @@ public:
   }
 
 private:
+  /// Whether a metadata node is allowed to be, or contain, a DILocation.
+  enum class AreDebugLocsAllowed { No, Yes };
+
   // Verification methods...
   void visitGlobalValue(const GlobalValue &GV);
   void visitGlobalVariable(const GlobalVariable &GV);
@@ -405,7 +413,7 @@ private:
   void visitAliaseeSubExpr(SmallPtrSetImpl<const GlobalAlias *> &Visited,
                            const GlobalAlias &A, const Constant &C);
   void visitNamedMDNode(const NamedMDNode &NMD);
-  void visitMDNode(const MDNode &MD);
+  void visitMDNode(const MDNode &MD, AreDebugLocsAllowed AllowLocs);
   void visitMetadataAsValue(const MetadataAsValue &MD, Function *F);
   void visitValueAsMetadata(const ValueAsMetadata &MD, Function *F);
   void visitComdat(const Comdat &C);
@@ -787,11 +795,11 @@ void Verifier::visitNamedMDNode(const NamedMDNode &NMD) {
     if (!MD)
       continue;
 
-    visitMDNode(*MD);
+    visitMDNode(*MD, AreDebugLocsAllowed::Yes);
   }
 }
 
-void Verifier::visitMDNode(const MDNode &MD) {
+void Verifier::visitMDNode(const MDNode &MD, AreDebugLocsAllowed AllowLocs) {
   // Only visit each node once.  Metadata can be mutually recursive, so this
   // avoids infinite recursion here, as well as being an optimization.
   if (!MDNodes.insert(&MD).second)
@@ -809,13 +817,32 @@ void Verifier::visitMDNode(const MDNode &MD) {
 #include "llvm/IR/Metadata.def"
   }
 
+#if INTEL_CUSTOMIZATION
+  auto CheckOptReportDebugLoc = [](const MDNode &MD) {
+    auto *Tuple = dyn_cast<MDTuple>(&MD);
+    if (!Tuple || Tuple->getNumOperands() != 2)
+      return false;
+
+    if (!Tuple->getOperand(0))
+      return false;
+
+    MDString *Str = dyn_cast<MDString>(Tuple->getOperand(0));
+
+    return Str && (Str->getString() == LoopOptReportTag::DebugLoc);
+  };
+
+  bool IsOptReportDebugLoc = CheckOptReportDebugLoc(MD);
+#endif // INTEL_CUSTOMIZATION
   for (const Metadata *Op : MD.operands()) {
     if (!Op)
       continue;
     Assert(!isa<LocalAsMetadata>(Op), "Invalid operand for global metadata!",
            &MD, Op);
+    AssertDI(!isa<DILocation>(Op) || IsOptReportDebugLoc || // INTEL
+                 AllowLocs == AreDebugLocsAllowed::Yes,     // INTEL
+             "DILocation not allowed within this metadata node", &MD, Op);
     if (auto *N = dyn_cast<MDNode>(Op)) {
-      visitMDNode(*N);
+      visitMDNode(*N, AllowLocs);
       continue;
     }
     if (auto *V = dyn_cast<ValueAsMetadata>(Op)) {
@@ -858,7 +885,7 @@ void Verifier::visitValueAsMetadata(const ValueAsMetadata &MD, Function *F) {
 void Verifier::visitMetadataAsValue(const MetadataAsValue &MDV, Function *F) {
   Metadata *MD = MDV.getMetadata();
   if (auto *N = dyn_cast<MDNode>(MD)) {
-    visitMDNode(*N);
+    visitMDNode(*N, AreDebugLocsAllowed::No);
     return;
   }
 
@@ -2325,7 +2352,7 @@ void Verifier::visitFunction(const Function &F) {
              "function declaration may not have a !prof attachment", &F);
 
       // Verify the metadata itself.
-      visitMDNode(*I.second);
+      visitMDNode(*I.second, AreDebugLocsAllowed::Yes);
     }
     Assert(!F.hasPersonalityFn(),
            "Function declaration shouldn't have a personality routine", &F);
@@ -2349,6 +2376,7 @@ void Verifier::visitFunction(const Function &F) {
     // Visit metadata attachments.
     for (const auto &I : MDs) {
       // Verify that the attachment is legal.
+      auto AllowLocs = AreDebugLocsAllowed::No;
       switch (I.first) {
       default:
         break;
@@ -2363,6 +2391,7 @@ void Verifier::visitFunction(const Function &F) {
         AssertDI(!AttachedTo || AttachedTo == &F,
                  "DISubprogram attached to more than one function", SP, &F);
         AttachedTo = &F;
+        AllowLocs = AreDebugLocsAllowed::Yes;
         break;
       }
       case LLVMContext::MD_prof:
@@ -2373,7 +2402,7 @@ void Verifier::visitFunction(const Function &F) {
       }
 
       // Verify the metadata itself.
-      visitMDNode(*I.second);
+      visitMDNode(*I.second, AllowLocs);
     }
   }
 
@@ -4409,12 +4438,23 @@ void Verifier::visitInstruction(Instruction &I) {
 
   if (MDNode *N = I.getDebugLoc().getAsMDNode()) {
     AssertDI(isa<DILocation>(N), "invalid !dbg metadata attachment", &I, N);
-    visitMDNode(*N);
+    visitMDNode(*N, AreDebugLocsAllowed::Yes);
   }
 
   if (auto *DII = dyn_cast<DbgVariableIntrinsic>(&I)) {
     verifyFragmentExpression(*DII);
     verifyNotEntryValue(*DII);
+  }
+
+  SmallVector<std::pair<unsigned, MDNode *>, 4> MDs;
+  I.getAllMetadata(MDs);
+  for (auto Attachment : MDs) {
+    unsigned Kind = Attachment.first;
+    auto AllowLocs =
+        (Kind == LLVMContext::MD_dbg || Kind == LLVMContext::MD_loop)
+            ? AreDebugLocsAllowed::Yes
+            : AreDebugLocsAllowed::No;
+    visitMDNode(*Attachment.second, AllowLocs);
   }
 
   InstsInThisBlock.insert(&I);

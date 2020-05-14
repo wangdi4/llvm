@@ -22,13 +22,13 @@
 ; CHECK:            %red.var = 0;
 ; CHECK-NEXT:       %red.var = insertelement %red.var,  %sum.022,  0;
 ; CHECK:            + DO i1 = 0, 99, 4   <DO_LOOP> <novectorize>
-; CHECK-NEXT:       |   %.vec = %red.var;
+; CHECK-NEXT:       |   %.copy = %red.var;
 ; CHECK-NEXT:       |   %.vls.load = (<12 x i32>*)(@arr1)[0][3 * i1];
 ; CHECK-NEXT:       |   %vls.shuf = shufflevector %.vls.load,  undef,  <i32 1, i32 4, i32 7, i32 10>;
 ; CHECK-NEXT:       |   %vls.shuf1 = shufflevector %.vls.load,  undef,  <i32 2, i32 5, i32 8, i32 11>;
 ; CHECK-NEXT:       |   %vls.shuf2 = shufflevector %.vls.load,  undef,  <i32 0, i32 3, i32 6, i32 9>;
-; CHECK-NEXT:       |   %.vec3 = %vls.shuf  +  %vls.shuf1;
-; CHECK-NEXT:       |   %red.var = %.vec3  +  %.vec;
+; CHECK-NEXT:       |   %.vec = %vls.shuf  +  %vls.shuf1;
+; CHECK-NEXT:       |   %red.var = %.vec  +  %.copy;
 ; CHECK-NEXT:       |   %red.var = %red.var  +  %vls.shuf2;
 ; CHECK-NEXT:       + END LOOP
 ; CHECK:            %sum.022 = @llvm.experimental.vector.reduce.add.v4i32(%red.var);

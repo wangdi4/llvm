@@ -218,12 +218,17 @@ unsigned VPlanCostModel::getLoadStoreCost(const VPInstruction *VPInst) {
   unsigned Alignment = getMemInstAlignment(VPInst);
   unsigned AddrSpace = getMemInstAddressSpace(VPInst);
   Type *VecTy = getVectorizedType(OpTy, VF);
-
-  // FIXME: Take into account masked case.
+  // TODO: VF check in IsMasked might become redundant once a separate VPlan
+  // is maintained for VF = 1 meaning that the cost calculation for scalar loop
+  // is done over VPlan that doesn't undergo any vector transformations such as
+  // predication.
+  bool IsMasked = (VF > 1) && (VPInst->getParent()->getPredicate() != nullptr);
 
   if (isUnitStrideLoadStore(VPInst))
-    return TTI->getMemoryOpCost(Opcode, VecTy, MaybeAlign(Alignment),
-                                AddrSpace);
+    return IsMasked ?
+      TTI->getMaskedMemoryOpCost(Opcode, getVectorizedType(OpTy, VF),
+                                 Alignment, AddrSpace) :
+      TTI->getMemoryOpCost(Opcode, VecTy, MaybeAlign(Alignment), AddrSpace);
 
   // FIXME: Shouldn't use underlying IR, because at this point it can be
   // invalid. For instance, vectorizer may decide to generate 32-bit gather
@@ -234,7 +239,7 @@ unsigned VPlanCostModel::getLoadStoreCost(const VPInstruction *VPInst) {
   //  2. Templatize TTI to use VPValue.
   if (auto GEPInst = getGEP(VPInst)) {
     return TTI->getGatherScatterOpCost(Opcode, VecTy, GEPInst,
-                                       false /* Masked */, Alignment);
+                                       IsMasked, Alignment);
   }
   unsigned BaseCost =
       TTI->getMemoryOpCost(Opcode, OpTy, MaybeAlign(Alignment), AddrSpace);
@@ -330,8 +335,8 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
     if (!BaseTy)
       return UnknownCost;
     Type *VecTy = getVectorizedType(BaseTy, VF);
-    unsigned Cost =
-        TTI->getArithmeticInstrCost(Opcode, VecTy, Op1VK, Op2VK, Op1VP, Op2VP);
+    unsigned Cost = TTI->getArithmeticInstrCost(
+        Opcode, VecTy, TTI::TCK_RecipThroughput, Op1VK, Op2VK, Op1VP, Op2VP);
     return Cost;
   }
   case Instruction::ICmp:

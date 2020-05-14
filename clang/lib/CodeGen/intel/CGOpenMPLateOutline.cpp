@@ -181,12 +181,13 @@ OpenMPLateOutliner::emitOpenMPCopyConstructor(const Expr *IPriv) {
     ImplicitCastExpr CastExpr(ImplicitCastExpr::OnStack,
                               C.getPointerType(ElemType), CK_BitCast, &SrcExpr,
                               VK_RValue);
-    UnaryOperator SRC(&CastExpr, UO_Deref, ElemType, VK_LValue, OK_Ordinary,
-                      SourceLocation(), /*CanOverflow=*/false);
+    UnaryOperator *SRC = UnaryOperator::Create(
+        C, &CastExpr, UO_Deref, ElemType, VK_LValue, OK_Ordinary,
+        SourceLocation(), /*CanOverflow=*/false, FPOptions(C.getLangOpts()));
 
     QualType CTy = ElemType;
     CTy.addConst();
-    ImplicitCastExpr NoOpCast(ImplicitCastExpr::OnStack, CTy, CK_NoOp, &SRC,
+    ImplicitCastExpr NoOpCast(ImplicitCastExpr::OnStack, CTy, CK_NoOp, SRC,
                               VK_LValue);
 
     SmallVector<Expr *, 8> ConstructorArgs;
@@ -1396,7 +1397,7 @@ void OpenMPLateOutliner::emitOMPNowaitClause(const OMPNowaitClause *Cl) {
 void OpenMPLateOutliner::emitOMPUseDevicePtrClause(
     const OMPUseDevicePtrClause *Cl) {
   ClauseEmissionHelper CEH(*this, OMPC_use_device_ptr);
-  addArg("QUAL.OMP.USE_DEVICE_PTR");
+  addArg("QUAL.OMP.USE_DEVICE_PTR:PTR_TO_PTR");
   for (auto *E : Cl->varlists())
     addArg(E);
 }
@@ -1943,7 +1944,7 @@ void OpenMPLateOutliner::emitOMPDistributeParallelForSimdDirective() {
 }
 void OpenMPLateOutliner::emitOMPDistributeSimdDirective() {
   startDirectiveIntrinsicSet("DIR.OMP.DISTRIBUTE", "DIR.OMP.END.DISTRIBUTE",
-                             OMPD_distribute_simd);
+                             OMPD_distribute);
   startDirectiveIntrinsicSet("DIR.OMP.SIMD", "DIR.OMP.END.SIMD", OMPD_simd);
 }
 void OpenMPLateOutliner::emitOMPSectionsDirective() {

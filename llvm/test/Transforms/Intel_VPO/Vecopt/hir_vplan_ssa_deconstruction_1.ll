@@ -28,7 +28,7 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-linearization-hir=false -vplan-force-vf=4 -print-after=VPlanDriverHIR -vplan-print-after-ssa-deconstruction -vplan-dump-external-defs-hir=0 -disable-output < %s 2>&1 | FileCheck %s
 
 define void @foo(float* noalias nocapture %arr1, float* noalias nocapture %arr2, i32 %n1) {
-; CHECK-LABEL:  After VPlan SSA deconstruction
+; CHECK-LABEL:  VPlan after SSA deconstruction
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=4
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
@@ -52,7 +52,7 @@ define void @foo(float* noalias nocapture %arr1, float* noalias nocapture %arr2,
 ; CHECK-NEXT:      [[BB5]]:
 ; CHECK-NEXT:       [DA: Div] float* [[VP5:%.*]] = getelementptr inbounds float* [[ARR20:%.*]] i64 [[VP2]]
 ; CHECK-NEXT:       [DA: Div] float [[VP6:%.*]] = load float* [[VP5]]
-; CHECK-NEXT:       [DA: Div] float [[VP7:%.*]] = call float [[VP6]] float (float)* @llvm.ssa.copy.f32
+; CHECK-NEXT:       [DA: Div] float [[VP7:%.*]] = hir-copy float [[VP6]] , OriginPhiId: -1
 ; CHECK-NEXT:       [DA: Div] float [[VP8:%.*]] = hir-copy float [[VP0]] , OriginPhiId: 0
 ; CHECK-NEXT:       [DA: Div] float [[VP9:%.*]] = hir-copy float [[VP7]] , OriginPhiId: 1
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB3]]
@@ -61,7 +61,7 @@ define void @foo(float* noalias nocapture %arr1, float* noalias nocapture %arr2,
 ; CHECK-NEXT:      [[BB4]]:
 ; CHECK-NEXT:       [DA: Div] float* [[VP10:%.*]] = getelementptr inbounds float* [[ARR10:%.*]] i64 [[VP2]]
 ; CHECK-NEXT:       [DA: Div] float [[VP11:%.*]] = load float* [[VP10]]
-; CHECK-NEXT:       [DA: Div] float [[VP12:%.*]] = call float [[VP11]] float (float)* @llvm.ssa.copy.f32
+; CHECK-NEXT:       [DA: Div] float [[VP12:%.*]] = hir-copy float [[VP11]] , OriginPhiId: -1
 ; CHECK-NEXT:       [DA: Div] float [[VP13:%.*]] = hir-copy float [[VP0]] , OriginPhiId: 0
 ; CHECK-NEXT:       [DA: Div] float [[VP14:%.*]] = hir-copy float [[VP12]] , OriginPhiId: 1
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB3]]

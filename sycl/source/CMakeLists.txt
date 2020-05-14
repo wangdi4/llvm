@@ -24,10 +24,10 @@ function(add_sycl_rt_library LIB_NAME)
   set(LIB_OBJ_NAME ${LIB_NAME}_object)
 
   add_library(${LIB_OBJ_NAME} OBJECT ${ARG_SOURCES})
-  add_library(${LIB_NAME} SHARED
+  add_library(${LIB_NAME} SHARED 
               $<TARGET_OBJECTS:${LIB_OBJ_NAME}>
               ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
-
+    
   if (ARG_COMPILE_OPTIONS)
     target_compile_options(${LIB_OBJ_NAME} PRIVATE ${ARG_COMPILE_OPTIONS})
   endif()
@@ -113,6 +113,7 @@ set(SYCL_SOURCES
     "detail/common.cpp"
     "detail/config.cpp"
     "detail/context_impl.cpp"
+    "detail/device_binary_image.cpp"
     "detail/device_impl.cpp"
     "detail/error_handling/enqueue_kernel.cpp"
     "detail/event_impl.cpp"

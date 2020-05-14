@@ -203,11 +203,11 @@ namespace llvm {
   extern char &RAReportEmitterID;
 #endif  // INTEL_CUSTOMIZATION
 
-  /// createPostRAHazardRecognizer - This pass runs the post-ra hazard
+  /// PostRAHazardRecognizer - This pass runs the post-ra hazard
   /// recognizer.
   extern char &PostRAHazardRecognizerID;
 
-  /// createPostRAScheduler - This pass performs post register allocation
+  /// PostRAScheduler - This pass performs post register allocation
   /// scheduling.
   extern char &PostRASchedulerID;
 

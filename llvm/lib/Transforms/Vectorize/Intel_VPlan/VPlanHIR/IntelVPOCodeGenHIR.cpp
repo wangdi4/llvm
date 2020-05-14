@@ -1430,6 +1430,17 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
     if (!WideRef->getBaseCE()->isInvariantAtLevel(NestingLevel)) {
       WideRefCEs.push_back(WideRef->getBaseCE());
     }
+
+    // If the lower/stride for any of the dimensions of this memref are loop
+    // variant, then add it to the list of CEs to be updated for widening.
+    for (unsigned Dim = WideRef->getNumDimensions(); Dim > 0; --Dim) {
+      auto *Lower = WideRef->getDimensionLower(Dim);
+      auto *Stride = WideRef->getDimensionStride(Dim);
+      if (!Lower->isInvariantAtLevel(NestingLevel))
+        WideRefCEs.push_back(Lower);
+      if (!Stride->isInvariantAtLevel(NestingLevel))
+        WideRefCEs.push_back(Stride);
+    }
   }
   WideRefCEs.append(WideRef->canon_begin(), WideRef->canon_end());
 
@@ -2035,6 +2046,7 @@ HLInst *VPOCodeGenHIR::widenInterleavedAccess(
       const RegDDRef *MemRef =
           cast<VPVLSClientMemrefHIR>(Grp->getFirstMemref())->getRegDDRef();
       RegDDRef *WMemRef = widenRef(MemRef, getVF() * InterleaveFactor, true);
+      assert(WMemRef && "The memory reference should not be null pointer");
       HLInst *WideLoad =
           HLNodeUtilities.createLoad(WMemRef, CurInst->getName() + ".vls.load");
       propagateMetadata(WMemRef, Grp);

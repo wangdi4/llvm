@@ -1038,8 +1038,8 @@ static void forConstantArrayExpansion(CodeGenFunction &CGF,
   }
 }
 
-void CodeGenFunction::ExpandTypeFromArgs(
-    QualType Ty, LValue LV, SmallVectorImpl<llvm::Value *>::iterator &AI) {
+void CodeGenFunction::ExpandTypeFromArgs(QualType Ty, LValue LV,
+                                         llvm::Function::arg_iterator &AI) {
   assert(LV.isSimple() &&
          "Unexpected non-simple lvalue during struct expansion.");
 
@@ -1068,17 +1068,17 @@ void CodeGenFunction::ExpandTypeFromArgs(
       ExpandTypeFromArgs(FD->getType(), SubLV, AI);
     }
   } else if (isa<ComplexExpansion>(Exp.get())) {
-    auto realValue = *AI++;
-    auto imagValue = *AI++;
+    auto realValue = &*AI++;
+    auto imagValue = &*AI++;
     EmitStoreOfComplex(ComplexPairTy(realValue, imagValue), LV, /*init*/ true);
   } else {
     // Call EmitStoreOfScalar except when the lvalue is a bitfield to emit a
     // primitive store.
     assert(isa<NoExpansion>(Exp.get()));
     if (LV.isBitField())
-      EmitStoreThroughLValue(RValue::get(*AI++), LV);
+      EmitStoreThroughLValue(RValue::get(&*AI++), LV);
     else
-      EmitStoreOfScalar(*AI++, LV);
+      EmitStoreOfScalar(&*AI++, LV);
   }
 }
 
@@ -1284,11 +1284,9 @@ static llvm::Value *CreateCoercedLoad(Address Src, llvm::Type *Ty,
 
   // Otherwise do coercion through memory. This is stupid, but simple.
   Address Tmp = CreateTempAllocaForCoercion(CGF, Ty, Src.getAlignment());
-  Address Casted = CGF.Builder.CreateElementBitCast(Tmp,CGF.Int8Ty);
-  Address SrcCasted = CGF.Builder.CreateElementBitCast(Src,CGF.Int8Ty);
-  CGF.Builder.CreateMemCpy(Casted, SrcCasted,
-      llvm::ConstantInt::get(CGF.IntPtrTy, SrcSize),
-      false);
+  CGF.Builder.CreateMemCpy(Tmp.getPointer(), Tmp.getAlignment().getAsAlign(),
+                           Src.getPointer(), Src.getAlignment().getAsAlign(),
+                           llvm::ConstantInt::get(CGF.IntPtrTy, SrcSize));
   return CGF.Builder.CreateLoad(Tmp);
 }
 
@@ -1371,11 +1369,9 @@ static void CreateCoercedStore(llvm::Value *Src,
     // to that information.
     Address Tmp = CreateTempAllocaForCoercion(CGF, SrcTy, Dst.getAlignment());
     CGF.Builder.CreateStore(Src, Tmp);
-    Address Casted = CGF.Builder.CreateElementBitCast(Tmp,CGF.Int8Ty);
-    Address DstCasted = CGF.Builder.CreateElementBitCast(Dst,CGF.Int8Ty);
-    CGF.Builder.CreateMemCpy(DstCasted, Casted,
-        llvm::ConstantInt::get(CGF.IntPtrTy, DstSize),
-        false);
+    CGF.Builder.CreateMemCpy(Dst.getPointer(), Dst.getAlignment().getAsAlign(),
+                             Tmp.getPointer(), Tmp.getAlignment().getAsAlign(),
+                             llvm::ConstantInt::get(CGF.IntPtrTy, DstSize));
   }
 }
 
@@ -2387,19 +2383,13 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
   // simplify.
 
   ClangToLLVMArgMapping IRFunctionArgs(CGM.getContext(), FI);
-  // Flattened function arguments.
-  SmallVector<llvm::Value *, 16> FnArgs;
-  FnArgs.reserve(IRFunctionArgs.totalIRArgs());
-  for (auto &Arg : Fn->args()) {
-    FnArgs.push_back(&Arg);
-  }
-  assert(FnArgs.size() == IRFunctionArgs.totalIRArgs());
+  assert(Fn->arg_size() == IRFunctionArgs.totalIRArgs());
 
   // If we're using inalloca, all the memory arguments are GEPs off of the last
   // parameter, which is a pointer to the complete memory area.
   Address ArgStruct = Address::invalid();
   if (IRFunctionArgs.hasInallocaArg()) {
-    ArgStruct = Address(FnArgs[IRFunctionArgs.getInallocaArgNo()],
+    ArgStruct = Address(Fn->getArg(IRFunctionArgs.getInallocaArgNo()),
                         FI.getArgStructAlignment());
 
     assert(ArgStruct.getType() == FI.getArgStruct()->getPointerTo());
@@ -2407,7 +2397,7 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
 
   // Name the struct return parameter.
   if (IRFunctionArgs.hasSRetArg()) {
-    auto AI = cast<llvm::Argument>(FnArgs[IRFunctionArgs.getSRetArgNo()]);
+    auto AI = Fn->getArg(IRFunctionArgs.getSRetArgNo());
     AI->setName("agg.result");
     AI->addAttr(llvm::Attribute::NoAlias);
   }
@@ -2458,7 +2448,8 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
 
     case ABIArgInfo::Indirect: {
       assert(NumIRArgs == 1);
-      Address ParamAddr = Address(FnArgs[FirstIRArg], ArgI.getIndirectAlign());
+      Address ParamAddr =
+          Address(Fn->getArg(FirstIRArg), ArgI.getIndirectAlign());
 
       if (!hasScalarEvaluationKind(Ty)) {
         // Aggregates and complex variables are accessed by reference.  All we
@@ -2473,10 +2464,10 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
           // FIXME: We should have a common utility for generating an aggregate
           // copy.
           CharUnits Size = getContext().getTypeSizeInChars(Ty);
-          auto SizeVal = llvm::ConstantInt::get(IntPtrTy, Size.getQuantity());
-          Address Dst = Builder.CreateBitCast(AlignedTemp, Int8PtrTy);
-          Address Src = Builder.CreateBitCast(ParamAddr, Int8PtrTy);
-          Builder.CreateMemCpy(Dst, Src, SizeVal, false);
+          Builder.CreateMemCpy(
+              AlignedTemp.getPointer(), AlignedTemp.getAlignment().getAsAlign(),
+              ParamAddr.getPointer(), ParamAddr.getAlignment().getAsAlign(),
+              llvm::ConstantInt::get(IntPtrTy, Size.getQuantity()));
           V = AlignedTemp;
         }
         ArgVals.push_back(ParamValue::forIndirect(V));
@@ -2494,16 +2485,18 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
 
     case ABIArgInfo::Extend:
     case ABIArgInfo::Direct: {
+      auto AI = Fn->getArg(FirstIRArg);
+      llvm::Type *LTy = ConvertType(Arg->getType());
 
-      // If we have the trivial case, handle it with no muss and fuss.
-      if (!isa<llvm::StructType>(ArgI.getCoerceToType()) &&
-          ArgI.getCoerceToType() == ConvertType(Ty) &&
-          ArgI.getDirectOffset() == 0) {
+      // Prepare parameter attributes. So far, only attributes for pointer
+      // parameters are prepared. See
+      // http://llvm.org/docs/LangRef.html#paramattrs.
+      if (ArgI.getDirectOffset() == 0 && LTy->isPointerTy() &&
+          ArgI.getCoerceToType()->isPointerTy()) {
         assert(NumIRArgs == 1);
-        llvm::Value *V = FnArgs[FirstIRArg];
-        auto AI = cast<llvm::Argument>(V);
 
         if (const ParmVarDecl *PVD = dyn_cast<ParmVarDecl>(Arg)) {
+          // Set `nonnull` attribute if any.
           if (getNonNullAttr(CurCodeDecl, PVD, PVD->getType(),
                              PVD->getFunctionScopeIndex()) &&
               !CGM.getCodeGenOpts().NullPointerIsValid)
@@ -2541,6 +2534,7 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
               AI->addAttr(llvm::Attribute::NonNull);
           }
 
+          // Set `align` attribute if any.
           const auto *AVAttr = PVD->getAttr<AlignValueAttr>();
           if (!AVAttr)
             if (const auto *TOTy = dyn_cast<TypedefType>(OTy))
@@ -2558,14 +2552,24 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
           }
         }
 
+        // Set 'noalias' if an argument type has the `restrict` qualifier.
         if (Arg->getType().isRestrictQualified() ||
             (CurCodeDecl &&
              CurCodeDecl->hasAttr<SYCLIntelKernelArgsRestrictAttr>() &&
              Arg->getType()->isPointerType()))
           AI->addAttr(llvm::Attribute::NoAlias);
+      }
+
+      // Prepare the argument value. If we have the trivial case, handle it
+      // with no muss and fuss.
+      if (!isa<llvm::StructType>(ArgI.getCoerceToType()) &&
+          ArgI.getCoerceToType() == ConvertType(Ty) &&
+          ArgI.getDirectOffset() == 0) {
+        assert(NumIRArgs == 1);
 
         // LLVM expects swifterror parameters to be used in very restricted
         // ways.  Copy the value into a less-restricted temporary.
+        llvm::Value *V = AI;
         if (FI.getExtParameterInfo(ArgNo).getABI()
               == ParameterABI::SwiftErrorResult) {
           QualType pointeeTy = Ty->getPointeeType();
@@ -2627,7 +2631,7 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
 
         assert(STy->getNumElements() == NumIRArgs);
         for (unsigned i = 0, e = STy->getNumElements(); i != e; ++i) {
-          auto AI = FnArgs[FirstIRArg + i];
+          auto AI = Fn->getArg(FirstIRArg + i);
           AI->setName(Arg->getName() + ".coerce" + Twine(i));
           Address EltPtr = Builder.CreateStructGEP(AddrToStoreInto, i);
           Builder.CreateStore(AI, EltPtr);
@@ -2640,7 +2644,7 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
       } else {
         // Simple case, just do a coerced store of the argument into the alloca.
         assert(NumIRArgs == 1);
-        auto AI = FnArgs[FirstIRArg];
+        auto AI = Fn->getArg(FirstIRArg);
         AI->setName(Arg->getName() + ".coerce");
         CreateCoercedStore(AI, Ptr, /*DstIsVolatile=*/false, *this);
       }
@@ -2673,7 +2677,7 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
           continue;
 
         auto eltAddr = Builder.CreateStructGEP(alloca, i);
-        auto elt = FnArgs[argIndex++];
+        auto elt = Fn->getArg(argIndex++);
         Builder.CreateStore(elt, eltAddr);
       }
       assert(argIndex == FirstIRArg + NumIRArgs);
@@ -2688,11 +2692,11 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
       LValue LV = MakeAddrLValue(Alloca, Ty);
       ArgVals.push_back(ParamValue::forIndirect(Alloca));
 
-      auto FnArgIter = FnArgs.begin() + FirstIRArg;
+      auto FnArgIter = Fn->arg_begin() + FirstIRArg;
       ExpandTypeFromArgs(Ty, LV, FnArgIter);
-      assert(FnArgIter == FnArgs.begin() + FirstIRArg + NumIRArgs);
+      assert(FnArgIter == Fn->arg_begin() + FirstIRArg + NumIRArgs);
       for (unsigned i = 0, e = NumIRArgs; i != e; ++i) {
-        auto AI = FnArgs[FirstIRArg + i];
+        auto AI = Fn->getArg(FirstIRArg + i);
         AI->setName(Arg->getName() + "." + Twine(i));
       }
       break;

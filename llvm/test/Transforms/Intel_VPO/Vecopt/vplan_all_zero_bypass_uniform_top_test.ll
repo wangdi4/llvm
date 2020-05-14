@@ -18,7 +18,7 @@ declare void @llvm.directive.region.exit(token)
 
 define dso_local void @foo(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local_unnamed_addr #0 {
 ;
-; CHECK-LABEL:  After all zero bypass insertion
+; CHECK-LABEL:  VPlan after all zero bypass insertion
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]

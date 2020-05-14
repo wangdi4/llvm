@@ -163,8 +163,13 @@ static ze_fence_handle_t createFence(ze_command_queue_handle_t cmdQueue) {
 struct RTLFlagsTy {
   uint64_t EnableProfile : 1;
   uint64_t EnableTargetGlobals : 1;
-  uint64_t Reserved : 62;
-  RTLFlagsTy() : EnableProfile(0), EnableTargetGlobals(0), Reserved(0) {}
+  uint64_t UseHostMemForUSM : 1;
+  uint64_t Reserved : 61;
+  RTLFlagsTy() :
+      EnableProfile(0),
+      EnableTargetGlobals(0),
+      UseHostMemForUSM(0),
+      Reserved(0) {}
 };
 
 /// Device information
@@ -220,49 +225,67 @@ public:
     readEnvironmentVars();
   }
 
+  /// Read environment variable value with optional deprecated name
+  char *readEnvVar(const char *Name, const char *OldName = nullptr) {
+    if (!Name)
+      return nullptr;
+    char *value = std::getenv(Name);
+    if (value || !OldName) {
+      if (value)
+        DP("ENV: %s=%s\n", Name, value);
+      return value;
+    }
+    value = std::getenv(OldName);
+    if (value) {
+      DP("ENV: %s=%s\n", OldName, value);
+      WARNING("%s is being deprecated. Use %s instead.\n", OldName, Name);
+    }
+    return value;
+  }
+
   void readEnvironmentVars() {
     // Debug level
-    if (char *env = getenv("LIBOMPTARGET_DEBUG"))
+    if (char *env = readEnvVar("LIBOMPTARGET_DEBUG"))
       DebugLevel = std::stoi(env);
 
     // Data transfer latency
-    if (char *env = getenv("LIBOMPTARGET_DATA_TRANSFER_LATENCY")) {
+    if (char *env = readEnvVar("LIBOMPTARGET_DATA_TRANSFER_LATENCY")) {
       std::string value(env);
       if (value.substr(0, 2) == "T,") {
         int32_t usec = std::stoi(value.substr(2).c_str());
         DataTransferLatency = (usec > 0) ? usec : 0;
       }
     }
+
     // Target device type
-    if (char *env = getenv("LIBOMPTARGET_DEVICETYPE")) {
+    if (char *env = readEnvVar("LIBOMPTARGET_DEVICETYPE")) {
       std::string value(env);
       if (value == "GPU" || value == "gpu")
         DeviceType = ZE_DEVICE_TYPE_GPU;
-      else if (value == "FPGA" || value == "fpga")
-        DeviceType = ZE_DEVICE_TYPE_FPGA;
       else
-        DP("Warning: Invalid LIBOMPTARGET_DEVICETYPE=%s!\n", env);
+        WARNING("Invalid LIBOMPTARGET_DEVICETYPE=%s\n", env);
     }
-    DP("Target device type is set to %s\n",
-       (DeviceType == ZE_DEVICE_TYPE_GPU) ? "GPU" : "FPGA");
+    DP("Target device type is set to GPU\n");
+
     // Global thread limit
     int threadLimit = omp_get_thread_limit();
     ThreadLimit = threadLimit > 0 ? threadLimit : 0;
     // Compilation options for IGC
-    if (char *env = getenv("LIBOMPTARGET_LEVEL0_COMPILATION_OPTIONS"))
+    if (char *env = readEnvVar("LIBOMPTARGET_LEVEL0_COMPILATION_OPTIONS"))
       CompilationOptions += env;
 
     if (DeviceType == ZE_DEVICE_TYPE_GPU) {
       // Intel Graphics compilers that do not support that option
       // silently ignore it. Other OpenCL compilers may fail.
-      const char *env = std::getenv("LIBOMPTARGET_LEVEL0_TARGET_GLOBALS");
+      const char *env = readEnvVar("LIBOMPTARGET_LEVEL0_TARGET_GLOBALS");
       if (env && (env[0] == 'T' || env[0] == 't' || env[0] == '1')) {
         CompilationOptions += " -cl-take-global-address ";
         Flags.EnableTargetGlobals = 1;
       }
     }
+
     // Profile
-    if (char *env = getenv("LIBOMPTARGET_PROFILE")) {
+    if (char *env = readEnvVar("LIBOMPTARGET_PROFILE")) {
       if ((env[0] == 'T' || env[0] == '1') &&
           (env[1] == ',' || env[1] == '\0')) {
         Flags.EnableProfile = 1;
@@ -273,6 +296,12 @@ public:
             RTLProfileTy::Multiplier = RTLProfileTy::USEC_PER_SEC;
         }
       }
+    }
+
+    // Managed memory allocator
+    if (char *env = readEnvVar("LIBOMPTARGET_USM_HOST_MEM")) {
+      if (env[0] == 'T' || env[0] == 't' || env[0] == '1')
+        Flags.UseHostMemForUSM = 1;
     }
   }
 
@@ -365,11 +394,11 @@ public:
     if (!DeviceInfo.Flags.EnableProfile)
       return;
     if (!Profile) {
-      WARNING("Profile data are invalid");
+      WARNING("Profile data are invalid.\n");
       return;
     }
     if (Active)
-      WARNING("Timer restarted");
+      WARNING("Timer restarted.\n");
     TimeStamp = omp_get_wtime();
     Active = true;
   }
@@ -377,11 +406,11 @@ public:
     if (!DeviceInfo.Flags.EnableProfile)
       return;
     if (!Profile) {
-      WARNING("Profile data are invalid");
+      WARNING("Profile data are invalid.\n");
       return;
     }
     if (!Active) {
-      WARNING("Timer is invalid");
+      WARNING("Timer is invalid.\n");
       return;
     }
     double currStamp = omp_get_wtime();
@@ -778,13 +807,24 @@ void *__tgt_rtl_data_alloc_base(int32_t DeviceId, int64_t Size, void *HstPtr,
 }
 
 EXTERN void *__tgt_rtl_data_alloc_managed(int32_t DeviceId, int64_t Size) {
-  ze_host_mem_alloc_desc_t allocDesc = {
+  void *mem = nullptr;
+  ze_host_mem_alloc_desc_t hostDesc = {
     ZE_HOST_MEM_ALLOC_DESC_VERSION_CURRENT,
     ZE_HOST_MEM_ALLOC_FLAG_DEFAULT
   };
-  void *mem = nullptr;
-  CALL_ZE_RET_NULL(zeDriverAllocHostMem, DeviceInfo.Driver, &allocDesc, Size,
-                   LEVEL0_ALIGNMENT, &mem);
+  if (DeviceInfo.Flags.UseHostMemForUSM) {
+    CALL_ZE_RET_NULL(zeDriverAllocHostMem, DeviceInfo.Driver, &hostDesc, Size,
+                     LEVEL0_ALIGNMENT, &mem);
+  } else {
+    ze_device_mem_alloc_desc_t deviceDesc = {
+      ZE_DEVICE_MEM_ALLOC_DESC_VERSION_CURRENT,
+      ZE_DEVICE_MEM_ALLOC_FLAG_DEFAULT,
+      0
+    };
+    CALL_ZE_RET_NULL(zeDriverAllocSharedMem, DeviceInfo.Driver, &deviceDesc,
+                     &hostDesc, Size, LEVEL0_ALIGNMENT,
+                     DeviceInfo.Devices[DeviceId], &mem);
+  }
   DP("Allocated a managed memory object " DPxMOD "\n", DPxPTR(mem));
   return mem;
 }
@@ -802,8 +842,14 @@ EXTERN int32_t __tgt_rtl_is_managed_ptr(int32_t DeviceId, void *Ptr) {
     ZE_MEMORY_TYPE_UNKNOWN,
     0
   };
+  ze_result_t rc;
+  CALL_ZE(rc, zeDriverGetMemAllocProperties, DeviceInfo.Driver, Ptr,
+          &properties, nullptr);
+  // Host pointer is classified as an error -- skip error reporting
+  if (rc == ZE_RESULT_ERROR_INVALID_ARGUMENT)
+    return 0;
   CALL_ZE_RET_ZERO(zeDriverGetMemAllocProperties, DeviceInfo.Driver, Ptr,
-                   &properties, nullptr /* associated device */);
+                   &properties, nullptr);
   int32_t ret = (properties.type == ZE_MEMORY_TYPE_HOST ||
                  properties.type == ZE_MEMORY_TYPE_SHARED);
   DP("Ptr " DPxMOD " is %sa managed memory pointer.\n", DPxPTR(Ptr),
@@ -1241,7 +1287,7 @@ int32_t __tgt_rtl_run_target_region_nowait(int32_t DeviceId, void *TgtEntryPtr,
                              NumArgs, 1, 0, nullptr, AsyncEvent);
 }
 
-EXTERN void *__tgt_rtl_create_offload_pipe(int32_t DeviceId, bool IsAsync) {
+EXTERN void *__tgt_rtl_create_offload_queue(int32_t DeviceId, bool IsAsync) {
   // Create and return a new command queue for interop
   ze_command_queue_desc_t cmdQueueDesc = {
     ZE_COMMAND_QUEUE_DESC_VERSION_CURRENT,
@@ -1252,18 +1298,29 @@ EXTERN void *__tgt_rtl_create_offload_pipe(int32_t DeviceId, bool IsAsync) {
   };
   // TODO: check with MKL team and decide what to do with IsAsync
 
-  ze_command_queue_handle_t pipe = nullptr;
+  ze_command_queue_handle_t queue = nullptr;
   CALL_ZE_RET_NULL(zeCommandQueueCreate, DeviceInfo.Devices[DeviceId],
-                   &cmdQueueDesc, &pipe);
+                   &cmdQueueDesc, &queue);
   DP("%s returns a new asynchronous command queue " DPxMOD "\n", __func__,
-     DPxPTR(pipe));
-  return pipe;
+     DPxPTR(queue));
+  return queue;
 }
 
-EXTERN int32_t __tgt_rtl_release_offload_pipe(int32_t DeviceId, void *Pipe) {
+EXTERN int32_t __tgt_rtl_release_offload_queue(int32_t DeviceId, void *Pipe) {
   CALL_ZE_RET_FAIL(zeCommandQueueDestroy, (ze_command_queue_handle_t)Pipe);
   return OFFLOAD_SUCCESS;
 }
+
+EXTERN void *__tgt_rtl_get_platform_handle(int32_t device_id) {
+  auto driver = DeviceInfo.Driver;
+  return (void *) driver;
+}
+
+EXTERN void *__tgt_rtl_get_device_handle(int32_t device_id) {
+  auto device = DeviceInfo.Devices[device_id];
+  return (void *) device;
+}
+
 
 EXTERN void *__tgt_rtl_create_buffer(int32_t DeviceId, void *TgtPtr) {
   return TgtPtr;

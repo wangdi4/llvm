@@ -804,6 +804,7 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_GlobalMemoryStatus);
     TLI.setUnavailable(LibFunc_Sleep);
     TLI.setUnavailable(LibFunc_islower);
+    TLI.setUnavailable(LibFunc_isprint);
     TLI.setUnavailable(LibFunc_isxdigit);
     TLI.setUnavailable(LibFunc_local_stdio_printf_options);
     TLI.setUnavailable(LibFunc_local_stdio_scanf_options);
@@ -849,6 +850,7 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_under_getdcwd);
     TLI.setUnavailable(LibFunc_under_getdrive);
     TLI.setUnavailable(LibFunc_under_getpid);
+    TLI.setUnavailable(LibFunc_under_gmtime64);
     TLI.setUnavailable(LibFunc_under_mkdir);
     TLI.setUnavailable(LibFunc_under_purecall);
     TLI.setUnavailable(LibFunc_under_read);
@@ -869,6 +871,8 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_under_wremove);
     TLI.setUnavailable(LibFunc_under_write);
     TLI.setUnavailable(LibFunc_under_wstat64);
+    TLI.setUnavailable(LibFunc_wcscpy);
+    TLI.setUnavailable(LibFunc_wcsncat);
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -3422,6 +3426,7 @@ case LibFunc_under_commit:
     return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
             FTy.getParamType(0)->isPointerTy());
 
+  case LibFunc_under_gmtime64:
   case LibFunc_gmtime:
     return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
             FTy.getParamType(0)->isPointerTy());
@@ -3463,6 +3468,10 @@ case LibFunc_under_commit:
             FTy.getParamType(0)->isIntegerTy());
 
   case LibFunc_islower:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy());
+
+  case LibFunc_isprint:
     return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isIntegerTy());
 
@@ -3849,6 +3858,17 @@ case LibFunc_under_commit:
   case LibFunc_waitpid:
     return (NumParams == 3 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isIntegerTy());
+
+  case LibFunc_wcscpy:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_wcsncat:
+    return (NumParams == 3 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
             FTy.getParamType(1)->isPointerTy() &&
             FTy.getParamType(2)->isIntegerTy());
 

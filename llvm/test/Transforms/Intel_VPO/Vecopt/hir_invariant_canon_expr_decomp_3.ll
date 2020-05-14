@@ -24,7 +24,7 @@
 @arr = dso_local local_unnamed_addr global [100 x i64] zeroinitializer, align 16
 
 define dso_local void @foo(i64 %n1) local_unnamed_addr #0 {
-; CHECK-LABEL:  Print after buildPlainCFG
+; CHECK-LABEL:  VPlan after importing plain CFG
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:   [[VP0:%.*]] = {%n1 * i1}
 ; CHECK-DAG:   [[VP1:%.*]] = {@arr}

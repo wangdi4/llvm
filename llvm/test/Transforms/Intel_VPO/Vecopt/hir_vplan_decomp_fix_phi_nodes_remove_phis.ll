@@ -35,7 +35,7 @@
 
 ; Check that 9 invalid PHI nodes are replaced and removed
 ; CHECK-COUNT-9: VPDecomp fixPhiNodes : The fixed PHI node will be replaced and removed
-; CHECK-LABEL: Print after buildPlainCFG
+; CHECK-LABEL: VPlan after importing plain CFG
 ; CHECK: phi
 ; CHECK-NOT: phi
 
