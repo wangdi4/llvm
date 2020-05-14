@@ -372,7 +372,13 @@ public:
   int32_t DataTransferMethod;
   int64_t ProfileResolution;
   cl_device_type DeviceType;
-  std::string CompilationOptions;
+
+  // OpenCL 2.0 builtins (like atomic_load_explicit and etc.) are used by
+  // runtime, so we have to explicitly specify the "-cl-std=CL2.0" compilation
+  // option. With it, the SPIR-V will be converted to LLVM IR with OpenCL 2.0
+  // builtins. Otherwise, SPIR-V will be converted to LLVM IR with OpenCL 1.2
+  // builtins.
+  std::string CompilationOptions = "-cl-std=CL2.0 ";
   std::string LinkingOptions;
 
 #if INTEL_CUSTOMIZATION

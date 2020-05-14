@@ -408,7 +408,14 @@ public:
   uint32_t DataTransferLatency; // Emulated data transfer latency in us
   int32_t DeviceType;
   uint32_t ThreadLimit; // Global thread limit
-  std::string CompilationOptions; // Compilation options for IGC
+
+  // Compilation options for IGC
+  // OpenCL 2.0 builtins (like atomic_load_explicit and etc.) are used by
+  // runtime, so we have to explicitly specify the "-cl-std=CL2.0" compilation
+  // option. With it, the SPIR-V will be converted to LLVM IR with OpenCL 2.0
+  // builtins. Otherwise, SPIR-V will be converted to LLVM IR with OpenCL 1.2
+  // builtins.
+  std::string CompilationOptions = "-cl-std=CL2.0 ";
   std::string InternalCompilationOptions;
 
   RTLDeviceInfoTy() {
