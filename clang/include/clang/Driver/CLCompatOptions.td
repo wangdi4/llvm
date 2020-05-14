@@ -277,6 +277,8 @@ def _SLASH_Qx : CLJoined<"Qx">,
 def _SLASH_Qlong_double : CLFlag<"Qlong-double">,
   HelpText<"Enable 80-bit long double">;
 def _SLASH_Qlong_double_ : CLFlag<"Qlong-double-">;
+def _SLASH_QH : CLFlag<"QH">, Alias<H>, HelpText<"Show header includes and "
+  "nesting depth">;
 def _SLASH_Qimf_arch_consistency_EQ : CLJoined<"Qimf-arch-consistency=">,
   Alias<fimf_arch_consistency_EQ>,HelpText<"Ensures that the math library "
   "functions produce consistent results across different implementations "
