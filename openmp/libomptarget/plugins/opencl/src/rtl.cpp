@@ -376,6 +376,9 @@ public:
   std::string LinkingOptions;
 
 #if INTEL_CUSTOMIZATION
+  std::string InternalCompilationOptions;
+  std::string InternalLinkingOptions;
+
   // A pointer to clGetMemAllocInfoINTEL extension API.
   // It can be used to distinguish SVM and USM pointers.
   // It is available on the whole platform, so it is not
@@ -516,7 +519,11 @@ public:
     if (DeviceType == CL_DEVICE_TYPE_GPU &&
         (!(env = readEnvVar("LIBOMPTARGET_OPENCL_TARGET_GLOBALS")) ||
          (env[0] != 'F' && env[0] != 'f' && env[0] != '0')))
-      LinkingOptions += " -cl-take-global-address ";
+      InternalLinkingOptions += " -cl-take-global-address ";
+    if (DeviceType == CL_DEVICE_TYPE_GPU &&
+        (!(env = readEnvVar("LIBOMPTARGET_OPENCL_MATCH_SINCOSPI")) ||
+         (env[0] != 'F' && env[0] != 'f' && env[0] != '0')))
+      InternalLinkingOptions += " -cl-match-sincospi ";
 #endif  // INTEL_CUSTOMIZATION
 
     // Read LIBOMPTARGET_USM_HOST_MEM
@@ -1426,6 +1433,15 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   std::string linking_options(DeviceInfo->LinkingOptions);
 
   DP("OpenCL compilation options: %s\n", compilation_options.c_str());
+  DP("OpenCL linking options: %s\n", linking_options.c_str());
+#if INTEL_CUSTOMIZATION
+  compilation_options += " " + DeviceInfo->InternalCompilationOptions;
+  linking_options += " " + DeviceInfo->InternalLinkingOptions;
+  DPI("Final OpenCL compilation options: %s\n", compilation_options.c_str());
+  DPI("Final OpenCL linking options: %s\n", linking_options.c_str());
+#endif // INTEL_CUSTOMIZATION
+  // clLinkProgram drops the last symbol. Work this around temporarily.
+  linking_options += " ";
 
   // Create program for the target regions.
   // User program must be first in the link order.
@@ -1479,10 +1495,6 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
       DP("Skipped device RTL: %s\n", desc.FallbackLibName);
   }
   CompilationTimer.stop();
-
-  DP("OpenCL linking options: %s\n", linking_options.c_str());
-  // clLinkProgram drops the last symbol. Work this around temporarily.
-  linking_options += " ";
 
   LinkingTimer.start();
 
@@ -1546,7 +1558,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   ProfileIntervalTy EntriesTimer("Offload entries init", device_id);
   EntriesTimer.start();
   if (!DeviceInfo->loadOffloadTable(device_id, NumEntries))
-    DPI("Error: offload table loading failed.\n");
+    DP("Error: offload table loading failed.\n");
   EntriesTimer.stop();
 
   for (unsigned i = 0; i < NumEntries; i++) {
