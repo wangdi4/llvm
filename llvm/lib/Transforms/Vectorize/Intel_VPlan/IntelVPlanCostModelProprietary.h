@@ -69,6 +69,9 @@ private:
   // Frequency info to correctly calculate the cost. Until it's done, just
   // report high vector cost for loops with too many i1 instructions.
   unsigned NumberOfBoolComputations = 0;
+
+  /// \Returns True iff \p VPInst is Unit Strided load or store.
+  virtual bool isUnitStrideLoadStore(const VPInstruction *VPInst) const final;
 };
 
 } // namespace vpo

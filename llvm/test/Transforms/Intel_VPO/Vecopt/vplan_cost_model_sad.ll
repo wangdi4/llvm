@@ -1,0 +1,330 @@
+; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR \
+; RUN:     -mattr=+avx2 -hir-cg -simplifycfg -mem2reg -S | FileCheck %s
+
+; The test is a part of hotspot of SAD benchmark.  The test verifies that it is
+; vectorized with VF = 4.
+
+; CHECK: load <4 x i16>, <4 x i16>*
+; CHECK: call i16 @llvm.experimental.vector.reduce.add.v4i16
+
+target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
+
+%struct.wombat = type { i32, i32, i32, i32, i8* }
+
+@global = external hidden unnamed_addr global %struct.wombat
+@global.1 = external hidden unnamed_addr global %struct.wombat
+
+; Function Attrs: nofree nounwind uwtable
+define hidden void @zot(i32* nocapture readonly %arg, i32* nocapture readnone %arg1, i64 %arg2, i64 %arg3, i16* nocapture %arg4, i64 %arg5, i64 %arg6, i64 %arg7, i16* nocapture readonly %arg8, i16* nocapture readonly %arg9, i64 %arg10, i64 %arg11) #0 {
+bb:
+  %tmp = alloca i32, align 4
+  %tmp12 = alloca i32, align 4
+  %tmp13 = alloca i32, align 4
+  %tmp14 = alloca i32, align 4
+  store i32 0, i32* %tmp, align 4
+  %tmp15 = trunc i64 %arg3 to i32
+  %tmp16 = trunc i64 %arg5 to i32
+  %tmp17 = trunc i64 %arg7 to i32
+  %tmp18 = trunc i64 %arg11 to i32
+  %tmp19 = load i32, i32* %arg, align 4
+  store i32 0, i32* %tmp12, align 4
+  store i32 %tmp18, i32* %tmp13, align 4
+  store i32 1, i32* %tmp14, align 4
+  call void @__kmpc_for_static_init_4(%struct.wombat* nonnull @global, i32 %tmp19, i32 34, i32* nonnull %tmp, i32* nonnull %tmp12, i32* nonnull %tmp13, i32* nonnull %tmp14, i32 1, i32 1)
+  %tmp20 = load i32, i32* %tmp12, align 4
+  %tmp21 = load i32, i32* %tmp13, align 4
+  %tmp22 = icmp sgt i32 %tmp20, %tmp21
+  br i1 %tmp22, label %bb48, label %bb23
+
+bb23:                                             ; preds = %bb
+  %tmp24 = trunc i64 %arg6 to i32
+  %tmp25 = trunc i64 %arg2 to i32
+  %tmp26 = icmp sgt i32 %tmp25, 0
+  %tmp27 = mul i32 %tmp16, 27400
+  %tmp28 = mul i32 %tmp27, %tmp24
+  %tmp29 = add nsw i32 %tmp15, -4
+  %tmp30 = add nsw i32 %tmp17, -4
+  %tmp31 = add i64 %arg3, 4294967295
+  %tmp32 = add i64 %arg7, -1
+  %tmp33 = shl i64 %arg3, 32
+  %tmp34 = ashr exact i64 %tmp33, 32
+  %tmp35 = add i32 %tmp21, 1
+  %tmp36 = shl i64 %arg2, 32
+  %tmp37 = ashr exact i64 %tmp36, 32
+  br label %bb38
+
+bb38:                                             ; preds = %bb69, %bb23
+  %tmp39 = phi i32 [ %tmp70, %bb69 ], [ %tmp20, %bb23 ]
+  %tmp40 = sdiv i32 %tmp39, 4
+  %tmp41 = and i32 %tmp39, 3
+  %tmp42 = shl i32 %tmp40, 4
+  %tmp43 = shl nuw nsw i32 %tmp41, 2
+  %tmp44 = or i32 %tmp42, %tmp43
+  %tmp45 = add nsw i32 %tmp44, -16
+  br i1 %tmp26, label %bb46, label %bb69
+
+bb46:                                             ; preds = %bb38
+  br label %bb49
+
+bb47:                                             ; preds = %bb69
+  br label %bb48
+
+bb48:                                             ; preds = %bb47, %bb
+  tail call void @__kmpc_for_static_fini(%struct.wombat* nonnull @global.1, i32 %tmp19)
+  ret void
+
+bb49:                                             ; preds = %bb80, %bb46
+  %tmp50 = phi i64 [ %tmp81, %bb80 ], [ 0, %bb46 ]
+  %tmp51 = trunc i64 %tmp50 to i32
+  %tmp52 = lshr i32 %tmp51, 2
+  %tmp53 = shl i32 %tmp51, 2
+  %tmp54 = add nsw i32 %tmp53, -16
+  %tmp55 = mul nsw i32 %tmp53, %tmp15
+  %tmp56 = add nsw i32 %tmp55, %tmp44
+  %tmp57 = mul nsw i32 %tmp52, %tmp16
+  %tmp58 = add nsw i32 %tmp57, %tmp40
+  %tmp59 = mul i32 %tmp58, 17536
+  %tmp60 = add nsw i32 %tmp59, %tmp28
+  %tmp61 = and i32 %tmp53, 12
+  %tmp62 = or i32 %tmp61, %tmp41
+  %tmp63 = mul nuw nsw i32 %tmp62, 1096
+  %tmp64 = add nsw i32 %tmp60, %tmp63
+  %tmp65 = sext i32 %tmp64 to i64
+  %tmp66 = getelementptr inbounds i16, i16* %arg4, i64 %tmp65, !intel-tbaa !5
+  %tmp67 = sext i32 %tmp56 to i64
+  br label %bb72
+
+bb68:                                             ; preds = %bb80
+  br label %bb69
+
+bb69:                                             ; preds = %bb68, %bb38
+  %tmp70 = add nsw i32 %tmp39, 1
+  %tmp71 = icmp eq i32 %tmp70, %tmp35
+  br i1 %tmp71, label %bb47, label %bb38, !llvm.loop !9
+
+bb72:                                             ; preds = %bb119, %bb49
+  %tmp73 = phi i64 [ 0, %bb49 ], [ %tmp122, %bb119 ]
+  %tmp74 = trunc i64 %tmp73 to i32
+  %tmp75 = urem i32 %tmp74, 33
+  %tmp76 = add nsw i32 %tmp45, %tmp75
+  %tmp77 = udiv i32 %tmp74, 33
+  %tmp78 = add nsw i32 %tmp54, %tmp77
+  %tmp79 = icmp sgt i32 %tmp76, -1
+  br i1 %tmp79, label %bb83, label %bb91
+
+bb80:                                             ; preds = %bb119
+  %tmp81 = add nuw nsw i64 %tmp50, 1
+  %tmp82 = icmp eq i64 %tmp81, %tmp37
+  br i1 %tmp82, label %bb68, label %bb49
+
+bb83:                                             ; preds = %bb72
+  %tmp84 = icmp sgt i32 %tmp76, %tmp29
+  %tmp85 = icmp slt i32 %tmp78, 0
+  %tmp86 = or i1 %tmp84, %tmp85
+  %tmp87 = icmp sgt i32 %tmp78, %tmp30
+  %tmp88 = or i1 %tmp87, %tmp86
+  br i1 %tmp88, label %bb91, label %bb89
+
+bb89:                                             ; preds = %bb83
+  %tmp90 = zext i32 %tmp78 to i64
+  br label %bb106
+
+bb91:                                             ; preds = %bb83, %bb72
+  %tmp92 = sext i32 %tmp76 to i64
+  %tmp93 = sext i32 %tmp78 to i64
+  br label %bb94
+
+bb94:                                             ; preds = %bb151, %bb91
+  %tmp95 = phi i64 [ 0, %bb91 ], [ %tmp153, %bb151 ]
+  %tmp96 = phi i16 [ 0, %bb91 ], [ %tmp152, %bb151 ]
+  %tmp97 = add nsw i64 %tmp95, %tmp93
+  %tmp98 = icmp sgt i64 %tmp97, 0
+  %tmp99 = select i1 %tmp98, i64 %tmp97, i64 0
+  %tmp100 = trunc i64 %tmp99 to i32
+  %tmp101 = icmp slt i32 %tmp100, %tmp17
+  %tmp102 = select i1 %tmp101, i64 %tmp99, i64 %tmp32
+  %tmp103 = mul i64 %tmp102, %arg3
+  %tmp104 = mul nsw i64 %tmp95, %tmp34
+  %tmp105 = add nsw i64 %tmp104, %tmp67
+  br label %bb124
+
+bb106:                                            ; preds = %bb176, %bb89
+  %tmp107 = phi i64 [ 0, %bb89 ], [ %tmp178, %bb176 ]
+  %tmp108 = phi i16 [ 0, %bb89 ], [ %tmp177, %bb176 ]
+  %tmp109 = add nuw nsw i64 %tmp107, %tmp90
+  %tmp110 = mul nsw i64 %tmp109, %tmp34
+  %tmp111 = trunc i64 %tmp110 to i32
+  %tmp112 = add i32 %tmp76, %tmp111
+  %tmp113 = mul nsw i64 %tmp107, %tmp34
+  %tmp114 = add nsw i64 %tmp113, %tmp67
+  br label %bb155
+
+bb115:                                            ; preds = %bb151
+  %tmp116 = phi i16 [ %tmp152, %bb151 ]
+  br label %bb119
+
+bb117:                                            ; preds = %bb176
+  %tmp118 = phi i16 [ %tmp177, %bb176 ]
+  br label %bb119
+
+bb119:                                            ; preds = %bb117, %bb115
+  %tmp120 = phi i16 [ %tmp116, %bb115 ], [ %tmp118, %bb117 ]
+  %tmp121 = getelementptr inbounds i16, i16* %tmp66, i64 %tmp73
+  store i16 %tmp120, i16* %tmp121, align 2, !tbaa !5, !alias.scope !14, !noalias !20
+  %tmp122 = add nuw nsw i64 %tmp73, 1
+  %tmp123 = icmp eq i64 %tmp122, 1089
+  br i1 %tmp123, label %bb80, label %bb72
+
+bb124:                                            ; preds = %bb94
+  %tmp148 = add nuw nsw i16 0, 0
+  br label %bb151
+
+bb151:                                            ; preds = %bb124
+  %tmp152 = phi i16 [ %tmp148, %bb124 ]
+  %tmp153 = add nuw nsw i64 %tmp95, 1
+  %tmp154 = icmp eq i64 %tmp153, 4
+  br i1 %tmp154, label %bb115, label %bb94
+
+bb155:                                            ; preds = %bb155, %bb106
+  %tmp156 = phi i64 [ 0, %bb106 ], [ %tmp174, %bb155 ]
+  %tmp157 = phi i16 [ %tmp108, %bb106 ], [ %tmp173, %bb155 ]
+  %tmp158 = trunc i64 %tmp156 to i32
+  %tmp159 = add i32 %tmp112, %tmp158
+  %tmp160 = sext i32 %tmp159 to i64
+  %tmp161 = getelementptr inbounds i16, i16* %arg8, i64 %tmp160
+  %tmp162 = load i16, i16* %tmp161, align 2, !tbaa !5, !alias.scope !17, !noalias !99
+  %tmp163 = zext i16 %tmp162 to i32
+  %tmp164 = add nsw i64 %tmp114, %tmp156
+  %tmp165 = getelementptr inbounds i16, i16* %arg9, i64 %tmp164
+  %tmp166 = load i16, i16* %tmp165, align 2, !tbaa !5, !alias.scope !15, !noalias !99
+  %tmp167 = zext i16 %tmp166 to i32
+  %tmp168 = sub nsw i32 %tmp163, %tmp167
+  %tmp169 = icmp slt i32 %tmp168, 0
+  %tmp170 = sub nsw i32 0, %tmp168
+  %tmp171 = select i1 %tmp169, i32 %tmp170, i32 %tmp168
+  %tmp172 = trunc i32 %tmp171 to i16
+  %tmp173 = add i16 %tmp157, %tmp172
+  %tmp174 = add nuw nsw i64 %tmp156, 1
+  %tmp175 = icmp eq i64 %tmp174, 4
+  br i1 %tmp175, label %bb176, label %bb155
+
+bb176:                                            ; preds = %bb155
+  %tmp177 = phi i16 [ %tmp173, %bb155 ]
+  %tmp178 = add nuw nsw i64 %tmp107, 1
+  %tmp179 = icmp eq i64 %tmp178, 4
+  br i1 %tmp179, label %bb117, label %bb106
+}
+
+; Function Attrs: nofree nounwind
+declare void @__kmpc_for_static_init_4(%struct.wombat* nocapture readonly, i32, i32, i32* nocapture, i32* nocapture, i32* nocapture, i32* nocapture, i32, i32) local_unnamed_addr #1
+
+; Function Attrs: nofree nounwind
+declare void @__kmpc_for_static_fini(%struct.wombat* nocapture readonly, i32) local_unnamed_addr #1
+
+attributes #0 = { nofree nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "mt-func"="true" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "pre_loopopt" "prefer-vector-width"="512" "stack-protector-buffer-size"="8" "target-cpu"="skylake-avx512" "target-features"="+adx,+aes,+avx,+avx2,+avx512bw,+avx512cd,+avx512dq,+avx512f,+avx512vl,+bmi,+bmi2,+clflushopt,+clwb,+cx16,+cx8,+f16c,+fma,+fsgsbase,+fxsr,+invpcid,+lzcnt,+mmx,+movbe,+pclmul,+pku,+popcnt,+prfchw,+rdrnd,+rdseed,+sahf,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave,+xsavec,+xsaveopt,+xsaves" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #1 = { nofree nounwind }
+
+!llvm.ident = !{!0, !0, !0}
+!llvm.module.flags = !{!1, !2, !3, !4}
+
+!0 = !{!"Intel(R) oneAPI DPC++ Compiler 2021.1 (YYYY.x.0.MMDD)"}
+!1 = !{i32 1, !"wchar_size", i32 4}
+!2 = !{i32 1, !"ThinLTO", i32 0}
+!3 = !{i32 1, !"EnableSplitLTOUnit", i32 1}
+!4 = !{i32 1, !"LTOPostLink", i32 1}
+!5 = !{!6, !6, i64 0}
+!6 = !{!"short", !7, i64 0}
+!7 = !{!"omnipotent char", !8, i64 0}
+!8 = !{!"Simple C++ TBAA"}
+!9 = distinct !{!9, !10}
+!10 = distinct !{!"llvm.loop.optreport", !11}
+!11 = distinct !{!"intel.loop.optreport", !12}
+!12 = !{!"intel.optreport.remarks", !13}
+!13 = !{!"intel.optreport.remark", !"OpenMP: Outlined parallel loop"}
+!14 = !{!15, !17, !18, !19}
+!15 = distinct !{!15, !16, !"OMPAliasScope"}
+!16 = distinct !{!16, !"OMPDomain"}
+!17 = distinct !{!17, !16, !"OMPAliasScope"}
+!18 = distinct !{!18, !16, !"OMPAliasScope"}
+!19 = distinct !{!19, !16, !"OMPAliasScope"}
+!20 = !{!21, !22, !23, !24, !25, !26, !27, !28, !29, !30, !31, !32, !33, !34, !35, !36, !37, !38, !39, !40, !41, !42, !43, !44, !45, !46, !47, !48, !49, !50, !51, !52, !53, !54, !55, !56, !57, !58, !59, !60, !61, !62, !63, !64, !65, !66, !67, !68, !69, !70, !71, !72, !73, !74, !75, !76, !77, !78, !79, !80, !81, !82, !83, !84, !85, !86, !87, !88, !89, !90, !91, !92, !93, !94, !95, !96, !97, !98}
+!21 = distinct !{!21, !16, !"OMPAliasScope"}
+!22 = distinct !{!22, !16, !"OMPAliasScope"}
+!23 = distinct !{!23, !16, !"OMPAliasScope"}
+!24 = distinct !{!24, !16, !"OMPAliasScope"}
+!25 = distinct !{!25, !16, !"OMPAliasScope"}
+!26 = distinct !{!26, !16, !"OMPAliasScope"}
+!27 = distinct !{!27, !16, !"OMPAliasScope"}
+!28 = distinct !{!28, !16, !"OMPAliasScope"}
+!29 = distinct !{!29, !16, !"OMPAliasScope"}
+!30 = distinct !{!30, !16, !"OMPAliasScope"}
+!31 = distinct !{!31, !16, !"OMPAliasScope"}
+!32 = distinct !{!32, !16, !"OMPAliasScope"}
+!33 = distinct !{!33, !16, !"OMPAliasScope"}
+!34 = distinct !{!34, !16, !"OMPAliasScope"}
+!35 = distinct !{!35, !16, !"OMPAliasScope"}
+!36 = distinct !{!36, !16, !"OMPAliasScope"}
+!37 = distinct !{!37, !16, !"OMPAliasScope"}
+!38 = distinct !{!38, !16, !"OMPAliasScope"}
+!39 = distinct !{!39, !16, !"OMPAliasScope"}
+!40 = distinct !{!40, !16, !"OMPAliasScope"}
+!41 = distinct !{!41, !16, !"OMPAliasScope"}
+!42 = distinct !{!42, !16, !"OMPAliasScope"}
+!43 = distinct !{!43, !16, !"OMPAliasScope"}
+!44 = distinct !{!44, !16, !"OMPAliasScope"}
+!45 = distinct !{!45, !16, !"OMPAliasScope"}
+!46 = distinct !{!46, !16, !"OMPAliasScope"}
+!47 = distinct !{!47, !16, !"OMPAliasScope"}
+!48 = distinct !{!48, !16, !"OMPAliasScope"}
+!49 = distinct !{!49, !16, !"OMPAliasScope"}
+!50 = distinct !{!50, !16, !"OMPAliasScope"}
+!51 = distinct !{!51, !16, !"OMPAliasScope"}
+!52 = distinct !{!52, !16, !"OMPAliasScope"}
+!53 = distinct !{!53, !16, !"OMPAliasScope"}
+!54 = distinct !{!54, !16, !"OMPAliasScope"}
+!55 = distinct !{!55, !16, !"OMPAliasScope"}
+!56 = distinct !{!56, !16, !"OMPAliasScope"}
+!57 = distinct !{!57, !16, !"OMPAliasScope"}
+!58 = distinct !{!58, !16, !"OMPAliasScope"}
+!59 = distinct !{!59, !16, !"OMPAliasScope"}
+!60 = distinct !{!60, !16, !"OMPAliasScope"}
+!61 = distinct !{!61, !16, !"OMPAliasScope"}
+!62 = distinct !{!62, !16, !"OMPAliasScope"}
+!63 = distinct !{!63, !16, !"OMPAliasScope"}
+!64 = distinct !{!64, !16, !"OMPAliasScope"}
+!65 = distinct !{!65, !16, !"OMPAliasScope"}
+!66 = distinct !{!66, !16, !"OMPAliasScope"}
+!67 = distinct !{!67, !16, !"OMPAliasScope"}
+!68 = distinct !{!68, !16, !"OMPAliasScope"}
+!69 = distinct !{!69, !16, !"OMPAliasScope"}
+!70 = distinct !{!70, !16, !"OMPAliasScope"}
+!71 = distinct !{!71, !16, !"OMPAliasScope"}
+!72 = distinct !{!72, !16, !"OMPAliasScope"}
+!73 = distinct !{!73, !16, !"OMPAliasScope"}
+!74 = distinct !{!74, !16, !"OMPAliasScope"}
+!75 = distinct !{!75, !16, !"OMPAliasScope"}
+!76 = distinct !{!76, !16, !"OMPAliasScope"}
+!77 = distinct !{!77, !16, !"OMPAliasScope"}
+!78 = distinct !{!78, !16, !"OMPAliasScope"}
+!79 = distinct !{!79, !16, !"OMPAliasScope"}
+!80 = distinct !{!80, !16, !"OMPAliasScope"}
+!81 = distinct !{!81, !16, !"OMPAliasScope"}
+!82 = distinct !{!82, !16, !"OMPAliasScope"}
+!83 = distinct !{!83, !16, !"OMPAliasScope"}
+!84 = distinct !{!84, !16, !"OMPAliasScope"}
+!85 = distinct !{!85, !16, !"OMPAliasScope"}
+!86 = distinct !{!86, !16, !"OMPAliasScope"}
+!87 = distinct !{!87, !16, !"OMPAliasScope"}
+!88 = distinct !{!88, !16, !"OMPAliasScope"}
+!89 = distinct !{!89, !16, !"OMPAliasScope"}
+!90 = distinct !{!90, !16, !"OMPAliasScope"}
+!91 = distinct !{!91, !16, !"OMPAliasScope"}
+!92 = distinct !{!92, !16, !"OMPAliasScope"}
+!93 = distinct !{!93, !16, !"OMPAliasScope"}
+!94 = distinct !{!94, !16, !"OMPAliasScope"}
+!95 = distinct !{!95, !16, !"OMPAliasScope"}
+!96 = distinct !{!96, !16, !"OMPAliasScope"}
+!97 = distinct !{!97, !16, !"OMPAliasScope"}
+!98 = distinct !{!98, !16, !"OMPAliasScope"}
+!99 = !{!22, !24, !25, !26, !27, !28, !30, !32, !34, !36, !37, !39, !40, !42, !43, !46, !47, !48, !49, !50, !51, !52, !53, !54, !55, !56, !57, !58, !59, !60, !61, !62, !63, !64, !65, !66, !67, !68, !69, !70, !71, !72, !73, !74, !75, !76, !77, !78, !79, !80, !81, !82, !83, !84, !85, !86, !87, !88, !89, !90, !91, !92, !93, !94, !95, !96, !97, !98}
