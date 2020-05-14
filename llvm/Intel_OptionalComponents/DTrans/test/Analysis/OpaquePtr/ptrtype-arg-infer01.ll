@@ -13,7 +13,7 @@
 ; Test inference based on direct use of the type in the getelementptr
 ; instruction.
 %struct.test01 = type { i32, i64 }
-define void @test01(i8* %arg) !dtrans_type !1 {
+define void @test01(i8* %arg) !dtrans_type !3  {
   %cast = bitcast i8* %arg to %struct.test01*
   %f0 = getelementptr %struct.test01, %struct.test01* %cast, i64 0, i32 0
   store i32 0, i32* %f0
@@ -42,7 +42,7 @@ define void @test01(i8* %arg) !dtrans_type !1 {
 ; needs to first analyze the pointer operand, %f0.
 %struct.test02 = type { i32, i64, %struct.test02* }
 @var02 = global %struct.test02 zeroinitializer
-define void @test02(i8* %arg) !dtrans_type !1 {
+define void @test02(i8* %arg) !dtrans_type !3  {
   %cast = bitcast i8* %arg to %struct.test02*
   %f0 = getelementptr %struct.test02, %struct.test02* @var02, i64 0, i32 2
   store %struct.test02* %cast, %struct.test02** %f0
@@ -70,7 +70,7 @@ define void @test02(i8* %arg) !dtrans_type !1 {
 ; which needs to be inferred based on the comparison of the result
 ; with a pointer of a known type.
 %struct.test03 = type { i32, i32 }
-define i1 @test03(%struct.test03* %arg0, i8* %arg1) !dtrans_type !5 {
+define i1 @test03(%struct.test03* %arg0, i8* %arg1) !dtrans_type !8  {
   %cast = bitcast i8* %arg1 to %struct.test03**
   %val = load %struct.test03*, %struct.test03** %cast
   %cmp = icmp eq %struct.test03* %arg0, %val
@@ -104,7 +104,7 @@ define i1 @test03(%struct.test03* %arg0, i8* %arg1) !dtrans_type !5 {
 ; In this case, trying to infer the type of the %arg, requires looking
 ; through PHINodes, and a call instruction.
 %struct.test04 = type { i32, i32 }
-define void @test04(i8* %arg) !dtrans_type !1 {
+define void @test04(i8* %arg) !dtrans_type !3  {
 entry:
   ; This ptrtoint is modeled off of spec_qsort.40, where the first use of
   ; %arg, which is declared as an i8*, but actually represents a pointer
@@ -130,7 +130,7 @@ exit:
   ret void
 }
 
-define void @test04use(%struct.test04* %in) !dtrans_type !9 {
+define void @test04use(%struct.test04* %in) !dtrans_type !12  {
   %f0 = getelementptr %struct.test04, %struct.test04* %in, i64 0, i32 0
   store i32 0, i32* %f0
   ret void
@@ -156,7 +156,7 @@ define void @test04use(%struct.test04* %in) !dtrans_type !9 {
 ; In this case, there is a recursive call which leads back to trying to
 ; analyze the original pointer being inferred.
 %struct.test05 = type { i32, i32 }
-define void @test05(i8* %arg) !dtrans_type !1 {
+define void @test05(i8* %arg) !dtrans_type !3  {
 entry:
   ; This ptrtoint is modeled off of spec_qsort.40, where the first use of
   ; %arg is declared as an i8*, but actually represents a pointer
@@ -184,7 +184,7 @@ exit:
   ret void
 }
 
-define void @test05use(%struct.test05* %in) !dtrans_type !12 {
+define void @test05use(%struct.test05* %in) !dtrans_type !15  {
   %f0 = getelementptr %struct.test05, %struct.test05* %in, i64 0, i32 0
   store i32 0, i32* %f0
   ret void
@@ -211,7 +211,7 @@ define void @test05use(%struct.test05* %in) !dtrans_type !12 {
 ; value type being stored into the pointer location.
 %struct.test06 = type { i32, i64, %struct.test06* }
 @var06 = global %struct.test06 zeroinitializer
-define void @test06(i8* %arg) !dtrans_type !1 {
+define void @test06(i8* %arg) !dtrans_type !3  {
   %cast = bitcast i8* %arg to %struct.test06**
   store %struct.test06* @var06, %struct.test06** %cast
   ret void
@@ -241,7 +241,7 @@ define void @test06(i8* %arg) !dtrans_type !1 {
 ; information.
 %struct.test07 = type { i32, i64, %struct.test07* }
 @var07 = global %struct.test07 zeroinitializer
-define void @test07(i8* %arg) !dtrans_type !1 {
+define void @test07(i8* %arg) !dtrans_type !3  {
   %cast = bitcast i8* %arg to %struct.test07**
   br i1 undef, label %block1, label %block2
 block1:
@@ -272,36 +272,71 @@ exit:
 ; CHECK-NEXT:   i8*{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
+; In this case, trying to infer the type of %pUnknown requires looking for
+; the store instruction that is used following the conversion of the value
+; to a pointer-sized integer.
+%struct.test08 = type { i32, i32 }
+define void @test08(%struct.test03** %ppS, i8* %pUnknown)  !dtrans_type !22 {
+  %tmp = bitcast %struct.test03** %ppS to i64*
+  %unknown = ptrtoint i8* %pUnknown to i64
+  store i64 %unknown, i64* %tmp
+  ret void
+}
+; CHECK-LABEL: Input Parameters: test08
+; CHECK-CUR:    Arg 0: %struct.test03** %ppS
+; CHECK-FUT:    Arg 0: p0 %ppS
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT:   Aliased types:
+; CHECK-NEXT:     %struct.test03**{{ *$}}
+; CHECK-NEXT:   No element pointees.
+
+; CHECK-CUR:    Arg 1: i8* %pUnknown
+; CHECK-FUT:    Arg 1: p0 %pUnknown
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT:   Aliased types:
+; CHECK-NEXT:     %struct.test03*{{ *$}}
+; CHECK-NEXT:     i8*{{ *$}}
+; CHECK-NEXT:   No element pointees.
+
+; CHECK-CUR: %unknown = ptrtoint i8* %pUnknown to i64
+; CHECK-FUT: %unknown = ptrtoint p0 %pUnknown to i64
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT:   Aliased types:
+; CHECK-NEXT:     %struct.test03*{{ *$}}
+; CHECK-NEXT:     i8*{{ *$}}
+; CHECK-NEXT:   No element pointees.
 
 
-!1 = !{!"F", i1 false, i32 1, !2, !3}  ; void (i8*)
-!2 = !{!"void", i32 0}  ; void
-!3 = !{i8 0, i32 1}  ; i8*
-!4 = !{i8 0, i32 0}  ; i8
-!5 = !{!"F", i1 false, i32 2, !6, !7, !3}  ; i1 (%struct.test03*, i8*)
-!6 = !{i1 0, i32 0}  ; i1
-!7 = !{!8, i32 1}  ; %struct.test03*
-!8 = !{!"R", %struct.test03 zeroinitializer, i32 0}  ; %struct.test03
-!9 = !{!"F", i1 false, i32 1, !2, !10}  ; void (%struct.test04*)
-!10 = !{!11, i32 1}  ; %struct.test04*
-!11 = !{!"R", %struct.test04 zeroinitializer, i32 0}  ; %struct.test04
-!12 = !{!"F", i1 false, i32 1, !2, !13}  ; void (%struct.test05*)
-!13 = !{!14, i32 1}  ; %struct.test05*
-!14 = !{!"R", %struct.test05 zeroinitializer, i32 0}  ; %struct.test05
-!15 = !{i32 0, i32 0}  ; i32
-!16 = !{i64 0, i32 0}  ; i64
-!17 = !{!18, i32 1}  ; %struct.test02*
-!18 = !{!"R", %struct.test02 zeroinitializer, i32 0}  ; %struct.test02
-!19 = !{!20, i32 1}  ; %struct.test06*
-!20 = !{!"R", %struct.test06 zeroinitializer, i32 0}  ; %struct.test06
-!21 = !{!22, i32 1}  ; %struct.test07*
-!22 = !{!"R", %struct.test07 zeroinitializer, i32 0}  ; %struct.test07
-!23 = !{!"S", %struct.test01 zeroinitializer, i32 2, !15, !16} ; { i32, i64 }
-!24 = !{!"S", %struct.test02 zeroinitializer, i32 3, !15, !16, !17} ; { i32, i64, %struct.test02* }
-!25 = !{!"S", %struct.test03 zeroinitializer, i32 2, !15, !15} ; { i32, i32 }
-!26 = !{!"S", %struct.test04 zeroinitializer, i32 2, !15, !15} ; { i32, i32 }
-!27 = !{!"S", %struct.test05 zeroinitializer, i32 2, !15, !15} ; { i32, i32 }
-!28 = !{!"S", %struct.test06 zeroinitializer, i32 3, !15, !16, !19} ; { i32, i64, %struct.test06* }
-!29 = !{!"S", %struct.test07 zeroinitializer, i32 3, !15, !16, !21} ; { i32, i64, %struct.test07* }
+!1 = !{i32 0, i32 0}  ; i32
+!2 = !{i64 0, i32 0}  ; i64
+!3 = !{!"F", i1 false, i32 1, !4, !5}  ; void (i8*)
+!4 = !{!"void", i32 0}  ; void
+!5 = !{i8 0, i32 1}  ; i8*
+!6 = !{!7, i32 1}  ; %struct.test02*
+!7 = !{!"R", %struct.test02 zeroinitializer, i32 0}  ; %struct.test02
+!8 = !{!"F", i1 false, i32 2, !9, !10, !5}  ; i1 (%struct.test03*, i8*)
+!9 = !{i1 0, i32 0}  ; i1
+!10 = !{!11, i32 1}  ; %struct.test03*
+!11 = !{!"R", %struct.test03 zeroinitializer, i32 0}  ; %struct.test03
+!12 = !{!"F", i1 false, i32 1, !4, !13}  ; void (%struct.test04*)
+!13 = !{!14, i32 1}  ; %struct.test04*
+!14 = !{!"R", %struct.test04 zeroinitializer, i32 0}  ; %struct.test04
+!15 = !{!"F", i1 false, i32 1, !4, !16}  ; void (%struct.test05*)
+!16 = !{!17, i32 1}  ; %struct.test05*
+!17 = !{!"R", %struct.test05 zeroinitializer, i32 0}  ; %struct.test05
+!18 = !{!19, i32 1}  ; %struct.test06*
+!19 = !{!"R", %struct.test06 zeroinitializer, i32 0}  ; %struct.test06
+!20 = !{!21, i32 1}  ; %struct.test07*
+!21 = !{!"R", %struct.test07 zeroinitializer, i32 0}  ; %struct.test07
+!22 = !{!"F", i1 false, i32 2, !4, !23, !5}  ; void (%struct.test03**, i8*)
+!23 = !{!11, i32 2}  ; %struct.test03**
+!24 = !{!"S", %struct.test01 zeroinitializer, i32 2, !1, !2} ; { i32, i64 }
+!25 = !{!"S", %struct.test02 zeroinitializer, i32 3, !1, !2, !6} ; { i32, i64, %struct.test02* }
+!26 = !{!"S", %struct.test03 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!27 = !{!"S", %struct.test04 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!28 = !{!"S", %struct.test05 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
+!29 = !{!"S", %struct.test06 zeroinitializer, i32 3, !1, !2, !18} ; { i32, i64, %struct.test06* }
+!30 = !{!"S", %struct.test07 zeroinitializer, i32 3, !1, !2, !20} ; { i32, i64, %struct.test07* }
+!31 = !{!"S", %struct.test08 zeroinitializer, i32 2, !1, !1} ; { i32, i32 }
 
-!dtrans_types = !{!23, !24, !25, !26, !27, !28, !29}
+!dtrans_types = !{!24, !25, !26, !27, !28, !29, !30, !31}
