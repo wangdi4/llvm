@@ -43,15 +43,15 @@ static const char *RTLNames[] = {
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
 #if _WIN32
-    /* OpenCL target  */ "omptarget.rtl.opencl.dll",
 #if INTEL_CUSTOMIZATION
     /* Level0 target  */ "omptarget.rtl.level0.dll",
 #endif // INTEL_CUSTOMIZATION
+    /* OpenCL target  */ "omptarget.rtl.opencl.dll",
 #else  // !_WIN32
-    /* OpenCL target  */ "libomptarget.rtl.opencl.so",
 #if INTEL_CUSTOMIZATION
     /* Level0 target  */ "libomptarget.rtl.level0.so",
 #endif // INTEL_CUSTOMIZATION
+    /* OpenCL target  */ "libomptarget.rtl.opencl.so",
 #endif // !_WIN32
 #endif // INTEL_COLLAB
     /* SX-Aurora VE target  */ "libomptarget.rtl.ve.so",
