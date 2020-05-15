@@ -249,9 +249,9 @@ public:
     DenormalMode Mode = parseDenormalFPAttribute(Val);
     uint32_t FtzDaz = 0;
     if (Mode.Input == DenormalMode::PreserveSign)
-      FtzDaz |= 0b10; // FTZ
+      FtzDaz |= 0b10; // DAZ
     if (Mode.Output == DenormalMode::PreserveSign)
-      FtzDaz |= 0b01; // DAZ
+      FtzDaz |= 0b01; // FTZ
     return FtzDaz;
  }
 
