@@ -630,10 +630,10 @@ void VPOParoptTransform::guardSideEffectStatements(
     //  store i32 %c.new, i32* %val.priv, align 4  // Replaced %c with %c.new
     //
     Value *TeamLocalVal = nullptr;
-    MaybeAlign Alignment =
-        StartI->getType()->isPointerTy()
-            ? StartI->getPointerAlignment(StartI->getModule()->getDataLayout())
-            : llvm::None;
+    auto &DL = StartI->getModule()->getDataLayout();
+    MaybeAlign Alignment = StartI->getType()->isPointerTy()
+                               ? StartI->getPointerAlignment(DL)
+                               : llvm::None;
     if (StartIHasUses)
       TeamLocalVal = VPOParoptUtils::genPrivatizationAlloca( //           (1)
           StartI->getType(), nullptr, Alignment, TargetDirectiveBegin,
@@ -657,8 +657,10 @@ void VPOParoptTransform::guardSideEffectStatements(
       StoreInst *StoreGuardedInstValue = new StoreInst(StartI, TeamLocalVal);
       StoreGuardedInstValue->insertAfter(StartI);
 
-      LoadInst *LoadSavedValue = new LoadInst(StartI->getType(), TeamLocalVal,
-                                              StartI->getName() + ".new"); //(5)
+      Type *StartITy = StartI->getType();
+      LoadInst *LoadSavedValue = //                                       (5)
+          new LoadInst(StartITy, TeamLocalVal, StartI->getName() + ".new",
+                       false /*volatile*/, DL.getABITypeAlign(StartITy));
       LoadSavedValue->insertBefore(BarrierInsertPt);
       BarrierInsertPt = LoadSavedValue;
 

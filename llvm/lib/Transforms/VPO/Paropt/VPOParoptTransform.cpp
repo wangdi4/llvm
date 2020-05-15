@@ -7046,7 +7046,7 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
   if (NumThreads || NumTeams) {
     Type *I32Ty = Type::getInt32Ty(F->getParent()->getContext());
     LoadInst *Tid = new LoadInst(I32Ty, TidPtrHolder, "my.tid", ForkCI);
-    Tid->setAlignment(MaybeAlign(4));
+    Tid->setAlignment(Align(4));
     if (W->getIsTeams())
       VPOParoptUtils::genKmpcPushNumTeams(W, IdentTy, Tid, NumTeams,
                                           NumThreads, ForkCI);
@@ -8348,7 +8348,7 @@ bool VPOParoptTransform::genCancellationBranchingCode(WRegionNode *W) {
 
       Type *I32Ty = Type::getInt32Ty(InsertPt->getModule()->getContext());
       LoadInst *LoadTid = new LoadInst(I32Ty, TidPtrHolder, "my.tid", InsertPt);
-      LoadTid->setAlignment(MaybeAlign(4));
+      LoadTid->setAlignment(Align(4));
       VPOParoptUtils::genKmpcStaticFini(W, IdentTy, LoadTid, InsertPt);
 
       CancelExitBB = CancelExitBBWithStaticFini;

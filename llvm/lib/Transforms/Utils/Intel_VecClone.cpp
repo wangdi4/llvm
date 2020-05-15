@@ -1047,9 +1047,10 @@ void VecCloneImpl::updateScalarMemRefsWithVector(
               // using it. This effectively loads the particular element from
               // the vector parameter.
               Type *LoadTy = VecGep->getResultElementType();
-              LoadInst *ParmElemLoad =
-                new LoadInst(LoadTy, VecGep,
-                             "vec." + Parm->getName() + ".elem");
+              LoadInst *ParmElemLoad = new LoadInst(
+                  LoadTy, VecGep, "vec." + Parm->getName() + ".elem",
+                  false /*volatile*/,
+                  Clone->getParent()->getDataLayout().getABITypeAlign(LoadTy));
               ParmElemLoad->insertAfter(VecGep);
               User->setOperand(I, ParmElemLoad);
             }

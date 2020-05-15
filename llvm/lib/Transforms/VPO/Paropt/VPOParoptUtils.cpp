@@ -2668,7 +2668,7 @@ CallInst *VPOParoptUtils::genKmpcBarrierImpl(
   // Create the arg for Tid
   Type *I32Ty = Type::getInt32Ty(C);
   LoadInst *LoadTid = new LoadInst(I32Ty, Tid, "my.tid", InsertPt);
-  LoadTid->setAlignment(MaybeAlign(4));
+  LoadTid->setAlignment(Align(4));
 
   // Create the argument list
   SmallVector<Value *, 3> FnArgs = {Loc, LoadTid};
@@ -2912,7 +2912,7 @@ CallInst *VPOParoptUtils::genKmpcCallWithTid(
   // we need a valid Tid, which we can load from memory using TidPtr.
   Type *I32Ty = Type::getInt32Ty(InsertPt->getModule()->getContext());
   LoadInst *LoadTid = new LoadInst(I32Ty, TidPtr, "my.tid", InsertPt);
-  LoadTid->setAlignment(MaybeAlign(4));
+  LoadTid->setAlignment(Align(4));
 
   // Now bundle all the function arguments together.
   SmallVector<Value*, 3> FnArgs = {LoadTid};
@@ -2967,7 +2967,7 @@ CallInst *VPOParoptUtils::genKmpcTaskgroupOrEndTaskgroupCall(
   Type *I32Ty = Type::getInt32Ty(C);
 
   LoadInst *LoadTid = new LoadInst(I32Ty, Tid, "my.tid", InsertPt);
-  LoadTid->setAlignment(MaybeAlign(4));
+  LoadTid->setAlignment(Align(4));
 
   // Now bundle all the function arguments together.
   SmallVector<Value *, 3> FnArgs = {LoadTid};
@@ -3012,7 +3012,7 @@ CallInst *VPOParoptUtils::genKmpcMasterOrEndMasterCall(
   }
 
   LoadInst *LoadTid = new LoadInst(I32Ty, Tid, "my.tid", InsertPt);
-  LoadTid->setAlignment(MaybeAlign(4));
+  LoadTid->setAlignment(Align(4));
 
   // Now bundle all the function arguments together.
   SmallVector<Value *, 3> FnArgs = {LoadTid};
@@ -3050,7 +3050,7 @@ CallInst *VPOParoptUtils::genKmpcSingleOrEndSingleCall(WRegionNode *W,
   }
 
   LoadInst *LoadTid = new LoadInst(I32Ty, Tid, "my.tid", InsertPt);
-  LoadTid->setAlignment(MaybeAlign(4));
+  LoadTid->setAlignment(Align(4));
 
   // Now bundle all the function arguments together.
   SmallVector<Value *, 3> FnArgs = {LoadTid};
@@ -3085,7 +3085,7 @@ CallInst *VPOParoptUtils::genKmpcOrderedOrEndOrderedCall(WRegionNode *W,
     FnName = "__kmpc_end_ordered";
 
   LoadInst *LoadTid = new LoadInst(I32Ty, Tid, "my.tid", InsertPt);
-  LoadTid->setAlignment(MaybeAlign(4));
+  LoadTid->setAlignment(Align(4));
 
   // Now bundle all the function arguments together.
   SmallVector<Value *, 3> FnArgs = {LoadTid};

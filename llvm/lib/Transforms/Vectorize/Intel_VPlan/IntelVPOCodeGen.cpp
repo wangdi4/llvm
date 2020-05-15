@@ -154,7 +154,7 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
       NewLoad->setVolatile(Load->isVolatile());
       NewLoad->setOrdering(Load->getOrdering());
       NewLoad->setSyncScopeID(Load->getSyncScopeID());
-      NewLoad->setAlignment(MaybeAlign{Load->getAlignment()});
+      NewLoad->setAlignment(Load->getAlign());
     }
   } else if (VPInst->getOpcode() == Instruction::Store) {
     assert(ScalarOperands.size() == 2 &&
