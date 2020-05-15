@@ -79,7 +79,7 @@
 // Currently, we only handle the offset scenario as that is the benchmark case.
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Intel_LoopTransforms/HIRArrayTranspose.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRArrayTransposePass.h"
 
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/SmallSet.h"

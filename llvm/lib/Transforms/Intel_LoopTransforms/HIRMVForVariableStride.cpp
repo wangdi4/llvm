@@ -45,7 +45,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Intel_LoopTransforms/HIRMVForVariableStride.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRMVForVariableStridePass.h"
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Function.h"

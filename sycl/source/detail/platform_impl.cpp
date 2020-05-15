@@ -11,6 +11,7 @@
 #include <detail/device_impl.hpp>
 #include <detail/platform_impl.hpp>
 #include <detail/platform_info.hpp>
+#include <detail/force_device.hpp>    // INTEL
 
 #include <algorithm>
 #include <cstring>
@@ -270,6 +271,15 @@ platform_impl::get_info() const {
       typename info::param_traits<info::platform, param>::return_type,
       param>::get(this->getHandleRef(), getPlugin());
 }
+
+#if INTEL_CUSTOMIZATION
+pi_native_handle platform_impl::getNative() const {
+  const auto &Plugin = getPlugin();
+  pi_native_handle Handle;
+  Plugin.call<PiApiKind::piextPlatformGetNativeHandle>(MPlatform, &Handle);
+  return Handle;
+}
+#endif // INTEL_CUSTOMIZATION
 
 #define PARAM_TRAITS_SPEC(param_type, param, ret_type)                         \
   template ret_type platform_impl::get_info<info::param_type::param>() const;

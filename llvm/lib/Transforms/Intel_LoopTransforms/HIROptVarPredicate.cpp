@@ -66,7 +66,7 @@
 //     a "self-IV".
 //
 //===----------------------------------------------------------------------===//
-#include "llvm/Transforms/Intel_LoopTransforms/HIROptVarPredicate.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIROptVarPredicatePass.h"
 
 #include "llvm/ADT/Statistic.h"
 #if INTEL_FEATURE_CSA

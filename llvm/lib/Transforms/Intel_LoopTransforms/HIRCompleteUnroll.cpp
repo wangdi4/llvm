@@ -66,7 +66,7 @@
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
-#include "HIRCompleteUnrollImpl.h"
+#include "HIRCompleteUnroll.h"
 
 #define DEBUG_TYPE "hir-complete-unroll"
 

@@ -38,7 +38,7 @@
 //       do i; do j; s = s + a(j) ->  do j; do i; s = s + a(j)
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopInterchange.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopInterchangePass.h"
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Function.h"

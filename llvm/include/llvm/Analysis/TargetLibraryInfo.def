@@ -148,6 +148,12 @@ TLI_DEFINE_STRING_INTERNAL("?_Xlength_error@std@@YAXPEBD@Z")
 /// void __cdecl std::_Xout_of_range(char const * __ptr64)
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_Xout_of_range)
 TLI_DEFINE_STRING_INTERNAL("?_Xout_of_range@std@@YAXPEBD@Z")
+/// void DeleteCriticalSection(LPCRITICAL_SECTION lpCriticalSection);
+TLI_DEFINE_ENUM_INTERNAL(DeleteCriticalSection)
+TLI_DEFINE_STRING_INTERNAL("DeleteCriticalSection")
+/// void EnterCriticalSection(LPCRITICAL_SECTION lpCriticalSection);
+TLI_DEFINE_ENUM_INTERNAL(EnterCriticalSection)
+TLI_DEFINE_STRING_INTERNAL("EnterCriticalSection")
 /// BOOL FindClose(HANDLE hFindFile);
 TLI_DEFINE_ENUM_INTERNAL(FindClose)
 TLI_DEFINE_STRING_INTERNAL("FindClose")
@@ -157,6 +163,9 @@ TLI_DEFINE_STRING_INTERNAL("FindFirstFileA")
 /// BOOL FindNextFileA(HANDLE hFindFile, LPWIN32_FIND_DATAA lpFindFileData);
 TLI_DEFINE_ENUM_INTERNAL(FindNextFileA)
 TLI_DEFINE_STRING_INTERNAL("FindNextFileA")
+/// DWORD GetCurrentThreadId();
+TLI_DEFINE_ENUM_INTERNAL(GetCurrentThreadId)
+TLI_DEFINE_STRING_INTERNAL("GetCurrentThreadId")
 /// DWORD GetFullPathNameA(LPCSTR lpFileName, DWORD  nBufferLength, LPSTR  lpBuffer, LPSTR  *lpFilePart);
 TLI_DEFINE_ENUM_INTERNAL(GetFullPathNameA)
 TLI_DEFINE_STRING_INTERNAL("GetFullPathNameA")
@@ -166,9 +175,24 @@ TLI_DEFINE_STRING_INTERNAL("GetModuleHandleA")
 /// FARPROC GetProcAddress(HMODULE hModule, LPCSTR  lpProcName);
 TLI_DEFINE_ENUM_INTERNAL(GetProcAddress)
 TLI_DEFINE_STRING_INTERNAL("GetProcAddress")
+/// DWORD GetShortPathNameW(LPCWSTR lpszLongPath, LPWSTR lpszShortPath, DWORD cchBuffer);
+TLI_DEFINE_ENUM_INTERNAL(GetShortPathNameW)
+TLI_DEFINE_STRING_INTERNAL("GetShortPathNameW")
 /// void GlobalMemoryStatus(LPMEMORYSTATUS lpBuffer);
 TLI_DEFINE_ENUM_INTERNAL(GlobalMemoryStatus)
 TLI_DEFINE_STRING_INTERNAL("GlobalMemoryStatus")
+/// BOOL InitializeCriticalSectionAndSpinCount(LPCRITICAL_SECTION lpCriticalSection, DWORD dwSpinCount);
+TLI_DEFINE_ENUM_INTERNAL(InitializeCriticalSectionAndSpinCount)
+TLI_DEFINE_STRING_INTERNAL("InitializeCriticalSectionAndSpinCount")
+/// void LeaveCriticalSection(LPCRITICAL_SECTION lpCriticalSection);
+TLI_DEFINE_ENUM_INTERNAL(LeaveCriticalSection)
+TLI_DEFINE_STRING_INTERNAL("LeaveCriticalSection")
+/// int MultiByteToWideChar(UINT CodePage, DWORD dwFlags, _In_NLS_string_(cbMultiByte)LPCCH lpMultiByteStr, int cbMultiByte, LPWSTR lpWideCharStr, int cchWideChar);
+TLI_DEFINE_ENUM_INTERNAL(MultiByteToWideChar)
+TLI_DEFINE_STRING_INTERNAL("MultiByteToWideChar")
+/// BOOL QueryPerformanceCounter(LARGE_INTEGER *lpPerformanceCount);
+TLI_DEFINE_ENUM_INTERNAL(QueryPerformanceCounter)
+TLI_DEFINE_STRING_INTERNAL("QueryPerformanceCounter")
 /// void Sleep(DWORD dwMilliseconds)
 TLI_DEFINE_ENUM_INTERNAL(Sleep)
 TLI_DEFINE_STRING_INTERNAL("Sleep")

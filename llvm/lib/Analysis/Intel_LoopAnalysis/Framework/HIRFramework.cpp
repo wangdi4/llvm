@@ -204,6 +204,28 @@ bool HIRFrameworkWrapperPass::runOnFunction(Function &F) {
   return false;
 }
 
+void HIRFramework::processDeferredZtts() {
+
+  for (auto &LoopZttPair : PhaseLoopFormation->getDeferredZtts()) {
+    auto *Lp = LoopZttPair.first;
+    auto *Ztt = LoopZttPair.second;
+
+    // Loop could have been removed if it was empty.
+    if (!Lp->isAttached()) {
+      continue;
+    }
+    // HLNodeUtils::removeEmptyNodesRange() inverts the condiiton if the
+    // children only exist in else case. If we still have children in else case,
+    // it means we either have children on both sides or the inversion failed.
+    // We have to give up in either case.
+    if (Ztt->hasElseChildren()) {
+      continue;
+    }
+
+    HIRLoopFormation::setRecognizedZtt(Lp, Ztt, false);
+  }
+}
+
 void HIRFramework::runImpl() {
   // TODO: Refactor code of the framework phases to make them local objects by
   // moving persistent data structures from individual phases to the
@@ -253,6 +275,9 @@ void HIRFramework::runImpl() {
   }
 
   HLNodeUtils::removeEmptyNodesRange(hir_begin(), hir_end());
+
+  processDeferredZtts();
+
   HNU->initTopSortNum();
 
   estimateMaxTripCounts();

@@ -24,8 +24,8 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeIterator.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
-#include "HIRLMMImpl.h"
-#include "HIRLoopReversalImpl.h"
+#include "HIRLMM.h"
+#include "HIRLoopReversal.h"
 
 #define DEBUG_TYPE "hir-transform-utils"
 

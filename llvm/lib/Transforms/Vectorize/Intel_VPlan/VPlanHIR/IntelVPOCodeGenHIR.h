@@ -122,6 +122,13 @@ public:
   // instructions can be placed.
   HLLoop *findRednHoistInsertionPoint(HLLoop *Lp);
 
+  // Utility that sets the hoist loop for reductions in loop being vectorized
+  // (OrigLoop). If there are no reductions in the loop, then insertion point is
+  // set to OrigLoop. This utility is expected to be called only after knowledge
+  // about reductions is imported into CG. It is also expected to work only on
+  // unmodified HIR.
+  void setRednHoistPtForVectorLoop();
+
   // Propagate metadata from memory references in either the group or old DDRef
   // to the new DDRef. If Group is non-null, references in Group are used to set
   // NewRef's metadata. Otherwise, OldRef is expected to be non-null and the
@@ -427,7 +434,7 @@ public:
   // vector loop. Type of this temp ref is VF x Entity's type. Additionally we
   // map instructions linked to a LoopEntity, to the new ref which will be used
   // during CG.
-  void createAndMapLoopEntityRefs();
+  void createAndMapLoopEntityRefs(unsigned VF);
 
   // Utility to check if target being compiled for has AVX512 Intel
   // optimizations.
@@ -626,18 +633,33 @@ private:
   void setUF(unsigned U) { UF = U == 0 ? 1 : U; }
 
   void insertReductionInit(HLInst *Inst) {
-    HLNodeUtils::insertBefore(RedInitInsertPoint, Inst);
+    // RedInitInsertPoint is never updated after initial assignment, so it
+    // should always be the reduction hoist loop.
+    assert(isa<HLLoop>(RedInitInsertPoint) &&
+           "Reduction init insert point is not a loop.");
+    HLNodeUtils::insertAsLastPreheaderNode(cast<HLLoop>(RedInitInsertPoint),
+                                           Inst);
   }
   void insertReductionInit(HLContainerTy *List) {
-    HLNodeUtils::insertBefore(RedInitInsertPoint, List);
+    assert(isa<HLLoop>(RedInitInsertPoint) &&
+           "Reduction init insert point is not a loop.");
+    HLNodeUtils::insertAsLastPreheaderNodes(cast<HLLoop>(RedInitInsertPoint),
+                                            List);
   }
   void insertReductionFinal(HLInst *Inst) {
-    HLNodeUtils::insertAfter(RedFinalInsertPoint, Inst);
+    if (auto *RedFinalInsertLp = dyn_cast<HLLoop>(RedFinalInsertPoint))
+      HLNodeUtils::insertAsFirstPostexitNode(RedFinalInsertLp, Inst);
+    else
+      HLNodeUtils::insertAfter(RedFinalInsertPoint, Inst);
+
     RedFinalInsertPoint = Inst;
   }
   void insertReductionFinal(HLContainerTy *List) {
     HLNode *Save = &List->back();
-    HLNodeUtils::insertAfter(RedFinalInsertPoint, List);
+    if (auto *RedFinalInsertLp = dyn_cast<HLLoop>(RedFinalInsertPoint))
+      HLNodeUtils::insertAsFirstPostexitNodes(RedFinalInsertLp, List);
+    else
+      HLNodeUtils::insertAfter(RedFinalInsertPoint, List);
     RedFinalInsertPoint = Save;
   }
 
@@ -683,8 +705,18 @@ private:
                      int64_t InterleaveFactor, int64_t InterleaveIndex,
                      const HLInst *GrpStartInst, const VPInstruction *VPInst);
 
-  // Implementation of widening the given VPInstruction to a vector instruction
-  // using VF as the vector length.
+  // Implementation of generating needed HIR constructs for the given
+  // VPInstruction. We generate new RegDDRefs or HLInsts that correspond to
+  // the given VPInstruction. Widen parameter is used to specify if we are
+  // generating VF wide constructs. If Widen is false, we generate scalar
+  // constructs for lane 0.
+  void generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
+                   const OVLSGroup *Group, int64_t InterleaveFactor,
+                   int64_t InterleaveIndex, const HLInst *GrpStartInst,
+                   bool Widen);
+
+  // Wrapper used to call generateHIR appropriately based on nature of given
+  // VPInstruction.
   void widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
                      const OVLSGroup *Group, int64_t InterleaveFactor,
                      int64_t InterleaveIndex, const HLInst *GrpStartInst);

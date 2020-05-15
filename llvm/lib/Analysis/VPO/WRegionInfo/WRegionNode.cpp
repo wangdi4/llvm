@@ -623,6 +623,9 @@ void WRegionNode::handleQual(const ClauseSpecifier &ClauseInfo) {
   case QUAL_OMP_ORDER_CONCURRENT:
     setLoopOrder(WRNLoopOrderConcurrent);
     break;
+  case QUAL_OMP_OFFLOAD_KNOWN_NDRANGE:
+    getWRNLoopInfo().setKnownNDRange();
+    break;
   default:
     llvm_unreachable("Unknown ClauseID in handleQual()");
   }
@@ -1395,12 +1398,14 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
       getWRNLoopInfo().addNormUB(V);
     }
     break;
-  case QUAL_OMP_OFFLOAD_NDRANGE:
+  case QUAL_OMP_OFFLOAD_NDRANGE: {
+    SmallVector<Value *, 3> NDRange;
     for (unsigned I = 0; I < NumArgs; ++I) {
-      Value *V = Args[I];
-      addUncollapsedNDRangeDimension(V);
+      NDRange.push_back(Args[I]);
     }
+    setUncollapsedNDRangeDimensions(NDRange);
     break;
+  }
   case QUAL_OMP_JUMP_TO_END_IF:
     // Nothing to parse for this auxiliary clause.
     // It may exist after VPO Paropt prepare and before

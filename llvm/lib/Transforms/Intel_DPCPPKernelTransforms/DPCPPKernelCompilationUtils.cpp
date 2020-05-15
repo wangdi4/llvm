@@ -14,6 +14,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelBarrierUtils.h"
 
 using namespace llvm;
 
@@ -49,7 +50,7 @@ void DPCPPKernelCompilationUtils::getAllSyncBuiltinsDecls(FuncSet &FuncSet,
   FuncSet.clear();
 
   // TODO: port handling of WG collectives here as well
-  auto *F = M->getFunction("__builtin_dpcpp_kernel_barrier");
+  auto *F = M->getFunction(DPCPPKernelBarrierUtils::BarrierName);
 
   if (F && F->isDeclaration())
     FuncSet.insert(F);

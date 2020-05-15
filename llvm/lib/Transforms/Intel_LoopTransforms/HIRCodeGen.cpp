@@ -21,7 +21,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Intel_LoopTransforms/HIRCodeGen.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRCodeGenPass.h"
 
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"

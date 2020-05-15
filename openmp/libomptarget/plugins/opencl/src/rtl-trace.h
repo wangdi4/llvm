@@ -37,6 +37,8 @@ extern int DebugLevel;
 #if INTEL_CUSTOMIZATION
 // DPI() is for printing sensitive information in the debug output.
 // It will only print anything in non-release builds.
+// Note that DPI is not defined for non-INTEL_CUSTOMIZATION builds,
+// so that the INTEL_COLLAB build fails, if DPI used in there.
 #if INTEL_INTERNAL_BUILD
 #define DPI(...) DP(__VA_ARGS__)
 #else  // !INTEL_INTERNAL_BUILD
@@ -44,8 +46,6 @@ extern int DebugLevel;
 #endif // !INTEL_INTERNAL_BUILD
 typedef cl_uint cl_mem_info_intel;
 typedef cl_bitfield cl_mem_properties_intel;
-#else  // INTEL_CUSTOMIZATION
-#define DPI(...)
 #endif // INTEL_CUSTOMIZATION
 
 #define FOREACH_CL_ERROR_CODE(FN)                                              \

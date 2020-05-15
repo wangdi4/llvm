@@ -1109,29 +1109,8 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W,
   unsigned NumLoops = 0;
 
   if (UncollapsedNDRange.empty()) {
-    for (int I = 0, IE = WL->getWRNLoopInfo().getNormIVSize(); I < IE; ++I) {
-      auto *L = WL->getWRNLoopInfo().getLoop(I);
-      auto *UpperBoundDef =
-          cast<Instruction>(WRegionUtils::getOmpLoopUpperBound(L));
-      if (!VPOParoptUtils::mayCloneUBValueBeforeRegion(UpperBoundDef, W)) {
-        // FIXME: if we stop calling this function for SPIR compilation,
-        //        then the check for isTargetSPIRV() has to be removed below.
-        if (isTargetSPIRV()) {
-          // This code may be executed only for ImplicitSIMDSPMDES mode.
-          OptimizationRemarkMissed R(
-              "openmp", "Target", WL->getEntryDirective());
-          R << "Consider using OpenMP combined construct "
-              "with \"target\" to get optimal performance";
-          ORE.emit(R);
-        }
-        LLVM_DEBUG(dbgs() << __FUNCTION__ <<
-                   ": loop bounds cannot be computed before the enclosing "
-                   "target region.\n");
-        return nullptr;
-      }
-    }
-
-    NumLoops = WL->getWRNLoopInfo().getNormIVSize();
+    llvm_unreachable("Uncollapsed ND-range must not be empty.");
+    return nullptr;
   }
   else
     NumLoops = UncollapsedNDRange.size();

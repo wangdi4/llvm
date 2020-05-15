@@ -35,7 +35,7 @@
 //
 //
 //===----------------------------------------------------------------------===//
-#include "llvm/Transforms/Intel_LoopTransforms/HIRConditionalTempSinking.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRConditionalTempSinkingPass.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 

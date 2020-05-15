@@ -1,3 +1,19 @@
+// Tests covering Intel specific options.  These are basic options that are
+// aliases of existing Clang options.
+
+// Behavior with -qopt-zmm-usage
+// RUN: %clang -### -c -qopt-zmm-usage=high %s 2>&1 | FileCheck -check-prefix CHECK-ZMM-HIGH %s
+// RUN: %clang_cl -### -c /Qopt-zmm-usage:high %s 2>&1 | FileCheck -check-prefix CHECK-ZMM-HIGH %s
+// RUN: %clang -### -c -qopt-zmm-usage=low %s 2>&1 | FileCheck -check-prefix CHECK-ZMM-LOW %s
+// RUN: %clang_cl -### -c /Qopt-zmm-usage:low %s 2>&1 | FileCheck -check-prefix CHECK-ZMM-LOW %s
+// RUN: %clang -### -c -mprefer-vector-width=512 -qopt-zmm-usage=low %s 2>&1 | FileCheck -check-prefix CHECK-ZMM-LOW %s
+// RUN: %clang -### -c -qopt-zmm-usage=low -mprefer-vector-width=512 %s 2>&1 | FileCheck -check-prefix CHECK-ZMM-HIGH %s
+// RUN: %clang -### -c -qopt-zmm-usage=invalid %s 2>&1 | FileCheck -check-prefix CHECK-ZMM-INVALID %s
+// RUN: %clang_cl -### -c /Qopt-zmm-usage:invalid %s 2>&1 | FileCheck -check-prefix CHECK-ZMM-INVALID %s
+// CHECK-ZMM-HIGH: "-mprefer-vector-width=512"
+// CHECK-ZMM-LOW: "-mprefer-vector-width=256"
+// CHECK-ZMM-INVALID: invalid value 'invalid'
+
 // Behavior with -ipo/Qipo option
 // RUN: %clang -### -c -ipo %s 2>&1 | FileCheck -check-prefix CHECK-IPO %s
 // RUN: %clang_cl -### -c /Qipo %s 2>&1 | FileCheck -check-prefix CHECK-IPO %s

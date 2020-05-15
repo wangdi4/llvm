@@ -320,19 +320,6 @@ public:
   HIRDDAnalysis run(Function &F, FunctionAnalysisManager &AM);
 };
 
-class HIRDDAnalysisPrinterPass
-    : public PassInfoMixin<HIRDDAnalysisPrinterPass> {
-  raw_ostream &OS;
-
-public:
-  explicit HIRDDAnalysisPrinterPass(raw_ostream &OS) : OS(OS) {}
-
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM) {
-    AM.getResult<HIRDDAnalysisPass>(F).printAnalysis(OS);
-    return PreservedAnalyses::all();
-  }
-};
-
 } // namespace loopopt
 } // namespace llvm
 

@@ -19,5 +19,6 @@ void llvm::initializeIntel_DPCPPKernelTransforms(PassRegistry &Registry) {
   initializeDPCPPKernelAnalysisPass(Registry);
   initializePhiCanonicalizationPass(Registry);
   initializeRedundantPhiNodePass(Registry);
+  initializeSplitBBonBarrierPass(Registry);
 }
 

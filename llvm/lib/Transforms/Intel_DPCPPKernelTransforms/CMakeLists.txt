@@ -9,6 +9,8 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   DPCPPKernelAnalysis.cpp
   PhiCanonicalization.cpp
   RedundantPhiNodePass.cpp
+  SplitBBonBarrierPass.cpp
+  DPCPPKernelBarrierUtils.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms/Intel_DPCPPKernelTransforms

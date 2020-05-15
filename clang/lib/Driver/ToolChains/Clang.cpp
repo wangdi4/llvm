@@ -295,10 +295,25 @@ static void ParseMRecip(const Driver &D, const ArgList &Args,
 /// or the string "none".
 static void ParseMPreferVectorWidth(const Driver &D, const ArgList &Args,
                                     ArgStringList &CmdArgs) {
-  Arg *A = Args.getLastArg(options::OPT_mprefer_vector_width_EQ);
+#if INTEL_CUSTOMIZATION
+  Arg *A = Args.getLastArg(options::OPT_mprefer_vector_width_EQ,
+                           options::OPT_qopt_zmm_usage_EQ);
   if (!A)
     return;
-
+  if (A->getOption().matches(options::OPT_qopt_zmm_usage_EQ)) {
+    StringRef Width, Value = A->getValue();
+    if (Value == "high")
+      Width = "512";
+    else if (Value == "low")
+      Width = "256";
+    else {
+      D.Diag(diag::err_drv_invalid_value) << A->getOption().getName() << Value;
+      return;
+    }
+    CmdArgs.push_back(Args.MakeArgString("-mprefer-vector-width=" + Width));
+    return;
+  }
+#endif // INTEL_CUSTOMIZATION
   StringRef Value = A->getValue();
   if (Value == "none") {
     CmdArgs.push_back("-mprefer-vector-width=none");

@@ -91,8 +91,7 @@ define void @foo(float* noalias nocapture %arr1, float* noalias nocapture %arr2,
 ; CHECK-NEXT:  Function: foo
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  <0>          BEGIN REGION { modified }
-; CHECK-NEXT:  <27>               [[RED_VAR0:%.*]] = 0.000000e+00
-; CHECK-NEXT:  <26>
+; CHECK-NEXT:  <27>                 [[RED_VAR0:%.*]] = 0.000000e+00
 ; CHECK-NEXT:  <26>               + DO i1 = 0, 99, 4   <DO_LOOP> <novectorize>
 ; CHECK-NEXT:  <28>               |   [[BB2]].{{[0-9]+}}:
 ; CHECK-NEXT:  <29>               |   [[WIDE_CMP_0:%.*]] = [[N10]] == 0
@@ -120,8 +119,7 @@ define void @foo(float* noalias nocapture %arr1, float* noalias nocapture %arr2,
 ; CHECK-NEXT:  <46>               |   [[BB3]].{{[0-9]+}}:
 ; CHECK-NEXT:  <47>               |   [[RED_VAR0]] = [[PHI_TEMP20]]  +  [[RED_VAR0]]
 ; CHECK-NEXT:  <26>               + END LOOP
-; CHECK-NEXT:  <26>
-; CHECK-NEXT:  <48>               [[RED_PHI0]] = @llvm.experimental.vector.reduce.v2.fadd.f32.v4f32([[RED_PHI0]],  [[RED_VAR0]])
+; CHECK-NEXT:  <48>                 [[RED_PHI0]] = @llvm.experimental.vector.reduce.v2.fadd.f32.v4f32([[RED_PHI0]],  [[RED_VAR0]])
 ; CHECK-NEXT:  <0>          END REGION
 ;
 

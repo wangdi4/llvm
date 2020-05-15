@@ -1890,6 +1890,16 @@ private:
   /// The propagated value will be used to specify SPIR-V widening
   /// width for the outlined target region.
   void propagateSPIRVSIMDWidth() const;
+
+  /// The given loop region \p WL is enclosed into "omp target" region \p WT.
+  /// \p NDRangeDims specifies "known" tripcount(s) for the loop(s)
+  /// associated with \p WL (NDRangeDims[0] - tripcount for the outermost loop).
+  /// The tripcounts are known in the sense that they may be computed
+  /// before the "omp target" region. The method sets QUAL_OMP_OFFLOAD_NDRANGE
+  /// clause for \p WT listing the known tripcount(s), and also sets
+  /// QUAL_OMP_OFFLOAD_KNOWN_NDRANGE for \p WL.
+  void setNDRangeClause(
+      WRegionNode *WT, WRegionNode *WL, ArrayRef<Value *> NDRangeDims) const;
 };
 
 } /// namespace vpo

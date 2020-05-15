@@ -256,7 +256,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopConcatenation.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopConcatenationPass.h"
 
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
