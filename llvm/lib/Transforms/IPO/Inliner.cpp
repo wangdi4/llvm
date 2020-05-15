@@ -1405,7 +1405,7 @@ ModuleInlinerWrapperPass::ModuleInlinerWrapperPass(InlineParams Params,
                                                    unsigned MaxDevirtIterations,
                                                    InlinerPass *InlP) // INTEL
     : Params(Params), Mode(Mode), MaxDevirtIterations(MaxDevirtIterations),
-      Debugging(Debugging), PM(Debugging), MPM(Debugging) {
+      PM(Debugging), MPM(Debugging) {
   // Run the inliner first. The theory is that we are walking bottom-up and so
   // the callees have already been fully optimized, and we want to inline them
   // into the callers so that our optimizations can reflect that.

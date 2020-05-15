@@ -163,7 +163,6 @@ private:
   const InlineParams Params;
   const InliningAdvisorMode Mode;
   const unsigned MaxDevirtIterations;
-  const bool Debugging;
   CGSCCPassManager PM;
   ModulePassManager MPM;
 };
