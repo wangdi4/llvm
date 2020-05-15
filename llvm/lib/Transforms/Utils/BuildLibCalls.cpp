@@ -947,14 +947,25 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_kmpc_critical:
     return Changed;
   case LibFunc_kmpc_dispatch_init_4:
+  case LibFunc_kmpc_dispatch_init_4u:
+  case LibFunc_kmpc_dispatch_init_8:
+  case LibFunc_kmpc_dispatch_init_8u:
+    Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_kmpc_dispatch_next_4:
+  case LibFunc_kmpc_dispatch_next_4u:
+  case LibFunc_kmpc_dispatch_next_8:
+  case LibFunc_kmpc_dispatch_next_8u:
+    Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_kmpc_end_critical:
     return Changed;
   case LibFunc_kmpc_end_reduce_nowait:
     return Changed;
   case LibFunc_kmpc_end_serialized_parallel:
+    return Changed;
+  case LibFunc_kmpc_flush:
+    Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_kmpc_for_static_fini:
     return Changed;
@@ -969,6 +980,21 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_kmpc_ok_to_fork:
     Changed |= setDoesNotCapture(F, 0);
     Changed |= setOnlyReadsMemory(F, 0);
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_kmpc_omp_task:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_kmpc_omp_task_alloc:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_kmpc_omp_task_begin_if0:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_kmpc_omp_task_complete_if0:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_kmpc_omp_taskwait:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_kmpc_push_num_threads:
@@ -987,6 +1013,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_kmpc_end_master:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_kmpc_threadprivate_cached:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_lxstat:
