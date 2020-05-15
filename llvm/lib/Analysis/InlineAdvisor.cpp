@@ -30,8 +30,6 @@
 using namespace llvm;
 using namespace InlineReportTypes; // INTEL
 
-class InliningLoopInfoCache; // INTEL
-
 #define DEBUG_TYPE "inline"
 
 // This weirdly named statistic tracks the number of times that, when attempting
