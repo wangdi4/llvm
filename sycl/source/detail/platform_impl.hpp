@@ -11,7 +11,6 @@
 #include <CL/sycl/detail/pi.hpp>
 #include <CL/sycl/info/info_desc.hpp>
 #include <CL/sycl/stl.hpp>
-#include <detail/force_device.hpp>
 #include <detail/platform_info.hpp>
 #include <detail/plugin.hpp>
 
@@ -127,6 +126,8 @@ public:
     assert(!MHostPlatform && "Plugin is not available for Host");
     MPlugin = std::move(PluginPtr);
   }
+  // Returns the native plugin handle.    // INTEL
+  pi_native_handle getNative() const;     // INTEL
 
 private:
   bool MHostPlatform = false;

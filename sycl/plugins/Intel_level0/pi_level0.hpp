@@ -48,9 +48,15 @@ struct _pi_device {
              bool isSubDevice = false)
       : ZeDevice{Device}, Platform{Plt}, ZeCommandListInit{nullptr},
         IsSubDevice{isSubDevice}, RefCount{1}, ZeDeviceProperties{},
-        ZeDeviceComputeProperties{} {}
+        ZeDeviceComputeProperties{} {
+    // NOTE: one must additionally call initialize() to complete
+    // PI device creation.
+  }
 
-  // L0 device handle.
+  // Initialize the entire PI device.
+  pi_result initialize();
+
+// L0 device handle.
   ze_device_handle_t ZeDevice;
 
   // PI platform to which this device belongs.
