@@ -261,7 +261,7 @@ namespace intel {
         Type *Ty = cast<PointerType>(pNewValue->getType())->getElementType();
         LoadInst *pNewLoad = new LoadInst(
             Ty, pNewValue, pLoadInstr->getName(), pLoadInstr->isVolatile(),
-            MaybeAlign(pLoadInstr->getAlignment()), pLoadInstr->getOrdering(),
+            pLoadInstr->getAlign(), pLoadInstr->getOrdering(),
             pLoadInstr->getSyncScopeID(), pLoadInstr);
         pNewInstr = pNewLoad;
         break;

@@ -1272,7 +1272,7 @@ Instruction* PacketizeFunction::widenConsecutiveUnmaskedMemOp(MemoryOperation &M
   case LOAD: {
     // Create a "vectorized" load
     return new LoadInst(vectorElementType, bitCastPtr, MO.Orig->getName(), false,
-                        MaybeAlign(MO.Alignment), MO.Orig);
+                        MO.Alignment? Align(MO.Alignment): Align(), MO.Orig);
   }
   case STORE: {
     Value *vData;

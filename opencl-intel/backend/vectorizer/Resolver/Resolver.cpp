@@ -313,8 +313,9 @@ void FuncResolver::resolveLoadScalar(CallInst* caller, unsigned align) {
   // Create the new load
   Type *Ty =
       cast<PointerType>(caller->getArgOperand(1)->getType())->getElementType();
-  LoadInst* loader = new LoadInst(Ty, caller->getArgOperand(1), "masked_load",
-      false, MaybeAlign(align), caller);
+  LoadInst *loader =
+      new LoadInst(Ty, caller->getArgOperand(1), "masked_load", false,
+                   align ? Align(align) : Align(), caller);
   VectorizerUtils::SetDebugLocBy(loader, caller);
   caller->replaceAllUsesWith(loader);
   // Replace predicate with control flow
@@ -337,8 +338,8 @@ void FuncResolver::resolveLoadVector(CallInst* caller, unsigned align) {
   // Perform a single wide load and a single IF.
   if (!Mask->getType()->isVectorTy()) {
     Type *Ty = cast<PointerType>(Ptr->getType())->getElementType();
-    Instruction *loader = new LoadInst(Ty, Ptr, "vload", false, MaybeAlign(align),
-                                       caller);
+    Instruction *loader = new LoadInst(Ty, Ptr, "vload", false,
+                                       align ? Align(align) : Align(), caller);
     VectorizerUtils::SetDebugLocBy(loader, caller);
     toPredicate(loader, Mask);
     caller->replaceAllUsesWith(loader);
@@ -370,8 +371,8 @@ void FuncResolver::resolveLoadVector(CallInst* caller, unsigned align) {
     Instruction *GEP = GetElementPtrInst::Create(nullptr, Ptr, Idx, "vload", caller);
     Instruction *MaskBit = ExtractElementInst::Create(Mask, Idx, "exmask", caller);
     Type *Ty = cast<GetElementPtrInst>(GEP)->getResultElementType();
-    Instruction *loader = new LoadInst(Ty, GEP, "vload", false, MaybeAlign(align),
-                                       caller);
+    Instruction *loader = new LoadInst(Ty, GEP, "vload", false,
+                                       align ? Align(align) : Align(), caller);
     Instruction* inserter = InsertElementInst::Create(
       Ret, loader, Idx, "vpack", caller);
     VectorizerUtils::SetDebugLocBy(GEP, caller);

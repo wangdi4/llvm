@@ -364,7 +364,8 @@ Value *VectorizerUtils::RootReturnValue(Value *retVal, Type *rootType, CallInst 
     Type *ptrType = PointerType::get(CI->getType(), 0);
     Constant *subExpr = ConstantExpr::getIntToPtr(
       ConstantInt::get(Type::getInt32Ty(context), APInt(32, 0xdeadbeef)), ptrType);
-    dummyInstruction = new LoadInst(CI->getType(), subExpr);
+    dummyInstruction =
+        new LoadInst(CI->getType(), subExpr, "", false /*volatile*/, Align());
     dummyInstruction->insertAfter(CI);
     CI->replaceAllUsesWith(dummyInstruction);
     retvalUsers.erase(CI);

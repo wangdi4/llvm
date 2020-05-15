@@ -1321,7 +1321,8 @@ void ScalarizeFunction::obtainScalarizedValues(Value *retValues[], bool *retIsCo
     for (unsigned i = 0; i < width; i++)
     {
       // Generate dummy "load" instruction (but don't really place in function)
-      retValues[i] = new LoadInst(dummyType, dummyPtr);
+      retValues[i] =
+          new LoadInst(dummyType, dummyPtr, "", false /*volatile*/, Align());
       newDRLEntry.dummyVals[i] = retValues[i];
     }
     // Copy the data into DRL structure

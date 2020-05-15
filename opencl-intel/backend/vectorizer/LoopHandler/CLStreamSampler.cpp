@@ -376,7 +376,7 @@ void CLStreamSampler::hoistReadImgCall(TranspReadImgAttr &attr,
                      colorAllocas[i], indicesArr, "calc.address", attr.m_call);
     Type *Ty = cast<GetElementPtrInst>(colorPointer)->getResultElementType();
     Value *transpValueLoad = new LoadInst(Ty, colorPointer, "load.trnsp.val", false,
-                                          MaybeAlign(FLOAT_X_WIDTH__ALIGNMENT),
+                                          Align(FLOAT_X_WIDTH__ALIGNMENT),
                                           attr.m_call);
     LI->replaceAllUsesWith(transpValueLoad);
     LI->eraseFromParent();
