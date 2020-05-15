@@ -1,5 +1,5 @@
 /*
-    Copyright (c) 2019 Intel Corporation
+    Copyright (c) 2019-2020 Intel Corporation
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -888,9 +888,10 @@ private:
             fill_prev_next_by_ptr(prev_nodes, next_nodes, it, key, my_compare);
 
             node_ptr erase_node = next_nodes[0];
+            __TBB_ASSERT(erase_node != nullptr, NULL);
             node_ptr next_node = erase_node->next(0);
 
-            if (erase_node && !my_compare(key, get_key(erase_node))) {
+            if (!my_compare(key, get_key(erase_node))) {
                 for(size_type level = 0; level < erase_node->height(); ++level) {
                     __TBB_ASSERT(prev_nodes[level]->height() > level, NULL);
                     __TBB_ASSERT(next_nodes[level] == erase_node, NULL);
