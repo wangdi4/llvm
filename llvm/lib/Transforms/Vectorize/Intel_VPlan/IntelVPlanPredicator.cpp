@@ -13,14 +13,9 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#if INTEL_CUSTOMIZATION
 #include "IntelVPlanPredicator.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanIDF.h"
-#else
-#include "VPlanPredicator.h"
-#include "VPlan.h"
-#endif // INTEL_CUSTOMIZATION
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/MapVector.h"
@@ -33,6 +28,10 @@
 
 using namespace llvm;
 using namespace llvm::vpo;
+
+static cl::opt<bool> DotBeforeBlends(
+    "vplan-dot-before-blends", cl::init(false), cl::Hidden,
+    cl::desc("Print VPlan digraph before blends are processed."));
 
 static cl::opt<bool> PreserveUniformCFG(
     "vplan-preserve-uniform-branches", cl::init(true), cl::Hidden,
@@ -375,83 +374,6 @@ VPlanPredicator::getOrCreateValueForPredicateTerm(PredicateTerm Term,
   return LiveValueMap[AtBlock];
 }
 
-// TODO: This is a temporary hack to make sure the predicator uses the blend
-// as an operand in block-predicate instructions rather than the old phi.
-// Once the predicator is re-designed, this code should be removed.
-void VPlanPredicator::replacePhiPredicateTermWithBlend(VPPHINode *Phi,
-                                                       VPBlendInst *Blend) {
-  for (auto &It : Block2PredicateTermsAndUniformity) {
-    for (auto &PredTerm : It.second.first) {
-      VPValue *Cond = PredTerm.Condition;
-      if (Cond && Cond == Phi)
-        PredTerm.Condition = Blend;
-    }
-  }
-
-  for (auto &It : PredicateTerm2UseBlocks) {
-    auto &PredTerm = It.first;
-    VPValue *Cond = PredTerm.Condition;
-    if (Cond && Cond == Phi) {
-      PredicateTerm NewTerm(PredTerm.OriginBlock, Blend, PredTerm.Negate);
-      for (auto *BB : It.second)
-        PredicateTerm2UseBlocks[NewTerm].push_back(BB);
-    }
-  }
-}
-
-void VPlanPredicator::turnPhisToBlends(
-    VPBasicBlock *Block,
-    DenseMap<const VPBasicBlock *, int> &BlockIndexInRPOT) {
-
-  VPlanDivergenceAnalysis *DA = Plan.getVPlanDA();
-  SmallVector<VPPHINode *, 2> PhisToRemove;
-  VPBasicBlock *VPBB = cast<VPBasicBlock>(Block);
-
-  for (VPPHINode &Phi : Block->getVPPhis()) {
-    // Generate a new blend instruction using the existing phi incoming values
-    // and blocks. The block-predicate instructions are not yet available, and
-    // they will be added to the blend at the end of predication.
-    VPBlendInst *Blend = new VPBlendInst(Phi.getType());
-    // Preserve instruction name for debugging and lit testing.
-    Blend->setName(Phi.getName());
-    Blend->copyUnderlyingFrom(Phi);
-
-    for (unsigned i = 0; i < Phi.getNumIncomingValues(); i++) {
-      VPBasicBlock *IncomingBlock = Phi.getIncomingBlock(i);
-      addBlendTuple(Blend, Phi.getIncomingValue(i), IncomingBlock,
-                    BlockIndexInRPOT[IncomingBlock]);
-    }
-    VPBB->addInstruction(Blend, &Phi);
-
-    // Don't invalidate users of the phi because the blend is a functionally
-    // equivalent instruction.
-    Phi.replaceAllUsesWith(Blend, false /*Invalidate IR*/);
-
-    // Update maps used when generating values for block-predicate instructions.
-    replacePhiPredicateTermWithBlend(&Phi, Blend);
-
-    // HCFGBuilder inserts a phi as the CondBit of the new loop latch block
-    // during mergeLoopExits(). This phi can be replaced with a blend here,
-    // so the CondBit must be replaced explicitly since CondBits do not show
-    // up in Def/Use chains. TODO: once CondBits are replaced by proper
-    // terminator instructions, this code must be removed.
-    VPBasicBlock *PhiParent = Phi.getParent();
-    if (PhiParent->getCondBit() == &Phi)
-      PhiParent->setCondBit(Blend);
-
-    // Remove instructions later so as to not invalidate Phi iterator.
-    PhisToRemove.push_back(&Phi);
-
-    if (DA->isDivergent(Phi))
-      DA->markDivergent(*Blend);
-    else
-      DA->markUniform(*Blend);
-  }
-
-  for (auto *Phi : PhisToRemove)
-    VPBB->eraseInstruction(Phi);
-}
-
 bool VPlanPredicator::shouldPreserveUniformBranches() const {
   if (Plan.isFullLinearizationForced())
     return false;
@@ -526,8 +448,9 @@ void VPlanPredicator::linearizeRegion(
    // Process incoming edges to the CurrBlock. Once this iterations finishes,
    // CurrBlock's incoming edges are properly set. Also create new basic blocks
    // if CurrBlock is a point of re-convergence of several divergent conditions
-   // (or even of a single one if uniform incoming edges are present). Phi-nodes
-   // are marked as blended too, if needed.
+   // (or even of a single one if uniform incoming edges are present). Blocks
+   // that would need post-processing for blends creation are marked as such as
+   // well.
     SmallVector<VPBasicBlock *, 4> UniformEdges;
     SmallVector<VPBasicBlock *, 4> RemainingDivergentEdges;
     SmallVectorImpl<VPBasicBlock *> &RemovedDivergentEdges =
@@ -546,85 +469,12 @@ void VPlanPredicator::linearizeRegion(
       // For now, just mark phis as blend to avoid phis in the middle of the
       // generated BB.
       if (UniformEdges.size() == 1)
-        turnPhisToBlends(CurrBlock, BlockIndexInRPOT);
+        BlocksToBlendProcess.insert(CurrBlock);
 
       // No more fixups needed, al predecessors are uniform edges that we didn't
       // touch.
       continue;
     }
-
-    // Consider this:
-    //         BB0 (U)
-    //       /     \
-    //     BB1 (D)  |
-    //    /   \     |
-    //   /     \    |
-    //  BB3   BB2   |
-    //   \    /    /
-    //    BB4<----+
-    //
-    // Before linearization, PHIs in BB4 have 3 incoming blocks (BB3, BB2, BB).
-    // After the transformation, there will be only two edges (BB3 and BB2 will
-    // be linearized). As such, selecting between BB2 and BB3 should happen via
-    // blending, and the resulting phi will only select between that blend and
-    // the value coming from BB0. For that, we need to introduce a separate BB
-    // to put the blend phi in, e.g.:
-    //
-    //       BB0 (U)
-    //     /        \
-    //    BB1        |
-    //     |         |
-    //    BB2        |
-    //     |         |
-    //    BB3        |
-    //     |         |
-    //   BlendBB     |
-    //     |        /
-    //    BB4<-----+
-    //
-    // Things get more complicated if we have several linearized sub-graphs
-    // coming into this block:
-    //
-    //         BB0 (U)
-    //         /       \
-    //        /        BB5 (U)
-    //       /        /   \
-    //      /        /     BB6 (D)
-    //     BB1 (D)  /     / \
-    //    /   \    +     /   \
-    //   /     \   |   BB7   BB8
-    //  BB3   BB2  |   /    /
-    //   \      \  |  /    /
-    //    +------->BB4<---+
-    //
-    // After linearization we will have this:
-    //
-    //       BB0
-    //      /  \
-    //    BB1   BB5
-    //     |     | \
-    //    BB2    |  BB6
-    //     |     |   |
-    //    BB3    |  BB7
-    //     |     |   |
-    //     |     |  BB8
-    //   Blend   |   |
-    //       \   | Blend2
-    //        \  | /
-    //          BB4
-    //
-    // Note, that two different BlendBBs are needed. Basically, for they should
-    // be created for each incoming divergent edge remainig after linearization.
-    // However, don't be confused with
-    // RemainingDivergentEdges/RemovedDivergentEdges above. For some of the
-    // removed edges we will create a new edge. As such, blending BBs insertion
-    // happens after all the incoming edges to CurrBB are determined.
-    //
-    // Iteration order matters! This is used to fill in incoming values to phis.
-    // Any order is valid there, but generating random order would make unit
-    // testing flaky + such varying isn'g good for the compiler as it might
-    // affect later optimizations too.
-    MapVector<VPBasicBlock *, SmallVector<VPBasicBlock *, 4>> EdgeToBlendBBs;
 
     auto DropDivergentEdgesFromAndLinkWith =
         [this](VPBasicBlock *Src, VPBasicBlock *TargetToKeep) {
@@ -646,14 +496,6 @@ void VPlanPredicator::linearizeRegion(
       assert(!shouldPreserveOutgoingEdges(Pred) &&
              "Trying to remove an edge that should be preserved!");
       DropDivergentEdgesFromAndLinkWith(Pred, CurrBlock);
-
-      EdgeToBlendBBs[Pred].push_back(Pred);
-    }
-
-    if (RemainingDivergentEdges.size() == 1 &&
-        UniformEdges.size() + RemovedDivergentEdges.size() == 0) {
-      turnPhisToBlends(CurrBlock, BlockIndexInRPOT);
-      continue;
     }
 
     for (auto *Pred : RemovedDivergentEdges) {
@@ -708,13 +550,6 @@ void VPlanPredicator::linearizeRegion(
         // destination to keep no invalidation happens.
         DropDivergentEdgesFromAndLinkWith(LastProcessed, CurrBlock);
       }
-
-      EdgeToBlendBBs[LastProcessed].push_back(Pred);
-    }
-
-    if (UniformEdges.size() + EdgeToBlendBBs.size() == 1) {
-      turnPhisToBlends(CurrBlock, BlockIndexInRPOT);
-      continue;
     }
 
     // All incoming edges to CurrBlock are correct now.
@@ -726,48 +561,223 @@ void VPlanPredicator::linearizeRegion(
                    }) &&
            "Uniform edge has been removed!");
 
-    // Now, create BlendBBs and blending phis inside them.
+    BlocksToBlendProcess.insert(CurrBlock);
+  }
+}
 
-    auto VPPhisIteratorRange = CurrBlock->getVPPhis();
-    if (VPPhisIteratorRange.begin() == VPPhisIteratorRange.end())
-      // CurrBlock doesn't have any phis, no extra processing needed.
-      continue;
+void VPlanPredicator::transformPhisToBlends(VPBasicBlock *Block) {
+  if (Block->getVPPhis().empty())
+    return;
 
-    for (auto &It : EdgeToBlendBBs) {
-      auto *IncomingBlock = It.first;
+  SmallPtrSet<VPBasicBlock *, 4> DefBlocks;
+  auto &SomePhi = cast<VPPHINode>(*Block->begin());
+  for (auto *PredicateBlock : SomePhi.blocks())
+    DefBlocks.insert(PredicateBlock);
 
-      for (auto *Succ : IncomingBlock->getSuccessors())
-        VPBlockUtils::disconnectBlocks(IncomingBlock, Succ);
+  VPDominatorTree &VPDomTree = *Plan.getDT();
+  VPPostDominatorTree &VPPostDomTree = *Plan.getPDT();
 
-      auto BlendBB = new VPBasicBlock(VPlanUtils::createUniqueName("blend.bb"),
-                                      IncomingBlock->getParent());
-      if (auto *VLoop = VPLI->getLoopFor(CurrBlock))
-        VLoop->addBasicBlockToLoop(BlendBB, *VPLI);
-      BlendBB->insertBefore(CurrBlock);
-      VPBlockUtils::connectBlocks(IncomingBlock, BlendBB);
-      VPBlockUtils::connectBlocks(BlendBB, CurrBlock);
+  SmallPtrSet<VPBasicBlock *, 4> LiveInBlocks;
+  computeLiveInsForBlendsIDF(DefBlocks, Block, LiveInBlocks);
 
-      // Re-use IncomingBlock's position for blend phi sorting purpose.
-      BlockIndexInRPOT[BlendBB] = BlockIndexInRPOT[IncomingBlock];
-      for (VPPHINode &Phi : VPPhisIteratorRange) {
-        auto Blend = new VPBlendInst(Phi.getType());
-        BlendBB->addInstruction(Blend);
-        Plan.getVPlanDA()->markDivergent(*Blend);
-        int NumIncoming = Phi.getNumIncomingValues();
-        // Ugly loop to protect against iterator invalidation due to removal
-        // of incoming values.
-        for (int IdxIt = 0; IdxIt < NumIncoming; ++IdxIt) {
-          int Idx = NumIncoming - 1 - IdxIt;
-          VPValue *PhiIncVal = Phi.getIncomingValue(Idx);
-          auto *PhiIncBB = Phi.getIncomingBlock(Idx);
-          if (!is_contained(It.second, PhiIncBB))
-            continue;
-          Phi.removeIncomingValue(PhiIncBB);
-          addBlendTuple(Blend, PhiIncVal, PhiIncBB, BlockIndexInRPOT[PhiIncBB]);
+  SmallVector<VPBasicBlock *, 8> IDFPHIBlocks;
+  VPlanForwardIDFCalculator IDF(VPDomTree);
+  IDF.setDefiningBlocks(DefBlocks);
+  IDF.setLiveInBlocks(LiveInBlocks);
+  IDF.calculate(IDFPHIBlocks);
+
+  // The block itself might need blend processing as well, even if the real phi
+  // isn't needed in it. Consider this:
+  //
+  //     BB0 (D)
+  //    /   \
+  //  BB3   BB4
+  //   \    /
+  //     BB5
+  //
+  // after linearization it's BB0->BB4->BB3->BB5 and BB5 won't be part of IDF
+  // blocks. Yet we still need to transform the phis in it into blends, even
+  // though no real phis will be created on the path to it.
+  if (!is_contained(IDFPHIBlocks, Block))
+    IDFPHIBlocks.push_back(Block);
+
+  LLVM_DEBUG(dbgs() << "Processing blends for " << Block->getName()
+                    << ":\nDefBlocks: ";
+             for (auto *B
+                  : DefBlocks) dbgs()
+             << B->getName() << " ";
+             dbgs() << "\nLiveInBlocks: "; for (auto *B
+                                                : LiveInBlocks) dbgs()
+                                           << B->getName() << " ";
+             dbgs() << "\nIDFPHIBlocks: "; for (auto *B
+                                                : IDFPHIBlocks) dbgs()
+                                           << B->getName() << " ";
+             dbgs() << "\n";);
+
+  // Due to limitation of CG we need to turn phis with single incoming
+  // values into blends, even if it's not required by the blend processing
+  // itself. The reason for that is CG merging multiple blocks into a single
+  // one which might place a real phi into the middle of the block.
+  bool ForceFinalPhiToBlendTransform = Block->getSinglePredecessor();
+
+  // Now start creating merge phis where IDF tells us to. The code below will
+  // also create blends as needed. A copy from an existing test in
+  // vplan_predicator.ll to make mental tracking easier:
+  //            entry
+  //              |
+  //             BB0 (U)-----+
+  //           /              \
+  //        BB1 (D)            BB2 (D)
+  //        /  \              /  \
+  //       /    \            /   BB3 (D)
+  //       +     \          /  /    \
+  //       |      BB4 (D)- / -/---->BB5
+  //       |        \     /  /     |
+  //       |         \   +  /      |
+  //       |          \  | /       |
+  //       |           \ v/        |
+  //       +---------> BB6 <-------+
+  //   After linearization (approximate, might be different in actual implementation)
+  //   should be like this:
+  //             entry
+  //               |
+  //              BB0
+  //             /  \
+  //           BB1  BB2
+  //            |    |
+  //           BB4  BB3
+  //            |    |
+  //      Blend_1_4  Blend_2_3
+  //             \   /
+  //              BB5 MergePhi = [ Blend_1_4, BB4 ], [ Blend_2_3, BB3]
+  //               |
+  //              BB6 BlendForOrigPhi (MergePhi, BB5Def)
+  for (VPBasicBlock *BBForMerge : IDFPHIBlocks) {
+    VPBuilder PhiBuilder;
+    PhiBuilder.setInsertPoint(BBForMerge, BBForMerge->begin());
+
+    // Make a copy to avoid any potential iterator invalidation.
+    SmallVector<VPPHINode*, 4> Phis;
+    for (VPPHINode &Phi : Block->getVPPhis())
+      Phis.push_back(&Phi);
+
+    DenseMap<VPPHINode *, VPPHINode *> OrigPhiToMergeMap;
+    for (VPPHINode *OrigPhi : Phis) {
+      VPPHINode *MergePhi =
+          BBForMerge == Block
+              ? OrigPhi
+              : PhiBuilder.createPhiInstruction(OrigPhi->getType(),
+                                                OrigPhi->getName() + ".phi." +
+                                                    BBForMerge->getName());
+      OrigPhiToMergeMap[OrigPhi] = MergePhi;
+    }
+
+    for (VPBasicBlock *PredBB : BBForMerge->getPredecessors()) {
+      // For each incoming edge, see what incoming values of the original phi
+      // have to be blended over that edge.
+      SmallVector<VPBasicBlock *, 4> BBToBlend;
+      llvm::copy_if(SomePhi.blocks(), std::back_inserter(BBToBlend),
+                    [&](const VPBasicBlock *IncomingBlock) -> bool {
+                      return VPPostDomTree.dominates(
+                          PredBB, cast<VPBasicBlock>(IncomingBlock));
+                    });
+
+      assert(BBToBlend.size() > 0 && "No values for blend!");
+      if (BBToBlend.size() == 1 &&
+          !(BBForMerge == Block && ForceFinalPhiToBlendTransform))
+        continue;
+
+      VPBuilder BlendBuilder;
+      VPBasicBlock *BlendBB;
+      if (BBForMerge == Block && ForceFinalPhiToBlendTransform) {
+        BlendBB = Block;
+        // The phis will be removed during special processing for
+        // ForceFinalPhiToBlendTransform at the end of this routine.
+        BlendBuilder.setInsertPointAfterBlends(Block);
+      } else {
+        BlendBB = VPBlockUtils::splitEdge(
+            PredBB, BBForMerge, VPlanUtils::createUniqueName("blend.bb"), VPLI,
+            &VPDomTree, &VPPostDomTree);
+        BlendBuilder.setInsertPoint(BlendBB);
+      }
+
+      // VPBlendInst requires its operands to be in sorted order.
+      sort(BBToBlend, [&](const VPBasicBlock *LHS, const VPBasicBlock *RHS) {
+        return !VPPostDomTree.dominates(LHS, RHS);
+      });
+
+      for (VPPHINode *OrigPhi : Phis) {
+        auto *Blend = BlendBuilder.createBlendInstruction(
+            OrigPhi->getType(),
+            OrigPhi->getName() + ".blend." + PredBB->getName());
+        // TODO: This is needed only because of HIR Mixed CG limitations.
+        Blend->copyUnderlyingFrom(*OrigPhi);
+
+        for (auto *IncomingBB : BBToBlend) {
+          Blend->addIncoming(OrigPhi->getIncomingValue(IncomingBB),
+                             IncomingBB->getPredicate());
+          OrigPhi->removeIncomingValue(IncomingBB);
         }
-        Phi.addIncoming(Blend, BlendBB);
+
+        // MergePhi might be the same as OrigPhi, insert the incoming blend
+        // after removals are done.
+        VPPHINode *MergePhi = OrigPhiToMergeMap[OrigPhi];
+        MergePhi->addIncoming(Blend, BlendBB);
       }
     }
+
+    // We've already removed the incoming values from original phis that are
+    // handled via the MergePhi's created above. Now insert these MergePhi's
+    // back to the orig phis so that later merge points could find them as well.
+    for (VPPHINode *OrigPhi : Phis) {
+      VPPHINode *MergePhi = OrigPhiToMergeMap[OrigPhi];
+      if (MergePhi == OrigPhi)
+        continue;
+
+      OrigPhi->addIncoming(MergePhi, BBForMerge);
+    }
+  }
+
+  if (!ForceFinalPhiToBlendTransform)
+    return;
+
+  // LLVM IR CodeGen can't handle phis with single incoming block due to basic
+  // blocks merge. We've already created corresponding blends for them, now just
+  // wire those into the users and remove the phis.
+  SmallVector<VPPHINode *, 4> PhisToRemove;
+  for (VPPHINode &OrigPhi : Block->getVPPhis()) {
+    assert(OrigPhi.getNumIncomingValues() == 1 &&
+           "Forcedly processed phi are expected to have exactly 1 predecessor "
+           "at this point!");
+    VPValue *Op = OrigPhi.getIncomingValue(0u);
+    // TODO: HIR Mixed CG has issues propagating invalidate through the
+    // use-chain. Blends/phis are gonna be lowered to using the same temp, so
+    // invalidation might not actually be needed.
+    OrigPhi.replaceAllUsesWith(Op, false /* InvalidateIR */);
+
+    // No explicit terminators and weird getPredicate() interface...
+    for (VPBasicBlock &BB : *Block->getParent()) {
+      if (BB.getCondBit() == &OrigPhi)
+        BB.setCondBit(OrigPhi.getIncomingValue(0u));
+      if (BB.getPredicate() == &OrigPhi)
+        BB.setPredicate(OrigPhi.getIncomingValue(0u));
+    }
+
+    PhisToRemove.push_back(&OrigPhi);
+  }
+
+  for (VPPHINode *Phi : PhisToRemove)
+    Block->eraseInstruction(Phi);
+}
+
+void VPlanPredicator::transformPhisToBlends() {
+  ReversePostOrderTraversal<VPBasicBlock *> RPOT(Plan.getEntryBlock());
+
+  for (VPBasicBlock *Block : RPOT) {
+    if (BlocksToBlendProcess.count(Block) == 0)
+      continue;
+
+    transformPhisToBlends(Block);
   }
 }
 
@@ -841,61 +851,32 @@ void VPlanPredicator::computeLiveInsForIDF(
   }
 }
 
-/// Sort the incoming blocks of the blend according to their execution order
-/// in the linearized CFG. Required to be performed prior to code generation
-/// for the blends. The sorting is done on the blend -> { value, block } map
-/// kept in the predicator because at the time of blend creation, the block-
-/// predicates for the blend are not yet generated.
-///
-/// \p BlockIndexInRPOTOrNull is a parameter with the mapping of the blocks in
-/// \p this blend's parent region to that blocks' RPOT numbers. If
-/// not provided, it will be calculated inside the method.
-//
-// TODO: As an optimization, the sorting can be done once per block, but that
-// should be done at the caller side complicating the code.
-//
-// After linearization, the blends are completed based on the sorted mapping
-// and the HCFG coming to codegen might be something like this:
-//
-//   bb0:
-//     %def0 =
-//   bb1:
-//     predicate %cond0
-//     %def1 =
-//   bb2:
-//     predicate %cond1    ; %cond1 = %cond0 && %something
-//     %def2 =
-//   bb3:
-//     %blend_phi = phi [ %def1, %bb1 ], [ %def0, %bb0 ], [ %def 2, %bb2 ]
-//
-// We need to generate
-//
-//  %sel = select %cond0, %def1, %def0
-//  %blend = select %cond1 %def2, %sel
-//
-// Note, that the order of processing needs to be [ %def0, %def1, %def2 ]
-// for such CFG.
-//
-// FIXME: Once we get rid of hierarchical CFG, we would be able to use
-// dominance as the comparator.
-void VPlanPredicator::sortIncomingBlocksForBlend(
-    BlendTupleVectorTy &UnsortedIncomingBlocks,
-    BlendTupleVectorTy &SortedIncomingBlocks) {
+void VPlanPredicator::computeLiveInsForBlendsIDF(
+    const SmallPtrSetImpl<VPBasicBlock *> &DefBlocks,
+    const VPBasicBlock *OrigPhiBlock,
+    SmallPtrSetImpl<VPBasicBlock *> &LiveInBlocks) {
+  SmallVector<VPBasicBlock *, 16> Worklist;
+  for (auto *DefBlock : DefBlocks)
+    llvm::copy_if(DefBlock->getSuccessors(), std::back_inserter(Worklist),
+                  [=](const VPBasicBlock *Succ) -> bool {
+                    return !VPBlockUtils::isBackEdge(DefBlock, Succ, VPLI);
+                  });
+  while (!Worklist.empty()) {
+    VPBasicBlock *VPBB = Worklist.pop_back_val();
 
-  for (unsigned Idx = 0; Idx < UnsortedIncomingBlocks.size(); ++Idx) {
-    VPValue *IncomingVal = UnsortedIncomingBlocks[Idx].getIncomingValue();
-    VPBasicBlock *IncomingBlock =
-        UnsortedIncomingBlocks[Idx].getIncomingBlock();
-    int RPOTIdx = UnsortedIncomingBlocks[Idx].getIncomingBlockRPOTIdx();
-    BlendTuple Curr(IncomingVal, IncomingBlock, RPOTIdx);
+    if (!LiveInBlocks.insert(VPBB).second)
+      // Already processed.
+      continue;
 
-    SortedIncomingBlocks.insert(
-        upper_bound(SortedIncomingBlocks, Curr,
-                    [&](const BlendTuple &Lhs, const BlendTuple &Rhs) {
-                      return (Lhs.getIncomingBlockRPOTIdx() <
-                             Rhs.getIncomingBlockRPOTIdx());
-                    }),
-        Curr);
+    if (VPBB == OrigPhiBlock)
+      // Original phi post-dominated all defs, so we don't care about what
+      // happens later in the successors chain.
+      continue;
+
+    llvm::copy_if(VPBB->getSuccessors(), std::back_inserter(Worklist),
+                  [=](const VPBasicBlock *Succ) -> bool {
+                    return !VPBlockUtils::isBackEdge(VPBB, Succ, VPLI);
+                  });
   }
 }
 
@@ -971,27 +952,17 @@ void VPlanPredicator::predicateAndLinearizeRegion(bool SearchLoopHack) {
     if (Block->getNumSuccessors() == 1)
       Block->setCondBit(nullptr);
 
-  // At the time of blend instruction creation, the block-predicate instructions
-  // are not yet available. This code completes the blend instructions by adding
-  // operands for both the incoming value and block-predicate.
-  for (auto Blend2BlendTupleMap : Blend2BlendTupleVectorMap) {
-    VPBlendInst *Blend = Blend2BlendTupleMap.first;
-    BlendTupleVectorTy BlendTupleVector = Blend2BlendTupleMap.second;
-    BlendTupleVectorTy SortedBlendTupleVector;
-    sortIncomingBlocksForBlend(BlendTupleVector, SortedBlendTupleVector);
-    for (auto BlendTuple : SortedBlendTupleVector) {
-      VPValue *BlockPred = BlendTuple.getIncomingBlock()->getPredicate();
-      // BlockPred can be nullptr for the first block in the sorted list of
-      // incoming blocks for the blend. Since we cannot add a nullptr as an
-      // operand, just set to true. Codegen will skip this anyway and generate
-      // the first select using the block-predicate of the next incoming block.
-      if (!BlockPred) {
-        Type *Ty1 = Type::getInt1Ty(*Plan.getLLVMContext());
-        BlockPred = Plan.getVPConstant(ConstantInt::get(Ty1, 1));
-      }
-      Blend->addIncoming(BlendTuple.getIncomingValue(), BlockPred);
-    }
+  if (DotBeforeBlends) {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    outs() << Plan;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
   }
+
+  Plan.computeDT();
+  Plan.computePDT();
+
+  transformPhisToBlends();
+
   for (auto It : BlocksToSplit) {
     (void)VPBlockUtils::splitBlock(It.first, It.second->getIterator(), VPLI,
                                    &VPDomTree, Plan.getPDT());

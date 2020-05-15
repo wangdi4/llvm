@@ -1015,10 +1015,7 @@ public:
 
   /// Add operands of incoming value and block-predicate to the end of the
   /// blend operand list.
-  void addIncoming(VPValue *IncomingVal, VPValue *BlockPred) {
-    addOperand(IncomingVal);
-    addOperand(BlockPred);
-  }
+  void addIncoming(VPValue *IncomingVal, VPValue *BlockPred);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &O) const;

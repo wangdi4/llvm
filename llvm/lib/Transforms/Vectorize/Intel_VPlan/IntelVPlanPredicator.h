@@ -148,6 +148,17 @@ private:
     Blend2BlendTupleVectorMap[Blend].emplace_back(Val, BB, RPOTIdx);
   }
 
+  // Blocks where phis should be turned into blends as a result of
+  // linearization. The transformation is delayed to after-linearization as it
+  // might be needed to create extra blends and/or phis on the way through
+  // multiple edges in the final CFG (using IDF).
+  //
+  // Also, we need blocks' predicates for the explicit VPBlend instruction, so
+  // for the transform to be performed on-the-fly we would need keeping
+  // VPLInfo/DomTree/PostDomTree up-to-date through the linearization process
+  // which would be prohibitively hard.
+  SetVector<VPBasicBlock *> BlocksToBlendProcess;
+
   /// Returns the negation of the \p Cond inserted at the end of the block
   /// defining it or at VPlan's entry. Avoids creating duplicates by caching
   /// created NOTs.
@@ -162,6 +173,9 @@ private:
   /// updated CFG to preserve SSA form for the values calculating predicates.
   void computeLiveInsForIDF(PredicateTerm Term,
                             SmallPtrSetImpl<VPBasicBlock *> &LiveInBlocks);
+  void computeLiveInsForBlendsIDF(const SmallPtrSetImpl<VPBasicBlock *> &DefBlocks,
+                                  const VPBasicBlock *OrigPhiBlock,
+                                  SmallPtrSetImpl<VPBasicBlock *> &LiveInBlocks);
 
   /// Helper for getOrCreateValueForPredicateTerm. Only creates the defining
   /// value for the \p PredTerm, without any SSA phi insertion.
@@ -201,11 +215,18 @@ private:
   /// Predicate and linearize the CFG within \p Region.
   void predicateAndLinearizeRegion(bool SearchLoopHack);
 
-  /// Linearize \p Region and replace PHIs in the linearized blocks with blends.
-  /// It does *NOT* update condition bits for the blocks, this information is
-  /// needed for block predicate insertion after linearization.
+  /// Linearize \p Region and mark blocks that should be post-processed for
+  /// phi-to-blend substitutuion. It does *NOT* update condition bits for the
+  /// blocks, this information is needed for block predicate insertion after
+  /// linearization.
   void
   linearizeRegion(const ReversePostOrderTraversal<VPBasicBlock *> &RegionRPOT);
+
+  /// Process phis that are merge points with incoming edges changed during
+  /// linearization process. Includes creation of explicit VPBlendInsts and
+  /// insertion of real VPPHINodes to maintain proper SSA form.
+  void transformPhisToBlends();
+  void transformPhisToBlends(VPBasicBlock *Block);
 
   // Add an additional all-zero-check for inner loops with uniform backedge
   // condition on a divergent path. Temporary workaround untill proper region

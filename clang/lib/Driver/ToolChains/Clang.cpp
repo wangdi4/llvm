@@ -4038,6 +4038,38 @@ static void RenderIntelOptimizationArgs(const Driver &D, const ArgList &Args,
           << Val << A->getOption().getName();
   }
 }
+
+static void RenderUnrollOptions(const Driver &D, const ArgList &Args,
+                                ArgStringList &CmdArgs) {
+  Arg *A = Args.getLastArg(options::OPT_funroll_loops,
+                           options::OPT_fno_unroll_loops, options::OPT_unroll);
+  if (!A)
+    return;
+  // Handle -unroll first
+  if (A->getOption().matches(options::OPT_unroll)) {
+    StringRef Value(A->getValue());
+    if (Value.empty()) {
+      CmdArgs.push_back("-funroll-loops");
+      return;
+    }
+    int ValInt = 0;
+    if (Value.getAsInteger(0, ValInt)) {
+      D.Diag(diag::err_drv_invalid_argument_to_option)
+          << Value << A->getOption().getName();
+      return;
+    }
+    if (ValInt == 0) {
+      CmdArgs.push_back("-fno-unroll-loops");
+      return;
+    }
+    CmdArgs.push_back("-funroll-loops");
+    CmdArgs.push_back("-mllvm");
+    CmdArgs.push_back(
+        Args.MakeArgString(Twine("-hir-general-unroll-max-factor=") + Value));
+    return;
+  }
+  CmdArgs.push_back(Args.MakeArgString(A->getAsString(Args)));
+}
 #endif // INTEL_CUSTOMIZATION
 
 void Clang::ConstructJob(Compilation &C, const JobAction &JA,
@@ -5611,8 +5643,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back("-freroll-loops");
 
   Args.AddLastArg(CmdArgs, options::OPT_fwritable_strings);
-  Args.AddLastArg(CmdArgs, options::OPT_funroll_loops,
-                  options::OPT_fno_unroll_loops);
+#if INTEL_CUSTOMIZATION
+  RenderUnrollOptions(D, Args, CmdArgs);
+#endif // INTEL_CUSTOMIZATION
 
   Args.AddLastArg(CmdArgs, options::OPT_pthread);
 

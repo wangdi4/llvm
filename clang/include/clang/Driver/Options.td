@@ -3214,6 +3214,10 @@ def u : JoinedOrSeparate<["-"], "u">, Group<u_Group>;
 def v : Flag<["-"], "v">, Flags<[CC1Option, CoreOption]>,
   HelpText<"Show commands to run and use verbose output">;
 #if INTEL_CUSTOMIZATION
+def unroll : Joined<["-"], "unroll">, Flags<[DriverOption]>,
+  HelpText<"Set maximum number of times to unroll loops.  Omit n to use "
+  "default heuristics.  Use 0 to disable the loop unroller.">;
+def unroll_EQ : Joined<["-"], "unroll=">, Alias<unroll>;
 def vec : Flag<["-"], "vec">, Alias<fvectorize>,
   HelpText<"Enable the loop vectorization passes">;
 def no_vec : Flag<["-"], "no-vec">, Alias<fno_vectorize>;
