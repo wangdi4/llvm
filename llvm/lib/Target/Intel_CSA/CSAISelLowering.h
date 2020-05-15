@@ -45,6 +45,10 @@ enum {
   FMADDSUB,
   FMSUBADD,
 
+  // Vector versions of setcc. These are like regular setcc, but it returns an
+  // i8 instead of an i1.
+  VSetCC,
+
   // Single-parameter swizzle for an operation.
   Swizzle,
 
@@ -112,6 +116,7 @@ public:
   SDValue LowerExtractElement(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerMemop(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerIntrinsic(SDValue Op, SelectionDAG &DAG) const;
+  SDValue LowerConversion(SDValue Op, SelectionDAG &DAG) const;
 
   bool isTruncateFree(EVT VT1, EVT VT2) const override;
   bool isTruncateFree(Type *Ty1, Type *Ty2) const override;
@@ -135,7 +140,8 @@ public:
 
   /// Return true if an FMA operation is faster than a pair of fmul and fadd
   /// instructions.
-  bool isFMAFasterThanFMulAndFAdd(EVT VT) const override;
+  bool isFMAFasterThanFMulAndFAdd(const MachineFunction &MF,
+                                  EVT VT) const override;
 
   /// post-selection hooks, in this case a workaround for LLVM's mishandling of
   /// optional register defs
@@ -197,6 +203,7 @@ private:
   SDValue CombineSelect(SDNode *, SelectionDAG &) const;
   SDValue CombineMinMax(SDNode *, SelectionDAG &) const;
   SDValue CombineShuffle(SDNode *, SelectionDAG &) const;
+  SDValue CombineBuildVector(SDNode *, SelectionDAG &) const;
 
   /// Searches the SelectionDAG for compares with the same inputs as a
   /// recently-created min/max op and attempts to replace them with a value

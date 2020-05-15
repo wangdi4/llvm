@@ -188,7 +188,7 @@ public:
                              {LHS, RHS}, Name);
   }
 
-  VPValue *createPred(VPValue *Operand) {
+  VPInstruction *createPred(VPValue *Operand) {
     return createInstruction(VPInstruction::Pred, Operand->getType(),
                              {Operand});
   }
@@ -257,6 +257,14 @@ public:
     if (BB)
       BB->insert(NewVPPHINode, InsertPt);
     return NewVPPHINode;
+  }
+
+  VPBlendInst *createBlendInstruction(Type *Ty, const Twine &Name = "") {
+    auto *Blend = new VPBlendInst(Ty);
+    Blend->setName(Name);
+    if (BB)
+      BB->insert(Blend, InsertPt);
+    return Blend;
   }
 
   // Build a VPGEPInstruction for the LLVM-IR instruction \p Inst using base

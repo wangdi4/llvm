@@ -705,8 +705,18 @@ private:
                      int64_t InterleaveFactor, int64_t InterleaveIndex,
                      const HLInst *GrpStartInst, const VPInstruction *VPInst);
 
-  // Implementation of widening the given VPInstruction to a vector instruction
-  // using VF as the vector length.
+  // Implementation of generating needed HIR constructs for the given
+  // VPInstruction. We generate new RegDDRefs or HLInsts that correspond to
+  // the given VPInstruction. Widen parameter is used to specify if we are
+  // generating VF wide constructs. If Widen is false, we generate scalar
+  // constructs for lane 0.
+  void generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
+                   const OVLSGroup *Group, int64_t InterleaveFactor,
+                   int64_t InterleaveIndex, const HLInst *GrpStartInst,
+                   bool Widen);
+
+  // Wrapper used to call generateHIR appropriately based on nature of given
+  // VPInstruction.
   void widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
                      const OVLSGroup *Group, int64_t InterleaveFactor,
                      int64_t InterleaveIndex, const HLInst *GrpStartInst);

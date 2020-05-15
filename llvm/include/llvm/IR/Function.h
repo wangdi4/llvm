@@ -870,6 +870,28 @@ public:
 
   /// Resets "pre-loopopt" state for the function.
   void resetPreLoopOpt() { removeFnAttr(PreLoopOptStr); }
+
+  /// Indicate the Function was compiled by the Fortran compiler or is
+  /// a Fortran specific libFunc.
+  void setFortran() {
+    llvm::AttrBuilder Attrs;
+    unsigned FI = llvm::AttributeList::FunctionIndex;
+    Attrs.addAttribute("intel-lang", "fortran");
+    addAttributes(FI, Attrs);
+  };
+
+  // Return 'true' if the Function was compiled by the Fortran compiler or is
+  // a Fortran specific libFunc.
+  bool isFortran() const {
+    unsigned FI = llvm::AttributeList::FunctionIndex;
+    return getAttribute(FI, "intel-lang").getValueAsString() == "fortran";
+  }
+
+  // Resets the indication that this is a Fortran Function.
+  void resetFortran() {
+    if (isFortran())
+      removeFnAttr("intel-lang");
+  };
 #endif // INTEL_CUSTOMIZATION
 
   /// Returns true if we should emit debug info for profiling.

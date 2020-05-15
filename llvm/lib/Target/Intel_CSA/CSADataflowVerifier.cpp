@@ -70,7 +70,7 @@ bool CSADataflowVerifier::runOnMachineFunction(MachineFunction &MF) {
   bool UpdatedDepths = false;
   for (unsigned VRegI = 0, VRegIE = MRI->getNumVirtRegs(); VRegI != VRegIE;
        ++VRegI) {
-    unsigned VReg = TargetRegisterInfo::index2VirtReg(VRegI);
+    unsigned VReg = Register::index2VirtReg(VRegI);
     if (MRI->reg_empty(VReg) or not LMFI->getIsDeclared(VReg))
       continue;
 

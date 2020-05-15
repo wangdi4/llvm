@@ -455,7 +455,7 @@ void Scheduler::applySchedule() {
     assert(!verifyFunction(*BB->getParent(), &dbgs()));
 }
 
-Scheduler::Scheduler(BasicBlock *BB, AAResults *AA) : BB(BB), AA(AA) {
+Scheduler::Scheduler(BasicBlock *BB, AAResults *AA) : BB(BB) {
   DAG = std::make_unique<GroupDependenceGraph>(BB, AA);
 }
 

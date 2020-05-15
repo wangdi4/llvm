@@ -34,6 +34,8 @@ class VPlanValueTracking {
 public:
   /// Compute KnownBits for an arbitrary \p Expr at point \p CtxI.
   virtual KnownBits getKnownBits(VPlanSCEV *Expr, VPInstruction *CtxI) = 0;
+
+  virtual ~VPlanValueTracking() {}
 };
 
 /// Implementation of VPlanValueTracking for LLVM IR.

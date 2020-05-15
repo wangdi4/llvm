@@ -691,9 +691,8 @@ VPlanHCFGBuilderHIR::VPlanHCFGBuilderHIR(const WRNVecLoopNode *WRL, HLLoop *Lp,
                                          VPlan *Plan,
                                          HIRVectorizationLegality *Legal,
                                          const DDGraph &DDG)
-    : VPlanHCFGBuilder(nullptr, nullptr, nullptr,
-                       Lp->getHLNodeUtils().getDataLayout(), WRL, Plan,
-                       nullptr),
+    : VPlanHCFGBuilder(nullptr, nullptr, Lp->getHLNodeUtils().getDataLayout(),
+                       WRL, Plan, nullptr),
       TheLoop(Lp), DDG(DDG), HIRLegality(Legal) {
   Verifier = std::make_unique<VPlanVerifierHIR>(Lp);
   assert((!WRLp || WRLp->getTheLoop<HLLoop>() == TheLoop) &&

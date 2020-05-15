@@ -485,11 +485,9 @@ public:
 
 class HLInstCounter final : public HLNodeVisitorBase {
 private:
-  const HLLoop *OrigLoop;
-  unsigned NumInsts;
+  unsigned NumInsts = 0;
 
 public:
-  HLInstCounter(const HLLoop *OrigLoop) : OrigLoop(OrigLoop) { NumInsts = 0; }
 
   unsigned getNumInsts() { return NumInsts; }
 
@@ -1045,7 +1043,7 @@ void VPOCodeGenHIR::finalizeVectorLoop(void) {
     bool KnownTripCount = TripCount > 0 ? true : false;
     if (KnownTripCount && TripCount <= SmallTripThreshold &&
         OrigLoop->isInnermost()) {
-      HLInstCounter InstCounter(OrigLoop);
+      HLInstCounter InstCounter;
       HLNodeUtils::visitRange(InstCounter, OrigLoop->child_begin(),
                               OrigLoop->child_end());
       if (InstCounter.getNumInsts() <= SmallLoopBodyThreshold)
@@ -3264,14 +3262,14 @@ void VPOCodeGenHIR::widenLoadStoreImpl(const VPInstruction *VPInst,
   addInst(WInst, Mask);
 }
 
-void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
-                                  const OVLSGroup *Grp,
-                                  int64_t InterleaveFactor,
-                                  int64_t InterleaveIndex,
-                                  const HLInst *GrpStartInst) {
-  HLInst *WInst = nullptr;
+void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
+                                const OVLSGroup *Grp, int64_t InterleaveFactor,
+                                int64_t InterleaveIndex,
+                                const HLInst *GrpStartInst, bool Widen) {
+  HLInst *NewInst = nullptr;
   SmallVector<RegDDRef *, 1> CallArgs;
   const HLInst *CallInst = nullptr;
+  const Twine InstName = ".vec";
 
   if (!Mask)
     Mask = CurMaskValue;
@@ -3319,10 +3317,10 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
   // Should be removed when we use VPHIRCopyInst.
   if (VPInst->getOpcode() == Instruction::Call) {
     if (getCalledFunction(VPInst)->getIntrinsicID() == Intrinsic::ssa_copy) {
-      WInst = HLNodeUtilities.createCopyInst(
-          widenRef(VPInst->getOperand(0), getVF()), ".vec");
-      addInst(WInst, Mask);
-      addVPValueWideRefMapping(VPInst, WInst->getLvalDDRef());
+      NewInst = HLNodeUtilities.createCopyInst(
+          widenRef(VPInst->getOperand(0), getVF()), InstName);
+      addInst(NewInst, Mask);
+      addVPValueWideRefMapping(VPInst, NewInst->getLvalDDRef());
       return;
     }
   }
@@ -3330,19 +3328,32 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
   // Skip widening the first select operand. The select instruction is generated
   // using operands of the instruction corresponding to the select mask.
   bool SkipFirstSelectOp = VPInst->getOpcode() == Instruction::Select;
-  SmallVector<RegDDRef *, 6> WideOps;
+  SmallVector<RegDDRef *, 6> RefOps;
   for (const VPValue *Operand : VPInst->operands()) {
     if (SkipFirstSelectOp) {
       SkipFirstSelectOp = false;
       continue;
     }
-    RegDDRef *WideRef = widenRef(Operand, getVF());
-    WideOps.push_back(WideRef);
+
+    RegDDRef *Ref = widenRef(Operand, getVF());
+    RefOps.push_back(Ref);
+  }
+
+  // RefOp0 points to the first operand when RefOps has atleast one operand.
+  // RefOp1 points to the second operand when RefOps has atleast two operands.
+  // They are null otherwise.
+  RegDDRef *RefOp0 = nullptr, *RefOp1 = nullptr;
+  unsigned RefOpsSize = RefOps.size();
+  if (RefOpsSize == 1)
+    RefOp0 = RefOps[0];
+  else if (RefOpsSize >= 2) {
+    RefOp0 = RefOps[0];
+    RefOp1 = RefOps[1];
   }
 
   switch (VPInst->getOpcode()) {
   case Instruction::FNeg:
-    WInst = HLNodeUtilities.createFNeg(WideOps[0], ".vec");
+    NewInst = HLNodeUtilities.createFNeg(RefOp0, InstName);
     break;
 
   case Instruction::UDiv:
@@ -3368,8 +3379,8 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
     RegDDRef *RedRef = nullptr;
     if (ReductionRefs.count(VPInst))
       RedRef = ReductionRefs[VPInst];
-    WInst = HLNodeUtilities.createBinaryHLInst(
-        VPInst->getOpcode(), WideOps[0], WideOps[1], ".vec",
+    NewInst = HLNodeUtilities.createBinaryHLInst(
+        VPInst->getOpcode(), RefOp0, RefOp1, InstName,
         RedRef ? RedRef->clone() : nullptr);
     break;
   }
@@ -3377,8 +3388,8 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
   case Instruction::ICmp:
   case Instruction::FCmp: {
     auto *VPCmp = cast<VPCmpInst>(VPInst);
-    WInst = HLNodeUtilities.createCmp(VPCmp->getPredicate(), WideOps[0],
-                                      WideOps[1], ".vec");
+    NewInst = HLNodeUtilities.createCmp(VPCmp->getPredicate(), RefOp0, RefOp1,
+                                        InstName);
     break;
   }
 
@@ -3397,9 +3408,9 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
     RegDDRef *RedRef = nullptr;
     if (ReductionRefs.count(VPInst))
       RedRef = ReductionRefs[VPInst];
-    WInst = HLNodeUtilities.createSelect(PredInst->getPredicate(), Pred0, Pred1,
-                                         WideOps[0], WideOps[1], ".vec",
-                                         RedRef ? RedRef->clone() : nullptr);
+    NewInst = HLNodeUtilities.createSelect(PredInst->getPredicate(), Pred0,
+                                           Pred1, RefOp0, RefOp1, InstName,
+                                           RedRef ? RedRef->clone() : nullptr);
     break;
   }
 
@@ -3416,63 +3427,62 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
   case Instruction::FPTrunc:
   case Instruction::BitCast: {
     auto RefDestTy = VPInst->getType();
-    auto VecRefDestTy = VectorType::get(RefDestTy, VF);
+    auto ResultRefTy = VectorType::get(RefDestTy, VF);
 
     // For bitcasts of addressof refs, it is enough to set the bitcast
     // destination type.
-    if (VPInst->getOpcode() == Instruction::BitCast &&
-        WideOps[0]->isAddressOf()) {
-      WideOps[0]->setBitCastDestType(VecRefDestTy);
-      addVPValueWideRefMapping(VPInst, WideOps[0]);
+    if (VPInst->getOpcode() == Instruction::BitCast && RefOp0->isAddressOf()) {
+      RefOp0->setBitCastDestType(ResultRefTy);
+      addVPValueWideRefMapping(VPInst, RefOp0);
       return;
     }
 
-    WInst = HLNodeUtilities.createCastHLInst(VecRefDestTy, VPInst->getOpcode(),
-                                             WideOps[0], ".vec");
+    NewInst = HLNodeUtilities.createCastHLInst(ResultRefTy, VPInst->getOpcode(),
+                                               RefOp0, InstName);
     break;
   }
   case VPInstruction::SMax:
-    WInst = HLNodeUtilities.createSelect(CmpInst::ICMP_SGT, WideOps[0],
-                                         WideOps[1], WideOps[0]->clone(),
-                                         WideOps[1]->clone(), ".vec");
+    NewInst = HLNodeUtilities.createSelect(CmpInst::ICMP_SGT, RefOp0, RefOp1,
+                                           RefOp0->clone(), RefOp1->clone(),
+                                           InstName);
     break;
 
   case VPInstruction::UMax:
-    WInst = HLNodeUtilities.createSelect(CmpInst::ICMP_UGT, WideOps[0],
-                                         WideOps[1], WideOps[0]->clone(),
-                                         WideOps[1]->clone(), ".vec");
+    NewInst = HLNodeUtilities.createSelect(CmpInst::ICMP_UGT, RefOp0, RefOp1,
+                                           RefOp0->clone(), RefOp1->clone(),
+                                           InstName);
     break;
 
   case VPInstruction::SMin:
-    WInst = HLNodeUtilities.createSelect(CmpInst::ICMP_SLT, WideOps[0],
-                                         WideOps[1], WideOps[0]->clone(),
-                                         WideOps[1]->clone(), ".vec");
+    NewInst = HLNodeUtilities.createSelect(CmpInst::ICMP_SLT, RefOp0, RefOp1,
+                                           RefOp0->clone(), RefOp1->clone(),
+                                           InstName);
     break;
 
   case VPInstruction::UMin:
-    WInst = HLNodeUtilities.createSelect(CmpInst::ICMP_ULT, WideOps[0],
-                                         WideOps[1], WideOps[0]->clone(),
-                                         WideOps[1]->clone(), ".vec");
+    NewInst = HLNodeUtilities.createSelect(CmpInst::ICMP_ULT, RefOp0, RefOp1,
+                                           RefOp0->clone(), RefOp1->clone(),
+                                           InstName);
     break;
 
   case Instruction::GetElementPtr: {
     auto RefDestTy = VPInst->getType();
-    auto VecRefDestTy = VectorType::get(RefDestTy, VF);
+    auto ResultRefTy = VectorType::get(RefDestTy, VF);
     auto VPGEP = cast<VPGEPInstruction>(VPInst);
 
     auto *NewRef = DDRefUtilities.createAddressOfRef(
-        WideOps[0]->getSelfBlobIndex(), WideOps[0]->getDefinedAtLevel());
-    NewRef->setBitCastDestType(VecRefDestTy);
+        RefOp0->getSelfBlobIndex(), RefOp0->getDefinedAtLevel());
+    NewRef->setBitCastDestType(ResultRefTy);
     SmallVector<const RegDDRef *, 4> AuxRefs;
 
     // Widened operands contain reference dimensions and trailing struct
     // offsets. Add reference dimensions and trailing struct offsets.
-    for (unsigned OpIdx = 1; OpIdx < WideOps.size();) {
-      auto Operand = WideOps[OpIdx];
+    for (unsigned OpIdx = 1; OpIdx < RefOps.size();) {
+      auto Operand = RefOps[OpIdx];
       AuxRefs.push_back(Operand);
       ++OpIdx;
       SmallVector<unsigned, 2> StructOffsets;
-      while (OpIdx < WideOps.size() && VPGEP->isOperandStructOffset(OpIdx)) {
+      while (OpIdx < RefOps.size() && VPGEP->isOperandStructOffset(OpIdx)) {
         const VPValue *VPOffset = VPInst->getOperand(OpIdx);
         ConstantInt *CVal =
             cast<ConstantInt>(cast<VPConstant>(VPOffset)->getConstant());
@@ -3499,12 +3509,12 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
 
       // Operands contain reference dimensions and trailing struct
       // offsets. Add reference dimensions and trailing struct offsets.
-      for (unsigned OpIdx = 1; OpIdx < WideOps.size();) {
+      for (unsigned OpIdx = 1; OpIdx < RefOps.size();) {
         auto Operand = getOrCreateScalarRef(VPInst->getOperand(OpIdx));
         AuxRefs.push_back(Operand);
         ++OpIdx;
         SmallVector<unsigned, 2> StructOffsets;
-        while (OpIdx < WideOps.size() && VPGEP->isOperandStructOffset(OpIdx)) {
+        while (OpIdx < RefOps.size() && VPGEP->isOperandStructOffset(OpIdx)) {
           const VPValue *VPOffset = VPInst->getOperand(OpIdx);
           ConstantInt *CVal =
               cast<ConstantInt>(cast<VPConstant>(VPOffset)->getConstant());
@@ -3534,21 +3544,21 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
            "Expected non-null underlying call instruction");
 
     // The Lval is not represented as an explicit operand in VPInstructions.
-    WInst =
-        widenCall(CallInst, WideOps, Mask, CallArgs, false /* HasLvalArg */);
-    if (!WInst)
+    NewInst =
+        widenCall(CallInst, RefOps, Mask, CallArgs, false /* HasLvalArg */);
+    if (!NewInst)
       return;
     break;
   }
 
   case VPInstruction::Not:
-    WInst = HLNodeUtilities.createNot(WideOps[0], ".vec");
+    NewInst = HLNodeUtilities.createNot(RefOp0, InstName);
     break;
 
   case VPInstruction::Pred:
     // Pred instruction is only used to mark the current block predicate. Simply
     // set the current mask value.
-    setCurMaskValue(WideOps[0]);
+    setCurMaskValue(RefOp0);
     return;
 
   case VPInstruction::HIRCopy: {
@@ -3569,12 +3579,12 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
       }
     }
 
-    WInst = HLNodeUtilities.createCopyInst(WideOps[0], ".copy", LValTmp);
+    NewInst = HLNodeUtilities.createCopyInst(RefOp0, ".copy", LValTmp);
     break;
   }
 
   case VPInstruction::AllZeroCheck: {
-    RegDDRef *A = WideOps[0];
+    RegDDRef *A = RefOp0;
     Type *Ty = A->getDestType();
     if (Mask) {
       // TODO: Is this needed for HIR? The comment block in LLVM-IR CG adds this
@@ -3596,7 +3606,7 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
         DDRefUtilities.createNullDDRef(IntTy));
     addInst(CmpInst, Mask);
 
-    WInst = HLNodeUtilities.createCopyInst(
+    NewInst = HLNodeUtilities.createCopyInst(
         widenRef(CmpInst->getLvalDDRef()->clone(), getVF()), "all.zero.check");
     break;
   }
@@ -3606,16 +3616,27 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
     llvm_unreachable("Unexpected VPInstruction opcode");
   }
 
-  addInst(WInst, Mask);
-  if (WInst->hasLval())
-    addVPValueWideRefMapping(VPInst, WInst->getLvalDDRef());
+  addInst(NewInst, Mask);
+  if (NewInst->hasLval())
+    addVPValueWideRefMapping(VPInst, NewInst->getLvalDDRef());
 
   // We need to hook up WideInst before we call analyzeCallArgMemoryReferences
   // as getConstStrideAtLevel expects a ref whose stride is being checked to be
   // attached to HIR. We analyze memory references in call args for stride
   // information if CallArgs is non-empty.
   if (!CallArgs.empty())
-    analyzeCallArgMemoryReferences(CallInst, WInst, CallArgs);
+    analyzeCallArgMemoryReferences(CallInst, NewInst, CallArgs);
+}
+
+void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
+                                  const OVLSGroup *Grp,
+                                  int64_t InterleaveFactor,
+                                  int64_t InterleaveIndex,
+                                  const HLInst *GrpStartInst) {
+  // Generate wide constructs for all VPInstuctions. For now this function is
+  // just a wrapper around generateHIR.
+  generateHIR(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
+              GrpStartInst, true /* Widen */);
 }
 
 void VPOCodeGenHIR::createAndMapLoopEntityRefs(unsigned VF) {

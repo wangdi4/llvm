@@ -1015,10 +1015,7 @@ public:
 
   /// Add operands of incoming value and block-predicate to the end of the
   /// blend operand list.
-  void addIncoming(VPValue *IncomingVal, VPValue *BlockPred) {
-    addOperand(IncomingVal);
-    addOperand(BlockPred);
-  }
+  void addIncoming(VPValue *IncomingVal, VPValue *BlockPred);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &O) const;
@@ -2199,12 +2196,6 @@ private:
   // HIR isn't uplifted for explict vector loop IV - need DA to treat backedge
   // condition as uniform.
   bool ForceOuterLoopBackedgeUniformity = false;
-
-  // The flag shows whether all steps needed for the loop entities privatization
-  // are finished. Particularly, all VPInstructions for private memory
-  // allocation are generated and the needed replacements in the VPLoop code are
-  // done.
-  bool LoopEntitiesPrivatizationIsDone = false;
 
   /// Holds the name of the VPlan, for printing.
   std::string Name;

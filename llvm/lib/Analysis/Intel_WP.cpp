@@ -1,6 +1,6 @@
 //===------- Intel_WP.cpp - Whole Program Analysis -*------===//
 //
-// Copyright (C) 2016-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -309,6 +309,25 @@ bool WholeProgramInfo::resolveCalledValue(
     if (!TLI.getLibFunc(Callee->getName(), TheLibFunc) ||
         !TLI.has(TheLibFunc)) {
 
+      LLVM_DEBUG({
+        LibFuncsNotFound.insert(Callee);
+        ++UnresolvedCallsCount;
+      });
+      return false;
+    }
+
+    //
+    // If the Caller is not Fortran, but the Callee is Fortran, do not
+    // recognize this as a call to a libFunc. In other words, a libFunc
+    // that is marked as Fortran (like those from the Fortran runtime
+    // library) can only be recognized as a Fortran libFunc if it is called
+    // by a Caller that was compiled by the Fortran front end.
+    //
+    // This mimics the behavior of the IL0 compiler, where only the Fortran
+    // front end could recognize calls to the Fortran runtime library as
+    // intrinsics.
+    //
+    if (Callee->isFortran() && !Caller->isFortran()) {
       LLVM_DEBUG({
         LibFuncsNotFound.insert(Callee);
         ++UnresolvedCallsCount;

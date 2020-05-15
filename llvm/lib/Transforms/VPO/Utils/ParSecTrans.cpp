@@ -194,6 +194,32 @@ bool VPOUtils::parSectTransformer(
   // purpose.
   int Counter = 0;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  auto && IsTargetCSA = [&F]() {
+    Triple TT(F->getParent()->getTargetTriple());
+    return TT.getArch() == Triple::ArchType::csa;
+  };
+  // For CSA, don't change OMP SECTIONS into a loop, however add the normalized
+  // upper bound to the target call (although no loop exists) for the sake of
+  // consistency across different targets (so that the target call has the same
+  // signature). If Root->Children.size() is 0, then we are not processing a
+  // sections construct, so skip the following code.
+  if (IsTargetCSA() && Root->Children.size()) {
+    BasicBlock *InsertBB = &(F->getEntryBlock());
+    Instruction *InsertPt = InsertBB->getTerminator();
+    IntegerType *IntTy = Type::getInt32Ty(F->getContext());
+    const DataLayout &DL = F->getParent()->getDataLayout();
+    AllocaInst *NormalizedUB =
+        new AllocaInst(IntTy, DL.getAllocaAddrSpace(), "num.sects", InsertPt);
+    Instruction *Inst = Root->Children[0]->EntryBB->getFirstNonPHI();
+    CallInst *CI = dyn_cast<CallInst>(Inst);
+    VPOParoptUtils::addOperandBundlesInCall(CI,
+        {{"QUAL.OMP.NORMALIZED.UB", {NormalizedUB}}});
+  } else
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
+
   parSectTransRecursive(F, Root, Counter, DT);
 
   delete Root;

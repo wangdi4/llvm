@@ -914,6 +914,11 @@ __OMP_DIRECTIVE_CLAUSE(parallel_for, 1, ~0, copyin)
 __OMP_DIRECTIVE_CLAUSE(parallel_for, 1, ~0, lastprivate)
 __OMP_DIRECTIVE_CLAUSE(parallel_for, 1, ~0, collapse)
 __OMP_DIRECTIVE_CLAUSE(parallel_for, 1, ~0, tile) // INTEL
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+__OMP_DIRECTIVE_CLAUSE(parallel_for, 1, ~0, dataflow)
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 __OMP_DIRECTIVE_CLAUSE(parallel_for, 1, ~0, schedule)
 __OMP_DIRECTIVE_CLAUSE(parallel_for, 1, ~1, ordered)
 __OMP_DIRECTIVE_CLAUSE(parallel_for, 1, ~0, linear)

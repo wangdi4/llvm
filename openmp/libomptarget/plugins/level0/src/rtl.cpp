@@ -409,6 +409,7 @@ public:
   int32_t DeviceType;
   uint32_t ThreadLimit; // Global thread limit
   std::string CompilationOptions; // Compilation options for IGC
+  std::string InternalCompilationOptions;
 
   RTLDeviceInfoTy() {
     NumDevices = 0;
@@ -471,8 +472,12 @@ public:
       // silently ignore it. Other OpenCL compilers may fail.
       const char *env = readEnvVar("LIBOMPTARGET_LEVEL0_TARGET_GLOBALS");
       if (env && (env[0] == 'T' || env[0] == 't' || env[0] == '1')) {
-        CompilationOptions += " -cl-take-global-address ";
+        InternalCompilationOptions += " -cl-take-global-address ";
         Flags.EnableTargetGlobals = 1;
+      }
+      env = readEnvVar("LIBOMPTARGET_LEVEL0_MATCH_SINCOSPI");
+      if (!env || (env[0] != 'F' && env[0] != 'f' && env[0] != '0')) {
+        InternalCompilationOptions += " -cl-match-sincospi ";
       }
     }
 
@@ -864,12 +869,17 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
   size_t numEntries = (size_t)(Image->EntriesEnd - Image->EntriesBegin);
   DP("Expecting to have %zu entries defined\n", numEntries);
 
+  std::string compilationOptions(DeviceInfo.CompilationOptions);
+  DP("Module compilation options: %s\n", compilationOptions.c_str());
+  compilationOptions += " " + DeviceInfo.InternalCompilationOptions;
+  DPI("Final module compilation options: %s\n", compilationOptions.c_str());
+
   ze_module_desc_t moduleDesc = {
     ZE_MODULE_DESC_VERSION_CURRENT,
     ZE_MODULE_FORMAT_IL_SPIRV,
     imageSize,
     (uint8_t *)Image->ImageStart,
-    DeviceInfo.CompilationOptions.c_str(),
+    compilationOptions.c_str(),
     nullptr /* pointer to specialization constants */
   };
   ze_module_handle_t module;

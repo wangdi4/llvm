@@ -61,17 +61,18 @@ CSAMachineFunctionInfo::licRCFromGenRC(const TargetRegisterClass *RC) {
   return NULL;
 }
 
-
 bool CSAMachineFunctionInfo::canDeleteLICReg(unsigned reg) const {
-  if (getIsGloballyVisible(reg)) return false;
-  for (MIOperands MO(*entryMI); MO.isValid(); ++MO) {
-    if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg()))
+  if (getIsGloballyVisible(reg))
+    return false;
+  for (MIBundleOperands MO(*entryMI); MO.isValid(); ++MO) {
+    if (!MO->isReg() || !Register::isVirtualRegister(MO->getReg()))
       continue;
     unsigned MOReg = MO->getReg();
-    if (MOReg == reg) return false;
+    if (MOReg == reg)
+      return false;
   }
-  for (MIOperands MO(*returnMI); MO.isValid(); ++MO) {
-    if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg()))
+  for (MIBundleOperands MO(*returnMI); MO.isValid(); ++MO) {
+    if (!MO->isReg() || !Register::isVirtualRegister(MO->getReg()))
       continue;
     unsigned MOReg = MO->getReg();
     if (MOReg == reg) return false;
@@ -122,7 +123,7 @@ std::string replaceFuncNameWithNewUniqueName(std::string fname_str, MachineFunct
 void CSAMachineFunctionInfo::setLICName(unsigned vreg,
                                         const Twine &name,
                                         const Twine &fname) const {
-  if (TargetRegisterInfo::isPhysicalRegister(vreg))
+  if (Register::isPhysicalRegister(vreg))
     return;
   std::string composed;
   if (!name.isTriviallyEmpty()) {
@@ -137,10 +138,10 @@ void CSAMachineFunctionInfo::setLICName(unsigned vreg,
     }
     std::string fname_str;
     if (fname.isTriviallyEmpty())
-      fname_str = MF.getFunction().getName();
+      fname_str = MF.getFunction().getName().str();
     else
       fname_str = fname.str();
-    fname_str = replaceFuncNameWithNewUniqueName(fname_str,MF);
+    fname_str = replaceFuncNameWithNewUniqueName(fname_str, MF);
     if (csa_utils::isAlwaysDataFlowLinkageSet() && (composed.find(fname_str) != 0)) {
       composed = fname_str + "_" + composed;
     }
@@ -157,9 +158,9 @@ void CSAMachineFunctionInfo::setLICName(unsigned vreg,
 
 CSAMachineFunctionInfo::LICInfo &
 CSAMachineFunctionInfo::getLICInfo(unsigned regno) {
-  assert(TargetRegisterInfo::isVirtualRegister(regno) &&
+  assert(Register::isVirtualRegister(regno) &&
          "LICs should be virtual registers");
-  auto index = TargetRegisterInfo::virtReg2Index(regno);
+  auto index = Register::virtReg2Index(regno);
   return licInfo[index];
 }
 
@@ -168,8 +169,15 @@ unsigned CSAMachineFunctionInfo::getLICSize(unsigned regno) const {
   return TII->getSizeOfRegisterClass(RC);
 }
 
-void CSAMachineFunctionInfo::addLICAttribute(unsigned regno, const StringRef key, const StringRef value) const {
-  getLICInfo(regno).attribs[key] = value;
+void CSAMachineFunctionInfo::addLICAttribute(unsigned regno,
+                                             const StringRef key,
+                                             const StringRef value) const {
+  getLICInfo(regno).attribs[key] = value.str();
+}
+
+void CSAMachineFunctionInfo::removeLICAttribute(unsigned regno,
+                                                const StringRef key) const {
+  getLICInfo(regno).attribs.erase(key);
 }
 
 StringRef CSAMachineFunctionInfo::getLICAttribute(unsigned reg, StringRef key) const {

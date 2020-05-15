@@ -25,7 +25,7 @@ class CSAMCAsmInfo : public MCAsmInfoELF {
   void anchor() override;
 
 public:
-  explicit CSAMCAsmInfo(const Triple &T);
+  explicit CSAMCAsmInfo(const Triple &T, const MCTargetOptions &Options);
 };
 
 } // namespace llvm

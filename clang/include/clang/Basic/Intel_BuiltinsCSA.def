@@ -15,7 +15,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// The format of this database matches clang/Basic/Builtins.def.
+// The format of this database matches clang/include/clang/Basic/Builtins.def
 
 // BUILTIN(__builtin_dummy, "UiUi", "n")
 
@@ -33,25 +33,101 @@ BUILTIN(__builtin_csa_spmd_worker_num, "i", "n")
 
 BUILTIN(__builtin_csa_pipeline_loop, "vi", "n")
 
-// SIMD ops.
+// CSA local cache
+BUILTIN(__builtin_csa_local_cache, "vi", "n")
+
+// SIMD ops
+BUILTIN(__builtin_csa_addss8x8,    "V8cV8cV8c",          "ncV:64:")
+BUILTIN(__builtin_csa_addsu8x8,    "V8cV8cV8c",          "ncV:64:")
+
+BUILTIN(__builtin_csa_addss16x4,   "V4sV4sV4s",          "ncV:64:")
+BUILTIN(__builtin_csa_addsu16x4,   "V4sV4sV4s",          "ncV:64:")
+BUILTIN(__builtin_csa_cmp8x8,      "cV8cV8cIc",          "ncV:64:")
+BUILTIN(__builtin_csa_cmp16x4,     "cV4sV4sIc",          "ncV:64:")
+BUILTIN(__builtin_csa_subss8x8,    "V8cV8cV8c",          "ncV:64:")
+BUILTIN(__builtin_csa_subsu8x8,    "V8cV8cV8c",          "ncV:64:")
+BUILTIN(__builtin_csa_subss16x4,   "V4sV4sV4s",          "ncV:64:")
+BUILTIN(__builtin_csa_subsu16x4,   "V4sV4sV4s",          "ncV:64:")
+
+BUILTIN(__builtin_csa_mins8x8,     "V8cV8cV8c",          "ncV:64:")
+BUILTIN(__builtin_csa_minu8x8,     "V8cV8cV8c",          "ncV:64:")
+BUILTIN(__builtin_csa_mins16x4,    "V4sV4sV4s",          "ncV:64:")
+BUILTIN(__builtin_csa_minu16x4,    "V4sV4sV4s",          "ncV:64:")
+
+BUILTIN(__builtin_csa_maxs8x8,     "V8cV8cV8c",          "ncV:64:")
+BUILTIN(__builtin_csa_maxu8x8,     "V8cV8cV8c",          "ncV:64:")
+BUILTIN(__builtin_csa_maxs16x4,    "V4sV4sV4s",          "ncV:64:")
+BUILTIN(__builtin_csa_maxu16x4,    "V4sV4sV4s",          "ncV:64:")
+
+BUILTIN(__builtin_csa_test8x8,     "UcV8cV8c",           "ncV:64:")
+BUILTIN(__builtin_csa_test16x4,    "UcV4sV4s",           "ncV:64:")
+BUILTIN(__builtin_csa_test32x2,    "UcV2fV2f",           "ncV:64:")
+BUILTIN(__builtin_csa_abs8x8,      "V8cV8c",             "ncV:64:")
+BUILTIN(__builtin_csa_abs16x4,     "V4sV4s",             "ncV:64:")
+BUILTIN(__builtin_csa_movmsk8x8,   "UcV8c",              "ncV:64:")
+
+BUILTIN(__builtin_csa_movmsk16x4,  "UcV4s",              "ncV:64:")
+BUILTIN(__builtin_csa_blend8x8,    "V8cUcV8cV8c",        "ncV:64:")
+BUILTIN(__builtin_csa_blend16x4,   "V4sUcV4sV4s",        "ncV:64:")
+BUILTIN(__builtin_csa_blend32x2,   "V2fUcV2fV2f",        "ncV:64:")
+
+BUILTIN(__builtin_csa_avgs8x8,     "V8cV8cV8c",          "ncV:64:")
+BUILTIN(__builtin_csa_avgu8x8,     "V8cV8cV8c",          "ncV:64:")
+BUILTIN(__builtin_csa_avgs16x4,    "V4sV4sV4s",          "ncV:64:")
+BUILTIN(__builtin_csa_avgu16x4,    "V4sV4sV4s",          "ncV:64:")
+
+BUILTIN(__builtin_csa_addf16x4,    "V4hV4hV4hIcIcIc",    "ncV:64:")
+BUILTIN(__builtin_csa_subf16x4,    "V4hV4hV4hIcIcIc",    "ncV:64:")
+BUILTIN(__builtin_csa_mulf16x4,    "V4hV4hV4hIcIcIc",    "ncV:64:")
+BUILTIN(__builtin_csa_addsubf16x4, "V4hV4hV4hIcIcIc",    "ncV:64:")
+BUILTIN(__builtin_csa_subaddf16x4, "V4hV4hV4hIcIcIc",    "ncV:64:")
+BUILTIN(__builtin_csa_fmaf16x4,    "V4hV4hV4hV4hIcIcIc", "ncV:64:")
+BUILTIN(__builtin_csa_fmsf16x4,    "V4hV4hV4hV4hIcIcIc", "ncV:64:")
+BUILTIN(__builtin_csa_fmrsf16x4,   "V4hV4hV4hV4hIcIcIc", "ncV:64:")
+BUILTIN(__builtin_csa_fmasf16x4,   "V4hV4hV4hV4hIcIcIc", "ncV:64:")
+BUILTIN(__builtin_csa_fmsaf16x4,   "V4hV4hV4hV4hIcIcIc", "ncV:64:")
+BUILTIN(__builtin_csa_fnms16x4,    "V4hV4hV4hV4hIcIcIc", "ncV:64:")
+BUILTIN(__builtin_csa_cmpf16x4,    "cV4hV4hIcIcIcIcIbIb","ncV:64:")
+BUILTIN(__builtin_csa_minf16x4,    "V4hV4hV4hIcIcIcIbIb","ncV:64:")
+BUILTIN(__builtin_csa_maxf16x4,    "V4hV4hV4hIcIcIcIbIb","ncV:64:")
+
+
 BUILTIN(__builtin_csa_addf32x2,    "V2fV2fV2fIcIcIc",    "ncV:64:")
 BUILTIN(__builtin_csa_subf32x2,    "V2fV2fV2fIcIcIc",    "ncV:64:")
-BUILTIN(__builtin_csa_mulf32x2,    "V2fV2fV2fIcIcIc",    "ncV:64:")
 BUILTIN(__builtin_csa_addsubf32x2, "V2fV2fV2fIcIcIc",    "ncV:64:")
 BUILTIN(__builtin_csa_subaddf32x2, "V2fV2fV2fIcIcIc",    "ncV:64:")
+BUILTIN(__builtin_csa_mulf32x2,    "V2fV2fV2fIcIcIc",    "ncV:64:")
 BUILTIN(__builtin_csa_fmaf32x2,    "V2fV2fV2fV2fIcIcIc", "ncV:64:")
 BUILTIN(__builtin_csa_fmsf32x2,    "V2fV2fV2fV2fIcIcIc", "ncV:64:")
 BUILTIN(__builtin_csa_fmrsf32x2,   "V2fV2fV2fV2fIcIcIc", "ncV:64:")
 BUILTIN(__builtin_csa_fmasf32x2,   "V2fV2fV2fV2fIcIcIc", "ncV:64:")
 BUILTIN(__builtin_csa_fmsaf32x2,   "V2fV2fV2fV2fIcIcIc", "ncV:64:")
+BUILTIN(__builtin_csa_fnmsf32x2,   "V2fV2fV2fV2fIcIcIc", "ncV:64:")
+BUILTIN(__builtin_csa_cmpf32x2,    "cV2fV2fIcIcIcIcIbIb","ncV:64:")
+BUILTIN(__builtin_csa_minf32x2,    "V2fV2fV2fIcIcIcIbIb","ncV:64:")
+BUILTIN(__builtin_csa_maxf32x2,    "V2fV2fV2fIcIcIcIbIb","ncV:64:")
+
+// Scalar intrinsics
+BUILTIN(__builtin_csa_clxmul8,     "UsUcUc",             "nc")
+BUILTIN(__builtin_csa_clxmul16,    "UiUsUs",             "nc")
+BUILTIN(__builtin_csa_clxmul32,    "LLiUiUi",            "nc")
+BUILTIN(__builtin_csa_rcp14f32,    "ff",                 "nc")
+BUILTIN(__builtin_csa_rcp14f64,    "dd",                 "nc")
+BUILTIN(__builtin_csa_rsqrt14f32,  "ff",                 "nc")
+BUILTIN(__builtin_csa_rsqrt14f64,  "dd",                 "nc")
+BUILTIN(__builtin_csa_ternlog_u1,  "bbbbUc",             "nc")
+BUILTIN(__builtin_csa_ternlog_u8,  "UcUcUcUcUc",         "nc")
+BUILTIN(__builtin_csa_ternlog_u16, "UsUsUsUsUc",         "nc")
+BUILTIN(__builtin_csa_ternlog_u32, "UiUiUiUiUc",         "nc")
+BUILTIN(__builtin_csa_ternlog_u64, "LLiLLiLLiLLiUc",     "nc")
 
 // LIC Queues Builtins
 BUILTIN(__builtin_csa_lic_init, "iIiILiILi", "n")
+BUILTIN(__builtin_csa_lic_preload, "v.", "nt")
 BUILTIN(__builtin_csa_lic_write, "v.", "nt")
 BUILTIN(__builtin_csa_lic_read, "d.", "nt")
 
 // Data-gated prefetch
-
 BUILTIN(__builtin_csa_gated_prefetch, "v.", "ntc")
 
 #undef BUILTIN

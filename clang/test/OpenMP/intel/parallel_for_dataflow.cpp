@@ -42,8 +42,8 @@ void foo() {
   // CHECK: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
   // CHECK-SAME: "DIR.OMP.PARALLEL.LOOP"(),
   // CHECK-SAME: "QUAL.OMP.SA.NUM_WORKERS"(i32 4
-  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[OMP_LB]]
   // CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(i32* [[OMP_IV]]
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[OMP_LB]]
   // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(i32* [[OMP_UB]]
   // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[I]])
 #pragma omp parallel for dataflow(num_workers(4))
@@ -52,8 +52,8 @@ void foo() {
   // CHECK: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
   // CHECK-SAME: "DIR.OMP.PARALLEL.LOOP"(),
   // CHECK-SAME: "QUAL.OMP.SA.SCHEDULE.STATIC"(i32 5
-  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[OMP_LB]]
   // CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(i32* [[OMP_IV]]
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[OMP_LB]]
   // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(i32* [[OMP_UB]]
   // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[I2]])
 #pragma omp parallel for dataflow(static(5))
@@ -62,8 +62,8 @@ void foo() {
   // CHECK: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
   // CHECK-SAME: "DIR.OMP.PARALLEL.LOOP"(),
   // CHECK-SAME: "QUAL.OMP.SA.PIPELINE"(i32 6
-  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[OMP_LB]]
   // CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(i32* [[OMP_IV]]
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[OMP_LB]]
   // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(i32* [[OMP_UB]]
   // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[I3]])
 #pragma omp parallel for dataflow(pipeline(6))
@@ -73,8 +73,8 @@ void foo() {
   // CHECK-SAME: "DIR.OMP.PARALLEL.LOOP"(),
   // CHECK-SAME: "QUAL.OMP.SA.SCHEDULE.STATIC"(i32 3
   // CHECK-SAME: "QUAL.OMP.SA.NUM_WORKERS"(i32 7
-  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[OMP_LB]]
   // CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(i32* [[OMP_IV]]
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[OMP_LB]]
   // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(i32* [[OMP_UB]]
   // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[I4]])
 #pragma omp parallel for dataflow(static(3),num_workers(7))
@@ -84,8 +84,8 @@ void foo() {
   // CHECK-SAME: "DIR.OMP.PARALLEL.LOOP"(),
   // CHECK-SAME: "QUAL.OMP.SA.NUM_WORKERS"(i32 7
   // CHECK-SAME: "QUAL.OMP.SA.PIPELINE"(i32 9
-  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[OMP_LB]]
   // CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(i32* [[OMP_IV]]
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[OMP_LB]]
   // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(i32* [[OMP_UB]]
   // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[I5]])
 #pragma omp parallel for dataflow(pipeline(9),num_workers(7))
@@ -96,8 +96,8 @@ void foo() {
   // CHECK-SAME: "QUAL.OMP.SA.SCHEDULE.STATIC"(i32 12
   // CHECK-SAME: "QUAL.OMP.SA.NUM_WORKERS"(i32 7
   // CHECK-SAME: "QUAL.OMP.SA.PIPELINE"(i32 9
-  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[OMP_LB]]
   // CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(i32* [[OMP_IV]]
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[OMP_LB]]
   // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(i32* [[OMP_UB]]
   // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[I6]])
 #pragma omp parallel for dataflow(pipeline(9),num_workers(7),static(12))
@@ -123,11 +123,11 @@ void foo() {
   // CHECK-SAME: "QUAL.OMP.SA.SCHEDULE.STATIC"(i32 [[NUM4]]
   // CHECK-SAME: "QUAL.OMP.SA.NUM_WORKERS"(i32 [[NUM5]]
   // CHECK-SAME: "QUAL.OMP.SA.PIPELINE"(i32 [[NUM6]]
-  // CHECK-SAME: "QUAL.OMP.SHARED"(i32* [[CE1]]
   // CHECK-SAME: "QUAL.OMP.SHARED"(i32* [[CE2]]
+  // CHECK-SAME: "QUAL.OMP.SHARED"(i32* [[CE1]]
   // CHECK-SAME: "QUAL.OMP.SHARED"(i32* [[CE3]]
-  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[LB1]]
   // CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(i32*
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[LB1]]
   // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(i32* [[UB1]]
   // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32*
 #pragma omp parallel for dataflow(num_workers(b),static(c),pipeline(a))

@@ -879,10 +879,6 @@ def header_base_path : JoinedOrSeparate<["-"], "header-base-path">,
 // CMPLRLLVM-9854: X87 default precision options
 def mx87_precision : Joined<["-"], "mx87-precision=">,
   HelpText<"Initialize X87 floating point precision to single, double or double extended">;
-// INTEL_FEATURE_CSA
-def fcsa_visa : Flag<["-"], "fcsa-visa">,
-  HelpText<"[CSA] Customize target IR for binary vISA">;
-// end INTEL_FEATURE_CSA
 // endif INTEL_CUSTOMIZATION
 def fdefault_calling_conv_EQ : Joined<["-"], "fdefault-calling-conv=">,
   HelpText<"Set default calling convention">, Values<"cdecl,fastcall,stdcall,vectorcall,regcall">;

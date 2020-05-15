@@ -15,7 +15,6 @@ define {i64, i1} @tests64ltrlt(i64 %a, i64 %b) {
 ; CHECK-LABEL: tests64ltrlt
 ; CHECK: .result .lic .i64 %[[RES:[a-z0-9_.]+]]
 ; CHECK: maxs64 %[[RES]], [[CMP:[^,]+]]
-; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
   %cmp = icmp slt i64 %b, %a
   %res = select i1 %cmp, i64 %a, i64 %b
   %cmp2 = icmp slt i64 %a, %b
@@ -28,6 +27,7 @@ define {i64, i1} @tests64ltrle(i64 %a, i64 %b) {
 ; CHECK-LABEL: tests64ltrle
 ; CHECK: .result .lic .i64 %[[RES:[a-z0-9_.]+]]
 ; CHECK: maxs64 %[[RES]], [[CMP:[^,]+]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
   %cmp = icmp slt i64 %b, %a
   %res = select i1 %cmp, i64 %a, i64 %b
   %cmp2 = icmp sle i64 %a, %b
@@ -40,7 +40,6 @@ define {i64, i1} @tests64ltrgt(i64 %a, i64 %b) {
 ; CHECK-LABEL: tests64ltrgt
 ; CHECK: .result .lic .i64 %[[RES:[a-z0-9_.]+]]
 ; CHECK: maxs64 %[[RES]], [[CMP:[^,]+]]
-; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
   %cmp = icmp slt i64 %b, %a
   %res = select i1 %cmp, i64 %a, i64 %b
   %cmp2 = icmp sgt i64 %a, %b
@@ -53,6 +52,7 @@ define {i64, i1} @tests64ltrge(i64 %a, i64 %b) {
 ; CHECK-LABEL: tests64ltrge
 ; CHECK: .result .lic .i64 %[[RES:[a-z0-9_.]+]]
 ; CHECK: maxs64 %[[RES]], [[CMP:[^,]+]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
   %cmp = icmp slt i64 %b, %a
   %res = select i1 %cmp, i64 %a, i64 %b
   %cmp2 = icmp sge i64 %a, %b
@@ -74,7 +74,6 @@ define {i64, i1} @tests64lerlt(i64 %a, i64 %b) {
 ; CHECK-LABEL: tests64lerlt
 ; CHECK: .result .lic .i64 %[[RES:[a-z0-9_.]+]]
 ; CHECK: maxs64 %[[RES]], [[CMP:[^,]+]]
-; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
   %cmp = icmp sle i64 %b, %a
   %res = select i1 %cmp, i64 %a, i64 %b
   %cmp2 = icmp slt i64 %a, %b
@@ -87,6 +86,7 @@ define {i64, i1} @tests64lerle(i64 %a, i64 %b) {
 ; CHECK-LABEL: tests64lerle
 ; CHECK: .result .lic .i64 %[[RES:[a-z0-9_.]+]]
 ; CHECK: maxs64 %[[RES]], [[CMP:[^,]+]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
   %cmp = icmp sle i64 %b, %a
   %res = select i1 %cmp, i64 %a, i64 %b
   %cmp2 = icmp sle i64 %a, %b
@@ -99,7 +99,6 @@ define {i64, i1} @tests64lergt(i64 %a, i64 %b) {
 ; CHECK-LABEL: tests64lergt
 ; CHECK: .result .lic .i64 %[[RES:[a-z0-9_.]+]]
 ; CHECK: maxs64 %[[RES]], [[CMP:[^,]+]]
-; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
   %cmp = icmp sle i64 %b, %a
   %res = select i1 %cmp, i64 %a, i64 %b
   %cmp2 = icmp sgt i64 %a, %b
@@ -112,6 +111,7 @@ define {i64, i1} @tests64lerge(i64 %a, i64 %b) {
 ; CHECK-LABEL: tests64lerge
 ; CHECK: .result .lic .i64 %[[RES:[a-z0-9_.]+]]
 ; CHECK: maxs64 %[[RES]], [[CMP:[^,]+]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
   %cmp = icmp sle i64 %b, %a
   %res = select i1 %cmp, i64 %a, i64 %b
   %cmp2 = icmp sge i64 %a, %b
@@ -133,7 +133,6 @@ define {i64, i1} @tests64gtslt(i64 %a, i64 %b) {
 ; CHECK-LABEL: tests64gtslt
 ; CHECK: .result .lic .i64 %[[RES:[a-z0-9_.]+]]
 ; CHECK: maxs64 %[[RES]], [[CMP:[^,]+]]
-; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
   %cmp = icmp sgt i64 %a, %b
   %res = select i1 %cmp, i64 %a, i64 %b
   %cmp2 = icmp slt i64 %a, %b
@@ -146,6 +145,7 @@ define {i64, i1} @tests64gtsle(i64 %a, i64 %b) {
 ; CHECK-LABEL: tests64gtsle
 ; CHECK: .result .lic .i64 %[[RES:[a-z0-9_.]+]]
 ; CHECK: maxs64 %[[RES]], [[CMP:[^,]+]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
   %cmp = icmp sgt i64 %a, %b
   %res = select i1 %cmp, i64 %a, i64 %b
   %cmp2 = icmp sle i64 %a, %b
@@ -158,7 +158,6 @@ define {i64, i1} @tests64gtsgt(i64 %a, i64 %b) {
 ; CHECK-LABEL: tests64gtsgt
 ; CHECK: .result .lic .i64 %[[RES:[a-z0-9_.]+]]
 ; CHECK: maxs64 %[[RES]], [[CMP:[^,]+]]
-; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
   %cmp = icmp sgt i64 %a, %b
   %res = select i1 %cmp, i64 %a, i64 %b
   %cmp2 = icmp sgt i64 %a, %b
@@ -171,6 +170,7 @@ define {i64, i1} @tests64gtsge(i64 %a, i64 %b) {
 ; CHECK-LABEL: tests64gtsge
 ; CHECK: .result .lic .i64 %[[RES:[a-z0-9_.]+]]
 ; CHECK: maxs64 %[[RES]], [[CMP:[^,]+]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
   %cmp = icmp sgt i64 %a, %b
   %res = select i1 %cmp, i64 %a, i64 %b
   %cmp2 = icmp sge i64 %a, %b
@@ -192,7 +192,6 @@ define {i64, i1} @tests64geslt(i64 %a, i64 %b) {
 ; CHECK-LABEL: tests64geslt
 ; CHECK: .result .lic .i64 %[[RES:[a-z0-9_.]+]]
 ; CHECK: maxs64 %[[RES]], [[CMP:[^,]+]]
-; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
   %cmp = icmp sge i64 %a, %b
   %res = select i1 %cmp, i64 %a, i64 %b
   %cmp2 = icmp slt i64 %a, %b
@@ -205,6 +204,7 @@ define {i64, i1} @tests64gesle(i64 %a, i64 %b) {
 ; CHECK-LABEL: tests64gesle
 ; CHECK: .result .lic .i64 %[[RES:[a-z0-9_.]+]]
 ; CHECK: maxs64 %[[RES]], [[CMP:[^,]+]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
   %cmp = icmp sge i64 %a, %b
   %res = select i1 %cmp, i64 %a, i64 %b
   %cmp2 = icmp sle i64 %a, %b
@@ -217,7 +217,6 @@ define {i64, i1} @tests64gesgt(i64 %a, i64 %b) {
 ; CHECK-LABEL: tests64gesgt
 ; CHECK: .result .lic .i64 %[[RES:[a-z0-9_.]+]]
 ; CHECK: maxs64 %[[RES]], [[CMP:[^,]+]]
-; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
   %cmp = icmp sge i64 %a, %b
   %res = select i1 %cmp, i64 %a, i64 %b
   %cmp2 = icmp sgt i64 %a, %b
@@ -230,6 +229,7 @@ define {i64, i1} @tests64gesge(i64 %a, i64 %b) {
 ; CHECK-LABEL: tests64gesge
 ; CHECK: .result .lic .i64 %[[RES:[a-z0-9_.]+]]
 ; CHECK: maxs64 %[[RES]], [[CMP:[^,]+]]
+; CHECK: not1 [[NOT:[^,]+]], [[CMP]]
   %cmp = icmp sge i64 %a, %b
   %res = select i1 %cmp, i64 %a, i64 %b
   %cmp2 = icmp sge i64 %a, %b

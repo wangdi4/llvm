@@ -39,6 +39,11 @@
 
 #include "llvm/Analysis/Utils/Local.h"
 #include "llvm/IR/DebugInfoMetadata.h"
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+#include "llvm/IR/IntrinsicsCSA.h"
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/IR/Verifier.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"

@@ -20,7 +20,7 @@ using namespace llvm;
 
 void CSAMCAsmInfo::anchor() {}
 
-CSAMCAsmInfo::CSAMCAsmInfo(const Triple &T) {
+CSAMCAsmInfo::CSAMCAsmInfo(const Triple &T, const MCTargetOptions &Options) {
   CodePointerSize = CalleeSaveStackSlotSize = 8;
   // For now
   HasDotTypeDotSizeDirective = false;

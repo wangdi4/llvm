@@ -65,6 +65,23 @@ static cl::opt<bool>
                           cl::desc("CSA: Create Self Contained graphs."),
                           cl::init(false));
 
+static cl::opt<bool>
+    VerifyBackedges("csa-verify-backedges", cl::Hidden, cl::ZeroOrMore,
+                    cl::desc("CSA Specific: Verify a LIC with the csasim_backedge attribute does complete a cycle in the graph"),
+                    cl::init(false));
+
+static cl::opt<bool> MarkHLLICsAsBackedges(
+  "csa-mark-hllics-as-backedges", cl::Hidden,
+  cl::desc(
+    "CSA Specific: mark high-level LICs as backedges; consider using -csa-verify-backedges to verify these markings are precise."),
+  cl::init(false));
+
+static cl::opt<bool>
+ReportWarningForExtCalls("csa-report-ext-calls-as-warning",
+          cl::Hidden, cl::ZeroOrMore,
+          cl::desc("CSA Specific: Report external calls as warnings"),
+          cl::init(false));
+
 bool csa_utils::isAlwaysDataFlowLinkageSet(void) {
   return AlwaysDataFlowLinkage;
 }
@@ -73,6 +90,17 @@ bool csa_utils::createSCG(void) {
   return CSACreateSCG;
 }
 
+bool csa_utils::verifyBackedges(void) {
+  return VerifyBackedges;
+}
+
+bool csa_utils::markHLLICsAsBackedges(void) {
+  return MarkHLLICsAsBackedges;
+}
+
+bool csa_utils::reportWarningForExtCalls(void) {
+  return ReportWarningForExtCalls;
+}
 
 static MachineInstr *getPriorFormedInst(MachineInstr *currMI,
                                         MachineBasicBlock *mbb) {
@@ -226,8 +254,6 @@ unsigned csa_utils::createPickTree(
         BuildMI(*mbb, before, dl, TII->get(anyOpcode), index)
             .addReg(select_signals[0])
             .addReg(select_signals[1])
-            .addReg(unusedReg)
-            .addReg(unusedReg)
             .addImm(0);
     anyInst->setFlag(MachineInstr::NonSequential);
     LLVM_DEBUG(errs() << "anyInst = " << *anyInst << "\n");
@@ -342,8 +368,6 @@ void csa_utils::createSwitchTree(MachineBasicBlock *mbb,
     BuildMI(*mbb, before, dl, TII->get(anyOpcode), index)
         .addReg(select_signal_0)
         .addReg(select_signal_1)
-        .addReg(unusedReg)
-        .addReg(unusedReg)
         .addImm(0);
   anyInst->setFlag(MachineInstr::NonSequential);
   LLVM_DEBUG(errs() << "anyInst = " << *anyInst << "\n");

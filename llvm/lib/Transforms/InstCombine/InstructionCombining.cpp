@@ -1281,18 +1281,18 @@ Value *InstCombiner::Descale(Value *Val, APInt Scale, bool &NoSignedWrap,
 
   for (;; Op = Parent.first->getOperand(Parent.second)) { // Drill down
 #if INTEL_CUSTOMIZATION
-    auto makeUniqueOp = [&](BinaryOperator *BO) {
-      if (!TestOnly && !BO->hasOneUse()) {
-        Instruction *Clone = BO->clone();
-        Clone->insertAfter(BO);
-        DuplicatedInsts.push_back(std::make_pair(Clone, BO));
-        BO = cast<BinaryOperator>(Clone);
+    auto makeUniqueOp = [&](Instruction *I) {
+      if (!TestOnly && !I->hasOneUse()) {
+        Instruction *Clone = I->clone();
+        Clone->insertAfter(I);
+        DuplicatedInsts.push_back(std::make_pair(Clone, I));
+        I = Clone;
         if (Op == Val)
-          Val = BO;
+          Val = I;
         else
-          Parent.first->setOperand(Parent.second, BO);
+          Parent.first->setOperand(Parent.second, I);
       }
-      return BO;
+      return I;
     };
 #endif // INTEL_CUSTOMIZATION
 
@@ -1443,8 +1443,12 @@ Value *InstCombiner::Descale(Value *Val, APInt Scale, bool &NoSignedWrap,
       }
     }
 
+#if !INTEL_CUSTOMIZATION
+    // We use makeUniqueOp to handle Instructions with multiple users, so this
+    // check is not necessary.
     if (!Op->hasOneUse())
       return nullptr;
+#endif // INTEL_CUSTOMIZATION
 
     if (CastInst *Cast = dyn_cast<CastInst>(Op)) {
       if (Cast->getOpcode() == Instruction::SExt) {
@@ -1464,7 +1468,7 @@ Value *InstCombiner::Descale(Value *Val, APInt Scale, bool &NoSignedWrap,
         RequireNoSignedWrap = true;
 
         // Drill down through the cast.
-        Parent = std::make_pair(Cast, 0);
+        Parent = std::make_pair(makeUniqueOp(Cast), 0); // INTEL
         Scale = SmallScale;
         continue;
       }
@@ -1481,7 +1485,7 @@ Value *InstCombiner::Descale(Value *Val, APInt Scale, bool &NoSignedWrap,
 
         // Drill down through the cast.
         unsigned LargeSize = Cast->getSrcTy()->getPrimitiveSizeInBits();
-        Parent = std::make_pair(Cast, 0);
+        Parent = std::make_pair(makeUniqueOp(Cast), 0); // INTEL
         Scale = Scale.sext(LargeSize);
         if (logScale + 1 == (int32_t)Cast->getType()->getPrimitiveSizeInBits())
           logScale = -1;

@@ -711,8 +711,8 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     // For consecutive load/store we create a scalar GEP.
     // TODO: Extend support for private pointers and VLS-based unit-stride
     // optimization.
-    auto IsSimpleLoadStoreFrom = [this](const VPValue *V,
-                                        const VPValue *Ptr) -> bool {
+    auto IsSimpleLoadStoreFrom = [](const VPValue *V,
+                                    const VPValue *Ptr) -> bool {
       if (getLoadStorePointerOperand(V) != Ptr)
         return false;
 

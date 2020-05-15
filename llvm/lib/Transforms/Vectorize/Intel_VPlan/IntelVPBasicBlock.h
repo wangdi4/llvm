@@ -28,8 +28,6 @@ template <> struct ilist_traits<vpo::VPInstruction> {
 private:
   friend class vpo::VPBasicBlock; // Set by the owning VPBasicBlock.
 
-  vpo::VPBasicBlock *Parent;
-
   using instr_iterator =
       simple_ilist<vpo::VPInstruction, ilist_sentinel_tracking<true>>::iterator;
 
@@ -87,7 +85,7 @@ private:
   VPValue *CondBit = nullptr;
 
   /// Current block predicate - null if the block does not need a predicate.
-  VPValue *Predicate = nullptr;
+  VPInstruction *BlockPredicate = nullptr;
 
   BasicBlock *CBlock = nullptr;
   BasicBlock *TBlock = nullptr;
@@ -277,11 +275,11 @@ public:
 
   void setParent(VPlan *P) { Parent = P; }
 
-  VPValue *getPredicate() { return Predicate; }
-
-  const VPValue *getPredicate() const { return Predicate; }
-
-  void setPredicate(VPValue *Pred) { Predicate = Pred; }
+  VPValue *getPredicate();
+  const VPValue *getPredicate() const;
+  VPInstruction *getBlockPredicate() { return BlockPredicate; }
+  const VPInstruction *getBlockPredicate() const { return BlockPredicate; }
+  void setBlockPredicate(VPInstruction *BlockPredicate);
 
   /// \Return the condition bit selecting the successor.
   VPValue *getCondBit() { return CondBit; }
@@ -489,6 +487,10 @@ public:
   splitBlockAtPredicate(VPBasicBlock *BB, VPLoopInfo *VPLInfo,
                         VPDominatorTree *DomTree = nullptr,
                         VPPostDominatorTree *PostDomTree = nullptr);
+  static VPBasicBlock *splitEdge(VPBasicBlock *From, VPBasicBlock *To,
+                                 const Twine &Name, VPLoopInfo *VPLInfo,
+                                 VPDominatorTree *DomTree = nullptr,
+                                 VPPostDominatorTree *PostDomTree = nullptr);
 };
 } // namespace vpo
 } // namespace llvm

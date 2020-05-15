@@ -231,7 +231,7 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   BasicBlock *Header = Lp->getHeader();
   VPlanScalarEvolutionLLVM VPSE(SE, Lp);
   VPlanVLSAnalysis VLSA(Lp, Header->getContext(), *DL, &VPSE, TTI);
-  LoopVectorizationPlanner LVP(WRLp, Lp, LI, &SE, &VPSE, TLI, TTI, DL, DT, &LVL,
+  LoopVectorizationPlanner LVP(WRLp, Lp, LI, &VPSE, TLI, TTI, DL, DT, &LVL,
                                &VLSA);
 
 #if INTEL_CUSTOMIZATION

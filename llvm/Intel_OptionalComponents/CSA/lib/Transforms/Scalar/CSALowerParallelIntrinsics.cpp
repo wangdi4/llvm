@@ -14,18 +14,21 @@
 ///
 ///===---------------------------------------------------------------------===//
 
-#include "Intel_CSA/CSAIRPasses.h"
 #include "Intel_CSA/Transforms/Scalar/CSALowerParallelIntrinsics.h"
+#include "Intel_CSA/CSAIRPasses.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
-#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/IntrinsicsCSA.h"
 #include "llvm/IR/MDBuilder.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/GenericDomTreeConstruction.h"
 #include <deque>
 #include <queue>

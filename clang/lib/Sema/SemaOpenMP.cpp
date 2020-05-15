@@ -2078,7 +2078,8 @@ bool Sema::isInOpenMPTargetExecutionDirective() const {
 
 #if INTEL_COLLAB
 bool Sema::isOpenMPTargetLastPrivate(ValueDecl *D) {
-  if (!getLangOpts().OpenMPLateOutline)
+  if (!getLangOpts().OpenMPLateOutline ||
+      !getLangOpts().OpenMPLateOutlineTarget)
     return false;
 
   D = getCanonicalDecl(D);
@@ -12417,6 +12418,10 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_task:
     case OMPD_taskloop:
     case OMPD_taskloop_simd:
+    case OMPD_master_taskloop:
+    case OMPD_master_taskloop_simd:
+    case OMPD_parallel_master_taskloop:
+    case OMPD_parallel_master_taskloop_simd:
     case OMPD_target_data:
     case OMPD_target_enter_data:
     case OMPD_target_exit_data:
@@ -12431,6 +12436,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_target_parallel:
     case OMPD_cancel:
     case OMPD_parallel:
+    case OMPD_parallel_master:
     case OMPD_parallel_sections:
     case OMPD_threadprivate:
     case OMPD_taskyield:
@@ -12438,12 +12444,16 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
     case OMPD_taskwait:
     case OMPD_cancellation_point:
     case OMPD_flush:
+    case OMPD_depobj:
+    case OMPD_scan:
     case OMPD_declare_reduction:
     case OMPD_declare_mapper:
     case OMPD_declare_simd:
     case OMPD_declare_target:
     case OMPD_end_declare_target:
     case OMPD_declare_variant:
+    case OMPD_begin_declare_variant:
+    case OMPD_end_declare_variant:
     case OMPD_target_variant_dispatch:
     case OMPD_simd:
     case OMPD_sections:
@@ -18962,7 +18972,7 @@ OMPClause *Sema::ActOnOpenMPDataflowClause(Expr *StaticChunkSize,
 
   OpenMPDirectiveKind DKind = DSAStack->getCurrentDirective();
   OpenMPDirectiveKind CaptureRegion =
-      getOpenMPCaptureRegionForClause(DKind, OMPC_dataflow);
+      getOpenMPCaptureRegionForClause(DKind, OMPC_dataflow, LangOpts.OpenMP);
   if (CaptureRegion != OMPD_unknown && !CurContext->isDependentContext()) {
     llvm::MapVector<const Expr *, DeclRefExpr *> Captures;
     if (ValExpr1) {

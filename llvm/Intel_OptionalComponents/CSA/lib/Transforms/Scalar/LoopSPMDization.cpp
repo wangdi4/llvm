@@ -24,7 +24,10 @@
 #include "llvm/Analysis/ScalarEvolutionExpander.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/IntrinsicsCSA.h"
 #include "llvm/IR/PatternMatch.h"
+#include "llvm/InitializePasses.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
@@ -113,6 +116,7 @@ private:
                               std::vector<Instruction *> &ReduceVarOrig,
                               std::vector<Instruction *> &OldInst);
   void lowerSPMDWorkerNum(Loop *L, int PE);
+  void cleanSPMDWorkerNum(llvm::SmallVector<Loop *, 4> &loopList);
   void setLoopAlreadySPMDized(Loop *L);
   void AddUnrollDisableMetadata(Loop *L);
   bool FindReductionVariables(Loop *L, ScalarEvolution *SE,
@@ -130,11 +134,21 @@ private:
   void AddZeroTripCountCheck(Loop *L, ScalarEvolution *SE, int PE, int NPEs,
                              BasicBlock *AfterLoop, DominatorTree *DT,
                              LoopInfo *LI);
-  bool AddParallelIntrinsicstoLoop(Loop *L, LLVMContext &context, Module *M,
-                                   BasicBlock *OrigPH, BasicBlock *E);
+  CallInst *AddParallelIntrinsicstoLoop(Loop *L, LLVMContext &context, Module *M,
+                                        BasicBlock *PH, BasicBlock *E);
+  bool AddSectionIntrinsicstoLoop(Loop *L, LLVMContext &context, Module *M,
+                                  BasicBlock *PH, BasicBlock *E,
+                                  DominatorTree *DT,
+                                  CallInst *region_entry,
+                                  IntrinsicInst *spmd_lcache_intr);
+  bool AddSectionIntrinsicstoWorkerLoops(llvm::SmallVector<Loop *, 4> &loopList,
+                                         DominatorTree *DT,
+                                         CallInst *region_entry,
+                                         IntrinsicInst *spmd_lcache_intr);
   IntrinsicInst *detectSPMDIntrinsic(Loop *L, LoopInfo *LI, DominatorTree *DT,
                                      PostDominatorTree *PDT, int &NPEs,
                                      int &Chunk_Size);
+  IntrinsicInst *detectSPMDLocalCacheIntrinsic(IntrinsicInst *spmd_intr);
 
   bool runOnLoop(Loop *L, LPPassManager &) override {
 
@@ -163,13 +177,23 @@ private:
     spmd_approach = 0;
     int NPEs;
     int Chunk_Size;
-    IntrinsicInst *found_spmd =
+    CallInst *region_entry;
+    IntrinsicInst *spmd_intr =
         detectSPMDIntrinsic(L, LI, DT, PDT, NPEs, Chunk_Size);
-    if (!found_spmd)
+    if (! spmd_intr)
       return false;
+
+    // Check whether a spmdization_local_cache intrinsic exists.
+    IntrinsicInst *spmd_lcache_intr =
+        detectSPMDLocalCacheIntrinsic(spmd_intr);
+
     if (NPEs == 1) {
-      // Add CSA parallel intrinsics:
-      AddParallelIntrinsicstoLoop(L, context, M, OrigPH, L->getExitBlock());
+      // Add CSA parallel region intrinsics to loop
+      region_entry = AddParallelIntrinsicstoLoop(L, context, M, OrigPH, L->getExitBlock());
+
+      // Add CSA sections intrinsics to loop
+      AddSectionIntrinsicstoLoop(L, context, M, OrigPH, L->getExitBlock(), DT, region_entry, spmd_lcache_intr);
+
       ORE.emit(
           OptimizationRemark(DEBUG_TYPE, "", L->getStartLoc(), L->getHeader())
           << "Number of workers is one, loop SPMDization is equivalent to "
@@ -177,6 +201,7 @@ private:
              "case.");
       return false;
     }
+
     if (NPEs < 1) {
       errs() << "\n";
       errs().changeColor(raw_ostream::BLUE, true);
@@ -202,6 +227,7 @@ private:
                 "This call will be ignored.\n\n";
       return false;
     }
+
     if (!L->getExitBlock()) {
       //   ORE.emit(
       //   OptimizationRemarkMissed(DEBUG_TYPE, "Unstructured Code",
@@ -219,12 +245,13 @@ Branches to or from an OpenMP structured block are illegal
 )help";
       return false;
     }
+
     unsigned r = FindReductionVectorsSize(L);
     std::vector<Value *> ReduceVarExitOrig(r);
     std::vector<Instruction *> ReduceVarOrig(r);
     // there is OldInst foreach reduction variable
     std::vector<Instruction *> OldInsts(r);
-    if(!FindReductionVariables(L, SE, ReduceVarExitOrig, ReduceVarOrig))
+    if (!FindReductionVariables(L, SE, ReduceVarExitOrig, ReduceVarOrig))
       return false;
     // retrieve the minimum number of iterations of the loop in order to assess
     // whether to insert the zero trip count check or not
@@ -310,9 +337,13 @@ try a different SPMDization strategy instead.
     OrigE->setName(L->getHeader()->getName() + ".e");
     BasicBlock *AfterLoop = E;
 
-    // Add CSA parallel intrinsics:
-    AddParallelIntrinsicstoLoop(L, context, M, OrigPH, E);
+    // Add CSA parallel region intrinsics to loop
+    region_entry = AddParallelIntrinsicstoLoop(L, context, M, OrigPH, E);
+
     SmallVector<Value *, 128> NewReducedValues; // should be equal to NPEs
+    SmallVector<Loop *, 4> loopList;
+    loopList.push_back(OrigL);
+
     for (int PE = 1; PE < NPEs; PE++) {
       SmallVector<BasicBlock *, 8> NewLoopBlocks;
       BasicBlock *Exit = L->getExitBlock();
@@ -338,8 +369,8 @@ try a different SPMDization strategy instead.
       else
         DT->addNewBlock(NewE, NewLoop->getHeader());
 
-      //If __builtin_csa_spmd_worker_num is used in the loop
-      //lower this to a constant to scalarize the array of streams
+      // If __builtin_csa_spmd_worker_num is used in the loop
+      // lower this to a constant (+1)
       lowerSPMDWorkerNum(NewLoop, PE);
 
       Instruction *ExitTerm = Exit->getTerminator();
@@ -352,7 +383,7 @@ try a different SPMDization strategy instead.
       } else if (spmd_approach == SPMD_BLOCKING)
         TransformLoopInitandBound(NewLoop, SE, PE, NPEs);
 
-      if (min_iterations < PE) {
+      if (min_iterations - 1 < PE) {
         AddZeroTripCountCheck(NewLoop, SE, PE, NPEs, AfterLoop, DT, LI);
         // flat vs. nested: The main difference between flat and nested here is
         // that the loop preheader (the zero trip check block) should branch to
@@ -375,15 +406,14 @@ try a different SPMDization strategy instead.
                    "  ,as directed by the builtin_assume or the constant value "
                    "of the upper bound of the loop.");
         AssumptionCache *AC =
-          &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(*F);
+            &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(*F);
         Instruction *const terminator =
-          NewLoop->getLoopPreheader()->getTerminator();
+            NewLoop->getLoopPreheader()->getTerminator();
         IRBuilder<> Builder{terminator};
         Instruction *CondI = dyn_cast<Instruction>(Cond);
-        auto *assume = Builder.
-          CreateICmpSLT(NewInitV, CondI->getOperand(1));
+        auto *assume = Builder.CreateICmpSLT(NewInitV, CondI->getOperand(1));
         CallInst *workerAssume =
-          Builder.CreateIntrinsic(Intrinsic::assume, {}, assume);
+            Builder.CreateIntrinsic(Intrinsic::assume, {}, assume);
         AC->registerAssumption(workerAssume);
       }
       // This assumes menable-unsafe-fp-math is set
@@ -403,13 +433,17 @@ try a different SPMDization strategy instead.
                                    ReduceVarExitOrig, ReduceVarOrig, OldInsts);
       if (!success_p)
         return false;
+
+      // Let L now point to the new worker loop.
       L = NewLoop;
+
+      loopList.push_back(L);
       // NOTE: we do not need to call setLoopAlreadySPMDized()
       // for the new loop, because the metadata was set previously
       // for the original loop and it will be copied to each new loop
       // automatically, by cloneLoopWithPreheader().
-    }
-    lowerSPMDWorkerNum(OrigL, 0);
+
+    } // end for (int PE = 1; PE < NPEs; PE++)
 
     if (ZTCType == ZTCMode::Nested) {
       // Fix missed Phi operands in AfterLoop
@@ -433,11 +467,19 @@ try a different SPMDization strategy instead.
         }
       }
     }
+
+    // Add CSA sections intrinsics to the worker loops
+    DT->recalculate(*F);
+    AddSectionIntrinsicstoWorkerLoops(loopList, DT, region_entry, spmd_lcache_intr);
+
+    cleanSPMDWorkerNum(loopList);
+
     ORE.emit(
         OptimizationRemark(DEBUG_TYPE, "", L->getStartLoc(), L->getHeader())
         << "Performed loop SPMDization as directed by the pragma.");
     return true;
   }
+
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     // getLoopAnalysisUsage(AU);
     AU.addRequired<AssumptionCacheTracker>();
@@ -469,21 +511,57 @@ INITIALIZE_PASS_END(LoopSPMDization, DEBUG_TYPE, "Loop SPMDization", false,
 
 Pass *llvm::createLoopSPMDizationPass() { return new LoopSPMDization(); }
 
+// Once the replacement of csa_spmd_worker_num() with csa_spmd_worker_num()+1 is
+// done in LoopSPMDization::lowerSPMDWorkerNum, we finally replace the
+// intrinsicwith zero as the +ones will generate the corresponding worker id
+// num. If SPMDization is not performed for whatever reason, we should still
+// remove these intrinsics. This is done in CSAIntrinsicCleaner.cpp
+// (CSAIntrinsicCleaner::clean_spmd_worker_num)
+void LoopSPMDization::cleanSPMDWorkerNum(
+    llvm::SmallVector<Loop *, 4> &loopList) {
+  SmallVector<Instruction *, 4> toDelete;
+  for (Loop *L : loopList) {
+    for (BasicBlock *const BB : L->getBlocks())
+      for (Instruction &inst_it : *BB) {
+        IntrinsicInst *const intr_inst = dyn_cast<IntrinsicInst>(&inst_it);
+        if (intr_inst and
+            intr_inst->getIntrinsicID() == Intrinsic::csa_spmd_worker_num) {
+          Value *pe = llvm::ConstantInt::get(intr_inst->getType(), 0);
+          inst_it.replaceAllUsesWith(pe);
+          toDelete.push_back(&inst_it);
+        }
+      }
+  }
+  for (auto I : toDelete)
+    I->eraseFromParent();
+  return;
+}
+
+// Each SPMD loop PE is cloned from the precedent loop PE-1
+// that's why a replacement of the csa_spmd_worker_num with +1
+// is needed
 void LoopSPMDization::lowerSPMDWorkerNum(Loop *L, int PE) {
   LLVMContext &Context = L->getHeader()->getContext();
-  SmallVector<Instruction *, 4> toDelete;
   for (BasicBlock *const BB : L->getBlocks()) {
     for (Instruction &inst : *BB)
       if (IntrinsicInst *intr_inst = dyn_cast<IntrinsicInst>(&inst))
         if (intr_inst->getIntrinsicID() == Intrinsic::csa_spmd_worker_num) {
           Value *pe =
-            llvm::ConstantInt::get(llvm::Type::getInt32Ty(Context), PE);
-          inst.replaceAllUsesWith(pe);
-          toDelete.push_back(&inst);
+              llvm::ConstantInt::get(llvm::Type::getInt32Ty(Context), 1);
+          IRBuilder<> Bnum(inst.getNextNode());
+          Value *Num = Bnum.CreateAdd(intr_inst, pe, L->getName() + ".plusone");
+          // Replace users of the intrinsic with Num
+          for (auto UA = intr_inst->user_begin(), EA = intr_inst->user_end();
+               UA != EA;) {
+            Instruction *User = cast<Instruction>(*UA++);
+            if (User != Num)
+              for (unsigned m = 0; m < User->getNumOperands(); m++)
+                if (User->getOperand(m) == dyn_cast<Value>(intr_inst)) {
+                  User->setOperand(m, Num);
+                }
+          }
         }
   }
-  for (auto I : toDelete)
-    I->eraseFromParent();
   return;
 }
 
@@ -542,8 +620,7 @@ unsigned LoopSPMDization::FindReductionVectorsSize(Loop *L) {
 }
 
 bool LoopSPMDization::FindReductionVariables(
-    Loop *L, ScalarEvolution *SE,
-    std::vector<Value *> &ReduceVarExitOrig,
+    Loop *L, ScalarEvolution *SE, std::vector<Value *> &ReduceVarExitOrig,
     std::vector<Instruction *> &ReduceVarOrig) {
   Function *F = L->getHeader()->getParent();
   OptimizationRemarkEmitter ORE(F);
@@ -554,10 +631,9 @@ bool LoopSPMDization::FindReductionVariables(
       continue;
     RecurrenceDescriptor RedDes;
     if (RecurrenceDescriptor::isReductionPHI(Phi, L, RedDes) ||
-        RecurrenceDescriptor::AddReductionVar(Phi,
-                                              RecurrenceDescriptor::
-                                              RecurrenceKind::RK_FloatMinMax,
-                                              L, true, RedDes)) {
+        RecurrenceDescriptor::AddReductionVar(
+            Phi, RecurrenceDescriptor::RecurrenceKind::RK_FloatMinMax, L, true,
+            RedDes)) {
       Value *ReduceVar;
       PHINode *Phiop = Phi;
       PHINode *redoperation;
@@ -593,9 +669,8 @@ bool LoopSPMDization::FindReductionVariables(
         if (ReduceVarExit == ReduceVar)
           ReduceVarExitOrig[r] = dyn_cast<Value>(PhiExit);
       }
-    }
-    else {
-      //OptimizationRemark is not able to detect phi location
+    } else {
+      // OptimizationRemark is not able to detect phi location
       // si we have to print the instruction that uses a phi
       // this might be a reduction that is not suported
       // or an operation that involves a loop carry dependency
@@ -605,18 +680,20 @@ bool LoopSPMDization::FindReductionVariables(
         errs().changeColor(raw_ostream::BLUE, true);
         errs() << "!! ERROR: COULD NOT PERFORM SPMDization !!\n";
         errs().resetColor();
-        errs() << " Detected unsupported loop carried value in a loop marked for SPMDization;"
-               <<" please remove the SPMDization marking"
-               <<" or, if this is a reduction, add –mllvm –csa-omp-paropt-loop-splitting"
-               <<" along with the OpenMP reduction clause to detect more reduction patterns \n\n";
+        errs() << " Detected unsupported loop carried value in a loop marked "
+                  "for SPMDization;"
+               << " please remove the SPMDization marking"
+               << " or, if this is a reduction, add –mllvm "
+                  "–csa-omp-paropt-loop-splitting"
+               << " along with the OpenMP reduction clause to detect more "
+                  "reduction patterns \n\n";
         Instruction *op = cast<Instruction>(Phi);
         for (auto UA = Phi->user_begin(), EA = Phi->user_end(); UA != EA;) {
           op = cast<Instruction>(*UA++);
         }
-        ORE.emit(
-                 OptimizationRemark(DEBUG_TYPE, "SPMD Reductions:", op)
+        ORE.emit(OptimizationRemark(DEBUG_TYPE, "SPMD Reductions:", op)
                  << "The unsupported loop carried value in a loop marked"
-                 <<" for SPMDization is");
+                 << " for SPMDization is");
         return false;
       }
     }
@@ -1190,8 +1267,9 @@ bool LoopSPMDization::fixReductionsIfAny(
   return true;
 }
 
-// This routine should made generic and be declared somewhere as public to be
-// used here and in csa backend (Target/Intel_CSA/CSALoopIntrinsicExpander.cpp)
+// The following detect routine should made generic and be
+// declared somewhere as public to be used here and in CSA intrinsic
+// expander (Target/Intel_CSA/CSALoopIntrinsicExpander.cpp)
 IntrinsicInst *LoopSPMDization::detectSPMDIntrinsic(Loop *L, LoopInfo *LI,
                                                     DominatorTree *DT,
                                                     PostDominatorTree *PDT,
@@ -1253,6 +1331,18 @@ IntrinsicInst *LoopSPMDization::detectSPMDIntrinsic(Loop *L, LoopInfo *LI,
     for (BasicBlock &BB : *L->getHeader()->getParent()) {
       if (IntrinsicInst *const intr = match_pair_from_block(&BB))
         return intr;
+    }
+  }
+
+  return nullptr;
+}
+
+IntrinsicInst *LoopSPMDization::detectSPMDLocalCacheIntrinsic(IntrinsicInst *spmd_intr) {
+
+  for (auto *I : spmd_intr->users()) {
+    IntrinsicInst *intr = cast<IntrinsicInst>(I);
+    if (intr->getIntrinsicID() == Intrinsic::csa_spmdization_local_cache) {
+      return intr;
     }
   }
 
@@ -1905,7 +1995,12 @@ void LoopSPMDization::AddZeroTripCountCheck(Loop *L, ScalarEvolution *SE,
   }
 
   NewCondOp1 = NewInitV;
-  NewCondOp0 = TripCount;
+  //do not use the one in cond if the loop is ZT in Blocking because it does
+  //reflect loop count anymore
+  if(spmd_approach == SPMD_BLOCKING)
+    NewCondOp0 = UpperBound;
+  else
+    NewCondOp0 = TripCount;
 
   if (CmpCond->getPredicate() == CmpInst::ICMP_EQ ||
       CmpCond->getPredicate() == CmpInst::ICMP_NE) {
@@ -1958,39 +2053,82 @@ void LoopSPMDization::AddZeroTripCountCheck(Loop *L, ScalarEvolution *SE,
   return;
 }
 
-bool LoopSPMDization::AddParallelIntrinsicstoLoop(Loop *L, LLVMContext &context,
-                                                  Module *M, BasicBlock *OrigPH,
-                                                  BasicBlock *E) {
+CallInst * LoopSPMDization::AddParallelIntrinsicstoLoop(Loop *L, LLVMContext &context,
+                                                        Module *M, BasicBlock *PH,
+                                                        BasicBlock *E)
+{
   Function *FIntr =
       Intrinsic::getDeclaration(M, Intrinsic::csa_parallel_region_entry);
-  Instruction *const header_terminator = OrigPH->getTerminator();
-  Instruction *const preheader_terminator =
-      L->getLoopPreheader()->getTerminator();
-  CallInst *region_entry = IRBuilder<>{header_terminator}.CreateCall(
+  Instruction *const preheader_terminator =PH->getTerminator();
+
+  CallInst *region_entry = IRBuilder<>{preheader_terminator}.CreateCall(
       FIntr, ConstantInt::get(IntegerType::get(context, 32), 1), "spmd_pre");
-  std::string RegionName = region_entry->getName();
+
+  StringRef RegionName = region_entry->getName();
   next_token = context.getMDKindID(RegionName) + 1000;
   region_entry->setOperand(
       0, ConstantInt::get(IntegerType::get(context, 32), next_token));
-  CallInst *section_entry = IRBuilder<>{preheader_terminator}.CreateCall(
-      Intrinsic::getDeclaration(M, Intrinsic::csa_parallel_section_entry),
-      region_entry, "spmd_pse");
 
-  // IRBuilder<>{preheader_terminator}.CreateCall(
-  //              Intrinsic::getDeclaration(M, Intrinsic::csa_parallel_loop));
-
-  // The csa.parallel.region.exit intrinsic goes at the beginning of the loop
-  // exit.
-  SmallVector<BasicBlock *, 2> exits;
-  L->getExitBlocks(exits);
-  for (BasicBlock *const exit : exits) {
-    IRBuilder<>{exit->getFirstNonPHI()}.CreateCall(
-        Intrinsic::getDeclaration(M, Intrinsic::csa_parallel_section_exit),
-        section_entry);
-  }
   IRBuilder<>{E->getFirstNonPHI()}.CreateCall(
       Intrinsic::getDeclaration(M, Intrinsic::csa_parallel_region_exit),
       region_entry);
+
+  return region_entry;
+}
+
+bool LoopSPMDization::AddSectionIntrinsicstoLoop(Loop *L, LLVMContext &context,
+                                                 Module *M,
+                                                 BasicBlock *PH,
+                                                 BasicBlock *E,
+                                                 DominatorTree *DT,
+                                                 CallInst *region_entry,
+                                                 IntrinsicInst *spmd_lcache_intr)
+{
+  BasicBlock *dominator = DT->findNearestCommonDominator(PH, E);
+  Instruction *const dominator_terminator = dominator->getTerminator();
+
+  CallInst *section_entry = IRBuilder<>{dominator_terminator}.CreateCall(
+      Intrinsic::getDeclaration(M, Intrinsic::csa_parallel_section_entry),
+      region_entry, "spmd_pse");
+
+  Value *lcache_size;
+  Value *lcache_id;
+  CallInst *lcache_region_begin;
+  if (spmd_lcache_intr) {
+    lcache_size = spmd_lcache_intr->getArgOperand(1);
+    lcache_id   = ConstantInt::get(IntegerType::get(context, 32), 0);
+    lcache_region_begin =  IRBuilder<>{dominator_terminator}.CreateCall(
+        Intrinsic::getDeclaration(M, Intrinsic::csa_local_cache_region_begin),
+        {lcache_size, lcache_id}, "lcache_region_begin");
+  }
+
+  IRBuilder<>{E->getFirstNonPHI()}.CreateCall(
+      Intrinsic::getDeclaration(M, Intrinsic::csa_parallel_section_exit),
+      section_entry);
+
+  if (spmd_lcache_intr) {
+    IRBuilder<>{E->getFirstNonPHI()}.CreateCall(
+        Intrinsic::getDeclaration(M, Intrinsic::csa_local_cache_region_end),
+        {lcache_region_begin, lcache_id});
+  }
+
+  return true;
+}
+
+bool LoopSPMDization::AddSectionIntrinsicstoWorkerLoops(llvm::SmallVector<Loop *, 4> &loopList,
+                                                        DominatorTree *DT,
+                                                        CallInst *region_entry,
+                                                        IntrinsicInst *spmd_lcache_intr)
+{
+  for (Loop *L : loopList) {
+    LLVMContext &context = L->getHeader()->getContext();
+    Function *F = L->getHeader()->getParent();
+    Module *M = F->getParent();
+    BasicBlock *PH = L->getLoopPreheader();
+    BasicBlock *E = L->getExitBlock();
+
+    AddSectionIntrinsicstoLoop(L, context, M, PH, E, DT, region_entry, spmd_lcache_intr);
+  }
 
   return true;
 }

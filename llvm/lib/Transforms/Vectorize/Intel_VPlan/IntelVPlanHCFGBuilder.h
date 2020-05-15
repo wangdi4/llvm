@@ -47,9 +47,6 @@ private:
   /// Loop Info analysis.
   LoopInfo *LI;
 
-  /// Scalar Evolution analysis.
-  ScalarEvolution *SE;
-
 protected:
   /// Hold WRegion information for TheLoop, if available.
   const WRNVecLoopNode *const WRLp;
@@ -92,8 +89,8 @@ protected:
   void splitLoopsExit(VPLoop *VPLp);
 
 public:
-  VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, ScalarEvolution *SE,
-                   const DataLayout &DL, const WRNVecLoopNode *WRL, VPlan *Plan,
+  VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, const DataLayout &DL,
+                   const WRNVecLoopNode *WRL, VPlan *Plan,
                    VPOVectorizationLegality *Legal);
 
   virtual ~VPlanHCFGBuilder();

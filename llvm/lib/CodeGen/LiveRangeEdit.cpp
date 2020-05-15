@@ -300,7 +300,7 @@ void LiveRangeEdit::eliminateDeadDef(MachineInstr *MI, ToShrinkSet &ToShrink,
       // for CSA stores which are emitted with an %ign def. Therefore, an extra
       // check has been added to make sure that defs are actually virtual
       // registers before they are eliminated.
-      (!TargetRegisterInfo::isPhysicalRegister(MI->getOperand(0).getReg()) ||
+      (!Register::isPhysicalRegister(MI->getOperand(0).getReg()) ||
        MI->getMF()->getTarget().getTargetTriple().getArch() != Triple::csa) &&
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION

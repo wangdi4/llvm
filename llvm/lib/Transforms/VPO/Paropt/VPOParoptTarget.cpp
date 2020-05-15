@@ -62,15 +62,6 @@ static cl::opt<bool>
                cl::init(false),
                cl::desc("Pass raw device ptr to variant dispatch."));
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CSA
-// Temporary option which is set to true when we are emitting binary vISA.
-static cl::opt<bool> CSAvISA("csa-visa",
-                             cl::desc("Customize IR for binary vISA"),
-                             cl::init(false), cl::ReallyHidden);
-#endif // INTEL_FEATURE_CSA
-#endif // INTEL_CUSTOMIZATION
-
 static cl::opt<uint32_t> FixedSIMDWidth(
     "vpo-paropt-fixed-simd-width", cl::Hidden, cl::init(0),
     cl::desc("Fixed SIMD width for all target regions in the module."));
@@ -740,14 +731,11 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
-  // Add "target.entry" attribute to the outlined function.
-  NewF->addFnAttr("omp.target.entry");
-
-  // Temporary set external linkage for outlined target regions when emitting
-  // binary vISA. This is a workaround for csa_as limitation that should be
-  // removed in future.
-  if (CSAvISA)
-    NewF->setLinkage(GlobalValue::ExternalLinkage);
+  if (isTargetCSA()) {
+    // Add "target.entry" attribute to the outlined function.
+    NewF->addFnAttr("omp.target.entry");
+    NewF->setLinkage(GlobalValue::WeakAnyLinkage);
+  }
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
   CallInst *NewCall = cast<CallInst>(NewF->user_back());
@@ -1123,29 +1111,8 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W,
   unsigned NumLoops = 0;
 
   if (UncollapsedNDRange.empty()) {
-    for (int I = 0, IE = WL->getWRNLoopInfo().getNormIVSize(); I < IE; ++I) {
-      auto *L = WL->getWRNLoopInfo().getLoop(I);
-      auto *UpperBoundDef =
-          cast<Instruction>(WRegionUtils::getOmpLoopUpperBound(L));
-      if (!VPOParoptUtils::mayCloneUBValueBeforeRegion(UpperBoundDef, W)) {
-        // FIXME: if we stop calling this function for SPIR compilation,
-        //        then the check for isTargetSPIRV() has to be removed below.
-        if (isTargetSPIRV()) {
-          // This code may be executed only for ImplicitSIMDSPMDES mode.
-          OptimizationRemarkMissed R(
-              "openmp", "Target", WL->getEntryDirective());
-          R << "Consider using OpenMP combined construct "
-              "with \"target\" to get optimal performance";
-          ORE.emit(R);
-        }
-        LLVM_DEBUG(dbgs() << __FUNCTION__ <<
-                   ": loop bounds cannot be computed before the enclosing "
-                   "target region.\n");
-        return nullptr;
-      }
-    }
-
-    NumLoops = WL->getWRNLoopInfo().getNormIVSize();
+    llvm_unreachable("Uncollapsed ND-range must not be empty.");
+    return nullptr;
   }
   else
     NumLoops = UncollapsedNDRange.size();

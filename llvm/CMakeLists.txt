@@ -1555,6 +1555,11 @@ if (INTEL_CUSTOMIZATION)
       llvm-opencl-ompplugin omptarget clang-offload-bundler omptarget-opencl-rtl
       llvm-x86_64-ompplugin llvm-objcopy clang-offload-wrapper
       llvm-level0-ompplugin libompdevice sycl-post-link
+# INTEL_CUSTOMIZATION
+# INTEL_FEATURE_CSA
+      llvm-csa-ompplugin
+# end INTEL_FEATURE_CSA
+# end INTEL_CUSTOMIZATION
       # SYCL components
       khronos-icd-loader opencl-aot
     )

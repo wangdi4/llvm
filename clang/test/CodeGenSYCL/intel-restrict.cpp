@@ -1,5 +1,11 @@
 // UNSUPPORTED: intel_opencl
 // RUN: %clang_cc1 -fsycl -fsycl-is-device %s -emit-llvm -triple spir64-unknown-unknown-sycldevice -o - | FileCheck %s
+// INTEL_CUSTOMIZATION
+// INTEL_FEATURE_CSA
+// INTEL - Disable test for CSA compiler as it is flaky.
+// UNSUPPORTED: csa-registered-target
+// end INTEL_FEATURE_CSA
+// end INTEL_CUSTOMIZATION
 
 template <typename name, typename Func>
 __attribute__((sycl_kernel)) void kernel(Func kernelFunc) {

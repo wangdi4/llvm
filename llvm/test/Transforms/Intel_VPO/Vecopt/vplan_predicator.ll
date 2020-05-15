@@ -264,14 +264,14 @@ define void @test_separate_blend_bb_for_2_div_plus_uniform(i32* %a, i32 %b) loca
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BLEND_BB0]]:
-; CHECK-NEXT:       [DA: Div] i32 [[VP2:%.*]] = blend [ i32 2, i1 [[VP_BB1_VARYING_NOT]] ], [ i32 3, i1 [[VP_BB1_VARYING]] ]
+; CHECK-NEXT:       [DA: Div] i32 [[VP_PHI_BLEND_BB5:%.*]] = blend [ i32 2, i1 [[VP_BB1_VARYING_NOT]] ], [ i32 3, i1 [[VP_BB1_VARYING]] ]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB3]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]:
-; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI:%.*]] = phi  [ i32 0, [[BB1]] ],  [ i32 [[VP2]], [[BLEND_BB0]] ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI:%.*]] = phi  [ i32 0, [[BB1]] ],  [ i32 [[VP_PHI_BLEND_BB5]], [[BLEND_BB0]] ]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_BB4_ADD:%.*]] = add i32 [[VP_LD]] i32 4
-; CHECK-NEXT:     [DA: Div] void [[VP3:%.*]] = ret
+; CHECK-NEXT:     [DA: Div] void [[VP2:%.*]] = ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BLEND_BB0]]
 ;
@@ -354,7 +354,7 @@ define void @test_two_blend_bbs(i32* %a, i32 %b)  local_unnamed_addr {
 ; CHECK-NEXT:        PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BLEND_BB0]]:
-; CHECK-NEXT:         [DA: Div] i32 [[VP1:%.*]] = blend [ i32 5, i1 true ], [ i32 6, i1 [[VP_BB5_VARYING]] ]
+; CHECK-NEXT:         [DA: Div] i32 [[VP_PHI_BLEND_BB7:%.*]] = blend [ i32 5, i1 true ], [ i32 6, i1 [[VP_BB5_VARYING]] ]
 ; CHECK-NEXT:        SUCCESSORS(1):[[BB4]]
 ; CHECK-NEXT:        PREDECESSORS(1): [[BB6]]
 ; CHECK-EMPTY:
@@ -366,26 +366,26 @@ define void @test_two_blend_bbs(i32* %a, i32 %b)  local_unnamed_addr {
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB7]]:
-; CHECK-NEXT:       [DA: Div] i1 [[VP2:%.*]] = block-predicate i1 [[VP_BB1_VARYING_NOT]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_BB1_VARYING_NOT]]
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_BB2_ADD:%.*]] = add i32 [[VP_LD]] i32 2
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB8:BB[0-9]+]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB8]]:
-; CHECK-NEXT:       [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP_BB1_VARYING]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP2:%.*]] = block-predicate i1 [[VP_BB1_VARYING]]
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_BB3_ADD:%.*]] = add i32 [[VP_LD]] i32 3
 ; CHECK-NEXT:      SUCCESSORS(1):[[BLEND_BB1:blend.bb[0-9]+]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB7]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BLEND_BB1]]:
-; CHECK-NEXT:       [DA: Div] i32 [[VP4:%.*]] = blend [ i32 2, i1 [[VP_BB1_VARYING_NOT]] ], [ i32 3, i1 [[VP_BB1_VARYING]] ]
+; CHECK-NEXT:       [DA: Div] i32 [[VP_PHI_BLEND_BB8:%.*]] = blend [ i32 2, i1 [[VP_BB1_VARYING_NOT]] ], [ i32 3, i1 [[VP_BB1_VARYING]] ]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB4]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB8]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]:
-; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI:%.*]] = phi  [ i32 4, [[BB3]] ],  [ i32 [[VP1]], [[BLEND_BB0]] ],  [ i32 [[VP4]], [[BLEND_BB1]] ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI:%.*]] = phi  [ i32 4, [[BB3]] ],  [ i32 [[VP_PHI_BLEND_BB7]], [[BLEND_BB0]] ],  [ i32 [[VP_PHI_BLEND_BB8]], [[BLEND_BB1]] ]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_BB7_ADD:%.*]] = add i32 [[VP_LD]] i32 7
-; CHECK-NEXT:     [DA: Div] void [[VP5:%.*]] = ret
+; CHECK-NEXT:     [DA: Div] void [[VP3:%.*]] = ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(3): [[BB3]] [[BLEND_BB0]] [[BLEND_BB1]]
 ;
@@ -1210,8 +1210,13 @@ define void @test_blend_splitting_for_early_path_join(i32* %a, i32 %b) local_unn
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]:
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_BB6_BR_VP_BB3_VARYING_NOT:%.*]] = and i1 [[VP_BB2_VARYING_NOT]] i1 [[VP_BB3_VARYING_NOT]]
-; CHECK-NEXT:      SUCCESSORS(1):[[BB6:BB[0-9]+]]
+; CHECK-NEXT:      SUCCESSORS(1):[[BLEND_BB0:blend.bb[0-9]+]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB4]]
+; CHECK-EMPTY:
+; CHECK-NEXT:      [[BLEND_BB0]]:
+; CHECK-NEXT:       [DA: Div] i32 [[VP_PHI_BLEND_BB6:%.*]] = blend [ i32 [[VP_BB2_ADD]], i1 true ], [ i32 [[VP_BB3_ADD]], i1 [[VP_BB2_VARYING_NOT]] ]
+; CHECK-NEXT:      SUCCESSORS(1):[[BB6:BB[0-9]+]]
+; CHECK-NEXT:      PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB2]]:
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_BB1_VARYING:%.*]] = or i1 [[VP_VARYING]] i1 true
@@ -1230,26 +1235,26 @@ define void @test_blend_splitting_for_early_path_join(i32* %a, i32 %b) local_unn
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB8]]:
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_BB8_BR_VP_BB4_VARYING_NOT:%.*]] = and i1 [[VP_BB1_VARYING_NOT]] i1 [[VP_BB4_VARYING_NOT]]
-; CHECK-NEXT:      SUCCESSORS(1):[[BB6]]
+; CHECK-NEXT:      SUCCESSORS(1):[[BLEND_BB1:blend.bb[0-9]+]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB7]]
 ; CHECK-EMPTY:
+; CHECK-NEXT:      [[BLEND_BB1]]:
+; CHECK-NEXT:       [DA: Div] i32 [[VP_PHI_BLEND_BB8:%.*]] = blend [ i32 [[VP_BB1_ADD]], i1 true ], [ i32 [[VP_BB4_ADD]], i1 [[VP_BB1_VARYING_NOT]] ]
+; CHECK-NEXT:      SUCCESSORS(1):[[BB6]]
+; CHECK-NEXT:      PREDECESSORS(1): [[BB8]]
+; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]:
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB6_BR_VP_BB3_VARYING_NOT_PHI_BB7:%.*]] = phi  [ i1 false, [[BB8]] ],  [ i1 [[VP_BB6_BR_VP_BB3_VARYING_NOT]], [[BB5]] ]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB8_BR_VP_BB4_VARYING_NOT_PHI_BB7:%.*]] = phi  [ i1 [[VP_BB8_BR_VP_BB4_VARYING_NOT]], [[BB8]] ],  [ i1 false, [[BB5]] ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI_PHI_BB7:%.*]] = phi  [ i32 [[VP_PHI_BLEND_BB8]], [[BLEND_BB1]] ],  [ i32 [[VP_PHI_BLEND_BB6]], [[BLEND_BB0]] ]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB6_BR_VP_BB3_VARYING_NOT_PHI_BB7:%.*]] = phi  [ i1 false, [[BB7]] ],  [ i1 [[VP_BB6_BR_VP_BB3_VARYING_NOT]], [[BB4]] ]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB8_BR_VP_BB4_VARYING_NOT_PHI_BB7:%.*]] = phi  [ i1 [[VP_BB8_BR_VP_BB4_VARYING_NOT]], [[BB7]] ],  [ i1 false, [[BB4]] ]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP2:%.*]] = or i1 [[VP_BB8_BR_VP_BB4_VARYING_NOT_PHI_BB7]] i1 [[VP_BB6_BR_VP_BB3_VARYING_NOT_PHI_BB7]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP2]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_BB5_ADD:%.*]] = add i32 [[VP_LD]] i32 5
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB9:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(2): [[BB8]] [[BB5]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BLEND_BB1]] [[BLEND_BB0]]
 ; CHECK-EMPTY:
-;
-; FIXME: That shouldn't be a huge blend-phi because not all the incoming values
-; dominate this blend. We should be introducing more blends when different
-; divergent paths merge together via IDF-based algorithm, most probably.
-; See details below in the ASCII drawing of the linearized control flow.
-;
 ; CHECK-NEXT:    [[BB9]]:
-; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI:%.*]] = blend [ i32 [[VP_BB2_ADD]], i1 true ], [ i32 [[VP_BB3_ADD]], i1 [[VP_BB2_VARYING_NOT]] ], [ i32 [[VP_BB1_ADD]], i1 true ], [ i32 [[VP_BB4_ADD]], i1 [[VP_BB1_VARYING_NOT]] ], [ i32 [[VP_BB5_ADD]], i1 [[VP2]] ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI:%.*]] = blend [ i32 [[VP_BB5_ADD]], i1 [[VP2]] ], [ i32 [[VP_PHI_PHI_BB7]], i1 [[VP2]] ]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_BB6_ADD:%.*]] = add i32 [[VP_LD]] i32 6
 ; CHECK-NEXT:     [DA: Div] void [[VP4:%.*]] = ret
 ; CHECK-NEXT:    no SUCCESSORS
@@ -1284,7 +1289,7 @@ entry:
 ;           \   /
 ;            BB5 RealPhi = [ Blend_1_4, BB4 ], [ Blend_2_3, BB3]
 ;             |
-;            BB6 BlendForOrigPhi (RealPhi, BB5Def, BB6Def) (*)
+;            BB6 BlendForOrigPhi (RealPhi, BB5Def) (*)
 ; (*) can't have a blend with 5 incoming values, none of def1/def4/def2/def3
 ; would dominate that point.
   %lane = call i32 @llvm.vplan.laneid()
