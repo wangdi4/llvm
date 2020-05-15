@@ -342,8 +342,9 @@ class RTLDeviceInfoTy {
   void *getVarDeviceAddr(int32_t DeviceId, const char *Name, size_t Size);
 public:
   cl_uint numDevices;
-  cl_platform_id platformID;
+
   // per device information
+  std::vector<cl_platform_id> platformIDs;
   std::vector<cl_device_id> deviceIDs;
   std::vector<int32_t> maxExecutionUnits;
   std::vector<size_t> maxWorkGroupSize;
@@ -1121,10 +1122,8 @@ int32_t __tgt_rtl_number_of_devices() {
   CALL_CL_RET_ZERO(clGetPlatformIDs, platformIdCount, platformIds.data(),
                    nullptr);
 
-  // OpenCL device IDs are stored in a list so that
-  // 1. All device IDs from a single platform are stored consecutively.
-  // 2. Device IDs from a platform having at least one GPU device appear
-  //    before any device IDs from a platform having no GPU devices.
+  // All eligible OpenCL device IDs from the platforms are stored in a list
+  // in the order they are probed by clGetPlatformIDs/clGetDeviceIDs.
   for (cl_platform_id id : platformIds) {
     std::vector<char> buf;
     size_t buf_size;
@@ -1147,14 +1146,14 @@ int32_t __tgt_rtl_number_of_devices() {
       continue;
 
     DP("Platform %s has %" PRIu32 " Devices\n", buf.data(), numDevices);
-    DeviceInfo->deviceIDs.resize(numDevices);
+    std::vector<cl_device_id> devices(numDevices);
     CALL_CL_RET_ZERO(clGetDeviceIDs, id, DeviceInfo->DeviceType, numDevices,
-                     DeviceInfo->deviceIDs.data(), nullptr);
-    DeviceInfo->numDevices = numDevices;
-    DeviceInfo->platformID = id;
-    break;
-    // It is unrealistic to have multiple platforms that support the same
-    // device type, so breaking here should be fine.
+                     devices.data(), nullptr);
+    for (auto device : devices) {
+      DeviceInfo->deviceIDs.push_back(device);
+      DeviceInfo->platformIDs.push_back(id);
+    }
+    DeviceInfo->numDevices += numDevices;
   }
 
   DeviceInfo->maxExecutionUnits.resize(DeviceInfo->numDevices);
@@ -1212,6 +1211,14 @@ int32_t __tgt_rtl_number_of_devices() {
     DP("WARNING: No OpenCL devices found.\n");
   }
 
+#ifndef _WIN32
+  // Make sure it is registered after OCL handlers are registered.
+  // Registerization is done in DLLmain for Windows
+  if (std::atexit(closeRTL)) {
+    FATAL_ERROR("Registration of clean-up function");
+  }
+#endif //WIN32
+
   return DeviceInfo->numDevices;
 }
 
@@ -1223,7 +1230,7 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
          "bad device id");
 
   // create context
-  auto PlatformID = DeviceInfo->platformID;
+  auto PlatformID = DeviceInfo->platformIDs[device_id];
   cl_context_properties props[] = {
       CL_CONTEXT_PLATFORM,
       (cl_context_properties)PlatformID, 0};
@@ -1255,10 +1262,11 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
 #if INTEL_CUSTOMIZATION
   // Find extension function pointers
   auto &ext = DeviceInfo->Extensions[device_id];
+  auto platformID = DeviceInfo->platformIDs[device_id];
   if (ext.HostMemAllocINTELPointer == ExtensionStatusEnabled) {
     void *fn = nullptr;
-    CALL_CL_RV(fn, clGetExtensionFunctionAddressForPlatform,
-               DeviceInfo->platformID, "clHostMemAllocINTEL");
+    CALL_CL_RV(fn, clGetExtensionFunctionAddressForPlatform, platformID,
+               "clHostMemAllocINTEL");
     DeviceInfo->clHostMemAllocINTELFn =
         reinterpret_cast<clHostMemAllocINTELTy>(fn);
     if (DeviceInfo->clHostMemAllocINTELFn)
@@ -1266,8 +1274,8 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
   }
   if (ext.SharedMemAllocINTELPointer == ExtensionStatusEnabled) {
     void *fn = nullptr;
-    CALL_CL_RV(fn, clGetExtensionFunctionAddressForPlatform,
-               DeviceInfo->platformID, "clSharedMemAllocINTEL");
+    CALL_CL_RV(fn, clGetExtensionFunctionAddressForPlatform, platformID,
+               "clSharedMemAllocINTEL");
     DeviceInfo->clSharedMemAllocINTELFn =
         reinterpret_cast<clSharedMemAllocINTELTy>(fn);
     if (DeviceInfo->clSharedMemAllocINTELFn)
@@ -1275,8 +1283,8 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
   }
   if (ext.MemFreeINTELPointer == ExtensionStatusEnabled) {
     void *fn = nullptr;
-    CALL_CL_RV(fn, clGetExtensionFunctionAddressForPlatform,
-               DeviceInfo->platformID, "clMemFreeINTEL");
+    CALL_CL_RV(fn, clGetExtensionFunctionAddressForPlatform, platformID,
+               "clMemFreeINTEL");
     DeviceInfo->clMemFreeINTELFn = reinterpret_cast<clMemFreeINTELTy>(fn);
     if (DeviceInfo->clMemFreeINTELFn)
       DP("Extension clMemFreeINTEL enabled.\n");
@@ -1288,13 +1296,6 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
                 DeviceInfo->deviceIDs[device_id],
                 omptLookupEntries, omptDocument);
 
-#ifndef _WIN32
-  // Make sure it is registered after OCL handlers are registered.
-  // Registerization is done in DLLmain for Windows
-  if (std::atexit(closeRTL)) {
-    FATAL_ERROR("Registration of clean-up function");
-  }
-#endif //WIN32
   DeviceInfo->Initialized[device_id] = true;
 
   return OFFLOAD_SUCCESS;
@@ -1528,12 +1529,13 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
       DeviceInfo->FuncGblEntries[device_id].Kernels;
 
 #if INTEL_CUSTOMIZATION
+  auto platformID = DeviceInfo->platformIDs[device_id];
   if (!DeviceInfo->clGetDeviceGlobalVariablePointerINTELFn &&
       DeviceInfo->Extensions[device_id].GetDeviceGlobalVariablePointer ==
       ExtensionStatusEnabled) {
     void *fn = nullptr;
-    CALL_CL_RV(fn, clGetExtensionFunctionAddressForPlatform,
-               DeviceInfo->platformID, "clGetDeviceGlobalVariablePointerINTEL");
+    CALL_CL_RV(fn, clGetExtensionFunctionAddressForPlatform, platformID,
+               "clGetDeviceGlobalVariablePointerINTEL");
     DeviceInfo->clGetDeviceGlobalVariablePointerINTELFn =
         reinterpret_cast<clGetDeviceGlobalVariablePointerINTELTy>(fn);
 
@@ -1549,8 +1551,8 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
       ExtensionStatusEnabled && DeviceInfo->DeviceType == CL_DEVICE_TYPE_CPU) {
     // TODO: limit this to CPU devices for the time being.
     void *fn = nullptr;
-    CALL_CL_RV(fn, clGetExtensionFunctionAddressForPlatform,
-               DeviceInfo->platformID, "clGetMemAllocInfoINTEL");
+    CALL_CL_RV(fn, clGetExtensionFunctionAddressForPlatform, platformID,
+               "clGetMemAllocInfoINTEL");
     DeviceInfo->clGetMemAllocInfoINTELFn =
         reinterpret_cast<clGetMemAllocInfoINTELTy>(fn);
 
