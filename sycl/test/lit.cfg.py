@@ -105,7 +105,8 @@ llvm_config.add_tool_substitutions(['llvm-spirv'], [config.sycl_tools_dir])
 
 # TODO: Change default to PI_LEVEL0
 backend=lit_config.params.get('SYCL_BE', "PI_OPENCL")
-lit_config.note("Backend: {BACKEND}".format(BACKEND=backend))
+lit_config.note("Backend (SYCL_BE): {}".format(backend))
+config.substitutions.append( ('%sycl_be', backend) )
 
 get_device_count_by_type_path = os.path.join(config.llvm_tools_dir, "get_device_count_by_type")
 
