@@ -161,7 +161,7 @@
 // END DO
 //
 
-#include "llvm/Transforms/Intel_LoopTransforms/HIRMultiExitLoopReroll.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRMultiExitLoopRerollPass.h"
 
 #include "llvm/ADT/Statistic.h"
 

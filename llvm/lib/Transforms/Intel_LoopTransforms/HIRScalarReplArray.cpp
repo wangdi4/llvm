@@ -93,7 +93,7 @@
 //
 
 // -------------------------------------------------------------------
-#include "llvm/Transforms/Intel_LoopTransforms/HIRScalarReplArray.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRScalarReplArrayPass.h"
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/Triple.h"
@@ -117,7 +117,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 
-#include "HIRScalarReplArrayImpl.h"
+#include "HIRScalarReplArray.h"
 
 #define DEBUG_TYPE "hir-scalarrepl-array"
 

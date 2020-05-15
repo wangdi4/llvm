@@ -39,7 +39,7 @@
 //   Actual transformation is done by two utils: stripmine and permute
 //   (a.k.a stripmine and interchange)
 
-#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopBlocking.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopBlockingPass.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Function.h"

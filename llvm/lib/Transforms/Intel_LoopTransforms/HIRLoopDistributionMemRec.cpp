@@ -11,10 +11,10 @@
 //===----------------------------------------------------------------------===//
 //
 
-#include "HIRLoopDistributionImpl.h"
+#include "HIRLoopDistribution.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopDistributionForMemRec.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopDistributionForMemRecPass.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;

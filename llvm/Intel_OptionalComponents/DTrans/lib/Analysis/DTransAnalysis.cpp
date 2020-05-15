@@ -4560,6 +4560,10 @@ public:
           SourceIsPtrToPtr = true;
           continue;
         }
+
+        if (I.isVolatile())
+          setBaseTypeInfoSafetyData(AliasTy, dtrans::VolatileData);
+
         // If we get here, we've found an alias which is a simple pointer
         // to an aggregate type. This means we're either loading the entire
         // structure, or we're loading a mismatch of element zero.
@@ -4573,10 +4577,27 @@ public:
                             << "  bad type for element zero load:\n"
                             << "  " << I << "\n");
           setBaseTypeInfoSafetyData(AliasTy, dtrans::MismatchedElementAccess);
-          auto *TI = DTInfo.getOrCreateTypeInfo(AliasTy);
+
+          auto *TI =
+              DTInfo.getOrCreateTypeInfo(AliasTy->getPointerElementType());
           if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(TI)) {
-            dtrans::FieldInfo &FI = ParentStInfo->getField(0);
-            FI.setMismatchedElementAccess();
+            // Mark the 'mismatched element access' field attribute. When
+            // DTransOutOfBoundsOK is enabled,  mark all the fields to be
+            // consistent with how mismatched types are handled for the element
+            // pointee case. Also, if the memory access extends beyond the
+            // field's size, conservatively, mark all the fields.
+            TypeSize LoadSize = DL.getTypeSizeInBits(I.getType());
+            TypeSize FieldSize = ParentStInfo->getNumFields() != 0
+                                 ? DL.getTypeSizeInBits(
+                                   ParentStInfo->getField(0).getLLVMType())
+                                 : TypeSize(0, false);
+            if (DTransOutOfBoundsOK || LoadSize > FieldSize) {
+              for (auto &FI : ParentStInfo->getFields())
+                FI.setMismatchedElementAccess();
+            } else if (ParentStInfo->getNumFields() != 0) {
+              dtrans::FieldInfo &FI = ParentStInfo->getField(0);
+              FI.setMismatchedElementAccess();
+            }
           }
         }
       }
@@ -4761,6 +4782,8 @@ public:
                         << "  " << I << "\n");
       setBaseTypeInfoSafetyData(ValOperand->getType(),
                                 dtrans::WholeStructureReference);
+      if (I.isVolatile())
+        setBaseTypeInfoSafetyData(ValOperand->getType(), dtrans::VolatileData);
       return;
     }
 
@@ -6988,23 +7011,25 @@ private:
           LLVM_DEBUG(dbgs() << "dtrans-safety: Mismatched element access:\n");
           LLVM_DEBUG(dbgs() << "  " << I << "\n");
 
+          auto *TI = DTInfo.getOrCreateTypeInfo(ParentTy);
           if (DTransOutOfBoundsOK) {
             // Assuming out of bound access, set safety issue for the entire
             // ParentTy.
             setBaseTypeInfoSafetyData(ParentTy,
                                       dtrans::MismatchedElementAccess);
-            auto *TI = DTInfo.getOrCreateTypeInfo(ParentTy);
-            if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(TI)) {
-              for (auto &FI : ParentStInfo->getFields())
-                FI.setMismatchedElementAccess();
-            }
           } else {
-            // Set safety issue to the ParentTy and to the impacted field type
-            // only.
-            auto *TI = DTInfo.getOrCreateTypeInfo(ParentTy);
+            // Set safety issue to the ParentTy type only.
             TI->setSafetyData(dtrans::MismatchedElementAccess);
             setBaseTypeInfoSafetyData(FieldTy, dtrans::MismatchedElementAccess);
-            if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(TI)) {
+          }
+          if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(TI)) {
+            TypeSize ValSize = DL.getTypeSizeInBits(ValTy);
+            TypeSize FieldSize = DL.getTypeSizeInBits(
+                ParentStInfo->getField(ElementNum).getLLVMType());
+            if (DTransOutOfBoundsOK || ValSize > FieldSize) {
+              for (auto &FI : ParentStInfo->getFields())
+                FI.setMismatchedElementAccess();
+            } else {
               dtrans::FieldInfo &FI = ParentStInfo->getField(ElementNum);
               FI.setMismatchedElementAccess();
             }

@@ -230,10 +230,13 @@ def _SLASH_Qopt_mem_layout_trans : CLFlag<"Qopt-mem-layout-trans">,
   Alias<qopt_mem_layout_trans_EQ>, AliasArgs<["2"]>;
 def _SLASH_Qopt_mem_layout_trans_COL : CLJoined<"Qopt-mem-layout-trans:">,
   Alias<qopt_mem_layout_trans_EQ>, HelpText<"Control the level of memory "
-  " layout transformations performed by the compiler">;
+  "layout transformations performed by the compiler">;
 def _SLASH_Qopt_mem_layout_trans_ : CLFlag<"Qopt-mem-layout-trans-">,
   Alias<qopt_mem_layout_trans_EQ>, AliasArgs<["0"]>,
   HelpText<"Disable memory layout transformations">;
+def : CLJoined<"Qopt-zmm-usage:">, Alias<qopt_zmm_usage_EQ>,
+  HelpText<"Specifies the level of zmm registers usage, low or high">;
+def : CLJoined<"Qopt-zmm-usage=">, Alias<qopt_zmm_usage_EQ>;
 def : CLJoined<"Qstd=">, Alias<std_EQ>;
 def : CLJoined<"Qstd:">, Alias<std_EQ>, HelpText<"Language standard to compile for">;
 def _SLASH_Qvec : CLFlag<"Qvec">,

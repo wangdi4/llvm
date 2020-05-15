@@ -66,7 +66,7 @@
 //    is always executed. Investigate whether this version is better in
 //    performance as compared to the existing one.
 
-#include "llvm/Transforms/Intel_LoopTransforms/HIRGeneralUnroll.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRGeneralUnrollPass.h"
 
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"

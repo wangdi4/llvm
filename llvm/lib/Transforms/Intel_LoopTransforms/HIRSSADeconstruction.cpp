@@ -24,7 +24,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Intel_LoopTransforms/HIRSSADeconstruction.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRSSADeconstructionPass.h"
 
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"

@@ -175,19 +175,6 @@ public:
   HIRArraySectionAnalysis run(Function &F, FunctionAnalysisManager &AM);
 };
 
-class HIRArraySectionAnalysisPrinterPass
-    : public PassInfoMixin<HIRArraySectionAnalysisPrinterPass> {
-  raw_ostream &OS;
-
-public:
-  explicit HIRArraySectionAnalysisPrinterPass(raw_ostream &OS) : OS(OS) {}
-
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM) {
-    AM.getResult<HIRArraySectionAnalysisPass>(F).printAnalysis(OS);
-    return PreservedAnalyses::all();
-  }
-};
-
 } // namespace loopopt
 
 } // namespace llvm

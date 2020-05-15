@@ -732,7 +732,7 @@ private:
       analyzePHINode(cast<PHINode>(I), Info);
       break;
     case Instruction::PtrToInt:
-      analyzePtrToIntInst(cast<PtrToIntInst>(I), Info);
+      analyzePtrToIntOperator(cast<PtrToIntOperator>(I), Info);
       break;
     case Instruction::Select:
       analyzeSelectInst(cast<SelectInst>(I), Info);
@@ -2312,7 +2312,8 @@ private:
     analyzeSelectOrPhi(IncomingVals, ResultInfo);
   }
 
-  void analyzePtrToIntInst(PtrToIntInst *PTI, ValueTypeInfo *ResultInfo) {
+  void analyzePtrToIntOperator(PtrToIntOperator *PTI,
+                               ValueTypeInfo *ResultInfo) {
     Value *Src = PTI->getPointerOperand();
     if (isCompilerConstant(Src)) {
       // The source pointer could be any type. We could try to infer the type by
@@ -2381,6 +2382,9 @@ private:
       Info->setCompletelyAnalyzed();
     } else if (auto *BCOp = dyn_cast<BitCastOperator>(CE)) {
       analyzeBitCastOperator(BCOp, Info);
+      Info->setCompletelyAnalyzed();
+    } else if (auto *PTI = dyn_cast<PtrToIntOperator>(CE)) {
+      analyzePtrToIntOperator(PTI, Info);
       Info->setCompletelyAnalyzed();
     } else {
       Info->setUnhandled();

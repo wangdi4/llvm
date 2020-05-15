@@ -276,19 +276,6 @@ public:
   HIRLoopResource run(Function &F, FunctionAnalysisManager &AM);
 };
 
-class HIRLoopResourcePrinterPass
-    : public PassInfoMixin<HIRLoopResourcePrinterPass> {
-  raw_ostream &OS;
-
-public:
-  explicit HIRLoopResourcePrinterPass(raw_ostream &OS) : OS(OS) {}
-
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM) {
-    AM.getResult<HIRLoopResourceAnalysis>(F).printAnalysis(OS);
-    return PreservedAnalyses::all();
-  }
-};
-
 } // End namespace loopopt
 
 } // End namespace llvm

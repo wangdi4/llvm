@@ -29,7 +29,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
-#include "HIRLoopDistributionImpl.h"
+#include "HIRLoopDistribution.h"
 
 #define DEBUG_TYPE "hir-loop-distribute"
 

@@ -27,7 +27,7 @@
 //  END DO
 //
 //===----------------------------------------------------------------------===//
-#include "llvm/Transforms/Intel_LoopTransforms/HIRPropagateCastedIV.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRPropagateCastedIVPass.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 
@@ -35,7 +35,7 @@
 
 #include "llvm/ADT/SmallSet.h"
 
-#include "HIRPropagateCastedIVImpl.h"
+#include "HIRPropagateCastedIV.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/InitializePasses.h"

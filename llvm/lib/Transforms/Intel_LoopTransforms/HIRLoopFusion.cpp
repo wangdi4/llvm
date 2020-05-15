@@ -72,7 +72,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopFusion.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopFusionPass.h"
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/StringRef.h"

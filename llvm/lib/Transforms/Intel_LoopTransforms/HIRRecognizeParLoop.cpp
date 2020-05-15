@@ -27,7 +27,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Intel_LoopTransforms/HIRRecognizeParLoop.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRRecognizeParLoopPass.h"
 
 #include "llvm/Analysis/Directives.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRParVecAnalysis.h"

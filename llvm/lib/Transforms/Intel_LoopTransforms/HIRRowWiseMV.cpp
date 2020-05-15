@@ -70,7 +70,7 @@
 /// \endcode
 ///
 //===----------------------------------------------------------------------===//
-#include "llvm/Transforms/Intel_LoopTransforms/HIRRowWiseMV.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRRowWiseMVPass.h"
 
 #include "Intel_DTrans/Analysis/DTransFieldModRef.h"
 #include "Intel_DTrans/Analysis/DTransImmutableAnalysis.h"

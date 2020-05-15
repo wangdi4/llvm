@@ -15,7 +15,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Intel_LoopTransforms/HIRIdiomRecognition.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRIdiomRecognitionPass.h"
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Function.h"
