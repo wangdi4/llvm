@@ -85,8 +85,8 @@ public:
 #endif // INTEL_CUSTOMIZATION
 
     return llvm::getInlineCost(CB, Params, TTI, GetAssumptionCache,
-        /*GetBFI=*/None, GetTLI, ILIC, AggI, &CallSitesForFusion,     // INTEL
-        &FuncsForDTrans, PSI, RemarksEnabled ? &ORE : nullptr);       // INTEL
+        /*GetBFI=*/None, GetTLI, ILIC, AggI,         // INTEL
+        PSI, RemarksEnabled ? &ORE : nullptr);       // INTEL
   }
 
   bool runOnSCC(CallGraphSCC &SCC) override;

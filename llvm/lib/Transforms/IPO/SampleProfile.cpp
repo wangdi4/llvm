@@ -910,7 +910,7 @@ bool SampleProfileLoader::inlineCallInstruction(CallBase &CB) {
   InliningLoopInfoCache *ILIC = new InliningLoopInfoCache();
   InlineCost Cost =
       getInlineCost(CB, Params, GetTTI(*CalledFunction), GetAC, None, GetTLI,
-                    ILIC, nullptr, nullptr, nullptr, nullptr);
+                    ILIC, nullptr, nullptr, nullptr);
   delete ILIC;
 #endif // INTEL_CUSTOMIZATION
 
@@ -942,7 +942,7 @@ bool SampleProfileLoader::shouldInlineColdCallee(CallBase &CallInst) {
   InliningLoopInfoCache *ILIC = new InliningLoopInfoCache();
   InlineCost Cost =
       getInlineCost(CallInst, getInlineParams(), GetTTI(*Callee), GetAC, None,
-                    GetTLI, ILIC, nullptr, nullptr, nullptr, nullptr);
+                    GetTLI, ILIC, nullptr, nullptr, nullptr);
   delete ILIC;
 #endif // INTEL_CUSTOMIZATION
 

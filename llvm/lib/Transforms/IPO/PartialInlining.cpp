@@ -887,8 +887,7 @@ bool PartialInlinerImpl::shouldPartialInline(
           DEBUG_TYPE);
   InlineCost IC =
       getInlineCost(CB, getInlineParams(), CalleeTTI, *GetAssumptionCache,
-                                GetBFI, *GetTLI, ILIC,            // INTEL
-                                nullptr, nullptr, nullptr, PSI,   // INTEL
+                                GetBFI, *GetTLI, ILIC, nullptr, PSI, // INTEL
                                 RemarksEnabled ? &ORE : nullptr);
 
   if (IC.isAlways()) {

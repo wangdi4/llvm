@@ -427,8 +427,6 @@ InlineCost getInlineCost(
     Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
     function_ref<const TargetLibraryInfo &(Function &)> GetTLI,
     InliningLoopInfoCache *ILIC, InlineAggressiveInfo *AggI,   // INTEL
-    SmallSet<CallBase *, 20> *CallSitesForFusion,              // INTEL
-    SmallSet<Function *, 20> *FuncsForDTrans,                  // INTEL
     ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE = nullptr);
 
 /// Get an InlineCost with the callee explicitly specified.
@@ -444,8 +442,6 @@ getInlineCost(CallBase &Call, Function *Callee, const InlineParams &Params,
               function_ref<const TargetLibraryInfo &(Function &)> GetTLI,
               InliningLoopInfoCache *ILIC,           // INTEL
               InlineAggressiveInfo *AggI,            // INTEL
-              SmallSet<CallBase *, 20> *CallSitesForFusion, // INTEL
-              SmallSet<Function *, 20> *FuncsForDTrans, // INTEL
               ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE);
 
 #if INTEL_CUSTOMIZATION
@@ -478,8 +474,7 @@ Optional<int> getInliningCostEstimate(
     Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
 #if INTEL_CUSTOMIZATION
     TargetLibraryInfo *TLI, InliningLoopInfoCache *ILIC,
-    InlineAggressiveInfo *AggI, SmallSet<CallBase *, 20> *CallSitesForFusion,
-    SmallSet<Function *, 20> *FuncsForDTrans,
+    InlineAggressiveInfo *AggI,
 #endif // INTEL_CUSTOMIZATION
     ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE);
 
