@@ -103,26 +103,7 @@ struct KernelMetadataAPI {
         //
         Autorun(Func, "autorun"),
         NumComputeUnits(Func, "num_compute_units")
-     {
-       MDNames.push_back(ArgAddressSpaceList.getID());
-       MDNames.push_back(ArgAccessQualifierList.getID());
-       MDNames.push_back(ArgTypeList.getID());
-       MDNames.push_back(ArgBaseTypeList.getID());
-       MDNames.push_back(ArgTypeQualifierList.getID());
-       MDNames.push_back(ArgNameList.getID());
-       MDNames.push_back(ArgIOAttributeList.getID());
-
-       MDNames.push_back(WorkGroupSizeHint.getID());
-       MDNames.push_back(ReqdWorkGroupSize.getID());
-       MDNames.push_back(ReqdNumSubGroups.getID());
-       MDNames.push_back(VecTypeHint.getID());
-       MDNames.push_back(VecLenHint.getID());
-       MDNames.push_back(ReqdIntelSGSize.getID());
-       MDNames.push_back(MaxGlobalWorkDim.getID());
-       MDNames.push_back(CanUseGlobalWorkOffset.getID());
-       MDNames.push_back(Autorun.getID());
-       MDNames.push_back(NumComputeUnits.getID());
-     }
+     {}
 
   // required attributes
   ArgAddressSpaceListTy ArgAddressSpaceList;
@@ -146,21 +127,49 @@ struct KernelMetadataAPI {
   WorkgroupSizeMDAccessor<NumComputeUnitsTy> NumComputeUnits;
 
 public:
-  const llvm::SmallVectorImpl<llvm::StringRef>& getMDNames() const
-    { return MDNames; }
-  bool hasVecLength()
-    { return VecLenHint.hasValue() || ReqdIntelSGSize.hasValue(); }
-  int getVecLength()
-    {
-      if (VecLenHint.hasValue()) return VecLenHint.get();
-      else return ReqdIntelSGSize.get();
+  const llvm::SmallVectorImpl<llvm::StringRef>& getMDNames() const {
+    // Lazily initialize MDNames.
+    if (MDNames.empty()) {
+      MDNames = {
+        ArgAddressSpaceList.getID(),
+        ArgAccessQualifierList.getID(),
+        ArgTypeList.getID(),
+        ArgBaseTypeList.getID(),
+        ArgTypeQualifierList.getID(),
+        ArgNameList.getID(),
+        ArgIOAttributeList.getID(),
+        WorkGroupSizeHint.getID(),
+        ReqdWorkGroupSize.getID(),
+        ReqdNumSubGroups.getID(),
+        VecTypeHint.getID(),
+        VecLenHint.getID(),
+        ReqdIntelSGSize.getID(),
+        MaxGlobalWorkDim.getID(),
+        CanUseGlobalWorkOffset.getID(),
+        Autorun.getID(),
+        NumComputeUnits.getID(),
+      };
     }
-  void setReqdIntelSGSize(int Size)
-    {
+    return MDNames;
+  }
+
+  bool hasVecLength() const {
+    return VecLenHint.hasValue() || ReqdIntelSGSize.hasValue();
+  }
+
+  int getVecLength() const {
+    if (VecLenHint.hasValue())
+      return VecLenHint.get();
+    else
+      return ReqdIntelSGSize.get();
+  }
+
+  void setReqdIntelSGSize(int Size) {
       ReqdIntelSGSize.set(Size);
-    }
+  }
+
 private:
-  llvm::SmallVector<llvm::StringRef, 16> MDNames;
+  mutable llvm::SmallVector<llvm::StringRef, 0> MDNames;
 };
 
 // internal attributes
@@ -210,27 +219,7 @@ struct KernelInternalMetadataAPI {
         KernelWrapper(Func, "kernel_wrapper"),
         ScalarizedKernel(Func, "scalarized_kernel"),
         UseFPGAPipes(Func, "use_fpga_pipes")
-    {
-      MDNames.push_back(LocalBufferSize.getID());
-      MDNames.push_back(BarrierBufferSize.getID());
-      MDNames.push_back(KernelExecutionLength.getID());
-      MDNames.push_back(MaxWGDimensions.getID());
-      MDNames.push_back(KernelHasBarrier.getID());
-      MDNames.push_back(KernelHasGlobalSync.getID());
-      MDNames.push_back(KernelHasSubgroups.getID());
-      MDNames.push_back(NoBarrierPath.getID());
-      MDNames.push_back(VectorizedWidth.getID());
-      MDNames.push_back(OclRecommendedVectorLength.getID());
-      MDNames.push_back(BlockLiteralSize.getID());
-      MDNames.push_back(PrivateMemorySize.getID());
-      MDNames.push_back(VectorizationDimension.getID());
-      MDNames.push_back(CanUniteWorkgroups.getID());
-      MDNames.push_back(VectorizedKernel.getID());
-      MDNames.push_back(VectorizedMaskedKernel.getID());
-      MDNames.push_back(KernelWrapper.getID());
-      MDNames.push_back(ScalarizedKernel.getID());
-      MDNames.push_back(UseFPGAPipes.getID());
-    }
+    {}
 
   // internal attributes
   NamedMDValueAccessor<LocalBufferSizeTy> LocalBufferSize;
@@ -255,9 +244,35 @@ struct KernelInternalMetadataAPI {
 
 public:
   const llvm::SmallVectorImpl<llvm::StringRef>& getMDNames() const
-    { return MDNames; }
+  {
+    // Lazily initialize MDNames.
+    if (MDNames.empty()) {
+      MDNames = {
+        LocalBufferSize.getID(),
+        BarrierBufferSize.getID(),
+        KernelExecutionLength.getID(),
+        MaxWGDimensions.getID(),
+        KernelHasBarrier.getID(),
+        KernelHasGlobalSync.getID(),
+        KernelHasSubgroups.getID(),
+        NoBarrierPath.getID(),
+        VectorizedWidth.getID(),
+        OclRecommendedVectorLength.getID(),
+        BlockLiteralSize.getID(),
+        PrivateMemorySize.getID(),
+        VectorizationDimension.getID(),
+        CanUniteWorkgroups.getID(),
+        VectorizedKernel.getID(),
+        VectorizedMaskedKernel.getID(),
+        KernelWrapper.getID(),
+        ScalarizedKernel.getID(),
+        UseFPGAPipes.getID(),
+      };
+    }
+    return MDNames;
+  }
 private:
-  llvm::SmallVector<llvm::StringRef, 16> MDNames;
+  mutable llvm::SmallVector<llvm::StringRef, 0> MDNames;
 };
 
 // required attributes
