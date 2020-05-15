@@ -18,7 +18,6 @@
 #include <CL/sycl/stl.hpp>
 
 #include <cstring>
-#include <stdexcept>
 #include <type_traits>
 
 __SYCL_INLINE_NAMESPACE(cl) {

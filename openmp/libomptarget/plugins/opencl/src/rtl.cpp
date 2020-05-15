@@ -951,6 +951,7 @@ bool RTLDeviceInfoTy::loadOffloadTable(int32_t DeviceId, size_t NumEntries) {
 
   size_t I = 0;
   const char *PreviousName = "";
+  bool PreviousIsVar = false;
 
   for (; I < DeviceNumEntries; ++I) {
     DeviceOffloadEntryTy &Entry = DeviceTable[I];
@@ -971,14 +972,21 @@ bool RTLDeviceInfoTy::loadOffloadTable(int32_t DeviceId, size_t NumEntries) {
       break;
     }
 
-    if (strncmp(PreviousName, Entry.Base.name, NameSize) >= 0) {
+    int Cmp = strncmp(PreviousName, Entry.Base.name, NameSize);
+    if (Cmp > 0) {
       DP("Error: offload table is not sorted.\n"
          "Error: previous name is '%s'.\n"
          "Error:  current name is '%s'.\n",
          PreviousName, Entry.Base.name);
       break;
+    } else if (Cmp == 0 && (PreviousIsVar || Entry.Base.addr)) {
+      // The names are equal. This should never happen for
+      // offload variables, but we allow this for offload functions.
+      DP("Error: duplicate names (%s) in offload table.\n", PreviousName);
+      break;
     }
     PreviousName = Entry.Base.name;
+    PreviousIsVar = (Entry.Base.addr != nullptr);
   }
 
   if (I != DeviceNumEntries) {

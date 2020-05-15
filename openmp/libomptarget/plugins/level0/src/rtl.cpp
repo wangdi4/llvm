@@ -50,8 +50,197 @@ extern ompt_interface_fn_t omptLookupEntries(const char *);
 #define LEVEL0_ALIGNMENT 0 // Default alignmnet for allocation
 #define LEVEL0_ND_GROUP_SIZE 16 // Default group size for ND partitioning
 #define LEVEL0_MAX_GROUP_COUNT 64 // TODO: get it from HW
+#define LEVEL0_PAGE_SIZE (1 << 16) // L0 memory allocation unit
 
 int DebugLevel = 0;
+
+#if INTEL_INTERNAL_BUILD
+/// Memory stats
+struct MemStatTy {
+  size_t Requested = 0; // Requested bytes
+  size_t Allocated = 0; // Allocated bytes by L0
+  size_t Freed = 0; // Freed bytes by L0
+  size_t InUse = 0; // Current memory in use by L0
+  size_t PeakUse = 0; // Peak bytes in use by L0
+  void update(ze_driver_handle_t Driver, size_t requested, void *Mem) {
+    void *base = nullptr;
+    size_t size = 0;
+    CALL_ZE_EXIT_FAIL(zeDriverGetMemAddressRange, Driver, Mem, &base, &size);
+    if (requested > 0) {
+      Requested += requested;
+      Allocated += size;
+      InUse += size;
+    } else {
+      Freed += size;
+      InUse -= size;
+    }
+    if (InUse > PeakUse)
+      PeakUse = InUse;
+  }
+  void print() {
+    DP("Memory usage:\n");
+    DP("-- Requested = %12zu\n", Requested);
+    DP("-- Allocated = %12zu\n", Allocated);
+    DP("-- Freed     = %12zu\n", Freed);
+    DP("-- InUse     = %12zu\n", InUse);
+    DP("-- PeakUse   = %12zu\n", PeakUse);
+  }
+}; // MemStatTy
+// Per-device memory stats
+static std::vector<MemStatTy> MemStats;
+#define MEMSTAT_UPDATE(DeviceId, Driver, Requested, Mem)                       \
+  do {                                                                         \
+    if (DebugLevel > 0)                                                        \
+      MemStats[DeviceId].update(Driver, Requested, Mem);                       \
+  } while (0)
+#define MEMSTAT_PRINT(DeviceId)                                                \
+  do {                                                                         \
+    if (DebugLevel > 0)                                                        \
+      MemStats[DeviceId].print();                                              \
+  } while (0)
+#else // INTEL_INTERNAL_BUILD
+#define MEMSTAT_UPDATE(DeviceId, Driver, Requested, Mem)
+#define MEMSTAT_PRINT(DeviceId)
+#endif // INTEL_INTERNAL_BUILD
+
+///
+/// Page pool for small memory allocation.
+/// It maintains buckets of page list for each supported memory size in the
+/// specified range [MinSize, MaxSize].
+///
+class PagePoolTy {
+  static const uint32_t MinSize = 5; // 32B (1 << 5)
+  static const uint32_t MaxSize = 12; // 4KB (1 << 12)
+  // FIXME: MaxSize >= 13 has consistency issue for some reason.
+
+  /// Page split into small chunks for reuse.
+  struct ChunkedPageTy {
+    uint32_t ChunkSize = 0;
+    uint32_t NumSlots = 0;
+    uint32_t NumUsedSlots = 0;
+    std::vector<bool> UsedSlots;
+    uintptr_t Base = 0;
+
+    ChunkedPageTy(uint32_t chunkSize, void *base) {
+      ChunkSize = chunkSize;
+      NumSlots = LEVEL0_PAGE_SIZE / ChunkSize;
+      NumUsedSlots = 0;
+      UsedSlots.resize(NumSlots, false);
+      Base = (uintptr_t)base;
+    }
+
+    bool isFull() { return NumUsedSlots == NumSlots; }
+
+    bool contains(void *Mem) {
+      uintptr_t mem = (uintptr_t)Mem;
+      return mem >= Base && mem < Base + LEVEL0_PAGE_SIZE;
+    }
+
+    void *allocate() {
+      if (isFull())
+        return nullptr;
+      for (uint32_t i = 0; i < NumSlots; i++) {
+        if (UsedSlots[i])
+          continue;
+        UsedSlots[i] = true;
+        NumUsedSlots++;
+        return (void *)(Base + i * ChunkSize);
+      }
+      // Should not reach here.
+      FATAL_ERROR("Inconsistent page found while allocating from pool");
+    }
+
+    void deallocate(void *Mem) {
+      if (!contains(Mem))
+        FATAL_ERROR("Invalid memory while deallocating to pool");
+      uint32_t slot = ((uintptr_t)Mem - Base) / ChunkSize;
+      UsedSlots[slot] = false;
+      NumUsedSlots--;
+    }
+  }; // ChunkedPageTy
+
+  std::vector<std::vector<ChunkedPageTy>> Buckets;
+  int32_t DeviceId = 0;
+  ze_driver_handle_t Driver = nullptr;
+  ze_device_handle_t Device = nullptr;
+
+  uint32_t getBucketId(size_t Size) {
+    uint32_t i;
+    for (i = 0; i <= MaxSize - MinSize; i++) {
+      if (1ULL << (i + MinSize) < Size)
+        continue;
+      break;
+    }
+    return i;
+  }
+
+public:
+  /// Initialize a page pool for the given device.
+  /// Multiple threads cannot call this simultaneously.
+  void initialize(int32_t deviceId, ze_driver_handle_t driver,
+                  ze_device_handle_t device) {
+    Buckets.resize(MaxSize - MinSize + 1);
+    DeviceId = deviceId;
+    Driver = driver;
+    Device = device;
+  }
+
+  /// Return supported max size in bytes.
+  size_t getMaxSize() { return 1U << MaxSize; }
+
+  /// Allocate from the existing buckets or call L0 allocator.
+  /// Multiple threads cannot call this simultaneously.
+  void *allocate(size_t Size) {
+    uint32_t bucketId = getBucketId(Size);
+    if (bucketId > MaxSize - MinSize)
+      return nullptr; // Size is too large for the allocator
+    for (auto &page : Buckets[bucketId]) {
+      if (page.isFull())
+        continue;
+      void *mem = page.allocate();
+      if (!mem)
+        FATAL_ERROR("Invalid memory while allocating from pool");
+      return mem;
+    }
+    // Bucket is empty or all pages in the bucket are full
+    ze_device_mem_alloc_desc_t allocDesc = {
+      ZE_DEVICE_MEM_ALLOC_DESC_VERSION_CURRENT,
+      ZE_DEVICE_MEM_ALLOC_FLAG_DEFAULT,
+      0 /* ordinal */
+    };
+    void *base = nullptr;
+    CALL_ZE_RET_NULL(zeDriverAllocDeviceMem, Driver, &allocDesc,
+                     LEVEL0_PAGE_SIZE, 0, Device, &base);
+    MEMSTAT_UPDATE(DeviceId, Driver, LEVEL0_PAGE_SIZE, base);
+    DP("New allocation from page pool: base = " DPxMOD ", size = %" PRIu32 "\n",
+       DPxPTR(base), LEVEL0_PAGE_SIZE);
+    Buckets[bucketId].emplace_back(1U << (bucketId + MinSize), base);
+    return Buckets[bucketId].back().allocate();
+  }
+
+  /// Deallocate the memory and return true if successful.
+  /// Multiple threads cannot call this simultaneously.
+  bool deallocate(void *Mem) {
+    for (uint32_t i = 0; i <= MaxSize - MinSize; i++)
+      for (auto &page : Buckets[i])
+        if (page.contains(Mem)) {
+          page.deallocate(Mem);
+          return true;
+        }
+    return false;
+  }
+
+  /// Release all pages in the pool.
+  /// Multiple threads cannot call this simultaneously.
+  void clear() {
+    for (uint32_t i = 0; i <= MaxSize - MinSize; i++) {
+      for (auto &page : Buckets[i]) {
+        MEMSTAT_UPDATE(DeviceId, Driver, 0, (void *)page.Base);
+        CALL_ZE_EXIT_FAIL(zeDriverFreeMem, Driver, (void *)page.Base);
+      }
+    }
+  }
+}; // PagePoolTy
 
 /// Per-device global entry table
 struct FuncOrGblEntryTy {
@@ -164,11 +353,13 @@ struct RTLFlagsTy {
   uint64_t EnableProfile : 1;
   uint64_t EnableTargetGlobals : 1;
   uint64_t UseHostMemForUSM : 1;
-  uint64_t Reserved : 61;
+  uint64_t UseMemoryPool : 1;
+  uint64_t Reserved : 60;
   RTLFlagsTy() :
       EnableProfile(0),
       EnableTargetGlobals(0),
       UseHostMemForUSM(0),
+      UseMemoryPool(0),
       Reserved(0) {}
 };
 
@@ -209,6 +400,7 @@ public:
   std::mutex *DataMutexes; // For internal data
   std::vector<std::vector<DeviceOffloadEntryTy>> OffloadTables;
   std::vector<std::vector<RTLProfileTy *>> Profiles;
+  std::vector<PagePoolTy> PagePools; // Internal memory pool
 
   /// Flags, parameters, options
   RTLFlagsTy Flags;
@@ -302,6 +494,12 @@ public:
     if (char *env = readEnvVar("LIBOMPTARGET_USM_HOST_MEM")) {
       if (env[0] == 'T' || env[0] == 't' || env[0] == '1')
         Flags.UseHostMemForUSM = 1;
+    }
+
+    // Memory pool
+    if (char *env = readEnvVar("LIBOMPTARGET_LEVEL0_MEMORY_POOL")) {
+      if (env[0] == 'T' || env[0] == 't' || env[0] == '1')
+        Flags.UseMemoryPool = 1;
     }
   }
 
@@ -445,6 +643,7 @@ static void closeRTL() {
 #ifndef _WIN32
     DeviceInfo.Mutexes[i].lock();
     for (auto mem : DeviceInfo.OwnedMemory[i]) {
+      MEMSTAT_UPDATE(i, DeviceInfo.Driver, 0, mem);
       CALL_ZE_EXIT_FAIL(zeDriverFreeMem, DeviceInfo.Driver, mem);
     }
     for (auto cmdQueue : DeviceInfo.CmdQueues[i])
@@ -456,10 +655,13 @@ static void closeRTL() {
         CALL_ZE_EXIT_FAIL(zeKernelDestroy, kernel);
     }
     CALL_ZE_EXIT_FAIL(zeModuleDestroy, DeviceInfo.FuncGblEntries[i].Module);
+    if (DeviceInfo.Flags.UseMemoryPool)
+      DeviceInfo.PagePools[i].clear();
     DeviceInfo.Mutexes[i].unlock();
 #endif
     if (DeviceInfo.Flags.EnableTargetGlobals)
       DeviceInfo.unloadOffloadTable(i);
+    MEMSTAT_PRINT(i);
   }
   delete[] DeviceInfo.Mutexes;
   delete[] DeviceInfo.DataMutexes;
@@ -487,8 +689,14 @@ static int32_t initModule(int32_t DeviceId) {
 
   std::unique_lock<std::mutex> kernelLock(DeviceInfo.Mutexes[DeviceId]);
 
-  CALL_ZE_RET_FAIL(zeDriverAllocDeviceMem, driver, &allocDesc, sizeof(hostData),
-                   LEVEL0_ALIGNMENT, device, &deviceData);
+  if (DeviceInfo.Flags.UseMemoryPool)
+    deviceData = DeviceInfo.PagePools[DeviceId].allocate(sizeof(hostData));
+
+  if (!deviceData) {
+    CALL_ZE_RET_FAIL(zeDriverAllocDeviceMem, driver, &allocDesc, sizeof(hostData),
+                     LEVEL0_ALIGNMENT, device, &deviceData);
+    MEMSTAT_UPDATE(DeviceId, driver, sizeof(hostData), deviceData);
+  }
 
   // Prepare kernel to initialize data
   ze_kernel_desc_t kernelDesc = {
@@ -519,7 +727,10 @@ static int32_t initModule(int32_t DeviceId) {
   CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT32_MAX);
   CALL_ZE_RET_FAIL(zeCommandListReset, cmdList);
   CALL_ZE_RET_FAIL(zeKernelDestroy, initModuleData);
-  CALL_ZE_RET_FAIL(zeDriverFreeMem, driver, deviceData);
+  if (!DeviceInfo.Flags.UseMemoryPool) {
+    MEMSTAT_UPDATE(DeviceId, driver, 0, deviceData);
+    CALL_ZE_RET_FAIL(zeDriverFreeMem, driver, deviceData);
+  }
 
   return OFFLOAD_SUCCESS;
 }
@@ -593,6 +804,12 @@ int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo.DataMutexes = new std::mutex[DeviceInfo.NumDevices];
   DeviceInfo.OffloadTables.resize(DeviceInfo.NumDevices);
   DeviceInfo.Profiles.resize(DeviceInfo.NumDevices);
+  if (DeviceInfo.Flags.UseMemoryPool)
+    DeviceInfo.PagePools.resize(DeviceInfo.NumDevices);
+#if INTEL_INTERNAL_BUILD
+  if (DebugLevel > 0)
+    MemStats.resize(DeviceInfo.NumDevices);
+#endif // INTEL_INTERNAL_BUILD
 
   ze_device_compute_properties_t computeProperties = {};
   computeProperties.version = ZE_DEVICE_COMPUTE_PROPERTIES_VERSION_CURRENT;
@@ -621,6 +838,10 @@ int32_t __tgt_rtl_init_device(int32_t DeviceId) {
     DP("Bad device ID %" PRId32 "\n", DeviceId);
     return OFFLOAD_FAIL;
   }
+
+  if (DeviceInfo.Flags.UseMemoryPool)
+    DeviceInfo.PagePools[DeviceId].initialize(DeviceId, DeviceInfo.Driver,
+                                              DeviceInfo.Devices[DeviceId]);
 
   DeviceInfo.Initialized[DeviceId] = true;
 
@@ -700,9 +921,12 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
       if (!tgtAddr) {
         tgtAddr = __tgt_rtl_data_alloc(DeviceId, size, hstAddr);
         __tgt_rtl_data_submit(DeviceId, tgtAddr, hstAddr, size);
-        DeviceInfo.DataMutexes[DeviceId].lock();
-        DeviceInfo.OwnedMemory[DeviceId].push_back(tgtAddr);
-        DeviceInfo.DataMutexes[DeviceId].unlock();
+        if (!DeviceInfo.Flags.UseMemoryPool ||
+            size > DeviceInfo.PagePools[DeviceId].getMaxSize()) {
+          DeviceInfo.DataMutexes[DeviceId].lock();
+          DeviceInfo.OwnedMemory[DeviceId].push_back(tgtAddr);
+          DeviceInfo.DataMutexes[DeviceId].unlock();
+        }
         DP("Error: global variable '%s' allocated. "
           "Direct references will not work properly.\n", name);
       }
@@ -777,9 +1001,19 @@ static void *allocData(int32_t DeviceId, int64_t Size, void *HstPtr,
     0 /* ordinal */
   };
   void *base = nullptr;
+  void *mem = nullptr;
+  if (DeviceInfo.Flags.UseMemoryPool &&
+      (base = DeviceInfo.PagePools[DeviceId].allocate(size))) {
+    mem = (void *)((intptr_t)base + offset);
+    DP("Allocated device memory " DPxMOD " (Base: " DPxMOD ", Size: %zu) "
+       "from memory pool for host ptr " DPxMOD "\n",
+       DPxPTR(mem), DPxPTR(base), size, DPxPTR(HstPtr));
+    return mem;
+  }
   CALL_ZE_RET_NULL(zeDriverAllocDeviceMem, DeviceInfo.Driver, &allocDesc, size,
                    LEVEL0_ALIGNMENT, DeviceInfo.Devices[DeviceId], &base);
-  void *mem = (void *)((intptr_t)base + offset);
+  MEMSTAT_UPDATE(DeviceId, DeviceInfo.Driver, Size, base);
+  mem = (void *)((intptr_t)base + offset);
 
   if (DebugLevel > 0) {
     void *actualBase = nullptr;
@@ -1054,8 +1288,17 @@ EXTERN
 int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr) {
   void *base = nullptr;
   size_t size = 0;
+  if (DeviceInfo.Flags.UseMemoryPool) {
+    auto &pool = DeviceInfo.PagePools[DeviceId];
+    std::unique_lock<std::mutex> deallocLock(DeviceInfo.Mutexes[DeviceId]);
+    if (pool.deallocate(TgtPtr)) {
+      DP("Returned device memory " DPxMOD " to memory pool\n", DPxPTR(TgtPtr));
+      return OFFLOAD_SUCCESS;
+    }
+  }
   CALL_ZE_RET_FAIL(zeDriverGetMemAddressRange, DeviceInfo.Driver, TgtPtr, &base,
                    &size);
+  MEMSTAT_UPDATE(DeviceId, DeviceInfo.Driver, 0, base);
   CALL_ZE_RET_FAIL_MTX(zeDriverFreeMem, DeviceInfo.Mutexes[DeviceId],
                        DeviceInfo.Driver, base);
   DP("Deleted device memory " DPxMOD " (Base: " DPxMOD ", Size: %zu)\n",
@@ -1423,6 +1666,7 @@ bool RTLDeviceInfoTy::loadOffloadTable(int32_t DeviceId, size_t NumEntries) {
 
   size_t I = 0;
   const char *PreviousName = "";
+  bool PreviousIsVar = false;
 
   for (; I < DeviceNumEntries; ++I) {
     DeviceOffloadEntryTy &Entry = DeviceTable[I];
@@ -1443,14 +1687,21 @@ bool RTLDeviceInfoTy::loadOffloadTable(int32_t DeviceId, size_t NumEntries) {
       break;
     }
 
-    if (strncmp(PreviousName, Entry.Base.name, NameSize) >= 0) {
+    int Cmp = strncmp(PreviousName, Entry.Base.name, NameSize);
+    if (Cmp > 0) {
       DP("Error: offload table is not sorted.\n"
          "Error: previous name is '%s'.\n"
          "Error:  current name is '%s'.\n",
          PreviousName, Entry.Base.name);
       break;
+    } else if (Cmp == 0 && (PreviousIsVar || Entry.Base.addr)) {
+      // The names are equal. This should never happen for
+      // offload variables, but we allow this for offload functions.
+      DP("Error: duplicate names (%s) in offload table.\n", PreviousName);
+      break;
     }
     PreviousName = Entry.Base.name;
+    PreviousIsVar = (Entry.Base.addr != nullptr);
   }
 
   if (I != DeviceNumEntries) {
