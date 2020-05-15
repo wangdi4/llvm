@@ -23,6 +23,7 @@
 #include "llvm/Analysis/RegionPass.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/AsmParser/Parser.h" // INTEL
 #include "llvm/Bitcode/BitcodeWriterPass.h"
 #include "llvm/CodeGen/CommandFlags.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
@@ -34,6 +35,7 @@
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/LegacyPassNameParser.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/ModuleSummaryIndex.h" // INTEL
 #include "llvm/Remarks/YAMLRemarkSerializer.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/IRReader/IRReader.h"
@@ -116,6 +118,12 @@ static cl::opt<std::string> ThinLinkBitcodeFile(
 
 static cl::opt<bool>
 NoVerify("disable-verify", cl::desc("Do not run the verifier"), cl::Hidden);
+
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool> NoUpgradeDebugInfo("disable-upgrade-debug-info",
+                                        cl::desc("Generate invalid output"),
+                                        cl::ReallyHidden);
+#endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool>
 VerifyEach("verify-each", cl::desc("Verify after each transform"));
@@ -532,8 +540,20 @@ int main(int argc, char **argv) {
   }
 
   // Load the input module...
-  std::unique_ptr<Module> M =
-      parseIRFile(InputFilename, Err, Context, !NoVerify);
+#if INTEL_CUSTOMIZATION
+  auto SetDataLayout = [](StringRef) -> Optional<std::string> {
+    if (ClDataLayout.empty())
+      return None;
+    return ClDataLayout;
+  };
+  std::unique_ptr<Module> M;
+  if (NoUpgradeDebugInfo)
+    M = parseAssemblyFileWithIndexNoUpgradeDebugInfo(
+            InputFilename, Err, Context, nullptr, SetDataLayout)
+            .Mod;
+  else
+    M = parseIRFile(InputFilename, Err, Context, SetDataLayout);
+#endif // INTEL_CUSTOMIZATION
 
   if (!M) {
     Err.print(argv[0], errs());
@@ -556,8 +576,6 @@ int main(int argc, char **argv) {
   // If we are supposed to override the target triple or data layout, do so now.
   if (!TargetTriple.empty())
     M->setTargetTriple(Triple::normalize(TargetTriple));
-  if (!ClDataLayout.empty())
-    M->setDataLayout(ClDataLayout);
 
   // Figure out what stream we are supposed to write to...
   std::unique_ptr<ToolOutputFile> Out;
