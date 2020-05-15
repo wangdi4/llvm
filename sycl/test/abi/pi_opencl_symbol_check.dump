@@ -43,3 +43,6 @@ piextUSMFree
 piextUSMGetMemAllocInfo
 piextUSMHostAlloc
 piextUSMSharedAlloc
+#INTEL_CUSTOMIZATION
+piextPlatformCreateWithNativeHandle
+#end INTEL_CUSTOMIZATION
