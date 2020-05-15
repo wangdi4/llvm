@@ -2933,8 +2933,9 @@ RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPValue *VPPtr,
     auto Zero = CanonExprUtilities.createCanonExpr(Is64Bit ? Int64Ty : Int32Ty);
 
     // We need to set destination type of the created canon expression
-    // to VF wide vector type.
-    Zero->setDestType(VectorType::get(Zero->getSrcType(), VF));
+    // to VF wide vector type if not unit strided.
+    if (!IsUnitStride)
+      Zero->setDestType(VectorType::get(Zero->getSrcType(), VF));
     MemRef->addDimension(Zero);
   }
 
@@ -3296,7 +3297,9 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
       makeConsistentAndAddToMap =
           [this](RegDDRef *Ref, const VPInstruction *VPInst,
                  SmallVectorImpl<const RegDDRef *> &AuxRefs, bool Widen) {
-            Ref->makeConsistent(AuxRefs, OrigLoop->getNestingLevel());
+            // Use AuxRefs if it is not empty to make Ref consistent
+            if (!AuxRefs.empty())
+              Ref->makeConsistent(AuxRefs, OrigLoop->getNestingLevel());
             if (Widen)
               addVPValueWideRefMapping(VPInst, Ref);
             else
@@ -3577,14 +3580,29 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     break;
 
   case Instruction::GetElementPtr: {
+    SmallVector<const RegDDRef *, 4> AuxRefs;
+
+    // If we have a single operand GEP, we can simply reuse RefOp0
+    if (VPInst->getNumOperands() == 1) {
+      makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen);
+      return;
+    }
+
     auto RefDestTy = VPInst->getType();
     auto ResultRefTy = getResultRefTy(RefDestTy, VF, Widen);
     auto VPGEP = cast<VPGEPInstruction>(VPInst);
+    RegDDRef *NewRef = RefOp0;
 
-    auto *NewRef = DDRefUtilities.createAddressOfRef(
-        RefOp0->getSelfBlobIndex(), RefOp0->getDefinedAtLevel());
+    // Base canon expression needs to be a self blob.
+    if (!RefOp0->isSelfBlob()) {
+      auto *CopyInst = HLNodeUtilities.createCopyInst(RefOp0, "nsbgepcopy");
+      addInst(CopyInst, Mask);
+      NewRef = CopyInst->getLvalDDRef();
+    }
+
+    NewRef = DDRefUtilities.createAddressOfRef(NewRef->getSelfBlobIndex(),
+                                               NewRef->getDefinedAtLevel());
     NewRef->setBitCastDestType(ResultRefTy);
-    SmallVector<const RegDDRef *, 4> AuxRefs;
 
     // Widened operands contain reference dimensions and trailing struct
     // offsets. Add reference dimensions and trailing struct offsets.
