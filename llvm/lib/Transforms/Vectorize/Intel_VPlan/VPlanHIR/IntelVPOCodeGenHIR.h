@@ -95,6 +95,10 @@ public:
   // Perform and cleanup/final actions after vectorizing the loop
   void finalizeVectorLoop(void);
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dumpFinalHIR();
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
   // Fixup gotos in GotoTargetVPBBPairVector using VPBBLabelMap
   void finalizeGotos(void);
 

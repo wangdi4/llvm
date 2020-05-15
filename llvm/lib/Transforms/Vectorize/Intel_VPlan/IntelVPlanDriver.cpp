@@ -107,6 +107,10 @@ static cl::opt<bool> VPlanPrintAfterSingleTripCountOpt(
     "vplan-print-after-single-trip-count-opt", cl::init(false),
     cl::desc("Print after backedge branch rewrite for single trip count vector "
              "loop"));
+
+static cl::opt<bool> PrintHIRBeforeVPlan(
+    "print-hir-before-vplan", cl::init(false),
+    cl::desc("Print HLLoop which we attempt to vectorize via VPlanDriverHIR"));
 #else
 static constexpr bool VPlanPrintInit = false;
 static constexpr bool VPlanPrintAfterSingleTripCountOpt = false;
@@ -983,6 +987,13 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   (void)HLoop;
   assert(HLoop && "Expected HIR Loop.");
   assert(HLoop->getParentRegion() && "Expected parent HLRegion.");
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  if (PrintHIRBeforeVPlan) {
+    dbgs() << "Candidate HLLoop before VPlan:\n";
+    HLoop->dump();
+  }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   if (WRLp->isOmpSIMDLoop() && !WRLp->isValidHIRSIMDRegion()) {
 //#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
