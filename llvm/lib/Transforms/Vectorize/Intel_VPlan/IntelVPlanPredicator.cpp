@@ -425,19 +425,15 @@ bool VPlanPredicator::shouldPreserveOutgoingEdges(VPBasicBlock *Block) {
   return BlockIsUniform && (!Cond || !Plan.getVPlanDA()->isDivergent(*Cond));
 }
 
-void VPlanPredicator::linearizeRegion(
-    const ReversePostOrderTraversal<VPBasicBlock *> &RegionRPOT) {
-  assert(RegionRPOT.begin() != RegionRPOT.end() &&
-         "RegionRPOT can't be empty!");
-
+void VPlanPredicator::linearizeRegion() {
   DenseMap<const VPBasicBlock *, int> BlockIndexInRPOT;
   int CurrBlockRPOTIndex = 0;
-  for (auto *Block : RegionRPOT)
+  for (auto *Block : RPOT)
     BlockIndexInRPOT[Block] = CurrBlockRPOTIndex++;
 
   // Region entry handled during outer region processing.
-  auto It = ++RegionRPOT.begin();
-  auto End = RegionRPOT.end();
+  auto It = ++RPOT.begin();
+  auto End = RPOT.end();
 
   CurrBlockRPOTIndex = 0;
   for (VPBasicBlock *CurrBlock : make_range(It, End)) {
@@ -769,8 +765,6 @@ void VPlanPredicator::transformPhisToBlends(VPBasicBlock *Block) {
 }
 
 void VPlanPredicator::transformPhisToBlends() {
-  ReversePostOrderTraversal<VPBasicBlock *> RPOT(Plan.getEntryBlock());
-
   for (VPBasicBlock *Block : RPOT) {
     if (BlocksToBlendProcess.count(Block) == 0)
       continue;
@@ -878,26 +872,9 @@ void VPlanPredicator::computeLiveInsForBlendsIDF(
   }
 }
 
-// Predicate and linearize the CFG within Region.
-void VPlanPredicator::predicateAndLinearizeRegion(bool SearchLoopHack) {
-  ReversePostOrderTraversal<VPBasicBlock *> RPOT(Plan.getEntryBlock());
-
-  VPDominatorTree &VPDomTree = *Plan.getDT();
-
-  for (VPBasicBlock *Block : RPOT)
-    calculatePredicateTerms(Block);
-
-  if (!SearchLoopHack)
-    linearizeRegion(RPOT);
-
-  // Get updated DomTree for the proper IDF calculation to insert needed phis
-  // for predicates propagation.
-  VPDomTree.recalculate(Plan);
-  ReversePostOrderTraversal<VPBasicBlock *> PostLinearizationRPOT(
-      Plan.getEntryBlock());
-
+void VPlanPredicator::emitPredicates() {
   auto *DA = Plan.getVPlanDA();
-  for (VPBasicBlock *Block : PostLinearizationRPOT) {
+  for (VPBasicBlock *Block : RPOT) {
     const auto &PredTerms = Block2PredicateTermsAndUniformity[Block].first;
     bool BlockIsUniform = Block2PredicateTermsAndUniformity[Block].second;
     if (BlockIsUniform && !Plan.isFullLinearizationForced())
@@ -908,7 +885,7 @@ void VPlanPredicator::predicateAndLinearizeRegion(bool SearchLoopHack) {
     if (PredTerms.size() == 1 && PredTerms[0].Condition == nullptr) {
       // Re-use predicate of the OriginBlock.
       assert((Block == PredTerms[0].OriginBlock ||
-              VPDomTree.dominates(PredTerms[0].OriginBlock, Block)) &&
+              Plan.getDT()->dominates(PredTerms[0].OriginBlock, Block)) &&
              "Broken dominance!");
       auto *Predicate = PredTerms[0].OriginBlock->getPredicate();
       Block2Predicate[Block] = Predicate;
@@ -944,27 +921,6 @@ void VPlanPredicator::predicateAndLinearizeRegion(bool SearchLoopHack) {
       Plan.getVPlanDA()->updateDivergence(*BlockPredicateInst);
     }
   }
-
-  // Fix the cond bits.
-  for (auto *Block : RPOT)
-    if (Block->getNumSuccessors() == 1)
-      Block->setCondBit(nullptr);
-
-  if (DotBeforeBlends) {
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    outs() << Plan;
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-  }
-
-  Plan.computeDT();
-  Plan.computePDT();
-
-  transformPhisToBlends();
-
-  for (auto It : BlocksToSplit) {
-    (void)VPBlockUtils::splitBlock(It.first, It.second->getIterator(), VPLI,
-                                   &VPDomTree, Plan.getPDT());
-  }
 }
 
 // Entry point. The driver function for the predicator.
@@ -980,30 +936,63 @@ void VPlanPredicator::predicate(void) {
       SearchLoopHack = true;
   }
 
-  // Predicate the blocks within Region.
+  // Calculate predicates for the blocks in the Plan, but don't lower them into
+  // explicit VPInstructions.
   Block2PredicateTermsAndUniformity[Plan.getEntryBlock()] = {{}, true};
+  for (VPBasicBlock *Block : RPOT)
+    calculatePredicateTerms(Block);
 
-  predicateAndLinearizeRegion(SearchLoopHack);
+  // Now use collected information to perform the linearization of the CFG.
+  // Only the edges are fixed, all the phis aren't touched yet and are
+  // inconsistent. We separate the stages because of several reasons:
+  //   - Phi-to-blend processing needs actual values for predicates. We use IDF
+  //     algorithm to introduce extra phis required to maintain SSA form and
+  //     that is easier after the CFG linearization performed as a separate
+  //     step.
+  //   - The correct phi placement during phi-to-blend processing requires IDF
+  //     algorithm as well and is another reason to separate the steps.
+  // It does *NOT* update condBits as they're used later for predicates
+  // creation. We probably need to fix this for the explicit VPTerminators.
+  if (!SearchLoopHack)
+    linearizeRegion();
+
+  Plan.computeDT();
+  Plan.computePDT();
+  {
+    // Name scope to ensure stale RPOT after std::swap below won't be misused.
+    ReversePostOrderTraversal<VPBasicBlock *> PostLinearizationRPOT(
+        Plan.getEntryBlock());
+    std::swap(RPOT, PostLinearizationRPOT);
+  }
+
+  // Note that block splitting to make ANDs created for predicates isn't done
+  // during emission.
+  emitPredicates();
+
+  // Fix the cond bits.
+  for (auto *Block : RPOT)
+    if (Block->getNumSuccessors() == 1)
+      Block->setCondBit(nullptr);
+
+  VPLAN_DOT(DotBeforeBlends, Plan);
+
+  transformPhisToBlends();
+
+  // Now do the block splitting to move ANDs out of block-predicates influence.
+  for (auto It : BlocksToSplit)
+    (void)VPBlockUtils::splitBlock(It.first, It.second->getIterator(), VPLI,
+                                   Plan.getDT(), Plan.getPDT());
+
   fixupUniformInnerLoops();
 
   // Recompute invalidated analyses.
   Plan.computeDT();
   Plan.computePDT();
 
-#if INTEL_CUSTOMIZATION
   LLVM_DEBUG(dbgs() << "VPlan after predication and linearization\n");
   LLVM_DEBUG(Plan.setName("Predicator: After predication\n"));
   LLVM_DEBUG(Plan.dump());
-#endif // INTEL_CUSTOMIZATION
 }
 
 VPlanPredicator::VPlanPredicator(VPlan &Plan)
-#if INTEL_CUSTOMIZATION
-    : Plan(Plan), VPLI(Plan.getVPLoopInfo()) {
-#else
-    : Plan(Plan), VPLI(&(Plan.getVPLoopInfo())) {
-#endif // INTEL_CUSTOMIZATION
-}
-#if INTEL_CUSTOMIZATION
-#undef VPlanPredicator
-#endif // INTEL_CUSTOMIZATION
+    : Plan(Plan), VPLI(Plan.getVPLoopInfo()), RPOT(Plan.getEntryBlock()) {}

@@ -1,4 +1,4 @@
-//===-- VPlanPredicator.h ---------------------------------------*- C++ -*-===//
+//===-- IntelVPlanPredicator.h ----------------------------------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -13,22 +13,14 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_TRANSFORMS_VECTORIZE_VPLAN_PREDICATOR_H
-#define LLVM_TRANSFORMS_VECTORIZE_VPLAN_PREDICATOR_H
+#ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_PREDICATOR_H
+#define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_PREDICATOR_H
 
-#if INTEL_CUSTOMIZATION
 #include "IntelLoopVectorizationPlanner.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanBuilder.h"
 #include "IntelVPlanDominatorTree.h"
 #include "llvm/IR/Dominators.h"
-
-using namespace llvm::vpo;
-#else
-#include "LoopVectorizationPlanner.h"
-#include "VPlan.h"
-#include "VPlanDominatorTree.h"
-#endif // INTEL_CUSTOMIZATION
 
 namespace llvm {
 namespace vpo {
@@ -43,6 +35,8 @@ private:
 
   // VPlan builder used to generate VPInstructions for block predicates.
   VPBuilder Builder;
+
+  ReversePostOrderTraversal<VPBasicBlock *> RPOT;
 
   // Describe an edge/condition/predicate affecting given block predicate. Final
   // predicate for that block is an OR of all the PredicateTerms affecting the
@@ -212,15 +206,18 @@ private:
   /// Worklist. Uses the current insertion point of Builder member.
   VPValue *genPredicateTree(std::list<VPValue *> &Worklist);
 
-  /// Predicate and linearize the CFG within \p Region.
-  void predicateAndLinearizeRegion(bool SearchLoopHack);
+  /// Lower predicate terms into VPInstructions. Note that some of the
+  /// instructions that need not be predicated are under the block-predicate
+  /// influence after this method finishes (ANDs used to calculate predicates).
+  /// That is handled later by splitting basic blocks right before the first AND
+  /// created in the end of those blocks.
+  void emitPredicates();
 
-  /// Linearize \p Region and mark blocks that should be post-processed for
+  /// Linearize Plan and mark blocks that should be post-processed for
   /// phi-to-blend substitutuion. It does *NOT* update condition bits for the
   /// blocks, this information is needed for block predicate insertion after
   /// linearization.
-  void
-  linearizeRegion(const ReversePostOrderTraversal<VPBasicBlock *> &RegionRPOT);
+  void linearizeRegion();
 
   /// Process phis that are merge points with incoming edges changed during
   /// linearization process. Includes creation of explicit VPBlendInsts and
@@ -256,18 +253,12 @@ private:
   void replacePhiPredicateTermWithBlend(VPPHINode *Phi,
                                         VPBlendInst *Blend);
 
-#if INTEL_CUSTOMIZATION
-  void handleInnerLoopBackedges(VPLoop *VPL);
-#endif // INTEL_CUSTOMIZATION
 public:
   VPlanPredicator(VPlan &Plan);
 
   /// Predicate Plan's HCFG.
   void predicate(void);
 };
-#if INTEL_CUSTOMIZATION
-#undef VPlanPredicator
-#endif // INTEL_CUSTOMIZATION
 } // namespace vpo
 } // end namespace llvm
-#endif // LLVM_TRANSFORMS_VECTORIZE_VPLAN_PREDICATOR_H
+#endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_PREDICATOR_H
