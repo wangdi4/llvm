@@ -196,7 +196,7 @@ public:
   static AnalysisKey Key;
   InlineAdvisorAnalysis() = default;
   struct Result {
-    Result(Module &M, ModuleAnalysisManager &MAM) : M(M), MAM(MAM) {}
+    Result(Module &M, ModuleAnalysisManager &MAM) {}
     bool invalidate(Module &, const PreservedAnalyses &,
                     ModuleAnalysisManager::Invalidator &) {
       // InlineAdvisor must be preserved across analysis invalidations.
@@ -207,8 +207,6 @@ public:
     void clear() { Advisor.reset(); }
 
   private:
-    Module &M;
-    ModuleAnalysisManager &MAM;
     std::unique_ptr<InlineAdvisor> Advisor;
   };
 
