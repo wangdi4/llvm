@@ -46,3 +46,15 @@
 // RUN: %clang_cl -Qopt-mem-layout-trans:0 -### -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=LAYOUT_TRANS %s
 // LAYOUT_TRANS-NOT: "-mllvm" "-dtrans-mem-layout-level{{.+}}"
+
+/// -unroll support
+// RUN: %clang -unroll3 -### -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=UNROLL,UNROLL3 %s
+// RUN: %clang_cl -Qunroll3 -### -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=UNROLL,UNROLL3 %s
+// RUN: %clang -unroll -### -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=UNROLL %s
+// RUN: %clang_cl -Qunroll -### -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=UNROLL %s
+// UNROLL: "-funroll-loops"
+// UNROLL3: "-mllvm" "-hir-general-unroll-max-factor=3"

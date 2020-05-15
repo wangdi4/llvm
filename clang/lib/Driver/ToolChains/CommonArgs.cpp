@@ -516,6 +516,16 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
     if (Arg * A = Args.getLastArg(options::OPT_fveclib))
       Args.MakeArgString(Twine("-plugin-opt=-vector-library=") + A->getValue());
   }
+  if (Arg *A =
+          Args.getLastArg(options::OPT_funroll_loops,
+                          options::OPT_fno_unroll_loops, options::OPT_unroll)) {
+    if (A->getOption().matches(options::OPT_unroll)) {
+      StringRef Value(A->getValue());
+      if (!Value.empty())
+        CmdArgs.push_back(Args.MakeArgString(
+            Twine("-plugin-opt=-hir-general-unroll-max-vactor=") + Value));
+    }
+  }
   // All -mllvm flags as provided by the user will be passed through.
   for (const StringRef &AV : Args.getAllArgValues(options::OPT_mllvm))
     CmdArgs.push_back(Args.MakeArgString(Twine("-plugin-opt=") + AV));
