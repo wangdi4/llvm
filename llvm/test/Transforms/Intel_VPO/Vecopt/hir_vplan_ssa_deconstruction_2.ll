@@ -135,8 +135,7 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; CHECK-NEXT:  Function: foo
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  <0>          BEGIN REGION { modified }
-; CHECK-NEXT:  <37>               [[RED_VAR0:%.*]] = 0.000000e+00
-; CHECK-NEXT:  <36>
+; CHECK-NEXT:  <37>                 [[RED_VAR0:%.*]] = 0.000000e+00
 ; CHECK-NEXT:  <36>               + DO i1 = 0, 99, 4   <DO_LOOP> <novectorize>
 ; CHECK-NEXT:  <63>               |   [[DOTVEC90:%.*]] = undef
 ; CHECK-NEXT:  <59>               |   [[MERGE_PHI_IN_VEC0:%.*]] = undef
@@ -179,8 +178,7 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; CHECK-NEXT:  <71>               |   [[BB3]].{{[0-9]+}}:
 ; CHECK-NEXT:  <72>               |   [[RED_VAR0]] = [[PHI_TEMP30]]  +  [[RED_VAR0]]
 ; CHECK-NEXT:  <36>               + END LOOP
-; CHECK-NEXT:  <36>
-; CHECK-NEXT:  <73>               [[RED_PHI0]] = @llvm.experimental.vector.reduce.v2.fadd.f32.v4f32([[RED_PHI0]],  [[RED_VAR0]])
+; CHECK-NEXT:  <73>                 [[RED_PHI0]] = @llvm.experimental.vector.reduce.v2.fadd.f32.v4f32([[RED_PHI0]],  [[RED_VAR0]])
 ; CHECK-NEXT:  <0>          END REGION
 ;
 

@@ -974,23 +974,10 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
 
   // Populate reference groups split by base blob index.
   // Populate a reference-to-group-number map.
-  DenseMap<RegDDRef *, unsigned> RefGroupIndex;
-  {
-    DenseMap<unsigned, unsigned> GroupIndex;
-    for (RegDDRef *Ref : Refs) {
-      unsigned &GroupNo = GroupIndex[Ref->getBasePtrBlobIndex()];
-      if (GroupNo == 0) {
-        GroupNo = GroupIndex.size();
-        Groups.emplace_back();
-      }
-
-      RefGroupIndex[Ref] = GroupNo - 1;
-      Groups[GroupNo - 1].push_back(Ref);
-    }
-  }
+  RefGrouper Grouping(Refs, Groups);
 
   SmallSetVector<std::pair<unsigned, unsigned>, ExpectedNumberOfTests> Tests;
-  Ret = processDDGToGroupPairs(Loop, Refs, RefGroupIndex, Tests);
+  Ret = processDDGToGroupPairs(Loop, Refs, Grouping.getRefGroupIndex(), Tests);
   if (Ret != OK) {
     return Ret;
   }

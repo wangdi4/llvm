@@ -139,6 +139,14 @@
 // FOFFLOAD_STATIC_LIB_MULTI_O: clang-offload-bundler{{.*}} "-type=oo"
 // FOFFLOAD_STATIC_LIB_MULTI_O: llvm-link{{.*}} "@{{.*}}"
 
+/// Check for proper object usage for partial link.  llvm-link should not
+/// contain the input object (consumed in partial link)
+// RUN: %clang -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64 %t-1.o %t.a -### 2>&1 \
+// RUN::  | FileCheck %s -check-prefix=PARTIAL_LINK_CHECK
+// PARTIAL_LINK_CHECK: ld{{(.exe)?}}" "-r" "-o" {{.*}} "[[INPUTO:.+\.o]]" "[[INPUTA:.+\.a]]"
+// PARTIAL_LINK_CHECK-NOT: llvm-link{{.*}} "[[INPUTO]]"
+// PARTIAL_LINK_CHECK: ld{{.*}} "[[INPUTA]]"
+
 /// ###########################################################################
 
 /// Check phases when -foffload-static-lib=<lib> is used.

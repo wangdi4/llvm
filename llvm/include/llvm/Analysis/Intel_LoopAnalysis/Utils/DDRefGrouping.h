@@ -26,12 +26,14 @@
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_DDREFGROUPING_H
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGatherer.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 
 namespace llvm {
 
 namespace loopopt {
 
 class DDRefGrouping {
+
 public:
   template <typename RefTy> using RefGroupTy = SmallVector<RefTy, 8>;
 
@@ -119,6 +121,51 @@ public:
   }
 #endif
 };
+
+// Ref Grouping by basePtr is being used many places including
+// runtime DD and loop blocking
+class RefGrouper {
+public:
+  typedef DDRefGrouping::RefGroupVecTy<RegDDRef *> RefGroupVecTy;
+  typedef DDRefGrouping::RefGroupTy<RegDDRef *> RefGroupTy;
+  typedef DenseMap<RegDDRef *, unsigned> RefToGroupIDTy;
+
+public:
+  RefGrouper(ArrayRef<RegDDRef *> Refs, RefGroupVecTy& Groups):
+    Groups(Groups) { groupByBasePtr(Refs); }
+
+  RefToGroupIDTy &getRefGroupIndex() { return RefGroupIndex; }
+
+private:
+  void groupByBasePtr(ArrayRef<RegDDRef *> Refs) {
+
+    DenseMap<unsigned, unsigned> GroupIndex;
+    for (RegDDRef *Ref : Refs) {
+      unsigned &GroupNo = GroupIndex[Ref->getBasePtrBlobIndex()];
+      if (GroupNo == 0) {
+        GroupNo = GroupIndex.size();
+        Groups.emplace_back();
+      }
+
+      RefGroupIndex[Ref] = GroupNo - 1;
+      Groups[GroupNo - 1].push_back(Ref);
+    }
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  static void printRefs(ArrayRef<RegDDRef *> Refs, StringRef Header) {
+    dbgs() << Header << ": " << Refs.size() << "\n";
+    for (auto *Ref : Refs) {
+      Ref->dump();
+      dbgs() << "\n";
+    }
+  }
+#endif
+
+  RefGroupVecTy& Groups;
+  RefToGroupIDTy RefGroupIndex;
+};
+
 }
 }
 

@@ -22,6 +22,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeVisitor.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
@@ -863,11 +864,23 @@ HLLoop *VPOCodeGenHIR::findRednHoistInsertionPoint(HLLoop *Lp) {
   return Lp;
 }
 
+void VPOCodeGenHIR::setRednHoistPtForVectorLoop() {
+  // If loop has any reductions then find appropriate HLLoop that reduction
+  // init/finalize can be hoisted out to. If loop has no reductions then hoist
+  // loop is set to current loop being vectorized.
+  if (!ReductionRefs.empty())
+    RednHoistLp = findRednHoistInsertionPoint(OrigLoop);
+  else
+    RednHoistLp = OrigLoop;
+}
+
 bool VPOCodeGenHIR::initializeVectorLoop(unsigned int VF, unsigned int UF) {
   assert(VF > 1);
   setVF(VF);
   assert(UF > 0);
   setUF(UF);
+  assert(RednHoistLp &&
+         "Decision about reduction hoist loop should be available here.");
 
   LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: VPlan handled loop, VF = " << VF << " "
                     << Fn.getName() << "\n");
@@ -887,7 +900,6 @@ bool VPOCodeGenHIR::initializeVectorLoop(unsigned int VF, unsigned int UF) {
       (void)Inst;
     }
   }
-  RednHoistLp = findRednHoistInsertionPoint(OrigLoop);
 
   // Setup peel, main and remainder loops
   // TODO: Peeling decisions should be properly made in VPlan's cost model and
@@ -965,6 +977,13 @@ bool VPOCodeGenHIR::initializeVectorLoop(unsigned int VF, unsigned int UF) {
   // further.
   if (RednHoistLp == OrigLoop)
     RednHoistLp = MainLoop;
+
+  // If reduction hoist loop is not the main vector loop, then we need to
+  // invalidate parent region of reduction hoist loop as well since new
+  // reduction initialization/finalization instructions are inserted into its
+  // preheader/postexit.
+  if (RednHoistLp != MainLoop)
+    HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(RednHoistLp);
 
   RedInitInsertPoint = RednHoistLp;
   RedFinalInsertPoint = RednHoistLp;
@@ -3599,7 +3618,7 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
     analyzeCallArgMemoryReferences(CallInst, WInst, CallArgs);
 }
 
-void VPOCodeGenHIR::createAndMapLoopEntityRefs() {
+void VPOCodeGenHIR::createAndMapLoopEntityRefs(unsigned VF) {
   // Process reductions. For each reduction variable in the loop we create a new
   // RegDDRef to represent it. Next we map all instructions related to the
   // reduction to have the new RegDDRef as its underlying reduction. This is

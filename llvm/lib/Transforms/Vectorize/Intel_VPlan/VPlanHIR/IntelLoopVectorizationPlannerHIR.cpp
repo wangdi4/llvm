@@ -46,6 +46,11 @@ bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG, unsigned UF
   VPlanVLSAnalysis *VLSA = CG->getVLS();
   VLSA->getOVLSMemrefs(Plan, BestVF);
 
+  // Process all loop entities and create refs for them if needed.
+  CG->createAndMapLoopEntityRefs(BestVF);
+  // Set hoist loop for reductions.
+  CG->setRednHoistPtForVectorLoop();
+
   bool VecLoopsInit = CG->initializeVectorLoop(BestVF, UF);
   if (!VecLoopsInit)
     return false;
