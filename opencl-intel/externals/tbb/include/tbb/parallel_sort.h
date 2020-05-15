@@ -1,5 +1,5 @@
 /*
-    Copyright (c) 2005-2019 Intel Corporation
+    Copyright (c) 2005-2020 Intel Corporation
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -13,17 +13,6 @@
     See the License for the specific language governing permissions and
     limitations under the License.
 */
-
-#include "internal/_deprecated_header_message_guard.h"
-
-#if !defined(__TBB_show_deprecation_message_parallel_sort_H) && defined(__TBB_show_deprecated_header_message)
-#define  __TBB_show_deprecation_message_parallel_sort_H
-#pragma message("TBB Warning: tbb/parallel_sort.h is deprecated. For details, please see Deprecated Features appendix in the TBB reference manual.")
-#endif
-
-#if defined(__TBB_show_deprecated_header_message)
-#undef __TBB_show_deprecated_header_message
-#endif
 
 #ifndef __TBB_parallel_sort_H
 #define __TBB_parallel_sort_H
@@ -218,7 +207,7 @@ do_parallel_quick_sort:
     The compare object must define a bool operator() function.
     @ingroup algorithms **/
 template<typename RandomAccessIterator, typename Compare>
-__TBB_DEPRECATED_VERBOSE void parallel_sort( RandomAccessIterator begin, RandomAccessIterator end, const Compare& comp) {
+void parallel_sort( RandomAccessIterator begin, RandomAccessIterator end, const Compare& comp) {
     const int min_parallel_size = 500;
     if( end > begin ) {
         if (end - begin < min_parallel_size) {
@@ -232,28 +221,28 @@ __TBB_DEPRECATED_VERBOSE void parallel_sort( RandomAccessIterator begin, RandomA
 //! Sorts the data in [begin,end) with a default comparator \c std::less<RandomAccessIterator>
 /** @ingroup algorithms **/
 template<typename RandomAccessIterator>
-__TBB_DEPRECATED_VERBOSE inline void parallel_sort( RandomAccessIterator begin, RandomAccessIterator end ) {
+inline void parallel_sort( RandomAccessIterator begin, RandomAccessIterator end ) {
     parallel_sort( begin, end, std::less< typename std::iterator_traits<RandomAccessIterator>::value_type >() );
 }
 
 //! Sorts the data in rng using the given comparator
 /** @ingroup algorithms **/
 template<typename Range, typename Compare>
-__TBB_DEPRECATED_VERBOSE void parallel_sort(Range& rng, const Compare& comp) {
+void parallel_sort(Range& rng, const Compare& comp) {
     parallel_sort(tbb::internal::first(rng), tbb::internal::last(rng), comp);
 }
 
 //! Sorts the data in rng with a default comparator \c std::less<RandomAccessIterator>
 /** @ingroup algorithms **/
 template<typename Range>
-__TBB_DEPRECATED_VERBOSE void parallel_sort(Range& rng) {
+void parallel_sort(Range& rng) {
     parallel_sort(tbb::internal::first(rng), tbb::internal::last(rng));
 }
 
 //! Sorts the data in the range \c [begin,end) with a default comparator \c std::less<T>
 /** @ingroup algorithms **/
 template<typename T>
-__TBB_DEPRECATED_VERBOSE inline void parallel_sort( T * begin, T * end ) {
+inline void parallel_sort( T * begin, T * end ) {
     parallel_sort( begin, end, std::less< T >() );
 }
 //@}
