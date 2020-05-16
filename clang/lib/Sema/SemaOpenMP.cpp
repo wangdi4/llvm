@@ -6112,10 +6112,62 @@ Sema::checkOpenMPDeclareVariantFunction(Sema::DeclGroupPtrTy DG,
   if (TI.anyScoreOrCondition(HandleNonConstantScoresAndConditions))
     return None;
 
+#if INTEL_COLLAB
+  // The 'target variant dispatch' construct must accept a variant with an
+  // additional void* argument. Try to detect that special case here. This
+  // check is stricter and no conversion is attempted, just a merge similar
+  // to the C language case.
+  auto HasTargetVariantDispatchConstruct = [&]() {
+    for (const auto &TS : TI.Sets) {
+      if (TS.Kind == llvm::omp::TraitSet::construct) {
+        for (const auto &Sel : TS.Selectors) {
+          if (Sel.Kind ==
+              llvm::omp::TraitSelector::construct_target_variant_dispatch) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }();
+
+  bool IsTargetVariantDispatchCase = false;
+  if (HasTargetVariantDispatchConstruct) {
+    auto *PTy = dyn_cast<FunctionProtoType>(FD->getType());
+    auto *VPTy = dyn_cast<FunctionProtoType>(VariantRef->getType());
+    if (PTy && VPTy && VPTy->getNumParams() == PTy->getNumParams() + 1 &&
+        VPTy->getParamType(VPTy->getNumParams() - 1)->isVoidPointerType()) {
+
+      IsTargetVariantDispatchCase = true;
+
+      llvm::SmallVector<QualType, 8> Params;
+      Params.append(VPTy->param_type_begin(), VPTy->param_type_end() - 1);
+
+      QualType NewFnTy = Context.getFunctionType(VPTy->getReturnType(), Params,
+                                                 VPTy->getExtProtoInfo());
+
+      QualType MergedType = Context.mergeFunctionTypes(
+          FD->getType(), NewFnTy,
+          /*OfBlockPointer=*/false, /*Unqualified=*/false, /*AllowCXX=*/true);
+      if (MergedType.isNull()) {
+        Diag(VariantRef->getExprLoc(),
+             diag::err_omp_declare_variant_incompat_types)
+            << VariantRef->getType() << FD->getType()
+            << VariantRef->getSourceRange();
+        return None;
+      }
+    }
+  }
+#endif // INTEL_COLLAB
+
   // Convert VariantRef expression to the type of the original function to
   // resolve possible conflicts.
   ExprResult VariantRefCast;
+#if INTEL_COLLAB
+  if (LangOpts.CPlusPlus && !IsTargetVariantDispatchCase) {
+#else // INTEL_COLLAB
   if (LangOpts.CPlusPlus) {
+#endif // INTEL_COLLAB
     QualType FnPtrType;
     auto *Method = dyn_cast<CXXMethodDecl>(FD);
     if (Method && !Method->isStatic()) {
@@ -6192,7 +6244,11 @@ Sema::checkOpenMPDeclareVariantFunction(Sema::DeclGroupPtrTy DG,
   }
 
   // Check if function types are compatible in C.
+#if INTEL_COLLAB
+  if (!LangOpts.CPlusPlus && !IsTargetVariantDispatchCase) {
+#else // INTEL_COLLAB
   if (!LangOpts.CPlusPlus) {
+#endif // INTEL_COLLAB
     QualType NewType =
         Context.mergeFunctionTypes(FD->getType(), NewFD->getType());
     if (NewType.isNull()) {
