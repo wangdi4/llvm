@@ -92,7 +92,10 @@ OCLVecClone::OCLVecClone(const Intel::CPUId *CPUId)
 
 OCLVecClone::OCLVecClone() : OCLVecClone(nullptr) {}
 
-bool OCLVecClone::runOnModule(Module &M) { return Impl.runImpl(M); }
+bool OCLVecClone::runOnModule(Module &M) {
+  Impl.setDimChooser(getAnalysisIfAvailable<ChooseVectorizationDimensionModulePass>());
+  return Impl.runImpl(M);
+}
 
 OCLVecCloneImpl::OCLVecCloneImpl(const Intel::CPUId *CPUId)
     : VecCloneImpl(), CPUId(CPUId) {
@@ -105,7 +108,8 @@ OCLVecCloneImpl::OCLVecCloneImpl() : VecCloneImpl() {}
 // "ocl_recommened_vector_length" metadata is used only by OCLVecClone. The rest
 // of the Volcano passes recognize the "vector_width" metadata. Thus, we add
 // "vector_width" metadata to the original kernel and the cloned kernel.
-static void updateMetadata(Function &F, Function *Clone) {
+static void updateMetadata(Function &F, Function *Clone,
+                           unsigned VecDim, bool CanUniteWorkgroups) {
   auto FMD = KernelInternalMetadataAPI(&F);
   auto KMD = KernelMetadataAPI(&F);
   auto CloneMD = KernelInternalMetadataAPI(Clone);
@@ -114,13 +118,10 @@ static void updateMetadata(Function &F, Function *Clone) {
   // Set the "vector_width" metadata to the cloned kernel.
   CloneMD.VectorizedKernel.set(nullptr);
   CloneMD.VectorizedWidth.set(VectorLength);
-  // For now, only x dimension is vectorized. For this reason, the chosen
-  // vectorization dimension is 0.
-  CloneMD.VectorizationDimension.set(0);
+  CloneMD.VectorizationDimension.set(VecDim);
   // Set the metadata that points to the orginal kernel of the clone.
   CloneMD.ScalarizedKernel.set(&F);
-  // TODO: for now, it is false.
-  CloneMD.CanUniteWorkgroups.set(false);
+  CloneMD.CanUniteWorkgroups.set(CanUniteWorkgroups);
 
   // Set "vector_width" for the original kernel.
   FMD.VectorizedWidth.set(1);
@@ -292,6 +293,16 @@ void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
       std::make_pair(CompilationUtils::mangledGetLocalLinearId(),
                      FnAction::AssertIfEncountered)};
 
+  unsigned VecDim;
+  bool CanUniteWorkgroups;
+  if (DimChooser) {
+    VecDim = DimChooser->getVectorizationDim(&F);
+    CanUniteWorkgroups = DimChooser->getCanUniteWorkgroups(&F);
+  } else {
+    VecDim = 0;
+    CanUniteWorkgroups = false;
+  }
+
   // Collect all OpenCL function built-ins.
   for (const auto &Pair : FunctionsAndActions) {
     const auto &FuncName = Pair.first;
@@ -312,8 +323,7 @@ void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
         assert(C && "The function argument must be constant");
         unsigned dim = C->getValue().getZExtValue();
         assert(dim < 3 && "Argument is not in range");
-        if (dim == 0) {
-          // Currently, only zero dimension is vectorized.
+        if (dim == VecDim) {
           if (FuncName == CompilationUtils::mangledGetLID() &&
               LT2GigWorkGroupSize)
             optimizedUpdateAndMoveTID(CI, Phi, EntryBlock);
@@ -346,7 +356,7 @@ void OCLVecCloneImpl::handleLanguageSpecifics(Function &F, PHINode *Phi,
     }
   }
 
-  updateMetadata(F, Clone);
+  updateMetadata(F, Clone, VecDim, CanUniteWorkgroups);
 
   std::vector<std::pair<const char*, std::string>> VectInfoStr = {
     #include "VectInfo.gen"

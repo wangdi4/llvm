@@ -16,6 +16,7 @@
 #ifndef BACKEND_VECTORIZER_OCLVECCLONE_OCLVECCLONE_H
 #define BACKEND_VECTORIZER_OCLVECCLONE_OCLVECCLONE_H
 
+#include "ChooseVectorizationDimension.h"
 #include "OCLPassSupport.h"
 #include "VecConfig.h"
 #include "llvm/Transforms/Utils/Intel_VecClone.h"
@@ -27,6 +28,8 @@ class OCLVecCloneImpl : public VecCloneImpl {
 private:
   // Configuration options
   const Intel::CPUId *CPUId;
+
+  const ChooseVectorizationDimensionModulePass *DimChooser;
 
   // OpenCL-related code transformation: 1. updates all the uses of TID calls
   // with TID + new induction variable. TIDs are updated in this way because
@@ -55,6 +58,10 @@ public:
   OCLVecCloneImpl(const Intel::CPUId *CPUId);
 
   OCLVecCloneImpl();
+
+  void setDimChooser(const ChooseVectorizationDimensionModulePass *Chooser) {
+    DimChooser = Chooser;
+  }
 };
 
 class OCLVecClone : public ModulePass {
@@ -72,6 +79,12 @@ public:
 
   /// Returns the name of the pass
   llvm::StringRef getPassName() const override { return "OCLVecClone pass"; }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    // For SYCL program, we always do vectorization on dim 0, so the pass won't
+    // be added into the pipeline.
+    AU.addUsedIfAvailable<ChooseVectorizationDimensionModulePass>();
+  }
 };
 
 class OCLReqdSubGroupSize : public ModulePass {
