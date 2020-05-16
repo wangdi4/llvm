@@ -2053,6 +2053,16 @@ public:
   unsigned getBinOpcode() const { return BinOpcode; }
 
   VPValue *getStep() const { return getOperand(1); }
+  VPValue *getStartValueOperand() const { return getOperand(0); }
+
+  // Replaces start value with the \p newVal
+  void replaceStartValue(VPValue *NewVal) {
+    assert(NewVal && "Unexpected null start value");
+    assert(NewVal->getType() == getStartValueOperand()->getType() &&
+           "Inconsistent operand type");
+    setOperand(0, NewVal);
+  }
+
 
 protected:
   // Clones VPinductionInit.
@@ -2128,7 +2138,7 @@ public:
 
   /// Return operand that corresponds to the start value.
   VPValue *getStartValueOperand() const {
-    assert(getNumOperands() == 2 && "Incorrect operand request");
+    assert(usesStartValue() && "Incorrect operand request");
     return getOperand(0);
   }
 
@@ -2165,6 +2175,17 @@ protected:
       llvm_unreachable("Too many operands.");
   }
 
+  /// Return true if start value is used in induction finitialization.
+  bool usesStartValue() const { return getNumOperands() == 2;}
+
+  // Replaces start value with the \p newVal
+  void replaceStartValue(VPValue *NewVal) {
+    assert(NewVal && "Unexpected null start value");
+    assert(NewVal->getType() == getStartValueOperand()->getType() &&
+           "Inconsistent operand type");
+    setOperand(0, NewVal);
+  }
+
 private:
   // Tracks if induction's last value is computed before increment.
   bool LastValPreIncrement = false;
@@ -2179,16 +2200,15 @@ private:
 // operation during last value calculation. Though, that is ineffective for
 // multiplication, while for summation the movd/movq x86 instructions
 // perfectly fit this way.
-//
 class VPReductionInit : public VPInstruction {
 public:
-  VPReductionInit(VPValue *Identity)
+  VPReductionInit(VPValue *Identity, bool UseStart)
       : VPInstruction(VPInstruction::ReductionInit, Identity->getType(),
-                      {Identity}) {}
+                      {Identity}), UsesStartValue(UseStart) {}
 
   VPReductionInit(VPValue *Identity, VPValue *StartValue)
       : VPInstruction(VPInstruction::ReductionInit, Identity->getType(),
-                      {Identity, StartValue}) {}
+                      {Identity, StartValue}), UsesStartValue(true) {}
 
   /// Return operand that corresponds to the indentity value.
   VPValue *getIdentityOperand() const { return getOperand(0);}
@@ -2196,7 +2216,22 @@ public:
   /// Return operand that corresponds to the start value. Can be nullptr for
   /// optimized reduce.
   VPValue *getStartValueOperand() const {
-    return getNumOperands() > 1 ? getOperand(1) : nullptr;
+    return getNumOperands() > 1 ? getOperand(1)
+                                : (UsesStartValue ? getOperand(0) : nullptr);
+  }
+
+  /// Return true if start value is used in reduction initialization. E.g.
+  /// min/max reductions use the start value as identity.
+  bool usesStartValue() const { return UsesStartValue; }
+
+  /// Replaces start value with the \p newV
+  void replaceStartValue(VPValue *NewVal) {
+    assert(usesStartValue() && NewVal && "Can't replace start value");
+    assert(NewVal->getType() == getStartValueOperand()->getType() &&
+           "Inconsistent operand type");
+    unsigned Ind = getNumOperands() - 1;
+    // Can't use replaceUsesOfWith() due to two operands can have same value.
+    setOperand(Ind, NewVal);
   }
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
@@ -2213,12 +2248,15 @@ protected:
   // Clones VPReductionInit.
   virtual VPReductionInit *cloneImpl() const final {
     if (getNumOperands() == 1)
-      return new VPReductionInit(getIdentityOperand());
+      return new VPReductionInit(getIdentityOperand(), UsesStartValue);
     else if (getNumOperands() == 2)
       return new VPReductionInit(getIdentityOperand(), getStartValueOperand());
     else
       llvm_unreachable("Too many operands.");
   }
+
+private:
+  bool UsesStartValue;
 };
 
 // VPInstruction for reduction last value calculation.
@@ -2299,6 +2337,17 @@ public:
   /// part of min/max+index idiom.
   bool isMinMaxIndex() const {
     return getParentExitValOperand() != nullptr;
+  }
+
+  /// Return true if the instruction uses start value to calculate last value.
+  bool usesStartValue() const { return getStartValueOperand() != nullptr; }
+
+  /// Replaces start value with the \p newV
+  void replaceStartValue(VPValue *NewVal) {
+    assert(usesStartValue() && NewVal && "Can't replace start value");
+    assert(NewVal->getType() == getStartValueOperand()->getType() &&
+           "Inconsistent operand type");
+    replaceUsesOfWith(getStartValueOperand(), NewVal, false);
   }
 
   /// Return ID of the corresponding reduce intrinsic.

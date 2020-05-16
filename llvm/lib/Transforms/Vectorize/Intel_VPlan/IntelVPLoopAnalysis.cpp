@@ -631,14 +631,14 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
       VPPHINode *PhiN = getRecurrentVPHINode(*Reduction);
       Name = PhiN ? PhiN->getName() : "";
     }
-    bool StartIncluded = !Ty->isFloatingPointTy();
-    VPInstruction *Init =
-        StartIncluded && !Reduction->isMinMax()
-            ? Builder.createReductionInit(Identity,
-                                          Reduction->getRecurrenceStartValue(),
-                                          Name + ".red.init")
-            : Builder.createReductionInit(Identity, nullptr /* Start */,
-                                          Name + ".red.init");
+    bool StartIncluded = !Ty->isFloatingPointTy() && !Reduction->isMinMax();
+    VPValue *StartValue =
+        StartIncluded ? Reduction->getRecurrenceStartValue() : nullptr;
+    bool UseStart = StartValue != nullptr || Reduction->isMinMax();
+
+    VPInstruction *Init = Builder.createReductionInit(
+        Identity, StartValue, UseStart, Name + ".red.init");
+
     processInitValue(*Reduction, AI, PrivateMem, Builder, *Init, Ty,
                      *Reduction->getRecurrenceStartValue());
 
