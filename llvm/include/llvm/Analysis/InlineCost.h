@@ -426,9 +426,12 @@ InlineCost getInlineCost(
     std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
     Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
     function_ref<const TargetLibraryInfo &(Function &)> GetTLI,
+<<<<<<< HEAD
     InliningLoopInfoCache *ILIC, InlineAggressiveInfo *AggI,   // INTEL
     SmallSet<CallBase *, 20> *CallSitesForFusion,              // INTEL
     SmallSet<Function *, 20> *FuncsForDTrans,                  // INTEL
+=======
+>>>>>>> 454de99a6fec705e76ed7743bf538f7a77296f59
     ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE = nullptr);
 
 /// Get an InlineCost with the callee explicitly specified.
@@ -442,6 +445,7 @@ getInlineCost(CallBase &Call, Function *Callee, const InlineParams &Params,
               std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
               Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
               function_ref<const TargetLibraryInfo &(Function &)> GetTLI,
+<<<<<<< HEAD
               InliningLoopInfoCache *ILIC,           // INTEL
               InlineAggressiveInfo *AggI,            // INTEL
               SmallSet<CallBase *, 20> *CallSitesForFusion, // INTEL
@@ -451,6 +455,10 @@ getInlineCost(CallBase &Call, Function *Callee, const InlineParams &Params,
 #if INTEL_CUSTOMIZATION
 /// Returns a pair of InlineResult and InlineReason for a given call site.
 #endif // INTEL_CUSTOMIZATION
+=======
+              ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE);
+
+>>>>>>> 454de99a6fec705e76ed7743bf538f7a77296f59
 /// Returns InlineResult::success() if the call site should be always inlined
 /// because of user directives, and the inlining is viable. Returns
 /// InlineResult::failure() if the inlining may never happen because of user
@@ -476,11 +484,14 @@ Optional<int> getInliningCostEstimate(
     CallBase &Call, TargetTransformInfo &CalleeTTI,
     std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
     Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     TargetLibraryInfo *TLI, InliningLoopInfoCache *ILIC,
     InlineAggressiveInfo *AggI, SmallSet<CallBase *, 20> *CallSitesForFusion,
     SmallSet<Function *, 20> *FuncsForDTrans,
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 454de99a6fec705e76ed7743bf538f7a77296f59
     ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE);
 
 /// Minimal filter to detect invalid constructs for inlining.

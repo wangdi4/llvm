@@ -225,8 +225,12 @@ InlineCost AMDGPUInliner::getInlineCost(CallBase &CB) {
 
   auto IC =
       llvm::getInlineCost(CB, Callee, LocalParams, TTI, GetAssumptionCache,
+<<<<<<< HEAD
                              None, GetTLI, nullptr, nullptr, nullptr, // INTEL
                              PSI, RemarksEnabled ? &ORE : nullptr);   // INTEL
+=======
+                          None, GetTLI, PSI, RemarksEnabled ? &ORE : nullptr);
+>>>>>>> 454de99a6fec705e76ed7743bf538f7a77296f59
 
   if (IC && !IC.isAlways() && !Callee->hasFnAttribute(Attribute::InlineHint)) {
     // Single BB does not increase total BB amount, thus subtract 1

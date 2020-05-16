@@ -230,8 +230,12 @@ struct PartialInlinerImpl {
       std::function<TargetTransformInfo &(Function &)> *GTTI,
       Optional<function_ref<BlockFrequencyInfo &(Function &)>> GBFI,
       std::function<const TargetLibraryInfo &(Function &)> *GTLI,
+<<<<<<< HEAD
       InliningLoopInfoCache *InlLoopIC, ProfileSummaryInfo *ProfSI, // INTEL
       bool RunLTOPartialInline, bool EnableSpecialCases)            // INTEL
+=======
+      ProfileSummaryInfo *ProfSI)
+>>>>>>> 454de99a6fec705e76ed7743bf538f7a77296f59
       : GetAssumptionCache(GetAC), LookupAssumptionCache(LookupAC),
         GetTTI(GTTI), GetBFI(GBFI), GetTLI(GTLI), ILIC(InlLoopIC),  // INTEL
         PSI(ProfSI), RunLTOPartialInline(RunLTOPartialInline),      // INTEL
@@ -304,7 +308,10 @@ private:
   std::function<TargetTransformInfo &(Function &)> *GetTTI;
   Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI;
   std::function<const TargetLibraryInfo &(Function &)> *GetTLI;
+<<<<<<< HEAD
   InliningLoopInfoCache *ILIC;   // INTEL
+=======
+>>>>>>> 454de99a6fec705e76ed7743bf538f7a77296f59
   ProfileSummaryInfo *PSI;
 
   // Return the frequency of the OutlininingBB relative to F's entry point.
@@ -476,11 +483,16 @@ struct PartialInlinerLegacyPass : public ModulePass {
       return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
     };
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     auto ILIC = std::make_unique<InliningLoopInfoCache>();
     return PartialInlinerImpl(&GetAssumptionCache, LookupAssumptionCache,
                               &GetTTI, NoneType::None, &GetTLI, ILIC.get(),
                               PSI, RunLTOPartialInline, EnableSpecialCases)
+=======
+    return PartialInlinerImpl(&GetAssumptionCache, LookupAssumptionCache,
+                              &GetTTI, NoneType::None, &GetTLI, PSI)
+>>>>>>> 454de99a6fec705e76ed7743bf538f7a77296f59
         .run(M);
 #endif // INTEL_CUSTOMIZATION
   }
@@ -887,9 +899,13 @@ bool PartialInlinerImpl::shouldPartialInline(
           DEBUG_TYPE);
   InlineCost IC =
       getInlineCost(CB, getInlineParams(), CalleeTTI, *GetAssumptionCache,
+<<<<<<< HEAD
                                 GetBFI, *GetTLI, ILIC,            // INTEL
                                 nullptr, nullptr, nullptr, PSI,   // INTEL
                                 RemarksEnabled ? &ORE : nullptr);
+=======
+                    GetBFI, *GetTLI, PSI, RemarksEnabled ? &ORE : nullptr);
+>>>>>>> 454de99a6fec705e76ed7743bf538f7a77296f59
 
   if (IC.isAlways()) {
     ORE.emit([&]() {
@@ -1794,6 +1810,7 @@ PreservedAnalyses PartialInlinerPass::run(Module &M,
 
   ProfileSummaryInfo *PSI = &AM.getResult<ProfileSummaryAnalysis>(M);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   PreservedAnalyses PA;
   PA.preserve<WholeProgramAnalysis>();
@@ -1801,6 +1818,10 @@ PreservedAnalyses PartialInlinerPass::run(Module &M,
   if (PartialInlinerImpl(&GetAssumptionCache, LookupAssumptionCache, &GetTTI,
                          {GetBFI}, &GetTLI, ILIC.get(), PSI,
                          RunLTOPartialInline, EnableSpecialCases)
+=======
+  if (PartialInlinerImpl(&GetAssumptionCache, LookupAssumptionCache, &GetTTI,
+                         {GetBFI}, &GetTLI, PSI)
+>>>>>>> 454de99a6fec705e76ed7743bf538f7a77296f59
           .run(M))
     return PA;
 #endif // INTEL_CUSTOMIZATION
