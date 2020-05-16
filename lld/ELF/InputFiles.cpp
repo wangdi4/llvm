@@ -48,6 +48,7 @@ std::vector<BitcodeFile *> elf::bitcodeFiles;
 std::vector<LazyObjFile *> elf::lazyObjFiles;
 std::vector<InputFile *> elf::objectFiles;
 std::vector<SharedFile *> elf::sharedFiles;
+std::vector<InputFile *> elf::gNULTOFiles; // INTEL
 
 std::unique_ptr<TarWriter> elf::tar;
 
@@ -65,22 +66,6 @@ std::string lld::toString(const InputFile *f) {
   return f->toStringCache;
 }
 
-<<<<<<< HEAD
-namespace elf {
-bool InputFile::isInGroup;
-uint32_t InputFile::nextGroupId;
-std::vector<ArchiveFile *> archiveFiles;
-std::vector<BinaryFile *> binaryFiles;
-std::vector<BitcodeFile *> bitcodeFiles;
-std::vector<LazyObjFile *> lazyObjFiles;
-std::vector<InputFile *> objectFiles;
-std::vector<SharedFile *> sharedFiles;
-std::vector<InputFile *> gNULTOFiles;    // INTEL
-
-std::unique_ptr<TarWriter> tar;
-
-=======
->>>>>>> 07837b8f499bcb1cfd9e67ad5759c68b8a470d3c
 static ELFKind getELFKind(MemoryBufferRef mb, StringRef archiveName) {
   unsigned char size;
   unsigned char endian;
