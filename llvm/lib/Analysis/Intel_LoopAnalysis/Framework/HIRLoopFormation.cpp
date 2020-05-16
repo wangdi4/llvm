@@ -347,7 +347,7 @@ void HIRLoopFormation::setZtt(HLLoop *HLoop) {
   }
 
   if (IsDeferredZttCandidate) {
-    DeferredZtts[HLoop] = IfParent;
+    DeferredZtts.emplace_back(HLoop, IfParent);
     return;
   }
 

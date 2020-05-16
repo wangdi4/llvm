@@ -7,6 +7,7 @@
 
 ; CHECK: + DO i64 i1 = 0, 1023, 1   <DO_LOOP>
 ; CHECK: |   %0 = (@a)[0][i1];
+; CHECK: |   %N = (%Nptr)[0];
 ; CHECK: |
 ; CHECK: |   + Ztt: if (%N > 0)
 ; CHECK: |   + DO i64 i2 = 0, %N + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1024>
@@ -17,7 +18,7 @@
 
 @a = local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
 
-define void @foo(i64 %N) {
+define void @foo(i64* %Nptr) {
 entry:
   br label %for.body
 
@@ -26,6 +27,7 @@ for.body:                                         ; preds = %if.end18, %entry
   %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* @a, i64 0, i64 %indvars.iv
   %0 = load i32, i32* %arrayidx, align 4
   %1 = sext i32 %0 to i64
+  %N = load i64, i64* %Nptr, align 8
   %cmp1 = icmp sle i64 %N, 0
   br i1 %cmp1, label %if.then, label %if.else14
 

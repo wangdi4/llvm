@@ -222,6 +222,38 @@ void HIRFramework::processDeferredZtts() {
       continue;
     }
 
+    // The parent/child relationship sometimes gets broken by HLIf restructuring
+    // during parsing.
+    if (Lp->getParent() != Ztt) {
+      continue;
+    }
+
+    // Ztt is being moved from (LoopLevel-1) to LoopLevel so we will need to
+    // update level of non-linear blobs.
+    unsigned LoopLevel = Lp->getNestingLevel();
+
+    for (auto *ZttRef : make_range(Ztt->ddref_begin(), Ztt->ddref_end())) {
+
+      if (ZttRef->isSelfBlob()) {
+        if (ZttRef->isNonLinear()) {
+          ZttRef->getSingleCanonExpr()->setDefinedAtLevel(LoopLevel - 1);
+        }
+      } else {
+        bool UpdateDefLevel = false;
+        for (auto *BlobRef :
+             make_range(ZttRef->blob_begin(), ZttRef->blob_end())) {
+          if (BlobRef->isNonLinear()) {
+            UpdateDefLevel = true;
+            BlobRef->setDefinedAtLevel(LoopLevel - 1);
+          }
+        }
+
+        if (UpdateDefLevel) {
+          ZttRef->updateDefLevel(LoopLevel);
+        }
+      }
+    }
+
     HIRLoopFormation::setRecognizedZtt(Lp, Ztt, false);
   }
 }

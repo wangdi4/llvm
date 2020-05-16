@@ -1157,10 +1157,11 @@ void HLLoop::verify() const {
            "Invalid loop upper type!");
   }
 
-  // TODO: Implement special case as ZTT's DDRefs are attached to node
-  // if (Ztt) {
-  //  Ztt->verify();
-  //}
+  for (auto *ZttRef : make_range(ztt_ddref_begin(), ztt_ddref_end())) {
+    (void)ZttRef;
+    assert(!ZttRef->isNonLinear() &&
+           "Ztt ref is not expected to be non-linear!");
+  }
 
   assert((!getParentLoop() ||
           (getNestingLevel() == getParentLoop()->getNestingLevel() + 1)) &&
