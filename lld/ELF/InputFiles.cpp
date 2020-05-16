@@ -36,10 +36,23 @@ using namespace llvm::object;
 using namespace llvm::sys;
 using namespace llvm::sys::fs;
 using namespace llvm::support::endian;
+using namespace lld;
+using namespace lld::elf;
 
-namespace lld {
+bool InputFile::isInGroup;
+uint32_t InputFile::nextGroupId;
+
+std::vector<ArchiveFile *> elf::archiveFiles;
+std::vector<BinaryFile *> elf::binaryFiles;
+std::vector<BitcodeFile *> elf::bitcodeFiles;
+std::vector<LazyObjFile *> elf::lazyObjFiles;
+std::vector<InputFile *> elf::objectFiles;
+std::vector<SharedFile *> elf::sharedFiles;
+
+std::unique_ptr<TarWriter> elf::tar;
+
 // Returns "<internal>", "foo.a(bar.o)" or "baz.o".
-std::string toString(const elf::InputFile *f) {
+std::string lld::toString(const InputFile *f) {
   if (!f)
     return "<internal>";
 
@@ -52,6 +65,7 @@ std::string toString(const elf::InputFile *f) {
   return f->toStringCache;
 }
 
+<<<<<<< HEAD
 namespace elf {
 bool InputFile::isInGroup;
 uint32_t InputFile::nextGroupId;
@@ -65,6 +79,8 @@ std::vector<InputFile *> gNULTOFiles;    // INTEL
 
 std::unique_ptr<TarWriter> tar;
 
+=======
+>>>>>>> 07837b8f499bcb1cfd9e67ad5759c68b8a470d3c
 static ELFKind getELFKind(MemoryBufferRef mb, StringRef archiveName) {
   unsigned char size;
   unsigned char endian;
@@ -103,7 +119,7 @@ InputFile::InputFile(Kind k, MemoryBufferRef m)
     ++nextGroupId;
 }
 
-Optional<MemoryBufferRef> readFile(StringRef path) {
+Optional<MemoryBufferRef> elf::readFile(StringRef path) {
   // The --chroot option changes our virtual root directory.
   // This is useful when you are dealing with files created by --reproduce.
   if (!config->chroot.empty() && path.startswith("/"))
@@ -217,7 +233,7 @@ template <class ELFT> static void doParseFile(InputFile *file) {
 }
 
 // Add symbols in File to the symbol table.
-void parseFile(InputFile *file) {
+void elf::parseFile(InputFile *file) {
   switch (config->ekind) {
   case ELF32LEKind:
     doParseFile<ELF32LE>(file);
@@ -1585,8 +1601,8 @@ void BinaryFile::parse() {
                             STV_DEFAULT, STT_OBJECT, data.size(), 0, nullptr});
 }
 
-InputFile *createObjectFile(MemoryBufferRef mb, StringRef archiveName,
-                            uint64_t offsetInArchive) {
+InputFile *elf::createObjectFile(MemoryBufferRef mb, StringRef archiveName,
+                                 uint64_t offsetInArchive) {
   if (isBitcode(mb))
     return make<BitcodeFile>(mb, archiveName, offsetInArchive);
 
@@ -1677,7 +1693,7 @@ template <class ELFT> void LazyObjFile::parse() {
   }
 }
 
-std::string replaceThinLTOSuffix(StringRef path) {
+std::string elf::replaceThinLTOSuffix(StringRef path) {
   StringRef suffix = config->thinLTOObjectSuffixReplace.first;
   StringRef repl = config->thinLTOObjectSuffixReplace.second;
 
@@ -1696,15 +1712,12 @@ template void LazyObjFile::parse<ELF32BE>();
 template void LazyObjFile::parse<ELF64LE>();
 template void LazyObjFile::parse<ELF64BE>();
 
-template class ObjFile<ELF32LE>;
-template class ObjFile<ELF32BE>;
-template class ObjFile<ELF64LE>;
-template class ObjFile<ELF64BE>;
+template class elf::ObjFile<ELF32LE>;
+template class elf::ObjFile<ELF32BE>;
+template class elf::ObjFile<ELF64LE>;
+template class elf::ObjFile<ELF64BE>;
 
 template void SharedFile::parse<ELF32LE>();
 template void SharedFile::parse<ELF32BE>();
 template void SharedFile::parse<ELF64LE>();
 template void SharedFile::parse<ELF64BE>();
-
-} // namespace elf
-} // namespace lld
