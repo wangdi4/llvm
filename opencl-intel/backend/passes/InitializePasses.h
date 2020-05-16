@@ -118,6 +118,7 @@ void initializeWeightedInstCounterPass(llvm::PassRegistry &);
 void initializeScalarizeFunctionPass(llvm::PassRegistry &);
 void initializeRemoveAtExitPass(llvm::PassRegistry &);
 void initializeAddNTAttrPass(llvm::PassRegistry &);
+void initializeChooseVectorizationDimensionModulePassPass(llvm::PassRegistry &);
 }
 
 #endif
