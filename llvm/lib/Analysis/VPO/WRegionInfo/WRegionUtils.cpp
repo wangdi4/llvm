@@ -357,6 +357,10 @@ bool WRegionUtils::skipDirFromWrnConstruction(int DirID) {
   switch (DirID) {
   case DIR_PRAGMA_IVDEP:
   case DIR_PRAGMA_END_IVDEP:
+  case DIR_PRAGMA_BLOCK_LOOP:
+  case DIR_PRAGMA_END_BLOCK_LOOP:
+  case DIR_PRAGMA_DISTRIBUTE_POINT:
+  case DIR_PRAGMA_END_DISTRIBUTE_POINT:
     return true;
   }
 #endif // INTEL_CUSTOMIZATION
