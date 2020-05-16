@@ -439,6 +439,12 @@ public:
     /// True for bind clauses
     static bool isBindClause(int ClauseID);
     static bool isBindClause(StringRef ClauseFullName);
+
+    /// Returns begin loop directive instruction if it exists.
+    static Instruction *getBeginLoopDirective(const Loop &Lp);
+
+    /// Returns end loop directive instruction if it exists.
+    static Instruction *getEndLoopDirective(const Loop &Lp);
 };
 
 } // End vpo namespace

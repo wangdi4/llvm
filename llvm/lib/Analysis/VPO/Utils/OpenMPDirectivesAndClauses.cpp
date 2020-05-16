@@ -824,4 +824,43 @@ bool VPOAnalysisUtils::supportsPrivateClause(BasicBlock *BB) {
   return VPOAnalysisUtils::supportsPrivateClause(&(BB->front()));
 }
 
+/// Returns pointer to directive instruction if this bblock contains known loop
+/// begin/end directive. \p BeginDir flag indicates whether to look for begin or
+/// end directive.
+template <bool BeginDir = true>
+static Instruction *getLoopDirective(BasicBlock *BB) {
+  for (auto &Inst : *BB) {
+    if (BeginDir ? VPOAnalysisUtils::isBeginLoopDirective(&Inst)
+                 : VPOAnalysisUtils::isEndLoopDirective(&Inst))
+      return &Inst;
+  }
+  return nullptr;
+}
+
+/// Traces a chain of single predecessor/successor bblocks starting from \p BB
+/// and looks for loop begin/end directive. Returns the directive instruction
+/// pointer. \p BeginDir flag indicates whether to look for begin or
+/// end directive and whether to loop upward or downward the chain of BBs.
+template <bool BeginDir = true>
+static Instruction *findLoopDirective(BasicBlock *BB) {
+  for (; BB != nullptr;) {
+    if (auto *Inst = getLoopDirective<BeginDir>(BB))
+      return Inst;
+    BB = BeginDir ? BB->getSinglePredecessor() : BB->getSingleSuccessor();
+  }
+  return nullptr;
+}
+
+/// Returns begin loop directive instruction if it exists.
+Instruction *VPOAnalysisUtils::getBeginLoopDirective(const Loop &Lp) {
+  return findLoopDirective<true>(Lp.getLoopPreheader());
+}
+
+/// Returns end loop directive instruction if it exists.
+Instruction *VPOAnalysisUtils::getEndLoopDirective(const Loop &Lp) {
+  // TODO: This will not work for multi-exit loops. We need to get the exiting
+  // block corresponding to the loop latch.
+  return findLoopDirective<false>(Lp.getExitBlock());
+}
+
 #endif // INTEL_COLLAB

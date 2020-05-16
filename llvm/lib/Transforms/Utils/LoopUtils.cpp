@@ -51,6 +51,7 @@
 #include "llvm/Support/KnownBits.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
+#include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h" // INTEL
 
 using namespace llvm;
 using namespace llvm::PatternMatch;
@@ -527,6 +528,24 @@ void llvm::deleteDeadLoop(Loop *L, DominatorTree *DT, ScalarEvolution *SE,
   assert((!DT || L->isLCSSAForm(*DT)) && "Expected LCSSA!");
   auto *Preheader = L->getLoopPreheader();
   assert(Preheader && "Preheader should exist!");
+
+#if INTEL_CUSTOMIZATION
+  // Remove Loop region directives if they are present
+  if (auto *BeginDirInstr = vpo::VPOAnalysisUtils::getBeginLoopDirective(*L)) {
+    auto *EndDirInstr = vpo::VPOAnalysisUtils::getEndLoopDirective(*L);
+    assert(EndDirInstr && "END region directive should exist!");
+    // TODO: Investigate why BeginDirInstr->dropAllReferences() causes crash
+    // here in BeginDirInstr->eraseFromParent() later
+    if (BeginDirInstr->getType()->isTokenTy())
+      BeginDirInstr->replaceAllUsesWith(llvm::ConstantTokenNone::get(
+          BeginDirInstr->getParent()->getContext()));
+    BeginDirInstr->eraseFromParent();
+    if (EndDirInstr->getType()->isTokenTy())
+      EndDirInstr->replaceAllUsesWith(
+          llvm::ConstantTokenNone::get(EndDirInstr->getParent()->getContext()));
+    EndDirInstr->eraseFromParent();
+  }
+#endif // INTEL_CUSTOMIZATION
 
   std::unique_ptr<MemorySSAUpdater> MSSAU;
   if (MSSA)
