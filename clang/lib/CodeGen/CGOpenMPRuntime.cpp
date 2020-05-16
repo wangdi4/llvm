@@ -7167,7 +7167,6 @@ void CGOpenMPRuntime::emitCancelCall(CodeGenFunction &CGF, SourceLocation Loc,
   }
 }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 const OMPDeclareReductionDecl *
 CGOpenMPRuntime::getRedInit(const Expr *ReductionOp) {
@@ -7189,7 +7188,7 @@ int CGOpenMPRuntime::registerTargetRegion(const OMPExecutableDirective &D,
       OffloadEntriesInfoManagerTy::OMPTargetRegionEntryTargetRegion);
 }
 #endif // INTEL_COLLAB
-=======
+
 namespace {
 /// Cleanup action for uses_allocators support.
 class OMPUsesAllocatorsActionTy final : public PrePostActionTy {
@@ -7217,7 +7216,6 @@ public:
   }
 };
 } // namespace
->>>>>>> 0363ae97abb841114e841a963c95eb6a2202716d
 
 void CGOpenMPRuntime::emitTargetOutlinedFunction(
     const OMPExecutableDirective &D, StringRef ParentName,
