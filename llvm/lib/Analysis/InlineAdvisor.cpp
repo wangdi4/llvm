@@ -151,7 +151,6 @@ DefaultInlineAdvisor::getAdvice(CallBase &CB, FunctionAnalysisManager &FAM,
     bool RemarksEnabled =
         Callee.getContext().getDiagHandlerPtr()->isMissedOptRemarkEnabled(
             DEBUG_TYPE);
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     if (IntelInlineReportLevel & InlineReportOptions::RealCost)
       Params.ComputeFullInlineCost = true;
@@ -160,10 +159,6 @@ DefaultInlineAdvisor::getAdvice(CallBase &CB, FunctionAnalysisManager &FAM,
                          GetTLI, ILIC, AggI, CallSitesForFusion, // INTEL
                          FuncsForDTrans, PSI,                    // INTEL
                          RemarksEnabled ? &ORE : nullptr);       // INTEL
-=======
-    return getInlineCost(CB, Params, CalleeTTI, GetAssumptionCache, {GetBFI},
-                         GetTLI, PSI, RemarksEnabled ? &ORE : nullptr);
->>>>>>> 454de99a6fec705e76ed7743bf538f7a77296f59
   };
   auto OIC = shouldInline(CB, GetInlineCost, ORE, Report); // INTEL
   return std::make_unique<DefaultInlineAdvice>(this, CB, OIC, ORE);

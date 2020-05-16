@@ -2299,11 +2299,8 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
             if (II->getIntrinsicID() == Intrinsic::assume)
               (*IFI.GetAssumptionCache)(*Caller).registerAssumption(II);
         }
-<<<<<<< HEAD
 
     HandleVaArgPackAndLen(CB, FirstNewBlock, IR, MDIR); // INTEL
-=======
->>>>>>> 454de99a6fec705e76ed7743bf538f7a77296f59
   }
 
   // If there are any alloca instructions in the block that used to be the entry
