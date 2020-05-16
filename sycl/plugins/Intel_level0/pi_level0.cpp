@@ -2213,7 +2213,7 @@ pi_result piKernelGetGroupInfo(pi_kernel Kernel, pi_device Device,
 
 pi_result piKernelGetSubGroupInfo(
     pi_kernel Kernel, pi_device Device,
-    cl_kernel_sub_group_info ParamName, // TODO: untie from OpenCL
+    pi_kernel_sub_group_info ParamName,
     size_t InputValueSize, const void *InputValue, size_t ParamValueSize,
     void *ParamValue, size_t *ParamValueSizeRet) {
 

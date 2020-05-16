@@ -31,6 +31,9 @@ piextKernelSetArgMemObj
 piextKernelSetArgPointer
 piextMemCreateWithNativeHandle
 piextMemGetNativeHandle
+#INTEL_CUSTOMIZATION
+piextPlatformCreateWithNativeHandle
+#end INTEL_CUSTOMIZATION
 piextProgramCreateWithNativeHandle
 piextProgramSetSpecializationConstant
 piextQueueCreateWithNativeHandle
@@ -44,9 +47,3 @@ piextUSMFree
 piextUSMGetMemAllocInfo
 piextUSMHostAlloc
 piextUSMSharedAlloc
-<<<<<<< HEAD
-#INTEL_CUSTOMIZATION
-piextPlatformCreateWithNativeHandle
-#end INTEL_CUSTOMIZATION
-=======
->>>>>>> 9d4c2842a923fd3be4208d378b18bb30356641a8
