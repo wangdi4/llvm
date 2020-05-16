@@ -111,7 +111,6 @@ private:
 } // namespace
 
 std::unique_ptr<InlineAdvice>
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 DefaultInlineAdvisor::getAdvice(CallBase &CB, FunctionAnalysisManager &FAM,
                                 InliningLoopInfoCache *ILIC,
@@ -119,25 +118,17 @@ DefaultInlineAdvisor::getAdvice(CallBase &CB, FunctionAnalysisManager &FAM,
                                 SmallSet<Function *, 20> *FuncsForDTrans,
                                 InlineReport *Report) {
 #endif // INTEL_CUSTOMIZATION
-  Function &Callee = *CB.getCalledFunction();
-  Function &F = *CB.getCaller();
-  ProfileSummaryInfo *PSI = FAM.getResult<ModuleAnalysisManagerFunctionProxy>(F)
-                                .getCachedResult<ProfileSummaryAnalysis>(
-                                    *CB.getParent()->getParent()->getParent());
-#if INTEL_CUSTOMIZATION
-  InlineAggressiveInfo *AggI =
-      FAM.getResult<ModuleAnalysisManagerFunctionProxy>(F)
-          .getCachedResult<InlineAggAnalysis>(
-              *CB.getParent()->getParent()->getParent());
-#endif // INTEL_CUSTOMIZATION
-=======
-DefaultInlineAdvisor::getAdvice(CallBase &CB, FunctionAnalysisManager &FAM) {
   Function &Caller = *CB.getCaller();
   ProfileSummaryInfo *PSI =
       FAM.getResult<ModuleAnalysisManagerFunctionProxy>(Caller)
           .getCachedResult<ProfileSummaryAnalysis>(
               *CB.getParent()->getParent()->getParent());
->>>>>>> 8a2e2a6a2bd0ed9310a8739c256456567e2adb23
+#if INTEL_CUSTOMIZATION
+  InlineAggressiveInfo *AggI =
+      FAM.getResult<ModuleAnalysisManagerFunctionProxy>(Caller)
+          .getCachedResult<InlineAggAnalysis>(
+              *CB.getParent()->getParent()->getParent());
+#endif // INTEL_CUSTOMIZATION
 
   auto &ORE = FAM.getResult<OptimizationRemarkEmitterAnalysis>(Caller);
   // FIXME: make GetAssumptionCache's decl similar to the other 2 below. May
