@@ -1612,6 +1612,9 @@ def fimf_domain_exclusion_EQ : Joined<["-"],"fimf-domain-exclusion=">, Group<f_G
 def fimf_precision_EQ : Joined<["-"],"fimf-precision=">,Group<f_Group>,
   Flags<[DriverOption]>, HelpText<"Defines the accuracy (precision) "
   "for math library functions.">;
+def fpermissive : Flag<["-"], "fpermissive">, Group<f_Group>,
+  Flags<[DriverOption]>, HelpText<"Allow extensions for some non-conformant code">;
+def fno_permissive : Flag<["-"], "fno-permissive">, Group<f_Group>;
 #endif // INTEL_CUSTOMIZATION
 def fmodules_ts : Flag <["-"], "fmodules-ts">, Group<f_Group>,
   Flags<[CC1Option]>, HelpText<"Enable support for the C++ Modules TS">;
@@ -3811,7 +3814,9 @@ def fsemantic_interposition : Flag<["-"], "fsemantic-interposition">, Group<f_Gr
 def fno_semantic_interposition: Flag<["-"], "fno-semantic-interposition">, Group<f_Group>;
 defm non_call_exceptions : BooleanFFlag<"non-call-exceptions">, Group<clang_ignored_f_Group>;
 defm peel_loops : BooleanFFlag<"peel-loops">, Group<clang_ignored_gcc_optimization_f_Group>;
-defm permissive : BooleanFFlag<"permissive">, Group<clang_ignored_f_Group>;
+#if INTEL_CUSTOMIZATION
+// defm permissive : BooleanFFlag<"permissive">, Group<clang_ignored_f_Group>;
+#endif // INTEL_CUSTOMIZATION
 defm prefetch_loop_arrays : BooleanFFlag<"prefetch-loop-arrays">, Group<clang_ignored_gcc_optimization_f_Group>;
 defm printf : BooleanFFlag<"printf">, Group<clang_ignored_f_Group>;
 defm profile : BooleanFFlag<"profile">, Group<clang_ignored_f_Group>;
