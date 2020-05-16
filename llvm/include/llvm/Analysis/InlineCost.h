@@ -421,6 +421,7 @@ int getCallsiteCost(CallBase &Call, const DataLayout &DL);
 ///
 /// Also note that calling this function *dynamically* computes the cost of
 /// inlining the callsite. It is an expensive, heavyweight call.
+<<<<<<< HEAD
 InlineCost getInlineCost(
     CallBase &Call, const InlineParams &Params, TargetTransformInfo &CalleeTTI,
     std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
@@ -430,6 +431,16 @@ InlineCost getInlineCost(
     SmallSet<CallBase *, 20> *CallSitesForFusion,              // INTEL
     SmallSet<Function *, 20> *FuncsForDTrans,                  // INTEL
     ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE = nullptr);
+=======
+InlineCost
+getInlineCost(CallBase &Call, const InlineParams &Params,
+              TargetTransformInfo &CalleeTTI,
+              function_ref<AssumptionCache &(Function &)> GetAssumptionCache,
+              function_ref<const TargetLibraryInfo &(Function &)> GetTLI,
+              function_ref<BlockFrequencyInfo &(Function &)> GetBFI = nullptr,
+              ProfileSummaryInfo *PSI = nullptr,
+              OptimizationRemarkEmitter *ORE = nullptr);
+>>>>>>> 767db5be67cab5aa04d81227725765cad9620611
 
 /// Get an InlineCost with the callee explicitly specified.
 /// This allows you to calculate the cost of inlining a function via a
@@ -439,14 +450,19 @@ InlineCost getInlineCost(
 InlineCost
 getInlineCost(CallBase &Call, Function *Callee, const InlineParams &Params,
               TargetTransformInfo &CalleeTTI,
-              std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
-              Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
+              function_ref<AssumptionCache &(Function &)> GetAssumptionCache,
               function_ref<const TargetLibraryInfo &(Function &)> GetTLI,
+<<<<<<< HEAD
               InliningLoopInfoCache *ILIC,           // INTEL
               InlineAggressiveInfo *AggI,            // INTEL
               SmallSet<CallBase *, 20> *CallSitesForFusion, // INTEL
               SmallSet<Function *, 20> *FuncsForDTrans, // INTEL
               ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE);
+=======
+              function_ref<BlockFrequencyInfo &(Function &)> GetBFI = nullptr,
+              ProfileSummaryInfo *PSI = nullptr,
+              OptimizationRemarkEmitter *ORE = nullptr);
+>>>>>>> 767db5be67cab5aa04d81227725765cad9620611
 
 #if INTEL_CUSTOMIZATION
 /// Returns a pair of InlineResult and InlineReason for a given call site.
@@ -474,6 +490,7 @@ getAttributeBasedInliningDecision(
 /// - an integer, representing the cost.
 Optional<int> getInliningCostEstimate(
     CallBase &Call, TargetTransformInfo &CalleeTTI,
+<<<<<<< HEAD
     std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
     Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
 #if INTEL_CUSTOMIZATION
@@ -482,6 +499,12 @@ Optional<int> getInliningCostEstimate(
     SmallSet<Function *, 20> *FuncsForDTrans,
 #endif // INTEL_CUSTOMIZATION
     ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE);
+=======
+    function_ref<AssumptionCache &(Function &)> GetAssumptionCache,
+    function_ref<BlockFrequencyInfo &(Function &)> GetBFI = nullptr,
+    ProfileSummaryInfo *PSI = nullptr,
+    OptimizationRemarkEmitter *ORE = nullptr);
+>>>>>>> 767db5be67cab5aa04d81227725765cad9620611
 
 /// Minimal filter to detect invalid constructs for inlining.
 InlineResult isInlineViable(Function &Callee,                         // INTEL
