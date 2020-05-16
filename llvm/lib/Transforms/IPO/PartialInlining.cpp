@@ -225,20 +225,13 @@ struct FunctionOutliningMultiRegionInfo {
 struct PartialInlinerImpl {
 
   PartialInlinerImpl(
-      function_ref<AssumptionCache &(Function &)> GetAC,
+      std::function<AssumptionCache &(Function &)> *GetAC,
       function_ref<AssumptionCache *(Function &)> LookupAC,
-<<<<<<< HEAD
       std::function<TargetTransformInfo &(Function &)> *GTTI,
       Optional<function_ref<BlockFrequencyInfo &(Function &)>> GBFI,
       std::function<const TargetLibraryInfo &(Function &)> *GTLI,
       InliningLoopInfoCache *InlLoopIC, ProfileSummaryInfo *ProfSI, // INTEL
       bool RunLTOPartialInline, bool EnableSpecialCases)            // INTEL
-=======
-      function_ref<TargetTransformInfo &(Function &)> GTTI,
-      function_ref<const TargetLibraryInfo &(Function &)> GTLI,
-      ProfileSummaryInfo &ProfSI,
-      function_ref<BlockFrequencyInfo &(Function &)> GBFI = nullptr)
->>>>>>> 767db5be67cab5aa04d81227725765cad9620611
       : GetAssumptionCache(GetAC), LookupAssumptionCache(LookupAC),
         GetTTI(GTTI), GetBFI(GBFI), GetTLI(GTLI), ILIC(InlLoopIC),  // INTEL
         PSI(ProfSI), RunLTOPartialInline(RunLTOPartialInline),      // INTEL
@@ -306,20 +299,13 @@ struct PartialInlinerImpl {
 
 private:
   int NumPartialInlining = 0;
-  function_ref<AssumptionCache &(Function &)> GetAssumptionCache;
+  std::function<AssumptionCache &(Function &)> *GetAssumptionCache;
   function_ref<AssumptionCache *(Function &)> LookupAssumptionCache;
-<<<<<<< HEAD
   std::function<TargetTransformInfo &(Function &)> *GetTTI;
   Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI;
   std::function<const TargetLibraryInfo &(Function &)> *GetTLI;
   InliningLoopInfoCache *ILIC;   // INTEL
   ProfileSummaryInfo *PSI;
-=======
-  function_ref<TargetTransformInfo &(Function &)> GetTTI;
-  function_ref<BlockFrequencyInfo &(Function &)> GetBFI;
-  function_ref<const TargetLibraryInfo &(Function &)> GetTLI;
-  ProfileSummaryInfo &PSI;
->>>>>>> 767db5be67cab5aa04d81227725765cad9620611
 
   // Return the frequency of the OutlininingBB relative to F's entry point.
   // The result is no larger than 1 and is represented using BP.
@@ -468,10 +454,11 @@ struct PartialInlinerLegacyPass : public ModulePass {
     AssumptionCacheTracker *ACT = &getAnalysis<AssumptionCacheTracker>();
     TargetTransformInfoWrapperPass *TTIWP =
         &getAnalysis<TargetTransformInfoWrapperPass>();
-    ProfileSummaryInfo &PSI =
-        getAnalysis<ProfileSummaryInfoWrapperPass>().getPSI();
+    ProfileSummaryInfo *PSI =
+        &getAnalysis<ProfileSummaryInfoWrapperPass>().getPSI();
 
-    auto GetAssumptionCache = [&ACT](Function &F) -> AssumptionCache & {
+    std::function<AssumptionCache &(Function &)> GetAssumptionCache =
+        [&ACT](Function &F) -> AssumptionCache & {
       return ACT->getAssumptionCache(F);
     };
 
@@ -479,24 +466,21 @@ struct PartialInlinerLegacyPass : public ModulePass {
       return ACT->lookupAssumptionCache(F);
     };
 
-    auto GetTTI = [&TTIWP](Function &F) -> TargetTransformInfo & {
+    std::function<TargetTransformInfo &(Function &)> GetTTI =
+        [&TTIWP](Function &F) -> TargetTransformInfo & {
       return TTIWP->getTTI(F);
     };
 
-    auto GetTLI = [this](Function &F) -> TargetLibraryInfo & {
+    std::function<const TargetLibraryInfo &(Function &)> GetTLI =
+        [this](Function &F) -> TargetLibraryInfo & {
       return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
     };
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     auto ILIC = std::make_unique<InliningLoopInfoCache>();
     return PartialInlinerImpl(&GetAssumptionCache, LookupAssumptionCache,
                               &GetTTI, NoneType::None, &GetTLI, ILIC.get(),
                               PSI, RunLTOPartialInline, EnableSpecialCases)
-=======
-    return PartialInlinerImpl(GetAssumptionCache, LookupAssumptionCache, GetTTI,
-                              GetTLI, PSI)
->>>>>>> 767db5be67cab5aa04d81227725765cad9620611
         .run(M);
 #endif // INTEL_CUSTOMIZATION
   }
@@ -518,10 +502,10 @@ PartialInlinerImpl::computeOutliningColdRegionsInfo(Function *F,
     ScopedBFI.reset(new BlockFrequencyInfo(*F, BPI, LI));
     BFI = ScopedBFI.get();
   } else
-    BFI = &(GetBFI(*F));
+    BFI = &(*GetBFI)(*F);
 
   // Return if we don't have profiling information.
-  if (!PSI.hasInstrumentationProfile())
+  if (!PSI->hasInstrumentationProfile())
     return std::unique_ptr<FunctionOutliningMultiRegionInfo>();
 
   std::unique_ptr<FunctionOutliningMultiRegionInfo> OutliningInfo =
@@ -594,7 +578,7 @@ PartialInlinerImpl::computeOutliningColdRegionsInfo(Function *F,
     // Only consider regions with predecessor blocks that are considered
     // not-cold (default: part of the top 99.99% of all block counters)
     // AND greater than our minimum block execution count (default: 100).
-    if (PSI.isColdBlock(thisBB, BFI) ||
+    if (PSI->isColdBlock(thisBB, BFI) ||
         BBProfileCount(thisBB) < MinBlockCounterExecution)
       continue;
     for (auto SI = succ_begin(thisBB); SI != succ_end(thisBB); ++SI) {
@@ -897,20 +881,15 @@ bool PartialInlinerImpl::shouldPartialInline(
     return isInlineViable(*Callee, Reason).isSuccess(); // INTEL
 
   Function *Caller = CB.getCaller();
-  auto &CalleeTTI = GetTTI(*Callee);
+  auto &CalleeTTI = (*GetTTI)(*Callee);
   bool RemarksEnabled =
       Callee->getContext().getDiagHandlerPtr()->isMissedOptRemarkEnabled(
           DEBUG_TYPE);
   InlineCost IC =
-<<<<<<< HEAD
       getInlineCost(CB, getInlineParams(), CalleeTTI, *GetAssumptionCache,
                                 GetBFI, *GetTLI, ILIC,            // INTEL
                                 nullptr, nullptr, nullptr, PSI,   // INTEL
                                 RemarksEnabled ? &ORE : nullptr);
-=======
-      getInlineCost(CB, getInlineParams(), CalleeTTI, GetAssumptionCache,
-                    GetTLI, GetBFI, &PSI, RemarksEnabled ? &ORE : nullptr);
->>>>>>> 767db5be67cab5aa04d81227725765cad9620611
 
   if (IC.isAlways()) {
     ORE.emit([&]() {
@@ -1083,7 +1062,7 @@ void PartialInlinerImpl::computeCallsiteToProfCountMap(
         CurrentCallerBFI = TempBFI.get();
       } else {
         // New pass manager:
-        CurrentCallerBFI = &(GetBFI(*Caller));
+        CurrentCallerBFI = &(*GetBFI)(*Caller);
       }
   };
 
@@ -1531,7 +1510,7 @@ std::pair<bool, Function *> PartialInlinerImpl::unswitchFunction(Function *F) {
   if (F->hasFnAttribute(Attribute::NoInline))
     return {false, nullptr};
 
-  if (PSI.isFunctionEntryCold(F))
+  if (PSI->isFunctionEntryCold(F))
     return {false, nullptr};
 
   if (F->users().empty())
@@ -1541,7 +1520,7 @@ std::pair<bool, Function *> PartialInlinerImpl::unswitchFunction(Function *F) {
 
   // Only try to outline cold regions if we have a profile summary, which
   // implies we have profiling information.
-  if (PSI.hasProfileSummary() && F->hasProfileData() &&
+  if (PSI->hasProfileSummary() && F->hasProfileData() &&
       !DisableMultiRegionPartialInline) {
     std::unique_ptr<FunctionOutliningMultiRegionInfo> OMRI =
         computeOutliningColdRegionsInfo(F, ORE);
@@ -1550,8 +1529,8 @@ std::pair<bool, Function *> PartialInlinerImpl::unswitchFunction(Function *F) {
 
 #ifndef NDEBUG
       if (TracePartialInlining) {
-        dbgs() << "HotCountThreshold = " << PSI.getHotCountThreshold() << "\n";
-        dbgs() << "ColdCountThreshold = " << PSI.getColdCountThreshold()
+        dbgs() << "HotCountThreshold = " << PSI->getHotCountThreshold() << "\n";
+        dbgs() << "ColdCountThreshold = " << PSI->getColdCountThreshold()
                << "\n";
       }
 #endif
@@ -1680,7 +1659,7 @@ bool PartialInlinerImpl::tryPartialInline(FunctionCloner &Cloner) {
     OR << ore::NV("Callee", Cloner.OrigFunc) << " partially inlined into "
        << ore::NV("Caller", CB->getCaller());
 
-    InlineFunctionInfo IFI(nullptr, GetAssumptionCache, &PSI);
+    InlineFunctionInfo IFI(nullptr, GetAssumptionCache, PSI);
     // We can only forward varargs when we outlined a single region, else we
     // bail on vararg functions.
     InlineReason Reason = NinlrNoReason; // INTEL
@@ -1789,7 +1768,8 @@ PreservedAnalyses PartialInlinerPass::run(Module &M,
                                           ModuleAnalysisManager &AM) {
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
 
-  auto GetAssumptionCache = [&FAM](Function &F) -> AssumptionCache & {
+  std::function<AssumptionCache &(Function &)> GetAssumptionCache =
+      [&FAM](Function &F) -> AssumptionCache & {
     return FAM.getResult<AssumptionAnalysis>(F);
   };
 
@@ -1797,21 +1777,23 @@ PreservedAnalyses PartialInlinerPass::run(Module &M,
     return FAM.getCachedResult<AssumptionAnalysis>(F);
   };
 
-  auto GetBFI = [&FAM](Function &F) -> BlockFrequencyInfo & {
+  std::function<BlockFrequencyInfo &(Function &)> GetBFI =
+      [&FAM](Function &F) -> BlockFrequencyInfo & {
     return FAM.getResult<BlockFrequencyAnalysis>(F);
   };
 
-  auto GetTTI = [&FAM](Function &F) -> TargetTransformInfo & {
+  std::function<TargetTransformInfo &(Function &)> GetTTI =
+      [&FAM](Function &F) -> TargetTransformInfo & {
     return FAM.getResult<TargetIRAnalysis>(F);
   };
 
-  auto GetTLI = [&FAM](Function &F) -> TargetLibraryInfo & {
+  std::function<const TargetLibraryInfo &(Function &)> GetTLI =
+      [&FAM](Function &F) -> TargetLibraryInfo & {
     return FAM.getResult<TargetLibraryAnalysis>(F);
   };
 
-  ProfileSummaryInfo &PSI = AM.getResult<ProfileSummaryAnalysis>(M);
+  ProfileSummaryInfo *PSI = &AM.getResult<ProfileSummaryAnalysis>(M);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   PreservedAnalyses PA;
   PA.preserve<WholeProgramAnalysis>();
@@ -1819,10 +1801,6 @@ PreservedAnalyses PartialInlinerPass::run(Module &M,
   if (PartialInlinerImpl(&GetAssumptionCache, LookupAssumptionCache, &GetTTI,
                          {GetBFI}, &GetTLI, ILIC.get(), PSI,
                          RunLTOPartialInline, EnableSpecialCases)
-=======
-  if (PartialInlinerImpl(GetAssumptionCache, LookupAssumptionCache, GetTTI,
-                         GetTLI, PSI, GetBFI)
->>>>>>> 767db5be67cab5aa04d81227725765cad9620611
           .run(M))
     return PA;
 #endif // INTEL_CUSTOMIZATION

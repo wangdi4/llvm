@@ -76,7 +76,6 @@ public:
         [&](Function &F) -> AssumptionCache & {
       return ACT->getAssumptionCache(F);
     };
-<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
     auto *Agg = getAnalysisIfAvailable<InlineAggressiveWrapperPass>();
@@ -88,11 +87,6 @@ public:
     return llvm::getInlineCost(CB, Params, TTI, GetAssumptionCache,
         /*GetBFI=*/None, GetTLI, ILIC, AggI, &CallSitesForFusion,     // INTEL
         &FuncsForDTrans, PSI, RemarksEnabled ? &ORE : nullptr);       // INTEL
-=======
-    return llvm::getInlineCost(CB, Params, TTI, GetAssumptionCache, GetTLI,
-                               /*GetBFI=*/nullptr, PSI,
-                               RemarksEnabled ? &ORE : nullptr);
->>>>>>> 767db5be67cab5aa04d81227725765cad9620611
   }
 
   bool runOnSCC(CallGraphSCC &SCC) override;
