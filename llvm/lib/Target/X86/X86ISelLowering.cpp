@@ -18454,8 +18454,7 @@ static SDValue ExtractBitFromMaskVector(SDValue Op, SelectionDAG &DAG,
     return DAG.getNode(ISD::TRUNCATE, dl, EltVT, Elt);
   }
 
-<<<<<<< HEAD
-  unsigned IdxVal = cast<ConstantSDNode>(Idx)->getZExtValue();
+  unsigned IdxVal = IdxC->getZExtValue();
 #if INTEL_CUSTOMIZATION
   if (IdxVal == 0) { // the operation is legal
     // Widen v2i1/v4i1 to v8i1 to match the codegen we get for bitcasts from
@@ -18467,10 +18466,6 @@ static SDValue ExtractBitFromMaskVector(SDValue Op, SelectionDAG &DAG,
       return DAG.getNode(ISD::EXTRACT_VECTOR_ELT, dl, Op.getValueType(),
                          Vec, DAG.getIntPtrConstant(0, dl));
     }
-=======
-  unsigned IdxVal = IdxC->getZExtValue();
-  if (IdxVal == 0) // the operation is legal
->>>>>>> 330b7491d573c0357a07b7ed21f30af167ce5d8a
     return Op;
   }
 #endif // INTEL_CUSTOMIZATION
