@@ -111,6 +111,7 @@ private:
 } // namespace
 
 std::unique_ptr<InlineAdvice>
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 DefaultInlineAdvisor::getAdvice(CallBase &CB, FunctionAnalysisManager &FAM,
                                 InliningLoopInfoCache *ILIC,
@@ -129,14 +130,22 @@ DefaultInlineAdvisor::getAdvice(CallBase &CB, FunctionAnalysisManager &FAM,
           .getCachedResult<InlineAggAnalysis>(
               *CB.getParent()->getParent()->getParent());
 #endif // INTEL_CUSTOMIZATION
+=======
+DefaultInlineAdvisor::getAdvice(CallBase &CB, FunctionAnalysisManager &FAM) {
+  Function &Caller = *CB.getCaller();
+  ProfileSummaryInfo *PSI =
+      FAM.getResult<ModuleAnalysisManagerFunctionProxy>(Caller)
+          .getCachedResult<ProfileSummaryAnalysis>(
+              *CB.getParent()->getParent()->getParent());
+>>>>>>> 8a2e2a6a2bd0ed9310a8739c256456567e2adb23
 
-  auto &ORE = FAM.getResult<OptimizationRemarkEmitterAnalysis>(F);
+  auto &ORE = FAM.getResult<OptimizationRemarkEmitterAnalysis>(Caller);
   // FIXME: make GetAssumptionCache's decl similar to the other 2 below. May
   // need changing the type of getInlineCost parameters? Also see similar case
   // in Inliner.cpp
   std::function<AssumptionCache &(Function &)> GetAssumptionCache =
       [&](Function &F) -> AssumptionCache & {
-    return FAM.getResult<AssumptionAnalysis>(Callee);
+    return FAM.getResult<AssumptionAnalysis>(F);
   };
   auto GetBFI = [&](Function &F) -> BlockFrequencyInfo & {
     return FAM.getResult<BlockFrequencyAnalysis>(F);
