@@ -72,6 +72,12 @@ private:
   /// \brief Read 32bit integer value and convert it to little-endian if
   /// necessary
   std::uint32_t getSPIRVWord(std::uint32_t const *wordPtr) const;
+
+  /// Reads some information from SPIR-V module for further analysis. Basic
+  /// acceptance check is performed as well
+  /// \param error - contains error message if something is wrong
+  bool readSPIRVHeader(std::string &error);
+
   /// \brief Check a SPIR-V module's version, capabilities, and memory model are
   /// supported
   /// \param error - contains explanation why the module is not supported.
@@ -80,6 +86,11 @@ private:
   Intel::OpenCL::FECompilerAPI::FESPIRVProgramDescriptor *m_pProgDesc;
   const Intel::OpenCL::ClangFE::CLANG_DEV_INFO& m_sDeviceInfo;
   bool m_littleEndian; ///< True if SPIR-V module byte order is little-endian
+
+  std::uint32_t m_sourceLanguage = 0; // SourceLanguageUnknown
+  std::uint32_t m_version = 0;
+  std::vector<std::uint32_t> m_capabilities;
+  std::uint32_t m_memoryModel = 0x7fffffff; // MemoryModelMax
 };
 
 } // namespace ClangFE

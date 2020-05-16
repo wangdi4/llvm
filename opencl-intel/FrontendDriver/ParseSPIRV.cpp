@@ -68,7 +68,7 @@ bool ClangFECompilerParseSPIRVTask::isSPIRV(const void *pBinary,
          spv::MagicNumber == llvm::ByteSwap_32(Magic);
 }
 
-bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
+bool ClangFECompilerParseSPIRVTask::readSPIRVHeader(std::string &error) {
   std::uint32_t const *spirvBC =
       reinterpret_cast<std::uint32_t const *>(m_pProgDesc->pSPIRVContainer);
   // Pointer behind the last word in the SPIR-V BC
@@ -92,15 +92,7 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
     return false;
   }
 
-  // Require SPIR-V version 1.1.
-  // We do not fully support 1.1, yet want to use some of the features.
-  std::uint32_t const version = getSPIRVWord(spirvBC + SPIRVVersionIdx);
-  if (version > spv::Version) {
-    errStr << "Version required by the module (" << version
-           << ") is higher than supported version (" << spv::Version << ')';
-    error = errStr.str();
-    return false;
-  }
+  m_version = getSPIRVWord(spirvBC + SPIRVVersionIdx);
 
   // Look for OpCapability instructions and check the declared capabilites
   // are supported by CPU device.
@@ -111,84 +103,110 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
     std::uint16_t wordCount = word >> 16;
     // Opcode is the low-order 16 bits of word 0 of the instruction.
     std::uint16_t opCode = word & 0x0000ffff;
-    if (opCode == spv::OpCapability) {
-      std::uint32_t const capability = getSPIRVWord(currentWord + 1);
-      switch (capability) {
-      default:
-        errStr << "SPIRV module requires unsupported capability " << capability;
-        error = errStr.str();
-        return false;
-      case spv::CapabilityImageBasic:
-      case spv::CapabilitySampledBuffer:
-      case spv::CapabilitySampled1D:
-      case spv::CapabilityImageReadWrite:
-        if (!m_sDeviceInfo.bImageSupport) {
-          error = "SPIRV module requires image capabilities,"
-                  " but device doesn't support it";
-          return false;
-        }
-        break;
-
-      case spv::CapabilityFloat64:
-        if (!m_sDeviceInfo.bDoubleSupport) {
-          error = "SPIRV module requires fp64 data type,"
-                  " but device doesn't support it";
-          return false;
-        }
-        break;
-
-      // The following capabilities are common for all OpenCL 2.1 capable
-      // devices
-      case spv::CapabilityAddresses:
-      case spv::CapabilityLinkage:
-      case spv::CapabilityKernel:
-      case spv::CapabilityVector16:
-      case spv::CapabilityFloat16Buffer:
-      case spv::CapabilityInt64:
-      case spv::CapabilityPipes:
-      case spv::CapabilityPipeStorage:
-      case spv::CapabilityGroups:
-      case spv::CapabilityDeviceEnqueue:
-      case spv::CapabilityLiteralSampler:
-      case spv::CapabilityInt16:
-      case spv::CapabilityGenericPointer:
-      case spv::CapabilityInt8:
-      case spv::CapabilitySubgroupShuffleINTEL:
-      case spv::CapabilitySubgroupBufferBlockIOINTEL:
-      case spv::CapabilitySubgroupImageBlockIOINTEL:
-      case spv::CapabilityInt64Atomics:
-      // Function pointers support
-      case spv::CapabilityFunctionPointersINTEL:
-      case spv::CapabilityIndirectReferencesINTEL:
-      // Optimization hints
-      case spv::CapabilityOptimizationHintsINTEL:
-      // Intel FPGA capabilities
-      case spv::CapabilityFPGAMemoryAttributesINTEL:
-      case spv::CapabilityFPGALoopControlsINTEL:
-      case spv::CapabilityFPGARegINTEL:
-      case spv::CapabilityBlockingPipesINTEL:
-      case spv::CapabilityUnstructuredLoopControlsINTEL:
-      case spv::CapabilityKernelAttributesINTEL:
-      case spv::CapabilityFPGAKernelAttributesINTEL:
-      case spv::CapabilityIOPipeINTEL:
-        break;
-      }
-    // According to logical layout defined by the SPIR-V spec. single
-    // OpMemoryModel instruction is requeied.
-    } else if (opCode == spv::OpMemoryModel) {
-      if (getSPIRVWord(currentWord + 2) != spv::MemoryModelOpenCL) {
-        error = "Memory model declared in SPIRV module is not "
-                "OpenCL(the only supported memory model)";
-        return false;
-      }
+    if (spv::OpCapability == opCode) {
+      m_capabilities.push_back(getSPIRVWord(currentWord + 1));
+    } else if (spv::OpMemoryModel == opCode) {
+      m_memoryModel = getSPIRVWord(currentWord + 2);
+    } else if (spv::OpSource == opCode) {
+      m_sourceLanguage = getSPIRVWord(currentWord + 1);
+      // No need to go further
+      return true;
+    } else if (spv::OpName == opCode || spv::OpMemberName == opCode ||
+               spv::OpDecorate == opCode || spv::OpMemberDecorate == opCode ||
+               spv::OpFunction == opCode) {
+      // Since OpSource is optional instruction, as well as most of other ones,
+      // let's check for a bunch of other opcodes in order to stop reading
+      // SPIR-V file further
       return true;
     }
     // Go for the next SPIR-V op.
     currentWord = currentWord + wordCount;
   }
 
-  error = "OpMemoryModel is missing, but it is required";
-  return false;
+  return true;
+}
+
+bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
+  std::stringstream errStr;
+  // Require SPIR-V version 1.1.
+  // We do not fully support 1.1, yet want to use some of the features.
+  if (m_version > spv::Version) {
+    errStr << "Version required by the module (" << m_version
+           << ") is higher than supported version (" << spv::Version << ')';
+    error = errStr.str();
+    return false;
+  }
+
+  for (const auto &capability : m_capabilities) {
+    switch (capability) {
+    default:
+      errStr << "SPIRV module requires unsupported capability " << capability;
+      error = errStr.str();
+      return false;
+    case spv::CapabilityImageBasic:
+    case spv::CapabilitySampledBuffer:
+    case spv::CapabilitySampled1D:
+    case spv::CapabilityImageReadWrite:
+      if (!m_sDeviceInfo.bImageSupport) {
+        error = "SPIRV module requires image capabilities,"
+          " but device doesn't support it";
+        return false;
+      }
+      break;
+
+    case spv::CapabilityFloat64:
+      if (!m_sDeviceInfo.bDoubleSupport) {
+        error = "SPIRV module requires fp64 data type,"
+          " but device doesn't support it";
+        return false;
+      }
+      break;
+
+      // The following capabilities are common for all OpenCL 2.1 capable
+      // devices
+    case spv::CapabilityAddresses:
+    case spv::CapabilityLinkage:
+    case spv::CapabilityKernel:
+    case spv::CapabilityVector16:
+    case spv::CapabilityFloat16Buffer:
+    case spv::CapabilityInt64:
+    case spv::CapabilityPipes:
+    case spv::CapabilityPipeStorage:
+    case spv::CapabilityGroups:
+    case spv::CapabilityDeviceEnqueue:
+    case spv::CapabilityLiteralSampler:
+    case spv::CapabilityInt16:
+    case spv::CapabilityGenericPointer:
+    case spv::CapabilityInt8:
+    case spv::CapabilitySubgroupShuffleINTEL:
+    case spv::CapabilitySubgroupBufferBlockIOINTEL:
+    case spv::CapabilitySubgroupImageBlockIOINTEL:
+    case spv::CapabilityInt64Atomics:
+      // Function pointers support
+    case spv::CapabilityFunctionPointersINTEL:
+    case spv::CapabilityIndirectReferencesINTEL:
+      // Optimization hints
+    case spv::CapabilityOptimizationHintsINTEL:
+      // Intel FPGA capabilities
+    case spv::CapabilityFPGAMemoryAttributesINTEL:
+    case spv::CapabilityFPGALoopControlsINTEL:
+    case spv::CapabilityFPGARegINTEL:
+    case spv::CapabilityBlockingPipesINTEL:
+    case spv::CapabilityUnstructuredLoopControlsINTEL:
+    case spv::CapabilityKernelAttributesINTEL:
+    case spv::CapabilityFPGAKernelAttributesINTEL:
+    case spv::CapabilityIOPipeINTEL:
+      break;
+    }
+  }
+
+  if (spv::MemoryModelOpenCL != m_memoryModel) {
+    error = "Memory model declared in SPIRV module is not "
+            "OpenCL(the only supported memory model)";
+    return false;
+  }
+
+  return true;
 }
 
 /// \brief: Implements conversion from a SPIR-V binary (incapsulated in
@@ -222,6 +240,15 @@ int ClangFECompilerParseSPIRVTask::ParseSPIRV(
 
   // verify SPIR-V module is supported
   std::string errorMsg;
+  if (!readSPIRVHeader(errorMsg)) {
+    if (pBinaryResult) {
+      errorMessage << "Unsupported SPIR-V module\n" << errorMsg << '\n';
+      pResult->setLog(errorMessage.str());
+      *pBinaryResult = pResult.release();
+    }
+    return CL_INVALID_PROGRAM;
+  }
+
   if (!isSPIRVSupported(errorMsg)) {
     if (pBinaryResult) {
       errorMessage << "Unsupported SPIR-V module\n" << errorMsg << '\n';
@@ -247,12 +274,56 @@ int ClangFECompilerParseSPIRVTask::ParseSPIRV(
                       m_pProgDesc->puiSpecConstValues[i]);
   }
 
-  bool success = llvm::readSpirv(*context, opts, inputStream, pModule, errorMsg);
+  {
+    // Try to understand which version of OpenCL need to be specified for
+    // built-ins lowering
 
-  assert(!verifyModule(*pModule) &&
-         "SPIR-V consumer returned a broken module!");
+    // From OpenCL API spec, ver. 2.1 rev. 23, Section 5.8.4.5 Options
+    // Controlling the OpenCL C version:
+    //
+    // If the –cl-std build option is not specified, the highest OpenCL C 1.x
+    // language version supported by each device is used when compiling the
+    // program for each device. Applications are required to specify the
+    // -cl-std=CL2.0 option if they want to compile or build their programs with
+    // OpenCL C 2.0.
+    SPIRV::BIsRepresentation TargetRepr = SPIRV::BIsRepresentation::OpenCL12;
+
+    std::string Options(m_pProgDesc->pszOptions);
+    if (Options.find("-cl-std=CL2.0") != std::string::npos) {
+      TargetRepr = SPIRV::BIsRepresentation::OpenCL20;
+    }
+
+    // Hack for DPC++/SYCL: SYCL 1.2.1 is based on OpenCL 1.2 and our SYCL RT
+    // doesn't pass any "-cl-std" build option to fallback to default OpenCL
+    // 1.2.
+    // However, SYCL program which uses Intel extensions might use features from
+    // 2.0 standard, like sub-groups, non-uniform work-groups, work-group
+    // functions, etc. - that means that we need to detect that SPIR-V is coming
+    // from DPC++/SYCL and intentionally lower it to OpenCL 2.x
+    //
+    // This is a tricky part:
+    // The only noticeable difference between SYCL flow and OpenCL flow is the
+    // spirv.Source metadata: in SYCL the value for spirv.Source is OpenCL C++
+    // (because SYCL does not have a dedicated enum value yet), while in OpenCL
+    // OpSource is OpenCL C.
+    //
+    // OpSource is an *optional* instruction and can be omitted during SPIR-V
+    // translation. It also is not emitted if we do not use SPIR-V as an
+    // intermediate. These two cases are not supported now.
+    // TODO: enable it after spirv patch is in xmain branch
+    // if (m_sourceLanguage == spv::SourceLanguageOpenCL_CPP) {
+    //   TargetRepr = SPIRV::BIsRepresentation::OpenCL20;
+    // }
+
+    opts.setDesiredBIsRepresentation(TargetRepr);
+  }
+
+  bool success =
+      llvm::readSpirv(*context, opts, inputStream, pModule, errorMsg);
 
   if (success) {
+    assert(!verifyModule(*pModule) &&
+           "SPIR-V consumer returned a broken module!");
     // Adapts the output of SPIR-V consumer to backend-friendly format.
     // It returns 0 on success.
     success = !ClangFECompilerMaterializeSPIRVTask(m_pProgDesc)
