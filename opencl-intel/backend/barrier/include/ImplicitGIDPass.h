@@ -54,6 +54,7 @@ namespace intel {
     /// @brief Inform about usage/modification/dependency of this pass
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
       AU.addRequired<DataPerBarrier>();
+      AU.addPreserved<DataPerBarrier>();
     }
 
   private:
