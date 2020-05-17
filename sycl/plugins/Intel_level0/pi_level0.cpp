@@ -1002,10 +1002,10 @@ pi_result piDeviceGetInfo(pi_device Device, pi_device_info ParamName,
   case PI_DEVICE_INFO_MEM_BASE_ADDR_ALIGN:
     // SYCL/OpenCL spec is vague on what this means exactly, but seems to
     // be for "alignment requirement (in bits) for sub-buffer offsets."
-    // An OpenCL implementation returns 8*128, but L0 can do just 8,
-    // meaning unaligned access for values of types larger than 8 bits.
-    //
-    SET_PARAM_VALUE(pi_uint32{8});
+    // OpenCL GPU returns here 1024 bits = 128 bytes, due to internal
+    // alignment restrictions, so for now, return the same for Level-Zero
+    // TODO: Determine if a smaller value can be used.
+    SET_PARAM_VALUE(pi_uint32{1024});
     break;
   case PI_DEVICE_INFO_MAX_SAMPLERS:
     SET_PARAM_VALUE(pi_uint32{ZeDeviceImageProperties.maxSamplers});
