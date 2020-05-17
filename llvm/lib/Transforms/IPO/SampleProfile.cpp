@@ -906,6 +906,7 @@ bool SampleProfileLoader::inlineCallInstruction(CallBase &CB) {
   // when cost exceeds threshold without checking all IRs in the callee.
   // The acutal cost does not matter because we only checks isNever() to
   // see if it is legal to inline the callsite.
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   InliningLoopInfoCache *ILIC = new InliningLoopInfoCache();
   InlineCost Cost =
@@ -914,12 +915,16 @@ bool SampleProfileLoader::inlineCallInstruction(CallBase &CB) {
   delete ILIC;
 #endif // INTEL_CUSTOMIZATION
 
+=======
+  InlineCost Cost =
+      getInlineCost(CB, Params, GetTTI(*CalledFunction), GetAC, GetTLI);
+>>>>>>> 5ba960ee89772b5383a1e6ca1b03ffa8b830255e
   if (Cost.isNever()) {
     ORE->emit(OptimizationRemarkAnalysis(CSINLINE_DEBUG, "InlineFail", DLoc, BB)
               << "incompatible inlining");
     return false;
   }
-  InlineFunctionInfo IFI(nullptr, &GetAC);
+  InlineFunctionInfo IFI(nullptr, GetAC);
   if (InlineFunction(CB, IFI).isSuccess()) {
     // The call to InlineFunction erases I, so we can't pass it here.
     ORE->emit(OptimizationRemark(CSINLINE_DEBUG, "InlineSuccess", DLoc, BB)
@@ -938,6 +943,7 @@ bool SampleProfileLoader::shouldInlineColdCallee(CallBase &CallInst) {
   if (Callee == nullptr)
     return false;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   InliningLoopInfoCache *ILIC = new InliningLoopInfoCache();
   InlineCost Cost =
@@ -945,6 +951,10 @@ bool SampleProfileLoader::shouldInlineColdCallee(CallBase &CallInst) {
                     GetTLI, ILIC, nullptr, nullptr, nullptr, nullptr);
   delete ILIC;
 #endif // INTEL_CUSTOMIZATION
+=======
+  InlineCost Cost = getInlineCost(CallInst, getInlineParams(), GetTTI(*Callee),
+                                  GetAC, GetTLI);
+>>>>>>> 5ba960ee89772b5383a1e6ca1b03ffa8b830255e
 
   return Cost.getCost() <= SampleColdCallSiteThreshold;
 }

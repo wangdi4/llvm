@@ -1306,7 +1306,7 @@ static void AddAlignmentAssumptions(CallBase &CB, InlineFunctionInfo &IFI) {
   if (!PreserveAlignmentAssumptions || !IFI.GetAssumptionCache)
     return;
 
-  AssumptionCache *AC = &(*IFI.GetAssumptionCache)(*CB.getCaller());
+  AssumptionCache *AC = &IFI.GetAssumptionCache(*CB.getCaller());
   auto &DL = CB.getCaller()->getParent()->getDataLayout();
 
   // To avoid inserting redundant assumptions, we should check for assumptions
@@ -1494,7 +1494,7 @@ static Value *HandleByValArgument(Value *Arg, Instruction *TheCall,
       return Arg;
 
     AssumptionCache *AC =
-        IFI.GetAssumptionCache ? &(*IFI.GetAssumptionCache)(*Caller) : nullptr;
+        IFI.GetAssumptionCache ? &IFI.GetAssumptionCache(*Caller) : nullptr;
 
     // If the pointer is already known to be sufficiently aligned, or if we can
     // round it up to a larger alignment, then we don't need a temporary.
@@ -2179,7 +2179,7 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
     AddAlignmentAssumptions(CB, IFI);
 
     AssumptionCache *AC =
-        IFI.GetAssumptionCache ? &(*IFI.GetAssumptionCache)(*Caller) : nullptr;
+        IFI.GetAssumptionCache ? &IFI.GetAssumptionCache(*Caller) : nullptr;
 
     /// Preserve all attributes on of the call and its parameters.
     salvageKnowledge(&CB, AC);
@@ -2294,13 +2294,17 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
     if (IFI.GetAssumptionCache)
       for (BasicBlock &NewBlock :
            make_range(FirstNewBlock->getIterator(), Caller->end()))
-        for (Instruction &I : NewBlock) {
+        for (Instruction &I : NewBlock)
           if (auto *II = dyn_cast<IntrinsicInst>(&I))
             if (II->getIntrinsicID() == Intrinsic::assume)
+<<<<<<< HEAD
               (*IFI.GetAssumptionCache)(*Caller).registerAssumption(II);
         }
 
     HandleVaArgPackAndLen(CB, FirstNewBlock, IR, MDIR); // INTEL
+=======
+              IFI.GetAssumptionCache(*Caller).registerAssumption(II);
+>>>>>>> 5ba960ee89772b5383a1e6ca1b03ffa8b830255e
   }
 
   // If there are any alloca instructions in the block that used to be the entry
@@ -2914,7 +2918,7 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
   // block other optimizations.
   if (PHI) {
     AssumptionCache *AC =
-        IFI.GetAssumptionCache ? &(*IFI.GetAssumptionCache)(*Caller) : nullptr;
+        IFI.GetAssumptionCache ? &IFI.GetAssumptionCache(*Caller) : nullptr;
     auto &DL = Caller->getParent()->getDataLayout();
     if (Value *V = SimplifyInstruction(PHI, {DL, nullptr, nullptr, AC})) {
       PHI->replaceAllUsesWith(V);

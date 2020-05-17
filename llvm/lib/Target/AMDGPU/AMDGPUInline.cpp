@@ -218,15 +218,20 @@ InlineCost AMDGPUInliner::getInlineCost(CallBase &CB) {
   }
 
   OptimizationRemarkEmitter ORE(Caller);
-  std::function<AssumptionCache &(Function &)> GetAssumptionCache =
-      [this](Function &F) -> AssumptionCache & {
+  auto GetAssumptionCache = [this](Function &F) -> AssumptionCache & {
     return ACT->getAssumptionCache(F);
   };
 
+<<<<<<< HEAD
   auto IC =
       llvm::getInlineCost(CB, Callee, LocalParams, TTI, GetAssumptionCache,
                              None, GetTLI, nullptr, nullptr, nullptr, // INTEL
                              PSI, RemarksEnabled ? &ORE : nullptr);   // INTEL
+=======
+  auto IC = llvm::getInlineCost(CB, Callee, LocalParams, TTI,
+                                GetAssumptionCache, GetTLI, nullptr, PSI,
+                                RemarksEnabled ? &ORE : nullptr);
+>>>>>>> 5ba960ee89772b5383a1e6ca1b03ffa8b830255e
 
   if (IC && !IC.isAlways() && !Callee->hasFnAttribute(Attribute::InlineHint)) {
     // Single BB does not increase total BB amount, thus subtract 1
