@@ -93,31 +93,23 @@ class X86VectorVTInfo<int numelts, ValueType eltvt, RegisterClass rc,
   PatFrag ScalarLdFrag = !cast<PatFrag>("load" # EltVT);
   PatFrag BroadcastLdFrag = !cast<PatFrag>("X86VBroadcastld" # EltSizeName);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
-  ComplexPattern ScalarIntMemCPat = !if (!eq (EltTypeName, "f16"),
-                                          !cast<ComplexPattern>("sse_load_f16"),
-                                    !if (!eq (EltTypeName, "f32"),
-                                          !cast<ComplexPattern>("sse_load_f32"),
-                                    !if (!eq (EltTypeName, "f64"),
-                                          !cast<ComplexPattern>("sse_load_f64"),
-                                    ?)));
+  PatFrags ScalarIntMemFrags = !if (!eq (EltTypeName, "f16"),
+                                           !cast<PatFrags>("sse_load_f16"),
+                               !if (!eq (EltTypeName, "f32"),
+                                     !cast<PatFrags>("sse_load_f32"),
+                               !if (!eq (EltTypeName, "f64"),
+                                     !cast<PatFrags>("sse_load_f64"),
+                               ?)));
 #else // INTEL_FEATURE_ISA_FP16
-  ComplexPattern ScalarIntMemCPat = !if (!eq (EltTypeName, "f32"),
-                                          !cast<ComplexPattern>("sse_load_f32"),
-                                    !if (!eq (EltTypeName, "f64"),
-                                          !cast<ComplexPattern>("sse_load_f64"),
-                                    ?));
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
-=======
   PatFrags ScalarIntMemFrags = !if (!eq (EltTypeName, "f32"),
                                            !cast<PatFrags>("sse_load_f32"),
                                !if (!eq (EltTypeName, "f64"),
                                      !cast<PatFrags>("sse_load_f64"),
                                ?));
->>>>>>> 135b877874fae96b4372c8a3fbfaa8ff44ff86e3
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
   // The string to specify embedded broadcast in assembly.
   string BroadcastStr = "{1to" # NumElts # "}";
