@@ -270,7 +270,7 @@ namespace intel {
         StoreInst *pStoreInstr = cast<StoreInst>(pInstr);
         StoreInst *pNewStore = new StoreInst(pStoreInstr->getValueOperand(), pNewValue,
                                     pStoreInstr->isVolatile(),
-                                    MaybeAlign(pStoreInstr->getAlignment()),
+                                    pStoreInstr->getAlign(),
                                     pStoreInstr->getOrdering(), pStoreInstr->getSyncScopeID(),
                                     pStoreInstr);
         pNewInstr = pNewStore;

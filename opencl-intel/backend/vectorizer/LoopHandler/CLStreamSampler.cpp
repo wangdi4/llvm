@@ -572,7 +572,7 @@ void CLStreamSampler::sinkWriteImgCall(TranspWriteImgAttr &attr,
     Value *colorPointer = GetElementPtrInst::CreateInBounds(
                      colorAllocas[i], indicesArr, "calc.address", attr.m_call);
     new StoreInst(attr.m_colors[i], colorPointer, false,
-                  MaybeAlign(FLOAT_X_WIDTH__ALIGNMENT), attr.m_call);
+                  Align(FLOAT_X_WIDTH__ALIGNMENT), attr.m_call);
   }
 
   // Prepare arguments for calling the stream sampler.

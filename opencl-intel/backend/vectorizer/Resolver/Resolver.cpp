@@ -448,9 +448,9 @@ void FuncResolver::resolveStoreScalar(CallInst* caller, unsigned align) {
   V_ASSERT(!isa<VectorType>(caller->getArgOperand(0)->getType()) && "Bad op type");
 
   // Create new store
-  StoreInst* st = new StoreInst(
-    caller->getArgOperand(1), caller->getArgOperand(2), false,
-    MaybeAlign(align), caller);
+  StoreInst *st =
+      new StoreInst(caller->getArgOperand(1), caller->getArgOperand(2), false,
+                    align ? Align(align) : Align(), caller);
   VectorizerUtils::SetDebugLocBy(st, caller);
   // Replace predicator with contol flow
   toPredicate(st, caller->getArgOperand(0));
@@ -477,8 +477,8 @@ void FuncResolver::resolveStoreVector(CallInst* caller, unsigned align) {
   // Uniform mask for vector store.
   // Perform a single wide store and a single IF.
   if (!Mask->getType()->isVectorTy()) {
-    Instruction *storer = new StoreInst(Data, Ptr, false, MaybeAlign(align),
-                                        caller);
+    Instruction *storer =
+        new StoreInst(Data, Ptr, false, align ? Align(align) : Align(), caller);
     VectorizerUtils::SetDebugLocBy(storer, caller);
     toPredicate(storer, Mask);
     caller->replaceAllUsesWith(storer);
@@ -505,7 +505,7 @@ void FuncResolver::resolveStoreVector(CallInst* caller, unsigned align) {
     Instruction *MaskBit = ExtractElementInst::Create(Mask, Idx, "exmask", caller);
     Instruction *DataElem = ExtractElementInst::Create(Data, Idx, "exData", caller);
     Instruction *storer = new StoreInst(DataElem, GEP, false,
-                                        MaybeAlign(align), caller);
+                                        align ? Align(align) : Align(), caller);
     VectorizerUtils::SetDebugLocBy(GEP, caller);
     VectorizerUtils::SetDebugLocBy(MaskBit, caller);
     VectorizerUtils::SetDebugLocBy(DataElem, caller);

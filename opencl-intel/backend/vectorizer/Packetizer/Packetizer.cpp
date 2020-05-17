@@ -1278,8 +1278,8 @@ Instruction* PacketizeFunction::widenConsecutiveUnmaskedMemOp(MemoryOperation &M
     Value *vData;
     obtainVectorizedValue(&vData, MO.Data, MO.Orig);
     // Create a "vectorized" store
-    return new StoreInst(vData, bitCastPtr, false, MaybeAlign(MO.Alignment),
-                         MO.Orig);
+    return new StoreInst(vData, bitCastPtr, false,
+                         MO.Alignment ? Align(MO.Alignment) : Align(), MO.Orig);
   }
   case PREFETCH: {
     // Leave the scalar pointer as prefetch argument, but increase number of elements in 16 times.

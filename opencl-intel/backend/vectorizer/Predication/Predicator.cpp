@@ -946,7 +946,8 @@ void Predicator::selectOutsideUsedInstructions(Instruction* inst) {
   Instruction *prev_value =
       new LoadInst(Ty, prev_ptr, "prev_value", false /*volatile*/, align);
   SelectInst* select = SelectInst::Create(predicate, inst, prev_value, "out_sel");
-  Instruction* store  = new StoreInst(select,prev_ptr);
+  Instruction *store =
+      new StoreInst(select, prev_ptr, false /*volatile*/, align);
   VectorizerUtils::SetDebugLocBy(select, inst);
 
   // We are predicating a PHINode
@@ -1281,7 +1282,7 @@ void Predicator::maskOutgoing_loopexit(BasicBlock *BB) {
     }
 
     if (!curLoopMask) curLoopMask = newLoopMask;
-    new StoreInst(newLoopMask, loopMask_p, br);
+    new StoreInst(newLoopMask, loopMask_p, false, br);
     L = L->getParentLoop();
     mostInnerLoop = false;
   } while (L && !L->contains(BBexit));
