@@ -14,6 +14,7 @@
 #include <memory>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include <level_zero/zet_api.h>
 
@@ -1949,11 +1950,30 @@ pi_result piProgramBuild(pi_program Program, pi_uint32 NumDevices,
   // Check that the program wasn't already built.
   assert(!Program->ZeModule);
 
-  ze_device_handle_t ZeDevice = Program->Context->Device->ZeDevice;
+  // Translate collected specialization constants.
+  ze_module_constants_t ZeSpecConstants = {};
+  std::vector<uint32_t> ZeSpecContantsIds(Program->ZeSpecConstants.size());
+  std::vector<uint64_t> ZeSpecContantsValues(Program->ZeSpecConstants.size());
+  {
+    std::lock_guard<std::mutex> ZeSpecConstantsMutexGuard(Program->ZeSpecConstantsMutex);
+    ZeSpecConstants.numConstants = Program->ZeSpecConstants.size();
+    auto ZeSpecContantsIdsIt = ZeSpecContantsIds.begin();
+    auto ZeSpecContantsValuesIt = ZeSpecContantsValues.begin();
+    for (auto &SpecConstant: Program->ZeSpecConstants) {
+      *ZeSpecContantsIdsIt = SpecConstant.first;
+      ZeSpecContantsIdsIt++;
+      *ZeSpecContantsValuesIt = SpecConstant.second;
+      ZeSpecContantsValuesIt++;
+    }
+    ZeSpecConstants.pConstantIds = ZeSpecContantsIds.data();
+    ZeSpecConstants.pConstantValues = ZeSpecContantsValues.data();
+  }
 
+  // Complete the module's descriptor
   Program->ZeModuleDesc.pBuildFlags = Options;
-  // TODO: set specialization constants here.
-  Program->ZeModuleDesc.pConstants = nullptr;
+  Program->ZeModuleDesc.pConstants = &ZeSpecConstants;
+
+  ze_device_handle_t ZeDevice = Program->Context->Device->ZeDevice;
   ZE_CALL(zeModuleCreate(ZeDevice, &Program->ZeModuleDesc, &Program->ZeModule,
                          &Program->ZeBuildLog));
   return PI_SUCCESS;
@@ -3806,11 +3826,19 @@ pi_result piKernelSetExecInfo(pi_kernel Kernel, pi_kernel_exec_info ParamName,
 
 pi_result piextProgramSetSpecializationConstant(pi_program Prog,
                                                 pi_uint32 SpecID,
-                                                size_t SpecSize,
+                                                size_t SpecSize, // unused
                                                 const void *SpecValue) {
-  // TODO: implement
-  die("piextProgramSetSpecializationConstant: not implemented");
-  return {};
+  // Level Zero sets spec constants when creating modules,
+  // so save them for when program is built.
+  std::lock_guard<std::mutex> ZeSpecConstantsMutexGuard(Prog->ZeSpecConstantsMutex);
+
+  // Pass SpecValue pointer. Spec constant value is retrieved
+  // by Level-Zero when creating the modul
+  //
+  // NOTE: SpecSize is unused in L0, the size is known from SPIR-V by SpecID.
+  Prog->ZeSpecConstants[SpecID] = reinterpret_cast<uint64_t>(SpecValue);
+
+  return PI_SUCCESS;
 }
 
 pi_result piPluginInit(pi_plugin *PluginInit) {
