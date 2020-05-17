@@ -874,10 +874,10 @@ Loop *VPOParoptTransform::genDispatchLoopForTeamDistribute(
   IncUB->insertBefore(TermInst);
 
   StoreInst *NewIncLB = new StoreInst(IncLB, TeamLowerBnd, false, TermInst);
-  NewIncLB->setAlignment(MaybeAlign(4));
+  NewIncLB->setAlignment(Align(4));
 
   StoreInst *NewIncUB = new StoreInst(IncUB, TeamUpperBnd, false, TermInst);
-  NewIncUB->setAlignment(MaybeAlign(4));
+  NewIncUB->setAlignment(Align(4));
 
   TermInst->setSuccessor(0, TeamDispHeaderBB);
 
@@ -3215,8 +3215,10 @@ void VPOParoptTransform::genConditionalLPCode(
   Instruction *IfHighestChunkIsModifiedByThreadThen = SplitBlockAndInsertIfThen(
       IsLocalGreaterThanGlobal, IfThreadWroteSomethingThen, false, nullptr, DT,
       LI); //                                                         (60)
-  StoreInst *MaxStore = new StoreInst(FinalLocalMaxIndex, MaxGlobalIndex);
-  MaxStore->insertBefore(IfHighestChunkIsModifiedByThreadThen); //    (61)
+  StoreInst *MaxStore =
+      new StoreInst(FinalLocalMaxIndex, MaxGlobalIndex, false,
+                    IfHighestChunkIsModifiedByThreadThen); //         (61)
+  (void)MaxStore;
 
   // TODO: This critical section should be switched with either atomic-max
   // reduction, or atomic operation
@@ -8008,6 +8010,7 @@ bool VPOParoptTransform::propagateCancellationPointsToIR(WRegionNode *W) {
   Function *F = EntryBB->getParent();
   LLVMContext &C = F->getContext();
   Type *I32Type = Type::getInt32Ty(C);
+  Align I32Align = F->getParent()->getDataLayout().getABITypeAlign(I32Type);
 
   BasicBlock &FunctionEntry = F->getEntryBlock();
   IRBuilder<> AllocaBuilder(FunctionEntry.getFirstNonPHI());
@@ -8016,7 +8019,8 @@ bool VPOParoptTransform::propagateCancellationPointsToIR(WRegionNode *W) {
     AllocaInst *CPAlloca =
         AllocaBuilder.CreateAlloca(I32Type, nullptr, "cp");          // (1)
 
-    StoreInst *CPStore = new StoreInst(CancellationPoint, CPAlloca); // (4)
+    StoreInst *CPStore =
+        new StoreInst(CancellationPoint, CPAlloca, false, I32Align); // (4)
     CPStore->insertAfter(CancellationPoint);
     CancellationPointAllocas.push_back(CPAlloca);
   }

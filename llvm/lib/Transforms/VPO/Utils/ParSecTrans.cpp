@@ -799,7 +799,7 @@ Value *VPOUtils::genNewLoop(Value *LB, Value *UB, Value *Stride,
         NormalizedUB = TmpUB;
 
       StoreInst *SI = new StoreInst(UB, NormalizedUB, false, InsertPt);
-      SI->setAlignment(MaybeAlign(4));
+      SI->setAlignment(Align(4));
 
       Type *I32Ty = Type::getInt32Ty(Context);
       InsertPt = PreHeaderBB->getTerminator();

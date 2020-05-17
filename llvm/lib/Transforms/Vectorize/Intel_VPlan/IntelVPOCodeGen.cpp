@@ -166,7 +166,7 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
       NewStore->setVolatile(OldStore->isVolatile());
       NewStore->setOrdering(OldStore->getOrdering());
       NewStore->setSyncScopeID(OldStore->getSyncScopeID());
-      NewStore->setAlignment(MaybeAlign{OldStore->getAlignment()});
+      NewStore->setAlignment(OldStore->getAlign());
     }
   } else if (VPInst->getOpcode() == Instruction::Call) {
     assert(ScalarOperands.size() > 0 &&

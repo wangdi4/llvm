@@ -645,13 +645,15 @@ void VPOParoptTransform::guardSideEffectStatements(
     Instruction *BarrierInsertPt = ElseBB->getFirstNonPHI();
 
     if (StartIHasUses) { //                                               (3)
-      StoreInst *StoreGuardedInstValue = new StoreInst(StartI, TeamLocalVal);
+      Type *StartITy = StartI->getType();
+      Align StartIAlign = DL.getABITypeAlign(StartITy);
+      StoreInst *StoreGuardedInstValue =
+          new StoreInst(StartI, TeamLocalVal, false /*volatile*/, StartIAlign);
       StoreGuardedInstValue->insertAfter(StartI);
 
-      Type *StartITy = StartI->getType();
       LoadInst *LoadSavedValue = //                                       (5)
           new LoadInst(StartITy, TeamLocalVal, StartI->getName() + ".new",
-                       false /*volatile*/, DL.getABITypeAlign(StartITy));
+                       false /*volatile*/, StartIAlign);
       LoadSavedValue->insertBefore(BarrierInsertPt);
       BarrierInsertPt = LoadSavedValue;
 

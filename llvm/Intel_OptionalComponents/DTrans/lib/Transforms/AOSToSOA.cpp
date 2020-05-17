@@ -1198,9 +1198,9 @@ public:
     // is changing, the original alignment may no longer be valid, so set it
     // to the ABI default for the type that the load will be once remapping
     // occurs.
-    unsigned int Alignment = DL.getABITypeAlignment(RemapTy);
+    Align Alignment = DL.getABITypeAlign(RemapTy);
     Instruction *NewSI = new StoreInst(NewValOp, NewPtrOp, SI->isVolatile(),
-                                       MaybeAlign(Alignment), SI->getOrdering(),
+                                       Alignment, SI->getOrdering(),
                                        SI->getSyncScopeID(), SI);
     InstructionsToDelete.insert(SI);
     auto *ActualPtrTy = cast<PointerType>(ActualTy);

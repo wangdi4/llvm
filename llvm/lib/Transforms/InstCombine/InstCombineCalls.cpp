@@ -205,7 +205,7 @@ void InstCombiner::GenStructFieldsCopyFromMemcpy(MemIntrinsic *MI) {
 
     STDest = Builder.CreateStore(LDSrc, GEPDest);
     STDest->setMetadata(LLVMContext::MD_tbaa, CopyMD);
-    STDest->setAlignment(MaybeAlign(DL.getABITypeAlignment(ElemTy)));
+    STDest->setAlignment(DL.getABITypeAlign(ElemTy));
 
     // Propagate alias.scope and noalias metadata to load and store.
     for (Instruction *I : {static_cast<Instruction *>(LDSrc),

@@ -666,7 +666,8 @@ VecCloneImpl::expandVectorParameters(Function *Clone, VectorVariant &V,
       // vector bitcast so that we can later update any users of the
       // parameter.
       Value *ArgValue = cast<Value>(Arg);
-      StoreInst *Store = new StoreInst(ArgValue, VecAlloca);
+      StoreInst *Store = new StoreInst(ArgValue, VecAlloca, false /*volatile*/,
+                                       DL.getABITypeAlign(ArgValue->getType()));
       StoresToInsert.push_back(Store);
       PRef->VectorParm = ArgValue;
     }
@@ -830,7 +831,10 @@ Instruction *VecCloneImpl::expandReturn(Function *Clone, BasicBlock *EntryBlock,
     VecGep->insertAfter(InsertPt);
 
     // Store the constant or temp to the appropriate lane in the return vector.
-    StoreInst *VecStore = new StoreInst(ValToStore, VecGep);
+    StoreInst *VecStore =
+        new StoreInst(ValToStore, VecGep, false /*volatile*/,
+                      Clone->getParent()->getDataLayout().getABITypeAlign(
+                          ValToStore->getType()));
     VecStore->insertAfter(VecGep);
 
   } else {
@@ -917,7 +921,10 @@ Instruction *VecCloneImpl::expandVectorParametersAndReturn(
     // the EntryBlock instructions are grouped by alloca, followed by store,
     // followed by bitcast for readability reasons.
 
-    StoreInst *MaskStore = new StoreInst(&*MaskParm, MaskVector);
+    StoreInst *MaskStore =
+        new StoreInst(&*MaskParm, MaskVector, false /*volatile*/,
+                      Clone->getParent()->getDataLayout().getABITypeAlign(
+                          (*MaskParm).getType()));
     insertInstruction(MaskStore, EntryBlock);
   }
 

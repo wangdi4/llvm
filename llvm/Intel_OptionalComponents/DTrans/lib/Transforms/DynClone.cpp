@@ -3911,10 +3911,9 @@ void DynCloneImpl::transformIR(void) {
     IRBuilder<> IRB(SI);
     NewVal = generateBitFieldStore(StElem, NewVal, NewSrcOp, IRB);
 
-    Instruction *NewSI =
-        new StoreInst(NewVal, NewSrcOp, SI->isVolatile(),
-                      MaybeAlign(DL.getABITypeAlignment(NewTy)),
-                      SI->getOrdering(), SI->getSyncScopeID(), SI);
+    Instruction *NewSI = new StoreInst(
+        NewVal, NewSrcOp, SI->isVolatile(), DL.getABITypeAlign(NewTy),
+        SI->getOrdering(), SI->getSyncScopeID(), SI);
 
     if (AATags)
       NewSI->setAAMetadata(AATags);
