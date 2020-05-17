@@ -2297,14 +2297,9 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
         for (Instruction &I : NewBlock)
           if (auto *II = dyn_cast<IntrinsicInst>(&I))
             if (II->getIntrinsicID() == Intrinsic::assume)
-<<<<<<< HEAD
-              (*IFI.GetAssumptionCache)(*Caller).registerAssumption(II);
-        }
+              IFI.GetAssumptionCache(*Caller).registerAssumption(II);
 
     HandleVaArgPackAndLen(CB, FirstNewBlock, IR, MDIR); // INTEL
-=======
-              IFI.GetAssumptionCache(*Caller).registerAssumption(II);
->>>>>>> 5ba960ee89772b5383a1e6ca1b03ffa8b830255e
   }
 
   // If there are any alloca instructions in the block that used to be the entry
