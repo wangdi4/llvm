@@ -24,10 +24,15 @@ function(add_sycl_rt_library LIB_NAME)
   set(LIB_OBJ_NAME ${LIB_NAME}_object)
 
   add_library(${LIB_OBJ_NAME} OBJECT ${ARG_SOURCES})
-  add_library(${LIB_NAME} SHARED 
-              $<TARGET_OBJECTS:${LIB_OBJ_NAME}>
-              ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
-    
+  if(INTEL_CUSTOMIZATION)
+    add_library(${LIB_NAME} SHARED
+                $<TARGET_OBJECTS:${LIB_OBJ_NAME}>)
+  else()
+    add_library(${LIB_NAME} SHARED
+                $<TARGET_OBJECTS:${LIB_OBJ_NAME}>
+                ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
+  endif()
+
   if (ARG_COMPILE_OPTIONS)
     target_compile_options(${LIB_OBJ_NAME} PRIVATE ${ARG_COMPILE_OPTIONS})
   endif()
@@ -97,6 +102,10 @@ function(add_sycl_rt_library LIB_NAME)
                         VERSION ${SYCL_VERSION_STRING}
                         SOVERSION ${SYCL_MAJOR_VERSION})
 
+  dpcpptarget_add_resource_file(${LIB_NAME}
+                                "${LIB_NAME}.dll"
+                                "Intel(R) oneAPI DPC++ Library"
+                                "Intel(R) oneAPI DPC++ Library")
 endfunction(add_sycl_rt_library)
 
 set(SYCL_SOURCES

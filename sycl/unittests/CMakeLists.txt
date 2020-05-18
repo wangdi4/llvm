@@ -35,7 +35,7 @@ function(add_sycl_unittest test_dirname link_variant)
     add_unittest(SYCLUnitTests ${test_dirname} ${ARGN})
   else() 
     add_unittest(SYCLUnitTests ${test_dirname} 
-                $<TARGET_OBJECTS:${sycl_obj_target}> ${ARGN})
+                $<TARGET_OBJECTS:${sycl_obj_target}> CUSTOM_WIN_VER ${ARGN})
     target_compile_definitions(${test_dirname} PRIVATE __SYCL_BUILD_SYCL_DLL)
 
     get_target_property(SYCL_LINK_LIBS ${sycl_so_target} LINK_LIBRARIES)

@@ -60,6 +60,11 @@ add_common_options(pi_opencl)
 # and do not treat warnings as error unless it fixed upstream
 #
 target_compile_definitions (pi_opencl PRIVATE CL_USE_DEPRECATED_OPENCL_1_2_APIS)
+
+dpcpptarget_add_resource_file(pi_opencl
+                              "pi_opencl.dll"
+                              "Intel(R) oneAPI DPC++ Library"
+                              "Intel(R) oneAPI DPC++ Library")
 #end INTEL_CUSTOMIZATION
 
 install(TARGETS pi_opencl
