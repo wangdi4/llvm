@@ -1096,31 +1096,6 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
     auto GetAssumptionCache = [&](Function &F) -> AssumptionCache & {
       return FAM.getResult<AssumptionAnalysis>(F);
     };
-<<<<<<< HEAD
-=======
-    auto GetBFI = [&](Function &F) -> BlockFrequencyInfo & {
-      return FAM.getResult<BlockFrequencyAnalysis>(F);
-    };
-    auto GetTLI = [&](Function &F) -> const TargetLibraryInfo & {
-      return FAM.getResult<TargetLibraryAnalysis>(F);
-    };
-
-    auto GetInlineCost = [&](CallBase &CB) {
-      Function &Callee = *CB.getCalledFunction();
-      auto &CalleeTTI = FAM.getResult<TargetIRAnalysis>(Callee);
-      bool RemarksEnabled =
-          Callee.getContext().getDiagHandlerPtr()->isMissedOptRemarkEnabled(
-              DEBUG_TYPE);
-#if INTEL_CUSTOMIZATION
-      if (IntelInlineReportLevel & InlineReportOptions::RealCost)
-        Params.ComputeFullInlineCost = true;
-#endif // INTEL_CUSTOMIZATION
-
-      return getInlineCost(CB, Params, CalleeTTI, GetAssumptionCache, {GetBFI},
-                           GetTLI, ILIC, AggI,                      // INTEL
-                           PSI, RemarksEnabled ? &ORE : nullptr);   // INTEL
-    };
->>>>>>> eec920484d1fa94683fa9daf7e9d8edc2085464e
 
     // Now process as many calls as we have within this caller in the sequnece.
     // We bail out as soon as the caller has to change so we can update the
@@ -1153,10 +1128,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
         continue;
       }
 
-#if INTEL_CUSTOMIZATION
-      auto Advice = Advisor.getAdvice(*CB, FAM, ILIC, &CallSitesForFusion,
-                                      &FuncsForDTrans, &Report);
-#endif // INTEL_CUSTOMIZATION
+      auto Advice = Advisor.getAdvice(*CB, FAM, ILIC, &Report); // INTEL
       // Check whether we want to inline this callsite.
       if (!Advice->isInliningRecommended()) {
         Advice->recordUnattemptedInlining();

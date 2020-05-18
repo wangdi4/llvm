@@ -884,15 +884,9 @@ bool PartialInlinerImpl::shouldPartialInline(
       Callee->getContext().getDiagHandlerPtr()->isMissedOptRemarkEnabled(
           DEBUG_TYPE);
   InlineCost IC =
-<<<<<<< HEAD
       getInlineCost(CB, getInlineParams(), CalleeTTI, GetAssumptionCache,
                     GetTLI, GetBFI, &PSI,                   // INTEL
                     RemarksEnabled ? &ORE : nullptr, ILIC); // INTEL
-=======
-      getInlineCost(CB, getInlineParams(), CalleeTTI, *GetAssumptionCache,
-                                GetBFI, *GetTLI, ILIC, nullptr, PSI, // INTEL
-                                RemarksEnabled ? &ORE : nullptr);
->>>>>>> eec920484d1fa94683fa9daf7e9d8edc2085464e
 
   if (IC.isAlways()) {
     ORE.emit([&]() {

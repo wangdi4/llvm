@@ -134,8 +134,6 @@ public:
   virtual std::unique_ptr<InlineAdvice>
   getAdvice(CallBase &CB, FunctionAnalysisManager &FAM,   // INTEL
             InliningLoopInfoCache *ILIC,                  // INTEL
-            SmallSet<CallBase *, 20> *CallSitesForFusion, // INTEL
-            SmallSet<Function *, 20> *FuncsForDTrans,     // INTEL
             InlineReport *Report) = 0;                    // INTEL
 
   /// This must be called when the Inliner pass is entered, to allow the
@@ -181,8 +179,6 @@ private:
   std::unique_ptr<InlineAdvice>
   getAdvice(CallBase &CB, FunctionAnalysisManager &FAM,             // INTEL
             InliningLoopInfoCache *ILIC = nullptr,                  // INTEL
-            SmallSet<CallBase *, 20> *CallSitesForFusion = nullptr, // INTEL
-            SmallSet<Function *, 20> *FuncsForDTrans = nullptr,     // INTEL
             InlineReport *Report = nullptr) override;               // INTEL
 
   void OnPassExit() override { freeDeletedFunctions(); }

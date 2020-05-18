@@ -114,8 +114,6 @@ std::unique_ptr<InlineAdvice>
 #if INTEL_CUSTOMIZATION
 DefaultInlineAdvisor::getAdvice(CallBase &CB, FunctionAnalysisManager &FAM,
                                 InliningLoopInfoCache *ILIC,
-                                SmallSet<CallBase *, 20> *CallSitesForFusion,
-                                SmallSet<Function *, 20> *FuncsForDTrans,
                                 InlineReport *Report) {
 #endif // INTEL_CUSTOMIZATION
   Function &Caller = *CB.getCaller();
@@ -153,8 +151,7 @@ DefaultInlineAdvisor::getAdvice(CallBase &CB, FunctionAnalysisManager &FAM,
 #endif // INTEL_CUSTOMIZATION
     return getInlineCost(CB, Params, CalleeTTI, GetAssumptionCache, GetTLI,
                          GetBFI, PSI, RemarksEnabled ? &ORE : nullptr, // INTEL
-                         ILIC, AggI, CallSitesForFusion,               // INTEL
-                         FuncsForDTrans);                              // INTEL
+                         ILIC, AggI);                                  // INTEL
   };
   auto OIC = shouldInline(CB, GetInlineCost, ORE, Report); // INTEL
   return std::make_unique<DefaultInlineAdvice>(this, CB, OIC, ORE);
