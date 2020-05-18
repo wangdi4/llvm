@@ -2746,6 +2746,7 @@ inline void VPLAN_DUMP(bool Cond, const VPlan &Plan) {
   if (!Cond)
     return;
   Plan.dump(outs(), true);
+  outs().flush();
 }
 inline void VPLAN_DUMP(bool Cond, const VPlan *Plan) {
   VPLAN_DUMP(Cond, *Plan);
@@ -2756,6 +2757,7 @@ inline void VPLAN_DUMP(bool Cond, StringRef Transformation, const VPlan &Plan) {
     return;
   outs() << "VPlan after " << Transformation << ":\n";
   Plan.dump(outs(), true);
+  outs().flush();
 }
 inline void VPLAN_DUMP(bool Cond, StringRef Transformation, const VPlan *Plan) {
   return VPLAN_DUMP(Cond, Transformation, *Plan);
@@ -2765,6 +2767,7 @@ inline void VPLAN_DOT(bool Cond, const VPlan &Plan) {
   if (!Cond)
     return;
   outs() << Plan;
+  outs().flush();
 }
 inline void VPLAN_DOT(bool Cond, const VPlan *Plan) { VPLAN_DOT(Cond, *Plan); }
 #else
