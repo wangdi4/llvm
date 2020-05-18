@@ -72,7 +72,7 @@ private:
   SmallPtrSet<HLLoop *, 16> InvertedZttLoops;
 
   /// Ztt candidates deferred until parsing.
-  SmallDenseMap<HLLoop *, HLIf *> DeferredZtts;
+  SmallVector<std::pair<HLLoop *, HLIf *>, 16> DeferredZtts;
 
   /// Maps HLLoops to their label and bottom test.
   /// This is used as a backup to convert countable loops to unknown if parsing
@@ -134,7 +134,7 @@ public:
 
   /// Ztt candidates deferred to parser due to children present on both sides of
   /// the If.
-  const SmallDenseMap<HLLoop *, HLIf *> &getDeferredZtts() const {
+  const SmallVectorImpl<std::pair<HLLoop *, HLIf *>> &getDeferredZtts() const {
     return DeferredZtts;
   }
 

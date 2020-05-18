@@ -2805,8 +2805,10 @@ void VPOCodeGenHIR::addPaddingRuntimeCheck(
 }
 
 RegDDRef *VPOCodeGenHIR::getUniformScalarRef(const VPValue *VPVal) {
-  RegDDRef *ScalarRef = nullptr;
+  if (!isa<VPExternalDef>(VPVal) && !isa<VPConstant>(VPVal))
+    llvm_unreachable("Expected a VPExternalDef/VPConstant");
 
+  RegDDRef *ScalarRef = nullptr;
   if ((ScalarRef = getScalRefForVPVal(VPVal, 0)))
     return ScalarRef->clone();
 
@@ -2847,15 +2849,16 @@ RegDDRef *VPOCodeGenHIR::getUniformScalarRef(const VPValue *VPVal) {
       ScalarRef = DDRefUtilities.createScalarRegDDRef(
           DDRefUtilities.getNewSymbase(), CE);
     }
-  } else if (auto *VPConst = dyn_cast<VPConstant>(VPVal)) {
-    ScalarRef = DDRefUtilities.createConstDDRef(VPConst->getConstant());
   } else {
-    llvm_unreachable("Expected a VPExternalDef/VPConstant");
+    auto *VPConst = cast<VPConstant>(VPVal);
+    ScalarRef = DDRefUtilities.createConstDDRef(VPConst->getConstant());
   }
 
   assert(ScalarRef && "Unexpected null scalar ref");
   addVPValueScalRefMapping(VPVal, ScalarRef, 0);
-  return ScalarRef;
+
+  // Clients can potentially modify the returned value. Return the cloned value.
+  return ScalarRef->clone();
 }
 
 RegDDRef *VPOCodeGenHIR::widenRef(const VPValue *VPVal, unsigned VF) {
@@ -2865,35 +2868,16 @@ RegDDRef *VPOCodeGenHIR::widenRef(const VPValue *VPVal, unsigned VF) {
   if ((WideRef = getWideRefForVPVal(VPVal)))
     return WideRef->clone();
 
-  // Temporary special handling for VPInstructions associated with main loop IV.
-  // Widended version of -
-  // PHI = i1 + <0, 1,..., VF-1> (already in map and returned)
-  // Add = i1 + <0, 1,..., VF-1> + VF * CurrentUnrollPart
-  // This handling is only needed in mixed code gen mode where we skip widening
-  // inductioninitstep instruction and to avoid generating unnecessary extracts
-  // in this mode. TODO: Once we have the change to fold adds for cases like
-  // IV + 4, we can get rid of this piece of code. At that point, we will also
-  // no longer need to tie generating code for VPInductionInitStep to codegen
-  // approach.
-  if (!EnableVPValueCodegenHIR && MainLoopIVInsts.count(VPVal)) {
-    assert(!isa<VPPHINode>(VPVal) &&
-           "Main loop IV PHI was not found in WidenMap!");
-    assert(cast<VPInstruction>(VPVal)->getOpcode() == Instruction::Add &&
-           "Invalid instruction associated with main loop IV.");
-    WideRef = generateLoopInductionRef(VPVal->getType());
-    WideRef->shift(OrigLoop->getNestingLevel(), CurrentVPInstUnrollPart * VF);
-  } else {
-    assert((isa<VPExternalDef>(VPVal) || isa<VPConstant>(VPVal)) &&
-           "Expected VPExternalDef/VPConstant");
-    WideRef = getUniformScalarRef(VPVal);
-    WideRef = widenRef(WideRef, VF);
-  }
-
+  // VPVal is expected to be a VPExternalDef or VPConstant.
+  WideRef = getUniformScalarRef(VPVal);
+  WideRef = widenRef(WideRef, VF);
   assert(WideRef && "Expected non-null widened ref");
   LLVM_DEBUG(WideRef->dump(true));
   LLVM_DEBUG(errs() << "\n");
   addVPValueWideRefMapping(VPVal, WideRef);
-  return WideRef;
+
+  // Clients can potentially modify the returned value. Return the cloned value.
+  return WideRef->clone();
 }
 
 RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPValue *VPPtr,
@@ -3045,20 +3029,19 @@ RegDDRef *VPOCodeGenHIR::generateLoopInductionRef(Type *RefDestTy) {
 
 RegDDRef *VPOCodeGenHIR::getOrCreateScalarRef(const VPValue *VPVal) {
   RegDDRef *ScalarRef = nullptr;
-
-  if ((ScalarRef = getScalRefForVPVal(VPVal, 0)))
+  unsigned Lane = 0;
+  if ((ScalarRef = getScalRefForVPVal(VPVal, Lane)))
     return ScalarRef->clone();
 
-  if (isa<VPExternalDef>(VPVal) || isa<VPConstant>(VPVal)) {
+  if (isa<VPExternalDef>(VPVal) || isa<VPConstant>(VPVal))
     return getUniformScalarRef(VPVal);
-  } else {
-    RegDDRef *WideRef = widenRef(VPVal, getVF());
-    HLInst *ExtractInst = HLNodeUtilities.createExtractElementInst(
-        WideRef->clone(), (unsigned)0, "uni.idx");
-    addInst(ExtractInst, nullptr /*unmasked*/);
-    ScalarRef = ExtractInst->getLvalDDRef();
-    return ScalarRef->clone();
-  }
+
+  RegDDRef *WideRef = widenRef(VPVal, getVF());
+  HLInst *ExtractInst = HLNodeUtilities.createExtractElementInst(
+      WideRef->clone(), (unsigned)Lane, "uni.idx");
+  addInstUnmasked(ExtractInst);
+  ScalarRef = ExtractInst->getLvalDDRef();
+  return ScalarRef->clone();
 }
 
 // For the code generated see comment in *.h file.
@@ -3267,6 +3250,27 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
                                 const OVLSGroup *Grp, int64_t InterleaveFactor,
                                 int64_t InterleaveIndex,
                                 const HLInst *GrpStartInst, bool Widen) {
+  assert((Widen || VPInst->getOpcode() == Instruction::GetElementPtr ||
+          VPInst->getOpcode() == Instruction::Add) &&
+         "Expected add/gep for scalar constructs");
+
+  std::function<void(RegDDRef *, const VPInstruction *,
+                     SmallVectorImpl<const RegDDRef *> &, bool)>
+      makeConsistentAndAddToMap =
+          [this](RegDDRef *Ref, const VPInstruction *VPInst,
+                 SmallVectorImpl<const RegDDRef *> &AuxRefs, bool Widen) {
+            Ref->makeConsistent(AuxRefs, OrigLoop->getNestingLevel());
+            if (Widen)
+              addVPValueWideRefMapping(VPInst, Ref);
+            else
+              addVPValueScalRefMapping(VPInst, Ref, 0);
+          };
+
+  std::function<Type *(Type *, unsigned, bool)> getResultRefTy =
+      [](Type *RefTy, unsigned VF, bool Widen) {
+        return Widen ? VectorType::get(RefTy, VF) : RefTy;
+      };
+
   HLInst *NewInst = nullptr;
   SmallVector<RegDDRef *, 1> CallArgs;
   const HLInst *CallInst = nullptr;
@@ -3336,7 +3340,29 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
       continue;
     }
 
-    RegDDRef *Ref = widenRef(Operand, getVF());
+    RegDDRef *Ref;
+    if (Widen)
+      Ref = widenRef(Operand, getVF());
+    else {
+      // Obtain the scalar ref for lane 0 if one exists already
+      if ((Ref = getScalRefForVPVal(Operand, 0)))
+        Ref = Ref->clone();
+      else if (isa<VPExternalDef>(Operand) || isa<VPConstant>(Operand))
+        // Creation of a scalar ref for externaldefs/constants does not require
+        // a new instruction - try to get uniform scalar ref if Ref is null.
+        Ref = getUniformScalarRef(Operand);
+    }
+
+    // Ref can be null for a case where we do not have a scalar ref created.
+    // For such cases, we avoid creating extracts for operands and bail out
+    // of generating the scalar instruction. If a later use requires the
+    // scalar version, an extract instruction will be generated at that point
+    // from the widened instruction. Once we start using SVA results, this
+    // should no longer be an issue as scalar refs should be created at the
+    // def point when needed.
+    if (!Ref)
+      return;
+
     RefOps.push_back(Ref);
   }
 
@@ -3357,11 +3383,41 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     NewInst = HLNodeUtilities.createFNeg(RefOp0, InstName);
     break;
 
+  case Instruction::Add: {
+    // Try and fold the add operation into the canon expression for RefOps[0].
+    // This helps preserve linear values and also avoids unnecessary HLInsts.
+    // Reductions cannot be folded.
+    assert(RefOp0->isTerminalRef() && RefOp1->isTerminalRef() &&
+           "Expected terminal refs");
+
+    auto *CE1 = RefOp0->getSingleCanonExpr();
+    auto *CE2 = RefOp1->getSingleCanonExpr();
+    if (!ReductionRefs.count(VPInst) && CanonExprUtilities.canAdd(CE1, CE2)) {
+      SmallVector<const RegDDRef *, 2> AuxRefs = {RefOp0->clone(), RefOp1};
+      CanonExprUtilities.add(CE1, CE2);
+      makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen);
+      return;
+    }
+
+    // Do not create an explicit scalar instruction.
+    if (!Widen)
+      return;
+
+    // If this instruction corresponds to a reduction, then we need to
+    // write the result back to the corresponding reduction variable.
+    RegDDRef *RedRef = nullptr;
+    if (ReductionRefs.count(VPInst))
+      RedRef = ReductionRefs[VPInst];
+    NewInst = HLNodeUtilities.createBinaryHLInst(
+        VPInst->getOpcode(), RefOp0, RefOp1, ".vec",
+        RedRef ? RedRef->clone() : nullptr);
+    break;
+  }
+
   case Instruction::UDiv:
   case Instruction::SDiv:
   case Instruction::SRem:
   case Instruction::URem:
-  case Instruction::Add:
   case Instruction::FAdd:
   case Instruction::Sub:
   case Instruction::FSub:
@@ -3428,7 +3484,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   case Instruction::FPTrunc:
   case Instruction::BitCast: {
     auto RefDestTy = VPInst->getType();
-    auto ResultRefTy = VectorType::get(RefDestTy, VF);
+    auto ResultRefTy = getResultRefTy(RefDestTy, VF, Widen);
 
     // For bitcasts of addressof refs, it is enough to set the bitcast
     // destination type.
@@ -3468,7 +3524,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
 
   case Instruction::GetElementPtr: {
     auto RefDestTy = VPInst->getType();
-    auto ResultRefTy = VectorType::get(RefDestTy, VF);
+    auto ResultRefTy = getResultRefTy(RefDestTy, VF, Widen);
     auto VPGEP = cast<VPGEPInstruction>(VPInst);
 
     auto *NewRef = DDRefUtilities.createAddressOfRef(
@@ -3494,45 +3550,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
       NewRef->addDimension(Operand->getSingleCanonExpr(), StructOffsets);
     }
 
-    NewRef->makeConsistent(AuxRefs, OrigLoop->getNestingLevel());
-    addVPValueWideRefMapping(VPInst, NewRef);
-
-    // Create a scalar memref corresponding to lane 0. TODO- Use SVA
-    // to make such decisions later. Revisit this code to avoid
-    // duplication when creating scalar memref once we have VPSubscript
-    // support in place.
-    bool IsUnitStride = isUnitStridePtr(VPInst);
-    if (IsUnitStride) {
-      auto *BaseRef = getUniformScalarRef(VPInst->getOperand(0));
-      auto *NewRef = DDRefUtilities.createAddressOfRef(
-          BaseRef->getSelfBlobIndex(), BaseRef->getDefinedAtLevel());
-      SmallVector<const RegDDRef *, 4> AuxRefs;
-
-      // Operands contain reference dimensions and trailing struct
-      // offsets. Add reference dimensions and trailing struct offsets.
-      for (unsigned OpIdx = 1; OpIdx < RefOps.size();) {
-        auto Operand = getOrCreateScalarRef(VPInst->getOperand(OpIdx));
-        AuxRefs.push_back(Operand);
-        ++OpIdx;
-        SmallVector<unsigned, 2> StructOffsets;
-        while (OpIdx < RefOps.size() && VPGEP->isOperandStructOffset(OpIdx)) {
-          const VPValue *VPOffset = VPInst->getOperand(OpIdx);
-          ConstantInt *CVal =
-              cast<ConstantInt>(cast<VPConstant>(VPOffset)->getConstant());
-          unsigned Offset = CVal->getZExtValue();
-          StructOffsets.push_back(Offset);
-          ++OpIdx;
-        }
-        NewRef->addDimension(Operand->getSingleCanonExpr(), StructOffsets);
-      }
-
-      NewRef->makeConsistent(AuxRefs, OrigLoop->getNestingLevel());
-      addVPValueScalRefMapping(VPInst, NewRef, 0);
-      // TODO - revisit this assert when we start handling input HIR loops with
-      // vector values.
-      assert(NewRef->getDestType()->isPointerTy() && "Expected pointer type");
-    }
-
+    makeConsistentAndAddToMap(NewRef, VPInst, AuxRefs, Widen);
     return;
   }
 
@@ -3634,10 +3652,23 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
                                   int64_t InterleaveFactor,
                                   int64_t InterleaveIndex,
                                   const HLInst *GrpStartInst) {
-  // Generate wide constructs for all VPInstuctions. For now this function is
-  // just a wrapper around generateHIR.
+  // Generate wide constructs for all VPInstuctions. This will be changed later
+  // to use SVA information.
   generateHIR(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
               GrpStartInst, true /* Widen */);
+
+  // Generate a scalar instruction for unitstride GEPs. This will be changed
+  // later to use SVA information.
+  if (isa<VPGEPInstruction>(VPInst) && isUnitStridePtr(VPInst))
+    generateHIR(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
+                GrpStartInst, false /* Widen */);
+
+  // Generate a scalar value for add to avoid making references non-linear.
+  // This is made possible due to support for add folding. This will be changed
+  // later to use SVA information.
+  if (VPInst->getOpcode() == Instruction::Add)
+    generateHIR(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
+                GrpStartInst, false /* Widen */);
 }
 
 void VPOCodeGenHIR::createAndMapLoopEntityRefs(unsigned VF) {
@@ -3771,6 +3802,15 @@ void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask,
   const VPInstruction::HIRSpecifics &HIR = VPInst->HIR;
   if (!Mask)
     Mask = CurMaskValue;
+
+  // Generate code for IV related instructions so that we no longer rely
+  // on using unrolled part. This now enables generating wide loads/stores
+  // in mixed codegen path as well when the loads/stores are invalidated.
+  if (MainLoopIVInsts.count(VPInst)) {
+    widenNodeImpl(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
+                  GrpStartInst);
+    return;
+  }
 
   // Special handling of PHI/Blend nodes to support mixed codegen. In mixed mode
   // we should generate explicit code for PHIs only if they have any invalidated
