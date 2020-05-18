@@ -3259,6 +3259,10 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
 
 void VPOCodeGenHIR::widenLoadStoreImpl(const VPInstruction *VPInst,
                                        RegDDRef *Mask) {
+  // Loads/stores need to be masked with current mask value if Mask is null.
+  if (!Mask)
+    Mask = CurMaskValue;
+
   auto Opcode = VPInst->getOpcode();
   assert((Opcode == Instruction::Load || Opcode == Instruction::Store) &&
          "Expected load/store instruction");
@@ -3308,9 +3312,6 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   SmallVector<RegDDRef *, 1> CallArgs;
   const HLInst *CallInst = nullptr;
   const Twine InstName = ".vec";
-
-  if (!Mask)
-    Mask = CurMaskValue;
 
   if (auto *VPPhi = dyn_cast<VPPHINode>(VPInst)) {
     widenPhiImpl(VPPhi, Mask);
@@ -3608,6 +3609,10 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   }
 
   case Instruction::Call: {
+    // Calls need to be masked with current mask value if Mask is null.
+    if (!Mask)
+      Mask = CurMaskValue;
+
     // TODO - VPValue codegen for call instructions still accesses
     // underlying node. This needs to be changed when we add all
     // necessary information such as call properties to VPInstruction.
@@ -3658,7 +3663,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   case VPInstruction::AllZeroCheck: {
     RegDDRef *A = RefOp0;
     Type *Ty = A->getDestType();
-    if (Mask) {
+    if (Mask || CurMaskValue) {
       // TODO: Is this needed for HIR? The comment block in LLVM-IR CG adds this
       // case for masked inner-loops which we won't see in HIR. add A, Mask
       assert(false && "Mask supported for AllZeroCheck?");

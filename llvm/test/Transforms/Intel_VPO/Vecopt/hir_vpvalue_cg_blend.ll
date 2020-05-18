@@ -5,9 +5,9 @@
 ; CHECK:           [[TMASK:%.*]] = [[ARR1VAL]] == 0;
 ; CHECK:           [[FMASK:%.*]] = [[TMASK]]  ^  -1;
 ; CHECK:           [[ARR2VAL:%.*]] = (<4 x i64>*)(@arr2)[0][i1]; Mask = @{[[FMASK]]}
-; CHECK:           [[ADD:%.*]] = [[ARR2VAL]]  +  10; Mask = @{[[FMASK]]}
+; CHECK:           [[ADD:%.*]] = [[ARR2VAL]]  +  10;
 ; CHECK:           [[ARR3VAL:%.*]] = (<4 x i64>*)(@arr3)[0][i1]; Mask = @{[[TMASK]]}
-; CHECK:           [[SUB:%.*]] = [[ARR3VAL]]  +  -20; Mask = @{[[TMASK]]}
+; CHECK:           [[SUB:%.*]] = [[ARR3VAL]]  +  -20;
 ; CHECK:           [[SELECT:%.*]] = ([[TMASK]] == <i1 true, i1 true, i1 true, i1 true>) ? [[SUB]] : [[ADD]];
 ; CHECK:           (<4 x i64>*)(@arr1)[0][i1] = [[SELECT]];
 ; CHECK:        END LOOP
