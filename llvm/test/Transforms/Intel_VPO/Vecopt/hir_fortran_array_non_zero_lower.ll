@@ -9,8 +9,12 @@
 ;
 ;   @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=2 -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
-
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=2 -print-after=VPlanDriverHIR -disable-output < %s 2>&1 | FileCheck %s
+;
+; Check that we bail out for VPValue based codegen as well as we force mixed CG
+; for non-zero lower.
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=2 -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir -disable-output < %s 2>&1 | FileCheck %s
+;
 ; Check that loop was not vectorized.
 ; CHECK-NOT: <2 x
 

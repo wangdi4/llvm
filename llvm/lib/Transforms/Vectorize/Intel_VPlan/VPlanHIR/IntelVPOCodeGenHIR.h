@@ -113,10 +113,13 @@ public:
   HLLoop *getOrigLoop() const { return OrigLoop; }
   HLLoop *getMainLoop() const { return MainLoop; }
   unsigned getVF() const { return VF; };
-  VPlanVLSAnalysis *getVLS() { return VLSA; }
-  const VPlan *getPlan() { return Plan; }
+  VPlanVLSAnalysis *getVLS() const { return VLSA; }
+  const VPlan *getPlan() const { return Plan; }
   bool getNeedRemainderLoop() const { return NeedRemainderLoop; }
   HLLoop *getRemainderLoop() const { return OrigLoop; }
+
+  void setForceMixedCG(bool MixedCG) { ForceMixedCG = MixedCG; }
+  bool getForceMixedCG() const { return ForceMixedCG; }
 
   // Return true if Ref is a reduction
   bool isReductionRef(const RegDDRef *Ref, unsigned &Opcode);
@@ -520,6 +523,10 @@ private:
 
   // Is a remainder loop needed?
   bool NeedRemainderLoop;
+
+  // Force mixed code generation - used when we see cases such as search loops,
+  // live out privates, and Fortran subscript arrays
+  bool ForceMixedCG = false;
 
   // Loop trip count if constant. Set to zero for non-constant trip count loops.
   uint64_t TripCount;

@@ -553,12 +553,12 @@ void HandledCheck::visit(HLDDNode *Node) {
     if (TLval && TLval->isTerminalRef() &&
         OrigLoop->isLiveOut(TLval->getSymbase())) {
       unsigned RedOpcode = 0;
-      if (!CG->isReductionRef(TLval, RedOpcode) && EnableVPValueCodegenHIR) {
+      if (EnableVPValueCodegenHIR && !CG->isReductionRef(TLval, RedOpcode)) {
         LLVM_DEBUG(Inst->dump());
-        LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: VPValCG liveout "
-                             "induction/private not handled\n");
-        IsHandled = false;
-        return;
+        LLVM_DEBUG(
+            dbgs() << "VPLAN_OPTREPORT: VPValCG liveout "
+                      "induction/private not handled - forcing mixed CG\n");
+        CG->setForceMixedCG(true);
       }
     }
 
@@ -691,6 +691,29 @@ void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
       FieldAccessSeen = true;
 
     MemRefSeen = true;
+
+    // Proper support of Fortran arrays in VPValue based code generation
+    // requires VPSubscript instruction which is currently under
+    // implementation. Switch to mixed CG mode for these cases.
+    if (EnableVPValueCodegenHIR) {
+      unsigned NumDimensions = RegDD->getNumDimensions();
+      // Force mixed CG for any of the following cases:
+      //   - dimension lower is non-zero
+      //   - dimension stride is variant
+      //   - dimension other than last is not an LLVM array.
+      for (unsigned DimNum = NumDimensions; DimNum > 0; --DimNum) {
+        if (!RegDD->getDimensionLower(DimNum)->isZero() ||
+            !RegDD->getDimensionStride(DimNum)->isInvariantAtLevel(
+                OrigLoop->getNestingLevel()) ||
+            (DimNum != NumDimensions && !RegDD->isDimensionLLVMArray(DimNum))) {
+          LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Loop not handled - Fortran "
+                               "array accesses using llvm.subscript.intrinsic "
+                               "- using mixed CG\n");
+          CG->setForceMixedCG(true);
+          break;
+        }
+      }
+    }
   }
 
   // We cannot support invalidated Fortran array accesses because of missing
@@ -791,6 +814,9 @@ inline bool HandledCheck::isUniform(const RegDDRef *Ref) const {
 
 // Return true if Loop is currently handled by HIR vector code generation.
 bool VPOCodeGenHIR::loopIsHandled(HLLoop *Loop, unsigned int VF) {
+  // Search loop representation is not explicit. Force mixed CG.
+  if (isSearchLoop())
+    setForceMixedCG(true);
 
   // Only handle normalized loops
   if (!Loop->isNormalized()) {
@@ -3796,7 +3822,9 @@ void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask,
   auto It = VPInstUnrollPart.find(VPInst);
   CurrentVPInstUnrollPart = It == VPInstUnrollPart.end() ? 0 : It->second;
 
-  if (EnableVPValueCodegenHIR) {
+  // Use VPValue based code generation if it is enabled and mixed CG has not
+  // been forced
+  if (EnableVPValueCodegenHIR && !getForceMixedCG()) {
     widenNodeImpl(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
                   GrpStartInst);
     return;
