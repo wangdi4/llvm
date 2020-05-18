@@ -519,7 +519,7 @@ define dso_local void @test_divergent_loop_with_double_top_test(i32 %N, i32 *%a,
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB9]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB10]]:
-; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI_USE:%.*]] = blend [ i32 [[VP_IV_LIVE_OUT_BLEND]], i1 [[VP_BB2_BR_VP_SECOND_TEST_NOT]] ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI_USE_BLEND_BB9:%.*]] = blend [ i32 [[VP_IV_LIVE_OUT_BLEND]], i1 [[VP_BB2_BR_VP_SECOND_TEST_NOT]] ]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP8:%.*]] = block-predicate i1 [[VP_BB2_BR_VP_SECOND_TEST_NOT]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB11:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
@@ -1254,7 +1254,7 @@ define void @test_blend_splitting_for_early_path_join(i32* %a, i32 %b) local_unn
 ; CHECK-NEXT:    PREDECESSORS(2): [[BLEND_BB1]] [[BLEND_BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB9]]:
-; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI:%.*]] = blend [ i32 [[VP_BB5_ADD]], i1 [[VP2]] ], [ i32 [[VP_PHI_PHI_BB7]], i1 [[VP2]] ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI_BLEND_BB7:%.*]] = blend [ i32 [[VP_BB5_ADD]], i1 [[VP2]] ], [ i32 [[VP_PHI_PHI_BB7]], i1 [[VP2]] ]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_BB6_ADD:%.*]] = add i32 [[VP_LD]] i32 6
 ; CHECK-NEXT:     [DA: Div] void [[VP4:%.*]] = ret
 ; CHECK-NEXT:    no SUCCESSORS

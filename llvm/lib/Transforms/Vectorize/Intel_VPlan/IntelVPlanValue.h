@@ -134,7 +134,7 @@ protected:
     UnderlyingVal = &Val;
     IsUnderlyingValueValid = true;
 
-    if (!Val.getName().empty())
+    if (!Val.getName().empty() && getName().empty())
       Name = (getVPNamePrefix() + Val.getName()).str();
   }
 
