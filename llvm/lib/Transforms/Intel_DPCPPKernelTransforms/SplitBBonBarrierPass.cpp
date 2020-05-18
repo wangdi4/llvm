@@ -27,9 +27,11 @@ char SplitBBonBarrier::ID = 0;
 SplitBBonBarrier::SplitBBonBarrier() : ModulePass(ID) {}
 
 bool SplitBBonBarrier::runOnModule(Module &M) {
+  // Initialize barrier utils class with current module.
+  BarrierUtils.init(&M);
+
   // Find all synchronize instructions.
-  DPCPPKernelBarrierUtils::InstVector SyncInsts;
-  DPCPPKernelBarrierUtils::getAllSyncInstructions(M, SyncInsts);
+  InstVector& SyncInsts = BarrierUtils.getAllSyncInstructions();
 
   bool Changed = false;
 

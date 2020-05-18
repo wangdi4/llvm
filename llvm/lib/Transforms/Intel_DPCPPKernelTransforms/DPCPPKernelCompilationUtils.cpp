@@ -50,7 +50,7 @@ void DPCPPKernelCompilationUtils::getAllSyncBuiltinsDecls(FuncSet &FuncSet,
   FuncSet.clear();
 
   // TODO: port handling of WG collectives here as well
-  auto *F = M->getFunction(DPCPPKernelBarrierUtils::BarrierName);
+  auto *F = M->getFunction(BarrierName);
 
   if (F && F->isDeclaration())
     FuncSet.insert(F);

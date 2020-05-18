@@ -12,13 +12,43 @@
 #include "llvm/IR/Instructions.h"
 
 namespace llvm {
-namespace DPCPPKernelBarrierUtils {
 
-void findAllUsesOfFunc(Module &M, const StringRef Name, InstSet &UsesSet) {
-  UsesSet.clear();
+DPCPPKernelBarrierUtils::DPCPPKernelBarrierUtils()
+    : M(nullptr), IsSyncDataInitialized(false) {
+  clean();
+}
 
+void DPCPPKernelBarrierUtils::init(Module *M) {
+  assert(M && "Trying to initialize BarrierUtils with NULL module");
+  this->M = M;
+
+  clean();
+}
+
+void DPCPPKernelBarrierUtils::clean() { IsSyncDataInitialized = false; }
+
+void DPCPPKernelBarrierUtils::initializeSyncData() {
+  if (IsSyncDataInitialized) {
+    // Sync data already initialized.
+    return;
+  }
+
+  // Clear old collected data!
+  Barriers.clear();
+  DummyBarriers.clear();
+
+  // Find all calls to barrier().
+  findAllUsesOfFunc(StringRef(BarrierName), Barriers);
+  // Find all calls to dummyBarrier().
+  findAllUsesOfFunc(StringRef(DummyBarrierName), DummyBarriers);
+
+  IsSyncDataInitialized = true;
+}
+
+void DPCPPKernelBarrierUtils::findAllUsesOfFunc(StringRef Name,
+                                                InstSet &UsesSet) {
   // Check if given function name is declared in the module.
-  Function *F = M.getFunction(Name);
+  Function *F = M->getFunction(Name);
   if (!F) {
     // Function is not declared.
     return;
@@ -32,33 +62,51 @@ void findAllUsesOfFunc(Module &M, const StringRef Name, InstSet &UsesSet) {
   }
 }
 
-void getAllSyncInstructions(Module &M, InstVector &SyncInsts) {
-  SyncInsts.clear();
+InstVector &DPCPPKernelBarrierUtils::getAllSyncInstructions() {
+  // Initialize sync data if it is not done yet.
+  initializeSyncData();
 
-  InstSet BarrierUses;
-  findAllUsesOfFunc(M, StringRef(BarrierName), BarrierUses);
+  // Clear old collected data!
+  SyncInstructions.clear();
 
-  InstSet DummyBarrierUses;
-  findAllUsesOfFunc(M, StringRef(DummyBarrierName), DummyBarrierUses);
+  SyncInstructions.append(Barriers.begin(), Barriers.end());
+  SyncInstructions.append(DummyBarriers.begin(), DummyBarriers.end());
 
-  for (Instruction *I : BarrierUses)
-    SyncInsts.push_back(I);
-  for (Instruction *I : DummyBarrierUses)
-    SyncInsts.push_back(I);
+  return SyncInstructions;
 }
 
 /// Find all functions directly calling sync instructions.
-void getAllFunctionsWithSynchronization(Module &M, FuncSet &SyncFuncs) {
-  SyncFuncs.clear();
+FuncSet &DPCPPKernelBarrierUtils::getAllFunctionsWithSynchronization() {
+  // Initialize SyncInstructions.
+  getAllSyncInstructions();
 
-  InstVector SyncInsts;
-  // Initialize m_syncInstructions
-  getAllSyncInstructions(M, SyncInsts);
+  // Clear old collected data!
+  SyncFunctions.clear();
 
-  for (auto *I : SyncInsts) {
-    SyncFuncs.insert(I->getFunction());
+  for (auto *I : SyncInstructions) {
+    SyncFunctions.insert(I->getFunction());
   }
+
+  return SyncFunctions;
 }
 
-} // namespace DPCPPKernelBarrierUtils
+SyncType DPCPPKernelBarrierUtils::getSynchronizeType(Instruction *I) {
+  // Initialize sync data if it is not done yet.
+  initializeSyncData();
+
+  if (!isa<CallInst>(I)) {
+    // Not a call instruction, cannot be a synchronize instruction.
+    return SyncTypeNone;
+  }
+  if (Barriers.count(I)) {
+    // It is a barrier instruction.
+    return SyncTypeBarrier;
+  }
+  if (DummyBarriers.count(I)) {
+    // It is a dummyBarrier instruction.
+    return SyncTypeDummyBarrier;
+  }
+  return SyncTypeNone;
+}
+
 } // namespace llvm

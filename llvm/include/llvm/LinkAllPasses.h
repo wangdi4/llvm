@@ -383,6 +383,7 @@ namespace {
       (void) llvm::createRedundantPhiNodePass();
       (void) llvm::createSplitBBonBarrierPass();
       (void) llvm::createWIRelatedValuePass();
+      (void) llvm::createDataPerBarrierPass();
 
       // Optimize math calls
       (void) llvm::createMapIntrinToImlPass();

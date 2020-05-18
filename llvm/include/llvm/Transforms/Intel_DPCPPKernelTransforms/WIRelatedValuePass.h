@@ -99,11 +99,12 @@ protected:
   void calculateCallingOrder();
 
 private:
-  Module *M;
+  /// This is barrier utility class
+  DPCPPKernelBarrierUtils BarrierUtils;
 
   /// This is a list of all functions to be fixed in processed module
   /// that are ordered according to call graph from leaf to root.
-  DPCPPKernelBarrierUtils::FuncVector OrderedFunctionsToAnalyze;
+  FuncVector OrderedFunctionsToAnalyze;
 
   /// Internal Data used to calculate user Analysis Data.
   /// Saves which values changed in this round.

@@ -21,5 +21,6 @@ void llvm::initializeIntel_DPCPPKernelTransforms(PassRegistry &Registry) {
   initializeRedundantPhiNodePass(Registry);
   initializeSplitBBonBarrierPass(Registry);
   initializeWIRelatedValuePass(Registry);
+  initializeDataPerBarrierPass(Registry);
 }
 
