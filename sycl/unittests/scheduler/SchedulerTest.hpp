@@ -13,8 +13,6 @@
 
 class SchedulerTest : public ::testing::Test {
 protected:
-<<<<<<< HEAD
-  cl::sycl::queue MQueue;
   cl::sycl::async_handler MAsyncHandler =
       [](cl::sycl::exception_list ExceptionList) {
         for (cl::sycl::exception_ptr_class ExceptionPtr : ExceptionList) {
@@ -27,21 +25,8 @@ protected:
           }
         }
       };
-=======
-  sycl::async_handler MAsyncHandler = [](sycl::exception_list ExceptionList) {
-    for (sycl::exception_ptr_class ExceptionPtr : ExceptionList) {
-      try {
-        std::rethrow_exception(ExceptionPtr);
-      } catch (sycl::exception &E) {
-        std::cerr << E.what();
-      } catch (...) {
-        std::cerr << "Unknown async exception was caught." << std::endl;
-      }
-    }
-  };
->>>>>>> 97254dfffb134bc7c8aa4429f4c7f1e52a960d26
 
-  sycl::queue MQueue = sycl::queue(sycl::host_selector(), MAsyncHandler);
+  cl::sycl::queue MQueue = sycl::queue(sycl::host_selector(), MAsyncHandler);
 
 public:
   void SetUp() override {
