@@ -1958,7 +1958,7 @@ Value *CGVisitor::visitInst(HLInst *HInst) {
         ElementType, Ops[1],
         "hir.alloca." + std::to_string(HInst->getNumber()));
 
-    NewAlloca->setAlignment(MaybeAlign(Alloca->getAlignment()));
+    NewAlloca->setAlignment(Alloca->getAlign());
     StoreVal = NewAlloca;
 
   } else if (isa<ExtractElementInst>(Inst)) {

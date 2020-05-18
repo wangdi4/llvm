@@ -4219,7 +4219,7 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
       AllocaAddrSpace ?
           AllocaAddrSpace.getValue() : DL.getAllocaAddrSpace(),
       NumElements, VarName);
-  AI->setAlignment(OrigAlignment);
+  AI->setAlignment(OrigAlignment.getValueOr(DL.getPrefTypeAlign(ElementType)));
 
   if (IsTargetSPIRV && AI->isArrayAllocation()) {
     LLVM_DEBUG(dbgs() <<

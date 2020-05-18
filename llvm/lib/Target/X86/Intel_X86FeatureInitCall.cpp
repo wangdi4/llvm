@@ -144,7 +144,7 @@ public:
     // %tmp = alloca i32, align 4
     IntegerType *I32Ty = IRB.getInt32Ty();
     AllocaInst *AI = IRB.CreateAlloca(I32Ty);
-    AI->setAlignment(MaybeAlign(4));
+    AI->setAlignment(Align(4));
 
     // %0 = bitcast i32* %tmp to i8*
     PointerType *Int8PtrTy = IRB.getInt8PtrTy();
@@ -215,7 +215,7 @@ public:
     // %1 = alloca i16, align 2
     IntegerType *I16Ty = IRB.getInt16Ty();
     AllocaInst *AI = IRB.CreateAlloca(I16Ty);
-    AI->setAlignment(MaybeAlign(DL.getPrefTypeAlignment(I16Ty)));
+    AI->setAlignment(DL.getPrefTypeAlign(I16Ty));
 
     // %2 = bitcast i16* %1 to i8*
     PointerType *Int8PtrTy = IRB.getInt8PtrTy();

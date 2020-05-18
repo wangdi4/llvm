@@ -21,7 +21,7 @@ define internal void @test01() {
   %test1_gep = getelementptr %struct.test, %struct.test* %test1_local, i64 0, i32 1
   ret void
 }
-; CHECK: Added alias [DECL]: [test01]   %test1_local = alloca %struct.test -- %struct.test*
+; CHECK: Added alias [DECL]: [test01]   %test1_local = alloca %struct.test, align 8 -- %struct.test*
 ; CHECK-CUR: Added alias [DECL]: [test01]   %test1_gep = getelementptr %struct.test, %struct.test* %test1_local, i64 0, i32 1 -- i32*
 ; CHECK-CUR: Added element:[DECL]: [test01]   %test1_gep = getelementptr %struct.test, %struct.test* %test1_local, i64 0, i32 1 -- %struct.test @ 1
 ; CHECK-FUT: Added alias [DECL]: [test01]   %test1_gep = getelementptr %struct.test, p0 %test1_local, i64 0, i32 1 -- i32*
@@ -45,7 +45,7 @@ define internal void @test03() {
   %test3_gep = getelementptr %struct.test, %struct.test* %test3_local, i64 0, i32 1
   ret void
 }
-; CHECK: Added alias [DECL]: [test03]   %test3_local = alloca %struct.test -- %struct.test*
+; CHECK: Added alias [DECL]: [test03]   %test3_local = alloca %struct.test, align 8 -- %struct.test*
 ; CHECK-CUR: Added alias [DECL]: [test03]   %test3_gep = getelementptr %struct.test, %struct.test* %test3_local, i64 0, i32 1 -- i32*
 ; CHECK-CUR: Added element:[DECL]: [test03]   %test3_gep = getelementptr %struct.test, %struct.test* %test3_local, i64 0, i32 1 -- %struct.test @ 1
 ; CHECK-FUT: Added alias [DECL]: [test03]   %test3_gep = getelementptr %struct.test, p0 %test3_local, i64 0, i32 1 -- i32*

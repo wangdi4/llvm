@@ -618,8 +618,8 @@ VecCloneImpl::expandVectorParameters(Function *Clone, VectorVariant &V,
 
     const DataLayout &DL = Clone->getParent()->getDataLayout();
     AllocaInst *VecAlloca =
-      new AllocaInst(VecType, DL.getAllocaAddrSpace(),
-                     "vec." + Arg->getName());
+        new AllocaInst(VecType, DL.getAllocaAddrSpace(), nullptr,
+                       DL.getPrefTypeAlign(VecType), "vec." + Arg->getName());
     insertInstruction(VecAlloca, EntryBlock);
     PointerType *ElemTypePtr =
         PointerType::get(VecType->getElementType(),
@@ -700,8 +700,9 @@ Instruction *VecCloneImpl::createExpandedReturn(Function *Clone,
   VectorType *AllocaType = cast<VectorType>(Clone->getReturnType());
 
   const DataLayout &DL = Clone->getParent()->getDataLayout();
-  AllocaInst *VecAlloca = new AllocaInst(AllocaType, DL.getAllocaAddrSpace(),
-                                         "vec.retval");
+  AllocaInst *VecAlloca =
+      new AllocaInst(AllocaType, DL.getAllocaAddrSpace(), nullptr,
+                     DL.getPrefTypeAlign(AllocaType), "vec.retval");
   insertInstruction(VecAlloca, EntryBlock);
   PointerType *ElemTypePtr =
       PointerType::get(ReturnType->getElementType(),

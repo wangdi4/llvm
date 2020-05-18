@@ -781,7 +781,7 @@ Value *VPOUtils::genNewLoop(Value *LB, Value *UB, Value *Stride,
       AllocaInst *TmpUB =
         new AllocaInst(IntTy, DL.getAllocaAddrSpace(), "num.sects", InsertPt);
 
-      TmpUB->setAlignment(MaybeAlign(4));
+      TmpUB->setAlignment(Align(4));
 
       Triple TargetTriple(InsertPt->getModule()->getTargetTriple());
 

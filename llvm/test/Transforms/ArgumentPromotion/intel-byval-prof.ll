@@ -17,7 +17,7 @@ entry:
 }
 
 ; CHECK-LABEL: define internal void @f(i32 %b.0, i64 %b.1) !prof !0
-; CHECK: alloca %struct.ss{{$}}
+; CHECK: alloca %struct.ss, align 8{{$}}
 ; CHECK: store i32 %b.0
 ; CHECK: store i64 %b.1
 

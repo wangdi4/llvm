@@ -218,7 +218,7 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
     // TODO: We don't represent alignment in VPInstruction, so underlying
     // instruction must exist!
     auto *OrigAlloca = cast<AllocaInst>(VPInst->getUnderlyingValue());
-    SerialAlloca->setAlignment(MaybeAlign{OrigAlloca->getAlignment()});
+    SerialAlloca->setAlignment(OrigAlloca->getAlign());
     SerialAlloca->setUsedWithInAlloca(OrigAlloca->isUsedWithInAlloca());
     SerialAlloca->setSwiftError(OrigAlloca->isSwiftError());
     SerialInst = SerialAlloca;
@@ -3147,8 +3147,7 @@ void VPOCodeGen::vectorizeAllocatePrivate(VPAllocatePrivate *V) {
   AllocaInst *WidenedPrivArr =
       Builder.CreateAlloca(VecTyForAlloca, nullptr, V->getOrigName() + ".vec");
   const DataLayout &DL = OrigLoop->getHeader()->getModule()->getDataLayout();
-  WidenedPrivArr->setAlignment(
-      MaybeAlign(DL.getPrefTypeAlignment(VecTyForAlloca)));
+  WidenedPrivArr->setAlignment(DL.getPrefTypeAlign(VecTyForAlloca));
 
   LoopPrivateVPWidenMap[V] = WidenedPrivArr;
   // TODO: For SOA, vector of pointers via GEPs should not be created.

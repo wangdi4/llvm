@@ -200,7 +200,7 @@ static bool combineSinCos(CallInst *Call, StringRef OCLSinCosName,
   // sincos pass-by-reference temporary, allocated at the top of the function.
   // This address is passed to sincos.
   auto *CosTmp = new AllocaInst(
-      AngleType, 0, nullptr, MaybeAlign(DL.getStackAlignment().value()),
+      AngleType, 0, nullptr, DL.getStackAlignment(),
       "cos.ptr", Call->getFunction()->getEntryBlock().getFirstNonPHI());
 
   // This stack temp needs to be declared private, if the sin/cos are inside
