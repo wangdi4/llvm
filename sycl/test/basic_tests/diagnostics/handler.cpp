@@ -1,5 +1,10 @@
+<<<<<<< HEAD
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple %s -o %t.out
 // RUN: env SYCL_BE=%sycl_be %t.out | FileCheck %s
+=======
+// RUN: %clangxx -fsycl %s -o %t.out
+// RUN: env SYCL_DEVICE_TYPE=HOST %t.out | FileCheck %s
+>>>>>>> 97254dfffb134bc7c8aa4429f4c7f1e52a960d26
 //==------------------- handler.cpp ----------------------------------------==//
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.

@@ -27,11 +27,14 @@ pi_result piKernelCreateRedefine(pi_program program, const char *kernel_name,
 }
 
 TEST(PiMockTest, ConstructFromQueue) {
-  queue NormalQ;
-  if (NormalQ.is_host()) {
-    std::cerr << "Not run due to host-only environment\n";
+  try {
+    device dev{default_selector{}};
+  } catch (const runtime_error &re) {
+    std::cerr << "Not run due no device is available.\n";
     return;
   }
+
+  queue NormalQ;
   queue MockQ;
   unittest::PiMock Mock(MockQ);
 
@@ -48,12 +51,15 @@ TEST(PiMockTest, ConstructFromQueue) {
 }
 
 TEST(PiMockTest, ConstructFromPlatform) {
-  platform NormalPlatform;
-  if (NormalPlatform.is_host()) {
-    std::cerr << "Not run due to host-only environment\n";
+  try {
+    platform plt{default_selector{}};
+  } catch (const runtime_error &re) {
+    std::cerr << "Not run due no platform is available.\n";
     return;
   }
-  platform MockPlatform;
+
+  platform NormalPlatform{default_selector{}};
+  platform MockPlatform{default_selector{}};
   unittest::PiMock Mock(MockPlatform);
 
   const auto &NormalPiPlugin =
@@ -70,8 +76,10 @@ TEST(PiMockTest, ConstructFromPlatform) {
 
 TEST(PiMockTest, RedefineAPI) {
   cl::sycl::default_selector Selector{};
-  if (Selector.select_device().is_host()) {
-    std::cerr << "Not run due to host-only environment\n";
+  try {
+    device dev{Selector};
+  } catch (const runtime_error &re) {
+    std::cerr << "Not run due no device is available.\n";
     return;
   }
   unittest::PiMock Mock(Selector);
