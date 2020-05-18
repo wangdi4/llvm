@@ -908,8 +908,14 @@ bool SampleProfileLoader::inlineCallInstruction(CallBase &CB) {
   // see if it is legal to inline the callsite.
 #if INTEL_CUSTOMIZATION
   InliningLoopInfoCache *ILIC = new InliningLoopInfoCache();
+<<<<<<< HEAD
   InlineCost Cost = getInlineCost(CB, Params, GetTTI(*CalledFunction), GetAC,
                                   GetTLI, nullptr, nullptr, nullptr, ILIC);
+=======
+  InlineCost Cost =
+      getInlineCost(CB, Params, GetTTI(*CalledFunction), GetAC, None, GetTLI,
+                    ILIC, nullptr, nullptr, nullptr);
+>>>>>>> eec920484d1fa94683fa9daf7e9d8edc2085464e
   delete ILIC;
 #endif // INTEL_CUSTOMIZATION
 
@@ -940,8 +946,13 @@ bool SampleProfileLoader::shouldInlineColdCallee(CallBase &CallInst) {
 #if INTEL_CUSTOMIZATION
   InliningLoopInfoCache *ILIC = new InliningLoopInfoCache();
   InlineCost Cost =
+<<<<<<< HEAD
       getInlineCost(CallInst, getInlineParams(), GetTTI(*Callee), GetAC, GetTLI,
                     nullptr, nullptr, nullptr, ILIC);
+=======
+      getInlineCost(CallInst, getInlineParams(), GetTTI(*Callee), GetAC, None,
+                    GetTLI, ILIC, nullptr, nullptr, nullptr);
+>>>>>>> eec920484d1fa94683fa9daf7e9d8edc2085464e
   delete ILIC;
 #endif // INTEL_CUSTOMIZATION
 

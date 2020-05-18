@@ -323,12 +323,8 @@ static bool inlineHistoryIncludes(
 }
 
 #if INTEL_CUSTOMIZATION
-static void collectDtransFuncs(Module &M,
-                                   SmallSet<Function *, 20>
-                                       *FuncsForDTrans) {
+static void collectDtransFuncs(Module &M) {
 #if INTEL_INCLUDE_DTRANS
-  assert(FuncsForDTrans && FuncsForDTrans->empty() &&
-         "Inconsistent state of LegacyInlinerBase");
   // Set of SOAToAOS candidates.
   SmallPtrSet<StructType*, 4> SOAToAOSCandidates;
   // Suppress inlining for SOAToAOS candidates.
@@ -372,8 +368,8 @@ static void collectDtransFuncs(Module &M,
     SOAToAOSCandidates.insert(Str);
     Info.collectFuncs(&SOAToAOSCandidateMethods);
   }
-  FuncsForDTrans->insert(SOAToAOSCandidateMethods.begin(),
-                         SOAToAOSCandidateMethods.end());
+  for (Function *F: SOAToAOSCandidateMethods)
+    F->addFnAttr("noinline-dtrans");
 
   SmallSet<Function *, 32> MemInitFuncs;
   // Only SOAToAOS candidates are considered for MemInitTrimDown.
@@ -407,8 +403,8 @@ static void collectDtransFuncs(Module &M,
   }
   //   1. Member functions of candidate struct
   //   2. Member functions of all candidate array field structs.
-  FuncsForDTrans->insert(MemInitFuncs.begin(), MemInitFuncs.end());
-
+  for (Function *F: MemInitFuncs)
+    F->addFnAttr("noinline-dtrans");
 #endif // INTEL_INCLUDE_DTRANS
 }
 #endif // INTEL_CUSTOMIZATION
@@ -421,7 +417,7 @@ bool LegacyInlinerBase::doInitialization(CallGraph &CG) {
   // SimpleInliner provides InlineParams.
   if (auto *Params = getInlineParams())
     if (Params->PrepareForLTO.getValueOr(false))
-      collectDtransFuncs(CG.getModule(), &FuncsForDTrans);
+      collectDtransFuncs(CG.getModule());
 #endif // INTEL_CUSTOMIZATION
   return false; // No changes to CallGraph.
 }
@@ -458,9 +454,7 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
                 ImportedFunctionsInliningStatistics &ImportedFunctionsStats,
                 InliningLoopInfoCache *ILIC, // INTEL
                 InlineReport& IR,            // INTEL
-                InlineReportBuilder& MDIR,            // INTEL
-                SmallSet<CallBase *, 20> *CallSitesForFusion,   // INTEL
-                SmallSet<Function *, 20> *FuncsForDTrans) { // INTEL
+                InlineReportBuilder& MDIR) { // INTEL
   SmallPtrSet<Function *, 8> SCCFunctions;
   LLVM_DEBUG(dbgs() << "Inliner visiting SCC:");
   for (CallGraphNode *Node : SCC) {
@@ -484,9 +478,6 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
 #if INTEL_CUSTOMIZATION
   IR.beginSCC(CG, SCC);
   MDIR.beginSCC(CG, SCC);
-  if (CallSitesForFusion) {
-    CallSitesForFusion->clear();
-  }
 #endif // INTEL_CUSTOMIZATION
 
   for (CallGraphNode *Node : SCC) {
@@ -656,9 +647,6 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
           llvm::setMDReasonNotInlined(&CB, Reason);
           setInlineRemark(CB, std::string(LIR.getFailureReason()) + "; " +
                                   inlineCostStr(*OIC));
-          if (CallSitesForFusion) {
-            CallSitesForFusion->clear();
-          }
 #endif // INTEL_CUSTOMIZATION
           ORE.emit([&]() {
             return OptimizationRemarkMissed(DEBUG_TYPE, "NotInlined", DLoc,
@@ -795,8 +783,7 @@ bool LegacyInlinerBase::inlineCalls(CallGraphSCC &SCC) {
   bool rv = inlineCallsImpl(      // INTEL
       SCC, CG, GetAssumptionCache, PSI, GetTLI, InsertLifetime,
       [&](CallBase &CB) { return getInlineCost(CB); }, LegacyAARGetter(*this),
-      ImportedFunctionsStats, ILIC, getReport(), getMDReport(), // INTEL
-      &CallSitesForFusion, &FuncsForDTrans);                    // INTEL
+      ImportedFunctionsStats, ILIC, getReport(), getMDReport()); // INTEL
   delete ILIC;    // INTEL
   ILIC = nullptr; // INTEL
   return rv;      // INTEL
@@ -809,8 +796,6 @@ bool LegacyInlinerBase::doFinalization(CallGraph &CG) {
     ImportedFunctionsStats.dump(InlinerFunctionImportStats ==
                                 InlinerFunctionImportStatsOpts::Verbose);
 #if INTEL_CUSTOMIZATION
-  FuncsForDTrans.clear();
-
   bool ReturnValue = removeDeadFunctions(CG);
   getReport().print();
   return ReturnValue;
@@ -960,8 +945,6 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
   bool Changed = false;
   InliningLoopInfoCache* ILIC = new InliningLoopInfoCache(); // INTEL
 
-  SmallSet<CallBase *, 20> CallSitesForFusion;  // INTEL
-  SmallSet<Function *, 20> FuncsForDTrans;  // INTEL
   assert(InitialC.size() > 0 && "Cannot handle an empty SCC!");
   Module &M = *InitialC.begin()->getFunction().getParent();
   ProfileSummaryInfo *PSI = MAMProxy.getCachedResult<ProfileSummaryAnalysis>(M);
@@ -985,7 +968,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
   MDReport->beginSCC(CG, InitialC);
   InlineParams Params = getInlineParams();
   if (Params.PrepareForLTO.getValueOr(false))
-    collectDtransFuncs(CG.getModule(), &FuncsForDTrans);
+    collectDtransFuncs(CG.getModule());
 #endif // INTEL_CUSTOMIZATION
 
   // We use a single common worklist for calls across the entire SCC. We
@@ -1113,6 +1096,31 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
     auto GetAssumptionCache = [&](Function &F) -> AssumptionCache & {
       return FAM.getResult<AssumptionAnalysis>(F);
     };
+<<<<<<< HEAD
+=======
+    auto GetBFI = [&](Function &F) -> BlockFrequencyInfo & {
+      return FAM.getResult<BlockFrequencyAnalysis>(F);
+    };
+    auto GetTLI = [&](Function &F) -> const TargetLibraryInfo & {
+      return FAM.getResult<TargetLibraryAnalysis>(F);
+    };
+
+    auto GetInlineCost = [&](CallBase &CB) {
+      Function &Callee = *CB.getCalledFunction();
+      auto &CalleeTTI = FAM.getResult<TargetIRAnalysis>(Callee);
+      bool RemarksEnabled =
+          Callee.getContext().getDiagHandlerPtr()->isMissedOptRemarkEnabled(
+              DEBUG_TYPE);
+#if INTEL_CUSTOMIZATION
+      if (IntelInlineReportLevel & InlineReportOptions::RealCost)
+        Params.ComputeFullInlineCost = true;
+#endif // INTEL_CUSTOMIZATION
+
+      return getInlineCost(CB, Params, CalleeTTI, GetAssumptionCache, {GetBFI},
+                           GetTLI, ILIC, AggI,                      // INTEL
+                           PSI, RemarksEnabled ? &ORE : nullptr);   // INTEL
+    };
+>>>>>>> eec920484d1fa94683fa9daf7e9d8edc2085464e
 
     // Now process as many calls as we have within this caller in the sequnece.
     // We bail out as soon as the caller has to change so we can update the

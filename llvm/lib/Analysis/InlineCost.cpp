@@ -644,25 +644,16 @@ static Optional<uint64_t> profInstrumentCount(ProfileSummaryInfo *PSI,
 // to perform SOAToAOS on it. 'PrepareForLTO' is true if we are on the compile
 // step of an LTO compilation.
 //
-static bool preferDTransToInlining(CallBase &CB,
-                                   SmallSet<Function *, 20> *FuncsForDTrans,
-                                   bool PrepareForLTO) {
+static bool preferDTransToInlining(CallBase &CB, bool PrepareForLTO) {
   if (!PrepareForLTO)
     return false;
 
   if (!DTransInlineHeuristics)
     return false;
 
-  if (!FuncsForDTrans) {
-    LLVM_DEBUG(
-        llvm::dbgs()
-        << "IC: inlining for dtrans: no candidates to suppress inline.\n");
-    return false;
-  }
-
-  // The callee was stored as candidate to suppress inlining.
+  // The callee was marked as candidate to suppress inlining.
   if (Function *Callee = CB.getCalledFunction())
-    if (FuncsForDTrans->count(Callee))
+    if (Callee->hasFnAttribute("noinline-dtrans"))
       return true;
 
   return false;
@@ -2462,7 +2453,6 @@ static bool worthInliningForFusion(CallBase &CB,
                                    TargetLibraryInfo *TLI,
                                    const TargetTransformInfo &CalleeTTI,
                                    InliningLoopInfoCache &ILIC,
-                                   SmallSet<CallBase *, 20> *CallSitesForFusion,
                                    bool PrepareForLTO) {
 
   // Must have at least AVX2 for this heuristic.
@@ -2485,15 +2475,9 @@ static bool worthInliningForFusion(CallBase &CB,
     return false;
   }
 
-  if (!CallSitesForFusion) {
-    LLVM_DEBUG(llvm::dbgs()
-               << "IC: No inlining for fusion: no call site candidates.\n");
-    return false;
-  }
-
-  // The call site was stored as candidate for inlining for fusion.
-  if (CallSitesForFusion->count(&CB)) {
-    CallSitesForFusion->erase(&CB);
+  // The call site was marked as candidate for inlining for fusion.
+  if (CB.hasFnAttr("inline-fusion")) {
+    CB.removeAttribute(AttributeList::FunctionIndex, "inline-fusion");
     return true;
   }
 
@@ -2671,10 +2655,10 @@ static bool worthInliningForFusion(CallBase &CB,
     }
   }
 
-  // Store other inlining candidates in a special map.
-  if (CallSitesForFusion)
-    for (auto LocalCB : LocalCSForFusion)
-      CallSitesForFusion->insert(LocalCB);
+  // Mark other inlining candidates with an attribute showing a strong
+  // preference for inlining.
+  for (auto LocalCB : LocalCSForFusion)
+    LocalCB->addAttribute(AttributeList::FunctionIndex, "inline-fusion");
 
   return true;
 }
@@ -3097,8 +3081,6 @@ static int worthInliningUnderSpecialCondition(CallBase &CB,
                                                ProfileSummaryInfo *PSI,
                                                bool PrepareForLTO,
                                                bool IsCallerRecursive,
-                                               SmallSet<CallBase *, 20>
-                                                   *CallSitesForFusion,
                                                SmallPtrSetImpl<Function *>
                                                    *QueuedCallers,
                                                InlineReasonVector
@@ -3124,8 +3106,7 @@ static int worthInliningUnderSpecialCondition(CallBase &CB,
       return -InlineConstants::SecondToLastCallToStaticBonus;
     }
   }
-  if (worthInliningForFusion(CB, &TLI, CalleeTTI, ILIC, CallSitesForFusion,
-    PrepareForLTO)) {
+  if (worthInliningForFusion(CB, &TLI, CalleeTTI, ILIC, PrepareForLTO)) {
     YesReasonVector.push_back(InlrForFusion);
     return PrepareForLTO ? -InlineConstants::InliningHeuristicBonus
                          : -InlineConstants::VeryDeepInliningHeuristicBonus;
@@ -3274,9 +3255,14 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
       /// FIXME: if InlineCostCallAnalyzer is derived from, this may need
       /// to instantiate the derived class.
 #if INTEL_CUSTOMIZATION
+<<<<<<< HEAD
       InlineCostCallAnalyzer CA(*F, Call, IndirectCallParams, TTI,
                                 GetAssumptionCache, GetBFI, PSI, ORE, TLI, ILIC,
                                 AI, CallSitesForFusion, FuncsForDTrans, false);
+=======
+      InlineCostCallAnalyzer CA(TTI, GetAssumptionCache, GetBFI, PSI, ORE, *F,
+                                Call, TLI, ILIC, AI, IndirectCallParams, false);
+>>>>>>> eec920484d1fa94683fa9daf7e9d8edc2085464e
 #endif // INTEL_CUSTOMIZATION
       if (CA.analyze(TTI, nullptr).isSuccess()) { // INTEL
         // We were able to inline the indirect call! Subtract the cost from the
@@ -3523,8 +3509,7 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
         *ReasonAddr = NinlrPreferMultiversioning;
         return InlineResult::failure("not profitable");
       }
-      if (preferDTransToInlining(CandidateCall, FuncsForDTrans,
-          PrepareForLTO)) {
+      if (preferDTransToInlining(CandidateCall, PrepareForLTO)) {
         *ReasonAddr = NinlrPreferSOAToAOS;
         return InlineResult::failure("not profitable");
       }
@@ -3589,8 +3574,7 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
       if (&F == CandidateCall.getCalledFunction()) {
         addCost(worthInliningUnderSpecialCondition(
             CandidateCall, *TLI, CalleeTTI, *ILIC, PSI, PrepareForLTO,
-            IsCallerRecursive, CallSitesForFusion, &QueuedCallers,
-            YesReasonVector));
+            IsCallerRecursive, &QueuedCallers, YesReasonVector));
       }
     }
 
@@ -3631,11 +3615,17 @@ public:
       function_ref<BlockFrequencyInfo &(Function &)> GetBFI = nullptr,
       ProfileSummaryInfo *PSI = nullptr,
 #if INTEL_CUSTOMIZATION
+<<<<<<< HEAD
       OptimizationRemarkEmitter *ORE = nullptr,
       TargetLibraryInfo *TLI = nullptr, InliningLoopInfoCache *ILIC = nullptr,
       InlineAggressiveInfo *AI = nullptr,
       SmallSet<CallBase *, 20> *CSForFusion = nullptr,
       SmallSet<Function *, 20> *FForDTrans = nullptr, bool BoostIndirect = true,
+=======
+      CallBase &Call, TargetLibraryInfo *TLI,
+      InliningLoopInfoCache *ILIC, InlineAggressiveInfo *AI,
+      const InlineParams &Params, bool BoostIndirect = true,
+>>>>>>> eec920484d1fa94683fa9daf7e9d8edc2085464e
 #endif // INTEL_CUSTOMIZATION
       bool IgnoreThreshold = false)
       : CallAnalyzer(Callee, Call, TTI, GetAssumptionCache, GetBFI, PSI, ORE),
@@ -3645,8 +3635,7 @@ public:
 #if INTEL_CUSTOMIZATION
         BoostIndirectCalls(BoostIndirect), IgnoreThreshold(IgnoreThreshold),
         EarlyExitThreshold(INT_MAX), EarlyExitCost(INT_MAX), TLI(TLI),
-        ILIC(ILIC), AI(AI), CallSitesForFusion(CSForFusion),
-        FuncsForDTrans(FForDTrans), SubtractedBonus(false) {}
+        ILIC(ILIC), AI(AI), SubtractedBonus(false) {}
 #endif // INTEL_CUSTOMIZATION
 
   /// Annotation Writer for cost annotation
@@ -3668,10 +3657,6 @@ public:
 
   // Aggressive Analysis
   InlineAggressiveInfo *AI;
-  // Set of candidate call sites for loop fusion
-  SmallSet<CallBase *, 20> *CallSitesForFusion;
-  // Set of candidate call sites for dtrans.
-  SmallSet<Function *, 20> *FuncsForDTrans;
   // Indicates that a single basic block bonus that was proposed for the
   // threshold has already been subtracted.
   bool SubtractedBonus;
@@ -5428,6 +5413,7 @@ InlineCost llvm::getInlineCost(
     function_ref<const TargetLibraryInfo &(Function &)> GetTLI,
     function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
 #if INTEL_CUSTOMIZATION
+<<<<<<< HEAD
     ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE,
     InliningLoopInfoCache *ILIC, InlineAggressiveInfo *AI,
     SmallSet<CallBase *, 20> *CallSitesForFusion,
@@ -5435,6 +5421,15 @@ InlineCost llvm::getInlineCost(
   return getInlineCost(Call, Call.getCalledFunction(), Params, CalleeTTI,
                        GetAssumptionCache, GetTLI, GetBFI, PSI, ORE, ILIC, AI,
                        CallSitesForFusion, FuncsForDTrans);
+=======
+    InliningLoopInfoCache *ILIC,
+    InlineAggressiveInfo *AI,
+#endif // INTEL_CUSTOMIZATION
+    ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE) {
+#if INTEL_CUSTOMIZATION
+  return getInlineCost(Call, Call.getCalledFunction(), Params, CalleeTTI,
+                       GetAssumptionCache, GetBFI, GetTLI, ILIC, AI, PSI, ORE);
+>>>>>>> eec920484d1fa94683fa9daf7e9d8edc2085464e
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -5445,8 +5440,12 @@ Optional<int> llvm::getInliningCostEstimate(
 #if INTEL_CUSTOMIZATION
     ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE,
     TargetLibraryInfo *TLI, InliningLoopInfoCache *ILIC,
+<<<<<<< HEAD
     InlineAggressiveInfo *AggI, SmallSet<CallBase *, 20> *CallSitesForFusion,
     SmallSet<Function *, 20> *FuncsForDTrans) {
+=======
+    InlineAggressiveInfo *AggI,
+>>>>>>> eec920484d1fa94683fa9daf7e9d8edc2085464e
 #endif // INTEL_CUSTOMIZATION
   const InlineParams Params = {/* DefaultThreshold*/ 0,
                                /*HintThreshold*/ {},
@@ -5458,11 +5457,20 @@ Optional<int> llvm::getInliningCostEstimate(
                                /*ColdCallSiteThreshold*/ {},
                                /* ComputeFullInlineCost*/ true};
 
+<<<<<<< HEAD
   InlineCostCallAnalyzer CA(*Call.getCalledFunction(), Call, Params, CalleeTTI,
                             GetAssumptionCache, GetBFI, PSI, ORE, TLI, // INTEL
                             ILIC, AggI, CallSitesForFusion,            // INTEL
                             FuncsForDTrans, true,                      // INTEL
                             /*IgnoreThreshold*/ true);
+=======
+InlineCostCallAnalyzer CA(CalleeTTI, GetAssumptionCache, GetBFI, PSI, ORE,
+#if INTEL_CUSTOMIZATION
+                          *Call.getCalledFunction(), Call, TLI, ILIC, AggI,
+                          Params, true,
+#endif // INTEL_CUSTOMIZATION
+                          /*IgnoreThreshold*/ true);
+>>>>>>> eec920484d1fa94683fa9daf7e9d8edc2085464e
   auto R = CA.analyze(CalleeTTI, nullptr); // INTEL
   if (!R.isSuccess())
     return None;
@@ -5574,10 +5582,15 @@ InlineCost llvm::getInlineCost(
     function_ref<const TargetLibraryInfo &(Function &)> GetTLI,
     function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
 #if INTEL_CUSTOMIZATION
+<<<<<<< HEAD
     ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE,
     InliningLoopInfoCache *ILIC, InlineAggressiveInfo *AI,
     SmallSet<CallBase *, 20> *CallSitesForFusion,
     SmallSet<Function *, 20> *FuncsForDTrans) {
+=======
+    InliningLoopInfoCache *ILIC,
+    InlineAggressiveInfo *AI,
+>>>>>>> eec920484d1fa94683fa9daf7e9d8edc2085464e
 #endif // INTEL_CUSTOMIZATION
 
   auto UserDecision =
@@ -5603,9 +5616,14 @@ InlineCost llvm::getInlineCost(
 
 #if INTEL_CUSTOMIZATION
   auto TLI = GetTLI(*Callee);
+<<<<<<< HEAD
   InlineCostCallAnalyzer CA(*Callee, Call, Params, CalleeTTI,
                             GetAssumptionCache, GetBFI, PSI, ORE, &TLI, ILIC,
                             AI, CallSitesForFusion, FuncsForDTrans, true);
+=======
+  InlineCostCallAnalyzer CA(CalleeTTI, GetAssumptionCache, GetBFI, PSI, ORE,
+                            *Callee, Call, &TLI, ILIC, AI, Params, true);
+>>>>>>> eec920484d1fa94683fa9daf7e9d8edc2085464e
   InlineReason Reason = InlrNoReason;
   InlineResult ShouldInline = CA.analyze(CalleeTTI, &Reason);
   assert(Reason != InlrNoReason);
