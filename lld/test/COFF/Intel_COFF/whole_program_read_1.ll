@@ -1,4 +1,4 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 ; This test checks that whole program was achieved.
 
 ; RUN: llvm-as -o %T/wp1.bc %s

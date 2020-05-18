@@ -1,4 +1,4 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 ; Test for checking that libfuncs aren't repeated in the trace.
 
 ; RUN: llvm-as < %s >%t1

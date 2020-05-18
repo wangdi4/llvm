@@ -1,4 +1,4 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 ; This test checks that whole program read was achieved even if the
 ; definition of @sub is in another compilation unit.
 

@@ -383,11 +383,9 @@ class RTLDeviceInfoTy {
 public:
   uint32_t NumDevices;
 
-  // TODO: multiple device groups are required if two different types of devices
-  // exist.
   ze_driver_handle_t Driver;
-  ze_device_properties_t DeviceProperties;
-  ze_device_compute_properties_t ComputeProperties;
+  std::vector<ze_device_properties_t> DeviceProperties;
+  std::vector<ze_device_compute_properties_t> ComputeProperties;
 
   std::vector<ze_device_handle_t> Devices;
   // Use per-thread command list/queue
@@ -644,7 +642,7 @@ static void closeRTL() {
       continue;
     if (DeviceInfo.Flags.EnableProfile) {
       for (auto profile : DeviceInfo.Profiles[i]) {
-        profile->printData(i, DeviceInfo.DeviceProperties.name);
+        profile->printData(i, DeviceInfo.DeviceProperties[i].name);
         delete profile;
       }
     }
@@ -783,27 +781,39 @@ int32_t __tgt_rtl_number_of_devices() {
     uint32_t numDevices = 0;
     CALL_ZE_RET_ZERO(zeDeviceGet, driverHandles[i], &numDevices, nullptr);
     if (numDevices == 0) {
-      DP("Cannot find any devices!\n");
+      DP("Cannot find any devices for driver %" PRIu32 "!\n", i);
       continue;
     }
 
-    // Check device type
-    auto &devices = DeviceInfo.Devices;
-    devices.resize(numDevices);
+    // Get device handles and check device type
+    std::vector<ze_device_handle_t> devices(numDevices);
     CALL_ZE_RET_ZERO(zeDeviceGet, driverHandles[i], &numDevices,
                      devices.data());
-    ze_device_properties_t properties = {};
-    properties.version = ZE_DEVICE_PROPERTIES_VERSION_CURRENT;
-    CALL_ZE_RET_ZERO(zeDeviceGetProperties, devices[0], &properties);
-    if (properties.type != DeviceInfo.DeviceType) {
-      DP("Skipping device type %" PRId32 "...\n", properties.type);
-      devices.clear();
-      continue;
+
+    for (auto device : devices) {
+      ze_device_properties_t properties = {};
+      properties.version = ZE_DEVICE_PROPERTIES_VERSION_CURRENT;
+      CALL_ZE_RET_ZERO(zeDeviceGetProperties, device, &properties);
+      if (properties.type != DeviceInfo.DeviceType) {
+        DP("Skipping device type %" PRId32 "...\n", properties.type);
+        continue;
+      }
+      DP("Found a device, Type = %" PRId32 ", Name = %s\n",
+         properties.type, properties.name);
+
+      ze_device_compute_properties_t computeProperties = {};
+      computeProperties.version = ZE_DEVICE_COMPUTE_PROPERTIES_VERSION_CURRENT;
+      CALL_ZE_RET_ZERO(zeDeviceGetComputeProperties, device,
+                       &computeProperties);
+
+      DeviceInfo.Devices.push_back(device);
+      DeviceInfo.DeviceProperties.push_back(properties);
+      DeviceInfo.ComputeProperties.push_back(computeProperties);
     }
 
     DeviceInfo.Driver = driverHandles[i];
-    DeviceInfo.NumDevices = numDevices;
-    DeviceInfo.DeviceProperties = properties;
+    DeviceInfo.NumDevices += numDevices;
+    DP("Found %" PRIu32 " available devices.\n", DeviceInfo.NumDevices);
     break;
   }
 
@@ -822,16 +832,6 @@ int32_t __tgt_rtl_number_of_devices() {
   if (DebugLevel > 0)
     MemStats.resize(DeviceInfo.NumDevices);
 #endif // INTEL_INTERNAL_BUILD
-
-  ze_device_compute_properties_t computeProperties = {};
-  computeProperties.version = ZE_DEVICE_COMPUTE_PROPERTIES_VERSION_CURRENT;
-  CALL_ZE_RET_ZERO(zeDeviceGetComputeProperties, DeviceInfo.Devices[0],
-                   &computeProperties);
-  DeviceInfo.ComputeProperties = computeProperties;
-
-  DP("Found %" PRIu32 " device(s)!\n", DeviceInfo.NumDevices);
-  DP("Type = %" PRId32 ", Name = %s\n", DeviceInfo.DeviceProperties.type,
-     DeviceInfo.DeviceProperties.name);
 
   if (std::atexit(closeRTL)) {
     FATAL_ERROR("Registration of clean-up function");
@@ -858,7 +858,7 @@ int32_t __tgt_rtl_init_device(int32_t DeviceId) {
   DeviceInfo.Initialized[DeviceId] = true;
 
   OMPT_CALLBACK(ompt_callback_device_initialize, DeviceId,
-                DeviceInfo.DeviceProperties.name,
+                DeviceInfo.DeviceProperties[DeviceId].name,
                 DeviceInfo.Devices[DeviceId],
                 omptLookupEntries, omptDocument);
 
@@ -1323,10 +1323,11 @@ int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr) {
   return OFFLOAD_SUCCESS;
 }
 
-static void decideGroupArguments(uint32_t NumTeams, uint32_t ThreadLimit,
-                                 int64_t *LoopLevels, uint32_t *Sizes,
-                                 ze_group_count_t &Dimensions) {
-  uint32_t maxGroupSize = DeviceInfo.ComputeProperties.maxTotalGroupSize;
+static void decideGroupArguments(int32_t DeviceId, uint32_t NumTeams,
+                                 uint32_t ThreadLimit, int64_t *LoopLevels,
+                                 uint32_t *Sizes, ze_group_count_t &Dimensions) {
+  uint32_t maxGroupSize =
+      DeviceInfo.ComputeProperties[DeviceId].maxTotalGroupSize;
   // maxGroupCountX does not suggest practically useful count (~4M)
   //uint32_t maxGroupCount = DeviceInfo.ComputeProperties.maxGroupCountX;
   uint32_t maxGroupCount = LEVEL0_MAX_GROUP_COUNT;
@@ -1422,7 +1423,7 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
   // Decide group sizes and dimensions
   uint32_t groupSizes[3];
   ze_group_count_t groupCounts;
-  decideGroupArguments((uint32_t )NumTeams, (uint32_t)ThreadLimit,
+  decideGroupArguments(DeviceId, (uint32_t )NumTeams, (uint32_t)ThreadLimit,
                        (int64_t *)LoopDesc, groupSizes, groupCounts);
 
   if (omptEnabled.enabled) {
@@ -1571,13 +1572,13 @@ EXTERN int32_t __tgt_rtl_release_offload_queue(int32_t DeviceId, void *Pipe) {
   return OFFLOAD_SUCCESS;
 }
 
-EXTERN void *__tgt_rtl_get_platform_handle(int32_t device_id) {
+EXTERN void *__tgt_rtl_get_platform_handle(int32_t DeviceId) {
   auto driver = DeviceInfo.Driver;
   return (void *) driver;
 }
 
-EXTERN void *__tgt_rtl_get_device_handle(int32_t device_id) {
-  auto device = DeviceInfo.Devices[device_id];
+EXTERN void *__tgt_rtl_get_device_handle(int32_t DeviceId) {
+  auto device = DeviceInfo.Devices[DeviceId];
   return (void *) device;
 }
 
@@ -1590,7 +1591,7 @@ EXTERN int32_t __tgt_rtl_release_buffer(void *TgtPtr) {
   return OFFLOAD_SUCCESS;
 }
 
-EXTERN int32_t __tgt_rtl_synchronize(int32_t device_id,
+EXTERN int32_t __tgt_rtl_synchronize(int32_t DeviceId,
                                      __tgt_async_info *async_info_ptr) {
   return OFFLOAD_SUCCESS;
 }

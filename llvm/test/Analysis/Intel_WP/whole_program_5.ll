@@ -1,4 +1,4 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 ; Test that checks the output of the libfuncs trace by itself (-whole-program-trace-libfuncs).
 
 ; RUN: llvm-as < %s >%t1

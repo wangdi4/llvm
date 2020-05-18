@@ -1,4 +1,4 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 ; This test checks that whole program wasn't achieved because the
 ; definition for @sub is missing in the IR. Whole program read isn't
 ; achieved because there is no definition for @sub.

@@ -1,4 +1,4 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 ; This test expects LTO to NOT detect whole program since IR
 ; is not available for 'dealloc' user defined routine. LTO doesn't
 ; expect IR for library routines like malloc, free, fprintf.

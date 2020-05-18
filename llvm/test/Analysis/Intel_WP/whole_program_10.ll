@@ -1,4 +1,4 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 ; Test that checks if whole program not seen was identified correctly and the output
 ; is printed correctly when whole-program-trace-symbols is used.
 

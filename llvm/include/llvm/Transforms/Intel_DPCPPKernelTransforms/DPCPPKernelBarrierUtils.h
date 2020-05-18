@@ -21,7 +21,11 @@ namespace llvm {
 namespace DPCPPKernelBarrierUtils {
 
 using InstVector = SmallVector<llvm::Instruction *, 8>;
+using ValueVector = SmallVector<llvm::Value *, 8>;
+using FuncVector = SmallVector<llvm::Function *, 8>;
+
 using InstSet = SetVector<llvm::Instruction *>;
+using FuncSet = SetVector<llvm::Function *>;
 
 static constexpr const char BarrierName[] = "__builtin_dpcpp_kernel_barrier";
 static constexpr const char DummyBarrierName[] =
@@ -34,6 +38,11 @@ void findAllUsesOfFunc(llvm::Module &M, const llvm::StringRef Name,
 /// Return all synchronize instructions in the module
 /// Returns container with all synchronize instructions
 void getAllSyncInstructions(llvm::Module &M, InstVector &SyncInsts);
+
+/// Find all functions  in the module
+/// that contain synchronize instructions
+/// Returns FuncSet container with found functions
+void getAllFunctionsWithSynchronization(llvm::Module &M, FuncSet &SyncFuncs);
 
 } // namespace DPCPPKernelBarrierUtils
 } // namespace llvm

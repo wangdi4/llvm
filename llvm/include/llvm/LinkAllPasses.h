@@ -382,6 +382,7 @@ namespace {
       (void) llvm::createPhiCanonicalizationPass();
       (void) llvm::createRedundantPhiNodePass();
       (void) llvm::createSplitBBonBarrierPass();
+      (void) llvm::createWIRelatedValuePass();
 
       // Optimize math calls
       (void) llvm::createMapIntrinToImlPass();

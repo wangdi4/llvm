@@ -1,4 +1,4 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 ; Test that checks if whole program read treats wmain as main.
 
 ; RUN: llvm-as %s -o %t.bc

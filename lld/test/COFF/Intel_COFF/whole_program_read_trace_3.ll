@@ -1,4 +1,4 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 ; This test checks that whole program read wasn't achieved because the
 ; definition for @sub is missing in the IR.
 ; NOTE: lld will throw a exit error since the defintion of sub

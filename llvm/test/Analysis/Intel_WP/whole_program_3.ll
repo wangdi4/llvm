@@ -1,4 +1,4 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 ; This test checks if whole program is seen when indirect calls are present.
 
 ; RUN: llvm-as < %s >%t1

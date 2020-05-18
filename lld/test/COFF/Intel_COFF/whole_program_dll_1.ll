@@ -1,4 +1,4 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 ; Test case to make sure that whole program won't be achieved when creating
 ; a DLL because lld isn't linking an executable.
 
