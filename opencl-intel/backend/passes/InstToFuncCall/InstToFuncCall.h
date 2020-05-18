@@ -14,6 +14,7 @@
 
 #ifndef __INSTTOFUNCCALL_H__
 #define __INSTTOFUNCCALL_H__
+#include "TargetArch.h"
 #include <llvm/Pass.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/DerivedTypes.h>
@@ -27,6 +28,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+static llvm::cl::opt<bool> ReplaceFDivFastWithSVML(
+    "replace-fdiv-fast-with-svml", llvm::cl::init(false), llvm::cl::Hidden,
+    llvm::cl::desc("Replace fdiv fast with svml relaxed divide"));
+
 namespace intel{
 
     using namespace llvm;
@@ -35,7 +40,7 @@ namespace intel{
     public:
         typedef std::pair<const char*, CallingConv::ID> LookupValue;
 
-        Inst2FunctionLookup(bool isV16Supported) {
+        Inst2FunctionLookup(const Intel::CPUId *CpuId) {
             //TODO: move this away from here
             Type2ValueLookup FPToUI_Lookup;
             Type2ValueLookup FPToSI_Lookup;
@@ -66,6 +71,7 @@ namespace intel{
             /// %call_conv = call double @_Z14convert_doublel(i64 %tmp2) nounwind
             SIToFP_Lookup[std::make_pair(Double,Integer64)] = std::make_pair("_Z14convert_doublel", CallingConv::C);
 
+            bool isV16Supported = CpuId ? CpuId->HasGatherScatter() : true;
             if (isV16Supported)
             {
                 /// Replaces:
@@ -141,19 +147,31 @@ namespace intel{
                 UIToFP_Lookup[std::make_pair(Float,Integer64)] = std::make_pair("_Z13convert_floatm", CallingConv::C);
             }
 
-            m_Lookup[Instruction::UIToFP] = UIToFP_Lookup;
-            m_Lookup[Instruction::SIToFP] = SIToFP_Lookup;
-            m_Lookup[Instruction::FPToUI] = FPToUI_Lookup;
-            m_Lookup[Instruction::FPToSI] = FPToSI_Lookup;
+            m_Lookup[Instruction::UIToFP] = std::move(UIToFP_Lookup);
+            m_Lookup[Instruction::SIToFP] = std::move(SIToFP_Lookup);
+            m_Lookup[Instruction::FPToUI] = std::move(FPToUI_Lookup);
+            m_Lookup[Instruction::FPToSI] = std::move(FPToSI_Lookup);
 
-            Type2ValueLookup FDiv_Lookup;
-            FDiv_Lookup[std::make_pair(Float,Float)] = std::make_pair("_Z9divide_rmff", CallingConv::C);
-            FDiv_Lookup[std::make_pair(v2xFloat,v2xFloat)] = std::make_pair("_Z9divide_rmDv2_fS_", CallingConv::C);
-            FDiv_Lookup[std::make_pair(v3xFloat,v3xFloat)] = std::make_pair("_Z9divide_rmDv3_fS_", CallingConv::C);
-            FDiv_Lookup[std::make_pair(v4xFloat,v4xFloat)] = std::make_pair("_Z9divide_rmDv4_fS_", CallingConv::C);
-            FDiv_Lookup[std::make_pair(v8xFloat,v8xFloat)] = std::make_pair("_Z9divide_rmDv8_fS_", CallingConv::C);
-            FDiv_Lookup[std::make_pair(v16xFloat,v16xFloat)] = std::make_pair("_Z9divide_rmDv16_fS_", CallingConv::C);
-            m_LookupFastMath[Instruction::FDiv] = FDiv_Lookup;
+            // Maximum ULP of 'fdiv fast' on AVX/SSE42 is 3, while limit is 2.5
+            // in OpenCL spec. So we replace 'fdiv fast' with svml function on
+            // AVX/SSE42.
+            if (ReplaceFDivFastWithSVML ||
+                (CpuId && !CpuId->HasAVX2() && !CpuId->HasAVX512Core())) {
+                Type2ValueLookup FDiv_Lookup;
+                FDiv_Lookup[{Float, Float}] = {"_Z9divide_rmff",
+                                               CallingConv::C};
+                FDiv_Lookup[{v2xFloat, v2xFloat}] = {"_Z9divide_rmDv2_fS_",
+                                                     CallingConv::C};
+                FDiv_Lookup[{v3xFloat, v3xFloat}] = {"_Z9divide_rmDv3_fS_",
+                                                     CallingConv::C};
+                FDiv_Lookup[{v4xFloat, v4xFloat}] = {"_Z9divide_rmDv4_fS_",
+                                                     CallingConv::C};
+                FDiv_Lookup[{v8xFloat, v8xFloat}] = {"_Z9divide_rmDv8_fS_",
+                                                     CallingConv::C};
+                FDiv_Lookup[{v16xFloat, v16xFloat}] = {"_Z9divide_rmDv16_fS_",
+                                                       CallingConv::C};
+                m_LookupFastMath[Instruction::FDiv] = std::move(FDiv_Lookup);
+            }
         }
 
         const LookupValue *operator [](const Instruction &inst) const {
@@ -265,7 +283,7 @@ namespace intel{
     public:
         static char ID; // Pass identification, replacement for typeid
 
-        InstToFuncCall(bool isV16Supported = true);
+        InstToFuncCall(const Intel::CPUId *CpuId = nullptr);
 
         bool runOnModule(Module &M);
 
@@ -281,7 +299,7 @@ namespace intel{
 
 /// Returns an instance of the Inst2Func pass,
 /// which will be added to a PassManager and run on a Module.
-    llvm::ModulePass *createInstToFuncCallPass(bool isV16Supported);
+    llvm::ModulePass *createInstToFuncCallPass(const Intel::CPUId *CpuId);
 
 }
 

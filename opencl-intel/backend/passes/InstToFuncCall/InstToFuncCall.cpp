@@ -24,8 +24,8 @@ using namespace llvm;
 extern "C" {
     /// @brief Creates new InstToFuncCall module pass
     /// @returns new InstToFuncCall module pass
-    void* createInstToFuncCallPass(bool isV16Supported) {
-        return new intel::InstToFuncCall(isV16Supported);
+    void* createInstToFuncCallPass(const Intel::CPUId *CpuId) {
+        return new intel::InstToFuncCall(CpuId);
     }
 }
 
@@ -36,7 +36,8 @@ namespace intel{
 
     OCL_INITIALIZE_PASS(InstToFuncCall, "inst-to-func-call", "Replaces LLVM IR instructions with calls to functions", false, false)
 
-    InstToFuncCall::InstToFuncCall(bool isV16Supported) : ModulePass(ID), m_I2F(isV16Supported) {}
+    InstToFuncCall::InstToFuncCall(const Intel::CPUId *CpuId)
+        : ModulePass(ID), m_I2F(CpuId) {}
 
     /// Replaces instruction 'II' with call to function 'funcName' which has a
     /// calling convention 'CC'.
@@ -91,7 +92,9 @@ namespace intel{
         return changed;
     }
 
-    ModulePass *createInstToFuncCallPass(bool isV16Supported) { return new InstToFuncCall(isV16Supported); }
+    ModulePass *createInstToFuncCallPass(const Intel::CPUId *CpuId) {
+        return new InstToFuncCall(CpuId);
+    }
 
-    } // namespace
+} // namespace
 
