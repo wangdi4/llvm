@@ -14249,7 +14249,7 @@ multiclass avx512_cfmop_sh_common<bits<8> opc, string OpcodeStr, SDNode OpNode, 
     defm m : AVX512_maskable_3src<opc, MRMSrcMem, v4f32x_info, (outs VR128X:$dst),
                         (ins VR128X:$src2, ssmem:$src3), OpcodeStr,
                         "$src3, $src2", "$src2, $src3",
-                        (v4f32 (OpNode VR128X:$src1, VR128X:$src2, sse_load_f32:$src3))>,
+                        (v4f32 (OpNode VR128X:$src1, VR128X:$src2, (sse_load_f32 addr:$src3)))>,
                         Sched<[sched.XMM.Folded, sched.XMM.ReadAfterFold]>;
     defm rb : AVX512_maskable_3src<opc,  MRMSrcReg, v4f32x_info, (outs VR128X:$dst),
                         (ins VR128X:$src2, VR128X:$src3, AVX512RC:$rc), OpcodeStr,
@@ -14270,7 +14270,7 @@ multiclass avx512_cfmbinop_sh_common<bits<8> opc, string OpcodeStr, SDNode OpNod
     defm rm : AVX512_maskable<opc, MRMSrcMem, f32x_info, (outs VR128X:$dst),
                         (ins VR128X:$src1, ssmem:$src2), OpcodeStr,
                         "$src2, $src1", "$src1, $src2",
-                        (v4f32 (OpNode VR128X:$src1, sse_load_f32:$src2)),
+                        (v4f32 (OpNode VR128X:$src1, (sse_load_f32 addr:$src2))),
                         0, 0, 0, X86selects, "@earlyclobber $dst">,
                         Sched<[sched.XMM.Folded, sched.XMM.ReadAfterFold]>;
     defm rrb : AVX512_maskable<opc, MRMSrcReg, f32x_info, (outs VR128X:$dst),
