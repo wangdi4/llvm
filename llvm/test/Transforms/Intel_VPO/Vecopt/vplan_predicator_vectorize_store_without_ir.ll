@@ -110,10 +110,10 @@ define dso_local void @foo_non_lcssa(i32 %N, i32 *%a, i32 %mask_out_loop) local_
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB11]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB12]]:
-; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI_USE_LIVE_OUT_LCSSA_BLEND_BB12:%.*]] = blend [ i32 [[VP_PHI_USE_LIVE_OUT_BLEND]], i1 [[VP_BB3_BR_VP_CMP216_NOT]] ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI_USE_LIVE_OUT_LCSSA:%.*]] = phi  [ i32 [[VP_PHI_USE_LIVE_OUT_BLEND]], [[BB5]] ]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP11:%.*]] = block-predicate i1 [[VP_BB3_BR_VP_CMP216_NOT]]
 ; CHECK-NEXT:     [DA: Uni] i32* [[VP_STORE_USER_GEP:%.*]] = getelementptr inbounds i32* [[A0]] i32 0
-; CHECK-NEXT:     [DA: Div] store i32 [[VP_PHI_USE_LIVE_OUT_LCSSA_BLEND_BB12]] i32* [[VP_STORE_USER_GEP]]
+; CHECK-NEXT:     [DA: Div] store i32 [[VP_PHI_USE_LIVE_OUT_LCSSA]] i32* [[VP_STORE_USER_GEP]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB13:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:

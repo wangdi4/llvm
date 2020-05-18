@@ -141,7 +141,7 @@ define void @test_div_loop(i32 %vf) {
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]:
-; CHECK-NEXT:     [DA: Div] i32 [[VP_LIVEOUT_USE_BLEND_BB4:%.*]] = blend [ i32 [[VP_LIVEOUT_BLEND_BB3]], i1 true ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LIVEOUT_USE:%.*]] = phi  [ i32 [[VP_LIVEOUT_BLEND_BB3]], [[BB2]] ]
 ; CHECK-NEXT:     [DA: Div] void [[VP1:%.*]] = ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]

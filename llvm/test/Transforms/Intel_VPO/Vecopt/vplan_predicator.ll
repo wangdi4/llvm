@@ -519,7 +519,7 @@ define dso_local void @test_divergent_loop_with_double_top_test(i32 %N, i32 *%a,
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB9]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB10]]:
-; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI_USE_BLEND_BB9:%.*]] = blend [ i32 [[VP_IV_LIVE_OUT_BLEND]], i1 [[VP_BB2_BR_VP_SECOND_TEST_NOT]] ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI_USE:%.*]] = phi  [ i32 [[VP_IV_LIVE_OUT_BLEND]], [[BB5]] ]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP8:%.*]] = block-predicate i1 [[VP_BB2_BR_VP_SECOND_TEST_NOT]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB11:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
@@ -1331,6 +1331,84 @@ bb5:
 bb6:
   %phi = phi i32 [ %bb1.add, %bb1 ], [ %bb4.add, %bb4 ], [ %bb2.add, %bb2 ], [ %bb3.add, %bb3 ], [ %bb5.add, %bb5 ]
   %bb6.add = add i32 %ld, 6
+  ret void
+}
+
+define void @test_no_blend_in_uniform_control_flow(i32 %b) {
+; Make sure that workaround for CG's block-merge doesn't cause issues in blends
+; transformation for bb1 - we shouldn't be doing anything to it for this uniform
+; control flow (used to crash).
+;
+;             entry
+;               |
+;             header<+
+;            /  |    |
+;          bb0  |    |
+;          / |  |    |
+;        bb1 |  +    |
+;         \  | /     |
+;         latch------+
+;           |
+;         exit
+; CHECK-LABEL:  VPlan IR for: test_no_blend_in_uniform_control_flow
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = icmp i32 [[B0:%.*]] i32 42
+; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
+; CHECK-NEXT:    no PREDECESSORS
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB1]]:
+; CHECK-NEXT:     [DA: Uni] i32 [[VP_IV:%.*]] = phi  [ i32 0, [[BB0]] ],  [ i32 [[VP_IV_NEXT:%.*]], [[BB2:BB[0-9]+]] ]
+; CHECK-NEXT:     Condition([[BB0]]): [DA: Uni] i1 [[VP_UNIFORM]] = icmp i32 [[B0]] i32 42
+; CHECK-NEXT:    SUCCESSORS(2):[[BB3:BB[0-9]+]](i1 [[VP_UNIFORM]]), [[BB2]](!i1 [[VP_UNIFORM]])
+; CHECK-NEXT:    PREDECESSORS(2): [[BB2]] [[BB0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:      [[BB3]]:
+; CHECK-NEXT:       <Empty Block>
+; CHECK-NEXT:       Condition([[BB0]]): [DA: Uni] i1 [[VP_UNIFORM]] = icmp i32 [[B0]] i32 42
+; CHECK-NEXT:      SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP_UNIFORM]]), [[BB2]](!i1 [[VP_UNIFORM]])
+; CHECK-NEXT:      PREDECESSORS(1): [[BB1]]
+; CHECK-EMPTY:
+; CHECK-NEXT:      [[BB4]]:
+; CHECK-NEXT:       [DA: Uni] i32 [[VP_NO_BLEND_PHI:%.*]] = phi  [ i32 [[VP_IV]], [[BB3]] ]
+; CHECK-NEXT:      SUCCESSORS(1):[[BB2]]
+; CHECK-NEXT:      PREDECESSORS(1): [[BB3]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB2]]:
+; CHECK-NEXT:     [DA: Uni] i32 [[VP_THREE:%.*]] = phi  [ i32 [[VP_IV]], [[BB1]] ],  [ i32 [[VP_IV]], [[BB3]] ],  [ i32 [[VP_IV]], [[BB4]] ]
+; CHECK-NEXT:     [DA: Uni] i32 [[VP_IV_NEXT]] = add i32 [[VP_IV]] i32 1
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_COND:%.*]] = icmp i32 [[VP_IV_NEXT]] i32 42
+; CHECK-NEXT:    SUCCESSORS(2):[[BB5:BB[0-9]+]](i1 [[VP_COND]]), [[BB1]](!i1 [[VP_COND]])
+; CHECK-NEXT:    PREDECESSORS(3): [[BB4]] [[BB3]] [[BB1]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB5]]:
+; CHECK-NEXT:     [DA: Div] void [[VP0:%.*]] = ret
+; CHECK-NEXT:    no SUCCESSORS
+; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
+;
+entry:
+  %lane = call i32 @llvm.vplan.laneid()
+  %uniform = icmp eq i32 %b,  42
+  br label %header
+
+header:
+  %iv = phi i32 [ 0, %entry ], [ %iv.next, %latch ]
+  br i1 %uniform, label %bb0, label %latch
+
+bb0:
+  br i1 %uniform, label %bb1, label %latch
+
+bb1:
+  %no.blend.phi = phi i32 [ %iv, %bb0 ]
+  br label %latch
+
+latch:
+  %three = phi i32 [ %iv, %header ], [ %iv, %bb0 ], [ %iv, %bb1 ]
+  %iv.next = add nsw nuw i32 %iv, 1
+  %cond = icmp eq i32 %iv.next, 42
+  br i1 %cond, label %exit, label %header
+
+exit:
   ret void
 }
 
