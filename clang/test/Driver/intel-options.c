@@ -14,6 +14,10 @@
 // CHECK-ZMM-LOW: "-mprefer-vector-width=256"
 // CHECK-ZMM-INVALID: invalid value 'invalid'
 
+// -fpermissive support
+// RUN: %clang -### -c -fpermissive %s 2>&1 | FileCheck -check-prefix CHECK-FPERMISSIVE %s
+// CHECK-FPERMISSIVE: "-gnu-permissive"
+
 // Behavior with -ipo/Qipo option
 // RUN: %clang -### -c -ipo %s 2>&1 | FileCheck -check-prefix CHECK-IPO %s
 // RUN: %clang_cl -### -c /Qipo %s 2>&1 | FileCheck -check-prefix CHECK-IPO %s
