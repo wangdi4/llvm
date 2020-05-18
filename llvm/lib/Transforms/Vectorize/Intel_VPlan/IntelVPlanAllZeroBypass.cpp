@@ -209,6 +209,15 @@ void VPlanAllZeroBypass::verifyBypassRegion(BypassPairTy &Region) {
   SmallPtrSet<VPBasicBlock *, 4> RegionBlocks;
   getRegionBlocks(Region.first, Region.second, RegionBlocks);
   for (auto *RegionBlock : RegionBlocks) {
+    // For any phis in the region we want to assert that any incoming blocks
+    // to those phis are part of the region. This will catch if all-zero
+    // bypass attempts to construct invalid regions. However, we don't want
+    // to assert if the block containing the phi(s) is also the first block
+    // in the region. In this case, the instructions appearing before
+    // before the block predicate, including phis, will not be included in
+    // the region because they will be hoisted above the all-zero check.
+    if (RegionBlock == Region.first)
+      continue;
     for (auto &VPInst : *RegionBlock) {
       if (auto *VPPhi = dyn_cast<VPPHINode>(&VPInst)) {
         for (unsigned I = 0; I < VPPhi->getNumIncomingValues(); ++I) {
