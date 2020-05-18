@@ -2885,8 +2885,9 @@ void PacketizeFunction::packetizeInstruction(AllocaInst *AI) {
     Type* allocaType = VectorizerUtils::convertSoaAllocaType(AI->getAllocatedType(), m_packetWidth);
     unsigned int alignment = AI->getAlignment() * m_packetWidth;
 
-    AllocaInst* newAlloca = new AllocaInst(
-      allocaType, m_pDL->getAllocaAddrSpace(), 0, MaybeAlign(alignment), "PackedAlloca", AI);
+    AllocaInst *newAlloca = new AllocaInst(
+        allocaType, m_pDL->getAllocaAddrSpace(), 0,
+        alignment ? Align(alignment) : Align(), "PackedAlloca", AI);
 
     Instruction *duplicateInsts[MAX_PACKET_WIDTH];
     // Set the new SOA-alloca instruction as scalar multi instructions
@@ -2982,8 +2983,8 @@ void PacketizeFunction::createLoadAndTranspose(Instruction* I, Value* loadPtrVal
     // Create the destination vectors that will contain the transposed matrix
     AllocaInst* alloca = Builder.CreateAlloca(destVecType);
     // Set alignment of funtion arguments, size in bytes of the destination vector
-    alloca->setAlignment(MaybeAlign((destVecType->getScalarSizeInBits() / 8) *
-                                    numDestVectElems));
+    alloca->setAlignment(
+        Align((destVecType->getScalarSizeInBits() / 8) * numDestVectElems));
     funcArgs.push_back(alloca);
   }
 
