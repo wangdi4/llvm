@@ -278,12 +278,13 @@ def ocl_types : TypeNameList<[
   atom_v1i64.TypeName, atom_v1u64.TypeName, atom_v1f64.TypeName,
   atom_intptr_t.TypeName, atom_uintptr_t.TypeName,
 
-  // Wide vectors for shuffles
+  // Wide vectors
   v32i64.TypeName, v64i64.TypeName, v128i64.TypeName, v256i64.TypeName,
   v32u64.TypeName, v64u64.TypeName, v128u64.TypeName, v256u64.TypeName,
   v32i32.TypeName, v64i32.TypeName, v128i32.TypeName, v256i32.TypeName,
   v32u32.TypeName, v64u32.TypeName, v128u32.TypeName, v256u32.TypeName,
   v32f32.TypeName, v64f32.TypeName, v128f32.TypeName, v256f32.TypeName,
+  v32f64.TypeName, v64f64.TypeName, v128f64.TypeName, v256f64.TypeName,
   v32i16.TypeName, v64i16.TypeName, v128i16.TypeName, v256i16.TypeName,
   v32u16.TypeName, v64u16.TypeName, v128u16.TypeName, v256u16.TypeName,
   v32i8.TypeName,  v64i8.TypeName,  v128i8.TypeName, v256i8.TypeName,
@@ -295,6 +296,7 @@ def ocl_types : TypeNameList<[
   v12i32.TypeName, v24i32.TypeName, v48i32.TypeName,
   v12u32.TypeName, v24u32.TypeName, v48u32.TypeName,
   v12f32.TypeName, v24f32.TypeName, v48f32.TypeName,
+  v12f64.TypeName, v24f64.TypeName, v48f64.TypeName,
   v12i8.TypeName, v24i8.TypeName, v48i8.TypeName,
   v12u8.TypeName, v24u8.TypeName, v48u8.TypeName,
   v12i16.TypeName, v24i16.TypeName, v48i16.TypeName,

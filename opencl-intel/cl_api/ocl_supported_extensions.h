@@ -44,6 +44,7 @@
 
 #define OCL_EXT_KHR_SUBGROUP_SHUFFLE                   "cl_khr_subgroup_shuffle"
 #define OCL_EXT_KHR_SUBGROUP_NON_UNIFORM_ARITHMETIC    "cl_khr_subgroup_non_uniform_arithmetic"
+#define OCL_EXT_KHR_SUBGROUP_EXTENDED_TYPES            "cl_khr_subgroup_extended_types"
 
 #define OCL_EXT_INTEL_SUBGROUPS                        "cl_intel_subgroups"
 #define OCL_EXT_INTEL_SUBGROUPS_CHAR                   "cl_intel_subgroups_char"
