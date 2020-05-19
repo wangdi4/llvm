@@ -1,6 +1,9 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" < %s 2>&1 | FileCheck %s
 
+; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd -hir-details-refs < %s 2>&1 | FileCheck %s --check-prefix="CHECK-REFS"
+; RUN: opt -passes="hir-ssa-deconstruction,hir-runtime-dd,print<hir>" -aa-pipeline="basic-aa" -hir-details-refs < %s 2>&1 | FileCheck %s --check-prefix="CHECK-REFS"
+
 ; Check that loop can be multiversioned after reference delinearization.
 ;
 ; Strides:
@@ -36,6 +39,8 @@
 ; CHECK-DAG: &((%p)[100][sext.i32.i64(%k) + -1]) >=u &((%q)[0]);
 ; CHECK: sext.i32.i64(%k) + -1 < sext.i32.i64(%n)
 ; CHECK: <MVTag: {{[0-9]+}}, Delinearized: %p>
+
+; CHECK-REFS: &((%p)[0:100:4 * sext.i32.i64(%n)(i32*:0)][0:sext.i32.i64(%k) + -1:4(i32*:0)])
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
