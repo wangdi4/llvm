@@ -319,3 +319,7 @@
 // RUN: %clang -### -fhelp %s 2>&1 | FileCheck -check-prefix CHECK-FHELP %s
 // CHECK-FHELP: -###
 // CHECK-FHELP: --analyze
+
+// Behavior with -fstack-security-check option
+// RUN: %clang -### -fstack-security-check %s 2>&1 | FileCheck -check-prefix CHECK-FSTACK-SECURITY-CHECK %s
+// CHECK-FSTACK-SECURITY-CHECK: "-stack-protector" "2"
