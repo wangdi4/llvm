@@ -10422,11 +10422,23 @@ X86TargetLowering::LowerBUILD_VECTOR(SDValue Op, SelectionDAG &DAG) const {
       if (NumZero == 0)
         return DAG.getNode(ISD::SCALAR_TO_VECTOR, dl, VT, Item);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
       if (EltVT == MVT::i32 ||
           EltVT == MVT::f16 || EltVT == MVT::f32 || EltVT == MVT::f64 ||
 #else  // INTEL_FEATURE_ISA_FP16
+=======
+      // Just load a vector integer constant. Loading is better for code size,
+      // avoids move GPR immediate --> XMM, and reduces register pressure.
+      if (IsAllConstants && VT.isInteger()) {
+        // TODO: Remove -1 restriction with demanded elements improvement?
+        // TODO: Insert 128-bit load into wider undef vector?
+        if (VT.is128BitVector() && !isAllOnesConstant(Item))
+          return SDValue();
+      }
+
+>>>>>>> 57c3fe76a31663526c78ed6ac3bbb34858c823d2
       if (EltVT == MVT::i32 || EltVT == MVT::f32 || EltVT == MVT::f64 ||
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
