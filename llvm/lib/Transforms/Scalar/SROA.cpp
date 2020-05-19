@@ -1205,7 +1205,7 @@ static Type *findCommonType(AllocaSlices::const_iterator B,
 ///  - And, there are no stores between PN and Inst.
 static bool isLiveAtPHI(const Instruction * Inst,
                         const PHINode &PN,
-                        MaybeAlign &MaxAlign, APInt &MaxSize) {
+                        Align &MaxAlign, APInt &MaxSize) {
   if (!Inst || Inst->getParent() != PN.getParent())
     return false;
 
@@ -1229,7 +1229,7 @@ static bool isLiveAtPHI(const Instruction * Inst,
 
     uint64_t APWidth = DL.getIndexTypeSizeInBits(PN.getType());
     uint64_t Size = DL.getTypeStoreSize(LI->getType()).getFixedSize();
-    MaxAlign = std::max(MaxAlign, MaybeAlign(LI->getAlignment()));
+    MaxAlign = std::max(MaxAlign, Align(LI->getAlign()));
     MaxSize = MaxSize.ult(Size) ? APInt(APWidth, Size) : MaxSize;
 
     return true;
@@ -1282,14 +1282,7 @@ static bool isSafePHIToSpeculate(PHINode &PN) {
 #if INTEL_CUSTOMIZATION
   // For now, we can only do this promotion if the load is in the same block
   // as the PHI, and if there are no stores between the phi and load.
-<<<<<<< HEAD
-  MaybeAlign MaxAlign;
-=======
-  // TODO: Allow recursive phi users.
-  // TODO: Allow stores.
-  BasicBlock *BB = PN.getParent();
   Align MaxAlign;
->>>>>>> 736db2f710367946452f3f705010ada4227352b0
   uint64_t APWidth = DL.getIndexTypeSizeInBits(PN.getType());
   APInt MaxSize(APWidth, 0);
   bool HasLoad = false;
@@ -1302,14 +1295,7 @@ static bool isSafePHIToSpeculate(PHINode &PN) {
     if (!isLiveAtPHI(dyn_cast<Instruction>(U), PN, MaxAlign, MaxSize))
       return false;
 
-<<<<<<< HEAD
     HasLoad = true;
-=======
-    uint64_t Size = DL.getTypeStoreSize(LI->getType()).getFixedSize();
-    MaxAlign = std::max(MaxAlign, LI->getAlign());
-    MaxSize = MaxSize.ult(Size) ? APInt(APWidth, Size) : MaxSize;
-    HaveLoad = true;
->>>>>>> 736db2f710367946452f3f705010ada4227352b0
   }
 
   if (!HasLoad)
