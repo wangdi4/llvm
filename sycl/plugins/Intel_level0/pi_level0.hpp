@@ -303,10 +303,18 @@ struct _pi_event {
 
 struct _pi_program {
   _pi_program(ze_module_handle_t Module, pi_context Context)
-      : ZeModule{Module}, Context{Context}, RefCount{1} {}
+      : SPIRVData{nullptr}, SPIRVLength{0}, ZeModule{Module},
+        ZeBuildLog{nullptr}, Context{Context}, RefCount{1} {}
+
+  // SPIR-V of the program (may be null if program is created from binary).
+  uint8_t *SPIRVData;
+  size_t SPIRVLength;
 
   // L0 module handle.
   ze_module_handle_t ZeModule;
+
+  // L0 build log.
+  ze_module_build_log_handle_t ZeBuildLog;
 
   // Keep the context of the program.
   pi_context Context;
