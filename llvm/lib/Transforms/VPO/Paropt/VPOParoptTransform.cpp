@@ -6172,6 +6172,70 @@ void VPOParoptTransform::wrnUpdateLiveOutVals(
   }
 }
 
+// API to check if the Loop Header has any PHI's with constant values only.
+// If any constant value is coming in from the LoopLatch basic block, a PHI is
+// added to represent this value in Loop Latch and LoopHeader is updated to use
+// the new PHI created. This initializes LiveOut and LiveIn sets for the loop
+// appropriately and the code handles loop carried dependence when creating
+// dispatch loop.
+//
+// Eg:
+// Before execution of this function:
+// LoopHeader:                              ; preds = %LoopPreheader, %LoopLatch
+// %flag = phi i32 [0, %LoopPreheader], [1, %LoopLatch]
+// ...
+//
+// ...
+//
+// LoopLatch:                               ; preds = %if.then , %LoopBody
+// ...
+//
+// -------
+// After execution of this function:
+// LoopHeader:                              ; preds = %LoopPreheader, %LoopLatch
+// %flag = phi i32 [0, %LoopPreheader], [%const.value.phi0, %LoopLatch]
+// ...
+//
+// ...
+//
+// LoopLatch:                               ; preds = %if.then , %LoopBody
+// %const.value.phi0 = phi i32 [ 1, %if.then ], [ 1, %LoopBody ]
+// ...
+//
+void updateConstantLoopHeaderPhis(Loop *L) {
+  BasicBlock *BB = L->getHeader();
+  BasicBlock *LatchBB = L->getLoopLatch();
+  int Suffix = 0;
+
+  for (PHINode &PN : BB->phis()) {
+    unsigned NumPHIValues = PN.getNumIncomingValues();
+    for (unsigned I = 0; I < NumPHIValues; I++) {
+      auto InBB = PN.getIncomingBlock(I);
+      if (InBB != LatchBB)
+        continue;
+
+      auto IV = PN.getIncomingValue(I);
+      if (!isa<ConstantData>(IV))
+        continue;
+
+      IRBuilder<> ConstBuilder(LatchBB->getFirstNonPHI());
+      unsigned NumPredecessors =
+          distance(pred_begin(LatchBB), pred_end(LatchBB));
+      PHINode *ConstPhi;
+      ConstPhi = ConstBuilder.CreatePHI(
+          IV->getType(), NumPredecessors,
+          std::string("const.value.phi" + std::to_string(Suffix++)));
+      for (BasicBlock *Pred : predecessors(LatchBB)) {
+        Value *NewVal = IV;
+        ConstPhi->addIncoming(NewVal, Pred);
+      }
+      // Replace the Value with the new PHINode value.
+      PN.removeIncomingValue(I);
+      PN.addIncoming(ConstPhi, LatchBB);
+    }
+  }
+}
+
 // Collect the live-in value for the phis at the loop header.
 void VPOParoptTransform::wrnUpdateSSAPreprocess(
     Loop *L,
@@ -6330,6 +6394,17 @@ bool VPOParoptTransform::genLoopSchedulingCode(
   DenseMap<Value *, std::pair<Value *, BasicBlock *>> ValueToLiveinMap;
   SmallSetVector<Instruction *, 8> LiveOutVals;
   EquivalenceClasses<Value *> ECs;
+
+  // Get Schedule kind information from W-Region node
+  // Default: static_even.
+  WRNScheduleKind SchedKind = VPOParoptUtils::getLoopScheduleKind(W);
+
+  if (SchedKind != WRNScheduleStaticEven) {
+    // Find and update the Phis in Loop Header that have a constant value
+    // coming in from the Loop Latch.
+    updateConstantLoopHeaderPhis(L);
+  }
+
   wrnUpdateSSAPreprocess(L, ValueToLiveinMap, LiveOutVals, ECs);
 
   //
@@ -6385,9 +6460,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(
   AllocaInst *UpperD = REBuilder.CreateAlloca(IndValTy, nullptr, "upperD");
   UpperD->setAlignment(MaybeAlign(4));
 
-  // Get Schedule kind and chunk information from W-Region node
-  // Default: static_even.
-  WRNScheduleKind SchedKind = VPOParoptUtils::getLoopScheduleKind(W);
+  // Get Schedule chunk information from W-Region node
   ConstantInt *SchedType = REBuilder.getInt32(SchedKind);
   Value *DistChunkVal = REBuilder.getInt32(1);
 
