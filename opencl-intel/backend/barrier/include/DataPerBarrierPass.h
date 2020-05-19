@@ -19,8 +19,6 @@
 
 #include "llvm/Pass.h"
 #include "llvm/IR/Module.h"
-#include "llvm/ADT/MapVector.h"
-#include "llvm/ADT/SetVector.h"
 
 // Forward declarations
 namespace llvm {
@@ -37,16 +35,15 @@ namespace intel {
   /// data on barrier/fiber/dummy barrier instructions
   class DataPerBarrier : public ModulePass {
   public:
-    typedef SetVector<BasicBlock*> TBasicBlocksSet;
     typedef struct  {
-      TInstructionVector m_relatedBarriers;
+      TInstructionSet    m_relatedBarriers;
       bool               m_hasFiberRelated;
     } SBarrierRelated;
     typedef struct {
       unsigned int m_id;
       SYNC_TYPE    m_type;
     } SBarrierData;
-    typedef MapVector<BasicBlock*, TBasicBlocksSet> TBasicBlock2BasicBlocksSetMap;
+    typedef MapVector<BasicBlock*, TBasicBlockSet> TBasicBlock2BasicBlocksSetMap;
     typedef MapVector<Function*, TInstructionSet> TInstructionSetPerFunctionMap;
     typedef MapVector<Instruction*, SBarrierRelated> TBarrier2BarriersSetMap;
     typedef MapVector<Instruction*, SBarrierData> TDataPerBarrierMap;
@@ -115,10 +112,16 @@ namespace intel {
       return m_dataPerBarrierMap[pInst].m_type;
     }
 
+    /// @brief Check if predecessors of given basic block is available.
+    /// @return true if available, false otherwise.
+    bool hasPredecessors(BasicBlock *pBB) {
+      return m_predecessorsMap.count(pBB);
+    }
+
     /// @brief return Predecessors of given basic block
     /// @param pBB pointer to basic block
     /// @returns basic blocks set of Predecessors
-    TBasicBlocksSet& getPredecessors(BasicBlock *pBB) {
+    TBasicBlockSet& getPredecessors(BasicBlock *pBB) {
       assert( m_predecessorsMap.count(pBB)
         && "basic block has no predecessor data!" );
       return m_predecessorsMap[pBB];
@@ -127,7 +130,7 @@ namespace intel {
     /// @brief return Successors of given basic block
     /// @param pBB pointer to basic block
     /// @returns basic blocks set of Successors
-    TBasicBlocksSet& getSuccessors(BasicBlock *pBB) {
+    TBasicBlockSet& getSuccessors(BasicBlock *pBB) {
       assert( m_successorsMap.count(pBB)
         && "basic block has no successor data!" );
       return m_successorsMap[pBB];

@@ -15,11 +15,11 @@
 #ifndef __BARRIER_UTILS_H__
 #define __BARRIER_UTILS_H__
 
+#include "llvm/ADT/MapVector.h"
+#include "llvm/ADT/SetVector.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IRBuilder.h"
-
-#include "llvm/ADT/SetVector.h"
 
 //Forward declaration
 namespace llvm {
@@ -206,6 +206,22 @@ namespace intel {
     /// @param pFunc the given function
     /// @returns true if and only if the function calls a module function
     bool doesCallModuleFunction(Function *pFunc);
+
+    /// @brief return true if there is a barrier in one of the pathes between
+    ///  pValBB and pValUsageBB basic blocks.
+    /// @param SyncInstructions container of all synchronize instructions
+    /// @param ValUsageBB basic block to start searching the path
+    ///   according to its predecessors.
+    /// @param ValBB basic block to stop searching the path when reach it.
+    /// @returns true if and only if find a barrier in one of the searched
+    ///   pathes.
+    bool isCrossedByBarrier(TInstructionSet &SyncInstructions,
+                            BasicBlock *ValUsageBB, BasicBlock *ValBB);
+
+    /// @brief Check whether instruction is implicit GID.
+    /// @param AI Alloca instruction.
+    /// @return true if the instruction is implicit GID, false otherwise.
+    bool isImplicitGID(AllocaInst *AI);
 
   private:
     /// @brief Clean all collected values and assure

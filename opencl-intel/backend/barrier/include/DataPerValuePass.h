@@ -21,7 +21,6 @@
 #include "llvm/Pass.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Function.h"
-#include "llvm/ADT/MapVector.h"
 #include "llvm/IR/DataLayout.h"
 
 #include <map>
@@ -162,14 +161,6 @@ namespace intel {
     /// @param isWIRelated true if value depends on WI id, otherwise false
     /// @returns SPECIAL_VALUE_TYPE - speciality type of given value
     SPECIAL_VALUE_TYPE isSpecialValue(Value *pVal, bool isWIRelated);
-
-    /// @brief return true if there is a barrier in one of the pathes between
-    ///  pValBB and pValUsageBB basic blocks
-    /// @param pValUsageBB basic block to start searching the path
-    ///   according to its predecessors
-    /// @param pValBB basic block to stop searching the path when reach it
-    /// @returns true if and only if find a barrier in one of the searched pathes
-    bool isCrossedByBarrier(BasicBlock *pValUsageBB, BasicBlock *pValBB);
 
     /// @brief calculates offsets of all values in Group-A and Group-B.1
     /// @param F function to process its values

@@ -35,6 +35,8 @@
 INITIALIZE_PASS_BEGIN(passName, arg, name, cfg, analysis) 
 
 #define OCL_INITIALIZE_PASS_DEPENDENCY(depName) INITIALIZE_PASS_DEPENDENCY(depName) 
+#define OCL_INITIALIZE_PASS_DEPENDENCY_INTEL(depName)                            \
+    intel::initialize##depName##Pass(Registry);
 
 #define OCL_INITIALIZE_PASS_END(passName, arg, name, cfg, analysis)              \
   llvm::PassInfo *PI = new llvm::PassInfo(                                       \

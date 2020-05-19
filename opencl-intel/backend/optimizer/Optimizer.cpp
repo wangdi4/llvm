@@ -464,8 +464,7 @@ static void populatePassesPostFailCheck(
   DebuggingServiceType debugType =
       getDebuggingServiceType(pConfig->GetDebugInfoFlag(), M,
                               pConfig->GetUseNativeDebuggerFlag());
-  bool UseTLSGlobals =
-      (debugType == intel::Native) && !isFpgaEmulator && !isEyeQEmulator;
+  bool UseTLSGlobals = (debugType == intel::Native) && !isEyeQEmulator;
 
   PrintIRPass::DumpIRConfig dumpIRAfterConfig(pConfig->GetIRDumpOptionsAfter());
   PrintIRPass::DumpIRConfig dumpIRBeforeConfig(

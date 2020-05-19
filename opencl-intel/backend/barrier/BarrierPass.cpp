@@ -13,35 +13,45 @@
 // License.
 
 #include "BarrierPass.h"
-#include "OCLPassSupport.h"
-#include "InitializePasses.h"
-#include "MetadataAPI.h"
-#include "LoopUtils/LoopUtils.h"
-#include "CompilationUtils.h"
 #include "BarrierUtils.h"
+#include "CompilationUtils.h"
+#include "InitializePasses.h"
+#include "LoopUtils/LoopUtils.h"
+#include "MetadataAPI.h"
+#include "OCLPassSupport.h"
 
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/IRBuilder.h"
+#include "llvm/Analysis/CFG.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/CFG.h"
+#include "llvm/IR/DIBuilder.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Transforms/Utils/Local.h"
 
-#include <sstream>
 #include <set>
+#include <sstream>
 #include <vector>
+
+#define DEBUG_TYPE "B-Barrier"
 
 using namespace Intel::MetadataAPI;
 
 extern bool OptUseTLSGlobals;
+
+static cl::opt<bool> OptIsNativeDebug("is-native-debug", cl::init(false),
+                                      cl::Hidden, cl::desc("Use native debug"));
 
 namespace intel {
 
   char Barrier::ID = 0;
 
   OCL_INITIALIZE_PASS_BEGIN(Barrier, "B-Barrier", "Barrier Pass - Handle special values & replace barrier/fiber with internal loop over WIs", false, true)
-  OCL_INITIALIZE_PASS_DEPENDENCY(DataPerBarrier)
-  OCL_INITIALIZE_PASS_DEPENDENCY(DataPerValue)
+  OCL_INITIALIZE_PASS_DEPENDENCY_INTEL(DataPerBarrier)
+  OCL_INITIALIZE_PASS_DEPENDENCY_INTEL(DataPerValue)
+  OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
   OCL_INITIALIZE_PASS_END(Barrier, "B-Barrier", "Barrier Pass - Handle special values & replace barrier/fiber with internal loop over WIs", false, true)
 
   Barrier::Barrier(bool isNativeDebug, bool useTLSGlobals)
@@ -53,7 +63,7 @@ namespace intel {
         m_pSpecialValues(nullptr), m_pCrossBarrierValues(nullptr),
         m_pDataPerBarrier(nullptr), m_pSyncInstructions(nullptr),
         m_currFunction(nullptr), m_currBarrierKeyValues(nullptr),
-        m_isNativeDBG(isNativeDebug) {
+        m_isNativeDBG(isNativeDebug || OptIsNativeDebug) {
     std::fill(m_PtrLocalId, m_PtrLocalId + MaxNumDims, nullptr);
     initializeBarrierPass(*llvm::PassRegistry::getPassRegistry());
   }
@@ -95,8 +105,6 @@ namespace intel {
     //Find all functions that call synchronize instructions
     TFunctionSet& functionsWithSync = m_util.getAllFunctionsWithSynchronization();
 
-    //Update Map with structure stride size for each kernel
-    updateStructureStride(M, functionsWithSync);
     //Collect data for each function with synchronize instruction
     for (TFunctionSet::iterator fi = functionsWithSync.begin(),
                                 fe = functionsWithSync.end();
@@ -108,7 +116,10 @@ namespace intel {
         "Cannot reach here with function that has no barrier");
 
       //Create new BB at the begining of the function for declarations
-      pFunc->begin()->splitBasicBlock(pFunc->getEntryBlock().begin(), "FirstBB");
+      BasicBlock *EntryBB = &pFunc->getEntryBlock();
+      BasicBlock *FirstBB = pFunc->begin()->splitBasicBlock(EntryBB->begin(), "FirstBB");
+      m_oldToNewSyncBBMap[pFunc][EntryBB] = FirstBB;
+
       //Initialize the argument values
       //This is needed for optimize pLocalId calculation
       bool hasNoInternalCalls = !m_util.doesCallModuleFunction(pFunc);
@@ -150,6 +161,10 @@ namespace intel {
       runOnFunction(*pFuncToFix);
     }
 
+    // Update Map with structure stride size for each kernel.
+    // fixAllocaValues may add new alloca.
+    updateStructureStride(M, functionsWithSync);
+
     fixSynclessTIDUsers(M, functionsWithSync);
     // Fix get_local_id() and get_global_id() function calls
     fixGetWIIdFunctions(M);
@@ -187,11 +202,8 @@ namespace intel {
     //Fix special values
     fixSpecialValues();
 
-    //Do not fix alloca values in order for DWARF based debugging to work.
-    if (!m_isNativeDBG) {
-      //Fix alloca values
-      fixAllocaValues();
-    }
+    // Fix alloca values
+    fixAllocaValues(F);
 
     //Fix cross barrier uniform values
     fixCrossBarrierValues(&*F.begin()->begin());
@@ -201,6 +213,7 @@ namespace intel {
 
     //Remove all instructions in m_toRemoveInstructions
     eraseAllToRemoveInstructions();
+
     return true;
   }
 
@@ -388,38 +401,337 @@ namespace intel {
     }
   }
 
-  void Barrier::fixAllocaValues() {
-    TInstructionSet userInsts;
-    TValueVector::iterator vi = m_pAllocaValues->begin();
-    TValueVector::iterator ve = m_pAllocaValues->end();
-    for (; vi != ve; ++vi) {
-      AllocaInst *pAllocaInst = dyn_cast<AllocaInst>(*vi);
-      assert( pAllocaInst && "container of alloca values has non AllocaInst value!" );
-      //Get offset of alloca value in special buffer
-      unsigned int offset = m_pDataPerValue->getOffset(pAllocaInst);
-      userInsts.clear();
-      //Save all user instructions in a container before start handling them!
-      for ( Instruction::user_iterator ui = pAllocaInst->user_begin(),
-        ue = pAllocaInst->user_end(); ui != ue; ++ui ) {
-          Instruction *pUserInst = dyn_cast<Instruction>(*ui);
-          assert( pUserInst && "uses of alloca instruction is not an instruction!" );
-          userInsts.insert(pUserInst);
+  void Barrier::findSyncBBSuccessors() {
+    TBasicBlockToBasicBlockSet SyncBBSuccs;
+    for (Instruction *SyncI : *m_pSyncInstructions) {
+      BasicBlock *BB = SyncI->getParent();
+      m_syncPerBB[BB] = SyncI;
+
+      TInstructionSet &SyncPreds =
+          m_pDataPerBarrier->getBarrierPredecessors(SyncI).m_relatedBarriers;
+      for (Instruction *Pred : SyncPreds) {
+        // Note Pred->getParent() may be different from Pred->getParent()
+        // in DataPerBarrierPass, because barrier basic block may change when
+        // splitting basic block, see FirstBB and CallBB in this pass.
+        BasicBlock *PredBB = Pred->getParent();
+        SyncBBSuccs[PredBB].insert(BB);
       }
-      //Run over all saved uses instructions and handle them
-      for ( TInstructionSet::iterator ui = userInsts.begin(),
-        ue = userInsts.end(); ui != ue; ++ui ) {
-          Instruction *pUserInst = *ui;
-          Instruction *pInsertBefore = getInstructionToInsertBefore(pAllocaInst, pUserInst, false);
-          assert( pInsertBefore && "pInsertBefore is NULL, update getInstructionToInsertBefore()!" );
-          const DebugLoc& DB = pUserInst->getDebugLoc();
-          //Calculate the pointer of the current alloca in the special buffer
-          Value *pAddrInSpecialBuffer = getAddressInSpecialBuffer(
-            offset, pAllocaInst->getType(), pInsertBefore, &DB);
-          //Replace the alloca with the new address in special buffer
-          pUserInst->replaceUsesOfWith(pAllocaInst, pAddrInSpecialBuffer);
-      }
-      m_toRemoveInstructions.push_back(pAllocaInst);
     }
+
+    // Run DFS to find successors recursively
+    for (auto &S : SyncBBSuccs) {
+      BasicBlock *BB = S.first;
+      SmallVector<BasicBlock *, 8> BBsToHandle;
+      for (BasicBlock *Succ : S.second) {
+        BBsToHandle.push_back(Succ);
+        m_syncBBSuccessors[BB].insert(Succ);
+      }
+      while (!BBsToHandle.empty()) {
+        BasicBlock *V = BBsToHandle.pop_back_val();
+        if (!SyncBBSuccs.count(V))
+          continue;
+        for (BasicBlock *Succ : SyncBBSuccs[V]) {
+          if (m_syncBBSuccessors[BB].count(Succ))
+            continue;
+          m_syncBBSuccessors[BB].insert(Succ);
+          BBsToHandle.push_back(Succ);
+        }
+      }
+    }
+  }
+
+  BasicBlock *Barrier::findNearestDominatorSyncBB(DominatorTree & DT,
+                                                  BasicBlock * BB) {
+    BasicBlock *Dominator = nullptr;
+    for (BasicBlock *SyncBB : m_BBToPredSyncBB[BB]) {
+      if (BB == SyncBB || !DT.dominates(SyncBB, BB))
+        continue;
+      if (Dominator) {
+        // Skip if Dominator is SyncBB's successor.
+        if (m_syncBBSuccessors[SyncBB].count(Dominator))
+          continue;
+        Dominator = SyncBB;
+        continue;
+      }
+      // Check that there isn't another barrier in any path from SyncBB to BB.
+      auto noBarrierFromTo = [this](BasicBlock *SyncBB,
+                                    BasicBlock *BB) -> bool {
+        for (BasicBlock *Succ : m_syncBBSuccessors[SyncBB]) {
+          if (isPotentiallyReachable(Succ, BB))
+            return false;
+        }
+        return true;
+      };
+      if (noBarrierFromTo(SyncBB, BB))
+        Dominator = SyncBB;
+    }
+    return Dominator;
+  }
+
+  // This function binds alloca's user instruction to a basic block.
+  // It also does optimization based on dominance information so that we load
+  // address from new alloca only if necessary. For example, if both basick
+  // block A and B contain alloca's users, A dominates B and there is no barrier
+  // between A and B, we can bind users in B to A. Then we only need to load
+  // address in A.
+  // For the following IR, there is a barrier in for loop. There is no barrier
+  // between while.cond and while.body, we only need to load from %i.addr in
+  // while.cond and reuse it in while.body.
+  //
+  // for.body:
+  // "Barrier BB":
+  // while.cond:
+  //   %1 = load i32, i32* %i, align 4, !dbg !46
+  //   br i1 %cmp1, label %while.body, label %while.end, !dbg !45
+  // while.body:
+  //   store i32 1, i32* %i, align 4, !dbg !48
+  // while.end:
+  // for.inc:
+  //
+  // Output is:
+  //
+  // for.body:
+  // "Barrier BB":
+  // while.cond:
+  //   %SBIndex22 = load i64, i64* %pCurrSBIndex, align 8, !dbg !46
+  //   %SB_LocalId_Offset23 = add nuw i64 %SBIndex22, 40, !dbg !46
+  //   %11 = getelementptr inbounds i8, i8* %pSB, i64 %SB_LocalId_Offset23,
+  //       !dbg !46
+  //   %pSB_LocalId24 = bitcast i8* %11 to i32*, !dbg !46
+  //   store i32* %pSB_LocalId24, i32** %i.addr, align 8, !dbg !46
+  //   %12 = load i32*, i32** %i.addr, align 8, !dbg !46
+  //   call void @llvm.dbg.value(metadata i32* %12, metadata !43,
+  //       metadata !DIExpression(DW_OP_deref)), !dbg !41
+  //   %13 = load i32, i32* %12, align 4, !dbg !46
+  //   br i1 %cmp1, label %while.body, label %while.end, !dbg !45
+  // while.body:
+  //   store i32 1, i32* %12, align 4, !dbg !48
+  // while.end:
+  // for.inc:
+  void Barrier::bindUsersToBasicBlock(
+      AllocaInst * AI, DbgDeclareInst * DI,
+      TBasicBlockToInstructionMapVector & BBUsers) {
+    Function &F = *AI->getFunction();
+    DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
+
+    SmallVector<Instruction *, 8> UIs;
+    for (User *U : AI->users()) {
+      Instruction *UI = dyn_cast<Instruction>(U);
+      assert(UI && "uses of alloca instruction is not an instruction!");
+      UIs.push_back(UI);
+    }
+
+    BasicBlock *DIBB = nullptr;
+    if (DI) {
+      UIs.push_back(DI);
+      DIBB = DI->getParent();
+    }
+
+    DenseMap<Instruction *, BasicBlock *> UIToInsertPointBB;
+    TBasicBlockSet BBs;
+    for (Instruction *UI : UIs) {
+      Instruction *InsertBefore = getInstructionToInsertBefore(AI, UI, false);
+      // If UI is PHINode, BB is PHINode's previous basic block, otherwise
+      // BB is UI's parent basic block.
+      BasicBlock *BB = InsertBefore->getParent();
+      UIToInsertPointBB[UI] = BB;
+      BBs.insert(BB);
+
+      if (m_syncPerBB.count(BB))
+        continue;
+
+      // Collect BB's predecessors that are SyncBB
+      if (!m_BBToPredSyncBB.count(BB) && m_pDataPerBarrier->hasPredecessors(BB)) {
+        TBasicBlockSet &Preds = m_pDataPerBarrier->getPredecessors(BB);
+        for (BasicBlock *Pred : Preds) {
+          if (m_syncPerBB.count(Pred))
+            m_BBToPredSyncBB[BB].push_back(Pred);
+        }
+        for (auto &OldToNewSync : m_oldToNewSyncBBMap[&F]) {
+          BasicBlock *Pred = OldToNewSync.second;
+          if (Preds.count(OldToNewSync.first) && m_syncPerBB.count(Pred))
+            m_BBToPredSyncBB[BB].push_back(Pred);
+        }
+      }
+
+      // Find the nearest SyncBB that dominates BB
+      if (!m_BBToNearestDominatorSyncBB.count(BB))
+        m_BBToNearestDominatorSyncBB[BB] = findNearestDominatorSyncBB(DT, BB);
+    }
+
+    // FIXME IsSingleUserBB and it related code should be removed.
+    // Currently a variable's new llvm.dbg.value intrinsic is correct after
+    // removing IsSingleUserBB, however, a few debugger_test_type tests fail
+    // because register is killed if the variable has only one use, making it
+    // optimized-out at a later breakpoint.
+    // DBG_VALUE renamable $rdx, $noreg, !"v", !DIExpression(DW_OP_deref)
+    // MOV32mi killed renamable $rdx
+    bool IsSingleUserBB = (BBs.size() == 1);
+
+    // Map from user BB to its bound dominator that value loaded from AddrAI in
+    // the dominator will be reused in the user BB.
+    TBasicBlockToBasicBlock BBBindToDominator;
+    // Basic blocks that are bound to their nearest dominator SyncBB.
+    SmallSet<BasicBlock *, 8> BBBindToNearestSyncDominator;
+
+    for (BasicBlock *BB : BBs)
+      BBBindToDominator[BB] = BB;
+
+    // Bind user basic blocks to SyncBB
+    for (auto &BBToDominator : m_BBToNearestDominatorSyncBB) {
+      BasicBlock *BB = BBToDominator.first;
+      BasicBlock *Dominator = BBToDominator.second;
+      if (!Dominator)
+        continue;
+      // If Dominator is DIBB's predecessor, we shouldn't bind BB to Dominator
+      // so that AI's debug scope is within DIBB.
+      if (DIBB && isPotentiallyReachable(Dominator, DIBB) && !IsSingleUserBB)
+        continue;
+
+      BBBindToDominator[BB] = Dominator;
+      BBBindToNearestSyncDominator.insert(BB);
+    }
+
+    if (IsSingleUserBB) {
+      BasicBlock *BB = UIs[0]->getParent();
+      if (BBBindToNearestSyncDominator.count(BB)) {
+        if (BasicBlock *Pred = BB->getUniquePredecessor())
+          BBBindToDominator[BB] = Pred;
+      }
+    }
+
+    for (BasicBlock *BB : BBs) {
+      DenseMap<BasicBlock *, bool> &HasBarrierTo = m_hasBarrierFromTo[BB];
+
+      if (!m_BBToDominatedBBs.count(BB))
+        DT.getDescendants(BB, m_BBToDominatedBBs[BB]);
+
+      for (auto *DominatedBB : m_BBToDominatedBBs[BB]) {
+        // Skip if DominatedBB is a SyncBB because binding to SyncBB is already
+        // handled above.
+        if (BB == DominatedBB || !BBs.count(DominatedBB) ||
+            m_syncPerBB.count(DominatedBB))
+          continue;
+        // Skip if binding is already done.
+        if (BBBindToNearestSyncDominator.count(DominatedBB))
+          continue;
+        // Skip if DominatedBB is already bound to either the basic block
+        // containing DbgDeclareInst or a basic block that BB doesn't dominate.
+        if ((BB != DIBB) &&
+            (!DT.dominates(BB, BBBindToDominator[DominatedBB]) ||
+             BBBindToDominator[DominatedBB] == DIBB))
+          continue;
+
+        if (!HasBarrierTo.count(DominatedBB))
+          HasBarrierTo[DominatedBB] =
+              m_util.isCrossedByBarrier(*m_pSyncInstructions, DominatedBB, BB);
+        if (!HasBarrierTo[DominatedBB])
+          BBBindToDominator[DominatedBB] = BB;
+      }
+    }
+    for (Instruction *UI : UIs) {
+      BasicBlock *BB = UIToInsertPointBB[UI];
+      BBUsers[BBBindToDominator[BB]].push_back(UI);
+    }
+  }
+
+  void Barrier::fixAllocaValues(Function & F) {
+    DIBuilder DIB(*F.getParent(), /*AllowUnresolved*/ false);
+    uint64_t Addr[] = {llvm::dwarf::DW_OP_deref};
+    DIExpression *Expr = DIB.createExpression(Addr);
+    const DataLayout &DL = F.getParent()->getDataLayout();
+    Instruction *AddrInsertBefore = &*F.getEntryBlock().begin();
+
+    // Reset containers for the current function.
+    m_syncPerBB.clear();
+    m_syncBBSuccessors.clear();
+    m_BBToDominatedBBs.clear();
+    m_BBToPredSyncBB.clear();
+    m_BBToNearestDominatorSyncBB.clear();
+    m_hasBarrierFromTo.clear();
+
+    // For the current function, find all successors of each basic block which
+    // contains a synchronization instruction.
+    findSyncBBSuccessors();
+
+    for (Value *V : *m_pAllocaValues) {
+      AllocaInst *AI = dyn_cast<AllocaInst>(V);
+      assert(AI && "container of alloca values has non AllocaInst value!");
+
+      // Don't fix implicit GID.
+      if (m_isNativeDBG && m_util.isImplicitGID(AI))
+        continue;
+
+      // Insert new alloca which stores AI's address in special buffer.
+      // AI's users will be replaced by result of load instruction from the new
+      // alloca.
+      StringRef allocaName = AI->getName();
+      AllocaInst *AddrAI =
+          new AllocaInst(AI->getType(), DL.getAllocaAddrSpace(),
+                         allocaName + ".addr", AddrInsertBefore);
+      uint64_t ASize = AddrAI->getAllocationSizeInBits(DL).getValue() / 8;
+      AddrAI->setAlignment(MaybeAlign(ASize));
+      m_addrAllocaSize[&F] += ASize;
+
+      // Collect debug intrinsic.
+      TinyPtrVector<DbgDeclareInst *> DIs;
+      if (m_isNativeDBG) {
+        for (DbgVariableIntrinsic *DVI : FindDbgAddrUses(AI)) {
+          if (auto *DDI = dyn_cast<DbgDeclareInst>(DVI))
+            DIs.push_back(DDI);
+        }
+      }
+      // Only use the first DbgDeclareInst.
+      DbgDeclareInst *DI = DIs.empty() ? nullptr : DIs.front();
+
+      // Get offset of alloca value in special buffer.
+      unsigned int Offset = m_pDataPerValue->getOffset(AI);
+
+      // Bind AI's users to basic blocks that update AddrAI.
+      // MapVector is used so that access order is deterministic.
+      TBasicBlockToInstructionMapVector BBUsers;
+      bindUsersToBasicBlock(AI, DI, BBUsers);
+
+      // Now each user is bound to a basic block, in which we insert instruction
+      // to load AI's address in special buffer to AddrAI, and replace the user
+      // with result of the load instruction.
+      for (auto &BBUser : BBUsers) {
+        BasicBlock *BB = BBUser.first;
+        Instruction *InsertBefore;
+        if (m_syncPerBB.count(BB)) {
+          InsertBefore = m_syncPerBB[BB]->getNextNode();
+          assert(
+              InsertBefore->getParent() == BB &&
+              "sync instruction must not be the last instruction in the block");
+        } else
+          InsertBefore = BB->getFirstNonPHI();
+        assert(InsertBefore && "InsertBefore is invalid");
+        // Calculate the pointer of the current alloca in the special buffer
+        Value *AddrInSpecialBuffer = getAddressInSpecialBuffer(
+            Offset, AI->getType(), InsertBefore, &InsertBefore->getDebugLoc());
+        IRBuilder<> Builder(InsertBefore);
+        Builder.CreateStore(AddrInSpecialBuffer, AddrAI);
+        LoadInst *LI = Builder.CreateLoad(AddrAI);
+        if (m_isNativeDBG && DI) {
+          const DebugLoc *DB = &DI->getDebugLoc();
+          DIB.insertDbgValueIntrinsic(LI, DI->getVariable(), Expr, DB->get(),
+                                      InsertBefore);
+        }
+        for (Instruction *UI : BBUser.second) {
+          if (!isa<DbgDeclareInst>(UI))
+            UI->replaceUsesOfWith(AI, LI);
+        }
+      }
+
+      m_toRemoveInstructions.push_back(AI);
+
+      // Remove old DbgDeclareInst
+      if (m_isNativeDBG) {
+        for (auto *DI : DIs)
+          DI->eraseFromParent();
+      }
+    }
+    DIB.finalize();
   }
 
   void Barrier::fixSpecialValues() {
@@ -654,8 +966,7 @@ namespace intel {
       }
       B.CreateBr(pSyncBB);
     }
-    // Only if we are debugging, copy data into the stack from work item
-    // buffer
+    // Only if we are debugging, copy data into the stack from local buffer
     // for execution and copy data out when finished. This allows for proper
     // DWARF based debugging.
     if (m_isNativeDBG) {
@@ -665,12 +976,9 @@ namespace intel {
   }
 
   void Barrier::createDebugInstrumentation(BasicBlock *Then, BasicBlock *Else) {
-    // Use the then and else blocks to copy work item data into and out of
-    // the stack for each work item
+    // Use the then and else blocks to copy local buffer data.
     Instruction &pThenFront = Then->front();
     Instruction &pElseFront = Else->front();
-    useStackAsWorkspace(&pThenFront, &(Then->back()));
-    useStackAsWorkspace(&pElseFront, &(Else->back()));
 
     // I add the function DebugCopy as a marker so it can be handled later
     // in LocalBuffers pass.
@@ -779,9 +1087,9 @@ namespace intel {
         // Create List of barrier label that may be jumped to
         DataPerBarrier::SBarrierRelated *pRelated = &m_pDataPerBarrier->getBarrierPredecessors(pInst);
         assert( !pRelated->m_hasFiberRelated && "We reach here only if function has no fiber!" );
-        TInstructionVector *pSyncPreds = &pRelated->m_relatedBarriers;
-        for (TInstructionVector::iterator ii = pSyncPreds->begin(),
-                                          ie = pSyncPreds->end();
+        TInstructionSet *pSyncPreds = &pRelated->m_relatedBarriers;
+        for (TInstructionSet::iterator ii = pSyncPreds->begin(),
+                                       ie = pSyncPreds->end();
              ii != ie; ++ii) {
           Instruction *pSyncInst = *ii;
           unsigned int predId = m_pDataPerBarrier->getUniqueID(pSyncInst);
@@ -1162,8 +1470,9 @@ namespace intel {
           BasicBlock::iterator firstInst = pPreBB->begin();
           assert( m_pDataPerBarrier->getSyncInstructions(pFunc).count(&*firstInst) &&
             "assume first instruction to be sync instruction" );
-          pPreBB->splitBasicBlock(firstInst, "CallBB");
+          BasicBlock *callBB = pPreBB->splitBasicBlock(firstInst, "CallBB");
           pInsertBefore = pPreBB->getTerminator();
+          m_oldToNewSyncBBMap[pFunc][pPreBB] = callBB;
         }
         //Need to handle operand
         Value* pOpVal = *opi;
@@ -1238,6 +1547,7 @@ namespace intel {
   // use DFS to calculate a function's non-barrier memory usage.
   static
   unsigned getPrivateSize(Function* pFunc, const CallGraph& cg, DataPerValue* dataPerVal,
+                          DenseMap<Function *, uint64_t> &addrAllocaSize,
                           llvm::DenseMap<Function*, unsigned>& fnPrivSize,
                           TFunctionSet& fnsWithSync) {
     // external function or function pointer
@@ -1249,11 +1559,15 @@ namespace intel {
     const CallGraphNode *nodeCG = cg[pFunc];
     for (auto &ci : *nodeCG) {
       Function *calledFunc = ci.second->getFunction();
-      maxSubPrivSize = std::max(maxSubPrivSize, getPrivateSize(calledFunc,
-                                cg, dataPerVal, fnPrivSize, fnsWithSync));
+      maxSubPrivSize =
+          std::max(maxSubPrivSize,
+                   getPrivateSize(calledFunc, cg, dataPerVal, addrAllocaSize,
+                                  fnPrivSize, fnsWithSync));
     }
-    fnPrivSize[pFunc] = maxSubPrivSize + (fnsWithSync.count(pFunc) ? 0 :
-                                          dataPerVal->getStrideSize(pFunc));
+    fnPrivSize[pFunc] = maxSubPrivSize +
+        (addrAllocaSize.count(pFunc) ? addrAllocaSize[pFunc] : 0) +
+        (fnsWithSync.count(pFunc) ? 0 : dataPerVal->getStrideSize(pFunc));
+
     return fnPrivSize[pFunc];
   }
 
@@ -1275,8 +1589,9 @@ namespace intel {
       assert(vecWidth && "vecWidth should not be 0!");
       strideSize = (strideSize + vecWidth - 1) / vecWidth;
 
-      auto privateSize = getPrivateSize(pFunc, cg, m_pDataPerValue,
-                                        funcToPrivSize, functionsWithSync);
+      auto privateSize =
+          getPrivateSize(pFunc, cg, m_pDataPerValue, m_addrAllocaSize,
+                         funcToPrivSize, functionsWithSync);
       //Need to check if NoBarrierPath Value exists, it is not guaranteed that
       //KernelAnalysisPass is running in all scenarios.
       // CSSD100016517, CSSD100018743: workaround

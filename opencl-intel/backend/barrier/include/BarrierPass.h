@@ -19,12 +19,13 @@
 #include "DataPerBarrierPass.h"
 #include "DataPerValuePass.h"
 
-#include "llvm/Pass.h"
 #include "llvm/IR/DataLayout.h"
-#include "llvm/IR/Module.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
-#include "llvm/IR/Instruction.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Instruction.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Pass.h"
 
 using namespace llvm;
 
@@ -47,6 +48,12 @@ namespace intel {
 
   public:
     typedef std::map<std::string, unsigned int> TMapFunctionNameToBufferStride;
+    typedef DenseMap<BasicBlock *, BasicBlock *> TBasicBlockToBasicBlock;
+    typedef DenseMap<BasicBlock *, TBasicBlockSet> TBasicBlockToBasicBlockSet;
+    typedef DenseMap<BasicBlock *, SmallVector<BasicBlock *, 8>>
+        TBasicBlockToBasicBlockVector;
+    typedef MapVector<BasicBlock *, SmallVector<Instruction *, 8>>
+        TBasicBlockToInstructionMapVector;
 
     static char ID;
 
@@ -68,9 +75,10 @@ namespace intel {
     virtual bool runOnModule(Module &M);
 
     /// @brief Inform about usage/mofication/dependency of this pass
-    virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+    virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.addRequired<DataPerBarrier>();
       AU.addRequired<DataPerValue>();
+      AU.addRequired<DominatorTreeWrapperPass>();
     }
 
     /// @brief return special buffer stride size map
@@ -96,7 +104,8 @@ namespace intel {
     void useStackAsWorkspace(Instruction* pInsertBeforeBegin, Instruction* pInsertBeforeEnd);
 
     /// @brief Hanlde Values of Group-A of processed function
-    void fixAllocaValues();
+    /// @param F Function to fix
+    void fixAllocaValues(Function &F);
 
     /// @brief Hanlde Values of Group-B.1 of processed function
     void fixSpecialValues();
@@ -275,6 +284,24 @@ namespace intel {
     Value *resolveGetLocalIDCall(CallInst *Call);
     unsigned getNumDims() const { return m_currBarrierKeyValues->m_NumDims; }
 
+    /// @brief For each sync intruction in current function, find its parent
+    ///  basic and successors that also contains sync instruction.
+    void findSyncBBSuccessors();
+
+    /// @brief Find the nearest SyncBB that dominates basic block BB.
+    /// @param DT Dominator tree of current function.
+    /// @param BB The basic block to process.
+    /// @return The nearest SyncBB.
+    BasicBlock *findNearestDominatorSyncBB(DominatorTree &DT, BasicBlock *BB);
+
+    /// @brief Bind AI's users to basic blocks so that a user will be replaced
+    ///  by value loaded from AI's new address alloca in its bound basic block.
+    /// @param AI AllocaInst to process.
+    /// @param DI DbgDeclareInst of AI.
+    /// @param BBUsers Output binding map.
+    void bindUsersToBasicBlock(AllocaInst *AI, DbgDeclareInst *DI,
+        TBasicBlockToInstructionMapVector &BBUsers);
+
    private:
     static const unsigned MaxNumDims = 3;
 
@@ -360,7 +387,7 @@ namespace intel {
     /// This holds a map between function and its barrier key values
     TMapFunctionToKeyValues m_pBarrierKeyValuesPerFunction;
 
-    typedef std::map<BasicBlock*, BasicBlock*> TMapBasicBlockToBasicBlock;
+    typedef DenseMap<BasicBlock*, BasicBlock*> TMapBasicBlockToBasicBlock;
     /// This holds a map between sync basic block and previous pre sync loop header basic block
     TMapBasicBlockToBasicBlock m_preSyncLoopHeader;
 
@@ -370,6 +397,38 @@ namespace intel {
     /// true if and only if we are running in native (gdb) dbg mode
     bool m_isNativeDBG;
 
+    /// This holds a map between function to its total size of all new addr
+    /// alloca created in fixAllocaValues.
+    DenseMap<Function *, uint64_t> m_addrAllocaSize;
+
+    /// This holds per-function map from sync basic block to newly splitted sync
+    /// basic block.
+    DenseMap<Function *, DenseMap<BasicBlock *, BasicBlock *>>
+        m_oldToNewSyncBBMap;
+
+    /// This holds a map from basic block to its containing sync instruction.
+    DenseMap<BasicBlock*, Instruction*> m_syncPerBB;
+
+    /// This holds a map from a sync basic block to its successors that are also
+    /// sync basic blocks.
+    TBasicBlockToBasicBlockSet m_syncBBSuccessors;
+
+    /// This holds a map from a basic block to all nodes dominated by the basic
+    /// block.
+    TBasicBlockToBasicBlockVector m_BBToDominatedBBs;
+
+    /// This holds a map from a basic block to its predecessor basic blocks that
+    /// contain a sync instruction.
+    TBasicBlockToBasicBlockVector m_BBToPredSyncBB;
+
+    /// This holds a map from a basic block to its nearest dominator that
+    /// contains a sync instruction.
+    TBasicBlockToBasicBlock m_BBToNearestDominatorSyncBB;
+
+    /// This holds a map from a basic block to another basic blocks and to
+    /// whether there is a barrier in any path from the basic block to another
+    /// basic block.
+    DenseMap<BasicBlock *, DenseMap<BasicBlock *, bool>> m_hasBarrierFromTo;
   };
 
 } // namespace intel

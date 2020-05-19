@@ -253,7 +253,8 @@ namespace intel {
               //means synchronize instruction is inside a loop
 
               BasicBlock *pPrevBB = BarrierUtils::findBasicBlockOfUsageInst(pInst, pInstUsage);
-              if ( isCrossedByBarrier(pPrevBB, pValBB) ) {
+              if ( m_util.isCrossedByBarrier(*m_pSyncInstructions, pPrevBB,
+                                             pValBB) ) {
                 //pVal does not depend on work item id but it is crossed by loop barrier
                 return ( isNotGroupB1Type )? SPECIAL_VALUE_TYPE_B2 : SPECIAL_VALUE_TYPE_B1;
               }
@@ -276,45 +277,6 @@ namespace intel {
       }
     }
     return retType;
-  }
-
-  bool DataPerValue::isCrossedByBarrier(BasicBlock *pValUsageBB, BasicBlock *pValBB) {
-    if ( pValUsageBB == pValBB ) {
-      //This can happen when pValUsage is a PHINode
-      return false;
-    }
-
-    DataPerBarrier::TBasicBlocksSet perdecessors;
-    std::vector<BasicBlock*> basicBlocksToHandle;
-
-    perdecessors.clear();
-    basicBlocksToHandle.push_back(pValUsageBB);
-
-    while ( !basicBlocksToHandle.empty() ) {
-      BasicBlock *pBBToHandle = basicBlocksToHandle.back();
-      basicBlocksToHandle.pop_back();
-      Instruction *pFirstInst = &*(pBBToHandle->begin());
-      if ( m_pSyncInstructions->count(pFirstInst) ) {
-        //Found a barrier
-        return true;
-      }
-      for (pred_iterator i = pred_begin(pBBToHandle), e = pred_end(pBBToHandle); i != e; ++i) {
-        BasicBlock *pred_bb = *i;
-        if ( pred_bb == pValBB ) {
-          //Reached pValBB stop recursive at this direction!
-          continue;
-        }
-        if ( perdecessors.count(pred_bb) ) {
-          //pred_bb was already added to predecessors
-          continue;
-        }
-        //This is a new predecessor add it to the predecessors container
-        perdecessors.insert(pred_bb);
-        //Also add it to the basicBlocksToHandle to calculate its predecessors
-        basicBlocksToHandle.push_back(pred_bb);
-      }
-    }
-    return false;
   }
 
   void DataPerValue::calculateOffsets(Function &F) {
