@@ -10907,9 +10907,11 @@ void CGOpenMPRuntime::registerTargetGlobalVariable(const VarDecl *VD,
     Flags = OffloadEntriesInfoManagerTy::OMPTargetGlobalVarEntryTo;
 #if INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
-    if (CGM.getLangOpts().OpenMPLateOutlineTarget)
-#endif // INTEL_CUSTOMIZATION
+    if (CGM.getLangOpts().OpenMPLateOutlineTarget &&
+        CGM.getLangOpts().OpenMPLateOutline) {
+#else // INTEL_CUSTOMIZATION
     if (CGM.getLangOpts().OpenMPLateOutline) {
+#endif // INTEL_CUSTOMIZATION
       ItaniumMangledName = CGM.getUniqueItaniumABIMangledName(VD);
       VarName = ItaniumMangledName;
     } else

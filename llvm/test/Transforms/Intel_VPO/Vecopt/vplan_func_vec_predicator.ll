@@ -24,7 +24,7 @@ define void @test() {
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]:
-; CHECK-NEXT:     [DA: Div] i32 [[VP_MERGE:%.*]] = blend [ i32 [[VP_DEF_FALSE]], i1 [[VP_COND_NOT]] ], [ i32 [[VP_DEF_TRUE]], i1 [[VP_COND]] ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_MERGE_BLEND_BB2:%.*]] = blend [ i32 [[VP_DEF_FALSE]], i1 [[VP_COND_NOT]] ], [ i32 [[VP_DEF_TRUE]], i1 [[VP_COND]] ]
 ; CHECK-NEXT:     [DA: Div] void [[VP2:%.*]] = ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
@@ -67,7 +67,7 @@ define void @test_uni_loop(i32 %vf) {
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]:
-; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI:%.*]] = blend [ i32 0, i1 true ], [ i32 1, i1 [[VP_COND]] ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI_BLEND_BB3:%.*]] = blend [ i32 0, i1 true ], [ i32 1, i1 [[VP_COND]] ]
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_LOOP_IV_NEXT]] = add i32 [[VP_LOOP_IV]] i32 1
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_VEC_NEXT]] = add i32 [[VP_VEC]] i32 [[VF0:%.*]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_EXIT_COND:%.*]] = icmp i32 [[VP_LOOP_IV]] i32 42
@@ -120,7 +120,7 @@ define void @test_div_loop(i32 %vf) {
 ; CHECK-NEXT:    [[BB1]]:
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LOOP_IV:%.*]] = phi  [ i32 [[VP_MUL]], [[BB0]] ],  [ i32 [[VP_LOOP_IV_NEXT:%.*]], [[BB2:BB[0-9]+]] ]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_MASK:%.*]] = phi  [ i1 true, [[BB0]] ],  [ i1 [[VP_MASK_NEXT:%.*]], [[BB2]] ]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_LIVEOUT_PREV:%.*]] = phi  [ i32 undef, [[BB0]] ],  [ i32 [[VP_LIVEOUT:%.*]], [[BB2]] ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LIVEOUT_PREV:%.*]] = phi  [ i32 undef, [[BB0]] ],  [ i32 [[VP_LIVEOUT_BLEND_BB3:%.*]], [[BB2]] ]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB3:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB2]] [[BB0]]
 ; CHECK-EMPTY:
@@ -131,7 +131,7 @@ define void @test_div_loop(i32 %vf) {
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]:
-; CHECK-NEXT:     [DA: Div] i32 [[VP_LIVEOUT]] = blend [ i32 [[VP_LIVEOUT_PREV]], i1 true ], [ i32 [[VP_LOOP_IV]], i1 [[VP_MASK]] ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LIVEOUT_BLEND_BB3]] = blend [ i32 [[VP_LIVEOUT_PREV]], i1 true ], [ i32 [[VP_LOOP_IV]], i1 [[VP_MASK]] ]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LOOP_IV_NEXT]] = add i32 [[VP_LOOP_IV]] i32 1
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_DIV_EXIT_COND:%.*]] = icmp i32 [[VP_LOOP_IV]] i32 42
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_NOT:%.*]] = xor i1 [[VP_DIV_EXIT_COND]] i1 true
@@ -141,7 +141,7 @@ define void @test_div_loop(i32 %vf) {
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]:
-; CHECK-NEXT:     [DA: Div] i32 [[VP_LIVEOUT_USE:%.*]] = blend [ i32 [[VP_LIVEOUT]], i1 true ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LIVEOUT_USE:%.*]] = phi  [ i32 [[VP_LIVEOUT_BLEND_BB3]], [[BB2]] ]
 ; CHECK-NEXT:     [DA: Div] void [[VP1:%.*]] = ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]

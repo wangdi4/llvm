@@ -464,7 +464,8 @@ void VPlanPredicator::linearizeRegion() {
       // FIXME: CG to create a separate BB if there are PHIs here instead.
       // For now, just mark phis as blend to avoid phis in the middle of the
       // generated BB.
-      if (UniformEdges.size() == 1)
+      if (UniformEdges.size() == 1 &&
+          CurrBlock->getSinglePredecessor()->getSingleSuccessor())
         BlocksToBlendProcess.insert(CurrBlock);
 
       // No more fixups needed, al predecessors are uniform edges that we didn't

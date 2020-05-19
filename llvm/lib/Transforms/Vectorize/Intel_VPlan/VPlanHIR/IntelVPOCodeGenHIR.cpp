@@ -111,6 +111,12 @@ static cl::opt<bool> VPlanAssumeMaskedFabsProfitable(
     cl::desc("Allow VPlan codegen to vectorize masked fabs intrinsic assuming "
              "profitability."));
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+static cl::opt<bool> PrintHIRAfterVPlan(
+    "print-hir-after-vplan", cl::init(false),
+    cl::desc("Print vectorized HIR after VPlanDriverHIR, on per-HLLoop basis"));
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
 namespace llvm {
 namespace vpo {
 bool EnableVPValueCodegenHIR = false;
@@ -1000,14 +1006,27 @@ bool VPOCodeGenHIR::initializeVectorLoop(unsigned int VF, unsigned int UF) {
   return true;
 }
 
-void VPOCodeGenHIR::finalizeVectorLoop(void) {
-  LLVM_DEBUG(dbgs() << "\n\n\nHandled loop after: \n");
-  finalizeGotos();
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+void VPOCodeGenHIR::dumpFinalHIR() {
   if (NeedPeelLoop)
-    LLVM_DEBUG(PeelLoop->dump());
-  LLVM_DEBUG(MainLoop->getParent()->dump());
+    PeelLoop->dump();
+  MainLoop->getParent()->dump();
   if (NeedRemainderLoop)
-    LLVM_DEBUG(OrigLoop->dump());
+    OrigLoop->dump();
+}
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+void VPOCodeGenHIR::finalizeVectorLoop(void) {
+  finalizeGotos();
+
+  LLVM_DEBUG(dbgs() << "\n\n\nHandled loop after: \n");
+  LLVM_DEBUG(dumpFinalHIR());
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  if (PrintHIRAfterVPlan) {
+    dbgs() <<"Handled loop after VPlan:\n";
+    dumpFinalHIR();
+  }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   if (!MainLoop->hasChildren()) {
     // TODO: Can this happen if HIR would never let "dead" loops to be in the
