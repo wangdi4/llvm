@@ -607,14 +607,10 @@ KEYWORD(addrspace_cast              , KEYOPENCLCXX)
 // OpenMP Type Traits
 KEYWORD(__builtin_omp_required_simd_align, KEYALL)
 
-<<<<<<< HEAD
-KEYWORD(pipe                        , KEYOPENCLC | KEYOPENCLCXX)
 #if INTEL_CUSTOMIZATION
 KEYWORD(channel                     , KEYOPENCLCHANNEL)
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> a6a237f2046ad8993db30481c8b61aeb2f73a5ad
 // Borland Extensions.
 KEYWORD(__pascal                    , KEYALL)
 
