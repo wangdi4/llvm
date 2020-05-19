@@ -298,3 +298,8 @@
 // RUN: %clang -### -c -qopenmp -qno-openmp %s 2>&1 | FileCheck -check-prefix CHECK-FOPENMP %s
 // RUN: %clang_cl -### -c /Qopenmp /Qopenmp- %s 2>&1 | FileCheck -check-prefix CHECK-FOPENMP %s
 // CHECK-FOPENMP-NOT: "-fopenmp"
+
+// Behavior with -fhelp option
+// RUN: %clang -### -fhelp %s 2>&1 | FileCheck -check-prefix CHECK-FHELP %s
+// CHECK-FHELP: -###
+// CHECK-FHELP: --analyze
