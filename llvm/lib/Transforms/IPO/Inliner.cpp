@@ -952,9 +952,9 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
   CG.registerCGReport(MDReport); // INTEL
 
   InlineAdvisor &Advisor = getAdvisor(MAMProxy, M);
-  Advisor.OnPassEntry();
+  Advisor.onPassEntry();
 
-  auto AdvisorOnExit = make_scope_exit([&] { Advisor.OnPassExit(); });
+  auto AdvisorOnExit = make_scope_exit([&] { Advisor.onPassExit(); });
 
   if (!ImportedFunctionsStats &&
       InlinerFunctionImportStats != InlinerFunctionImportStatsOpts::No) {
@@ -1097,7 +1097,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       return FAM.getResult<AssumptionAnalysis>(F);
     };
 
-    // Now process as many calls as we have within this caller in the sequnece.
+    // Now process as many calls as we have within this caller in the sequence.
     // We bail out as soon as the caller has to change so we can update the
     // call graph and prepare the context of that new caller.
     bool DidInline = false;
