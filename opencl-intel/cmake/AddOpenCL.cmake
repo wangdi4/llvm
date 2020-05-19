@@ -31,6 +31,8 @@ macro(set_opencl_version)
         if ( ("${OCL_RELEASE_BRANCH}" STREQUAL "xmain-rel") OR
              ("${OCL_RELEASE_BRANCH}" STREQUAL "") )
             set(WSPROJECT "")
+        elseif ( "${OCL_RELEASE_BRANCH}" STREQUAL "xmain" )
+            set(WSPROJECT ".prerelease")
         else ()
             set(WSPROJECT ".${OCL_RELEASE_BRANCH}")
         endif()
@@ -52,10 +54,10 @@ macro(set_opencl_version)
         add_definitions(-DVERSIONSTRING="${VERSIONSTRING}")
         add_definitions(-DVERSIONSTRING_WITH_EXT="${VERSIONSTRING}${VERSION_EXT}")
         file(WRITE ${OCL_BINARY_DIR}/driverversion.h.txt
-        "#ifndef VERSIONSTRIN\n
+        "#ifndef VERSIONSTRING\n
              #define VERSIONSTRING \"${VERSIONSTRING}\"\n
          #endif\n
-         #ifndef VERSIONSTRINGEXT\n
+         #ifndef VERSIONSTRING_WITH_EXT\n
              #define VERSIONSTRING_WITH_EXT \"${VERSIONSTRING}${VERSION_EXT}\"\n
          #endif\n")
         execute_process(COMMAND ${CMAKE_COMMAND} -E copy_if_different
