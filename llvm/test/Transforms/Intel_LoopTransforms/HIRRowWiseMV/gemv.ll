@@ -3,6 +3,10 @@
 ; This test checks that the basic row-wise multiversioning transformation
 ; generates the expected code.
 
+; This test also checks the opt report functionality for this pass, but this is
+; only enabled for internal builds.
+; REQUIRES: intel_internal_build
+
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -86,6 +90,32 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:       |   }
 ; CHECK:       + END LOOP
 ; CHECK: END REGION
+
+; Opt report:
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-rowwise-mv -hir-cg -simplifycfg -intel-ir-optreport-emitter -hir-rowwise-mv-skip-dtrans -force-hir-cg -intel-loop-optreport=low -disable-output 2>&1 < %s | FileCheck %s -check-prefix=OPTREPORT
+
+; OPTREPORT: LOOP BEGIN
+; OPTREPORT: <Probe loop for row-wise multiversioning>
+; OPTREPORT: LOOP END
+
+; OPTREPORT: LOOP BEGIN
+
+; OPTREPORT:     LOOP BEGIN
+; OPTREPORT:     <Row-wise multiversioned loop for value 1.000000e+00>
+; OPTREPORT:     LOOP END
+
+; OPTREPORT:     LOOP BEGIN
+; OPTREPORT:     <Row-wise multiversioned loop for value 0.000000e+00>
+; OPTREPORT:     LOOP END
+
+; OPTREPORT:     LOOP BEGIN
+; OPTREPORT:     <Row-wise multiversioned loop for value -1.000000e+00>
+; OPTREPORT:     LOOP END
+
+; OPTREPORT:     LOOP BEGIN
+; OPTREPORT:         Remark: Loop has been row-wise multiversioned
+; OPTREPORT:     LOOP END
+; OPTREPORT: LOOP END
 
 define double @gemv(double* %A, double* %b) #0 {
 entry:

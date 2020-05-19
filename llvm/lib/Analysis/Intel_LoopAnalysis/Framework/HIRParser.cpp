@@ -4734,13 +4734,23 @@ RegDDRef *HIRParser::delinearizeSingleRef(const RegDDRef *Ref,
     CanonExpr *CE = CEU.createCanonExpr(LinearIndexCE->getDestType());
     CE->setSrcType(IndexType);
 
-    CanonExpr *StrideCE = CEU.createCanonExpr(LinearIndexCE->getDestType());
+    CanonExpr *StrideCE = Ref->getDimensionStride(1)->clone();
+
+    // Null stride indicate innermost dimension.
     if (Stride != nullptr) {
-      StrideCE->setSrcType(Stride->getType());
-      StrideCE->setExtType(true);
-      StrideCE->setBlobCoeff(BU.findOrInsertBlob(Stride), 1);
-    } else {
-      StrideCE->setConstant(1);
+      unsigned StrideIndex = InvalidBlobIndex;
+      auto *StrideCESrcType = StrideCE->getSrcType();
+
+      if (Stride->getType() != StrideCESrcType) {
+        Stride = BU.createCastBlob(Stride, true, StrideCESrcType, true,
+                                   &StrideIndex);
+      }
+
+      if (StrideIndex == InvalidBlobIndex) {
+        StrideIndex = BU.findOrInsertBlob(Stride);
+      }
+
+      StrideCE->multiplyByBlob(StrideIndex);
     }
 
     Type *DimType = Ref->getBaseCE()->getDestType();
