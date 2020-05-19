@@ -464,6 +464,8 @@ const char *dtrans::getSafetyDataName(const SafetyData &SafetyInfo) {
     return "Unsafe pointer store (pending)";
   if (SafetyInfo & dtrans::UnsafePointerStoreConditional)
     return "Unsafe pointer store (conditional)";
+  if (SafetyInfo & dtrans::DopeVector)
+    return "Dope vector";
   if (SafetyInfo & dtrans::UnhandledUse)
     return "Unhandled use";
 
@@ -492,7 +494,7 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
       dtrans::HasFnPtr | dtrans::HasCppHandling | dtrans::HasZeroSizedArray |
       dtrans::BadCastingPending | dtrans::BadCastingConditional |
       dtrans::UnsafePointerStorePending |
-      dtrans::UnsafePointerStoreConditional |
+      dtrans::UnsafePointerStoreConditional | dtrans::DopeVector |
       dtrans::UnhandledUse;
   // This assert is intended to catch non-unique safety condition values.
   // It needs to be kept synchronized with the statement above.
@@ -514,7 +516,7 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
            dtrans::HasCppHandling ^ dtrans::HasZeroSizedArray ^
            dtrans::BadCastingPending ^ dtrans::BadCastingConditional ^
            dtrans::UnsafePointerStorePending ^
-           dtrans::UnsafePointerStoreConditional ^
+           dtrans::UnsafePointerStoreConditional ^ dtrans::DopeVector ^
            dtrans::UnhandledUse),
       "Duplicate value used in dtrans safety conditions");
 

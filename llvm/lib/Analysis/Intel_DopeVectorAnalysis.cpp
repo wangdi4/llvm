@@ -1,6 +1,6 @@
 //===------- Intel_DopeVectorAnalysis.cpp ----------------------- -*------===//
 //
-// Copyright (C) 2019-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -85,6 +85,12 @@ extern bool isDopeVectorType(const Type *Ty, const DataLayout &DL,
   *ArrayRank = ArRank;
   *ElementType = ElemType;
   return true;
+}
+
+extern bool isDopeVectorType(const Type *Ty, const DataLayout &DL) {
+  uint32_t ArrayRank = 0;
+  Type *ElementType = nullptr;
+  return isDopeVectorType(Ty, DL, &ArrayRank, &ElementType);
 }
 
 extern bool isUplevelVarType(Type *Ty) {
