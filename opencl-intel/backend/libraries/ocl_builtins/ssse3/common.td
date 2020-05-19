@@ -29,7 +29,7 @@ OclBuiltinImpl ext_mask_to_v4_32 = OclBuiltinImpl<__ocl_extend_mask_v4, [v32i32]
       3, 3, 3, 3, 3, 3, 3, 3);
   }]>;
 
-OclBuiltinImpl ext_mask_to_v4_64 = OclBuiltinImpl<__ocl_extend_mask_v4, [v64i64], 0,
+OclBuiltinImpl ext_mask_to_v4_64 = OclBuiltinImpl<__ocl_extend_mask_v4, [v64i32], 0,
   [{
     return __builtin_shufflevector($Arg0VarName, $Arg0VarName,
       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
