@@ -1031,10 +1031,55 @@ def ProcessorFeatures {
                                                   FeatureMOVDIRI,
                                                   FeatureMOVDIR64B,
                                                   FeatureWAITPKG];
+#if INTEL_CUSTOMIZATION
+  // FIXME: Tremont should set FeatureCLWB
+#endif // INTEL_CUSTOMIZATION
   list<SubtargetFeature> TRMSpecificFeatures = [FeatureUseGLMDivSqrtCosts];
   list<SubtargetFeature> TRMFeatures =
     !listconcat(GLPInheritableFeatures, TRMAdditionalFeatures,
                 TRMSpecificFeatures);
+
+#if INTEL_CUSTOMIZATION
+  // Alderlake
+  list<SubtargetFeature> IntelAnonymous2AdditionalFeatures =[
+    FeatureSERIALIZE,
+    FeaturePCONFIG,
+    FeatureWBNOINVD,
+    FeatureSHSTK,
+#if INTEL_FEATURE_ISA_KEYLOCKER
+    FeatureKeyLocker,
+#endif // INTEL_FEATURE_ISA_KEYLOCKER
+    FeatureINVPCID,
+    FeatureADX,
+    FeatureAVX,
+    FeatureAVX2,
+    FeatureAES,
+    FeatureVAES,
+    FeatureVPCLMULQDQ,
+    FeatureGFNI,
+    FeatureF16C,
+    FeatureBMI,
+    FeatureBMI2,
+    FeatureLZCNT,
+    // TODO: set feature of RAO-INT when it's ready
+#if INTEL_FEATURE_ISA_AVX_VNNI
+    FeatureAVXVNNI,
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+    FeaturePKU,
+    FeaturePCONFIG,
+#if INTEL_FEATURE_ISA_HRESET
+    FeatureHRESET,
+#endif // INTEL_FEATURE_ISA_HRESET
+    // Inherit Tremont
+    FeatureCLDEMOTE,
+    FeatureMOVDIRI,
+    FeatureMOVDIR64B,
+    FeatureWAITPKG
+  ];
+  // TODO: inherit from Snow Ridge when it's ready
+  list<SubtargetFeature> IntelAnonymous2Features =
+    !listconcat(GLPInheritableFeatures, IntelAnonymous2AdditionalFeatures);
+#endif // INTEL_CUSTOMIZATION
 
   // Knights Landing
   list<SubtargetFeature> KNLFeatures = [FeatureX87,
@@ -1366,6 +1411,12 @@ foreach P = ["silvermont", "slm"] in {
 def : ProcessorModel<"goldmont", SLMModel, ProcessorFeatures.GLMFeatures>;
 def : ProcessorModel<"goldmont-plus", SLMModel, ProcessorFeatures.GLPFeatures>;
 def : ProcessorModel<"tremont", SLMModel, ProcessorFeatures.TRMFeatures>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_ADL
+def : ProcessorModel<"alderlake", SLMModel,
+                     ProcessorFeatures.IntelAnonymous2Features>;
+#endif // INTEL_FEATURE_CPU_ADL
+#endif // INTEL_CUSTOMIZATION
 
 // "Arrandale" along with corei3 and corei5
 foreach P = ["nehalem", "corei7"] in {
