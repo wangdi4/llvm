@@ -523,7 +523,7 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
       StringRef Value(A->getValue());
       if (!Value.empty())
         CmdArgs.push_back(Args.MakeArgString(
-            Twine("-plugin-opt=-hir-general-unroll-max-vactor=") + Value));
+            Twine("-plugin-opt=-hir-general-unroll-max-factor=") + Value));
     }
   }
   // All -mllvm flags as provided by the user will be passed through.
@@ -531,6 +531,61 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
     CmdArgs.push_back(Args.MakeArgString(Twine("-plugin-opt=") + AV));
 #endif // INTEL_CUSTOMIZATION
 }
+
+#if INTEL_CUSTOMIZATION
+void tools::addIntelOptimizationArgs(const ToolChain &TC,
+                                     const llvm::opt::ArgList &Args,
+                                     llvm::opt::ArgStringList &CmdArgs,
+                                     const JobAction &JA) {
+  bool IsLink = isa<LinkJobAction>(JA);
+  bool IsMSVC = TC.getTriple().isKnownWindowsMSVCEnvironment();
+
+  auto addllvmOption = [&](const char *Opt) {
+    if (IsLink) {
+      StringRef LinkOpt = (IsMSVC ? "-mllvm:" : "-plugin-opt=");
+      CmdArgs.push_back(Args.MakeArgString(LinkOpt + Twine(Opt)));
+    } else {
+      CmdArgs.push_back("-mllvm");
+      CmdArgs.push_back(Opt);
+    }
+  };
+  if (const Arg *A = Args.getLastArg(options::OPT_qopt_mem_layout_trans_EQ)) {
+    StringRef Val(A->getValue());
+    if (Val == "1" || Val == "2" || Val == "3" || Val == "4") {
+      addllvmOption("-enable-dtrans");
+      addllvmOption("-enable-npm-dtrans");
+      addllvmOption(
+          Args.MakeArgString(Twine("-dtrans-mem-layout-level=") + Val));
+      addllvmOption("-dtrans-outofboundsok=false");
+      addllvmOption("-dtrans-usecrulecompat=true");
+      addllvmOption("-dtrans-inline-heuristics=true");
+      addllvmOption("-dtrans-partial-inline=true");
+      addllvmOption("-irmover-type-merging=false");
+      addllvmOption("-spill-freq-boost=true");
+    } else if (Val != "0")
+      TC.getDriver().Diag(diag::err_drv_invalid_argument_to_option)
+          << Val << A->getOption().getName();
+  }
+  if (Arg *A =
+          Args.getLastArg(options::OPT_funroll_loops,
+                          options::OPT_fno_unroll_loops, options::OPT_unroll)) {
+    // Handle -unroll
+    if (A->getOption().matches(options::OPT_unroll)) {
+      StringRef Value(A->getValue());
+      if (!Value.empty()) {
+        int ValInt = 0;
+        if (!Value.getAsInteger(0, ValInt))
+          if (ValInt > 0)
+            addllvmOption(Args.MakeArgString(
+                Twine("-hir-general-unroll-max-factor=") + Value));
+          else
+            TC.getDriver().Diag(diag::err_drv_invalid_argument_to_option)
+                << Value << A->getOption().getName();
+      }
+    }
+  }
+}
+#endif // INTEL_CUSTOMIZATION
 
 void tools::addArchSpecificRPath(const ToolChain &TC, const ArgList &Args,
                                  ArgStringList &CmdArgs) {

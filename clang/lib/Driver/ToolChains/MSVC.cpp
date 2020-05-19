@@ -613,12 +613,26 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     std::string CPU = getCPUName(Args, C.getDefaultToolChain().getTriple());
     if (!CPU.empty())
       CmdArgs.push_back(Args.MakeArgString(Twine("-mllvm:-mcpu=") + CPU));
+    // Add optimization level
+    if (Arg *A = Args.getLastArg(options::OPT_O_Group)) {
+      StringRef OOpt;
+      if (A->getOption().matches(options::OPT_O4) ||
+          A->getOption().matches(options::OPT_Ofast))
+        OOpt = "3";
+      else if (A->getOption().matches(options::OPT_O))
+        OOpt = A->getValue();
+      else if (A->getOption().matches(options::OPT_O0))
+        OOpt = "0";
+      if (!OOpt.empty())
+        CmdArgs.push_back(Args.MakeArgString(Twine("-opt:lldlto=") + OOpt));
+    }
     // Add any Intel defaults.
     if (Args.hasArg(options::OPT__intel)) {
       CmdArgs.push_back("-mllvm:-intel-libirc-allowed");
       if (Arg * A = Args.getLastArg(options::OPT_fveclib))
         Args.MakeArgString(Twine("-mllvm:-vector-library=") + A->getValue());
     }
+    addIntelOptimizationArgs(TC, Args, CmdArgs, JA);
     // Using lld-link and -flto, we need to add any additional -mllvm options
     // and implied options.
     for (const StringRef &AV : Args.getAllArgValues(options::OPT_mllvm))

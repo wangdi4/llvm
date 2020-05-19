@@ -455,6 +455,15 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
     // -fveclib=SVML default.
     if (!Args.hasArg(options::OPT_fveclib))
       DAL->AddJoinedArg(0, Opts.getOption(options::OPT_fveclib), "SVML");
+    // For LTO on Windows, use -fuse-ld=lld when Qipo is used.
+    if (Args.hasArg(options::OPT_flto) &&
+        !Args.hasArg(options::OPT_fuse_ld_EQ)) {
+      Arg *A = Args.getLastArg(options::OPT_flto);
+      StringRef Opt(A->getAsString(Args));
+      // TODO - improve determination of last phase
+      if (Opt.contains("Qipo") && !Args.hasArg(options::OPT_c, options::OPT_S))
+        DAL->AddJoinedArg(0, Opts.getOption(options::OPT_fuse_ld_EQ), "lld");
+    }
   }
 #endif // INTEL_CUSTOMIZATION
 
