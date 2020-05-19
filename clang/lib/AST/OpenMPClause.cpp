@@ -249,16 +249,13 @@ const OMPClauseWithPostUpdate *OMPClauseWithPostUpdate::get(const OMPClause *C) 
   case OMPC_inclusive:
   case OMPC_exclusive:
   case OMPC_uses_allocators:
-<<<<<<< HEAD
+  case OMPC_affinity:
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-  case OMPC_affinity:
->>>>>>> 2e499eee5884456f3dd068662ee1785f24bd88cc
     break;
   }
 

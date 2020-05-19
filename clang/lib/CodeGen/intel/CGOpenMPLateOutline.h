@@ -250,6 +250,7 @@ class OpenMPLateOutliner {
   void emitOMPInclusiveClause(const OMPInclusiveClause *);
   void emitOMPExclusiveClause(const OMPExclusiveClause *);
   void emitOMPUsesAllocatorsClause(const OMPUsesAllocatorsClause *);
+  void emitOMPAffinityClause(const OMPAffinityClause *);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   void emitOMPDataflowClause(const OMPDataflowClause *);
