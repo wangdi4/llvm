@@ -1186,6 +1186,10 @@ static bool nodeHasDirective(const HLNode *Node, int DirectiveID) {
 }
 
 bool HLLoop::hasDirective(int DirectiveID) const {
+  // Allow SIMD loop detection if directive is inside loop's Preheader.
+  if (hasPreheader() && nodeHasDirective(getLastPreheaderNode(), DirectiveID))
+    return true;
+  // Allow SIMD loop detection if directive is sibling node to HLLoop.
   if (nodeHasDirective(this, DirectiveID))
     return true;
   // Allow SIMD loop detection inside if conditions inside SIMD region

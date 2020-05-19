@@ -535,7 +535,9 @@ void WRNVecLoopNode::printHIR(formatted_raw_ostream &OS, unsigned Depth,
 
 // Check if the HIR SIMD region associated with this WRNVecLoopNode is valid.
 // A given SIMD region is valid if its BEGIN and END directive nodes belong to
-// the same parent as that of the associated HLLoop.
+// the same lexical parent as that of the associated HLLoop.
+// NOTE: Since directives can be embedded in loop's preheader/postexit blocks,
+// we need to validate using lexical parents and not direct parents.
 bool WRNVecLoopNode::isValidHIRSIMDRegion() const {
   assert(isOmpSIMDLoop() && "Checking for SIMD region in a non-SIMD loop.");
 
@@ -544,9 +546,9 @@ bool WRNVecLoopNode::isValidHIRSIMDRegion() const {
   if (!getHLLoop())
     return false;
 
-  loopopt::HLNode *LoopParent = getHLLoop()->getParent();
-  loopopt::HLNode *EntryNodeParent = getEntryHLNode()->getParent();
-  loopopt::HLNode *ExitNodeParent = getExitHLNode()->getParent();
+  loopopt::HLNode *LoopParent = getHLLoop()->getLexicalParent();
+  loopopt::HLNode *EntryNodeParent = getEntryHLNode()->getLexicalParent();
+  loopopt::HLNode *ExitNodeParent = getExitHLNode()->getLexicalParent();
 
   return LoopParent == EntryNodeParent && LoopParent == ExitNodeParent;
 }
