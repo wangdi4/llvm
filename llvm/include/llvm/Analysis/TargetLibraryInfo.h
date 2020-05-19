@@ -376,14 +376,11 @@ public:
     case LibFunc_trunc:        case LibFunc_truncf:     case LibFunc_truncl:
     case LibFunc_log2:         case LibFunc_log2f:      case LibFunc_log2l:
     case LibFunc_exp2:         case LibFunc_exp2f:      case LibFunc_exp2l:
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     case LibFunc_log:          case LibFunc_logf:       case LibFunc_logl:
     case LibFunc_exp:          case LibFunc_expf:       case LibFunc_expl:
 #endif  // INTEL_CUSTOMIZATION
-=======
     case LibFunc_memcpy:       case LibFunc_memset:     case LibFunc_memmove:
->>>>>>> 521b216094340e7934c1dd7905982cc778237cb8
     case LibFunc_memcmp:       case LibFunc_bcmp:       case LibFunc_strcmp:
     case LibFunc_strcpy:       case LibFunc_stpcpy:     case LibFunc_strlen:
     case LibFunc_strnlen:      case LibFunc_memchr:     case LibFunc_mempcpy:
