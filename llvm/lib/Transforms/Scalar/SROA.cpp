@@ -4798,16 +4798,30 @@ PreservedAnalyses SROA::runImpl(Function &F, DominatorTree &RunDT,
   }
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CSA
-  // Add alloca instructions from all other blocks besides entry.
+  // Allow allocas in some non-entry blocks to be replaced. They may be
+  // created by passes after the clang FE.
   for (auto &BB : F) {
     if (&BB == &EntryBB)
       continue;
-    for (auto &I : BB)
-      if (AllocaInst *AI = dyn_cast<AllocaInst>(&I))
-        Worklist.insert(AI);
-  }
+
+    // SIMD loop pre-headers:
+    // Private variables and loop control variables are allocated here.
+    bool HandleBlock = false;
+    if (auto *SuccBB = BB.getSingleSuccessor())
+      if (auto *FirstSuccI = SuccBB->getFirstNonPHIOrDbg())
+        if (vpo::VPOAnalysisUtils::getDirectiveID(FirstSuccI) == DIR_OMP_SIMD)
+          HandleBlock = true;
+
+#if INTEL_FEATURE_CSA
+    // All CSA local variables must be registerized if possible.
+    HandleBlock = true;
 #endif // INTEL_FEATURE_CSA
+
+    if (HandleBlock)
+      for (auto &I : BB)
+        if (AllocaInst *AI = dyn_cast<AllocaInst>(&I))
+          Worklist.insert(AI);
+  }
 #endif // INTEL_CUSTOMIZATION
 
   bool Changed = false;
@@ -4871,7 +4885,6 @@ public:
   }
 
   bool runOnFunction(Function &F) override {
-
     if (skipFunction(F))
       return false;
 
