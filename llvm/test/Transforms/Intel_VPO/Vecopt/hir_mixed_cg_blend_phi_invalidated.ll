@@ -57,8 +57,7 @@
 ; CHECK-NEXT:       |   %NAry14 = %NBConv10  *  %NAry13;
 ; CHECK-NEXT:       |   %coef.0.in1.vec = (%NAry14)/u65536; Mask = @{%wide.cmp.}
 ; CHECK-NEXT:       |   (<4 x i16>*)(%dct)[i1] = %coef.0.in1.vec;
-; CHECK-NEXT:       |   %.vec15 = sext.<4 x i16>.<4 x i32>(%coef.0.in1.vec);
-; CHECK-NEXT:       |   %red.var = %red.var  ||  %.vec15;
+; CHECK-NEXT:       |   %red.var = %red.var  ||  %coef.0.in1.vec;
 ; CHECK-NEXT:       + END LOOP
 
 ; CHECK:            %nz.039 = @llvm.experimental.vector.reduce.or.v4i32(%red.var);

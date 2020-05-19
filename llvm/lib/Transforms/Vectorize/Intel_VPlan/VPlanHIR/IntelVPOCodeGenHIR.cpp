@@ -3251,8 +3251,11 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
                                 int64_t InterleaveIndex,
                                 const HLInst *GrpStartInst, bool Widen) {
   assert((Widen || VPInst->getOpcode() == Instruction::GetElementPtr ||
-          VPInst->getOpcode() == Instruction::Add) &&
-         "Expected add/gep for scalar constructs");
+          VPInst->getOpcode() == Instruction::Add ||
+          VPInst->getOpcode() == Instruction::ZExt ||
+          VPInst->getOpcode() == Instruction::SExt ||
+          VPInst->getOpcode() == Instruction::Trunc) &&
+         "Expected add/gep/zext/sext/trunc for scalar constructs");
 
   std::function<void(RegDDRef *, const VPInstruction *,
                      SmallVectorImpl<const RegDDRef *> &, bool)>
@@ -3473,6 +3476,32 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
 
   case Instruction::ZExt:
   case Instruction::SExt:
+  case Instruction::Trunc: {
+    auto RefDestTy = VPInst->getType();
+    auto ResultRefTy = getResultRefTy(RefDestTy, VF, Widen);
+    assert(RefOp0->isTerminalRef() && "Expected terminal ref");
+    auto *CE = RefOp0->getSingleCanonExpr();
+
+    // Try to fold the convert operation into the canon expression. This can
+    // be done if the canon expression's source and dest type are the same.
+    if (CE->getDestType() == CE->getSrcType()) {
+      // Used to make the folded ref consistent.
+      SmallVector<const RegDDRef *, 1> AuxRefs = {RefOp0->clone()};
+      CE->setDestType(ResultRefTy);
+      CE->setExtType(VPInst->getOpcode() == Instruction::SExt);
+      makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen);
+      return;
+    }
+
+    // Do not create an explicit scalar instruction.
+    if (!Widen)
+      return;
+
+    NewInst = HLNodeUtilities.createCastHLInst(ResultRefTy, VPInst->getOpcode(),
+                                               RefOp0, InstName);
+    break;
+  }
+
   case Instruction::FPToUI:
   case Instruction::FPToSI:
   case Instruction::FPExt:
@@ -3480,7 +3509,6 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   case Instruction::IntToPtr:
   case Instruction::SIToFP:
   case Instruction::UIToFP:
-  case Instruction::Trunc:
   case Instruction::FPTrunc:
   case Instruction::BitCast: {
     auto RefDestTy = VPInst->getType();
@@ -3652,6 +3680,17 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
                                   int64_t InterleaveFactor,
                                   int64_t InterleaveIndex,
                                   const HLInst *GrpStartInst) {
+  // We treat select instruction in HIR specially. When generating code for
+  // select instructions, the operands of the compare which generate the select
+  // mask are part of the HIR select instruction. The HIR select instruction
+  // also stores the compare predicate. As a result, we can avoid generating
+  // code for a compare instruction if its only use is a select instruction.
+  if (isa<VPCmpInst>(VPInst) && VPInst->getNumUsers() == 1) {
+    auto *UserInst = cast<VPInstruction>(*(VPInst->users().begin()));
+    if (UserInst->getOpcode() == Instruction::Select)
+      return;
+  }
+
   // Generate wide constructs for all VPInstuctions. This will be changed later
   // to use SVA information.
   generateHIR(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
@@ -3663,10 +3702,13 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
     generateHIR(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
                 GrpStartInst, false /* Widen */);
 
-  // Generate a scalar value for add to avoid making references non-linear.
-  // This is made possible due to support for add folding. This will be changed
-  // later to use SVA information.
-  if (VPInst->getOpcode() == Instruction::Add)
+  // Generate a scalar value for some opcodes to avoid making references
+  // non-linear. This is made possible due to support for folding such opcodes.
+  // This will be changed later to use SVA information.
+  if (VPInst->getOpcode() == Instruction::Add ||
+      VPInst->getOpcode() == Instruction::SExt ||
+      VPInst->getOpcode() == Instruction::ZExt ||
+      VPInst->getOpcode() == Instruction::Trunc)
     generateHIR(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
                 GrpStartInst, false /* Widen */);
 }

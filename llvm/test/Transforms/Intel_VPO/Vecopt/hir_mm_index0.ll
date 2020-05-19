@@ -2,8 +2,8 @@
 ; Test for basic functionality of min/max+index idiom (main reduction + first linear index).
 ; REQUIRES: asserts
 ; RUN: opt -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-plain-dump -vplan-entities-dump -disable-vplan-codegen -enable-mmindex=1 -disable-nonlinear-mmindex=1 -vplan-print-after-vpentity-instrs -vplan-force-vf=4 -S < %s 2>&1 | FileCheck %s
-; RUN: opt -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-plain-dump -vplan-entities-dump -enable-vp-value-codegen-hir=1 -enable-mmindex=1 -disable-nonlinear-mmindex=1 -hir-cg -vplan-force-vf=4  -S -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck -check-prefix VPVAL_CG %s
-; RUN: opt -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-plain-dump -vplan-entities-dump -enable-vp-value-codegen-hir=0 -enable-mmindex=1 -disable-nonlinear-mmindex=1 -hir-cg -vplan-force-vf=4  -S -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck -check-prefix MIXED_CG %s
+; RUN: opt -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-plain-dump -vplan-entities-dump -enable-vp-value-codegen-hir=1 -enable-mmindex=1 -disable-nonlinear-mmindex=1 -hir-cg -vplan-force-vf=4  -S -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck -check-prefix CGCHECK %s
+; RUN: opt -disable-output -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-plain-dump -vplan-entities-dump -enable-vp-value-codegen-hir=0 -enable-mmindex=1 -disable-nonlinear-mmindex=1 -hir-cg -vplan-force-vf=4  -S -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck -check-prefix CGCHECK %s
 
 ; CHECK:       External Defs Start:
 ; CHECK:         [[VPMPLUS:%.*]] = {%m + -1}
@@ -46,61 +46,31 @@
 ; CHECK-NEXT:     i32 [[VP__RED_FINAL_1]] = reduction-final{s_smin} i32 [[VP2]] i32 [[VP0]] i32 [[VP__RED_FINAL]]
 ; CHECK-NEXT:     i32 [[VP__IND_FINAL]] = induction-final{add} i32 0 i32 1
 ;
-;VPVAL_CG-LABEL:*** IR Dump After VPlan Vectorization Driver HIR ***
-;VPVAL_CG: Function: maxloc
-;VPVAL_CG-EMPTY:
-;VPVAL_CG-NEXT:   BEGIN REGION { modified }
-;VPVAL_CG-NEXT:         %tgu = (%m)/u4;
-;VPVAL_CG-NEXT:         if (0 <u 4 * %tgu)
-;VPVAL_CG-NEXT:         {
-;VPVAL_CG-NEXT:            %red.var = %best.023;
-;VPVAL_CG-NEXT:            %red.var1 = %tmp.024;
-;VPVAL_CG:                 + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 1073741823> <nounroll> <novectorize>
-;VPVAL_CG-NEXT:            |   %.vec = sext.<4 x i32>.<4 x i64>(i1 + <i32 0, i32 1, i32 2, i32 3>);
-;VPVAL_CG-NEXT:            |   %uni.idx = extractelement &((<4 x i32*>)(%ordering)[%.vec]),  0;
-;VPVAL_CG-NEXT:            |   %.vec3 = (<4 x i32>*)(%uni.idx)[0];
-;VPVAL_CG-NEXT:            |   %.vec4 = %.vec3 > %red.var;
-;VPVAL_CG-NEXT:            |   %red.var1 = (%.vec3 > %red.var) ? i1 + <i32 0, i32 1, i32 2, i32 3> : %red.var1;
-;VPVAL_CG-NEXT:            |   %.vec6 = %.vec3 > %red.var;
-;VPVAL_CG-NEXT:            |   %red.var = (%.vec3 > %red.var) ? %.vec3 : %red.var;
-;VPVAL_CG-NEXT:            + END LOOP
-;VPVAL_CG:                 %best.023 = @llvm.experimental.vector.reduce.smax.v4i32(%red.var);
-;VPVAL_CG-NEXT:            %idx.blend = (%best.023 == %red.var) ? %red.var1 : <i32 2147483647, i32 2147483647, i32 2147483647, i32 2147483647>;
-;VPVAL_CG-NEXT:            %tmp.024 = @llvm.experimental.vector.reduce.smin.v4i32(%idx.blend);
-;VPVAL_CG-NEXT:         }
-;VPVAL_CG:              + DO i1 = 4 * %tgu, %m + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3> <nounroll> <novectorize> <max_trip_count = 3>
-;VPVAL_CG-NEXT:         |   %0 = (%ordering)[i1];
-;VPVAL_CG-NEXT:         |   %tmp.024 = (%0 > %best.023) ? i1 : %tmp.024;
-;VPVAL_CG-NEXT:         |   %best.023 = (%0 > %best.023) ? %0 : %best.023;
-;VPVAL_CG-NEXT:         + END LOOP
-;VPVAL_CG-NEXT:   END REGION
 
-;MIXED_CG-LABEL:*** IR Dump After VPlan Vectorization Driver HIR ***
-;MIXED_CG: Function: maxloc
-;MIXED_CG-EMPTY:
-;MIXED_CG-NEXT:  BEGIN REGION { modified }
-;MIXED_CG-NEXT:        %tgu = (%m)/u4;
-;MIXED_CG-NEXT:        if (0 <u 4 * %tgu)
-;MIXED_CG-NEXT:        {
-;MIXED_CG-NEXT:           %red.var = %best.023;
-;MIXED_CG-NEXT:           %red.var1 = %tmp.024;
-;MIXED_CG:                + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 1073741823> <nounroll> <novectorize>
-;MIXED_CG-NEXT:           |   %.vec = (<4 x i32>*)(%ordering)[i1];
-;MIXED_CG-NEXT:           |   %.vec3 = %.vec > %red.var;
-;MIXED_CG-NEXT:           |   %red.var1 = (%.vec > %red.var) ? i1 + <i32 0, i32 1, i32 2, i32 3> : %red.var1;
-;MIXED_CG-NEXT:           |   %.vec5 = %.vec > %red.var;
-;MIXED_CG-NEXT:           |   %red.var = (%.vec > %red.var) ? %.vec : %red.var;
-;MIXED_CG-NEXT:           + END LOOP
-;MIXED_CG:                %best.023 = @llvm.experimental.vector.reduce.smax.v4i32(%red.var);
-;MIXED_CG-NEXT:           %idx.blend = (%best.023 == %red.var) ? %red.var1 : <i32 2147483647, i32 2147483647, i32 2147483647, i32 2147483647>;
-;MIXED_CG-NEXT:           %tmp.024 = @llvm.experimental.vector.reduce.smin.v4i32(%idx.blend);
-;MIXED_CG-NEXT:        }
-;MIXED_CG:           + DO i1 = 4 * %tgu, %m + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3> <nounroll> <novectorize> <max_trip_count = 3>
-;MIXED_CG-NEXT:        |   %0 = (%ordering)[i1];
-;MIXED_CG-NEXT:        |   %tmp.024 = (%0 > %best.023) ? i1 : %tmp.024;
-;MIXED_CG-NEXT:        |   %best.023 = (%0 > %best.023) ? %0 : %best.023;
-;MIXED_CG-NEXT:       + END LOOP
-;MIXED_CG-NEXT: END REGION
+;CGCHECK-LABEL:*** IR Dump After VPlan Vectorization Driver HIR ***
+;CGCHECK: Function: maxloc
+;CGCHECK-EMPTY:
+;CGCHECK-NEXT:  BEGIN REGION { modified }
+;CGCHECK-NEXT:        %tgu = (%m)/u4;
+;CGCHECK-NEXT:        if (0 <u 4 * %tgu)
+;CGCHECK-NEXT:        {
+;CGCHECK-NEXT:           %red.var = %best.023;
+;CGCHECK-NEXT:           %red.var1 = %tmp.024;
+;CGCHECK:                + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 1073741823> <nounroll> <novectorize>
+;CGCHECK-NEXT:           |   %.vec = (<4 x i32>*)(%ordering)[i1];
+;CGCHECK-NEXT:           |   %red.var1 = (%.vec > %red.var) ? i1 + <i32 0, i32 1, i32 2, i32 3> : %red.var1;
+;CGCHECK-NEXT:           |   %red.var = (%.vec > %red.var) ? %.vec : %red.var;
+;CGCHECK-NEXT:           + END LOOP
+;CGCHECK:                %best.023 = @llvm.experimental.vector.reduce.smax.v4i32(%red.var);
+;CGCHECK-NEXT:           %idx.blend = (%best.023 == %red.var) ? %red.var1 : <i32 2147483647, i32 2147483647, i32 2147483647, i32 2147483647>;
+;CGCHECK-NEXT:           %tmp.024 = @llvm.experimental.vector.reduce.smin.v4i32(%idx.blend);
+;CGCHECK-NEXT:        }
+;CGCHECK:           + DO i1 = 4 * %tgu, %m + -1, 1   <DO_LOOP>  <MAX_TC_EST = 3> <nounroll> <novectorize> <max_trip_count = 3>
+;CGCHECK-NEXT:        |   %0 = (%ordering)[i1];
+;CGCHECK-NEXT:        |   %tmp.024 = (%0 > %best.023) ? i1 : %tmp.024;
+;CGCHECK-NEXT:        |   %best.023 = (%0 > %best.023) ? %0 : %best.023;
+;CGCHECK-NEXT:       + END LOOP
+;CGCHECK-NEXT: END REGION
 ;
 ;int ordering[1000];
 ;int  maxloc (int m) {
