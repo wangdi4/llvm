@@ -871,7 +871,10 @@ private:
           inferRetInst(ValueToInfer, cast<ReturnInst>(User));
           break;
         case Instruction::PtrToInt:
-          // Skip PtrToInt since it does not help resolve a pointer type.
+          // Look ahead at the users of the integer, because if this is
+          // converting the pointer to a pointer-sized integer, there may be
+          // information gained by looking at the users of it.
+          inferPtrToIntInst(ValueToInfer, cast<PtrToIntInst>(User));
           break;
         case Instruction::Store:
           inferStoreInst(ValueToInfer, cast<StoreInst>(User));
@@ -1047,6 +1050,48 @@ private:
         addInferredType(ValOp, PtrTy->getPointerElementType());
         addInferredType(PtrOp, DType);
       }
+  }
+
+  // Try to infer the type of the pointer operand of a pointer-to-int
+  // instruction. This is primarily to capture the pattern where a pointer is
+  // converted into a pointer-sized integer and then stored into a memory
+  // location which can have its type determined by the analyzer.
+  //   %as.i64 = ptrtoint i8* to i64
+  //   store i64 %as.i64, i64* %struct_alias
+  //
+  void inferPtrToIntInst(Value *ValueToInfer, PtrToIntInst *PTI) {
+    for (auto *User : PTI->users()) {
+      // TODO: Currently, this is limited to just looking for users that are
+      // storing the integer value. This may need to be extended in the future
+      // to follow the use through 'sub' or 'div' instructions to an inttoptr
+      // instruction which can have its pointer type resolved, since the only
+      // time DTrans supports integer operations on the pointer are for
+      // computing the distance between two pointer elements. Other uses would
+      // be complicated to do because they would require following the value
+      // forward through all the possible integer operations.
+      if (auto *SI = dyn_cast<StoreInst>(User)) {
+        Value *PtrOp = SI->getPointerOperand();
+        ValueTypeInfo *PtrOpInfo = analyzeValue(PtrOp);
+        for (auto *DType :
+             PtrOpInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use))
+          if (auto *PtrTy = dyn_cast<DTransPointerType>(DType))
+            addInferredType(PTI, PtrTy->getPointerElementType());
+      }
+    }
+
+    // Also, add any known type information about the pointer operand of the
+    // PtrToInt instruction. This is necessary to handle the cases where an i8*
+    // parameter type is being inferred, which is only used as an i8* type.
+    // For example:
+    //   %as1.i64 = ptrtoint i8* %arg1 to i64
+    //   %as2.i64 = ptrtoint i8* %arg2 to i64
+    //   %length = sub i64 %as2.i64, %as1.i64
+    ValueTypeInfo *PTIInfo = PTA.getOrCreateValueTypeInfo(PTI, 0);
+    for (auto *DType : PTIInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use))
+      if (auto *PtrTy = dyn_cast<DTransPointerType>(DType))
+        addInferredType(PTI, PtrTy->getPointerElementType());
+
+    propagateInferenceSet(PTI, ValueToInfer, DerefType::DT_SameType);
   }
 
   // Helper function to copy inferred types associated with one Value to
