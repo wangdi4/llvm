@@ -311,6 +311,10 @@ TARGET_BUILTIN(__builtin_ia32_t4rqntlvbz3, "vIUcvC*z", "n",
                "amx-transpose2")
 TARGET_BUILTIN(__builtin_ia32_t4rqntlvbz3t1, "vIUcvC*z", "n",
                "amx-transpose2")
+TARGET_BUILTIN(__builtin_ia32_ttdpbssd, "vIUcIUcIUc", "n", "amx-transpose2")
+TARGET_BUILTIN(__builtin_ia32_ttdpbsud, "vIUcIUcIUc", "n", "amx-transpose2")
+TARGET_BUILTIN(__builtin_ia32_ttdpbusd, "vIUcIUcIUc", "n", "amx-transpose2")
+TARGET_BUILTIN(__builtin_ia32_ttdpbuud, "vIUcIUcIUc", "n", "amx-transpose2")
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 
 #if INTEL_FEATURE_ISA_AMX_CONVERT

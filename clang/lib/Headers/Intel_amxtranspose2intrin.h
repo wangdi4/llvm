@@ -38,6 +38,15 @@
   __builtin_ia32_t4rqntlvbz3(tdst, base, stride)
 #define _tile_4rqntlvbz3t1(tdst, base, stride)                                 \
   __builtin_ia32_t4rqntlvbz3t1(tdst, base, stride)
+#define _tile_tdpbssd(tdst, tsrc1, tsrc2)                                      \
+  __builtin_ia32_ttdpbssd(tdst, tsrc1, tsrc2)
+#define _tile_tdpbsud(tdst, tsrc1, tsrc2)                                      \
+  __builtin_ia32_ttdpbsud(tdst, tsrc1, tsrc2)
+#define _tile_tdpbusd(tdst, tsrc1, tsrc2)                                      \
+  __builtin_ia32_ttdpbusd(tdst, tsrc1, tsrc2)
+#define _tile_tdpbuud(tdst, tsrc1, tsrc2)                                      \
+  __builtin_ia32_ttdpbuud(tdst, tsrc1, tsrc2)
+
 #endif /* __x86_64__ */
 #endif /* __AMX_TRANSPOSE2INTRIN_H */
 /* end INTEL_FEATURE_ISA_AMX_TRANSPOSE2 */

@@ -1331,11 +1331,47 @@ let Predicates = [HasAMXTRANSPOSE2, In64BitMode] in {
                            (ins i8mem:$src1, GR64:$src2),
                            "t2transposewt1\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                            []>, VEX, T_MAP5XS;
+
+  let Constraints = "$src1 = $dst" in {
+      def TTDPBSSD : I<0xfe, MRMSrcReg4VOp3, (outs VTILE:$dst),
+                           (ins VTILE:$src1, VTILE:$src2, VTILE:$src3),
+                           "ttdpbssd\t{$src3, $src2, $dst|$dst, $src2, $src3}",
+                           []>, VEX_4V, T_MAP5XD;
+      def TTDPBSUD : I<0xfe, MRMSrcReg4VOp3, (outs VTILE:$dst),
+                           (ins VTILE:$src1, VTILE:$src2, VTILE:$src3),
+                           "ttdpbsud\t{$src3, $src2, $dst|$dst, $src2, $src3}",
+                           []>, VEX_4V, T_MAP5XS;
+      def TTDPBUSD : I<0xfe, MRMSrcReg4VOp3, (outs VTILE:$dst),
+                           (ins VTILE:$src1, VTILE:$src2, VTILE:$src3),
+                           "ttdpbusd\t{$src3, $src2, $dst|$dst, $src2, $src3}",
+                           []>, VEX_4V, T_MAP5PD;
+      def TTDPBUUD : I<0xfe, MRMSrcReg4VOp3, (outs VTILE:$dst),
+                           (ins VTILE:$src1, VTILE:$src2, VTILE:$src3),
+                           "ttdpbuud\t{$src3, $src2, $dst|$dst, $src2, $src3}",
+                           []>, VEX_4V, T_MAP5PS;
+  }
+
     let usesCustomInserter = 1 in {
       def PT2TRANSPOSEW : PseudoI<(outs), (ins u8imm:$dst,
                                   i8mem:$src1, GR64:$src2), []>;
       def PT2TRANSPOSEWT1 : PseudoI<(outs), (ins u8imm:$dst,
                                     i8mem:$src1, GR64:$src2), []>;
+      def PTTDPBSSD       : PseudoI<(outs), (ins u8imm:$src1,
+                                    u8imm:$src2, u8imm:$src3),
+                                    [(int_x86_ttdpbssd timm:$src1,
+                                     timm:$src2, timm:$src3)]>;
+      def PTTDPBSUD       : PseudoI<(outs), (ins u8imm:$src1,
+                                    u8imm:$src2, u8imm:$src3),
+                                    [(int_x86_ttdpbsud timm:$src1,
+                                     timm:$src2, timm:$src3)]>;
+      def PTTDPBUSD       : PseudoI<(outs), (ins u8imm:$src1,
+                                    u8imm:$src2, u8imm:$src3),
+                                    [(int_x86_ttdpbusd timm:$src1,
+                                     timm:$src2, timm:$src3)]>;
+      def PTTDPBUUD       : PseudoI<(outs), (ins u8imm:$src1,
+                                    u8imm:$src2, u8imm:$src3),
+                                    [(int_x86_ttdpbuud timm:$src1,
+                                     timm:$src2, timm:$src3)]>;
     }
   }
 } // HasAMXTILE, HasAMXTRANSPOSE2

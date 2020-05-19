@@ -6620,6 +6620,22 @@ let TargetPrefix = "x86" in {
       : GCCBuiltin<"__builtin_ia32_t4rqntlvbz3t1">,
         Intrinsic<[], [llvm_i8_ty, llvm_ptr_ty, llvm_i64_ty],
                   [ImmArg<0>]>;
+  def int_x86_ttdpbssd
+      : GCCBuiltin<"__builtin_ia32_ttdpbssd">,
+        Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                  [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+  def int_x86_ttdpbsud
+      : GCCBuiltin<"__builtin_ia32_ttdpbsud">,
+        Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                  [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+  def int_x86_ttdpbusd
+      : GCCBuiltin<"__builtin_ia32_ttdpbusd">,
+        Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                  [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
+  def int_x86_ttdpbuud
+      : GCCBuiltin<"__builtin_ia32_ttdpbuud">,
+        Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty],
+                  [ImmArg<0>, ImmArg<1>, ImmArg<2>]>;
 }
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 

@@ -120,3 +120,35 @@
 // CHECK:      t4rqntlvbz3t1 tmm4, byte ptr [2*rbp - 32]
 // CHECK: encoding: [0xc4,0xe5,0x7a,0xef,0x24,0x6d,0xe0,0xff,0xff,0xff]
                t4rqntlvbz3t1 tmm4, byte ptr [2*rbp - 32]
+
+// CHECK:      ttdpbssd tmm6, tmm4, tmm5
+// CHECK: encoding: [0xc4,0xe5,0x53,0xfe,0xf4]
+               ttdpbssd tmm6, tmm4, tmm5
+
+// CHECK:      ttdpbssd tmm3, tmm1, tmm2
+// CHECK: encoding: [0xc4,0xe5,0x6b,0xfe,0xd9]
+               ttdpbssd tmm3, tmm1, tmm2
+
+// CHECK:      ttdpbsud tmm9, tmm7, tmm8
+// CHECK: encoding: [0xc4,0x65,0x3a,0xfe,0xcf]
+               ttdpbsud tmm9, tmm7, tmm8
+
+// CHECK:      ttdpbsud tmm12, tmm10, tmm11
+// CHECK: encoding: [0xc4,0x45,0x22,0xfe,0xe2]
+               ttdpbsud tmm12, tmm10, tmm11
+
+// CHECK:      ttdpbusd tmm6, tmm4, tmm5
+// CHECK: encoding: [0xc4,0xe5,0x51,0xfe,0xf4]
+               ttdpbusd tmm6, tmm4, tmm5
+
+// CHECK:      ttdpbusd tmm15, tmm13, tmm14
+// CHECK: encoding: [0xc4,0x45,0x09,0xfe,0xfd]
+               ttdpbusd tmm15, tmm13, tmm14
+
+// CHECK:      ttdpbuud tmm6, tmm4, tmm5
+// CHECK: encoding: [0xc4,0xe5,0x50,0xfe,0xf4]
+               ttdpbuud tmm6, tmm4, tmm5
+
+// CHECK:      ttdpbuud tmm3, tmm1, tmm2
+// CHECK: encoding: [0xc4,0xe5,0x68,0xfe,0xd9]
+               ttdpbuud tmm3, tmm1, tmm2
