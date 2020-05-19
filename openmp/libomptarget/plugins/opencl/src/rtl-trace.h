@@ -876,8 +876,8 @@ cl_int TRACE_FN(clWaitForEvents)(
   return rc;
 }
 
-/// Calls that only have return code
-#define CALL_CL(Rc, Fn, ...)                                                   \
+/// Calls without error check
+#define CALL_CL_SILENT(Rc, Fn, ...)                                            \
   do {                                                                         \
     if (DebugLevel > 1) {                                                      \
       DP1("CL_CALLER: %s %s\n", TO_STRING(Fn), TO_STRING(( __VA_ARGS__ )));    \
@@ -885,8 +885,24 @@ cl_int TRACE_FN(clWaitForEvents)(
     } else {                                                                   \
       Rc = Fn(__VA_ARGS__);                                                    \
     }                                                                          \
+  } while (0)
+
+/// Calls that only have return code
+#define CALL_CL(Rc, Fn, ...)                                                   \
+  do {                                                                         \
+    CALL_CL_SILENT(Rc, Fn, __VA_ARGS__);                                       \
     if (Rc != CL_SUCCESS) {                                                    \
       DP("Error: %s:%s failed with error code %d, %s\n", __func__, #Fn, Rc,    \
+         getCLErrorName(Rc));                                                  \
+    }                                                                          \
+  } while (0)
+
+/// Emit warning for unsuccessful CL call
+#define CALL_CLW(Rc, Fn, ...)                                                  \
+  do {                                                                         \
+    CALL_CL_SILENT(Rc, Fn, __VA_ARGS__);                                       \
+    if (Rc != CL_SUCCESS) {                                                    \
+      DP("Warning: %s:%s returned %d, %s\n", __func__, #Fn, Rc,                \
          getCLErrorName(Rc));                                                  \
     }                                                                          \
   } while (0)
@@ -895,6 +911,14 @@ cl_int TRACE_FN(clWaitForEvents)(
   do {                                                                         \
     cl_int rc;                                                                 \
     CALL_CL(rc, Fn, __VA_ARGS__);                                              \
+    if (rc != CL_SUCCESS)                                                      \
+      return Ret;                                                              \
+  } while (0)
+
+#define CALL_CLW_RET(Ret, Fn, ...)                                             \
+  do {                                                                         \
+    cl_int rc;                                                                 \
+    CALL_CLW(rc, Fn, __VA_ARGS__);                                             \
     if (rc != CL_SUCCESS)                                                      \
       return Ret;                                                              \
   } while (0)
@@ -911,6 +935,7 @@ cl_int TRACE_FN(clWaitForEvents)(
 #define CALL_CL_RET_NULL(Fn, ...) CALL_CL_RET(nullptr, Fn, __VA_ARGS__)
 #define CALL_CL_RET_ZERO(Fn, ...) CALL_CL_RET(0, Fn, __VA_ARGS__)
 #define CALL_CL_RET_VOID(Fn, ...) CALL_CL_RET(, Fn, __VA_ARGS__)
+#define CALL_CLW_RET_VOID(Fn, ...) CALL_CLW_RET(, Fn, __VA_ARGS__)
 
 /// Calls that have return value and return code
 #define CALL_CL_RVRC(Rv, Fn, Rc, ...)                                          \
