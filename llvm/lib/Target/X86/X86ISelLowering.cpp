@@ -22145,6 +22145,20 @@ SDValue X86TargetLowering::getSqrtEstimate(SDValue Op,
     unsigned Opcode = VT == MVT::v16f32 ? X86ISD::RSQRT14 : X86ISD::FRSQRT;
     return DAG.getNode(Opcode, SDLoc(Op), VT, Op);
   }
+
+#if INTEL_CUSTOMIZATION
+  // Optimize vector and scalar reciprocal square root for double precision to
+  // 14 bits accuracy with native rsqrt14pd and rsqrt14sd if we have the
+  // instruction and set option "-Xclang -mrecip=sqrtd:0,vec-sqrtd:0"
+  if (Reciprocal && RefinementSteps == 0 &&
+      ((VT == MVT::f64 && Subtarget.hasAVX512()) ||
+       (VT == MVT::v2f64 && Subtarget.hasVLX()) ||
+       (VT == MVT::v4f64 && Subtarget.hasVLX()) ||
+       (VT == MVT::v8f64 && Subtarget.useAVX512Regs()))) {
+    return DAG.getNode(X86ISD::RSQRT14, SDLoc(Op), VT, Op);
+  }
+#endif // INTEL_CUSTOMIZATION
+
   return SDValue();
 }
 

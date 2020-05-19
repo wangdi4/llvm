@@ -5277,6 +5277,10 @@ static bool hasUndefRegUpdate(unsigned Opcode, unsigned OpNum,
   case X86::VRSQRT14SDZrm:
   case X86::VRSQRT14SSZrr:
   case X86::VRSQRT14SSZrm:
+#if INTEL_CUSTOMIZATION
+  case X86::VRSQRT14SDZr_alt:
+  case X86::VRSQRT14SDZm_alt:
+#endif // INTEL_CUSTOMIZATION
   case X86::VRSQRT28SDZr:
   case X86::VRSQRT28SDZrb:
   case X86::VRSQRT28SDZm:

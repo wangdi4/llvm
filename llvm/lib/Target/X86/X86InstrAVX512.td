@@ -9790,6 +9790,37 @@ multiclass avx512_fp14_s<bits<8> opc, string OpcodeStr, SDNode OpNode,
 }
 
 #if INTEL_CUSTOMIZATION
+//avx512_fp14_s_alt for rsqrt14sd
+multiclass avx512_fp14_s_alt<bits<8> opc, string OpcodeStr, SDNode OpNodeAlt,
+                         X86FoldableSchedWrite sched, X86VectorVTInfo _,
+                         Predicate prd = HasAVX512> {
+  let isCodeGenOnly = 1, hasSideEffects = 0 in {
+    def r_alt : I<opc, MRMSrcReg, (outs _.FRC:$dst),
+              (ins _.FRC:$src1, _.FRC:$src2),
+              OpcodeStr#"\t{$src2, $src1, $dst|$dst, $src1, $src2}", []>,
+              EVEX_4V, VEX_LIG, Sched<[sched]>;
+    let mayLoad = 1 in
+      def m_alt : I<opc, MRMSrcMem, (outs _.FRC:$dst),
+                (ins _.FRC:$src1, _.ScalarMemOp:$src2),
+                OpcodeStr#"\t{$src2, $src1, $dst|$dst, $src1, $src2}", []>,
+                EVEX_4V, VEX_LIG, Sched<[sched.Folded, sched.ReadAfterFold]>;
+  }
+
+  let Predicates = [prd] in {
+    def : Pat<(_.EltVT (OpNodeAlt _.FRC:$src)),
+              (!cast<Instruction>(NAME#r_alt)
+                  (_.EltVT (IMPLICIT_DEF)), _.FRC:$src)>;
+  }
+
+  let Predicates = [prd, OptForSize] in {
+    def : Pat<(_.EltVT (OpNodeAlt (load addr:$src))),
+              (!cast<Instruction>(NAME#m_alt)
+                  (_.EltVT (IMPLICIT_DEF)), addr:$src)>;
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
 defm VRCPSHZ : avx512_fp14_s<0x4D, "vrcpsh", X86frcps, SchedWriteFRcp.Scl,
                                f16x_info, HasFP16>, EVEX_CD8<16, CD8VT1>,
@@ -9811,6 +9842,9 @@ defm VRSQRT14SSZ : avx512_fp14_s<0x4F, "vrsqrt14ss", X86rsqrt14s,
 defm VRSQRT14SDZ : avx512_fp14_s<0x4F, "vrsqrt14sd", X86rsqrt14s,
                                  SchedWriteFRsqrt.Scl, f64x_info>, VEX_W,
                                  EVEX_CD8<64, CD8VT1>, T8PD;
+defm VRSQRT14SDZ : avx512_fp14_s_alt<0x4F, "vrsqrt14sd", X86rsqrt14, // INTEL
+                                 SchedWriteFRsqrt.Scl, f64x_info>, VEX_W, // INTEL
+                                 EVEX_CD8<64, CD8VT1>, T8PD; // INTEL
 
 /// avx512_fp14_p rcp14ps, rcp14pd, rsqrt14ps, rsqrt14pd
 multiclass avx512_fp14_p<bits<8> opc, string OpcodeStr, SDNode OpNode,
