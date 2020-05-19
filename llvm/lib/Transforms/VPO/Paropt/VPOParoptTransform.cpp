@@ -93,6 +93,12 @@ static cl::opt<bool, true> UseOmpRegionsInLoopopt(
     cl::Hidden, cl::location(UseOmpRegionsInLoopoptFlag), cl::init(false));
 #endif  // INTEL_CUSTOMIZATION
 
+static cl::opt<bool> AllowDistributeDimension(
+    "vpo-paropt-allow-distribute-dimension",
+     cl::Hidden, cl::init(true),
+     cl::desc("Allow using separate ND-range dimension "
+              "for OpenMP distribute."));
+
 // Due to implicit widening for SPIR targets, we want to schedule a loop
 // such that adjacent WIs process adjacent iterations of the loop.
 static cl::opt<bool> AvoidStridedProcessing(
@@ -303,7 +309,14 @@ void VPOParoptTransform::genOCLDistParLoopBoundUpdateCode(
 
   // Call the function get_num_group to get the group size for dimension Idx.
   SmallVector<Value *, 3> Arg;
-  initArgArray(&Arg, Idx);
+  unsigned NumLoops = W->getWRNLoopInfo().getNormIVSize();
+  assert(NumLoops != 0 && "Zero loops in loop construct.");
+  assert(NumLoops <= 3 && "Max 3 loops in a loop nest for SPIR-V targets.");
+  assert(Idx < NumLoops && "Loop index is bigger than the number of loops "
+         "in a loop nest.");
+  unsigned DimNum = NumLoops - Idx - 1;
+  DimNum += W->getWRNLoopInfo().getNDRangeStartDim();
+  initArgArray(&Arg, DimNum);
   // get_num_groups() returns a value of type size_t by specification,
   // and the return value is greater than 0.
   CallInst *NumGroupsCall =
@@ -418,14 +431,7 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
   assert (LowerBnd->getType() == SchedStride->getType() &&
           "Expected LowerBnd and SchedStride to be of same type");
 
-  unsigned NumLoops = 0;
-  if (!VPOParoptUtils::useSPMDMode(W))
-    NumLoops = W->getWRNLoopInfo().getNormIVSize();
-  else {
-    WRegionNode *WT = WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget);
-    assert(WT && "No enclosing target region for SPMD loop.");
-    NumLoops = WT->getUncollapsedNDRange().size();
-  }
+  unsigned NumLoops = W->getWRNLoopInfo().getNormIVSize();
 
   assert(NumLoops != 0 && "Zero loops in loop construct.");
   assert(NumLoops <= 3 && "Max 3 loops in a loop nest for SPIR-V targets.");
@@ -445,7 +451,9 @@ void VPOParoptTransform::genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
   IRBuilder<> Builder(InsertPt);
   SmallVector<Value *, 3> Arg;
   // Map the innermost loop to the 1st ND-range dimension.
-  initArgArray(&Arg, NumLoops - Idx - 1);
+  unsigned DimNum = NumLoops - Idx - 1;
+  DimNum += W->getWRNLoopInfo().getNDRangeStartDim();
+  initArgArray(&Arg, DimNum);
 
   assert(!TeamLowerBnd == !TeamUpperBnd &&
          "genOCLLoopBoundUpdateCode: team lower/upper bounds "
@@ -1339,8 +1347,11 @@ bool VPOParoptTransform::paroptTransforms() {
     }
 #endif  // INTEL_CUSTOMIZATION
 
-  if ((Mode & ParTrans) && !DisableOffload && isTargetSPIRV())
-    propagateSPIRVSIMDWidth();
+  if ((Mode & OmpPar) && (Mode & ParTrans) && !DisableOffload) {
+    if (isTargetSPIRV())
+      propagateSPIRVSIMDWidth();
+    assignParallelDimensions();
+  }
 
   Type *Int32Ty = Type::getInt32Ty(C);
 
@@ -1462,14 +1473,11 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= canonicalizeGlobalVariableReferences(W);
           Changed |= renameOperandsUsingStoreThenLoad(W);
           Changed |= propagateCancellationPointsToIR(W);
+          Changed |= fixupKnownNDRange(W);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed |= clearCancellationPointAllocasFromIR(W);
           WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(W);
-
-          // For the case of target parallel for (OpenCL), the compiler
-          // constructs a loop parameter before the target region.
-          Changed |= constructNDRangeInfo(W);
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
@@ -1646,6 +1654,7 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= canonicalizeGlobalVariableReferences(W);
           Changed |= renameOperandsUsingStoreThenLoad(W);
         } else if ((Mode & OmpPar) && (Mode & ParTrans)) {
+          Changed |= constructNDRangeInfo(W);
           Changed |= promoteClauseArgumentUses(W);
           // The purpose is to generate place holder for global variable.
           Changed |= genGlobalPrivatizationLaunderIntrin(W);
@@ -1753,6 +1762,7 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= regularizeOMPLoop(W);
           Changed |= canonicalizeGlobalVariableReferences(W);
           Changed |= renameOperandsUsingStoreThenLoad(W);
+          Changed |= fixupKnownNDRange(W);
         }
         // Privatization is enabled for SIMD Transform passes
         if ((Mode & OmpVec) && (Mode & ParTrans)) {
@@ -1809,6 +1819,7 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= canonicalizeGlobalVariableReferences(W);
           Changed |= renameOperandsUsingStoreThenLoad(W);
           Changed |= propagateCancellationPointsToIR(W);
+          Changed |= fixupKnownNDRange(W);
         }
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed |= clearCancellationPointAllocasFromIR(W);
@@ -1840,7 +1851,6 @@ bool VPOParoptTransform::paroptTransforms() {
           }
 #endif  // INTEL_FEATURE_CSA
 #endif  // INTEL_CUSTOMIZATION
-          Changed |= constructNDRangeInfo(W);
 
           if (isTargetSPIRV()) {
             SmallVector<Value *, 3> IsLastLocs;
@@ -2019,6 +2029,7 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= regularizeOMPLoop(W);
           Changed |= canonicalizeGlobalVariableReferences(W);
           Changed |= renameOperandsUsingStoreThenLoad(W);
+          Changed |= fixupKnownNDRange(W);
           RemoveDirectives = false;
         }
         break;
@@ -9020,69 +9031,22 @@ bool VPOParoptTransform::canonicalizeGlobalVariableReferences(WRegionNode *W) {
 }
 
 bool VPOParoptTransform::constructNDRangeInfo(WRegionNode *W) {
-  bool Changed = false;
+  WRNTargetNode *WT = cast<WRNTargetNode>(W);
 
   if (!deviceTriplesHasSPIRV())
-    return Changed;
-
-  if (!VPOParoptUtils::mayUseSPMDMode(W))
-    return Changed;
-
-  assert(W->getIsOmpLoop() && "Non-loop region in useSPMDMode.");
-  WRegionNode *WTarget =
-      WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget);
-
-  if (!WTarget || !W->getWRNLoopInfo().isKnownNDRange()) {
-    if (isTargetSPIRV()) {
-      // Emit opt-report only during SPIR compilation.
-      OptimizationRemarkMissed R("openmp", "Target", W->getEntryDirective());
-      R << "Consider using OpenMP combined construct "
-          "with \"target\" to get optimal performance";
-      ORE.emit(R);
-    }
-    return Changed;
-  }
-
-  // Check if there is an enclosing teams region.
-  WRegionNode *WTeams = WRegionUtils::getParentRegion(W, WRegionNode::WRNTeams);
-
-  if (!WTeams && !VPOParoptUtils::getSPIRImplicitMultipleTeams())
-    // "omp target parallel for" is not allowed to use multiple WGs implicitly.
-    // It has to use one team/WG by specification.
-    return Changed;
+    return false;
 
   // It is not really necessary to generate ND-range parameter
   // during SPIR compilation, because it is only used in host code
   // for passing to libomptarget. At the same time, we have to
   // call setParLoopNdInfoAlloca() with some non-null value below,
   // so we just do it for both host and target compilations.
-  auto *NDInfoAI = genTgtLoopParameter(WTarget, W);
-
+  auto *NDInfoAI = genTgtLoopParameter(WT);
   if (!NDInfoAI)
-    return Changed;
+    return false;
 
-  // NDInfoAI is not null here, so we've made some changed to IR
-  // inside genTgtLoopParameter().
-  Changed = true;
-
-  // "omp teams" with num_teams() clause overrules ImplicitSIMDSPMDES mode.
-  //
-  // Emit opt-report only if we can actually use ND-range parallelization,
-  // i.e. NDInfoAI is not null, otherwise, the report will be misleading.
-  if (WTeams && WTeams->getNumTeams()) {
-    if (isTargetSPIRV()) {
-      // Emit opt-report only during SPIR compilation.
-      OptimizationRemarkMissed R("openmp", "Target", W->getEntryDirective());
-      R << "Performance may be reduced due to the enclosing teams region " <<
-          "specifying num_teams";
-      ORE.emit(R);
-    }
-    return Changed;
-  }
-
-  // Finally set ND-range info for the target region.
-  WTarget->setParLoopNdInfoAlloca(NDInfoAI);
-  return Changed;
+  WT->setParLoopNdInfoAlloca(NDInfoAI);
+  return true;
 }
 
 bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
@@ -9140,6 +9104,16 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
         break;
       }
     }
+
+  if (!CanHoistCombinedUBBeforeTarget &&
+      VPOParoptUtils::getSPIRExecutionScheme() == spirv::ImplicitSIMDSPMDES &&
+      VPOAnalysisUtils::isTargetSPIRV(F->getParent())) {
+    // Emit opt-report only during SPIR compilation.
+    OptimizationRemarkMissed R("openmp", "Target", W->getEntryDirective());
+    R << "Consider using OpenMP combined construct "
+      "with \"target\" to get optimal performance";
+    ORE.emit(R);
+  }
 
   bool HoistCombinedUBBeforeTarget = false;
   bool SetNDRange = false;
@@ -9835,5 +9809,117 @@ void VPOParoptTransform::setNDRangeClause(
   Clause = VPOAnalysisUtils::getClauseString(QUAL_OMP_OFFLOAD_KNOWN_NDRANGE);
   EntryCI = VPOParoptUtils::addOperandBundlesInCall(EntryCI, {{Clause, {}}});
   WL->setEntryDirective(EntryCI);
+}
+
+// Look for enclosed OpenMP loop regions and try to use
+// different ND-range dimensions for different nesting levels.
+void VPOParoptTransform::assignParallelDimensions() const {
+  // Right now we only handle the case, where "omp distribute"
+  // is lexically enclosed in "omp target".
+  if (!AllowDistributeDimension)
+    return;
+
+  for (auto *W : WRegionList) {
+    if (!W->getIsOmpLoop())
+      continue;
+
+    // Only handle "omp distribute" with known loop bounds.
+    if (!W->getWRNLoopInfo().isKnownNDRange())
+      continue;
+
+    if (!isa<WRNDistributeNode>(W))
+      continue;
+
+    // "omp distribute" will start with dimension 1.
+    // Currently, we always collapse "omp distribute" loops,
+    // so there is no way to overflow 3 dimensions during
+    // partitioning.
+    W->getWRNLoopInfo().setNDRangeStartDim(1);
+
+    WRegionNode *WTarget =
+        WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget);
+    assert(WTarget &&
+           "Unexpected known ND-range with no parent target region.");
+    // Mark dimension 1 as the "distribute dimension". This tells
+    // the runtime to make sure that all lower dimensions specify
+    // exactly one working group, e.g. GlobalSize[0] == 16 and
+    // LocalSize[0] == 16, whereas dimension 1 will use known
+    // loop bounds of the distribute loop, i.e. GlobalSize[1] == N,
+    // LocalSize[1] == 1. This way each iteration of the distribute
+    // loop will be run by one WG, and the inner parallel loops (if any)
+    // will be run by WIs in this WG.
+    WTarget->setNDRangeDistributeDim(1);
+  }
+}
+
+// Reset QUAL_OMP_OFFLOAD_KNOWN_NDRANGE clauses for OpenMP loop regions
+// that should not use SPIR partitioning with known loop bounds.
+bool VPOParoptTransform::fixupKnownNDRange(WRegionNode *W) const {
+  if (!W->getIsOmpLoop())
+    return false;
+
+  if (!W->getWRNLoopInfo().isKnownNDRange())
+    return false;
+
+  assert(VPOParoptUtils::getSPIRExecutionScheme() ==
+         spirv::ImplicitSIMDSPMDES &&
+         "Unexpected known ND-range with disabled ND-range parallelization.");
+
+  WRegionNode *WTarget =
+      WRegionUtils::getParentRegion(W, WRegionNode::WRNTarget);
+  assert(WTarget && "Unexpected known ND-range with no parent target region.");
+
+  bool RemoveKnownNDRange = false;
+
+  // Reductions require global locks. With SPMD mode there will be
+  // too many of them (basically, a lock per each sub-group) and it
+  // will result in too long serial sequence of updates.
+#if INTEL_CUSTOMIZATION
+  // CMPLRLLVM-10535, CMPLRLLVM-10704, CMPLRLLVM-11080.
+#endif  // INTEL_CUSTOMIZATION
+  if (W->canHaveReduction() && !W->getRed().items().empty())
+    RemoveKnownNDRange = true;
+
+  // Check if there is an enclosing teams region.
+  WRegionNode *WTeams = WRegionUtils::getParentRegion(W, WRegionNode::WRNTeams);
+  if (!WTeams && !VPOParoptUtils::getSPIRImplicitMultipleTeams())
+    // "omp target parallel for" is not allowed to use multiple WGs implicitly.
+    // It has to use one team/WG by specification.
+    RemoveKnownNDRange = true;
+
+  // "omp teams" with num_teams() clause overrules ImplicitSIMDSPMDES mode.
+  //
+  // Emit opt-report only if we can actually use ND-range parallelization,
+  // i.e. NDInfoAI is not null, otherwise, the report will be misleading.
+  if (WTeams && WTeams->getNumTeams()) {
+    if (isTargetSPIRV()) {
+      // Emit opt-report only during SPIR compilation.
+      OptimizationRemarkMissed R("openmp", "Target", W->getEntryDirective());
+      R << "Performance may be reduced due to the enclosing teams region " <<
+          "specifying num_teams";
+      ORE.emit(R);
+    }
+    RemoveKnownNDRange = true;
+  }
+
+  if (!RemoveKnownNDRange)
+    return false;
+
+  // Remove QUAL.OMP.OFFLOAD.KNOWN.NDRANGE clause from the loop region.
+  CallInst *EntryCI = cast<CallInst>(W->getEntryDirective());
+  StringRef ClauseName =
+      VPOAnalysisUtils::getClauseString(QUAL_OMP_OFFLOAD_KNOWN_NDRANGE);
+  EntryCI = VPOParoptUtils::removeOperandBundlesFromCall(EntryCI, ClauseName);
+  W->setEntryDirective(EntryCI);
+  W->getWRNLoopInfo().resetKnownNDRange();
+
+  // Remove QUAL.OMP.OFFLOAD.NDRANGE from the parent target region.
+  EntryCI = cast<CallInst>(WTarget->getEntryDirective());
+  ClauseName = VPOAnalysisUtils::getClauseString(QUAL_OMP_OFFLOAD_NDRANGE);
+  EntryCI = VPOParoptUtils::removeOperandBundlesFromCall(EntryCI, ClauseName);
+  WTarget->setEntryDirective(EntryCI);
+  WTarget->resetUncollapsedNDRangeDimensions();
+
+  return true;
 }
 #endif // INTEL_COLLAB

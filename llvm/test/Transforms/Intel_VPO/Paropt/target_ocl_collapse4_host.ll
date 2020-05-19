@@ -11,16 +11,18 @@
 ; }
 
 ; Check that 1D-range is created for the runtime:
-; CHECK: [[NDDESC:%[a-zA-Z._0-9]+]] = alloca { i64, i64, i64, i64 }
+; CHECK: [[NDDESC:%[a-zA-Z._0-9]+]] = alloca { i32, i32, i64, i64, i64 }
 ; CHECK: [[M0:%[a-zA-Z._0-9]+]] = getelementptr inbounds{{.*}} [[NDDESC]], i32 0, i32 0
-; CHECK: store i64 1, i64* [[M0]]
+; CHECK: store i32 1, i32* [[M0]]
 ; CHECK: [[M1:%[a-zA-Z._0-9]+]] = getelementptr inbounds{{.*}} [[NDDESC]], i32 0, i32 1
-; CHECK: store i64 0, i64* [[M1]]
+; CHECK: store i32 0, i32* [[M1]]
 ; CHECK: [[M2:%[a-zA-Z._0-9]+]] = getelementptr inbounds{{.*}} [[NDDESC]], i32 0, i32 2
-; CHECK: [[COLLAPSEDUB:%[a-zA-Z._0-9]+]] = load i64, i64* [[COLLAPSEDUBPTR:%[a-zA-Z._0-9]+]]
-; CHECK: store i64 [[COLLAPSEDUB]], i64* [[M2]]
+; CHECK: store i64 0, i64* [[M2]]
 ; CHECK: [[M3:%[a-zA-Z._0-9]+]] = getelementptr inbounds{{.*}} [[NDDESC]], i32 0, i32 3
-; CHECK: store i64 1, i64* [[M3]]
+; CHECK: [[COLLAPSEDUB:%[a-zA-Z._0-9]+]] = load i64, i64* [[COLLAPSEDUBPTR:%[a-zA-Z._0-9]+]]
+; CHECK: store i64 [[COLLAPSEDUB]], i64* [[M3]]
+; CHECK: [[M4:%[a-zA-Z._0-9]+]] = getelementptr inbounds{{.*}} [[NDDESC]], i32 0, i32 4
+; CHECK: store i64 1, i64* [[M4]]
 ; CHECK: call void @__omp_offloading_804_35636bc_foo_l2({{.*}}i64* [[COLLAPSEDUBPTR]]{{.*}})
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
