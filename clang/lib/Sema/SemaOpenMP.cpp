@@ -18,6 +18,7 @@
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclOpenMP.h"
+#include "clang/AST/OpenMPClause.h"
 #include "clang/AST/StmtCXX.h"
 #include "clang/AST/StmtOpenMP.h"
 #include "clang/AST/StmtVisitor.h"
@@ -5521,12 +5522,16 @@ StmtResult Sema::ActOnOpenMPExecutableDirective(
       case OMPC_inclusive:
       case OMPC_exclusive:
       case OMPC_uses_allocators:
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       case OMPC_tile:
 #if INTEL_FEATURE_CSA
       case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+=======
+      case OMPC_affinity:
+>>>>>>> 2e499eee5884456f3dd068662ee1785f24bd88cc
         continue;
       case OMPC_allocator:
       case OMPC_flush:
@@ -11853,12 +11858,16 @@ OMPClause *Sema::ActOnOpenMPSingleExprClause(OpenMPClauseKind Kind, Expr *Expr,
   case OMPC_inclusive:
   case OMPC_exclusive:
   case OMPC_uses_allocators:
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+=======
+  case OMPC_affinity:
+>>>>>>> 2e499eee5884456f3dd068662ee1785f24bd88cc
     llvm_unreachable("Clause is not allowed.");
   }
   return Res;
@@ -12719,6 +12728,7 @@ static OpenMPDirectiveKind getOpenMPCaptureRegionForClause(
   case OMPC_inclusive:
   case OMPC_exclusive:
   case OMPC_uses_allocators:
+  case OMPC_affinity:
     llvm_unreachable("Unexpected OpenMP clause.");
   }
   return CaptureRegion;
@@ -13165,12 +13175,16 @@ OMPClause *Sema::ActOnOpenMPSimpleClause(
   case OMPC_inclusive:
   case OMPC_exclusive:
   case OMPC_uses_allocators:
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+=======
+  case OMPC_affinity:
+>>>>>>> 2e499eee5884456f3dd068662ee1785f24bd88cc
     llvm_unreachable("Clause is not allowed.");
   }
   return Res;
@@ -13397,12 +13411,16 @@ OMPClause *Sema::ActOnOpenMPSingleExprWithArgClause(
   case OMPC_inclusive:
   case OMPC_exclusive:
   case OMPC_uses_allocators:
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+=======
+  case OMPC_affinity:
+>>>>>>> 2e499eee5884456f3dd068662ee1785f24bd88cc
     llvm_unreachable("Clause is not allowed.");
   }
   return Res;
@@ -13636,12 +13654,16 @@ OMPClause *Sema::ActOnOpenMPClause(OpenMPClauseKind Kind,
   case OMPC_inclusive:
   case OMPC_exclusive:
   case OMPC_uses_allocators:
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+=======
+  case OMPC_affinity:
+>>>>>>> 2e499eee5884456f3dd068662ee1785f24bd88cc
     llvm_unreachable("Clause is not allowed.");
   }
   return Res;
@@ -13857,6 +13879,10 @@ OMPClause *Sema::ActOnOpenMPVarListClause(
     break;
   case OMPC_exclusive:
     Res = ActOnOpenMPExclusiveClause(VarList, StartLoc, LParenLoc, EndLoc);
+    break;
+  case OMPC_affinity:
+    Res = ActOnOpenMPAffinityClause(StartLoc, LParenLoc, ColonLoc, EndLoc,
+                                    DepModOrTailExpr, VarList);
     break;
   case OMPC_if:
   case OMPC_depobj:
@@ -19319,4 +19345,43 @@ OMPClause *Sema::ActOnOpenMPUsesAllocatorClause(
   }
   return OMPUsesAllocatorsClause::Create(Context, StartLoc, LParenLoc, EndLoc,
                                          NewData);
+}
+
+OMPClause *Sema::ActOnOpenMPAffinityClause(
+    SourceLocation StartLoc, SourceLocation LParenLoc, SourceLocation ColonLoc,
+    SourceLocation EndLoc, Expr *Modifier, ArrayRef<Expr *> Locators) {
+  SmallVector<Expr *, 8> Vars;
+  for (Expr *RefExpr : Locators) {
+    assert(RefExpr && "NULL expr in OpenMP shared clause.");
+    if (isa<DependentScopeDeclRefExpr>(RefExpr) || RefExpr->isTypeDependent()) {
+      // It will be analyzed later.
+      Vars.push_back(RefExpr);
+      continue;
+    }
+
+    SourceLocation ELoc = RefExpr->getExprLoc();
+    Expr *SimpleExpr = RefExpr->IgnoreParenImpCasts();
+
+    if (!SimpleExpr->isLValue()) {
+      Diag(ELoc, diag::err_omp_expected_addressable_lvalue_or_array_item)
+          << 1 << 0 << RefExpr->getSourceRange();
+      continue;
+    }
+
+    ExprResult Res;
+    {
+      Sema::TentativeAnalysisScope Trap(*this);
+      Res = CreateBuiltinUnaryOp(ELoc, UO_AddrOf, SimpleExpr);
+    }
+    if (!Res.isUsable() && !isa<OMPArraySectionExpr>(SimpleExpr) &&
+        !isa<OMPArrayShapingExpr>(SimpleExpr)) {
+      Diag(ELoc, diag::err_omp_expected_addressable_lvalue_or_array_item)
+          << 1 << 0 << RefExpr->getSourceRange();
+      continue;
+    }
+    Vars.push_back(SimpleExpr);
+  }
+
+  return OMPAffinityClause::Create(Context, StartLoc, LParenLoc, ColonLoc,
+                                   EndLoc, Modifier, Vars);
 }

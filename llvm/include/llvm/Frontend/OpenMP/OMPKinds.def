@@ -201,12 +201,16 @@ __OMP_CLAUSE(detach, OMPDetachClause)
 __OMP_CLAUSE(inclusive, OMPInclusiveClause)
 __OMP_CLAUSE(exclusive, OMPExclusiveClause)
 __OMP_CLAUSE(uses_allocators, OMPUsesAllocatorsClause)
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 __OMP_CLAUSE(tile, OMPTileClause)
 #if INTEL_FEATURE_CSA
 __OMP_CLAUSE(dataflow, OMPDataflowClause)
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+=======
+__OMP_CLAUSE(affinity, OMPAffinityClause)
+>>>>>>> 2e499eee5884456f3dd068662ee1785f24bd88cc
 
 __OMP_CLAUSE_NO_CLASS(uniform)
 __OMP_CLAUSE_NO_CLASS(device_type)
@@ -983,6 +987,7 @@ __OMP_DIRECTIVE_CLAUSE(task, 1, ~0, priority)
 __OMP_DIRECTIVE_CLAUSE(task, 1, ~0, in_reduction)
 __OMP_DIRECTIVE_CLAUSE(task, 1, ~0, allocate)
 __OMP_DIRECTIVE_CLAUSE(task, 50, ~0, detach)
+__OMP_DIRECTIVE_CLAUSE(task, 50, ~0, affinity)
 
 __OMP_DIRECTIVE_CLAUSE(atomic, 1, ~0, read)
 __OMP_DIRECTIVE_CLAUSE(atomic, 1, ~0, write)
