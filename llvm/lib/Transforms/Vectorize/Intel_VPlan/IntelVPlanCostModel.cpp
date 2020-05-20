@@ -210,6 +210,63 @@ bool VPlanCostModel::isUnitStrideLoadStore(const VPInstruction *VPInst) const {
     Plan->getVPlanDA()->isUnitStridePtr(getLoadStorePointerOperand(VPInst));
 }
 
+unsigned VPlanCostModel::getLoadStoreIndexSize(
+  const VPInstruction *VPInst) const {
+  assert((VPInst->getOpcode() == Instruction::Load ||
+          VPInst->getOpcode() == Instruction::Store) &&
+         "Expect 'VPInst' to be either a LoadInst or a StoreInst");
+
+  const VPValue *Ptr = getLoadStorePointerOperand(VPInst);
+  // Skip all NOP BitCasts/AddrSpaceCasts on the way to GEP.
+  while ((VPInst = dyn_cast<VPInstruction>(Ptr)) &&
+         (VPInst->getOpcode() == Instruction::BitCast ||
+          VPInst->getOpcode() == Instruction::AddrSpaceCast) &&
+         TTI->getCastInstrCost(VPInst->getOpcode(), VPInst->getType(),
+                               VPInst->getOperand(0)->getType()) == 0)
+    Ptr = VPInst->getOperand(0);
+
+  const VPGEPInstruction* VPGEP = dyn_cast<VPGEPInstruction>(Ptr);
+  unsigned IndexSize = DL->getPointerSizeInBits();
+
+  // Try to reduce index size from 64 bit (default for GEP) to 32. It is
+  // essential for VF 16. Check that the base pointer is the same for all
+  // lanes, and that there's at most one variable index.
+  if (IndexSize < 64 || !VPGEP ||
+      VPGEP->getPointerOperand()->getType()->isVectorTy())
+    return IndexSize;
+
+  auto getTypeElementSize = [](const VPValue *V) -> unsigned {
+    const Type *Ty = V->getType();
+    if (auto *VecTy = dyn_cast<VectorType>(Ty))
+      Ty = VecTy->getElementType();
+    return Ty->getPrimitiveSizeInBits();
+  };
+
+  unsigned NumOfVarIndices = 0;
+  for (auto *OpIt = VPGEP->op_begin() + 1; OpIt != VPGEP->op_end(); ++OpIt) {
+    const VPConstant* VPConst = dyn_cast<VPConstant>(*OpIt);
+    if (VPConst && VPConst->isConstantInt()) {
+      int64_t Val = cast<ConstantInt>(VPConst->getConstant())->getSExtValue();
+      if (Val <= LONG_MAX && Val >= LONG_MIN)
+        continue;
+    }
+
+    const VPInstruction* VPIdx = dyn_cast<VPInstruction>(*OpIt);
+    if (!VPIdx || ++NumOfVarIndices > 1)
+      return IndexSize; // Can't shrink.
+
+    // SExt to 64 bits from 32 bits or less is allowed.
+    if (getTypeElementSize(VPIdx) == 64 &&
+        VPIdx->getOpcode() == Instruction::SExt &&
+        isa<VPInstruction>(VPIdx->getOperand(0)))
+      VPIdx = cast<VPInstruction>(VPIdx->getOperand(0));
+
+    if (getTypeElementSize(VPIdx) > 32)
+      return IndexSize; // Can't shrink.
+  }
+  return 32u;
+}
+
 unsigned VPlanCostModel::getLoadStoreCost(const VPInstruction *VPInst) {
   Type *OpTy = getMemInstValueType(VPInst);
   assert(OpTy && "Can't get type of the load/store instruction!");
@@ -224,13 +281,14 @@ unsigned VPlanCostModel::getLoadStoreCost(const VPInstruction *VPInst) {
   // predication.
   bool IsMasked = (VF > 1) && (VPInst->getParent()->getPredicate() != nullptr);
 
-  if (isUnitStrideLoadStore(VPInst))
+  if (VF == 1 || isUnitStrideLoadStore(VPInst))
     return IsMasked ?
       TTI->getMaskedMemoryOpCost(Opcode, getVectorizedType(OpTy, VF),
                                  Alignment, AddrSpace) :
       TTI->getMemoryOpCost(Opcode, VecTy,
                            Alignment? Align(Alignment): Align(), AddrSpace);
 
+<<<<<<< HEAD
   // FIXME: Shouldn't use underlying IR, because at this point it can be
   // invalid. For instance, vectorizer may decide to generate 32-bit gather
   // instead of 64-bit, while GEP may have 64-bit index.
@@ -245,6 +303,11 @@ unsigned VPlanCostModel::getLoadStoreCost(const VPInstruction *VPInst) {
   unsigned BaseCost = TTI->getMemoryOpCost(
       Opcode, OpTy, Alignment ? Align(Alignment) : Align(), AddrSpace);
   return VF*BaseCost;
+=======
+  return TTI->getGatherScatterOpCost(
+    Opcode, VecTy, getLoadStoreIndexSize(VPInst),
+    IsMasked, Alignment, AddrSpace);
+>>>>>>> 43c0b83faaf0a7c6a6984f7e7637ba884defac03
 }
 
 unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
