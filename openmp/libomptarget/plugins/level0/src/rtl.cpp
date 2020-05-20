@@ -247,7 +247,7 @@ struct FuncOrGblEntryTy {
   __tgt_target_table Table;
   std::vector<__tgt_offload_entry> Entries;
   std::vector<ze_kernel_handle_t> Kernels;
-  ze_module_handle_t Module;
+  ze_module_handle_t Module = nullptr;
 };
 
 /// Module data to be initialized by plugin
@@ -577,7 +577,57 @@ typedef struct {
   int64_t Stride; // The stride of the i-th loop
 } TgtLoopDescTy;
 
-static RTLDeviceInfoTy DeviceInfo;
+static RTLDeviceInfoTy *DeviceInfo;
+
+/// Init/deinit DeviceInfo
+#ifdef _WIN32
+#define ATTRIBUTE(X)
+#else
+#define ATTRIBUTE(X) __attribute__((X))
+#endif // _WIN32
+
+ATTRIBUTE(constructor(101)) void init() {
+  DP("Init Level0 plugin!\n");
+  DeviceInfo = new RTLDeviceInfoTy();
+}
+
+ATTRIBUTE(destructor(101)) void deinit() {
+  DP("Deinit Level0 plugin!\n");
+  delete DeviceInfo;
+}
+
+#ifdef _WIN32
+static void closeRTL();
+extern "C" BOOL WINAPI
+DllMain(HINSTANCE const instance, // handle to DLL module
+        DWORD const reason,       // reason for calling function
+        LPVOID const reserved)    // reserved
+{
+  // Perform actions based on the reason for calling.
+  switch (reason) {
+  case DLL_PROCESS_ATTACH:
+    // Initialize once for each new process.
+    // Return FALSE to fail DLL load.
+    init();
+    break;
+
+  case DLL_THREAD_ATTACH:
+    // Do thread-specific initialization.
+    break;
+
+  case DLL_THREAD_DETACH:
+    // Do thread-specific cleanup.
+    break;
+
+  case DLL_PROCESS_DETACH:
+    // Perform any necessary cleanup.
+    closeRTL();
+    deinit();
+    break;
+  }
+  return TRUE; // Successful DLL_PROCESS_ATTACH.
+}
+#endif // _WIN32
 
 /// For scoped start/stop
 class ScopedTimerTy {
@@ -587,11 +637,11 @@ class ScopedTimerTy {
   RTLProfileTy *Profile = nullptr;
 public:
   ScopedTimerTy(int32_t DeviceId, const char *name) : Name(name) {
-    Profile = DeviceInfo.getProfile(DeviceId);
+    Profile = DeviceInfo->getProfile(DeviceId);
     start();
   }
   ScopedTimerTy(int32_t DeviceId, std::string name) : Name(name) {
-    Profile = DeviceInfo.getProfile(DeviceId);
+    Profile = DeviceInfo->getProfile(DeviceId);
     start();
   }
   ~ScopedTimerTy() {
@@ -599,7 +649,7 @@ public:
       stop();
   }
   void start() {
-    if (!DeviceInfo.Flags.EnableProfile)
+    if (!DeviceInfo->Flags.EnableProfile)
       return;
     if (!Profile) {
       WARNING("Profile data are invalid.\n");
@@ -611,7 +661,7 @@ public:
     Active = true;
   }
   void stop() {
-    if (!DeviceInfo.Flags.EnableProfile)
+    if (!DeviceInfo->Flags.EnableProfile)
       return;
     if (!Profile) {
       WARNING("Profile data are invalid.\n");
@@ -628,21 +678,21 @@ public:
 };
 
 static void addDataTransferLatency() {
-  if (DeviceInfo.DataTransferLatency == 0)
+  if (DeviceInfo->DataTransferLatency == 0)
     return;
-  double goal = omp_get_wtime() + 1e-6 * DeviceInfo.DataTransferLatency;
+  double goal = omp_get_wtime() + 1e-6 * DeviceInfo->DataTransferLatency;
   while (omp_get_wtime() < goal)
     ;
 }
 
 /// Clean-up routine to be registered by std::atexit().
 static void closeRTL() {
-  for (uint32_t i = 0; i < DeviceInfo.NumDevices; i++) {
-    if (!DeviceInfo.Initialized[i])
+  for (uint32_t i = 0; i < DeviceInfo->NumDevices; i++) {
+    if (!DeviceInfo->Initialized[i])
       continue;
-    if (DeviceInfo.Flags.EnableProfile) {
-      for (auto profile : DeviceInfo.Profiles[i]) {
-        profile->printData(i, DeviceInfo.DeviceProperties[i].name);
+    if (DeviceInfo->Flags.EnableProfile) {
+      for (auto profile : DeviceInfo->Profiles[i]) {
+        profile->printData(i, DeviceInfo->DeviceProperties[i].name);
         delete profile;
       }
     }
@@ -651,30 +701,31 @@ static void closeRTL() {
       OMPT_CALLBACK(ompt_callback_device_finalize, i);
     }
 #ifndef _WIN32
-    DeviceInfo.Mutexes[i].lock();
-    for (auto mem : DeviceInfo.OwnedMemory[i]) {
-      MEMSTAT_UPDATE(i, DeviceInfo.Driver, 0, mem);
-      CALL_ZE_EXIT_FAIL(zeDriverFreeMem, DeviceInfo.Driver, mem);
+    DeviceInfo->Mutexes[i].lock();
+    for (auto mem : DeviceInfo->OwnedMemory[i]) {
+      MEMSTAT_UPDATE(i, DeviceInfo->Driver, 0, mem);
+      CALL_ZE_EXIT_FAIL(zeDriverFreeMem, DeviceInfo->Driver, mem);
     }
-    for (auto cmdQueue : DeviceInfo.CmdQueues[i])
+    for (auto cmdQueue : DeviceInfo->CmdQueues[i])
       CALL_ZE_EXIT_FAIL(zeCommandQueueDestroy, cmdQueue);
-    for (auto cmdList : DeviceInfo.CmdLists[i])
+    for (auto cmdList : DeviceInfo->CmdLists[i])
       CALL_ZE_EXIT_FAIL(zeCommandListDestroy, cmdList);
-    for (auto kernel : DeviceInfo.FuncGblEntries[i].Kernels) {
+    for (auto kernel : DeviceInfo->FuncGblEntries[i].Kernels) {
       if (kernel)
         CALL_ZE_EXIT_FAIL(zeKernelDestroy, kernel);
     }
-    CALL_ZE_EXIT_FAIL(zeModuleDestroy, DeviceInfo.FuncGblEntries[i].Module);
-    if (DeviceInfo.Flags.UseMemoryPool)
-      DeviceInfo.PagePools[i].clear();
-    DeviceInfo.Mutexes[i].unlock();
+    if (DeviceInfo->FuncGblEntries[i].Module)
+      CALL_ZE_EXIT_FAIL(zeModuleDestroy, DeviceInfo->FuncGblEntries[i].Module);
+    if (DeviceInfo->Flags.UseMemoryPool)
+      DeviceInfo->PagePools[i].clear();
+    DeviceInfo->Mutexes[i].unlock();
 #endif
-    if (DeviceInfo.Flags.EnableTargetGlobals)
-      DeviceInfo.unloadOffloadTable(i);
+    if (DeviceInfo->Flags.EnableTargetGlobals)
+      DeviceInfo->unloadOffloadTable(i);
     MEMSTAT_PRINT(i);
   }
-  delete[] DeviceInfo.Mutexes;
-  delete[] DeviceInfo.DataMutexes;
+  delete[] DeviceInfo->Mutexes;
+  delete[] DeviceInfo->DataMutexes;
   DP("Closed RTL successfully\n");
 }
 
@@ -682,14 +733,14 @@ static void closeRTL() {
 static int32_t initModule(int32_t DeviceId) {
   // Prepare host data to copy
   ModuleDataTy hostData = {
-    1,                              // Initialized
-    (int32_t)DeviceInfo.NumDevices, // Number of devices
-    DeviceId                        // Device ID
+    1,                               // Initialized
+    (int32_t)DeviceInfo->NumDevices, // Number of devices
+    DeviceId                         // Device ID
   };
 
   // Prepare device data location
-  auto driver = DeviceInfo.Driver;
-  auto device = DeviceInfo.Devices[DeviceId];
+  auto driver = DeviceInfo->Driver;
+  auto device = DeviceInfo->Devices[DeviceId];
   ze_device_mem_alloc_desc_t allocDesc = {
     ZE_DEVICE_MEM_ALLOC_DESC_VERSION_CURRENT,
     ZE_DEVICE_MEM_ALLOC_FLAG_DEFAULT,
@@ -697,10 +748,10 @@ static int32_t initModule(int32_t DeviceId) {
   };
   void *deviceData = nullptr;
 
-  std::unique_lock<std::mutex> kernelLock(DeviceInfo.Mutexes[DeviceId]);
+  std::unique_lock<std::mutex> kernelLock(DeviceInfo->Mutexes[DeviceId]);
 
-  if (DeviceInfo.Flags.UseMemoryPool)
-    deviceData = DeviceInfo.PagePools[DeviceId].allocate(sizeof(hostData));
+  if (DeviceInfo->Flags.UseMemoryPool)
+    deviceData = DeviceInfo->PagePools[DeviceId].allocate(sizeof(hostData));
 
   if (!deviceData) {
     CALL_ZE_RET_FAIL(zeDriverAllocDeviceMem, driver, &allocDesc, sizeof(hostData),
@@ -714,7 +765,7 @@ static int32_t initModule(int32_t DeviceId) {
     ZE_KERNEL_FLAG_NONE,
     "__kmpc_init_program"
   };
-  auto module = DeviceInfo.FuncGblEntries[DeviceId].Module;
+  auto module = DeviceInfo->FuncGblEntries[DeviceId].Module;
   ze_kernel_handle_t initModuleData;
   CALL_ZE_RET_FAIL(zeKernelCreate, module, &kernelDesc, &initModuleData);
   CALL_ZE_RET_FAIL(zeKernelSetArgumentValue, initModuleData, 0,
@@ -723,8 +774,8 @@ static int32_t initModule(int32_t DeviceId) {
   CALL_ZE_RET_FAIL(zeKernelSetGroupSize, initModuleData, 1, 1, 1);
 
   // Invoke the kernel
-  auto cmdList = DeviceInfo.getCmdList(DeviceId);
-  auto cmdQueue = DeviceInfo.getCmdQueue(DeviceId);
+  auto cmdList = DeviceInfo->getCmdList(DeviceId);
+  auto cmdQueue = DeviceInfo->getCmdQueue(DeviceId);
   CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, cmdList, deviceData,
                    &hostData, sizeof(hostData), nullptr);
   CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, cmdList, nullptr, 0, nullptr);
@@ -737,7 +788,7 @@ static int32_t initModule(int32_t DeviceId) {
   CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT32_MAX);
   CALL_ZE_RET_FAIL(zeCommandListReset, cmdList);
   CALL_ZE_RET_FAIL(zeKernelDestroy, initModuleData);
-  if (!DeviceInfo.Flags.UseMemoryPool) {
+  if (!DeviceInfo->Flags.UseMemoryPool) {
     MEMSTAT_UPDATE(DeviceId, driver, 0, deviceData);
     CALL_ZE_RET_FAIL(zeDriverFreeMem, driver, deviceData);
   }
@@ -756,7 +807,7 @@ int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *Image) {
 
 EXTERN int64_t __tgt_rtl_init_requires(int64_t RequiresFlags) {
   DP("Initialize requires flags to %" PRId64 "\n", RequiresFlags);
-  DeviceInfo.RequiresFlags = RequiresFlags;
+  DeviceInfo->RequiresFlags = RequiresFlags;
   return RequiresFlags;
 }
 
@@ -774,7 +825,7 @@ int32_t __tgt_rtl_number_of_devices() {
   std::vector<ze_driver_handle_t> driverHandles(numDrivers);
   CALL_ZE_RET_ZERO(zeDriverGet, &numDrivers, driverHandles.data());
   DP("Found %" PRIu32 " driver(s)!\n", numDrivers);
-  DP("Looking for device type %" PRId32 "...\n", DeviceInfo.DeviceType);
+  DP("Looking for device type %" PRId32 "...\n", DeviceInfo->DeviceType);
 
   for (uint32_t i = 0; i < numDrivers; i++) {
     // Check available devices
@@ -794,7 +845,7 @@ int32_t __tgt_rtl_number_of_devices() {
       ze_device_properties_t properties = {};
       properties.version = ZE_DEVICE_PROPERTIES_VERSION_CURRENT;
       CALL_ZE_RET_ZERO(zeDeviceGetProperties, device, &properties);
-      if (properties.type != DeviceInfo.DeviceType) {
+      if (properties.type != DeviceInfo->DeviceType) {
         DP("Skipping device type %" PRId32 "...\n", properties.type);
         continue;
       }
@@ -806,60 +857,62 @@ int32_t __tgt_rtl_number_of_devices() {
       CALL_ZE_RET_ZERO(zeDeviceGetComputeProperties, device,
                        &computeProperties);
 
-      DeviceInfo.Devices.push_back(device);
-      DeviceInfo.DeviceProperties.push_back(properties);
-      DeviceInfo.ComputeProperties.push_back(computeProperties);
+      DeviceInfo->Devices.push_back(device);
+      DeviceInfo->DeviceProperties.push_back(properties);
+      DeviceInfo->ComputeProperties.push_back(computeProperties);
     }
 
-    DeviceInfo.Driver = driverHandles[i];
-    DeviceInfo.NumDevices += numDevices;
-    DP("Found %" PRIu32 " available devices.\n", DeviceInfo.NumDevices);
+    DeviceInfo->Driver = driverHandles[i];
+    DeviceInfo->NumDevices += numDevices;
+    DP("Found %" PRIu32 " available devices.\n", DeviceInfo->NumDevices);
     break;
   }
 
-  DeviceInfo.CmdLists.resize(DeviceInfo.NumDevices);
-  DeviceInfo.CmdQueues.resize(DeviceInfo.NumDevices);
-  DeviceInfo.FuncGblEntries.resize(DeviceInfo.NumDevices);
-  DeviceInfo.OwnedMemory.resize(DeviceInfo.NumDevices);
-  DeviceInfo.Initialized.resize(DeviceInfo.NumDevices);
-  DeviceInfo.Mutexes = new std::mutex[DeviceInfo.NumDevices];
-  DeviceInfo.DataMutexes = new std::mutex[DeviceInfo.NumDevices];
-  DeviceInfo.OffloadTables.resize(DeviceInfo.NumDevices);
-  DeviceInfo.Profiles.resize(DeviceInfo.NumDevices);
-  if (DeviceInfo.Flags.UseMemoryPool)
-    DeviceInfo.PagePools.resize(DeviceInfo.NumDevices);
+  DeviceInfo->CmdLists.resize(DeviceInfo->NumDevices);
+  DeviceInfo->CmdQueues.resize(DeviceInfo->NumDevices);
+  DeviceInfo->FuncGblEntries.resize(DeviceInfo->NumDevices);
+  DeviceInfo->OwnedMemory.resize(DeviceInfo->NumDevices);
+  DeviceInfo->Initialized.resize(DeviceInfo->NumDevices);
+  DeviceInfo->Mutexes = new std::mutex[DeviceInfo->NumDevices];
+  DeviceInfo->DataMutexes = new std::mutex[DeviceInfo->NumDevices];
+  DeviceInfo->OffloadTables.resize(DeviceInfo->NumDevices);
+  DeviceInfo->Profiles.resize(DeviceInfo->NumDevices);
+  if (DeviceInfo->Flags.UseMemoryPool)
+    DeviceInfo->PagePools.resize(DeviceInfo->NumDevices);
 #if INTEL_INTERNAL_BUILD
   if (DebugLevel > 0)
-    MemStats.resize(DeviceInfo.NumDevices);
+    MemStats.resize(DeviceInfo->NumDevices);
 #endif // INTEL_INTERNAL_BUILD
 
+#ifndef _WIN32
   if (std::atexit(closeRTL)) {
     FATAL_ERROR("Registration of clean-up function");
   }
+#endif // _WIN32
 
-  if (DeviceInfo.NumDevices > 0) {
+  if (DeviceInfo->NumDevices > 0) {
     omptInitPlugin();
   }
 
-  return DeviceInfo.NumDevices;
+  return DeviceInfo->NumDevices;
 }
 
 EXTERN
 int32_t __tgt_rtl_init_device(int32_t DeviceId) {
-  if (DeviceId < 0 || (uint32_t)DeviceId >= DeviceInfo.NumDevices) {
+  if (DeviceId < 0 || (uint32_t)DeviceId >= DeviceInfo->NumDevices) {
     DP("Bad device ID %" PRId32 "\n", DeviceId);
     return OFFLOAD_FAIL;
   }
 
-  if (DeviceInfo.Flags.UseMemoryPool)
-    DeviceInfo.PagePools[DeviceId].initialize(DeviceId, DeviceInfo.Driver,
-                                              DeviceInfo.Devices[DeviceId]);
+  if (DeviceInfo->Flags.UseMemoryPool)
+    DeviceInfo->PagePools[DeviceId].initialize(DeviceId, DeviceInfo->Driver,
+                                               DeviceInfo->Devices[DeviceId]);
 
-  DeviceInfo.Initialized[DeviceId] = true;
+  DeviceInfo->Initialized[DeviceId] = true;
 
   OMPT_CALLBACK(ompt_callback_device_initialize, DeviceId,
-                DeviceInfo.DeviceProperties[DeviceId].name,
-                DeviceInfo.Devices[DeviceId],
+                DeviceInfo->DeviceProperties[DeviceId].name,
+                DeviceInfo->Devices[DeviceId],
                 omptLookupEntries, omptDocument);
 
   DP("Initialized Level0 device %" PRId32 "\n", DeviceId);
@@ -876,9 +929,9 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
   size_t numEntries = (size_t)(Image->EntriesEnd - Image->EntriesBegin);
   DP("Expecting to have %zu entries defined\n", numEntries);
 
-  std::string compilationOptions(DeviceInfo.CompilationOptions);
+  std::string compilationOptions(DeviceInfo->CompilationOptions);
   DP("Module compilation options: %s\n", compilationOptions.c_str());
-  compilationOptions += " " + DeviceInfo.InternalCompilationOptions;
+  compilationOptions += " " + DeviceInfo->InternalCompilationOptions;
   DPI("Final module compilation options: %s\n", compilationOptions.c_str());
 
   ze_module_desc_t moduleDesc = {
@@ -893,7 +946,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
   ze_module_build_log_handle_t buildLog;
   ScopedTimerTy tmModuleBuild(DeviceId, "ModuleBuild");
   ze_result_t rc;
-  CALL_ZE_RC(rc, zeModuleCreate, DeviceInfo.Devices[DeviceId], &moduleDesc,
+  CALL_ZE_RC(rc, zeModuleCreate, DeviceInfo->Devices[DeviceId], &moduleDesc,
              &module, &buildLog);
   if (rc != ZE_RESULT_SUCCESS) {
     if (DebugLevel > 0) {
@@ -914,14 +967,14 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
   CALL_ZE_RET_NULL(zeModuleBuildLogDestroy, buildLog);
   tmModuleBuild.stop();
 
-  DeviceInfo.FuncGblEntries[DeviceId].Module = module;
-  auto &entries = DeviceInfo.FuncGblEntries[DeviceId].Entries;
-  auto &kernels = DeviceInfo.FuncGblEntries[DeviceId].Kernels;
+  DeviceInfo->FuncGblEntries[DeviceId].Module = module;
+  auto &entries = DeviceInfo->FuncGblEntries[DeviceId].Entries;
+  auto &kernels = DeviceInfo->FuncGblEntries[DeviceId].Kernels;
   entries.resize(numEntries);
   kernels.resize(numEntries);
 
-  if (DeviceInfo.Flags.EnableTargetGlobals &&
-      !DeviceInfo.loadOffloadTable(DeviceId, numEntries))
+  if (DeviceInfo->Flags.EnableTargetGlobals &&
+      !DeviceInfo->loadOffloadTable(DeviceId, numEntries))
     DP("Error: offload table loading failed.\n");
 
   for (uint32_t i = 0; i < numEntries; i++) {
@@ -932,17 +985,17 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
       auto hstAddr = Image->EntriesBegin[i].addr;
       auto name = Image->EntriesBegin[i].name;
       void *tgtAddr = nullptr;
-      if (DeviceInfo.Flags.EnableTargetGlobals)
-        tgtAddr = DeviceInfo.getOffloadVarDeviceAddr(DeviceId, name, size);
+      if (DeviceInfo->Flags.EnableTargetGlobals)
+        tgtAddr = DeviceInfo->getOffloadVarDeviceAddr(DeviceId, name, size);
 
       if (!tgtAddr) {
         tgtAddr = __tgt_rtl_data_alloc(DeviceId, size, hstAddr);
         __tgt_rtl_data_submit(DeviceId, tgtAddr, hstAddr, size);
-        if (!DeviceInfo.Flags.UseMemoryPool ||
-            size > DeviceInfo.PagePools[DeviceId].getMaxSize()) {
-          DeviceInfo.DataMutexes[DeviceId].lock();
-          DeviceInfo.OwnedMemory[DeviceId].push_back(tgtAddr);
-          DeviceInfo.DataMutexes[DeviceId].unlock();
+        if (!DeviceInfo->Flags.UseMemoryPool ||
+            size > DeviceInfo->PagePools[DeviceId].getMaxSize()) {
+          DeviceInfo->DataMutexes[DeviceId].lock();
+          DeviceInfo->OwnedMemory[DeviceId].push_back(tgtAddr);
+          DeviceInfo->DataMutexes[DeviceId].unlock();
         }
         DP("Error: global variable '%s' allocated. "
           "Direct references will not work properly.\n", name);
@@ -984,7 +1037,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
 
   if (initModule(DeviceId) != OFFLOAD_SUCCESS)
     return nullptr;
-  __tgt_target_table &table = DeviceInfo.FuncGblEntries[DeviceId].Table;
+  __tgt_target_table &table = DeviceInfo->FuncGblEntries[DeviceId].Table;
   table.EntriesBegin = &(entries.data()[0]);
   table.EntriesEnd = &(entries.data()[entries.size()]);
 
@@ -1003,7 +1056,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
 static void *allocData(int32_t DeviceId, int64_t Size, void *HstPtr,
                        void *HstBase, int32_t IsImplicitArg) {
   // TODO: this seems necessary for now -- check with L0 driver team for details
-  std::unique_lock<std::mutex> allocLock(DeviceInfo.Mutexes[DeviceId]);
+  std::unique_lock<std::mutex> allocLock(DeviceInfo->Mutexes[DeviceId]);
 
   ScopedTimerTy tmDataAlloc(DeviceId, "DataAlloc");
   intptr_t offset = (intptr_t)HstPtr - (intptr_t)HstBase;
@@ -1019,23 +1072,23 @@ static void *allocData(int32_t DeviceId, int64_t Size, void *HstPtr,
   };
   void *base = nullptr;
   void *mem = nullptr;
-  if (DeviceInfo.Flags.UseMemoryPool &&
-      (base = DeviceInfo.PagePools[DeviceId].allocate(size))) {
+  if (DeviceInfo->Flags.UseMemoryPool &&
+      (base = DeviceInfo->PagePools[DeviceId].allocate(size))) {
     mem = (void *)((intptr_t)base + offset);
     DP("Allocated device memory " DPxMOD " (Base: " DPxMOD ", Size: %zu) "
        "from memory pool for host ptr " DPxMOD "\n",
        DPxPTR(mem), DPxPTR(base), size, DPxPTR(HstPtr));
     return mem;
   }
-  CALL_ZE_RET_NULL(zeDriverAllocDeviceMem, DeviceInfo.Driver, &allocDesc, size,
-                   LEVEL0_ALIGNMENT, DeviceInfo.Devices[DeviceId], &base);
-  MEMSTAT_UPDATE(DeviceId, DeviceInfo.Driver, Size, base);
+  CALL_ZE_RET_NULL(zeDriverAllocDeviceMem, DeviceInfo->Driver, &allocDesc, size,
+                   LEVEL0_ALIGNMENT, DeviceInfo->Devices[DeviceId], &base);
+  MEMSTAT_UPDATE(DeviceId, DeviceInfo->Driver, Size, base);
   mem = (void *)((intptr_t)base + offset);
 
   if (DebugLevel > 0) {
     void *actualBase = nullptr;
     size_t actualSize = 0;
-    CALL_ZE_RET_NULL(zeDriverGetMemAddressRange, DeviceInfo.Driver, mem,
+    CALL_ZE_RET_NULL(zeDriverGetMemAddressRange, DeviceInfo->Driver, mem,
                      &actualBase, &actualSize);
     assert(base == actualBase && "Invalid memory address range!");
     DP("Allocated device memory " DPxMOD " (Base: " DPxMOD
@@ -1063,8 +1116,8 @@ EXTERN void *__tgt_rtl_data_alloc_managed(int32_t DeviceId, int64_t Size) {
     ZE_HOST_MEM_ALLOC_DESC_VERSION_CURRENT,
     ZE_HOST_MEM_ALLOC_FLAG_DEFAULT
   };
-  if (DeviceInfo.Flags.UseHostMemForUSM) {
-    CALL_ZE_RET_NULL(zeDriverAllocHostMem, DeviceInfo.Driver, &hostDesc, Size,
+  if (DeviceInfo->Flags.UseHostMemForUSM) {
+    CALL_ZE_RET_NULL(zeDriverAllocHostMem, DeviceInfo->Driver, &hostDesc, Size,
                      LEVEL0_ALIGNMENT, &mem);
   } else {
     ze_device_mem_alloc_desc_t deviceDesc = {
@@ -1072,17 +1125,17 @@ EXTERN void *__tgt_rtl_data_alloc_managed(int32_t DeviceId, int64_t Size) {
       ZE_DEVICE_MEM_ALLOC_FLAG_DEFAULT,
       0
     };
-    CALL_ZE_RET_NULL(zeDriverAllocSharedMem, DeviceInfo.Driver, &deviceDesc,
+    CALL_ZE_RET_NULL(zeDriverAllocSharedMem, DeviceInfo->Driver, &deviceDesc,
                      &hostDesc, Size, LEVEL0_ALIGNMENT,
-                     DeviceInfo.Devices[DeviceId], &mem);
+                     DeviceInfo->Devices[DeviceId], &mem);
   }
   DP("Allocated a managed memory object " DPxMOD "\n", DPxPTR(mem));
   return mem;
 }
 
 EXTERN int32_t __tgt_rtl_data_delete_managed(int32_t DeviceId, void *Ptr) {
-  auto &mutex = DeviceInfo.Mutexes[DeviceId];
-  CALL_ZE_RET_FAIL_MTX(zeDriverFreeMem, mutex, DeviceInfo.Driver, Ptr);
+  auto &mutex = DeviceInfo->Mutexes[DeviceId];
+  CALL_ZE_RET_FAIL_MTX(zeDriverFreeMem, mutex, DeviceInfo->Driver, Ptr);
   DP("Deleted a managed memory object " DPxMOD "\n", DPxPTR(Ptr));
   return OFFLOAD_SUCCESS;
 }
@@ -1094,12 +1147,12 @@ EXTERN int32_t __tgt_rtl_is_managed_ptr(int32_t DeviceId, void *Ptr) {
     0
   };
   ze_result_t rc;
-  CALL_ZE(rc, zeDriverGetMemAllocProperties, DeviceInfo.Driver, Ptr,
+  CALL_ZE(rc, zeDriverGetMemAllocProperties, DeviceInfo->Driver, Ptr,
           &properties, nullptr);
   // Host pointer is classified as an error -- skip error reporting
   if (rc == ZE_RESULT_ERROR_INVALID_ARGUMENT)
     return 0;
-  CALL_ZE_RET_ZERO(zeDriverGetMemAllocProperties, DeviceInfo.Driver, Ptr,
+  CALL_ZE_RET_ZERO(zeDriverGetMemAllocProperties, DeviceInfo->Driver, Ptr,
                    &properties, nullptr);
   int32_t ret = (properties.type == ZE_MEMORY_TYPE_HOST ||
                  properties.type == ZE_MEMORY_TYPE_SHARED);
@@ -1169,13 +1222,13 @@ static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
   // Add synthetic delay for experiments
   addDataTransferLatency();
 
-  std::unique_lock<std::mutex> copyLock(DeviceInfo.Mutexes[DeviceId]);
+  std::unique_lock<std::mutex> copyLock(DeviceInfo->Mutexes[DeviceId]);
 
-  auto cmdList = DeviceInfo.getCmdList(DeviceId);
-  auto cmdQueue = DeviceInfo.getCmdQueue(DeviceId);
+  auto cmdList = DeviceInfo->getCmdList(DeviceId);
+  auto cmdQueue = DeviceInfo->getCmdQueue(DeviceId);
 
   if (AsyncEvent) {
-    cmdList = createCmdList(DeviceInfo.Devices[DeviceId]);
+    cmdList = createCmdList(DeviceInfo->Devices[DeviceId]);
     if (!cmdList) {
       DP("Error: Asynchronous data submit failed -- invalid command list\n");
       return OFFLOAD_FAIL;
@@ -1240,13 +1293,13 @@ static int32_t retrieveData(int32_t DeviceId, void *HstPtr, void *TgtPtr,
   // Add synthetic delay for experiments
   addDataTransferLatency();
 
-  std::unique_lock<std::mutex> copyLock(DeviceInfo.Mutexes[DeviceId]);
+  std::unique_lock<std::mutex> copyLock(DeviceInfo->Mutexes[DeviceId]);
 
-  auto cmdList = DeviceInfo.getCmdList(DeviceId);
-  auto cmdQueue = DeviceInfo.getCmdQueue(DeviceId);
+  auto cmdList = DeviceInfo->getCmdList(DeviceId);
+  auto cmdQueue = DeviceInfo->getCmdQueue(DeviceId);
 
   if (AsyncEvent) {
-    cmdList = createCmdList(DeviceInfo.Devices[DeviceId]);
+    cmdList = createCmdList(DeviceInfo->Devices[DeviceId]);
     if (!cmdList) {
       DP("Error: Asynchronous data retrieve failed -- invalid command list\n");
       return OFFLOAD_FAIL;
@@ -1305,19 +1358,19 @@ EXTERN
 int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr) {
   void *base = nullptr;
   size_t size = 0;
-  if (DeviceInfo.Flags.UseMemoryPool) {
-    auto &pool = DeviceInfo.PagePools[DeviceId];
-    std::unique_lock<std::mutex> deallocLock(DeviceInfo.Mutexes[DeviceId]);
+  if (DeviceInfo->Flags.UseMemoryPool) {
+    auto &pool = DeviceInfo->PagePools[DeviceId];
+    std::unique_lock<std::mutex> deallocLock(DeviceInfo->Mutexes[DeviceId]);
     if (pool.deallocate(TgtPtr)) {
       DP("Returned device memory " DPxMOD " to memory pool\n", DPxPTR(TgtPtr));
       return OFFLOAD_SUCCESS;
     }
   }
-  CALL_ZE_RET_FAIL(zeDriverGetMemAddressRange, DeviceInfo.Driver, TgtPtr, &base,
+  CALL_ZE_RET_FAIL(zeDriverGetMemAddressRange, DeviceInfo->Driver, TgtPtr, &base,
                    &size);
-  MEMSTAT_UPDATE(DeviceId, DeviceInfo.Driver, 0, base);
-  CALL_ZE_RET_FAIL_MTX(zeDriverFreeMem, DeviceInfo.Mutexes[DeviceId],
-                       DeviceInfo.Driver, base);
+  MEMSTAT_UPDATE(DeviceId, DeviceInfo->Driver, 0, base);
+  CALL_ZE_RET_FAIL_MTX(zeDriverFreeMem, DeviceInfo->Mutexes[DeviceId],
+                       DeviceInfo->Driver, base);
   DP("Deleted device memory " DPxMOD " (Base: " DPxMOD ", Size: %zu)\n",
      DPxPTR(TgtPtr), DPxPTR(base), size);
   return OFFLOAD_SUCCESS;
@@ -1327,9 +1380,9 @@ static void decideGroupArguments(int32_t DeviceId, uint32_t NumTeams,
                                  uint32_t ThreadLimit, int64_t *LoopLevels,
                                  uint32_t *Sizes, ze_group_count_t &Dimensions) {
   uint32_t maxGroupSize =
-      DeviceInfo.ComputeProperties[DeviceId].maxTotalGroupSize;
+      DeviceInfo->ComputeProperties[DeviceId].maxTotalGroupSize;
   // maxGroupCountX does not suggest practically useful count (~4M)
-  //uint32_t maxGroupCount = DeviceInfo.ComputeProperties.maxGroupCountX;
+  //uint32_t maxGroupCount = DeviceInfo->ComputeProperties.maxGroupCountX;
   uint32_t maxGroupCount = LEVEL0_MAX_GROUP_COUNT;
 
   // TODO: don't have group size suggestion from kernel
@@ -1339,9 +1392,9 @@ static void decideGroupArguments(int32_t DeviceId, uint32_t NumTeams,
     DP("Max group size is set to %" PRIu32 " (thread_limit clause)\n",
        maxGroupSize);
   }
-  if (DeviceInfo.ThreadLimit > 0 && DeviceInfo.ThreadLimit < maxGroupSize) {
+  if (DeviceInfo->ThreadLimit > 0 && DeviceInfo->ThreadLimit < maxGroupSize) {
     // TODO: what if user wants to override this with thread_limit?
-    maxGroupSize = DeviceInfo.ThreadLimit;
+    maxGroupSize = DeviceInfo->ThreadLimit;
     DP("Max group size is set to %" PRIu32 " (OMP_THREAD_LIMIT)\n",
        maxGroupSize);
   }
@@ -1353,8 +1406,8 @@ static void decideGroupArguments(int32_t DeviceId, uint32_t NumTeams,
   }
 
   if (LoopLevels && ThreadLimit == 0 && maxGroupSize > LEVEL0_ND_GROUP_SIZE &&
-      (DeviceInfo.ThreadLimit == 0 ||
-       DeviceInfo.ThreadLimit == (std::numeric_limits<int32_t>::max)())) {
+      (DeviceInfo->ThreadLimit == 0 ||
+       DeviceInfo->ThreadLimit == (std::numeric_limits<int32_t>::max)())) {
     maxGroupSize = LEVEL0_ND_GROUP_SIZE;
   }
 
@@ -1401,7 +1454,7 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
   DP("Executing a kernel " DPxMOD "...\n", DPxPTR(TgtEntryPtr));
 
   // Protect from kernel preparation to submission as kernels are shared
-  std::unique_lock<std::mutex> kernelLock(DeviceInfo.Mutexes[DeviceId]);
+  std::unique_lock<std::mutex> kernelLock(DeviceInfo->Mutexes[DeviceId]);
 
   ze_kernel_handle_t kernel = *((ze_kernel_handle_t *)TgtEntryPtr);
   ze_kernel_properties_t kernelProperties;
@@ -1436,11 +1489,11 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
 
   CALL_ZE_RET_FAIL(zeKernelSetGroupSize, kernel, groupSizes[0], groupSizes[1],
                    groupSizes[2]);
-  auto cmdList = DeviceInfo.getCmdList(DeviceId);
-  auto cmdQueue = DeviceInfo.getCmdQueue(DeviceId);
+  auto cmdList = DeviceInfo->getCmdList(DeviceId);
+  auto cmdQueue = DeviceInfo->getCmdQueue(DeviceId);
 
   if (AsyncEvent) {
-    cmdList = createCmdList(DeviceInfo.Devices[DeviceId]);
+    cmdList = createCmdList(DeviceInfo->Devices[DeviceId]);
     if (!cmdList) {
       DP("Error: Asynchronous execution failed -- invalid command list\n");
       return OFFLOAD_FAIL;
@@ -1560,7 +1613,7 @@ EXTERN void *__tgt_rtl_create_offload_queue(int32_t DeviceId, bool IsAsync) {
   // TODO: check with MKL team and decide what to do with IsAsync
 
   ze_command_queue_handle_t queue = nullptr;
-  CALL_ZE_RET_NULL(zeCommandQueueCreate, DeviceInfo.Devices[DeviceId],
+  CALL_ZE_RET_NULL(zeCommandQueueCreate, DeviceInfo->Devices[DeviceId],
                    &cmdQueueDesc, &queue);
   DP("%s returns a new asynchronous command queue " DPxMOD "\n", __func__,
      DPxPTR(queue));
@@ -1573,12 +1626,12 @@ EXTERN int32_t __tgt_rtl_release_offload_queue(int32_t DeviceId, void *Pipe) {
 }
 
 EXTERN void *__tgt_rtl_get_platform_handle(int32_t DeviceId) {
-  auto driver = DeviceInfo.Driver;
+  auto driver = DeviceInfo->Driver;
   return (void *) driver;
 }
 
 EXTERN void *__tgt_rtl_get_device_handle(int32_t DeviceId) {
-  auto device = DeviceInfo.Devices[DeviceId];
+  auto device = DeviceInfo->Devices[DeviceId];
   return (void *) device;
 }
 

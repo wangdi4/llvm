@@ -186,14 +186,14 @@ struct ProfileDataTy {
   // for event profile
   void update(const char *name, cl_event event) {
     cl_ulong host_begin = 0, host_end = 0;
-    CALL_CL_EXIT_FAIL(clGetEventProfilingInfo, event,
+    CALL_CLW_RET_VOID(clGetEventProfilingInfo, event,
         CL_PROFILING_COMMAND_QUEUED, sizeof(cl_ulong), &host_begin, nullptr);
-    CALL_CL_EXIT_FAIL(clGetEventProfilingInfo, event,
+    CALL_CLW_RET_VOID(clGetEventProfilingInfo, event,
         CL_PROFILING_COMMAND_COMPLETE, sizeof(cl_ulong), &host_end, nullptr);
     cl_ulong device_begin = 0, device_end = 0;
-    CALL_CL_EXIT_FAIL(clGetEventProfilingInfo, event,
+    CALL_CLW_RET_VOID(clGetEventProfilingInfo, event,
         CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &device_begin, nullptr);
-    CALL_CL_EXIT_FAIL(clGetEventProfilingInfo, event,
+    CALL_CLW_RET_VOID(clGetEventProfilingInfo, event,
         CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &device_end, nullptr);
     update(name, host_end - host_begin, device_end - device_begin);
   }
@@ -1140,8 +1140,8 @@ int32_t __tgt_rtl_number_of_devices() {
       continue;
     }
     cl_uint numDevices = 0;
-    CALL_CL(rc, clGetDeviceIDs, id, DeviceInfo->DeviceType, 0, nullptr,
-            &numDevices);
+    CALL_CL_SILENT(rc, clGetDeviceIDs, id, DeviceInfo->DeviceType, 0, nullptr,
+                   &numDevices);
     if (rc != CL_SUCCESS || numDevices == 0)
       continue;
 
