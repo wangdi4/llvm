@@ -224,13 +224,7 @@ typedef enum {
   PI_DEVICE_INFO_BUILT_IN_KERNELS = CL_DEVICE_BUILT_IN_KERNELS,
   PI_DEVICE_INFO_PLATFORM = CL_DEVICE_PLATFORM,
   PI_DEVICE_INFO_REFERENCE_COUNT = CL_DEVICE_REFERENCE_COUNT,
-<<<<<<< HEAD
-/* INTEL_CUSTOMIZATION */
   PI_DEVICE_INFO_IL_VERSION = CL_DEVICE_IL_VERSION_KHR,
-/* end INTEL_CUSTOMIZATION */
-=======
-  PI_DEVICE_INFO_IL_VERSION = CL_DEVICE_IL_VERSION_KHR,
->>>>>>> 358ae27f7703b588f534448549f0caaf4ded5c5f
   PI_DEVICE_INFO_NAME = CL_DEVICE_NAME,
   PI_DEVICE_INFO_VENDOR = CL_DEVICE_VENDOR,
   PI_DEVICE_INFO_DRIVER_VERSION = CL_DRIVER_VERSION,
@@ -248,18 +242,10 @@ typedef enum {
   PI_DEVICE_INFO_PARTITION_AFFINITY_DOMAIN =
       CL_DEVICE_PARTITION_AFFINITY_DOMAIN,
   PI_DEVICE_INFO_PARTITION_TYPE = CL_DEVICE_PARTITION_TYPE,
-<<<<<<< HEAD
-/* INTEL_CUSTOMIZATION */
-=======
->>>>>>> 358ae27f7703b588f534448549f0caaf4ded5c5f
   PI_DEVICE_INFO_MAX_NUM_SUB_GROUPS = CL_DEVICE_MAX_NUM_SUB_GROUPS,
   PI_DEVICE_INFO_SUB_GROUP_INDEPENDENT_FORWARD_PROGRESS =
       CL_DEVICE_SUB_GROUP_INDEPENDENT_FORWARD_PROGRESS,
   PI_DEVICE_INFO_SUB_GROUP_SIZES_INTEL = CL_DEVICE_SUB_GROUP_SIZES_INTEL,
-<<<<<<< HEAD
-/* end INTEL_CUSTOMIZATION */
-=======
->>>>>>> 358ae27f7703b588f534448549f0caaf4ded5c5f
   PI_DEVICE_INFO_USM_HOST_SUPPORT = CL_DEVICE_HOST_MEM_CAPABILITIES_INTEL,
   PI_DEVICE_INFO_USM_DEVICE_SUPPORT = CL_DEVICE_DEVICE_MEM_CAPABILITIES_INTEL,
   PI_DEVICE_INFO_USM_SINGLE_SHARED_SUPPORT =
@@ -329,10 +315,7 @@ typedef enum {
 } _pi_kernel_group_info;
 
 typedef enum {
-<<<<<<< HEAD
-=======
   PI_FP_CORRECTLY_ROUNDED_DIVIDE_SQRT = CL_FP_CORRECTLY_ROUNDED_DIVIDE_SQRT,
->>>>>>> 358ae27f7703b588f534448549f0caaf4ded5c5f
   PI_FP_ROUND_TO_NEAREST = CL_FP_ROUND_TO_NEAREST,
   PI_FP_ROUND_TO_ZERO = CL_FP_ROUND_TO_ZERO,
   PI_FP_ROUND_TO_INF = CL_FP_ROUND_TO_INF,
@@ -340,19 +323,6 @@ typedef enum {
   PI_FP_DENORM = CL_FP_DENORM,
   PI_FP_FMA = CL_FP_FMA
 } _pi_fp_capabilities;
-<<<<<<< HEAD
-=======
-
-typedef enum {
-  PI_IMAGE_INFO_FORMAT = CL_IMAGE_FORMAT,
-  PI_IMAGE_INFO_ELEMENT_SIZE = CL_IMAGE_ELEMENT_SIZE,
-  PI_IMAGE_INFO_ROW_PITCH = CL_IMAGE_ROW_PITCH,
-  PI_IMAGE_INFO_SLICE_PITCH = CL_IMAGE_SLICE_PITCH,
-  PI_IMAGE_INFO_WIDTH = CL_IMAGE_WIDTH,
-  PI_IMAGE_INFO_HEIGHT = CL_IMAGE_HEIGHT,
-  PI_IMAGE_INFO_DEPTH = CL_IMAGE_DEPTH
-} _pi_image_info;
->>>>>>> 358ae27f7703b588f534448549f0caaf4ded5c5f
 
 typedef enum {
   PI_KERNEL_MAX_SUB_GROUP_SIZE = CL_KERNEL_MAX_SUB_GROUP_SIZE_FOR_NDRANGE,
@@ -729,11 +699,7 @@ struct pi_buffer_region_struct {
   size_t origin;
   size_t size;
 };
-<<<<<<< HEAD
-typedef pi_buffer_region_struct * pi_buffer_region;
-=======
 using pi_buffer_region = pi_buffer_region_struct *;
->>>>>>> 358ae27f7703b588f534448549f0caaf4ded5c5f
 
 // Offload binaries descriptor version supported by this library.
 static const uint16_t PI_DEVICE_BINARIES_VERSION = 1;
@@ -1516,11 +1482,7 @@ __SYCL_EXPORT pi_result piextUSMEnqueuePrefetch(
 // USM memadvise API to govern behavior of automatic migration mechanisms
 __SYCL_EXPORT pi_result piextUSMEnqueueMemAdvise(pi_queue queue,
                                                  const void *ptr, size_t length,
-<<<<<<< HEAD
-                                                 pi_mem_advice advice, // INTEL
-=======
                                                  pi_mem_advice advice,
->>>>>>> 358ae27f7703b588f534448549f0caaf4ded5c5f
                                                  pi_event *event);
 
 /// API to query information about USM allocated pointers
