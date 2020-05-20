@@ -3749,6 +3749,10 @@ def qopt_jump_tables : Flag<["-"], "qopt-jump-tables">,Alias<fjump_tables>,
   HelpText<"Control the generation of jump tables">;
 def qno_opt_jump_tables : Flag<["-"], "qno-opt-jump-tables">,Alias<fno_jump_tables>,
   HelpText<"Do not use jump tables for lowering switches">;
+def qopt_matmul : Flag<["-"], "qopt-matmul">, Flags<[DriverOption]>,
+  HelpText<"Enables compiler-generated Matrix Multiply (matmul) library call">;
+def qno_opt_matmul : Flag<["-"], "qno-opt-matmul">, Flags<[DriverOption]>,
+  HelpText<"Disables compiler-generated Matrix Multiply (matmul) library call">;
 def qopt_mem_layout_trans_EQ : Joined<["-"], "qopt-mem-layout-trans=">, Values<"0,1,2,3">,
   HelpText<"Control the level of memory layout transformations performed by the compiler">;
 def qopt_mem_layout_trans : Flag<["-"], "qopt-mem-layout-trans">, Alias<qopt_mem_layout_trans_EQ>,

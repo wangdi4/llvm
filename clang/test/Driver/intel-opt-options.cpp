@@ -73,3 +73,8 @@
 // RUN:  | FileCheck -check-prefixes=UNROLL %s
 // UNROLL: "-funroll-loops"
 // UNROLL3: "-mllvm" "-hir-general-unroll-max-factor=3"
+
+// Behavior with -qopt-matmul and /Qopt-matmul option
+// RUN: %clang -### %s -c -qopt-matmul 2>&1 | FileCheck %s --check-prefix=CHECK-QOPT-MATMUL
+// RUN: %clang_cl -### %s -c /Qopt-matmul 2>&1 | FileCheck %s --check-prefix=CHECK-QOPT-MATMUL
+// CHECK-QOPT-MATMUL: "-mllvm" "-disable-hir-generate-mkl-call"
