@@ -176,7 +176,7 @@ VPLoopEntity::~VPLoopEntity() {}
 static VPValue *getLiveInOrConstOperand(const VPInstruction *Instr,
                                         const VPLoop &Loop) {
   auto Iter = llvm::find_if(Instr->operands(), [&Loop](const VPValue *Operand) {
-    return Loop.isLiveIn(Operand) || isa<VPConstant>(Operand);
+    return Loop.isDefOutside(Operand) || isa<VPConstant>(Operand);
   });
   return Iter != Instr->op_end() ? *Iter : nullptr;
 }

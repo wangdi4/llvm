@@ -2378,7 +2378,6 @@ public:
   /// Print (in text format) VPlan blocks in order based on dominator tree.
   void dump(raw_ostream &OS, bool DumpDA = false) const;
   void dump() const;
-  void dumpLivenessInfo(raw_ostream &OS) const;
   void print(raw_ostream &OS, unsigned Indent, bool DumpDA) const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
