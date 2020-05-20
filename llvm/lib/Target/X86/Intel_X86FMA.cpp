@@ -467,10 +467,12 @@ bool FMAOpcodesInfo::recognizeOpcode(unsigned Opcode, bool LookForAVX512,
     VT = MVT::f64;
     break;
   case X86::V_SET0:
+  case X86::AVX512_128_SET0:
     // Choose an arbitrary vector type.
     VT = MVT::v2f64;
     break;
   case X86::AVX_SET0:
+  case X86::AVX512_256_SET0:
     // Choose an arbitrary vector type.
     VT = MVT::v4f64;
     break;
