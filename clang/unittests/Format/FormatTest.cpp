@@ -994,6 +994,9 @@ TEST_F(FormatTest, ForEachLoops) {
                "#define Q_FOREACH (x, y)\n"
                "#define BOOST_FOREACH (x, y)\n"
                "#define UNKNOWN_FOREACH (x, y)\n");
+
+  // handle microsoft non standard extension
+  verifyFormat("for each (char c in x->MyStringProperty)");
 }
 
 TEST_F(FormatTest, FormatsWhileLoop) {
@@ -1701,6 +1704,22 @@ TEST_F(FormatTest, MultiLineControlStatements) {
             "  baz();\n"
             "}",
             format("try{foo();}catch(...){baz();}", Style));
+}
+
+TEST_F(FormatTest, BeforeWhile) {
+  FormatStyle Style = getLLVMStyle();
+  Style.BreakBeforeBraces = FormatStyle::BraceBreakingStyle::BS_Custom;
+
+  verifyFormat("do {\n"
+               "  foo();\n"
+               "} while (1);",
+               Style);
+  Style.BraceWrapping.BeforeWhile = true;
+  verifyFormat("do {\n"
+               "  foo();\n"
+               "}\n"
+               "while (1);",
+               Style);
 }
 
 //===----------------------------------------------------------------------===//
@@ -12022,6 +12041,48 @@ TEST_F(FormatTest, AlignConsecutiveAssignments) {
                    Alignment));
 }
 
+TEST_F(FormatTest, AlignConsecutiveBitFields) {
+  FormatStyle Alignment = getLLVMStyle();
+  Alignment.AlignConsecutiveBitFields = true;
+  verifyFormat("int const a     : 5;\n"
+               "int oneTwoThree : 23;",
+               Alignment);
+
+  // Initializers are allowed starting with c++2a
+  verifyFormat("int const a     : 5 = 1;\n"
+               "int oneTwoThree : 23 = 0;",
+               Alignment);
+
+  Alignment.AlignConsecutiveDeclarations = true;
+  verifyFormat("int const a           : 5;\n"
+               "int       oneTwoThree : 23;",
+               Alignment);
+
+  verifyFormat("int const a           : 5;  // comment\n"
+               "int       oneTwoThree : 23; // comment",
+               Alignment);
+
+  verifyFormat("int const a           : 5 = 1;\n"
+               "int       oneTwoThree : 23 = 0;",
+               Alignment);
+
+  Alignment.AlignConsecutiveAssignments = true;
+  verifyFormat("int const a           : 5  = 1;\n"
+               "int       oneTwoThree : 23 = 0;",
+               Alignment);
+  verifyFormat("int const a           : 5  = {1};\n"
+               "int       oneTwoThree : 23 = 0;",
+               Alignment);
+
+  // Known limitations: ':' is only recognized as a bitfield colon when
+  // followed by a number.
+  /*
+  verifyFormat("int oneTwoThree : SOME_CONSTANT;\n"
+               "int a           : 5;",
+               Alignment);
+  */
+}
+
 TEST_F(FormatTest, AlignConsecutiveDeclarations) {
   FormatStyle Alignment = getLLVMStyle();
   Alignment.AlignConsecutiveMacros = true;
@@ -13436,6 +13497,7 @@ TEST_F(FormatTest, ParsesConfigurationBools) {
   Style.Language = FormatStyle::LK_Cpp;
   CHECK_PARSE_BOOL(AlignTrailingComments);
   CHECK_PARSE_BOOL(AlignConsecutiveAssignments);
+  CHECK_PARSE_BOOL(AlignConsecutiveBitFields);
   CHECK_PARSE_BOOL(AlignConsecutiveDeclarations);
   CHECK_PARSE_BOOL(AlignConsecutiveMacros);
   CHECK_PARSE_BOOL(AllowAllArgumentsOnNextLine);
@@ -13497,6 +13559,7 @@ TEST_F(FormatTest, ParsesConfigurationBools) {
   CHECK_PARSE_NESTED_BOOL(BraceWrapping, BeforeCatch);
   CHECK_PARSE_NESTED_BOOL(BraceWrapping, BeforeElse);
   CHECK_PARSE_NESTED_BOOL(BraceWrapping, BeforeLambdaBody);
+  CHECK_PARSE_NESTED_BOOL(BraceWrapping, BeforeWhile);
   CHECK_PARSE_NESTED_BOOL(BraceWrapping, IndentBraces);
   CHECK_PARSE_NESTED_BOOL(BraceWrapping, SplitEmptyFunction);
   CHECK_PARSE_NESTED_BOOL(BraceWrapping, SplitEmptyRecord);
