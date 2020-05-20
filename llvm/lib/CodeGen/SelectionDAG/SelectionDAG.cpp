@@ -1874,9 +1874,6 @@ SDValue SelectionDAG::getBlockAddress(const BlockAddress *BA, EVT VT,
 }
 
 SDValue SelectionDAG::getSrcValue(const Value *V) {
-  assert((!V || V->getType()->isPointerTy()) &&
-         "SrcValue is not a pointer?");
-
   FoldingSetNodeID ID;
   AddNodeIDNode(ID, ISD::SRCVALUE, getVTList(MVT::Other), None);
   ID.AddPointer(V);
