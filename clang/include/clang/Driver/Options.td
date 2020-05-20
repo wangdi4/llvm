@@ -2386,6 +2386,10 @@ def gno_embed_source : Flag<["-"], "gno-embed-source">, Group<g_flags_Group>,
 def headerpad__max__install__names : Joined<["-"], "headerpad_max_install_names">;
 def help : Flag<["-", "--"], "help">, Flags<[CC1Option,CC1AsOption]>,
   HelpText<"Display available options">;
+//if INTEL_CUSTOMIZATION
+def fhelp : Flag<["-"], "fhelp">, Flags<[DriverOption]>, Alias<help>,
+  HelpText<"Display available options">;
+//endif INTEL_CUSTOMIZATION
 def ibuiltininc : Flag<["-"], "ibuiltininc">,
   HelpText<"Enable builtin #include directories even when -nostdinc is used "
            "before or after -ibuiltininc. "
