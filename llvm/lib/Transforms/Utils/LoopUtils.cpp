@@ -32,7 +32,6 @@
 #include "llvm/Analysis/MustExecute.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionAliasAnalysis.h"
-#include "llvm/Analysis/ScalarEvolutionExpander.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -51,7 +50,11 @@
 #include "llvm/Support/KnownBits.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
+<<<<<<< HEAD
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h" // INTEL
+=======
+#include "llvm/Transforms/Utils/ScalarEvolutionExpander.h"
+>>>>>>> bcbd26bfe61a35e31b1f7e98b5761a1055273b69
 
 using namespace llvm;
 using namespace llvm::PatternMatch;
