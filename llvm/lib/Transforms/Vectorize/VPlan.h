@@ -1111,12 +1111,12 @@ public:
 
 /// A recipe for generating conditional branches on the bits of a mask.
 class VPBranchOnMaskRecipe : public VPRecipeBase {
-  std::unique_ptr<VPUser> User;
+  VPUser User;
 
 public:
   VPBranchOnMaskRecipe(VPValue *BlockInMask) : VPRecipeBase(VPBranchOnMaskSC) {
     if (BlockInMask) // nullptr means all-one mask.
-      User.reset(new VPUser({BlockInMask}));
+      User.addOperand(BlockInMask);
   }
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
@@ -1134,14 +1134,25 @@ public:
   void print(raw_ostream &O, const Twine &Indent,
              VPSlotTracker &SlotTracker) const override {
     O << " +\n" << Indent << "\"BRANCH-ON-MASK ";
-    if (User)
-      User->getOperand(0)->print(O, SlotTracker);
+    if (VPValue *Mask = getMask())
+      Mask->print(O, SlotTracker);
     else
       O << " All-One";
     O << "\\l\"";
   }
+<<<<<<< HEAD
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
+=======
+
+  /// Return the mask used by this recipe. Note that a full mask is represented
+  /// by a nullptr.
+  VPValue *getMask() const {
+    assert(User.getNumOperands() <= 1 && "should have either 0 or 1 operands");
+    // Mask is optional.
+    return User.getNumOperands() == 1 ? User.getOperand(0) : nullptr;
+  }
+>>>>>>> 66ad107452893517da93d25e58c16ba4669a00eb
 };
 
 /// VPPredInstPHIRecipe is a recipe for generating the phi nodes needed when
