@@ -20,6 +20,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/BlockFrequencyInfo.h"
+#include "llvm/Analysis/Intel_DopeVectorAnalysis.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/AssemblyAnnotationWriter.h"
 #include "llvm/IR/CFG.h"
@@ -45,6 +46,7 @@
 #include <set>
 
 using namespace llvm;
+using namespace dvanalysis;
 using namespace llvm::PatternMatch;
 
 #define DEBUG_TYPE "dtransanalysis"
@@ -6420,6 +6422,10 @@ private:
     if (dtrans::isSystemObjectType(Ty)) {
       LLVM_DEBUG(dbgs() << "dtrans-safety: System object:\n  " << *Ty << "\n");
       TI->setSafetyData(dtrans::SystemObject);
+    }
+    if (llvm::dvanalysis::isDopeVectorType(Ty, DL)) {
+      LLVM_DEBUG(dbgs() << "dtrans-safety: Dope vector:\n  " << *Ty << "\n");
+      TI->setSafetyData(dtrans::DopeVector);
     }
 
     // Get the number of fields in the structure.
