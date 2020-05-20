@@ -1371,6 +1371,11 @@ void MSVCToolChain::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
     return;
 
 #if INTEL_CUSTOMIZATION
+  // Add Intel specific headers
+  if (DriverArgs.hasArg(clang::driver::options::OPT__intel))
+    addSystemInclude(DriverArgs, CC1Args,
+                     getDriver().Dir + "/../compiler/include");
+
   // Add Intel performance library headers
   if (DriverArgs.hasArg(clang::driver::options::OPT_mkl_EQ)) {
     addSystemInclude(DriverArgs, CC1Args,
