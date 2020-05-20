@@ -951,6 +951,12 @@ Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
     // isFunctionVectorizable() returned true, so it is guaranteed that
     // the svml function exists and the call is legal. Generate a declaration
     // for it if one does not already exist.
+
+    // SVML sincos functions uses struct to return results.
+    if (VFnName.startswith("__svml_sincos")) {
+      Type *ElementType = getWidenedType(OrigF->getArg(0)->getType(), VL);
+      VecRetTy = StructType::get(ElementType, ElementType);
+    }
     FunctionType *FTy = FunctionType::get(VecRetTy, ArgTys, false);
     VectorF = Function::Create(FTy, Function::ExternalLinkage, VFnName, M);
     VectorF->copyAttributesFrom(OrigF);

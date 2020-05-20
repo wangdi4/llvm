@@ -500,9 +500,9 @@ unsigned FMAOpcodesInfo::getOpcodeOfKind(
     case 64:
       return LookForAVX512 ? X86::AVX512_FsFLD0SD : X86::FsFLD0SD;
     case 128:
-      return X86::V_SET0;
+      return LookForAVX512 ? X86::AVX512_128_SET0 : X86::V_SET0;
     case 256:
-      return X86::AVX_SET0;
+      return LookForAVX512 ? X86::AVX512_256_SET0 : X86::AVX_SET0;
     case 512:
       return X86::AVX512_512_SET0;
     default:

@@ -649,9 +649,14 @@ void VPOCodeGen::addMaskToSVMLCall(Function *OrigF, Value *CallMaskValue,
     SmallVector<Type *, 1> NewArgTys;
     SmallVector<Value *, 1> NewArgs;
 
-    Constant *Undef = UndefValue::get(VecTy);
+    Type *SourceTy = VecTy;
+    StringRef FnName = OrigF->getName();
+    if (FnName == "sincos" || FnName == "sincosf")
+      SourceTy = StructType::get(VecTy, VecTy);
 
-    NewArgTys.push_back(VecTy);
+    Constant *Undef = UndefValue::get(SourceTy);
+
+    NewArgTys.push_back(SourceTy);
     NewArgs.push_back(Undef);
 
     NewArgTys.push_back(CallMaskValue->getType());
@@ -1674,6 +1679,12 @@ void VPOCodeGen::vectorizeCallArgs(VPInstruction *VPCall,
   // true in all cases? What about indirect calls?
   unsigned NumArgOperands = VPCall->getNumOperands() - 1;
 
+  // glibc scalar sincos function has 2 pointer out parameters, but SVML sincos
+  // functions return the results directly in a struct. The pointers should be
+  // omitted in vectorized call.
+  if (FnName == "sincos" || FnName == "sincosf")
+    NumArgOperands -= 2;
+
   for (unsigned OrigArgIdx = 0; OrigArgIdx < NumArgOperands; OrigArgIdx++) {
     if (isOpenCLReadChannelDest(FnName, OrigArgIdx))
       continue;
@@ -2025,7 +2036,7 @@ void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
     if (MaskValue)
       RepMaskValue = replicateVectorElts(MaskValue, OriginalVL, Builder,
                                          "replicatedMaskElts.");
-    Value *GatherAddress = getWidenedAddressForScatterGather(VPInst);
+    Value *GatherAddress = getWidenedAddressForScatterGather(Ptr);
     Align Alignment = getAlignmentForGatherScatter(VPInst);
     NewLI = Builder.CreateMaskedGather(GatherAddress, Alignment, RepMaskValue,
                                        nullptr, "wide.masked.gather");
@@ -2231,7 +2242,7 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
 
   // If VLS failed to emit a wide store, we have to emit a SCATTER
   // instruction.
-  Value *ScatterPtr = getWidenedAddressForScatterGather(VPInst);
+  Value *ScatterPtr = getWidenedAddressForScatterGather(Ptr);
   Type *PtrToElemTy = cast<VectorType>(ScatterPtr->getType())->getElementType();
   Type *ElemTy = PtrToElemTy->getPointerElementType();
   VectorType *DesiredDataTy = VectorType::get(ElemTy, VF * OriginalVL);
@@ -2252,17 +2263,15 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
 // accessed in the vectorized code. These addresses, take the form of a GEP
 // instruction, and this GEP is used as pointer operand of the resulting
 // scatter/gather intrinsic.
-Value *VPOCodeGen::getWidenedAddressForScatterGather(VPInstruction *VPI) {
-  assert((VPI->getOpcode() == Instruction::Load ||
-          VPI->getOpcode() == Instruction::Store) &&
-         "Expect 'VPI' to be either a LoadInst or a StoreInst");
+Value *VPOCodeGen::getWidenedAddressForScatterGather(VPValue *VPBasePtr) {
+  assert(VPBasePtr->getType()->isPointerTy() &&
+         "Expect 'VPBasePtr' to be a PointerType");
 
   // Vectorize BasePtr.
-  VPValue *VPBasePtr = getPointerOperand(VPI);
   Value *BasePtr = getVectorValue(VPBasePtr);
 
   // No replication is needed for non-vector types.
-  Type *LSIType = getLoadStoreType(VPI);
+  Type *LSIType = cast<PointerType>(VPBasePtr->getType())->getElementType();
   if (!isa<VectorType>(LSIType))
     return BasePtr;
 
@@ -2395,6 +2404,70 @@ Value *VPOCodeGen::getOpenCLSelectVectorMask(VPValue *ScalarMask) {
   return Builder.CreateSExt(Cmp, VecTy);
 }
 
+void VPOCodeGen::generateStoreForSinCos(
+    VPInstruction *VPCall, Value *CallResult) {
+  // Extract results in the structure returned from SVML sincos call and store
+  // into the pointers provided by the scalar call, for example:
+  // %sincos = call svml_cc { <16 x float>, <16 x float> } @__svml_sincosf16(
+  //           <16 x float> %src)
+  // %sincos.sin = extractvalue { <16 x float>, <16 x float> } %sincos, 0
+  // %sincos.cos = extractvalue { <16 x float>, <16 x float> } %sincos, 1
+  // %sin.vector.ptr = bitcast float* %sin.ptr to <16 x float>*
+  // store <16 x float> %sincos.sin, <16 x float>* %sin.vector.ptr, align 4
+  // %cos.vector.ptr = bitcast float* %cos.ptr to <16 x float>*
+  // store <16 x float> %sincos.cos, <16 x float>* %cos.vector.ptr, align 4
+  //
+  // Note we may generate other instructions such as masked store, shuffle +
+  // store, scatter for storing the results depending on the optimizations
+  // applied.
+
+  auto *ExtractSinInst =
+      Builder.CreateExtractValue(CallResult, {0}, "sincos.sin");
+  auto *ExtractCosInst =
+      Builder.CreateExtractValue(CallResult, {1}, "sincos.cos");
+
+  CallInst *UnderlyingCI = dyn_cast<CallInst>(VPCall->getUnderlyingValue());
+  assert(UnderlyingCI &&
+         "VPVALCG: Need underlying CallInst for call-site attributes.");
+
+  const DataLayout &DL = UnderlyingCI->getModule()->getDataLayout();
+  Align Alignment = Align(DL.getABITypeAlignment(
+      cast<VectorType>(ExtractSinInst->getType())->getElementType()));
+
+  // Widen ScalarPtr and generate instructions to store VecValue into it.
+  auto storeVectorValue = [this](Value *VecValue, VPValue *ScalarPtr,
+                                 Align Alignment) {
+    assert(cast<VectorType>(VecValue->getType())->getNumElements() == VF &&
+           "Invalid vector width of value");
+
+    Optional<int> ConsecutiveStride =
+        getVPValueConsecutivePtrStride(ScalarPtr, Plan);
+
+    // TODO: Currently only address with stride = 1 can be optimized. Need to
+    // handle other cases.
+    if (ConsecutiveStride && ConsecutiveStride.getValue() > 0) {
+      Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(
+          ScalarPtr, false /*Reverse*/);
+      if (MaskValue)
+        Builder.CreateMaskedStore(VecValue, VecPtr, Alignment, MaskValue);
+      else
+        Builder.CreateAlignedStore(VecValue, VecPtr, Alignment);
+    } else {
+      Value *VectorPtr = getWidenedAddressForScatterGather(ScalarPtr);
+      Type *PtrToElemTy =
+          cast<VectorType>(VectorPtr->getType())->getElementType();
+      Type *ElemTy = PtrToElemTy->getPointerElementType();
+      VectorType *DesiredDataTy = VectorType::get(ElemTy, VF);
+      VecValue = Builder.CreateBitCast(VecValue, DesiredDataTy, "cast");
+
+      Builder.CreateMaskedScatter(VecValue, VectorPtr, Alignment, MaskValue);
+    }
+  };
+
+  storeVectorValue(ExtractSinInst, VPCall->getOperand(1), Alignment);
+  storeVectorValue(ExtractCosInst, VPCall->getOperand(2), Alignment);
+}
+
 void VPOCodeGen::vectorizeCallInstruction(VPInstruction *VPCall,
                                           unsigned PumpFactor) {
   CallInst *UnderlyingCI = dyn_cast<CallInst>(VPCall->getUnderlyingValue());
@@ -2507,10 +2580,77 @@ void VPOCodeGen::vectorizeCallInstruction(VPInstruction *VPCall,
     assert(CallResults.size() >= 2 && isPowerOf2_32(CallResults.size()) &&
            "Number of pumped vector calls to combine must be a power of 2 "
            "(atleast 2^1)");
-    VPWidenMap[VPCall] = joinVectors(CallResults, Builder, "combined");
+    Type *ReturnType = CallResults[0]->getType();
+    if (ReturnType->isVectorTy()) {
+      VPWidenMap[VPCall] = joinVectors(CallResults, Builder, "combined");
+    } else if (ReturnType->isStructTy()) {
+      // If the return type is not a vector, then it must be a struct of vectors
+      // (returned by sincos function). Create a widened struct type by widening
+      // every element type.
+      // For example, if CallResults[0] is { <2 x float>, <2 x float> } and
+      // PumpFactor is 2, the combined type will be
+      // { <4 x float>, <4 x float> }.
+      StructType *ReturnStructType = cast<StructType>(ReturnType);
+      SmallVector<Type *, 2> ElementTypes;
+      for (unsigned I = 0; I < ReturnStructType->getStructNumElements(); I++) {
+        VectorType *ElementType =
+            cast<VectorType>(ReturnStructType->getStructElementType(I));
+        ElementTypes.push_back(VectorType::get(ElementType->getElementType(),
+                                               ElementType->getElementCount() *
+                                                   CallResults.size()));
+      }
+      StructType *CombinedReturnType =
+          StructType::get(ReturnType->getContext(), ElementTypes);
+
+      // Then combine the pumped call results: for each vector element of
+      // struct, extract the result from the return value of pumped calls,
+      // combine them and insert to the combined struct:
+      //
+      // ; extract and combine sin field of the return values
+      // %sin0 = extractvalue { <2 x float>, <2 x float> } %callResults0, 0
+      // %sin1 = extractvalue { <2 x float>, <2 x float> } %callResults1, 0
+      // %sin.combined = shufflevector <2 x float> %sin0, <2 x float> %sin1,
+      //                               <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+      // %result.tmp = insertvalue { <4 x float>, <4 x float> } undef,
+      //                           <4 x float> %sin.combined, 0
+      //
+      // ; extract and combine cos field of the return values
+      // %cos0 = extractvalue { <2 x float>, <2 x float> } %callResults0, 1
+      // %cos1 = extractvalue { <2 x float>, <2 x float> } %callResults1, 1
+      // %cos.combined = shufflevector <2 x float> %cos0, <2 x float> %cos1,
+      //                               <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+      // %result = insertvalue { <4 x float>, <4 x float> } %result.tmp,
+      //                       <4 x float> %cos.combined, 1
+      Value *Combined = UndefValue::get(CombinedReturnType);
+      for (unsigned I = 0; I < CombinedReturnType->getNumElements(); I++) {
+        SmallVector<Value *, 4> Parts;
+        for (unsigned J = 0; J < CallResults.size(); J++)
+          Parts.push_back(
+              Builder.CreateExtractValue(CallResults[J], I, "extract.result"));
+
+        Value *CombinedVector = joinVectors(Parts, Builder, "combined");
+        Combined = Builder.CreateInsertValue(Combined, CombinedVector, I,
+                                             "insert.result");
+      }
+      VPWidenMap[VPCall] = Combined;
+    } else {
+      llvm_unreachable(
+          "Expect vector or struct of vector result from vector calls");
+    }
   } else {
     VPWidenMap[VPCall] = CallResults[0];
   }
+
+  // Handle results of SVML sincos function calls
+  // sincos function has two return values. The scalar sincos function uses
+  // pointers as out-parameters. SVML sincos function, instead, returns them in
+  // a struct directly. Here we store the results in the struct to the pointer
+  // given in parameters to bridge the gap between these two approaches.
+  if (cast<CallInst>(CallResults[0])
+          ->getCalledFunction()
+          ->getName()
+          .startswith("__svml_sincos"))
+    generateStoreForSinCos(VPCall, VPWidenMap[VPCall]);
 }
 
 Value *VPOCodeGen::getVectorValue(VPValue *V) {

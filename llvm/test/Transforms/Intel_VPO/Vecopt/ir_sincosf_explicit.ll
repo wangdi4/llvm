@@ -1,24 +1,24 @@
-;RUN: opt -vector-library=SVML -vec-clone -VPODriver -disable-vplan-predicator -disable-vplan-codegen -S %s | FileCheck %s
-;RUN: opt -vector-library=SVML -passes="vec-clone" -VPODriver -disable-vplan-predicator -disable-vplan-codegen -S %s | FileCheck %s
-; XFAIL: *
-; TO-DO : The test case fails upon removal of AVR Code. Analyze and fix it so that it works for VPlanDriverHIR
+; Test to check sincos functions are vectorized to SVML function in LLVM-IR vector CG.
 
-;CHECK: call void @__svml_sincosf4
+; RUN: opt -vector-library=SVML -VPlanDriver -S -vplan-force-vf=4 %s | FileCheck -DVL=4 --check-prefixes=CHECK %s
+; RUN: opt -vector-library=SVML -VPlanDriver -S -vplan-force-vf=16 %s | FileCheck -DVL=16 --check-prefixes=CHECK %s
+
+; CHECK: [[RESULT:%.*]] = call svml_cc { <[[VL]] x float>, <[[VL]] x float> } @__svml_sincosf[[VL]](<[[VL]] x float> {{.*}})
+; CHECK: [[RESULT_SIN:%.*]] = extractvalue { <[[VL]] x float>, <[[VL]] x float> } [[RESULT]], 0
+; CHECK: [[RESULT_COS:%.*]] = extractvalue { <[[VL]] x float>, <[[VL]] x float> } [[RESULT]], 1
+; CHECK: store <[[VL]] x float> [[RESULT_SIN]], <[[VL]] x float>* {{.*}}, align 4
+; CHECK: store <[[VL]] x float> [[RESULT_COS]], <[[VL]] x float>* {{.*}}, align 4
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define x86_regcallcc void @foo(float* noalias nocapture readonly %a, float* noalias %vsin, float* noalias %vcos, i32 %i) local_unnamed_addr #0 {
+define dso_local void @foo(float* noalias nocapture readonly %a, float* noalias %vsin, float* noalias %vcos, i32 %i) local_unnamed_addr #0 {
 entry:
   br label %simd.begin.region
 
 simd.begin.region:                                ; preds = %entry
-  call void @llvm.intel.directive(metadata !5)
-  call void @llvm.intel.directive.qual.opnd.i32(metadata !6, i32 4)
-  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !7, float* %a, float* %vsin, float* %vcos)
-  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !9, i32 %i, i32 1)
-  call void @llvm.intel.directive(metadata !10)
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4), "QUAL.OMP.UNIFORM"(float* %vsin, float* %vcos) ]
   br label %simd.loop
 
 simd.loop:                                        ; preds = %simd.loop.exit, %simd.begin.region
@@ -40,8 +40,7 @@ simd.loop.exit:                                   ; preds = %simd.loop
   br i1 %vl.cond, label %simd.loop, label %simd.end.region, !llvm.loop !20
 
 simd.end.region:                                  ; preds = %simd.loop.exit
-  call void @llvm.intel.directive(metadata !13)
-  call void @llvm.intel.directive(metadata !10)
+  call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
   br label %return
 
 return:                                           ; preds = %simd.end.region
@@ -51,14 +50,11 @@ return:                                           ; preds = %simd.end.region
 ; Function Attrs: nounwind
 declare void @sincosf(float, float*, float*) local_unnamed_addr #1
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive(metadata) #2
+; Function Attrs: nounwind
+declare token @llvm.directive.region.entry()
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive.qual.opnd.i32(metadata, i32) #2
-
-; Function Attrs: argmemonly nounwind
-declare void @llvm.intel.directive.qual.opndlist(metadata, ...) #2
+; Function Attrs: nounwind
+declare void @llvm.directive.region.exit(token)
 
 attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="true" "no-jump-tables"="false" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="true" "use-soft-float"="false" }
 attributes #1 = { nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="true" "no-nans-fp-math"="true" "no-signed-zeros-fp-math"="true" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="true" "use-soft-float"="false" }
