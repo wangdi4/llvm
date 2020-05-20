@@ -2503,6 +2503,114 @@ OclBuiltinImpl sub_group_broadcast_vector = OclBuiltinImpl<sub_group_broadcast_v
     return $Arg0VarName[$Arg1VarName];
   }]>;
 
+
+OclBuiltinImpl sub_group_broadcast_ext_avx_v8 =
+  OclBuiltinImpl<sub_group_broadcast_extended_avx, [v8i8, v8u8, v8i16, v8u16, v8i32, v8u32, v8i64, v8u64, v8f32, v8f64], 0,
+  [{
+
+     $Arg0BaseType#2 temp = *(($Arg0BaseType#2*)&$Arg0VarName + $Arg1VarName);
+     return ($ReturnType)(temp, temp, temp, temp);
+  }]>;
+
+OclBuiltinImpl sub_group_broadcast_ext_avx_v12 =
+  OclBuiltinImpl<sub_group_broadcast_extended_avx, [v12i8, v12u8, v12i16, v12u16, v12i32, v12u32, v12i64, v12u64, v12f32, v12f64], 0,
+  [{
+     $Arg0BaseType#3 temp = *(($Arg0BaseType#3*)&$Arg0VarName + $Arg1VarName);
+     return ($ReturnType)(temp, temp, temp, temp);
+  }]>;
+
+OclBuiltinImpl sub_group_broadcast_ext_avx_v16 =
+  OclBuiltinImpl<sub_group_broadcast_extended_avx, [v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v16i64, v16u64, v16f32, v16f64], 0,
+  [{
+     $Arg0BaseType#4 temp = *(($Arg0BaseType#4*)&$Arg0VarName + $Arg1VarName);
+     return ($ReturnType)(temp, temp, temp, temp);
+  }]>;
+
+OclBuiltinImpl sub_group_broadcast_ext_avx_v32 =
+  OclBuiltinImpl<sub_group_broadcast_extended_avx, [v32i8, v32u8, v32i16, v32u16, v32i32, v32u32, v32i64, v32u64, v32f32, v32f64], 0,
+  [{
+     $Arg0BaseType#8 temp = *(($Arg0BaseType#8*)&$Arg0VarName + $Arg1VarName);
+     return ($ReturnType)(temp, temp, temp, temp);
+  }]>;
+
+OclBuiltinImpl sub_group_broadcast_ext_avx_v64 =
+  OclBuiltinImpl<sub_group_broadcast_extended_avx, [v64i8, v64u8, v64i16, v64u16, v64i32, v64u32, v64i64, v64u64, v64f32, v64f64], 0,
+  [{
+     $Arg0BaseType#16 temp = *(($Arg0BaseType#16*)&$Arg0VarName + $Arg1VarName);
+     return ($ReturnType)(temp, temp, temp, temp);
+  }]>;
+
+OclBuiltinImpl sub_group_broadcast_ext_avx2_v16 =
+  OclBuiltinImpl<sub_group_broadcast_extended_avx2, [v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v16i64, v16u64, v16f32, v16f64], 0,
+  [{
+
+     $Arg0BaseType#2 temp = *(($Arg0BaseType#2*)&$Arg0VarName + $Arg1VarName);
+     return ($ReturnType)(temp, temp, temp, temp, temp, temp, temp, temp);
+  }]>;
+
+OclBuiltinImpl sub_group_broadcast_ext_avx2_v24 =
+  OclBuiltinImpl<sub_group_broadcast_extended_avx2, [v24i8, v24u8, v24i16, v24u16, v24i32, v24u32, v24i64, v24u64, v24f32, v24f64], 0,
+  [{
+     $Arg0BaseType#3 temp = *(($Arg0BaseType#3*)&$Arg0VarName + $Arg1VarName);
+     return ($ReturnType)(temp, temp, temp, temp, temp, temp, temp, temp);
+  }]>;
+
+OclBuiltinImpl sub_group_broadcast_ext_avx2_v32 =
+  OclBuiltinImpl<sub_group_broadcast_extended_avx2, [v32i8, v32u8, v32i16, v32u16, v32i32, v32u32, v32i64, v32u64, v32f32, v32f64], 0,
+  [{
+     $Arg0BaseType#4 temp = *(($Arg0BaseType#4*)&$Arg0VarName + $Arg1VarName);
+     return ($ReturnType)(temp, temp, temp, temp, temp, temp, temp, temp);
+  }]>;
+
+OclBuiltinImpl sub_group_broadcast_ext_avx2_v64 =
+  OclBuiltinImpl<sub_group_broadcast_extended_avx2, [v64i8, v64u8, v64i16, v64u16, v64i32, v64u32, v64i64, v64u64, v64f32, v64f64], 0,
+  [{
+     $Arg0BaseType#8 temp = *(($Arg0BaseType#8*)&$Arg0VarName + $Arg1VarName);
+     return ($ReturnType)(temp, temp, temp, temp, temp, temp, temp, temp);
+  }]>;
+
+OclBuiltinImpl sub_group_broadcast_ext_avx2_v128 =
+  OclBuiltinImpl<sub_group_broadcast_extended_avx2, [v128i8, v128u8, v128i16, v128u16, v128i32, v128u32, v128i64, v128u64, v128f32, v128f64], 0,
+  [{
+     $Arg0BaseType#16 temp = *(($Arg0BaseType#16*)&$Arg0VarName + $Arg1VarName);
+     return ($ReturnType)(temp, temp, temp, temp, temp, temp, temp, temp);
+  }]>;
+
+OclBuiltinImpl sub_group_broadcast_ext_avx512_v32 =
+  OclBuiltinImpl<sub_group_broadcast_extended_avx512, [v32i8, v32u8, v32i16, v32u16, v32i32, v32u32, v32i64, v32u64, v32f32, v32f64], 0,
+  [{
+     $Arg0BaseType#2 temp = *(($Arg0BaseType#2*)&$Arg0VarName + $Arg1VarName);
+     return ($ReturnType)(temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp);
+  }]>;
+
+OclBuiltinImpl sub_group_broadcast_ext_avx512_v48 =
+  OclBuiltinImpl<sub_group_broadcast_extended_avx512, [v48i8, v48u8, v48i16, v48u16, v48i32, v48u32, v48i64, v48u64, v48f32, v48f64], 0,
+  [{
+     $Arg0BaseType#3 temp = *(($Arg0BaseType#3*)&$Arg0VarName + $Arg1VarName);
+     return ($ReturnType)(temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp);
+  }]>;
+
+OclBuiltinImpl sub_group_broadcast_ext_avx512_v64 =
+  OclBuiltinImpl<sub_group_broadcast_extended_avx512, [v64i8, v64u8, v64i16, v64u16, v64i32, v64u32, v64i64, v64u64, v64f32, v64f64], 0,
+  [{
+     $Arg0BaseType#4 temp = *(($Arg0BaseType#4*)&$Arg0VarName + $Arg1VarName);
+     return ($ReturnType)(temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp);
+  }]>;
+
+OclBuiltinImpl sub_group_broadcast_ext_avx512_v128 =
+  OclBuiltinImpl<sub_group_broadcast_extended_avx512, [v128i8, v128u8, v128i16, v128u16, v128i32, v128u32, v128i64, v128u64, v128f32, v128f64], 0,
+  [{
+     $Arg0BaseType#8 temp = *(($Arg0BaseType#8*)&$Arg0VarName + $Arg1VarName);
+     return ($ReturnType)(temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp);
+  }]>;
+
+OclBuiltinImpl sub_group_broadcast_ext_avx512_v256 =
+  OclBuiltinImpl<sub_group_broadcast_extended_avx512, [v256i8, v256u8, v256i16, v256u16, v256i32, v256u32, v256i64, v256u64, v256f32, v256f64], 0,
+  [{
+     $Arg0BaseType#16 temp = *(($Arg0BaseType#16*)&$Arg0VarName + $Arg1VarName);
+     return ($ReturnType)(temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp);
+  }]>;
+
 OclBuiltinImpl sub_group_broadcast_vector_cs = OclBuiltinImpl<sub_group_broadcast_vec_cs, [v4i8 , v8i8 , v16i8 ,
                                                                                            v4u8 , v8u8 , v16u8 ,
                                                                                            v4i16, v8i16, v16i16,

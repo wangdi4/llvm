@@ -244,8 +244,7 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
 
         intel::DebuggingServiceType debugType = intel::getDebuggingServiceType(
             buildOptions.GetDebugInfoFlag(), pModule, buildOptions.GetUseNativeDebuggerFlag());
-        bool useTLSGlobals = (debugType == intel::Native) &&
-                             !m_isFpgaEmulator && !m_isEyeQEmulator;
+        bool useTLSGlobals = (debugType == intel::Native) && !m_isEyeQEmulator;
         std::unique_ptr<Kernel> spKernel(
             CreateKernel(pFunc, pWrapperFunc->getName().str(),
                          spKernelProps.get(), useTLSGlobals));

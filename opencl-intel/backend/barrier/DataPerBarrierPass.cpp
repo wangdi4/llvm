@@ -85,10 +85,10 @@ namespace intel {
   }
 
   void DataPerBarrier::FindPredecessors(BasicBlock *pBB) {
-    TBasicBlocksSet &perdecessors = m_predecessorsMap[pBB];
+    TBasicBlockSet &predecessors = m_predecessorsMap[pBB];
     std::vector<BasicBlock*> basicBlocksToHandle;
 
-    perdecessors.clear();
+    predecessors.clear();
     basicBlocksToHandle.push_back(pBB);
 
     while ( !basicBlocksToHandle.empty() ) {
@@ -96,12 +96,12 @@ namespace intel {
       basicBlocksToHandle.pop_back();
       for (pred_iterator i = pred_begin(pBBToHandle), e = pred_end(pBBToHandle); i != e; ++i) {
         BasicBlock *pred_bb = *i;
-        if ( perdecessors.count(pred_bb) ) {
+        if ( predecessors.count(pred_bb) ) {
           //pred_bb was already added to predecessors
           continue;
         }
         //This is a new predecessor add it to the predecessors container
-        perdecessors.insert(pred_bb);
+        predecessors.insert(pred_bb);
         //Also add it to the basicBlocksToHandle to calculate its predecessors
         basicBlocksToHandle.push_back(pred_bb);
       }
@@ -109,7 +109,7 @@ namespace intel {
   }
 
   void DataPerBarrier::FindSuccessors(BasicBlock *pBB) {
-    TBasicBlocksSet &successors = m_successorsMap[pBB];
+    TBasicBlockSet &successors = m_successorsMap[pBB];
     std::vector<BasicBlock*> basicBlocksToHandle;
 
     successors.clear();
@@ -139,9 +139,9 @@ namespace intel {
     Function *pFunc = pBB->getParent();
     TInstructionSet &barrierBBSet = m_syncsPerFuncMap[pFunc];
     SBarrierRelated &barrierRelated = m_barrierPredecessorsMap[pInst];
-    TInstructionVector &barrierPerdecessors = barrierRelated.m_relatedBarriers;
+    TInstructionSet &barrierPerdecessors = barrierRelated.m_relatedBarriers;
     std::vector<BasicBlock*> basicBlocksToHandle;
-    TBasicBlocksSet basicBlocksAddedForHandle;
+    TBasicBlockSet basicBlocksAddedForHandle;
 
     barrierRelated.m_hasFiberRelated = false;
     barrierPerdecessors.clear();
@@ -161,7 +161,7 @@ namespace intel {
         Instruction *pInst = &*(pred_bb->begin());
         if ( barrierBBSet.count(pInst) ) {
           //This predecessor basic block conatins a barrier
-          barrierPerdecessors.push_back(pInst);
+          barrierPerdecessors.insert(pInst);
           if( m_dataPerBarrierMap[pInst].m_type == SYNC_TYPE_FIBER ) {
             //predecessor is a fiber instruction update barrier related data
             barrierRelated.m_hasFiberRelated = true;
@@ -208,8 +208,8 @@ namespace intel {
       BasicBlock *pBBB = bbi->first;
       //Print barrier basic block name
       OS << "+" << pBBB->getName() << "\n";
-      const TBasicBlocksSet &bbSet = bbi->second;
-      for ( TBasicBlocksSet::const_iterator bi = bbSet.begin(), be = bbSet.end();  bi != be; ++bi ) {
+      const TBasicBlockSet &bbSet = bbi->second;
+      for ( TBasicBlockSet::const_iterator bi = bbSet.begin(), be = bbSet.end();  bi != be; ++bi ) {
         BasicBlock *pBB = *bi;
         //Print predecessor basic block name
         OS << "\t-" << pBB->getName() << "\n";
@@ -225,8 +225,8 @@ namespace intel {
       BasicBlock *pBBB = bbi->first;
       //Print barrier basic block name
       OS<< "+" << pBBB->getName() << "\n";
-      const TBasicBlocksSet &bbSet = bbi->second;
-      for ( TBasicBlocksSet::const_iterator bi = bbSet.begin(), be = bbSet.end();  bi != be; ++bi ) {
+      const TBasicBlockSet &bbSet = bbi->second;
+      for ( TBasicBlockSet::const_iterator bi = bbSet.begin(), be = bbSet.end();  bi != be; ++bi ) {
         BasicBlock *pBB = *bi;
         //Print successor basic block name
         OS << "\t-" << pBB->getName() << "\n";
@@ -244,8 +244,8 @@ namespace intel {
       //Print barrier basic block name
       OS << "+" << pBBB->getName() << "\n";
       OS << "has fiber instruction as predecessors: " << iii->second.m_hasFiberRelated << "\n";
-      const TInstructionVector &iiVec = iii->second.m_relatedBarriers;
-      for ( TInstructionVector::const_iterator ii = iiVec.begin(), ie = iiVec.end();  ii != ie; ++ii ) {
+      const TInstructionSet &iiVec = iii->second.m_relatedBarriers;
+      for ( TInstructionSet::const_iterator ii = iiVec.begin(), ie = iiVec.end();  ii != ie; ++ii ) {
         Instruction *pInstPred = *ii;
         BasicBlock *pBB = pInstPred->getParent();
         //Print barrier predecessor basic block name
@@ -254,7 +254,7 @@ namespace intel {
       OS << "*" << "\n";
     }
 
-    OS << "DONE";
+    OS << "DONE\n\n";
   }
 
 

@@ -13,6 +13,11 @@ typedef float float64 __attribute__((ext_vector_type(64)));
 typedef float float128 __attribute__((ext_vector_type(128)));
 typedef float float256 __attribute__((ext_vector_type(256)));
 
+typedef double double32 __attribute__((ext_vector_type(32)));
+typedef double double64 __attribute__((ext_vector_type(64)));
+typedef double double128 __attribute__((ext_vector_type(128)));
+typedef double double256 __attribute__((ext_vector_type(256)));
+
 typedef uint uint32 __attribute__((ext_vector_type(32)));
 typedef uint uint64 __attribute__((ext_vector_type(64)));
 typedef uint uint128 __attribute__((ext_vector_type(128)));
@@ -54,6 +59,10 @@ typedef ulong ulong48  __attribute__((ext_vector_type(48)));
 typedef float float12  __attribute__((ext_vector_type(12)));
 typedef float float24  __attribute__((ext_vector_type(24)));
 typedef float float48  __attribute__((ext_vector_type(48)));
+
+typedef double double12  __attribute__((ext_vector_type(12)));
+typedef double double24  __attribute__((ext_vector_type(24)));
+typedef double double48  __attribute__((ext_vector_type(48)));
 
 typedef uint uint12  __attribute__((ext_vector_type(12)));
 typedef uint uint24  __attribute__((ext_vector_type(24)));

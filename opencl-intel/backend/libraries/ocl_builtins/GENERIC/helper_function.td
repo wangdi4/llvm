@@ -204,7 +204,7 @@ let Attrs = [OVERLOADABLE],
       def __ocl_shuffle_transpose_16x16 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_16x16", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
     }
 
-    let Types = [v48i64, v48u64,
+    let Types = [v48i64, v48u64, v48f64,
                  v48i32, v48u32, v48f32,
                  v48i16, v48u16,
                  v48i8,  v48u8] in {
@@ -212,7 +212,7 @@ let Attrs = [OVERLOADABLE],
       def __ocl_shuffle_transpose_16x3 : OclBuiltin<"__ocl_shuffle_transpose_$Arg0BaseType_16x3", (outs gentype:$ret), (ins gentype:$src), [], [], 0, 0>, PRIVATE;
     }
 
-    let Types = [v24i64, v24u64,
+    let Types = [v24i64, v24u64, v24f64,
                  v24i32, v24u32, v24f32,
                  v24i16, v24u16,
                  v24i8,  v24u8] in {
@@ -221,7 +221,7 @@ let Attrs = [OVERLOADABLE],
 
     }
 
-    let Types = [v12i64, v12u64,
+    let Types = [v12i64, v12u64, v12f64,
                  v12i32, v12u32, v12f32,
                  v12i16, v12u16,
                  v12i8,  v12u8] in {

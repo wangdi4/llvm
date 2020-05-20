@@ -561,5 +561,53 @@ namespace intel {
       AttributeList::get(pFunc->getContext(), AttributeList::FunctionIndex, attBuilder);
     pFunc->setAttributes(func_factorial_PAL);
   }
+
+  bool BarrierUtils::isCrossedByBarrier(TInstructionSet & SyncInstructions,
+                                        BasicBlock * ValUsageBB,
+                                        BasicBlock * ValBB) {
+    if (ValUsageBB == ValBB) {
+      // This can happen when pValUsage is a PHINode
+      return false;
+    }
+
+    TBasicBlockSet Predecessors;
+    SmallVector<BasicBlock *, 8> BasicBlocksToHandle;
+    BasicBlocksToHandle.push_back(ValUsageBB);
+
+    while (!BasicBlocksToHandle.empty()) {
+      BasicBlock *BBToHandle = BasicBlocksToHandle.pop_back_val();
+      Instruction *FirstInst = &*(BBToHandle->begin());
+      if (SyncInstructions.count(FirstInst)) {
+        // Found a barrier
+        return true;
+      }
+      for (BasicBlock *Pred : predecessors(BBToHandle)) {
+        if (Pred == ValBB) {
+          // Reached ValBB stop recursive at this direction!
+          continue;
+        }
+        if (Predecessors.count(Pred)) {
+          // Pred was already added to Predecessors
+          continue;
+        }
+        // This is a new predecessor add it to the Predecessors container
+        Predecessors.insert(Pred);
+        // Also add it to the BasicBlocksToHandle to calculate its Predecessors
+        BasicBlocksToHandle.push_back(Pred);
+      }
+    }
+    return false;
+  }
+
+  bool BarrierUtils::isImplicitGID(AllocaInst * AI) {
+    StringRef Name = AI->getName();
+    static std::vector<StringRef> ImplicitGIDs = {
+        "__ocl_dbg_gid0", "__ocl_dbg_gid1", "__ocl_dbg_gid2"};
+    for (auto &GID : ImplicitGIDs) {
+      if (Name.equals(GID))
+        return true;
+    }
+    return false;
+  }
 } // namespace intel
 
