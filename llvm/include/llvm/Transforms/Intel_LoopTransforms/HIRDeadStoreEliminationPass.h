@@ -24,6 +24,7 @@ namespace loopopt {
 
 class HIRDeadStoreEliminationPass
     : public PassInfoMixin<HIRDeadStoreEliminationPass> {
+
 public:
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 };
