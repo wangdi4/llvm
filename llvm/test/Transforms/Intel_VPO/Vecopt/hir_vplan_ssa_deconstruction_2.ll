@@ -176,7 +176,7 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; CHECK-NEXT:  <69>               |   [[PHI_TEMP30]] = [[MERGE_PHI_IN_VEC0]]
 ; CHECK-NEXT:  <70>               |   goto [[BB3]].{{[0-9]+}}
 ; CHECK-NEXT:  <71>               |   [[BB3]].{{[0-9]+}}:
-; CHECK-NEXT:  <72>               |   [[RED_VAR0]] = [[PHI_TEMP30]]  +  [[RED_VAR0]]
+; CHECK-NEXT:  <72>               |   [[RED_VAR0]] = [[PHI_TEMP30]]  +  [[PHI_TEMP0]]
 ; CHECK-NEXT:  <36>               + END LOOP
 ; CHECK-NEXT:  <73>                 [[RED_PHI0]] = @llvm.experimental.vector.reduce.v2.fadd.f32.v4f32([[RED_PHI0]],  [[RED_VAR0]])
 ; CHECK-NEXT:  <0>          END REGION

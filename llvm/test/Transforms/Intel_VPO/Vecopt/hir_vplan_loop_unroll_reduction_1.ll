@@ -12,7 +12,7 @@
 ; }
 
 define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unnamed_addr #0 {
-; CHECK-LABEL:  VPlan after loop unrolling
+; CHECK-LABEL:  VPlan after loop unrolling:
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=4
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%acc.019}
@@ -83,11 +83,11 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; CHECK-NEXT:  <30>                     [[RED_VAR0]] = insertelement [[RED_VAR0]],  [[ACC_0190]],  0
 ; CHECK-NEXT:  <26>                  + DO i1 = 0, 12 * [[TGU0]] + -1, 12   <DO_LOOP> <nounroll> <novectorize>
 ; CHECK-NEXT:  <31>                  |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[A0]])[i1]
-; CHECK-NEXT:  <32>                  |   [[RED_VAR0]] = [[DOTVEC0]]  +  [[RED_VAR0]]
+; CHECK-NEXT:  <32>                  |   [[DOTVEC20:%.*]] = [[DOTVEC0]]  +  [[RED_VAR0]]
 ; CHECK-NEXT:  <33>                  |   [[DOTVEC0]] = (<4 x i32>*)([[A0]])[i1 + 4]
-; CHECK-NEXT:  <34>                  |   [[RED_VAR0]] = [[DOTVEC0]]  +  [[RED_VAR0]]
+; CHECK-NEXT:  <34>                  |   [[DOTVEC40:%.*]] = [[DOTVEC0]]  +  [[DOTVEC20]]
 ; CHECK-NEXT:  <35>                  |   [[DOTVEC0]] = (<4 x i32>*)([[A0]])[i1 + 8]
-; CHECK-NEXT:  <36>                  |   [[RED_VAR0]] = [[DOTVEC0]]  +  [[RED_VAR0]]
+; CHECK-NEXT:  <36>                  |   [[RED_VAR0]] = [[DOTVEC0]]  +  [[DOTVEC40]]
 ; CHECK-NEXT:  <26>                  + END LOOP
 ; CHECK-NEXT:  <37>                     [[ACC_0190]] = @llvm.experimental.vector.reduce.add.v4i32([[RED_VAR0]])
 ; CHECK-NEXT:  <27>               }
@@ -110,11 +110,11 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; VPVALCG-NEXT:  <30>                     [[RED_VAR0]] = insertelement [[RED_VAR0]],  [[ACC_0190]],  0
 ; VPVALCG-NEXT:  <26>                  + DO i1 = 0, 12 * [[TGU0]] + -1, 12   <DO_LOOP> <nounroll> <novectorize>
 ; VPVALCG-NEXT:  <31>                  |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[A0:%.*]])[i1]
-; VPVALCG-NEXT:  <32>                  |   [[RED_VAR0]] = [[DOTVEC0]]  +  [[RED_VAR0]]
+; VPVALCG-NEXT:  <32>                  |   [[DOTVEC20:%.*]] = [[DOTVEC0]]  +  [[RED_VAR0]]
 ; VPVALCG-NEXT:  <33>                  |   [[DOTVEC30:%.*]] = (<4 x i32>*)([[A0]])[i1 + 4]
-; VPVALCG-NEXT:  <34>                  |   [[RED_VAR0]] = [[DOTVEC30]]  +  [[RED_VAR0]]
+; VPVALCG-NEXT:  <34>                  |   [[DOTVEC40:%.*]] = [[DOTVEC30]]  +  [[DOTVEC20]]
 ; VPVALCG-NEXT:  <35>                  |   [[DOTVEC50:%.*]] = (<4 x i32>*)([[A0]])[i1 + 8]
-; VPVALCG-NEXT:  <36>                  |   [[RED_VAR0]] = [[DOTVEC50]]  +  [[RED_VAR0]]
+; VPVALCG-NEXT:  <36>                  |   [[RED_VAR0]] = [[DOTVEC50]]  +  [[DOTVEC40]]
 ; VPVALCG-NEXT:  <26>                  + END LOOP
 ; VPVALCG-NEXT:  <37>                     [[ACC_0190]] = @llvm.experimental.vector.reduce.add.v4i32([[RED_VAR0]])
 ; VPVALCG-NEXT:  <27>               }

@@ -31,11 +31,14 @@
 ; CHECK-NEXT:    %red.var = 0.000000e+00;
 
 ; CHECK:         + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 250> <nounroll> <novectorize>
+; CHECK-NEXT:    |   %.vec1 = undef;
 ; CHECK-NEXT:    |   %add.vec = undef
 ; CHECK-NEXT:    |   %.vec = (<4 x float>*)(@B)[0][i1];
 ; CHECK-NEXT:    |   %wide.cmp. = %.vec > 0.000000e+00;
 ; CHECK-NEXT:    |   %add.vec = %.vec  +  (<4 x float>*)(@C)[0][i1]; Mask = @{%wide.cmp.}
-; CHECK-NEXT:    |   %red.var = %red.var  +  %add.vec; Mask = @{%wide.cmp.}
+; CHECK-NEXT:    |   %.vec1 = %red.var  +  %add.vec; Mask = @{%wide.cmp.}
+; CHECK-NEXT:    |   %select = (%wide.cmp. == <i1 true, i1 true, i1 true, i1 true>) ? %.vec1 : %red.var;
+; CHECK-NEXT:    |   %red.var = %select;
 ; CHECK-NEXT:    + END LOOP
 
 ; CHECK:         %tsum.015 = @llvm.experimental.vector.reduce.v2.fadd.f32.v4f32(%tsum.015,  %red.var);

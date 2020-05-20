@@ -29,12 +29,12 @@
 ; CHECK:           + DO i1 = 0, 1023, 4   <DO_LOOP> <novectorize>
 ; CHECK-NEXT:      |   %conv.vec = sitofp.<4 x i32>.<4 x float>(i1 + <i64 0, i64 1, i64 2, i64 3>);
 ; CHECK-NEXT:      |   %mul.vec = (<4 x float>*)(@b)[0][i1]  *  %conv.vec;
-; CHECK-NEXT:      |   %red.var = %add4  +  %red.var;
+; CHECK-NEXT:      |   %.vec = %add4  +  %red.var;
 ; CHECK-NEXT:      |   %.vec1 = (<4 x float>*)(@a)[0][i1];
-; CHECK-NEXT:      |   %red.var = %red.var  +  %.vec1;
+; CHECK-NEXT:      |   %.vec2 = %.vec  +  %.vec1;
 ; CHECK-NEXT:      |   %.vec3 = (<4 x float>*)(@c)[0][i1];
-; CHECK-NEXT:      |   %red.var = %red.var  +  %.vec3;
-; CHECK-NEXT:      |   %red.var = %red.var  +  %mul.vec;
+; CHECK-NEXT:      |   %.vec4 = %.vec2  +  %.vec3;
+; CHECK-NEXT:      |   %red.var = %.vec4  +  %mul.vec;
 ; CHECK-NEXT:      + END LOOP
 ; CHECK:           %sum.021 = @llvm.experimental.vector.reduce.v2.fadd.f32.v4f32(%sum.021,  %red.var);
 
