@@ -3969,14 +3969,8 @@ bool CompilerInvocation::CreateFromArgs(CompilerInvocation &Res,
     }
   }
 
-<<<<<<< HEAD
-#if !INTEL_CUSTOMIZATION
-  if (Diags.isIgnored(diag::warn_profile_data_misexpect, SourceLocation()))
-=======
   if (!Diags.isIgnored(diag::warn_profile_data_misexpect, SourceLocation()))
->>>>>>> 6d2b75e0887ee87e247756c4d51733616bb2f356
     Res.FrontendOpts.LLVMArgs.push_back("-pgo-warn-misexpect");
-#endif // !INTEL_CUSTOMIZATION
 
   LangOpts.FunctionAlignment =
       getLastArgIntValue(Args, OPT_function_alignment, 0, Diags);
