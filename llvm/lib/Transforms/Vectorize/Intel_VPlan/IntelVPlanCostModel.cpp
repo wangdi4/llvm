@@ -288,26 +288,9 @@ unsigned VPlanCostModel::getLoadStoreCost(const VPInstruction *VPInst) {
       TTI->getMemoryOpCost(Opcode, VecTy,
                            Alignment? Align(Alignment): Align(), AddrSpace);
 
-<<<<<<< HEAD
-  // FIXME: Shouldn't use underlying IR, because at this point it can be
-  // invalid. For instance, vectorizer may decide to generate 32-bit gather
-  // instead of 64-bit, while GEP may have 64-bit index.
-  // There're 2 options to consider:
-  //  1. Rewrite getGatherScatterOpCost so that user will pass index size,
-  //  rather then GEP
-  //  2. Templatize TTI to use VPValue.
-  if (auto GEPInst = getGEP(VPInst)) {
-    return TTI->getGatherScatterOpCost(Opcode, VecTy, GEPInst,
-                                       IsMasked, Alignment);
-  }
-  unsigned BaseCost = TTI->getMemoryOpCost(
-      Opcode, OpTy, Alignment ? Align(Alignment) : Align(), AddrSpace);
-  return VF*BaseCost;
-=======
   return TTI->getGatherScatterOpCost(
     Opcode, VecTy, getLoadStoreIndexSize(VPInst),
     IsMasked, Alignment, AddrSpace);
->>>>>>> 43c0b83faaf0a7c6a6984f7e7637ba884defac03
 }
 
 unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
