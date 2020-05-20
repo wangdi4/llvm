@@ -8984,11 +8984,14 @@ bool SLPVectorizerPass::tryToVectorizePair(Value *A, Value *B, BoUpSLP &R) {
   if (!A || !B)
     return false;
   Value *VL[] = { A, B };
-  return tryToVectorizeList(VL, R, /*UserCost=*/0, true);
+  return tryToVectorizeList(VL, R, true); // INTEL
 }
 
+#if INTEL_CUSTOMIZATION
 bool SLPVectorizerPass::tryToVectorizeList(ArrayRef<Value *> VL, BoUpSLP &R,
-                                           int UserCost, bool AllowReorder) {
+                                           bool AllowReorder,
+                                           ArrayRef<Value *> InsertUses) {
+#endif // INTEL_CUSTOMIZATION
   if (VL.size() < 2)
     return false;
 
@@ -9038,9 +9041,17 @@ bool SLPVectorizerPass::tryToVectorizeList(ArrayRef<Value *> VL, BoUpSLP &R,
   int MinCost = SLPCostThreshold;
 
 #if INTEL_CUSTOMIZATION
-  // This code was deleted in community, but we need it for OptimizationRemark
+  // The following line was deleted in community, but we need it for
+  // OptimizationRemark.
   // Keep track of values that were deleted by vectorizing in the loop below.
   SmallVector<WeakTrackingVH, 8> TrackValues(VL.begin(), VL.end());
+
+  bool compensateUseCost =
+      InsertUses.size() != 0 && llvm::all_of(InsertUses, [](const Value *V) {
+        return V && isa<InsertElementInst>(V);
+      });
+  assert((!compensateUseCost || InsertUses.size() == VL.size()) &&
+         "Each scalar expected to have an associated InsertElement user.");
 #endif // INTEL_CUSTOMIZATION
 
   unsigned NextInst = 0, MaxInst = VL.size();
@@ -9093,14 +9104,50 @@ bool SLPVectorizerPass::tryToVectorizeList(ArrayRef<Value *> VL, BoUpSLP &R,
 #endif // !INTEL_CUSTOMIZATION
 
       R.computeMinimumValueSizes();
-      int Cost = R.getTreeCost() - UserCost;
-      CandidateFound = true;
-      MinCost = std::min(MinCost, Cost);
-
 #if INTEL_CUSTOMIZATION
+      int Cost = R.getTreeCost();
       // Fixes the remark for tiny trees (tested by remarks_not_all_parts.ll).
-      CandidateFound = (Cost < FORBIDEN_TINY_TREE) ? true : false;
+      CandidateFound = Cost < FORBIDEN_TINY_TREE;
+      if (CandidateFound && compensateUseCost) {
+        // TODO: Use TTI's getScalarizationOverhead for sequence of inserts
+        // rather than sum of single inserts as the latter may overestimate
+        // cost. This work should imply improving cost estimation for extracts
+        // that added in for external (for vectorization tree) users,i.e. that
+        // part should also switch to same interface.
+        // For example, in following case SLP adds extracts in order to feed
+        // into external users (inserts), which in turn form sequence to build
+        // an aggregate that was matched:
+        //  %4 = extractelement <4 x i64> %3, i32 0
+        //  %v0 = insertelement <4 x i64> undef, i64 %4, i32 0
+        //  %5 = extractelement <4 x i64> %3, i32 1
+        //  %v1 = insertelement <4 x i64> %v0, i64 %5, i32 1
+        //  %6 = extractelement <4 x i64> %3, i32 2
+        //  %v2 = insertelement <4 x i64> %v1, i64 %6, i32 2
+        //  %7 = extractelement <4 x i64> %3, i32 3
+        //  %v3 = insertelement <4 x i64> %v2, i64 %7, i32 3
+        //
+        // Cost of this entire sequence is currently estimated as sum of per
+        // element extracts minus cost of the aggregate build (sum of per
+        // element inserts). As this whole sequence will be optimized away we
+        // want its cost to be zero. But it is not quite possible using given
+        // approach (at least for X86) because inserts can be more expensive
+        // than extracts for longer vector lengths so the difference tends
+        // to be negative thus adding bias toward favoring vectorization.
+        // Alternative solution could be pattern-match this entire sequence
+        // into a no-op or shuffle.
+        // With current approach if we switch into using new TTI interface
+        // the bias tendency will remain but will be lower.
+        unsigned UserCost = 0;
+        for (unsigned Lane = 0; Lane < OpsWidth; Lane++) {
+          auto *IE = cast<InsertElementInst>(InsertUses[I + Lane]);
+          if (auto *CI = dyn_cast<ConstantInt>(IE->getOperand(2)))
+            UserCost += TTI->getVectorInstrCost(
+                Instruction::InsertElement, IE->getType(), CI->getZExtValue());
+        }
+        Cost -= UserCost;
+      }
 #endif // INTEL_CUSTOMIZATION
+      MinCost = std::min(MinCost, Cost);
 
       if (Cost < -SLPCostThreshold) {
         LLVM_DEBUG(dbgs() << "SLP: Vectorizing list at cost:" << Cost << ".\n");
@@ -10189,48 +10236,20 @@ private:
 /// \return true if it matches.
 static bool findBuildAggregate(Value *LastInsertInst, TargetTransformInfo *TTI,
                                SmallVectorImpl<Value *> &BuildVectorOpds,
-                               int &UserCost) {
+#if INTEL_CUSTOMIZATION
+                               SmallVectorImpl<Value *> &InsertElts) {
+#endif // INTEL_CUSTOMIZATION
   assert((isa<InsertElementInst>(LastInsertInst) ||
           isa<InsertValueInst>(LastInsertInst)) &&
          "Expected insertelement or insertvalue instruction!");
-  UserCost = 0;
   do {
-    // TODO: Use TTI's getScalarizationOverhead for sequence of inserts rather
-    // than sum of single inserts as the latter may overestimate cost.
-    // This work should imply improving cost estimation for extracts that
-    // added in for external (for vectorization tree) users.
-    // For example, in following case all extracts added in order to feed
-    // into external users (inserts), which in turn form sequence to build
-    // an aggregate that we do match here:
-    //  %4 = extractelement <4 x i64> %3, i32 0
-    //  %v0 = insertelement <4 x i64> undef, i64 %4, i32 0
-    //  %5 = extractelement <4 x i64> %3, i32 1
-    //  %v1 = insertelement <4 x i64> %v0, i64 %5, i32 1
-    //  %6 = extractelement <4 x i64> %3, i32 2
-    //  %v2 = insertelement <4 x i64> %v1, i64 %6, i32 2
-    //  %7 = extractelement <4 x i64> %3, i32 3
-    //  %v3 = insertelement <4 x i64> %v2, i64 %7, i32 3
-    //
-    // Cost of this entire sequence is currently estimated as sum of single
-    // extracts (as this aggregate build sequence is an external to
-    // vectorization tree user) minus cost of the aggregate build.
-    // As this whole sequence will be optimized away we want the cost to be
-    // zero. But it is not quite possible using given approach (at least for
-    // X86) because inserts can be more expensive than extracts for longer
-    // vector lengths so the difference turns out not zero in such a case.
-    // Ideally we want to match this entire sequence and treat it as a no-op
-    // (i.e. do not count into final cost at all).
-    // Currently the difference tends to be negative thus adding a bias
-    // toward favoring vectorization. If we switch into using TTI interface
-    // the bias tendency will remain but will be lower.
     Value *InsertedOperand;
-    if (auto *IE = dyn_cast<InsertElementInst>(LastInsertInst)) {
+#if INTEL_CUSTOMIZATION
+    auto *IE = dyn_cast<InsertElementInst>(LastInsertInst);
+    if (IE) {
+#endif // INTEL_CUSTOMIZATION
       InsertedOperand = IE->getOperand(1);
       LastInsertInst = IE->getOperand(0);
-      if (auto *CI = dyn_cast<ConstantInt>(IE->getOperand(2))) {
-        UserCost += TTI->getVectorInstrCost(Instruction::InsertElement,
-                                            IE->getType(), CI->getZExtValue());
-      }
     } else {
       auto *IV = cast<InsertValueInst>(LastInsertInst);
       InsertedOperand = IV->getInsertedValueOperand();
@@ -10238,16 +10257,19 @@ static bool findBuildAggregate(Value *LastInsertInst, TargetTransformInfo *TTI,
     }
     if (isa<InsertElementInst>(InsertedOperand) ||
         isa<InsertValueInst>(InsertedOperand)) {
-      int TmpUserCost;
       SmallVector<Value *, 8> TmpBuildVectorOpds;
+#if INTEL_CUSTOMIZATION
+      SmallVector<Value *, 8> TmpInsertElts;
       if (!findBuildAggregate(InsertedOperand, TTI, TmpBuildVectorOpds,
-                              TmpUserCost))
+                              TmpInsertElts))
         return false;
+      InsertElts.append(TmpInsertElts.rbegin(), TmpInsertElts.rend());
+#endif // INTEL_CUSTOMIZATION
       BuildVectorOpds.append(TmpBuildVectorOpds.rbegin(),
                              TmpBuildVectorOpds.rend());
-      UserCost += TmpUserCost;
     } else {
       BuildVectorOpds.push_back(InsertedOperand);
+      InsertElts.push_back(IE); // INTEL
     }
     if (isa<UndefValue>(LastInsertInst))
       break;
@@ -10257,6 +10279,7 @@ static bool findBuildAggregate(Value *LastInsertInst, TargetTransformInfo *TTI,
       return false;
   } while (true);
   std::reverse(BuildVectorOpds.begin(), BuildVectorOpds.end());
+  std::reverse(InsertElts.begin(), InsertElts.end()); // INTEL
   return true;
 }
 
@@ -10434,26 +10457,34 @@ bool SLPVectorizerPass::vectorizeRootInstruction(PHINode *P, Value *V,
 
 bool SLPVectorizerPass::vectorizeInsertValueInst(InsertValueInst *IVI,
                                                  BasicBlock *BB, BoUpSLP &R) {
-  int UserCost = 0;
   const DataLayout &DL = BB->getModule()->getDataLayout();
   if (!R.canMapToVector(IVI->getType(), DL))
     return false;
 
   SmallVector<Value *, 16> BuildVectorOpds;
-  if (!findBuildAggregate(IVI, TTI, BuildVectorOpds, UserCost))
+#if INTEL_CUSTOMIZATION
+  SmallVector<Value *, 16> BuildVectorInsts;
+  if (!findBuildAggregate(IVI, TTI, BuildVectorOpds, BuildVectorInsts) ||
+      BuildVectorOpds.size() < 2)
     return false;
+#endif // INTEL_CUSTOMIZATION
 
   LLVM_DEBUG(dbgs() << "SLP: array mappable to vector: " << *IVI << "\n");
   // Aggregate value is unlikely to be processed in vector register, we need to
   // extract scalars into scalar registers, so NeedExtraction is set true.
-  return tryToVectorizeList(BuildVectorOpds, R, UserCost);
+#if INTEL_CUSTOMIZATION
+  return tryToVectorizeList(BuildVectorOpds, R, false, BuildVectorInsts);
+#endif // INTEL_CUSTOMIZATION
 }
 
 bool SLPVectorizerPass::vectorizeInsertElementInst(InsertElementInst *IEI,
                                                    BasicBlock *BB, BoUpSLP &R) {
-  int UserCost;
   SmallVector<Value *, 16> BuildVectorOpds;
-  if (!findBuildAggregate(IEI, TTI, BuildVectorOpds, UserCost) ||
+#if INTEL_CUSTOMIZATION
+  SmallVector<Value *, 16> BuildVectorInsts;
+  if (!findBuildAggregate(IEI, TTI, BuildVectorOpds, BuildVectorInsts) ||
+      BuildVectorOpds.size() < 2 ||
+#endif // INTEL_CUSTOMIZATION
       (llvm::all_of(BuildVectorOpds,
                     [](Value *V) { return isa<ExtractElementInst>(V); }) &&
        isShuffle(BuildVectorOpds)))
@@ -10461,7 +10492,9 @@ bool SLPVectorizerPass::vectorizeInsertElementInst(InsertElementInst *IEI,
 
   // Vectorize starting with the build vector operands ignoring the BuildVector
   // instructions for the purpose of scheduling and user extraction.
-  return tryToVectorizeList(BuildVectorOpds, R, UserCost);
+#if INTEL_CUSTOMIZATION
+  return tryToVectorizeList(BuildVectorOpds, R, false, BuildVectorInsts);
+#endif // INTEL_CUSTOMIZATION
 }
 
 bool SLPVectorizerPass::vectorizeCmpInst(CmpInst *CI, BasicBlock *BB,
@@ -10539,8 +10572,10 @@ bool SLPVectorizerPass::vectorizeChainsInBlock(BasicBlock *BB, BoUpSLP &R) {
       // is done when there are exactly two elements since tryToVectorizeList
       // asserts that there are only two values when AllowReorder is true.
       bool AllowReorder = NumElts == 2;
-      if (NumElts > 1 && tryToVectorizeList(makeArrayRef(IncIt, NumElts), R,
-                                            /*UserCost=*/0, AllowReorder)) {
+#if INTEL_CUSTOMIZATION
+      if (NumElts > 1 &&
+          tryToVectorizeList(makeArrayRef(IncIt, NumElts), R, AllowReorder)) {
+#endif // INTEL_CUSTOMIZATION
         // Success start over because instructions might have been changed.
         HaveVectorizedPhiNodes = true;
         Changed = true;
