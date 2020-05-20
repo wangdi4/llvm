@@ -12405,7 +12405,6 @@ private:
   bool CheckSystemZBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);
   bool CheckX86BuiltinRoundingOrSAE(unsigned BuiltinID, CallExpr *TheCall);
   bool CheckX86BuiltinGatherScatterScale(unsigned BuiltinID, CallExpr *TheCall);
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
   bool CheckX86BuiltinTileArguments(unsigned BuiltinID, CallExpr *TheCall);
@@ -12420,14 +12419,10 @@ private:
                                             int High = 15);
 #endif // INTEL_FEATURE_ISA_AMX
 #endif // INTEL_CUSTOMIZATION
-  bool CheckX86BuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);
-  bool CheckPPCBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);
-=======
   bool CheckX86BuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
                                    CallExpr *TheCall);
   bool CheckPPCBuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
                                    CallExpr *TheCall);
->>>>>>> 81a73fde5cea304d31294fd26c2f051f1685e97c
   bool CheckAMDGCNBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);
 #if INTEL_CUSTOMIZATION
   bool CheckFPGABuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);

@@ -1434,17 +1434,16 @@ bool Sema::CheckTSBuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
     return CheckSystemZBuiltinFunctionCall(BuiltinID, TheCall);
   case llvm::Triple::x86:
   case llvm::Triple::x86_64:
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ICECODE
   case llvm::Triple::x86_icecode:
 #endif // INTEL_FEATURE_ICECODE
 #endif // INTEL_CUSTOMIZATION
-    return CheckX86BuiltinFunctionCall(BuiltinID, TheCall);
+    return CheckX86BuiltinFunctionCall(TI, BuiltinID, TheCall);
   case llvm::Triple::ppc:
   case llvm::Triple::ppc64:
   case llvm::Triple::ppc64le:
-    return CheckPPCBuiltinFunctionCall(BuiltinID, TheCall);
+    return CheckPPCBuiltinFunctionCall(TI, BuiltinID, TheCall);
 #if INTEL_CUSTOMIZATION
   case llvm::Triple::spir:
   case llvm::Triple::spir64:
@@ -1463,13 +1462,6 @@ bool Sema::CheckTSBuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
     return CheckCSABuiltinFunctionCall(BuiltinID, TheCall);
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-    return CheckX86BuiltinFunctionCall(TI, BuiltinID, TheCall);
-  case llvm::Triple::ppc:
-  case llvm::Triple::ppc64:
-  case llvm::Triple::ppc64le:
-    return CheckPPCBuiltinFunctionCall(TI, BuiltinID, TheCall);
->>>>>>> 81a73fde5cea304d31294fd26c2f051f1685e97c
   case llvm::Triple::amdgcn:
     return CheckAMDGCNBuiltinFunctionCall(BuiltinID, TheCall);
   }
