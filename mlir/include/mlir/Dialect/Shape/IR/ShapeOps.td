@@ -14,6 +14,7 @@
 #define SHAPE_OPS
 
 include "mlir/Dialect/Shape/IR/ShapeBase.td"
+include "mlir/Interfaces/ControlFlowInterfaces.td"
 include "mlir/Interfaces/InferTypeOpInterface.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 
@@ -369,7 +370,7 @@ def Shape_ConcatOp : Shape_Op<"concat",
 
 //TODO(tpopp): Move the code below and witnesses to a different file.
 def Shape_AnyOp : Shape_Op<"any",
-    [DeclareOpInterfaceMethods<InferTypeOpInterface>]> {
+    [NoSideEffect, DeclareOpInterfaceMethods<InferTypeOpInterface>]> {
   let summary = "Return any combination of the input shapes.";
   let description = [{
     This operation takes multiple input shapes and returns some combination of
@@ -389,7 +390,7 @@ def Shape_AnyOp : Shape_Op<"any",
   let results = (outs Shape_ShapeType:$result);
 }
 
-def Shape_AssumingAllOp : Shape_Op<"assuming_all", []> {
+def Shape_AssumingAllOp : Shape_Op<"assuming_all", [NoSideEffect]> {
   let summary = "Return a logical AND of all witnesses.";
   let description = [{
     Used to simplify constraints as any single failing precondition is enough
@@ -426,12 +427,16 @@ def Shape_AssumingOp : Shape_Op<"assuming",
     nothing else. They should not exist after a program is fully lowered and
     ready to execute.
   }];
-  let arguments = (ins Shape_WitnessType);
-  let regions = (region SizedRegion<1>:$thenRegion);
+  let arguments = (ins Shape_WitnessType:$witness);
+  let regions = (region SizedRegion<1>:$doRegion);
   let results = (outs Variadic<AnyType>:$results);
+
+  let printer = [{ return ::print(p, *this); }];
+  let parser = [{ return ::parse$cppClass(parser, result); }];
 }
 
-def Shape_AssumingYieldOp : Shape_Op<"assuming_yield", [Terminator]> {
+def Shape_AssumingYieldOp : Shape_Op<"assuming_yield",
+                                     [NoSideEffect, ReturnLike, Terminator]> {
   let summary = "Yield operation";
   let description = [{
     This yield operation represents a return operation within the assert_and_exec
@@ -441,6 +446,11 @@ def Shape_AssumingYieldOp : Shape_Op<"assuming_yield", [Terminator]> {
   }];
 
   let arguments = (ins Variadic<AnyType>:$operands);
+
+  let builders = [
+    OpBuilder<"OpBuilder &builder, OperationState &result",
+    [{ /* nothing to do */ }]>
+  ];
 }
 
 def Shape_CstrBroadcastableOp : Shape_Op<"cstr_broadcastable", []> {
