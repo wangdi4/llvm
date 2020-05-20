@@ -209,6 +209,8 @@ static pi_result mapError(ze_result_t ZeResult) {
     return PI_BUILD_PROGRAM_FAILURE;
   case ZE_RESULT_ERROR_OVERLAPPING_REGIONS:
     return PI_INVALID_OPERATION;
+  case ZE_RESULT_ERROR_MODULE_BUILD_FAILURE:
+    return PI_BUILD_PROGRAM_FAILURE;
   default:
     return PI_ERROR_UNKNOWN;
   }
@@ -1780,24 +1782,21 @@ pi_result piextMemCreateWithNativeHandle(pi_native_handle NativeHandle,
 
 pi_result piProgramCreate(pi_context Context, const void *IL, size_t Length,
                           pi_program *Program) {
-
   assert(Context);
   assert(Program);
-  ze_device_handle_t ZeDevice = Context->Device->ZeDevice;
 
-  ze_module_desc_t ZeModuleDesc = {};
-  ZeModuleDesc.version = ZE_MODULE_DESC_VERSION_CURRENT;
-  ZeModuleDesc.format = ZE_MODULE_FORMAT_IL_SPIRV;
-  ZeModuleDesc.inputSize = Length;
-  ZeModuleDesc.pInputModule = pi_cast<const uint8_t *>(IL);
-  ZeModuleDesc.pBuildFlags = nullptr;
+  // NOTE: the L0 module creation is also building the program, so we are
+  // deferring it until the program is ready to be built in piProgramBuild
+  // and piProgramCompile. Also it is only then we know the build options.
+  //
+  auto PiProgram = new _pi_program(nullptr, Context);
 
-  ze_module_handle_t ZeModule;
-  ZE_CALL(zeModuleCreate(ZeDevice, &ZeModuleDesc, &ZeModule,
-                         0)); // TODO: handle build log
+  // Save the SPIR-V for later build
+  PiProgram->SPIRVLength = Length;
+  PiProgram->SPIRVData = new uint8_t[Length];
+  memcpy(PiProgram->SPIRVData, IL, Length);
 
-  auto ZePiProgram = new _pi_program(ZeModule, Context);
-  *Program = pi_cast<pi_program>(ZePiProgram);
+  *Program = pi_cast<pi_program>(PiProgram);
   return PI_SUCCESS;
 }
 
@@ -1917,13 +1916,7 @@ pi_result piProgramLink(pi_context Context, pi_uint32 NumDevices,
                         void (*PFnNotify)(pi_program Program, void *UserData),
                         void *UserData, pi_program *RetProgram) {
 
-  // TODO: L0 builds the program at the time of piProgramCreate.
-  // But build options are not available at that time, so we must
-  // stop building it there, but move it here. The problem though
-  // is that this would mean moving zeModuleCreate here entirely,
-  // and so L0 module creation would be deferred until
-  // piProgramCompile/piProgramLink/piProgramBuild.
-  //
+  // TODO: L0 does not [yet] support linking so dummy implementation here.
   // See https://gitlab.devtools.intel.com/one-api/level_zero/issues/172
   //
   assert(NumInputPrograms == 1 && InputPrograms);
@@ -1938,32 +1931,40 @@ pi_result piProgramCompile(
     const pi_program *InputHeaders, const char **HeaderIncludeNames,
     void (*PFnNotify)(pi_program Program, void *UserData), void *UserData) {
 
-  // TODO: L0 builds the program at the time of piProgramCreate.
-  // But build options are not available at that time, so we must
-  // stop building it there, but move it here. The problem though
-  // is that this would mean moving zeModuleCreate here entirely,
-  // and so L0 module creation would be deferred until
-  // piProgramCompile/piProgramLink/piProgramBuild.
-  //
-  // See https://gitlab.devtools.intel.com/one-api/level_zero/issues/172
-  //
-  return PI_SUCCESS;
+  // Assert on unsupported arguments.
+  assert(NumInputHeaders == 0);
+  assert(!InputHeaders);
+
+  // There is no support foe linking yet in L0 so "compile" actually
+  // does the "build".
+  return piProgramBuild(
+      Program, NumDevices, DeviceList, Options, PFnNotify, UserData);
 }
 
 pi_result piProgramBuild(pi_program Program, pi_uint32 NumDevices,
                          const pi_device *DeviceList, const char *Options,
                          void (*PFnNotify)(pi_program Program, void *UserData),
                          void *UserData) {
+  assert(Program);
+  assert(NumDevices == 1);
+  assert(DeviceList && DeviceList[0] == Program->Context->Device);
+  assert(!PFnNotify);
+  assert(!UserData);
 
-  // TODO: L0 builds the program at the time of piProgramCreate.
-  // But build options are not available at that time, so we must
-  // stop building it there, but move it here. The problem though
-  // is that this would mean moving zeModuleCreate here entirely,
-  // and so L0 module creation would be deferred until
-  // piProgramCompile/piProgramLink/piProgramBuild.
-  //
-  // See https://gitlab.devtools.intel.com/one-api/level_zero/issues/172
-  //
+  ze_device_handle_t ZeDevice = Program->Context->Device->ZeDevice;
+  assert(Program->SPIRVData);
+
+  ze_module_desc_t ZeModuleDesc = {};
+  ZeModuleDesc.version = ZE_MODULE_DESC_VERSION_CURRENT;
+  ZeModuleDesc.format = ZE_MODULE_FORMAT_IL_SPIRV;
+  ZeModuleDesc.inputSize = Program->SPIRVLength;
+  ZeModuleDesc.pInputModule = Program->SPIRVData;
+  ZeModuleDesc.pBuildFlags = Options;
+
+  // Check that the program wasn't already built.
+  assert(!Program->ZeModule);
+  ZE_CALL(zeModuleCreate(ZeDevice, &ZeModuleDesc, &Program->ZeModule,
+                         &Program->ZeBuildLog));
   return PI_SUCCESS;
 }
 
@@ -1986,6 +1987,14 @@ pi_result piProgramGetBuildInfo(pi_program Program, pi_device Device,
     // with piProgramRegister?
     //
     SET_PARAM_VALUE_STR("");
+  } else if (ParamName == CL_PROGRAM_BUILD_LOG) {
+    assert(Program->ZeBuildLog);
+    size_t LogSize = ParamValueSize;
+    ZE_CALL(zeModuleBuildLogGetString(
+        Program->ZeBuildLog, &LogSize, pi_cast<char*>(ParamValue)));
+    if (ParamValueSizeRet) {
+      *ParamValueSizeRet = LogSize;
+    }
   } else {
     zePrint("piProgramGetBuildInfo: unsupported ParamName\n");
     return PI_INVALID_VALUE;
@@ -2002,6 +2011,8 @@ pi_result piProgramRetain(pi_program Program) {
 pi_result piProgramRelease(pi_program Program) {
   assert(Program);
   if (--(Program->RefCount) == 0) {
+    delete[] Program->SPIRVData;
+    zeModuleBuildLogDestroy(Program->ZeBuildLog);
     // TODO: call zeModuleDestroy for non-interop L0 modules
     delete Program;
   }
@@ -3176,6 +3187,7 @@ static ze_image_region_t getImageRegionHelper(pi_mem Mem, const size_t *Origin,
                                               const size_t *Region) {
 
   assert(Mem && Origin);
+
 #ifndef NDEBUG
   assert(Mem->isImage());
   auto Image = static_cast<_pi_image *>(Mem);

@@ -17,6 +17,7 @@
 
 #include "llvm/Transforms/Vectorize/IntelVPlanFunctionVectorizer.h"
 
+#include "IntelVPlanAllZeroBypass.h"
 #include "IntelVPlanCFGBuilder.h"
 #include "IntelVPlanLoopCFU.h"
 #include "IntelVPlanLoopExitCanonicalization.h"
@@ -54,6 +55,26 @@ static cl::opt<bool> DumpAfterLoopCFU(
 static cl::opt<bool> DumpAfterPredicator(
     "print-after-vplan-func-vec-predicator",
     cl::desc("Print after Predication for VPlan Function vectorization "),
+    cl::init(false), cl::Hidden);
+
+// FIXME: temporarily add switch to control all-zero bypass insertion
+// due to failing vplan_preserveSSA_after_while_loop_canonicalization.ll.
+// https://git-amr-2.devtools.intel.com/gerrit/#/c/248816/ will address
+// this because it is the same issue.
+static cl::opt<bool> EnableFuncVecAllZeroBypass(
+    "enable-vplan-func-vec-all-zero-bypass",
+    cl::desc("Enable all-zero bypass for VPlan Function vectorization "),
+    cl::init(false), cl::Hidden);
+
+static cl::opt<bool> DumpAfterAllZeroBypass(
+    "print-after-vplan-func-vec-all-zero-bypass",
+    cl::desc("Print after all-zero bypass for VPlan Function vectorization "),
+    cl::init(false), cl::Hidden);
+
+static cl::opt<bool> DotAfterAllZeroBypass(
+    "dot-after-vplan-func-vec-all-zero-bypass",
+    cl::desc("Print VPlan digraph after all zero bypass for VPlan Function "
+             "vectorization "),
     cl::init(false), cl::Hidden);
 
 using namespace llvm;
@@ -114,6 +135,15 @@ public:
     if (DumpAfterPredicator)
       Plan->dump(outs(), true);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+    if (EnableFuncVecAllZeroBypass) {
+      VPlanAllZeroBypass::AllZeroBypassRegionsTy AllZeroBypassRegions;
+      VPlanAllZeroBypass AZB(*Plan);
+      AZB.collectAllZeroBypassRegions(AllZeroBypassRegions);
+      AZB.insertAllZeroBypasses(AllZeroBypassRegions);
+      VPLAN_DUMP(DumpAfterAllZeroBypass, "all zero bypass", *Plan);
+      VPLAN_DOT(DotAfterAllZeroBypass, *Plan);
+    }
 
     return false;
   }

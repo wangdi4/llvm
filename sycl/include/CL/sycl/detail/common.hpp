@@ -99,11 +99,13 @@ static inline std::string codeToString(cl_int code) {
 #define __SYCL_ASSERT(x) assert(x)
 #endif // #ifdef __SYCL_DEVICE_ONLY__
 
+/* INTEL_CUSTOMIZATION */
 #define OCL_ERROR_REPORT                                                       \
-  "OpenCL API failed. " /*__FILE__*/                                           \
+  "Native API failed. " /*__FILE__*/                                           \
   /* TODO: replace __FILE__ to report only relative path*/                     \
   /* ":" STRINGIFY_LINE(__LINE__) ": " */                                      \
-                               "OpenCL API returns: "
+                               "Native API returns: "
+/* end INTEL_CUSTOMIZATION */
 
 #ifndef SYCL_SUPPRESS_OCL_ERROR_REPORT
 #include <iostream>

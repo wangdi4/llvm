@@ -784,7 +784,7 @@ VPBasicBlock *VPBlockUtils::splitEdge(VPBasicBlock *From, VPBasicBlock *To,
   assert(is_contained(From->getSuccessors(), To) &&
          "From and To do not form an edge!");
   auto *NewBB = new VPBasicBlock(Name, From->getParent());
-  NewBB->setParent(From->getParent());
+  NewBB->insertAfter(From);
   VPBlockUtils::replaceBlockSuccessor(From, To, NewBB);
   VPBlockUtils::replaceBlockPredecessor(To, From, NewBB);
   NewBB->appendPredecessor(From);
