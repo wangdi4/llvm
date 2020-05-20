@@ -4145,21 +4145,6 @@ X86TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
     if (ArgLocs.back().getLocMemOffset() != 0)
       report_fatal_error("any parameter with the inalloca attribute must be "
                          "the only memory argument");
-  } else if (CLI.IsPreallocated) {
-    assert(ArgLocs.back().isMemLoc() &&
-           "cannot use preallocated attribute on a register "
-           "parameter");
-    SmallVector<size_t, 4> PreallocatedOffsets;
-    for (size_t i = 0; i < CLI.OutVals.size(); ++i) {
-      if (CLI.CB->paramHasAttr(i, Attribute::Preallocated)) {
-        PreallocatedOffsets.push_back(ArgLocs[i].getLocMemOffset());
-      }
-    }
-    auto *MFI = DAG.getMachineFunction().getInfo<X86MachineFunctionInfo>();
-    size_t PreallocatedId = MFI->getPreallocatedIdForCallSite(CLI.CB);
-    MFI->setPreallocatedStackSize(PreallocatedId, NumBytes);
-    MFI->setPreallocatedArgOffsets(PreallocatedId, PreallocatedOffsets);
-    NumBytesToPush = 0;
   }
 
   if (!IsSibcall && !IsMustTail)
@@ -4187,9 +4172,9 @@ X86TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   for (unsigned I = 0, OutIndex = 0, E = ArgLocs.size(); I != E;
        ++I, ++OutIndex) {
     assert(OutIndex < Outs.size() && "Invalid Out index");
-    // Skip inalloca/preallocated arguments, they have already been written.
+    // Skip inalloca arguments, they have already been written.
     ISD::ArgFlagsTy Flags = Outs[OutIndex].Flags;
-    if (Flags.isInAlloca() || Flags.isPreallocated())
+    if (Flags.isInAlloca())
       continue;
 
     CCValAssign &VA = ArgLocs[I];
@@ -4376,8 +4361,8 @@ X86TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
       assert(VA.isMemLoc());
       SDValue Arg = OutVals[OutsIndex];
       ISD::ArgFlagsTy Flags = Outs[OutsIndex].Flags;
-      // Skip inalloca/preallocated arguments.  They don't require any work.
-      if (Flags.isInAlloca() || Flags.isPreallocated())
+      // Skip inalloca arguments.  They don't require any work.
+      if (Flags.isInAlloca())
         continue;
       // Create frame index.
       int32_t Offset = VA.getLocMemOffset()+FPDiff;
@@ -34031,6 +34016,7 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
       BB->addLiveIn(BasePtr);
     return BB;
   }
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
   case X86::PTDPBSSD:
@@ -34888,6 +34874,8 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     MI.eraseFromParent();
     return BB;
   }
+=======
+>>>>>>> b8cbff51d39b1f96d827adac569b8a64200ea7bb
   }
 }
 
