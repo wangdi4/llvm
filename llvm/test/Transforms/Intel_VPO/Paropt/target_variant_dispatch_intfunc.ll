@@ -1,7 +1,7 @@
-; RUN: opt -vpo-paropt-prepare -S < %s | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -S | FileCheck %s
-; RUN: opt -vpo-paropt-prepare -S -vpo-paropt-use-raw-dev-ptr < %s | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -S -vpo-paropt-use-raw-dev-ptr | FileCheck %s
+; RUN: opt -vpo-paropt-prepare -S -vpo-paropt-use-interop=false < %s | FileCheck %s
+; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -S -vpo-paropt-use-interop=false | FileCheck %s
+; RUN: opt -vpo-paropt-prepare -S -vpo-paropt-use-raw-dev-ptr -vpo-paropt-use-interop=false < %s | FileCheck %s
+; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -S -vpo-paropt-use-raw-dev-ptr -vpo-paropt-use-interop=false | FileCheck %s
 ; Test for TARGET VARIANT DISPATCH construct without a DEVICE clause
 ; and the associated function returns an INT that is used downstream.
 
