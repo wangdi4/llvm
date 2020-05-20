@@ -277,9 +277,7 @@ public:
 
   /// Handle invalidation events in the new pass manager.
   bool invalidate(Module &M, const PreservedAnalyses &PA,
-                  ModuleAnalysisManager::Invalidator &Inv) {
-    return false;
-  }
+                  ModuleAnalysisManager::Invalidator &Inv);
 
 private:
   void addCallInfo(llvm::Instruction *I, dtrans::CallInfo *Info);

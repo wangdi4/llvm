@@ -3044,6 +3044,7 @@ PreservedAnalyses AOSToSOAPass::run(Module &M, ModuleAnalysisManager &AM) {
   // TODO: Mark the actual preserved analyses.
   PreservedAnalyses PA;
   PA.preserve<WholeProgramAnalysis>();
+  PA.abandon<DTransAnalysis>();
   return PA;
 }
 
