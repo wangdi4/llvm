@@ -1399,10 +1399,10 @@ def : ProcessorModel<"tigerlake", SkylakeServerModel,
                      ProcessorFeatures.TGLFeatures>;
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_GLC
-def : ProcessorModel<"goldencove", SkylakeServerModel,
+#if INTEL_FEATURE_CPU_SPR
+def : ProcessorModel<"sapphirerapids", SkylakeServerModel,
                      ProcessorFeatures.IntelAnonymous1Features>;
-#endif // INTEL_FEATURE_CPU_GLC
+#endif // INTEL_FEATURE_CPU_SPR
 #endif // INTEL_CUSTOMIZATION
 
 // AMD CPUs.

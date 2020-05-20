@@ -773,21 +773,24 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
     case 0x85:
       *Type = X86::INTEL_KNM; // knm
       break;
-
-    default: // Unknown family 6 CPU, try to guess.
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_GLC
-      //TODO: detect glc host
-#endif // INTEL_FEATURE_CPU_GLC
+#if INTEL_FEATURE_CPU_SPR
+    //TODO detect SPR host by Model
+#endif // INTEL_FEATURE_CPU_SPR
 #endif // INTEL_CUSTOMIZATION
 
+    default: // Unknown family 6 CPU, try to guess.
       // TODO detect tigerlake host
       if (Features3 & (1 << (X86::FEATURE_AVX512VP2INTERSECT - 64))) {
         *Type = X86::INTEL_COREI7;
         *Subtype = X86::INTEL_COREI7_TIGERLAKE;
         break;
       }
-
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_SPR
+      // TODO detect SPR host by Feature
+#endif // INTEL_FEATURE_CPU_SPR
+#endif // INTEL_CUSTOMIZATION
       if (Features & (1 << X86::FEATURE_AVX512VBMI2)) {
         *Type = X86::INTEL_COREI7;
         *Subtype = X86::INTEL_COREI7_ICELAKE_CLIENT;

@@ -184,11 +184,11 @@ PROC(IcelakeServer, "icelake-server", PROC_64_BIT)
 PROC(Tigerlake, "tigerlake", PROC_64_BIT)
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_GLC
-/// \name Goldencove
-/// Goldencove microarchitecture based processors.
-PROC(Goldencove, "goldencove", PROC_64_BIT)
-#endif // INTEL_FEATURE_CPU_GLC
+#if INTEL_FEATURE_CPU_SPR
+/// \name Sapphire Rapids
+/// Sapphire Rapids microarchitecture based processors.
+PROC(SapphireRapids, "sapphirerapids", PROC_64_BIT)
+#endif // INTEL_FEATURE_CPU_SPR
 #endif // INTEL_CUSTOMIZATION
 
 /// \name Knights Landing

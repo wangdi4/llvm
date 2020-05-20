@@ -218,15 +218,15 @@ bool X86TargetInfo::initFeatureMap(
     goto SkylakeCommon;
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_GLC
-  case CK_Goldencove:
+#if INTEL_FEATURE_CPU_SPR
+  case CK_SapphireRapids:
     for (auto Feature : AnonymousCPU1Features)
       setFeatureEnabledImpl(Features, Feature, true);
     // Add the icelake server features.
     setFeatureEnabledImpl(Features, "pconfig", true);
     setFeatureEnabledImpl(Features, "wbnoinvd", true);
     LLVM_FALLTHROUGH;
-#endif // INTEL_FEATURE_CPU_GLC
+#endif // INTEL_FEATURE_CPU_SPR
 #endif // INTEL_CUSTOMIZATION
   case CK_Tigerlake:
 #if INTEL_CUSTOMIZATION
@@ -1455,9 +1455,9 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   case CK_IcelakeServer:
   case CK_Tigerlake:
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_GLC
-  case CK_Goldencove:
-#endif // INTEL_FEATURE_CPU_GLC
+#if INTEL_FEATURE_CPU_SPR
+  case CK_SapphireRapids:
+#endif // INTEL_FEATURE_CPU_SPR
 #endif // INTEL_CUSTOMIZATION
     // FIXME: Historically, we defined this legacy name, it would be nice to
     // remove it at some point. We've never exposed fine-grained names for
@@ -2603,9 +2603,9 @@ Optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
     case CK_IcelakeServer:
 #if INTEL_CUSTOMIZATION
     case CK_CommonAVX512:
-#if INTEL_FEATURE_CPU_GLC
-    case CK_Goldencove:
-#endif // INTEL_FEATURE_CPU_GLC
+#if INTEL_FEATURE_CPU_SPR
+    case CK_SapphireRapids:
+#endif // INTEL_FEATURE_CPU_SPR
 #endif // INTEL_CUSTOMIZATION
     case CK_KNL:
     case CK_KNM:
