@@ -327,7 +327,6 @@ bool JumpThreading::runOnFunction(Function &F) {
   if (skipFunction(F))
     return false;
   auto TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // If we need structured CFGs, disable jump threading, since it generally
   // tends to destructure them.
@@ -335,10 +334,6 @@ bool JumpThreading::runOnFunction(Function &F) {
   if (TTI->needsStructuredCFG())
     return false;
 #endif
-  // Get DT analysis before LVI. When LVI is initialized it conditionally adds
-  // DT if it's available.
-=======
->>>>>>> 5fae613a4fd3c7aed075a98761bbfde8855b5c3b
   auto DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   auto LVI = &getAnalysis<LazyValueInfoWrapperPass>().getLVI();
   auto AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
@@ -499,14 +494,9 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
   } while (Changed);
 
   LoopHeaders.clear();
-<<<<<<< HEAD
   CountableLoopLatches.clear(); // INTEL
   CountableLoopHeaders.clear(); // INTEL
   // Flush only the Dominator Tree.
-  DTU->getDomTree();
-  LVI->enableDT();
-=======
->>>>>>> 5fae613a4fd3c7aed075a98761bbfde8855b5c3b
   return EverChanged;
 }
 
@@ -2837,19 +2827,11 @@ void JumpThreadingPass::ThreadEdge(
                dbgs() << " " << BB->getName();
              dbgs() << "\n  Ending with" << *RegionBottom << "\n";);
 
-<<<<<<< HEAD
-  if (DTU->hasPendingDomTreeUpdates())
-    LVI->disableDT();
-  else
-    LVI->enableDT();
   // FIXME: This LVI update is not optimal. Removing the PredBB-->RegionTop
   //   edge can make overdefined values computable in any block in the region,
   //   not just RegionBottom. We can generalize the LVI->threadEdge algorithm
   //   to support larger-than-BB thread regions.
   LVI->threadEdge(PredBB, RegionBottom, SuccBB);
-=======
-  LVI->threadEdge(PredBB, BB, SuccBB);
->>>>>>> 5fae613a4fd3c7aed075a98761bbfde8855b5c3b
 
   DenseMap<Instruction*, Value*> ValueMapping;
   DenseMap<BasicBlock*, BasicBlock*> BlockMapping;
