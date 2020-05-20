@@ -327,6 +327,7 @@ bool JumpThreading::runOnFunction(Function &F) {
   if (skipFunction(F))
     return false;
   auto TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // If we need structured CFGs, disable jump threading, since it generally
   // tends to destructure them.
@@ -336,6 +337,8 @@ bool JumpThreading::runOnFunction(Function &F) {
 #endif
   // Get DT analysis before LVI. When LVI is initialized it conditionally adds
   // DT if it's available.
+=======
+>>>>>>> 5fae613a4fd3c7aed075a98761bbfde8855b5c3b
   auto DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   auto LVI = &getAnalysis<LazyValueInfoWrapperPass>().getLVI();
   auto AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
@@ -352,7 +355,7 @@ bool JumpThreading::runOnFunction(Function &F) {
                               std::move(BFI), std::move(BPI));
   if (PrintLVIAfterJumpThreading) {
     dbgs() << "LVI for function '" << F.getName() << "':\n";
-    LVI->printLVI(F, *DT, dbgs());
+    LVI->printLVI(F, DTU.getDomTree(), dbgs());
   }
   return Changed;
 }
@@ -360,8 +363,6 @@ bool JumpThreading::runOnFunction(Function &F) {
 PreservedAnalyses JumpThreadingPass::run(Function &F,
                                          FunctionAnalysisManager &AM) {
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
-  // Get DT analysis before LVI. When LVI is initialized it conditionally adds
-  // DT if it's available.
   auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
   auto &LVI = AM.getResult<LazyValueAnalysis>(F);
   auto &AA = AM.getResult<AAManager>(F);
@@ -498,11 +499,14 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
   } while (Changed);
 
   LoopHeaders.clear();
+<<<<<<< HEAD
   CountableLoopLatches.clear(); // INTEL
   CountableLoopHeaders.clear(); // INTEL
   // Flush only the Dominator Tree.
   DTU->getDomTree();
   LVI->enableDT();
+=======
+>>>>>>> 5fae613a4fd3c7aed075a98761bbfde8855b5c3b
   return EverChanged;
 }
 
@@ -781,11 +785,6 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessorsImpl(
     // able to handle value inequalities better, for example if the compare is
     // "X < 4" and "X < 3" is known true but "X < 4" itself is not available.
     // Perhaps getConstantOnEdge should be smart enough to do this?
-
-    if (DTU->hasPendingDomTreeUpdates())
-      LVI->disableDT();
-    else
-      LVI->enableDT();
     for (BasicBlock *P : predecessors(BB)) {
       // If the value is known by LazyValueInfo to be a constant in a
       // predecessor, use that information to try to thread this block.
@@ -809,10 +808,6 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessorsImpl(
 
   /// If I is a PHI node, then we know the incoming values for any constants.
   if (PHINode *PN = dyn_cast<PHINode>(I)) {
-    if (DTU->hasPendingDomTreeUpdates())
-      LVI->disableDT();
-    else
-      LVI->enableDT();
     for (unsigned i = 0, e = PN->getNumIncomingValues(); i != e; ++i) {
       Value *InVal = PN->getIncomingValue(i);
       if (Constant *KC = getKnownConstant(InVal, Preference)) {
@@ -1007,10 +1002,6 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessorsImpl(
       const DataLayout &DL = PN->getModule()->getDataLayout();
       // We can do this simplification if any comparisons fold to true or false.
       // See if any do.
-      if (DTU->hasPendingDomTreeUpdates())
-        LVI->disableDT();
-      else
-        LVI->enableDT();
       for (unsigned i = 0, e = PN->getNumIncomingValues(); i != e; ++i) {
         BasicBlock *PredBB = PN->getIncomingBlock(i);
         Value *LHS, *RHS;
@@ -1081,10 +1072,6 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessorsImpl(
 
       if (!isa<Instruction>(CmpLHS) ||
           cast<Instruction>(CmpLHS)->getParent() != BB) {
-        if (DTU->hasPendingDomTreeUpdates())
-          LVI->disableDT();
-        else
-          LVI->enableDT();
         for (BasicBlock *P : predecessors(BB)) {
           // If the value is known by LazyValueInfo to be a constant in a
           // predecessor, use that information to try to thread this block.
@@ -1116,10 +1103,6 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessorsImpl(
             match(CmpLHS, m_Add(m_Value(AddLHS), m_ConstantInt(AddConst)))) {
           if (!isa<Instruction>(AddLHS) ||
               cast<Instruction>(AddLHS)->getParent() != BB) {
-            if (DTU->hasPendingDomTreeUpdates())
-              LVI->disableDT();
-            else
-              LVI->enableDT();
             for (BasicBlock *P : predecessors(BB)) {
               // If the value is known by LazyValueInfo to be a ConstantRange in
               // a predecessor, use that information to try to thread this
@@ -1216,10 +1199,6 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessorsImpl(
   }
 
   // If all else fails, see if LVI can figure out a constant value for us.
-  if (DTU->hasPendingDomTreeUpdates())
-    LVI->disableDT();
-  else
-    LVI->enableDT();
   Constant *CI = LVI->getConstant(V, BB, CxtI);
   if (Constant *KC = getKnownConstant(CI, Preference)) {
     for (BasicBlock *Pred : predecessors(BB))
@@ -1382,10 +1361,6 @@ bool JumpThreadingPass::ProcessBlock(BasicBlock *BB) {
       // threading is concerned.
       assert(CondBr->isConditional() && "Threading on unconditional terminator");
 
-      if (DTU->hasPendingDomTreeUpdates())
-        LVI->disableDT();
-      else
-        LVI->enableDT();
       LazyValueInfo::Tristate Ret =
         LVI->getPredicateAt(CondCmp->getPredicate(), CondCmp->getOperand(0),
                             CondConst, CondBr);
@@ -1851,10 +1826,6 @@ Constant *JumpThreadingPass::EvaluateOnPredecessorEdge(BasicBlock *BB,
   // Consult LVI if V is not an instruction in BB or PredBB.
   Instruction *I = dyn_cast<Instruction>(V);
   if (!I || (I->getParent() != BB && I->getParent() != PredBB)) {
-    if (DTU->hasPendingDomTreeUpdates())
-      LVI->disableDT();
-    else
-      LVI->enableDT();
     return LVI->getConstantOnEdge(V, PredPredBB, PredBB, nullptr);
   }
 
@@ -2866,6 +2837,7 @@ void JumpThreadingPass::ThreadEdge(
                dbgs() << " " << BB->getName();
              dbgs() << "\n  Ending with" << *RegionBottom << "\n";);
 
+<<<<<<< HEAD
   if (DTU->hasPendingDomTreeUpdates())
     LVI->disableDT();
   else
@@ -2875,6 +2847,9 @@ void JumpThreadingPass::ThreadEdge(
   //   not just RegionBottom. We can generalize the LVI->threadEdge algorithm
   //   to support larger-than-BB thread regions.
   LVI->threadEdge(PredBB, RegionBottom, SuccBB);
+=======
+  LVI->threadEdge(PredBB, BB, SuccBB);
+>>>>>>> 5fae613a4fd3c7aed075a98761bbfde8855b5c3b
 
   DenseMap<Instruction*, Value*> ValueMapping;
   DenseMap<BasicBlock*, BasicBlock*> BlockMapping;
@@ -3618,10 +3593,6 @@ bool JumpThreadingPass::TryToUnfoldSelect(CmpInst *CondCmp, BasicBlock *BB) {
     // Now check if one of the select values would allow us to constant fold the
     // terminator in BB. We don't do the transform if both sides fold, those
     // cases will be threaded in any case.
-    if (DTU->hasPendingDomTreeUpdates())
-      LVI->disableDT();
-    else
-      LVI->enableDT();
     LazyValueInfo::Tristate LHSFolds =
         LVI->getPredicateOnEdge(CondCmp->getPredicate(), SI->getOperand(1),
                                 CondRHS, Pred, BB, CondCmp);
