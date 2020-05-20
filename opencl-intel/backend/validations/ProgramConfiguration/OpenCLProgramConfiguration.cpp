@@ -70,6 +70,10 @@ OpenCLKernelConfiguration::OpenCLKernelConfiguration(const TiXmlElement& root, c
     if ( m_workDimension < 1 || m_workDimension > 3)
         throw Exception::InvalidArgument("Work dimension is not one of: 1, 2, 3");
     root.Accept(this);
+
+    llvm::SmallString<128> tempDir;
+    llvm::sys::path::system_temp_directory(true, tempDir);
+    m_tempDirectory = tempDir.str().str();
 }
 
 bool OpenCLKernelConfiguration::VisitEnter( const TiXmlElement& element, const TiXmlAttribute* firstAttribute)
@@ -121,7 +125,7 @@ bool OpenCLKernelConfiguration::VisitEnter( const TiXmlElement& element, const T
 
     if( element.ValueStr() == "ReferenceDataFile" )
     {
-        m_referenceFilePath = Utils::GetDataFilePath(element.GetText(), m_baseDirectory);
+        m_referenceFilePath = Utils::GetDataFilePath(element.GetText(), m_tempDirectory);
     }
 
     if( element.ValueStr() == "NeatDataFileType" )
@@ -131,7 +135,7 @@ bool OpenCLKernelConfiguration::VisitEnter( const TiXmlElement& element, const T
 
     if( element.ValueStr() == "NeatDataFile" )
     {
-        m_neatFilePath = Utils::GetDataFilePath(element.GetText(), m_baseDirectory);
+        m_neatFilePath = Utils::GetDataFilePath(element.GetText(), m_tempDirectory);
     }
     if( element.ValueStr() == "OCLKernelDataGeneratorConfig")
     {
@@ -194,7 +198,6 @@ OpenCLProgramConfiguration::OpenCLProgramConfiguration(const string& configFile,
     m_configFile    = configPath.c_str();
     m_baseDirectory = baseDir.empty() ? llvm::sys::path::parent_path(llvm::StringRef(configPath)).str()
                                       : baseDir;
-
 
     TiXmlDocument config(m_configFile);
     if (config.LoadFile())
