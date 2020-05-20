@@ -1140,10 +1140,8 @@ public:
       O << " All-One";
     O << "\\l\"";
   }
-<<<<<<< HEAD
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
-=======
 
   /// Return the mask used by this recipe. Note that a full mask is represented
   /// by a nullptr.
@@ -1152,7 +1150,6 @@ public:
     // Mask is optional.
     return User.getNumOperands() == 1 ? User.getOperand(0) : nullptr;
   }
->>>>>>> 66ad107452893517da93d25e58c16ba4669a00eb
 };
 
 /// VPPredInstPHIRecipe is a recipe for generating the phi nodes needed when
