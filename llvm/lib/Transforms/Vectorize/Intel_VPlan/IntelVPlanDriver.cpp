@@ -219,7 +219,9 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   // The function canVectorize() collects information about induction
   // and reduction variables. It also verifies that the loop vectorization
   // is fully supported.
-  if (!LVL.canVectorize()) {
+  CallInst *RegionEntry =
+      (WRLp == nullptr) ? nullptr : cast<CallInst>(WRLp->getEntryDirective());
+  if (!LVL.canVectorize(*DT, RegionEntry)) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: Cannot prove legality.\n");
 
     // Only bail out if we are generating code, we want to continue if

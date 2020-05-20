@@ -63,5 +63,43 @@ return:
 ; CHECK:  %[[DST:.*]] = bitcast i32* %[[DST_IDX]] to <4 x i32>*
 ; CHECK:  store <4 x i32> %[[LOAD]], <4 x i32>* %[[DST]], align 4
 
+
+
+define dso_local void @test_alias_store_outside_loop() local_unnamed_addr {
+; CHECK: @test_alias_store_outside_loop
+; CHECK-NOT: {{.*}} = alloca <4 x i32>
+entry:
+  %x = alloca i32
+  %y = alloca float*
+  br label %simd.begin.region
+
+simd.begin.region:
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"(i32* %x, float** %y)]
+  br label %simd.loop.preheader
+
+simd.loop.preheader:
+  %cast_src = bitcast i32* %x to float*
+  %cast_dst = bitcast float** %y to i32**
+  store float* %cast_src, float** %y
+  store i32* %x, i32** %cast_dst
+  br label %simd.loop
+
+simd.loop:
+  %index = phi i32 [ 0, %simd.loop.preheader ], [ %indvar, %simd.loop]
+  %ld = load float*, float** %y
+  store float 7.0, float* %cast_src
+;  %ld_dst = load i32*, i32** %cast_dst
+  %indvar = add nuw i32 %index, 1
+  %vl.cond = icmp ult i32 %indvar, 4
+  br i1 %vl.cond, label %simd.loop, label %simd.end.region
+
+simd.end.region:
+  call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
+  br label %return
+
+return:
+  ret void
+}
+
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
