@@ -907,6 +907,40 @@ public:
                            TTI::TargetCostKind CostKind,
                            const Instruction *I = nullptr) {
     assert(!Src->isVoidTy() && "Invalid type");
+
+#if INTEL_CUSTOMIZATION
+    if (StructType *STy = dyn_cast<StructType>(Src)) {
+      unsigned Cost = 0;
+      const DataLayout &DL = this->getDataLayout();
+      const StructLayout *SL = DL.getStructLayout(STy);
+      for (StructType::element_iterator EB = STy->element_begin(), EI = EB,
+                                        EE = STy->element_end();
+           EI != EE; ++EI) {
+        MaybeAlign ElementAlignment =
+            Alignment
+                ? commonAlignment(Alignment, SL->getElementOffset(EI - EB))
+                : Alignment;
+        Cost += static_cast<T *>(this)->getMemoryOpCost(
+            Opcode, *EI, ElementAlignment, AddressSpace, CostKind, I);
+      }
+      return Cost;
+    }
+    // Given an array type, recursively traverse the elements.
+    if (ArrayType *ATy = dyn_cast<ArrayType>(Src)) {
+      unsigned Cost = 0;
+      Type *EltTy = ATy->getElementType();
+      const DataLayout &DL = this->getDataLayout();
+      uint64_t EltSize = DL.getTypeAllocSize(EltTy);
+      for (unsigned i = 0, e = ATy->getNumElements(); i != e; ++i) {
+        MaybeAlign ElementAlignment =
+            Alignment ? commonAlignment(Alignment, i * EltSize) : Alignment;
+        Cost += static_cast<T *>(this)->getMemoryOpCost(
+            Opcode, EltTy, ElementAlignment, AddressSpace, CostKind, I);
+      }
+      return Cost;
+    }
+#endif
+
     std::pair<unsigned, MVT> LT = getTLI()->getTypeLegalizationCost(DL, Src);
 
     // Assuming that all loads of legal types cost 1.
