@@ -66,25 +66,37 @@ VectInfo::VectInfo(Record *record) : m_builtins(4) {
   const Record *pV4Func = record->getValueAsDef("v4Func");
   const Record *pV8Func = record->getValueAsDef("v8Func");
   const Record *pV16Func = record->getValueAsDef("v16Func");
+  const Record *pV32Func = record->getValueAsDef("v32Func");
+  const Record *pV64Func = record->getValueAsDef("v64Func");
+
+  const std::string &v32BuiltinName =
+      pV32Func->getValueAsDef("builtin")->getNameInitAsString();
+  const std::string &v64BuiltinName =
+      pV64Func->getValueAsDef("builtin")->getNameInitAsString();
 
   std::vector<const Record *> funcs = {pV1Func, pV4Func, pV8Func, pV16Func};
-  std::vector<std::vector<Record *>> types(4);
+  size_t numOfVariants = 4;
+  if (v32BuiltinName != "unimplemented") {
+    funcs.push_back(pV32Func);
+    numOfVariants++;
+    if (v64BuiltinName != "unimplemented") {
+      funcs.push_back(pV64Func);
+      numOfVariants++;
+    }
+    m_builtins.resize(numOfVariants);
+  }
+
+  // Get OclType.
+  std::vector<std::vector<Record *>> types(numOfVariants);
   std::transform(
       funcs.begin(), funcs.end(), types.begin(),
       [](const Record *r) { return r->getValueAsListOfDefs("types"); });
-  m_numTypes = types[0].size();
-  assert(m_numTypes > 0 && "No type binds to VectInfo!");
-  std::vector<const Record *> builtins(4);
-  std::transform(funcs.begin(), funcs.end(), builtins.begin(),
-                 [](const Record *r) { return r->getValueAsDef("builtin"); });
-  std::transform(builtins.begin(), builtins.end(), m_builtins.begin(),
-                 [=](const Record *r) {
-                   return builtinDB->getOclBuiltin(r->getNameInitAsString());
-                 });
+  assert(types[0].size() > 0 && "No type binds to VectInfo!");
+
   auto getOclType = [=](const Record *r) {
     return builtinDB->getOclType(r->getNameInitAsString());
   };
-  std::vector<std::vector<const OclType *>> oclTypes(4);
+  std::vector<std::vector<const OclType *>> oclTypes(numOfVariants);
   std::transform(types.begin(), types.end(), oclTypes.begin(),
                  [=](const std::vector<Record *> &rs) {
                    std::vector<const OclType *> ts(rs.size());
@@ -93,36 +105,25 @@ VectInfo::VectInfo(Record *record) : m_builtins(4) {
                  });
 
   m_types = transpose(oclTypes);
+
+  // Get OclBuiltin.
+  std::transform(funcs.begin(), funcs.end(), m_builtins.begin(),
+                 [](const Record *r) {
+                   return builtinDB->getOclBuiltin(
+                       r->getValueAsDef("builtin")->getNameInitAsString());
+                 });
 }
 
 std::ostream &operator<<(std::ostream &output, const VectEntry &Ent) {
-  output << "{\"" << Ent.v1FuncName << "\",\""
-         << VectorVariant{VectEntry::isaClass,
-                          VectEntry::isMasked,
-                          4,
-                          VectEntry::vectorKindEncode,
-                          VectEntry::baseName,
-                          Ent.v4FuncName}
-                .toString()
-         << "\"},\n";
-  output << "{\"" << Ent.v1FuncName << "\",\""
-         << VectorVariant{VectEntry::isaClass,
-                          VectEntry::isMasked,
-                          8,
-                          VectEntry::vectorKindEncode,
-                          VectEntry::baseName,
-                          Ent.v8FuncName}
-                .toString()
-         << "\"},\n";
-  output << "{\"" << Ent.v1FuncName << "\",\""
-         << VectorVariant{VectEntry::isaClass,
-                          VectEntry::isMasked,
-                          16,
-                          VectEntry::vectorKindEncode,
-                          VectEntry::baseName,
-                          Ent.v16FuncName}
-                .toString()
-         << "\"},\n";
+  unsigned numVariants = Ent.funcNames.size();
+  for (unsigned i = 1; i < numVariants; ++i) {
+    output << "{\"" << Ent.funcNames[0] << "\",\""
+           << VectorVariant{VectEntry::isaClass,    VectEntry::isMasked,
+                            (unsigned)2 << i, VectEntry::vectorKindEncode,
+                            VectEntry::baseName,    Ent.funcNames[i]}
+                  .toString()
+           << "\"},\n";
+  }
   return output;
 }
 
@@ -178,8 +179,9 @@ void VectInfoGenerator::generateFunctions(
     const std::vector<const OclBuiltin *> &builtins,
     const std::vector<const OclType *> &types, const SVecVec &funcNames) {
   // Generate dummy builtins.
+  size_t numOfVariants = builtins.size();
   for (auto &aliasName : funcNames) {
-    for (size_t t = 0; t < 4; ++t) {
+    for (size_t t = 0; t < numOfVariants; ++t) {
       const OclBuiltin *pBuiltin = builtins[t];
       const OclType *pType = types[t];
       const std::string &strTy = pType->getName();
@@ -227,9 +229,9 @@ void VectInfoGenerator::run(raw_ostream &os) {
   std::vector<Record *> vectInfos =
       m_RecordKeeper.getAllDerivedDefinitions("VectInfo");
 
-  // Record the num of types within the same Builtins. Since they
-  // share the same vector kind info.
-  std::vector<size_t> numEntries;
+  // Record the num of types and num of variants for the same Builtin.
+  // Since they share the same vector kind info.
+  std::vector<std::pair<size_t, size_t>> numEntries;
 
   for (Record *record : vectInfos) {
     VectInfo vectInfo{record};
@@ -272,7 +274,7 @@ void VectInfoGenerator::run(raw_ostream &os) {
         numEntry += numAliasNames;
       }
     }
-    numEntries.push_back(numEntry);
+    numEntries.emplace_back(numEntry, builtins.size());
   }
   build(m_funcStream.str(), "protos.ll");
   m_funcStream.clear();
@@ -292,23 +294,20 @@ void VectInfoGenerator::run(raw_ostream &os) {
                   funcs[item.first] = funcs[item.second];
                 });
 
-  // Every four functions forms a VectEntry.
   std::stringstream ss;
   auto funcIt = funcs.cbegin(), funcEnd = funcs.cend();
-  for (size_t numEntry : numEntries) {
+  for (const auto &numEntry : numEntries) {
     size_t i = 0;
     decodeParamKind((*funcIt)->getName().str(),
                     (*(funcIt + 1))->getName().str());
-    while (i++ < numEntry) {
-      const std::string &v1FuncName = (*funcIt)->getName().str();
-      funcIt++;
-      const std::string &v4FuncName = (*funcIt)->getName().str();
-      funcIt++;
-      const std::string &v8FuncName = (*funcIt)->getName().str();
-      funcIt++;
-      const std::string &v16FuncName = (*funcIt)->getName().str();
-      funcIt++;
-      ss << VectEntry{v1FuncName, v4FuncName, v8FuncName, v16FuncName};
+    while (i++ < numEntry.first) {
+      size_t j = 0;
+      std::vector<std::string> funcNames;
+      while (j++ < numEntry.second) {
+        funcNames.push_back(std::string((*funcIt)->getName()));
+        funcIt++;
+      }
+      ss << VectEntry{funcNames};
     }
   }
   assert(funcIt == funcEnd &&

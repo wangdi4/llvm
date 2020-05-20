@@ -30,10 +30,7 @@ using BVecVec = VecVec<const OclBuiltin *>;
 using TVecVec = VecVec<const OclType *>;
 
 struct VectEntry {
-  const std::string &v1FuncName;
-  const std::string &v4FuncName;
-  const std::string &v8FuncName;
-  const std::string &v16FuncName;
+  std::vector<std::string> funcNames;
   static std::vector<VectorKind> vectorKindEncode;
   static bool isMasked;
   const static VectorVariant::ISAClass isaClass;
@@ -56,14 +53,15 @@ public:
 
   type_iterator type_end() const { return m_types.cend(); }
 
-  size_t getNumOfTypes() const { return m_numTypes; }
+  size_t getNumOfTypes() const { return m_types.size(); }
 
   bool handleAlias() const { return m_handleAlias; }
 
 private:
   bool m_handleAlias;
-  size_t m_numTypes;
+
   TVecVec m_types;
+
   std::vector<const OclBuiltin *> m_builtins;
 };
 
