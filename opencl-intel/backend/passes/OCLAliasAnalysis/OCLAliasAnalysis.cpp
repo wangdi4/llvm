@@ -32,32 +32,22 @@ using namespace llvm;
 
 namespace intel {
 
-OCL_INITIALIZE_PASS_BEGIN(OCLAliasAnalysis, "ocl-asaa",
-                   "OpenCL Address Space Alias Analysis",
-                   false, true)
-OCL_INITIALIZE_PASS_DEPENDENCY(BasicAAWrapperPass)
-OCL_INITIALIZE_PASS_DEPENDENCY(CFLAndersAAWrapperPass)
-OCL_INITIALIZE_PASS_DEPENDENCY(ExternalAAWrapperPass)
-OCL_INITIALIZE_PASS_DEPENDENCY(GlobalsAAWrapperPass)
-OCL_INITIALIZE_PASS_DEPENDENCY(SCEVAAWrapperPass)
-OCL_INITIALIZE_PASS_DEPENDENCY(ScopedNoAliasAAWrapperPass)
-OCL_INITIALIZE_PASS_DEPENDENCY(TypeBasedAAWrapperPass)
-OCL_INITIALIZE_PASS_END(OCLAliasAnalysis, "ocl-asaa",
+OCL_INITIALIZE_PASS(OCLAliasAnalysis, "ocl-asaa",
                    "OpenCL Address Space Alias Analysis",
                    false, true)
 
 //===----------------------------------------------------------------------===//
 //                     OCLAAACallbackVH Class Implementation
 //===----------------------------------------------------------------------===//
-OCLAAResults::OCLAAACallbackVH::OCLAAACallbackVH(Value *V, OCLAAResults *ocl_aar)
+OCLAAResult::OCLAAACallbackVH::OCLAAACallbackVH(Value *V, OCLAAResult *ocl_aar)
   : CallbackVH(V), OCLAAR(ocl_aar) {}
 
-void OCLAAResults::OCLAAACallbackVH::deleted() {
+void OCLAAResult::OCLAAACallbackVH::deleted() {
   assert(OCLAAR && "OCLAAACallbackVH called with a null OCLAliasAnalysis!");
   OCLAAR->deleteValue(getValPtr());
 }
 
-void OCLAAResults::OCLAAACallbackVH::allUsesReplacedWith(Value *V) {
+void OCLAAResult::OCLAAACallbackVH::allUsesReplacedWith(Value *V) {
   assert(OCLAAR && "OCLAAACallbackVH called with a null OCLAliasAnalysis!");
   // It is not clear if it's safe to call OCLAliasAnalysis::copyValue here
   // as other passes including standart ones might call it.
@@ -70,18 +60,6 @@ void OCLAAResults::OCLAAACallbackVH::allUsesReplacedWith(Value *V) {
 
 void OCLAliasAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
-  AU.addRequired<BasicAAWrapperPass>();
-  AU.addRequired<TargetLibraryInfoWrapperPass>();
-
-  // We also need to mark all the alias analysis passes we will potentially
-  // probe in runOnFunction as used here to ensure the legacy pass manager
-  // preserves them. This hard coding of lists of alias analyses is specific to
-  // the legacy pass manager.
-  AU.addUsedIfAvailable<ScopedNoAliasAAWrapperPass>();
-  AU.addUsedIfAvailable<TypeBasedAAWrapperPass>();
-  AU.addUsedIfAvailable<GlobalsAAWrapperPass>();
-  AU.addUsedIfAvailable<SCEVAAWrapperPass>();
-  AU.addUsedIfAvailable<CFLAndersAAWrapperPass>();
 }
 
 /// [LLVM 3.8 Upgrade] Taken from LLVM and modified.
@@ -96,72 +74,44 @@ void OCLAliasAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
 /// it. While the particular set enabled is configured via commandline flags,
 /// adding a new alias analysis to LLVM will require adding support for it to
 /// this list.
-bool OCLAliasAnalysis::runOnFunction(Function &F) {
-  // NB! This *must* be reset before adding new AA results to the new
-  // AAResults object because in the legacy pass manager, each instance
-  // of these will refer to the *same* immutable analyses, registering and
-  // unregistering themselves with them. We need to carefully tear down the
-  // previous object first, in this case replacing it with an empty one, before
-  // registering new results.
-  auto &TLIWP = getAnalysis<TargetLibraryInfoWrapperPass>();
-  OCLAAR.reset(new OCLAAResults(TLIWP.getTLI(F)));
-
-  // BasicAA is always available for function analyses. Also, we add it first
-  // so that it can trump TBAA results when it proves MustAlias.
-  // FIXME: TBAA should have an explicit mode to support this and then we
-  // should reconsider the ordering here.
-  // if (!DisableBasicAA)
-  OCLAAR->addAAResult(getAnalysis<BasicAAWrapperPass>().getResult());
-
-  // Populate the results with the currently available AAs.
-  if (auto *WrapperPass = getAnalysisIfAvailable<ScopedNoAliasAAWrapperPass>())
-    OCLAAR->addAAResult(WrapperPass->getResult());
-  if (auto *WrapperPass = getAnalysisIfAvailable<TypeBasedAAWrapperPass>())
-    OCLAAR->addAAResult(WrapperPass->getResult());
-  if (auto *WrapperPass = getAnalysisIfAvailable<GlobalsAAWrapperPass>())
-    OCLAAR->addAAResult(WrapperPass->getResult());
-  if (auto *WrapperPass = getAnalysisIfAvailable<SCEVAAWrapperPass>())
-    OCLAAR->addAAResult(WrapperPass->getResult());
-  if (auto *WrapperPass = getAnalysisIfAvailable<CFLAndersAAWrapperPass>())
-    OCLAAR->addAAResult(WrapperPass->getResult());
-
-  // Analyses don't mutate the IR, so return false.
+bool OCLAliasAnalysis::doInitialization(Module &) {
+  OCLAAR.reset(new OCLAAResult());
   return false;
 }
 //===----------------------------------------------------------------------===//
-//                     OCLAAResults Class Implementation
+//                     OCLAAResult Class Implementation
 //===----------------------------------------------------------------------===//
 
-OCLAAResults::OCLAAResults(const TargetLibraryInfo &TLI) : AAResults(TLI) {
+OCLAAResult::OCLAAResult() : AAResultBase() {
   m_disjointAddressSpaces = getAddressSpaceMask(OCLAddressSpace::Private) |
                             getAddressSpaceMask(OCLAddressSpace::Global) |
                             getAddressSpaceMask(OCLAddressSpace::Constant) |
                             getAddressSpaceMask(OCLAddressSpace::Local);
 }
 
-OCLAliasAnalysis::OCLAliasAnalysis() : FunctionPass(ID) {
+OCLAliasAnalysis::OCLAliasAnalysis() : ImmutablePass(ID) {
   initializeOCLAliasAnalysisPass(*PassRegistry::getPassRegistry());
 }
 
-void OCLAAResults::deleteValue(Value *V) {
+void OCLAAResult::deleteValue(Value *V) {
   ValueMap.erase(V);
 }
-void OCLAAResults::copyValue(Value *From, Value *To) {
+void OCLAAResult::copyValue(Value *From, Value *To) {
   // Do nothing, i.e. let new value compute in resolveAddressSpace.
 }
-void OCLAAResults::addEscapingUse(Use &U) {
+void OCLAAResult::addEscapingUse(Use &U) {
   resolveAddressSpace(U.get(), true);
 }
 
-void OCLAAResults::rauwValue(Value* oldVal, Value* newVal) {
+void OCLAAResult::rauwValue(Value* oldVal, Value* newVal) {
   auto it = ValueMap.find_as(oldVal);
   if (it != ValueMap.end())
     ValueMap.insert(std::make_pair(OCLAAACallbackVH(const_cast<Value*>(newVal), this), it->second));
 }
 
-OCLAAResults::ResolveResult
-OCLAAResults::cacheResult(SmallValueSet& values,
-                              ResolveResult resolveResult) {
+OCLAAResult::ResolveResult
+OCLAAResult::cacheResult(SmallValueSet& values,
+                         ResolveResult resolveResult) {
   for (SmallValueSet::iterator it = values.begin(); it != values.end(); ++it) {
     ValueMap.insert(std::make_pair(OCLAAACallbackVH(const_cast<Value*>(*it), this), resolveResult));
   }
@@ -173,7 +123,7 @@ OCLAAResults::cacheResult(SmallValueSet& values,
 // both __local and __private memory, but do not explicitly specify the addrspace.
 // Since we cannot distinguish OpenCL's __private address space from LLVM's default (i.e. no)
 // address space, we do not trust the value's apparent __private address-space and attempt
-// to find the explicit namespace among the value's users and used base address
+// to find the explicit address space among the value's users and used base address
 // value (e.g. the pointer operand of a GEP). If at least one pointer is in __generic address space
 // the OCL AAA can not say for sure that another pointer is in disjoint address space.
 //
@@ -184,14 +134,15 @@ OCLAAResults::cacheResult(SmallValueSet& values,
 // - the pointer is not escaping our analysis via casting to/from int
 // (note that when we do find a non-default address space we don't care if the pointer is casted
 // to/from int as no pointer arithmetic can escape the OpenCL address space).
-OCLAAResults::ResolveResult OCLAAResults::resolveAddressSpace(const Value* value, bool force) {
+OCLAAResult::ResolveResult OCLAAResult::resolveAddressSpace(const Value* value, bool force) {
   std::queue<const Value*> nextPointerValues;
   SmallValueSet visitedPointerValues;
 
-  // Assume this is the default namespace.
+  // Assume this is the default address space.
   Type* type = value->getType();
-  PointerType *pointerType = dyn_cast<PointerType>(type);
-  assert(pointerType && "Value is not of a pointer type");
+  if (VectorType *VecType = dyn_cast<VectorType>(type))
+    type = VecType->getElementType();
+  PointerType *pointerType = cast<PointerType>(type);
   unsigned int addressSpace = pointerType->getAddressSpace();
   // Keep track of whether this pointer originates from or gets casted to an int.
   bool isEscaping = false;
@@ -212,8 +163,9 @@ OCLAAResults::ResolveResult OCLAAResults::resolveAddressSpace(const Value* value
     }
 
     type = pointerValue->getType();
-    pointerType = dyn_cast<PointerType>(type);
-    assert(pointerType && "Value is not of a pointer type");
+    if (VectorType *VecType = dyn_cast<VectorType>(type))
+      type = VecType->getElementType();
+    pointerType = cast<PointerType>(type);
     unsigned int valueAddressSpace = pointerType->getAddressSpace();
 
     if(!isEscaping && addressSpace != valueAddressSpace && valueAddressSpace != OCLAddressSpace::Private && valueAddressSpace != OCLAddressSpace::Generic) {
@@ -224,7 +176,7 @@ OCLAAResults::ResolveResult OCLAAResults::resolveAddressSpace(const Value* value
     }
 
     // Check whether the pointer value stems from or gets casted to an int.
-    if (!isEscaping && (isa<IntToPtrInst>(pointerValue) || isa<PtrToIntInst>(pointerValue)))
+    if (!isEscaping && (isa<IntToPtrInst>(pointerValue)))
       isEscaping = true;
 
     // Mark this value's users to be visited.
@@ -255,8 +207,9 @@ OCLAAResults::ResolveResult OCLAAResults::resolveAddressSpace(const Value* value
 
 // Check aliasing using the fact that in openCL pointers from different
 // memory addresses do not alias.
-AliasResult OCLAAResults::alias(const MemoryLocation &LocA,
-                                                   const MemoryLocation &LocB) {
+AliasResult OCLAAResult::alias(const MemoryLocation &LocA,
+                               const MemoryLocation &LocB,
+                               AAQueryInfo &AAQI) {
   const Value *V1 = LocA.Ptr;
   const Value *V2 = LocB.Ptr;
 
@@ -280,11 +233,11 @@ AliasResult OCLAAResults::alias(const MemoryLocation &LocA,
     }
   }
 
-  return alias(LocA, LocB);
+  return AAResultBase::alias(LocA, LocB, AAQI);
 }
 
-bool OCLAAResults::pointsToConstantMemory(const MemoryLocation &Loc, bool OrLocal) {
-
+bool OCLAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
+                                         AAQueryInfo &AAQI, bool OrLocal) {
   const Value *V = Loc.Ptr;
 
   // Remove casts if exists
@@ -297,7 +250,7 @@ bool OCLAAResults::pointsToConstantMemory(const MemoryLocation &Loc, bool OrLoca
       return true;
   }
 
-  return pointsToConstantMemory(Loc, OrLocal);
+  return AAResultBase::pointsToConstantMemory(Loc, AAQI, OrLocal);
 }
 
 char OCLAliasAnalysis::ID = 0;
@@ -306,7 +259,7 @@ char OCLAliasAnalysis::ID = 0;
 /// Support for static linking of modules for Windows
 /// This pass is called by a modified Opt.exe
 extern "C" {
-  FunctionPass* createOCLAliasAnalysisPass() {
+  ImmutablePass* createOCLAliasAnalysisPass() {
     return new intel::OCLAliasAnalysis();
   }
 }
