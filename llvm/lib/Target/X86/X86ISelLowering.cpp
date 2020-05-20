@@ -34016,7 +34016,6 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
       BB->addLiveIn(BasePtr);
     return BB;
   }
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
   case X86::PTDPBSSD:
@@ -34844,38 +34843,6 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
   }
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
 #endif // INTEL_CUSTOMIZATION
-  case TargetOpcode::PREALLOCATED_SETUP: {
-    assert(Subtarget.is32Bit() && "preallocated only used in 32-bit");
-    auto MFI = MF->getInfo<X86MachineFunctionInfo>();
-    MFI->setHasPreallocatedCall(true);
-    int64_t PreallocatedId = MI.getOperand(0).getImm();
-    size_t StackAdjustment = MFI->getPreallocatedStackSize(PreallocatedId);
-    assert(StackAdjustment != 0 && "0 stack adjustment");
-    LLVM_DEBUG(dbgs() << "PREALLOCATED_SETUP stack adjustment "
-                      << StackAdjustment << "\n");
-    BuildMI(*BB, MI, DL, TII->get(X86::SUB32ri), X86::ESP)
-        .addReg(X86::ESP)
-        .addImm(StackAdjustment);
-    MI.eraseFromParent();
-    return BB;
-  }
-  case TargetOpcode::PREALLOCATED_ARG: {
-    assert(Subtarget.is32Bit() && "preallocated calls only used in 32-bit");
-    int64_t PreallocatedId = MI.getOperand(1).getImm();
-    int64_t ArgIdx = MI.getOperand(2).getImm();
-    auto MFI = MF->getInfo<X86MachineFunctionInfo>();
-    size_t ArgOffset = MFI->getPreallocatedArgOffsets(PreallocatedId)[ArgIdx];
-    LLVM_DEBUG(dbgs() << "PREALLOCATED_ARG arg index " << ArgIdx
-                      << ", arg offset " << ArgOffset << "\n");
-    // stack pointer + offset
-    addRegOffset(
-        BuildMI(*BB, MI, DL, TII->get(X86::LEA32r), MI.getOperand(0).getReg()),
-        X86::ESP, false, ArgOffset);
-    MI.eraseFromParent();
-    return BB;
-  }
-=======
->>>>>>> b8cbff51d39b1f96d827adac569b8a64200ea7bb
   }
 }
 
