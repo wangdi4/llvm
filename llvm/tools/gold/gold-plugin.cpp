@@ -30,10 +30,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Host.h"
-<<<<<<< HEAD
 #include "llvm/Support/intel-plugin-api.h" // INTEL
-=======
->>>>>>> 1219221f9ca165306e13d375e05682241d857c1c
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
