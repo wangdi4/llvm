@@ -33756,6 +33756,12 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     return X86::TMM0_TMM1 + Imm / 2;
   };
 #endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+ auto TMMImmToTMMQuad = [](unsigned Imm) {
+    assert (Imm < 16 && "Illegal tmm quad index.");
+    return X86::TMM0_TMM1_TMM2_TMM3 + Imm / 4;
+  };
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 #endif // INTEL_CUSTOMIZATION
 
   switch (MI.getOpcode()) {
@@ -34733,22 +34739,42 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
 #endif // INTEL_FEATURE_ISA_AMX_TILE_EVEX
 #if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
   case X86::PT2TRANSPOSEW:
-  case X86::PT2TRANSPOSEWT1:{
+  case X86::PT2TRANSPOSEWT1:
+  case X86::PT4RQNTLVBZ0:
+  case X86::PT4RQNTLVBZ0T1:
+  case X86::PT4RQNTLVBZ1:
+  case X86::PT4RQNTLVBZ1T1:
+  case X86::PT4RQNTLVBZ2:
+  case X86::PT4RQNTLVBZ2T1:
+  case X86::PT4RQNTLVBZ3:
+  case X86::PT4RQNTLVBZ3T1: {
     const DebugLoc &DL = MI.getDebugLoc();
     unsigned Opc;
     switch (MI.getOpcode()) {
     default: llvm_unreachable("Unexpected instruction!");
-    case X86::PT2TRANSPOSEW: Opc = X86::T2TRANSPOSEW; break;
+    case X86::PT2TRANSPOSEW:   Opc = X86::T2TRANSPOSEW;   break;
     case X86::PT2TRANSPOSEWT1: Opc = X86::T2TRANSPOSEWT1; break;
+    case X86::PT4RQNTLVBZ0:    Opc = X86::T4RQNTLVBZ0;    break;
+    case X86::PT4RQNTLVBZ0T1:  Opc = X86::T4RQNTLVBZ0T1;  break;
+    case X86::PT4RQNTLVBZ1:    Opc = X86::T4RQNTLVBZ1;    break;
+    case X86::PT4RQNTLVBZ1T1:  Opc = X86::T4RQNTLVBZ1T1;  break;
+    case X86::PT4RQNTLVBZ2:    Opc = X86::T4RQNTLVBZ2;    break;
+    case X86::PT4RQNTLVBZ2T1:  Opc = X86::T4RQNTLVBZ2T1;  break;
+    case X86::PT4RQNTLVBZ3:    Opc = X86::T4RQNTLVBZ3;    break;
+    case X86::PT4RQNTLVBZ3T1:  Opc = X86::T4RQNTLVBZ3T1;  break;
     }
     MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
-    MIB.addReg(TMMImmToTMMPair(MI.getOperand(0).getImm()), RegState::Define);
+    if (Opc == X86::T2TRANSPOSEW || Opc == X86::T2TRANSPOSEWT1)
+      MIB.addReg(TMMImmToTMMPair(MI.getOperand(0).getImm()), RegState::Define);
+    else
+      MIB.addReg(TMMImmToTMMQuad(MI.getOperand(0).getImm()), RegState::Define);
     MIB.add(MI.getOperand(1)); // base
     MIB.add(MI.getOperand(2)); // scale
     MIB.add(MI.getOperand(3)); // index
     MIB.add(MI.getOperand(4)); // displacement
     MIB.add(MI.getOperand(5)); // segment
-    MIB.add(MI.getOperand(6)); // reg
+    if (Opc == X86::T2TRANSPOSEW || Opc == X86::T2TRANSPOSEWT1)
+      MIB.add(MI.getOperand(6)); // reg
     MI.eraseFromParent(); // The pseudo is gone now.
     return BB;
   }

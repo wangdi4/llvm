@@ -40,6 +40,9 @@ protected:
 #if INTEL_FEATURE_ISA_AMX
   void printVTILEPair(const MCInst *MI, unsigned OpNo, raw_ostream &OS);
 #endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+  void printVTILEQuad(const MCInst *MI, unsigned OpNo, raw_ostream &OS);
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 #endif // INTEL_CUSTOMIZATION
 };
 

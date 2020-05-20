@@ -789,6 +789,14 @@ static int readModRM(struct InternalInstruction *insn) {
 #else // INTEL_FEATURE_ISA_AMX_LNC
 #define ZMM16_TYPE_TUPLES(prefix)
 #endif // INTEL_FEATURE_ISA_AMX_LNC
+
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+#define TMM_TYPE_QUAD(prefix)                                                  \
+    case TYPE_TMM_QUAD:                                                        \
+      return prefix##_TMM0_TMM1_TMM2_TMM3 + (index / 4 );
+#else // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+#define TMM_TYPE_QUAD(prefix)
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
@@ -835,6 +843,7 @@ static int readModRM(struct InternalInstruction *insn) {
       return prefix##_XMM0 + index;                                            \
     TMM_TYPE(prefix)                                                           \
     TMM_TYPE_PAIR(prefix)                                                      \
+    TMM_TYPE_QUAD(prefix)                                                      \
     ZMM16_TYPE_TUPLES(prefix)                                                  \
     case TYPE_VK:                                                              \
       index &= 0xf;                                                            \
@@ -2346,6 +2355,9 @@ static bool translateRM(MCInst &mcInst, const OperandSpecifier &operand,
 #if INTEL_FEATURE_ISA_AMX_LNC
   case TYPE_ZMM16_TUPLES:
 #endif // INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+  case TYPE_TMM_QUAD:
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 #endif // INTEL_CUSTOMIZATION
   case TYPE_VK_PAIR:
   case TYPE_VK:

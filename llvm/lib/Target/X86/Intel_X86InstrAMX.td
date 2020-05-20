@@ -1340,6 +1340,62 @@ let Predicates = [HasAMXTRANSPOSE2, In64BitMode] in {
   }
 } // HasAMXTILE, HasAMXTRANSPOSE2
 
+let Predicates = [HasAMXTRANSPOSE2, In64BitMode] in {
+  let SchedRW = [WriteSystem] in {
+    def T4RQNTLVBZ0   : I<0xee, MRMSrcMemFSIB, (outs VTILEQuad:$dst),
+                        (ins i8mem:$src),
+                        "t4rqntlvbz0\t{$src, $dst|$dst, $src}",
+                        []>, VEX, T_MAP5PS;
+    def T4RQNTLVBZ0T1 : I<0xef, MRMSrcMemFSIB, (outs VTILEQuad:$dst),
+                        (ins i8mem:$src),
+                        "t4rqntlvbz0t1\t{$src, $dst|$dst, $src}",
+                        []>, VEX, T_MAP5PS;
+    def T4RQNTLVBZ1   : I<0xee, MRMSrcMemFSIB, (outs VTILEQuad:$dst),
+                        (ins i8mem:$src),
+                        "t4rqntlvbz1\t{$src, $dst|$dst, $src}",
+                        []>, VEX, T_MAP5PD;
+    def T4RQNTLVBZ1T1 : I<0xef, MRMSrcMemFSIB, (outs VTILEQuad:$dst),
+                        (ins i8mem:$src),
+                        "t4rqntlvbz1t1\t{$src, $dst|$dst, $src}",
+                        []>, VEX, T_MAP5PD;
+    def T4RQNTLVBZ2   : I<0xee, MRMSrcMemFSIB, (outs VTILEQuad:$dst),
+                        (ins i8mem:$src),
+                        "t4rqntlvbz2\t{$src, $dst|$dst, $src}",
+                        []>, VEX, T_MAP5XD;
+    def T4RQNTLVBZ2T1 : I<0xef, MRMSrcMemFSIB, (outs VTILEQuad:$dst),
+                        (ins i8mem:$src),
+                        "t4rqntlvbz2t1\t{$src, $dst|$dst, $src}",
+                        []>, VEX, T_MAP5XD;
+    def T4RQNTLVBZ3   : I<0xee, MRMSrcMemFSIB, (outs VTILEQuad:$dst),
+                        (ins i8mem:$src),
+                        "t4rqntlvbz3\t{$src, $dst|$dst, $src}",
+                        []>, VEX, T_MAP5XS;
+    def T4RQNTLVBZ3T1 : I<0xef, MRMSrcMemFSIB, (outs VTILEQuad:$dst),
+                        (ins i8mem:$src),
+                        "t4rqntlvbz3t1\t{$src, $dst|$dst, $src}",
+                        []>, VEX, T_MAP5XS;
+
+    let usesCustomInserter = 1 in {
+      def PT4RQNTLVBZ0   : PseudoI<(outs), (ins u8imm:$dst,
+                                 i8mem:$src1), []>;
+      def PT4RQNTLVBZ0T1 : PseudoI<(outs), (ins u8imm:$dst,
+                                   i8mem:$src1), []>;
+      def PT4RQNTLVBZ1   : PseudoI<(outs), (ins u8imm:$dst,
+                                 i8mem:$src1), []>;
+      def PT4RQNTLVBZ1T1 : PseudoI<(outs), (ins u8imm:$dst,
+                                   i8mem:$src1), []>;
+      def PT4RQNTLVBZ2   : PseudoI<(outs), (ins u8imm:$dst,
+                                 i8mem:$src1), []>;
+      def PT4RQNTLVBZ2T1 : PseudoI<(outs), (ins u8imm:$dst,
+                                   i8mem:$src1), []>;
+      def PT4RQNTLVBZ3   : PseudoI<(outs), (ins u8imm:$dst,
+                                 i8mem:$src1), []>;
+      def PT4RQNTLVBZ3T1 : PseudoI<(outs), (ins u8imm:$dst,
+                                   i8mem:$src1), []>;
+    }
+  }
+}
+
 // end INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 
 // INTEL_FEATURE_ISA_AMX_FP16

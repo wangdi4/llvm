@@ -865,6 +865,16 @@ def ZMM16Tuples : RegisterOperand<VR512> {
   let ParserMatchClass = ZMM16TuplesAsmOperand;
 }
 #endif // INTEL_FEATURE_ISA_AMX_LNC
+
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+let RenderMethod = "addTILEQuadOperands" in {
+  def VTILEQuadAsmOperand : AsmOperandClass { let Name = "VTILEQuad"; }
+}
+
+def VTILEQuad : RegisterOperand<VTILEQUAD, "printVTILEQuad"> {
+  let ParserMatchClass = VTILEQuadAsmOperand;
+}
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 #endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 // X86 Complex Pattern Definitions.
