@@ -2241,18 +2241,73 @@ private:
     // Also, need to be able to handle the special case of:
     //   %143 = load i64, p0 undef
     //
-    // If the load is of the form: %y = load p0, p0 %x, then only propagate a
-    // dereferenced version of %x to %y if it is a pointer type.
+
+    // This lambda function is used for cases where the load is a pointer type,
+    // or may be a pointer type loaded as a pointer-sized int.
     //
-    // Note: We also need to do propagation for a load of a pointer-sized
-    // integer type, because in the instruction "%y = load i64, p0 %x", %x could
-    // be a %struct.test** that has been cast to an i64*.
+    // Case 1) %y = load p0, p0 %x
+    // Case 2) %y = load i64, p0 %x
+    //   If %x is a pointer to a pointer, then the pointer type should be
+    //   propagated to %y.
+    //   If %x is a pointer to an aggregate, this could be an element-zero
+    //   access. If an element-zero can be resolved to a pointer type after
+    //   traversing any nested elements, add that type to %y, and update the
+    //   element pointees on the PointerInfo.
+    //
+    // Case 3) %y = load { p0, p0 }, { p0, p0 }* %x
+    //   In this case, the call sets 'LoadingAggregateType' to indicate the
+    //   structure should not be traversed as a potential zero-element load.
+    //
+    auto PropagateDereferencedType =
+        [](ValueTypeInfo *PointerInfo, ValueTypeInfo *ResultInfo,
+           ValueTypeInfo::ValueAnalysisType Kind, bool LoadingAggregateType) {
+          for (auto *Alias : PointerInfo->getPointerTypeAliasSet(Kind)) {
+            DTransType *PropAlias = nullptr;
+            if (!Alias->isPointerTy())
+              continue;
+
+            PropAlias = Alias->getPointerElementType();
+            if (!LoadingAggregateType && PropAlias->isAggregateType()) {
+              // If the pointer was a pointer to an aggregate and we are not
+              // expecting an aggregate type to be loaded (i.e. an array, such
+              // as [2xi16*], or a literal structure, such as {i32, i32}, then
+              // this could be an element zero load of a pointer within a nested
+              // type. Try to find the type.
+              DTransType *PrevNestedType = nullptr;
+              DTransType *NestedType = PropAlias;
+              while (NestedType && !NestedType->isPointerTy()) {
+                PrevNestedType = NestedType;
+                if (auto *StTy = dyn_cast<DTransStructType>(NestedType))
+                  NestedType = StTy->getFieldType(0);
+                else if (auto *ArTy = dyn_cast<DTransArrayType>(NestedType))
+                  NestedType = ArTy->getElementType();
+                else
+                  NestedType = nullptr;
+              }
+
+              if (PrevNestedType->isAggregateType())
+                PointerInfo->addElementPointee(Kind, PrevNestedType, 0);
+              if (NestedType)
+                ResultInfo->addTypeAlias(Kind, NestedType);
+
+            } else {
+              ResultInfo->addTypeAlias(Kind, PropAlias);
+            }
+          }
+        };
+
     llvm::Type *ValTy = LI->getType();
     bool ExpectPtrType = hasPointerType(ValTy);
     ValueTypeInfo *PointerInfo = PTA.getOrCreateValueTypeInfo(LI, 0);
-    if (ExpectPtrType || ValTy == PTA.getLLVMPointerSizedIntType())
-      propagate(PointerInfo, ResultInfo, true, true, DerefType::DT_PointeeType,
-                ExpectPtrType);
+    bool LoadingAggregateType = ValTy->isAggregateType();
+    if (ExpectPtrType || ValTy == PTA.getLLVMPointerSizedIntType()) {
+      PropagateDereferencedType(PointerInfo, ResultInfo,
+                                ValueTypeInfo::ValueAnalysisType::VAT_Decl,
+                                LoadingAggregateType);
+      PropagateDereferencedType(PointerInfo, ResultInfo,
+                                ValueTypeInfo::ValueAnalysisType::VAT_Use,
+                                LoadingAggregateType);
+    }
 
     // Update the usage type of the pointer argument based on the type
     // of the load instruction if we are loading a known type.
@@ -2276,7 +2331,7 @@ private:
   // When \p Decl is 'true', propagates declared type set.
   // When \p Use is 'true', propagates the usage type set.
   bool propagate(ValueTypeInfo *SrcInfo, ValueTypeInfo *DestInfo, bool Decl,
-                 bool Use, DerefType DerefLevel, bool RequirePtr = false) {
+                 bool Use, DerefType DerefLevel) {
     // Helper routine that will get/create a DTransType to represent with a
     // potential change to level of indirection by at most one level (up or
     // down).
@@ -2313,7 +2368,7 @@ private:
         // unhandled situation because it's possible that we do not have the
         // type because there was not an actual use in the IR where the value
         // gets used as the unexpected level of indirection.
-        if (PropAlias && (!RequirePtr || hasPointerType(PropAlias)))
+        if (PropAlias)
           LocalChanged |= DestInfo->addTypeAlias(Kind, PropAlias);
         else
           LLVM_DEBUG(dbgs() << "Warning: Could not create element of requested "

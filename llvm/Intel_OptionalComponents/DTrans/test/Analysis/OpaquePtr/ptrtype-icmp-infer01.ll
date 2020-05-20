@@ -58,13 +58,16 @@ define void @helper_test01(%struct.test01impl* %in1, i8* %in2) !dtrans_type !1 {
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   %struct.test01*{{ *$}}
+; CHECK-NEXT:   i32 (...)***{{ *$}}
 ; CHECK-NEXT:   void (%struct.test01impl*, i8*)***{{ *$}}
-; CHECK-NEXT: No element pointees.
+; CHECK-NEXT: Element pointees:
+; CHECK-NEXT:   %struct.test01 @ 0
 
 ; CHECK-CUR:  %tmp1009 = load void (%struct.test01*, i8*)**, void (%struct.test01*, i8*)*** %tmp1008
 ; CHECK-FUT:  %tmp1009 = load p0, p0 %tmp1008
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   i32 (...)**{{ *$}}
 ; CHECK-NEXT:   void (%struct.test01impl*, i8*)**{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
@@ -72,6 +75,7 @@ define void @helper_test01(%struct.test01impl* %in1, i8* %in2) !dtrans_type !1 {
 ; CHECK-FUT:  %tmp1010 = getelementptr inbounds p0, p0 %tmp1009, i64 3
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   i32 (...)**{{ *$}}
 ; CHECK-NEXT:   void (%struct.test01impl*, i8*)**{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
@@ -79,6 +83,7 @@ define void @helper_test01(%struct.test01impl* %in1, i8* %in2) !dtrans_type !1 {
 ; CHECK-FUT:  %tmp1011 = load p0, p0 %tmp1010
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   i32 (...)*{{ *$}}
 ; CHECK-NEXT:   void (%struct.test01impl*, i8*)*{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
@@ -86,6 +91,7 @@ define void @helper_test01(%struct.test01impl* %in1, i8* %in2) !dtrans_type !1 {
 ; CHECK-FUT:  %tmp1012 = bitcast p0 %tmp1011 to p0
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   i32 (...)*{{ *$}}
 ; CHECK-NEXT:   void (%struct.test01impl*, i8*)*{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
@@ -93,6 +99,7 @@ define void @helper_test01(%struct.test01impl* %in1, i8* %in2) !dtrans_type !1 {
 ; CHECK-FUT:  %tmp1013 = bitcast p0 @helper_test01 to p0
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   i32 (...)*{{ *$}}
 ; CHECK-NEXT:   void (%struct.test01impl*, i8*)*{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
