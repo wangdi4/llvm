@@ -763,6 +763,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     assert(!Inputs.empty() && "Must have at least one input.");
     addLTOOptions(ToolChain, Args, CmdArgs, Output, Inputs[0],
                   D.getLTOMode() == LTOK_Thin);
+    addIntelOptimizationArgs(ToolChain, Args, CmdArgs, JA); // INTEL
   }
 
   if (Args.hasArg(options::OPT_Z_Xlinker__no_demangle))

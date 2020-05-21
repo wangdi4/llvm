@@ -62,6 +62,13 @@ void addLTOOptions(const ToolChain &ToolChain, const llvm::opt::ArgList &Args,
                    llvm::opt::ArgStringList &CmdArgs, const InputInfo &Output,
                    const InputInfo &Input, bool IsThinLTO);
 
+#if INTEL_CUSTOMIZATION
+void addIntelOptimizationArgs(const ToolChain &TC,
+                              const llvm::opt::ArgList &Args,
+                              llvm::opt::ArgStringList &CmdArgs,
+                              const JobAction &JA);
+#endif // INTEL_CUSTOMIZATION
+
 std::tuple<llvm::Reloc::Model, unsigned, bool>
 ParsePICArgs(const ToolChain &ToolChain, const llvm::opt::ArgList &Args);
 

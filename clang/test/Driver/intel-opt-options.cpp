@@ -19,6 +19,21 @@
 // LAYOUT_TRANS_DEFAULT: "-mllvm" "-irmover-type-merging=false"
 // LAYOUT_TRANS_DEFAULT: "-mllvm" "-spill-freq-boost=true"
 
+// RUN: touch %t.o
+// RUN: %clang -qopt-mem-layout-trans -target x86_64-unknown-linux-gnu -flto -### %t.o 2>&1 \
+// RUN:  | FileCheck -DOPTION=-plugin-opt= -check-prefix=LAYOUT_TRANS_LTO %s
+// RUN: %clang_cl /Qopt-mem-layout-trans -flto -fuse-ld=lld -### %t.o 2>&1 \
+// RUN:  | FileCheck -DOPTION=-mllvm: -check-prefix=LAYOUT_TRANS_LTO %s
+// LAYOUT_TRANS_LTO: "[[OPTION]]-enable-dtrans"
+// LAYOUT_TRANS_LTO: "[[OPTION]]-enable-npm-dtrans"
+// LAYOUT_TRANS_LTO: "[[OPTION]]-dtrans-mem-layout-level=2"
+// LAYOUT_TRANS_LTO: "[[OPTION]]-dtrans-outofboundsok=false"
+// LAYOUT_TRANS_LTO: "[[OPTION]]-dtrans-usecrulecompat=true"
+// LAYOUT_TRANS_LTO: "[[OPTION]]-dtrans-inline-heuristics=true"
+// LAYOUT_TRANS_LTO: "[[OPTION]]-dtrans-partial-inline=true"
+// LAYOUT_TRANS_LTO: "[[OPTION]]-irmover-type-merging=false"
+// LAYOUT_TRANS_LTO: "[[OPTION]]-spill-freq-boost=true"
+
 // RUN: %clang -qopt-mem-layout-trans=3 -### -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=LAYOUT_TRANS_3 %s
 // RUN: %clang_cl -Qopt-mem-layout-trans=3 -### -c %s 2>&1 \

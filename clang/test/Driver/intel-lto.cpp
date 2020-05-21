@@ -8,8 +8,10 @@
 // CHECK_LTO: "-plugin-opt=O2" "-plugin-opt=-intel-libirc-allowed"
 // CHECK_LTO: "-plugin-opt=-dummy-option"
 
-// RUN: %clang_cl --target=x86_64-pc-windows-msvc -flto --intel -fuse-ld=lld -mllvm -dummy-option -### %s 2>&1 \
+// RUN: %clang_cl --target=x86_64-pc-windows-msvc -flto -fuse-ld=lld --intel -mllvm -dummy-option -### %s 2>&1 \
+// RUN: %clang_cl --target=x86_64-pc-windows-msvc -Qipo --intel -mllvm -dummy-option -### %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=CHECK_LTO_WIN %s
 // CHECK_LTO_WIN: lld-link{{.*}} "-mllvm:-mcpu=x86-64"
+// CHECK_LTO_WIN: "-opt:lldlto=2"
 // CHECK_LTO_WIN: "-mllvm:-intel-libirc-allowed"
 // CHECK_LTO_WIN: "-mllvm:-dummy-option"

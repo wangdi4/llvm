@@ -39,7 +39,6 @@
 //   Actual transformation is done by two utils: stripmine and permute
 //   (a.k.a stripmine and interchange)
 
-#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopBlockingPass.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Function.h"
@@ -48,6 +47,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopBlockingPass.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLocalityAnalysis.h"
@@ -56,6 +56,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDUtils.h"
 
+#include "HIRPrintDiag.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGatherer.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGrouping.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
@@ -219,20 +220,12 @@ inline std::array<std::string, NUM_DIAGS> createDiagMap() {
 
 static std::array<std::string, NUM_DIAGS> DiagMap = createDiagMap();
 
-// TODO: Loop Interchange has the same function. Consolidate.
 void printDiag(DiagMsg Msg, StringRef FuncName, const HLLoop *Loop = nullptr,
-               StringRef Header = "No Blocking: ", unsigned Level = 1) {
+               StringRef Header = "No Blocking: ", unsigned DiagLevel = 1) {
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  if (Level > PrintDiagLevel)
-    return;
-  if (!PrintDiagFunc.empty() && !FuncName.equals(PrintDiagFunc)) {
-    return;
-  }
-  dbgs() << "Func: " << FuncName << ", ";
-  dbgs() << Header << " " << DiagMap[Msg] << "\n";
-  if (Loop) {
-    dbgs() << "Loop:" << Loop->getNumber() << "\n";
-  }
+  printDiag(PrintDiagFunc, PrintDiagLevel, DiagMap[Msg], FuncName, Loop, Header,
+            DiagLevel);
 #endif
 }
 
@@ -738,7 +731,8 @@ public:
 ///      from those of median ref.
 class StencilChecker {
 public:
-  StencilChecker(RefGrouper::RefGroupVecTy &Groups, const HLLoop *Innermost, StringRef Func)
+  StencilChecker(RefGrouper::RefGroupVecTy &Groups, const HLLoop *Innermost,
+                 StringRef Func)
       : Groups(Groups), InnermostLoop(Innermost),
         MaxLevel(InnermostLoop->getNestingLevel()), MinLevel(MaxLevel + 1),
         Func(Func){};
@@ -801,7 +795,8 @@ private:
     return MaxLevel >= MinimumLevel;
   }
 
-  bool scanDiffsFromMedian(RefGrouper::RefGroupTy &Group, unsigned &MinimumLevel) {
+  bool scanDiffsFromMedian(RefGrouper::RefGroupTy &Group,
+                           unsigned &MinimumLevel) {
 
     std::nth_element(Group.begin(), Group.begin() + Group.size() / 2,
                      Group.end(), DDRefUtils::compareMemRefAddress);
@@ -1438,8 +1433,7 @@ HLLoop *findLoopNestToBlock(HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
     RefGrouper Grouping(Refs, Groups);
 
     // Try stencil pattern + fixed stripmine sizes.
-    StencilChecker StencilProfitability(Groups, InnermostLoop,
-                                        Func);
+    StencilChecker StencilProfitability(Groups, InnermostLoop, Func);
     if (!StencilProfitability.isStencilForm()) {
       // No hope as a stencil with this innermost loop body.
       printDiag(NO_STENCIL_LOOP, Func, AdjustedHighestAncestor,
