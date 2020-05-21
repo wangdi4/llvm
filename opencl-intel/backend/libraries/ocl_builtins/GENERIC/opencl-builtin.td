@@ -1046,20 +1046,21 @@ class FuncProto<OclBuiltin bi, list<OclType> tys>{
 }
 class ScalarFunc<OclBuiltin bi, list<OclType> tys> : FuncProto<bi, tys>;
 class VectorFunc<OclBuiltin bi, list<OclType> tys, int vf, bit wt> : FuncProto<bi, tys>{
-  let types = !if(wt, !foreach(ty, tys, !cast<OclType>(VectorVTypeSuffixString<ty.BaseCTypeName, !mul(ty.VecLength, vf)>.Value)), tys);
+  let types = !if(!and(wt, !ne(bi.Name, "unimplemented")), !foreach(ty, tys, !cast<OclType>(VectorVTypeSuffixString<ty.BaseCTypeName, !mul(ty.VecLength, vf)>.Value)), tys);
 }
-class VF4Variant<OclBuiltin bi, list<OclType> tys, bit wt> : VectorFunc<bi, tys, 4, wt>;
-class VF8Variant<OclBuiltin bi, list<OclType> tys, bit wt> : VectorFunc<bi, tys, 8, wt>;
-class VF16Variant<OclBuiltin bi, list<OclType> tys, bit wt> : VectorFunc<bi, tys, 16, wt>;
 
-class VectInfo<list<OclType> tys, OclBuiltin v1, OclBuiltin v4, OclBuiltin v8, OclBuiltin v16>{
+def unimplemented : OclBuiltin<"unimplemented", (outs gentype:$ret), (ins gentype:$param ), [v1i8], [], 0, 0>;
+
+class VectInfo<list<OclType> tys, OclBuiltin v1, OclBuiltin v4, OclBuiltin v8, OclBuiltin v16, OclBuiltin v32 = unimplemented, OclBuiltin v64 = unimplemented>{
   list<OclType> Types = tys;
   bit HandleAlias = 1;
   bit NeedWidenTypes = 1;
   ScalarFunc v1Func = ScalarFunc<v1, Types>;
-  VF4Variant v4Func = VF4Variant<v4, Types, NeedWidenTypes>;
-  VF8Variant v8Func = VF8Variant<v8, Types, NeedWidenTypes>;
-  VF16Variant v16Func = VF16Variant<v16, Types, NeedWidenTypes>;
+  VectorFunc v4Func = VectorFunc<v4, Types, 4, NeedWidenTypes>;
+  VectorFunc v8Func = VectorFunc<v8, Types, 8, NeedWidenTypes>;
+  VectorFunc v16Func = VectorFunc<v16, Types, 16, NeedWidenTypes>;
+  VectorFunc v32Func = VectorFunc<v32, Types, 32, NeedWidenTypes>;
+  VectorFunc v64Func = VectorFunc<v64, Types, 64, NeedWidenTypes>;
 }
 
 // TargetImpl

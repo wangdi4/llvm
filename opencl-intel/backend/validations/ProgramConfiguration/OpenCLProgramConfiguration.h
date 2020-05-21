@@ -238,6 +238,9 @@ namespace Validation
         // path to the neat file
         std::string m_neatFilePath;
 
+        // temp directory which stores intermediate output ref/neat files.
+        std::string m_tempDirectory;
+
         // base directory
         std::string m_baseDirectory;
 
