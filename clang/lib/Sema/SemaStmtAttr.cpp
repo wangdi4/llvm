@@ -592,7 +592,6 @@ static int64_t getConstInt(Sema &S, unsigned Idx, const ParsedAttr &A) {
   return ValueAPS.getSExtValue();
 }
 
-<<<<<<< HEAD
 static bool diagOverlapingLevels(Sema &S, int LevelFrom, int LevelTo,
                                  SourceLocation SourceLoc,
                                  int PrevFrom, int PrevTo,
@@ -940,7 +939,6 @@ CheckForRedundantIVDepAttributes(Sema &S,
 
 #endif // INTEL_CUSTOMIZATION
 
-=======
 namespace {
 class CallExprFinder : public ConstEvaluatedExprVisitor<CallExprFinder> {
   bool FoundCallExpr = false;
@@ -980,7 +978,6 @@ static Attr *handleNoMergeAttr(Sema &S, Stmt *St, const ParsedAttr &A,
   return ::new (S.Context) NoMergeAttr(S.Context, A);
 }
 
->>>>>>> 307e85395485e1eff9533b2d7952b16f33ceae38
 static void
 CheckForIncompatibleAttributes(Sema &S,
                                const SmallVectorImpl<const Attr *> &Attrs) {
