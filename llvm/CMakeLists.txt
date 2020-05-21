@@ -1586,6 +1586,9 @@ if (INTEL_CUSTOMIZATION)
         # It should not harm to deploy them always for non-product builds.
         clang_rt.msan-x86_64 clang_rt.msan_cxx-x86_64
         clang_rt.msan-i386 clang_rt.msan_cxx-i386
+        compiler-rt-headers
+        # llvm-symbolizer improves traces from sanitizers.
+        llvm-symbolizer
         )
     endif()
 
