@@ -260,7 +260,7 @@ int ClangFECompilerParseSPIRVTask::ParseSPIRV(
 
   // parse SPIR-V
   std::unique_ptr<llvm::LLVMContext> context(new llvm::LLVMContext());
-  llvm::Module *pModule;
+  llvm::Module *pModule = nullptr;
   std::stringstream inputStream(
       std::string(static_cast<const char *>(m_pProgDesc->pSPIRVContainer),
                   m_pProgDesc->uiSPIRVContainerSize),
@@ -329,18 +329,17 @@ int ClangFECompilerParseSPIRVTask::ParseSPIRV(
     success = !ClangFECompilerMaterializeSPIRVTask(m_pProgDesc)
                    .MaterializeSPIRV(*pModule);
     assert(!verifyModule(*pModule) && "SPIRVMaterializer broke the module!");
+    // serialize to LLVM bitcode
+    llvm::raw_svector_ostream ir_ostream(pResult->getIRBufferRef());
+    llvm::WriteBitcodeToFile(*pModule, ir_ostream);
+
+    pResult->setIRName(std::string(pModule->getName()));
   }
 
-  // setting the result in both sucessful an uncussessful cases
-  // to pass the error log.
-
-  // serialize to LLVM bitcode
-  llvm::raw_svector_ostream ir_ostream(pResult->getIRBufferRef());
-  llvm::WriteBitcodeToFile(*pModule, ir_ostream);
-
+  // setting the result in both successful and unsucceessful cases to pass the
+  // error log.
   pResult->setLog(errorMsg);
   pResult->setIRType(IR_TYPE_COMPILED_OBJECT);
-  pResult->setIRName(std::string(pModule->getName()));
 
   if (pBinaryResult) {
     *pBinaryResult = pResult.release();

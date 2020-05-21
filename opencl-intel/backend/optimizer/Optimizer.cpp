@@ -107,7 +107,7 @@ using TStringToVFState = Intel::OpenCL::DeviceBackend::TStringToVFState;
 
 extern "C"{
 
-void *createInstToFuncCallPass(bool);
+void *createInstToFuncCallPass(const Intel::CPUId *CpuId);
 FunctionPass *createWeightedInstCounter(bool, Intel::CPUId);
 FunctionPass *createScalarizerPass(const Intel::CPUId &CpuId,
                                    bool InVPlanPipeline);
@@ -501,7 +501,7 @@ static void populatePassesPostFailCheck(
   PM.add(createOCLAliasAnalysisPass());
 
   // Should be called before vectorizer!
-  PM.add((llvm::Pass*)createInstToFuncCallPass(HasGatherScatter));
+  PM.add((llvm::Pass*)createInstToFuncCallPass(&pConfig->GetCpuId()));
 
   PM.add(createDuplicateCalledKernelsPass());
 

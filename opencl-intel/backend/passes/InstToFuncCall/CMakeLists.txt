@@ -1,5 +1,7 @@
 set(TARGET_NAME InstToFuncCall)
 
+include_directories(${BACKEND_ROOT_DIR}/arch_headers)
+
 set(TARGET_INCLUDE_FILES
     InstToFuncCall.h
 )
