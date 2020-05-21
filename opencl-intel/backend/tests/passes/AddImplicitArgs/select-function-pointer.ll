@@ -8,6 +8,11 @@
 ; CHECK: %[[SELECT:.*]] = select i1 %{{.*}}, i32 (i32, i32)* %[[ADD]], i32 (i32, i32)* %[[SUB]]
 ; CHECK: %[[BITCAST:.*]] = bitcast i32 (i32, i32)* %[[SELECT]] to i32 (i32, i32,
 ; CHECK: call i32 %[[BITCAST]]
+; CHECK: %[[ADD2:.*]] = bitcast i32 (i32, i32, {{.*}})* @_Z3addii to i32 (i32, i32)*
+; CHECK: %[[SUB2:.*]] = bitcast i32 (i32, i32, {{.*}})* @_Z3subii to i32 (i32, i32)*
+; CHECK: %[[SELECT2:.*]] = select i1 %{{.*}}, i32 (i32, i32)* %[[ADD2]], i32 (i32, i32)* %[[SUB2]]
+; CHECK: %[[BITCAST2:.*]] = bitcast i32 (i32, i32)* %[[SELECT2]] to i32 (i32, i32,
+; CHECK: call i32 %[[BITCAST2]]
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64-unknown-linux-sycldevice"
@@ -51,7 +56,11 @@ entry:
   %arrayidx.i10.i = getelementptr inbounds i32, i32 addrspace(1)* %add.ptr.i15, i64 %7
   %9 = load i32, i32 addrspace(1)* %arrayidx.i10.i, align 4, !tbaa !9
   %call4.i = tail call spir_func i32 %_Z3addii._Z3subii.i(i32 %8, i32 %9), !callees !13
-  store i32 %call4.i, i32 addrspace(1)* %arrayidx.i.i, align 4, !tbaa !9
+  %cmp.i2 = icmp ne i32 %_arg_, 0
+  %_Z3addii._Z3subii.i2 = select i1 %cmp.i2, i32 (i32, i32)* @_Z3addii, i32 (i32, i32)* @_Z3subii
+  %call4.i2 = tail call spir_func i32 %_Z3addii._Z3subii.i2(i32 %8, i32 %9), !callees !13
+  %result = add i32 %call4.i, %call4.i2
+  store i32 %result, i32 addrspace(1)* %arrayidx.i.i, align 4, !tbaa !9
   store i32 %_arg_, i32 addrspace(1)* %add.ptr.i26, align 4, !tbaa !9
   ret void
 }
