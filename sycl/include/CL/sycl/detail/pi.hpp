@@ -223,7 +223,7 @@ void printArgs(Arg0 arg0, Args... args) {
 
 /* INTEL_CUSTOMIZATION */
 template <typename T>
-struct printOut { printOut(T val) { } }; // Do nothing
+struct printOut { printOut(T val) {(void)val;} }; // Do nothing
 
 template<> struct printOut<PiEvent *> {
   printOut(PiEvent *val) {
@@ -402,23 +402,13 @@ template <class To, class From> inline To cast(From value) {
 }
 
 // These conversions should use PI interop API.
-<<<<<<< HEAD
-template <> inline pi::PiProgram cast(cl_program interop) {
+template <> inline pi::PiProgram cast(cl_program) {
   RT::assertion(false, "pi::cast -> use piextCreateProgramWithNativeHandle");
   return {};
 }
 
-template <> inline pi::PiDevice cast(cl_device_id interop) {
-  RT::assertion(false, "pi::cast -> use piextCreateDeviceWithNativeHandle");
-=======
-template <> inline pi::PiProgram cast(cl_program) {
-  RT::assertion(false, "pi::cast -> use piextProgramFromNative");
-  return {};
-}
-
 template <> inline pi::PiDevice cast(cl_device_id) {
-  RT::assertion(false, "pi::cast -> use piextDeviceFromNative");
->>>>>>> e0f59e3a97d81a4d71bb55d267a80d48782b8d71
+  RT::assertion(false, "pi::cast -> use piextCreateDeviceWithNativeHandle");
   return {};
 }
 

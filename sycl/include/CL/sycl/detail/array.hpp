@@ -116,11 +116,8 @@ protected:
                                               PI_INVALID_VALUE);
     }
 #endif
-<<<<<<< HEAD
 #endif // INTEL
-=======
     (void)dimension;
->>>>>>> e0f59e3a97d81a4d71bb55d267a80d48782b8d71
   }
 };
 
