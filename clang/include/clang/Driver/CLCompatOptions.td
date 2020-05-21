@@ -224,6 +224,10 @@ def _SLASH_Qopt_jump_tables : CLFlag<"Qopt-jump-tables">,
   Alias<fjump_tables>, HelpText<"Control the generation of jump tables">;
 def _SLASH_Qopt_jump_tables_ : CLFlag<"Qopt-jump-tables-">,
   Alias<fno_jump_tables>, HelpText<"Do not use jump tables for lowering switches">;
+def _SLASH_Qopt_matmul :CLFlag<"Qopt-matmul">, Alias<qopt_matmul>,
+  HelpText<"Enables compiler-generated Matrix Multiply (matmul) library call">;
+def _SLASH_Qopt_matmul_ :CLFlag<"Qopt-matmul-">, Alias<qno_opt_matmul>,
+  HelpText<"Disables compiler-generated Matrix Multiply (matmul) library call">;
 def _SLASH_Qopt_mem_layout_trans_EQ : CLJoined<"Qopt-mem-layout-trans=">,
   Alias<qopt_mem_layout_trans_EQ>;
 def _SLASH_Qopt_mem_layout_trans : CLFlag<"Qopt-mem-layout-trans">,

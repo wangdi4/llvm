@@ -3960,6 +3960,13 @@ static void RenderDebugOptions(const ToolChain &TC, const Driver &D,
     CmdArgs.push_back("-mllvm");
     CmdArgs.push_back("-dwarf-inlined-strings=Enable");
   }
+
+  if (Args.hasFlag(options::OPT_qopt_matmul,
+                   options::OPT_qno_opt_matmul, false)) {
+    CmdArgs.push_back("-mllvm");
+// TODO: move to addIntelOptimizationArgs
+    CmdArgs.push_back("-disable-hir-generate-mkl-call");
+  }
 #endif // INTEL_CUSTOMIZATION
 
   // -gdwarf-aranges turns on the emission of the aranges section in the
