@@ -26,6 +26,7 @@
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/MDBuilder.h"
+#include "llvm/Support/SaveAndRestore.h"
 
 using namespace clang;
 using namespace CodeGen;
@@ -898,6 +899,7 @@ CodeGenFunction::IntelBlockLoopExprHandler::~IntelBlockLoopExprHandler() {
 #endif // INTEL_CUSTOMIZATION
 
 void CodeGenFunction::EmitAttributedStmt(const AttributedStmt &S) {
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   IntelPragmaInlineState PS(*this, S.getAttrs());
   IntelIVDepArrayHandler IAH(*this, S.getAttrs());
@@ -905,6 +907,15 @@ void CodeGenFunction::EmitAttributedStmt(const AttributedStmt &S) {
   IntelBlockLoopExprHandler IBLH(*this, S.getAttrs());
   IntelFPGALoopFuseHandler ILFH(*this, S.getAttrs());
 #endif // INTEL_CUSTOMIZATION
+=======
+  bool nomerge = false;
+  for (const auto *A: S.getAttrs())
+    if (A->getKind() == attr::NoMerge) {
+      nomerge = true;
+      break;
+    }
+  SaveAndRestore<bool> save_nomerge(InNoMergeAttributedStmt, nomerge);
+>>>>>>> 307e85395485e1eff9533b2d7952b16f33ceae38
   EmitStmt(S.getSubStmt(), S.getAttrs());
 }
 
