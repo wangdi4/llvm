@@ -103,6 +103,11 @@ int default_selector::operator()(const device &dev) const {
   if (dev.is_cpu())
     Score += 300;
 
+#ifndef INTEL_CUSTOMIZATION
+  if (dev.is_host())
+    Score += 100;
+#endif // INTEL_CUSTOMIZATION
+
   return Score;
 }
 
