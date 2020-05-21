@@ -4214,10 +4214,21 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
 
 #if INTEL_CUSTOMIZATION
   case Builtin::BI__notify_intrinsic:
-  case Builtin::BI__notify_zc_intrinsic:
-    // FIXME: not implemented yet.
-    return RValue::get(0);
-#endif  // INTEL_CUSTOMIZATION
+  case Builtin::BI__notify_zc_intrinsic:{
+    Function *F;
+    if (BuiltinID == Builtin::BI__notify_zc_intrinsic) {
+      F = CGM.getIntrinsic(Intrinsic::notify_zc);
+    } else {
+      Builder.CreateFence(llvm::AtomicOrdering::SequentiallyConsistent,
+                          llvm::SyncScope::SingleThread);
+      F = CGM.getIntrinsic(Intrinsic::notify_nzc);
+    }
+    SmallVector<Value*, 2> Args;
+    Args.push_back(EmitScalarExpr(E->getArg(0)));
+    Args.push_back(EmitScalarExpr(E->getArg(1)));
+    return RValue::get(Builder.CreateCall(F, Args));
+  }
+#endif // INTEL_CUSTOMIZATION
     // These builtins exist to emit regular volatile loads and stores not
     // affected by the -fms-volatile setting.
   case Builtin::BI__iso_volatile_load8:

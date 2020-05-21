@@ -963,7 +963,18 @@ def int_annotation : Intrinsic<[llvm_anyint_ty],
 def int_codeview_annotation : Intrinsic<[], [llvm_metadata_ty],
                                         [IntrInaccessibleMemOnly, IntrNoDuplicate, IntrWillReturn],
                                         "llvm.codeview.annotation">;
+#if INTEL_CUSTOMIZATION
+// Intrinsic for zero cost tool annotations, corresponding to __notify_zc_intrinsic
+def int_notify_zc : Intrinsic<[], [llvm_ptr_ty, llvm_ptr_ty],
+                              [IntrInaccessibleMemOnly, IntrNoDuplicate, IntrWillReturn],
+                              "llvm.notify.zc">;
 
+// Intrinsic for non zero cost tool annotations, corresponding to __notify_intrinsic
+def int_notify_nzc : Intrinsic<[], [llvm_ptr_ty, llvm_ptr_ty],
+                              [IntrInaccessibleMemOnly, IntrNoDuplicate, IntrWillReturn],
+                              "llvm.notify.nzc">;
+
+#endif // INTEL_CUSTOMIZATION
 //===------------------------ Trampoline Intrinsics -----------------------===//
 //
 def int_init_trampoline : Intrinsic<[],

@@ -1143,11 +1143,17 @@ public:
     return getOpcode() == TargetOpcode::ANNOTATION_LABEL;
   }
 
-  /// Returns true if the MachineInstr represents a label.
-  bool isLabel() const {
-    return isEHLabel() || isGCLabel() || isAnnotationLabel();
+#if INTEL_CUSTOMIZATION
+  bool isNotifyZCLabel() const {
+    return getOpcode() == TargetOpcode::NOTIFY_LABEL;
   }
 
+  /// Returns true if the MachineInstr represents a label.
+  bool isLabel() const {
+    return isEHLabel() || isGCLabel() || isAnnotationLabel() ||
+           isNotifyZCLabel();
+  }
+#endif // INTEL_CUSTOMIZATION
   bool isCFIInstruction() const {
     return getOpcode() == TargetOpcode::CFI_INSTRUCTION;
   }

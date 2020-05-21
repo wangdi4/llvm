@@ -6550,6 +6550,49 @@ void SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I,
     DAG.setRoot(Res);
     return;
   }
+#if INTEL_CUSTOMIZATION
+  case Intrinsic::notify_zc:
+  case Intrinsic::notify_nzc: {
+    MachineFunction &MF = DAG.getMachineFunction();
+    MachineModuleInfo &MMI = MF.getMMI();
+    enum NotifyType { NotifyZC, NotifyNZC };
+
+    // Emit a label associated with this notify data.
+    // This label also associated with this intrinsic position (probe start).
+    // Emit another label associated with probe end position.
+    MCSymbol *LabelIP, *LabelProbeEnd;
+    SDValue Idx;
+    if (Intrinsic == Intrinsic::notify_zc) {
+      LabelIP = MF.getMMI().getContext().createTempSymbol("notify_zc", true);
+      LabelProbeEnd =
+          MF.getMMI().getContext().createTempSymbol("notify_zc_probe", true);
+      Idx = DAG.getTargetConstant(NotifyZC, sdl, MVT::i8);
+    } else {
+      LabelIP = MF.getMMI().getContext().createTempSymbol("notify_nzc", true);
+      LabelProbeEnd =
+          MF.getMMI().getContext().createTempSymbol("notify_nzc_probe", true);
+      Idx = DAG.getTargetConstant(NotifyNZC, sdl, MVT::i8);
+    }
+
+    // Get the Annotation string.
+    Value *AnnoOp = cast<User>(I.getArgOperand(0))->getOperand(0);
+    Constant *AnnoCst = cast<GlobalVariable>(AnnoOp)->getInitializer();
+    StringRef AnnStr = cast<ConstantDataSequential>(AnnoCst)->getAsCString();
+
+    // MCSymbol *LabelIP;
+    // MCSymbol *ProbeEnd; (ProbeStart = LabelIP)
+    // StringRef Annotation;
+    // unsigned ExprDwarfReg;
+    // Let ExprDwarfReg be 0 first, we will handle it later.
+    MMI.addNotifyAnnotation({LabelIP, LabelProbeEnd, AnnStr, 0});
+
+    Value *Expr = I.getArgOperand(1);
+    Res = DAG.getLabelNode(ISD::NOTIFY_LABEL, sdl, getRoot(),
+                           Idx, getValue(Expr), LabelIP);
+    DAG.setRoot(Res);
+    return;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   case Intrinsic::init_trampoline: {
     const Function *F = cast<Function>(I.getArgOperand(1)->stripPointerCasts());
