@@ -7,18 +7,6 @@
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define <32 x i32> @candidateTest1(<32 x i32>* %x0_ptr, <32 x i32>* %y0_ptr) {
-; CHECK-LABEL: candidateTest1
-; CHECK:       %cmp0 = icmp sgt <32 x i32>
-entry:
-  %x0 = load <32 x i32>, <32 x i32>* %x0_ptr
-  %y0 = load <32 x i32>, <32 x i32>* %y0_ptr
-  %cmp0 = icmp sgt <32 x i32> %x0, %y0
-  %cmp0.broadcast = shufflevector <32 x i1> %cmp0, <32 x i1> undef, <32 x i32> zeroinitializer
-  %res = select <32 x i1> %cmp0.broadcast, <32 x i32> %x0, <32 x i32> %y0
-  ret <32 x i32> %res
-}
-
 ; CMPLRLLVM-19311: Avoid to split instructions chain if it contains supported vector value.
 define <16 x i1> @overSplitTest(<16 x i32>* %x0_ptr, <16 x i32>* %y0_ptr, <16 x i64>* %x1_ptr, <16 x i64>* %y1_ptr) {
 ; CHECK-LABEL: overSplitTest
@@ -236,15 +224,17 @@ entry:
   ret <32 x i1> %res
 }
 
-define void @foo_double(i32* noalias nocapture %result) {
-; CHECK-LABEL: foo_double
+; FIXME: This is a corner case where splitting of double promote ISel to
+; generate mask instructions, but this causes too much register pressure.
+define void @fooDouble(i32* noalias nocapture %result) {
+; CHECK-LABEL: fooDouble
 ; CHECK:       phi <16 x i32>
-; CHECK:       phi <16 x double>
+; CHECK:       phi <8 x double>
 ; CHECK:       phi <16 x i32>
-; CHECK:       phi <16 x i1>
+; CHECK:       phi <8 x i1>
 ; CHECK:       extractelement <16 x i32>{{.*}} i32 0
-; CHECK:       fcmp fast olt <16 x double>
-; CHECK:       and <16 x i1>
+; CHECK:       fcmp fast olt <8 x double>
+; CHECK:       and <8 x i1>
 ; CHECK:       insertelement <16 x i32>{{.*}} i32 0
 ; CHECK-NEXT:  shufflevector <16 x i32>{{.*}} <16 x i32> zeroinitializer
 ; CHECK-NEXT:  icmp sgt <16 x i32>
@@ -314,8 +304,8 @@ then.38:                                          ; preds = %ifmerge.101
   br label %hir.L.1
 }
 
-define void @foo_float(i32* noalias nocapture %result) {
-; CHECK-LABEL: foo_float
+define void @fooFloat(i32* noalias nocapture %result) {
+; CHECK-LABEL: fooFloat
 ; CHECK:       phi <16 x i32>
 ; CHECK:       phi <16 x float>
 ; CHECK:       phi <16 x i32>
@@ -390,4 +380,125 @@ then.38:                                          ; preds = %ifmerge.101
   %24 = fmul fast <32 x float> %5, %5
   %25 = fsub fast <32 x float> %24, %18
   br label %hir.L.1
+}
+
+; A test case similar to mandelbrot-dcg-omp, but this is "double" version.
+; This case is used to test "over split" issue.
+define <32 x i32> @fooDouble2(i32* %m_ptr, <32 x double>* %broadcast.splat77_ptr, <32 x double>* %elmt_ptr) {
+; CHECK-LABEL: fooDouble
+; CHECK:       phi <32 x i32>
+; CHECK:       phi <16 x double>
+; CHECK:       phi i32
+; CHECK:       phi <16 x double>
+; CHECK:       phi <32 x i1>
+; CHECK:       insertelement <16 x i32>{{.*}} i32 0
+; CHECK:       add i32{{.*}} -1
+; CHECK-NEXT:  insertelement <32 x i32>{{.*}} i32 0
+; CHECK-NEXT:  shufflevector <32 x i32>{{.*}} <32 x i32> zeroinitializer
+; CHECK-NEXT:  shufflevector <16 x i32>{{.*}} <16 x i32> zeroinitializer
+; CHECK-NEXT:  icmp sgt <16 x i32>
+; CHECK:       fcmp fast olt <16 x double>
+; CHECK:       and <16 x i1>
+; CHECK:       and <32 x i1>
+; CHECK:       select <32 x i1>
+; CHECK:       bitcast <32 x i1>
+
+entry:
+  %m = load i32, i32* %m_ptr
+  %broadcast.splat77 = load <32 x double>, <32 x double>* %broadcast.splat77_ptr
+  %elmt = load <32 x double>, <32 x double> *%elmt_ptr
+  br label %VPlannedBB68
+
+VPlannedBB68:
+  %vec.phi69 = phi <32 x i32> [ %tmp14, %VPlannedBB68 ], [ undef, %entry ]
+  %vec.phi70 = phi <32 x double> [ %tmp5, %VPlannedBB68 ], [ zeroinitializer, %entry ]
+  %vec.phi71 = phi <32 x double> [ %tmp6, %VPlannedBB68 ], [ zeroinitializer, %entry ]
+  %vec.phi72 = phi <32 x double> [ %tmp2, %VPlannedBB68 ], [ zeroinitializer, %entry ]
+  %uni.phi73 = phi i32 [ %tmp7, %VPlannedBB68 ], [ %m, %entry ]
+  %vec.phi74 = phi <32 x double> [ %tmp4, %VPlannedBB68 ], [ zeroinitializer, %entry ]
+  %vec.phi75 = phi <32 x i1> [ %tmp13, %VPlannedBB68 ], [ <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, %entry ]
+  %broadcast.splatinsert78 = insertelement <32 x i32> undef, i32 %uni.phi73, i32 0
+  %tmp0 = fmul fast <32 x double> %vec.phi74, <double 2.000000e+00, double 2.000000e+00, double 2.000000e+00, double 2.000000e+00, double 2.000000e+00, double 2.000000e+00, double 2.000000e+00, double 2.000000e+00, double 2.000000e+00, double 2.000000e+00, double 2.000000e+00, double 2.000000e+00, double 2.000000e+00, double 2.000000e+00, double 2.000000e+00, double 2.000000e+00, double 2.000000e+00, double 2.000000e+00, double 2.000000e+00, double 2.000000e+00, double 2.000000e+00, double 2.000000e+00, double 2.000000e+00, double 2.000000e+00, double 2.000000e+00, double 2.000000e+00, double 2.000000e+00, double 2.000000e+00, double 2.000000e+00, double 2.000000e+00, double 2.000000e+00, double 2.000000e+00>
+  %tmp1 = fmul fast <32 x double> %tmp0, %vec.phi72
+  %tmp2 = fadd fast <32 x double> %broadcast.splat77, %tmp1
+  %tmp3 = fsub fast <32 x double> %vec.phi71, %vec.phi70
+  %tmp4 = fadd fast <32 x double> %elmt, %tmp3
+  %tmp5 = fmul fast <32 x double> %tmp2, %tmp2
+  %tmp6 = fmul fast <32 x double> %tmp4, %tmp4
+  %tmp7 = add i32 %uni.phi73, -1
+  %broadcast.splatinsert80 = insertelement <32 x i32> undef, i32 %tmp7, i32 0
+  %broadcast.splat81 = shufflevector <32 x i32> %broadcast.splatinsert80, <32 x i32> undef, <32 x i32> zeroinitializer
+  %tmp8 = icmp sgt <32 x i32> %broadcast.splatinsert78, <i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1>
+  %tmp9 = shufflevector <32 x i1> %tmp8, <32 x i1> undef, <32 x i32> zeroinitializer
+  %tmp10 = fadd fast <32 x double> %tmp5, %tmp6
+  %tmp11 = fcmp fast olt <32 x double> %tmp10, <double 4.000000e+00, double 4.000000e+00, double 4.000000e+00, double 4.000000e+00, double 4.000000e+00, double 4.000000e+00, double 4.000000e+00, double 4.000000e+00, double 4.000000e+00, double 4.000000e+00, double 4.000000e+00, double 4.000000e+00, double 4.000000e+00, double 4.000000e+00, double 4.000000e+00, double 4.000000e+00, double 4.000000e+00, double 4.000000e+00, double 4.000000e+00, double 4.000000e+00, double 4.000000e+00, double 4.000000e+00, double 4.000000e+00, double 4.000000e+00, double 4.000000e+00, double 4.000000e+00, double 4.000000e+00, double 4.000000e+00, double 4.000000e+00, double 4.000000e+00, double 4.000000e+00, double 4.000000e+00>
+  %tmp12 = and <32 x i1> %tmp9, %tmp11
+  %tmp13 = and <32 x i1> %tmp12, %vec.phi75
+  %tmp14 = select <32 x i1> %vec.phi75, <32 x i32> %broadcast.splat81, <32 x i32> %vec.phi69
+  %tmp15 = bitcast <32 x i1> %tmp13 to i32
+  %tmp16 = icmp eq i32 %tmp15, 0
+  br i1 %tmp16, label %end, label %VPlannedBB68
+
+end:
+  ret <32 x i32> %tmp14
+}
+
+; A test case similar to mandelbrot-dcg-omp, but this is 64-way version (quad-pumping).
+define <64 x i32> @fooFloat2(i32* %m_ptr, <64 x float>* %broadcast.splat77_ptr, <64 x float>* %elmt_ptr) {
+; CHECK-LABEL: fooFloat2
+; CHECK:       phi <64 x i32>
+; CHECK:       phi <16 x float>
+; CHECK:       phi i32
+; CHECK:       phi <16 x float>
+; CHECK:       phi <64 x i1>
+; CHECK:       insertelement <16 x i32>{{.*}} i32 0
+; CHECK:       add i32{{.*}} -1
+; CHECK-NEXT:  insertelement <64 x i32>{{.*}} i32 0
+; CHECK-NEXT:  shufflevector <64 x i32>{{.*}} <64 x i32> zeroinitializer
+; CHECK-NEXT:  shufflevector <16 x i32>{{.*}} <16 x i32> zeroinitializer
+; CHECK-NEXT:  icmp sgt <16 x i32>
+; CHECK:       fcmp fast olt <16 x float>
+; CHECK:       and <16 x i1>
+; CHECK:       and <64 x i1>
+; CHECK:       select <64 x i1>
+; CHECK:       bitcast <64 x i1>
+
+entry:
+  %m = load i32, i32* %m_ptr
+  %broadcast.splat77 = load <64 x float>, <64 x float>* %broadcast.splat77_ptr
+  %elmt = load <64 x float>, <64 x float> *%elmt_ptr
+  br label %VPlannedBB68
+
+VPlannedBB68:
+  %vec.phi69 = phi <64 x i32> [ %tmp14, %VPlannedBB68 ], [ undef, %entry ]
+  %vec.phi70 = phi <64 x float> [ %tmp5, %VPlannedBB68 ], [ zeroinitializer, %entry ]
+  %vec.phi71 = phi <64 x float> [ %tmp6, %VPlannedBB68 ], [ zeroinitializer, %entry ]
+  %vec.phi72 = phi <64 x float> [ %tmp2, %VPlannedBB68 ], [ zeroinitializer, %entry ]
+  %uni.phi73 = phi i32 [ %tmp7, %VPlannedBB68 ], [ %m, %entry ]
+  %vec.phi74 = phi <64 x float> [ %tmp4, %VPlannedBB68 ], [ zeroinitializer, %entry ]
+  %vec.phi75 = phi <64 x i1> [ %tmp13, %VPlannedBB68 ], [ <i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, %entry ]
+  %broadcast.splatinsert78 = insertelement <64 x i32> undef, i32 %uni.phi73, i32 0
+  %tmp0 = fmul fast <64 x float> %vec.phi74, <float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00, float 2.000000e+00>
+  %tmp1 = fmul fast <64 x float> %tmp0, %vec.phi72
+  %tmp2 = fadd fast <64 x float> %broadcast.splat77, %tmp1
+  %tmp3 = fsub fast <64 x float> %vec.phi71, %vec.phi70
+  %tmp4 = fadd fast <64 x float> %elmt, %tmp3
+  %tmp5 = fmul fast <64 x float> %tmp2, %tmp2
+  %tmp6 = fmul fast <64 x float> %tmp4, %tmp4
+  %tmp7 = add i32 %uni.phi73, -1
+  %broadcast.splatinsert80 = insertelement <64 x i32> undef, i32 %tmp7, i32 0
+  %broadcast.splat81 = shufflevector <64 x i32> %broadcast.splatinsert80, <64 x i32> undef, <64 x i32> zeroinitializer
+  %tmp8 = icmp sgt <64 x i32> %broadcast.splatinsert78, <i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1>
+  %tmp9 = shufflevector <64 x i1> %tmp8, <64 x i1> undef, <64 x i32> zeroinitializer
+  %tmp10 = fadd fast <64 x float> %tmp5, %tmp6
+  %tmp11 = fcmp fast olt <64 x float> %tmp10, <float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00, float 4.000000e+00>
+  %tmp12 = and <64 x i1> %tmp9, %tmp11
+  %tmp13 = and <64 x i1> %tmp12, %vec.phi75
+  %tmp14 = select <64 x i1> %vec.phi75, <64 x i32> %broadcast.splat81, <64 x i32> %vec.phi69
+  %tmp15 = bitcast <64 x i1> %tmp13 to i64
+  %tmp16 = icmp eq i64 %tmp15, 0
+  br i1 %tmp16, label %end, label %VPlannedBB68
+
+end:
+  ret <64 x i32> %tmp14
 }
