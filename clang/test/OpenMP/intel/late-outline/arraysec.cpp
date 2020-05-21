@@ -104,4 +104,31 @@ void arrsecred_arraytwosubscript() {
     y_TwoSub[2][4] += 1;
   }
 }
+
+void doSomething();
+
+// Test equivalence of array subscript and length one array section.
+//CHECK-LABEL: arraysec_depend_length_one
+void arraysec_depend_length_one()
+{
+  int i = 10;
+  char*a, *b, *c, d;
+  a = &d; b = &d; c = &d;
+  //CHECK: "DIR.OMP.TASK"()
+  //CHECK: "QUAL.OMP.DEPEND.IN:ARRSECT"(i8** %a, i64 1, i64 1, i64 1, i64 1)
+  //CHECK: "QUAL.OMP.DEPEND.IN:ARRSECT"(i8** %b, i64 1, i64 0, i64 1, i64 1)
+  //CHECK: "DIR.OMP.END.TASK"()
+  #pragma omp task depend(in:a[1:1], b[0:1]) depend(out: c) firstprivate(i)
+  {
+    doSomething();
+  }
+  //CHECK: "DIR.OMP.TASK"()
+  //CHECK: "QUAL.OMP.DEPEND.IN:ARRSECT"(i8** %a, i64 1, i64 1, i64 1, i64 1)
+  //CHECK: "QUAL.OMP.DEPEND.IN:ARRSECT"(i8** %b, i64 1, i64 0, i64 1, i64 1)
+  //CHECK: "DIR.OMP.END.TASK"()
+  #pragma omp task depend(in:a[1], b[0]) depend(out: c) firstprivate(i)
+  {
+    doSomething();
+  }
+}
 // end INTEL_COLLAB

@@ -1317,7 +1317,8 @@ void OpenMPLateOutliner::emitOMPDependClause(const OMPDependClause *Cl) {
     default:
       llvm_unreachable("Unknown depend clause");
     }
-    if (E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection))
+    if (isa<ArraySubscriptExpr>(E->IgnoreParenImpCasts()) ||
+        E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection))
       CSB.setArrSect();
     addArg(CSB.getString());
     addArg(E);
