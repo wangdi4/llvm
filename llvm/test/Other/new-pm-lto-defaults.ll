@@ -128,6 +128,7 @@
 ; END INTEL_CUSTOMIZATION
 ; CHECK-O2-NEXT: Running pass: IPCloningPass ;INTEL
 ; CHECK-O2-NEXT: Running pass: GlobalDCEPass
+; CHECK-O2-NEXT: Running pass: IPArrayTransposePass ;INTEL
 ; CHECK-O2-NEXT: Running pass: DeadArrayOpsEliminationPass ;INTEL
 ; CHECK-O2-NEXT: Running pass: ModuleToFunctionPassAdaptor<{{.*}}PassManager{{.*}}>
 ; CHECK-O2-NEXT: Starting llvm::Function pass manager run.

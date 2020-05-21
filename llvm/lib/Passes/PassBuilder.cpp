@@ -106,6 +106,7 @@
 #include "llvm/Transforms/IPO/Intel_InlineLists.h"       // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineReportEmitter.h"   // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineReportSetup.h"   // INTEL
+#include "llvm/Transforms/IPO/Intel_IPArrayTranspose.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_IPCloning.h"       // INTEL
 #include "llvm/Transforms/IPO/Intel_IPOPrefetch.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h"   //INTEL
@@ -384,6 +385,11 @@ static cl::opt<bool> EnableInlineAggAnalysis(
 static cl::opt<bool> EnableIPCloning(
     "enable-npm-ip-cloning", cl::init(true), cl::Hidden,
     cl::desc("Enable IP Cloning for the new PM (default = on)"));
+
+// IPO Array Transpose
+static cl::opt<bool> EnableIPArrayTranspose(
+   "enable-npm-ip-array-transpose", cl::init(true), cl::Hidden,
+   cl::desc("Enable IPO Array Transpose for the new PM (default = on)"));
 
 // Dead Array Element Ops Elimination
 static cl::opt<bool> EnableDeadArrayOpsElim(
@@ -1897,6 +1903,9 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
   FPM.addPass(SROA());
 
 #if INTEL_CUSTOMIZATION
+  if (EnableIPArrayTranspose)
+    MPM.addPass(IPArrayTransposePass());
+
   if (EnableDeadArrayOpsElim)
     MPM.addPass(DeadArrayOpsEliminationPass());
 

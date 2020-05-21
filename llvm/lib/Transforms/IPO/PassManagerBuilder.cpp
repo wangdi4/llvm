@@ -264,6 +264,11 @@ static cl::opt<bool> EnableDeadArrayOpsElim(
    "enable-dead-array-ops-elim", cl::init(true), cl::Hidden,
    cl::desc("Enable Dead Array Ops Elimination"));
 
+// IPO Array Transpose
+static cl::opt<bool> EnableIPArrayTranspose(
+   "enable-ip-array-transpose", cl::init(true), cl::Hidden,
+   cl::desc("Enable IPO Array Transpose"));
+
 // Call Tree Cloning
 static cl::opt<bool> EnableCallTreeCloning("enable-call-tree-cloning",
     cl::init(true), cl::Hidden, cl::desc("Enable Call Tree Cloning"));
@@ -1691,6 +1696,9 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createSROAPass());
 
 #if INTEL_CUSTOMIZATION
+  if (EnableIPArrayTranspose)
+    PM.add(createIPArrayTransposeLegacyPass());
+
   if (EnableDeadArrayOpsElim)
     PM.add(createDeadArrayOpsEliminationLegacyPass());
 

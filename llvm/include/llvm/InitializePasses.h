@@ -219,6 +219,7 @@ void initializeIPCPPass(PassRegistry&);
 void initializeIPSCCPLegacyPassPass(PassRegistry&);
 void initializeIRCELegacyPassPass(PassRegistry&);
 void initializeIRTranslatorPass(PassRegistry&);
+void initializeIPArrayTransposeLegacyPassPass(PassRegistry &); // INTEL
 void initializeIPCloningLegacyPassPass(PassRegistry&);             // INTEL
 void initializeCallTreeCloningLegacyPassPass(PassRegistry &);      // INTEL
 void initializeIVUsersWrapperPassPass(PassRegistry&);

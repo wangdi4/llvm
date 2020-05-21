@@ -303,6 +303,9 @@ ModulePass *createIntelFoldWPIntrinsicLegacyPass();
 /// behavior. The traditional partial inliner will actually do inlining.
 ModulePass *createIntelPartialInlineLegacyPass();
 
+/// \brief This pass conducts IPO-based Array Transpose.
+ModulePass *createIPArrayTransposeLegacyPass();
+
 /// \brief This pass implements IP Cloning
 ModulePass *createIPCloningLegacyPass(bool AfterInl = false,
                                       bool IfSwitchHeuristic = false);
