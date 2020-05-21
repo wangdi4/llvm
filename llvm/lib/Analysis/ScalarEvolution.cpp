@@ -12102,6 +12102,11 @@ ScalarEvolution::howManyLessThans(const SCEV *LHS, const SCEV *RHS,
 
   ICmpInst::Predicate Cond = IsSigned ? ICmpInst::ICMP_SLT
                                       : ICmpInst::ICMP_ULT;
+#if INTEL_CUSTOMIZATION
+  // Used when stride is 1.
+  ICmpInst::Predicate AltCond =
+      IsSigned ? ICmpInst::ICMP_SLE : ICmpInst::ICMP_ULE;
+#endif // INTEL_CUSTOMIZATION
   const SCEV *Start = IV->getStart();
   const SCEV *End = RHS;
   // When the RHS is not invariant, we do not know the end bound of the loop and
@@ -12129,7 +12134,13 @@ ScalarEvolution::howManyLessThans(const SCEV *LHS, const SCEV *RHS,
   // result is as above, and if not max(End,Start) is Start so we get a backedge
   // count of zero.
   const SCEV *BECount;
-  if (isLoopEntryGuardedByCond(L, Cond, getMinusSCEV(Start, Stride), RHS))
+#if INTEL_CUSTOMIZATION
+  if (isLoopEntryGuardedByCond(L, Cond, getMinusSCEV(Start, Stride), RHS) ||
+      // getMinusSCEV(Start, Stride) in the call above may create add without
+      // any nowrap flags which makes the analysis conservative. We can try
+      // 'exact' match when stride is 1.
+      (Stride->isOne() && isLoopEntryGuardedByCond(L, AltCond, Start, RHS)))
+#endif // INTEL_CUSTOMIZATION
     BECount = BECountIfBackedgeTaken;
   else {
     End = IsSigned ? getSMaxExpr(RHS, Start) : getUMaxExpr(RHS, Start);
@@ -12203,9 +12214,20 @@ ScalarEvolution::howManyGreaterThans(const SCEV *LHS, const SCEV *RHS,
   ICmpInst::Predicate Cond = IsSigned ? ICmpInst::ICMP_SGT
                                       : ICmpInst::ICMP_UGT;
 
+#if INTEL_CUSTOMIZATION
+  // Used when stride is -1.
+  ICmpInst::Predicate AltCond =
+      IsSigned ? ICmpInst::ICMP_SGE : ICmpInst::ICMP_UGE;
+#endif // INTEL_CUSTOMIZATION
   const SCEV *Start = IV->getStart();
   const SCEV *End = RHS;
-  if (!isLoopEntryGuardedByCond(L, Cond, getAddExpr(Start, Stride), RHS))
+#if INTEL_CUSTOMIZATION
+  if (!isLoopEntryGuardedByCond(L, Cond, getAddExpr(Start, Stride), RHS) &&
+      // getAddExpr(Start, Stride) in the call above may create add without any
+      // nowrap flags which makes the analysis conservative. We can try 'exact'
+      // match when stride is 1.
+      !(Stride->isOne() && isLoopEntryGuardedByCond(L, AltCond, Start, RHS)))
+#endif // INTEL_CUSTOMIZATION
     End = IsSigned ? getSMinExpr(RHS, Start) : getUMinExpr(RHS, Start);
 
   const SCEV *BECount = computeBECount(getMinusSCEV(Start, End), Stride, false);

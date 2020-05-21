@@ -13,7 +13,7 @@
 ; CHECK: |   %s.addr.out = &((%s.addr)[0]);
 ; CHECK: |   if (%0 > 0)
 ; CHECK: |   {
-; CHECK: |      + DO i2 = 0, %0 + -1 * smin(1, %0), 1   <DO_LOOP>
+; CHECK: |      + DO i2 = 0, %0 + -1, 1   <DO_LOOP>
 ; CHECK: |      |   %incdec.ptr38.i = &((%first.addr.out)[i2 + 1]);
 ; CHECK: |      |   %1 = (%first.addr.out)[i2];
 ; CHECK: |      |   (%s.addr.out)[i2] = %1;
