@@ -135,12 +135,14 @@ namespace {
   class DAGCombiner {
     SelectionDAG &DAG;
     const TargetLowering &TLI;
+    const SelectionDAGTargetInfo *STI;
     CombineLevel Level;
     CodeGenOpt::Level OptLevel;
     bool LegalDAG = false;
     bool LegalOperations = false;
     bool LegalTypes = false;
     bool ForCodeSize;
+    bool DisableGenericCombines;
 
     /// Worklist of all of the nodes that need to be simplified.
     ///
@@ -228,9 +230,11 @@ namespace {
 
   public:
     DAGCombiner(SelectionDAG &D, AliasAnalysis *AA, CodeGenOpt::Level OL)
-        : DAG(D), TLI(D.getTargetLoweringInfo()), Level(BeforeLegalizeTypes),
-          OptLevel(OL), AA(AA) {
+        : DAG(D), TLI(D.getTargetLoweringInfo()),
+          STI(D.getSubtarget().getSelectionDAGInfo()),
+          Level(BeforeLegalizeTypes), OptLevel(OL), AA(AA) {
       ForCodeSize = DAG.shouldOptForSize();
+      DisableGenericCombines = STI && STI->disableGenericCombines(OptLevel);
 
       MaximumLegalStoreInBits = 0;
       // We use the minimum store size here, since that's all we can guarantee
@@ -1653,7 +1657,9 @@ SDValue DAGCombiner::visit(SDNode *N) {
 }
 
 SDValue DAGCombiner::combine(SDNode *N) {
-  SDValue RV = visit(N);
+  SDValue RV;
+  if (!DisableGenericCombines)
+    RV = visit(N);
 
   // If nothing happened, try a target-specific DAG combine.
   if (!RV.getNode()) {
@@ -11795,7 +11801,6 @@ SDValue DAGCombiner::visitFADDForFMACombine(SDNode *N) {
   if (!AllowFusionGlobally && !isContractable(N))
     return SDValue();
 
-  const SelectionDAGTargetInfo *STI = DAG.getSubtarget().getSelectionDAGInfo();
   if (STI && STI->generateFMAsInMachineCombiner(OptLevel))
     return SDValue();
 
@@ -12013,7 +12018,6 @@ SDValue DAGCombiner::visitFSUBForFMACombine(SDNode *N) {
   if (!AllowFusionGlobally && !isContractable(N))
     return SDValue();
 
-  const SelectionDAGTargetInfo *STI = DAG.getSubtarget().getSelectionDAGInfo();
   if (STI && STI->generateFMAsInMachineCombiner(OptLevel))
     return SDValue();
 
