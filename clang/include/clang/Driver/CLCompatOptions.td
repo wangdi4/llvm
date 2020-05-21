@@ -243,6 +243,12 @@ def : CLJoined<"Qopt-zmm-usage:">, Alias<qopt_zmm_usage_EQ>,
 def : CLJoined<"Qopt-zmm-usage=">, Alias<qopt_zmm_usage_EQ>;
 def : CLJoined<"Qstd=">, Alias<std_EQ>;
 def : CLJoined<"Qstd:">, Alias<std_EQ>, HelpText<"Language standard to compile for">;
+def _SLASH_Qstrict_overflow : CLFlag<"Qstrict-overflow">,
+  Alias<fstrict_overflow>;
+def _SLASH_Qno_strict_overflow : CLFlag<"Qno-strict-overflow">,
+  Alias<fno_strict_overflow>;
+def _SLASH_Qstrict_overflow_ : CLFlag<"Qstrict-overflow-">,
+  Alias<fno_strict_overflow>;
 def : CLJoined<"Qunroll">, Alias<unroll>,
   HelpText<"Set maximum number of times to unroll loops.  Omit n to use "
   "default heuristics.  Use 0 to disable the loop unroller.">;
