@@ -1217,8 +1217,17 @@ if(INTEL_CUSTOMIZATION)
           "-D_FORTIFY_SOURCE=2 can only be used with optimization.")
         message(WARNING "-D_FORTIFY_SOURCE=2 is not supported.")
       else()
-        message(STATUS "Building with -D_FORTIFY_SOURCE=2")
-        add_definitions(-D_FORTIFY_SOURCE=2)
+        # Sanitizers do not work with checked memory functions,
+        # such as __memset_chk. We do not build release packages
+        # with sanitizers, so just avoid -D_FORTIFY_SOURCE=2
+        # under LLVM_USE_SANITIZER.
+        if (NOT LLVM_USE_SANITIZER)
+          message(STATUS "Building with -D_FORTIFY_SOURCE=2")
+          add_definitions(-D_FORTIFY_SOURCE=2)
+        else()
+          message(WARNING
+            "-D_FORTIFY_SOURCE=2 dropped due to LLVM_USE_SANITIZER.")
+        endif()
       endif()
 
       # Format String Defense (all strongly recommended by SDL):

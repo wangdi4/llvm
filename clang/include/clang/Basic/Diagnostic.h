@@ -16,6 +16,7 @@
 
 #include "clang/Basic/DiagnosticIDs.h"
 #include "clang/Basic/DiagnosticOptions.h"
+#include "clang/Basic/intel/OptReportHandler.h"  // INTEL
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/Specifiers.h"
 #include "llvm/ADT/ArrayRef.h"
@@ -498,6 +499,10 @@ public:
   DiagnosticsEngine(const DiagnosticsEngine &) = delete;
   DiagnosticsEngine &operator=(const DiagnosticsEngine &) = delete;
   ~DiagnosticsEngine();
+
+#if INTEL_CUSTOMIZATION
+  ClangOptReportHandler OptReportHandler;
+#endif // INTEL_CUSTOMIZATION
 
   LLVM_DUMP_METHOD void dump() const;
   LLVM_DUMP_METHOD void dump(StringRef DiagName) const;

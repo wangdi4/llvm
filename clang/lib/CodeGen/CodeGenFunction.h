@@ -3828,6 +3828,7 @@ public:
     return VD->isLocalVarDecl() && !LocalDeclMap.count(VD);
   }
 #if INTEL_CUSTOMIZATION
+  bool useFrontEndOutlining(const Stmt *S);
   bool LoopBoundsHaveBeenHoisted(const OMPLoopDirective *LD) {
    return HoistedBoundsLoops.find(LD) != HoistedBoundsLoops.end();
   }

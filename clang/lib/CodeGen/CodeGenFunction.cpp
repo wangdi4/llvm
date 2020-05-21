@@ -42,6 +42,7 @@
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
+#include "llvm/Analysis/OptimizationRemarkEmitter.h" // INTEL
 using namespace clang;
 using namespace CodeGen;
 
@@ -1467,6 +1468,25 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
 
   // Emit the standard function prologue.
   StartFunction(GD, ResTy, Fn, FnInfo, Args, Loc, BodyRange.getBegin());
+
+ #if INTEL_CUSTOMIZATION
+  ClangOptReportHandler &OptReportHandler = CGM.getDiags().OptReportHandler;
+  if (OptReportHandler.HasOptReportInfo(FD)) {
+    llvm::OptimizationRemarkEmitter ORE(Fn);
+    for (auto &ORI : OptReportHandler.getInfo(FD)) {
+      llvm::DiagnosticLocation DL = SourceLocToDebugLoc(ORI.DirectiveLoc);
+      llvm::OptimizationRemarkMissed R("openmp", "Region", DL,
+                                       &Fn->getEntryBlock());
+      R << llvm::ore::NV(
+         "Construct", ORI.ClauseKindName.empty()
+                           ? ORI.DirectiveKindName
+                           : std::string(ORI.DirectiveKindName.begin()) + ' ' +
+                                 std::string(ORI.ClauseKindName.begin()));
+      R << " unsupported construct ignored by clang";
+      ORE.emit(R);
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB
   if (getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsDevice) {
