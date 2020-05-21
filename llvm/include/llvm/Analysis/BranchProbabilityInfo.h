@@ -123,7 +123,7 @@ public:
   raw_ostream &printEdgeProbability(raw_ostream &OS, const BasicBlock *Src,
                                     const BasicBlock *Dst) const;
 
-protected:
+public: // INTEL
   /// Set the raw edge probability for the given edge.
   ///
   /// This allows a pass to explicitly set the edge probability for an edge. It

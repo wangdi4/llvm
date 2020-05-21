@@ -3218,9 +3218,8 @@ void JumpThreadingPass::UpdateRegionBlockFreqAndEdgeWeight(BasicBlock *PredBB,
         BBSuccFreq.push_back(SuccFreq.getFrequency());
       }
 
-<<<<<<< HEAD
       uint64_t MaxBBSuccFreq =
-        *std::max_element(BBSuccFreq.begin(), BBSuccFreq.end());
+          *std::max_element(BBSuccFreq.begin(), BBSuccFreq.end());
 
       SmallVector<BranchProbability, 4> BBSuccProbs;
       if (MaxBBSuccFreq == 0)
@@ -3229,19 +3228,14 @@ void JumpThreadingPass::UpdateRegionBlockFreqAndEdgeWeight(BasicBlock *PredBB,
       else {
         for (uint64_t Freq : BBSuccFreq)
           BBSuccProbs.push_back(
-            BranchProbability::getBranchProbability(Freq, MaxBBSuccFreq));
+              BranchProbability::getBranchProbability(Freq, MaxBBSuccFreq));
         // Normalize edge probabilities so that they sum up to one.
         BranchProbability::normalizeProbabilities(BBSuccProbs.begin(),
                                                   BBSuccProbs.end());
       }
-=======
-  // Update edge probabilities in BPI.
-  BPI->setEdgeProbability(BB, BBSuccProbs);
->>>>>>> 8138487468e22cf8fa1a86816a1e3247b8010760
 
       // Update edge probabilities in BPI.
-      for (int I = 0, E = BBSuccProbs.size(); I < E; I++)
-        BPI->setEdgeProbability(BB, I, BBSuccProbs[I]);
+      BPI->setEdgeProbability(BB, BBSuccProbs);
 
       // Update the profile metadata as well.
       //
@@ -3284,19 +3278,21 @@ void JumpThreadingPass::UpdateRegionBlockFreqAndEdgeWeight(BasicBlock *PredBB,
 
         auto TI = BB->getTerminator();
         TI->setMetadata(
-          LLVMContext::MD_prof,
-          MDBuilder(BB->getContext()).createBranchWeights(Weights));
+            LLVMContext::MD_prof,
+            MDBuilder(BB->getContext()).createBranchWeights(Weights));
       }
 
       continue;
     }
 
-    unsigned SuccIndex = 0;
+    unsigned SuccIdx = 0;
+    SmallVector<BranchProbability, 4> EdgeProbabilities(
+        BB->getTerminator()->getNumSuccessors(),
+        BranchProbability::getUnknown());
     for (succ_iterator SI = succ_begin(BB), SE = succ_end(BB); SI != SE;
-         ++SI, ++SuccIndex) {
+         ++SI, ++SuccIdx) {
       // The outgoing edge weights for NewBB are copied from BB.
-      BPI->setEdgeProbability(NewBB, SuccIndex,
-                              BPI->getEdgeProbability(BB, SuccIndex));
+      EdgeProbabilities[SuccIdx] = BPI->getEdgeProbability(BB, SuccIdx);
 
       // Adjust the block frequency of the successor if it's part of the region.
       if (BlockMapping.find(*SI) == BlockMapping.end())
@@ -3304,13 +3300,14 @@ void JumpThreadingPass::UpdateRegionBlockFreqAndEdgeWeight(BasicBlock *PredBB,
 
       BasicBlock *NewSucc = BlockMapping[*SI];
       auto EdgeFreq =
-        BFI->getBlockFreq(NewBB) * BPI->getEdgeProbability(BB, SuccIndex);
+          BFI->getBlockFreq(NewBB) * BPI->getEdgeProbability(BB, SuccIdx);
       auto NewSuccFreq = BFI->getBlockFreq(NewSucc) + EdgeFreq;
       BFI->setBlockFreq(NewSucc, NewSuccFreq.getFrequency());
 
       if (--BlockPredCount[NewSucc] == 0)
         ReadyBlocks.push_back(*SI);
     }
+    BPI->setEdgeProbability(NewBB, EdgeProbabilities);
   }
 }
 #endif // INTEL_CUSTOMIZATION
