@@ -293,6 +293,17 @@
 // CHECK-FNO-ALN-NOT: "-function-alignment"
 // CHECK-FUN-ALN-EQ: "-function-alignment" "2"
 
+// Behavior with /Qcf-protection option
+// RUN: %clang_cl -### -c /Qcf-protection %s 2>&1 | FileCheck -check-prefix CHECK-QCF-PROTECTION %s
+// RUN: %clang_cl -### -c /Qcf-protection=full %s 2>&1 | FileCheck -check-prefix CHECK-QCF-PROTECTION %s
+// CHECK-QCF-PROTECTION: "-fcf-protection=full"
+// RUN: %clang_cl -### -c /Qcf-protection=return %s 2>&1 | FileCheck -check-prefix CHECK-QCF-PROTECTION-RETURN %s
+// CHECK-QCF-PROTECTION-RETURN: "-fcf-protection=return"
+// RUN: %clang_cl -### -c /Qcf-protection=branch %s 2>&1 | FileCheck -check-prefix CHECK-QCF-PROTECTION-BRANCH %s
+// CHECK-QCF-PROTECTION-BRANCH: "-fcf-protection=branch"
+// RUN: %clang_cl -### -c /Qcf-protection=none %s 2>&1 | FileCheck -check-prefix CHECK-QCF-PROTECTION-NONE %s
+// CHECK-QCF-PROTECTION-NONE: "-fcf-protection=none"
+
 // Behavior with -dryrun and -# maps to -###
 // RUN: %clang -# %s -c 2>&1 | FileCheck %s --check-prefix=CHECK-HASH
 // RUN: %clang_cl -# %s -c 2>&1 | FileCheck %s --check-prefix=CHECK-HASH
