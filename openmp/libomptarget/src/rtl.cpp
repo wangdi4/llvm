@@ -320,6 +320,9 @@ void RTLsTy::LoadRTLs() {
     if ((*((void **)&R.is_managed_ptr) =
               dlsym(dynlib_handle, "__tgt_rtl_is_managed_ptr")))
       DP("Optional interface: __tgt_rtl_is_managed_ptr\n");
+    if ((*((void **)&R.data_alloc_explicit) =
+              dlsym(dynlib_handle, "__tgt_rtl_data_alloc_explicit")))
+      DP("Optional interface: __tgt_rtl_data_alloc_explicit\n");
 #endif // INTEL_COLLAB
 
     // Optional functions

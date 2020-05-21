@@ -183,6 +183,10 @@ void *__tgt_rtl_data_alloc_base(int32_t ID, int64_t Size, void *HostPtr,
 EXTERN
 void *__tgt_rtl_data_alloc_user(int32_t ID, int64_t Size, void *HostPtr);
 
+// Explicit target memory allocator
+EXTERN void *__tgt_rtl_data_alloc_explicit(
+    int32_t ID, int64_t Size, int32_t Kind);
+
 // Create a device-specific buffer object from the given device pointer
 EXTERN
 void *__tgt_rtl_create_buffer(int32_t ID, void *TgtPtr);

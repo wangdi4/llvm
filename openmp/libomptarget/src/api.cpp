@@ -98,7 +98,8 @@ EXTERN void omp_target_free(void *device_ptr, int device_num) {
 
   DeviceTy &Device = Devices[device_num];
 #if INTEL_COLLAB
-  if (RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) {
+  if (Device.is_managed_ptr(device_ptr)) {
+    // Either requires usm or explicit allocation
     Device.data_delete_managed(device_ptr);
     DP("omp_target_free deallocated managed ptr\n");
     return;
@@ -336,6 +337,46 @@ EXTERN void * omp_get_mapped_ptr(void *host_ptr, int device_num) {
      DP("omp_get_mapped_ptr : cannot find device pointer\n");
   DP("omp_get_mapped_ptr returns " DPxMOD "\n", DPxPTR(rc));
   return rc;
+}
+
+static void *target_alloc_explicit(
+    size_t size, int device_num, int kind, const char *name) {
+  DP("Call to %s for device %d requesting %zu bytes\n", name, device_num, size);
+
+  if (size <= 0) {
+    DP("Call to %s with non-positive length\n", name);
+    return NULL;
+  }
+
+  void *rc = NULL;
+
+  if (device_num == omp_get_initial_device()) {
+    rc = malloc(size);
+    DP("%s returns host ptr " DPxMOD "\n", name, DPxPTR(rc));
+    return rc;
+  }
+
+  if (!device_is_ready(device_num)) {
+    DP("%s returns NULL ptr\n", name);
+    return NULL;
+  }
+
+  DeviceTy &Device = Devices[device_num];
+  rc = Device.data_alloc_explicit(size, kind);
+  DP("%s returns device ptr " DPxMOD "\n", name, DPxPTR(rc));
+  return rc;
+}
+
+EXTERN void *omp_target_alloc_device(size_t size, int device_num) {
+  return target_alloc_explicit(size, device_num, TARGET_ALLOC_DEVICE, __func__);
+}
+
+EXTERN void *omp_target_alloc_host(size_t size, int device_num) {
+  return target_alloc_explicit(size, device_num, TARGET_ALLOC_HOST, __func__);
+}
+
+EXTERN void *omp_target_alloc_shared(size_t size, int device_num) {
+  return target_alloc_explicit(size, device_num, TARGET_ALLOC_SHARED, __func__);
 }
 #endif  // INTEL_COLLAB
 
