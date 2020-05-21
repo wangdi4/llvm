@@ -6376,6 +6376,12 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 #if INTEL_CUSTOMIZATION
     // Add SYCL headers path to include search path
     toolchains::SYCLToolChain::AddSYCLIncludeArgs(D, Args, CmdArgs);
+    if (Args.hasArg(options::OPT_fsycl) && Triple.isSPIR()) {
+      // OpenMP device compile must use the same language options as the
+      // host compile. So if this is SYCL source pass SYCL options.
+      CmdArgs.push_back("-fsycl");
+      CmdArgs.push_back("-fsycl-is-host");
+    }
 #endif //INTEL_CUSTOMIZATION
   }
 #if INTEL_COLLAB

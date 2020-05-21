@@ -1410,7 +1410,12 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
     }
 
     // Exclude -fsycl
-    if (A->getOption().matches(options::OPT_fsycl)) {
+#if INTEL_CUSTOMIZATION
+    // Keep -fsycl around for OpenMP offload, we use it for SYCL/OpenMP
+    // interoperability.
+    if (A->getOption().matches(options::OPT_fsycl) &&
+        DeviceOffloadKind != Action::OFK_OpenMP) {
+#endif // INTEL_CUSTOMIZATION
       Modified = true;
       continue;
     }
