@@ -184,9 +184,6 @@ bool VectorizerCore::runOnFunction(Function &F) {
 
   bool KernelHasSubgroups = vkimd.KernelHasSubgroups.get();
 
-  // The scalar function of the function we vectorize.
-  Function* scalarFunc = vkimd.ScalarizedKernel.get();
-
   Module *M = F.getParent();
 
   TargetMachine* targetMachine = m_pConfig->GetTargetMachine();
@@ -248,7 +245,6 @@ bool VectorizerCore::runOnFunction(Function &F) {
     // choose the vectorization dimension (if vectorized). Usually zero,
     // but in some unusual cases we choose differently (to gain performance.)
     ChooseVectorizationDimension* chooser = createChooseVectorizationDimension();
-    chooser->setScalarFunc(scalarFunc);
     fpm1.add(chooser);
 
 

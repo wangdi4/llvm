@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2020 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -37,12 +37,18 @@ char ChooseVectorizationDimension::ID = 0;
 
 extern "C" Pass* createBuiltinLibInfoPass(SmallVector<Module*, 2> pRtlModuleList, std::string type);
 
-OCL_INITIALIZE_PASS_BEGIN(ChooseVectorizationDimension, "ChooseVectorizationDimension", "Predicate Function", false, false)
+OCL_INITIALIZE_PASS_BEGIN(ChooseVectorizationDimension,
+                          "ChooseVectorizationDimension",
+                          "Choosing Vectorization Dimension", false, true)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
-OCL_INITIALIZE_PASS_END(ChooseVectorizationDimension, "ChooseVectorizationDimension", "Predicate Function", false, false)
+OCL_INITIALIZE_PASS_END(ChooseVectorizationDimension,
+                        "ChooseVectorizationDimension",
+                        "Choosing Vectorization Dimension", false, true)
 
 ChooseVectorizationDimension::ChooseVectorizationDimension() :
-  FunctionPass(ID),
+  FunctionPass(ID)
+#ifndef INTEL_PRODUCT_RELEASE
+  ,
   OCLSTAT_INIT(Dim_Zero_Good_Store_Loads,
     "stores and loads that are good if the vectorization dimension is zero",
     m_kernelStats),
@@ -64,16 +70,25 @@ ChooseVectorizationDimension::ChooseVectorizationDimension() :
   OCLSTAT_INIT(Chosen_Vectorization_Dim,
     "The chosen vectorization dimension",
     m_kernelStats)
-{
-}
+#endif // INTEL_PRODUCT_RELEASE
+{}
 
-bool ChooseVectorizationDimension::canSwitchDimensions(Function* F) {
+enum class PreferredOption : unsigned {
+  First = 0,
+  Second = 1,
+  Neutral = 2
+};
+
+
+/// @brief checks whether it is even allowed to switch dimensions.
+/// specifically: a) KernelAnalysis pass determined no barrier
+/// b) no get_local_id and get_group_id c) no access to local memory.
+static bool canSwitchDimensions(Function* F) {
   using namespace Intel::MetadataAPI;
 
   // 1. test whether KernelAnalysis pass said: "no barrier", otherwise
   // switching dimensions is not supported.
-  // note that the KernelAnalysis pass works on the scalar version of the Function.
-  auto skimd = KernelInternalMetadataAPI(m_scalarFunc);
+  auto skimd = KernelInternalMetadataAPI(F);
   bool result = skimd.NoBarrierPath.hasValue() && skimd.NoBarrierPath.get();
   if (!result)
     return false;
@@ -117,15 +132,13 @@ bool ChooseVectorizationDimension::canSwitchDimensions(Function* F) {
   }
 
   // 3. test if we use local memory.
-  for (inst_iterator vI = inst_begin(F), vE = inst_end(F); vI != vE; ++ vI) {
-    Instruction *currInst = &*vI;
-    if (LoadInst* loadInst = dyn_cast<LoadInst>(currInst)) {
+  for (auto &currInst : instructions(F)) {
+    if (LoadInst* loadInst = dyn_cast<LoadInst>(&currInst)) {
       if (loadInst->getPointerAddressSpace() ==
         Utils::OCLAddressSpace::Local) {
         return false; // using local memory.
       }
-    }
-    else if (StoreInst* storeInst = dyn_cast<StoreInst>(currInst)) {
+    } else if (StoreInst* storeInst = dyn_cast<StoreInst>(&currInst)) {
       if (storeInst->getPointerAddressSpace() ==
         Utils::OCLAddressSpace::Local) {
         return false; // using local memory.
@@ -137,17 +150,14 @@ bool ChooseVectorizationDimension::canSwitchDimensions(Function* F) {
 }
 
 bool ChooseVectorizationDimension::hasDim(Function* F, unsigned int dim) {
-  Function* gid = F->getParent()->getFunction
-    (CompilationUtils::mangledGetGID());
+  Function* gid =
+      F->getParent()->getFunction(CompilationUtils::mangledGetGID());
   if (!gid)
     return false;
 
-  for ( Value::user_iterator ui = gid->user_begin(),
-    ue = gid->user_end(); ui != ue; ++ui ) {
-    CallInst *pInstCall = dyn_cast<CallInst>(*ui);
-    assert( pInstCall &&
-      "Something other than CallInst is using get_global_id function!" );
-    if (pInstCall->getParent()->getParent() != F) {
+  for (auto *U : gid->users()) {
+    CallInst *pInstCall = cast<CallInst>(U);
+    if (pInstCall->getFunction() != F) {
       continue; // only interested if F uses the dim directly.
     }
     bool err, isTidGen;
@@ -156,99 +166,107 @@ bool ChooseVectorizationDimension::hasDim(Function* F, unsigned int dim) {
     // (KernelAnalysis should have set noBarrierPath to false if err is true)
     V_ASSERT(isTidGen && !err &&
       "TIDGen inst receives non-constant input. Cannot vectorize!");
-    if (dim == inst_dim) return true;
+    if (dim == inst_dim)
+      return true;
   }
 
   return false;
 }
 
-void ChooseVectorizationDimension::countLoadStores(WIAnalysis* wi, BasicBlock* BB,
-  int& goodLoadStores, int& badLoadStores, int dim) {
+/// @brief counts how many good load stores and bad load stores
+/// are in the given BasicBlock, if using the provided WIAnalysis.
+/// Good load stores: uniform load/stores and consecutive scalar load/stores.
+/// Bad load stores: random/strided load stores and also vector consecutive load/stores.
+/// @param wi the WIAnlaysis to ask for the dependency of the pointer param.
+/// @param BB the basic block to count its instructions
+/// @param goodLoadStores write the number of good load/stores into this param.
+/// @param badLoadStores write the number of bad load/stores into this param.
+/// @param dim the dimension we are counting. Only needed for statistics.
+static void countLoadStores(
+    WIAnalysis* wi, BasicBlock* BB,
+    int& goodLoadStores, int& badLoadStores, int dim) {
   goodLoadStores = badLoadStores = 0;
-  for (BasicBlock::iterator it = BB->begin(), e = BB->end(); it != e; ++it) {
-    Instruction* I = &*it;
-    Value* pointerOperand = NULL;
-    if (LoadInst* load = dyn_cast<LoadInst>(I)) {
+  for (auto &I : *BB) {
+    Value* pointerOperand = nullptr;
+    if (LoadInst* load = dyn_cast<LoadInst>(&I)) {
       pointerOperand = load->getPointerOperand();
-    }
-    else if (StoreInst* store = dyn_cast<StoreInst>(I)) {
+    } else if (StoreInst* store = dyn_cast<StoreInst>(&I)) {
       pointerOperand = store->getPointerOperand();
     }
 
-    if (pointerOperand) { // it is either a load or a store
-      if (wi->whichDepend(I) == WIAnalysis::UNIFORM) {
-        goodLoadStores++; // uniform ops are always good.
-      }
-      else if (I->getType()->isVectorTy()) {
-        badLoadStores++; // non-uniform vector ops are bad.
-      }
-      else {
-        WIAnalysis::WIDependancy dep = wi->whichDepend(pointerOperand);
-        if (dep == WIAnalysis::PTR_CONSECUTIVE) {
-          goodLoadStores++; // consecutive scalar ops are good.
-        }
-        else if (dep == WIAnalysis::UNIFORM) {
-          // arguably counter-intuitive, as this memop might be scalarized,
-          // but we believe a uniform address is likely to suggest few executions anyway.
-          goodLoadStores++;
-        }
-        else {
-          badLoadStores++; // random/strided are bad.
-        }
-      }
-    }
-  }
+    if (!pointerOperand)
+      continue;
 
-  // Statistics:
-  if (dim == 0) {
-    Dim_Zero_Bad_Store_Loads += badLoadStores;
-    Dim_Zero_Good_Store_Loads += goodLoadStores;
-  }
-  else if (dim == 1) {
-    Dim_One_Bad_Store_Loads += badLoadStores;
-    Dim_One_Good_Store_Loads += goodLoadStores;
-  }
-  else if (dim == 2) {
-    Dim_Two_Bad_Store_Loads += badLoadStores;
-    Dim_Two_Good_Store_Loads += goodLoadStores;
+    // it is either a load or a store
+    if (wi->whichDepend(&I) == WIAnalysis::UNIFORM) {
+      goodLoadStores++; // uniform ops are always good.
+      continue;
+    }
+
+    if (I.getType()->isVectorTy()) {
+      badLoadStores++; // non-uniform vector ops are bad.
+      continue;
+    }
+
+    WIAnalysis::WIDependancy dep = wi->whichDepend(pointerOperand);
+    if (dep == WIAnalysis::PTR_CONSECUTIVE) {
+      goodLoadStores++; // consecutive scalar ops are good.
+      continue;
+    }
+
+    if (dep == WIAnalysis::UNIFORM) {
+      // arguably counter-intuitive, as this memop might be scalarized,
+      // but we believe a uniform address is likely to suggest few executions anyway.
+      goodLoadStores++;
+      continue;
+    }
+
+    badLoadStores++; // random/strided are bad.
   }
 }
 
-ChooseVectorizationDimension::PreferredOption ChooseVectorizationDimension::getPreferredOption(
-  bool isDivergentInFirst,
-  bool isDivergentInSecond,
-  int goodLoadStoresFirst,
-  int goodLoadStoresSecond) {
-
+/// @brief compares this basic block under for two different dimensions,
+/// and outputs which dimension is better for vectorization considering
+/// this specific basic block. Answer is: first/second/neutral.
+/// When choosing between the two options, prefer the one with a higher
+/// number of good load/stores. If number is identical, prefer
+/// an option under which the basic block is uniform rather than divergent.
+/// if uniformity/divergency is also identical, return neutral.
+/// @param isDivergentInFirst is the block divergent in if vectorizing by the first dimension contested.
+/// @param isDivergentInSecond is the block divergent in if vectorizing by the second dimension contested.
+/// @param goodLoadStoresFirst number of good load/stores for the first dimension contested.
+/// @param goodLoadStoresSecond number of good load/stores for the second dimension contested.
+static PreferredOption getPreferredOption(
+    bool isDivergentInFirst, bool isDivergentInSecond,
+    int goodLoadStoresFirst, int goodLoadStoresSecond) {
   if (goodLoadStoresFirst > goodLoadStoresSecond)
-    return ChooseVectorizationDimension::First;
+    return PreferredOption::First;
   if (goodLoadStoresSecond > goodLoadStoresFirst)
-    return ChooseVectorizationDimension::Second;
+    return PreferredOption::Second;
 
   if (!isDivergentInFirst && isDivergentInSecond)
-    return ChooseVectorizationDimension::First;
+    return PreferredOption::First;
   if (!isDivergentInSecond && isDivergentInFirst)
-    return ChooseVectorizationDimension::Second;
-  return ChooseVectorizationDimension::Neutral;
+    return PreferredOption::Second;
+  return PreferredOption::Neutral;
 }
 
-void ChooseVectorizationDimension::setFinalDecision(int dim, bool canUnitWorkGroups) {
-#ifndef NDEBUG
+void ChooseVectorizationDimension::setFinalDecision(int dim, bool canUniteWorkGroups) {
+#ifndef INTEL_PRODUCT_RELEASE
   if (getenv("DONT_SWITCH_DIM")) {
     dim = 0;
   }
   if (getenv("DONT_UNITE_WORKGROUPS")) {
-    canUnitWorkGroups = false;
+    canUniteWorkGroups = false;
   }
-#endif
-  Chosen_Vectorization_Dim = dim; // Statistics
+#endif // INTEL_PRODUCT_RELEASE
+  OCLSTAT_GATHER_CHECK(Chosen_Vectorization_Dim = dim);
   m_vectorizationDim = dim;
-  m_canUniteWorkgroups = canUnitWorkGroups;
+  m_canUniteWorkgroups = canUniteWorkGroups;
 }
 
 bool ChooseVectorizationDimension::runOnFunction(Function &F) {
   m_rtServices = getAnalysis<BuiltinLibInfo>().getRuntimeServices();
-  V_ASSERT(m_scalarFunc && "missing scalar function");
   V_ASSERT(m_rtServices && "Runtime services were not initialized!");
   int chosenVectorizationDimension = 0;
   bool canUniteWorkgroups = true;
@@ -257,8 +275,9 @@ bool ChooseVectorizationDimension::runOnFunction(Function &F) {
     chosenVectorizationDimension = 0;
     canUniteWorkgroups = false;
     setFinalDecision(chosenVectorizationDimension, canUniteWorkgroups);
-    intel::Statistic::pushFunctionStats(m_kernelStats, F, DEBUG_TYPE);
-    return true;
+    OCLSTAT_GATHER_CHECK(
+        intel::Statistic::pushFunctionStats(m_kernelStats, F, DEBUG_TYPE));
+    return false;
   }
 
   WIAnalysis* wi[MAX_WORK_DIM] = {nullptr}; // WI for each dimension.
@@ -287,8 +306,9 @@ bool ChooseVectorizationDimension::runOnFunction(Function &F) {
   if (totalDims < 2 || !dimExist[0]) {
     chosenVectorizationDimension = 0;
     setFinalDecision(chosenVectorizationDimension, canUniteWorkgroups);
-    intel::Statistic::pushFunctionStats(m_kernelStats, F, DEBUG_TYPE);
-    return true;
+    OCLSTAT_GATHER_CHECK(
+        intel::Statistic::pushFunctionStats(m_kernelStats, F, DEBUG_TYPE));
+    return false;
   }
 
   // create function pass manager to run the WIAnalysis for each dimension.
@@ -302,44 +322,57 @@ bool ChooseVectorizationDimension::runOnFunction(Function &F) {
   }
   runWi.doInitialization();
   runWi.run(F);
-  runWi.doFinalization();
 
   // now analyse the results for each BB.
-  for (Function::iterator it = F.begin(), e = F.end(); it != e; ++ it) {
-    BasicBlock* currBlock = &*it;
+  for (BasicBlock &currBlock : F) {
     for (unsigned int dim = 0; dim < MAX_WORK_DIM; dim++) {
       if (dimValid[dim] && totalDims > 1) {
-        countLoadStores(wi[dim], currBlock, goodLoadStores[dim], badLoadStores[dim], dim);
-      }
-      else if (dimExist[dim]) {
+        countLoadStores(wi[dim], &currBlock, goodLoadStores[dim], badLoadStores[dim], dim);
+      } else if (dimExist[dim]) {
         // count load stores only if needed for statistics
         OCLSTAT_GATHER_CHECK(
-          countLoadStores(wi[dim], currBlock, goodLoadStores[dim], badLoadStores[dim], dim);
+          countLoadStores(wi[dim], &currBlock, goodLoadStores[dim], badLoadStores[dim], dim);
         );
       }
+      OCLSTAT_GATHER_CHECK(
+      switch (dim) {
+      case 0:
+        Dim_Zero_Bad_Store_Loads += badLoadStores[dim];
+        Dim_Zero_Good_Store_Loads += goodLoadStores[dim];
+        break;
+      case 1:
+        Dim_One_Bad_Store_Loads += badLoadStores[dim];
+        Dim_One_Good_Store_Loads += goodLoadStores[dim];
+        break;
+      case 2:
+        Dim_Two_Bad_Store_Loads += badLoadStores[dim];
+        Dim_Two_Good_Store_Loads += goodLoadStores[dim];
+        break;
+      });
     }
     for (unsigned int dim = 1; dim < MAX_WORK_DIM; dim++) {
-      if (dimValid[dim]) {
-        ChooseVectorizationDimension::PreferredOption prefer =
-          getPreferredOption(wi[0]->isDivergentBlock(currBlock),
-            wi[dim]->isDivergentBlock(currBlock),
-            goodLoadStores[0], goodLoadStores[dim]);
+      if (!dimValid[dim])
+        continue;
 
-        switch (prefer)
-        {
-        case ChooseVectorizationDimension::First:
-          // if even one block prefers dim 0, than the other possiblity is never taken.
-          dimValid[dim] = false;
-          totalDims--;
-          break;
-        case ChooseVectorizationDimension::Second:
-          switchMotivation[dim] = true;
-          break;
-        case ChooseVectorizationDimension::Neutral:
-          break;
-        }
+      PreferredOption prefer = getPreferredOption(
+          wi[0]->isDivergentBlock(&currBlock),
+          wi[dim]->isDivergentBlock(&currBlock),
+          goodLoadStores[0], goodLoadStores[dim]);
+
+      switch (prefer) {
+      case PreferredOption::First:
+        // if even one block prefers dim 0, than the other possiblity is never taken.
+        dimValid[dim] = false;
+        totalDims--;
+        break;
+      case PreferredOption::Second:
+        switchMotivation[dim] = true;
+        break;
+      case PreferredOption::Neutral:
+        break;
       }
     }
+
     if (totalDims > 2) { // find out which dims are best for this block
       std::set<unsigned int> bestDims;
       int bestGoodLoadStores = -1;
@@ -347,31 +380,31 @@ bool ChooseVectorizationDimension::runOnFunction(Function &F) {
       for (unsigned int dim = 1; dim < MAX_WORK_DIM; dim++) {
         if (!dimValid[dim])
           continue;
-        ChooseVectorizationDimension::PreferredOption prefer =
-          getPreferredOption(bestDivergence,
-            wi[dim]->isDivergentBlock(currBlock),
+        bool currDivergence = wi[dim]->isDivergentBlock(&currBlock);
+        PreferredOption prefer = getPreferredOption(
+            bestDivergence, currDivergence,
             bestGoodLoadStores, goodLoadStores[dim]);
         switch (prefer) {
-        case ChooseVectorizationDimension::First:
-         break; // best option remains the best
-        case ChooseVectorizationDimension::Second:
-         // now the new option is the best
-         bestDims.clear();
-         bestDims.insert(dim);
-         bestGoodLoadStores = goodLoadStores[dim];
-         bestDivergence = wi[dim]->isDivergentBlock(currBlock);
-         break;
-        case ChooseVectorizationDimension::Neutral:
+        case PreferredOption::First:
+          break; // best option remains the best
+        case PreferredOption::Second:
+          // now the new option is the best
+          bestDims.clear();
+          bestDims.insert(dim);
+          bestGoodLoadStores = goodLoadStores[dim];
+          bestDivergence = currDivergence;
+          break;
+        case PreferredOption::Neutral:
           // the current option is as good as the known best ones.
           bestDims.insert(dim);
         }
       }
-      for (std::set<unsigned int>::iterator it2 = bestDims.begin(),
-        e2 = bestDims.end(); it2 != e2; ++it2) {
-        preferredDim[*it2]++;
-      }
+      for (unsigned dim : bestDims)
+        preferredDim[dim]++;
     }
   }
+
+  runWi.doFinalization();
 
   // find the best dim
   chosenVectorizationDimension = 0;
@@ -386,20 +419,9 @@ bool ChooseVectorizationDimension::runOnFunction(Function &F) {
   }
 
   setFinalDecision(chosenVectorizationDimension, canUniteWorkgroups);
-  intel::Statistic::pushFunctionStats(m_kernelStats, F, DEBUG_TYPE);
-  return true;
-}
-
-void ChooseVectorizationDimension::setScalarFunc(Function* F) {
-  m_scalarFunc = F;
-}
-
-unsigned int ChooseVectorizationDimension::getVectorizationDim() {
-  return m_vectorizationDim;
-}
-
-bool ChooseVectorizationDimension::getCanUniteWorkgroups() {
-  return m_canUniteWorkgroups;
+  OCLSTAT_GATHER_CHECK(
+      intel::Statistic::pushFunctionStats(m_kernelStats, F, DEBUG_TYPE));
+  return false;
 }
 
 } // namespace
