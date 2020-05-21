@@ -20,6 +20,7 @@
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/SmallPtrSet.h"
 
 namespace llvm {
 class Type;
@@ -51,8 +52,9 @@ public:
   VPSOAAnalysis(const VPlan &Plan, const VPLoop &Loop)
       : Plan(Plan), Loop(Loop) {}
 
-  /// Public interface. for SOA-analysis for all loop-privates.
-  void doSOAAnalysis();
+  /// Public interface for SOA-analysis for all loop-privates. \p SOAVars is the
+  /// output argument that return the variables marked for SOA-layout.
+  void doSOAAnalysis(SmallPtrSetImpl<VPInstruction *> &SOAVars);
 
 private:
   using WorkList = SetVector<const VPInstruction *>;

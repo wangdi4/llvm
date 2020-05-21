@@ -258,7 +258,11 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
 
     // Do SOA-analysis for loop-privates.
     VPSOAAnalysis VPSOAA(*Plan.get(), *CandidateLoop);
-    VPSOAA.doSOAAnalysis();
+    SmallPtrSet<VPInstruction *, 32> SOAVars;
+    VPSOAA.doSOAAnalysis(SOAVars);
+
+    if (EnableSOAAnalysis)
+      Plan->getVPlanDA()->recomputeShapes(SOAVars);
 
     for (unsigned TmpVF = StartRangeVF; TmpVF < EndRangeVF; TmpVF *= 2)
       VPlans[TmpVF] = Plan;
