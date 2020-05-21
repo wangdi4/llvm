@@ -397,8 +397,6 @@ cl::opt<AttributorRunOption> AttributorRun(
                clEnumValN(AttributorRunOption::NONE, "none",
                           "disable attributor runs")));
 
-extern cl::opt<bool> EnableKnowledgeRetention;
-
 PassManagerBuilder::PassManagerBuilder() {
     OptLevel = 2;
     SizeLevel = 0;
@@ -677,8 +675,6 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   assert(OptLevel >= 1 && "Calling function optimizer with no optimization level!");
   MPM.add(createSROAPass());
   MPM.add(createEarlyCSEPass(true /* Enable mem-ssa. */)); // Catch trivial redundancies
-  if (EnableKnowledgeRetention)
-    MPM.add(createAssumeSimplifyPass());
 
   if (OptLevel > 1) {
     if (EnableGVNHoist)
@@ -1924,6 +1920,15 @@ void PassManagerBuilder::addVPOPassesPreOrPostLoopOpt(
   // Add LCSSA pass before VPlan driver
   PM.add(createLCSSAPass());
   PM.add(createVPOCFGRestructuringPass());
+  // VPO CFG restructuring pass makes sure that the directives of #pragma omp
+  // simd ordered are in a separate block. For this reason,
+  // VPlanPragmaOmpOrderedSimdExtract pass should run after VPO CFG
+  // Restructuring.
+  PM.add(createVPlanPragmaOmpOrderedSimdExtractPass());
+  // Code extractor might add new instructions in the entry block. If the entry
+  // block has a directive, than we have to split the entry block. VPlan assumes
+  // that the directives are in single-entry single-exit basic blocks.
+  PM.add(createVPOCFGRestructuringPass());
 
   // Create OCL sincos from sin/cos and sincos
   PM.add(createMathLibraryFunctionsReplacementPass(false /*isOCL*/));
@@ -1932,6 +1937,12 @@ void PassManagerBuilder::addVPOPassesPreOrPostLoopOpt(
 
   // Split/translate scalar OCL and vector sincos
   PM.add(createMathLibraryFunctionsReplacementPass(false /*isOCL*/));
+
+  // The region that is outlined by #pragma omp simd ordered was extracted by
+  // VPlanPragmaOmpOrderedSimdExtarct pass. Now, we need to run the inliner in
+  // order to put this region back at the code.
+  PM.add(createAlwaysInlinerLegacyPass());
+  PM.add(createBarrierNoopPass());
 
   // Clean up any SIMD directives left behind by VPlan vectorizer
   PM.add(createVPODirectiveCleanupPass());
@@ -2010,11 +2021,16 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
   PM.add(createLCSSAPass());
 
   if (PrintModuleBeforeLoopopt)
-    PM.add(createPrintModulePass(dbgs(), ";Module Before HIR" ));
+    PM.add(createPrintModulePass(dbgs(), ";Module Before HIR"));
 
   // Verify input LLVM IR before doing any HIR transformation.
   if (VerifyInput)
     PM.add(createVerifierPass());
+
+  if (EnableVPlanDriverHIR) {
+    PM.add(createVPOCFGRestructuringPass());
+    PM.add(createVPlanPragmaOmpOrderedSimdExtractPass());
+  }
 
   if (ConvertToSubs)
     PM.add(createConvertGEPToSubscriptIntrinsicLegacyPass());
@@ -2124,6 +2140,11 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
   PM.add(createHIRCodeGenWrapperPass());
 
   addLoopOptCleanupPasses(PM);
+
+  if (EnableVPlanDriverHIR) {
+    PM.add(createAlwaysInlinerLegacyPass());
+    PM.add(createBarrierNoopPass());
+  }
 }
 
 void PassManagerBuilder::addLoopOptAndAssociatedVPOPasses(

@@ -112,6 +112,19 @@
 ; We rotate loops prior to vectorization.
 ; CHECK-O2: Loop Pass Manager
 ; CHECK-O2-NEXT: Rotate Loops
+;
+; The following checks verify that the ordered regions are correctly processed
+; INTEL_CUSTOMIZATION
+; CHECK-O2: Function Outlining of Ordered Regions
+; CHECK-O2: FunctionPass Manager
+; CHECK-O2: Dominator Tree Construction
+; CHECK-O2: VPO Work-Region Collection
+; CHECK-O2: FunctionPass Manager
+; CHECK-O2: Call Graph SCC Pass Manager
+; CHECK-O2: Inliner for always_inline functions
+; CHECK-O2: A No-Op Barrier Pass
+; CHECK-O2: FunctionPass Manager
+; END INTEL CUSTOMIZATION
 ; CHECK-O2-NOT: Manager
 ; CHECK-O2: Loop Vectorization
 ; CHECK-O2-NOT: Manager

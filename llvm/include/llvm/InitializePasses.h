@@ -608,6 +608,8 @@ void initializeVectorGraphInfoPass(PassRegistry&);
 void initializeVectorGraphPredicatorPass(PassRegistry&);
 void initializeWholeProgramWrapperPassPass(PassRegistry&);
 void initializeMultiVersioningWrapperPass(PassRegistry&);
+// VPO VPlan Pass for pragma omp ordered simd
+void initializeVPlanPragmaOmpOrderedSimdExtractPass(PassRegistry &);
 // VPO VPlan Vectorizer Pass  --  TODO: VEC to COLLAB
 void initializeVPlanDriverPass(PassRegistry&);
 // VPO VPlan Vectorizer HIR Pass

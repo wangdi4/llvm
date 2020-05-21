@@ -276,6 +276,7 @@ namespace {
       (void) llvm::createSLPVectorizerPass();
       (void) llvm::createLoadStoreVectorizerPass();
 #if INTEL_CUSTOMIZATION
+      (void) llvm::createVPlanPragmaOmpOrderedSimdExtractPass();
       (void) llvm::createVPlanDriverPass();
       (void) llvm::createVPlanDriverHIRPass();
       (void) llvm::createVPlanFunctionVectorizerPass();

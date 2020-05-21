@@ -55,6 +55,7 @@ MODULE_ALIAS_ANALYSIS("anders-aa", AndersensAA())    // INTEL
 #endif
 #if INTEL_CUSTOMIZATION
 MODULE_PASS("vec-clone",VecClonePass());
+MODULE_PASS("vplan-pragma-omp-ordered-simd-extract", VPlanPragmaOmpOrderedSimdExtractPass());
 #endif //INTEL_CUSTOMIZATION
 MODULE_PASS("always-inline", AlwaysInlinerPass())
 MODULE_PASS("attributor", AttributorPass())

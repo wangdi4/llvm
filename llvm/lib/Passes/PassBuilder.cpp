@@ -243,10 +243,11 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRSSADeconstructionPass.h"
 
 // VPlan Vectorizer passes
+#include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
+#include "llvm/Transforms/Intel_VPO/VPODirectiveCleanup.h"
 #include "llvm/Transforms/Vectorize/IntelVPlanDriver.h"
 #include "llvm/Transforms/Vectorize/IntelVPlanFunctionVectorizer.h"
-#include "llvm/Transforms/Intel_VPO/VPODirectiveCleanup.h"
-#include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
+#include "llvm/Transforms/Vectorize/IntelVPlanPragmaOmpOrderedSimdExtract.h"
 
 // Analysis passes
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
