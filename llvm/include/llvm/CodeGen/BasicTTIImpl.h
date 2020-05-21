@@ -1157,12 +1157,6 @@ public:
       return ConcreteTTI->getGatherScatterOpCost(
           Instruction::Load, RetTy, Args[0], VarMask, Alignment, CostKind, I);
     }
-#if INTEL_CUSTOMIZATION
-    case Intrinsic::directive_region_entry:
-    case Intrinsic::directive_region_exit: {
-        return 0;
-    }
-#endif // INTEL_CUSTOMIZATION
     case Intrinsic::experimental_vector_reduce_add:
     case Intrinsic::experimental_vector_reduce_mul:
     case Intrinsic::experimental_vector_reduce_and:
@@ -1355,6 +1349,10 @@ public:
     case Intrinsic::lifetime_start:
     case Intrinsic::lifetime_end:
     case Intrinsic::sideeffect:
+#if INTEL_CUSTOMIZATION
+    case Intrinsic::directive_region_entry:
+    case Intrinsic::directive_region_exit:
+#endif // INTEL_CUSTOMIZATION
       return 0;
     case Intrinsic::masked_store:
       return ConcreteTTI->getMaskedMemoryOpCost(Instruction::Store, Tys[0], 0,
