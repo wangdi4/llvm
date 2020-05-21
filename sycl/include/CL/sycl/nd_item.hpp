@@ -120,6 +120,7 @@ public:
 #if !DPCPP_HOST_DEVICE_SERIAL
     cl::sycl::detail::NDRangeBarrier(accessSpace);
 #else
+    (void)accessSpace;
 /* end INTEL_CUSTOMIZATION */
     std::cerr << "Barrier is not supported on host device.\n";
     abort();
