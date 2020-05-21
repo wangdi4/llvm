@@ -3218,6 +3218,7 @@ void JumpThreadingPass::UpdateRegionBlockFreqAndEdgeWeight(BasicBlock *PredBB,
         BBSuccFreq.push_back(SuccFreq.getFrequency());
       }
 
+<<<<<<< HEAD
       uint64_t MaxBBSuccFreq =
         *std::max_element(BBSuccFreq.begin(), BBSuccFreq.end());
 
@@ -3233,6 +3234,10 @@ void JumpThreadingPass::UpdateRegionBlockFreqAndEdgeWeight(BasicBlock *PredBB,
         BranchProbability::normalizeProbabilities(BBSuccProbs.begin(),
                                                   BBSuccProbs.end());
       }
+=======
+  // Update edge probabilities in BPI.
+  BPI->setEdgeProbability(BB, BBSuccProbs);
+>>>>>>> 8138487468e22cf8fa1a86816a1e3247b8010760
 
       // Update edge probabilities in BPI.
       for (int I = 0, E = BBSuccProbs.size(); I < E; I++)
