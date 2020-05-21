@@ -6045,6 +6045,10 @@ void VPOParoptTransform::wrnUpdateSSAPreprocessForOuterLoop(
 }
 
 // Collect the live-in values for the given loop.
+// "LiveIn" Values are PHINode values with one incoming value from Loop
+// preheader and others from other basic blocks/Loop Latch.
+// LoopInductionVariables are not included in the set, since they are handled in
+// a special way using threadID.
 void VPOParoptTransform::wrnCollectLiveInVals(
     Loop &L,
     DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap,
@@ -6052,7 +6056,7 @@ void VPOParoptTransform::wrnCollectLiveInVals(
   BasicBlock *PreheaderBB = L.getLoopPreheader();
   assert(PreheaderBB && "wrnUpdateSSAPreprocess: Loop preheader not found");
   BasicBlock *BB = L.getHeader();
-
+  Instruction *InductionV = WRegionUtils::getOmpCanonicalInductionVariable(&L);
   for (Instruction &I : *BB) {
     if (!isa<PHINode>(I))
       break;
@@ -6074,8 +6078,10 @@ void VPOParoptTransform::wrnCollectLiveInVals(
         BasicBlock *InBB = PN->getIncomingBlock(I);
         if (InBB != PreheaderBB) {
           Value *V = PN->getIncomingValue(I);
-          ValueToLiveinMap[V] = {IV, PreheaderBB};
-          ECs.unionSets(Leader, V);
+          if ((PN != InductionV) && (V != InductionV)) {
+            ValueToLiveinMap[V] = {IV, PreheaderBB};
+            ECs.unionSets(Leader, V);
+          }
         }
       }
     }
@@ -6099,19 +6105,28 @@ void VPOParoptTransform::AnalyzePhisECs(Loop *L, Value *PV, Value *V,
 
 // Build the equivalence class for the value a, b if there exists some phi node
 // e.g. a = phi(b).
-void VPOParoptTransform::buildECs(Loop *L, PHINode *PN,
+void VPOParoptTransform::buildECs(Loop *L, Value *V,
                                   EquivalenceClasses<Value *> &ECs) {
-  SmallPtrSet<PHINode *, 16> PhiUsers;
-  Value *Leader = ECs.getOrInsertLeaderValue(PN);
-  unsigned NumPHIValues = PN->getNumIncomingValues();
-  unsigned II;
-  for (II = 0; II < NumPHIValues; II++)
-    AnalyzePhisECs(L, Leader, PN->getIncomingValue(II), ECs, PhiUsers);
+  if (!isa<PHINode>(V))
+    ECs.getOrInsertLeaderValue(V);
+  else {
+    PHINode *PN = dyn_cast<PHINode>(V);
+    SmallPtrSet<PHINode *, 16> PhiUsers;
+    Value *Leader = ECs.getOrInsertLeaderValue(PN);
+    unsigned NumPHIValues = PN->getNumIncomingValues();
+    unsigned II;
+    for (II = 0; II < NumPHIValues; II++)
+      AnalyzePhisECs(L, Leader, PN->getIncomingValue(II), ECs, PhiUsers);
+  }
 }
 
 // Collect the live-out value in the loop.
+// A defined Value is considered "LiveOut" if it is used outside the loop or
+// it has loop-carried dependence. A variable has loop-carried dependence if it
+// is present in "LiveIn" set of the Loop (except Induction Variables.)
 void VPOParoptTransform::wrnCollectLiveOutVals(
     Loop &L, SmallSetVector<Instruction *, 8> &LiveOutVals,
+    DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap,
     EquivalenceClasses<Value *> &ECs) {
   for (Loop::block_iterator II = L.block_begin(), E = L.block_end(); II != E;
        ++II) {
@@ -6125,36 +6140,12 @@ void VPOParoptTransform::wrnCollectLiveOutVals(
         if (const PHINode *P = dyn_cast<PHINode>(UI))
           UserBB = P->getIncomingBlock(U);
 
-        if (!L.contains(UserBB)) {
+        if (!L.contains(UserBB) ||
+            (ValueToLiveinMap.find((&I)) != ValueToLiveinMap.end())) {
           LiveOutVals.insert(&I);
-          if (isa<PHINode>(I))
-            buildECs(&L, cast<PHINode>(&I), ECs);
+          buildECs(&L, &I, ECs);
         }
       }
-    }
-  }
-  // Any variable except the loop index which has loop carried dependence
-  // has to be added into the live-out list.
-
-  for (Instruction &I : *L.getLoopLatch()) {
-    if (!isa<PHINode>(I))
-      break;
-    if (WRegionUtils::getOmpCanonicalInductionVariable(&L) == &I)
-      continue;
-    // If any use occurs in the loop header, the loop carried dependence
-    // exists.
-    bool Match = false;
-    for (const Use &U : I.uses()) {
-      const Instruction *UI = cast<Instruction>(U.getUser());
-      const BasicBlock *UserBB = UI->getParent();
-      if (UserBB == L.getHeader()) {
-        Match = true;
-        break;
-      }
-    }
-    if (Match) {
-      LiveOutVals.insert(&I);
-      buildECs(&L, dyn_cast<PHINode>(&I), ECs);
     }
   }
 }
@@ -6240,6 +6231,7 @@ void updateConstantLoopHeaderPhis(Loop *L) {
 }
 
 // Collect the live-in value for the phis at the loop header.
+// Collect the live-out set for the Loop.
 void VPOParoptTransform::wrnUpdateSSAPreprocess(
     Loop *L,
     DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap,
@@ -6247,7 +6239,7 @@ void VPOParoptTransform::wrnUpdateSSAPreprocess(
     EquivalenceClasses<Value *> &ECs) {
 
   wrnCollectLiveInVals(*L, ValueToLiveinMap, ECs);
-  wrnCollectLiveOutVals(*L, LiveOutVals, ECs);
+  wrnCollectLiveOutVals(*L, LiveOutVals, ValueToLiveinMap, ECs);
 }
 
 // Update the SSA form after the basic block LoopExitBB's successor
