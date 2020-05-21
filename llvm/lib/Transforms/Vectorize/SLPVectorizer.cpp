@@ -815,7 +815,7 @@ public:
   /// the stored value. Otherwise, the size is the width of the largest loaded
   /// value reaching V. This method is used by the vectorizer to calculate
   /// vectorization factors.
-  unsigned getVectorElementSize(Value *V) const;
+  unsigned getVectorElementSize(Value *V);
 
   /// Compute the minimum type sizes required to represent the entries in a
   /// vectorizable tree.
@@ -2431,6 +2431,9 @@ private:
 
   /// Maps a specific scalar to its tree entry.
   SmallDenseMap<Value*, TreeEntry *> ScalarToTreeEntry;
+
+  /// Maps a value to the proposed vectorizable size.
+  SmallDenseMap<Value *, unsigned> InstrElementSize;
 
   /// A list of scalars that we found that we need to keep as scalars.
   ValueSet MustGather;
@@ -7581,6 +7584,7 @@ BoUpSLP::vectorizeTree(ExtraValueToDebugLocsMap &ExternallyUsedValues) {
   }
 
   Builder.ClearInsertionPoint();
+  InstrElementSize.clear();
 
   return VectorizableTree[0]->VectorizedValue;
 }
@@ -8117,11 +8121,15 @@ void BoUpSLP::scheduleBlock(BlockScheduling *BS) {
   BS->ScheduleStart = nullptr;
 }
 
-unsigned BoUpSLP::getVectorElementSize(Value *V) const {
+unsigned BoUpSLP::getVectorElementSize(Value *V) {
   // If V is a store, just return the width of the stored value without
   // traversing the expression tree. This is the common case.
   if (auto *Store = dyn_cast<StoreInst>(V))
     return DL->getTypeSizeInBits(Store->getValueOperand()->getType());
+
+  auto E = InstrElementSize.find(V);
+  if (E != InstrElementSize.end())
+    return E->second;
 
   // If V is not a store, we can traverse the expression tree to find loads
   // that feed it. The type of the loaded value may indicate a more suitable
@@ -8168,13 +8176,17 @@ unsigned BoUpSLP::getVectorElementSize(Value *V) const {
       FoundUnknownInst = true;
   }
 
+  int Width = MaxWidth;
   // If we didn't encounter a memory access in the expression tree, or if we
-  // gave up for some reason, just return the width of V.
+  // gave up for some reason, just return the width of V. Otherwise, return the
+  // maximum width we found.
   if (!MaxWidth || FoundUnknownInst)
-    return DL->getTypeSizeInBits(V->getType());
+    Width = DL->getTypeSizeInBits(V->getType());
 
-  // Otherwise, return the maximum width we found.
-  return MaxWidth;
+  for (Instruction *I : Visited)
+    InstrElementSize[I] = Width;
+
+  return Width;
 }
 
 // Determine if a value V in a vectorizable expression Expr can be demoted to a
