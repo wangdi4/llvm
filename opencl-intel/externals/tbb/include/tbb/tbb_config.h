@@ -1,5 +1,5 @@
 /*
-    Copyright (c) 2005-2020 Intel Corporation
+    Copyright (c) 2005-2019 Intel Corporation
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@
 
 // Prior to GCC 7, GNU libstdc++ did not have a convenient version macro.
 // Therefore we use different ways to detect its version.
-#if defined(TBB_USE_GLIBCXX_VERSION) && !defined(_GLIBCXX_RELEASE)
+#ifdef TBB_USE_GLIBCXX_VERSION
 // The version is explicitly specified in our public TBB_USE_GLIBCXX_VERSION macro.
 // Its format should match the __TBB_GCC_VERSION above, e.g. 70301 for libstdc++ coming with GCC 7.3.1.
 #define __TBB_GLIBCXX_VERSION TBB_USE_GLIBCXX_VERSION
@@ -214,7 +214,9 @@
 /** TODO: extend exception_ptr related conditions to cover libstdc++ **/
     #define __TBB_EXCEPTION_PTR_PRESENT                     (__cplusplus >= 201103L && (_LIBCPP_VERSION || __TBB_GLIBCXX_VERSION >= 40600))
     #define __TBB_STATIC_ASSERT_PRESENT                     __has_feature(__cxx_static_assert__)
-    #if (__cplusplus >= 201103L && __has_include(<tuple>))
+    /**Clang (preprocessor) has problems with dealing with expression having __has_include in #ifs
+     * used inside C++ code. (At least version that comes with OS X 10.8 : Apple LLVM version 4.2 (clang-425.0.28) (based on LLVM 3.2svn)) **/
+    #if (__GXX_EXPERIMENTAL_CXX0X__ && __has_include(<tuple>))
         #define __TBB_CPP11_TUPLE_PRESENT                   1
     #endif
     #if (__has_feature(__cxx_generalized_initializers__) && __has_include(<initializer_list>))
@@ -575,10 +577,6 @@ There are four cases that are supported:
     #error __TBB_TASK_PRIORITY requires __TBB_TASK_GROUP_CONTEXT to be enabled
 #endif
 
-#if TBB_PREVIEW_NUMA_SUPPORT || __TBB_BUILD
-    #define __TBB_NUMA_SUPPORT 1
-#endif
-
 #if TBB_PREVIEW_WAITING_FOR_WORKERS || __TBB_BUILD
     #define __TBB_SUPPORTS_WORKERS_WAITING_IN_TERMINATE 1
 #endif
@@ -641,11 +639,11 @@ There are four cases that are supported:
 #endif
 
 #if defined(TBB_SUPPRESS_DEPRECATED_MESSAGES) && (TBB_SUPPRESS_DEPRECATED_MESSAGES == 0)
-    #define __TBB_DEPRECATED_IN_VERBOSE_MODE __TBB_DEPRECATED
-    #define __TBB_DEPRECATED_IN_VERBOSE_MODE_MSG(msg) __TBB_DEPRECATED_MSG(msg)
+    #define __TBB_DEPRECATED_VERBOSE __TBB_DEPRECATED
+    #define __TBB_DEPRECATED_VERBOSE_MSG(msg) __TBB_DEPRECATED_MSG(msg)
 #else
-    #define __TBB_DEPRECATED_IN_VERBOSE_MODE
-    #define __TBB_DEPRECATED_IN_VERBOSE_MODE_MSG(msg)
+    #define __TBB_DEPRECATED_VERBOSE
+    #define __TBB_DEPRECATED_VERBOSE_MSG(msg)
 #endif // (TBB_SUPPRESS_DEPRECATED_MESSAGES == 0)
 
 #if (!defined(TBB_SUPPRESS_DEPRECATED_MESSAGES) || (TBB_SUPPRESS_DEPRECATED_MESSAGES == 0)) && !__TBB_CPP11_PRESENT

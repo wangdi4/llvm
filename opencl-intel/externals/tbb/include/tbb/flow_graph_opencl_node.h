@@ -1,5 +1,5 @@
 /*
-    Copyright (c) 2005-2020 Intel Corporation
+    Copyright (c) 2005-2019 Intel Corporation
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -13,17 +13,6 @@
     See the License for the specific language governing permissions and
     limitations under the License.
 */
-
-#include "internal/_deprecated_header_message_guard.h"
-
-#if !defined(__TBB_show_deprecation_message_flow_graph_opencl_node_H) && defined(__TBB_show_deprecated_header_message)
-#define  __TBB_show_deprecation_message_flow_graph_opencl_node_H
-#pragma message("TBB Warning: tbb/flow_graph_opencl_node.h is deprecated. For details, please see Deprecated Features appendix in the TBB reference manual.")
-#endif
-
-#if defined(__TBB_show_deprecated_header_message)
-#undef __TBB_show_deprecated_header_message
-#endif
 
 #ifndef __TBB_flow_graph_opencl_node_H
 #define __TBB_flow_graph_opencl_node_H
@@ -116,7 +105,7 @@ inline std::string platform_info<std::string>(cl_platform_id p, cl_platform_info
 }
 
 
-class __TBB_DEPRECATED_IN_VERBOSE_MODE opencl_device {
+class opencl_device {
 public:
     typedef size_t device_id_type;
     enum : device_id_type {
@@ -264,7 +253,7 @@ private:
 #endif
 };
 
-class __TBB_DEPRECATED_IN_VERBOSE_MODE opencl_device_list {
+class opencl_device_list {
     typedef std::vector<opencl_device> container_type;
 public:
     typedef container_type::iterator iterator;
@@ -362,7 +351,7 @@ public:
 };
 
 template <typename T, typename Factory = opencl_info::default_opencl_factory>
-class __TBB_DEPRECATED_IN_VERBOSE_MODE opencl_async_msg : public async_msg<T> {
+class opencl_async_msg : public async_msg<T> {
 public:
     typedef T value_type;
 
@@ -518,7 +507,7 @@ public:
         my_curr_device_id = my_factory->devices().begin()->my_device_id;
     }
 
-    virtual ~opencl_memory() {
+    ~opencl_memory() {
         if ( my_sending_event_present ) enforce_cl_retcode( clReleaseEvent( my_sending_event ), "Failed to release an event for the OpenCL buffer" );
         enforce_cl_retcode( clReleaseMemObject( my_cl_mem ), "Failed to release an memory object" );
     }
@@ -637,12 +626,10 @@ enum access_type {
 };
 
 template <typename T, typename Factory = opencl_info::default_opencl_factory>
-class __TBB_DEPRECATED_IN_VERBOSE_MODE
-opencl_subbuffer;
+class opencl_subbuffer;
 
 template <typename T, typename Factory = opencl_info::default_opencl_factory>
-class __TBB_DEPRECATED_IN_VERBOSE_MODE
-opencl_buffer {
+class opencl_buffer {
 public:
     typedef cl_mem native_object_type;
     typedef opencl_buffer memory_object_type;
@@ -716,8 +703,7 @@ private:
 };
 
 template <typename T, typename Factory>
-class __TBB_DEPRECATED_IN_VERBOSE_MODE
-opencl_subbuffer : public opencl_buffer<T, Factory> {
+class opencl_subbuffer : public opencl_buffer<T, Factory> {
     opencl_buffer<T, Factory> my_owner;
 public:
     opencl_subbuffer() {}
@@ -793,7 +779,7 @@ typename std::enable_if<is_memory_object_type<T>::value>::type receive_if_memory
 template <typename T>
 typename std::enable_if<!is_memory_object_type<T>::value>::type  receive_if_memory_object( const T& ) {}
 
-class __TBB_DEPRECATED_IN_VERBOSE_MODE opencl_range {
+class opencl_range {
 public:
     typedef size_t range_index_type;
     typedef std::array<range_index_type, 3> nd_range_type;
@@ -803,7 +789,7 @@ public:
     opencl_range(G&& global_work = std::initializer_list<int>({ 0 }), L&& local_work = std::initializer_list<int>({ 0, 0, 0 })) {
         auto g_it = global_work.begin();
         auto l_it = local_work.begin();
-        my_global_work_size = { {size_t(-1), size_t(-1), size_t(-1)} };
+        my_global_work_size = { size_t(-1), size_t(-1), size_t(-1) };
         // my_local_work_size is still uninitialized
         for (int s = 0; s < 3 && g_it != global_work.end(); ++g_it, ++l_it, ++s) {
             __TBB_ASSERT(l_it != local_work.end(), "global_work & local_work must have same size");
@@ -821,7 +807,7 @@ private:
 };
 
 template <typename DeviceFilter>
-class __TBB_DEPRECATED_IN_VERBOSE_MODE opencl_factory {
+class opencl_factory {
 public:
     template<typename T> using async_msg_type = opencl_async_msg<T, opencl_factory<DeviceFilter>>;
     typedef opencl_device device_type;
@@ -1232,7 +1218,7 @@ enum class opencl_program_type {
 };
 
 template <typename Factory = opencl_info::default_opencl_factory>
-class __TBB_DEPRECATED_IN_VERBOSE_MODE opencl_program : tbb::internal::no_assign {
+class opencl_program : tbb::internal::no_assign {
 public:
     typedef typename Factory::kernel_type kernel_type;
 
@@ -1411,15 +1397,15 @@ private:
     template <typename DeviceFilter>
     friend class opencl_factory;
 
-    friend class Factory::kernel;
+    template <typename DeviceFilter>
+    friend class opencl_factory<DeviceFilter>::kernel;
 };
 
 template<typename... Args>
-class __TBB_DEPRECATED_IN_VERBOSE_MODE opencl_node;
+class opencl_node;
 
 template<typename JP, typename Factory, typename... Ports>
-class __TBB_DEPRECATED_IN_VERBOSE_MODE
-opencl_node< tuple<Ports...>, JP, Factory > : public streaming_node< tuple<Ports...>, JP, Factory > {
+class opencl_node< tuple<Ports...>, JP, Factory > : public streaming_node< tuple<Ports...>, JP, Factory > {
     typedef streaming_node < tuple<Ports...>, JP, Factory > base_type;
 public:
     typedef typename base_type::kernel_type kernel_type;
@@ -1445,8 +1431,7 @@ public:
 };
 
 template<typename JP, typename... Ports>
-class __TBB_DEPRECATED_IN_VERBOSE_MODE
-opencl_node< tuple<Ports...>, JP > : public opencl_node < tuple<Ports...>, JP, opencl_info::default_opencl_factory > {
+class opencl_node< tuple<Ports...>, JP > : public opencl_node < tuple<Ports...>, JP, opencl_info::default_opencl_factory > {
     typedef opencl_node < tuple<Ports...>, JP, opencl_info::default_opencl_factory > base_type;
 public:
     typedef typename base_type::kernel_type kernel_type;
@@ -1462,8 +1447,7 @@ public:
 };
 
 template<typename... Ports>
-class __TBB_DEPRECATED_IN_VERBOSE_MODE
-opencl_node< tuple<Ports...> > : public opencl_node < tuple<Ports...>, queueing, opencl_info::default_opencl_factory > {
+class opencl_node< tuple<Ports...> > : public opencl_node < tuple<Ports...>, queueing, opencl_info::default_opencl_factory > {
     typedef opencl_node < tuple<Ports...>, queueing, opencl_info::default_opencl_factory > base_type;
 public:
     typedef typename base_type::kernel_type kernel_type;

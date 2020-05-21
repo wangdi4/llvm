@@ -1,5 +1,5 @@
 /*
-    Copyright (c) 2005-2020 Intel Corporation
+    Copyright (c) 2005-2019 Intel Corporation
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -55,7 +55,7 @@ public:
 };
 
 //! Exception for repeated scheduling of the same task_handle
-class invalid_multiple_scheduling : public std::exception {
+class __TBB_DEPRECATED invalid_multiple_scheduling : public std::exception {
 public:
     const char* what() const throw() __TBB_override;
 };
@@ -188,7 +188,7 @@ public:
     algorithm ) if an unhandled exception was intercepted during the algorithm execution in one
     of the workers.
     \sa tbb::tbb_exception **/
-class __TBB_DEPRECATED_IN_VERBOSE_MODE captured_exception : public tbb_exception
+class __TBB_DEPRECATED captured_exception : public tbb_exception
 {
 public:
     captured_exception( const captured_exception& src )
@@ -228,7 +228,7 @@ public:
 
 private:
     //! Used only by method move().
-    captured_exception() : my_dynamic(), my_exception_name(), my_exception_info() {}
+    captured_exception() {}
 
     //! Functionally equivalent to {captured_exception e(name,info); return e.move();}
     static captured_exception* allocate( const char* name, const char* info );
