@@ -898,14 +898,6 @@ CodeGenFunction::IntelBlockLoopExprHandler::~IntelBlockLoopExprHandler() {
 #endif // INTEL_CUSTOMIZATION
 
 void CodeGenFunction::EmitAttributedStmt(const AttributedStmt &S) {
-<<<<<<< HEAD
-  bool nomerge = false;
-  for (const auto *A: S.getAttrs())
-    if (A->getKind() == attr::NoMerge) {
-      nomerge = true;
-      break;
-    }
-  SaveAndRestore<bool> save_nomerge(InNoMergeAttributedStmt, nomerge);
 #if INTEL_CUSTOMIZATION
   IntelPragmaInlineState PS(*this, S.getAttrs());
   IntelIVDepArrayHandler IAH(*this, S.getAttrs());
@@ -913,8 +905,6 @@ void CodeGenFunction::EmitAttributedStmt(const AttributedStmt &S) {
   IntelBlockLoopExprHandler IBLH(*this, S.getAttrs());
   IntelFPGALoopFuseHandler ILFH(*this, S.getAttrs());
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> b0a0f01bc175b4c444052f871a89421889f8b5ce
   EmitStmt(S.getSubStmt(), S.getAttrs());
 }
 

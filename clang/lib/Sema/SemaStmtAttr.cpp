@@ -601,7 +601,6 @@ static bool diagOverlapingLevels(Sema &S, int LevelFrom, int LevelTo,
                 diag::note_second_block_loop_level_specified_here);
 }
 
-<<<<<<< HEAD
 namespace {
 struct PragmaBlockLoopLevelInfo {
   Expr *Factor;
@@ -939,47 +938,6 @@ CheckForRedundantIVDepAttributes(Sema &S,
 
 #endif // INTEL_CUSTOMIZATION
 
-namespace {
-class CallExprFinder : public ConstEvaluatedExprVisitor<CallExprFinder> {
-  bool FoundCallExpr = false;
-
-public:
-  typedef ConstEvaluatedExprVisitor<CallExprFinder> Inherited;
-
-  CallExprFinder(Sema &S, const Stmt* St) : Inherited(S.Context) {
-    Visit(St);
-  }
-
-  bool foundCallExpr() { return FoundCallExpr; }
-
-  void VisitCallExpr(const CallExpr *E) { FoundCallExpr = true; }
-
-  void Visit(const Stmt *St) {
-    if (!St) return;
-    ConstEvaluatedExprVisitor<CallExprFinder>::Visit(St);
-  }
-};
-} // namespace
-
-static Attr *handleNoMergeAttr(Sema &S, Stmt *St, const ParsedAttr &A,
-                               SourceRange Range) {
-  NoMergeAttr NMA(S.Context, A);
-  if (S.CheckAttrNoArgs(A))
-    return nullptr;
-  
-  CallExprFinder CEF(S, St);
-
-  if (!CEF.foundCallExpr()) {
-    S.Diag(St->getBeginLoc(), diag::warn_nomerge_attribute_ignored_in_stmt)
-        << NMA.getSpelling();
-    return nullptr;
-  }
-
-  return ::new (S.Context) NoMergeAttr(S.Context, A);
-}
-
-=======
->>>>>>> b0a0f01bc175b4c444052f871a89421889f8b5ce
 static void
 CheckForIncompatibleAttributes(Sema &S,
                                const SmallVectorImpl<const Attr *> &Attrs) {
