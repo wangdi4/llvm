@@ -50,6 +50,7 @@ TEST(PiMockTest, ConstructFromQueue) {
 }
 
 TEST(PiMockTest, ConstructFromPlatform) {
+<<<<<<< HEAD
   try {
     platform plt{default_selector{}};
   } catch (const runtime_error &re) {
@@ -59,6 +60,14 @@ TEST(PiMockTest, ConstructFromPlatform) {
 
   platform NormalPlatform{default_selector{}};
   platform MockPlatform{default_selector{}};
+=======
+  platform NormalPlatform(default_selector{});
+  if (NormalPlatform.is_host()) {
+    std::cerr << "Not run due to host-only environment\n";
+    return;
+  }
+  platform MockPlatform(default_selector{});
+>>>>>>> c9fd72cf3acdbe37328a886a0e728acd37f332cb
   unittest::PiMock Mock(MockPlatform);
 
   const auto &NormalPiPlugin =
