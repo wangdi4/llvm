@@ -85,6 +85,12 @@ enum OpenMPOffloadingRequiresDirFlags {
 };
 
 #if INTEL_COLLAB
+enum TargetAllocTy : int32_t {
+  TARGET_ALLOC_DEVICE = 0,
+  TARGET_ALLOC_HOST,
+  TARGET_ALLOC_SHARED
+};
+
 enum InteropPropertyTy : int32_t {
   INTEROP_DEVICE_ID = 1,
   INTEROP_IS_ASYNC,
@@ -228,6 +234,12 @@ int omp_target_disassociate_ptr(void *host_ptr, int device_num);
 #if INTEL_COLLAB
 EXTERN
 void * omp_get_mapped_ptr(void *host_ptr, int device_num);
+
+/// Explicit target memory allocators
+/// Are we OK with omp_ prefix?
+EXTERN void *omp_target_alloc_device(size_t size, int device_num);
+EXTERN void *omp_target_alloc_host(size_t size, int device_num);
+EXTERN void *omp_target_alloc_shared(size_t size, int device_num);
 #endif  // INTEL_COLLAB
 
 /// add the clauses of the requires directives in a given file

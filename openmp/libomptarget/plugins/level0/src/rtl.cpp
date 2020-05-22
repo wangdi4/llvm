@@ -1111,26 +1111,9 @@ void *__tgt_rtl_data_alloc_base(int32_t DeviceId, int64_t Size, void *HstPtr,
 }
 
 EXTERN void *__tgt_rtl_data_alloc_managed(int32_t DeviceId, int64_t Size) {
-  void *mem = nullptr;
-  ze_host_mem_alloc_desc_t hostDesc = {
-    ZE_HOST_MEM_ALLOC_DESC_VERSION_CURRENT,
-    ZE_HOST_MEM_ALLOC_FLAG_DEFAULT
-  };
-  if (DeviceInfo->Flags.UseHostMemForUSM) {
-    CALL_ZE_RET_NULL(zeDriverAllocHostMem, DeviceInfo->Driver, &hostDesc, Size,
-                     LEVEL0_ALIGNMENT, &mem);
-  } else {
-    ze_device_mem_alloc_desc_t deviceDesc = {
-      ZE_DEVICE_MEM_ALLOC_DESC_VERSION_CURRENT,
-      ZE_DEVICE_MEM_ALLOC_FLAG_DEFAULT,
-      0
-    };
-    CALL_ZE_RET_NULL(zeDriverAllocSharedMem, DeviceInfo->Driver, &deviceDesc,
-                     &hostDesc, Size, LEVEL0_ALIGNMENT,
-                     DeviceInfo->Devices[DeviceId], &mem);
-  }
-  DP("Allocated a managed memory object " DPxMOD "\n", DPxPTR(mem));
-  return mem;
+  int32_t kind = DeviceInfo->Flags.UseHostMemForUSM ? TARGET_ALLOC_HOST
+                                                    : TARGET_ALLOC_SHARED;
+  return __tgt_rtl_data_alloc_explicit(DeviceId, Size, kind);
 }
 
 EXTERN int32_t __tgt_rtl_data_delete_managed(int32_t DeviceId, void *Ptr) {
@@ -1159,6 +1142,42 @@ EXTERN int32_t __tgt_rtl_is_managed_ptr(int32_t DeviceId, void *Ptr) {
   DP("Ptr " DPxMOD " is %sa managed memory pointer.\n", DPxPTR(Ptr),
      ret ? "" : "not ");
   return ret;
+}
+
+EXTERN void *__tgt_rtl_data_alloc_explicit(
+    int32_t DeviceId, int64_t Size, int32_t Kind) {
+  void *mem = nullptr;
+  ze_device_mem_alloc_desc_t deviceDesc = {
+    ZE_DEVICE_MEM_ALLOC_DESC_VERSION_CURRENT,
+    ZE_DEVICE_MEM_ALLOC_FLAG_DEFAULT,
+    0
+  };
+  ze_host_mem_alloc_desc_t hostDesc = {
+    ZE_HOST_MEM_ALLOC_DESC_VERSION_CURRENT,
+    ZE_HOST_MEM_ALLOC_FLAG_DEFAULT
+  };
+  auto driver = DeviceInfo->Driver;
+  auto device = DeviceInfo->Devices[DeviceId];
+
+  switch (Kind) {
+  case TARGET_ALLOC_DEVICE:
+    mem = allocData(DeviceId, Size, nullptr, nullptr, 0);
+    break;
+  case TARGET_ALLOC_HOST:
+    CALL_ZE_RET_NULL(zeDriverAllocHostMem, driver, &hostDesc, Size,
+                     LEVEL0_ALIGNMENT, &mem);
+    DP("Allocated a host memory object " DPxMOD "\n", DPxPTR(mem));
+    break;
+  case TARGET_ALLOC_SHARED:
+    CALL_ZE_RET_NULL(zeDriverAllocSharedMem, driver, &deviceDesc, &hostDesc,
+                     Size, LEVEL0_ALIGNMENT, device, &mem);
+    DP("Allocated a shared memory object " DPxMOD "\n", DPxPTR(mem));
+    break;
+  default:
+    FATAL_ERROR("Invalid target data allocation kind");
+  }
+
+  return mem;
 }
 
 // Tasks to be done when completing an asynchronous command.

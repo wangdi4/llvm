@@ -36,6 +36,7 @@ VERS1.0 {
     __tgt_rtl_data_alloc_managed;
     __tgt_rtl_data_delete_managed;
     __tgt_rtl_is_managed_ptr;
+    __tgt_rtl_data_alloc_explicit;
 # end INTEL_COLLAB
   local:
     *;

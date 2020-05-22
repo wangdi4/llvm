@@ -699,6 +699,13 @@ int32_t DeviceTy::is_managed_ptr(void *Ptr) {
   else
     return 0;
 }
+
+void *DeviceTy::data_alloc_explicit(int64_t Size, int32_t Kind) {
+  if (RTL->data_alloc_explicit)
+    return RTL->data_alloc_explicit(RTLDeviceID, Size, Kind);
+  else
+    return nullptr;
+}
 #endif // INTEL_COLLAB
 /// Check whether a device has an associated RTL and initialize it if it's not
 /// already initialized.

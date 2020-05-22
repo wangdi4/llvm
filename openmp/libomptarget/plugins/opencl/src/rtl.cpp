@@ -1813,36 +1813,9 @@ EXTERN void *__tgt_rtl_get_platform_handle(int32_t device_id) {
 #if INTEL_CUSTOMIZATION
 // Allocate a managed memory object.
 EXTERN void *__tgt_rtl_data_alloc_managed(int32_t device_id, int64_t size) {
-  uint64_t useHostMem = DeviceInfo->Flags.UseHostMemForUSM;
-  if (useHostMem && !DeviceInfo->clHostMemAllocINTELFn ||
-      !useHostMem && !DeviceInfo->clSharedMemAllocINTELFn) {
-    DP("Managed memory allocator is not available\n");
-    return nullptr;
-  }
-  cl_mem_properties_intel properties[] = {
-      CL_MEM_ALLOC_FLAGS_INTEL, CL_MEM_ALLOC_DEFAULT_INTEL, 0};
-  cl_int rc;
-  auto &mutex = DeviceInfo->Mutexes[device_id];
-  mutex.lock();
-  void *mem;
-  if (DeviceInfo->Flags.UseHostMemForUSM) {
-    CALL_CL_EXT_RVRC(
-        mem, clHostMemAllocINTEL, DeviceInfo->clHostMemAllocINTELFn, rc,
-        DeviceInfo->CTX[device_id], properties, size, 0);
-  } else {
-    cl_device_id device = DeviceInfo->deviceIDs[device_id];
-    CALL_CL_EXT_RVRC(
-        mem, clSharedMemAllocINTEL, DeviceInfo->clSharedMemAllocINTELFn, rc,
-        DeviceInfo->CTX[device_id], device, properties, size, 0);
-  }
-  if (rc != CL_SUCCESS) {
-    mutex.unlock();
-    return nullptr;
-  }
-  DeviceInfo->ManagedData[device_id].emplace(std::make_pair(mem, size));
-  mutex.unlock();
-  DP("Allocated a managed memory object " DPxMOD "\n", DPxPTR(mem));
-  return mem;
+  int32_t kind = DeviceInfo->Flags.UseHostMemForUSM ? TARGET_ALLOC_HOST
+                                                    : TARGET_ALLOC_SHARED;
+  return __tgt_rtl_data_alloc_explicit(device_id, size, kind);
 }
 
 // Delete a managed memory object.
@@ -1921,6 +1894,58 @@ void *tgt_rtl_data_alloc_template(int32_t device_id, int64_t size,
 
   return ret;
 }
+
+#if INTEL_CUSTOMIZATION
+EXTERN void *__tgt_rtl_data_alloc_explicit(
+    int32_t device_id, int64_t size, int32_t kind) {
+  cl_mem_properties_intel properties[] = {
+    CL_MEM_ALLOC_FLAGS_INTEL, CL_MEM_ALLOC_DEFAULT_INTEL, 0
+  };
+  auto device = DeviceInfo->deviceIDs[device_id];
+  auto context = DeviceInfo->CTX[device_id];
+  cl_int rc;
+  void *mem = nullptr;
+  auto &mutex = DeviceInfo->Mutexes[device_id];
+
+  switch (kind) {
+  case TARGET_ALLOC_DEVICE:
+    mem = tgt_rtl_data_alloc_template(device_id, size, nullptr, nullptr, 0);
+    break;
+  case TARGET_ALLOC_HOST:
+    if (!DeviceInfo->clHostMemAllocINTELFn) {
+      DP("Host memory allocator is not available\n");
+      return nullptr;
+    }
+    CALL_CL_EXT_RVRC(mem, clHostMemAllocINTEL,
+                     DeviceInfo->clHostMemAllocINTELFn, rc, context, properties,
+                     size, 0);
+    if (mem) {
+      std::unique_lock<std::mutex> dataLock(mutex);
+      DeviceInfo->ManagedData[device_id].emplace(std::make_pair(mem, size));
+      DP("Allocated a host memory object " DPxMOD "\n", DPxPTR(mem));
+    }
+    break;
+  case TARGET_ALLOC_SHARED:
+    if (!DeviceInfo->clSharedMemAllocINTELFn) {
+      DP("Shared memory allocator is not available\n");
+      return nullptr;
+    }
+    CALL_CL_EXT_RVRC(mem, clSharedMemAllocINTEL,
+                     DeviceInfo->clSharedMemAllocINTELFn, rc, context, device,
+                     properties, size, 0);
+    if (mem) {
+      std::unique_lock<std::mutex> dataLock(mutex);
+      DeviceInfo->ManagedData[device_id].emplace(std::make_pair(mem, size));
+      DP("Allocated a shared memory object " DPxMOD "\n", DPxPTR(mem));
+    }
+    break;
+  default:
+    FATAL_ERROR("Invalid target data allocation kind");
+  }
+
+  return mem;
+}
+#endif // INTEL_CUSTOMIZATION
 
 EXTERN
 void *__tgt_rtl_data_alloc(int32_t device_id, int64_t size, void *hst_ptr) {
