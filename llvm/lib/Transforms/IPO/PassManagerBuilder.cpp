@@ -1196,6 +1196,7 @@ void PassManagerBuilder::populateModulePassManager(
   // llvm.loop.distribute=true or when -enable-loop-distribute is specified.
   MPM.add(createLoopDistributePass());
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (EnableLV)
     MPM.add(createLoopVectorizePass(!LoopsInterleaved, !LoopVectorize));
@@ -1203,6 +1204,9 @@ void PassManagerBuilder::populateModulePassManager(
 #endif // INTEL_CUSTOMIZATION
   MPM.add(createVectorCombinePass());
   MPM.add(createEarlyCSEPass());
+=======
+  MPM.add(createLoopVectorizePass(!LoopsInterleaved, !LoopVectorize));
+>>>>>>> 6438ea45e053378a3c461a879805174eaa864bdb
 
   // Eliminate loads by forwarding stores from the previous iteration to loads
   // of the current iteration.
@@ -1255,6 +1259,10 @@ void PassManagerBuilder::populateModulePassManager(
     }
   }
   } // INTEL
+
+  // Enhance/cleanup vector code.
+  MPM.add(createVectorCombinePass());
+  MPM.add(createEarlyCSEPass());
 
   addExtensionsToPM(EP_Peephole, MPM);
   addInstructionCombiningPass(MPM);

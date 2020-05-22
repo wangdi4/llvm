@@ -1297,10 +1297,6 @@ ModulePassManager PassBuilder::buildModuleOptimizationPipeline(
   OptimizePM.addPass(LoopVectorizePass(
       LoopVectorizeOptions(!PTO.LoopInterleaving, !PTO.LoopVectorization)));
 
-  // Enhance/cleanup vector code.
-  OptimizePM.addPass(VectorCombinePass());
-  OptimizePM.addPass(EarlyCSEPass());
-
   // Eliminate loads by forwarding stores from the previous iteration to loads
   // of the current iteration.
   OptimizePM.addPass(LoopLoadEliminationPass());
@@ -1338,11 +1334,18 @@ ModulePassManager PassBuilder::buildModuleOptimizationPipeline(
   if (PTO.SLPVectorization)
     OptimizePM.addPass(SLPVectorizerPass());
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   OptimizePM.addPass(
       InstCombinePass(/*ExpensiveCombines=default value*/ true,
                       GEPInstOptimizations)); // Combine silly sequences.
 #endif // INTEL_CUSTOMIZATION
+=======
+  // Enhance/cleanup vector code.
+  OptimizePM.addPass(VectorCombinePass());
+  OptimizePM.addPass(EarlyCSEPass());
+  OptimizePM.addPass(InstCombinePass());
+>>>>>>> 6438ea45e053378a3c461a879805174eaa864bdb
 
   // Unroll small loops to hide loop backedge latency and saturate any parallel
   // execution resources of an out-of-order processor. We also then need to
