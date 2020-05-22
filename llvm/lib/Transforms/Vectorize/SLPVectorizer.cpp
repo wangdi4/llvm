@@ -3676,16 +3676,13 @@ BoUpSLP::~BoUpSLP() {
            "trying to erase instruction with users.");
     Pair.getFirst()->eraseFromParent();
   }
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (PSLPEnabled) {
     assert(PaddedInstrsEmittedByPSLP.empty() && SelectsEmittedByPSLP.empty() &&
            "Should have been cleaned up!!!");
   }
 #endif // INTEL_CUSTOMIZATION
-=======
   assert(!verifyFunction(*F, &dbgs()));
->>>>>>> 21f7cf4057b75ac3bc46597415499dd0fc214e97
 }
 
 void BoUpSLP::eraseInstructions(ArrayRef<Value *> AV) {
