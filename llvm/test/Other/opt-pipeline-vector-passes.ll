@@ -11,28 +11,18 @@
 ; works on loops explicitly annotated with pragmas.
 
 ; OLDPM_O1-LABEL:  Pass Arguments:
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; OLDPM_O1:        VPlan Vectorization Driver
 ; END INTEL CUSTOMIZATION
-; OLDPM_O1:        Optimize scalar/vector ops
-=======
-; OLDPM_O1:        Loop Vectorization
->>>>>>> 6438ea45e053378a3c461a879805174eaa864bdb
 ; OLDPM_O1-NOT:    SLP Vectorizer
 ; OLDPM_O1:        Optimize scalar/vector ops
 
 ; Everything runs at -O2.
 
 ; OLDPM_O2-LABEL:  Pass Arguments:
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; OLDPM_O2:        VPlan Vectorization Driver
 ; END INTEL CUSTOMIZATION
-; OLDPM_O2:        Optimize scalar/vector ops
-=======
-; OLDPM_O2:        Loop Vectorization
->>>>>>> 6438ea45e053378a3c461a879805174eaa864bdb
 ; OLDPM_O2:        SLP Vectorizer
 ; OLDPM_O2:        Optimize scalar/vector ops
 
@@ -41,26 +31,16 @@
 ; with pragmas.
 
 ; OLDPM_O1_FORCE_OFF-LABEL:  Pass Arguments:
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; OLDPM_O1_FORCE_OFF:        VPlan Vectorization Driver
 ; END INTEL CUSTOMIZATION
-; OLDPM_O1_FORCE_OFF:        Optimize scalar/vector ops
-=======
-; OLDPM_O1_FORCE_OFF:        Loop Vectorization
->>>>>>> 6438ea45e053378a3c461a879805174eaa864bdb
 ; OLDPM_O1_FORCE_OFF-NOT:    SLP Vectorizer
 ; OLDPM_O1_FORCE_OFF:        Optimize scalar/vector ops
 
 ; OLDPM_O2_FORCE_OFF-LABEL:  Pass Arguments:
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; OLDPM_O2_FORCE_OFF:        VPlan Vectorization Driver
 ; END INTEL CUSTOMIZATION
-; OLDPM_O2_FORCE_OFF:        Optimize scalar/vector ops
-=======
-; OLDPM_O2_FORCE_OFF:        Loop Vectorization
->>>>>>> 6438ea45e053378a3c461a879805174eaa864bdb
 ; OLDPM_O2_FORCE_OFF:        SLP Vectorizer
 ; OLDPM_O2_FORCE_OFF:        Optimize scalar/vector ops
 
