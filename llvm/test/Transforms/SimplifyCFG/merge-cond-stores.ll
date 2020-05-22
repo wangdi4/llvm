@@ -273,7 +273,6 @@ define i32 @test_diamond_simple(i32* %p, i32* %q, i32 %a, i32 %b) {
 ; CHECK-NEXT:    [[X1:%.*]] = icmp eq i32 [[A:%.*]], 0
 ; CHECK-NEXT:    [[Z2:%.*]] = select i1 [[X1]], i32 [[B:%.*]], i32 0
 ; CHECK-NEXT:    [[X2:%.*]] = icmp eq i32 [[B]], 0
-; CHECK-NEXT:    [[Z4:%.*]] = select i1 [[X2]], i32 [[Z2]], i32 3
 ; CHECK-NEXT:    [[TMP0:%.*]] = or i32 [[A]], [[B]]
 ; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq i32 [[TMP0]], 0
 ; INTEL_CUSTOMIZATION
@@ -281,9 +280,15 @@ define i32 @test_diamond_simple(i32* %p, i32* %q, i32 %a, i32 %b) {
 ; CHECK:       [[TMP2]]:
 ; CHECK-NEXT:    [[SIMPLIFYCFG_MERGE:%.*]] = select i1 [[X2]], i32 [[Z2]], i32 1
 ; CHECK-NEXT:    store i32 [[SIMPLIFYCFG_MERGE]], i32* [[P:%.*]], align 4
+<<<<<<< HEAD
 ; CHECK-NEXT:    br label %[[TMP3]]
 ; CHECK:       [[TMP3]]:
 ; end INTEL_CUSTOMIZATION
+=======
+; CHECK-NEXT:    br label [[TMP3]]
+; CHECK:       3:
+; CHECK-NEXT:    [[Z4:%.*]] = select i1 [[X2]], i32 [[Z2]], i32 3
+>>>>>>> 403810557be79e36d0153a04fefff4d72028b2b4
 ; CHECK-NEXT:    ret i32 [[Z4]]
 ;
 entry:
