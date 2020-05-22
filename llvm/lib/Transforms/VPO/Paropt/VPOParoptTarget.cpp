@@ -53,9 +53,12 @@ using namespace llvm::vpo;
 // vpo-paropt-use-raw-dev-ptr is used to send raw device pointer instead of
 // cl_buffer After the new implementation is fully tested, we will purge the
 // old one and remove these flags.
+#if INTEL_CUSTOMIZATION
+// 20200520: Enabled vpo-paropt-use-interop by default as requested by A21.
+#endif // INTEL_CUSTOMIZATION
 static cl::opt<bool>
     UseInterop("vpo-paropt-use-interop", cl::Hidden,
-               cl::init(false),
+               cl::init(true),
                cl::desc("Use the interop_obj for target variant dispatch."));
 static cl::opt<bool>
     UseRawDevicePtr("vpo-paropt-use-raw-dev-ptr", cl::Hidden,
