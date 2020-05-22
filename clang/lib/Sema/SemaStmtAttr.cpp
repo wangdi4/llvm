@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/AST/EvaluatedExprVisitor.h"
 #include "clang/Sema/SemaInternal.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/Basic/SourceManager.h"
@@ -602,6 +601,7 @@ static bool diagOverlapingLevels(Sema &S, int LevelFrom, int LevelTo,
                 diag::note_second_block_loop_level_specified_here);
 }
 
+<<<<<<< HEAD
 namespace {
 struct PragmaBlockLoopLevelInfo {
   Expr *Factor;
@@ -978,6 +978,8 @@ static Attr *handleNoMergeAttr(Sema &S, Stmt *St, const ParsedAttr &A,
   return ::new (S.Context) NoMergeAttr(S.Context, A);
 }
 
+=======
+>>>>>>> b0a0f01bc175b4c444052f871a89421889f8b5ce
 static void
 CheckForIncompatibleAttributes(Sema &S,
                                const SmallVectorImpl<const Attr *> &Attrs) {
@@ -1541,8 +1543,6 @@ static Attr *ProcessStmtAttribute(Sema &S, Stmt *St, const ParsedAttr &A,
     return handleLoopUnrollHint(S, St, A, Range);
   case ParsedAttr::AT_Suppress:
     return handleSuppressAttr(S, St, A, Range);
-  case ParsedAttr::AT_NoMerge:
-    return handleNoMergeAttr(S, St, A, Range);
   default:
     // if we're here, then we parsed a known attribute, but didn't recognize
     // it as a statement attribute => it is declaration attribute
