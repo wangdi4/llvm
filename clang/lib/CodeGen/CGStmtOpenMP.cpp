@@ -1783,6 +1783,7 @@ void CodeGenFunction::EmitOMPInnerLoop(
   auto CondBlock = createBasicBlock("omp.inner.for.cond");
   EmitBlock(CondBlock);
   const SourceRange R = S.getSourceRange();
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (CGM.getLangOpts().IntelCompat) {
     llvm::SmallVector<const clang::Attr *, 4> Attrs;
@@ -1801,6 +1802,21 @@ void CodeGenFunction::EmitOMPInnerLoop(
 #endif // INTEL_CUSTOMIZATION
   LoopStack.push(CondBlock, SourceLocToDebugLoc(R.getBegin()),
                  SourceLocToDebugLoc(R.getEnd()));
+=======
+
+  // If attributes are attached, push to the basic block with them.
+  const auto &OMPED = cast<OMPExecutableDirective>(S);
+  const CapturedStmt *ICS = OMPED.getInnermostCapturedStmt();
+  const Stmt *SS = ICS->getCapturedStmt();
+  const AttributedStmt *AS = dyn_cast_or_null<AttributedStmt>(SS);
+  if (AS)
+    LoopStack.push(CondBlock, CGM.getContext(), CGM.getCodeGenOpts(),
+                   AS->getAttrs(), SourceLocToDebugLoc(R.getBegin()),
+                   SourceLocToDebugLoc(R.getEnd()));
+  else
+    LoopStack.push(CondBlock, SourceLocToDebugLoc(R.getBegin()),
+                   SourceLocToDebugLoc(R.getEnd()));
+>>>>>>> ac2c5af67f036ec810556372b16548ae9b663f36
 
   // If there are any cleanups between here and the loop-exit scope,
   // create a block to stage a loop exit along.
