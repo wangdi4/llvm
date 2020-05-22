@@ -4555,10 +4555,7 @@ bool VPOParoptTransform::genLinearCode(WRegionNode *W, BasicBlock *LinearFiniBB,
     if (LinearI->getIsByRef())
       Orig = new LoadInst(NewVTy, Orig, "", NewLinearInsertPt);
 
-    if (auto *NewVAlloca = dyn_cast<AllocaInst>(NewLinearVar))
-        NewVTy = NewVAlloca->getAllocatedType();
-    else
-      NewVTy = cast<GlobalValue>(NewLinearVar)->getValueType();
+    NewVTy = cast<PointerType>(NewVTy)->getElementType();
 
     // (B) Capture value of linear variable before entering the loop
     LoadInst *LoadOrig = CaptureBuilder.CreateLoad(NewVTy, Orig);       // (3)
@@ -4679,10 +4676,7 @@ bool VPOParoptTransform::genLinearCodeForVecLoop(WRegionNode *W,
     if (LinearI->getIsByRef())
       Orig = InitBuilder.CreateLoad(NewVTy, Orig);
 
-    if (auto *NewVAlloca = dyn_cast<AllocaInst>(NewLinearVar))
-        NewVTy = NewVAlloca->getAllocatedType();
-    else
-      NewVTy = cast<GlobalValue>(NewLinearVar)->getValueType();
+    NewVTy = cast<PointerType>(NewVTy)->getElementType();
     // For LINEAR:IV, the initialization using closed-form is inserted in each
     // iteration of the loop by the frontend, so we don't need to do the
     // "firstprivate copyin" to the privatized linear var.
