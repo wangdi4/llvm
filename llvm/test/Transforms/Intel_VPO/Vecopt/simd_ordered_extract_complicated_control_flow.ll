@@ -24,7 +24,7 @@ define void @var_tripcount(i32* %ip, i32 %n, i32* %x) local_unnamed_addr {
 ; CHECK:       for.body:
 ; CHECK-NEXT:    [[INDVARS_IV:%.*]] = phi i64 [ [[INDVARS_IV_NEXT:%.*]], [[LATCH:%.*]] ], [ 0, [[FOR_BODY_PREHEADER]] ]
 ; CHECK-NEXT:    [[ARRAYIDX:%.*]] = getelementptr inbounds i32, i32* [[IP:%.*]], i64 [[INDVARS_IV]]
-; CHECK-NEXT:    [[VAL:%.*]] = load i32, i32* [[X:%.*]]
+; CHECK-NEXT:    [[VAL:%.*]] = load i32, i32* [[X:%[^ ,]*]]
 ; CHECK-NEXT:    br label [[CODEREPL:%.*]]
 ; CHECK:       codeRepl:
 ; CHECK-NEXT:    [[LT_CAST:%.*]] = bitcast i32* [[PHI_RES_LOC]] to i8*
