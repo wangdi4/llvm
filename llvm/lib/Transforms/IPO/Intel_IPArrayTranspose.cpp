@@ -62,6 +62,16 @@ static cl::opt<bool>
                               cl::Hidden,
                               cl::desc("Enable IP Array Transpose Heuristic."));
 
+// If all MemRefs are in a single routine, it is better to apply the transpose
+// transformation in HIR. This option helps to control whether to enable this
+// transformation or not if all MemRefs are in a single routine. By default, it
+// is disabled so that HIR will apply array transpose if all MemRefs are in a
+// single routine.
+static cl::opt<bool> IPArrayAllRefsInSingleRoutine(
+    "ip-array-all-memrefs-in-single-routine", cl::init(false), cl::Hidden,
+    cl::desc("Enable IP Array Transpose even if all MemRefs are in a single "
+             "routine."));
+
 namespace {
 
 // Main class to implement "Array Transpose".
@@ -172,6 +182,12 @@ private:
   bool isTransposeProfitable(void);
   void transformMemRefs(void);
   int64_t computeTransposedOffset(int64_t Idx);
+  bool parseSCEVExprs(const SCEV *, SmallVectorImpl<int64_t> &,
+                      SmallVectorImpl<const Loop *> &, SmallSet<int64_t, 4> &,
+                      const SCEV *, ScalarEvolution &);
+  const SCEV *fixSCEVConst(int64_t, const SCEV *, ScalarEvolution &SE);
+  const SCEV *fixSCEVAddRecExpr(const SCEV *, const SCEV *, ScalarEvolution &);
+  const SCEV *fixSCEVAddExpr(const SCEV *, const SCEV *, ScalarEvolution &);
 };
 
 // Returns true if F is "LibF" library function.
@@ -217,8 +233,8 @@ bool ArrayTransposeImpl::collectMallocCalls(void) {
     if (F.isDeclaration())
       continue;
 
-    auto &TLI = GetTLI(F);
     auto &LI = GetLI(F);
+    auto &TLI = GetTLI(F);
     unsigned MallocCurCount = MallocCalls.size();
     for (Instruction &I : instructions(&F)) {
       if (auto *CB = dyn_cast<CallInst>(&I)) {
@@ -699,13 +715,262 @@ bool ArrayTransposeImpl::collectAllMemRefs() {
   return true;
 }
 
+// This recursive function checks if "S" is in expected format and collects
+// strides, loops, constant exprs and start value. This allows only AddRecExpr
+// like "{Start, +, Step}". "Step" is basically stride. Only constant values
+// are allowed for "Step". "Start" can be either another AddRecExpr or
+// another SCEV expression with Add and Mul operations.
+//
+// Ex:
+//   {152,+,6400000}
+//   {{{152,+,6400000},+,32000},+,160}
+//   {{{(320152 + (160 * %lb3) + (16000 * %lb2) + (1600000 *
+//   %lb1)),+,1600000},+,16000},+,160}
+bool ArrayTransposeImpl::parseSCEVExprs(const SCEV *S,
+                                        SmallVectorImpl<int64_t> &Strides,
+                                        SmallVectorImpl<const Loop *> &Loops,
+                                        SmallSet<int64_t, 4> &AllConstExprs,
+                                        const SCEV *Base, ScalarEvolution &SE) {
+
+  // Returns true if "S" is in one of the below formats.
+  //   1. Base
+  //   2. AddExpr like "Constant0 + Constant1 * Some_scev_expr + Constant2 *
+  //   Some_scev_expr ..."
+  //
+  //   Ex: (320152 + (160 * %lb3) + (16000 * %lb2) + (1600000 * %lb1))
+  //
+  //   This collects all constant exprs if there are any.
+  auto IsStartOkay = [&](const SCEV *S, const Loop *L) {
+    if (!SE.isLoopInvariant(S, L))
+      return false;
+    if (S == Base)
+      return true;
+    auto A = dyn_cast<SCEVAddExpr>(S);
+    if (!A)
+      return false;
+    for (const SCEV *Op : A->operands()) {
+      if (isa<SCEVConstant>(Op) || Op == Base)
+        continue;
+      auto *M = dyn_cast<SCEVMulExpr>(Op);
+      if (!M)
+        return false;
+      auto C = dyn_cast<SCEVConstant>(M->getOperand(0));
+      if (!C)
+        return false;
+      AllConstExprs.insert(C->getAPInt().getSExtValue());
+    }
+    return true;
+  };
+
+  // We allow only SCEVAddRecExpr expressions, which have both start and
+  // step expressions. Only constant step values (stride) are allowed.
+  // Start expressions can either be SCEVAddExpr or SCEVAddRecExpr.
+  //  Ex: {(152 + %baseptr)<nsw>,+,160}<nsw><%b1>
+  //   Step: 160
+  //   Start: (152 + %baseptr)
+  //
+  const SCEVAddRecExpr *AR = dyn_cast<SCEVAddRecExpr>(S);
+  if (!AR || !AR->isAffine())
+    return false;
+  auto Step = dyn_cast<SCEVConstant>(AR->getStepRecurrence(SE));
+  if (!Step)
+    return false;
+  Strides.push_back(Step->getAPInt().getSExtValue());
+  auto L = AR->getLoop();
+  if (!L) {
+    LLVM_DEBUG(dbgs() << "    Memref not in loop\n");
+    return false;
+  }
+  Loops.push_back(L);
+  const SCEV *StartS = AR->getStart();
+  if (IsStartOkay(StartS, L)) {
+    return true;
+  }
+  return parseSCEVExprs(StartS, Strides, Loops, AllConstExprs, Base, SE);
+}
+
 // Check all memory references for legality issues using SCEV.
-// TODO: Will add more code in next change-set.
-bool ArrayTransposeImpl::validateAllMemRefs() { return true; }
+bool ArrayTransposeImpl::validateAllMemRefs() {
+
+  // Returns size of given Load / Store instruction "Inst".
+  auto GetElementSize = [this](Instruction *Inst) {
+    Type *Ty = nullptr;
+    if (auto *Store = dyn_cast<StoreInst>(Inst))
+      Ty = Store->getValueOperand()->getType();
+    else if (auto *Load = dyn_cast<LoadInst>(Inst))
+      Ty = Load->getType();
+    assert(Ty && "Expected LoadInst or StoreInst");
+    return DL.getTypeSizeInBits(Ty) >> 3;
+  };
+
+  // Returns estimated trip count for "L" using "SE".
+  auto GetTripCount = [this](const Loop *L, ScalarEvolution &SE) {
+    if (unsigned TC = SE.getSmallConstantTripCount(L))
+      return TC;
+    if (unsigned TC = SE.getSmallConstantMaxTripCount(L))
+      return TC;
+    return DefaultTripCount;
+  };
+
+  int64_t TripCount = 1;
+  // Possible stride values for all MemRefs.
+  // Ex: Possible strides for the below MemRef are 160, 16000 and 1600000.
+  // {{{(320152 + %p1),+,1600000}<%b1>,+,16000}<%b2>,+,160}<%b3>
+  SmallSet<int64_t, 4> AllStrides;
+
+  // Possible constant expression values for all MemRefs.
+  // Ex: Possible constant expression for the below MemRef is 160.
+  // {(32 + (160 * ((100 * %lb2) + (10000 * %lb1) + %lb3)) + %p1),+,1600000}
+  SmallSet<int64_t, 4> AllConstExprs;
+  for (auto Pair : FunctionMemRefs) {
+    Function *F = Pair.first;
+    LLVM_DEBUG(dbgs() << " Processing MemRefs in " << F->getName() << ":\n");
+    ScalarEvolution &SE = (GetSE)(*F);
+    for (auto II : Pair.second) {
+      LLVM_DEBUG(dbgs() << "  Load / Store: " << *II << "\n");
+      Value *PtrOp = getLoadStorePointerOperand(II);
+      assert(PtrOp && "Expected valid PtrOp");
+      if (auto *BC = dyn_cast<BitCastInst>(PtrOp))
+        PtrOp = BC->getOperand(0);
+      if (!isa<GetElementPtrInst>(PtrOp)) {
+        LLVM_DEBUG(dbgs() << "    No gep as Ptr\n");
+        return false;
+      }
+      const SCEV *SC = SE.getSCEV(PtrOp);
+      const SCEVUnknown *Base = dyn_cast<SCEVUnknown>(SE.getPointerBase(SC));
+      if (!Base) {
+        LLVM_DEBUG(dbgs() << "    No SCEV for base pointer in MemRef\n");
+        return false;
+      }
+      // Make sure BasePtr is in MallocPtrIncrAliases set.
+      Value *BasePtr = Base->getValue();
+      if (!BasePtr ||
+          (MallocPtrIncrAliases.find(BasePtr) == MallocPtrIncrAliases.end())) {
+        LLVM_DEBUG(dbgs() << "    Unknown Base pointer in MemRef\n");
+        return false;
+      }
+      SmallVector<const Loop *, 4> Loops;
+      SmallVector<int64_t, 4> Strides;
+      if (!parseSCEVExprs(SC, Strides, Loops, AllConstExprs, Base, SE)) {
+        LLVM_DEBUG(dbgs() << "    Index expr is complex to process: " << *SC
+                          << "\n");
+        return false;
+      }
+      if (Loops.size() != Strides.size()) {
+        LLVM_DEBUG(dbgs() << "    Strides and loops don't match\n");
+        return false;
+      }
+      // Collect possible strides in all MemRef. Once we find the minimum Stride
+      // of all MemRefs, we need to make sure all possible strides are
+      // evenly divisible by the minimum stride (i.e Stride).
+      for (auto S : Strides)
+        AllStrides.insert(S);
+
+      // Update MaxElemSize.
+      int64_t ElementSize = GetElementSize(II);
+      MaxElemSize = std::max(MaxElemSize, ElementSize);
+      // Get the minimum of current Stride and the stride of the MemRef
+      // in the innermost loop (i.e Strides[0]).
+      //
+      Stride = std::min(Stride, Strides[0]);
+
+      TripCount = 1;
+      for (auto L : Loops)
+        TripCount *= GetTripCount(L, SE);
+      LLVM_DEBUG(dbgs() << "    TripCount: " << TripCount << "\n");
+      int64_t OriginalFactor = 1;
+      if (Strides[0] < CacheLineSize)
+        OriginalFactor = CacheLineSize / Strides[0];
+      int64_t TransposedFactor = CacheLineSize / ElementSize;
+      OriginalReuse += TripCount * OriginalFactor;
+      TransposedReuse += TripCount * TransposedFactor;
+    }
+  }
+  LLVM_DEBUG(dbgs() << "    Stride: " << Stride << "\n");
+  LLVM_DEBUG(dbgs() << "    Max Elem Size: " << MaxElemSize << "\n");
+  LLVM_DEBUG({
+    dbgs() << "    All possible strides: \n";
+    for (auto S : AllStrides)
+      dbgs() << "          " << S << " ";
+    dbgs() << "\n";
+  });
+  // Check all Strides are evenly divisible by Stride.
+  for (auto S : AllStrides) {
+    if (S < 0 || S % Stride != 0) {
+      LLVM_DEBUG(
+          dbgs() << "    Strides are not divisible by number of rows \n");
+      return false;
+    }
+  }
+  LLVM_DEBUG({
+    dbgs() << "    All possible constant multipliers: \n";
+    for (auto CE : AllConstExprs)
+      dbgs() << "          " << CE << " ";
+    dbgs() << "\n";
+  });
+  // Check that all unknown constant multipliers are evenly divisible by Stride.
+  for (auto CE : AllConstExprs) {
+    if (CE % Stride != 0) {
+      LLVM_DEBUG(
+          dbgs() << "    Constant Value is not divisible by number of rows \n");
+      return false;
+    }
+  }
+  LLVM_DEBUG(dbgs() << "    MallocSize: " << MallocSize << "\n");
+  // Make sure malloc size is evenly divided by Stride.
+  int64_t MallocSizeInElem = MallocSize / MaxElemSize;
+  if (MallocSize % MaxElemSize != 0 || MallocSizeInElem % Stride != 0) {
+    LLVM_DEBUG(dbgs() << "    Malloc-size is not divisible by Stride \n");
+    return false;
+  }
+  // Make sure pointer increment values are evenly divisible by MaxElemSize.
+  for (auto Pair : MallocPtrIncrAliases) {
+    if (Pair.second < 0 || Pair.second % MaxElemSize != 0) {
+      LLVM_DEBUG(dbgs() << "     Increment is not divisible by MaxElemSize \n");
+      return false;
+    }
+  }
+
+  TransposedNumCols = Stride / MaxElemSize;
+  TransposedNumRows = MallocSizeInElem / TransposedNumCols;
+
+  LLVM_DEBUG(dbgs() << "  TransposedNumRows: " << TransposedNumRows
+                    << "  TransposedNumCols: " << TransposedNumCols << "\n");
+  return true;
+}
 
 // Returns true if transpose is profitable based on cache reuse.
-// TODO: Will add more code in next change-set.
-bool ArrayTransposeImpl::isTransposeProfitable(void) { return false; }
+bool ArrayTransposeImpl::isTransposeProfitable(void) {
+  // Return true if all memory allocations and memory references are in a
+  // single routine.
+  auto AllMemRefsInSingleRoutine = [this]() {
+    if (FunctionMemRefs.size() != 1)
+      return false;
+    if ((*FunctionMemRefs.begin()).first == MainRtn)
+      return true;
+    return false;
+  };
+
+  if (!IPArrayTransposeHeuristic) {
+    LLVM_DEBUG(dbgs() << "    Disabled heuristics \n");
+    return true;
+  }
+  LLVM_DEBUG(dbgs() << "    OriginalReuse: " << OriginalReuse
+                    << "  TransposedReuse: " << TransposedReuse << "\n");
+  if (Stride / MaxElemSize < MinNumberElements)
+    return false;
+  if (TransposedReuse < MinCacheReuse)
+    return false;
+  if (TransposedReuse < MinGainFactor * OriginalReuse)
+    return false;
+  LLVM_DEBUG(dbgs() << "    Transpose is Profitable\n");
+
+  if (!IPArrayAllRefsInSingleRoutine && AllMemRefsInSingleRoutine()) {
+    LLVM_DEBUG(dbgs() << "    Failed: All MemRefs are in single routine\n");
+    return false;
+  }
+  return true;
+}
 
 // Compute transposed offset for the given original "Idx" offset.
 int64_t ArrayTransposeImpl::computeTransposedOffset(int64_t Idx) {
@@ -714,9 +979,147 @@ int64_t ArrayTransposeImpl::computeTransposedOffset(int64_t Idx) {
   return (NRows + NCols * TransposedNumRows);
 }
 
+// Returns transposed SE constant value for the "StartC".
+const SCEV *ArrayTransposeImpl::fixSCEVConst(int64_t ElemOffset,
+                                             const SCEV *BasePtr,
+                                             ScalarEvolution &SE) {
+  int32_t TotalElemOffset;
+  // Get displacement of BasePtr from original malloc return pointer.
+  auto Pair = MallocPtrIncrAliases.find(cast<SCEVUnknown>(BasePtr)->getValue());
+  int64_t Disp = Pair->second;
+  // Add the displacement to the constant offset so that BasePtr will refer
+  // to original malloc return pointer. Later, we will change increment
+  // values in PtrIncDecGEPInsts to zero.
+  TotalElemOffset = ElemOffset + Disp / MaxElemSize;
+  // Compute transposed offset.
+  int64_t TransposedElemOffset = computeTransposedOffset(TotalElemOffset);
+  return SE.getConstant(BasePtr->getType(), TransposedElemOffset * MaxElemSize);
+}
+
+// This routine returns new AddExpr by fixing the given Constant/AddExpr "S" to
+// represent transposed memory access. No change is needed to the "BasePtr",
+// which is in "MallocPtrIncrAliases". Only constant and constant expressions
+// are fixed.
+//
+//  Before and after example SCEV expressions when stride is 20.
+//
+//  Before: (320152 + (160 * ((100 * %lb2) + (10000 * %lb1) + %lb3)) + %p1)
+//  After: (203696000 + (8 * ((100 * %lb2) + (10000 * %lb1) + %lb3)) + %p1)
+//
+const SCEV *ArrayTransposeImpl::fixSCEVAddExpr(const SCEV *S,
+                                               const SCEV *BasePtr,
+                                               ScalarEvolution &SE) {
+
+  // Return expressions like "Mul" / "TransposedNumCols"
+  // "Mul" is expected to be like "Constant * some_expr", which will
+  // be converted to "Constant / TransposedNumCols * some_expr".
+  //
+  auto FixSCEVMulExpr = [&, this](const SCEVMulExpr *Mul) {
+    SmallVector<const SCEV *, 4> Ops;
+    const SCEVConstant *SC = dyn_cast<SCEVConstant>(Mul->getOperand(0));
+    assert(SC && "Expected SCEVConstant");
+    const APInt &LA = SC->getAPInt();
+    Ops.push_back(SE.getConstant(LA.sdiv(TransposedNumCols)));
+    for (int32_t I = 1, E = Mul->getNumOperands(); I < E; I++)
+      Ops.push_back(Mul->getOperand(I));
+    return SE.getMulExpr(Ops);
+  };
+
+  int64_t Offset = 0;
+  SmallVector<const SCEV *, 4> Ops;
+  if (S == BasePtr) {
+    // Since BasePtr refers to the original malloc return pointer, "S" needs to
+    // be converted as "S + computeTransposedOffset(displacement_of_base_ptr)".
+    Ops.push_back(S);
+  } else {
+    auto A = dyn_cast<SCEVAddExpr>(S);
+    assert(A && "Expected AddExpr");
+    for (const SCEV *S : A->operands()) {
+      if (S == BasePtr) {
+        Ops.push_back(S);
+      } else if (auto StartC = dyn_cast<SCEVConstant>(S)) {
+        // I don't think AddExpr has more than one constant but accumulate
+        // offsets if it has to be on the safe side.
+        Offset += StartC->getAPInt().getSExtValue();
+      } else {
+        auto Mul = dyn_cast<SCEVMulExpr>(S);
+        assert(Mul && "Expected MulExpr");
+        Ops.push_back(FixSCEVMulExpr(Mul));
+      }
+    }
+  }
+  Ops.push_back(fixSCEVConst(Offset / MaxElemSize, BasePtr, SE));
+  return SE.getAddExpr(Ops);
+}
+
+// Fix all strides and constants in "S" to make it transposed memory reference.
+//
+// Example SCEV expressions when stride is 20
+// Before: {{{(56 + %3010),+,1600000},+,16000},+,160}
+// After: {{{(75200000 + %3010),+,80000},+,800},+,8}
+const SCEV *ArrayTransposeImpl::fixSCEVAddRecExpr(const SCEV *S,
+                                                  const SCEV *BasePtr,
+                                                  ScalarEvolution &SE) {
+  const SCEVAddRecExpr *AR = dyn_cast<SCEVAddRecExpr>(S);
+  assert(AR && AR->isAffine() && "Expected AddRecExpr");
+  auto L = AR->getLoop();
+  assert(L && "Expected Valid loop");
+  auto Start = AR->getStart();
+  if (isa<SCEVAddRecExpr>(Start))
+    Start = fixSCEVAddRecExpr(Start, BasePtr, SE);
+  else
+    Start = fixSCEVAddExpr(Start, BasePtr, SE);
+  auto StepC = cast<SCEVConstant>(AR->getStepRecurrence(SE));
+  const SCEV *St = SE.getConstant(AR->getStepRecurrence(SE)->getType(), 20);
+  assert(StepC && "Expected Step AddRecExpr");
+  const SCEV *Step = SE.getConstant(
+      StepC->getAPInt().sdiv(cast<SCEVConstant>(St)->getAPInt()));
+  return SE.getAddRecExpr(Start, Step, L, AR->getNoWrapFlags(SCEV::FlagNW));
+}
+
 // Apply transformations to all memory references.
-// TODO: Will add more code in next change-set.
-void ArrayTransposeImpl::transformMemRefs(void) {}
+// SCEVExpander is used to generate transposed memory references.
+void ArrayTransposeImpl::transformMemRefs(void) {
+  for (auto Pair : FunctionMemRefs) {
+    Function *F = Pair.first;
+    ScalarEvolution &SE = (GetSE)(*F);
+    SCEVExpander Exp(SE, DL, "transpose");
+    for (auto II : Pair.second) {
+      LLVM_DEBUG(dbgs() << "MemRef before: " << *II << "\n");
+      Value *PtrOp = getLoadStorePointerOperand(II);
+      assert(PtrOp && "Expected valid PtrOp");
+      if (auto *BC = dyn_cast<BitCastInst>(PtrOp))
+        PtrOp = BC->getOperand(0);
+      LLVM_DEBUG(dbgs() << "Memory Addr before: " << *PtrOp << "\n");
+      const SCEV *SC = SE.getSCEV(PtrOp);
+      const SCEV *Base = SE.getPointerBase(SC);
+      assert(Base && "Expected valid Base");
+
+      LLVM_DEBUG(dbgs() << "SCEV before: " << *SC << "\n");
+      const SCEV *NewSC = fixSCEVAddRecExpr(SC, Base, SE);
+      LLVM_DEBUG(dbgs() << "SCEV after: " << *NewSC << "\n");
+      // Expand code for NewSC using Expander.
+      Value *NewPtrOp = Exp.expandCodeFor(NewSC, NewSC->getType(), II);
+      LLVM_DEBUG(dbgs() << "Memory Addr after: " << *NewPtrOp << "\n");
+      Value *APtrOp = getLoadStorePointerOperand(II);
+      if (APtrOp->getType() != NewPtrOp->getType()) {
+        NewPtrOp = new BitCastInst(cast<Instruction>(NewPtrOp),
+                                   APtrOp->getType(), "", II);
+        LLVM_DEBUG(dbgs() << "BitCast generated: " << *NewPtrOp << "\n");
+      }
+      II->replaceUsesOfWith(APtrOp, NewPtrOp);
+      LLVM_DEBUG(dbgs() << "MemRef after: " << *II << "\n");
+    }
+  }
+
+  // Since offset is already included in memory references, reset pointer
+  // increment and decrement.
+  for (auto GEP : PtrIncDecGEPInsts) {
+    LLVM_DEBUG(dbgs() << "Before resetting offset: " << *GEP << "\n");
+    GEP->setOperand(1, ConstantInt::get(GEP->getOperand(1)->getType(), 0));
+    LLVM_DEBUG(dbgs() << "After resetting offset: " << *GEP << "\n");
+  }
+}
 
 bool ArrayTransposeImpl::run(void) {
 
