@@ -563,11 +563,30 @@ private:
   int checkFastReduction(WRegionNode *W);
 
   /// Generate the tree-like reduction callback routine
-  RDECL genFastReductionRoutine(WRegionNode *W, StructType *FastRedStructTy);
+  RDECL genFastRedCallback(WRegionNode *W, StructType *FastRedStructTy);
 
   /// Create struct type and variable for fast reduction.
-  std::pair<StructType *, Value *> createFastRedTyAndVar(WRegionNode *W,
-                                                         int FastReduction);
+  std::pair<StructType *, Value *> genFastRedTyAndVar(WRegionNode *W,
+                                                      int FastReduction);
+
+  /// Generate the code to copy local reduction variable to local variable for
+  /// fast reduction.
+  void genFastRedCopy(ReductionItem *RedI, Value *Dst, Value *Src,
+                      Instruction *InsertPt, DominatorTree *DT,
+                      bool NoNeedToOffsetOrDerefOldV = false);
+
+  /// Generate copy code for scalar type.
+  void genFastRedScalarCopy(Value *Dst, Value *Src, IRBuilder<> &Builder);
+
+  /// Generate copy code for aggregate type.
+  void genFastRedAggregateCopy(ReductionItem *RedI, Value *Src, Value *Dst,
+                               Instruction *InsertPt, DominatorTree *DT,
+                               bool NoNeedToOffsetOrDerefOldV = false);
+
+  /// Generate private reduction variable for fast reduction.
+  Value *genFastRedPrivateVariable(ReductionItem *RedI, unsigned ItemIndex,
+                                   Type *FastRedStructTy, Value *FastRedInst,
+                                   Instruction *InsertPt);
 
   /// For the given region \p W returns a BasicBlock, where
   /// new alloca instructions may be inserted.

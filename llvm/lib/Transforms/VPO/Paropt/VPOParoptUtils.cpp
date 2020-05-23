@@ -1845,8 +1845,9 @@ CallInst *VPOParoptUtils::genKmpcStaticFini(WRegionNode *W,
                                       Type::getInt32Ty(C) };
   SmallVector<Value *, 2> FnArgs { Loc, Tid };
 
-  return genCall("__kmpc_for_static_fini", Type::getVoidTy(C),
-                 FnArgs, FnArgTypes, InsertPt);
+  CallInst *CI = genCall("__kmpc_for_static_fini", Type::getVoidTy(C), FnArgs,
+                         FnArgTypes, InsertPt);
+  return CI;
 }
 
 // This function generates a call to notify the runtime system that the
@@ -3371,6 +3372,8 @@ CallInst *VPOParoptUtils::genCall(Function *Fn, ArrayRef<Value *> FnArgs,
   // Note: if InsertPt!=nullptr, Call is emitted into the IR as well.
   assert(Call != nullptr && "Failed to generate Function Call");
 
+  if (InsertPt != nullptr)
+    Call->setDebugLoc(InsertPt->getDebugLoc());
   Call->setCallingConv(CallingConv::C);
   Call->setTailCall(IsTail);
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Function call: " << *Call << "\n");
@@ -4227,7 +4230,6 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
   // with result type i32*:
   //   %1 = getelementptr inbounds ([10 x i32], [10 x i32]* %0, i32 0, i32 0)
   bool MimicArrayAllocation = false;
-
   if (auto *CI = dyn_cast_or_null<ConstantInt>(NumElements)) {
     // TODO: use ConstantFoldInstruction to discover more constant values.
     uint64_t Size = CI->getZExtValue();
@@ -5036,4 +5038,56 @@ void VPOParoptUtils::verifyFunctionForParopt(
   }
 }
 #endif // NDEBUG
+
+// Find users of V in the function F. Populates UserInsts and UserExprs with the
+// users if they're not null.
+void VPOParoptUtils::findUsesInFunction(
+    Function *F, Value *V, SmallVectorImpl<Instruction *> *UserInsts,
+    SmallPtrSetImpl<ConstantExpr *> *UserExprs) {
+  assert(UserInsts != nullptr && "UserInsts must not be nullptr.");
+  assert(UserExprs != nullptr && "UserExprs must not be nullptr.");
+
+  for (User *U : V->users()) {
+    if (Instruction *I = dyn_cast<Instruction>(U)) {
+      // If the user I in Function F, push it into UserInsts
+      if (I->getFunction() == F)
+        UserInsts->push_back(I);
+    } else if (ConstantExpr *CE = dyn_cast<ConstantExpr>(U)) {
+      // The user of global may not be an instruction but a ConstantExpr.
+      UserExprs->insert(CE);
+      // Recursively call findUsesInFunction to find all Instructions in \p F
+      // that use the ConstantExpr and add such Instructions to \p *Users.
+      VPOParoptUtils::findUsesInFunction(F, CE, UserInsts, UserExprs);
+    }
+  }
+
+  return;
+}
+
+// Replace users of Old with New value in function F
+void VPOParoptUtils::replaceUsesInFunction(Function *F, Value *Old,
+                                           Value *New) {
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": replace ";
+             Old->printAsOperand(dbgs()); dbgs() << " with ";
+             New->printAsOperand(dbgs()); dbgs() << "\n");
+
+  SmallVector<Instruction *, 8> UserInsts;
+  SmallPtrSet<ConstantExpr *, 8> UserExprs;
+
+  findUsesInFunction(F, Old, &UserInsts, &UserExprs);
+  while (!UserInsts.empty()) {
+    Instruction *UI = UserInsts.pop_back_val();
+    UI->replaceUsesOfWith(Old, New);
+
+    if (UserExprs.empty())
+      continue;
+
+    // if Old is a ConstantExpr, its uses could be in ConstantExpr
+    SmallVector<Instruction *, 2> NewInstArr;
+    GeneralUtils::breakExpressions(UI, &NewInstArr, &UserExprs);
+    for (Instruction *NewInst : NewInstArr)
+      UserInsts.push_back(NewInst);
+  }
+}
+
 #endif // INTEL_COLLAB

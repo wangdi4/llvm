@@ -53,7 +53,8 @@ CallInst *VPOParoptUtils::genF90DVInitCall(Value *OrigDV, Value *NewDV,
 }
 
 void VPOParoptUtils::genF90DVInitCode(Item *I, Instruction *InsertPt,
-                                      bool IsTargetSPIRV) {
+                                      bool IsTargetSPIRV,
+                                      bool AllowOverrideInsertPt) {
   assert(I->getIsF90DopeVector() && "Item is not an F90 dope vector.");
 
   Value *NewV = I->getNew();
@@ -64,7 +65,7 @@ void VPOParoptUtils::genF90DVInitCode(Item *I, Instruction *InsertPt,
       isa<StructType>(cast<PointerType>(OrigV->getType())->getElementType()) &&
       "Clause item is expected to be a struct for F90 DVs.");
 
-  if (!GeneralUtils::isOMPItemGlobalVAR(NewV))
+  if (AllowOverrideInsertPt && !GeneralUtils::isOMPItemGlobalVAR(NewV))
     InsertPt = (cast<Instruction>(NewV))->getParent()->getTerminator();
 
   IRBuilder<> Builder(InsertPt);

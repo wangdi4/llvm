@@ -488,13 +488,15 @@ private:
   // The following fields are populated during the actual transformation, and
   // not WRegionCollection, because they may need Insertion of Instructions.
   Value *Size;        ///< Size (`x: 5, yarrptr: 7`).
+  GlobalVariable *GVSize; ///< Global variable for variable sized array
+                          ///< [section] size used by fast reduction.
   Value *Offset;      ///< Starting offset (`x: 1, yarrptr: 22`).
   Type *ElementType;  ///< Type of one element (`x: i32, yarrptr: i32`).
   bool BaseIsPointer; ///< Is base a pointer (`x: false, yarrptr: true`).
 
 public:
   ArraySectionInfo()
-      : Size(nullptr), Offset(nullptr), ElementType(nullptr),
+      : Size(nullptr), GVSize(nullptr), Offset(nullptr), ElementType(nullptr),
         BaseIsPointer(false) {}
 
   void addDimension(const std::tuple<Value *, Value *, Value *> &Dim) {
@@ -514,6 +516,8 @@ public:
   void setElementType(Type *Ty) { ElementType = Ty; }
   bool getBaseIsPointer() const { return BaseIsPointer; }
   void setBaseIsPointer(bool IsPtr) { BaseIsPointer = IsPtr; }
+  GlobalVariable *getGVSize() const { return GVSize; }
+  void setGVSize(GlobalVariable *Sz) { GVSize = Sz; }
 
   void print(formatted_raw_ostream &OS, bool PrintType = true) const;
   void print(raw_ostream &OS, bool PrintType = true) const;
