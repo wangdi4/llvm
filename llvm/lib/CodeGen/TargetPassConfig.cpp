@@ -662,33 +662,6 @@ void TargetPassConfig::addMachinePostPasses(const std::string &Banner,
 /// Add common target configurable passes that perform LLVM IR to IR transforms
 /// following machine independent optimization.
 void TargetPassConfig::addIRPasses() {
-<<<<<<< HEAD
-  switch (UseCFLAA) {
-  case CFLAAType::Steensgaard:
-    addPass(createCFLSteensAAWrapperPass());
-    break;
-  case CFLAAType::Andersen:
-    addPass(createCFLAndersAAWrapperPass());
-    break;
-  case CFLAAType::Both:
-    addPass(createCFLAndersAAWrapperPass());
-    addPass(createCFLSteensAAWrapperPass());
-    break;
-  default:
-    break;
-  }
-
-  // Basic AliasAnalysis support.
-  // Add TypeBasedAliasAnalysis before BasicAliasAnalysis so that
-  // BasicAliasAnalysis wins if they disagree. This is intended to help
-  // support "obvious" type-punning idioms.
-  addPass(createStdContainerAAWrapperPass()); // INTEL
-  addPass(createTypeBasedAAWrapperPass());
-  addPass(createScopedNoAliasAAWrapperPass());
-  addPass(createBasicAAWrapperPass());
-
-=======
->>>>>>> 0c6bba71e3926edf19251425fa6435250f148ece
   // Before running any passes, run the verifier to determine if the input
   // coming from the front-end and/or optimizer is valid.
   if (!DisableVerify)
@@ -714,6 +687,7 @@ void TargetPassConfig::addIRPasses() {
     // Add TypeBasedAliasAnalysis before BasicAliasAnalysis so that
     // BasicAliasAnalysis wins if they disagree. This is intended to help
     // support "obvious" type-punning idioms.
+    addPass(createStdContainerAAWrapperPass()); // INTEL
     addPass(createTypeBasedAAWrapperPass());
     addPass(createScopedNoAliasAAWrapperPass());
     addPass(createBasicAAWrapperPass());
