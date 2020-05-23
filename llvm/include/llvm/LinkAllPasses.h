@@ -177,11 +177,7 @@ namespace {
       (void) llvm::createLoopGuardWideningPass();
       (void) llvm::createIPConstantPropagationPass();
       (void) llvm::createIPSCCPPass();
-<<<<<<< HEAD
       (void) llvm::createIndirectCallConvLegacyPass(); // INTEL
-      (void) llvm::createIRCanonicalizerPass();
-=======
->>>>>>> 335de55fa3384946f1e62050f2545c0966163236
       (void) llvm::createInductiveRangeCheckEliminationPass();
       (void) llvm::createIndVarSimplifyPass();
       (void) llvm::createInstSimplifyLegacyPass();
