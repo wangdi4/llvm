@@ -2376,10 +2376,13 @@ static bool FoldCondBranchOnPHI(BranchInst *BI, const DataLayout &DL,
 static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
                            const DataLayout &DL) {
   BasicBlock *BB = PN->getParent();
+<<<<<<< HEAD
   bool Changed = false;
   const Function *Fn = BB->getParent();
   if (Fn && Fn->hasFnAttribute(Attribute::OptForFuzzing))
     return false;
+=======
+>>>>>>> cdd006eec9409923f9a56b9026ce2cb72e7b71dc
 
   // This could be a multiple entry PHI node. Try to fold each pair of entries
   // that leads to an "if condition".  Traverse through the predecessor list of
@@ -6750,8 +6753,7 @@ static BasicBlock *allPredecessorsComeFromSameSource(BasicBlock *BB) {
 
 bool SimplifyCFGOpt::simplifyCondBranch(BranchInst *BI, IRBuilder<> &Builder) {
   BasicBlock *BB = BI->getParent();
-  const Function *Fn = BB->getParent();
-  if (Fn && Fn->hasFnAttribute(Attribute::OptForFuzzing))
+  if (!Options.SimplifyCondBranch)
     return false;
 
   // Conditional branch
@@ -6977,6 +6979,7 @@ bool SimplifyCFGOpt::simplifyOnce(BasicBlock *BB) {
 
   IRBuilder<> Builder(BB);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // If there is a PHI node in this basic block, and we can
   // eliminate some of its entries, do so now.
@@ -6994,6 +6997,15 @@ bool SimplifyCFGOpt::simplifyOnce(BasicBlock *BB) {
     Changed |= FoldPHIEntries(PN, TTI, DL);
   }
 #endif //INTEL_CUSTOMIZATION
+=======
+  if (Options.FoldTwoEntryPHINode) {
+    // If there is a trivial two-entry PHI node in this basic block, and we can
+    // eliminate it, do so now.
+    if (auto *PN = dyn_cast<PHINode>(BB->begin()))
+      if (PN->getNumIncomingValues() == 2)
+        Changed |= FoldTwoEntryPHINode(PN, TTI, DL);
+  }
+>>>>>>> cdd006eec9409923f9a56b9026ce2cb72e7b71dc
 
   Instruction *Terminator = BB->getTerminator();
   Builder.SetInsertPoint(Terminator);
