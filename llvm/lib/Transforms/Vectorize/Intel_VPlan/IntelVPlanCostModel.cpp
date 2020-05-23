@@ -397,6 +397,9 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
     return getArithmeticInstructionCost(
       Instruction::Xor, VPInst->getOperand(0), nullptr,
       VPInst->getCMType(), VF);
+  case Instruction::FNeg:
+    return getArithmeticInstructionCost(
+      Opcode, VPInst->getOperand(0), nullptr, VPInst->getCMType(), VF);
   case Instruction::ICmp:
   case Instruction::FCmp: {
     // FIXME: Assuming all the compares are widened, which is obviously wrong
