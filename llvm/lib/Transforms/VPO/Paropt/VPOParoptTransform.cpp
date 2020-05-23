@@ -3517,9 +3517,9 @@ VPOParoptTransform::createFastRedTyAndVar(WRegionNode *W, int FastReduction) {
 
   ReductionClause &RedClause = W->getRed();
   for (ReductionItem *RedI : RedClause.items()) {
-    MaybeAlign OrigAlignment =
+    Align OrigAlignment =
         RedI->getOrig()->getPointerAlignment(F->getParent()->getDataLayout());
-    MaxAlignment = std::max(OrigAlignment, MaxAlignment);
+    MaxAlignment = max(OrigAlignment, MaxAlignment);
 
     Type *ElementType = nullptr;
     std::tie(ElementType, std::ignore, std::ignore) = getItemInfo(RedI);
