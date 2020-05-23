@@ -10,12 +10,16 @@
 ; CHECK-NEXT: Target Pass Configuration
 ; CHECK-NEXT: Machine Module Information
 ; CHECK-NEXT: Target Transform Information
+<<<<<<< HEAD
 ; CHECK-NEXT: Std Container Alias Analysis
 ; CHECK-NEXT: Type-Based Alias Analysis
 ; CHECK-NEXT: Scoped NoAlias Alias Analysis
 ; CHECK-NEXT: Assumption Cache Tracker
 ; CHECK-NEXT: Xmain opt level pass ;INTEL
+=======
+>>>>>>> 0c6bba71e3926edf19251425fa6435250f148ece
 ; CHECK-NEXT: Create Garbage Collector Module Metadata
+; CHECK-NEXT: Assumption Cache Tracker
 ; CHECK-NEXT: Profile summary info
 ; CHECK-NEXT: Machine Branch Probability Analysis
 ; CHECK-NEXT:   ModulePass Manager
@@ -23,9 +27,12 @@
 ; CHECK-NEXT:     FunctionPass Manager
 ; CHECK-NEXT:       MapIntrinToIml
 ; CHECK-NEXT:       Expand Atomic instructions
+<<<<<<< HEAD
 ; CHECK-NEXT:       Expand fp128 instructions ;INTEL
 ; CHECK-NEXT:       Dominator Tree Construction
 ; CHECK-NEXT:       Basic Alias Analysis (stateless AA impl)
+=======
+>>>>>>> 0c6bba71e3926edf19251425fa6435250f148ece
 ; CHECK-NEXT:       Module Verifier
 ; CHECK-NEXT:       Lower Garbage Collection Instructions
 ; CHECK-NEXT:       Shadow Stack GC Lowering
