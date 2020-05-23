@@ -110,6 +110,15 @@ protected:
     raw_ostream &OS, const VPBasicBlock *VPBlock);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
+  // Consolidates the code that gets the cost of one operand or two operands
+  // arithmetics instructions.  For one operand case Op2 is expected to be
+  // null.  Op1 is never expected to be null.
+  virtual unsigned getArithmeticInstructionCost(const unsigned Opcode,
+                                                const VPValue *Op1,
+                                                const VPValue *Op2,
+                                                const Type *ScalarTy,
+                                                const unsigned VF);
+
   // These utilities are private for the class instead of being defined as
   // static functions because they need access to underlying Inst/HIRData in
   // VPInstruction via the friends relation between VPlanCostModel and
