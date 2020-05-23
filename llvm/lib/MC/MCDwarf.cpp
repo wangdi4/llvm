@@ -1412,7 +1412,7 @@ void FrameEmitterImpl::emitCFIInstruction(const MCCFIInstruction &Instr) {
     if (IsRelative)
       CFAOffset += Instr.getOffset();
     else
-      CFAOffset = -Instr.getOffset();
+      CFAOffset = Instr.getOffset();
 
     Streamer.emitULEB128IntValue(CFAOffset);
 
