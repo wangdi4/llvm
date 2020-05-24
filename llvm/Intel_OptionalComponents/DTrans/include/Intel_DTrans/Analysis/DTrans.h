@@ -1129,6 +1129,11 @@ bool dtransCompositeIndexValid(llvm::Type *Ty, unsigned Idx);
 // Returns type at "Idx" in "Ty".
 llvm::Type *dtransCompositeGetTypeAtIndex(llvm::Type *Ty, unsigned Idx);
 
+// Return the type loaded if the Load instruction is loading the 0 element
+// in a structure
+llvm::Type* getTypeForZeroElementLoaded(LoadInst *Load,
+                                        llvm::Type **Pointee);
+
 } // namespace dtrans
 
 } // namespace llvm
