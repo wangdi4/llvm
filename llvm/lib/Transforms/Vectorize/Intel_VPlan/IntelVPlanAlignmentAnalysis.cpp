@@ -127,6 +127,12 @@ void VPlanPeelingAnalysis::collectMemrefs(VPlan &Plan) {
         continue;
 
       KnownBits KB = VPVT->getKnownBits(Ind->InvariantBase, &VPInst);
+
+      // Skip the memref if the address is statically known to be misaligned.
+      auto RequiredAlignment = MinAlign(0, Ind->Step);
+      if ((KB.One & (RequiredAlignment - 1)) != 0)
+        continue;
+
       CandidateMemrefs.push_back({&VPInst, *Ind, std::move(KB)});
     }
 }
