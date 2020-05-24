@@ -54,9 +54,8 @@ public:
                               const DataLayout *DL,
                               HIRVectorizationLegality *HIRLegal,
                               HIRDDAnalysis *DDA, VPlanVLSAnalysisHIR *VLSA)
-      : LoopVectorizationPlanner(WRL, /*Lp=*/nullptr, /*LI=*/nullptr,
-                                 /*VPSE=*/nullptr, TLI, TTI, DL, nullptr,
-                                 nullptr, VLSA),
+      : LoopVectorizationPlanner(WRL, /*Lp=*/nullptr, /*LI=*/nullptr, TLI, TTI,
+                                 DL, nullptr, nullptr, VLSA),
         TheLoop(Lp), DDA(DDA), HIRLegality(HIRLegal) {}
 
   /// Generate the HIR code for the body of the vectorized loop according to the

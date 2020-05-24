@@ -53,7 +53,7 @@ getConstDistanceFromImpl(const SCEV *LHS, const SCEV *RHS,
 //        modifying IR invalidates ScalarEvolution. It'd be better to remove
 //        this method, but it is still used in canMoveTo.
 const SCEV *VPVLSClientMemref::getSCEVForVPValue(const VPValue *Val) const {
-  auto &VPSE = VLSA->getVPSE();
+  auto &VPSE = getVPSE();
   return VPSE.toSCEV(VPSE.getVPlanSCEV(*Val));
 }
 
@@ -76,7 +76,7 @@ VPVLSClientMemref::getConstDistanceFrom(const OVLSMemref &From) {
   if (Inst->getParent() != FromInst->getParent())
     return None;
 
-  return getConstDistanceFromImpl(ScevExpr, FromScev, VLSA->getVPSE());
+  return getConstDistanceFromImpl(ScevExpr, FromScev, getVPSE());
 }
 
 // FIXME: This is an extremely naive implementation just to enable the most
@@ -94,7 +94,7 @@ bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
   if (ToInst->getParent() != FromInst->getParent())
     return false;
 
-  VPlanScalarEvolutionLLVM &VPSE = VLSA->getVPSE();
+  VPlanScalarEvolutionLLVM &VPSE = getVPSE();
   Type *AccessType = getLoadStoreType(FromInst);
   int64_t AccessSize = VLSA->getDL().getTypeStoreSize(AccessType);
 
@@ -184,7 +184,7 @@ bool VPVLSClientMemref::canMoveTo(const OVLSMemref &ToMemRef) {
 }
 
 Optional<int64_t> VPVLSClientMemref::getConstStride() const {
-  return getConstStrideImpl(ScevExpr, VLSA->getVPSE());
+  return getConstStrideImpl(ScevExpr, getVPSE());
 }
 
 bool VPVLSClientMemref::dominates(const OVLSMemref &Mrf) const {

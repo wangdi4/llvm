@@ -58,14 +58,13 @@ class LoopVectorizationPlanner {
 public:
 #if INTEL_CUSTOMIZATION
   LoopVectorizationPlanner(WRNVecLoopNode *WRL, Loop *Lp, LoopInfo *LI,
-                           VPlanScalarEvolution *VPSE,
                            const TargetLibraryInfo *TLI,
                            const TargetTransformInfo *TTI, const DataLayout *DL,
                            class DominatorTree *DT,
                            VPOVectorizationLegality *Legal,
                            VPlanVLSAnalysis *VLSA)
       : WRLp(WRL), TLI(TLI), TTI(TTI), DL(DL), Legal(Legal), TheLoop(Lp),
-        LI(LI), VPSE(VPSE), DT(DT), VLSA(VLSA) {}
+        LI(LI), DT(DT), VLSA(VLSA) {}
 #endif // INTEL_CUSTOMIZATION
 
   virtual ~LoopVectorizationPlanner() {}
@@ -135,6 +134,10 @@ public:
 
   bool hasVPlanForVF(const unsigned VF) const { return VPlans.count(VF) != 0; }
 
+  auto getAllVPlans() const {
+    return make_range(VPlans.begin(), VPlans.end());
+  }
+
 protected:
   /// Build an initial VPlan according to the information gathered by Legal
   /// when it checked if it is legal to vectorize this loop. \return a VPlan
@@ -199,9 +202,6 @@ private:
 
   /// Loop Info analysis.
   LoopInfo *LI;
-
-  /// VPlan Scalar Evolution Analysis.
-  VPlanScalarEvolution *VPSE;
 
   /// The dominators tree.
   class DominatorTree *DT;

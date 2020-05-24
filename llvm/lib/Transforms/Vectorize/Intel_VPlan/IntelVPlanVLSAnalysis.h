@@ -50,7 +50,6 @@ protected:
   // vectorizer.
   LLVMContext &Context;
   const DataLayout &DL;
-  VPlanScalarEvolutionLLVM *VPSE;
   TargetTransformInfo *TTI;
 
   /// Finds a group for a given VPInstruction.
@@ -106,9 +105,8 @@ private:
 
 public:
   VPlanVLSAnalysis(const Loop *MainLoop, LLVMContext &Context,
-                   const DataLayout &DL, VPlanScalarEvolutionLLVM *VPSE,
-                   TargetTransformInfo *TTI)
-      : MainLoop(MainLoop), Context(Context), DL(DL), VPSE(VPSE), TTI(TTI) {}
+                   const DataLayout &DL, TargetTransformInfo *TTI)
+      : MainLoop(MainLoop), Context(Context), DL(DL), TTI(TTI) {}
   virtual ~VPlanVLSAnalysis() {}
   /// Collect all memrefs within given VPlan and reflect given VF in
   /// each collected memref.
@@ -130,7 +128,6 @@ public:
 
   const Loop *getMainLoop() const { return MainLoop; }
   LLVMContext &getContext() const { return Context; }
-  VPlanScalarEvolutionLLVM &getVPSE() const { return *VPSE; }
   const DataLayout &getDL() const { return DL; }
 };
 

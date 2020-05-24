@@ -235,15 +235,18 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   VPlanOptReportBuilder VPORBuilder(LORBuilder, LI);
 
   BasicBlock *Header = Lp->getHeader();
-  VPlanScalarEvolutionLLVM VPSE(SE, Lp);
-  VPlanVLSAnalysis VLSA(Lp, Header->getContext(), *DL, &VPSE, TTI);
-  LoopVectorizationPlanner LVP(WRLp, Lp, LI, &VPSE, TLI, TTI, DL, DT, &LVL,
-                               &VLSA);
+  VPlanVLSAnalysis VLSA(Lp, Header->getContext(), *DL, TTI);
+  LoopVectorizationPlanner LVP(WRLp, Lp, LI, TLI, TTI, DL, DT, &LVL, &VLSA);
 
 #if INTEL_CUSTOMIZATION
   if (!LVP.buildInitialVPlans(&Fn.getContext(), DL)) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");
     return false;
+  }
+  for (auto &Pair : LVP.getAllVPlans()) {
+    auto &Plan = *Pair.second;
+    if (!Plan.getVPSE())
+      Plan.setVPSE(std::make_unique<VPlanScalarEvolutionLLVM>(SE, Lp));
   }
 #else
   LVP.buildInitialVPlans();

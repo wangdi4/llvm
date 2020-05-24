@@ -2207,6 +2207,7 @@ private:
   LLVMContext *Context = nullptr;
   std::unique_ptr<VPLoopInfo> VPLInfo;
   std::unique_ptr<VPlanDivergenceAnalysis> VPlanDA;
+  std::unique_ptr<VPlanScalarEvolution> VPSE;
   const DataLayout *DL = nullptr;
 
   /// Holds Plan's VPBasicBlocks.
@@ -2288,12 +2289,18 @@ public:
 
   const VPLoopInfo *getVPLoopInfo() const { return VPLInfo.get(); }
 
+  VPlanScalarEvolution *getVPSE() const { return VPSE.get(); }
+
   void setVPLoopInfo(std::unique_ptr<VPLoopInfo> VPLI) {
     VPLInfo = std::move(VPLI);
   }
 
   void setVPlanDA(std::unique_ptr<VPlanDivergenceAnalysis> VPDA) {
     VPlanDA = std::move(VPDA);
+  }
+
+  void setVPSE(std::unique_ptr<VPlanScalarEvolution> A) {
+    VPSE = std::move(A);
   }
 
   LLVMContext *getLLVMContext(void) const { return Context; }
