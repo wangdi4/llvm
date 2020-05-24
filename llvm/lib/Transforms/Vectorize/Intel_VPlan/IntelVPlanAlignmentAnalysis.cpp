@@ -83,7 +83,7 @@ void VPlanPeelingAnalysis::collectMemrefs(VPlan &Plan) {
 
       // Skip accesses that are not unit-strided.
       Type *EltTy = cast<PointerType>(Pointer->getType())->getElementType();
-      if (Ind->Step != (int64_t) DL->getTypeAllocSize(EltTy))
+      if (DL->getTypeAllocSize(EltTy) != TypeSize::Fixed(Ind->Step))
         continue;
 
       // Found a candidate for peeling (unit-strided store). Stop iterating.
