@@ -66,7 +66,26 @@ TEST_F(VPlanPeelingVariantTest, DynamicPeelingParameters) {
   EXPECT_EQ(P5.multiplier(), 3);
 }
 
-class VPlanPeelingAnalysisTest : public vpo::VPlanTestBase {};
+class VPlanPeelingAnalysisTest : public vpo::VPlanTestBase {
+protected:
+  Function *FuncFoo;
+  std::unique_ptr<VPlan> Plan;
+  std::unique_ptr<VPlanScalarEvolutionLLVM> VPSE;
+  std::unique_ptr<VPlanPeelingAnalysis> VPPA;
+
+  void buildVPlanFromString(const char* ModuleString) {
+    Module &M = parseModule(ModuleString);
+    FuncFoo = M.getFunction("foo");
+    BasicBlock *LoopHeader = FuncFoo->getEntryBlock().getSingleSuccessor();
+    Plan = buildHCFG(LoopHeader);
+  }
+
+  void setupPeelingAnalysis(VPlanPeelingCostModel &CM) {
+    VPSE = std::make_unique<VPlanScalarEvolutionLLVM>(*SE, *LI->begin());
+    VPPA = std::make_unique<VPlanPeelingAnalysis>(CM, *VPSE, *DL);
+    VPPA->collectMemrefs(*Plan);
+  }
+};
 
 // According to this cost model, profit from alignment increases by one every
 // time alignment doubles. Such cost model doesn't make practical value but it
@@ -78,9 +97,9 @@ public:
   }
 };
 
-TEST_F(VPlanPeelingAnalysisTest, NoPeeling) {
-  // Function without any unit-strided loads or stores in the loop.
-  const char *ModuleString =
+TEST_F(VPlanPeelingAnalysisTest, NoPeeling_NoUnitStride) {
+  // No peeling, since there's no unit-strided store or load in the loop.
+  buildVPlanFromString(
     "define void @foo(i32* %dst, i32* %src, i64 %size) {\n"
     "entry:\n"
     "  br label %for.body\n"
@@ -97,66 +116,45 @@ TEST_F(VPlanPeelingAnalysisTest, NoPeeling) {
     "  br i1 %exitcond, label %exit, label %for.body\n"
     "exit:\n"
     "  ret void\n"
-    "}\n";
+    "}\n");
 
-  Module &M = parseModule(ModuleString);
-  Function *F = M.getFunction("foo");
-  BasicBlock *LoopHeader = F->getEntryBlock().getSingleSuccessor();
-  std::unique_ptr<VPlan> Plan = buildHCFG(LoopHeader);
-
-  VPlanScalarEvolutionLLVM VPSE(*SE, *LI->begin());
   VPlanPeelingCostModelLog CM;
-  VPlanPeelingAnalysis VPPA(CM, VPSE, *DL);
-  VPPA.collectMemrefs(*Plan);
+  setupPeelingAnalysis(CM);
 
-  std::unique_ptr<VPlanPeelingVariant> PV4 = VPPA.selectBestPeelingVariant(4);
-  std::unique_ptr<VPlanPeelingVariant> PV16 = VPPA.selectBestPeelingVariant(16);
-
-  ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV4));
-  VPlanStaticPeeling &SP4 = cast<VPlanStaticPeeling>(*PV4);
-  EXPECT_EQ(SP4.peelCount(), 0);
-
-  ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV16));
-  VPlanStaticPeeling &SP16 = cast<VPlanStaticPeeling>(*PV16);
-  EXPECT_EQ(SP16.peelCount(), 0);
+  int VFs[] = {2, 4, 8, 16, 32, 64};
+  for (auto VF : VFs) {
+    std::unique_ptr<VPlanPeelingVariant> PV = VPPA->selectBestPeelingVariant(VF);
+    ASSERT_TRUE(isa<VPlanStaticPeeling>(*PV));
+    VPlanStaticPeeling &SP = cast<VPlanStaticPeeling>(*PV);
+    EXPECT_EQ(SP.peelCount(), 0);
+  }
 }
 
-TEST_F(VPlanPeelingAnalysisTest, DynamicPeelingStore) {
-  // A function with unit-strided load and store. The cost model must prefer
-  // peeling to align the store.
-  const char *ModuleString =
-      "define void @foo(i32* %dst, i32* %src, i64 %size) {\n"
-      "entry:\n"
-      "  br label %for.body\n"
-      "for.body:\n"
-      "  %counter = phi i64 [ 0, %entry ], [ %counter.next, %for.body ]\n"
-      "  %src.ptr = getelementptr inbounds i32, i32* %src, i64 %counter\n"
-      "  %src.val = load i32, i32* %src.ptr, align 4\n"
-      "  %dst.val = add i32 %src.val, 42\n"
-      "  %dst.ptr = getelementptr inbounds i32, i32* %dst, i64 %counter\n"
-      "  store i32 %dst.val, i32* %dst.ptr, align 4\n"
-      "  %counter.next = add nsw i64 %counter, 1\n"
-      "  %exitcond = icmp sge i64 %counter.next, %size\n"
-      "  br i1 %exitcond, label %exit, label %for.body\n"
-      "exit:\n"
-      "  ret void\n"
-      "}\n";
-
-  Module &M = parseModule(ModuleString);
-  Function *F = M.getFunction("foo");
-  BasicBlock *LoopHeader = F->getEntryBlock().getSingleSuccessor();
-  std::unique_ptr<VPlan> Plan = buildHCFG(LoopHeader);
-
-  VPlanScalarEvolutionLLVM VPSE(*SE, *LI->begin());
-  VPlanSCEV *DstScev = VPSE.toVPlanSCEV(SE->getSCEV(F->getArg(0)));
+TEST_F(VPlanPeelingAnalysisTest, DynamicPeeling_Store) {
+  // Peeling for a store must be preferred to a load of the same type.
+  buildVPlanFromString(
+    "define void @foo(i32* %dst, i32* %src, i64 %size) {\n"
+    "entry:\n"
+    "  br label %for.body\n"
+    "for.body:\n"
+    "  %counter = phi i64 [ 0, %entry ], [ %counter.next, %for.body ]\n"
+    "  %src.ptr = getelementptr inbounds i32, i32* %src, i64 %counter\n"
+    "  %src.val = load i32, i32* %src.ptr, align 4\n"
+    "  %dst.val = add i32 %src.val, 42\n"
+    "  %dst.ptr = getelementptr inbounds i32, i32* %dst, i64 %counter\n"
+    "  store i32 %dst.val, i32* %dst.ptr, align 4\n"
+    "  %counter.next = add nsw i64 %counter, 1\n"
+    "  %exitcond = icmp sge i64 %counter.next, %size\n"
+    "  br i1 %exitcond, label %exit, label %for.body\n"
+    "exit:\n"
+    "  ret void\n"
+    "}\n");
 
   VPlanPeelingCostModelSimple CM(*DL);
-  VPlanPeelingAnalysis VPPA(CM, VPSE, *DL);
-  VPPA.collectMemrefs(*Plan);
+  setupPeelingAnalysis(CM);
+  VPlanSCEV *DstScev = VPSE->toVPlanSCEV(SE->getSCEV(FuncFoo->getArg(0)));
 
-  std::unique_ptr<VPlanPeelingVariant> PV4 = VPPA.selectBestPeelingVariant(4);
-  std::unique_ptr<VPlanPeelingVariant> PV16 = VPPA.selectBestPeelingVariant(16);
-
+  std::unique_ptr<VPlanPeelingVariant> PV4 = VPPA->selectBestPeelingVariant(4);
   ASSERT_TRUE(isa<VPlanDynamicPeeling>(*PV4));
   VPlanDynamicPeeling &DP4 = cast<VPlanDynamicPeeling>(*PV4);
   EXPECT_EQ(DP4.memref()->getOpcode(), Instruction::Store);
@@ -165,6 +163,7 @@ TEST_F(VPlanPeelingAnalysisTest, DynamicPeelingStore) {
   EXPECT_EQ(DP4.targetAlignment(), 16);
   EXPECT_EQ(DP4.multiplier(), 3);
 
+  std::unique_ptr<VPlanPeelingVariant> PV16 = VPPA->selectBestPeelingVariant(16);
   ASSERT_TRUE(isa<VPlanDynamicPeeling>(*PV16));
   VPlanDynamicPeeling &DP16 = cast<VPlanDynamicPeeling>(*PV16);
   EXPECT_EQ(DP16.memref()->getOpcode(), Instruction::Store);
@@ -174,11 +173,10 @@ TEST_F(VPlanPeelingAnalysisTest, DynamicPeelingStore) {
   EXPECT_EQ(DP16.multiplier(), 15);
 }
 
-TEST_F(VPlanPeelingAnalysisTest, DynamicPeelingLoad) {
-  // Function with a unit-strided load. The store in the function is not
-  // unit-strided, so the cost model has no other choice but to choose a load
-  // as a peeling target.
-  const char *ModuleString =
+TEST_F(VPlanPeelingAnalysisTest, DynamicPeeling_Load) {
+  // The store in the function is not unit-strided, so the cost model has no
+  // other choice but to choose the load as peeling target.
+  buildVPlanFromString(
     "define void @foo(i32* %dst, i32* %src, i64 %size) {\n"
     "entry:\n"
     "  br label %for.body\n"
@@ -195,23 +193,13 @@ TEST_F(VPlanPeelingAnalysisTest, DynamicPeelingLoad) {
     "  br i1 %exitcond, label %exit, label %for.body\n"
     "exit:\n"
     "  ret void\n"
-    "}\n";
-
-  Module &M = parseModule(ModuleString);
-  Function *F = M.getFunction("foo");
-  BasicBlock *LoopHeader = F->getEntryBlock().getSingleSuccessor();
-  std::unique_ptr<VPlan> Plan = buildHCFG(LoopHeader);
-
-  VPlanScalarEvolutionLLVM VPSE(*SE, *LI->begin());
-  VPlanSCEV *SrcScev = VPSE.toVPlanSCEV(SE->getSCEV(F->getArg(1)));
+    "}\n");
 
   VPlanPeelingCostModelSimple CM(*DL);
-  VPlanPeelingAnalysis VPPA(CM, VPSE, *DL);
-  VPPA.collectMemrefs(*Plan);
+  setupPeelingAnalysis(CM);
+  VPlanSCEV *SrcScev = VPSE->toVPlanSCEV(SE->getSCEV(FuncFoo->getArg(1)));
 
-  std::unique_ptr<VPlanPeelingVariant> PV4 = VPPA.selectBestPeelingVariant(4);
-  std::unique_ptr<VPlanPeelingVariant> PV16 = VPPA.selectBestPeelingVariant(16);
-
+  std::unique_ptr<VPlanPeelingVariant> PV4 = VPPA->selectBestPeelingVariant(4);
   ASSERT_TRUE(isa<VPlanDynamicPeeling>(*PV4));
   VPlanDynamicPeeling &DP4 = cast<VPlanDynamicPeeling>(*PV4);
   EXPECT_EQ(DP4.memref()->getOpcode(), Instruction::Load);
@@ -220,6 +208,7 @@ TEST_F(VPlanPeelingAnalysisTest, DynamicPeelingLoad) {
   EXPECT_EQ(DP4.targetAlignment(), 16);
   EXPECT_EQ(DP4.multiplier(), 3);
 
+  std::unique_ptr<VPlanPeelingVariant> PV16 = VPPA->selectBestPeelingVariant(16);
   ASSERT_TRUE(isa<VPlanDynamicPeeling>(*PV16));
   VPlanDynamicPeeling &DP16 = cast<VPlanDynamicPeeling>(*PV16);
   EXPECT_EQ(DP16.memref()->getOpcode(), Instruction::Load);
