@@ -1765,15 +1765,10 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // Now that we've optimized loops (in particular loop induction variables),
   // we may have exposed more scalar opportunities. Run parts of the scalar
   // optimizer again at this point.
-<<<<<<< HEAD
-  PM.add(createVectorCombinePass());
 #if INTEL_CUSTOMIZATION
   // Initial cleanup
   addInstructionCombiningPass(PM);
 #endif // INTEL_CUSTOMIZATION
-=======
-  PM.add(createInstructionCombiningPass()); // Initial cleanup
->>>>>>> 57bb4787d72f1ae64f877b05c98d506602ac5958
   PM.add(createCFGSimplificationPass()); // if-convert
   PM.add(createSCCPPass()); // Propagate exposed constants
 #if INTEL_CUSTOMIZATION
@@ -1783,10 +1778,8 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createBitTrackingDCEPass());
 
   // More scalar chains could be vectorized due to more alias information
-  if (SLPVectorize)
+  if (SLPVectorize) { // INTEL
     PM.add(createSLPVectorizerPass()); // Vectorize parallel scalar chains.
-<<<<<<< HEAD
-    PM.add(createVectorCombinePass()); // Clean up partial vectorization.
 #if INTEL_CUSTOMIZATION
     if (EnableLoadCoalescing)
       PM.add(createLoadCoalescingPass());
@@ -1794,11 +1787,9 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
       // SLP creates opportunities for SROA.
       PM.add(createSROAPass());
 #endif // INTEL_CUSTOMIZATION
-  }
-=======
+  } // INTEL
 
   PM.add(createVectorCombinePass()); // Clean up partial vectorization.
->>>>>>> 57bb4787d72f1ae64f877b05c98d506602ac5958
 
   // After vectorization, assume intrinsics may tell us more about pointer
   // alignments.
