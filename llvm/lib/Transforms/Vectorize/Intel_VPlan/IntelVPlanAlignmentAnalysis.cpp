@@ -12,6 +12,7 @@
 #include "IntelVPlanAlignmentAnalysis.h"
 
 #include "IntelVPlan.h"
+#include "IntelVPlanUtils.h"
 
 #define DEBUG_TYPE "vplan-alignment-analysis"
 
@@ -66,14 +67,26 @@ VPlanDynamicPeeling::VPlanDynamicPeeling(VPInstruction *Memref,
       Multiplier(computeMultiplierForDynamicPeeling(
           AccessAddress.Step, RequiredAlignment, TargetAlignment)) {}
 
+VPlanPeelingCandidate::VPlanPeelingCandidate(VPInstruction *Memref,
+                                             VPConstStepInduction AccessAddress)
+    : Memref(Memref), AccessAddress(AccessAddress) {
+#ifndef NDEBUG
+  auto *DL = Memref->getParent()->getParent()->getDataLayout();
+  auto AccessSize = DL->getTypeAllocSize(getLoadStoreType(Memref));
+  auto AccessStep = AccessAddress.Step;
+  assert(AccessSize == TypeSize::Fixed(AccessStep) &&
+         "Non-unit stride memory access");
+#endif
+}
+
 void VPlanPeelingAnalysis::collectMemrefs(VPlan &Plan) {
   for (auto &VPBB : Plan)
     for (auto &VPInst : VPBB) {
-      // Ignore Loads for now. Aligning Stores is more profitable.
-      if (VPInst.getOpcode() != Instruction::Store)
+      auto Opcode = VPInst.getOpcode();
+      if (Opcode != Instruction::Load && Opcode != Instruction::Store)
         continue;
 
-      auto *Pointer = VPInst.getOperand(1);
+      auto *Pointer = getLoadStorePointerOperand(&VPInst);
       auto *Expr = VPSE->getVPlanSCEV(*Pointer);
       Optional<VPConstStepInduction> Ind = VPSE->asConstStepInduction(Expr);
 
@@ -86,10 +99,7 @@ void VPlanPeelingAnalysis::collectMemrefs(VPlan &Plan) {
       if (DL->getTypeAllocSize(EltTy) != TypeSize::Fixed(Ind->Step))
         continue;
 
-      // Found a candidate for peeling (unit-strided store). Stop iterating.
-      Memref = &VPInst;
-      AccessAddress = *Ind;
-      return;
+      CandidateMemrefs.push_back({&VPInst, *Ind});
     }
 }
 
@@ -109,8 +119,17 @@ VPlanPeelingAnalysis::selectBestStaticPeelingVariant(int VF) {
 
 Optional<std::pair<VPlanDynamicPeeling, int>>
 VPlanPeelingAnalysis::selectBestDynamicPeelingVariant(int VF) {
-  if (!Memref)
+  // Ignore Loads for now. Aligning Stores is more profitable.
+  auto Iter = std::find_if(
+      CandidateMemrefs.begin(), CandidateMemrefs.end(), [](auto &Cand) {
+        return Cand.memref()->getOpcode() == Instruction::Store;
+      });
+
+  if (Iter == CandidateMemrefs.end())
     return None;
+
+  VPInstruction *Memref = Iter->memref();
+  VPConstStepInduction AccessAddress = Iter->accessAddress();
 
   Align TargetAlignment(VF * MinAlign(0, AccessAddress.Step));
   VPlanDynamicPeeling Peeling(Memref, AccessAddress, TargetAlignment);

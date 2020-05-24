@@ -102,6 +102,24 @@ private:
   int Multiplier;
 };
 
+/// Memref that is a candidate for peeling. VPlanPeelingCandidate object cannot
+/// be created for non-unit stride accesses (asserts in the constructor).
+class VPlanPeelingCandidate final {
+public:
+  VPlanPeelingCandidate(VPInstruction *Memref,
+                        VPConstStepInduction AccessAddress);
+
+  VPInstruction *memref() { return Memref; }
+  const VPConstStepInduction &accessAddress() { return AccessAddress; }
+
+private:
+  /// Load or Store instruction.
+  VPInstruction *Memref;
+
+  /// Access address.
+  VPConstStepInduction AccessAddress;
+};
+
 /// Peeling Analysis finds the best peeling variant according to the given cost
 /// model.
 class VPlanPeelingAnalysis final {
@@ -133,8 +151,7 @@ public:
 private:
   VPlanScalarEvolution *VPSE;
   const DataLayout *DL;
-  VPInstruction *Memref = nullptr;
-  VPConstStepInduction AccessAddress = {nullptr, 0};
+  std::vector<VPlanPeelingCandidate> CandidateMemrefs;
 };
 
 } // namespace vpo
