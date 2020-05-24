@@ -127,7 +127,6 @@ protected:
   // Also, they won't be necessary if we had VPType for each VPValue.
   static Type *getMemInstValueType(const VPInstruction *VPInst);
   static unsigned getMemInstAddressSpace(const VPInstruction *VPInst);
-  static Type *getVectorizedType(const Type *BaseTy, unsigned VF);
   static Value *getGEP(const VPInstruction *VPInst);
 
   /// \Returns the alignment of the load/store \p VPInst.
