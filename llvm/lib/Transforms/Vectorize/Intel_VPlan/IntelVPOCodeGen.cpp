@@ -1932,7 +1932,7 @@ Value *VPOCodeGen::vectorizeInterleavedLoad(VPInstruction *VPLoad,
 
 Value *VPOCodeGen::vectorizeUnitStrideLoad(VPInstruction *VPInst, int StrideVal,
                                            bool IsPvtPtr) {
-  Value *WideLoad = nullptr;
+  Instruction *WideLoad = nullptr;
   VPValue *Ptr = getLoadStorePointerOperand(VPInst);
   Type *LoadType = getLoadStoreType(VPInst);
   auto *LoadVecType = dyn_cast<VectorType>(LoadType);
@@ -1952,9 +1952,13 @@ Value *VPOCodeGen::vectorizeUnitStrideLoad(VPInstruction *VPInst, int StrideVal,
   } else
     WideLoad = Builder.CreateAlignedLoad(VecPtr, Alignment, "wide.load");
 
-  if (StrideVal < 0) // Reverse
-    WideLoad = reverseVector(WideLoad);
+  if (auto *DynPeeling =
+          dyn_cast_or_null<VPlanDynamicPeeling>(PreferredPeeling))
+    if (VPInst == DynPeeling->memref())
+      attachPreferredAlignmentMetadata(WideLoad, DynPeeling->targetAlignment());
 
+  if (StrideVal < 0) // Reverse
+    return reverseVector(WideLoad);
   return WideLoad;
 }
 
