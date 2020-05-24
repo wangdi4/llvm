@@ -102,6 +102,33 @@ private:
   int Multiplier;
 };
 
+/// Cost model for estimating cost of a memory references with different
+/// alignments.
+class VPlanPeelingCostModel {
+public:
+  VPlanPeelingCostModel() {}
+  VPlanPeelingCostModel(const VPlanPeelingCostModel &) = delete;
+  VPlanPeelingCostModel &operator=(const VPlanPeelingCostModel &) = delete;
+  virtual ~VPlanPeelingCostModel() {}
+
+  /// Compute cost of unit stride memory access \p Mrf with the given
+  /// \p Alignment and \p VF.
+  virtual int getCost(VPInstruction *Mrf, int VF, Align Alignment) = 0;
+};
+
+/// A simple dummy implementation of VPlanPeelingCostModel interface. It uses a
+/// reasonable but very simple heuristic. In future, it is expected to be
+/// replaced with a more precise TTI-based cost model.
+class VPlanPeelingCostModelSimple final : public VPlanPeelingCostModel {
+public:
+  VPlanPeelingCostModelSimple(const DataLayout &DL) : DL(&DL) {}
+
+  int getCost(VPInstruction *Mrf, int VF, Align Alignment) override;
+
+private:
+  const DataLayout *DL;
+};
+
 /// Memref that is a candidate for peeling. VPlanPeelingCandidate object cannot
 /// be created for non-unit stride accesses (asserts in the constructor).
 class VPlanPeelingCandidate final {
@@ -124,8 +151,9 @@ private:
 /// model.
 class VPlanPeelingAnalysis final {
 public:
-  VPlanPeelingAnalysis(VPlanScalarEvolution &VPSE, const DataLayout &DL)
-      : VPSE(&VPSE), DL(&DL) {}
+  VPlanPeelingAnalysis(VPlanPeelingCostModel &CM, VPlanScalarEvolution &VPSE,
+                       const DataLayout &DL)
+      : CM(&CM), VPSE(&VPSE), DL(&DL) {}
   VPlanPeelingAnalysis(const VPlanPeelingAnalysis &) = delete;
   VPlanPeelingAnalysis &operator=(const VPlanPeelingAnalysis &) = delete;
   VPlanPeelingAnalysis(VPlanPeelingAnalysis &&) = default;
@@ -149,6 +177,7 @@ public:
   selectBestDynamicPeelingVariant(int VF);
 
 private:
+  VPlanPeelingCostModel *CM;
   VPlanScalarEvolution *VPSE;
   const DataLayout *DL;
   std::vector<VPlanPeelingCandidate> CandidateMemrefs;

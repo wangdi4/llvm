@@ -14,6 +14,10 @@
 #include "IntelVPlan.h"
 #include "IntelVPlanUtils.h"
 
+#include <llvm/Analysis/VectorUtils.h>
+
+#include <numeric>
+
 #define DEBUG_TYPE "vplan-alignment-analysis"
 
 using namespace llvm;
@@ -67,6 +71,24 @@ VPlanDynamicPeeling::VPlanDynamicPeeling(VPInstruction *Memref,
       Multiplier(computeMultiplierForDynamicPeeling(
           AccessAddress.Step, RequiredAlignment, TargetAlignment)) {}
 
+int VPlanPeelingCostModelSimple::getCost(VPInstruction *Mrf, int VF,
+                                         Align Alignment) {
+  auto Size = DL->getTypeAllocSize(getLoadStoreType(Mrf));
+  Align BestAlign(VF * MinAlign(0, Size));
+  auto Opcode = Mrf->getOpcode();
+
+  if (Alignment >= BestAlign)
+    return 0;
+
+  if (Opcode == Instruction::Load)
+    return 2;
+
+  if (Opcode == Instruction::Store)
+    return 3;
+
+  llvm_unreachable("Unexpected Opcode");
+}
+
 VPlanPeelingCandidate::VPlanPeelingCandidate(VPInstruction *Memref,
                                              VPConstStepInduction AccessAddress)
     : Memref(Memref), AccessAddress(AccessAddress) {
@@ -119,19 +141,26 @@ VPlanPeelingAnalysis::selectBestStaticPeelingVariant(int VF) {
 
 Optional<std::pair<VPlanDynamicPeeling, int>>
 VPlanPeelingAnalysis::selectBestDynamicPeelingVariant(int VF) {
-  // Ignore Loads for now. Aligning Stores is more profitable.
-  auto Iter = std::find_if(
-      CandidateMemrefs.begin(), CandidateMemrefs.end(), [](auto &Cand) {
-        return Cand.memref()->getOpcode() == Instruction::Store;
-      });
-
-  if (Iter == CandidateMemrefs.end())
+  if (CandidateMemrefs.empty())
     return None;
 
-  VPInstruction *Memref = Iter->memref();
-  VPConstStepInduction AccessAddress = Iter->accessAddress();
+  // Map every collected memref to {Peeling, Profit} pair.
+  auto Map = map_range(
+      CandidateMemrefs,
+      [this, VF](auto &Cand) -> std::pair<VPlanDynamicPeeling, int> {
+        Align ReqAlign(MinAlign(0, Cand.accessAddress().Step));
+        int Profit = CM->getCost(Cand.memref(), VF, ReqAlign) -
+                     CM->getCost(Cand.memref(), VF, ReqAlign * VF);
+        VPlanDynamicPeeling Peeling(Cand.memref(), Cand.accessAddress(),
+                                    ReqAlign * VF);
+        return {std::move(Peeling), Profit};
+      });
 
-  Align TargetAlignment(VF * MinAlign(0, AccessAddress.Step));
-  VPlanDynamicPeeling Peeling(Memref, AccessAddress, TargetAlignment);
-  return std::make_pair(Peeling, 1);
+  // Select the most profitable peeling variant in Map.
+  auto Reduce = std::accumulate(Map.begin() + 1, Map.end(), *Map.begin(),
+                                [](const auto &lhs, const auto &rhs) {
+                                  return rhs.second > lhs.second ? rhs : lhs;
+                                });
+
+  return Reduce;
 }

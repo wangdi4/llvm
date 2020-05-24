@@ -267,6 +267,7 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
 
 void LoopVectorizationPlanner::selectBestPeelingVariants() {
   std::map<VPlan *, VPlanPeelingAnalysis> VPPACache;
+  VPlanPeelingCostModelSimple CM(*DL);
 
   for (auto &Pair : VPlans) {
     auto VF = Pair.first;
@@ -277,7 +278,7 @@ void LoopVectorizationPlanner::selectBestPeelingVariants() {
 
     auto Found = VPPACache.find(&Plan);
     if (Found == VPPACache.end()) {
-      VPlanPeelingAnalysis VPPA(*VPSE, *DL);
+      VPlanPeelingAnalysis VPPA(CM, *VPSE, *DL);
       VPPA.collectMemrefs(Plan);
       std::tie(Found, std::ignore) = VPPACache.emplace(&Plan, std::move(VPPA));
     }

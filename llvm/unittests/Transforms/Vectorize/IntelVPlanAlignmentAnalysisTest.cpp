@@ -68,18 +68,28 @@ TEST_F(VPlanPeelingVariantTest, DynamicPeelingParameters) {
 
 class VPlanPeelingAnalysisTest : public vpo::VPlanTestBase {};
 
+// According to this cost model, profit from alignment increases by one every
+// time alignment doubles. Such cost model doesn't make practical value but it
+// is useful for testing purposes.
+class VPlanPeelingCostModelLog final : public VPlanPeelingCostModel {
+public:
+  int getCost(VPInstruction *Mrf, int VF, Align Alignment) override {
+    return -Log2(Alignment);
+  }
+};
+
 TEST_F(VPlanPeelingAnalysisTest, NoPeeling) {
-  // Function without any unit-strided store in the loop.
+  // Function without any unit-strided loads or stores in the loop.
   const char *ModuleString =
     "define void @foo(i32* %dst, i32* %src, i64 %size) {\n"
     "entry:\n"
     "  br label %for.body\n"
     "for.body:\n"
     "  %counter = phi i64 [ 0, %entry ], [ %counter.next, %for.body ]\n"
-    "  %src.ptr = getelementptr inbounds i32, i32* %src, i64 %counter\n"
+    "  %counter_times_two = mul nsw nuw i64 %counter, 2\n"
+    "  %src.ptr = getelementptr inbounds i32, i32* %src, i64 %counter_times_two\n"
     "  %src.val = load i32, i32* %src.ptr, align 4\n"
     "  %dst.val = add i32 %src.val, 42\n"
-    "  %counter_times_two = mul nsw nuw i64 %counter, 2\n"
     "  %dst.ptr = getelementptr inbounds i32, i32* %dst, i64 %counter_times_two\n"
     "  store i32 %dst.val, i32* %dst.ptr, align 4\n"
     "  %counter.next = add nsw i64 %counter, 1\n"
@@ -95,7 +105,8 @@ TEST_F(VPlanPeelingAnalysisTest, NoPeeling) {
   std::unique_ptr<VPlan> Plan = buildHCFG(LoopHeader);
 
   VPlanScalarEvolutionLLVM VPSE(*SE, *LI->begin());
-  VPlanPeelingAnalysis VPPA(VPSE, *DL);
+  VPlanPeelingCostModelLog CM;
+  VPlanPeelingAnalysis VPPA(CM, VPSE, *DL);
   VPPA.collectMemrefs(*Plan);
 
   std::unique_ptr<VPlanPeelingVariant> PV4 = VPPA.selectBestPeelingVariant(4);
@@ -110,7 +121,9 @@ TEST_F(VPlanPeelingAnalysisTest, NoPeeling) {
   EXPECT_EQ(SP16.peelCount(), 0);
 }
 
-TEST_F(VPlanPeelingAnalysisTest, DynamicPeeling) {
+TEST_F(VPlanPeelingAnalysisTest, DynamicPeelingStore) {
+  // A function with unit-strided load and store. The cost model must prefer
+  // peeling to align the store.
   const char *ModuleString =
       "define void @foo(i32* %dst, i32* %src, i64 %size) {\n"
       "entry:\n"
@@ -137,7 +150,8 @@ TEST_F(VPlanPeelingAnalysisTest, DynamicPeeling) {
   VPlanScalarEvolutionLLVM VPSE(*SE, *LI->begin());
   VPlanSCEV *DstScev = VPSE.toVPlanSCEV(SE->getSCEV(F->getArg(0)));
 
-  VPlanPeelingAnalysis VPPA(VPSE, *DL);
+  VPlanPeelingCostModelSimple CM(*DL);
+  VPlanPeelingAnalysis VPPA(CM, VPSE, *DL);
   VPPA.collectMemrefs(*Plan);
 
   std::unique_ptr<VPlanPeelingVariant> PV4 = VPPA.selectBestPeelingVariant(4);
@@ -155,6 +169,61 @@ TEST_F(VPlanPeelingAnalysisTest, DynamicPeeling) {
   VPlanDynamicPeeling &DP16 = cast<VPlanDynamicPeeling>(*PV16);
   EXPECT_EQ(DP16.memref()->getOpcode(), Instruction::Store);
   EXPECT_EQ(DP16.invariantBase(), DstScev);
+  EXPECT_EQ(DP16.requiredAlignment(), 4);
+  EXPECT_EQ(DP16.targetAlignment(), 64);
+  EXPECT_EQ(DP16.multiplier(), 15);
+}
+
+TEST_F(VPlanPeelingAnalysisTest, DynamicPeelingLoad) {
+  // Function with a unit-strided load. The store in the function is not
+  // unit-strided, so the cost model has no other choice but to choose a load
+  // as a peeling target.
+  const char *ModuleString =
+    "define void @foo(i32* %dst, i32* %src, i64 %size) {\n"
+    "entry:\n"
+    "  br label %for.body\n"
+    "for.body:\n"
+    "  %counter = phi i64 [ 0, %entry ], [ %counter.next, %for.body ]\n"
+    "  %src.ptr = getelementptr inbounds i32, i32* %src, i64 %counter\n"
+    "  %src.val = load i32, i32* %src.ptr, align 4\n"
+    "  %dst.val = add i32 %src.val, 42\n"
+    "  %counter_times_two = mul nsw nuw i64 %counter, 2\n"
+    "  %dst.ptr = getelementptr inbounds i32, i32* %dst, i64 %counter_times_two\n"
+    "  store i32 %dst.val, i32* %dst.ptr, align 4\n"
+    "  %counter.next = add nsw i64 %counter, 1\n"
+    "  %exitcond = icmp sge i64 %counter.next, %size\n"
+    "  br i1 %exitcond, label %exit, label %for.body\n"
+    "exit:\n"
+    "  ret void\n"
+    "}\n";
+
+  Module &M = parseModule(ModuleString);
+  Function *F = M.getFunction("foo");
+  BasicBlock *LoopHeader = F->getEntryBlock().getSingleSuccessor();
+  std::unique_ptr<VPlan> Plan = buildHCFG(LoopHeader);
+
+  VPlanScalarEvolutionLLVM VPSE(*SE, *LI->begin());
+  VPlanSCEV *SrcScev = VPSE.toVPlanSCEV(SE->getSCEV(F->getArg(1)));
+
+  VPlanPeelingCostModelSimple CM(*DL);
+  VPlanPeelingAnalysis VPPA(CM, VPSE, *DL);
+  VPPA.collectMemrefs(*Plan);
+
+  std::unique_ptr<VPlanPeelingVariant> PV4 = VPPA.selectBestPeelingVariant(4);
+  std::unique_ptr<VPlanPeelingVariant> PV16 = VPPA.selectBestPeelingVariant(16);
+
+  ASSERT_TRUE(isa<VPlanDynamicPeeling>(*PV4));
+  VPlanDynamicPeeling &DP4 = cast<VPlanDynamicPeeling>(*PV4);
+  EXPECT_EQ(DP4.memref()->getOpcode(), Instruction::Load);
+  EXPECT_EQ(DP4.invariantBase(), SrcScev);
+  EXPECT_EQ(DP4.requiredAlignment(), 4);
+  EXPECT_EQ(DP4.targetAlignment(), 16);
+  EXPECT_EQ(DP4.multiplier(), 3);
+
+  ASSERT_TRUE(isa<VPlanDynamicPeeling>(*PV16));
+  VPlanDynamicPeeling &DP16 = cast<VPlanDynamicPeeling>(*PV16);
+  EXPECT_EQ(DP16.memref()->getOpcode(), Instruction::Load);
+  EXPECT_EQ(DP16.invariantBase(), SrcScev);
   EXPECT_EQ(DP16.requiredAlignment(), 4);
   EXPECT_EQ(DP16.targetAlignment(), 64);
   EXPECT_EQ(DP16.multiplier(), 15);
