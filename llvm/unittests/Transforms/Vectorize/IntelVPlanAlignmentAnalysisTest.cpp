@@ -71,6 +71,7 @@ protected:
   Function *FuncFoo;
   std::unique_ptr<VPlan> Plan;
   std::unique_ptr<VPlanScalarEvolutionLLVM> VPSE;
+  std::unique_ptr<VPlanValueTrackingLLVM> VPVT;
   std::unique_ptr<VPlanPeelingAnalysis> VPPA;
 
   void buildVPlanFromString(const char* ModuleString) {
@@ -82,7 +83,8 @@ protected:
 
   void setupPeelingAnalysis(VPlanPeelingCostModel &CM) {
     VPSE = std::make_unique<VPlanScalarEvolutionLLVM>(*SE, *LI->begin());
-    VPPA = std::make_unique<VPlanPeelingAnalysis>(CM, *VPSE, *DL);
+    VPVT = std::make_unique<VPlanValueTrackingLLVM>(*VPSE, *DL, &*AC, &*DT);
+    VPPA = std::make_unique<VPlanPeelingAnalysis>(CM, *VPSE, *VPVT, *DL);
     VPPA->collectMemrefs(*Plan);
   }
 };

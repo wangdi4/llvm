@@ -278,7 +278,7 @@ void LoopVectorizationPlanner::selectBestPeelingVariants() {
 
     auto Found = VPPACache.find(&Plan);
     if (Found == VPPACache.end()) {
-      VPlanPeelingAnalysis VPPA(CM, *Plan.getVPSE(), *DL);
+      VPlanPeelingAnalysis VPPA(CM, *Plan.getVPSE(), *Plan.getVPVT(), *DL);
       VPPA.collectMemrefs(Plan);
       std::tie(Found, std::ignore) = VPPACache.emplace(&Plan, std::move(VPPA));
     }

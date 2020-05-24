@@ -13,6 +13,7 @@
 
 #include "IntelVPlan.h"
 #include "IntelVPlanUtils.h"
+#include "IntelVPlanValueTracking.h"
 
 #include <llvm/Analysis/VectorUtils.h>
 
@@ -90,14 +91,18 @@ int VPlanPeelingCostModelSimple::getCost(VPInstruction *Mrf, int VF,
 }
 
 VPlanPeelingCandidate::VPlanPeelingCandidate(VPInstruction *Memref,
-                                             VPConstStepInduction AccessAddress)
-    : Memref(Memref), AccessAddress(AccessAddress) {
+                                             VPConstStepInduction AccessAddress,
+                                             KnownBits InvariantBaseKnownBits)
+    : Memref(Memref), AccessAddress(AccessAddress),
+      InvariantBaseKnownBits(std::move(InvariantBaseKnownBits)) {
 #ifndef NDEBUG
   auto *DL = Memref->getParent()->getParent()->getDataLayout();
   auto AccessSize = DL->getTypeAllocSize(getLoadStoreType(Memref));
   auto AccessStep = AccessAddress.Step;
   assert(AccessSize == TypeSize::Fixed(AccessStep) &&
          "Non-unit stride memory access");
+  assert((InvariantBaseKnownBits.One & (MinAlign(0, AccessStep) - 1)) == 0 &&
+         "Misaligned memory access");
 #endif
 }
 
@@ -121,7 +126,8 @@ void VPlanPeelingAnalysis::collectMemrefs(VPlan &Plan) {
       if (DL->getTypeAllocSize(EltTy) != TypeSize::Fixed(Ind->Step))
         continue;
 
-      CandidateMemrefs.push_back({&VPInst, *Ind});
+      KnownBits KB = VPVT->getKnownBits(Ind->InvariantBase, &VPInst);
+      CandidateMemrefs.push_back({&VPInst, *Ind, std::move(KB)});
     }
 }
 

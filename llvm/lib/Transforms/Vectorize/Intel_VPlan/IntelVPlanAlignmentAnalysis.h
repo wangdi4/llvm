@@ -15,12 +15,14 @@
 #include "IntelVPlanScalarEvolution.h"
 
 #include <llvm/IR/DataLayout.h>
+#include <llvm/Support/KnownBits.h>
 
 namespace llvm {
 namespace vpo {
 
 class VPlan;
 class VPInstruction;
+class VPlanValueTracking;
 
 /// Supported peeling kinds.
 enum VPlanPeelingKind { VPPK_StaticPeeling, VPPK_DynamicPeeling };
@@ -130,14 +132,17 @@ private:
 };
 
 /// Memref that is a candidate for peeling. VPlanPeelingCandidate object cannot
-/// be created for non-unit stride accesses (asserts in the constructor).
+/// be created for non-unit stride accesses or for accesses known to be
+/// misaligned (asserts in the constructor).
 class VPlanPeelingCandidate final {
 public:
   VPlanPeelingCandidate(VPInstruction *Memref,
-                        VPConstStepInduction AccessAddress);
+                        VPConstStepInduction AccessAddress,
+                        KnownBits InvariantBaseKnownBits);
 
   VPInstruction *memref() { return Memref; }
   const VPConstStepInduction &accessAddress() { return AccessAddress; }
+  const KnownBits &invariantBaseKnownBits() { return InvariantBaseKnownBits; }
 
 private:
   /// Load or Store instruction.
@@ -145,6 +150,9 @@ private:
 
   /// Access address.
   VPConstStepInduction AccessAddress;
+
+  /// KnownBits for AccessAddress.InvariantBase.
+  KnownBits InvariantBaseKnownBits;
 };
 
 /// Peeling Analysis finds the best peeling variant according to the given cost
@@ -152,8 +160,8 @@ private:
 class VPlanPeelingAnalysis final {
 public:
   VPlanPeelingAnalysis(VPlanPeelingCostModel &CM, VPlanScalarEvolution &VPSE,
-                       const DataLayout &DL)
-      : CM(&CM), VPSE(&VPSE), DL(&DL) {}
+                       VPlanValueTracking &VPVT, const DataLayout &DL)
+      : CM(&CM), VPSE(&VPSE), VPVT(&VPVT), DL(&DL) {}
   VPlanPeelingAnalysis(const VPlanPeelingAnalysis &) = delete;
   VPlanPeelingAnalysis &operator=(const VPlanPeelingAnalysis &) = delete;
   VPlanPeelingAnalysis(VPlanPeelingAnalysis &&) = default;
@@ -179,6 +187,7 @@ public:
 private:
   VPlanPeelingCostModel *CM;
   VPlanScalarEvolution *VPSE;
+  VPlanValueTracking *VPVT;
   const DataLayout *DL;
   std::vector<VPlanPeelingCandidate> CandidateMemrefs;
 };

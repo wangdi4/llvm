@@ -247,6 +247,10 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
     auto &Plan = *Pair.second;
     if (!Plan.getVPSE())
       Plan.setVPSE(std::make_unique<VPlanScalarEvolutionLLVM>(SE, Lp));
+    if (!Plan.getVPVT()) {
+      auto &VPSE = *static_cast<VPlanScalarEvolutionLLVM *>(Plan.getVPSE());
+      Plan.setVPVT(std::make_unique<VPlanValueTrackingLLVM>(VPSE, *DL, AC, DT));
+    }
   }
 #else
   LVP.buildInitialVPlans();

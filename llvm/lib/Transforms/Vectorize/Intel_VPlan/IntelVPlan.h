@@ -42,6 +42,7 @@
 #include "IntelVPLoopAnalysis.h"
 #include "IntelVPlanAlignmentAnalysis.h"
 #include "IntelVPlanDivergenceAnalysis.h"
+#include "IntelVPlanValueTracking.h"
 #include "IntelVPlanLoopInfo.h"
 #include "VPlanHIR/IntelVPlanInstructionDataHIR.h"
 #include "llvm/ADT/DepthFirstIterator.h"
@@ -2208,6 +2209,7 @@ private:
   std::unique_ptr<VPLoopInfo> VPLInfo;
   std::unique_ptr<VPlanDivergenceAnalysis> VPlanDA;
   std::unique_ptr<VPlanScalarEvolution> VPSE;
+  std::unique_ptr<VPlanValueTracking> VPVT;
   const DataLayout *DL = nullptr;
 
   /// Holds Plan's VPBasicBlocks.
@@ -2291,6 +2293,8 @@ public:
 
   VPlanScalarEvolution *getVPSE() const { return VPSE.get(); }
 
+  VPlanValueTracking *getVPVT() const { return VPVT.get(); }
+
   void setVPLoopInfo(std::unique_ptr<VPLoopInfo> VPLI) {
     VPLInfo = std::move(VPLI);
   }
@@ -2301,6 +2305,10 @@ public:
 
   void setVPSE(std::unique_ptr<VPlanScalarEvolution> A) {
     VPSE = std::move(A);
+  }
+
+  void setVPVT(std::unique_ptr<VPlanValueTracking> A) {
+    VPVT = std::move(A);
   }
 
   LLVMContext *getLLVMContext(void) const { return Context; }
