@@ -1336,12 +1336,16 @@ ModulePassManager PassBuilder::buildModuleOptimizationPipeline(
 
   // Enhance/cleanup vector code.
   OptimizePM.addPass(VectorCombinePass());
+<<<<<<< HEAD
   OptimizePM.addPass(EarlyCSEPass());
 #if INTEL_CUSTOMIZATION
   OptimizePM.addPass(
       InstCombinePass(/*ExpensiveCombines=default value*/ true,
                       GEPInstOptimizations)); // Combine silly sequences.
 #endif // INTEL_CUSTOMIZATION
+=======
+  OptimizePM.addPass(InstCombinePass());
+>>>>>>> 57bb4787d72f1ae64f877b05c98d506602ac5958
 
   // Unroll small loops to hide loop backedge latency and saturate any parallel
   // execution resources of an out-of-order processor. We also then need to
