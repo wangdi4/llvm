@@ -128,6 +128,11 @@
 // CHECK-QNO-VLA: "-Werror=vla"
 // CHECK-QVLA-NOT: "-Werror=vla"
 
+// Behavior with Qstrict-overflow and Qno-strict-overflow option
+// RUN: %clang_cl -### -c /Qstrict-overflow /Qno-strict-overflow %s 2>&1 | FileCheck -check-prefix CHECK-QNO-STRICT %s
+// RUN: %clang_cl -### -c /Qstrict-overflow- %s 2>&1 | FileCheck -check-prefix CHECK-QNO-STRICT %s
+// CHECK-QNO-STRICT: "-fwrapv"
+
 // RUN: %clang -### -fp-speculation=strict -c %s 2>&1 | FileCheck --check-prefix=CHECK-STRICT %s
 // RUN: %clang_cl -### /Qfp-speculation:strict -c %s 2>&1 | FileCheck --check-prefix=CHECK-STRICT %s
 // RUN: %clang_cl -### /Qfp-speculation:fast -c %s 2>&1 | FileCheck --check-prefix=CHECK-IGNORE %s
