@@ -120,6 +120,16 @@ public:
   /// Find the most profitable peeling variant for a particular \p VF.
   std::unique_ptr<VPlanPeelingVariant> selectBestPeelingVariant(int VF);
 
+  /// Returns best static peeling variant and its profit. The algorithm for
+  /// selecting best peeling variant always succeeds. In the worst case
+  /// {StaticPeeling(0), 0} is returned.
+  std::pair<VPlanStaticPeeling, int> selectBestStaticPeelingVariant(int VF);
+
+  /// Returns best dynamic peeling variant and its profit. None is returned when
+  /// there's no analyzable memrefs in the loop.
+  Optional<std::pair<VPlanDynamicPeeling, int>>
+  selectBestDynamicPeelingVariant(int VF);
+
 private:
   VPlanScalarEvolution *VPSE;
   const DataLayout *DL;

@@ -95,10 +95,24 @@ void VPlanPeelingAnalysis::collectMemrefs(VPlan &Plan) {
 
 std::unique_ptr<VPlanPeelingVariant>
 VPlanPeelingAnalysis::selectBestPeelingVariant(int VF) {
+  auto Static = selectBestStaticPeelingVariant(VF);
+  auto DynamicOrNone = selectBestDynamicPeelingVariant(VF);
+  if (DynamicOrNone && DynamicOrNone->second > Static.second)
+    return std::make_unique<VPlanDynamicPeeling>(DynamicOrNone->first);
+  return std::make_unique<VPlanStaticPeeling>(Static.first);
+}
+
+std::pair<VPlanStaticPeeling, int>
+VPlanPeelingAnalysis::selectBestStaticPeelingVariant(int VF) {
+  return {VPlanStaticPeeling(0), 0};
+}
+
+Optional<std::pair<VPlanDynamicPeeling, int>>
+VPlanPeelingAnalysis::selectBestDynamicPeelingVariant(int VF) {
   if (!Memref)
-    return std::make_unique<VPlanStaticPeeling>(0);
+    return None;
 
   Align TargetAlignment(VF * MinAlign(0, AccessAddress.Step));
-  return std::make_unique<VPlanDynamicPeeling>(Memref, AccessAddress,
-                                               TargetAlignment);
+  VPlanDynamicPeeling Peeling(Memref, AccessAddress, TargetAlignment);
+  return std::make_pair(Peeling, 1);
 }
