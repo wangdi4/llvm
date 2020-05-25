@@ -324,9 +324,9 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
   uint64_t TripCount = std::min(OuterMostVPLoop->getTripCountInfo().TripCount,
                                 (uint64_t)std::numeric_limits<unsigned>::max());
 #if INTEL_CUSTOMIZATION
-  CostModelTy ScalarCM(ScalarPlan, 1, TTI, DL, VLSA);
+  CostModelTy ScalarCM(ScalarPlan, 1, TTI, TLI, DL, VLSA);
 #else
-  CostModelTy ScalarCM(ScalarPlan, 1, TTI, DL);
+  CostModelTy ScalarCM(ScalarPlan, 1, TTI, TLI, DL);
 #endif // INTEL_CUSTOMIZATION
   unsigned ScalarIterationCost = ScalarCM.getCost();
   ScalarIterationCost =
@@ -372,9 +372,9 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
     // cost model should just do the right thing calulating the cost of the
     // plan. However this is not the case yet so do some simple heuristic.
 #if INTEL_CUSTOMIZATION
-    CostModelTy VectorCM(Plan, VF, TTI, DL, VLSA);
+    CostModelTy VectorCM(Plan, VF, TTI, TLI, DL, VLSA);
 #else
-    CostModelTy VectorCM(Plan, VF, TTI, DL);
+    CostModelTy VectorCM(Plan, VF, TTI, TLI, DL);
 #endif // INTEL_CUSTOMIZATION
     const unsigned VectorIterationCost = VectorCM.getCost();
     if (VectorIterationCost == CostModelTy::UnknownCost) {
@@ -515,9 +515,9 @@ void LoopVectorizationPlanner::printCostModelAnalysisIfRequested(
     VPlan *Plan = getVPlanForVF(VFRequested);
 
 #if INTEL_CUSTOMIZATION
-    CostModelTy CM(Plan, VFRequested, TTI, DL, VLSA);
+    CostModelTy CM(Plan, VFRequested, TTI, TLI, DL, VLSA);
 #else
-    CostModelTy CM(Plan, VFRequested, TTI, DL);
+    CostModelTy CM(Plan, VFRequested, TTI, TLI, DL);
 #endif // INTEL_CUSTOMIZATION
 
     // If different stages in VPlanDriver were proper passes under pass manager

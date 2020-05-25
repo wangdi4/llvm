@@ -11,13 +11,13 @@
 ; RUN:     | FileCheck %s --check-prefix=VPLAN-CM-VF1
 
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR \
-; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
+; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -vector-library=SVML \
 ; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=4 \
 ; RUN:     -vplan-cost-model-use-gettype \
 ; RUN:     -vplan-force-vf=4 | FileCheck %s --check-prefix=VPLAN-HIR-CM-VF4
 
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR \
-; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 \
+; RUN:     -mtriple=x86_64-unknown-unknown -mattr=+avx2 -vector-library=SVML \
 ; RUN:     -disable-output -vplan-cost-model-print-analysis-for-vf=1 \
 ; RUN:     -vplan-cost-model-use-gettype \
 ; RUN:     | FileCheck %s --check-prefix=VPLAN-HIR-CM-VF1
@@ -182,12 +182,12 @@ define void @foo() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4:BB[0-9]+]], total cost: 0
 ;
 ; VPLAN-HIR-CM-VF4-LABEL:  HIR Cost Model for VPlan foo.60 with VF = 4:
-; VPLAN-HIR-CM-VF4-NEXT:  Total Cost: 726
+; VPLAN-HIR-CM-VF4-NEXT:  Total Cost: 130
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 726
+; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 130
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for i32* [[VP2:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.1 i64 0 i64 [[VP0]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for i32 [[VP3:%.*]] = load i32* [[VP2]]
@@ -206,20 +206,20 @@ define void @foo() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for i32 [[VP16:%.*]] = add i32 [[VP3]] i32 [[VP8]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 2 for i32 [[VP17:%.*]] = mul i32 [[VP3]] i32 [[VP16]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for i32 [[VP18:%.*]] = add i32 [[VP8]] i32 [[VP17]]
-; VPLAN-HIR-CM-VF4-NEXT:    Cost 80 for i32 [[VP19:%.*]] = udiv i32 [[VP18]] i32 1792
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 3 for i32 [[VP19:%.*]] = udiv i32 [[VP18]] i32 1792
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for i32 [[VP20:%.*]] = add i32 [[VP3]] i32 [[VP8]]
-; VPLAN-HIR-CM-VF4-NEXT:    Cost 80 for i32 [[VP21:%.*]] = udiv i32 [[VP19]] i32 [[VP20]]
-; VPLAN-HIR-CM-VF4-NEXT:    Cost 80 for i32 [[VP22:%.*]] = sdiv i32 [[VP21]] i32 7
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 3 for i32 [[VP21:%.*]] = udiv i32 [[VP19]] i32 [[VP20]]
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 3 for i32 [[VP22:%.*]] = sdiv i32 [[VP21]] i32 7
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 4 for i32 [[VP23:%.*]] = sdiv i32 [[VP22]] i32 16
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for i32 [[VP24:%.*]] = ashr i32 [[VP23]] i32 4
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for i32 [[VP25:%.*]] = add i32 [[VP3]] i32 [[VP8]]
-; VPLAN-HIR-CM-VF4-NEXT:    Cost 80 for i32 [[VP26:%.*]] = sdiv i32 [[VP24]] i32 [[VP25]]
-; VPLAN-HIR-CM-VF4-NEXT:    Cost 80 for i64 [[VP27:%.*]] = udiv i64 [[VP6]] i64 1792
-; VPLAN-HIR-CM-VF4-NEXT:    Cost 80 for i64 [[VP28:%.*]] = udiv i64 [[VP27]] i64 [[VP11]]
-; VPLAN-HIR-CM-VF4-NEXT:    Cost 80 for i64 [[VP29:%.*]] = sdiv i64 [[VP28]] i64 7
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 3 for i32 [[VP26:%.*]] = sdiv i32 [[VP24]] i32 [[VP25]]
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 8 for i64 [[VP27:%.*]] = udiv i64 [[VP6]] i64 1792
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 8 for i64 [[VP28:%.*]] = udiv i64 [[VP27]] i64 [[VP11]]
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 8 for i64 [[VP29:%.*]] = sdiv i64 [[VP28]] i64 7
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 10 for i64 [[VP30:%.*]] = sdiv i64 [[VP29]] i64 16
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 4 for i64 [[VP31:%.*]] = ashr i64 [[VP30]] i64 4
-; VPLAN-HIR-CM-VF4-NEXT:    Cost 80 for i64 [[VP32:%.*]] = sdiv i64 [[VP31]] i64 [[VP11]]
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 8 for i64 [[VP32:%.*]] = sdiv i64 [[VP31]] i64 [[VP11]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for float [[VP33:%.*]] = fadd float [[VP13]] float [[VP15]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for float [[VP34:%.*]] = fmul float [[VP33]] float [[VP13]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for float [[VP35:%.*]] = fadd float [[VP34]] float [[VP15]]
