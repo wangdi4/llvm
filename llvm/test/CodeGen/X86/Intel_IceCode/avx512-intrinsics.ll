@@ -4,14 +4,11 @@
 
 declare <16 x float> @llvm.sqrt.v16f32(<16 x float>)
 
-define dso_local <16 x float> @test_mm512_sqrt_ps(<16 x float> %__A) {
+define dso_local <16 x float> @test_mm512_sqrt_ps(<16 x float> %__A) nounwind {
 ; CHECK-LABEL: test_mm512_sqrt_ps:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    pushq %rbp
-; CHECK-NEXT:    .cfi_def_cfa_offset 16
-; CHECK-NEXT:    .cfi_offset 4294967294, -16
 ; CHECK-NEXT:    movq %rsp, %rbp
-; CHECK-NEXT:    .cfi_def_cfa_register 4294967294
 ; CHECK-NEXT:    andq $-64, %rsp
 ; CHECK-NEXT:    subq $192, %rsp
 ; CHECK-NEXT:    vmovaps %zmm16, (%rsp)
@@ -19,7 +16,6 @@ define dso_local <16 x float> @test_mm512_sqrt_ps(<16 x float> %__A) {
 ; CHECK-NEXT:    vsqrtps %zmm16, %zmm16
 ; CHECK-NEXT:    movq %rbp, %rsp
 ; CHECK-NEXT:    popq %rbp
-; CHECK-NEXT:    .cfi_def_cfa 4294967294, 8
 ; CHECK-NEXT:    retq
 entry:
   %__A.addr.i = alloca <16 x float>, align 64

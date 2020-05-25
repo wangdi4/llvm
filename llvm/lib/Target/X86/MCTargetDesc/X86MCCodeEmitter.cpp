@@ -683,7 +683,7 @@ bool X86MCCodeEmitter::emitPrefixImpl(unsigned &CurOp, const MCInst &MI,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ICECODE
   if (isIceCodeMode(STI) && AdSize == X86II::AdSize32) {
-    need_address_override = false;
+    NeedAddressOverride = false;
   } else
 #endif // INTEL_FEATURE_ICECODE
 #endif // INTEL_CUSTOMIZATION
