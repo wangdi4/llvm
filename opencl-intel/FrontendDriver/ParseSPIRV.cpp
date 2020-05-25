@@ -310,10 +310,9 @@ int ClangFECompilerParseSPIRVTask::ParseSPIRV(
     // OpSource is an *optional* instruction and can be omitted during SPIR-V
     // translation. It also is not emitted if we do not use SPIR-V as an
     // intermediate. These two cases are not supported now.
-    // TODO: enable it after spirv patch is in xmain branch
-    // if (m_sourceLanguage == spv::SourceLanguageOpenCL_CPP) {
-    //   TargetRepr = SPIRV::BIsRepresentation::OpenCL20;
-    // }
+    if (m_sourceLanguage == spv::SourceLanguageOpenCL_CPP) {
+      TargetRepr = SPIRV::BIsRepresentation::OpenCL20;
+    }
 
     opts.setDesiredBIsRepresentation(TargetRepr);
   }
