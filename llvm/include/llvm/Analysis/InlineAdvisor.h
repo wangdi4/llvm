@@ -24,7 +24,6 @@ class InlineReport;        // INTEL
 class InlineReportBuilder; // INTEL
 class Module;
 class OptimizationRemarkEmitter;
-class PreservedAnalyses;
 
 using namespace InlineReportTypes; // INTEL
 
