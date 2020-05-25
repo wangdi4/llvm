@@ -28,7 +28,7 @@ pi_result piKernelCreateRedefine(pi_program program, const char *kernel_name,
 TEST(PiMockTest, ConstructFromQueue) {
   try {
     device dev{default_selector{}};
-  } catch (const runtime_error &re) {
+  } catch (const runtime_error &) {
     std::cerr << "Not run due no device is available.\n";
     return;
   }
@@ -52,7 +52,7 @@ TEST(PiMockTest, ConstructFromQueue) {
 TEST(PiMockTest, ConstructFromPlatform) {
   try {
     platform plt{default_selector{}};
-  } catch (const runtime_error &re) {
+  } catch (const runtime_error &) {
     std::cerr << "Not run due no platform is available.\n";
     return;
   }
@@ -77,7 +77,7 @@ TEST(PiMockTest, RedefineAPI) {
   cl::sycl::default_selector Selector{};
   try {
     device dev{Selector};
-  } catch (const runtime_error &re) {
+  } catch (const runtime_error &) {
     std::cerr << "Not run due no device is available.\n";
     return;
   }
