@@ -749,7 +749,6 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
   }
 
   auto setDest = [LoopExit, ContinueOnTrue](BasicBlock *Src, BasicBlock *Dest,
-                                            ArrayRef<BasicBlock *> NextBlocks,
                                             BasicBlock *BlockInLoop,
                                             bool NeedConditional) {
     auto *Term = cast<BranchInst>(Src->getTerminator());
@@ -823,7 +822,7 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
         NeedConditional = false;
       }
 
-      setDest(Latches[i], Dest, Headers, Headers[i], NeedConditional);
+      setDest(Latches[i], Dest, Headers[i], NeedConditional);
     }
   } else {
     // Setup headers to branch to their new successors in the unrolled
@@ -847,7 +846,7 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
         // unconditional branch for some iterations.
         NeedConditional = false;
 
-      setDest(Headers[i], Dest, Headers, HeaderSucc[i], NeedConditional);
+      setDest(Headers[i], Dest, HeaderSucc[i], NeedConditional);
     }
 
     // Set up latches to branch to the new header in the unrolled iterations or
