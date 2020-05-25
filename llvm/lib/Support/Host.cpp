@@ -782,7 +782,7 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
 #endif // INTEL_CUSTOMIZATION
 
       // TODO detect tigerlake host
-      if (Features3 & (1 << (X86::FEATURE_AVX512VP2INTERSECT - 64))) {
+      if (Features2 & (1 << (X86::FEATURE_AVX512VP2INTERSECT - 32))) {
         *Type = X86::INTEL_COREI7;
         *Subtype = X86::INTEL_COREI7_TIGERLAKE;
         break;
