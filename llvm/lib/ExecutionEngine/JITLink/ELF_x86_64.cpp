@@ -97,6 +97,8 @@ private:
         }
         Binding = SymRef.getBinding();
         Value = SymRef.getValue();
+        (void)Binding; // INTEL
+        (void)Value; // INTEL
         LLVM_DEBUG({
           dbgs() << "  ";
           if (!Name)
