@@ -33,11 +33,7 @@
 
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Operator.h"
-<<<<<<< HEAD
-#include "llvm/IR/User.h"
 #include "llvm/Analysis/TargetTransformInfo.h" // INTEL
-=======
->>>>>>> 8b4ecafee66c405ca33b9d2dc826c2d720160432
 
 namespace llvm {
 
