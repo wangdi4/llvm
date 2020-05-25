@@ -351,19 +351,6 @@ set( UTILS_FOLDER_NAME          ${FRAMEWORK_FOLDER_NAME}/utils )
 set( FRONTEND_FOLDER_NAME       Frontend )
 set( EXTERNAL_FOLDER_NAME       External )
 
-# For standalone OpenCL product we must deploy ICD loader ourselves.
-if (INTEL_OPENCL_STANDALONE_PRODUCT)
-  # FIXME: Cmake doesn't allow to install IMPORTED libraries before 3.13 version.
-  # So, we install ICD loader library files as ocl-OpenCL component.
-  get_filename_component( ICD_LOADER_OUTPUT_DIR ${OpenCL_LIBRARY} DIRECTORY )
-  file( GLOB ICD_LOADER
-      "${ICD_LOADER_OUTPUT_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}OpenCL*" )
-  install_to( ${ICD_LOADER}
-      DESTINATION lib/${OUTPUT_ARCH_SUFF}
-      COMPONENT ocl-OpenCL
-  )
-endif()
-
 if(BUILD_LLVM_FROM_SOURCE)
     add_subdirectory(${LLVM_SRC_ROOT} "${CMAKE_CURRENT_BINARY_DIR}/llvm")
 endif()
