@@ -1256,6 +1256,7 @@ void PassManagerBuilder::populateModulePassManager(
 
   // Enhance/cleanup vector code.
   MPM.add(createVectorCombinePass());
+  MPM.add(createEarlyCSEPass()); // INTEL
 
   addExtensionsToPM(EP_Peephole, MPM);
   addInstructionCombiningPass(MPM);
