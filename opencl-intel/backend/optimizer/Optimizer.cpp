@@ -18,6 +18,7 @@
 #include "CompilationUtils.h"
 #include "InitializeOCLPasses.hpp"
 #include "MetadataAPI.h"
+#include "OCLAliasAnalysis.h"
 #include "OclTune.h"
 #include "VecConfig.h"
 #include "debuggingservicetype.h"
@@ -414,6 +415,11 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
 
   PM.add(llvm::createBasicAAWrapperPass());
   PM.add(createOCLAliasAnalysisPass());
+  PM.add(createExternalAAWrapperPass(
+    [](Pass &P, Function &, AAResults &AAR) {
+      if (auto *OCLAA = P.getAnalysisIfAvailable<OCLAliasAnalysis>())
+        AAR.addAAResult(OCLAA->getOCLAAResult());
+    }));
   if (dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_TARGERT_DATA)) {
     PM.add(createPrintIRPass(DUMP_IR_TARGERT_DATA, OPTION_IR_DUMPTYPE_AFTER,
                              pConfig->GetDumpIRDir()));
@@ -470,6 +476,13 @@ static void populatePassesPostFailCheck(
   PrintIRPass::DumpIRConfig dumpIRBeforeConfig(
       pConfig->GetIRDumpOptionsBefore());
 
+  PM.add(createOCLAliasAnalysisPass());
+  PM.add(createExternalAAWrapperPass(
+    [](Pass &P, Function &, AAResults &AAR) {
+      if (auto *OCLAA = P.getAnalysisIfAvailable<OCLAliasAnalysis>())
+        AAR.addAAResult(OCLAA->getOCLAAResult());
+    }));
+
   PM.add(createBuiltinLibInfoPass(pRtlModuleList, ""));
   PM.add(createImplicitArgsAnalysisPass(&M->getContext()));
 
@@ -498,7 +511,6 @@ static void populatePassesPostFailCheck(
 
 
   PM.add(llvm::createBasicAAWrapperPass());
-  PM.add(createOCLAliasAnalysisPass());
 
   // Should be called before vectorizer!
   PM.add((llvm::Pass*)createInstToFuncCallPass(&pConfig->GetCpuId()));
