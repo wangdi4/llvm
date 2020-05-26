@@ -13,3 +13,9 @@
 // CHECK-DPCPP-SYCL2: clang{{.*}} "-fsycl-is-device"
 // CHECK-DPCPP-SYCL2-NOT: "-fsycl-unnamed-lambda"
 
+// --dpcpp implies -fveclib=SVML
+// RUN: %clang -### -c --dpcpp %s 2>&1 \
+// RUN: %clang_cl -### -c --dpcpp %s 2>&1 \
+// RUN:  | FileCheck -check-prefix=CHECK-DPCPP-DEFAULTS %s
+// CHECK-DPCPP-DEFAULTS: "-fveclib=SVML"
+
