@@ -1055,10 +1055,11 @@ static Value *matchDeBruijnTableLookup(InstCombiner &IC, LoadInst &LI) {
   }
 
   // Check cost of cttz.
-  const Value *Args[] = { X, IC.Builder.getTrue() };
-  if (IC.getTargetTransformInfo().getIntrinsicCost(Intrinsic::cttz,
-                                                   X->getType(), Args) >
-          TargetTransformInfo::TCC_Basic)
+  Value *Args[] = {X, IC.Builder.getTrue()};
+  IntrinsicCostAttributes Attrs(Intrinsic::cttz, X->getType(), Args);
+  if (IC.getTargetTransformInfo().getIntrinsicInstrCost(
+          Attrs, TargetTransformInfo::TCK_SizeAndLatency) >
+      TargetTransformInfo::TCC_Basic)
     return nullptr;
 
   Function *F = Intrinsic::getDeclaration(LI.getModule(), Intrinsic::cttz,
