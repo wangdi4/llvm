@@ -886,6 +886,7 @@ public:
 
   /// Returns whether semantic interposition is to be respected.
   bool getSemanticInterposition() const;
+  bool noSemanticInterposition() const;
 
   /// Set whether semantic interposition is to be respected.
   void setSemanticInterposition(bool);
