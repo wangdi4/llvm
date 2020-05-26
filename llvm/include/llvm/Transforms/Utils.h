@@ -158,6 +158,13 @@ FunctionPass *createFixIrreduciblePass();
 // BasicBlock when possible.
 //
 FunctionPass *createAssumeSimplifyPass();
+
+//===----------------------------------------------------------------------===//
+//
+// CanonicalizeFreezeInLoops - Canonicalize freeze instructions in loops so they
+// don't block SCEV.
+//
+Pass *createCanonicalizeFreezeInLoopsPass();
 } // namespace llvm
 
 #endif

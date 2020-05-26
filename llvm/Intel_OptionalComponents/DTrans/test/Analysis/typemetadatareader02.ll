@@ -37,7 +37,7 @@ define internal void @test03() {
   ret void
 }
 ; CHECK: Checking function for DTrans metadata: test03
-; CHECK: Decoded metadata:   %local = alloca %struct.test01*, !dtrans_type !0 - %struct.test01*
+; CHECK: Decoded metadata:   %local = alloca %struct.test01*, align 8, !dtrans_type !0 - %struct.test01*
 
 declare noalias i8* @malloc(i64)
 

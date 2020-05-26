@@ -917,3 +917,38 @@ func @transfer_read_1d_non_zero_addrspace(%A : memref<?xf32, 3>, %base: index) -
 //  CHECK-SAME: (!llvm<"float addrspace(3)*">, !llvm.i64) -> !llvm<"float addrspace(3)*">
 //       CHECK: %[[vecPtr_b:.*]] = llvm.addrspacecast %[[gep_b]] :
 //  CHECK-SAME: !llvm<"float addrspace(3)*"> to !llvm<"<17 x float>*">
+
+func @transfer_read_1d_not_masked(%A : memref<?xf32>, %base: index) -> vector<17xf32> {
+  %f7 = constant 7.0: f32
+  %f = vector.transfer_read %A[%base], %f7 {masked = [false]} :
+    memref<?xf32>, vector<17xf32>
+  return %f: vector<17xf32>
+}
+// CHECK-LABEL: func @transfer_read_1d_not_masked
+//  CHECK-SAME: %[[BASE:[a-zA-Z0-9]*]]: !llvm.i64) -> !llvm<"<17 x float>">
+//
+// 1. Bitcast to vector form.
+//       CHECK: %[[gep:.*]] = llvm.getelementptr {{.*}} :
+//  CHECK-SAME: (!llvm<"float*">, !llvm.i64) -> !llvm<"float*">
+//       CHECK: %[[vecPtr:.*]] = llvm.bitcast %[[gep]] :
+//  CHECK-SAME: !llvm<"float*"> to !llvm<"<17 x float>*">
+//
+// 2. Rewrite as a load.
+//       CHECK: %[[loaded:.*]] = llvm.load %[[vecPtr]] : !llvm<"<17 x float>*">
+
+func @genbool_1d() -> vector<8xi1> {
+  %0 = vector.constant_mask [4] : vector<8xi1>
+  return %0 : vector<8xi1>
+}
+// CHECK-LABEL: func @genbool_1d
+// CHECK: %[[T0:.*]] = llvm.mlir.constant(1 : i1) : !llvm.i1
+// CHECK: %[[T1:.*]] = llvm.mlir.constant(dense<false> : vector<8xi1>) : !llvm<"<8 x i1>">
+// CHECK: %[[T2:.*]] = llvm.mlir.constant(0 : i64) : !llvm.i64
+// CHECK: %[[T3:.*]] = llvm.insertelement %[[T0]], %[[T1]][%[[T2]] : !llvm.i64] : !llvm<"<8 x i1>">
+// CHECK: %[[T4:.*]] = llvm.mlir.constant(1 : i64) : !llvm.i64
+// CHECK: %[[T5:.*]] = llvm.insertelement %[[T0]], %[[T3]][%[[T4]] : !llvm.i64] : !llvm<"<8 x i1>">
+// CHECK: %[[T6:.*]] = llvm.mlir.constant(2 : i64) : !llvm.i64
+// CHECK: %[[T7:.*]] = llvm.insertelement %[[T0]], %[[T5]][%[[T6]] : !llvm.i64] : !llvm<"<8 x i1>">
+// CHECK: %[[T8:.*]] = llvm.mlir.constant(3 : i64) : !llvm.i64
+// CHECK: %[[T9:.*]] = llvm.insertelement %[[T0]], %[[T7]][%[[T8]] : !llvm.i64] : !llvm<"<8 x i1>">
+// CHECK: llvm.return %9 : !llvm<"<8 x i1>">

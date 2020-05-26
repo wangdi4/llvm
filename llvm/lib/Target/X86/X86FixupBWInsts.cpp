@@ -60,6 +60,7 @@
 #include "llvm/CodeGen/TargetInstrInfo.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Target/TargetMachine.h" // INTEL
 using namespace llvm;
 
 #define FIXUPBW_DESC "X86 Byte/Word Instruction Fixup"

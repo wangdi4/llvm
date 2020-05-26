@@ -2326,11 +2326,9 @@ int X86TTIImpl::getCmpSelInstrCost(unsigned Opcode, Type *ValTy, Type *CondTy,
 
 unsigned X86TTIImpl::getAtomicMemIntrinsicMaxElementSize() const { return 16; }
 
-int X86TTIImpl::getIntrinsicInstrCost(Intrinsic::ID IID, Type *RetTy,
-                                      ArrayRef<Type *> Tys, FastMathFlags FMF,
-                                      unsigned ScalarizationCostPassed,
-                                      TTI::TargetCostKind CostKind,
-                                      const Instruction *I) {
+int X86TTIImpl::getTypeBasedIntrinsicInstrCost(
+  const IntrinsicCostAttributes &ICA, TTI::TargetCostKind CostKind) {
+
   // Costs should match the codegen from:
   // BITREVERSE: llvm\test\CodeGen\X86\vector-bitreverse.ll
   // BSWAP: llvm\test\CodeGen\X86\bswap-vector.ll
@@ -2644,7 +2642,9 @@ int X86TTIImpl::getIntrinsicInstrCost(Intrinsic::ID IID, Type *RetTy,
     { ISD::UADDO,      MVT::i8,      1 },
   };
 
+  Type *RetTy = ICA.getReturnType();
   Type *OpTy = RetTy;
+  Intrinsic::ID IID = ICA.getID();
   unsigned ISD = ISD::DELETED_NODE;
   switch (IID) {
   default:
@@ -2789,15 +2789,14 @@ int X86TTIImpl::getIntrinsicInstrCost(Intrinsic::ID IID, Type *RetTy,
       return LT.first * Entry->Cost;
   }
 
-  return BaseT::getIntrinsicInstrCost(IID, RetTy, Tys, FMF,
-                                      ScalarizationCostPassed, CostKind, I);
+  return BaseT::getIntrinsicInstrCost(ICA, CostKind);
 }
 
-int X86TTIImpl::getIntrinsicInstrCost(Intrinsic::ID IID, Type *RetTy,
-                                      ArrayRef<Value *> Args, FastMathFlags FMF,
-                                      unsigned VF,
-                                      TTI::TargetCostKind CostKind,
-                                      const Instruction *I) {
+int X86TTIImpl::getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
+                                      TTI::TargetCostKind CostKind) {
+  if (ICA.isTypeBasedOnly())
+    return getTypeBasedIntrinsicInstrCost(ICA, CostKind);
+
   static const CostTblEntry AVX512CostTbl[] = {
     { ISD::ROTL,       MVT::v8i64,   1 },
     { ISD::ROTL,       MVT::v4i64,   1 },
@@ -2848,6 +2847,9 @@ int X86TTIImpl::getIntrinsicInstrCost(Intrinsic::ID IID, Type *RetTy,
     { ISD::FSHL,       MVT::i8,      4 }
   };
 
+  Intrinsic::ID IID = ICA.getID();
+  Type *RetTy = ICA.getReturnType();
+  const SmallVectorImpl<Value *> &Args = ICA.getArgs();
   unsigned ISD = ISD::DELETED_NODE;
   switch (IID) {
   default:
@@ -2887,7 +2889,7 @@ int X86TTIImpl::getIntrinsicInstrCost(Intrinsic::ID IID, Type *RetTy,
       return LT.first * Entry->Cost;
   }
 
-  return BaseT::getIntrinsicInstrCost(IID, RetTy, Args, FMF, VF, CostKind, I);
+  return BaseT::getIntrinsicInstrCost(ICA, CostKind);
 }
 
 int X86TTIImpl::getVectorInstrCost(unsigned Opcode, Type *Val, unsigned Index) {

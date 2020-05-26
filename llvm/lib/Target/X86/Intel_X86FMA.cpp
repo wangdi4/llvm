@@ -34,6 +34,7 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Format.h"
+#include "llvm/Target/TargetMachine.h" // INTEL
 
 using namespace llvm;
 
@@ -1490,10 +1491,10 @@ unsigned X86GlobalFMA::createConstOne(MVT VT, MachineInstr *InsertPointMI) {
 
   // Create the load from the constant pool.
   MachineConstantPool *MCP = MF->getConstantPool();
-  unsigned Align = VT.getSizeInBits() / 8;
-  MaybeAlign Alignment(Align);
+  unsigned AlignVal = VT.getSizeInBits() / 8;
+  Align Alignment(AlignVal);
   Constant *FPOne = ConstantFP::get(Ty, 1.0);
-  unsigned CPI = MCP->getConstantPoolIndex(FPOne, Align);
+  unsigned CPI = MCP->getConstantPoolIndex(FPOne, Alignment);
   const TargetRegisterClass *RC = ST->getTargetLowering()->getRegClassFor(VT);
   unsigned ResultReg = MRI->createVirtualRegister(RC);
   MachineInstrBuilder MIB;
@@ -1512,8 +1513,8 @@ unsigned X86GlobalFMA::createConstOne(MVT VT, MachineInstr *InsertPointMI) {
   }
   MachineMemOperand *MMO = MF->getMachineMemOperand(
       MachinePointerInfo::getConstantPool(*MF),
-      MachineMemOperand::MOLoad | MachineMemOperand::MOInvariant, Align,
-      *Alignment);
+      MachineMemOperand::MOLoad | MachineMemOperand::MOInvariant, AlignVal,
+      Alignment);
   ArrayRef<MachineMemOperand *> ARMMOs(MMO);
   auto MMOs = extractLoadMMOs(ARMMOs, *MF);
   MIB.setMemRefs(MMOs);

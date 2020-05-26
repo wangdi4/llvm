@@ -39,6 +39,7 @@
 #include "llvm/Analysis/Intel_WP.h"
 #endif // INTEL_CUSTOMIZATION
 #include "llvm/Analysis/IVUsers.h"
+#include "llvm/Analysis/InlineAdvisor.h"
 #include "llvm/Analysis/LazyCallGraph.h"
 #include "llvm/Analysis/LazyValueInfo.h"
 #include "llvm/Analysis/LoopAccessAnalysis.h"
@@ -208,6 +209,7 @@
 #include "llvm/Transforms/Utils/AssumeBundleBuilder.h"
 #include "llvm/Transforms/Utils/BreakCriticalEdges.h"
 #include "llvm/Transforms/Utils/CanonicalizeAliases.h"
+#include "llvm/Transforms/Utils/CanonicalizeFreezeInLoops.h"
 #include "llvm/Transforms/Utils/EntryExitInstrumenter.h"
 #include "llvm/Transforms/Utils/InjectTLIMappings.h"
 #include "llvm/Transforms/Utils/LCSSA.h"
@@ -348,6 +350,16 @@ static cl::opt<bool>
 static cl::opt<bool> EnableGVNHoist(
     "enable-npm-gvn-hoist", cl::init(false), cl::Hidden,
     cl::desc("Enable the GVN hoisting pass for the new PM (default = off)"));
+
+static cl::opt<InliningAdvisorMode> UseInlineAdvisor(
+    "enable-ml-inliner", cl::init(InliningAdvisorMode::Default), cl::Hidden,
+    cl::desc("Enable ML policy for inliner. Currently trained for -Oz only"),
+    cl::values(clEnumValN(InliningAdvisorMode::Default, "default",
+                          "Heuristics-based inliner version."),
+               clEnumValN(InliningAdvisorMode::Development, "development",
+                          "Use development mode (runtime-loadable model)."),
+               clEnumValN(InliningAdvisorMode::Release, "release",
+                          "Use release mode (AOT-compiled model).")));
 
 static cl::opt<bool> EnableGVNSink(
     "enable-npm-gvn-sink", cl::init(false), cl::Hidden,
@@ -870,9 +882,8 @@ void PassBuilder::addPGOInstrPasses(ModulePassManager &MPM, bool DebugLogging,
     MPM.addPass(InlineListsPass());
 #endif //INTEL_CUSTOMIZATION
 
-    CGSCCPassManager CGPipeline(DebugLogging);
-
-    CGPipeline.addPass(InlinerPass(IP));
+    ModuleInlinerWrapperPass MIWP(IP, DebugLogging);
+    CGSCCPassManager &CGPipeline = MIWP.getPM();
 
     FunctionPassManager FPM;
     FPM.addPass(SROA());
@@ -894,7 +905,7 @@ void PassBuilder::addPGOInstrPasses(ModulePassManager &MPM, bool DebugLogging,
 
     CGPipeline.addPass(createCGSCCToFunctionPassAdaptor(std::move(FPM)));
 
-    MPM.addPass(createModuleToPostOrderCGSCCPassAdaptor(std::move(CGPipeline)));
+    MPM.addPass(std::move(MIWP));
 
     // Delete anything that is now dead to make sure that we don't instrument
     // dead code. Instrumentation can end up keeping dead code around and
@@ -959,44 +970,36 @@ getInlineParamsFromOptLevel(PassBuilder::OptimizationLevel Level) {
   return getInlineParams(Level.getSpeedupLevel(), Level.getSizeLevel());
 }
 
-ModulePassManager PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
-                                                    ThinLTOPhase Phase,
-                                                    InlinerPass *InlP, // INTEL
-                                                    bool DebugLogging) {
-  ModulePassManager MPM(DebugLogging);
+ModuleInlinerWrapperPass
+PassBuilder::buildInlinerPipeline(OptimizationLevel Level, ThinLTOPhase Phase,
+                                  InlinerPass *InlP, // INTEL
+                                  bool DebugLogging) {
+  InlineParams IP = getInlineParamsFromOptLevel(Level);
+  if (Phase == PassBuilder::ThinLTOPhase::PreLink && PGOOpt &&
+      PGOOpt->Action == PGOOptions::SampleUse)
+    IP.HotCallSiteThreshold = 0;
 
-#if INTEL_CUSTOMIZATION
-  // Parse -[no]inline-list option and set corresponding attributes.
-  MPM.addPass(InlineListsPass());
-#endif // INTEL_CUSTOMIZATION
+  ModuleInlinerWrapperPass MIWP(IP, DebugLogging, UseInlineAdvisor,
+                                MaxDevirtIterations, InlP);
+
+  // Require the GlobalsAA analysis for the module so we can query it within
+  // the CGSCC pipeline.
+  MIWP.addRequiredModuleAnalysis<GlobalsAA>();
+
+  // Require the ProfileSummaryAnalysis for the module so we can query it within
+  // the inliner pass.
+  MIWP.addRequiredModuleAnalysis<ProfileSummaryAnalysis>();
 
   // Now begin the main postorder CGSCC pipeline.
   // FIXME: The current CGSCC pipeline has its origins in the legacy pass
   // manager and trying to emulate its precise behavior. Much of this doesn't
   // make a lot of sense and we should revisit the core CGSCC structure.
-  CGSCCPassManager MainCGPipeline(DebugLogging);
+  CGSCCPassManager &MainCGPipeline = MIWP.getPM();
 
   // Note: historically, the PruneEH pass was run first to deduce nounwind and
   // generally clean up exception handling overhead. It isn't clear this is
   // valuable as the inliner doesn't currently care whether it is inlining an
   // invoke or a call.
-
-  // Run the inliner first. The theory is that we are walking bottom-up and so
-  // the callees have already been fully optimized, and we want to inline them
-  // into the callers so that our optimizations can reflect that.
-  // For PreLinkThinLTO pass, we disable hot-caller heuristic for sample PGO
-  // because it makes profile annotation in the backend inaccurate.
-#if INTEL_CUSTOMIZATION
-  if (InlP) {
-    MainCGPipeline.addPass(std::move(*InlP));
-  } else {
-    InlineParams IP = getInlineParamsFromOptLevel(Level);
-    if (Phase == ThinLTOPhase::PreLink && PGOOpt &&
-        PGOOpt->Action == PGOOptions::SampleUse)
-      IP.HotCallSiteThreshold = 0;
-    MainCGPipeline.addPass(InlinerPass(IP));
-  }
-#endif // INTEL_CUSTOMIZATION
 
   if (AttributorRun & AttributorRunOption::CGSCC)
     MainCGPipeline.addPass(AttributorCGSCCPass());
@@ -1025,15 +1028,7 @@ ModulePassManager PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
   for (auto &C : CGSCCOptimizerLateEPCallbacks)
     C(MainCGPipeline, Level);
 
-  // We wrap the CGSCC pipeline in a devirtualization repeater. This will try
-  // to detect when we devirtualize indirect calls and iterate the SCC passes
-  // in that case to try and catch knock-on inlining or function attrs
-  // opportunities. Then we add it to the module pipeline by walking the SCCs
-  // in postorder (or bottom-up).
-  MPM.addPass(
-      createModuleToPostOrderCGSCCPassAdaptor(createDevirtSCCRepeatedPass(
-          std::move(MainCGPipeline), MaxDevirtIterations)));
-  return MPM;
+  return MIWP;
 }
 
 ModulePassManager PassBuilder::buildModuleSimplificationPipeline(
@@ -1054,7 +1049,7 @@ ModulePassManager PassBuilder::buildModuleSimplificationPipeline(
   if (Phase == ThinLTOPhase::PreLink && PGOOpt &&
       PGOOpt->Action == PGOOptions::SampleUse)
     IP.HotCallSiteThreshold = 0;
-  InlinerPass InlPass(IP);
+  InlinerPass InlPass;
   MPM.addPass(InlineReportSetupPass(InlPass.getMDReport()));
 #endif // INTEL_CUSTOMIZATION
 
@@ -1186,13 +1181,10 @@ ModulePassManager PassBuilder::buildModuleSimplificationPipeline(
   if (EnableSyntheticCounts && !PGOOpt)
     MPM.addPass(SyntheticCountsPropagation());
 
-  // Require the GlobalsAA analysis for the module so we can query it within
-  // the CGSCC pipeline.
-  MPM.addPass(RequireAnalysisPass<GlobalsAA, Module>());
-
-  // Require the ProfileSummaryAnalysis for the module so we can query it within
-  // the inliner pass.
-  MPM.addPass(RequireAnalysisPass<ProfileSummaryAnalysis, Module>());
+#if INTEL_CUSTOMIZATION
+  // Parse -[no]inline-list option and set corresponding attributes.
+  MPM.addPass(InlineListsPass());
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
   MPM.addPass(buildInlinerPipeline(Level, Phase, &InlPass, DebugLogging));
@@ -1305,10 +1297,6 @@ ModulePassManager PassBuilder::buildModuleOptimizationPipeline(
   OptimizePM.addPass(LoopVectorizePass(
       LoopVectorizeOptions(!PTO.LoopInterleaving, !PTO.LoopVectorization)));
 
-  // Enhance/cleanup vector code.
-  OptimizePM.addPass(VectorCombinePass());
-  OptimizePM.addPass(EarlyCSEPass());
-
   // Eliminate loads by forwarding stores from the previous iteration to loads
   // of the current iteration.
   OptimizePM.addPass(LoopLoadEliminationPass());
@@ -1346,7 +1334,10 @@ ModulePassManager PassBuilder::buildModuleOptimizationPipeline(
   if (PTO.SLPVectorization)
     OptimizePM.addPass(SLPVectorizerPass());
 
+  // Enhance/cleanup vector code.
+  OptimizePM.addPass(VectorCombinePass());
 #if INTEL_CUSTOMIZATION
+  OptimizePM.addPass(EarlyCSEPass());
   OptimizePM.addPass(
       InstCombinePass(/*ExpensiveCombines=default value*/ true,
                       GEPInstOptimizations)); // Combine silly sequences.
@@ -1588,7 +1579,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
   }
 
 #if INTEL_CUSTOMIZATION
-  InlinerPass InlPass(getInlineParamsFromOptLevel(Level));
+  InlinerPass InlPass;
   MPM.addPass(InlineReportSetupPass(InlPass.getMDReport()));
 #endif // INTEL_CUSTOMIZATION
   if (PGOOpt && PGOOpt->Action == PGOOptions::SampleUse) {
@@ -1843,7 +1834,11 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
   // valuable as the inliner doesn't currently care whether it is inlining an
   // invoke or a call.
   // Run the inliner now.
-  MPM.addPass(createModuleToPostOrderCGSCCPassAdaptor(std::move(InlPass)));
+  MPM.addPass(ModuleInlinerWrapperPass(getInlineParamsFromOptLevel(Level),
+                                       DebugLogging,                 // INTEL
+                                       InliningAdvisorMode::Default, // INTEL
+                                       0 /*MaxDevirtIterations*/,    // INTEL
+                                       &InlPass));                   // INTEL
 
 #if INTEL_INCLUDE_DTRANS
   // The global optimizer pass can convert function calls to use

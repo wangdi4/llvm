@@ -1167,7 +1167,7 @@ void CodeGenFunction::EmitOMPLastprivateClauseFinal(
         if (const auto *RefTy = PrivateVD->getType()->getAs<ReferenceType>())
           PrivateAddr =
               Address(Builder.CreateLoad(PrivateAddr),
-                      getNaturalTypeAlignment(RefTy->getPointeeType()));
+                      CGM.getNaturalTypeAlignment(RefTy->getPointeeType()));
         // Store the last value to the private copy in the last iteration.
         if (C->getKind() == OMPC_LASTPRIVATE_conditional)
           CGM.getOpenMPRuntime().emitLastprivateConditionalFinalUpdate(
@@ -1783,24 +1783,19 @@ void CodeGenFunction::EmitOMPInnerLoop(
   auto CondBlock = createBasicBlock("omp.inner.for.cond");
   EmitBlock(CondBlock);
   const SourceRange R = S.getSourceRange();
-#if INTEL_CUSTOMIZATION
-  if (CGM.getLangOpts().IntelCompat) {
-    llvm::SmallVector<const clang::Attr *, 4> Attrs;
-    llvm::ArrayRef<const clang::Attr *> AttrRef = Attrs;
-    if (auto *LD = dyn_cast<OMPLoopDirective>(&S)) {
-      auto *CS = cast<CapturedStmt>(LD->getAssociatedStmt())->getCapturedStmt();
-      if (CS->getStmtClass() == Stmt::AttributedStmtClass) {
-        auto *AS = cast<AttributedStmt>(CS);
-        AttrRef =  AS->getAttrs();
-      }
-    }
-    LoopStack.push(CondBlock, CGM.getContext(), CGM.getCodeGenOpts(), AttrRef,
-                   SourceLocToDebugLoc(R.getBegin()),
+
+  // If attributes are attached, push to the basic block with them.
+  const auto &OMPED = cast<OMPExecutableDirective>(S);
+  const CapturedStmt *ICS = OMPED.getInnermostCapturedStmt();
+  const Stmt *SS = ICS->getCapturedStmt();
+  const AttributedStmt *AS = dyn_cast_or_null<AttributedStmt>(SS);
+  if (AS)
+    LoopStack.push(CondBlock, CGM.getContext(), CGM.getCodeGenOpts(),
+                   AS->getAttrs(), SourceLocToDebugLoc(R.getBegin()),
                    SourceLocToDebugLoc(R.getEnd()));
-  } else
-#endif // INTEL_CUSTOMIZATION
-  LoopStack.push(CondBlock, SourceLocToDebugLoc(R.getBegin()),
-                 SourceLocToDebugLoc(R.getEnd()));
+  else
+    LoopStack.push(CondBlock, SourceLocToDebugLoc(R.getBegin()),
+                   SourceLocToDebugLoc(R.getEnd()));
 
   // If there are any cleanups between here and the loop-exit scope,
   // create a block to stage a loop exit along.
@@ -4809,6 +4804,7 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
   case OMPC_inclusive:
   case OMPC_exclusive:
   case OMPC_uses_allocators:
+  case OMPC_affinity:
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA

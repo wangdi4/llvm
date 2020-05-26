@@ -1364,7 +1364,8 @@ bool Attributor::isValidFunctionSignatureRewrite(
   AttributeList FnAttributeList = Fn->getAttributes();
   if (FnAttributeList.hasAttrSomewhere(Attribute::Nest) ||
       FnAttributeList.hasAttrSomewhere(Attribute::StructRet) ||
-      FnAttributeList.hasAttrSomewhere(Attribute::InAlloca)) {
+      FnAttributeList.hasAttrSomewhere(Attribute::InAlloca) ||
+      FnAttributeList.hasAttrSomewhere(Attribute::Preallocated)) {
     LLVM_DEBUG(
         dbgs() << "[Attributor] Cannot rewrite due to complex attribute\n");
     return false;
@@ -1504,6 +1505,14 @@ ChangeStatus Attributor::rewriteFunctionSignatures(
     // function empty.
     NewFn->getBasicBlockList().splice(NewFn->begin(),
                                       OldFn->getBasicBlockList());
+
+    // Fixup block addresses to reference new function.
+    SmallVector<BlockAddress *, 8u> BlockAddresses;
+    for (User *U : OldFn->users())
+      if (auto *BA = dyn_cast<BlockAddress>(U))
+        BlockAddresses.push_back(BA);
+    for (auto *BA : BlockAddresses)
+      BA->replaceAllUsesWith(BlockAddress::get(NewFn, BA->getBasicBlock()));
 
     // Set of all "call-like" instructions that invoke the old function mapped
     // to their new replacements.

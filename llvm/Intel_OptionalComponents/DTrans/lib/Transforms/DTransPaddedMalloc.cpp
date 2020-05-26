@@ -507,7 +507,7 @@ bool dtrans::PaddedMallocPass::updateBasicBlock(BasicBlock &BB, Function *F,
     LoadInst *LoadGlobal = Builder.CreateLoad(GlobalCounter);
     if (UseOpenMP) {
       LoadGlobal->setAtomic(AtomicOrdering::SequentiallyConsistent);
-      LoadGlobal->setAlignment(MaybeAlign(4));
+      LoadGlobal->setAlignment(Align(4));
     }
     Value *Cmp = Builder.CreateICmpULT(LoadGlobal, PMLimitVal);
 

@@ -1330,8 +1330,7 @@ PreservedAnalyses LoopFullUnrollPass::run(Loop &L, LoopAnalysisManager &AM,
   OptimizationRemarkEmitter ORE(L.getHeader()->getParent());
 
 #if INTEL_CUSTOMIZATION
-  const auto &FAM =
-      AM.getResult<FunctionAnalysisManagerLoopProxy>(L, AR).getManager();
+  const auto &FAM = AM.getResult<FunctionAnalysisManagerLoopProxy>(L, AR);
   Function *F = L.getHeader()->getParent();
 
   auto *ORO = FAM.getCachedResult<OptReportOptionsAnalysis>(*F);
@@ -1436,10 +1435,9 @@ PreservedAnalyses LoopUnrollPass::run(Function &F,
   if (auto *LAMProxy = AM.getCachedResult<LoopAnalysisManagerFunctionProxy>(F))
     LAM = &LAMProxy->getManager();
 
-  const ModuleAnalysisManager &MAM =
-      AM.getResult<ModuleAnalysisManagerFunctionProxy>(F).getManager();
+  auto &MAMProxy = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F);
   ProfileSummaryInfo *PSI =
-      MAM.getCachedResult<ProfileSummaryAnalysis>(*F.getParent());
+      MAMProxy.getCachedResult<ProfileSummaryAnalysis>(*F.getParent());
   auto *BFI = (PSI && PSI->hasProfileSummary()) ?
       &AM.getResult<BlockFrequencyAnalysis>(F) : nullptr;
 

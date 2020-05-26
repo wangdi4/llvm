@@ -141,7 +141,7 @@ static unsigned getOptimizationLevel(ArgList &Args, InputKind IK,
     assert(A->getOption().matches(options::OPT_O));
 
     StringRef S(A->getValue());
-    if (S == "s" || S == "z" || S.empty())
+    if (S == "s" || S == "z")
       return llvm::CodeGenOpt::Default;
 
     if (S == "g")
@@ -803,7 +803,8 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
 
   const llvm::Triple::ArchType DebugEntryValueArchs[] = {
       llvm::Triple::x86, llvm::Triple::x86_64, llvm::Triple::aarch64,
-      llvm::Triple::arm, llvm::Triple::armeb};
+      llvm::Triple::arm, llvm::Triple::armeb, llvm::Triple::mips,
+      llvm::Triple::mipsel, llvm::Triple::mips64, llvm::Triple::mips64el};
 
   llvm::Triple T(TargetOpts.Triple);
   if (Opts.OptimizationLevel > 0 && Opts.hasReducedDebugInfo() &&
@@ -1041,8 +1042,6 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
         std::string(Args.getLastArgValue(OPT_fprofile_filter_files_EQ));
     Opts.ProfileExcludeFiles =
         std::string(Args.getLastArgValue(OPT_fprofile_exclude_files_EQ));
-    Opts.CoverageExitBlockBeforeBody =
-        Args.hasArg(OPT_coverage_exit_block_before_body);
     if (Args.hasArg(OPT_coverage_version_EQ)) {
       StringRef CoverageVersion = Args.getLastArgValue(OPT_coverage_version_EQ);
       if (CoverageVersion.size() != 4) {
@@ -1360,6 +1359,12 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   if (Arg *A =
           Args.getLastArg(OPT_fpcc_struct_return, OPT_freg_struct_return,
                           OPT_maix_struct_return, OPT_msvr4_struct_return)) {
+    // TODO: We might want to consider enabling these options on AIX in the
+    // future.
+    if (T.isOSAIX())
+      Diags.Report(diag::err_drv_unsupported_opt_for_target)
+          << A->getSpelling() << T.str();
+
     const Option &O = A->getOption();
     if (O.matches(OPT_fpcc_struct_return) ||
         O.matches(OPT_maix_struct_return)) {
@@ -3159,6 +3164,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.NoBitFieldTypeAlign = Args.hasArg(OPT_fno_bitfield_type_align);
   Opts.SinglePrecisionConstants = Args.hasArg(OPT_cl_single_precision_constant);
   Opts.FastRelaxedMath = Args.hasArg(OPT_cl_fast_relaxed_math);
+  if (Opts.FastRelaxedMath)
+    Opts.setDefaultFPContractMode(LangOptions::FPM_Fast);
   Opts.HexagonQdsp6Compat = Args.hasArg(OPT_mqdsp6_compat);
   Opts.FakeAddressSpaceMap = Args.hasArg(OPT_ffake_address_space_map);
 #if INTEL_CUSTOMIZATION
@@ -3666,6 +3673,9 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
 
   Opts.BranchTargetEnforcement = Args.hasArg(OPT_mbranch_target_enforce);
   Opts.SpeculativeLoadHardening = Args.hasArg(OPT_mspeculative_load_hardening);
+
+  Opts.CompatibilityQualifiedIdBlockParamTypeChecking =
+      Args.hasArg(OPT_fcompatibility_qualified_id_block_param_type_checking);
 }
 
 static bool isStrictlyPreprocessorAction(frontend::ActionKind Action) {

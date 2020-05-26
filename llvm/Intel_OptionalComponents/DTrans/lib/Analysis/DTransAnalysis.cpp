@@ -9866,6 +9866,12 @@ char DTransAnalysis::PassID;
 // Provide a definition for the static class member used to identify passes.
 AnalysisKey DTransAnalysis::Key;
 
+bool DTransAnalysisInfo::invalidate(Module &M, const PreservedAnalyses &PA,
+                                ModuleAnalysisManager::Invalidator &Inv) {
+  auto PAC = PA.getChecker<DTransAnalysis>();
+  return !PAC.preservedWhenStateless();
+}
+
 DTransAnalysisInfo DTransAnalysis::run(Module &M, AnalysisManager<Module> &AM) {
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   auto GetBFI = [&FAM](Function &F) -> BlockFrequencyInfo & {

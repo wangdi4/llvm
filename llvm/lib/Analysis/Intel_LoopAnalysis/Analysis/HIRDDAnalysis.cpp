@@ -101,8 +101,7 @@ HIRDDAnalysis HIRDDAnalysisPass::run(Function &F, FunctionAnalysisManager &AM) {
   }
 
   auto &MAMProxy = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F);
-  auto &MAM = MAMProxy.getManager();
-  if (auto *AAResult = MAM.getCachedResult<AndersensAA>(*F.getParent())) {
+  if (auto *AAResult = MAMProxy.getCachedResult<AndersensAA>(*F.getParent())) {
     AAR->addAAResult(*AAResult);
   }
 

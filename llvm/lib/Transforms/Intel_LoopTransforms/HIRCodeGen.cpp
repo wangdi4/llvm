@@ -32,7 +32,6 @@
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 
 #include "llvm/Analysis/ScalarEvolution.h"
-#include "llvm/Analysis/ScalarEvolutionExpander.h"
 
 #include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
@@ -50,6 +49,7 @@
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
+#include "llvm/Transforms/Utils/ScalarEvolutionExpander.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HIRVisitor.h"
 // TODO audit includes
@@ -1958,7 +1958,7 @@ Value *CGVisitor::visitInst(HLInst *HInst) {
         ElementType, Ops[1],
         "hir.alloca." + std::to_string(HInst->getNumber()));
 
-    NewAlloca->setAlignment(MaybeAlign(Alloca->getAlignment()));
+    NewAlloca->setAlignment(Alloca->getAlign());
     StoreVal = NewAlloca;
 
   } else if (isa<ExtractElementInst>(Inst)) {

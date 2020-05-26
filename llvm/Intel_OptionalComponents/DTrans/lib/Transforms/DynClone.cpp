@@ -3830,10 +3830,9 @@ void DynCloneImpl::transformIR(void) {
     Type *NewTy = NewSt->getElementType(NewIdx);
     Type *PNewTy = NewTy->getPointerTo();
     Value *NewSrcOp = CastInst::CreateBitOrPointerCast(SrcOp, PNewTy, "", LI);
-    Instruction *NewLI =
-        new LoadInst(NewTy, NewSrcOp, "", LI->isVolatile(),
-                     MaybeAlign(DL.getABITypeAlignment(NewTy)),
-                     LI->getOrdering(), LI->getSyncScopeID(), LI);
+    Instruction *NewLI = new LoadInst(
+        NewTy, NewSrcOp, "", LI->isVolatile(), DL.getABITypeAlign(NewTy),
+        LI->getOrdering(), LI->getSyncScopeID(), LI);
 
     if (AATags)
       NewLI->setAAMetadata(AATags);
@@ -3912,10 +3911,9 @@ void DynCloneImpl::transformIR(void) {
     IRBuilder<> IRB(SI);
     NewVal = generateBitFieldStore(StElem, NewVal, NewSrcOp, IRB);
 
-    Instruction *NewSI =
-        new StoreInst(NewVal, NewSrcOp, SI->isVolatile(),
-                      MaybeAlign(DL.getABITypeAlignment(NewTy)),
-                      SI->getOrdering(), SI->getSyncScopeID(), SI);
+    Instruction *NewSI = new StoreInst(
+        NewVal, NewSrcOp, SI->isVolatile(), DL.getABITypeAlign(NewTy),
+        SI->getOrdering(), SI->getSyncScopeID(), SI);
 
     if (AATags)
       NewSI->setAAMetadata(AATags);

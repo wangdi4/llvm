@@ -60,7 +60,7 @@ uint64_t VPlanVLSCostModel::getInstructionCost(const OVLSInstruction *I) const {
         isa<OVLSStore>(I) ? Instruction::Store : Instruction::Load, VecTy,
         // FIXME: Next values are not used in getMemoryOpCost(), however
         // that can change later.
-        MaybeAlign(0) /* Alignment */, 0 /* AddressSpace */);
+        Align() /* Alignment */, 0 /* AddressSpace */);
   }
   if (auto Shuffle = dyn_cast<OVLSShuffle>(I)) {
     SmallVector<int, 16> Mask;
@@ -89,7 +89,7 @@ VPlanVLSCostModel::getGatherScatterOpCost(const OVLSMemref &Memref) const {
       VPMemref->getInstruction()->getOpcode() != Instruction::Store
           ? Instruction::Load
           : Instruction::Store;
-  return TTI.getMemoryOpCost(Opcode, VecTy, MaybeAlign(0), 0);
+  return TTI.getMemoryOpCost(Opcode, VecTy, Align(), 0);
 #endif
 }
 #endif // INTEL_CUSTOMIZATION
@@ -285,7 +285,8 @@ unsigned VPlanCostModel::getLoadStoreCost(const VPInstruction *VPInst) {
     return IsMasked ?
       TTI->getMaskedMemoryOpCost(Opcode, getVectorizedType(OpTy, VF),
                                  Alignment, AddrSpace) :
-      TTI->getMemoryOpCost(Opcode, VecTy, MaybeAlign(Alignment), AddrSpace);
+      TTI->getMemoryOpCost(Opcode, VecTy,
+                           Alignment? Align(Alignment): Align(), AddrSpace);
 
   return TTI->getGatherScatterOpCost(
     Opcode, VecTy, getLoadStoreIndexSize(VPInst),

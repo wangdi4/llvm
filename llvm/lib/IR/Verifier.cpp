@@ -1040,6 +1040,11 @@ void Verifier::visitDICompositeType(const DICompositeType &N) {
     AssertDI(isa<DIDerivedType>(D) && N.getTag() == dwarf::DW_TAG_variant_part,
              "discriminator can only appear on variant part");
   }
+
+  if (N.getRawDataLocation()) {
+    AssertDI(N.getTag() == dwarf::DW_TAG_array_type,
+             "dataLocation can only appear in array type");
+  }
 }
 
 void Verifier::visitDISubroutineType(const DISubroutineType &N) {
@@ -1543,6 +1548,7 @@ void Verifier::visitModuleFlagCGProfileEntry(const MDOperand &MDO) {
 /// Return true if this attribute kind only applies to functions.
 static bool isFuncOnlyAttr(Attribute::AttrKind Kind) {
   switch (Kind) {
+  case Attribute::NoMerge:
   case Attribute::NoReturn:
   case Attribute::NoSync:
   case Attribute::WillReturn:
@@ -1586,6 +1592,7 @@ static bool isFuncOnlyAttr(Attribute::AttrKind Kind) {
   case Attribute::SpeculativeLoadHardening:
   case Attribute::Speculatable:
   case Attribute::StrictFP:
+  case Attribute::NullPointerIsValid:
     return true;
   default:
     break;
@@ -3177,6 +3184,9 @@ static AttrBuilder getParameterABIAttributes(int I, AttributeList Attrs) {
 
 void Verifier::verifyMustTailCall(CallInst &CI) {
   Assert(!CI.isInlineAsm(), "cannot use musttail call with inline asm", &CI);
+  // FIXME: support musttail + preallocated
+  Assert(!CI.countOperandBundlesOfType(LLVMContext::OB_preallocated),
+         "musttail and preallocated not yet supported", &CI);
 
   // - The caller and callee prototypes must match.  Pointer types of
   //   parameters or return types may differ in pointee type, but not

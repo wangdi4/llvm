@@ -127,11 +127,11 @@ static AllocaInst *CreateFP128AllocaInst(IRBuilder<> &Builder, BasicBlock *BB) {
   const DataLayout &DL = M->getDataLayout();
 
   Type *FP128Ty = Type::getFP128Ty(Ctx);
-  auto AllocaAlignment = MaybeAlign(DL.getPrefTypeAlignment(FP128Ty));
+  auto AllocaAlignment = DL.getPrefTypeAlign(FP128Ty);
   unsigned AllocaAS = DL.getAllocaAddrSpace();
   AllocaInst *AllocaRes =
       new AllocaInst(FP128Ty, AllocaAS, "", &F.getEntryBlock().front());
-  AllocaRes->setAlignment(MaybeAlign(AllocaAlignment));
+  AllocaRes->setAlignment(AllocaAlignment);
   return AllocaRes;
 }
 

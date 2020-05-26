@@ -1201,8 +1201,6 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createLoopVectorizePass(!LoopsInterleaved, !LoopVectorize));
   }
 #endif // INTEL_CUSTOMIZATION
-  MPM.add(createVectorCombinePass());
-  MPM.add(createEarlyCSEPass());
 
   // Eliminate loads by forwarding stores from the previous iteration to loads
   // of the current iteration.
@@ -1255,6 +1253,10 @@ void PassManagerBuilder::populateModulePassManager(
     }
   }
   } // INTEL
+
+  // Enhance/cleanup vector code.
+  MPM.add(createVectorCombinePass());
+  MPM.add(createEarlyCSEPass()); // INTEL
 
   addExtensionsToPM(EP_Peephole, MPM);
   addInstructionCombiningPass(MPM);
@@ -1764,7 +1766,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // Now that we've optimized loops (in particular loop induction variables),
   // we may have exposed more scalar opportunities. Run parts of the scalar
   // optimizer again at this point.
-  PM.add(createVectorCombinePass());
 #if INTEL_CUSTOMIZATION
   // Initial cleanup
   addInstructionCombiningPass(PM);
@@ -1778,9 +1779,8 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createBitTrackingDCEPass());
 
   // More scalar chains could be vectorized due to more alias information
-  if (SLPVectorize) {
+  if (SLPVectorize) { // INTEL
     PM.add(createSLPVectorizerPass()); // Vectorize parallel scalar chains.
-    PM.add(createVectorCombinePass()); // Clean up partial vectorization.
 #if INTEL_CUSTOMIZATION
     if (EnableLoadCoalescing)
       PM.add(createLoadCoalescingPass());
@@ -1788,7 +1788,9 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
       // SLP creates opportunities for SROA.
       PM.add(createSROAPass());
 #endif // INTEL_CUSTOMIZATION
-  }
+  } // INTEL
+
+  PM.add(createVectorCombinePass()); // Clean up partial vectorization.
 
   // After vectorization, assume intrinsics may tell us more about pointer
   // alignments.

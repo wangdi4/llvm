@@ -624,10 +624,10 @@ void VPOParoptTransform::guardSideEffectStatements(
     //  store i32 %c.new, i32* %val.priv, align 4  // Replaced %c with %c.new
     //
     Value *TeamLocalVal = nullptr;
-    MaybeAlign Alignment =
-        StartI->getType()->isPointerTy()
-            ? StartI->getPointerAlignment(StartI->getModule()->getDataLayout())
-            : llvm::None;
+    auto &DL = StartI->getModule()->getDataLayout();
+    MaybeAlign Alignment = llvm::None;
+    if(StartI->getType()->isPointerTy())
+      Alignment = StartI->getPointerAlignment(DL);
     if (StartIHasUses)
       TeamLocalVal = VPOParoptUtils::genPrivatizationAlloca( //           (1)
           StartI->getType(), nullptr, Alignment, TargetDirectiveBegin,
@@ -648,11 +648,15 @@ void VPOParoptTransform::guardSideEffectStatements(
     Instruction *BarrierInsertPt = ElseBB->getFirstNonPHI();
 
     if (StartIHasUses) { //                                               (3)
-      StoreInst *StoreGuardedInstValue = new StoreInst(StartI, TeamLocalVal);
+      Type *StartITy = StartI->getType();
+      Align StartIAlign = DL.getABITypeAlign(StartITy);
+      StoreInst *StoreGuardedInstValue =
+          new StoreInst(StartI, TeamLocalVal, false /*volatile*/, StartIAlign);
       StoreGuardedInstValue->insertAfter(StartI);
 
-      LoadInst *LoadSavedValue = new LoadInst(StartI->getType(), TeamLocalVal,
-                                              StartI->getName() + ".new"); //(5)
+      LoadInst *LoadSavedValue = //                                       (5)
+          new LoadInst(StartITy, TeamLocalVal, StartI->getName() + ".new",
+                       false /*volatile*/, StartIAlign);
       LoadSavedValue->insertBefore(BarrierInsertPt);
       BarrierInsertPt = LoadSavedValue;
 

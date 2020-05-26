@@ -117,6 +117,7 @@ protected:
     }
 #endif
 #endif // INTEL
+    (void)dimension;
   }
 };
 

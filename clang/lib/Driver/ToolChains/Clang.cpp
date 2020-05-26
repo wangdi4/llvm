@@ -6553,11 +6553,12 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (Arg *A = Args.getLastArg(options::OPT_moutline,
                                options::OPT_mno_outline)) {
     if (A->getOption().matches(options::OPT_moutline)) {
-      // We only support -moutline in AArch64 right now. If we're not compiling
-      // for AArch64, emit a warning and ignore the flag. Otherwise, add the
-      // proper mllvm flags.
-      if (Triple.getArch() != llvm::Triple::aarch64 &&
-          Triple.getArch() != llvm::Triple::aarch64_32) {
+      // We only support -moutline in AArch64 and ARM targets right now. If
+      // we're not compiling for these, emit a warning and ignore the flag.
+      // Otherwise, add the proper mllvm flags.
+      if (!(Triple.isARM() || Triple.isThumb() ||
+            Triple.getArch() == llvm::Triple::aarch64 ||
+            Triple.getArch() == llvm::Triple::aarch64_32)) {
         D.Diag(diag::warn_drv_moutline_unsupported_opt) << Triple.getArchName();
       } else {
         CmdArgs.push_back("-mllvm");
@@ -8058,7 +8059,8 @@ void SYCLPostLink::ConstructJob(Compilation &C, const JobAction &JA,
     addArgs(CmdArgs, TCArgs, {"-symbols"});
   }
   // specialization constants processing is mandatory
-  if (llvm::dyn_cast<SYCLPostLinkJobAction>(&JA)->getRTSetsSpecConstants())
+  auto *SYCLPostLink = llvm::dyn_cast<SYCLPostLinkJobAction>(&JA);
+  if (SYCLPostLink && SYCLPostLink->getRTSetsSpecConstants())
     addArgs(CmdArgs, TCArgs, {"-spec-const=rt"});
   else
     addArgs(CmdArgs, TCArgs, {"-spec-const=default"});

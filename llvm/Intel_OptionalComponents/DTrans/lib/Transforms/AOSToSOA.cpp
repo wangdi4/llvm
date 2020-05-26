@@ -948,7 +948,9 @@ public:
         {Constant::getNullValue(getPtrSizedIntType()), FieldNumVal}, "",
         InsertBefore);
     llvm::Type *FieldType = PeelType->getElementType(FieldIdx);
-    LoadInst *SOAAddr = new LoadInst(FieldType, PeelBase);
+    LoadInst *SOAAddr =
+        new LoadInst(FieldType, PeelBase, "", false /*volatile*/,
+                     DL.getABITypeAlign(FieldType));
 
     // Mark the load of the structure of arrays field member as being invariant.
     // When the memory allocation for the object was done, the address of each
@@ -1079,9 +1081,9 @@ public:
     // being changed to an integer the original alignment may no longer be
     // valid, so set it to the ABI default for the type that the load will be
     // once remapping occurs.
-    unsigned int Alignment = DL.getABITypeAlignment(RemapTy);
+    Align Alignment = DL.getABITypeAlign(RemapTy);
     Instruction *NewLI = new LoadInst(RemapTy, NewPtrOp, "", LI->isVolatile(),
-                                      MaybeAlign(Alignment), LI->getOrdering(),
+                                      Alignment, LI->getOrdering(),
                                       LI->getSyncScopeID(), LI);
 
     // Determine the type of conversion needed to match the type of the users
@@ -1196,9 +1198,9 @@ public:
     // is changing, the original alignment may no longer be valid, so set it
     // to the ABI default for the type that the load will be once remapping
     // occurs.
-    unsigned int Alignment = DL.getABITypeAlignment(RemapTy);
+    Align Alignment = DL.getABITypeAlign(RemapTy);
     Instruction *NewSI = new StoreInst(NewValOp, NewPtrOp, SI->isVolatile(),
-                                       MaybeAlign(Alignment), SI->getOrdering(),
+                                       Alignment, SI->getOrdering(),
                                        SI->getSyncScopeID(), SI);
     InstructionsToDelete.insert(SI);
     auto *ActualPtrTy = cast<PointerType>(ActualTy);
@@ -3042,6 +3044,7 @@ PreservedAnalyses AOSToSOAPass::run(Module &M, ModuleAnalysisManager &AM) {
   // TODO: Mark the actual preserved analyses.
   PreservedAnalyses PA;
   PA.preserve<WholeProgramAnalysis>();
+  PA.abandon<DTransAnalysis>();
   return PA;
 }
 

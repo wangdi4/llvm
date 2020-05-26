@@ -1282,7 +1282,7 @@ def IntelReqdSubGroupSize: InheritableAttr {
   let Args = [UnsignedArgument<"SubGroupSize">];
   let Subjects = SubjectList<[Function, CXXMethod], ErrorDiag>;
   let Documentation = [IntelReqdSubGroupSizeDocs];
-  let LangOpts = [OpenCL, SYCLIsDevice];
+  let LangOpts = [OpenCL, SYCLIsDevice, SYCLIsHost];
 }
 
 // This attribute is both a type attribute, and a declaration attribute (for
@@ -1405,6 +1405,11 @@ def FallThrough : StmtAttr {
                    CXX11<"clang", "fallthrough">, GCC<"fallthrough">];
 //  let Subjects = [NullStmt];
   let Documentation = [FallthroughDocs];
+}
+
+def NoMerge : StmtAttr {
+  let Spellings = [Clang<"nomerge">];
+  let Documentation = [NoMergeDocs];
 }
 
 def FastCall : DeclOrTypeAttr {

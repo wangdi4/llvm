@@ -1327,6 +1327,14 @@ bool SimplifyCFGOpt::HoistThenElseCodeToIf(BranchInst *BI,
       return Changed;
 #endif //INTEL_COLLAB
 
+    // If any of the two call sites has nomerge attribute, stop hoisting.
+    if (const auto *CB1 = dyn_cast<CallBase>(I1))
+      if (CB1->cannotMerge())
+        return Changed;
+    if (const auto *CB2 = dyn_cast<CallBase>(I2))
+      if (CB2->cannotMerge())
+        return Changed;
+
     if (isa<DbgInfoIntrinsic>(I1) || isa<DbgInfoIntrinsic>(I2)) {
       assert (isa<DbgInfoIntrinsic>(I1) && isa<DbgInfoIntrinsic>(I2));
       // The debug location is an integral part of a debug info intrinsic
@@ -1512,8 +1520,9 @@ static bool canSinkInstructions(
     // Conservatively return false if I is an inline-asm instruction. Sinking
     // and merging inline-asm instructions can potentially create arguments
     // that cannot satisfy the inline-asm constraints.
+    // If the instruction has nomerge attribute, return false.
     if (const auto *C = dyn_cast<CallBase>(I))
-      if (C->isInlineAsm())
+      if (C->isInlineAsm() || C->cannotMerge())
         return false;
 
     // Each instruction must have zero or one use.
@@ -2368,9 +2377,6 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
                            const DataLayout &DL) {
   BasicBlock *BB = PN->getParent();
   bool Changed = false;
-  const Function *Fn = BB->getParent();
-  if (Fn && Fn->hasFnAttribute(Attribute::OptForFuzzing))
-    return false;
 
   // This could be a multiple entry PHI node. Try to fold each pair of entries
   // that leads to an "if condition".  Traverse through the predecessor list of
@@ -6741,8 +6747,7 @@ static BasicBlock *allPredecessorsComeFromSameSource(BasicBlock *BB) {
 
 bool SimplifyCFGOpt::simplifyCondBranch(BranchInst *BI, IRBuilder<> &Builder) {
   BasicBlock *BB = BI->getParent();
-  const Function *Fn = BB->getParent();
-  if (Fn && Fn->hasFnAttribute(Attribute::OptForFuzzing))
+  if (!Options.SimplifyCondBranch)
     return false;
 
   // Conditional branch
@@ -6971,7 +6976,8 @@ bool SimplifyCFGOpt::simplifyOnce(BasicBlock *BB) {
 #if INTEL_CUSTOMIZATION
   // If there is a PHI node in this basic block, and we can
   // eliminate some of its entries, do so now.
-  if (auto *PN = dyn_cast<PHINode>(BB->begin())) {
+  if (Options.FoldTwoEntryPHINode) {
+    if (auto *PN = dyn_cast<PHINode>(BB->begin()))
     // FoldPHIEntries is an Intel customized generalized version of the LLVM
     // open source routine called FoldTwoEntryPHINode(that folds a two-entry
     // phinode into "select") which is capable of handling any number
@@ -6982,7 +6988,7 @@ bool SimplifyCFGOpt::simplifyOnce(BasicBlock *BB) {
     // To keep xmain as clean as possible we got rid of the FoldTwoEntryPHINode,
     // therefore, there might be conflicts during code merge. If resolving
     // conflicts becomes too cumbersome, we can try something different.
-    Changed |= FoldPHIEntries(PN, TTI, DL);
+      Changed |= FoldPHIEntries(PN, TTI, DL);
   }
 #endif //INTEL_CUSTOMIZATION
 

@@ -28,7 +28,7 @@ namespace lld {
 namespace macho {
 
 SyntheticSection::SyntheticSection(const char *segname, const char *name)
-    : OutputSection(name) {
+    : OutputSection(SyntheticKind, name) {
   // Synthetic sections always know which segment they belong to so hook
   // them up when they're made
   getOrCreateOutputSegment(segname)->addOutputSection(this);
@@ -57,7 +57,7 @@ void MachHeaderSection::writeTo(uint8_t *buf) const {
   hdr->ncmds = loadCommands.size();
   hdr->sizeofcmds = sizeOfCmds;
   hdr->flags = MH_NOUNDEFS | MH_DYLDLINK | MH_TWOLEVEL;
-  if (config->outputType == MH_DYLIB)
+  if (config->outputType == MH_DYLIB && !config->hasReexports)
     hdr->flags |= MH_NO_REEXPORTED_DYLIBS;
 
   uint8_t *p = reinterpret_cast<uint8_t *>(hdr + 1);

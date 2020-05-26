@@ -467,8 +467,9 @@ bool VPOParoptAtomics::handleAtomicCapture(WRNAtomicNode *AtomicNode,
                                   "cpt.opnd.cast", Anchor);
 
   // Now generate the store to CaptureOpnd.
-  StoreInst *CaptureStore = new StoreInst(CaptureVal, CaptureOpnd);
-  CaptureStore->insertBefore(Anchor);
+  StoreInst *CaptureStore =
+      new StoreInst(CaptureVal, CaptureOpnd, false /*volatile*/, Anchor);
+  (void)CaptureStore;
 
   // And finally, delete the instructions that are no longer needed.
   deleteInstructionsInList(InstsToDelete);

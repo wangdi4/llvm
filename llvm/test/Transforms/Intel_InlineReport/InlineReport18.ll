@@ -9,11 +9,11 @@
 ; caller/callee pair has mismatched "null-pointer-is-valid" attributes,
 ; unless the callee also has the attribute "alwaysinline".
 
-define i32 @null-pointer-is-valid_callee0(i32 %i) "null-pointer-is-valid"="true" {
+define i32 @null-pointer-is-valid_callee0(i32 %i) null_pointer_is_valid {
   ret i32 %i
 }
 
-define i32 @null-pointer-is-valid_callee1(i32 %i) alwaysinline "null-pointer-is-valid"="true" {
+define i32 @null-pointer-is-valid_callee1(i32 %i) alwaysinline null_pointer_is_valid {
   ret i32 %i
 }
 

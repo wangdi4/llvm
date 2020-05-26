@@ -908,9 +908,8 @@ bool SampleProfileLoader::inlineCallInstruction(CallBase &CB) {
   // see if it is legal to inline the callsite.
 #if INTEL_CUSTOMIZATION
   InliningLoopInfoCache *ILIC = new InliningLoopInfoCache();
-  InlineCost Cost =
-      getInlineCost(CB, Params, GetTTI(*CalledFunction), GetAC, None, GetTLI,
-                    ILIC, nullptr, nullptr, nullptr);
+  InlineCost Cost = getInlineCost(CB, Params, GetTTI(*CalledFunction), GetAC,
+                                  GetTLI, nullptr, nullptr, nullptr, ILIC);
   delete ILIC;
 #endif // INTEL_CUSTOMIZATION
 
@@ -919,7 +918,7 @@ bool SampleProfileLoader::inlineCallInstruction(CallBase &CB) {
               << "incompatible inlining");
     return false;
   }
-  InlineFunctionInfo IFI(nullptr, &GetAC);
+  InlineFunctionInfo IFI(nullptr, GetAC);
   if (InlineFunction(CB, IFI).isSuccess()) {
     // The call to InlineFunction erases I, so we can't pass it here.
     ORE->emit(OptimizationRemark(CSINLINE_DEBUG, "InlineSuccess", DLoc, BB)
@@ -941,8 +940,8 @@ bool SampleProfileLoader::shouldInlineColdCallee(CallBase &CallInst) {
 #if INTEL_CUSTOMIZATION
   InliningLoopInfoCache *ILIC = new InliningLoopInfoCache();
   InlineCost Cost =
-      getInlineCost(CallInst, getInlineParams(), GetTTI(*Callee), GetAC, None,
-                    GetTLI, ILIC, nullptr, nullptr, nullptr);
+      getInlineCost(CallInst, getInlineParams(), GetTTI(*Callee), GetAC, GetTLI,
+                    nullptr, nullptr, nullptr, ILIC);
   delete ILIC;
 #endif // INTEL_CUSTOMIZATION
 

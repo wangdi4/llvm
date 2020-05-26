@@ -495,6 +495,12 @@ public:
   // the current routine.
   bool escapes(const Value *V);
 
+  /// Handle invalidation events in the new pass manager.
+  bool invalidate(Module &M, const PreservedAnalyses &PA,
+                  ModuleAnalysisManager::Invalidator &Inv) {
+    return false;
+  }
+
 private:
   bool findNameInTable(StringRef rname, const char** name_table);
 

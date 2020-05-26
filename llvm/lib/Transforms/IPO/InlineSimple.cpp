@@ -84,9 +84,10 @@ public:
       Params.ComputeFullInlineCost = true;
 #endif // INTEL_CUSTOMIZATION
 
-    return llvm::getInlineCost(CB, Params, TTI, GetAssumptionCache,
-        /*GetBFI=*/None, GetTLI, ILIC, AggI,         // INTEL
-        PSI, RemarksEnabled ? &ORE : nullptr);       // INTEL
+    return llvm::getInlineCost(CB, Params, TTI, GetAssumptionCache, GetTLI,
+                               /*GetBFI=*/nullptr, PSI,
+                               RemarksEnabled ? &ORE : nullptr, // INTEL
+                               ILIC, AggI);                     // INTEL
   }
 
   bool runOnSCC(CallGraphSCC &SCC) override;

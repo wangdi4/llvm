@@ -3890,7 +3890,7 @@ void SelectionDAGBuilder::visitAlloca(const AllocaInst &I) {
   const TargetLowering &TLI = DAG.getTargetLoweringInfo();
   auto &DL = DAG.getDataLayout();
   uint64_t TySize = DL.getTypeAllocSize(Ty);
-  MaybeAlign Alignment = max(DL.getPrefTypeAlign(Ty), I.getAlign());
+  MaybeAlign Alignment = std::max(DL.getPrefTypeAlign(Ty), I.getAlign());
 
   SDValue AllocSize = getValue(I.getArraySize());
 
@@ -3906,7 +3906,7 @@ void SelectionDAGBuilder::visitAlloca(const AllocaInst &I) {
   // the stack alignment, ignore it.  If the size is greater than or equal to
   // the stack alignment, we note this in the DYNAMIC_STACKALLOC node.
   Align StackAlign = DAG.getSubtarget().getFrameLowering()->getStackAlign();
-  if (Alignment <= StackAlign)
+  if (*Alignment <= StackAlign)
     Alignment = None;
 
   const uint64_t StackAlignMask = StackAlign.value() - 1U;
@@ -3975,7 +3975,7 @@ void SelectionDAGBuilder::visitLoad(const LoadInst &I) {
   SDValue Ptr = getValue(SV);
 
   Type *Ty = I.getType();
-  Align Alignment = DL->getValueOrABITypeAlignment(I.getAlign(), Ty);
+  Align Alignment = I.getAlign();
 
   AAMDNodes AAInfo;
   I.getAAMetadata(AAInfo);
@@ -4175,8 +4175,7 @@ void SelectionDAGBuilder::visitStore(const StoreInst &I) {
   SDValue Root = I.isVolatile() ? getRoot() : getMemoryRoot();
   SmallVector<SDValue, 4> Chains(std::min(MaxParallelChains, NumValues));
   SDLoc dl = getCurSDLoc();
-  Align Alignment =
-      DL->getValueOrABITypeAlignment(I.getAlign(), SrcV->getType());
+  Align Alignment = I.getAlign();
   AAMDNodes AAInfo;
   I.getAAMetadata(AAInfo);
 
@@ -4596,7 +4595,7 @@ void SelectionDAGBuilder::visitAtomicLoad(const LoadInst &I) {
 
   MachineMemOperand *MMO = DAG.getMachineFunction().getMachineMemOperand(
       MachinePointerInfo(I.getPointerOperand()), Flags, MemVT.getStoreSize(),
-      *I.getAlign(), AAMDNodes(), nullptr, SSID, Order);
+      I.getAlign(), AAMDNodes(), nullptr, SSID, Order);
 
   InChain = TLI.prepareVolatileOrAtomicLoad(InChain, dl, DAG);
 
@@ -4649,7 +4648,7 @@ void SelectionDAGBuilder::visitAtomicStore(const StoreInst &I) {
   MachineFunction &MF = DAG.getMachineFunction();
   MachineMemOperand *MMO = MF.getMachineMemOperand(
       MachinePointerInfo(I.getPointerOperand()), Flags, MemVT.getStoreSize(),
-      *I.getAlign(), AAMDNodes(), nullptr, SSID, Ordering);
+      I.getAlign(), AAMDNodes(), nullptr, SSID, Ordering);
 
   SDValue Val = getValue(I.getValueOperand());
   if (Val.getValueType() != MemVT)
@@ -5640,6 +5639,23 @@ void SelectionDAGBuilder::lowerCallToExternalSymbol(const CallInst &I,
   LowerCallTo(I, Callee, I.isTailCall());
 }
 
+/// Given a @llvm.call.preallocated.setup, return the corresponding
+/// preallocated call.
+static const CallBase *FindPreallocatedCall(const Value *PreallocatedSetup) {
+  assert(cast<CallBase>(PreallocatedSetup)
+                 ->getCalledFunction()
+                 ->getIntrinsicID() == Intrinsic::call_preallocated_setup &&
+         "expected call_preallocated_setup Value");
+  for (auto *U : PreallocatedSetup->users()) {
+    auto *UseCall = cast<CallBase>(U);
+    const Function *Fn = UseCall->getCalledFunction();
+    if (!Fn || Fn->getIntrinsicID() != Intrinsic::call_preallocated_arg) {
+      return UseCall;
+    }
+  }
+  llvm_unreachable("expected corresponding call to preallocated setup/arg");
+}
+
 /// Lower the call to the specified intrinsic function.
 void SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I,
                                              unsigned Intrinsic) {
@@ -5830,6 +5846,30 @@ void SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I,
                                      LengthTy, ElemSz, isTC,
                                      MachinePointerInfo(MI.getRawDest()));
     updateDAGForMaybeTailCall(MC);
+    return;
+  }
+  case Intrinsic::call_preallocated_setup: {
+    const CallBase *PreallocatedCall = FindPreallocatedCall(&I);
+    SDValue SrcValue = DAG.getSrcValue(PreallocatedCall);
+    SDValue Res = DAG.getNode(ISD::PREALLOCATED_SETUP, sdl, MVT::Other,
+                              getRoot(), SrcValue);
+    setValue(&I, Res);
+    DAG.setRoot(Res);
+    return;
+  }
+  case Intrinsic::call_preallocated_arg: {
+    const CallBase *PreallocatedCall = FindPreallocatedCall(I.getOperand(0));
+    SDValue SrcValue = DAG.getSrcValue(PreallocatedCall);
+    SDValue Ops[3];
+    Ops[0] = getRoot();
+    Ops[1] = SrcValue;
+    Ops[2] = DAG.getTargetConstant(*cast<ConstantInt>(I.getArgOperand(1)), sdl,
+                                   MVT::i32); // arg index
+    SDValue Res = DAG.getNode(
+        ISD::PREALLOCATED_ARG, sdl,
+        DAG.getVTList(TLI.getPointerTy(DAG.getDataLayout()), MVT::Other), Ops);
+    setValue(&I, Res);
+    DAG.setRoot(Res.getValue(1));
     return;
   }
   case Intrinsic::dbg_addr:
@@ -6876,11 +6916,9 @@ void SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I,
     SDValue Ptr = getValue(I.getOperand(0));
     SDValue Const = getValue(I.getOperand(1));
 
-    EVT DestVT =
-        EVT(DAG.getTargetLoweringInfo().getPointerTy(DAG.getDataLayout()));
-
-    setValue(&I, DAG.getNode(ISD::AND, getCurSDLoc(), DestVT, Ptr,
-                             DAG.getZExtOrTrunc(Const, getCurSDLoc(), DestVT)));
+    EVT PtrVT = Ptr.getValueType();
+    setValue(&I, DAG.getNode(ISD::AND, getCurSDLoc(), PtrVT, Ptr,
+                             DAG.getZExtOrTrunc(Const, getCurSDLoc(), PtrVT)));
     return;
   }
   }
@@ -7157,7 +7195,9 @@ void SelectionDAGBuilder::LowerCallTo(const CallBase &CB, SDValue Callee,
       .setChain(getRoot())
       .setCallee(RetTy, FTy, Callee, std::move(Args), CB)
       .setTailCall(isTailCall)
-      .setConvergent(CB.isConvergent());
+      .setConvergent(CB.isConvergent())
+      .setIsPreallocated(
+          CB.countOperandBundlesOfType(LLVMContext::OB_preallocated) != 0);
   std::pair<SDValue, SDValue> Result = lowerInvokable(CLI, EHPadBB);
 
   if (Result.first.getNode()) {
@@ -7715,9 +7755,9 @@ void SelectionDAGBuilder::visitCall(const CallInst &I) {
   // Deopt bundles are lowered in LowerCallSiteWithDeoptBundle, and we don't
   // have to do anything here to lower funclet bundles.
   // CFGuardTarget bundles are lowered in LowerCallTo.
-  assert(!I.hasOperandBundlesOtherThan({LLVMContext::OB_deopt,
-                                        LLVMContext::OB_funclet,
-                                        LLVMContext::OB_cfguardtarget}) &&
+  assert(!I.hasOperandBundlesOtherThan(
+             {LLVMContext::OB_deopt, LLVMContext::OB_funclet,
+              LLVMContext::OB_cfguardtarget, LLVMContext::OB_preallocated}) &&
          "Cannot lower calls with arbitrary operand bundles!");
 
   SDValue Callee = getValue(I.getCalledOperand());
@@ -8678,7 +8718,9 @@ void SelectionDAGBuilder::populateCallLoweringInfo(
       .setChain(getRoot())
       .setCallee(Call->getCallingConv(), ReturnTy, Callee, std::move(Args))
       .setDiscardResult(Call->use_empty())
-      .setIsPatchPoint(IsPatchPoint);
+      .setIsPatchPoint(IsPatchPoint)
+      .setIsPreallocated(
+          Call->countOperandBundlesOfType(LLVMContext::OB_preallocated) != 0);
 }
 
 /// Add a stack map intrinsic call's live variable operands to a stackmap
@@ -9198,6 +9240,15 @@ TargetLowering::LowerCallTo(TargetLowering::CallLoweringInfo &CLI) const {
         Flags.setCFGuardTarget();
       if (Args[i].IsByVal)
         Flags.setByVal();
+      if (Args[i].IsPreallocated) {
+        Flags.setPreallocated();
+        // Set the byval flag for CCAssignFn callbacks that don't know about
+        // preallocated.  This way we can know how many bytes we should've
+        // allocated and how many bytes a callee cleanup function will pop.  If
+        // we port preallocated to more targets, we'll have to add custom
+        // preallocated handling in the various CC lowering callbacks.
+        Flags.setByVal();
+      }
       if (Args[i].IsInAlloca) {
         Flags.setInAlloca();
         // Set the byval flag for CCAssignFn callbacks that don't know about
@@ -9207,7 +9258,7 @@ TargetLowering::LowerCallTo(TargetLowering::CallLoweringInfo &CLI) const {
         // in the various CC lowering callbacks.
         Flags.setByVal();
       }
-      if (Args[i].IsByVal || Args[i].IsInAlloca) {
+      if (Args[i].IsByVal || Args[i].IsInAlloca || Args[i].IsPreallocated) {
         PointerType *Ty = cast<PointerType>(Args[i].Ty);
         Type *ElementTy = Ty->getElementType();
 
@@ -9521,7 +9572,7 @@ findArgumentCopyElisionCandidates(const DataLayout &DL,
     // initializes the alloca. Don't elide copies from the same argument twice.
     const Value *Val = SI->getValueOperand()->stripPointerCasts();
     const auto *Arg = dyn_cast<Argument>(Val);
-    if (!Arg || Arg->hasInAllocaAttr() || Arg->hasByValAttr() ||
+    if (!Arg || Arg->hasPassPointeeByValueAttr() ||
         Arg->getType()->isEmptyTy() ||
         DL.getTypeStoreSize(Arg->getType()) !=
             DL.getTypeAllocSize(AI->getAllocatedType()) ||
@@ -9577,8 +9628,7 @@ static void tryToElideArgumentCopy(
                   "object size\n");
     return;
   }
-  Align RequiredAlignment = AI->getAlign().getValueOr(
-      FuncInfo.MF->getDataLayout().getABITypeAlign(AI->getAllocatedType()));
+  Align RequiredAlignment = AI->getAlign();
   if (MFI.getObjectAlign(FixedIndex) < RequiredAlignment) {
     LLVM_DEBUG(dbgs() << "  argument copy elision failed: alignment of alloca "
                          "greater than stack argument alignment ("
@@ -9708,12 +9758,21 @@ void SelectionDAGISel::LowerArguments(const Function &F) {
         // in the various CC lowering callbacks.
         Flags.setByVal();
       }
+      if (Arg.hasAttribute(Attribute::Preallocated)) {
+        Flags.setPreallocated();
+        // Set the byval flag for CCAssignFn callbacks that don't know about
+        // preallocated.  This way we can know how many bytes we should've
+        // allocated and how many bytes a callee cleanup function will pop.  If
+        // we port preallocated to more targets, we'll have to add custom
+        // preallocated handling in the various CC lowering callbacks.
+        Flags.setByVal();
+      }
       if (F.getCallingConv() == CallingConv::X86_INTR) {
         // IA Interrupt passes frame (1st parameter) by value in the stack.
         if (ArgNo == 0)
           Flags.setByVal();
       }
-      if (Flags.isByVal() || Flags.isInAlloca()) {
+      if (Flags.isByVal() || Flags.isInAlloca() || Flags.isPreallocated()) {
         Type *ElementTy = Arg.getParamByValType();
 
         // For ByVal, size and alignment should be passed from FE.  BE will

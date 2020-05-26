@@ -20,7 +20,6 @@
 #include "IntelVPlanVLSAnalysis.h"
 #include "IntelVPSOAAnalysis.h"
 #include "llvm/Analysis/LoopAccessAnalysis.h"
-#include "llvm/Analysis/ScalarEvolutionExpander.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/DebugInfo.h"
@@ -29,6 +28,7 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
+#include "llvm/Transforms/Utils/ScalarEvolutionExpander.h"
 #include <tuple>
 
 using namespace llvm;
@@ -154,7 +154,7 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
       NewLoad->setVolatile(Load->isVolatile());
       NewLoad->setOrdering(Load->getOrdering());
       NewLoad->setSyncScopeID(Load->getSyncScopeID());
-      NewLoad->setAlignment(MaybeAlign{Load->getAlignment()});
+      NewLoad->setAlignment(Load->getAlign());
     }
   } else if (VPInst->getOpcode() == Instruction::Store) {
     assert(ScalarOperands.size() == 2 &&
@@ -166,7 +166,7 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
       NewStore->setVolatile(OldStore->isVolatile());
       NewStore->setOrdering(OldStore->getOrdering());
       NewStore->setSyncScopeID(OldStore->getSyncScopeID());
-      NewStore->setAlignment(MaybeAlign{OldStore->getAlignment()});
+      NewStore->setAlignment(OldStore->getAlign());
     }
   } else if (VPInst->getOpcode() == Instruction::Call) {
     assert(ScalarOperands.size() > 0 &&
@@ -218,7 +218,7 @@ Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
     // TODO: We don't represent alignment in VPInstruction, so underlying
     // instruction must exist!
     auto *OrigAlloca = cast<AllocaInst>(VPInst->getUnderlyingValue());
-    SerialAlloca->setAlignment(MaybeAlign{OrigAlloca->getAlignment()});
+    SerialAlloca->setAlignment(OrigAlloca->getAlign());
     SerialAlloca->setUsedWithInAlloca(OrigAlloca->isUsedWithInAlloca());
     SerialAlloca->setSwiftError(OrigAlloca->isSwiftError());
     SerialInst = SerialAlloca;
@@ -3287,8 +3287,7 @@ void VPOCodeGen::vectorizeAllocatePrivate(VPAllocatePrivate *V) {
   AllocaInst *WidenedPrivArr =
       Builder.CreateAlloca(VecTyForAlloca, nullptr, V->getOrigName() + ".vec");
   const DataLayout &DL = OrigLoop->getHeader()->getModule()->getDataLayout();
-  WidenedPrivArr->setAlignment(
-      MaybeAlign(DL.getPrefTypeAlignment(VecTyForAlloca)));
+  WidenedPrivArr->setAlignment(DL.getPrefTypeAlign(VecTyForAlloca));
 
   LoopPrivateVPWidenMap[V] = WidenedPrivArr;
   // TODO: For SOA, vector of pointers via GEPs should not be created.

@@ -20,7 +20,6 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/ScalarEvolution.h"
-#include "llvm/Analysis/ScalarEvolutionExpander.h"
 #include "llvm/CodeGen/MachineMemOperand.h" // To get CSA_LOCAL_CACHE_METADATA_KEY.
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/Dominators.h"
@@ -36,6 +35,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/Local.h"
+#include "llvm/Transforms/Utils/ScalarEvolutionExpander.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 
 using namespace llvm;

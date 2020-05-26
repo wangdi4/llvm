@@ -913,35 +913,6 @@ def X86vcvtbf162phRnd :   SDNode<"X86ISD::VCVTBF162PH_RND",
 #endif // INTEL_FEATURE_ISA_AVX512_CONVERT
 #endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
-// SSE Complex Patterns
-//===----------------------------------------------------------------------===//
-
-// These are 'extloads' from a scalar to the low element of a vector, zeroing
-// the top elements.  These are used for the SSE 'ss' and 'sd' instruction
-// forms.
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
-def sse_load_f16 : ComplexPattern<v8f16, 5, "selectScalarSSELoad", [],
-                                  [SDNPHasChain, SDNPMayLoad, SDNPMemOperand,
-                                   SDNPWantRoot, SDNPWantParent]>;
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
-def sse_load_f32 : ComplexPattern<v4f32, 5, "selectScalarSSELoad", [],
-                                  [SDNPHasChain, SDNPMayLoad, SDNPMemOperand,
-                                   SDNPWantRoot, SDNPWantParent]>;
-def sse_load_f64 : ComplexPattern<v2f64, 5, "selectScalarSSELoad", [],
-                                  [SDNPHasChain, SDNPMayLoad, SDNPMemOperand,
-                                   SDNPWantRoot, SDNPWantParent]>;
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
-def shmem : X86MemOperand<"printwordmem", X86Mem16AsmOperand>;
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
-def ssmem : X86MemOperand<"printdwordmem", X86Mem32AsmOperand>;
-def sdmem : X86MemOperand<"printqwordmem", X86Mem64AsmOperand>;
-
-//===----------------------------------------------------------------------===//
 // SSE pattern fragments
 //===----------------------------------------------------------------------===//
 
@@ -1189,6 +1160,37 @@ def fp16imm0 : PatLeaf<(f16 fpimm), [{
 }]>;
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
+// Scalar SSE intrinsic fragments to match several different types of loads.
+// Used by scalar SSE intrinsic instructions which have 128 bit types, but
+// only load a single element.
+// FIXME: We should add more canolicalizing in DAGCombine. Particulary removing
+// the simple_load case.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+def sse_load_f16 : PatFrags<(ops node:$ptr),
+                            [(v8f16 (simple_load node:$ptr)),
+                             (v8f16 (X86vzload16 node:$ptr)),
+                             (v8f16 (scalar_to_vector (loadf16 node:$ptr)))]>;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
+def sse_load_f32 : PatFrags<(ops node:$ptr),
+                            [(v4f32 (simple_load node:$ptr)),
+                             (v4f32 (X86vzload32 node:$ptr)),
+                             (v4f32 (scalar_to_vector (loadf32 node:$ptr)))]>;
+def sse_load_f64 : PatFrags<(ops node:$ptr),
+                            [(v2f64 (simple_load node:$ptr)),
+                             (v2f64 (X86vzload64 node:$ptr)),
+                             (v2f64 (scalar_to_vector (loadf64 node:$ptr)))]>;
+
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+def shmem : X86MemOperand<"printwordmem", X86Mem16AsmOperand>;
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
+def ssmem : X86MemOperand<"printdwordmem", X86Mem32AsmOperand>;
+def sdmem : X86MemOperand<"printqwordmem", X86Mem64AsmOperand>;
+
 
 def fp32imm0 : PatLeaf<(f32 fpimm), [{
   return N->isExactlyValue(+0.0);

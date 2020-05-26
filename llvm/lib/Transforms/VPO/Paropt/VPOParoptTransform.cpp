@@ -59,7 +59,6 @@
 #include "llvm/Transforms/Utils/SSAUpdater.h"
 
 #include "llvm/Analysis/ScalarEvolution.h"
-#include "llvm/Analysis/ScalarEvolutionExpander.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
 #include "llvm/Analysis/VPO/WRegionInfo/WRegion.h"
@@ -70,6 +69,7 @@
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"
 #include "llvm/Transforms/Utils/LoopRotationUtils.h"
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
+#include "llvm/Transforms/Utils/ScalarEvolutionExpander.h"
 
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
@@ -882,10 +882,10 @@ Loop *VPOParoptTransform::genDispatchLoopForTeamDistribute(
   IncUB->insertBefore(TermInst);
 
   StoreInst *NewIncLB = new StoreInst(IncLB, TeamLowerBnd, false, TermInst);
-  NewIncLB->setAlignment(MaybeAlign(4));
+  NewIncLB->setAlignment(Align(4));
 
   StoreInst *NewIncUB = new StoreInst(IncUB, TeamUpperBnd, false, TermInst);
-  NewIncUB->setAlignment(MaybeAlign(4));
+  NewIncUB->setAlignment(Align(4));
 
   TermInst->setSuccessor(0, TeamDispHeaderBB);
 
@@ -3226,8 +3226,10 @@ void VPOParoptTransform::genConditionalLPCode(
   Instruction *IfHighestChunkIsModifiedByThreadThen = SplitBlockAndInsertIfThen(
       IsLocalGreaterThanGlobal, IfThreadWroteSomethingThen, false, nullptr, DT,
       LI); //                                                         (60)
-  StoreInst *MaxStore = new StoreInst(FinalLocalMaxIndex, MaxGlobalIndex);
-  MaxStore->insertBefore(IfHighestChunkIsModifiedByThreadThen); //    (61)
+  StoreInst *MaxStore =
+      new StoreInst(FinalLocalMaxIndex, MaxGlobalIndex, false,
+                    IfHighestChunkIsModifiedByThreadThen); //         (61)
+  (void)MaxStore;
 
   // TODO: This critical section should be switched with either atomic-max
   // reduction, or atomic operation
@@ -3526,9 +3528,9 @@ VPOParoptTransform::createFastRedTyAndVar(WRegionNode *W, int FastReduction) {
 
   ReductionClause &RedClause = W->getRed();
   for (ReductionItem *RedI : RedClause.items()) {
-    MaybeAlign OrigAlignment =
+    Align OrigAlignment =
         RedI->getOrig()->getPointerAlignment(F->getParent()->getDataLayout());
-    MaxAlignment = std::max(OrigAlignment, MaxAlignment);
+    MaxAlignment = max(OrigAlignment, MaxAlignment);
 
     Type *ElementType = nullptr;
     std::tie(ElementType, std::ignore, std::ignore) = getItemInfo(RedI);
@@ -6368,22 +6370,22 @@ bool VPOParoptTransform::genLoopSchedulingCode(
   // The required variables are LowerBnd, UpperBnd, Stride and UpperD.
   // The last one is only need for distribute loop.
   IsLastVal = REBuilder.CreateAlloca(Int32Ty, nullptr, "is.last");
-  IsLastVal->setAlignment(MaybeAlign(4));
+  IsLastVal->setAlignment(Align(4));
   // Initialize %is.last with zero.
   REBuilder.CreateAlignedStore(REBuilder.getInt32(0), IsLastVal, Align(4));
 
   AllocaInst *LowerBnd = REBuilder.CreateAlloca(IndValTy, nullptr, "lower.bnd");
-  LowerBnd->setAlignment(MaybeAlign(4));
+  LowerBnd->setAlignment(Align(4));
 
   AllocaInst *UpperBnd = REBuilder.CreateAlloca(IndValTy, nullptr, "upper.bnd");
-  UpperBnd->setAlignment(MaybeAlign(4));
+  UpperBnd->setAlignment(Align(4));
 
   AllocaInst *Stride = REBuilder.CreateAlloca(IndValTy, nullptr, "stride");
-  Stride->setAlignment(MaybeAlign(4));
+  Stride->setAlignment(Align(4));
 
   // UpperD is for distribute loop
   AllocaInst *UpperD = REBuilder.CreateAlloca(IndValTy, nullptr, "upperD");
-  UpperD->setAlignment(MaybeAlign(4));
+  UpperD->setAlignment(Align(4));
 
   // Get Schedule kind and chunk information from W-Region node
   // Default: static_even.
@@ -6484,21 +6486,21 @@ bool VPOParoptTransform::genLoopSchedulingCode(
     // Create variables for the team distribution initialization.
     // Insert alloca instructions in the region's entry block.
     TeamIsLast = REBuilder.CreateAlloca(Int32Ty, nullptr, "team.is.last");
-    TeamIsLast->setAlignment(MaybeAlign(4));
+    TeamIsLast->setAlignment(Align(4));
     // Initialize %team.is.last with zero.
     REBuilder.CreateAlignedStore(REBuilder.getInt32(0), TeamIsLast, Align(4));
 
     TeamLowerBnd = REBuilder.CreateAlloca(IndValTy, nullptr, "team.lower.bnd");
-    TeamLowerBnd->setAlignment(MaybeAlign(4));
+    TeamLowerBnd->setAlignment(Align(4));
 
     TeamUpperBnd = REBuilder.CreateAlloca(IndValTy, nullptr, "team.upper.bnd");
-    TeamUpperBnd->setAlignment(MaybeAlign(4));
+    TeamUpperBnd->setAlignment(Align(4));
 
     TeamStride = REBuilder.CreateAlloca(IndValTy, nullptr, "team.stride");
-    TeamStride->setAlignment(MaybeAlign(4));
+    TeamStride->setAlignment(Align(4));
 
     TeamUpperD = REBuilder.CreateAlloca(IndValTy, nullptr, "team.upperD");
-    TeamUpperD->setAlignment(MaybeAlign(4));
+    TeamUpperD->setAlignment(Align(4));
 
     // Initialize arguments for team distribution init call.
     // Insert store instructions and the call in the loop pre-header block.
@@ -7063,7 +7065,7 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
   if (NumThreads || NumTeams) {
     Type *I32Ty = Type::getInt32Ty(F->getParent()->getContext());
     LoadInst *Tid = new LoadInst(I32Ty, TidPtrHolder, "my.tid", ForkCI);
-    Tid->setAlignment(MaybeAlign(4));
+    Tid->setAlignment(Align(4));
     if (W->getIsTeams())
       VPOParoptUtils::genKmpcPushNumTeams(W, IdentTy, Tid, NumTeams,
                                           NumThreads, ForkCI);
@@ -8013,6 +8015,7 @@ bool VPOParoptTransform::propagateCancellationPointsToIR(WRegionNode *W) {
   Function *F = EntryBB->getParent();
   LLVMContext &C = F->getContext();
   Type *I32Type = Type::getInt32Ty(C);
+  Align I32Align = F->getParent()->getDataLayout().getABITypeAlign(I32Type);
 
   BasicBlock &FunctionEntry = F->getEntryBlock();
   IRBuilder<> AllocaBuilder(FunctionEntry.getFirstNonPHI());
@@ -8021,7 +8024,8 @@ bool VPOParoptTransform::propagateCancellationPointsToIR(WRegionNode *W) {
     AllocaInst *CPAlloca =
         AllocaBuilder.CreateAlloca(I32Type, nullptr, "cp");          // (1)
 
-    StoreInst *CPStore = new StoreInst(CancellationPoint, CPAlloca); // (4)
+    StoreInst *CPStore =
+        new StoreInst(CancellationPoint, CPAlloca, false, I32Align); // (4)
     CPStore->insertAfter(CancellationPoint);
     CancellationPointAllocas.push_back(CPAlloca);
   }
@@ -8365,7 +8369,7 @@ bool VPOParoptTransform::genCancellationBranchingCode(WRegionNode *W) {
 
       Type *I32Ty = Type::getInt32Ty(InsertPt->getModule()->getContext());
       LoadInst *LoadTid = new LoadInst(I32Ty, TidPtrHolder, "my.tid", InsertPt);
-      LoadTid->setAlignment(MaybeAlign(4));
+      LoadTid->setAlignment(Align(4));
       VPOParoptUtils::genKmpcStaticFini(W, IdentTy, LoadTid, InsertPt);
 
       CancelExitBB = CancelExitBBWithStaticFini;

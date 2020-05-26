@@ -48,6 +48,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Target/TargetMachine.h" // INTEL
 #include <algorithm>
 #include <cassert>
 #include <limits>

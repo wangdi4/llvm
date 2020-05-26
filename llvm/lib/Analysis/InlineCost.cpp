@@ -248,6 +248,14 @@ public:
                                     formatted_raw_ostream &OS);
 };
 
+/// Carry out call site analysis, in order to evaluate inlinability.
+/// NOTE: the type is currently used as implementation detail of functions such
+/// as llvm::getInlineCost. Note the function_ref constructor parameters - the
+/// expectation is that they come from the outer scope, from the wrapper
+/// functions. If we want to support constructing CallAnalyzer objects where
+/// lambdas are provided inline at construction, or where the object needs to
+/// otherwise survive past the scope of the provided functions, we need to
+/// revisit the argument types.
 class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
   typedef InstVisitor<CallAnalyzer, bool> Base;
   friend class InstVisitor<CallAnalyzer, bool>;
@@ -258,10 +266,10 @@ protected:
   const TargetTransformInfo &TTI;
 
   /// Getter for the cache of @llvm.assume intrinsics.
-  std::function<AssumptionCache &(Function &)> &GetAssumptionCache;
+  function_ref<AssumptionCache &(Function &)> GetAssumptionCache;
 
   /// Getter for BlockFrequencyInfo
-  Optional<function_ref<BlockFrequencyInfo &(Function &)>> &GetBFI;
+  function_ref<BlockFrequencyInfo &(Function &)> GetBFI;
 
   /// Profile summary information.
   ProfileSummaryInfo *PSI;
@@ -522,11 +530,12 @@ protected:
   bool visitUnreachableInst(UnreachableInst &I);
 
 public:
-  CallAnalyzer(const TargetTransformInfo &TTI,
-               std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
-               Optional<function_ref<BlockFrequencyInfo &(Function &)>> &GetBFI,
-               ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE,
-               Function &Callee, CallBase &Call)
+  CallAnalyzer(
+      Function &Callee, CallBase &Call, const TargetTransformInfo &TTI,
+      function_ref<AssumptionCache &(Function &)> GetAssumptionCache,
+      function_ref<BlockFrequencyInfo &(Function &)> GetBFI = nullptr,
+      ProfileSummaryInfo *PSI = nullptr,
+      OptimizationRemarkEmitter *ORE = nullptr)
       : TTI(TTI), GetAssumptionCache(GetAssumptionCache), GetBFI(GetBFI),
         PSI(PSI), F(Callee), DL(F.getParent()->getDataLayout()), ORE(ORE),
 #if INTEL_CUSTOMIZATION
@@ -3246,8 +3255,9 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
       /// FIXME: if InlineCostCallAnalyzer is derived from, this may need
       /// to instantiate the derived class.
 #if INTEL_CUSTOMIZATION
-      InlineCostCallAnalyzer CA(TTI, GetAssumptionCache, GetBFI, PSI, ORE, *F,
-                                Call, TLI, ILIC, AI, IndirectCallParams, false);
+      InlineCostCallAnalyzer CA(*F, Call, IndirectCallParams, TTI,
+                                GetAssumptionCache, GetBFI, PSI, ORE, TLI, ILIC,
+                                AI, false);
 #endif // INTEL_CUSTOMIZATION
       if (CA.analyze(TTI, nullptr).isSuccess()) { // INTEL
         // We were able to inline the indirect call! Subtract the cost from the
@@ -3594,17 +3604,18 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
 
 public:
   InlineCostCallAnalyzer(
+      Function &Callee, CallBase &Call, const InlineParams &Params,
       const TargetTransformInfo &TTI,
-      std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
-      Optional<function_ref<BlockFrequencyInfo &(Function &)>> &GetBFI,
-      ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE, Function &Callee,
+      function_ref<AssumptionCache &(Function &)> GetAssumptionCache,
+      function_ref<BlockFrequencyInfo &(Function &)> GetBFI = nullptr,
+      ProfileSummaryInfo *PSI = nullptr,
 #if INTEL_CUSTOMIZATION
-      CallBase &Call, TargetLibraryInfo *TLI,
-      InliningLoopInfoCache *ILIC, InlineAggressiveInfo *AI,
-      const InlineParams &Params, bool BoostIndirect = true,
+      OptimizationRemarkEmitter *ORE = nullptr,
+      TargetLibraryInfo *TLI = nullptr, InliningLoopInfoCache *ILIC = nullptr,
+      InlineAggressiveInfo *AI = nullptr, bool BoostIndirect = true,
 #endif // INTEL_CUSTOMIZATION
       bool IgnoreThreshold = false)
-      : CallAnalyzer(TTI, GetAssumptionCache, GetBFI, PSI, ORE, Callee, Call),
+      : CallAnalyzer(Callee, Call, TTI, GetAssumptionCache, GetBFI, PSI, ORE),
         ComputeFullInlineCost(OptComputeFullInlineCost ||
                               Params.ComputeFullInlineCost || ORE),
         Params(Params), Threshold(Params.DefaultThreshold),
@@ -4316,7 +4327,7 @@ void InlineCostCallAnalyzer::updateThreshold(CallBase &Call, Function &Callee) {
     // Callsite hotness and coldness can be determined if sample profile is
     // used (which adds hotness metadata to calls) or if caller's
     // BlockFrequencyInfo is available.
-    BlockFrequencyInfo *CallerBFI = GetBFI ? &((*GetBFI)(*Caller)) : nullptr;
+    BlockFrequencyInfo *CallerBFI = GetBFI ? &(GetBFI(*Caller)) : nullptr;
     auto HotCallSiteThreshold = getHotCallSiteThreshold(Call, CallerBFI);
     if (!Caller->hasOptSize() && HotCallSiteThreshold) {
       LLVM_DEBUG(dbgs() << "Hot callsite.\n");
@@ -4793,7 +4804,7 @@ bool CallAnalyzer::visitSwitchInst(SwitchInst &SI) {
   // does not (yet) fire.
 
   unsigned JumpTableSize = 0;
-  BlockFrequencyInfo *BFI = GetBFI ? &((*GetBFI)(F)) : nullptr;
+  BlockFrequencyInfo *BFI = GetBFI ? &(GetBFI(F)) : nullptr;
   unsigned NumCaseCluster =
       TTI.getEstimatedNumberOfCaseClusters(SI, JumpTableSize, PSI, BFI);
 
@@ -5385,29 +5396,26 @@ int llvm::getCallsiteCost(CallBase &Call, const DataLayout &DL) {
 
 InlineCost llvm::getInlineCost(
     CallBase &Call, const InlineParams &Params, TargetTransformInfo &CalleeTTI,
-    std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
-    Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
+    function_ref<AssumptionCache &(Function &)> GetAssumptionCache,
     function_ref<const TargetLibraryInfo &(Function &)> GetTLI,
+    function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
 #if INTEL_CUSTOMIZATION
-    InliningLoopInfoCache *ILIC,
-    InlineAggressiveInfo *AI,
-#endif // INTEL_CUSTOMIZATION
-    ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE) {
-#if INTEL_CUSTOMIZATION
+    ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE,
+    InliningLoopInfoCache *ILIC, InlineAggressiveInfo *AI) {
   return getInlineCost(Call, Call.getCalledFunction(), Params, CalleeTTI,
-                       GetAssumptionCache, GetBFI, GetTLI, ILIC, AI, PSI, ORE);
+                       GetAssumptionCache, GetTLI, GetBFI, PSI, ORE, ILIC, AI);
 #endif // INTEL_CUSTOMIZATION
 }
 
 Optional<int> llvm::getInliningCostEstimate(
     CallBase &Call, TargetTransformInfo &CalleeTTI,
-    std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
-    Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
+    function_ref<AssumptionCache &(Function &)> GetAssumptionCache,
+    function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
 #if INTEL_CUSTOMIZATION
+    ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE,
     TargetLibraryInfo *TLI, InliningLoopInfoCache *ILIC,
-    InlineAggressiveInfo *AggI,
+    InlineAggressiveInfo *AggI) {
 #endif // INTEL_CUSTOMIZATION
-    ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE) {
   const InlineParams Params = {/* DefaultThreshold*/ 0,
                                /*HintThreshold*/ {},
                                /*ColdThreshold*/ {},
@@ -5418,12 +5426,10 @@ Optional<int> llvm::getInliningCostEstimate(
                                /*ColdCallSiteThreshold*/ {},
                                /* ComputeFullInlineCost*/ true};
 
-InlineCostCallAnalyzer CA(CalleeTTI, GetAssumptionCache, GetBFI, PSI, ORE,
-#if INTEL_CUSTOMIZATION
-                          *Call.getCalledFunction(), Call, TLI, ILIC, AggI,
-                          Params, true,
-#endif // INTEL_CUSTOMIZATION
-                          /*IgnoreThreshold*/ true);
+  InlineCostCallAnalyzer CA(*Call.getCalledFunction(), Call, Params, CalleeTTI,
+                            GetAssumptionCache, GetBFI, PSI, ORE, TLI, // INTEL
+                            ILIC, AggI, true,                          // INTEL
+                            /*IgnoreThreshold*/ true);
   auto R = CA.analyze(CalleeTTI, nullptr); // INTEL
   if (!R.isSuccess())
     return None;
@@ -5531,14 +5537,13 @@ llvm::getAttributeBasedInliningDecision(
 InlineCost llvm::getInlineCost(
     CallBase &Call, Function *Callee, const InlineParams &Params,
     TargetTransformInfo &CalleeTTI,
-    std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
-    Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
+    function_ref<AssumptionCache &(Function &)> GetAssumptionCache,
     function_ref<const TargetLibraryInfo &(Function &)> GetTLI,
+    function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
 #if INTEL_CUSTOMIZATION
-    InliningLoopInfoCache *ILIC,
-    InlineAggressiveInfo *AI,
+    ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE,
+    InliningLoopInfoCache *ILIC, InlineAggressiveInfo *AI) {
 #endif // INTEL_CUSTOMIZATION
-    ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE) {
 
   auto UserDecision =
       llvm::getAttributeBasedInliningDecision(Call, Callee, CalleeTTI, GetTLI);
@@ -5563,8 +5568,9 @@ InlineCost llvm::getInlineCost(
 
 #if INTEL_CUSTOMIZATION
   auto TLI = GetTLI(*Callee);
-  InlineCostCallAnalyzer CA(CalleeTTI, GetAssumptionCache, GetBFI, PSI, ORE,
-                            *Callee, Call, &TLI, ILIC, AI, Params, true);
+  InlineCostCallAnalyzer CA(*Callee, Call, Params, CalleeTTI,
+                            GetAssumptionCache, GetBFI, PSI, ORE, &TLI, ILIC,
+                            AI, true);
   InlineReason Reason = InlrNoReason;
   InlineResult ShouldInline = CA.analyze(CalleeTTI, &Reason);
   assert(Reason != InlrNoReason);

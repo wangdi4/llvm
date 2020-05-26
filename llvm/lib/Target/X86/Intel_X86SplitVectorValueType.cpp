@@ -551,7 +551,7 @@ bool X86SplitVectorValueType::isSupportedOp(const Instruction *I) const {
   if (const ShuffleVectorInst *SV = dyn_cast<ShuffleVectorInst>(I)) {
     Value *Op0;
     ArrayRef<int> M;
-    if (!match(SV, m_ShuffleVector(m_Value(Op0), m_Undef(), m_Mask(M))))
+    if (!match(SV, m_Shuffle(m_Value(Op0), m_Undef(), m_Mask(M))))
       return false;
 
     if (SV->changesLength())
@@ -1375,7 +1375,7 @@ foldSplattedCmpShuffleVector(ShuffleVectorInst *SV,
                              const TargetTransformInfo *TTI) {
   Instruction *Cmp;
   ArrayRef<int> M;
-  if (!match(SV, m_ShuffleVector(m_Instruction(Cmp), m_Undef(), m_Mask(M))))
+  if (!match(SV, m_Shuffle(m_Instruction(Cmp), m_Undef(), m_Mask(M))))
     return nullptr;
 
   if (SV->changesLength())
@@ -1422,7 +1422,7 @@ foldSplattedCmpShuffleVector(ShuffleVectorInst *SV,
 static bool isBridgeShuffleVector(const ShuffleVectorInst *SV) {
   Value *Op0;
   ArrayRef<int> M;
-  if (!match(SV, m_ShuffleVector(m_Value(Op0), m_Undef(), m_Mask(M))))
+  if (!match(SV, m_Shuffle(m_Value(Op0), m_Undef(), m_Mask(M))))
     return false;
 
   if (SV->changesLength())
@@ -1460,7 +1460,7 @@ static Instruction *
 foldFusedShuffleVectorExtractElement(ExtractElementInst *I) {
   Value *VectorOp;
   ConstantInt *IndexOp;
-  if (!match(I, m_ExtractElement(m_Value(VectorOp), m_ConstantInt(IndexOp))))
+  if (!match(I, m_ExtractElt(m_Value(VectorOp), m_ConstantInt(IndexOp))))
     return nullptr;
 
   unsigned NumElmts = cast<VectorType>(VectorOp->getType())->getNumElements();
@@ -1470,8 +1470,7 @@ foldFusedShuffleVectorExtractElement(ExtractElementInst *I) {
 
   Value *SVOp0, *SVOp1;
   ArrayRef<int> M;
-  if (!match(VectorOp,
-             m_ShuffleVector(m_Value(SVOp0), m_Value(SVOp1), m_Mask(M))))
+  if (!match(VectorOp, m_Shuffle(m_Value(SVOp0), m_Value(SVOp1), m_Mask(M))))
     return nullptr;
 
   ShuffleVectorInst *SV = cast<ShuffleVectorInst>(VectorOp);
