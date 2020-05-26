@@ -124,7 +124,6 @@ protected:
     ExprBits.ValueKind = VK;
     ExprBits.ObjectKind = OK;
     assert(ExprBits.ObjectKind == OK && "truncated kind");
-    ExprBits.IsCondition = 0; // INTEL
     setType(T);
   }
 
@@ -222,19 +221,6 @@ public:
   bool containsUnexpandedParameterPack() const {
     return static_cast<bool>(getDependence() & ExprDependence::UnexpandedPack);
   }
-
-#if INTEL_CUSTOMIZATION
-  /// \brief Whether this expression appears in condition expression context.
-  bool isCondition() const {
-    return ExprBits.IsCondition;
-  }
-
-  /// \brief Set the bit that describes whether this expression
-  /// appears in condition context e.g.: if(expr) while(expr) ?: etc.
-  void setIsCondition(bool PP = true) {
-    ExprBits.IsCondition = PP;
-  }
-#endif // INTEL_CUSTOMIZATION
 
   /// Whether this expression contains subexpressions which had errors, e.g. a
   /// TypoExpr.
