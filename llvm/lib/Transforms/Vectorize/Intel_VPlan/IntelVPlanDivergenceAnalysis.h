@@ -226,8 +226,9 @@ private:
   /// Computes vector shapes for cast instructions, sitofp, sext, ptrtoint, etc.
   VPVectorShape computeVectorShapeForCastInst(const VPInstruction *I);
 
-  /// Computes vector shapes for gep instructions.
-  VPVectorShape computeVectorShapeForGepInst(const VPInstruction *I);
+  /// Computes vector shapes for memory address computation instructions
+  /// (includes GEP and VPSubscript).
+  VPVectorShape computeVectorShapeForMemAddrInst(const VPInstruction *I);
 
   /// Computes vector shapes for phi nodes.
   VPVectorShape computeVectorShapeForPhiNode(const VPPHINode *Phi);

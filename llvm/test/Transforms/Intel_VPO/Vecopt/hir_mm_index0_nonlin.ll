@@ -49,7 +49,7 @@
 ; CHECK-NEXT:     i32 [[VP1]] = phi  [ i32 [[VP__RED_INIT]], [[BB2]] ],  [ i32 [[VP0]], [[BB0]] ]
 ; CHECK-NEXT:     i32 [[VP7]] = phi  [ i32 [[VP__IND_INIT]], [[BB2]] ],  [ i32 [[VP6]], [[BB0]] ]
 ; CHECK-NEXT:     i64 [[VP9:%.*]] = sext i32 [[VP7]] to i64
-; CHECK-NEXT:     i32* [[VP10:%.*]] = getelementptr inbounds i32* [[ORDERING0:%.*]] i64 [[VP9]]
+; CHECK-NEXT:     i32* [[VP10:%.*]] = subscript inbounds i32* [[ORDERING0:%.*]] i64 [[VP9]]
 ; CHECK-NEXT:     i32 [[VP11:%.*]] = load i32* [[VP10]]
 ; CHECK-NEXT:     i1 [[VP12:%.*]] = icmp i32 [[VP11]] i32 [[VP1]]
 ; CHECK-NEXT:     i32 [[VP2]] = select i1 [[VP12]] i32 [[VP7]] i32 [[VP3]]

@@ -900,8 +900,8 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForCastInst(
   }
 }
 
-VPVectorShape
-VPlanDivergenceAnalysis::computeVectorShapeForGepInst(const VPInstruction *I) {
+VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForMemAddrInst(
+    const VPInstruction *I) {
 
   const auto &VPBB = *I->getParent();
   VPValue *PtrOp = I->getOperand(0);
@@ -919,6 +919,16 @@ VPlanDivergenceAnalysis::computeVectorShapeForGepInst(const VPInstruction *I) {
 
   const VPValue *LastIdx = I->getOperand(NumOperands - 1);
   VPVectorShape IdxShape = getObservedShape(VPBB, *LastIdx);
+
+  // Special processing for subscript instructions which could have struct
+  // offsets in 0th dimension.
+  if (auto *Subscript = dyn_cast<VPSubscriptInst>(I)) {
+    ArrayRef<unsigned> ZeroDimOffsets = Subscript->getStructOffsets(0);
+    if (!ZeroDimOffsets.empty() && !IdxShape.isUniform())
+      // 0-th dimension index is divergent and we have struct offsets, do not
+      // proceed.
+      return getRandomVectorShape();
+  }
 
   VPConstant *NewStride = nullptr;
 
@@ -1202,8 +1212,9 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     NewShape = computeVectorShapeForBinaryInst(I);
   else if (Instruction::isCast(Opcode))
     NewShape = computeVectorShapeForCastInst(I);
-  else if (Opcode == Instruction::GetElementPtr)
-    NewShape = computeVectorShapeForGepInst(I);
+  else if (Opcode == Instruction::GetElementPtr ||
+           Opcode == VPInstruction::Subscript)
+    NewShape = computeVectorShapeForMemAddrInst(I);
   else if (Opcode == Instruction::Load)
     NewShape = computeVectorShapeForLoadInst(I);
   else if (Opcode == Instruction::Store)

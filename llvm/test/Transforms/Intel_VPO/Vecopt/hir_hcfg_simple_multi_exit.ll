@@ -40,11 +40,11 @@ define dso_local i32 @peel_example(i32 %delta2, i32 %len_limit, i32* nocapture r
 ; CHECK-NEXT:     i32 [[VP6:%.*]] = hir-copy i32 [[VP5]] , OriginPhiId: -1
 ; CHECK-NEXT:     i64 [[VP7:%.*]] = zext i32 [[VP3]] to i64
 ; CHECK-NEXT:     i64 [[VP8:%.*]] = add i64 [[VP1]] i64 [[VP7]]
-; CHECK-NEXT:     i32* [[VP9:%.*]] = getelementptr inbounds i32* [[CUR0:%.*]] i64 [[VP8]]
+; CHECK-NEXT:     i32* [[VP9:%.*]] = subscript inbounds i32* [[CUR0:%.*]] i64 [[VP8]]
 ; CHECK-NEXT:     i32 [[VP10:%.*]] = load i32* [[VP9]]
 ; CHECK-NEXT:     i32 [[VP11:%.*]] = add i32 [[VP3]] i32 1
 ; CHECK-NEXT:     i64 [[VP12:%.*]] = zext i32 [[VP11]] to i64
-; CHECK-NEXT:     i32* [[VP13:%.*]] = getelementptr inbounds i32* [[CUR0]] i64 [[VP12]]
+; CHECK-NEXT:     i32* [[VP13:%.*]] = subscript inbounds i32* [[CUR0]] i64 [[VP12]]
 ; CHECK-NEXT:     i32 [[VP14:%.*]] = load i32* [[VP13]]
 ; CHECK-NEXT:     i1 [[VP15:%.*]] = icmp i32 [[VP10]] i32 [[VP14]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP15]]), [[BB3]](!i1 [[VP15]])

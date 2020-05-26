@@ -37,15 +37,15 @@ define void @foo() {
 ; CHECK-NEXT:  External Defs End:
 ; CHECK:          i64 [[VP7:%.*]] = phi  [ i64 0, {{.*}} ],  [ i64 [[VP8:%.*]], {{.*}} ]
 ; CHECK-NEXT:     i64 [[VP9:%.*]] = add i64 [[VP7]] i64 4
-; CHECK-NEXT:     i64* [[VP10:%.*]] = getelementptr inbounds [100 x [100 x i64]]* @arr2 i64 0 i64 [[VP6]] i64 [[VP9]]
+; CHECK-NEXT:     i64* [[VP10:%.*]] = subscript inbounds [100 x [100 x i64]]* @arr2 i64 0 i64 [[VP6]] i64 [[VP9]]
 ; CHECK-NEXT:     i64 [[VP11:%.*]] = load i64* [[VP10]]
 ; CHECK-NEXT:     i64 [[VP12:%.*]] = add i64 [[VP11]] i64 1111
-; CHECK-NEXT:     i64* [[VP13:%.*]] = getelementptr inbounds [100 x [100 x i64]]* @arr i64 0 i64 [[VP2]] i64 [[VP7]]
+; CHECK-NEXT:     i64* [[VP13:%.*]] = subscript inbounds [100 x [100 x i64]]* @arr i64 0 i64 [[VP2]] i64 [[VP7]]
 ; CHECK-NEXT:     store i64 [[VP12]] i64* [[VP13]]
-; CHECK-NEXT:     i64* [[VP14:%.*]] = getelementptr inbounds [100 x [100 x i64]]* @arr4 i64 0 i64 [[I10:%.*]] i64 [[VP7]]
+; CHECK-NEXT:     i64* [[VP14:%.*]] = subscript inbounds [100 x [100 x i64]]* @arr4 i64 0 i64 [[I10:%.*]] i64 [[VP7]]
 ; CHECK-NEXT:     i64 [[VP15:%.*]] = load i64* [[VP14]]
 ; CHECK-NEXT:     i64 [[VP16:%.*]] = add i64 [[VP15]] i64 [[I10]]
-; CHECK-NEXT:     i64* [[VP17:%.*]] = getelementptr inbounds [100 x [100 x i64]]* @arr3 i64 0 i64 [[VP16]] i64 [[VP7]]
+; CHECK-NEXT:     i64* [[VP17:%.*]] = subscript inbounds [100 x [100 x i64]]* @arr3 i64 0 i64 [[VP16]] i64 [[VP7]]
 ; CHECK-NEXT:     store i64 [[I10]] i64* [[VP17]]
 ;
 entry:

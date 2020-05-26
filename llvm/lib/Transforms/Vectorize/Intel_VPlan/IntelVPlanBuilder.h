@@ -272,13 +272,13 @@ public:
 
   // Build a single-dimensional VPSubscriptInst to represent a subscript
   // intrinsic call.
-  VPSubscriptInst *createSubscriptInst(unsigned Rank, VPValue *Lower,
-                                       VPValue *Stride, VPValue *Base,
-                                       VPValue *Index,
+  VPSubscriptInst *createSubscriptInst(Type *BaseTy, unsigned Rank,
+                                       VPValue *Lower, VPValue *Stride,
+                                       VPValue *Base, VPValue *Index,
                                        Instruction *Inst = nullptr,
                                        const Twine &Name = "subscript") {
     VPSubscriptInst *NewSubscript =
-        new VPSubscriptInst(Rank, Lower, Stride, Base, Index);
+        new VPSubscriptInst(BaseTy, Rank, Lower, Stride, Base, Index);
     NewSubscript->setName(Name);
     if (BB)
       BB->insert(NewSubscript, InsertPt);
@@ -291,14 +291,14 @@ public:
   // multi-dimensional array access implemented using subscript intrinsic calls.
   // TODO: Such an access would usually have multiple underlying instructions,
   // how to map the VPValue to multiple Values?
-  VPSubscriptInst *createSubscriptInst(unsigned NumDims,
+  VPSubscriptInst *createSubscriptInst(Type *BaseTy, unsigned NumDims,
                                        ArrayRef<VPValue *> Lowers,
                                        ArrayRef<VPValue *> Strides,
                                        VPValue *Base,
                                        ArrayRef<VPValue *> Indices,
                                        const Twine &Name = "subscript") {
     VPSubscriptInst *NewSubscript =
-        new VPSubscriptInst(NumDims, Lowers, Strides, Base, Indices);
+        new VPSubscriptInst(BaseTy, NumDims, Lowers, Strides, Base, Indices);
     NewSubscript->setName(Name);
     if (BB)
       BB->insert(NewSubscript, InsertPt);
@@ -308,17 +308,27 @@ public:
   // Build a multi-dimensional VPSubscriptInst to represent a combined
   // multi-dimensional array access implemented using subscript intrinsic calls
   // when each dimension has associated struct offsets.
-  VPSubscriptInst *
-  createSubscriptInst(unsigned NumDims, ArrayRef<VPValue *> Lowers,
-                      ArrayRef<VPValue *> Strides, VPValue *Base,
-                      ArrayRef<VPValue *> Indices,
-                      VPSubscriptInst::DimStructOffsetsMapTy StructOffsets,
-                      const Twine &Name = "subscript") {
+  VPSubscriptInst *createSubscriptInst(
+      Type *BaseTy, unsigned NumDims, ArrayRef<VPValue *> Lowers,
+      ArrayRef<VPValue *> Strides, VPValue *Base, ArrayRef<VPValue *> Indices,
+      VPSubscriptInst::DimStructOffsetsMapTy StructOffsets,
+      VPSubscriptInst::DimTypeMapTy Types, const Twine &Name = "subscript") {
     VPSubscriptInst *NewSubscript = new VPSubscriptInst(
-        NumDims, Lowers, Strides, Base, Indices, StructOffsets);
+        BaseTy, NumDims, Lowers, Strides, Base, Indices, StructOffsets, Types);
     NewSubscript->setName(Name);
     if (BB)
       BB->insert(NewSubscript, InsertPt);
+    return NewSubscript;
+  }
+  VPSubscriptInst *createInBoundsSubscriptInst(
+      Type *BaseTy, unsigned NumDims, ArrayRef<VPValue *> Lowers,
+      ArrayRef<VPValue *> Strides, VPValue *Base, ArrayRef<VPValue *> Indices,
+      VPSubscriptInst::DimStructOffsetsMapTy StructOffsets,
+      VPSubscriptInst::DimTypeMapTy Types, const Twine &Name = "subscript") {
+    VPSubscriptInst *NewSubscript =
+        createSubscriptInst(BaseTy, NumDims, Lowers, Strides, Base, Indices,
+                            StructOffsets, Types, Name);
+    NewSubscript->setIsInBounds(true);
     return NewSubscript;
   }
 

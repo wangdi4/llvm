@@ -1503,8 +1503,10 @@ public:
 class VPSubscriptInst final : public VPInstruction {
 public:
   using DimStructOffsetsMapTy = DenseMap<unsigned, SmallVector<unsigned, 4>>;
+  using DimTypeMapTy = DenseMap<unsigned, Type *>;
 
 private:
+  bool InBounds = false;
   // TODO: Below SmallVectors are currently assuming that dimensions are added
   // in a fixed order i.e. outer-most dimension to inner-most dimension. To
   // support flexibility in this ordering, DenseMaps will be needed. For
@@ -1523,6 +1525,18 @@ private:
   // NOTE: This information is needed only if the subscript instruction
   // is created via HIR-path. For LLVM-IR path the map will always be empty.
   DimStructOffsetsMapTy DimStructOffsets;
+  // Type associated with each dimension of this array access. For example,
+  // incoming HIR contains:
+  // %1 = (@arr)[0:0:4096([1024 x i32]*:0)][0:i1:4([1024 x i32]:1024)]
+  //
+  // then the map below will have following entries:
+  // Dim  --->     Type
+  //  1         [1024 x i32]*
+  //  0         [1024 x i32]
+  //
+  // NOTE: This information is needed only if the subscript instruction
+  // is created via HIR-path. For LLVM-IR path the map will always be empty.
+  DimTypeMapTy DimTypes;
 
   /// Add a new dimension to represent the array access for this subscript
   /// instruction.
@@ -1552,17 +1566,19 @@ private:
       : VPInstruction(VPInstruction::Subscript, Other.getType(), {}) {
     for (auto *Op : Other.operands())
       addOperand(Op);
+    InBounds = Other.InBounds;
     Ranks = Other.Ranks;
     DimStructOffsets = Other.DimStructOffsets;
+    DimTypes = Other.DimTypes;
   }
 
 public:
   /// Constructor to allow clients to create a VPSubscriptInst with a single
   /// dimension only. Type of the instruction will be same as the type of the
   /// base pointer operand.
-  VPSubscriptInst(unsigned Rank, VPValue *Lower, VPValue *Stride, VPValue *Base,
-                  VPValue *Index)
-      : VPInstruction(VPInstruction::Subscript, Base->getType(),
+  VPSubscriptInst(Type *BaseTy, unsigned Rank, VPValue *Lower, VPValue *Stride,
+                  VPValue *Base, VPValue *Index)
+      : VPInstruction(VPInstruction::Subscript, BaseTy,
                       {Base, Lower, Stride, Index}) {
     Ranks.push_back(Rank);
   }
@@ -1570,10 +1586,10 @@ public:
   /// Constructor to create a VPSubscriptInst that represents a combined
   /// multi-dimensional array access. The fields are expected to be ordered from
   /// highest-dimension to lowest-dimension.
-  VPSubscriptInst(unsigned NumDims, ArrayRef<VPValue *> Lowers,
+  VPSubscriptInst(Type *BaseTy, unsigned NumDims, ArrayRef<VPValue *> Lowers,
                   ArrayRef<VPValue *> Strides, VPValue *Base,
                   ArrayRef<VPValue *> Indices)
-      : VPInstruction(VPInstruction::Subscript, Base->getType(), {Base}) {
+      : VPInstruction(VPInstruction::Subscript, BaseTy, {Base}) {
     assert((Lowers.size() == NumDims && Strides.size() == NumDims &&
             Indices.size() == NumDims) &&
            "Inconsistent parameters for multi-dimensional subscript access.");
@@ -1585,15 +1601,21 @@ public:
 
   /// Constructor to create a VPSubscriptInst that represents a combined
   /// multi-dimensional array access when each dimension has corresponding
-  /// struct offsets. The fields are expected to be ordered from
-  /// highest-dimension to lowest-dimension.
-  VPSubscriptInst(unsigned NumDims, ArrayRef<VPValue *> Lowers,
+  /// struct offsets and the dimension's associated type information is also
+  /// available. The fields are expected to be ordered from highest-dimension to
+  /// lowest-dimension.
+  VPSubscriptInst(Type *BaseTy, unsigned NumDims, ArrayRef<VPValue *> Lowers,
                   ArrayRef<VPValue *> Strides, VPValue *Base,
                   ArrayRef<VPValue *> Indices,
-                  DimStructOffsetsMapTy StructOffsets)
-      : VPSubscriptInst(NumDims, Lowers, Strides, Base, Indices) {
+                  DimStructOffsetsMapTy StructOffsets, DimTypeMapTy Types)
+      : VPSubscriptInst(BaseTy, NumDims, Lowers, Strides, Base, Indices) {
     DimStructOffsets = std::move(StructOffsets);
+    DimTypes = std::move(Types);
   }
+
+  /// Setter and getter functions for InBounds.
+  void setIsInBounds(bool IsInBounds) { InBounds = IsInBounds; }
+  bool isInBounds() const { return InBounds; }
 
   /// Get trailing struct offsets for given dimension.
   ArrayRef<unsigned> getStructOffsets(unsigned Dim) const {
@@ -1601,6 +1623,13 @@ public:
     if (Iter != DimStructOffsets.end())
       return Iter->second;
     return ArrayRef<unsigned>(None);
+  }
+  /// Get type associated for given dimension.
+  Type *getDimensionType(unsigned Dim) const {
+    auto Iter = DimTypes.find(Dim);
+    assert(Iter != DimTypes.end() &&
+           "Type information not found for dimension.");
+    return Iter->second;
   }
 
   /// Get number of dimensions associated with this array access.

@@ -684,6 +684,7 @@ private:
     case Instruction::Add:
     case Instruction::BitCast:
     case Instruction::GetElementPtr:
+    case VPInstruction::Subscript:
     case Instruction::SExt:
     case Instruction::Trunc:;
     case Instruction::ZExt:
@@ -730,6 +731,26 @@ private:
                      int64_t InterleaveFactor, int64_t InterleaveIndex,
                      const HLInst *GrpStartInst, const VPInstruction *VPInst);
 
+  // Helper utility to get result type corresponding to \p RefTy based on \p
+  // Widen.
+  Type *getResultRefTy(Type *RefTy, unsigned VF, bool Widen) {
+    return Widen ? VectorType::get(RefTy, VF) : RefTy;
+  }
+
+  // Helper utility to make \p Ref consistent and map it to \p VPInst based on
+  // \p Widen.
+  void makeConsistentAndAddToMap(RegDDRef *Ref, const VPInstruction *VPInst,
+                                 SmallVectorImpl<const RegDDRef *> &AuxRefs,
+                                 bool Widen) {
+    // Use AuxRefs if it is not empty to make Ref consistent
+    if (!AuxRefs.empty())
+      Ref->makeConsistent(AuxRefs, OrigLoop->getNestingLevel());
+    if (Widen)
+      addVPValueWideRefMapping(VPInst, Ref);
+    else
+      addVPValueScalRefMapping(VPInst, Ref, 0);
+  }
+
   // Implementation of generating needed HIR constructs for the given
   // VPInstruction. We generate new RegDDRefs or HLInsts that correspond to
   // the given VPInstruction. Widen parameter is used to specify if we are
@@ -768,6 +789,10 @@ private:
 
   // Implementation of load/store widening.
   void widenLoadStoreImpl(const VPInstruction *VPInst, RegDDRef *Mask);
+
+  // Implementation of codegen for subscript instruction.
+  void generateHIRForSubscript(const VPSubscriptInst *VPSubscript,
+                               RegDDRef *Mask, bool Widen);
 
   // Implementation of widening of VPLoopEntity specific instructions. Some
   // notes on opcodes supported so far -
@@ -828,6 +853,12 @@ private:
   // constants. For others, we create an extract element instruction for lane 0
   // from the wide reference and return the result of the extract.
   RegDDRef *getOrCreateScalarRef(const VPValue *VPVal);
+
+  // Wrapper utility method to obtain RegDDRef corresponding to given VPValue
+  // based on the Widen boolean.
+  RegDDRef *getOrCreateRefForVPVal(const VPValue *VPVal, bool Widen) {
+    return Widen ? widenRef(VPVal, getVF()) : getOrCreateScalarRef(VPVal);
+  }
 
   // For Generate PaddedCounter < 250 and insert it into the vector of runtime
   // checks if this is a search loop which needs the check.

@@ -52,7 +52,7 @@ define dso_local i32 @foo(i32* nocapture readonly %a, i32 %n) local_unnamed_addr
 ; CHECK-NEXT:    [[BB2]]:
 ; CHECK-NEXT:     [DA: Div] i32 [[VP3:%.*]] = phi  [ i32 [[VP__RED_INIT]], [[BB1]] ],  [ i32 [[VP4:%.*]], cloned.[[BB3:BB[0-9]+]] ]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP5:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP6:%.*]], cloned.[[BB3]] ]
-; CHECK-NEXT:     [DA: Div] i32* [[VP7:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i64 [[VP5]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP7:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP5]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP8:%.*]] = load i32* [[VP7]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP9:%.*]] = add i32 [[VP8]] i32 [[VP3]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP10:%.*]] = add i64 [[VP5]] i64 [[VP__IND_INIT_STEP]]
@@ -61,7 +61,7 @@ define dso_local i32 @foo(i32* nocapture readonly %a, i32 %n) local_unnamed_addr
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] cloned.[[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    cloned.[[BB4]]:
-; CHECK-NEXT:     [DA: Div] i32* [[VP12:%.*]] = getelementptr inbounds i32* [[A0]] i64 [[VP10]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP12:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP10]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP13:%.*]] = load i32* [[VP12]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP14:%.*]] = add i32 [[VP13]] i32 [[VP9]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP15:%.*]] = add i64 [[VP10]] i64 [[VP__IND_INIT_STEP]]
@@ -70,7 +70,7 @@ define dso_local i32 @foo(i32* nocapture readonly %a, i32 %n) local_unnamed_addr
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    cloned.[[BB3]]:
-; CHECK-NEXT:     [DA: Div] i32* [[VP17:%.*]] = getelementptr inbounds i32* [[A0]] i64 [[VP15]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP17:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP15]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP18:%.*]] = load i32* [[VP17]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP4]] = add i32 [[VP18]] i32 [[VP14]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP6]] = add i64 [[VP15]] i64 [[VP__IND_INIT_STEP]]

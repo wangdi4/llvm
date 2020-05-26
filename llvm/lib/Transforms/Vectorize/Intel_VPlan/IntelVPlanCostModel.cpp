@@ -195,14 +195,16 @@ unsigned VPlanCostModel::getLoadStoreIndexSize(
                                VPInst->getOperand(0)->getType()) == 0)
     Ptr = VPInst->getOperand(0);
 
-  const VPGEPInstruction* VPGEP = dyn_cast<VPGEPInstruction>(Ptr);
+  const VPInstruction *VPAddrInst = dyn_cast<VPGEPInstruction>(Ptr);
+  if (!VPAddrInst)
+    VPAddrInst = dyn_cast<VPSubscriptInst>(Ptr);
   unsigned IndexSize = DL->getPointerSizeInBits();
 
   // Try to reduce index size from 64 bit (default for GEP) to 32. It is
-  // essential for VF 16. Check that the base pointer is the same for all
-  // lanes, and that there's at most one variable index.
-  if (IndexSize < 64 || !VPGEP ||
-      VPGEP->getPointerOperand()->getType()->isVectorTy())
+  // essential for VF 16. Check that the base pointer (first operand) is the
+  // same for all lanes, and that there's at most one variable index.
+  if (IndexSize < 64 || !VPAddrInst ||
+      getPointerOperand(VPAddrInst)->getType()->isVectorTy())
     return IndexSize;
 
   auto getTypeElementSize = [](const VPValue *V) -> unsigned {
@@ -212,9 +214,19 @@ unsigned VPlanCostModel::getLoadStoreIndexSize(
     return Ty->getPrimitiveSizeInBits();
   };
 
+  SmallVector<const VPValue *, 4> IndicesOperands;
+  if (isa<VPGEPInstruction>(VPAddrInst))
+    IndicesOperands.append(VPAddrInst->op_begin() + 1, VPAddrInst->op_end());
+  else {
+    const VPSubscriptInst *Subscript = cast<VPSubscriptInst>(VPAddrInst);
+    // Add index operand for each dimension.
+    for (unsigned Dim = 0; Dim < Subscript->getNumDimensions(); ++Dim)
+      IndicesOperands.push_back(Subscript->getIndex(Dim));
+  }
+
   unsigned NumOfVarIndices = 0;
-  for (auto *OpIt = VPGEP->op_begin() + 1; OpIt != VPGEP->op_end(); ++OpIt) {
-    const VPConstant* VPConst = dyn_cast<VPConstant>(*OpIt);
+  for (auto *Op : IndicesOperands) {
+    const VPConstant *VPConst = dyn_cast<VPConstant>(Op);
     // We don't check that the Constant fits 32 bits as we expect CG is able to
     // pull the splat Constant into splat Base and form scalar base for gather/
     // scatter which is Base + Constant.
@@ -225,7 +237,7 @@ unsigned VPlanCostModel::getLoadStoreIndexSize(
     if (VPConst && VPConst->isConstantInt())
       continue;
 
-    const VPInstruction* VPIdx = dyn_cast<VPInstruction>(*OpIt);
+    const VPInstruction *VPIdx = dyn_cast<VPInstruction>(Op);
     if (!VPIdx || ++NumOfVarIndices > 1)
       return IndexSize; // Can't shrink.
 
@@ -368,7 +380,8 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
   switch (Opcode) {
   default:
     return UnknownCost;
-  case Instruction::GetElementPtr: {
+  case Instruction::GetElementPtr:
+  case VPInstruction::Subscript: {
     // FIXME: First, there could be at least two ways to use this GEP's result
     // (maybe with some casts/geps in between):
     //   1) As a pointer operand of memory operation.

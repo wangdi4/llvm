@@ -691,63 +691,6 @@ void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
       FieldAccessSeen = true;
 
     MemRefSeen = true;
-
-    // Proper support of Fortran arrays in VPValue based code generation
-    // requires VPSubscript instruction which is currently under
-    // implementation. Switch to mixed CG mode for these cases.
-    if (EnableVPValueCodegenHIR) {
-      unsigned NumDimensions = RegDD->getNumDimensions();
-      // Force mixed CG for any of the following cases:
-      //   - dimension lower is non-zero
-      //   - dimension stride is variant
-      //   - dimension other than last is not an LLVM array.
-      for (unsigned DimNum = NumDimensions; DimNum > 0; --DimNum) {
-        if (!RegDD->getDimensionLower(DimNum)->isZero() ||
-            !RegDD->getDimensionStride(DimNum)->isInvariantAtLevel(
-                OrigLoop->getNestingLevel()) ||
-            (DimNum != NumDimensions && !RegDD->isDimensionLLVMArray(DimNum))) {
-          LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Loop not handled - Fortran "
-                               "array accesses using llvm.subscript.intrinsic "
-                               "- using mixed CG\n");
-          CG->setForceMixedCG(true);
-          break;
-        }
-      }
-    }
-  }
-
-  // We cannot support invalidated Fortran array accesses because of missing
-  // support in VPValue-based codegen. Check JIRA - CMPLRLLVM-9881. As of today,
-  // we known that only memrefs participating in reductions are invalidated. Try
-  // to recognize such memrefs, and bail out of vectorization. For example -
-  //
-  // 1. Unsupported pattern
-  //    DO LOOP i1=0, N, 1
-  //     %1 = %1 + (@FortranArray)[i1] <Safe reduction>
-  //    END LOOP
-  //
-  // 2. Supported pattern
-  //    DO LOOP i1=0, N, 1
-  //     %0 = (@FortranArray)[i1]
-  //     %1 = %1 + %0 <Safe reduction>
-  //    END LOOP
-  //
-  // TODO : Remove this bailout when CMPLRLLVM-9881 is resolved.
-  if (auto *HInst = dyn_cast<HLInst>(RegDD->getHLDDNode())) {
-    for (unsigned DimNum = RegDD->getNumDimensions() - 1; DimNum > 0;
-         --DimNum) {
-      unsigned Opcode;
-      if ((!RegDD->isDimensionLLVMArray(DimNum) ||
-           !RegDD->getDimensionLower(DimNum)->isZero()) &&
-          HInst->hasLval() &&
-          CG->isReductionRef(HInst->getLvalDDRef(), Opcode)) {
-        LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Loop not handled - Fortran "
-                             "array accesses using llvm.subscript.intrinsic "
-                             "participating in reduction\n");
-        IsHandled = false;
-        return;
-      }
-    }
   }
 }
 
@@ -3357,31 +3300,57 @@ void VPOCodeGenHIR::widenLoadStoreImpl(const VPInstruction *VPInst,
   addInst(WInst, Mask);
 }
 
+void VPOCodeGenHIR::generateHIRForSubscript(const VPSubscriptInst *VPSubscript,
+                                            RegDDRef *Mask, bool Widen) {
+  auto RefDestTy = VPSubscript->getType();
+  auto ResultRefTy = getResultRefTy(RefDestTy, VF, Widen);
+
+  RegDDRef *PointerRef =
+      getOrCreateRefForVPVal(VPSubscript->getPointerOperand(), Widen);
+  // Base canon expression needs to be a self blob.
+  if (!PointerRef->isSelfBlob()) {
+    auto *CopyInst = HLNodeUtilities.createCopyInst(PointerRef, "nsbgepcopy");
+    addInst(CopyInst, Mask);
+    PointerRef = CopyInst->getLvalDDRef();
+  }
+
+  auto *NewRef = DDRefUtilities.createAddressOfRef(
+      PointerRef->getSelfBlobIndex(), PointerRef->getDefinedAtLevel());
+  NewRef->setInBounds(VPSubscript->isInBounds());
+  NewRef->setBitCastDestType(ResultRefTy);
+  SmallVector<const RegDDRef *, 4> AuxRefs;
+
+  // Utility to specially handle lower/stride fields of a subscript. We ensure
+  // that loop invariant lower/stride are kept scalar even in vectorized memref.
+  auto generateLowerOrStride = [this](VPValue *V, bool Widen) {
+    if (!Plan->getVPlanDA()->isDivergent(*V))
+      return getOrCreateRefForVPVal(V, false /*always scalar*/);
+    return getOrCreateRefForVPVal(V, Widen);
+  };
+
+  for (int Dim = VPSubscript->getNumDimensions() - 1; Dim >= 0; --Dim) {
+    RegDDRef *Lower = generateLowerOrStride(VPSubscript->getLower(Dim), Widen);
+    RegDDRef *Stride =
+        generateLowerOrStride(VPSubscript->getStride(Dim), Widen);
+    RegDDRef *Idx = getOrCreateRefForVPVal(VPSubscript->getIndex(Dim), Widen);
+    AuxRefs.insert(AuxRefs.end(), {Idx, Lower, Stride});
+    ArrayRef<unsigned> StructOffsets = VPSubscript->getStructOffsets(Dim);
+    Type *DimTy = VPSubscript->getDimensionType(Dim);
+    NewRef->addDimension(Idx->getSingleCanonExpr(), StructOffsets,
+                         Lower->getSingleCanonExpr(),
+                         Stride->getSingleCanonExpr(), DimTy);
+  }
+
+  makeConsistentAndAddToMap(NewRef, VPSubscript, AuxRefs, Widen);
+  LLVM_DEBUG(dbgs() << "[VPOCGHIR] NewMemRef: "; NewRef->dump(1));
+}
+
 void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
                                 const OVLSGroup *Grp, int64_t InterleaveFactor,
                                 int64_t InterleaveIndex,
                                 const HLInst *GrpStartInst, bool Widen) {
   assert((Widen || isOpcodeForScalarInst(VPInst->getOpcode())) &&
          "Unxpected instruction for scalar constructs");
-
-  std::function<void(RegDDRef *, const VPInstruction *,
-                     SmallVectorImpl<const RegDDRef *> &, bool)>
-      makeConsistentAndAddToMap =
-          [this](RegDDRef *Ref, const VPInstruction *VPInst,
-                 SmallVectorImpl<const RegDDRef *> &AuxRefs, bool Widen) {
-            // Use AuxRefs if it is not empty to make Ref consistent
-            if (!AuxRefs.empty())
-              Ref->makeConsistent(AuxRefs, OrigLoop->getNestingLevel());
-            if (Widen)
-              addVPValueWideRefMapping(VPInst, Ref);
-            else
-              addVPValueScalRefMapping(VPInst, Ref, 0);
-          };
-
-  std::function<Type *(Type *, unsigned, bool)> getResultRefTy =
-      [](Type *RefTy, unsigned VF, bool Widen) {
-        return Widen ? VectorType::get(RefTy, VF) : RefTy;
-      };
 
   HLInst *NewInst = nullptr;
   SmallVector<RegDDRef *, 1> CallArgs;
@@ -3417,7 +3386,9 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   case Instruction::Store:
     widenLoadStoreImpl(VPInst, Mask);
     return;
-
+  case VPInstruction::Subscript:
+    generateHIRForSubscript(cast<VPSubscriptInst>(VPInst), Mask, Widen);
+    return;
   case VPInstruction::ReductionInit:
   case VPInstruction::ReductionFinal:
   case VPInstruction::InductionInit:
@@ -3776,6 +3747,8 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     break;
 
   case Instruction::GetElementPtr: {
+    // Decomposer can generate GEPs only if underlying LLVMInst is GEP. This
+    // happens for single operand GEP cases (check hir_oneopgep.ll).
     SmallVector<const RegDDRef *, 4> AuxRefs;
 
     // If we have a single operand GEP, we can simply reuse RefOp0
@@ -3783,6 +3756,10 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
       makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen);
       return;
     }
+
+    // Any other case of GEP implies it was introduced after decomposer by some
+    // VPlan-to-VPlan xform.
+    assert(false && "VPlan-to-VPlan xform introduced a new IR-agnostic GEP.");
 
     auto RefDestTy = VPInst->getType();
     auto ResultRefTy = getResultRefTy(RefDestTy, VF, Widen);
@@ -3931,9 +3908,9 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
   generateHIR(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
               GrpStartInst, true /* Widen */);
 
-  // Generate a scalar instruction for unitstride GEPs. This will be changed
-  // later to use SVA information.
-  if (isa<VPGEPInstruction>(VPInst)) {
+  // Generate a scalar instruction for unitstride GEPs/subscripts. This will be
+  // changed later to use SVA information.
+  if (isa<VPGEPInstruction>(VPInst) || isa<VPSubscriptInst>(VPInst)) {
     if (isUnitStridePtr(VPInst))
       generateHIR(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
                   GrpStartInst, false /* Widen */);

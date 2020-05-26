@@ -60,7 +60,7 @@ CHECK_RE = re.compile(r'^\s*;\s*([^:]+?)(?:-NEXT|-NOT|-DAG|-LABEL|-EMPTY)?:')
 CHECK_LABEL_RE = re.compile(r'Cost Model')
 # Match things that look at identifiers, but only if they are followed by
 # spaces, commas, paren, or end of the string
-IR_VALUE_RE = re.compile(r'(\s+|[\(\!])%([\w\.]+?)([,\s\(\)]|\Z)')
+IR_VALUE_RE = re.compile(r'(\s+|[\(\!])%([\w\.]+?)([,\s\(\)\}]|\Z)')
 VP_VALUE_RE = re.compile(r'vp[0-9]+')
 VP_NAMED_VALUE_RE = re.compile(r'vp\.[\w\.]+\.[0-9]+')
 VPBB_RE = re.compile(r'\b(BB[0-9]+|blend\.bb[0-9]+|intermediate\.bb[0-9]+|new.loop.latch[0-9]+|cascaded.if.block[0-9]+)')

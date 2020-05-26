@@ -49,13 +49,13 @@
 
 ; Check decomposed VPInstructions
 ; CHECK: i32 [[PHI:%vp.*]] = phi  [ i32 [[IFT:%vp.*]], [[TBB:BB.*]] ],  [ i32 [[IFF:%vp.*]], [[FBB:BB.*]] ]
-; CHECK-NEXT: i32* [[GEPB:%vp.*]] = getelementptr inbounds [1024 x i32]* @b i64 0 i64 [[IV:%vp.*]]
+; CHECK-NEXT: i32* [[GEPB:%vp.*]] = subscript inbounds [1024 x i32]* @b i64 0 i64 [[IV:%vp.*]]
 ; CHECK-NEXT: store i32 [[PHI]] i32* [[GEPB]]
 ; CHECK-NEXT: i32 [[MUL1:%vp.*]] = mul i32 {{.*}} i32 2
 ; CHECK-NEXT: i32 [[ADD1:%vp.*]] = add i32 [[PHI]] i32 [[MUL1]]
-; CHECK-NEXT: i32* [[GEPC:%vp.*]] = getelementptr inbounds [1024 x i32]* @c i64 0 i64 [[IV]]
+; CHECK-NEXT: i32* [[GEPC:%vp.*]] = subscript inbounds [1024 x i32]* @c i64 0 i64 [[IV]]
 ; CHECK-NEXT: store i32 [[ADD1]] i32* [[GEPC]]
-; CHECK-NEXT: i32* [[GEPD:%vp.*]] = getelementptr inbounds [1024 x i32]* @d i64 0 i64 [[IV]]
+; CHECK-NEXT: i32* [[GEPD:%vp.*]] = subscript inbounds [1024 x i32]* @d i64 0 i64 [[IV]]
 ; CHECK-NEXT: i32 [[D_I1:%vp.*]] = load i32* [[GEPD]]
 ; CHECK-NEXT: i32 [[MUL2:%vp.*]] = mul i32 {{.*}} i32 2
 ; CHECK-NEXT: i32 [[ADD2:%vp.*]] = add i32 [[PHI]] i32 [[MUL2]]
@@ -63,7 +63,7 @@
 ; CHECK-NEXT: i64 [[SEXT:%vp.*]] = sext i32 [[ADD3]] to i64
 ; CHECK-NEXT: i1 [[CMP:%vp.*]] = icmp i64 [[IV:%vp.*]] i64 [[SEXT]]
 ; CHECK-NEXT: i32 [[SEL:%vp.*]] = select i1 [[CMP]] i32 [[PHI]] i32 [[D_I1]]
-; CHECK-NEXT: i32* [[GEPD:%vp.*]] = getelementptr inbounds [1024 x i32]* @d i64 0 i64 [[IV]]
+; CHECK-NEXT: i32* [[GEPD:%vp.*]] = subscript inbounds [1024 x i32]* @d i64 0 i64 [[IV]]
 ; CHECK-NEXT: store i32 [[SEL]] i32* [[GEPD]]
 ; CHECK-NOT: phi
 

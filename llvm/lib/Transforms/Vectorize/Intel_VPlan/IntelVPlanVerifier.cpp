@@ -587,7 +587,10 @@ void VPlanVerifier::verifyGEPInstruction(const VPGEPInstruction *GEP) const {
 }
 
 // Verify operands and type consistency of the given VPSubscriptInst
-// instruction.
+// instruction. Verification is not done for result type since VPSubscriptInst
+// can represent combined multi-dimensional access (unlike
+// llvm.intel.subscript), in which case resulting type would not match base
+// pointer type.
 void VPlanVerifier::verifySubscriptInst(
     const VPSubscriptInst *Subscript) const {
   VPValue *Ptr = Subscript->getPointerOperand();
@@ -597,12 +600,6 @@ void VPlanVerifier::verifySubscriptInst(
   assert(PtrTy->isPtrOrPtrVectorTy() &&
          "SubscriptInst base ptr is not pointer type.");
   (void)PtrTy;
-
-  Type *ResTy = Subscript->getType();
-  assert((ResTy->isPtrOrPtrVectorTy() &&
-          ResTy->getScalarType() == PtrTy->getScalarType()) &&
-         "SubscriptInst result type inconsistent with base pointer type.");
-  (void)ResTy;
 
   assert(Subscript->getNumOperands() == 3 * NumDims + 1 &&
          "SubscriptInst has invalid number of operands.");

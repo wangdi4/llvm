@@ -23,10 +23,10 @@ define dso_local void @_Z3fooPii(float* nocapture %a, i32 %n) local_unnamed_addr
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]:
 ; CHECK-NEXT:     [DA: Div] i64 [[VP1:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP2:%.*]], cloned.[[BB3:BB[0-9]+]] ]
-; CHECK-NEXT:     [DA: Div] float* [[VP3:%.*]] = getelementptr inbounds float* [[A0:%.*]] i64 [[VP1]]
+; CHECK-NEXT:     [DA: Div] float* [[VP3:%.*]] = subscript inbounds float* [[A0:%.*]] i64 [[VP1]]
 ; CHECK-NEXT:     [DA: Div] float [[VP4:%.*]] = load float* [[VP3]]
 ; CHECK-NEXT:     [DA: Div] float [[VP_INC:%.*]] = call float [[VP4]] float (float)* @sinf
-; CHECK-NEXT:     [DA: Div] float* [[VP5:%.*]] = getelementptr inbounds float* [[A0]] i64 [[VP1]]
+; CHECK-NEXT:     [DA: Div] float* [[VP5:%.*]] = subscript inbounds float* [[A0]] i64 [[VP1]]
 ; CHECK-NEXT:     [DA: Div] store float [[VP_INC]] float* [[VP5]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP6:%.*]] = add i64 [[VP1]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP7:%.*]] = icmp i64 [[VP6]] i64 79
@@ -34,10 +34,10 @@ define dso_local void @_Z3fooPii(float* nocapture %a, i32 %n) local_unnamed_addr
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] cloned.[[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    cloned.[[BB3]]:
-; CHECK-NEXT:     [DA: Div] float* [[VP8:%.*]] = getelementptr inbounds float* [[A0]] i64 [[VP6]]
+; CHECK-NEXT:     [DA: Div] float* [[VP8:%.*]] = subscript inbounds float* [[A0]] i64 [[VP6]]
 ; CHECK-NEXT:     [DA: Div] float [[VP9:%.*]] = load float* [[VP8]]
 ; CHECK-NEXT:     [DA: Div] float [[VP10:%.*]] = call float [[VP9]] float (float)* @sinf
-; CHECK-NEXT:     [DA: Div] float* [[VP11:%.*]] = getelementptr inbounds float* [[A0]] i64 [[VP6]]
+; CHECK-NEXT:     [DA: Div] float* [[VP11:%.*]] = subscript inbounds float* [[A0]] i64 [[VP6]]
 ; CHECK-NEXT:     [DA: Div] store float [[VP10]] float* [[VP11]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP2]] = add i64 [[VP6]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP12:%.*]] = icmp i64 [[VP2]] i64 79

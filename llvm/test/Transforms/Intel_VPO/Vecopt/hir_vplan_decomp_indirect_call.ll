@@ -32,20 +32,20 @@
 ; CHECK-NEXT:     i8* [[VP5:%.*]] = bitcast i32* [[B_PRIV0:%.*]]
 ; CHECK-NEXT:     void [[VP6:%.*]] = call i64 4 i8* [[VP5]] void (i64, i8*)* @llvm.lifetime.start.p0i8
 ; CHECK-NEXT:     store i32 0 i32* [[B_PRIV0]]
-; CHECK-NEXT:     i32 (i32)** [[VP7:%.*]] = getelementptr inbounds i32 (i32)** [[FUNC0:%.*]] i64 [[VP2]]
+; CHECK-NEXT:     i32 (i32)** [[VP7:%.*]] = subscript inbounds i32 (i32)** [[FUNC0:%.*]] i64 [[VP2]]
 ; CHECK-NEXT:     i32 (i32)* [[VP8:%.*]] = load i32 (i32)** [[VP7]]
-; CHECK-NEXT:     i32* [[VP9:%.*]] = getelementptr inbounds i32* [[C0:%.*]] i64 [[VP2]]
+; CHECK-NEXT:     i32* [[VP9:%.*]] = subscript inbounds i32* [[C0:%.*]] i64 [[VP2]]
 ; CHECK-NEXT:     i32 [[VP10:%.*]] = load i32* [[VP9]]
 ; CHECK-NEXT:     i32 [[VP11:%.*]] = call i32 [[VP10]] i32 (i32)* [[VP8]]
 ; CHECK-NEXT:     i32 [[VP12:%.*]] = load i32* [[B_PRIV0]]
 ; CHECK-NEXT:     i32 [[VP13:%.*]] = load i32* [[I_LPRIV0]]
 ; CHECK-NEXT:     i64 [[VP14:%.*]] = sext i32 [[VP13]] to i64
-; CHECK-NEXT:     i32* [[VP15:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i64 [[VP14]]
+; CHECK-NEXT:     i32* [[VP15:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP14]]
 ; CHECK-NEXT:     i32 [[VP16:%.*]] = load i32* [[VP15]]
 ; CHECK-NEXT:     i32 [[VP17:%.*]] = add i32 [[VP11]] i32 [[VP12]]
 ; CHECK-NEXT:     i32 [[VP18:%.*]] = add i32 [[VP17]] i32 [[VP16]]
 ; CHECK-NEXT:     i64 [[VP19:%.*]] = sext i32 [[VP13]] to i64
-; CHECK-NEXT:     i32* [[VP20:%.*]] = getelementptr inbounds i32* [[A0]] i64 [[VP19]]
+; CHECK-NEXT:     i32* [[VP20:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP19]]
 ; CHECK-NEXT:     store i32 [[VP18]] i32* [[VP20]]
 ; CHECK-NEXT:     i8* [[VP21:%.*]] = bitcast i32* [[B_PRIV0]]
 ; CHECK-NEXT:     void [[VP22:%.*]] = call i64 4 i8* [[VP21]] void (i64, i8*)* @llvm.lifetime.end.p0i8

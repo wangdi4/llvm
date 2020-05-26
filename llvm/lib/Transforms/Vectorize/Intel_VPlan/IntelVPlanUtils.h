@@ -140,12 +140,14 @@ inline Type *getLoadStoreType(const VPInstruction *VPI) {
 }
 
 /// Helper function to return pointer operand for a VPInstruction representing
-/// load, store or GEP.
-inline VPValue *getPointerOperand(VPInstruction *VPI) {
+/// load, store, GEP or subscript.
+inline VPValue *getPointerOperand(const VPInstruction *VPI) {
   if (auto *Ptr = getLoadStorePointerOperand(VPI))
     return Ptr;
   if (auto *Gep = dyn_cast<VPGEPInstruction>(VPI))
-    return Gep->getOperand(0);
+    return Gep->getPointerOperand();
+  if (auto *Subscript = dyn_cast<VPSubscriptInst>(VPI))
+    return Subscript->getPointerOperand();
   return nullptr;
 }
 
