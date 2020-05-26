@@ -37,13 +37,9 @@
 //
 // >> ---- link the full hetero app
 // RUN: %clangxx wrapper.o a.o b.o -o app.exe -lsycl
-<<<<<<< HEAD
-// RUN: %CPU_RUN_PLACEHOLDER ./app.exe 2>&1 %CPU_CHECK_PLACEHOLDER
-// RUN: %GPU_RUN_PLACEHOLDER ./app.exe 2>&1 %GPU_CHECK_PLACEHOLDER
-// RUN: %ACC_RUN_PLACEHOLDER ./app.exe 2>&1 %ACC_CHECK_PLACEHOLDER
-=======
-// RUN: env SYCL_BE=%sycl_be ./app.exe | FileCheck %s
->>>>>>> b84ae1fde4dd6365bb03af3e46696ce5be78b709
+// RUN: %CPU_RUN_PLACEHOLDER env SYCL_BE=%sycl_be ./app.exe 2>&1 %CPU_CHECK_PLACEHOLDER
+// RUN: %GPU_RUN_PLACEHOLDER env SYCL_BE=%sycl_be ./app.exe 2>&1 %GPU_CHECK_PLACEHOLDER
+// RUN: %ACC_RUN_PLACEHOLDER env SYCL_BE=%sycl_be ./app.exe 2>&1 %ACC_CHECK_PLACEHOLDER
 // CHECK: pass
 
 //==----------- test.cpp - Tests SYCL separate compilation -----------------==//
