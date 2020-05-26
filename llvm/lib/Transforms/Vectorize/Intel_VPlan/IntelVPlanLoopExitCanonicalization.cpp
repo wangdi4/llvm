@@ -97,50 +97,6 @@ static bool hasVPPhiNode(VPBasicBlock *VPBB) {
   return false;
 }
 
-static bool isBreakingSSA(VPLoop *VPL) {
-  VPlan *Plan = VPL->getHeader()->getParent();
-  auto &VPDomTree = *Plan->getDT();
-  auto *VPLI = Plan->getVPLoopInfo();
-  SmallVector<VPBasicBlock *, 2> ExitingBlocks;
-  VPL->getExitingBlocks(ExitingBlocks);
-
-  auto *Header = VPL->getHeader();
-  VPBasicBlock *LoopLatch = VPL->getLoopLatch();
-  if (!LoopLatch)
-    return true;
-
-  for (VPBasicBlock *BB : VPL->getBlocks()) {
-    if (VPLI->getLoopFor(BB) != VPL)
-      continue; // Inner loops already handled.
-
-    if (VPDomTree.dominates(BB, LoopLatch) &&
-        all_of(ExitingBlocks, [&](VPBasicBlock *ExitingBlock) {
-            return VPDomTree.dominates(BB, ExitingBlock);
-        }))
-      // Defs in this block will be available in NewLoopLatch.
-      continue;
-
-    for (auto &Inst : *BB) {
-      for (auto *User : Inst.users()) {
-        auto *UserInst = dyn_cast<VPInstruction>(User);
-        if (!UserInst)
-          return true;
-
-        if (!VPL->contains(UserInst))
-          return true;
-
-        if (UserInst->getParent() == Header) {
-          assert(isa<VPPHINode>(UserInst) &&
-                 "Can't have non-phi user in header!");
-          return true;
-        }
-      }
-    }
-  }
-
-  return false;
-}
-
 // See below.
 static void preserveSSAAfterLoopTransformations(VPLoop *VPL, VPlan *Plan,
                                                 VPDominatorTree &VPDomTree);
@@ -304,11 +260,6 @@ void mergeLoopExits(VPLoop *VPL) {
   // TODO: check uniformity of the loop preheader instead.
   if ((ExitEdges.size() < 2))
     return;
-
-  // FIXME: Don't break SSA form during the transformation.
-  if (!Plan->isFullLinearizationForced() // Already marked, so...
-      && isBreakingSSA(VPL))             // don't try to analyze any more.
-    Plan->markFullLinearizationForced();
 
   // The merge loop exits transformation kicks-in.
 
@@ -632,11 +583,6 @@ void singleExitWhileLoopCanonicalization(VPLoop *VPL) {
 
   if (!VPL->getExitingBlock())
     return;
-
-  // FIXME: Don't break SSA form during the transformation.
-  if (!Plan->isFullLinearizationForced() // Already marked, so...
-      && isBreakingSSA(VPL))             // don't try to analyze any more.
-    Plan->markFullLinearizationForced();
 
   LLVM_DEBUG(dbgs() << "Before single exit while loop transformation.\n");
   LLVM_DEBUG(Plan->dump());
