@@ -729,6 +729,7 @@ void TargetLoweringBase::initActions() {
 
     // These library functions default to expand.
     setOperationAction(ISD::FROUND, VT, Expand);
+    setOperationAction(ISD::FROUNDEVEN, VT, Expand);
     setOperationAction(ISD::FPOWI, VT, Expand);
 #if INTEL_CUSTOMIZATION
     setOperationAction(ISD::FTAN, VT, Expand);
@@ -799,6 +800,7 @@ void TargetLoweringBase::initActions() {
     setOperationAction(ISD::FRINT,      VT, Expand);
     setOperationAction(ISD::FTRUNC,     VT, Expand);
     setOperationAction(ISD::FROUND,     VT, Expand);
+    setOperationAction(ISD::FROUNDEVEN, VT, Expand);
     setOperationAction(ISD::LROUND,     VT, Expand);
     setOperationAction(ISD::LLROUND,    VT, Expand);
     setOperationAction(ISD::LRINT,      VT, Expand);

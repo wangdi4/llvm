@@ -1761,6 +1761,7 @@ Instruction *InstCombiner::visitFPTrunc(FPTruncInst &FPT) {
     case Intrinsic::nearbyint:
     case Intrinsic::rint:
     case Intrinsic::round:
+    case Intrinsic::roundeven:
     case Intrinsic::trunc: {
       Value *Src = II->getArgOperand(0);
       if (!Src->hasOneUse())
