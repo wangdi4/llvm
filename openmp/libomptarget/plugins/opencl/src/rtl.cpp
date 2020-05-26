@@ -407,14 +407,10 @@ public:
 
   // Limit for the number of WIs in a WG.
   int32_t OMPThreadLimit = -1;
-#if INTEL_CUSTOMIZATION
-  // Default subscription rate is heuristically set to 4.
-  // It only matters for the default ND-range parallelization,
-  // i.e. when the global size is unknown on the host.
+
   // This is a factor applied to the number of WGs computed
   // for the execution, based on the HW characteristics.
-  size_t SubscriptionRate = 4;
-#endif  // INTEL_CUSTOMIZATION
+  size_t SubscriptionRate = 1;
 
   RTLDeviceInfoTy() : numDevices(0), DataTransferLatency(0),
       DataTransferMethod(DATA_TRANSFER_METHOD_CLMEM) {
@@ -427,16 +423,6 @@ public:
     // Get global OMP_THREAD_LIMIT for SPMD parallelization.
     OMPThreadLimit = omp_get_thread_limit();
     DP("omp_get_thread_limit() returned %d\n", OMPThreadLimit);
-
-#if INTEL_CUSTOMIZATION
-    if (env = readEnvVar("LIBOMPTARGET_OPENCL_SUBSCRIPTION_RATE")) {
-      int32_t value = std::stoi(env);
-
-      // Set some reasonable limits.
-      if (value > 0 || value <= 0xFFFF)
-        SubscriptionRate = value;
-    }
-#endif  // INTEL_CUSTOMIZATION
 
     // Read LIBOMPTARGET_DATA_TRANSFER_LATENCY (experimental input)
     if (env = readEnvVar("LIBOMPTARGET_DATA_TRANSFER_LATENCY")) {
@@ -478,6 +464,23 @@ public:
     }
     DP("Target device type is set to %s\n",
        (DeviceType == CL_DEVICE_TYPE_CPU) ? "CPU" : "GPU");
+
+#if INTEL_CUSTOMIZATION
+    if (DeviceType == CL_DEVICE_TYPE_GPU) {
+      // Default subscription rate is heuristically set to 4 for GPU.
+      // It only matters for the default ND-range parallelization,
+      // i.e. when the global size is unknown on the host.
+      SubscriptionRate = 4;
+    }
+#endif  // INTEL_CUSTOMIZATION
+
+    if (env = readEnvVar("LIBOMPTARGET_OPENCL_SUBSCRIPTION_RATE")) {
+      int32_t value = std::stoi(env);
+
+      // Set some reasonable limits.
+      if (value > 0 || value <= 0xFFFF)
+        SubscriptionRate = value;
+    }
 
     // Read LIBOMPTARGET_OPENCL_LINK_DEVICE_RTL
     if (env = readEnvVar("LIBOMPTARGET_OPENCL_LINK_DEVICE_RTL",
@@ -2283,9 +2286,9 @@ static inline int32_t run_target_team_nd_region(
        local_work_size_max);
   }
 
-#if INTEL_CUSTOMIZATION
   bool num_teams_forced_by_user = false;
 
+#if INTEL_CUSTOMIZATION
   // We are currently handling only GEN9/GEN9.5 here.
   // TODO: we need to find a way to compute the number of sub slices
   //       and number of EUs per sub slice for the particular device.
@@ -2332,9 +2335,7 @@ static inline int32_t run_target_team_nd_region(
 
   if (num_teams > 0) {
     num_work_groups_max = (size_t)num_teams;
-#if INTEL_CUSTOMIZATION
     num_teams_forced_by_user = true;
-#endif  // INTEL_CUSTOMIZATION
     DP("Setting maximum number of work groups to %zu "
        "(due to num_teams clause).\n", num_work_groups_max);
   }
@@ -2345,7 +2346,8 @@ static inline int32_t run_target_team_nd_region(
   // With specific ND-range parallelization we use 8/16/32 WIs per WG.
   // Each WG can be run by one EU thread, so all work groups evenly
   // fit the sub slices.
-  if (!loop_levels &&
+  if (DeviceInfo->DeviceType == CL_DEVICE_TYPE_GPU &&
+      !loop_levels &&
       // If user specifies both number of work groups and the local size,
       // the we must honor that.
       (!local_size_forced_by_user || !num_teams_forced_by_user)) {
@@ -2426,7 +2428,8 @@ static inline int32_t run_target_team_nd_region(
 
   size_t optimal_work_size = local_work_size_max;
 
-  if (loop_levels && !local_size_forced_by_user &&
+  if (DeviceInfo->DeviceType == CL_DEVICE_TYPE_GPU &&
+      loop_levels && !local_size_forced_by_user &&
       optimal_work_size > kernel_simd_width)
     // Default to 8/16/32 WIs per WG for ND-range paritioning depending
     // on the SIMD width the kernel was compiled for.
@@ -2460,10 +2463,8 @@ static inline int32_t run_target_team_nd_region(
   else {
     local_work_size[0] = optimal_work_size;
     num_work_groups[0] = num_work_groups_max;
-#if INTEL_CUSTOMIZATION
     if (!num_teams_forced_by_user)
       num_work_groups[0] *= DeviceInfo->SubscriptionRate;
-#endif  // INTEL_CUSTOMIZATION
   }
 
   // Compute num_work_groups using the loop descriptor.
