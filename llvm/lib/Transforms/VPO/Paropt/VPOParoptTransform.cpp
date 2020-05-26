@@ -1317,6 +1317,7 @@ bool VPOParoptTransform::paroptTransforms() {
       switch (W->getWRegionKindID()) {
       case WRegionNode::WRNTeams:
       case WRegionNode::WRNParallel:
+        RoutineChanged |= privatizeSharedItems(W);
         if (!isTargetSPIRV())
           improveAliasForOutlinedFunc(W);
         break;
