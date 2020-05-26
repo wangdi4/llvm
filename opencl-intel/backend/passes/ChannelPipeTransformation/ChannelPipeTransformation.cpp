@@ -378,7 +378,7 @@ static Value *createPipeUserStub(Value *ChannelUser, Value *Pipe) {
   if (auto *Store = dyn_cast<StoreInst>(ChannelInst)) {
     Value *DestPtr = UndefValue::get(PointerType::getUnqual(PipeTy));
     return new StoreInst(UndefPipe, DestPtr, Store->isVolatile(),
-                         MaybeAlign(Store->getAlignment()),
+                         Store->getAlign(),
                          Store->getOrdering(),
                          Store->getSyncScopeID(), Store);
   }

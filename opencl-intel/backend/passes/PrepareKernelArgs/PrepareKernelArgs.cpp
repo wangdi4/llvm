@@ -164,7 +164,7 @@ namespace intel{
         // We can't use overload without explicit alloca addrspace because the
         // BB does not have a parent yet.
         AllocaInst *Allocation = new AllocaInst(
-            m_I8Ty, AllocaAddrSpace, BufferSize, MaybeAlign(Alignment));
+            m_I8Ty, AllocaAddrSpace, BufferSize, Align(Alignment));
         builder.Insert(Allocation);
         pArg = builder.CreatePointerCast(Allocation, callIt->getType());
       } else if (arg.type == CL_KRNL_ARG_PTR_BLOCK_LITERAL) {
@@ -252,7 +252,7 @@ namespace intel{
           // move argument up over the lower side padding.
           AllocaInst *slmBuffer =
               new AllocaInst(slmType, AllocaAddrSpace, nullptr,
-                             MaybeAlign(TypeAlignment::MAX_ALIGNMENT));
+                             Align(TypeAlignment::MAX_ALIGNMENT));
           builder.Insert(slmBuffer);
           Value* castBuf = builder.CreatePointerCast(slmBuffer,
                                                      PointerType::get(m_I8Ty, 3));
@@ -326,7 +326,7 @@ namespace intel{
           //TODO: we should choose the min required alignment size
           AllocaInst *BarrierBuffer =
               new AllocaInst(m_I8Ty, AllocaAddrSpace, BarrierBufferSize,
-                             MaybeAlign(TypeAlignment::MAX_ALIGNMENT));
+                             Align(TypeAlignment::MAX_ALIGNMENT));
           builder.Insert(BarrierBuffer);
           pArg = BarrierBuffer;
         }

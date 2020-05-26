@@ -962,13 +962,13 @@ void ScalarizeFunction::scalarizeInstruction(AllocaInst *AI) {
     Type* allocaType = VectorizerUtils::convertSoaAllocaType(AI->getAllocatedType(), 0);
     unsigned numElements = m_soaAllocaAnalysis->getSoaAllocaVectorWidth(AI);
     V_ASSERT(numElements <= MAX_INPUT_VECTOR_WIDTH && "Inst vector width larger than supported");
-    unsigned int alignment = AI->getAlignment();// / numElements;
+    Align alignment = AI->getAlign();// / numElements;
 
     // Generate new (scalar) instructions
     Value *newScalarizedInsts[MAX_INPUT_VECTOR_WIDTH];
     for (unsigned dup = 0; dup < numElements; dup++) {
       newScalarizedInsts[dup] = new AllocaInst(
-        allocaType, m_pDL->getAllocaAddrSpace(), 0, MaybeAlign(alignment), AI->getName(), AI);
+        allocaType, m_pDL->getAllocaAddrSpace(), 0, alignment, AI->getName(), AI);
     }
 
     // Add new value/s to SCM
@@ -1321,7 +1321,8 @@ void ScalarizeFunction::obtainScalarizedValues(Value *retValues[], bool *retIsCo
     for (unsigned i = 0; i < width; i++)
     {
       // Generate dummy "load" instruction (but don't really place in function)
-      retValues[i] = new LoadInst(dummyType, dummyPtr);
+      retValues[i] =
+          new LoadInst(dummyType, dummyPtr, "", false /*volatile*/, Align());
       newDRLEntry.dummyVals[i] = retValues[i];
     }
     // Copy the data into DRL structure

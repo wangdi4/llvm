@@ -261,7 +261,7 @@ namespace intel {
         Type *Ty = cast<PointerType>(pNewValue->getType())->getElementType();
         LoadInst *pNewLoad = new LoadInst(
             Ty, pNewValue, pLoadInstr->getName(), pLoadInstr->isVolatile(),
-            MaybeAlign(pLoadInstr->getAlignment()), pLoadInstr->getOrdering(),
+            pLoadInstr->getAlign(), pLoadInstr->getOrdering(),
             pLoadInstr->getSyncScopeID(), pLoadInstr);
         pNewInstr = pNewLoad;
         break;
@@ -270,7 +270,7 @@ namespace intel {
         StoreInst *pStoreInstr = cast<StoreInst>(pInstr);
         StoreInst *pNewStore = new StoreInst(pStoreInstr->getValueOperand(), pNewValue,
                                     pStoreInstr->isVolatile(),
-                                    MaybeAlign(pStoreInstr->getAlignment()),
+                                    pStoreInstr->getAlign(),
                                     pStoreInstr->getOrdering(), pStoreInstr->getSyncScopeID(),
                                     pStoreInstr);
         pNewInstr = pNewStore;

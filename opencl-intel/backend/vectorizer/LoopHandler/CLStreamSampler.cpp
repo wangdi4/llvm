@@ -376,7 +376,7 @@ void CLStreamSampler::hoistReadImgCall(TranspReadImgAttr &attr,
                      colorAllocas[i], indicesArr, "calc.address", attr.m_call);
     Type *Ty = cast<GetElementPtrInst>(colorPointer)->getResultElementType();
     Value *transpValueLoad = new LoadInst(Ty, colorPointer, "load.trnsp.val", false,
-                                          MaybeAlign(FLOAT_X_WIDTH__ALIGNMENT),
+                                          Align(FLOAT_X_WIDTH__ALIGNMENT),
                                           attr.m_call);
     LI->replaceAllUsesWith(transpValueLoad);
     LI->eraseFromParent();
@@ -572,7 +572,7 @@ void CLStreamSampler::sinkWriteImgCall(TranspWriteImgAttr &attr,
     Value *colorPointer = GetElementPtrInst::CreateInBounds(
                      colorAllocas[i], indicesArr, "calc.address", attr.m_call);
     new StoreInst(attr.m_colors[i], colorPointer, false,
-                  MaybeAlign(FLOAT_X_WIDTH__ALIGNMENT), attr.m_call);
+                  Align(FLOAT_X_WIDTH__ALIGNMENT), attr.m_call);
   }
 
   // Prepare arguments for calling the stream sampler.
@@ -621,7 +621,7 @@ void CLStreamSampler::generateAllocasForStream(unsigned width,
       m_header->getParent()->getEntryBlock().getFirstNonPHI();
   for (unsigned i = 0; i < 4; ++i) {
     AllocaInst *AI = new AllocaInst(
-      arrTy, m_DL->getAllocaAddrSpace(), nullptr, MaybeAlign(FLOAT_X_WIDTH__ALIGNMENT),
+      arrTy, m_DL->getAllocaAddrSpace(), nullptr, Align(FLOAT_X_WIDTH__ALIGNMENT),
       "stream.read.alloca", loc);
     Instruction *ptr =
         GetElementPtrInst::CreateInBounds(AI, indicesArr, "ptr", loc);

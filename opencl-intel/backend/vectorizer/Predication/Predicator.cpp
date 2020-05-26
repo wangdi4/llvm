@@ -939,11 +939,15 @@ void Predicator::selectOutsideUsedInstructions(Instruction* inst) {
   // Load the predicate value and place the select
   // We will place them in the correct place in the next section
   Type *Ty = cast<PointerType>(pred->getType())->getElementType();
-  Instruction* predicate  = new LoadInst(Ty, pred,"predicate");
+  Align align = m_DL->getABITypeAlign(Ty);
+  Instruction *predicate =
+      new LoadInst(Ty, pred, "predicate", false /*volatile*/, align);
   Ty = cast<PointerType>(prev_ptr->getType())->getElementType();
-  Instruction* prev_value  = new LoadInst(Ty, prev_ptr, "prev_value");
+  Instruction *prev_value =
+      new LoadInst(Ty, prev_ptr, "prev_value", false /*volatile*/, align);
   SelectInst* select = SelectInst::Create(predicate, inst, prev_value, "out_sel");
-  Instruction* store  = new StoreInst(select,prev_ptr);
+  Instruction *store =
+      new StoreInst(select, prev_ptr, false /*volatile*/, align);
   VectorizerUtils::SetDebugLocBy(select, inst);
 
   // We are predicating a PHINode
@@ -1278,7 +1282,7 @@ void Predicator::maskOutgoing_loopexit(BasicBlock *BB) {
     }
 
     if (!curLoopMask) curLoopMask = newLoopMask;
-    new StoreInst(newLoopMask, loopMask_p, br);
+    new StoreInst(newLoopMask, loopMask_p, false, br);
     L = L->getParentLoop();
     mostInnerLoop = false;
   } while (L && !L->contains(BBexit));

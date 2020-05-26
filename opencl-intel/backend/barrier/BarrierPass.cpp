@@ -670,7 +670,7 @@ namespace intel {
           new AllocaInst(AI->getType(), DL.getAllocaAddrSpace(),
                          allocaName + ".addr", AddrInsertBefore);
       uint64_t ASize = AddrAI->getAllocationSizeInBits(DL).getValue() / 8;
-      AddrAI->setAlignment(MaybeAlign(ASize));
+      AddrAI->setAlignment(assumeAligned(ASize));
       m_addrAllocaSize[&F] += ASize;
 
       // Collect debug intrinsic.

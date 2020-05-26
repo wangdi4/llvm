@@ -145,7 +145,8 @@ public:
         Builder.CreateGEP(WorkInfo, ArrayRef<Value *>(params)));
     std::string Name(NDInfo::getRecordName(RecordID));
     AppendWithDimension(Name, Dimension);
-    return Builder.Insert(new LoadInst(pAddr->getResultElementType(), pAddr),
+    return Builder.Insert(new LoadInst(pAddr->getResultElementType(), pAddr, "",
+                                       false /*volatile*/, Align()),
                           Name);
   }
   Value *GenerateGetFromWorkInfo(unsigned RecordID, Value *WorkInfo,
@@ -158,8 +159,8 @@ public:
     auto *pAddr = cast<GEPOperator>(
         Builder.CreateGEP(WorkInfo, ArrayRef<Value *>(params)));
     std::string Name(NDInfo::getRecordName(RecordID));
-    Value *V = Builder.Insert(
-        new LoadInst(pAddr->getResultElementType(), pAddr));
+    Value *V = Builder.Insert(new LoadInst(pAddr->getResultElementType(), pAddr,
+                                           "", false /*volatile*/, Align()));
     if (V->getType() != Int32Ty && RecordID == NDInfo::WORK_DIM)
       V = Builder.CreateTrunc(V, Int32Ty);
     V->setName(Name);
@@ -236,7 +237,8 @@ private:
         Builder.CreateGEP(WorkInfo, ArrayRef<Value *>(params)));
     std::string Name(NDInfo::getRecordName(NDInfo::LOCAL_SIZE));
     AppendWithDimension(Name, Dimension);
-    return Builder.Insert(new LoadInst(pAddr->getResultElementType(), pAddr),
+    return Builder.Insert(new LoadInst(pAddr->getResultElementType(), pAddr, "",
+                                       false /*volatile*/, Align()),
                           Name);
   }
 
@@ -252,8 +254,9 @@ public:
     auto *pIdAddr = cast<GEPOperator>(Builder.CreateGEP(GroupID, Dimension));
     std::string Name("GroupID_");
     AppendWithDimension(Name, Dimension);
-    return Builder.Insert(
-        new LoadInst(pIdAddr->getResultElementType(), pIdAddr), Name);
+    return Builder.Insert(new LoadInst(pIdAddr->getResultElementType(), pIdAddr,
+                                       "", false /*volatile*/, Align()),
+                          Name);
   }
 
   Value *GenerateGetBaseGlobalID(Value *BaseGlobalID, Value *Dimension,
@@ -276,7 +279,8 @@ public:
       Indices.push_back(ConstantInt::get(IntegerType::get(C, 32), 0));
       Indices.push_back(Dimension);
       auto *GEP = cast<GEPOperator>(Builder.CreateGEP(A, Indices));
-      return Builder.Insert(new LoadInst(GEP->getResultElementType(), GEP),
+      return Builder.Insert(new LoadInst(GEP->getResultElementType(), GEP, "",
+                                         false /*volatile*/, Align()),
                             Name);
     }
   }
