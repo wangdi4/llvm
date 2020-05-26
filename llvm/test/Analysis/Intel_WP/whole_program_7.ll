@@ -1,4 +1,4 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 ; Test that checks if whole program seen was identified correctly.The test case
 ; is simple. It contains a Base class, Derived class and Derived2 class. The
 ; function foo is declared as virtual in Base and the definition can be found
@@ -11,8 +11,8 @@
 ; CHECK:     WHOLE-PROGRAM-ANALYSIS: SIMPLE ANALYSIS
 ; CHECK:      UNRESOLVED CALLSITES: 0
 ; CHECK:      VISIBLE OUTSIDE LTO: 0
-; CHECK:     WHOLE PROGRAM DETECTED
-; CHECK-NOT: whole program not seen;
+; CHECK:   WHOLE PROGRAM RESULT:
+; CHECK:    WHOLE PROGRAM SEEN:  DETECTED
 
 ; Create the Base, Derived and Derived2 classes
 %class.Base = type { i32 (...)** }

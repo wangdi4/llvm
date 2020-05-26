@@ -9,6 +9,7 @@
 #pragma once
 
 #include <CL/sycl/detail/common.hpp>
+#include <CL/sycl/detail/export.hpp>
 #include <CL/sycl/detail/sycl_mem_obj_allocator.hpp>
 #include <CL/sycl/detail/sycl_mem_obj_i.hpp>
 #include <CL/sycl/detail/type_traits.hpp>
@@ -36,7 +37,7 @@ class aligned_allocator;
 using sycl_memory_object_allocator = aligned_allocator<char>;
 
 // The class serves as a base for all SYCL memory objects.
-class SYCLMemObjT : public SYCLMemObjI {
+class __SYCL_EXPORT SYCLMemObjT : public SYCLMemObjI {
 
   // The check for output iterator is commented out as it blocks set_final_data
   // with void * argument to be used.
@@ -259,6 +260,13 @@ public:
 
   static size_t getBufSizeForContext(const ContextImplPtr &Context,
                                      cl_mem MemObject);
+
+  void *allocateMem(ContextImplPtr Context, bool InitFromUserData,
+                    void *HostPtr, RT::PiEvent &InteropEvent) override {
+    throw runtime_error("Not implemented", PI_INVALID_OPERATION);
+  }
+
+  MemObjType getType() const override { return UNDEFINED; }
 
 protected:
   // Allocator used for allocation memory on host.

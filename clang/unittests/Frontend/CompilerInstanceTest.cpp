@@ -86,7 +86,7 @@ static std::string LibPath(const std::string Name = "VfsTestLib") {
   StringRef Argv0 = Argvs.size() > 0 ? Argvs[0] : "FrontendTests";
   llvm::SmallString<256> Buf(llvm::sys::path::parent_path(Argv0));
   llvm::sys::path::append(Buf, (Name + LTDL_SHLIB_EXT));
-  return Buf.str();
+  return Buf.c_str();
 }
 
 TEST(CompilerInstance, VFSOverlayLibrary) {

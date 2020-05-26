@@ -18,16 +18,20 @@
 #include "IntelLoopVectorizationPlanner.h"
 #include "IntelLoopVectorizationLegality.h"
 #include "IntelVPOCodeGen.h"
+#include "IntelVPlanAllZeroBypass.h"
 #include "IntelVPlanCostModel.h"
 #include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanHCFGBuilder.h"
+#include "IntelVPlanLoopCFU.h"
 #include "IntelVPlanPredicator.h"
+#include "IntelVPSOAAnalysis.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
 #if INTEL_CUSTOMIZATION
 #include "IntelVPlanClone.h"
 #include "IntelVPlanCostModelProprietary.h"
 #include "IntelVPlanIdioms.h"
+#include "IntelVPlanUtils.h"
 #include "VPlanHIR/IntelVPlanHCFGBuilderHIR.h"
 #endif // INTEL_CUSTOMIZATION
 
@@ -54,16 +58,38 @@ static cl::opt<bool>
     DisableVPlanPredicator("disable-vplan-predicator", cl::init(false),
                            cl::Hidden, cl::desc("Disable VPlan predicator."));
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::list<unsigned> VPlanCostModelPrintAnalysisForVF(
     "vplan-cost-model-print-analysis-for-vf", cl::Hidden, cl::CommaSeparated,
     cl::ZeroOrMore,
     cl::desc("Print detailed VPlan Cost Model Analysis report for the given "
              "VF. For testing/debug purposes only."));
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-static cl::opt<bool> DumpAfterVPEntityInstructions(
-    "vplan-print-after-vpentity-instrs", cl::init(false), cl::Hidden,
-    cl::desc("Print VPlan after insertion of VPEntity instructions."));
+static cl::opt<bool>
+    PrintAfterLoopCFU("vplan-print-after-loop-cfu", cl::init(false), cl::Hidden,
+                      cl::desc("Print VPlan after LoopCFU transformation."));
+
+static cl::opt<bool> PrintAfterLinearization(
+    "vplan-print-after-linearization", cl::init(false), cl::Hidden,
+    cl::desc("Print VPlan after predication and linearization."));
+
+static cl::opt<bool> DotAfterLinearization(
+    "vplan-dot-after-linearization", cl::init(false), cl::Hidden,
+    cl::desc("Print VPlan digraph after predication and linearization."));
+
+static cl::opt<bool> PrintAfterAllZeroBypass(
+    "vplan-print-after-all-zero-bypass", cl::init(false), cl::Hidden,
+    cl::desc("Print VPlan after all zero bypass insertion."));
+
+static cl::opt<bool> DotAfterAllZeroBypass(
+    "vplan-dot-after-all-zero-bypass", cl::init(false), cl::Hidden,
+    cl::desc("Print VPlan digraph after all zero bypass insertion."));
+#else
+static constexpr bool PrintAfterLoopCFU = false;
+static constexpr bool PrintAfterLinearization = false;
+static constexpr bool DotAfterLinearization = false;
+static constexpr bool PrintAfterAllZeroBypass = false;
+static constexpr bool DotAfterAllZeroBypass = false;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 using namespace llvm;
@@ -157,11 +183,13 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
     std::shared_ptr<VPlan> Plan =
         buildInitialVPlan(StartRangeVF, EndRangeVF, Context, DL);
 
-    VPLoop *MainLoop = *(Plan->getVPLoopInfo()->begin());
-    // Loop entities may be not created in some cases.
-    VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(MainLoop);
-    VPBuilder VPIRBuilder;
-    LE->insertVPInstructions(VPIRBuilder);
+    // Check legality of VPlan before proceeding with other transforms/analyses.
+    if (!isVPlanLegalToProcess(*Plan.get())) {
+      LLVM_DEBUG(
+          dbgs() << "LVP: VPlan is not legal to process, bailing out.\n");
+      return 0;
+    }
+
     auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
     Plan->setVPlanDA(std::move(VPDA));
     auto *VPLInfo = Plan->getVPLoopInfo();
@@ -171,13 +199,10 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
     Plan->getVPlanDA()->compute(Plan.get(), CandidateLoop, VPLInfo,
                                 *Plan->getDT(), *Plan->getPDT(),
                                 false /*Not in LCSSA form*/);
-    LE->doSOAAnalysis();
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    if (DumpAfterVPEntityInstructions) {
-      outs() << "After insertion VPEntities instructions:\n";
-      Plan->dump(outs(), Plan->getVPlanDA());
-    }
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+    // Do SOA-analysis for loop-privates.
+    VPSOAAnalysis VPSOAA(*Plan.get(), *CandidateLoop);
+    VPSOAA.doSOAAnalysis();
 
     for (unsigned TmpVF = StartRangeVF; TmpVF < EndRangeVF; TmpVF *= 2)
       VPlans[TmpVF] = Plan;
@@ -192,6 +217,27 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
     VPlans[1] = VPlans[MinVF];
 
   return i;
+}
+
+void LoopVectorizationPlanner::selectBestPeelingVariants() {
+  std::map<VPlan *, VPlanPeelingAnalysis> VPPACache;
+
+  for (auto &Pair : VPlans) {
+    auto VF = Pair.first;
+    VPlan &Plan = *Pair.second;
+
+    if (VF == 1)
+      continue;
+
+    auto Found = VPPACache.find(&Plan);
+    if (Found == VPPACache.end()) {
+      VPlanPeelingAnalysis VPPA(*VPSE, *DL);
+      VPPA.collectMemrefs(Plan);
+      std::tie(Found, std::ignore) = VPPACache.emplace(&Plan, std::move(VPPA));
+    }
+
+    Plan.setPreferredPeeling(VF, Found->second.selectBestPeelingVariant(VF));
+  }
 }
 
 /// Evaluate cost model for available VPlans and find the best one.
@@ -351,11 +397,53 @@ void LoopVectorizationPlanner::predicate() {
     if (PredicatedVPlans.count(VPlan))
       continue; // Already predicated.
 
+    VPLoopInfo *VPLI = VPlan->getVPLoopInfo();
+    assert(std::distance(VPLI->begin(), VPLI->end()) == 1 &&
+           "There should be single outer loop!");
+    VPLoop *OuterLoop = *VPLI->begin();
+    // Search loops require multiple hacks. Skipping LoopCFU is one of them.
+    bool SearchLoopHack = !OuterLoop->getExitBlock();
+    if (!SearchLoopHack) {
+      assert(!VPlan->getVPlanDA()->isDivergent(
+                 *(OuterLoop)->getLoopLatch()->getCondBit()) &&
+             "Outer loop doesn't have uniform backedge!");
+      VPlanLoopCFU LoopCFU(*VPlan);
+      LoopCFU.run();
+    }
+    VPLAN_DUMP(PrintAfterLoopCFU, "Loop CFU transformation", VPlan);
+
+    // Predication "has" to be done even for the search loop hack. Our
+    // idiom-matching code and CG currently expect that. Note that predicator
+    // has some hacks for search loop processing inside it as well.
     VPlanPredicator VPP(*VPlan);
     VPP.predicate();
 
+    VPLAN_DUMP(PrintAfterLinearization, "predication and linearization", VPlan);
+    VPLAN_DOT(DotAfterLinearization, VPlan);
+
     PredicatedVPlans.insert(VPlan);
   }
+}
+
+void LoopVectorizationPlanner::insertAllZeroBypasses(VPlan *Plan) {
+  // Skip multi-exit loops at outer VPlan level. Inner loops will be
+  // canonicalized to single exit in VPlan. TODO: this check is only
+  // needed due to hacky search loop support. Change to assert in the
+  // future.
+  VPLoop *VPLp = *(Plan->getVPLoopInfo()->begin());
+  if (!VPLp->getExitBlock())
+    return;
+
+  // Holds the pair of blocks representing the begin/end of an all-zero
+  // bypass region. The block-predicate at the begin block is used to
+  // generate the bypass.
+  VPlanAllZeroBypass::AllZeroBypassRegionsTy AllZeroBypassRegions;
+  VPlanAllZeroBypass AZB(*Plan);
+  AZB.collectAllZeroBypassRegions(AllZeroBypassRegions);
+  AZB.insertAllZeroBypasses(AllZeroBypassRegions);
+
+  VPLAN_DUMP(PrintAfterAllZeroBypass, "all zero bypass insertion", Plan);
+  VPLAN_DOT(DotAfterAllZeroBypass, Plan);
 }
 
 void LoopVectorizationPlanner::unroll(
@@ -369,13 +457,15 @@ void LoopVectorizationPlanner::unroll(
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 template <typename CostModelTy>
-void LoopVectorizationPlanner::printCostModelAnalysisIfRequested() {
+void LoopVectorizationPlanner::printCostModelAnalysisIfRequested(
+  const std::string &Header) {
   for (unsigned VFRequested : VPlanCostModelPrintAnalysisForVF) {
     if (!hasVPlanForVF(VFRequested)) {
       errs() << "VPlan for VF = " << VFRequested << " was not constructed\n";
       continue;
     }
     VPlan *Plan = getVPlanForVF(VFRequested);
+
 #if INTEL_CUSTOMIZATION
     CostModelTy CM(Plan, VFRequested, TTI, DL, VLSA);
 #else
@@ -386,15 +476,17 @@ void LoopVectorizationPlanner::printCostModelAnalysisIfRequested() {
     // control it would have been opt's output stream (via "-o" switch). As it
     // is not so, just pass stdout so that we would not be required to redirect
     // stderr to Filecheck.
-    CM.print(outs());
+    CM.print(outs(), Header);
   }
 }
 
 // Explicit instantiations.
 template void
-LoopVectorizationPlanner::printCostModelAnalysisIfRequested<VPlanCostModel>();
+LoopVectorizationPlanner::printCostModelAnalysisIfRequested<VPlanCostModel>(
+  const std::string &Header);
 template void LoopVectorizationPlanner::printCostModelAnalysisIfRequested<
-    VPlanCostModelProprietary>();
+    VPlanCostModelProprietary>(
+  const std::string &Header);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 // TODO: Current implementation is too aggressive and may lead to increase of
@@ -430,7 +522,7 @@ std::shared_ptr<VPlan> LoopVectorizationPlanner::buildInitialVPlan(
   VPlan *Plan = SharedPlan.get();
 
   // Build hierarchical CFG
-  VPlanHCFGBuilder HCFGBuilder(TheLoop, LI, SE, *DL, WRLp, Plan, Legal);
+  VPlanHCFGBuilder HCFGBuilder(TheLoop, LI, *DL, WRLp, Plan, Legal);
   HCFGBuilder.buildHierarchicalCFG();
 
   return SharedPlan;
@@ -522,6 +614,22 @@ void LoopVectorizationPlanner::EnterExplicitData(
     }
   }
 }
+
+bool LoopVectorizationPlanner::isVPlanLegalToProcess(const VPlan &Plan) {
+  for (const VPBasicBlock &VPBB : Plan) {
+    for (const VPInstruction &VPInst : VPBB) {
+      // 1. Is instruction type supported/handled by VPlan?
+      if (!isVPlanSupportedTy(VPInst.getType())) {
+        LLVM_DEBUG(dbgs() << "LVP: Unsupported type found.\n");
+        return false;
+      }
+    }
+  }
+
+  // All safety checks passed.
+  return true;
+}
+
 namespace llvm {
 namespace vpo {
 #if INTEL_CUSTOMIZATION

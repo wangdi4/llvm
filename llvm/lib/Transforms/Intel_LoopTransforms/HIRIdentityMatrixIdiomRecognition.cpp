@@ -1,5 +1,5 @@
 //===- HIRIdentityMatrixIdiomRecognition.cpp Implements
-//IdentityMatrixIdiomRecognition class -===//
+// IdentityMatrixIdiomRecognition class -===//
 //
 // Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
 //
@@ -34,7 +34,7 @@
 //  ENDDO
 //
 //===----------------------------------------------------------------------===//
-#include "llvm/Transforms/Intel_LoopTransforms/HIRIdentityMatrixIdiomRecognition.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRIdentityMatrixIdiomRecognitionPass.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 
@@ -56,13 +56,19 @@ static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
                                  cl::Hidden,
                                  cl::desc("Disable " OPT_DESC " pass"));
 
+static cl::opt<bool> EnableAltIdentityMatrixRecognition(
+    "enable-alt-identity-matrix-detection", cl::init(false), cl::Hidden,
+    cl::desc("Enable utility to detect identity matrix in " OPT_DESC " pass"));
+
 namespace {
 
 class HIRIdentityMatrixIdiomRecognition {
   HIRFramework &HIRF;
+  HIRLoopStatistics &HLS;
 
 public:
-  HIRIdentityMatrixIdiomRecognition(HIRFramework &HIRF) : HIRF(HIRF) {}
+  HIRIdentityMatrixIdiomRecognition(HIRFramework &HIRF, HIRLoopStatistics &HLS)
+      : HIRF(HIRF), HLS(HLS) {}
 
   bool run();
 
@@ -280,13 +286,22 @@ bool HIRIdentityMatrixIdiomRecognition::run() {
     Result = doIdentityMatrixIdiomRecognition(OuterLoop, Lp) || Result;
   }
 
+  // ID matrix detection logic
+  if (EnableAltIdentityMatrixRecognition) {
+    SmallVector<const RegDDRef *, 2> IDMatRefs;
+    for (auto &Lp : InnermostLoops) {
+      HLNodeUtils::findIdentityMatrix(&HLS, Lp, IDMatRefs);
+    }
+  }
+
   return Result;
 }
 
 PreservedAnalyses
 HIRIdentityMatrixIdiomRecognitionPass::run(llvm::Function &F,
                                            llvm::FunctionAnalysisManager &AM) {
-  HIRIdentityMatrixIdiomRecognition(AM.getResult<HIRFrameworkAnalysis>(F))
+  HIRIdentityMatrixIdiomRecognition(AM.getResult<HIRFrameworkAnalysis>(F),
+                                    AM.getResult<HIRLoopStatisticsAnalysis>(F))
       .run();
   return PreservedAnalyses::all();
 }
@@ -302,6 +317,7 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
+    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
     AU.setPreservesAll();
   }
 
@@ -311,7 +327,8 @@ public:
     }
 
     return HIRIdentityMatrixIdiomRecognition(
-               getAnalysis<HIRFrameworkWrapperPass>().getHIR())
+               getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
+               getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS())
         .run();
   }
 };
@@ -320,6 +337,7 @@ char HIRIdentityMatrixIdiomRecognitionLegacyPass::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRIdentityMatrixIdiomRecognitionLegacyPass, OPT_SWITCH,
                       OPT_DESC, false, false)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_END(HIRIdentityMatrixIdiomRecognitionLegacyPass, OPT_SWITCH,
                     OPT_DESC, false, false)
 

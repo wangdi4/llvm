@@ -43,7 +43,7 @@ define void @foo(<2 x i32>* nocapture %src, <2 x i32>* nocapture %dst) {
 ; CHECK-NEXT:   #6 <4 x 64> SStore
 ; CHECK-NEXT:   #7 <4 x 64> SStore
 ;
-; CHECK:       vector.body:
+; CHECK-LABEL: @foo
 ; CHECK:         [[MM_VECTORGEP:%.*]] = getelementptr inbounds <2 x i32>, <4 x <2 x i32>*> [[BROADCAST_SPLAT:%.*]], <4 x i64> [[VEC_PHI:%.*]]
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast <4 x <2 x i32>*> [[MM_VECTORGEP]] to <4 x i32*>
 ; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <4 x i32> @llvm.masked.gather.v4i32.v4p0i32(<4 x i32*> [[TMP0]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i32> undef)
@@ -75,7 +75,6 @@ define void @foo(<2 x i32>* nocapture %src, <2 x i32>* nocapture %dst) {
 ; CHECK-NEXT:    [[GROUPPTR11:%.*]] = bitcast <2 x i32>* [[MM_VECTORGEP_0]] to <24 x i32>*
 ; CHECK-NEXT:    [[GROUPSTOREMASK:%.*]] = shufflevector <4 x i1> [[TMP3]], <4 x i1> undef, <24 x i32> <i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 1, i32 1, i32 1, i32 1, i32 1, i32 1, i32 2, i32 2, i32 2, i32 2, i32 2, i32 2, i32 3, i32 3, i32 3, i32 3, i32 3, i32 3>
 ; CHECK-NEXT:    call void @llvm.masked.store.v24i32.p0v24i32(<24 x i32> [[GROUPSHUFFLE10]], <24 x i32>* [[GROUPPTR11]], i32 4, <24 x i1> [[GROUPSTOREMASK]])
-; CHECK:         br i1 %{{.*}}, label %{{.*}}, label %vector.body
 ;
 entry:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SIMDLEN"(i32 4) ]

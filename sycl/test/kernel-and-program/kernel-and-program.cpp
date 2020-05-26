@@ -210,8 +210,10 @@ int main() {
     std::iota(dataVec.begin(), dataVec.end(), 0);
 
     // Precompiled kernel invocation
-    // TODO run on host as well once local barrier is supported
-    if (!q.is_host()) {
+#if !DPCPP_HOST_DEVICE_HAS_BARRIER
+    if (!q.is_host())
+#endif
+    {
       {
         cl::sycl::range<1> numOfItems(dataVec.size());
         cl::sycl::range<1> localRange(2);

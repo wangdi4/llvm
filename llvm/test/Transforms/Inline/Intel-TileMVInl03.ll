@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -S -tilemvinlmarker -debug-only=tilemvinlmarker -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
-; RUN: opt < %s -S -passes='tilemvinlmarker' -debug-only=tilemvinlmarker -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
+; RUN: opt < %s -S -tilemvinlmarker -tile-candidate-mark -debug-only=tilemvinlmarker -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
+; RUN: opt < %s -S -passes='tilemvinlmarker' -tile-candidate-mark -debug-only=tilemvinlmarker -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 2>&1 | FileCheck %s
 
 ; Check that the loop indices and increments are correctly identified for
 ;   the loops within the tile candidates.
@@ -37,6 +37,7 @@
 ; CHECK: TMVINL: Tile Choice fun1_
 ; CHECK: TMVINL: Tile Choice fun2_
 ; CHECK: TMVINL: Tile Choice extra_
+; CHECK: TMVINL: Tile Choice switch_
 ; CHECK: TMVINL: Tile Choice fun00_
 ; CHECK: TMVINL: Tile Choice fun01_
 
@@ -65,12 +66,13 @@
 
 ; Check that the tile choices are correctly identified.
 
-; CHECK: TMVINL: Marked leapfrog_ TO fun0_FOR INLINING
-; CHECK: TMVINL: Marked leapfrog_ TO fun1_FOR INLINING
-; CHECK: TMVINL: Marked leapfrog_ TO fun2_FOR INLINING
-; CHECK: TMVINL: Marked leapfrog_ TO extra_FOR INLINING
-; CHECK: TMVINL: Marked switch_ TO fun00_FOR INLINING
-; CHECK: TMVINL: Marked switch_ TO fun01_FOR INLINING
+; CHECK: TMVINL: Marked leapfrog_ TO fun0_ FOR INLINING
+; CHECK: TMVINL: Marked leapfrog_ TO fun1_ FOR INLINING
+; CHECK: TMVINL: Marked leapfrog_ TO fun2_ FOR INLINING
+; CHECK: TMVINL: Marked leapfrog_ TO extra_ FOR INLINING
+; CHECK: TMVINL: Marked leapfrog_ TO switch_ FOR INLINING
+; CHECK: TMVINL: Marked switch_ TO fun00_ FOR INLINING
+; CHECK: TMVINL: Marked switch_ TO fun01_ FOR INLINING
 
 ; Check that the conditionals with globals are simplified.
 
@@ -97,7 +99,7 @@
 ; CHECK: TMVINL:  T fun1_
 ; CHECK: TMVINL:  T fun2_
 ; CHECK: TMVINL:  T extra_
-; CHECK: TMVINL:  switch_
+; CHECK: TMVINL:  T switch_
 ; CHECK: TMVINL: SubRoot: switch_
 ; CHECK: TMVINL:  T fun00_
 ; CHECK: TMVINL:  T fun01_
@@ -151,7 +153,7 @@
 ; CHECK: %t53 = load i1, i1* @mymod_mp_mybool_, align 8
 ; CHECK: br i1 true, label %{{.*}}, label %{{.*}}
 ; CHECK: call{{.*}}@extra_({{.*}}) #1{{ *$}}
-; CHECK: call{{.*}}@switch_({{.*}}){{ *$}}
+; CHECK: call{{.*}}@switch_({{.*}}) #1{{ *$}}
 ; CHECK: %t7 = load i32, i32* @mymod_mp_mynnodes_, align 8
 ; CHECK: icmp eq i32 %t7, -2
 ; CHECK: br i1 false, label %{{.*}}, label %{{.*}}

@@ -8,6 +8,8 @@
 
 #pragma once
 
+#include <climits>
+
 #ifndef __SYCL_DISABLE_NAMESPACE_INLINE__
 #define __SYCL_INLINE_NAMESPACE(X) inline namespace X
 #else
@@ -16,6 +18,10 @@
 
 #ifndef __has_attribute
 #define __has_attribute(x) 0
+#endif
+
+#ifndef __has_builtin
+#define __has_builtin(x) 0
 #endif
 
 #if __has_attribute(always_inline)
@@ -32,10 +38,11 @@
 #define SYCL_EXTERNAL
 #endif
 
-#if __cplusplus >= 201402
-#define __SYCL_DEPRECATED__(message) [[deprecated(message)]]
-#elif !defined _MSC_VER
-#define __SYCL_DEPRECATED__(message) __attribute__((deprecated(message)))
+#if defined(__SYCL_ID_QUERIES_FIT_IN_INT__) && __has_builtin(__builtin_assume)
+#define __SYCL_ASSUME_INT(x) __builtin_assume((x) <= INT_MAX)
 #else
-#define __SYCL_DEPRECATED__(message)
+#define __SYCL_ASSUME_INT(x)
+#if defined(__SYCL_ID_QUERIES_FIT_IN_INT__) && !__has_builtin(__builtin_assume)
+#warning "No assumptions will be emitted due to no __builtin_assume available"
+#endif
 #endif

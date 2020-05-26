@@ -17,3 +17,75 @@ void test_tile_2transposewt1(const void *A, size_t B, size_t C) {
   // CHECK: call void @llvm.x86.t2transposewt1(i8 1, i8* %{{.*}}, i64 %{{.*}}, i64 %{{.*}})
   _tile_2transposewt1(1, A, B, C);
 }
+
+void test_tile_4rqntlvbz0(const void *A, size_t B) {
+  // CHECK-LABEL: @test_tile_4rqntlvbz0
+  // CHECK: call void @llvm.x86.t4rqntlvbz0(i8 0, i8* %{{.*}}, i64 %{{.*}})
+  _tile_4rqntlvbz0(0, A, B);
+}
+
+void test_tile_4rqntlvbz0t1(const void *A, size_t B) {
+  // CHECK-LABEL: @test_tile_4rqntlvbz0t1
+  // CHECK: call void @llvm.x86.t4rqntlvbz0t1(i8 0, i8* %{{.*}}, i64 %{{.*}})
+  _tile_4rqntlvbz0t1(0, A, B);
+}
+
+void test_tile_4rqntlvbz1(const void *A, size_t B) {
+  // CHECK-LABEL: @test_tile_4rqntlvbz1
+  // CHECK: call void @llvm.x86.t4rqntlvbz1(i8 4, i8* %{{.*}}, i64 %{{.*}})
+  _tile_4rqntlvbz1(4, A, B);
+}
+
+void test_tile_4rqntlvbz1t1(const void *A, size_t B) {
+  // CHECK-LABEL: @test_tile_4rqntlvbz1t1
+  // CHECK: call void @llvm.x86.t4rqntlvbz1t1(i8 4, i8* %{{.*}}, i64 %{{.*}})
+  _tile_4rqntlvbz1t1(4, A, B);
+}
+
+void test_tile_4rqntlvbz2(const void *A, size_t B) {
+  // CHECK-LABEL: @test_tile_4rqntlvbz2
+  // CHECK: call void @llvm.x86.t4rqntlvbz2(i8 8, i8* %{{.*}}, i64 %{{.*}})
+  _tile_4rqntlvbz2(8, A, B);
+}
+
+void test_tile_4rqntlvbz2t1(const void *A, size_t B) {
+  // CHECK-LABEL: @test_tile_4rqntlvbz2t1
+  // CHECK: call void @llvm.x86.t4rqntlvbz2t1(i8 12, i8* %{{.*}}, i64 %{{.*}})
+  _tile_4rqntlvbz2t1(12, A, B);
+}
+
+void test_tile_4rqntlvbz3(const void *A, size_t B) {
+  // CHECK-LABEL: @test_tile_4rqntlvbz3
+  // CHECK: call void @llvm.x86.t4rqntlvbz3(i8 12, i8* %{{.*}}, i64 %{{.*}})
+  _tile_4rqntlvbz3(12, A, B);
+}
+
+void test_tile_4rqntlvbz3t1(const void *A, size_t B) {
+  // CHECK-LABEL: @test_tile_4rqntlvbz3t1
+  // CHECK: call void @llvm.x86.t4rqntlvbz3t1(i8 12, i8* %{{.*}}, i64 %{{.*}})
+  _tile_4rqntlvbz3t1(12, A, B);
+}
+
+void test_tile_tdpbssd() {
+  // CHECK-LABEL: @test_tile_tdpbssd
+  // CHECK: call void @llvm.x86.ttdpbssd(i8 1, i8 2, i8 3)
+  _tile_tdpbssd(1, 2, 3);
+}
+
+void test_tile_tdpbsud() {
+  // CHECK-LABEL: @test_tile_tdpbsud
+  // CHECK: call void @llvm.x86.ttdpbsud(i8 1, i8 2, i8 3)
+  _tile_tdpbsud(1, 2, 3);
+}
+
+void test_tile_tdpbusd() {
+  // CHECK-LABEL: @test_tile_tdpbusd
+  // CHECK: call void @llvm.x86.ttdpbusd(i8 1, i8 2, i8 3)
+  _tile_tdpbusd(1, 2, 3);
+}
+
+void test_tile_tdpbuud() {
+  // CHECK-LABEL: @test_tile_tdpbuud
+  // CHECK: call void @llvm.x86.ttdpbuud(i8 1, i8 2, i8 3)
+  _tile_tdpbuud(1, 2, 3);
+}

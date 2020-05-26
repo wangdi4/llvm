@@ -31,7 +31,7 @@ define void @foo(i32* nocapture %dst, i32* nocapture %src, i64 %x) {
 ; CHECK-NEXT:   #3 <4 x 32> SStore
 ; CHECK-NEXT:   #4 <4 x 32> SStore
 ;
-; CHECK:       vector.body:
+; CHECK-LABEL: @foo
 ; CHECK:         [[MM_VECTORGEP_0:%.*]] = extractelement <4 x i32*> [[MM_VECTORGEP:%.*]], i64 0
 ; CHECK-NEXT:    [[GROUPPTR:%.*]] = bitcast i32* [[MM_VECTORGEP_0]] to <8 x i32>*
 ; CHECK-NEXT:    [[GROUPLOAD:%.*]] = load <8 x i32>, <8 x i32>* [[GROUPPTR]], align 4
@@ -44,7 +44,6 @@ define void @foo(i32* nocapture %dst, i32* nocapture %src, i64 %x) {
 ; CHECK-NEXT:    [[MM_VECTORGEP9_0:%.*]] = extractelement <4 x i32*> [[MM_VECTORGEP9:%.*]], i64 0
 ; CHECK-NEXT:    [[GROUPPTR12:%.*]] = bitcast i32* [[MM_VECTORGEP9_0]] to <8 x i32>*
 ; CHECK-NEXT:    store <8 x i32> [[GROUPSHUFFLE11]], <8 x i32>* [[GROUPPTR12]], align 4
-; CHECK:         br i1 %{{.*}}, label %{{.*}}, label %vector.body
 ;
 entry:
   %x3 = mul nsw i64 %x, 3

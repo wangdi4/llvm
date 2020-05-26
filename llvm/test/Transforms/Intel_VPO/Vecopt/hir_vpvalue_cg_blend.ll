@@ -1,17 +1,15 @@
 ; Test VPValue based code generation phi blending
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -vplan-force-vf=4  -S -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -vplan-force-vf=4  -disable-output -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir < %s 2>&1 | FileCheck %s
 ; CHECK:        DO i1 = 0, 99, 4
-; CHECK:           [[ARR1VAL:%.*]] = (<4 x i64>*)(@arr1)[0][i1 + <i64 0, i64 1, i64 2, i64 3>];
+; CHECK:           [[ARR1VAL:%.*]] = (<4 x i64>*)(@arr1)[0][i1];
 ; CHECK:           [[TMASK:%.*]] = [[ARR1VAL]] == 0;
 ; CHECK:           [[FMASK:%.*]] = [[TMASK]]  ^  -1;
-; CHECK:           [[ARR2VAL:%.*]] = (<4 x i64>*)(@arr2)[0][i1 + <i64 0, i64 1, i64 2, i64 3>]; Mask = @{[[FMASK]]}
+; CHECK:           [[ARR2VAL:%.*]] = (<4 x i64>*)(@arr2)[0][i1]; Mask = @{[[FMASK]]}
 ; CHECK:           [[ADD:%.*]] = [[ARR2VAL]]  +  10; Mask = @{[[FMASK]]}
-; CHECK:           [[ADDCOPY:%.*]] = [[ADD]]; Mask = @{[[FMASK]]}
-; CHECK:           [[ARR3VAL:%.*]] = (<4 x i64>*)(@arr3)[0][i1 + <i64 0, i64 1, i64 2, i64 3>]; Mask = @{[[TMASK]]}
+; CHECK:           [[ARR3VAL:%.*]] = (<4 x i64>*)(@arr3)[0][i1]; Mask = @{[[TMASK]]}
 ; CHECK:           [[SUB:%.*]] = [[ARR3VAL]]  +  -20; Mask = @{[[TMASK]]}
-; CHECK:           [[SUBCOPY:%.*]] = [[SUB]]; Mask = @{[[TMASK]]}
-; CHECK:           [[SELECT:%.*]] = ([[TMASK]] == <i1 true, i1 true, i1 true, i1 true>) ? [[SUBCOPY]] : [[ADDCOPY]];
-; CHECK:           (<4 x i64>*)(@arr1)[0][i1 + <i64 0, i64 1, i64 2, i64 3>] = [[SELECT]];
+; CHECK:           [[SELECT:%.*]] = ([[TMASK]] == <i1 true, i1 true, i1 true, i1 true>) ? [[SUB]] : [[ADD]];
+; CHECK:           (<4 x i64>*)(@arr1)[0][i1] = [[SELECT]];
 ; CHECK:        END LOOP
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

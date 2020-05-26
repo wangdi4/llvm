@@ -8,7 +8,9 @@
 
 #pragma once
 
+#include <CL/sycl/backend_types.hpp>
 #include <CL/sycl/detail/common.hpp>
+#include <CL/sycl/detail/export.hpp>
 #include <CL/sycl/device.hpp>
 #include <CL/sycl/device_selector.hpp>
 #include <CL/sycl/event.hpp>
@@ -30,7 +32,7 @@ namespace detail {
 class queue_impl;
 }
 
-class queue {
+class __SYCL_EXPORT queue {
 public:
   /// Constructs a SYCL queue instance using the device returned by an instance
   /// of default_selector.
@@ -637,10 +639,25 @@ public:
   /// Equivalent to has_property<property::queue::in_order>()
   bool is_in_order() const;
 
+  /// Gets the native handle of the SYCL queue.
+  ///
+  /// \return a native handle, the type of which defined by the backend.
+  template <backend BackendName>
+  auto get_native() const -> typename interop<BackendName, queue>::type {
+    return reinterpret_cast<typename interop<BackendName, queue>::type>(
+        getNative());
+  }
+
 private:
+  pi_native_handle getNative() const;
+
   shared_ptr_class<detail::queue_impl> impl;
+  queue(shared_ptr_class<detail::queue_impl> impl) : impl(impl) {}    // INTEL
+
   template <class Obj>
   friend decltype(Obj::impl) detail::getSyclObjImpl(const Obj &SyclObject);
+  template <class T>                                                  // INTEL
+  friend T detail::createSyclObjFromImpl(decltype(T::impl) ImplObj);  // INTEL
 
   /// A template-free version of submit.
   event submit_impl(function_class<void(handler &)> CGH,

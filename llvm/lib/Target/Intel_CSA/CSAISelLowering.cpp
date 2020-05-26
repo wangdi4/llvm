@@ -34,6 +34,7 @@
 #include "llvm/IR/GlobalAlias.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/IntrinsicsCSA.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -65,6 +66,12 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM,
   addRegisterClass(MVT::f32, &CSA::I32RegClass);
   addRegisterClass(MVT::f64, &CSA::I64RegClass);
   addRegisterClass(MVT::v2f32, &CSA::I64RegClass);
+
+  // V2 register classes
+  addRegisterClass(MVT::f16, &CSA::I16RegClass);
+  addRegisterClass(MVT::v4f16, &CSA::I64RegClass);
+  addRegisterClass(MVT::v4i16, &CSA::I64RegClass);
+  addRegisterClass(MVT::v8i8,  &CSA::I64RegClass);
 
   // always lower memset, memcpy, and memmove intrinsics to load/store
   // instructions, rather
@@ -105,15 +112,26 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM,
 
   // Provide all sorts of operation actions
 
+  for (MVT VT : MVT::all_valuetypes()) {
+    // Memory operations: all of these are custom lowering, assuming they're
+    // supported in the first place.
+    setOperationAction(ISD::ATOMIC_CMP_SWAP, VT, Custom);
+    setOperationAction(ISD::ATOMIC_LOAD, VT, Custom);
+    setOperationAction(ISD::ATOMIC_STORE, VT, Custom);
+    setOperationAction(ISD::LOAD, VT, Custom);
+    setOperationAction(ISD::STORE, VT, Custom);
+
+    // We don't have fused condition codes--expand these into SETCC.
+    setOperationAction(ISD::BR_CC, VT, Expand);
+    setOperationAction(ISD::SELECT_CC, VT, Expand);
+  }
+
   // Operations we want expanded for all types
   for (MVT VT : MVT::integer_valuetypes()) {
     // If this type is generally supported
     bool isTypeSupported =
       ((VT == MVT::i8 && ST.hasI8()) || (VT == MVT::i16 && ST.hasI16()) ||
        (VT == MVT::i32 && ST.hasI32()) || (VT == MVT::i64 && ST.hasI64()));
-
-    setOperationAction(ISD::BR_CC, VT, Expand);
-    setOperationAction(ISD::SELECT_CC, VT, Expand);
 
     setOperationAction(ISD::SIGN_EXTEND, VT, Expand);
 
@@ -146,11 +164,11 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM,
     setOperationAction(ISD::SRA_PARTS, VT, Expand);
 
     // Bit manipulation
-    setOperationAction(ISD::ROTL, VT, Expand);
-    setOperationAction(ISD::ROTR, VT, Expand);
     setOperationAction(ISD::BSWAP, VT, Expand);
 
     LegalizeAction action = (isTypeSupported && ST.hasBitOp()) ? Legal : Expand;
+    setOperationAction(ISD::ROTL, VT, action);
+    setOperationAction(ISD::ROTR, VT, action);
     setOperationAction(ISD::CTPOP, VT, action);
     setOperationAction(ISD::CTTZ, VT, action);
     setOperationAction(ISD::CTTZ_ZERO_UNDEF, VT, Expand);
@@ -167,13 +185,6 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM,
       setOperationAction(ISD::ATOMIC_LOAD_XOR, VT, Custom);
       setOperationAction(ISD::ATOMIC_SWAP, VT, Custom);
     }
-    setOperationAction(ISD::ATOMIC_CMP_SWAP, VT, Custom);
-
-    setOperationAction(ISD::ATOMIC_LOAD, VT, Custom);
-    setOperationAction(ISD::ATOMIC_STORE, VT, Custom);
-
-    setOperationAction(ISD::LOAD, VT, Custom);
-    setOperationAction(ISD::STORE, VT, Custom);
 
     setOperationAction(ISD::DYNAMIC_STACKALLOC, VT, Expand);
   }
@@ -182,8 +193,41 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::STACKRESTORE, MVT::Other, Expand);
 
   for (MVT VT : MVT::fp_valuetypes()) {
-    setOperationAction(ISD::BR_CC, VT, Expand);
-    setOperationAction(ISD::SELECT_CC, VT, Expand);
+    setTruncStoreAction(VT, MVT::f16, Expand);
+    setLoadExtAction(ISD::EXTLOAD, VT, MVT::f16, Expand);
+
+    // Allow full FP literals
+    setOperationAction(ISD::ConstantFP, VT, Legal);
+
+    // Math ops: fcopysign is a trivial expansion for abs/neg.
+    setOperationAction(ISD::FCOPYSIGN, VT, Expand);
+    setOperationAction(ISD::FABS, VT, Legal);
+    LegalizeAction Math0Action = LibCall;
+    if (VT == MVT::f16)
+      Math0Action = Promote;
+    else if (ST.hasMath0())
+      Math0Action = Legal;
+
+    setOperationAction(ISD::FSIN, VT, Math0Action);
+    setOperationAction(ISD::FCOS, VT, Math0Action);
+    setOperationAction(ISD::FTAN, VT, Math0Action);
+    setOperationAction(ISD::FATAN, VT, Math0Action);
+    setOperationAction(ISD::FATAN2, VT, Math0Action);
+    setOperationAction(ISD::FPOW, VT, Math0Action);
+    setOperationAction(ISD::FLOG, VT, Math0Action);
+    setOperationAction(ISD::FLOG2, VT, Math0Action);
+    setOperationAction(ISD::FEXP, VT, Math0Action);
+    setOperationAction(ISD::FEXP2, VT, Math0Action);
+    setOperationAction(ISD::FCEIL, VT, Math0Action);
+    setOperationAction(ISD::FTRUNC, VT, Math0Action);
+    setOperationAction(ISD::FROUND, VT, Math0Action);
+    setOperationAction(ISD::FFLOOR, VT, Math0Action);
+    setOperationAction(ISD::FSINCOS, VT, Math0Action);
+
+    // These don't have math0 operations, so convert to libcalls (unless f16).
+    setOperationAction(ISD::FLOG10,VT, VT == MVT::f16 ? Promote : LibCall);
+    setOperationAction(ISD::FRINT, VT, VT == MVT::f16 ? Promote : Expand);
+    setOperationAction(ISD::FNEARBYINT, VT, VT == MVT::f16 ? Promote : Expand);
   }
 
   setOperationAction(ISD::BR_JT, MVT::Other, Expand);
@@ -213,158 +257,84 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM,
     setTruncStoreAction(VT, MVT::i1, Expand);
   }
 
-  // Load and store floats as equivalently-sized integers.
-  setOperationPromotedToType(ISD::LOAD, MVT::f32, MVT::i32);
-  setOperationPromotedToType(ISD::LOAD, MVT::f64, MVT::i64);
-  setOperationPromotedToType(ISD::STORE, MVT::f32, MVT::i32);
-  setOperationPromotedToType(ISD::STORE, MVT::f64, MVT::i64);
-
   setLoadExtAction(ISD::EXTLOAD, MVT::f64, MVT::f32, Expand);
 
   setTruncStoreAction(MVT::f64, MVT::f32, Expand);
 
-  // Vector loads and stores should be handled in custom expansion.
-  setOperationAction(ISD::LOAD, MVT::v2f32, Custom);
-  setOperationAction(ISD::STORE, MVT::v2f32, Custom);
-  setOperationAction(ISD::ATOMIC_LOAD, MVT::v2f32, Custom);
-  setOperationAction(ISD::ATOMIC_STORE, MVT::v2f32, Custom);
-  setOperationAction(ISD::ATOMIC_CMP_SWAP, MVT::v2f32, Custom);
+  // Conversions: we support the full gamut of conversions between i32, f32,
+  // i64, and f64. We also support f16<->f32 conversions, but no other f16
+  // conversions. Legalization of integer<->fp conversions is based on the
+  // integer type, whereas the floating point conversions are based on the
+  // destination type. Essentially, this means we need custom loweing for most
+  // conversions.
+  LegalizeAction CustomF16 = Custom;
+  setOperationAction(ISD::FP_ROUND, MVT::f16, Custom);
+  setOperationAction(ISD::FP_EXTEND, MVT::f32, Legal);
+  setOperationAction(ISD::FP_EXTEND, MVT::f64, CustomF16);
+  for (MVT VT : {MVT::i1, MVT::i8, MVT::i16, MVT::i32, MVT::i64}) {
+    bool HasConversion = VT == MVT::i32 || VT == MVT::i64;
+    LegalizeAction SemiLegal = HasConversion ? CustomF16 : Promote;
+    setOperationAction(ISD::UINT_TO_FP, VT, SemiLegal);
+    setOperationAction(ISD::SINT_TO_FP, VT, SemiLegal);
+    setOperationAction(ISD::FP_TO_UINT, VT, SemiLegal);
+    setOperationAction(ISD::FP_TO_SINT, VT, SemiLegal);
+  }
 
-  // SETOEQ and SETUNE require checking two conditions.
-  /*
-  setCondCodeAction(ISD::SETOEQ, MVT::f32, Expand);
-  setCondCodeAction(ISD::SETOEQ, MVT::f64, Expand);
-  setCondCodeAction(ISD::SETOEQ, MVT::f80, Expand);
-  setCondCodeAction(ISD::SETUNE, MVT::f32, Expand);
-  setCondCodeAction(ISD::SETUNE, MVT::f64, Expand);
-  setCondCodeAction(ISD::SETUNE, MVT::f80, Expand);
-  */
-
-  // No direct conversions to/from small integers and floating point
-  setOperationAction(ISD::UINT_TO_FP, MVT::i1, Promote);
-  setOperationAction(ISD::UINT_TO_FP, MVT::i8, Promote);
-  setOperationAction(ISD::UINT_TO_FP, MVT::i16, Promote);
-
-  setOperationAction(ISD::SINT_TO_FP, MVT::i1, Promote);
-  setOperationAction(ISD::SINT_TO_FP, MVT::i8, Promote);
-  setOperationAction(ISD::SINT_TO_FP, MVT::i16, Promote);
-
-  setOperationAction(ISD::FP_TO_UINT, MVT::i1, Promote);
-  setOperationAction(ISD::FP_TO_UINT, MVT::i8, Promote);
-  setOperationAction(ISD::FP_TO_UINT, MVT::i16, Promote);
-
-  setOperationAction(ISD::FP_TO_SINT, MVT::i1, Promote);
-  setOperationAction(ISD::FP_TO_SINT, MVT::i8, Promote);
-  setOperationAction(ISD::FP_TO_SINT, MVT::i16, Promote);
-
-  // Allow full FP literals
-  setOperationAction(ISD::ConstantFP, MVT::f32, Legal);
-  setOperationAction(ISD::ConstantFP, MVT::f64, Legal);
+  setOperationAction(ISD::FP16_TO_FP, MVT::f32, Legal);
+  setOperationAction(ISD::FP_TO_FP16, MVT::f32, Legal);
 
   // SIMD ops--we have to mark what is not legal.
-  setOperationAction(ISD::FNEG, MVT::v2f32, Expand);
-  setOperationAction(ISD::FDIV, MVT::v2f32, Expand);
-  setOperationAction(ISD::FREM, MVT::v2f32, Expand);
-  setOperationAction(ISD::FP_ROUND, MVT::v2f32, Expand);
-  setOperationAction(ISD::EXTRACT_VECTOR_ELT, MVT::v2f32, Custom);
+  for (MVT VT : MVT::fp_fixedlen_vector_valuetypes()) {
+    setOperationAction(ISD::FNEG, VT, Expand);
+    setOperationAction(ISD::FDIV, VT, Expand);
+    setOperationAction(ISD::FREM, VT, Expand);
+    setOperationAction(ISD::FP_EXTEND, VT, Expand);
+    setOperationAction(ISD::FP_ROUND, VT, Expand);
+    setOperationAction(ISD::FP_TO_SINT, VT, Expand);
+    setOperationAction(ISD::FP_TO_UINT, VT, Expand);
+    setOperationAction(ISD::SINT_TO_FP, VT, Expand);
+    setOperationAction(ISD::UINT_TO_FP, VT, Expand);
+    if (isTypeLegal(VT))
+      setOperationAction(ISD::EXTRACT_VECTOR_ELT, VT, Custom);
+  }
 
-  /*  These are to enable as CG work is done
-    // Short float
-    setOperationAction(ISD::FP16_TO_FP, MVT::f32, Expand);
-    setOperationAction(ISD::FP_TO_FP16, MVT::f32, Expand);
-  */
+  for (MVT VT : MVT::integer_fixedlen_vector_valuetypes()) {
+    setOperationAction(ISD::MUL, VT, Expand);
+    setOperationAction(ISD::UDIV, VT, Expand);
+    setOperationAction(ISD::SDIV, VT, Expand);
+    setOperationAction(ISD::UREM, VT, Expand);
+    setOperationAction(ISD::SREM, VT, Expand);
+    setOperationAction(ISD::SHL, VT, Expand);
+    setOperationAction(ISD::SRA, VT, Expand);
+    setOperationAction(ISD::SRL, VT, Expand);
+    setOperationAction(ISD::SIGN_EXTEND, VT, Expand);
+    setOperationAction(ISD::ZERO_EXTEND, VT, Expand);
+    setOperationAction(ISD::ANY_EXTEND, VT, Expand);
+    setOperationAction(ISD::TRUNCATE, VT, Expand);
+    setOperationAction(ISD::FP_TO_SINT, VT, Expand);
+    setOperationAction(ISD::FP_TO_UINT, VT, Expand);
+    setOperationAction(ISD::SINT_TO_FP, VT, Expand);
+    setOperationAction(ISD::UINT_TO_FP, VT, Expand);
+    if (isTypeLegal(VT))
+      setOperationAction(ISD::EXTRACT_VECTOR_ELT, VT, Custom);
 
-  setOperationAction(ISD::FNEG, MVT::f32, Legal);
-  setOperationAction(ISD::FNEG, MVT::f64, Legal);
-  setOperationAction(ISD::FABS, MVT::f32, Legal);
-  setOperationAction(ISD::FABS, MVT::f64, Legal);
+    // AND/OR/XOR: bitcast to integers to do the math.
+    MVT IntegerVT = MVT::getIntegerVT(VT.getSizeInBits());
+    setOperationPromotedToType(ISD::AND, VT, IntegerVT);
+    setOperationPromotedToType(ISD::OR, VT, IntegerVT);
+    setOperationPromotedToType(ISD::XOR, VT, IntegerVT);
 
-  // Allow various FP operations (temporarily.)
-  // The intent is these will be provided via a math library
-  if (ST.hasMath0()) {
-    // Order from ISDOpcodes.h
-    // setOperationAction(ISD::FREM,  MVT::f32, Legal);
-    // setOperationAction(ISD::FREM,  MVT::f64, Legal);
-    setOperationAction(ISD::FCOPYSIGN, MVT::f32, Expand);
-    setOperationAction(ISD::FCOPYSIGN, MVT::f64, Expand);
-    setOperationAction(ISD::FSQRT, MVT::f32, Legal);
-    setOperationAction(ISD::FSQRT, MVT::f64, Legal);
-    setOperationAction(ISD::FSIN, MVT::f32, Legal);
-    setOperationAction(ISD::FSIN, MVT::f64, Legal);
-    setOperationAction(ISD::FCOS, MVT::f32, Legal);
-    setOperationAction(ISD::FCOS, MVT::f64, Legal);
-    setOperationAction(ISD::FTAN, MVT::f32, Legal);
-    setOperationAction(ISD::FTAN, MVT::f64, Legal);
-    setOperationAction(ISD::FATAN, MVT::f32, Legal);
-    setOperationAction(ISD::FATAN, MVT::f64, Legal);
-    setOperationAction(ISD::FATAN2, MVT::f32, Legal);
-    setOperationAction(ISD::FATAN2, MVT::f64, Legal);
-    // setOperationAction(ISD::FPOWI, MVT::f32, Legal);
-    // setOperationAction(ISD::FPOWI, MVT::f64, Legal);
-    setOperationAction(ISD::FPOW, MVT::f32, Legal);
-    setOperationAction(ISD::FPOW, MVT::f64, Legal);
-    setOperationAction(ISD::FLOG, MVT::f32, Legal);
-    setOperationAction(ISD::FLOG, MVT::f64, Legal);
-    setOperationAction(ISD::FLOG2, MVT::f32, Legal);
-    setOperationAction(ISD::FLOG2, MVT::f64, Legal);
-    // setOperationAction(ISD::FLOG10,MVT::f32, Legal);
-    // setOperationAction(ISD::FLOG10,MVT::f64, Legal);
-    setOperationAction(ISD::FEXP, MVT::f32, Legal);
-    setOperationAction(ISD::FEXP, MVT::f64, Legal);
-    setOperationAction(ISD::FEXP2, MVT::f32, Legal);
-    setOperationAction(ISD::FEXP2, MVT::f64, Legal);
-    setOperationAction(ISD::FCEIL, MVT::f32, Legal);
-    setOperationAction(ISD::FCEIL, MVT::f64, Legal);
-    setOperationAction(ISD::FTRUNC, MVT::f32, Legal);
-    setOperationAction(ISD::FTRUNC, MVT::f64, Legal);
-    // setOperationAction(ISD::FRINT, MVT::f32, Legal);
-    // setOperationAction(ISD::FRINT, MVT::f64, Legal);
-    // setOperationAction(ISD::FNEARBYINT,MVT::f32, Legal);
-    // setOperationAction(ISD::FNEARBYINT,MVT::f64, Legal);
-    setOperationAction(ISD::FROUND, MVT::f32, Legal);
-    setOperationAction(ISD::FROUND, MVT::f64, Legal);
-    setOperationAction(ISD::FFLOOR, MVT::f32, Legal);
-    setOperationAction(ISD::FFLOOR, MVT::f64, Legal);
-    // setOperationAction(ISD::FSINCOS, MVT::f32, Legal);
-    // setOperationAction(ISD::FSINCOS, MVT::f64, Legal);
-  } else {
-    // Order from ISDOpcodes.h
-    // Same as hasMath0. May be changed when div/sqrt support is added
-    setOperationAction(ISD::FCOPYSIGN, MVT::f32, Expand);
-    setOperationAction(ISD::FCOPYSIGN, MVT::f64, Expand);
-    setOperationAction(ISD::FSQRT, MVT::f32, Legal);
-    setOperationAction(ISD::FSQRT, MVT::f64, Legal);
-    
-    setOperationAction(ISD::FSIN, MVT::f32, LibCall);
-    setOperationAction(ISD::FSIN, MVT::f64, LibCall);
-    setOperationAction(ISD::FCOS, MVT::f32, LibCall);
-    setOperationAction(ISD::FCOS, MVT::f64, LibCall);
-    setOperationAction(ISD::FTAN, MVT::f32, LibCall);
-    setOperationAction(ISD::FTAN, MVT::f64, LibCall);
-    setOperationAction(ISD::FATAN, MVT::f32, LibCall);
-    setOperationAction(ISD::FATAN, MVT::f64, LibCall);
-    setOperationAction(ISD::FATAN2, MVT::f32, LibCall);
-    setOperationAction(ISD::FATAN2, MVT::f64, LibCall);
-    setOperationAction(ISD::FPOW, MVT::f32, LibCall);
-    setOperationAction(ISD::FPOW, MVT::f64, LibCall);
-    setOperationAction(ISD::FLOG, MVT::f32, LibCall);
-    setOperationAction(ISD::FLOG, MVT::f64, LibCall);
-    setOperationAction(ISD::FLOG2, MVT::f32, LibCall);
-    setOperationAction(ISD::FLOG2, MVT::f64, LibCall);
-    setOperationAction(ISD::FLOG10,MVT::f32, LibCall);
-    setOperationAction(ISD::FLOG10,MVT::f64, LibCall);
-    setOperationAction(ISD::FEXP, MVT::f32, LibCall);
-    setOperationAction(ISD::FEXP, MVT::f64, LibCall);
-    setOperationAction(ISD::FEXP2, MVT::f32, LibCall);
-    setOperationAction(ISD::FEXP2, MVT::f64, LibCall);
-    setOperationAction(ISD::FCEIL, MVT::f32, LibCall);
-    setOperationAction(ISD::FCEIL, MVT::f64, LibCall);
-    setOperationAction(ISD::FTRUNC, MVT::f32, LibCall);
-    setOperationAction(ISD::FTRUNC, MVT::f64, LibCall);
-    setOperationAction(ISD::FROUND, MVT::f32, LibCall);
-    setOperationAction(ISD::FROUND, MVT::f64, LibCall);
-    setOperationAction(ISD::FFLOOR, MVT::f32, LibCall);
-    setOperationAction(ISD::FFLOOR, MVT::f64, LibCall);
+    // Saturated--these are expand by default
+    setOperationAction(ISD::SADDSAT, VT, Legal);
+    setOperationAction(ISD::UADDSAT, VT, Legal);
+    setOperationAction(ISD::SSUBSAT, VT, Legal);
+    setOperationAction(ISD::USUBSAT, VT, Legal);
+
+    // Min/Max-- these are expand by default
+    setOperationAction(ISD::UMIN, VT, Legal);
+    setOperationAction(ISD::UMAX, VT, Legal);
+    setOperationAction(ISD::SMIN, VT, Legal);
+    setOperationAction(ISD::SMAX, VT, Legal);
   }
 
   setOperationAction(ISD::GlobalAddress, MVT::i64, Custom);
@@ -384,6 +354,7 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM,
 
   setOperationAction(ISD::PREFETCH, MVT::Other, Custom);
   setOperationAction(ISD::ATOMIC_FENCE, MVT::Other, Custom);
+  setOperationAction(ISD::TRAP, MVT::Other, Custom);
 
   setOperationAction(ISD::INTRINSIC_VOID, MVT::Other, Custom);
   setOperationAction(ISD::INTRINSIC_W_CHAIN, MVT::Other, Custom);
@@ -399,6 +370,7 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM,
   setTargetDAGCombine(ISD::FMINIMUM);
   setTargetDAGCombine(ISD::FMAXIMUM);
   setTargetDAGCombine(ISD::VECTOR_SHUFFLE);
+  setTargetDAGCombine(ISD::BUILD_VECTOR);
 }
 
 EVT CSATargetLowering::getSetCCResultType(const DataLayout &DL,
@@ -451,11 +423,22 @@ SDValue CSATargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
   case ISD::ATOMIC_LOAD_OR:
   case ISD::ATOMIC_LOAD_XOR:
   case ISD::ATOMIC_SWAP:
+  case ISD::TRAP:
     return LowerMemop(Op, DAG);
   case ISD::INTRINSIC_W_CHAIN:
   case ISD::INTRINSIC_VOID:
   case ISD::INTRINSIC_WO_CHAIN:
     return LowerIntrinsic(Op, DAG);
+  case ISD::FP_ROUND:
+  case ISD::STRICT_FP_ROUND:
+  case ISD::FP_EXTEND:
+  case ISD::FP_TO_UINT:
+  case ISD::STRICT_FP_TO_UINT:
+  case ISD::FP_TO_SINT:
+  case ISD::STRICT_FP_TO_SINT:
+  case ISD::UINT_TO_FP:
+  case ISD::SINT_TO_FP:
+    return LowerConversion(Op, DAG);
   default:
     llvm_unreachable("unimplemented operand");
   }
@@ -491,6 +474,8 @@ const char *CSATargetLowering::getTargetNodeName(unsigned Opcode) const {
     return "CSAISD::FMSUBADD";
   case CSAISD::Swizzle:
     return "CSAISD::Swizzle";
+  case CSAISD::VSetCC:
+    return "CSAISD::VSetCC";
   case CSAISD::GetVal:
     return "CSAISD::GetVal";
   case CSAISD::EntryPseudo:
@@ -514,7 +499,7 @@ bool CSATargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
       Info.memVT = MVT::getVT(I.getType());
       Info.ptrVal = I.getArgOperand(0);
       Info.offset = 0;
-      Info.align = 1;
+      Info.align = Align(1);
       Info.flags = MachineMemOperand::MOLoad;
       if (Info.memVT == MVT::iPTR)
         Info.memVT = MVT::i64;
@@ -526,7 +511,7 @@ bool CSATargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
       Info.memVT = MVT::getVT(I.getType()->getContainedType(0));
       Info.ptrVal = I.getArgOperand(0);
       Info.offset = 0;
-      Info.align = 1; // XXX: alignment rules for sld/sst?
+      Info.align = Align(1); // XXX: alignment rules for sld/sst?
       Info.flags = MachineMemOperand::MOLoad;
       if (Info.memVT == MVT::iPTR)
         Info.memVT = MVT::i64;
@@ -538,7 +523,7 @@ bool CSATargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
       Info.memVT = MVT::getVT(I.getArgOperand(0)->getType());
       Info.ptrVal = I.getArgOperand(1);
       Info.offset = 0;
-      Info.align = 1;
+      Info.align = Align(1);
       Info.flags = MachineMemOperand::MOStore;
       if (Info.memVT == MVT::iPTR)
         Info.memVT = MVT::i64;
@@ -604,11 +589,11 @@ SDValue CSATargetLowering::LowerJumpTable(SDValue Op, SelectionDAG &DAG) const {
 // MachineMemOperand retains the ordering information, which we need to drop to
 // be able to use regular load/store nodes.
 static MachineMemOperand *dropAtomicInfo(SelectionDAG &DAG,
-    MachineMemOperand *Src) {
+                                         MachineMemOperand *Src) {
   MachineFunction &MF = DAG.getMachineFunction();
   return MF.getMachineMemOperand(Src->getPointerInfo(), Src->getFlags(),
-      Src->getSize(), Src->getBaseAlignment(), Src->getAAInfo(),
-      Src->getRanges());
+                                 Src->getSize(), Src->getBaseAlign(),
+                                 Src->getAAInfo(), Src->getRanges());
 }
 
 SDValue CSATargetLowering::LowerAtomicLoad(SDValue Op,
@@ -718,22 +703,42 @@ SDValue CSATargetLowering::LowerExtractElement(SDValue Op,
   SDValue Src     = Op.getOperand(0);
   SDValue Idx     = Op.getOperand(1);
   MVT VT          = Op.getSimpleValueType();
-  assert(VT.getSizeInBits() == 32 && "Only supporting 64->32 unpack");
+  MVT VecVT       = Src.getSimpleValueType();
+  MVT ScalarVT    = VecVT.getScalarType();
 
-  // Unpack the value into two LICs.
-  SDNode *Unpack = DAG.getMachineNode(CSA::UNPACK64_32, dl,
-      {MVT::f32, MVT::f32}, Src);
+  // If we know which one we're extracting, pull it out of the appropriate
+  // unpack instruction directly.
+  if (isa<ConstantSDNode>(Idx.getNode())) {
+    const CSAInstrInfo *const TII = Subtarget.getInstrInfo();
+    unsigned Opcode = TII->makeOpcode(CSA::Generic::UNPACK,
+        ScalarVT.getSizeInBits());
+    assert(Opcode != CSA::INVALID_OPCODE && "No unpack found for vector size");
 
-  // Create a select to choose the result of the UNPACK. If the condition is
-  // constant, this should be constant-folded away.
-  SDValue Res = DAG.getSelect(dl, MVT::f32, Idx, SDValue(Unpack, 1),
-      SDValue(Unpack, 0));
+    SmallVector<EVT, 8> UnpackTy;
+    for (unsigned i = 0; i < VecVT.getVectorNumElements(); i++)
+      UnpackTy.push_back(ScalarVT);
+    SDNode *Unpack = DAG.getMachineNode(Opcode, dl, UnpackTy, Src);
+    SDValue Res(Unpack, Op->getConstantOperandVal(1));
+    return VT == ScalarVT ? Res : DAG.getAnyExtOrTrunc(Res, dl, VT);
+  }
 
-  // If the type is not right, bitcast it.
-  if (VT != MVT::f32)
-    Res = DAG.getBitcast(VT, Res);
+  // 32-bit: do a select on the unpack instruction directly.
+  if (ScalarVT.getSizeInBits() == 32) {
+    SDNode *Unpack = DAG.getMachineNode(CSA::UNPACK64_32, dl,
+        {ScalarVT, ScalarVT}, Src);
+    SDValue Res = DAG.getSelect(dl, ScalarVT, Idx, SDValue(Unpack, 1),
+        SDValue(Unpack, 0));
+    return VT == ScalarVT ? Res : DAG.getAnyExtOrTrunc(Res, dl, VT);
+  }
 
-  return Res;
+  // 16- or 8-bit dynamic case. This is going to have to be lowered via shifts.
+  MVT IntVT = MVT::getIntegerVT(VecVT.getSizeInBits());
+  SDValue ISrc = DAG.getBitcast(IntVT, Src);
+  SDValue Size = DAG.getConstant(ScalarVT.getSizeInBits(), dl, IntVT);
+  SDValue ShiftAmt = DAG.getNode(ISD::MUL, dl, IntVT, ISrc, Size);
+  SDValue Extract = DAG.getAnyExtOrTrunc(
+    DAG.getNode(ISD::SRL, dl, IntVT, ISrc, ShiftAmt), dl, ScalarVT);
+  return ScalarVT == VT ? Extract : DAG.getAnyExtOrTrunc(Extract, dl, VT);
 }
 
 static SDNode *getSingleUseOfValue(SDValue V) {
@@ -788,7 +793,8 @@ SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
   // * ORD: copy from/to the input/output ordering edge
   // * LEVEL: choose a memlvl value based on the MachineMemOperand
   // * SPAD: the scratchpad base and index values.
-  enum OpndSourceType { OPND, ORD, LEVEL, SPAD };
+  // * LCACHE: the local cache ID.
+  enum OpndSourceType { OPND, ORD, LEVEL, SPAD, LCACHE };
 
   // A record denoting how to translate a particular use/def operand for the
   // MachineInstr representation of a memop. See OpndSourceType above for
@@ -829,12 +835,12 @@ SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
     {
       ISD::LOAD, CSA::Generic::LD, 0,
       {{OPND, 0}, ORD},
-      {{OPND, 1}, LEVEL, ORD}
+      {{OPND, 1}, LEVEL, LCACHE, ORD}
     },
     {
       ISD::STORE, CSA::Generic::ST, 2,
       {ORD},
-      {{OPND, 2}, {OPND, 1}, LEVEL, ORD}
+      {{OPND, 2}, {OPND, 1}, LEVEL, LCACHE, ORD}
     },
     {
       ISD::ATOMIC_CMP_SWAP, CSA::Generic::ATMCMPXCHG, 0,
@@ -886,6 +892,11 @@ SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
       {{OPND, 0}, ORD},
       {{OPND, 1}, {OPND, 2}, LEVEL, ORD}
     },
+    {
+      ISD::TRAP, CSA::Generic::TRAPHW, -1,
+      {ORD},
+      {ORD}
+    },
   };
   static const MemopRec ScratchpadMemopISDTable[] = {
     {
@@ -922,6 +933,16 @@ SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
     },
     {
       Intrinsic::csa_pipeline_depth_token_return, CSA::Generic::LD, -1,
+      {ORD},
+      {{OPND, 2}, {OPND, 3}, ORD}
+    },
+    {
+      Intrinsic::csa_local_cache_region_begin, CSA::Generic::LD, -1,
+      {{OPND, 0}, ORD},
+      {{OPND, 2}, {OPND, 3}, ORD}
+    },
+    {
+      Intrinsic::csa_local_cache_region_end, CSA::Generic::LD, -1,
       {ORD},
       {{OPND, 2}, {OPND, 3}, ORD}
     },
@@ -1001,6 +1022,11 @@ SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
         MemOperand->isNonTemporal() ? CSA::MEMLEVEL_NTA : CSA::MEMLEVEL_T0, DL,
         MVT::i64));
       break;
+    case LCACHE:
+      assert(MemOperand);
+      Opnds.push_back(DAG.getTargetConstant(
+        MemOperand->getLocalCacheID(), DL, MVT::i32));
+      break;
     case SPAD: {
       // Find the base from the appropriate GV.
       unsigned AS = MemOperand->getAddrSpace();
@@ -1039,6 +1065,12 @@ SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
       case Intrinsic::csa_pipeline_depth_token_return:
         Opcode = CSA::CSA_PIPELINE_DEPTH_TOKEN_RETURN;
         break;
+      case Intrinsic::csa_local_cache_region_begin:
+        Opcode = CSA::CSA_LOCAL_CACHE_REGION_BEGIN;
+        break;
+      case Intrinsic::csa_local_cache_region_end:
+        Opcode = CSA::CSA_LOCAL_CACHE_REGION_END;
+        break;
       default:
         llvm_unreachable("Add cases here for non-generic intrinsic memops");
       }
@@ -1051,6 +1083,9 @@ SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
       } break;
       case ISD::ATOMIC_FENCE:
         Opcode = CSA::FENCE;
+        break;
+      case ISD::TRAP:
+        Opcode = CSA::TRAP0;
         break;
       default:
         llvm_unreachable("Add cases here for non-generic memops");
@@ -1132,6 +1167,27 @@ SDValue CSATargetLowering::LowerMemop(SDValue Op, SelectionDAG &DAG) const {
   if (Outs.size() == 1)
     return Outs.front();
   return DAG.getMergeValues(Outs, DL);
+}
+
+SDValue CSATargetLowering::LowerConversion(SDValue Op, SelectionDAG &DAG) const {
+  SDValue In = Op.getOperand(0);
+  MVT SrcTy = In.getSimpleValueType();
+  MVT DestTy = Op.getSimpleValueType();
+  SDLoc DL(Op);
+  SDNode *Node = Op.getNode();
+
+  // f16 conversions must go through f32.
+  // TODO: Fix any double-rounding issues that might occur.
+  if (SrcTy == MVT::f16 && DestTy != MVT::f32) {
+    SDValue Via32 = DAG.getFPExtendOrRound(In, DL, MVT::f32);
+    DAG.UpdateNodeOperands(Node, Via32);
+  } else if (DestTy == MVT::f16 && SrcTy != MVT::f32) {
+    SDValue Via32 = DAG.getNode(Node->getOpcode(), DL, MVT::f32, Node->ops());
+    return DAG.getFPExtendOrRound(Via32, DL, MVT::f16);
+  }
+
+  // Otherwise, the original operation is already legal.
+  return Op;
 }
 
 static bool isCallOrGluedToCall(SDValue Op) {
@@ -1291,7 +1347,15 @@ SDValue CSATargetLowering::LowerIntrinsic(SDValue Op, SelectionDAG &DAG) const {
   case Intrinsic::csa_stream_store:
   case Intrinsic::csa_pipeline_depth_token_take:
   case Intrinsic::csa_pipeline_depth_token_return:
+  case Intrinsic::csa_local_cache_region_begin:
+  case Intrinsic::csa_local_cache_region_end:
     return LowerMemop(Op, DAG);
+
+  case Intrinsic::csa_cmp8x8:
+  case Intrinsic::csa_cmp16x4:
+    return DAG.getNode(CSAISD::VSetCC, DL, MVT::i8,
+        Op->getOperand(1), Op->getOperand(2),
+        DAG.getCondCode((ISD::CondCode)Op->getConstantOperandVal(3)));
   default:
     break;
   }
@@ -1316,6 +1380,9 @@ SDValue CSATargetLowering::PerformDAGCombine(SDNode *N,
 
   case ISD::VECTOR_SHUFFLE:
     return CombineShuffle(N, DAG);
+
+  case ISD::BUILD_VECTOR:
+    return CombineBuildVector(N, DAG);
 
   // Return SDValue{} for opcodes that we don't handle to show that we don't
   // handle them.
@@ -1463,7 +1530,7 @@ void CSATargetLowering::FoldComparesIntoMinMax(SDValue Sel, SelectionDAG &DAG,
   const SDValue LHS  = Sel->getOperand(0);
   const SDValue RHS  = Sel->getOperand(1);
 
-  // Min effectively implements a >= and max a <=, but we can get equivalent
+  // Min effectively implements a > and max a <, but we can get equivalent
   // values to other comparisons by a combination of swapping operands and
   // adding nots to the output. However, if we want to fold in multiple
   // comparisons all of them have to have the same operand order. The
@@ -1512,15 +1579,18 @@ void CSATargetLowering::FoldComparesIntoMinMax(SDValue Sel, SelectionDAG &DAG,
     // but when we have a clearer picture of what the architecture will do with
     // them there will probably need to be extra checks here.
 
+    // TODO: Now we have a proposed specification for NaNs; there's going to
+    // have to be some more logic to match up the order parameters
+
     // This comparison looks like a candidate for folding; put it in the right
-    // set. A >= with the same operand order can be folded into a min but
-    // switching to a <=, >, max, or swapping inputs each reverse the set
+    // set. A > with the same operand order can be folded into a min but
+    // switching to a <, >=, max, or swapping inputs each reverse the set
     // assignment. This gives the string of XORs below. A not is also needed for
-    // </>.
+    // <=/>=.
     const bool NeedsRev =
-      (bool(CC & ISD::SETOLT) != not(CC & ISD::SETOEQ)) != (IsMax != Reversed);
+      (bool(CC & ISD::SETOLT) != bool(CC & ISD::SETOEQ)) != (IsMax != Reversed);
     (NeedsRev ? RevCmps : SameCmps).emplace_back(Cmp, 0);
-    (NeedsRev ? RevNotCount : SameNotCount) += not(CC & ISD::SETOEQ);
+    (NeedsRev ? RevNotCount : SameNotCount) += bool(CC & ISD::SETOEQ);
 
     LLVM_DEBUG(dbgs() << " Found " << (NeedsRev ? "reversed" : "non-reversed")
                       << " comparison:\n");
@@ -1550,12 +1620,30 @@ void CSATargetLowering::FoldComparesIntoMinMax(SDValue Sel, SelectionDAG &DAG,
     const ISD::CondCode CC = cast<CondCodeSDNode>(Cmp->getOperand(2))->get();
     DAG.ReplaceAllUsesOfValueWith(
       Cmp,
-      (CC & ISD::SETOEQ) ? Sel : DAG.getLogicalNOT(SDLoc{Cmp}, Sel, MVT::i1));
+      (CC & ISD::SETOEQ) ? DAG.getLogicalNOT(SDLoc{Cmp}, Sel, MVT::i1) : Sel);
   }
 }
 
-static SDValue makeSwizzle(SDValue V, int LoIdx, int HiIdx, SelectionDAG &DAG) {
+static SDValue makeSwizzle(SDValue V, ArrayRef<int> Mask, SelectionDAG &DAG) {
   SDLoc DL(V);
+  int LoIdx, HiIdx;
+  if (Mask.size() == 2) {
+    LoIdx = Mask[0];
+    HiIdx = Mask[1];
+  } else if (Mask.size() == 4) {
+    // The swizzles for f16x4 apply the same rules of f32x2, but within each
+    // pair separately. What this means is that (if the swizzle applies), the
+    // indices of the last two values of Mask need to be the same as the first
+    // two, after 2 is added to them.
+    LoIdx = Mask[0];
+    HiIdx = Mask[1];
+    if (Mask[2] != LoIdx + 2 || Mask[3] != HiIdx + 2)
+      return SDValue{};
+  } else {
+    // Can't do anything with this form.
+    return SDValue{};
+  }
+
   // Set the swizzle mask based on the index of the low and high lanes. If the
   // index is not the natural result for the lane (i.e., 0 for the low lane and
   // 1 for the high lane), then we set the appropriate bit for this parameter.
@@ -1578,11 +1666,38 @@ SDValue CSATargetLowering::CombineShuffle(SDNode *N, SelectionDAG &DAG) const {
   // Note that SelectionDAG canonicalization means that we should only ever see
   // this case where all the vector elements come from a single input.
   if (V2.isUndef())
-    return makeSwizzle(V1, VN->getMaskElt(0), VN->getMaskElt(1), DAG);
+    return makeSwizzle(V1, VN->getMask(), DAG);
   assert(!V1.isUndef() && !V2.isUndef() && "SelectionDAG didn't canonicalize?");
 
   // Otherwise, just use regular shuffle instructions.
   return SDValue{};
+}
+
+SDValue CSATargetLowering::CombineBuildVector(SDNode *N,
+                                              SelectionDAG &DAG) const {
+
+  // Target build_vector nodes with all-constant inputs.
+  if (not ISD::isBuildVectorOfConstantSDNodes(N) and
+      not ISD::isBuildVectorOfConstantFPSDNodes(N))
+    return SDValue{};
+
+  // Collect the constant bits to form an integer constant.
+  const EVT VT      = N->getValueType(0);
+  const EVT ImmType = EVT::getIntegerVT(*DAG.getContext(), VT.getSizeInBits());
+  APInt ImmValue(VT.getSizeInBits(), 0, false);
+  const unsigned BitSize = VT.getScalarSizeInBits();
+  for (unsigned i = 0; i < N->getNumOperands(); i++) {
+    SDValue Op = N->getOperand(i);
+    if (auto ConstNode = dyn_cast<ConstantSDNode>(Op)) {
+      ImmValue.insertBits(ConstNode->getAPIntValue(), BitSize * i);
+    } else if (auto ConstNode = dyn_cast<ConstantFPSDNode>(Op)) {
+      ImmValue.insertBits(ConstNode->getValueAPF().bitcastToAPInt(),
+                          BitSize * i);
+    }
+  }
+
+  // Replace the BUILD_VECTOR with an equivalent bitcasted constant.
+  return DAG.getBitcast(VT, DAG.getConstant(ImmValue, SDLoc{N}, ImmType));
 }
 
 //===----------------------------------------------------------------------===//
@@ -1699,7 +1814,8 @@ bool CSATargetLowering::isNarrowingProfitable(EVT VT1, EVT VT2) const {
   return true;
 }
 
-bool CSATargetLowering::isFMAFasterThanFMulAndFAdd(EVT VT) const {
+bool CSATargetLowering::isFMAFasterThanFMulAndFAdd(
+    const MachineFunction &MF, EVT VT) const {
   if (!Subtarget.hasFMA())
     return false;
 
@@ -1997,13 +2113,13 @@ SDValue CSATargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
     if (Flags.isByVal()) {
       SDValue SizeNode = DAG.getConstant(Flags.getByValSize(), dl, MVT::i32);
       MemOpChains.push_back(DAG.getMemcpy(
-        Chain, dl, PtrOff, Arg, SizeNode, Flags.getByValAlign(),
-        /*isVolatile=*/false, /*AlwaysInline=*/false, /*isTailCall=*/false,
-        MachinePointerInfo(), MachinePointerInfo()));
+          Chain, dl, PtrOff, Arg, SizeNode, Flags.getNonZeroByValAlign(),
+          /*isVolatile=*/false, /*AlwaysInline=*/false, /*isTailCall=*/false,
+          MachinePointerInfo(), MachinePointerInfo()));
     } else {
       MemOpChains.push_back(
-        DAG.getStore(Chain, dl, Arg, PtrOff,
-                     MachinePointerInfo::getStack(MF, LocMemOffset)));
+          DAG.getStore(Chain, dl, Arg, PtrOff,
+                       MachinePointerInfo::getStack(MF, LocMemOffset)));
     }
   }
 

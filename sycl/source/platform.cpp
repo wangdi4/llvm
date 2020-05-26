@@ -6,11 +6,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <CL/sycl/detail/force_device.hpp>
 #include <CL/sycl/device.hpp>
 #include <CL/sycl/device_selector.hpp>
 #include <CL/sycl/info/info_desc.hpp>
 #include <CL/sycl/platform.hpp>
+#include <detail/force_device.hpp>
 #include <detail/platform_impl.hpp>
 
 __SYCL_INLINE_NAMESPACE(cl) {
@@ -49,8 +49,11 @@ platform::get_info() const {
   return impl->get_info<param>();
 }
 
+pi_native_handle platform::getNative() const { return impl->getNative(); } // INTEL
+
 #define PARAM_TRAITS_SPEC(param_type, param, ret_type)                         \
-  template ret_type platform::get_info<info::param_type::param>() const;
+  template __SYCL_EXPORT ret_type                                              \
+  platform::get_info<info::param_type::param>() const;
 
 #include <CL/sycl/info/platform_traits.def>
 

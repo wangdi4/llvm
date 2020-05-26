@@ -61,8 +61,13 @@ private:
   explicit VPLoop(VPBasicBlock *VPB) : LoopBase<VPBasicBlock, VPLoop>(VPB) {}
 
 public:
-  bool isLiveIn(const VPValue *VPVal) const;
-  bool isLiveOut(const VPValue *VPVal) const;
+  // Return true if \p VPVal is defined outside of the loop. Constants and
+  // MetadataAsValue don't have any def so the function returns false for them.
+  bool isDefOutside(const VPValue *VPVal) const;
+
+  // Return true if \p VPVal is liveout in the loop, i.e. it is defined inside
+  // the loop and has a use outside.
+  bool isLiveOut(const VPInstruction *VPVal) const;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printRPOT(raw_ostream &OS, const VPLoopInfo *VPLI = nullptr,

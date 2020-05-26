@@ -8,6 +8,7 @@
 
 #pragma once
 #include <CL/sycl/detail/common.hpp>
+#include <CL/sycl/detail/export.hpp>
 #include <CL/sycl/stl.hpp>
 
 // 4.6.2 Platform class
@@ -23,7 +24,7 @@ namespace detail {
 class platform_impl;
 }
 
-class platform {
+class __SYCL_EXPORT platform {
 public:
   /// Constructs a SYCL platform as a host platform.
   platform();
@@ -98,7 +99,20 @@ public:
   /// \return a vector of all available SYCL platforms.
   static vector_class<platform> get_platforms();
 
+/* INTEL_CUSTOMIZATION */
+  /// Gets the native handle of the SYCL platform.
+  ///
+  /// \return a native handle, the type of which defined by the backend.
+  template <backend BackendName>
+  auto get_native() const -> typename interop<BackendName, platform>::type {
+    return reinterpret_cast<typename interop<BackendName, platform>::type>(
+        getNative());
+  }
+/* end INTEL_CUSTOMIZATION */
+
 private:
+  pi_native_handle getNative() const;   // INTEL
+
   shared_ptr_class<detail::platform_impl> impl;
   platform(shared_ptr_class<detail::platform_impl> impl) : impl(impl) {}
 

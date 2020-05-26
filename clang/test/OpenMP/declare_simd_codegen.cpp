@@ -142,14 +142,14 @@ double constlinear(const int i) { return 0.0; }
 // _ZGVbN4l8__Z5add_1Pf, ...". Previously, they appeared as separately
 // quoted mangled names in the function attributes list. The quotes were
 // removed to be able to match the mangled names with the new form.
-// CHECK-DAG: _ZGVbM4l8__Z5add_1Pf
-// CHECK-DAG: _ZGVbN4l8__Z5add_1Pf
-// CHECK-DAG: _ZGVcM8l8__Z5add_1Pf
-// CHECK-DAG: _ZGVcN8l8__Z5add_1Pf
-// CHECK-DAG: _ZGVdM8l8__Z5add_1Pf
-// CHECK-DAG: _ZGVdN8l8__Z5add_1Pf
-// CHECK-DAG: _ZGVeM16l8__Z5add_1Pf
-// CHECK-DAG: _ZGVeN16l8__Z5add_1Pf
+// CHECK-DAG: _ZGVbM4l32__Z5add_1Pf
+// CHECK-DAG: _ZGVbN4l32__Z5add_1Pf
+// CHECK-DAG: _ZGVcM8l32__Z5add_1Pf
+// CHECK-DAG: _ZGVcN8l32__Z5add_1Pf
+// CHECK-DAG: _ZGVdM8l32__Z5add_1Pf
+// CHECK-DAG: _ZGVdN8l32__Z5add_1Pf
+// CHECK-DAG: _ZGVeM16l32__Z5add_1Pf
+// CHECK-DAG: _ZGVeN16l32__Z5add_1Pf
 // CHECK-DAG: _ZGVbM32v__Z5add_1Pf
 // CHECK-DAG: _ZGVcM32v__Z5add_1Pf
 // CHECK-DAG: _ZGVdM32v__Z5add_1Pf
@@ -186,14 +186,14 @@ double constlinear(const int i) { return 0.0; }
 // CHECK-DAG: _ZGVeM16uus1__ZN2VV3addEii
 // CHECK-DAG: _ZGVeN16uus1__ZN2VV3addEii
 
-// CHECK-DAG: _ZGVbM4lla16l4a4__ZN2VV6taddpfEPfRS0_
-// CHECK-DAG: _ZGVbN4lla16l4a4__ZN2VV6taddpfEPfRS0_
-// CHECK-DAG: _ZGVcM8lla16l4a4__ZN2VV6taddpfEPfRS0_
-// CHECK-DAG: _ZGVcN8lla16l4a4__ZN2VV6taddpfEPfRS0_
-// CHECK-DAG: _ZGVdM8lla16l4a4__ZN2VV6taddpfEPfRS0_
-// CHECK-DAG: _ZGVdN8lla16l4a4__ZN2VV6taddpfEPfRS0_
-// CHECK-DAG: _ZGVeM16lla16l4a4__ZN2VV6taddpfEPfRS0_
-// CHECK-DAG: _ZGVeN16lla16l4a4__ZN2VV6taddpfEPfRS0_
+// CHECK-DAG: _ZGVbM4ll4a16l4a4__ZN2VV6taddpfEPfRS0_
+// CHECK-DAG: _ZGVbN4ll4a16l4a4__ZN2VV6taddpfEPfRS0_
+// CHECK-DAG: _ZGVcM8ll4a16l4a4__ZN2VV6taddpfEPfRS0_
+// CHECK-DAG: _ZGVcN8ll4a16l4a4__ZN2VV6taddpfEPfRS0_
+// CHECK-DAG: _ZGVdM8ll4a16l4a4__ZN2VV6taddpfEPfRS0_
+// CHECK-DAG: _ZGVdN8ll4a16l4a4__ZN2VV6taddpfEPfRS0_
+// CHECK-DAG: _ZGVeM16ll4a16l4a4__ZN2VV6taddpfEPfRS0_
+// CHECK-DAG: _ZGVeN16ll4a16l4a4__ZN2VV6taddpfEPfRS0_
 
 // CHECK-DAG: _ZGVbM4vvl8__ZN2VV4taddERA_iRi
 // CHECK-DAG: _ZGVbN4vvl8__ZN2VV4taddERA_iRi
@@ -299,23 +299,23 @@ double constlinear(const int i) { return 0.0; }
 // CHECK-DAG: _ZGVeM16vvv__Z3bax2VVPdi
 // CHECK-DAG: _ZGVeN16vvv__Z3bax2VVPdi
 
-// CHECK-DAG: _ZGVbM4ua16vl1__Z3fooPffi
-// CHECK-DAG: _ZGVbN4ua16vl1__Z3fooPffi
-// CHECK-DAG: _ZGVcM8ua16vl1__Z3fooPffi
-// CHECK-DAG: _ZGVcN8ua16vl1__Z3fooPffi
-// CHECK-DAG: _ZGVdM8ua16vl1__Z3fooPffi
-// CHECK-DAG: _ZGVdN8ua16vl1__Z3fooPffi
-// CHECK-DAG: _ZGVeM16ua16vl1__Z3fooPffi
-// CHECK-DAG: _ZGVeN16ua16vl1__Z3fooPffi
+// CHECK-DAG: _ZGVbM4ua16vl__Z3fooPffi
+// CHECK-DAG: _ZGVbN4ua16vl__Z3fooPffi
+// CHECK-DAG: _ZGVcM8ua16vl__Z3fooPffi
+// CHECK-DAG: _ZGVcN8ua16vl__Z3fooPffi
+// CHECK-DAG: _ZGVdM8ua16vl__Z3fooPffi
+// CHECK-DAG: _ZGVdN8ua16vl__Z3fooPffi
+// CHECK-DAG: _ZGVeM16ua16vl__Z3fooPffi
+// CHECK-DAG: _ZGVeN16ua16vl__Z3fooPffi
 
-// CHECK-DAG: _ZGVbM4l8__Z5add_2Pf
-// CHECK-DAG: _ZGVbN4l8__Z5add_2Pf
-// CHECK-DAG: _ZGVcM8l8__Z5add_2Pf
-// CHECK-DAG: _ZGVcN8l8__Z5add_2Pf
-// CHECK-DAG: _ZGVdM8l8__Z5add_2Pf
-// CHECK-DAG: _ZGVdN8l8__Z5add_2Pf
-// CHECK-DAG: _ZGVeM16l8__Z5add_2Pf
-// CHECK-DAG: _ZGVeN16l8__Z5add_2Pf
+// CHECK-DAG: _ZGVbM4l32__Z5add_2Pf
+// CHECK-DAG: _ZGVbN4l32__Z5add_2Pf
+// CHECK-DAG: _ZGVcM8l32__Z5add_2Pf
+// CHECK-DAG: _ZGVcN8l32__Z5add_2Pf
+// CHECK-DAG: _ZGVdM8l32__Z5add_2Pf
+// CHECK-DAG: _ZGVdN8l32__Z5add_2Pf
+// CHECK-DAG: _ZGVeM16l32__Z5add_2Pf
+// CHECK-DAG: _ZGVeN16l32__Z5add_2Pf
 // CHECK-DAG: _ZGVbM32v__Z5add_2Pf
 // CHECK-DAG: _ZGVcM32v__Z5add_2Pf
 // CHECK-DAG: _ZGVdM32v__Z5add_2Pf

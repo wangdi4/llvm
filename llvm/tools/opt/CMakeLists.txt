@@ -9,6 +9,7 @@ set(LLVM_LINK_COMPONENTS
   CodeGen
   Core
   Coroutines
+  Extensions
   IPO
   IRReader
   InstCombine
@@ -24,6 +25,7 @@ set(LLVM_LINK_COMPONENTS
   Vectorize
   Passes
 # INTEL_CUSTOMIZATION
+  Intel_DPCPPKernelTransforms
   Intel_LoopAnalysis
   Intel_LoopTransforms
   Intel_MapIntrinToIml
@@ -45,13 +47,11 @@ add_llvm_tool(opt
   PrintSCC.cpp
   opt.cpp
 
-  ENABLE_PLUGINS
-
   DEPENDS
   intrinsics_gen
   SUPPORT_PLUGINS
   )
-export_executable_symbols(opt)
+export_executable_symbols_for_plugins(opt)
 
 if(LLVM_BUILD_EXAMPLES)
     target_link_libraries(opt PRIVATE ExampleIRTransforms)

@@ -58,7 +58,6 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeVisitor.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegion.h"
 #include "llvm/Pass.h"
-#include "llvm/PassAnalysisSupport.h"
 
 #define DEBUG_TYPE "VPlanHCFGBuilder"
 
@@ -353,9 +352,8 @@ VPBasicBlock *PlainCFGBuilderHIR::getOrCreateVPBB(HLNode *HNode) {
   // Plan and increases Plan's size.
   auto createVPBB = [&]() -> VPBasicBlock * {
     VPBasicBlock *NewVPBB =
-        new VPBasicBlock(VPlanUtils::createUniqueName("BB"));
-    NewVPBB->setParent(Plan);
-    Plan->setSize(Plan->getSize() + 1);
+        new VPBasicBlock(VPlanUtils::createUniqueName("BB"), Plan);
+    Plan->insertAtBack(NewVPBB);
     return NewVPBB;
   };
 
@@ -674,7 +672,6 @@ void PlainCFGBuilderHIR::buildPlainCFG() {
   // Create a dummy VPBB as Plan's Entry.
   assert(!ActiveVPBB && "ActiveVPBB must be null.");
   updateActiveVPBB();
-  Plan->setEntryBlock(ActiveVPBB);
 
   // Trigger the visit of the loop nest.
   visit(TheLoop);
@@ -682,7 +679,6 @@ void PlainCFGBuilderHIR::buildPlainCFG() {
   // Create a dummy VPBB as Plan's Exit.
   ActiveVPBB = nullptr;
   updateActiveVPBB();
-  Plan->setExitBlock(ActiveVPBB);
 
   // At this point, all the VPBasicBlocks have been built and all the
   // VPInstructions have been created for the loop nest. It's time to fix
@@ -695,9 +691,8 @@ VPlanHCFGBuilderHIR::VPlanHCFGBuilderHIR(const WRNVecLoopNode *WRL, HLLoop *Lp,
                                          VPlan *Plan,
                                          HIRVectorizationLegality *Legal,
                                          const DDGraph &DDG)
-    : VPlanHCFGBuilder(nullptr, nullptr, nullptr,
-                       Lp->getHLNodeUtils().getDataLayout(), WRL, Plan,
-                       nullptr),
+    : VPlanHCFGBuilder(nullptr, nullptr, Lp->getHLNodeUtils().getDataLayout(),
+                       WRL, Plan, nullptr),
       TheLoop(Lp), DDG(DDG), HIRLegality(Legal) {
   Verifier = std::make_unique<VPlanVerifierHIR>(Lp);
   assert((!WRLp || WRLp->getTheLoop<HLLoop>() == TheLoop) &&
@@ -1063,14 +1058,9 @@ public:
     Descriptor.setInductionBinOp(ID->getUpdateInstr());
     Descriptor.setBinOpcode(Instruction::BinaryOpsEnd);
     Type *IndTy = Descriptor.getInductionBinOp()->getType();
-    if (IndTy->isIntegerTy())
-      Descriptor.setKind(VPInduction::InductionKind::IK_IntInduction);
-    else if (IndTy->isPointerTy())
-      Descriptor.setKind(VPInduction::InductionKind::IK_PtrInduction);
-    else if (IndTy->isFloatingPointTy())
-      Descriptor.setKind(VPInduction::InductionKind::IK_FpInduction);
-    else
-      llvm_unreachable("Unsupported induction data type.");
+    VPInduction::InductionKind Kind;
+    std::tie(std::ignore, Kind) = Descriptor.getKindAndOpcodeFromTy(IndTy);
+    Descriptor.setKind(Kind);
     Descriptor.setStartPhi(nullptr);
     Descriptor.setStart(ID->getStart());
     Descriptor.setStep(ID->getStep());
@@ -1089,14 +1079,7 @@ public:
     const HLDDNode *HLNode = CurrValue.Ref->getHLDDNode();
     Descriptor.setStartPhi(
         dyn_cast<VPInstruction>(Decomposer.getVPValueForNode(HLNode)));
-    if (IndTy->isIntegerTy())
-      Descriptor.setKind(InductionDescriptor::IK_IntInduction);
-    else if (IndTy->isPointerTy())
-      Descriptor.setKind(InductionDescriptor::IK_PtrInduction);
-    else {
-      assert(IndTy->isFloatingPointTy() && "unexpected induction type");
-      Descriptor.setKind(InductionDescriptor::IK_FpInduction);
-    }
+    Descriptor.setKindAndOpcodeFromTy(IndTy);
     Descriptor.setStart(Descriptor.getStartPhi());
     int64_t Stride = CurrValue.Step->getSingleCanonExpr()->getConstant();
     Constant *Cstep = nullptr;
@@ -1116,7 +1099,6 @@ public:
       Cstep = ConstantInt::get(IndTy, Stride);
     Descriptor.setStep(Decomposer.getVPValueForConst(Cstep));
     Descriptor.setInductionBinOp(nullptr);
-    Descriptor.setBinOpcode(Instruction::Add);
     Descriptor.setAllocaInst(Descriptor.getStart());
   }
 };

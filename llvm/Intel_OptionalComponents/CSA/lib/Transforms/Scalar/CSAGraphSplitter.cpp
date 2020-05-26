@@ -21,6 +21,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 #include <queue>
@@ -162,7 +163,11 @@ private:
 
 public:
   GraphSplitter(CallGraph &CG) : CG(CG) {}
-  ~GraphSplitter() { DeleteContainerPointers(SCCs); }
+  ~GraphSplitter() {
+    for (auto SCC : SCCs)
+      delete SCC;
+    SCCs.clear();
+  }
 
   bool run();
 };

@@ -2,11 +2,12 @@
 ; with direct call to "malloc" by eliminating other possible targets
 ; like "calloc" and "free" due to signature mismatches.
 
-; RUN: opt < %s -intel-ind-call-force-andersen -anders-aa -indirectcallconv -print-indirect-call-conv -disable-output  2>&1 | FileCheck %s
-; RUN: opt < %s -intel-ind-call-force-andersen -passes='require<anders-aa>,function(indirectcallconv)' -print-indirect-call-conv -disable-output  2>&1 | FileCheck %s
-; RUN: opt < %s -convert-to-subscript -S | opt -intel-ind-call-force-andersen -anders-aa -indirectcallconv -print-indirect-call-conv -disable-output  2>&1 | FileCheck %s
+; RUN: opt < %s -intel-ind-call-force-andersen -anders-aa -indirectcallconv -S 2>&1 | FileCheck %s
+; RUN: opt < %s -intel-ind-call-force-andersen -passes='require<anders-aa>,function(indirectcallconv)' -S 2>&1 | FileCheck %s
+; RUN: opt < %s -convert-to-subscript -S | opt -intel-ind-call-force-andersen -anders-aa -indirectcallconv -S 2>&1 | FileCheck %s
 
-; CHECK:   Replaced with Direct call
+; CHECK: %call = call i8* @malloc(i64 100)
+; CHECK-NOT: %call = call i8* %1(i64 100)
 
 %struct.A = type { i8* (i64)*, void (i8*)*, i8* (i64, i64)* }
 
@@ -14,7 +15,7 @@
 @A1 = internal global %struct.A { i8* (i64)* @malloc, void (i8*)* @free, i8* (i64, i64)* @calloc }, align 8
 
 ; Function Attrs: noinline nounwind uwtable
-define i8* @getmem(i32 %i)  {
+define i8* @getmem(i32 %i) {
 entry:
   %i.addr = alloca i32, align 4
   %p = alloca i8*, align 8
@@ -29,17 +30,17 @@ entry:
 }
 
 ; Function Attrs: noinline nounwind uwtable
-define void @ptrassign()  {
+define void @ptrassign() {
 entry:
   store %struct.A* @A1, %struct.A** @APtr, align 8
   ret void
 }
 
 ; Function Attrs: nounwind
-declare noalias i8* @malloc(i64) 
+declare noalias i8* @malloc(i64)
 
 ; Function Attrs: nounwind
-declare void @free(i8*) 
+declare void @free(i8*)
 
 ; Function Attrs: nounwind
-declare noalias i8* @calloc(i64, i64) 
+declare noalias i8* @calloc(i64, i64)

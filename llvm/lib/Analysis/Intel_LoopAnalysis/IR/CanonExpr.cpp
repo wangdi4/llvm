@@ -73,7 +73,7 @@ void CanonExpr::dump(bool Detailed) const {
 void CanonExpr::dump() const { dump(false); }
 #endif
 
-void CanonExpr::print(formatted_raw_ostream &OS, bool Detailed) const {
+void CanonExpr::print(raw_ostream &OS, bool Detailed) const {
 #if !INTEL_PRODUCT_RELEASE
   auto C0 = getConstant();
   auto Denom = getDenominator();
@@ -345,7 +345,9 @@ bool CanonExpr::isIntVectorConstant(Constant **Val) const {
 
       ConstVal = ConstantInt::get(getDestType()->getScalarType(), ConstIntVal);
       *Val = ConstantVector::getSplat(
-          ElementCount(getDestType()->getVectorNumElements(), false), ConstVal);
+          ElementCount(cast<VectorType>(getDestType())->getNumElements(),
+                       false),
+          ConstVal);
     }
 
     return true;
@@ -368,7 +370,9 @@ bool CanonExpr::isFPVectorConstant(Constant **Val) const {
 
       ConstVal = ConstFPVal;
       *Val = ConstantVector::getSplat(
-          ElementCount(getDestType()->getVectorNumElements(), false), ConstVal);
+          ElementCount(cast<VectorType>(getDestType())->getNumElements(),
+                       false),
+          ConstVal);
     }
 
     return true;

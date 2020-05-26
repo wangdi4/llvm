@@ -19,6 +19,7 @@
 #if INTEL_CUSTOMIZATION
 #include "IntelVPlan.h"
 #include "IntelVPOCodeGen.h"
+#include "IntelVPSOAAnalysis.h"
 #include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanVLSAnalysis.h"
 #include "VPlanHIR/IntelVPOCodeGenHIR.h"
@@ -45,16 +46,22 @@ using namespace llvm::vpo;
 std::atomic<unsigned> VPlanUtils::NextOrdinal{1};
 #if INTEL_CUSTOMIZATION
 // Replace dot print output with plain print.
-static cl::opt<bool> DumpPlainVPlanIR("vplan-plain-dump", cl::init(false),
-                                      cl::Hidden,
-                                      cl::desc("Print plain VPlan IR"));
-static cl::opt<int>
-    DumpVPlanLiveness("vplan-dump-liveness", cl::init(0), cl::Hidden,
-                      cl::desc("Print VPlan instructions' liveness info"));
+static cl::opt<bool>
+    DumpPlainVPlanIR("vplan-plain-dump", cl::init(false), cl::Hidden,
+                       cl::desc("Print plain VPlan IR"));
 
 static cl::opt<bool>
     EnableNames("vplan-enable-names", cl::init(false), cl::Hidden,
                 cl::desc("Print VP Operands using VPValue's Name member."));
+
+static cl::opt<bool> DumpExternalDefsHIR("vplan-dump-external-defs-hir",
+                                         cl::init(true), cl::Hidden,
+                                         cl::desc("Print HIR VPExternalDefs."));
+
+static cl::opt<bool>
+    VPlanDumpDetails("vplan-dump-details", cl::init(false), cl::Hidden,
+                     cl::desc("Print VPlan instructions' details like "
+                              "underlying attributes/metadata."));
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 raw_ostream &llvm::vpo::operator<<(raw_ostream &OS, const VPValue &V) {
@@ -67,9 +74,28 @@ raw_ostream &llvm::vpo::operator<<(raw_ostream &OS, const VPValue &V) {
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif
 
+// When a VPBasicBlock is added in VPlan, the parent pointer needs to be
+// updated.
+void ilist_traits<VPBasicBlock>::addNodeToList(VPBasicBlock *VPBB) {
+  assert(!VPBB->getParent() && "VPBasicBlock already in VPlan");
+  VPBB->setParent(getListOwner<VPlan, VPBasicBlock>(this));
+}
+
+// When we remove a VPBasicBlock from VPlan, we need to update its parent
+// pointer.
+void ilist_traits<VPBasicBlock>::removeNodeFromList(VPBasicBlock *VPBB) {
+  assert(VPBB->getParent() && "VPBasicBlock not in VPlan");
+  VPBB->setParent(nullptr);
+}
+
+// TODO: Update deleteNode once adding an eraseFromParent() function for
+// VPBasicBlock.
+void ilist_traits<VPBasicBlock>::deleteNode(VPBasicBlock *VPBB) {}
+
 void VPInstruction::generateInstruction(VPTransformState &State,
                                         unsigned Part) {
 #if INTEL_CUSTOMIZATION
+  State.ILV->setBuilderDebugLoc(this->getDebugLocation());
   State.ILV->vectorizeInstruction(this);
   return;
 #endif
@@ -296,6 +322,12 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "subscript";
   case VPInstruction::Blend:
     return "blend";
+  case VPInstruction::HIRCopy:
+    return "hir-copy";
+  case VPInstruction::OrigTripCountCalculation:
+    return "orig-trip-count";
+  case VPInstruction::VectorTripCountCalculation:
+    return "vector-trip-count";
 #endif
   default:
     return Instruction::getOpcodeName(Opcode);
@@ -313,6 +345,17 @@ void VPInstruction::dump(raw_ostream &O,
                          const VPlanDivergenceAnalysis *DA) const {
   print(O, DA);
   O << "\n";
+  if (VPlanDumpDetails) {
+    // TODO: How to get Indent here?
+    O << "    DbgLoc: ";
+    getDebugLocation().print(O);
+    O << "\n";
+    O << "    OperatorFlags -\n";
+    O << "      FMF: " << hasFastMathFlags() << ", NSW: " << hasNoSignedWrap()
+      << ", NUW: " << hasNoUnsignedWrap() << ", Exact: " << isExact() << "\n";
+    // Print other attributes here when imported.
+    O << "    end of details\n\n";
+  }
 }
 #endif /* INTEL_CUSTOMIZATION */
 
@@ -383,6 +426,10 @@ void VPInstruction::print(raw_ostream &O,
   default:
     O << getOpcodeName(getOpcode());
   }
+  if (getOpcode() == VPInstruction::OrigTripCountCalculation) {
+    auto *Self = cast<VPOrigTripCountCalculation>(this);
+    O << " for original loop " << Self->getOrigLoop()->getName();
+  }
 
 #if INTEL_CUSTOMIZATION
   // TODO: print type when this information will be available.
@@ -424,9 +471,18 @@ void VPInstruction::print(raw_ostream &O,
     case Instruction::SIToFP:
     case Instruction::UIToFP:
     case Instruction::Trunc:
-    case Instruction::FPTrunc:
+    case Instruction::FPTrunc: {
       O << " to ";
       getType()->print(O);
+      break;
+    }
+    case VPInstruction::HIRCopy:
+      O << " , OriginPhiId: " << cast<VPHIRCopyInst>(this)->getOriginPhiId();
+      break;
+    case VPInstruction::VectorTripCountCalculation:
+      auto *Self = cast<VPVectorTripCountCalculation>(this);
+      O << ", UF = " << Self->getUF();
+      break;
     }
   }
 #endif // INTEL_CUSTOMIZATION
@@ -436,20 +492,6 @@ void VPInstruction::print(raw_ostream &O,
 #if INTEL_CUSTOMIZATION
 VPlan::VPlan(LLVMContext *Context, const DataLayout *DL)
     : Context(Context), DL(DL) {}
-
-VPlan::~VPlan() {
-  SmallVector<VPBasicBlock *, 8> Blocks;
-  for (VPBasicBlock *BB : depth_first(getEntryBlock()))
-    Blocks.push_back(BB);
-
-  for (VPBasicBlock *BB : Blocks)
-    delete BB;
-}
-
-void VPlan::recomputeSize() {
-  Size = std::distance(df_iterator<const VPBasicBlock *>::begin(EntryBB),
-                       df_iterator<const VPBasicBlock *>::end(ExitBB));
-}
 
 void VPlan::computeDT(void) {
   if (!PlanDT)
@@ -476,21 +518,14 @@ void VPlan::execute(VPTransformState *State) {
   BasicBlock *VectorPreHeaderBB = State->CFG.PrevBB;
   BasicBlock *VectorHeaderBB = VectorPreHeaderBB->getSingleSuccessor();
   assert(VectorHeaderBB && "Loop preheader does not have a single successor.");
-  BasicBlock *VectorLatchBB = VectorHeaderBB;
+  // TODO: Represent all new BBs explicitly in the VPlan to remove any hidden
+  // dependencies/assumptions between BBs handling in VPCodeGen.cpp and this
+  // file.
   auto *HTerm = VectorHeaderBB->getTerminator();
-  assert(HTerm->getNumSuccessors() == 2 &&
-         "Unexpected vector loop header successors");
-  unsigned MidBlockSuccNum = HTerm->getSuccessor(0) == VectorHeaderBB ? 1 : 0;
-  BasicBlock *MiddleBlock = HTerm->getSuccessor(MidBlockSuccNum);
+  BasicBlock *MiddleBlock = HTerm->getSuccessor(0);
+
   auto CurrIP = State->Builder.saveIP();
 
-  // 1. Make room to generate basic blocks inside loop body if needed.
-  VectorLatchBB = VectorHeaderBB->splitBasicBlock(
-      VectorHeaderBB->getFirstInsertionPt(), "vector.body.latch");
-  Loop *L = State->LI->getLoopFor(VectorHeaderBB);
-  assert(L && "Unexpected null loop for Vector Header");
-  L->addBasicBlockToLoop(VectorLatchBB, *State->LI);
-  // Remove the edge between Header and Latch to allow other connections.
   // Temporarily terminate with unreachable until CFG is rewired.
   // Note: this asserts xform code's assumption that getFirstInsertionPt()
   // can be dereferenced into an Instruction.
@@ -500,10 +535,10 @@ void VPlan::execute(VPTransformState *State) {
   // Set insertion point to vector loop PH
   State->Builder.SetInsertPoint(VectorPreHeaderBB->getTerminator());
 
-  // 2. Generate code in loop body of vectorized version.
+  // Generate code in loop body of vectorized version.
   State->CFG.PrevVPBB = nullptr;
   State->CFG.PrevBB = VectorPreHeaderBB;
-  State->CFG.InsertBefore = VectorLatchBB;
+  State->CFG.InsertBefore = MiddleBlock;
 
   ReversePostOrderTraversal<VPBasicBlock *> RPOT(getEntryBlock());
   for (VPBasicBlock *BB : RPOT) {
@@ -511,7 +546,7 @@ void VPlan::execute(VPTransformState *State) {
     BB->execute(State);
   }
 
-  // 3. Fix the edges for blocks in VPBBsToFix list.
+  // Fix the edges for blocks in VPBBsToFix list.
   for (auto VPBB : State->CFG.VPBBsToFix) {
     BasicBlock *BB = State->CFG.VPBB2IRBB[VPBB];
     assert(BB && "Unexpected null basic block for VPBB");
@@ -525,32 +560,18 @@ void VPlan::execute(VPTransformState *State) {
     }
   }
 
-  // 4. Merge the temporary latch created with the last basic block filled.
+  // Create an unconditional branch from the Plan's exit block to the middle
+  // block that contains top-test for entering remainder.
   BasicBlock *LastBB = State->CFG.PrevBB;
   assert(isa<UnreachableInst>(LastBB->getTerminator()) &&
          "Expected VPlan CFG to terminate with unreachable");
 
-  // LastBB will be the outermost loop exit block. Get the latch BB.
-  BasicBlock *LatchBB = LastBB->getSinglePredecessor();
-  assert(LatchBB && "Unexpected null latch BB");
-
-  // Merge LatchBB with Latch.
-  LatchBB->getTerminator()->eraseFromParent();
-  BranchInst::Create(VectorLatchBB, LatchBB);
-
-  bool merged = MergeBlockIntoPredecessor(VectorLatchBB, nullptr, State->LI);
-  assert(merged && "Could not merge last basic block with latch.");
-  (void)merged;
-  VectorLatchBB = LatchBB;
-
-  // Insert LastBB between LatchBB and MiddleBlock. TODO - currently we
-  // assume MiddleBlock and LastBB do not have any PHIs. This will need
-  // to be addressed if this changes.
+  // TODO - currently we assume MiddleBlock and LastBB do not have any PHIs.
+  // This will need to be addressed if this changes.
   assert(!isa<PHINode>(MiddleBlock->begin()) &&
          "Middle block starts with a PHI");
   assert(!isa<PHINode>(LastBB->begin()) && "LastBB starts with a PHI");
 
-  LatchBB->getTerminator()->setSuccessor(MidBlockSuccNum, LastBB);
   LastBB->getTerminator()->eraseFromParent();
   BranchInst::Create(MiddleBlock, LastBB);
 
@@ -563,7 +584,8 @@ void VPlan::execute(VPTransformState *State) {
 
 #if INTEL_CUSTOMIZATION
 void VPlan::executeHIR(VPOCodeGenHIR *CG) {
-  CG->createAndMapLoopEntityRefs();
+  assert(!EnableSOAAnalysis &&
+         "SOA Analysis and Codegen is not enabled along the HIR path.");
   ReversePostOrderTraversal<VPBasicBlock *> RPOT(getEntryBlock());
   const VPLoop *VLoop = CG->getVPLoop();
 
@@ -620,6 +642,14 @@ void VPlan::verifyVPExternalDefsHIR() const {
       unsigned Symbase = Blob->getBlob()->getSymbase();
       assert(!SymbaseSet.count(Symbase) && "Repeated blob VPExternalDef!");
       SymbaseSet.insert(Symbase);
+    } else if (isa<VPCanonExpr>(HIROperand)) {
+      assert(
+          llvm::count_if(VPExternalDefsHIR,
+                         [HIROperand](const VPExternalDef &ExtDef) {
+                           return ExtDef.getOperandHIR()->isStructurallyEqual(
+                               HIROperand);
+                         }) == 1 &&
+          "Repeated CanonExpr VPExternalDef!");
     } else {
       // For IVs we check that the IV levels are unique.
       const auto *IV = cast<VPIndVar>(HIROperand);
@@ -688,8 +718,8 @@ const Twine VPlanPrinter::getUID(const VPBasicBlock *BB) {
 }
 
 const Twine VPlanPrinter::getOrCreateName(const VPBasicBlock *BB) {
-  const std::string &Name = BB->getName();
-  if (!Name.empty())
+  const Twine &Name = BB->getName();
+  if (!Name.isTriviallyEmpty())
     return Name;
   return "VPB" + Twine(getOrCreateBID(BB));
 }
@@ -716,6 +746,13 @@ void VPlan::dump(raw_ostream &OS, bool DumpDA) const {
   formatted_raw_ostream FOS(OS);
   if (!getName().empty())
     FOS << "VPlan IR for: " << getName() << "\n";
+  if (DumpExternalDefsHIR && VPExternalDefsHIR.size() > 0) {
+    FOS << "External Defs Start:\n";
+    for (auto &Def : VPExternalDefsHIR)
+      Def.printDetail(FOS);
+    FOS << "External Defs End:\n";
+  }
+
   for (auto EIter = LoopEntities.begin(), End = LoopEntities.end();
        EIter != End; ++EIter) {
     VPLoopEntityList *E = EIter->second.get();
@@ -734,96 +771,6 @@ void VPlan::dump(raw_ostream &OS, bool DumpDA) const {
 }
 
 void VPlan::dump() const { dump(dbgs(), true); }
-
-void VPlan::dumpLivenessInfo(raw_ostream &OS) const {
-  if (DumpVPlanLiveness == 0 || !VPLInfo)
-    return;
-  OS << "Live-in and Live-out info:\n";
-  if (!VPExternalDefs.empty()) {
-    OS << "External defs:\n";
-    for (auto DI = VPExternalDefs.begin(); DI != VPExternalDefs.end(); DI++)
-      OS << *(*DI) << "\n";
-  }
-  if (!VPExternalDefsHIR.empty()) {
-    OS << "External defs:\n";
-    for (auto DI = VPExternalDefsHIR.begin(); DI != VPExternalDefsHIR.end();
-         DI++)
-      OS << *DI << "\n";
-  }
-  if (!VPExternalUses.empty()) {
-    OS << "Used externally:\n";
-    for (auto UI = VPExternalUses.begin(); UI != VPExternalUses.end(); UI++) {
-      const VPValue *Op = UI->second->getOperand(0);
-      Op->printAsOperand(OS);
-      if (DumpVPlanLiveness > 1 && UI->second->getUnderlyingValue())
-        OS << " (used by " << *(UI->second->getUnderlyingValue()) << ")\n";
-      else
-        OS << "\n";
-    }
-  }
-  if (!VPExternalUsesHIR.empty()) {
-    OS << "Used externally:\n";
-    for (auto UI = VPExternalUsesHIR.begin(); UI != VPExternalUsesHIR.end();
-         UI++) {
-      const VPValue *Op = UI->getOperand(0);
-      Op->printAsOperand(OS);
-      if (DumpVPlanLiveness > 1 && UI->getUnderlyingValue())
-        OS << " (used by " << *(UI->getUnderlyingValue()) << ")\n";
-      else
-        OS << "\n";
-    }
-  }
-  std::function<void(const VPBasicBlock *)> dumpBlockLiveness =
-      [&](const VPBasicBlock *BB) {
-        // For each live-in or live-out instruction in the Block print the
-        // corresponding comment
-        const VPLoop *Loop = VPLInfo->getLoopFor(BB);
-        if (DumpVPlanLiveness > 2)
-          OS << "Liveness for BBlock: " << BB->getName() << "\n";
-        if (Loop == nullptr) {
-          if (DumpVPlanLiveness > 2)
-            OS << "no loop found\n";
-          return;
-        }
-        for (const VPInstruction &Inst : *BB) {
-          const auto *VPInst = &Inst;
-          if (DumpVPlanLiveness > 2)
-            OS << "Instruction: " << *VPInst << "\n";
-          for (const VPValue *Op : VPInst->operands()) {
-            SmallVector<const VPLoop *, 4> LoopList;
-            const VPLoop *ParentLoop = Loop;
-            while (ParentLoop) {
-              if (!ParentLoop->isLiveIn(Op))
-                break;
-              LoopList.push_back(ParentLoop);
-              ParentLoop = ParentLoop->getParentLoop();
-            }
-            if (LoopList.size()) {
-              Op->printAsOperand(OS);
-              OS << " livein in the loops: ";
-              for (const VPLoop *L : LoopList)
-                OS << " " << L->getLoopPreheader()->getName();
-              OS << "\n";
-            }
-          }
-          if (Loop->isLiveOut(VPInst)) {
-            VPInst->printAsOperand(OS);
-            OS << " liveout in the loop: "
-               << Loop->getLoopPreheader()->getName() << "\n";
-          }
-        }
-      };
-
-  std::function<void(const VPBasicBlock *)> dumpLiveness =
-      [&](const VPBasicBlock *VPBB) {
-        for (const VPBasicBlock *BB : depth_first(VPBB))
-          // Print liveness information for a basic block
-          dumpBlockLiveness(BB);
-      };
-
-  dumpLiveness(getEntryBlock());
-  OS << "Live-in and Live-out info end\n";
-}
 
 void VPlanPrinter::dump() {
 #if INTEL_CUSTOMIZATION
@@ -876,7 +823,7 @@ void VPlanPrinter::dumpEdges(const VPBasicBlock *BB) {
 void VPlanPrinter::dumpBasicBlock(const VPBasicBlock *BB) {
   OS << Indent << getUID(BB) << " [label =\n";
   bumpIndent(1);
-  OS << Indent << "\"" << DOT::EscapeString(BB->getName()) << ":\\n\"";
+  OS << Indent << "\"" << DOT::EscapeString(BB->getName().str()) << ":\\n\"";
   bumpIndent(1);
   for (const VPInstruction &Inst : *BB)
     Inst.print(OS, Indent);
@@ -887,7 +834,7 @@ void VPlanPrinter::dumpBasicBlock(const VPBasicBlock *BB) {
     OS << " +\n" << Indent << " \"CondBit: ";
     if (const VPInstruction *CBI = dyn_cast<VPInstruction>(CBV)) {
       CBI->printAsOperand(OS);
-      OS << " (" << DOT::EscapeString(CBI->getParent()->getName()) << ")\\l\"";
+      OS << " (" << DOT::EscapeString(CBI->getParent()->getName().str()) << ")\\l\"";
     } else {
       CBV->printAsOperand(OS);
     }
@@ -910,7 +857,19 @@ void VPBranchInst::print(raw_ostream &O) const {
     // FIXME: Call HGoto print.
     O << "<External Basic Block>";
 }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
+void VPBlendInst::addIncoming(VPValue *IncomingVal, VPValue *BlockPred) {
+  addOperand(IncomingVal);
+  if (!BlockPred) {
+    VPlan *Plan = getParent()->getParent();
+    BlockPred =
+        Plan->getVPConstant(ConstantInt::getTrue(*Plan->getLLVMContext()));
+  }
+  addOperand(BlockPred);
+}
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPBlendInst::print(raw_ostream &O) const {
   O << getOpcodeName(getOpcode());
   auto PrintValueWithBP = [&](const unsigned i) {

@@ -19,7 +19,9 @@
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/OrderedInstructions.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/IntrinsicsCSA.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 
@@ -40,6 +42,9 @@ static cl::opt<bool> DisableLoopStorageCheck{
 STATISTIC(NumSPMDizationsCleaned,
           "Number of unused SPMDization intrinsic pairs removed");
 
+STATISTIC(NumSPMDWorkerNumCleaned,
+          "Number of unused spmd_worker_num intrinsic removed");
+
 STATISTIC(NumPipelineCleaned,
           "Number of unused pipeline_loop intrinsic pairs removed");
 
@@ -57,6 +62,7 @@ struct CSAIntrinsicCleaner : FunctionPass {
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
     AU.addRequired<LoopInfoWrapperPass>();
+    AU.addRequired<DominatorTreeWrapperPass>();
   }
 
   bool runOnFunction(Function &) override;
@@ -73,6 +79,8 @@ private:
 
   // Removes any unused spmdization intrinsic pairs from a function.
   bool clean_spmdization(Function &);
+  // Removes any unused spmd_worker_num intrinsic from a function.
+  bool clean_spmd_worker_num(Function &);
   // Removes any unused pipeline_loop intrinsic pairs from a function
   bool clean_pipeline(Function &);
   // Removes any unused pipeline_limited_loop intrinsic pairs from a function
@@ -92,10 +100,11 @@ bool CSAIntrinsicCleaner::runOnFunction(Function &F) {
     }
   }
   return expandLicQueueIntrinsics(F) | clean_spmdization(F) |
-         clean_pipeline(F) | clean_pipeline_depth(F);
+    clean_spmd_worker_num(F) | clean_pipeline(F) | clean_pipeline_depth(F);
 }
 
-// convert init/write/read intrinsics to lower_init/lower_write/lower_read intrinsic
+  // convert init/preload/write/read intrinsics to
+  // lower_init/lower_preload/lower_write/lower_read intrinsic
 bool CSAIntrinsicCleaner::expandLicQueueIntrinsics(Function &F) {
 
   LLVMContext &CTX = F.getContext();
@@ -140,8 +149,21 @@ bool CSAIntrinsicCleaner::expandLicQueueIntrinsics(Function &F) {
       if (intrinsic->getIntrinsicID() != Intrinsic::csa_lic_init)
         continue;
       IntrinsicInst *write = nullptr, *read = nullptr;
+      bool sorting_p = false;
+      SmallVector<IntrinsicInst *, 4> preload_list;
+      Value *init_val, *other_val = nullptr;
       for (auto user : intrinsic->users()) {
         if (auto useIntrinsic = dyn_cast<IntrinsicInst>(user)) {
+          if (useIntrinsic->getIntrinsicID() == Intrinsic::csa_lic_preload) {
+            if (!init_val)
+              init_val = useIntrinsic->getOperand(1);
+            else
+              other_val = useIntrinsic->getOperand(1);
+            if (init_val != other_val)
+              sorting_p = true;
+            preload_list.push_back(useIntrinsic);
+            continue;
+          }
           if (useIntrinsic->getIntrinsicID() == Intrinsic::csa_lic_write) {
             if (write) {
               errorMessage("!! ERROR: Can only have one write for a LIC queue !!\n",
@@ -171,11 +193,13 @@ bool CSAIntrinsicCleaner::expandLicQueueIntrinsics(Function &F) {
         }
         else if(dyn_cast<SelectInst>(user)) {
           errs() << "!! ERROR: LIC streams are used by a select instruction\n";
-          errs() << " Add the option -mllvm -disable-hir-opt-var-predicate \n";
+          errs() << " Add the option -mllvm -simplifycfg-sink-common=0 \n";
         }
         else if(dyn_cast<StoreInst>(user)) {
           errs() << "!! ERROR: LIC streams are used by a store instruction\n";
           errs() << " Add the option -mllvm -hir-complete-unroll-loop-trip-threshold=256 \n";
+          errs() << " If the option is already there, make sure unrolling actually happened \n";
+          errs() << " using the option -qopt-report=3 \n";
         }
         errorMessage("LIC streams can only have writes/reads !!\n",
                      "\n The illegal use for stream:\n",
@@ -189,6 +213,41 @@ bool CSAIntrinsicCleaner::expandLicQueueIntrinsics(Function &F) {
       CallInst::Create(
           Intrinsic::getDeclaration(M, Intrinsic::csa_lower_lic_init),
           { licID, I.getOperand(0), I.getOperand(1), I.getOperand(2) }, "", &I);
+      // sort the preload intrinsics by their location in the BBs
+      // as they get inserted in a non-deterministic
+      // order in preload_list
+      if (preload_list.size() > 0) {
+        if (sorting_p) {
+          auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+          OrderedInstructions Sorter(&DT);
+          bool MultiBB = false;
+          llvm::sort(preload_list.begin(), preload_list.end(),
+                     [&Sorter, &MultiBB](Instruction *A, Instruction *B) {
+                       return Sorter.dfsBefore(A, B);
+                     });
+        }
+        for(auto preload : preload_list) {
+          Value *Bitcasted = preload->getOperand(1);
+          Type * T = Bitcasted->getType();
+          if (!T->isIntegerTy()) {
+            if (T->isVectorTy())
+              Bitcasted = CastInst::Create(Instruction::BitCast, Bitcasted,
+                                         IntegerType::getInt64Ty(CTX), "", &I);
+            else
+              Bitcasted = CastInst::CreateBitOrPointerCast(Bitcasted,
+                          IntegerType::getIntNTy(CTX, T->getScalarSizeInBits()),
+                          "", &I);
+          }
+          if (T->getScalarSizeInBits() < 64) {
+            Bitcasted = CastInst::CreateZExtOrBitCast(Bitcasted,
+                                  IntegerType::getInt64Ty(CTX), "", &I);
+          }
+          CallInst::Create(
+              Intrinsic::getDeclaration(M, Intrinsic::csa_lower_lic_preload),
+              { licID, Bitcasted }, "", &I);
+          preload->eraseFromParent();
+        }
+      }
       CallInst::Create(
           Intrinsic::getDeclaration(M, Intrinsic::csa_lower_lic_write,
                                     write->getFunctionType()->getParamType(1)),
@@ -204,8 +263,9 @@ bool CSAIntrinsicCleaner::expandLicQueueIntrinsics(Function &F) {
     }
   }
 
-  for (auto I : toDelete)
+  for (auto I : toDelete) {
     I->eraseFromParent();
+  }
   return licNum != 0;
 }
 
@@ -329,6 +389,24 @@ bool CSAIntrinsicCleaner::clean_spmdization(Function &F) {
     }
   }
   return cleaned_spmdizations;
+}
+
+bool CSAIntrinsicCleaner::clean_spmd_worker_num(Function &F) {
+  using namespace std;
+  bool cleaned_spmd_worker = false;
+  for (BasicBlock &BB : F) {
+    for (auto inst_it = begin(BB); inst_it != end(BB);) {
+      IntrinsicInst *const intr_inst = dyn_cast<IntrinsicInst>(&*inst_it);
+      if (intr_inst and
+          intr_inst->getIntrinsicID() == Intrinsic::csa_spmd_worker_num) {
+        cleaned_spmd_worker = true;
+        ++NumSPMDWorkerNumCleaned;
+        inst_it = erase_with_all_uses(intr_inst);
+      } else
+        ++inst_it;
+    }
+  }
+  return cleaned_spmd_worker;
 }
 
 bool CSAIntrinsicCleaner::clean_pipeline(Function &F) {

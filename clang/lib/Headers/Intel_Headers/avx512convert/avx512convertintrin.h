@@ -33,7 +33,7 @@
   __attribute__((__always_inline__, __nodebug__, __target__("avx512convert"), __min_vector_width__(512)))
 
 static __inline__ __m512h __DEFAULT_FN_ATTRS512
-_m512_mask_vcvt2ps2ph_ph( __m512h __W, __mmask16 __U, __m512 __A, __m512 __B) {
+_m512_mask_vcvt2ps2ph_ph( __m512h __W, __mmask32 __U, __m512 __A, __m512 __B) {
   return (__m512h)__builtin_ia32_vcvt2ps2ph512_mask((__v16sf)__A,
                                                     (__v16sf)__B,
                                                     (__v32hf)__W,
@@ -45,11 +45,30 @@ _m512_mask_vcvt2ps2ph_ph( __m512h __W, __mmask16 __U, __m512 __A, __m512 __B) {
   (__m512h) __builtin_ia32_vcvt2ps2ph512_mask((__v16sf)(__m512h) (A), \
                                               (__v16sf)(__m512h) (B), \
                                               (__v32hf)(__m512h) (W), \
-                                              (__mmask16) (U), \
+                                              (__mmask32) (U), \
                                               (int)(R))
 
+
 static __inline__ __m512h __DEFAULT_FN_ATTRS512
-_m512_mask_vcvtbf162ph_ph(__m512h __W, __mmask16 __U, __m512i __A) {
+_m512_maskz_vcvt2ps2ph_ph(__mmask32 __U, __m512 __A, __m512 __B) {
+  return (__m512h)__builtin_ia32_vcvt2ps2ph512_mask((__v16sf)__A,
+                                                    (__v16sf)__B,
+                                                    (__v32hf)_mm512_setzero_ph(),
+                                                    (__mmask32)__U,
+                                                    _MM_FROUND_CUR_DIRECTION);
+}
+
+#define _mm512_maskz_vcvt2ps2ph_round_ph(U, A, B, R) \
+  (__m512h) __builtin_ia32_vcvt2ps2ph512_mask((__v16sf)(__m512h) (A), \
+                                              (__v16sf)(__m512h) (B), \
+                                              (__v32hf)(__v32hf) _mm512_setzero_ph(), \
+                                              (__mmask32) (U), \
+                                              (int)(R))
+
+
+
+static __inline__ __m512h __DEFAULT_FN_ATTRS512
+_m512_mask_vcvtbf162ph_ph(__m512h __W, __mmask32 __U, __m512i __A) {
   return (__m512h)__builtin_ia32_vcvtbf162ph512_mask((__v32hi)__A,
                                                      (__v32hf)__W,
                                                      (__mmask32)__U,
@@ -59,16 +78,36 @@ _m512_mask_vcvtbf162ph_ph(__m512h __W, __mmask16 __U, __m512i __A) {
 #define _mm512_mask_vcvtbf162ph_round_ph(W, U, A, R) \
   (__m512h) __builtin_ia32_vcvtbf162ph512_mask((__v32hi)(__m512i) (A), \
                                                (__v32hf)(__m512h) (W), \
-                                               (__mmask16) (U), \
+                                               (__mmask32) (U), \
+                                               (int)(R))
+
+static __inline__ __m512h __DEFAULT_FN_ATTRS512
+_m512_maskz_vcvtbf162ph_ph(__mmask32 __U, __m512i __A) {
+  return (__m512h)__builtin_ia32_vcvtbf162ph512_mask((__v32hi)__A,
+                                                     (__v32hf)_mm512_setzero_ph(),
+                                                     (__mmask32)__U,
+                                                     _MM_FROUND_CUR_DIRECTION);
+}
+
+#define _mm512_maskz_vcvtbf162ph_round_ph(U, A, R) \
+  (__m512h) __builtin_ia32_vcvtbf162ph512_mask((__v32hi)(__m512i) (A), \
+                                               (__v32hf)_mm512_setzero_ph(), \
+                                               (__mmask32) (U), \
                                                (int)(R))
 
 static __inline__ __m512i __DEFAULT_FN_ATTRS512
-_m512_mask_vcvtneph2bf16_ph(__m512i __W, __mmask16 __U, __m512h __A) {
+_m512_mask_vcvtneph2bf16_ph(__m512i __W, __mmask32 __U, __m512h __A) {
   return (__m512i)__builtin_ia32_vcvtneph2bf16_512_mask((__v32hf)__A,
                                                         (__v32hi)__W,
                                                         (__mmask32)__U);
 }
 
+static __inline__ __m512i __DEFAULT_FN_ATTRS512
+_m512_maskz_vcvtneph2bf16_ph(__mmask32 __U, __m512h __A) {
+  return (__m512i)__builtin_ia32_vcvtneph2bf16_512_mask((__v32hf)__A,
+                                                        (__v32hi)_mm512_setzero_si512(),
+                                                        (__mmask32)__U);
+}
 #undef __DEFAULT_FN_ATTRS512
 
 #endif // __AVX512CONVERTINTRIN_H

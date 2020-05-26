@@ -24,6 +24,7 @@
 struct RTLInfoTy;
 struct __tgt_bin_desc;
 struct __tgt_target_table;
+struct __tgt_async_info;
 
 /// Map between host data and target data.
 struct HostDataToTargetTy {
@@ -173,14 +174,21 @@ struct DeviceTy {
   int32_t initOnce();
   __tgt_target_table *load_binary(void *Img);
 
-  int32_t data_submit(void *TgtPtrBegin, void *HstPtrBegin, int64_t Size);
-  int32_t data_retrieve(void *HstPtrBegin, void *TgtPtrBegin, int64_t Size);
+  // Data transfer. When AsyncInfoPtr is nullptr, the transfer will be
+  // synchronous.
+  int32_t data_submit(void *TgtPtrBegin, void *HstPtrBegin, int64_t Size,
+                      __tgt_async_info *AsyncInfoPtr);
+  int32_t data_retrieve(void *HstPtrBegin, void *TgtPtrBegin, int64_t Size,
+                        __tgt_async_info *AsyncInfoPtr);
 
   int32_t run_region(void *TgtEntryPtr, void **TgtVarsPtr,
-      ptrdiff_t *TgtOffsets, int32_t TgtVarsSize);
+                     ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
+                     __tgt_async_info *AsyncInfoPtr);
   int32_t run_team_region(void *TgtEntryPtr, void **TgtVarsPtr,
-      ptrdiff_t *TgtOffsets, int32_t TgtVarsSize, int32_t NumTeams,
-      int32_t ThreadLimit, uint64_t LoopTripCount);
+                          ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
+                          int32_t NumTeams, int32_t ThreadLimit,
+                          uint64_t LoopTripCount,
+                          __tgt_async_info *AsyncInfoPtr);
 #if INTEL_COLLAB
   int32_t manifest_data_for_region(void *TgtEntryPtr);
   void *create_buffer(void *HstPtr);
@@ -207,12 +215,16 @@ struct DeviceTy {
                                  ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
                                  int32_t NumTeams, int32_t ThreadLimit,
                                  uint64_t LoopTripCount, void *AsyncData);
-  void *create_offload_pipe(bool);
-  int32_t release_offload_pipe(void *);
+  void *create_offload_queue(bool);
+  int32_t release_offload_queue(void *);
+  void *get_platform_handle();
+  void *get_device_handle();
   void *data_alloc_managed(int64_t Size);
   int32_t data_delete_managed(void *Ptr);
   int32_t is_managed_ptr(void *Ptr);
+  void *data_alloc_explicit(int64_t Size, int32_t Kind);
 #endif // INTEL_COLLAB
+
 private:
   // Call to RTL
   void init(); // To be called only via DeviceTy::initOnce()

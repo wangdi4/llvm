@@ -20,11 +20,13 @@
 #include <CL/sycl/detail/sycl_fe_intrins.hpp>
 #include <CL/sycl/exception.hpp>
 
-namespace cl {
+__SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
 namespace experimental {
 
-class spec_const_error : public compile_program_error {};
+class spec_const_error : public compile_program_error {
+  using compile_program_error::compile_program_error;
+};
 
 template <typename T, typename ID = T> class spec_constant {
 private:
@@ -42,7 +44,7 @@ private:
 public:
   T get() const { // explicit access.
 #ifdef __SYCL_DEVICE_ONLY__
-    const char *TName = __unique_stable_name(ID);
+    const char *TName = __builtin_unique_stable_name(ID);
     return __sycl_getSpecConstantValue<T>(TName);
 #else
     return Val;
@@ -56,4 +58,4 @@ public:
 
 } // namespace experimental
 } // namespace sycl
-} // namespace cl
+} // __SYCL_INLINE_NAMESPACE(cl)

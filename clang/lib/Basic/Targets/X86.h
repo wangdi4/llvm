@@ -32,11 +32,6 @@ static const unsigned X86AddrSpaceMap[] = {
     0,   // cuda_device
     0,   // cuda_constant
     0,   // cuda_shared
-    0,   // sycl_global
-    0,   // sycl_local
-    0,   // sycl_constant
-    0,   // sycl_private
-    0,   // sycl_generic
     270, // ptr32_sptr
     271, // ptr32_uptr
     272  // ptr64
@@ -93,6 +88,9 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
 #if INTEL_FEATURE_ISA_FP16
   bool HasAVX512FP16 = false;
 #endif // INTEL_FEATURE_ISA_FP16
+#if INTEL_FEATURE_ISA_AVX_BF16
+  bool HasAVXBF16 = false;
+#endif // INTEL_FEATURE_ISA_AVX_BF16
 #endif // INTEL_CUSTOMIZATION
   bool HasAVX512BF16 = false;
   bool HasAVX512ER = false;
@@ -146,15 +144,9 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
 #if INTEL_FEATURE_ISA_KEYLOCKER
   bool HasKeyLocker = false;
 #endif // INTEL_FEATURE_ISA_KEYLOCKER
-#if INTEL_FEATURE_ISA_SERIALIZE
-  bool HasSERIALIZE = false;
-#endif // INTEL_FEATURE_ISA_SERIALIZE
 #if INTEL_FEATURE_ISA_HRESET
   bool HasHRESET = false;
 #endif // INTEL_FEATURE_ISA_HRESET
-#if INTEL_FEATURE_ISA_TSXLDTRK
-  bool HasTSXLDTRK = false;
-#endif // INTEL_FEATURE_ISA_TSXLDTRK
 #if INTEL_FEATURE_ISA_AMX
   bool HasAMXTILE = false;
   bool HasAMXINT8 = false;
@@ -194,6 +186,9 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
 #if INTEL_FEATURE_ISA_AMX_CONVERT
   bool HasAMXCONVERT = false;
 #endif // INTEL_FEATURE_ISA_AMX_CONVERT
+#if INTEL_FEATURE_ISA_AMX_TILE2
+  bool HasAMXTILE2 = false;
+#endif // INTEL_FEATURE_ISA_AMX_TILE2
 #if INTEL_FEATURE_ISA_AVX_VNNI
   bool HasAVXVNNI = false;
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
@@ -210,6 +205,8 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
   bool HasAVXCONVERT = false;
 #endif // INTEL_FEATURE_ISA_AVX_CONVERT
 #endif // INTEL_CUSTOMIZATION
+  bool HasSERIALIZE = false;
+  bool HasTSXLDTRK = false;
 
 protected:
   /// Enumeration of all of the X86 CPUs supported by Clang.
@@ -267,6 +264,8 @@ public:
   void getCPUSpecificCPUDispatchFeatures(
       StringRef Name,
       llvm::SmallVectorImpl<StringRef> &Features) const override;
+
+  Optional<unsigned> getCPUCacheLineSize() const override;
 
   bool validateAsmConstraint(const char *&Name,
                              TargetInfo::ConstraintInfo &info) const override;
@@ -521,6 +520,8 @@ public:
   }
 
   ArrayRef<Builtin::Info> getTargetBuiltins() const override;
+
+  bool hasExtIntType() const override { return true; }
 };
 
 class LLVM_LIBRARY_VISIBILITY NetBSDI386TargetInfo
@@ -827,6 +828,8 @@ public:
   }
 
   ArrayRef<Builtin::Info> getTargetBuiltins() const override;
+
+  bool hasExtIntType() const override { return true; }
 };
 
 // x86-64 Windows target

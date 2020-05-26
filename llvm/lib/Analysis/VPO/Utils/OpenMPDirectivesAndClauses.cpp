@@ -29,12 +29,12 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
 #if INTEL_CUSTOMIZATION
       IsF90DopeVector(false), IsWILocal(false), IsAllocatable(false),
 #endif // INTEL_CUSTOMIZATION
-      IsAggregate(false), IsPointer(false), IsScalar(false), IsAlways(false),
-      IsClose(false), IsPresent(false), IsUnsigned(false), IsComplex(false),
-      IsConditional(false), IsScheduleMonotonic(false),
-      IsScheduleNonmonotonic(false), IsScheduleSimd(false),
-      IsMapAggrHead(false), IsMapAggr(false), IsMapChainLink(false),
-      IsIV(false) {
+      IsAggregate(false), IsPointer(false), IsPointerToPointer(false),
+      IsScalar(false), IsAlways(false), IsClose(false), IsPresent(false),
+      IsUnsigned(false), IsComplex(false), IsConditional(false),
+      IsScheduleMonotonic(false), IsScheduleNonmonotonic(false),
+      IsScheduleSimd(false), IsMapAggrHead(false), IsMapAggr(false),
+      IsMapChainLink(false), IsIV(false) {
   StringRef Base;  // BaseName
   StringRef Mod;   // Modifier
 
@@ -144,6 +144,9 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name)
           setIsMapChainLink();
         else if (ModSubString[i] == "IV")          // for linear clause
           setIsIV();
+        else if (ModSubString[i] == "PTR_TO_PTR") // For use_device_ptr operands
+                                                  // which need a dereference
+          setIsPointerToPointer();
         else
           llvm_unreachable("Unknown modifier string for clause");
       }
@@ -279,6 +282,31 @@ bool VPOAnalysisUtils::isBeginDirective(BasicBlock *BB) {
   return VPOAnalysisUtils::isBeginDirective(&(BB->front()));
 }
 
+bool VPOAnalysisUtils::isBeginLoopDirective(int DirID) {
+  switch(DirID) {
+  case DIR_OMP_LOOP:
+  case DIR_OMP_PARALLEL_LOOP:
+  case DIR_OMP_SIMD:
+  case DIR_OMP_TASKLOOP:
+  case DIR_OMP_DISTRIBUTE:
+  case DIR_OMP_DISTRIBUTE_PARLOOP:
+  case DIR_OMP_GENERICLOOP:
+  case DIR_PRAGMA_BLOCK_LOOP:
+    return true;
+  }
+  return false;
+}
+
+bool VPOAnalysisUtils::isBeginLoopDirective(StringRef DirString) {
+  int DirID = VPOAnalysisUtils::getDirectiveID(DirString);
+  return VPOAnalysisUtils::isBeginLoopDirective(DirID);
+}
+
+bool VPOAnalysisUtils::isBeginLoopDirective(Instruction *I) {
+  int DirID = VPOAnalysisUtils::getDirectiveID(I);
+  return VPOAnalysisUtils::isBeginLoopDirective(DirID);
+}
+
 bool VPOAnalysisUtils::isEndDirective(int DirID) {
   switch(DirID) {
   case DIR_OMP_END_PARALLEL:
@@ -325,6 +353,31 @@ bool VPOAnalysisUtils::isEndDirective(Instruction *I) {
 
 bool VPOAnalysisUtils::isEndDirective(BasicBlock *BB) {
   return VPOAnalysisUtils::isEndDirective(&(BB->front()));
+}
+
+bool VPOAnalysisUtils::isEndLoopDirective(int DirID) {
+  switch(DirID) {
+  case DIR_OMP_END_LOOP:
+  case DIR_OMP_END_PARALLEL_LOOP:
+  case DIR_OMP_END_SIMD:
+  case DIR_OMP_END_TASKLOOP:
+  case DIR_OMP_END_DISTRIBUTE:
+  case DIR_OMP_END_DISTRIBUTE_PARLOOP:
+  case DIR_OMP_END_GENERICLOOP:
+  case DIR_PRAGMA_END_BLOCK_LOOP:
+    return true;
+  }
+  return false;
+}
+
+bool VPOAnalysisUtils::isEndLoopDirective(StringRef DirString) {
+  int DirID = VPOAnalysisUtils::getDirectiveID(DirString);
+  return VPOAnalysisUtils::isEndLoopDirective(DirID);
+}
+
+bool VPOAnalysisUtils::isEndLoopDirective(Instruction *I) {
+  int DirID = VPOAnalysisUtils::getDirectiveID(I);
+  return VPOAnalysisUtils::isEndLoopDirective(DirID);
 }
 
 bool VPOAnalysisUtils::isBeginOrEndDirective(int DirID) {
@@ -597,6 +650,11 @@ bool VPOAnalysisUtils::isScheduleClause(int ClauseID) {
     case QUAL_OMP_SCHEDULE_GUIDED:
     case QUAL_OMP_SCHEDULE_RUNTIME:
     case QUAL_OMP_SCHEDULE_STATIC:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+    case QUAL_OMP_SA_SCHEDULE_STATIC:
+#endif // INTEL_FEATURE_CSA
+#endif //INTEL_CUSTOMIZATION
     return true;
   }
   return false;
@@ -700,6 +758,7 @@ unsigned VPOAnalysisUtils::getClauseType(int ClauseID) {
     case QUAL_OMP_BIND_PARALLEL:
     case QUAL_OMP_BIND_THREAD:
     case QUAL_OMP_ORDER_CONCURRENT:
+    case QUAL_OMP_OFFLOAD_KNOWN_NDRANGE:
       return 0;
 
     // Clauses that take one argument
@@ -717,6 +776,12 @@ unsigned VPOAnalysisUtils::getClauseType(int ClauseID) {
     case QUAL_OMP_THREAD_LIMIT:
     case QUAL_OMP_DEVICE:
     case QUAL_OMP_OFFLOAD_ENTRY_IDX:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+    case QUAL_OMP_SA_NUM_WORKERS:
+    case QUAL_OMP_SA_PIPELINE:
+#endif // INTEL_FEATURE_CSA
+#endif //INTEL_CUSTOMIZATION
       return 1;
   }
   return 2; //everything else
@@ -757,6 +822,45 @@ bool VPOAnalysisUtils::supportsPrivateClause(Instruction *I) {
 
 bool VPOAnalysisUtils::supportsPrivateClause(BasicBlock *BB) {
   return VPOAnalysisUtils::supportsPrivateClause(&(BB->front()));
+}
+
+/// Returns pointer to directive instruction if this bblock contains known loop
+/// begin/end directive. \p BeginDir flag indicates whether to look for begin or
+/// end directive.
+template <bool BeginDir = true>
+static Instruction *getLoopDirective(BasicBlock *BB) {
+  for (auto &Inst : *BB) {
+    if (BeginDir ? VPOAnalysisUtils::isBeginLoopDirective(&Inst)
+                 : VPOAnalysisUtils::isEndLoopDirective(&Inst))
+      return &Inst;
+  }
+  return nullptr;
+}
+
+/// Traces a chain of single predecessor/successor bblocks starting from \p BB
+/// and looks for loop begin/end directive. Returns the directive instruction
+/// pointer. \p BeginDir flag indicates whether to look for begin or
+/// end directive and whether to loop upward or downward the chain of BBs.
+template <bool BeginDir = true>
+static Instruction *findLoopDirective(BasicBlock *BB) {
+  for (; BB != nullptr;) {
+    if (auto *Inst = getLoopDirective<BeginDir>(BB))
+      return Inst;
+    BB = BeginDir ? BB->getSinglePredecessor() : BB->getSingleSuccessor();
+  }
+  return nullptr;
+}
+
+/// Returns begin loop directive instruction if it exists.
+Instruction *VPOAnalysisUtils::getBeginLoopDirective(const Loop &Lp) {
+  return findLoopDirective<true>(Lp.getLoopPreheader());
+}
+
+/// Returns end loop directive instruction if it exists.
+Instruction *VPOAnalysisUtils::getEndLoopDirective(const Loop &Lp) {
+  // TODO: This will not work for multi-exit loops. We need to get the exiting
+  // block corresponding to the loop latch.
+  return findLoopDirective<false>(Lp.getExitBlock());
 }
 
 #endif // INTEL_COLLAB

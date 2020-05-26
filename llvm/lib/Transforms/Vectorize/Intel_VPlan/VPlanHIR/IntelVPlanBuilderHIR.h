@@ -111,6 +111,35 @@ public:
     cast<VPGEPInstruction>(NewVPInst)->setIsInBounds(true);
     return NewVPInst;
   }
+
+  // Construct VPHIRCopyInst instruction with given VPValue \p CopyFrom.
+  VPHIRCopyInst *createHIRCopy(VPValue *CopyFrom,
+                               loopopt::HLDDNode *DDNode = nullptr) {
+    VPHIRCopyInst *CopyInst = new VPHIRCopyInst(CopyFrom);
+    if (BB)
+      BB->insert(CopyInst, InsertPt);
+    if (DDNode)
+      CopyInst->HIR.setUnderlyingNode(DDNode);
+    return CopyInst;
+  }
+
+  // Build a VPCallInstruction for the HIR instruction \p HInst using callee \p
+  // CalledValue and list of argument operands \p ArgList.
+  VPInstruction *createCall(VPValue *CalledValue, ArrayRef<VPValue *> ArgList,
+                            loopopt::HLInst *HInst) {
+    assert(HInst && "Cannot create VPCallInstruction without underlying IR.");
+    assert(HInst->isCallInst() &&
+           "Underlying HLInst is not a call instruction.");
+    auto *Call = HInst->getCallInst();
+    VPCallInstruction *NewVPCall =
+        new VPCallInstruction(CalledValue, ArgList, Call);
+    NewVPCall->HIR.setUnderlyingNode(HInst);
+    NewVPCall->HIR.setValid();
+    NewVPCall->setName(HInst->getLLVMInstruction()->getName());
+    if (BB)
+      BB->insert(NewVPCall, InsertPt);
+    return NewVPCall;
+  }
 };
 
 } // namespace vpo

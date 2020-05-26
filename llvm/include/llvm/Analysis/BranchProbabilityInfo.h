@@ -21,6 +21,8 @@
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/ValueHandle.h"
+#include "llvm/IR/Dominators.h" // INTEL
+#include "llvm/Analysis/TargetTransformInfo.h" // INTEL
 #include "llvm/Pass.h"
 #include "llvm/Support/BranchProbability.h"
 #include "llvm/Support/Casting.h"
@@ -55,8 +57,9 @@ public:
   BranchProbabilityInfo() = default;
 
   BranchProbabilityInfo(const Function &F, const LoopInfo &LI,
-                        const TargetLibraryInfo *TLI = nullptr) {
-    calculate(F, LI, TLI);
+                        const TargetLibraryInfo *TLI = nullptr,
+                        PostDominatorTree *PDT = nullptr) {
+    calculate(F, LI, TLI, PDT);
   }
 
   BranchProbabilityInfo(BranchProbabilityInfo &&Arg)
@@ -98,7 +101,7 @@ public:
                                        const BasicBlock *Dst) const;
 
   BranchProbability getEdgeProbability(const BasicBlock *Src,
-                                       succ_const_iterator Dst) const;
+                                       const_succ_iterator Dst) const;
 
   /// Test if an edge is hot relative to other out-edges of the Src.
   ///
@@ -135,7 +138,9 @@ public:
   }
 
   void calculate(const Function &F, const LoopInfo &LI,
-                 const TargetLibraryInfo *TLI = nullptr);
+                 const TargetLibraryInfo *TLI, PostDominatorTree *PDT, // INTEL
+                 const TargetTransformInfo *TTI = nullptr,             // INTEL
+                 DominatorTree *DT = nullptr);                         // INTEL
 
   /// Forget analysis results for the given basic block.
   void eraseBlock(const BasicBlock *BB);
@@ -204,6 +209,8 @@ private:
   bool calcZeroHeuristics(const BasicBlock *BB, const TargetLibraryInfo *TLI);
   bool calcFloatingPointHeuristics(const BasicBlock *BB);
   bool calcInvokeHeuristics(const BasicBlock *BB);
+  DominatorTree *CurrentDT = nullptr; // INTEL
+  bool enableAbnormalDeepLoopHeuristics = false; // INTEL
 };
 
 /// Analysis pass which computes \c BranchProbabilityInfo.

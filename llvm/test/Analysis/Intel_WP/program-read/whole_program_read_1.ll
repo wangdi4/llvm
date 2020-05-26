@@ -1,4 +1,4 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 ; This test checks if whole program is read by gold linker plugin. The
 ; test also checks if all symbols are inside the LTO unit (hidden visibility).
 
@@ -10,8 +10,13 @@
 ; RUN:    2>&1 | FileCheck %s
 
 ; CHECK:   UNRESOLVED CALLSITES: 0
-; CHECK:   WHOLE PROGRAM DETECTED
-; CHECK:   WHOLE PROGRAM SAFE is determined
+; CHECK:  WHOLE PROGRAM RESULT:
+; CHECK:    MAIN DEFINITION:  DETECTED
+; CHECK:    LINKING AN EXECUTABLE:  DETECTED
+; CHECK:    WHOLE PROGRAM READ:  DETECTED
+; CHECK:    WHOLE PROGRAM SEEN:  DETECTED
+; CHECK:    WHOLE PROGRAM SAFE:  DETECTED
+
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

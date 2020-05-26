@@ -47,6 +47,11 @@
 // CHK-COMMANDS: clang{{.*}} "-cc1" "-triple" "x86_64-unknown-linux-gnu" "-emit-obj" {{.*}} "-o" "[[TARGOBJ:.+\.o]]" "-x" "ir" "[[WRAPPERBC]]"
 // CHK-COMMANDS: ld{{.*}} "-o" {{.*}} "[[HOSTOBJ]]" "[[TARGOBJ]]" {{.*}} "-lomptarget"
 
+/// Check additional options passed through
+// RUN:   %clang -### -fiopenmp -o %t.out -target x86_64-unknown-linux-gnu -fopenmp-targets=spir64="-DFOO -DBAR -mllvm -dummy-opt -Xclang -cc1dummy" %s 2>&1 \
+// RUN:   | FileCheck -check-prefix=CHK-TARGOPTS %s
+// CHK-TARGOPTS: clang{{.*}} "-triple" "spir64" "-aux-triple" "x86_64-unknown-linux-gnu" "-emit-llvm-bc" {{.*}} "-D" "FOO" "-D" "BAR" {{.*}} "-cc1dummy" "-mllvm" "-dummy-opt" {{.*}} "-fopenmp-targets=spir64"
+
 /// ###########################################################################
 
 /// Check separate compilation with offloading - bundling actions
@@ -107,7 +112,7 @@
 /// Check that driver forces -O0 for device compilation with --intel
 // RUN: %clang -### -fiopenmp -fopenmp-targets=spir64 --intel -c %s -o %t.o 2>&1 \
 // RUN:   | FileCheck -check-prefix=CHK-DEVICE-O0 %s
-// CHK-DEVICE-O0: clang{{.*}} "-cc1" "-triple" "spir64" {{.*}} "-O0" {{.*}} "-fopenmp-is-device"
+// CHK-DEVICE-O0: clang{{.*}} "-cc1" "-triple" "spir64" {{.*}} "-mlong-double-64" {{.*}} "-O0" {{.*}} "-fopenmp-is-device"
 
 /// ###########################################################################
 
@@ -117,6 +122,11 @@
 // CHK-LINK-OPENCLBC: llvm-link{{.*}}libomptarget-opencl.bc
 
 /// ###########################################################################
+
+// Build a fat static lib that will be used for all tests
+// RUN: echo "void foo(void) {}" > %t1.cpp
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64 %t1.cpp -c -o %t1_bundle.o
+// RUN: llvm-ar cr %t.a %t1_bundle.o
 
 /// Check that driver partially links objects with offload library when -foffload-static-lib=<lib> is used.
 // RUN: touch %t.a
@@ -128,6 +138,14 @@
 // FOFFLOAD_STATIC_LIB_MULTI_O: ld{{(.exe)?}}" "-r" "-o" {{.*}} "[[INPUT:.+\-1.o]]" "[[INPUT:.+\-2.o]]" "[[INPUT:.+\-3.o]]" "[[INPUT:.+\.a]]"
 // FOFFLOAD_STATIC_LIB_MULTI_O: clang-offload-bundler{{.*}} "-type=oo"
 // FOFFLOAD_STATIC_LIB_MULTI_O: llvm-link{{.*}} "@{{.*}}"
+
+/// Check for proper object usage for partial link.  llvm-link should not
+/// contain the input object (consumed in partial link)
+// RUN: %clang -target x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64 %t-1.o %t.a -### 2>&1 \
+// RUN::  | FileCheck %s -check-prefix=PARTIAL_LINK_CHECK
+// PARTIAL_LINK_CHECK: ld{{(.exe)?}}" "-r" "-o" {{.*}} "[[INPUTO:.+\.o]]" "[[INPUTA:.+\.a]]"
+// PARTIAL_LINK_CHECK-NOT: llvm-link{{.*}} "[[INPUTO]]"
+// PARTIAL_LINK_CHECK: ld{{.*}} "[[INPUTA]]"
 
 /// ###########################################################################
 

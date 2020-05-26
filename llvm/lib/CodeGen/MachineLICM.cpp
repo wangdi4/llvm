@@ -232,6 +232,7 @@ namespace {
     };
     SmallVector<HoistableLoadInfo, 32> HoistableLoadCandidates;
     RegisterClassInfo RegClassInfo;
+    bool IAOpt = false;
 #endif //INTEL_CUSTOMIZATION
     void HoistRegionPostRA();
 
@@ -403,6 +404,8 @@ bool MachineLICMBase::runOnMachineFunction(MachineFunction &MF) {
   MLI = &getAnalysis<MachineLoopInfo>();
   DT  = &getAnalysis<MachineDominatorTree>();
   AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
+  IAOpt = MF.getTarget().Options.IntelAdvancedOptim && // INTEL
+          MF.getTarget().getOptLevel() >= CodeGenOpt::Aggressive; // INTEL
 
   SmallVector<MachineLoop *, 8> Worklist(MLI->begin(), MLI->end());
   while (!Worklist.empty()) {
@@ -410,16 +413,15 @@ bool MachineLICMBase::runOnMachineFunction(MachineFunction &MF) {
     CurPreheader = nullptr;
     ExitBlocks.clear();
 
-    // If this is done before regalloc, only visit outer-most preheader-sporting
-    // loops.
-    if (PreRegAlloc && !LoopIsOuterMostWithPredecessor(CurLoop)) {
-      Worklist.append(CurLoop->begin(), CurLoop->end());
-      continue;
+#if INTEL_CUSTOMIZATION
+    Worklist.append(CurLoop->begin(), CurLoop->end());
+    if (PreRegAlloc) {
+      // If this is done before regalloc, only visit outer-most
+      // preheader-sporting loops.
+      if (!LoopIsOuterMostWithPredecessor(CurLoop) && !IAOpt)
+        continue;
     }
-    else if (!PreRegAlloc) { // INTEL
-      // Visit all loops post regalloc // INTEL
-      Worklist.append(CurLoop->begin(), CurLoop->end()); // INTEL
-    } // INTEL
+#endif
 
     CurLoop->getExitBlocks(ExitBlocks);
 
@@ -1343,7 +1345,7 @@ MachineLICMBase::CanCauseHighRegPressure(const DenseMap<unsigned, int>& Cost,
 
     // Don't hoist cheap instructions if they would increase register pressure,
     // even if we're under the limit.
-    if (CheapInstr && !HoistCheapInsts)
+    if (CheapInstr && !HoistCheapInsts && !IAOpt) // INTEL
       return true;
 
     for (const auto &RP : BackTrace)

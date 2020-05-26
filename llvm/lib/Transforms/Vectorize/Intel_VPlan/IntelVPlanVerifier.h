@@ -29,9 +29,6 @@ private:
   // Outermost LLVM-IR loop to be vectorized.
   const Loop *TheLoop;
 
-  // VPlan-incoming LoopInfo analysis.
-  const LoopInfo *LInfo;
-
   // DataLayout of verifying size-related properties.
   const DataLayout &DL;
 
@@ -97,11 +94,10 @@ private:
   static void verifyCFGExternals(const VPlan *Plan);
 #endif
 public:
-  VPlanVerifier(const Loop *Lp, const LoopInfo *LInfo, const DataLayout &DLObj)
-      : TheLoop(Lp), LInfo(LInfo), DL(DLObj) {}
+  VPlanVerifier(const Loop *Lp, const DataLayout &DLObj)
+      : TheLoop(Lp), DL(DLObj) {}
 
-  VPlanVerifier(const DataLayout &DLObj)
-      : TheLoop(nullptr), LInfo(nullptr), DL(DLObj) {}
+  VPlanVerifier(const DataLayout &DLObj) : TheLoop(nullptr), DL(DLObj) {}
 
   virtual ~VPlanVerifier() {}
 

@@ -1,7 +1,7 @@
-; RUN: opt < %s -disable-output -tilemvinlmarker -inline -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 -inline-report=7 2>&1 | FileCheck %s
-; RUN: opt < %s -disable-output -passes='tilemvinlmarker,cgscc(inline)' -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 -inline-report=7 2>&1 | FileCheck %s
-; RUN: opt -inlinereportsetup -inline-report=134 < %s -S | opt -tilemvinlmarker -inline -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 -inline-report=134 -S | opt -inlinereportemitter -inline-report=134 -S 2>&1 | FileCheck %s
-; RUN: opt -inlinereportsetup -inline-report=134 < %s -S | opt -passes='tilemvinlmarker,cgscc(inline)' -tile-candidate-test -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 -inline-report=134 -S | opt -inlinereportemitter -inline-report=134 -S 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -tilemvinlmarker -inline -tile-candidate-test -tile-candidate-mark -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 -inline-report=7 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-output -passes='tilemvinlmarker,cgscc(inline)' -tile-candidate-test -tile-candidate-mark -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 -inline-report=7 2>&1 | FileCheck %s
+; RUN: opt -inlinereportsetup -inline-report=134 < %s -S | opt -tilemvinlmarker -inline -tile-candidate-test -tile-candidate-mark -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 -inline-report=134 -S | opt -inlinereportemitter -inline-report=134 -S 2>&1 | FileCheck %s
+; RUN: opt -inlinereportsetup -inline-report=134 < %s -S | opt -passes='tilemvinlmarker,cgscc(inline)' -tile-candidate-test -tile-candidate-mark -tile-candidate-min=4 -tile-candidate-arg-min=3 -tile-candidate-sub-arg-min=2 -inline-report=134 -S | opt -inlinereportemitter -inline-report=134 -S 2>&1 | FileCheck %s
 
 ; Check that the inlining report produces a single MAIN_ with six functions
 ; inlined into it to support tiling.

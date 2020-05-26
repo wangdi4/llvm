@@ -1,6 +1,6 @@
 //===-- IntelVPlanHCFGBuilder.h ---------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -47,18 +47,9 @@ private:
   /// Loop Info analysis.
   LoopInfo *LI;
 
-  /// Scalar Evolution analysis.
-  ScalarEvolution *SE;
-
 protected:
   /// Hold WRegion information for TheLoop, if available.
   const WRNVecLoopNode *const WRLp;
-
-  // Dominator/Post-Dominator analyses for VPlan Plan CFG to be used in the
-  // construction of the H-CFG. These analyses are no longer valid once regions
-  // are introduced.
-  VPDominatorTree VPDomTree;
-  VPPostDominatorTree VPPostDomTree;
 
   VPlan *Plan = nullptr;
 
@@ -95,20 +86,37 @@ protected:
 
   void simplifyPlainCFG();
   void splitLoopsPreheader(VPLoop *VPLp);
-  void singleExitWhileLoopCanonicalization(VPLoop *VPLp);
-  void mergeLoopExits(VPLoop *VPLp);
   void splitLoopsExit(VPLoop *VPLp);
-  bool isBreakingSSA(VPLoop *VPL);
 
 public:
-  VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, ScalarEvolution *SE,
-                   const DataLayout &DL, const WRNVecLoopNode *WRL, VPlan *Plan,
+  VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, const DataLayout &DL,
+                   const WRNVecLoopNode *WRL, VPlan *Plan,
                    VPOVectorizationLegality *Legal);
 
-  virtual ~VPlanHCFGBuilder() = default;
+  virtual ~VPlanHCFGBuilder();
 
   /// Build hierarchical CFG for TheLoop. Update Plan with the resulting H-CFG.
   void buildHierarchicalCFG();
+
+  // So far only emits explict uniform Vector loop iv, but is expected to be
+  // extended to include all the peeling/main vector/remainder CFG/phis.
+  virtual void emitVecSpecifics();
+
+  // Emit uniform IV for the vector loop and rewrite backedge condition to use
+  // it:
+  //
+  //   header:
+  //     %iv = phi [ 0, preheader ], [ iv.next, latch ]
+  //
+  //   latch:
+  //     %iv.next = %iv + VF
+  //     %cond = %iv.next `icmp` TripCount
+  //     br i1 %cond
+  //
+  // The order of latch's successors isn't changed which is ensured by selecting
+  // proper icmp predicate (eq/ne). Original latch's CondBit is erased if there
+  // are no remaining uses of it after the transformation above.
+  void emitVectorLoopIV(VPValue *TripCount, VPValue *VF);
 };
 
 } // namespace vpo

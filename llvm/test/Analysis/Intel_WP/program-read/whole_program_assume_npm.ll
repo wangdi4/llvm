@@ -1,7 +1,8 @@
+; REQUIRES: asserts
+
 ; This test checks that whole program assume won't internalize
 ; @sub since it doesn't have IR but it should internalize @add,
 ; while using the new pass manager. The new pass manager won't
-; REQUIRES: assert
 ; print IR for an analysis pass, therefore we are going to print
 ; the whole program trace and check that @add is visible externally
 ; first. Then, @add shouldn't be marked as visible externally
@@ -28,7 +29,7 @@
 ; CHECK: sub
 
 ; Check that whole-program-assume is enabled
-; CHECK: whole-program-assume is enabled
+; CHECK: WHOLE PROGRAM ASSUME IS ENABLED
 
 ; Check that the internalization pass runs
 ; CHECK: Running pass: InternalizePass

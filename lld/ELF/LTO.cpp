@@ -80,6 +80,32 @@ static lto::Config createConfig() {
   c.Options.IntelAdvancedOptim = config->intelAdvancedOptim;
 #endif // INTEL_CUSTOMIZATION
 
+  // Check if basic block sections must be used.
+  // Allowed values for --lto-basicblock-sections are "all", "labels",
+  // "<file name specifying basic block ids>", or none.  This is the equivalent
+  // of -fbasicblock-sections= flag in clang.
+  if (!config->ltoBasicBlockSections.empty()) {
+    if (config->ltoBasicBlockSections == "all") {
+      c.Options.BBSections = BasicBlockSection::All;
+    } else if (config->ltoBasicBlockSections == "labels") {
+      c.Options.BBSections = BasicBlockSection::Labels;
+    } else if (config->ltoBasicBlockSections == "none") {
+      c.Options.BBSections = BasicBlockSection::None;
+    } else {
+      ErrorOr<std::unique_ptr<MemoryBuffer>> MBOrErr =
+          MemoryBuffer::getFile(config->ltoBasicBlockSections.str());
+      if (!MBOrErr) {
+        error("cannot open " + config->ltoBasicBlockSections + ":" +
+              MBOrErr.getError().message());
+      } else {
+        c.Options.BBSectionsFuncListBuf = std::move(*MBOrErr);
+      }
+      c.Options.BBSections = BasicBlockSection::List;
+    }
+  }
+
+  c.Options.UniqueBBSectionNames = config->ltoUniqueBBSectionNames;
+
   if (auto relocModel = getRelocModelFromCMModel())
     c.RelocModel = *relocModel;
   else if (config->relocatable)
@@ -116,6 +142,7 @@ static lto::Config createConfig() {
   c.DwoDir = std::string(config->dwoDir);
 
   c.HasWholeProgramVisibility = config->ltoWholeProgramVisibility;
+  c.AlwaysEmitRegularLTOObj = !config->ltoObjPath.empty();
 
   c.TimeTraceEnabled = config->timeTraceEnabled;
   c.TimeTraceGranularity = config->timeTraceGranularity;
@@ -130,6 +157,9 @@ static lto::Config createConfig() {
       return false;
     };
   }
+
+  if (config->ltoEmitAsm)
+    c.CGFileType = CGFT_AssemblyFile;
 
   if (config->saveTemps)
     checkError(c.addSaveTemps(config->outputFile.str() + ".",
@@ -150,8 +180,9 @@ BitcodeCompiler::BitcodeCompiler() {
         std::string(config->thinLTOPrefixReplace.first),
         std::string(config->thinLTOPrefixReplace.second),
         config->thinLTOEmitImportsFiles, indexFile.get(), onIndexWrite);
-  } else if (config->thinLTOJobs != -1U) {
-    backend = lto::createInProcessThinBackend(config->thinLTOJobs);
+  } else {
+    backend = lto::createInProcessThinBackend(
+        llvm::heavyweight_hardware_concurrency(config->thinLTOJobs));
   }
 
   ltoObj = std::make_unique<lto::LTO>(createConfig(), backend,
@@ -318,9 +349,17 @@ std::vector<InputFile *> BitcodeCompiler::compile() {
   }
 
   if (config->saveTemps) {
-    saveBuffer(buf[0], config->outputFile + ".lto.o");
+    if (!buf[0].empty())
+      saveBuffer(buf[0], config->outputFile + ".lto.o");
     for (unsigned i = 1; i != maxTasks; ++i)
       saveBuffer(buf[i], config->outputFile + Twine(i) + ".lto.o");
+  }
+
+  if (config->ltoEmitAsm) {
+    saveBuffer(buf[0], config->outputFile);
+    for (unsigned i = 1; i != maxTasks; ++i)
+      saveBuffer(buf[i], config->outputFile + Twine(i));
+    return {};
   }
 
   std::vector<InputFile *> ret;

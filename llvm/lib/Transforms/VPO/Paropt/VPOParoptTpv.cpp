@@ -89,9 +89,6 @@ public:
   }
 
   bool runOnModule(Module &M) override {
-    if (skipModule(M))
-      return false;
-
     auto &DL = M.getDataLayout();
 
     VPOParoptTpvLegacy Tpv;

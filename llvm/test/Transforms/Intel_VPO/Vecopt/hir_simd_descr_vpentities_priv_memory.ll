@@ -46,40 +46,46 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
 define dso_local i32 @foo1(i32* %ptr, i32 %step, i32 %n) local_unnamed_addr {
-; CHECK-LABEL:  After insertion VPEntities instructions:
+; CHECK-LABEL:  VPlan after insertion VPEntities instructions:
+; CHECK-NEXT:  External Defs Start:
+; CHECK-DAG:     [[VP0:%.*]] = {%2}
+; CHECK-DAG:     [[VP1:%.*]] = {%n + -1}
+; CHECK-DAG:     [[VP2:%.*]] = {%c.promoted}
+; CHECK-DAG:     [[VP3:%.*]] = {%ptr.addr.promoted}
+; CHECK-DAG:     [[VP4:%.*]] = {%s}
+; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]:
-; CHECK-NEXT:     [DA: Uni] i32 [[VP0:%.*]] = add i32 [[N0:%.*]] i32 -1
-; CHECK-NEXT:     [DA: Div] i32* [[VP1:%.*]] = allocate-priv i32*
-; CHECK-NEXT:     [DA: Div] i32 [[VP__RED_INIT:%.*]] = reduction-init i32 0 i32 [[TMP2:%.*]]
-; CHECK-NEXT:     [DA: Div] store i32 [[VP__RED_INIT]] i32* [[VP1]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP__IND_INIT:%.*]] = induction-init{add} i32 0 i32 1
-; CHECK-NEXT:     [DA: Uni] i32 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i32 1
+; CHECK-NEXT:     i32* [[VP5:%.*]] = allocate-priv i32*
+; CHECK-NEXT:     i32 [[VP__RED_INIT:%.*]] = reduction-init i32 0 i32 [[TMP2:%.*]]
+; CHECK-NEXT:     store i32 [[VP__RED_INIT]] i32* [[VP5]]
+; CHECK-NEXT:     i32 [[VP__IND_INIT:%.*]] = induction-init{add} i32 0 i32 1
+; CHECK-NEXT:     i32 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i32 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]:
-; CHECK-NEXT:     [DA: Div] i32 [[VP2:%.*]] = phi  [ i32 [[VP__RED_INIT]], [[BB1]] ],  [ i32 [[VP3:%.*]], [[BB2]] ]
-; CHECK-NEXT:     [DA: Div] i32 [[VP4:%.*]] = phi  [ i32 [[VP__IND_INIT]], [[BB1]] ],  [ i32 [[VP5:%.*]], [[BB2]] ]
-; CHECK-NEXT:     [DA: Uni] i32 [[VP6:%.*]] = load i32* [[PTR_ADDR_PROMOTED0:%.*]]
-; CHECK-NEXT:     [DA: Uni] i32 [[VP7:%.*]] = sext i8 [[C_PROMOTED0:%.*]] to i32
-; CHECK-NEXT:     [DA: Uni] i32 [[VP8:%.*]] = mul i32 [[VP6]] i32 [[VP7]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP3]] = add i32 [[VP8]] i32 [[VP2]]
-; CHECK-NEXT:     [DA: Div] store i32 [[VP3]] i32* [[VP1]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP5]] = add i32 [[VP4]] i32 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP9:%.*]] = icmp i32 [[VP5]] i32 [[VP0]]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP9]]), [[BB3:BB[0-9]+]](!i1 [[VP9]])
+; CHECK-NEXT:     i32 [[VP6:%.*]] = phi  [ i32 [[VP__RED_INIT]], [[BB1]] ],  [ i32 [[VP7:%.*]], [[BB2]] ]
+; CHECK-NEXT:     i32 [[VP8:%.*]] = phi  [ i32 [[VP__IND_INIT]], [[BB1]] ],  [ i32 [[VP9:%.*]], [[BB2]] ]
+; CHECK-NEXT:     i32 [[VP10:%.*]] = load i32* [[PTR_ADDR_PROMOTED0:%.*]]
+; CHECK-NEXT:     i32 [[VP11:%.*]] = sext i8 [[C_PROMOTED0:%.*]] to i32
+; CHECK-NEXT:     i32 [[VP12:%.*]] = mul i32 [[VP10]] i32 [[VP11]]
+; CHECK-NEXT:     i32 [[VP7]] = add i32 [[VP12]] i32 [[VP6]]
+; CHECK-NEXT:     store i32 [[VP7]] i32* [[VP5]]
+; CHECK-NEXT:     i32 [[VP9]] = add i32 [[VP8]] i32 [[VP__IND_INIT_STEP]]
+; CHECK-NEXT:     i1 [[VP13:%.*]] = icmp i32 [[VP9]] i32 [[VP1]]
+; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP13]]), [[BB3:BB[0-9]+]](!i1 [[VP13]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]:
-; CHECK-NEXT:     [DA: Div] i32 [[VP10:%.*]] = load i32* [[VP1]]
-; CHECK-NEXT:     [DA: Uni] i32 [[VP__RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP10]]
-; CHECK-NEXT:     [DA: Uni] store i32 [[VP__RED_FINAL]] i32* [[S0:%.*]]
-; CHECK-NEXT:     [DA: Uni] i32 [[VP__IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
+; CHECK-NEXT:     i32 [[VP14:%.*]] = load i32* [[VP5]]
+; CHECK-NEXT:     i32 [[VP__RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP14]]
+; CHECK-NEXT:     store i32 [[VP__RED_FINAL]] i32* [[S0:%.*]]
+; CHECK-NEXT:     i32 [[VP__IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
@@ -161,39 +167,45 @@ omp.precond.end:                                  ; preds = %omp.loop.exit, %ent
 ; variable %s inside the loop.
 
 define dso_local i32 @foo2(i32* %ptr, i32 %step, i32 %n) local_unnamed_addr {
-; CHECK-LABEL:  After insertion VPEntities instructions:
+; CHECK-LABEL:  VPlan after insertion VPEntities instructions:
+; CHECK-NEXT:  External Defs Start:
+; CHECK-DAG:     [[VP0:%.*]] = {%2}
+; CHECK-DAG:     [[VP1:%.*]] = {%c.promoted}
+; CHECK-DAG:     [[VP2:%.*]] = {%ptr.addr.promoted}
+; CHECK-DAG:     [[VP3:%.*]] = {%n + -1}
+; CHECK-DAG:     [[VP4:%.*]] = {%s}
+; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]:
-; CHECK-NEXT:     [DA: Uni] i32 [[VP0:%.*]] = add i32 [[N0:%.*]] i32 -1
-; CHECK-NEXT:     [DA: Div] i32* [[VP1:%.*]] = allocate-priv i32*
-; CHECK-NEXT:     [DA: Div] i32 [[VP__RED_INIT:%.*]] = reduction-init i32 0 i32 [[TMP2:%.*]]
-; CHECK-NEXT:     [DA: Div] store i32 [[VP__RED_INIT]] i32* [[VP1]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP__IND_INIT:%.*]] = induction-init{add} i32 0 i32 1
-; CHECK-NEXT:     [DA: Uni] i32 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i32 1
+; CHECK-NEXT:     i32* [[VP5:%.*]] = allocate-priv i32*
+; CHECK-NEXT:     i32 [[VP__RED_INIT:%.*]] = reduction-init i32 0 i32 [[TMP2:%.*]]
+; CHECK-NEXT:     store i32 [[VP__RED_INIT]] i32* [[VP5]]
+; CHECK-NEXT:     i32 [[VP__IND_INIT:%.*]] = induction-init{add} i32 0 i32 1
+; CHECK-NEXT:     i32 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i32 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]:
-; CHECK-NEXT:     [DA: Div] i32 [[VP2:%.*]] = phi  [ i32 [[VP__RED_INIT]], [[BB1]] ],  [ i32 [[VP3:%.*]], [[BB2]] ]
-; CHECK-NEXT:     [DA: Div] i32 [[VP4:%.*]] = phi  [ i32 [[VP__IND_INIT]], [[BB1]] ],  [ i32 [[VP5:%.*]], [[BB2]] ]
-; CHECK-NEXT:     [DA: Uni] i32 [[VP6:%.*]] = load i32* [[PTR_ADDR_PROMOTED0:%.*]]
-; CHECK-NEXT:     [DA: Uni] i32 [[VP7:%.*]] = sext i8 [[C_PROMOTED0:%.*]] to i32
-; CHECK-NEXT:     [DA: Uni] i32 [[VP8:%.*]] = mul i32 [[VP6]] i32 [[VP7]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP3]] = add i32 [[VP8]] i32 [[VP2]]
-; CHECK-NEXT:     [DA: Div] store i32 [[VP3]] i32* [[VP1]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP5]] = add i32 [[VP4]] i32 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP9:%.*]] = icmp i32 [[VP5]] i32 [[VP0]]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP9]]), [[BB3:BB[0-9]+]](!i1 [[VP9]])
+; CHECK-NEXT:     i32 [[VP6:%.*]] = phi  [ i32 [[VP__RED_INIT]], [[BB1]] ],  [ i32 [[VP7:%.*]], [[BB2]] ]
+; CHECK-NEXT:     i32 [[VP8:%.*]] = phi  [ i32 [[VP__IND_INIT]], [[BB1]] ],  [ i32 [[VP9:%.*]], [[BB2]] ]
+; CHECK-NEXT:     i32 [[VP10:%.*]] = load i32* [[PTR_ADDR_PROMOTED0:%.*]]
+; CHECK-NEXT:     i32 [[VP11:%.*]] = sext i8 [[C_PROMOTED0:%.*]] to i32
+; CHECK-NEXT:     i32 [[VP12:%.*]] = mul i32 [[VP10]] i32 [[VP11]]
+; CHECK-NEXT:     i32 [[VP7]] = add i32 [[VP12]] i32 [[VP6]]
+; CHECK-NEXT:     store i32 [[VP7]] i32* [[VP5]]
+; CHECK-NEXT:     i32 [[VP9]] = add i32 [[VP8]] i32 [[VP__IND_INIT_STEP]]
+; CHECK-NEXT:     i1 [[VP13:%.*]] = icmp i32 [[VP9]] i32 [[VP3]]
+; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP13]]), [[BB3:BB[0-9]+]](!i1 [[VP13]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]:
-; CHECK-NEXT:     [DA: Uni] i32 [[VP__RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP3]]
-; CHECK-NEXT:     [DA: Uni] store i32 [[VP__RED_FINAL]] i32* [[S0:%.*]]
-; CHECK-NEXT:     [DA: Uni] i32 [[VP__IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
+; CHECK-NEXT:     i32 [[VP__RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP7]]
+; CHECK-NEXT:     store i32 [[VP__RED_FINAL]] i32* [[S0:%.*]]
+; CHECK-NEXT:     i32 [[VP__IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:

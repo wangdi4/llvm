@@ -26,8 +26,8 @@ define internal %struct.test01* @test01(%struct.test01* %in) !dtrans_type !1 {
 ; CHECK-FUT-LABEL: define internal p0 @test01
 ; CHECK-CUR:   %out_i8 = call i8* @realloc(i8* %in_i8, i64 256)
 ; CHECK-FUT:   %out_i8 = call p0 @realloc(p0 %in_i8, i64 256)
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT:  Aliased types:
 ; CHECK-NEXT:    %struct.test01*{{ *$}}
 ; CHECK-NEXT:   i8*{{ *$}}
 ; CHECK-NEXT: No element pointees.
@@ -55,8 +55,8 @@ define internal void @test02() {
 ; CHECK-LABEL: define internal void @test02
 ; CHECK-CUR:  %more = call i8* @realloc(i8* %v0_i8, i64 512)
 ; CHECK-FUT:  %more = call p0 @realloc(p0 %v0_i8, i64 512)
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT:  Aliased types:
 ; CHECK-NEXT:   %struct.test02b*{{ *$}}
 ; CHECK-NEXT:   i8*{{ *$}}
 ; CHECK-NEXT: No element pointees.

@@ -876,8 +876,8 @@ public:
   /// Get the address of the RTTI descriptor for the given type.
   llvm::Constant *GetAddrOfRTTIDescriptor(QualType Ty, bool ForEH = false);
 
-  /// Get the address of a uuid descriptor .
-  ConstantAddress GetAddrOfUuidDescriptor(const CXXUuidofExpr* E);
+  /// Get the address of a GUID.
+  ConstantAddress GetAddrOfMSGuidDecl(const MSGuidDecl *GD);
 
   /// Get the address of the thunk for the given global decl.
   llvm::Constant *GetAddrOfThunk(StringRef Name, llvm::Type *FnTy,
@@ -1093,6 +1093,7 @@ public:
   }
   bool inTargetRegion() { return InTargetRegion > 0; }
   void SetTargetRegionFunctionAttributes(llvm::Function *Fn);
+  std::string getUniqueItaniumABIMangledName(GlobalDecl GD);
 #endif // INTEL_COLLAB
 
   void generateIntelFPGAAnnotation(const Decl *D,
@@ -1134,7 +1135,7 @@ public:
   void MaybeHandleStaticInExternC(const SomeDecl *D, llvm::GlobalValue *GV);
 
   /// Add a global to a list to be added to the llvm.used metadata.
-  void addUsedGlobal(llvm::GlobalValue *GV, bool SkipCheck = false);
+  void addUsedGlobal(llvm::GlobalValue *GV);
 
   /// Add a global to a list to be added to the llvm.compiler.used metadata.
   void addCompilerUsedGlobal(llvm::GlobalValue *GV);
@@ -1403,11 +1404,6 @@ public:
   /// \param D Requires declaration
   void EmitOMPRequiresDecl(const OMPRequiresDecl *D);
 
-  /// Emits the definition of \p OldGD function with body from \p NewGD.
-  /// Required for proper handling of declare variant directive on the GPU.
-  void emitOpenMPDeviceFunctionRedefinition(GlobalDecl OldGD, GlobalDecl NewGD,
-                                            llvm::GlobalValue *GV);
-
   /// Returns whether the given record has hidden LTO visibility and therefore
   /// may participate in (single-module) CFI and whole-program vtable
   /// optimization.
@@ -1636,9 +1632,6 @@ private:
   /// \brief Emit MS-specific debug info as llvm.dbg.ms.* metadata nodes.
   void EmitMSDebugInfoMetadata();
 #endif // INTEL_CUSTOMIZATION
-
-  /// Emits the initializer for a uuidof string.
-  llvm::Constant *EmitUuidofInitializer(StringRef uuidstr);
 
   /// Determine whether the definition must be emitted; if this returns \c
   /// false, the definition can be emitted lazily if it's used.

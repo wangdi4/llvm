@@ -1,8 +1,6 @@
 // RUN: %clang_cc1 -x cl -cl-std=CL2.0 -triple spir-unknown-unknown-intelfpga -emit-llvm %s -o - | FileCheck %s
 // RUN: %clang_cc1 -x cl -cl-std=CL2.0 -triple x86_64-unknown-unknown-intelfpga -emit-llvm %s -o - | FileCheck %s
 
-//CHECK: [[IMD:@.str[\.]*[0-9]*]] = {{.*}}{internal_max_block_ram_depth:64}
-
 __attribute__((max_work_group_size(1024, 1, 1)))
 __kernel void k1() {}
 // CHECK: define spir_kernel void @k1{{[^{]+}} !max_work_group_size ![[MD1:[0-9]+]]
@@ -43,14 +41,6 @@ __kernel void k11() __attribute__((stall_free)) {}
 
 __kernel void k12() __attribute__((scheduler_target_fmax_mhz(12))) {}
 // CHECK: define spir_kernel void @k12{{[^{]+}} !scheduler_target_fmax_mhz ![[MD12:[0-9]+]]
-
-__kernel void k13() {
-// CHECK: define spir_kernel void @k13{{[^{]+}}
-// CHECK: stuff = alloca [100 x i32], align
-// CHECK: %[[STUFFBC:[0-9]+]] = bitcast [100 x i32]* %stuff to i8*
-    int stuff[100] __attribute__((__internal_max_block_ram_depth__(64)));
-// CHECK: llvm.var.annotation{{.*}}[[STUFFBC]]{{.*}}[[IMD]]
-}
 
 __kernel void k14() __attribute__((uses_global_work_offset(0))) {}
 // CHECK: define spir_kernel void @k14{{[^{]+}} !uses_global_work_offset ![[MD13:[0-9]+]]

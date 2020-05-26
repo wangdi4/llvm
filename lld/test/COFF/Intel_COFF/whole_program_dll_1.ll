@@ -1,4 +1,4 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 ; Test case to make sure that whole program won't be achieved when creating
 ; a DLL because lld isn't linking an executable.
 
@@ -35,5 +35,5 @@ entry:
 ; CHECK: WHOLE-PROGRAM-ANALYSIS: SIMPLE ANALYSIS
 ; CHECK: UNRESOLVED CALLSITES: 0
 ; CHECK: VISIBLE OUTSIDE LTO: 0
-; CHECK: WHOLE PROGRAM NOT DETECTED
-; CHECK: not linking an executable;
+; CHECK: WHOLE PROGRAM RESULT:
+; CHECK: LINKING AN EXECUTABLE: NOT DETECTED

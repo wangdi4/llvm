@@ -19,7 +19,9 @@
 #include "../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlan.h"
 #include "../lib/Transforms/Vectorize/Intel_VPlan/IntelVPlanHCFGBuilder.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/AsmParser/Parser.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/Support/SourceMgr.h"
 #include "gtest/gtest.h"
@@ -70,9 +72,8 @@ protected:
     doAnalysis(*F, LoopHeader);
 
     auto Plan = std::make_unique<VPlan>(Ctx.get(), DL.get());
-    VPlanHCFGBuilder HCFGBuilder(LI->getLoopFor(LoopHeader), LI.get(), SE.get(),
-                                 *DL, nullptr /*WRLp */, Plan.get(),
-                                 Legal.get());
+    VPlanHCFGBuilder HCFGBuilder(LI->getLoopFor(LoopHeader), LI.get(), *DL,
+                                 nullptr /*WRLp */, Plan.get(), Legal.get());
     HCFGBuilder.buildHierarchicalCFG();
     return Plan;
   }

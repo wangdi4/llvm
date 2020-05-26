@@ -24,7 +24,6 @@
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/Analysis/Intel_WP.h"   // INTEL
-#include "llvm/IR/CallSite.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/Function.h"
@@ -196,12 +195,12 @@ private:
   // TotalCount is the total profiled count of call executions, and
   // NumCandidates is the number of candidate entries in ValueDataRef.
   std::vector<PromotionCandidate> getPromotionCandidatesForCallSite(
-      Instruction *Inst, const ArrayRef<InstrProfValueData> &ValueDataRef,
+      const CallBase &CB, const ArrayRef<InstrProfValueData> &ValueDataRef,
       uint64_t TotalCount, uint32_t NumCandidates);
 
   // Promote a list of targets for one indirect-call callsite. Return
   // the number of promotions.
-  uint32_t tryToPromote(Instruction *Inst,
+  uint32_t tryToPromote(CallBase &CB,
                         const std::vector<PromotionCandidate> &Candidates,
                         uint64_t &TotalCount);
 
@@ -221,11 +220,11 @@ public:
 // the count. Stop at the first target that is not promoted.
 std::vector<ICallPromotionFunc::PromotionCandidate>
 ICallPromotionFunc::getPromotionCandidatesForCallSite(
-    Instruction *Inst, const ArrayRef<InstrProfValueData> &ValueDataRef,
+    const CallBase &CB, const ArrayRef<InstrProfValueData> &ValueDataRef,
     uint64_t TotalCount, uint32_t NumCandidates) {
   std::vector<PromotionCandidate> Ret;
 
-  LLVM_DEBUG(dbgs() << " \nWork on callsite #" << NumOfPGOICallsites << *Inst
+  LLVM_DEBUG(dbgs() << " \nWork on callsite #" << NumOfPGOICallsites << CB
                     << " Num_targets: " << ValueDataRef.size()
                     << " Num_candidates: " << NumCandidates << "\n");
   NumOfPGOICallsites++;
@@ -241,18 +240,18 @@ ICallPromotionFunc::getPromotionCandidatesForCallSite(
     LLVM_DEBUG(dbgs() << " Candidate " << I << " Count=" << Count
                       << "  Target_func: " << Target << "\n");
 
-    if (ICPInvokeOnly && isa<CallInst>(Inst)) {
+    if (ICPInvokeOnly && isa<CallInst>(CB)) {
       LLVM_DEBUG(dbgs() << " Not promote: User options.\n");
       ORE.emit([&]() {
-        return OptimizationRemarkMissed(DEBUG_TYPE, "UserOptions", Inst)
+        return OptimizationRemarkMissed(DEBUG_TYPE, "UserOptions", &CB)
                << " Not promote: User options";
       });
       break;
     }
-    if (ICPCallOnly && isa<InvokeInst>(Inst)) {
+    if (ICPCallOnly && isa<InvokeInst>(CB)) {
       LLVM_DEBUG(dbgs() << " Not promote: User option.\n");
       ORE.emit([&]() {
-        return OptimizationRemarkMissed(DEBUG_TYPE, "UserOptions", Inst)
+        return OptimizationRemarkMissed(DEBUG_TYPE, "UserOptions", &CB)
                << " Not promote: User options";
       });
       break;
@@ -260,7 +259,7 @@ ICallPromotionFunc::getPromotionCandidatesForCallSite(
     if (ICPCutOff != 0 && NumOfPGOICallPromotion >= ICPCutOff) {
       LLVM_DEBUG(dbgs() << " Not promote: Cutoff reached.\n");
       ORE.emit([&]() {
-        return OptimizationRemarkMissed(DEBUG_TYPE, "CutOffReached", Inst)
+        return OptimizationRemarkMissed(DEBUG_TYPE, "CutOffReached", &CB)
                << " Not promote: Cutoff reached";
       });
       break;
@@ -270,7 +269,7 @@ ICallPromotionFunc::getPromotionCandidatesForCallSite(
     if (TargetFunction == nullptr) {
       LLVM_DEBUG(dbgs() << " Not promote: Cannot find the target\n");
       ORE.emit([&]() {
-        return OptimizationRemarkMissed(DEBUG_TYPE, "UnableToFindTarget", Inst)
+        return OptimizationRemarkMissed(DEBUG_TYPE, "UnableToFindTarget", &CB)
                << "Cannot promote indirect call: target with md5sum "
                << ore::NV("target md5sum", Target) << " not found";
       });
@@ -278,11 +277,11 @@ ICallPromotionFunc::getPromotionCandidatesForCallSite(
     }
 
     const char *Reason = nullptr;
-    if (!isLegalToPromote(CallSite(Inst), TargetFunction, &Reason)) {
+    if (!isLegalToPromote(CB, TargetFunction, &Reason)) {
       using namespace ore;
 
       ORE.emit([&]() {
-        return OptimizationRemarkMissed(DEBUG_TYPE, "UnableToPromote", Inst)
+        return OptimizationRemarkMissed(DEBUG_TYPE, "UnableToPromote", &CB)
                << "Cannot promote indirect call to "
                << NV("TargetFunction", TargetFunction) << " with count of "
                << NV("Count", Count) << ": " << Reason;
@@ -296,32 +295,31 @@ ICallPromotionFunc::getPromotionCandidatesForCallSite(
   return Ret;
 }
 
-Instruction *llvm::pgo::promoteIndirectCall(Instruction *Inst,
-                                            Function *DirectCallee,
-                                            uint64_t Count, uint64_t TotalCount,
-                                            bool AttachProfToDirectCall,
-                                            OptimizationRemarkEmitter *ORE) {
+CallBase &llvm::pgo::promoteIndirectCall(CallBase &CB, Function *DirectCallee,
+                                         uint64_t Count, uint64_t TotalCount,
+                                         bool AttachProfToDirectCall,
+                                         OptimizationRemarkEmitter *ORE) {
 
   uint64_t ElseCount = TotalCount - Count;
   uint64_t MaxCount = (Count >= ElseCount ? Count : ElseCount);
   uint64_t Scale = calculateCountScale(MaxCount);
-  MDBuilder MDB(Inst->getContext());
+  MDBuilder MDB(CB.getContext());
   MDNode *BranchWeights = MDB.createBranchWeights(
       scaleBranchCount(Count, Scale), scaleBranchCount(ElseCount, Scale));
 
-  Instruction *NewInst =
-      promoteCallWithIfThenElse(CallSite(Inst), DirectCallee, BranchWeights);
+  CallBase &NewInst =
+      promoteCallWithIfThenElse(CB, DirectCallee, BranchWeights);
 
   if (AttachProfToDirectCall) {
-    MDBuilder MDB(NewInst->getContext());
-    NewInst->setMetadata(
+    MDBuilder MDB(NewInst.getContext());
+    NewInst.setMetadata(
         LLVMContext::MD_prof,
         MDB.createBranchWeights({static_cast<uint32_t>(Count)}));
   }
 #if INTEL_CUSTOMIZATION
   // Propagate intel_profx metadata for call counts on indirect calls
   // to direct calls, if available.
-  MDNode * MD = Inst->getMetadata(LLVMContext::MD_intel_profx);
+  MDNode * MD = CB.getMetadata(LLVMContext::MD_intel_profx);
   if (MD) {
     assert(MD->getNumOperands() == 2);
     ConstantInt *CI = mdconst::extract<ConstantInt>(MD->getOperand(1));
@@ -330,18 +328,18 @@ Instruction *llvm::pgo::promoteIndirectCall(Instruction *Inst,
     if (CallSiteCount != TotalCount)
       LLVM_DEBUG(dbgs() << "Expecting intel_profx count to equal VP count");
     SmallVector<Metadata *, 2> Vals(2);
-    Module *M = Inst->getModule();
+    Module *M = CB.getModule();
     Vals[0] = MDString::get(M->getContext(), "intel_profx");
     Type *Int64Ty = Type::getInt64Ty(M->getContext());
     Vals[1] = ConstantAsMetadata::get(ConstantInt::get(Int64Ty, Count));
     // Create intel_profx metadata for the new direct call
-    NewInst->setMetadata(LLVMContext::MD_intel_profx,
+    NewInst.setMetadata(LLVMContext::MD_intel_profx,
         MDNode::get(M->getContext(), Vals));
     // Ensure that no wraparound occurs when calculating the difference.
     uint64_t Diff = CallSiteCount >= Count ? CallSiteCount - Count : 0;
     // Adjust the intel_profx metadata for the old indirect call
     Vals[1] = ConstantAsMetadata::get(ConstantInt::get(Int64Ty, Diff));
-    Inst->setMetadata(LLVMContext::MD_intel_profx,
+    CB.setMetadata(LLVMContext::MD_intel_profx,
         MDNode::get(M->getContext(), Vals));
   }
 #endif // INTEL_CUSTOMIZATION
@@ -349,7 +347,7 @@ Instruction *llvm::pgo::promoteIndirectCall(Instruction *Inst,
 
   if (ORE)
     ORE->emit([&]() {
-      return OptimizationRemark(DEBUG_TYPE, "Promoted", Inst)
+      return OptimizationRemark(DEBUG_TYPE, "Promoted", &CB)
              << "Promote indirect call to " << NV("DirectCallee", DirectCallee)
              << " with count " << NV("Count", Count) << " out of "
              << NV("TotalCount", TotalCount);
@@ -359,14 +357,14 @@ Instruction *llvm::pgo::promoteIndirectCall(Instruction *Inst,
 
 // Promote indirect-call to conditional direct-call for one callsite.
 uint32_t ICallPromotionFunc::tryToPromote(
-    Instruction *Inst, const std::vector<PromotionCandidate> &Candidates,
+    CallBase &CB, const std::vector<PromotionCandidate> &Candidates,
     uint64_t &TotalCount) {
   uint32_t NumPromoted = 0;
 
   for (auto &C : Candidates) {
     uint64_t Count = C.Count;
-    pgo::promoteIndirectCall(Inst, C.TargetFunction, Count, TotalCount,
-                             SamplePGO, &ORE);
+    pgo::promoteIndirectCall(CB, C.TargetFunction, Count, TotalCount, SamplePGO,
+                             &ORE);
     assert(TotalCount >= Count);
     TotalCount -= Count;
     NumOfPGOICallPromotion++;
@@ -380,28 +378,28 @@ uint32_t ICallPromotionFunc::tryToPromote(
 bool ICallPromotionFunc::processFunction(ProfileSummaryInfo *PSI) {
   bool Changed = false;
   ICallPromotionAnalysis ICallAnalysis;
-  for (auto &I : findIndirectCalls(F)) {
+  for (auto *CB : findIndirectCalls(F)) {
     uint32_t NumVals, NumCandidates;
     uint64_t TotalCount;
     auto ICallProfDataRef = ICallAnalysis.getPromotionCandidatesForInstruction(
-        I, NumVals, TotalCount, NumCandidates);
+        CB, NumVals, TotalCount, NumCandidates);
     if (!NumCandidates ||
         (PSI && PSI->hasProfileSummary() && !PSI->isHotCount(TotalCount)))
       continue;
     auto PromotionCandidates = getPromotionCandidatesForCallSite(
-        I, ICallProfDataRef, TotalCount, NumCandidates);
-    uint32_t NumPromoted = tryToPromote(I, PromotionCandidates, TotalCount);
+        *CB, ICallProfDataRef, TotalCount, NumCandidates);
+    uint32_t NumPromoted = tryToPromote(*CB, PromotionCandidates, TotalCount);
     if (NumPromoted == 0)
       continue;
 
     Changed = true;
     // Adjust the MD.prof metadata. First delete the old one.
-    I->setMetadata(LLVMContext::MD_prof, nullptr);
+    CB->setMetadata(LLVMContext::MD_prof, nullptr);
     // If all promoted, we don't need the MD.prof metadata.
     if (TotalCount == 0 || NumPromoted == NumVals)
       continue;
     // Otherwise we need update with the un-promoted records back.
-    annotateValueSite(*M, *I, ICallProfDataRef.slice(NumPromoted), TotalCount,
+    annotateValueSite(*M, *CB, ICallProfDataRef.slice(NumPromoted), TotalCount,
                       IPVK_IndirectCallTarget, NumCandidates);
   }
   return Changed;

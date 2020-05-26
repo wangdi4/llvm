@@ -221,14 +221,13 @@ void HIRLoopFormation::setIVType(HLLoop *HLoop, const SCEV *BECount) const {
   assert(isa<Instruction>(Cond) &&
          "Loop exit condition is not an instruction!");
 
-  auto IVNode = RI.findIVDefInHeader(*Lp, cast<Instruction>(Cond));
-  assert(IVNode && "Could not find loop IV!");
+  auto *IVNode = RI.findIVDefInHeader(*Lp, cast<Instruction>(Cond));
 
-  auto IVType = IVNode->getType();
+  auto *IVType = IVNode ? IVNode->getType() : nullptr;
 
   // If the IVType is not an integer, assign it an integer type which is able to
   // represent the address space.
-  if (!IVType->isIntegerTy()) {
+  if (!IVType || !IVType->isIntegerTy()) {
     IVType = Type::getIntNTy(
         Func->getContext(),
         Func->getParent()->getDataLayout().getPointerSizeInBits());
@@ -272,6 +271,37 @@ bool HIRLoopFormation::populatedPreheaderPostexitNodes(
   return true;
 }
 
+bool HIRLoopFormation::setRecognizedZtt(HLLoop *HLoop, HLIf *IfParent,
+                                        bool PredicateInversion) {
+  // This function returns false if the condition is acting like a ztt but
+  // cannot be set as one due to presence of non-HLInst nodes so we need to
+  // bail out.
+  if (!populatedPreheaderPostexitNodes(HLoop, IfParent, PredicateInversion)) {
+    return false;
+  }
+
+  // IfParent should only contain the loop now.
+  assert(((!PredicateInversion && (IfParent->getNumThenChildren() == 1)) ||
+          (PredicateInversion && (IfParent->getNumElseChildren() == 1))) &&
+         "Something went wrong during ztt recognition!");
+
+  HLNodeUtils::moveBefore(IfParent, HLoop);
+  HLNodeUtils::remove(IfParent);
+
+  HLoop->setZtt(IfParent);
+
+  if (PredicateInversion) {
+    if (MDNode *OrigProfData = IfParent->getProfileData()) {
+      // Get the profile data inverted for IfParent.
+      MDNode *ProfData = HLNodeUtils::swapProfMetadata(
+          HLoop->getHLNodeUtils().getContext(), OrigProfData);
+      IfParent->setProfileData(ProfData);
+    }
+  }
+
+  return true;
+}
+
 void HIRLoopFormation::setZtt(HLLoop *HLoop) {
 
   auto Lp = HLoop->getLLVMLoop();
@@ -290,11 +320,22 @@ void HIRLoopFormation::setZtt(HLLoop *HLoop) {
     return;
   }
 
+  bool IsDeferredZttCandidate = false;
+
   if (IfParent->hasElseChildren()) {
     if (IfParent->hasThenChildren()) {
-      return;
+      // Sometimes both if/else cases have children but one set of children are
+      // optimized away after parsing so we can defer it to parser.
+      IsDeferredZttCandidate = true;
+
+      auto IsLoop = [=](HLNode &Node) { return &Node == HLoop; };
+
+      PredicateInversion =
+          std::any_of(IfParent->else_begin(), IfParent->else_end(), IsLoop);
+
+    } else {
+      PredicateInversion = true;
     }
-    PredicateInversion = true;
   }
 
   auto IfBB = HIRCr.getSrcBBlock(IfParent);
@@ -305,32 +346,17 @@ void HIRLoopFormation::setZtt(HLLoop *HLoop) {
     return;
   }
 
-  // This function returns false if the condition is acting like a ztt but
-  // cannot be set as one due to presence of non-HLInst nodes so we need to
-  // bail out.
-  if (!populatedPreheaderPostexitNodes(HLoop, IfParent, PredicateInversion)) {
+  if (IsDeferredZttCandidate) {
+    DeferredZtts.emplace_back(HLoop, IfParent);
     return;
   }
 
-  // IfParent should only contain the loop now.
-  assert(((!PredicateInversion && (IfParent->getNumThenChildren() == 1)) ||
-          (PredicateInversion && (IfParent->getNumElseChildren() == 1))) &&
-         "Something went wrong during ztt recognition!");
-
-  HLNodeUtils::moveBefore(IfParent, HLoop);
-  HLNodeUtils::remove(IfParent);
-
-  HLoop->setZtt(IfParent);
+  if (!setRecognizedZtt(HLoop, IfParent, PredicateInversion)) {
+    return;
+  }
 
   if (PredicateInversion) {
     InvertedZttLoops.insert(HLoop);
-
-    if (MDNode *OrigProfData = IfParent->getProfileData()) {
-      // Get the profile data inverted for IfParent.
-      MDNode *ProfData =
-          HLNodeUtils::swapProfMetadata(HNU.getContext(), OrigProfData);
-      IfParent->setProfileData(ProfData);
-    }
   }
 }
 

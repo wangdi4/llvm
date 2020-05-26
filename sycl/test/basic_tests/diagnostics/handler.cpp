@@ -1,5 +1,5 @@
 // RUN: %clangxx -fsycl %s -o %t.out
-// RUN: %t.out | FileCheck %s
+// RUN: env SYCL_DEVICE_TYPE=HOST %t.out | FileCheck %s
 //==------------------- handler.cpp ----------------------------------------==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.

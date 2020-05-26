@@ -17,6 +17,7 @@
 
 #include "IntelLoopVectorizationLegality.h"
 #include "IntelVPlan.h"
+#include "IntelVPlanUtils.h"
 #include "llvm/Analysis/LoopAccessAnalysis.h"
 #include "llvm/Analysis/ScalarEvolutionExpander.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
@@ -89,7 +90,8 @@ static bool checkCombinerOp(Value *CombinerV,
 }
 
 static bool isSupportedInstructionType(Type *Ty) {
-  return !Ty->isVectorTy() || Ty->getVectorElementType()->isSingleValueType();
+  auto *VecTy = dyn_cast<VectorType>(Ty);
+  return !VecTy || VecTy->getElementType()->isSingleValueType();
 }
 
 /// Check that the instruction has outside loop users and is not an identified
@@ -267,8 +269,66 @@ bool VPOVectorizationLegality::isReductionVarStoredInsideTheLoop(
   return false;
 }
 
+// Check the safety of aliasing of particular class of clause-variables in \p
+// Range outside of the loop.
+template <typename LoopEntitiesRange>
+bool VPOVectorizationLegality::isEntityAliasingSafe(
+    const LoopEntitiesRange &LERange,
+    std::function<bool(const Instruction *)> IsAliasInRelevantScope) {
+  for (auto *En : LERange) {
+    SetVector<Value *> WL;
+    WL.insert(En);
+    while (!WL.empty()) {
+      auto *HeadI = WL.pop_back_val();
+      for (auto *Use : HeadI->users()) {
+        Instruction *UseInst = cast<Instruction>(Use);
+        // If this is a store of private pointer or any of its alias to an
+        // external memory, treat the loop as unsafe for vectorization and
+        // return false.
+        if (StoreInst *SI = dyn_cast<StoreInst>(UseInst))
+          if (SI->getValueOperand() == HeadI)
+            return false;
+        // We only want to analyze the blocks between the region-entry and the
+        // loop-block (typically just simd.loop.preheader). This means we won't
+        // loop on cycle-causing PHIs.
+        if (IsAliasInRelevantScope(UseInst) &&
+            isTrivialPointerAliasingInst(UseInst))
+          WL.insert(UseInst);
+      }
+    }
+  }
+  return true;
+}
+
+// Check the safety of aliasing of loop-privates outside of the loop.
+// We want to scan the block RegionEntry : loop-preheader and checks if we have
+// a store of the  pointer to any memory locations. If that is the case, we
+// treat this loop as unsafe for vectorization.
+bool VPOVectorizationLegality::isAliasingSafe(DominatorTree &DT,
+                                              const CallInst *RegionEntry) {
+  // We would not have a RegionEntry in case of auto-vectorization or when we
+  // are using -vplan-build-vect-candidates. In that scenario, we do not want
+  // this check to be done and depend on the AA analysis for safety.
+  if (!RegionEntry)
+    return true;
+
+  // Check that the aliasing instruction is present in one of the blocks between
+  // the region-entry and the loop-header.
+  auto IsInstInRelevantScope = [&](const Instruction *I) {
+    return DT.dominates(RegionEntry, I) &&
+           DT.dominates(I, TheLoop->getHeader());
+  };
+
+  return isEntityAliasingSafe(privates(), IsInstInRelevantScope) &&
+         isEntityAliasingSafe(condPrivates(), IsInstInRelevantScope) &&
+         isEntityAliasingSafe(lastPrivates(), IsInstInRelevantScope) &&
+         isEntityAliasingSafe(explicitReductionVals(), IsInstInRelevantScope) &&
+         isEntityAliasingSafe(inMemoryReductionVals(), IsInstInRelevantScope) &&
+         isEntityAliasingSafe(linearVals(), IsInstInRelevantScope);
+}
+
 void VPOVectorizationLegality::parseMinMaxReduction(
-    AllocaInst *RedVarPtr, RecurrenceDescriptor::RecurrenceKind Kind,
+    Value *RedVarPtr, RecurrenceDescriptor::RecurrenceKind Kind,
     RecurrenceDescriptor::MinMaxRecurrenceKind Mrk) {
 
   // Analyzing 2 possible scenarios:
@@ -328,7 +388,7 @@ void VPOVectorizationLegality::parseMinMaxReduction(
 }
 
 void VPOVectorizationLegality::parseBinOpReduction(
-    AllocaInst *RedVarPtr, RecurrenceDescriptor::RecurrenceKind Kind) {
+    Value *RedVarPtr, RecurrenceDescriptor::RecurrenceKind Kind) {
 
   // Analyzing 3 possible scenarios:
   // (1) -- Reduction Phi nodes, the new value is in reg
@@ -375,7 +435,7 @@ void VPOVectorizationLegality::parseBinOpReduction(
     RecurrenceDescriptor RD(StartV, Combiner, Kind, FMF,
                             RecurrenceDescriptor::MRK_Invalid, nullptr,
                             ReductionPhi->getType(), true, CastInsts);
-    ExplicitReductions[ReductionPhi] = {RD, cast<AllocaInst>(RedVarPtr)};
+    ExplicitReductions[ReductionPhi] = {RD, RedVarPtr};
   } else if ((UseMemory = isReductionVarStoredInsideTheLoop(RedVarPtr)))
     InMemoryReductions[RedVarPtr] = {Kind, RecurrenceDescriptor::MRK_Invalid};
 
@@ -386,13 +446,13 @@ void VPOVectorizationLegality::parseBinOpReduction(
 void VPOVectorizationLegality::parseExplicitReduction(
     Value *RedVarPtr, RecurrenceDescriptor::RecurrenceKind Kind,
     RecurrenceDescriptor::MinMaxRecurrenceKind Mrk) {
-  assert(isa<AllocaInst>(RedVarPtr) &&
-         "Expected Alloca instruction as a pointer to reduction variable");
+  assert(isa<PointerType>(RedVarPtr->getType()) &&
+         "Expected reduction variable to be a pointer type");
 
   if (Mrk != RecurrenceDescriptor::MRK_Invalid)
-    return parseMinMaxReduction(cast<AllocaInst>(RedVarPtr), Kind, Mrk);
+    return parseMinMaxReduction(RedVarPtr, Kind, Mrk);
 
-  return parseBinOpReduction(cast<AllocaInst>(RedVarPtr), Kind);
+  return parseBinOpReduction(RedVarPtr, Kind);
 }
 
 bool VPOVectorizationLegality::isExplicitReductionPhi(PHINode *Phi) {
@@ -435,7 +495,8 @@ void VPOVectorizationLegality::addReductionMax(Value *V, bool IsSigned) {
                            RecurrenceDescriptor::MRK_FloatMax);
 }
 
-bool VPOVectorizationLegality::canVectorize() {
+bool VPOVectorizationLegality::canVectorize(DominatorTree &DT,
+                                            const CallInst *RegionEntry) {
 
   if (TheLoop->getNumBackEdges() != 1 || !TheLoop->getExitingBlock()) {
     LLVM_DEBUG(dbgs() << "loop control flow is not understood by vectorizer");
@@ -452,6 +513,13 @@ bool VPOVectorizationLegality::canVectorize() {
   const SCEV *ExitCount = PSE.getBackedgeTakenCount();
   if (ExitCount == PSE.getSE()->getCouldNotCompute()) {
     LLVM_DEBUG(dbgs() << "LV: SCEV could not compute the loop exit count.\n");
+    return false;
+  }
+
+  // Check if aliasing of privates is safe outside of the loop.
+  if (!isAliasingSafe(DT, RegionEntry)) {
+    LLVM_DEBUG(dbgs() << "LV: Safety of aliasing of privates outside of the "
+                         "loop cannot be accertained. \n");
     return false;
   }
 
@@ -507,8 +575,8 @@ bool VPOVectorizationLegality::canVectorize() {
 
       // Check for handled shuffles
       if (auto ShufInst = dyn_cast<ShuffleVectorInst>(&I)) {
-        if (getSplatValue(ShufInst) ||
-            isa<ConstantAggregateZero>(ShufInst->getMask()))
+        if (getSplatValue(ShufInst) || all_of(ShufInst->getShuffleMask(),
+                                              [](int Elt) { return Elt == 0; }))
           continue;
 
         LLVM_DEBUG(dbgs() << "LV: Unsupported shufflevector instruction."
@@ -620,7 +688,7 @@ bool VPOVectorizationLegality::isLoopPrivateAggregate(Value *V) const {
 
 bool VPOVectorizationLegality::isInMemoryReduction(Value *V) const {
   V = getPtrThruCast<BitCastInst>(V);
-  return isa<AllocaInst>(V) && InMemoryReductions.count(cast<AllocaInst>(V));
+  return isa<PointerType>(V->getType()) && InMemoryReductions.count(V);
 }
 
 bool VPOVectorizationLegality::isLastPrivate(Value *V) const {

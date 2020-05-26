@@ -305,6 +305,7 @@ namespace clang {
       void *OldContext = Ctx.getInlineAsmDiagnosticContext();
       Ctx.setInlineAsmDiagnosticHandler(InlineAsmDiagHandler, this);
 
+#if !INTEL_CUSTOMIZATION
       std::unique_ptr<DiagnosticHandler> OldDiagnosticHandler =
           Ctx.getDiagnosticHandler();
       Ctx.setDiagnosticHandler(std::make_unique<ClangDiagnosticHandler>(
@@ -327,6 +328,10 @@ namespace clang {
       if (OptRecordFile &&
           CodeGenOpts.getProfileUse() != CodeGenOptions::ProfileNone)
         Ctx.setDiagnosticsHotnessRequested(true);
+
+      // The code above was removed and this process occurs now in the
+      // constructor of OptRecordFileRAII.
+#endif // INTEL_CUSTOMIZATION
 
       // The parallel_for_work_group legalization pass can emit calls to
       // builtins function. Definitions of those builtins can be provided in
@@ -353,10 +358,15 @@ namespace clang {
 
       Ctx.setInlineAsmDiagnosticHandler(OldHandler, OldContext);
 
+#if !INTEL_CUSTOMIZATION
       Ctx.setDiagnosticHandler(std::move(OldDiagnosticHandler));
 
-      if (OptRecordFile)
-        OptRecordFile->keep();
+     if (OptRecordFile)
+       OptRecordFile->keep();
+
+     // The code above was removed and the process occurs now in the
+     // destructor of OptRecordFileRAII.
+#endif // INTEL_CUSTOMIZATION
     }
 
     void HandleTagDeclDefinition(TagDecl *D) override {
@@ -648,8 +658,9 @@ const FullSourceLoc BackendConsumer::getBestLocationFromDebugLoc(
 
 void BackendConsumer::UnsupportedDiagHandler(
     const llvm::DiagnosticInfoUnsupported &D) {
-  // We only support errors.
-  assert(D.getSeverity() == llvm::DS_Error);
+  // We only support warnings or errors.
+  assert(D.getSeverity() == llvm::DS_Error ||
+         D.getSeverity() == llvm::DS_Warning);
 
   StringRef Filename;
   unsigned Line, Column;
@@ -667,7 +678,11 @@ void BackendConsumer::UnsupportedDiagHandler(
     DiagnosticPrinterRawOStream DP(MsgStream);
     D.print(DP);
   }
-  Diags.Report(Loc, diag::err_fe_backend_unsupported) << MsgStream.str();
+
+  auto DiagType = D.getSeverity() == llvm::DS_Error
+                      ? diag::err_fe_backend_unsupported
+                      : diag::warn_fe_backend_unsupported;
+  Diags.Report(Loc, DiagType) << MsgStream.str();
 
   if (BadDebugInfo)
     // If we were not able to translate the file:line:col information
@@ -1116,6 +1131,51 @@ CodeGenAction::loadModule(MemoryBufferRef MBRef) {
   return {};
 }
 
+#if INTEL_CUSTOMIZATION
+namespace {
+  // Handles the initialization and cleanup of the OptRecordFile. This
+  // customization allows initialization before the clang codegen runs
+  // so it can also emit to the opt report.
+  struct OptRecordFileRAII {
+    std::unique_ptr<llvm::ToolOutputFile> OptRecordFile;
+    std::unique_ptr<DiagnosticHandler> OldDiagnosticHandler;
+    llvm::LLVMContext &Ctx;
+
+    OptRecordFileRAII(CodeGenAction &CGA, llvm::LLVMContext &Ctx,
+                      BackendConsumer &BC)
+        : Ctx(Ctx) {
+      CompilerInstance &CI = CGA.getCompilerInstance();
+      auto &CodeGenOpts = CI.getCodeGenOpts();
+
+      OldDiagnosticHandler = Ctx.getDiagnosticHandler();
+
+      Ctx.setDiagnosticHandler(
+          std::make_unique<ClangDiagnosticHandler>(CodeGenOpts, &BC));
+
+      Expected<std::unique_ptr<llvm::ToolOutputFile>> OptRecordFileOrErr =
+          setupLLVMOptimizationRemarks(
+              Ctx, CodeGenOpts.OptRecordFile, CodeGenOpts.OptRecordPasses,
+              CodeGenOpts.OptRecordFormat, CodeGenOpts.DiagnosticsWithHotness,
+              CodeGenOpts.DiagnosticsHotnessThreshold);
+
+      if (Error E = OptRecordFileOrErr.takeError())
+        reportOptRecordError(std::move(E), CI.getDiagnostics(), CodeGenOpts);
+      else
+        OptRecordFile = std::move(*OptRecordFileOrErr);
+
+      if (OptRecordFile &&
+          CodeGenOpts.getProfileUse() != CodeGenOptions::ProfileNone)
+        Ctx.setDiagnosticsHotnessRequested(true);
+    }
+    ~OptRecordFileRAII() {
+      Ctx.setDiagnosticHandler(std::move(OldDiagnosticHandler));
+      if (OptRecordFile)
+        OptRecordFile->keep();
+    }
+  };
+}
+#endif // INTEL_CUSTOMIZATION
+
 void CodeGenAction::ExecuteAction() {
   // If this is an IR file, we have to treat it specially.
   if (getCurrentFileKind().getLanguage() == Language::LLVM_IR) {
@@ -1166,33 +1226,28 @@ void CodeGenAction::ExecuteAction() {
     // PR44896: Force DiscardValueNames as false. DiscardValueNames cannot be
     // true here because the valued names are needed for reading textual IR.
     Ctx.setDiscardValueNames(false);
-    Ctx.setDiagnosticHandler(
-        std::make_unique<ClangDiagnosticHandler>(CodeGenOpts, &Result));
 
-    Expected<std::unique_ptr<llvm::ToolOutputFile>> OptRecordFileOrErr =
-        setupLLVMOptimizationRemarks(
-            Ctx, CodeGenOpts.OptRecordFile, CodeGenOpts.OptRecordPasses,
-            CodeGenOpts.OptRecordFormat, CodeGenOpts.DiagnosticsWithHotness,
-            CodeGenOpts.DiagnosticsHotnessThreshold);
-
-    if (Error E = OptRecordFileOrErr.takeError()) {
-      reportOptRecordError(std::move(E), Diagnostics, CodeGenOpts);
-      return;
-    }
-    std::unique_ptr<llvm::ToolOutputFile> OptRecordFile =
-        std::move(*OptRecordFileOrErr);
+    OptRecordFileRAII ORF(*this, Ctx, Result); // INTEL
 
     EmitBackendOutput(Diagnostics, CI.getHeaderSearchOpts(), CodeGenOpts,
                       TargetOpts, CI.getLangOpts(),
                       CI.getTarget().getDataLayout(), TheModule.get(), BA,
                       std::move(OS));
 
+#if !INTEL_CUSTOMIZATION
     if (OptRecordFile)
       OptRecordFile->keep();
+
+    // This code is now in the destructor of OptRecordFileRAII.
+#endif // INTEL_CUSTOMIZATION
     return;
   }
 
   // Otherwise follow the normal AST path.
+#if INTEL_CUSTOMIZATION
+  auto *Ctx = takeLLVMContext();
+  OptRecordFileRAII ORF(*this, *Ctx, *BEConsumer);
+#endif //INTEL_CUSTOMIZATION
   this->ASTFrontendAction::ExecuteAction();
 }
 

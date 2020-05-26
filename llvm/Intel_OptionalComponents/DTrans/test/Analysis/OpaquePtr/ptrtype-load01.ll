@@ -21,9 +21,10 @@ define internal void @test01() {
 ; CHECK-LABEL: void @test01
 ; CHECK-CUR: %var_pi64 = load i64*, i64** @var01
 ; CHECK-FUT: %var_pi64 = load p0, p0 @var01
-; CHECK:      Aliased types:
-; CHECK:        i64*
-; CHECK:      No element pointees.
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   i64*{{ *$}}
+; CHECK-NEXT: No element pointees.
 
 !1 = !{i64 0, i32 1}  ; i64*
 

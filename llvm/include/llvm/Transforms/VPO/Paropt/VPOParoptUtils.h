@@ -556,7 +556,7 @@ public:
   ///
   /// Example KMPC calls:
   /// \code
-  ///   call void @__kmpc_begin_critical(%ident_t* %loc.addr.11.12, i32 %my.tid,
+  ///   call void @__kmpc_critical(%ident_t* %loc.addr.11.12, i32 %my.tid,
   ///   [8 x i32]* @_kmpc_atomic_lock)
   ///
   ///   call void @__kmpc_end_critical(%ident_t* %loc.addr.11.122, i32 %my.tid1,
@@ -567,8 +567,10 @@ public:
   /// `__kmpc_end_critical` are successfully inserted, \b false otherwise.
   static bool genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
                                      Constant *TidPtr,
+                                     DominatorTree *DT,
+                                     LoopInfo *LI,
                                      bool IsTargetSPIRV,
-                                     const StringRef LockNameSuffix = "");
+                                     const Twine &LockNameSuffix = "");
 
   /// Generate a critical section around Instructions \p BeginInst and \p
   /// EndInst. The function emits calls to `__kmpc_critical` \b before \p
@@ -601,8 +603,41 @@ public:
   static bool genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
                                      Constant *TidPtr, Instruction *BeginInst,
                                      Instruction *EndInst,
+                                     DominatorTree *DT,
+                                     LoopInfo *LI,
                                      bool IsTargetSPIRV,
-                                     const StringRef LockNameSuffix);
+                                     const Twine &LockNameSuffix = "");
+
+  /// Generate a reduce block around Instructions \p BeginInst and \p
+  /// EndInst. The function emits calls to `__kmpc_reduce` \b before \p
+  /// BeginInst and `__kmpc_end_reduce` \b after \p EndInst.
+  ///
+  /// \code
+  /// +------< begin reduce >
+  /// |    BeginInst
+  /// |    ...
+  /// |    ...
+  /// |    EndInst
+  /// +------< end reduce >
+  /// \endcode
+  ///
+  /// \param BeginInst is the Instruction \b before which the call to
+  /// `__kmpc_reduce` is inserted.
+  /// \param EndInst is the Instruction \b after which the call to
+  /// `__kmpc_end_reduce` is inserted.
+  /// \param IsTargetSPIRV is true, iff compilation is for SPIRV target.
+  ///
+  /// Note: Other Instructions, aside from the `__kmpc_reduce` and
+  /// `__kmpc_end_reduce` calls, which are needed for the KMPC calls,
+  /// are also inserted into the IR. \see genKmpcCallWithTid() for details.
+  ///
+  /// \returns `true` if the calls to `__kmpc_reduce` and
+  /// `__kmpc_end_reduce` are successfully inserted, `false` otherwise.
+  static bool genKmpcReduce(WRegionNode *W, StructType *IdentTy,
+                            Constant *TidPtr, Value *RedVar, RDECL RedCallback,
+                            Instruction *BeginInst, Instruction *EndInst,
+                            DominatorTree *DT, LoopInfo *LI, bool IsTargetSPIRV,
+                            const StringRef LockNameSuffix);
 
   /// Generate a call to query if the current thread is master thread or a
   /// call to end_master for the team of threadsi. Emitted call:
@@ -1426,19 +1461,8 @@ public:
       ReductionItem *RedI, Type *ScalarTy, Instruction *RedDef,
       spirv::Scope Scope);
 
-  /// Returns true, if the prerequisites for using ND-range driven
-  /// parallelization for the given loop-kind \p W region are met.
-  /// This includes checking user options and the properties
-  /// of the region itself. There are more requirements for the
-  /// IR that need to be satisfied to make ND-range parallelization
-  /// possible (see useSPMDMode() below).
-  static bool mayUseSPMDMode(WRegionNode *W);
-
   /// Returns true, if work partitioning for the loop-kind \p W region
-  /// should rely on ND-range driven parallelization. This implies
-  /// that for the given \p W region there is an enclosing "omp target"
-  /// region, for which ND-range infomation has already been constructed
-  /// (see VPOParoptTransform::constructNDRangeInfo() for details).
+  /// should rely on ND-range driven parallelization.
   static bool useSPMDMode(WRegionNode *W);
 
   /// Returns execution scheme for loop-kind regions on SPIR targets.
@@ -1455,12 +1479,19 @@ public:
 
   /// Returns the Instruction which can be used as an insertion point for
   /// any alloca which needs to be inserted before the entry directive of \p W.
-  /// The utility looks at parent WRegions of \p W, and if it finds any that
-  /// would be outlined, then it returns the first non-PHI of its first basic
+  /// If \p OutsideRegion is true, then the utility looks at parent
+  /// WRegions of \p W, and if it finds any that would be outlined,
+  /// then it returns the first non-PHI of its first basic
   /// block. If no such parent is found, then the first non-PHI of the
   /// function \p F is returned.
-  static Instruction *getInsertionPtForAllocaBeforeRegion(WRegionNode *W,
-                                                          Function *F);
+  /// If \p OutsideRegion is false, and \p W will not be outlined, then
+  /// the behavior is the same as with \p OutsideRegion equal to true.
+  /// If \p OutsideRegion is false, and \p W will be outlined, then
+  /// the utility returns \p W region's entry directive making sure
+  /// that the inserted alloca will be outlined along with the region.
+  static Instruction *getInsertionPtForAllocas(WRegionNode *W,
+                                               Function *F,
+                                               bool OutsideRegion = true);
 
   /// Find the first directive that supports the private clause, that dominates
   /// \p PosInst. Add a private clause for \p I into that directive.
@@ -1505,7 +1536,7 @@ private:
   ///
   /// \returns The lock variable for the critical section to be generated.
   static GlobalVariable *
-  genKmpcCriticalLockVar(WRegionNode *W, const StringRef LockNameSuffix,
+  genKmpcCriticalLockVar(WRegionNode *W, const Twine &LockNameSuffix,
                          bool IsTargetSPIRV);
 
   /// Handles generation of a critical section around \p BeginInst and \p
@@ -1523,7 +1554,44 @@ private:
                                          Instruction *BeginInst,
                                          Instruction *EndInst,
                                          GlobalVariable *LockVar,
+                                         DominatorTree *DT,
+                                         LoopInfo *LI,
                                          bool IsTargetSPIRV);
+
+  /// Handles generation of a reduce block around \p BeginInst and \p
+  /// EndInst. The function needs a lock variable \p LockVar, which is
+  /// generated by genKmpcCriticalLockVar().
+  /// \p IsTargetSPIRV is true, iff compilation is for SPIRV target.
+  ///
+  /// \see genKmpcReduce() functions for more details. They are the public
+  /// functions which invokes this private helper.
+  ///
+  /// \returns `true` if the calls to `__kmpc_reduce` and
+  /// `__kmpc_end_reduce` are successfully inserted, `false` otherwise.
+  static bool genKmpcReduceImpl(WRegionNode *W, StructType *IdentTy,
+                                Constant *TidPtr, Value *RedVar,
+                                RDECL RedCallback, Instruction *BeginInst,
+                                Instruction *EndInst, GlobalVariable *LockVar,
+                                DominatorTree *DT, LoopInfo *LI,
+                                bool IsTargetSPIRV);
+
+  /// Generates lane-by-lane execution loop for code inside a critical
+  /// section (guarded with __kmpc_critical/__kmpc_end_critical calls).
+  /// \p BeginInst and \p EndInst identify a piece of code that needs
+  /// to be wrapped into the loop. \p BeginInst must dominate \p EndInst,
+  /// and \p EndInst must post-dominate \p BeginInst.
+  /// The generated loop looks like this:
+  ///   for (int id = 0; id < get_sub_group_size(); ++id) {
+  ///     if (id != get_sub_group_local_id())
+  ///       continue;
+  ///     <BeginInst>
+  ///     ...
+  ///     <EndInst>
+  ///   }
+  static bool genCriticalLoopForSPIR(Instruction *BeginInst,
+                                     Instruction *EndInst,
+                                     DominatorTree *DT,
+                                     LoopInfo *LI);
 
   /// Generate a call to `__kmpc_[end_]taskgroup`.
   /// \code

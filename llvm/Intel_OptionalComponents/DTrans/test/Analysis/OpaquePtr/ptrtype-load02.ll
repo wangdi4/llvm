@@ -20,9 +20,10 @@ define internal void @test01() {
 ; CHECK-LABEL: void @test01
 ; CHECK-CUR: %var_pi64 = load i64*, i64** undef
 ; CHECK-FUT: %var_pi64 = load p0, p0 undef
-; CHECK:      Aliased types:
-; CHECK:        i64*
-; CHECK:      No element pointees.
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   i64*{{ *$}}
+; CHECK-NEXT: No element pointees.
 
 
 !dtrans_types = !{}

@@ -502,18 +502,24 @@ CodeExtractor::getLifetimeMarkers(const CodeExtractorAnalysisCache &CEAC,
   for (User *U : Addr->users()) {
     IntrinsicInst *IntrInst = dyn_cast<IntrinsicInst>(U);
     if (IntrInst) {
+      // We don't model addresses with multiple start/end markers, but the
+      // markers do not need to be in the region.
       if (IntrInst->getIntrinsicID() == Intrinsic::lifetime_start) {
-        // Do not handle the case where Addr has multiple start markers.
         if (Info.LifeStart)
           return {};
         Info.LifeStart = IntrInst;
+        continue;
       }
       if (IntrInst->getIntrinsicID() == Intrinsic::lifetime_end) {
         if (Info.LifeEnd)
           return {};
         Info.LifeEnd = IntrInst;
+        continue;
       }
-      continue;
+      // At this point, permit debug uses outside of the region.
+      // This is fixed in a later call to fixupDebugInfoPostExtraction().
+      if (isa<DbgInfoIntrinsic>(IntrInst))
+        continue;
     }
     // Find untracked uses of the address, bail.
     if (!definedInRegion(Blocks, U))
@@ -948,6 +954,7 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
       case Attribute::NoSync:
       case Attribute::None:
       case Attribute::NonNull:
+      case Attribute::Preallocated:
       case Attribute::ReadNone:
       case Attribute::ReadOnly:
       case Attribute::Returned:
@@ -1268,9 +1275,9 @@ CallInst *CodeExtractor::emitCallAndSwitchStatement(Function *newFunction,
       Output = ReloadOutputs[i];
     }
     LoadInst *load = new LoadInst(outputs[i]->getType(), Output,
-                                  outputs[i]->getName() + ".reload");
+                                  outputs[i]->getName() + ".reload",
+                                  codeReplacer);
     Reloads.push_back(load);
-    codeReplacer->getInstList().push_back(load);
     std::vector<User *> Users(outputs[i]->user_begin(), outputs[i]->user_end());
     for (unsigned u = 0, e = Users.size(); u != e; ++u) {
       Instruction *inst = cast<Instruction>(Users[u]);
@@ -1671,11 +1678,11 @@ static DISubprogram *constructArtificialSubprogram(
   return NewSP;
 }
 
-static DILocalVariable *createAutoVariableForLocal(
+static DILocalVariable *createAutoVariableForParam(
     DIBuilder& DIB,
     DILocalVariable *DILV) {
-  return DILV->isParameter()
-    ? DIB.createAutoVariable(
+  assert(DILV->isParameter() && "Expecting function parameter!");
+  return DIB.createAutoVariable(
         DILV->getScope(),
         DILV->getName(),
         DILV->getFile(),
@@ -1683,8 +1690,7 @@ static DILocalVariable *createAutoVariableForLocal(
         DILV->getType(),
         false,
         DILV->getFlags(),
-        DILV->getAlignInBits())
-    : DILV;
+        DILV->getAlignInBits());
 }
 
 void CodeExtractor::updateDebugInfo(
@@ -1700,15 +1706,21 @@ void CodeExtractor::updateDebugInfo(
   DICompileUnit *Unit = OSP->getUnit();
   Module *M = NewF->getParent();
   DIBuilder DIB (*M, true, Unit);
+  DebugInfoFinder DIFinder;
 
-  // Build a list of the debug variable intrinsic calls to update.
+  // Build a list of the debug variable intrinsic calls to update and
+  // populate the debug info finder for both functions.
   SmallVector<DbgVariableIntrinsic*, 32> DebugVariableIntrinsics;
-  for (Instruction &I : instructions(OldF))
+  for (Instruction &I : instructions(OldF)) {
+    DIFinder.processInstruction(*M, I);
     if (auto *DVI = dyn_cast_or_null<DbgVariableIntrinsic>(&I))
       DebugVariableIntrinsics.push_back(DVI);
-  for (Instruction &I : instructions(NewF))
+  }
+  for (Instruction &I : instructions(NewF)) {
+    DIFinder.processInstruction(*M, I);
     if (auto *DVI = dyn_cast_or_null<DbgVariableIntrinsic>(&I))
       DebugVariableIntrinsics.push_back(DVI);
+  }
 
   for (DbgVariableIntrinsic *DVI : DebugVariableIntrinsics) {
     Value *Storage = DVI->getVariableLocation();
@@ -1754,12 +1766,16 @@ void CodeExtractor::updateDebugInfo(
         else
           AInsertBefore = NewF->begin()->getTerminator();
 
-        // We cannot emit a parameter here. The old routine may have multiple
-        // DVI's sharing the same storage location, and there can't be multiple
-        // parameters with the same argument number but different variable
-        // names.
-        DILocalVariable *AVar = createAutoVariableForLocal(DIB, Variable);;
+        // If this variable was a parameter in the original routine then we
+        // need to convert it to an auto variable in the code extracted
+        // routine.  If this variable was inlined into the original routine
+        // from someplace else then we want to maintain the argument number.
+        DILocalVariable *AVar = Variable;
+        if (Variable->isParameter() &&
+            Variable->getScope()->getSubprogram() == OSP)
+          AVar = createAutoVariableForParam(DIB, Variable);
         LLVM_DEBUG(dbgs() << "  + [" << AVar << "]: " << *AVar << "\n");
+
         Instruction *ADVI = DIB.insertDbgValueIntrinsic(
             AStorage, AVar, AExpression, ALocation, AInsertBefore);
         LLVM_DEBUG(dbgs() << "  + [" << ADVI << "]: " << *ADVI << "\n");
@@ -1769,7 +1785,7 @@ void CodeExtractor::updateDebugInfo(
       // This DVI describes a value passed _out_ of the new routine.
       // Not yet supported.
     }
-  
+
     // Handle cases where the DVI and storage end up in different functions.
     if (isa<DbgDeclareInst>(DVI) || isa<DbgAddrIntrinsic>(DVI)) {
       if (auto *SI = dyn_cast_or_null<Instruction>(Storage)) {
@@ -1808,19 +1824,17 @@ void CodeExtractor::updateDebugInfo(
       LLVM_DEBUG(dbgs() << "  DVI is parameter in NEW function." << ".\n");
 
       if (isa<DbgDeclareInst>(DVI) || isa<DbgAddrIntrinsic>(DVI)) {
-        DILocalVariable *AVariable = createAutoVariableForLocal(DIB, Variable);
-        LLVM_DEBUG(dbgs() << "  + [" << AVariable << "]: " << *AVariable
-                          << "\n");
+        DILocalVariable *AVar = createAutoVariableForParam(DIB, Variable);
+        LLVM_DEBUG(dbgs() << "  + [" << AVar << "]: " << *AVar << "\n");
         Instruction *ADVI = DIB.insertDeclare(
-            Storage, AVariable, Expression, Location, DVI);
+            Storage, AVar, Expression, Location, DVI);
         LLVM_DEBUG(dbgs() << "  + [" << ADVI << "]: " << *ADVI << "\n");
         (void)ADVI;
       } else if (isa<DbgValueInst>(DVI)) {
-        DILocalVariable *AVariable = createAutoVariableForLocal(DIB, Variable);
-        LLVM_DEBUG(dbgs() << "  + [" << AVariable << "]: " << *AVariable
-                          << "\n");
+        DILocalVariable *AVar = createAutoVariableForParam(DIB, Variable);
+        LLVM_DEBUG(dbgs() << "  + [" << AVar << "]: " << *AVar << "\n");
         Instruction *ADVI = DIB.insertDbgValueIntrinsic(
-            Storage, AVariable, Expression, Location, DVI);
+            Storage, AVar, Expression, Location, DVI);
         LLVM_DEBUG(dbgs() << "  + [" << ADVI << "]: " << *ADVI << "\n");
         (void)ADVI;
       }
@@ -1833,13 +1847,22 @@ void CodeExtractor::updateDebugInfo(
 
   // Generate an artificial subprogram for the new function containing the
   // extracted code region. The new subprogram will be based on the existing
-  // subprogram information.  Update the instructions/metadata to use the new
-  // subprogram scope.
-  NewF->setSubprogram(OSP); // Updated by RemapFunction() below.
+  // subprogram information.
   DISubprogram *NSP = constructArtificialSubprogram(OldF, NewF, DeclLoc);
-  ValueToValueMapTy NewSubprogramMap;
-  NewSubprogramMap.MD()[OSP].reset(NSP);
-  RemapFunction(*NewF, NewSubprogramMap, RF_IgnoreMissingLocals);
+
+  // Update the instructions/metadata to use the new subprogram scope.
+  // This is based on similar code from CloneFunctionInto().
+  ValueToValueMapTy VMap;
+  for (DISubprogram *SP : DIFinder.subprograms())
+    if (SP != OSP)
+      VMap.MD()[SP].reset(SP);
+  for (DICompileUnit *CU : DIFinder.compile_units())
+    VMap.MD()[CU].reset(CU);
+  for (DIType *T : DIFinder.types())
+    VMap.MD()[T].reset(T);
+  NewF->setSubprogram(OSP); // Updated to NSP by RemapFunction() below.
+  VMap.MD()[OSP].reset(NSP);
+  RemapFunction(*NewF, VMap, RF_IgnoreMissingLocals);
 }
 #endif // INTEL_COLLAB
 

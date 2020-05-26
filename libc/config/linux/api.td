@@ -1,5 +1,6 @@
 include "config/public_api.td"
 
+include "spec/gnu_ext.td"
 include "spec/linux.td"
 include "spec/posix.td"
 include "spec/stdc.td"
@@ -11,10 +12,23 @@ def SizeT : TypeDecl<"size_t"> {
   }];
 }
 
+def SSizeT : TypeDecl<"ssize_t"> {
+  let Decl = [{
+    #define __need_ssize_t
+    #include <__posix-types.h>
+  }];
+}
+
 def OffT : TypeDecl<"off_t"> {
   let Decl = [{
     #define __need_off_t
     #include <__posix-types.h>
+  }];
+}
+
+def FILE : TypeDecl<"FILE"> {
+  let Decl = [{
+    typedef struct FILE FILE;
   }];
 }
 
@@ -71,10 +85,74 @@ def AssertAPI : PublicAPI<"assert.h"> {
   ];
 }
 
+def MathErrHandlingMacro : MacroDef<"math_errhandling"> {
+  let Defn = [{
+    #ifndef math_errhandling
+    #ifdef __FAST_MATH__
+    #define math_errhandling 0
+    #elif defined __NO_MATH_ERRNO__
+    #define math_errhandling (MATH_ERREXCEPT)
+    #else
+    #define math_errhandling (MATH_ERRNO | MATH_ERREXCEPT)
+    #endif
+    #endif // math_errhandling not defined
+  }];
+}
+
+def IsFiniteMacro : MacroDef<"isfinite"> {
+  let Defn = [{
+    #define isfinite(x) __builtin_isfinite(x)
+  }];
+}
+
+def IsInfMacro : MacroDef<"isinf"> {
+  let Defn = [{
+    #define isinf(x) __builtin_isinf(x)
+  }];
+}
+
+def IsNanMacro : MacroDef<"isnan"> {
+  let Defn = [{
+    #define isnan(x) __builtin_isnan(x)
+  }];
+}
+
+def FloatT : TypeDecl<"float_t"> {
+  let Decl = [{
+    #define __need_float_t
+    #include <__llvm-libc-stdc-types.h>
+  }];
+}
+
+def DoubleT : TypeDecl<"double_t"> {
+  let Decl = [{
+    #define __need_double_t
+    #include <__llvm-libc-stdc-types.h>
+  }];
+}
+
 def MathAPI : PublicAPI<"math.h"> {
+  let Macros = [
+    SimpleMacroDef<"MATH_ERRNO", "1">,
+    SimpleMacroDef<"MATH_ERREXCEPT", "2">,
+    MathErrHandlingMacro,
+
+    SimpleMacroDef<"INFINITY", "__builtin_inff()">,
+    SimpleMacroDef<"NAN", "__builtin_nanf(\"\")">,
+
+    IsFiniteMacro,
+    IsInfMacro,
+    IsNanMacro,
+  ];
+  let TypeDeclarations = [
+    DoubleT,
+    FloatT,
+  ];
   let Functions = [
-   "acos",
-   "acosl",
+   "cosf",
+   "round",
+   "sincosf",
+   "sinf",
   ];
 }
 
@@ -116,10 +194,11 @@ def StringAPI : PublicAPI<"string.h"> {
 def StdIOAPI : PublicAPI<"stdio.h"> {
   let TypeDeclarations = [
     SizeT,
+    FILE,
   ];
 
   let Functions = [
-    "snprintf",
+    "fwrite",
   ];
 }
 
@@ -209,9 +288,11 @@ def SignalAPI : PublicAPI<"signal.h"> {
   let Functions = [
     "raise",
     "sigaction",
+    "sigdelset",
     "sigprocmask",
     "sigemptyset",
     "sigaddset",
+    "sigfillset",
     "signal",
   ];
 }
@@ -252,5 +333,16 @@ def ThreadsAPI : PublicAPI<"threads.h"> {
     "mtx_unlock",
     "thrd_create",
     "thrd_join",
+  ];
+}
+
+def UniStdAPI : PublicAPI<"unistd.h"> {
+  let TypeDeclarations = [
+    SSizeT,
+    SizeT,
+  ];
+
+  let Functions = [
+    "write",
   ];
 }

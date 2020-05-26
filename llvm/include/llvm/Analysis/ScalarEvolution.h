@@ -1300,6 +1300,9 @@ private:
   // Recursion depth for PHINode traversal. Avoids adding a parameter to all
   // the intermediate functions such as getSCEV.
   unsigned int PhiDepth = 0;
+
+  // Phis currently being processed by createNodeForIdenticalOperandsPHI().
+  DenseMap<const PHINode *, bool> PhiSimplificationCandidates;
 #endif // INTEL_CUSTOMIZATION
 
   /// Set to true by isLoopBackedgeGuardedByCond when we're walking the set of
@@ -1607,6 +1610,10 @@ private: // INTEL
   const SCEV *createSimpleAffineAddRec(PHINode *PN, Value *BEValueV,
                                             Value *StartValueV);
 
+#if INTEL_CUSTOMIZATION
+  /// Helper function to handle Phi whose operands have identical Scevs.
+  const SCEV *createNodeForIdenticalOperandsPHI(PHINode *PN);
+#endif // INTEL_CUSTOMIZATION
   /// Helper function called from createNodeForPHI.
   const SCEV *createNodeFromSelectLikePHI(PHINode *PN);
 
@@ -1893,6 +1900,15 @@ private: // INTEL
   /// Constructs the original SCEV corresponding to this HIR SCEV by 
   /// re-parsing contained SCEVUnknowns.
   const SCEV *getOriginalSCEV(const SCEV *SC);
+
+  /// Returns true if \p Val's uses are known to be safe for propagation of
+  /// no-wrap flags. This function assumes that IR does not change during
+  /// analysis.
+  bool hasWrapSafeUses(const Value *Val, const Value *KnownSafeUse) const;
+
+  /// Returns true if we can safely propagate no-wrap flags from \p BinOp to it
+  /// SCEV form by analyzing its operands. This only works in HIR mode.
+  bool hasWrapSafeOperands(const BinaryOperator *BinOp) const;
 #endif  // INTEL_CUSTOMIZATION
 
   /// Try to match the Expr as "(L + R)<Flags>".

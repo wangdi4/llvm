@@ -1,6 +1,6 @@
 //==--- MapIntrinToIml.h - Class definition for MapIntrinToIml -*- C++ -*---==//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -51,9 +51,9 @@ class MapIntrinToImlImpl {
   /// transformed using this IRBuilder.
   IRBuilder<> Builder;
 
-  /// \brief For a given intrinsic \p CI, try to find an equivalent math
-  /// library function to replace it with.
-  const char* findX86Variant(CallInst *CI, StringRef FuncName,
+  /// \brief For a given instruction \p I and function name \p FuncName, try to
+  /// find an equivalent math library function to replace it with.
+  const char* findX86Variant(Instruction *I, StringRef FuncName,
                              unsigned LogicalVL, unsigned TargetVL);
 
   /// \brief Add an IMF attribute to the attribute list.
@@ -73,6 +73,15 @@ class MapIntrinToImlImpl {
   unsigned calculateNumReturns(TargetTransformInfo *TTI, unsigned TypeBitWidth,
                                unsigned LogicalVL, unsigned *TargetVL);
 
+  /// Combine all of the result values of the target vector length in
+  /// \p SplitCalls into a single value of the logical vector length. And
+  /// optionally merge with \p SourceValue if \p Mask is present. The values
+  /// might be vectors (for most functions), or structures or vectors (for
+  /// sincos and divrem functions).
+  Value *joinSplitCallResults(unsigned NumRet, ArrayRef<Value *> SplitCalls,
+                              FunctionType *FT, Value *SourceValue,
+                              Value *Mask);
+
   /// Extract subvectors \p NewArgs from function call parameters \p Args.
   /// \p TargetVL is the size of subvector, and \p Part specifies which part to
   /// extract.
@@ -81,31 +90,19 @@ class MapIntrinToImlImpl {
 
   /// \brief Build a linked list of IMF attributes used to query the IML
   /// accuracy interface.
-  void createImfAttributeList(CallInst *CI, ImfAttr **List);
+  void createImfAttributeList(Instruction *I, ImfAttr **List);
 
   /// \brief Performs type legalization on parameter arguments and inserts the
   /// legally typed svml function declaration.
   FunctionType *legalizeFunctionTypes(FunctionType *FT, ArrayRef<Value *> Args,
                                       unsigned TargetVL, StringRef FuncName);
 
-  /// \brief Generates \p NumRet number of call instructions to the math
-  /// function and inserts them into \p Calls. \p Args are the arguments used
-  /// for the call instructions.
-  void generateMathLibCalls(unsigned NumRet, unsigned TargetVL,
-                            FunctionCallee Func, ArrayRef<Value *> Args,
-                            SmallVectorImpl<Value *> &Calls);
-
-  /// \brief Finds the stride attribute for the call argument and returns
-  /// the type of load/store needed for code gen. This function also returns
-  /// the StringRef for the stride value through the \p AttrValStr reference.
-  LoadStoreMode getLoadStoreModeForArg(AttributeList &AL, unsigned ArgNo,
-                                       StringRef &AttrValStr);
-
-  /// \brief Generate the store for the __svml_sincos variant based on the
-  /// memory reference pattern passed via call argument attributes.
-  void generateSinCosStore(CallInst *CI, Value *ResultVector,
-                           unsigned NumElemsToStore, unsigned TargetVL,
-                           unsigned StorePtrIdx);
+  /// \brief Splits \p NumRet number of call instructions to the math function
+  /// and inserts them into \p SplitCalls. \p Args are the arguments used for
+  /// the call instructions.
+  void splitMathLibCalls(unsigned NumRet, unsigned TargetVL,
+                         FunctionCallee Func, ArrayRef<Value *> Args,
+                         SmallVectorImpl<Value *> &SplitCalls);
 
   /// \brief Duplicate low order elements of a smaller vector into a larger
   /// vector.
@@ -136,10 +133,6 @@ class MapIntrinToImlImpl {
   /// function.
   void scalarizeVectorCall(CallInst *CI, StringRef LibFuncName,
                            unsigned LogicalVL, Type *ElemType);
-
-  /// \brief Returns true if \p FuncName and \p FT refer to an SVML 3-argument
-  /// sincos call.
-  bool isSincosRefArg(StringRef FuncName, FunctionType *FT);
 
   /// Legalize and convert some vector integer divisions in a function to SVML
   /// call to avoid serialization in the CodeGen. Returns true if the

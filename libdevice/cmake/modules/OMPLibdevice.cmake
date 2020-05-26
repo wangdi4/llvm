@@ -1,10 +1,4 @@
 # INTEL_COLLAB
-if (WIN32)
-  # FIXME: resolve mangling issues on Windows.
-  add_custom_target(libompdevice)
-  return()
-endif()
-
 set(binary_dir "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
 if (WIN32)
   set(omp_compile_opts -Qiopenmp)
@@ -111,12 +105,14 @@ else(WIN32)
     ${binary_dir}/libomp-glibc${objext}
     DEPENDS wrapper.h device.h)
 endif(WIN32)
-# FIXME: resolve assertion in clang.
-#add_spv_file(
-#  ${CMAKE_CURRENT_SOURCE_DIR}/fallback-cassert.cpp
-#  ${binary_dir}/libomp-fallback-cassert.spv
-#  DEPENDS wrapper.h device.h
-#  )
+if (NOT WIN32)
+  # FIXME: resolve assertion in clang on Windows.
+  add_spv_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/fallback-cassert.cpp
+    ${binary_dir}/libomp-fallback-cassert.spv
+    DEPENDS wrapper.h device.h
+    )
+endif(NOT WIN32)
 
 # Standard math.
 add_obj_file(

@@ -18,6 +18,7 @@
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/IntegerRange.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
@@ -34,9 +35,6 @@ namespace llvm {
 class Type;
 class SCEV;
 class MetadataAsValue;
-class ConstantFP;
-class Constant;
-class ConstantData;
 
 namespace loopopt {
 
@@ -257,7 +255,7 @@ public:
   /// Dumps CanonExpr in a simple format.
   void dump() const;
   /// Prints CanonExpr.
-  void print(formatted_raw_ostream &OS, bool Detailed = false) const;
+  void print(raw_ostream &OS, bool Detailed = false) const;
 
   /// Returns the src type of this canon expr.
   Type *getSrcType() const { return SrcTy; }
@@ -466,18 +464,26 @@ public:
   bool isStandAloneUndefBlob() const;
 
   /// return true if the CanonExpr is scalar/vector zero.
+  /// Does not handle FP vector types
   bool isZero() const {
     int64_t Val;
+    ConstantFP *ConstFPVal;
     if (isIntConstantImpl(&Val, true) && Val == 0) {
+      return true;
+    } else if (isFPConstant(&ConstFPVal) && ConstFPVal->isZero()) {
       return true;
     }
     return false;
   }
 
   /// return true if the CanonExpr is one
+  /// Does not handle FP vector types
   bool isOne() const {
     int64_t Val;
+    ConstantFP *ConstFPVal;
     if (isIntConstant(&Val) && Val == 1) {
+      return true;
+    } else if (isFPConstant(&ConstFPVal) && ConstFPVal->isExactlyValue(1.0)) {
       return true;
     }
     return false;

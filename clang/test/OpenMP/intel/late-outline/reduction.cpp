@@ -550,7 +550,7 @@ void foo4() {
 // CHECK-NEXT: ret void
 
 // CHECK: define internal void @.omp_initializer..21(%struct.A4* noalias %0, %struct.A4* noalias %1)
-// CHECK: call void @_Z4boo4v(%struct.A4* sret %3)
+// CHECK: call void @_Z4boo4v(%struct.A4* sret {{(align 4 )?}}%3)
 // CHECK-NEXT: ret void
 
 
@@ -578,7 +578,7 @@ void foo5()
 }
 
 // CHECK: define internal void @.omp_initializer..23(%struct.AA3* noalias %0, %struct.AA3* noalias %1)
-// CHECK: call void @_Z3booP3AA3(%struct.AA3* sret %agg.tmp.ensured, %struct.AA3* %3)
+// CHECK: call void @_Z3booP3AA3(%struct.AA3* sret {{(align 4 )?}}%agg.tmp.ensured, %struct.AA3* %3)
 // CHECK-NEXT: call void @_ZN3AA3D1Ev(%struct.AA3* %agg.tmp.ensured)
 // CHECK-NEXT: ret void
 
@@ -602,8 +602,17 @@ void test1()
   int z = 0;
   Foo f;
   // CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(%struct.Foo* %f,
+  // CHECK-SAME: i8* null,
+  // CHECK-SAME: void (%struct.Foo*)* @_ZTS3Foo.omp.destr,
+  // CHECK-SAME: void (%struct.Foo*, %struct.Foo*)* @.omp_combiner..24,
+  // CHECK-SAME: void (%struct.Foo*, %struct.Foo*)* @.omp_initializer..25)
   // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD"(i32* %z),
-  // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD"(%struct.Foo* %f,
+  #pragma omp parallel reduction(+:f,z)
+  for (j = 0; j < 10; ++j);
+  // CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD"(i32* %z),
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(%struct.Foo* %f,
   // CHECK-SAME: i8* null,
   // CHECK-SAME: void (%struct.Foo*)* @_ZTS3Foo.omp.destr,
   // CHECK-SAME: void (%struct.Foo*, %struct.Foo*)* @.omp_combiner..24,
@@ -615,7 +624,7 @@ void test1()
   int z1 = 0;
   // CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
   // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD"(i32* %z1),
-  // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD"(%struct.Foo* %f1,
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(%struct.Foo* %f1,
   // CHECK-SAME: i8* null,
   // CHECK-SAME: void (%struct.Foo*)* @_ZTS3Foo.omp.destr,
   // CHECK-SAME: void (%struct.Foo*, %struct.Foo*)* @.omp_combiner..24,
@@ -626,7 +635,7 @@ void test1()
   Foo f2;
   int z2 = 0;
   // CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
-  // CHECK-SAME: "QUAL.OMP.REDUCTION.ADD"(%struct.Foo* %f2,
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(%struct.Foo* %f2,
   // CHECK-SAME: i8* null,
   // CHECK-SAME: void (%struct.Foo*)* @_ZTS3Foo.omp.destr,
   // CHECK-SAME: void (%struct.Foo*, %struct.Foo*)* @.omp_combiner..24,

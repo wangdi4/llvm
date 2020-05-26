@@ -181,20 +181,6 @@ public:
   HIRSparseArrayReductionAnalysis run(Function &F, FunctionAnalysisManager &AM);
 };
 
-class HIRSparseArrayReductionAnalysisPrinterPass
-    : public PassInfoMixin<HIRSparseArrayReductionAnalysisPrinterPass> {
-  raw_ostream &OS;
-
-public:
-  explicit HIRSparseArrayReductionAnalysisPrinterPass(raw_ostream &OS)
-      : OS(OS) {}
-
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM) {
-    AM.getResult<HIRSparseArrayReductionAnalysisPass>(F).printAnalysis(OS);
-    return PreservedAnalyses::all();
-  }
-};
-
 } // End namespace loopopt
 
 } // End namespace llvm

@@ -53,7 +53,7 @@
 // loop for vectorization and hoisting out data conversion (e.g. ui to fp) into
 // copy loop. In many cases, M*(N + L) < M * N * L.
 //===----------------------------------------------------------------------===//
-#include "llvm/Transforms/Intel_LoopTransforms/HIRAosToSoa.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRAosToSoaPass.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDUtils.h"

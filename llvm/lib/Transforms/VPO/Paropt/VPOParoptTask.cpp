@@ -31,8 +31,6 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
-#include "llvm/PassAnalysisSupport.h"
-
 #include "llvm/Analysis/VPO/WRegionInfo/WRegion.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionNode.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionUtils.h"
@@ -202,7 +200,7 @@ void VPOParoptTransform::genLprivFiniForTaskLoop(LastprivateItem *LprivI,
   Value *Src = LprivI->getNew();
   Value *Dst = LprivI->getOrigGEP();
   if (LprivI->getIsByRef())
-    Dst = new LoadInst(Dst, "", InsertPt);
+    Dst = new LoadInst(Src->getType(), Dst, "", InsertPt);
 
 #if INTEL_CUSTOMIZATION
   if (LprivI->getIsF90DopeVector()) {
@@ -1235,7 +1233,7 @@ Function *VPOParoptTransform::genTaskLoopRedCombFunc(WRegionNode *W,
 
   NewRedInst->replaceAllUsesWith(SrcArg);
 
-  cast<AllocaInst>(NewRedInst)->eraseFromParent();
+  cast<Instruction>(NewRedInst)->eraseFromParent();
 
   return FnTaskLoopRedComb;
 }
@@ -1667,7 +1665,6 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
   Function *NewF = VPOParoptUtils::genOutlineFunction(*W, DT, AC);
 
   CallInst *NewCall = cast<CallInst>(NewF->user_back());
-  CallSite CS(NewCall);
 
   // TidArgNo parameter is unused, if IsTidArg is false.
   Function *MTFn = finalizeExtractedMTFunction(W, NewF, false, -1U, false);
@@ -1680,11 +1677,12 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
   MTFnArgs.push_back(ValueZero);
   genThreadedEntryActualParmList(W, MTFnArgs);
 
-  for (auto I = CS.arg_begin(), E = CS.arg_end(); I != E; ++I) {
+  for (auto I = NewCall->arg_begin(), E = NewCall->arg_end(); I != E; ++I) {
     MTFnArgs.push_back((*I));
   }
-  CallInst *MTFnCI = CallInst::Create(MTFn, MTFnArgs, "", NewCall);
-  MTFnCI->setCallingConv(CS.getCallingConv());
+  CallInst *MTFnCI =
+      CallInst::Create(MTFn->getFunctionType(), MTFn, MTFnArgs, "", NewCall);
+  MTFnCI->setCallingConv(NewCall->getCallingConv());
 
   // Copy isTailCall attribute
   if (NewCall->isTailCall())
@@ -1778,8 +1776,9 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
       MTFnArgs.push_back(ElseBuilder.CreateLoad(TidPtrHolder));
       MTFnArgs.push_back(ElseBuilder.CreateBitCast(
           TaskAllocCI, PointerType::getUnqual(KmpTaskTTWithPrivatesTy)));
-      CallInst *SeqCI = CallInst::Create(MTFn, MTFnArgs, "", ElseTerm);
-      SeqCI->setCallingConv(CS.getCallingConv());
+      CallInst *SeqCI = CallInst::Create(MTFn->getFunctionType(), MTFn,
+                                         MTFnArgs, "", ElseTerm);
+      SeqCI->setCallingConv(NewCall->getCallingConv());
       SeqCI->takeName(NewCall);
       SeqCI->setDebugLoc(NewCall->getDebugLoc());
       VPOParoptUtils::genKmpcTaskCompleteIf0(W, IdentTy, TidPtrHolder,

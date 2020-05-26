@@ -97,6 +97,10 @@ bool DDRef::isLiveOutOfParentLoop() const {
   return getHLDDNode()->isLiveOutOfParentLoop(Symbase);
 }
 
+const HLNode *DDRef::getParent() const { return getHLDDNode()->getParent(); }
+
+HLNode *DDRef::getParent() { return getHLDDNode()->getParent(); }
+
 const HLLoop *DDRef::getParentLoop() const {
   return getHLDDNode()->getParentLoop();
 }

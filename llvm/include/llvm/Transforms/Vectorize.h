@@ -166,6 +166,15 @@ Pass *createVPlanDriverPass();
 // VPlan HIR Vectorizer - Create a VPlan Driver pass for HIR.
 //
 Pass *createVPlanDriverHIRPass();
+
+Pass *createVPlanFunctionVectorizerPass();
+
+//===----------------------------------------------------------------------===//
+//
+// Support for pragma omp ordered simd.
+//
+Pass *createVPlanPragmaOmpOrderedSimdExtractPass();
+
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//

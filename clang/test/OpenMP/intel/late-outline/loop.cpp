@@ -43,9 +43,9 @@ void foo(int *arr1, int **arr2) {
 
 // CHECK: [[T24:%[0-9]+]] = call token @llvm.directive.region.entry()
 // CHECK-SAME: [ "DIR.OMP.PARALLEL.LOOP"(),
+// CHECK-SAME: "QUAL.OMP.SHARED"(i32*** [[ARR2]])
 // CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(i64* [[IV11]])
 // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"
-// CHECK-SAME: "QUAL.OMP.SHARED"(i32*** [[ARR2]])
 // CHECK: region.exit(token [[T24]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
   #pragma omp parallel for collapse(2)
   for (i=first2(); i<last2(); ++i)
@@ -76,9 +76,9 @@ void foo(int *arr1, int **arr2) {
 
 // CHECK: [[T61:%[0-9]+]] = call token @llvm.directive.region.entry()
 // CHECK-SAME: [ "DIR.OMP.PARALLEL.LOOP"()
+// CHECK-SAME: "QUAL.OMP.SHARED"(i32** [[ARR1]])
 // CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(i32* [[IV105]])
 // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"
-// CHECK-SAME: "QUAL.OMP.SHARED"(i32** [[ARR1]])
 
 // CHECK: [[T62:%[0-9]+]] = call token @llvm.directive.region.entry()
 // CHECK-SAME: [ "DIR.OMP.SIMD"()

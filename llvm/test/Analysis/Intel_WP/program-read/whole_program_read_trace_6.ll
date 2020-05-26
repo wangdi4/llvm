@@ -1,4 +1,4 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 ; This test checks that the trace for whole program read prints
 ; the correct solution when there is no main.
 
@@ -11,7 +11,7 @@
 
 ; Check that foo is resolved by linker since it is not
 ; marked as internal
-; CHECK: WHOLE-PROGRAM-ANALYSIS: WHOLE PROGRAM READ
+; CHECK: WHOLE-PROGRAM-ANALYSIS: WHOLE PROGRAM READ TRACE
 ; CHECK: SYMBOL NAME: foo
 ; CHECK: RESULT: RESOLVED BY LINKER
 
@@ -20,8 +20,7 @@
 
 ; Check that whole program read is not achieved because
 ; there is no main
-; CHECK: WHOLE PROGRAM NOT DETECTED
-; CHECK: whole program not read
+; CHECK: WHOLE PROGRAM READ:  NOT DETECTED
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

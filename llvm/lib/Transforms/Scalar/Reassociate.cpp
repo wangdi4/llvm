@@ -29,6 +29,7 @@
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/Intel_Andersens.h"  // INTEL
 #include "llvm/Analysis/ValueTracking.h"
@@ -1722,7 +1723,7 @@ static bool collectMultiplyFactors(SmallVectorImpl<ValueEntry> &Ops,
 }
 
 /// Build a tree of multiplies, computing the product of Ops.
-static Value *buildMultiplyTree(IRBuilder<> &Builder,
+static Value *buildMultiplyTree(IRBuilderBase &Builder,
                                 SmallVectorImpl<Value*> &Ops) {
   if (Ops.size() == 1)
     return Ops.back();
@@ -1745,7 +1746,7 @@ static Value *buildMultiplyTree(IRBuilder<> &Builder,
 /// DAG of multiplies to compute the final product, and return that product
 /// value.
 Value *
-ReassociatePass::buildMinimalMultiplyDAG(IRBuilder<> &Builder,
+ReassociatePass::buildMinimalMultiplyDAG(IRBuilderBase &Builder,
                                          SmallVectorImpl<Factor> &Factors) {
   assert(Factors[0].Power);
   SmallVector<Value *, 4> OuterProduct;
@@ -2458,6 +2459,8 @@ PreservedAnalyses ReassociatePass::run(Function &F, FunctionAnalysisManager &) {
   if (MadeChange) {
     PreservedAnalyses PA;
     PA.preserveSet<CFGAnalyses>();
+    PA.preserve<AAManager>();
+    PA.preserve<BasicAA>();
     PA.preserve<GlobalsAA>();
     PA.preserve<AndersensAA>();        // INTEL
     return PA;
@@ -2489,6 +2492,8 @@ namespace {
 
     void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.setPreservesCFG();
+      AU.addPreserved<AAResultsWrapperPass>();
+      AU.addPreserved<BasicAAWrapperPass>();
       AU.addPreserved<GlobalsAAWrapperPass>();
       AU.addPreserved<AndersensAAWrapperPass>();  // INTEL
     }

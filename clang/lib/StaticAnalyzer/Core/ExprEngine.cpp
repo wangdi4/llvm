@@ -1225,6 +1225,7 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
     case Stmt::UnresolvedLookupExprClass:
     case Stmt::UnresolvedMemberExprClass:
     case Stmt::TypoExprClass:
+    case Stmt::RecoveryExprClass:
     case Stmt::CXXNoexceptExprClass:
     case Stmt::PackExpansionExprClass:
     case Stmt::SubstNonTypeTemplateParmPackExprClass:
@@ -1415,6 +1416,8 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
     case Stmt::SubstNonTypeTemplateParmExprClass:
     case Stmt::CXXNullPtrLiteralExprClass:
     case Stmt::OMPArraySectionExprClass:
+    case Stmt::OMPArrayShapingExprClass:
+    case Stmt::OMPIteratorExprClass:
     case Stmt::TypeTraitExprClass: {
       Bldr.takeNodes(Pred);
       ExplodedNodeSet preVisit;
@@ -3174,9 +3177,10 @@ std::string ExprEngine::DumpGraph(bool trim, StringRef Filename) {
                             /*Title=*/"Exploded Graph",
                             /*Filename=*/std::string(Filename));
   }
-#endif
+#else
   llvm::errs() << "Warning: dumping graph requires assertions" << "\n";
   return "";
+#endif
 }
 
 std::string ExprEngine::DumpGraph(ArrayRef<const ExplodedNode*> Nodes,

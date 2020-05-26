@@ -9,37 +9,79 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file implements HIRDeadStoreElimination class which eliminate the dead
-// store instruction.
+// This file implements HIRDeadStoreElimination class.
+// It can eliminate 2 types of dead stores.
 //
-// For example:
-//
+// Example0: a dead store being dominated by a live store.
+// [BEFORE]
 // DO i1
-// A[i1] = 0 << dead store
-// T = 0
+//   A[i1] = 0 ; // regular DEAD store
+//   T = 0
 //
-// DO i2 = 0, 5
-// T = T + i2
+//   DO i2 = 0, 5
+//     T = T + i2
+//   END DO
+//
+//   A[i1] = T ; // LIVE store
+// END DO
+//  ----------------------------------------
+// [AFTER]
+// DO i1
+//   // A[i1] = 0 is a regular DEAD store and is thus removed
+//   T = 0
+//
+//   DO i2 = 0, 5
+//     T = T + i2
+//   END DO
+//
+//   A[i1] = T ; // LIVE store
 // END DO
 //
-// A[i1] = T
-// END DO
+// ==========================================================================
+// Example1: local dead store
+//
+// [BEFORE]
+// foo(){
+//   A[N], B[N], C[N];
+// ...
+//   DO i1
+//     C[i1] = A[i1] + B[i1];
+//   END DO
+// ...
+//   Print A;         // only array A is used after the loop,
+//                    // thus store into C[i1] is dead.
+// }
+//
+//  ----------------------------------------
+// [AFTER]
+// foo(){
+//   A[N], B[N], C[N];
+// ...
+//   DO i1
+//     t0 = A[i1] + B[i1]; // store into C[i1] is dead
+//   END DO
+// ...
+//   Print A;
+// }
 //
 //===----------------------------------------------------------------------===//
-#include "llvm/Transforms/Intel_LoopTransforms/HIRDeadStoreElimination.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRDeadStoreEliminationPass.h"
 
+#include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLocalityAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
-
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGrouping.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 #include "llvm/ADT/SmallSet.h"
-
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
+
+#include "HIRDeadStoreElimination.h"
 
 #define OPT_SWITCH "hir-dead-store-elimination"
 #define OPT_DESC "HIR Dead Store Elimination"
@@ -47,103 +89,133 @@
 
 using namespace llvm;
 using namespace llvm::loopopt;
+using namespace llvm::loopopt::dse;
 
 static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
                                  cl::Hidden,
                                  cl::desc("Disable " OPT_DESC " pass"));
 
-namespace {
+// Count for regular dead store:
+STATISTIC(NumHIRDeadRegularStoreEliminated,
+          "Number of Regular Dead Stores Eliminated");
 
-class HIRDeadStoreEliminationLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-  HIRDeadStoreEliminationLegacyPass() : HIRTransformPass(ID) {
-    initializeHIRDeadStoreEliminationLegacyPassPass(
-        *PassRegistry::getPassRegistry());
+// Count for local dead store:
+STATISTIC(NumHIRDeadLocalStoreEliminated,
+          "Number of Local Dead Stores Eliminated");
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+static void printRefGroupTy(RefGroupTy &Group, std::string Msg = "",
+                            bool PrintNewLine = true) {
+  formatted_raw_ostream FOS(dbgs());
+
+  if (PrintNewLine) {
+    FOS << "\n";
   }
 
-  bool runOnFunction(Function &F) override;
-  void releaseMemory() override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-    AU.setPreservesAll();
-  }
-};
-
-class HIRDeadStoreElimination {
-  HIRLoopStatistics &HLS;
-
-  bool isValidParentChain(const HLNode *PostDominatingNode,
-                          const HLNode *PrevNode,
-                          const RegDDRef *PostDominatingRef);
-
-public:
-  HIRDeadStoreElimination(HIRLoopStatistics &HLS) : HLS(HLS) {}
-  bool doTransform(HLRegion &Reg);
-};
-
-class UnsafeCallVisitor final : public HLNodeVisitorBase {
-  HIRLoopStatistics &HLS;
-  const HLNode *StartNode;
-  const HLNode *EndNode;
-  bool FoundStartNode;
-  bool FoundEndNode;
-  bool FoundUnsafeCall;
-
-public:
-  UnsafeCallVisitor(HIRLoopStatistics &HLS, const HLNode *StartNode,
-                    const HLNode *EndNode)
-      : HLS(HLS), StartNode(StartNode), EndNode(EndNode), FoundStartNode(false),
-        FoundEndNode(false), FoundUnsafeCall(false) {
-    assert((isa<HLLoop>(StartNode) || isa<HLInst>(StartNode)) &&
-           "Invalid start node!");
-    assert((isa<HLLoop>(EndNode) || isa<HLInst>(EndNode)) &&
-           "Invalid end node!");
+  if (Msg.size()) {
+    FOS << Msg << " : " << Group.size() << "\n";
   }
 
-  bool isNodeRelevant(const HLNode *Node) {
-    if (Node == StartNode) {
-      FoundStartNode = true;
-    } else if (Node == EndNode) {
-      FoundEndNode = true;
+  for (auto &Ref : Group) {
+    Ref->dump();
+    FOS << ", ";
+  }
+
+  if (PrintNewLine) {
+    FOS << "\n";
+  }
+}
+
+static void printRefGroupVecTy(RefGroupVecTy &GroupVec, std::string Msg = "",
+                               bool PrintPointer = false,
+                               bool PrintNewLine = true) {
+  formatted_raw_ostream FOS(dbgs());
+
+  if (PrintNewLine) {
+    FOS << "\n";
+  }
+  if (Msg.size()) {
+    FOS << Msg << " : " << GroupVec.size() << "\n";
+  }
+
+  for (auto &VecItem : GroupVec) {
+    FOS << VecItem.size() << " : ";
+    for (auto &Ref : VecItem) {
+      if (PrintPointer) {
+        FOS << Ref << "\t";
+      }
+      Ref->dump();
+      FOS << ", ";
     }
-
-    return FoundStartNode;
+    FOS << "\n";
   }
 
-  void visit(const HLInst *Inst) {
-    if (!isNodeRelevant(Inst)) {
-      return;
+  if (PrintNewLine) {
+    FOS << "\n";
+  }
+}
+
+#if 0
+static void printLoopVector(SmallVectorImpl<HLLoop *> &LoopVec,
+                            std::string Msg = "", bool PrintNewLine = true) {
+  formatted_raw_ostream FOS(dbgs());
+
+  if (PrintNewLine)
+    FOS << "\n";
+  if (Msg.size())
+    FOS << Msg << ": " << LoopVec.size() << "\n";
+
+  unsigned Count = 0;
+  for (HLLoop *Lp : LoopVec) {
+    FOS << Count++ << "\n";
+    Lp->print(FOS, 2);
+    FOS << "\n";
+  }
+
+  if (PrintNewLine)
+    FOS << "\n";
+}
+#endif
+
+static void printRefVector(SmallVectorImpl<const RegDDRef *> &RefVec,
+                           std::string Msg = "", bool PrintPointer = false) {
+  formatted_raw_ostream FOS(dbgs());
+  if (Msg.size())
+    FOS << Msg << ": " << RefVec.size() << "\n";
+  unsigned Count = 0;
+  for (const RegDDRef *Ref : RefVec) {
+    FOS << Count++ << "\t";
+    if (PrintPointer) {
+      FOS << Ref << "\t";
     }
-
-    // TODO: check mayThrow() as well
-    FoundUnsafeCall = Inst->isUnknownAliasingCallInst();
+    Ref->print(FOS, true);
+    FOS << "\n";
   }
+}
 
-  void visit(const HLLoop *Loop) {
-    if (!isNodeRelevant(Loop)) {
-      return;
+static void printRefVector(SmallVectorImpl<RegDDRef *> &RefVec,
+                           std::string Msg = "", bool PrintPointer = false) {
+  formatted_raw_ostream FOS(dbgs());
+  if (Msg.size())
+    FOS << Msg << ": " << RefVec.size() << "\n";
+  unsigned Count = 0;
+  for (const RegDDRef *Ref : RefVec) {
+    FOS << Count++ << "\t";
+    if (PrintPointer) {
+      FOS << Ref << "\t";
     }
-
-    FoundUnsafeCall =
-        HLS.getTotalLoopStatistics(Loop).hasCallsWithUnknownAliasing();
+    Ref->print(FOS, true);
+    FOS << "\n";
   }
+}
 
-  void visit(const HLNode *Node) {}
-  void postVisit(const HLNode *Node) {}
-
-  bool foundUnsafeCall() const { return FoundUnsafeCall; }
-  bool isDone() const { return FoundEndNode || FoundUnsafeCall; }
-};
-
-} // namespace
+#endif //! defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 char HIRDeadStoreEliminationLegacyPass::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRDeadStoreEliminationLegacyPass, OPT_SWITCH, OPT_DESC,
                       false, false)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_END(HIRDeadStoreEliminationLegacyPass, OPT_SWITCH, OPT_DESC,
                     false, false)
@@ -157,9 +229,9 @@ FunctionPass *llvm::createHIRDeadStoreEliminationPass() {
 // the distance is less than the size of current DDRef, return true and
 // skip this case. If false, then send this DDRef group to process in dead
 // store elimination. The following is an example
-// A[i] =
-// A[i+1] =
-// A[i] =
+// A[i]   = .
+// A[i+1] = .
+// A[i]   = .
 static bool
 overlapsWithAnotherGroup(HIRLoopLocality::RefGroupTy &RefGroup,
                          HIRLoopLocality::RefGroupVecTy &EqualityGroups,
@@ -355,27 +427,127 @@ bool HIRDeadStoreElimination::isValidParentChain(
   return !UCV.foundUnsafeCall();
 }
 
-bool HIRDeadStoreElimination::doTransform(HLRegion &Reg) {
-  bool Result = false;
-
-  // It isn't worth optimizing incoming single bblock regions.
-  if (Reg.isLoopMaterializationCandidate()) {
+// Collect:
+// - MemRef(s) on region or loop level,
+// - AddressOf Ref(s) on region level.
+//
+// Return true if memref collection is not empty.
+//
+bool HIRDeadStoreElimination::doCollection(HLRegion &Region, HLLoop *Loop,
+                                           bool IsRegion) {
+  // Collect equal MemRef(s): populates EqualityGroups with memrefs with the
+  // same address
+  if (IsRegion) {
+    HIRLoopLocality::populateEqualityGroups(Region.child_begin(),
+                                            Region.child_end(), EqualityGroups,
+                                            &UniqueGroupSymbases);
+  } else {
+    HIRLoopLocality::populateEqualityGroups(Loop->child_begin(),
+                                            Loop->child_end(), EqualityGroups,
+                                            &UniqueGroupSymbases);
+  }
+  if (EqualityGroups.empty()) {
+    LLVM_DEBUG(dbgs() << "No MemRef is available\n";);
     return false;
   }
 
-  HIRLoopLocality::RefGroupVecTy EqualityGroups;
-  SmallSet<unsigned, 8> UniqueGroupSymbases;
+  // Collect AddressOf Ref(s) from the region: recurse into loops
+  AddressOfRefCollector RC(AddressOfRefVec);
+  HNU.visitRange(RC, Region.child_begin(), Region.child_end());
 
-  // Populates EqualityGroups with memrefs with the same address, like A[i1] and
-  // (i32*)A[i1].
-  HIRLoopLocality::populateEqualityGroups(Reg.child_begin(), Reg.child_end(),
-                                          EqualityGroups, &UniqueGroupSymbases);
+  // Examine the collection:
+  LLVM_DEBUG({
+    printRefGroupVecTy(EqualityGroups, "EqualityGroups:");
+    printRefVector(AddressOfRefVec, "AddressOfRefVec in Region:");
+  });
 
-  auto HigherTopSortNum = [](const RegDDRef *Ref1, const RegDDRef *Ref2) {
-    return Ref1->getHLDDNode()->getTopSortNum() >
-           Ref2->getHLDDNode()->getTopSortNum();
+  return true;
+}
+
+// Special case when the group only has 1 Ref.
+//
+// Check the following:
+// - region is function level;
+// (and)
+// - ref is a store to a local array;
+// (and)
+// - ref is inside a loop that has no unknown alias;
+// (and)
+// - ref has no edge (neither incoming, nor outgoing);
+// (and)
+// - ref is not address taken;
+//
+bool HIRDeadStoreElimination::doSingleItemGroup(
+    HLRegion &Region, SmallVectorImpl<const RegDDRef *> &RefGroup) {
+
+  if (!Region.isFunctionLevel()) {
+    return false;
+  }
+
+  auto *Ref = RefGroup.front();
+  LLVM_DEBUG({
+    printRefVector(RefGroup, "RefVector: ");
+    dbgs() << "Ref: ";
+    Ref->dump();
+    dbgs() << "\n";
+  });
+
+  if (Ref->isRval() || !Ref->accessesAlloca() || Ref->isFake()) {
+    return false;
+  }
+
+  // - parent loop has unknown alias
+  auto *Lp = Ref->getLexicalParentLoop();
+  if (!Lp || HLS.getTotalLoopStatistics(Lp).hasCallsWithUnknownAliasing()) {
+    return false;
+  }
+
+  // Skip the RefGroup if there is any use of the Ref in AddressOf Ref Vector or
+  // any symbase matching in the AddressOf Ref Vector.
+  if (std::any_of(AddressOfRefVec.begin(), AddressOfRefVec.end(),
+                  [&](const RegDDRef *AddressOfRef) {
+                    return Ref->getSymbase() == AddressOfRef->getSymbase();
+                  })) {
+    return false;
+  }
+
+  // Skip if there is either incoming or outgoing edges to|from the Ref.
+  DDGraph DDG = HDDA.getGraph(&Region);
+  if (DDG.getNumIncomingFlowEdges(Ref) || DDG.getNumOutgoingEdges(Ref)) {
+    return false;
+  }
+
+  // the StoreInst can be deleted safely
+  auto *DDNode = const_cast<HLDDNode *>(Ref->getHLDDNode());
+  if (!isa<StoreInst>(dyn_cast<HLInst>(DDNode)->getLLVMInstruction())) {
+    LLVM_DEBUG(dbgs() << "Expect a StoreInst to delete\n";);
+    return false;
+  }
+  auto *Parent = DDNode->getParent();
+  HLNodeUtils::remove(DDNode);
+  HLNodeUtils::removeEmptyNodes(Parent, true);
+  ++NumHIRDeadLocalStoreEliminated;
+
+  return true;
+}
+
+bool HIRDeadStoreElimination::run(HLRegion &Region, HLLoop *Lp, bool IsRegion) {
+  auto CompareRefPairTOPODesc = [](const RegDDRef *Ref0, const RegDDRef *Ref1) {
+    return Ref0->getHLDDNode()->getTopSortNum() >
+           Ref1->getHLDDNode()->getTopSortNum();
   };
 
+  // It isn't worth optimizing incoming single bblock regions.
+  if (Region.isLoopMaterializationCandidate()) {
+    return false;
+  }
+
+  if (!doCollection(Region, Lp, IsRegion)) {
+    LLVM_DEBUG(dbgs() << "Failed collection\n";);
+    return false;
+  }
+
+  bool Result = false;
   for (auto &RefGroup : EqualityGroups) {
     auto *Ref = RefGroup.front();
 
@@ -389,22 +561,32 @@ bool HIRDeadStoreElimination::doTransform(HLRegion &Reg) {
       }
     }
 
-    std::sort(RefGroup.begin(), RefGroup.end(), HigherTopSortNum);
+    llvm::sort(RefGroup.begin(), RefGroup.end(), CompareRefPairTOPODesc);
 
-    // For each store, check whether it post-dominates other stores and there is
-    // no load in between two stores.
+    LLVM_DEBUG({
+      printRefGroupTy(RefGroup, "RefGroup: ");
+      dbgs() << "Ref: ";
+      Ref->dump();
+      dbgs() << "\n";
+    });
+
+    // Special case: if there is just 1 item in the group
+    if (RefGroup.size() == 1) {
+      Result = doSingleItemGroup(Region, RefGroup) || Result;
+      continue;
+    }
+
+    // For each store, check whether it post dominates another store and there
+    // is no load interleaving between these two stores.
     for (unsigned Index = 0; Index != RefGroup.size(); ++Index) {
-
-      auto *PostDominatingRef = RefGroup[Index];
-
-      if (!PostDominatingRef->isLval() || PostDominatingRef->isFake()) {
+      auto *PostDomRef = RefGroup[Index];
+      // skip any load or fake ref:
+      if (!PostDomRef->isLval() || PostDomRef->isFake()) {
         continue;
       }
 
-      const HLDDNode *DDNode = PostDominatingRef->getHLDDNode();
-
+      const HLDDNode *PostDomDDNode = PostDomRef->getHLDDNode();
       for (unsigned I = Index + 1; I != RefGroup.size();) {
-
         auto *PrevRef = RefGroup[I];
 
         // Skip if we encounter a load or fake ref in between two stores.
@@ -412,20 +594,21 @@ bool HIRDeadStoreElimination::doTransform(HLRegion &Reg) {
           break;
         }
 
-        // Check whether the DDRef with high top sort number post-dominates the
-        // DDRef with lower top sort number. If Yes, remove the instruction with
-        // lower top sort number.
+        // Check whether the DDRef with a high top sort number (PostDomRef) post
+        // dominates the DDRef with a lower top sort number (PrevRef).
+        // If Yes, remove the store instruction on PrevRef.
         const HLDDNode *PrevDDNode = PrevRef->getHLDDNode();
-        if (!HLNodeUtils::postDominates(DDNode, PrevDDNode)) {
-          I++;
+        if (!HLNodeUtils::postDominates(PostDomDDNode, PrevDDNode)) {
+          ++I;
           continue;
         }
 
-        if (!isValidParentChain(DDNode, PrevDDNode, PostDominatingRef)) {
-          I++;
+        if (!isValidParentChain(PostDomDDNode, PrevDDNode, PostDomRef)) {
+          ++I;
           continue;
         }
 
+        // Delete the StoreInst on PrevRef, possibly even the entire loop.
         if (auto *PrevLoop = PrevDDNode->getLexicalParentLoop()) {
           HIRInvalidationUtils::invalidateBody<HIRLoopStatistics>(PrevLoop);
         }
@@ -433,33 +616,38 @@ bool HIRDeadStoreElimination::doTransform(HLRegion &Reg) {
         auto *PrevParent = PrevDDNode->getParent();
         HLNodeUtils::remove(const_cast<HLDDNode *>(PrevDDNode));
         HLNodeUtils::removeEmptyNodes(PrevParent, true);
-
+        ++NumHIRDeadRegularStoreEliminated;
         Result = true;
+
+        // Remove Index I from collection and continue to iterate.
         RefGroup.erase(RefGroup.begin() + I);
       }
     }
   }
 
-  if (Result) {
-    Reg.setGenCode();
+  releaseMemory();
+
+  if (!Result) {
+    return false;
   }
 
-  return Result;
+  Region.setGenCode();
+  return true;
 }
 
-static bool runDeadStoreElimination(HIRFramework &HIRF,
+static bool runDeadStoreElimination(HIRFramework &HIRF, HIRDDAnalysis &HDDA,
                                     HIRLoopStatistics &HLS) {
   if (DisablePass) {
     LLVM_DEBUG(dbgs() << "HIR Dead Store Elimination Disabled \n");
     return false;
   }
 
-  HIRDeadStoreElimination DSE(HLS);
-
+  HIRDeadStoreElimination DSE(HIRF, HDDA, HLS);
   bool Result = false;
 
-  for (auto &Reg : make_range(HIRF.hir_begin(), HIRF.hir_end())) {
-    Result = DSE.doTransform(cast<HLRegion>(Reg)) || Result;
+  for (auto &Region : make_range(HIRF.hir_begin(), HIRF.hir_end())) {
+    Result =
+        DSE.run(cast<HLRegion>(Region), nullptr, /* IsRegion */ true) || Result;
   }
 
   return Result;
@@ -471,18 +659,17 @@ bool HIRDeadStoreEliminationLegacyPass::runOnFunction(Function &F) {
     return false;
   }
 
-  bool Result = runDeadStoreElimination(
+  return runDeadStoreElimination(
       getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
+      getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
       getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS());
-  return Result;
 }
 
 PreservedAnalyses
 HIRDeadStoreEliminationPass::run(llvm::Function &F,
                                  llvm::FunctionAnalysisManager &AM) {
   runDeadStoreElimination(AM.getResult<HIRFrameworkAnalysis>(F),
+                          AM.getResult<HIRDDAnalysisPass>(F),
                           AM.getResult<HIRLoopStatisticsAnalysis>(F));
   return PreservedAnalyses::all();
 }
-
-void HIRDeadStoreEliminationLegacyPass::releaseMemory() {}

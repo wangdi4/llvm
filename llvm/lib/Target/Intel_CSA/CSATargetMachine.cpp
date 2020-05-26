@@ -83,10 +83,12 @@ extern "C" void LLVMInitializeCSATarget() {
   // is placed here because it is too target-specific.
   PassRegistry &PR = *PassRegistry::getPassRegistry();
   initializeCSAAllocUnitPassPass(PR);
+  initializeCSACacheLocalizerPass(PR);
   initializeCSACreateSelfContainedGraphPass(PR);
   initializeCSACvtCFDFPassPass(PR);
   initializeCSADataflowCanonicalizationPassPass(PR);
   initializeCSADataflowVerifierPass(PR);
+  initializeCSABackedgeVerifierPass(PR);
   initializeCSADeadInstructionElimPass(PR);
   initializeCSAExpandInlineAsmPass(PR);
   initializeCSAFortranIntrinsicsPass(PR);
@@ -114,13 +116,12 @@ CSATargetMachine::CSATargetMachine(const Target &T, const Triple &TT,
                                    const TargetOptions &Options,
                                    Optional<Reloc::Model> RM,
                                    Optional<CodeModel::Model> CM,
-                                   CodeGenOpt::Level OL,
-                                   bool JIT)
+                                   CodeGenOpt::Level OL, bool JIT)
     : LLVMTargetMachine(T, computeDataLayout(), TT, CPU, FS, Options,
                         getEffectiveRelocModel(RM),
                         getEffectiveCodeModel(CM, CodeModel::Small), OL),
-      TLOF(make_unique<TargetLoweringObjectFileELF>()),
-      Subtarget(TT, CPU, FS, *this) {
+      TLOF(std::make_unique<TargetLoweringObjectFileELF>()),
+      Subtarget(TT, CPU.str(), FS.str(), *this) {
 
   // Although it's still not clear from a performance point of view whether or
   // not we need 'setRequiresStructuredCFG', we're enabling it because it
@@ -157,7 +158,8 @@ CSATargetMachine::getSubtargetImpl(const Function &F) const {
     // creation will depend on the TM and the code generation flags on the
     // function that reside in TargetOptions.
     resetTargetOptions(F);
-    I = std::make_unique<CSASubtarget>(TargetTriple, CPU, FS, *this);
+    I = std::make_unique<CSASubtarget>(TargetTriple, CPU.str(), FS.str(),
+                                       *this);
   }
   return I.get();
 }
@@ -253,6 +255,9 @@ public:
     // format, with prehdr etc...
     addPass(createLoopSimplifyPass());
 
+    // Assign IDs to local cache regions.
+    addPass(createCSACacheLocalizerPass());
+
     // Add ordering edges to memops.
     addPass(createCSAMemopOrderingPass(getCSATargetMachine()));
 
@@ -286,6 +291,11 @@ public:
     //       usage and figure out how to clean up the tripcount computation,
     //       if it is never used (e.g. DisableMultiSeq is true).
     addPass(createCSADeadInstructionElimPass(), false);
+
+    if (csa_utils::markHLLICsAsBackedges()) {
+      addPass(createCSABackedgeVerifier(), false);
+    }
+
     addPass(createCSADataflowCanonicalizationPass(), false);
     addPass(createCSASeqotToSeqOptimizationPass(), false);
     addPass(createCSAMultiSeqPass(), false);
@@ -324,6 +334,10 @@ public:
         addPass(createCSACreateSelfContainedGraphPass(), false);
       else
         addPass(createCSAProcCallsPass(), false);
+    }
+
+    if (csa_utils::verifyBackedges()) {
+      addPass(createCSABackedgeVerifier(), false);
     }
   }
 
@@ -382,7 +396,8 @@ void CSATargetMachine::adjustPassManager(PassManagerBuilder &PMB) {
 static MCContext *
 addPassesToGenerateCode(LLVMTargetMachine *TM, PassManagerBase &PM,
                         bool DisableVerify, bool &WillCompleteCodeGenPipeline,
-                        raw_pwrite_stream &Out, MachineModuleInfo *MMI) {
+                        raw_pwrite_stream &Out,
+                        MachineModuleInfoWrapperPass *MMI) {
   // Targets may override createPassConfig to provide a target-specific
   // subclass.
   TargetPassConfig *PassConfig = TM->createPassConfig(PM);
@@ -391,7 +406,7 @@ addPassesToGenerateCode(LLVMTargetMachine *TM, PassManagerBase &PM,
   WillCompleteCodeGenPipeline = PassConfig->willCompleteCodeGenPipeline();
   PM.add(PassConfig);
   if (!MMI)
-    MMI = new MachineModuleInfo(TM);
+    MMI = new MachineModuleInfoWrapperPass(TM);
   PM.add(MMI);
 
   if (PassConfig->addISelPasses())
@@ -401,7 +416,7 @@ addPassesToGenerateCode(LLVMTargetMachine *TM, PassManagerBase &PM,
   if (!WillCompleteCodeGenPipeline)
     PM.add(createPrintMIRPass(Out));
 
-  return &MMI->getContext();
+  return &MMI->getMMI().getContext();
 }
 
 // This function is also mostly copied from lib/CodeGen/LLVMTargetMachine.cpp.
@@ -489,7 +504,8 @@ bool CSATargetMachine::addAsmPrinterWithAsmWrapping(PassManagerBase &PM,
 // This function is also mostly copied from lib/CodeGen/LLVMTargetMachine.cpp.
 bool CSATargetMachine::addPassesToEmitFile(
   PassManagerBase &PM, raw_pwrite_stream &Out, raw_pwrite_stream *DwoOut,
-  CodeGenFileType FileType, bool DisableVerify, MachineModuleInfo *MMI) {
+  CodeGenFileType FileType, bool DisableVerify,
+  MachineModuleInfoWrapperPass *MMI) {
   // Add common CodeGen passes.
   bool WillCompleteCodeGenPipeline = true;
   MCContext *Context               = addPassesToGenerateCode(

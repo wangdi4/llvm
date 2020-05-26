@@ -650,7 +650,7 @@ void TargetLoweringBase::initActions() {
             std::end(TargetDAGCombineArray), 0);
 
   for (MVT VT : MVT::fp_valuetypes()) {
-    MVT IntVT = MVT::getIntegerVT(VT.getSizeInBits());
+    MVT IntVT = MVT::getIntegerVT(VT.getSizeInBits().getFixedSize());
     if (IntVT.isValid()) {
       setOperationAction(ISD::ATOMIC_SWAP, VT, Promote);
       AddPromotedToType(ISD::ATOMIC_SWAP, VT, IntVT);
@@ -985,42 +985,45 @@ static unsigned getVectorTypeBreakdownMVT(MVT VT, MVT &IntermediateVT,
                                           MVT &RegisterVT,
                                           TargetLoweringBase *TLI) {
   // Figure out the right, legal destination reg to copy into.
-  unsigned NumElts = VT.getVectorNumElements();
+  ElementCount EC = VT.getVectorElementCount();
   MVT EltTy = VT.getVectorElementType();
 
   unsigned NumVectorRegs = 1;
 
-  // FIXME: We don't support non-power-of-2-sized vectors for now.  Ideally we
-  // could break down into LHS/RHS like LegalizeDAG does.
-  if (!isPowerOf2_32(NumElts)) {
-    NumVectorRegs = NumElts;
-    NumElts = 1;
+  // FIXME: We don't support non-power-of-2-sized vectors for now.
+  // Ideally we could break down into LHS/RHS like LegalizeDAG does.
+  if (!isPowerOf2_32(EC.Min)) {
+    // Split EC to unit size (scalable property is preserved).
+    NumVectorRegs = EC.Min;
+    EC = EC / NumVectorRegs;
   }
 
-  // Divide the input until we get to a supported size.  This will always
-  // end with a scalar if the target doesn't support vectors.
-  while (NumElts > 1 && !TLI->isTypeLegal(MVT::getVectorVT(EltTy, NumElts))) {
-    NumElts >>= 1;
+  // Divide the input until we get to a supported size. This will
+  // always end up with an EC that represent a scalar or a scalable
+  // scalar.
+  while (EC.Min > 1 && !TLI->isTypeLegal(MVT::getVectorVT(EltTy, EC))) {
+    EC.Min >>= 1;
     NumVectorRegs <<= 1;
   }
 
   NumIntermediates = NumVectorRegs;
 
-  MVT NewVT = MVT::getVectorVT(EltTy, NumElts);
+  MVT NewVT = MVT::getVectorVT(EltTy, EC);
   if (!TLI->isTypeLegal(NewVT))
     NewVT = EltTy;
   IntermediateVT = NewVT;
 
-  unsigned NewVTSize = NewVT.getSizeInBits();
+  unsigned LaneSizeInBits = NewVT.getScalarSizeInBits().getFixedSize();
 
   // Convert sizes such as i33 to i64.
-  if (!isPowerOf2_32(NewVTSize))
-    NewVTSize = NextPowerOf2(NewVTSize);
+  if (!isPowerOf2_32(LaneSizeInBits))
+    LaneSizeInBits = NextPowerOf2(LaneSizeInBits);
 
   MVT DestVT = TLI->getRegisterType(NewVT);
   RegisterVT = DestVT;
   if (EVT(DestVT).bitsLT(NewVT))    // Value is expanded, e.g. i64 -> i16.
-    return NumVectorRegs*(NewVTSize/DestVT.getSizeInBits());
+    return NumVectorRegs *
+           (LaneSizeInBits / DestVT.getScalarSizeInBits().getFixedSize());
 
   // Otherwise, promotion or legal types use the same number of registers as
   // the vector decimated to the appropriate level.
@@ -1107,7 +1110,7 @@ TargetLoweringBase::emitPatchPoint(MachineInstr &InitialMI,
       auto Flags = MachineMemOperand::MOLoad;
       MachineMemOperand *MMO = MF.getMachineMemOperand(
           MachinePointerInfo::getFixedStack(MF, FI), Flags,
-          MF.getDataLayout().getPointerSize(), MFI.getObjectAlignment(FI));
+          MF.getDataLayout().getPointerSize(), MFI.getObjectAlign(FI));
       MIB->addMemOperand(MF, MMO);
     }
 
@@ -1430,7 +1433,7 @@ unsigned TargetLoweringBase::getVectorTypeBreakdown(LLVMContext &Context, EVT VT
                                                 EVT &IntermediateVT,
                                                 unsigned &NumIntermediates,
                                                 MVT &RegisterVT) const {
-  unsigned NumElts = VT.getVectorNumElements();
+  ElementCount EltCnt = VT.getVectorElementCount();
 
   // If there is a wider vector type with the same element type as this one,
   // or a promoted vector type that has the same number of elements which
@@ -1438,7 +1441,7 @@ unsigned TargetLoweringBase::getVectorTypeBreakdown(LLVMContext &Context, EVT VT
   // This handles things like <2 x float> -> <4 x float> and
   // <4 x i1> -> <4 x i32>.
   LegalizeTypeAction TA = getTypeAction(Context, VT);
-  if (NumElts != 1 && (TA == TypeWidenVector || TA == TypePromoteInteger)) {
+  if (EltCnt.Min != 1 && (TA == TypeWidenVector || TA == TypePromoteInteger)) {
     EVT RegisterEVT = getTypeToTransformTo(Context, VT);
     if (isTypeLegal(RegisterEVT)) {
       IntermediateVT = RegisterEVT;
@@ -1455,22 +1458,22 @@ unsigned TargetLoweringBase::getVectorTypeBreakdown(LLVMContext &Context, EVT VT
 
   // FIXME: We don't support non-power-of-2-sized vectors for now.  Ideally we
   // could break down into LHS/RHS like LegalizeDAG does.
-  if (!isPowerOf2_32(NumElts)) {
-    NumVectorRegs = NumElts;
-    NumElts = 1;
+  if (!isPowerOf2_32(EltCnt.Min)) {
+    NumVectorRegs = EltCnt.Min;
+    EltCnt.Min = 1;
   }
 
   // Divide the input until we get to a supported size.  This will always
   // end with a scalar if the target doesn't support vectors.
-  while (NumElts > 1 && !isTypeLegal(
-                                   EVT::getVectorVT(Context, EltTy, NumElts))) {
-    NumElts >>= 1;
+  while (EltCnt.Min > 1 &&
+         !isTypeLegal(EVT::getVectorVT(Context, EltTy, EltCnt))) {
+    EltCnt.Min >>= 1;
     NumVectorRegs <<= 1;
   }
 
   NumIntermediates = NumVectorRegs;
 
-  EVT NewVT = EVT::getVectorVT(Context, EltTy, NumElts);
+  EVT NewVT = EVT::getVectorVT(Context, EltTy, EltCnt);
   if (!isTypeLegal(NewVT))
     NewVT = EltTy;
   IntermediateVT = NewVT;
@@ -1571,7 +1574,7 @@ void llvm::GetReturnInfo(CallingConv::ID CC, Type *ReturnType,
 /// alignment, not its logarithm.
 unsigned TargetLoweringBase::getByValTypeAlignment(Type *Ty,
                                                    const DataLayout &DL) const {
-  return DL.getABITypeAlignment(Ty);
+  return DL.getABITypeAlign(Ty).value();
 }
 
 bool TargetLoweringBase::allowsMemoryAccessForAlignment(
@@ -1583,7 +1586,7 @@ bool TargetLoweringBase::allowsMemoryAccessForAlignment(
   // For example, the ABI alignment may change based on software platform while
   // this function should only be affected by hardware implementation.
   Type *Ty = VT.getTypeForEVT(Context);
-  if (Alignment >= DL.getABITypeAlignment(Ty)) {
+  if (Alignment >= DL.getABITypeAlign(Ty).value()) {
     // Assume that an access that meets the ABI-specified alignment is fast.
     if (Fast != nullptr)
       *Fast = true;
@@ -1598,7 +1601,7 @@ bool TargetLoweringBase::allowsMemoryAccessForAlignment(
     LLVMContext &Context, const DataLayout &DL, EVT VT,
     const MachineMemOperand &MMO, bool *Fast) const {
   return allowsMemoryAccessForAlignment(Context, DL, VT, MMO.getAddrSpace(),
-                                        MMO.getAlignment(), MMO.getFlags(),
+                                        MMO.getAlign().value(), MMO.getFlags(),
                                         Fast);
 }
 
@@ -1614,7 +1617,7 @@ bool TargetLoweringBase::allowsMemoryAccess(LLVMContext &Context,
                                             const MachineMemOperand &MMO,
                                             bool *Fast) const {
   return allowsMemoryAccess(Context, DL, VT, MMO.getAddrSpace(),
-                            MMO.getAlignment(), MMO.getFlags(), Fast);
+                            MMO.getAlign().value(), MMO.getFlags(), Fast);
 }
 
 BranchProbability TargetLoweringBase::getPredictableBranchThreshold() const {
@@ -1698,7 +1701,7 @@ int TargetLoweringBase::InstructionOpcodeToISD(unsigned Opcode) const {
   case ExtractValue:   return ISD::MERGE_VALUES;
   case InsertValue:    return ISD::MERGE_VALUES;
   case LandingPad:     return 0;
-  case Freeze:         return 0;
+  case Freeze:         return ISD::FREEZE;
   }
 
   llvm_unreachable("Unknown instruction type encountered!");

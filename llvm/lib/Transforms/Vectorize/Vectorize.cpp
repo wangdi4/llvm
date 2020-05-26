@@ -29,8 +29,10 @@ void llvm::initializeVectorization(PassRegistry &Registry) {
 #if INTEL_CUSTOMIZATION
   initializeLoadCoalescingLegacyPassPass(Registry);
   initializeMathLibraryFunctionsReplacementLegacyPassPass(Registry);
+  initializeVPlanPragmaOmpOrderedSimdExtractPass(Registry);
   initializeVPlanDriverPass(Registry);
   initializeVPlanDriverHIRPass(Registry);
+  initializeVPlanFunctionVectorizerLegacyPassPass(Registry);
 #endif
   initializeVectorCombineLegacyPassPass(Registry);
 }
@@ -54,6 +56,10 @@ void LLVMAddLoadCoalescingPass(LLVMPassManagerRef PM) {
 
 void LLVMAddMathLibraryFunctionReplacementPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createMathLibraryFunctionsReplacementPass());
+}
+
+void LLVMAddVPlanPragmaOmpOrderedSimdExtractPass(LLVMPassManagerRef PM) {
+  unwrap(PM)->add(createVPlanPragmaOmpOrderedSimdExtractPass());
 }
 
 void LLVMAddVPlanDriverPass(LLVMPassManagerRef PM) {

@@ -95,6 +95,7 @@
 using namespace llvm;
 
 #define PASS_NAME_STR "ipo-prefetch"
+#define PASS_NAME "IPO Prefetch"
 #define DEBUG_TYPE "ipo-prefetch"
 
 STATISTIC(NumIPOPrefetch, "Number of IPO Prefetches");
@@ -327,77 +328,6 @@ static bool verifyFunction(Function *F, StringRef Msg) {
   return true;
 }
 #endif
-
-// Data structure that tracks progress of IPO Prefetch.
-class ProgressLog {
-  bool PassCollection, PassAnalysis, PassTransformation;
-
-public:
-  enum Stage {
-    Collection = 0,
-    Analysis,
-    Transform,
-    Stage_Last,
-  };
-
-  ProgressLog()
-      : PassCollection(false), PassAnalysis(false), PassTransformation(false) {}
-
-  void setStage(Stage TheStage) {
-    switch (TheStage) {
-    case Collection:
-      PassCollection = true;
-      break;
-    case Analysis:
-      PassAnalysis = true;
-      break;
-    case Transform:
-      PassTransformation = true;
-      break;
-    default:
-      break;
-    }
-  }
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  // To check if IPO prefetch triggers or not, do the following:
-  //
-  // option: -debug-only=ipo-prefetch
-  // search "IPO Prefetch Triggered" or "IPO Prefetch NOT Triggered" in the
-  // debug output.
-  //
-  // In case IPO Prefetch does not trigger, and there is a need to know which
-  // stage the pass bailed out, do the following:
-  //
-  // options: -debug-only=ipo-prefetch -mllvm -ipo-prefetch-detail-log=1
-  // search for the following strings in the output:
-  // "IPO Prefetch collection", "IPO Prefetch analysis", and/or
-  // "IPO Prefetch transformation"
-  //
-  // E.g. the following strings will be available if IPO Prefetch triggers:
-  //  IPO Prefetch collection:  good
-  //  IPO Prefetch analysis:  good
-  //  IPO Prefetch transformation:  good
-  //  IPO Prefetch Triggered
-  //
-  LLVM_DUMP_METHOD void dump(void) {
-    const StringRef PassName = "IPO Prefetch ";
-    if (DetailedLog) {
-      dbgs() << PassName << "collection: " << (PassCollection ? "" : "NOT")
-             << " good\n";
-      dbgs() << PassName << "analysis: " << (PassAnalysis ? "" : "NOT")
-             << " good\n";
-      dbgs() << PassName
-             << "transformation: " << (PassTransformation ? "" : "NOT")
-             << " good\n";
-    }
-
-    bool Summary = PassCollection && PassAnalysis && PassTransformation;
-    StringRef Msg = Summary ? "Triggered " : "NOT Triggered";
-    dbgs() << PassName << Msg << "\n";
-  }
-#endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-};
 
 // Enumeration of Index Range:
 enum BasicBlockIndexRange {
@@ -958,7 +888,10 @@ private:
   // %struct.ttentry_t = type { [4 x %struct.ttbucket_t] }
   // expect ArrayElemSize: 12 (B), NumArrayElem: 4
   WholeProgramInfo &WPInfo;
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   ProgressLog Tracer;
+#endif
 
 public:
   IPOPrefetcher(Module &M, function_ref<TargetLibraryInfo &(Function &)> GetTLI,
@@ -967,7 +900,14 @@ public:
                 WholeProgramInfo &WPInfo)
       : M(M), GetTLI(GetTLI), LookupDomTree(LookupDomTree),
         LookupPostDomTree(LookupPostDomTree), ArrayElemSize(0), NumArrayElem(0),
-        WPInfo(WPInfo) {}
+        WPInfo(WPInfo) {
+    LLVM_DEBUG({
+      // Adjust Tracer for the current pass:
+      Tracer.setPassName(PASS_NAME);
+      if (DetailedLog)
+        Tracer.setDetailMode(true);
+    });
+  }
 
   bool run(Module &M);
 
@@ -1073,12 +1013,15 @@ bool IPOPrefetcher::run(Module &M) {
     return false;
   }
 
+  // IPOPrefetch has no preliminary analysis stage, so give it a free pass.
+  LLVM_DEBUG(Tracer.setStage(ProgressLog::PreliminaryAnalysis););
+
   // Collect DL-resident function(s) and potential DL-host functions
   if (!doCollection()) {
     LLVM_DEBUG(Tracer.dump(););
     return false;
   }
-  Tracer.setStage(ProgressLog::Collection);
+  LLVM_DEBUG(Tracer.setStage(ProgressLog::Collection););
 
   // Analyze current module to ensure that the transformation is
   // -legal: correct and won't trigger any core-dump/seg fault issues,
@@ -1087,7 +1030,7 @@ bool IPOPrefetcher::run(Module &M) {
     LLVM_DEBUG(Tracer.dump(););
     return false;
   }
-  Tracer.setStage(ProgressLog::Analysis);
+  LLVM_DEBUG(Tracer.setStage(ProgressLog::Analysis););
 
   // Transform the module to generate a fully optimized prefetch function,
   // and generate calls to the prefetch function in host function(s).
@@ -1095,13 +1038,37 @@ bool IPOPrefetcher::run(Module &M) {
     LLVM_DEBUG(Tracer.dump(););
     return false;
   }
-  Tracer.setStage(ProgressLog::Transform);
+  LLVM_DEBUG(Tracer.setStage(ProgressLog::Transform););
 
   // Ensure the module is good after transformation
+  // and dump transformation details
   LLVM_DEBUG({
     if (!verifyModule(M, "Module verifier failed after IPOPrefetch "))
       return false;
-    // Dump trace info:
+
+    // To check if IPO prefetch triggers or not, do the following:
+    //
+    // option: -debug-only=ipo-prefetch
+    // search "IPO Prefetch Triggered" or "IPO Prefetch NOT Triggered" in the
+    // debug output.
+    //
+    // In case IPO Prefetch does not trigger, and there is a need to know which
+    // stage the pass bailed out, do the following:
+    //
+    // options: -debug-only=ipo-prefetch -mllvm -ipo-prefetch-detail-log=1
+    // search the following strings in the output:
+    // "IPO Prefetch collection", "IPO Prefetch analysis", and/or
+    // "IPO Prefetch transformation"
+    //
+    // E.g.
+    // The following strings will be available if IPO Prefetch triggers in
+    // detailed mode:
+    //  IPO Prefetch preliminary analysis:  good
+    //  IPO Prefetch collection:  good
+    //  IPO Prefetch analysis:  good
+    //  IPO Prefetch transformation:  good
+    //  IPO Prefetch Triggered
+    //
     Tracer.dump();
   });
 

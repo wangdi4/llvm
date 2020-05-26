@@ -127,9 +127,6 @@ class ItaniumMangleContextImpl : public ItaniumMangleContext {
 
 public:
   explicit ItaniumMangleContextImpl(ASTContext &Context,
-                                    DiagnosticsEngine &Diags)
-      : ItaniumMangleContext(Context, Diags) {}
-  explicit ItaniumMangleContextImpl(ASTContext &Context,
                                     DiagnosticsEngine &Diags,
                                     bool IsUniqueNameMangler)
       : ItaniumMangleContext(Context, Diags, IsUniqueNameMangler) {}
@@ -661,8 +658,12 @@ void CXXNameMangler::mangle(GlobalDecl GD) {
   else if (const IndirectFieldDecl *IFD =
                dyn_cast<IndirectFieldDecl>(GD.getDecl()))
     mangleName(IFD->getAnonField());
+  else if (const FieldDecl *FD = dyn_cast<FieldDecl>(GD.getDecl()))
+    mangleName(FD);
+  else if (const MSGuidDecl *GuidD = dyn_cast<MSGuidDecl>(GD.getDecl()))
+    mangleName(GuidD);
   else
-    mangleName(cast<FieldDecl>(GD.getDecl()));
+    llvm_unreachable("unexpected kind of global decl");
 }
 
 void CXXNameMangler::mangleFunctionEncoding(GlobalDecl GD) {
@@ -1296,6 +1297,16 @@ void CXXNameMangler::mangleUnqualifiedName(GlobalDecl GD,
       break;
     }
 
+    if (auto *GD = dyn_cast<MSGuidDecl>(ND)) {
+      // We follow MSVC in mangling GUID declarations as if they were variables
+      // with a particular reserved name. Continue the pretense here.
+      SmallString<sizeof("_GUID_12345678_1234_1234_1234_1234567890ab")> GUID;
+      llvm::raw_svector_ostream GUIDOS(GUID);
+      Context.mangleMSGuidDecl(GD, GUIDOS);
+      Out << GUID.size() << GUID;
+      break;
+    }
+
     if (II) {
       // Match GCC's naming convention for internal linkage symbols, for
       // symbols that are not actually visible outside of this TU. GCC
@@ -1779,10 +1790,10 @@ void CXXNameMangler::mangleTemplateParamDecl(const NamedDecl *Decl) {
   }
 }
 
-// Handles the __unique_stable_name feature for lambdas. Instead of the ordinal
-// of the lambda in its function, this does line/column to uniquely and reliably
-// identify the lambda.  Additionally, Macro expansions are expanded as well to
-// prevent macros causing duplicates.
+// Handles the __builtin_unique_stable_name feature for lambdas.  Instead of the
+// ordinal of the lambda in its mangling, this does line/column to uniquely and
+// reliably identify the lambda.  Additionally, macro expansions are expressed
+// as well to prevent macros causing duplicates.
 static void mangleUniqueNameLambda(CXXNameMangler &Mangler, SourceManager &SM,
                                    raw_ostream &Out,
                                    const CXXRecordDecl *Lambda) {
@@ -1790,23 +1801,23 @@ static void mangleUniqueNameLambda(CXXNameMangler &Mangler, SourceManager &SM,
 
   PresumedLoc PLoc = SM.getPresumedLoc(Loc);
   Mangler.mangleNumber(PLoc.getLine());
-  Out << "->";
+  Out << "_";
   Mangler.mangleNumber(PLoc.getColumn());
 
-  while (Loc.isMacroID()) {
-    SourceLocation ToPrint = Loc;
+  while(Loc.isMacroID()) {
+    SourceLocation SLToPrint = Loc;
     if (SM.isMacroArgExpansion(Loc))
-      ToPrint = SM.getImmediateExpansionRange(Loc).getBegin();
+      SLToPrint = SM.getImmediateExpansionRange(Loc).getBegin();
+
+    PLoc = SM.getPresumedLoc(SM.getSpellingLoc(SLToPrint));
+    Out << "m";
+    Mangler.mangleNumber(PLoc.getLine());
+    Out << "_";
+    Mangler.mangleNumber(PLoc.getColumn());
 
     Loc = SM.getImmediateMacroCallerLoc(Loc);
     if (Loc.isFileID())
-      Loc = SM.getImmediateMacroCallerLoc(ToPrint);
-
-    PresumedLoc PLoc = SM.getPresumedLoc(SM.getSpellingLoc(ToPrint));
-    Out << '~';
-    Mangler.mangleNumber(PLoc.getLine());
-    Out << "->";
-    Mangler.mangleNumber(PLoc.getColumn());
+      Loc = SM.getImmediateMacroCallerLoc(SLToPrint);
   }
 }
 
@@ -1841,8 +1852,8 @@ void CXXNameMangler::mangleLambda(const CXXRecordDecl *Lambda) {
   Out << "E";
 
   if (Context.isUniqueNameMangler()) {
-    mangleUniqueNameLambda(*this, Context.getASTContext().getSourceManager(),
-                           Out, Lambda);
+    mangleUniqueNameLambda(
+        *this, Context.getASTContext().getSourceManager(), Out, Lambda);
     return;
   }
 
@@ -2074,6 +2085,8 @@ bool CXXNameMangler::mangleUnresolvedTypeOrSimpleId(QualType Ty,
   case Type::DependentSizedExtVector:
   case Type::Vector:
   case Type::ExtVector:
+  case Type::ConstantMatrix:
+  case Type::DependentSizedMatrix:
   case Type::FunctionProto:
   case Type::FunctionNoProto:
   case Type::Paren:
@@ -2093,6 +2106,8 @@ bool CXXNameMangler::mangleUnresolvedTypeOrSimpleId(QualType Ty,
 #endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
   case Type::MacroQualified:
+  case Type::ExtInt:
+  case Type::DependentExtInt:
     llvm_unreachable("type is illegal as a nested name specifier");
 
   case Type::SubstTemplateTypeParmPack:
@@ -3345,6 +3360,31 @@ void CXXNameMangler::mangleType(const DependentSizedExtVectorType *T) {
   mangleType(T->getElementType());
 }
 
+void CXXNameMangler::mangleType(const ConstantMatrixType *T) {
+  // Mangle matrix types using a vendor extended type qualifier:
+  // U<Len>matrix_type<Rows><Columns><element type>
+  StringRef VendorQualifier = "matrix_type";
+  Out << "U" << VendorQualifier.size() << VendorQualifier;
+  auto &ASTCtx = getASTContext();
+  unsigned BitWidth = ASTCtx.getTypeSize(ASTCtx.getSizeType());
+  llvm::APSInt Rows(BitWidth);
+  Rows = T->getNumRows();
+  mangleIntegerLiteral(ASTCtx.getSizeType(), Rows);
+  llvm::APSInt Columns(BitWidth);
+  Columns = T->getNumColumns();
+  mangleIntegerLiteral(ASTCtx.getSizeType(), Columns);
+  mangleType(T->getElementType());
+}
+
+void CXXNameMangler::mangleType(const DependentSizedMatrixType *T) {
+  // U<Len>matrix_type<row expr><column expr><element type>
+  StringRef VendorQualifier = "matrix_type";
+  Out << "U" << VendorQualifier.size() << VendorQualifier;
+  mangleTemplateArg(T->getRowExpr());
+  mangleTemplateArg(T->getColumnExpr());
+  mangleType(T->getElementType());
+}
+
 void CXXNameMangler::mangleType(const DependentAddressSpaceType *T) {
   SplitQualType split = T->getPointeeType().split();
   mangleQualifiers(split.Quals, T);
@@ -3575,6 +3615,28 @@ void CXXNameMangler::mangleType(const DependentSizedArbPrecIntType *T) {
 }
 #endif // INTEL_CUSTOMIZATION
 
+void CXXNameMangler::mangleType(const ExtIntType *T) {
+  Out << "U7_ExtInt";
+  llvm::APSInt BW(32, true);
+  BW = T->getNumBits();
+  TemplateArgument TA(Context.getASTContext(), BW, getASTContext().IntTy);
+  mangleTemplateArgs(&TA, 1);
+  if (T->isUnsigned())
+    Out << "j";
+  else
+    Out << "i";
+}
+
+void CXXNameMangler::mangleType(const DependentExtIntType *T) {
+  Out << "U7_ExtInt";
+  TemplateArgument TA(T->getNumBitsExpr());
+  mangleTemplateArgs(&TA, 1);
+  if (T->isUnsigned())
+    Out << "j";
+  else
+    Out << "i";
+}
+
 void CXXNameMangler::mangleIntegerLiteral(QualType T,
                                           const llvm::APSInt &Value) {
   //  <expr-primary> ::= L <type> <value number> E # integer literal
@@ -3749,8 +3811,11 @@ recurse:
   case Expr::LambdaExprClass:
   case Expr::MSPropertyRefExprClass:
   case Expr::MSPropertySubscriptExprClass:
-  case Expr::TypoExprClass:  // This should no longer exist in the AST by now.
+  case Expr::TypoExprClass: // This should no longer exist in the AST by now.
+  case Expr::RecoveryExprClass:
   case Expr::OMPArraySectionExprClass:
+  case Expr::OMPArrayShapingExprClass:
+  case Expr::OMPIteratorExprClass:
   case Expr::CXXInheritedCtorInitExprClass:
     llvm_unreachable("unexpected statement kind");
 
@@ -5285,11 +5350,6 @@ void ItaniumMangleContextImpl::mangleLambdaSig(const CXXRecordDecl *Lambda,
                                                raw_ostream &Out) {
   CXXNameMangler Mangler(*this, Out);
   Mangler.mangleLambdaSig(Lambda);
-}
-
-ItaniumMangleContext *
-ItaniumMangleContext::create(ASTContext &Context, DiagnosticsEngine &Diags) {
-  return new ItaniumMangleContextImpl(Context, Diags);
 }
 
 ItaniumMangleContext *ItaniumMangleContext::create(ASTContext &Context,

@@ -39,6 +39,9 @@ FunctionPass *createHIRSafeReductionAnalysisPass();
 /// Identify Sparse Array Reduction Chain
 FunctionPass *createHIRSparseArrayReductionAnalysisPass();
 
+/// Identify Array sections
+FunctionPass *createHIRArraySectionAnalysisPass();
+
 /// Computes the locality cost for HLLoops which are used during
 /// transformations.
 FunctionPass *createHIRLocalityAnalysisPass();

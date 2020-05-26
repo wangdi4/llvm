@@ -3,7 +3,8 @@
 // RUN: %clang_cc1 -main-file-name %s -fintel-compatibility -fopenmp -fopenmp-targets=spir64 -fopenmp-is-device -fopenmp-host-ir-file-path %t.bc -O0 -fintel-openmp-region -fopenmp-threadprivate-legacy -emit-llvm-bc -x c %s -emit-llvm -o - | FileCheck %s
 // expected-no-diagnostics
 
-// CHECK: [[VAR_X:@x_[0-9a-f]+]] = internal target_declare global i32 0,
+// CHECK: [[VAR_X:@x]] = internal target_declare global i32 0,
+// CHECK: @._ZL1x_[[HASH:[a-f0-9]+]].ref = internal constant i32* @x
 // CHECK: [[VAR_Y:@foo.y]] = internal global float 0.000000e+00,
 #pragma omp declare target
 static int x;
@@ -27,4 +28,6 @@ void foo() {
     z = 8;
   }
 }
+
+// CHECK: !{{[0-9]+}} = !{i32 {{[0-9]}}, !"_ZL1x_[[HASH]]", i32 0, i32 0, i32* @x}
 // end INTEL_COLLAB

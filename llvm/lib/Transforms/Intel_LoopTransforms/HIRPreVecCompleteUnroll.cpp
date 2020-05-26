@@ -14,8 +14,8 @@
 //===----------------------------------------------------------------------===//
 //
 
-#include "llvm/Transforms/Intel_LoopTransforms/HIRPreVecCompleteUnroll.h"
-#include "HIRCompleteUnrollImpl.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRPreVecCompleteUnrollPass.h"
+#include "HIRCompleteUnroll.h"
 
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/Dominators.h"

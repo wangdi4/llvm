@@ -1,6 +1,10 @@
 ; RUN: opt < %s -vpo-paropt-tpv -S | FileCheck %s
 ; RUN: opt < %s -passes=vpo-paropt-tpv -S | FileCheck %s
 
+; Verify that vpo-paropt-tpv works with bisect limit 0:
+; RUN: opt < %s -vpo-paropt-tpv -S -opt-bisect-limit=0 | FileCheck %s
+; RUN: opt < %s -passes=vpo-paropt-tpv -S -opt-bisect-limit=0 | FileCheck %s
+
 ; The compiler is expected to emit the call __kmpc_threadprivate_cached.
 ; The compiler isn't expected to emit the call __kmpc_global_thread_num.
 ; It also checks whether the attribute thread_private as well as mtfunc

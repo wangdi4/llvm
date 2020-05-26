@@ -48,6 +48,13 @@ macro(test_fuzzer stdlib)
     set(STDLIB_CAPITALIZED "${STDLIB_CAPITALIZED}${part}")
   endforeach()
   foreach(arch ${FUZZER_TEST_ARCH})
+    if(INTEL_CUSTOMIZATION)
+      # Disable for i386/x86
+      # Reopen when llvm issue fixed
+      if("${arch}" MATCHES "i[2-6]86|x86")
+        continue()
+      endif()
+    endif()
     set(LIBFUZZER_TEST_COMPILER ${COMPILER_RT_TEST_COMPILER})
     get_test_cc_for_arch(${arch} LIBFUZZER_TEST_COMPILER LIBFUZZER_TEST_FLAGS)
 

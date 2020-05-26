@@ -32,7 +32,7 @@ kmp_target_offload_kind_t TargetOffloadPolicy = tgt_default;
 std::mutex TargetOffloadMtx;
 
 ////////////////////////////////////////////////////////////////////////////////
-/// manage the success or failure of a target constuct
+/// manage the success or failure of a target construct
 
 static void HandleDefaultTargetOffload() {
   TargetOffloadMtx.lock();
@@ -117,18 +117,18 @@ EXTERN void __tgt_target_data_begin(int64_t device_id, int32_t arg_num,
 #if INTEL_COLLAB
   OMPT_TRACE(targetDataEnterBegin(device_id));
 #endif // INTEL_COLLAB
-  DeviceTy& Device = Devices[device_id];
+  DeviceTy &Device = Devices[device_id];
 
 #ifdef OMPTARGET_DEBUG
-  for (int i=0; i<arg_num; ++i) {
+  for (int i = 0; i < arg_num; ++i) {
     DP("Entry %2d: Base=" DPxMOD ", Begin=" DPxMOD ", Size=%" PRId64
-        ", Type=0x%" PRIx64 "\n", i, DPxPTR(args_base[i]), DPxPTR(args[i]),
-        arg_sizes[i], arg_types[i]);
+       ", Type=0x%" PRIx64 "\n",
+       i, DPxPTR(args_base[i]), DPxPTR(args[i]), arg_sizes[i], arg_types[i]);
   }
 #endif
 
-  int rc = target_data_begin(Device, arg_num, args_base,
-      args, arg_sizes, arg_types);
+  int rc = target_data_begin(Device, arg_num, args_base, args, arg_sizes,
+                             arg_types, nullptr);
   HandleTargetOutcome(rc == OFFLOAD_SUCCESS);
 #if INTEL_COLLAB
   OMPT_TRACE(targetDataEnterEnd(device_id));
@@ -186,8 +186,8 @@ EXTERN void __tgt_target_data_end(int64_t device_id, int32_t arg_num,
 #if INTEL_COLLAB
   OMPT_TRACE(targetDataExitBegin(device_id));
 #endif // INTEL_COLLAB
-  int rc = target_data_end(Device, arg_num, args_base,
-      args, arg_sizes, arg_types);
+  int rc = target_data_end(Device, arg_num, args_base, args, arg_sizes,
+                           arg_types, nullptr);
   HandleTargetOutcome(rc == OFFLOAD_SUCCESS);
 #if INTEL_COLLAB
   OMPT_TRACE(targetDataExitEnd(device_id));
@@ -569,6 +569,7 @@ EXTERN void *__tgt_create_interop_obj(
 
   auto &rtl_name = Device.RTL->RTLName;
   int32_t plugin;
+
   if (rtl_name.find("opencl") != std::string::npos) {
     plugin = INTEROP_PLUGIN_OPENCL;
   } else if (rtl_name.find("level0") != std::string::npos) {
@@ -591,7 +592,12 @@ EXTERN void *__tgt_create_interop_obj(
   obj->is_async = is_async;
   obj->async_obj = async_obj;
   obj->async_handler = &__tgt_offload_proxy_task_complete_ooo;
-  obj->pipe = Device.create_offload_pipe(is_async);
+  obj->queue = Device.create_offload_queue(is_async);
+  obj->platform_handle = Device.get_platform_handle();
+  if (plugin == INTEROP_PLUGIN_LEVEL0)
+     obj->device_handle = Device.get_device_handle();
+  else
+     obj->device_handle = NULL;
   obj->plugin_interface = plugin;
 
   return obj;
@@ -608,7 +614,7 @@ EXTERN int __tgt_release_interop_obj(void *interop_obj) {
 
   __tgt_interop_obj *obj = static_cast<__tgt_interop_obj *>(interop_obj);
   DeviceTy &Device = Devices[obj->device_id];
-  Device.release_offload_pipe(obj->pipe);
+  Device.release_offload_queue(obj->queue);
   free(interop_obj);
 
   return OFFLOAD_SUCCESS;
@@ -664,8 +670,14 @@ EXTERN int __tgt_get_interop_property(
   case INTEROP_ASYNC_CALLBACK:
     *property_value = (void *)interop->async_handler;
     break;
-  case INTEROP_OFFLOAD_PIPE:
-    *property_value = interop->pipe;
+  case INTEROP_OFFLOAD_QUEUE:
+    *property_value = interop->queue;
+    break;
+  case INTEROP_PLATFORM_HANDLE:
+    *property_value = interop->platform_handle;
+    break;
+  case INTEROP_DEVICE_HANDLE:
+    *property_value = interop->device_handle;
     break;
   case INTEROP_PLUGIN_INTERFACE:
     *property_value = (void *)&interop->plugin_interface;

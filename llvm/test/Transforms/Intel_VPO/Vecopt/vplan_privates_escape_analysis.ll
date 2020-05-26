@@ -1,15 +1,15 @@
 ; This test verifies that private-variables escaping into the unknown functions
 ; are safe for data-layout transformations.
 
-; RUN: opt -VPlanDriver -vplan-dump-soa-info %s 2>&1 | FileCheck %s
+; RUN: opt -VPlanDriver -vplan-enable-soa -vplan-dump-soa-info -disable-vplan-codegen %s 2>&1 | FileCheck %s
 ; TODO: Enbale the test for HIR codegen path CMPLRLLVM-10967.
 
 ; REQUIRES:asserts
 
-; CHECK-DAG: SOASafe = [1024 x i32]* %arr.priv
-; CHECK-DAG: SOASafe = [1024 x i32]* %arr_ne.priv
-; CHECK-DAG: SOAUnsafe = [1024 x i32]* %arr_e.priv
-; CHECK-DAG: SOASafe = i32* %index.lpriv
+; CHECK-DAG: SOASafe = arr.priv
+; CHECK-DAG: SOASafe = arr_ne.priv
+; CHECK-DAG: SOAUnsafe = arr_e.priv
+; CHECK-DAG: SOASafe = index.lpriv
 
 ; Source-file: test.c
 ;int arr[1024];

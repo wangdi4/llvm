@@ -33,6 +33,9 @@
 #include "llvm/Option/ArgList.h"
 #include "llvm/Option/OptTable.h"
 #include "llvm/Option/Option.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/Support/CommandLine.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
@@ -448,8 +451,9 @@ std::string ToolChain::getCompilerRTPath() const {
   return std::string(Path.str());
 }
 
-std::string ToolChain::getCompilerRT(const ArgList &Args, StringRef Component,
-                                     FileType Type) const {
+std::string ToolChain::getCompilerRTBasename(const ArgList &Args,
+                                             StringRef Component, FileType Type,
+                                             bool AddArch) const {
   const llvm::Triple &TT = getTriple();
   bool IsITANMSVCWindows =
       TT.isWindowsMSVCEnvironment() || TT.isWindowsItaniumEnvironment();
@@ -471,18 +475,32 @@ std::string ToolChain::getCompilerRT(const ArgList &Args, StringRef Component,
     break;
   }
 
+  std::string ArchAndEnv;
+  if (AddArch) {
+    StringRef Arch = getArchNameForCompilerRTLib(*this, Args);
+    const char *Env = TT.isAndroid() ? "-android" : "";
+    ArchAndEnv = ("-" + Arch + Env).str();
+  }
+  return (Prefix + Twine("clang_rt.") + Component + ArchAndEnv + Suffix).str();
+}
+
+std::string ToolChain::getCompilerRT(const ArgList &Args, StringRef Component,
+                                     FileType Type) const {
+  // Check for runtime files in the new layout without the architecture first.
+  std::string CRTBasename =
+      getCompilerRTBasename(Args, Component, Type, /*AddArch=*/false);
   for (const auto &LibPath : getLibraryPaths()) {
     SmallString<128> P(LibPath);
-    llvm::sys::path::append(P, Prefix + Twine("clang_rt.") + Component + Suffix);
+    llvm::sys::path::append(P, CRTBasename);
     if (getVFS().exists(P))
       return std::string(P.str());
   }
 
-  StringRef Arch = getArchNameForCompilerRTLib(*this, Args);
-  const char *Env = TT.isAndroid() ? "-android" : "";
+  // Fall back to the old expected compiler-rt name if the new one does not
+  // exist.
+  CRTBasename = getCompilerRTBasename(Args, Component, Type, /*AddArch=*/true);
   SmallString<128> Path(getCompilerRTPath());
-  llvm::sys::path::append(Path, Prefix + Twine("clang_rt.") + Component + "-" +
-                                    Arch + Env + Suffix);
+  llvm::sys::path::append(Path, CRTBasename);
   return std::string(Path.str());
 }
 
@@ -540,24 +558,20 @@ bool ToolChain::needsProfileRT(const ArgList &Args) {
   if (Args.hasArg(options::OPT_noprofilelib))
     return false;
 
-  if (needsGCovInstrumentation(Args) ||
-      Args.hasArg(options::OPT_fprofile_generate) ||
-      Args.hasArg(options::OPT_fprofile_generate_EQ) ||
-      Args.hasArg(options::OPT_fcs_profile_generate) ||
-      Args.hasArg(options::OPT_fcs_profile_generate_EQ) ||
-      Args.hasArg(options::OPT_fprofile_instr_generate) ||
-      Args.hasArg(options::OPT_fprofile_instr_generate_EQ) ||
-      Args.hasArg(options::OPT_fcreate_profile) ||
-      Args.hasArg(options::OPT_forder_file_instrumentation))
-    return true;
-
-  return false;
+  return Args.hasArg(options::OPT_fprofile_generate) ||
+         Args.hasArg(options::OPT_fprofile_generate_EQ) ||
+         Args.hasArg(options::OPT_fcs_profile_generate) ||
+         Args.hasArg(options::OPT_fcs_profile_generate_EQ) ||
+         Args.hasArg(options::OPT_fprofile_instr_generate) ||
+         Args.hasArg(options::OPT_fprofile_instr_generate_EQ) ||
+         Args.hasArg(options::OPT_fcreate_profile) ||
+         Args.hasArg(options::OPT_forder_file_instrumentation);
 }
 
 bool ToolChain::needsGCovInstrumentation(const llvm::opt::ArgList &Args) {
-  return Args.hasFlag(options::OPT_fprofile_arcs, options::OPT_fno_profile_arcs,
-                      false) ||
-         Args.hasArg(options::OPT_coverage);
+  return Args.hasArg(options::OPT_coverage) ||
+         Args.hasFlag(options::OPT_fprofile_arcs, options::OPT_fno_profile_arcs,
+                      false);
 }
 
 Tool *ToolChain::SelectTool(const JobAction &JA) const {
@@ -807,7 +821,8 @@ void ToolChain::addClangWarningOptions(ArgStringList &CC1Args) const {}
 
 void ToolChain::addProfileRTLibs(const llvm::opt::ArgList &Args,
                                  llvm::opt::ArgStringList &CmdArgs) const {
-  if (!needsProfileRT(Args)) return;
+  if (!needsProfileRT(Args) && !needsGCovInstrumentation(Args))
+    return;
 
   CmdArgs.push_back(getCompilerRTArgString(Args, "profile"));
 }
@@ -955,6 +970,10 @@ void ToolChain::AddCXXStdlibLibArgs(const ArgList &Args,
   switch (Type) {
   case ToolChain::CST_Libcxx:
     CmdArgs.push_back("-lc++");
+#if INTEL_CUSTOMIZATION
+    if (Args.hasArg(options::OPT__intel))
+      CmdArgs.push_back("-lc++abi");
+#endif // INTEL_CUSTOMIZTION
     break;
 
   case ToolChain::CST_Libstdcxx:
@@ -1411,6 +1430,57 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
           Index = Args.getBaseArgs().MakeIndex(A->getValue(1));
         else
           continue;
+#if INTEL_CUSTOMIZATION
+      } else if (A->getOption().matches(options::OPT_fopenmp_targets_EQ)) {
+        // Capture options from -fopenmp-targets=<triple>=<opts>
+        StringRef Val(A->getValue());
+        std::pair<StringRef, StringRef> T = Val.split('=');
+        if (!T.second.empty()) {
+          // Add the the original -fopenmp-targets option without the additional
+          // arguments, then add the arguments.
+          Arg *ArgReplace =
+              new Arg(A->getOption(), Args.MakeArgString(A->getSpelling()),
+                      Args.getBaseArgs().MakeIndex(A->getSpelling()),
+                      Args.MakeArgString(T.first));
+          std::unique_ptr<llvm::opt::Arg> OffloadTargetArg(ArgReplace);
+          OffloadTargetArg->setBaseArg(A);
+          Arg *A4 = OffloadTargetArg.release();
+          AllocatedArgs.push_back(A4);
+          DAL->append(A4);
+
+          // Tokenize the string.
+          SmallVector<const char *, 8> TargetArgs;
+          llvm::BumpPtrAllocator BPA;
+          llvm::StringSaver S(BPA);
+          llvm::cl::TokenizeGNUCommandLine(T.second, S, TargetArgs);
+          unsigned MissingArgIndex, MissingArgCount;
+          InputArgList NewArgs =
+              Opts.ParseArgs(TargetArgs, MissingArgIndex, MissingArgCount);
+          for (Arg *NA : NewArgs) {
+            // Add the new arguments.
+            Arg *OffloadArg;
+            if (NA->getNumValues()) {
+              StringRef Value(NA->getValue());
+              OffloadArg = new Arg(
+                  NA->getOption(), Args.MakeArgString(NA->getSpelling()),
+                  Args.getBaseArgs().MakeIndex(NA->getSpelling()),
+                  Args.MakeArgString(Value.data()));
+            } else {
+              OffloadArg = new Arg(
+                  NA->getOption(), Args.MakeArgString(NA->getSpelling()),
+                  Args.getBaseArgs().MakeIndex(NA->getSpelling()));
+            }
+            std::unique_ptr<llvm::opt::Arg> A2(OffloadArg);
+            A2->setBaseArg(A);
+            Arg *A4 = A2.release();
+            AllocatedArgs.push_back(A4);
+            DAL->append(A4);
+          }
+          Modified = true;
+        } else
+          DAL->append(A);
+        continue;
+#endif // INTEL_CUSTOMIZATION
       } else if (XOffloadTargetNoTriple) {
         // Passing device args: -Xopenmp-target -opt=val.
         Index = Args.getBaseArgs().MakeIndex(A->getValue(0));
@@ -1477,11 +1547,20 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
   return nullptr;
 }
 
-void ToolChain::TranslateXarchArgs(const llvm::opt::DerivedArgList &Args,
-                                   llvm::opt::Arg *&A,
-                                   llvm::opt::DerivedArgList *DAL) const {
+// TODO: Currently argument values separated by space e.g.
+// -Xclang -mframe-pointer=no cannot be passed by -Xarch_. This should be
+// fixed.
+void ToolChain::TranslateXarchArgs(
+    const llvm::opt::DerivedArgList &Args, llvm::opt::Arg *&A,
+    llvm::opt::DerivedArgList *DAL,
+    SmallVectorImpl<llvm::opt::Arg *> *AllocatedArgs) const {
   const OptTable &Opts = getDriver().getOpts();
-  unsigned Index = Args.getBaseArgs().MakeIndex(A->getValue(1));
+  unsigned ValuePos = 1;
+  if (A->getOption().matches(options::OPT_Xarch_device) ||
+      A->getOption().matches(options::OPT_Xarch_host))
+    ValuePos = 0;
+
+  unsigned Index = Args.getBaseArgs().MakeIndex(A->getValue(ValuePos));
   unsigned Prev = Index;
   std::unique_ptr<llvm::opt::Arg> XarchArg(Opts.ParseOneArg(Args, Index));
 
@@ -1504,5 +1583,49 @@ void ToolChain::TranslateXarchArgs(const llvm::opt::DerivedArgList &Args,
   }
   XarchArg->setBaseArg(A);
   A = XarchArg.release();
-  DAL->AddSynthesizedArg(A);
+  if (!AllocatedArgs)
+    DAL->AddSynthesizedArg(A);
+  else
+    AllocatedArgs->push_back(A);
+}
+
+llvm::opt::DerivedArgList *ToolChain::TranslateXarchArgs(
+    const llvm::opt::DerivedArgList &Args, StringRef BoundArch,
+    Action::OffloadKind OFK,
+    SmallVectorImpl<llvm::opt::Arg *> *AllocatedArgs) const {
+  DerivedArgList *DAL = new DerivedArgList(Args.getBaseArgs());
+  bool Modified = false;
+
+  bool IsGPU = OFK == Action::OFK_Cuda || OFK == Action::OFK_HIP;
+  for (Arg *A : Args) {
+    bool NeedTrans = false;
+    bool Skip = false;
+    if (A->getOption().matches(options::OPT_Xarch_device)) {
+      NeedTrans = IsGPU;
+      Skip = !IsGPU;
+    } else if (A->getOption().matches(options::OPT_Xarch_host)) {
+      NeedTrans = !IsGPU;
+      Skip = IsGPU;
+    } else if (A->getOption().matches(options::OPT_Xarch__) && IsGPU) {
+      // Do not translate -Xarch_ options for non CUDA/HIP toolchain since
+      // they may need special translation.
+      // Skip this argument unless the architecture matches BoundArch
+      if (BoundArch.empty() || A->getValue(0) != BoundArch)
+        Skip = true;
+      else
+        NeedTrans = true;
+    }
+    if (NeedTrans || Skip)
+      Modified = true;
+    if (NeedTrans)
+      TranslateXarchArgs(Args, A, DAL, AllocatedArgs);
+    if (!Skip)
+      DAL->append(A);
+  }
+
+  if (Modified)
+    return DAL;
+
+  delete DAL;
+  return nullptr;
 }

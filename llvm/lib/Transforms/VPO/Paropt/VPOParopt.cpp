@@ -87,9 +87,6 @@ void VPOParopt::getAnalysisUsage(AnalysisUsage &AU) const {
 }
 
 bool VPOParopt::runOnModule(Module &M) {
-  if (skipModule(M))
-    return false;
-
   auto WRegionInfoGetter = [&](Function &F) -> WRegionInfo & {
     return getAnalysis<WRegionInfoWrapperPass>(F).getWRegionInfo();
   };

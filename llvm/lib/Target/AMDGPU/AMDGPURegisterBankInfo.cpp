@@ -444,15 +444,15 @@ static bool isScalarLoadLegal(const MachineInstr &MI) {
                        AS == AMDGPUAS::CONSTANT_ADDRESS_32BIT;
 
   // There are no extending SMRD/SMEM loads, and they require 4-byte alignment.
-  return MMO->getSize() >= 4 && MMO->getAlignment() >= 4 &&
-    // Can't do a scalar atomic load.
-    !MMO->isAtomic() &&
-    // Don't use scalar loads for volatile accesses to non-constant address
-    // spaces.
-    (IsConst || !MMO->isVolatile()) &&
-    // Memory must be known constant, or not written before this load.
-    (IsConst || MMO->isInvariant() || memOpHasNoClobbered(MMO)) &&
-    AMDGPUInstrInfo::isUniformMMO(MMO);
+  return MMO->getSize() >= 4 && MMO->getAlign() >= Align(4) &&
+         // Can't do a scalar atomic load.
+         !MMO->isAtomic() &&
+         // Don't use scalar loads for volatile accesses to non-constant address
+         // spaces.
+         (IsConst || !MMO->isVolatile()) &&
+         // Memory must be known constant, or not written before this load.
+         (IsConst || MMO->isInvariant() || memOpHasNoClobbered(MMO)) &&
+         AMDGPUInstrInfo::isUniformMMO(MMO);
 }
 
 RegisterBankInfo::InstructionMappings
@@ -541,7 +541,6 @@ AMDGPURegisterBankInfo::getInstrAlternativeMappings(
     LLT PtrTy = MRI.getType(MI.getOperand(1).getReg());
     unsigned PtrSize = PtrTy.getSizeInBits();
     unsigned AS = PtrTy.getAddressSpace();
-    LLT LoadTy = MRI.getType(MI.getOperand(0).getReg());
 
     if ((AS != AMDGPUAS::LOCAL_ADDRESS && AS != AMDGPUAS::REGION_ADDRESS &&
          AS != AMDGPUAS::PRIVATE_ADDRESS) &&
@@ -555,9 +554,10 @@ AMDGPURegisterBankInfo::getInstrAlternativeMappings(
     }
 
     const InstructionMapping &VVMapping = getInstructionMapping(
-        2, 1, getOperandsMapping(
-          {AMDGPU::getValueMappingLoadSGPROnly(AMDGPU::VGPRRegBankID, LoadTy),
-           AMDGPU::getValueMapping(AMDGPU::VGPRRegBankID, PtrSize)}),
+        2, 1,
+        getOperandsMapping(
+            {AMDGPU::getValueMapping(AMDGPU::VGPRRegBankID, Size),
+             AMDGPU::getValueMapping(AMDGPU::VGPRRegBankID, PtrSize)}),
         2); // Num Operands
     AltMappings.push_back(&VVMapping);
 
@@ -1102,23 +1102,6 @@ void AMDGPURegisterBankInfo::constrainOpWithReadfirstlane(
   MI.getOperand(OpIdx).setReg(SGPR);
 }
 
-// When regbankselect repairs registers, it will insert a repair instruction
-// which defines the repaired register.  Then it calls applyMapping and expects
-// that the targets will either delete or rewrite the originally wrote to the
-// repaired registers.  Beccause of this, we end up in a situation where
-// we have 2 instructions defining the same registers.
-static MachineInstr *getOtherVRegDef(const MachineRegisterInfo &MRI,
-                                     Register Reg,
-                                     const MachineInstr &MI) {
-  // Is there some way we can assert that there are exactly 2 def instructions?
-  for (MachineInstr &Other : MRI.def_instructions(Reg)) {
-    if (&Other != &MI)
-      return &Other;
-  }
-
-  return nullptr;
-}
-
 bool AMDGPURegisterBankInfo::applyMappingWideLoad(MachineInstr &MI,
                         const AMDGPURegisterBankInfo::OperandsMapper &OpdMapper,
                                               MachineRegisterInfo &MRI) const {
@@ -1144,11 +1127,6 @@ bool AMDGPURegisterBankInfo::applyMappingWideLoad(MachineInstr &MI,
 
   assert(LoadSize % MaxNonSmrdLoadSize == 0);
 
-  // We want to get the repair instruction now, because it will help us
-  // determine which instruction the legalizer inserts that will also
-  // write to DstReg.
-  MachineInstr *RepairInst = getOtherVRegDef(MRI, DstReg, MI);
-
   // RegBankSelect only emits scalar types, so we need to reset the pointer
   // operand to a pointer type.
   Register BasePtrReg = SrcRegs[0];
@@ -1166,26 +1144,6 @@ bool AMDGPURegisterBankInfo::applyMappingWideLoad(MachineInstr &MI,
   LegalizerHelper Helper(B.getMF(), Observer, B);
   if (Helper.fewerElementsVector(MI, 0, LoadSplitTy) != LegalizerHelper::Legalized)
     return false;
-
-  // At this point, the legalizer has split the original load into smaller
-  // loads.  At the end of lowering, it inserts an instruction (LegalizedInst)
-  // that combines the outputs of the lower loads and writes it to DstReg.
-  // The register bank selector has also added the RepairInst which writes to
-  // DstReg as well.
-
-  MachineInstr *LegalizedInst = getOtherVRegDef(MRI, DstReg, *RepairInst);
-
-  // Replace the output of the LegalizedInst with a temporary register, since
-  // RepairInst already defines DstReg.
-  Register TmpReg = MRI.createGenericVirtualRegister(MRI.getType(DstReg));
-  LegalizedInst->getOperand(0).setReg(TmpReg);
-  B.setInsertPt(*RepairInst->getParent(), RepairInst);
-
-  for (unsigned DefIdx = 0, e = DefRegs.size(); DefIdx != e; ++DefIdx) {
-    Register IdxReg = B.buildConstant(LLT::scalar(32), DefIdx).getReg(0);
-    MRI.setRegBank(IdxReg, AMDGPU::VGPRRegBank);
-    B.buildExtractVectorElement(DefRegs[DefIdx], TmpReg, IdxReg);
-  }
 
   MRI.setRegBank(DstReg, AMDGPU::VGPRRegBank);
   return true;
@@ -1317,12 +1275,6 @@ static unsigned setBufferOffsets(MachineIRBuilder &B,
   return 0;
 }
 
-static LLT divideLLT(LLT Ty, int Factor) {
-  if (Ty.isVector())
-    return LLT::vector(Ty.getNumElements() / Factor, Ty.getElementType());
-  return LLT::scalar(Ty.getSizeInBits() / Factor);
-}
-
 bool AMDGPURegisterBankInfo::applyMappingSBufferLoad(
   const OperandsMapper &OpdMapper) const {
   MachineInstr &MI = OpdMapper.getMI();
@@ -1347,12 +1299,12 @@ bool AMDGPURegisterBankInfo::applyMappingSBufferLoad(
   int NumLoads = 1;
   if (LoadSize == 256 || LoadSize == 512) {
     NumLoads = LoadSize / 128;
-    Ty = divideLLT(Ty, NumLoads);
+    Ty = Ty.divide(NumLoads);
   }
 
   // Use the alignment to ensure that the required offsets will fit into the
   // immediate offsets.
-  const unsigned Align = NumLoads > 1 ? 16 * NumLoads : 1;
+  const unsigned Alignment = NumLoads > 1 ? 16 * NumLoads : 1;
 
   MachineIRBuilder B(MI);
   MachineFunction &MF = B.getMF();
@@ -1362,12 +1314,12 @@ bool AMDGPURegisterBankInfo::applyMappingSBufferLoad(
   int64_t ImmOffset = 0;
 
   unsigned MMOOffset = setBufferOffsets(B, *this, MI.getOperand(2).getReg(),
-                                        VOffset, SOffset, ImmOffset, Align);
+                                        VOffset, SOffset, ImmOffset, Alignment);
 
   // TODO: 96-bit loads were widened to 128-bit results. Shrink the result if we
   // can, but we neeed to track an MMO for that.
   const unsigned MemSize = (Ty.getSizeInBits() + 7) / 8;
-  const unsigned MemAlign = 4; // FIXME: ABI type alignment?
+  const Align MemAlign(4); // FIXME: ABI type alignment?
   MachineMemOperand *BaseMMO = MF.getMachineMemOperand(
     MachinePointerInfo(),
     MachineMemOperand::MOLoad | MachineMemOperand::MODereferenceable |
@@ -2074,11 +2026,16 @@ void AMDGPURegisterBankInfo::applyMappingImpl(
   }
   case AMDGPU::G_ADD:
   case AMDGPU::G_SUB:
-  case AMDGPU::G_MUL: {
+  case AMDGPU::G_MUL:
+  case AMDGPU::G_SHL:
+  case AMDGPU::G_LSHR:
+  case AMDGPU::G_ASHR: {
     Register DstReg = MI.getOperand(0).getReg();
     LLT DstTy = MRI.getType(DstReg);
-    const LLT S32 = LLT::scalar(32);
-    if (DstTy == S32)
+
+    // 16-bit operations are VALU only, but can be promoted to 32-bit SALU.
+    // Packed 16-bit operations need to be scalarized and promoted.
+    if (DstTy != LLT::scalar(16) && DstTy != LLT::vector(2, 16))
       break;
 
     const RegisterBank *DstBank =
@@ -2086,9 +2043,7 @@ void AMDGPURegisterBankInfo::applyMappingImpl(
     if (DstBank == &AMDGPU::VGPRRegBank)
       break;
 
-    // 16-bit operations are VALU only, but can be promoted to 32-bit SALU.
-    // Packed 16-bit operations need to be scalarized and promoted.
-
+    const LLT S32 = LLT::scalar(32);
     MachineFunction *MF = MI.getParent()->getParent();
     MachineIRBuilder B(MI);
     ApplyRegBankMapping ApplySALU(*this, MRI, &AMDGPU::SGPRRegBank);
@@ -2113,6 +2068,13 @@ void AMDGPURegisterBankInfo::applyMappingImpl(
 
       if (Helper.widenScalar(MI, 0, S32) != LegalizerHelper::Legalized)
         llvm_unreachable("widen scalar should have succeeded");
+
+      // FIXME: s16 shift amounts should be lgeal.
+      if (Opc == AMDGPU::G_SHL || Opc == AMDGPU::G_LSHR ||
+          Opc == AMDGPU::G_ASHR) {
+        if (Helper.widenScalar(MI, 1, S32) != LegalizerHelper::Legalized)
+          llvm_unreachable("widen scalar should have succeeded");
+      }
     }
 
     return;
@@ -2920,6 +2882,10 @@ AMDGPURegisterBankInfo::getImageMapping(const MachineRegisterInfo &MRI,
       continue;
 
     Register OpReg = MI.getOperand(I).getReg();
+    // We replace some dead address operands with $noreg
+    if (!OpReg)
+      continue;
+
     unsigned Size = getSizeInBits(OpReg, MRI, *TRI);
 
     // FIXME: Probably need a new intrinsic register bank searchable table to
@@ -2964,7 +2930,6 @@ AMDGPURegisterBankInfo::getInstrMappingForLoad(const MachineInstr &MI) const {
   const MachineRegisterInfo &MRI = MF.getRegInfo();
   SmallVector<const ValueMapping*, 2> OpdsMapping(2);
   unsigned Size = getSizeInBits(MI.getOperand(0).getReg(), MRI, *TRI);
-  LLT LoadTy = MRI.getType(MI.getOperand(0).getReg());
   Register PtrReg = MI.getOperand(1).getReg();
   LLT PtrTy = MRI.getType(PtrReg);
   unsigned AS = PtrTy.getAddressSpace();
@@ -2990,11 +2955,9 @@ AMDGPURegisterBankInfo::getInstrMappingForLoad(const MachineInstr &MI) const {
         AMDGPU::VGPRRegBankID : AMDGPU::SGPRRegBankID;
 
       PtrMapping = AMDGPU::getValueMapping(PtrBankID, PtrSize);
-      ValMapping = AMDGPU::getValueMappingLoadSGPROnly(AMDGPU::VGPRRegBankID,
-                                                       LoadTy);
     }
   } else {
-    ValMapping = AMDGPU::getValueMappingLoadSGPROnly(AMDGPU::VGPRRegBankID, LoadTy);
+    ValMapping = AMDGPU::getValueMapping(AMDGPU::VGPRRegBankID, Size);
     PtrMapping = AMDGPU::getValueMapping(AMDGPU::VGPRRegBankID, PtrSize);
   }
 
@@ -3284,10 +3247,15 @@ AMDGPURegisterBankInfo::getInstrMapping(const MachineInstr &MI) const {
   case AMDGPU::G_FCANONICALIZE:
   case AMDGPU::G_INTRINSIC_TRUNC:
   case AMDGPU::G_BSWAP: // TODO: Somehow expand for scalar?
+  case AMDGPU::G_FSHR: // TODO: Expand for scalar
   case AMDGPU::G_AMDGPU_FFBH_U32:
   case AMDGPU::G_AMDGPU_FMIN_LEGACY:
   case AMDGPU::G_AMDGPU_FMAX_LEGACY:
   case AMDGPU::G_AMDGPU_RCP_IFLAG:
+  case AMDGPU::G_AMDGPU_CVT_F32_UBYTE0:
+  case AMDGPU::G_AMDGPU_CVT_F32_UBYTE1:
+  case AMDGPU::G_AMDGPU_CVT_F32_UBYTE2:
+  case AMDGPU::G_AMDGPU_CVT_F32_UBYTE3:
     return getDefaultMappingVOP(MI);
   case AMDGPU::G_UMULH:
   case AMDGPU::G_SMULH: {

@@ -46,11 +46,14 @@
 #include "ToolChains/PPCLinux.h"
 #include "ToolChains/PS4CPU.h"
 #include "ToolChains/RISCVToolchain.h"
+#include "ToolChains/SYCL.h"
 #include "ToolChains/Solaris.h"
 #include "ToolChains/TCE.h"
 #include "ToolChains/WebAssembly.h"
 #include "ToolChains/XCore.h"
-#include "ToolChains/SYCL.h"
+#if INTEL_CUSTOMIZATION
+#include "ToolChains/Arch/X86.h"
+#endif // INTEL_CUSTOMIZATION
 #include "clang/Basic/Version.h"
 #include "clang/Config/config.h"
 #include "clang/Driver/Action.h"
@@ -67,6 +70,7 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/ADT/StringSwitch.h"
+#include "llvm/BinaryFormat/Magic.h"
 #include "llvm/Config/llvm-config.h"
 #include "llvm/Option/Arg.h"
 #include "llvm/Option/ArgList.h"
@@ -145,6 +149,13 @@ Driver::Driver(StringRef ClangExecutable, StringRef TargetTriple,
   Name = std::string(llvm::sys::path::filename(ClangExecutable));
   Dir = std::string(llvm::sys::path::parent_path(ClangExecutable));
   InstalledDir = Dir; // Provide a sensible default installed dir.
+
+  if ((!SysRoot.empty()) && llvm::sys::path::is_relative(SysRoot)) {
+    // Prepend InstalledDir if SysRoot is relative
+    SmallString<128> P(InstalledDir);
+    llvm::sys::path::append(P, SysRoot);
+    SysRoot = std::string(P);
+  }
 
 #if defined(CLANG_CONFIG_FILE_SYSTEM_DIR)
   SystemConfigDir = CLANG_CONFIG_FILE_SYSTEM_DIR;
@@ -437,9 +448,22 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
 #endif
 
 #if INTEL_CUSTOMIZATION
-  // The Intel compiler defaults to -O2
-  if (Args.hasArg(options::OPT__intel) && !Args.hasArg(options::OPT_O_Group)) {
-    DAL->AddJoinedArg(0, Opts.getOption(options::OPT_O), "2");
+  if (Args.hasArg(options::OPT__intel)) {
+    // The Intel compiler defaults to -O2
+    if (!Args.hasArg(options::OPT_O_Group))
+      DAL->AddJoinedArg(0, Opts.getOption(options::OPT_O), "2");
+    // -fveclib=SVML default.
+    if (!Args.hasArg(options::OPT_fveclib))
+      DAL->AddJoinedArg(0, Opts.getOption(options::OPT_fveclib), "SVML");
+    // For LTO on Windows, use -fuse-ld=lld when Qipo is used.
+    if (Args.hasArg(options::OPT_flto) &&
+        !Args.hasArg(options::OPT_fuse_ld_EQ)) {
+      Arg *A = Args.getLastArg(options::OPT_flto);
+      StringRef Opt(A->getAsString(Args));
+      // TODO - improve determination of last phase
+      if (Opt.contains("Qipo") && !Args.hasArg(options::OPT_c, options::OPT_S))
+        DAL->AddJoinedArg(0, Opts.getOption(options::OPT_fuse_ld_EQ), "lld");
+    }
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -745,7 +769,11 @@ void Driver::CreateOffloadingDeviceToolChains(Compilation &C,
       if (HasValidOpenMPRuntime) {
         llvm::StringMap<const char *> FoundNormalizedTriples;
         for (const char *Val : OpenMPTargets->getValues()) {
-          llvm::Triple TT(Val);
+#if INTEL_CUSTOMIZATION
+          // Strip off any trailing options from
+          // -fopenmp-targets=<triple>="opts" usage.
+          llvm::Triple TT(StringRef(Val).split('=').first);
+#endif // INTEL_CUSTOMIZATION
           std::string NormalizedName = TT.normalize();
 
           // Make sure we don't have a duplicate triple.
@@ -809,6 +837,15 @@ void Driver::CreateOffloadingDeviceToolChains(Compilation &C,
     }
     return SYCLArg;
   };
+
+  // Emit an error if c-compilation is forced in -fsycl mode
+  if (HasValidSYCLRuntime)
+    for (StringRef XValue : C.getInputArgs().getAllArgValues(options::OPT_x)) {
+      if (XValue == "c" || XValue == "c-header")
+        C.getDriver().Diag(clang::diag::err_drv_fsycl_with_c_type)
+            << "-x " << XValue;
+    }
+
   Arg *SYCLTargets = getArgRequiringSYCLRuntime(options::OPT_fsycl_targets_EQ);
   Arg *SYCLLinkTargets =
       getArgRequiringSYCLRuntime(options::OPT_fsycl_link_targets_EQ);
@@ -1485,10 +1522,6 @@ void Driver::generateCompilationDiagnostics(
   // Print the version of the compiler.
   PrintVersion(C, llvm::errs());
 
-  Diag(clang::diag::note_drv_command_failed_diag_msg)
-      << "PLEASE submit a bug report to " BUG_REPORT_URL " and include the "
-         "crash backtrace, preprocessed source, and associated run script.";
-
   // Suppress driver output and emit preprocessor output to temp file.
   Mode = CPPMode;
   CCGenDiagnostics = true;
@@ -1780,8 +1813,6 @@ llvm::Triple Driver::MakeSYCLDeviceTriple(StringRef TargetArch) const {
   TT.setVendor(llvm::Triple::UnknownVendor);
   TT.setOS(llvm::Triple::UnknownOS);
   TT.setEnvironment(llvm::Triple::SYCLDevice);
-  if (IsCLMode())
-    TT.setObjectFormat(llvm::Triple::COFF);
   return TT;
 }
 
@@ -2515,6 +2546,16 @@ void Driver::BuildInputs(const ToolChain &TC, DerivedArgList &Args,
       // options. Its not clear why we shouldn't just revert to unknown; but
       // this isn't very important, we might as well be bug compatible.
       if (!InputType) {
+#if INTEL_CUSTOMIZATION
+        // Here we hijack the -x options to parse for Intel specific codes.
+        // We have to do this as -x<code> is a common usage model even though
+        // it conflicts with -x <language>.  Check for matching codes and
+        // if one is not found, fallthrough to the error for -x <language>.
+        if (tools::x86::isValidIntelCPU(A->getValue(), TC.getTriple())) {
+          InputType = types::TY_Nothing;
+          continue;
+        }
+#endif // INTEL_CUSTOMIZATION
         Diag(clang::diag::err_drv_unknown_language) << A->getValue();
         InputType = types::TY_Object;
       }
@@ -2604,6 +2645,10 @@ static bool runBundler(const SmallVectorImpl<StringRef> &BundlerArgs,
 
 bool hasFPGABinary(Compilation &C, std::string Object, types::ID Type) {
   assert(types::isFPGA(Type) && "unexpected Type for FPGA binary check");
+  // Do not do the check if the file doesn't exist
+  if (!llvm::sys::fs::exists(Object))
+    return false;
+
   // Temporary names for the output.
   llvm::Triple TT;
   TT.setArchName(types::getTypeName(Type));
@@ -3047,13 +3092,13 @@ class OffloadingActionBuilder final {
       std::set<CudaArch> GpuArchs;
       bool Error = false;
       for (Arg *A : Args) {
-        if (!(A->getOption().matches(options::OPT_cuda_gpu_arch_EQ) ||
-              A->getOption().matches(options::OPT_no_cuda_gpu_arch_EQ)))
+        if (!(A->getOption().matches(options::OPT_offload_arch_EQ) ||
+              A->getOption().matches(options::OPT_no_offload_arch_EQ)))
           continue;
         A->claim();
 
         const StringRef ArchStr = A->getValue();
-        if (A->getOption().matches(options::OPT_no_cuda_gpu_arch_EQ) &&
+        if (A->getOption().matches(options::OPT_no_offload_arch_EQ) &&
             ArchStr == "all") {
           GpuArchs.clear();
           continue;
@@ -3062,9 +3107,9 @@ class OffloadingActionBuilder final {
         if (Arch == CudaArch::UNKNOWN) {
           C.getDriver().Diag(clang::diag::err_drv_cuda_bad_gpu_arch) << ArchStr;
           Error = true;
-        } else if (A->getOption().matches(options::OPT_cuda_gpu_arch_EQ))
+        } else if (A->getOption().matches(options::OPT_offload_arch_EQ))
           GpuArchs.insert(Arch);
-        else if (A->getOption().matches(options::OPT_no_cuda_gpu_arch_EQ))
+        else if (A->getOption().matches(options::OPT_no_offload_arch_EQ))
           GpuArchs.erase(Arch);
         else
           llvm_unreachable("Unexpected option.");
@@ -3376,8 +3421,9 @@ class OffloadingActionBuilder final {
       if (auto *IA = dyn_cast<InputAction>(HostAction)) {
         OpenMPDeviceActions.clear();
 #if INTEL_CUSTOMIZATION
-        // Objects should already be consumed with -foffload-static-lib
-        if (Args.hasArg(options::OPT_foffload_static_lib_EQ) &&
+        // Objects should already be consumed when encountering a fat static
+        // library.
+        if (C.getDriver().getOffloadStaticLibSeen() &&
             IA->getType() == types::TY_Object &&
             isObjectFile(IA->getInputArg().getAsString(Args)))
           return ABRT_Inactive;
@@ -4071,7 +4117,7 @@ class OffloadingActionBuilder final {
         A->claim();
         auto ParsedArg = Opts.ParseOneArg(Args, Index);
         // TODO: Support --no-cuda-gpu-arch, --{,no-}cuda-gpu-arch=all.
-        if (ParsedArg->getOption().matches(options::OPT_cuda_gpu_arch_EQ)) {
+        if (ParsedArg->getOption().matches(options::OPT_offload_arch_EQ)) {
           ParsedArg->claim();
           GpuArchList.push_back(StringToCudaArch(ParsedArg->getValue(0)));
         }
@@ -4887,6 +4933,10 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
     // At this point, we will process the archives for FPGA AOCO and individual
     // archive unbundling for Windows.
     if (!isStaticArchiveFile(LA))
+      continue;
+    // FPGA AOCX files are archives, but we do not want to unbundle them here
+    // as they have already been unbundled and processed for linking.
+    if (hasFPGABinary(C, LA.str(), types::TY_FPGA_AOCX))
       continue;
     // In MSVC environment offload-static-libs are handled slightly different
     // because of missing support for partial linking in the linker. We add an
@@ -6177,21 +6227,38 @@ const char *Driver::GetNamedOutputPath(Compilation &C, const JobAction &JA,
     NamedOutput = C.getArgs().MakeArgString(TempPath.c_str());
   }
 
-  // If we're saving temps and the temp file conflicts with the input file,
-  // then avoid overwriting input file.
-  if (!AtTopLevel && isSaveTempsEnabled() && NamedOutput == BaseName) {
-    bool SameFile = false;
-    SmallString<256> Result;
-    llvm::sys::fs::current_path(Result);
-    llvm::sys::path::append(Result, BaseName);
-    llvm::sys::fs::equivalent(BaseInput, Result.c_str(), SameFile);
-    // Must share the same path to conflict.
-    if (SameFile) {
-      StringRef Name = llvm::sys::path::filename(BaseInput);
-      std::pair<StringRef, StringRef> Split = Name.split('.');
-      std::string TmpName = GetTemporaryPath(
+  if (isSaveTempsEnabled()) {
+    // If we're saving temps and the temp file conflicts with any
+    // input/resulting file, then avoid overwriting.
+    if (!AtTopLevel) {
+      bool SameFile = false;
+      SmallString<256> Result;
+      llvm::sys::fs::current_path(Result);
+      llvm::sys::path::append(Result, BaseName);
+      llvm::sys::fs::equivalent(BaseInput, Result.c_str(), SameFile);
+      // Must share the same path to conflict.
+      if (SameFile) {
+        StringRef Name = llvm::sys::path::filename(BaseInput);
+        std::pair<StringRef, StringRef> Split = Name.split('.');
+        std::string TmpName = GetTemporaryPath(
+            Split.first, types::getTypeTempSuffix(JA.getType(), IsCLMode()));
+        return C.addTempFile(C.getArgs().MakeArgString(TmpName));
+      }
+    }
+
+    const auto &ResultFiles = C.getResultFiles();
+    const auto CollidingFilenameIt =
+        llvm::find_if(ResultFiles, [NamedOutput](const auto &It) {
+          return StringRef(NamedOutput).equals(It.second);
+        });
+    if (CollidingFilenameIt != ResultFiles.end()) {
+      // Upon any collision, a unique hash will be appended to the filename,
+      // similar to what is done for temporary files in the regular flow.
+      StringRef CollidingName(CollidingFilenameIt->second);
+      std::pair<StringRef, StringRef> Split = CollidingName.split('.');
+      std::string UniqueName = GetUniquePath(
           Split.first, types::getTypeTempSuffix(JA.getType(), IsCLMode()));
-      return C.addTempFile(C.getArgs().MakeArgString(TmpName));
+      return C.addResultFile(C.getArgs().MakeArgString(UniqueName), &JA);
     }
   }
 
@@ -6321,6 +6388,18 @@ std::string Driver::GetTemporaryPath(StringRef Prefix, StringRef Suffix) const {
   return std::string(Path.str());
 }
 
+std::string Driver::GetUniquePath(StringRef BaseName, StringRef Ext) const {
+  SmallString<128> Path;
+  std::error_code EC = llvm::sys::fs::createUniqueFile(
+      Twine(BaseName) + Twine("-%%%%%%.") + Ext, Path);
+  if (EC) {
+    Diag(clang::diag::err_unable_to_make_temp) << EC.message();
+    return "";
+  }
+
+  return std::string(Path.str());
+}
+
 std::string Driver::GetTemporaryDirectory(StringRef Prefix) const {
   SmallString<128> Path;
   std::error_code EC = llvm::sys::fs::createUniqueDirectory(Prefix, Path);
@@ -6421,6 +6500,8 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
       TC = std::make_unique<toolchains::Solaris>(*this, Target, Args);
       break;
     case llvm::Triple::AMDHSA:
+      TC = std::make_unique<toolchains::ROCMToolChain>(*this, Target, Args);
+      break;
     case llvm::Triple::AMDPAL:
     case llvm::Triple::Mesa3D:
       TC = std::make_unique<toolchains::AMDGPUToolChain>(*this, Target, Args);
@@ -6708,8 +6789,10 @@ bool clang::driver::isStaticArchiveFile(const StringRef &FileName) {
     // Any file with no extension should not be considered an Archive.
     return false;
   StringRef Ext(llvm::sys::path::extension(FileName).drop_front());
-  // Only .lib and .a files are to be considered.
-  return (Ext == "lib" || Ext == "a");
+  llvm::file_magic Magic;
+  llvm::identify_magic(FileName, Magic);
+  // Only .lib and archive files are to be considered.
+  return (Ext == "lib" || Magic == llvm::file_magic::archive);
 }
 
 bool clang::driver::willEmitRemarks(const ArgList &Args) {

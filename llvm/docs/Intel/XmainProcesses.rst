@@ -543,7 +543,7 @@ to call Intel_shareable_version_of_foo():
 ``When a COLLAB change is open-sourced``
 ----------------------------------------
 
-When a COLLAB change is promoted to llvm.org, then it is considered
+When a COLLAB change is promoted to the community, then it is considered
 community code and no longer Intel code, so we must remove its INTEL_COLLAB
 markers from xmain.
 

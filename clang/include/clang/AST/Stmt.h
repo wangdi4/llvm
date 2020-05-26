@@ -21,6 +21,7 @@
 #include "clang/Basic/LLVM.h"
 #include "clang/Basic/SourceLocation.h"
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/BitmaskEnum.h"
 #include "llvm/ADT/PointerIntPair.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/iterator.h"
@@ -310,10 +311,10 @@ protected:
 
     unsigned ValueKind : 2;
     unsigned ObjectKind : 3;
-    unsigned /*ExprDependence*/ Dependent : ExprDependenceBits;
+    unsigned /*ExprDependence*/ Dependent : llvm::BitWidth<ExprDependence>;
     unsigned IsCondition : 1; // INTEL
   };
-  enum { NumExprBits = NumStmtBits + 6 + ExprDependenceBits }; // INTEL
+  enum { NumExprBits = NumStmtBits + 6 +llvm::BitWidth<ExprDependence>};// INTEL
 
   class ConstantExprBitfields {
     friend class ASTStmtReader;
@@ -427,6 +428,11 @@ protected:
 
     unsigned Opc : 5;
     unsigned CanOverflow : 1;
+    //
+    /// This is only meaningful for operations on floating point
+    /// types when additional values need to be in trailing storage.
+    /// It is 0 otherwise.
+    unsigned HasFPFeatures : 1;
 
     SourceLocation Loc;
   };
@@ -525,8 +531,9 @@ protected:
     unsigned Opc : 6;
 
     /// This is only meaningful for operations on floating point
-    /// types and 0 otherwise.
-    unsigned FPFeatures : 8;
+    /// types when additional values need to be in trailing storage.
+    /// It is 0 otherwise.
+    unsigned HasFPFeatures : 1;
 
     SourceLocation OpLoc;
   };
@@ -609,7 +616,7 @@ protected:
     unsigned OperatorKind : 6;
 
     // Only meaningful for floating point types.
-    unsigned FPFeatures : 8;
+    unsigned FPFeatures : 14;
   };
 
   class CXXRewrittenBinaryOperatorBitfields {

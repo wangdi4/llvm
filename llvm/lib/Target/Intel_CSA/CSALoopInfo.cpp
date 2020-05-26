@@ -15,6 +15,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "CSALoopInfo.h"
+#include "llvm/Support/Debug.h"
 
 using namespace llvm;
 
@@ -26,11 +27,38 @@ unsigned CSALoopInfo::addExit(unsigned Index) {
 }
 
 void CSALoopInfo::addExitSwitch(unsigned ExitNum, MachineInstr *Switch) {
-  Exits[ExitNum].second.push_back(Switch);
+  Exits[ExitNum].ExitSwitches.push_back(Switch);
 }
 
 void CSALoopInfo::addHeaderPick(MachineInstr *Pick) {
   Picks.push_back(Pick);
+}
+
+void CSALoopInfo::removePickSwitch(MachineInstr *Pick, MachineInstr *Switch) {
+  for (auto PIter = Picks.begin(); PIter != Picks.end(); PIter++) {
+    if ((*PIter) == Pick) {
+      Picks.erase(PIter);
+      break;
+    }
+  }
+
+  for (auto &Exit : Exits) {
+    auto &Switches = Exit.ExitSwitches;
+    for (auto SIter = Switches.begin(); SIter != Switches.end(); SIter++) {
+      if ((*SIter) == Switch) {
+        Switches.erase(SIter);
+        return;
+      }
+    }
+  }
+}
+
+void CSALoopInfo::addILPLSpinningReg(unsigned Reg) {
+  ILPLSpinningRegs.insert(Reg);
+}
+
+bool CSALoopInfo::isILPLSpinningReg(unsigned Reg) const {
+  return ILPLSpinningRegs.count(Reg);
 }
 
 #ifndef NDEBUG
@@ -49,8 +77,8 @@ void CSALoopInfo::print(raw_ostream &OS) const {
   for (unsigned i = 0; i < Exits.size(); i++) {
     const ExitInfo &Exit = Exits[i];
     OS << "  Exit #" << i << ", " <<
-      (Exit.first == 0 ? "first" : "second") << " is the backedge:\n";
-    for (auto MI : Exit.second) {
+      (Exit.SwitchBackedgeIndex == 0 ? "first" : "second") << " is the backedge:\n";
+    for (auto MI : Exit.ExitSwitches) {
       OS << "    ";
       MI->print(OS);
     }

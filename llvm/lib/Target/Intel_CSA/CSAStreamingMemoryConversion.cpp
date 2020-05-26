@@ -21,6 +21,7 @@
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpander.h"
+#include "llvm/CodeGen/MachineMemOperand.h" // To get CSA_LOCAL_CACHE_METADATA_KEY.
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
@@ -28,8 +29,10 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/IntrinsicsCSA.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/Local.h"
@@ -56,6 +59,8 @@ static cl::opt<bool> EnableWideLoads(
 static cl::opt<bool> EnableAllLoops(
   "csa-streammem-expensive", cl::Hidden,
   cl::desc("CSA Specific: enable streaming memory even if trip counts are expensive"));
+
+extern cl::opt<bool> ILPLUseCompletionBuf;
 
 static cl::opt<unsigned> NumVCPRUnits("csa-max-vcpr", cl::Hidden, cl::init(256),
   cl::desc("Maximum number of VCPR units to generate for"));
@@ -98,6 +103,8 @@ class CSAStreamingMemoryImpl {
   SCEVExpander Expander;
   DenseMap<BasicBlock *, const SCEV *> ExecCounts;
 
+  const char *LocalCacheKey;
+
   bool isPipelinedLoop(Loop *L);
 
   Optional<StreamingMemoryDetails> getLegalStream(Value *Pointer,
@@ -134,7 +141,8 @@ public:
   CSAStreamingMemoryImpl(DominatorTree &DT, LoopInfo &LI, ScalarEvolution &SE,
       OptimizationRemarkEmitter &ORE, BlockFrequencyInfo &BFI)
     : DT(DT), LI(LI), ORE(ORE), SE(SE), BFI(BFI),
-      Expander(SE, SE.getDataLayout(), "streammem") {
+      Expander(SE, SE.getDataLayout(), "streammem"),
+      LocalCacheKey(CSA_LOCAL_CACHE_METADATA_KEY) {
         // Cause AddRecExprs to be expanded as phi loops rather than mul/adds.
         Expander.disableCanonicalMode();
       }
@@ -359,6 +367,18 @@ bool CSAStreamingMemoryImpl::runOnLoop(Loop *L) {
     return Changed;
   }
 
+  // If any nested loops are pipelined without order being restored (i.e., not
+  // using a completion buffer), then do not add streaming ops to the outer
+  // loop.
+  if (! ILPLUseCompletionBuf) {
+    for (Loop *childLoop : L->getSubLoops()) {
+      if (isPipelinedLoop(childLoop)) {
+        LLVM_DEBUG(dbgs() << "Ignoring loop containing ILPL-based loop " << *L);
+        return Changed;
+      }
+    }
+  }
+
   LLVM_DEBUG(dbgs() << "Searching for opportunities in " << *L);
   LLVM_DEBUG(dbgs() << "Backedge count is " << *BackedgeCount << "\n");
 
@@ -498,6 +518,10 @@ static bool anyUseInLoop(Value *V, Loop *L) {
 
 Optional<StreamingMemoryDetails> CSAStreamingMemoryImpl::getLegalStream(
     Value *Pointer, Instruction *MemInst) {
+
+  // Disable streaming if the instruction is in a local cache.
+  if (MemInst->hasMetadata(LocalCacheKey)) return None;
+
   const SCEV *S = SE.getSCEV(Pointer);
   Loop *L = LI.getLoopFor(MemInst->getParent());
   LLVM_DEBUG(dbgs() << "Candidate for streaming memory at " << *MemInst << "\n");
@@ -548,6 +572,10 @@ Optional<StreamingMemoryDetails> CSAStreamingMemoryImpl::getLegalStream(
 
 Optional<WideLoadDetails> CSAStreamingMemoryImpl::getLegalWideLoad(
     Value *Pointer, Instruction *MemInst) {
+
+  // Disable streaming if the instruction is in a local cache.
+  if (MemInst->hasMetadata(LocalCacheKey)) return None;
+
   const SCEV *S = SE.getSCEV(Pointer);
   LLVM_DEBUG(dbgs() << "Candidate for wide load at " << *MemInst << "\n");
   if (!S)

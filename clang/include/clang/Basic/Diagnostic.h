@@ -16,6 +16,7 @@
 
 #include "clang/Basic/DiagnosticIDs.h"
 #include "clang/Basic/DiagnosticOptions.h"
+#include "clang/Basic/intel/OptReportHandler.h"  // INTEL
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/Specifiers.h"
 #include "llvm/ADT/ArrayRef.h"
@@ -26,7 +27,6 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/Support/Compiler.h"
-#include "llvm/Support/Error.h"
 #include <cassert>
 #include <cstdint>
 #include <limits>
@@ -37,6 +37,10 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
+
+namespace llvm {
+class Error;
+}
 
 namespace clang {
 
@@ -495,6 +499,10 @@ public:
   DiagnosticsEngine(const DiagnosticsEngine &) = delete;
   DiagnosticsEngine &operator=(const DiagnosticsEngine &) = delete;
   ~DiagnosticsEngine();
+
+#if INTEL_CUSTOMIZATION
+  ClangOptReportHandler OptReportHandler;
+#endif // INTEL_CUSTOMIZATION
 
   LLVM_DUMP_METHOD void dump() const;
   LLVM_DUMP_METHOD void dump(StringRef DiagName) const;
@@ -1329,11 +1337,8 @@ inline DiagnosticBuilder DiagnosticsEngine::Report(SourceLocation Loc,
   return DiagnosticBuilder(this);
 }
 
-inline const DiagnosticBuilder &operator<<(const DiagnosticBuilder &DB,
-                                           llvm::Error &&E) {
-  DB.AddString(toString(std::move(E)));
-  return DB;
-}
+const DiagnosticBuilder &operator<<(const DiagnosticBuilder &DB,
+                                    llvm::Error &&E);
 
 inline DiagnosticBuilder DiagnosticsEngine::Report(unsigned DiagID) {
   return Report(SourceLocation(), DiagID);

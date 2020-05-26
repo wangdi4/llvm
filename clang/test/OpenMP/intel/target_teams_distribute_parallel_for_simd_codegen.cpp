@@ -35,8 +35,8 @@ void foo1() {
 
   // CHECK: [[T2:%[0-9]+]] = call token @llvm.directive.region.entry()
   // CHECK-SAME: "DIR.OMP.DISTRIBUTE.PARLOOP"()
-  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[OMP_LB]]),
   // CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(i32* [[OMP_IV]]),
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[OMP_LB]]),
   // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(i32* [[OMP_UB]])
 
   // CHECK: [[T3:%[0-9]+]] = call token @llvm.directive.region.entry()

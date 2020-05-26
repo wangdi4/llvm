@@ -764,7 +764,7 @@ bool ValueObject::IsCStringContainer(bool check_pointer) {
     return true;
   addr_t cstr_address = LLDB_INVALID_ADDRESS;
   AddressType cstr_address_type = eAddressTypeInvalid;
-  cstr_address = GetAddressOf(true, &cstr_address_type);
+  cstr_address = GetPointerValue(&cstr_address_type);
   return (cstr_address != LLDB_INVALID_ADDRESS);
 }
 
@@ -1933,10 +1933,7 @@ ValueObject::GetSyntheticExpressionPathChild(const char *expression,
   return synthetic_child_sp;
 }
 
-void ValueObject::CalculateSyntheticValue(bool use_synthetic) {
-  if (!use_synthetic)
-    return;
-
+void ValueObject::CalculateSyntheticValue() {
   TargetSP target_sp(GetTargetSP());
   if (target_sp && !target_sp->GetEnableSyntheticValue()) {
     m_synthetic_value = nullptr;
@@ -1988,11 +1985,8 @@ ValueObjectSP ValueObject::GetStaticValue() { return GetSP(); }
 
 lldb::ValueObjectSP ValueObject::GetNonSyntheticValue() { return GetSP(); }
 
-ValueObjectSP ValueObject::GetSyntheticValue(bool use_synthetic) {
-  if (!use_synthetic)
-    return ValueObjectSP();
-
-  CalculateSyntheticValue(use_synthetic);
+ValueObjectSP ValueObject::GetSyntheticValue() {
+  CalculateSyntheticValue();
 
   if (m_synthetic_value)
     return m_synthetic_value->GetSP();
@@ -2006,7 +2000,7 @@ bool ValueObject::HasSyntheticValue() {
   if (m_synthetic_children_sp.get() == nullptr)
     return false;
 
-  CalculateSyntheticValue(true);
+  CalculateSyntheticValue();
 
   return m_synthetic_value != nullptr;
 }
@@ -2810,7 +2804,7 @@ ValueObjectSP ValueObject::Dereference(Status &error) {
     const bool transparent_pointers = false;
     CompilerType compiler_type = GetCompilerType();
     CompilerType child_compiler_type;
-    uint64_t language_flags;
+    uint64_t language_flags = 0;
 
     ExecutionContext exe_ctx(GetExecutionContextRef());
 
@@ -3270,9 +3264,7 @@ ValueObjectSP ValueObject::Persist() {
   if (!persistent_state)
     return nullptr;
 
-  auto prefix = persistent_state->GetPersistentVariablePrefix();
-  ConstString name =
-      persistent_state->GetNextPersistentVariableName(*target_sp, prefix);
+  ConstString name = persistent_state->GetNextPersistentVariableName();
 
   ValueObjectSP const_result_sp =
       ValueObjectConstResult::Create(target_sp.get(), GetValue(), name);
@@ -3343,7 +3335,7 @@ lldb::ValueObjectSP ValueObjectManager::GetSP() {
   }
 
   if (m_use_synthetic) {
-    lldb::ValueObjectSP synthetic_sp = m_user_valobj_sp->GetSyntheticValue(m_use_synthetic);
+    lldb::ValueObjectSP synthetic_sp = m_user_valobj_sp->GetSyntheticValue();
     if (synthetic_sp)
       m_user_valobj_sp = synthetic_sp;
   }

@@ -5,6 +5,7 @@ set(LLVM_LINK_COMPONENTS
   Core
   Coroutines
   Coverage
+  Extensions
   FrontendOpenMP
   IPO
   IRReader
@@ -111,8 +112,6 @@ add_clang_library(clangCodeGen
   intel/CGSPIRMetadataAdder.cpp
   intel/CGIntelHLS.cpp
 # end INTEL_CUSTOMIZATION
-
-  ENABLE_PLUGINS
 
   DEPENDS
   ${codegen_deps}

@@ -23,18 +23,19 @@ define internal void @test01() {
 }
 ; CHECK-LABEL: void @test01
 ; CHECK:   %local = alloca [80 x i8]
-; CHECK:      Aliased types:
-; CHECK-NEXT:   [80 x i8]*
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   [80 x i8]*{{ *$}}
 ; CHECK:      No element pointees.
 
 ; CHECK-CUR: %bce = getelementptr inbounds [80 x i8], [80 x i8]* %local, i64 0, i64 0
 ; CHECK-FUT: %bce = getelementptr inbounds [80 x i8], p0 %local, i64 0, i64 0
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:   [80 x i8]*
-; CHECK-NEXT:   i8*
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   [80 x i8]*{{ *$}}
+; CHECK-NEXT:   i8*{{ *$}}
 ; CHECK-NEXT: Element pointees:
-; CHECK-NEXT    [80 x i8] @ 0
+; CHECK-NEXT:    [80 x i8] @ 0
 
 
 ; Test bitcast equivalent for GEP that addresses a structure element that starts
@@ -47,10 +48,10 @@ define internal void @test02(%struct.test02* %in) !dtrans_type !4 {
 }
 ; CHECK-LABEL: void @test02
 ; CHECK-CUR: %ptr = getelementptr %struct.test02, %struct.test02* %in, i64 0, i32 0
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:   %struct.test02*
-; CHECK-NEXT:   i8*
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   %struct.test02*{{ *$}}
+; CHECK-NEXT:   i8*{{ *$}}
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:   %struct.test02 @ 0
 
@@ -66,10 +67,10 @@ define internal void @test03(%struct.test03b* %in) !dtrans_type !10 {
 }
 ; CHECK-LABEL: void @test03
 ; CHECK-CUR: %ptr = getelementptr %struct.test03b, %struct.test03b* %in, i64 0, i32 0, i32 0, i32 0
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:   %struct.test03b*
-; CHECK-NEXT:   i8*
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   %struct.test03b*{{ *$}}
+; CHECK-NEXT:   i8*{{ *$}}
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:  [256 x i8] @ 0
 

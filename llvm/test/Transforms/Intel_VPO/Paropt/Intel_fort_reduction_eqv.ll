@@ -1,6 +1,8 @@
 ; INTEL_CUSTOMIZATION
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S < %s  | FileCheck %s
+; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-fast-reduction=false -S | FileCheck %s --check-prefix=CRITICAL --check-prefix=ALL
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-fast-reduction=false -S | FileCheck %s --check-prefix=CRITICAL --check-prefix=ALL
+; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s --check-prefix=FASTRED --check-prefix=ALL
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S | FileCheck %s --check-prefix=FASTRED --check-prefix=ALL
 
 ; This test is used to check EQV reduction type.
 ;        PROGRAM OMP_TEST
@@ -97,11 +99,12 @@ bb10:                                             ; preds = %bb6
   %"omp_test_$R_fetch" = load i32, i32* %"omp_test_$R"
   br label %bb11
 
-; CHECK:  %{{[0-9]+}} = load i32, i32* %"omp_test_$R.red"
-; CHECK-NEXT:  %{{[0-9]+}} = load i32, i32* %"omp_test_$R"
-; CHECK-NEXT:  %{{[0-9]+}} = xor i32 %{{[0-9]+}}, %{{[0-9]+}}
-; CHECK-NEXT:  %{{[0-9]+}} = xor i32 %{{[0-9]+}}, -1
-; CHECK-NEXT:  store i32 %{{[0-9]+}}, i32* %"omp_test_$R"
+; CRITICAL:  %{{[0-9]+}} = load i32, i32* %"omp_test_$R.red"
+; FASTRED:  %{{[0-9]+}} = load i32, i32* %"omp_test_$R.fast_red"
+; ALL-NEXT:  %{{[0-9]+}} = load i32, i32* %"omp_test_$R"
+; ALL-NEXT:  %{{[0-9]+}} = xor i32 %{{[0-9]+}}, %{{[0-9]+}}
+; ALL-NEXT:  %{{[0-9]+}} = xor i32 %{{[0-9]+}}, -1
+; ALL-NEXT:  store i32 %{{[0-9]+}}, i32* %"omp_test_$R"
 
 bb1:                                              ; preds = %bb13
   ret void

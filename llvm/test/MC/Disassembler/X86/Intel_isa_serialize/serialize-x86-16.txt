@@ -1,5 +1,0 @@
-# REQUIRES: intel_feature_isa_serialize
-# RUN: llvm-mc --disassemble %s -triple=i686-linux-gnu-code16 | FileCheck %s
-
-# CHECK: serialize
-0x0f 0x01 0xe8

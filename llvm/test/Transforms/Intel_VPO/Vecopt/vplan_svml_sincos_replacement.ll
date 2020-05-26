@@ -46,7 +46,7 @@
 ; CHECK-NEXT:    [[COSPTR_GEP:%.*]] = getelementptr float, float* [[COSPTR_BC]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
 
 ; CHECK-LABEL: vector.body
-; CHECK:         {{.*}} = call <8 x float> @_Z14sincos_ret2ptrDv8_fPS_S1_(<8 x float> {{.*}}, <8 x float>* [[COSPTR_VEC]], <8 x float>* [[SINPTR_VEC]])
+; CHECK:         {{.*}} = call <8 x float> @_Z14sincos_ret2ptrDv8_fPS_S1_(<8 x float> {{.*}}, <8 x float>* [[SINPTR_VEC]], <8 x float>* [[COSPTR_VEC]])
 ; CHECK:         {{.*}} = load <8 x float>, <8 x float>* [[SINPTR_VEC]]
 ; CHECK:         {{.*}} = load <8 x float>, <8 x float>* [[COSPTR_VEC]], align 4
 

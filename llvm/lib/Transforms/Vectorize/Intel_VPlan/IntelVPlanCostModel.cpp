@@ -16,6 +16,7 @@
 #include "IntelVPlanCostModel.h"
 #include "IntelVPlan.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "IntelVPlanUtils.h"
 
 #define DEBUG_TYPE "vplan-cost-model"
 using namespace loopopt;
@@ -62,10 +63,11 @@ uint64_t VPlanVLSCostModel::getInstructionCost(const OVLSInstruction *I) const {
         MaybeAlign(0) /* Alignment */, 0 /* AddressSpace */);
   }
   if (auto Shuffle = dyn_cast<OVLSShuffle>(I)) {
-    SmallVector<uint32_t, 16> Mask;
+    SmallVector<int, 16> Mask;
     Shuffle->getShuffleMask(Mask);
     VectorType *VecTy = VectorType::get(ElemType, Mask.size());
-    return getShuffleCost(Mask, VecTy);
+    SmallVector<uint32_t, 16> UMask(Mask.begin(), Mask.end());
+    return getShuffleCost(UMask, VecTy);
   }
   llvm_unreachable("Unexpected OVLSInstruction.");
 }
@@ -94,8 +96,9 @@ VPlanVLSCostModel::getGatherScatterOpCost(const OVLSMemref &Memref) const {
 
 // TODO: ideally this function should be moved into utils.
 Type *VPlanCostModel::getVectorizedType(const Type *BaseTy, unsigned VF) {
-  if (BaseTy->isVectorTy())
-    VF *= BaseTy->getVectorNumElements();
+  auto *BaseVecTy = dyn_cast<VectorType>(BaseTy);
+  if (BaseVecTy)
+    VF *= BaseVecTy->getNumElements();
 
   return VectorType::get(BaseTy->getScalarType(), VF);
 }
@@ -122,8 +125,16 @@ unsigned VPlanCostModel::getMemInstAddressSpace(const VPInstruction *VPInst) {
   if (!VPInst->HIR.isMaster())
     return 0; // CHECKME: Is that correct?
   const HLDDNode *DDNode = cast<HLDDNode>(VPInst->HIR.getUnderlyingNode());
-  if (const Instruction *Inst = getLLVMInstFromDDNode(DDNode))
-    return ::getMemInstAddressSpace(Inst);
+  if (const Instruction *Inst = getLLVMInstFromDDNode(DDNode)) {
+    if (isa<LoadInst>(Inst) || isa<StoreInst>(Inst))
+      return ::getMemInstAddressSpace(Inst);
+
+    // Handle cases such as a[i] = b + c, the store to a[i] will be the master
+    // VPInst. However, Inst will be an add instruction.
+    const RegDDRef *LvalRef = DDNode->getLvalDDRef();
+    if (LvalRef && LvalRef->isMemRef())
+      return LvalRef->getPointerAddressSpace();
+  }
 #endif // INTEL_CUSTOMIZATION
 
   return 0; // CHECKME: Is that correct?
@@ -172,9 +183,19 @@ VPlanCostModel::getMemInstAlignment(const VPInstruction *VPInst) const {
 #if INTEL_CUSTOMIZATION
   if (VPInst->HIR.isMaster()) {
     const HLDDNode *DDNode = cast<HLDDNode>(VPInst->HIR.getUnderlyingNode());
-    if (const Instruction *Inst = getLLVMInstFromDDNode(DDNode))
-      if (unsigned Align = ::getMemInstAlignment(Inst))
-        return Align;
+    if (const Instruction *Inst = getLLVMInstFromDDNode(DDNode)) {
+      if (isa<LoadInst>(Inst) || isa<StoreInst>(Inst)) {
+        if (unsigned Align = ::getMemInstAlignment(Inst))
+          return Align;
+      } else {
+        // Handle cases such as a[i] = b + c, the store to a[i] will be the
+        // master VPInst. However, Inst will be an add instruction.
+        const RegDDRef *LvalRef = DDNode->getLvalDDRef();
+        if (LvalRef && LvalRef->isMemRef())
+          if (unsigned Align = LvalRef->getAlignment())
+            return Align;
+      }
+    }
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -184,32 +205,94 @@ VPlanCostModel::getMemInstAlignment(const VPInstruction *VPInst) const {
   return DL->getABITypeAlignment(getMemInstValueType(VPInst));
 }
 
-unsigned VPlanCostModel::getLoadStoreCost(const VPInstruction *VPInst) const {
+bool VPlanCostModel::isUnitStrideLoadStore(const VPInstruction *VPInst) const {
+  return
+    Plan->getVPlanDA()->isUnitStridePtr(getLoadStorePointerOperand(VPInst));
+}
+
+unsigned VPlanCostModel::getLoadStoreIndexSize(
+  const VPInstruction *VPInst) const {
+  assert((VPInst->getOpcode() == Instruction::Load ||
+          VPInst->getOpcode() == Instruction::Store) &&
+         "Expect 'VPInst' to be either a LoadInst or a StoreInst");
+
+  const VPValue *Ptr = getLoadStorePointerOperand(VPInst);
+  // Skip all NOP BitCasts/AddrSpaceCasts on the way to GEP.
+  while ((VPInst = dyn_cast<VPInstruction>(Ptr)) &&
+         (VPInst->getOpcode() == Instruction::BitCast ||
+          VPInst->getOpcode() == Instruction::AddrSpaceCast) &&
+         TTI->getCastInstrCost(VPInst->getOpcode(), VPInst->getType(),
+                               VPInst->getOperand(0)->getType()) == 0)
+    Ptr = VPInst->getOperand(0);
+
+  const VPGEPInstruction* VPGEP = dyn_cast<VPGEPInstruction>(Ptr);
+  unsigned IndexSize = DL->getPointerSizeInBits();
+
+  // Try to reduce index size from 64 bit (default for GEP) to 32. It is
+  // essential for VF 16. Check that the base pointer is the same for all
+  // lanes, and that there's at most one variable index.
+  if (IndexSize < 64 || !VPGEP ||
+      VPGEP->getPointerOperand()->getType()->isVectorTy())
+    return IndexSize;
+
+  auto getTypeElementSize = [](const VPValue *V) -> unsigned {
+    const Type *Ty = V->getType();
+    if (auto *VecTy = dyn_cast<VectorType>(Ty))
+      Ty = VecTy->getElementType();
+    return Ty->getPrimitiveSizeInBits();
+  };
+
+  unsigned NumOfVarIndices = 0;
+  for (auto *OpIt = VPGEP->op_begin() + 1; OpIt != VPGEP->op_end(); ++OpIt) {
+    const VPConstant* VPConst = dyn_cast<VPConstant>(*OpIt);
+    if (VPConst && VPConst->isConstantInt()) {
+      int64_t Val = cast<ConstantInt>(VPConst->getConstant())->getSExtValue();
+      if (Val <= LONG_MAX && Val >= LONG_MIN)
+        continue;
+    }
+
+    const VPInstruction* VPIdx = dyn_cast<VPInstruction>(*OpIt);
+    if (!VPIdx || ++NumOfVarIndices > 1)
+      return IndexSize; // Can't shrink.
+
+    // SExt to 64 bits from 32 bits or less is allowed.
+    if (getTypeElementSize(VPIdx) == 64 &&
+        VPIdx->getOpcode() == Instruction::SExt &&
+        isa<VPInstruction>(VPIdx->getOperand(0)))
+      VPIdx = cast<VPInstruction>(VPIdx->getOperand(0));
+
+    if (getTypeElementSize(VPIdx) > 32)
+      return IndexSize; // Can't shrink.
+  }
+  return 32u;
+}
+
+unsigned VPlanCostModel::getLoadStoreCost(const VPInstruction *VPInst) {
   Type *OpTy = getMemInstValueType(VPInst);
   assert(OpTy && "Can't get type of the load/store instruction!");
 
   unsigned Opcode = VPInst->getOpcode();
   unsigned Alignment = getMemInstAlignment(VPInst);
   unsigned AddrSpace = getMemInstAddressSpace(VPInst);
-  // FIXME: Take into account masked case.
-  // FIXME: Shouldn't use underlying IR, because at this point it can be
-  // invalid. For instance, vectorizer may decide to generate 32-bit gather
-  // instead of 64-bit, while GEP may have 64-bit index.
-  // There're 2 options to consider:
-  //  1. Rewrite getGatherScatterOpCost so that user will pass index size,
-  //  rather then GEP
-  //  2. Templatize TTI to use VPValue.
-  if (auto GEPInst = getGEP(VPInst)) {
-    Type *VecTy = getVectorizedType(OpTy, VF);
-    return TTI->getGatherScatterOpCost(Opcode, VecTy, GEPInst,
-                                       false /* Masked */, Alignment);
-  }
-  unsigned BaseCost =
-      TTI->getMemoryOpCost(Opcode, OpTy, MaybeAlign(Alignment), AddrSpace);
-  return VF*BaseCost;
+  Type *VecTy = getVectorizedType(OpTy, VF);
+  // TODO: VF check in IsMasked might become redundant once a separate VPlan
+  // is maintained for VF = 1 meaning that the cost calculation for scalar loop
+  // is done over VPlan that doesn't undergo any vector transformations such as
+  // predication.
+  bool IsMasked = (VF > 1) && (VPInst->getParent()->getPredicate() != nullptr);
+
+  if (VF == 1 || isUnitStrideLoadStore(VPInst))
+    return IsMasked ?
+      TTI->getMaskedMemoryOpCost(Opcode, getVectorizedType(OpTy, VF),
+                                 Alignment, AddrSpace) :
+      TTI->getMemoryOpCost(Opcode, VecTy, MaybeAlign(Alignment), AddrSpace);
+
+  return TTI->getGatherScatterOpCost(
+    Opcode, VecTy, getLoadStoreIndexSize(VPInst),
+    IsMasked, Alignment, AddrSpace);
 }
 
-unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) const {
+unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
   // TODO: For instruction that are not contained inside the loop we're
   // vectorizing, VF should not be considered. That includes the instructions
   // that are outside of any of the loops in the loopnest. However, before
@@ -298,8 +381,8 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) const {
     if (!BaseTy)
       return UnknownCost;
     Type *VecTy = getVectorizedType(BaseTy, VF);
-    unsigned Cost =
-        TTI->getArithmeticInstrCost(Opcode, VecTy, Op1VK, Op2VK, Op1VP, Op2VP);
+    unsigned Cost = TTI->getArithmeticInstrCost(
+        Opcode, VecTy, TTI::TCK_RecipThroughput, Op1VK, Op2VK, Op1VP, Op2VP);
     return Cost;
   }
   case Instruction::ICmp:
@@ -378,7 +461,7 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) const {
   }
 }
 
-unsigned VPlanCostModel::getCost(const VPBasicBlock *VPBB) const {
+unsigned VPlanCostModel::getCost(const VPBasicBlock *VPBB) {
   unsigned Cost = 0;
   for (const VPInstruction &VPInst : *VPBB) {
     // FIXME: Use Block Frequency Info (or similar VPlan-specific analysis) to
@@ -392,7 +475,7 @@ unsigned VPlanCostModel::getCost(const VPBasicBlock *VPBB) const {
   return Cost;
 }
 
-unsigned VPlanCostModel::getCost() const {
+unsigned VPlanCostModel::getCost() {
   unsigned Cost = 0;
   for (auto *Block : depth_first(Plan->getEntryBlock()))
     Cost += getCost(Block);
@@ -400,29 +483,23 @@ unsigned VPlanCostModel::getCost() const {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void VPlanCostModel::printForVPBasicBlock(raw_ostream &OS,
-                                          const VPBasicBlock *VPBB) const {
-  OS << "Analyzing VPBasicBlock " << VPBB->getName() << ", total cost: ";
-  unsigned VPBBCost = getCost(VPBB);
-  if (VPBBCost == UnknownCost)
-    OS << "Unknown\n";
-  else
-    OS << VPBBCost << '\n';
-
-  for (const VPInstruction &VPInst : *VPBB) {
-    unsigned Cost = getCost(&VPInst);
-    if (Cost == UnknownCost)
-      OS << "  Unknown cost for ";
-    else
-      OS << "  Cost " << Cost << " for ";
-    VPInst.print(OS);
-    OS << '\n';
-  }
+void VPlanCostModel::printForVPInstruction(
+  raw_ostream &OS, const VPInstruction *VPInst) {
+  OS << "  Cost " << getCostNumberString(getCost(VPInst)) << " for ";
+  VPInst->print(OS);
+  OS << '\n';
 }
 
-void VPlanCostModel::print(raw_ostream &OS) const {
-  OS << "Cost Model for VPlan " << Plan->getName() << " with VF = " << VF
-     << ":\n";
+void VPlanCostModel::printForVPBasicBlock(raw_ostream &OS,
+                                          const VPBasicBlock *VPBB) {
+  OS << "Analyzing VPBasicBlock " << VPBB->getName() << ", total cost: " <<
+    getCostNumberString(getCost(VPBB)) << '\n';
+  for (const VPInstruction &VPInst : *VPBB)
+    printForVPInstruction(OS, &VPInst);
+}
+
+void VPlanCostModel::print(raw_ostream &OS, const std::string &Header) {
+  OS << "Cost Model for VPlan " << Header << " with VF = " << VF << ":\n";
   OS << "Total Cost: " << getCost() << '\n';
   LLVM_DEBUG(dbgs() << *Plan;);
 

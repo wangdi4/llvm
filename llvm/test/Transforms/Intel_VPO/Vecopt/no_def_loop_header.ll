@@ -3,6 +3,10 @@
 ; RUN: opt -S -passes="vplan-driver" -vpo-vplan-build-stress-test -vplan-dump-da < %s --disable-output 2>&1 | FileCheck %s
 ; REQUIRES: asserts
 
+; This is a stress test, we don't really support while-loops. The main issue is
+; that VPEntity framework doesn't work on the input, while DA relies on it.
+; XFAIL: *
+
 define dso_local void @test1(i32 *%a) {
 entry:
   br label %simd.begin

@@ -221,7 +221,6 @@ class Scheduler {
 
 private:
   BasicBlock *BB = nullptr;
-  AAResults *AA = nullptr;
   std::unique_ptr<GroupDependenceGraph> DAG;
 
   SmallSetVector<Instruction *, 8> ReadyList;

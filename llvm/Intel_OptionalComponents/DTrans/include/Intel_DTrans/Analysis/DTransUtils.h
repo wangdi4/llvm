@@ -30,6 +30,7 @@ class Type;
 
 namespace dtrans {
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // This template function is to support dumping a collection of items in
 // lexically sorted order so that debug traces do not change due to pointer
 // addresses changing. This is done by first printing each item within the
@@ -58,6 +59,7 @@ static void printCollectionSorted(raw_ostream &OS, IterType Begin, IterType End,
     First = false;
   }
 }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 /// There is a possibility that a call to be analyzed is inside a BitCast, in
 /// which case we need to strip the pointer casting from the \p Call operand to

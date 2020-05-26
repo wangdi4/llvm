@@ -62,10 +62,9 @@ public:
       else if (BranchType == "indirect")
         addKind(X86::AlignBranchIndirect);
       else {
-        report_fatal_error(
-            "'-x86-align-branch 'The branches's type is combination of jcc, "
-            "fused, jmp, call, ret, indirect.(plus separated)",
-            false);
+        errs() << "invalid argument " << BranchType.str()
+               << " to -x86-align-branch=; each element must be one of: fused, "
+                  "jcc, jmp, call, ret, indirect.(plus separated)\n";
       }
     }
   }
@@ -109,13 +108,6 @@ cl::opt<unsigned> X86PadMaxPrefixSize(
     "x86-pad-max-prefix-size", cl::init(0),
     cl::desc("Maximum number of prefixes to use for padding"));
 
-#if INTEL_CUSTOMIZATION
-cl::alias
-    X86AlignBranchPrefixSize("x86-align-branch-prefix-size",
-                             cl::desc("Alias for -x86-pad-max-prefix-size"),
-                             cl::aliasopt(X86PadMaxPrefixSize));
-#endif // INTEL_CUSTOMIZATION
-
 cl::opt<bool> X86PadForAlign(
     "x86-pad-for-align", cl::init(true), cl::Hidden,
     cl::desc("Pad previous instructions to implement align directives"));
@@ -136,22 +128,18 @@ class X86AsmBackend : public MCAsmBackend {
   std::unique_ptr<const MCInstrInfo> MCII;
   X86AlignBranchKind AlignBranchType;
   Align AlignBoundary;
+  unsigned TargetPrefixMax = 0;
+
+  MCInst PrevInst;
+  MCBoundaryAlignFragment *PendingBA = nullptr;
+  std::pair<MCFragment *, size_t> PrevInstPosition;
+  bool CanPadInst;
 
   uint8_t determinePaddingPrefix(const MCInst &Inst) const;
-
   bool isMacroFused(const MCInst &Cmp, const MCInst &Jcc) const;
-
-  bool needAlign(MCObjectStreamer &OS) const;
-  bool needAlignInst(const MCInst &Inst) const;
-#if INTEL_CUSTOMIZATION
-  bool allowAutoPaddingForInst(const MCInst &Inst, MCObjectStreamer &OS) const;
-#endif // INTEL_CUSTOMIZATION
-  MCInst PrevInst;
-  MCBoundaryAlignFragment *PendingBoundaryAlign = nullptr;
-  std::pair<MCFragment *, size_t> PrevInstPosition;
-#if INTEL_CUSTOMIZATION
-  bool AllowAutoPaddingForInst;
-#endif // INTEL_CUSTOMIZATION
+  bool needAlign(const MCInst &Inst) const;
+  bool canPadBranches(MCObjectStreamer &OS) const;
+  bool canPadInst(const MCInst &Inst, MCObjectStreamer &OS) const;
 
 public:
   X86AsmBackend(const Target &T, const MCSubtargetInfo &STI)
@@ -172,12 +160,12 @@ public:
       AlignBoundary = assumeAligned(X86AlignBranchBoundary);
     if (X86AlignBranch.getNumOccurrences())
       AlignBranchType = X86AlignBranchKindLoc;
+    if (X86PadMaxPrefixSize.getNumOccurrences())
+      TargetPrefixMax = X86PadMaxPrefixSize;
   }
 
   bool allowAutoPadding() const override;
-#if INTEL_CUSTOMIZATION
   bool allowEnhancedRelaxation() const override;
-#endif // INTEL_CUSTOMIZATION
   void emitInstructionBegin(MCObjectStreamer &OS, const MCInst &Inst) override;
   void emitInstructionEnd(MCObjectStreamer &OS, const MCInst &Inst) override;
 
@@ -204,8 +192,8 @@ public:
                             const MCRelaxableFragment *DF,
                             const MCAsmLayout &Layout) const override;
 
-  void relaxInstruction(const MCInst &Inst, const MCSubtargetInfo &STI,
-                        MCInst &Res) const override;
+  void relaxInstruction(MCInst &Inst,
+                        const MCSubtargetInfo &STI) const override;
 
   bool padInstructionViaRelaxation(MCRelaxableFragment &RF,
                                    MCCodeEmitter &Emitter,
@@ -471,26 +459,8 @@ bool X86AsmBackend::allowAutoPadding() const {
   return (AlignBoundary != Align(1) && AlignBranchType != X86::AlignBranchNone);
 }
 
-#if INTEL_CUSTOMIZATION
 bool X86AsmBackend::allowEnhancedRelaxation() const {
-  return allowAutoPadding() && X86PadMaxPrefixSize != 0 && X86PadForBranchAlign;
-}
-#endif // INTEL_CUSTOMIZATION
-
-bool X86AsmBackend::needAlign(MCObjectStreamer &OS) const {
-  if (!OS.getAllowAutoPadding())
-    return false;
-  assert(allowAutoPadding() && "incorrect initialization!");
-
-  // To be Done: Currently don't deal with Bundle cases.
-  if (OS.getAssembler().isBundlingEnabled())
-    return false;
-
-  // Branches only need to be aligned in 32-bit or 64-bit mode.
-  if (!(STI.hasFeature(X86::Mode64Bit) || STI.hasFeature(X86::Mode32Bit)))
-    return false;
-
-  return true;
+  return allowAutoPadding() && TargetPrefixMax != 0 && X86PadForBranchAlign;
 }
 
 /// X86 has certain instructions which enable interrupts exactly one
@@ -560,31 +530,9 @@ static size_t getSizeForInstFragment(const MCFragment *F) {
   }
 }
 
-/// Check if the instruction operand needs to be aligned. Padding is disabled
-/// before intruction which may be rewritten by linker(e.g. TLSCALL).
-bool X86AsmBackend::needAlignInst(const MCInst &Inst) const {
-  // Linker may rewrite the instruction with variant symbol operand.
-  if (hasVariantSymbol(Inst))
-    return false;
-
-  const MCInstrDesc &InstDesc = MCII->get(Inst.getOpcode());
-  return (InstDesc.isConditionalBranch() &&
-          (AlignBranchType & X86::AlignBranchJcc)) ||
-         (InstDesc.isUnconditionalBranch() &&
-          (AlignBranchType & X86::AlignBranchJmp)) ||
-         (InstDesc.isCall() &&
-          (AlignBranchType & X86::AlignBranchCall)) ||
-         (InstDesc.isReturn() &&
-          (AlignBranchType & X86::AlignBranchRet)) ||
-         (InstDesc.isIndirectBranch() &&
-          (AlignBranchType & X86::AlignBranchIndirect));
-}
-
-#if INTEL_CUSTOMIZATION
 /// Return true if we can insert NOP or prefixes automatically before the
 /// the instruction to be emitted.
-bool X86AsmBackend::allowAutoPaddingForInst(const MCInst &Inst,
-                                            MCObjectStreamer &OS) const {
+bool X86AsmBackend::canPadInst(const MCInst &Inst, MCObjectStreamer &OS) const {
   if (hasVariantSymbol(Inst))
     // Linker may rewrite the instruction with variant symbol operand(e.g.
     // TLSCALL).
@@ -613,23 +561,55 @@ bool X86AsmBackend::allowAutoPaddingForInst(const MCInst &Inst,
   return true;
 }
 
+bool X86AsmBackend::canPadBranches(MCObjectStreamer &OS) const {
+  if (!OS.getAllowAutoPadding())
+    return false;
+  assert(allowAutoPadding() && "incorrect initialization!");
+
+  // We only pad in text section.
+  if (!OS.getCurrentSectionOnly()->getKind().isText())
+    return false;
+
+  // To be Done: Currently don't deal with Bundle cases.
+  if (OS.getAssembler().isBundlingEnabled())
+    return false;
+
+  // Branches only need to be aligned in 32-bit or 64-bit mode.
+  if (!(STI.hasFeature(X86::Mode64Bit) || STI.hasFeature(X86::Mode32Bit)))
+    return false;
+
+  return true;
+}
+
+/// Check if the instruction operand needs to be aligned.
+bool X86AsmBackend::needAlign(const MCInst &Inst) const {
+  const MCInstrDesc &Desc = MCII->get(Inst.getOpcode());
+  return (Desc.isConditionalBranch() &&
+          (AlignBranchType & X86::AlignBranchJcc)) ||
+         (Desc.isUnconditionalBranch() &&
+          (AlignBranchType & X86::AlignBranchJmp)) ||
+         (Desc.isCall() && (AlignBranchType & X86::AlignBranchCall)) ||
+         (Desc.isReturn() && (AlignBranchType & X86::AlignBranchRet)) ||
+         (Desc.isIndirectBranch() &&
+          (AlignBranchType & X86::AlignBranchIndirect));
+}
+
 /// Insert BoundaryAlignFragment before instructions to align branches.
 void X86AsmBackend::emitInstructionBegin(MCObjectStreamer &OS,
                                          const MCInst &Inst) {
-  AllowAutoPaddingForInst = allowAutoPaddingForInst(Inst, OS);
+  CanPadInst = canPadInst(Inst, OS);
 
-  if (!needAlign(OS))
+  if (!canPadBranches(OS))
     return;
 
   if (!isMacroFused(PrevInst, Inst))
     // Macro fusion doesn't happen indeed, clear the pending.
-    PendingBoundaryAlign = nullptr;
+    PendingBA = nullptr;
 
-  if (!AllowAutoPaddingForInst)
+  if (!CanPadInst)
     return;
 
-  if (PendingBoundaryAlign &&
-      OS.getCurrentFragment()->getPrevNode() == PendingBoundaryAlign) {
+  if (PendingBA && OS.getCurrentFragment()->getPrevNode() == PendingBA) {
     // Macro fusion actually happens and there is no other fragment inserted
     // after the previous instruction.
     //
@@ -651,12 +631,11 @@ void X86AsmBackend::emitInstructionBegin(MCObjectStreamer &OS,
     return;
   }
 
-  if (needAlignInst(Inst) || ((AlignBranchType & X86::AlignBranchFused) &&
-                              isFirstMacroFusibleInst(Inst, *MCII))) {
+  if (needAlign(Inst) || ((AlignBranchType & X86::AlignBranchFused) &&
+                          isFirstMacroFusibleInst(Inst, *MCII))) {
     // If we meet a unfused branch or the first instuction in a fusiable pair,
     // insert a BoundaryAlign fragment.
-    OS.insert(PendingBoundaryAlign =
-                  new MCBoundaryAlignFragment(AlignBoundary));
+    OS.insert(PendingBA = new MCBoundaryAlignFragment(AlignBoundary));
   }
 }
 
@@ -666,17 +645,17 @@ void X86AsmBackend::emitInstructionEnd(MCObjectStreamer &OS, const MCInst &Inst)
   MCFragment *CF = OS.getCurrentFragment();
   PrevInstPosition = std::make_pair(CF, getSizeForInstFragment(CF));
   if (auto *F = dyn_cast_or_null<MCRelaxableFragment>(CF))
-    F->setAllowAutoPadding(AllowAutoPaddingForInst);
+    F->setAllowAutoPadding(CanPadInst);
 
-  if (!needAlign(OS))
+  if (!canPadBranches(OS))
     return;
 
-  if (!needAlignInst(Inst) || !PendingBoundaryAlign)
+  if (!needAlign(Inst) || !PendingBA)
     return;
 
   // Tie the aligned instructions into a a pending BoundaryAlign.
-  PendingBoundaryAlign->setLastFragment(CF);
-  PendingBoundaryAlign = nullptr;
+  PendingBA->setLastFragment(CF);
+  PendingBA = nullptr;
 
   // We need to ensure that further data isn't added to the current
   // DataFragment, so that we can get the size of instructions later in
@@ -690,17 +669,26 @@ void X86AsmBackend::emitInstructionEnd(MCObjectStreamer &OS, const MCInst &Inst)
   if (AlignBoundary.value() > Sec->getAlignment())
     Sec->setAlignment(AlignBoundary);
 }
-#endif // INTEL_CUSTOMIZATION
 
 Optional<MCFixupKind> X86AsmBackend::getFixupKind(StringRef Name) const {
   if (STI.getTargetTriple().isOSBinFormatELF()) {
+    unsigned Type;
     if (STI.getTargetTriple().getArch() == Triple::x86_64) {
-      if (Name == "R_X86_64_NONE")
-        return FK_NONE;
+      Type = llvm::StringSwitch<unsigned>(Name)
+#define ELF_RELOC(X, Y) .Case(#X, Y)
+#include "llvm/BinaryFormat/ELFRelocs/x86_64.def"
+#undef ELF_RELOC
+                 .Default(-1u);
     } else {
-      if (Name == "R_386_NONE")
-        return FK_NONE;
+      Type = llvm::StringSwitch<unsigned>(Name)
+#define ELF_RELOC(X, Y) .Case(#X, Y)
+#include "llvm/BinaryFormat/ELFRelocs/i386.def"
+#undef ELF_RELOC
+                 .Default(-1u);
     }
+    if (Type == -1u)
+      return None;
+    return static_cast<MCFixupKind>(FirstLiteralRelocationKind + Type);
   }
   return MCAsmBackend::getFixupKind(Name);
 }
@@ -718,6 +706,11 @@ const MCFixupKindInfo &X86AsmBackend::getFixupKindInfo(MCFixupKind Kind) const {
       {"reloc_branch_4byte_pcrel", 0, 32, MCFixupKindInfo::FKF_IsPCRel},
   };
 
+  // Fixup kinds from .reloc directive are like R_386_NONE/R_X86_64_NONE. They
+  // do not require any extra processing.
+  if (Kind >= FirstLiteralRelocationKind)
+    return MCAsmBackend::getFixupKindInfo(FK_NONE);
+
   if (Kind < FirstTargetFixupKind)
     return MCAsmBackend::getFixupKindInfo(Kind);
 
@@ -730,7 +723,7 @@ const MCFixupKindInfo &X86AsmBackend::getFixupKindInfo(MCFixupKind Kind) const {
 bool X86AsmBackend::shouldForceRelocation(const MCAssembler &,
                                           const MCFixup &Fixup,
                                           const MCValue &) {
-  return Fixup.getKind() == FK_NONE;
+  return Fixup.getKind() >= FirstLiteralRelocationKind;
 }
 
 static unsigned getFixupKindSize(unsigned Kind) {
@@ -772,7 +765,10 @@ void X86AsmBackend::applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
                                MutableArrayRef<char> Data,
                                uint64_t Value, bool IsResolved,
                                const MCSubtargetInfo *STI) const {
-  unsigned Size = getFixupKindSize(Fixup.getKind());
+  unsigned Kind = Fixup.getKind();
+  if (Kind >= FirstLiteralRelocationKind)
+    return;
+  unsigned Size = getFixupKindSize(Kind);
 
   assert(Fixup.getOffset() + Size <= Data.size() && "Invalid fixup offset!");
 
@@ -829,9 +825,8 @@ bool X86AsmBackend::fixupNeedsRelaxation(const MCFixup &Fixup,
 
 // FIXME: Can tblgen help at all here to verify there aren't other instructions
 // we can relax?
-void X86AsmBackend::relaxInstruction(const MCInst &Inst,
-                                     const MCSubtargetInfo &STI,
-                                     MCInst &Res) const {
+void X86AsmBackend::relaxInstruction(MCInst &Inst,
+                                     const MCSubtargetInfo &STI) const {
   // The only relaxations X86 does is from a 1byte pcrel to a 4byte pcrel.
   bool Is16BitMode = STI.getFeatureBits()[X86::Mode16Bit];
   unsigned RelaxedOp = getRelaxedOpcode(Inst, Is16BitMode);
@@ -844,8 +839,7 @@ void X86AsmBackend::relaxInstruction(const MCInst &Inst,
     report_fatal_error("unexpected instruction to relax: " + OS.str());
   }
 
-  Res = Inst;
-  Res.setOpcode(RelaxedOp);
+  Inst.setOpcode(RelaxedOp);
 }
 
 /// Return true if this instruction has been fully relaxed into it's most
@@ -857,44 +851,11 @@ static bool isFullyRelaxed(const MCRelaxableFragment &RF) {
   return getRelaxedOpcode(Inst, Is16BitMode) == Inst.getOpcode();
 }
 
-static bool shouldAddPrefix(const MCInst &Inst, const MCInstrInfo &MCII) {
-  // Linker may rewrite the instruction with variant symbol operand.
-  return !hasVariantSymbol(Inst);
-}
-
-static unsigned getRemainingPrefixSize(const MCInst &Inst,
-                                       const MCSubtargetInfo &STI,
-                                       MCCodeEmitter &Emitter) {
-  SmallString<256> Code;
-  raw_svector_ostream VecOS(Code);
-  Emitter.emitPrefix(Inst, VecOS, STI);
-  assert(Code.size() < 15 && "The number of prefixes must be less than 15.");
-
-  // TODO: It turns out we need a decent amount of plumbing for the target
-  // specific bits to determine number of prefixes its safe to add.  Various
-  // targets (older chips mostly, but also Atom family) encounter decoder
-  // stalls with too many prefixes.  For testing purposes, we set the value
-  // externally for the moment.
-  unsigned ExistingPrefixSize = Code.size();
-#if INTEL_CUSTOMIZATION
-  unsigned TargetPrefixMax;
-  if (X86AlignBranchWithin32BBoundaries && !X86PadMaxPrefixSize.getNumOccurrences())
-    TargetPrefixMax = 5;
-  else
-    TargetPrefixMax = X86PadMaxPrefixSize;
-#endif // INTEL_CUSTOMIZATION
-  if (TargetPrefixMax <= ExistingPrefixSize)
-    return 0;
-  return TargetPrefixMax - ExistingPrefixSize;
-}
-
 bool X86AsmBackend::padInstructionViaPrefix(MCRelaxableFragment &RF,
                                             MCCodeEmitter &Emitter,
                                             unsigned &RemainingSize) const {
-#if INTEL_CUSTOMIZATION
   if (!RF.getAllowAutoPadding())
     return false;
-#endif // INTEL_CUSTOMIZATION
 
   // If the instruction isn't fully relaxed, shifting it around might require a
   // larger value for one of the fixups then can be encoded.  The outer loop
@@ -908,9 +869,24 @@ bool X86AsmBackend::padInstructionViaPrefix(MCRelaxableFragment &RF,
     return false;
 
   const unsigned MaxPossiblePad = std::min(15 - OldSize, RemainingSize);
+  const unsigned RemainingPrefixSize = [&]() -> unsigned {
+    SmallString<15> Code;
+    raw_svector_ostream VecOS(Code);
+    Emitter.emitPrefix(RF.getInst(), VecOS, STI);
+    assert(Code.size() < 15 && "The number of prefixes must be less than 15.");
+
+    // TODO: It turns out we need a decent amount of plumbing for the target
+    // specific bits to determine number of prefixes its safe to add.  Various
+    // targets (older chips mostly, but also Atom family) encounter decoder
+    // stalls with too many prefixes.  For testing purposes, we set the value
+    // externally for the moment.
+    unsigned ExistingPrefixSize = Code.size();
+    if (TargetPrefixMax <= ExistingPrefixSize)
+      return 0;
+    return TargetPrefixMax - ExistingPrefixSize;
+  }();
   const unsigned PrefixBytesToAdd =
-    std::min(MaxPossiblePad,
-             getRemainingPrefixSize(RF.getInst(), STI, Emitter));
+      std::min(MaxPossiblePad, RemainingPrefixSize);
   if (PrefixBytesToAdd == 0)
     return false;
 
@@ -938,8 +914,8 @@ bool X86AsmBackend::padInstructionViaRelaxation(MCRelaxableFragment &RF,
     // encoding size without impacting performance.
     return false;
 
-  MCInst Relaxed;
-  relaxInstruction(RF.getInst(), *RF.getSubtargetInfo(), Relaxed);
+  MCInst Relaxed = RF.getInst();
+  relaxInstruction(Relaxed, *RF.getSubtargetInfo());
 
   SmallVector<MCFixup, 4> Fixups;
   SmallString<15> Code;
@@ -969,7 +945,6 @@ bool X86AsmBackend::padInstructionEncoding(MCRelaxableFragment &RF,
   return Changed;
 }
 
-#if INTEL_CUSTOMIZATION
 void X86AsmBackend::finishLayout(MCAssembler const &Asm,
                                  MCAsmLayout &Layout) const {
   // See if we can further relax some instructions to cut down on the number of
@@ -1092,7 +1067,6 @@ void X86AsmBackend::finishLayout(MCAssembler const &Asm,
     Asm.computeFragmentSize(Layout, *Section.getFragmentList().rbegin());
   }
 }
-#endif // INTEL_CUSTOMIZATION
 
 /// Write a sequence of optimal nops to the output, covering \p Count
 /// bytes.

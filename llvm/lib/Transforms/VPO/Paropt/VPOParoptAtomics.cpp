@@ -49,7 +49,10 @@ cl::opt<bool> Enable16BitOpenCLAtomics(
 
 // Main driver for handling a WRNAtomicNode.
 bool VPOParoptAtomics::handleAtomic(WRNAtomicNode *AtomicNode,
-                                    StructType *IdentTy, Constant *TidPtr,
+                                    StructType *IdentTy,
+                                    Constant *TidPtr,
+                                    DominatorTree *DT,
+                                    LoopInfo *LI,
                                     bool IsTargetSPIRV) {
   bool handled;
   assert(AtomicNode != nullptr && "AtomicNode is null.");
@@ -89,7 +92,7 @@ bool VPOParoptAtomics::handleAtomic(WRNAtomicNode *AtomicNode,
            "supported for GPU offloading.\n");
     handled =
         VPOParoptUtils::genKmpcCriticalSection(AtomicNode, IdentTy, TidPtr,
-                                               IsTargetSPIRV);
+                                               DT, LI, IsTargetSPIRV);
   }
   assert(handled == true && "Handling of AtomicNode failed.\n");
 

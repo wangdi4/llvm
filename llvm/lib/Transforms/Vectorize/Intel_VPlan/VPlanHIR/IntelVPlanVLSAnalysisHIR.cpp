@@ -28,11 +28,6 @@ VPlanVLSAnalysisHIR::getAccessType(const RegDDRef *Ref, const unsigned Level,
   if (!Ref->getConstStrideAtLevel(Level, Stride) || !*Stride)
     return Ref->isStructurallyInvariantAtLevel(Level) ? MemAccessTy::Uniform
                                                       : MemAccessTy::Indexed;
-
-  // Compute stride in terms of number of elements
-  auto DL = Ref->getDDRefUtils().getDataLayout();
-  auto RefSizeInBytes = DL.getTypeAllocSize(Ref->getDestType());
-  *Stride /= RefSizeInBytes;
   return MemAccessTy::Strided;
 }
 
@@ -40,8 +35,10 @@ VPlanVLSAnalysisHIR::getAccessType(const RegDDRef *Ref, const unsigned Level,
 // ready.
 bool VPlanVLSAnalysisHIR::isUnitStride(const RegDDRef *Ref, unsigned Level) {
   int64_t ConstStride;
+  auto DL = Ref->getDDRefUtils().getDataLayout();
+  auto RefSizeInBytes = DL.getTypeAllocSize(Ref->getDestType());
   return getAccessType(Ref, Level, &ConstStride) == MemAccessTy::Strided &&
-         ConstStride == 1;
+    ConstStride > 0 && static_cast<uint64_t>(ConstStride) == RefSizeInBytes;
 }
 
 OVLSMemref *VPlanVLSAnalysisHIR::createVLSMemref(const VPInstruction *Inst,

@@ -29,7 +29,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
-#include "HIRLoopDistributionImpl.h"
+#include "HIRLoopDistribution.h"
 
 #define DEBUG_TYPE "hir-loop-distribute"
 
@@ -395,8 +395,7 @@ void HIRLoopDistribution::createTempArrayLoad(RegDDRef *TempRef,
   HLLoop *Lp = Node->getParentLoop();
 
   const std::string TempName = "scextmp";
-  HLInst *LoadInst =
-      HNU.createLoad(TmpArrayRef->clone(), TempName, TempRef->clone());
+  HLInst *LoadInst = HNU.createLoad(TmpArrayRef->clone(), TempName, TempRef);
 
   auto TmpNode = Node;
   HLNode *IfParent;
@@ -513,11 +512,19 @@ void HIRLoopDistribution::replaceWithArrayTemp(Gatherer::VectorTy *Refs) {
           if (std::find(InsertLoadVector.begin(), InsertLoadVector.end(),
                         std::make_pair(SB, J)) == InsertLoadVector.end()) {
             assert(TmpArrayRef && "Temp Store missing");
-            RegDDRef *SinkTempRef = dyn_cast<RegDDRef>(SinkRef);
-            if (!SinkTempRef) {
-              SinkTempRef = HNU.getDDRefUtils().createScalarRegDDRef(
-                  SinkRef->getSymbase(), SinkRef->getSingleCanonExpr());
-            }
+
+            // Prepare LVal for the load from temp array. SinkRef could be
+            // either a temp %t or an invariant memref %a[0].
+            auto *SinkTempRef =
+                SinkRef->isTerminalRef()
+                    // Terminal SinkRef may have a linear form of RVal, create a
+                    // proper LVal.
+                    ? HNU.getDDRefUtils().createSelfBlobRef(
+                          HNU.getBlobUtils().findOrInsertTempBlobIndex(
+                              SinkRef->getSymbase()))
+                    // Use a clone in case of memref.
+                    : cast<RegDDRef>(SinkRef->clone());
+
             createTempArrayLoad(SinkTempRef, TmpArrayRef,
                                 SinkRef->getHLDDNode(), TempRedefined);
             InsertLoadVector.emplace_back(SB, J);
@@ -842,8 +849,11 @@ bool HIRLoopDistribution::loopIsCandidate(const HLLoop *Lp) const {
   // edge between the two new loops when considering I. Distributing
   // again won't enable vectorization, but create more loop overhead.
 
+  // Disabled distribution of loop inside SIMD region as scalar expansion can
+  // introduce new allocas which are not marked as private for outer SIMD loop.
+
   if (Lp->hasUnrollEnablingPragma() || Lp->hasVectorizeEnablingPragma() ||
-      !Lp->isDo()) {
+      !Lp->isDo() || Lp->isInSIMDRegion()) {
     return false;
   }
 

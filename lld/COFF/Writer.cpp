@@ -10,13 +10,13 @@
 #include "Config.h"
 #include "DLL.h"
 #include "InputFiles.h"
+#include "LLDMapFile.h"
 #include "MapFile.h"
 #include "PDB.h"
 #include "SymbolTable.h"
 #include "Symbols.h"
 #include "lld/Common/ErrorHandler.h"
 #include "lld/Common/Memory.h"
-#include "lld/Common/Threads.h"
 #include "lld/Common/Timer.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/STLExtras.h"
@@ -633,7 +633,11 @@ void Writer::run() {
   }
   writeBuildId();
 
+  writeLLDMapFile(outputSections);
   writeMapFile(outputSections);
+#ifdef INTEL_CUSTOMIZATION
+  outputSections.clear();
+#endif // INTEL_CUSTOMIZATION
 
   if (errorCount())
     return;

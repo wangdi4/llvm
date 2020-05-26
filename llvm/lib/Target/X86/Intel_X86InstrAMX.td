@@ -23,6 +23,10 @@
 
 let Predicates = [HasAMXTILE, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
+    let Defs = [TMM0,TMM1,TMM2,TMM3,TMM4,TMM5,TMM6,TMM7,
+                TMM8,TMM9,TMM10,TMM11,TMM12,TMM13,TMM14,TMM15,
+                TMM16,TMM17,TMM18,TMM19,TMM20,TMM21,TMM22,TMM23,
+                TMM24,TMM25,TMM26,TMM27,TMM28,TMM29,TMM30,TMM31] in
     def LDTILECFG : I <0x49, MRM0m, (outs), (ins opaquemem:$src),
                        "ldtilecfg\t$src",
                        [(int_x86_ldtilecfg addr:$src)]>, VEX, T8PS;
@@ -37,6 +41,10 @@ let Predicates = [HasAMXTILE, In64BitMode] in {
                         (ins opaquemem:$src),
                         "tileloaddt1\t{$src, $dst|$dst, $src}", []>,
                         VEX, T8PD;
+    let Defs = [TMM0,TMM1,TMM2,TMM3,TMM4,TMM5,TMM6,TMM7,
+                TMM8,TMM9,TMM10,TMM11,TMM12,TMM13,TMM14,TMM15,
+                TMM16,TMM17,TMM18,TMM19,TMM20,TMM21,TMM22,TMM23,
+                TMM24,TMM25,TMM26,TMM27,TMM28,TMM29,TMM30,TMM31] in
     def TILERELEASE : I<0x49, MRM_C0, (outs), (ins),
                         "tilerelease", [(int_x86_tilerelease)]>, VEX, T8PS;
     def TILESTORED : I<0x4b, MRMDestMemFSIB, (outs),
@@ -1323,14 +1331,106 @@ let Predicates = [HasAMXTRANSPOSE2, In64BitMode] in {
                            (ins i8mem:$src1, GR64:$src2),
                            "t2transposewt1\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                            []>, VEX, T_MAP5XS;
+
+  let Constraints = "$src1 = $dst" in {
+      def TTDPBSSD : I<0xfe, MRMSrcReg4VOp3, (outs VTILE:$dst),
+                           (ins VTILE:$src1, VTILE:$src2, VTILE:$src3),
+                           "ttdpbssd\t{$src3, $src2, $dst|$dst, $src2, $src3}",
+                           []>, VEX_4V, T_MAP5XD;
+      def TTDPBSUD : I<0xfe, MRMSrcReg4VOp3, (outs VTILE:$dst),
+                           (ins VTILE:$src1, VTILE:$src2, VTILE:$src3),
+                           "ttdpbsud\t{$src3, $src2, $dst|$dst, $src2, $src3}",
+                           []>, VEX_4V, T_MAP5XS;
+      def TTDPBUSD : I<0xfe, MRMSrcReg4VOp3, (outs VTILE:$dst),
+                           (ins VTILE:$src1, VTILE:$src2, VTILE:$src3),
+                           "ttdpbusd\t{$src3, $src2, $dst|$dst, $src2, $src3}",
+                           []>, VEX_4V, T_MAP5PD;
+      def TTDPBUUD : I<0xfe, MRMSrcReg4VOp3, (outs VTILE:$dst),
+                           (ins VTILE:$src1, VTILE:$src2, VTILE:$src3),
+                           "ttdpbuud\t{$src3, $src2, $dst|$dst, $src2, $src3}",
+                           []>, VEX_4V, T_MAP5PS;
+  }
+
     let usesCustomInserter = 1 in {
       def PT2TRANSPOSEW : PseudoI<(outs), (ins u8imm:$dst,
                                   i8mem:$src1, GR64:$src2), []>;
       def PT2TRANSPOSEWT1 : PseudoI<(outs), (ins u8imm:$dst,
                                     i8mem:$src1, GR64:$src2), []>;
+      def PTTDPBSSD       : PseudoI<(outs), (ins u8imm:$src1,
+                                    u8imm:$src2, u8imm:$src3),
+                                    [(int_x86_ttdpbssd timm:$src1,
+                                     timm:$src2, timm:$src3)]>;
+      def PTTDPBSUD       : PseudoI<(outs), (ins u8imm:$src1,
+                                    u8imm:$src2, u8imm:$src3),
+                                    [(int_x86_ttdpbsud timm:$src1,
+                                     timm:$src2, timm:$src3)]>;
+      def PTTDPBUSD       : PseudoI<(outs), (ins u8imm:$src1,
+                                    u8imm:$src2, u8imm:$src3),
+                                    [(int_x86_ttdpbusd timm:$src1,
+                                     timm:$src2, timm:$src3)]>;
+      def PTTDPBUUD       : PseudoI<(outs), (ins u8imm:$src1,
+                                    u8imm:$src2, u8imm:$src3),
+                                    [(int_x86_ttdpbuud timm:$src1,
+                                     timm:$src2, timm:$src3)]>;
     }
   }
 } // HasAMXTILE, HasAMXTRANSPOSE2
+
+let Predicates = [HasAMXTRANSPOSE2, In64BitMode] in {
+  let SchedRW = [WriteSystem] in {
+    def T4RQNTLVBZ0   : I<0xee, MRMSrcMemFSIB, (outs VTILEQuad:$dst),
+                        (ins i8mem:$src),
+                        "t4rqntlvbz0\t{$src, $dst|$dst, $src}",
+                        []>, VEX, T_MAP5PS;
+    def T4RQNTLVBZ0T1 : I<0xef, MRMSrcMemFSIB, (outs VTILEQuad:$dst),
+                        (ins i8mem:$src),
+                        "t4rqntlvbz0t1\t{$src, $dst|$dst, $src}",
+                        []>, VEX, T_MAP5PS;
+    def T4RQNTLVBZ1   : I<0xee, MRMSrcMemFSIB, (outs VTILEQuad:$dst),
+                        (ins i8mem:$src),
+                        "t4rqntlvbz1\t{$src, $dst|$dst, $src}",
+                        []>, VEX, T_MAP5PD;
+    def T4RQNTLVBZ1T1 : I<0xef, MRMSrcMemFSIB, (outs VTILEQuad:$dst),
+                        (ins i8mem:$src),
+                        "t4rqntlvbz1t1\t{$src, $dst|$dst, $src}",
+                        []>, VEX, T_MAP5PD;
+    def T4RQNTLVBZ2   : I<0xee, MRMSrcMemFSIB, (outs VTILEQuad:$dst),
+                        (ins i8mem:$src),
+                        "t4rqntlvbz2\t{$src, $dst|$dst, $src}",
+                        []>, VEX, T_MAP5XD;
+    def T4RQNTLVBZ2T1 : I<0xef, MRMSrcMemFSIB, (outs VTILEQuad:$dst),
+                        (ins i8mem:$src),
+                        "t4rqntlvbz2t1\t{$src, $dst|$dst, $src}",
+                        []>, VEX, T_MAP5XD;
+    def T4RQNTLVBZ3   : I<0xee, MRMSrcMemFSIB, (outs VTILEQuad:$dst),
+                        (ins i8mem:$src),
+                        "t4rqntlvbz3\t{$src, $dst|$dst, $src}",
+                        []>, VEX, T_MAP5XS;
+    def T4RQNTLVBZ3T1 : I<0xef, MRMSrcMemFSIB, (outs VTILEQuad:$dst),
+                        (ins i8mem:$src),
+                        "t4rqntlvbz3t1\t{$src, $dst|$dst, $src}",
+                        []>, VEX, T_MAP5XS;
+
+    let usesCustomInserter = 1 in {
+      def PT4RQNTLVBZ0   : PseudoI<(outs), (ins u8imm:$dst,
+                                 i8mem:$src1), []>;
+      def PT4RQNTLVBZ0T1 : PseudoI<(outs), (ins u8imm:$dst,
+                                   i8mem:$src1), []>;
+      def PT4RQNTLVBZ1   : PseudoI<(outs), (ins u8imm:$dst,
+                                 i8mem:$src1), []>;
+      def PT4RQNTLVBZ1T1 : PseudoI<(outs), (ins u8imm:$dst,
+                                   i8mem:$src1), []>;
+      def PT4RQNTLVBZ2   : PseudoI<(outs), (ins u8imm:$dst,
+                                 i8mem:$src1), []>;
+      def PT4RQNTLVBZ2T1 : PseudoI<(outs), (ins u8imm:$dst,
+                                   i8mem:$src1), []>;
+      def PT4RQNTLVBZ3   : PseudoI<(outs), (ins u8imm:$dst,
+                                 i8mem:$src1), []>;
+      def PT4RQNTLVBZ3T1 : PseudoI<(outs), (ins u8imm:$dst,
+                                   i8mem:$src1), []>;
+    }
+  }
+}
 
 // end INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 
@@ -1340,10 +1440,10 @@ let Predicates = [HasAMXTRANSPOSE2, In64BitMode] in {
 let Predicates = [HasAMXFP16, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
     let Constraints = "$src1 = $dst" in {
-      def TDPFP16PS : I<0x5d, MRMSrcReg4VOp3, (outs VTILE:$dst),
+      def TDPFP16PS : I<0x5c, MRMSrcReg4VOp3, (outs VTILE:$dst),
                         (ins VTILE:$src1, VTILE:$src2, VTILE:$src3),
                         "tdpfp16ps\t{$src3, $src2, $src1|$src1, $src2, $src3}",
-                        []>, VEX_4V, T8XS;
+                        []>, VEX_4V, T8XD;
     }
     let  usesCustomInserter = 1 in {
       def PTDPFP16PS : PseudoI<(outs), (ins u8imm:$src1,
@@ -1355,3 +1455,16 @@ let Predicates = [HasAMXFP16, In64BitMode] in {
 } // HasAMXTILE, HasAMXFP16
 
 // end INTEL_FEATURE_ISA_AMX_FP16
+
+#if INTEL_FEATURE_ISA_AMX_TILE2
+let Predicates = [HasAMXTILE2, In64BitMode] in {
+    def TILEMOV : I<0x4b, MRMSrcReg, (outs VTILE:$dst),
+                    (ins VTILE:$src),
+                    "tilemov\t{$src, $dst|$dst, $src}",
+                    []>, VEX, T8XD;
+
+let usesCustomInserter = 1 in
+    def PTILEMOV : PseudoI<(outs), (ins u8imm:$dst, u8imm:$src),
+                           [(int_x86_tilemov timm:$dst, timm:$src)]>;
+}
+#endif // INTEL_FEATURE_ISA_AMX_TILE2

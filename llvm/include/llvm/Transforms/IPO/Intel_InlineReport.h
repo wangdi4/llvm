@@ -1,6 +1,6 @@
 //===- Intel_InlineReport.h - Implement inlining report ---------*- C++ -*-===//
 //
-// Copyright (C) 2015-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -247,12 +247,12 @@ public:
   // \brief Indicate that we are done inlining functions in the current SCC.
   void endSCC();
 
-  void beginUpdate(CallSite CS) {
-    ActiveCallee = CS.getCalledFunction();
+  void beginUpdate(CallBase *Call) {
+    ActiveCallee = Call->getCalledFunction();
     // New call sites can be added from inlining even if they are not a
     // cloned from the inlined callee.
-    ActiveIRCS = addNewCallSite(CS.getCaller(), CS, M);
-    ActiveInlineInstruction = CS.getInstruction();
+    ActiveIRCS = addNewCallSite(Call->getCaller(), Call, M);
+    ActiveInlineInstruction = Call;
     ActiveOriginalCalls.clear();
     ActiveInlinedCalls.clear();
   }
@@ -295,14 +295,14 @@ public:
   }
 
   /// \brief Record the reason a call site is or is not inlined.
-  void setReasonNotInlined(const CallSite CS,
+  void setReasonNotInlined(CallBase *Call,
                            InlineReportTypes::InlineReason Reason);
-  void setReasonNotInlined(const CallSite CS, const InlineCost &IC);
-  void setReasonNotInlined(const CallSite CS, const InlineCost &IC,
+  void setReasonNotInlined(CallBase *Call, const InlineCost &IC);
+  void setReasonNotInlined(CallBase *Call, const InlineCost &IC,
                            int TotalSecondaryCost);
-  void setReasonIsInlined(const CallSite CS,
+  void setReasonIsInlined(CallBase *Call,
                           InlineReportTypes::InlineReason Reason);
-  void setReasonIsInlined(const CallSite CS, const InlineCost &IC);
+  void setReasonIsInlined(CallBase *Call, const InlineCost &IC);
 
   void replaceFunctionWithFunction(Function *OldFunction,
                                    Function *NewFunction) override;
@@ -432,12 +432,12 @@ private:
   // \brief Create an InlineReportFunction to represent F
   InlineReportFunction *addFunction(Function *F, Module *M);
 
-  // \brief Create an InlineReportCallSite to represent CS
-  InlineReportCallSite *addCallSite(Function *F, CallSite CS, Module *M);
+  // \brief Create an InlineReportCallSite to represent Call
+  InlineReportCallSite *addCallSite(Function *F, CallBase *Call, Module *M);
 
-  // \brief Create an InlineReportCallSite to represent CS, if one does
+  // \brief Create an InlineReportCallSite to represent Call, if one does
   // not already exist
-  InlineReportCallSite *addNewCallSite(Function *F, CallSite CS, Module *M);
+  InlineReportCallSite *addNewCallSite(Function *F, CallBase *Call, Module *M);
 
 #ifndef NDEBUG
   /// \brief Run some simple consistency checking on 'F', e.g.
@@ -464,7 +464,7 @@ private:
     IRCallbackVector.push_back(IRCB);
   }
 
-  InlineReportCallSite *getCallSite(CallSite CS);
+  InlineReportCallSite *getCallSite(CallBase *Call);
 };
 
 } // namespace llvm

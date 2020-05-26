@@ -258,18 +258,18 @@ void OptReportAsmPrinterHandler::combineFunctionDescs() {
                      StringRef AName, BName;
                      auto *ASection = A->Section;
                      auto *BSection = B->Section;
-                     // TODO (vzakhari 10/8/2018): check if using getSectionName
+                     // TODO (vzakhari 10/8/2018): check if using getName
                      //       is the right thing for all OSes, including the
                      //       COMDAT cases.
                      if (isa<MCSectionCOFF>(ASection)) {
-                       AName = cast<MCSectionCOFF>(ASection)->getSectionName();
-                       BName = cast<MCSectionCOFF>(BSection)->getSectionName();
+                       AName = cast<MCSectionCOFF>(ASection)->getName();
+                       BName = cast<MCSectionCOFF>(BSection)->getName();
                      } else if (isa<MCSectionELF>(ASection)) {
-                       AName = cast<MCSectionELF>(ASection)->getSectionName();
-                       BName = cast<MCSectionELF>(BSection)->getSectionName();
+                       AName = cast<MCSectionELF>(ASection)->getName();
+                       BName = cast<MCSectionELF>(BSection)->getName();
                      } else if (isa<MCSectionMachO>(ASection)) {
-                       AName = cast<MCSectionMachO>(ASection)->getSectionName();
-                       BName = cast<MCSectionMachO>(BSection)->getSectionName();
+                       AName = cast<MCSectionMachO>(ASection)->getName();
+                       BName = cast<MCSectionMachO>(BSection)->getName();
                      }
                      else {
                        llvm_unreachable("Unsupported OS.");

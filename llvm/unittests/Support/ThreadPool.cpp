@@ -71,7 +71,7 @@ protected:
 
   void SetUp() override { MainThreadReady = false; }
 
-  void TestAllThreads(ThreadPoolStrategy S);
+  void RunOnAllSockets(ThreadPoolStrategy S);
 
   std::condition_variable WaitMainThread;
   std::mutex WaitMainThreadMutex;
@@ -169,7 +169,7 @@ TEST_F(ThreadPoolTest, PoolDestruction) {
 
 #if LLVM_ENABLE_THREADS == 1
 
-void ThreadPoolTest::TestAllThreads(ThreadPoolStrategy S) {
+void ThreadPoolTest::RunOnAllSockets(ThreadPoolStrategy S) {
   // FIXME: Skip these tests on non-Windows because multi-socket system were not
   // tested on Unix yet, and llvm::get_thread_affinity_mask() isn't implemented
   // for Unix.
@@ -180,9 +180,18 @@ void ThreadPoolTest::TestAllThreads(ThreadPoolStrategy S) {
   llvm::DenseSet<llvm::BitVector> ThreadsUsed;
   std::mutex Lock;
   {
+    std::condition_variable AllThreads;
+    std::mutex AllThreadsLock;
+    unsigned Active = 0;
+
     ThreadPool Pool(S);
-    for (size_t I = 0; I < 10000; ++I) {
+    for (size_t I = 0; I < S.compute_thread_count(); ++I) {
       Pool.async([&] {
+        {
+          std::lock_guard<std::mutex> Guard(AllThreadsLock);
+          ++Active;
+          AllThreads.notify_one();
+        }
         waitForMainThread();
         std::lock_guard<std::mutex> Guard(Lock);
         auto Mask = llvm::get_thread_affinity_mask();
@@ -190,19 +199,39 @@ void ThreadPoolTest::TestAllThreads(ThreadPoolStrategy S) {
       });
     }
     ASSERT_EQ(true, ThreadsUsed.empty());
+    {
+      std::unique_lock<std::mutex> Guard(AllThreadsLock);
+      AllThreads.wait(Guard,
+                      [&]() { return Active == S.compute_thread_count(); });
+    }
     setMainThreadReady();
   }
   ASSERT_EQ(llvm::get_cpus(), ThreadsUsed.size());
 }
 
 TEST_F(ThreadPoolTest, AllThreads_UseAllRessources) {
+#if INTEL_CUSTOMIZATION
+  // Disable this on Windows until community resolves ThreadPool issues:
+  // https://bugs.llvm.org/show_bug.cgi?id=45556, CMPLRLLVM-19188.
+  Triple Host(Triple::normalize(sys::getProcessTriple()));
+  if (Host.isOSWindows())
+    return;
+#endif // INTEL_CUSTOMIZATION
   CHECK_UNSUPPORTED();
-  TestAllThreads({});
+  RunOnAllSockets({});
 }
 
 TEST_F(ThreadPoolTest, AllThreads_OneThreadPerCore) {
+#if INTEL_CUSTOMIZATION
+  // Disable this on Windows until community resolves ThreadPool issues:
+  // https://bugs.llvm.org/show_bug.cgi?id=45556, CMPLRLLVM-19188.
+  Triple Host(Triple::normalize(sys::getProcessTriple()));
+  if (Host.isOSWindows())
+    return;
+#endif // INTEL_CUSTOMIZATION
+
   CHECK_UNSUPPORTED();
-  TestAllThreads(llvm::heavyweight_hardware_concurrency());
+  RunOnAllSockets(llvm::heavyweight_hardware_concurrency());
 }
 
 #endif

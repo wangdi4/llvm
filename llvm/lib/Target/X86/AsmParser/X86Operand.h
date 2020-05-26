@@ -17,9 +17,7 @@
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCParser/MCParsedAsmOperand.h"
-#include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/Support/Casting.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/SMLoc.h"
 #include <cassert>
 #include <memory>
@@ -593,6 +591,45 @@ struct X86Operand final : public MCParsedAsmOperand {
     case X86::TMM14:
     case X86::TMM15:
       Reg = X86::TMM14_TMM15;
+      break;
+    }
+    Inst.addOperand(MCOperand::createReg(Reg));
+  }
+
+  bool isVTILEQuad() const {
+    return Kind == Register &&
+      X86MCRegisterClasses[X86::VTILERegClassID].contains(getReg());
+  }
+
+  void addTILEQuadOperands(MCInst &Inst, unsigned N) const {
+    assert(N == 1 && "Invalid number of operands!");
+    unsigned Reg = getReg();
+    switch (Reg) {
+    default:
+      llvm_unreachable("Invalid tile register!");
+    case X86::TMM0:
+    case X86::TMM1:
+    case X86::TMM2:
+    case X86::TMM3:
+      Reg = X86::TMM0_TMM1_TMM2_TMM3;
+      break;
+    case X86::TMM4:
+    case X86::TMM5:
+    case X86::TMM6:
+    case X86::TMM7:
+      Reg = X86::TMM4_TMM5_TMM6_TMM7;
+      break;
+    case X86::TMM8:
+    case X86::TMM9:
+    case X86::TMM10:
+    case X86::TMM11:
+      Reg = X86::TMM8_TMM9_TMM10_TMM11;
+      break;
+    case X86::TMM12:
+    case X86::TMM13:
+    case X86::TMM14:
+    case X86::TMM15:
+      Reg = X86::TMM12_TMM13_TMM14_TMM15;
       break;
     }
     Inst.addOperand(MCOperand::createReg(Reg));

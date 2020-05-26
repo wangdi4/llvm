@@ -1,6 +1,6 @@
 //===--- plugins/Intel_CSA/src/rtl.cpp - CSA RTLs Implementation - C++ -*--===//
 //
-// Copyright (C) 2017-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2017-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -55,30 +55,9 @@ static int DebugLevel = 0;
 
 #define NUMBER_OF_DEVICES 1
 #define OFFLOADSECTIONNAME "omp_offloading_entries"
-#define CSA_ASM_SECTION ".csa.code"
 #define CSA_CODE_SECTION ".csa"
 
 // ENVIRONMENT VARIABLES
-
-// If defined, suppresses use of assembly embedded in the binary and specifies
-// the file to use instead
-#define ENV_ASSEMBLY_FILE "CSA_ASSEMBLY_FILE"
-
-// Variable value has the following format
-//   CSA_ASSEMBLY_FILE=<file>[:<entry list>][;<file>[:<entry list>]]
-//
-// where
-//   <file>       A path to CSA aseembly file.
-//   <entry list> Comma-separated list of entries defined in the assembly file.
-//                For these entries plugin will use assembly from the file
-//                instead of compiler generated assembly.
-//
-// If there is no entry list, assembly file is supposed to define all entries
-// which program will execute on CSA.
-
-static std::string AsmFile;
-using String2StringMap = std::unordered_map<std::string, std::string>;
-static std::unique_ptr<String2StringMap> Entry2AsmFile;
 
 // Specifies that the tool should display the compilation command
 // being generated
@@ -266,31 +245,16 @@ static const char *getUmrErrorStr(CsaUmrErrors E) {
 }
 #endif // OMPTARGET_DEBUG
 
-// Check if given address that represents an offload entry points to a vISA
-// graph entry. We can determine this by checking the first byte's value. In
-// case of vISA graph entry it is guaranteed to be <9 according to the vISA
-// binary encoding specification. Otherwise it is expected be an printable
-// character.
-static bool isVisaGraphEntry(const char *Entry) {
-  if (*Entry < 9)
-    return true;
-  assert((std::isprint(*Entry) || std::isspace(*Entry)) &&
-         "must be a printable character");
-  return false;
-}
-
 namespace {
 
 /// Class containing all the device information.
 class RTLDeviceInfoTy {
   // For function entries target address in the offload entry table points to
   // this object. It is a pair of pointers where the first field is an address
-  // of a string containing the offload entry name, and the second field can be
-  // either a vISA graph entry if we are dealing with the binary vISA graph, or
-  // an ascii string with the name of the file containing entry's assembly if
-  // entry is encoded as assembly string.
-  // TODO: We can get rid of the EntryAddr objects once we completely switch to
-  // the binary encoding of CSA graphs.
+  // of a string containing the offload entry name, and the second field is
+  // vISA graph entry
+  // TODO: EntryAddr objects was used to support assembly files.  We stopped
+  //       supporting assembly so We can get rid of the EntryAddr objects.
   using EntryAddr = std::pair<const char *, const char *>;
 
   // Structure which represents an offload entry table for CSA binary.
@@ -303,9 +267,6 @@ class RTLDeviceInfoTy {
     }
 
     ~EntryTable() {
-      if (!SaveTemps)
-        for (const auto &File : Addr2AsmFile)
-          remove(File.second.c_str());
     }
 
   private:
@@ -318,16 +279,7 @@ class RTLDeviceInfoTy {
           // its address the the entry address.
           DP(2, "Entry[%lu]: name %s\n", I, Entries[I].name);
 
-          // Check if we are dealing with assembly string or vISA graph entry.
-          // If it is an assembly, then save it to a temporary file and use
-          // file's name as the entry address.
           auto *Addr = static_cast<const char *>(Entries[I].addr);
-          if (!isVisaGraphEntry(Addr)) {
-            Addr = getEntryFile(Entries[I]);
-            if (!Addr)
-              return false;
-          }
-
           Addresses.emplace_front(Entries[I].name, Addr);
           Entries[I].addr = &Addresses.front();
         } else
@@ -342,61 +294,9 @@ class RTLDeviceInfoTy {
       return true;
     }
 
-    const char *getEntryFile(const __tgt_offload_entry &Entry) {
-      // There are three possible options for getting assembly for an entry.
-      // (1) If we have a single user-defined assembly file, then we use it.
-      if (!AsmFile.empty())
-        return AsmFile.c_str();
-
-      // (2) Otherwise if there is an entry -> assembly map, try to find
-      // assembly file for the given entry.
-      if (Entry2AsmFile) {
-        auto It = Entry2AsmFile->find(Entry.name);
-        if (It != Entry2AsmFile->end())
-          return It->second.c_str();
-      }
-
-      // (3) Otherwise save the embedded assembly to a file.
-      // Check if we have already saved this asm string earlier.
-      auto It = Addr2AsmFile.find(Entry.addr);
-      if (It != Addr2AsmFile.end())
-        return It->second.c_str();
-
-      // We have not seen this entry yet.
-      std::string FileName;
-      if (SaveTemps) {
-        static std::atomic<unsigned int> AsmCount;
-        std::stringstream SS;
-        SS << TempPrefix << AsmCount++ << ".s";
-        FileName = SS.str();
-
-        if (Verbosity)
-          fprintf(stderr, "Saving CSA assembly to \"%s\"\n", FileName.c_str());
-      } else {
-        FileName = makeTempFile();
-        if (FileName.empty())
-          return nullptr;
-      }
-
-      // Save assembly.
-      DP(3, "Saving CSA assembly to \"%s\"\n", FileName.c_str());
-      std::ofstream OFS(FileName, std::ofstream::trunc);
-      if (!OFS || !(OFS << static_cast<const char *>(Entry.addr))) {
-        DP(1, "Error while saving assembly to a file %s\n", FileName.c_str());
-        return nullptr;
-      }
-      OFS.close();
-
-      // And update asm files map.
-      auto Res = Addr2AsmFile.emplace(Entry.addr, std::move(FileName));
-      assert(Res.second && "unexpected entry in the map");
-      return Res.first->second.c_str();
-    }
-
   private:
     std::vector<__tgt_offload_entry> Entries;
     std::forward_list<EntryAddr> Addresses;
-    std::unordered_map<void *, std::string> Addr2AsmFile;
   };
 
   // An object which contains all data for a single CSA binary - dynamic library
@@ -567,16 +467,10 @@ public:
         CI.graph = Graph;
         CI.num_inputs = Args.size();
         CI.inputs = reinterpret_cast<const CsaArchValue64 *>(Args.data());
-        if (isVisaGraphEntry(Addr->second)) {
-          // TODO: remove const_cast<>() once CsaUmrCallInfo::entry is changed
-          // to a 'const' pointer.
-          CI.entry = const_cast<CsaArchVisaEntry *>(
+        // TODO: remove const_cast<>() once CsaUmrCallInfo::entry is changed
+        // to a 'const' pointer.
+        CI.entry = const_cast<CsaArchVisaEntry *>(
               reinterpret_cast<const CsaArchVisaEntry *>(Addr->second));
-        } else {
-          CI.flags = kCsaUmrCallEntryByName;
-          CI.entry_name = Name;
-        }
-
         auto E = CsaUmrCall(&CI, 0);
         if (E) {
           DP(1, "Error calling CSA graph - %s\n", getUmrErrorStr(E));
@@ -614,29 +508,16 @@ public:
         }
 
         CsaUmrBoundGraph *BoundGraph = nullptr;
-        if (isVisaGraphEntry(Addr->second)) {
-          auto *VisaGraph = CsaArchVisaGraphFromEntry(
+        auto *VisaGraph = CsaArchVisaGraphFromEntry(
               reinterpret_cast<const CsaArchVisaEntry *>(Addr->second));
-          DP(1, "Binding vISA graph %p to context %p for entry \"%s\"\n",
+        DP(1, "Binding vISA graph %p to context %p for entry \"%s\"\n",
              reinterpret_cast<void *>(VisaGraph),
              reinterpret_cast<void *>(Context), Addr->first);
-          auto E = CsaUmrBindGraph(Context, VisaGraph, &BoundGraph);
-          if (E) {
-            DP(1, "Failed to bind CSA graph - %s\n", getUmrErrorStr(E));
-            return nullptr;
-          }
-        } else {
-          auto *AsmFile = reinterpret_cast<const char *>(Addr->second);
-          DP(5, "Using assembly from \"%s\" for entry \"%s\"\n", AsmFile,
-             Addr->first);
-          auto E = CsaUmrBindGraphFromFile(Context, AsmFile, &BoundGraph);
-          if (E) {
-            DP(1, "Failed to bind CSA graph from file - %s\n",
-               getUmrErrorStr(E));
-            return nullptr;
-          }
+        auto E = CsaUmrBindGraph(Context, VisaGraph, &BoundGraph);
+        if (E) {
+           DP(1, "Failed to bind CSA graph - %s\n", getUmrErrorStr(E));
+           return nullptr;
         }
-
         Graphs[Addr] = BoundGraph;
         return BoundGraph;
       }
@@ -746,38 +627,6 @@ static RTLDeviceInfoTy &getDeviceInfo() {
     }
     if (const char *Str = getenv(ENV_DUMP_STATS))
       DumpStats = (DumpStatLocation)std::stoi(Str);
-    if (const auto *Str = getenv(ENV_ASSEMBLY_FILE)) {
-      // Parse string which is expected to have the following format
-      //   CSA_ASSEMBLY_FILE=<file>[:<entry list>][;<file>[:<entry list>]]
-      std::istringstream SSV(Str);
-      std::string Value;
-      while (std::getline(SSV, Value, ';')) {
-        auto EntriesPos = Value.find(':');
-        if (EntriesPos == std::string::npos)
-          // If no entry list is given, then asm file overrides all entries.
-          AsmFile = Value;
-        else {
-          // Otherwise we have asm file name with a list of entries.
-          auto File = Value.substr(0u, EntriesPos);
-
-          // Split entries and put them into the entry map.
-          std::istringstream SSE(Value.substr(EntriesPos + 1u));
-          std::string Entry;
-          while (std::getline(SSE, Entry, ',')) {
-            if (!Entry2AsmFile)
-              Entry2AsmFile.reset(new String2StringMap());
-            Entry2AsmFile->insert({Entry, File});
-          }
-        }
-      }
-
-      // Check that we do not have AsmFile and Entry2AsmFile both defined.
-      if (!AsmFile.empty() && Entry2AsmFile) {
-        fprintf(stderr, "ignoring malformed %s setting\n", ENV_ASSEMBLY_FILE);
-        AsmFile = "";
-        Entry2AsmFile = nullptr;
-      }
-    }
   });
   return DeviceInfo;
 }
@@ -796,7 +645,7 @@ int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *Image) {
 
   // Check if device binary contains CSA assembly/code section.
   for (const auto *Sec : Elf.getSections())
-    if (Sec->getName() == CSA_ASM_SECTION || Sec->getName() == CSA_CODE_SECTION)
+    if (Sec->getName() == CSA_CODE_SECTION)
       return true;
   DP(1, "No CSA sections in the binary\n");
   return false;

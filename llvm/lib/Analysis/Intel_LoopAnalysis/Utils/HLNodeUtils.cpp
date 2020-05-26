@@ -262,17 +262,9 @@ HLInst *HLNodeUtils::createUnaryHLInstImpl(unsigned OpCode, RegDDRef *RvalRef,
   }
 
   case Instruction::BitCast: {
-    // IRBuilder CreateCast returns input value when DestType is the same as
-    // the value's type. In such cases, the return value is not guaranteed to
-    // be an instruction as isa<Instruction>(DummyVal) is not necessarily true.
-    // We take care of such cases by forcing creation of a copy Instruction
-    // here.
-    if (DestTy == DummyVal->getType()) {
-      return createCopyInst(RvalRef, Name, LvalRef);
-    } else {
-      InstVal = DummyIRBuilder->CreateCast((Instruction::CastOps)OpCode,
-                                           DummyVal, DestTy, Name);
-    }
+    assert((DestTy != DummyVal->getType()) && "Bad bitcast type");
+    InstVal = DummyIRBuilder->CreateCast((Instruction::CastOps)OpCode, DummyVal,
+                                         DestTy, Name);
     break;
   }
 
@@ -292,15 +284,9 @@ HLInst *HLNodeUtils::createUnaryHLInstImpl(unsigned OpCode, RegDDRef *RvalRef,
 Instruction *HLNodeUtils::createCopyInstImpl(Type *Ty, const Twine &Name) {
   // Create dummy val.
   auto DummyVal = UndefValue::get(Ty);
-
-  // Cannot use IRBuilder here as it returns the same value for casts with
-  // identical src and dest types.
-  Value *InstVal = CastInst::Create(Instruction::BitCast, DummyVal,
-                                    DummyVal->getType(), Name);
-
-  auto Inst = cast<Instruction>(InstVal);
-  Inst->insertBefore(&*(DummyIRBuilder->GetInsertPoint()));
-
+  Function *SSACopyFunc =
+      Intrinsic::getDeclaration(&getModule(), Intrinsic::ssa_copy, Ty);
+  CallInst *Inst = DummyIRBuilder->CreateCall(SSACopyFunc, {DummyVal}, Name);
   setFirstAndLastDummyInst(Inst);
 
   return Inst;
@@ -3949,6 +3935,278 @@ HLNodeUtils::getHighestAncestorForPerfectLoopNest(const HLLoop *InnermostLoop,
   }
 
   return PrevLp;
+}
+
+/// Checks to see if MemRef has first 2 dimensionssize == tripcount, has
+/// standalone IVs, and returns the IV levels. Examples: A[i1][i2], B[i1][i1]
+static bool is2DMatrixAccess(const RegDDRef *MemRef, uint64_t TripCount,
+                             unsigned *FirstLevel, unsigned *SecondLevel) {
+  unsigned NumDims = MemRef->getNumDimensions();
+  // Only allow 3rd dimension if CE == 0 for global vars
+  if (NumDims == 3) {
+    if (!MemRef->getDimensionIndex(3)->isZero()) {
+      return false;
+    }
+  } else if (NumDims != 2) {
+    return false;
+  }
+
+  if (MemRef->getNumDimensionElements(1) != TripCount ||
+      MemRef->getNumDimensionElements(2) != TripCount) {
+    return false;
+  }
+
+  if (!MemRef->getDimensionIndex(1)->isStandAloneIV(false, FirstLevel) ||
+      !MemRef->getDimensionIndex(2)->isStandAloneIV(false, SecondLevel)) {
+    return false;
+  }
+
+  return true;
+}
+
+/// Check the first outer loop for instruction that sets the diagonal of a 2D
+/// array like: Ident[i1][i1] = 1.0
+/// Maintain a list of disqualifying stores. Anything not writing
+/// A[i1][i1]=ConstVal in the outer loop disqualifies the symbase for such A
+void findOuterDiagInst(const HLLoop *Outer, uint64_t TripCount,
+                       SmallVector<const RegDDRef *, 8> &DiagCandidates,
+                       SmallSet<unsigned, 16> &DisqualifiedSymbases) {
+  SmallSet<unsigned, 8> DiagRefSymbases;
+  for (const auto &Node :
+       make_range(Outer->child_rbegin(), Outer->child_rend())) {
+    // This check handles multiple loops inside the outer loop. Invalidates
+    // results if InnerLp is not the first child of OuterLp
+    if (isa<HLLoop>(&Node)) {
+      if (Node.getPrevNode()) {
+        DiagCandidates.clear();
+      }
+      break;
+    }
+
+    const auto *Inst = dyn_cast<HLInst>(&Node);
+    if (!Inst) {
+      continue;
+    }
+
+    const RegDDRef *LvalRef = Inst->getLvalDDRef();
+    if (!LvalRef) {
+      continue;
+    }
+
+    if (!LvalRef->isMemRef()) {
+      continue;
+    }
+
+    unsigned LvalSymbase = LvalRef->getSymbase();
+    // Bailout if symbase is a disqualifying store
+    if (DisqualifiedSymbases.count(LvalSymbase)) {
+      continue;
+    }
+
+    const RegDDRef *RvalRef = Inst->getRvalDDRef();
+    if (!RvalRef || !RvalRef->getSingleCanonExpr()->isOne()) {
+      DisqualifiedSymbases.insert(LvalSymbase);
+      continue;
+    }
+
+    unsigned FirstLevel, SecondLevel;
+    if (!is2DMatrixAccess(LvalRef, TripCount, &FirstLevel, &SecondLevel)) {
+      DisqualifiedSymbases.insert(LvalSymbase);
+      continue;
+    }
+
+    // Check both IVLevels == OuterLevel
+    if ((FirstLevel != SecondLevel) ||
+        (FirstLevel != Outer->getNestingLevel())) {
+      DisqualifiedSymbases.insert(LvalSymbase);
+      continue;
+    }
+
+    // Disqualify refs with same symbase as previously found candidates.
+    if (DiagRefSymbases.count(LvalSymbase)) {
+      DisqualifiedSymbases.insert(LvalSymbase);
+      continue;
+    }
+
+    LLVM_DEBUG(dbgs() << "Found Diag Inst in OuterLp: "; Inst->dump();
+               dbgs() << "\n";);
+    DiagCandidates.push_back(LvalRef);
+    DiagRefSymbases.insert(LvalSymbase);
+  }
+}
+
+/// Look for 2D array store of zeros in the inner loop and check with diagonal
+/// refs. Anything not writing zero to A[i1][i2] or A[i2][i1] disqualifies
+/// the symbase for A.
+void findInnerZeroInst(const HLLoop *Inner, uint64_t TripCount,
+                       SmallVector<const RegDDRef *, 2> &Diagonals,
+                       SmallVector<const RegDDRef *, 8> &DiagCandidates,
+                       SmallSet<unsigned, 16> &DisqualifiedSymbases) {
+
+  // Set of symbases for found memrefs assigned to zero
+  SmallSet<unsigned, 8> ZeroRefSymbases;
+  SmallVector<const RegDDRef *, 8> ZeroRefs;
+
+  unsigned InnerLevel = Inner->getNestingLevel();
+  unsigned OuterLevel = InnerLevel - 1;
+
+  // Look for 2 groups of instrs. 2D memrefstores of all zeros, and memrefstores
+  // of non-const values which disqualify all candidates
+  // Candidates look like: A[i1][i2] = 0.0
+  // Disqualifying stores might be: A[i1][i2] = C[i3] , A[i1] = *p, etc.
+  for (const auto &Node :
+       make_range(Inner->child_rbegin(), Inner->child_rend())) {
+    const auto *Inst = dyn_cast<HLInst>(&Node);
+
+    if (!Inst) {
+      continue;
+    }
+
+    const RegDDRef *LvalRef = Inst->getLvalDDRef();
+    if (!LvalRef) {
+      continue;
+    }
+
+    if (!LvalRef->isMemRef()) {
+      continue;
+    }
+    unsigned LvalSymbase = LvalRef->getSymbase();
+
+    // Bailout if symbase is a disqualifying store
+    if (DisqualifiedSymbases.count(LvalSymbase)) {
+      continue;
+    }
+
+    const RegDDRef *RvalRef = Inst->getRvalDDRef();
+    if (!RvalRef || !RvalRef->isZero()) {
+      DisqualifiedSymbases.insert(LvalSymbase);
+      continue;
+    }
+
+    unsigned FirstLevel, SecondLevel;
+    if (!is2DMatrixAccess(LvalRef, TripCount, &FirstLevel, &SecondLevel)) {
+      DisqualifiedSymbases.insert(LvalSymbase);
+      continue;
+    }
+
+    // Ensure IV corresponds to the inner & outer loops. Either match:
+    // A[i1][i2] or A[i2][i1] where i1 and i2 are inner & outer
+    if (!((FirstLevel == InnerLevel && SecondLevel == OuterLevel) ||
+          (FirstLevel == InnerLevel && SecondLevel == OuterLevel))) {
+      DisqualifiedSymbases.insert(LvalSymbase);
+      continue;
+    }
+
+    // Disqualify refs that share same symbase as previous candidates
+    if (ZeroRefSymbases.count(LvalSymbase)) {
+      DisqualifiedSymbases.insert(LvalSymbase);
+      continue;
+    }
+
+    // Save ref to check for aliasing
+    ZeroRefs.push_back(LvalRef);
+    ZeroRefSymbases.insert(LvalSymbase);
+    LLVM_DEBUG(dbgs() << "Found Zero Instruction: "; Inst->dump();
+               dbgs() << "\n";);
+  }
+
+  // Final check on diags/zeros/disqualifiers for ID matrix
+  for (auto &DiagRef : DiagCandidates) {
+    unsigned DiagSymbase = DiagRef->getSymbase();
+
+    // Candidate symbase must not be disqualified and must exist in
+    // ZeroRefSymbases.
+    if (DisqualifiedSymbases.count(DiagSymbase) ||
+        !ZeroRefSymbases.count(DiagSymbase)) {
+      continue;
+    }
+
+    // Check aliasing between diag symbase and zero symbase
+    bool IsAliased = false;
+    auto DiagCE = DiagRef->getBaseCE();
+    for (const auto &ZeroRef : ZeroRefs) {
+      if ((ZeroRef->getSymbase() == DiagSymbase) &&
+          !CanonExprUtils::areEqual(DiagCE, ZeroRef->getBaseCE(), false)) {
+        IsAliased = true;
+        break;
+      }
+    }
+
+    if (!IsAliased) {
+      Diagonals.push_back(DiagRef);
+      LLVM_DEBUG(dbgs() << "Found Ident Matrix, DiagInst: ";
+                 DiagRef->getHLDDNode()->dump(); dbgs() << "\n";);
+    }
+  }
+}
+
+/// 503.bwavs utility for identifying identity matrix. Looks for following:
+/// do i=1,5
+///   do j=1,5
+///     A(j,i) = 0.0
+///   enddo
+///   A(i,i) = 1.0
+/// enddo
+/// Logic proceeds by traversing the outer and inner loops in reverse.
+/// For outer loop, find refs that sets constant value for diagonals.
+/// For inner loop, find corresponding ref that sets all zeros.
+/// Track a list of symbases that stores any invalid Rvals at each step
+/// and disqualify those symbases from final candidates.
+void HLNodeUtils::findIdentityMatrix(
+    HIRLoopStatistics *HLS, const HLLoop *InnerLp,
+    SmallVector<const RegDDRef *, 2> &Diagonals) {
+  assert(InnerLp && InnerLp->isInnermost() && "InnerLoop is null\n");
+  assert(HLS && "Loop Statistics unavailable!\n");
+  Diagonals.clear();
+
+  if (!InnerLp->isDo() || !InnerLp->isNormalized()) {
+    return;
+  }
+
+  const HLLoop *OuterLp = InnerLp->getParentLoop();
+  if (!OuterLp || !OuterLp->isDo() || !OuterLp->isNormalized()) {
+    return;
+  }
+
+  if (InnerLp->hasPreheader() || OuterLp->hasPreheader() ||
+      InnerLp->hasPostexit() || OuterLp->hasPostexit() ||
+      InnerLp->getPrevNode()) {
+    return;
+  }
+
+  auto &OuterLS = HLS->getTotalLoopStatistics(OuterLp);
+
+  if (OuterLS.hasSwitches() || OuterLS.hasIfs() || OuterLS.hasCalls() ||
+      OuterLS.hasLabels()) {
+    return;
+  }
+
+  uint64_t InnerLpTripCount = 0;
+  uint64_t OuterLpTripCount = 0;
+
+  if (!(InnerLp->isConstTripLoop(&InnerLpTripCount) &&
+        OuterLp->isConstTripLoop(&OuterLpTripCount) &&
+        InnerLpTripCount == OuterLpTripCount)) {
+    return;
+  }
+
+  SmallVector<const RegDDRef *, 8> DiagCandidates;
+  SmallSet<unsigned, 16> DisqualifiedSymbases;
+  // Find diagonal inst in outer loop. Break once we see inner loop
+  findOuterDiagInst(OuterLp, OuterLpTripCount, DiagCandidates,
+                    DisqualifiedSymbases);
+
+  if (DiagCandidates.empty()) {
+    return;
+  }
+
+  // Find the corresponding instruction that zeros the matrix in the inner loop
+  findInnerZeroInst(InnerLp, OuterLpTripCount, Diagonals,
+                    DiagCandidates, DisqualifiedSymbases);
+
+  if (!Diagonals.empty()) {
+    LLVM_DEBUG(dbgs() << "Found Identity Matrix for Loop:\n"; OuterLp->dump(););
+  }
 }
 
 class NonUnitStrideMemRefs final : public HLNodeVisitorBase {

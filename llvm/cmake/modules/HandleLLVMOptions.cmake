@@ -11,6 +11,7 @@ include(HandleLLVMStdlib)
 include(CheckCCompilerFlag)
 include(CheckCXXCompilerFlag)
 include(CheckSymbolExists)
+include(CMakeDependentOption)
 
 if(CMAKE_LINKER MATCHES "lld-link" OR (WIN32 AND LLVM_USE_LINKER STREQUAL "lld") OR LLVM_ENABLE_LLD)
   set(LINKER_IS_LLD_LINK TRUE)
@@ -828,6 +829,8 @@ if(LLVM_USE_SANITIZER)
     elseif (LLVM_USE_SANITIZER STREQUAL "Thread")
       append_common_sanitizer_flags()
       append("-fsanitize=thread" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+    elseif (LLVM_USE_SANITIZER STREQUAL "DataFlow")
+      append("-fsanitize=dataflow" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
     elseif (LLVM_USE_SANITIZER STREQUAL "Address;Undefined" OR
             LLVM_USE_SANITIZER STREQUAL "Undefined;Address")
       append_common_sanitizer_flags()
@@ -984,6 +987,27 @@ if (LLVM_BUILD_INSTRUMENTED)
   endif()
 endif()
 
+# When using clang-cl with an instrumentation-based tool, add clang's library
+# resource directory to the library search path. Because cmake invokes the
+# linker directly, it isn't sufficient to pass -fsanitize=* to the linker.
+if (CLANG_CL AND (LLVM_BUILD_INSTRUMENTED OR LLVM_USE_SANITIZER))
+  execute_process(
+    COMMAND ${CMAKE_CXX_COMPILER} /clang:-print-resource-dir
+    OUTPUT_VARIABLE clang_resource_dir
+    ERROR_VARIABLE clang_cl_stderr
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_STRIP_TRAILING_WHITESPACE
+    RESULT_VARIABLE clang_cl_exit_code)
+  if (NOT "${clang_cl_exit_code}" STREQUAL "0")
+    message(FATAL_ERROR
+      "Unable to invoke clang-cl to find resource dir: ${clang_cl_stderr}")
+  endif()
+  file(TO_CMAKE_PATH "${clang_resource_dir}" clang_resource_dir)
+  append("/libpath:${clang_resource_dir}/lib/windows"
+    CMAKE_EXE_LINKER_FLAGS
+    CMAKE_SHARED_LINKER_FLAGS)
+endif()
+
 if(LLVM_PROFDATA_FILE AND EXISTS ${LLVM_PROFDATA_FILE})
   if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" )
     append("-fprofile-instr-use=\"${LLVM_PROFDATA_FILE}\""
@@ -1048,12 +1072,23 @@ elseif(LLVM_ENABLE_LTO)
   endif()
 endif()
 
+# Set an AIX default for LLVM_EXPORT_SYMBOLS_FOR_PLUGINS based on whether we are
+# doing dynamic linking (see below).
+set(LLVM_EXPORT_SYMBOLS_FOR_PLUGINS_AIX_default OFF)
+if (NOT (BUILD_SHARED_LIBS OR LLVM_LINK_LLVM_DYLIB))
+  set(LLVM_EXPORT_SYMBOLS_FOR_PLUGINS_AIX_default ON)
+endif()
+
 # This option makes utils/extract_symbols.py be used to determine the list of
-# symbols to export from LLVM tools. This is necessary when using MSVC if you
-# want to allow plugins, though note that the plugin has to explicitly link
-# against (exactly one) tool so we can't unilaterally turn on
+# symbols to export from LLVM tools. This is necessary when on AIX or when using
+# MSVC if you want to allow plugins. On AIX we don't show this option, and we
+# enable it by default except when the LLVM libraries are set up for dynamic
+# linking (due to incompatibility). With MSVC, note that the plugin has to
+# explicitly link against (exactly one) tool so we can't unilaterally turn on
 # LLVM_ENABLE_PLUGINS when it's enabled.
-option(LLVM_EXPORT_SYMBOLS_FOR_PLUGINS "Export symbols from LLVM tools so that plugins can import them" OFF)
+CMAKE_DEPENDENT_OPTION(LLVM_EXPORT_SYMBOLS_FOR_PLUGINS
+       "Export symbols from LLVM tools so that plugins can import them" OFF
+       "NOT ${CMAKE_SYSTEM_NAME} MATCHES AIX" ${LLVM_EXPORT_SYMBOLS_FOR_PLUGINS_AIX_default})
 if(BUILD_SHARED_LIBS AND LLVM_EXPORT_SYMBOLS_FOR_PLUGINS)
   message(FATAL_ERROR "BUILD_SHARED_LIBS not compatible with LLVM_EXPORT_SYMBOLS_FOR_PLUGINS")
 endif()
@@ -1176,8 +1211,17 @@ if(INTEL_CUSTOMIZATION)
           "-D_FORTIFY_SOURCE=2 can only be used with optimization.")
         message(WARNING "-D_FORTIFY_SOURCE=2 is not supported.")
       else()
-        message(STATUS "Building with -D_FORTIFY_SOURCE=2")
-        add_definitions(-D_FORTIFY_SOURCE=2)
+        # Sanitizers do not work with checked memory functions,
+        # such as __memset_chk. We do not build release packages
+        # with sanitizers, so just avoid -D_FORTIFY_SOURCE=2
+        # under LLVM_USE_SANITIZER.
+        if (NOT LLVM_USE_SANITIZER)
+          message(STATUS "Building with -D_FORTIFY_SOURCE=2")
+          add_definitions(-D_FORTIFY_SOURCE=2)
+        else()
+          message(WARNING
+            "-D_FORTIFY_SOURCE=2 dropped due to LLVM_USE_SANITIZER.")
+        endif()
       endif()
 
       # Format String Defense (all strongly recommended by SDL):
@@ -1284,38 +1328,55 @@ if(INTEL_CUSTOMIZATION)
       # We only add the linker flag(s) here, since -fPIC objects can be used
       # to build Position Independent Executables.
       intel_add_sdl_linker_flag("-pie" PIE CMAKE_EXE_LINKER_FLAGS)
+
+      #intel_add_sdl_linker_flag("-Wl,-Map=swlc_ip.map" MAP
+      #  CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
+      #  CMAKE_SHARED_LINKER_FLAGS)
     elseif(MSVC)
       if (LLVM_ENABLE_WERROR)
         # Force warnings as errors for link:
-        intel_add_sdl_linker_flag("/WX" LINKERWX CMAKE_EXE_LINKER_FLAGS)
+        intel_add_sdl_linker_flag("/WX" LINKERWX
+          CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
+          CMAKE_SHARED_LINKER_FLAGS)
       endif()
 
       # Dynamic Base (ASLR) (strongly recommended):
       intel_add_sdl_linker_flag(
-        "/DYNAMICBASE" DYNAMICBASE CMAKE_EXE_LINKER_FLAGS)
+        "/DYNAMICBASE" DYNAMICBASE
+        CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
+        CMAKE_SHARED_LINKER_FLAGS)
 
       # High Entropy VA (strongly recommended):
       # This is not strictly required, since MSVC seems to enable
       # it by default. Adding it here will result in an appropriate
       # message in the build log, which is convenient:
       intel_add_sdl_linker_flag(
-        "/HIGHENTROPYVA" HIGHENTROPYVA CMAKE_EXE_LINKER_FLAGS)
+        "/HIGHENTROPYVA" HIGHENTROPYVA
+        CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
+        CMAKE_SHARED_LINKER_FLAGS)
       intel_add_sdl_linker_flag(
-        "/LARGEADDRESSAWARE" LARGEADDRESSAWARE CMAKE_EXE_LINKER_FLAGS)
+        "/LARGEADDRESSAWARE" LARGEADDRESSAWARE
+        CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
+        CMAKE_SHARED_LINKER_FLAGS)
 
       # Force Integrity (recommended):
       # Disabled now, because xmain parts (e.g. libraries) may be used
       # with not signed user parts. Moreover, executables built with this
       # option will not run from U4Win.
       intel_add_sdl_linker_flag(
-        "/INTEGRITYCHECK" INTEGRITYCHECK CMAKE_EXE_LINKER_FLAGS FUTURE)
+        "/INTEGRITYCHECK" INTEGRITYCHECK FUTURE
+        CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
+        CMAKE_SHARED_LINKER_FLAGS)
 
       # Namespace Isolation (strongly recommended):
       intel_add_sdl_linker_flag(
-        "/ALLOWISOLATION" ALLOWISOLATION CMAKE_EXE_LINKER_FLAGS)
+        "/ALLOWISOLATION" ALLOWISOLATION
+        CMAKE_EXE_LINKER_FLAGS)
 
       # DEP (NX) (strongly recommended):
-      intel_add_sdl_linker_flag("/NXCOMPAT" NXCOMPAT CMAKE_EXE_LINKER_FLAGS)
+      intel_add_sdl_linker_flag("/NXCOMPAT" NXCOMPAT
+        CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
+        CMAKE_SHARED_LINKER_FLAGS)
 
       # Control Flow Guard (recommended):
       # Microsoft claims small performance impact, but this has to be
@@ -1327,11 +1388,15 @@ if(INTEL_CUSTOMIZATION)
         intel_add_sdl_flag("/guard:cf" GUARDCF FUTURE)
       endif()
       intel_add_sdl_linker_flag(
-        "/GUARD:CF" LINKGUARDCF CMAKE_EXE_LINKER_FLAGS FUTURE)
+        "/GUARD:CF" LINKGUARDCF FUTURE
+        CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
+        CMAKE_SHARED_LINKER_FLAGS)
 
       # Safe SEH (recommended, 32-bit only):
       if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-        intel_add_sdl_linker_flag("/SAFESEH" SAFESEH CMAKE_EXE_LINKER_FLAGS)
+        intel_add_sdl_linker_flag("/SAFESEH" SAFESEH
+          CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
+          CMAKE_SHARED_LINKER_FLAGS)
       endif()
 
       # Stack Canaries (strongly recommended):
@@ -1351,6 +1416,10 @@ if(INTEL_CUSTOMIZATION)
       else()
         intel_add_sdl_flag("/Qspectre" QSPECTRE FUTURE)
       endif()
+
+      #intel_add_sdl_linker_flag("/MAP:swlc_ip.map" MAP
+      #  CMAKE_EXE_LINKER_FLAGS CMAKE_MODULE_LINKER_FLAGS
+      #  CMAKE_SHARED_LINKER_FLAGS)
     else()
       message(FATAL_ERROR "### INTEL: SDL build is currently unsupported. ###")
     endif()

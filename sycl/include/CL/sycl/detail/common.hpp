@@ -8,14 +8,10 @@
 
 #pragma once
 
-#include <CL/sycl/detail/defines.hpp>
-
-// Suppress a compiler warning about undefined CL_TARGET_OPENCL_VERSION
-// Khronos ICD supports only latest OpenCL version
-#define CL_TARGET_OPENCL_VERSION 220
-#include <CL/cl.h>
-#include <CL/cl_ext.h>
 #include <CL/cl_ext_intel.h>
+#include <CL/sycl/detail/cl.h>
+#include <CL/sycl/detail/defines.hpp>
+#include <CL/sycl/detail/export.hpp>
 
 #include <cstdint>
 #include <string>
@@ -84,7 +80,7 @@ __SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
 namespace detail {
 
-const char *stringifyErrorCode(cl_int error);
+__SYCL_EXPORT const char *stringifyErrorCode(cl_int error);
 
 static inline std::string codeToString(cl_int code) {
   return std::string(std::to_string(code) + " (" + stringifyErrorCode(code) +
@@ -102,11 +98,13 @@ static inline std::string codeToString(cl_int code) {
 #define __SYCL_ASSERT(x) assert(x)
 #endif // #ifdef __SYCL_DEVICE_ONLY__
 
+/* INTEL_CUSTOMIZATION */
 #define OCL_ERROR_REPORT                                                       \
-  "OpenCL API failed. " /*__FILE__*/                                           \
+  "Native API failed. " /*__FILE__*/                                           \
   /* TODO: replace __FILE__ to report only relative path*/                     \
   /* ":" STRINGIFY_LINE(__LINE__) ": " */                                      \
-                               "OpenCL API returns: "
+                               "Native API returns: "
+/* end INTEL_CUSTOMIZATION */
 
 #ifndef SYCL_SUPPRESS_OCL_ERROR_REPORT
 #include <iostream>

@@ -1,6 +1,6 @@
 //===-- VPlanDecomposeHIR.cpp ---------------------------------------------===//
 //
-//   Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+//   Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -22,12 +22,17 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Support/CommandLine.h"
 
 #define DEBUG_TYPE "vplan-decomposer"
 
 using namespace llvm;
 using namespace llvm::vpo;
 using namespace llvm::loopopt;
+
+static cl::opt<bool> VPlanForceInvariantDecomposition(
+    "vplan-force-invariant-decomposition", cl::init(false), cl::Hidden,
+    cl::desc("Force decomposition of invariants"));
 
 // Splice the instruction list of the VPBB where \p Phi belongs, by moving the
 // VPPhi instruction to the front of the list
@@ -111,10 +116,20 @@ VPValue *VPDecomposerHIR::decomposeBlobImplicitConv(VPValue *Src,
 VPValue *VPDecomposerHIR::decomposeBlob(RegDDRef *RDDR, unsigned BlobIdx,
                                         int64_t BlobCoeff) {
   BlobTy Blob = RDDR->getBlobUtils().getBlob(BlobIdx);
+  VPValue *DecompBlob;
 
-  // Decompose Blob.
-  VPBlobDecompVisitor BlobDecomp(*RDDR, *this);
-  VPValue *DecompBlob = BlobDecomp.visit(Blob);
+  // Avoid invariant blob decomposition if the same is enabled. However, for
+  // constant data blobs, and standalone blobs continue regular decomposition.
+  if (VPlanForceInvariantDecomposition ||
+      RDDR->getBlobUtils().isConstantDataBlob(Blob) ||
+      RDDR->isNonDecomposable() || RDDR->getBlobDDRef(BlobIdx) ||
+      RDDR->findMaxBlobLevel(BlobIdx) >= OutermostHLp->getNestingLevel()) {
+    // Decompose Blob.
+    VPBlobDecompVisitor BlobDecomp(*RDDR, *this);
+    DecompBlob = BlobDecomp.visit(Blob);
+  } else
+    DecompBlob = Plan->getVPExternalDefForBlob(RDDR, BlobIdx);
+
   assert(DecompBlob && "Blob was not decomposed into valid VPValues");
 
   if (BlobCoeff != 1) {
@@ -177,7 +192,6 @@ VPValue *VPDecomposerHIR::decomposeIV(RegDDRef *RDDR, CanonExpr *CE,
   int64_t IVConstCoeff;
   unsigned IVBlobIndex;
   CE->getIVCoeff(IVLevel, &IVBlobIndex, &IVConstCoeff);
-
   VPValue *DecompIV = nullptr;
 
   if (IVBlobIndex != InvalidBlobIndex)
@@ -219,31 +233,153 @@ VPValue *VPDecomposerHIR::decomposeIV(RegDDRef *RDDR, CanonExpr *CE,
   return DecompIV;
 }
 
+// When removing IV and forming external def, we force denominator to 1 and set
+// dest type to be the same as source type. Consider the following canon
+// expression whose source type is i32 and the destination type is i64(sext).
+//
+//    (IV1 * C1 * b1 + IV2 * C2 * b2 + IV3 * C3 * b3 + B1 + B2 + C4) / Denom
+//
+// C1/C2/C3 are constant IV coefficients. C4 is the constant additive. The blob
+// coefficients b1/b2 are invariant at level 3 where we are trying to
+// vectorize. The goal here is to avoid decomposing the invariant part of this
+// canon expression. This is done by removing IV at level 3 as stated above.
+// Once this is done, the invariant part of the canon expression looks like the
+// following whose source and dest types are i32.
+//
+//    InvCE = (IV1 * C1 * b1 + IV2 * C2 * b2 + B1 + B2 + C4)
+//
+// The decomposition for the original CE then looks like the following:
+//
+//    t1 = mul IV3, C3
+//    t2 = mul t1, b3
+//    t3 = add InvCE, t2
+//    t4 = div t3, Denom
+//    origce = sext t4 to i64
+//
+// Also, consider the following canon expressions where %n1 and %n2 are
+// invariant. This also allows us to create one invariant for %n1 + %n2.
+//
+//     (i1 + %n1 + %n2)  /  9 (source and dest types are i64)
+//     i1 + %n1 + %n2         (source type is i64 and dest type is i32)
+//
+// Remove IV from CE at specified LoopLevel and return the original denominator
+// and destination type in DenomP/DestTypeP respectively if non-null.
+static void processIVRemoval(CanonExpr *CE, unsigned LoopLevel,
+                             int64_t *DenomP = nullptr,
+                             Type **DestTypeP = nullptr) {
+  if (DenomP)
+    *DenomP = CE->getDenominator();
+  if (DestTypeP)
+    *DestTypeP = CE->getDestType();
+  CE->setDenominator(1);
+  CE->setDestType(CE->getSrcType());
+  CE->removeIV(LoopLevel);
+}
+
 // Decompose a CanonExpr. Return the last VPValue resulting from its
 // decomposition.
 VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
   LLVM_DEBUG(dbgs() << "  Decomposing CanonExpr: "; CE->dump(); dbgs() << "\n");
   VPValue *DecompDef = nullptr;
 
-  // Decompose blobs.
-  for (auto BlobIt = CE->blob_begin(); BlobIt != CE->blob_end(); ++BlobIt) {
-    unsigned BlobIdx = CE->getBlobIndex(BlobIt);
-    assert(BlobIdx != InvalidBlobIndex && "Invalid blob index!");
+  // Return true if we want to force regular decomposition of given
+  // canon expression.
+  auto forceRegularDecomposition = [](CanonExpr *CE, unsigned VecLoopLevel) {
+    // Do regular decomposition if invariant decomposition is forced.
+    if (VPlanForceInvariantDecomposition)
+      return true;
 
-    int64_t BlobCoeff = CE->getBlobCoeff(BlobIdx);
-    assert(BlobCoeff != 0 && "Invalid blob coefficient!");
+    // We want to force regular decomposition for canon expressions that are
+    // constants or self blobs once we ignore the IV at vectorization loop
+    // level. Remove IV if needed and mark for later restore of IV.
+    bool RestoreIV = false, UseRegular = false;
+    int64_t IVConstCoeff;
+    unsigned IVBlobIndex;
+    CE->getIVCoeff(VecLoopLevel, &IVBlobIndex, &IVConstCoeff);
 
-    VPValue *DecompBlob = decomposeBlobImplicitConv(
-        decomposeBlob(RDDR, BlobIdx, BlobCoeff), CE->getSrcType());
-    DecompDef = combineDecompDefs(DecompDef, DecompBlob, CE->getSrcType(),
-                                  Instruction::Add);
+    int64_t Denom;
+    Type *DestType;
+    if (IVConstCoeff) {
+      RestoreIV = true;
+      processIVRemoval(CE, VecLoopLevel, &Denom, &DestType);
+    }
+
+    // Avoid creating an external def for constants - continue generating a
+    // VPConstant.
+    if (CE->isConstant())
+      UseRegular = true;
+
+    // Continue creating a VPBlob external def for standalone blob canon
+    // expressions which includes self blobs.
+    if (CE->isStandAloneBlob())
+      UseRegular = true;
+
+    // Continue creating an VPIndVar if the CE is a stand alone IV.
+    if (CE->isStandAloneIV(false /* AllowConversion */))
+      UseRegular = true;
+
+    // Restore IV at vectorization loop level if needed.
+    if (RestoreIV) {
+      CE->addIV(VecLoopLevel, IVBlobIndex, IVConstCoeff);
+      CE->setDestType(DestType);
+      CE->setDenominator(Denom);
+    }
+
+    return UseRegular;
+  };
+
+  unsigned VecLoopLevel = OutermostHLp->getNestingLevel();
+  bool ForceRegularDecomposition = forceRegularDecomposition(CE, VecLoopLevel);
+
+  // Avoid decomposing invariant canon expressions.
+  if (!ForceRegularDecomposition && CE->isInvariantAtLevel(VecLoopLevel))
+    return Plan->getVPExternalDefForCanonExpr(CE, RDDR);
+
+  // Check to see if we can avoid decomposition of canon expression portion
+  // after removing the IV at level being vectorized. Boolean flag is set to
+  // true if we can do so. TODO - revisit for multi level vectorization when
+  // we support this in future.
+  bool InvariantWithoutIV = false;
+
+  // The canon expression is a candidate if we are not forcing regular
+  // decomposition for this canon expression, it is linear at vec loop level and
+  // invariant at any inner loop level.
+  if (!ForceRegularDecomposition && CE->isLinearAtLevel(VecLoopLevel) &&
+      CE->isInvariantAtLevel(VecLoopLevel + 1)) {
+    auto *CEClone = CE->clone();
+    processIVRemoval(CEClone, VecLoopLevel);
+    assert(CEClone->isInvariantAtLevel(VecLoopLevel) &&
+           "Expected invariant CEClone");
+
+    DecompDef = Plan->getVPExternalDefForCanonExpr(CEClone, RDDR);
+    InvariantWithoutIV = true;
   }
 
-  // Decompose IV expression.
+  // If the canon expression is invariant once we ignore IV at the vectorization
+  // level, we do not need to decompose blobs.
+  if (!InvariantWithoutIV)
+    // Decompose blobs.
+    for (auto BlobIt = CE->blob_begin(); BlobIt != CE->blob_end(); ++BlobIt) {
+      unsigned BlobIdx = CE->getBlobIndex(BlobIt);
+      assert(BlobIdx != InvalidBlobIndex && "Invalid blob index!");
+
+      int64_t BlobCoeff = CE->getBlobCoeff(BlobIdx);
+      assert(BlobCoeff != 0 && "Invalid blob coefficient!");
+
+      VPValue *DecompBlob = decomposeBlobImplicitConv(
+          decomposeBlob(RDDR, BlobIdx, BlobCoeff), CE->getSrcType());
+      DecompDef = combineDecompDefs(DecompDef, DecompBlob, CE->getSrcType(),
+                                    Instruction::Add);
+    }
+
+  // Decompose IV expression. If the canon expression is invariant without
+  // vectorization level IV, we only need to decompose vectorization level
+  // IV.
   for (auto IVIt = CE->iv_begin(), E = CE->iv_end(); IVIt != E; ++IVIt) {
     int64_t IVConstCoeff = CE->getIVConstCoeff(IVIt);
-
-    if (IVConstCoeff != 0) {
+    if (IVConstCoeff != 0 &&
+        (!InvariantWithoutIV ||
+         CE->getLevel(IVIt) == OutermostHLp->getNestingLevel())) {
       VPValue *DecompIV =
           decomposeIV(RDDR, CE, CE->getLevel(IVIt), CE->getSrcType());
       DecompDef = combineDecompDefs(DecompDef, DecompIV, CE->getSrcType(),
@@ -251,14 +387,18 @@ VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
     }
   }
 
-  // Decompose constant additive. If it's 0, we ignore it when the CE has more
-  // components (e.g., X + 0). Otherwise, CE is representing the constant 0 and
-  // we have to generate a VPValue for it.
-  int64_t AddCoeff = CE->getConstant();
-  if (AddCoeff != 0 || !DecompDef) {
-    VPValue *DecompCoeff = decomposeCoeff(AddCoeff, CE->getSrcType());
-    DecompDef = combineDecompDefs(DecompDef, DecompCoeff, CE->getSrcType(),
-                                  Instruction::Add);
+  // If the canon expression is invariant without vectorization level IV,
+  // the constant additive will be part of the invariant and should be skipped.
+  if (!InvariantWithoutIV) {
+    // Decompose constant additive. If it's 0, we ignore it when the CE has more
+    // components (e.g., X + 0). Otherwise, CE is representing the constant 0
+    // and we have to generate a VPValue for it.
+    int64_t AddCoeff = CE->getConstant();
+    if (AddCoeff != 0 || !DecompDef) {
+      VPValue *DecompCoeff = decomposeCoeff(AddCoeff, CE->getSrcType());
+      DecompDef = combineDecompDefs(DecompDef, DecompCoeff, CE->getSrcType(),
+                                    Instruction::Add);
+    }
   }
 
   // Decompose denominator.
@@ -619,13 +759,21 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
   // visited Node when we shouldn't, breaking the RPO traversal order.
   assert(!HLDef2VPValue.count(DDNode) && "Node shouldn't have been visited.");
 
-  if (auto *HInst = dyn_cast<HLInst>(Node)) {
-    const Instruction *LLVMInst = HInst->getLLVMInstruction();
-    assert(LLVMInst && "Missing LLVM Instruction for HLInst.");
-
-    if (isa<CmpInst>(LLVMInst)) {
+  // Generate a VPInstruction using LLVMInst opcode and the operands in
+  // VPOperands. DDNode if non-null will be used to setup the underlying
+  // node. HInst is used to obtain instruction specific information when
+  // needed.
+  auto genVPInst = [this](const Instruction *LLVMInst, HLDDNode *DDNode,
+                          HLInst *HInst, ArrayRef<VPValue *> VPOperands) {
+    VPInstruction *NewVPInst;
+    if (HInst->isCopyInst()) {
+      // Handle HIR copy instruction.
+      assert(VPOperands.size() == 1 &&
+             "Invalid number of operands for copy instruction.");
+      NewVPInst = Builder.createHIRCopy(VPOperands[0], DDNode);
+    } else if (isa<CmpInst>(LLVMInst)) {
       assert(VPOperands.size() == 2 && "Expected 2 operands in CmpInst.");
-      CmpInst::Predicate CmpPredicate = getPredicateFromHIR(DDNode);
+      CmpInst::Predicate CmpPredicate = getPredicateFromHIR(HInst);
       NewVPInst = Builder.createCmpInst(CmpPredicate, VPOperands[0],
                                         VPOperands[1], DDNode);
     } else if (isa<SelectInst>(LLVMInst)) {
@@ -641,8 +789,8 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
       // Decompose first 2 operands into a CmpInst used as predicate for select
       VPCmpInst *Pred =
           Builder.createCmpInst(HInst->getPredicate(), CmpLHS, CmpRHS);
-      // Set underlying DDNode for the select VPInstruction since it's the
-      // master VPInstruction
+      // Set underlying DDNode for the select VPInstruction since it may be the
+      // master VPInstruction which will be the case if DDNode is non-null.
       NewVPInst = cast<VPInstruction>(Builder.createNaryOp(
           Instruction::Select, {Pred, TVal, FVal}, TVal->getType(), DDNode));
     } else if (isa<LoadInst>(LLVMInst)) {
@@ -654,26 +802,74 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
       NewVPInst = cast<VPInstruction>(VPOperands.back());
       assert(NewVPInst->getOpcode() == Instruction::Load &&
              "Incorrect instruction added for load.");
-      // Set the underlying DDNode for the load instruction since it will be
-      // master VPI for this node
-      NewVPInst->HIR.setUnderlyingNode(DDNode);
+      // Set the underlying DDNode for the load instruction since it may be
+      // master VPI for this node which will be the case if DDNode is non-null.
+      if (DDNode)
+        NewVPInst->HIR.setUnderlyingNode(DDNode);
     } else if (auto *Call = dyn_cast<CallInst>(LLVMInst)) {
-      NewVPInst = cast<VPInstruction>(Builder.createNaryOp(
-          Instruction::Call, VPOperands, LLVMInst->getType(), DDNode));
-      // For direct calls, the called function should be added as last operand
-      // of the generated VPInstruction.
-      if (!HInst->isIndirectCallInst()) {
-        Function *F = Call->getCalledFunction();
-        assert(F && "Call HLInst does not have called function.");
-        VPValue *VPFunc = Plan->getVPConstant(F);
-        NewVPInst->addOperand(VPFunc);
+      bool IsSubscriptInst = false;
+      if (auto *IntrinCall = dyn_cast<IntrinsicInst>(Call)) {
+        if (IntrinCall->getIntrinsicID() == Intrinsic::intel_subscript) {
+          // TODO: This should be VPSubscriptInst in future.
+          NewVPInst = cast<VPGEPInstruction>(VPOperands[0]);
+          // Make subscript the master instruction since it was already created.
+          NewVPInst->HIR.setUnderlyingNode(DDNode);
+          IsSubscriptInst = true;
+        }
+      }
+
+      if (!IsSubscriptInst) {
+        assert(HInst->isCallInst() && "Underlying HLInst expected to be call.");
+        NewVPInst = cast<VPInstruction>(Builder.createNaryOp(
+            Instruction::Call, VPOperands, LLVMInst->getType(), DDNode));
+        // For direct calls, the called function should be added as last operand
+        // of the generated VPInstruction.
+        if (!HInst->isIndirectCallInst()) {
+          Function *F = Call->getCalledFunction();
+          assert(F && "Call HLInst does not have called function.");
+          VPValue *VPFunc = Plan->getVPConstant(F);
+          NewVPInst->addOperand(VPFunc);
+        }
       }
     } else
       // Generic VPInstruction.
       NewVPInst = cast<VPInstruction>(Builder.createNaryOp(
           LLVMInst->getOpcode(), VPOperands, LLVMInst->getType(), DDNode));
 
-    if (RegDDRef *LvalDDR = HInst->getLvalDDRef()) {
+    return NewVPInst;
+  };
+
+  if (auto *HInst = dyn_cast<HLInst>(Node)) {
+    const Instruction *LLVMInst = HInst->getLLVMInstruction();
+    assert(LLVMInst && "Missing LLVM Instruction for HLInst.");
+
+    // Any LLVM instruction which semantically has a terminal lval/rval can
+    // alternatively contain a memref operand in HIR. For example, an add
+    // instruction can look like the following in HIR:
+    //        A[i] = B[i] + C[i].
+    // Rval memory references are handled properly when we create corresponding
+    // VPOperands. However, instructions such as the above, need to be
+    // decomposed into two separate instructions. In this case, LLVMInst will be
+    // an add instruction and VPOperands will contain VPValues corresponding to
+    // B[i], C[i], and &A[i]. We generate an add instruction using the first two
+    // VPValues. The result of add becomes the value being stored and we
+    // generate a store instruction using the result of the add and the VPValue
+    // corresponding to &A[i]. The generated store instruction is set as the
+    // master instruction.
+    RegDDRef *LvalDDR = HInst->getLvalDDRef();
+
+    if (LvalDDR && LvalDDR->isMemRef() &&
+        LLVMInst->getOpcode() != Instruction::Store) {
+      VPInstruction *StoreVal =
+          genVPInst(LLVMInst, nullptr /* DDNode is only set on master */, HInst,
+                    VPOperands.drop_back() /* Omit last operand */);
+      NewVPInst = cast<VPInstruction>(Builder.createNaryOp(
+          Instruction::Store, {StoreVal, VPOperands.back()},
+          Type::getVoidTy(*Plan->getLLVMContext()), DDNode));
+    } else
+      NewVPInst = genVPInst(LLVMInst, DDNode, HInst, VPOperands);
+
+    if (LvalDDR) {
       // Set Lval DDRef as VPOperandHIR for this VPInstruction. This includes
       // standalone loads.
       NewVPInst->HIR.setOperandDDR(LvalDDR);

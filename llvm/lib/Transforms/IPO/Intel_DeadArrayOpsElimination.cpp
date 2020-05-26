@@ -783,9 +783,6 @@ void DeadArrayOpsElimImpl::applyTransformations(void) {
 
 bool DeadArrayOpsElimImpl::run(void) {
 
-  auto TIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
-  if (!WPInfo.isAdvancedOptEnabled(TIAVX2))
-    return false;
   if (!WPInfo.isWholeProgramSafe())
     return false;
 

@@ -77,12 +77,12 @@ public:
                  const TargetTransformInfo *TTI, const DataLayout *DL)
       : Plan(Plan), VF(VF), TTI(TTI), DL(DL) {}
 #endif // INTEL_CUSTOMIZATION
-  virtual unsigned getCost(const VPInstruction *VPInst) const;
-  virtual unsigned getCost(const VPBasicBlock *VPBB) const;
-  virtual unsigned getCost() const;
-  virtual unsigned getLoadStoreCost(const VPInstruction *VPInst) const;
+  virtual unsigned getCost(const VPInstruction *VPInst);
+  virtual unsigned getCost(const VPBasicBlock *VPBB);
+  virtual unsigned getCost();
+  virtual unsigned getLoadStoreCost(const VPInstruction *VPInst);
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void print(raw_ostream &OS) const;
+  void print(raw_ostream &OS, const std::string &Header);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   virtual ~VPlanCostModel() {}
 
@@ -98,7 +98,17 @@ protected:
   std::shared_ptr<VPlanVLSCostModel> VLSCM;
 #endif // INTEL_CUSTOMIZATION
 
-  void printForVPBasicBlock(raw_ostream &OS, const VPBasicBlock *VPBlock) const;
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  std::string getCostNumberString(unsigned Cost) const {
+    if (Cost == UnknownCost)
+      return std::string("Unknown");
+    return std::to_string(Cost);
+  };
+  void printForVPInstruction(
+    raw_ostream &OS, const VPInstruction *VPInst);
+  void printForVPBasicBlock(
+    raw_ostream &OS, const VPBasicBlock *VPBlock);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   // These utilities are private for the class instead of being defined as
   // static functions because they need access to underlying Inst/HIRData in
@@ -117,6 +127,13 @@ protected:
   /// for the base type in case of zero alignment in the underlying IR, so this
   /// method can freely be used even for widening of the \p VPInst.
   unsigned getMemInstAlignment(const VPInstruction *VPInst) const;
+
+  /// \Returns True iff \p VPInst is Unit Strided load or store.
+  virtual bool isUnitStrideLoadStore(const VPInstruction *VPInst) const;
+
+  // The utility checks whether the Cost Model can assume that 32-bit indexes
+  // will be used instead of 64-bit indexes for gather/scatter HW instructions.
+  unsigned getLoadStoreIndexSize(const VPInstruction *VPInst) const;
 };
 
 } // namespace vpo

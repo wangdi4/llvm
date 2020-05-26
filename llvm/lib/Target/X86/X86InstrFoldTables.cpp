@@ -652,6 +652,19 @@ static const X86MemoryFoldTableEntry MemoryFoldTable1[] = {
   { X86::VCOMISSZrr_Int,       X86::VCOMISSZrm_Int,       TB_NO_REVERSE },
   { X86::VCOMISSrr,            X86::VCOMISSrm,            0 },
   { X86::VCOMISSrr_Int,        X86::VCOMISSrm_Int,        TB_NO_REVERSE },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_CONVERT
+  { X86::VCVTBF162PHYrr,        X86::VCVTBF162PHYrm,      0},
+#endif // INTEL_FEATURE_ISA_AVX_CONVERT
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+  { X86::VCVTBF162PHZ128rr,    X86::VCVTBF162PHZ128rm,    0},
+  { X86::VCVTBF162PHZ256rr,    X86::VCVTBF162PHZ256rm,    0},
+  { X86::VCVTBF162PHZrr,       X86::VCVTBF162PHZrm,       0},
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#if INTEL_FEATURE_ISA_AVX_CONVERT
+  { X86::VCVTBF162PHrr,        X86::VCVTBF162PHrm,        0},
+#endif // INTEL_FEATURE_ISA_AVX_CONVERT
+#endif // INTEL_CUSTOMIZATION
   { X86::VCVTDQ2PDYrr,         X86::VCVTDQ2PDYrm,         0 },
   { X86::VCVTDQ2PDZ128rr,      X86::VCVTDQ2PDZ128rm,      TB_NO_REVERSE },
   { X86::VCVTDQ2PDZ256rr,      X86::VCVTDQ2PDZ256rm,      0 },
@@ -662,6 +675,19 @@ static const X86MemoryFoldTableEntry MemoryFoldTable1[] = {
   { X86::VCVTDQ2PSZ256rr,      X86::VCVTDQ2PSZ256rm,      0 },
   { X86::VCVTDQ2PSZrr,         X86::VCVTDQ2PSZrm,         0 },
   { X86::VCVTDQ2PSrr,          X86::VCVTDQ2PSrm,          0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_CONVERT
+  { X86::VCVTNEPH2BF16Yrr,     X86::VCVTNEPH2BF16Yrm,     0 },
+#endif // INTEL_FEATURE_ISA_AVX_CONVERT
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+  { X86::VCVTNEPH2BF16Z128rr,  X86::VCVTNEPH2BF16Z128rm,  0 },
+  { X86::VCVTNEPH2BF16Z256rr,  X86::VCVTNEPH2BF16Z256rm,  0 },
+  { X86::VCVTNEPH2BF16Zrr,     X86::VCVTNEPH2BF16Zrm,     0 },
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#if INTEL_FEATURE_ISA_AVX_CONVERT
+  { X86::VCVTNEPH2BF16rr,      X86::VCVTNEPH2BF16rm,      0 },
+#endif // INTEL_FEATURE_ISA_AVX_CONVERT
+#endif // INTEL_CUSTOMIZATION
   { X86::VCVTNEPS2BF16Z128rr,  X86::VCVTNEPS2BF16Z128rm,  0 },
   { X86::VCVTNEPS2BF16Z256rr,  X86::VCVTNEPS2BF16Z256rm,  0 },
   { X86::VCVTNEPS2BF16Zrr,     X86::VCVTNEPS2BF16Zrm,     0 },
@@ -1736,6 +1762,24 @@ static const X86MemoryFoldTableEntry MemoryFoldTable2[] = {
   { X86::VCMPSSZrr_Int,            X86::VCMPSSZrm_Int,            TB_NO_REVERSE },
   { X86::VCMPSSrr,                 X86::VCMPSSrm,                 0 },
   { X86::VCMPSSrr_Int,             X86::VCMPSSrm_Int,             TB_NO_REVERSE },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_CONVERT
+  { X86::VCVT2PS2PHYrr,            X86::VCVT2PS2PHYrm,            0 },
+#endif // INTEL_FEATURE_ISA_AVX_CONVERT
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+  { X86::VCVT2PS2PHZ128rr,         X86::VCVT2PS2PHZ128rm,         0 },
+  { X86::VCVT2PS2PHZ256rr,         X86::VCVT2PS2PHZ256rm,         0 },
+  { X86::VCVT2PS2PHZrr,            X86::VCVT2PS2PHZrm,            0 },
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#if INTEL_FEATURE_ISA_AVX_CONVERT
+  { X86::VCVT2PS2PHrr,             X86::VCVT2PS2PHrm,             0 },
+#endif // INTEL_FEATURE_ISA_AVX_CONVERT
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+  { X86::VCVTBF162PHZ128rrkz,      X86::VCVTBF162PHZ128rmkz,      0 },
+  { X86::VCVTBF162PHZ256rrkz,      X86::VCVTBF162PHZ256rmkz,      0 },
+  { X86::VCVTBF162PHZrrkz,         X86::VCVTBF162PHZrmkz,         0 },
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#endif // INTEL_CUSTOMIZATION
   { X86::VCVTDQ2PDZ128rrkz,        X86::VCVTDQ2PDZ128rmkz,        TB_NO_REVERSE },
   { X86::VCVTDQ2PDZ256rrkz,        X86::VCVTDQ2PDZ256rmkz,        0 },
   { X86::VCVTDQ2PDZrrkz,           X86::VCVTDQ2PDZrmkz,           0 },
@@ -1745,6 +1789,13 @@ static const X86MemoryFoldTableEntry MemoryFoldTable2[] = {
   { X86::VCVTNE2PS2BF16Z128rr,     X86::VCVTNE2PS2BF16Z128rm,     0 },
   { X86::VCVTNE2PS2BF16Z256rr,     X86::VCVTNE2PS2BF16Z256rm,     0 },
   { X86::VCVTNE2PS2BF16Zrr,        X86::VCVTNE2PS2BF16Zrm,        0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+  { X86::VCVTNEPH2BF16Z128rrkz,    X86::VCVTNEPH2BF16Z128rmkz,    0 },
+  { X86::VCVTNEPH2BF16Z256rrkz,    X86::VCVTNEPH2BF16Z256rmkz,    0 },
+  { X86::VCVTNEPH2BF16Zrrkz,       X86::VCVTNEPH2BF16Zrmkz,       0 },
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#endif // INTEL_CUSTOMIZATION
   { X86::VCVTNEPS2BF16Z128rrkz,    X86::VCVTNEPS2BF16Z128rmkz,    0 },
   { X86::VCVTNEPS2BF16Z256rrkz,    X86::VCVTNEPS2BF16Z256rmkz,    0 },
   { X86::VCVTNEPS2BF16Zrrkz,       X86::VCVTNEPS2BF16Zrmkz,       0 },
@@ -3358,6 +3409,16 @@ static const X86MemoryFoldTableEntry MemoryFoldTable3[] = {
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
   { X86::VCMPSSZrr_Intk,             X86::VCMPSSZrm_Intk,             TB_NO_REVERSE },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+  { X86::VCVT2PS2PHZ128rrkz,           X86::VCVT2PS2PHZ128rmkz,       0 },
+  { X86::VCVT2PS2PHZ256rrkz,           X86::VCVT2PS2PHZ256rmkz,       0 },
+  { X86::VCVT2PS2PHZrrkz,              X86::VCVT2PS2PHZrmkz,          0 },
+  { X86::VCVTBF162PHZ128rrk,           X86::VCVTBF162PHZ128rmk,       0 },
+  { X86::VCVTBF162PHZ256rrk,           X86::VCVTBF162PHZ256rmk,       0 },
+  { X86::VCVTBF162PHZrrk,              X86::VCVTBF162PHZrmk,          0 },
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#endif // INTEL_CUSTOMIZATION
   { X86::VCVTDQ2PDZ128rrk,           X86::VCVTDQ2PDZ128rmk,           TB_NO_REVERSE },
   { X86::VCVTDQ2PDZ256rrk,           X86::VCVTDQ2PDZ256rmk,           0 },
   { X86::VCVTDQ2PDZrrk,              X86::VCVTDQ2PDZrmk,              0 },
@@ -3367,6 +3428,13 @@ static const X86MemoryFoldTableEntry MemoryFoldTable3[] = {
   { X86::VCVTNE2PS2BF16Z128rrkz,     X86::VCVTNE2PS2BF16Z128rmkz,     0 },
   { X86::VCVTNE2PS2BF16Z256rrkz,     X86::VCVTNE2PS2BF16Z256rmkz,     0 },
   { X86::VCVTNE2PS2BF16Zrrkz,        X86::VCVTNE2PS2BF16Zrmkz,        0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+  { X86::VCVTNEPH2BF16Z128rrk,       X86::VCVTNEPH2BF16Z128rmk,       0 },
+  { X86::VCVTNEPH2BF16Z256rrk,       X86::VCVTNEPH2BF16Z256rmk,       0 },
+  { X86::VCVTNEPH2BF16Zrrk,          X86::VCVTNEPH2BF16Zrmk,          0 },
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#endif // INTEL_CUSTOMIZATION
   { X86::VCVTNEPS2BF16Z128rrk,       X86::VCVTNEPS2BF16Z128rmk,       0 },
   { X86::VCVTNEPS2BF16Z256rrk,       X86::VCVTNEPS2BF16Z256rmk,       0 },
   { X86::VCVTNEPS2BF16Zrrk,          X86::VCVTNEPS2BF16Zrmk,          0 },
@@ -4373,6 +4441,44 @@ static const X86MemoryFoldTableEntry MemoryFoldTable3[] = {
   { X86::VPCONFLICTQZ256rrk,         X86::VPCONFLICTQZ256rmk,         0 },
   { X86::VPCONFLICTQZrrk,            X86::VPCONFLICTQZrmk,            0 },
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_DOTPROD
+  { X86::VPDPBSSDSYrr,               X86::VPDPBSSDSYrm,               0 },
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+  { X86::VPDPBSSDSZ128r,             X86::VPDPBSSDSZ128m,             0 },
+  { X86::VPDPBSSDSZ256r,             X86::VPDPBSSDSZ256m,             0 },
+  { X86::VPDPBSSDSZr,                X86::VPDPBSSDSZm,                0 },
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+#if INTEL_FEATURE_ISA_AVX_DOTPROD
+  { X86::VPDPBSSDSrr,                X86::VPDPBSSDSrm,                0 },
+  { X86::VPDPBSSDYrr,                X86::VPDPBSSDYrm,                0 },
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+  { X86::VPDPBSSDZ128r,              X86::VPDPBSSDZ128m,              0 },
+  { X86::VPDPBSSDZ256r,              X86::VPDPBSSDZ256m,              0 },
+  { X86::VPDPBSSDZr,                 X86::VPDPBSSDZm,                 0 },
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+#if INTEL_FEATURE_ISA_AVX_DOTPROD
+  { X86::VPDPBSSDrr,                 X86::VPDPBSSDrm,                 0 },
+  { X86::VPDPBSUDSYrr,               X86::VPDPBSUDSYrm,               0 },
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+  { X86::VPDPBSUDSZ128r,             X86::VPDPBSUDSZ128m,             0 },
+  { X86::VPDPBSUDSZ256r,             X86::VPDPBSUDSZ256m,             0 },
+  { X86::VPDPBSUDSZr,                X86::VPDPBSUDSZm,                0 },
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+#if INTEL_FEATURE_ISA_AVX_DOTPROD
+  { X86::VPDPBSUDSrr,                X86::VPDPBSUDSrm,                0 },
+  { X86::VPDPBSUDYrr,                X86::VPDPBSUDYrm,                0 },
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+  { X86::VPDPBSUDZ128r,              X86::VPDPBSUDZ128m,              0 },
+  { X86::VPDPBSUDZ256r,              X86::VPDPBSUDZ256m,              0 },
+  { X86::VPDPBSUDZr,                 X86::VPDPBSUDZm,                 0 },
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+#if INTEL_FEATURE_ISA_AVX_DOTPROD
+  { X86::VPDPBSUDrr,                 X86::VPDPBSUDrm,                 0 },
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD
 #if INTEL_FEATURE_ISA_AVX_VNNI
   { X86::VPDPBUSDSYrr,               X86::VPDPBUSDSYrm,               0 },
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
@@ -4392,6 +4498,28 @@ static const X86MemoryFoldTableEntry MemoryFoldTable3[] = {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX_VNNI
   { X86::VPDPBUSDrr,                 X86::VPDPBUSDrm,                 0 },
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#if INTEL_FEATURE_ISA_AVX_DOTPROD
+  { X86::VPDPBUUDSYrr,               X86::VPDPBUUDSYrm,               0 },
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+  { X86::VPDPBUUDSZ128r,             X86::VPDPBUUDSZ128m,             0 },
+  { X86::VPDPBUUDSZ256r,             X86::VPDPBUUDSZ256m,             0 },
+  { X86::VPDPBUUDSZr,                X86::VPDPBUUDSZm,                0 },
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+#if INTEL_FEATURE_ISA_AVX_DOTPROD
+  { X86::VPDPBUUDSrr,                X86::VPDPBUUDSrm,                0 },
+  { X86::VPDPBUUDYrr,                X86::VPDPBUUDYrm,                0 },
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+  { X86::VPDPBUUDZ128r,              X86::VPDPBUUDZ128m,              0 },
+  { X86::VPDPBUUDZ256r,              X86::VPDPBUUDZ256m,              0 },
+  { X86::VPDPBUUDZr,                 X86::VPDPBUUDZm,                 0 },
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+#if INTEL_FEATURE_ISA_AVX_DOTPROD
+  { X86::VPDPBUUDrr,                 X86::VPDPBUUDrm,                 0 },
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD
+#if INTEL_FEATURE_ISA_AVX_VNNI
   { X86::VPDPWSSDSYrr,               X86::VPDPWSSDSYrm,               0 },
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
 #endif // INTEL_CUSTOMIZATION
@@ -5119,6 +5247,13 @@ static const X86MemoryFoldTableEntry MemoryFoldTable4[] = {
   { X86::VANDPSZ128rrk,             X86::VANDPSZ128rmk,             0 },
   { X86::VANDPSZ256rrk,             X86::VANDPSZ256rmk,             0 },
   { X86::VANDPSZrrk,                X86::VANDPSZrmk,                0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+  { X86::VCVT2PS2PHZ128rrk,         X86::VCVT2PS2PHZ128rmk,         0 },
+  { X86::VCVT2PS2PHZ256rrk,         X86::VCVT2PS2PHZ256rmk,         0 },
+  { X86::VCVT2PS2PHZrrk,            X86::VCVT2PS2PHZrmk,            0 },
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#endif // INTEL_CUSTOMIZATION
   { X86::VCVTNE2PS2BF16Z128rrk,     X86::VCVTNE2PS2BF16Z128rmk,     0 },
   { X86::VCVTNE2PS2BF16Z256rrk,     X86::VCVTNE2PS2BF16Z256rmk,     0 },
   { X86::VCVTNE2PS2BF16Zrrk,        X86::VCVTNE2PS2BF16Zrmk,        0 },
@@ -5921,6 +6056,34 @@ static const X86MemoryFoldTableEntry MemoryFoldTable4[] = {
   { X86::VPAVGWZ128rrk,             X86::VPAVGWZ128rmk,             0 },
   { X86::VPAVGWZ256rrk,             X86::VPAVGWZ256rmk,             0 },
   { X86::VPAVGWZrrk,                X86::VPAVGWZrmk,                0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+  { X86::VPDPBSSDSZ128rk,           X86::VPDPBSSDSZ128mk,           0 },
+  { X86::VPDPBSSDSZ128rkz,          X86::VPDPBSSDSZ128mkz,          0 },
+  { X86::VPDPBSSDSZ256rk,           X86::VPDPBSSDSZ256mk,           0 },
+  { X86::VPDPBSSDSZ256rkz,          X86::VPDPBSSDSZ256mkz,          0 },
+  { X86::VPDPBSSDSZrk,              X86::VPDPBSSDSZmk,              0 },
+  { X86::VPDPBSSDSZrkz,             X86::VPDPBSSDSZmkz,             0 },
+  { X86::VPDPBSSDZ128rk,            X86::VPDPBSSDZ128mk,            0 },
+  { X86::VPDPBSSDZ128rkz,           X86::VPDPBSSDZ128mkz,           0 },
+  { X86::VPDPBSSDZ256rk,            X86::VPDPBSSDZ256mk,            0 },
+  { X86::VPDPBSSDZ256rkz,           X86::VPDPBSSDZ256mkz,           0 },
+  { X86::VPDPBSSDZrk,               X86::VPDPBSSDZmk,               0 },
+  { X86::VPDPBSSDZrkz,              X86::VPDPBSSDZmkz,              0 },
+  { X86::VPDPBSUDSZ128rk,           X86::VPDPBSUDSZ128mk,           0 },
+  { X86::VPDPBSUDSZ128rkz,          X86::VPDPBSUDSZ128mkz,          0 },
+  { X86::VPDPBSUDSZ256rk,           X86::VPDPBSUDSZ256mk,           0 },
+  { X86::VPDPBSUDSZ256rkz,          X86::VPDPBSUDSZ256mkz,          0 },
+  { X86::VPDPBSUDSZrk,              X86::VPDPBSUDSZmk,              0 },
+  { X86::VPDPBSUDSZrkz,             X86::VPDPBSUDSZmkz,             0 },
+  { X86::VPDPBSUDZ128rk,            X86::VPDPBSUDZ128mk,            0 },
+  { X86::VPDPBSUDZ128rkz,           X86::VPDPBSUDZ128mkz,           0 },
+  { X86::VPDPBSUDZ256rk,            X86::VPDPBSUDZ256mk,            0 },
+  { X86::VPDPBSUDZ256rkz,           X86::VPDPBSUDZ256mkz,           0 },
+  { X86::VPDPBSUDZrk,               X86::VPDPBSUDZmk,               0 },
+  { X86::VPDPBSUDZrkz,              X86::VPDPBSUDZmkz,              0 },
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+#endif // INTEL_CUSTOMIZATION
   { X86::VPDPBUSDSZ128rk,           X86::VPDPBUSDSZ128mk,           0 },
   { X86::VPDPBUSDSZ128rkz,          X86::VPDPBUSDSZ128mkz,          0 },
   { X86::VPDPBUSDSZ256rk,           X86::VPDPBUSDSZ256mk,           0 },
@@ -5933,6 +6096,22 @@ static const X86MemoryFoldTableEntry MemoryFoldTable4[] = {
   { X86::VPDPBUSDZ256rkz,           X86::VPDPBUSDZ256mkz,           0 },
   { X86::VPDPBUSDZrk,               X86::VPDPBUSDZmk,               0 },
   { X86::VPDPBUSDZrkz,              X86::VPDPBUSDZmkz,              0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+  { X86::VPDPBUUDSZ128rk,           X86::VPDPBUUDSZ128mk,           0 },
+  { X86::VPDPBUUDSZ128rkz,          X86::VPDPBUUDSZ128mkz,          0 },
+  { X86::VPDPBUUDSZ256rk,           X86::VPDPBUUDSZ256mk,           0 },
+  { X86::VPDPBUUDSZ256rkz,          X86::VPDPBUUDSZ256mkz,          0 },
+  { X86::VPDPBUUDSZrk,              X86::VPDPBUUDSZmk,              0 },
+  { X86::VPDPBUUDSZrkz,             X86::VPDPBUUDSZmkz,             0 },
+  { X86::VPDPBUUDZ128rk,            X86::VPDPBUUDZ128mk,            0 },
+  { X86::VPDPBUUDZ128rkz,           X86::VPDPBUUDZ128mkz,           0 },
+  { X86::VPDPBUUDZ256rk,            X86::VPDPBUUDZ256mk,            0 },
+  { X86::VPDPBUUDZ256rkz,           X86::VPDPBUUDZ256mkz,           0 },
+  { X86::VPDPBUUDZrk,               X86::VPDPBUUDZmk,               0 },
+  { X86::VPDPBUUDZrkz,              X86::VPDPBUUDZmkz,              0 },
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+#endif // INTEL_CUSTOMIZATION
   { X86::VPDPWSSDSZ128rk,           X86::VPDPWSSDSZ128mk,           0 },
   { X86::VPDPWSSDSZ128rkz,          X86::VPDPWSSDSZ128mkz,          0 },
   { X86::VPDPWSSDSZ256rk,           X86::VPDPWSSDSZ256mk,           0 },
@@ -7243,53 +7422,45 @@ lookupFoldTableImpl(ArrayRef<X86MemoryFoldTableEntry> Table, unsigned RegOp) {
   // Make sure the tables are sorted.
   static std::atomic<bool> FoldTablesChecked(false);
   if (!FoldTablesChecked.load(std::memory_order_relaxed)) {
-    assert(std::is_sorted(std::begin(MemoryFoldTable2Addr),
-                          std::end(MemoryFoldTable2Addr)) &&
+    assert(llvm::is_sorted(MemoryFoldTable2Addr) &&
            std::adjacent_find(std::begin(MemoryFoldTable2Addr),
                               std::end(MemoryFoldTable2Addr)) ==
-           std::end(MemoryFoldTable2Addr) &&
+               std::end(MemoryFoldTable2Addr) &&
            "MemoryFoldTable2Addr is not sorted and unique!");
-    assert(std::is_sorted(std::begin(MemoryFoldTable0),
-                          std::end(MemoryFoldTable0)) &&
+    assert(llvm::is_sorted(MemoryFoldTable0) &&
            std::adjacent_find(std::begin(MemoryFoldTable0),
                               std::end(MemoryFoldTable0)) ==
-           std::end(MemoryFoldTable0) &&
+               std::end(MemoryFoldTable0) &&
            "MemoryFoldTable0 is not sorted and unique!");
-    assert(std::is_sorted(std::begin(MemoryFoldTable1),
-                          std::end(MemoryFoldTable1)) &&
+    assert(llvm::is_sorted(MemoryFoldTable1) &&
            std::adjacent_find(std::begin(MemoryFoldTable1),
                               std::end(MemoryFoldTable1)) ==
-           std::end(MemoryFoldTable1) &&
+               std::end(MemoryFoldTable1) &&
            "MemoryFoldTable1 is not sorted and unique!");
-    assert(std::is_sorted(std::begin(MemoryFoldTable2),
-                          std::end(MemoryFoldTable2)) &&
+    assert(llvm::is_sorted(MemoryFoldTable2) &&
            std::adjacent_find(std::begin(MemoryFoldTable2),
                               std::end(MemoryFoldTable2)) ==
-           std::end(MemoryFoldTable2) &&
+               std::end(MemoryFoldTable2) &&
            "MemoryFoldTable2 is not sorted and unique!");
-    assert(std::is_sorted(std::begin(MemoryFoldTable3),
-                          std::end(MemoryFoldTable3)) &&
+    assert(llvm::is_sorted(MemoryFoldTable3) &&
            std::adjacent_find(std::begin(MemoryFoldTable3),
                               std::end(MemoryFoldTable3)) ==
-           std::end(MemoryFoldTable3) &&
+               std::end(MemoryFoldTable3) &&
            "MemoryFoldTable3 is not sorted and unique!");
-    assert(std::is_sorted(std::begin(MemoryFoldTable4),
-                          std::end(MemoryFoldTable4)) &&
+    assert(llvm::is_sorted(MemoryFoldTable4) &&
            std::adjacent_find(std::begin(MemoryFoldTable4),
                               std::end(MemoryFoldTable4)) ==
-           std::end(MemoryFoldTable4) &&
+               std::end(MemoryFoldTable4) &&
            "MemoryFoldTable4 is not sorted and unique!");
-    assert(std::is_sorted(std::begin(BroadcastFoldTable2),
-                          std::end(BroadcastFoldTable2)) &&
+    assert(llvm::is_sorted(BroadcastFoldTable2) &&
            std::adjacent_find(std::begin(BroadcastFoldTable2),
                               std::end(BroadcastFoldTable2)) ==
-           std::end(BroadcastFoldTable2) &&
+               std::end(BroadcastFoldTable2) &&
            "BroadcastFoldTable2 is not sorted and unique!");
-    assert(std::is_sorted(std::begin(BroadcastFoldTable3),
-                          std::end(BroadcastFoldTable3)) &&
+    assert(llvm::is_sorted(BroadcastFoldTable3) &&
            std::adjacent_find(std::begin(BroadcastFoldTable3),
                               std::end(BroadcastFoldTable3)) ==
-           std::end(BroadcastFoldTable3) &&
+               std::end(BroadcastFoldTable3) &&
            "BroadcastFoldTable3 is not sorted and unique!");
 #if INTEL_CUSTOMIZATION
     assert(std::is_sorted(std::begin(BroadcastFoldTable4),

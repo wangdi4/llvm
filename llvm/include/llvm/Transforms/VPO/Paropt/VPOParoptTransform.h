@@ -493,7 +493,11 @@ private:
                                          bool IsByRef, Instruction *InsertPt);
 
   /// For all use_device_ptr clauses in \p W, create a Map clause.
-  bool addMapForUseDevicePtr(WRegionNode *W);
+  /// If \p InsertBefore is not null, then any instructions genereated
+  /// for the map clause are inserted before it, otherwise they are
+  /// inserted before \p W's entry BasicBlock
+  bool addMapForUseDevicePtr(WRegionNode *W,
+                 Instruction *InsertBefore = nullptr);
 
   /// Update references of use_device_ptr operands in tgt data region to use the
   /// value updated by the tgt_data_init call.
@@ -551,19 +555,42 @@ private:
   /// Generate the reduction code for reduction clause.
   bool genReductionCode(WRegionNode *W);
 
-  /// Prepare the empty basic block for the array
-  /// reduction or firstprivate initialization.
-  void createEmptyPrvInitBB(WRegionNode *W, BasicBlock *&RedBB);
+  /// Check if it's array reduction (type of reduction variable is array).
+  bool isArrayReduction(ReductionItem *I);
+
+  /// Check if we want to generate fast reduction code (including tree-like
+  /// reduction, atomic and etc).
+  int checkFastReduction(WRegionNode *W);
+
+  /// Generate the tree-like reduction callback routine
+  RDECL genFastReductionRoutine(WRegionNode *W, StructType *FastRedStructTy);
+
+  /// Create struct type and variable for fast reduction.
+  std::pair<StructType *, Value *> createFastRedTyAndVar(WRegionNode *W,
+                                                         int FastReduction);
+
+  /// For the given region \p W returns a BasicBlock, where
+  /// new alloca instructions may be inserted.
+  /// If the region itself or one of its ancestors will be outlined,
+  /// then the returned block is an immediate successor of the region's
+  /// entry directive, otherwise, it is the enclosing Function's entry block.
+  /// New alloca instructions must be inserted at the beginning
+  /// of the returned block.
+  BasicBlock *createAllocaBB(WRegionNode *W) const;
 
   /// Prepare the empty basic block for the array
+  /// reduction or firstprivate initialization.
+  BasicBlock *createEmptyPrivInitBB(WRegionNode *W) const;
+
+  /// Return the empty basic block for the array
   /// reduction or lastprivate update.
   /// If \p W is a loop region, and the loop has ZTT check,
   /// then the new block will be inserted at the exit block
   /// of the loop, unless \p HonorZTT is false.  Otherwise,
   /// the new block will be inserted at the region's exit
   /// block
-  void createEmptyPrivFiniBB(WRegionNode *W, BasicBlock *&RedEntryBB,
-                             bool HonorZTT = true);
+  BasicBlock *createEmptyPrivFiniBB(WRegionNode *W,
+                                    bool HonorZTT = true);
 
   /// Generate the reduction update instructions for min/max.
   Value* genReductionMinMaxFini(ReductionItem *RedI, Value *Rhs1, Value *Rhs2,
@@ -576,10 +603,10 @@ private:
   /// Generate the reduction update instructions.
   /// Returns true iff critical section is required around the generated
   /// reduction update code.
-  bool genReductionScalarFini(
-      WRegionNode *W, ReductionItem *RedI,
-      Value *ReductionVar, Value *ReductionValueLoc,
-      Type *ScalarTy, IRBuilder<> &Builder);
+  bool genReductionScalarFini(WRegionNode *W, ReductionItem *RedI,
+                              Value *ReductionVar, Value *ReductionValueLoc,
+                              Type *ScalarTy, IRBuilder<> &Builder,
+                              DominatorTree *DT);
 
   /// Generate the reduction initialization/update for array.
   /// Returns true iff critical section is required around the generated
@@ -596,7 +623,8 @@ private:
   /// Generate the reduction fini code for bool and/or.
   Value *genReductionFiniForBoolOps(ReductionItem *RedI, Value *Rhs1,
                                     Value *Rhs2, Type *ScalarTy,
-                                    IRBuilder<> &Builder, bool IsAnd);
+                                    IRBuilder<> &Builder, DominatorTree *DT,
+                                    bool IsAnd);
   /// @}
 
   /// Generate the firstprivate initialization code.
@@ -920,6 +948,7 @@ private:
   void genOffloadArraysInit(WRegionNode *W, TgDataInfo *Info, CallInst *Call,
                             Instruction *InsertPt,
                             SmallVectorImpl<Constant *> &ConstSizes,
+                            SmallVectorImpl<uint64_t> &MapTypes,
                             bool hasRuntimeEvaluationCaptureSize);
 
   /// Utility to construct the assignment to the base pointers, section
@@ -1033,7 +1062,7 @@ private:
   /// clause operands.
   Instruction *genBarrierForConditionalLP(WRegionNode *W);
 
-  /// Emits an if-then branch using \p IsLastVal and sets \p IfLastIterOut to
+  /// Emits an if-then branch using \p IsLastLocs and sets \p IfLastIterOut to
   /// the if-then BBlock. This is used for emitting the final copy-out code for
   /// linear and lastprivate clause operands.
   ///
@@ -1061,8 +1090,12 @@ private:
   ///
   /// \endcode
   ///
-  /// \param [in] IsLastVal A stack variable which is non-zero if the current
-  /// iteration is the last one.
+  /// \param [in] IsLastLocs A list of stack variables which are non-zero
+  /// if the current thread executes the last iteration of the loop(s).
+  /// If there is more than one loop associated with the region, then
+  /// the list will contain a variable for each loop. In this case,
+  /// the "last iteration" is defined as logical and of the variables'
+  /// values being non-zero.
   /// \param [out] IfLastIterOut The BasicBlock for when the last iteration
   /// check is true.
   /// \param [in] InsertBefore If not null, the branch is inserted before it.
@@ -1071,7 +1104,8 @@ private:
   /// \returns \b true if the branch is emitted, \b false otherwise.
   ///
   /// The branch is not emitted if \p W has no Linear or Lastprivate var.
-  bool genLastIterationCheck(WRegionNode *W, Value *IsLastVal,
+  bool genLastIterationCheck(WRegionNode *W,
+                             const ArrayRef<Value *> IsLastLocs,
                              BasicBlock *&IfLastIterOut,
                              Instruction *InsertBefore = nullptr);
 
@@ -1111,6 +1145,9 @@ private:
 
   /// Transform "omp single" work region for CSA target.
   bool genCSASingle(WRegionNode *W);
+
+  /// Transform "omp critical" work region for CSA target.
+  bool genCSACritical(WRNCriticalNode *W);
 
   /// Check whether a given construct is supported in CSA.
   bool isSupportedOnCSA(WRegionNode *W);
@@ -1539,7 +1576,7 @@ private:
   ///        int64_t stride;      // The stride of the ith loop
   ///      }loop_desc[levels];
   ///   };
-  AllocaInst *genTgtLoopParameter(WRegionNode *W, WRegionNode *WL);
+  AllocaInst *genTgtLoopParameter(WRegionNode *W);
 
   /// Generate the cast i8* for the incoming value BPVal.
   Value *genCastforAddr(Value *BPVal, IRBuilder<> &Builder);
@@ -1660,7 +1697,12 @@ private:
   ///  \endcode
   ///  Here we assume the global_size is equal to local_size, which means
   ///  there is only one workgroup.
-  bool genOCLParallelLoop(WRegionNode *W);
+  ///
+  /// \param IsLastLocs is an output list of stack variable pointers
+  /// holding the 'is last iteration' predicate values for the loops
+  /// associated with the region.
+  bool genOCLParallelLoop(WRegionNode *W,
+                          SmallVectorImpl<Value *> &IsLastLocs);
 
   /// Replace calls to "__atomic_[load/store/compare_exchange]", with calls to
   /// "__kmpc_atomic_[load/store/compare_exchange]". This involves:
@@ -1670,21 +1712,30 @@ private:
   bool renameAndReplaceLibatomicCallsForSPIRV(Function *F);
 
   /// Generate the placeholders for the loop lower bound and upper bound.
-  /// \param [in]  W            OpenMP loop region node.
-  /// \param [in]  Idx          dimension number.
-  /// \param [out] LowerBnd     stack variable holding the loop's lower bound.
-  /// \param [out] UpperBnd     stack variable holding the loop's upper bound.
-  /// \param [out] SchedStride  stack variable holding the loop's stride.
-  /// \param [out] TeamLowerBnd stack variable holding the team's lower bound.
-  /// \param [out] TeamUpperBnd stack variable holding the team's upper bound.
-  /// \param [out] TeamStride   stack variable holding the team's stride.
-  /// \param [out] UpperBndVal  orginal loop bound value.
+  /// \param [in]  W             OpenMP loop region node.
+  /// \param [in]  Idx           dimension number.
+  /// \param [in]  AllocaBuilder IRBuilder for new alloca instructions.
+  /// \param [out] LowerBnd      stack variable holding the loop's lower bound.
+  /// \param [out] UpperBnd      stack variable holding the loop's upper bound.
+  /// \param [out] SchedStride   stack variable holding the loop's stride.
+  /// \param [out] TeamLowerBnd  stack variable holding the team's lower bound.
+  /// \param [out] TeamUpperBnd  stack variable holding the team's upper bound.
+  /// \param [out] TeamStride    stack variable holding the team's stride.
+  /// \param [out] IsLastLoc     stack variable holding the 'is last iteration'
+  ///                            predicate value.
+  /// \param [out] UpperBndVal   orginal loop bound value.
+  /// \param [in]  ChunkForTeams initialize TeamLowerBnd, TeamUpperBnd
+  ///                            and TeamStride output values.
   void genLoopBoundUpdatePrep(WRegionNode *W, unsigned Idx,
+                              IRBuilder<> &AllocaBuilder,
                               AllocaInst *&LowerBnd, AllocaInst *&UpperBnd,
                               AllocaInst *&SchedStride,
                               AllocaInst *&TeamLowerBnd,
                               AllocaInst *&TeamUpperBnd,
-                              AllocaInst *&TeamStride, Value *&UpperBndVal);
+                              AllocaInst *&TeamStride,
+                              Value *&IsLastLoc,
+                              Value *&UpperBndVal,
+                              bool ChunkForTeams);
 
   /// Generate the OCL loop bound update code.
   void genOCLLoopBoundUpdateCode(WRegionNode *W, unsigned Idx,
@@ -1694,21 +1745,21 @@ private:
                                  AllocaInst *&SchedStride);
 
   /// Generate the loop update code for DistParLoop under OpenCL.
-  /// \param [in]  W            OpenMP distribute region node.
-  /// \param [in]  Idx          dimension number.
-  /// \param [in]  LowerBnd     stack variable holding the loop's lower bound.
-  /// \param [in]  UpperBnd     stack variable holding the loop's upper bound.
-  /// \param [in]  TeamLowerBnd stack variable holding the team's lower bound.
-  /// \param [in]  TeamUpperBnd stack variable holding the team's upper bound.
-  /// \param [in]  TeamStride   stack variable holding the team's stride.
-  /// \param [out] DistSchedKind team schedule kind.
-  /// \param [out] TeamLB       team's lower bound value.
-  /// \param [out] TeamUB       team's upper bound value.
-  /// \param [out] TeamST       team's stride value.
+  /// \param [in]  W             OpenMP distribute region node.
+  /// \param [in]  Idx           dimension number.
+  /// \param [in]  LowerBnd      stack variable holding the loop's lower bound.
+  /// \param [in]  UpperBnd      stack variable holding the loop's upper bound.
+  /// \param [in]  TeamLowerBnd  stack variable holding the team's lower bound.
+  /// \param [in]  TeamUpperBnd  stack variable holding the team's upper bound.
+  /// \param [in]  TeamStride    stack variable holding the team's stride.
+  /// \param [in]  DistSchedKind team schedule kind.
+  /// \param [out] TeamLB        team's lower bound value.
+  /// \param [out] TeamUB        team's upper bound value.
+  /// \param [out] TeamST        team's stride value.
   void genOCLDistParLoopBoundUpdateCode(
       WRegionNode *W, unsigned Idx, AllocaInst *LowerBnd, AllocaInst *UpperBnd,
       AllocaInst *TeamLowerBnd, AllocaInst *TeamUpperBnd,
-      AllocaInst *TeamStride, WRNScheduleKind &DistSchedKind,
+      AllocaInst *TeamStride, WRNScheduleKind DistSchedKind,
       Instruction *&TeamLB, Instruction *&TeamUB, Instruction *&TeamST);
 
   /// \breif Generate the OCL loop scheduling code.
@@ -1721,7 +1772,9 @@ private:
   /// \param [in] TeamUpperBnd  stack variable holding the team's upper bound.
   /// \param [in] TeamStride    stack variable holding the team's stride.
   /// \param [in] UpperBndVal   original loop upper bound value.
-  /// \param [in] DistSchedKind team schedule kind.
+  /// \param [in] IsLastLoc     stack variable holding the 'is last iteration'
+  ///                           predicate value.
+  /// \param [in] GenDispLoop   create team dispatch loop.
   /// \param [in] TeamLB        team's lower bound value.
   /// \param [in] TeamUB        team's upper bound value.
   /// \param [in] TeamST        team's stride value.
@@ -1730,8 +1783,9 @@ private:
                           AllocaInst *UpperBnd, AllocaInst *SchedStride,
                           AllocaInst *TeamLowerBnd, AllocaInst *TeamUpperBnd,
                           AllocaInst *TeamStride, Value *UpperBndVal,
-                          WRNScheduleKind DistSchedKind, Instruction *TeamLB,
-                          Instruction *TeamUB, Instruction *TeamST);
+                          Value *IsLastLoc, bool GenTeamDistDispatchLoop,
+                          Instruction *TeamLB, Instruction *TeamUB,
+                          Instruction *TeamST);
 
   // Generate dispatch loop for static chunk.
   /// \param [in] L               loop.
@@ -1770,7 +1824,7 @@ private:
   ///                              remain inside the team distribute loop.
   ///                              If it is nullptr, then all instructions
   ///                              from TeamExitBB will be outside of the loop.
-  Loop *genDispatchLoopForTeamDistirbute(
+  Loop *genDispatchLoopForTeamDistribute(
       Loop *L, Instruction *TeamLB, Instruction *TeamUB, Instruction *TeamST,
       AllocaInst *TeamLowerBnd, AllocaInst *TeamUpperBnd,
       AllocaInst *TeamStride, Value *UpperBndVal, BasicBlock *LoopExitBB,
@@ -1780,11 +1834,12 @@ private:
   /// Initialize the incoming array Arg with the constant Idx.
   void initArgArray(SmallVectorImpl<Value *> *Arg, unsigned Idx);
 
-  /// The compiler sets DistSchedKind to be TargetScheduleKind for the case of
-  /// multi-level loop nest.
-  void setSchedKindForMultiLevelLoops(WRegionNode *W,
-                                      WRNScheduleKind &ScheduleKind,
-                                      WRNScheduleKind TargetScheduleKind);
+  /// If the given region \p W represent a multi-level loop nest, then
+  /// the method returns \p TargetScheduleKind, otherwise, it returns
+  /// \p SchedKind.
+  WRNScheduleKind getSchedKindForMultiLevelLoops(
+      WRegionNode *W, WRNScheduleKind ScheduleKind,
+      WRNScheduleKind TargetScheduleKind);
 
 #if 0
   /// Return original global variable if the value Orig is the return value
@@ -1822,16 +1877,43 @@ private:
   /// ND-range information (see implementation for details).
   bool constructNDRangeInfo(WRegionNode *W);
 
-  /// Marks the given region \p W as may-have-openmp-critical,
-  /// if it contains "omp critical" or a call that may "invoke"
-  /// "omp critical".
-  void setMayHaveOMPCritical(WRegionNode *W) const;
-
   /// If the given region is an OpenMP loop construct with collapse
   /// clause, then the method will collapse the loop nest accordingly.
   /// Otherwise, it will do nothing.
   bool collapseOmpLoops(WRegionNode *W);
 
+  /// For SPIR-V target propagate simdlen() from SIMD loops
+  /// to the enclosing target region. If there are multiple
+  /// SIMD loops with different simdlen() values, then the minimum
+  /// value will be propagated. During the propagation, simdlen()
+  /// values not equal to 8, 16 or 32 are ignored.
+  /// The propagated value will be used to specify SPIR-V widening
+  /// width for the outlined target region.
+  void propagateSPIRVSIMDWidth() const;
+
+  /// The given loop region \p WL is enclosed into "omp target" region \p WT.
+  /// \p NDRangeDims specifies "known" tripcount(s) for the loop(s)
+  /// associated with \p WL (NDRangeDims[0] - tripcount for the outermost loop).
+  /// The tripcounts are known in the sense that they may be computed
+  /// before the "omp target" region. The method sets QUAL_OMP_OFFLOAD_NDRANGE
+  /// clause for \p WT listing the known tripcount(s), and also sets
+  /// QUAL_OMP_OFFLOAD_KNOWN_NDRANGE for \p WL.
+  void setNDRangeClause(
+      WRegionNode *WT, WRegionNode *WL, ArrayRef<Value *> NDRangeDims) const;
+
+  /// Checks if the given OpenMP loop region may use SPIR paritioning
+  /// with known loop(s) bounds and if it is profitable.
+  /// It analyzes only QUAL_OMP_OFFLOAD_KNOWN_NDRANGE loops, which means
+  /// that the loops' bounds may be computed before the enclosing target region.
+  /// If known loop bounds may/must not be used, then the routine deletes
+  /// QUAL_OMP_OFFLOAD_KNOWN_NDRANGE from the loop region, and also
+  /// deletes QUAL_OMP_OFFLOAD_NDRANGE from the enclosing target region.
+  bool fixupKnownNDRange(WRegionNode *W) const;
+
+  /// Analyzes the current Function's WRegionList and sets starting
+  /// ND-range dimensions for OpenMP loop regions. It also sets
+  /// NDRangeDistributeDim for target regions, when needed.
+  void assignParallelDimensions() const;
 };
 
 } /// namespace vpo

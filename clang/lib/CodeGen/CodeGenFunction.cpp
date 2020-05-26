@@ -42,6 +42,7 @@
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
+#include "llvm/Analysis/OptimizationRemarkEmitter.h" // INTEL
 using namespace clang;
 using namespace CodeGen;
 
@@ -115,25 +116,10 @@ CodeGenFunction::~CodeGenFunction() {
     OMPBuilder->finalize();
 }
 
-// Map the LangOption for rounding mode into
-// the corresponding enum in the IR.
-static llvm::fp::RoundingMode ToConstrainedRoundingMD(
-  LangOptions::FPRoundingModeKind Kind) {
-
-  switch (Kind) {
-  case LangOptions::FPR_ToNearest:  return llvm::fp::rmToNearest;
-  case LangOptions::FPR_Downward:   return llvm::fp::rmDownward;
-  case LangOptions::FPR_Upward:     return llvm::fp::rmUpward;
-  case LangOptions::FPR_TowardZero: return llvm::fp::rmTowardZero;
-  case LangOptions::FPR_Dynamic:    return llvm::fp::rmDynamic;
-  }
-  llvm_unreachable("Unsupported FP RoundingMode");
-}
-
 // Map the LangOption for exception behavior into
 // the corresponding enum in the IR.
-static llvm::fp::ExceptionBehavior ToConstrainedExceptMD(
-  LangOptions::FPExceptionModeKind Kind) {
+llvm::fp::ExceptionBehavior
+clang::ToConstrainedExceptMD(LangOptions::FPExceptionModeKind Kind) {
 
   switch (Kind) {
   case LangOptions::FPE_Ignore:  return llvm::fp::ebIgnore;
@@ -144,20 +130,14 @@ static llvm::fp::ExceptionBehavior ToConstrainedExceptMD(
 }
 
 void CodeGenFunction::SetFPModel() {
-  auto fpRoundingMode = ToConstrainedRoundingMD(
-                          getLangOpts().getFPRoundingMode());
+  llvm::RoundingMode RM = getLangOpts().getFPRoundingMode();
   auto fpExceptionBehavior = ToConstrainedExceptMD(
                                getLangOpts().getFPExceptionMode());
 
-  if (fpExceptionBehavior == llvm::fp::ebIgnore &&
-      fpRoundingMode == llvm::fp::rmToNearest)
-    // Constrained intrinsics are not used.
-    ;
-  else {
-    Builder.setIsFPConstrained(true);
-    Builder.setDefaultConstrainedRounding(fpRoundingMode);
-    Builder.setDefaultConstrainedExcept(fpExceptionBehavior);
-  }
+  Builder.setDefaultConstrainedRounding(RM);
+  Builder.setDefaultConstrainedExcept(fpExceptionBehavior);
+  Builder.setIsFPConstrained(fpExceptionBehavior != llvm::fp::ebIgnore ||
+                             RM != llvm::RoundingMode::NearestTiesToEven);
 }
 
 CharUnits CodeGenFunction::getNaturalPointeeTypeAlignment(QualType T,
@@ -268,6 +248,7 @@ TypeEvaluationKind CodeGenFunction::getEvaluationKind(QualType type) {
     case Type::MemberPointer:
     case Type::Vector:
     case Type::ExtVector:
+    case Type::ConstantMatrix:
     case Type::FunctionProto:
     case Type::FunctionNoProto:
     case Type::Enum:
@@ -277,6 +258,7 @@ TypeEvaluationKind CodeGenFunction::getEvaluationKind(QualType type) {
     case Type::ArbPrecInt:
 #endif // INTEL_CUSTOMIZATION
     case Type::Pipe:
+    case Type::ExtInt:
       return TEK_Scalar;
 
     // Complexes.
@@ -905,55 +887,54 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
           FD->getBody()->getStmtClass() == Stmt::CoroutineBodyStmtClass)
         SanOpts.Mask &= ~SanitizerKind::Null;
 
-  if (D) {
-    // Apply xray attributes to the function (as a string, for now)
-    if (const auto *XRayAttr = D->getAttr<XRayInstrumentAttr>()) {
-      if (CGM.getCodeGenOpts().XRayInstrumentationBundle.has(
-              XRayInstrKind::FunctionEntry) ||
-          CGM.getCodeGenOpts().XRayInstrumentationBundle.has(
-              XRayInstrKind::FunctionExit)) {
-        if (XRayAttr->alwaysXRayInstrument() && ShouldXRayInstrumentFunction())
-          Fn->addFnAttr("function-instrument", "xray-always");
-        if (XRayAttr->neverXRayInstrument())
-          Fn->addFnAttr("function-instrument", "xray-never");
-        if (const auto *LogArgs = D->getAttr<XRayLogArgsAttr>())
-          if (ShouldXRayInstrumentFunction())
-            Fn->addFnAttr("xray-log-args",
-                          llvm::utostr(LogArgs->getArgumentCount()));
-      }
-    } else {
-      if (ShouldXRayInstrumentFunction() && !CGM.imbueXRayAttrs(Fn, Loc))
-        Fn->addFnAttr(
-            "xray-instruction-threshold",
-            llvm::itostr(CGM.getCodeGenOpts().XRayInstructionThreshold));
+  // Apply xray attributes to the function (as a string, for now)
+  if (const auto *XRayAttr = D ? D->getAttr<XRayInstrumentAttr>() : nullptr) {
+    if (CGM.getCodeGenOpts().XRayInstrumentationBundle.has(
+            XRayInstrKind::FunctionEntry) ||
+        CGM.getCodeGenOpts().XRayInstrumentationBundle.has(
+            XRayInstrKind::FunctionExit)) {
+      if (XRayAttr->alwaysXRayInstrument() && ShouldXRayInstrumentFunction())
+        Fn->addFnAttr("function-instrument", "xray-always");
+      if (XRayAttr->neverXRayInstrument())
+        Fn->addFnAttr("function-instrument", "xray-never");
+      if (const auto *LogArgs = D->getAttr<XRayLogArgsAttr>())
+        if (ShouldXRayInstrumentFunction())
+          Fn->addFnAttr("xray-log-args",
+                        llvm::utostr(LogArgs->getArgumentCount()));
     }
+  } else {
+    if (ShouldXRayInstrumentFunction() && !CGM.imbueXRayAttrs(Fn, Loc))
+      Fn->addFnAttr(
+          "xray-instruction-threshold",
+          llvm::itostr(CGM.getCodeGenOpts().XRayInstructionThreshold));
+  }
 
-    if (ShouldXRayInstrumentFunction()) {
-      if (CGM.getCodeGenOpts().XRayIgnoreLoops)
-        Fn->addFnAttr("xray-ignore-loops");
+  if (ShouldXRayInstrumentFunction()) {
+    if (CGM.getCodeGenOpts().XRayIgnoreLoops)
+      Fn->addFnAttr("xray-ignore-loops");
 
-      if (!CGM.getCodeGenOpts().XRayInstrumentationBundle.has(
-              XRayInstrKind::FunctionExit))
-        Fn->addFnAttr("xray-skip-exit");
+    if (!CGM.getCodeGenOpts().XRayInstrumentationBundle.has(
+            XRayInstrKind::FunctionExit))
+      Fn->addFnAttr("xray-skip-exit");
 
-      if (!CGM.getCodeGenOpts().XRayInstrumentationBundle.has(
-              XRayInstrKind::FunctionEntry))
-        Fn->addFnAttr("xray-skip-entry");
-    }
+    if (!CGM.getCodeGenOpts().XRayInstrumentationBundle.has(
+            XRayInstrKind::FunctionEntry))
+      Fn->addFnAttr("xray-skip-entry");
+  }
 
-    unsigned Count, Offset;
-    if (const auto *Attr = D->getAttr<PatchableFunctionEntryAttr>()) {
-      Count = Attr->getCount();
-      Offset = Attr->getOffset();
-    } else {
-      Count = CGM.getCodeGenOpts().PatchableFunctionEntryCount;
-      Offset = CGM.getCodeGenOpts().PatchableFunctionEntryOffset;
-    }
-    if (Count && Offset <= Count) {
-      Fn->addFnAttr("patchable-function-entry", std::to_string(Count - Offset));
-      if (Offset)
-        Fn->addFnAttr("patchable-function-prefix", std::to_string(Offset));
-    }
+  unsigned Count, Offset;
+  if (const auto *Attr =
+          D ? D->getAttr<PatchableFunctionEntryAttr>() : nullptr) {
+    Count = Attr->getCount();
+    Offset = Attr->getOffset();
+  } else {
+    Count = CGM.getCodeGenOpts().PatchableFunctionEntryCount;
+    Offset = CGM.getCodeGenOpts().PatchableFunctionEntryOffset;
+  }
+  if (Count && Offset <= Count) {
+    Fn->addFnAttr("patchable-function-entry", std::to_string(Count - Offset));
+    if (Offset)
+      Fn->addFnAttr("patchable-function-prefix", std::to_string(Offset));
   }
 
   // Add no-jump-tables value.
@@ -1049,9 +1030,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
       Fn->addFnAttr(llvm::Attribute::NoRecurse);
   }
 
-  if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D))
+  if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D)) {
+    Builder.setIsFPConstrained(FD->usesFPIntrin());
     if (FD->usesFPIntrin())
       Fn->addFnAttr(llvm::Attribute::StrictFP);
+  }
 
   // If a custom alignment is used, force realigning to this alignment on
   // any main function which certainly will need it.
@@ -1540,6 +1523,25 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
 
   // Emit the standard function prologue.
   StartFunction(GD, ResTy, Fn, FnInfo, Args, Loc, BodyRange.getBegin());
+
+ #if INTEL_CUSTOMIZATION
+  ClangOptReportHandler &OptReportHandler = CGM.getDiags().OptReportHandler;
+  if (OptReportHandler.HasOptReportInfo(FD)) {
+    llvm::OptimizationRemarkEmitter ORE(Fn);
+    for (auto &ORI : OptReportHandler.getInfo(FD)) {
+      llvm::DiagnosticLocation DL = SourceLocToDebugLoc(ORI.DirectiveLoc);
+      llvm::OptimizationRemarkMissed R("openmp", "Region", DL,
+                                       &Fn->getEntryBlock());
+      R << llvm::ore::NV(
+         "Construct", ORI.ClauseKindName.empty()
+                           ? ORI.DirectiveKindName
+                           : std::string(ORI.DirectiveKindName.begin()) + ' ' +
+                                 std::string(ORI.ClauseKindName.begin()));
+      R << " unsupported construct ignored by clang";
+      ORE.emit(R);
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB
   if (getLangOpts().OpenMPLateOutline && getLangOpts().OpenMPIsDevice) {
@@ -2270,6 +2272,7 @@ void CodeGenFunction::EmitVariablyModifiedType(QualType type) {
     case Type::Complex:
     case Type::Vector:
     case Type::ExtVector:
+    case Type::ConstantMatrix:
     case Type::Record:
     case Type::Enum:
     case Type::Elaborated:
@@ -2278,6 +2281,7 @@ void CodeGenFunction::EmitVariablyModifiedType(QualType type) {
     case Type::ObjCObject:
     case Type::ObjCInterface:
     case Type::ObjCObjectPointer:
+    case Type::ExtInt:
       llvm_unreachable("type class is never variably-modified!");
 
     case Type::Adjusted:
@@ -2674,8 +2678,7 @@ void CodeGenFunction::checkTargetFeatures(SourceLocation Loc,
 
     SmallVector<StringRef, 1> ReqFeatures;
     llvm::StringMap<bool> CalleeFeatureMap;
-    CGM.getContext().getFunctionFeatureMap(CalleeFeatureMap,
-                                           GlobalDecl(TargetDecl));
+    CGM.getContext().getFunctionFeatureMap(CalleeFeatureMap, TargetDecl);
 
     for (const auto &F : ParsedAttr.Features) {
       if (F[0] == '+' && CalleeFeatureMap.lookup(F.substr(1)))
@@ -2821,7 +2824,7 @@ void CodeGenFunction::emitAlignmentAssumptionCheck(
     llvm::Value *OffsetValue, llvm::Value *TheCheck,
     llvm::Instruction *Assumption) {
   assert(Assumption && isa<llvm::CallInst>(Assumption) &&
-         cast<llvm::CallInst>(Assumption)->getCalledValue() ==
+         cast<llvm::CallInst>(Assumption)->getCalledOperand() ==
              llvm::Intrinsic::getDeclaration(
                  Builder.GetInsertBlock()->getParent()->getParent(),
                  llvm::Intrinsic::assume) &&

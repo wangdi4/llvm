@@ -1,4 +1,4 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 ; Test that checks if whole program not seen was identified correctly. The test case
 ; is composed by a Base class, a Derived class and a Derived2 class. The function foo
 ; is declared as virtual in Base and the definition should be in Derived and Derived2.
@@ -8,11 +8,11 @@
 ; RUN: llvm-as < %s >%t1
 ; RUN: llvm-lto -exported-symbol=main -debug-only=whole-program-analysis -o %t2 %t1 2>&1 | FileCheck %s
 
-; CHECK:     WHOLE-PROGRAM-ANALYSIS: SIMPLE ANALYSIS
-; CHECK:      UNRESOLVED CALLSITES: 0
-; CHECK:      VISIBLE OUTSIDE LTO: 1
-; CHECK:     WHOLE PROGRAM NOT DETECTED
-; CHECK:      whole program not seen;
+; CHECK:  WHOLE-PROGRAM-ANALYSIS: SIMPLE ANALYSIS
+; CHECK:    UNRESOLVED CALLSITES: 0
+; CHECK:    VISIBLE OUTSIDE LTO: 1
+; CHECK:  WHOLE PROGRAM RESULT:
+; CHECK:    WHOLE PROGRAM SEEN:  NOT DETECTED
 
 ; Create the Base, Derived and Derived2 classes
 %class.Base = type { i32 (...)** }

@@ -66,26 +66,26 @@ channel float4 fch1;
 
 // CHECK: declare i32 @_Z18read_channel_intel11ocl_channeli(%opencl.channel_t {{.*}}*)
 // CHECK: declare i64 @_Z18read_channel_intel11ocl_channell(%opencl.channel_t {{.*}}*)
-// CHECK: declare void @_Z18read_channel_intel11ocl_channel2st(%struct.st* sret, %opencl.channel_t {{.*}}*)
+// CHECK: declare void @_Z18read_channel_intel11ocl_channel2st(%struct.st* sret{{( align 4)?}}, %opencl.channel_t {{.*}}*)
 // CHECK: declare <4 x float> @_Z18read_channel_intel11ocl_channelDv4_f(%opencl.channel_t {{.*}}*)
 //
 // CHECKWIN: declare dso_local i32 @"?read_channel_intel@@$$J0YAHU?$ocl_channel@H@__clang@@@Z"(%opencl.channel_t*)
 // CHECKWIN: declare dso_local i64 @"?read_channel_intel@@$$J0YAJU?$ocl_channel@J@__clang@@@Z"(%opencl.channel_t*)
-// CHECKWIN: declare dso_local void @"?read_channel_intel@@$$J0YA?AUst@@U?$ocl_channel@Ust@@@__clang@@@Z"(%struct.st* sret, %opencl.channel_t*)
+// CHECKWIN: declare dso_local void @"?read_channel_intel@@$$J0YA?AUst@@U?$ocl_channel@Ust@@@__clang@@@Z"(%struct.st* sret{{( align 4)?}}, %opencl.channel_t*)
 // CHECKWIN: declare dso_local <4 x float> @"?read_channel_intel@@$$J0YAT?$__vector@M$03@__clang@@U?$ocl_channel@T?$__vector@M$03@__clang@@@2@@Z"(%opencl.channel_t*)
 //
 // CL12: declare i64 @_Z21read_channel_nb_intel11ocl_channellPU3AS3b(%opencl.channel_t {{.*}}*, i8 addrspace(3)*)
-// CL12: declare void @_Z21read_channel_nb_intel11ocl_channel2stPb(%struct.st* sret, %opencl.channel_t {{.*}}*, i8*)
+// CL12: declare void @_Z21read_channel_nb_intel11ocl_channel2stPb(%struct.st* sret{{( align 4)?}}, %opencl.channel_t {{.*}}*, i8*)
 // CL12: declare <4 x float> @_Z21read_channel_nb_intel11ocl_channelDv4_fPb(%opencl.channel_t {{.*}}*, i8*)
 //
 // CL20: declare i32 @_Z21read_channel_nb_intel11ocl_channeliPU3AS4b(%opencl.channel_t {{.*}}*, i8 addrspace(4)*)
 // CL20: declare i64 @_Z21read_channel_nb_intel11ocl_channellPU3AS4b(%opencl.channel_t {{.*}}*, i8 addrspace(4)*)
-// CL20: declare void @_Z21read_channel_nb_intel11ocl_channel2stPU3AS4b(%struct.st* sret, %opencl.channel_t {{.*}}*, i8 addrspace(4)*)
+// CL20: declare void @_Z21read_channel_nb_intel11ocl_channel2stPU3AS4b(%struct.st* sret{{( align 4)?}}, %opencl.channel_t {{.*}}*, i8 addrspace(4)*)
 // CL20: declare <4 x float> @_Z21read_channel_nb_intel11ocl_channelDv4_fPU3AS4b(%opencl.channel_t {{.*}}*, i8 addrspace(4)*)
 //
 // CHECKWIN: declare dso_local i32 @"?read_channel_nb_intel@@$$J0YAHU?$ocl_channel@H@__clang@@PEAU?$_ASCLgeneric@$$CA_N@2@@Z"(%opencl.channel_t*, i8*)
 // CHECKWIN: declare dso_local i64 @"?read_channel_nb_intel@@$$J0YAJU?$ocl_channel@J@__clang@@PEAU?$_ASCLgeneric@$$CA_N@2@@Z"(%opencl.channel_t*, i8*)
-// CHECKWIN: declare dso_local void @"?read_channel_nb_intel@@$$J0YA?AUst@@U?$ocl_channel@Ust@@@__clang@@PEAU?$_ASCLgeneric@$$CA_N@3@@Z"(%struct.st* sret, %opencl.channel_t*, i8*)
+// CHECKWIN: declare dso_local void @"?read_channel_nb_intel@@$$J0YA?AUst@@U?$ocl_channel@Ust@@@__clang@@PEAU?$_ASCLgeneric@$$CA_N@3@@Z"(%struct.st* sret{{( align 4)?}}, %opencl.channel_t*, i8*)
 // CHECKWIN: declare dso_local <4 x float> @"?read_channel_nb_intel@@$$J0YAT?$__vector@M$03@__clang@@U?$ocl_channel@T?$__vector@M$03@__clang@@@2@PEAU?$_ASCLgeneric@$$CA_N@2@@Z"(%opencl.channel_t*, i8*)
 //
 // CL12-NOT: declare i32 @_Z21read_channel_nb_intel11ocl_channeliPU3AS4b(%opencl.channel_t {{.*}}*, i8 addrspace(4)*)
@@ -95,7 +95,7 @@ channel float4 fch1;
 //
 // CHECK-NOT: declare i32 @_Z21read_channel_nb_intel11ocl_channeliPb(%opencl.channel_t {{.*}}*, i8*)
 // CHECK-NOT: declare i64 @_Z21read_channel_nb_intel11ocl_channellPb(%opencl.channel_t {{.*}}*, i8*)
-// CHECK-NOT: declare void @_Z21read_channel_nb_intel11ocl_channel2stPb(%struct.st* sret, %opencl.channel_t {{.*}}*, i8*)
+// CHECK-NOT: declare void @_Z21read_channel_nb_intel11ocl_channel2stPb(%struct.st* sret{{( align 4)?}}, %opencl.channel_t {{.*}}*, i8*)
 // CHECK-NOT: declare <4 x float> @_Z21read_channel_nb_intel11ocl_channelDv4_fPb(%opencl.channel_t {{.*}}*, i8*)
 //
 // CHECK-NOT: declare i32 @_Z21read_channel_nb_intel11ocl_channeliPU3AS3b(%opencl.channel_t {{.*}}*, i8 addrspace(3)*)

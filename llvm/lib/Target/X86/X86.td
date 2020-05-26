@@ -398,6 +398,12 @@ def FeatureAMXTRANSPOSE2     : SubtargetFeature<"amx-transpose2", "HasAMXTRANSPO
                                       [FeatureAMXTILE]>;
 
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+
+#if INTEL_FEATURE_ISA_AMX_TILE2
+def FeatureAMXTILE2 : SubtargetFeature<"amx-tile2", "HasAMXTILE2", "true",
+                                       "Support AMX amx-tile2 instructions",
+                                       [FeatureAMXTILE]>;
+#endif // INTEL_FEATURE_ISA_AMX_TILE2
 #endif // INTEL_CUSTOMIZATION
 def FeatureLEAForSP : SubtargetFeature<"lea-sp", "UseLeaForSP", "true",
                                      "Use LEA for adjusting the stack pointer">;
@@ -436,19 +442,15 @@ def FeatureKeyLocker  : SubtargetFeature<"keylocker", "HasKeyLocker", "true",
 def FeatureULI : SubtargetFeature<"uli", "HasULI", "true",
                                   "Has ULI Instructions">;
 #endif // INTEL_FEATURE_ISA_ULI
-#if INTEL_FEATURE_ISA_SERIALIZE
-def FeatureSERIALIZE : SubtargetFeature<"serialize", "HasSERIALIZE", "true",
-                                      "Has serialize instruction">;
-#endif // INTEL_FEATURE_ISA_SERIALIZE
 #if INTEL_FEATURE_ISA_HRESET
 def FeatureHRESET : SubtargetFeature<"hreset", "HasHRESET", "true",
                                       "Has hreset instruction">;
 #endif // INTEL_FEATURE_ISA_HRESET
-#if INTEL_FEATURE_ISA_TSXLDTRK
-def FeatureTSXLDTRK : SubtargetFeature<"tsxldtrk", "HasTSXLDTRK", "true",
-                                      "Support TSXLDTRK instructions">;
-#endif // INTEL_FEATURE_ISA_TSXLDTRK
 #endif // INTEL_CUSTOMIZATION
+def FeatureSERIALIZE : SubtargetFeature<"serialize", "HasSERIALIZE", "true",
+                                        "Has serialize instruction">;
+def FeatureTSXLDTRK : SubtargetFeature<"tsxldtrk", "HasTSXLDTRK", "true",
+                                       "Support TSXLDTRK instructions">;
 // On some processors, instructions that implicitly take two memory operands are
 // slow. In practice, this means that CALL, PUSH, and POP with memory operands
 // should be avoided in favor of a MOV + register CALL/PUSH/POP.
@@ -606,6 +608,22 @@ def FeatureRetpolineExternalThunk
           "on the specified user provided thunk rather than emitting one "
           "ourselves. Only has effect when combined with some other retpoline "
           "feature", [FeatureRetpolineIndirectCalls]>;
+
+// Mitigate LVI attacks against indirect calls/branches and call returns
+def FeatureLVIControlFlowIntegrity
+    : SubtargetFeature<
+          "lvi-cfi", "UseLVIControlFlowIntegrity", "true",
+          "Prevent indirect calls/branches from using a memory operand, and "
+          "precede all indirect calls/branches from a register with an "
+          "LFENCE instruction to serialize control flow. Also decompose RET "
+          "instructions into a POP+LFENCE+JMP sequence.">;
+
+// Mitigate LVI attacks against data loads
+def FeatureLVILoadHardening
+    : SubtargetFeature<
+          "lvi-load-hardening", "UseLVILoadHardening", "true",
+          "Insert LFENCE instructions to prevent data speculatively injected "
+          "into loads from being used maliciously.">;
 
 // Direct Move instructions.
 def FeatureMOVDIRI  : SubtargetFeature<"movdiri", "HasMOVDIRI", "true",
@@ -906,9 +924,7 @@ def ProcessorFeatures {
     FeatureAMXINT8,
     FeatureAMXBF16,
 #endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_SERIALIZE
     FeatureSERIALIZE,
-#endif // INTEL_FEATURE_ISA_SERIALIZE
     FeaturePCONFIG,
     FeatureWBNOINVD,
     FeatureHasFastGather
@@ -1203,7 +1219,7 @@ def ProcessorFeatures {
 class Proc<string Name, list<SubtargetFeature> Features>
  : ProcessorModel<Name, GenericModel, Features>;
 
-// NOTE: CMPXCHG8B is here for legacy compatbility so that it is only disabled
+// NOTE: CMPXCHG8B is here for legacy compatibility so that it is only disabled
 // if i386/i486 is specifically requested.
 def : Proc<"generic",         [FeatureX87, FeatureSlowUAMem16,
                                FeatureCMPXCHG8B, FeatureInsertVZEROUPPER]>;
@@ -1478,6 +1494,7 @@ def : ProcessorModel<"x86-64", SandyBridgeModel, [
   FeatureNOPL,
   Feature64Bit,
   FeatureSlow3OpsLEA,
+  FeatureSlowDivide64,
   FeatureSlowIncDec,
   FeatureMacroFusion,
   FeatureInsertVZEROUPPER

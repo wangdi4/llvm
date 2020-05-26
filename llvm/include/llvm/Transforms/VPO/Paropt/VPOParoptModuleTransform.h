@@ -67,7 +67,9 @@ public:
         DsoHandle(nullptr), PrintfDecl(nullptr), OCLPrintfDecl(nullptr) {}
 
   ~VPOParoptModuleTransform() {
-    DeleteContainerPointers(OffloadEntries);
+    for (auto E : OffloadEntries)
+      delete E;
+    OffloadEntries.clear();
   }
 
   /// Perform paropt transformation on a module.
@@ -179,17 +181,13 @@ private:
   /// Replaces calls to sincos/sincosf with _Z6sincosdPd/_Z6sincosfPf
   void replaceSincosWithOCLBuiltin(Function *F, bool IsDouble);
 
-  /// Routine to identify Functions that may use "omp critical"
-  /// either directly or down the call stack.
-  void collectMayHaveOMPCriticalFunctions(
-      std::function<TargetLibraryInfo &(Function &F)> TLIGetter);
-
-  /// A set of Functions identified by collectMayHaveOMPCriticalFunctions()
-  /// to potentially "invoke" "omp critical".
-  SmallPtrSet<Function *, 32> MayHaveOMPCritical;
-
-  /// Returns true for Functions marked by collectMayHaveOMPCriticalFunctions().
-  bool mayHaveOMPCritical(const Function *F) const;
+  /// Clones functions that are both "declare target" and contain "target"
+  /// region(s). If F is the original function, then the method clones it
+  /// into NewF and does the following:
+  ///   1. Removes all target directives from F.
+  ///   2. Resets "contains-openmp-target" attrbiute for F.
+  ///   3. Resets "openmp-target-declare" attribute for NewF.
+  bool cloneDeclareTargetFunctions() const;
 
   /// Base class for offload entries. It is not supposed to be instantiated.
   class OffloadEntry {
@@ -264,8 +262,8 @@ private:
     };
 
   public:
-    explicit VarEntry(GlobalVariable *Var, uint32_t Flags)
-      : OffloadEntry(VarKind, Var->getName(), Flags) {
+    explicit VarEntry(GlobalVariable *Var, StringRef Name, uint32_t Flags)
+      : OffloadEntry(VarKind, Name, Flags) {
       setAddress(Var);
     }
 

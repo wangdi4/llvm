@@ -15,9 +15,9 @@ what the community requires. There is a separate
 :doc:`document <XmainProcesses>` describing our processes for development on
 xmain, the ICL-specific LLVM/clang development branch.
 
-.. warning:: Before starting any piece of llorg development work, you must
-             obtain approval to open source the work by following the process
-             described in our
+.. warning:: Before starting any piece of llorg/github development work,
+             you must obtain approval to open source the work by following
+             the process described in our
              :doc:`Open Source Guidelines <OpenSourceGuidelines>`.
 
 .. _ipscan:
@@ -33,6 +33,9 @@ It is highly recommended but not required that you do your open source
 development using llorg. The biggest advantage of llorg is that it provides a
 uniform development environment across ICL. It also enables you to use other ICL
 tools like alloy that do not work on manually constructed llvm.org workspaces.
+
+Refer to `DPC++ development guide <https://wiki.ith.intel.com/display/DPCPP/DPCPP+compiler+development+process>`_
+regarding development in github.
 
 IP Leak Testing
 ===============

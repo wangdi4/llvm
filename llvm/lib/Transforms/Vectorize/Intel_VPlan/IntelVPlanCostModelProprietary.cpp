@@ -39,16 +39,17 @@ namespace llvm {
 
 namespace vpo {
 
-// TODO: Ideally this function must not be a member function of
-// VPlanCostModelProprietary, however now it accesses
-// VPInstruction::getHIRData() which is protected.
 bool VPlanCostModelProprietary::isUnitStrideLoadStore(
-    const VPInstruction *VPInst) {
+  const VPInstruction *VPInst) const {
   unsigned Opcode = VPInst->getOpcode();
   assert((Opcode == Instruction::Load || Opcode == Instruction::Store) &&
          "Is not load or store instruction.");
+
+  if (VPlanCostModel::isUnitStrideLoadStore(VPInst))
+    return true;
+
   if (!VPInst->HIR.isMaster())
-    return false; // CHECKME: Is that correct?
+    return false;
 
   if (auto Inst = dyn_cast<HLInst>(VPInst->HIR.getUnderlyingNode())) {
     // FIXME: It's not correct to getParentLoop() for outerloop
@@ -61,53 +62,55 @@ bool VPlanCostModelProprietary::isUnitStrideLoadStore(
     unsigned NestingLevel = Inst->getParentLoop()->getNestingLevel();
 
     return Opcode == Instruction::Load
-               ? VPlanVLSAnalysisHIR::isUnitStride(Inst->getOperandDDRef(1),
-                                                   NestingLevel)
-               : VPlanVLSAnalysisHIR::isUnitStride(Inst->getLvalDDRef(),
-                                                   NestingLevel);
+      ? VPlanVLSAnalysisHIR::isUnitStride(Inst->getOperandDDRef(1),
+                                          NestingLevel)
+      : VPlanVLSAnalysisHIR::isUnitStride(Inst->getLvalDDRef(),
+                                          NestingLevel);
   }
   return false;
 }
 
-unsigned
-VPlanCostModelProprietary::getLoadStoreCost(const VPInstruction *VPInst,
-                                            const bool UseVLSCost) const {
-  Type *OpTy = getMemInstValueType(VPInst);
-  assert(OpTy && "Can't get type of the load/store instruction!");
+unsigned VPlanCostModelProprietary::getLoadStoreCost(
+  const VPInstruction *VPInst, const bool UseVLSCost) {
+  unsigned Cost = VPlanCostModel::getLoadStoreCost(VPInst);
 
-  unsigned Opcode = VPInst->getOpcode();
-  unsigned Alignment = getMemInstAlignment(VPInst);
-  unsigned AddrSpace = getMemInstAddressSpace(VPInst);
+  if (!UseOVLSCM || !VLSCM || !UseVLSCost || VF == 1)
+    return Cost;
 
-  bool IsUnit = isUnitStrideLoadStore(VPInst);
+  OVLSGroup *Group = VLSA->getGroupsFor(Plan, VPInst);
+  if (!Group || Group->size() <= 1)
+    return Cost;
 
-  // TODO: On archs w/o native masked operations support next estimation is
-  // still not accurate. Masked loads or stores will be emulated with
-  // if-then-else statements, thus additional cost of movemask and cmps
-  // must be added.
-  unsigned Cost =
-      IsUnit ? TTI->getMemoryOpCost(Opcode, getVectorizedType(OpTy, VF),
-                                    MaybeAlign(Alignment), AddrSpace)
-             : VPlanCostModel::getLoadStoreCost(VPInst);
+  if (ProcessedOVLSGroups.count(Group) != 0) {
+    // Group cost has already been assigned.
+    LLVM_DEBUG(dbgs() << "Group cost for "; VPInst->print(dbgs());
+               dbgs() << " has already been taken into account.\n");
+    return ProcessedOVLSGroups[Group] ? 0 : Cost;
+  }
 
-  if (UseOVLSCM && VLSCM && UseVLSCost && VF > 1)
-    if (OVLSGroup *Group = VLSA->getGroupsFor(Plan, VPInst))
-      if (Group->size() > 1) {
-        unsigned VLSCost =
-            OptVLSInterface::getGroupCost(*Group, *VLSCM) / Group->size();
-        if (VLSCost < Cost) {
-          LLVM_DEBUG(dbgs() << "Reduced cost for "; VPInst->print(dbgs());
-                     dbgs() << " from " << Cost << " to " << VLSCost << '\n');
-          return VLSCost;
-        } else
-          LLVM_DEBUG(dbgs() << "Cost for "; VPInst->print(dbgs());
-                     dbgs() << " was not reduced from " << Cost << " to "
-                            << VLSCost << '\n');
-      }
-  return Cost;
+  unsigned VLSGroupCost = OptVLSInterface::getGroupCost(*Group, *VLSCM);
+  unsigned TTIGroupCost = 0;
+  for (OVLSMemref *OvlsMemref : Group->getMemrefVec())
+    TTIGroupCost += VPlanCostModel::getLoadStoreCost(
+      cast<VPVLSClientMemref>(OvlsMemref)->getInstruction());
+
+  if (VLSGroupCost >= TTIGroupCost) {
+    LLVM_DEBUG(dbgs() << "Cost for "; VPInst->print(dbgs());
+               dbgs() << " was not reduced from " << Cost <<
+               " (TTI group cost " << TTIGroupCost <<
+               ") to group cost " << VLSGroupCost << '\n');
+    ProcessedOVLSGroups[Group] = false;
+    return Cost;
+  }
+
+  LLVM_DEBUG(dbgs() << "Reduced cost for "; VPInst->print(dbgs());
+             dbgs() << " from " << Cost << " (TTI group cost " <<
+             TTIGroupCost << " to group cost " << VLSGroupCost << '\n');
+  ProcessedOVLSGroups[Group] = true;
+  return VLSGroupCost;
 }
 
-unsigned VPlanCostModelProprietary::getCost(const VPInstruction *VPInst) const {
+unsigned VPlanCostModelProprietary::getCost(const VPInstruction *VPInst) {
   if (VPInst->getType()->isIntegerTy(1))
     ++NumberOfBoolComputations;
 
@@ -127,12 +130,13 @@ unsigned VPlanCostModelProprietary::getCost(const VPInstruction *VPInst) const {
 
 // Right now it calls for VPlanCostModel::getCost(VPBB), but later we may want
 // to have more precise cost estimation for VPBB.
-unsigned VPlanCostModelProprietary::getCost(const VPBasicBlock *VPBB) const {
+unsigned VPlanCostModelProprietary::getCost(const VPBasicBlock *VPBB) {
   return VPlanCostModel::getCost(VPBB);
 }
 
-unsigned VPlanCostModelProprietary::getCost() const {
+unsigned VPlanCostModelProprietary::getCost() {
   NumberOfBoolComputations = 0;
+  ProcessedOVLSGroups.clear();
   unsigned Cost = VPlanCostModel::getCost();
 
   // Array ref which needs to be aligned via loop peeling, if any.
@@ -177,9 +181,41 @@ unsigned VPlanCostModelProprietary::getCost() const {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void VPlanCostModelProprietary::print(raw_ostream &OS) {
-  OS << "HIR Cost Model for VPlan " << Plan->getName() << " with VF = " << VF
-     << ":\n";
+void VPlanCostModelProprietary::printForVPInstruction(
+  raw_ostream &OS, const VPInstruction *VPInst) {
+  OS << "  Cost " << getCostNumberString(getCost(VPInst)) << " for ";
+  VPInst->print(OS);
+  // TODO: Attributes yet to be populated.
+  std::string Attributes = "";
+
+  if (OVLSGroup *Group = VLSA->getGroupsFor(Plan, VPInst))
+    if (ProcessedOVLSGroups.count(Group) != 0)
+      Attributes += "OVLS ";
+
+  if (!Attributes.empty())
+    OS << " ( " << Attributes << ")";
+  OS << '\n';
+}
+
+void VPlanCostModelProprietary::printForVPBasicBlock(
+  raw_ostream &OS, const VPBasicBlock *VPBB) {
+  OS << "Analyzing VPBasicBlock " << VPBB->getName() << ", total cost: " <<
+    getCostNumberString(getCost(VPBB)) << '\n';
+
+  // Clearing ProcessedOVLSGroups is valid while VLS works within a basic block.
+  // TODO: The code should be revisited once the assumption is changed.
+  // Clearing before Instruction traversal is required to allow Instruction
+  // dumping function to print out correct Costs and not required for CM to
+  // work properly.
+  ProcessedOVLSGroups.clear();
+
+  for (const VPInstruction &VPInst : *VPBB)
+    printForVPInstruction(OS, &VPInst);
+}
+
+void VPlanCostModelProprietary::print(
+  raw_ostream &OS, const std::string &Header) {
+  OS << "HIR Cost Model for VPlan " << Header << " with VF = " << VF << ":\n";
   OS << "Total Cost: " << getCost() << '\n';
   LLVM_DEBUG(dbgs() << *Plan;);
 

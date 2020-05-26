@@ -514,7 +514,7 @@ void CSASSAGraph::BuildCSASSAGraph(MachineFunction &F, bool ignCtrl) {
         sn = instr2ssan[minstr];
       }
       unsigned i = 0;
-      for (MIOperands MO(*minstr); MO.isValid(); ++MO, ++i) {
+      for (MIBundleOperands MO(*minstr); MO.isValid(); ++MO, ++i) {
         if (ignCtrl && TII->isSwitch(minstr) && i == 2)
           // skip ctrl sig for pick/switch
           continue;

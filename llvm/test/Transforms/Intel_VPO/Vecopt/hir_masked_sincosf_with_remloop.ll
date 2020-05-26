@@ -1,4 +1,6 @@
 ; LLVM IR generated from testcase below using: icx -S -emit-llvm -Qoption,c,-fveclib=SVML -openmp -restrict -ffast-math -O2
+; CMPLRLLVM-19433: Re-enable this test after sincos is supported in HIR CodeGen
+; XFAIL: *
 ;
 ;void foo(float* restrict input, float* restrict b, float* restrict vsin, float* restrict vcos) {
 ;  int i;

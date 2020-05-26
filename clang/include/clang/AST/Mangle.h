@@ -111,6 +111,7 @@ public:
   virtual void mangleCXXRTTI(QualType T, raw_ostream &) = 0;
   virtual void mangleCXXRTTIName(QualType T, raw_ostream &) = 0;
   virtual void mangleStringLiteral(const StringLiteral *SL, raw_ostream &) = 0;
+  virtual void mangleMSGuidDecl(const MSGuidDecl *GD, raw_ostream&);
 
   void mangleGlobalBlock(const BlockDecl *BD,
                          const NamedDecl *ID,
@@ -177,19 +178,17 @@ public:
   virtual void mangleCXXDtorComdat(const CXXDestructorDecl *D,
                                    raw_ostream &) = 0;
 
-  bool isUniqueNameMangler() { return IsUniqueNameMangler; }
-
   virtual void mangleLambdaSig(const CXXRecordDecl *Lambda, raw_ostream &) = 0;
+
+  bool isUniqueNameMangler() { return IsUniqueNameMangler; }
 
   static bool classof(const MangleContext *C) {
     return C->getKind() == MK_Itanium;
   }
 
   static ItaniumMangleContext *create(ASTContext &Context,
-                                      DiagnosticsEngine &Diags);
-  static ItaniumMangleContext *create(ASTContext &Context,
                                       DiagnosticsEngine &Diags,
-                                      bool IsUniqueNameMangler);
+                                      bool IsUniqueNameMangler = false);
 };
 
 class MicrosoftMangleContext : public MangleContext {

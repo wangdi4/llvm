@@ -17,8 +17,8 @@
 ; it is only modified inside target and teams, and it is private
 ; both for target and teams:
 ; CHECK-LABEL: @__omp_offloading_804_5202727_test_l3
-; CHECK-NOT: call i64 @_Z12get_local_idj(i32 1)
-; CHECK-NOT: call i64 @_Z12get_local_idj(i32 2)
+; CHECK-NOT: call{{.*}}@_Z12get_local_idj(i32 1)
+; CHECK-NOT: call{{.*}}@_Z12get_local_idj(i32 2)
 ; CHECK: store i32 10, i32* %xvar{{.*}}
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"

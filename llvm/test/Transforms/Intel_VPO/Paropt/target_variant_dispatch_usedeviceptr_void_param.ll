@@ -1,5 +1,7 @@
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -S < %s | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S | FileCheck %s
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -S -vpo-paropt-use-interop=false < %s | FileCheck %s -check-prefix=BUFFPTR
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -S -vpo-paropt-use-interop=false | FileCheck %s -check-prefix=BUFFPTR
+; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-paropt-use-raw-dev-ptr=true -vpo-paropt-use-interop=false -S < %s | FileCheck %s -check-prefix=RAWPTR
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -vpo-paropt-use-raw-dev-ptr=true -vpo-paropt-use-interop=false -S | FileCheck %s -check-prefix=RAWPTR
 
 ; Original code:
 ; void __attribute__((nothrow)) foo_gpu(void *ptr);
@@ -12,17 +14,21 @@
 ;   foo(host_ptr);
 ; }
 
-; CHECK: [[BUFFER:%[a-zA-Z._0-9]+]] = call i8* @__tgt_create_buffer(i64 -1, i8* [[PTR:%[a-zA-Z._0-9]]])
-; CHECK: store i8* [[BUFFER]], i8** [[TGT_BUFFER:%[a-zA-Z._0-9]+]]
+; BUFFPTR: [[BUFFER:%[a-zA-Z._0-9]+]] = call i8* @__tgt_create_buffer(i64 -1, i8* [[PTR:%[a-zA-Z._0-9]]])
+; BUFFPTR: store i8* [[BUFFER]], i8** [[TGT_BUFFER:%[a-zA-Z._0-9]+]]
 
 ; Check that the host pointer casted from float* to i8* is not directly used in the call:
-; CHECK-NOT: call void @foo_gpu(i8* [[PTR]])
+; BUFFPTR-NOT: call void @foo_gpu(i8* [[PTR]])
 
-; CHECK-DAG: [[LOAD1:%[a-zA-Z._0-9]+]] = load i8*, i8** [[TGT_BUFFER]]
-; CHECK-DAG: icmp ne i8* [[LOAD1]], null
+; BUFFPTR-DAG: [[LOAD1:%[a-zA-Z._0-9]+]] = load i8*, i8** [[TGT_BUFFER]]
+; BUFFPTR-DAG: icmp ne i8* [[LOAD1]], null
 
-; CHECK-DAG: [[LOAD2:%[a-zA-Z._0-9]+]] = load i8*, i8** [[TGT_BUFFER]]
-; CHECK-DAG: call void @foo_gpu(i8* [[LOAD2]])
+; BUFFPTR-DAG: [[LOAD2:%[a-zA-Z._0-9]+]] = load i8*, i8** [[TGT_BUFFER]]
+; BUFFPTR-DAG: call void @foo_gpu(i8* [[LOAD2]])
+
+; RAWPTR: call void @__tgt_target_data_begin({{.+}})
+; RAWPTR-DAG: call void @foo_gpu({{.+}})
+; RAWPTR: call void @__tgt_target_data_end({{.+}})
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -34,7 +40,7 @@ entry:
   %host_ptr = alloca float*, align 8
   %0 = bitcast float** %host_ptr to i8*
   call void @llvm.lifetime.start.p0i8(i64 8, i8* %0) #2
-  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.VARIANT.DISPATCH"(), "QUAL.OMP.USE_DEVICE_PTR"(float** %host_ptr) ]
+  %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET.VARIANT.DISPATCH"(), "QUAL.OMP.USE_DEVICE_PTR:PTR_TO_PTR"(float** %host_ptr) ]
   %2 = load float*, float** %host_ptr, align 8, !tbaa !2
   %3 = bitcast float* %2 to i8*
   call void @foo(i8* %3) #2

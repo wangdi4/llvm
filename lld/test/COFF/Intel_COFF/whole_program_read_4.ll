@@ -1,4 +1,4 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 ; This test checks that whole program was achieved with wmain.
 
 ; RUN: llvm-as -o %T/wp4.bc %s
@@ -6,10 +6,13 @@
 ; RUN:     /mllvm:-debug-only=whole-program-analysis \
 ; RUN:     2>&1 | FileCheck %s
 
-; CHECK:   Main definition seen
-; CHECK:   UNRESOLVED CALLSITES: 0
-; CHECK:   WHOLE PROGRAM DETECTED
-; CHECK:   WHOLE PROGRAM SAFE is determined
+; CHECK:  UNRESOLVED CALLSITES: 0
+; CHECK:  WHOLE PROGRAM RESULT:
+; CHECK:    MAIN DEFINITION:  DETECTED
+; CHECK:    LINKING AN EXECUTABLE:  DETECTED
+; CHECK:    WHOLE PROGRAM READ:  DETECTED
+; CHECK:    WHOLE PROGRAM SEEN:  DETECTED
+; CHECK:    WHOLE PROGRAM SAFE:  DETECTED
 
 target datalayout = "e-m:w-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-windows-msvc"

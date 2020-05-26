@@ -1,5 +1,5 @@
 // RUN: %clang_cc1 -O1 %s -S -emit-llvm -o - | FileCheck %s
-// RUN: %clang_cc1 -O1 %s -S -emit-llvm -o - | opt -ipconstprop -S | FileCheck --check-prefix=IPCP %s
+// RUN: %clang_cc1 -O1 %s -S -emit-llvm -mllvm -sccp-enable-callbacks=false -o - | opt -ipconstprop -S | FileCheck --check-prefix=IPCP %s ;INTEL
 
 // CHECK: declare !callback ![[cid:[0-9]+]] {{.*}}i32 @pthread_create
 // CHECK: ![[cid]] = !{![[cidb:[0-9]+]]}

@@ -7,8 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++98, c++03, c++11, c++14
-// XFAIL: dylib-has-no-bad_variant_access && !libcpp-no-exceptions
+// UNSUPPORTED: c++98, c++03, c++11, c++14, linux
+// XFAIL: dylib-has-no-bad_variant_access && !no-exceptions
 
 // <variant>
 

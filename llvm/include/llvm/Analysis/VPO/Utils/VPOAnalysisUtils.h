@@ -128,6 +128,12 @@ typedef SmallVector<Instruction *, 32> VPOSmallVectorInst;
 ///      Modifier = "SCALAR"
 ///      Id = QUAL_OMP_DEFAULTMAP_TO
 ///
+/// * Pointer to pointer operands to is/use_device_ptr clause. Example:
+///      FullName = "QUAL.OMP.USE_DEVICE_PTR:PTR_TO_PTR"
+///      BaseName = "QUAL.OMP.USE_DEVICE_PTR"
+///      Modifier = "PTR_TO_PTR"
+///      Id = QUAL_OMP_USE_DEVICE_PTR
+///
 /// Id is the enum corresponding to BaseName.
 class ClauseSpecifier {
 private:
@@ -149,6 +155,7 @@ private:
 #endif // INTEL_CUSTOMIZATION
   bool IsAggregate:1;
   bool IsPointer:1;
+  bool IsPointerToPointer:1;
   bool IsScalar:1;
   bool IsAlways:1;
   bool IsClose:1;
@@ -197,6 +204,7 @@ public:
   void setIsMapChainLink()         { IsMapChainLink = true; }
   void setIsAggregate()            { IsAggregate = true; }
   void setIsPointer()              { IsPointer = true; }
+  void setIsPointerToPointer()     { IsPointerToPointer = true; }
   void setIsScalar()               { IsScalar = true; }
   void setIsIV()                   { IsIV = true; }
   void setIsComplex()              { IsComplex = true; }
@@ -230,6 +238,7 @@ public:
 #endif // INTEL_CUSTOMIZATION
   bool getIsAggregate() const { return IsAggregate; }
   bool getIsPointer() const { return IsPointer; }
+  bool getIsPointerToPointer() const { return IsPointerToPointer; }
   bool getIsScalar() const { return IsScalar; }
   bool getIsIV() const { return IsIV; }
   bool getIsComplex() const { return IsComplex; }
@@ -311,12 +320,24 @@ public:
     static bool isBeginDirective(Instruction *I);
     static bool isBeginDirective(BasicBlock *BB);
 
+    /// Return true for a directive that begins a loop region, such as
+    /// DIR_OMP_PARALLEL_LOOP and DIR_OMP_SIMD.
+    static bool isBeginLoopDirective(int DirID);
+    static bool isBeginLoopDirective(StringRef DirString);
+    static bool isBeginLoopDirective(Instruction *I);
+
     /// Return true for a directive that ends a region, such as
     /// DIR_OMP_END_PARALLEL and DIR_OMP_END_SIMD.
     static bool isEndDirective(int DirID);
     static bool isEndDirective(StringRef DirString);
     static bool isEndDirective(Instruction *I);
     static bool isEndDirective(BasicBlock *BB);
+
+    /// Return true for a directive that ends a loop region, such as
+    /// DIR_OMP_END_PARALLEL_LOOP and DIR_OMP_END_SIMD.
+    static bool isEndLoopDirective(int DirID);
+    static bool isEndLoopDirective(StringRef DirString);
+    static bool isEndLoopDirective(Instruction *I);
 
     /// Return true for a directive that begins or ends a region.
     static bool isBeginOrEndDirective(int DirID);
@@ -418,6 +439,12 @@ public:
     /// True for bind clauses
     static bool isBindClause(int ClauseID);
     static bool isBindClause(StringRef ClauseFullName);
+
+    /// Returns begin loop directive instruction if it exists.
+    static Instruction *getBeginLoopDirective(const Loop &Lp);
+
+    /// Returns end loop directive instruction if it exists.
+    static Instruction *getEndLoopDirective(const Loop &Lp);
 };
 
 } // End vpo namespace

@@ -284,7 +284,7 @@ const Dep* DepCompute::computeInstDep(const Instruction *I) const {
         Remaining.insert(computeValueDep(Op.get()));
     }
 
-    auto *F = dyn_cast<Function>(Call->getCalledValue());
+    auto *F = dyn_cast<Function>(Call->getCalledOperand());
 
     if (Info)
       // Relying on check that Realloc is forbidden.

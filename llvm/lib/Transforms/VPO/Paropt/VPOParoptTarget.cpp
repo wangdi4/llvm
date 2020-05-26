@@ -35,8 +35,6 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/InferAddressSpacesUtils.h"
 
-#include "llvm/PassAnalysisSupport.h"
-
 #include "llvm/Analysis/VPO/WRegionInfo/WRegion.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionNode.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionUtils.h"
@@ -49,22 +47,23 @@ using namespace llvm::vpo;
 
 #define DEBUG_TYPE "vpo-paropt-target"
 
-// TODO: This is temporary while we support both old and new implementations
-// of target variant dispatch for MKL. After the new implementation is fully
-// tested, we will purge the old one and remove this flag.
+// TODO: The following 2 flags are temporary to support MKL to transiton from
+// old implementation of target variant dispatch to new implementation.
+// vpo-paropt-use-interop is used to create interop object for synchronous case
+// vpo-paropt-use-raw-dev-ptr is used to send raw device pointer instead of
+// cl_buffer After the new implementation is fully tested, we will purge the
+// old one and remove these flags.
+#if INTEL_CUSTOMIZATION
+// 20200520: Enabled vpo-paropt-use-interop by default as requested by A21.
+#endif // INTEL_CUSTOMIZATION
 static cl::opt<bool>
     UseInterop("vpo-paropt-use-interop", cl::Hidden,
-               cl::init(false),
+               cl::init(true),
                cl::desc("Use the interop_obj for target variant dispatch."));
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CSA
-// Temporary option which is set to true when we are emitting binary vISA.
-static cl::opt<bool> CSAvISA("csa-visa",
-                             cl::desc("Customize IR for binary vISA"),
-                             cl::init(false), cl::ReallyHidden);
-#endif // INTEL_FEATURE_CSA
-#endif // INTEL_CUSTOMIZATION
+static cl::opt<bool>
+    UseRawDevicePtr("vpo-paropt-use-raw-dev-ptr", cl::Hidden,
+               cl::init(false),
+               cl::desc("Pass raw device ptr to variant dispatch."));
 
 static cl::opt<uint32_t> FixedSIMDWidth(
     "vpo-paropt-fixed-simd-width", cl::Hidden, cl::init(0),
@@ -198,7 +197,8 @@ void VPOParoptTransform::replacePrintfWithOCLBuiltin(Function *PrintfDecl,
       // Create the new call based on OCLPrintfDecl and
       // insert it before the old call
       CallInst *NewCall =
-          CallInst::Create(OCLPrintfDecl, FnArgs, "oclPrint", OldCall);
+          CallInst::Create(OCLPrintfDecl->getFunctionType(), OCLPrintfDecl,
+                           FnArgs, "oclPrint", OldCall);
 
       LLVM_DEBUG(dbgs() << __FUNCTION__ << ": new OCL printf(): " << *NewCall
                         << "\n");
@@ -276,9 +276,9 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
     ++NewArgI;
   }
 
-  if (FixedSIMDWidth > 0) {
+  if (W->getSPIRVSIMDWidth() > 0) {
     Metadata *AttrMDArgs[] = {
-        ConstantAsMetadata::get(Builder.getInt32(FixedSIMDWidth)) };
+        ConstantAsMetadata::get(Builder.getInt32(W->getSPIRVSIMDWidth())) };
     NFn->setMetadata("intel_reqd_sub_group_size",
                      MDNode::get(NFn->getContext(), AttrMDArgs));
   }
@@ -701,7 +701,7 @@ void VPOParoptTransform::guardSideEffectStatements(
       std::string(VPOAnalysisUtils::getDirectiveString(KernelEntryDir)), None);
   // The following call clones the original directive call
   // with just the directive name in the operand bundles.
-  auto *NewEntryDir = CallInst::Create(KernelEntryDir, { B }, KernelEntryDir);
+  auto *NewEntryDir = CallInst::Create(KernelEntryDir, {B}, KernelEntryDir);
   KernelEntryDir->replaceAllUsesWith(NewEntryDir);
   KernelEntryDir->eraseFromParent();
   W->setEntryDirective(NewEntryDir);
@@ -732,14 +732,11 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
-  // Add "target.entry" attribute to the outlined function.
-  NewF->addFnAttr("omp.target.entry");
-
-  // Temporary set external linkage for outlined target regions when emitting
-  // binary vISA. This is a workaround for csa_as limitation that should be
-  // removed in future.
-  if (CSAvISA)
-    NewF->setLinkage(GlobalValue::ExternalLinkage);
+  if (isTargetCSA()) {
+    // Add "target.entry" attribute to the outlined function.
+    NewF->addFnAttr("omp.target.entry");
+    NewF->setLinkage(GlobalValue::WeakAnyLinkage);
+  }
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
   CallInst *NewCall = cast<CallInst>(NewF->user_back());
@@ -980,7 +977,8 @@ void VPOParoptTransform::genTgtInformationForPtrs(
 
   bool ForceMapping =
       isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W) ||
-      isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W);
+      isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W) ||
+      isa<WRNTargetVariantNode>(W);
 
   MapClause const &MpClause = W->getMap();
   for (MapItem *MapI : MpClause.items()) {
@@ -1103,45 +1101,33 @@ void VPOParoptTransform::genTgtInformationForPtrs(
 
 // Initialize the loop descriptor struct with the loop level
 // as well as the lb, ub, stride for each level of the loop.
-AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W,
-                                                    WRegionNode *WL) {
+//
+// The data structure created for runtime is declared as:
+//   typedef struct {
+//     int64_t Lb;     // The lower bound of the loop in i-th dimension
+//     int64_t Ub;     // The upper bound of the loop in i-th dimension
+//     int64_t Stride; // The stride of the loop in i-th dimension
+//   } TgtLoopDescTy;
+//
+//   typedef struct {
+//     int32_t NumLoops;        // Number of loops/dimensions
+//     int32_t DistributeDim;   // Dimensions lower than this one
+//                              // must end up in one WG
+//     TgtLoopDescTy Levels[3]; // Up to 3 loops
+//   } TgtNDRangeDescTy;
+AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W) {
+  auto &UncollapsedNDRange = W->getUncollapsedNDRange();
+  uint8_t DistributeDim = W->getNDRangeDistributeDim();
+
+  if (UncollapsedNDRange.empty())
+    return nullptr;
+
   BasicBlock *EntryBB = W->getEntryBBlock();
   BasicBlock *NewEntryBB = SplitBlock(EntryBB, &*(EntryBB->begin()), DT, LI);
   W->setEntryBBlock(NewEntryBB);
 
-  WRNTargetNode *WT = cast<WRNTargetNode>(W);
-  auto &UncollapsedNDRange = WT->getUncollapsedNDRange();
-  unsigned NumLoops = 0;
-
-  if (UncollapsedNDRange.empty()) {
-    for (int I = 0, IE = WL->getWRNLoopInfo().getNormIVSize(); I < IE; ++I) {
-      auto *L = WL->getWRNLoopInfo().getLoop(I);
-      auto *UpperBoundDef =
-          cast<Instruction>(WRegionUtils::getOmpLoopUpperBound(L));
-      if (!VPOParoptUtils::mayCloneUBValueBeforeRegion(UpperBoundDef, W)) {
-        // FIXME: if we stop calling this function for SPIR compilation,
-        //        then the check for isTargetSPIRV() has to be removed below.
-        if (isTargetSPIRV()) {
-          // This code may be executed only for ImplicitSIMDSPMDES mode.
-          OptimizationRemarkMissed R(
-              "openmp", "Target", WL->getEntryDirective());
-          R << "Consider using OpenMP combined construct "
-              "with \"target\" to get optimal performance";
-          ORE.emit(R);
-        }
-        LLVM_DEBUG(dbgs() << __FUNCTION__ <<
-                   ": loop bounds cannot be computed before the enclosing "
-                   "target region.\n");
-        return nullptr;
-      }
-    }
-
-    NumLoops = WL->getWRNLoopInfo().getNormIVSize();
-  }
-  else
-    NumLoops = UncollapsedNDRange.size();
-
-  assert(NumLoops != 0 && "Zero loops in loop construct.");
+  unsigned NumLoops = UncollapsedNDRange.size();
+  NumLoops += DistributeDim;
   assert(NumLoops <= 3 && "Max 3 dimensions for ND-range execution.");
 
   LLVMContext &C = F->getContext();
@@ -1149,7 +1135,8 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W,
   Instruction *InsertPt = EntryBB->getTerminator();
   IRBuilder<> Builder(InsertPt);
   SmallVector<Type *, 4> CLLoopParameterRecTypeArgs;
-  CLLoopParameterRecTypeArgs.push_back(Int64Ty);
+  CLLoopParameterRecTypeArgs.push_back(Builder.getInt32Ty());
+  CLLoopParameterRecTypeArgs.push_back(Builder.getInt32Ty());
   for (unsigned I = 0; I < NumLoops; I++) {
     CLLoopParameterRecTypeArgs.push_back(Int64Ty);
     CLLoopParameterRecTypeArgs.push_back(Int64Ty);
@@ -1162,14 +1149,16 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W,
                       false);
   AllocaInst *DummyCLLoopParameterRec = Builder.CreateAlloca(
       CLLoopParameterRecType, nullptr, "loop.parameter.rec");
-  Value *BaseGep =
+  Value *NumLoopsGep =
       Builder.CreateInBoundsGEP(CLLoopParameterRecType, DummyCLLoopParameterRec,
                                 {Builder.getInt32(0), Builder.getInt32(0)});
 
-  Builder.CreateStore(
-      Builder.CreateSExtOrTrunc(
-          Builder.getInt32(NumLoops), Int64Ty),
-      BaseGep);
+  Builder.CreateStore(Builder.getInt32(NumLoops), NumLoopsGep);
+
+  Value *DistributeDimGep =
+      Builder.CreateInBoundsGEP(CLLoopParameterRecType, DummyCLLoopParameterRec,
+                                {Builder.getInt32(0), Builder.getInt32(1)});
+  Builder.CreateStore(Builder.getInt32(DistributeDim), DistributeDimGep);
 
   for (unsigned I = 0; I < NumLoops; I++) {
     // We assume that the innermost OpenMP loop stepping provides
@@ -1178,19 +1167,17 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W,
     // We need to specify the ND-range such that the 1st dimension
     // corresponds to the innermost loop (with loop index NumLoops - 1).
     unsigned Idx = NumLoops - I - 1;
-    Loop *L = WL->getWRNLoopInfo().getLoop(Idx);
     Value *LowerBndGep = Builder.CreateInBoundsGEP(
         CLLoopParameterRecType, DummyCLLoopParameterRec,
-        {Builder.getInt32(0), Builder.getInt32(3 * I + 1)});
+        {Builder.getInt32(0), Builder.getInt32(3 * I + 2)});
     Builder.CreateStore(Builder.getInt64(0), LowerBndGep);
 
     Value *UpperBndGep = Builder.CreateInBoundsGEP(
         CLLoopParameterRecType, DummyCLLoopParameterRec,
-        {Builder.getInt32(0), Builder.getInt32(3 * I + 2)});
+        {Builder.getInt32(0), Builder.getInt32(3 * I + 3)});
     Value *CloneUB = nullptr;
-    if (UncollapsedNDRange.empty())
-      CloneUB = VPOParoptUtils::cloneInstructions(
-          WRegionUtils::getOmpLoopUpperBound(L), InsertPt);
+    if (I < DistributeDim)
+      CloneUB = Builder.getInt64(0);
     else
       CloneUB = Builder.CreateLoad(UncollapsedNDRange[Idx]);
 
@@ -1200,7 +1187,7 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W,
 
     Value *StrideGep = Builder.CreateInBoundsGEP(
         CLLoopParameterRecType, DummyCLLoopParameterRec,
-        {Builder.getInt32(0), Builder.getInt32(3 * I + 3)});
+        {Builder.getInt32(0), Builder.getInt32(3 * I + 4)});
     Builder.CreateStore(Builder.getInt64(1), StrideGep);
   }
 
@@ -1291,7 +1278,6 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTargetInitCode\n");
   assert(!hasOffloadCompilation() &&
          "genTargetInitCode() called for device compilation.");
-  LLVMContext &C = F->getContext();
 
   TgDataInfo Info;
 
@@ -1331,53 +1317,8 @@ CallInst *VPOParoptTransform::genTargetInitCode(WRegionNode *W, CallInst *Call,
 
     Info.NumberOfPtrs = MapTypes.size();
 
-    Value *SizesArray;
-
-    // Build the alloca defs of the target parms.
-    // The allocas must be kept in the same region as their uses,
-    // in case more outlining transformations are made.
-    IRBuilder<> Builder(InsertPt);
-
-    if (hasRuntimeEvaluationCaptureSize)
-      SizesArray = Builder.CreateAlloca(
-          ArrayType::get(Type::getInt64Ty(C), Info.NumberOfPtrs),
-          nullptr, ".offload_sizes");
-    else {
-      auto *SizesArrayInit = ConstantArray::get(
-          ArrayType::get(Type::getInt64Ty(C), ConstSizes.size()),
-          ConstSizes);
-
-      GlobalVariable *SizesArrayGbl =
-          new GlobalVariable(*(F->getParent()), SizesArrayInit->getType(), true,
-                             GlobalValue::PrivateLinkage, SizesArrayInit,
-                             ".offload_sizes", nullptr);
-      SizesArrayGbl->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
-      SizesArray = SizesArrayGbl;
-    }
-
-    AllocaInst *TgBasePointersArray = Builder.CreateAlloca(
-        ArrayType::get(Builder.getInt8PtrTy(), Info.NumberOfPtrs), nullptr,
-        ".offload_baseptrs");
-
-    AllocaInst *TgPointersArray = Builder.CreateAlloca(
-        ArrayType::get(Builder.getInt8PtrTy(), Info.NumberOfPtrs), nullptr,
-        ".offload_ptrs");
-
-    Constant *MapTypesArrayInit =
-        ConstantDataArray::get(Builder.getContext(), MapTypes);
-    auto *MapTypesArrayGbl =
-        new GlobalVariable(*(F->getParent()), MapTypesArrayInit->getType(),
-                           true, GlobalValue::PrivateLinkage, MapTypesArrayInit,
-                           ".offload_maptypes", nullptr);
-    MapTypesArrayGbl->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
-
-    Info.BaseDataPtrs = TgBasePointersArray;
-    Info.DataPtrs = TgPointersArray;
-    Info.DataSizes = SizesArray;
-    Info.DataMapTypes = MapTypesArrayGbl;
-
     genOffloadArraysInit(W, &Info, Call, InsertPt, ConstSizes,
-                         hasRuntimeEvaluationCaptureSize);
+                         MapTypes, hasRuntimeEvaluationCaptureSize);
   }
 
   genOffloadArraysArgument(&Info, InsertPt);
@@ -1429,10 +1370,12 @@ Value *VPOParoptTransform::genCastforAddr(Value *BPVal, IRBuilder<> &Builder) {
     return Builder.CreateIntToPtr(BPVal, Builder.getInt8PtrTy());
 }
 
-bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W) {
+bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W,
+                                         Instruction *InsertPt ) {
   assert(W && "Null WRegionNode.");
 
-  if (!W->canHaveUseDevicePtr() || !isa<WRNTargetDataNode>(W))
+  if (!W->canHaveUseDevicePtr() || !(isa<WRNTargetDataNode>(W) ||
+                                  isa<WRNTargetVariantNode>(W)))
     return false;
 
   UseDevicePtrClause &UDPC = W->getUseDevicePtr();
@@ -1440,26 +1383,33 @@ bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W) {
     return false;
 
   // Create an empty BB before the entry BB, to insert loads for the new map
-  // clauses.
-  BasicBlock *EntryBB = W->getEntryBBlock();
-  BasicBlock *NewEntryBB =
-      SplitBlock(EntryBB, EntryBB->getFirstNonPHI(), DT, LI);
-  W->setEntryBBlock(NewEntryBB);
-  W->populateBBSet(true); // rebuild BBSet unconditionlly as EntryBB changed
-
-  IRBuilder<> LoadBuilder(EntryBB->getTerminator());
+  // clauses if InsertPt is null.
+  if (!InsertPt) {
+    BasicBlock *EntryBB = W->getEntryBBlock();
+    BasicBlock *NewEntryBB =
+        SplitBlock(EntryBB, EntryBB->getFirstNonPHI(), DT, LI);
+    W->setEntryBBlock(NewEntryBB);
+    W->populateBBSet(true); // rebuild BBSet unconditionlly as EntryBB changed
+    InsertPt = EntryBB->getTerminator();
+  }
+  IRBuilder<> LoadBuilder(InsertPt);
   MapClause &MapC = W->getMap();
   for (UseDevicePtrItem *UDPI : UDPC.items()) {
     Value *UDP = UDPI->getOrig();
-    Value *UDPLoad = LoadBuilder.CreateLoad(UDP, UDP->getName() + ".load");
-    MapC.add(UDPLoad);
+    Value *MappedVal =
+        UDPI->getIsPointerToPointer()
+            ? LoadBuilder.CreateLoad(
+                  cast<PointerType>(UDP->getType())->getPointerElementType(),
+                  UDP, UDP->getName() + ".load")
+            : UDP;
+    MapC.add(MappedVal);
 
     MapItem *MapI = MapC.back();
     MapI->setInUseDevicePtr(UDPI);
     UDPI->setInMap(MapI);
 
     LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Added map clause on '";
-               UDPLoad->printAsOperand(dbgs());
+               MappedVal->printAsOperand(dbgs());
                dbgs() << "', for use_device_ptr '"; UDP->printAsOperand(dbgs());
                dbgs() << "'.\n");
   }
@@ -1472,6 +1422,7 @@ bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W) {
 //
 // the IR before/after this util will look like:
 //
+// Case 1: Type of %udp is i32**, and it's marked as PTR_TO_PTR:
 // Before:
 //   %udp.gep = getelementptr(%offload.baseptrs...)                  ; (1)
 //   ...
@@ -1491,6 +1442,24 @@ bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W) {
 //     call @outlined.funtion(...i32** %udp.new)                     ; (6)
 //   call void @__tgt_target_data_end()
 //
+// Case 2: Type of %udp is i32*, and it's NOT marked as PTR_TO_PTR:
+// Before:
+//   %udp.gep = getelementptr(%offload.baseptrs...)                  ; (1)
+//   ...
+//   call void @__tgt_target_data_begin(...%offload.baseptrs...)
+//     call @outlined.funtion(...i32* %udp)  ; TgtDataOutlinedFunctionCall
+//   call void @__tgt_target_data_end()
+//
+// After:
+//   ...
+//   %udp.gep = getelementptr(%offload.baseptrs...)                  ; (1)
+//   ...
+//   call void @__tgt_target_data_begin(...%offload.baseptrs...)
+//     %udp.gep.cast = cast i8* %udp.gep to i32**                    ; (3)
+//     %udp.updated.val = load i32*, i32** %udp.gep.cast             ; (4)
+//     call @outlined.funtion(...i32* %udp.updated.val)              ; (6)
+//   call void @__tgt_target_data_end()
+//
 void VPOParoptTransform::useUpdatedUseDevicePtrsInTgtDataRegion(
     WRegionNode *W, Instruction *TgtDataOutlinedFunctionCall) {
   assert(W && "Null WRegionNode.");
@@ -1505,27 +1474,31 @@ void VPOParoptTransform::useUpdatedUseDevicePtrsInTgtDataRegion(
 
   IRBuilder<> Builder(TgtDataOutlinedFunctionCall);
   Function *F = TgtDataOutlinedFunctionCall->getFunction();
-  Instruction *AllocaInsertPt =
-      VPOParoptUtils::getInsertionPtForAllocaBeforeRegion(W, F);
+  Instruction *AllocaInsertPt = VPOParoptUtils::getInsertionPtForAllocas(W, F);
 
   for (UseDevicePtrItem *UDPI : UDPC.items()) {
     MapItem *MapI = UDPI->getInMap();
     assert(MapI && "No map found for use-device-ptr item.");
 
-    Instruction *BasePtrGEP = MapI->getBasePtrGEPForOrig(); //             (1)
+    Instruction *BasePtrGEP = MapI->getBasePtrGEPForOrig(); //              (1)
     assert(BasePtrGEP && "No GEP found for base-ptr of Map item's orig.");
 
     Value *OrigV = UDPI->getOrig();
 
-    Value *NewV = genPrivatizationAlloca(OrigV, AllocaInsertPt, ".new"); //(2)
-
     Value *GepCast = Builder.CreateBitOrPointerCast(
-        BasePtrGEP, OrigV->getType(), BasePtrGEP->getName() + ".cast"); // (3)
-    LoadInst *UpdatedUDPVal =
-        Builder.CreateLoad(GepCast, OrigV->getName() + ".updated.val"); // (4)
-    Builder.CreateStore(UpdatedUDPVal, NewV); //                           (5)
+        BasePtrGEP, MapI->getOrig()->getType()->getPointerTo(),
+        BasePtrGEP->getName() + ".cast"); //                                (3)
 
-    TgtDataOutlinedFunctionCall->replaceUsesOfWith(OrigV, NewV); //        (6)
+    LoadInst *UpdatedUDPVal =
+        Builder.CreateLoad(GepCast, OrigV->getName() + ".updated.val"); //  (4)
+    Value *NewV = nullptr;
+    if (UDPI->getIsPointerToPointer()) {
+      NewV = genPrivatizationAlloca(OrigV, AllocaInsertPt, ".new"); //      (2)
+      Builder.CreateStore(UpdatedUDPVal, NewV);                     //      (5)
+    } else
+      NewV = UpdatedUDPVal;
+
+    TgtDataOutlinedFunctionCall->replaceUsesOfWith(OrigV, NewV); //         (6)
 
     LLVM_DEBUG(
         dbgs() << __FUNCTION__ << ": Replaced references to use_device_ptr '";
@@ -1613,7 +1586,8 @@ void VPOParoptTransform::genOffloadArraysInitForClause(
 
   bool ForceMapping =
       isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W) ||
-      isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W);
+      isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W) ||
+      isa<WRNTargetVariantNode>(W);
 
   MapClause const &MpClause = W->getMap();
   for (MapItem *MapI : MpClause.items()) {
@@ -1648,12 +1622,15 @@ void VPOParoptTransform::genOffloadArraysInitForClause(
              << " Match=" << Match << " Cnt=" << Cnt << "\n");
 }
 
+// Create array of base pointer,  array of section pointer
+// array of MAP types and array of Target pointer.
 // Pass the data to the array of base pointer as well as  array of
 // section pointers. If the flag hasRuntimeEvaluationCaptureSize is true,
 // the compiler needs to generate the init code for the size array.
 void VPOParoptTransform::genOffloadArraysInit(
     WRegionNode *W, TgDataInfo *Info, CallInst *Call, Instruction *InsertPt,
     SmallVectorImpl<Constant *> &ConstSizes,
+    SmallVectorImpl<uint64_t> &MapTypes,
     bool hasRuntimeEvaluationCaptureSize) {
 
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genOffloadArraysInit:"
@@ -1665,9 +1642,53 @@ void VPOParoptTransform::genOffloadArraysInit(
   IRBuilder<> Builder(InsertPt);
   unsigned Cnt = 0;
   bool Match = false;
+  Value *SizesArray;
+  LLVMContext &C = F->getContext();
+
+  // Build the alloca defs of the target parms.
+  // The allocas must be kept in the same region as their uses,
+  // in case more outlining transformations are made.
+  if (hasRuntimeEvaluationCaptureSize)
+    SizesArray = Builder.CreateAlloca(
+          ArrayType::get(Type::getInt64Ty(C), Info->NumberOfPtrs),
+          nullptr, ".offload_sizes");
+  else {
+    auto *SizesArrayInit = ConstantArray::get(
+        ArrayType::get(Type::getInt64Ty(C), ConstSizes.size()),
+        ConstSizes);
+
+    GlobalVariable *SizesArrayGbl =
+        new GlobalVariable(*(F->getParent()), SizesArrayInit->getType(), true,
+                           GlobalValue::PrivateLinkage, SizesArrayInit,
+                           ".offload_sizes", nullptr);
+    SizesArrayGbl->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
+    SizesArray = SizesArrayGbl;
+  }
+
+  AllocaInst *TgBasePointersArray = Builder.CreateAlloca(
+        ArrayType::get(Builder.getInt8PtrTy(), Info->NumberOfPtrs), nullptr,
+        ".offload_baseptrs");
+
+  AllocaInst *TgPointersArray = Builder.CreateAlloca(
+        ArrayType::get(Builder.getInt8PtrTy(), Info->NumberOfPtrs), nullptr,
+        ".offload_ptrs");
+
+  Constant *MapTypesArrayInit =
+        ConstantDataArray::get(Builder.getContext(), MapTypes);
+  auto *MapTypesArrayGbl =
+      new GlobalVariable(*(F->getParent()), MapTypesArrayInit->getType(),
+                         true, GlobalValue::PrivateLinkage, MapTypesArrayInit,
+                         ".offload_maptypes", nullptr);
+  MapTypesArrayGbl->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
+
+  Info->BaseDataPtrs = TgBasePointersArray;
+  Info->DataPtrs = TgPointersArray;
+  Info->DataSizes = SizesArray;
+  Info->DataMapTypes = MapTypesArrayGbl;
 
   if (isa<WRNTargetEnterDataNode>(W) || isa<WRNTargetExitDataNode>(W) ||
-      isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W)) {
+      isa<WRNTargetDataNode>(W) || isa<WRNTargetUpdateNode>(W) ||
+      isa<WRNTargetVariantNode>(W)) {
     genOffloadArraysInitForClause(W, Info, Call, InsertPt, ConstSizes,
                                   hasRuntimeEvaluationCaptureSize, nullptr,
                                   Match, Builder, Cnt);
@@ -2197,6 +2218,13 @@ StringRef getVariantName(CallInst *BaseCall, StringRef &MatchConstruct,
   StringRef VariantAttributeString =
       BaseFunc->getFnAttribute("openmp-variant").getValueAsString();
 
+  if (VariantAttributeString.empty()) {
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Base function "
+                      << BaseFunc->getName()
+                      << " does not have an openmp variant\n");
+    return VariantAttributeString; // null string
+  }
+
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Base function " << BaseFunc->getName()
                     << " has openmp-variant attribute: "
                     << VariantAttributeString << "\n");
@@ -2630,13 +2658,25 @@ createTargetVariantDispatchHostPtrs(WRegionNode *W, Instruction *InsertPt,
     Builder.SetInsertPoint(InsertBefore);
     Value *Orig = Item->getOrig();
     StringRef OrigName = Orig->getName();
-    LoadInst *PtrLoad = Builder.CreateLoad(Orig, "hostPtr");
-    assert(PtrLoad->getType()->isPointerTy() &&
+    Instruction *NextInsertBefore = nullptr;
+    Value *HostPtr = nullptr;
+    if (Item->getIsPointerToPointer()) {
+      Type *LoadTy = cast<PointerType>(Orig->getType())->getElementType();
+      HostPtr = Builder.CreateLoad(LoadTy, Orig, "hostPtr");
+      NextInsertBefore = cast<Instruction>(HostPtr);
+    } else
+      HostPtr = Orig;
+
+    assert(HostPtr->getType()->isPointerTy() &&
            "Target Variant: Expected a pointer");
-    Value *Ptr = Builder.CreateBitCast(PtrLoad, Int8PtrTy);
+    Value *PtrCast = Builder.CreateBitCast(HostPtr, Int8PtrTy);
+    if (!NextInsertBefore && isa<Instruction>(PtrCast))
+      NextInsertBefore = cast<Instruction>(PtrCast);
     CallInst *BufferCall =
-        VPOParoptUtils::genTgtCreateBuffer(DeviceNum, Ptr, InsertBefore);
+        VPOParoptUtils::genTgtCreateBuffer(DeviceNum, PtrCast, InsertBefore);
     BufferCall->setName(OrigName + ".buffer");
+    if (!NextInsertBefore)
+      NextInsertBefore = BufferCall;
     assert(BufferCall->getType() == Int8PtrTy &&
            "Expected __tgt_create_buffer() to return a void*");
     Value *TgtBufferAddr = Item->getNew();
@@ -2647,7 +2687,7 @@ createTargetVariantDispatchHostPtrs(WRegionNode *W, Instruction *InsertPt,
     SplitBlockAndInsertIfThen(IsNull, InsertBefore, false, nullptr, DT, LI,
                               BBCheckBuffer);
     InsertBefore->getParent()->setName("if.ptr.not.null");
-    InsertBefore = PtrLoad;
+    InsertBefore = NextInsertBefore;
   }
 
   // (C)
@@ -2741,6 +2781,11 @@ createTargetVariantDispatchHostPtrs(WRegionNode *W, Instruction *InsertPt,
 /// \endcode
 ///
 /// The list items (a,b above) in the use_device_ptr clause are host pointers.
+///
+/// Old Scheme uses opencl buffers.  New scheme does not create buffers
+/// To use new scheme UseRawDevicePtr flag should be true.
+/// At some point old Scheme will be delete.
+///
 /// The compiler emits extra code (on top of Case1) as follows:
 ///
 ///   (A) Emit calls to __tgt_create_buffer() to create a target buffer
@@ -2787,6 +2832,19 @@ createTargetVariantDispatchHostPtrs(WRegionNode *W, Instruction *InsertPt,
 /// Tasks (A,B,C) are done in createTargetVariantDispatchHostPtrs()
 /// Task (D) is done in VPOParoptUtils::genVariantCall()
 /// Task (E) is done here in VPOParoptTransform::genTargetVariantDispatchCode()
+///
+/// New Scheme when UseRawDevicePointer is true.
+/// Will replace the above old scheme in the future.
+///
+///   bool available = __tgt_is_device_available(dnum, ...)
+///
+///    call void @__tgt_target_data_begin(i64 -1, i32 1, i8** %5,
+///      i8** %6, i64* getelementptr inbounds ([1 x i64],
+///      [1 x i64]* @.offload_sizes, i32 0, i32 0),
+///      i64* getelementptr inbounds ([1 x i64],
+///      [1 x i64]* @.offload_maptypes, i32 0, i32 0))
+///   foo_gpu(a_tgtBuff, b_tgtBuff);
+///   call void @__tgt_target_data_end()
 bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   LLVM_DEBUG(
       dbgs() << "\nEnter VPOParoptTransform::genTargetVariantDispatchCode\n");
@@ -2839,8 +2897,8 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
 
   // Emit call to check for device availability:
   //
-  //   %call = call i32 @__tgt_is_device_available(i64 %0, i8* null)       (1)
-  //   %dispatch = icmp ne i32 %call1, 0                                   (2)
+  //   %call = call i32 @__tgt_is_device_available(i64 %0, i8* null)      (1)
+  //   %available  = icmp ne i32 %call, 0                                 (2)
   //
   // The second argument of __tgt_is_device_available() is a pointer
   // that is currently unused. When we support device types in the
@@ -2855,26 +2913,27 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   Value *DispatchTmp; // the dispatch condition
 
   UseDevicePtrClause &UDPtrClause = W->getUseDevicePtr();
-  if (!UDPtrClause.empty()) {
+  // NOTE : Remove after switching to UseDevicePtr
+  if (!UseRawDevicePtr && !UDPtrClause.empty()) {
     // A use_device_ptr clause is present. Therefore:
     //   (A) Create the target buffers
     //   (C) Free all target buffers if some failed to create
     //   (B) return the dispatch condition
-    DispatchTmp = createTargetVariantDispatchHostPtrs(W, InsertPt, DeviceNum,
-                                                      Available, DT, LI);
-  } else { // no use_device_ptr clause
-    // No use_device_ptr clause, so dispatch condition == device is available
+    DispatchTmp = createTargetVariantDispatchHostPtrs(W, InsertPt,
+                                          DeviceNum, Available, DT, LI);
+  } else {
     DispatchTmp = Available;
     DispatchTmp->setName("dispatch");
   }
-  // Here, Builder insertion point is "InsertPt"
 
+  // Here, Builder insertion point is "InsertPt"
   // Emit dispatch code:
   //
   //   br i1 %dispatch, label %variant.call, label %base.call               (3)
   //
   // variant.call:
   //   %variant = call i32 @foo_gpu(<args>)                               (4,D)
+  //   release buffer is in old scheme only
   //   [calls to __tgt_release_buffer if use_device_ptr exists]             (E)
   //   br label %if.end                                              (ThenTerm)
   //
@@ -2901,25 +2960,68 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   // Create and insert Variant call before ThenTerm
   ThenTerm->getParent()->setName("variant.call");
   bool IsVoidType = (BaseCall->getType() == Builder.getVoidTy());
-  CallInst *VariantCall =                                               // (4,D)
-      VPOParoptUtils::genVariantCall(BaseCall, VariantName, InteropObj,
-                                     ThenTerm, W);
+  CallInst *VariantCall = nullptr;
+  if (UseRawDevicePtr && !UDPtrClause.empty()) {
+    Builder.SetInsertPoint(ThenTerm);
+    TgDataInfo Info;
+    Info.NumberOfPtrs = UDPtrClause.size();
+    bool hasRuntimeEvaluationCaptureSize = false;
+    SmallVector<Constant *, 16> ConstSizes;
+    SmallVector<uint64_t, 16> MapTypes;
+
+    (void) addMapForUseDevicePtr(W, ThenTerm);
+
+    genTgtInformationForPtrs(W, nullptr, ConstSizes, MapTypes,
+                                 hasRuntimeEvaluationCaptureSize);
+
+    InsertPt = ThenTerm;
+    CallInst *DummyCall = nullptr;
+    genOffloadArraysInit(W, &Info, DummyCall, InsertPt, ConstSizes,
+                        MapTypes, hasRuntimeEvaluationCaptureSize);
+
+    genOffloadArraysArgument(&Info, InsertPt);
+    (void) VPOParoptUtils::genTgtTargetDataBegin(
+        W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
+        Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
+    for (UseDevicePtrItem *Item : UDPtrClause.items()) {
+      MapItem *MapI = Item->getInMap();
+      assert(MapI && "No map found for use-device-ptr item.");
+      Instruction *BasePtrGEP = MapI->getBasePtrGEPForOrig();
+      assert(BasePtrGEP && "No GEP found for base-ptr of Map item's orig.");
+      Value *OrigV = Item->getOrig();
+      Value *GepCast = Builder.CreateBitOrPointerCast(
+        BasePtrGEP, MapI->getOrig()->getType()->getPointerTo(),
+        OrigV->getName() + ".cast");
+      Item->setNew(GepCast);
+    }
+    VariantCall =
+            VPOParoptUtils::genVariantCall(BaseCall, VariantName,
+                                           InteropObj, InsertPt, W);
+    VPOParoptUtils::genTgtTargetDataEnd(
+        W, Info.NumberOfPtrs, Info.ResBaseDataPtrs, Info.ResDataPtrs,
+        Info.ResDataSizes, Info.ResDataMapTypes, InsertPt);
+  }
+  else
+      VariantCall =
+            VPOParoptUtils::genVariantCall(BaseCall, VariantName,
+                                           InteropObj, ThenTerm, W);  // (4,D)
   if (!IsVoidType)
     VariantCall->setName("variant");
 
-  // Release target buffers after Variant call only for synchronous cases;
-  // i.e., when NOWAIT is false. For async cases they are released by the
-  // async_handler callback routine.
-  if (!UDPtrClause.empty() && W->getNowait() == false) {
-    Builder.SetInsertPoint(ThenTerm);
-    for (UseDevicePtrItem *Item : UDPtrClause.items()) {
-      StringRef OrigName = Item->getOrig()->getName();
-      Value *TgtBufferAddr = Item->getNew();
-      LoadInst *Buffer =
-          Builder.CreateLoad(TgtBufferAddr, OrigName + ".buffer");
-      VPOParoptUtils::genTgtReleaseBuffer(DeviceNum, Buffer, ThenTerm);  // (E)
+  if (!UseRawDevicePtr) // should be removed later
+    // Release target buffers after Variant call only for synchronous cases;
+    // i.e., when NOWAIT is false. For async cases they are released by the
+    // async_handler callback routine.
+    if (!UDPtrClause.empty() && W->getNowait() == false) {
+      Builder.SetInsertPoint(ThenTerm);
+      for (UseDevicePtrItem *Item : UDPtrClause.items()) {
+        StringRef OrigName = Item->getOrig()->getName();
+        Value *TgtBufferAddr = Item->getNew();
+        LoadInst *Buffer =
+            Builder.CreateLoad(TgtBufferAddr, OrigName + ".buffer");
+        VPOParoptUtils::genTgtReleaseBuffer(DeviceNum, Buffer, ThenTerm); // (E)
+      }
     }
-  }
 
   // Release the interop object for synchronous execution (no NOWAIT clause).
   // Don't do this for the asynchronous case; the async_handler will do it.
@@ -2950,5 +3052,51 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
 
   W->resetBBSet(); // Invalidate BBSet after transformations
   return true;
+}
+
+// Set SIMD widening width for the target region based
+// on simdlen() clauses of the enclosed SIMD loops (if any).
+void VPOParoptTransform::propagateSPIRVSIMDWidth() const {
+  for (auto *WT : WRegionList) {
+    if (!isa<WRNTargetNode>(WT))
+      continue;
+
+    if (FixedSIMDWidth > 0) {
+      // Override the SIMD width with an option.
+      WT->setSPIRVSIMDWidth(FixedSIMDWidth);
+      continue;
+    }
+
+    // Choose minimum SIMD width, if there are multiple SIMD loops.
+    unsigned MinSIMDLen = 0;
+    SmallVector<WRegionNode*, 32> WorkList{WT};
+    while (!WorkList.empty()) {
+      unsigned CurSIMDLen = 0;
+      auto *W = WorkList.pop_back_val();
+
+      if (W != WT && isa<WRNTargetNode>(W))
+        // If this is an enclosed target region, then
+        // we have already processed it and we can take its
+        // SIMD width without processing the children.
+        CurSIMDLen = W->getSPIRVSIMDWidth();
+      else if (!isa<WRNVecLoopNode>(W)) {
+        WorkList.insert(
+            WorkList.end(), W->wrn_child_begin(), W->wrn_child_end());
+        continue;
+      } else
+        CurSIMDLen = W->getSimdlen();
+
+      if (CurSIMDLen == 0 ||
+          // Ignore unsupported SIMD widths.
+          (CurSIMDLen != 8 && CurSIMDLen != 16 && CurSIMDLen != 32))
+        continue;
+      if (MinSIMDLen == 0 ||
+          MinSIMDLen > CurSIMDLen)
+        MinSIMDLen = CurSIMDLen;
+    }
+
+    if (MinSIMDLen != 0)
+      WT->setSPIRVSIMDWidth(MinSIMDLen);
+  }
 }
 #endif // INTEL_COLLAB

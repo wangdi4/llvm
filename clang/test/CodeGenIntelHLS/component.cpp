@@ -1,9 +1,6 @@
 //RUN: %clang_cc1 -fhls -emit-llvm -triple x86_64-unknown-linux-gnu -o - %s | FileCheck %s
 //RUN: %clang_cc1 -fhls -debug-info-kind=limited -emit-llvm -triple x86_64-unknown-linux-gnu -o %t %s
 
-//CHECK: [[IMD:@.str[\.]*[0-9]*]] = {{.*}}{internal_max_block_ram_depth:64}
-//CHECK: [[IMD2:@.str[\.]*[0-9]*]] = {{.*}}{internal_max_block_ram_depth:512}
-
 //CHECK: @_Z4foo1iiiiPiS_Ri{{.*}}!ihc_component [[CFOO1:![0-9]+]]
 //CHECK-SAME: !arg_type [[ATFOO1:![0-9]+]]
 //CHECK-SAME: !impl_type [[ITFOO1:![0-9]+]]
@@ -57,7 +54,6 @@ __attribute__((max_concurrency(N)))
 __attribute__((scheduler_target_fmax_mhz(N)))
 __attribute__((component_interface("always_run")))
 int tfoo3() {
-    int stuff[100] __attribute__((__internal_max_block_ram_depth__(N)));
     return 0;
 }
 
@@ -69,10 +65,6 @@ int tfoo3() {
 void call_it()
 {
   tfoo3<512>();
-// CHECK: stuff = alloca [100 x i32]
-// CHECK: %[[STUFFBC2:[a-z0-9]+]] = bitcast [100 x i32]* %stuff to i8*
-    int stuff[100] __attribute__((__internal_max_block_ram_depth__(64)));
-// CHECK: llvm.var.annotation{{.*}}[[STUFFBC2]]{{.*}}[[IMD2]]
 }
 
 //CHECK: @_Z4foo4v{{.*}}!ihc_component [[CFOO4:![0-9]+]]
@@ -98,14 +90,6 @@ __attribute__((ihc_component))
 __attribute__((scheduler_target_fmax_mhz(12)))
 void foo7() {}
 // CHECK: define void @_Z4foo7v{{.*}} !scheduler_target_fmax_mhz ![[SPEP:[0-9]+]]
-
-void foo8() {
-// CHECK: define void @_Z4foo8v{{[^{]+}}
-// CHECK: stuff = alloca [100 x i32]
-// CHECK: %[[STUFFBC:[a-z0-9]+]] = bitcast [100 x i32]* %stuff to i8*
-    int stuff[100] __attribute__((__internal_max_block_ram_depth__(64)));
-// CHECK: llvm.var.annotation{{.*}}[[STUFFBC]]{{.*}}[[IMD]]
-}
 
 //CHECK: [[CFOO1]] = !{!"_Z4foo1iiiiPiS_Ri", i32 undef}
 //CHECK: [[ATFOO1]] = !{!"default", !"default", !"default", !"default", !"mm_slave", !"pointer", !"pointer"}

@@ -38,7 +38,7 @@
 //       do i; do j; s = s + a(j) ->  do j; do i; s = s + a(j)
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopInterchange.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopInterchangePass.h"
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Function.h"
@@ -55,6 +55,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 
+#include "HIRPrintDiag.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
@@ -75,9 +76,9 @@ static cl::opt<bool> DisableHIRLoopInterchange("disable-hir-loop-interchange",
                                                cl::desc("Disable " OPT_DESC));
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-static cl::opt<bool>
-    PrintDiagFlag(OPT_SWITCH "-print-diag", cl::init(false), cl::ReallyHidden,
-                  cl::desc("Print Diag why " OPT_DESC " did not happen."));
+static cl::opt<unsigned>
+    PrintDiagLevel(OPT_SWITCH "-print-diag", cl::init(0), cl::ReallyHidden,
+                   cl::desc("Print Diag why " OPT_DESC " did not happen."));
 
 static cl::opt<std::string> PrintDiagFunc(
     OPT_SWITCH "-print-diag-func", cl::ReallyHidden,
@@ -114,21 +115,12 @@ inline std::array<std::string, NUM_DIAGS> createDiagMap() {
 
 static std::array<std::string, NUM_DIAGS> DiagMap = createDiagMap();
 
-void PrintDiag(DiagMsg Msg, StringRef FuncName = "",
+void printDiag(DiagMsg Msg, StringRef FuncName = "",
                const HLLoop *Loop = nullptr,
-               StringRef Header = "No Interchange: ") {
+               StringRef Header = "No Interchange: ", unsigned DiagLevel = 1) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  if (!PrintDiagFlag)
-    return;
-
-  if (!PrintDiagFunc.empty() && !FuncName.equals(PrintDiagFunc)) {
-    return;
-  }
-
-  dbgs() << "Func: " << FuncName << ", ";
-  dbgs() << Header << " " << DiagMap[Msg] << "\n";
-  if (Loop)
-    Loop->dump();
+  printDiag(PrintDiagFunc, PrintDiagLevel, DiagMap[Msg], FuncName, Loop, Header,
+            DiagLevel);
 #endif
 }
 
@@ -391,7 +383,7 @@ struct HIRLoopInterchange::CollectCandidateLoops final
       LLVM_DEBUG(dbgs() << "\nIs Perfect Nest\n");
 
       if (!HLNodeUtils::hasNonUnitStrideRefs(InnermostLoop)) {
-        PrintDiag(NON_LINEAR_DEF_OR_ALL_UNIT_STRIDES, FuncName, Loop);
+        printDiag(NON_LINEAR_DEF_OR_ALL_UNIT_STRIDES, FuncName, Loop);
       } else {
         LLVM_DEBUG(dbgs() << "\nHas non unit stride\n");
         CandidateLoopPair LoopPair =
@@ -463,7 +455,7 @@ bool HIRLoopInterchange::shouldInterchange(const HLLoop *Loop) {
   LA.sortedLocalityLoops(Loop, SortedLoops);
 
   if (isInPresentOrder(SortedLoops)) {
-    PrintDiag(ALREADY_IN_RIGHT_ORDER, HIRF.getFunction().getName(), Loop);
+    printDiag(ALREADY_IN_RIGHT_ORDER, HIRF.getFunction().getName(), Loop);
     InterchangeNeeded = false;
   }
 
@@ -541,7 +533,7 @@ bool HIRLoopInterchange::isBestLocalityInInnermost(
     return true;
   }
 
-  PrintDiag(BEST_LOCALITY_LOOP_CANNOT_BECOME_INNERMOST,
+  printDiag(BEST_LOCALITY_LOOP_CANNOT_BECOME_INNERMOST,
             HIRF.getFunction().getName(), Loop);
   return false;
 }

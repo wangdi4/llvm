@@ -1,4 +1,4 @@
-; REQUIRES: assert
+; REQUIRES: asserts
 ; Check that sub isn't in the list since there is no user for it
 
 ; RUN: llvm-as %s -o %t.bc
@@ -12,8 +12,8 @@
 ; CHECK:     VISIBLE OUTSIDE LTO: 1
 ; CHECK-NEXT:     add
 ; CHECK-NOT:      sub
-; CHECK:      WHOLE PROGRAM SAFE is *NOT* determined:
-; CHECK-NEXT: whole program not seen;
+; CHECK:    WHOLE PROGRAM SEEN:  NOT DETECTED
+; CHECK:    WHOLE PROGRAM SAFE:  NOT DETECTED
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

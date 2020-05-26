@@ -22,6 +22,30 @@
   __builtin_ia32_t2transposew(tdst, base, stride, src)
 #define _tile_2transposewt1(tdst, base, stride, src)                           \
   __builtin_ia32_t2transposewt1(tdst, base, stride, src)
+#define _tile_4rqntlvbz0(tdst, base, stride)                                   \
+  __builtin_ia32_t4rqntlvbz0(tdst, base, stride)
+#define _tile_4rqntlvbz0t1(tdst, base, stride)                                 \
+  __builtin_ia32_t4rqntlvbz0t1(tdst, base, stride)
+#define _tile_4rqntlvbz1(tdst, base, stride)                                   \
+  __builtin_ia32_t4rqntlvbz1(tdst, base, stride)
+#define _tile_4rqntlvbz1t1(tdst, base, stride)                                 \
+  __builtin_ia32_t4rqntlvbz1t1(tdst, base, stride)
+#define _tile_4rqntlvbz2(tdst, base, stride)                                   \
+  __builtin_ia32_t4rqntlvbz2(tdst, base, stride)
+#define _tile_4rqntlvbz2t1(tdst, base, stride)                                 \
+  __builtin_ia32_t4rqntlvbz2t1(tdst, base, stride)
+#define _tile_4rqntlvbz3(tdst, base, stride)                                   \
+  __builtin_ia32_t4rqntlvbz3(tdst, base, stride)
+#define _tile_4rqntlvbz3t1(tdst, base, stride)                                 \
+  __builtin_ia32_t4rqntlvbz3t1(tdst, base, stride)
+#define _tile_tdpbssd(tdst, tsrc1, tsrc2)                                      \
+  __builtin_ia32_ttdpbssd(tdst, tsrc1, tsrc2)
+#define _tile_tdpbsud(tdst, tsrc1, tsrc2)                                      \
+  __builtin_ia32_ttdpbsud(tdst, tsrc1, tsrc2)
+#define _tile_tdpbusd(tdst, tsrc1, tsrc2)                                      \
+  __builtin_ia32_ttdpbusd(tdst, tsrc1, tsrc2)
+#define _tile_tdpbuud(tdst, tsrc1, tsrc2)                                      \
+  __builtin_ia32_ttdpbuud(tdst, tsrc1, tsrc2)
 
 #endif /* __x86_64__ */
 #endif /* __AMX_TRANSPOSE2INTRIN_H */

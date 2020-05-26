@@ -35,9 +35,9 @@
 ; CHECK: [[I1LOAD1:%.*]] = load i64, i64* %i1.i64
 ; CHECK-NEXT: [[AGEP:%.*]] = getelementptr inbounds i32*, i32** %A, i64 [[I1LOAD1]]
 ; CHECK-NEXT: [[ALOAD:%.*]] = load i32*, i32** [[AGEP]]
-; CHECK-NEXT: store i32* [[ALOAD]], i32** [[STORE0:%.*]]
+; CHECK-NEXT: store i32* [[ALOAD]], i32** [[STORE0:%.*]],
 ; CHECK-NEXT: [[BLOAD:%.*]] = load i32*, i32**
-; CHECK-NEXT: store i32* [[BLOAD]], i32** [[STORE1:%.*]]
+; CHECK-NEXT: store i32* [[BLOAD]], i32** [[STORE1:%.*]],
 ; CHECK: br label %[[I2LOOP:.*]]
 
 ; Check some stmts in i2 loop body

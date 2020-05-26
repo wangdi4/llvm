@@ -18,18 +18,18 @@ define internal void @test01() {
 }
 ; CHECK-LABEL: internal void @test01
 ; CHECK:  %type1 = alloca %struct.test01a
-; CHECK:    LocalPointerInfo:
+; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NOT: UNHANDLED
-; CHECK:      Aliased types:
-; CHECK:        %struct.test01a*
-; CHECK:      No element pointees.
+; CHECK-NEXT:   Aliased types:
+; CHECK-NEXT:    %struct.test01a*{{ *$}}
+; CHECK-NEXT:  No element pointees.
 
 ; CHECK:  %type2 = alloca %struct.test01b
-; CHECK:    LocalPointerInfo:
+; CHECK-NEXT:  LocalPointerInfo:
 ; CHECK-NOT: UNHANDLED
-; CHECK:      Aliased types:
-; CHECK:        %struct.test01b*
-; CHECK:      No element pointees.
+; CHECK-NEXT:  Aliased types:
+; CHECK-NEXT:    %struct.test01b*{{ *$}}
+; CHECK-NEXT:  No element pointees.
 
 
 define internal void @va_test01(i32 %in1, ...) {

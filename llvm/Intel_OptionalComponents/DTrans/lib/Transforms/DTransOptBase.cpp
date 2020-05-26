@@ -137,10 +137,11 @@ DTransTypeRemapper::computeReplacementType(llvm::Type *SrcTy) const {
   }
 
   if (SrcTy->isVectorTy()) {
-    Type *ReplTy = computeReplacementType(SrcTy->getVectorElementType());
+    Type *ReplTy =
+        computeReplacementType(cast<VectorType>(SrcTy)->getElementType());
     if (!ReplTy)
       return nullptr;
-    return VectorType::get(ReplTy, SrcTy->getVectorNumElements());
+    return VectorType::get(ReplTy, cast<VectorType>(SrcTy)->getNumElements());
   }
 
   if (auto *FunctionTy = dyn_cast<FunctionType>(SrcTy)) {

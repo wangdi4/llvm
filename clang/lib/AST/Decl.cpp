@@ -892,6 +892,10 @@ LinkageComputer::getLVForNamespaceScopeDecl(const NamedDecl *D,
     if (!TD->getAnonDeclWithTypedefName(/*AnyRedecl*/true))
       return LinkageInfo::none();
 
+  } else if (isa<MSGuidDecl>(D)) {
+    // A GUID behaves like an inline variable with external linkage. Fall
+    // through.
+
   // Everything not covered here has no linkage.
   } else {
     return LinkageInfo::none();
@@ -1534,18 +1538,27 @@ void NamedDecl::printQualifiedName(raw_ostream &OS) const {
   printQualifiedName(OS, getASTContext().getPrintingPolicy());
 }
 
-void NamedDecl::printQualifiedName(raw_ostream &OS,
-                                   const PrintingPolicy &P) const {
+void NamedDecl::printQualifiedName(raw_ostream &OS, const PrintingPolicy &P,
+                                   bool WithGlobalNsPrefix) const {
   if (getDeclContext()->isFunctionOrMethod()) {
     // We do not print '(anonymous)' for function parameters without name.
     printName(OS);
     return;
   }
-  printNestedNameSpecifier(OS, P);
-  if (getDeclName() || isa<DecompositionDecl>(this))
+  printNestedNameSpecifier(OS, P, WithGlobalNsPrefix);
+  if (getDeclName())
     OS << *this;
-  else
-    OS << "(anonymous)";
+  else {
+    // Give the printName override a chance to pick a different name before we
+    // fall back to "(anonymous)".
+    SmallString<64> NameBuffer;
+    llvm::raw_svector_ostream NameOS(NameBuffer);
+    printName(NameOS);
+    if (NameBuffer.empty())
+      OS << "(anonymous)";
+    else
+      OS << NameBuffer;
+  }
 }
 
 void NamedDecl::printNestedNameSpecifier(raw_ostream &OS) const {
@@ -1553,7 +1566,8 @@ void NamedDecl::printNestedNameSpecifier(raw_ostream &OS) const {
 }
 
 void NamedDecl::printNestedNameSpecifier(raw_ostream &OS,
-                                         const PrintingPolicy &P) const {
+                                         const PrintingPolicy &P,
+                                         bool WithGlobalNsPrefix) const {
   const DeclContext *Ctx = getDeclContext();
 
   // For ObjC methods and properties, look through categories and use the
@@ -1580,6 +1594,9 @@ void NamedDecl::printNestedNameSpecifier(raw_ostream &OS,
     Ctx = Ctx->getParent();
   }
 
+  if (WithGlobalNsPrefix)
+    OS << "::";
+
   for (const DeclContext *DC : llvm::reverse(Contexts)) {
     if (const auto *Spec = dyn_cast<ClassTemplateSpecializationDecl>(DC)) {
       OS << Spec->getName();
@@ -1592,8 +1609,7 @@ void NamedDecl::printNestedNameSpecifier(raw_ostream &OS,
       if (ND->isAnonymousNamespace()) {
         OS << (P.MSVCFormatting ? "`anonymous namespace\'"
                                 : "(anonymous namespace)");
-      }
-      else
+      } else
         OS << *ND;
     } else if (const auto *RD = dyn_cast<RecordDecl>(DC)) {
       if (!RD->getIdentifier())
@@ -4402,6 +4418,21 @@ bool RecordDecl::isCapturedRecord() const {
 
 void RecordDecl::setCapturedRecord() {
   addAttr(CapturedRecordAttr::CreateImplicit(getASTContext()));
+}
+
+bool RecordDecl::isOrContainsUnion() const {
+  if (isUnion())
+    return true;
+
+  if (const RecordDecl *Def = getDefinition()) {
+    for (const FieldDecl *FD : Def->fields()) {
+      const RecordType *RT = FD->getType()->getAs<RecordType>();
+      if (RT && RT->getDecl()->isOrContainsUnion())
+        return true;
+    }
+  }
+
+  return false;
 }
 
 RecordDecl::field_iterator RecordDecl::field_begin() const {

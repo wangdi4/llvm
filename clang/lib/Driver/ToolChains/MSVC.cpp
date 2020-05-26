@@ -375,6 +375,13 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         Args.MakeArgString(Twine("-wholearchive:") + A->getValue()));
 
 #if INTEL_CUSTOMIZATION
+  // Add other Intel specific libraries (libirc, svml, libdecimal)
+  if (!Args.hasArg(options::OPT_nostdlib) && Args.hasArg(options::OPT__intel) &&
+      !C.getDriver().IsCLMode()) {
+    CmdArgs.push_back("-defaultlib:libirc");
+    CmdArgs.push_back("-defaultlib:svml_dispmt");
+    CmdArgs.push_back("-defaultlib:libdecimal");
+  }
   // Add Intel performance libraries. Only add the lib when not in CL-mode as
   // they have already been added via directive in the compilation
   if (Args.hasArg(options::OPT_ipp_EQ)) {
@@ -427,6 +434,16 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back(
           Args.MakeArgString(std::string("-libpath:") + WindowsSdkLibPath));
   }
+
+  // Add the compiler-rt library directories to libpath if they exist to help
+  // the linker find the various sanitizer, builtin, and profiling runtimes.
+  for (const auto &LibPath : TC.getLibraryPaths()) {
+    if (TC.getVFS().exists(LibPath))
+      CmdArgs.push_back(Args.MakeArgString("-libpath:" + LibPath));
+  }
+  auto CRTPath = TC.getCompilerRTPath();
+  if (TC.getVFS().exists(CRTPath))
+    CmdArgs.push_back(Args.MakeArgString("-libpath:" + CRTPath));
 
   if (!C.getDriver().IsCLMode() && Args.hasArg(options::OPT_L))
     for (const auto &LibPath : Args.getAllArgValues(options::OPT_L))
@@ -586,6 +603,42 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   StringRef Linker = Args.getLastArgValue(options::OPT_fuse_ld_EQ, "link");
   if (Linker.equals_lower("lld"))
     Linker = "lld-link";
+
+#if INTEL_CUSTOMIZATION
+  // TODO: Create a more streamlined and centralized way to add the additional
+  // llvm options that are set.  i.e. set once and use for both Linux and
+  // Windows compilation paths.
+  if (Linker.equals_lower("lld-link") && (C.getDriver().isUsingLTO())) {
+    // Handle flags for selecting CPU variants.
+    std::string CPU = getCPUName(Args, C.getDefaultToolChain().getTriple());
+    if (!CPU.empty())
+      CmdArgs.push_back(Args.MakeArgString(Twine("-mllvm:-mcpu=") + CPU));
+    // Add optimization level
+    if (Arg *A = Args.getLastArg(options::OPT_O_Group)) {
+      StringRef OOpt;
+      if (A->getOption().matches(options::OPT_O4) ||
+          A->getOption().matches(options::OPT_Ofast))
+        OOpt = "3";
+      else if (A->getOption().matches(options::OPT_O))
+        OOpt = A->getValue();
+      else if (A->getOption().matches(options::OPT_O0))
+        OOpt = "0";
+      if (!OOpt.empty())
+        CmdArgs.push_back(Args.MakeArgString(Twine("-opt:lldlto=") + OOpt));
+    }
+    // Add any Intel defaults.
+    if (Args.hasArg(options::OPT__intel)) {
+      CmdArgs.push_back("-mllvm:-intel-libirc-allowed");
+      if (Arg * A = Args.getLastArg(options::OPT_fveclib))
+        Args.MakeArgString(Twine("-mllvm:-vector-library=") + A->getValue());
+    }
+    addIntelOptimizationArgs(TC, Args, CmdArgs, JA);
+    // Using lld-link and -flto, we need to add any additional -mllvm options
+    // and implied options.
+    for (const StringRef &AV : Args.getAllArgValues(options::OPT_mllvm))
+      CmdArgs.push_back(Args.MakeArgString(Twine("-mllvm:") + AV));
+  }
+#endif // INTEL_CUSTOMIZATION
 
   if (Linker.equals_lower("link")) {
     // If we're using the MSVC linker, it's not sufficient to just use link
@@ -1332,6 +1385,11 @@ void MSVCToolChain::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
     return;
 
 #if INTEL_CUSTOMIZATION
+  // Add Intel specific headers
+  if (DriverArgs.hasArg(clang::driver::options::OPT__intel))
+    addSystemInclude(DriverArgs, CC1Args,
+                     getDriver().Dir + "/../compiler/include");
+
   // Add Intel performance library headers
   if (DriverArgs.hasArg(clang::driver::options::OPT_mkl_EQ)) {
     addSystemInclude(DriverArgs, CC1Args,

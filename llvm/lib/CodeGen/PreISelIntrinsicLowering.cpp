@@ -41,7 +41,7 @@ static bool lowerLoadRelative(Function &F) {
   for (auto I = F.use_begin(), E = F.use_end(); I != E;) {
     auto CI = dyn_cast<CallInst>(I->getUser());
     ++I;
-    if (!CI || CI->getCalledValue() != &F)
+    if (!CI || CI->getCalledOperand() != &F)
       continue;
 
     IRBuilder<> B(CI);
@@ -132,7 +132,7 @@ static bool lowerSubscript(Function &F) {
   for (auto I = F.use_begin(), E = F.use_end(); I != E;) {
     SubscriptInst *CI = dyn_cast<SubscriptInst>(I->getUser());
     ++I;
-    if (!CI || CI->getCalledValue() != &F)
+    if (!CI || CI->getCalledOperand() != &F)
       continue;
 
     IRBuilder<> Builder(CI);
@@ -155,7 +155,7 @@ static bool lowerFakeload(Function &F) {
   for (auto I = F.use_begin(), E = F.use_end(); I != E;) {
     FakeloadInst *CI = dyn_cast<FakeloadInst>(I->getUser());
     ++I;
-    if (!CI || CI->getCalledValue() != &F)
+    if (!CI || CI->getCalledOperand() != &F)
       continue;
 
     CI->replaceAllUsesWith(CI->getPointerOperand());
@@ -179,7 +179,7 @@ static bool lowerWholeProgramSafe(Function &F) {
   for (auto I = F.use_begin(), E = F.use_end(); I != E;) {
     CallInst *CI = dyn_cast<CallInst>(I->getUser());
     ++I;
-    if (!CI || CI->getCalledValue() != &F)
+    if (!CI || CI->getCalledOperand() != &F)
       continue;
 
     CI->replaceAllUsesWith(InitVal);

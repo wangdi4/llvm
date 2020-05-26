@@ -50,12 +50,6 @@ __attribute__((__static_array_reset__(0))) const int global_const12 = 1;
 //CHECK: IntegerLiteral{{.*}}1{{$}}
 __attribute__((__static_array_reset__(1))) const int global_const13 = 1;
 
-//CHECK: VarDecl{{.*}}global_const14
-//CHECK: MemoryAttr{{.*}}Implicit
-//CHECK: InternalMaxBlockRamDepthAttr
-//CHECK: IntegerLiteral{{.*}}32{{$}}
-__attribute__((internal_max_block_ram_depth(32))) const int global_const14 = 1;
-
 //CHECK: VarDecl{{.*}}global_const17
 //CHECK: NumBanksAttr{{.*}}Implicit{{$}}
 //CHECK: IntegerLiteral{{.*}}16{{$}}
@@ -237,12 +231,6 @@ void foo1()
   int __attribute__((__numbanks__(4), __bankwidth__(16))) E;
   int __attribute__((__bank_bits__(2,3), __bankwidth__(16))) F;
 
-  //CHECK: VarDecl{{.*}}G0
-  //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
-  //CHECK: InternalMaxBlockRamDepthAttr
-  //CHECK: IntegerLiteral{{.*}}32{{$}}
-  int __attribute__((internal_max_block_ram_depth(32))) G0;
-
   //CHECK: VarDecl{{.*}}v_sixteen
   //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
   //CHECK: ForcePow2DepthAttr
@@ -258,17 +246,6 @@ void foo1()
   static unsigned int v_seventeen[64];
 
   // diagnostics
-
-  //expected-warning@+2{{'internal_max_block_ram_depth' is already applied}}
-  __attribute__((internal_max_block_ram_depth(32)))
-  __attribute__((internal_max_block_ram_depth(32)))
-  int imbrd_one;
-
-  //expected-error@+2{{attributes are not compatible}}
-  __attribute__((internal_max_block_ram_depth(32)))
-  __attribute__((register))
-  //expected-note@-2 {{conflicting attribute is here}}
-  unsigned int imbrd_four[64];
 
   // **doublepump
   //expected-error@+2{{attributes are not compatible}}
@@ -925,12 +902,6 @@ struct foo {
   //CHECK: IntegerLiteral{{.*}}1{{$}}
   __attribute__((__static_array_reset__(1))) unsigned int v_fifteen[64];
 
-  //CHECK: FieldDecl{{.*}}G0
-  //CHECK: MemoryAttr{{.*}}Implicit
-  //CHECK: InternalMaxBlockRamDepthAttr
-  //CHECK: IntegerLiteral{{.*}}32{{$}}
-  int __attribute__((internal_max_block_ram_depth(32))) G0;
-
   //CHECK: FieldDecl{{.*}}v_sixteen
   //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
   //CHECK: ForcePow2DepthAttr
@@ -972,9 +943,6 @@ __attribute__((__static_array_reset__(0))) int ext_12;
 
 //expected-error@+1{{'__static_array_reset__' attribute only applies to constant variables, local static variables, and non-static data members}}
 __attribute__((__static_array_reset__(1))) int ext_13;
-
-//expected-error@+1{{attribute only applies to constant variables, local variables, static variables, slave memory arguments, and non-static data members}}
-__attribute__((internal_max_block_ram_depth(32))) int ext_14;
 
 //expected-error@+1{{attribute only applies to constant variables, local variables, static variables, slave memory arguments, and non-static data members}}
 __attribute__((__bank_bits__(2, 3, 4, 5))) int ext_17;

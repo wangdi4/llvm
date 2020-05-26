@@ -65,7 +65,6 @@
 #include "llvm/CodeGen/UnreachableBlockElim.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/IRPrintingPasses.h"
-#include "llvm/IR/KnowledgeRetention.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/SafepointIRVerifier.h"
 #include "llvm/IR/Verifier.h"
@@ -106,6 +105,7 @@
 #include "llvm/Transforms/IPO/Intel_InlineLists.h"       // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineReportEmitter.h"   // INTEL
 #include "llvm/Transforms/IPO/Intel_InlineReportSetup.h"   // INTEL
+#include "llvm/Transforms/IPO/Intel_IPArrayTranspose.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_IPCloning.h"       // INTEL
 #include "llvm/Transforms/IPO/Intel_IPOPrefetch.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h"   //INTEL
@@ -154,6 +154,7 @@
 #include "llvm/Transforms/Scalar/GuardWidening.h"
 #include "llvm/Transforms/Scalar/IVUsersPrinter.h"
 #include "llvm/Transforms/Scalar/IndVarSimplify.h"
+#include "llvm/Transforms/Scalar/Intel_FunctionRecognizer.h" // INTEL
 #include "llvm/Transforms/Scalar/Intel_GlobalOpt.h"         // INTEL
 #include "llvm/Transforms/Scalar/Intel_IndirectCallConv.h"  // INTEL
 #include "llvm/Transforms/Scalar/Intel_LowerSubscriptIntrinsic.h" // INTEL
@@ -204,6 +205,7 @@
 #include "llvm/Transforms/Scalar/TailRecursionElimination.h"
 #include "llvm/Transforms/Scalar/WarnMissedTransforms.h"
 #include "llvm/Transforms/Utils/AddDiscriminators.h"
+#include "llvm/Transforms/Utils/AssumeBundleBuilder.h"
 #include "llvm/Transforms/Utils/BreakCriticalEdges.h"
 #include "llvm/Transforms/Utils/CanonicalizeAliases.h"
 #include "llvm/Transforms/Utils/EntryExitInstrumenter.h"
@@ -231,17 +233,19 @@
 
 // Intel Loop Optimization framework
 // Framework passes
-#include "llvm/Transforms/Intel_LoopTransforms/HIRSSADeconstruction.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRRegionIdentification.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRSCCFormation.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIROptReportEmitter.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRCodeGen.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRCodeGenPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIROptReportEmitterPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRSSADeconstructionPass.h"
 
 // VPlan Vectorizer passes
-#include "llvm/Transforms/Vectorize/IntelVPlanDriver.h"
-#include "llvm/Transforms/Intel_VPO/VPODirectiveCleanup.h"
 #include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
+#include "llvm/Transforms/Intel_VPO/VPODirectiveCleanup.h"
+#include "llvm/Transforms/Vectorize/IntelVPlanDriver.h"
+#include "llvm/Transforms/Vectorize/IntelVPlanFunctionVectorizer.h"
+#include "llvm/Transforms/Vectorize/IntelVPlanPragmaOmpOrderedSimdExtract.h"
 
 // Analysis passes
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
@@ -251,50 +255,50 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRParVecAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSparseArrayReductionAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRArraySectionAnalysis.h"
 
 // Transformation passes
-#include "llvm/Transforms/Intel_LoopTransforms/HIRArrayTranspose.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRAosToSoa.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRGeneralUnroll.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRIdiomRecognition.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRLMM.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopCollapse.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopConcatenation.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRTempCleanup.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopConcatenation.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopDistributionForLoopNest.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopDistributionForMemRec.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopBlocking.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRGenerateMKLCall.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRDeadStoreElimination.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopFusion.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopInterchange.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopRematerialize.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReversal.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReroll.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRMVForConstUB.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRMVForVariableStride.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIROptPredicate.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIROptVarPredicate.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRPostVecCompleteUnroll.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRPreVecCompleteUnroll.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRRuntimeDD.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRScalarReplArray.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRUnrollAndJam.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRAosToSoaPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRArrayTransposePass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRConditionalTempSinkingPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRDeadStoreEliminationPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRGeneralUnrollPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRGenerateMKLCallPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRIdentityMatrixIdiomRecognitionPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRIdiomRecognitionPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLMMPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLastValueComputationPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopBlockingPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopCollapsePass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopConcatenationPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopDistributionForLoopNestPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopDistributionForMemRecPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopFusionPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopInterchangePass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopRematerializePass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopRerollPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReversalPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRMVForConstUBPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRMVForVariableStridePass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRMemoryReductionSinkingPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRMultiExitLoopRerollPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIROptPredicatePass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIROptVarPredicatePass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRPMSymbolicTripCountCompleteUnrollPass.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRLastValueComputation.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRPropagateCastedIV.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRMultiExitLoopReroll.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRRecognizeParLoop.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRIdentityMatrixIdiomRecognition.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRPrefetching.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRSinkingForPerfectLoopnest.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRUndoSinkingForPerfectLoopnest.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRConditionalTempSinking.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRMemoryReductionSinking.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRVecDirInsert.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRPostVecCompleteUnrollPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRPreVecCompleteUnrollPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRPrefetchingPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRPropagateCastedIVPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRRecognizeParLoopPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRRowWiseMVPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRRuntimeDDPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRScalarReplArrayPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRSinkingForPerfectLoopnestPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTempCleanupPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRUndoSinkingForPerfectLoopnestPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRUnrollAndJamPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRVecDirInsertPass.h"
 #include "llvm/Transforms/Scalar/Intel_MultiVersioning.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRRowWiseMV.h"
 
 #if INTEL_INCLUDE_DTRANS
 #include "Intel_DTrans/DTransCommon.h"
@@ -372,6 +376,11 @@ static cl::opt<bool> EnableIPCloning(
     "enable-npm-ip-cloning", cl::init(true), cl::Hidden,
     cl::desc("Enable IP Cloning for the new PM (default = on)"));
 
+// IPO Array Transpose
+static cl::opt<bool> EnableIPArrayTranspose(
+   "enable-npm-ip-array-transpose", cl::init(true), cl::Hidden,
+   cl::desc("Enable IPO Array Transpose for the new PM (default = on)"));
+
 // Dead Array Element Ops Elimination
 static cl::opt<bool> EnableDeadArrayOpsElim(
    "enable-npm-dead-array-ops-elim", cl::init(true), cl::Hidden,
@@ -420,21 +429,29 @@ static cl::opt<bool>
 #endif // INTEL_INCLUDE_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
+static cl::opt<bool> EnableCallGraphProfile(
+    "enable-npm-call-graph-profile", cl::init(true), cl::Hidden,
+    cl::desc("Enable call graph profile pass for the new PM (default = on)"));
+
 PipelineTuningOptions::PipelineTuningOptions() {
-  LoopInterleaving = EnableLoopInterleaving;
-  LoopVectorization = EnableLoopVectorization;
-  SLPVectorization = RunSLPVectorization;
+  LoopInterleaving = true;
+  LoopVectorization = true;
+  SLPVectorization = false;
   LoopUnrolling = true;
   ForgetAllSCEVInLoopUnroll = ForgetSCEVInLoopUnroll;
   Coroutines = false;
   LicmMssaOptCap = SetLicmMssaOptCap;
   LicmMssaNoAccForPromotionCap = SetLicmMssaNoAccForPromotionCap;
+  CallGraphProfile = EnableCallGraphProfile;
 }
 
 extern cl::opt<bool> EnableHotColdSplit;
 extern cl::opt<bool> EnableOrderFileInstrumentation;
 
 extern cl::opt<bool> FlattenedProfileUsed;
+
+extern cl::opt<AttributorRunOption> AttributorRun;
+extern cl::opt<bool> EnableKnowledgeRetention;
 
 const PassBuilder::OptimizationLevel PassBuilder::OptimizationLevel::O0 = {
     /*SpeedLevel*/ 0,
@@ -607,8 +624,17 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   // scalars.
   FPM.addPass(SROA());
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_INCLUDE_DTRANS
+  if (EnableDTrans)
+    FPM.addPass(FunctionRecognizerPass());
+#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_CUSTOMIZATION
+
   // Catch trivial redundancies
   FPM.addPass(EarlyCSEPass(true /* Enable mem-ssa. */));
+  if (EnableKnowledgeRetention)
+    FPM.addPass(AssumeSimplifyPass());
 
   // Hoisting of scalars and load expressions.
   if (Level.getSpeedupLevel() > 1) {
@@ -933,10 +959,85 @@ getInlineParamsFromOptLevel(PassBuilder::OptimizationLevel Level) {
   return getInlineParams(Level.getSpeedupLevel(), Level.getSizeLevel());
 }
 
-ModulePassManager
-PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
-                                               ThinLTOPhase Phase,
-                                               bool DebugLogging) {
+ModulePassManager PassBuilder::buildInlinerPipeline(OptimizationLevel Level,
+                                                    ThinLTOPhase Phase,
+                                                    InlinerPass *InlP, // INTEL
+                                                    bool DebugLogging) {
+  ModulePassManager MPM(DebugLogging);
+
+#if INTEL_CUSTOMIZATION
+  // Parse -[no]inline-list option and set corresponding attributes.
+  MPM.addPass(InlineListsPass());
+#endif // INTEL_CUSTOMIZATION
+
+  // Now begin the main postorder CGSCC pipeline.
+  // FIXME: The current CGSCC pipeline has its origins in the legacy pass
+  // manager and trying to emulate its precise behavior. Much of this doesn't
+  // make a lot of sense and we should revisit the core CGSCC structure.
+  CGSCCPassManager MainCGPipeline(DebugLogging);
+
+  // Note: historically, the PruneEH pass was run first to deduce nounwind and
+  // generally clean up exception handling overhead. It isn't clear this is
+  // valuable as the inliner doesn't currently care whether it is inlining an
+  // invoke or a call.
+
+  // Run the inliner first. The theory is that we are walking bottom-up and so
+  // the callees have already been fully optimized, and we want to inline them
+  // into the callers so that our optimizations can reflect that.
+  // For PreLinkThinLTO pass, we disable hot-caller heuristic for sample PGO
+  // because it makes profile annotation in the backend inaccurate.
+#if INTEL_CUSTOMIZATION
+  if (InlP) {
+    MainCGPipeline.addPass(std::move(*InlP));
+  } else {
+    InlineParams IP = getInlineParamsFromOptLevel(Level);
+    if (Phase == ThinLTOPhase::PreLink && PGOOpt &&
+        PGOOpt->Action == PGOOptions::SampleUse)
+      IP.HotCallSiteThreshold = 0;
+    MainCGPipeline.addPass(InlinerPass(IP));
+  }
+#endif // INTEL_CUSTOMIZATION
+
+  if (AttributorRun & AttributorRunOption::CGSCC)
+    MainCGPipeline.addPass(AttributorCGSCCPass());
+
+  if (PTO.Coroutines)
+    MainCGPipeline.addPass(CoroSplitPass());
+
+  // Now deduce any function attributes based in the current code.
+  MainCGPipeline.addPass(PostOrderFunctionAttrsPass());
+
+  // When at O3 add argument promotion to the pass pipeline.
+  // FIXME: It isn't at all clear why this should be limited to O3.
+  if (Level == OptimizationLevel::O3)
+    MainCGPipeline.addPass(ArgumentPromotionPass());
+
+  // Try to perform OpenMP specific optimizations. This is a (quick!) no-op if
+  // there are no OpenMP runtime calls present in the module.
+  if (Level == OptimizationLevel::O2 || Level == OptimizationLevel::O3)
+    MainCGPipeline.addPass(OpenMPOptPass());
+
+  // Lastly, add the core function simplification pipeline nested inside the
+  // CGSCC walk.
+  MainCGPipeline.addPass(createCGSCCToFunctionPassAdaptor(
+      buildFunctionSimplificationPipeline(Level, Phase, DebugLogging)));
+
+  for (auto &C : CGSCCOptimizerLateEPCallbacks)
+    C(MainCGPipeline, Level);
+
+  // We wrap the CGSCC pipeline in a devirtualization repeater. This will try
+  // to detect when we devirtualize indirect calls and iterate the SCC passes
+  // in that case to try and catch knock-on inlining or function attrs
+  // opportunities. Then we add it to the module pipeline by walking the SCCs
+  // in postorder (or bottom-up).
+  MPM.addPass(
+      createModuleToPostOrderCGSCCPassAdaptor(createDevirtSCCRepeatedPass(
+          std::move(MainCGPipeline), MaxDevirtIterations)));
+  return MPM;
+}
+
+ModulePassManager PassBuilder::buildModuleSimplificationPipeline(
+    OptimizationLevel Level, ThinLTOPhase Phase, bool DebugLogging) {
   ModulePassManager MPM(DebugLogging);
 
   bool HasSampleProfile = PGOOpt && (PGOOpt->Action == PGOOptions::SampleUse);
@@ -947,7 +1048,8 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   bool LoadSampleProfile =
       HasSampleProfile &&
       !(FlattenedProfileUsed && Phase == ThinLTOPhase::PostLink);
-#ifdef INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
   InlineParams IP = getInlineParamsFromOptLevel(Level);
   if (Phase == ThinLTOPhase::PreLink && PGOOpt &&
       PGOOpt->Action == PGOOptions::SampleUse)
@@ -1018,7 +1120,9 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
       MPM.addPass(PGOIndirectCallPromotion(Phase == ThinLTOPhase::PostLink,
                                            true /* SamplePGO */));
   }
-  MPM.addPass(AttributorPass());
+
+  if (AttributorRun & AttributorRunOption::MODULE)
+    MPM.addPass(AttributorPass());
 
   // Interprocedural constant propagation now that basic cleanup has occurred
   // and prior to optimizing globals.
@@ -1040,7 +1144,7 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   // constants.
   MPM.addPass(createModuleToFunctionPassAdaptor(PromotePass()));
 
-  // Remove any dead arguments exposed by cleanups and constand folding
+  // Remove any dead arguments exposed by cleanups and constant folding
   // globals.
   MPM.addPass(DeadArgumentEliminationPass());
 
@@ -1089,63 +1193,10 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   // Require the ProfileSummaryAnalysis for the module so we can query it within
   // the inliner pass.
   MPM.addPass(RequireAnalysisPass<ProfileSummaryAnalysis, Module>());
+
 #if INTEL_CUSTOMIZATION
-  // Parse -[no]inline-list option and set corresponding attributes.
-  MPM.addPass(InlineListsPass());
-#endif //INTEL_CUSTOMIZATION
-  // Now begin the main postorder CGSCC pipeline.
-  // FIXME: The current CGSCC pipeline has its origins in the legacy pass
-  // manager and trying to emulate its precise behavior. Much of this doesn't
-  // make a lot of sense and we should revisit the core CGSCC structure.
-  CGSCCPassManager MainCGPipeline(DebugLogging);
-
-  // Note: historically, the PruneEH pass was run first to deduce nounwind and
-  // generally clean up exception handling overhead. It isn't clear this is
-  // valuable as the inliner doesn't currently care whether it is inlining an
-  // invoke or a call.
-
-  // Run the inliner first. The theory is that we are walking bottom-up and so
-  // the callees have already been fully optimized, and we want to inline them
-  // into the callers so that our optimizations can reflect that.
-  // For PreLinkThinLTO pass, we disable hot-caller heuristic for sample PGO
-  // because it makes profile annotation in the backend inaccurate.
-  MainCGPipeline.addPass(std::move(InlPass)); // INTEL
-
-  MainCGPipeline.addPass(AttributorCGSCCPass());
-
-  if (PTO.Coroutines)
-    MainCGPipeline.addPass(CoroSplitPass());
-
-  // Now deduce any function attributes based in the current code.
-  MainCGPipeline.addPass(PostOrderFunctionAttrsPass());
-
-  // When at O3 add argument promotion to the pass pipeline.
-  // FIXME: It isn't at all clear why this should be limited to O3.
-  if (Level == OptimizationLevel::O3)
-    MainCGPipeline.addPass(ArgumentPromotionPass());
-
-  // Try to perform OpenMP specific optimizations. This is a (quick!) no-op if
-  // there are no OpenMP runtime calls present in the module.
-  if (Level == OptimizationLevel::O2 || Level == OptimizationLevel::O3)
-    MainCGPipeline.addPass(OpenMPOptPass());
-
-  // Lastly, add the core function simplification pipeline nested inside the
-  // CGSCC walk.
-  MainCGPipeline.addPass(createCGSCCToFunctionPassAdaptor(
-      buildFunctionSimplificationPipeline(Level, Phase, DebugLogging)));
-
-  for (auto &C : CGSCCOptimizerLateEPCallbacks)
-    C(MainCGPipeline, Level);
-
-  // We wrap the CGSCC pipeline in a devirtualization repeater. This will try
-  // to detect when we devirtualize indirect calls and iterate the SCC passes
-  // in that case to try and catch knock-on inlining or function attrs
-  // opportunities. Then we add it to the module pipeline by walking the SCCs
-  // in postorder (or bottom-up).
-  MPM.addPass(
-      createModuleToPostOrderCGSCCPassAdaptor(createDevirtSCCRepeatedPass(
-          std::move(MainCGPipeline), MaxDevirtIterations)));
-
+  MPM.addPass(buildInlinerPipeline(Level, Phase, &InlPass, DebugLogging));
+#endif // INTEL_CUSTOMIZATION
   return MPM;
 }
 
@@ -1245,6 +1296,10 @@ ModulePassManager PassBuilder::buildModuleOptimizationPipeline(
   // currently only performed for loops marked with the metadata
   // llvm.loop.distribute=true or when -enable-loop-distribute is specified.
   OptimizePM.addPass(LoopDistributePass());
+
+  // Populates the VFABI attribute with the scalar-to-vector mappings
+  // from the TargetLibraryInfo.
+  OptimizePM.addPass(InjectTLIMappings());
 
   // Now run the core loop vectorizer.
   OptimizePM.addPass(LoopVectorizePass(
@@ -1363,7 +1418,8 @@ ModulePassManager PassBuilder::buildModuleOptimizationPipeline(
   // Add the core optimizing pipeline.
   MPM.addPass(createModuleToFunctionPassAdaptor(std::move(OptimizePM)));
 
-  MPM.addPass(CGProfilePass());
+  if (PTO.CallGraphProfile)
+    MPM.addPass(CGProfilePass());
 
   // Now we need to do some global optimization transforms.
   // FIXME: It would seem like these should come first in the optimization
@@ -1663,11 +1719,11 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
     // Propagate constants at call sites into the functions they call.  This
     // opens opportunities for globalopt (and inlining) by substituting function
     // pointers passed as arguments to direct uses of functions.
-   MPM.addPass(IPSCCPPass());
+    MPM.addPass(IPSCCPPass());
 
-   // Attach metadata to indirect call sites indicating the set of functions
-   // they may target at run-time. This should follow IPSCCP.
-   MPM.addPass(CalledValuePropagationPass());
+    // Attach metadata to indirect call sites indicating the set of functions
+    // they may target at run-time. This should follow IPSCCP.
+    MPM.addPass(CalledValuePropagationPass());
   }
 
   // Now deduce any function attributes based in the current code.
@@ -1853,6 +1909,9 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
   FPM.addPass(SROA());
 
 #if INTEL_CUSTOMIZATION
+  if (EnableIPArrayTranspose)
+    MPM.addPass(IPArrayTransposePass());
+
   if (EnableDeadArrayOpsElim)
     MPM.addPass(DeadArrayOpsEliminationPass());
 

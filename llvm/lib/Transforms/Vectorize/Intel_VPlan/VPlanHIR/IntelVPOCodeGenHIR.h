@@ -44,6 +44,8 @@ class VPlan;
 class VPlanVLSAnalysis;
 class VPInstruction;
 
+extern bool EnableVPValueCodegenHIR;
+
 // VPOCodeGenHIR generates vector code by widening of scalars into
 // appropriate length vectors.
 class VPOCodeGenHIR {
@@ -51,7 +53,7 @@ public:
   VPOCodeGenHIR(TargetLibraryInfo *TLI, TargetTransformInfo *TTI,
                 HIRSafeReductionAnalysis *SRA, VPlanVLSAnalysis *VLSA,
                 const VPlan *Plan, Function &Fn, HLLoop *Loop,
-                LoopOptReportBuilder &LORB, WRNVecLoopNode *WRLp,
+                LoopOptReportBuilder &LORB,
                 const VPLoopEntityList *VPLoopEntities,
                 const HIRVectorizationLegality *HIRLegality,
                 const VPlanIdioms::Opcode SearchLoopType,
@@ -60,7 +62,7 @@ public:
       : TLI(TLI), TTI(TTI), SRA(SRA), Plan(Plan), VLSA(VLSA), Fn(Fn),
         Context(*Plan->getLLVMContext()), OrigLoop(Loop), PeelLoop(nullptr),
         MainLoop(nullptr), CurMaskValue(nullptr), NeedRemainderLoop(false),
-        TripCount(0), VF(0), UF(1), LORBuilder(LORB), WVecNode(WRLp),
+        TripCount(0), VF(0), UF(1), LORBuilder(LORB),
         VPLoopEntities(VPLoopEntities), HIRLegality(HIRLegality),
         SearchLoopType(SearchLoopType),
         SearchLoopPeelArrayRef(SearchLoopPeelArrayRef),
@@ -93,6 +95,10 @@ public:
   // Perform and cleanup/final actions after vectorizing the loop
   void finalizeVectorLoop(void);
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dumpFinalHIR();
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
   // Fixup gotos in GotoTargetVPBBPairVector using VPBBLabelMap
   void finalizeGotos(void);
 
@@ -120,8 +126,19 @@ public:
   // instructions can be placed.
   HLLoop *findRednHoistInsertionPoint(HLLoop *Lp);
 
-  // Propagate metadata from memory references in the group to the new DDRef.
-  void propagateMetadata(const OVLSGroup *Group, RegDDRef *NewRef);
+  // Utility that sets the hoist loop for reductions in loop being vectorized
+  // (OrigLoop). If there are no reductions in the loop, then insertion point is
+  // set to OrigLoop. This utility is expected to be called only after knowledge
+  // about reductions is imported into CG. It is also expected to work only on
+  // unmodified HIR.
+  void setRednHoistPtForVectorLoop();
+
+  // Propagate metadata from memory references in either the group or old DDRef
+  // to the new DDRef. If Group is non-null, references in Group are used to set
+  // NewRef's metadata. Otherwise, OldRef is expected to be non-null and the
+  // same is used to set NewRef's metadata.
+  void propagateMetadata(RegDDRef *NewRef, const OVLSGroup *Group = nullptr,
+                         const RegDDRef *OldRef = nullptr);
 
   // Widen the given VPInstruction to a vector instruction using VF
   // as the vector length. The given Mask value overrides the
@@ -260,6 +277,28 @@ public:
       return nullptr;
   }
 
+  // Add ScalVal as the scalar ref corresponding to VPVal in VPValScalRefMap
+  // for specified Lane.
+  void addVPValueScalRefMapping(const VPValue *VPVal, RegDDRef *ScalVal,
+                                unsigned Lane) {
+    VPValScalRefMap[VPVal][Lane] = ScalVal;
+  }
+
+  // Return the scalar ref corresponding to VPVal for specified Lane if found
+  // in VPValScalRefMap, return null otherwise.
+  RegDDRef *getScalRefForVPVal(const VPValue *VPVal, unsigned Lane) const {
+    auto It = VPValScalRefMap.find(VPVal);
+    if (It == VPValScalRefMap.end())
+      return nullptr;
+
+    auto SVMap = It->second;
+    auto Itr = SVMap.find(Lane);
+    if (Itr == SVMap.end())
+      return nullptr;
+
+    return Itr->second;
+  }
+
   // Add WideVal as the widened vector value corresponding  to SCVal
   void addSCEVWideRefMapping(const SCEV *SCVal, RegDDRef *WideVal) {
     SCEVWideRefMap[SCVal] = WideVal;
@@ -364,14 +403,17 @@ public:
   // main induction variable.
   RegDDRef *generateLoopInductionRef(Type *RefDestTy);
 
-  // Given a widened ref corresponding to the pointer operand of
-  // a load/store instruction, setup and return the pointer operand
-  // for use in generating the load/store HLInst.
-  RegDDRef *getPointerOperand(RegDDRef *PtrOp, Type *VecRefDestTy,
-                              unsigned AddressSpace, unsigned ScalSymbase);
+  // Return true if the given VPPtr has a stride of 1.
+  bool isUnitStridePtr(const VPValue *VPPtr) const {
+    assert(isa<PointerType>(VPPtr->getType()) && "Expected pointer value");
+    return Plan->getVPlanDA()->isUnitStridePtr(VPPtr) &&
+           Plan->getVPlanDA()->getVectorShape(VPPtr).getStrideVal() > 0;
+  }
 
-  // Delete intel intrinsic directives before and after the loop.
-  void eraseLoopIntrins();
+  // Given the pointer operand of a load/store instruction, setup and return the
+  // memory ref to use in generating the load/store HLInst. ScalSymbase
+  // specifies the symbase to set for the returned ref.
+  RegDDRef *getMemoryRef(const VPValue *VPPtr, unsigned ScalSymbase);
 
   bool isSearchLoop() const {
     return VPlanIdioms::isAnySearchLoop(SearchLoopType);
@@ -393,14 +435,11 @@ public:
   // vector loop. Type of this temp ref is VF x Entity's type. Additionally we
   // map instructions linked to a LoopEntity, to the new ref which will be used
   // during CG.
-  void createAndMapLoopEntityRefs();
+  void createAndMapLoopEntityRefs(unsigned VF);
 
   // Utility to check if target being compiled for has AVX512 Intel
   // optimizations.
-  bool targetHasAVX512() const {
-    return TTI->isAdvancedOptEnabled(
-        TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX512);
-  }
+  bool targetHasAVX512() const;
 
   void setUniformControlFlowSeen() {
     // Search loops do not go through predication currently and code generation
@@ -425,6 +464,17 @@ public:
   // GotoTargetVPBBPairVector so that the gotos are fixed up at the end of
   // vector code generation.
   void emitBlockTerminator(const VPBasicBlock *SourceBB);
+
+  // Return the Lval temp that was generated to represent the deconstructed PHI
+  // identified by its PhiId, if found in PhiIdLValTempsMap. Return null
+  // otherwise.
+  RegDDRef *getLValTempForPhiId(const int PhiId) const {
+    auto Itr = PhiIdLValTempsMap.find(PhiId);
+    if (Itr != PhiIdLValTempsMap.end())
+      return Itr->second;
+    else
+      return nullptr;
+  }
 
 private:
   // Target Library Info is used to check for svml.
@@ -487,6 +537,9 @@ private:
   DenseMap<unsigned, RegDDRef *> WidenMap;
   DenseMap<const VPValue *, RegDDRef *> VPValWideRefMap;
 
+  // Map of scalar refs for VPValue + vector Lane
+  DenseMap<const VPValue *, DenseMap<unsigned, RegDDRef *>> VPValScalRefMap;
+
   // Map of SCEV expression and widened DDRef.
   DenseMap<const SCEV *, RegDDRef *> SCEVWideRefMap;
 
@@ -503,9 +556,6 @@ private:
   HLLoop *RednHoistLp = nullptr;
   HLNode *RedInitInsertPoint = nullptr;
   HLNode *RedFinalInsertPoint = nullptr;
-
-  // WRegion VecLoop Node corresponding to AVRLoop
-  WRNVecLoopNode *WVecNode;
 
   // VPEntities present in current loop being vectorized. These include
   // reductions, inductions and privates.
@@ -568,6 +618,9 @@ private:
   // Unrolled part number for the VPInstruction currently being processed.
   unsigned CurrentVPInstUnrollPart;
 
+  // Track HIR temp created for each deconstructed PHI ID.
+  SmallDenseMap<int, RegDDRef *> PhiIdLValTempsMap;
+
   void setOrigLoop(HLLoop *L) { OrigLoop = L; }
   void setPeelLoop(HLLoop *L) { PeelLoop = L; }
   void setMainLoop(HLLoop *L) { MainLoop = L; }
@@ -578,25 +631,35 @@ private:
   void setUF(unsigned U) { UF = U == 0 ? 1 : U; }
 
   void insertReductionInit(HLInst *Inst) {
-    HLNodeUtils::insertBefore(RedInitInsertPoint, Inst);
+    // RedInitInsertPoint is never updated after initial assignment, so it
+    // should always be the reduction hoist loop.
+    assert(isa<HLLoop>(RedInitInsertPoint) &&
+           "Reduction init insert point is not a loop.");
+    HLNodeUtils::insertAsLastPreheaderNode(cast<HLLoop>(RedInitInsertPoint),
+                                           Inst);
   }
   void insertReductionInit(HLContainerTy *List) {
-    HLNodeUtils::insertBefore(RedInitInsertPoint, List);
+    assert(isa<HLLoop>(RedInitInsertPoint) &&
+           "Reduction init insert point is not a loop.");
+    HLNodeUtils::insertAsLastPreheaderNodes(cast<HLLoop>(RedInitInsertPoint),
+                                            List);
   }
   void insertReductionFinal(HLInst *Inst) {
-    HLNodeUtils::insertAfter(RedFinalInsertPoint, Inst);
+    if (auto *RedFinalInsertLp = dyn_cast<HLLoop>(RedFinalInsertPoint))
+      HLNodeUtils::insertAsFirstPostexitNode(RedFinalInsertLp, Inst);
+    else
+      HLNodeUtils::insertAfter(RedFinalInsertPoint, Inst);
+
     RedFinalInsertPoint = Inst;
   }
   void insertReductionFinal(HLContainerTy *List) {
     HLNode *Save = &List->back();
-    HLNodeUtils::insertAfter(RedFinalInsertPoint, List);
+    if (auto *RedFinalInsertLp = dyn_cast<HLLoop>(RedFinalInsertPoint))
+      HLNodeUtils::insertAsFirstPostexitNodes(RedFinalInsertLp, List);
+    else
+      HLNodeUtils::insertAfter(RedFinalInsertPoint, List);
     RedFinalInsertPoint = Save;
   }
-
-  // Erase loop intrinsics implementation - delete intel intrinsic directives
-  // before/after the loop based on the BeginDir which determines where we start
-  // the lookup.
-  void eraseLoopIntrinsImpl(bool BeginDir);
 
   /// Analyzes the memory references of \p OrigCall to determine stride. The
   /// resulting stride information is attached to the arguments of \p WideCall
@@ -635,8 +698,18 @@ private:
                      int64_t InterleaveFactor, int64_t InterleaveIndex,
                      const HLInst *GrpStartInst, const VPInstruction *VPInst);
 
-  // Implementation of widening the given VPInstruction to a vector instruction
-  // using VF as the vector length.
+  // Implementation of generating needed HIR constructs for the given
+  // VPInstruction. We generate new RegDDRefs or HLInsts that correspond to
+  // the given VPInstruction. Widen parameter is used to specify if we are
+  // generating VF wide constructs. If Widen is false, we generate scalar
+  // constructs for lane 0.
+  void generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
+                   const OVLSGroup *Group, int64_t InterleaveFactor,
+                   int64_t InterleaveIndex, const HLInst *GrpStartInst,
+                   bool Widen);
+
+  // Wrapper used to call generateHIR appropriately based on nature of given
+  // VPInstruction.
   void widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
                      const OVLSGroup *Group, int64_t InterleaveFactor,
                      int64_t InterleaveIndex, const HLInst *GrpStartInst);
@@ -646,6 +719,9 @@ private:
 
   // Implementation of VPPhi widening.
   void widenPhiImpl(const VPPHINode *VPPhi, RegDDRef *Mask);
+
+  // Implementation of load/store widening.
+  void widenLoadStoreImpl(const VPInstruction *VPInst, RegDDRef *Mask);
 
   // Implementation of widening of VPLoopEntity specific instructions. Some
   // notes on opcodes supported so far -
@@ -695,12 +771,17 @@ private:
                            RegDDRef *RednDescriptor, HLContainerTy &RedTail,
                            HLInst *&WInst);
 
-  // Get scalar version of RegDDRef that represents the VPValue \p VPVal.
-  // For external definitions and constants we can obtain the scalar version
-  // from underlying HIR operand attached to VPValue, but for a
-  // VPInstruction we need to create an extract element instruction. NOTE:
-  // This function should be used only if it is known that VPVal is uniform.
+  // Get scalar version of RegDDRef that represents the VPValue \p VPVal
+  // which is either an external definition or a constant. We can build the
+  // scalar version from underlying HIR operand attached to VPValue.
   RegDDRef *getUniformScalarRef(const VPValue *VPVal);
+
+  // Get scalar version of RegDDRef that represents the VPValue \p VPVal for
+  // lane 0 from VPValScalRefMap. If not found in the map,  we can obtain the
+  // scalar ref using getUniformScalarRef for external definitions and
+  // constants. For others, we create an extract element instruction for lane 0
+  // from the wide reference and return the result of the extract.
+  RegDDRef *getOrCreateScalarRef(const VPValue *VPVal);
 
   // For Generate PaddedCounter < 250 and insert it into the vector of runtime
   // checks if this is a search loop which needs the check.

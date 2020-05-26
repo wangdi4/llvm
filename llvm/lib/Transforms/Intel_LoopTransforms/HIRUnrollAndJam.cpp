@@ -53,7 +53,7 @@
 //
 // TODO: Add opt-report messages.
 //===----------------------------------------------------------------------===//
-#include "llvm/Transforms/Intel_LoopTransforms/HIRUnrollAndJam.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRUnrollAndJamPass.h"
 #include "HIRUnroll.h"
 
 #include "llvm/ADT/Statistic.h"
@@ -891,7 +891,7 @@ void HIRUnrollAndJam::Analyzer::refineUnrollFactorUsingParentLoop(
     ParUnrollFactor = 1;
   }
 
-  if (!HUAJ.HLA.hasTemporalLocality(ParLp, 1)) {
+  if (!HUAJ.HLA.hasTemporalLocality(ParLp, 1, true)) {
     LLVM_DEBUG(dbgs() << "Skipping unroll & jam as loop does not have "
                          "temporal locality!\n");
     HUAJ.throttle(ParLp);
@@ -969,7 +969,7 @@ void HIRUnrollAndJam::Analyzer::postVisit(HLLoop *Lp) {
   if (!HasEnablingPragma) {
     // TODO: refine unroll factor using extra cache lines accessed by
     // unrolling?
-    if (!HUAJ.HLA.hasTemporalLocality(Lp, UnrollFactor - 1)) {
+    if (!HUAJ.HLA.hasTemporalLocality(Lp, UnrollFactor - 1, true)) {
       LLVM_DEBUG(dbgs() << "Skipping unroll & jam as loop does not have "
                            "temporal locality!\n");
       HUAJ.throttle(Lp);

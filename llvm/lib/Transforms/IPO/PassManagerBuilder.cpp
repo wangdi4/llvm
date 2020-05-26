@@ -60,6 +60,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/Transforms/Utils/Intel_VecClone.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/Passes.h"
 #include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/Inliner.h"
@@ -69,6 +70,7 @@
 #include "llvm/Transforms/IPO/Intel_InlineReportSetup.h"
 #include "llvm/Transforms/IPO/Intel_OptimizeDynamicCasts.h"
 #include "llvm/Transforms/Scalar/Intel_MultiVersioning.h"
+#include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 
 #if INTEL_INCLUDE_DTRANS
 #include "Intel_DTrans/DTransCommon.h"
@@ -184,8 +186,15 @@ static cl::opt<bool> RunVPOVecopt("vecopt",
 
 // Switch to enable or disable all VPO related pre-loopopt passes
 static cl::opt<bool>
-    RunPreLoopOptVPOPasses("pre-loopopt-vpo-passes", cl::init(true), cl::Hidden,
+    RunPreLoopOptVPOPasses("pre-loopopt-vpo-passes", cl::init(false),
+                           cl::Hidden,
                            cl::desc("Run VPO passes before loopot"));
+
+// Switch to enable or disable all VPO related post-loopopt passes
+static cl::opt<bool>
+    RunPostLoopOptVPOPasses("post-loopopt-vpo-passes", cl::init(true),
+                            cl::Hidden,
+                            cl::desc("Run VPO passes after loopot"));
 
 // Set LLVM-IR VPlan driver pass to be enabled by default
 static cl::opt<bool> EnableVPlanDriver("vplan-driver", cl::init(true),
@@ -255,6 +264,11 @@ static cl::opt<bool> EnableDeadArrayOpsElim(
    "enable-dead-array-ops-elim", cl::init(true), cl::Hidden,
    cl::desc("Enable Dead Array Ops Elimination"));
 
+// IPO Array Transpose
+static cl::opt<bool> EnableIPArrayTranspose(
+   "enable-ip-array-transpose", cl::init(true), cl::Hidden,
+   cl::desc("Enable IPO Array Transpose"));
+
 // Call Tree Cloning
 static cl::opt<bool> EnableCallTreeCloning("enable-call-tree-cloning",
     cl::init(true), cl::Hidden, cl::desc("Enable Call Tree Cloning"));
@@ -302,6 +316,12 @@ static cl::opt<bool> EnableCSAPasses("enable-csa-passes",
   cl::init(false), cl::ReallyHidden, cl::ZeroOrMore,
   cl::desc("Enable extra passes for CSA target."));
 #endif  // INTEL_FEATURE_CSA
+
+// DPCPP Kernel transformations
+static cl::opt<bool>
+  EnableDPCPPKernelTransforms("enable-dpcpp-kernel-transforms",
+  cl::init(false), cl::Hidden, cl::ZeroOrMore,
+  cl::desc("Enable extra passes for DPCPP WGLoopCreator/Barrier approach."));
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool>
@@ -365,15 +385,27 @@ static cl::opt<bool>
     EnableMatrix("enable-matrix", cl::init(false), cl::Hidden,
                  cl::desc("Enable lowering of the matrix intrinsics"));
 
+cl::opt<AttributorRunOption> AttributorRun(
+    "attributor-enable", cl::Hidden, cl::init(AttributorRunOption::NONE),
+    cl::desc("Enable the attributor inter-procedural deduction pass."),
+    cl::values(clEnumValN(AttributorRunOption::ALL, "all",
+                          "enable all attributor runs"),
+               clEnumValN(AttributorRunOption::MODULE, "module",
+                          "enable module-wide attributor runs"),
+               clEnumValN(AttributorRunOption::CGSCC, "cgscc",
+                          "enable call graph SCC attributor runs"),
+               clEnumValN(AttributorRunOption::NONE, "none",
+                          "disable attributor runs")));
+
 PassManagerBuilder::PassManagerBuilder() {
     OptLevel = 2;
     SizeLevel = 0;
     LibraryInfo = nullptr;
     Inliner = nullptr;
     DisableUnrollLoops = false;
-    SLPVectorize = RunSLPVectorization;
-    LoopVectorize = EnableLoopVectorization;
-    LoopsInterleaved = EnableLoopInterleaving;
+    SLPVectorize = false;
+    LoopVectorize = true;
+    LoopsInterleaved = true;
     RerollLoops = RunLoopRerolling;
     NewGVN = RunNewGVN;
     LicmMssaOptCap = SetLicmMssaOptCap;
@@ -554,6 +586,13 @@ void PassManagerBuilder::populateFunctionPassManager(
 
   FPM.add(createCFGSimplificationPass());
   FPM.add(createSROAPass());
+#if INTEL_CUSTOMIZATION
+#if INTEL_INCLUDE_DTRANS
+  if (EnableDTrans)
+    FPM.add(createFunctionRecognizerLegacyPass());
+#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_CUSTOMIZATION
+
   FPM.add(createEarlyCSEPass());
   FPM.add(createLowerExpectIntrinsicPass());
 }
@@ -834,6 +873,12 @@ void PassManagerBuilder::populateModulePassManager(
       // new unnamed globals.
       MPM.add(createNameAnonGlobalPass());
     }
+#if INTEL_CUSTOMIZATION
+    if (EnableDPCPPKernelTransforms && !PrepareForLTO) {
+      MPM.add(createParseAnnotateAttributesPass());
+      MPM.add(createDPCPPKernelAnalysisPass());
+    }
+#endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
     if (RunVPOOpt) {
       #if INTEL_CUSTOMIZATION
@@ -845,6 +890,12 @@ void PassManagerBuilder::populateModulePassManager(
       addVPOPasses(MPM, true);
     }
 #endif // INTEL_COLLAB
+#if INTEL_CUSTOMIZATION
+    if (EnableDPCPPKernelTransforms && !PrepareForLTO) {
+      MPM.add(createUnifyFunctionExitNodesPass());
+      MPM.add(createDPCPPKernelWGLoopCreatorPass());
+    }
+#endif // INTEL_CUSTOMIZATION
     return;
   }
 
@@ -883,7 +934,8 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createInferFunctionAttrsLegacyPass());
 
   // Infer attributes on declarations, call sites, arguments, etc.
-  MPM.add(createAttributorLegacyPass());
+  if (AttributorRun & AttributorRunOption::MODULE)
+    MPM.add(createAttributorLegacyPass());
 
   addExtensionsToPM(EP_ModuleOptimizerEarly, MPM);
 
@@ -963,7 +1015,8 @@ void PassManagerBuilder::populateModulePassManager(
 #endif // INTEL_CUSTOMIZATION
 
   // Infer attributes on declarations, call sites, arguments, etc. for an SCC.
-  MPM.add(createAttributorCGSCCLegacyPass());
+  if (AttributorRun & AttributorRunOption::CGSCC)
+    MPM.add(createAttributorCGSCCLegacyPass());
 
   // Try to perform OpenMP specific optimizations. This is a (quick!) no-op if
   // there are no OpenMP runtime calls present in the module.
@@ -981,7 +1034,7 @@ void PassManagerBuilder::populateModulePassManager(
   // simplification passes. That will propagate constant values down to callback
   // functions which represent outlined OpenMP parallel loops where possible.
   if (RunVPOParopt && OptLevel > 2)
-    MPM.add(createIPConstantPropagationPass());
+    MPM.add(createIPSCCPPass());
 #endif // INTEL_CUSTOMIZATION
 
   // FIXME: This is a HACK! The inliner pass above implicitly creates a CGSCC
@@ -1111,10 +1164,30 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1));
 
 #if INTEL_CUSTOMIZATION
+  if (EnableDPCPPKernelTransforms && !PrepareForLTO) {
+    MPM.add(createParseAnnotateAttributesPass());
+    MPM.add(createDPCPPKernelAnalysisPass());
+    MPM.add(createDPCPPKernelVecClonePass());
+  }
+
   // In LTO mode, loopopt needs to run in link phase along with community
   // vectorizer and unroll after it until they are phased out.
   if (!PrepareForLTO || !isLoopOptEnabled()) {
     addLoopOptAndAssociatedVPOPasses(MPM, false);
+
+    if (EnableDPCPPKernelTransforms) {
+      MPM.add(createDPCPPKernelPostVecPass());
+      MPM.add(createVPODirectiveCleanupPass());
+      MPM.add(createInstructionCombiningPass());
+      MPM.add(createCFGSimplificationPass());
+      MPM.add(createPromoteMemoryToRegisterPass());
+      MPM.add(createAggressiveDCEPass());
+      MPM.add(createUnifyFunctionExitNodesPass());
+      MPM.add(createDPCPPKernelWGLoopCreatorPass());
+
+      MPM.add(createLICMPass());
+      MPM.add(createCFGSimplificationPass());
+    }
 #endif // INTEL_CUSTOMIZATION
 
   // Distribute loops to allow partial vectorization.  I.e. isolate dependences
@@ -1427,7 +1500,8 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     PM.add(createCalledValuePropagationPass());
 
     // Infer attributes on declarations, call sites, arguments, etc.
-    PM.add(createAttributorLegacyPass());
+    if (AttributorRun & AttributorRunOption::MODULE)
+      PM.add(createAttributorLegacyPass());
   }
 
   // Infer attributes about definitions. The readnone attribute in particular is
@@ -1553,7 +1627,8 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   addPGOInstrPasses(PM, /* IsCS */ true);
 
   // Infer attributes on declarations, call sites, arguments, etc. for an SCC.
-  PM.add(createAttributorCGSCCLegacyPass());
+  if (AttributorRun & AttributorRunOption::CGSCC)
+    PM.add(createAttributorCGSCCLegacyPass());
 
   // Try to perform OpenMP specific optimizations. This is a (quick!) no-op if
   // there are no OpenMP runtime calls present in the module.
@@ -1617,6 +1692,9 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createSROAPass());
 
 #if INTEL_CUSTOMIZATION
+  if (EnableIPArrayTranspose)
+    PM.add(createIPArrayTransposeLegacyPass());
+
   if (EnableDeadArrayOpsElim)
     PM.add(createDeadArrayOpsEliminationLegacyPass());
 
@@ -1825,11 +1903,31 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM, bool RunVec,
 
 #if INTEL_CUSTOMIZATION // HIR passes
 
-void PassManagerBuilder::addVPOPassesPreLoopOpt(
-    legacy::PassManagerBase &PM) const {
+void PassManagerBuilder::addVPOPassesPreOrPostLoopOpt(
+    legacy::PassManagerBase &PM, const bool IsPostLoopOptPass) const {
+
+  if (!RunVPOOpt || !EnableVPlanDriver)
+    return;
+  if (!IsPostLoopOptPass && !RunPreLoopOptVPOPasses)
+    return;
+  if (IsPostLoopOptPass && !RunPostLoopOptVPOPasses)
+    return;
+
+  if (IsPostLoopOptPass)
+    PM.add(createLoopSimplifyPass());
+
   PM.add(createLowerSwitchPass(true /*Only for SIMD loops*/));
   // Add LCSSA pass before VPlan driver
   PM.add(createLCSSAPass());
+  PM.add(createVPOCFGRestructuringPass());
+  // VPO CFG restructuring pass makes sure that the directives of #pragma omp
+  // simd ordered are in a separate block. For this reason,
+  // VPlanPragmaOmpOrderedSimdExtract pass should run after VPO CFG
+  // Restructuring.
+  PM.add(createVPlanPragmaOmpOrderedSimdExtractPass());
+  // Code extractor might add new instructions in the entry block. If the entry
+  // block has a directive, than we have to split the entry block. VPlan assumes
+  // that the directives are in single-entry single-exit basic blocks.
   PM.add(createVPOCFGRestructuringPass());
 
   // Create OCL sincos from sin/cos and sincos
@@ -1839,6 +1937,12 @@ void PassManagerBuilder::addVPOPassesPreLoopOpt(
 
   // Split/translate scalar OCL and vector sincos
   PM.add(createMathLibraryFunctionsReplacementPass(false /*isOCL*/));
+
+  // The region that is outlined by #pragma omp simd ordered was extracted by
+  // VPlanPragmaOmpOrderedSimdExtarct pass. Now, we need to run the inliner in
+  // order to put this region back at the code.
+  PM.add(createAlwaysInlinerLegacyPass());
+  PM.add(createBarrierNoopPass());
 
   // Clean up any SIMD directives left behind by VPlan vectorizer
   PM.add(createVPODirectiveCleanupPass());
@@ -1917,11 +2021,16 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
   PM.add(createLCSSAPass());
 
   if (PrintModuleBeforeLoopopt)
-    PM.add(createPrintModulePass(dbgs(), ";Module Before HIR" ));
+    PM.add(createPrintModulePass(dbgs(), ";Module Before HIR"));
 
   // Verify input LLVM IR before doing any HIR transformation.
   if (VerifyInput)
     PM.add(createVerifierPass());
+
+  if (EnableVPlanDriverHIR) {
+    PM.add(createVPOCFGRestructuringPass());
+    PM.add(createVPlanPragmaOmpOrderedSimdExtractPass());
+  }
 
   if (ConvertToSubs)
     PM.add(createConvertGEPToSubscriptIntrinsicLegacyPass());
@@ -2031,6 +2140,11 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
   PM.add(createHIRCodeGenWrapperPass());
 
   addLoopOptCleanupPasses(PM);
+
+  if (EnableVPlanDriverHIR) {
+    PM.add(createAlwaysInlinerLegacyPass());
+    PM.add(createBarrierNoopPass());
+  }
 }
 
 void PassManagerBuilder::addLoopOptAndAssociatedVPOPasses(
@@ -2048,12 +2162,15 @@ void PassManagerBuilder::addLoopOptAndAssociatedVPOPasses(
     PM.add(createEarlyCSEPass());
   }
 
-  // Run LLVM-IR VPlan vectorizer before loopopt to vectorize all explicit SIMD
-  // loops
-  if (RunVPOOpt && RunPreLoopOptVPOPasses && EnableVPlanDriver)
-    addVPOPassesPreLoopOpt(PM);
+  // Run LLVM-IR VPlan vectorizer before loopopt to vectorize all explicit
+  // SIMD loops
+  addVPOPassesPreOrPostLoopOpt(PM, false /* IsPostLoopOptPass */);
 
   addLoopOptPasses(PM, IsLTO);
+
+  // Run LLVM-IR VPlan vectorizer after loopopt to vectorize all loops not
+  // vectorized after createVPlanDriverHIRPass
+  addVPOPassesPreOrPostLoopOpt(PM, true /* IsPostLoopOptPass */);
 
   // Process directives inserted by LoopOpt Autopar.
   // Call with RunVec==true (2nd argument) to cleanup any vec directives

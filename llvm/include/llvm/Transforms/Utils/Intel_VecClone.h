@@ -220,6 +220,7 @@ class VecCloneImpl {
 
   public:
     VecCloneImpl() {}
+    virtual ~VecCloneImpl() {}
     bool runImpl(Module &M);
 
 }; // end pass class

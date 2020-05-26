@@ -85,12 +85,22 @@ enum OpenMPOffloadingRequiresDirFlags {
 };
 
 #if INTEL_COLLAB
+enum TargetAllocTy : int32_t {
+  TARGET_ALLOC_DEVICE = 0,
+  TARGET_ALLOC_HOST,
+  TARGET_ALLOC_SHARED
+};
+
 enum InteropPropertyTy : int32_t {
   INTEROP_DEVICE_ID = 1,
   INTEROP_IS_ASYNC,
   INTEROP_ASYNC_OBJ,
   INTEROP_ASYNC_CALLBACK,
-  INTEROP_OFFLOAD_PIPE,
+  INTEROP_OFFLOAD_QUEUE,
+  INTEROP_PLATFORM_HANDLE,
+  INTEROP_CONTEXT =  INTEROP_PLATFORM_HANDLE,
+  INTEROP_DRIVER_HANDLE =  INTEROP_PLATFORM_HANDLE,
+  INTEROP_DEVICE_HANDLE,
   INTEROP_PLUGIN_INTERFACE
 };
 
@@ -105,7 +115,11 @@ struct __tgt_interop_obj {
   bool is_async; // Whether it is for asynchronous operation
   void *async_obj; // Pointer to the asynchronous object
   void (*async_handler)(void *); // Callback function for asynchronous operation
-  void *pipe; // Opaque handle to device-dependent offload pipe
+  void *queue; // Opaque handle to device-dependent offload queue
+  void *platform_handle; // Opaque handle:  For opencl  cl_context,
+                         //for level0  ze_driver_handle_t
+  void *device_handle; // Opaque handle:  For level0 ze_device_handle_t.
+                       // Not valid for opencl
   int32_t plugin_interface; // Plugin selector
 };
 #endif // INTEL_COLLAB
@@ -163,6 +177,14 @@ struct __tgt_target_table {
 
 #endif  // !__cplusplus
 #endif  // INTEL_COLLAB
+/// This struct contains information exchanged between different asynchronous
+/// operations for device-dependent optimization and potential synchronization
+struct __tgt_async_info {
+  // A pointer to a queue-like structure where offloading operations are issued.
+  // We assume to use this structure to do synchronization. In CUDA backend, it
+  // is CUstream.
+  void *Queue = nullptr;
+};
 
 #ifdef __cplusplus
 extern "C" {
@@ -212,6 +234,12 @@ int omp_target_disassociate_ptr(void *host_ptr, int device_num);
 #if INTEL_COLLAB
 EXTERN
 void * omp_get_mapped_ptr(void *host_ptr, int device_num);
+
+/// Explicit target memory allocators
+/// Are we OK with omp_ prefix?
+EXTERN void *omp_target_alloc_device(size_t size, int device_num);
+EXTERN void *omp_target_alloc_host(size_t size, int device_num);
+EXTERN void *omp_target_alloc_shared(size_t size, int device_num);
 #endif  // INTEL_COLLAB
 
 /// add the clauses of the requires directives in a given file

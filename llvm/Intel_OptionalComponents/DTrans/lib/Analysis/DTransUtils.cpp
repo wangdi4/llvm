@@ -23,6 +23,8 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/PatternMatch.h"
+#include "llvm/Support/Format.h"
+#include "llvm/Support/FormattedStream.h"
 
 using namespace llvm;
 using namespace dtrans;
@@ -30,7 +32,7 @@ using namespace dtrans;
 #define DEBUG_TYPE "dtransanalysis"
 
 bool dtrans::dtransIsCompositeType(Type *Ty) {
-  if (isa<StructType>(Ty) || isa<SequentialType>(Ty))
+  if (isa<StructType>(Ty) || isa<ArrayType>(Ty) || isa<VectorType>(Ty))
     return true;
   return false;
 }
@@ -49,7 +51,7 @@ Type *dtrans::dtransCompositeGetTypeAtIndex(Type *Ty, unsigned Idx) {
     assert(dtransCompositeIndexValid(Ty, Idx) && "Invalid structure index!");
     return STy->getElementType(Idx);
   }
-  return cast<SequentialType>(Ty)->getElementType();
+  return GetElementPtrInst::getTypeAtIndex(Ty, Idx);
 }
 
 bool dtrans::isSystemObjectType(llvm::StructType *Ty) {
@@ -382,11 +384,14 @@ Type *dtrans::unwrapType(Type *Ty) {
   while (BaseTy->isPointerTy() || BaseTy->isArrayTy() || BaseTy->isVectorTy())
     if (BaseTy->isPointerTy())
       BaseTy = BaseTy->getPointerElementType();
-    else
-      BaseTy = BaseTy->getSequentialElementType();
+    else if (BaseTy->isArrayTy())
+      BaseTy = cast<ArrayType>(BaseTy)->getElementType();
+    else if (BaseTy->isVectorTy())
+      BaseTy = cast<VectorType>(BaseTy)->getElementType();
   return BaseTy;
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 const char *dtrans::getSafetyDataName(const SafetyData &SafetyInfo) {
   assert(countPopulation(SafetyInfo) == 1 &&
          "More than one safety type detected\n");
@@ -459,6 +464,8 @@ const char *dtrans::getSafetyDataName(const SafetyData &SafetyInfo) {
     return "Unsafe pointer store (pending)";
   if (SafetyInfo & dtrans::UnsafePointerStoreConditional)
     return "Unsafe pointer store (conditional)";
+  if (SafetyInfo & dtrans::DopeVector)
+    return "Dope vector";
   if (SafetyInfo & dtrans::UnhandledUse)
     return "Unhandled use";
 
@@ -487,7 +494,7 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
       dtrans::HasFnPtr | dtrans::HasCppHandling | dtrans::HasZeroSizedArray |
       dtrans::BadCastingPending | dtrans::BadCastingConditional |
       dtrans::UnsafePointerStorePending |
-      dtrans::UnsafePointerStoreConditional |
+      dtrans::UnsafePointerStoreConditional | dtrans::DopeVector |
       dtrans::UnhandledUse;
   // This assert is intended to catch non-unique safety condition values.
   // It needs to be kept synchronized with the statement above.
@@ -509,7 +516,7 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
            dtrans::HasCppHandling ^ dtrans::HasZeroSizedArray ^
            dtrans::BadCastingPending ^ dtrans::BadCastingConditional ^
            dtrans::UnsafePointerStorePending ^
-           dtrans::UnsafePointerStoreConditional ^
+           dtrans::UnsafePointerStoreConditional ^ dtrans::DopeVector ^
            dtrans::UnhandledUse),
       "Duplicate value used in dtrans safety conditions");
 
@@ -539,10 +546,148 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
   ostr << "\n";
 }
 
-void dtrans::TypeInfo::printSafetyData() {
-  dbgs() << "  Safety data: ";
-  printSafetyInfo(SafetyInfo, dbgs());
+void dtrans::TypeInfo::printSafetyData(raw_ostream &OS) const {
+  OS << "  Safety data: ";
+  printSafetyInfo(SafetyInfo, OS);
 }
+
+void dtrans::StructInfo::print(
+    raw_ostream &OS,
+    std::function<void(raw_ostream &OS, const StructInfo *)> *Annotator) const {
+  llvm::StructType *S = cast<llvm::StructType>(getLLVMType());
+  OS << "DTRANS_StructInfo:\n";
+  OS << "  LLVMType: " << *S << "\n";
+  if (S->hasName())
+    OS << "  Name: " << S->getName() << "\n";
+  if (getCRuleTypeKind() != dtrans::CRT_Unknown) {
+    OS << "  CRuleTypeKind: ";
+    OS << dtrans::CRuleTypeKindName(getCRuleTypeKind()) << "\n";
+  }
+  if (Annotator)
+    (*Annotator)(OS, this);
+
+  OS << "  Number of fields: " << getNumFields() << "\n";
+  unsigned Number = 0;
+  for (auto &Field : getFields()) {
+    OS << format_decimal(Number++, 3) << ")";
+    Field.print(OS, getIgnoredFor());
+  }
+  OS << "  Total Frequency: " << getTotalFrequency() << "\n";
+  auto &CG = getCallSubGraph();
+  OS << "  Call graph: "
+     << (CG.isBottom() ? "bottom\n" : (CG.isTop() ? "top\n" : ""));
+  if (!CG.isBottom() && !CG.isTop()) {
+    OS << "enclosing type: " << CG.getEnclosingType()->getName() << "\n";
+  }
+  printSafetyData(OS);
+  OS << "\n";
+}
+
+void dtrans::ArrayInfo::print(raw_ostream &OS) const {
+  OS << "DTRANS_ArrayInfo:\n";
+  OS << "  LLVMType: " << *getLLVMType() << "\n";
+  if (getCRuleTypeKind() != dtrans::CRT_Unknown) {
+    OS << "  CRuleTypeKind: ";
+    OS << dtrans::CRuleTypeKindName(getCRuleTypeKind()) << "\n";
+  }
+  OS << "  Number of elements: " << getNumElements() << "\n";
+  OS << "  Element LLVM Type: " << *getElementLLVMType() << "\n";
+  printSafetyData(OS);
+  OS << "\n";
+}
+
+void dtrans::FieldInfo::print(raw_ostream &OS,
+                              dtrans::Transform IgnoredInTransform) const {
+  OS << "Field LLVM Type: " << *getLLVMType() << "\n";
+  OS << "    Field info:";
+
+  if (isRead())
+    OS << " Read";
+
+  if (isWritten())
+    OS << " Written";
+
+  if (isValueUnused())
+    OS << " UnusedValue";
+
+  if (hasComplexUse())
+    OS << " ComplexUse";
+
+  if (isAddressTaken())
+    OS << " AddressTaken";
+
+  if (isMismatchedElementAccess())
+    OS << " MismatchedElementAccess";
+
+  OS << "\n";
+  OS << "    Frequency: " << getFrequency();
+  OS << "\n";
+
+  if (isNoValue())
+    OS << "    No Value";
+  else if (isSingleValue()) {
+    OS << "    Single Value: ";
+    getSingleValue()->printAsOperand(OS);
+  } else if (isMultipleValue()) {
+    OS << "    Multiple Value: [ ";
+    dtrans::printCollectionSorted(OS, values().begin(), values().end(), ", ",
+                                  [](llvm::Constant *C) {
+                                    std::string OutputVal;
+                                    raw_string_ostream OutputStream(OutputVal);
+                                    C->printAsOperand(OutputStream, false);
+                                    OutputStream.flush();
+                                    return OutputVal;
+                                  });
+    OS << " ] <" << (isValueSetComplete() ? "complete" : "incomplete") << ">";
+  }
+  if (IgnoredInTransform & dtrans::DT_FieldSingleValue)
+    OS << " (ignored)";
+  OS << "\n";
+
+  if (isNoIAValue())
+    OS << "    No IA Value";
+  else if (isSingleIAValue()) {
+    OS << "    Single IA Value: ";
+    getSingleValue()->printAsOperand(OS);
+  } else {
+    assert(isMultipleIAValue() && "Expecting multiple value");
+    OS << "    Multiple IA Value: [ ";
+    dtrans::printCollectionSorted(OS, iavalues().begin(), iavalues().end(),
+                                  ", ", [](llvm::Constant *C) {
+                                    std::string OutputVal;
+                                    raw_string_ostream OutputStream(OutputVal);
+                                    C->printAsOperand(OutputStream, false);
+                                    OutputStream.flush();
+                                    return OutputVal;
+                                  });
+    OS << " ] <" << (isIAValueSetComplete() ? "complete" : "incomplete") << ">";
+  }
+  OS << "\n";
+
+  if (isTopAllocFunction())
+    OS << "    Top Alloc Function";
+  else if (isSingleAllocFunction()) {
+    OS << "    Single Alloc Function: ";
+    getSingleAllocFunction()->printAsOperand(OS);
+  } else if (isBottomAllocFunction())
+    OS << "    Bottom Alloc Function";
+  if (IgnoredInTransform & dtrans::DT_FieldSingleAllocFunction)
+    OS << " (ignored)";
+  OS << "\n";
+  OS << "    Readers: ";
+  dtrans::printCollectionSorted(OS, readers().begin(), readers().end(), ", ",
+                                [](const Function *F) { return F->getName(); });
+  OS << "\n";
+  OS << "    Writers: ";
+  dtrans::printCollectionSorted(OS, writers().begin(), writers().end(), ", ",
+                                [](const Function *F) { return F->getName(); });
+  OS << "\n";
+  OS << "    RWState: "
+     << (isRWBottom() ? "bottom" : (isRWComputed() ? "computed" : "top"))
+     << "\n";
+}
+
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 void dtrans::TypeInfo::setSafetyData(SafetyData Conditions) {
   SafetyInfo |= Conditions;
@@ -751,7 +896,6 @@ void MemfuncCallInfo::print(raw_ostream &OS) {
     ElementTypes.print(OS);
   }
 }
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 // Returns StringRef with the name of the transformation
 StringRef dtrans::getStringForTransform(dtrans::Transform Trans) {
@@ -785,6 +929,7 @@ StringRef dtrans::getStringForTransform(dtrans::Transform Trans) {
   llvm_unreachable("Unexpected continuation past dtrans::Transform switch.");
   return "";
 }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 // Returns safety conditions for the transformation
 dtrans::SafetyData dtrans::getConditionsForTransform(dtrans::Transform Trans,
@@ -947,8 +1092,10 @@ bool dtrans::hasPointerType(llvm::Type *Ty) {
   if (Ty->isPointerTy())
     return true;
 
-  if (auto *SeqTy = dyn_cast<SequentialType>(Ty))
-    return hasPointerType(SeqTy->getElementType());
+  if (Ty->isArrayTy())
+    return hasPointerType(cast<ArrayType>(Ty)->getElementType());
+  if (Ty->isVectorTy())
+    return hasPointerType(cast<VectorType>(Ty)->getElementType());
 
   if (auto *StTy = dyn_cast<StructType>(Ty)) {
     // Check inside of literal structs because those cannot be referenced by
@@ -979,4 +1126,138 @@ bool dtrans::hasPointerType(llvm::Type *Ty) {
   }
 
   return false;
+}
+
+// If the loaded operand comes from a BitCast that points to a structure then
+// then there is a chance that is loading the Zero element. For example,
+// consider the following types:
+//
+//   %"class.outer" = type { %"class.inner" }
+//   %"class.inner" = type { %class.TestClass*, %class.TestClass*}
+//   %class.TestClass = type { i64, i64, i64}
+//
+// Then consider the following BitCast and Load instructions:
+//
+//   %1 = bitcast %"class.outer"* %0 to i64*
+//   %2 = load i64, i64* %1
+//
+// Assuming that %0 is a memory allocated space (GEP, argument, etc.), then
+// the instructions %1 and %2 mean that there is a load for the zero element
+// in %class.inner (%class.TestClass*). This function will return the pointer
+// type that is being loaded. Also, it will store the structure that
+// encapsulates the loaded pointer in the parameter Pointee.
+llvm::Type* dtrans::getTypeForZeroElementLoaded(LoadInst *Load,
+                                                llvm::Type **Pointee) {
+
+  // If the input type is a Structure, then return the casted form, else check
+  // if it is a Pointer type. If so, then check if the pointer's element is a
+  // a structure and return it. Else, return nullptr.
+  auto GetStructFromPtr = [](Type *PtrTy) -> StructType* {
+    if (!PtrTy)
+      return nullptr;
+
+    if (PtrTy->isStructTy())
+      return cast<StructType>(PtrTy);
+
+    PointerType *Ptr = dyn_cast<PointerType>(PtrTy);
+    if (!Ptr)
+      return nullptr;
+
+    StructType *Str = dyn_cast<StructType>(Ptr->getPointerElementType());
+    return Str;
+  };
+
+  if (!Load)
+    return nullptr;
+
+  BitCastInst *BCSrc = dyn_cast<BitCastInst>(Load->getPointerOperand());
+  if (!BCSrc)
+    return nullptr;
+
+  PointerType *OperandTy =
+      dyn_cast<PointerType>(Load->getPointerOperandType());
+  // Make sure that we are loading from a pointer to an integer type
+  if (!OperandTy || !OperandTy->getPointerElementType()->isIntegerTy())
+    return nullptr;
+
+  // Check the source
+  Value *Src = BCSrc->getOperand(0);
+  Type *SourceType = nullptr;
+
+  // NOTE: This function takes care for GEPs and Arguments, but there
+  // is the possibility to express the 0 entry of an Aggregate type as a
+  // BitCast and a Load.
+  if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(Src)) {
+    SourceType = GEP->getSourceElementType();
+    if (!GEP->hasAllConstantIndices())
+      return nullptr;
+
+    StructType *CurrStruct = GetStructFromPtr(SourceType);
+    if (!CurrStruct)
+      return nullptr;
+
+    unsigned NumIdx = GEP->getNumIndices();
+
+    // Byte flattened GEPs might need another analysis
+    if (NumIdx < 2)
+      return nullptr;
+
+    // If there is a GEP, first we need to traverse through the indices
+    // to know which structures are being collected. From there then
+    // we collect the 0 elements. This handles the following case:
+    //
+    //   %"class.outer" = type { %"class.inner1" }
+    //   %"class.inner1" = type { %"class.inner2", %"classinner2"}
+    //   %"class.inner2" = type { %class.TestClass*, %class.TestClass*}
+    //   %class.TestClass = type { i64, i64, i64}
+    //
+    //   %1 = getelementptr inbounds %"class.outer", %"class.outer"* %0,
+    //            i64 0, i32 0, i32 1
+    //   %2 = bitcast %"class.inner2"* %1 to i64*
+    //   %3 = load i64, i64* %2
+    //
+    // In the above example, %1 is a GEP that points to %"class.outer", entry 1
+    // from %"class.inner1". But the BitCast and Load represents that the entry
+    // 0 from %"class.inner2" will be loaded. We need first to traverse the GEP
+    // to make sure which structures it is pointing to and then collect the 0
+    // element.
+    for (unsigned I = 2; I <= NumIdx; I++) {
+      ConstantInt *IdxConst = cast<ConstantInt>(GEP->getOperand(I));
+      unsigned Idx = IdxConst->getZExtValue();
+      CurrStruct = dyn_cast<StructType>(CurrStruct->getElementType(Idx));
+      // If the last type collected is not a structure then don't continue.
+      // It might be that the GEP is not loading a structure or that the GEP
+      // has all the indices needed to collect the type. This case is not
+      // handled here.
+      if (!CurrStruct)
+        return nullptr;
+    }
+
+    // Else, there is more to catch, check the zero element
+    SourceType = cast<Type>(CurrStruct);
+  }
+  else if (isa<Argument>(Src))
+    SourceType = Src->getType();
+  else
+    return nullptr;
+
+  StructType *CurrTy = GetStructFromPtr(SourceType);
+  if (!CurrTy)
+    return nullptr;
+
+  while (CurrTy) {
+    Type *Element = CurrTy->getElementType(0);
+    if (Element->isStructTy()) {
+      CurrTy = cast<StructType>(Element);
+    }
+    else if (GetStructFromPtr(Element)) {
+      *Pointee = cast<Type>(CurrTy);
+      return Element;
+    } else {
+      CurrTy = nullptr;
+      break;
+    }
+  }
+
+  return nullptr;
 }

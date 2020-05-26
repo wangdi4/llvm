@@ -23,16 +23,16 @@ define void @test01(%struct.test01* %in) !dtrans_type !2 {
 ; CHECK-LABEL: void @test01
 ; CHECK-CUR: %tmp = getelementptr %struct.test01, %struct.test01* %in
 ; CHECK-FUT: %tmp = getelementptr %struct.test01, p0 %in
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:   %struct.test01*
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   %struct.test01*{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
 ; CHECK-CUR: %f0 = getelementptr %struct.test01, %struct.test01* %tmp, i64 0, i32 0
 ; CHECK-FUT: %f0 = getelementptr %struct.test01, p0 %tmp, i64 0, i32 0
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:   i32*
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   i32*{{ *$}}
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:   %struct.test01 @ 0
 
@@ -49,23 +49,23 @@ define internal void @test02(%struct.test02** %in) !dtrans_type !7 {
 ; CHECK-LABEL: void @test02
 ; CHECK-CUR: %p2p = getelementptr %struct.test02*, %struct.test02** %in, i64 5
 ; CHECK-FUT: %p2p = getelementptr p0, p0 %in, i64 5
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:   %struct.test02**
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   %struct.test02**{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
 ; CHECK-CUR: %ptr = load %struct.test02*, %struct.test02** %p2p
 ; CHECK-FUT: %ptr = load p0, p0 %p2p
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:   %struct.test02*
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   %struct.test02*{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
 ; CHECK-CUR: %field_addr = getelementptr %struct.test02, %struct.test02* %ptr, i64 0, i32 1
 ; CHECK-FUT: %field_addr = getelementptr %struct.test02, p0 %ptr, i64 0, i32 1
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:   i64*
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   i64*{{ *$}}
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:    %struct.test02 @ 1
 

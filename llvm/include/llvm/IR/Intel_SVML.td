@@ -96,7 +96,7 @@ def erfc       : SvmlVariants<[FPBothMasked]>;
 def erfcinv    : SvmlVariants<[FPBothMasked]>;
 def erfinv     : SvmlVariants<[FPBothMasked]>;
 def exp10      : SvmlVariants<[FPBothMasked]>;
-def exp2       : SvmlVariants<[FPBothMasked]>;
+def exp2       : SvmlVariants<[FPBothMaskedIntrin]>;
 def expm1      : SvmlVariants<[FPBothMasked]>;
 def floor      : SvmlVariants<[FPBothMasked]>;
 def fmod       : SvmlVariants<[FPBothMasked]>;

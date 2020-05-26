@@ -682,15 +682,14 @@ bool RegDDRef::isStructurallyInvariantAtLevel(unsigned LoopLevel,
 
     // Check if CanonExpr is invariant i.e. IV is not present in any form inside
     // the canon expr.
-    if (!getDimensionIndex(I)->isInvariantAtLevel(LoopLevel,
-                                                  IgnoreInnerIVs)) {
+    if (!getDimensionIndex(I)->isInvariantAtLevel(LoopLevel, IgnoreInnerIVs)) {
       return false;
     }
 
-    if (HasGEPInfo && (!getDimensionLower(I)->isInvariantAtLevel(
-                           LoopLevel, IgnoreInnerIVs) ||
-                       !getDimensionStride(I)->isInvariantAtLevel(
-                           LoopLevel, IgnoreInnerIVs))) {
+    if (HasGEPInfo &&
+        (!getDimensionLower(I)->isInvariantAtLevel(LoopLevel, IgnoreInnerIVs) ||
+         !getDimensionStride(I)->isInvariantAtLevel(LoopLevel,
+                                                    IgnoreInnerIVs))) {
       return false;
     }
   }
@@ -1280,9 +1279,10 @@ void RegDDRef::makeConsistent(ArrayRef<const RegDDRef *> AuxRefs,
 
     for (auto *AuxRef : AuxRefs) {
       assert(AuxRef && "Unexpected nullptr ref");
+      assert(this != AuxRef && "Cannot use own ref to update internal blobs");
 
       if (AuxRef->findTempBlobLevel(Index, &DefLevel)) {
-        if (getCanonExprUtils().hasNonLinearSemantics(DefLevel, NewLevel)) {
+        if (CanonExprUtils::hasNonLinearSemantics(DefLevel, NewLevel)) {
           BRef->setNonLinear();
         } else {
           BRef->setDefinedAtLevel(DefLevel);
@@ -1295,6 +1295,26 @@ void RegDDRef::makeConsistent(ArrayRef<const RegDDRef *> AuxRefs,
 
     (void)Found;
     assert(Found && "Blob was not found in any auxiliary DDRef!");
+  }
+
+  // Set level of the self-blob if present in AuxRefs.
+  if (isSelfBlob()) {
+    unsigned DefLevel = 0;
+    unsigned Index = getSelfBlobIndex();
+
+    for (auto *AuxRef : AuxRefs) {
+      if (AuxRef->findTempBlobLevel(Index, &DefLevel)) {
+        CanonExpr *CE = getSingleCanonExpr();
+
+        if (CanonExprUtils::hasNonLinearSemantics(DefLevel, NewLevel)) {
+          CE->setNonLinear();
+        } else {
+          CE->setDefinedAtLevel(DefLevel);
+        }
+
+        break;
+      }
+    }
   }
 
   updateDefLevelInternal(NewLevel);
@@ -1553,9 +1573,9 @@ void RegDDRef::verify() const {
       assert(!LowerCE->hasIV() && "Dimension lower not expected to have IV!");
       assert(!StrideCE->hasIV() && "Dimension stride not expected to have IV!");
 
-      assert(LowerCE->getSrcType()->isIntegerTy() &&
+      assert(LowerCE->getSrcType()->isIntOrIntVectorTy() &&
              "Lower is not integer type!");
-      assert(StrideCE->getSrcType()->isIntegerTy() &&
+      assert(StrideCE->getSrcType()->isIntOrIntVectorTy() &&
              "Stride is not integer type!");
     }
   }

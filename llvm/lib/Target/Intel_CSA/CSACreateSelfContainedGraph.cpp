@@ -18,10 +18,10 @@
 #include "CSA.h"
 #include "CSATargetMachine.h"
 #include "CSAMachineFunctionInfo.h"
+#include "llvm/CodeGen/MachineConstantPool.h"
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/SmallSet.h"
-#include "llvm/IR/CallSite.h"
 #include "llvm/CodeGen/StackProtector.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
@@ -30,6 +30,7 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
@@ -60,7 +61,7 @@ struct CSACreateSelfContainedGraph : public ModulePass {
   explicit CSACreateSelfContainedGraph() : ModulePass(ID) {}
   StringRef getPassName() const override { return PASS_NAME; }
   void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<MachineModuleInfo>();
+    AU.addRequired<MachineModuleInfoWrapperPass>();
     AU.addRequired<CallGraphWrapperPass>();
     ModulePass::getAnalysisUsage(AU);
   }
@@ -68,6 +69,7 @@ struct CSACreateSelfContainedGraph : public ModulePass {
 private:
   MachineModuleInfo *MMI;
   bool IsOpenMPOffload;
+  Module *thisMod;
   MachineInstr *mergeTwoDataFlowFunctions(MachineFunction *Base,
     MachineFunction *ToBeMerged);
   DenseSet<MachineFunction *> OffloadRegionRoots;
@@ -101,7 +103,7 @@ char CSACreateSelfContainedGraph::ID = 0;
 
 INITIALIZE_PASS_BEGIN(CSACreateSelfContainedGraph, DEBUG_TYPE, PASS_NAME,
   false, false)
-INITIALIZE_PASS_DEPENDENCY(MachineModuleInfo)
+INITIALIZE_PASS_DEPENDENCY(MachineModuleInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(CallGraphWrapperPass)
 INITIALIZE_PASS_END(CSACreateSelfContainedGraph, DEBUG_TYPE, PASS_NAME,
   false, false)
@@ -129,14 +131,20 @@ MachineFunction *getCalleeMachineFunction(
   return nullptr;
 }
 
+bool isProxyCall(MachineInstr &MI, Module &M, MachineModuleInfo *MMI) {
+  auto CalleeMF = getCalleeMachineFunction(MI, M, MMI);
+  if (!CalleeMF) { //proxy call
+    return true;
+  }
+  return false;
+}
+
 // Check if this type of call is supported NOW
 bool isCallSupported(MachineInstr &MI, Module &M, MachineModuleInfo *MMI) {
   auto CallerMF = MI.getParent()->getParent();
   auto CalleeMF = getCalleeMachineFunction(MI, M, MMI);
-  if (!CalleeMF) { //proxy call
-    errs() << "WARNING: Proxy calls not yet supported!"
-           << "May generate code with incomplete linkage!\n";
-    return false;
+  if (isProxyCall(MI,M,MMI)) { //proxy call
+    return true;
   }
   if (CallerMF->getSubtarget<CSASubtarget>().isSequential()
     && !CalleeMF->getSubtarget<CSASubtarget>().isSequential()) {
@@ -206,7 +214,17 @@ MachineInstr *copyMachineInstr(
 // of virtual registers that do not exist in either of the two functions
 // thus avoiding any overlaps in virtual register indices when the
 // two functions are merged
-void prepareForMerging(MachineFunction *DstMF, MachineFunction *SrcMF) {
+void prepareForMerging(MachineFunction *DstMF, MachineFunction *SrcMF,
+                       Module &M) {
+  // create list of address spaces used for scratchpads
+  // This will be used to replace constant pools with global variables
+  // that will reside in scratchpads
+  SmallSet<unsigned,16> ScratchPadAddrSpaces;
+  for (const auto &GV: M.globals()) {
+    if (isScratchpadAddressSpace(GV.getAddressSpace())) {
+      ScratchPadAddrSpaces.insert(GV.getAddressSpace());
+    }
+  }
   MachineRegisterInfo *SrcMRI = &(SrcMF->getRegInfo());
   MachineRegisterInfo *DstMRI = &(DstMF->getRegInfo());
   const CSAInstrInfo *TII =
@@ -225,7 +243,7 @@ void prepareForMerging(MachineFunction *DstMF, MachineFunction *SrcMF) {
   for (auto &MI : *MBB) {
     if (TII->isInit(&MI)) continue;
     for (MachineOperand &MO : MI.operands()) {
-      if (MO.isReg() && TargetRegisterInfo::isVirtualRegister(MO.getReg())) {
+      if (MO.isReg() && Register::isVirtualRegister(MO.getReg())) {
         if (MO.isDef()) {
           auto OldReg = MO.getReg();
           auto NewReg =
@@ -237,6 +255,30 @@ void prepareForMerging(MachineFunction *DstMF, MachineFunction *SrcMF) {
           SrcMRI->replaceRegWith(OldReg,NewReg);
           SrcLMFI->getLICInfo(NewReg) = SrcLMFI->getLICInfo(OldReg);
         }
+      }
+      // MachineOperand points to a Constant Pool
+      if (MO.isCPI()) {
+        ArrayRef<MachineConstantPoolEntry> Constants =
+          SrcMF->getConstantPool()->getConstants();
+        const MachineConstantPoolEntry &ConstantEntry = Constants[MO.getIndex()];
+        const Constant *C = ConstantEntry.Val.ConstVal;
+        unsigned i;
+        // Find an address space index not yet used for scratchpads
+        for (i = 1024; i < 2047; ++i) {
+          if (!ScratchPadAddrSpaces.count(i)) {
+            ScratchPadAddrSpaces.insert(i);
+            break;
+          }
+        }
+        // Constant pool is being replaced by a global variable residing in
+        // scratchpad
+        // Name is set to be _spad_<address space index>
+        auto *NewGV = new GlobalVariable(M,C->getType(),true,
+                                         llvm::Function::InternalLinkage,
+                                         const_cast <Constant *> (C),
+                                         Twine("_spad_")+Twine(i),nullptr,
+                                         llvm::GlobalValue::NotThreadLocal,i);
+        MO.ChangeToGA(NewGV,0,0);
       }
     }
   }
@@ -250,7 +292,7 @@ MachineInstr *CSACreateSelfContainedGraph::mergeTwoDataFlowFunctions(
   MachineInstr *NewReturnInst = nullptr;
   assert(Base->size() == 1 && ToBeMerged->size() == 1);
   auto MBB2 = ToBeMerged->begin();
-  prepareForMerging(Base,ToBeMerged);
+  prepareForMerging(Base,ToBeMerged,*thisMod);
   for (MachineInstr &MI : *MBB2) {
     MachineInstr *NewMI = copyMachineInstr(Base,&MI);
     if (MI.getOpcode() == CSA::CSA_ENTRY)
@@ -392,6 +434,7 @@ void CSACreateSelfContainedGraph::insertComplexTrampolineCode(
   const CSAInstrInfo *TII =
     static_cast<const CSAInstrInfo *>(TopMF->getSubtarget().getInstrInfo());
   MachineBasicBlock *MBB = EntryInst->getParent();
+  auto LMFI = TopMF->getInfo<CSAMachineFunctionInfo>();
   insertTrampolineStartPseudo(MBB, TII);
   SmallVector<unsigned, 4> select_signals;
   for (auto CallInst : CallInstList) {
@@ -420,6 +463,83 @@ void CSACreateSelfContainedGraph::insertComplexTrampolineCode(
       csa_utils::createUseTree(
         MBB, MBB->end(), CSA::ALL0, args, CSA::IGN));
   }
+
+  SmallVector<unsigned, 4> PoolRegs;
+  SmallVector< SmallVector<unsigned, 4>, 4> OutVals;
+  // For each call-site, we generate a PoolReg signal which is set
+  // when ALL its results become available.
+  // This signal is used to gate the input parameters for that call-site
+  // All the results for all cal-sites are stored in OutVals for future use
+  // OutVals[j][i] is the ith result of jth call-site
+  for (auto CallInst : CallInstList) {
+    SmallVector<unsigned, 4> Vals;
+    MachineBasicBlock::iterator I(CallInst);
+    ++I;
+    MachineInstr *ContinueInst = &*I;
+    for (unsigned i = 0; i < ContinueInst->getNumOperands(); ++i) {
+      unsigned ContinueReg = ContinueInst->getOperand(i).getReg();
+      const TargetRegisterClass *TRC = MRI->getRegClass(ContinueReg);
+      Vals.push_back(MRI->createVirtualRegister(TRC));
+      unsigned movOpcode = TII->getMoveOpcode(TRC);
+      BuildMI(MBB, MBB->getLastNonDebugInstr()->getDebugLoc(),
+              TII->get(movOpcode), ContinueInst->getOperand(i).getReg())
+              .addReg(Vals[i])
+              .setMIFlag(MachineInstr::NonSequential);
+      LMFI->setLICDepth(ContinueInst->getOperand(i).getReg(),64);
+    }
+    OutVals.push_back(Vals);
+    unsigned PoolReg = csa_utils::createUseTree(
+        MBB, MBB->end(), CSA::ALL0, Vals, CSA::IGN);
+    PoolRegs.push_back(PoolReg);
+    LMFI->setLICDepth(PoolReg,64);
+    for (int j = 0; j < 64; ++j)
+      BuildMI(*MBB, MBB->end(),
+              DebugLoc(), TII->get(CSA::INIT0), PoolReg)
+             .addImm(0)
+             .setMIFlag(MachineInstr::NonSequential);
+  }
+  if (HasExtEntry) {
+    SmallVector<unsigned, 4> Vals;
+    for (unsigned i = 0; i < NewReturnInst->getNumOperands(); ++i) {
+      unsigned NewReturnReg = NewReturnInst->getOperand(i).getReg();
+      const TargetRegisterClass *TRC = MRI->getRegClass(NewReturnReg);
+      Vals.push_back(MRI->createVirtualRegister(TRC));
+      unsigned movOpcode = TII->getMoveOpcode(TRC);
+      BuildMI(MBB, MBB->getLastNonDebugInstr()->getDebugLoc(),
+              TII->get(movOpcode), NewReturnReg)
+              .addReg(Vals[i])
+              .setMIFlag(MachineInstr::NonSequential);
+      LMFI->setLICDepth(NewReturnReg,64);
+    }  
+    unsigned PoolReg = csa_utils::createUseTree(
+      MBB, MBB->end(), CSA::ALL0, Vals, CSA::IGN);
+    PoolRegs.push_back(PoolReg);
+    LMFI->setLICDepth(PoolReg,64);
+    for (int j = 0; j < 64; ++j) {
+      BuildMI(*MBB, MBB->end(),
+              DebugLoc(), TII->get(CSA::INIT0), PoolReg)
+             .addImm(0)
+             .setMIFlag(MachineInstr::NonSequential);
+    }
+    OutVals.push_back(Vals);
+  }
+  SmallVector<unsigned, 4> ReadyRegs;
+  int i = 0;
+  // allow one token through from the pool (new - one static op per caller)
+  // if some parameters are running ahead, they will be blocked at their
+  // corresponding pick operations before they get to the point of
+  // blocking other callsites
+  for (auto Signal : select_signals) {
+    auto ReadyReg = LMFI->allocateLIC(&CSA::CI0RegClass);
+    auto PoolReg = PoolRegs[i++];
+    BuildMI(*MBB, MBB->end(),
+            DebugLoc(), TII->get(TII->makeOpcode(CSA::Generic::GATE, MRI->getRegClass(Signal))), ReadyReg)
+           .addReg(Signal)
+           .addReg(PoolReg)
+           .setMIFlag(MachineInstr::NonSequential);
+    ReadyRegs.push_back(ReadyReg);
+  }
+
   for (unsigned i = 0; i < EntryInst->getNumOperands(); ++i) {
     assert(EntryInst->getOperand(i).isReg());
     unsigned dst = EntryInst->getOperand(i).getReg();
@@ -431,7 +551,7 @@ void CSACreateSelfContainedGraph::insertComplexTrampolineCode(
       vals.push_back(NewEntryInst->getOperand(i).getReg());
     unsigned src =
       csa_utils::createPickTree(
-        MBB, MBB->end(), TRC, select_signals, vals, CSA::NA);
+        MBB, MBB->end(), TRC, ReadyRegs, vals, CSA::NA);
     unsigned movOpcode = TII->getMoveOpcode(TRC);
     BuildMI(MBB, MBB->getLastNonDebugInstr()->getDebugLoc(),
             TII->get(movOpcode), dst)
@@ -441,17 +561,14 @@ void CSACreateSelfContainedGraph::insertComplexTrampolineCode(
   for (unsigned i = 0; i < ReturnInst->getNumOperands(); ++i) {
     unsigned src = ReturnInst->getOperand(i).getReg();
     const TargetRegisterClass *TRC = MRI->getRegClass(src);
-    SmallVector<unsigned, 4> outvals;
-    for (auto CallInst : CallInstList) {
-      MachineBasicBlock::iterator I(CallInst);
-      ++I;
-      MachineInstr *ContinueInst = &*I;
-      outvals.push_back(ContinueInst->getOperand(i).getReg());
+    SmallVector<unsigned, 4> ResVals;
+    for (unsigned j = 0; j < CallInstList.size(); j++)
+      ResVals.push_back(OutVals[j][i]);
+    if (HasExtEntry) {
+      ResVals.push_back(OutVals[CallInstList.size()][i]);
     }
-    if (HasExtEntry)
-      outvals.push_back(NewReturnInst->getOperand(i).getReg());
-    csa_utils::createSwitchTree(MBB, MBB->end(), TRC, select_signals, outvals,
-                                  src, 0, CSA::NA);
+    csa_utils::createSwitchTree(MBB, MBB->end(), TRC, ReadyRegs, ResVals,
+                                src, 0, CSA::NA);
   }
   insertTrampolineEndPseudo(MBB, TII);
   if (HasExtEntry) {
@@ -482,8 +599,10 @@ void CSACreateSelfContainedGraph::insertTrampolineCode(
     MachineBasicBlock::iterator I(MI);
     ++I;
     MachineInstr *ContinueMI = &*I;
-    MI->eraseFromParent();
-    ContinueMI->eraseFromParent();
+    if (!isProxyCall(*MI,*thisMod,MMI)) {
+      MI->eraseFromParent();
+      ContinueMI->eraseFromParent();
+    }
   }
   if (CalleeMF->getFunction().hasLocalLinkage() || CallInstList.size()!=0) {
     EntryInst->eraseFromParent();
@@ -505,6 +624,8 @@ void CSACreateSelfContainedGraph::insertTrampolineCode(
     if (!CallInstList.empty())
       insertTrampolineCode(TopMF,MF,CallInstList,EntryInst);
     else { // This is function that is only being called externally
+           // or may be a dead function
+      if (MF->getFunction().hasLocalLinkage()) continue;
       auto LMFI = TopMF->getInfo<CSAMachineFunctionInfo>();
       MachineInstr *ReturnInst = EntryToReturnMap[EntryInst];
       LMFI->addCSAEntryPoint(MF, EntryInst, ReturnInst);
@@ -527,7 +648,7 @@ void avoidParamsResultsOverlap(MachineFunction *MF) {
     static_cast<const CSAInstrInfo *>(MF->getSubtarget().getInstrInfo());
   MachineRegisterInfo *MRI = &(MF->getRegInfo());
   for (MachineOperand &MO : EntryMI->operands()) {
-    if (MO.isReg() && TargetRegisterInfo::isVirtualRegister(MO.getReg())) {
+    if (MO.isReg() && Register::isVirtualRegister(MO.getReg())) {
       auto Reg = MO.getReg();
       for (auto U = MRI->use_begin(Reg); U != MRI->use_end(); ++U) {
         MachineInstr *UI = U->getParent();
@@ -608,7 +729,7 @@ void CSACreateSelfContainedGraph::processForOffloadCompile(Module &M) {
     StringRef name = F.getName();
     MachineFunction *MF = MMI->getMachineFunction(F);
     avoidParamsResultsOverlap(MF);
-    if (name.startswith("__omp_offloading"))
+    if (name.startswith("__omp_offloading") && !F.hasInternalLinkage())
       OffloadRegionRoots.insert(MF);
   }
   for (auto MF: OffloadRegionRoots) {
@@ -646,7 +767,7 @@ bool isOMPOffloadCompile(Module &M) {
     // section mens we are doing OMP offload compilation
     if (GV->hasSection()) {
       StringRef sectionName = GV->getSection();
-      if (sectionName == ".omp_offloading.entries")
+      if (sectionName == "omp_offloading_entries")
         return true;
     }
   }
@@ -654,32 +775,71 @@ bool isOMPOffloadCompile(Module &M) {
 }
 
 // cloned in CSAProcedureCalls.cpp
+/********************************************************************
+ * For initializer functions, memory ordering edges (param and result)
+ * are handled in a special way.
+ * If there are parameters other the memory ordering edge parameter,
+ * Then the memory ordering edge is removed from parameter list and
+ * its use inside the function is replaced by the narrow copy of the 
+ * first non memory ordering edge parameter.
+ * If there are results other the memory odering edge, then each result
+ * is gated through the output memory ordering edge and the output memory
+ *  ordering edge is removed from the list os results
+ ********************************************************************/
 void cleanupInitializerFunctions(Module &M, MachineModuleInfo *MMI) {
   LLVM_DEBUG(dbgs() << "cleanupInitializerFunctions\n");
   for (auto &F : M) {
     bool IsInitializer = F.hasFnAttribute("__csa_attr_initializer");
     if (!IsInitializer) continue;
     MachineFunction *MF = MMI->getMachineFunction(F);
+    if (MF == nullptr) continue;
     MachineRegisterInfo *MRI = &(MF->getRegInfo());
+    const CSAInstrInfo *TII =
+      static_cast<const CSAInstrInfo *>(MF->getSubtarget().getInstrInfo());
     const CSAMachineFunctionInfo *LMFI = MF->getInfo<CSAMachineFunctionInfo>();
     assert(LMFI);
     MachineInstr *EntryMI = LMFI->getEntryMI();
     MachineInstr *ReturnMI = LMFI->getReturnMI();
     unsigned InMemoryLic = LMFI->getInMemoryLic();
     unsigned OutMemoryLic = LMFI->getOutMemoryLic();
-    MRI->replaceRegWith(InMemoryLic, CSA::IGN);
-    MRI->replaceRegWith(OutMemoryLic, CSA::IGN);
+    if (EntryMI->getNumOperands() > 1) { // Are regular params available
+      auto Reg = InMemoryLic;
+      auto NewReg = MRI->createVirtualRegister(MRI->getRegClass(Reg));
+      MachineBasicBlock::iterator MII(EntryMI);
+      MII++;
+      BuildMI(*(EntryMI->getParent()), MII, EntryMI->getDebugLoc(), TII->get(CSA::MOV0))
+             .addReg(NewReg, RegState::Define)
+             .addReg(EntryMI->getOperand(1).getReg())
+             .setMIFlag(MachineInstr::NonSequential);
+      MRI->replaceRegWith(Reg, NewReg);
+    }
+    for (unsigned i = 1; i < ReturnMI->getNumOperands(); ++i) {
+      auto Reg = ReturnMI->getOperand(i).getReg();
+      auto NewReg = MRI->createVirtualRegister(MRI->getRegClass(Reg));
+      BuildMI(*(ReturnMI->getParent()), ReturnMI, ReturnMI->getDebugLoc(), TII->get(TII->makeOpcode(CSA::Generic::GATE, MRI->getRegClass(Reg))))
+             .addReg(NewReg, RegState::Define)
+             .addReg(OutMemoryLic)
+             .addReg(Reg)
+             .setMIFlag(MachineInstr::NonSequential);
+      ReturnMI->getOperand(i).setReg(NewReg);
+    } 
     EntryMI->RemoveOperand(0);
-    ReturnMI->RemoveOperand(0);
+    if (ReturnMI->getNumOperands() > 1)
+      ReturnMI->RemoveOperand(0);
   }
 }
 
 bool CSACreateSelfContainedGraph::runOnModule(Module &M) {
-  MMI = &getAnalysis<MachineModuleInfo>();
+  thisMod = &M;
+  MMI = &getAnalysis<MachineModuleInfoWrapperPass>().getMMI();
   OffloadRegionRoots.clear();
   EntryToReturnMap.clear();
-  if (hasUnsupportedCalls(M,MMI))
-    report_fatal_error("This module has unsupported calls");
+  if (hasUnsupportedCalls(M,MMI)) {
+    if (csa_utils::reportWarningForExtCalls())
+      errs() << "WARNING: External calls not yet supported! May generate code with incomplete linkage!\n";
+    else
+      report_fatal_error("External calls not yet supported! Cannot be run on CSA!");
+  }
   cleanupInitializerFunctions(M, MMI);
   IsOpenMPOffload = isOMPOffloadCompile(M);
   if (IsOpenMPOffload)
@@ -688,4 +848,3 @@ bool CSACreateSelfContainedGraph::runOnModule(Module &M) {
     processForManualCompile(M);
   return true;
 }
-

@@ -430,9 +430,9 @@ bool VPOParoptTransform::optimizeDataSharing() {
 
     // Recreate the directive call.
     SmallVector<Value *, 8> Args(EntryCI->arg_begin(), EntryCI->arg_end());
-    auto *NewEntryCI =
-        CallInst::Create(EntryCI->getCalledValue(), Args,
-                         NewOpBundles, "", EntryCI);
+    auto *NewEntryCI = CallInst::Create(EntryCI->getFunctionType(),
+                                        EntryCI->getCalledOperand(), Args,
+                                        NewOpBundles, "", EntryCI);
     NewEntryCI->takeName(EntryCI);
     NewEntryCI->setCallingConv(EntryCI->getCallingConv());
     NewEntryCI->setAttributes(EntryCI->getAttributes());

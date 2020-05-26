@@ -1,4 +1,4 @@
-; RUN: llc -O1 -fp-contract=fast -csa-opt-df-pass=1 -mtriple=csa -csa-use-deprecated-reduc-insts < %s | FileCheck %s --check-prefix=CSA_CHECK
+; RUN: llc -O1 -fp-contract=fast -csa-opt-df-pass=1 -mtriple=csa -csa-hw-reducer-experiment < %s | FileCheck %s --check-prefix=CSA_CHECK
 
 ; ModuleID = 'loop_kernel.cpp'
 target datalayout = "e-m:e-i64:64-n32:64"
@@ -9,7 +9,7 @@ target triple = "csa"
 ; Function Attrs: nounwind readonly
 define double @dot_kernel(i32 %n, double* nocapture readonly %x, double* nocapture readonly %y) #0 {
 
-; CSA_CHECK-DAG: fmsredaf64
+; CSA_CHECK-DAG: redaddf64
 
 entry:
   %cmp.9 = icmp sgt i32 %n, 0

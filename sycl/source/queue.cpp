@@ -64,7 +64,7 @@ queue::queue(const device &syclDevice, const async_handler &asyncHandler,
 queue::queue(cl_command_queue clQueue, const context &syclContext,
              const async_handler &asyncHandler) {
   impl = std::make_shared<detail::queue_impl>(
-      detail::pi::cast<detail::RT::PiQueue>(clQueue),
+      reinterpret_cast<RT::PiQueue>(clQueue), // INTEL
       detail::getSyclObjImpl(syclContext), asyncHandler);
 }
 
@@ -128,7 +128,8 @@ queue::get_info() const {
 }
 
 #define PARAM_TRAITS_SPEC(param_type, param, ret_type)                         \
-  template ret_type queue::get_info<info::param_type::param>() const;
+  template __SYCL_EXPORT ret_type queue::get_info<info::param_type::param>()   \
+      const;
 
 #include <CL/sycl/info/queue_traits.def>
 
@@ -142,12 +143,16 @@ template <typename propertyT> propertyT queue::get_property() const {
   return impl->get_property<propertyT>();
 }
 
-template bool queue::has_property<property::queue::enable_profiling>() const;
-template property::queue::enable_profiling
+template __SYCL_EXPORT bool
+queue::has_property<property::queue::enable_profiling>() const;
+template __SYCL_EXPORT property::queue::enable_profiling
 queue::get_property<property::queue::enable_profiling>() const;
 
 bool queue::is_in_order() const {
   return impl->has_property<property::queue::in_order>();
 }
+
+pi_native_handle queue::getNative() const { return impl->getNative(); }
+
 } // namespace sycl
 } // __SYCL_INLINE_NAMESPACE(cl)

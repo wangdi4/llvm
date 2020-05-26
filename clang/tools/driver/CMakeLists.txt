@@ -21,6 +21,7 @@ set( LLVM_LINK_COMPONENTS
   Intel_LoopTransforms
   Intel_MapIntrinToIml
   Intel_OptReport
+  Intel_DPCPPKernelTransforms
 # end INTEL_CUSTOMIZATION
 # INTEL_COLLAB
   VPOAnalysis
@@ -68,7 +69,7 @@ endif()
 
 # Support plugins.
 if(CLANG_PLUGIN_SUPPORT)
-  export_executable_symbols(clang)
+  export_executable_symbols_for_plugins(clang)
 endif()
 
 add_dependencies(clang clang-resource-headers)

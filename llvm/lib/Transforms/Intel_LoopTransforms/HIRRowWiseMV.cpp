@@ -70,7 +70,7 @@
 /// \endcode
 ///
 //===----------------------------------------------------------------------===//
-#include "llvm/Transforms/Intel_LoopTransforms/HIRRowWiseMV.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRRowWiseMVPass.h"
 
 #include "Intel_DTrans/Analysis/DTransFieldModRef.h"
 #include "Intel_DTrans/Analysis/DTransImmutableAnalysis.h"
@@ -617,6 +617,9 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
   DDRefUtils &DDRU              = Lp->getDDRefUtils();
   CanonExprUtils &CEU                = Lp->getCanonExprUtils();
   HLLoop *const OutermostParent = Lp->getOutermostParentLoop();
+#if INTEL_INTERNAL_BUILD
+  LoopOptReportBuilder &LORBuilder = HNU.getHIRFramework().getLORBuilder();
+#endif
   assert(OutermostParent && "Lp should not be the outermost loop");
 
   LLVM_DEBUG({
@@ -750,6 +753,10 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
     OutermostParent->extractPreheader();
     HLNodeUtils::insertBefore(OutermostParent, CheckLoop);
   }
+
+#if INTEL_INTERNAL_BUILD
+  LORBuilder(*CheckLoop).addOrigin("Probe loop for row-wise multiversioning");
+#endif
 
   // Add ZTTs from the outer loops to make sure the accesses are safe:
   //
@@ -1151,11 +1158,28 @@ static void multiversionLoop(HLLoop *Lp, const MVCandidate &MVCand,
     assert(MVSwitch->getConstCaseValue(CaseNum) == int64_t(MVInd + 1));
     HLNodeUtils::insertAsLastChild(MVSwitch, MVLoop, CaseNum);
 
+    // Opt reports don't support %f yet; construct the message as a string
+    // instead.
+#if INTEL_INTERNAL_BUILD
+    if (LORBuilder.isLoopOptReportOn()) {
+      std::string Message;
+      raw_string_ostream MessageStream{Message};
+      MessageStream
+        << "Row-wise multiversioned loop for value "
+        << cast<ConstantFP>(MVVals[MVInd])->getValueAPF().convertToDouble();
+      LORBuilder(*MVLoop).addOrigin(Message);
+    }
+#endif
+
     // Replace all uses of the loaded value within the loop with the constant.
     replaceAllEquivalentRefsWithConstant(MVLoop, MVRef, MVVals[MVInd],
                                          HDDA.getGraph(MVLoop));
   }
 
+#if INTEL_INTERNAL_BUILD
+  LORBuilder(*Lp).addRemark(OptReportVerbosity::Low,
+                            "Loop has been row-wise multiversioned");
+#endif
   HIRInvalidationUtils::invalidateBody(Lp->getParentLoop());
 }
 

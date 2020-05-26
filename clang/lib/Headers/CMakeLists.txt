@@ -56,23 +56,12 @@ intel_add_file(INTEL_HEADERS
   Intel_Headers/uliintrin.h
   )
 # end INTEL_FEATURE_ISA_ULI
-# INTEL_FEATURE_ISA_SERIALIZE
-intel_add_file(INTEL_HEADERS
-  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_SERIALIZE
-  Intel_Headers/serializeintrin.h
-  )
-# end INTEL_FEATURE_ISA_SERIALIZE
 # INTEL_FEATURE_ISA_HRESET
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_HRESET
   Intel_Headers/hresetintrin.h
   )
 # end INTEL_FEATURE_ISA_HRESET
-# INTEL_FEATURE_ISA_TSXLDTRK
-intel_add_file(INTEL_HEADERS
-  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_TSXLDTRK
-  Intel_Headers/tsxldtrkintrin.h)
-# end INTEL_FEATURE_ISA_TSXLDTRK
 # INTEL_FEATURE_ISA_AMX
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX
@@ -139,6 +128,13 @@ intel_add_file(INTEL_HEADERS
   Intel_amxconvertintrin.h
   )
 # end INTEL_FEATURE_ISA_AMX_CONVERT
+# INTEL_FEATURE_ISA_AMX_TILE2
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_TILE2
+  Intel_amxtile2intrin.h
+  )
+# end INTEL_FEATURE_ISA_AMX_TILE2
+
 # INTEL_FEATURE_ISA_KEYLOCKER
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_KEYLOCKER
@@ -193,6 +189,12 @@ intel_add_file(INTEL_HEADERS
   Intel_Headers/avxconvert/avxconvertintrin.h
   )
 # end INTEL_FEATURE_ISA_AVX_CONVERT
+# INTEL_FEATURE_ISA_AVX_BF16
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_BF16
+  Intel_Headers/avxbf16/avxbf16intrin.h
+  )
+# end INTEL_FEATURE_ISA_AVX_BF16
 # end INTEL_CUSTOMIZATION
 
 set(files
@@ -234,6 +236,7 @@ set(files
   bmi2intrin.h
   bmiintrin.h
   __clang_cuda_builtin_vars.h
+  __clang_cuda_math.h
   __clang_cuda_cmath.h
   __clang_cuda_complex_builtins.h
   __clang_cuda_device_functions.h
@@ -290,6 +293,7 @@ set(files
   ptwriteintrin.h
   rdseedintrin.h
   rtmintrin.h
+  serializeintrin.h
   sgxintrin.h
   s390intrin.h
   shaintrin.h
@@ -305,6 +309,7 @@ set(files
   tbmintrin.h
   tgmath.h
   tmmintrin.h
+  tsxldtrkintrin.h
   unwind.h
   vadefs.h
   vaesintrin.h
@@ -312,6 +317,7 @@ set(files
   vecintrin.h
   vpclmulqdqintrin.h
   waitpkgintrin.h
+  wasm_simd128.h
   wbnoinvdintrin.h
   wmmintrin.h
   __wmmintrin_aes.h
@@ -345,8 +351,7 @@ set(ppc_wrapper_files
 set(openmp_wrapper_files
   openmp_wrappers/math.h
   openmp_wrappers/cmath
-  openmp_wrappers/__clang_openmp_math.h
-  openmp_wrappers/__clang_openmp_math_declares.h
+  openmp_wrappers/__clang_openmp_device_functions.h
   openmp_wrappers/new
 )
 

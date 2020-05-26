@@ -33,6 +33,11 @@ private:
   VPInstruction *createInstruction(unsigned Opcode, Type *BaseTy,
                                    ArrayRef<VPValue *> Operands,
                                    const Twine &Name = "") {
+    assert((!Instruction::isBinaryOp(Opcode) || Operands.size() == 2) &&
+           "Expected 2 operands");
+    assert((!Instruction::isUnaryOp(Opcode) || Operands.size() == 1) &&
+           "Expected 1 operand");
+
     VPInstruction *Instr = new VPInstruction(Opcode, BaseTy, Operands);
     if (BB)
       BB->insert(Instr, InsertPt);
@@ -183,7 +188,7 @@ public:
                              {LHS, RHS}, Name);
   }
 
-  VPValue *createPred(VPValue *Operand) {
+  VPInstruction *createPred(VPValue *Operand) {
     return createInstruction(VPInstruction::Pred, Operand->getType(),
                              {Operand});
   }
@@ -252,6 +257,14 @@ public:
     if (BB)
       BB->insert(NewVPPHINode, InsertPt);
     return NewVPPHINode;
+  }
+
+  VPBlendInst *createBlendInstruction(Type *Ty, const Twine &Name = "") {
+    auto *Blend = new VPBlendInst(Ty);
+    Blend->setName(Name);
+    if (BB)
+      BB->insert(Blend, InsertPt);
+    return Blend;
   }
 
   // Build a VPGEPInstruction for the LLVM-IR instruction \p Inst using base
@@ -331,6 +344,21 @@ public:
     if (BB)
       BB->insert(NewSubscript, InsertPt);
     return NewSubscript;
+  }
+
+  // Build a VPCallInstruction for the LLVM-IR instruction \p Inst using callee
+  // \p CalledValue and list of argument operands \p ArgList.
+  VPInstruction *createCall(VPValue *CalledValue, ArrayRef<VPValue *> ArgList,
+                            Instruction *Inst) {
+    assert(Inst && "Cannot create VPCallInstruction without underlying IR.");
+    CallInst *Call = cast<CallInst>(Inst);
+    VPCallInstruction *NewVPCall =
+        new VPCallInstruction(CalledValue, ArgList, Call);
+    NewVPCall->setUnderlyingValue(*Call);
+    NewVPCall->setName(Inst->getName());
+    if (BB)
+      BB->insert(NewVPCall, InsertPt);
+    return NewVPCall;
   }
 
   // Reduction init/final
@@ -423,6 +451,26 @@ public:
       BB->insert(NewVPInst, InsertPt);
     NewVPInst->setName(AI->getName());
     return NewVPInst;
+  }
+
+  VPOrigTripCountCalculation *
+  createOrigTripCountCalculation(Loop *OrigLoop, VPLoop *VPLp, Type *Ty,
+                                 const Twine &Name = "orig.trip.count") {
+    auto *OrigTC = new VPOrigTripCountCalculation(OrigLoop, VPLp, Ty);
+    OrigTC->setName(Name);
+    if (BB)
+      BB->insert(OrigTC, InsertPt);
+    return OrigTC;
+  }
+
+  VPVectorTripCountCalculation *
+  createVectorTripCountCalculation(VPOrigTripCountCalculation *OrigTC,
+                                   const Twine &Name = "vector.trip.count") {
+    auto *TC = new VPVectorTripCountCalculation(OrigTC);
+    TC->setName(Name);
+    if (BB)
+      BB->insert(TC, InsertPt);
+    return TC;
   }
 
   //===--------------------------------------------------------------------===//

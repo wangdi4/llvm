@@ -40,6 +40,7 @@
 #include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/CodeGen/TargetInstrInfo.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
+#include "llvm/IR/CFG.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Instruction.h"
@@ -55,11 +56,6 @@ ProcCallsPass("csa-proc-calls-pass",
           cl::desc("CSA Specific: Optimize data-flow to data-flow procedure calls"),
           cl::init(1));
 
-static cl::opt<bool>
-ReportWarningForExtCalls("csa-report-ext-calls-as-warning",
-          cl::Hidden, cl::ZeroOrMore,
-          cl::desc("CSA Specific: Report external calls as warnings"),
-          cl::init(false));
 #define DEBUG_TYPE "csa-proc-calls"
 
 typedef struct call_site_info {
@@ -77,8 +73,8 @@ public:
   StringRef getPassName() const override { return "CSA: Procedure Calls Pass"; }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<MachineModuleInfo>();
-    AU.addPreserved<MachineModuleInfo>();
+    AU.addRequired<MachineModuleInfoWrapperPass>();
+    AU.addPreserved<MachineModuleInfoWrapperPass>();
     AU.setPreservesAll();
     MachineFunctionPass::getAnalysisUsage(AU);
   }
@@ -195,21 +191,27 @@ unsigned CSAProcCallsPass::getParamReg(const std::string &caller_func, const std
   return LMFI->allocateLIC(TRC, Twine(name), Twine(caller_func), isDeclared, isGloballyVisible);
 }
 
-void CSAProcCallsPass::getCallSiteArgs(CALL_SITE_INFO &csi, MachineInstr *entryMI, bool isDeclared) {
-  csi.call_site_args.push_back(getParamReg(csi.caller_func, "caller_out_mem_ord_", csi.call_site_index, 0,
-                                            &CSA::CI0RegClass, isDeclared, true));
+void CSAProcCallsPass::getCallSiteArgs(CALL_SITE_INFO &csi,
+                                       MachineInstr *entryMI, bool isDeclared) {
+  csi.call_site_args.push_back(
+      getParamReg(csi.caller_func.str(), "caller_out_mem_ord_",
+                  csi.call_site_index, 0, &CSA::CI0RegClass, isDeclared, true));
   for (unsigned int i = 1; i < entryMI->getNumOperands(); ++i) {
-    csi.call_site_args.push_back(getParamReg(csi.caller_func, "param_", csi.call_site_index, i,
-                                            &CSA::CI64RegClass, isDeclared, true));
+    csi.call_site_args.push_back(
+        getParamReg(csi.caller_func.str(), "param_", csi.call_site_index, i,
+                    &CSA::CI64RegClass, isDeclared, true));
   }
 }
 
-void CSAProcCallsPass::getReturnArgs(CALL_SITE_INFO &csi, MachineInstr *returnMI, bool isDeclared) {
-  csi.return_args.push_back(getParamReg(csi.caller_func, "caller_in_mem_ord_", csi.call_site_index, 0,
-                                            &CSA::CI0RegClass, isDeclared, true));
+void CSAProcCallsPass::getReturnArgs(CALL_SITE_INFO &csi,
+                                     MachineInstr *returnMI, bool isDeclared) {
+  csi.return_args.push_back(
+      getParamReg(csi.caller_func.str(), "caller_in_mem_ord_",
+                  csi.call_site_index, 0, &CSA::CI0RegClass, isDeclared, true));
   for (unsigned int i = 1; i < returnMI->getNumOperands(); ++i) {
-    csi.return_args.push_back(getParamReg(csi.caller_func, "result_", csi.call_site_index, i,
-                                            &CSA::CI64RegClass, isDeclared, true));
+    csi.return_args.push_back(
+        getParamReg(csi.caller_func.str(), "result_", csi.call_site_index, i,
+                    &CSA::CI64RegClass, isDeclared, true));
   }
 }
 
@@ -276,7 +278,7 @@ static void getCalleeName(StringRef &callee_name, MachineInstr *MI, const Module
         callee_name = MO.getSymbolName();
       }
     } else {
-      if (ReportWarningForExtCalls) {
+      if (csa_utils::reportWarningForExtCalls()) {
         callee_name = "dummy_func";
         errs() << "WARNING: Indirect calls not yet supported! May generate code with incomplete linkage!\n";
       } else
@@ -290,7 +292,7 @@ static void getCalleeName(StringRef &callee_name, MachineInstr *MI, const Module
           callee_name = MO.getSymbolName();
         }
       } else {
-        if (ReportWarningForExtCalls) {
+        if (csa_utils::reportWarningForExtCalls()) {
           callee_name = "dummy_func";
           errs() << "WARNING: External calls not yet supported! May generate code with incomplete linkage!\n";
         } else
@@ -355,33 +357,36 @@ void CSAProcCallsPass::processCallAndContinueInstructions(void) {
         report_fatal_error("Recursive function call not yet supported! Cannot be run on CSA!");
       }
       // The LIC will be declared in callee code or caller code depending on which comes first in the module
-      int callee_id = get_func_order(callee_name,M);
-      int caller_id = get_func_order(name,M);
+      int callee_id = get_func_order(callee_name, M);
+      int caller_id = get_func_order(name, M);
       bool isDeclared = (callee_id > caller_id);
-      unsigned newreg = getParamReg(name, "caller_out_mem_ord_", CallSiteIndex, 0,
-                                            &CSA::CI0RegClass, isDeclared, true);
-      unsigned oldreg =  CallMI->getOperand(1).getReg();
+      unsigned newreg =
+          getParamReg(name.str(), "caller_out_mem_ord_", CallSiteIndex, 0,
+                      &CSA::CI0RegClass, isDeclared, true);
+      unsigned oldreg = CallMI->getOperand(1).getReg();
       CallMI->getOperand(1).setReg(newreg);
-      createMovInstBefore(CallMI,oldreg,newreg);
+      createMovInstBefore(CallMI, oldreg, newreg);
       for (unsigned int i = 2; i < CallMI->getNumOperands(); ++i) {
         unsigned oldreg = CallMI->getOperand(i).getReg();
-        unsigned newreg = getParamReg(name, "param_", CallSiteIndex, i - 1,
-                                        MRI->getRegClass(oldreg), isDeclared, true);
+        unsigned newreg =
+            getParamReg(name.str(), "param_", CallSiteIndex, i - 1,
+                        MRI->getRegClass(oldreg), isDeclared, true);
         CallMI->getOperand(i).setReg(newreg);
-        createMovInstBefore(CallMI,oldreg,newreg);
+        createMovInstBefore(CallMI, oldreg, newreg);
       }
       oldreg = ContinueMI->getOperand(0).getReg();
-      newreg = getParamReg(name, "caller_in_mem_ord_", CallSiteIndex, 0,
-                                            &CSA::CI0RegClass, isDeclared, true);
+      newreg = getParamReg(name.str(), "caller_in_mem_ord_", CallSiteIndex, 0,
+                           &CSA::CI0RegClass, isDeclared, true);
       ContinueMI->getOperand(0).setReg(newreg);
-      createMovInstAfter(ContinueMI,oldreg,newreg);
+      createMovInstAfter(ContinueMI, oldreg, newreg);
       for (unsigned int i = 1; i < ContinueMI->getNumOperands(); ++i) {
         unsigned oldreg = ContinueMI->getOperand(i).getReg();
-        const TargetRegisterClass *RC = (oldreg == CSA::IGN) ? &CSA::CI0RegClass : MRI->getRegClass(oldreg);
-        unsigned newreg = getParamReg(name, "result_", CallSiteIndex, 1,
-                                        RC, isDeclared, true);
+        const TargetRegisterClass *RC =
+            (oldreg == CSA::IGN) ? &CSA::CI0RegClass : MRI->getRegClass(oldreg);
+        unsigned newreg = getParamReg(name.str(), "result_", CallSiteIndex, 1,
+                                      RC, isDeclared, true);
         ContinueMI->getOperand(i).setReg(newreg);
-        createMovInstAfter(ContinueMI,oldreg,newreg);
+        createMovInstAfter(ContinueMI, oldreg, newreg);
       }
     }
   }
@@ -577,24 +582,57 @@ void CSAProcCallsPass::changeMovConstToGate(unsigned entry_mem_ord_lic) {
 }
 
 // Cloned from CSACreateSelfContainedGraph.cpp
+/********************************************************************
+ *  * For initializer functions, memory ordering edges (param and result)
+ *   * are handled in a special way.
+ *    * If there are parameters other the memory ordering edge parameter,
+ *     * Then the memory ordering edge is removed from parameter list and
+ *      * its use inside the function is replaced by the narrow copy of the 
+ *       * first non memory ordering edge parameter.
+ *        * If there are results other the memory odering edge, then each result
+ *         * is gated through the output memory ordering edge and the output memory
+ *          *  ordering edge is removed from the list os results
+ *           ********************************************************************/
 void cleanupInitializerFunctions(const Module &M, MachineModuleInfo *MMI) {
   LLVM_DEBUG(dbgs() << "cleanupInitializerFunctions\n");
   for (auto &F : M) {
     bool IsInitializer = F.hasFnAttribute("__csa_attr_initializer");
     if (!IsInitializer) continue;
     MachineFunction *MF = MMI->getMachineFunction(F);
-    if (!MF) continue;
+    if (MF == nullptr) continue;
     MachineRegisterInfo *MRI = &(MF->getRegInfo());
+    const CSAInstrInfo *TII =
+      static_cast<const CSAInstrInfo *>(MF->getSubtarget().getInstrInfo());
     const CSAMachineFunctionInfo *LMFI = MF->getInfo<CSAMachineFunctionInfo>();
     assert(LMFI);
     MachineInstr *EntryMI = LMFI->getEntryMI();
     MachineInstr *ReturnMI = LMFI->getReturnMI();
     unsigned InMemoryLic = LMFI->getInMemoryLic();
     unsigned OutMemoryLic = LMFI->getOutMemoryLic();
-    MRI->replaceRegWith(InMemoryLic, CSA::IGN);
-    MRI->replaceRegWith(OutMemoryLic, CSA::IGN);
+    if (EntryMI->getNumOperands() > 1) { // Are regular params available
+      auto Reg = InMemoryLic;
+      auto NewReg = MRI->createVirtualRegister(MRI->getRegClass(Reg));
+      MachineBasicBlock::iterator MII(EntryMI);
+      MII++;
+      BuildMI(*(EntryMI->getParent()), MII, EntryMI->getDebugLoc(), TII->get(CSA::MOV0))
+             .addReg(NewReg, RegState::Define)
+             .addReg(EntryMI->getOperand(1).getReg())
+             .setMIFlag(MachineInstr::NonSequential);
+      MRI->replaceRegWith(Reg, NewReg);
+    }
+    for (unsigned i = 1; i < ReturnMI->getNumOperands(); ++i) {
+      auto Reg = ReturnMI->getOperand(i).getReg();
+      auto NewReg = MRI->createVirtualRegister(MRI->getRegClass(Reg));
+      BuildMI(*(ReturnMI->getParent()), ReturnMI, ReturnMI->getDebugLoc(), TII->get(TII->makeOpcode(CSA::Generic::GATE, MRI->getRegClass(Reg))))
+             .addReg(NewReg, RegState::Define)
+             .addReg(OutMemoryLic)
+             .addReg(Reg)
+             .setMIFlag(MachineInstr::NonSequential);
+      ReturnMI->getOperand(i).setReg(NewReg);
+    }
     EntryMI->RemoveOperand(0);
-    ReturnMI->RemoveOperand(0);
+    if (ReturnMI->getNumOperands() > 1)
+      ReturnMI->RemoveOperand(0);
   }
 }
 

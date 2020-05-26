@@ -1,7 +1,7 @@
 ; This test checks that the argument alignment runs correctly.
 
-; RUN: opt < %s -intel-argument-alignment -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='module(intel-argument-alignment)' -whole-program-assume -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S 2>&1
+; RUN: opt < %s -intel-argument-alignment -whole-program-assume -S 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(intel-argument-alignment)' -whole-program-assume -S 2>&1
 
 ; Check that the constants were removed
 ; CHECK: void @foo

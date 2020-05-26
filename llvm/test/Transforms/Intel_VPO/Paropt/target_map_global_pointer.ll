@@ -129,7 +129,7 @@ attributes #3 = { uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disab
 !llvm.ident = !{!3}
 
 !0 = !{i32 0, i32 2052, i32 85987529, !"_Z3foov", i32 6, i32 1, i32 0}
-!1 = !{i32 1, !"f_global", i32 0, i32 0}
+!1 = !{i32 1, !"f_global", i32 0, i32 0, double** @f_global}
 !2 = !{i32 1, !"wchar_size", i32 4}
 !3 = !{!"clang version 8.0.0"}
 !4 = !{!5, !5, i64 0}

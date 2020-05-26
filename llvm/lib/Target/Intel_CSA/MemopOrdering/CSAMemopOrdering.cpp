@@ -23,8 +23,11 @@
 #include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
+#include "llvm/CodeGen/MachineMemOperand.h" // To get CSA_LOCAL_CACHE_METADATA_KEY.
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/IntrinsicsCSA.h"
+#include "llvm/InitializePasses.h"
 #include "llvm/Support/GraphWriter.h"
 
 #include <algorithm>
@@ -1325,6 +1328,22 @@ static bool isDepthTokenCall(const IntrinsicInst *II) {
   }
 }
 
+// Determine if an instruction is the cache region begin intrinsic.
+static bool isCacheRegionBegin(const IntrinsicInst *II) {
+  if (not II)
+    return false;
+
+  return II->getIntrinsicID() == Intrinsic::csa_local_cache_region_begin;
+}
+
+// Determine if an instruction is the cache region end intrinsic.
+static bool isCacheRegionEnd(const IntrinsicInst *II) {
+  if (not II)
+    return false;
+
+  return II->getIntrinsicID() == Intrinsic::csa_local_cache_region_end;
+}
+
 // Determines whether a memop belongs to the same pool as a
 // csa.pipeline.depth.token.* call.
 static bool inSamePool(const MemopCFG::Memop &PM, const MemopCFG::Memop &M) {
@@ -1354,6 +1373,10 @@ bool MemopCFG::RequireOrdering::operator()(const Memop &A, const Memop &B,
   assert(not(BII and BII->getIntrinsicID() == Intrinsic::csa_mementry) &&
          "Invalid query on mementry");
   assert(not isa<ReturnInst>(A.I) && "Invalid query on return");
+
+  if (AII and AII->getIntrinsicID() == Intrinsic::trap or
+      BII and BII->getIntrinsicID() == Intrinsic::trap)
+    return true;
 
   // Prefetches have very special ordering rules: nothing gets ordered after
   // prefetches...
@@ -1402,6 +1425,40 @@ bool MemopCFG::RequireOrdering::operator()(const Memop &A, const Memop &B,
     return inSamePool(A, B);
   if (isDepthTokenCall(BII))
     return inSamePool(B, A);
+
+  // A llvm.csa.local.cache.region.begin call is ordered with the writes
+  // that come before it.
+  if (isCacheRegionBegin(BII)) {
+    return A.I->mayWriteToMemory();
+  }
+
+  const char *Key = CSA_LOCAL_CACHE_METADATA_KEY;
+
+  // A read inside the region is ordered with csa.local.cache.region.begin.
+  if (isCacheRegionBegin(AII)) {
+    if (!B.I->mayReadFromMemory() || !B.I->hasMetadata(Key))
+      return false;
+
+    assert(A.I->hasMetadata(Key) && "No local cache ID assigned");
+
+    return A.I->getMetadata(Key) == B.I->getMetadata(Key);
+  }
+
+  // A llvm.csa.local.cache.region.end call is ordered with the writes
+  // in the region.
+  if (isCacheRegionEnd(BII)) {
+    if (!A.I->mayWriteToMemory() || !A.I->hasMetadata(Key))
+      return false;
+
+    assert(B.I->hasMetadata(Key) && "No local cache ID assigned");
+
+    return A.I->getMetadata(Key) == B.I->getMetadata(Key);
+  }
+
+  // All memops after the region are ordered with the end of the region.
+  if (isCacheRegionEnd(AII)) {
+    return true;
+  }
 
   // Order calls strictly with respect to everything else.
   // TODO: This is a stopgap to avoid triggering CMPLRLLVM-7634. Remove this
@@ -2606,7 +2663,7 @@ void MemopCFG::calculate_pool_numbers() {
           CMA = dyn_cast<CallInst>(GEP->getPointerOperand());
         }
       }
-      if (not CMA or CMA->getCalledValue()->getName() != "CsaMemAlloc")
+      if (not CMA or CMA->getCalledOperand()->getName() != "CsaMemAlloc")
         report_fatal_error("Token takes should be direct users of CsaMemAlloc "
                            "calls or indirect users through a GEP");
 

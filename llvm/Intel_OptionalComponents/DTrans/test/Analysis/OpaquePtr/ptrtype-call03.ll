@@ -24,7 +24,7 @@ define internal void @test01() {
 ; CHECK-LABEL: internal void @test01
 ; CHECK-CUR:  %1 = call i8* asm "nop", "=r,r"(i8* %local)
 ; CHECK-FUT:  %1 = call p0 asm "nop", "=r,r"(p0 %local)
-; CHECK:    LocalPointerInfo:
+; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-SAME: UNHANDLED
 
 
@@ -40,7 +40,7 @@ define internal void @test02(i8* %buf) {
 ; CHECK-LABEL:  Input Parameters: test02
 ; CHECK-CUR:    Arg 0: i8* %buf
 ; CHECK-FUT:    Arg 0: p0 %buf
-; CHECK:    LocalPointerInfo:
+; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-SAME: UNHANDLED
 
 !dtrans_types = !{}

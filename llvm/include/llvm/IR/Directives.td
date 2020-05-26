@@ -149,6 +149,10 @@ def "DIR.VPO.END.AUTO.VEC" : Directive;
 #if INTEL_CUSTOMIZATION
 def "DIR.PRAGMA.IVDEP" : Directive;
 def "DIR.PRAGMA.END.IVDEP" : Directive;
+def "DIR.PRAGMA.BLOCK_LOOP" : Directive;
+def "DIR.PRAGMA.END.BLOCK_LOOP" : Directive;
+def "DIR.PRAGMA.DISTRIBUTE_POINT" : Directive;
+def "DIR.PRAGMA.END.DISTRIBUTE_POINT" : Directive;
 #endif // INTEL_CUSTOMIZATION
 
 
@@ -300,6 +304,7 @@ def "QUAL.OMP.OPERAND.ADDR" : Clause;
 def "QUAL.OMP.JUMP.TO.END.IF" : Clause;
 def "QUAL.OMP.OFFLOAD.ENTRY.IDX" : Clause;
 def "QUAL.OMP.OFFLOAD.NDRANGE" : Clause;
+def "QUAL.OMP.OFFLOAD.KNOWN.NDRANGE" : Clause;
 
 // =====================================================================
 // * Begin Non-OpenMP Clauses

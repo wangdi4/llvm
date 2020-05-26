@@ -25,5 +25,8 @@ BUILTIN(__builtin_csa_parallel_region_exit,   "vi", "n")
 BUILTIN(__builtin_csa_parallel_section_entry, "ii", "n")
 BUILTIN(__builtin_csa_parallel_section_exit,  "vi", "n")
 
+// CSA local cache
+BUILTIN(__builtin_csa_local_cache, "vi", "n")
+
 #undef BUILTIN
 #endif  // INTEL_FEATURE_CSA

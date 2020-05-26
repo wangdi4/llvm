@@ -39,7 +39,6 @@
 //   Actual transformation is done by two utils: stripmine and permute
 //   (a.k.a stripmine and interchange)
 
-#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopBlocking.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Function.h"
@@ -48,6 +47,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRLoopBlockingPass.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLocalityAnalysis.h"
@@ -56,7 +56,9 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDUtils.h"
 
+#include "HIRPrintDiag.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGatherer.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGrouping.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
@@ -218,20 +220,12 @@ inline std::array<std::string, NUM_DIAGS> createDiagMap() {
 
 static std::array<std::string, NUM_DIAGS> DiagMap = createDiagMap();
 
-// TODO: Loop Interchange has the same function. Consolidate.
 void printDiag(DiagMsg Msg, StringRef FuncName, const HLLoop *Loop = nullptr,
-               StringRef Header = "No Blocking: ", unsigned Level = 1) {
+               StringRef Header = "No Blocking: ", unsigned DiagLevel = 1) {
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  if (Level > PrintDiagLevel)
-    return;
-  if (!PrintDiagFunc.empty() && !FuncName.equals(PrintDiagFunc)) {
-    return;
-  }
-  dbgs() << "Func: " << FuncName << ", ";
-  dbgs() << Header << " " << DiagMap[Msg] << "\n";
-  if (Loop) {
-    dbgs() << "Loop:" << Loop->getNumber() << "\n";
-  }
+  printDiag(PrintDiagFunc, PrintDiagLevel, DiagMap[Msg], FuncName, Loop, Header,
+            DiagLevel);
 #endif
 }
 
@@ -726,49 +720,6 @@ public:
   }
 };
 
-typedef DDRefGrouping::RefGroupVecTy<RegDDRef *> RefGroupVecTy;
-typedef DDRefGrouping::RefGroupTy<RegDDRef *> RefGroupTy;
-
-class RefGrouper {
-public:
-  RefGrouper(ArrayRef<RegDDRef *> Refs) { groupByBasePtr(Refs); }
-  RefGroupVecTy &getGroups() { return Groups; }
-
-private:
-  void groupByBasePtr(ArrayRef<RegDDRef *> Refs) {
-
-    DenseMap<unsigned, unsigned> GroupIndex;
-    for (RegDDRef *Ref : Refs) {
-      unsigned &GroupNo = GroupIndex[Ref->getBasePtrBlobIndex()];
-      if (GroupNo == 0) {
-        GroupNo = GroupIndex.size();
-        Groups.emplace_back();
-      }
-
-      Groups[GroupNo - 1].push_back(Ref);
-    }
-
-    LLVM_DEBUG_DELINEAR(dbgs() << "All Refs sorted: \n"; for (auto Group
-                                                              : Groups) {
-      std::sort(Group.begin(), Group.end(), DDRefUtils::compareMemRefAddress);
-
-      printRefs(Group, "Sorted");
-    } dbgs() << "==\n";);
-  }
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  static void printRefs(ArrayRef<RegDDRef *> Refs, StringRef Header) {
-    dbgs() << Header << ": " << Refs.size() << "\n";
-    for (auto *Ref : Refs) {
-      Ref->dump();
-      dbgs() << "\n";
-    }
-  }
-#endif
-
-  RefGroupVecTy Groups;
-};
-
 /// Checks if the innermost loop body has a certain stencil pattern.
 /// Checks
 ///  - kinds of binary operations.
@@ -780,7 +731,8 @@ private:
 ///      from those of median ref.
 class StencilChecker {
 public:
-  StencilChecker(RefGroupVecTy &Groups, const HLLoop *Innermost, StringRef Func)
+  StencilChecker(RefGrouper::RefGroupVecTy &Groups, const HLLoop *Innermost,
+                 StringRef Func)
       : Groups(Groups), InnermostLoop(Innermost),
         MaxLevel(InnermostLoop->getNestingLevel()), MinLevel(MaxLevel + 1),
         Func(Func){};
@@ -843,7 +795,8 @@ private:
     return MaxLevel >= MinimumLevel;
   }
 
-  bool scanDiffsFromMedian(RefGroupTy &Group, unsigned &MinimumLevel) {
+  bool scanDiffsFromMedian(RefGrouper::RefGroupTy &Group,
+                           unsigned &MinimumLevel) {
 
     std::nth_element(Group.begin(), Group.begin() + Group.size() / 2,
                      Group.end(), DDRefUtils::compareMemRefAddress);
@@ -940,7 +893,7 @@ private:
   }
 
 private:
-  RefGroupVecTy &Groups;
+  RefGrouper::RefGroupVecTy &Groups;
   const HLLoop *InnermostLoop;
   // All levels in [MinLevel, MaxLevel] appear (as IV) in every Group of
   // Groups.
@@ -1476,11 +1429,11 @@ HLLoop *findLoopNestToBlock(HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
     }
 
     // Grouping Refs for memory foot print and for stencil
-    RefGrouper Grouping(Refs);
+    RefGrouper::RefGroupVecTy Groups;
+    RefGrouper Grouping(Refs, Groups);
 
     // Try stencil pattern + fixed stripmine sizes.
-    StencilChecker StencilProfitability(Grouping.getGroups(), InnermostLoop,
-                                        Func);
+    StencilChecker StencilProfitability(Groups, InnermostLoop, Func);
     if (!StencilProfitability.isStencilForm()) {
       // No hope as a stencil with this innermost loop body.
       printDiag(NO_STENCIL_LOOP, Func, AdjustedHighestAncestor,

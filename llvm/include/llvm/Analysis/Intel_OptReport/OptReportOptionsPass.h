@@ -18,7 +18,6 @@
 
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
-#include "llvm/PassAnalysisSupport.h"
 
 #include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
 

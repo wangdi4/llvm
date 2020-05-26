@@ -19,6 +19,7 @@
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Operator.h"
+#include "llvm/IR/PatternMatch.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FormattedStream.h"
 
@@ -31,8 +32,62 @@
 // Trace message about information collected for dependent values.
 #define VERBOSE_DEP_TRACE "dtrans-pta-dep-verbose"
 
+// A predicate test version of the DEBUG_WITH_TYPE macro, where the
+// DEBUG_WITH_TYPE will only be executed when the predicate is 'true'. This is
+// to enable verbose traces to be enabled/disabled based on the function being
+// processed.
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+#define DEBUG_WITH_TYPE_P(PRED, TYPE, X)                                       \
+  if (PRED()) {                                                                \
+    DEBUG_WITH_TYPE(TYPE, X);                                                  \
+  }
+#else
+#define DEBUG_WITH_TYPE_P(PRED, TYPE, X)                                       \
+  do {                                                                         \
+  } while (false)
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
 namespace llvm {
 namespace dtrans {
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+// This is not using an anonymous namespace to allow access to this declaration
+// from within the debugger to allow performing conditional breakpoints based on
+// the value of the 'Enabled' member of the DebugFilter class.
+namespace ptr_type_analyzer_debug {
+
+// Predicate class for use with DEBUG_WITH_TYPE_P macro to control
+// verbose message output.
+class DebugFilter {
+public:
+  void reset() { setEnabled(true); }
+  void setEnabled(bool Val) { Enabled = Val; }
+
+  // predicate function for DEBUG_WITH_TYPE_P macro.
+  bool operator()() { return Enabled; }
+
+private:
+  // Default to always emit. If message filtering is enabled,
+  // calls to setEnabled will turn this on and off as needed.
+  bool Enabled = true;
+};
+
+// A trace filter that will be enabled/disabled based on the function name.
+static DebugFilter FNFilter;
+} // end namespace ptr_type_analyzer_debug
+
+using namespace ptr_type_analyzer_debug;
+
+// Comma separated list of function names that the verbose debug output should
+// be reported for. If empty, all verbose messages are generated when the
+// appropriate -debug-only value is set. Otherwise, messages are only emitted
+// when processing functions matching the name of an entry in the list.
+static cl::list<std::string> DTransPTAFilterPrintFuncs(
+    "dtrans-pta-filter-print-funcs", cl::CommaSeparated, cl::ReallyHidden,
+    cl::desc(
+        "Filter emission of verbose debug messages to specific functions"));
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 // Control whether the 'declared' type and 'usage' type sets are reported
 // separately (false), or combined into a single set (true) when dumping the
@@ -60,7 +115,7 @@ static bool isTypeOfInterest(llvm::Type *Ty) {
   if (Ty->isPointerTy())
     return true;
 
-  if (Ty->isVectorTy() && Ty->getVectorElementType()->isPointerTy())
+  if (Ty->isVectorTy() && cast<VectorType>(Ty)->getElementType()->isPointerTy())
     return true;
 
   if (Ty->isArrayTy())
@@ -113,6 +168,16 @@ static bool hasPointerType(dtrans::DTransType *Ty) {
   }
 
   return false;
+}
+
+// Helper to get the base object type that makes up an array/vector/array nest
+// type.
+static DTransType *getSequentialObjectBaseType(DTransSequentialType *Ty) {
+  DTransType *BaseTy = Ty;
+  while (auto SeqTy = dyn_cast<DTransSequentialType>(BaseTy))
+    BaseTy = SeqTy->getTypeAtIndex(0);
+
+  return BaseTy;
 }
 
 // Helper to print a Value object (and optionally the name of the function it
@@ -238,7 +303,12 @@ public:
       const DataLayout &DL,
       std::function<const TargetLibraryInfo &(const Function &)> GetTLI)
       : TM(TM), MDReader(MDReader), DL(DL), GetTLI(GetTLI) {
-    PointerSizedIntType = llvm::Type::getIntNTy(Ctx, DL.getPointerSizeInBits());
+    LLVMI8Type = llvm::Type::getInt8Ty(Ctx);
+    LLVMPointerSizedIntType =
+        llvm::Type::getIntNTy(Ctx, DL.getPointerSizeInBits());
+
+    DTransI8Type = TM.getOrCreateAtomicType(LLVMI8Type);
+    DTransI8PtrType = TM.getOrCreatePointerType(DTransI8Type);
   }
 
   ~PtrTypeAnalyzerImpl();
@@ -258,11 +328,45 @@ public:
   ValueTypeInfo *getValueTypeInfo(const Value *V) const;
   ValueTypeInfo *getValueTypeInfo(const User *U, unsigned OpNum) const;
 
+  // Record that the GEPOperator is using an i8* type to access the element at
+  // 'Idx' of the specified aggregate type 'Ty'
+  void addByteFlattenedGEPMapping(GEPOperator *GEP, DTransType *Ty, size_t Idx);
+
   // Set Ty as the declaration type of value V, and mark the ValueTypeInfo as
   // completely analyzed.
   void setDeclaredType(Value *V, DTransType *Ty);
 
-  llvm::Type *getPointerSizedIntType() const { return PointerSizedIntType; }
+  llvm::Type *getLLVMI8Type() const { return LLVMI8Type; }
+  llvm::Type *getLLVMPointerSizedIntType() const {
+    return LLVMPointerSizedIntType;
+  }
+
+  dtrans::DTransType *getDTransI8Type() const { return DTransI8Type; }
+  dtrans::DTransPointerType *getDTransI8PtrType() const {
+    return DTransI8PtrType;
+  }
+
+  // If the type is used for a single aggregate type, return the type.
+  // Otherwise, return nullptr meaning either the value does not alias an
+  // aggregate type (i.e. canAliasToAggregatePointer() == false), or there is
+  // not a single dominant aggregate type.
+  DTransType *getDominantAggregateUsageType(ValueTypeInfo &Info) const;
+
+  // Returns 'true' if the dominant type is a pointer-to-pointer type.
+  bool isPtrToPtr(ValueTypeInfo &Info) const;
+
+  // Return 'true' if the dominant type is a array of 'i8' elements, or pointer
+  // to array of 'i8' elements. If 'AggArType' is supplied, populate it with
+  // the actual array type.
+  bool isPtrToCharArray(ValueTypeInfo &Info,
+                        DTransArrayType **AggArType = nullptr) const;
+
+  // This function is called to determine if 'DestTy' could be used to access
+  // element 0 of 'SrcTy'. If 'DestTy' is a pointer type whose element type is
+  // the same as the type of element zero of the aggregate pointed to by the
+  // 'SrcTy' pointer type, then it would be a valid element zero access.
+  bool isElementZeroAccess(DTransType *SrcTy, DTransType *DestTy,
+                           DTransType **AccessedTy = nullptr) const;
 
 private:
   DTransTypeManager &TM;
@@ -288,9 +392,24 @@ private:
   std::map<std::pair<const User *, unsigned>, ValueTypeInfo *>
       LocalMapForConstant;
 
-  // LLVM type for an integer that is the same size as a pointer in address
-  // space 0.
-  llvm::Type *PointerSizedIntType;
+  // A mapping from GEPOperators that have been identified as being structure
+  // element accesses in byte-flattened form to a type-index pair for the
+  // element being accessed.
+  using ByteFlattenedGEPInfoMapType =
+      DenseMap<GEPOperator *, std::pair<DTransType *, size_t>>;
+  ByteFlattenedGEPInfoMapType ByteFlattenedGEPInfoMap;
+
+  // LLVM Type for 'i8'
+  llvm::Type *LLVMI8Type;
+
+  // LLVM integer type that is the same size as a pointer in address space 0.
+  llvm::Type *LLVMPointerSizedIntType;
+
+  // Representation of the 'i8' type in DTransType system
+  dtrans::DTransType *DTransI8Type;
+
+  // Representation of the 'i8*' type in DTransType system
+  dtrans::DTransPointerType *DTransI8PtrType;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -322,10 +441,6 @@ public:
       std::function<const TargetLibraryInfo &(const Function &)> GetTLI)
       : PTA(PTA), TM(TM), MDReader(MDReader), DL(DL), GetTLI(GetTLI) {
 
-    PointerSizedIntType = llvm::Type::getIntNTy(Ctx, DL.getPointerSizeInBits());
-    DTransI8PtrTy = TM.getOrCreatePointerType(
-        TM.getOrCreateSimpleType(llvm::Type::getInt8Ty(Ctx)));
-
     // If the metadata contained a description of the system object type for
     // %struct._IO_FILE, use it. Otherwise, default the type to be an i8* since
     // there must not be any accesses of structure elements for it within the
@@ -334,10 +449,16 @@ public:
     if (StTy)
       DTransIOPtrTy = TM.getOrCreatePointerType(StTy);
     else
-      DTransIOPtrTy = DTransI8PtrTy;
+      DTransIOPtrTy = PTA.getDTransI8PtrType();
   }
 
   void visitModule(Module &M) {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    // Reset the state of the trace filter to the default value in case another
+    // call to visitModule is started.
+    FNFilter.reset();
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
     // Get the type for all the Function definitions.
     for (auto &F : M) {
       // TODO: Currently, we do not have information about declarations that are
@@ -433,6 +554,20 @@ public:
   }
 
   void visitFunction(Function &F) {
+    LLVM_DEBUG(dbgs() << "visitFunction: " << F.getName() << "\n");
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    // Check and enable for verbose filter predicate, if necessary.
+    if (!DTransPTAFilterPrintFuncs.empty()) {
+      FNFilter.setEnabled(false);
+      for (auto &N : DTransPTAFilterPrintFuncs)
+        if (F.getName() == N) {
+          FNFilter.setEnabled(true);
+          break;
+        }
+    }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
     if (!F.isDeclaration())
       for (auto &A : F.args())
         if (hasPointerType(A.getType()))
@@ -465,7 +600,7 @@ private:
     if (Info->isCompletelyAnalyzed())
       return Info;
 
-    DEBUG_WITH_TYPE(VERBOSE_TRACE, {
+    DEBUG_WITH_TYPE_P(FNFilter, VERBOSE_TRACE, {
       dbgs() << "--\n";
       dbgs() << "Begin analyzeValue for: ";
       printValue(dbgs(), V);
@@ -477,7 +612,8 @@ private:
     SmallVector<Value *, 16> DependentVals;
     DependentVals.push_back(V);
     populateDependencyStack(V, DependentVals);
-    DEBUG_WITH_TYPE(VERBOSE_TRACE, dumpDependencyStack(V, DependentVals));
+    DEBUG_WITH_TYPE_P(FNFilter, VERBOSE_TRACE,
+                      dumpDependencyStack(V, DependentVals));
 
     while (!DependentVals.empty()) {
       Value *Dep = DependentVals.back();
@@ -496,7 +632,7 @@ private:
         continue;
 
       ValueTypeInfo *DepInfo = PTA.getOrCreateValueTypeInfo(Dep);
-      DEBUG_WITH_TYPE(VERBOSE_DEP_TRACE, {
+      DEBUG_WITH_TYPE_P(FNFilter, VERBOSE_DEP_TRACE, {
         dbgs() << "  Dependent: ";
         printValue(dbgs(), Dep);
         dbgs() << "\n";
@@ -505,7 +641,7 @@ private:
 
       // If we have complete results for this value, don't repeat the analysis.
       if (DepInfo->isCompletelyAnalyzed()) {
-        DEBUG_WITH_TYPE(VERBOSE_DEP_TRACE, {
+        DEBUG_WITH_TYPE_P(FNFilter, VERBOSE_DEP_TRACE, {
           dbgs() << "  Already analyzed: ";
           printValue(dbgs(), Dep);
           dbgs() << "\n";
@@ -521,7 +657,7 @@ private:
     if (!isInferInProgress())
       Info->setCompletelyAnalyzed();
 
-    DEBUG_WITH_TYPE(VERBOSE_TRACE, {
+    DEBUG_WITH_TYPE_P(FNFilter, VERBOSE_TRACE, {
       dbgs() << "End analyzeValue for: ";
       printValue(dbgs(), V);
       dbgs() << "\n";
@@ -531,7 +667,7 @@ private:
   }
 
   void analyzeValueImpl(Value *V, ValueTypeInfo *Info) {
-    DEBUG_WITH_TYPE(VERBOSE_TRACE, {
+    DEBUG_WITH_TYPE_P(FNFilter, VERBOSE_TRACE, {
       dbgs() << "  Analyzing: ";
       printValue(dbgs(), V);
       dbgs() << "\n";
@@ -596,7 +732,7 @@ private:
       analyzePHINode(cast<PHINode>(I), Info);
       break;
     case Instruction::PtrToInt:
-      analyzePtrToIntInst(cast<PtrToIntInst>(I), Info);
+      analyzePtrToIntOperator(cast<PtrToIntOperator>(I), Info);
       break;
     case Instruction::Select:
       analyzeSelectInst(cast<SelectInst>(I), Info);
@@ -681,8 +817,9 @@ private:
     if (!InferInProgress.insert(ValueToInfer).second)
       return;
 
-    DEBUG_WITH_TYPE(VERBOSE_TRACE,
-                    dbgs() << "    Begin infer for: " << *ValueToInfer << "\n");
+    DEBUG_WITH_TYPE_P(FNFilter, VERBOSE_TRACE,
+                      dbgs()
+                          << "    Begin infer for: " << *ValueToInfer << "\n");
 
     // Try to find the type from looking at all the users. In some cases, the
     // instruction will contain the type, such as 'load i64, p0 %x', or
@@ -690,7 +827,7 @@ private:
     // other cases, this will require further look-ahead to examine the users of
     // the produced value, such as for a bitcast.
     for (auto *User : ValueToInfer->users()) {
-      DEBUG_WITH_TYPE(VERBOSE_TRACE, {
+      DEBUG_WITH_TYPE_P(FNFilter, VERBOSE_TRACE, {
         dbgs() << "      User: ";
         printValue(dbgs(), User);
         dbgs() << "\n";
@@ -734,7 +871,10 @@ private:
           inferRetInst(ValueToInfer, cast<ReturnInst>(User));
           break;
         case Instruction::PtrToInt:
-          // Skip PtrToInt since it does not help resolve a pointer type.
+          // Look ahead at the users of the integer, because if this is
+          // converting the pointer to a pointer-sized integer, there may be
+          // information gained by looking at the users of it.
+          inferPtrToIntInst(ValueToInfer, cast<PtrToIntInst>(User));
           break;
         case Instruction::Store:
           inferStoreInst(ValueToInfer, cast<StoreInst>(User));
@@ -743,8 +883,8 @@ private:
     }
 
     InferInProgress.erase(ValueToInfer);
-    DEBUG_WITH_TYPE(VERBOSE_TRACE,
-                    dbgs() << "    End infer for: " << *ValueToInfer << "\n");
+    DEBUG_WITH_TYPE_P(FNFilter, VERBOSE_TRACE,
+                      dbgs() << "    End infer for: " << *ValueToInfer << "\n");
 
     return;
   }
@@ -912,6 +1052,48 @@ private:
       }
   }
 
+  // Try to infer the type of the pointer operand of a pointer-to-int
+  // instruction. This is primarily to capture the pattern where a pointer is
+  // converted into a pointer-sized integer and then stored into a memory
+  // location which can have its type determined by the analyzer.
+  //   %as.i64 = ptrtoint i8* to i64
+  //   store i64 %as.i64, i64* %struct_alias
+  //
+  void inferPtrToIntInst(Value *ValueToInfer, PtrToIntInst *PTI) {
+    for (auto *User : PTI->users()) {
+      // TODO: Currently, this is limited to just looking for users that are
+      // storing the integer value. This may need to be extended in the future
+      // to follow the use through 'sub' or 'div' instructions to an inttoptr
+      // instruction which can have its pointer type resolved, since the only
+      // time DTrans supports integer operations on the pointer are for
+      // computing the distance between two pointer elements. Other uses would
+      // be complicated to do because they would require following the value
+      // forward through all the possible integer operations.
+      if (auto *SI = dyn_cast<StoreInst>(User)) {
+        Value *PtrOp = SI->getPointerOperand();
+        ValueTypeInfo *PtrOpInfo = analyzeValue(PtrOp);
+        for (auto *DType :
+             PtrOpInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use))
+          if (auto *PtrTy = dyn_cast<DTransPointerType>(DType))
+            addInferredType(PTI, PtrTy->getPointerElementType());
+      }
+    }
+
+    // Also, add any known type information about the pointer operand of the
+    // PtrToInt instruction. This is necessary to handle the cases where an i8*
+    // parameter type is being inferred, which is only used as an i8* type.
+    // For example:
+    //   %as1.i64 = ptrtoint i8* %arg1 to i64
+    //   %as2.i64 = ptrtoint i8* %arg2 to i64
+    //   %length = sub i64 %as2.i64, %as1.i64
+    ValueTypeInfo *PTIInfo = PTA.getOrCreateValueTypeInfo(PTI, 0);
+    for (auto *DType : PTIInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use))
+      if (auto *PtrTy = dyn_cast<DTransPointerType>(DType))
+        addInferredType(PTI, PtrTy->getPointerElementType());
+
+    propagateInferenceSet(PTI, ValueToInfer, DerefType::DT_SameType);
+  }
+
   // Helper function to copy inferred types associated with one Value to
   // another, with an optional change in the level of indirection.
   void propagateInferenceSet(Value *From, Value *To, DerefType DerefLevel) {
@@ -932,7 +1114,7 @@ private:
   // Add a type to the inferred set for the Value.
   void addInferredType(Value *V, DTransType *DType) {
     if (ValueToInferredTypes[V].insert(DType).second)
-      DEBUG_WITH_TYPE(VERBOSE_TRACE, {
+      DEBUG_WITH_TYPE_P(FNFilter, VERBOSE_TRACE, {
         dbgs() << "    - Inferred: ";
         printValue(dbgs(), V);
         dbgs() << " as " << *DType << "\n";
@@ -949,7 +1131,14 @@ private:
     // stack or false if it was present before the call. The value is pushed
     // onto the stack in either case. A return value of 'true' indicates that
     // dependents of the Value also need to be added to the stack.
-    auto AddDependency = [](Value *DV, SmallVectorImpl<Value *> &DepStack) {
+    auto AddDependency = [this](Value *DV, SmallVectorImpl<Value *> &DepStack) {
+      // If the dependency has already been completely analyzed, skip adding the
+      // item to the stack and return false because all of the values that
+      // depend on it have also been analyzed.
+      if (auto *Info = PTA.getValueTypeInfo(DV))
+        if (Info->isCompletelyAnalyzed())
+          return false;
+
       auto REnd = DepStack.rend();
       auto It = std::find(DepStack.rbegin(), REnd, DV);
       DepStack.push_back(DV);
@@ -1080,7 +1269,7 @@ private:
     // In this case, to capture the ptrtoint as operating on a pointer to a
     // structure type, we need to look-ahead to where %arg is used, and infer
     // the argument is expected to be a %struct.ar* type.
-    if (ArgTy == getDTransI8Ptr())
+    if (ArgTy == PTA.getDTransI8PtrType())
       inferTypeFromUse(Arg, ResultInfo);
   }
 
@@ -1137,6 +1326,14 @@ private:
     // Next, perform look-ahead at the uses of the BitCast result, to infer the
     // target type.
     inferTypeFromUse(BC, ResultInfo);
+
+    // The infer call only fills in the usage types. For the bitcast, also add
+    // those types for the declaration type because otherwise we don't have a
+    // declared type for the bitcast result.
+    auto It = ValueToInferredTypes.find(BC);
+    if (It != ValueToInferredTypes.end())
+      for (auto Ty : It->second)
+        ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl, Ty);
   }
 
   // For a call that results in a pointer type, we want to update the
@@ -1153,7 +1350,8 @@ private:
 
         // An indirect call that returns an i8* should be checked for the
         // actual type it gets used as.
-        if (Call->isIndirectCall() && OptRetType.second == getDTransI8Ptr())
+        if (Call->isIndirectCall() &&
+            OptRetType.second == PTA.getDTransI8PtrType())
           inferTypeFromUse(Call, ResultInfo);
       } else {
         ResultInfo->setUnhandled();
@@ -1251,7 +1449,7 @@ private:
       case LibFunc_malloc:
       case LibFunc_realloc:
       case LibFunc_strcpy:
-        return getDTransI8Ptr();
+        return PTA.getDTransI8PtrType();
 
         // Functions that return the system object for FILE*
       case LibFunc_fopen:
@@ -1331,7 +1529,7 @@ private:
         // needed
       }
 
-      return {true, getDTransI8Ptr()};
+      return {true, PTA.getDTransI8PtrType()};
     };
 
     // Helper lambda for getting the argument type of a library call. Most of
@@ -1393,12 +1591,13 @@ private:
 
       case LibFunc_strtol:
         if (Idx == 1)
-          return {true, TM.getOrCreatePointerType(getDTransI8Ptr())}; // i8**
+          return {true,
+                  TM.getOrCreatePointerType(PTA.getDTransI8PtrType())}; // i8**
         break;
       }
 
       // All cases that exit the switch table means the argument is an i8*.
-      return {true, getDTransI8Ptr()};
+      return {true, PTA.getDTransI8PtrType()};
     };
 
     if (!hasPointerType(Call->getArgOperand(Idx)->getType()))
@@ -1594,6 +1793,7 @@ private:
     if (PointerInfo->getUnhandled() || PointerInfo->getDependsOnUnhandled())
       ResultInfo->setDependsOnUnhandled();
 
+    llvm::Type *SrcTy = GEP.getSourceElementType();
     if (GEP.getNumIndices() > 1) {
       // Mark the pointer operand with the type used for indexing.
       //
@@ -1610,7 +1810,6 @@ private:
       // In case 2, we need we rely upon the type information collected
       // based on the declaration of %x. If this turns out to not be sufficient,
       // we will need the FE to annotate these cases with metadata.
-      llvm::Type *SrcTy = GEP.getSourceElementType();
       DTransType *DTransSrcTy = nullptr;
       SmallVector<Value *, 4> Ops(GEP.idx_begin(), GEP.idx_end() - 1);
       if (TM.isSimpleType(SrcTy)) {
@@ -1651,21 +1850,288 @@ private:
       return;
     }
 
+    // If the GEP is of the form:
+    //   %y = getelementptr i8, p0 %x, i64 <n>
+    // Check if the GEP should be processed as either a byte-flattened GEP or an
+    // array of 'i8' elements.
+    bool ProcessedAsByteFlattenedGEP = false;
+    if (SrcTy == PTA.getLLVMI8Type()) {
+      ProcessedAsByteFlattenedGEP =
+          analyzePotentialByteFlattenedGEPAccess(GEP, ResultInfo);
+      ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl,
+                               PTA.getDTransI8PtrType());
+    }
+
     // Zero or Single index operand GEPs of the form, result in the same
     // type as the base pointer.
     // For example, these cases result in the same type identified for %x:
     //   getelementptr p0, p0 %x, i64 5
     //   getelementptr <ty>, <ptr vector> %x, <vector index type> %idx
-
+    //
     // These are treating the source operand as an array, and therefore are
     // generating the same type as the pointer operand. However, there is a
     // special case when indexed type is an i8, since it may be a
     // byte-flattened GEP that needs to be analyzed.
-    propagate(PointerInfo, ResultInfo, /*Decl=*/true, /*Use=*/true,
-              DerefType::DT_SameType);
+    if (!ProcessedAsByteFlattenedGEP)
+      propagate(PointerInfo, ResultInfo, /*Decl=*/true, /*Use=*/true,
+                DerefType::DT_SameType);
+  }
 
-    // TODO: Check if this is a byte-flattened GEP. We need to have bitcasts
-    // analyzed before this can be implemented.
+  // Check whether the GEP is a byte-flattened GEP or an array of 'i8' elements.
+  bool analyzePotentialByteFlattenedGEPAccess(GEPOperator &GEP,
+                                              ValueTypeInfo *ResultInfo) {
+
+    assert(GEP.getNumIndices() == 1 && "Only expecting single index value GEP");
+
+    // The following conditions exclude it from being either a byte-flattened
+    // GEP or an 'i8' array:
+    // - The type alias list saw the type as a pointer-to-pointer.
+    // - The type alias list does not contain any aggregate types
+    Value *BasePtr = GEP.getPointerOperand();
+    ValueTypeInfo *BasePtrInfo = PTA.getOrCreateValueTypeInfo(BasePtr);
+    bool HasStructType = false;
+    bool HasArrayType = false;
+    for (auto *AliasTy :
+         BasePtrInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use)) {
+      if (!AliasTy->isPointerTy())
+        continue;
+
+      DTransType *ElemType = AliasTy->getPointerElementType();
+      if (ElemType->isPointerTy())
+        return false;
+
+      if (ElemType->isStructTy()) {
+        HasStructType = true;
+      } else if (ElemType->isArrayTy()) {
+        HasArrayType = true;
+
+        // Also, check for array of structures.
+        DTransType *BaseType =
+            getSequentialObjectBaseType(cast<DTransSequentialType>(ElemType));
+        if (BaseType->isStructTy())
+          HasStructType = true;
+      }
+    }
+
+    if (!HasStructType && !HasArrayType)
+      return false;
+
+    // We need to figure out which element of the aggregate is being accessed.
+    //
+    // Get a list of possible constant offsets. Normally, there will just be a
+    // single constant offset amount based on the GEP indices. However, it's
+    // possible the index is in a variable that can be traced back to a specific
+    // set of constants, in which case we need to collect all the constants.
+    unsigned BitWidth = DL.getPointerSizeInBits();
+    SmallVector<APInt, 3> APOffset;
+    APInt CurrOffset(BitWidth, 0);
+    if (GEP.accumulateConstantOffset(DL, CurrOffset)) {
+      APOffset.push_back(CurrOffset);
+    } else {
+      // If offset comes from a select instruction with two constant operands
+      // then put both values in the list of possible constant offsets.
+      // TODO: PHINodes could be added in the future.
+      Value *Cond;
+      const APInt *SelT, *SelF;
+      if (PatternMatch::match(
+              GEP.getOperand(1),
+              PatternMatch::m_Select(PatternMatch::m_Value(Cond),
+                                     PatternMatch::m_APInt(SelT),
+                                     PatternMatch::m_APInt(SelF)))) {
+        APOffset.push_back(*SelT);
+        APOffset.push_back(*SelF);
+      }
+    }
+
+    // If the offsets are not known, a byte flattened GEP cannot be collected
+    // for it.
+    if (APOffset.empty()) {
+      // The safety analyzer will need to set a safety flag if a structure type
+      // is involved. Array types will just be propagated as the same type as
+      // the original GEP since it will still be an array type, even though the
+      // offset will not be known, so there is no need to set a flag for those.
+      if (HasStructType) {
+        DEBUG_WITH_TYPE_P(FNFilter, VERBOSE_TRACE,
+                          dbgs()
+                              << "Byte-flattened indices were not recoverable: "
+                              << GEP << "\n");
+        ResultInfo->setUnknownByteFlattenedGEP();
+      }
+
+      return false;
+    }
+
+    // If it's just a char array being accessed, then add the element based on
+    // the offsets collected.
+    DTransArrayType *AggArType = nullptr;
+    if (PTA.isPtrToCharArray(*BasePtrInfo, &AggArType)) {
+      for (auto &APOffsetVal : APOffset)
+        ResultInfo->addElementPointee(ValueTypeInfo::VAT_Use, AggArType,
+                                      APOffsetVal.getLimitedValue());
+
+      return true;
+    }
+
+    // If any of the offsets are negative, and it did not match the above check
+    // for ptr-to-ptr, then it is not a byte-flattened GEP. However, it is
+    // unknown what the pointer is pointing at, so mark it to trigger a safety
+    // check. This sort of IR can be triggered from source code that tries to do
+    // pointer arithmetic such as:
+    //    DOMElementImpl* dummy = 0;
+    //    size_t parentOffset = (char *)&(dummy->fParent) - (char *)dummy;
+    //    char *retPtr = (char *)p - parentOffset;
+    //    return (DOMNode *)retPtr;
+    if (std::any_of(APOffset.begin(), APOffset.end(),
+                    [](APInt &Offset) { return Offset.isNegative(); })) {
+
+      if (HasStructType) {
+        DEBUG_WITH_TYPE_P(
+            FNFilter, VERBOSE_TRACE,
+            dbgs() << "Byte-flattened indices contained negative index: " << GEP
+                   << "\n");
+        ResultInfo->setUnknownByteFlattenedGEP();
+      }
+
+      return false;
+    }
+
+    // Try all possible offsets to process the address as a byte-flattened GEP.
+    // Accumulate the potential alias elements and byte-flattened GEP info
+    // into temporary objects until all offsets have been validated for all
+    // aliased types.
+    ValueTypeInfo LocalInfo(nullptr);
+    SmallVector<std::pair<DTransType *, size_t>, 4> PendingByteGEPs;
+    bool AllValid = true;
+    for (auto *AliasTy :
+         BasePtrInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use)) {
+      if (!AllValid)
+        break;
+
+      if (!AliasTy->isPointerTy())
+        continue;
+
+      DTransType *ElemType = AliasTy->getPointerElementType();
+      if (!ElemType->isAggregateType())
+        continue;
+
+      for (auto &APOffsetVal : APOffset) {
+        if (!analyzePossibleOffsetAggregateAccess(ElemType,
+                                                  APOffsetVal.getLimitedValue(),
+                                                  LocalInfo, PendingByteGEPs)) {
+          AllValid = false;
+          break;
+        }
+      }
+    }
+
+    if (!AllValid) {
+      DEBUG_WITH_TYPE_P(
+        FNFilter, VERBOSE_TRACE,
+        dbgs() << "Byte-flattened indices did not match aliased structure: "
+        << GEP << "\n");
+      ResultInfo->setUnknownByteFlattenedGEP();
+      return false;
+    }
+
+    // All offsets were valid, merge the element pointees collected into
+    // ResultInfo, and save the byte flattened GEP information for use by the
+    // safety analyzer.
+    propagate(&LocalInfo, ResultInfo, /*Decl=*/true, /*Use=*/true,
+              DerefType::DT_SameType);
+    for (auto &TyIdxPair : PendingByteGEPs)
+      PTA.addByteFlattenedGEPMapping(&GEP, TyIdxPair.first, TyIdxPair.second);
+
+    return true;
+  }
+
+  // Return 'true' if 'Offset' is the address of an element of 'AggregateTy'.
+  // - update 'Info' to contain an alias of the type accessed and the element
+  //   pointee.
+  // - update PendingByteGEPs with the type and index accessed.
+  bool analyzePossibleOffsetAggregateAccess(
+      DTransType *AggregateTy, uint64_t Offset, ValueTypeInfo &Info,
+      SmallVectorImpl<std::pair<DTransType *, size_t>> &PendingByteGEPs) {
+
+    // For analyzing the offset, get the corresponding type within
+    // the LLVM type system. Since we do need to resolve the types of any
+    // contained pointers when checking the offsets, this allows use of the
+    // DataLayout and StructLayout of the LLVM types to simplify the
+    // implementation.
+    llvm::Type *IRType = AggregateTy->getLLVMType();
+    if (!IRType || !IRType->isAggregateType() || !IRType->isSized())
+      return false;
+
+    if (auto *StructTy = dyn_cast<StructType>(IRType))
+      return analyzePossibleOffsetStructureAccess(
+          cast<DTransStructType>(AggregateTy), StructTy, Offset, Info,
+          PendingByteGEPs);
+
+    return analyzePossibleOffsetArrayAccess(cast<DTransArrayType>(AggregateTy),
+                                            cast<ArrayType>(IRType), Offset,
+                                            Info, PendingByteGEPs);
+  }
+
+  // Return 'true' if 'Offset' is the address of an element within 'StructTy'.
+  // If so, also update 'Info' and 'PendingByteGEPs'.
+  bool analyzePossibleOffsetStructureAccess(
+      DTransStructType *DTStructTy, llvm::StructType *StructTy, uint64_t Offset,
+      ValueTypeInfo &Info,
+      SmallVectorImpl<std::pair<DTransType *, size_t>> &PendingByteGEPs) {
+
+    // If the offset is beyond the end of the structure, this isn't a match.
+    auto *SL = DL.getStructLayout(StructTy);
+    if (Offset >= SL->getSizeInBytes())
+      return false;
+
+    // See which element in the structure would contain this offset.
+    unsigned IdxAtOffset = SL->getElementContainingOffset(Offset);
+    DTransType *FieldType = DTStructTy->getFieldType(IdxAtOffset);
+    if (!FieldType)
+      return false;
+
+    // If the containing element does not begin at that offset, this isn't a
+    // match.
+    uint64_t ElementOffset = SL->getElementOffset(IdxAtOffset);
+    if (ElementOffset != Offset) {
+      // If the element at that offset is an aggregate type, we may be accessing
+      // an element within the nested type.
+      return analyzePossibleOffsetAggregateAccess(
+          FieldType, Offset - ElementOffset, Info, PendingByteGEPs);
+    }
+
+    // Otherwise, this is a match.
+    PendingByteGEPs.push_back({DTStructTy, IdxAtOffset});
+    Info.addElementPointee(ValueTypeInfo::VAT_Decl, DTStructTy, IdxAtOffset);
+    Info.addTypeAlias(ValueTypeInfo::VAT_Decl,
+                      TM.getOrCreatePointerType(FieldType));
+    return true;
+  }
+
+  // Return 'true' if 'Offset' is the address of an element of 'ArrayTy'.
+  // If so, also update 'Info' and 'PendingByteGEPs'.
+  bool analyzePossibleOffsetArrayAccess(
+      DTransArrayType *DTArrayType, llvm::ArrayType *ArrayTy, uint64_t Offset,
+      ValueTypeInfo &Info,
+      SmallVectorImpl<std::pair<DTransType *, size_t>> &PendingByteGEPs) {
+
+    DTransType *DTransElemTy = DTArrayType->getArrayElementType();
+    llvm::Type *ElemTy = ArrayTy->getElementType();
+    uint64_t ElementSize = DL.getTypeAllocSize(ElemTy);
+    uint64_t NewOffset = Offset % ElementSize;
+    if (NewOffset == 0) {
+      // The offset is an exact multiple of the element size. This
+      // is a match for the element access.
+      PendingByteGEPs.push_back({DTArrayType, Offset / ElementSize});
+      Info.addElementPointee(ValueTypeInfo::VAT_Decl, DTArrayType,
+                             Offset / ElementSize);
+      Info.addTypeAlias(ValueTypeInfo::VAT_Decl,
+                        TM.getOrCreatePointerType(DTransElemTy));
+      return true;
+    }
+
+    // Otherwise, we may be accessing a sub-element within a nested aggregate.
+    return analyzePossibleOffsetAggregateAccess(DTransElemTy, NewOffset, Info,
+                                                PendingByteGEPs);
   }
 
   // There's an odd case where LLVM's constant folder will transform
@@ -1690,6 +2156,11 @@ private:
   // may be to infer the type from its uses when that is implemented.
   void analyzeGEPAsBitcastEquivalent(GEPOperator &GEP,
                                      ValueTypeInfo *ResultInfo) {
+    // A GEP with a single index will be handled by the byte-flattened GEP
+    // processing.
+    if (GEP.getNumIndices() == 1)
+      return;
+
     for (unsigned i = 1; i < GEP.getNumIndices(); ++i)
       // The +1 here is because the first operand of a GEP is not an index.
       if (ConstantInt *CI = dyn_cast<ConstantInt>(GEP.getOperand(i + 1)))
@@ -1699,7 +2170,7 @@ private:
     bool MayBeI8Ptr = false;
     for (auto *AliasTy :
          ResultInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Decl))
-      if (AliasTy == getDTransI8Ptr()) {
+      if (AliasTy == PTA.getDTransI8PtrType()) {
         MayBeI8Ptr = true;
         break;
       }
@@ -1770,18 +2241,73 @@ private:
     // Also, need to be able to handle the special case of:
     //   %143 = load i64, p0 undef
     //
-    // If the load is of the form: %y = load p0, p0 %x, then only propagate a
-    // dereferenced version of %x to %y if it is a pointer type.
+
+    // This lambda function is used for cases where the load is a pointer type,
+    // or may be a pointer type loaded as a pointer-sized int.
     //
-    // Note: We also need to do propagation for a load of a pointer-sized
-    // integer type, because in the instruction "%y = load i64, p0 %x", %x could
-    // be a %struct.test** that has been cast to an i64*.
+    // Case 1) %y = load p0, p0 %x
+    // Case 2) %y = load i64, p0 %x
+    //   If %x is a pointer to a pointer, then the pointer type should be
+    //   propagated to %y.
+    //   If %x is a pointer to an aggregate, this could be an element-zero
+    //   access. If an element-zero can be resolved to a pointer type after
+    //   traversing any nested elements, add that type to %y, and update the
+    //   element pointees on the PointerInfo.
+    //
+    // Case 3) %y = load { p0, p0 }, { p0, p0 }* %x
+    //   In this case, the call sets 'LoadingAggregateType' to indicate the
+    //   structure should not be traversed as a potential zero-element load.
+    //
+    auto PropagateDereferencedType =
+        [](ValueTypeInfo *PointerInfo, ValueTypeInfo *ResultInfo,
+           ValueTypeInfo::ValueAnalysisType Kind, bool LoadingAggregateType) {
+          for (auto *Alias : PointerInfo->getPointerTypeAliasSet(Kind)) {
+            DTransType *PropAlias = nullptr;
+            if (!Alias->isPointerTy())
+              continue;
+
+            PropAlias = Alias->getPointerElementType();
+            if (!LoadingAggregateType && PropAlias->isAggregateType()) {
+              // If the pointer was a pointer to an aggregate and we are not
+              // expecting an aggregate type to be loaded (i.e. an array, such
+              // as [2xi16*], or a literal structure, such as {i32, i32}, then
+              // this could be an element zero load of a pointer within a nested
+              // type. Try to find the type.
+              DTransType *PrevNestedType = nullptr;
+              DTransType *NestedType = PropAlias;
+              while (NestedType && !NestedType->isPointerTy()) {
+                PrevNestedType = NestedType;
+                if (auto *StTy = dyn_cast<DTransStructType>(NestedType))
+                  NestedType = StTy->getFieldType(0);
+                else if (auto *ArTy = dyn_cast<DTransArrayType>(NestedType))
+                  NestedType = ArTy->getElementType();
+                else
+                  NestedType = nullptr;
+              }
+
+              if (PrevNestedType->isAggregateType())
+                PointerInfo->addElementPointee(Kind, PrevNestedType, 0);
+              if (NestedType)
+                ResultInfo->addTypeAlias(Kind, NestedType);
+
+            } else {
+              ResultInfo->addTypeAlias(Kind, PropAlias);
+            }
+          }
+        };
+
     llvm::Type *ValTy = LI->getType();
     bool ExpectPtrType = hasPointerType(ValTy);
     ValueTypeInfo *PointerInfo = PTA.getOrCreateValueTypeInfo(LI, 0);
-    if (ExpectPtrType || ValTy == getPointerSizedIntType())
-      propagate(PointerInfo, ResultInfo, true, true, DerefType::DT_PointeeType,
-                ExpectPtrType);
+    bool LoadingAggregateType = ValTy->isAggregateType();
+    if (ExpectPtrType || ValTy == PTA.getLLVMPointerSizedIntType()) {
+      PropagateDereferencedType(PointerInfo, ResultInfo,
+                                ValueTypeInfo::ValueAnalysisType::VAT_Decl,
+                                LoadingAggregateType);
+      PropagateDereferencedType(PointerInfo, ResultInfo,
+                                ValueTypeInfo::ValueAnalysisType::VAT_Use,
+                                LoadingAggregateType);
+    }
 
     // Update the usage type of the pointer argument based on the type
     // of the load instruction if we are loading a known type.
@@ -1805,7 +2331,7 @@ private:
   // When \p Decl is 'true', propagates declared type set.
   // When \p Use is 'true', propagates the usage type set.
   bool propagate(ValueTypeInfo *SrcInfo, ValueTypeInfo *DestInfo, bool Decl,
-                 bool Use, DerefType DerefLevel, bool RequirePtr = false) {
+                 bool Use, DerefType DerefLevel) {
     // Helper routine that will get/create a DTransType to represent with a
     // potential change to level of indirection by at most one level (up or
     // down).
@@ -1842,7 +2368,7 @@ private:
         // unhandled situation because it's possible that we do not have the
         // type because there was not an actual use in the IR where the value
         // gets used as the unexpected level of indirection.
-        if (PropAlias && (!RequirePtr || hasPointerType(PropAlias)))
+        if (PropAlias)
           LocalChanged |= DestInfo->addTypeAlias(Kind, PropAlias);
         else
           LLVM_DEBUG(dbgs() << "Warning: Could not create element of requested "
@@ -1886,7 +2412,8 @@ private:
     analyzeSelectOrPhi(IncomingVals, ResultInfo);
   }
 
-  void analyzePtrToIntInst(PtrToIntInst *PTI, ValueTypeInfo *ResultInfo) {
+  void analyzePtrToIntOperator(PtrToIntOperator *PTI,
+                               ValueTypeInfo *ResultInfo) {
     Value *Src = PTI->getPointerOperand();
     if (isCompilerConstant(Src)) {
       // The source pointer could be any type. We could try to infer the type by
@@ -1940,6 +2467,8 @@ private:
 
   // Perform pointer type analysis for constant operator expressions
   void analyzeConstantExpr(ConstantExpr *CE) {
+    // This verbose trace is not using the filtering predicate test because
+    // constant expressions are at the module level, not function level.
     DEBUG_WITH_TYPE(VERBOSE_TRACE, {
       dbgs() << "--\n";
       dbgs() << "Begin analyzeConstantExpr for: ";
@@ -1953,6 +2482,9 @@ private:
       Info->setCompletelyAnalyzed();
     } else if (auto *BCOp = dyn_cast<BitCastOperator>(CE)) {
       analyzeBitCastOperator(BCOp, Info);
+      Info->setCompletelyAnalyzed();
+    } else if (auto *PTI = dyn_cast<PtrToIntOperator>(CE)) {
+      analyzePtrToIntOperator(PTI, Info);
       Info->setCompletelyAnalyzed();
     } else {
       Info->setUnhandled();
@@ -1970,8 +2502,6 @@ private:
     });
   }
 
-  llvm::Type *getPointerSizedIntType() const { return PointerSizedIntType; }
-  dtrans::DTransPointerType *getDTransI8Ptr() const { return DTransI8PtrTy; }
   dtrans::DTransPointerType *getDTransIOPtrTy() const { return DTransIOPtrTy; }
 
   ////////////////////////////////////////////////////////////////////////////////
@@ -1983,13 +2513,6 @@ private:
   TypeMetadataReader &MDReader;
   const DataLayout &DL;
   std::function<const TargetLibraryInfo &(const Function &)> GetTLI;
-
-  // LLVM type for an integer that is the same size as a pointer in address
-  // space 0.
-  llvm::Type *PointerSizedIntType;
-
-  // Representation of i8* in DTransType system
-  dtrans::DTransPointerType *DTransI8PtrTy;
 
   // Representation of %struct._IO_FILE*
   dtrans::DTransPointerType *DTransIOPtrTy;
@@ -2016,7 +2539,7 @@ bool ValueTypeInfo::addTypeAlias(ValueAnalysisType Kind,
 
   bool Changed = PointerTypeAliases[Kind].insert(Ty).second;
   if (Changed) {
-    DEBUG_WITH_TYPE(VERBOSE_TRACE, {
+    DEBUG_WITH_TYPE_P(FNFilter, VERBOSE_TRACE, {
       dbgs() << "    Added alias " << (Kind == VAT_Decl ? "[DECL]" : "[USE]")
              << ": ";
       printValue(dbgs(), V);
@@ -2064,7 +2587,7 @@ bool ValueTypeInfo::addElementPointeeImpl(ValueAnalysisType Kind,
                                           PointeeLoc &Loc) {
   bool Changed = ElementPointees[Kind].insert({BaseTy, Loc}).second;
   if (Changed) {
-    DEBUG_WITH_TYPE(VERBOSE_TRACE, {
+    DEBUG_WITH_TYPE_P(FNFilter, VERBOSE_TRACE, {
       dbgs() << "    Added element:" << (Kind == VAT_Decl ? "[DECL]" : "[USE]")
              << ": ";
       printValue(dbgs(), V);
@@ -2090,7 +2613,7 @@ void ValueTypeInfo::setPartiallyAnalyzed() {
 
 void ValueTypeInfo::setCompletelyAnalyzed() {
   AnalysisState = LPIS_CompletelyAnalyzed;
-  DEBUG_WITH_TYPE(VERBOSE_TRACE, {
+  DEBUG_WITH_TYPE_P(FNFilter, VERBOSE_TRACE, {
     printValue(dbgs(), V);
     dbgs() << " - Marked completely analyzed\n";
   });
@@ -2118,7 +2641,7 @@ const char *ValueTypeInfo::LPIStateToString(LPIState S) {
 }
 
 void ValueTypeInfo::setUnhandled() {
-  DEBUG_WITH_TYPE(VERBOSE_TRACE, {
+  DEBUG_WITH_TYPE_P(FNFilter, VERBOSE_TRACE, {
     dbgs() << " - Marked as unhandled: ";
     printValue(dbgs(), V);
     dbgs() << "\n";
@@ -2127,12 +2650,21 @@ void ValueTypeInfo::setUnhandled() {
 }
 
 void ValueTypeInfo::setDependsOnUnhandled() {
-  DEBUG_WITH_TYPE(VERBOSE_TRACE, {
+  DEBUG_WITH_TYPE_P(FNFilter, VERBOSE_TRACE, {
     dbgs() << " - Marked as depends on unhandled: ";
     printValue(dbgs(), V);
     dbgs() << "\n";
   });
   DependsOnUnhandled = true;
+}
+
+void ValueTypeInfo::setUnknownByteFlattenedGEP() {
+  DEBUG_WITH_TYPE_P(FNFilter, VERBOSE_TRACE, {
+    dbgs() << " - Marked as unknown byte flattened GEP: ";
+    printValue(dbgs(), V);
+    dbgs() << "\n";
+  });
+  UnknownByteFlattenedGEP = true;
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -2204,7 +2736,9 @@ void ValueTypeInfo::print(raw_ostream &OS, bool Combined,
   // Start of the actual printing routine.
   OS << Prefix << "LocalPointerInfo: " << LPIStateToString(AnalysisState)
      << (getUnhandled() ? " <UNHANDLED>" : "")
-     << (getDependsOnUnhandled() ? " <DEPENDS ON UNHANDLED>" : "") << "\n";
+     << (getDependsOnUnhandled() ? " <DEPENDS ON UNHANDLED>" : "")
+     << (getUnknownByteFlattenedGEP() ? " <UNKNOWN BYTE FLATTENED GEP>" : "")
+     << "\n";
 
   if (!Combined) {
     OS << Prefix << "Declared Types:\n";
@@ -2248,6 +2782,18 @@ PtrTypeAnalyzerImpl::~PtrTypeAnalyzerImpl() {
   for (auto &LPI : LocalMapForConstant)
     delete LPI.second;
   LocalMapForConstant.clear();
+}
+
+void PtrTypeAnalyzerImpl::addByteFlattenedGEPMapping(GEPOperator *GEP,
+                                                     DTransType *Ty,
+                                                     size_t Idx) {
+  if (ByteFlattenedGEPInfoMap.insert({GEP, {Ty, Idx}}).second)
+    DEBUG_WITH_TYPE_P(FNFilter, VERBOSE_TRACE, {
+      dbgs() << "Adding BF-GEP access: ";
+      dbgs() << *Ty << " @ " << Idx << " -- ";
+      printValue(dbgs(), GEP);
+      dbgs() << "\n";
+    });
 }
 
 void PtrTypeAnalyzerImpl::run(Module &M) {
@@ -2317,12 +2863,13 @@ bool PtrTypeAnalyzer::isPossiblePtrValue(Value *V) const {
     return true;
 
   // A vector of pointers should be analyzed to track the pointer type.
-  if (ValueTy->isVectorTy() && ValueTy->getVectorElementType()->isPointerTy())
+  if (ValueTy->isVectorTy() &&
+      cast<VectorType>(ValueTy)->getElementType()->isPointerTy())
     return true;
 
   // If the value is not a pointer and is not a pointer-sized integer, it
   // is definitely not a value we will track as a pointer.
-  if (ValueTy != Impl->getPointerSizedIntType())
+  if (ValueTy != Impl->getLLVMPointerSizedIntType())
     return false;
 
   // If it is a pointer-sized integer, we may need to analyze it if
@@ -2338,6 +2885,222 @@ void PtrTypeAnalyzerImpl::setDeclaredType(Value *V, dtrans::DTransType *Ty) {
   ValueTypeInfo *Info = getOrCreateValueTypeInfo(V);
   Info->addTypeAlias(ValueTypeInfo::VAT_Decl, Ty);
   Info->setCompletelyAnalyzed();
+}
+
+DTransType *
+PtrTypeAnalyzerImpl::getDominantAggregateUsageType(ValueTypeInfo &Info) const {
+  if (!Info.canAliasToAggregatePointer())
+    return nullptr;
+
+  DTransType *DomTy = nullptr;
+  for (auto *AliasTy : Info.getPointerTypeAliasSet(ValueTypeInfo::VAT_Use)) {
+    DTransType *BaseTy = AliasTy;
+    while (BaseTy->isPointerTy())
+      BaseTy = BaseTy->getPointerElementType();
+    if (!BaseTy->isAggregateType())
+      continue;
+    if (!DomTy) {
+      DomTy = AliasTy;
+      continue;
+    }
+
+    // If this type can be an element zero access of DomTy, DomTy is still
+    // dominant.
+    if (isElementZeroAccess(DomTy, AliasTy))
+      continue;
+
+    // If what we previously thought was the dominant type can be an element
+    // zero access of the current alias, the current alias becomes dominant.
+    if (isElementZeroAccess(AliasTy, DomTy)) {
+      DomTy = AliasTy;
+      continue;
+    }
+
+    // Otherwise, there are conflicting aliases and nothing can be dominant.
+    return nullptr;
+  }
+
+  return DomTy;
+}
+
+bool PtrTypeAnalyzerImpl::isPtrToPtr(ValueTypeInfo &Info) const {
+  DTransType *DomTy = getDominantAggregateUsageType(Info);
+  if (!DomTy)
+    return false;
+  if (!DomTy->isPointerTy())
+    return false;
+  if (!DomTy->getPointerElementType()->isPointerTy())
+    return false;
+  return true;
+}
+
+bool PtrTypeAnalyzerImpl::isPtrToCharArray(ValueTypeInfo &Info,
+                                           DTransArrayType **AggArType) const {
+  DTransType *DomTy = getDominantAggregateUsageType(Info);
+  if (!DomTy) {
+    if (Info.pointsToSomeElement())
+      for (auto &PointeePair :
+           Info.getElementPointeeSet(ValueTypeInfo::VAT_Use))
+        if (auto *ArTy = dyn_cast<DTransArrayType>(PointeePair.first))
+          if (ArTy->getArrayElementType() == getDTransI8Type()) {
+            if (AggArType)
+              *AggArType = ArTy;
+            return true;
+          }
+    return false;
+  }
+
+  if (!DomTy->isPointerTy())
+    return false;
+  if (!DomTy->getPointerElementType()->isArrayTy())
+    return false;
+  if (auto *ArTy = dyn_cast<DTransArrayType>(DomTy->getPointerElementType()))
+    if (ArTy->getArrayElementType() == getDTransI8Type()) {
+      if (AggArType)
+        *AggArType = ArTy;
+      return true;
+    }
+
+  return false;
+}
+
+// This function is called to determine if a bitcast to the specified
+// destination type could be used to access element 0 of the source type.
+// If the destination type is a pointer type whose element type is the same
+// as the type of element zero of the aggregate pointed to by the source
+// pointer type, then it would be a valid element zero access.
+//
+// For example, consider:
+//
+//   %struct.S1 = type { %struct.S2, i32 }
+//   ...
+//   %p = bitcast %struct.S1* to %struct.S2*
+//
+// Because element zero of %struct.S1 has %struct.S2 as a type, this is a
+// safe cast that accesses that element. Notice that the pointer to the
+// element has a different level of indirection than the declaration of the
+// element within the structure. This is expected because the element is
+// accessed through a pointer to that element.
+//
+// Also, consider this example of an unsafe cast.
+//
+//   %struct.S3 = type { %struct.S4*, i32 }
+//   ...
+//   %p = bitcast %struct.S3* to %struct.S4*
+//
+// In this case, element zero of the %struct.S3 type is a pointer, %struct.S4*
+// so the correct cast to access that element would be:
+//
+//   %p = bitcast %struct.S3* to %struct.S4**
+//
+// Element zero can also be accessed by casting an i8* pointer that is known
+// to point to a given structure to a pointer to element zero of that type.
+// However, the caller must handle that case by obtaining the necessary
+// type alias information and calling this function with the known alias as
+// the SrcTy argument.
+//
+// If the 'AccessedTy' argument is not null, this function will set it to
+// nullptr if this is not an element zero access or a pointer to the type of
+// the aggregate whose element zero is being accessed. This may be 'SrcTy' or
+// it may be a nested type if element zero of the source type is an aggregate
+// type whose element zero is being accessed.
+bool PtrTypeAnalyzerImpl::isElementZeroAccess(DTransType *SrcTy,
+                                              DTransType *DestTy,
+                                              DTransType **AccessedTy) const {
+
+  std::function<bool(DTransType *, DTransType *, DTransType *, DTransType **)>
+      IsPointeeElementZeroAccess =
+          [this, &IsPointeeElementZeroAccess](
+              DTransType *SrcTy, DTransType *SrcPointeeTy,
+              DTransType *DestPointeeTy, DTransType **AccessedTy) -> bool {
+    auto *CompTy = dyn_cast<DTransCompositeType>(SrcPointeeTy);
+    if (!CompTy)
+      return false;
+
+    // This avoids problems with opaque structure types.
+    if (!CompTy->indexValid(0u))
+      return false;
+
+    DTransType *ElementZeroTy = nullptr;
+    if (auto *StTy = dyn_cast<DTransStructType>(CompTy))
+      ElementZeroTy = StTy->getFieldType(0);
+    else
+      ElementZeroTy = cast<DTransSequentialType>(CompTy)->getTypeAtIndex(0u);
+
+    if (!ElementZeroTy)
+      return false;
+
+    // If the element zero type matches the destination pointee type,
+    // this is an element zero access.
+    if (DestPointeeTy->compare(*ElementZeroTy)) {
+      if (AccessedTy)
+        *AccessedTy = SrcTy;
+      return true;
+    }
+
+    // Handle multiple levels of indirection with i8* destinations.
+    // If the element zero type is a pointer type and the destination pointee
+    // type is a corresponding i8* at the same level of indirection, this is an
+    // element zero access.
+    if (ElementZeroTy->isPointerTy()) {
+      auto *TempZeroTy = ElementZeroTy;
+      auto *TempDestTy = DestPointeeTy;
+      while (TempZeroTy->isPointerTy() && TempDestTy->isPointerTy()) {
+        TempZeroTy = TempZeroTy->getPointerElementType();
+        TempDestTy = TempDestTy->getPointerElementType();
+      }
+
+      if (TempDestTy == getDTransI8Type()) {
+        if (AccessedTy)
+          *AccessedTy = SrcTy;
+        return true;
+      }
+    }
+
+    // If element zero is an aggregate type, this cast might be accessing
+    // element zero of the nested type.
+    if (ElementZeroTy->isAggregateType())
+      return IsPointeeElementZeroAccess(SrcTy, ElementZeroTy, DestPointeeTy,
+                                        AccessedTy);
+
+    // If element zero is a pointer to an aggregate type this cast might
+    // be creating a pointer to element zero of the type pointed to.
+    // For instance, if we have the following types:
+    //
+    //   %A = type { %B*, ... }
+    //   %B = type { %C, ... }
+    //   %C = type { ... }
+    //
+    // The following IR would get the address of A->C.
+    //
+    //   %ppc = bitcast %A* %pa to %C**
+    //
+    if (ElementZeroTy->isPointerTy() &&
+        ElementZeroTy->getPointerElementType()->isAggregateType()) {
+      // In this case, tracking the accessed type is tricky because
+      // the check is off by a level of indirection. If it's a match
+      // we need to record it as element zero of SrcTy.
+      bool Match = isElementZeroAccess(ElementZeroTy, DestPointeeTy);
+      if (Match && AccessedTy)
+        *AccessedTy = SrcTy;
+      return Match;
+    }
+
+    // Otherwise, it must be a bad cast. The caller should handle that.
+    return false;
+  };
+
+  if (AccessedTy)
+    *AccessedTy = nullptr;
+  if (!SrcTy || !DestTy)
+    return false;
+  if (!DestTy->isPointerTy() || !SrcTy->isPointerTy())
+    return false;
+
+  DTransType *SrcPointeeTy = SrcTy->getPointerElementType();
+  DTransType *DestPointeeTy = DestTy->getPointerElementType();
+  return IsPointeeElementZeroAccess(SrcTy, SrcPointeeTy, DestPointeeTy,
+                                    AccessedTy);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

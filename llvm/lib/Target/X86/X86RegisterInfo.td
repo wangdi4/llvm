@@ -34,6 +34,8 @@ let Namespace = "X86" in {
 #if INTEL_FEATURE_ISA_AMX
   def sub_t0   : SubRegIndex<-1>;
   def sub_t1   : SubRegIndex<-1, -1>;
+  def sub_t2   : SubRegIndex<-1, -1>;
+  def sub_t3   : SubRegIndex<-1, -1>;
 #endif // INTEL_FEATURE_ISA_AMX
 #if INTEL_FEATURE_ISA_AMX_LNC
   def sub_z0   : SubRegIndex<512>;
@@ -562,7 +564,7 @@ def GR64_NOREX_NOSP : RegisterClass<"X86", [i64], 64,
 // which we do not have right now.
 def LOW32_ADDR_ACCESS : RegisterClass<"X86", [i32], 32, (add GR32, RIP)>;
 
-// When RBP is used as a base pointer in a 32-bit addresses environement,
+// When RBP is used as a base pointer in a 32-bit addresses environment,
 // this is also safe to use the full register to access addresses.
 // Since RBP will never be spilled, stick to a 32 alignment to save
 // on memory consumption.
@@ -741,6 +743,17 @@ def TPAIRS : RegisterTuples<[sub_t0, sub_t1],
 // Need check alignment 3rd operand size=1024*2*8
 let isAllocatable = 0 in
 def VTILEPAIR : RegisterClass<"X86", [untyped], 0, (add TPAIRS)> {let Size = 16384;}
+
+// TMM register quad
+def TQUADS : RegisterTuples<[sub_t0, sub_t1, sub_t2, sub_t3],
+                            [(add TMM0, TMM4, TMM8,  TMM12),
+                             (add TMM1, TMM5, TMM9,  TMM13),
+                             (add TMM2, TMM6, TMM10, TMM14),
+                             (add TMM3, TMM7, TMM11, TMM15)]>;
+
+// Need check alignment 3rd operand size=1024*4*8
+let isAllocatable = 0 in
+def VTILEQUAD : RegisterClass<"X86", [untyped], 0, (add TQUADS)> {let Size = 32768;}
 
 #endif // INTEL_FEATURE_ISA_AMX
 #if INTEL_FEATURE_ISA_AMX_LNC

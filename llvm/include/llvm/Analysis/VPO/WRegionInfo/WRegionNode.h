@@ -121,10 +121,6 @@ private:
   /// Sets the unique number associated with this WRegionNode.
   void setNextNumber() { Number = ++UniqueNum; }
 
-  /// True for regions that may potentially "invoke" "omp critical"
-  /// (either explicitly or down the call stack).
-  bool MayHaveOMPCritical = false;
-
 #if INTEL_CUSTOMIZATION
   /// True if the WRN came from HIR; false otherwise
   bool IsFromHIR;
@@ -213,6 +209,11 @@ public:
   /// @{
   bool canHaveSchedule() const;
   bool canHaveDistSchedule() const;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  bool canHaveWorkerSchedule() const;
+#endif // INTEL_FEATURE_CSA
+#endif //INTEL_CUSTOMIZATION
   bool canHaveShared() const;
   bool canHavePrivate() const;
   bool canHaveFirstprivate() const;
@@ -232,6 +233,7 @@ public:
   bool canHaveFlush() const;
   bool canHaveCancellationPoints() const; ///< Constructs that can be cancelled
   bool canHaveCollapse() const;
+  bool canHaveNowait() const;
   /// @}
 
   /// Returns `true` if the construct needs to be outlined into a separate
@@ -272,6 +274,11 @@ public:
   virtual ScheduleClause &getSchedule()      {WRNERROR("SCHEDULE");           }
        // ScheduleClause is not list-type, but has similar API so put here too
   virtual ScheduleClause &getDistSchedule()   {WRNERROR("DIST_SCHEDULE");     }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  virtual ScheduleClause &getWorkerSchedule()  {WRNERROR("SA_SCHEDULE");      }
+#endif // INTEL_FEATURE_CSA
+#endif //INTEL_CUSTOMIZATION
 
   virtual SharedClause &getShared()          {WRNERROR(QUAL_OMP_SHARED);      }
   virtual UniformClause &getUniform()        {WRNERROR(QUAL_OMP_UNIFORM);     }
@@ -312,6 +319,12 @@ public:
                                            {WRNERROR("SCHEDULE");           }
   virtual const ScheduleClause &getDistSchedule() const
                                            {WRNERROR("DIST_SCHEDULE");      }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  virtual const ScheduleClause &getWorkerSchedule() const
+                                           {WRNERROR("SA_SCHEDULE")         }
+#endif // INTEL_FEATURE_CSA
+#endif //INTEL_CUSTOMIZATION
   virtual const SharedClause &getShared() const
                                            {WRNERROR(QUAL_OMP_SHARED);      }
   virtual const UniformClause &getUniform() const
@@ -363,6 +376,14 @@ public:
   virtual EXPR getNumTeams()              const {WRNERROR(QUAL_OMP_NUM_TEAMS);}
   virtual void setNumThreads(EXPR E)          {WRNERROR(QUAL_OMP_NUM_THREADS);}
   virtual EXPR getNumThreads()          const {WRNERROR(QUAL_OMP_NUM_THREADS);}
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  virtual void setNumWorkers(int E)        {WRNERROR(QUAL_OMP_SA_NUM_WORKERS);}
+  virtual int  getNumWorkers()       const {WRNERROR(QUAL_OMP_SA_NUM_WORKERS);}
+  virtual void setPipelineDepth(int E)        {WRNERROR(QUAL_OMP_SA_PIPELINE);}
+  virtual int  getPipelineDepth()       const {WRNERROR(QUAL_OMP_SA_PIPELINE);}
+#endif // INTEL_FEATURE_CSA
+#endif //INTEL_CUSTOMIZATION
   virtual void setOffloadEntryIdx(int N)       {WRNERROR("OFFLOAD_ENTRY_IDX");}
   virtual int  getOffloadEntryIdx()      const {WRNERROR("OFFLOAD_ENTRY_IDX");}
   virtual void setOrdered(int N)                {WRNERROR(QUAL_OMP_ORDERED);  }
@@ -399,11 +420,20 @@ public:
   virtual void addDirectlyUsedNonPointerValue(Value *V) {
     WRNERROR("DIRECTLY_USED_NON_POINTER_VALUES");
   }
-  virtual void addUncollapsedNDRangeDimension(Value *V) {
+  virtual void setUncollapsedNDRangeDimensions(ArrayRef<Value *> Dims) {
     WRNERROR("OFFLOAD_NDRANGE");
   }
   virtual const SmallVectorImpl<Value *> &getUncollapsedNDRange() const {
     WRNERROR("OFFLOAD_NDRANGE");
+  }
+  virtual void resetUncollapsedNDRangeDimensions() {
+    WRNERROR("OFFLOAD_NDRANGE");
+  }
+  virtual void setNDRangeDistributeDim(uint8_t Dim) {
+    WRNERROR("NDRANGE_DISTRIBUTE_DIM");
+  }
+  virtual uint8_t getNDRangeDistributeDim() const {
+    WRNERROR("NDRANGE_DISTRIBUTE_DIM");
   }
   virtual WRNProcBindKind getProcBind()   const {WRNERROR("PROC_BIND");       }
   virtual WRNLoopBindKind getLoopBind()   const {WRNERROR("LOOP_BIND");       }
@@ -447,6 +477,9 @@ public:
   virtual void setHLLoop(loopopt::HLLoop *)       {WRNERROR("HLLoop");        }
   virtual loopopt::HLLoop *getHLLoop() const      {WRNERROR("HLLoop");        }
 #endif //INTEL_CUSTOMIZATION
+
+  virtual void setSPIRVSIMDWidth(unsigned) {WRNERROR("SPIRVSIMDWidth");}
+  virtual unsigned getSPIRVSIMDWidth() const {WRNERROR("SPIRVSIMDWidth");}
 
   /// Only these classes are allowed to create/modify/delete WRegionNode.
   friend class WRegionUtils;
@@ -676,9 +709,6 @@ public:
   void setDirID(int ID)          { DirID = ID; }
   int  getDirID()          const { return DirID; }
 
-  void setMayHaveOMPCritical(bool Value = true) { MayHaveOMPCritical = Value; }
-  bool mayHaveOMPCritical() const { return MayHaveOMPCritical; }
-
   // Derived Class Enumeration
 
   /// An enumeration to keep track of the concrete subclasses of
@@ -698,7 +728,7 @@ public:
     WRNTargetEnterData,               // IsTarget
     WRNTargetExitData,                // IsTarget
     WRNTargetUpdate,                  // IsTarget
-    WRNTargetVariant,
+    WRNTargetVariant,                 // IsTarget
     WRNTask,                          // IsTask
     WRNTaskloop,                      // IsTask, IsOmpLoop
 

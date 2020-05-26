@@ -1,4 +1,4 @@
-//===-- VPlanPredicator.h ---------------------------------------*- C++ -*-===//
+//===-- IntelVPlanPredicator.h ----------------------------------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -13,22 +13,14 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_TRANSFORMS_VECTORIZE_VPLAN_PREDICATOR_H
-#define LLVM_TRANSFORMS_VECTORIZE_VPLAN_PREDICATOR_H
+#ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_PREDICATOR_H
+#define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_PREDICATOR_H
 
-#if INTEL_CUSTOMIZATION
 #include "IntelLoopVectorizationPlanner.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanBuilder.h"
 #include "IntelVPlanDominatorTree.h"
 #include "llvm/IR/Dominators.h"
-
-using namespace llvm::vpo;
-#else
-#include "LoopVectorizationPlanner.h"
-#include "VPlan.h"
-#include "VPlanDominatorTree.h"
-#endif // INTEL_CUSTOMIZATION
 
 namespace llvm {
 namespace vpo {
@@ -41,12 +33,10 @@ private:
   // VPLoopInfo for Plan's HCFG.
   VPLoopInfo *VPLI;
 
-  // Dominator/PostDominator tree for Plan's HCFG.
-  VPDominatorTree VPDomTree;
-  VPPostDominatorTree VPPostDomTree;
-
   // VPlan builder used to generate VPInstructions for block predicates.
   VPBuilder Builder;
+
+  ReversePostOrderTraversal<VPBasicBlock *> RPOT;
 
   // Describe an edge/condition/predicate affecting given block predicate. Final
   // predicate for that block is an OR of all the PredicateTerms affecting the
@@ -94,13 +84,32 @@ private:
   // "not" vpinstructions creation.
   DenseMap<VPValue *, VPValue *> Cond2NotCond;
 
-  // Set of blocks that were already split to insert "AND" calculation for
-  // PredicateTerms.
-  SmallPtrSet<VPBasicBlock *, 16> SplitBlocks;
+  // Predicate-related instructions (and/not/or) should be executed without the
+  // mask. As such, in general, we need to have a separate block for them.
+  //
+  // The problem here is that we want to delay phis-to-blend processing until
+  // after predicates are inserted and we don't want the phis to be modified
+  // prior to that in order to carry original information in their incoming
+  // blocks. Unfortunately, CFG modifications caused by the block splitting
+  // would update such phis too.
+  //
+  // The solution to this problem is to make predicate-related instruction
+  // insertion two-phase:
+  //  - 1) Insert instructions *into* the blocks that are possibly predicated
+  //  - do phis-to-blends processing
+  //  - 2) Split the blocks from 1)
+  //
+  // Record the split points in this map during
+  // createDefiningValueForPredicateTerm and use it to perform the actual
+  // splitting in the end of the predication process.
+  DenseMap<VPBasicBlock *, VPInstruction *> BlocksToSplit;
 
   // We don't emit block predicates for uniform blocks, thus need store the
   // predicate in a separate map.
   DenseMap<VPBasicBlock *, VPValue *> Block2Predicate;
+
+  DenseMap<VPBasicBlock * /* Dst */, SmallVector<VPBasicBlock * /* Src */, 4>>
+      RemovedDivergentEdgesMap;
 
   // The struct corresponding to the blend consists of an incoming value,
   // incoming block, and the RPOT Idx calculated during linearization. This
@@ -133,6 +142,17 @@ private:
     Blend2BlendTupleVectorMap[Blend].emplace_back(Val, BB, RPOTIdx);
   }
 
+  // Blocks where phis should be turned into blends as a result of
+  // linearization. The transformation is delayed to after-linearization as it
+  // might be needed to create extra blends and/or phis on the way through
+  // multiple edges in the final CFG (using IDF).
+  //
+  // Also, we need blocks' predicates for the explicit VPBlend instruction, so
+  // for the transform to be performed on-the-fly we would need keeping
+  // VPLInfo/DomTree/PostDomTree up-to-date through the linearization process
+  // which would be prohibitively hard.
+  SetVector<VPBasicBlock *> BlocksToBlendProcess;
+
   /// Returns the negation of the \p Cond inserted at the end of the block
   /// defining it or at VPlan's entry. Avoids creating duplicates by caching
   /// created NOTs.
@@ -147,6 +167,9 @@ private:
   /// updated CFG to preserve SSA form for the values calculating predicates.
   void computeLiveInsForIDF(PredicateTerm Term,
                             SmallPtrSetImpl<VPBasicBlock *> &LiveInBlocks);
+  void computeLiveInsForBlendsIDF(const SmallPtrSetImpl<VPBasicBlock *> &DefBlocks,
+                                  const VPBasicBlock *OrigPhiBlock,
+                                  SmallPtrSetImpl<VPBasicBlock *> &LiveInBlocks);
 
   /// Helper for getOrCreateValueForPredicateTerm. Only creates the defining
   /// value for the \p PredTerm, without any SSA phi insertion.
@@ -183,15 +206,24 @@ private:
   /// Worklist. Uses the current insertion point of Builder member.
   VPValue *genPredicateTree(std::list<VPValue *> &Worklist);
 
-  /// Predicate and linearize the CFG within \p Region, recursively.
-  void predicateAndLinearizeRegionRec(bool SearchLoopHack);
+  /// Lower predicate terms into VPInstructions. Note that some of the
+  /// instructions that need not be predicated are under the block-predicate
+  /// influence after this method finishes (ANDs used to calculate predicates).
+  /// That is handled later by splitting basic blocks right before the first AND
+  /// created in the end of those blocks.
+  void emitPredicates();
 
-  /// Linearize \p Region (without recursion) and replace PHIs in the linearized
-  /// blocks with blends. It does *NOT* update condition bits for the blocks,
-  /// this information is needed for block predicate insertion after
+  /// Linearize Plan and mark blocks that should be post-processed for
+  /// phi-to-blend substitutuion. It does *NOT* update condition bits for the
+  /// blocks, this information is needed for block predicate insertion after
   /// linearization.
-  void
-  linearizeRegion(const ReversePostOrderTraversal<VPBasicBlock *> &RegionRPOT);
+  void linearizeRegion();
+
+  /// Process phis that are merge points with incoming edges changed during
+  /// linearization process. Includes creation of explicit VPBlendInsts and
+  /// insertion of real VPPHINodes to maintain proper SSA form.
+  void transformPhisToBlends();
+  void transformPhisToBlends(VPBasicBlock *Block);
 
   // Add an additional all-zero-check for inner loops with uniform backedge
   // condition on a divergent path. Temporary workaround untill proper region
@@ -221,18 +253,12 @@ private:
   void replacePhiPredicateTermWithBlend(VPPHINode *Phi,
                                         VPBlendInst *Blend);
 
-#if INTEL_CUSTOMIZATION
-  void handleInnerLoopBackedges(VPLoop *VPL);
-#endif // INTEL_CUSTOMIZATION
 public:
   VPlanPredicator(VPlan &Plan);
 
   /// Predicate Plan's HCFG.
   void predicate(void);
 };
-#if INTEL_CUSTOMIZATION
-#undef VPlanPredicator
-#endif // INTEL_CUSTOMIZATION
 } // namespace vpo
 } // end namespace llvm
-#endif // LLVM_TRANSFORMS_VECTORIZE_VPLAN_PREDICATOR_H
+#endif // LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_PREDICATOR_H

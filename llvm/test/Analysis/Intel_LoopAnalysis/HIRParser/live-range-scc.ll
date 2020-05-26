@@ -7,7 +7,6 @@
 ; CHECK: |   %sub13153 = %sub13153  +  -1;
 ; CHECK: |   if (-1 * i1 + %in <u %sub13153.out1)
 ; CHECK: |   {
-; CHECK: |      %.pre-phi = i1 + 1;
 ; CHECK: |   }
 ; CHECK: |   else
 ; CHECK: |   {
@@ -18,20 +17,18 @@
 ; CHECK: |      %4 = (%b)[0];
 ; CHECK: |      (%b)[0] = -1 * %3 + %4;
 ; CHECK: |      %sub13153 = %sub13153  -  %3;
-; CHECK: |      %.pre-phi = i1 + 1;
 ; CHECK: |      if (84 * %sub13153 != %1)
 ; CHECK: |      {
 ; CHECK: |         (%sb)[0][i1 + 1] = %sub13153.out;
-; CHECK: |         %.pre-phi = i1 + 1;
 ; CHECK: |      }
 ; CHECK: |   }
-; CHECK: |   %5 = (%vw)[0][%.pre-phi];
+; CHECK: |   %5 = (%vw)[0][i1 + 1];
 ; CHECK: |   %6 = (%j)[0][i1 + 3];
 ; CHECK: |   (%j)[0][i1 + 3] = (%5 * %6);
 ; CHECK: |   + DO i2 = 0, i1, 1   <DO_LOOP>
 ; CHECK: |   |   %7 = (%qu5)[0][i1 + 2][i2 + 1];
-; CHECK: |   |   %9 = (%qu5)[0][i2][%.pre-phi];
-; CHECK: |   |   (%qu5)[0][i2][%.pre-phi] = (%7 * %9);
+; CHECK: |   |   %9 = (%qu5)[0][i2][i1 + 1];
+; CHECK: |   |   (%qu5)[0][i2][i1 + 1] = (%7 * %9);
 ; CHECK: |   + END LOOP
 ; CHECK: + END LOOP
 

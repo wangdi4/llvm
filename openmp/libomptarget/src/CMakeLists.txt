@@ -43,6 +43,12 @@ target_link_libraries(omptarget
   "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exports")
 endif(INTEL_COLLAB)
 
+if(INTEL_CUSTOMIZATION)
+  if(WIN32)
+    libomptarget_add_resource_file(omptarget)
+  endif()
+endif(INTEL_CUSTOMIZATION)
+
 # Install libomptarget under the lib destination folder.
 if(INTEL_COLLAB)
 install(TARGETS omptarget LIBRARY COMPONENT omptarget

@@ -84,7 +84,7 @@ static bool isConstantIntVector(Value *Mask) {
   if (!C)
     return false;
 
-  unsigned NumElts = Mask->getType()->getVectorNumElements();
+  unsigned NumElts = cast<VectorType>(Mask->getType())->getNumElements();
   for (unsigned i = 0; i != NumElts; ++i) {
     Constant *CElt = C->getAggregateElement(i);
     if (!CElt || !isa<ConstantInt>(CElt))
@@ -395,7 +395,7 @@ static Value *tryScalarizeGEP(GetElementPtrInst *GEP, unsigned Element,
       // We have some kind of non-splat vector.
       if (auto *C = dyn_cast<Constant>(GEPIdx)) {
         // If all elements are ConstantInts, use the Constant for this element.
-        unsigned NumElts = C->getType()->getVectorNumElements();
+        unsigned NumElts = cast<VectorType>(C->getType())->getNumElements();
         for (unsigned j = 0; j != NumElts; ++j) {
           Constant *Elt = C->getAggregateElement(j);
           if (!Elt || !isa<ConstantInt>(Elt))
@@ -590,9 +590,10 @@ static void scalarizeMaskedScatter(CallInst *CI, bool &ModifiedDT) {
 
   assert(isa<VectorType>(Src->getType()) &&
          "Unexpected data type in masked scatter intrinsic");
-  assert(isa<VectorType>(Ptrs->getType()) &&
-         isa<PointerType>(Ptrs->getType()->getVectorElementType()) &&
-         "Vector of pointers is expected in masked scatter intrinsic");
+  assert(
+      isa<VectorType>(Ptrs->getType()) &&
+      isa<PointerType>(cast<VectorType>(Ptrs->getType())->getElementType()) &&
+      "Vector of pointers is expected in masked scatter intrinsic");
 
   IRBuilder<> Builder(CI->getContext());
   Instruction *InsertPt = CI;
@@ -601,7 +602,7 @@ static void scalarizeMaskedScatter(CallInst *CI, bool &ModifiedDT) {
   Builder.SetCurrentDebugLocation(CI->getDebugLoc());
 
   MaybeAlign AlignVal(cast<ConstantInt>(Alignment)->getZExtValue());
-  unsigned VectorWidth = Src->getType()->getVectorNumElements();
+  unsigned VectorWidth = cast<VectorType>(Src->getType())->getNumElements();
 
   // Shorten the way if the mask is a vector of constants.
   if (isConstantIntVector(Mask)) {
@@ -799,7 +800,7 @@ static void scalarizeMaskedCompressStore(CallInst *CI, bool &ModifiedDT) {
   Builder.SetInsertPoint(InsertPt);
   Builder.SetCurrentDebugLocation(CI->getDebugLoc());
 
-  Type *EltTy = VecType->getVectorElementType();
+  Type *EltTy = VecType->getElementType();
 
   unsigned VectorWidth = VecType->getNumElements();
 

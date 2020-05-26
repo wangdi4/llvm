@@ -1,6 +1,6 @@
 //===---------------- WeakAlign.cpp - DTransWeakAlignPass -----------------===//
 //
-// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -22,6 +22,7 @@
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/IR/PatternMatch.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
@@ -115,6 +116,7 @@ private:
       std::function<const TargetLibraryInfo &(const Function &)> GetTLI);
   bool analyzeFunction(Function &F);
   bool isSupportedIntrinsicInst(IntrinsicInst *II);
+  bool willAssumeHold(IntrinsicInst *II);
 
   // Identify the "mallopt" function, if it exists on the target being compiled
   // for.
@@ -389,9 +391,9 @@ bool WeakAlignImpl::analyzeFunction(Function &F) {
 //
 // Intrinsic::assume:
 //   The __assume_aligned expression turns into an assume intrinsic
-//   call in the IR, so inhibit this transform for any case involving
-//   an assume intrinsic. This is more conservative than strictly
-//   necessary.
+//   call in the IR, and other passes may generate alignment assumptions for
+//   downstream passes, so this intrinsic is only allowed in certain cases that
+//   are recognized as safe patterns.
 //
 // Intrinsic::x86_mmx_palignr_b
 //   This is using 16-byte aligned memory, and since we are excluding
@@ -461,7 +463,97 @@ bool WeakAlignImpl::isSupportedIntrinsicInst(IntrinsicInst *II) {
   case Intrinsic::smul_with_overflow:
   case Intrinsic::umul_with_overflow:
     break;
+
+  case Intrinsic::assume: {
+    bool SafeAssume = willAssumeHold(II);
+    if (!SafeAssume)
+      LLVM_DEBUG(dbgs() << "DTRANS Weak Align: inhibited -- Unsafe use of "
+                           "assume intrinsic\n");
+    return SafeAssume;
   }
+  }
+
+  return true;
+}
+
+// Return 'true' if the operand of the llvm.assume intrinsic call is recognized
+// as a supported case for the weak align transformation. The llvm.assume
+// intrinsic may be used to note that a pointer has a specific alignment, and
+// it is unknown whether an upstream pass has made use of this information, so
+// here a limited set of uses will be allowed.
+//
+// Specifically, look for the following form:
+//    %pti = ptrtoint %struct.other.inner* %a to i64
+//    %masked = and i64 %pti, 7
+//    %aligned = icmp eq i64 %masked, 0
+//    tail call void @llvm.assume(i1 %aligned)
+// Here a pointer to a structure is checked as having 8-byte alignment.
+// Because enabling weak align within qkmalloc will still result in allocations
+// being 8-byte aligned as long as the object size is a multiple of 8, we can
+// treat this as safe as long as the structure's size is a multiple of 8 bytes.
+bool WeakAlignImpl::willAssumeHold(IntrinsicInst *II) {
+  // Return 'true' if the IR matches the pattern of a pointer alignment check,
+  // and save the pointer in 'AlignedValue' and the tested byte-alignment in
+  // 'AlignAmount'
+  auto IsAlignmentCheck = [](Value *V, Value **AlignedPtr,
+                             uint64_t *AlignAmount) {
+    using namespace llvm::PatternMatch;
+
+    // Check for an equality comparison with 0.
+    Value *Mask;
+    ICmpInst::Predicate Pred;
+    if (!match(V, m_ICmp(Pred, m_Value(Mask), m_Zero())) &&
+        !match(V, m_ICmp(Pred, m_Zero(), m_Value(Mask))))
+      return false;
+
+    if (Pred != ICmpInst::Predicate::ICMP_EQ)
+      return false;
+
+    // Check for the 'and' with an alignment mask
+    Value *SrcInt = nullptr;
+    ConstantInt *BitMaskConst = nullptr;
+    if (!match(Mask, m_And(m_Value(SrcInt), m_ConstantInt(BitMaskConst))) &&
+        !match(Mask, m_And(m_ConstantInt(BitMaskConst), m_Value(SrcInt))))
+      return false;
+
+    // Verify the value is a bit mask using only the low order bits.
+    uint64_t MaskInt = BitMaskConst->getLimitedValue();
+    if (!isMask_64(MaskInt))
+      return false;
+
+    // Find the source pointer as coming from a PtrToInt.
+    auto *PTI = dyn_cast<PtrToIntInst>(SrcInt);
+    if (!PTI)
+      return false;
+
+    *AlignedPtr = PTI->getOperand(0);
+    *AlignAmount = MaskInt + 1;
+    return true;
+  };
+
+  // If we cannot recognize the assume as being related to the expected form of
+  // an alignment check, then conservatively return that it is not a supported
+  // use.
+  assert(II->getIntrinsicID() == Intrinsic::assume &&
+         "Expected llvm.assume intrinsic");
+  Value *Op = II->getOperand(0);
+  Value *AlignedPtr = nullptr;
+  uint64_t AlignAmount = 0;
+  if (!IsAlignmentCheck(Op, &AlignedPtr, &AlignAmount))
+    return false;
+
+  assert(AlignedPtr->getType()->isPointerTy() && "Expected pointer value");
+  // TODO: Yet another case that special processing will be needed once opaque
+  // pointers are enabled.
+  auto *StructTy = dyn_cast<llvm::StructType>(
+      AlignedPtr->getType()->getPointerElementType());
+  if (!StructTy || StructTy->isOpaque())
+    return false;
+
+  const DataLayout &DL = II->getFunction()->getParent()->getDataLayout();
+  uint64_t Size = DL.getTypeAllocSize(StructTy);
+  if (Size % 8)
+    return false;
 
   return true;
 }

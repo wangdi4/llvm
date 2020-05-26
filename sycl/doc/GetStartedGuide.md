@@ -24,6 +24,7 @@ and a wide range of compute accelerators such as GPU and FPGA.
 * `git` - https://git-scm.com/downloads
 * `cmake` version 3.2 or later - http://www.cmake.org/download/
 * `python` - https://www.python.org/downloads/release/python-2716/
+* `ninja` - https://github.com/ninja-build/ninja/wiki/Pre-built-Ninja-packages
 * C++ compiler
   * Linux: `GCC` version 5.1.0 or later (including libstdc++) -
     https://gcc.gnu.org/install/
@@ -68,34 +69,38 @@ cd %DPCPP_HOME%\build
 
 ## Build DPC++ toolchain
 
-The easiest way to get started is to use the buildbot [configure](../../buildbot/configure.py)
-and [compile](../../buildbot/configure.py) scripts.
+The easiest way to get started is to use the buildbot
+[configure](../../buildbot/configure.py) and
+[compile](../../buildbot/compile.py) scripts.
 
-In case you want to configure CMake manually the up-to-date reference for variables is in these files.
+In case you want to configure CMake manually the up-to-date reference for
+variables is in these files.
 
 **Linux**
 
 ```bash
-python $DPCPP_HOME/llvm/buildbot/configure.py -s $DPCPP_HOME/llvm -o $DPCPP_HOME/build -t release
-python $DPCPP_HOME/llvm/buildbot/compile.py -s $DPCPP_HOME/llvm -o $DPCPP_HOME/build
+python $DPCPP_HOME/llvm/buildbot/configure.py
+python $DPCPP_HOME/llvm/buildbot/compile.py
 ```
 
 **Windows**
 
 ```bat
-python %DPCPP_HOME%\llvm\buildbot\configure.py -s %DPCPP_HOME%\llvm -o %DPCPP_HOME%\build -t release
-python %DPCPP_HOME%\llvm\buildbot\compile.py -s %DPCPP_HOME%\llvm -o %DPCPP_HOME%\build
+python %DPCPP_HOME%\llvm\buildbot\configure.py
+python %DPCPP_HOME%\llvm\buildbot\compile.py
 ```
 
 **Options**
 
 You can use the following flags with `configure.py`:
 
- * `--no-ocl` -> Download OpenCL deps via cmake (can be useful in case of troubles)
+ * `--system-ocl` -> Don't Download OpenCL deps via cmake but use the system ones
+ * `--no-werror` -> Don't treat warnings as errors when compiling llvm
  * `--cuda` -> use the cuda backend (see [Nvidia CUDA](#build-dpc-toolchain-with-support-for-nvidia-cuda))
  * `--shared-libs` -> Build shared libraries
  * `-t` -> Build type (debug or release)
-
+ * `-o` -> Path to build directory
+ * `--cmake-gen` -> Set build system type (e.g. `--cmake-gen "Unix Makefiles"`)
 
 Ahead-of-time compilation for the Intel&reg; processors is enabled by default.
 For more, see [opencl-aot documentation](../../opencl-aot/README.md).
@@ -125,8 +130,8 @@ To enable support for CUDA devices, follow the instructions for the Linux
 DPC++ toolchain, but add the `--cuda` flag to `configure.py`
 
 Enabling this flag requires an installation of
-[CUDA 10.1](https://developer.nvidia.com/cuda-10.1-download-archive-update2) on the system,
-refer to
+[CUDA 10.1](https://developer.nvidia.com/cuda-10.1-download-archive-update2) on
+the system, refer to
 [NVIDIA CUDA Installation Guide for Linux](https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html).
 
 Currently, the only combination tested is Ubuntu 18.04 with CUDA 10.2 using
@@ -140,17 +145,18 @@ above.
 The DPC++ toolchain support on CUDA platforms is still in an experimental phase.
 Currently, the DPC++ toolchain relies on having a recent OpenCL implementation
 on the system in order to link applications to the DPC++ runtime.
-The OpenCL implementation is not used at runtime if only the CUDA backend is 
+The OpenCL implementation is not used at runtime if only the CUDA backend is
 used in the application, but must be installed.
 
 The OpenCL implementation provided by the CUDA SDK is OpenCL 1.2, which is
 too old to link with the DPC++ runtime and lacks some symbols.
 
-We recommend installing the low level CPU runtime, following the instructions 
+We recommend installing the low level CPU runtime, following the instructions
 in the next section.
 
-Instead of installing the low level CPU runtime, it is possible to build and 
-install the [Khronos ICD loader](https://github.com/KhronosGroup/OpenCL-ICD-Loader), 
+Instead of installing the low level CPU runtime, it is possible to build and
+install the
+[Khronos ICD loader](https://github.com/KhronosGroup/OpenCL-ICD-Loader),
 which contains all the symbols required.
 
 ### Install low level runtime
@@ -259,18 +265,19 @@ To verify that built DPC++ toolchain is working correctly, run:
 
 **Linux**
 ```bash
-make -j`nproc` check-all
+python $DPCPP_HOME/llvm/buildbot/check.py
 ```
 
-**Windows (64-bit)**
+**Windows**
+
 ```bat
-ninja check-all
+python %DPCPP_HOME%\llvm\buildbot\check.py
 ```
 
 If no OpenCL GPU/CPU runtimes are available, the corresponding tests are
 skipped.
 
-If CUDA support has been built, it is tested only if there are CUDA devices 
+If CUDA support has been built, it is tested only if there are CUDA devices
 available.
 
 #### Run Khronos\* SYCL\* conformance test suite (optional)
@@ -405,7 +412,7 @@ clang++ -fsycl -fsycl-targets=nvptx64-nvidia-cuda-sycldevice \
 This `simple-sycl-app.exe` application doesn't specify SYCL device for
 execution, so SYCL runtime will use `default_selector` logic to select one
 of accelerators available in the system or SYCL host device.
-In this case, the behaviour of the `default_selector` can be altered 
+In this case, the behaviour of the `default_selector` can be altered
 using the `SYCL_BE` environment variable, setting `PI_CUDA` forces
 the usage of the CUDA backend (if available), `PI_OPENCL` will
 force the usage of the OpenCL backend.
@@ -508,7 +515,8 @@ class CUDASelector : public cl::sycl::device_selector {
 
 ## C++ standard
 
-- Minimal supported C++ standard is C++11 on Linux and C++14 on Windows.
+- DPC++ runtime is built as C++14 library.
+- DPC++ compiler is building apps as C++17 apps by default.
 
 ## Known Issues and Limitations
 
@@ -535,6 +543,5 @@ class CUDASelector : public cl::sycl::device_selector {
 [https://spec.oneapi.com/versions/latest/elements/dpcpp/source/index.html](https://spec.oneapi.com/versions/latest/elements/dpcpp/source/index.html)
 - SYCL\* 1.2.1 specification:
 [www.khronos.org/registry/SYCL/specs/sycl-1.2.1.pdf](https://www.khronos.org/registry/SYCL/specs/sycl-1.2.1.pdf)
-
 
 \*Other names and brands may be claimed as the property of others.

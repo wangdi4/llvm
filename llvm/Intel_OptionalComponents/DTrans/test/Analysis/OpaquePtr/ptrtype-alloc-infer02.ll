@@ -29,7 +29,7 @@ define internal void @test01(%struct.test01* %in, i64 %index) !dtrans_type !1 {
 ; CHECK-LABEL: void @test01
 ; CHECK-CUR:  %mem_i8 = call i8* @calloc(i64 16, i64 8)
 ; CHECK-FUT:  %mem_i8 = call p0 @calloc(i64 16, i64 8)
-; CHECK:    LocalPointerInfo:
+; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   %struct.test01**{{ *$}}
 ; CHECK-NEXT:   i8*{{ *$}}

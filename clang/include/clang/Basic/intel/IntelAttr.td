@@ -511,24 +511,6 @@ def SchedulerTargetFmaxMHz : InheritableAttr {
   }];
 }
 
-def InternalMaxBlockRamDepth : InheritableAttr {
-  let Spellings = [GNU<"internal_max_block_ram_depth">];
-  let Args = [ExprArgument<"InternalMaxBlockRamDepth">];
-  let Subjects = SubjectList<[HLSConstVar, HLSLocalStaticSlaveMemVar,
-                              Field], ErrorDiag>;
-  let Documentation = [Undocumented];
-  let PragmaAttributeSupport = 0;
-  let LangOpts = [OpenCL, HLS];
-  let AdditionalMembers = [{
-    static unsigned getMinValue() {
-      return 0;
-    }
-    static unsigned getMaxValue() {
-      return 1024*1024;
-    }
-  }];
-}
-
 // One string argument
 def ReadWriteMode : Attr {
   let Spellings = [GNU<"readwrite_mode">];

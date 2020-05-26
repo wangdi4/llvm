@@ -19,6 +19,6 @@ target device_triples = "x86_64"
 !llvm.module.flags = !{!1}
 !llvm.ident = !{!2}
 
-!0 = !{i32 1, !"a", i32 0, i32 0}
+!0 = !{i32 1, !"a", i32 0, i32 0, i32* @a}
 !1 = !{i32 1, !"wchar_size", i32 4}
 !2 = !{!"clang version 9.0.0"}

@@ -20,6 +20,7 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/BlockFrequencyInfo.h"
+#include "llvm/Analysis/Intel_DopeVectorAnalysis.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/AssemblyAnnotationWriter.h"
 #include "llvm/IR/CFG.h"
@@ -45,6 +46,7 @@
 #include <set>
 
 using namespace llvm;
+using namespace dvanalysis;
 using namespace llvm::PatternMatch;
 
 #define DEBUG_TYPE "dtransanalysis"
@@ -75,6 +77,7 @@ using namespace llvm::PatternMatch;
 // Debug type for verbose bad casting analysis output.
 #define DTRANS_BCA "dtrans-bca"
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 static cl::opt<bool> DTransPrintAllocations("dtrans-print-allocations",
                                             cl::ReallyHidden);
 
@@ -84,6 +87,7 @@ static cl::opt<bool> DTransPrintAnalyzedTypes("dtrans-print-types",
 static cl::opt<bool>
     DTransPrintImmutableAnalyzedTypes("dtrans-print-immutable-types",
                                       cl::ReallyHidden);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // BlockFrequencyInfo is ignored while computing field frequency info
 // if this flag is true.
 // TODO: Disable this flag by default after doing more experiments and
@@ -324,8 +328,11 @@ bool isPartialPtrLoad(LoadInst *Load) {
         LoopInVal = BasePHI->getIncomingValue(0);
       else
         LoopInVal = BasePHI->getIncomingValue(1);
-      if (!(match(LoopInVal, m_Add(m_Specific(BasePHI), m_SpecificInt(-1))) ||
-            match(LoopInVal, m_Add(m_SpecificInt(-1), m_Specific(BasePHI))))) {
+      unsigned Bitwidth = LoopInVal->getType()->getScalarSizeInBits();
+      if (!(match(LoopInVal, m_Add(m_Specific(BasePHI),
+                                   m_SpecificInt(APInt(Bitwidth, -1)))) ||
+            match(LoopInVal, m_Add(m_SpecificInt(APInt(Bitwidth, -1)),
+                                   m_Specific(BasePHI))))) {
         DEBUG_WITH_TYPE(DTRANS_PARTIALPTR,
                         dbgs() << "Not matched. PHI decrement not matched!\n");
         return false;
@@ -652,6 +659,10 @@ public:
     ElementPointees.insert(std::make_pair(Base, Loc));
   }
 
+  void addElementZeroAlias(llvm::Type *Ty) {
+    ElementZeroAliases.insert(Ty);
+  }
+
   bool typesCompatible(llvm::Type *T1, llvm::Type *T2) {
     if (T1 == nullptr || T2 == nullptr)
       return false;
@@ -783,6 +794,7 @@ public:
 
   PointerTypeAliasSetRef getPointerTypeAliasSet() { return PointerTypeAliases; }
   ElementPointeeSetRef getElementPointeeSet() { return ElementPointees; }
+  PointerTypeAliasSetRef getElementZeroAliasSet() { return ElementZeroAliases; }
 
   void merge(const LocalPointerInfo &Other) {
     // This routine is called during analysis, so don't change AnalysisState.
@@ -886,6 +898,27 @@ private:
   bool AliasesToAggregatePointer;
   PointerTypeAliasSet PointerTypeAliases;
   ElementPointeeSet ElementPointees;
+
+  // When the first element of a structure is an i8 (or array of i8 types), or
+  // ptr-to-ptr type, a bitcast of a pointer to the structure to an i8* captures
+  // the result in the ElementPointee set as being element 0 of the innermost
+  // nested type of the aggregate. However, the result of the bitcast could also
+  // be used for a byte flattened GEP. This list is to maintain the set of other
+  // possible aggregate types the address is equivalent to for being able to
+  // determine the field if the bitcast result ends up being used for a
+  // byte-flattened GEP.
+  //
+  // For example:
+  //   %class.C = type { i32 (...)**, i32 }
+  //   %class.B = type{ %class.C }
+  //   %bc = bitcast %class.B* to i8*
+  //
+  // %bc could be being used for the vtable address in %class.C, or for a
+  // byte-flatted GEP.
+  // ElementPointees will record the result of %bc as %class.C @ 0.
+  // ElementZeroAliases will record the result of %bc as coming from %class.B.
+  PointerTypeAliasSet ElementZeroAliases;
+
   bool IsPartialPtrLoadStore;
 };
 
@@ -1077,6 +1110,10 @@ private:
       // If the value being analyzed is a load instruction the loaded value
       // may inherit some alias information from the load's pointer operand.
       analyzeLoadInstruction(Load, Info);
+    } else if (auto *BC = dyn_cast<BitCastInst>(V)){
+      // If the value is a BitCast then we need to check if it used to load
+      // a zero element
+      analyzeBitCastInstruction(BC, Info);
     } else if (isa<ExtractValueInst>(V)) {
       // FIXME: Also analyze extract value instructions.
     }
@@ -1380,6 +1417,18 @@ private:
                dtrans::isElementZeroI8Ptr(AliasTy->getPointerElementType(),
                                           &AccessedTy))) {
             Info.addElementPointee(AccessedTy->getPointerElementType(), 0);
+
+            // Capture the original type to allow for evaluating the pointer as
+            // a potential byte-flattened GEP.
+            // For example:
+            //   struct.test = type { [256 x i8], i64 }
+            //   %y = bitcast %struct.test* %x to i8*
+            // This will have captured [258 x i8] @ 0 as the element pointee,
+            // and i8* as the aliased type. However, %y could be get used as a
+            // byte-flattened GEP, capture the aggregate type for use during
+            // byte-flattened GEP analysis.
+            Info.addElementZeroAlias(AliasTy->getPointerElementType());
+
             IsElementZeroAccess = true;
             // If the bitcast is to an i8** and element zero of the accessed
             // type is a pointer, we need to add the type of that pointer
@@ -1540,6 +1589,21 @@ private:
   // TODO: add special processing for constant offsets which are multiples of
   // structure size.
   bool analyzeByteFlattenedGEPAccess(GEPOperator *GEP, LocalPointerInfo &Info) {
+
+    // Return 'true' and update 'LocalInfo' with the elements addressed by a
+    // byte flattened GEP, if all the Offsets match element boundaries.
+    // Otherwise, return false.
+    auto CheckIfAllOffsetsValid = [this](GEPOperator *GEP, llvm::Type *CurrType,
+                                         const SmallVectorImpl<APInt> &APOffset,
+                                         LocalPointerInfo &LocalInfo) {
+      for (auto &APOffsetVal : APOffset)
+        if (!analyzePossibleOffsetAggregateAccess(
+                GEP, CurrType, APOffsetVal.getLimitedValue(), LocalInfo))
+          return false;
+
+      return true;
+    };
+
     Value *BasePointer = GEP->getPointerOperand();
     // The caller should have checked this.
     assert(BasePointer->getType() ==
@@ -1593,23 +1657,27 @@ private:
         continue;
       }
       if (!HasPtrToPtrAlias) {
-        // Try all possible offsets one by one.
-        uint32_t Res = 0;
         auto *CurrType = AliasTy->getPointerElementType();
         LocalPointerInfo LocalInfo;
-        for (auto &APOffsetVal : APOffset) {
-          if (analyzePossibleOffsetAggregateAccess(
-                  GEP, CurrType, APOffsetVal.getLimitedValue(), LocalInfo))
-            Res++;
-        }
-        // If all offsets are appropriate - add those element pointees and
-        // return true.
-        if (Res == APOffset.size()) {
+        if (CheckIfAllOffsetsValid(GEP, CurrType, APOffset, LocalInfo)) {
           Info.merge(LocalInfo);
           return true;
         }
       }
     }
+
+    // If a match was not found in the pointer alias set, it's still possible
+    // that a pointer to an aggregate was bitcast to a i8*, which is treated as
+    // an element zero access. Check if the offset is a valid offset from a type
+    // the value was bitcast from to an i8*.
+    for (auto *CurrType : BaseLPI.getElementZeroAliasSet()) {
+      LocalPointerInfo LocalInfo;
+      if (CheckIfAllOffsetsValid(GEP, CurrType, APOffset, LocalInfo)) {
+        Info.merge(LocalInfo);
+        return true;
+      }
+    }
+
     if (HasPtrToPtrAlias)
       return true;
     // If none of the aliased types was a match, we can't identify any field
@@ -1720,10 +1788,36 @@ private:
                       dbgs() << "Incomplete analysis derived from " << *Src
                              << "\n");
     }
+
+    // Check if the load represents the zero element of a structure.
+    Type *Pointee = nullptr;
+    Type *LoadedType = dtrans::getTypeForZeroElementLoaded(Load, &Pointee);
+    // Store the pointer alias
+    if (LoadedType && Pointee)
+      Info.addPointerTypeAlias(LoadedType);
+
     for (auto *AliasTy : SrcLPI.getPointerTypeAliasSet())
       if (AliasTy->isPointerTy() &&
           AliasTy->getPointerElementType()->isPointerTy())
         Info.addPointerTypeAlias(AliasTy->getPointerElementType());
+  }
+
+  void analyzeBitCastInstruction(BitCastInst *BC, LocalPointerInfo &Info) {
+    // If the BitCast is used to load the 0 element from a structure
+    // then we need find the structure that is being accessed
+    if (!BC)
+      return;
+
+    for (User *U : BC->users()) {
+      if (auto *Load = dyn_cast<LoadInst>(U)) {
+        // Check if the load represents the zero element of a structure.
+        Type *Pointee = nullptr;
+        Type *LoadedType = dtrans::getTypeForZeroElementLoaded(Load, &Pointee);
+        if (LoadedType && Pointee)
+          // Store the structure that is being accessed at 0
+          Info.addElementPointee(Pointee, 0);
+      }
+    }
   }
 
   bool isDerivedValue(Value *V) {
@@ -3020,7 +3114,7 @@ bool DTransBadCastingAnalyzer::isInnocuousLoadOfCall(CallInst *CI, LoadInst *LI,
     if (!dtrans::isFreeFn(CI, TLI) && !DTAA.isFreePostDom(CI))
       return false;
   } else {
-    auto LI2 = dyn_cast<LoadInst>(CI->getCalledValue());
+    auto LI2 = dyn_cast<LoadInst>(CI->getCalledOperand());
     if (!LI2)
       return false;
     if (CI->getNumArgOperands() < VoidArgumentIndex + 1 ||
@@ -3851,16 +3945,82 @@ public:
   // Return true if \p Call represents an indirect call, and there is a
   // an address taken external function that matches it.
   bool hasICMatch(CallBase *Call) {
+    //
+    // If 'F' is only used in a single BitCastOperator, return the
+    // FunctionType to which it is bit cast. This can arise when a
+    // function like getenv() is declared with an incomplete prototype:
+    //    char *getenv();
+    // but is then used in a single specific context as:
+    //    char *getenv(char *);
+    // In this case, due to the incomplete prototype, it will incorrectly
+    // appear as varargs.
+    //
+    auto FindUniqueFunctionType = [](Function &F) -> FunctionType * {
+      if (!F.hasOneUse())
+        return nullptr;
+      auto BCO = dyn_cast<BitCastOperator>(F.user_back());
+      if (!BCO)
+        return nullptr;
+      Type *BCOTy = BCO->getDestTy();
+      if (!BCOTy->isPointerTy())
+        return nullptr;
+      Type *BCOTyE = BCOTy->getPointerElementType();
+      return dyn_cast<FunctionType>(BCOTyE);
+    };
+
     // No point in doing this if the C language compatibility rule is not
     // enforced.
     if (!DTransUseCRuleCompat)
       return true;
     // Check if this is an indirect call site.
-    if (isa<Function>(Call->getCalledValue()))
+    if (isa<Function>(Call->getCalledOperand()))
       return false;
     // Look for a matching address taken external call.
-    for (auto &F : Call->getModule()->functions())
-      if (F.hasAddressTaken() && F.isDeclaration())
+    for (auto &F : Call->getModule()->functions()) {
+      if (F.hasAddressTaken() && F.isDeclaration()) {
+        if (F.isVarArg()) {
+          // Screen out cases of false varargs if the a unique
+          // FunctionType can be determined for F.
+          FunctionType *FT = nullptr;
+          auto it = UniqueFunctionTypeMap.find(&F);
+          if (it != UniqueFunctionTypeMap.end()) {
+            FT = it->second;
+          } else {
+            FunctionType *FTTest = FindUniqueFunctionType(F);
+            if (FTTest) {
+              FT = FTTest;
+              UniqueFunctionTypeMap[&F] = FTTest;
+            }
+          }
+          if (FT) {
+            // Found a unique FunctionType for F.  Use it in the
+            // test for an indirect call match.
+            unsigned PC = FT->getNumParams();
+            if ((PC == Call->getNumArgOperands()) ||
+                (FT->isVarArg() && (PC <= Call->getNumArgOperands()))) {
+              unsigned I = 0;
+              bool IsFunctionMatch = true;
+              for (; I < PC; ++I) {
+                Type *FTT = FT->getParamType(I);
+                Type *CTT = Call->getArgOperand(I)->getType();
+                if (!typesMayBeCRuleCompatible(FTT, CTT)) {
+                  IsFunctionMatch = false;
+                  break;
+                }
+              }
+              if (IsFunctionMatch) {
+                LLVM_DEBUG({
+                  dbgs() << "dtrans-ic-match: ";
+                  F.printAsOperand(dbgs());
+                  dbgs() << ":: " << I << "\n";
+                });
+                return true;
+              }
+            }
+            continue;
+          }
+        }
+        // The standard test for an indirect call match.
         if ((F.arg_size() == Call->getNumArgOperands()) ||
             (F.isVarArg() && (F.arg_size() <= Call->getNumArgOperands()))) {
           unsigned I = 0;
@@ -3882,6 +4042,8 @@ public:
             return true;
           }
         }
+      }
+    }
     return false;
   }
 
@@ -3948,17 +4110,27 @@ public:
                          Value *Arg, unsigned ArgNo) {
 
     if (F && F->hasName()) {
-      LibFunc TheLibFunc;
-      const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
-      if (TLI.getLibFunc(F->getName(), TheLibFunc) && TLI.has(TheLibFunc)) {
-
+      if (F->hasDLLExportStorageClass()) {
         LLVM_DEBUG(dbgs() << "dtrans-safety: System object: "
-                          << "argument used in a library function:\n  "
+                          << "argument used in a dllexport function:\n  "
                           << *Call << "\n");
 
        Type *ArgType = Arg->getType();
        setBaseTypeInfoSafetyDataWithCascading(ArgType,
                                               dtrans::SystemObject);
+      } else {
+        LibFunc TheLibFunc;
+        const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
+        if (TLI.getLibFunc(F->getName(), TheLibFunc) && TLI.has(TheLibFunc)) {
+
+          LLVM_DEBUG(dbgs() << "dtrans-safety: System object: "
+                            << "argument used in a library function:\n  "
+                            << *Call << "\n");
+
+         Type *ArgType = Arg->getType();
+         setBaseTypeInfoSafetyDataWithCascading(ArgType,
+                                                dtrans::SystemObject);
+        }
       }
     }
 
@@ -4124,7 +4296,8 @@ public:
     // address has escaped. Also, if a pointer to a field is passed as an
     // argument to a function, the address of the field has escaped.
     // FIXME: Try to resolve indirect calls.
-    bool IsFnLocal = F ? !F->isDeclaration() : false;
+    bool IsFnLocal = F ? (!F->isDeclaration() &&
+                          !F->hasDLLExportStorageClass()) : false;
 
     // Mark structures returned by non-local functions as system types.
     auto *RetTy = Call.getType();
@@ -4174,7 +4347,7 @@ public:
     if (F && MayBeBitcast) {
       // Account for layout in registers and on stack.
       if (!typesMayBeCRuleCompatible(
-              Call.getCalledValue()->getType()->getPointerElementType(),
+              Call.getCalledOperand()->getType()->getPointerElementType(),
               // Do not need to compare pointees types
               // here.
               F->getType()->getPointerElementType(), true)) {
@@ -4252,6 +4425,10 @@ public:
 
     llvm::Type *DestTy = I->getDestTy();
     llvm::Value *SrcVal = I->getOperand(0);
+
+    // If the BitCast is used as a dead argument then is safe to skip it
+    if (isBitCastUsedAsDeadArgument(I))
+      return;
 
     // If the source operand is not a value of interest, we only need to
     // consider the destination type.
@@ -4415,6 +4592,10 @@ public:
           SourceIsPtrToPtr = true;
           continue;
         }
+
+        if (I.isVolatile())
+          setBaseTypeInfoSafetyData(AliasTy, dtrans::VolatileData);
+
         // If we get here, we've found an alias which is a simple pointer
         // to an aggregate type. This means we're either loading the entire
         // structure, or we're loading a mismatch of element zero.
@@ -4428,10 +4609,27 @@ public:
                             << "  bad type for element zero load:\n"
                             << "  " << I << "\n");
           setBaseTypeInfoSafetyData(AliasTy, dtrans::MismatchedElementAccess);
-          auto *TI = DTInfo.getOrCreateTypeInfo(AliasTy);
+
+          auto *TI =
+              DTInfo.getOrCreateTypeInfo(AliasTy->getPointerElementType());
           if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(TI)) {
-            dtrans::FieldInfo &FI = ParentStInfo->getField(0);
-            FI.setMismatchedElementAccess();
+            // Mark the 'mismatched element access' field attribute. When
+            // DTransOutOfBoundsOK is enabled,  mark all the fields to be
+            // consistent with how mismatched types are handled for the element
+            // pointee case. Also, if the memory access extends beyond the
+            // field's size, conservatively, mark all the fields.
+            TypeSize LoadSize = DL.getTypeSizeInBits(I.getType());
+            TypeSize FieldSize = ParentStInfo->getNumFields() != 0
+                                 ? DL.getTypeSizeInBits(
+                                   ParentStInfo->getField(0).getLLVMType())
+                                 : TypeSize(0, false);
+            if (DTransOutOfBoundsOK || LoadSize > FieldSize) {
+              for (auto &FI : ParentStInfo->getFields())
+                FI.setMismatchedElementAccess();
+            } else if (ParentStInfo->getNumFields() != 0) {
+              dtrans::FieldInfo &FI = ParentStInfo->getField(0);
+              FI.setMismatchedElementAccess();
+            }
           }
         }
       }
@@ -4616,6 +4814,8 @@ public:
                         << "  " << I << "\n");
       setBaseTypeInfoSafetyData(ValOperand->getType(),
                                 dtrans::WholeStructureReference);
+      if (I.isVolatile())
+        setBaseTypeInfoSafetyData(ValOperand->getType(), dtrans::VolatileData);
       return;
     }
 
@@ -4805,14 +5005,57 @@ public:
 
         auto *DomTy = SrcLPI.getDominantAggregateTy();
         llvm::Type *DomAggTy = nullptr;
-        if (DomTy && DomTy->isPointerTy())
+        if (DomTy && DomTy->isPointerTy()) {
           DomAggTy = DomTy->getPointerElementType();
+        } else {
+
+          // If there was no dominant type for the GEP pointer source, it may be
+          // due to it being a element zero access. In this case, search for
+          // a structure type in the element zero set. This is necessary because
+          // a bitcast of a type that starts with a ptr-to-ptr, i8*, or array of
+          // i8 elements does not have the type added to the alias set.
+          for (auto *CurrType : SrcLPI.getElementZeroAliasSet()) {
+            // TODO: Array aggregates are ignored for now because we don't need
+            // byte-flattened GEP information about them.
+            if (!CurrType->isStructTy())
+              continue;
+            if (DomAggTy) {
+              DomAggTy = nullptr;
+              break;
+            }
+            DomAggTy = DomTy;
+          }
+        }
 
         if (DomAggTy && DomAggTy->isStructTy() && Offset > 0 &&
-            static_cast<uint64_t>(Offset) < DL.getTypeStoreSize(DomAggTy) &&
-            OnlyUsedForMemset(I)) {
-          // Record the access offset to allow the memset analyzer to check it.
-          GEPLPI.addElementPointeeByOffset(DomAggTy, Offset);
+            static_cast<uint64_t>(Offset) < DL.getTypeStoreSize(DomAggTy)) {
+          if (OnlyUsedForMemset(I)) {
+            // Record the access offset to allow the memset analyzer to check
+            // it.
+            GEPLPI.addElementPointeeByOffset(DomAggTy, Offset);
+          } else {
+            // We know "Offset" is positive from the above test. Convert it to
+            // an unsigned type to avoid sign mismatch compiler warnings during
+            // comparisons.
+            uint64_t UOffset = static_cast<uint64_t>(Offset);
+            auto *SL = DL.getStructLayout(cast<llvm::StructType>(DomAggTy));
+            bool Matched = false;
+            if (UOffset < SL->getSizeInBytes()) {
+              unsigned IdxAtOffset = SL->getElementContainingOffset(UOffset);
+              uint64_t ElementOffset = SL->getElementOffset(IdxAtOffset);
+              if (UOffset == ElementOffset) {
+                GEPLPI.addElementPointee(DomAggTy, IdxAtOffset);
+                std::pair<llvm::Type *, size_t> Pointee(DomAggTy, IdxAtOffset);
+                DTInfo.addByteFlattenedGEPMapping(I, Pointee);
+                Matched = true;
+              }
+            }
+            if (!Matched) {
+              LLVM_DEBUG(dbgs() << "dtrans-safety: Bad pointer manipulation:\n"
+                                << "  " << *I << "\n");
+              setBaseTypeInfoSafetyData(DomAggTy, dtrans::BadPtrManipulation);
+            }
+          }
         } else {
           LLVM_DEBUG(dbgs() << "dtrans-safety: Bad pointer manipulation:\n"
                             << "  " << *I << "\n");
@@ -5257,6 +5500,41 @@ public:
       analyzeStructureType(TI);
   }
 
+  // Identify the call graph information that collects the outermost type that a
+  // method operates upon.
+  // Note: This function needs to be run after the local pointer analyzer
+  // visitor has completed because it can cause analyzeValue to be run on
+  // elements during the check of "isValueOfInterest" that have not been visited
+  // yet. Unfortunately, with the current implementation of the "visit"
+  // functions, differences may occur when analyzeValue is called for a Value
+  // prior to the corresponding "visit" function being executed.
+  void collectCallGraphInfo(Module &M) {
+    for (auto &F : M) {
+      for (auto It = inst_begin(&F), E = inst_end(&F); It != E; ++It) {
+        Instruction &I = *It;
+        if (isValueOfInterest(&I)) {
+          DEBUG_WITH_TYPE(
+              DTRANS_CG, dbgs()
+                             << "dtrans-cg: CGraph update for Instruction -- \n"
+                             << "  " << I << "\n");
+          setBaseTypeCallGraph(I.getType(), &F);
+        }
+
+        for (Value *Arg : I.operands()) {
+          if (!isa<Constant>(Arg) && !isa<Argument>(Arg))
+            continue;
+          if (isValueOfInterest(Arg)) {
+            DEBUG_WITH_TYPE(DTRANS_CG,
+                            dbgs()
+                                << "dtrans-cg: CGraph update for Operand  -- \n"
+                                << "  " << *Arg << "\n");
+            setBaseTypeCallGraph(Arg->getType(), &F);
+          }
+        }
+      }
+    }
+  }
+
   void visitFunction(Function &F) {
     // There's nothing that needs to be done here. The argument uses will be
     // analyzed as the instructions are visited, but when we are running
@@ -5268,42 +5546,18 @@ public:
     // all of the necessary types as we add complete information about them
     // but in lit tests a type with few uses and no safety issues might not
     // be added to the type info map.
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     if (DTransPrintAnalyzedTypes)
       for (auto &Arg : F.args())
         if (DTInfo.isTypeOfInterest(Arg.getType()))
           (void)DTInfo.getOrCreateTypeInfo(Arg.getType());
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
     // Get BFI if available.
     BFI = (!F.isDeclaration()) ? &(GetBFI(F)) : nullptr;
 
     // Call the base class to visit the instructions in the function.
     InstVisitor<DTransInstVisitor>::visitFunction(F);
-  }
-
-  void visitBasicBlock(BasicBlock &BB) {
-    InstVisitor<DTransInstVisitor>::visitBasicBlock(BB);
-
-    auto &F = *BB.getParent();
-    for (auto &I : BB) {
-      if (isValueOfInterest(&I)) {
-        DEBUG_WITH_TYPE(DTRANS_CG,
-                        dbgs()
-                            << "dtrans-cg: CGraph update for Instruction -- \n"
-                            << "  " << I << "\n");
-        setBaseTypeCallGraph(I.getType(), &F);
-      }
-
-      for (Value *Arg : I.operands()) {
-        if (!isa<Constant>(Arg) && !isa<Argument>(Arg))
-          continue;
-        if (isValueOfInterest(Arg)) {
-          DEBUG_WITH_TYPE(
-              DTRANS_CG, dbgs() << "dtrans-cg: CGraph update for Operand  -- \n"
-                                << "  " << *Arg << "\n");
-          setBaseTypeCallGraph(Arg->getType(), &F);
-        }
-      }
-    }
   }
 
   // Accumulate field frequency of \p FI that is accessed in \p I.
@@ -5775,6 +6029,14 @@ private:
       std::tuple<llvm::Type *, llvm::Type *, dtrans::SafetyData>;
   SetVector<DeferredInfo, std::vector<DeferredInfo>, SmallSet<DeferredInfo, 16>>
       DeferredCastingSafetyCascades;
+  // A map to store a unique FunctionType of a Function with an incomplete
+  // prototype declaration. For example, getenv() could be declared as:
+  //    char *getenv();
+  // but then used in a single specific context as:
+  //    char *getenv(char *);
+  // So, in the UniqueFunctionTypeMap, getenv() would be mapped to:
+  //    i8* (i8 *)*
+  DenseMap<Function *, FunctionType *> UniqueFunctionTypeMap;
 
   // We need these types often enough that it's worth keeping them around.
   llvm::Type *Int8PtrTy;
@@ -6191,6 +6453,10 @@ private:
       LLVM_DEBUG(dbgs() << "dtrans-safety: System object:\n  " << *Ty << "\n");
       TI->setSafetyData(dtrans::SystemObject);
     }
+    if (llvm::dvanalysis::isDopeVectorType(Ty, DL)) {
+      LLVM_DEBUG(dbgs() << "dtrans-safety: Dope vector:\n  " << *Ty << "\n");
+      TI->setSafetyData(dtrans::DopeVector);
+    }
 
     // Get the number of fields in the structure.
     unsigned NumElements = Ty->getNumElements();
@@ -6237,11 +6503,15 @@ private:
       }
       // If one of the fields is a vector or array, check for a contained
       // structure type.
-      if (auto *SeqTy = dyn_cast<SequentialType>(ElementTy)) {
+      if (ElementTy->isArrayTy() || ElementTy->isVectorTy()) {
         // Look through multiple layers of arrays or vectors if necessary.
-        llvm::Type *NestedTy = SeqTy;
-        while (isa<SequentialType>(NestedTy))
-          NestedTy = NestedTy->getSequentialElementType();
+        llvm::Type *NestedTy = ElementTy;
+        while (NestedTy->isArrayTy() || NestedTy->isVectorTy()) {
+          if (NestedTy->isArrayTy())
+            NestedTy = cast<ArrayType>(NestedTy)->getElementType();
+          else
+            NestedTy = cast<VectorType>(NestedTy)->getElementType();
+        }
         // If this was an array/vector of structures, set the nested type
         // safety conditions.
         if (NestedTy->isStructTy()) {
@@ -6274,6 +6544,54 @@ private:
         TI->setSafetyData(dtrans::HasFnPtr);
       }
     }
+  }
+
+  // Return true if the input BitCast is only used as a dead argument. Else,
+  // return false. For example:
+  //
+  // define void @bar(%struct.test01b* %p2) {
+  //   ret void
+  // }
+  //
+  // define void @foo(%struct.test01a* %p) {
+  //   %p2 = bitcast %struct.test01a* %p to %struct.test01b*
+  //   call void @bar(%struct.test01b* %p2)
+  //   ret void
+  // }
+  //
+  // In the example above, %p2 in @foo is a BitCast from %struct.test01a* to
+  // %struct.test01b* and it is only used as an argument in the callsite for
+  // @bar. The formal argument of %p2 in @bar doesn't have any user, therefore
+  // it will be a dead argument. This is safe to cast.
+  bool isBitCastUsedAsDeadArgument(BitCastOperator *BC) {
+    if (!BC)
+      return false;
+
+    if (BC->user_empty())
+      return false;
+
+    for (User *User : BC->users()) {
+      CallBase *CI = dyn_cast<CallBase>(User);
+      if (!CI)
+        return false;
+
+      if (CI->isIndirectCall())
+        return false;
+
+      Function *F = CI->getCalledFunction();
+      if (!F || F->isDeclaration() || F->isVarArg() || F->isIntrinsic())
+        return false;
+
+      for (unsigned I = 0, E = CI->getNumArgOperands(); I < E; I++) {
+        if (BC == CI->getArgOperand(I)) {
+          Argument *FormalArg = F->getArg(I);
+          if (!FormalArg->user_empty())
+            return false;
+        }
+      }
+    }
+
+    return true;
   }
 
   // Verify that a bitcast from \p SrcTy to \p DestTy would be safe. The
@@ -6335,6 +6653,11 @@ private:
     LLVM_DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
                       << "unsafe cast of aliased pointer:\n"
                       << "  " << *I << "\n");
+    DEBUG_WITH_TYPE(DTRANS_BCA, {
+      dbgs() << "dtrans-bca: Bad casting -- "
+             << "unsafe cast of aliased pointer:\n"
+             << "  " << *I << "\n";
+    });
     if (DTransOutOfBoundsOK)
       setValueTypeInfoSafetyData(I->getOperand(0), dtrans::BadCasting);
     else
@@ -6408,8 +6731,10 @@ private:
     // If the value is cast to multiple types, mark them all as bad casting.
     bool WasCastToMultipleTypes = LPI.pointsToMultipleAggregateTypes();
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     if (DTransPrintAllocations && WasCastToMultipleTypes)
       dbgs() << "dtrans: Detected allocation cast to multiple types.\n";
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
     // We expect to only see one type, but we loop to keep the code general.
     for (auto *Ty : AliasSet) {
@@ -6438,12 +6763,14 @@ private:
       // Add this to our type info list.
       (void)DTInfo.getOrCreateTypeInfo(Ty);
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
       if (DTransPrintAllocations) {
         dbgs() << "dtrans: Detected allocation cast to pointer type\n";
         dbgs() << "  " << *Call << "\n";
         dbgs() << "    Detected type: " << *(Ty->getPointerElementType())
                << "\n";
       }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
       if (Kind == dtrans::AK_Calloc) {
         auto *TI = DTInfo.getOrCreateTypeInfo(Ty->getPointerElementType());
@@ -6720,23 +7047,25 @@ private:
           LLVM_DEBUG(dbgs() << "dtrans-safety: Mismatched element access:\n");
           LLVM_DEBUG(dbgs() << "  " << I << "\n");
 
+          auto *TI = DTInfo.getOrCreateTypeInfo(ParentTy);
           if (DTransOutOfBoundsOK) {
             // Assuming out of bound access, set safety issue for the entire
             // ParentTy.
             setBaseTypeInfoSafetyData(ParentTy,
                                       dtrans::MismatchedElementAccess);
-            auto *TI = DTInfo.getOrCreateTypeInfo(ParentTy);
-            if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(TI)) {
-              for (auto &FI : ParentStInfo->getFields())
-                FI.setMismatchedElementAccess();
-            }
           } else {
-            // Set safety issue to the ParentTy and to the impacted field type
-            // only.
-            auto *TI = DTInfo.getOrCreateTypeInfo(ParentTy);
+            // Set safety issue to the ParentTy type only.
             TI->setSafetyData(dtrans::MismatchedElementAccess);
             setBaseTypeInfoSafetyData(FieldTy, dtrans::MismatchedElementAccess);
-            if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(TI)) {
+          }
+          if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(TI)) {
+            TypeSize ValSize = DL.getTypeSizeInBits(ValTy);
+            TypeSize FieldSize = DL.getTypeSizeInBits(
+                ParentStInfo->getField(ElementNum).getLLVMType());
+            if (DTransOutOfBoundsOK || ValSize > FieldSize) {
+              for (auto &FI : ParentStInfo->getFields())
+                FI.setMismatchedElementAccess();
+            } else {
               dtrans::FieldInfo &FI = ParentStInfo->getField(ElementNum);
               FI.setMismatchedElementAccess();
             }
@@ -9247,6 +9576,7 @@ bool DTransAnalysisInfo::analyzeModule(
 
   DTBCA.analyzeBeforeVisit();
   Visitor.visit(M);
+  Visitor.collectCallGraphInfo(M);
   DEBUG_WITH_TYPE(DTRANS_LPA_RESULTS, Visitor.dump(M));
   Visitor.processDeferredPointerCarriedSafetyData();
   DTBCA.analyzeAfterVisit();
@@ -9312,7 +9642,35 @@ bool DTransAnalysisInfo::analyzeModule(
 
   DTransAnalysisRan = true;
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   if (DTransPrintAnalyzedTypes) {
+    // Prints the list of transformations for which the safety data will be
+    // ignored on the structure 'SI' based on the command line option.
+    auto &IgnoreTypeMap = this->IgnoreTypeMap;
+    std::function<void(raw_ostream &, const dtrans::StructInfo *)>
+        PrintIgnoreListForStructure = [&IgnoreTypeMap](
+                                          raw_ostream &OS,
+                                          const dtrans::StructInfo *SI) {
+          std::string Output;
+          StringRef Name = dtrans::getStructName(SI->getLLVMType());
+          // Cut the "{dtrans_opt_prefix}struct." from the LLVM type name.
+          std::pair<StringRef, StringRef> StructPrefixAndName = Name.split('.');
+          if (StructPrefixAndName.second.empty())
+            return;
+
+          for (dtrans::Transform Tr = dtrans::DT_First; Tr < dtrans::DT_Last;
+               Tr <<= 1) {
+            if (IgnoreTypeMap[Tr].find(StructPrefixAndName.second) !=
+                IgnoreTypeMap[Tr].end()) {
+              Output += " ";
+              Output += dtrans::getStringForTransform(Tr);
+            }
+          }
+          if (!Output.empty()) {
+            OS << "  (will be ignored in" << Output << ")\n";
+          }
+        };
+
     // This is really ugly, but it is only used during testing.
     // The type infos are stored in a map with pointer keys, and so the
     // order is non-deterministic. This copies them into a vector and sorts
@@ -9340,14 +9698,15 @@ bool DTransAnalysisInfo::analyzeModule(
     dbgs() << "================================\n\n";
     for (auto TI : TypeInfoEntries) {
       if (auto *AI = dyn_cast<dtrans::ArrayInfo>(TI)) {
-        printArrayInfo(AI);
+        AI->print(dbgs());
       } else if (auto *SI = dyn_cast<dtrans::StructInfo>(TI)) {
-        printStructInfo(SI);
+        SI->print(dbgs(), &PrintIgnoreListForStructure);
       }
     }
     dbgs() << "\n MaxTotalFrequency: " << getMaxTotalFrequency() << "\n\n";
     dbgs().flush();
   }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
   // Copy type info which can be passed to downstream passes without worrying
   // about invalidation into the immutable pass.
@@ -9372,147 +9731,6 @@ bool DTransAnalysisInfo::analyzeModule(
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
   return false;
-}
-
-void DTransAnalysisInfo::printStructInfo(dtrans::StructInfo *SI) {
-  dbgs() << "DTRANS_StructInfo:\n";
-  dbgs() << "  LLVMType: " << *(SI->getLLVMType()) << "\n";
-  llvm::StructType *S = cast<llvm::StructType>(SI->getLLVMType());
-  if (S->hasName())
-    dbgs() << "  Name: " << S->getName() << "\n";
-  if (SI->getCRuleTypeKind() != dtrans::CRT_Unknown) {
-    dbgs() << "  CRuleTypeKind: ";
-    dbgs() << dtrans::CRuleTypeKindName(SI->getCRuleTypeKind()) << "\n";
-  }
-  printIgnoreTransListForStructure(SI);
-  dbgs() << "  Number of fields: " << SI->getNumFields() << "\n";
-  unsigned Number = 0;
-  for (auto &Field : SI->getFields()) {
-    dbgs() << format_decimal(Number++, 3) << ")";
-    printFieldInfo(Field, SI->getIgnoredFor());
-  }
-  dbgs() << "  Total Frequency: " << SI->getTotalFrequency() << "\n";
-  auto &CG = SI->getCallSubGraph();
-  dbgs() << "  Call graph: "
-         << (CG.isBottom() ? "bottom\n" : (CG.isTop() ? "top\n" : ""));
-  if (!CG.isBottom() && !CG.isTop()) {
-    dbgs() << "enclosing type: " << CG.getEnclosingType()->getName() << "\n";
-  }
-  SI->printSafetyData();
-  dbgs() << "\n";
-}
-
-void DTransAnalysisInfo::printArrayInfo(dtrans::ArrayInfo *AI) {
-  dbgs() << "DTRANS_ArrayInfo:\n";
-  dbgs() << "  LLVMType: " << *(AI->getLLVMType()) << "\n";
-  if (AI->getCRuleTypeKind() != dtrans::CRT_Unknown) {
-    dbgs() << "  CRuleTypeKind: ";
-    dbgs() << dtrans::CRuleTypeKindName(AI->getCRuleTypeKind()) << "\n";
-  }
-  dbgs() << "  Number of elements: " << AI->getNumElements() << "\n";
-  dbgs() << "  Element LLVM Type: " << *(AI->getElementLLVMType()) << "\n";
-  AI->printSafetyData();
-  dbgs() << "\n";
-}
-
-void DTransAnalysisInfo::printFieldInfo(dtrans::FieldInfo &Field,
-                                        dtrans::Transform IgnoredInTransform) {
-  dbgs() << "Field LLVM Type: " << *(Field.getLLVMType()) << "\n";
-  dbgs() << "    Field info:";
-
-  if (Field.isRead())
-    dbgs() << " Read";
-
-  if (Field.isWritten())
-    dbgs() << " Written";
-
-  if (Field.isValueUnused())
-    dbgs() << " UnusedValue";
-
-  if (Field.hasComplexUse())
-    dbgs() << " ComplexUse";
-
-  if (Field.isAddressTaken())
-    dbgs() << " AddressTaken";
-
-  if (Field.isMismatchedElementAccess())
-    dbgs() << " MismatchedElementAccess";
-
-  dbgs() << "\n";
-  dbgs() << "    Frequency: " << Field.getFrequency();
-  dbgs() << "\n";
-
-  if (Field.isNoValue())
-    dbgs() << "    No Value";
-  else if (Field.isSingleValue()) {
-    dbgs() << "    Single Value: ";
-    Field.getSingleValue()->printAsOperand(dbgs());
-  } else if (Field.isMultipleValue()) {
-    dbgs() << "    Multiple Value: [ ";
-    dtrans::printCollectionSorted(dbgs(), Field.values().begin(),
-                                  Field.values().end(), ", ",
-                                  [](llvm::Constant *C) {
-                                    std::string OutputVal;
-                                    raw_string_ostream OutputStream(OutputVal);
-                                    C->printAsOperand(OutputStream, false);
-                                    OutputStream.flush();
-                                    return OutputVal;
-                                  });
-    dbgs() << " ] <" << (Field.isValueSetComplete() ?
-              "complete" : "incomplete")
-           << ">";
-  }
-  if (IgnoredInTransform & dtrans::DT_FieldSingleValue)
-    dbgs() << " (ignored)";
-  dbgs() << "\n";
-
-  if (Field.isNoIAValue())
-    dbgs() << "    No IA Value";
-  else if (Field.isSingleIAValue()) {
-    dbgs() << "    Single IA Value: ";
-    Field.getSingleValue()->printAsOperand(dbgs());
-  } else {
-    assert(Field.isMultipleIAValue() && "Expecting multiple value");
-    dbgs() << "    Multiple IA Value: [ ";
-    dtrans::printCollectionSorted(dbgs(), Field.iavalues().begin(),
-                                  Field.iavalues().end(), ", ",
-                                  [](llvm::Constant *C) {
-                                    std::string OutputVal;
-                                    raw_string_ostream OutputStream(OutputVal);
-                                    C->printAsOperand(OutputStream, false);
-                                    OutputStream.flush();
-                                    return OutputVal;
-                                  });
-    dbgs() << " ] <" << (Field.isIAValueSetComplete() ?
-              "complete" : "incomplete")
-           << ">";
-  }
-  dbgs() << "\n";
-
-  if (Field.isTopAllocFunction())
-    dbgs() << "    Top Alloc Function";
-  else if (Field.isSingleAllocFunction()) {
-    dbgs() << "    Single Alloc Function: ";
-    Field.getSingleAllocFunction()->printAsOperand(dbgs());
-  } else if (Field.isBottomAllocFunction())
-    dbgs() << "    Bottom Alloc Function";
-  if (IgnoredInTransform & dtrans::DT_FieldSingleAllocFunction)
-    dbgs() << " (ignored)";
-  dbgs() << "\n";
-  dbgs() << "    Readers: ";
-  dtrans::printCollectionSorted(dbgs(), Field.readers().begin(),
-                                Field.readers().end(), ", ",
-                                [](const Function *F) { return F->getName(); });
-  dbgs() << "\n";
-  dbgs() << "    Writers: ";
-  dtrans::printCollectionSorted(dbgs(), Field.writers().begin(),
-                                Field.writers().end(), ", ",
-                                [](const Function *F) { return F->getName(); });
-  dbgs() << "\n";
-  dbgs() << "    RWState: "
-         << (Field.isRWBottom() ? "bottom"
-                                : (Field.isRWComputed() ? "computed" : "top"))
-         << "\n";
 }
 
 // Interface routine to check if the field that is supposed to be loaded in the
@@ -9597,8 +9815,7 @@ DTransAnalysisInfo::getInfoFromLoad(LoadInst *Load) {
 }
 
 bool DTransAnalysisInfo::GetFuncPointerPossibleTargets(
-    llvm::Value *FP, std::vector<llvm::Value *> &Targets, llvm::CallSite,
-    bool) {
+    Value *FP, std::vector<Value *> &Targets, CallBase *, bool) {
   // TODO: add a support for PHI instruction with function pointer type.
 
   Targets.clear();
@@ -9634,28 +9851,6 @@ bool DTransAnalysisInfo::GetFuncPointerPossibleTargets(
     }
   });
   return !IsIncomplete;
-}
-
-void DTransAnalysisInfo::printIgnoreTransListForStructure(
-    dtrans::StructInfo *SI) {
-  std::string Output;
-  StringRef Name = dtrans::getStructName(SI->getLLVMType());
-  // Cut the "{dtrans_opt_prefix}struct." from the LLVM type name.
-  std::pair<StringRef, StringRef> StructPrefixAndName = Name.split('.');
-  if (StructPrefixAndName.second.empty())
-    return;
-
-  for (dtrans::Transform Tr = dtrans::DT_First; Tr < dtrans::DT_Last;
-       Tr <<= 1) {
-    if (IgnoreTypeMap[Tr].find(StructPrefixAndName.second) !=
-        IgnoreTypeMap[Tr].end()) {
-      Output += " ";
-      Output += dtrans::getStringForTransform(Tr);
-    }
-  }
-  if (!Output.empty()) {
-    dbgs() << "  (will be ignored in" << Output << ")\n";
-  }
 }
 
 void DTransAnalysisWrapper::getAnalysisUsage(AnalysisUsage &AU) const {

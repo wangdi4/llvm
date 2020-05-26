@@ -14,10 +14,12 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/VPO/Paropt/VPOParoptTransform.h"
-#include "llvm/Transforms/Utils/PromoteMemToReg.h"
 #include "llvm/IR/DiagnosticPrinter.h"
+#include "llvm/IR/IntrinsicsCSA.h"
 #include "llvm/IR/PatternMatch.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Transforms/Utils/PromoteMemToReg.h"
+#include "llvm/Transforms/VPO/Paropt/VPOParoptTransform.h"
 
 using namespace llvm;
 using namespace llvm::PatternMatch;
@@ -43,16 +45,12 @@ static cl::opt<bool> DoLoopSplitting(
   "csa-omp-paropt-loop-splitting", cl::init(false), cl::ReallyHidden,
   cl::desc("Do OpenMP loop splitting in VPO Paropt."));
 
-// Temporary: until hookup to dataflow(pipeline(p)) clause is completed.
-static cl::opt<unsigned>
-    LoopPipelineDepth("csa-omp-ls-pipeline-depth", cl::init(0),
-                      cl::ReallyHidden,
-                      cl::desc("Set pipeline depth for OpenMP loops."));
-
-static Value *genParDepthRegionEntryCall(unsigned ID, Instruction *EntryPt,
+static Value *genParDepthRegionEntryCall(unsigned ID, int Depth,
+                                         Instruction *EntryPt,
                                          const Twine &Name = "depth.region");
 
-static void genParDepthRegionExitCall(Value *Region, Instruction *ExitPt);
+static void genParDepthRegionExitCall(Value *Region, int Depth,
+                                      Instruction *ExitPt);
 
 namespace {
 
@@ -118,7 +116,7 @@ protected:
   // replaces all uses of the original variable within work region with a
   // private instance.
   virtual void genPrivItem(Item *I, WRegionNode *W, const Twine &Suffix) {
-    auto *New = genPrivatizationAlloca(I, getInitInsPt(), Suffix);
+    auto *New = PT.genPrivatizationAlloca(I, getInitInsPt(), Suffix);
     addAlloca(New);
     I->setNew(New);
     auto *Rep = getClauseItemReplacementValue(I, getInitInsPt());
@@ -433,7 +431,7 @@ protected:
     if (!needsInLoopAlloca(I))
       return CSALoopPrivatizer::genPrivItem(I, W, Suffix);
 
-    auto *New = genPrivatizationAlloca(I, getInitInsPt(), Suffix);
+    auto *New = PT.genPrivatizationAlloca(I, getInitInsPt(), Suffix);
     addAlloca(New);
     I->setNew(New);
 
@@ -445,8 +443,8 @@ protected:
       addAlloca(Rep);
       PT.genPrivatizationReplacement(W, I->getOrig(), Rep);
 
-      auto *NewNF = genPrivatizationAlloca(I, AllocaInsPt,
-                                           Suffix + ".not.first");
+      auto *NewNF =
+          PT.genPrivatizationAlloca(I, AllocaInsPt, Suffix + ".not.first");
       new StoreInst(NewNF, Rep, AllocaInsPt);
       return;
     }
@@ -462,20 +460,21 @@ protected:
       return;
 
     // Create reference which will hold the private variable address.
-    auto AAS = New->getModule()->getDataLayout().getAllocaAddrSpace();
+    auto AAS = PT.F->getParent()->getDataLayout().getAllocaAddrSpace();
     auto *Ref = new AllocaInst(New->getType(), AAS, New->getName() + ".ref",
                                getInitInsPt());
     addAlloca(Ref);
     new StoreInst(New, Ref, getInitInsPt());
 
     // Create in-loop alloca and store new address to the reference.
-    auto *NewNF = genPrivatizationAlloca(I, AllocaInsPt,
-                                         Suffix + ".not.first");
+    auto *NewNF =
+        PT.genPrivatizationAlloca(I, AllocaInsPt, Suffix + ".not.first");
     new StoreInst(NewNF, Ref, AllocaInsPt);
 
     // And finally replace all private uses within loop body with the address
-    // loaded from the private refence.
-    auto *Rep = new LoadInst(Ref, New->getName() + ".in.loop", InLoopInsPt);
+    // loaded from the private reference.
+    auto *Rep = new LoadInst(New->getType(), Ref, New->getName() + ".in.loop",
+                             InLoopInsPt);
 
     // Save replacement value.
     Orig2Rep[I->getOrig()] = Rep;
@@ -522,7 +521,8 @@ protected:
     if (auto *CA = I->getCopyAssign())
       VPOParoptUtils::genCopyAssignCall(CA, Old, Rep, InsPt);
     else if (VPOUtils::canBeRegisterized(New->getAllocatedType(), DL))
-      new StoreInst(new LoadInst(Rep, "", InsPt), Old, InsPt);
+      new StoreInst(new LoadInst(New->getAllocatedType(), Rep, "", InsPt), Old,
+                    InsPt);
     else
       VPOUtils::genMemcpy(Old, Rep, DL, New->getAlignment(), InsPt);
   }
@@ -641,18 +641,19 @@ public:
 
 // Insert a CSA parallel depth-limited region entry call
 // at specified insertion point.
-static Value *genParDepthRegionEntryCall(unsigned ID, Instruction *EntryPt,
+static Value *genParDepthRegionEntryCall(unsigned ID, int Depth,
+                                         Instruction *EntryPt,
                                          const Twine &Name) {
 
-  if (LoopPipelineDepth > 0) {
+  if (Depth > 0) {
     auto *M = EntryPt->getModule();
     auto *DepthLimitedRegionEntry =
         Intrinsic::getDeclaration(M, Intrinsic::csa_pipeline_limited_entry);
     IRBuilder<> Builder(EntryPt);
     auto *UniqueID = Builder.getInt32(2000u + ID);
     auto *F = EntryPt->getParent()->getParent();
-    Value *pipelineDepth = ConstantInt::get(
-        IntegerType::get(F->getContext(), 32), LoopPipelineDepth);
+    Value *pipelineDepth =
+        ConstantInt::get(IntegerType::get(F->getContext(), 32), Depth);
     auto *Region = Builder.CreateCall(DepthLimitedRegionEntry,
                                       {UniqueID, pipelineDepth}, Name);
     return Region;
@@ -662,9 +663,10 @@ static Value *genParDepthRegionEntryCall(unsigned ID, Instruction *EntryPt,
 
 // Insert a CSA parallel depth-limited region exit call
 // at specified insertion point.
-static void genParDepthRegionExitCall(Value *Region, Instruction *ExitPt) {
+static void genParDepthRegionExitCall(Value *Region, int Depth,
+                                      Instruction *ExitPt) {
 
-  if (Region and LoopPipelineDepth > 0) {
+  if (Region and Depth > 0) {
     auto *M = ExitPt->getModule();
     auto *DepthLimitedRegionExit =
         Intrinsic::getDeclaration(M, Intrinsic::csa_pipeline_limited_exit);
@@ -674,26 +676,26 @@ static void genParDepthRegionExitCall(Value *Region, Instruction *ExitPt) {
   }
 }
 
-static void genParDepthRegionCalls(unsigned ID, Instruction *EntryPt,
+static void genParDepthRegionCalls(unsigned ID, int Depth, Instruction *EntryPt,
                                    Instruction *ExitPt, const Twine &Name) {
 
   Value *DepthRegion =
-      genParDepthRegionEntryCall(5000 + ID, EntryPt, "depth." + Name);
-  genParDepthRegionExitCall(DepthRegion, ExitPt);
+      genParDepthRegionEntryCall(5000 + ID, Depth, EntryPt, "depth." + Name);
+  genParDepthRegionExitCall(DepthRegion, Depth, ExitPt);
 }
 
 // Insert a pair of CSA parallel region entry/exit calls at specified insertion
 // points.
 static Value *genParRegionCalls(unsigned ID, Instruction *EntryPt,
-                                Instruction *ExitPt, bool depth = false,
+                                Instruction *ExitPt, int Depth = 0,
                                 const Twine &Name = "region") {
   auto *M = EntryPt->getModule();
   assert(M == ExitPt->getModule());
 
   Value *DepthRegion;
-  if (depth)
+  if (Depth)
     DepthRegion =
-        genParDepthRegionEntryCall(5000 + ID, EntryPt, "depth." + Name);
+        genParDepthRegionEntryCall(5000 + ID, Depth, EntryPt, "depth." + Name);
 
   // CSA parallel region entry/exit intrinsics
   auto *RegionEntry = Intrinsic::getDeclaration(M,
@@ -709,8 +711,8 @@ static Value *genParRegionCalls(unsigned ID, Instruction *EntryPt,
   Builder.SetInsertPoint(ExitPt);
   Builder.CreateCall(RegionExit, { Region }, {}, "");
 
-  if (depth)
-    genParDepthRegionExitCall(DepthRegion, ExitPt);
+  if (Depth)
+    genParDepthRegionExitCall(DepthRegion, Depth, ExitPt);
 
   return Region;
 }
@@ -742,22 +744,23 @@ static void genParSectionCalls(Value *Region,
 static unsigned getNumWorkers(const WRegionNode *W) {
   assert(W->getIsOmpLoop() && "expecting a loop construct");
   unsigned NumWorkers = 0;
-  if (W->getIsPar())
-    if (auto *NumThreads = W->getNumThreads())
+  // First check if dataflow(num_workers(n)) has been specified.
+  // If num_workers is not specified, check num_threads(n) clause
+  if (W->getIsPar()) {
+    auto NumSAWorkers = W->getNumWorkers();
+    if (NumSAWorkers != 0)
+      NumWorkers = NumSAWorkers;
+    else if (auto *NumThreads = W->getNumThreads())
       NumWorkers = cast<ConstantInt>(NumThreads)->getZExtValue();
+  }
   if (!NumWorkers)
     NumWorkers = LoopWorkersDefault;
-
-  // Temporary hack until hookup to dataflow(...) clause is completed
-  if (NumWorkers >= 1000) {
-    LoopPipelineDepth = NumWorkers / 1000;
-    NumWorkers = NumWorkers % 1000;
-  }
 
   return NumWorkers;
 }
 
-// Returns SPMDization mode for the loop WRN. It depends on a schedule clause.
+// Returns SPMDization mode for the loop WRN.
+// Use the dataflow(<schedule>) specification first.
 //   No schedule, schedule(auto) or
 //   schedule(static)                 => blocked SPMD (0)
 //   schedule(static, chunksize)
@@ -765,6 +768,10 @@ static unsigned getNumWorkers(const WRegionNode *W) {
 //     (chunksize > 1)                => hybrid SPMD  (chunksize)
 static int getSPMDMode(const WRegionNode *W) {
   assert(W->getIsOmpLoop() && "expecting a loop construct");
+  const auto &WSched = W->getWorkerSchedule();
+  if (WSched.getChunkExpr()) {
+    return WSched.getChunk();
+  }
   const auto &Sched = W->getSchedule();
   return Sched.getChunkExpr() ? Sched.getChunk() : LoopSpmdModeDefault;
 }
@@ -1081,7 +1088,7 @@ class VPOParoptTransform::CSALoopSplitter {
       // Mark inner loop as parallel.
       auto *Region = genParRegionCalls(
           getParRegionID(W, ID + 1u, true), CLoop->getTerminator(),
-          CLatch->getFirstNonPHI(), false, "inner.region" + Suffix);
+          CLatch->getFirstNonPHI(), /*Depth=*/0, "inner.region" + Suffix);
       genParSectionCalls(Region,
                          WL->getHeader()->getFirstNonPHI(),
                          WL->getLoopLatch()->getTerminator(),
@@ -1102,9 +1109,9 @@ class VPOParoptTransform::CSALoopSplitter {
 
     void addParallelIntrinsicCalls() {
       // Add region entry/exit calls.
-      auto *Region =
-          genParRegionCalls(getParRegionID(W, ID + 1u), Head->getTerminator(),
-                            Tail->getFirstNonPHI(), false, "region" + Suffix);
+      auto *Region = genParRegionCalls(
+          getParRegionID(W, ID + 1u), Head->getTerminator(),
+          Tail->getFirstNonPHI(), /*Depth*/ 0, "region" + Suffix);
 
       // And section entry/exit calls.
       auto *L = HL ? HL : WL;
@@ -1140,10 +1147,11 @@ class VPOParoptTransform::CSALoopSplitter {
     void genPrivItem(Item *I, WRegionNode *W, const Twine &Suffix) override {
       auto *Old = I->getOrig();
       assert(!isa<Constant>(Old) && "unexpected private item");
-      SmallVector<Value*, 8u> Users;
+      SmallVector<Value *, 8u> Users;
       findUsers(Old, Users, WI.Blocks);
 
-      auto *New = genPrivatizationAlloca(I, getInitInsPt(), Suffix + WI.Suffix);
+      auto *New =
+          PT.genPrivatizationAlloca(I, getInitInsPt(), Suffix + WI.Suffix);
       addAlloca(New);
       I->setNew(New);
       auto *Rep = getClauseItemReplacementValue(I, getInitInsPt());
@@ -1204,11 +1212,11 @@ class VPOParoptTransform::CSALoopSplitter {
       // Do the "standard" privatization if this item does not require extra
       // alloca inside the loop.
       if (!needsInLoopAlloca(I)) {
-        SmallVector<Value*, 8u> Users;
+        SmallVector<Value *, 8u> Users;
         findUsers(Old, Users, WI.Blocks);
 
-        auto *New = genPrivatizationAlloca(I, getInitInsPt(),
-                                           Suffix + WI.Suffix);
+        auto *New =
+            PT.genPrivatizationAlloca(I, getInitInsPt(), Suffix + WI.Suffix);
         addAlloca(New);
         I->setNew(New);
         auto *Rep = getClauseItemReplacementValue(I, getInitInsPt());
@@ -1218,7 +1226,8 @@ class VPOParoptTransform::CSALoopSplitter {
         return;
       }
 
-      auto *New = genPrivatizationAlloca(I, getInitInsPt(), Suffix + WI.Suffix);
+      auto *New =
+          PT.genPrivatizationAlloca(I, getInitInsPt(), Suffix + WI.Suffix);
       addAlloca(New);
       I->setNew(New);
 
@@ -1230,8 +1239,8 @@ class VPOParoptTransform::CSALoopSplitter {
         addAlloca(Rep);
         PT.genPrivatizationReplacement(W, Old, Rep);
 
-        auto *NewNF = genPrivatizationAlloca(I, AllocaInsPt,
-                                             Suffix + WI.Suffix + ".not.first");
+        auto *NewNF = PT.genPrivatizationAlloca(
+            I, AllocaInsPt, Suffix + WI.Suffix + ".not.first");
         new StoreInst(NewNF, Rep, AllocaInsPt);
         return;
       }
@@ -1249,20 +1258,21 @@ class VPOParoptTransform::CSALoopSplitter {
         return;
 
       // Create reference which will hold the private variable address.
-      auto AAS = New->getModule()->getDataLayout().getAllocaAddrSpace();
+      auto AAS = PT.F->getParent()->getDataLayout().getAllocaAddrSpace();
       auto *Ref = new AllocaInst(New->getType(), AAS, New->getName() + ".ref",
                                  getInitInsPt());
       addAlloca(Ref);
       new StoreInst(New, Ref, getInitInsPt());
 
       // Create in-loop alloca and store new address to the reference.
-      auto *NewNF = genPrivatizationAlloca(I, AllocaInsPt,
-                                           Suffix + WI.Suffix + ".not.first");
+      auto *NewNF = PT.genPrivatizationAlloca(
+          I, AllocaInsPt, Suffix + WI.Suffix + ".not.first");
       new StoreInst(NewNF, Ref, AllocaInsPt);
 
       // And finally replace all private uses within loop body with the address
       // loaded from the private refence.
-      auto *Rep = new LoadInst(Ref, New->getName() + ".in.loop", InLoopInsPt);
+      auto *Rep = new LoadInst(New->getType(), Ref, New->getName() + ".in.loop",
+                               InLoopInsPt);
 
       // Save replacement value.
       Orig2Rep[Old] = Rep;
@@ -1401,6 +1411,26 @@ private:
     return LMap[L];
   }
 
+  // Replace all occurences of ___builtin_csa_spmd_worker_num() by ID
+  void lowerSPMDWorkerNum(const Loop *L, unsigned ID) {
+    LLVMContext &Context = L->getHeader()->getContext();
+    SmallVector<Instruction *, 4> toDelete;
+
+    for (BasicBlock *const BB : L->getBlocks()) {
+      for (Instruction &inst : *BB)
+        if (IntrinsicInst *intr_inst = dyn_cast<IntrinsicInst>(&inst))
+          if (intr_inst->getIntrinsicID() == Intrinsic::csa_spmd_worker_num) {
+            Value *id =
+                llvm::ConstantInt::get(llvm::Type::getInt32Ty(Context), ID);
+            inst.replaceAllUsesWith(id);
+            toDelete.push_back(&inst);
+          }
+    }
+
+    for (auto I : toDelete)
+      I->eraseFromParent();
+  }
+
   void cloneWorkers(WRegionNode *W) {
     // Get the number of workers to use for this loop.
     auto NumWorkers = getNumWorkers(W);
@@ -1462,6 +1492,10 @@ private:
       WI.Head = cast<BasicBlock>(VMap[W0.Head]);
       WI.Tail = cast<BasicBlock>(VMap[W0.Tail]);
 
+      // Replace all occurences of ___builtin_csa_spmd_worker_num() by the
+      // worker's number.
+      lowerSPMDWorkerNum(WI.WL, ID);
+
       // Link cloned worker to cfg.
       cast<BranchInst>(Last->getTerminator())->setOperand(0, WI.Head);
       Last = WI.Tail;
@@ -1469,6 +1503,10 @@ private:
 
     // Connect the last worker to the exit block.
     cast<BranchInst>(Last->getTerminator())->setOperand(0, Exit);
+
+    // For Worker 0, replace all occurences of ___builtin_csa_spmd_worker_num()
+    // by 0.
+    lowerSPMDWorkerNum(W0.WL, 0);
 
     W->resetBBSet();
   }
@@ -1480,6 +1518,9 @@ public:
     assert(W->getIsOmpLoop() && "must be a loop");
 
     SPMDMode = getSPMDMode(W);
+
+    // Determine pipelining depth
+    auto LoopPipelineDepth = W->getPipelineDepth();
 
     // Check if we can get TC estimate from the function's assumption cache.
     getTripCountEstimate(W);
@@ -1543,15 +1584,16 @@ public:
     if (Workers.size() > 1u) {
       auto *Region = genParRegionCalls(
           getParRegionID(W), W->getEntryBBlock()->getTerminator(),
-          W->getExitBBlock()->getFirstNonPHI(), LoopPipelineDepth > 0);
+          W->getExitBBlock()->getFirstNonPHI(), LoopPipelineDepth);
       for (auto &WI : Workers)
         genParSectionCalls(Region,
                            WI.Head->getFirstNonPHI(),
                            WI.Tail->getTerminator());
     } else {
-      genParDepthRegionCalls(
-          getParRegionID(W), W->getEntryBBlock()->getTerminator(),
-          W->getExitBBlock()->getFirstNonPHI(), "depth.region");
+      genParDepthRegionCalls(getParRegionID(W), LoopPipelineDepth,
+                             W->getEntryBBlock()->getTerminator(),
+                             W->getExitBBlock()->getFirstNonPHI(),
+                             "depth.region");
     }
     return true;
   }
@@ -1576,6 +1618,7 @@ bool VPOParoptTransform::isSupportedOnCSA(WRegionNode *W) {
     case WRegionNode::WRNMaster:
     case WRegionNode::WRNSingle:
     case WRegionNode::WRNBarrier:
+    case WRegionNode::WRNCritical:
       break;
     case WRegionNode::WRNAtomic:
       // Atomics for variables <= 64-bits are lowered by FE.
@@ -1601,8 +1644,30 @@ bool VPOParoptTransform::isSupportedOnCSA(WRegionNode *W) {
 
   // schedule
   if (W->canHaveSchedule()) {
-    // Check schedule clause of there is one.
+    // Check schedule clause if there is one.
     auto &Sched = W->getSchedule();
+    if (Sched.getChunkExpr()) {
+      // So far we support only static and auto schedule types.
+      if (Sched.getKind() != WRNScheduleStatic &&
+          Sched.getKind() != WRNScheduleAuto) {
+        reportWarning("ignoring unsupported schedule type");
+        Sched.setChunkExpr(nullptr);
+      }
+      // Three options for the chunk size
+      //   Sched->getChunk() == 0 => chunk was not specified
+      //   Sched->getChunk() > 0  => chunk is a compile time constant
+      //   Sched->getChunk() < 0  => chunk is an expression (unsupported)
+      else if (Sched.getChunk() < 0) {
+        reportWarning("schedule chunk must be a compile time constant");
+        Sched.setChunkExpr(nullptr);
+      }
+    }
+  }
+
+  // dataflow(static)
+  if (W->canHaveWorkerSchedule()) {
+    // Check dataflow(<schedule>) clause of there is one.
+    auto &Sched = W->getWorkerSchedule();
     if (Sched.getChunkExpr()) {
       // So far we support only static and auto schedule types.
       if (Sched.getKind() != WRNScheduleStatic &&
@@ -1833,12 +1898,12 @@ bool VPOParoptTransform::translateCSAOmpRtlCalls() {
   bool Changed = false;
   for (auto BI = F->begin(); BI != F->end(); ++BI) {
     for (auto II = BI->begin(); II != BI->end();) {
-      CallSite CS(&*II++);
-      if (!CS)
+      auto *CB = dyn_cast<CallBase>(&*II++);
+      if (!CB)
         continue;
 
       LibFunc LF = NumLibFuncs;
-      if (!TLI->getLibFunc(CS, LF))
+      if (!TLI->getLibFunc(*CB, LF))
         continue;
 
       Value *Val = nullptr;
@@ -1857,16 +1922,16 @@ bool VPOParoptTransform::translateCSAOmpRtlCalls() {
         case LibFunc_omp_set_nested:
           break;
         case LibFunc_omp_init_lock:
-          genInitLock(CS.getArgument(0), CS.getInstruction());
+          genInitLock(CB->getArgOperand(0), CB);
           break;
         case LibFunc_omp_set_lock:
-          genSetLock(CS.getArgument(0), CS.getInstruction(), DT, LI);
+          genSetLock(CB->getArgOperand(0), CB, DT, LI);
           break;
         case LibFunc_omp_unset_lock:
-          genUnsetLock(CS.getArgument(0), CS.getInstruction());
+          genUnsetLock(CB->getArgOperand(0), CB);
           break;
         case LibFunc_omp_test_lock:
-          Val = genTestLock(CS.getArgument(0), CS.getInstruction());
+          Val = genTestLock(CB->getArgOperand(0), CB);
           break;
         case LibFunc_omp_destroy_lock:
           break;
@@ -1876,12 +1941,37 @@ bool VPOParoptTransform::translateCSAOmpRtlCalls() {
 
       Changed = true;
       if (Val)
-        CS->replaceAllUsesWith(Val);
-      if (auto *Invoke = dyn_cast<InvokeInst>(CS.getInstruction()))
-        BranchInst::Create(Invoke->getNormalDest(), CS.getInstruction());
-      BI = CS->getParent()->getIterator();
-      II = CS->eraseFromParent();
+        CB->replaceAllUsesWith(Val);
+      if (auto *Invoke = dyn_cast<InvokeInst>(CB))
+        BranchInst::Create(Invoke->getNormalDest(), CB);
+      BI = CB->getParent()->getIterator();
+      II = CB->eraseFromParent();
     }
   }
   return Changed;
+}
+
+bool VPOParoptTransform::genCSACritical(WRNCriticalNode *W) {
+  assert(isTargetCSA() && "unexpected target");
+
+  auto Suffix = W->getUserLockName();
+  if (Suffix.empty())
+    Suffix = "common";
+
+  SmallString<64u> LockName{"__omp.critical."};
+  LockName += Suffix;
+
+  auto *M = F->getParent();
+  auto PtrSize = M->getDataLayout().getPointerSizeInBits();
+  auto *LockTy = Type::getIntNTy(M->getContext(), PtrSize);
+
+  auto *Lock = M->getGlobalVariable(LockName);
+  if (!Lock)
+    Lock = new GlobalVariable(*M, LockTy, false, GlobalValue::CommonLinkage,
+                              ConstantInt::get(LockTy, 0), LockName);
+
+  genSetLock(Lock, W->getEntryBBlock()->getTerminator(), DT, LI);
+  genUnsetLock(Lock, W->getExitBBlock()->getFirstNonPHI());
+
+  return true;
 }

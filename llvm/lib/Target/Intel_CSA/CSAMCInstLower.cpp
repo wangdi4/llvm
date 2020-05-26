@@ -134,7 +134,7 @@ void CSAMCInstLower::Lower(const MachineInstr *MI, MCInst &OutMI) const {
       unsigned reg = MO.getReg();
       const CSAMachineFunctionInfo &LMFI =
         *MI->getParent()->getParent()->getInfo<CSAMachineFunctionInfo>();
-      if (TargetRegisterInfo::isVirtualRegister(reg)) {
+      if (Register::isVirtualRegister(reg)) {
         MCOp = MCOperand::createExpr(
           CSAMCExpr::create(reg, LMFI.getLICName(reg), Ctx));
       } else {
@@ -146,26 +146,10 @@ void CSAMCInstLower::Lower(const MachineInstr *MI, MCInst &OutMI) const {
       MCOp = MCOperand::createImm(MO.getImm());
       break;
     case MachineOperand::MO_FPImmediate: {
-      const ConstantFP *f = MO.getFPImm();
-      APFloat apf         = f->getValueAPF();
-      bool ignored;
-      if (f->getType() == Type::getFloatTy(f->getContext()))
-        apf.convert(APFloat::IEEEdouble(), APFloat::rmNearestTiesToEven,
-                    &ignored);
-      double d = apf.convertToDouble();
-      switch (f->getType()->getTypeID()) {
-      default:
+      const APInt Bits = MO.getFPImm()->getValueAPF().bitcastToAPInt();
+      if (Bits.getBitWidth() > 64)
         report_fatal_error("Unsupported FP type");
-        break;
-      case Type::FloatTyID: {
-        float f = d;
-        MCOp    = MCOperand::createImm(FloatToBits(f));
-        break;
-      }
-      case Type::DoubleTyID:
-        MCOp    = MCOperand::createImm(DoubleToBits(d));
-        break;
-      }
+      MCOp = MCOperand::createImm(Bits.getLimitedValue());
       break;
     }
     case MachineOperand::MO_MachineBasicBlock:

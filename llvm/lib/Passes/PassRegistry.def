@@ -54,6 +54,7 @@ MODULE_ALIAS_ANALYSIS("anders-aa", AndersensAA())    // INTEL
 #endif
 #if INTEL_CUSTOMIZATION
 MODULE_PASS("vec-clone",VecClonePass());
+MODULE_PASS("vplan-pragma-omp-ordered-simd-extract", VPlanPragmaOmpOrderedSimdExtractPass());
 #endif //INTEL_CUSTOMIZATION
 MODULE_PASS("always-inline", AlwaysInlinerPass())
 MODULE_PASS("attributor", AttributorPass())
@@ -141,6 +142,10 @@ MODULE_PASS("rewrite-statepoints-for-gc", RewriteStatepointsForGC())
 MODULE_PASS("rewrite-symbols", RewriteSymbolPass())
 MODULE_PASS("rpo-functionattrs", ReversePostOrderFunctionAttrsPass())
 MODULE_PASS("sample-profile", SampleProfileLoaderPass())
+#if INTEL_CUSTOMIZATION
+MODULE_PASS("scc-oz-module-inliner",
+  buildInlinerPipeline(OptimizationLevel::Oz, ThinLTOPhase::None, nullptr, DebugLogging))
+#endif // INTEL_CUSTOMIZATION
 MODULE_PASS("strip-dead-prototypes", StripDeadPrototypesPass())
 MODULE_PASS("synthetic-counts-propagation", SyntheticCountsPropagation())
 MODULE_PASS("tilemvinlmarker", TileMVInlMarkerPass()) // INTEL
@@ -157,6 +162,7 @@ MODULE_PASS("inlinelists", InlineListsPass()) // INTEL
 MODULE_PASS("inlinereportsetup", InlineReportSetupPass()) // INTEL
 MODULE_PASS("inlinereportemitter", InlineReportEmitterPass()) // INTEL
 MODULE_PASS("intel-advancedfastcall", IntelAdvancedFastCallPass()) // INTEL
+MODULE_PASS("iparraytranspose", IPArrayTransposePass()) // INTEL
 MODULE_PASS("intel-ipoprefetch", IntelIPOPrefetchPass()) // INTEL
 #if INTEL_COLLAB
 MODULE_PASS("vpo-paropt", VPOParoptPass())
@@ -236,6 +242,7 @@ FUNCTION_ANALYSIS("hir-dd-analysis", loopopt::HIRDDAnalysisPass())
 FUNCTION_ANALYSIS("hir-safe-reduction-analysis", loopopt::HIRSafeReductionAnalysisPass())
 FUNCTION_ANALYSIS("hir-sparse-array-reduction-analysis", loopopt::HIRSparseArrayReductionAnalysisPass())
 FUNCTION_ANALYSIS("hir-parvec-analysis", loopopt::HIRParVecAnalysisPass())
+FUNCTION_ANALYSIS("hir-array-section-analysis", loopopt::HIRArraySectionAnalysisPass())
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
 FUNCTION_ANALYSIS("vpo-wrncollection", WRegionCollectionAnalysis())
@@ -264,6 +271,7 @@ FUNCTION_PASS("adce", ADCEPass())
 FUNCTION_PASS("add-discriminators", AddDiscriminatorsPass())
 FUNCTION_PASS("aggressive-instcombine", AggressiveInstCombinePass())
 FUNCTION_PASS("assume-builder", AssumeBuilderPass())
+FUNCTION_PASS("assume-simplify", AssumeSimplifyPass())
 FUNCTION_PASS("alignment-from-assumptions", AlignmentFromAssumptionsPass())
 FUNCTION_PASS("bdce", BDCEPass())
 FUNCTION_PASS("bounds-checking", BoundsCheckingPass())
@@ -290,6 +298,7 @@ FUNCTION_PASS("make-guards-explicit", MakeGuardsExplicitPass())
 FUNCTION_PASS("fma-splitter", FMASplitterPass()) // INTEL
 FUNCTION_PASS("post-inline-ee-instrument", EntryExitInstrumenterPass(/*PostInlining=*/true))
 FUNCTION_PASS("gvn-hoist", GVNHoistPass())
+FUNCTION_PASS("functionrecognizer", FunctionRecognizerPass()) // INTEL
 FUNCTION_PASS("indirectcallconv", IndirectCallConvPass(/* UseAndersen = */ false, /* UseDTrans = */ false)) // INTEL
 FUNCTION_PASS("instcombine", InstCombinePass())
 FUNCTION_PASS("instsimplify", InstSimplifyPass())
@@ -380,12 +389,13 @@ FUNCTION_PASS("print<hir-framework>", loopopt::HIRFrameworkPrinterPass(dbgs(), t
 FUNCTION_PASS("verify<hir-framework>", loopopt::HIRFrameworkVerifierPass())
 FUNCTION_PASS("print<hir>", loopopt::HIRFrameworkPrinterPass(dbgs(), false))
 FUNCTION_PASS("verify<hir>", loopopt::HIRFrameworkVerifierPass())
-FUNCTION_PASS("print<hir-loop-statistics>", loopopt::HIRLoopStatisticsPrinterPass(dbgs()))
-FUNCTION_PASS("print<hir-loop-resource>", loopopt::HIRLoopResourcePrinterPass(dbgs()))
-FUNCTION_PASS("print<hir-locality-analysis>", loopopt::HIRLoopLocalityPrinterPass(dbgs()))
-FUNCTION_PASS("print<hir-dd-analysis>", loopopt::HIRDDAnalysisPrinterPass(dbgs()))
-FUNCTION_PASS("print<hir-safe-reduction-analysis>", loopopt::HIRSafeReductionAnalysisPrinterPass(dbgs()))
-FUNCTION_PASS("print<hir-sparse-array-reduction-analysis>", loopopt::HIRSparseArrayReductionAnalysisPrinterPass(dbgs()))
+FUNCTION_PASS("print<hir-loop-statistics>", loopopt::HIRAnalysisPrinterPass<loopopt::HIRLoopStatisticsAnalysis>(dbgs()))
+FUNCTION_PASS("print<hir-loop-resource>", loopopt::HIRAnalysisPrinterPass<loopopt::HIRLoopResourceAnalysis>(dbgs()))
+FUNCTION_PASS("print<hir-locality-analysis>", loopopt::HIRAnalysisPrinterPass<loopopt::HIRLoopLocalityAnalysis>(dbgs()))
+FUNCTION_PASS("print<hir-dd-analysis>", loopopt::HIRAnalysisPrinterPass<loopopt::HIRDDAnalysisPass>(dbgs()))
+FUNCTION_PASS("print<hir-safe-reduction-analysis>", loopopt::HIRAnalysisPrinterPass<loopopt::HIRSafeReductionAnalysisPass>(dbgs()))
+FUNCTION_PASS("print<hir-sparse-array-reduction-analysis>", loopopt::HIRAnalysisPrinterPass<loopopt::HIRSparseArrayReductionAnalysisPass>(dbgs()))
+FUNCTION_PASS("print<hir-array-section-analysis>", loopopt::HIRAnalysisPrinterPass<loopopt::HIRArraySectionAnalysisPass>(dbgs()))
 FUNCTION_PASS("hir-recognize-par-loop", loopopt::HIRRecognizeParLoopPass())
 FUNCTION_PASS("hir-dead-store-elimination", loopopt::HIRDeadStoreEliminationPass())
 FUNCTION_PASS("hir-optreport-emitter", loopopt::HIROptReportEmitterPass())
@@ -423,6 +433,7 @@ FUNCTION_PASS("hir-generate-mkl-call", loopopt::HIRGenerateMKLCallPass())
 FUNCTION_PASS("intel-ir-optreport-emitter", LoopOptReportEmitterPass())
 FUNCTION_PASS("vplan-driver", vpo::VPlanDriverPass());
 FUNCTION_PASS("vplan-driver-hir", vpo::VPlanDriverHIRPass());
+FUNCTION_PASS("vplan-func-vec", vpo::VPlanFunctionVectorizerPass());
 FUNCTION_PASS("vpo-directive-cleanup", VPODirectiveCleanupPass())
 FUNCTION_PASS("map-intrin-to-iml",vpo::MapIntrinToImlPass())
 FUNCTION_PASS("addsub-reassociate", AddSubReassociatePass())

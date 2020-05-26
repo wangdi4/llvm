@@ -21,8 +21,7 @@ define i32 @make_const() {
 
 define float @make_const2() {
 ; CHECK-LABEL: @make_const2(
-; CHECK-NEXT:    [[X:%.*]] = freeze float 1.000000e+01
-; CHECK-NEXT:    ret float [[X]]
+; CHECK-NEXT:    ret float 1.000000e+01
 ;
   %x = freeze float 10.0
   ret float %x
@@ -40,8 +39,7 @@ define i32* @make_const_glb() {
 
 define i32()* @make_const_fn() {
 ; CHECK-LABEL: @make_const_fn(
-; CHECK-NEXT:    [[K:%.*]] = freeze i32 ()* @make_const
-; CHECK-NEXT:    ret i32 ()* [[K]]
+; CHECK-NEXT:    ret i32 ()* @make_const
 ;
   %k = freeze i32()* @make_const
   ret i32()* %k
@@ -49,8 +47,7 @@ define i32()* @make_const_fn() {
 
 define i32* @make_const_null() {
 ; CHECK-LABEL: @make_const_null(
-; CHECK-NEXT:    [[K:%.*]] = freeze i32* null
-; CHECK-NEXT:    ret i32* [[K]]
+; CHECK-NEXT:    ret i32* null
 ;
   %k = freeze i32* null
   ret i32* %k
@@ -58,12 +55,29 @@ define i32* @make_const_null() {
 
 define <2 x i32> @constvector() {
 ; CHECK-LABEL: @constvector(
-; CHECK-NEXT:    [[X:%.*]] = freeze <2 x i32> <i32 0, i32 1>
-; CHECK-NEXT:    ret <2 x i32> [[X]]
+; CHECK-NEXT:    ret <2 x i32> <i32 0, i32 1>
 ;
   %x = freeze <2 x i32> <i32 0, i32 1>
   ret <2 x i32> %x
 }
+
+define <3 x i5> @constvector_weird() {
+; CHECK-LABEL: @constvector_weird(
+; CHECK-NEXT:    ret <3 x i5> <i5 0, i5 1, i5 10>
+;
+  %x = freeze <3 x i5> <i5 0, i5 1, i5 42>
+  ret <3 x i5> %x
+}
+
+define <2 x float> @constvector_FP() {
+; CHECK-LABEL: @constvector_FP(
+; CHECK-NEXT:    ret <2 x float> <float 0.000000e+00, float 1.000000e+00>
+;
+  %x = freeze <2 x float> <float 0.0, float 1.0>
+  ret <2 x float> %x
+}
+
+; Negative test
 
 define <2 x i32> @constvector_noopt() {
 ; CHECK-LABEL: @constvector_noopt(
@@ -74,11 +88,56 @@ define <2 x i32> @constvector_noopt() {
   ret <2 x i32> %x
 }
 
+; Negative test
+
+define <3 x i5> @constvector_weird_noopt() {
+; CHECK-LABEL: @constvector_weird_noopt(
+; CHECK-NEXT:    [[X:%.*]] = freeze <3 x i5> <i5 0, i5 undef, i5 10>
+; CHECK-NEXT:    ret <3 x i5> [[X]]
+;
+  %x = freeze <3 x i5> <i5 0, i5 undef, i5 42>
+  ret <3 x i5> %x
+}
+
+; Negative test
+
+define <2 x float> @constvector_FP_noopt() {
+; CHECK-LABEL: @constvector_FP_noopt(
+; CHECK-NEXT:    [[X:%.*]] = freeze <2 x float> <float 0.000000e+00, float undef>
+; CHECK-NEXT:    ret <2 x float> [[X]]
+;
+  %x = freeze <2 x float> <float 0.0, float undef>
+  ret <2 x float> %x
+}
+
+@g = external global i16, align 1
+
+; Negative test
+
+define float @constant_expr() {
+; CHECK-LABEL: @constant_expr(
+; CHECK-NEXT:    [[R:%.*]] = freeze float bitcast (i32 ptrtoint (i16* @g to i32) to float)
+; CHECK-NEXT:    ret float [[R]]
+;
+  %r = freeze float bitcast (i32 ptrtoint (i16* @g to i32) to float)
+  ret float %r
+}
+
+; Negative test
+
+define <2 x i31> @vector_element_constant_expr() {
+; CHECK-LABEL: @vector_element_constant_expr(
+; CHECK-NEXT:    [[R:%.*]] = freeze <2 x i31> <i31 34, i31 ptrtoint (i16* @g to i31)>
+; CHECK-NEXT:    ret <2 x i31> [[R]]
+;
+  %r = freeze <2 x i31> <i31 34, i31 ptrtoint (i16* @g to i31)>
+  ret <2 x i31> %r
+}
+
 define void @alloca() {
 ; CHECK-LABEL: @alloca(
 ; CHECK-NEXT:    [[P:%.*]] = alloca i8
-; CHECK-NEXT:    [[Y:%.*]] = freeze i8* [[P]]
-; CHECK-NEXT:    call void @f3(i8* [[Y]])
+; CHECK-NEXT:    call void @f3(i8* [[P]])
 ; CHECK-NEXT:    ret void
 ;
   %p = alloca i8
@@ -91,8 +150,7 @@ define i8* @gep() {
 ; CHECK-LABEL: @gep(
 ; CHECK-NEXT:    [[P:%.*]] = alloca [4 x i8]
 ; CHECK-NEXT:    [[Q:%.*]] = getelementptr [4 x i8], [4 x i8]* [[P]], i32 0, i32 6
-; CHECK-NEXT:    [[Q2:%.*]] = freeze i8* [[Q]]
-; CHECK-NEXT:    ret i8* [[Q2]]
+; CHECK-NEXT:    ret i8* [[Q]]
 ;
   %p = alloca [4 x i8]
   %q = getelementptr [4 x i8], [4 x i8]* %p, i32 0, i32 6
@@ -115,8 +173,7 @@ define i8* @gep_inbounds() {
 ; CHECK-LABEL: @gep_inbounds(
 ; CHECK-NEXT:    [[P:%.*]] = alloca [4 x i8]
 ; CHECK-NEXT:    [[Q:%.*]] = getelementptr inbounds [4 x i8], [4 x i8]* [[P]], i32 0, i32 0
-; CHECK-NEXT:    [[Q2:%.*]] = freeze i8* [[Q]]
-; CHECK-NEXT:    ret i8* [[Q2]]
+; CHECK-NEXT:    ret i8* [[Q]]
 ;
   %p = alloca [4 x i8]
   %q = getelementptr inbounds [4 x i8], [4 x i8]* %p, i32 0, i32 0
@@ -139,8 +196,7 @@ define i8* @gep_inbounds_noopt(i32 %arg) {
 
 define i32* @gep_inbounds_null() {
 ; CHECK-LABEL: @gep_inbounds_null(
-; CHECK-NEXT:    [[K:%.*]] = freeze i32* null
-; CHECK-NEXT:    ret i32* [[K]]
+; CHECK-NEXT:    ret i32* null
 ;
   %p = getelementptr inbounds i32, i32* null, i32 0
   %k = freeze i32* %p
@@ -187,8 +243,7 @@ define i1 @fcmp(float %x, float %y) {
 ; CHECK-NEXT:    [[FX:%.*]] = freeze float [[X:%.*]]
 ; CHECK-NEXT:    [[FY:%.*]] = freeze float [[Y:%.*]]
 ; CHECK-NEXT:    [[C:%.*]] = fcmp oeq float [[FX]], [[FY]]
-; CHECK-NEXT:    [[FC:%.*]] = freeze i1 [[C]]
-; CHECK-NEXT:    ret i1 [[FC]]
+; CHECK-NEXT:    ret i1 [[C]]
 ;
   %fx = freeze float %x
   %fy = freeze float %y
@@ -246,8 +301,7 @@ define i32 @phi(i1 %cond, i1 %cond2, i32 %a0, i32 %a1) {
 ; CHECK-NEXT:    br label [[EXIT]]
 ; CHECK:       EXIT:
 ; CHECK-NEXT:    [[PHI2:%.*]] = phi i32 [ [[A0_FR]], [[BB1]] ], [ [[PHI1]], [[BB2]] ]
-; CHECK-NEXT:    [[PHI2_FR:%.*]] = freeze i32 [[PHI2]]
-; CHECK-NEXT:    ret i32 [[PHI2_FR]]
+; CHECK-NEXT:    ret i32 [[PHI2]]
 ;
 ENTRY:
   %a0.fr = freeze i32 %a0

@@ -185,11 +185,11 @@ void HIRLoopLocality::printAnalysis(raw_ostream &OS) const {
     HNU.gatherAllLoops(Loops);
 
     for (auto Lp : Loops) {
-      unsigned TempInv = HLA.getTemporalInvariantLocality(Lp);
+      unsigned TempInv = HLA.getTemporalInvariantLocality(Lp, false);
       unsigned TempReuse =
-          HLA.getTemporalReuseLocality(Lp, TemporalReuseThreshold);
+          HLA.getTemporalReuseLocality(Lp, TemporalReuseThreshold, false);
 
-      assert((HLA.getTemporalLocality(Lp, TemporalReuseThreshold) ==
+      assert((HLA.getTemporalLocality(Lp, TemporalReuseThreshold, false) ==
               TempInv + TempReuse) &&
              "Mismatch between temporal locality implementations!");
 
@@ -557,7 +557,8 @@ static bool isSpatialMatch(const RegDDRef *Ref1, const RegDDRef *Ref2) {
 /// For example-
 /// A[2*i] and A[2*i+2] == true
 /// A[2*i] and A[2*i+1] == false
-/// A[0] and A[1] == true
+/// A[0] and A[0] == true
+/// A[0] and A[1] == false
 static bool isTemporalMatch(const RegDDRef *Ref1, const RegDDRef *Ref2,
                             unsigned Level, uint64_t MaxDiff) {
   int64_t Diff;
@@ -660,38 +661,10 @@ void HIRLoopLocality::sortedLocalityLoops(
   std::sort(SortedLoops.begin(), SortedLoops.end(), Comp);
 }
 
-unsigned HIRLoopLocality::getTemporalInvariantLocalityImpl(const HLLoop *Lp,
-                                                           bool CheckPresence) {
-  assert(Lp && " Loop parameter is null!");
-
-  unsigned Level = Lp->getNestingLevel();
-
-  LocalityRefGatherer::MapTy MemRefMap;
-
-  LocalityRefGatherer::gatherRange(Lp->child_begin(), Lp->child_end(),
-                                   MemRefMap);
-  LocalityRefGatherer::sortAndUnique(MemRefMap, true);
-
-  unsigned NumInv = 0;
-
-  for (auto &Refs : MemRefMap) {
-    for (auto Ref : Refs.second) {
-      if (Ref->isStructurallyInvariantAtLevel(Level, true)) {
-        if (CheckPresence) {
-          return 1;
-        }
-        ++NumInv;
-      }
-    }
-  }
-
-  return NumInv;
-}
-
-unsigned HIRLoopLocality::getTemporalLocalityImpl(const HLLoop *Lp,
-                                                  unsigned ReuseThreshold,
-                                                  bool CheckPresence,
-                                                  bool ReuseOnly) {
+unsigned HIRLoopLocality::getTemporalLocalityImpl(
+    const HLLoop *Lp, unsigned ReuseThreshold,
+    TemporalLocalityType LocalityType, bool IgnoreConditionalRefs,
+    bool CheckPresence) {
   assert(Lp && " Loop parameter is null!");
 
   unsigned Level = Lp->getNestingLevel();
@@ -701,7 +674,7 @@ unsigned HIRLoopLocality::getTemporalLocalityImpl(const HLLoop *Lp,
 
   LocalityRefGatherer::gatherRange(Lp->child_begin(), Lp->child_end(),
                                    MemRefMap);
-  LocalityRefGatherer::sortAndUnique(MemRefMap, true);
+  LocalityRefGatherer::sort(MemRefMap);
 
   DDRefGrouping::groupMap(RefGroups, MemRefMap,
                           std::bind(isTemporalMatch, std::placeholders::_1,
@@ -709,32 +682,55 @@ unsigned HIRLoopLocality::getTemporalLocalityImpl(const HLLoop *Lp,
                                     CheckPresence ? ReuseThreshold : ~0U));
 
   unsigned NumTemporal = 0;
+  bool NeedInvariant = (LocalityType & TemporalLocalityType::Invariant);
+  bool NeedReuse = (LocalityType & TemporalLocalityType::Reuse);
 
   for (auto &RefVec : RefGroups) {
-    auto PrevRef = RefVec.front();
-
-    bool IsInv =
-        !ReuseOnly && PrevRef->isStructurallyInvariantAtLevel(Level, true);
-    auto Size = RefVec.size();
-
-    if (CheckPresence && (IsInv || (Size > 1))) {
+    if (CheckPresence && NumTemporal != 0) {
+      // Only need true/false result.
       return 1;
     }
 
-    if (IsInv) {
-      assert((Size == 1) && "Invariant group should only contain one ref!");
+    auto *PrevRef = RefVec.front();
+
+    bool IsInvariant = PrevRef->isStructurallyInvariantAtLevel(Level, true);
+    if (IsInvariant && !NeedInvariant) {
+      continue;
+    }
+
+    // Ideally, we should check that ref post-dominates the first child of
+    // parent loop but the current check is cheap and works in most common case
+    // (no gotos).
+    bool IsPrevConditional =
+        IgnoreConditionalRefs && !isa<HLLoop>(PrevRef->getParent());
+
+    if (!IsPrevConditional && IsInvariant) {
       ++NumTemporal;
       continue;
     }
 
     for (auto RefIt = RefVec.begin() + 1, E = RefVec.end(); RefIt != E;
          ++RefIt) {
-      auto CurRef = *RefIt;
+      auto *CurRef = *RefIt;
 
-      if (isTemporalMatch(PrevRef, CurRef, Level, ReuseThreshold)) {
+      if (IgnoreConditionalRefs && !isa<HLLoop>(CurRef->getParent())) {
+        continue;
+      }
+
+      if (IsInvariant) {
+        ++NumTemporal;
+        break;
+      }
+
+      // Since we are not uniquing refs, we can encounter multiple identical
+      // refs.
+      if (!IsPrevConditional && NeedReuse &&
+          !DDRefUtils::areEqual(PrevRef, CurRef) &&
+          isTemporalMatch(PrevRef, CurRef, Level, ReuseThreshold)) {
         ++NumTemporal;
       }
 
+      IsPrevConditional = false;
       PrevRef = CurRef;
     }
   }

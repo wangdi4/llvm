@@ -467,10 +467,12 @@ bool FMAOpcodesInfo::recognizeOpcode(unsigned Opcode, bool LookForAVX512,
     VT = MVT::f64;
     break;
   case X86::V_SET0:
+  case X86::AVX512_128_SET0:
     // Choose an arbitrary vector type.
     VT = MVT::v2f64;
     break;
   case X86::AVX_SET0:
+  case X86::AVX512_256_SET0:
     // Choose an arbitrary vector type.
     VT = MVT::v4f64;
     break;
@@ -500,9 +502,9 @@ unsigned FMAOpcodesInfo::getOpcodeOfKind(
     case 64:
       return LookForAVX512 ? X86::AVX512_FsFLD0SD : X86::FsFLD0SD;
     case 128:
-      return X86::V_SET0;
+      return LookForAVX512 ? X86::AVX512_128_SET0 : X86::V_SET0;
     case 256:
-      return X86::AVX_SET0;
+      return LookForAVX512 ? X86::AVX512_256_SET0 : X86::AVX_SET0;
     case 512:
       return X86::AVX512_512_SET0;
     default:
@@ -601,8 +603,8 @@ private:
         // Clone the MMO and unset the store flag.
         LoadMMOs.push_back(MF.getMachineMemOperand(
             MMO->getPointerInfo(),
-            MMO->getFlags() & ~MachineMemOperand::MOStore,
-            MMO->getSize(), MMO->getBaseAlignment(), MMO->getAAInfo(), nullptr,
+            MMO->getFlags() & ~MachineMemOperand::MOStore, MMO->getSize(),
+            MMO->getBaseAlign(), MMO->getAAInfo(), nullptr,
             MMO->getSyncScopeID(), MMO->getOrdering(),
             MMO->getFailureOrdering()));
       }
@@ -1489,6 +1491,7 @@ unsigned X86GlobalFMA::createConstOne(MVT VT, MachineInstr *InsertPointMI) {
   // Create the load from the constant pool.
   MachineConstantPool *MCP = MF->getConstantPool();
   unsigned Align = VT.getSizeInBits() / 8;
+  MaybeAlign Alignment(Align);
   Constant *FPOne = ConstantFP::get(Ty, 1.0);
   unsigned CPI = MCP->getConstantPoolIndex(FPOne, Align);
   const TargetRegisterClass *RC = ST->getTargetLowering()->getRegClassFor(VT);
@@ -1509,7 +1512,8 @@ unsigned X86GlobalFMA::createConstOne(MVT VT, MachineInstr *InsertPointMI) {
   }
   MachineMemOperand *MMO = MF->getMachineMemOperand(
       MachinePointerInfo::getConstantPool(*MF),
-      MachineMemOperand::MOLoad | MachineMemOperand::MOInvariant, Align, Align);
+      MachineMemOperand::MOLoad | MachineMemOperand::MOInvariant, Align,
+      *Alignment);
   ArrayRef<MachineMemOperand *> ARMMOs(MMO);
   auto MMOs = extractLoadMMOs(ARMMOs, *MF);
   MIB.setMemRefs(MMOs);

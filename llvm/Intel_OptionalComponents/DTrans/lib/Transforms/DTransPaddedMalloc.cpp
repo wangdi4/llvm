@@ -1,6 +1,6 @@
 //===------- DtransPaddedMalloc.cpp - DTrans Padded Malloc -*------===//
 //
-// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -460,8 +460,9 @@ bool dtrans::PaddedMallocPass::isValidType(GetElementPtrInst *ElemInst) {
     return true;
 
   // A vector of integers of floating point
-  if (Type->isVectorTy() && (Type->getVectorElementType()->isIntegerTy() ||
-                             Type->getVectorElementType()->isFloatingPointTy()))
+  if (Type->isVectorTy() &&
+      (cast<VectorType>(Type)->getElementType()->isIntegerTy() ||
+       cast<VectorType>(Type)->getElementType()->isFloatingPointTy()))
     return true;
 
   // Type represents something else that is not needed in a search loop

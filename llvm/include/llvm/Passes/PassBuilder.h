@@ -28,6 +28,7 @@ class StringRef;
 class AAManager;
 class TargetMachine;
 class ModuleSummaryIndex;
+class InlinerPass; // INTEL
 
 /// A struct capturing PGO tunables.
 struct PGOOptions {
@@ -73,16 +74,15 @@ public:
   /// can be set in the PassBuilder when using a LLVM as a library.
   PipelineTuningOptions();
 
-  /// Tuning option to set loop interleaving on/off. Its default value is that
-  /// of the flag: `-interleave-loops`.
+  /// Tuning option to set loop interleaving on/off, set based on opt level.
   bool LoopInterleaving;
 
-  /// Tuning option to enable/disable loop vectorization. Its default value is
-  /// that of the flag: `-vectorize-loops`.
+  /// Tuning option to enable/disable loop vectorization, set based on opt
+  /// level.
   bool LoopVectorization;
 
-  /// Tuning option to enable/disable slp loop vectorization. Its default value
-  /// is that of the flag: `vectorize-slp`.
+  /// Tuning option to enable/disable slp loop vectorization, set based on opt
+  /// level.
   bool SLPVectorization;
 
   /// Tuning option to enable/disable loop unrolling. Its default value is true.
@@ -105,6 +105,10 @@ public:
   /// Tuning option to disable promotion to scalars in LICM with MemorySSA, if
   /// the number of access is too large.
   unsigned LicmMssaNoAccForPromotionCap;
+
+  /// Tuning option to enable/disable call graph profile. Its default value is
+  /// that of the flag: `-enable-npm-call-graph-profile`.
+  bool CallGraphProfile;
 };
 
 /// This class provides access to building LLVM's passes.
@@ -345,6 +349,13 @@ public:
   buildModuleSimplificationPipeline(OptimizationLevel Level,
                                     ThinLTOPhase Phase,
                                     bool DebugLogging = false);
+
+  /// Construct the module pipeline that performs inlining as well as
+  /// the inlining-driven cleanups.
+  ModulePassManager buildInlinerPipeline(OptimizationLevel Level,
+                                         ThinLTOPhase Phase,
+                                         InlinerPass *InlPass, // INTEL
+                                         bool DebugLogging = false);
 
   /// Construct the core LLVM module optimization pipeline.
   ///

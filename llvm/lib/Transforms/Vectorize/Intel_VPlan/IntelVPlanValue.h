@@ -64,6 +64,7 @@ class VPValue {
   friend class VPVectorShape;
   friend class VPInstruction;
   friend class VPVLSClientMemref;
+  friend class VPlanScalarEvolutionLLVM;
 #endif
 
 private:
@@ -133,7 +134,7 @@ protected:
     UnderlyingVal = &Val;
     IsUnderlyingValueValid = true;
 
-    if (!Val.getName().empty())
+    if (!Val.getName().empty() && getName().empty())
       Name = (getVPNamePrefix() + Val.getName()).str();
   }
 
@@ -152,6 +153,7 @@ public:
     VPMetadataAsValueSC,
     VPExternalUseSC,
     VPPrivateMemorySC,
+    VPBasicBlockSC,
   };
 #else
   enum { VPValueSC, VPUserSC, VPInstructionSC };
@@ -193,10 +195,12 @@ public:
   }
   /// Return the VPNamePrefix to clients so that proper VPValue-names can be
   /// generated.
-  static StringRef getVPNamePrefix() {
+  StringRef getVPNamePrefix() const {
     // FIXME: Define the VPNamePrefix in some analogue of the
     // llvm::Context just like we plan for the 'Name' field.
     static std::string VPNamePrefix = "vp.";
+    if (isa<VPBasicBlock>(this))
+      return "";
     return VPNamePrefix;
   }
 
@@ -504,6 +508,17 @@ private:
       : VPValue(VPValue::VPExternalDefSC, DDR->getDestType()),
         HIROperand(new VPBlob(DDR)) {}
 
+  // Construct a VPExternalDef for blob with index \p BI in \p DDR. \p BType
+  // specifies the blob type.
+  VPExternalDef(const loopopt::RegDDRef *DDR, unsigned BI, Type *BType)
+      : VPValue(VPValue::VPExternalDefSC, BType),
+        HIROperand(new VPBlob(DDR, BI)) {}
+
+  // Construct a VPExternalDef given an underlying CanonExpr \p CE.
+  VPExternalDef(const loopopt::CanonExpr *CE, const loopopt::RegDDRef *DDR)
+      : VPValue(VPValue::VPExternalDefSC, CE->getDestType()),
+        HIROperand(new VPCanonExpr(CE, DDR)) {}
+
   // Construct a VPExternalDef given an underlying IV level \p IVLevel.
   VPExternalDef(unsigned IVLevel, Type *BaseTy)
       : VPValue(VPValue::VPExternalDefSC, BaseTy),
@@ -530,6 +545,13 @@ public:
       getType()->print(OS);
       OS << " ";
       HIROperand->print(OS);
+    }
+  }
+  void printDetail(raw_ostream &OS) const {
+    if (getUnderlyingValue())
+      getUnderlyingValue()->printAsOperand(OS);
+    else {
+      HIROperand->printDetail(OS);
     }
   }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP

@@ -204,7 +204,7 @@ static void reportUndefinedSymbol(const UndefinedDiag &undefDiag) {
   llvm::raw_string_ostream os(out);
   os << "undefined symbol: " << toString(*undefDiag.sym);
 
-  const size_t maxUndefReferences = 10;
+  const size_t maxUndefReferences = 3;
   size_t i = 0, numRefs = 0;
   for (const UndefinedDiag::File &ref : undefDiag.files) {
     std::vector<std::string> symbolLocations =
@@ -485,6 +485,20 @@ Symbol *SymbolTable::addUndefined(StringRef name, InputFile *f,
     forceLazy(s);
   return s;
 }
+
+#if INTEL_CUSTOMIZATION
+// The original version of this function was removed in the community in D78221.
+// This is kept here so as to support calling runMSVCLinker from Driver.cpp.
+std::vector<StringRef> SymbolTable::compileBitcodeFiles() {
+  lto.reset(new BitcodeCompiler);
+  for (BitcodeFile *f : BitcodeFile::instances)
+    lto->add(*f);
+
+  std::vector<StringRef> objFiles;
+  lto->compile(&objFiles);
+  return objFiles;
+}
+#endif //  INTEL_CUSTOMIZATION
 
 void SymbolTable::addLazyArchive(ArchiveFile *f, const Archive::Symbol &sym) {
   StringRef name = sym.getName();
@@ -789,20 +803,16 @@ Symbol *SymbolTable::addUndefined(StringRef name) {
   return addUndefined(name, nullptr, false);
 }
 
-std::vector<StringRef> SymbolTable::compileBitcodeFiles() {
-  lto.reset(new BitcodeCompiler);
-  for (BitcodeFile *f : BitcodeFile::instances)
-    lto->add(*f);
-  return lto->compile();
-}
-
 void SymbolTable::addCombinedLTOObjects() {
   if (BitcodeFile::instances.empty())
     return;
 
   ScopedTimer t(ltoTimer);
-  for (StringRef object : compileBitcodeFiles()) {
-    auto *obj = make<ObjFile>(MemoryBufferRef(object, "lto.tmp"));
+  lto.reset(new BitcodeCompiler);
+  for (BitcodeFile *f : BitcodeFile::instances)
+    lto->add(*f);
+  for (InputFile *newObj : lto->compile()) {
+    ObjFile *obj = cast<ObjFile>(newObj);
     obj->parse();
     ObjFile::instances.push_back(obj);
   }

@@ -25,7 +25,6 @@ class StringRef;
 class ModuleSummaryIndex;
 class ModulePass;
 class Pass;
-class Function;
 class BasicBlock;
 class GlobalValue;
 class raw_ostream;
@@ -303,6 +302,9 @@ ModulePass *createIntelFoldWPIntrinsicLegacyPass();
 /// the new function that calls the original, creating a partial inline
 /// behavior. The traditional partial inliner will actually do inlining.
 ModulePass *createIntelPartialInlineLegacyPass();
+
+/// \brief This pass conducts IPO-based Array Transpose.
+ModulePass *createIPArrayTransposeLegacyPass();
 
 /// \brief This pass implements IP Cloning
 ModulePass *createIPCloningLegacyPass(bool AfterInl = false,

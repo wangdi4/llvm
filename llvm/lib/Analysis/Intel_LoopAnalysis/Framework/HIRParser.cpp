@@ -1463,8 +1463,10 @@ bool HIRParser::isEssential(const Instruction *Inst) const {
 
   // TODO: Add exception handling and other miscellaneous instruction types
   // later.
-  if (isa<LoadInst>(Inst) || isa<StoreInst>(Inst) ||
-      (isa<CallInst>(Inst) && !isa<SubscriptInst>(Inst))) {
+  if (isa<CallInst>(Inst) && !isa<SubscriptInst>(Inst) &&
+      (cast<CallInst>(Inst)->getIntrinsicID() != Intrinsic::ssa_copy)) {
+    Ret = true;
+  } else if (isa<LoadInst>(Inst) || isa<StoreInst>(Inst)) {
     Ret = true;
   } else if (isRegionLiveOut(Inst)) {
     Ret = true;
@@ -2994,10 +2996,12 @@ void HIRParser::populateOffsets(const GEPOrSubsOperator *GEPOp,
   for (unsigned I = 1; I < NumOp; ++I) {
     assert(isa<GEPOperator>(GEPOp) && "Only GEP operators expected here");
 
-    if (auto SeqTy = dyn_cast<SequentialType>(CurTy)) {
-      CurTy = SeqTy->getElementType();
+    if (CurTy->isArrayTy()) {
+      CurTy = cast<ArrayType>(CurTy)->getElementType();
       Offsets.push_back(-1);
-
+    } else if (CurTy->isVectorTy()) {
+      CurTy = cast<VectorType>(CurTy)->getElementType();
+      Offsets.push_back(-1);
     } else {
       assert(isa<StructType>(CurTy) && "Unexpected type encountered!");
       auto StrucTy = cast<StructType>(CurTy);
@@ -4043,7 +4047,12 @@ static bool hasLvalRvalBlobMismatch(const HLInst *HInst,
          RefIt != E; ++RefIt) {
       auto *Ref = *RefIt;
 
-      assert(Ref->isTerminalRef() &&
+      // Call insts with 'returned' attribute can have AddressOf Refs.
+      // Ideally, we should only check the ref for parameter with 'returned'
+      // attribute but it is not straightforward to get its operand number so we
+      // check all the refs.
+      assert((isa<CallInst>(HInst->getLLVMInstruction()) ||
+              Ref->isTerminalRef()) &&
              "unexpected rval ref for non self blob lval!");
 
       if (Ref->usesTempBlob(BlobIndex)) {
@@ -4725,13 +4734,23 @@ RegDDRef *HIRParser::delinearizeSingleRef(const RegDDRef *Ref,
     CanonExpr *CE = CEU.createCanonExpr(LinearIndexCE->getDestType());
     CE->setSrcType(IndexType);
 
-    CanonExpr *StrideCE = CEU.createCanonExpr(LinearIndexCE->getDestType());
+    CanonExpr *StrideCE = Ref->getDimensionStride(1)->clone();
+
+    // Null stride indicate innermost dimension.
     if (Stride != nullptr) {
-      StrideCE->setSrcType(Stride->getType());
-      StrideCE->setExtType(true);
-      StrideCE->setBlobCoeff(BU.findOrInsertBlob(Stride), 1);
-    } else {
-      StrideCE->setConstant(1);
+      unsigned StrideIndex = InvalidBlobIndex;
+      auto *StrideCESrcType = StrideCE->getSrcType();
+
+      if (Stride->getType() != StrideCESrcType) {
+        Stride = BU.createCastBlob(Stride, true, StrideCESrcType, true,
+                                   &StrideIndex);
+      }
+
+      if (StrideIndex == InvalidBlobIndex) {
+        StrideIndex = BU.findOrInsertBlob(Stride);
+      }
+
+      StrideCE->multiplyByBlob(StrideIndex);
     }
 
     Type *DimType = Ref->getBaseCE()->getDestType();

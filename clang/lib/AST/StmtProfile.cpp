@@ -414,9 +414,8 @@ class OMPClauseProfiler : public ConstOMPClauseVisitor<OMPClauseProfiler> {
 
 public:
   OMPClauseProfiler(StmtProfiler *P) : Profiler(P) { }
-#define OPENMP_CLAUSE(Name, Class)                                             \
-  void Visit##Class(const Class *C);
-#include "clang/Basic/OpenMPKinds.def"
+#define OMP_CLAUSE_CLASS(Enum, Str, Class) void Visit##Class(const Class *C);
+#include "llvm/Frontend/OpenMP/OMPKinds.def"
   void VistOMPClauseWithPreInit(const OMPClauseWithPreInit *C);
   void VistOMPClauseWithPostUpdate(const OMPClauseWithPostUpdate *C);
 };
@@ -816,6 +815,18 @@ void OMPClauseProfiler::VisitOMPNontemporalClause(
 void OMPClauseProfiler::VisitOMPInclusiveClause(const OMPInclusiveClause *C) {
   VisitOMPClauseList(C);
 }
+void OMPClauseProfiler::VisitOMPExclusiveClause(const OMPExclusiveClause *C) {
+  VisitOMPClauseList(C);
+}
+void OMPClauseProfiler::VisitOMPUsesAllocatorsClause(
+    const OMPUsesAllocatorsClause *C) {
+  for (unsigned I = 0, E = C->getNumberOfAllocators(); I < E; ++I) {
+    OMPUsesAllocatorsClause::Data D = C->getAllocatorData(I);
+    Profiler->VisitStmt(D.Allocator);
+    if (D.AllocatorTraits)
+      Profiler->VisitStmt(D.AllocatorTraits);
+  }
+}
 void OMPClauseProfiler::VisitOMPOrderClause(const OMPOrderClause *C) {}
 } // namespace
 
@@ -1214,6 +1225,16 @@ void StmtProfiler::VisitArraySubscriptExpr(const ArraySubscriptExpr *S) {
 
 void StmtProfiler::VisitOMPArraySectionExpr(const OMPArraySectionExpr *S) {
   VisitExpr(S);
+}
+
+void StmtProfiler::VisitOMPArrayShapingExpr(const OMPArrayShapingExpr *S) {
+  VisitExpr(S);
+}
+
+void StmtProfiler::VisitOMPIteratorExpr(const OMPIteratorExpr *S) {
+  VisitExpr(S);
+  for (unsigned I = 0, E = S->numOfIterators(); I < E; ++I)
+    VisitDecl(S->getIteratorDecl(I));
 }
 
 void StmtProfiler::VisitCallExpr(const CallExpr *S) {
@@ -2046,6 +2067,8 @@ void StmtProfiler::VisitTypoExpr(const TypoExpr *E) {
 void StmtProfiler::VisitSourceLocExpr(const SourceLocExpr *E) {
   VisitExpr(E);
 }
+
+void StmtProfiler::VisitRecoveryExpr(const RecoveryExpr *E) { VisitExpr(E); }
 
 void StmtProfiler::VisitObjCStringLiteral(const ObjCStringLiteral *S) {
   VisitExpr(S);

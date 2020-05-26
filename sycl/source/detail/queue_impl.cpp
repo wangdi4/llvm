@@ -7,12 +7,10 @@
 //===----------------------------------------------------------------------===//
 
 #include <CL/sycl/context.hpp>
-#include <CL/sycl/detail/clusm.hpp>
 #include <CL/sycl/detail/memory_manager.hpp>
 #include <CL/sycl/detail/pi.hpp>
 #include <CL/sycl/device.hpp>
 #include <detail/queue_impl.hpp>
-#include <detail/usm/usm_dispatch.hpp>
 
 #include <cstring>
 
@@ -51,7 +49,7 @@ event queue_impl::memset(shared_ptr_class<detail::queue_impl> Impl, void *Ptr,
     return event();
 
   event ResEvent{pi::cast<cl_event>(Event), Context};
-  addEvent(ResEvent);
+  addUSMEvent(ResEvent);
   return ResEvent;
 }
 
@@ -65,7 +63,7 @@ event queue_impl::memcpy(shared_ptr_class<detail::queue_impl> Impl, void *Dest,
     return event();
 
   event ResEvent{pi::cast<cl_event>(Event), Context};
-  addEvent(ResEvent);
+  addUSMEvent(ResEvent);
   return ResEvent;
 }
 
@@ -83,13 +81,19 @@ event queue_impl::mem_advise(const void *Ptr, size_t Length,
                                                    Advice, &Event);
 
   event ResEvent{pi::cast<cl_event>(Event), Context};
-  addEvent(ResEvent);
+  addUSMEvent(ResEvent);
   return ResEvent;
 }
 
 void queue_impl::addEvent(event Event) {
+  std::weak_ptr<event_impl> EventWeakPtr{getSyclObjImpl(Event)};
   std::lock_guard<mutex_class> Guard(MMutex);
-  MEvents.push_back(std::move(Event));
+  MEvents.push_back(std::move(EventWeakPtr));
+}
+
+void queue_impl::addUSMEvent(event Event) {
+  std::lock_guard<mutex_class> Guard(MMutex);
+  MUSMEvents.push_back(std::move(Event));
 }
 
 void *queue_impl::instrumentationProlog(const detail::code_location &CodeLoc,
@@ -177,13 +181,25 @@ void queue_impl::wait(const detail::code_location &CodeLoc) {
 #endif
 
   std::lock_guard<mutex_class> Guard(MMutex);
-  for (auto &Event : MEvents)
+  for (std::weak_ptr<event_impl> &EventImplWeakPtr : MEvents) {
+    if (std::shared_ptr<event_impl> EventImplPtr = EventImplWeakPtr.lock())
+      EventImplPtr->wait(EventImplPtr);
+  }
+  for (event &Event : MUSMEvents) {
     Event.wait();
+  }
   MEvents.clear();
 
 #ifdef XPTI_ENABLE_INSTRUMENTATION
   instrumentationEpilog(TelemetryEvent, Name, StreamID, IId);
 #endif
+}
+
+pi_native_handle queue_impl::getNative() const {
+  auto Plugin = getPlugin();
+  pi_native_handle Handle;
+  Plugin.call<PiApiKind::piextQueueGetNativeHandle>(MCommandQueue, &Handle);
+  return Handle;
 }
 
 } // namespace detail

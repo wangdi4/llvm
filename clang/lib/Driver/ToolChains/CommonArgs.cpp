@@ -50,6 +50,7 @@
 #include "llvm/Support/Program.h"
 #include "llvm/Support/ScopedPrinter.h"
 #include "llvm/Support/TargetParser.h"
+#include "llvm/Support/Threading.h"
 #include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Support/YAMLParser.h"
 
@@ -357,14 +358,14 @@ std::string tools::getCPUName(const ArgList &Args, const llvm::Triple &T,
   }
 }
 
-unsigned tools::getLTOParallelism(const ArgList &Args, const Driver &D) {
-  unsigned Parallelism = 0;
+llvm::StringRef tools::getLTOParallelism(const ArgList &Args, const Driver &D) {
   Arg *LtoJobsArg = Args.getLastArg(options::OPT_flto_jobs_EQ);
-  if (LtoJobsArg &&
-      StringRef(LtoJobsArg->getValue()).getAsInteger(10, Parallelism))
-    D.Diag(diag::err_drv_invalid_int_value) << LtoJobsArg->getAsString(Args)
-                                            << LtoJobsArg->getValue();
-  return Parallelism;
+  if (!LtoJobsArg)
+    return {};
+  if (!llvm::get_threadpool_strategy(LtoJobsArg->getValue()))
+    D.Diag(diag::err_drv_invalid_int_value)
+        << LtoJobsArg->getAsString(Args) << LtoJobsArg->getValue();
+  return LtoJobsArg->getValue();
 }
 
 // CloudABI uses -ffunction-sections and -fdata-sections by default.
@@ -429,7 +430,8 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
   if (IsThinLTO)
     CmdArgs.push_back("-plugin-opt=thinlto");
 
-  if (unsigned Parallelism = getLTOParallelism(Args, ToolChain.getDriver()))
+  StringRef Parallelism = getLTOParallelism(Args, ToolChain.getDriver());
+  if (!Parallelism.empty())
     CmdArgs.push_back(
         Args.MakeArgString("-plugin-opt=jobs=" + Twine(Parallelism)));
 
@@ -508,7 +510,82 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
   if (!StatsFile.empty())
     CmdArgs.push_back(
         Args.MakeArgString(Twine("-plugin-opt=stats-file=") + StatsFile));
+#if INTEL_CUSTOMIZATION
+  if (Args.hasArg(options::OPT__intel)) {
+    CmdArgs.push_back("-plugin-opt=-intel-libirc-allowed");
+    if (Arg * A = Args.getLastArg(options::OPT_fveclib))
+      Args.MakeArgString(Twine("-plugin-opt=-vector-library=") + A->getValue());
+  }
+  if (Arg *A =
+          Args.getLastArg(options::OPT_funroll_loops,
+                          options::OPT_fno_unroll_loops, options::OPT_unroll)) {
+    if (A->getOption().matches(options::OPT_unroll)) {
+      StringRef Value(A->getValue());
+      if (!Value.empty())
+        CmdArgs.push_back(Args.MakeArgString(
+            Twine("-plugin-opt=-hir-general-unroll-max-factor=") + Value));
+    }
+  }
+  // All -mllvm flags as provided by the user will be passed through.
+  for (const StringRef &AV : Args.getAllArgValues(options::OPT_mllvm))
+    CmdArgs.push_back(Args.MakeArgString(Twine("-plugin-opt=") + AV));
+#endif // INTEL_CUSTOMIZATION
 }
+
+#if INTEL_CUSTOMIZATION
+void tools::addIntelOptimizationArgs(const ToolChain &TC,
+                                     const llvm::opt::ArgList &Args,
+                                     llvm::opt::ArgStringList &CmdArgs,
+                                     const JobAction &JA) {
+  bool IsLink = isa<LinkJobAction>(JA);
+  bool IsMSVC = TC.getTriple().isKnownWindowsMSVCEnvironment();
+
+  auto addllvmOption = [&](const char *Opt) {
+    if (IsLink) {
+      StringRef LinkOpt = (IsMSVC ? "-mllvm:" : "-plugin-opt=");
+      CmdArgs.push_back(Args.MakeArgString(LinkOpt + Twine(Opt)));
+    } else {
+      CmdArgs.push_back("-mllvm");
+      CmdArgs.push_back(Opt);
+    }
+  };
+  if (const Arg *A = Args.getLastArg(options::OPT_qopt_mem_layout_trans_EQ)) {
+    StringRef Val(A->getValue());
+    if (Val == "1" || Val == "2" || Val == "3" || Val == "4") {
+      addllvmOption("-enable-dtrans");
+      addllvmOption("-enable-npm-dtrans");
+      addllvmOption(
+          Args.MakeArgString(Twine("-dtrans-mem-layout-level=") + Val));
+      addllvmOption("-dtrans-outofboundsok=false");
+      addllvmOption("-dtrans-usecrulecompat=true");
+      addllvmOption("-dtrans-inline-heuristics=true");
+      addllvmOption("-dtrans-partial-inline=true");
+      addllvmOption("-irmover-type-merging=false");
+      addllvmOption("-spill-freq-boost=true");
+    } else if (Val != "0")
+      TC.getDriver().Diag(diag::err_drv_invalid_argument_to_option)
+          << Val << A->getOption().getName();
+  }
+  if (Arg *A =
+          Args.getLastArg(options::OPT_funroll_loops,
+                          options::OPT_fno_unroll_loops, options::OPT_unroll)) {
+    // Handle -unroll
+    if (A->getOption().matches(options::OPT_unroll)) {
+      StringRef Value(A->getValue());
+      if (!Value.empty()) {
+        int ValInt = 0;
+        if (!Value.getAsInteger(0, ValInt))
+          if (ValInt > 0)
+            addllvmOption(Args.MakeArgString(
+                Twine("-hir-general-unroll-max-factor=") + Value));
+          else
+            TC.getDriver().Diag(diag::err_drv_invalid_argument_to_option)
+                << Value << A->getOption().getName();
+      }
+    }
+  }
+}
+#endif // INTEL_CUSTOMIZATION
 
 void tools::addArchSpecificRPath(const ToolChain &TC, const ArgList &Args,
                                  ArgStringList &CmdArgs) {
@@ -1349,7 +1426,7 @@ void tools::AddHIPLinkerScript(const ToolChain &TC, Compilation &C,
   llvm::raw_string_ostream LksStream(LksBuffer);
 
   // Get the HIP offload tool chain.
-  auto *HIPTC = static_cast<const toolchains::CudaToolChain *>(
+  auto *HIPTC = static_cast<const toolchains::HIPToolChain *>(
       C.getSingleOffloadToolChain<Action::OFK_HIP>());
   assert(HIPTC->getTriple().getArch() == llvm::Triple::amdgcn &&
          "Wrong platform");

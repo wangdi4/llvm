@@ -27,9 +27,9 @@ define internal void @test01(%struct.test01* %in) !dtrans_type !4 {
 ; CHECK-LABEL: void @test01
 ; CHECK-CUR: %f0 = getelementptr %struct.test01, %struct.test01* %in, i64 0, i32 0
 ; CHECK-FUT: %f0 = getelementptr %struct.test01, p0 %in, i64 0, i32 0
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:   i64*
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   i64*{{ *$}}
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:   %struct.test01 @ 0
 
@@ -37,17 +37,17 @@ define internal void @test01(%struct.test01* %in) !dtrans_type !4 {
 ; CHECK-FUT: %v0 = load i64, p0 %f0
 ; CHECK-CUR: %f1 = getelementptr %struct.test01, %struct.test01* %in, i64 0, i32 1
 ; CHECK-FUT: %f1 = getelementptr %struct.test01, p0 %in, i64 0, i32 1
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:   %struct.test01**
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   %struct.test01**{{ *$}}
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:    %struct.test01 @ 1
 
 ; CHECK-CUR: %v1 = load %struct.test01*, %struct.test01** %f1
 ; CHECK-FUT: %v1 = load p0, p0 %f1
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:   %struct.test01*
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   %struct.test01*{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
 
@@ -63,17 +63,17 @@ define internal i32 @test02() {
 ; CHECK-LABEL: i32 @test02()
 ; CHECK-CUR:   %f0 = getelementptr inbounds { i64, i32 }, { i64, i32 }* @test_var02, i64 0, i32 0
 ; CHECK-FUT:   %f0 = getelementptr inbounds { i64, i32 }, p0 @test_var02, i64 0, i32 0
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:   i64*
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   i64*{{ *$}}
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:  { i64, i32 } @ 0
 
 ; CHECK-CUR:   %f1 = getelementptr inbounds { i64, i32 }, { i64, i32 }* @test_var02, i64 0, i32 1
 ; CHECK-FUT:   %f1 = getelementptr inbounds { i64, i32 }, p0 @test_var02, i64 0, i32 1
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:   i32*
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   i32*{{ *$}}
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:   { i64, i32 } @ 1
 
@@ -88,9 +88,9 @@ define internal i64 @test03() {
 ; CHECK-LABEL: i64 @test03
 ; CHECK-CUR:  %ar8 = getelementptr inbounds [20 x i64], [20 x i64]* @test_var3, i64 0, i32 8
 ; CHECK-FUT:  %ar8 = getelementptr inbounds [20 x i64], p0 @test_var3, i64 0, i32 8
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:   i64*
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   i64*{{ *$}}
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:   [20 x i64] @ 8
 
@@ -110,17 +110,17 @@ define internal i64 @test04(i32 %x, i32 %y) {
 ; CHECK-LABEL: i64 @test04
 ; CHECK-CUR:  %ar1 = getelementptr inbounds [6 x [8 x [12 x i64]]], [6 x [8 x [12 x i64]]]* @test_var4, i64 0, i32 2, i32 3, i32 7
 ; CHECK-FUT:  %ar1 = getelementptr inbounds [6 x [8 x [12 x i64]]], p0 @test_var4, i64 0, i32 2, i32 3, i32 7
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:   i64*
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   i64*{{ *$}}
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:   [12 x i64] @ 7
 
 ; CHECK-CUR:  %ar2 = getelementptr inbounds [6 x [8 x [12 x i64]]], [6 x [8 x [12 x i64]]]* @test_var4, i64 0, i32 %x, i32 %y, i32 7
 ; CHECK-FUT:  %ar2 = getelementptr inbounds [6 x [8 x [12 x i64]]], p0 @test_var4, i64 0, i32 %x, i32 %y, i32 7
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:   i64*
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   i64*{{ *$}}
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:   [12 x i64] @ 7
 
@@ -140,25 +140,25 @@ define internal i64 @test05(%struct.test05outer* %in) !dtrans_type !10 {
 ; CHECK-LABEL: i64 @test05
 ; CHECK-CUR: %addr0 = getelementptr inbounds %struct.test05outer, %struct.test05outer* %in, i64 0, i32 1, i32 2, i32 0
 ; CHECK-FUT: %addr0 = getelementptr inbounds %struct.test05outer, p0 %in, i64 0, i32 1, i32 2, i32 0
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:   i64*
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   i64*{{ *$}}
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:   %struct.test05inner @ 0
 
 ; CHECK-CUR: %addr2 = getelementptr inbounds %struct.test05outer, %struct.test05outer* %in, i64 0, i32 1, i32 2, i32 2
 ; CHECK-FUT: %addr2 = getelementptr inbounds %struct.test05outer, p0 %in, i64 0, i32 1, i32 2, i32 2
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:   i64**
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   i64**{{ *$}}
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:   %struct.test05inner @ 2
 
 ; CHECK-CUR: %ptr = load i64*, i64** %addr2
 ; CHECK-FUT: %ptr = load p0, p0 %addr2
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:   i64*
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   i64*{{ *$}}
 ; CHECK-NEXT:  No element pointees.
 
 
@@ -177,9 +177,9 @@ define internal i64 @test06(%struct.test06* %in) !dtrans_type !14 {
 ; CHECK-LABEL: i64 @test06
 ; CHECK-CUR: %elem_addr = getelementptr inbounds %struct.test06, %struct.test06* %in, i64 0, i32 1, i64 4
 ; CHECK-FUT: %elem_addr = getelementptr inbounds %struct.test06, p0 %in, i64 0, i32 1, i64 4
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:   i64*
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   i64*{{ *$}}
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:   [20 x i64] @ 4
 
@@ -195,17 +195,17 @@ define internal void @test07() {
 ; CHECK-LABEL: void @test07
 ; CHECK-CUR: %addr = getelementptr [16 x %struct.test07*], [16 x %struct.test07*]* @var07, i64 0, i32 2
 ; CHECK-FUT: %addr = getelementptr [16 x p0], p0 @var07, i64 0, i32 2
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:   %struct.test07**
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   %struct.test07**{{ *$}}
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:   [16 x %struct.test07*] @ 2
 
 ; CHECK-CUR: %sptr = load %struct.test07*, %struct.test07** %addr
 ; CHECK-FUT: %sptr = load p0, p0 %addr
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:   %struct.test07*
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   %struct.test07*{{ *$}}
 ; CHECK-NEXT:  No element pointees.
 
 
@@ -220,9 +220,9 @@ define internal void @test08() {
 ; CHECK-LABEL: void @test08
 ; CHECK-CUR: %addr = getelementptr [16 x %struct.test08], [16 x %struct.test08]* @var08, i64 0, i32 5, i32 1
 ; CHECK-FUT: %addr = getelementptr [16 x %struct.test08], p0 @var08, i64 0, i32 5, i32 1
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:   i64*
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   i64*{{ *$}}
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:   %struct.test08 @ 1
 
@@ -239,9 +239,9 @@ define internal void @test09(<4 x i64*>* %ptr_to_vec) !dtrans_type !20 {
 ; CHECK-LABEL: void @test09
 ; CHECK-CUR: %ptrs = load <4 x i64*>, <4 x i64*>* %ptr_to_vec
 ; CHECK-FUT: %ptrs = load <4 x p0>, p0 %ptr_to_vec
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:   <4 x i64*>
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   <4 x i64*>{{ *$}}
 ; CHECK-NEXT:  No element pointees.
 
 

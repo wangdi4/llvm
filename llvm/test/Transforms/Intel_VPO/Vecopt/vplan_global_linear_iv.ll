@@ -4,20 +4,21 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 
 define i32 @linear_iv_test(i32* nocapture %k) {
-; CHECK-LABEL:  After insertion VPEntities instructions:
+; CHECK-LABEL:  VPlan after insertion VPEntities instructions:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]:
-; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; CHECK-NEXT:     [DA: Div] i32* [[ALLOCA:%.*]] = allocate-priv i32*
-; CHECK-NEXT:     [DA: Uni] i32 [[LOAD1:%.*]] = load i32* [[FUNC_INP:%.*]]
-; CHECK-NEXT:     [DA: Div] i32 [[I2_INIT:%.*]] = induction-init{add} i32 [[LOAD1]] i32 1
-; CHECK-NEXT:     [DA: Div] store i32 [[I2_INIT:%.*]] i32* [[ALLOCA]]
-; CHECK-NEXT:     [DA: Uni] i32 [[I2_STEP:%.*]] = induction-init-step{add} i32 1
+; CHECK:           i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
+; CHECK-NEXT:      i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
+; CHECK-NEXT:      i32* [[ALLOCA:%.*]] = allocate-priv i32*
+; CHECK-NEXT:      i32 [[LOAD1:%.*]] = load i32* [[FUNC_INP:%.*]]
+; CHECK-NEXT:      i32 [[I2_INIT:%.*]] = induction-init{add} i32 [[LOAD1]] i32 1
+; CHECK-NEXT:      store i32 [[I2_INIT:%.*]] i32* [[ALLOCA]]
+; CHECK-NEXT:      i32 [[I2_STEP:%.*]] = induction-init-step{add} i32 1
+;
   %sum.red = alloca double, align 8
   br label %simd.begin.region
 simd.begin.region:

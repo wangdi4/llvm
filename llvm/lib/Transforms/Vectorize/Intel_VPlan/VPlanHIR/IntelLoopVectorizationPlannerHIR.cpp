@@ -15,7 +15,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelLoopVectorizationPlannerHIR.h"
+#include "../IntelVPlanSSADeconstruction.h"
 #include "IntelVPOCodeGenHIR.h"
+#include "IntelVPlanBuilderHIR.h"
 
 #define DEBUG_TYPE "LoopVectorizationPlannerHIR"
 
@@ -27,7 +29,7 @@ cl::opt<uint64_t>
                            cl::desc("Default estimated trip count"));
 
 static cl::opt<bool> ForceLinearizationHIR("vplan-force-linearization-hir",
-                                           cl::init(true), cl::Hidden,
+                                           cl::init(false), cl::Hidden,
                                            cl::desc("Force CFG linearization"));
 
 bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG, unsigned UF) {
@@ -35,9 +37,19 @@ bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG, unsigned UF
   VPlan *Plan = getVPlanForVF(BestVF);
   assert(Plan && "VPlan not found!");
 
+  // Deconstruct SSA for final VPlan that will be lowered to HIR.
+  VPlanSSADeconstruction SSADeconstructor(*Plan);
+  SSADeconstructor.run();
+  VPLAN_DUMP(PrintAfterSSADeconstruction, "SSA deconstruction", Plan);
+
   // Collect OVLS memrefs and groups for the VF chosen by cost modeling.
   VPlanVLSAnalysis *VLSA = CG->getVLS();
   VLSA->getOVLSMemrefs(Plan, BestVF);
+
+  // Process all loop entities and create refs for them if needed.
+  CG->createAndMapLoopEntityRefs(BestVF);
+  // Set hoist loop for reductions.
+  CG->setRednHoistPtForVectorLoop();
 
   bool VecLoopsInit = CG->initializeVectorLoop(BestVF, UF);
   if (!VecLoopsInit)
@@ -60,7 +72,16 @@ std::shared_ptr<VPlan> LoopVectorizationPlannerHIR::buildInitialVPlan(
   VPlanHCFGBuilderHIR HCFGBuilder(WRLp, TheLoop, Plan, HIRLegality, DDG);
   HCFGBuilder.buildHierarchicalCFG();
 
-  if (ForceLinearizationHIR)
+  // Search loop representation is not yet explicit and search loop idiom
+  // recognition is picky. Avoid any changes in predicator behavior for search
+  // loops such as avoiding predicate calculations.
+  auto *VPLI = Plan->getVPLoopInfo();
+  assert(VPLI->size() == 1 && "Expected 1 loop");
+  bool SearchLoop = (*VPLI->begin())->getUniqueExitBlock() == nullptr;
+
+  if (ForceLinearizationHIR || SearchLoop)
     Plan->markFullLinearizationForced();
+
   return SharedPlan;
 }
+

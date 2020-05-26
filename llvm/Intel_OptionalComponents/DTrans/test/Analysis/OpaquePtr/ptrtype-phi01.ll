@@ -46,26 +46,26 @@ merge:
 ; CHECK-LABEL: void @test01
 ; CHECK-CUR:  %ptr1 = phi i64* [ %zf0, %zlabel ], [ %nzf0, %nzlabel ]
 ; CHECK-FUT:  %ptr1 = phi p0 [ %zf0, %zlabel ], [ %nzf0, %nzlabel ]
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:   i64*
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   i64*{{ *$}}
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:   %struct.test01 @ 0
 
 ; CHECK-CUR:  %ptr2 = phi i64* [ %zf0, %zlabel ], [ %nzf1, %nzlabel ]
 ; CHECK-FUT:  %ptr2 = phi p0 [ %zf0, %zlabel ], [ %nzf1, %nzlabel ]
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:   i64*
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   i64*{{ *$}}
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:   %struct.test01 @ 0
 ; CHECK-NEXT:   %struct.test01 @ 1
 
 ; CHECK-CUR:  %ptr3 = phi i64* [ null, %zlabel ], [ %nzf0, %nzlabel ]
 ; CHECK-FUT:  %ptr3 = phi p0 [ null, %zlabel ], [ %nzf0, %nzlabel ]
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:   i64*
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   i64*{{ *$}}
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:   %struct.test01 @ 0
 
@@ -84,9 +84,9 @@ exit:
 ; CHECK-LABEL: void @test02
 ; CHECK-CUR: %cur_ptr = phi %struct.test02* [ %struct, %entry ], [ %cur_ptr, %loop ]
 ; CHECK-FUT: %cur_ptr = phi p0 [ %struct, %entry ], [ %cur_ptr, %loop ]
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:    %struct.test02*
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:    %struct.test02*{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
 
@@ -143,33 +143,33 @@ exit:
 ; CHECK:  %c = phi i64 [ %a, %merge_AorC ], [ %b, %merge_BorC ], [ %tmpC, %block_BorC ]
 ; CHECK:    LocalPointerInfo:
 ; CHECK:      Aliased types:
-; CHECK-NEXT:   %struct.test03.a*
-; CHECK-NEXT:   %struct.test03.b*
-; CHECK-NEXT:   %struct.test03.c*
+; CHECK-NEXT:   %struct.test03.a*{{ *$}}
+; CHECK-NEXT:   %struct.test03.b*{{ *$}}
+; CHECK-NEXT:   %struct.test03.c*{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
 ; CHECK:  %a = phi i64 [ %d, %merge ], [ %c, %block_AorB ], [ %tmpA, %entry ]
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:   %struct.test03.a*
-; CHECK-NEXT:   %struct.test03.b*
-; CHECK-NEXT:   %struct.test03.c*
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   %struct.test03.a*{{ *$}}
+; CHECK-NEXT:   %struct.test03.b*{{ *$}}
+; CHECK-NEXT:   %struct.test03.c*{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
 ; CHECK:  %b = phi i64 [ %d, %merge ], [ %c, %block_AorB ], [ %tmpB, %block_BorC ]
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:   %struct.test03.a*
-; CHECK-NEXT:   %struct.test03.b*
-; CHECK-NEXT:   %struct.test03.c*
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   %struct.test03.a*{{ *$}}
+; CHECK-NEXT:   %struct.test03.b*{{ *$}}
+; CHECK-NEXT:   %struct.test03.c*{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
 ; CHECK:  %d = phi i64 [ %a, %merge_AorC ], [ %b, %merge_BorC ], [ %c, %block_C ]
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:   %struct.test03.a*
-; CHECK-NEXT:   %struct.test03.b*
-; CHECK-NEXT:   %struct.test03.c*
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT: Aliased types:
+; CHECK-NEXT:   %struct.test03.a*{{ *$}}
+; CHECK-NEXT:   %struct.test03.b*{{ *$}}
+; CHECK-NEXT:   %struct.test03.c*{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
 

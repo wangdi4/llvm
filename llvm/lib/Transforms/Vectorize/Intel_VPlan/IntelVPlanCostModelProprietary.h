@@ -29,31 +29,49 @@ public:
     VLSA->getOVLSMemrefs(Plan, VF);
   }
 
-  virtual unsigned getCost(const VPInstruction *VPInst) const final;
-  virtual unsigned getCost(const VPBasicBlock *VPBB) const final;
-  virtual unsigned getCost() const final;
-  virtual unsigned getLoadStoreCost(const VPInstruction *VPInst) const {
+  virtual unsigned getCost(const VPInstruction *VPInst) final;
+  virtual unsigned getCost(const VPBasicBlock *VPBB) final;
+  virtual unsigned getCost() final;
+  virtual unsigned getLoadStoreCost(const VPInstruction *VPInst) {
     return getLoadStoreCost(VPInst, false /* Don't use VLS cost by default */);
   }
   unsigned getLoadStoreCost(const VPInstruction *VPInst,
-                            const bool UseVLSCost) const;
+                            const bool UseVLSCost);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void print(raw_ostream &OS);
+  void print(raw_ostream &OS, const std::string &Header);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   ~VPlanCostModelProprietary() {}
 
 private:
-  static bool isUnitStrideLoadStore(const VPInstruction *VPinst);
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void printForVPInstruction(
+    raw_ostream &OS, const VPInstruction *VPInst);
+  void printForVPBasicBlock(
+    raw_ostream &OS, const VPBasicBlock *VPBlock);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-  // FIXME: This is a temporary workaround until proper cost modeling is implemented.
+  // ProcessedOVLSGroups holds the groups which Cost has already been taken into
+  // account while traversing through VPlan during getCost().  This way we avoid
+  // taking the same group price multiple times.
+  // If Cost of OVLS group is better in terms of performance comparing to TTI
+  // costs of intruction OVLS group would replace, then ProcessedOVLSGroups map
+  // holds 'true' for this group.  Otherwise 'false' is stored in the map.
+  using OVLSGroupMap = DenseMap<const OVLSGroup *, bool>;
+  OVLSGroupMap ProcessedOVLSGroups;
+
+  // FIXME: This is a temporary workaround until proper cost modeling is
+  // implemented.
   //
   // To bail out if too many i1 operations are inside the loop as that (most
   // probably) represents complicated CFG and we need to use Basic Block
   // Frequency info to correctly calculate the cost. Until it's done, just
   // report high vector cost for loops with too many i1 instructions.
-  mutable unsigned NumberOfBoolComputations = 0;
+  unsigned NumberOfBoolComputations = 0;
+
+  /// \Returns True iff \p VPInst is Unit Strided load or store.
+  virtual bool isUnitStrideLoadStore(const VPInstruction *VPInst) const final;
 };
 
 } // namespace vpo

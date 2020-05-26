@@ -68,6 +68,7 @@ if(LIBOMPTARGET_DEP_LEVEL0_FOUND)
       target_link_libraries(omptarget.rtl.level0
           ${LEVEL0_LIBRARY_NAME} ${LIBOMP_LIB_FILE}
           -LIBPATH:${LEVEL0_LIBRARY_PATH})
+      libomptarget_add_resource_file(omptarget.rtl.level0)
     else()
       message(FATAL_ERROR "Missing platfrom support.")
     endif()

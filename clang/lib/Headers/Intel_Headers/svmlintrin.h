@@ -532,6 +532,20 @@ __m128 _mm_sin_ps(__m128 __a);
 __m128d _mm_sin_pd(__m128d __a);
 
 /*
+ * Compute the sine and cosine of packed single-precision (32-bit)
+ * floating-point elements in "a" expressed in radians, store the sine in "dst",
+ * and store the cosine into memory at "mem_addr".
+ */
+__m128 _mm_sincos_ps(__m128 *__mem_addr, __m128 __a);
+
+/*
+ * Compute the sine and cosine of packed double-precision (64-bit)
+ * floating-point elements in "a" expressed in radians, store the sine in "dst",
+ * and store the cosine into memory at "mem_addr".
+ */
+__m128d _mm_sincos_pd(__m128d *__mem_addr, __m128d __a);
+
+/*
  * Compute the sine of packed single-precision (32-bit) floating-point elements
  * in "a" expressed in degrees, and store the results in "dst".
  */
@@ -1165,6 +1179,20 @@ __m256 _mm256_sin_ps(__m256 __a);
  * in "a" expressed in radians, and store the results in "dst".
  */
 __m256d _mm256_sin_pd(__m256d __a);
+
+/*
+ * Compute the sine and cosine of packed single-precision (32-bit)
+ * floating-point elements in "a" expressed in radians, store the sine in "dst",
+ * and store the cosine into memory at "mem_addr".
+ */
+__m256 _mm256_sincos_ps(__m256 *__mem_addr, __m256 __a);
+
+/*
+ * Compute the sine and cosine of packed double-precision (64-bit)
+ * floating-point elements in "a" expressed in radians, store the sine in "dst",
+ * and store the cosine into memory at "mem_addr".
+ */
+__m256d _mm256_sincos_pd(__m256d *__mem_addr, __m256d __a);
 
 /*
  * Compute the sine of packed single-precision (32-bit) floating-point elements
@@ -2382,6 +2410,42 @@ __m512d _mm512_sin_pd(__m512d __a);
  * set).
  */
 __m512d _mm512_mask_sin_pd(__m512d __src, __mmask8 __k, __m512d __a);
+
+/*
+ * Computes the sine and cosine of the packed single-precision (32-bit)
+ * floating-point elements in "a" and stores the results of the sine computation
+ * in "dst" and the results of the cosine computation in "cos_res".
+ */
+__m512 _mm512_sincos_ps(__m512 *__cos_res, __m512 __a);
+
+/*
+ * Computes the sine and cosine of the packed single-precision (32-bit)
+ * floating-point elements in "a" and stores the results of the sine computation
+ * in "dst" and the results of the cosine computation in "cos_res". Elements are
+ * written to their respective locations using writemask "k" (elements are
+ * copied from "sin_src" or "cos_src" when the corresponding mask bit is not
+ * set).
+ */
+__m512 _mm512_mask_sincos_ps(__m512 *__cos_res, __m512 __sin_src,
+                             __m512 __cos_src, __mmask16 __k, __m512 __a);
+
+/*
+ * Computes the sine and cosine of the packed double-precision (64-bit)
+ * floating-point elements in "a" and stores the results of the sine computation
+ * in "dst" and the results of the cosine computation in "cos_res".
+ */
+__m512d _mm512_sincos_pd(__m512d *__cos_res, __m512d __a);
+
+/*
+ * Computes the sine and cosine of the packed double-precision (64-bit)
+ * floating-point elements in "a" and stores the results of the sine computation
+ * in "dst" and the results of the cosine computation in "cos_res". Elements are
+ * written to their respective locations using writemask "k" (elements are
+ * copied from "sin_src" or "cos_src" when the corresponding mask bit is not
+ * set).
+ */
+__m512d _mm512_mask_sincos_pd(__m512d *__cos_res, __m512d __sin_src,
+                              __m512d __cos_src, __mmask8 __k, __m512d __a);
 
 /*
  * Compute the sine of packed single-precision (32-bit) floating-point elements

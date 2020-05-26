@@ -22,7 +22,8 @@ class GlobalVariable;
 /// Determine if the values of the given function's arguments can be tracked
 /// interprocedurally. The value of an argument can be tracked if the function
 /// has local linkage and its address is not taken.
-bool canTrackArgumentsInterprocedurally(Function *F);
+bool canTrackArgumentsInterprocedurally(Function *F,                  // INTEL
+                                        bool AllowCallbacks = false); // INTEL
 
 /// Determine if the values of the given function's returns can be tracked
 /// interprocedurally. Return values can be tracked if the function has an

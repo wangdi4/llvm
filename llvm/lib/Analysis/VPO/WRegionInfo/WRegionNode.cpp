@@ -212,7 +212,8 @@ void WRegionNode::finalize(Instruction *ExitDir, DominatorTree *DT) {
   // then the resulting task is not undeferred (ie, asynchronous offloading).
   // We want to set the "IsTask" attribute of these target constructs to
   // facilitate code generation.
-  if (getIsTarget() && getWRegionKindID() != WRNTargetData) {
+  if (getIsTarget() && getWRegionKindID() != WRNTargetData &&
+                    getWRegionKindID() != WRNTargetVariant) {
     assert(canHaveDepend() && "Corrupt WRN? Depend Clause should be allowed");
     if (getNowait() || !getDepend().empty()) {
       // TODO: turn on this code after verifying that task codegen supports it
@@ -332,6 +333,13 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
 
   if (canHaveSchedule())
     PrintedSomething |= getSchedule().print(OS, Depth, Verbosity);
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  if (canHaveWorkerSchedule())
+    PrintedSomething |= getWorkerSchedule().print(OS, Depth, Verbosity);
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 
   if (canHaveShared())
     PrintedSomething |= getShared().print(OS, Depth, Verbosity);
@@ -615,6 +623,9 @@ void WRegionNode::handleQual(const ClauseSpecifier &ClauseInfo) {
   case QUAL_OMP_ORDER_CONCURRENT:
     setLoopOrder(WRNLoopOrderConcurrent);
     break;
+  case QUAL_OMP_OFFLOAD_KNOWN_NDRANGE:
+    getWRNLoopInfo().setKnownNDRange();
+    break;
   default:
     llvm_unreachable("Unknown ClauseID in handleQual()");
   }
@@ -690,6 +701,16 @@ void WRegionNode::handleQualOpnd(int ClauseID, Value *V) {
   case QUAL_OMP_DEVICE:
     setDevice(V);
     break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  case QUAL_OMP_SA_NUM_WORKERS:
+    setNumWorkers(N);
+    break;
+  case QUAL_OMP_SA_PIPELINE:
+    setPipelineDepth(N);
+    break;
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
   default:
     llvm_unreachable("Unknown ClauseID in handleQualOpnd()");
   }
@@ -712,11 +733,14 @@ void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
   int ClauseID = ClauseInfo.getId();
   C.setClauseID(ClauseID);
   bool IsByRef = ClauseInfo.getIsByRef();
+  bool IsPointerToPointer = ClauseInfo.getIsPointerToPointer();
   for (unsigned I = 0; I < NumArgs; ++I) {
     Value *V = Args[I];
     C.add(V);
     if (IsByRef)
       C.back()->setIsByRef(true);
+    if (IsPointerToPointer)
+      C.back()->setIsPointerToPointer(true);
 #if INTEL_CUSTOMIZATION
     if (!CurrentBundleDDRefs.empty() &&
         WRegionUtils::supportsRegDDRefs(ClauseID))
@@ -753,6 +777,10 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
     else
       llvm_unreachable("NONPOD support for this clause type TBD");
 
+    if (!Args[0] || isa<ConstantPointerNull>(Args[0])) {
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << " Ignoring null clause operand.\n");
+      return;
+    }
     ClauseItemTy *Item = new ClauseItemTy(Args);
     Item->setIsByRef(IsByRef);
     Item->setIsNonPod(true);
@@ -767,6 +795,11 @@ void WRegionNode::extractQualOpndListNonPod(const Use *Args, unsigned NumArgs,
   } else
     for (unsigned I = 0; I < NumArgs; ++I) {
       Value *V = Args[I];
+      if (!V || isa<ConstantPointerNull>(V)) {
+        LLVM_DEBUG(dbgs() << __FUNCTION__
+                          << " Ignoring null clause operand.\n");
+        continue;
+      }
       C.add(V);
       if (IsByRef)
         C.back()->setIsByRef(true);
@@ -960,6 +993,10 @@ void WRegionNode::extractLinearOpndList(const Use *Args, unsigned NumArgs,
   // The linear list items are in Args[0..NumArgs-2]
   for (unsigned I = 0; I < NumArgs-1; ++I) {
     Value *V = Args[I];
+    if (!V || isa<ConstantPointerNull>(V)) {
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << " Ignoring null clause operand.\n");
+      continue;
+    }
     C.add(V);
     LinearItem *LI = C.back();
     LI->setStep(StepValue);
@@ -996,6 +1033,10 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
 
   if (ClauseInfo.getIsArraySection()) {
     Value *V = Args[0];
+    if (!V || isa<ConstantPointerNull>(V)) {
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << " Ignoring null clause operand.\n");
+      return;
+    }
     C.add(V);
     ReductionItem *RI = C.back();
     RI->setType((ReductionItem::WRNReductionKind)ReductionKind);
@@ -1027,6 +1068,11 @@ void WRegionNode::extractReductionOpndList(const Use *Args, unsigned NumArgs,
   } else {
     for (unsigned I = 0; I < NumArgs; ++I) {
       Value *V = Args[I];
+      if (!V || isa<ConstantPointerNull>(V)) {
+        LLVM_DEBUG(dbgs() << __FUNCTION__
+                          << " Ignoring null clause operand.\n");
+        continue;
+      }
       C.add(V);
       ReductionItem *RI = C.back();
       RI->setType((ReductionItem::WRNReductionKind)ReductionKind);
@@ -1296,6 +1342,15 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     extractScheduleOpndList(getSchedule(), Args, ClauseInfo, WRNScheduleStatic);
     break;
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  case QUAL_OMP_SA_SCHEDULE_STATIC: {
+    extractScheduleOpndList(getWorkerSchedule(), Args, ClauseInfo,
+                            WRNScheduleStatic);
+    break;
+  }
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
   case QUAL_OMP_INREDUCTION_ADD:
   case QUAL_OMP_INREDUCTION_SUB:
   case QUAL_OMP_INREDUCTION_MUL:
@@ -1365,12 +1420,14 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
       getWRNLoopInfo().addNormUB(V);
     }
     break;
-  case QUAL_OMP_OFFLOAD_NDRANGE:
+  case QUAL_OMP_OFFLOAD_NDRANGE: {
+    SmallVector<Value *, 3> NDRange;
     for (unsigned I = 0; I < NumArgs; ++I) {
-      Value *V = Args[I];
-      addUncollapsedNDRangeDimension(V);
+      NDRange.push_back(Args[I]);
     }
+    setUncollapsedNDRangeDimensions(NDRange);
     break;
+  }
   case QUAL_OMP_JUMP_TO_END_IF:
     // Nothing to parse for this auxiliary clause.
     // It may exist after VPO Paropt prepare and before
@@ -1452,6 +1509,20 @@ bool WRegionNode::canHaveDistSchedule() const {
   // true for WRNDistribute and WRNDistributeParLoop
   return getIsDistribute();
 }
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+bool WRegionNode::canHaveWorkerSchedule() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNParallelLoop:
+  case WRNWksLoop:
+    return true;
+  }
+  return false;
+}
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
 
 bool WRegionNode::canHaveShared() const {
   unsigned SubClassID = getWRegionKindID();
@@ -1544,6 +1615,23 @@ bool WRegionNode::canHaveReduction() const {
   case WRNWksLoop:
   case WRNSections:
   case WRNGenericLoop:
+    return true;
+  }
+  return false;
+}
+
+bool WRegionNode::canHaveNowait() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNTarget:
+  case WRNTargetEnterData:
+  case WRNTargetExitData:
+  case WRNTargetUpdate:
+  case WRNTargetVariant:
+  case WRNWksLoop:
+  case WRNSections:
+  case WRNWorkshare:
+  case WRNSingle:
     return true;
   }
   return false;

@@ -11,7 +11,8 @@ define dso_local void @XNU() local_unnamed_addr #0 {
 ; CHECK-NEXT:      Loop at depth 2 containing: [[BB1]]<header><latch><exiting>
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB0]]
-; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_ADD_PHI:%.*]] = phi  [ i64 [[VP_ADD_PHI_IND_INIT:%.*]], [[BB5:BB[0-9]+]] ],  [ i64 [[VP_ADD:%.*]], [[BB4]] ]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB5:BB[0-9]+]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB4]] ]
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_ADD_PHI:%.*]] = phi  [ i64 [[VP_ADD_PHI_IND_INIT:%.*]], [[BB5]] ],  [ i64 [[VP_ADD:%.*]], [[BB4]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_OUTER_LOOP_INDUCTION_PHI:%.*]] = phi  [ i64 [[VP_OUTER_LOOP_INDUCTION_PHI_IND_INIT:%.*]], [[BB5]] ],  [ i64 [[VP_OUTER_LOOP_INDUCTION:%.*]], [[BB4]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_ADD]] = add i64 [[VP_ADD_PHI]] i64 [[VP_ADD_PHI_IND_INIT_STEP:%.*]]
 ; CHECK-EMPTY:
@@ -24,7 +25,8 @@ define dso_local void @XNU() local_unnamed_addr #0 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2]]
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_OUTER_LOOP_INDUCTION]] = add i64 [[VP_OUTER_LOOP_INDUCTION_PHI]] i64 [[VP_OUTER_LOOP_INDUCTION_PHI_IND_INIT_STEP:%.*]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_EXIT_COND:%.*]] = icmp i64 [[VP_OUTER_LOOP_INDUCTION]] i64 5
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB4]]
 ; CHECK-EMPTY:

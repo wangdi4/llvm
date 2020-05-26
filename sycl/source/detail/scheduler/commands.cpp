@@ -9,8 +9,8 @@
 #include <detail/error_handling/error_handling.hpp>
 
 #include "CL/sycl/access/access.hpp"
-#include <CL/cl.h>
-#include <CL/sycl/detail/clusm.hpp>
+#include <CL/sycl/backend_types.hpp>
+#include <CL/sycl/detail/cl.h>
 #include <CL/sycl/detail/kernel_desc.hpp>
 #include <CL/sycl/detail/memory_manager.hpp>
 #include <CL/sycl/detail/stream_impl.hpp>
@@ -228,10 +228,11 @@ void Command::waitForEvents(QueueImplPtr Queue,
 }
 
 Command::Command(CommandType Type, QueueImplPtr Queue)
-    : MQueue(std::move(Queue)), MType(Type), MEnqueued(false) {
+    : MQueue(std::move(Queue)), MType(Type) {
   MEvent.reset(new detail::event_impl(MQueue));
   MEvent->setCommand(this);
   MEvent->setContextImpl(detail::getSyclObjImpl(MQueue->get_context()));
+  MEnqueueStatus = EnqueueResultT::SyclEnqueueReady;
 
 #ifdef XPTI_ENABLE_INSTRUMENTATION
   if (!xptiTraceEnabled())
@@ -451,11 +452,11 @@ void Command::emitInstrumentation(uint16_t Type, const char *Txt) {
 
 bool Command::enqueue(EnqueueResultT &EnqueueResult, BlockingT Blocking) {
   // Exit if already enqueued
-  if (MEnqueued)
+  if (MEnqueueStatus == EnqueueResultT::SyclEnqueueSuccess)
     return true;
 
   // If the command is blocked from enqueueing
-  if (MIsBlockable && !MCanEnqueue) {
+  if (MIsBlockable && MEnqueueStatus == EnqueueResultT::SyclEnqueueBlocked) {
     // Exit if enqueue type is not blocking
     if (!Blocking) {
       EnqueueResult = EnqueueResultT(EnqueueResultT::SyclEnqueueBlocked, this);
@@ -478,7 +479,7 @@ bool Command::enqueue(EnqueueResultT &EnqueueResult, BlockingT Blocking) {
 #endif
 
     // Wait if blocking
-    while (!MCanEnqueue)
+    while (MEnqueueStatus == EnqueueResultT::SyclEnqueueBlocked)
       ;
 #ifdef XPTI_ENABLE_INSTRUMENTATION
     emitInstrumentation(xpti::trace_barrier_end, Info.c_str());
@@ -488,13 +489,22 @@ bool Command::enqueue(EnqueueResultT &EnqueueResult, BlockingT Blocking) {
   std::lock_guard<std::mutex> Lock(MEnqueueMtx);
 
   // Exit if the command is already enqueued
-  if (MEnqueued)
+  if (MEnqueueStatus == EnqueueResultT::SyclEnqueueSuccess)
     return true;
 
 #ifdef XPTI_ENABLE_INSTRUMENTATION
   emitInstrumentation(xpti::trace_task_begin, nullptr);
 #endif
 
+  if (MEnqueueStatus == EnqueueResultT::SyclEnqueueFailed) {
+    EnqueueResult = EnqueueResultT(EnqueueResultT::SyclEnqueueFailed, this);
+    return false;
+  }
+
+  // Command status set to "failed" beforehand, so this command
+  // has already been marked as "failed" if enqueueImp throws an exception.
+  // This will avoid execution of the same failed command twice.
+  MEnqueueStatus = EnqueueResultT::SyclEnqueueFailed;
   cl_int Res = enqueueImp();
 
   if (CL_SUCCESS != Res)
@@ -503,14 +513,14 @@ bool Command::enqueue(EnqueueResultT &EnqueueResult, BlockingT Blocking) {
   else
     // Consider the command is successfully enqueued if return code is
     // CL_SUCCESS
-    MEnqueued = true;
+    MEnqueueStatus = EnqueueResultT::SyclEnqueueSuccess;
 
   // Emit this correlation signal before the task end
   emitEnqueuedEventSignal(MEvent->getHandleRef());
 #ifdef XPTI_ENABLE_INSTRUMENTATION
   emitInstrumentation(xpti::trace_task_end, nullptr);
 #endif
-  return static_cast<bool>(MEnqueued);
+  return MEnqueueStatus == EnqueueResultT::SyclEnqueueSuccess;
 }
 
 void Command::resolveReleaseDependencies(std::set<Command *> &DepList) {
@@ -682,6 +692,18 @@ void AllocaSubBufCommand::emitInstrumentationData() {
     makeTraceEventEpilog();
   }
 #endif
+}
+
+void *AllocaSubBufCommand::getMemAllocation() const {
+  // In some cases parent`s memory allocation might change (e.g., after
+  // map/unmap operations). If parent`s memory allocation changes, sub-buffer
+  // memory allocation should be changed as well.
+  if (MQueue->is_host()) {
+    return static_cast<void *>(
+        static_cast<char *>(MParentAlloca->getMemAllocation()) +
+        MRequirement.MOffsetInBytes);
+  }
+  return MMemAllocation;
 }
 
 cl_int AllocaSubBufCommand::enqueueImp() {
@@ -1642,7 +1664,8 @@ cl_int ExecCGCommand::enqueueImp() {
       Kernel = ExecKernel->MSyclKernel->getHandleRef();
     } else
       Kernel = detail::ProgramManager::getInstance().getOrCreateKernel(
-          ExecKernel->MOSModuleHandle, Context, ExecKernel->MKernelName);
+          ExecKernel->MOSModuleHandle, Context, ExecKernel->MKernelName,
+          nullptr);
 
     for (ArgDesc &Arg : ExecKernel->MArgs) {
       switch (Arg.MType) {
@@ -1650,7 +1673,7 @@ cl_int ExecCGCommand::enqueueImp() {
         Requirement *Req = (Requirement *)(Arg.MPtr);
         AllocaCommandBase *AllocaCmd = getAllocaForReq(Req);
         RT::PiMem MemArg = (RT::PiMem)AllocaCmd->getMemAllocation();
-        if (Plugin.getBackend() == (pi::Backend::SYCL_BE_PI_OPENCL)) {
+        if (Plugin.getBackend() == backend::opencl) {
           Plugin.call<PiApiKind::piKernelSetArg>(Kernel, Arg.MIndex,
                                                  sizeof(RT::PiMem), &MemArg);
         } else {
@@ -1669,9 +1692,11 @@ cl_int ExecCGCommand::enqueueImp() {
         RT::PiSampler Sampler =
             detail::getSyclObjImpl(*SamplerPtr)->getOrCreateSampler(Context);
 #if INTEL_CUSTOMIZATION
-        if (Plugin.getBackend() == (pi::Backend::SYCL_BE_PI_LEVEL0)) {
-          Plugin.call<PiApiKind::piextKernelSetArgMemObj>(Kernel,
-              Arg.MIndex, (const RT::PiMem*)&Sampler);
+        if (Plugin.getBackend() == (backend::level0)) {
+          // TODO: This is a workaround and should be reworked when
+          // piextDeviceGetNativeHandle will be implemented.
+          Plugin.call<PiApiKind::piKernelSetArg>(Kernel, Arg.MIndex,
+                                                 sizeof(void *), Sampler);
           break;
         }
 #endif // INTEL_CUSTOMIZATION
@@ -1756,12 +1781,13 @@ cl_int ExecCGCommand::enqueueImp() {
       ReqMemObjs.emplace_back(ReqToMem);
     });
 
-    auto interop_queue = MQueue->get();
     std::sort(std::begin(ReqMemObjs), std::end(ReqMemObjs));
-    interop_handler InteropHandler(std::move(ReqMemObjs), interop_queue);
+    interop_handler InteropHandler(std::move(ReqMemObjs), MQueue);
     ExecInterop->MInteropTask->call(InteropHandler);
-    Plugin.call<PiApiKind::piEnqueueEventsWait>(MQueue->getHandleRef(), 0, nullptr, &Event);
-    Plugin.call<PiApiKind::piQueueRelease>(reinterpret_cast<pi_queue>(interop_queue));
+    Plugin.call<PiApiKind::piEnqueueEventsWait>(MQueue->getHandleRef(), 0,
+                                                nullptr, &Event);
+    Plugin.call<PiApiKind::piQueueRelease>(
+        reinterpret_cast<pi_queue>(MQueue->get()));
     return CL_SUCCESS;
   }
   case CG::CGTYPE::NONE:

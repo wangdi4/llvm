@@ -28,7 +28,7 @@
 //  A[5] = A[5] + tr;
 //
 //===----------------------------------------------------------------------===//
-#include "llvm/Transforms/Intel_LoopTransforms/HIRMemoryReductionSinking.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRMemoryReductionSinkingPass.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"

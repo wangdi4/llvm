@@ -505,14 +505,16 @@ bool HIRRegionIdentification::isSupported(Type *Ty, bool IsGEPRelated,
                                           const Loop *Lp) {
   assert(Ty && "Type is null!");
 
-  while (isa<SequentialType>(Ty) || isa<PointerType>(Ty)) {
-    if (auto SeqTy = dyn_cast<SequentialType>(Ty)) {
-      if (IsGEPRelated && SeqTy->isVectorTy()) {
+  while (isa<ArrayType>(Ty) || isa<VectorType>(Ty) || isa<PointerType>(Ty)) {
+    if (Ty->isVectorTy()) {
+      if (IsGEPRelated) {
         printOptReportRemark(
             Lp, "GEP related vector types currently not supported.");
         return false;
       }
-      Ty = SeqTy->getElementType();
+      Ty = cast<VectorType>(Ty)->getElementType();
+    } else if (Ty->isArrayTy()) {
+      Ty = cast<ArrayType>(Ty)->getElementType();
     } else {
       Ty = Ty->getPointerElementType();
     }
@@ -1514,6 +1516,12 @@ bool HIRRegionIdentification::isGenerable(const BasicBlock *BB,
       return false;
     }
 
+    // TODO: Need to add support of auxiliary (non-operand) data.
+    if (isa<ShuffleVectorInst>(Inst)) {
+      printOptReportRemark(Lp, "ShuffleVectorInst currently not supported.");
+      return false;
+    }
+
     if (auto CInst = dyn_cast<CallInst>(Inst)) {
       if (CInst->isInlineAsm()) {
         printOptReportRemark(Lp, "Inline assembly currently not supported.");
@@ -1655,15 +1663,9 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
     return false;
   }
 
-  auto IVNode = findIVDefInHeader(Lp, LatchCmpInst);
+  auto *IVNode = findIVDefInHeader(Lp, LatchCmpInst);
 
-  if (!IVNode) {
-    // TODO: remove this restriction
-    printOptReportRemark(&Lp, "Loop without IV not supported.");
-    return false;
-  }
-
-  if (IVNode->getType()->getPrimitiveSizeInBits() == 1) {
+  if (IVNode && (IVNode->getType()->getPrimitiveSizeInBits() == 1)) {
     // The following loop with i1 type IV has a trip count of 2 which is
     // outside its range. This is a quirk of SSA. CG will generate an infinite
     // loop for this case if we let it through.

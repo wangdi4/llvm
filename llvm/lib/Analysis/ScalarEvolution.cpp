@@ -86,7 +86,6 @@
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
-#include "llvm/IR/CallSite.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/ConstantRange.h"
 #include "llvm/IR/Constants.h"
@@ -235,6 +234,10 @@ static cl::opt<unsigned> NAryOperandStrengthenThreshold(
 static cl::opt<bool> PrintLoopRangeBounds(
     "scalar-evolution-print-loop-range-bounds", cl::Hidden, cl::init(false),
     cl::desc("Print out the call getRangeBoundedByLoop in addition"));
+
+static cl::opt<bool> PrintHIRMode("scalar-evolution-print-hir-mode", cl::Hidden,
+                                  cl::init(false),
+                                  cl::desc("Print SCEV results in HIR mode"));
 #endif //INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
@@ -3721,7 +3724,7 @@ ScalarEvolution::getGEPExpr(GEPOperator *GEP,
         CurTy = GEP->getSourceElementType();
         FirstIter = false;
       } else {
-        CurTy = cast<SequentialType>(CurTy)->getElementType();
+        CurTy = GetElementPtrInst::getTypeAtIndex(CurTy, (uint64_t)0);
       }
       // For an array, add the element offset, explicitly scaled.
       const SCEV *ElementSize = getSizeOfExpr(IntIdxTy, CurTy);
@@ -3926,13 +3929,11 @@ const SCEV *ScalarEvolution::getSizeOfExpr(Type *IntTy, Type *AllocTy) {
   // We can bypass creating a target-independent
   // constant expression and then folding it back into a ConstantInt.
   // This is just a compile-time optimization.
-  if (auto *VecTy = dyn_cast<VectorType>(AllocTy)) {
-    if (VecTy->isScalable()) {
-      Constant *NullPtr = Constant::getNullValue(AllocTy->getPointerTo());
-      Constant *One = ConstantInt::get(IntTy, 1);
-      Constant *GEP = ConstantExpr::getGetElementPtr(AllocTy, NullPtr, One);
-      return getSCEV(ConstantExpr::getPtrToInt(GEP, IntTy));
-    }
+  if (isa<ScalableVectorType>(AllocTy)) {
+    Constant *NullPtr = Constant::getNullValue(AllocTy->getPointerTo());
+    Constant *One = ConstantInt::get(IntTy, 1);
+    Constant *GEP = ConstantExpr::getGetElementPtr(AllocTy, NullPtr, One);
+    return getSCEV(ConstantExpr::getPtrToInt(GEP, IntTy));
   }
   return getConstant(IntTy, getDataLayout().getTypeAllocSize(AllocTy));
 }
@@ -5776,13 +5777,124 @@ const SCEV *ScalarEvolution::createNodeFromSelectLikePHI(PHINode *PN) {
     if (BI && BI->isConditional() &&
         BrPHIToSelect(DT, BI, PN, Cond, LHS, RHS) &&
         IsAvailableOnEntry(L, DT, getSCEV(LHS), PN->getParent()) &&
-        IsAvailableOnEntry(L, DT, getSCEV(RHS), PN->getParent()))
-      return createNodeForSelectOrPHI(PN, Cond, LHS, RHS);
+#if INTEL_CUSTOMIZATION
+        IsAvailableOnEntry(L, DT, getSCEV(RHS), PN->getParent())) {
+      auto *S = createNodeForSelectOrPHI(PN, Cond, LHS, RHS);
+      // Avoid returning a conservative answer to allow the caller to try other
+      // things.
+      return (S != getUnknown(PN)) ? S : nullptr;
+    }
+#endif // INTEL_CUSTOMIZATION
   }
 
   return nullptr;
 }
 
+#if INTEL_CUSTOMIZATION
+const SCEV *ScalarEvolution::createNodeForIdenticalOperandsPHI(PHINode *PN) {
+  // Checks if all operands of phi have identical Scevs, if so return this Scev
+  // for phi.
+
+  // Check whether we hit a cycle for PN.
+  // For the first detected cycle, we just update the boolean in the map to true
+  // rather than giving up. This is because we want to allow the AddRec possibly
+  // associated with PN to be formed no matter what order getSCEV() calls were
+  // made in-
+  //
+  // a)
+  // getSCEV(PN)
+  // getSCEV(AddRecPhi)
+  //
+  // b)
+  // getSCEV(AddRecPhi)
+  // getSCEV(PN)
+  //
+  // AddRec requires a cycle of its own because it conservatively sets its SCEV
+  // to getUnknown() and then updates it after cycling to obtain the step.
+  //
+  // Here's an example-
+  //
+  // loop:
+  //  %iv = phi [ 0, %entry ], [ %iv.next, %latch ]  ;AddRecPhi
+  //  br %cmp1, %then, %else
+  //
+  // then:
+  //  %inc.then = add %iv, 1
+  //  br %latch
+  //
+  // else:
+  //  %inc.else = add %iv, 1
+  //  br %latch
+  //
+  // latch:
+  //  %iv.next = phi [ %inc.then, %then ], [ %inc.else, %else ] ;PN
+  auto It = PhiSimplificationCandidates.find(PN);
+
+  if (It != PhiSimplificationCandidates.end()) {
+    if (It->second == false) {
+      It->second = true;
+    } else {
+      return getUnknown(PN);
+    }
+  }
+
+  auto *FirstIncomingVal = PN->getIncomingValue(0);
+  unsigned NumOperands = PN->getNumIncomingValues();
+
+  if ((NumOperands > 1) && (FirstIncomingVal != PN) &&
+      LI.replacementPreservesLCSSAForm(PN, FirstIncomingVal)) {
+
+    PhiSimplificationCandidates.insert({PN, false});
+
+    const SCEV *FirstIncomingScev = getSCEV(FirstIncomingVal);
+    bool IdenticalScevs = true;
+
+    for (unsigned I = 1, E = NumOperands; I != E; ++I) {
+      auto *IncomingVal = PN->getIncomingValue(I);
+      // Give up on self-cyclic phi.
+      if (PN == IncomingVal) {
+        IdenticalScevs = false;
+        break;
+      }
+
+      const SCEV *IncomingScev = getSCEV(IncomingVal);
+
+      if (IncomingScev != FirstIncomingScev) {
+        IdenticalScevs = false;
+        break;
+      }
+    }
+
+    PhiSimplificationCandidates.erase(PN);
+
+    // Check whether we have a cached value of PN due to cycling and discard it.
+    HIRValueExprMapType::iterator HIt;
+    ValueExprMapType::iterator It;
+    bool Found = false;
+
+    if (HIRInfo.isValid()) {
+      HIt = HIRValueExprMap.find_as(PN);
+      Found = (HIt != HIRValueExprMap.end());
+    } else {
+      It = ValueExprMap.find_as(PN);
+      Found = (It != ValueExprMap.end());
+    }
+
+    if (Found) {
+      const SCEV *Old = HIRInfo.isValid() ? HIt->second : It->second;
+      forgetMemoizedResults(Old);
+      eraseValueFromMap(PN);
+      forgetSymbolicName(PN, Old);
+    }
+
+    if (IdenticalScevs) {
+      return FirstIncomingScev;
+    }
+  }
+
+  return nullptr;
+}
+#endif // INTEL_CUSTOMIZATION
 const SCEV *ScalarEvolution::createNodeForPHI(PHINode *PN) {
 #if INTEL_CUSTOMIZATION
   // Web of PHIs and arithmetic ops, need to limit recursion.
@@ -5810,6 +5922,10 @@ const SCEV *ScalarEvolution::createNodeForPHI(PHINode *PN) {
     if (LI.replacementPreservesLCSSAForm(PN, V))
       return getSCEV(V);
 
+#if INTEL_CUSTOMIZATION
+  if (const SCEV *S = createNodeForIdenticalOperandsPHI(PN))
+    return S;
+#endif // INTEL_CUSTOMIZATION
   // If it's not a loop phi, we can't handle it yet.
   return getUnknown(PN);
 }
@@ -6607,6 +6723,59 @@ ConstantRange ScalarEvolution::getRangeBoundedByLoop(const PHINode &HeaderPhi) {
   // Finally, intersect signed and unsigned ranges.
   return SR.intersectWith(UR, ConstantRange::Smallest);
 }
+
+static const Loop *getOutermostLoop(const Loop *Lp) {
+  auto *OuterLp = Lp;
+
+  while (OuterLp) {
+    Lp = OuterLp;
+    OuterLp = OuterLp->getParentLoop();
+  }
+
+  return Lp;
+}
+
+bool ScalarEvolution::hasWrapSafeUses(const Value *Val,
+                                      const Value *KnownSafeUse) const {
+  if (isa<ConstantInt>(Val))
+    return true;
+
+  for (auto *ValUser : Val->users()) {
+    // Check whether Val can be used in any other SCEV analyzable context. This
+    // condition can probably be relaxed further, for example when Val is used
+    // in multiple identical 'KnownSafeUse'.
+    if ((ValUser == KnownSafeUse) || isa<CmpInst>(ValUser) ||
+        !isSCEVable(ValUser->getType()))
+      continue;
+
+    return false;
+  }
+
+  return true;
+}
+
+static bool isFortranLang(Function &F) {
+  if (!F.hasFnAttribute("intel-lang"))
+    return false;
+
+  StringRef Lang = F.getFnAttribute("intel-lang").getValueAsString();
+  return (Lang == "fortran");
+}
+
+bool ScalarEvolution::hasWrapSafeOperands(const BinaryOperator *BinOp) const {
+  // In HIR mode, we can assume unchanging IR and deduce nowrap by analyzing
+  // uses of BinOp's operands.
+  if (!HIRInfo.isValid())
+    return false;
+
+  // Ugly temporary hack to skip C/C++ cases to avoid performance regressions.
+  // TODO: remove hack.
+  if (!isFortranLang(F))
+    return false;
+
+  return hasWrapSafeUses(BinOp->getOperand(0), BinOp) &&
+         hasWrapSafeUses(BinOp->getOperand(1), BinOp);
+}
 #endif // INTEL_CUSTOMIZATION
 
 SCEV::NoWrapFlags ScalarEvolution::getNoWrapFlagsFromUB(const Value *V) {
@@ -6622,7 +6791,11 @@ SCEV::NoWrapFlags ScalarEvolution::getNoWrapFlagsFromUB(const Value *V) {
   if (Flags == SCEV::FlagAnyWrap)
     return SCEV::FlagAnyWrap;
 
-  return isSCEVExprNeverPoison(BinOp) ? Flags : SCEV::FlagAnyWrap;
+#if INTEL_CUSTOMIZATION
+  return (isSCEVExprNeverPoison(BinOp) || hasWrapSafeOperands(BinOp))
+             ? Flags
+             : SCEV::FlagAnyWrap;
+#endif // INTEL_CUSTOMIZATION
 }
 
 bool ScalarEvolution::isSCEVExprNeverPoison(const Instruction *I) {
@@ -6637,7 +6810,7 @@ bool ScalarEvolution::isSCEVExprNeverPoison(const Instruction *I) {
     return false;
 
   // Only proceed if we can prove that I does not yield poison.
-  if (!programUndefinedIfFullPoison(I))
+  if (!programUndefinedIfPoison(I))
     return false;
 
   // At this point we know that if I is executed, then it does not wrap
@@ -6717,7 +6890,7 @@ bool ScalarEvolution::isAddRecNeverPoison(const Instruction *I, const Loop *L) {
   SmallVector<const Instruction *, 8> PoisonStack;
 
   // We start by assuming \c I, the post-inc add recurrence, is poison.  Only
-  // things that are known to be fully poison under that assumption go on the
+  // things that are known to be poison under that assumption go on the
   // PoisonStack.
   Pushed.insert(I);
   PoisonStack.push_back(I);
@@ -6727,7 +6900,7 @@ bool ScalarEvolution::isAddRecNeverPoison(const Instruction *I, const Loop *L) {
     const Instruction *Poison = PoisonStack.pop_back_val();
 
     for (auto *PoisonUser : Poison->users()) {
-      if (propagatesFullPoison(cast<Instruction>(PoisonUser))) {
+      if (propagatesPoison(cast<Instruction>(PoisonUser))) {
         if (Pushed.insert(cast<Instruction>(PoisonUser)).second)
           PoisonStack.push_back(cast<Instruction>(PoisonUser));
       } else if (auto *BI = dyn_cast<BranchInst>(PoisonUser)) {
@@ -7139,20 +7312,6 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
     return getSignExtendExpr(getSCEV(U->getOperand(0)), U->getType());
 
   case Instruction::BitCast:
-#if INTEL_CUSTOMIZATION // HIR parsing
-    // Suppress traceback for liveout copy instructions inserted by HIR.
-    if (auto BCInst = dyn_cast<BitCastInst>(V)) {
-      if (getHIRMetadata(BCInst, HIRLiveKind::LiveOut)) {
-        const SCEV *S = getUnknown(BCInst);
-        const SCEV *OpS = getSCEV(BCInst->getOperand(0));
-        // Propagate range information to liveout copies to avoid conservative
-        // behavior.
-        setRange(S, ScalarEvolution::HINT_RANGE_UNSIGNED, getUnsignedRange(OpS));
-        setRange(S, ScalarEvolution::HINT_RANGE_SIGNED, getSignedRange(OpS));
-        return S;
-      }
-    }
-#endif // INTEL_CUSTOMIZATION
     // BitCasts are no-op casts so we just eliminate the cast.
     if (isSCEVable(U->getType()) && isSCEVable(U->getOperand(0)->getType()))
       return getSCEV(U->getOperand(0));
@@ -7181,7 +7340,22 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
 
   case Instruction::Call:
   case Instruction::Invoke:
-    if (Value *RV = CallSite(U).getReturnedArgOperand())
+#if INTEL_CUSTOMIZATION // HIR parsing
+    // Suppress traceback for liveout copy instructions inserted by HIR.
+    if (auto Inst = dyn_cast<Instruction>(U)) {
+      if (getHIRMetadata(Inst, HIRLiveKind::LiveOut)) {
+        const SCEV *S = getUnknown(Inst);
+        const SCEV *OpS = getSCEV(Inst->getOperand(0));
+        // Propagate range information to liveout copies to avoid conservative
+        // behavior.
+        setRange(S, ScalarEvolution::HINT_RANGE_UNSIGNED,
+                 getUnsignedRange(OpS));
+        setRange(S, ScalarEvolution::HINT_RANGE_SIGNED, getSignedRange(OpS));
+        return S;
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
+    if (Value *RV = cast<CallBase>(U)->getReturnedArgOperand())
       return getSCEV(RV);
     break;
   }
@@ -9089,10 +9263,11 @@ const SCEV *ScalarEvolution::computeSCEVAtScope(const SCEV *V, const Loop *L) {
           if (!isa<SCEVCouldNotCompute>(BackedgeTakenCount) &&
               isKnownPositive(BackedgeTakenCount) &&
               PN->getNumIncomingValues() == 2) {
+
             unsigned InLoopPred = LI->contains(PN->getIncomingBlock(0)) ? 0 : 1;
-            const SCEV *OnBackedge = getSCEV(PN->getIncomingValue(InLoopPred));
-            if (IsAvailableOnEntry(LI, DT, OnBackedge, PN->getParent()))
-              return OnBackedge;
+            Value *BackedgeVal = PN->getIncomingValue(InLoopPred);
+            if (LI->isLoopInvariant(BackedgeVal))
+              return getSCEV(BackedgeVal);
           }
           if (auto *BTCC = dyn_cast<SCEVConstant>(BackedgeTakenCount)) {
             // Okay, we know how many times the containing loop executes.  If
@@ -9868,6 +10043,26 @@ bool isNotRangeMaxUsingNoWrap(ScalarEvolution &SE, const SCEV *Scev,
          NAryScevPlusOne->getNoWrapFlags(IsSignedRange ? SCEV::FlagNSW
                                                        : SCEV::FlagNUW);
 }
+
+// Returns a positive constant additive of \p Scev if found, otherwise returns
+// nullptr.
+static const SCEVConstant *getPositiveConstAdditive(const SCEV *Scev,
+                                                    bool IsSigned) {
+  if (auto *Const = dyn_cast<SCEVConstant>(Scev)) {
+    return Const->getAPInt().isStrictlyPositive() ? Const : nullptr;
+  }
+
+  auto *Add = dyn_cast<SCEVAddExpr>(Scev);
+
+  // TODO: extend to SCEVAddRecExpr.
+  if (!Add || !Add->getNoWrapFlags(IsSigned ? SCEV::FlagNSW : SCEV::FlagNUW))
+    return nullptr;
+
+  // Constant will be the first operand, it it exists.
+  auto *Const = dyn_cast<SCEVConstant>(Add->getOperand(0));
+
+  return (Const && Const->getAPInt().isStrictlyPositive()) ? Const : nullptr;
+}
 #endif // INTEL_CUSTOMIZATION
 bool ScalarEvolution::SimplifyICmpOperands(ICmpInst::Predicate &Pred,
                                            const SCEV *&LHS, const SCEV *&RHS,
@@ -10064,6 +10259,25 @@ bool ScalarEvolution::SimplifyICmpOperands(ICmpInst::Predicate &Pred,
     break;
   }
 
+#if INTEL_CUSTOMIZATION
+  // Cancel out smaller positive constant from both LHS/RHS. For example-
+  // (a+1)<nsw> >s (b+2)<nsw>
+  //
+  // ==>
+  //
+  // a >s (b+1)<nsw>
+  bool IsSigned = CmpInst::isSigned(Pred);
+  if (auto *LConst = getPositiveConstAdditive(LHS, IsSigned))
+    if (auto *RConst = getPositiveConstAdditive(RHS, IsSigned)) {
+    auto *SmallerConst =
+        LConst->getAPInt().sle(RConst->getAPInt()) ? LConst : RConst;
+    LHS = getMinusSCEV(LHS, SmallerConst,
+                       IsSigned ? SCEV::FlagNSW : SCEV::FlagNUW);
+    RHS = getMinusSCEV(RHS, SmallerConst,
+                       IsSigned ? SCEV::FlagNSW : SCEV::FlagNUW);
+    Changed = true;
+    }
+#endif // INTEL_CUSTOMIZATION
   // TODO: More simplifications are possible here.
 
   // Recursively simplify until we either hit a recursion limit or nothing
@@ -12854,6 +13068,10 @@ void ScalarEvolution::print(raw_ostream &OS) const {
     OS << "\n";
     for (Instruction &I : instructions(F))
       if (isSCEVable(I.getType()) && !isa<CmpInst>(I)) {
+#if INTEL_CUSTOMIZATION
+        if (PrintHIRMode)
+          SE.HIRInfo.set(getOutermostLoop(LI.getLoopFor(I.getParent())));
+#endif // INTEL_CUSTOMIZATION
         OS << I << '\n';
         OS << "  -->  ";
         const SCEV *SV = SE.getSCEV(&I);

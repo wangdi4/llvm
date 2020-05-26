@@ -45,6 +45,7 @@
 ; CHECK-NOT: TMVINL: Tile Choice fun2_
 ; CHECK-NOT: TMVINL: Tile Choice fun3_
 ; CHECK-NOT: TMVINL: Tile Choice extra_
+; CHECK-NOT: TMVINL: Tile Choice switch_
 ; CHECK-NOT: TMVINL: Tile Choice fun00_
 ; CHECK-NOT: TMVINL: Tile Choice fun01_
 

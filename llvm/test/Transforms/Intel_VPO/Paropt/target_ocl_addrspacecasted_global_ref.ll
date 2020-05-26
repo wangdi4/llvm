@@ -17,7 +17,8 @@
 ; Check that @my_glob reference inside the region is correctly replaced
 ; with the argument of the outline function:
 ; CHECK: @my_glob = common dso_local
-; CHECK-NOT: @my_glob
+; CHECK-NOT: call{{.*}}@my_glob
+; CHECK-NOT: %{{.*}} = {{.*}}@my_glob
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64"
@@ -56,7 +57,7 @@ attributes #2 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-
 !llvm.ident = !{!4}
 
 !0 = !{i32 0, i32 2052, i32 85998847, !"bar", i32 9, i32 1, i32 0}
-!1 = !{i32 1, !"my_glob", i32 0, i32 0}
+!1 = !{i32 1, !"my_glob", i32 0, i32 0, [100 x i32] addrspace(1)* @my_glob}
 !2 = !{i32 1, !"wchar_size", i32 4}
 !3 = !{}
 !4 = !{!"clang version 9.0.0"}

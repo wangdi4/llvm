@@ -19,9 +19,9 @@ define internal void @test01(i32* %arg01) !dtrans_type !1 {
 ; CHECK-LABEL:  Input Parameters: test01
 ; CHECK-CUR:    Arg 0: i32* %arg01
 ; CHECK-FUT:    Arg 0: p0 %arg01
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:   i32*
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT:  Aliased types:
+; CHECK-NEXT:   i32*{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
 
@@ -35,16 +35,16 @@ define internal void @test02(%struct.test02** %arg02) !dtrans_type !5 {
 ; CHECK-LABEL:  Input Parameters: test02
 ; CHECK-CUR:    Arg 0: %struct.test02** %arg02
 ; CHECK-FUT:    Arg 0: p0 %arg02
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:   %struct.test02**
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT:  Aliased types:
+; CHECK-NEXT:   %struct.test02**{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
 ; CHECK-CUR:  %v2 = load %struct.test02*, %struct.test02** %arg02
 ; CHECK-FUT:  %v2 = load p0, p0 %arg02
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:   %struct.test02*
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT:  Aliased types:
+; CHECK-NEXT:   %struct.test02*{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
 
@@ -66,10 +66,10 @@ define internal void @helper_test03(%struct.test03* %in) !dtrans_type !8 {
 ; CHECK-LABEL:  Input Parameters: test03
 ; CHECK-CUR:    Arg 0: i8* %arg03
 ; CHECK-FUT:    Arg 0: p0 %arg03
-; CHECK:    LocalPointerInfo:
-; CHECK:      Aliased types:
-; CHECK-NEXT:   %struct.test03*
-; CHECK-NEXT:   i8*
+; CHECK-NEXT: LocalPointerInfo:
+; CHECK-NEXT:  Aliased types:
+; CHECK-NEXT:   %struct.test03*{{ *$}}
+; CHECK-NEXT:   i8*{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
 

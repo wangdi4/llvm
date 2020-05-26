@@ -91,15 +91,38 @@ namespace vpo {
 /// Loop information associated with loop-type constructs
 class WRNLoopInfo {
 private:
-  LoopInfo   *LI;
-  Loop       *Lp;
+  LoopInfo   *LI = nullptr;
+  Loop       *Lp = nullptr;
   SmallVector<Value *, 2> NormIV; // normalized IV's created by FE
   SmallVector<Value *, 2> NormUB; // normalized UB's
 
   /// Basic blocks with the zero-trip test for all loops in a loop nest.
   DenseMap<unsigned, BasicBlock *> ZTTBB;
+
+  /// If set to true, then the associated loop(s) tripcounts
+  /// are present in the NDRANGE clause of the enclosing "omp target"
+  /// region.
+  bool KnownNDRange = false;
+
+  /// For each loop in the loop nest described by this WRNLoopInfo
+  /// we have to map the loop to some ND-range dimension.
+  /// NDRangeStartDim specifies the starting dimension for the loop
+  /// nest. For example,
+  ///   for (int i = ...)
+  ///     for (int j = ...)
+  ///
+  /// By default the j-loop will be mapped to dimension 0,
+  /// and the i-loop will be mapped to dimension 1.
+  /// If NDRangeStartDim is equal to 1, then it will be applied
+  /// during the mapping for both loops, i.e. the j-loop will map
+  /// to dimension 1, and the i-loop will map to dimension 2.
+  ///
+  /// The final dimension value must never exceed 2, which is
+  /// asserted during the mapping.
+  uint8_t NDRangeStartDim = 0;
+
 public:
-  WRNLoopInfo(LoopInfo *L) : LI(L), Lp(nullptr) {}
+  WRNLoopInfo(LoopInfo *L) : LI(L) {}
   void setLoopInfo(LoopInfo *L) { LI = L; }
   void setLoop(Loop *L) { Lp = L; }
   void addNormIV(Value *IV) { NormIV.push_back(IV); }
@@ -133,6 +156,7 @@ public:
   }
   Value *getNormIV(unsigned I=0) const;
   Value *getNormUB(unsigned I=0) const;
+  ArrayRef<Value *> getNormUBs() const { return NormUB; }
   unsigned getNormIVSize() const { return NormIV.size(); }
   unsigned getNormUBSize() const { return NormUB.size(); }
 
@@ -152,6 +176,24 @@ public:
   /// before ZTTBB setup.
   BasicBlock *getZTTBBOrNull(unsigned Idx = 0) const {
     return ZTTBB.lookup(Idx);
+  }
+
+  void setKnownNDRange() {
+    assert(!KnownNDRange && "KnownNDRange must be set only once.");
+    KnownNDRange = true;
+  }
+  void resetKnownNDRange() {
+    KnownNDRange = false;
+  }
+  bool isKnownNDRange() const { return KnownNDRange; }
+  void setNDRangeStartDim(uint8_t Dim) {
+    assert(Dim < 3 && "Valid dimension must be from [0, 2].");
+    assert(NDRangeStartDim == 0 &&
+           "NDRangeStartDim must be set only once.");
+    NDRangeStartDim = Dim;
+  }
+  uint8_t getNDRangeStartDim() const {
+    return NDRangeStartDim;
   }
 
   void print(formatted_raw_ostream &OS, unsigned Depth,
@@ -178,6 +220,12 @@ private:
   /// Values such as linear step, array section bounds, which will be
   /// used directly inside the outlined function created for the WRegion.
   SmallVector<Value *, 2> DirectlyUsedNonPointerValues;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  int NumWorkers;
+  int PipelineDepth;
+#endif // INTEL_FEATURE_CSA
+#endif //INTEL_CUSTOMIZATION
 
 public:
   WRNParallelNode(BasicBlock *BB);
@@ -187,6 +235,12 @@ protected:
   void setNumThreads(EXPR E) { NumThreads = E; }
   void setDefault(WRNDefaultKind D) { Default = D; }
   void setProcBind(WRNProcBindKind P) { ProcBind = P; }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  void setNumWorkers(int N) { NumWorkers = N; }
+  void setPipelineDepth(int P) { PipelineDepth = P; }
+#endif // INTEL_FEATURE_CSA
+#endif //INTEL_CUSTOMIZATION
 
 public:
   DEFINE_GETTER(SharedClause,       getShared, Shared)
@@ -215,6 +269,12 @@ public:
   void addDirectlyUsedNonPointerValue(Value *V) {
     DirectlyUsedNonPointerValues.push_back(V);
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  int getNumWorkers() const { return NumWorkers; }
+  int getPipelineDepth() const { return PipelineDepth; }
+#endif // INTEL_FEATURE_CSA
+#endif //INTEL_CUSTOMIZATION
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const;
@@ -256,6 +316,11 @@ private:
   loopopt::HLNode *EntryHLNode; // for HIR only
   loopopt::HLNode *ExitHLNode;  // for HIR only
   loopopt::HLLoop *HLp;         // for HIR only
+#if INTEL_FEATURE_CSA
+  int NumWorkers;
+  int PipelineDepth;
+  ScheduleClause WorkerSchedule;
+#endif // INTEL_FEATURE_CSA
 #endif //INTEL_CUSTOMIZATION
 
 public:
@@ -276,6 +341,10 @@ protected:
   void setEntryHLNode(loopopt::HLNode *E) { EntryHLNode = E; }
   void setExitHLNode(loopopt::HLNode *X) { ExitHLNode = X; }
   void setHLLoop(loopopt::HLLoop *L) { HLp = L; }
+#if INTEL_FEATURE_CSA
+  void setNumWorkers(int N) { NumWorkers = N; }
+  void setPipelineDepth(int P) { PipelineDepth = P; }
+#endif // INTEL_FEATURE_CSA
 #endif //INTEL_CUSTOMIZATION
 
 public:
@@ -288,6 +357,11 @@ public:
   DEFINE_GETTER(CopyinClause,       getCopyin, Copyin)
   DEFINE_GETTER(ScheduleClause,     getSchedule, Schedule)
   DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  DEFINE_GETTER(ScheduleClause, getWorkerSchedule, WorkerSchedule)
+#endif // INTEL_FEATURE_CSA
+#endif //INTEL_CUSTOMIZATION
 
   EXPR getIf() const { return IfExpr; }
   EXPR getNumThreads() const { return NumThreads; }
@@ -322,6 +396,10 @@ public:
   loopopt::HLLoop *getHLLoop() const { return HLp; }
   void printHIR(formatted_raw_ostream &OS, unsigned Depth,
                                            unsigned Verbosity=1) const;
+#if INTEL_FEATURE_CSA
+  int getNumWorkers() const { return NumWorkers; }
+  int getPipelineDepth() const { return PipelineDepth; }
+#endif // INTEL_FEATURE_CSA
 #endif //INTEL_CUSTOMIZATION
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
@@ -577,6 +655,8 @@ private:
   int OffloadEntryIdx;
   SmallVector<Value *, 2> DirectlyUsedNonPointerValues;
   SmallVector<Value *, 3> UncollapsedNDRange;
+  uint8_t NDRangeDistributeDim = 0;
+  unsigned SPIRVSIMDWidth = 0;
 
 public:
   WRNTargetNode(BasicBlock *BB);
@@ -589,10 +669,12 @@ protected:
     Defaultmap[C] = B;
   }
   void setOffloadEntryIdx(int Idx) { OffloadEntryIdx = Idx; }
-  void addUncollapsedNDRangeDimension(Value *V) {
-    UncollapsedNDRange.push_back(V);
+  void setUncollapsedNDRangeDimensions(ArrayRef<Value *> Dims) {
+    assert(UncollapsedNDRange.empty() &&
+           "Uncollapsed NDRange must be set only once.");
+    UncollapsedNDRange.insert(
+        UncollapsedNDRange.begin(), Dims.begin(), Dims.end());
   }
-
 public:
   DEFINE_GETTER(PrivateClause,      getPriv,        Priv)
   DEFINE_GETTER(FirstprivateClause, getFpriv,       Fpriv)
@@ -620,6 +702,29 @@ public:
 
   const SmallVectorImpl<Value *> &getUncollapsedNDRange() const {
     return UncollapsedNDRange;
+  }
+
+  void setSPIRVSIMDWidth(unsigned Width) {
+    SPIRVSIMDWidth = Width;
+  }
+
+  unsigned getSPIRVSIMDWidth() const {
+    return SPIRVSIMDWidth;
+  }
+
+  void resetUncollapsedNDRangeDimensions() {
+    UncollapsedNDRange.clear();
+  }
+
+  void setNDRangeDistributeDim(uint8_t Dim) {
+    assert(Dim != 0 && "Dim is 0 by default.");
+    assert(NDRangeDistributeDim == 0 &&
+           "NDRangeDistributeDim must be set only once.");
+    NDRangeDistributeDim = Dim;
+  }
+
+  uint8_t getNDRangeDistributeDim() const {
+    return NDRangeDistributeDim;
   }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
@@ -784,6 +889,7 @@ public:
 /// \endcode
 class WRNTargetVariantNode : public WRegionNode {
 private:
+  MapClause Map;
   UseDevicePtrClause UseDevicePtr;
   EXPR Device;
   bool Nowait;
@@ -796,6 +902,7 @@ protected:
   void setNowait(bool Flag) { Nowait = Flag; }
 
 public:
+  DEFINE_GETTER(MapClause,          getMap,          Map)
   DEFINE_GETTER(UseDevicePtrClause, getUseDevicePtr, UseDevicePtr)
   EXPR getDevice() const { return Device; }
   bool getNowait() const { return Nowait; }
@@ -1084,6 +1191,11 @@ private:
   SmallVector<Value *, 2> OrderedTripCounts;
   SmallVector<Instruction *, 2> CancellationPoints;
   SmallVector<AllocaInst *, 2> CancellationPointAllocas;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  ScheduleClause WorkerSchedule;
+#endif // INTEL_FEATURE_CSA
+#endif //INTEL_CUSTOMIZATION
 
 public:
   WRNWksLoopNode(BasicBlock *BB, LoopInfo *L);
@@ -1101,6 +1213,11 @@ public:
   DEFINE_GETTER(LinearClause,       getLinear,   Linear)
   DEFINE_GETTER(ScheduleClause,     getSchedule, Schedule)
   DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+  DEFINE_GETTER(ScheduleClause, getWorkerSchedule, WorkerSchedule)
+#endif // INTEL_FEATURE_CSA
+#endif //INTEL_CUSTOMIZATION
 
   int getCollapse() const { return Collapse; }
   int getOrdered() const { return Ordered; }

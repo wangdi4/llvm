@@ -124,12 +124,16 @@ public:
   /// Remove calls to directive intrinsics from BasicBlock \p BB.
   /// \returns \b true if <em>one or more</em> directive intrinsics were
   /// stripped from \p BB; \b false otherwise.
-  static bool stripDirectives(BasicBlock &BB);
+  /// If \p IDs is not empty, then the method will only remove
+  /// calls to directive intrinsics with the specified directive ids.
+  static bool stripDirectives(BasicBlock &BB, ArrayRef<int> IDs = None);
 
   /// Remove calls to directive intrinsics from function \p F.
   /// \returns \b true if <em>one or more</em> directive intrinsics were
   /// stripped from \p F; \b false otherwise.
-  static bool stripDirectives(Function &F);
+  /// If \p IDs is not empty, then the method will only remove
+  /// calls to directive intrinsics with the specified directive ids.
+  static bool stripDirectives(Function &F, ArrayRef<int> IDs = None);
 
   /// Remove `@llvm.dbg.declare`, `@llvm.dbg.value` calls from \p F.
   /// This is a temporary workaround needed because CodeExtractor does not

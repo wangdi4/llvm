@@ -204,6 +204,60 @@ bool HIRFrameworkWrapperPass::runOnFunction(Function &F) {
   return false;
 }
 
+void HIRFramework::processDeferredZtts() {
+
+  for (auto &LoopZttPair : PhaseLoopFormation->getDeferredZtts()) {
+    auto *Lp = LoopZttPair.first;
+    auto *Ztt = LoopZttPair.second;
+
+    // Loop could have been removed if it was empty.
+    if (!Lp->isAttached()) {
+      continue;
+    }
+    // HLNodeUtils::removeEmptyNodesRange() inverts the condiiton if the
+    // children only exist in else case. If we still have children in else case,
+    // it means we either have children on both sides or the inversion failed.
+    // We have to give up in either case.
+    if (Ztt->hasElseChildren()) {
+      continue;
+    }
+
+    // The parent/child relationship sometimes gets broken by HLIf restructuring
+    // during parsing.
+    if (Lp->getParent() != Ztt) {
+      continue;
+    }
+
+    // Ztt is being moved from (LoopLevel-1) to LoopLevel so we will need to
+    // update level of non-linear blobs.
+    unsigned LoopLevel = Lp->getNestingLevel();
+
+    for (auto *ZttRef : make_range(Ztt->ddref_begin(), Ztt->ddref_end())) {
+
+      if (ZttRef->isSelfBlob()) {
+        if (ZttRef->isNonLinear()) {
+          ZttRef->getSingleCanonExpr()->setDefinedAtLevel(LoopLevel - 1);
+        }
+      } else {
+        bool UpdateDefLevel = false;
+        for (auto *BlobRef :
+             make_range(ZttRef->blob_begin(), ZttRef->blob_end())) {
+          if (BlobRef->isNonLinear()) {
+            UpdateDefLevel = true;
+            BlobRef->setDefinedAtLevel(LoopLevel - 1);
+          }
+        }
+
+        if (UpdateDefLevel) {
+          ZttRef->updateDefLevel(LoopLevel);
+        }
+      }
+    }
+
+    HIRLoopFormation::setRecognizedZtt(Lp, Ztt, false);
+  }
+}
+
 void HIRFramework::runImpl() {
   // TODO: Refactor code of the framework phases to make them local objects by
   // moving persistent data structures from individual phases to the
@@ -253,6 +307,9 @@ void HIRFramework::runImpl() {
   }
 
   HLNodeUtils::removeEmptyNodesRange(hir_begin(), hir_end());
+
+  processDeferredZtts();
+
   HNU->initTopSortNum();
 
   estimateMaxTripCounts();

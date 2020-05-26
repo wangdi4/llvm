@@ -43,14 +43,18 @@ static const char *RTLNames[] = {
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
 #if _WIN32
+#if INTEL_CUSTOMIZATION
+    /* Level0 target  */ "omptarget.rtl.level0.dll",
+#endif // INTEL_CUSTOMIZATION
     /* OpenCL target  */ "omptarget.rtl.opencl.dll",
 #else  // !_WIN32
-    /* OpenCL target  */ "libomptarget.rtl.opencl.so",
 #if INTEL_CUSTOMIZATION
     /* Level0 target  */ "libomptarget.rtl.level0.so",
 #endif // INTEL_CUSTOMIZATION
+    /* OpenCL target  */ "libomptarget.rtl.opencl.so",
 #endif // !_WIN32
 #endif // INTEL_COLLAB
+    /* SX-Aurora VE target  */ "libomptarget.rtl.ve.so",
     /* PowerPC target */ "libomptarget.rtl.ppc64.so",
 #if INTEL_COLLAB
 #if _WIN32
@@ -162,19 +166,23 @@ void RTLsTy::LoadRTLs() {
     std::string pluginName(envStr);
     if (pluginName == "OPENCL" || pluginName == "opencl") {
 #if _WIN32
-      RTLChecked.push_back("libomptarget.rtl.opencl.dll");
+      RTLChecked.push_back("omptarget.rtl.opencl.dll");
 #else
       RTLChecked.push_back("libomptarget.rtl.opencl.so");
 #endif
 #if INTEL_CUSTOMIZATION
     } else if (pluginName == "LEVEL0" || pluginName == "level0") {
+#if _WIN32
+      RTLChecked.push_back("omptarget.rtl.level0.dll");
+#else
       RTLChecked.push_back("libomptarget.rtl.level0.so");
+#endif
 #endif // INTEL_CUSTOMIZATION
     } else if (pluginName == "CUDA" || pluginName == "cuda") {
       RTLChecked.push_back("libomptarget.rtl.cuda.so");
     } else if (pluginName == "X86_64" || pluginName == "x86_64") {
 #if _WIN32
-      RTLChecked.push_back("libomptarget.rtl.x86_64.dll");
+      RTLChecked.push_back("omptarget.rtl.x86_64.dll");
 #else
       RTLChecked.push_back("libomptarget.rtl.x86_64.so");
 #endif
@@ -224,35 +232,35 @@ void RTLsTy::LoadRTLs() {
     R.RTLConstName = Name;
 #endif  // INTEL_COLLAB
 
-    if (!(*((void**) &R.is_valid_binary) = dlsym(
-              dynlib_handle, "__tgt_rtl_is_valid_binary")))
+    if (!(*((void **)&R.is_valid_binary) =
+              dlsym(dynlib_handle, "__tgt_rtl_is_valid_binary")))
       continue;
-    if (!(*((void**) &R.number_of_devices) = dlsym(
-              dynlib_handle, "__tgt_rtl_number_of_devices")))
+    if (!(*((void **)&R.number_of_devices) =
+              dlsym(dynlib_handle, "__tgt_rtl_number_of_devices")))
       continue;
-    if (!(*((void**) &R.init_device) = dlsym(
-              dynlib_handle, "__tgt_rtl_init_device")))
+    if (!(*((void **)&R.init_device) =
+              dlsym(dynlib_handle, "__tgt_rtl_init_device")))
       continue;
-    if (!(*((void**) &R.load_binary) = dlsym(
-              dynlib_handle, "__tgt_rtl_load_binary")))
+    if (!(*((void **)&R.load_binary) =
+              dlsym(dynlib_handle, "__tgt_rtl_load_binary")))
       continue;
-    if (!(*((void**) &R.data_alloc) = dlsym(
-              dynlib_handle, "__tgt_rtl_data_alloc")))
+    if (!(*((void **)&R.data_alloc) =
+              dlsym(dynlib_handle, "__tgt_rtl_data_alloc")))
       continue;
-    if (!(*((void**) &R.data_submit) = dlsym(
-              dynlib_handle, "__tgt_rtl_data_submit")))
+    if (!(*((void **)&R.data_submit) =
+              dlsym(dynlib_handle, "__tgt_rtl_data_submit")))
       continue;
-    if (!(*((void**) &R.data_retrieve) = dlsym(
-              dynlib_handle, "__tgt_rtl_data_retrieve")))
+    if (!(*((void **)&R.data_retrieve) =
+              dlsym(dynlib_handle, "__tgt_rtl_data_retrieve")))
       continue;
-    if (!(*((void**) &R.data_delete) = dlsym(
-              dynlib_handle, "__tgt_rtl_data_delete")))
+    if (!(*((void **)&R.data_delete) =
+              dlsym(dynlib_handle, "__tgt_rtl_data_delete")))
       continue;
-    if (!(*((void**) &R.run_region) = dlsym(
-              dynlib_handle, "__tgt_rtl_run_target_region")))
+    if (!(*((void **)&R.run_region) =
+              dlsym(dynlib_handle, "__tgt_rtl_run_target_region")))
       continue;
-    if (!(*((void**) &R.run_team_region) = dlsym(
-              dynlib_handle, "__tgt_rtl_run_target_team_region")))
+    if (!(*((void **)&R.run_team_region) =
+              dlsym(dynlib_handle, "__tgt_rtl_run_target_team_region")))
       continue;
 #if INTEL_COLLAB
     if ((*((void **)&R.data_submit_nowait) =
@@ -291,12 +299,18 @@ void RTLsTy::LoadRTLs() {
     if ((*((void **)&R.run_team_nd_region_nowait) = dlsym(
               dynlib_handle, "__tgt_rtl_run_target_team_nd_region_nowait")))
       DP("Optional interface: __tgt_rtl_run_target_team_nd_region_nowait\n");
-    if ((*((void **)&R.create_offload_pipe) =
-              dlsym(dynlib_handle, "__tgt_rtl_create_offload_pipe")))
-      DP("Optional interface: __tgt_rtl_create_offload_pipe\n");
-    if ((*((void **)&R.release_offload_pipe) =
-              dlsym(dynlib_handle, "__tgt_rtl_release_offload_pipe")))
-      DP("Optional interface: __tgt_rtl_release_offload_pipe\n");
+    if ((*((void **)&R.create_offload_queue) =
+              dlsym(dynlib_handle, "__tgt_rtl_create_offload_queue")))
+      DP("Optional interface: __tgt_rtl_create_offload_queue\n");
+    if ((*((void **)&R.release_offload_queue) =
+              dlsym(dynlib_handle, "__tgt_rtl_release_offload_queue")))
+      DP("Optional interface: __tgt_rtl_release_offload_queue\n");
+    if ((*((void **)&R.get_platform_handle) =
+              dlsym(dynlib_handle, "__tgt_rtl_get_platform_handle")))
+      DP("Optional interface: __tgt_rtl_get_platform_handle\n");
+    if ((*((void **)&R.get_device_handle) =
+              dlsym(dynlib_handle, "__tgt_rtl_get_device_handle")))
+      DP("Optional interface: __tgt_rtl_get_device_handle\n");
     if ((*((void **)&R.data_alloc_managed) =
               dlsym(dynlib_handle, "__tgt_rtl_data_alloc_managed")))
       DP("Optional interface: __tgt_rtl_data_alloc_managed\n");
@@ -306,11 +320,23 @@ void RTLsTy::LoadRTLs() {
     if ((*((void **)&R.is_managed_ptr) =
               dlsym(dynlib_handle, "__tgt_rtl_is_managed_ptr")))
       DP("Optional interface: __tgt_rtl_is_managed_ptr\n");
+    if ((*((void **)&R.data_alloc_explicit) =
+              dlsym(dynlib_handle, "__tgt_rtl_data_alloc_explicit")))
+      DP("Optional interface: __tgt_rtl_data_alloc_explicit\n");
 #endif // INTEL_COLLAB
 
     // Optional functions
-    *((void**) &R.init_requires) = dlsym(
-        dynlib_handle, "__tgt_rtl_init_requires");
+    *((void **)&R.init_requires) =
+        dlsym(dynlib_handle, "__tgt_rtl_init_requires");
+    *((void **)&R.data_submit_async) =
+        dlsym(dynlib_handle, "__tgt_rtl_data_submit_async");
+    *((void **)&R.data_retrieve_async) =
+        dlsym(dynlib_handle, "__tgt_rtl_data_retrieve_async");
+    *((void **)&R.run_region_async) =
+        dlsym(dynlib_handle, "__tgt_rtl_run_target_region_async");
+    *((void **)&R.run_team_region_async) =
+        dlsym(dynlib_handle, "__tgt_rtl_run_target_team_region_async");
+    *((void **)&R.synchronize) = dlsym(dynlib_handle, "__tgt_rtl_synchronize");
 
     // No devices are supported by this RTL?
     if (!(R.NumberOfDevices = R.number_of_devices())) {
@@ -318,8 +344,8 @@ void RTLsTy::LoadRTLs() {
       continue;
     }
 
-    DP("Registering RTL %s supporting %d devices!\n",
-        R.RTLName.c_str(), R.NumberOfDevices);
+    DP("Registering RTL %s supporting %d devices!\n", R.RTLName.c_str(),
+       R.NumberOfDevices);
 
     // The RTL is valid! Will save the information in the RTLs list.
     AllRTLs.push_back(R);

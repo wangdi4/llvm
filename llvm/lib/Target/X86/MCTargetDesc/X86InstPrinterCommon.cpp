@@ -13,6 +13,7 @@
 
 #include "X86InstPrinterCommon.h"
 #include "X86BaseInfo.h"
+#include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCInstrDesc.h"
@@ -309,16 +310,23 @@ void X86InstPrinterCommon::printRoundingControl(const MCInst *MI, unsigned Op,
   }
 }
 
-/// printPCRelImm - This is used to print an immediate value that ends up
-/// being encoded as a pc-relative value (e.g. for jumps and calls).  In
-/// Intel-style these print slightly differently than normal immediates.
-/// for example, a $ is not emitted.
-void X86InstPrinterCommon::printPCRelImm(const MCInst *MI, unsigned OpNo,
-                                         raw_ostream &O) {
+/// value (e.g. for jumps and calls). In Intel-style these print slightly
+/// differently than normal immediates. For example, a $ is not emitted.
+///
+/// \p Address The address of the next instruction.
+/// \see MCInstPrinter::printInst
+void X86InstPrinterCommon::printPCRelImm(const MCInst *MI, uint64_t Address,
+                                         unsigned OpNo, raw_ostream &O) {
   const MCOperand &Op = MI->getOperand(OpNo);
-  if (Op.isImm())
-    O << formatImm(Op.getImm());
-  else {
+  if (Op.isImm()) {
+    if (PrintBranchImmAsAddress) {
+      uint64_t Target = Address + Op.getImm();
+      if (MAI.getCodePointerSize() == 4)
+        Target &= 0xffffffff;
+      O << formatHex(Target);
+    } else
+      O << formatImm(Op.getImm());
+  } else {
     assert(Op.isExpr() && "unknown pcrel immediate operand");
     // If a symbolic branch target was added as a constant expression then print
     // that address in hex.
@@ -473,4 +481,24 @@ void X86InstPrinterCommon::printVTILEPair(const MCInst *MI, unsigned OpNo,
   llvm_unreachable("Unknown tile pair register name");
 }
 #endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+void X86InstPrinterCommon::printVTILEQuad(const MCInst *MI, unsigned OpNo,
+                                       raw_ostream &OS) {
+  switch (MI->getOperand(OpNo).getReg()) {
+  case X86::TMM0_TMM1_TMM2_TMM3:
+    printRegName(OS, X86::TMM0);
+    return;
+  case X86::TMM4_TMM5_TMM6_TMM7:
+    printRegName(OS, X86::TMM4);
+    return;
+  case X86::TMM8_TMM9_TMM10_TMM11:
+    printRegName(OS, X86::TMM8);
+    return;
+  case X86::TMM12_TMM13_TMM14_TMM15:
+    printRegName(OS, X86::TMM12);
+    return;
+  }
+  llvm_unreachable("Unknown tile quad register name");
+}
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 #endif // INTEL_CUSTOMIZATION

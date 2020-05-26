@@ -17,6 +17,10 @@
 namespace llvm {
 
 namespace vpo {
+cl::opt<bool> UseDevicePtrIsDefaultByRef(
+    "vpo-paropt-use-device-ptr-is-default-by-ref", cl::Hidden, cl::init(true),
+    cl::desc("Temporary flag to be used until Clang starts adding PTR_TO_PTR "
+             "modifier to use_device_ptr clause."));
 
 DenseMap<int, WRNDefaultmapBehavior> WRNDefaultmapBehaviorFromClauseID = {
     {QUAL_OMP_DEFAULTMAP_ALLOC,   WRNDefaultmapBehavior::WRNDefaultmapAlloc},

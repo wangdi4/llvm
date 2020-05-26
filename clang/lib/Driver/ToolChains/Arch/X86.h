@@ -28,6 +28,10 @@ void getX86TargetFeatures(const Driver &D, const llvm::Triple &Triple,
                           const llvm::opt::ArgList &Args,
                           std::vector<llvm::StringRef> &Features);
 
+#if INTEL_CUSTOMIZATION
+bool isValidIntelCPU(StringRef CPU, const llvm::Triple &Triple);
+#endif // INTEL_CUSTOMIZATION
+
 } // end namespace x86
 } // end namespace target
 } // end namespace driver

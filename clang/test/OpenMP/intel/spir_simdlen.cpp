@@ -34,7 +34,7 @@
 void foo()
 {
 #ifndef NOWARNING
-  //expected-warning@+2 {{simdlen clause is not supported for this target}}
+  //expected-warning@+2 {{simdlen clause is not fully supported for this target}}
 #endif
   #pragma omp simd simdlen(8)
   for (int i = 0; i < 10000; ++i);

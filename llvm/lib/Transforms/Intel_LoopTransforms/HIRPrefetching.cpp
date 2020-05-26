@@ -14,7 +14,7 @@
 // the pre-header.
 //
 //===----------------------------------------------------------------------===//
-#include "llvm/Transforms/Intel_LoopTransforms/HIRPrefetching.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRPrefetchingPass.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLocalityAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"

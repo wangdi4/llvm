@@ -17,6 +17,7 @@
 #include "CSALinearMemopOrdering.h"
 
 #include "llvm/IR/CFG.h"
+#include "llvm/InitializePasses.h"
 
 using namespace llvm;
 

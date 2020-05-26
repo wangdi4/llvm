@@ -71,6 +71,9 @@ private:
   /// Contains loops which require inversion of ztt predicate.
   SmallPtrSet<HLLoop *, 16> InvertedZttLoops;
 
+  /// Ztt candidates deferred until parsing.
+  SmallVector<std::pair<HLLoop *, HLIf *>, 16> DeferredZtts;
+
   /// Maps HLLoops to their label and bottom test.
   /// This is used as a backup to convert countable loops to unknown if parsing
   /// fails.
@@ -128,6 +131,17 @@ public:
   bool requiresZttInversion(HLLoop *Loop) const {
     return InvertedZttLoops.count(Loop);
   }
+
+  /// Ztt candidates deferred to parser due to children present on both sides of
+  /// the If.
+  const SmallVectorImpl<std::pair<HLLoop *, HLIf *>> &getDeferredZtts() const {
+    return DeferredZtts;
+  }
+
+  /// Extracts \p IfParent which has been recognized as the legal Ztt of \p
+  /// HLoop from the IR and sets it as the Ztt.
+  static bool setRecognizedZtt(HLLoop *HLoop, HLIf *IfParent,
+                               bool PredicateInversion);
 
   /// Reattaches loop label and bottom test back to this loop.
   void reattachLoopLabelAndBottomTest(HLLoop *Loop);

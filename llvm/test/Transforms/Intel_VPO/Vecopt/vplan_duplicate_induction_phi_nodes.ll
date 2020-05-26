@@ -3,6 +3,9 @@
 ; RUN: opt -loopopt=0 -VPlanDriver -vpo-vplan-build-stress-test -vplan-print-after-hcfg -vplan-entities-dump -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -loopopt=0 -passes="vplan-driver" -vpo-vplan-build-stress-test -vplan-print-after-hcfg -vplan-entities-dump -disable-output < %s 2>&1 | FileCheck %s
 
+; CMPLRLLVM-18412
+; XFAIL: *
+
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -11,7 +14,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
 define dso_local void @foo(i32* nocapture %a, i32* nocapture %b, i32* nocapture readonly %c, i32 %N) local_unnamed_addr {
-; CHECK-LABEL:  Print after building H-CFG:
+; CHECK-LABEL:  VPlan after building H-CFG:
 ; CHECK:        Induction list
 ; CHECK-NEXT:   IntInduction(+) Start: i64 0 Step: i64 1 BinOp: i64 [[VP_INDVARS_IV_NEXT:%.*]] = add i64 [[VP_INDVARS_IV:%.*]] i64 1 need close form
 ; CHECK-NEXT:    Linked values: i64 [[VP_INDVARS_IV]], i64 [[VP_INDVARS_IV_NEXT]],
@@ -59,7 +62,7 @@ omp.precond.end:
 ; for regular vectorization.
 
 define dso_local void @foo1(i32* nocapture %a, i32* nocapture %b, i32* nocapture readonly %c, i32 %N) local_unnamed_addr {
-; CHECK-LABEL:  Print after building H-CFG:
+; CHECK-LABEL:  VPlan after building H-CFG:
 ; CHECK:        Induction list
 ; CHECK-NEXT:   IntInduction(+) Start: i64 1 Step: i64 1 BinOp: i64 [[VP_INDVARS_IV_NEXT:%.*]] = add i64 [[VP_INDVARS_IV:%.*]] i64 1
 ; CHECK-NEXT:    Linked values: i64 [[VP_INDVARS_IV]], i64 [[VP_INDVARS_IV_NEXT]],

@@ -1173,10 +1173,10 @@ public:
           auto *Call = cast<CallBase>(&I);
           // Permit only one call to other method.
           if (!MC.CalledMethod && checkMethodCall(Call)) {
-            MC.CalledMethod = cast<Function>(Call->getCalledValue());
+            MC.CalledMethod = cast<Function>(Call->getCalledOperand());
             break;
           }
-          if (Function *F = cast<Function>(Call->getCalledValue()))
+          if (Function *F = cast<Function>(Call->getCalledOperand()))
             if (IsLibFunction(F, LibFunc_clang_call_terminate)) {
               MC.HasClangCallTerminate = true;
               break;

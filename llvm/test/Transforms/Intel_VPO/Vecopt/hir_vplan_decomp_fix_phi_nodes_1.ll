@@ -1,7 +1,7 @@
 ; Test to verify correctness of the PHI node fixing algorithm for a simple case
 ; of if-else diamond for a single variable within HCFG.
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-plain-cfg -S -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-plain-cfg -vplan-dump-external-defs-hir=0 -S -disable-output < %s 2>&1 | FileCheck %s
 
 ; Input HIR
 ; <34>    + DO i1 = 0, 1023, 1   <DO_LOOP>
@@ -22,7 +22,7 @@
 ; obtained from predecessor VPBBs
 
 ; Check the plain CFG structure and correctness of incoming values of PHI nodes
-; CHECK-LABEL:  Print after buildPlainCFG
+; CHECK-LABEL:  VPlan after importing plain CFG
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -31,10 +31,10 @@
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
 ; CHECK:         [[BB2]]:
 ; CHECK-NEXT:     i64 [[VP0:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB3:BB[0-9]+]] ]
-; CHECK:          i32 [[VP4:%.*]] = bitcast i32 {{%vp.*}}
+; CHECK:          i32 [[VP4:%.*]] = hir-copy i32 {{%vp.*}} , OriginPhiId: -1
 ; CHECK:         SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP6:%vp.*]]), [[BB3]](!i1 [[VP6]])
 ; CHECK:           [[BB4]]:
-; CHECK:            i32 [[VP9:%.*]] = bitcast i32 {{%vp.*}}
+; CHECK:            i32 [[VP9:%.*]] = hir-copy i32 {{%vp.*}} , OriginPhiId: -1
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB3]]
 ; CHECK:         [[BB3]]:
 ; CHECK-NEXT:     i32 [[VP10:%.*]] = phi  [ i32 [[VP9]], [[BB4]] ],  [ i32 [[VP4]], [[BB2]] ]

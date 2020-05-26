@@ -26,14 +26,14 @@ define internal void @test01() {
 ; CHECK-CUR:  %v0 = load i8*, i8** bitcast (%struct.test01** @test_var01 to i8**)
 ; CHECK-FUT:  %v0 = load p0, p0 @test_var01
 ; CHECK-CUR:     CE: i8** bitcast (%struct.test01** @test_var01 to i8**)
-; CHECK-CUR:          LocalPointerInfo:
-; CHECK-CUR:      Aliased types:
+; CHECK-CUR-NEXT: LocalPointerInfo:
+; CHECK-CUR-NEXT: Aliased types:
 ; CHECK-CUR-NEXT:   %struct.test01**{{ *$}}
 ; CHECK-CUR-NEXT:   i8**{{ *$}}
 ; CHECK-CUR-NEXT: No element pointees.
 
 ; This corresponds to the type recovered for %v0.
-; CHECK:    LocalPointerInfo:
+; CHECK: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   %struct.test01*{{ *$}}
 ; CHECK-NEXT:   i8*{{ *$}}

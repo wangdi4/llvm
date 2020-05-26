@@ -6,11 +6,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <CL/sycl/detail/force_device.hpp>
+#include <CL/sycl/detail/export.hpp>
 #include <CL/sycl/device.hpp>
 #include <CL/sycl/device_selector.hpp>
 #include <CL/sycl/info/info_desc.hpp>
+#include <detail/config.hpp>
 #include <detail/device_impl.hpp>
+#include <detail/force_device.hpp>
 
 __SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
@@ -29,8 +31,11 @@ device::device() : impl(std::make_shared<detail::device_impl>()) {}
 
 device::device(cl_device_id deviceId)
     : impl(std::make_shared<detail::device_impl>(
-          detail::pi::cast<detail::device_interop_handle_t>(deviceId),
-          *RT::GlobalPlugin)) {}
+          detail::pi::cast<pi_native_handle>(deviceId), *RT::GlobalPlugin)) {
+  // The implementation constructor takes ownership of the native handle so we
+  // must retain it in order to adhere to SYCL 1.2.1 spec (Rev6, section 4.3.1.)
+  clRetainDevice(deviceId);
+}
 
 device::device(const device_selector &deviceSelector) {
   *this = deviceSelector.select_device();
@@ -46,6 +51,14 @@ vector_class<device> device::get_devices(info::device_type deviceType) {
   if (detail::match_types(deviceType, forced_type)) {
     detail::force_type(deviceType, forced_type);
     for (const auto &plt : platform::get_platforms()) {
+      // If SYCL_BE is set then skip platforms which doesn't have specified
+      // backend.
+      backend *ForcedBackend = detail::SYCLConfig<detail::SYCL_BE>::get();
+      if (ForcedBackend)
+        if (!plt.is_host() &&
+            (detail::getSyclObjImpl(plt)->getPlugin().getBackend() !=
+             *ForcedBackend))
+          continue;
       if (includeHost && plt.is_host()) {
         vector_class<device> host_device(
             plt.get_devices(info::device_type::host));
@@ -60,54 +73,6 @@ vector_class<device> device::get_devices(info::device_type deviceType) {
     }
   }
 
-#if INTEL_CUSTOMIZATION
-  // TODO: open-source
-  //
-  // If SYCL_BE is set and there are multiple devices of the same type
-  // supported by different BE, and one of the devices is from SYCL_BE
-  // then only add that (and remove all others). This allows to force
-  // selection of a specific BE for a target, while running on other
-  // targets, unsupported by the SYCL_BE, with other BEs.
-  //
-  if (std::getenv("SYCL_BE")) {
-    vector_class<device> filtered_devices;
-    auto SyclBE = detail::pi::getPreferredBE();
-
-    // On the first pass see which device types are supported with SYCL_BE
-    pi_uint64 TypesSupportedBySyclBE = 0; // bit-set of info::device_type
-    for (const auto &dev : devices) {
-      if (dev.is_host()) continue;
-      auto BE = detail::getSyclObjImpl(dev)->getPlugin().getBackend();
-      if (BE == SyclBE) {
-        TypesSupportedBySyclBE |=
-            (pi_uint64)dev.get_info<info::device::device_type>();
-      }
-    }
-    // On the second pass only add devices that are from SYCL_BE or not
-    // supported there.
-    //
-    for (const auto &dev : devices) {
-      if (dev.is_host()) {
-        // TODO: decide if we really want to add the host here.
-        // The cons of doing so is that if SYCL_BE is set but that BE
-        // is unavailable for whatever reason, the execution would silently
-        // proceed to the host while people may think it is running
-        // with the SYCL_BE as they wanted.
-        //
-        filtered_devices.push_back(dev);
-        continue;
-      }
-
-      auto BE = detail::getSyclObjImpl(dev)->getPlugin().getBackend();
-      auto Type = (pi_uint64)dev.get_info<info::device::device_type>();
-      if (BE == SyclBE || (TypesSupportedBySyclBE & Type) == 0) {
-        filtered_devices.push_back(dev);
-      }
-    }
-    return filtered_devices;
-  }
-
-#endif // INTEL_CUSTOMIZATION
   return devices;
 }
 
@@ -127,7 +92,8 @@ template <info::partition_property prop>
 vector_class<device> device::create_sub_devices(size_t ComputeUnits) const {
   return impl->create_sub_devices(ComputeUnits);
 }
-template vector_class<device>
+
+template __SYCL_EXPORT vector_class<device>
 device::create_sub_devices<info::partition_property::partition_equally>(
     size_t ComputeUnits) const;
 
@@ -136,7 +102,8 @@ vector_class<device>
 device::create_sub_devices(const vector_class<size_t> &Counts) const {
   return impl->create_sub_devices(Counts);
 }
-template vector_class<device>
+
+template __SYCL_EXPORT vector_class<device>
 device::create_sub_devices<info::partition_property::partition_by_counts>(
     const vector_class<size_t> &Counts) const;
 
@@ -145,7 +112,8 @@ vector_class<device> device::create_sub_devices(
     info::partition_affinity_domain AffinityDomain) const {
   return impl->create_sub_devices(AffinityDomain);
 }
-template vector_class<device> device::create_sub_devices<
+
+template __SYCL_EXPORT vector_class<device> device::create_sub_devices<
     info::partition_property::partition_by_affinity_domain>(
     info::partition_affinity_domain AffinityDomain) const;
 
@@ -160,11 +128,14 @@ device::get_info() const {
 }
 
 #define PARAM_TRAITS_SPEC(param_type, param, ret_type)                         \
-  template ret_type device::get_info<info::param_type::param>() const;
+  template __SYCL_EXPORT ret_type device::get_info<info::param_type::param>()  \
+      const;
 
 #include <CL/sycl/info/device_traits.def>
 
 #undef PARAM_TRAITS_SPEC
+
+pi_native_handle device::getNative() const { return impl->getNative(); }
 
 } // namespace sycl
 } // __SYCL_INLINE_NAMESPACE(cl)

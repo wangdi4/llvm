@@ -55,10 +55,10 @@ void foo2() {
   // CHECK-SAME: "DIR.OMP.TEAMS"()
   // CHECK: [[T2:%[0-9]+]] = call token @llvm.directive.region.entry()
   // CHECK-SAME: "DIR.OMP.DISTRIBUTE"()
-  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* [[OMP_LB_CAST]]),
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32 addrspace(4)* [[I_CAST]]),
   // CHECK-SAME: "QUAL.OMP.NORMALIZED.IV"(i32 addrspace(4)* [[OMP_IV_CAST]]),
-  // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(i32 addrspace(4)* [[OMP_UB_CAST]]),
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32 addrspace(4)* [[I_CAST]])
+  // CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32 addrspace(4)* [[OMP_LB_CAST]]),
+  // CHECK-SAME: "QUAL.OMP.NORMALIZED.UB"(i32 addrspace(4)* [[OMP_UB_CAST]])
   // CHECK: [[L1:%[0-9]+]] = load i32, i32 addrspace(4)* [[OMP_IV_CAST]], align 4
   // CHECK-NEXT: [[L2:%[0-9]+]] = load i32, i32 addrspace(4)* [[OMP_UB_CAST]], align 4
   // CHECK-NEXT: icmp sle i32 [[L1]], [[L2]]

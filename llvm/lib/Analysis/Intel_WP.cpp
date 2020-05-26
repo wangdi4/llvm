@@ -1,6 +1,6 @@
 //===------- Intel_WP.cpp - Whole Program Analysis -*------===//
 //
-// Copyright (C) 2016-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -181,23 +181,28 @@ void WholeProgramInfo::printWholeProgramTrace() {
     };
 
     auto PrintWPResult = [this](void) {
-      dbgs() << "  WHOLE PROGRAM" << (isWholeProgramSeen() ? " " : " NOT ")
+      dbgs() << "  WHOLE PROGRAM RESULT: \n";
+      dbgs() << "    MAIN DEFINITION: "
+             << (MainDefSeen ? " " : " NOT ")
              << "DETECTED \n";
-      dbgs() << "  WHOLE PROGRAM SAFE is"
-             << (WholeProgramSafe ? " " : " *NOT* ")
-             << "determined:\n";
 
-      if (AssumeWholeProgram) {
-        dbgs() << "whole-program-assume is enabled ... \n";
+      if (!AssumeWholeProgram) {
+        dbgs() << "    LINKING AN EXECUTABLE: "
+               << (isLinkedAsExecutable() ? " " : " NOT ")
+               << "DETECTED\n";
+        dbgs() << "    WHOLE PROGRAM READ: "
+               << (isWholeProgramRead() ? " " : " NOT ")
+               << "DETECTED \n";
+        dbgs() << "    WHOLE PROGRAM SEEN: "
+               << (isWholeProgramSeen() ? " " : " NOT ")
+               << "DETECTED \n";
       }
       else {
-        if (!isWholeProgramSeen())
-          dbgs() <<  "    whole program not seen;\n";
-        if (!isWholeProgramRead())
-          dbgs() <<  "    whole program not read;\n";
-        if (!isLinkedAsExecutable())
-          dbgs() <<  "    not linking an executable;\n";
+        dbgs() << "    WHOLE PROGRAM ASSUME IS ENABLED\n";
       }
+      dbgs() << "    WHOLE PROGRAM SAFE: "
+             << (WholeProgramSafe ? " " : " NOT ")
+             << "DETECTED\n";
     };
 
     bool Simple = !WholeProgramTraceLibFuncs &&
@@ -226,13 +231,11 @@ void WholeProgramInfo::printWholeProgramTrace() {
       dbgs() << "EXTERNAL FUNCTIONS TRACE";
 
     else if (WholeProgramReadTrace)
-      dbgs() << "WHOLE PROGRAM READ\n";
+      dbgs() << "WHOLE PROGRAM READ TRACE";
 
     dbgs() << "\n\n";
 
     if (Simple || Full) {
-      dbgs() << "  Main definition" << (MainDefSeen ? " " : " not ")
-             << "seen \n";
       dbgs() << "  UNRESOLVED CALLSITES: " << UnresolvedCallsCount << "\n";
     }
 
@@ -313,6 +316,25 @@ bool WholeProgramInfo::resolveCalledValue(
       return false;
     }
 
+    //
+    // If the Caller is not Fortran, but the Callee is Fortran, do not
+    // recognize this as a call to a libFunc. In other words, a libFunc
+    // that is marked as Fortran (like those from the Fortran runtime
+    // library) can only be recognized as a Fortran libFunc if it is called
+    // by a Caller that was compiled by the Fortran front end.
+    //
+    // This mimics the behavior of the IL0 compiler, where only the Fortran
+    // front end could recognize calls to the Fortran runtime library as
+    // intrinsics.
+    //
+    if (Callee->isFortran() && !Caller->isFortran()) {
+      LLVM_DEBUG({
+        LibFuncsNotFound.insert(Callee);
+        ++UnresolvedCallsCount;
+      });
+      return false;
+    }
+
     LLVM_DEBUG({
       if (WholeProgramTraceLibFuncs)
         LibFuncsFound.insert(Callee);
@@ -341,7 +363,7 @@ bool WholeProgramInfo::resolveCallsInRoutine(
     }
 
     CallBase *CS = dyn_cast<CallBase>(&II);
-    Resolved &= resolveCalledValue(GetTLI, CS->getCalledValue(), F);
+    Resolved &= resolveCalledValue(GetTLI, CS->getCalledOperand(), F);
 
     LLVM_DEBUG({
       // If we are printing the trace for whole program analysis then

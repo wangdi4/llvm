@@ -173,18 +173,6 @@ static void instantiateDependentAlignValueAttr(
     S.AddAlignValueAttr(New, *Aligned, Result.getAs<Expr>());
 }
 #if INTEL_CUSTOMIZATION
-static void instantiateDependentInternalMaxBlockRamDepthAttr(
-    Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
-    const InternalMaxBlockRamDepthAttr *Max, Decl *New) {
-  // The __internal_max_block_ram_depth__ expression is a constant expression.
-  EnterExpressionEvaluationContext Unevaluated(
-      S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
-  ExprResult Result =
-      S.SubstExpr(Max->getInternalMaxBlockRamDepth(), TemplateArgs);
-  if (!Result.isInvalid())
-    S.AddInternalMaxBlockRamDepthAttr(New, *Max, Result.getAs<Expr>());
-}
-
 static void instantiateDependentSchedulerTargetFmaxMHzAttr(
     Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
     const SchedulerTargetFmaxMHzAttr *STFM, Decl *New) {
@@ -467,7 +455,8 @@ static void instantiateOMPDeclareVariantAttr(
 
   // Copy the template version of the OMPTraitInfo and run substitute on all
   // score and condition expressiosn.
-  OMPTraitInfo TI = Attr.getTraitInfos();
+  OMPTraitInfo &TI = S.getASTContext().getNewOMPTraitInfo();
+  TI = *Attr.getTraitInfos();
 
   // Try to substitute template parameters in score and condition expressions.
   auto SubstScoreOrConditionExpr = [&S, Subst](Expr *&E, bool) {
@@ -751,13 +740,6 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
                                                            STFM, New);
       continue;
     }
-    const InternalMaxBlockRamDepthAttr *IMBRDA =
-        dyn_cast<InternalMaxBlockRamDepthAttr>(TmplAttr);
-    if (IMBRDA) {
-      instantiateDependentInternalMaxBlockRamDepthAttr(*this, TemplateArgs,
-                                                       IMBRDA, New);
-      continue;
-    }
     const IntelFPGAMaxReplicatesAttr *MRA =
         dyn_cast<IntelFPGAMaxReplicatesAttr>(TmplAttr);
     if (MRA) {
@@ -971,6 +953,10 @@ Decl *TemplateDeclInstantiator::VisitPragmaDetectMismatchDecl(
 Decl *
 TemplateDeclInstantiator::VisitExternCContextDecl(ExternCContextDecl *D) {
   llvm_unreachable("extern \"C\" context cannot be instantiated");
+}
+
+Decl *TemplateDeclInstantiator::VisitMSGuidDecl(MSGuidDecl *D) {
+  llvm_unreachable("GUID declaration cannot be instantiated");
 }
 
 Decl *
@@ -2182,6 +2168,7 @@ Decl *TemplateDeclInstantiator::VisitFunctionDecl(
         D->hasWrittenPrototype(), D->getConstexprKind(),
         TrailingRequiresClause);
     Function->setRangeEnd(D->getSourceRange().getEnd());
+    Function->setUsesFPIntrin(D->usesFPIntrin());
   }
 
   if (D->isInlined())
@@ -4634,7 +4621,7 @@ TemplateDeclInstantiator::InitFunctionInstantiation(FunctionDecl *New,
         EPI.ExceptionSpec.Type != EST_None &&
         EPI.ExceptionSpec.Type != EST_DynamicNone &&
         EPI.ExceptionSpec.Type != EST_BasicNoexcept &&
-        !Tmpl->isLexicallyWithinFunctionOrMethod()) {
+        !Tmpl->isInLocalScope()) {
       FunctionDecl *ExceptionSpecTemplate = Tmpl;
       if (EPI.ExceptionSpec.Type == EST_Uninstantiated)
         ExceptionSpecTemplate = EPI.ExceptionSpec.SourceTemplate;

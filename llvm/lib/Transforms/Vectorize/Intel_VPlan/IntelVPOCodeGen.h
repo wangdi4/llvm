@@ -16,6 +16,8 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPOCODEGEN_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPOCODEGEN_H
 
+#include "IntelVPlan.h"
+
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/IR/IRBuilder.h"
@@ -36,25 +38,7 @@ class OVLSGroup;
 
 namespace vpo {
 
-class VPValue;
-class VPInstruction;
-class VPPHINode;
 class VPlanVLSAnalysis;
-struct VPTransformState;
-class VPOVectorizationLegality;
-class VPlan;
-class VPReductionFinal;
-class VPPrivateMemory;
-class VPInductionInit;
-class VPInductionInitStep;
-class VPInductionFinal;
-class VPAllocatePrivate;
-class VPLoopEntityList;
-class VPLoopEntity;
-class VPReduction;
-class VPInduction;
-class VPGEPInstruction;
-class VPBlendInst;
 
 // LVCodeGen generates vector code by widening of scalars into
 // appropriate length vectors.
@@ -68,12 +52,8 @@ public:
              VPOVectorizationLegality *LVL, VPlanVLSAnalysis *VLSA,
              const VPlan *Plan)
       : OrigLoop(OrigLoop), PSE(PSE), LI(LI), DT(DT), TLI(TLI), TTI(TTI),
-        Legal(LVL), VLSA(VLSA), Plan(Plan), VPEntities(nullptr),
-        TripCount(nullptr), VectorTripCount(nullptr), Induction(nullptr),
-        VF(VecWidth), UF(UnrollFactor), Builder(Context),
-        LoopVectorPreHeader(nullptr), LoopScalarPreHeader(nullptr),
-        LoopMiddleBlock(nullptr), LoopExitBlock(nullptr),
-        LoopVectorBody(nullptr), LoopScalarBody(nullptr), MaskValue(nullptr) {}
+        Legal(LVL), VLSA(VLSA), Plan(Plan), VF(VecWidth), UF(UnrollFactor),
+        Builder(Context), PreferredPeeling(Plan->getPreferredPeeling(VF)) {}
 
   ~VPOCodeGen() {}
 
@@ -88,6 +68,10 @@ public:
   // flow such that the scalar loop is skipped.
   void createEmptyLoop();
 
+  // Set current debug location for vector loop's IRBuilder. This location is
+  // set for all instructions that are subsequently created using the Builder.
+  void setBuilderDebugLoc(DebugLoc L) { Builder.SetCurrentDebugLocation(L); }
+
   // Widen the given instruction to VF wide vector instruction
   void vectorizeInstruction(VPInstruction *VPInst);
 
@@ -95,6 +79,13 @@ public:
   // This is done using a sequence of extractelement, Scalar Op, InsertElement
   // instructions.
   void serializeInstruction(VPInstruction *VPInst);
+
+  // Attach metadata to \p Memref instruction to indicate that for the best
+  // performance it needs to be aligned by at least \p PreferredAlignment bytes.
+  // The main purpose of the metadata is to let OpenCL compiler peel kernel
+  // iterations for the best memory access alignment.
+  void attachPreferredAlignmentMetadata(Instruction *Memref,
+                                        Align PreferredAlignment);
 
   IRBuilder<> &getBuilder() { return Builder; }
 
@@ -258,10 +249,6 @@ private:
   /// Reverse vector elements
   Value *reverseVector(Value *Vec, unsigned Stride = 1);
 
-  /// Create the primary induction variable for vector loop.
-  PHINode *createInductionVariable(Loop *L, Value *Start, Value *End,
-                                   Value *Step);
-
   /// Make the needed fixups for all live out values.
   void fixOutgoingValues();
 
@@ -281,9 +268,6 @@ private:
   /// Fix up induction last value.
   void fixInductionLastVal(const VPInduction &Ind, VPInductionFinal *IndFinal);
 
-  /// Get an index of last written lane using Mask value.
-  Value *getLastLaneFromMask(Value *MaskPtr);
-
   /// The Loop exit block may have single value PHI nodes where the incoming
   /// value is 'Undef'. While vectorizing we only handled real values that were
   /// defined inside the loop. Here we fix the 'undef case'.
@@ -294,18 +278,12 @@ private:
   void updateAnalysis();
 
   /// Get the Function-entry block.
-  BasicBlock &getFunctionEntryBlock() const {
-    return OrigLoop->getHeader()->getParent()->front();
-  }
+  BasicBlock &getFunctionEntryBlock() const;
 
   /// This function adds (StartIdx, StartIdx + Step, StartIdx + 2*Step, ...)
   /// to each vector element of Val. The sequence starts at StartIndex.
   Value *getStepVector(Value *Val, int StartIdx, Value *Step,
                        Instruction::BinaryOps BinOp);
-
-  /// Widen Phi node, which is not an induction variable. This Phi node
-  /// is a result of merging blocks ruled out by uniform branch.
-  void widenNonInductionPhi(VPPHINode *Phi);
 
   void fixNonInductionVPPhis();
 
@@ -392,15 +370,12 @@ private:
   const VPlan *Plan;
 
   // Loop entities, for correct reductions processing
-  const VPLoopEntityList *VPEntities;
+  const VPLoopEntityList *VPEntities = nullptr;
 
   // Loop trip count
-  Value *TripCount;
+  Value *TripCount = nullptr;
   // Vectorized loop trip count.
-  Value *VectorTripCount;
-
-  /// The new Induction variable which was added to the new block.
-  PHINode *Induction;
+  Value *VectorTripCount = nullptr;
 
   // Vector factor or vector length to use. Each scalar instruction is widened
   // to operate on this number of operands.
@@ -448,22 +423,25 @@ private:
   // Holds finalization VPInstructions generated for loop entities.
   MapVector<const VPLoopEntity *, VPInstruction *> EntitiesFinalVPInstMap;
 
+  // The selected peeling variant for the current VPlan and VF.
+  VPlanPeelingVariant *PreferredPeeling = nullptr;
+
   // --- Vectorization state ---
 
   /// The vector-loop preheader.
-  BasicBlock *LoopVectorPreHeader;
+  BasicBlock *LoopVectorPreHeader = nullptr;
   /// The scalar-loop preheader.
-  BasicBlock *LoopScalarPreHeader;
+  BasicBlock *LoopScalarPreHeader = nullptr;
   /// Middle Block between the vector and the scalar.
-  BasicBlock *LoopMiddleBlock;
+  BasicBlock *LoopMiddleBlock = nullptr;
   /// The ExitBlock of the scalar loop.
-  BasicBlock *LoopExitBlock;
+  BasicBlock *LoopExitBlock = nullptr;
   /// The vector loop body.
-  BasicBlock *LoopVectorBody;
+  BasicBlock *LoopVectorBody = nullptr;
   /// The scalar loop body.
-  BasicBlock *LoopScalarBody;
+  BasicBlock *LoopScalarBody = nullptr;
   /// Current mask value for instructions being generated
-  Value *MaskValue;
+  Value *MaskValue = nullptr;
   /// A list of all bypass blocks. The first block is the entry of the loop.
   SmallVector<BasicBlock *, 4> LoopBypassBlocks;
 
@@ -474,6 +452,20 @@ private:
   // Get alignment for load/store VPInstruction using underlying
   // llvm::Instruction.
   Align getOriginalLoadStoreAlignment(const VPInstruction *VPInst);
+
+  // Get alignment for the gather/scatter intrinsic when widening load/store
+  // VPInstruction \p VPInst.
+  // When we widen a load/store to gather/scatter, if the value to load/store
+  // is a vector, then the alignment for gather/scatter should be adjusted
+  // according to the alignment of the vector element. E.g., given VF=2,
+  //   store <3 x i32> %val, <3 x i32>* %ptr, align 16
+  // can be widened to
+  //   call void @llvm.scatter(<6 x i32> %wide.val, <6 x i32*> %wide.ptr, ...)
+  // Note that there is no <2 x <3 x i32>>, so %wide.ptr is firstly casted
+  // from <2 x <3 x i32>*> to <6 x i32*>, i.e., two 16-byte aligned stores are
+  // split to six 4-byte ones. And thus, the alignment for the scatter should
+  // be adjusted to 4.
+  Align getAlignmentForGatherScatter(const VPInstruction *VPInst);
 
   // Widen the given load instruction. EmitIntrinsic needs to be set to true
   // when we can start emitting masked_gather intrinsic once we have support
@@ -530,6 +522,10 @@ private:
                          SmallVectorImpl<Value *> &VecArgs,
                          SmallVectorImpl<Type *> &VecArgTys);
 
+  /// Generate instructions to extract two results of a sincos call, and store
+  /// them to locations designated in the original call.
+  void generateStoreForSinCos(VPInstruction *VPCall, Value *CallResult);
+
   // Widen call instruction parameters and return. If given \p VPCall cannot be
   // widened for current VF, but can be pumped with lower VF, then vectorize the
   // call by breaking down the operands and pumping it \p PumpFactor times.
@@ -552,9 +548,6 @@ private:
   // into Select instruction (for blends).
   void vectorizeVPPHINode(VPPHINode *VPPhi);
 
-  // Create a PHINode for VPPHINode that represent reduction.
-  void vectorizeReductionPHI(VPPHINode *Inst, PHINode *UnderlyingPhi = nullptr);
-
   // Vectorize the call to OpenCL SinCos function with the vector-variant from
   // SVML
   void vectorizeOpenCLSinCos(VPInstruction *VPCall, bool IsMasked);
@@ -566,11 +559,10 @@ private:
   /// Hold names of scalar select builtins
   SmallSet<std::string, 20> ScalarSelectSet;
 
-  /// This function returns the widened GEP instruction that is used
-  /// as a pointer-operand in a load-store instruction. In the generated code,
-  /// the returned GEP is itself used as an operand of a Scatter/Gather
-  /// function.
-  Value *getWidenedAddressForScatterGather(VPInstruction *VPI);
+  /// This function returns the widened GEP instruction for a pointer. In the
+  /// generated code, the returned GEP is itself used as an operand of a
+  /// Scatter/Gather function.
+  Value *getWidenedAddressForScatterGather(VPValue *VPBasePtr);
 
   /// This function return an appropriate BasePtr for cases where we are have
   /// load/store to consecutive memory locations

@@ -23,7 +23,7 @@ define internal void @test01() {
 ; CHECK-LABEL: internal void @test01()
 ; CHECK-CUR: %ar = insertvalue [2 x i32*] undef, i32* %x, 1
 ; CHECK-FUT: %ar = insertvalue [2 x p0] undef, p0 %x, 1
-; CHECK:    LocalPointerInfo:
+; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   [2 x i32*]{{ *$}}
 ; CHECK-NEXT: No element pointees.
@@ -44,7 +44,7 @@ define internal void @test02() {
 ; CHECK-LABEL: internal void @test02()
 ; CHECK-CUR: %x = call <2 x i16*> @support_test02()
 ; CHECK-FUT: %x = call <2 x p0> @support_test02()
-; CHECK:    LocalPointerInfo:
+; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   <2 x i16*>{{ *$}}
 ; CHECK-NEXT: No element pointees.
@@ -64,7 +64,7 @@ define internal void @test03() {
 ; CHECK-LABEL: internal void @test03()
 ; CHECK-CUR: %x = call { i8*, i32 } @support_test03()
 ; CHECK-FUT: %x = call { p0, i32 } @support_test03()
-; CHECK:    LocalPointerInfo:
+; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:   { i8*, i32 }{{ *$}}
 ; CHECK-NEXT: No element pointees.

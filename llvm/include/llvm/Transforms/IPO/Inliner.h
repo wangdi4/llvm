@@ -14,7 +14,6 @@
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/LazyCallGraph.h"
 #include "llvm/ADT/SmallSet.h"    // INTEL
-#include "llvm/IR/CallSite.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Transforms/IPO/Intel_InlineReport.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_MDInlineReport.h" // INTEL
@@ -54,7 +53,7 @@ struct LegacyInlinerBase : public CallGraphSCCPass {
   /// This method must be implemented by the subclass to determine the cost of
   /// inlining the specified call site.  If the cost returned is greater than
   /// the current inline threshold, the call site is not inlined.
-  virtual InlineCost getInlineCost(CallSite CS) = 0;
+  virtual InlineCost getInlineCost(CallBase &CB) = 0;
 
   /// Remove dead functions.
   ///
@@ -90,8 +89,6 @@ protected:
   ProfileSummaryInfo *PSI;
   std::function<const TargetLibraryInfo &(Function &)> GetTLI;
   ImportedFunctionsInliningStatistics ImportedFunctionsStats;
-  SmallSet<CallBase *, 20> CallSitesForFusion; // INTEL
-  SmallSet<Function *, 20> FuncsForDTrans; // INTEL
 };
 
 /// The inliner pass for the new pass manager.

@@ -36,6 +36,7 @@ namespace llvm {
 
 namespace vpo {
 
+extern cl::opt<bool> UseDevicePtrIsDefaultByRef;
 class WRegionNode;
 class WRegionUtils;
 
@@ -123,6 +124,7 @@ class Item
     bool  IsByRef;   // true for a by-reference var
     bool  IsNonPod;  // true for a C++ NONPOD var
     bool  IsVla;     // true for variable-length arrays (C99)
+    bool IsPointerToPointer; // true if var is a pointer to pointer (e.g. i32**)
     EXPR ThunkBufferSize; // Tasks: size in bytes of the space needed for the
                           // item, in the buffer at the end of task thunk (e.g.
                           // C99 VLAs)
@@ -145,6 +147,9 @@ class Item
         : OrigItem(Orig), NewItem(nullptr), OrigGEP(nullptr),
 #endif // INTEL_CUSTOMIZATION
           IsByRef(false), IsNonPod(false), IsVla(false),
+          // TODO: Initialize IsPointerToPointer to false when clang changes
+          // to emit PTR_TO_PTR are in.
+          IsPointerToPointer(UseDevicePtrIsDefaultByRef),
           ThunkBufferSize(nullptr), NewThunkBufferSize(nullptr),
           PrivateThunkIdx(-1), SharedThunkIdx(-1), ThunkBufferOffset(nullptr),
           AliasScope(nullptr), NoAlias(nullptr), Kind(K) {
@@ -157,6 +162,7 @@ class Item
     void setIsByRef(bool Flag)    { IsByRef = Flag;     }
     void setIsNonPod(bool Flag)   { IsNonPod = Flag;    }
     void setIsVla(bool Flag)      { IsVla = Flag;       }
+    void setIsPointerToPointer(bool Flag) { IsPointerToPointer = Flag; }
     void setThunkBufferSize(EXPR Size) { ThunkBufferSize = Size; }
     void setNewThunkBufferSize(EXPR Size) { NewThunkBufferSize = Size; }
     void setPrivateThunkIdx(int I) { PrivateThunkIdx = I; }
@@ -171,6 +177,7 @@ class Item
     bool getIsByRef()       const { return IsByRef;        }
     bool getIsNonPod()      const { return IsNonPod;       }
     bool getIsVla()         const { return IsVla;          }
+    bool getIsPointerToPointer() const { return IsPointerToPointer; }
     EXPR getThunkBufferSize() const { return ThunkBufferSize; }
     EXPR getNewThunkBufferSize() const { return NewThunkBufferSize; }
     int getPrivateThunkIdx() const { return PrivateThunkIdx; }
@@ -202,12 +209,16 @@ class Item
 #endif // INTEL_CUSTOMIZATION
       if (getIsByRef())
         OS << "BYREF(";
+      if (getIsPointerToPointer())
+        OS << "PTR_TO_PTR(";
 #if INTEL_CUSTOMIZATION
       if (HOrigItem)
         HOrigItem->print(OS, PrintType);
       else
 #endif // INTEL_CUSTOMIZATION
       getOrig()->printAsOperand(OS, PrintType);
+      if (getIsPointerToPointer())
+        OS << ")";
       if (getIsByRef())
         OS << ")";
 #if INTEL_CUSTOMIZATION
@@ -220,12 +231,17 @@ class Item
 #if INTEL_CUSTOMIZATION
       if (getIsF90DopeVector()) {
         OS << "F90_DV";
-        if (getIsByRef())
+        if (getIsByRef() || getIsPointerToPointer())
           OS << ",";
       }
 #endif // INTEL_CUSTOMIZATION
-      if (getIsByRef())
+      if (getIsByRef()) {
         OS << "BYREF";
+        if (getIsPointerToPointer())
+          OS << ",";
+      }
+      if (getIsPointerToPointer())
+        OS << "PTR_TO_PTR";
       OS << "(" ;
 #if INTEL_CUSTOMIZATION
       if (HOrigItem)

@@ -21,6 +21,45 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
+// When a VPinstruction is added in a basic block list, the following method
+// updates the parent.
+void ilist_traits<VPInstruction>::addNodeToList(VPInstruction *VPInst) {
+  assert(!VPInst->getParent() && "VPInstruction already in a basic block");
+  VPInst->setParent(getListOwner<VPBasicBlock, VPInstruction>(this));
+}
+
+// When we remove a VPInstruction from a basic block list, we update its parent
+// pointer.
+void ilist_traits<VPInstruction>::removeNodeFromList(VPInstruction *VPInst) {
+  assert(VPInst->getParent() && "VPInstruction not in a basic block");
+  VPInst->setParent(nullptr);
+}
+
+// When moving a range of VPInstructions from one basic blocks list to another,
+// we need to update the parent.
+void ilist_traits<VPInstruction>::transferNodesFromList(ilist_traits &FromList,
+                                                        instr_iterator First,
+                                                        instr_iterator Last) {
+  // If it's within the same BB, there's nothing to do.
+  if (this == &FromList)
+    return;
+
+  VPBasicBlock *CurBB = getListOwner<VPBasicBlock, VPInstruction>(this);
+  VPBasicBlock *FromBB = getListOwner<VPBasicBlock, VPInstruction>(&FromList);
+  assert(CurBB != FromBB && "Two lists have the same parent?");
+  (void)CurBB;
+  (void)FromBB;
+
+  // If splicing between two blocks,then update the parent pointers.
+  for (; First != Last; ++First)
+    First->setParent(getListOwner<VPBasicBlock, VPInstruction>(this));
+}
+
+void ilist_traits<VPInstruction>::deleteNode(VPInstruction *VPInst) {
+  assert(!VPInst->getParent() && "VPInstruction is still in a block!");
+  getListOwner<VPBasicBlock, VPInstruction>(this)->eraseInstruction(VPInst);
+}
+
 void VPBlockUtils::insertBlockBefore(VPBasicBlock *NewBB,
                                      VPBasicBlock *BlockPtr) {
   insertBlockBefore(NewBB, BlockPtr, BlockPtr->getPredecessors());
@@ -29,26 +68,16 @@ void VPBlockUtils::insertBlockBefore(VPBasicBlock *NewBB,
 void VPBlockUtils::insertBlockBefore(VPBasicBlock *NewBB,
                                      VPBasicBlock *BlockPtr,
                                      SmallVectorImpl<VPBasicBlock *> &Preds) {
-  VPlan *CurPlan = BlockPtr->getParent();
   movePredecessors(BlockPtr, NewBB, Preds);
-  NewBB->setParent(CurPlan);
+  NewBB->insertBefore(BlockPtr);
   connectBlocks(NewBB, BlockPtr);
-  CurPlan->setSize(CurPlan->getSize() + 1);
-  // If BlockPtr is Plan's entry, set NewBlock as Plan's entry.
-  if (CurPlan->getEntryBlock() == BlockPtr)
-    CurPlan->setEntryBlock(NewBB);
 }
 
 void VPBlockUtils::insertBlockAfter(VPBasicBlock *NewBB,
                                     VPBasicBlock *BlockPtr) {
-  VPlan *CurPlan = BlockPtr->getParent();
   moveSuccessors(BlockPtr, NewBB);
-  NewBB->setParent(CurPlan);
+  NewBB->insertAfter(BlockPtr);
   connectBlocks(BlockPtr, NewBB);
-  CurPlan->setSize(CurPlan->getSize() + 1);
-  // If BlockPtr is Plan's exit, set NewBlock as Plan's exit.
-  if (CurPlan->getExitBlock() == BlockPtr)
-    CurPlan->setExitBlock(NewBB);
 }
 
 void VPBlockUtils::connectBlocks(VPBasicBlock *From, VPBasicBlock *To) {
@@ -239,6 +268,32 @@ VPBasicBlock *VPBlockUtils::splitBlockEnd(VPBasicBlock *BB, VPLoopInfo *VPLInfo,
   return splitBlock(BB, BB->end(), VPLInfo, DomTree, PostDomTree);
 }
 
+VPBasicBlock *VPBlockUtils::splitBlockAtPredicate(
+    VPBasicBlock *BB,
+    VPLoopInfo *VPLInfo,
+    VPDominatorTree *DomTree,
+    VPPostDominatorTree *PostDomTree) {
+
+  VPBasicBlock::iterator SplitPt = BB->end();
+  for (auto &VPInst : *BB) {
+    if (VPInst.getOpcode() == VPInstruction::Pred) {
+      SplitPt = VPInst.getIterator();
+      break;
+    }
+  }
+  assert(SplitPt != BB->end() && "Block predicate not found.");
+
+  return splitBlock(BB, SplitPt, VPLInfo, DomTree, PostDomTree);
+}
+
+VPBasicBlock::VPBasicBlock(const Twine &Name, VPlan *Plan)
+    : VPValue(VPBasicBlockSC, Type::getLabelTy(*Plan->getLLVMContext())),
+      // We don't insert the VPBB into the Plan's VPBasicBlockList here,
+      // so do NOT set parent.
+      Parent(nullptr) {
+  setName(Name);
+}
+
 void VPBasicBlock::appendSuccessor(VPBasicBlock *Successor) {
   assert(Successor && "Cannot add nullptr successor!");
   Successors.push_back(Successor);
@@ -296,10 +351,40 @@ void VPBasicBlock::setPredecessors(ArrayRef<VPBasicBlock *> NewPreds) {
     appendPredecessor(Pred);
 }
 
+void VPBasicBlock::insertBefore(VPBasicBlock *InsertPos) {
+  VPlan *CurPlan = InsertPos->getParent();
+   CurPlan->insertBefore(this, InsertPos);
+}
+
+void VPBasicBlock::insertAfter(VPBasicBlock *InsertPos) {
+  VPlan *CurPlan = InsertPos->getParent();
+   CurPlan->insertAfter(this, InsertPos);
+}
+
+VPValue *VPBasicBlock::getPredicate() {
+  if (!BlockPredicate)
+    return nullptr;
+  assert(BlockPredicate->getParent() == this &&
+         "Block predicate doesn't belong to this VPBasicBlock!");
+  return BlockPredicate->getOperand(0);
+}
+const VPValue *VPBasicBlock::getPredicate() const {
+  if (!BlockPredicate)
+    return nullptr;
+  assert(BlockPredicate->getParent() == this &&
+         "Block predicate doesn't belong to this VPBasicBlock!");
+  return BlockPredicate->getOperand(0);
+}
+void VPBasicBlock::setBlockPredicate(VPInstruction *BlockPredicate) {
+  assert(
+      (!BlockPredicate || BlockPredicate->getOpcode() == VPInstruction::Pred) &&
+      "VPBlockPredicate is expected!");
+  this->BlockPredicate = BlockPredicate;
+}
+
 void VPBasicBlock::insert(VPInstruction *Instruction, iterator InsertPt) {
   assert(Instruction && "No instruction to append.");
   assert(!Instruction->Parent && "Instruction already in VPlan");
-  Instruction->Parent = this;
   Instructions.insert(InsertPt, Instruction);
 }
 
@@ -309,7 +394,6 @@ void VPBasicBlock::appendInstruction(VPInstruction *Instruction) {
 
 void VPBasicBlock::addInstructionAfter(VPInstruction *Instruction,
                                        VPInstruction *After) {
-  Instruction->Parent = this;
   if (!After) {
     Instructions.insert(Instructions.begin(), Instruction);
   } else {
@@ -319,7 +403,6 @@ void VPBasicBlock::addInstructionAfter(VPInstruction *Instruction,
 
 void VPBasicBlock::addInstruction(VPInstruction *Instruction,
                                   VPInstruction *Before) {
-  Instruction->Parent = this;
   if (!Before) {
     Instructions.insert(Instructions.end(), Instruction);
   } else {
@@ -657,7 +740,7 @@ VPBasicBlock *VPBasicBlock::splitBlock(iterator I, const Twine &NewBBName) {
   if (NewName.empty())
     NewName = VPlanUtils::createUniqueName("BB");
 
-  VPBasicBlock *NewBB = new VPBasicBlock(NewName);
+  VPBasicBlock *NewBB = new VPBasicBlock(NewName, Parent);
   moveConditionalEOBTo(NewBB);
   NewBB->moveTripCountInfoFrom(this);
   VPBlockUtils::insertBlockAfter(NewBB, this);
@@ -668,36 +751,13 @@ VPBasicBlock *VPBasicBlock::splitBlock(iterator I, const Twine &NewBBName) {
     ++I;
 
   NewBB->Instructions.splice(NewBB->end(), Instructions, I, end());
-  // TODO: Make it automatical via splice above.
-  for (VPInstruction &VPInst : *NewBB)
-    VPInst.setParent(NewBB);
 
   // Once instructions have been moved, determine which block has a
   // block-predicate instruction now.
-  VPValue *OrigPredicate = getPredicate();
-
-  auto IsBlockPredicateForBlock = [](const VPUser *U,
-                                     const VPBasicBlock *BB) -> bool {
-    auto *Inst = dyn_cast<VPInstruction>(U);
-    if (!Inst)
-      return false;
-    return Inst->getOpcode() == VPInstruction::Pred && Inst->getParent() == BB;
-  };
-  auto HasBlockPredicate = [=](const VPBasicBlock *BB) {
-    return OrigPredicate != nullptr &&
-           llvm::any_of(OrigPredicate->users(), [=](const VPUser *U) {
-             return IsBlockPredicateForBlock(U, BB);
-           });
-  };
-
-  bool NewBlockHasPredicate = HasBlockPredicate(NewBB);
-  if (NewBlockHasPredicate) {
-    setPredicate(nullptr);
-    NewBB->setPredicate(OrigPredicate);
-  }
-  assert(
-      (!OrigPredicate || HasBlockPredicate(this) || HasBlockPredicate(NewBB)) &&
-      "Block predicate was lost!");
+  VPInstruction *BlockPredicate = getBlockPredicate();
+  setBlockPredicate(nullptr);
+  if (BlockPredicate)
+    BlockPredicate->getParent()->setBlockPredicate(BlockPredicate);
 
   // Update incoming block of VPPHINodes in successors, if any
   for (auto &Successor : NewBB->getSuccessors()) {
@@ -715,5 +775,35 @@ VPBasicBlock *VPBasicBlock::splitBlock(iterator I, const Twine &NewBBName) {
     }
   }
 
+  return NewBB;
+}
+VPBasicBlock *VPBlockUtils::splitEdge(VPBasicBlock *From, VPBasicBlock *To,
+                                      const Twine &Name, VPLoopInfo *VPLInfo,
+                                      VPDominatorTree *DomTree,
+                                      VPPostDominatorTree *PostDomTree) {
+  assert(is_contained(From->getSuccessors(), To) &&
+         "From and To do not form an edge!");
+  auto *NewBB = new VPBasicBlock(Name, From->getParent());
+  NewBB->insertAfter(From);
+  VPBlockUtils::replaceBlockSuccessor(From, To, NewBB);
+  VPBlockUtils::replaceBlockPredecessor(To, From, NewBB);
+  NewBB->appendPredecessor(From);
+  NewBB->appendSuccessor(To);
+  // FIXME: VPLInfo update.
+  if (VPLInfo) {
+    auto *FromLoop = VPLInfo->getLoopFor(From);
+    auto *ToLoop = VPLInfo->getLoopFor(To);
+    if (FromLoop) {
+      if (FromLoop == ToLoop) {
+        FromLoop->addBasicBlockToLoop(NewBB, *VPLInfo);
+      } else {
+        assert(false && "Not implemented!");
+      }
+    }
+  }
+  if (DomTree)
+    DomTree->recalculate(*From->getParent());
+  if (PostDomTree)
+    PostDomTree->recalculate(*From->getParent());
   return NewBB;
 }

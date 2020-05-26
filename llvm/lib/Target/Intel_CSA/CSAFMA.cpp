@@ -56,10 +56,14 @@ static bool checkFMAControl(unsigned F) { return (FMAControl & F) == F; }
 /// Returns immediate value for 1.0 constant of the given type.
 static int64_t getOne(MVT VT) {
   switch (VT.SimpleTy) {
+  case MVT::f16:
+    return 0x3C00;
   case MVT::f32:
     return 0x3f800000L;
   case MVT::f64:
     return 0x3ff0000000000000LL;
+  case MVT::v4f16:
+    return 0x3C003C003C003C00LL;
   case MVT::v2f32:
     return 0x3f8000003f800000LL;
   default:
@@ -70,10 +74,14 @@ static int64_t getOne(MVT VT) {
 /// Returns immediate value representing sign bit(s) for the given type.
 static int64_t getSignMask(MVT VT) {
   switch (VT.SimpleTy) {
+  case MVT::f16:
+    return 0x8000;
   case MVT::f32:
     return 0x80000000L;
   case MVT::f64:
     return 0x8000000000000000LL;
+  case MVT::v4f16:
+    return 0x8000800080008000LL;
   case MVT::v2f32:
     return 0x8000000080000000LL;
   default:
@@ -179,31 +187,44 @@ public:
 
 const FMAOpcodes::FMAOpcodeDesc FMAOpcodes::Descs[] = {
     // ADD
+    {CSA::ADDF16,    MVT::f16,   ADDOpc},
     {CSA::ADDF32,    MVT::f32,   ADDOpc},
     {CSA::ADDF64,    MVT::f64,   ADDOpc},
+    {CSA::ADDF16X4,  MVT::v4f16, ADDOpc},
     {CSA::ADDF32X2,  MVT::v2f32, ADDOpc},
     // SUB
+    {CSA::SUBF16,    MVT::f16,   SUBOpc},
     {CSA::SUBF32,    MVT::f32,   SUBOpc},
     {CSA::SUBF64,    MVT::f64,   SUBOpc},
+    {CSA::SUBF16X4,  MVT::v4f16, SUBOpc},
     {CSA::SUBF32X2,  MVT::v2f32, SUBOpc},
     // MUL
+    {CSA::MULF16,    MVT::f16,   MULOpc},
     {CSA::MULF32,    MVT::f32,   MULOpc},
     {CSA::MULF64,    MVT::f64,   MULOpc},
+    {CSA::MULF16X4,  MVT::v4f16, MULOpc},
     {CSA::MULF32X2,  MVT::v2f32, MULOpc},
     // NEG
+    {CSA::NEGF16,    MVT::f16,   NEGOpc},
     {CSA::NEGF32,    MVT::f32,   NEGOpc},
     {CSA::NEGF64,    MVT::f64,   NEGOpc},
     // FMA
+    {CSA::FMAF16,    MVT::f16,   FMAOpc},
     {CSA::FMAF32,    MVT::f32,   FMAOpc},
     {CSA::FMAF64,    MVT::f64,   FMAOpc},
+    {CSA::FMAF16X4,  MVT::v4f16, FMAOpc},
     {CSA::FMAF32X2,  MVT::v2f32, FMAOpc},
     // FMS
+    {CSA::FMSF16,    MVT::f16,   FMSOpc},
     {CSA::FMSF32,    MVT::f32,   FMSOpc},
     {CSA::FMSF64,    MVT::f64,   FMSOpc},
+    {CSA::FMSF16X4,  MVT::v4f16, FMSOpc},
     {CSA::FMSF32X2,  MVT::v2f32, FMSOpc},
     // FMRS
+    {CSA::FMRSF16,   MVT::f16,   FMRSOpc},
     {CSA::FMRSF32,   MVT::f32,   FMRSOpc},
     {CSA::FMRSF64,   MVT::f64,   FMRSOpc},
+    {CSA::FMRSF16X4, MVT::v4f16, FMRSOpc},
     {CSA::FMRSF32X2, MVT::v2f32, FMRSOpc}
 };
 
@@ -308,7 +329,7 @@ public:
   FMAImmediateTerm *createImm(MVT VT, int64_t Imm) {
     auto &Term = Imms[{VT, Imm}];
     if (!Term)
-      Term = make_unique<CSAFMAImmediateTerm>(VT, this, Imm);
+      Term = std::make_unique<CSAFMAImmediateTerm>(VT, this, Imm);
     return Term.get();
   }
 
@@ -327,7 +348,8 @@ public:
     // then just return the existing term. Otherwise, create a new term.
     auto &Term = RegToRegTerm[Reg];
     if (!Term)
-      Term = make_unique<FMARegisterTerm>(VT, this, Reg, RegToRegTerm.size());
+      Term =
+          std::make_unique<FMARegisterTerm>(VT, this, Reg, RegToRegTerm.size());
     return Term.get();
   }
 
@@ -487,9 +509,9 @@ bool CSAGlobalFMA::runOnMachineFunction(MachineFunction &MF) {
 
   // Initialize patterns and opcodes if it has not yet been done.
   if (!Patterns)
-    Patterns = make_unique<CSAFMAPatterns>();
+    Patterns = std::make_unique<CSAFMAPatterns>();
   if (!Opcodes)
-    Opcodes = make_unique<FMAOpcodes>();
+    Opcodes = std::make_unique<FMAOpcodes>();
 
   // Init insturction latencies.
   AddSubLatency = 4;
@@ -509,7 +531,7 @@ CSAGlobalFMA::parseBasicBlock(MachineBasicBlock &MBB) {
   // Find MUL/ADD/SUB/FMA/etc operations in the input machine instructions
   // and create internal FMA structures for them.
   // Exit if there are not enough optimizable expressions.
-  auto FMABB = make_unique<CSAFMABasicBlock>(MBB);
+  auto FMABB = std::make_unique<CSAFMABasicBlock>(MBB);
   if (FMABB->parseBasicBlock(*Opcodes, MRI) < 2)
     return nullptr;
   return FMABB;
@@ -627,10 +649,14 @@ void CSAGlobalFMA::generateOutputIR(FMAExpr &Expr, const FMADag &Dag) {
     if (NegateResult) {
       unsigned Opc = 0u;
       switch (VT.SimpleTy) {
+      case MVT::f16:
+        Opc = CSA::XOR16;
+        break;
       case MVT::f32:
         Opc = CSA::XOR32;
         break;
       case MVT::f64:
+      case MVT::v4f16:
       case MVT::v2f32:
         Opc = CSA::XOR64;
         break;

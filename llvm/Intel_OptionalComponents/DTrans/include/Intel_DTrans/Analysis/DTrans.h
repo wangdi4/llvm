@@ -47,6 +47,9 @@ class DTransAnalysisInfo;
 
 namespace dtrans {
 
+//Type used for DTrans transformation bitmask
+typedef uint32_t Transform;
+
 //
 // Enum to indicate the "single value" status of a field:
 //   Complete: All values of the field are constant and known.
@@ -103,13 +106,13 @@ public:
     return SVIAKind == SVK_Incomplete || ConstantIAValues.size() > 1;
   }
   bool isBottomAllocFunction() const { return SAFKind == SAFK_Bottom; }
-  llvm::Constant *getSingleValue() {
+  llvm::Constant *getSingleValue() const {
     return isSingleValue() ? *ConstantValues.begin() : nullptr;
   }
-  llvm::Constant *getSingleIAValue() {
+  llvm::Constant *getSingleIAValue() const {
     return isSingleIAValue() ? *ConstantIAValues.begin() : nullptr;
   }
-  llvm::Function *getSingleAllocFunction() {
+  llvm::Function *getSingleAllocFunction() const {
     return SAFKind == SAFK_Single ? SingleAllocFunction : nullptr;
   }
   void setRead(Instruction &I) { Read = true; addReader(I.getFunction());  }
@@ -138,11 +141,11 @@ public:
   uint64_t getFrequency() const { return Frequency; }
 
   // Returns a set of possible constant values.
-  llvm::SetVector<llvm::Constant *> &values()
+  const llvm::SetVector<llvm::Constant *> &values() const
       { return ConstantValues; }
 
   // Returns a set of possible indirect array constant values.
-  llvm::SetVector<llvm::Constant *> &iavalues()
+  const llvm::SetVector<llvm::Constant *> &iavalues() const
       { return ConstantIAValues; }
 
   // Returns true if the set of possible values is complete.
@@ -171,12 +174,12 @@ public:
 
   // For tracking the set of functions that read/write the field.
   typedef llvm::SmallPtrSet<Function*, 2> FunctionSet;
-  typedef llvm::SmallPtrSet<Function*, 2> &FunctionSetRef;
+  typedef llvm::SmallPtrSet<Function*, 2> const &FunctionSetConstRef;
 
   void addReader(Function *F) { Readers.insert(F); }
   void addWriter(Function *F) { Writers.insert(F); }
-  FunctionSetRef readers() { return Readers; }
-  FunctionSetRef writers() { return Writers; }
+  FunctionSetConstRef readers() const { return Readers; }
+  FunctionSetConstRef writers() const { return Writers; }
 
   // Lattice regarding the information contained within the Readers/Writers
   // sets.
@@ -197,6 +200,15 @@ public:
   bool isRWTop() const { return RWState == RWK_Top; }
   bool isRWComputed() const { return RWState == RWK_Computed; }
   bool isRWBottom() const { return RWState == RWK_Bottom; }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump() const { print(dbgs()); }
+
+  // An optional Transform bitmask, IgnoredInTransform, can be passed in to
+  // report extra information about field information that may be ignored for
+  // some transformation types.
+  void print(raw_ostream &OS, dtrans::Transform IgnoredInTransform = 0) const;
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 private:
   llvm::Type *LLVMType;
@@ -378,6 +390,9 @@ const SafetyData UnsafePointerStorePending = 0x0000000000100000000;
 // on entry to those functions.
 const SafetyData UnsafePointerStoreConditional = 0x0000000000200000000;
 
+/// The structure was identified as a dope vector type.
+const SafetyData DopeVector = 0x0000000000800000000;
+
 /// This is a catch-all flag that will be used to mark any usage pattern
 /// that we don't specifically recognize. The use might actually be safe
 /// or unsafe, but we will conservatively assume it is unsafe.
@@ -395,24 +410,25 @@ const SafetyData SDDeleteField =
         BadMemFuncManipulation | AmbiguousPointerTarget | UnsafePtrMerge |
         AddressTaken | NoFieldsInStruct | SystemObject | MismatchedArgUse |
         HasVTable | HasFnPtr | HasZeroSizedArray | HasFnPtr |
-        BadCastingConditional | UnsafePointerStoreConditional;
+        BadCastingConditional | UnsafePointerStoreConditional | DopeVector;
 
 const SafetyData SDReorderFields =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
         VolatileData | MismatchedElementAccess | WholeStructureReference |
         UnsafePointerStore | FieldAddressTaken | GlobalInstance |
-        HasInitializerList | UnsafePtrMerge | BadMemFuncSize | MemFuncPartialWrite |
-        BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
-        NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
-        MismatchedArgUse | LocalInstance | HasCppHandling |
-        BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse;
+        HasInitializerList | UnsafePtrMerge | BadMemFuncSize |
+        MemFuncPartialWrite | BadMemFuncManipulation | AmbiguousPointerTarget |
+        AddressTaken | NoFieldsInStruct | NestedStruct | ContainsNestedStruct |
+        SystemObject | MismatchedArgUse | LocalInstance | HasCppHandling |
+        BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse |
+        DopeVector;
 
 const SafetyData SDReorderFieldsDependent =
     BadPtrManipulation | GlobalInstance | HasInitializerList |
         MemFuncPartialWrite | NoFieldsInStruct | LocalInstance |
         BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse |
         WholeStructureReference | VolatileData | BadMemFuncSize |
-        BadMemFuncManipulation | AmbiguousPointerTarget;
+        BadMemFuncManipulation | AmbiguousPointerTarget | DopeVector;
 
 //
 // Safety conditions for field single value analysis
@@ -439,7 +455,8 @@ const SafetyData SDElimROFieldAccess =
         MismatchedElementAccess | UnsafePointerStore | FieldAddressTaken |
         BadMemFuncSize | BadMemFuncManipulation | AmbiguousPointerTarget |
         HasInitializerList | UnsafePtrMerge | AddressTaken | MismatchedArgUse |
-        BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse;
+        BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse |
+        DopeVector;
 
 //
 // Safety conditions for a structure to be considered for the AOS-to-SOA
@@ -453,7 +470,7 @@ const SafetyData SDAOSToSOA =
         NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
         LocalInstance | MismatchedArgUse | GlobalArray | HasVTable | HasFnPtr |
         HasCppHandling | HasZeroSizedArray |
-        BadCastingConditional | UnsafePointerStoreConditional;
+        BadCastingConditional | UnsafePointerStoreConditional | DopeVector;
 
 //
 // Safety conditions for a structure type that contains a pointer to a
@@ -462,10 +479,10 @@ const SafetyData SDAOSToSOA =
 const SafetyData SDAOSToSOADependent =
     BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
         MismatchedElementAccess | WholeStructureReference | UnsafePointerStore |
-        UnsafePtrMerge | AmbiguousPointerTarget | AddressTaken | NoFieldsInStruct |
-        NestedStruct | ContainsNestedStruct | SystemObject | MismatchedArgUse |
-        GlobalArray | HasVTable | HasCppHandling |
-        BadCastingConditional | UnsafePointerStoreConditional;
+        UnsafePtrMerge | AmbiguousPointerTarget | AddressTaken |
+        NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
+        MismatchedArgUse | GlobalArray | HasVTable | HasCppHandling |
+        BadCastingConditional | UnsafePointerStoreConditional | DopeVector;
 
 //
 // Safety conditions for a structure type that contains a pointer to a
@@ -479,19 +496,20 @@ const SafetyData SDAOSToSOADependentIndex32 =
         UnsafePointerStore | UnsafePtrMerge | BadMemFuncSize |
         BadMemFuncManipulation | MemFuncPartialWrite | AmbiguousPointerTarget |
         AddressTaken | NoFieldsInStruct | NestedStruct | ContainsNestedStruct |
-        SystemObject | MismatchedArgUse | GlobalArray | HasVTable | HasCppHandling |
-        HasZeroSizedArray | BadCastingConditional | UnsafePointerStoreConditional;
+        SystemObject | MismatchedArgUse | GlobalArray | HasVTable |
+        HasCppHandling | HasZeroSizedArray | BadCastingConditional |
+        UnsafePointerStoreConditional | DopeVector;
 
 const SafetyData SDDynClone =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
         VolatileData | MismatchedElementAccess | WholeStructureReference |
         UnsafePointerStore | FieldAddressTaken | GlobalInstance |
-        HasInitializerList | UnsafePtrMerge | BadMemFuncSize | MemFuncPartialWrite |
-        BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
-        NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
-        LocalInstance | MismatchedArgUse | GlobalArray | HasVTable | HasFnPtr |
-        HasZeroSizedArray | BadCastingConditional | UnsafePointerStoreConditional |
-        UnhandledUse;
+        HasInitializerList | UnsafePtrMerge | BadMemFuncSize |
+        MemFuncPartialWrite | BadMemFuncManipulation | AmbiguousPointerTarget |
+        AddressTaken | NoFieldsInStruct | NestedStruct | ContainsNestedStruct |
+        SystemObject | LocalInstance | MismatchedArgUse | GlobalArray |
+        HasVTable | HasFnPtr | HasZeroSizedArray | BadCastingConditional |
+        UnsafePointerStoreConditional | UnhandledUse | DopeVector;
 
 const SafetyData SDSOAToAOS =
     BadCasting | BadPtrManipulation |
@@ -501,7 +519,8 @@ const SafetyData SDSOAToAOS =
         BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
         NoFieldsInStruct | SystemObject | LocalInstance | MismatchedArgUse |
         GlobalArray | HasFnPtr | HasZeroSizedArray |
-        BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse;
+        BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse |
+        DopeVector;
 
 const SafetyData SDMemInitTrimDown =
     BadCasting | BadPtrManipulation |
@@ -511,14 +530,13 @@ const SafetyData SDMemInitTrimDown =
         BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
         NoFieldsInStruct | SystemObject | LocalInstance | MismatchedArgUse |
         GlobalArray | HasFnPtr | HasZeroSizedArray |
-        BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse;
+        BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse |
+        DopeVector;
 
 //
 // TODO: Update the list each time we add a new safety conditions check for a
 // new transformation pass.
 //
-typedef uint32_t Transform;
-
 const Transform DT_First = 0x0001;
 const Transform DT_FieldSingleValue = 0x0001;
 const Transform DT_FieldSingleAllocFunction = 0x0002;
@@ -569,9 +587,11 @@ public:
   void resetSafetyData(SafetyData Conditions) { SafetyInfo &= ~Conditions; }
   void clearSafetyData() { SafetyInfo = 0; }
 
-  void printSafetyData();
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void printSafetyData(raw_ostream &OS) const;
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-  CRuleTypeKind getCRuleTypeKind() { return CRTypeKind; }
+  CRuleTypeKind getCRuleTypeKind() const { return CRTypeKind; }
   void setCRuleTypeKind(CRuleTypeKind K) { CRTypeKind = K; }
 
   // Returns true if the type is a zero-sized array or it is a structure with a
@@ -622,6 +642,7 @@ public:
 
   size_t getNumFields() const { return Fields.size(); }
   SmallVectorImpl <FieldInfo> &getFields() { return Fields; }
+  const SmallVectorImpl <FieldInfo> &getFields() const { return Fields; }
   FieldInfo &getField(size_t N) { return Fields[N]; }
 
   /// Method to support type inquiry through isa, cast, and dyn_cast:
@@ -635,7 +656,19 @@ public:
   /// and/or FSAF safety checking.
   void setIgnoredFor(dtrans::Transform Flag) { IsIgnoredFor |= Flag; }
   /// Returns FSV and/or FSAF if the type was ignored in those optimizations.
-  dtrans::Transform getIgnoredFor() { return IsIgnoredFor; }
+  dtrans::Transform getIgnoredFor() const { return IsIgnoredFor; }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump() const { print(dbgs()); }
+
+  // Print the structure information.
+  // An optional annotation function can be passed in to report extra
+  // information about the structure, such as transformations that will ignore
+  // the safety mask.
+  void print(raw_ostream &OS,
+             std::function<void(raw_ostream &OS, const StructInfo *)>
+                 *Annotator = nullptr) const;
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
   // To represent call graph in C++ one stores outermost type,
   // in whose methods there was reference to this structure.
@@ -694,6 +727,11 @@ public:
   static inline bool classof(const TypeInfo *TI) {
     return TI->getTypeInfoKind() == TypeInfo::ArrayInfo;
   }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump() const { print(dbgs()); }
+  void print(raw_ostream &OS) const;
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 private:
   TypeInfo *DTransElemTy;
@@ -1055,8 +1093,10 @@ bool isSystemObjectType(llvm::StructType *Ty);
 /// we are unwilling to attempts dtrans optimizations.
 unsigned getMaxFieldsInStruct();
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 /// Get the transformation printable name.
 StringRef getStringForTransform(dtrans::Transform Trans);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 /// Get the safety conditions for the transformation.
 dtrans::SafetyData getConditionsForTransform(dtrans::Transform Trans,
                                              bool DTransOutOfBoundsOK);
@@ -1088,6 +1128,11 @@ bool dtransCompositeIndexValid(llvm::Type *Ty, unsigned Idx);
 
 // Returns type at "Idx" in "Ty".
 llvm::Type *dtransCompositeGetTypeAtIndex(llvm::Type *Ty, unsigned Idx);
+
+// Return the type loaded if the Load instruction is loading the 0 element
+// in a structure
+llvm::Type* getTypeForZeroElementLoaded(LoadInst *Load,
+                                        llvm::Type **Pointee);
 
 } // namespace dtrans
 

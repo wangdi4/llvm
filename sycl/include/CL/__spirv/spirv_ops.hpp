@@ -9,6 +9,7 @@
 #pragma once
 #include <CL/__spirv/spirv_types.hpp>
 #include <CL/sycl/detail/defines.hpp>
+#include <CL/sycl/detail/export.hpp>
 #include <cstddef>
 #include <cstdint>
 #include <type_traits>
@@ -203,6 +204,59 @@ __SYCL_CONVERGENT__ extern SYCL_EXTERNAL void
 __spirv_SubgroupBlockWriteINTEL(__attribute__((opencl_global)) uint32_t *Ptr,
                                 dataT Data) noexcept;
 
+// INTEL_COLLAB
+template <int W, int rW>
+extern SYCL_EXTERNAL ap_int<rW>
+__spirv_FixedSqrtINTEL(ap_int<W> a, bool S, int32_t I, int32_t rI,
+                       int32_t Quantization = 0, int32_t Overflow = 0) noexcept;
+template <int W, int rW>
+extern SYCL_EXTERNAL ap_int<rW>
+__spirv_FixedRecipINTEL(ap_int<W> a, bool S, int32_t I, int32_t rI,
+                        int32_t Quantization = 0,
+                        int32_t Overflow = 0) noexcept;
+template <int W, int rW>
+extern SYCL_EXTERNAL ap_int<rW>
+__spirv_FixedRsqrtINTEL(ap_int<W> a, bool S, int32_t I, int32_t rI,
+                        int32_t Quantization = 0,
+                        int32_t Overflow = 0) noexcept;
+template <int W, int rW>
+extern SYCL_EXTERNAL ap_int<rW>
+__spirv_FixedSinINTEL(ap_int<W> a, bool S, int32_t I, int32_t rI,
+                      int32_t Quantization = 0, int32_t Overflow = 0) noexcept;
+template <int W, int rW>
+extern SYCL_EXTERNAL ap_int<rW>
+__spirv_FixedCosINTEL(ap_int<W> a, bool S, int32_t I, int32_t rI,
+                      int32_t Quantization = 0, int32_t Overflow = 0) noexcept;
+template <int W, int rW>
+extern SYCL_EXTERNAL ap_int<2 * rW>
+__spirv_FixedSinCosINTEL(ap_int<W> a, bool S, int32_t I, int32_t rI,
+                         int32_t Quantization = 0,
+                         int32_t Overflow = 0) noexcept;
+template <int W, int rW>
+extern SYCL_EXTERNAL ap_int<rW>
+__spirv_FixedSinPiINTEL(ap_int<W> a, bool S, int32_t I, int32_t rI,
+                        int32_t Quantization = 0,
+                        int32_t Overflow = 0) noexcept;
+template <int W, int rW>
+extern SYCL_EXTERNAL ap_int<rW>
+__spirv_FixedCosPiINTEL(ap_int<W> a, bool S, int32_t I, int32_t rI,
+                        int32_t Quantization = 0,
+                        int32_t Overflow = 0) noexcept;
+template <int W, int rW>
+extern SYCL_EXTERNAL ap_int<2 * rW>
+__spirv_FixedSinCosPiINTEL(ap_int<W> a, bool S, int32_t I, int32_t rI,
+                           int32_t Quantization = 0,
+                           int32_t Overflow = 0) noexcept;
+template <int W, int rW>
+extern SYCL_EXTERNAL ap_int<rW>
+__spirv_FixedLogINTEL(ap_int<W> a, bool S, int32_t I, int32_t rI,
+                      int32_t Quantization = 0, int32_t Overflow = 0) noexcept;
+template <int W, int rW>
+extern SYCL_EXTERNAL ap_int<rW>
+__spirv_FixedExpINTEL(ap_int<W> a, bool S, int32_t I, int32_t rI,
+                      int32_t Quantization = 0, int32_t Overflow = 0) noexcept;
+// end INTEL_COLLAB
+
 template <typename dataT>
 extern SYCL_EXTERNAL int32_t __spirv_ReadPipe(RPipeTy<dataT> Pipe, dataT *Data,
                                               int32_t Size,
@@ -256,16 +310,17 @@ OpGroupAsyncCopyLocalToGlobal(__spv::Scope::Flag Execution, dataT *Dest,
   return nullptr;
 }
 
-extern void __spirv_ocl_prefetch(const char *Ptr, size_t NumBytes) noexcept;
+extern __SYCL_EXPORT void __spirv_ocl_prefetch(const char *Ptr,
+                                               size_t NumBytes) noexcept;
 
-__SYCL_CONVERGENT__ extern SYCL_EXTERNAL void
+__SYCL_CONVERGENT__ extern SYCL_EXTERNAL __SYCL_EXPORT void
 __spirv_ControlBarrier(__spv::Scope Execution, __spv::Scope Memory,
                        uint32_t Semantics) noexcept;
 
-__SYCL_CONVERGENT__ extern SYCL_EXTERNAL void
+__SYCL_CONVERGENT__ extern SYCL_EXTERNAL __SYCL_EXPORT void
 __spirv_MemoryBarrier(__spv::Scope Memory, uint32_t Semantics) noexcept;
 
-__SYCL_CONVERGENT__ extern SYCL_EXTERNAL void
+__SYCL_CONVERGENT__ extern SYCL_EXTERNAL __SYCL_EXPORT void
 __spirv_GroupWaitEvents(__spv::Scope Execution, uint32_t NumEvents,
                         __ocl_event_t *WaitEvents) noexcept;
 

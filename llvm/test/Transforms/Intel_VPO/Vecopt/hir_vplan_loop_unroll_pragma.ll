@@ -10,16 +10,18 @@
 ; }
 
 define dso_local void @_Z3fooPii(i32* nocapture %a, i32 %n) local_unnamed_addr #0 {
-; CHECK-LABEL:  After VPlan loop unrolling
+; CHECK-LABEL:  VPlan after loop unrolling
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=4
+; CHECK-NEXT:  External Defs Start:
+; CHECK-DAG:     [[VP0:%.*]] = {%a}
+; CHECK-DAG:     [[VP1:%.*]] = {sext.i32.i64(%n) + -1}
+; CHECK-NEXT:  External Defs End:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]:
-; CHECK-NEXT:     [DA: Uni] i64 [[VP0:%.*]] = sext i32 [[N0:%.*]] to i64
-; CHECK-NEXT:     [DA: Uni] i64 [[VP1:%.*]] = add i64 [[VP0]] i64 -1
 ; CHECK-NEXT:     [DA: Div] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
@@ -33,7 +35,7 @@ define dso_local void @_Z3fooPii(i32* nocapture %a, i32 %n) local_unnamed_addr #
 ; CHECK-NEXT:     [DA: Div] i32* [[VP7:%.*]] = getelementptr inbounds i32* [[A0]] i64 [[VP2]]
 ; CHECK-NEXT:     [DA: Div] store i32 [[VP6]] i32* [[VP7]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP8:%.*]] = add i64 [[VP2]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP9:%.*]] = icmp i64 [[VP8]] i64 [[VP1]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP9:%.*]] = icmp i64 [[VP8]] i64 [[VP1]]
 ; CHECK-NEXT:    SUCCESSORS(1):cloned.[[BB4:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] cloned.[[BB3]]
 ; CHECK-EMPTY:
@@ -73,7 +75,7 @@ define dso_local void @_Z3fooPii(i32* nocapture %a, i32 %n) local_unnamed_addr #
 ; CHECK-NEXT:  Function: _Z3fooPii
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  <0>          BEGIN REGION { modified }
-; CHECK-NEXT:  <23>               [[TGU0:%.*]] = (sext.i32.i64([[N0]]))/u12
+; CHECK-NEXT:  <23>               [[TGU0:%.*]] = (sext.i32.i64([[N0:%.*]]))/u12
 ; CHECK-NEXT:  <25>               if (0 <u 12 * [[TGU0]])
 ; CHECK-NEXT:  <25>               {
 ; CHECK-NEXT:  <24>                  + DO i1 = 0, 12 * [[TGU0]] + -1, 12   <DO_LOOP> <nounroll> <novectorize>
@@ -100,15 +102,12 @@ define dso_local void @_Z3fooPii(i32* nocapture %a, i32 %n) local_unnamed_addr #
 ; VPVALCG-NEXT:  <25>               if (0 <u 12 * [[TGU0]])
 ; VPVALCG-NEXT:  <25>               {
 ; VPVALCG-NEXT:  <24>                  + DO i1 = 0, 12 * [[TGU0]] + -1, 12   <DO_LOOP> <nounroll> <novectorize>
-; VPVALCG-NEXT:  <27>                  |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[A0:%.*]])[i1 + <i64 0, i64 1, i64 2, i64 3>]
-; VPVALCG-NEXT:  <28>                  |   [[DOTVEC20:%.*]] = [[DOTVEC0]]  +  1
-; VPVALCG-NEXT:  <29>                  |   (<4 x i32>*)([[A0]])[i1 + <i64 0, i64 1, i64 2, i64 3>] = [[DOTVEC20]]
-; VPVALCG-NEXT:  <30>                  |   [[DOTVEC30:%.*]] = (<4 x i32>*)([[A0]])[i1 + <i64 0, i64 1, i64 2, i64 3> + 4]
-; VPVALCG-NEXT:  <31>                  |   [[DOTVEC40:%.*]] = [[DOTVEC30]]  +  1
-; VPVALCG-NEXT:  <32>                  |   (<4 x i32>*)([[A0]])[i1 + <i64 0, i64 1, i64 2, i64 3> + 4] = [[DOTVEC40]]
-; VPVALCG-NEXT:  <33>                  |   [[DOTVEC50:%.*]] = (<4 x i32>*)([[A0]])[i1 + <i64 0, i64 1, i64 2, i64 3> + 8]
-; VPVALCG-NEXT:  <34>                  |   [[DOTVEC60:%.*]] = [[DOTVEC50]]  +  1
-; VPVALCG-NEXT:  <35>                  |   (<4 x i32>*)([[A0]])[i1 + <i64 0, i64 1, i64 2, i64 3> + 8] = [[DOTVEC60]]
+; VPVALCG-NEXT:  <27>                  |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[A0:%.*]])[i1]
+; VPVALCG-NEXT:  <28>                  |   (<4 x i32>*)([[A0]])[i1] = [[DOTVEC0]] + 1
+; VPVALCG-NEXT:  <29>                  |   [[DOTVEC20:%.*]] = (<4 x i32>*)([[A0]])[i1 + 4]
+; VPVALCG-NEXT:  <30>                  |   (<4 x i32>*)([[A0]])[i1 + 4] = 1 + [[DOTVEC20]]
+; VPVALCG-NEXT:  <31>                  |   [[DOTVEC30:%.*]] = (<4 x i32>*)([[A0]])[i1 + 8]
+; VPVALCG-NEXT:  <32>                  |   (<4 x i32>*)([[A0]])[i1 + 8] = 1 + [[DOTVEC30]]
 ; VPVALCG-NEXT:  <24>                  + END LOOP
 ; VPVALCG-NEXT:  <25>               }
 ; VPVALCG-NEXT:  <22>

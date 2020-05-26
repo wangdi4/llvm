@@ -775,7 +775,7 @@ public:
     }
     return nullptr;
   }
-  void getShuffleMask(SmallVectorImpl<uint32_t> &Result) const {
+  void getShuffleMask(SmallVectorImpl<int> &Result) const {
     const OVLSConstant *C = cast<const OVLSConstant>(Op3);
     for (unsigned i = 0; i < Op3->getType().getNumElements(); i++)
       Result.push_back(C->getElement(i));

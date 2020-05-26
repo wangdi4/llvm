@@ -43,11 +43,12 @@ entry:
 ; CHECK-NOT: call token @llvm.directive.region.entry()
 ; CHECK-NOT: call token @llvm.directive.region.exit()
 ; Check for array section reduction local copy preparation
-; CHECK-DAG: %[[LOCAL_MINUS_OFFSET:[a-zA-Z._0-9]+]] = getelementptr i32, i32* %[[LOCAL:[a-zA-Z._0-9]+]], i64 -20
+; CHECK-DAG: %[[LOCAL_GEP:[a-zA-Z._0-9]+]] = getelementptr inbounds [40 x i32], [40 x i32]* %[[LOCAL:[a-zA-Z._0-9]+]], i32 0, i32 0
+; CHECK-DAG: %[[LOCAL_MINUS_OFFSET:[a-zA-Z._0-9]+]] = getelementptr i32, i32* %[[LOCAL_GEP]], i64 -20
 ; CHECK-DAG: %[[LOCAL_MINUS_OFFSET_CAST:[a-zA-Z._0-9]+]] = bitcast i32* %[[LOCAL_MINUS_OFFSET]] to [3 x [4 x [5 x i32]]]*
 ; Zero-trip test for reduction array initialization
-; CHECK-DAG: %[[LOCAL_END:[0-9]+]] = getelementptr i32, i32* %[[LOCAL]], i64 40
-; CHECK-DAG: %{{[a-zA-Z._0-9]+}} = icmp eq i32* %[[LOCAL]], %[[LOCAL_END]]
+; CHECK-DAG: %[[LOCAL_END:[0-9]+]] = getelementptr i32, i32* %[[LOCAL_GEP]], i64 40
+; CHECK-DAG: %{{[a-zA-Z._0-9]+}} = icmp eq i32* %[[LOCAL_GEP]], %[[LOCAL_END]]
   %1 = load i32, i32* %.omp.lb, align 4
   store i32 %1, i32* %.omp.iv, align 4
   br label %omp.inner.for.cond

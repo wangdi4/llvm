@@ -79,7 +79,7 @@
 //
 //
 //===----------------------------------------------------------------------===//
-#include "llvm/Transforms/Intel_LoopTransforms/HIRRuntimeDD.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRRuntimeDDPass.h"
 
 #include "llvm/Pass.h"
 
@@ -99,7 +99,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
-#include "HIRRuntimeDDImpl.h"
+#include "HIRRuntimeDD.h"
 
 #include <memory>
 
@@ -361,38 +361,10 @@ static void replaceIVByBound(RegDDRef *Ref, const HLLoop *Loop,
   }
 }
 
-static bool hasConstDimensionDistances(const RegDDRef *Ref1,
-                                       const RegDDRef *Ref2) {
-  // Dealing with GEP refs only
-  assert(Ref1->hasGEPInfo() && Ref2->hasGEPInfo() &&
-         "Both refs are expected to be memrefs");
-
-  if (!DDRefUtils::haveEqualBaseAndShape(Ref1, Ref2, false)) {
-    return false;
-  }
-
-  for (unsigned I = Ref1->getNumDimensions(); I > 0; --I) {
-    const CanonExpr *Ref1CE = Ref1->getDimensionIndex(I);
-    const CanonExpr *Ref2CE = Ref2->getDimensionIndex(I);
-
-    // Do not allow different offsets in outer dimensions.
-    if (I != 1 && DDRefUtils::compareOffsets(Ref1, Ref2, I)) {
-      return false;
-    }
-
-    bool Res = CanonExprUtils::getConstDistance(Ref1CE, Ref2CE, nullptr, false);
-
-    if (!Res) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
 static bool sortRefsInSingleGroup(RefGroupTy &Group) {
   for (int I = 0, E = Group.size() - 1; I < E; ++I) {
-    if (!hasConstDimensionDistances(Group[I], Group[I + 1])) {
+    if (!DDRefUtils::haveConstDimensionDistances(Group[I], Group[I + 1],
+                                                 false)) {
       return false;
     }
   }
@@ -1002,23 +974,10 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
 
   // Populate reference groups split by base blob index.
   // Populate a reference-to-group-number map.
-  DenseMap<RegDDRef *, unsigned> RefGroupIndex;
-  {
-    DenseMap<unsigned, unsigned> GroupIndex;
-    for (RegDDRef *Ref : Refs) {
-      unsigned &GroupNo = GroupIndex[Ref->getBasePtrBlobIndex()];
-      if (GroupNo == 0) {
-        GroupNo = GroupIndex.size();
-        Groups.emplace_back();
-      }
-
-      RefGroupIndex[Ref] = GroupNo - 1;
-      Groups[GroupNo - 1].push_back(Ref);
-    }
-  }
+  RefGrouper Grouping(Refs, Groups);
 
   SmallSetVector<std::pair<unsigned, unsigned>, ExpectedNumberOfTests> Tests;
-  Ret = processDDGToGroupPairs(Loop, Refs, RefGroupIndex, Tests);
+  Ret = processDDGToGroupPairs(Loop, Refs, Grouping.getRefGroupIndex(), Tests);
   if (Ret != OK) {
     return Ret;
   }

@@ -284,15 +284,16 @@ public:
   /// Creating this name is expensive, so it should be called only when
   /// performance doesn't matter.
   void printQualifiedName(raw_ostream &OS) const;
-  void printQualifiedName(raw_ostream &OS, const PrintingPolicy &Policy) const;
+  void printQualifiedName(raw_ostream &OS, const PrintingPolicy &Policy,
+                          bool WithGlobalNsPrefix = false) const;
 
   /// Print only the nested name specifier part of a fully-qualified name,
   /// including the '::' at the end. E.g.
   ///    when `printQualifiedName(D)` prints "A::B::i",
   ///    this function prints "A::B::".
   void printNestedNameSpecifier(raw_ostream &OS) const;
-  void printNestedNameSpecifier(raw_ostream &OS,
-                                const PrintingPolicy &Policy) const;
+  void printNestedNameSpecifier(raw_ostream &OS, const PrintingPolicy &Policy,
+                                bool WithGlobalNsPrefix = false) const;
 
   // FIXME: Remove string version.
   std::string getQualifiedNameAsString() const;
@@ -2031,7 +2032,7 @@ public:
   /// declaration to the declaration that is a definition (if there is one).
   bool isDefined(const FunctionDecl *&Definition) const;
 
-  virtual bool isDefined() const {
+  bool isDefined() const {
     const FunctionDecl* Definition;
     return isDefined(Definition);
   }
@@ -3962,6 +3963,11 @@ public:
     return cast_or_null<RecordDecl>(TagDecl::getDefinition());
   }
 
+  /// Returns whether this record is a union, or contains (at any nesting level)
+  /// a union member. This is used by CMSE to warn about possible information
+  /// leaks.
+  bool isOrContainsUnion() const;
+
   // Iterator access to field members. The field iterator only visits
   // the non-static data members of this class, ignoring any static
   // data members, functions, constructors, destructors, etc.
@@ -4542,6 +4548,14 @@ inline bool IsEnumDeclComplete(EnumDecl *ED) {
 inline bool IsEnumDeclScoped(EnumDecl *ED) {
   return ED->isScoped();
 }
+
+/// OpenMP variants are mangled early based on their OpenMP context selector.
+/// The new name looks likes this:
+///  <name> + OpenMPVariantManglingSeparatorStr + <mangled OpenMP context>
+static constexpr StringRef getOpenMPVariantManglingSeparatorStr() {
+  return ".ompvariant";
+}
+
 } // namespace clang
 
 #endif // LLVM_CLANG_AST_DECL_H

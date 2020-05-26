@@ -25,6 +25,7 @@ if (NOT OpenCL_INCLUDE_DIRS)
             STEP_TARGETS build
             COMMENT "Downloading OpenCL headers."
             )
+    add_definitions(-DCL_TARGET_OPENCL_VERSION=220)
 else ()
     add_custom_target(opencl-headers ALL
             DEPENDS ${OpenCL_INCLUDE_DIRS}
@@ -80,11 +81,18 @@ file(GLOB TARGET_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/source/*.cpp)
 
 set(OPENCL_AOT_PROJECT_NAME opencl-aot)
 
-add_llvm_tool(${OPENCL_AOT_PROJECT_NAME} ${TARGET_SOURCES})
+add_llvm_tool(${OPENCL_AOT_PROJECT_NAME} ${TARGET_SOURCES} CUSTOM_WIN_VER)
 
 add_dependencies(${OPENCL_AOT_PROJECT_NAME} opencl-headers opencl-icd)
 
 target_link_libraries(${OPENCL_AOT_PROJECT_NAME} PRIVATE OpenCL)
+
+if(INTEL_CUSTOMIZATION)
+  dpcpptarget_add_resource_file(${OPENCL_AOT_PROJECT_NAME}
+    "${OPENCL_AOT_PROJECT_NAME}.exe"
+    "Intel(R) oneAPI DPC++ Compiler"
+    "OpenCL ahead-of-time (AOT) compilation tool.")
+endif()
 
 # Use it as fake dependency in order to force another command(s) to execute.
 add_custom_command(OUTPUT __force_it

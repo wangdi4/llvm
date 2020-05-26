@@ -315,6 +315,16 @@ define void @test22(%struct.test22* %p) {
 ; CHECK: LLVMType: %struct.test22 = type { i32, i32 }
 ; CHECK: Safety data: Whole structure reference
 
+; Direct volatile load of a structure as the whole structure.
+%struct.test22v = type { i32, i32 }
+define void @test22v(%struct.test22v* %p) {
+  %t = load volatile %struct.test22v, %struct.test22v* %p
+  ret void
+}
+
+; CHECK: LLVMType: %struct.test22v = type { i32, i32 }
+; CHECK: Safety data: Volatile data | Whole structure reference
+
 ; Direct store of a structure as a structure.
 %struct.test23 = type { i32, i32 }
 define void @test23(%struct.test23 %s, %struct.test23* %p) {
@@ -324,6 +334,16 @@ define void @test23(%struct.test23 %s, %struct.test23* %p) {
 
 ; CHECK: LLVMType: %struct.test23 = type { i32, i32 }
 ; CHECK: Safety data: Whole structure reference
+
+; Direct volatile store of a structure as the whole structure.
+%struct.test23v = type { i32, i32 }
+define void @test23v(%struct.test23v %s, %struct.test23v* %p) {
+  store volatile %struct.test23v %s, %struct.test23v* %p
+  ret void
+}
+
+; CHECK: LLVMType: %struct.test23v = type { i32, i32 }
+; CHECK: Safety data: Volatile data | Whole structure reference
 
 ; Load an entire structure through a nested element access.
 %struct.test24.a = type { i32, i32 }

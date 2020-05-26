@@ -22,10 +22,6 @@ class Function;
 class FunctionPass;
 class ModulePass;
 class Pass;
-class GetElementPtrInst;
-class PassInfo;
-class TargetLowering;
-class TargetMachine;
 
 //===----------------------------------------------------------------------===//
 //
@@ -307,6 +303,9 @@ ModulePass *createTransformFPGARegPass();
 // CleanupFakeLoadsPass is a pass which removes intel.fakeload intrinsics
 // (which are needed by TbaaMDPropagationPass) after all inlining is finished.
 FunctionPass *createCleanupFakeLoadsPass();
+
+// FunctionRecognizer - Mark recognizable Functions with Function Attributes
+FunctionPass *createFunctionRecognizerLegacyPass(void);
 
 // IndirectCallConv - Converts indirect calls to direct calls using
 // points-to info and/or DTrans Field Single Value Info if possible

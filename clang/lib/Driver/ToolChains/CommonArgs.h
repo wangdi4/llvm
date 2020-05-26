@@ -62,6 +62,13 @@ void addLTOOptions(const ToolChain &ToolChain, const llvm::opt::ArgList &Args,
                    llvm::opt::ArgStringList &CmdArgs, const InputInfo &Output,
                    const InputInfo &Input, bool IsThinLTO);
 
+#if INTEL_CUSTOMIZATION
+void addIntelOptimizationArgs(const ToolChain &TC,
+                              const llvm::opt::ArgList &Args,
+                              llvm::opt::ArgStringList &CmdArgs,
+                              const JobAction &JA);
+#endif // INTEL_CUSTOMIZATION
+
 std::tuple<llvm::Reloc::Model, unsigned, bool>
 ParsePICArgs(const ToolChain &ToolChain, const llvm::opt::ArgList &Args);
 
@@ -88,7 +95,8 @@ llvm::opt::Arg *getLastProfileSampleUseArg(const llvm::opt::ArgList &Args);
 
 bool isObjCAutoRefCount(const llvm::opt::ArgList &Args);
 
-unsigned getLTOParallelism(const llvm::opt::ArgList &Args, const Driver &D);
+llvm::StringRef getLTOParallelism(const llvm::opt::ArgList &Args,
+                                  const Driver &D);
 
 bool areOptimizationsEnabled(const llvm::opt::ArgList &Args);
 

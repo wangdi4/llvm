@@ -46,8 +46,8 @@ DTransImmutableInfo DTransImmutableAnalysis::run(Function &F,
 
 void DTransImmutableInfo::addStructFieldInfo(
     StructType *StructTy, unsigned FieldNum,
-    SetVector<Constant *> &LikelyValues,
-    SetVector<Constant *> &LikelyIndirectArrayValues) {
+    const SetVector<Constant *> &LikelyValues,
+    const SetVector<Constant *> &LikelyIndirectArrayValues) {
 
   StructInfo *SInfo = nullptr;
 
@@ -94,6 +94,7 @@ DTransImmutableInfo::getLikelyIndirectArrayConstantValues(StructType *StructTy,
   return &Iter->second->Fields[FieldNum].LikelyIndirectArrayValues;
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void DTransImmutableInfo::print(raw_ostream &OS) const {
 
   for (auto &Info : StructInfoMap) {
@@ -129,3 +130,4 @@ void DTransImmutableInfo::print(raw_ostream &OS) const {
     }
   }
 }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

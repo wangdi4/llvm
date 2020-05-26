@@ -13,8 +13,6 @@ define void @test1(i64 %n, i64 addrspace(4)* %arr) {
 ; LLVM-CG:       vector.ph:
 ; LLVM-CG-NEXT:    [[BROADCAST_SPLATINSERT:%.*]] = insertelement <2 x i64 addrspace(4)*> undef, i64 addrspace(4)* [[ARR:%.*]], i32 0
 ; LLVM-CG-NEXT:    [[BROADCAST_SPLAT:%.*]] = shufflevector <2 x i64 addrspace(4)*> [[BROADCAST_SPLATINSERT]], <2 x i64 addrspace(4)*> undef, <2 x i32> zeroinitializer
-; LLVM-CG-NEXT:    [[BROADCAST_SPLATINSERT3:%.*]] = insertelement <2 x i64> undef, i64 [[N:%.*]], i32 0
-; LLVM-CG-NEXT:    [[BROADCAST_SPLAT4:%.*]] = shufflevector <2 x i64> [[BROADCAST_SPLATINSERT3]], <2 x i64> undef, <2 x i32> zeroinitializer
 ; LLVM-CG-NEXT:    br label [[VECTOR_BODY:%.*]]
 ; LLVM-CG:       vector.body:
 ; LLVM-CG:         [[MM_VECTORGEP:%.*]] = getelementptr inbounds i64, <2 x i64 addrspace(4)*> [[BROADCAST_SPLAT]], <2 x i64> [[VEC_PHI:%.*]]
@@ -52,8 +50,8 @@ define void @test1(i64 %n, i64 addrspace(4)* %arr) {
 ; LLVM-CG:       pred.atomicrmw.continue:
 ; LLVM-CG-NEXT:    [[PREDICATE2:%.*]] = extractelement <2 x i1> [[TMP0]], i64 1
 ; LLVM-CG-NEXT:    [[TMP21:%.*]] = icmp eq i1 [[PREDICATE2]], true
-; LLVM-CG-NEXT:    br i1 [[TMP21]], label [[PRED_ATOMICRMW_IF5:%.*]], label [[TMP24:%.*]]
-; LLVM-CG:       pred.atomicrmw.if5:
+; LLVM-CG-NEXT:    br i1 [[TMP21]], label [[PRED_ATOMICRMW_IF6:%.*]], label [[TMP24:%.*]]
+; LLVM-CG:       pred.atomicrmw.if4:
 ; LLVM-CG-NEXT:    [[TMP22:%.*]] = atomicrmw volatile add i64 addrspace(4)* [[DOTSPLAT_EXTRACT_0_]], i64 1 acquire
 ; LLVM-CG-NEXT:    [[TMP23:%.*]] = insertelement <2 x i64> [[TMP20]], i64 [[TMP22]], i32 1
 ; LLVM-CG-NEXT:    br label [[TMP24]]

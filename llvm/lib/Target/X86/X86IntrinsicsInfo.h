@@ -451,6 +451,14 @@ static const IntrinsicData  IntrinsicsWithoutChain[] = {
   X86_INTRINSIC_DATA(avx2_vpdpbuuds_128, INTR_TYPE_3OP, X86ISD::VPDPBUUDS, 0),
   X86_INTRINSIC_DATA(avx2_vpdpbuuds_256, INTR_TYPE_3OP, X86ISD::VPDPBUUDS, 0),
 #endif // INTEL_FEATURE_ISA_AVX_DOTPROD
+#if INTEL_FEATURE_ISA_AVX_BF16
+  X86_INTRINSIC_DATA(avx2bf16_cvtne2ps2bf16_128, INTR_TYPE_2OP, X86ISD::CVTNE2PS2BF16VEX, 0),
+  X86_INTRINSIC_DATA(avx2bf16_cvtne2ps2bf16_256, INTR_TYPE_2OP, X86ISD::CVTNE2PS2BF16VEX, 0),
+  X86_INTRINSIC_DATA(avx2bf16_cvtneps2bf16_128,  INTR_TYPE_1OP, X86ISD::CVTNEPS2BF16VEX, 0),
+  X86_INTRINSIC_DATA(avx2bf16_cvtneps2bf16_256,  INTR_TYPE_1OP, X86ISD::CVTNEPS2BF16VEX, 0),
+  X86_INTRINSIC_DATA(avx2bf16_dpbf16ps_128,      INTR_TYPE_3OP, X86ISD::DPBF16PSVEX, 0),
+  X86_INTRINSIC_DATA(avx2bf16_dpbf16ps_256,      INTR_TYPE_3OP, X86ISD::DPBF16PSVEX, 0),
+#endif // INTEL_FEATURE_ISA_AVX_BF16
 #endif // INTEL_CUSTOMIZATION
   X86_INTRINSIC_DATA(avx512_add_pd_512, INTR_TYPE_2OP, ISD::FADD, X86ISD::FADD_RND),
   X86_INTRINSIC_DATA(avx512_add_ps_512, INTR_TYPE_2OP, ISD::FADD, X86ISD::FADD_RND),
@@ -1320,6 +1328,10 @@ static const IntrinsicData  IntrinsicsWithoutChain[] = {
   X86_INTRINSIC_DATA(bmi_bextr_64,         INTR_TYPE_2OP, X86ISD::BEXTR, 0),
   X86_INTRINSIC_DATA(bmi_bzhi_32,          INTR_TYPE_2OP, X86ISD::BZHI, 0),
   X86_INTRINSIC_DATA(bmi_bzhi_64,          INTR_TYPE_2OP, X86ISD::BZHI, 0),
+  X86_INTRINSIC_DATA(bmi_pdep_32,          INTR_TYPE_2OP, X86ISD::PDEP, 0),
+  X86_INTRINSIC_DATA(bmi_pdep_64,          INTR_TYPE_2OP, X86ISD::PDEP, 0),
+  X86_INTRINSIC_DATA(bmi_pext_32,          INTR_TYPE_2OP, X86ISD::PEXT, 0),
+  X86_INTRINSIC_DATA(bmi_pext_64,          INTR_TYPE_2OP, X86ISD::PEXT, 0),
   X86_INTRINSIC_DATA(fma_vfmaddsub_pd,     INTR_TYPE_3OP, X86ISD::FMADDSUB, 0),
   X86_INTRINSIC_DATA(fma_vfmaddsub_pd_256, INTR_TYPE_3OP, X86ISD::FMADDSUB, 0),
   X86_INTRINSIC_DATA(fma_vfmaddsub_ps,     INTR_TYPE_3OP, X86ISD::FMADDSUB, 0),
@@ -1482,10 +1494,8 @@ static const IntrinsicData* getIntrinsicWithoutChain(unsigned IntNo) {
 }
 
 static void verifyIntrinsicTables() {
-  assert(std::is_sorted(std::begin(IntrinsicsWithoutChain),
-                        std::end(IntrinsicsWithoutChain)) &&
-         std::is_sorted(std::begin(IntrinsicsWithChain),
-                        std::end(IntrinsicsWithChain)) &&
+  assert(llvm::is_sorted(IntrinsicsWithoutChain) &&
+         llvm::is_sorted(IntrinsicsWithChain) &&
          "Intrinsic data tables should be sorted by Intrinsic ID");
   assert((std::adjacent_find(std::begin(IntrinsicsWithoutChain),
                              std::end(IntrinsicsWithoutChain)) ==

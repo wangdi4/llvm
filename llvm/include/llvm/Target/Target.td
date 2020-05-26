@@ -224,7 +224,7 @@ class RegisterClass<string namespace, list<ValueType> regTypes, int alignment,
   list<ValueType> RegTypes = regTypes;
 
   // Size - Specify the spill size in bits of the registers.  A default value of
-  // zero lets tablgen pick an appropriate size.
+  // zero lets tablegen pick an appropriate size.
   int Size = 0;
 
   // Alignment - Specify the alignment required of the registers when they are
@@ -703,7 +703,7 @@ class Requires<list<Predicate> preds> {
 /// ops definition - This is just a simple marker used to identify the operand
 /// list for an instruction. outs and ins are identical both syntactically and
 /// semantically; they are used to define def operands and use operands to
-/// improve readibility. This should be used like this:
+/// improve readability. This should be used like this:
 ///     (outs R32:$dst), (ins R32:$src1, R32:$src2) or something similar.
 def ops;
 def outs;
@@ -827,6 +827,13 @@ class Operand<ValueType ty> : DAGOperand {
   // can match a subset of some other class, in which case the AsmOperandClass
   // should declare the other operand as one of its super classes.
   AsmOperandClass ParserMatchClass = ImmAsmOperand;
+
+  // INTEL_CUSTOMIZATION
+  // TypeAgnostic - If this is true, then, for the purposes of type matching,
+  // any type of the same size as Type can be matched in the type in any pattern
+  // matching against this operand.
+  bit TypeAgnostic = 0;
+  // end INTEL_CUSTOMIZATION
 }
 
 class RegisterOperand<RegisterClass regclass, string pm = "printOperand">
