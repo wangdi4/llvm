@@ -9,6 +9,7 @@
 // ===--------------------------------------------------------------------=== //
 
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelBarrierUtils.h"
+#include "llvm/IR/CFG.h"
 #include "llvm/IR/Instructions.h"
 
 namespace llvm {
@@ -90,7 +91,7 @@ FuncSet &DPCPPKernelBarrierUtils::getAllFunctionsWithSynchronization() {
   return SyncFunctions;
 }
 
-SyncType DPCPPKernelBarrierUtils::getSynchronizeType(Instruction *I) {
+SyncType DPCPPKernelBarrierUtils::getSynchronizeType(const Instruction *I) {
   // Initialize sync data if it is not done yet.
   initializeSyncData();
 
@@ -98,15 +99,51 @@ SyncType DPCPPKernelBarrierUtils::getSynchronizeType(Instruction *I) {
     // Not a call instruction, cannot be a synchronize instruction.
     return SyncTypeNone;
   }
-  if (Barriers.count(I)) {
+  if (Barriers.count(const_cast<Instruction *>(I))) {
     // It is a barrier instruction.
     return SyncTypeBarrier;
   }
-  if (DummyBarriers.count(I)) {
+  if (DummyBarriers.count(const_cast<Instruction *>(I))) {
     // It is a dummyBarrier instruction.
     return SyncTypeDummyBarrier;
   }
   return SyncTypeNone;
+}
+
+bool DPCPPKernelBarrierUtils::isDummyBarrierCall(const CallInst *CI) {
+  assert(CI && "Instruction should not be nullptr!");
+  // Initialize sync data if it is not done yet.
+  initializeSyncData();
+  return DummyBarriers.count(const_cast<CallInst *>(CI));
+}
+
+bool DPCPPKernelBarrierUtils::isBarrierCall(const CallInst *CI) {
+  assert(CI && "Instruction should not be nullptr!");
+  // Initialize sync data if it is not done yet.
+  initializeSyncData();
+  return Barriers.count(const_cast<CallInst *>(CI));
+}
+
+BasicBlock *
+DPCPPKernelBarrierUtils::findBasicBlockOfUsageInst(Value *V,
+                                                   Instruction *UserInst) {
+  if (!isa<PHINode>(UserInst)) {
+    // Not PHINode, return usage instruction basic block.
+    return UserInst->getParent();
+  }
+  // Usage is a PHINode, find previous basic block according to V.
+  PHINode *PhiNode = cast<PHINode>(UserInst);
+  BasicBlock *PrevBB = nullptr;
+  for (auto *BB : predecessors(PhiNode->getParent())) {
+    Value *PHINodeVal = PhiNode->getIncomingValueForBlock(BB);
+    if (PHINodeVal == V) {
+      // pBB is the previous basic block
+      assert(!PrevBB && "PHINode is using V twice!");
+      PrevBB = BB;
+    }
+  }
+  assert(PrevBB && "Failed to find previous basic block!");
+  return PrevBB;
 }
 
 } // namespace llvm

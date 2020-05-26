@@ -2073,7 +2073,7 @@ private:
   // the correspoind tbaa for the pointer dereference.
   llvm::DenseMap<llvm::Value *, llvm::MDNode *> RetPtrMap;
   bool IsFakeLoadCand(const Expr *RV);
-  bool EmitFakeLoadForRetPtr(const Expr *RV);
+  llvm::Value *EmitFakeLoadForRetPtr(const Expr *RV);
   llvm::Value *EmitX86MayIUseCpuFeature(const CallExpr *E);
   llvm::Value *EmitX86MayIUseCpuFeatureExt(const CallExpr *E);
   llvm::Value *EmitX86MayIUseCpuFeatureStr(const CallExpr *E);

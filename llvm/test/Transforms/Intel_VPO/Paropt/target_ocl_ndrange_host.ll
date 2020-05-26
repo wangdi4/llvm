@@ -10,25 +10,27 @@
 
 ; CHECK: store i32 19, i32* [[UBPTR1:%[a-zA-Z._0-9]+]]
 ; CHECK: store i32 23, i32* [[UBPTR2:%[a-zA-Z._0-9]+]]
-; CHECK: [[NDDESC:%[a-zA-Z._0-9]+]] = alloca { i64, i64, i64, i64, i64, i64, i64 }
+; CHECK: [[NDDESC:%[a-zA-Z._0-9]+]] = alloca { i32, i32, i64, i64, i64, i64, i64, i64 }
 ; CHECK: [[M0:%[a-zA-Z._0-9]+]] = getelementptr inbounds{{.*}} [[NDDESC]], i32 0, i32 0
-; CHECK: store i64 2, i64* [[M0]]
+; CHECK: store i32 2, i32* [[M0]]
 ; CHECK: [[M1:%[a-zA-Z._0-9]+]] = getelementptr inbounds{{.*}} [[NDDESC]], i32 0, i32 1
-; CHECK: store i64 0, i64* [[M1]]
+; CHECK: store i32 0, i32* [[M1]]
 ; CHECK: [[M2:%[a-zA-Z._0-9]+]] = getelementptr inbounds{{.*}} [[NDDESC]], i32 0, i32 2
+; CHECK: store i64 0, i64* [[M2]]
+; CHECK: [[M3:%[a-zA-Z._0-9]+]] = getelementptr inbounds{{.*}} [[NDDESC]], i32 0, i32 3
 ; CHECK: [[UB2:%[a-zA-Z._0-9]+]] = load i32, i32* [[UBPTR2]]
 ; CHECK: [[UB2_:%[a-zA-Z._0-9]+]] = sext i32 [[UB2]] to i64
-; CHECK: store i64 [[UB2_]], i64* [[M2]]
-; CHECK: [[M3:%[a-zA-Z._0-9]+]] = getelementptr inbounds{{.*}} [[NDDESC]], i32 0, i32 3
-; CHECK: store i64 1, i64* [[M3]]
+; CHECK: store i64 [[UB2_]], i64* [[M3]]
 ; CHECK: [[M4:%[a-zA-Z._0-9]+]] = getelementptr inbounds{{.*}} [[NDDESC]], i32 0, i32 4
-; CHECK: store i64 0, i64* [[M4]]
+; CHECK: store i64 1, i64* [[M4]]
 ; CHECK: [[M5:%[a-zA-Z._0-9]+]] = getelementptr inbounds{{.*}} [[NDDESC]], i32 0, i32 5
+; CHECK: store i64 0, i64* [[M5]]
+; CHECK: [[M6:%[a-zA-Z._0-9]+]] = getelementptr inbounds{{.*}} [[NDDESC]], i32 0, i32 6
 ; CHECK: [[UB1:%[a-zA-Z._0-9]+]] = load i32, i32* [[UBPTR1]]
 ; CHECK: [[UB1_:%[a-zA-Z._0-9]+]] = sext i32 [[UB1]] to i64
-; CHECK: store i64 [[UB1_]], i64* [[M5]]
-; CHECK: [[M6:%[a-zA-Z._0-9]+]] = getelementptr inbounds{{.*}} [[NDDESC]], i32 0, i32 6
-; CHECK: store i64 1, i64* [[M6]]
+; CHECK: store i64 [[UB1_]], i64* [[M6]]
+; CHECK: [[M7:%[a-zA-Z._0-9]+]] = getelementptr inbounds{{.*}} [[NDDESC]], i32 0, i32 7
+; CHECK: store i64 1, i64* [[M7]]
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

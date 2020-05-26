@@ -1105,24 +1105,33 @@ void VPOParoptTransform::genTgtInformationForPtrs(
 
 // Initialize the loop descriptor struct with the loop level
 // as well as the lb, ub, stride for each level of the loop.
-AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W,
-                                                    WRegionNode *WL) {
+//
+// The data structure created for runtime is declared as:
+//   typedef struct {
+//     int64_t Lb;     // The lower bound of the loop in i-th dimension
+//     int64_t Ub;     // The upper bound of the loop in i-th dimension
+//     int64_t Stride; // The stride of the loop in i-th dimension
+//   } TgtLoopDescTy;
+//
+//   typedef struct {
+//     int32_t NumLoops;        // Number of loops/dimensions
+//     int32_t DistributeDim;   // Dimensions lower than this one
+//                              // must end up in one WG
+//     TgtLoopDescTy Levels[3]; // Up to 3 loops
+//   } TgtNDRangeDescTy;
+AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W) {
+  auto &UncollapsedNDRange = W->getUncollapsedNDRange();
+  uint8_t DistributeDim = W->getNDRangeDistributeDim();
+
+  if (UncollapsedNDRange.empty())
+    return nullptr;
+
   BasicBlock *EntryBB = W->getEntryBBlock();
   BasicBlock *NewEntryBB = SplitBlock(EntryBB, &*(EntryBB->begin()), DT, LI);
   W->setEntryBBlock(NewEntryBB);
 
-  WRNTargetNode *WT = cast<WRNTargetNode>(W);
-  auto &UncollapsedNDRange = WT->getUncollapsedNDRange();
-  unsigned NumLoops = 0;
-
-  if (UncollapsedNDRange.empty()) {
-    llvm_unreachable("Uncollapsed ND-range must not be empty.");
-    return nullptr;
-  }
-  else
-    NumLoops = UncollapsedNDRange.size();
-
-  assert(NumLoops != 0 && "Zero loops in loop construct.");
+  unsigned NumLoops = UncollapsedNDRange.size();
+  NumLoops += DistributeDim;
   assert(NumLoops <= 3 && "Max 3 dimensions for ND-range execution.");
 
   LLVMContext &C = F->getContext();
@@ -1130,7 +1139,8 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W,
   Instruction *InsertPt = EntryBB->getTerminator();
   IRBuilder<> Builder(InsertPt);
   SmallVector<Type *, 4> CLLoopParameterRecTypeArgs;
-  CLLoopParameterRecTypeArgs.push_back(Int64Ty);
+  CLLoopParameterRecTypeArgs.push_back(Builder.getInt32Ty());
+  CLLoopParameterRecTypeArgs.push_back(Builder.getInt32Ty());
   for (unsigned I = 0; I < NumLoops; I++) {
     CLLoopParameterRecTypeArgs.push_back(Int64Ty);
     CLLoopParameterRecTypeArgs.push_back(Int64Ty);
@@ -1143,14 +1153,16 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W,
                       false);
   AllocaInst *DummyCLLoopParameterRec = Builder.CreateAlloca(
       CLLoopParameterRecType, nullptr, "loop.parameter.rec");
-  Value *BaseGep =
+  Value *NumLoopsGep =
       Builder.CreateInBoundsGEP(CLLoopParameterRecType, DummyCLLoopParameterRec,
                                 {Builder.getInt32(0), Builder.getInt32(0)});
 
-  Builder.CreateStore(
-      Builder.CreateSExtOrTrunc(
-          Builder.getInt32(NumLoops), Int64Ty),
-      BaseGep);
+  Builder.CreateStore(Builder.getInt32(NumLoops), NumLoopsGep);
+
+  Value *DistributeDimGep =
+      Builder.CreateInBoundsGEP(CLLoopParameterRecType, DummyCLLoopParameterRec,
+                                {Builder.getInt32(0), Builder.getInt32(1)});
+  Builder.CreateStore(Builder.getInt32(DistributeDim), DistributeDimGep);
 
   for (unsigned I = 0; I < NumLoops; I++) {
     // We assume that the innermost OpenMP loop stepping provides
@@ -1159,19 +1171,17 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W,
     // We need to specify the ND-range such that the 1st dimension
     // corresponds to the innermost loop (with loop index NumLoops - 1).
     unsigned Idx = NumLoops - I - 1;
-    Loop *L = WL->getWRNLoopInfo().getLoop(Idx);
     Value *LowerBndGep = Builder.CreateInBoundsGEP(
         CLLoopParameterRecType, DummyCLLoopParameterRec,
-        {Builder.getInt32(0), Builder.getInt32(3 * I + 1)});
+        {Builder.getInt32(0), Builder.getInt32(3 * I + 2)});
     Builder.CreateStore(Builder.getInt64(0), LowerBndGep);
 
     Value *UpperBndGep = Builder.CreateInBoundsGEP(
         CLLoopParameterRecType, DummyCLLoopParameterRec,
-        {Builder.getInt32(0), Builder.getInt32(3 * I + 2)});
+        {Builder.getInt32(0), Builder.getInt32(3 * I + 3)});
     Value *CloneUB = nullptr;
-    if (UncollapsedNDRange.empty())
-      CloneUB = VPOParoptUtils::cloneInstructions(
-          WRegionUtils::getOmpLoopUpperBound(L), InsertPt);
+    if (I < DistributeDim)
+      CloneUB = Builder.getInt64(0);
     else
       CloneUB = Builder.CreateLoad(UncollapsedNDRange[Idx]);
 
@@ -1181,7 +1191,7 @@ AllocaInst *VPOParoptTransform::genTgtLoopParameter(WRegionNode *W,
 
     Value *StrideGep = Builder.CreateInBoundsGEP(
         CLLoopParameterRecType, DummyCLLoopParameterRec,
-        {Builder.getInt32(0), Builder.getInt32(3 * I + 3)});
+        {Builder.getInt32(0), Builder.getInt32(3 * I + 4)});
     Builder.CreateStore(Builder.getInt64(1), StrideGep);
   }
 

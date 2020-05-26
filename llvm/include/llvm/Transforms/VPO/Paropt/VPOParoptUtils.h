@@ -1461,19 +1461,8 @@ public:
       ReductionItem *RedI, Type *ScalarTy, Instruction *RedDef,
       spirv::Scope Scope);
 
-  /// Returns true, if the prerequisites for using ND-range driven
-  /// parallelization for the given loop-kind \p W region are met.
-  /// This includes checking user options and the properties
-  /// of the region itself. There are more requirements for the
-  /// IR that need to be satisfied to make ND-range parallelization
-  /// possible (see useSPMDMode() below).
-  static bool mayUseSPMDMode(WRegionNode *W);
-
   /// Returns true, if work partitioning for the loop-kind \p W region
-  /// should rely on ND-range driven parallelization. This implies
-  /// that for the given \p W region there is an enclosing "omp target"
-  /// region, for which ND-range infomation has already been constructed
-  /// (see VPOParoptTransform::constructNDRangeInfo() for details).
+  /// should rely on ND-range driven parallelization.
   static bool useSPMDMode(WRegionNode *W);
 
   /// Returns execution scheme for loop-kind regions on SPIR targets.

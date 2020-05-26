@@ -1576,7 +1576,7 @@ private:
   ///        int64_t stride;      // The stride of the ith loop
   ///      }loop_desc[levels];
   ///   };
-  AllocaInst *genTgtLoopParameter(WRegionNode *W, WRegionNode *WL);
+  AllocaInst *genTgtLoopParameter(WRegionNode *W);
 
   /// Generate the cast i8* for the incoming value BPVal.
   Value *genCastforAddr(Value *BPVal, IRBuilder<> &Builder);
@@ -1900,6 +1900,20 @@ private:
   /// QUAL_OMP_OFFLOAD_KNOWN_NDRANGE for \p WL.
   void setNDRangeClause(
       WRegionNode *WT, WRegionNode *WL, ArrayRef<Value *> NDRangeDims) const;
+
+  /// Checks if the given OpenMP loop region may use SPIR paritioning
+  /// with known loop(s) bounds and if it is profitable.
+  /// It analyzes only QUAL_OMP_OFFLOAD_KNOWN_NDRANGE loops, which means
+  /// that the loops' bounds may be computed before the enclosing target region.
+  /// If known loop bounds may/must not be used, then the routine deletes
+  /// QUAL_OMP_OFFLOAD_KNOWN_NDRANGE from the loop region, and also
+  /// deletes QUAL_OMP_OFFLOAD_NDRANGE from the enclosing target region.
+  bool fixupKnownNDRange(WRegionNode *W) const;
+
+  /// Analyzes the current Function's WRegionList and sets starting
+  /// ND-range dimensions for OpenMP loop regions. It also sets
+  /// NDRangeDistributeDim for target regions, when needed.
+  void assignParallelDimensions() const;
 };
 
 } /// namespace vpo

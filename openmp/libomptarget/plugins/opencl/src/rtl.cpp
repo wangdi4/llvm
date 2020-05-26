@@ -133,10 +133,17 @@ struct FuncOrGblEntryTy {
 
 /// Loop descriptor
 typedef struct {
-  int64_t lb;     // The lower bound of the i-th loop
-  int64_t ub;     // The upper bound of the i-th loop
-  int64_t stride; // The stride of the i-th loop
+  int64_t Lb;     // The lower bound of the i-th loop
+  int64_t Ub;     // The upper bound of the i-th loop
+  int64_t Stride; // The stride of the i-th loop
 } TgtLoopDescTy;
+
+typedef struct {
+  int32_t NumLoops;        // Number of loops/dimensions
+  int32_t DistributeDim;   // Dimensions lower than this one
+                           // must end up in one WG
+  TgtLoopDescTy Levels[3]; // Up to 3 loops
+} TgtNDRangeDescTy;
 
 /// Profile data
 struct ProfileDataTy {
@@ -2436,7 +2443,7 @@ static inline int32_t run_target_team_nd_region(
   if (loop_levels) {
     // ND-range dimension 0 is the fastest changing one.
     // It corresponds to the innermost OpenMP loop in a loop nest.
-    work_dim = (int32_t)*loop_levels;
+    work_dim = ((TgtNDRangeDescTy *)loop_levels)->NumLoops;
     assert(work_dim > 0 && work_dim <= 3 &&
            "ND-range parallelization requested "
            "with invalid number of dimensions.");
@@ -2463,15 +2470,21 @@ static inline int32_t run_target_team_nd_region(
   if (loop_levels) {
     assert(num_teams <= 0 &&
            "ND-range parallelization requested with num_teams.");
-    TgtLoopDescTy *level = (TgtLoopDescTy *)(loop_levels + 1);
+    TgtLoopDescTy *level = ((TgtNDRangeDescTy *)loop_levels)->Levels;
+    int32_t DistributeDim = ((TgtNDRangeDescTy *)loop_levels)->DistributeDim;
 
     for (int32_t i = 0; i < work_dim; ++i) {
-      assert(level[i].ub >= level[i].lb && level[i].stride > 0);
+      if (i < DistributeDim) {
+        num_work_groups[i] = 1;
+        continue;
+      }
+
+      assert(level[i].Ub >= level[i].Lb && level[i].Stride > 0);
       DP("NDrange[dim=%d]: (lb=%" PRId64 ", ub=%" PRId64
          ", stride=%" PRId64 ")\n",
-         i, level[i].lb, level[i].ub, level[i].stride);
+         i, level[i].Lb, level[i].Ub, level[i].Stride);
       size_t trip =
-          (level[i].ub - level[i].lb + level[i].stride) / level[i].stride;
+          (level[i].Ub - level[i].Lb + level[i].Stride) / level[i].Stride;
       if (local_work_size[i] >= trip)
         local_work_size[i] = trip;
 
@@ -2484,9 +2497,6 @@ static inline int32_t run_target_team_nd_region(
     global_work_size[i] = local_work_size[i] * num_work_groups[i];
 
   DP("THREAD_LIMIT = %d, NUM_TEAMS = %d\n", thread_limit, num_teams);
-  if (loop_levels) {
-    DP("Collapsed %" PRId64 " loops.\n", *loop_levels);
-  }
   DP("Global work size = (%zu, %zu, %zu)\n", global_work_size[0],
      global_work_size[1], global_work_size[2]);
   DP("Local work size = (%zu, %zu, %zu)\n", local_work_size[0],

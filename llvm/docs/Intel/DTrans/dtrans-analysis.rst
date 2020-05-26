@@ -138,6 +138,13 @@ optimization. This flag covers multiple casting problems, including casting of
 pointers from one type to another and casting of pointers to fields within a
 structure to other types.
 
+BadAllocSizeArg
+~~~~~~~~~~~~~~~
+This indicates that an allocation was detected to construct an aggregate type
+(or array of aggregates) where the size parameter of the allocation call could
+not be traced to a constant matching the aggregate type size, or a constant
+multiple of the aggregate type size.
+
 BadPtrManipulation
 ~~~~~~~~~~~~~~~~~~
 This indicates that a pointer to an aggregate type was manipulated to compute
@@ -379,7 +386,7 @@ on entry to those functions. (See the description of the Bad Casting
 Analyzer below.) `Bad Casting Analyzer`_
 
 DopeVector
-~~~~~~~~~~~~
+~~~~~~~~~~
 The type was identified as a dope vector.
 
 UnhandledUse
@@ -482,7 +489,7 @@ Some user functions are also handled.  Right now, we distinguish two types:
   AK_UserMalloc:
     Same as AK_UserMalloc0, but there must be either only 1 argument
     (the "size" argument) or two arguments (the "this" ptr argument
-     and the "size" argument).
+    and the "size" argument).
 
 At some point this mechanism will be extended to handle additional user
 functions, including those that call calloc and realloc.

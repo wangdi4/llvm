@@ -31,7 +31,7 @@ bool SplitBBonBarrier::runOnModule(Module &M) {
   BarrierUtils.init(&M);
 
   // Find all synchronize instructions.
-  InstVector& SyncInsts = BarrierUtils.getAllSyncInstructions();
+  InstVector &SyncInsts = BarrierUtils.getAllSyncInstructions();
 
   bool Changed = false;
 

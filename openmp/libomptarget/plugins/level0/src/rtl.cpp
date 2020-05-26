@@ -577,6 +577,13 @@ typedef struct {
   int64_t Stride; // The stride of the i-th loop
 } TgtLoopDescTy;
 
+typedef struct {
+  int32_t NumLoops;        // Number of loops/dimensions
+  int32_t DistributeDim;   // Dimensions lower than this one
+                           // must end up in one WG
+  TgtLoopDescTy Levels[3]; // Up to 3 loops
+} TgtNDRangeDescTy;
+
 static RTLDeviceInfoTy *DeviceInfo;
 
 /// Init/deinit DeviceInfo
@@ -1396,8 +1403,10 @@ int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr) {
 }
 
 static void decideGroupArguments(int32_t DeviceId, uint32_t NumTeams,
-                                 uint32_t ThreadLimit, int64_t *LoopLevels,
-                                 uint32_t *Sizes, ze_group_count_t &Dimensions) {
+                                 uint32_t ThreadLimit,
+                                 TgtNDRangeDescTy *LoopLevels,
+                                 uint32_t *Sizes,
+                                 ze_group_count_t &Dimensions) {
   uint32_t maxGroupSize =
       DeviceInfo->ComputeProperties[DeviceId].maxTotalGroupSize;
   // maxGroupCountX does not suggest practically useful count (~4M)
@@ -1436,12 +1445,18 @@ static void decideGroupArguments(int32_t DeviceId, uint32_t NumTeams,
   uint32_t dimensions[3] = {maxGroupCount, 1, 1};
 
   if (LoopLevels) {
-    assert(*LoopLevels > 0 && *LoopLevels <= 3 &&
+    assert(LoopLevels->NumLoops > 0 && LoopLevels->NumLoops <= 3 &&
            "ND-range parallelization requested "
            "with invalid number of dimensions.");
-    int64_t numLevels = *LoopLevels;
-    TgtLoopDescTy *level = (TgtLoopDescTy *)(&LoopLevels[1]);
+    int32_t numLevels = LoopLevels->NumLoops;
+    int32_t distributeDim = LoopLevels->DistributeDim;
+    TgtLoopDescTy *level = LoopLevels->Levels;
     for (int32_t i = 0; i < numLevels; i++) {
+      if (i < distributeDim) {
+        dimensions[i] = 1;
+        continue;
+      }
+
       assert(level[i].Ub >= level[i].Lb && level[i].Stride > 0 &&
              "Invalid loop description for ND-range partitioning");
       DP("Level %" PRId32 ": Lb = %" PRId64 ", Ub = %" PRId64 ", Stride = %"
@@ -1496,7 +1511,7 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
   uint32_t groupSizes[3];
   ze_group_count_t groupCounts;
   decideGroupArguments(DeviceId, (uint32_t )NumTeams, (uint32_t)ThreadLimit,
-                       (int64_t *)LoopDesc, groupSizes, groupCounts);
+                       (TgtNDRangeDescTy *)LoopDesc, groupSizes, groupCounts);
 
   if (omptEnabled.enabled) {
     // Push current work size

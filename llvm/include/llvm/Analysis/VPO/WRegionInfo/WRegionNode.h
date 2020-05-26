@@ -426,6 +426,15 @@ public:
   virtual const SmallVectorImpl<Value *> &getUncollapsedNDRange() const {
     WRNERROR("OFFLOAD_NDRANGE");
   }
+  virtual void resetUncollapsedNDRangeDimensions() {
+    WRNERROR("OFFLOAD_NDRANGE");
+  }
+  virtual void setNDRangeDistributeDim(uint8_t Dim) {
+    WRNERROR("NDRANGE_DISTRIBUTE_DIM");
+  }
+  virtual uint8_t getNDRangeDistributeDim() const {
+    WRNERROR("NDRANGE_DISTRIBUTE_DIM");
+  }
   virtual WRNProcBindKind getProcBind()   const {WRNERROR("PROC_BIND");       }
   virtual WRNLoopBindKind getLoopBind()   const {WRNERROR("LOOP_BIND");       }
   virtual WRNLoopOrderKind getLoopOrder() const {WRNERROR("LOOP_ORDER");      }

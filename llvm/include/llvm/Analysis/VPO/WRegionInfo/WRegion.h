@@ -104,6 +104,23 @@ private:
   /// region.
   bool KnownNDRange = false;
 
+  /// For each loop in the loop nest described by this WRNLoopInfo
+  /// we have to map the loop to some ND-range dimension.
+  /// NDRangeStartDim specifies the starting dimension for the loop
+  /// nest. For example,
+  ///   for (int i = ...)
+  ///     for (int j = ...)
+  ///
+  /// By default the j-loop will be mapped to dimension 0,
+  /// and the i-loop will be mapped to dimension 1.
+  /// If NDRangeStartDim is equal to 1, then it will be applied
+  /// during the mapping for both loops, i.e. the j-loop will map
+  /// to dimension 1, and the i-loop will map to dimension 2.
+  ///
+  /// The final dimension value must never exceed 2, which is
+  /// asserted during the mapping.
+  uint8_t NDRangeStartDim = 0;
+
 public:
   WRNLoopInfo(LoopInfo *L) : LI(L) {}
   void setLoopInfo(LoopInfo *L) { LI = L; }
@@ -165,7 +182,19 @@ public:
     assert(!KnownNDRange && "KnownNDRange must be set only once.");
     KnownNDRange = true;
   }
+  void resetKnownNDRange() {
+    KnownNDRange = false;
+  }
   bool isKnownNDRange() const { return KnownNDRange; }
+  void setNDRangeStartDim(uint8_t Dim) {
+    assert(Dim < 3 && "Valid dimension must be from [0, 2].");
+    assert(NDRangeStartDim == 0 &&
+           "NDRangeStartDim must be set only once.");
+    NDRangeStartDim = Dim;
+  }
+  uint8_t getNDRangeStartDim() const {
+    return NDRangeStartDim;
+  }
 
   void print(formatted_raw_ostream &OS, unsigned Depth,
              unsigned Verbosity=1) const;
@@ -626,6 +655,7 @@ private:
   int OffloadEntryIdx;
   SmallVector<Value *, 2> DirectlyUsedNonPointerValues;
   SmallVector<Value *, 3> UncollapsedNDRange;
+  uint8_t NDRangeDistributeDim = 0;
   unsigned SPIRVSIMDWidth = 0;
 
 public:
@@ -645,7 +675,6 @@ protected:
     UncollapsedNDRange.insert(
         UncollapsedNDRange.begin(), Dims.begin(), Dims.end());
   }
-
 public:
   DEFINE_GETTER(PrivateClause,      getPriv,        Priv)
   DEFINE_GETTER(FirstprivateClause, getFpriv,       Fpriv)
@@ -681,6 +710,21 @@ public:
 
   unsigned getSPIRVSIMDWidth() const {
     return SPIRVSIMDWidth;
+  }
+
+  void resetUncollapsedNDRangeDimensions() {
+    UncollapsedNDRange.clear();
+  }
+
+  void setNDRangeDistributeDim(uint8_t Dim) {
+    assert(Dim != 0 && "Dim is 0 by default.");
+    assert(NDRangeDistributeDim == 0 &&
+           "NDRangeDistributeDim must be set only once.");
+    NDRangeDistributeDim = Dim;
+  }
+
+  uint8_t getNDRangeDistributeDim() const {
+    return NDRangeDistributeDim;
   }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
