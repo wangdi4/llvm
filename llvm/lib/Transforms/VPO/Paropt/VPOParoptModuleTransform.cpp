@@ -303,7 +303,13 @@ std::unordered_map<std::string, std::string> llvm::vpo::OCLBuiltin = {
     {"ilogb",                 "_Z5ilogbd"},
     {"logb",                  "_Z4logbd"},
     {"nextafter",             "_Z9nextafterdd"},
-    {"llvm.copysign.f64",     "_Z8copysigndd"}};
+    {"llvm.copysign.f64",     "_Z8copysigndd"},
+
+/////////////////////////////////////////////
+//                INTEGER                  //
+/////////////////////////////////////////////
+    {"abs",                   "_Z3absi"},      // int abs(int)
+    {"labs",                  "_Z3absl"}};     // long labs(long)
 
 
 // To support the SPIRV target compilation stage of the OpenMP compilation
