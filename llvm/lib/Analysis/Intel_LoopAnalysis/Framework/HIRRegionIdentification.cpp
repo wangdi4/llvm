@@ -76,6 +76,21 @@ static cl::opt<unsigned> LoopMaterializationBBSize(
 static cl::opt<unsigned> HugeLoopSize("hir-huge-loop-size", cl::init(42),
                                       cl::Hidden,
                                       cl::desc("Threshold for huge loop size"));
+static cl::opt<unsigned>
+    MaxInstThresholdOption("hir-region-inst-threshold", cl::init(0), cl::Hidden,
+                           cl::desc("Threshold for maximum number of "
+                                    "instructions allowed in a HIR region"));
+
+static cl::opt<unsigned> MaxIfNestThresholdOption(
+    "hir-region-if-nest-threshold", cl::init(0), cl::Hidden,
+    cl::desc(
+        "Threshold for maximum number of nested ifs allowed in a HIR region"));
+
+static cl::opt<bool>
+    PrintCostModelStats("hir-region-print-cost-model-stats", cl::init(false),
+                        cl::Hidden,
+                        cl::desc("Print statistics used by the cost model to "
+                                 "decide whether to build HIR region"));
 
 STATISTIC(RegionCount, "Number of regions created");
 
@@ -597,6 +612,13 @@ bool HIRRegionIdentification::containsUnsupportedTy(const Instruction *Inst,
   return false;
 }
 
+const unsigned O2MaxInstThreshold = 200;
+const unsigned O3MaxInstThreshold = 400;
+const unsigned MaxIfThreshold = 7;
+const unsigned O2MaxIfNestThreshold = 3;
+const unsigned O3MaxIfNestThreshold = 7;
+const unsigned SmallTripThreshold = 16;
+
 class HIRRegionIdentification::CostModelAnalyzer
     : public InstVisitor<CostModelAnalyzer, bool> {
   const HIRRegionIdentification &RI;
@@ -613,12 +635,8 @@ class HIRRegionIdentification::CostModelAnalyzer
   unsigned UnstructuredJumpCount; // Approximates goto/label counts in HIR.
   unsigned IfCount;               // Approximates number of ifs in HIR.
 
-  // TODO: use different values for O2/O3.
-  const unsigned MaxInstThreshold = 200;
-  const unsigned MaxIfThreshold = 7;
-  const unsigned O2MaxIfNestThreshold = 2;
-  const unsigned O3MaxIfNestThreshold = 6;
-  const unsigned SmallTripThreshold = 16;
+  unsigned MaxInstThreshold;
+  unsigned MaxIfNestThreshold;
 
 public:
   CostModelAnalyzer(const HIRRegionIdentification &RI, const Loop &Lp,
@@ -646,6 +664,19 @@ HIRRegionIdentification::CostModelAnalyzer::CostModelAnalyzer(
       OptLevel(RI.OptLevel), InstCount(0), UnstructuredJumpCount(0),
       IfCount(0) {
 
+  if (MaxInstThresholdOption.getNumOccurrences() != 0) {
+    MaxInstThreshold = MaxInstThresholdOption;
+  } else {
+    MaxInstThreshold = (OptLevel > 2) ? O3MaxInstThreshold : O2MaxInstThreshold;
+  }
+
+  if (MaxIfNestThresholdOption.getNumOccurrences() != 0) {
+    MaxIfNestThreshold = MaxIfNestThresholdOption;
+  } else {
+    MaxIfNestThreshold =
+        (OptLevel > 2) ? O3MaxIfNestThreshold : O2MaxIfNestThreshold;
+  }
+
   HeaderDomNode = RI.DT.getNode(Lp.getHeader());
 
   auto ConstBECount = dyn_cast<SCEVConstant>(BECount);
@@ -659,6 +690,10 @@ HIRRegionIdentification::CostModelAnalyzer::CostModelAnalyzer(
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void HIRRegionIdentification::CostModelAnalyzer::printStats() const {
+  if (!PrintCostModelStats) {
+    return;
+  }
+
   dbgs() << "Loop instruction count: " << InstCount << "\n";
   dbgs() << "Loop goto count: " << UnstructuredJumpCount << "\n";
   dbgs() << "Loop if count: " << IfCount << "\n";
@@ -874,20 +909,8 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
     DomNode = DomNode->getIDom();
   }
 
-  // Increase thresholds for small trip innermost loops so that we can unroll
-  // them.
-  bool UseO3Thresholds = (OptLevel > 2) || (IsInnermostLoop && IsSmallTripLoop);
-
-  unsigned IfNestThreshold =
-      (UseO3Thresholds ? O3MaxIfNestThreshold : O2MaxIfNestThreshold);
-
-  if (UseO3Thresholds && IsInnermostLoop) {
-    // Allow 1 more If nesting for O3 innermost loops.
-    ++IfNestThreshold;
-  }
-
   // Add 1 to include reaching header node.
-  if ((IfNestCount + 1) > IfNestThreshold) {
+  if ((IfNestCount + 1) > MaxIfNestThreshold) {
     printOptReportRemark(
         &Lp, "Loop throttled due to presence of too many nested ifs.");
     return false;
