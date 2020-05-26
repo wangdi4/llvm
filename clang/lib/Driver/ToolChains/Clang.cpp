@@ -4266,6 +4266,28 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
             .normalize();
     CmdArgs.push_back("-aux-triple");
     CmdArgs.push_back(Args.MakeArgString(NormalizedTriple));
+#if INTEL_CUSTOMIZATION
+    if (Triple.isSPIR()) {
+      llvm::Triple AuxT = C.getSingleOffloadToolChain<Action::OFK_Host>()
+                             ->getTriple();
+      bool IsMSVC = AuxT.isWindowsMSVCEnvironment();
+      if (IsMSVC) {
+        CmdArgs.push_back("-fms-extensions");
+        CmdArgs.push_back("-fms-compatibility");
+        CmdArgs.push_back("-fdelayed-template-parsing");
+        VersionTuple MSVT = TC.computeMSVCVersion(&D, Args);
+        if (!MSVT.empty())
+          CmdArgs.push_back(Args.MakeArgString("-fms-compatibility-version=" +
+                                               MSVT.getAsString()));
+        else {
+          const char *LowestMSVCSupported =
+              "191025017"; // VS2017 v15.0 (initial release)
+          CmdArgs.push_back(Args.MakeArgString(
+              Twine("-fms-compatibility-version=") + LowestMSVCSupported));
+        }
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
   }
 
   if (Triple.isOSWindows() && (Triple.getArch() == llvm::Triple::arm ||
