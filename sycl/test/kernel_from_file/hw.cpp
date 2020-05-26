@@ -4,9 +4,13 @@
 //-fsycl-targets=%sycl_triple
 // RUN: %clangxx -fsycl-device-only -fno-sycl-use-bitcode -Xclang -fsycl-int-header=%t.h -c %s -o %t.spv -I %sycl_include -Xclang -verify-ignore-unexpected=note,warning -Wno-sycl-strict
 // RUN: %clangxx -include %t.h -g %s -o %t.out -lsycl -I %sycl_include -Xclang -verify-ignore-unexpected=note,warning
+<<<<<<< HEAD
 // RUN: %CPU_RUN_PLACEHOLDER env SYCL_USE_KERNEL_SPV=%t.spv %t.out 2>&1 %CPU_CHECK_PLACEHOLDER
 // RUN: %GPU_RUN_PLACEHOLDER env SYCL_USE_KERNEL_SPV=%t.spv %t.out 2>&1 %GPU_CHECK_PLACEHOLDER
 // RUN: %ACC_RUN_PLACEHOLDER env SYCL_USE_KERNEL_SPV=%t.spv %t.out 2>&1 %ACC_CHECK_PLACEHOLDER
+=======
+// RUN: env SYCL_BE=%sycl_be SYCL_USE_KERNEL_SPV=%t.spv %t.out | FileCheck %s
+>>>>>>> b84ae1fde4dd6365bb03af3e46696ce5be78b709
 // CHECK: Passed
 
 // TODO: InvalidTargetTriple: Expects spir-unknown-unknown or spir64-unknown-unknown. Actual target triple is x86_64-unknown-linux-gnu
