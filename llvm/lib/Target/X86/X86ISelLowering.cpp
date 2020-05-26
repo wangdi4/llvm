@@ -34843,6 +34843,29 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     MI.eraseFromParent(); // The pseudo is gone now.
     return BB;
   }
+  case X86::PTTDPBSSD:
+  case X86::PTTDPBSUD:
+  case X86::PTTDPBUSD:
+  case X86::PTTDPBUUD: {
+    const DebugLoc &DL = MI.getDebugLoc();
+    unsigned Opc;
+    switch (MI.getOpcode()) {
+    default: llvm_unreachable("Unexpected instruction!");
+    case X86::PTTDPBSSD: Opc = X86::TTDPBSSD; break;
+    case X86::PTTDPBSUD: Opc = X86::TTDPBSUD; break;
+    case X86::PTTDPBUSD: Opc = X86::TTDPBUSD; break;
+    case X86::PTTDPBUUD: Opc = X86::TTDPBUUD; break;
+    }
+
+    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Undef);
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(1).getImm()), RegState::Undef);
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(2).getImm()), RegState::Undef);
+
+    MI.eraseFromParent(); // The pseudo is gone now.
+    return BB;
+  }
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 #if INTEL_FEATURE_ISA_AMX_CONVERT
   case X86::PTCVT2PS2PHmr:
