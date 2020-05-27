@@ -93,13 +93,6 @@ private:
         } else {
           return NameOrErr.takeError();
         }
-<<<<<<< HEAD
-=======
-        Binding = SymRef.getBinding();
-        Value = SymRef.getValue();
-        (void)Binding; // INTEL
-        (void)Value; // INTEL
->>>>>>> c6e5577a51328e91a22ce04f12ce82df10f33cb4
         LLVM_DEBUG({
           dbgs() << "  ";
           if (!Name)
