@@ -26,14 +26,13 @@
 #include "IntelVPlanPredicator.h"
 #include "IntelVPSOAAnalysis.h"
 #include "llvm/ADT/DenseSet.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
-#if INTEL_CUSTOMIZATION
 #include "IntelVPlanClone.h"
 #include "IntelVPlanCostModelProprietary.h"
 #include "IntelVPlanIdioms.h"
 #include "IntelVPlanUtils.h"
 #include "VPlanHIR/IntelVPlanHCFGBuilderHIR.h"
-#endif // INTEL_CUSTOMIZATION
 
 #define DEBUG_TYPE "LoopVectorizationPlanner"
 
@@ -92,10 +91,56 @@ static constexpr bool PrintAfterAllZeroBypass = false;
 static constexpr bool DotAfterAllZeroBypass = false;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
+namespace {
+using ForceVFTy = std::pair<int /* LoopID */, unsigned /* VF */>;
+
+struct VPlanLoopVFParser : public cl::parser<ForceVFTy> {
+  VPlanLoopVFParser(cl::Option &O)
+      : cl::parser<ForceVFTy>(O) {}
+
+  bool parse(cl::Option &O, StringRef ArgName, StringRef Arg,
+             ForceVFTy &Result) {
+    std::pair<StringRef, StringRef> LoopVFPair = Arg.split(':');
+    int LoopId;
+    if (LoopVFPair.first.getAsInteger(10, LoopId))
+      return O.error("Cannot parse LoopID!");
+
+    unsigned VF;
+    if (LoopVFPair.second.getAsInteger(10, VF))
+      return O.error("Cannot parse VF!");
+
+    Result = std::make_pair(LoopId, VF);
+    return false;
+  }
+};
+}
+
+static cl::list<ForceVFTy, bool /* Use internal storage */, VPlanLoopVFParser>
+    ForceLoopVF(
+        "vplan-force-loop-vf", cl::Hidden, cl::ZeroOrMore,
+        cl::value_desc("LoopID:VF"),
+        cl::desc(
+            "Debug option to force vectorization scenario of a particular "
+            "loop. This option is *NOT* thread-safe and might not have "
+            "production quality! Loops order is also implementation-defined "
+            "and might not match the order of the loops in the input. Refer to "
+            "-debug-only=LoopVectorizationPlanner to see the mapping. It is "
+            "expected to be deterministic between multiple runs of the same "
+            "compiler invocation though. Comma separated list of pairs isn't "
+            "supported at this moment - use the option multiple times to force "
+            "scenarios for multiple loops."));
+static int VPlanOrderNumber = 0;
+
 using namespace llvm;
 using namespace llvm::vpo;
 
 static unsigned getForcedVF(const WRNVecLoopNode *WRLp) {
+  auto ForcedLoopVFIter = llvm::find_if(ForceLoopVF, [](const ForceVFTy &Pair) {
+    return Pair.first == VPlanOrderNumber;
+  });
+  if (ForcedLoopVFIter != ForceLoopVF.end())
+    return ForcedLoopVFIter->second;
+
   if (VPlanForceVF)
     return VPlanForceVF;
   return WRLp && WRLp->getSimdlen() ? WRLp->getSimdlen() : 0;
@@ -109,6 +154,7 @@ static unsigned getSafelen(const WRNVecLoopNode *WRLp) {
 
 unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
                                                       const DataLayout *DL) {
+  ++VPlanOrderNumber;
   unsigned MinVF, MaxVF;
   unsigned ForcedVF = getForcedVF(WRLp);
 
@@ -244,6 +290,7 @@ void LoopVectorizationPlanner::selectBestPeelingVariants() {
 /// \Returns VF which corresponds to the best VPlan (could be VF = 1).
 template <typename CostModelTy>
 unsigned LoopVectorizationPlanner::selectBestPlan() {
+  LLVM_DEBUG(dbgs() << "Selecting VF for VPlan #" << VPlanOrderNumber << '\n');
   if (VPlans.size() == 1) {
     unsigned ForcedVF = getForcedVF(WRLp);
     assert(ForcedVF &&
