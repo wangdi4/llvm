@@ -12,6 +12,10 @@
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #include <stdio.h>
+// FIXME: teach clang to understand opencl_constant attribute during
+//        OpenMP offload compilation, and get rid of this specialization code.
+#ifndef __STDC_FORMAT_MACROS
+#define __STDC_FORMAT_MACROS
 #include <inttypes.h>
 
 static const char assert_fmt[] =
@@ -20,10 +24,6 @@ static const char assert_fmt[] =
     "Assertion `%s` failed.\n";
 
 #pragma omp declare target
-// FIXME: teach clang to understand opencl_constant attribute during
-//        OpenMP offload compilation, and get rid of this specialization code.
-#ifndef __STDC_FORMAT_MACROS
-#define __STDC_FORMAT_MACROS
 #endif
 
 DEVICE_EXTERN_C void __devicelib_assert_fail(const char *expr, const char *file,
