@@ -6,14 +6,17 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "device.h"
 #include "device_math.h"
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #pragma omp declare target
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
+=======
+#ifdef __SPIR__
+>>>>>>> 857ee511bf4053f1f0cdc7f0d2b41fd6273926e0
 
 DEVICE_EXTERN_C
 float scalbnf(float x, int n) { return __devicelib_scalbnf(x, n); }
@@ -386,6 +389,7 @@ float _FSinh(float x, float y) { // compute y * sinh(x), |y| <= 1
     return neg ? -x : x;
   }
 }
+<<<<<<< HEAD
 
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
@@ -393,3 +397,7 @@ float _FSinh(float x, float y) { // compute y * sinh(x), |y| <= 1
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
 #endif
+=======
+#endif // defined(_WIN32)
+#endif // __SPIR__
+>>>>>>> 857ee511bf4053f1f0cdc7f0d2b41fd6273926e0

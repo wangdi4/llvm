@@ -6,14 +6,17 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "device.h"
 #include "device_math.h"
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #pragma omp declare target
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
+=======
+#ifdef __SPIR__
+>>>>>>> 857ee511bf4053f1f0cdc7f0d2b41fd6273926e0
 
 // All exported functions in math and complex device libraries are weak
 // reference. If users provide their own math or complex functions(with
@@ -415,6 +418,7 @@ double _Sinh(double x, double y) { // compute y * sinh(x), |y| <= 1
     return neg ? -x : x;
   }
 }
+<<<<<<< HEAD
 
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
@@ -422,3 +426,7 @@ double _Sinh(double x, double y) { // compute y * sinh(x), |y| <= 1
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
 #endif
+=======
+#endif // defined(_WIN32)
+#endif // __SPIR__
+>>>>>>> 857ee511bf4053f1f0cdc7f0d2b41fd6273926e0

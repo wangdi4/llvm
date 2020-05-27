@@ -8,6 +8,8 @@
 
 #include "device_complex.h"
 #include "device_math.h"
+
+#ifdef __SPIR__
 #include <cmath>
 
 #if INTEL_COLLAB
@@ -433,9 +435,13 @@ float __complex__ __devicelib_catanf(float __complex__ z) {
       CMPLXF(-__devicelib_cimagf(z), __devicelib_crealf(z)));
   return CMPLXF(__devicelib_cimagf(w), -__devicelib_crealf(w));
 }
+<<<<<<< HEAD
 
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #pragma omp end declare target
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
+=======
+#endif // __SPIR__
+>>>>>>> 857ee511bf4053f1f0cdc7f0d2b41fd6273926e0

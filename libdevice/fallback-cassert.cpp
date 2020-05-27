@@ -8,6 +8,7 @@
 
 #include "wrapper.h"
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #include <stdio.h>
@@ -69,6 +70,9 @@ DEVICE_EXTERN_C void __devicelib_assert_fail(const char *expr, const char *file,
 }
 #endif  // !OMP_LIBDEVICE
 #else  // INTEL_COLLAB
+=======
+#ifdef __SPIR__
+>>>>>>> 857ee511bf4053f1f0cdc7f0d2b41fd6273926e0
 static const __attribute__((opencl_constant)) char assert_fmt[] =
     "%s:%d: %s: global id: [%lu,%lu,%lu], local id: [%lu,%lu,%lu] "
     "Assertion `%s` failed.\n";
@@ -91,4 +95,8 @@ DEVICE_EXTERN_C void __devicelib_assert_fail(const char *expr, const char *file,
   // volatile int *die = (int *)0x0;
   // *die = 0xdead;
 }
+<<<<<<< HEAD
 #endif // INTEL_COLLAB
+=======
+#endif // __SPIR__
+>>>>>>> 857ee511bf4053f1f0cdc7f0d2b41fd6273926e0
