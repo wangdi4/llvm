@@ -3208,3 +3208,5 @@ void *ProgramStateTrait<ReplayWithoutInlining>::GDMIndex() {
   static int index = 0;
   return &index;
 }
+
+void ExprEngine::anchor() { }
