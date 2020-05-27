@@ -992,7 +992,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   if (PrintHIRBeforeVPlan) {
-    dbgs() << "Candidate HLLoop before VPlan:\n";
+    dbgs() << "Candidate HLLoop before VPlan (" << Fn.getName() << "):\n";
     HLoop->dump();
   }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
