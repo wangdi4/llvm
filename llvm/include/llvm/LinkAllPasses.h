@@ -374,6 +374,7 @@ namespace {
       (void) llvm::createHIRConditionalTempSinkingPass();
       (void) llvm::createHIRMemoryReductionSinkingPass();
       (void)llvm::createHIRRowWiseMVPass();
+      (void)llvm::createHIRConditionalLoadStoreMotionPass();
 
       // DPCPP Kernel Transformations
       (void) llvm::createDPCPPKernelVecClonePass();
