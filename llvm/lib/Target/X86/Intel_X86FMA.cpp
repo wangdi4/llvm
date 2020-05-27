@@ -130,8 +130,7 @@ private:
   /// If the parameter \p LookForAVX512 is set to true, then the reference
   /// to the table with AVX512 opcodes is returned. Otherwise, this method
   /// returns a reference to the table with AVX1/AVX2 opcodes.
-  static const FMAOpcodeDesc *getOpcodesTab(bool LookForAVX512,
-                                            unsigned &OpcodesTabSize);
+  static ArrayRef<FMAOpcodeDesc> getOpcodesTab(bool LookForAVX512);
 
 public:
   /// This function returns true iff the given opcode \p Opcode should be
@@ -414,36 +413,25 @@ const FMAOpcodesInfo::FMAOpcodeDesc FMAOpcodesInfo::AVX512Opcodes[] = {
   { X86::VFNMSUB231PDZr,    X86::VFNMSUB231PDZm,    MVT::v8f64,  FNMS231Opc },
 };
 
-const FMAOpcodesInfo::FMAOpcodeDesc *
-FMAOpcodesInfo::getOpcodesTab(bool LookForAVX512, unsigned &OpcodesTabSize) {
-  const FMAOpcodeDesc *OpcodesTab;
-  if (!LookForAVX512) {
-    OpcodesTab = AVXOpcodes;
-    OpcodesTabSize = sizeof(AVXOpcodes) / sizeof(FMAOpcodeDesc);
-  } else {
-    OpcodesTab = AVX512Opcodes;
-    OpcodesTabSize = sizeof(AVX512Opcodes) / sizeof(FMAOpcodeDesc);
-  }
-  return OpcodesTab;
+ArrayRef<FMAOpcodesInfo::FMAOpcodeDesc>
+FMAOpcodesInfo::getOpcodesTab(bool LookForAVX512) {
+  return LookForAVX512 ? makeArrayRef(AVX512Opcodes)
+                       : makeArrayRef(AVXOpcodes);
 }
 
 bool FMAOpcodesInfo::recognizeOpcode(unsigned Opcode, bool LookForAVX512,
                                      MVT &VT, FMAOpcodeKind &OpcodeKind,
                                      bool &IsMem, bool &MulSign,
                                      bool &AddSign) {
-  unsigned OpcodesTabSize;
-  const FMAOpcodeDesc *OpcodesTab =
-      getOpcodesTab(LookForAVX512, OpcodesTabSize);
-  for (unsigned I = 0; I < OpcodesTabSize; I++) {
-    const FMAOpcodeDesc *OD = &OpcodesTab[I];
-    if (Opcode == OD->RegOpc)
-      IsMem = false;
-    else if (Opcode == OD->MemOpc)
-      IsMem = true;
-    else
-      continue;
-    VT = OD->VT;
-    OpcodeKind = static_cast<FMAOpcodeKind>(OD->OpcodeKind);
+  ArrayRef<FMAOpcodeDesc> OpcodesTab = getOpcodesTab(LookForAVX512);
+  auto I = llvm::find_if(OpcodesTab,
+                         [Opcode](const FMAOpcodeDesc &OD) {
+                           return Opcode == OD.RegOpc || Opcode == OD.MemOpc;
+                         });
+  if (I != OpcodesTab.end()) {
+    IsMem = Opcode == I->MemOpc;
+    VT = I->VT;
+    OpcodeKind = static_cast<FMAOpcodeKind>(I->OpcodeKind);
 
     bool IsFNMS = OpcodeKind == FNMS213Opc || OpcodeKind == FNMS132Opc ||
                   OpcodeKind == FNMS231Opc;
@@ -514,14 +502,14 @@ unsigned FMAOpcodesInfo::getOpcodeOfKind(
     llvm_unreachable("GlobalFMA: Cannot choose appropriate ZERO opcode.");
   }
 
-  unsigned OpcodesTabSize;
-  const FMAOpcodeDesc *OpcodesTab =
-      getOpcodesTab(LookForAVX512, OpcodesTabSize);
-  for (unsigned I = 0; I < OpcodesTabSize; I++) {
-    const FMAOpcodeDesc *OD = &OpcodesTab[I];
-    if (OD->OpcodeKind == OpcodeKind && OD->VT == VT)
-      return OD->RegOpc;
-  }
+  ArrayRef<FMAOpcodeDesc> OpcodesTab = getOpcodesTab(LookForAVX512);
+  auto I = llvm::find_if(OpcodesTab,
+                         [OpcodeKind,VT](const FMAOpcodeDesc &OD) {
+                           return OD.OpcodeKind == OpcodeKind && OD.VT == VT;
+                         });
+  if (I != OpcodesTab.end())
+    return I->RegOpc;
+
   llvm_unreachable("Unsupported machine value type or opcode kind.");
 }
 
