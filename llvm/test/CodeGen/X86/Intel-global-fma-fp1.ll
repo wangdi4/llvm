@@ -11,14 +11,14 @@
 ; SKX opcodes. the code should become identical for AVX2 and SKX after the
 ; FMA form selection is enabled for SKX.
 
-; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mcpu=core-avx2 -fp-contract=fast -enable-unsafe-fp-math -enable-misched=0 -code-model=small -relocation-model=pic | FileCheck --check-prefix=SML %s
-; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mcpu=skx       -fp-contract=fast -enable-unsafe-fp-math -enable-misched=0 -code-model=small -relocation-model=pic | FileCheck --check-prefix=SML %s
+; RUN: llc < %s -verify-machineinstrs -mtriple=x86_64-unknown-unknown -mcpu=core-avx2 -fp-contract=fast -enable-unsafe-fp-math -enable-misched=0 -code-model=small -relocation-model=pic | FileCheck --check-prefix=SML %s
+; RUN: llc < %s -verify-machineinstrs -mtriple=x86_64-unknown-unknown -mcpu=skx       -fp-contract=fast -enable-unsafe-fp-math -enable-misched=0 -code-model=small -relocation-model=pic | FileCheck --check-prefix=SML %s
 
-; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mcpu=core-avx2 -fp-contract=fast -enable-unsafe-fp-math -enable-misched=0 -code-model=large | FileCheck --check-prefix=LRG %s
-; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mcpu=skx       -fp-contract=fast -enable-unsafe-fp-math -enable-misched=0 -code-model=large | FileCheck --check-prefix=LRG %s
+; RUN: llc < %s -verify-machineinstrs -mtriple=x86_64-unknown-unknown -mcpu=core-avx2 -fp-contract=fast -enable-unsafe-fp-math -enable-misched=0 -code-model=large | FileCheck --check-prefix=LRG %s
+; RUN: llc < %s -verify-machineinstrs -mtriple=x86_64-unknown-unknown -mcpu=skx       -fp-contract=fast -enable-unsafe-fp-math -enable-misched=0 -code-model=large | FileCheck --check-prefix=LRG %s
 
-; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mcpu=core-avx2 -fp-contract=fast -enable-unsafe-fp-math -enable-misched=0 -code-model=kernel | FileCheck --check-prefix=OTHER --check-prefix=AVX2OTHER %s
-; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mcpu=skx       -fp-contract=fast -enable-unsafe-fp-math -enable-misched=0 -code-model=kernel | FileCheck --check-prefix=OTHER --check-prefix=SKXOTHER %s
+; RUN: llc < %s -verify-machineinstrs -mtriple=x86_64-unknown-unknown -mcpu=core-avx2 -fp-contract=fast -enable-unsafe-fp-math -enable-misched=0 -code-model=kernel | FileCheck --check-prefix=OTHER --check-prefix=AVX2OTHER %s
+; RUN: llc < %s -verify-machineinstrs -mtriple=x86_64-unknown-unknown -mcpu=skx       -fp-contract=fast -enable-unsafe-fp-math -enable-misched=0 -code-model=kernel | FileCheck --check-prefix=OTHER --check-prefix=SKXOTHER %s
 
 attributes #0 = { nounwind }
 
@@ -68,7 +68,7 @@ define double @test_sd(double %a64, double %b64, double %c64, double %d64) #0 {
 ; OTHER-LABEL: test_sd:
 ; OTHER:       %bb.0: # %entry
 ; OTHER-NEXT:    movabsq $4607182418800017408, %rax # imm = 0x3FF0000000000000
-; OTHER-NEXT:    vmovd %rax, %xmm4
+; OTHER-NEXT:    vmovq %rax, %xmm4
 ; OTHER-NEXT:    vfmadd213sd %xmm4, %xmm2, %xmm0
 ; OTHER-NEXT:    vfmadd213sd %xmm1, %xmm3, %xmm0
 ; OTHER-NEXT:    retq
@@ -131,7 +131,7 @@ define <2 x double> @test_pd(<2 x double> %a32, <2 x double> %b32, <2 x double> 
 ; OTHER:       %bb.0: # %entry
 ; OTHER-NEXT:    movabsq $4607182418800017408, %rax # imm = 0x3FF0000000000000
 ;
-; AVX2OTHER-NEXT: vmovd %rax, %xmm4
+; AVX2OTHER-NEXT: vmovq %rax, %xmm4
 ; AVX2OTHER-NEXT: vpunpcklqdq {{.*#+}} xmm4 = xmm4[0,0]
 ; SKXOTHER-NEXT:  vpbroadcastq %rax, %xmm4
 ;
@@ -197,7 +197,7 @@ define <4 x double> @test_pd256(<4 x double> %a32, <4 x double> %b32, <4 x doubl
 ; OTHER:       %bb.0: # %entry
 ; OTHER-NEXT:    movabsq $4607182418800017408, %rax # imm = 0x3FF0000000000000
 ;
-; AVX2OTHER-NEXT: vmovd %rax, %xmm4
+; AVX2OTHER-NEXT: vmovq %rax, %xmm4
 ; AVX2OTHER-NEXT: vpbroadcastq %xmm4, %ymm4
 ; SKXOTHER-NEXT:  vpbroadcastq %rax, %ymm4
 ;
