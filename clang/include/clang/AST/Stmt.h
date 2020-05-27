@@ -312,9 +312,8 @@ protected:
     unsigned ValueKind : 2;
     unsigned ObjectKind : 3;
     unsigned /*ExprDependence*/ Dependent : llvm::BitWidth<ExprDependence>;
-    unsigned IsCondition : 1; // INTEL
   };
-  enum { NumExprBits = NumStmtBits + 6 +llvm::BitWidth<ExprDependence>};// INTEL
+  enum { NumExprBits = NumStmtBits + 5 +llvm::BitWidth<ExprDependence>};
 
   class ConstantExprBitfields {
     friend class ASTStmtReader;

@@ -1,4 +1,6 @@
 ; Check HIR vectorizer support for handling Fortran array accesses participating in reductions.
+; We also force mixed CG mode for VPValue code generation for handling Fortran array accesses.
+; Check that using vpvalue CG generates same code.
 
 ; Unsupported case
 ; Incoming HIR
@@ -10,7 +12,8 @@
 ;
 ;    @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=2 -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s --check-prefix=UNSUPPORTED
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=2 -print-after=VPlanDriverHIR -disable-output < %s 2>&1 | FileCheck %s --check-prefix=UNSUPPORTED
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=2 -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir -disable-output < %s 2>&1 | FileCheck %s --check-prefix=UNSUPPORTED
 
 ; Check that loop was not vectorized.
 ; UNSUPPORTED-NOT: <2 x
@@ -26,7 +29,8 @@
 ;
 ;    @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=2 -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s --check-prefix=SUPPORTED
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=2 -print-after=VPlanDriverHIR -disable-output < %s 2>&1 | FileCheck %s --check-prefix=SUPPORTED
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=2 -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir -disable-output < %s 2>&1 | FileCheck %s --check-prefix=SUPPORTED
 
 ; Check that loop was vectorized.
 ; SUPPORTED:      + DO i2 = 0, 2 * %tgu + -1, 2   <DO_LOOP> <nounroll> <novectorize>

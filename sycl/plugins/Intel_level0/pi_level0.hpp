@@ -325,8 +325,10 @@ struct _pi_program {
 };
 
 struct _pi_kernel {
-  _pi_kernel(ze_kernel_handle_t Kernel, pi_program Program)
-      : ZeKernel{Kernel}, Program{Program}, RefCount{1} {}
+  _pi_kernel(ze_kernel_handle_t Kernel, pi_program Program,
+             const char *KernelName)
+      : ZeKernel{Kernel}, Program{Program}, RefCount{1},
+        KernelName(KernelName) {}
 
   // L0 function handle.
   ze_kernel_handle_t ZeKernel;
@@ -337,6 +339,11 @@ struct _pi_kernel {
   // L0 doesn't do the reference counting, so we have to do.
   // Must be atomic to prevent data race when incrementing/decrementing.
   std::atomic<pi_uint32> RefCount;
+
+  // TODO: remove when bug in the L0 runtime will be fixed.
+  // See:
+  // https://gitlab.devtools.intel.com/one-api/level_zero_gpu_driver/issues/72
+  std::string KernelName;
 };
 
 struct _pi_sampler {

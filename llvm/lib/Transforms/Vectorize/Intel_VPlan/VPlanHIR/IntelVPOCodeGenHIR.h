@@ -113,10 +113,13 @@ public:
   HLLoop *getOrigLoop() const { return OrigLoop; }
   HLLoop *getMainLoop() const { return MainLoop; }
   unsigned getVF() const { return VF; };
-  VPlanVLSAnalysis *getVLS() { return VLSA; }
-  const VPlan *getPlan() { return Plan; }
+  VPlanVLSAnalysis *getVLS() const { return VLSA; }
+  const VPlan *getPlan() const { return Plan; }
   bool getNeedRemainderLoop() const { return NeedRemainderLoop; }
   HLLoop *getRemainderLoop() const { return OrigLoop; }
+
+  void setForceMixedCG(bool MixedCG) { ForceMixedCG = MixedCG; }
+  bool getForceMixedCG() const { return ForceMixedCG; }
 
   // Return true if Ref is a reduction
   bool isReductionRef(const RegDDRef *Ref, unsigned &Opcode);
@@ -521,6 +524,10 @@ private:
   // Is a remainder loop needed?
   bool NeedRemainderLoop;
 
+  // Force mixed code generation - used when we see cases such as search loops,
+  // live out privates, and Fortran subscript arrays
+  bool ForceMixedCG = false;
+
   // Loop trip count if constant. Set to zero for non-constant trip count loops.
   uint64_t TripCount;
 
@@ -581,14 +588,14 @@ private:
 
   SmallVector<HLDDNode *, 8> InsertRegionsStack;
 
-  // Map of VPValues and their corresponding HIR reduction variable used inside
-  // the generated vector loop.
+  // Set of VPInsts involved in a reduction - used to avoid folding of
+  // operations.
+  SmallPtrSet<const VPInstruction *, 4> ReductionVPInsts;
+
+  // Map of VPValues(reduction PHI and its operands) and their corresponding HIR
+  // reduction variable(RegDDRef) used inside the generated vector loop.
   DenseMap<const VPValue *, RegDDRef *> ReductionRefs;
-  // Collection of start values of reduction entities that are done in-memory.
-  SmallPtrSet<VPExternalDef *, 4> InMemoryReductionDescriptors;
-  // Map of VPValues and their corresponding HIR induction variable used inside
-  // the generated vector loop.
-  DenseMap<const VPValue *, RegDDRef *> InductionRefs;
+
   // Collection of VPInstructions inside the loop that correspond to main loop
   // IV. This is expected to contain the PHI and incrementing add
   // instruction(s).
@@ -789,6 +796,21 @@ private:
   void addPaddingRuntimeCheck(
       SmallVectorImpl<std::tuple<HLPredicate, RegDDRef *, RegDDRef *>>
           &RTChecks);
+
+  // If VPInst has a corresponding reduction ref, create a copy instruction
+  // copying RValRef to the same with given Mask and return LvalRef of the copy
+  // instruction. Return RValRef otherwise.
+  RegDDRef *createCopyForRednRef(const VPInstruction *VPInst, RegDDRef *RvalRef,
+                                 RegDDRef *Mask) {
+    auto Itr = ReductionRefs.find(VPInst);
+    if (Itr == ReductionRefs.end())
+      return RvalRef;
+    auto *RedRef = Itr->second;
+    HLInst *CopyInst =
+        HLNodeUtilities.createCopyInst(RvalRef, "redval.copy", RedRef->clone());
+    addInst(CopyInst, Mask);
+    return CopyInst->getLvalDDRef();
+  }
 
   // The small loop trip count and body thresholds used to determine where it
   // is appropriate for complete unrolling. May eventually need to be moved to

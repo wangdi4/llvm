@@ -13073,12 +13073,6 @@ static void CheckImplicitConversion(Sema &S, Expr *E, QualType T,
       if (S.SourceMgr.isInSystemMacro(CC))
         return;
 
-#if INTEL_CUSTOMIZATION
-      // CQ414781, suppress float-to-bool diagnostic in conditions.
-      if (TargetBT->isBooleanType() && E->isCondition())
-        return;
-#endif // INTEL_CUSTOMIZATION
-
       DiagnoseFloatingImpCast(S, E, T, CC);
     }
 
@@ -13439,12 +13433,7 @@ static void AnalyzeImplicitConversions(
   SourceLocation CC = Item.CC;
 
   QualType T = OrigE->getType();
-  bool isCondition = OrigE->isCondition(); // INTEL
   Expr *E = OrigE->IgnoreParenImpCasts();
-#if INTEL_CUSTOMIZATION
-  if (isCondition)
-    E->setIsCondition(isCondition);
-#endif // INTEL_CUSTOMIZATION
 
   // Propagate whether we are in a C++ list initialization expression.
   // If so, we do not issue warnings for implicit int-float conversion

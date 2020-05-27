@@ -30,7 +30,7 @@ target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16
 target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse nounwind readonly uwtable
 define dso_local i32 @foo(i32* nocapture readonly %a, i32 %n) local_unnamed_addr {
-; CHECK-LABEL:  VPlan after loop unrolling
+; CHECK-LABEL:  VPlan after loop unrolling:
 ; CHECK-NEXT:  VPlan IR for: Initial VPlan for VF=4
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%acc.08}
@@ -100,13 +100,13 @@ define dso_local i32 @foo(i32* nocapture readonly %a, i32 %n) local_unnamed_addr
 ; CGCHECK-NEXT:  <19>                     [[RED_VAR0]] = insertelement [[RED_VAR0]],  [[ACC_080:%.*]],  0
 ; CGCHECK-NEXT:  <15>                  + DO i1 = 0, 12 * [[TGU0]] + -1, 12   <DO_LOOP>  <MAX_TC_EST = 357913941> <nounroll> <novectorize>
 ; CGCHECK-NEXT:  <20>                  |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[A0:%.*]])[i1]
-; CGCHECK-NEXT:  <21>                  |   [[RED_VAR0]] = [[DOTVEC0]]  +  [[RED_VAR0]]
+; CGCHECK-NEXT:  <21>                  |   [[DOTVEC10:%.*]] = [[DOTVEC0]]  +  [[RED_VAR0]]
 ; CGCHECK-NEXT:  <22>                  |   [[DOTVEC20:%.*]] = (<4 x i32>*)([[A0]])[i1 + 4]
-; CGCHECK-NEXT:  <23>                  |   [[RED_VAR0]] = [[DOTVEC20]]  +  [[RED_VAR0]]
+; CGCHECK-NEXT:  <23>                  |   [[DOTVEC30:%.*]] = [[DOTVEC20]]  +  [[DOTVEC10]]
 ; CGCHECK-NEXT:  <24>                  |   [[DOTVEC40:%.*]] = (<4 x i32>*)([[A0]])[i1 + 8]
-; CGCHECK-NEXT:  <25>                  |   [[RED_VAR0]] = [[DOTVEC40]]  +  [[RED_VAR0]]
+; CGCHECK-NEXT:  <25>                  |   [[RED_VAR0]] = [[DOTVEC40]]  +  [[DOTVEC30]]
 ; CGCHECK-NEXT:  <15>                  + END LOOP
-; CGCHECK-NEXT:  <26>                  [[ACC_080]] = @llvm.experimental.vector.reduce.add.v4i32([[RED_VAR0]])
+; CGCHECK-NEXT:  <26>                     [[ACC_080]] = @llvm.experimental.vector.reduce.add.v4i32([[RED_VAR0]])
 ; CGCHECK-NEXT:  <16>               }
 ; CGCHECK-NEXT:  <11>
 ; CGCHECK-NEXT:  <11>               + DO i1 = 12 * [[TGU0]], zext.i32.i64([[N0]]) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 11> <nounroll> <novectorize> <max_trip_count = 11>

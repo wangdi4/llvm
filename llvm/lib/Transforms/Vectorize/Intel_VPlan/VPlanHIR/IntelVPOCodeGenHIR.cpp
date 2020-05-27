@@ -553,12 +553,12 @@ void HandledCheck::visit(HLDDNode *Node) {
     if (TLval && TLval->isTerminalRef() &&
         OrigLoop->isLiveOut(TLval->getSymbase())) {
       unsigned RedOpcode = 0;
-      if (!CG->isReductionRef(TLval, RedOpcode) && EnableVPValueCodegenHIR) {
+      if (EnableVPValueCodegenHIR && !CG->isReductionRef(TLval, RedOpcode)) {
         LLVM_DEBUG(Inst->dump());
-        LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: VPValCG liveout "
-                             "induction/private not handled\n");
-        IsHandled = false;
-        return;
+        LLVM_DEBUG(
+            dbgs() << "VPLAN_OPTREPORT: VPValCG liveout "
+                      "induction/private not handled - forcing mixed CG\n");
+        CG->setForceMixedCG(true);
       }
     }
 
@@ -691,6 +691,29 @@ void HandledCheck::visitRegDDRef(RegDDRef *RegDD) {
       FieldAccessSeen = true;
 
     MemRefSeen = true;
+
+    // Proper support of Fortran arrays in VPValue based code generation
+    // requires VPSubscript instruction which is currently under
+    // implementation. Switch to mixed CG mode for these cases.
+    if (EnableVPValueCodegenHIR) {
+      unsigned NumDimensions = RegDD->getNumDimensions();
+      // Force mixed CG for any of the following cases:
+      //   - dimension lower is non-zero
+      //   - dimension stride is variant
+      //   - dimension other than last is not an LLVM array.
+      for (unsigned DimNum = NumDimensions; DimNum > 0; --DimNum) {
+        if (!RegDD->getDimensionLower(DimNum)->isZero() ||
+            !RegDD->getDimensionStride(DimNum)->isInvariantAtLevel(
+                OrigLoop->getNestingLevel()) ||
+            (DimNum != NumDimensions && !RegDD->isDimensionLLVMArray(DimNum))) {
+          LLVM_DEBUG(dbgs() << "VPLAN_OPTREPORT: Loop not handled - Fortran "
+                               "array accesses using llvm.subscript.intrinsic "
+                               "- using mixed CG\n");
+          CG->setForceMixedCG(true);
+          break;
+        }
+      }
+    }
   }
 
   // We cannot support invalidated Fortran array accesses because of missing
@@ -791,6 +814,43 @@ inline bool HandledCheck::isUniform(const RegDDRef *Ref) const {
 
 // Return true if Loop is currently handled by HIR vector code generation.
 bool VPOCodeGenHIR::loopIsHandled(HLLoop *Loop, unsigned int VF) {
+  // Search loop representation is not explicit. Force mixed CG.
+  if (isSearchLoop())
+    setForceMixedCG(true);
+
+  // Check that each loop header-phi is either an induction or a reduction.
+  // Bail out of vectorizing the loop if this is not the case.
+  std::function<bool(const VPlan *Plan)> hasValidHeaderPhis =
+      [&](const VPlan *Plan) {
+        if (isSearchLoop())
+          return true;
+
+        assert(Plan->getVPLoopInfo()->size() == 1 && "Expected one loop");
+        VPLoop *VLoop = *(Plan->getVPLoopInfo()->begin());
+
+        for (const VPBasicBlock &VPBB : *Plan)
+          if (&VPBB == VLoop->getHeader())
+            for (const VPPHINode &Phi : VPBB.getVPPhis()) {
+              bool Valid = false;
+              for (const VPValue *Operand : Phi.operands())
+                if (isa<VPInductionInit>(Operand) ||
+                    isa<VPReductionInit>(Operand)) {
+                  Valid = true;
+                  break;
+                }
+              if (!Valid) {
+                LLVM_DEBUG(dbgs()
+                           << "VPLAN_OPTREPORT: Loop not handled - header phi "
+                              "neither an induction or reduction\n");
+                return false;
+              }
+            }
+
+        return true;
+      };
+
+  if (!hasValidHeaderPhis(Plan))
+    return false;
 
   // Only handle normalized loops
   if (!Loop->isNormalized()) {
@@ -2931,14 +2991,21 @@ void VPOCodeGenHIR::widenBlendImpl(const VPBlendInst *Blend, RegDDRef *Mask) {
     addInst(BlendInst, Mask);
     BlendVal = BlendInst->getLvalDDRef()->clone();
   }
+
+  // If the blend instruction has an associated reduction ref, the blendval
+  // needs to be copied to the same. The reduction ref becomes the blend result.
+  BlendVal = createCopyForRednRef(Blend, BlendVal, Mask);
   addVPValueWideRefMapping(Blend, BlendVal);
 }
 
 // Widen PHI instruction.
 void VPOCodeGenHIR::widenPhiImpl(const VPPHINode *VPPhi, RegDDRef *Mask) {
-  // Check if PHI corresponds to a reduction, if yes just use the corresponding
-  // reduction ref as its widened ref.
-  if (ReductionRefs.count(VPPhi)) {
+  // A phi can correspond to a reduction. This can either be a phi in the loop
+  // header which is not deconstructed. It can also be a phi at a merge point
+  // of uniform control flow within the loop. In case of a non-deconstructed PHI
+  // corresponding to a reduction, just use the corresponding reduction ref as
+  // its widened ref.
+  if (!isDeconstructedPhi(VPPhi) && ReductionRefs.count(VPPhi)) {
     addVPValueWideRefMapping(VPPhi, ReductionRefs[VPPhi]);
     return;
   }
@@ -2968,6 +3035,10 @@ void VPOCodeGenHIR::widenPhiImpl(const VPPHINode *VPPhi, RegDDRef *Mask) {
   int OriginPhiId = cast<VPHIRCopyInst>(VPPhi->getOperand(0))->getOriginPhiId();
   RegDDRef *PhiTemp = getLValTempForPhiId(OriginPhiId);
   assert(PhiTemp && "Deconstructed PHI does not have a LVal temp.");
+
+  // If the phi instruction has an associated reduction ref, PhiTemp needs to be
+  // copied to the same. The reduction ref becomes the Phi result.
+  PhiTemp = createCopyForRednRef(VPPhi, PhiTemp->clone(), Mask);
   addVPValueWideRefMapping(VPPhi, PhiTemp);
 }
 
@@ -3099,9 +3170,6 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
 
   case VPInstruction::ReductionFinal: {
     const VPReductionFinal *RedFinal = cast<VPReductionFinal>(VPInst);
-    assert(
-        ReductionRefs.count(RedFinal) &&
-        "Reduction final instruction does not have a corresponding RegDDRef.");
     HLContainerTy RedTail;
 
     RegDDRef *VecRef = widenRef(RedFinal->getReducingOperand(), getVF());
@@ -3357,7 +3425,8 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
 
     auto *CE1 = RefOp0->getSingleCanonExpr();
     auto *CE2 = RefOp1->getSingleCanonExpr();
-    if (!ReductionRefs.count(VPInst) && CanonExprUtilities.canAdd(CE1, CE2)) {
+    if (!ReductionVPInsts.count(VPInst) &&
+        CanonExprUtilities.canAdd(CE1, CE2)) {
       SmallVector<const RegDDRef *, 2> AuxRefs = {RefOp0->clone(), RefOp1};
       CanonExprUtilities.add(CE1, CE2);
       makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen);
@@ -3676,25 +3745,18 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
 }
 
 void VPOCodeGenHIR::createAndMapLoopEntityRefs(unsigned VF) {
-  // Process reductions. For each reduction variable in the loop we create a new
-  // RegDDRef to represent it. Next we map all instructions related to the
-  // reduction to have the new RegDDRef as its underlying reduction. This is
+  // Collect set of VPInstructions that are involved in a reduction. This set
+  // is used to avoid folding instructions involved in reductions. This is
   // done by recursively collecting relevant instructions via def-use chains,
-  // starting from the reduction's initializer.
-  std::function<void(VPInstruction *, RegDDRef *)> mapInstAndUsersToRednRef =
-      [&](VPInstruction *Inst, RegDDRef *Ref) {
-        // Do not process an already mapped instruction. Each instruction is
-        // guaranteed to be associated with a unique reduction anyways.
-        if (ReductionRefs.find(Inst) != ReductionRefs.end()) {
-          assert(ReductionRefs[Inst] == Ref &&
-                 "Instruction involved in 2 different reductions.");
+  // starting from the reduction initializers.
+  std::function<void(const VPInstruction *)> collectRednVPInsts =
+      [&](const VPInstruction *Inst) {
+        // Do not process an already seen instruction.
+        if (ReductionVPInsts.count(Inst)) {
           return;
         }
 
-        ReductionRefs[Inst] = Ref;
-        LLVM_DEBUG(dbgs() << "VPInst: "; Inst->dump();
-                   dbgs() << " has the underlying reduction ref: ";
-                   Ref->dump(true); dbgs() << "\n");
+        ReductionVPInsts.insert(Inst);
         for (auto *User : Inst->users()) {
           if (!isa<VPInstruction>(User))
             continue;
@@ -3705,16 +3767,32 @@ void VPOCodeGenHIR::createAndMapLoopEntityRefs(unsigned VF) {
           if (UserInst->getType() != Inst->getType())
             continue;
 
-          if (auto *RednFinal = dyn_cast<VPReductionFinal>(UserInst)) {
-            // Make sure finalizer of index reduction is not linked to parent
-            // min/max reduction.
-            if (RednFinal->isMinMaxIndex() &&
-                (RednFinal->getParentExitValOperand() == Inst ||
-                 RednFinal->getParentFinalValOperand() == Inst))
-              continue;
-          }
+          collectRednVPInsts(UserInst);
+        }
+      };
 
-          mapInstAndUsersToRednRef(UserInst, Ref);
+  // Process reductions. For each reduction variable in the loop we create a new
+  // RegDDRef to represent it. Next, we map the corresponding ReductionInit
+  // user(PHI), and the PHI operands to the same RegDDRef. As part of mapping
+  // the PHI operands, corresponding ReductionInit will also get mapped to the
+  // same RegDDRef.
+  std::function<void(VPReductionInit *, RegDDRef *)> mapRednToRednRef =
+      [&](VPReductionInit *RedInit, RegDDRef *Ref) {
+        assert(RedInit->getNumUsers() == 1 &&
+               "Expected single user of reduction init");
+        auto *RedPHI = cast<VPPHINode>(*(RedInit->users().begin()));
+        ReductionRefs[RedPHI] = Ref;
+        LLVM_DEBUG(dbgs() << "VPInst: "; RedPHI->dump();
+                   dbgs() << " has the underlying reduction ref: ";
+                   Ref->dump(true); dbgs() << "\n");
+
+        for (const VPValue *Operand : RedPHI->operands()) {
+          auto *PhiOpInst = cast<VPInstruction>(Operand);
+
+          LLVM_DEBUG(dbgs() << "VPInst: "; PhiOpInst->dump();
+                     dbgs() << " has the underlying reduction ref: ";
+                     Ref->dump(true); dbgs() << "\n");
+          ReductionRefs[PhiOpInst] = Ref;
         }
       };
 
@@ -3729,7 +3807,8 @@ void VPOCodeGenHIR::createAndMapLoopEntityRefs(unsigned VF) {
     if (auto *RedInit = dyn_cast<VPReductionInit>(&Inst)) {
       RegDDRef *RednRef = HLNodeUtilities.createTemp(
           VectorType::get(RedInit->getType(), VF), "red.var");
-      mapInstAndUsersToRednRef(RedInit, RednRef);
+      mapRednToRednRef(RedInit, RednRef);
+      collectRednVPInsts(RedInit);
     }
   }
 
@@ -3796,7 +3875,9 @@ void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask,
   auto It = VPInstUnrollPart.find(VPInst);
   CurrentVPInstUnrollPart = It == VPInstUnrollPart.end() ? 0 : It->second;
 
-  if (EnableVPValueCodegenHIR) {
+  // Use VPValue based code generation if it is enabled and mixed CG has not
+  // been forced
+  if (EnableVPValueCodegenHIR && !getForceMixedCG()) {
     widenNodeImpl(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
                   GrpStartInst);
     return;
@@ -3816,78 +3897,11 @@ void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask,
     return;
   }
 
-  // Special handling of PHI/Blend nodes to support mixed codegen. In mixed mode
-  // we should generate explicit code for PHIs only if they have any invalidated
-  // users; it should be ignored otherwise.
-  if (isa<VPPHINode>(VPInst) || isa<VPBlendInst>(VPInst)) {
-    // Any PHI/Blend involved in loop-entities based reduction should be mapped
-    // to the DDRef that was already created for it. Explicit blends are not
-    // needed for them.
-    if (ReductionRefs.count(VPInst)) {
-      addVPValueWideRefMapping(VPInst, ReductionRefs[VPInst]);
-      return;
-    }
-
-    // Cases where PHIs can have invalidated users.
-    // Case 1: Decomposed PHI
-    // It is possible to have the same PHI node being part of multiple master
-    // instructions. In such scenarios if any of the user master instruction is
-    // invalidated, then widened code should be generated for this PHI since the
-    // invalidated instruction uses it. Example pseduo HIR -
-    // if (cond) {
-    //   %1 = abc
-    // } else {
-    //   %1 = xyz
-    // }
-    // a[i1] = %1
-    // b[i1] = %1
-    //
-    // Decomposed pseduo HCFG for this code -
-    // VPBB.if.then:
-    //   ...
-    //   %vp1 = ...
-    //
-    // VPBB.if.else:
-    //   ...
-    //   %vp2 = ...
-    //
-    // VPBB.if.end:
-    //   %phi = phi [%vp1, VPBB.if.then], [%vp2, VPBB.if.else]
-    //   %a.gep = gep
-    //   store %phi, %a.gep
-    //   %b.gep = gep
-    //   store %phi, %b.gep       ==> Invalidated instruction
-    //
-    // In above example scenario, in order to generate code for the invalidated
-    // store explicit wide code must be emitted for %phi.
-    //
-    // Case 2: Master PHI (happens only for loop IV)
-    // It is possible that instructions using the loop IV PHI maybe invalidated.
-    // Widened code for PHI should be generated to ensure that mixed codegen for
-    // such users works.
-    //
-    for (auto *U : VPInst->users()) {
-      auto *UserInst = dyn_cast<VPInstruction>(U);
-      if (!UserInst)
-        continue;
-      if (!UserInst->isUnderlyingIRValid()) {
-        LLVM_DEBUG(dbgs() << "VPPHINode/VPBlendInst has an invalid master user "
-                          << "instruction:" << "\n"
-                          << *VPInst << "\n"
-                          << *UserInst << "\n");
-        widenNodeImpl(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
-                      GrpStartInst);
-        return;
-      }
-    }
-
-    assert((isa<VPBlendInst>(VPInst) ||
-            !isDeconstructedPhi(cast<VPPHINode>(VPInst))) &&
-           "A PHI which was deconstructed via copies is being ignored in mixed "
-           "CG.");
-    // PHI/Blend need not be widened since all users have valid underlying HIR.
-    LLVM_DEBUG(dbgs() << "Skipping unecessary PHI/Blend in mixed mode:"
-                      << *VPInst << "\n");
+  // Always generate code for Phis/Blends in mixed code gen mode except for
+  // search loops.
+  if (!isSearchLoop() && (isa<VPPHINode>(VPInst) || isa<VPBlendInst>(VPInst))) {
+    widenNodeImpl(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
+                  GrpStartInst);
     return;
   }
 

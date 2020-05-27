@@ -44,20 +44,6 @@ void VPlanSSADeconstruction::run() {
       continue;
 
     for (VPPHINode &Phi : VPBB.getVPPhis()) {
-      // Currently we ignore PHIs which will be skipped by mixed CG. However it
-      // is safer to emit copies for PHIs than ignore them based on invalidated
-      // users. TODO: Remove when VPValue-based CG is default i.e. PHIs are
-      // never ignored.
-      bool AllUsesAreValid = llvm::all_of(Phi.users(), [](VPUser *U) {
-        if (auto *UserInst = dyn_cast<VPInstruction>(U))
-          return UserInst->isUnderlyingIRValid();
-        // Non-instruction user is always valid.
-        return true;
-      });
-
-      if (!EnableVPValueCodegenHIR && AllUsesAreValid)
-        return;
-
       LLVM_DEBUG(dbgs() << "[SSADecons] Inserting copies for: "; Phi.dump());
       // Create a new ID to tag the copies generated for the PHI.
       unsigned PhiId = DeconstructedPhiId++;
