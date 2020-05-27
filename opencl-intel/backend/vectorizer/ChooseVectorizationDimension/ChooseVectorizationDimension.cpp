@@ -45,10 +45,9 @@ OCL_INITIALIZE_PASS_END(ChooseVectorizationDimension,
                         "ChooseVectorizationDimension",
                         "Choosing Vectorization Dimension", false, true)
 
-ChooseVectorizationDimension::ChooseVectorizationDimension() :
-  FunctionPass(ID)
+ChooseVectorizationDimensionImpl::ChooseVectorizationDimensionImpl()
 #ifndef INTEL_PRODUCT_RELEASE
-  ,
+  :
   OCLSTAT_INIT(Dim_Zero_Good_Store_Loads,
     "stores and loads that are good if the vectorization dimension is zero",
     m_kernelStats),
@@ -70,7 +69,7 @@ ChooseVectorizationDimension::ChooseVectorizationDimension() :
   OCLSTAT_INIT(Chosen_Vectorization_Dim,
     "The chosen vectorization dimension",
     m_kernelStats)
-#endif // INTEL_PRODUCT_RELEASE
+#endif
 {}
 
 enum class PreferredOption : unsigned {
@@ -101,7 +100,7 @@ static bool canSwitchDimensions(Function* F) {
   if (HasSubGroups)
     return false;
 
-  // 2. test if we use get_local_id / get_group_id / get_local_size
+  // 2. test if we use get_local_id / get_group_id / get_local_size.
   Function* lid = F->getParent()->getFunction
     (CompilationUtils::mangledGetLID());
   Function* groupId = F->getParent()->getFunction
@@ -149,7 +148,7 @@ static bool canSwitchDimensions(Function* F) {
   return true;
 }
 
-bool ChooseVectorizationDimension::hasDim(Function* F, unsigned int dim) {
+bool ChooseVectorizationDimensionImpl::hasDim(Function* F, unsigned int dim) {
   Function* gid =
       F->getParent()->getFunction(CompilationUtils::mangledGetGID());
   if (!gid)
@@ -163,7 +162,7 @@ bool ChooseVectorizationDimension::hasDim(Function* F, unsigned int dim) {
     bool err, isTidGen;
     unsigned inst_dim = 0;
     isTidGen = m_rtServices->isTIDGenerator(pInstCall, &err, &inst_dim);
-    // (KernelAnalysis should have set noBarrierPath to false if err is true)
+    // KernelAnalysis should have set noBarrierPath to false if err is true.
     V_ASSERT(isTidGen && !err &&
       "TIDGen inst receives non-constant input. Cannot vectorize!");
     if (dim == inst_dim)
@@ -251,7 +250,7 @@ static PreferredOption getPreferredOption(
   return PreferredOption::Neutral;
 }
 
-void ChooseVectorizationDimension::setFinalDecision(int dim, bool canUniteWorkGroups) {
+void ChooseVectorizationDimensionImpl::setFinalDecision(int dim, bool canUniteWorkGroups) {
 #ifndef INTEL_PRODUCT_RELEASE
   if (getenv("DONT_SWITCH_DIM")) {
     dim = 0;
@@ -265,8 +264,10 @@ void ChooseVectorizationDimension::setFinalDecision(int dim, bool canUniteWorkGr
   m_canUniteWorkgroups = canUniteWorkGroups;
 }
 
-bool ChooseVectorizationDimension::runOnFunction(Function &F) {
-  m_rtServices = getAnalysis<BuiltinLibInfo>().getRuntimeServices();
+bool ChooseVectorizationDimensionImpl::run(
+    Function &F, const RuntimeServices *RTS,
+    const SmallVector<Module *, 2> &Builtins) {
+  m_rtServices = RTS;
   V_ASSERT(m_rtServices && "Runtime services were not initialized!");
   int chosenVectorizationDimension = 0;
   bool canUniteWorkgroups = true;
@@ -313,7 +314,7 @@ bool ChooseVectorizationDimension::runOnFunction(Function &F) {
 
   // create function pass manager to run the WIAnalysis for each dimension.
   legacy::FunctionPassManager runWi(F.getParent());
-  runWi.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModules(), ""));
+  runWi.add(createBuiltinLibInfoPass(Builtins, ""));
   for (unsigned int dim = 0; dim < MAX_WORK_DIM; dim++) {
     if (dimExist[dim]) {
       wi[dim] = new WIAnalysis(dim); // construct WI and tell it on which dimension to run.
@@ -329,7 +330,7 @@ bool ChooseVectorizationDimension::runOnFunction(Function &F) {
       if (dimValid[dim] && totalDims > 1) {
         countLoadStores(wi[dim], &currBlock, goodLoadStores[dim], badLoadStores[dim], dim);
       } else if (dimExist[dim]) {
-        // count load stores only if needed for statistics
+        // count load stores only if needed for statistics.
         OCLSTAT_GATHER_CHECK(
           countLoadStores(wi[dim], &currBlock, goodLoadStores[dim], badLoadStores[dim], dim);
         );
@@ -373,7 +374,7 @@ bool ChooseVectorizationDimension::runOnFunction(Function &F) {
       }
     }
 
-    if (totalDims > 2) { // find out which dims are best for this block
+    if (totalDims > 2) { // find out which dims are best for this block.
       std::set<unsigned int> bestDims;
       int bestGoodLoadStores = -1;
       bool bestDivergence = true;
@@ -424,6 +425,29 @@ bool ChooseVectorizationDimension::runOnFunction(Function &F) {
   return false;
 }
 
+
+char ChooseVectorizationDimensionModulePass::ID = 0;
+
+OCL_INITIALIZE_PASS_BEGIN(ChooseVectorizationDimensionModulePass,
+                          "ChooseVectorizationDimensionModulePass",
+                          "Choosing Vectorization Dimension", false, true)
+OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
+OCL_INITIALIZE_PASS_END(ChooseVectorizationDimensionModulePass,
+                        "ChooseVectorizationDimensionModulePass",
+                        "Choosing Vectorization Dimension", false, true)
+
+bool ChooseVectorizationDimensionModulePass::runOnModule(Module &M) {
+  BuiltinLibInfo &BLI = getAnalysis<BuiltinLibInfo>();
+  auto Kernels = Intel::MetadataAPI::KernelList(*&M).getList();
+  ChooseVectorizationDimensionImpl Impl;
+  for (Function *Kernel : Kernels) {
+    Impl.run(*Kernel, BLI.getRuntimeServices(), BLI.getBuiltinModules());
+    ChosenVecDims[Kernel] = Impl.getVectorizationDim();
+    CanUniteWorkgroups[Kernel] = Impl.getCanUniteWorkgroups();
+  }
+  return false;
+}
+
 } // namespace
 
 /// Support for static linking of modules for Windows
@@ -431,5 +455,10 @@ bool ChooseVectorizationDimension::runOnFunction(Function &F) {
 extern "C" {
   intel::ChooseVectorizationDimension* createChooseVectorizationDimension() {
     return new intel::ChooseVectorizationDimension();
+  }
+
+  intel::ChooseVectorizationDimensionModulePass*
+      createChooseVectorizationDimensionModulePass() {
+    return new intel::ChooseVectorizationDimensionModulePass();
   }
 }
