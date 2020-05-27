@@ -3742,22 +3742,52 @@ bool X86AsmParser::MatchAndEmitATTInstruction(SMLoc IDLoc, unsigned &Opcode,
                                                                     : "slt\0";
 #else // INTEL_FEATURE_ICECODE
   const char *Suffixes = Base[0] != 'f' ? "bwlq" : "slt\0";
+<<<<<<< HEAD
 #endif // INTEL_FEATURE_ICECODE
 #endif // INTEL_CUSTOMIZATION
+=======
+  // MemSize corresponding to Suffixes.  { 8, 16, 32, 64 }    { 32, 64, 80, 0 }
+  const char *MemSize = Base[0] != 'f' ? "\x08\x10\x20\x40" : "\x20\x40\x50\0";
+>>>>>>> 6565b5858444ba7dcf799467f5be63d2c2370715
 
   // Check for the various suffix matches.
   uint64_t ErrorInfoIgnore;
   FeatureBitset ErrorInfoMissingFeatures; // Init suppresses compiler warnings.
   unsigned Match[4];
 
+  // Some instruction like VPMULDQ is NOT the variant of VPMULD but a new one.
+  // So we should make sure the suffix matcher only works for memory variant
+  // that has the same size with the suffix.
+  // FIXME: This flag is a workaround for legacy instructions that didn't
+  // declare non suffix variant assembly.
+  bool HasVectorReg = false;
+  X86Operand *MemOp = nullptr;
+  for (const auto &Op : Operands) {
+    X86Operand *X86Op = static_cast<X86Operand *>(Op.get());
+    if (X86Op->isVectorReg())
+      HasVectorReg = true;
+    else if (X86Op->isMem()) {
+      MemOp = X86Op;
+      assert(MemOp->Mem.Size == 0 && "Memory size always 0 under ATT syntax");
+      // Have we found an unqualified memory operand,
+      // break. IA allows only one memory operand.
+      break;
+    }
+  }
+
   for (unsigned I = 0, E = array_lengthof(Match); I != E; ++I) {
     Tmp.back() = Suffixes[I];
-    Match[I] = MatchInstruction(Operands, Inst, ErrorInfoIgnore,
-                                MissingFeatures, MatchingInlineAsm,
-                                isParsingIntelSyntax());
-    // If this returned as a missing feature failure, remember that.
-    if (Match[I] == Match_MissingFeature)
-      ErrorInfoMissingFeatures = MissingFeatures;
+    if (MemOp)
+      MemOp->Mem.Size = MemSize[I];
+    Match[I] = Match_MnemonicFail;
+    if (MemOp || !HasVectorReg) {
+      Match[I] =
+          MatchInstruction(Operands, Inst, ErrorInfoIgnore, MissingFeatures,
+                           MatchingInlineAsm, isParsingIntelSyntax());
+      // If this returned as a missing feature failure, remember that.
+      if (Match[I] == Match_MissingFeature)
+        ErrorInfoMissingFeatures = MissingFeatures;
+    }
   }
 
   // Restore the old token.
