@@ -752,16 +752,12 @@ enum IIT_Info {
   IIT_SUBDIVIDE2_ARG = 44,
   IIT_SUBDIVIDE4_ARG = 45,
   IIT_VEC_OF_BITCASTS_TO_INT = 46,
-<<<<<<< HEAD
-  IIT_V128  = 47
-#if INTEL_CUSTOMIZATION
-  ,
-  IIT_STRUCT9 = 48
-#endif  // INTEL_CUSTOMIZATION
-=======
   IIT_V128 = 47,
   IIT_BF16 = 48
->>>>>>> ad5d319ee85d31ee2b1ca5c29b3a10b340513fec
+#if INTEL_CUSTOMIZATION
+  ,
+  IIT_STRUCT9 = 49
+#endif  // INTEL_CUSTOMIZATION
 };
 
 static void DecodeIITType(unsigned &NextElt, ArrayRef<unsigned char> Infos,
