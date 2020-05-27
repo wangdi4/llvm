@@ -3341,6 +3341,7 @@ pi_result cuda_piEnqueueMemBufferMap(pi_queue command_queue, pi_mem buffer,
                                      pi_event *retEvent, void **ret_map) {
 
   assert(ret_map != nullptr);
+  assert(command_queue != nullptr);
 
   pi_result ret_err = PI_INVALID_OPERATION;
 
@@ -3362,9 +3363,15 @@ pi_result cuda_piEnqueueMemBufferMap(pi_queue command_queue, pi_mem buffer,
         num_events_in_wait_list, event_wait_list, retEvent);
   } else {
     if (retEvent) {
-      *retEvent =
-          _pi_event::make_native(PI_COMMAND_TYPE_MEM_BUFFER_MAP, command_queue);
-      (*retEvent)->record();
+      try {
+        ScopedContext active(command_queue->get_context());
+
+        *retEvent = _pi_event::make_native(PI_COMMAND_TYPE_MEM_BUFFER_MAP,
+                                           command_queue);
+        (*retEvent)->record();
+      } catch (pi_result error) {
+        ret_err = error;
+      }
     }
   }
 
@@ -3381,6 +3388,7 @@ pi_result cuda_piEnqueueMemUnmap(pi_queue command_queue, pi_mem memobj,
                                  pi_event *retEvent) {
   pi_result ret_err = PI_SUCCESS;
 
+  assert(command_queue != nullptr);
   assert(mapped_ptr != nullptr);
   assert(memobj != nullptr);
   assert(memobj->get_map_ptr() != nullptr);
@@ -3394,9 +3402,15 @@ pi_result cuda_piEnqueueMemUnmap(pi_queue command_queue, pi_mem memobj,
       retEvent);
   } else {
     if (retEvent) {
-      *retEvent = _pi_event::make_native(PI_COMMAND_TYPE_MEM_BUFFER_UNMAP,
-                                         command_queue);
-      (*retEvent)->record();
+      try {
+        ScopedContext active(command_queue->get_context());
+
+        *retEvent = _pi_event::make_native(PI_COMMAND_TYPE_MEM_BUFFER_UNMAP,
+                                           command_queue);
+        (*retEvent)->record();
+      } catch (pi_result error) {
+        ret_err = error;
+      }
     }
   }
 
