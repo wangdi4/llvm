@@ -8,7 +8,7 @@
 ; }
 
 ; Verify that the kernel has only one argument:
-; CHECK: define dso_local spir_kernel void @__omp_offloading_804_{{.*}}_foo_l2(i32 addrspace(4)* addrspace(1)*{{[^,]*}})
+; CHECK: define weak dso_local spir_kernel void @__omp_offloading_804_{{.*}}_foo_l2(i32 addrspace(4)* addrspace(1)*{{[^,]*}})
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64"
