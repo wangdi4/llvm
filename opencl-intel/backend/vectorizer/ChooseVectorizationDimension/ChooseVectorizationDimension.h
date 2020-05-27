@@ -37,29 +37,15 @@ namespace intel {
 /// later unite several workgroups to run together, so we dare not switch dimensions,
 /// because it is likely there is not enough size avaialble to support vectorization
 /// in a dimension different than 0.)
-class ChooseVectorizationDimension : public FunctionPass {
+class ChooseVectorizationDimensionImpl {
 public:
-  static char ID; // Pass identification, replacement for typeid
-  ChooseVectorizationDimension();
 
-  /// @brief Provides name of pass
-  llvm::StringRef getPassName() const override {
-    return "ChooseVectorizationDimension";
-  }
+  ChooseVectorizationDimensionImpl();
 
-  /*! \name LLVM Interface
-   * \{ */
-  /// @brief LLVM function pass interface
-  /// @param F function to test
-  /// @return true if modified (always false)
-  bool runOnFunction(Function &F) override;
-  /// @brief requests analysis from LLVM system
-  /// @param AU
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<BuiltinLibInfo>();
-  }
+  bool run(Function &F, const RuntimeServices *RTS,
+           const SmallVector<Module *, 2> &Builtins);
 
-  /// @brief Function for querying the vectorization dimension
+  /// @brief Function for querying the vectorization dimension.
   unsigned getVectorizationDim() const {
     return m_vectorizationDim;
   }
@@ -82,7 +68,7 @@ private:
   bool hasDim(Function* F, unsigned int dim);
 
   /// Runtime services pointer
-  RuntimeServices * m_rtServices;
+  const RuntimeServices *m_rtServices;
 
   /// The vectorized dimension
   unsigned int m_vectorizationDim;
@@ -101,6 +87,80 @@ private:
   Statistic Dim_Two_Bad_Store_Loads;
   Statistic Chosen_Vectorization_Dim;
 #endif // INTEL_PRODUCT_RELEASE
+};
+
+// Function pass, used by Volcano
+class ChooseVectorizationDimension : public FunctionPass {
+public:
+  static char ID;
+
+  ChooseVectorizationDimension() :
+    FunctionPass(ID), Impl(new ChooseVectorizationDimensionImpl)
+  {}
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.setPreservesAll();
+    AU.addRequired<BuiltinLibInfo>();
+  }
+
+  llvm::StringRef getPassName() const override {
+    return "ChooseVectorizationDimension";
+  }
+
+  bool runOnFunction(Function &F) override {
+    BuiltinLibInfo &BLI = getAnalysis<BuiltinLibInfo>();
+    return Impl->run(F, BLI.getRuntimeServices(), BLI.getBuiltinModules());
+  }
+
+  /// @brief Function for querying the vectorization dimension.
+  unsigned getVectorizationDim() const {
+    return Impl->getVectorizationDim();
+  }
+
+  /// @brief Function for querying whether it is ok to unite workgroups.
+  bool getCanUniteWorkgroups() const {
+    return Impl->getCanUniteWorkgroups();
+  }
+
+private:
+  std::unique_ptr<ChooseVectorizationDimensionImpl> Impl;
+};
+
+// Module pass, used by VPlan
+class ChooseVectorizationDimensionModulePass : public ModulePass {
+public:
+  static char ID;
+
+  ChooseVectorizationDimensionModulePass() :
+    ModulePass(ID)
+  {}
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.setPreservesAll();
+    AU.addRequired<BuiltinLibInfo>();
+  }
+
+  llvm::StringRef getPassName() const override {
+    return "ChooseVectorizationDimensionModulePass";
+  }
+
+  bool runOnModule(Module &M) override;
+
+  /// @brief Function for querying the vectorization dimension.
+  unsigned getVectorizationDim(Function *F) const {
+    assert(ChosenVecDims.count(F) && "Not a kernel function?");
+    return ChosenVecDims.find(F)->second;
+  }
+
+  /// @brief Function for querying whether it is ok to unite workgroups.
+  bool getCanUniteWorkgroups(Function *F) const {
+    assert(CanUniteWorkgroups.count(F) && "Not a kernel function?");
+    return CanUniteWorkgroups.find(F)->second;
+  }
+
+private:
+  SmallDenseMap<Function *, unsigned> ChosenVecDims;
+  SmallDenseMap<Function *, bool> CanUniteWorkgroups;
 };
 
 }
