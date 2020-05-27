@@ -3738,17 +3738,17 @@ bool X86AsmParser::MatchAndEmitATTInstruction(SMLoc IDLoc, unsigned &Opcode,
   // in 8/16/32/64-bit forms using the b,w,l,q suffixes respectively.
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ICECODE
-  const char *Suffixes = Base[0] != 'f' || Base.startswith("fscp_") ? "bwlq"
-                                                                    : "slt\0";
+  const char *Suffixes =
+      Base[0] != 'f' || Base.startswith("fscp_") ? "bwlq" : "slt\0";
+  const char *MemSize = Base[0] != 'f' || Base.startswith("fscp_")
+                            ? "\x08\x10\x20\x40"
+                            : "\x20\x40\x50\0";
 #else // INTEL_FEATURE_ICECODE
   const char *Suffixes = Base[0] != 'f' ? "bwlq" : "slt\0";
-<<<<<<< HEAD
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
-=======
   // MemSize corresponding to Suffixes.  { 8, 16, 32, 64 }    { 32, 64, 80, 0 }
   const char *MemSize = Base[0] != 'f' ? "\x08\x10\x20\x40" : "\x20\x40\x50\0";
->>>>>>> 6565b5858444ba7dcf799467f5be63d2c2370715
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
 
   // Check for the various suffix matches.
   uint64_t ErrorInfoIgnore;
