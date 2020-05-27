@@ -752,11 +752,16 @@ enum IIT_Info {
   IIT_SUBDIVIDE2_ARG = 44,
   IIT_SUBDIVIDE4_ARG = 45,
   IIT_VEC_OF_BITCASTS_TO_INT = 46,
+<<<<<<< HEAD
   IIT_V128  = 47
 #if INTEL_CUSTOMIZATION
   ,
   IIT_STRUCT9 = 48
 #endif  // INTEL_CUSTOMIZATION
+=======
+  IIT_V128 = 47,
+  IIT_BF16 = 48
+>>>>>>> ad5d319ee85d31ee2b1ca5c29b3a10b340513fec
 };
 
 static void DecodeIITType(unsigned &NextElt, ArrayRef<unsigned char> Infos,
@@ -790,6 +795,9 @@ static void DecodeIITType(unsigned &NextElt, ArrayRef<unsigned char> Infos,
     return;
   case IIT_F16:
     OutputTable.push_back(IITDescriptor::get(IITDescriptor::Half, 0));
+    return;
+  case IIT_BF16:
+    OutputTable.push_back(IITDescriptor::get(IITDescriptor::BFloat, 0));
     return;
   case IIT_F32:
     OutputTable.push_back(IITDescriptor::get(IITDescriptor::Float, 0));
@@ -1017,6 +1025,7 @@ static Type *DecodeFixedType(ArrayRef<Intrinsic::IITDescriptor> &Infos,
   case IITDescriptor::Token: return Type::getTokenTy(Context);
   case IITDescriptor::Metadata: return Type::getMetadataTy(Context);
   case IITDescriptor::Half: return Type::getHalfTy(Context);
+  case IITDescriptor::BFloat: return Type::getBFloatTy(Context);
   case IITDescriptor::Float: return Type::getFloatTy(Context);
   case IITDescriptor::Double: return Type::getDoubleTy(Context);
   case IITDescriptor::Quad: return Type::getFP128Ty(Context);
@@ -1195,6 +1204,7 @@ static bool matchIntrinsicType(
     case IITDescriptor::Token: return !Ty->isTokenTy();
     case IITDescriptor::Metadata: return !Ty->isMetadataTy();
     case IITDescriptor::Half: return !Ty->isHalfTy();
+    case IITDescriptor::BFloat: return !Ty->isBFloatTy();
     case IITDescriptor::Float: return !Ty->isFloatTy();
     case IITDescriptor::Double: return !Ty->isDoubleTy();
     case IITDescriptor::Quad: return !Ty->isFP128Ty();
