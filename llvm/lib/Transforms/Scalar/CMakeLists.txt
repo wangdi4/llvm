@@ -36,7 +36,7 @@ add_llvm_component_library(LLVMScalarOpts
   Intel_AddSubReassociate.cpp
   Intel_ForcedCMOVGeneration.cpp
   Intel_LoopCarriedCSE.cpp
-  IVSplit.cpp
+  Intel_IVSplit.cpp
 # end INTEL_CUSTOMIZATION
   JumpThreading.cpp
   LICM.cpp
