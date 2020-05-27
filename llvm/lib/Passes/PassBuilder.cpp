@@ -1337,6 +1337,7 @@ ModulePassManager PassBuilder::buildModuleOptimizationPipeline(
   // Enhance/cleanup vector code.
   OptimizePM.addPass(VectorCombinePass());
 #if INTEL_CUSTOMIZATION
+  OptimizePM.addPass(EarlyCSEPass());
   OptimizePM.addPass(
       InstCombinePass(/*ExpensiveCombines=default value*/ true,
                       GEPInstOptimizations)); // Combine silly sequences.
