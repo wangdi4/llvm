@@ -4,6 +4,7 @@
 #include <iostream>
 #include <map>
 #include <mutex>
+#include <unordered_map>
 
 #include <level_zero/ze_api.h>
 
@@ -312,6 +313,9 @@ struct _pi_program {
 
   // L0 module handle.
   ze_module_handle_t ZeModule;
+  // L0 module specialization constants
+  std::mutex ZeSpecConstantsMutex;
+  std::unordered_map<uint32_t, uint64_t> ZeSpecConstants;
 
   // L0 build log.
   ze_module_build_log_handle_t ZeBuildLog;
