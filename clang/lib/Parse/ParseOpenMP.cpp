@@ -2635,16 +2635,12 @@ OMPClause *Parser::ParseOpenMPUsesAllocatorClause(OpenMPDirectiveKind DKind) {
 ///       in_reduction-clause | allocator-clause | allocate-clause |
 ///       acq_rel-clause | acquire-clause | release-clause | relaxed-clause |
 ///       depobj-clause | destroy-clause | detach-clause | inclusive-clause |
-<<<<<<< HEAD
-///       exclusive-clause | uses_allocators-clause
+///       exclusive-clause | uses_allocators-clause | use_device_addr-clause
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
 ///       | dataflow-clause
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
-///       exclusive-clause | uses_allocators-clause | use_device_addr-clause
->>>>>>> a888fc6b3412574f5869a8680acf4ed2bed1d2a2
 ///
 OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
                                      OpenMPClauseKind CKind, bool FirstClause) {
