@@ -220,6 +220,16 @@
 // CHECK-QNO-BUILTIN: "-fno-builtin-"
 // CHECK-QNO-BUILTIN-FUNC: "-fno-builtin-memset"
 
+// Behavior with /Qopenmp-threadprivate
+// RUN: %clang -### -qopenmp-threadprivate=legacy -c %s 2>&1 | FileCheck --check-prefix=CHECK-QOPENMP-THREADPRIVATE %s
+// RUN: %clang_cl -### /Qopenmp-threadprivate=legacy -c %s 2>&1 | FileCheck --check-prefix=CHECK-QOPENMP-THREADPRIVATE %s
+// RUN: %clang_cl -### /Qopenmp-threadprivate:legacy -c %s 2>&1 | FileCheck --check-prefix=CHECK-QOPENMP-THREADPRIVATE %s
+// RUN: %clang -### -qopenmp-threadprivate=compat -fiopenmp -c %s 2>&1 | FileCheck --check-prefix=CHECK-QOPENMP-COMPAT %s
+// RUN: %clang -### -fiopenmp -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIOPENMP %s
+// CHECK-QOPENMP-THREADPRIVATE: "-fopenmp-threadprivate-legacy"
+// CHECK-QOPENMP-COMPAT: "-fopenmp-late-outline"
+// CHECK-FIOPENMP: "-fopenmp-late-outline" "-fopenmp-threadprivate-legacy"
+
 // Behavior with QH option
 // RUN: %clang_cl -### -c /QH %s 2>&1 | FileCheck -check-prefix CHECK-QH %s
 // CHECK-QH: "-H"
