@@ -1789,14 +1789,14 @@ pi_result piProgramCreate(pi_context Context, const void *IL, size_t Length,
   // deferring it until the program is ready to be built in piProgramBuild
   // and piProgramCompile. Also it is only then we know the build options.
   //
-  auto PiProgram = new _pi_program(nullptr, Context);
+  ze_module_desc_t ZeModuleDesc = {};
+  ZeModuleDesc.version = ZE_MODULE_DESC_VERSION_CURRENT;
+  ZeModuleDesc.format = ZE_MODULE_FORMAT_IL_SPIRV;
+  ZeModuleDesc.inputSize = Length;
+  ZeModuleDesc.pInputModule = new uint8_t[Length];
+  memcpy(const_cast<uint8_t*>(ZeModuleDesc.pInputModule), IL, Length);
 
-  // Save the SPIR-V for later build
-  PiProgram->SPIRVLength = Length;
-  PiProgram->SPIRVData = new uint8_t[Length];
-  memcpy(PiProgram->SPIRVData, IL, Length);
-
-  *Program = pi_cast<pi_program>(PiProgram);
+  *Program = new _pi_program(nullptr, ZeModuleDesc, Context);
   return PI_SUCCESS;
 }
 
@@ -1812,7 +1812,6 @@ pi_result piclProgramCreateWithBinary(pi_context Context, pi_uint32 NumDevices,
   assert(Context);
   assert(RetProgram);
   assert(DeviceList && DeviceList[0] == Context->Device);
-  ze_device_handle_t ZeDevice = Context->Device->ZeDevice;
 
   // Check the binary too.
   assert(Lengths && Lengths[0] != 0);
@@ -1824,14 +1823,10 @@ pi_result piclProgramCreateWithBinary(pi_context Context, pi_uint32 NumDevices,
   ZeModuleDesc.version = ZE_MODULE_DESC_VERSION_CURRENT;
   ZeModuleDesc.format = ZE_MODULE_FORMAT_NATIVE;
   ZeModuleDesc.inputSize = Length;
-  ZeModuleDesc.pInputModule = Binary;
-  ZeModuleDesc.pBuildFlags = nullptr;
+  ZeModuleDesc.pInputModule = new uint8_t[Length];
+  memcpy(const_cast<uint8_t*>(ZeModuleDesc.pInputModule), Binary, Length);
 
-  ze_module_handle_t ZeModule;
-  ZE_CALL(zeModuleCreate(ZeDevice, &ZeModuleDesc, &ZeModule, 0));
-
-  auto ZePiProgram = new _pi_program(ZeModule, Context);
-  *RetProgram = pi_cast<pi_program>(ZePiProgram);
+  *RetProgram = new _pi_program(nullptr, ZeModuleDesc, Context);
 
   if (BinaryStatus) {
     *BinaryStatus = PI_SUCCESS;
@@ -1951,19 +1946,15 @@ pi_result piProgramBuild(pi_program Program, pi_uint32 NumDevices,
   assert(!PFnNotify);
   assert(!UserData);
 
-  ze_device_handle_t ZeDevice = Program->Context->Device->ZeDevice;
-  assert(Program->SPIRVData);
-
-  ze_module_desc_t ZeModuleDesc = {};
-  ZeModuleDesc.version = ZE_MODULE_DESC_VERSION_CURRENT;
-  ZeModuleDesc.format = ZE_MODULE_FORMAT_IL_SPIRV;
-  ZeModuleDesc.inputSize = Program->SPIRVLength;
-  ZeModuleDesc.pInputModule = Program->SPIRVData;
-  ZeModuleDesc.pBuildFlags = Options;
-
   // Check that the program wasn't already built.
   assert(!Program->ZeModule);
-  ZE_CALL(zeModuleCreate(ZeDevice, &ZeModuleDesc, &Program->ZeModule,
+
+  ze_device_handle_t ZeDevice = Program->Context->Device->ZeDevice;
+
+  Program->ZeModuleDesc.pBuildFlags = Options;
+  // TODO: set specialization constants here.
+  Program->ZeModuleDesc.pConstants = nullptr;
+  ZE_CALL(zeModuleCreate(ZeDevice, &Program->ZeModuleDesc, &Program->ZeModule,
                          &Program->ZeBuildLog));
   return PI_SUCCESS;
 }
@@ -2011,7 +2002,7 @@ pi_result piProgramRetain(pi_program Program) {
 pi_result piProgramRelease(pi_program Program) {
   assert(Program);
   if (--(Program->RefCount) == 0) {
-    delete[] Program->SPIRVData;
+    delete[] Program->ZeModuleDesc.pInputModule;
     zeModuleBuildLogDestroy(Program->ZeBuildLog);
     // TODO: call zeModuleDestroy for non-interop L0 modules
     delete Program;
@@ -2038,8 +2029,20 @@ pi_result piextProgramCreateWithNativeHandle(pi_native_handle NativeHandle,
   assert(Program);
 
   auto ZeModule = pi_cast<ze_module_handle_t>(NativeHandle);
-  // Create PI program from the given L0 module handle
-  *Program = new _pi_program(ZeModule, Context);
+
+  // Create PI program from the given L0 module handle.
+  //
+  // TODO: We don't have the real L0 module descriptor with
+  // which it was created, but that's only needed for zeModuleCreate,
+  // which we don't expect to be called on the interop program.
+  //
+  ze_module_desc_t ZeModuleDesc = {};
+  ZeModuleDesc.version = ZE_MODULE_DESC_VERSION_CURRENT;
+  ZeModuleDesc.format = ZE_MODULE_FORMAT_NATIVE;
+  ZeModuleDesc.inputSize = 0;
+  ZeModuleDesc.pInputModule = nullptr;
+
+  *Program = new _pi_program(ZeModule, ZeModuleDesc, Context);
   return PI_SUCCESS;
 }
 
