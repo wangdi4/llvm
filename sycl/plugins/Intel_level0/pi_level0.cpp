@@ -2058,7 +2058,7 @@ pi_result piKernelCreate(pi_program Program, const char *KernelName,
   ZE_CALL(zeKernelCreate(pi_cast<ze_module_handle_t>(Program->ZeModule),
                          &ZeKernelDesc, &ZeKernel));
 
-  auto ZePiKernel = new _pi_kernel(ZeKernel, Program);
+  auto ZePiKernel = new _pi_kernel(ZeKernel, Program, KernelName);
   *RetKernel = pi_cast<pi_kernel>(ZePiKernel);
   return PI_SUCCESS;
 }
@@ -2122,7 +2122,13 @@ pi_result piKernelGetInfo(pi_kernel Kernel, pi_kernel_info ParamName,
     SET_PARAM_VALUE(pi_program{Kernel->Program});
     break;
   case PI_KERNEL_INFO_FUNCTION_NAME:
-    SET_PARAM_VALUE_STR(ZeKernelProperties.name);
+    // TODO: Replace with the line in the comment once bug in the L0 driver will
+    // be fixed. Problem is that currently L0 driver truncates name of the
+    // returned kernel if it is longer than 256 symbols.
+    // See:
+    // https://gitlab.devtools.intel.com/one-api/level_zero_gpu_driver/issues/72
+    // SET_PARAM_VALUE_STR(ZeKernelProperties.name);
+    SET_PARAM_VALUE_STR(Kernel->KernelName.c_str());
     break;
   case PI_KERNEL_INFO_NUM_ARGS:
     SET_PARAM_VALUE(pi_uint32{ZeKernelProperties.numKernelArgs});
