@@ -60,7 +60,6 @@ int DebugLevel = 0;
 #define CL_MEM_TYPE_SHARED_INTEL        0x4199
 
 #define CL_MEM_ALLOC_FLAGS_INTEL        0x4195
-#define CL_MEM_ALLOC_DEFAULT_INTEL      0
 
 #define CL_KERNEL_EXEC_INFO_INDIRECT_DEVICE_ACCESS_INTEL    0x4201
 #define CL_KERNEL_EXEC_INFO_USM_PTRS_INTEL                  0x4203
@@ -1908,9 +1907,6 @@ void *tgt_rtl_data_alloc_template(int32_t device_id, int64_t size,
 #if INTEL_CUSTOMIZATION
 EXTERN void *__tgt_rtl_data_alloc_explicit(
     int32_t device_id, int64_t size, int32_t kind) {
-  cl_mem_properties_intel properties[] = {
-    CL_MEM_ALLOC_FLAGS_INTEL, CL_MEM_ALLOC_DEFAULT_INTEL, 0
-  };
   auto device = DeviceInfo->deviceIDs[device_id];
   auto context = DeviceInfo->CTX[device_id];
   cl_int rc;
@@ -1927,7 +1923,7 @@ EXTERN void *__tgt_rtl_data_alloc_explicit(
       return nullptr;
     }
     CALL_CL_EXT_RVRC(mem, clHostMemAllocINTEL,
-                     DeviceInfo->clHostMemAllocINTELFn, rc, context, properties,
+                     DeviceInfo->clHostMemAllocINTELFn, rc, context, nullptr,
                      size, 0);
     if (mem) {
       std::unique_lock<std::mutex> dataLock(mutex);
@@ -1942,7 +1938,7 @@ EXTERN void *__tgt_rtl_data_alloc_explicit(
     }
     CALL_CL_EXT_RVRC(mem, clSharedMemAllocINTEL,
                      DeviceInfo->clSharedMemAllocINTELFn, rc, context, device,
-                     properties, size, 0);
+                     nullptr, size, 0);
     if (mem) {
       std::unique_lock<std::mutex> dataLock(mutex);
       DeviceInfo->ManagedData[device_id].emplace(std::make_pair(mem, size));
