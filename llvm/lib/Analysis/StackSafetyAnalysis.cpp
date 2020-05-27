@@ -256,10 +256,10 @@ ConstantRange StackSafetyLocalAnalysis::getMemIntrinsicAccessRange(
     const MemIntrinsic *MI, const Use &U, Value *Base) {
   if (auto MTI = dyn_cast<MemTransferInst>(MI)) {
     if (MTI->getRawSource() != U && MTI->getRawDest() != U)
-      return getRange(0, 1);
+      return ConstantRange::getEmpty(PointerSize);
   } else {
     if (MI->getRawDest() != U)
-      return getRange(0, 1);
+      return ConstantRange::getEmpty(PointerSize);
   }
   auto *CalculationTy = IntegerType::getIntNTy(SE.getContext(), PointerSize);
   if (!SE.isSCEVable(MI->getLength()->getType()))
@@ -345,11 +345,17 @@ bool StackSafetyLocalAnalysis::analyzeAllUses(Value *Ptr, UseInfo &US) {
         assert(isa<Function>(Callee) || isa<GlobalAlias>(Callee));
 
         auto B = CB.arg_begin(), E = CB.arg_end();
+        int Found = 0;
         for (auto A = B; A != E; ++A) {
           if (A->get() == V) {
+            ++Found;
             ConstantRange Offset = offsetFrom(UI, Ptr);
             US.Calls.emplace_back(Callee, A - B, Offset);
           }
+        }
+        if (!Found) {
+          US.updateRange(UnknownRange);
+          return false;
         }
 
         break;
