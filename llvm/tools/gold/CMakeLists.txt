@@ -15,4 +15,15 @@ if( LLVM_ENABLE_PIC AND LLVM_BINUTILS_INCDIR )
     gold-plugin.cpp
     )
 
+  if(INTEL_CUSTOMIZATION)
+    # CMPLRLLVM-20054: icx-lto is a release name for LLVMgold plugin.
+    #
+    # LLVMgold is only used for LIT testing. We have to keep LLVMgold,
+    # since we do not want to modify LIT tests that hard-code LLVMgold
+    # plugin name, and deal with conflicts and test fails after llorg
+    # pulldowns.
+    add_llvm_library(icx-lto MODULE
+      gold-plugin.cpp
+      )
+  endif(INTEL_CUSTOMIZATION)
 endif()

@@ -1562,22 +1562,30 @@ if (INTEL_CUSTOMIZATION)
 # end INTEL_CUSTOMIZATION
       # SYCL components
       khronos-icd-loader opencl-aot
-    )
+      )
 
     if (WIN32)
       list(APPEND INTEL_DEPLOY_COMPONENTS_LIST
         # XDEV components
         xdev-xilib xdev-xilink
-      )
+        )
     else()
       list(APPEND INTEL_DEPLOY_COMPONENTS_LIST
         # LLVM components
-        llvm-ar llvm-ranlib LLVMgold
+        llvm-ar llvm-ranlib
         # XDEV components
         xdev-icpx
         # CXX components
         cxx cxxabi cxx-headers
-      )
+        )
+
+      # FIXME: temporary deploy LLVMgold for release builds.
+      #        When ICX/clang drivers are able to use icx-lto,
+      #        this has to be removed.
+      list(APPEND INTEL_DEPLOY_COMPONENTS_LIST LLVMgold)
+
+      # CMPLRLLVM-20054: icx-lto is a release name for LLVMgold plugin.
+      list(APPEND INTEL_DEPLOY_COMPONENTS_LIST icx-lto)
     endif()
 
     if (";${LLVM_INTEL_FEATURES};" MATCHES ";INTEL_INTERNAL_BUILD;")
@@ -1602,13 +1610,13 @@ if (INTEL_CUSTOMIZATION)
       ocl-cpu_device ocl-cpu_device32 ocl-cpu_device64
       ocl-task_executor ocl-task_executor32 ocl-task_executor64
       ocl-OclCpuBackEnd ocl-OclCpuBackEnd32 ocl-OclCpuBackEnd64
-    )
+      )
 
     if (WIN32)
       list(APPEND INTEL_OPENCL_DEPLOY_COMPONENTS_LIST
         # OpenCL components
         ocl-OclCpuDebugging9
-      )
+        )
     endif(WIN32)
 
     if (INTEL_OPENCL_STANDALONE_PRODUCT)
@@ -1619,7 +1627,7 @@ if (INTEL_CUSTOMIZATION)
 
     list(APPEND INTEL_DEPLOY_COMPONENTS_LIST
       ${INTEL_OPENCL_DEPLOY_COMPONENTS_LIST}
-    )
+      )
 
     # Add SYCL deploy components defined by SYCL project.
     list(APPEND INTEL_DEPLOY_COMPONENTS_LIST ${SYCL_DEPLOY_COMPONENTS})
