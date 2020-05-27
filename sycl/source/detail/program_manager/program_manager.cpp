@@ -252,9 +252,8 @@ static bool isDeviceBinaryTypeSupported(const context &C,
     return true;
 
 #if INTEL_CUSTOMIZATION
-  backend CBackend = (detail::getSyclObjImpl(C)->getPlugin()).getBackend();
   // TODO: can we just query piDeviceGetInfo(PI_DEVICE_INFO_COMPILER_AVAILABLE)?
-  if (CBackend == backend::level0)
+  if (ContextBackend == backend::level0)
     return true;
 #endif // INTEL_CUSTOMIZATION
 
@@ -267,11 +266,7 @@ static bool isDeviceBinaryTypeSupported(const context &C,
   }
 
   // OpenCL 2.1 and greater require clCreateProgramWithIL
-<<<<<<< HEAD
-  if ((CBackend == backend::opencl) && // INTEL
-=======
   if ((ContextBackend == backend::opencl) &&
->>>>>>> 714642633b59bf3642438ec910e39493fefae750
       C.get_platform().get_info<info::platform::version>() >= "2.1")
     return true;
 

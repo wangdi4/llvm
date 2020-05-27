@@ -59,16 +59,8 @@ device device_selector::select_device() const {
     // from the tied set is to be returned is not defined". Here we give a
     // preference to the device of the preferred BE.
     //
-<<<<<<< HEAD
-    if (score < dev_score ||
-#if INTEL_CUSTOMIZATION
-        (score == dev_score && dev_score != -1 &&
-         isDeviceOfPreferredSyclBe(dev))) {
-#endif // INTEL_CUSTOMIZATION
-=======
     if ((score < dev_score) ||
         (score == dev_score && isDeviceOfPreferredSyclBe(dev))) {
->>>>>>> 714642633b59bf3642438ec910e39493fefae750
       res = &dev;
       score = dev_score;
     }
