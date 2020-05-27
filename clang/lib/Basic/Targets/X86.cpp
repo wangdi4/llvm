@@ -180,10 +180,15 @@ bool X86TargetInfo::initFeatureMap(
   AnonymousCPU1Features.push_back("amx-int8");
   AnonymousCPU1Features.push_back("amx-bf16");
 #endif // INTEL_FEATURE_ISA_AMX
-  AnonymousCPU1Features.push_back("serialize");
+#if INTEL_FEATURE_ISA_AVX_VNNI
+  AnonymousCPU1Features.push_back("avxvnni");
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
 #if INTEL_FEATURE_ISA_HRESET
   AnonymousCPU1Features.push_back("hreset");
 #endif // INTEL_FEATURE_ISA_HRESET
+#if INTEL_FEATURE_ISA_FP16
+  AnonymousCPU1Features.push_back("avx512fp16");
+#endif // INTEL_FEATURE_ISA_FP16
   AnonymousCPU1Features.push_back("sse2"); // To avoid unused variable error.
 #endif // INTEL_CUSTOMIZATION
 
@@ -222,15 +227,28 @@ bool X86TargetInfo::initFeatureMap(
   case CK_SapphireRapids:
     for (auto Feature : AnonymousCPU1Features)
       setFeatureEnabledImpl(Features, Feature, true);
+    setFeatureEnabledImpl(Features, "cldemote", true);
+    setFeatureEnabledImpl(Features, "avx512bf16", true);
+    setFeatureEnabledImpl(Features, "waitpkg", true);
+    setFeatureEnabledImpl(Features, "ptwrite", true);
+    setFeatureEnabledImpl(Features, "uli", true);
+    setFeatureEnabledImpl(Features, "serialize", true);
+    setFeatureEnabledImpl(Features, "tsxldtrk", true);
+    setFeatureEnabledImpl(Features, "enqcmd", true);
     // Add the icelake server features.
     setFeatureEnabledImpl(Features, "pconfig", true);
     setFeatureEnabledImpl(Features, "wbnoinvd", true);
-    LLVM_FALLTHROUGH;
+    goto TGLExceptKeylocker;
 #endif // INTEL_FEATURE_CPU_SPR
 #endif // INTEL_CUSTOMIZATION
   case CK_Tigerlake:
 #if INTEL_CUSTOMIZATION
     TGLXFEATURE1
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_SPR
+TGLExceptKeylocker:
+#endif // INTEL_FEATURE_CPU_SPR
 #endif // INTEL_CUSTOMIZATION
     setFeatureEnabledImpl(Features, "avx512vp2intersect", true);
     setFeatureEnabledImpl(Features, "movdiri", true);

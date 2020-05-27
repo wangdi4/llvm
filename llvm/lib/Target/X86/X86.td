@@ -924,9 +924,31 @@ def ProcessorFeatures {
     FeatureAMXINT8,
     FeatureAMXBF16,
 #endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_FP16
+    FeatureFP16,
+#endif // INTEL_FEATURE_ISA_FP16
+    FeatureBF16,
     FeatureSERIALIZE,
     FeaturePCONFIG,
     FeatureWBNOINVD,
+    FeatureCLDEMOTE,
+    FeatureWAITPKG,
+    FeaturePTWRITE,
+#if INTEL_FEATURE_ISA_ULI
+    FeatureULI,
+#endif // INTEL_FEATURE_ISA_ULI
+    FeatureTSXLDTRK,
+    FeatureENQCMD,
+#if INTEL_FEATURE_ISA_AVX_VNNI
+    FeatureAVXVNNI,
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+    FeatureSHSTK,
+    FeatureVP2INTERSECT,
+    FeatureMOVDIRI,
+    FeatureMOVDIR64B,
+#if INTEL_FEATURE_ISA_HRESET
+    FeatureHRESET,
+#endif // INTEL_FEATURE_ISA_HRESET
     FeatureHasFastGather
   ];
   // TODO: inherit from Willowcove instead of ICL.
