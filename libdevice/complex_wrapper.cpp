@@ -8,15 +8,12 @@
 
 #include "device_complex.h"
 
-<<<<<<< HEAD
+#ifdef __SPIR__
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #pragma omp declare target
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
-=======
-#ifdef __SPIR__
->>>>>>> 857ee511bf4053f1f0cdc7f0d2b41fd6273926e0
 
 DEVICE_EXTERN_C
 float cimagf(float __complex__ z) { return __devicelib_cimagf(z); }
@@ -107,13 +104,10 @@ DEVICE_EXTERN_C
 float __complex__ __divsc3(float __a, float __b, float __c, float __d) {
   return __devicelib___divsc3(__a, __b, __c, __d);
 }
-<<<<<<< HEAD
 
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #pragma omp end declare target
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
-=======
 #endif // __SPIR__
->>>>>>> 857ee511bf4053f1f0cdc7f0d2b41fd6273926e0

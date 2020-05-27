@@ -431,13 +431,10 @@ double __complex__ __devicelib_catan(double __complex__ z) {
       __devicelib_catanh(CMPLX(-__devicelib_cimag(z), __devicelib_creal(z)));
   return CMPLX(__devicelib_cimag(w), -__devicelib_creal(w));
 }
-<<<<<<< HEAD
 
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #pragma omp end declare target
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
-=======
 #endif // __SPIR__
->>>>>>> 857ee511bf4053f1f0cdc7f0d2b41fd6273926e0

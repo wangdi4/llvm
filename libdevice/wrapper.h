@@ -13,24 +13,11 @@
 
 #ifdef __SPIR__
 
-<<<<<<< HEAD
-#if INTEL_COLLAB
-// TODO: upstream this to intel/llvm.
-//       This declaration is not needed, since it is a builtin.
-//       We compile it as 'static' for the host. It does not fail for
-//       SYCL build, because of -fsycl-device-only.
-//       We do not have such a mode for OpenMP SPIR offload.
-#else  // INTEL_COLLAB
-DEVICE_EXTERNAL int
-__spirv_ocl_printf(const __attribute__((opencl_constant)) char *fmt, ...);
-#endif  // INTEL_COLLAB
-=======
 #include <cstddef>
 #include <cstdint>
 // We need the following header to ensure the definition of all spirv variables
 // required by the wrapper libraries.
 #include "spirv_vars.h"
->>>>>>> 857ee511bf4053f1f0cdc7f0d2b41fd6273926e0
 
 DEVICE_EXTERN_C
 void __devicelib_assert_fail(const char *expr, const char *file, int32_t line,

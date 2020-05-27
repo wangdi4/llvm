@@ -8,15 +8,12 @@
 
 #include "device_math.h"
 
-<<<<<<< HEAD
+#ifdef __SPIR__
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #pragma omp declare target
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
-=======
-#ifdef __SPIR__
->>>>>>> 857ee511bf4053f1f0cdc7f0d2b41fd6273926e0
 
 DEVICE_EXTERN_C
 double __devicelib_log(double x) { return __spirv_ocl_log(x); }
@@ -148,13 +145,10 @@ double __devicelib_asinh(double x) { return __spirv_ocl_asinh(x); }
 
 DEVICE_EXTERN_C
 double __devicelib_atanh(double x) { return __spirv_ocl_atanh(x); }
-<<<<<<< HEAD
 
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #pragma omp end declare target
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
-=======
 #endif // __SPIR__
->>>>>>> 857ee511bf4053f1f0cdc7f0d2b41fd6273926e0
