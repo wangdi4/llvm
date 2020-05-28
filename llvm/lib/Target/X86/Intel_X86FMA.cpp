@@ -1369,13 +1369,15 @@ unsigned X86GlobalFMA::createConstOneFromImm(MVT VT,
     // R128[31:0] to R[63:31] and R[127:96]; copy 0 to other elements.
     // Otherwise, swap 2 elements in R128: R128[31:0] and R128[63:32].
     unsigned Imm8 = VTBitSize >= 128 ? 0x11 : 0xE1;
-    Opc = HasAVX512 ? X86::VPERMILPSZ128rr : X86::VPERMILPSrr;
+    Opc = HasAVX512 ? X86::VPERMILPSZ128ri : X86::VPERMILPSri;
     BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(Opc), R)
         .addReg(R128, RegState::Kill).addImm(Imm8);
 
     // For scalar and 128-bit vector types the result is ready.
     if (VT.getSizeInBits() <= 128)
       return R;
+
+    R128 = R;
   }
 
   // Broadcast the lowest element of the XMM to the bigger vector register.
