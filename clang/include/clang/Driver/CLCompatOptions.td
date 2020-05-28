@@ -203,6 +203,12 @@ def _SLASH_Qipo : CLFlag<"Qipo">, Alias<flto>,
   HelpText<"Enable LTO in 'full' mode">;
 def _SLASH_Qipo_ : CLFlag<"Qipo-">, Alias<fno_lto>,
   HelpText<"Disable LTO mode (default)">;
+def _SLASH_Qkeep_static_consts : CLFlag<"Qkeep-static-consts">,
+  Alias<fkeep_static_consts>, HelpText<"Enable the ability to preserve "
+  "allocation of variables that are not referenced in the source">;
+def _SLASH_Qkeep_static_consts_ : CLFlag<"Qkeep-static-consts-">,
+  Alias<fno_keep_static_consts>, HelpText<"Disable the ability to preserve "
+  "allocation of variables that are not referenced in the source">;
 def _SLASH_Qnextgen : CLFlag<"Qnextgen">, Alias<_intel>;
 def _SLASH_Qno_builtin_ : CLJoined<"Qno-builtin-">, Alias<fno_builtin_>,
   HelpText<"Disable implicit builtin knowledge of a specific function">;

@@ -1087,8 +1087,15 @@ def fforce_enable_int128 : Flag<["-"], "fforce-enable-int128">,
 def fno_force_enable_int128 : Flag<["-"], "fno-force-enable-int128">,
   Group<f_Group>, Flags<[CC1Option]>,
   HelpText<"Disable support for int128_t type">;
-def fkeep_static_consts : Flag<["-"], "fkeep-static-consts">, Group<f_Group>, Flags<[CC1Option]>,
-  HelpText<"Keep static const variables even if unused">;
+#if INTEL_CUSTOMIZATION
+def fkeep_static_consts : Flag<["-"], "fkeep-static-consts">, Group<f_Group>,
+  Flags<[DriverOption, CC1Option]>, HelpText<"Keep static const variables even"
+  " if unused">;
+def fno_keep_static_consts : Flag<["-"], "fno-keep-static-consts">,
+  Group<f_Group>, Flags<[DriverOption, CC1Option]>, HelpText<"Disable the "
+  "ability to preserve allocation of variables that are not referenced in "
+  "the source">;
+#endif // INTEL_CUSTOMIZATION
 def ffixed_point : Flag<["-"], "ffixed-point">, Group<f_Group>,
                    Flags<[CC1Option]>, HelpText<"Enable fixed point types">;
 def fno_fixed_point : Flag<["-"], "fno-fixed-point">, Group<f_Group>,
