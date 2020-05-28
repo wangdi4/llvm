@@ -32,10 +32,8 @@ void VPlanLoopCFU::run(VPLoop *VPL) {
   VPBasicBlock *VPLLatch = VPL->getLoopLatch();
   VPBasicBlock *VPLExitBlock = VPL->getExitBlock();
   assert(VPLExitBlock && "Loop hasn't been canonicalized!");
-
-  // Now process VPL. For loop vectorization this is a no-op because the loop
-  // is uniform. For function vectorization top-level loop isn't guaranteed to
-  // be uniform and has to be canonicalized same other inner loops.
+  assert(VPLLatch == VPL->getExitingBlock() &&
+         "Loop exits canonicalization hasn't been done!");
 
   LLVM_DEBUG(dbgs() << "Checking inner loop control flow uniformity for:\n");
   LLVM_DEBUG(dbgs() << "VPL at depth: " << VPL->getLoopDepth() << "\n");
@@ -49,6 +47,9 @@ void VPlanLoopCFU::run(VPLoop *VPL) {
   assert(BottomTest && "Could not find loop exit condition\n");
   LLVM_DEBUG(dbgs() << "BottomTest: "; BottomTest->dump(); errs() << "\n");
 
+  // Note: this condition is always true for the outermost loop in loop
+  // vectorization but that isn't guaranteed for function vectorization. Just
+  // use the generic approach.
   if (!VPDA->isDivergent(*BottomTest)) {
     LLVM_DEBUG(dbgs() << "BottomTest is uniform\n");
     return;
@@ -75,11 +76,8 @@ void VPlanLoopCFU::run(VPLoop *VPL) {
     }
   }
 
-  auto *Parent = VPLHeader->getParent();
-  Parent->computeDT();
-  VPDominatorTree *DT = Parent->getDT();
-  Parent->computePDT();
-  VPPostDominatorTree *PDT = Parent->getPDT();
+  VPDominatorTree *DT = Plan.getDT();
+  VPPostDominatorTree *PDT = Plan.getPDT();
 
   // Create a phi for the mask. We'll use it as a condtion to branch so creation
   // needs to happen before CFG manipulation.
