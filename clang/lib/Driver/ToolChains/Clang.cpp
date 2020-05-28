@@ -4219,6 +4219,28 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
             .normalize();
     CmdArgs.push_back("-aux-triple");
     CmdArgs.push_back(Args.MakeArgString(NormalizedTriple));
+#if INTEL_CUSTOMIZATION
+    if (Triple.isSPIR()) {
+      llvm::Triple AuxT = C.getSingleOffloadToolChain<Action::OFK_Host>()
+                             ->getTriple();
+      bool IsMSVC = AuxT.isWindowsMSVCEnvironment();
+      if (IsMSVC) {
+        CmdArgs.push_back("-fms-extensions");
+        CmdArgs.push_back("-fms-compatibility");
+        CmdArgs.push_back("-fdelayed-template-parsing");
+        VersionTuple MSVT = TC.computeMSVCVersion(&D, Args);
+        if (!MSVT.empty())
+          CmdArgs.push_back(Args.MakeArgString("-fms-compatibility-version=" +
+                                               MSVT.getAsString()));
+        else {
+          const char *LowestMSVCSupported =
+              "191025017"; // VS2017 v15.0 (initial release)
+          CmdArgs.push_back(Args.MakeArgString(
+              Twine("-fms-compatibility-version=") + LowestMSVCSupported));
+        }
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
   }
 
   if (Triple.isOSWindows() && (Triple.getArch() == llvm::Triple::arm ||
@@ -6331,6 +6353,12 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 #if INTEL_CUSTOMIZATION
     // Add SYCL headers path to include search path
     toolchains::SYCLToolChain::AddSYCLIncludeArgs(D, Args, CmdArgs);
+    if (Args.hasArg(options::OPT_fsycl) && Triple.isSPIR()) {
+      // OpenMP device compile must use the same language options as the
+      // host compile. So if this is SYCL source pass SYCL options.
+      CmdArgs.push_back("-fsycl");
+      CmdArgs.push_back("-fsycl-is-host");
+    }
 #endif //INTEL_CUSTOMIZATION
   }
 #if INTEL_COLLAB
