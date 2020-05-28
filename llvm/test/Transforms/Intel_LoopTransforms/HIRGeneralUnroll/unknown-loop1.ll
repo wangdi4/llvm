@@ -10,7 +10,7 @@
 ; CHECK-NEXT: |   while.body:
 ; CHECK-NEXT: |   %hir.de.ssa.copy0.out = %0;
 ; CHECK-NEXT: |   %shl47 = 1  <<  trunc.i64.i5(%0);
-; CHECK-NEXT: |   %and49 = %in3  &&  %shl47;
+; CHECK-NEXT: |   %and49 = %in3  &  %shl47;
 ; CHECK-NEXT: |   %2 = (%and49 == 0) ? &((%next_node.0261)[i1].2) : &((%next_node.0261)[i1].3);
 ; CHECK-NEXT: |   %3 = (%2)[0];
 ; CHECK-NEXT: |   %4 = (%3)[0].1;
@@ -32,7 +32,7 @@
 ; CHECK-NEXT: |   while.body:
 ; CHECK-NEXT: |   %hir.de.ssa.copy0.out = %0;
 ; CHECK-NEXT: |   %shl47 = 1  <<  trunc.i64.i5(%0);
-; CHECK-NEXT: |   %and49 = %in3  &&  %shl47;
+; CHECK-NEXT: |   %and49 = %in3  &  %shl47;
 ; CHECK-NEXT: |   %2 = (%and49 == 0) ? &((%next_node.0261)[8 * i1].2) : &((%next_node.0261)[8 * i1].3);
 ; CHECK-NEXT: |   %3 = (%2)[0];
 ; CHECK-NEXT: |   %4 = (%3)[0].1;

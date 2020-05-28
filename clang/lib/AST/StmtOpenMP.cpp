@@ -237,6 +237,9 @@ OMPSimdDirective::Create(const ASTContext &C, SourceLocation StartLoc,
   Dir->setCond(Exprs.Cond);
 #if INTEL_COLLAB
   Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+  Dir->setLateOutlineLinearCounterStep(Exprs.LateOutlineLinearCounterStep);
+  Dir->setLateOutlineLinearCounterIncrement(
+      Exprs.LateOutlineLinearCounterIncrement);
 #endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
@@ -286,6 +289,9 @@ OMPForDirective *OMPForDirective::Create(
   Dir->setCond(Exprs.Cond);
 #if INTEL_COLLAB
   Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+  Dir->setLateOutlineLinearCounterStep(Exprs.LateOutlineLinearCounterStep);
+  Dir->setLateOutlineLinearCounterIncrement(
+      Exprs.LateOutlineLinearCounterIncrement);
 #endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
@@ -344,6 +350,9 @@ OMPForSimdDirective::Create(const ASTContext &C, SourceLocation StartLoc,
   Dir->setCond(Exprs.Cond);
 #if INTEL_COLLAB
   Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+  Dir->setLateOutlineLinearCounterStep(Exprs.LateOutlineLinearCounterStep);
+  Dir->setLateOutlineLinearCounterIncrement(
+      Exprs.LateOutlineLinearCounterIncrement);
 #endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
@@ -543,6 +552,9 @@ OMPParallelForDirective *OMPParallelForDirective::Create(
   Dir->setCond(Exprs.Cond);
 #if INTEL_COLLAB
   Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+  Dir->setLateOutlineLinearCounterStep(Exprs.LateOutlineLinearCounterStep);
+  Dir->setLateOutlineLinearCounterIncrement(
+      Exprs.LateOutlineLinearCounterIncrement);
 #endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
@@ -600,6 +612,9 @@ OMPParallelForSimdDirective *OMPParallelForSimdDirective::Create(
   Dir->setCond(Exprs.Cond);
 #if INTEL_COLLAB
   Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+  Dir->setLateOutlineLinearCounterStep(Exprs.LateOutlineLinearCounterStep);
+  Dir->setLateOutlineLinearCounterIncrement(
+      Exprs.LateOutlineLinearCounterIncrement);
 #endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
@@ -1021,6 +1036,9 @@ OMPTargetParallelForDirective *OMPTargetParallelForDirective::Create(
   Dir->setCond(Exprs.Cond);
 #if INTEL_COLLAB
   Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+  Dir->setLateOutlineLinearCounterStep(Exprs.LateOutlineLinearCounterStep);
+  Dir->setLateOutlineLinearCounterIncrement(
+      Exprs.LateOutlineLinearCounterIncrement);
 #endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
@@ -1171,6 +1189,9 @@ OMPTaskLoopDirective *OMPTaskLoopDirective::Create(
   Dir->setCond(Exprs.Cond);
 #if INTEL_COLLAB
   Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+  Dir->setLateOutlineLinearCounterStep(Exprs.LateOutlineLinearCounterStep);
+  Dir->setLateOutlineLinearCounterIncrement(
+      Exprs.LateOutlineLinearCounterIncrement);
 #endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
@@ -1228,6 +1249,9 @@ OMPTaskLoopSimdDirective *OMPTaskLoopSimdDirective::Create(
   Dir->setCond(Exprs.Cond);
 #if INTEL_COLLAB
   Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+  Dir->setLateOutlineLinearCounterStep(Exprs.LateOutlineLinearCounterStep);
+  Dir->setLateOutlineLinearCounterIncrement(
+      Exprs.LateOutlineLinearCounterIncrement);
 #endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
@@ -1283,6 +1307,9 @@ OMPMasterTaskLoopDirective *OMPMasterTaskLoopDirective::Create(
   Dir->setCond(Exprs.Cond);
 #if INTEL_COLLAB
   Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+  Dir->setLateOutlineLinearCounterStep(Exprs.LateOutlineLinearCounterStep);
+  Dir->setLateOutlineLinearCounterIncrement(
+      Exprs.LateOutlineLinearCounterIncrement);
 #endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
@@ -1341,6 +1368,9 @@ OMPMasterTaskLoopSimdDirective *OMPMasterTaskLoopSimdDirective::Create(
   Dir->setCond(Exprs.Cond);
 #if INTEL_COLLAB
   Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+  Dir->setLateOutlineLinearCounterStep(Exprs.LateOutlineLinearCounterStep);
+  Dir->setLateOutlineLinearCounterIncrement(
+      Exprs.LateOutlineLinearCounterIncrement);
 #endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
@@ -1399,6 +1429,9 @@ OMPParallelMasterTaskLoopDirective *OMPParallelMasterTaskLoopDirective::Create(
   Dir->setCond(Exprs.Cond);
 #if INTEL_COLLAB
   Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+  Dir->setLateOutlineLinearCounterStep(Exprs.LateOutlineLinearCounterStep);
+  Dir->setLateOutlineLinearCounterIncrement(
+      Exprs.LateOutlineLinearCounterIncrement);
 #endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
@@ -1460,7 +1493,10 @@ OMPParallelMasterTaskLoopSimdDirective::Create(
   Dir->setCond(Exprs.Cond);
 #if INTEL_COLLAB
   Dir->setLateOutlineCond(Exprs.LateOutlineCond);
-#endif //INTEL_COLLAB
+  Dir->setLateOutlineLinearCounterStep(Exprs.LateOutlineLinearCounterStep);
+  Dir->setLateOutlineLinearCounterIncrement(
+      Exprs.LateOutlineLinearCounterIncrement);
+#endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
   Dir->setIsLastIterVariable(Exprs.IL);
@@ -1519,6 +1555,9 @@ OMPDistributeDirective *OMPDistributeDirective::Create(
   Dir->setCond(Exprs.Cond);
 #if INTEL_COLLAB
   Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+  Dir->setLateOutlineLinearCounterStep(Exprs.LateOutlineLinearCounterStep);
+  Dir->setLateOutlineLinearCounterIncrement(
+      Exprs.LateOutlineLinearCounterIncrement);
 #endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
@@ -1600,6 +1639,9 @@ OMPDistributeParallelForDirective *OMPDistributeParallelForDirective::Create(
   Dir->setCond(Exprs.Cond);
 #if INTEL_COLLAB
   Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+  Dir->setLateOutlineLinearCounterStep(Exprs.LateOutlineLinearCounterStep);
+  Dir->setLateOutlineLinearCounterIncrement(
+      Exprs.LateOutlineLinearCounterIncrement);
 #endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
@@ -1676,6 +1718,9 @@ OMPDistributeParallelForSimdDirective::Create(
   Dir->setCond(Exprs.Cond);
 #if INTEL_COLLAB
   Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+  Dir->setLateOutlineLinearCounterStep(Exprs.LateOutlineLinearCounterStep);
+  Dir->setLateOutlineLinearCounterIncrement(
+      Exprs.LateOutlineLinearCounterIncrement);
 #endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
@@ -1749,6 +1794,9 @@ OMPDistributeSimdDirective *OMPDistributeSimdDirective::Create(
   Dir->setCond(Exprs.Cond);
 #if INTEL_COLLAB
   Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+  Dir->setLateOutlineLinearCounterStep(Exprs.LateOutlineLinearCounterStep);
+  Dir->setLateOutlineLinearCounterIncrement(
+      Exprs.LateOutlineLinearCounterIncrement);
 #endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
@@ -1808,6 +1856,9 @@ OMPTargetParallelForSimdDirective *OMPTargetParallelForSimdDirective::Create(
   Dir->setCond(Exprs.Cond);
 #if INTEL_COLLAB
   Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+  Dir->setLateOutlineLinearCounterStep(Exprs.LateOutlineLinearCounterStep);
+  Dir->setLateOutlineLinearCounterIncrement(
+      Exprs.LateOutlineLinearCounterIncrement);
 #endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
@@ -1867,6 +1918,9 @@ OMPTargetSimdDirective::Create(const ASTContext &C, SourceLocation StartLoc,
   Dir->setCond(Exprs.Cond);
 #if INTEL_COLLAB
   Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+  Dir->setLateOutlineLinearCounterStep(Exprs.LateOutlineLinearCounterStep);
+  Dir->setLateOutlineLinearCounterIncrement(
+      Exprs.LateOutlineLinearCounterIncrement);
 #endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
@@ -1917,6 +1971,9 @@ OMPTeamsDistributeDirective *OMPTeamsDistributeDirective::Create(
   Dir->setCond(Exprs.Cond);
 #if INTEL_COLLAB
   Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+  Dir->setLateOutlineLinearCounterStep(Exprs.LateOutlineLinearCounterStep);
+  Dir->setLateOutlineLinearCounterIncrement(
+      Exprs.LateOutlineLinearCounterIncrement);
 #endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
@@ -1975,6 +2032,9 @@ OMPTeamsDistributeSimdDirective *OMPTeamsDistributeSimdDirective::Create(
   Dir->setCond(Exprs.Cond);
 #if INTEL_COLLAB
   Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+  Dir->setLateOutlineLinearCounterStep(Exprs.LateOutlineLinearCounterStep);
+  Dir->setLateOutlineLinearCounterIncrement(
+      Exprs.LateOutlineLinearCounterIncrement);
 #endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
@@ -2035,6 +2095,9 @@ OMPTeamsDistributeParallelForSimdDirective::Create(
   Dir->setCond(Exprs.Cond);
 #if INTEL_COLLAB
   Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+  Dir->setLateOutlineLinearCounterStep(Exprs.LateOutlineLinearCounterStep);
+  Dir->setLateOutlineLinearCounterIncrement(
+      Exprs.LateOutlineLinearCounterIncrement);
 #endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
@@ -2111,6 +2174,9 @@ OMPTeamsDistributeParallelForDirective::Create(
   Dir->setCond(Exprs.Cond);
 #if INTEL_COLLAB
   Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+  Dir->setLateOutlineLinearCounterStep(Exprs.LateOutlineLinearCounterStep);
+  Dir->setLateOutlineLinearCounterIncrement(
+      Exprs.LateOutlineLinearCounterIncrement);
 #endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
@@ -2211,6 +2277,9 @@ OMPTargetTeamsDistributeDirective *OMPTargetTeamsDistributeDirective::Create(
   Dir->setCond(Exprs.Cond);
 #if INTEL_COLLAB
   Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+  Dir->setLateOutlineLinearCounterStep(Exprs.LateOutlineLinearCounterStep);
+  Dir->setLateOutlineLinearCounterIncrement(
+      Exprs.LateOutlineLinearCounterIncrement);
 #endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
@@ -2274,6 +2343,9 @@ OMPTargetTeamsDistributeParallelForDirective::Create(
   Dir->setCond(Exprs.Cond);
 #if INTEL_COLLAB
   Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+  Dir->setLateOutlineLinearCounterStep(Exprs.LateOutlineLinearCounterStep);
+  Dir->setLateOutlineLinearCounterIncrement(
+      Exprs.LateOutlineLinearCounterIncrement);
 #endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
@@ -2355,6 +2427,9 @@ OMPTargetTeamsDistributeParallelForSimdDirective::Create(
   Dir->setCond(Exprs.Cond);
 #if INTEL_COLLAB
   Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+  Dir->setLateOutlineLinearCounterStep(Exprs.LateOutlineLinearCounterStep);
+  Dir->setLateOutlineLinearCounterIncrement(
+      Exprs.LateOutlineLinearCounterIncrement);
 #endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
@@ -2431,6 +2506,9 @@ OMPTargetTeamsDistributeSimdDirective::Create(
   Dir->setCond(Exprs.Cond);
 #if INTEL_COLLAB
   Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+  Dir->setLateOutlineLinearCounterStep(Exprs.LateOutlineLinearCounterStep);
+  Dir->setLateOutlineLinearCounterIncrement(
+      Exprs.LateOutlineLinearCounterIncrement);
 #endif // INTEL_COLLAB
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);

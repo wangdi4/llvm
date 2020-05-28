@@ -460,40 +460,42 @@ class OMPLoopDirective : public OMPExecutableDirective {
     CondOffset = 5,
 #if INTEL_COLLAB
     LateOutlineCondOffset = 6,
-    InitOffset = 7,
-    IncOffset = 8,
-    PreInitsOffset = 9,
-    UpperBoundVariableOffset = 10,
+    LateOutlineLinearCounterStepOffset = 7,
+    LateOutlineLinearCounterIncrementOffset = 8,
+    InitOffset = 9,
+    IncOffset = 10,
+    PreInitsOffset = 11,
+    UpperBoundVariableOffset = 12,
     // The '...End' enumerators do not correspond to child expressions - they
     // specify the offset to the end (and start of the following counters/
     // updates/finals arrays).
-    DefaultEnd = 11,
+    DefaultEnd = 13,
     // The following 7 exprs are used by worksharing and distribute loops only.
-    IsLastIterVariableOffset = 11,
-    LowerBoundVariableOffset = 12,
-    StrideVariableOffset = 13,
-    EnsureUpperBoundOffset = 14,
-    NextLowerBoundOffset = 15,
-    NextUpperBoundOffset = 16,
-    NumIterationsOffset = 17,
+    IsLastIterVariableOffset = 13,
+    LowerBoundVariableOffset = 14,
+    StrideVariableOffset = 15,
+    EnsureUpperBoundOffset = 16,
+    NextLowerBoundOffset = 17,
+    NextUpperBoundOffset = 18,
+    NumIterationsOffset = 19,
     // Offset to the end for worksharing loop directives.
-    WorksharingEnd = 18,
-    PrevLowerBoundVariableOffset = 18,
-    PrevUpperBoundVariableOffset = 19,
-    DistIncOffset = 20,
-    PrevEnsureUpperBoundOffset = 21,
-    CombinedLowerBoundVariableOffset = 22,
-    CombinedUpperBoundVariableOffset = 23,
-    CombinedEnsureUpperBoundOffset = 24,
-    CombinedInitOffset = 25,
-    CombinedConditionOffset = 26,
-    CombinedNextLowerBoundOffset = 27,
-    CombinedNextUpperBoundOffset = 28,
-    CombinedDistConditionOffset = 29,
-    CombinedParForInDistConditionOffset = 30,
+    WorksharingEnd = 20,
+    PrevLowerBoundVariableOffset = 20,
+    PrevUpperBoundVariableOffset = 21,
+    DistIncOffset = 22,
+    PrevEnsureUpperBoundOffset = 23,
+    CombinedLowerBoundVariableOffset = 24,
+    CombinedUpperBoundVariableOffset = 25,
+    CombinedEnsureUpperBoundOffset = 26,
+    CombinedInitOffset = 27,
+    CombinedConditionOffset = 28,
+    CombinedNextLowerBoundOffset = 29,
+    CombinedNextUpperBoundOffset = 30,
+    CombinedDistConditionOffset = 31,
+    CombinedParForInDistConditionOffset = 32,
     // Offset to the end (and start of the following counters/updates/finals
     // arrays) for combined distribute loop directives.
-    CombinedDistributeEnd = 31,
+    CombinedDistributeEnd = 33,
 #else
     InitOffset = 6,
     IncOffset = 7,
@@ -682,6 +684,15 @@ protected:
 #if INTEL_COLLAB
   void setLateOutlineCond(Stmt *LateOutlineCond) {
     *std::next(child_begin(), LateOutlineCondOffset) = LateOutlineCond;
+  }
+  void setLateOutlineLinearCounterStep(Stmt *LateOutlineLinearCounterStep) {
+    *std::next(child_begin(), LateOutlineLinearCounterStepOffset) =
+        LateOutlineLinearCounterStep;
+  }
+  void setLateOutlineLinearCounterIncrement(
+      Stmt *LateOutlineLinearCounterIncrement) {
+    *std::next(child_begin(), LateOutlineLinearCounterIncrementOffset) =
+        LateOutlineLinearCounterIncrement;
   }
 #endif // INTEL_COLLAB
   void setIsLastIterVariable(Expr *IL) {
@@ -882,6 +893,10 @@ public:
 #if INTEL_COLLAB
     /// Late-outlining loop condition.
     Expr *LateOutlineCond;
+    /// Step used for linear counter variables.
+    Expr *LateOutlineLinearCounterStep;
+    /// Increment expression used for linear counter variables.
+    Expr *LateOutlineLinearCounterIncrement;
 #endif // INTEL_COLLAB
     /// Loop iteration variable init.
     Expr *Init;
@@ -972,6 +987,8 @@ public:
       Cond = nullptr;
 #if INTEL_COLLAB
       LateOutlineCond = nullptr;
+      LateOutlineLinearCounterStep = nullptr;
+      LateOutlineLinearCounterIncrement = nullptr;
 #endif // INTEL_COLLAB
       Init = nullptr;
       Inc = nullptr;
@@ -1063,6 +1080,14 @@ public:
   Expr *getLateOutlineCond() const {
     return const_cast<Expr *>(reinterpret_cast<const Expr *>(
         *std::next(child_begin(), LateOutlineCondOffset)));
+  }
+  Expr *getLateOutlineLinearCounterStep() const {
+    return const_cast<Expr *>(reinterpret_cast<const Expr *>(
+        *std::next(child_begin(), LateOutlineLinearCounterStepOffset)));
+  }
+  Expr *getLateOutlineLinearCounterIncrement() const {
+    return const_cast<Expr *>(reinterpret_cast<const Expr *>(
+        *std::next(child_begin(), LateOutlineLinearCounterIncrementOffset)));
   }
 #endif // INTEL_COLLAB
   Expr *getInit() const {

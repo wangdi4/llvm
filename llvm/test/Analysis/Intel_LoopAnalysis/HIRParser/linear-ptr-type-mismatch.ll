@@ -5,7 +5,7 @@
 ; CHECK: DO i1 = 0, 4
 ; CHECK-NEXT: %2 = (%0)[i1]
 ; CHECK-NEXT: %3 = (%1)[i1]
-; CHECK-NEXT: %or = %3  ||  %2
+; CHECK-NEXT: %or = %3  |  %2
 ; CHECK-NEXT: (%1)[i1] = %or
 ; CHECK-NEXT: END LOOP
 

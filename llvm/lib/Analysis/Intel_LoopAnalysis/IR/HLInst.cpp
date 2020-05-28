@@ -132,9 +132,9 @@ bool HLInst::checkSeparator(formatted_raw_ostream &OS, bool Print) const {
                  (Opcode == Instruction::AShr)) {
         OS << "  >>  ";
       } else if (Opcode == Instruction::And) {
-        OS << "  &&  ";
+        OS << "  &  ";
       } else if (Opcode == Instruction::Or) {
-        OS << "  ||  ";
+        OS << "  |  ";
       } else if (Opcode == Instruction::Xor) {
         OS << "  ^  ";
       } else {

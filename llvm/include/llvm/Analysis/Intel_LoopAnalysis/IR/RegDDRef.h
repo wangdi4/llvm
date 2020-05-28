@@ -817,8 +817,8 @@ public:
   /// getNumDimensions()].
   int64_t getDimensionConstStride(unsigned DimensionNum) const;
 
-  /// Returns the stride associated with the \p DimensionNum. DimensionNum must
-  /// be within [1, getNumDimensions()].
+  /// Returns the stride in number of bytes associated with the \p DimensionNum.
+  /// DimensionNum must be within [1, getNumDimensions()].
   CanonExpr *getDimensionStride(unsigned DimensionNum) {
     assert(!isTerminalRef() && "Stride info not applicable for scalar refs!");
     assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");
@@ -873,14 +873,13 @@ public:
     return getDimensionType(DimensionNum)->isArrayTy();
   }
 
-  /// Returns the stride of this DDRef at specified loop level.
-  /// Returns null if DDRef might not be a regular strided access
-  /// (linear access with invariant stride at Level).
+  /// Returns the stride in number of bytes of this DDRef at specified loop
+  /// level. Returns null if DDRef might not be a regular strided access (linear
+  /// access with invariant stride at Level).
   CanonExpr *getStrideAtLevel(unsigned Level) const;
 
-  /// Populates constant stride of DDRef at \p Level in \p Stride, if is is not
-  /// null.
-  /// Returns false if the stride is not constant.
+  /// Populates constant stride in number of bytes of DDRef at \p Level in \p
+  /// Stride, if is is not null. Returns false if the stride is not constant.
   bool getConstStrideAtLevel(unsigned Level, int64_t *Stride) const;
 
   /// Returns true if ref has unit stride at \p Level, such as A[i1] or

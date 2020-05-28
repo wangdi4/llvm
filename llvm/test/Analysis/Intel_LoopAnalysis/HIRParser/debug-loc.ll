@@ -56,7 +56,7 @@
 ;
 ; CHECK: :13>            |   %cmp1 = %x.060 > 1.000000e+01;
 ; CHECK: :13>            |   %cmp3 = i1 < 10;
-; CHECK: :13>            |   %or.cond = %cmp3  ||  %cmp1;
+; CHECK: :13>            |   %or.cond = %cmp3  |  %cmp1;
 ; CHECK: :13>            |   if (%or.cond != 0)
 ; CHECK: :13>            |   {
 ;

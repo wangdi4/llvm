@@ -6308,8 +6308,18 @@ void CodeGenFunction::EmitLateOutlineOMPFinals(const OMPLoopDirective &S) {
   // for-loops of a simd construct with multiple associated for-loops are
   // lastprivate.
 
-  llvm::DenseMap<const VarDecl *, const Expr *> Finals;
   auto IC = S.counters().begin();
+
+  // Use an increment expression for single counter simd loops.
+  if (const Expr* E = S.getLateOutlineLinearCounterIncrement()) {
+    const auto *VD =
+        cast<VarDecl>(cast<DeclRefExpr>(*IC)->getDecl())->getCanonicalDecl();
+    if (CapturedStmtInfo->isImplicitLastPrivate(VD))
+      EmitIgnoredExpr(E);
+    return;
+  }
+
+  llvm::DenseMap<const VarDecl *, const Expr *> Finals;
   for (const auto *E : S.finals()) {
     const auto *VD =
         cast<VarDecl>(cast<DeclRefExpr>(*IC)->getDecl())->getCanonicalDecl();

@@ -460,7 +460,14 @@ bool OpenMPLateOutliner::checkIfModifier(OpenMPDirectiveKind DKind,
 }
 
 void OpenMPLateOutliner::getApplicableDirectives(
-    OpenMPClauseKind CK, SmallVector<DirectiveIntrinsicSet *, 4> &Dirs) {
+    OpenMPClauseKind CK, ImplicitClauseKind ICK,
+    SmallVector<DirectiveIntrinsicSet *, 4> &Dirs) {
+
+  // Place implicit linears on SIMD only.
+  if (ICK == ICK_linear) {
+    Dirs.push_back(&Directives.back());
+    return;
+  }
 
   // OMPC_unknown is used in cases where there is no real clause kind, or
   // for implicit clauses that need to be skipped on simd when simd is
@@ -522,9 +529,10 @@ void OpenMPLateOutliner::emitDirective(DirectiveIntrinsicSet &D,
   clearBundleTemps();
 }
 
-void OpenMPLateOutliner::emitClause(OpenMPClauseKind CK) {
+void OpenMPLateOutliner::emitClause(OpenMPClauseKind CK,
+                                    ImplicitClauseKind ICK) {
   SmallVector<DirectiveIntrinsicSet *, 4> DRefs;
-  getApplicableDirectives(CK, DRefs);
+  getApplicableDirectives(CK, ICK, DRefs);
   for (auto *D : DRefs) {
     llvm::OperandBundleDef B(std::string(BundleString), BundleValues);
     D->OpBundles.push_back(B);
@@ -533,8 +541,22 @@ void OpenMPLateOutliner::emitClause(OpenMPClauseKind CK) {
 }
 
 void OpenMPLateOutliner::emitImplicit(Expr *E, ImplicitClauseKind K) {
+  if (K == ICK_linear || K == ICK_linear_private ||
+      K == ICK_linear_lastprivate) {
+    ClauseEmissionHelper CEH(*this, OMPC_unknown);
+    addArg("QUAL.OMP.LINEAR:IV");
+    CEH.setImplicitClause(ICK_linear);
+    addArg(E);
+    auto *LD = cast<OMPLoopDirective>(&Directive);
+    addArg(CGF.EmitScalarExpr(LD->getLateOutlineLinearCounterStep()));
+    // Plain SIMD doesn't use the private/lastprivate clause but the
+    // implicit clause kind is used to determine if the increment is emitted.
+    if (LD->getDirectiveKind() == OMPD_simd)
+      return;
+  }
   switch (K) {
   case ICK_private:
+  case ICK_linear_private:
     addArg("QUAL.OMP.PRIVATE");
     break;
   case ICK_specified_firstprivate:
@@ -542,6 +564,7 @@ void OpenMPLateOutliner::emitImplicit(Expr *E, ImplicitClauseKind K) {
     addArg("QUAL.OMP.FIRSTPRIVATE");
     break;
   case ICK_lastprivate:
+  case ICK_linear_lastprivate:
     addArg("QUAL.OMP.LASTPRIVATE");
     break;
   case ICK_shared:
@@ -1687,15 +1710,16 @@ OpenMPLateOutliner::OpenMPLateOutliner(CodeGenFunction &CGF,
     auto *LoopDir = dyn_cast<OMPLoopDirective>(&D);
     for (auto *E : LoopDir->counters()) {
       auto *VD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
-      if (CurrentDirectiveKind == OMPD_simd) {
-        if (CGF.IsPrivateCounter(VD))
-          ImplicitMap.insert(std::make_pair(VD, ICK_unknown));
-        else
-          ImplicitMap.insert(std::make_pair(VD, ICK_lastprivate));
-      } else if (isOpenMPSimdDirective(LoopDir->getDirectiveKind()) &&
-                 !CGF.IsPrivateCounter(VD) &&
-                 LoopDir->getCollapsedNumber() > 1) {
-        ImplicitMap.insert(std::make_pair(VD, ICK_lastprivate));
+      if (isOpenMPSimdDirective(LoopDir->getDirectiveKind())) {
+        if (LoopDir->getLateOutlineLinearCounterIncrement()) {
+          if (CGF.IsPrivateCounter(VD))
+            ImplicitMap.insert(std::make_pair(VD, ICK_linear_private));
+          else
+            ImplicitMap.insert(std::make_pair(VD, ICK_linear_lastprivate));
+        } else {
+          if (!CGF.IsPrivateCounter(VD))
+            ImplicitMap.insert(std::make_pair(VD, ICK_lastprivate));
+        }
       } else
         ImplicitMap.insert(std::make_pair(VD, ICK_private));
     }

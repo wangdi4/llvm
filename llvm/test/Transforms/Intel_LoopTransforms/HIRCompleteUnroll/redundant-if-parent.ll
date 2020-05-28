@@ -13,7 +13,7 @@
 ; CHECK: |      %2 = %0;
 ; CHECK: |
 ; CHECK: |      + DO i2 = 0, 0, 1   <DO_LOOP>
-; CHECK: |      |   %and65 = %2  &&  %in;
+; CHECK: |      |   %and65 = %2  &  %in;
 ; CHECK: |      |   %3 = (@a2_p)[0][i1 + i2][i1];
 ; CHECK: |      |   %4 = (@a1_r)[0][-1 * i2 + 128];
 ; CHECK: |      |   (@a1_r)[0][-1 * i2 + 128] = %3 + %4;
@@ -35,7 +35,7 @@
 ; CHECK: |   %arrayidx75.promoted = (@a1_bl)[0][i1];
 ; CHECK: |   %xor76450 = %arrayidx75.promoted;
 ; CHECK: |   %2 = %0;
-; CHECK: |   %and65 = %2  &&  %in;
+; CHECK: |   %and65 = %2  &  %in;
 ; CHECK: |   %3 = (@a2_p)[0][i1][i1];
 ; CHECK: |   %4 = (@a1_r)[0][128];
 ; CHECK: |   (@a1_r)[0][128] = %3 + %4;

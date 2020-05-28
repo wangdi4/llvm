@@ -8,7 +8,7 @@
 ; CHECK: + DO i1 = 0, 5, 1   <DO_LOOP>
 ; CHECK: |   %1 = (@s)[0][i1 + 4];
 ; CHECK: |   %cmp744 = i1 + 4 <u 8;
-; CHECK: |   %or.cond = %tobool  ||  %cmp744;
+; CHECK: |   %or.cond = %tobool  |  %cmp744;
 ; CHECK: |
 ; CHECK: |   + DO i2 = 0, i1 + -4, 1   <DO_LOOP>  <MAX_TC_EST = 2>
 ; CHECK: |   |   %indvars.iv.out = i2 + 8;
@@ -21,19 +21,19 @@
 
 ; CHECK: %1 = (@s)[0][4];
 ; CHECK: %cmp744 = 4 <u 8;
-; CHECK: %or.cond = %tobool  ||  %cmp744;
+; CHECK: %or.cond = %tobool  |  %cmp744;
 ; CHECK: %1 = (@s)[0][5];
 ; CHECK: %cmp744 = 5 <u 8;
-; CHECK: %or.cond = %tobool  ||  %cmp744;
+; CHECK: %or.cond = %tobool  |  %cmp744;
 ; CHECK: %1 = (@s)[0][6];
 ; CHECK: %cmp744 = 6 <u 8;
-; CHECK: %or.cond = %tobool  ||  %cmp744;
+; CHECK: %or.cond = %tobool  |  %cmp744;
 ; CHECK: %1 = (@s)[0][7];
 ; CHECK: %cmp744 = 7 <u 8;
-; CHECK: %or.cond = %tobool  ||  %cmp744;
+; CHECK: %or.cond = %tobool  |  %cmp744;
 ; CHECK: %1 = (@s)[0][8];
 ; CHECK: %cmp744 = 8 <u 8;
-; CHECK: %or.cond = %tobool  ||  %cmp744;
+; CHECK: %or.cond = %tobool  |  %cmp744;
 
 ; Ztt for the inner loop
 
@@ -45,7 +45,7 @@
 ; CHECK: }
 ; CHECK: %1 = (@s)[0][9];
 ; CHECK: %cmp744 = 9 <u 8;
-; CHECK: %or.cond = %tobool  ||  %cmp744;
+; CHECK: %or.cond = %tobool  |  %cmp744;
 
 ; Ztt for the inner loop
 

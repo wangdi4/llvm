@@ -16,7 +16,7 @@
 ; CHECK: %mv.upper.base = &((i8*)(%weight)[0].2);
 ; CHECK: %mv.test = &((%src)[sext.i32.i64(%i_width) + (sext.i32.i64((-1 + %i_height)) * smax(0, sext.i32.i64(%i_src_stride))) + -1]) >=u &((i8*)(%weight)[0].0);
 ; CHECK: %mv.test3 = &((%mv.upper.base)[3]) >=u &((%src)[(sext.i32.i64((-1 + %i_height)) * smin(0, sext.i32.i64(%i_src_stride))) + -1]);
-; CHECK: %mv.and = %mv.test  &&  %mv.test3;
+; CHECK: %mv.and = %mv.test  &  %mv.test3;
 ; CHECK: if (%mv.and == 0)
 
 ;Module Before HIR; ModuleID = 'mc_weight.c'

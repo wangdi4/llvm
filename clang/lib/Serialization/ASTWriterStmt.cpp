@@ -2151,6 +2151,8 @@ void ASTStmtWriter::VisitOMPLoopDirective(OMPLoopDirective *D) {
   Record.AddStmt(D->getCond());
 #if INTEL_COLLAB
   Record.AddStmt(D->getLateOutlineCond());
+  Record.AddStmt(D->getLateOutlineLinearCounterStep());
+  Record.AddStmt(D->getLateOutlineLinearCounterIncrement());
 #endif // INTEL_COLLAB
   Record.AddStmt(D->getInit());
   Record.AddStmt(D->getInc());
