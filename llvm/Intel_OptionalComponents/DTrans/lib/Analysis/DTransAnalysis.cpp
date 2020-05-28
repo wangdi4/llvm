@@ -3674,9 +3674,10 @@ public:
                     const DataLayout &DL, GetTLIFnType GetTLI,
                     dtrans::DTransAllocAnalyzer &DTAA,
                     DTransBadCastingAnalyzer &DTBCA,
-                    function_ref<BlockFrequencyInfo &(Function &)> &GetBFI)
+                    function_ref<BlockFrequencyInfo &(Function &)> &GetBFI,
+                    std::function<DominatorTree &(Function &)> GetDomTree)
       : DTInfo(Info), DL(DL), GetTLI(GetTLI), LPA(DL, GetTLI, DTAA), DTAA(DTAA),
-        DTBCA(DTBCA), GetBFI(GetBFI), BFI(nullptr) {
+        DTBCA(DTBCA), GetBFI(GetBFI), BFI(nullptr), GetDomTree(GetDomTree) {
     // Save pointers to some commonly referenced types.
     Int8PtrTy = llvm::Type::getInt8PtrTy(Context);
     PtrSizeIntTy = llvm::Type::getIntNTy(Context, DL.getPointerSizeInBits());
@@ -4925,6 +4926,10 @@ public:
 
   void visitGetElementPtrOperator(GEPOperator *I) {
 
+    // Don't visit if the instruction is in a dead basic block
+    if (ignoreBrokenInstruction(dyn_cast<Instruction>(I)))
+      return;
+
     // Check if the address produced by the GEP operator is only consumed by
     // memset calls.
     auto OnlyUsedForMemset = [](GEPOperator *I) {
@@ -6011,6 +6016,9 @@ private:
   // Set this in visitFunction before visiting instructions in the function.
   BlockFrequencyInfo *BFI;
 
+  // Collect the dominator tree
+  std::function<DominatorTree &(Function &)> GetDomTree;
+
   // A collection for safety data that needs to be set which may also require
   // cascading to pointer types that are reachable from a type. These are
   // deferred because it is not known whether the cascading is needed until it
@@ -6042,6 +6050,34 @@ private:
   llvm::Type *Int8PtrTy;
   llvm::Type *PtrSizeIntTy;
   llvm::Type *PtrSizeIntPtrTy;
+
+  // Helper function to identify if an instruction is in broken SSA
+  // form but it is allowed to ignore it. Return true if the instruction
+  // is in broken SSA form and is in a dead block.
+  bool ignoreBrokenInstruction(Instruction *I) {
+    if (!I)
+      return false;
+
+    Value *ValInst = cast<Value>(I);
+    bool CheckTree = false;
+
+    for (Value *OperandI : I->operands()) {
+      // Broken SSA form found
+      if (OperandI == ValInst) {
+        CheckTree = true;
+        break;
+      }
+    }
+
+    if (!CheckTree)
+      return false;
+
+    BasicBlock *BB = I->getParent();
+    Function *F = I->getFunction();
+    DominatorTree &DT = GetDomTree(*F);
+    // Check if the basic block is a dead block
+    return !DT.isReachableFromEntry(BB);
+  }
 
   // Return true if the dominant Type of all Users of the input Value
   // are the same as the input Type, else return false.
@@ -9226,6 +9262,7 @@ INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(BlockFrequencyInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(DTransImmutableAnalysisWrapper)
+INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_END(DTransAnalysisWrapper, "dtransanalysis",
                     "Data transformation analysis", false, true)
 
@@ -9295,10 +9332,14 @@ bool DTransAnalysisWrapper::runOnModule(Module &M) {
 
   auto &DTImmutInfo = getAnalysis<DTransImmutableAnalysisWrapper>().getResult();
 
+  auto GetDomTree = [this](Function &F) -> DominatorTree & {
+    return this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
+  };
+
   Invalidated = false;
   return Result.analyzeModule(
       M, GetTLI, getAnalysis<WholeProgramWrapperPass>().getResult(), GetBFI,
-      DTImmutInfo);
+      DTImmutInfo, GetDomTree);
 }
 
 DTransAnalysisInfo::DTransAnalysisInfo()
@@ -9554,7 +9595,8 @@ bool DTransAnalysisInfo::requiresBadCastValidation(
 bool DTransAnalysisInfo::analyzeModule(
     Module &M, GetTLIFnType GetTLI, WholeProgramInfo &WPInfo,
     function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
-    DTransImmutableInfo &DTImmutInfo) {
+    DTransImmutableInfo &DTImmutInfo,
+    std::function<DominatorTree &(Function &)> GetDomTree) {
   LLVM_DEBUG(dbgs() << "Running DTransAnalysisInfo::analyzeModule\n");
   if (!WPInfo.isWholeProgramSafe()) {
     LLVM_DEBUG(dbgs() << "dtrans: Whole Program not safe ... "
@@ -9571,7 +9613,7 @@ bool DTransAnalysisInfo::analyzeModule(
   DTAA.populateAllocDeallocTable(M);
 
   DTransInstVisitor Visitor(M.getContext(), *this, M.getDataLayout(), GetTLI,
-                            DTAA, DTBCA, GetBFI);
+                            DTAA, DTBCA, GetBFI, GetDomTree);
   parseIgnoreList();
 
   DTBCA.analyzeBeforeVisit();
@@ -9859,6 +9901,7 @@ void DTransAnalysisWrapper::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<BlockFrequencyInfoWrapperPass>();
   AU.addRequired<WholeProgramWrapperPass>();
   AU.addRequired<DTransImmutableAnalysisWrapper>();
+  AU.addRequired<DominatorTreeWrapperPass>();
 }
 
 char DTransAnalysis::PassID;
@@ -9883,7 +9926,11 @@ DTransAnalysisInfo DTransAnalysis::run(Module &M, AnalysisManager<Module> &AM) {
   auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
   auto &DTImmutInfo = AM.getResult<DTransImmutableAnalysis>(M);
 
+  auto GetDomTree = [&FAM](Function &F) -> DominatorTree & {
+    return FAM.getResult<DominatorTreeAnalysis>(F);
+  };
+
   DTransAnalysisInfo DTResult;
-  DTResult.analyzeModule(M, GetTLI, WPInfo, GetBFI, DTImmutInfo);
+  DTResult.analyzeModule(M, GetTLI, WPInfo, GetBFI, DTImmutInfo, GetDomTree);
   return DTResult;
 }
