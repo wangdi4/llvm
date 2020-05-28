@@ -752,7 +752,7 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessorsImpl(
   // If V is a constant, then it is known in all predecessors.
   if (Constant *KC = getKnownConstant(V, Preference)) {
     for (BasicBlock *Pred : predecessors(BB))
-      Result.push_back(std::make_pair(KC, Pred));
+      Result.emplace_back(KC, Pred);
 
     RegionInfo.push_back(std::make_pair(BB, BB));                       // INTEL
     return !Result.empty();
@@ -780,7 +780,7 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessorsImpl(
       // predecessor, use that information to try to thread this block.
       Constant *PredCst = LVI->getConstantOnEdge(V, P, BB, CxtI);
       if (Constant *KC = getKnownConstant(PredCst, Preference))
-        Result.push_back(std::make_pair(KC, P));
+        Result.emplace_back(KC, P);
     }
 
 #if INTEL_CUSTOMIZATION
@@ -801,13 +801,13 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessorsImpl(
     for (unsigned i = 0, e = PN->getNumIncomingValues(); i != e; ++i) {
       Value *InVal = PN->getIncomingValue(i);
       if (Constant *KC = getKnownConstant(InVal, Preference)) {
-        Result.push_back(std::make_pair(KC, PN->getIncomingBlock(i)));
+        Result.emplace_back(KC, PN->getIncomingBlock(i));
       } else {
         Constant *CI = LVI->getConstantOnEdge(InVal,
                                               PN->getIncomingBlock(i),
                                               PN->getParent(), CxtI);   // INTEL
         if (Constant *KC = getKnownConstant(CI, Preference))
-          Result.push_back(std::make_pair(KC, PN->getIncomingBlock(i)));
+          Result.emplace_back(KC, PN->getIncomingBlock(i));
       }
     }
 
@@ -966,7 +966,7 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessorsImpl(
         Constant *Folded = ConstantExpr::get(BO->getOpcode(), V, CI);
 
         if (Constant *KC = getKnownConstant(Folded, WantInteger))
-          Result.push_back(std::make_pair(KC, LHSVal.second));
+          Result.emplace_back(KC, LHSVal.second);
       }
     }
 
@@ -1046,7 +1046,7 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessorsImpl(
         }
 
         if (Constant *KC = getKnownConstant(Res, WantInteger))
-          Result.push_back(std::make_pair(KC, PredBB));
+          Result.emplace_back(KC, PredBB);
       }
 
       if (!Result.empty())                                              // INTEL
@@ -1072,7 +1072,7 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessorsImpl(
             continue;
 
           Constant *ResC = ConstantInt::get(CmpType, Res);
-          Result.push_back(std::make_pair(ResC, P));
+          Result.emplace_back(ResC, P);
         }
 
         if (!Result.empty())                                            // INTEL
@@ -1114,7 +1114,7 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessorsImpl(
               else
                 continue;
 
-              Result.push_back(std::make_pair(ResC, P));
+              Result.emplace_back(ResC, P);
             }
 
             if (!Result.empty())                                        // INTEL
@@ -1137,7 +1137,7 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessorsImpl(
         Constant *V = LHSVal.first;
         Constant *Folded = ConstantExpr::getCompare(Pred, V, CmpConst);
         if (Constant *KC = getKnownConstant(Folded, WantInteger))
-          Result.push_back(std::make_pair(KC, LHSVal.second));
+          Result.emplace_back(KC, LHSVal.second);
       }
 
       if (!Result.empty())                                              // INTEL
@@ -1177,7 +1177,7 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessorsImpl(
 
         // See if the select has a known constant value for this predecessor.
         if (Constant *Val = KnownCond ? TrueVal : FalseVal)
-          Result.push_back(std::make_pair(Val, C.second));
+          Result.emplace_back(Val, C.second);
       }
 
       if (!Result.empty())                                              // INTEL
@@ -1192,7 +1192,7 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessorsImpl(
   Constant *CI = LVI->getConstant(V, BB, CxtI);
   if (Constant *KC = getKnownConstant(CI, Preference)) {
     for (BasicBlock *Pred : predecessors(BB))
-      Result.push_back(std::make_pair(KC, Pred));
+      Result.emplace_back(KC, Pred);
   }
 
   if (!Result.empty())                                                  // INTEL
@@ -1604,7 +1604,7 @@ bool JumpThreadingPass::SimplifyPartiallyRedundantLoad(LoadInst *LoadI) {
 
     // If so, this load is partially redundant.  Remember this info so that we
     // can create a PHI node.
-    AvailablePreds.push_back(std::make_pair(PredBB, PredAvailable));
+    AvailablePreds.emplace_back(PredBB, PredAvailable);
   }
 
   // If the loaded value isn't available in any predecessor, it isn't partially
@@ -1678,7 +1678,7 @@ bool JumpThreadingPass::SimplifyPartiallyRedundantLoad(LoadInst *LoadI) {
     if (AATags)
       NewVal->setAAMetadata(AATags);
 
-    AvailablePreds.push_back(std::make_pair(UnavailablePred, NewVal));
+    AvailablePreds.emplace_back(UnavailablePred, NewVal);
   }
 
   // Now we know that each predecessor of this block has a value in
@@ -1928,11 +1928,15 @@ bool JumpThreadingPass::ProcessThreadableEdges(Value *Cond, BasicBlock *BB,
         isa<CallBrInst>(Pred->getTerminator()))
       continue;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     if (CountableLoopLatches.count(BB) && CountableLoopHeaders.count(DestBB))
       ThreadingBackedge = true;
 #endif // INTEL_CUSTOMIZATION
     PredToDestList.push_back(std::make_pair(Pred, DestBB));
+=======
+    PredToDestList.emplace_back(Pred, DestBB);
+>>>>>>> c4990a03c6c347df120c0dbf6039e900889c4a92
   }
 
   // If all edges were unthreadable, we fail.
