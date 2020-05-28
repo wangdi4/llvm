@@ -71,8 +71,13 @@
 // RUN:  | FileCheck -check-prefixes=UNROLL %s
 // RUN: %clang_cl -Qunroll -### -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefixes=UNROLL %s
+// RUN: %clang -unroll0 -### -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=NO-UNROLL %s
+// RUN: %clang_cl -Qunroll0 -### -c %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=NO-UNROLL %s
 // UNROLL: "-funroll-loops"
 // UNROLL3: "-mllvm" "-hir-general-unroll-max-factor=3"
+// NO-UNROLL: "-fno-unroll-loops"
 
 // Behavior with -qopt-matmul and /Qopt-matmul option
 // RUN: %clang -### %s -c -qopt-matmul 2>&1 | FileCheck %s --check-prefix=CHECK-QOPT-MATMUL
