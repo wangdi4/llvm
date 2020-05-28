@@ -452,9 +452,6 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
     // The Intel compiler defaults to -O2
     if (!Args.hasArg(options::OPT_O_Group))
       DAL->AddJoinedArg(0, Opts.getOption(options::OPT_O), "2");
-    // -fveclib=SVML default.
-    if (!Args.hasArg(options::OPT_fveclib))
-      DAL->AddJoinedArg(0, Opts.getOption(options::OPT_fveclib), "SVML");
     // For LTO on Windows, use -fuse-ld=lld when Qipo is used.
     if (Args.hasArg(options::OPT_flto) &&
         !Args.hasArg(options::OPT_fuse_ld_EQ)) {
@@ -465,6 +462,15 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
         DAL->AddJoinedArg(0, Opts.getOption(options::OPT_fuse_ld_EQ), "lld");
     }
   }
+  // Make SVML the default for dpcpp and --intel.
+  // FIXME: This is temporary, as moving forward --intel should be the
+  // default for dpcpp compilations.  We cannot do this right now due to a
+  // problem with testing (use of dpcpp on Windows, causing link problems with
+  // Intel specific libs)
+  if (Args.hasArg(options::OPT__intel, options::OPT__dpcpp))
+    // -fveclib=SVML default.
+    if (!Args.hasArg(options::OPT_fveclib))
+      DAL->AddJoinedArg(0, Opts.getOption(options::OPT_fveclib), "SVML");
 #endif // INTEL_CUSTOMIZATION
 
   return DAL;

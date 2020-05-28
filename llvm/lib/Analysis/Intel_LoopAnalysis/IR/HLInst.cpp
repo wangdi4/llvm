@@ -255,6 +255,14 @@ void HLInst::print(formatted_raw_ostream &OS, unsigned Depth,
     }
   }
 
+  // Print ExtractValueInst\InsertValueInst indices
+  auto Inds1 = getExtractValueIndices();
+  for (auto I : Inds1)
+    OS << ", " << I;
+  auto Inds2 = getInsertValueIndices();
+  for (auto J : Inds2)
+    OS << ", " << J;
+
   // Print function which no operands (no arguments or return value).
   if (!Count) {
     printBeginOpcode(OS, HasSeparator);
