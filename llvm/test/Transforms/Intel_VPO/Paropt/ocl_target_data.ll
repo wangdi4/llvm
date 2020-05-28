@@ -13,8 +13,8 @@
 
 ; Make sure that no data mapping related structures are left in IR.
 ; In addition, check that there is only one Function in IR.
-; CHECK: define dso_local
-; CHECK-NOT: define dso_local
+; CHECK: define weak dso_local
+; CHECK-NOT: define{{.*}}dso_local
 ; CHECK-NOT: offload_baseptrs
 ; CHECK-NOT: offload_ptrs
 

@@ -26,7 +26,7 @@
 ; CHECK-DAG: MAX reduction update of type i32 cannot be done using atomic API
 ; CHECK: Critical section was generated for reduction update(s)
 
-; CHECK: define dso_local spir_kernel void @__omp_offloading_
+; CHECK: define weak dso_local spir_kernel void @__omp_offloading_
 ; CHECK-DAG: call spir_func void @__kmpc_atomic_fixed4_add
 ; CHECK-DAG: call spir_func void @__kmpc_atomic_fixed4_add
 ; CHECK-DAG: call spir_func void @__kmpc_atomic_fixed4_mul

@@ -238,7 +238,7 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
 
   Type *RetTy = FnTy->getReturnType();
   FunctionType *NFnTy = FunctionType::get(RetTy, ParamsTy, false);
-  Function *NFn = Function::Create(NFnTy, GlobalValue::ExternalLinkage);
+  Function *NFn = Function::Create(NFnTy, GlobalValue::WeakAnyLinkage);
   NFn->copyAttributesFrom(Fn);
   NFn->setCallingConv(CallingConv::SPIR_KERNEL);
   NFn->addFnAttr("target.declare", "true");

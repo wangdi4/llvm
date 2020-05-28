@@ -21,7 +21,7 @@
 ; CHECK-NOT: foo
 ; CHECK-DAG: define dso_local spir_func void @_Z3barv()
 ; CHECK-NOT: foo
-; CHECK-DAG: define dso_local spir_kernel void @__omp_offloading_{{.*}}_main
+; CHECK-DAG: define weak dso_local spir_kernel void @__omp_offloading_{{.*}}_main
 ; CHECK-NOT: foo
 
 ; ModuleID = 'target_routine_filtering.cpp'
