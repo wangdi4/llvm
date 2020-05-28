@@ -1501,7 +1501,7 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
   for (int32_t i = 0; i < NumArgs; i++) {
     args[i] = (void *)((intptr_t)TgtArgs[i] + TgtOffsets[i]);
     CALL_ZE_RET_FAIL(zeKernelSetArgumentValue, kernel, i, sizeof(void *),
-                     &args[i]);
+                     args[i] == nullptr ? nullptr : &args[i]);
     DP("Kernel argument %" PRId32 " (value: " DPxMOD ") was set successfully\n",
        i, DPxPTR(args[i]));
   }

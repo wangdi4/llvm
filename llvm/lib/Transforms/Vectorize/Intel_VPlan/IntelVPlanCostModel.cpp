@@ -267,6 +267,29 @@ unsigned VPlanCostModel::getLoadStoreIndexSize(
   return 32u;
 }
 
+unsigned VPlanCostModel::getArithmeticInstructionCost(const unsigned Opcode,
+                                                      const VPValue *Op1,
+                                                      const VPValue *Op2,
+                                                      const Type *ScalarTy,
+                                                      const unsigned VF) {
+  assert(Op1 != nullptr && "First operand is expected.");
+  if (!ScalarTy)
+    return UnknownCost;
+  Type *VecTy = getVectorizedType(ScalarTy, VF);
+
+  TargetTransformInfo::OperandValueKind Op1VK =
+    TargetTransformInfo::OK_AnyValue;
+  TargetTransformInfo::OperandValueKind Op2VK =
+    TargetTransformInfo::OK_AnyValue;
+  TargetTransformInfo::OperandValueProperties Op1VP =
+    TargetTransformInfo::OP_None;
+  TargetTransformInfo::OperandValueProperties Op2VP =
+    TargetTransformInfo::OP_None;
+
+  return TTI->getArithmeticInstrCost(Opcode, VecTy, TTI::TCK_RecipThroughput,
+                                     Op1VK, Op2VK, Op1VP, Op2VP);
+}
+
 unsigned VPlanCostModel::getLoadStoreCost(const VPInstruction *VPInst) {
   Type *OpTy = getMemInstValueType(VPInst);
   assert(OpTy && "Can't get type of the load/store instruction!");
@@ -360,32 +383,20 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
   case Instruction::AShr:
   case Instruction::And:
   case Instruction::Or:
+  case Instruction::Xor:
+    return getArithmeticInstructionCost(
+      Opcode, VPInst->getOperand(0), VPInst->getOperand(1),
+      VPInst->getCMType(), VF);
   case VPInstruction::Not: // Treat same as Xor.
-  case Instruction::Xor: {
-    TargetTransformInfo::OperandValueKind Op1VK =
-        TargetTransformInfo::OK_AnyValue;
-    TargetTransformInfo::OperandValueKind Op2VK =
-        TargetTransformInfo::OK_AnyValue;
-    TargetTransformInfo::OperandValueProperties Op1VP =
-        TargetTransformInfo::OP_None;
-    TargetTransformInfo::OperandValueProperties Op2VP =
-        TargetTransformInfo::OP_None;
-
     // TODO: More precise kinds/properties for VPConstants. However, we'd need
     // to distinguish
     //   <i32 1, i32 1, i32 1, i32 1>
     // from
     //   <i32 1, i32 2, i32 3, i32 4>
     // that would have had the same underlying llvm::Constant (i32 1).
-
-    Type *BaseTy = VPInst->getCMType();
-    if (!BaseTy)
-      return UnknownCost;
-    Type *VecTy = getVectorizedType(BaseTy, VF);
-    unsigned Cost = TTI->getArithmeticInstrCost(
-        Opcode, VecTy, TTI::TCK_RecipThroughput, Op1VK, Op2VK, Op1VP, Op2VP);
-    return Cost;
-  }
+    return getArithmeticInstructionCost(
+      Instruction::Xor, VPInst->getOperand(0), nullptr,
+      VPInst->getCMType(), VF);
   case Instruction::ICmp:
   case Instruction::FCmp: {
     // FIXME: Assuming all the compares are widened, which is obviously wrong
