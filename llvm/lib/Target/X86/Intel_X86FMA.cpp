@@ -1389,11 +1389,9 @@ unsigned X86GlobalFMA::createConstOneFromImm(MVT VT,
     break;
   case 128:
     R = MRI->createVirtualRegister(&X86::VR128RegClass);
-    Opc = IsF32 ? X86::VBROADCASTSSrr : X86::VUNPCKLPDrr;
+    Opc = IsF32 ? X86::VBROADCASTSSrr : X86::VMOVDDUPrr;
     MIB = BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(Opc), R);
     MIB.addReg(R128, RegState::Kill);
-    if (!IsF32)
-      MIB.addReg(R128);
     break;
   case 256:
     R = MRI->createVirtualRegister(&X86::VR256RegClass);
