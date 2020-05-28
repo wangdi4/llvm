@@ -54,10 +54,9 @@ PreservedAnalyses AlwaysInlinerPass::run(Module &M,
   SmallSetVector<CallBase *, 16> Calls;
   bool Changed = false;
   SmallVector<Function *, 16> InlinedFunctions;
-  InlineReason Reason; // INTEL
   for (Function &F : M)
     if (!F.isDeclaration() && F.hasFnAttribute(Attribute::AlwaysInline) &&
-        isInlineViable(F, Reason).isSuccess()) { // INTEL
+        isInlineViable(F).isSuccess()) {
       Calls.clear();
 
       for (User *U : F.users())
@@ -70,7 +69,7 @@ PreservedAnalyses AlwaysInlinerPass::run(Module &M,
         // We should do something to log or check the inline failures here.
         Changed |=
             InlineFunction(*CB, IFI, &getReport(), &getMDReport(), // INTEL
-                  &Reason, /*CalleeAAR=*/nullptr, InsertLifetime)  // INTEL
+                           /*CalleeAAR=*/nullptr, InsertLifetime)  // INTEL
                 .isSuccess();
 
       // Remember to try and delete this function afterward. This both avoids
@@ -189,7 +188,6 @@ InlineCost AlwaysInlinerLegacyPass::getInlineCost(CallBase &CB) {
 
   // Only inline direct calls to functions with always-inline attributes
   // that are viable for inlining.
-  InlineReason Reason; // INTEL
   if (!Callee)
     return InlineCost::getNever("indirect call", NinlrNotAlwaysInline); // INTEL
 
@@ -201,7 +199,7 @@ InlineCost AlwaysInlinerLegacyPass::getInlineCost(CallBase &CB) {
     return InlineCost::getNever("no alwaysinline attribute",  // INTEL
                                 NinlrNotAlwaysInline); // INTEL
 
-  auto IsViable = isInlineViable(*Callee, Reason);  // INTEL
+  auto IsViable = isInlineViable(*Callee);
   if (!IsViable.isSuccess())
     return InlineCost::getNever(IsViable.getFailureReason(), // INTEL
                                 NinlrNotAlwaysInline);       // INTEL

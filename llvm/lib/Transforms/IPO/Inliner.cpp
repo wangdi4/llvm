@@ -281,8 +281,7 @@ static InlineResult inlineCallIfPossible(
     InlineReportBuilder *MDIRep,    // INTEL
     InlinedArrayAllocasTy &InlinedArrayAllocas, int InlineHistory,
     bool InsertLifetime, function_ref<AAResults &(Function &)> &AARGetter,
-    ImportedFunctionsInliningStatistics &ImportedFunctionsStats, // INTEL
-    InlineReason* IIR) { // INTEL
+    ImportedFunctionsInliningStatistics &ImportedFunctionsStats) {
   Function *Callee = CB.getCalledFunction();
   Function *Caller = CB.getCaller();
 
@@ -290,8 +289,8 @@ static InlineResult inlineCallIfPossible(
 
   // Try to inline the function.  Get the list of static allocas that were
   // inlined.
-  InlineResult IR = InlineFunction(CB, IFI, IRep, MDIRep, IIR, &AAR, // INTEL
-                                   InsertLifetime);                  // INTEL
+  InlineResult IR = InlineFunction(CB, IFI, IRep, MDIRep, &AAR, // INTEL
+                                   InsertLifetime);             // INTEL
   if (!IR.isSuccess())
     return IR;
 
@@ -303,7 +302,6 @@ static InlineResult inlineCallIfPossible(
   if (!DisableInlinedAllocaMerging)
     mergeInlinedArrayAllocas(Caller, IFI, InlinedArrayAllocas, InlineHistory);
 
-  *IIR = InlrNoReason; // INTEL
   return IR; // success
 }
 
@@ -624,7 +622,6 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
 #if INTEL_CUSTOMIZATION
         IR.beginUpdate(&CB);
         MDIR.beginUpdate(&CB);
-        InlineReason Reason = NinlrNoReason;
         bool IsAlwaysInlineRecursive =
             CB.hasFnAttr("always-inline-recursive");
         bool IsInlineHintRecursive =
@@ -634,12 +631,10 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
         unsigned RecursiveCallCountOld = 0;
         if (Caller == Callee)
           RecursiveCallCountOld = recursiveCallCount(*Caller);
-        InlineResult LIR = inlineCallIfPossible(CB, InlineInfo, &IR, &MDIR,
-                                               InlinedArrayAllocas,
-                                               InlineHistoryID, InsertLifetime,
-                                               AARGetter,
-                                               ImportedFunctionsStats,
-                                               &Reason);
+        InlineResult LIR = inlineCallIfPossible(
+            CB, InlineInfo, &IR, &MDIR, InlinedArrayAllocas, InlineHistoryID,
+            InsertLifetime, AARGetter, ImportedFunctionsStats);
+        InlineReason Reason = LIR.getIntelInlReason();
         if (!LIR.isSuccess()) {
           IR.endUpdate();
           IR.setReasonNotInlined(&CB, Reason);
@@ -1135,7 +1130,6 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
         continue;
       }
 
-      InlineReason Reason = NinlrNoReason; // INTEL
       Report.beginUpdate(CB);              // INTEL
       MDReport->beginUpdate(CB);           // INTEL
 
@@ -1153,8 +1147,8 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
       if (&Caller == &Callee)
         RecursiveCallCountOld = recursiveCallCount(Caller);
 #endif // INTEL_CUSTOMIZATION
-      InlineResult IR = InlineFunction(*CB, IFI, &Report, MDReport, // INTEL
-                                       &Reason);                    // INTEL
+      InlineResult IR = InlineFunction(*CB, IFI, &Report, MDReport); // INTEL
+      InlineReason Reason = IR.getIntelInlReason();                  // INTEL
 
       if (!IR.isSuccess()) {
         Advice->recordUnsuccessfulInlining(IR, &Reason, &Report, // INTEL

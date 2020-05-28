@@ -1696,9 +1696,8 @@ void InformationCache::initializeInformationCache(const Function &CF,
       FI.RWInsts.push_back(&I);
   }
 
-  InlineReason Reason;                                 // INTEL
   if (F.hasFnAttribute(Attribute::AlwaysInline) &&
-      isInlineViable(F, Reason).isSuccess())           // INTEL
+      isInlineViable(F).isSuccess())
     InlineableFunctions.insert(&F);
 }
 

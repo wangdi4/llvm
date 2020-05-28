@@ -874,9 +874,8 @@ bool PartialInlinerImpl::shouldPartialInline(
   Function *Callee = CB.getCalledFunction();
   assert(Callee == Cloner.ClonedFunc);
 
-  InlineReason Reason; // INTEL
   if (SkipCostAnalysis)
-    return isInlineViable(*Callee, Reason).isSuccess(); // INTEL
+    return isInlineViable(*Callee).isSuccess();
 
   Function *Caller = CB.getCaller();
   auto &CalleeTTI = GetTTI(*Callee);
@@ -936,6 +935,7 @@ bool PartialInlinerImpl::shouldPartialInline(
              << ")"
              << " of making the outlined call is too high";
     });
+
     return false;
   }
 
@@ -1659,9 +1659,7 @@ bool PartialInlinerImpl::tryPartialInline(FunctionCloner &Cloner) {
     InlineFunctionInfo IFI(nullptr, GetAssumptionCache, &PSI);
     // We can only forward varargs when we outlined a single region, else we
     // bail on vararg functions.
-    InlineReason Reason = NinlrNoReason; // INTEL
-    if (!InlineFunction(*CB, IFI, nullptr, nullptr, &Reason, nullptr, // INTEL
-                        true,                                         // INTEL
+    if (!InlineFunction(*CB, IFI, nullptr, nullptr, nullptr, true, // INTEL
                         (Cloner.ClonedOI ? Cloner.OutlinedFunctions.back().first
                                          : nullptr))
              .isSuccess())

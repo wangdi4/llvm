@@ -119,9 +119,8 @@ namespace llvm {
 InlineResult InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
                             AAResults *CalleeAAR, bool InsertLifetime,
                             Function *ForwardVarArgsTo) {
-  InlineReason Reason = NinlrNoReason;
-  return InlineFunction(CB, IFI, nullptr, nullptr, &Reason, CalleeAAR,
-                        InsertLifetime, ForwardVarArgsTo);
+  return InlineFunction(CB, IFI, nullptr, nullptr, CalleeAAR, InsertLifetime,
+                        ForwardVarArgsTo);
 }
 
 } // end namespace llvm
@@ -1976,7 +1975,6 @@ bool isTargetSPIRV(Function *F) {
 llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
                                         InlineReport *IR,     // INTEL
                                         InlineReportBuilder *MDIR, // INTEL
-                                        InlineReason *Reason, // INTEL
                                         AAResults *CalleeAAR,
                                         bool InsertLifetime,
                                         Function *ForwardVarArgsTo) {
@@ -1995,24 +1993,20 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
       CalledFunc->isDeclaration() || // call!
      (!ForwardVarArgsTo && CalledFunc->isVarArg())) {
     // call, or call to a vararg function
-    if (!CalledFunc) {
+    if (!CalledFunc)
       // Can't inline indirect call!
-      *Reason = NinlrIndirect;
-      return InlineResult::failure("external or indirect");
-    }
-    if (CalledFunc->isDeclaration()) {
+      return InlineResult::failure("external or indirect")
+          .setIntelInlReason(NinlrIndirect);
+
+    if (CalledFunc->isDeclaration())
       // Can't inline external function!
-      *Reason = NinlrExtern;
-      return InlineResult::failure("external or indirect");
-    }
+      return InlineResult::failure("external or indirect")
+          .setIntelInlReason(NinlrExtern);
     assert(!ForwardVarArgsTo && CalledFunc->isVarArg());
 
-    if (!TestVaArgPackAndLen(*CalledFunc)) {
+    if (!TestVaArgPackAndLen(*CalledFunc))
       // Can't inline certain varargs calls
-      *Reason = NinlrVarargs;
-      return InlineResult::failure("varargs");
-
-    }
+      return InlineResult::failure("varargs").setIntelInlReason(NinlrVarargs);
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -2028,8 +2022,8 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
       if (Tag == LLVMContext::OB_funclet)
         continue;
 
-      *Reason = NinlrOpBundles; // INTEL
-      return InlineResult::failure("unsupported operand bundle");
+      return InlineResult::failure("unsupported operand bundle") // INTEL
+          .setIntelInlReason(NinlrOpBundles);                    // INTEL
     }
   }
 
@@ -2047,10 +2041,9 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
   if (CalledFunc->hasGC()) {
     if (!Caller->hasGC())
       Caller->setGC(CalledFunc->getGC());
-    else if (CalledFunc->getGC() != Caller->getGC()) {  // INTEL
-      *Reason = NinlrMismatchedGC; // INTEL
-      return InlineResult::failure("incompatible GC");
-    } // INTEL
+    else if (CalledFunc->getGC() != Caller->getGC())
+      return InlineResult::failure("incompatible GC") // INTEL
+          .setIntelInlReason(NinlrMismatchedGC);      // INTEL
   }
 
   // Get the personality function from the callee if it contains a landing pad.
@@ -2073,10 +2066,9 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
     // inlining. Otherwise, we can't inline.
     // TODO: This isn't 100% true. Some personality functions are proper
     //       supersets of others and can be used in place of the other.
-    else if (CalledPersonality != CallerPersonality) { // INTEL
-      *Reason = NinlrMismatchedPersonality; // INTEL
-      return InlineResult::failure("incompatible personality");
-    } // INTEL
+    else if (CalledPersonality != CallerPersonality)
+      return InlineResult::failure("incompatible personality") // INTEL
+          .setIntelInlReason(NinlrMismatchedPersonality);      // INTEL
   }
 
   // We need to figure out which funclet the callsite was in so that we may
@@ -2100,20 +2092,19 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
             // Ok, the call site is within a cleanuppad.  Let's check the callee
             // for catchpads.
             for (const BasicBlock &CalledBB : *CalledFunc) {
-              if (isa<CatchSwitchInst>(CalledBB.getFirstNonPHI())) { // INTEL
-                *Reason = NinlrMSVCEH; // INTEL
-                return InlineResult::failure("catch in cleanup funclet");
-              } // INTEL
+              if (isa<CatchSwitchInst>(CalledBB.getFirstNonPHI()))
+                return InlineResult::failure(          // INTEL
+                           "catch in cleanup funclet") // INTEL
+                    .setIntelInlReason(NinlrMSVCEH);   // INTEL
             }
           }
         } else if (isAsynchronousEHPersonality(Personality)) {
           // SEH is even less tolerant, there may not be any sort of exceptional
           // funclet in the callee.
           for (const BasicBlock &CalledBB : *CalledFunc) {
-            if (CalledBB.isEHPad()) { // INTEL
-              *Reason = NinlrSEH; // INTEL
-              return InlineResult::failure("SEH in cleanup funclet");
-            } // INTEL
+            if (CalledBB.isEHPad())
+              return InlineResult::failure("SEH in cleanup funclet") // INTEL
+                  .setIntelInlReason(NinlrSEH);                      // INTEL
           }
         }
       }
@@ -2735,6 +2726,7 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
                                  FirstNewBlock->begin(), FirstNewBlock->end());
     // Remove the cloned basic block.
     Caller->getBasicBlockList().pop_back();
+
     // If the call site was an invoke instruction, add a branch to the normal
     // destination.
     if (InvokeInst *II = dyn_cast<InvokeInst>(&CB)) {
@@ -2758,7 +2750,6 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
     Returns[0]->eraseFromParent();
 
     // We are now done with the inlining.
-    *Reason = InlrNoReason; // INTEL
     return InlineResult::success();
   }
 
@@ -2921,7 +2912,5 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
     }
   }
 
-  *Reason = InlrNoReason; // INTEL
   return InlineResult::success();
 }
-
