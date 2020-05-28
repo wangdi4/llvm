@@ -16,7 +16,7 @@ if __name__ == "__main__":
     print('usage is: ./redirect_objdump_to_file.py input_filenames output_filenames')
     sys.exit(1)
 
-  num_files = (len(sys.argv) - 1) / 2
+  num_files = (len(sys.argv) - 1) // 2
   input_filenames = sys.argv[1:num_files+1]
   output_filenames = sys.argv[num_files+1:]
 
