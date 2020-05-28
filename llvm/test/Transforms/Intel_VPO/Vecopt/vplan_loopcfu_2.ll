@@ -54,14 +54,13 @@ define dso_local void @foo(i64 %N, i64* nocapture readonly %lb, i64* nocapture r
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_CONTINUE_COND:%.*]] = icmp i64 [[VP_IV_NEXT]] i64 [[VP2]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_CONTINUE_COND]] i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP3:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
-; CHECK-NEXT:       [DA: Uni] i1 [[VP4:%.*]] = not i1 [[VP3]]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB4]]
 ; CHECK-NEXT:      PREDECESSORS(2): [[BB6]] [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]:
 ; CHECK-NEXT:       <Empty Block>
-; CHECK-NEXT:       Condition([[BB7]]): [DA: Uni] i1 [[VP4]] = not i1 [[VP3]]
-; CHECK-NEXT:      SUCCESSORS(2):[[BB3]](i1 [[VP4]]), [[BB8:BB[0-9]+]](!i1 [[VP4]])
+; CHECK-NEXT:       Condition([[BB7]]): [DA: Uni] i1 [[VP3]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
+; CHECK-NEXT:      SUCCESSORS(2):[[BB8:BB[0-9]+]](i1 [[VP3]]), [[BB3]](!i1 [[VP3]])
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB7]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB8]]:
@@ -70,7 +69,7 @@ define dso_local void @foo(i64 %N, i64* nocapture readonly %lb, i64* nocapture r
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]:
-; CHECK-NEXT:     [DA: Div] void [[VP5:%.*]] = ret
+; CHECK-NEXT:     [DA: Div] void [[VP4:%.*]] = ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB8]] [[BB0]]
 ;

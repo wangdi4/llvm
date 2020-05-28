@@ -46,14 +46,13 @@ define dso_local void @foo(i32* nocapture %a, i32 %m, i32* nocapture readonly %u
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_CONTINUE_COND:%.*]] = icmp i32 [[VP_REC]] i32 0
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_CONTINUE_COND]] i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP0:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP1:%.*]] = not i1 [[VP0]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2]]
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB4]] [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]:
 ; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:     Condition([[BB5]]): [DA: Uni] i1 [[VP1]] = not i1 [[VP0]]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB1]](i1 [[VP1]]), [[BB6:BB[0-9]+]](!i1 [[VP1]])
+; CHECK-NEXT:     Condition([[BB5]]): [DA: Uni] i1 [[VP0]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
+; CHECK-NEXT:    SUCCESSORS(2):[[BB6:BB[0-9]+]](i1 [[VP0]]), [[BB1]](!i1 [[VP0]])
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]:
@@ -62,7 +61,7 @@ define dso_local void @foo(i32* nocapture %a, i32 %m, i32* nocapture readonly %u
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]:
-; CHECK-NEXT:     [DA: Div] void [[VP2:%.*]] = ret
+; CHECK-NEXT:     [DA: Div] void [[VP1:%.*]] = ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB6]]
 ;

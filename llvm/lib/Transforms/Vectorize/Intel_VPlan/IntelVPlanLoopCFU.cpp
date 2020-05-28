@@ -282,16 +282,8 @@ void VPlanLoopCFU::run(VPLoop *VPL) {
   // lanes are inactive, new condition bit will be true.
   auto *NewCondBit = Builder.createAllZeroCheck(BottomTest);
   Plan.getVPlanDA()->updateDivergence(*NewCondBit);
-
-  // If back edge is the false successor, we can use new condition bit as
-  // the loop latch condition. However, if back edge is the true
-  // successor, we need to negate the new condition bit before using it as
-  // the loop latch condition.
-  if (!BackEdgeIsFalseSucc) {
-    NewCondBit = Builder.createNot(NewCondBit);
-  }
-  NewLoopLatch->setCondBit(NewCondBit);
-  Plan.getVPlanDA()->updateDivergence(*NewCondBit);
+  NewLoopLatch->clearSuccessors();
+  NewLoopLatch->setTwoSuccessors(NewCondBit, VPLExitBlock, VPLHeader);
 
   LoopBodyMask->addIncoming(BottomTest, NewLoopLatch);
   VPLHeader->addInstruction(LoopBodyMask);
