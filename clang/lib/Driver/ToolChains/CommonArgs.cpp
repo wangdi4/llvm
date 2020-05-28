@@ -515,7 +515,9 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
   if (!StatsFile.empty())
     CmdArgs.push_back(
         Args.MakeArgString(Twine("-plugin-opt=stats-file=") + StatsFile));
-<<<<<<< HEAD
+
+  addX86AlignBranchArgs(D, Args, CmdArgs, /*IsLTO=*/true);
+
 #if INTEL_CUSTOMIZATION
   if (Args.hasArg(options::OPT__intel)) {
     CmdArgs.push_back("-plugin-opt=-intel-libirc-allowed");
@@ -536,10 +538,6 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
   for (const StringRef &AV : Args.getAllArgValues(options::OPT_mllvm))
     CmdArgs.push_back(Args.MakeArgString(Twine("-plugin-opt=") + AV));
 #endif // INTEL_CUSTOMIZATION
-=======
-
-  addX86AlignBranchArgs(D, Args, CmdArgs, /*IsLTO=*/true);
->>>>>>> 49544499954912c5a0f02014de53e0bc0234c7af
 }
 
 #if INTEL_CUSTOMIZATION
