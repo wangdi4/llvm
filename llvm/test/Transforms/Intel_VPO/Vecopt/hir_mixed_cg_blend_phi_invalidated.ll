@@ -17,7 +17,7 @@
 ; <21>          |      %coef.0 = -1 * trunc.i32.i16(((zext.i16.i32(%1) * (zext.i16.i32(%2) + (-1 * sext.i16.i32(%0)))) /u 65536));
 ; <11>          |   }
 ; <32>          |   (%dct)[i1] = %coef.0;
-; <34>          |   %nz.039 = %nz.039  ||  %coef.0; <Safe Reduction>
+; <34>          |   %nz.039 = %nz.039  |  %coef.0; <Safe Reduction>
 ; <41>          + END LOOP
 ; <41>
 ; <43>          @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
@@ -57,7 +57,7 @@
 ; CHECK-NEXT:       |   %NAry14 = %NBConv10  *  %NAry13;
 ; CHECK-NEXT:       |   %coef.0.in1.vec = (%NAry14)/u65536; Mask = @{%wide.cmp.}
 ; CHECK-NEXT:       |   (<4 x i16>*)(%dct)[i1] = %coef.0.in1.vec;
-; CHECK-NEXT:       |   %red.var = %red.var  ||  %coef.0.in1.vec;
+; CHECK-NEXT:       |   %red.var = %red.var  |  %coef.0.in1.vec;
 ; CHECK-NEXT:       + END LOOP
 
 ; CHECK:            %nz.039 = @llvm.experimental.vector.reduce.or.v4i32(%red.var);

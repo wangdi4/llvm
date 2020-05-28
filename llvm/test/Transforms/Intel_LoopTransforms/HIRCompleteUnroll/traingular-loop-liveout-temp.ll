@@ -11,7 +11,7 @@
 ; CHECK: + DO i1 = 0, 4, 1   <DO_LOOP>
 ; CHECK: |   %2 = (@n)[0][i1];
 ; CHECK: |   %tobool = %2 == 0;
-; CHECK: |   %brmerge = %tobool  ||  %tobool1;
+; CHECK: |   %brmerge = %tobool  |  %tobool1;
 ; CHECK: |   %.mux = (%2 == 0) ? 8 : 0;
 ; CHECK: |   %cond5 = %.mux;
 ; CHECK: |   if (%brmerge == 0)

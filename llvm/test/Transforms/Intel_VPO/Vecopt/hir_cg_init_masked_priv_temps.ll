@@ -33,7 +33,7 @@
 ; CHECK-NEXT:     |   %wide.cmp. = %.vec * i1 + %constant + %.BlobMul >= (<4 x i32>*)(@b)[0][i1];
 ; CHECK-NEXT:     |   %.vec1 = (<4 x i32>*)(@c)[0][i1]; Mask = @{%wide.cmp.}
 ; CHECK-NEXT:     |   %wide.cmp.2 = i1 + -1 * %constant + <i32 0, i32 1, i32 2, i32 3> + 2 * %.vec1 < (<4 x i32>*)(@d)[0][i1]; Mask = @{%wide.cmp.}
-; CHECK-NEXT:     |   %.vec4 = %wide.cmp.  &&  %wide.cmp.2;
+; CHECK-NEXT:     |   %.vec4 = %wide.cmp.  &  %wide.cmp.2;
 ; CHECK-NEXT:     |   %.BlobMul5 = %.vec  *  <i32 0, i32 1, i32 2, i32 3>;
 ; CHECK-NEXT:     |   (<4 x i32>*)(@e)[0][i1] = %.vec * i1 + 2 * %.vec1 + %.BlobMul5; Mask = @{%.vec4}
 ; CHECK-NEXT:     + END LOOP

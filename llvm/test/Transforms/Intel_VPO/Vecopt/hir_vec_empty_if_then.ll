@@ -11,7 +11,7 @@
 ; CHECK: DO i1 = 0, {{.*}}, 4 
 ; CHECK:   [[Cmp1:%.*]] = i1 + <i64 0, i64 1, i64 2, i64 3> >= (%element * %scale);
 ; CHECK:   [[Cmp2:%.*]] = i1 + <i64 0, i64 1, i64 2, i64 3> < ((1 + %element) * %scale);
-; CHECK:   [[And:%.*]] = [[Cmp1]] &&  [[Cmp2]]
+; CHECK:   [[And:%.*]] = [[Cmp1]] &  [[Cmp2]]
 ; CHECK:   [[FPred:%.*]] = [[And]]  ^  -1;
 ; CHECK:   (<4 x i32>*)(%Mask)[i1] = -1; Mask = @{[[FPred]]}
 ; CHECK: END LOOP

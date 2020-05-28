@@ -12,7 +12,7 @@
 ; CHECK: |   %sub = %t0  -  %conv124.out;
 ; CHECK: |   %conv124 = trunc.i64.i8(%t0 + -1 * sext.i8.i64(%conv124.out));
 ; CHECK: |   %conv2 = 72057594037927936 * %t0 + -72057594037927936 * sext.i8.i64(%conv124.out)  >>  56;
-; CHECK: |   %and = -1 * %conv124.out + trunc.i64.i8(%t0)  &&  %t1;
+; CHECK: |   %and = -1 * %conv124.out + trunc.i64.i8(%t0)  &  %t1;
 ; CHECK: |   (@b)[0][3 * i1] = %and;
 ; CHECK: + END LOOP
 ; CHECK: END REGION
@@ -23,7 +23,7 @@
 ; CHECK: + DO i1 = 0, 2, 1   <DO_LOOP>
 ; CHECK: |   %sub = %t0  -  %conv124;
 ; CHECK: |   %conv2 = 72057594037927936 * %t0 + -72057594037927936 * sext.i8.i64(%conv124)  >>  56;
-; CHECK: |   %and = trunc.i64.i8(%t0) + -1 * %conv124  &&  %t1;
+; CHECK: |   %and = trunc.i64.i8(%t0) + -1 * %conv124  &  %t1;
 ; CHECK: |   %conv124 = trunc.i64.i8(%t0 + -1 * sext.i8.i64(%conv124));
 ; CHECK: |   (@b)[0][3 * i1] = %and;
 ; CHECK: + END LOOP

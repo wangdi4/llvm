@@ -5,7 +5,7 @@
 ; CHECK: + DO i1 = 0, %len + -1 * smin(1, %len), 1   <DO_LOOP>  <MAX_TC_EST = 2147483647>
 ; CHECK: |   %res.0.out = %res.0;
 ; CHECK: |   %code.addr.0.out = %code.addr.0;
-; CHECK: |   %or = %res.0.out  ||  trunc.i32.i1(%code.addr.0.out);
+; CHECK: |   %or = %res.0.out  |  trunc.i32.i1(%code.addr.0.out);
 ; CHECK: |   %code.addr.0 = %code.addr.0  >>  1;
 ; CHECK: |   %res.0 = %or  <<  1;
 ; CHECK: + END LOOP
