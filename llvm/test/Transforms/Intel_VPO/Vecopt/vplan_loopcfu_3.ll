@@ -53,8 +53,8 @@ define dso_local void @foo(i32** nocapture readonly %a, i32 %m, i32* nocapture r
 ; CHECK-NEXT:        PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB7]]:
-; CHECK-NEXT:       [DA: Div] i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_IV]] i64 [[VP5]]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_EXITCOND]] i1 [[VP_LOOP_MASK]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_CONTINUE_COND:%.*]] = icmp i64 [[VP_IV]] i64 [[VP5]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_CONTINUE_COND]] i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP6:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP7:%.*]] = not i1 [[VP6]]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB4]]
@@ -98,8 +98,8 @@ header:
   %iv.next = add nuw nsw i64 %iv, 1
   %4 = load i32, i32* %arrayidx, align 4
   %5 = sext i32 %4 to i64
-  %exitcond = icmp slt i64 %iv, %5
-  br i1 %exitcond, label %header, label %loop.exit
+  %continue.cond = icmp slt i64 %iv, %5
+  br i1 %continue.cond, label %header, label %loop.exit
 
 loop.exit:
   br label %exit

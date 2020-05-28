@@ -51,8 +51,8 @@ define dso_local void @foo(i64 %N, i64* nocapture readonly %lb, i64* nocapture r
 ; CHECK-NEXT:        PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB7]]:
-; CHECK-NEXT:       [DA: Div] i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_IV_NEXT]] i64 [[VP2]]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_EXITCOND]] i1 [[VP_LOOP_MASK]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_CONTINUE_COND:%.*]] = icmp i64 [[VP_IV_NEXT]] i64 [[VP2]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_CONTINUE_COND]] i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP3:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP4:%.*]] = not i1 [[VP3]]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB4]]
@@ -93,8 +93,8 @@ header:
   store i64 %shl, i64* %arrayidx6, align 8
   %iv.next = add nsw i64 %iv, 1
   %2 = load i64, i64* %arrayidx2, align 8
-  %exitcond = icmp slt i64 %iv.next, %2
-  br i1 %exitcond, label %header, label %loop.exit
+  %continue.cond = icmp slt i64 %iv.next, %2
+  br i1 %continue.cond, label %header, label %loop.exit
 
 loop.exit:
   br label %exit
