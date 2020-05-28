@@ -2006,6 +2006,10 @@ def fstack_protector_strong : Flag<["-"], "fstack-protector-strong">, Group<f_Gr
            "Compared to -fstack-protector, this uses a stronger heuristic "
            "that includes functions containing arrays of any size (and any type), "
            "as well as any calls to alloca or the taking of an address from a local variable">;
+#if INTEL_CUSTOMIZATION
+def fstack_security_check : Flag<["-"], "fstack-security-check">, Alias<fstack_protector_strong>,
+  HelpText<"Enable overflow security checks">;
+#endif // INTEL_CUSTOMIZATION
 def fstack_protector : Flag<["-"], "fstack-protector">, Group<f_Group>,
   HelpText<"Enable stack protectors for some functions vulnerable to stack smashing. "
            "This uses a loose heuristic which considers functions vulnerable "
