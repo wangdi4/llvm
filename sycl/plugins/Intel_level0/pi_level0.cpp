@@ -1961,7 +1961,8 @@ pi_result piProgramRelease(pi_program Program) {
   assert(Program);
   if (--(Program->RefCount) == 0) {
     delete[] Program->SPIRVData;
-    zeModuleBuildLogDestroy(Program->ZeBuildLog);
+    if (Program->ZeBuildLog)
+      zeModuleBuildLogDestroy(Program->ZeBuildLog);
     // TODO: call zeModuleDestroy for non-interop L0 modules
     delete Program;
   }
