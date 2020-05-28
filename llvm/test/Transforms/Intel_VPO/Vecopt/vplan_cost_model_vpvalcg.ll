@@ -719,11 +719,7 @@ for.end:                                          ; preds = %for.body
 
 define void @test_non_pow2_casts() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-LABEL:  Cost Model for VPlan test_non_pow2_casts.for.body with VF = 4:
-<<<<<<< HEAD
-; VPLAN-CM-VF4-NEXT:  Total Cost: 13
-=======
-; VPLAN-CM-VF4-NEXT:  Total Cost: 37
->>>>>>> d4980a8714e39fc34e35d80896ef54b5374cd195
+; VPLAN-CM-VF4-NEXT:  Total Cost: 17
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
@@ -731,11 +727,7 @@ define void @test_non_pow2_casts() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-NEXT:    Cost Unknown for i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1
 ; VPLAN-CM-VF4-NEXT:    Cost Unknown for i64 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop for.body
 ; VPLAN-CM-VF4-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 1
-<<<<<<< HEAD
-; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 13
-=======
-; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 37
->>>>>>> d4980a8714e39fc34e35d80896ef54b5374cd195
+; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 17
 ; VPLAN-CM-VF4-NEXT:    Cost Unknown for i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB2]] ]
 ; VPLAN-CM-VF4-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ]
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for i32* [[VP_LD_IDX:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.1 i64 0 i64 [[VP_INDVARS_IV]]
@@ -746,12 +738,8 @@ define void @test_non_pow2_casts() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for float [[VP_SITOFP_ADD:%.*]] = fadd float [[VP_SITOFP]] float [[VP_SITOFP]]
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for double [[VP_FPEXT:%.*]] = fpext float [[VP_SITOFP_ADD]] to double
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for double [[VP_FPADD:%.*]] = fadd double [[VP_FPEXT]] double 2.550000e+02
-<<<<<<< HEAD
-; VPLAN-CM-VF4-NEXT:    Cost 1 for i19 [[VP_FPTOUI:%.*]] = fptoui double [[VP_FPADD]] to i19
-=======
 ; VPLAN-CM-VF4-NEXT:    Cost 4 for double [[VP_FPNEG:%.*]] = fneg double [[VP_FPADD]]
-; VPLAN-CM-VF4-NEXT:    Cost 12 for i19 [[VP_FPTOUI:%.*]] = fptoui double [[VP_FPNEG]] to i19
->>>>>>> d4980a8714e39fc34e35d80896ef54b5374cd195
+; VPLAN-CM-VF4-NEXT:    Cost 1 for i19 [[VP_FPTOUI:%.*]] = fptoui double [[VP_FPNEG]] to i19
 ; VPLAN-CM-VF4-NEXT:    Cost 2 for i19 [[VP_FPTOUI_MUL:%.*]] = mul i19 [[VP_FPTOUI]] i19 [[VP_FPTOUI]]
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for float [[VP_UITOFP:%.*]] = uitofp i19 [[VP_FPTOUI_MUL]] to float
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for float* [[VP_FLOAT_ST_IDX:%.*]] = getelementptr inbounds [1024 x float]* @arr.float.1 i64 0 i64 [[VP_INDVARS_IV]]
@@ -796,22 +784,13 @@ define void @test_non_pow2_casts() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4:BB[0-9]+]], total cost: 0
 ;
-<<<<<<< HEAD
-; VPLAN-HIR-CM-VF4-LABEL:  HIR Cost Model for VPlan test_non_pow2_casts.28 with VF = 4:
-; VPLAN-HIR-CM-VF4-NEXT:  Total Cost: 6
-=======
 ; VPLAN-HIR-CM-VF4-LABEL:  HIR Cost Model for VPlan test_non_pow2_casts.29 with VF = 4:
-; VPLAN-HIR-CM-VF4-NEXT:  Total Cost: 21
->>>>>>> d4980a8714e39fc34e35d80896ef54b5374cd195
+; VPLAN-HIR-CM-VF4-NEXT:  Total Cost: 10
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-<<<<<<< HEAD
-; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 6
-=======
-; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 21
->>>>>>> d4980a8714e39fc34e35d80896ef54b5374cd195
+; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 10
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for i32* [[VP2:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.1 i64 0 i64 [[VP0]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for i32 [[VP3:%.*]] = load i32* [[VP2]]
@@ -821,20 +800,12 @@ define void @test_non_pow2_casts() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for float [[VP7:%.*]] = fadd float [[VP6]] float [[VP6]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for double [[VP8:%.*]] = fpext float [[VP7]] to double
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for double [[VP9:%.*]] = fadd double [[VP8]] double 2.550000e+02
-<<<<<<< HEAD
-; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for i19 [[VP10:%.*]] = fptoui double [[VP9]] to i19
-; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i19 [[VP11:%.*]] = mul i19 [[VP10]] i19 [[VP10]]
-; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for float [[VP12:%.*]] = uitofp i19 [[VP11]] to float
-; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for float* [[VP13:%.*]] = getelementptr inbounds [1024 x float]* @arr.float.1 i64 0 i64 [[VP0]]
-; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for store float [[VP12]] float* [[VP13]]
-=======
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 4 for double [[VP10:%.*]] = fneg double [[VP9]]
-; VPLAN-HIR-CM-VF4-NEXT:    Cost 12 for i19 [[VP11:%.*]] = fptoui double [[VP10]] to i19
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for i19 [[VP11:%.*]] = fptoui double [[VP10]] to i19
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i19 [[VP12:%.*]] = mul i19 [[VP11]] i19 [[VP11]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for float [[VP13:%.*]] = uitofp i19 [[VP12]] to float
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for float* [[VP14:%.*]] = getelementptr inbounds [1024 x float]* @arr.float.1 i64 0 i64 [[VP0]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for store float [[VP13]] float* [[VP14]]
->>>>>>> d4980a8714e39fc34e35d80896ef54b5374cd195
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i64 [[VP1]] = add i64 [[VP0]] i64 [[VP__IND_INIT_STEP]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i1 [[VP15:%.*]] = icmp i64 [[VP1]] i64 1023
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB3:BB[0-9]+]], total cost: 0
