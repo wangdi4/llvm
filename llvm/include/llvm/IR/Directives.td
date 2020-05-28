@@ -245,6 +245,7 @@ def "QUAL.OMP.THREADPRIVATE" : Clause;
 def "QUAL.OMP.DEVICE" : Clause;
 def "QUAL.OMP.IS_DEVICE_PTR" : Clause;
 def "QUAL.OMP.USE_DEVICE_PTR" : Clause;
+def "QUAL.OMP.USE_DEVICE_ADDR" : Clause;
 def "QUAL.OMP.DEFAULTMAP.ALLOC" : Clause;
 def "QUAL.OMP.DEFAULTMAP.TO" : Clause;
 def "QUAL.OMP.DEFAULTMAP.FROM" : Clause;

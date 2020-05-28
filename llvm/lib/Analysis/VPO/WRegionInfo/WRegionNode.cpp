@@ -380,6 +380,9 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
   if (canHaveUseDevicePtr())
     PrintedSomething |= getUseDevicePtr().print(OS, Depth, Verbosity);
 
+  if (canHaveUseDeviceAddr())
+      PrintedSomething |= getUseDeviceAddr().print(OS, Depth, Verbosity);
+
   if (canHaveDepend())
     PrintedSomething |= getDepend().print(OS, Depth, Verbosity);
 
@@ -1281,6 +1284,11 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
                                             getUseDevicePtr());
     break;
   }
+  case QUAL_OMP_USE_DEVICE_ADDR: {
+      extractQualOpndList<UseDeviceAddrClause>(Args, NumArgs, ClauseInfo,
+                                               getUseDeviceAddr());
+      break;
+  }
   case QUAL_OMP_TO:
   case QUAL_OMP_FROM:
   case QUAL_OMP_MAP_TO:
@@ -1691,6 +1699,16 @@ bool WRegionNode::canHaveIsDevicePtr() const {
 }
 
 bool WRegionNode::canHaveUseDevicePtr() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNTargetData:
+  case WRNTargetVariant:
+    return true;
+  }
+  return false;
+}
+
+bool WRegionNode::canHaveUseDeviceAddr() const {
   unsigned SubClassID = getWRegionKindID();
   switch (SubClassID) {
   case WRNTargetData:
