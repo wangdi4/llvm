@@ -517,6 +517,7 @@ class VPInstruction : public VPUser,
       FastMathFlags FMF;
       std::bitset<2> OverflowFlags;
       unsigned ExactFlag : 1;
+      unsigned NonOperator : 1;
     };
 
   public:
@@ -534,7 +535,26 @@ class VPInstruction : public VPUser,
       NUWFlag = 1
     };
 
-    VPOperatorIRFlags() {}
+    // Default initialize the flags based on kind of operator that this
+    // VPInstruction corresponds to (using opcode and type).
+    VPOperatorIRFlags(unsigned Opcode, Type *InstTy) {
+      switch (getOperatorKind(Opcode, InstTy)) {
+      case FlagsKind::VPFastMathFlags:
+        FMF = FastMathFlags();
+        break;
+      case FlagsKind::VPOverflowingFlags:
+        OverflowFlags = 0;
+        break;
+      case FlagsKind::VPExactFlags:
+        ExactFlag = 0;
+        break;
+      case FlagsKind::UnknownOperatorFlags:
+        NonOperator = 1;
+        break;
+      default:
+        llvm_unreachable("Not valid FlagsKind.");
+      }
+    }
 
     // Utility to find type of operator flags based on given opcode. This switch
     // helps us track the mutual exclusivity of operator flags i.e. one type of
@@ -747,12 +767,14 @@ protected:
 
 public:
   VPInstruction(unsigned Opcode, Type *BaseTy, ArrayRef<VPValue *> Operands)
-      : VPUser(VPValue::VPInstructionSC, Operands, BaseTy), Opcode(Opcode) {
+      : VPUser(VPValue::VPInstructionSC, Operands, BaseTy), Opcode(Opcode),
+        OperatorFlags(Opcode, BaseTy) {
     assert(BaseTy && "BaseTy can't be null!");
   }
   VPInstruction(unsigned Opcode, Type *BaseTy,
                 std::initializer_list<VPValue *> Operands)
-      : VPUser(VPValue::VPInstructionSC, Operands, BaseTy), Opcode(Opcode) {
+      : VPUser(VPValue::VPInstructionSC, Operands, BaseTy), Opcode(Opcode),
+        OperatorFlags(Opcode, BaseTy) {
     assert(BaseTy && "BaseTy can't be null!");
   }
 
