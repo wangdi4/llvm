@@ -13,15 +13,12 @@ add_llvm_component_library(LLVMPasses
 
   DEPENDS
   intrinsics_gen
-<<<<<<< HEAD
 # INTEL_COLLAB
   directives_gen
 # end INTEL_COLLAB
-=======
 
   LINK_LIBS
   LLVMMLPolicies
->>>>>>> cf86a234ba86acf0bb875e21d27833be36e08be4
   )
 
 # INTEL_CUSTOMIZATION
