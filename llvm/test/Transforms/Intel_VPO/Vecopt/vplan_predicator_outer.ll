@@ -61,11 +61,11 @@ define void @test_2_level_loop_nest(i64 %vf) local_unnamed_addr {
 ; CHECK-NEXT:    [[BB9]]:
 ; CHECK-NEXT:     [DA: Div] i1 [[VP6:%.*]] = block-predicate i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_OUTER_INDUCTION]] = add i64 [[VP_OUTER_INDUCTION_PHI]] i64 [[VF0:%.*]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_EXITCOND26:%.*]] = icmp i64 [[VP_OUTER_INDUCTION]] i64 1024
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB10:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB8]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB10]]:
-; CHECK-NEXT:     [DA: Div] i1 [[VP_EXITCOND26:%.*]] = icmp i64 [[VP_OUTER_INDUCTION]] i64 1024
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_EXITCOND26_NOT:%.*]] = not i1 [[VP_EXITCOND26]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_EXITCOND26_NOT]] i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP7:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
@@ -181,11 +181,11 @@ define void @test_2_level_loop_nest_swap_inner_branch(i64 %vf) local_unnamed_add
 ; CHECK-NEXT:    [[BB9]]:
 ; CHECK-NEXT:     [DA: Div] i1 [[VP7:%.*]] = block-predicate i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_OUTER_INDUCTION]] = add i64 [[VP_OUTER_INDUCTION_PHI]] i64 [[VF0:%.*]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_EXITCOND26:%.*]] = icmp i64 [[VP_OUTER_INDUCTION]] i64 1024
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB10:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB8]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB10]]:
-; CHECK-NEXT:     [DA: Div] i1 [[VP_EXITCOND26:%.*]] = icmp i64 [[VP_OUTER_INDUCTION]] i64 1024
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_EXITCOND26_NOT:%.*]] = not i1 [[VP_EXITCOND26]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_EXITCOND26_NOT]] i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP8:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]

@@ -38,11 +38,11 @@ define dso_local void @foo(i32* nocapture %a, i32 %m, i32* nocapture readonly %u
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_MUL:%.*]] = mul i32 [[VP_REC]] i32 [[VP_LANE_TRUNC]]
 ; CHECK-NEXT:       [DA: Div] store i32 [[VP_MUL]] i32* [[VP_ARRAYIDX2]]
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_LD]] = load i32* [[VP_ARRAYIDX]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_CONTINUE_COND:%.*]] = icmp i32 [[VP_LD]] i32 0
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB5]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]:
-; CHECK-NEXT:     [DA: Div] i1 [[VP_CONTINUE_COND:%.*]] = icmp i32 [[VP_LD]] i32 0
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_CONTINUE_COND]] i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP0:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2]]

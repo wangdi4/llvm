@@ -120,11 +120,11 @@ define void @test_div_loop(i32 %vf) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]:
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_LOOP_IV_NEXT]] = add i32 [[VP_LOOP_IV]] i32 1
+; CHECK-NEXT:       [DA: Div] i1 [[VP_EXIT_COND:%.*]] = icmp i32 [[VP_LOOP_IV]] i32 42
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB5]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]:
-; CHECK-NEXT:     [DA: Div] i1 [[VP_EXIT_COND:%.*]] = icmp i32 [[VP_LOOP_IV]] i32 42
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_EXIT_COND_NOT:%.*]] = not i1 [[VP_EXIT_COND]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_EXIT_COND_NOT]] i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP0:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]

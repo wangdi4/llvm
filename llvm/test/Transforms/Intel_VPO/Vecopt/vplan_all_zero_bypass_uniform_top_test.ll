@@ -18,7 +18,7 @@ declare void @llvm.directive.region.exit(token)
 
 define dso_local void @foo(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local_unnamed_addr #0 {
 ;
-; CHECK-LABEL:  VPlan after all zero bypass insertion
+; CHECK-LABEL:  VPlan after all zero bypass insertion:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -66,26 +66,27 @@ define dso_local void @foo(i64 %N, i64 *%a, i64 %mask_out_inner_loop) local_unna
 ; CHECK-NEXT:         [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:         [DA: Uni] i64* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64* [[A0:%.*]] i64 [[VP_INNER_IV]]
 ; CHECK-NEXT:         [DA: Uni] i64 [[VP_INNER_IV_NEXT:%.*]] = add i64 [[VP_INNER_IV]] i64 1
+; CHECK-NEXT:         [DA: Div] i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_INNER_IV_NEXT]] i64 [[VP_OUTER_IV]]
 ; CHECK-NEXT:        SUCCESSORS(1):all.zero.bypass.end17
 ; CHECK-NEXT:        PREDECESSORS(1): all.zero.bypass.begin15
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      all.zero.bypass.end17:
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP0]] = phi  [ i64 [[VP_INNER_IV_NEXT]], [[BB8]] ],  [ i64 0, all.zero.bypass.begin15 ]
+; CHECK-NEXT:       [DA: Div] i1 [[VP2:%.*]] = phi  [ i1 [[VP_EXITCOND]], [[BB8]] ],  [ i1 false, all.zero.bypass.begin15 ]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB9:BB[0-9]+]]
 ; CHECK-NEXT:      PREDECESSORS(2): [[BB8]] all.zero.bypass.begin15
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB9]]:
-; CHECK-NEXT:       [DA: Div] i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP0]] i64 [[VP_OUTER_IV]]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_EXITCOND_NOT:%.*]] = not i1 [[VP_EXITCOND]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_EXITCOND_NOT:%.*]] = not i1 [[VP2]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_EXITCOND_NOT]] i1 [[VP_LOOP_MASK]]
-; CHECK-NEXT:       [DA: Uni] i1 [[VP2:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
+; CHECK-NEXT:       [DA: Uni] i1 [[VP3:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB6]]
 ; CHECK-NEXT:      PREDECESSORS(1): all.zero.bypass.end17
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB6]]:
 ; CHECK-NEXT:       <Empty Block>
-; CHECK-NEXT:       Condition([[BB9]]): [DA: Uni] i1 [[VP2]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
-; CHECK-NEXT:      SUCCESSORS(2):[[BB10:BB[0-9]+]](i1 [[VP2]]), [[BB5]](!i1 [[VP2]])
+; CHECK-NEXT:       Condition([[BB9]]): [DA: Uni] i1 [[VP3]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
+; CHECK-NEXT:      SUCCESSORS(2):[[BB10:BB[0-9]+]](i1 [[VP3]]), [[BB5]](!i1 [[VP3]])
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB9]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB10]]:

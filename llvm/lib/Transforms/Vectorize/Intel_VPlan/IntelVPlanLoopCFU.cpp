@@ -99,19 +99,6 @@ void VPlanLoopCFU::run(VPLoop *VPL) {
   else
     RegionExitBlock = VPBlockUtils::splitBlockEnd(VPLLatch, VPLI, DT, PDT);
 
-  // Remove the loop backedge condition from its original parent and place
-  // in the region exit. Not needed for correctness, but easier to see
-  // when debugging because the successor of the region exit block is
-  // the loop latch containing this condition as the condition bit.This will
-  // not work if the condition is a phi node. For this reason, only conditions
-  // that are compare instructions are moved to the RegionExitBlock.
-  if (dyn_cast<VPCmpInst>(BottomTest)) {
-    VPBasicBlock *BottomTestBlock =
-        cast<VPInstruction>(BottomTest)->getParent();
-    BottomTestBlock->removeInstruction(cast<VPInstruction>(BottomTest));
-    RegionExitBlock->addInstruction(cast<VPInstruction>(BottomTest));
-  }
-
   // Construct loop body mask and insert into the loop header
   VPPHINode *LoopBodyMask = new VPPHINode(BottomTest->getType());
   LoopBodyMask->setName("vp.loop.mask");

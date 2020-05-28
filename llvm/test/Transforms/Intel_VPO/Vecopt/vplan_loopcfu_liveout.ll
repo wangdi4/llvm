@@ -48,11 +48,11 @@ define dso_local void @foo(i64 %N, i64 *%a, i64 %mask_out_loop) local_unnamed_ad
 ; CHECK-NEXT:         [DA: Uni] i64 [[VP_LD:%.*]] = load i64* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:         [DA: Uni] i1 [[VP_SOME_CMP:%.*]] = icmp i64 [[VP_LD]] i64 42
 ; CHECK-NEXT:         [DA: Uni] i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 1
+; CHECK-NEXT:         [DA: Div] i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_IV_NEXT]] i32 [[VP_LANE]]
 ; CHECK-NEXT:        SUCCESSORS(1):[[BB8]]
 ; CHECK-NEXT:        PREDECESSORS(1): [[BB6]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB8]]:
-; CHECK-NEXT:       [DA: Div] i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_IV_NEXT]] i32 [[VP_LANE]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_EXITCOND_NOT:%.*]] = not i1 [[VP_EXITCOND]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_EXITCOND_NOT]] i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_IV_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i64 [[VP_IV]] i64 [[VP_IV_LIVE_OUT_PREV]]

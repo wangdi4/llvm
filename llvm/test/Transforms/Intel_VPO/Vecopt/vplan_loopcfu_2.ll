@@ -47,11 +47,11 @@ define dso_local void @foo(i64 %N, i64* nocapture readonly %lb, i64* nocapture r
 ; CHECK-NEXT:         [DA: Div] store i64 [[VP_SHL]] i64* [[VP_ARRAYIDX6]]
 ; CHECK-NEXT:         [DA: Div] i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 1
 ; CHECK-NEXT:         [DA: Div] i64 [[VP2:%.*]] = load i64* [[VP_ARRAYIDX2]]
+; CHECK-NEXT:         [DA: Div] i1 [[VP_CONTINUE_COND:%.*]] = icmp i64 [[VP_IV_NEXT]] i64 [[VP2]]
 ; CHECK-NEXT:        SUCCESSORS(1):[[BB7]]
 ; CHECK-NEXT:        PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB7]]:
-; CHECK-NEXT:       [DA: Div] i1 [[VP_CONTINUE_COND:%.*]] = icmp i64 [[VP_IV_NEXT]] i64 [[VP2]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_CONTINUE_COND]] i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP3:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB4]]
