@@ -1385,24 +1385,22 @@ void DwarfUnit::constructSubrangeDIE(DIE &Buffer, const DISubrange *SR,
   if (auto *CV = SR->getCount().dyn_cast<DIVariable*>()) {
     if (auto *CountVarDIE = getDIE(CV))
       addDIEEntry(DW_Subrange, dwarf::DW_AT_count, *CountVarDIE);
-<<<<<<< HEAD
+  } else if (Count != -1)
 #if INTEL_CUSTOMIZATION
-  } else if (Count != -1) {
     if (Count == 0 || EmitDwarfAttrCount)
       addUInt(DW_Subrange, dwarf::DW_AT_count, None, Count);
-    else
+    else {
+      int64_t LowerBound = DefaultLowerBound;
+      if (auto *LB = SR->getLowerBound().dyn_cast<ConstantInt *>())
+        LowerBound = LB->getSExtValue();
       addUInt(DW_Subrange, dwarf::DW_AT_upper_bound, None,
               LowerBound + Count - 1);
+    }
 #endif // INTEL_CUSTOMIZATION
-  }
-=======
-  } else if (Count != -1)
-    addUInt(DW_Subrange, dwarf::DW_AT_count, None, Count);
 
   addBoundTypeEntry(dwarf::DW_AT_upper_bound, SR->getUpperBound());
 
   addBoundTypeEntry(dwarf::DW_AT_byte_stride, SR->getStride());
->>>>>>> d20bf5a7258d4b6a7f017a81b125275dac1aa166
 }
 
 DIE *DwarfUnit::getIndexTyDie() {
