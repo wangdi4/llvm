@@ -81,28 +81,35 @@ void VPlanLoopCFU::run(VPLoop *VPL) {
   Parent->computePDT();
   VPPostDominatorTree *PDT = Parent->getPDT();
 
-  // Create a SESE region with a loop/bypass inside.
-  VPBasicBlock *RegionEntryBlock =
-      VPBlockUtils::splitBlockBegin(VPLHeader, VPLI, DT, PDT);
-  VPBasicBlock *NewLoopHeader =
-      VPBlockUtils::splitBlockBegin(RegionEntryBlock, VPLI, DT, PDT);
-  (void)NewLoopHeader;
-
-  // Latch might have changed during splitting.
-  VPLLatch = VPL->getLoopLatch();
-  VPBasicBlock *NewLoopLatch =
-      VPBlockUtils::splitBlockEnd(VPLLatch, VPLI, DT, PDT);
-
-  VPBasicBlock *RegionExitBlock;
-  if (VPLLatch->empty())
-    RegionExitBlock = VPLLatch;
-  else
-    RegionExitBlock = VPBlockUtils::splitBlockEnd(VPLLatch, VPLI, DT, PDT);
-
-  // Construct loop body mask and insert into the loop header
-  VPPHINode *LoopBodyMask = new VPPHINode(BottomTest->getType());
-  LoopBodyMask->setName("vp.loop.mask");
+  // Create a phi for the mask. We'll use it as a condtion to branch so creation
+  // needs to happen before CFG manipulation.
+  VPBuilder Builder;
+  Builder.setInsertPointFirstNonPhi(VPLHeader);
+  VPPHINode *LoopBodyMask =
+      Builder.createPhiInstruction(BottomTest->getType(), "vp.loop.mask");
   VPDA->markDivergent(*LoopBodyMask);
+
+  // Modify the CFG:
+  //
+  //  Header
+  //(F)|  \ (T)
+  //   |  MaskedRegionStart (previously header after all the phis)
+  //   |   |
+  //   |  MaskedRegionLast (previously latch), might be equal to Start
+  //   |  /
+  //   NewLoopLatch
+  VPBasicBlock *MaskedRegionStart =
+      VPBlockUtils::splitBlockBegin(VPLHeader, VPLI, DT, PDT);
+
+  // Latch might have changed during splitting, ask VPL about new one.
+  VPBasicBlock *MaskedRegionLast = VPL->getLoopLatch();
+  VPBasicBlock *NewLoopLatch =
+      VPBlockUtils::splitBlockEnd(MaskedRegionLast, VPLI, DT, PDT);
+
+  // TODO: This is the only place that doesn't incrementally update DT/PDT.
+  VPBlockUtils::disconnectBlocks(VPLHeader, MaskedRegionStart);
+  VPBlockUtils::connectBlocks(VPLHeader, LoopBodyMask, MaskedRegionStart,
+                              NewLoopLatch);
 
   if (TopTest)
     LoopBodyMask->addIncoming(TopTest, VPLPreHeader);
@@ -114,8 +121,7 @@ void VPlanLoopCFU::run(VPLoop *VPL) {
     LoopBodyMask->addIncoming(One, VPLPreHeader);
   }
 
-  VPBuilder Builder;
-  Builder.setInsertPoint(RegionExitBlock);
+  Builder.setInsertPoint(NewLoopLatch);
 
   // If the back edge is the false successor of the loop latch, the bottom
   // test needs to be adjusted when masking the loop body by negating it.
@@ -130,10 +136,21 @@ void VPlanLoopCFU::run(VPLoop *VPL) {
 
   // Combine the bottom test with the current loop body mask - inactive
   // lanes need to to remain inactive.
-  BottomTest = Builder.createAnd(BottomTest, cast<VPInstruction>(LoopBodyMask),
+  BottomTest = Builder.createAnd(BottomTest, LoopBodyMask,
                                  LoopBodyMask->getName() + ".next");
   VPDA->markDivergent(*BottomTest);
 
+  // Compute and set the new condition bit in the loop latch. If all the
+  // lanes are inactive, new condition bit will be true.
+  auto *NewCondBit = Builder.createAllZeroCheck(BottomTest);
+  Plan.getVPlanDA()->updateDivergence(*NewCondBit);
+  LoopBodyMask->addIncoming(BottomTest, NewLoopLatch);
+
+  NewLoopLatch->clearSuccessors();
+  NewLoopLatch->setTwoSuccessors(NewCondBit, VPLExitBlock, VPLHeader);
+
+  // Basic CFG and mask manipulations are finished. Now handle the live outs.
+  //
   // Update live-outs of the subloop. We should take the value which was
   // computed during the last not-masked-out iteration. For that, we need to
   // introduce a phi-node if one doesn't exist already. For example:
@@ -264,22 +281,6 @@ void VPlanLoopCFU::run(VPLoop *VPL) {
       }
     }
   }
-
-  // Compute and set the new condition bit in the loop latch. If all the
-  // lanes are inactive, new condition bit will be true.
-  auto *NewCondBit = Builder.createAllZeroCheck(BottomTest);
-  Plan.getVPlanDA()->updateDivergence(*NewCondBit);
-  NewLoopLatch->clearSuccessors();
-  NewLoopLatch->setTwoSuccessors(NewCondBit, VPLExitBlock, VPLHeader);
-
-  LoopBodyMask->addIncoming(BottomTest, NewLoopLatch);
-  VPLHeader->addInstruction(LoopBodyMask);
-  RegionEntryBlock->setCondBit(LoopBodyMask);
-
-  // Connect region entry/exit blocks so that predicate can be propagated
-  // along mask=false path. i.e., this edge skips the loop body.
-  RegionEntryBlock->appendSuccessor(RegionExitBlock);
-  RegionExitBlock->appendPredecessor(RegionEntryBlock);
 
   LLVM_DEBUG(
       dbgs() << "Subloop after inner loop control flow transformation\n");
