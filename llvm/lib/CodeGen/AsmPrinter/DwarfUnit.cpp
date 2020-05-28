@@ -46,14 +46,6 @@ using namespace llvm;
 
 #define DEBUG_TYPE "dwarfdebug"
 
-#if INTEL_CUSTOMIZATION
-static cl::opt<bool> EmitDwarfAttrCount(
-        "debug-emit-dwarf-attr-count",
-        cl::Hidden,
-        cl::desc("Emit DW_AT_count attributes instead of DW_AT_upper_bound"),
-        cl::init(false));
-#endif // INTEL_CUSTOMIZATION
-
 DIEDwarfExpression::DIEDwarfExpression(const AsmPrinter &AP,
                                        DwarfCompileUnit &CU, DIELoc &DIE)
     : DwarfExpression(AP.getDwarfVersion(), CU), AP(AP), OutDIE(DIE) {}
@@ -1386,17 +1378,7 @@ void DwarfUnit::constructSubrangeDIE(DIE &Buffer, const DISubrange *SR,
     if (auto *CountVarDIE = getDIE(CV))
       addDIEEntry(DW_Subrange, dwarf::DW_AT_count, *CountVarDIE);
   } else if (Count != -1)
-#if INTEL_CUSTOMIZATION
-    if (Count == 0 || EmitDwarfAttrCount)
-      addUInt(DW_Subrange, dwarf::DW_AT_count, None, Count);
-    else {
-      int64_t LowerBound = DefaultLowerBound;
-      if (auto *LB = SR->getLowerBound().dyn_cast<ConstantInt *>())
-        LowerBound = LB->getSExtValue();
-      addUInt(DW_Subrange, dwarf::DW_AT_upper_bound, None,
-              LowerBound + Count - 1);
-    }
-#endif // INTEL_CUSTOMIZATION
+    addUInt(DW_Subrange, dwarf::DW_AT_count, None, Count);
 
   addBoundTypeEntry(dwarf::DW_AT_upper_bound, SR->getUpperBound());
 
