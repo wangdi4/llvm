@@ -1298,19 +1298,13 @@ void DeclSpec::Finish(Sema &S, const PrintingPolicy &Policy) {
       // Note that this intentionally doesn't include _Complex _Bool.
       if (!S.getLangOpts().CPlusPlus)
         S.Diag(TSTLoc, diag::ext_integer_complex);
-<<<<<<< HEAD
-    } else if (TypeSpecType != TST_float && // INTEL
-               TypeSpecType != TST_double && // INTEL
+    } else if (TypeSpecType != TST_float && TypeSpecType != TST_double &&
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
                TypeSpecType != TST_float16 && // INTEL
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
-               TypeSpecType != TST_float128) { // INTEL
-=======
-    } else if (TypeSpecType != TST_float && TypeSpecType != TST_double &&
                TypeSpecType != TST_float128) {
->>>>>>> f9e94eb8688d1fe1727360462e957fbbfb754e59
       S.Diag(TSCLoc, diag::err_invalid_complex_spec)
           << getSpecifierName((TST)TypeSpecType, Policy);
       TypeSpecComplex = TSC_unspecified;
