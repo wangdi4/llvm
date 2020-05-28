@@ -444,7 +444,8 @@ HLDDNode::ddref_iterator HLInst::bundle_op_ddref_begin(unsigned BundleNum) {
   return op_ddref_begin() + getNumNonBundleOperands() + BundleOperandCount;
 }
 
-bool HLInst::isInPreheaderPostexitImpl(bool Preheader, HLLoop *ParLoop) const {
+bool HLInst::isInPreheaderPostexitImpl(bool Preheader,
+                                       const HLLoop *ParLoop) const {
 
   if (!ParLoop) {
     // Parent of preheader/postexit instructions has to be a loop.

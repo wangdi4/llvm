@@ -26,6 +26,9 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGrouping.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
+#include "llvm/ADT/SmallSet.h"
+#include "llvm/ADT/SparseBitVector.h"
+
 #include "HIRLoopDistributionGraph.h"
 
 namespace llvm {
@@ -57,29 +60,43 @@ typedef DDRefGatherer<DDRef, AllRefs ^ (ConstantRefs | GenericRValRefs |
 class ScalarExpansion {
 public:
   struct Candidate {
-    bool StripminingRequired = true;
+    struct DstNode {
+      DDRef *Ref;
+      HLNode *FirstNode;
+      bool IsTempRedefined;
+    };
+
+    bool SafeToRecompute = false;
 
     SmallVector<RegDDRef *, 8> SrcRefs;
 
-    // DstRef and IsTempRedefined
-    SmallVector<std::pair<DDRef *, bool>, 8> DstRefs;
+    // DstRef and
+    SmallVector<DstNode, 8> DstRefs;
 
     bool getSymbase() const { return SrcRefs.front()->getSymbase(); }
+    bool isTempRequired() const {
+      return SrcRefs.size() != 1 || !SafeToRecompute;
+    }
   };
 
 private:
+  unsigned Level;
   bool HasDistributePoint;
 
   SmallVector<Candidate, 8> Candidates;
 
+  // <Symbase, Loop number>
+  using SymbaseLoopSetTy = SmallSet<std::pair<unsigned, unsigned>, 8>;
+
 public:
-  ScalarExpansion(bool HasDistributePoint, ArrayRef<HLDDNodeList> Chunks);
+  ScalarExpansion(unsigned Level, bool HasDistributePoint,
+                  ArrayRef<HLDDNodeList> Chunks);
 
   ArrayRef<Candidate> getCandidates() const { return Candidates; }
 
   bool isStripmineRequired() const {
     return std::any_of(Candidates.begin(), Candidates.end(),
-                       isStripmineRequiredPredicate);
+                       isTempRequiredPredicate);
   }
 
   bool isScalarExpansionRequired() const {
@@ -88,16 +105,20 @@ public:
 
   unsigned getNumTempsRequired() const {
     return std::count_if(Candidates.begin(), Candidates.end(),
-                         isStripmineRequiredPredicate);
+                         isTempRequiredPredicate);
   }
 
 private:
+  bool isSafeToRecompute(const RegDDRef *SrcRef, unsigned J,
+                         const SymbaseLoopSetTy &SymbaseLoopSet,
+                         const SparseBitVector<> &ModifiedSymbases);
+
   void analyze(ArrayRef<HLDDNodeList> Chunks);
 
   bool isScalarExpansionCandidate(const DDRef *Ref) const;
 
-  static bool isStripmineRequiredPredicate(const Candidate &C) {
-    return C.StripminingRequired;
+  static bool isTempRequiredPredicate(const Candidate &C) {
+    return C.isTempRequired();
   }
 };
 
@@ -180,7 +201,7 @@ private:
   // TempRefined if true means temp is refined in the sink loop
   // Insertion of assignment needs special handling
   void createTempArrayLoad(RegDDRef *TempRef, RegDDRef *TempArrayRef,
-                           HLDDNode *Node, bool TempRefined);
+                           HLNode *Node, bool TempRefined);
 
   // After scalar expansion, scalar temps is need to be replaced with Array Temp
   void replaceWithArrayTemp(unsigned LoopCount,

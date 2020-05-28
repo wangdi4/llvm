@@ -111,10 +111,10 @@
 ;CHECK: (%.TempArray7)[0][i2] = %mul50;
 ;CHECK: (%.TempArray9)[0][i2] = %mul70;
 ;CHECK: %div = (%.TempArray)[0][i2];
+;CHECK: %div4 = (%.TempArray1)[0][i2];
 ;CHECK: %mul40 = (%.TempArray3)[0][i2];
 ;CHECK: %mul45 = (%.TempArray5)[0][i2];
 ;CHECK: %mul50 = (%.TempArray7)[0][i2];
-;CHECK: %div4 = (%.TempArray1)[0][i2];
 ;CHECK: %mul70 = (%.TempArray9)[0][i2];
 
 ;Module Before HIR; ModuleID = 'eff.c'

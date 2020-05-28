@@ -17,7 +17,6 @@
 ; CHECK: BEGIN REGION { modified }
 ; CHECK: + DO i1 = 0, 31, 1
 ; CHECK: |   %n1 = (%p)[0];
-; CHECK: |   (%.TempArray)[0][i1] = %n1;
 ; CHECK: |   if (%n1 == 8)
 ;        |   {
 ;        |      %conv10 = (@A)[0][i1 + 1]  +  1.000000e+00;
@@ -26,7 +25,7 @@
 ; CHECK: + END LOOP
 ;
 ; CHECK: + DO i1 = 0, 31, 1
-; CHECK: |   %n1 = (%.TempArray)[0][i1];
+; CHECK: |   %n1 = (%p)[0];
 ; CHECK: |   if (%n1 == 8)
 ;        |   {
 ;        |      %add = (@B)[0][i1]  +  (@C)[0][i1];

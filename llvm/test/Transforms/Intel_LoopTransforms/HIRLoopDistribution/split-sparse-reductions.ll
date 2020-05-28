@@ -29,25 +29,23 @@
 ; CHECK:       |   %add = %conv  +  0x3FB99999A0000000;
 ; CHECK:       |   (%.TempArray)[0][i1] = %add;
 ; CHECK:       |   %0 = (%q1)[i1];
-; CHECK:       |   (%.TempArray1)[0][i1] = %0
 ; CHECK:       |   %mul5 = 3 * i1  *  i1;
 ; CHECK:       |   %mul6 = %mul5  *  i1;
 ; CHECK:       |   %add7 = %mul6  +  1;
 ; CHECK:       |   %conv8 = uitofp.i64.float(%add7);
 ; CHECK:       |   %add9 = %conv8  +  0x3FC99999A0000000;
-; CHECK:       |   (%.TempArray3)[0][i1] = %add9;
+; CHECK:       |   (%.TempArray1)[0][i1] = %add9;
 ; CHECK:       |   %2 = (%q2)[i1];
-; CHECK:       |   (%.TempArray5)[0][i1] = %2;
 ; CHECK:       + END LOOP
 ;
 ;
 ; CHECK:       + DO i1 = 0, 63, 1   <DO_LOOP>
 ; CHECK:       |   %add = (%.TempArray)[0][i1];
-; CHECK:       |   %0 = (%.TempArray1)[0][i1];
+; CHECK:       |   %0 = (%q1)[i1];
+; CHECK:       |   %add9 = (%.TempArray1)[0][i1];
+; CHECK:       |   %2 = (%q2)[i1];
 ; CHECK:       |   %add3 = %add  +  (%p1)[%0];
 ; CHECK:       |   (%p1)[%0] = %add3;
-; CHECK:       |   %add9 = (%.TempArray3)[0][i1];
-; CHECK:       |   %2 = (%.TempArray5)[0][i1];
 ; CHECK:       |   %add12 = %add9  +  (%p2)[%2];
 ; CHECK:       |   (%p2)[%2] = %add12;
 ; CHECK:       + END LOOP
