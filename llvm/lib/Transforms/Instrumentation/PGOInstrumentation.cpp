@@ -1636,6 +1636,7 @@ static bool annotateAllFunctions(
   M.setProfileSummary(PGOReader->getSummary(IsCS).getMD(M.getContext()),
                       IsCS ? ProfileSummary::PSK_CSInstr
                            : ProfileSummary::PSK_Instr);
+  PSI->refresh();
 
   std::unordered_multimap<Comdat *, GlobalValue *> ComdatMembers;
   collectComdatMembers(M, ComdatMembers);
