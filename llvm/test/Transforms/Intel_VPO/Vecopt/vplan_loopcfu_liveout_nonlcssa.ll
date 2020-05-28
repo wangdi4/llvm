@@ -144,4 +144,94 @@ exit:
   ret void
 }
 
+define dso_local void @foo_non_lcssa_from_uniform_sub_loop(i64 %N, i64 *%a, i64 %mask_out_loop) {
+; CHECK-LABEL:  VPlan IR for: foo_non_lcssa_from_uniform_sub_loop
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
+; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
+; CHECK-NEXT:    no PREDECESSORS
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB1]]:
+; CHECK-NEXT:     [DA: Div] i64 [[VP_IV:%.*]] = phi  [ i32 [[VP_LANE]], [[BB0]] ],  [ i64 [[VP_IV_NEXT:%.*]], [[BB2:BB[0-9]+]] ]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 true, [[BB0]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB2]] ]
+; CHECK-NEXT:    SUCCESSORS(1):[[BB3:BB[0-9]+]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB2]] [[BB0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB3]]:
+; CHECK-NEXT:     <Empty Block>
+; CHECK-NEXT:     Condition([[BB1]]): [DA: Div] i1 [[VP_LOOP_MASK]] = phi  [ i1 true, [[BB0]] ],  [ i1 [[VP_LOOP_MASK_NEXT]], [[BB2]] ]
+; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP_LOOP_MASK]]), [[BB5:BB[0-9]+]](!i1 [[VP_LOOP_MASK]])
+; CHECK-NEXT:    PREDECESSORS(1): [[BB1]]
+; CHECK-EMPTY:
+; CHECK-NEXT:      [[BB4]]:
+; CHECK-NEXT:       [DA: Div] i64* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64* [[A0:%.*]] i64 [[VP_IV]]
+; CHECK-NEXT:       [DA: Div] i64 [[VP_LD:%.*]] = load i64* [[VP_ARRAYIDX]]
+; CHECK-NEXT:       [DA: Div] i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 1
+; CHECK-NEXT:      SUCCESSORS(1):[[BB6:BB[0-9]+]]
+; CHECK-NEXT:      PREDECESSORS(1): [[BB3]]
+; CHECK-EMPTY:
+; CHECK-NEXT:      [[BB6]]:
+; CHECK-NEXT:       [DA: Uni] i64 [[VP_INNER_IV:%.*]] = phi  [ i64 0, [[BB4]] ],  [ i64 [[VP_INNER_IV_NEXT:%.*]], [[BB6]] ]
+; CHECK-NEXT:       [DA: Uni] i64 [[VP_INNER_IV_NEXT]] = add i64 [[VP_INNER_IV]] i64 1
+; CHECK-NEXT:       [DA: Div] i64 [[VP_MUL:%.*]] = mul i64 [[VP_IV]] i64 100
+; CHECK-NEXT:       [DA: Div] i64 [[VP_IDX:%.*]] = add i64 [[VP_MUL]] i64 [[VP_INNER_IV]]
+; CHECK-NEXT:       [DA: Div] i64* [[VP_GEP:%.*]] = getelementptr i64* [[A0]] i64 [[VP_IDX]]
+; CHECK-NEXT:       [DA: Div] i64 [[VP_INNER_DEF:%.*]] = load i64* [[VP_GEP]]
+; CHECK-NEXT:       [DA: Uni] i1 [[VP_INNER_EXITCOND:%.*]] = icmp i64 [[VP_INNER_IV_NEXT]] i64 100
+; CHECK-NEXT:      SUCCESSORS(2):[[BB5]](i1 [[VP_INNER_EXITCOND]]), [[BB6]](!i1 [[VP_INNER_EXITCOND]])
+; CHECK-NEXT:      PREDECESSORS(2): [[BB6]] [[BB4]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB5]]:
+; CHECK-NEXT:     [DA: Div] i1 [[VP_SOME_CMP:%.*]] = icmp i64 [[VP_LD]] i64 42
+; CHECK-NEXT:     [DA: Div] i1 [[VP_SOME_CMP_NOT:%.*]] = not i1 [[VP_SOME_CMP]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_SOME_CMP_NOT]] i1 [[VP_LOOP_MASK]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP0:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
+; CHECK-NEXT:    SUCCESSORS(1):[[BB2]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB6]] [[BB3]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB2]]:
+; CHECK-NEXT:     <Empty Block>
+; CHECK-NEXT:     Condition([[BB5]]): [DA: Uni] i1 [[VP0]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
+; CHECK-NEXT:    SUCCESSORS(2):[[BB7:BB[0-9]+]](i1 [[VP0]]), [[BB1]](!i1 [[VP0]])
+; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB7]]:
+; FIXME: Must come through a blend phi.
+; CHECK-NEXT:     [DA: Div] i64 [[VP_PHI_USE:%.*]] = phi  [ i64 [[VP_INNER_DEF]], [[BB2]] ]
+; CHECK-NEXT:     [DA: Div] void [[VP1:%.*]] = ret
+; CHECK-NEXT:    no SUCCESSORS
+; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
+;
+entry:
+  %lane = call i64 @llvm.vplan.laneid()
+  br label %outer.header
+
+outer.header:
+  %iv = phi i64 [ %lane, %entry ], [ %iv.next, %outer.latch ]
+  %arrayidx = getelementptr inbounds i64, i64* %a, i64 %iv
+  %ld = load i64, i64* %arrayidx
+  %some_cmp = icmp eq i64 %ld, 42
+  %iv.next = add nuw nsw i64 %iv, 1
+  br label %inner.header
+
+inner.header:
+  %inner.iv = phi i64 [ 0, %outer.header ], [ %inner.iv.next, %inner.header ]
+  %inner.iv.next = add nsw nuw i64 %inner.iv, 1
+  %mul = mul nsw nuw i64 %iv, 100
+  %idx = add nsw nuw i64 %mul, %inner.iv
+  %gep = getelementptr i64, i64* %a, i64 %idx
+  ; Might be speculatable and executed without mask. As such, CFU transformation
+  ; must blend it as well.
+  %inner.def = load i64, i64 *%gep
+  %inner.exitcond = icmp eq i64 %inner.iv.next, 100
+  br i1 %inner.exitcond, label %outer.latch, label %inner.header
+
+outer.latch:
+  br i1 %some_cmp, label %loop.exit, label %outer.header
+
+loop.exit:
+  %phi.use = phi i64 [ %inner.def, %outer.latch ]
+  ret void
+}
+
 declare i64 @llvm.vplan.laneid()
