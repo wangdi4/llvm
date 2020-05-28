@@ -14,19 +14,14 @@
 ;
 ;===------------------------------------------------------------------------===;
 
-<<<<<<< HEAD
 ; INTEL_COLLAB
 [common]
 ; INTEL_CUSTOMIZATION
-subdirectories = Intel_LoopAnalysis VPO Intel_OptReport
+subdirectories = Intel_LoopAnalysis ML VPO Intel_OptReport
 ; else
-;UNCOMMENT;subdirectories = VPO
+;UNCOMMENT;subdirectories = ML VPO
 ; end INTEL_CUSTOMIZATION
 ; end INTEL_COLLAB
-=======
-[common]
-subdirectories = ML
->>>>>>> 993bbaf6a35baed4ad3d8422a76c4311140641a8
 
 [component_0]
 type = Library
