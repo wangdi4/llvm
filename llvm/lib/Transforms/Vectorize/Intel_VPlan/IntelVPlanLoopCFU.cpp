@@ -181,14 +181,6 @@ void VPlanLoopCFU::run(VPLoop *VPL) {
   // Don't try to process them as that's not needed.
   SmallSet<VPValue *, 8> CreatedBlends;
   for (auto *BB : VPL->blocks()) {
-    // Skip BB if it corresponds to an inner loop - we have processed
-    // instructions in it already and all live-outs are through LCSSA phi of
-    // that inner loop right now. We will create one more if the result
-    // lives out of the current loop too when processing that inner's loop
-    // exit block.
-    if (VPLI->getLoopFor(BB) != VPL)
-      continue;
-
     // We will be adding instructions to the latch so do the copy to avoid
     // stale iterators.
     SmallVector<VPInstruction *, 16> Instructions(map_range(
