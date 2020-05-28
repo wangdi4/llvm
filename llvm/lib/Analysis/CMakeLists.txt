@@ -1,3 +1,5 @@
+add_subdirectory(ML)
+
 add_llvm_component_library(LLVMAnalysis
   AliasAnalysis.cpp
   AliasAnalysisEvaluator.cpp
@@ -134,11 +136,19 @@ add_llvm_component_library(LLVMAnalysis
 
   DEPENDS
   intrinsics_gen
+<<<<<<< HEAD
 # INTEL_COLLAB
   directives_gen
 # end INTEL_COLLAB
   intel_svml_gen          #INTEL_CUSTOMIZATION -- TODO: VEC to COLLAB
   intel_libmvec_gen       #INTEL_CUSTOMIZATION
+=======
+  LLVMMLPolicies
+
+
+  LINK_LIBS
+  LLVMMLPolicies
+>>>>>>> 98ef93eabd768e51aa58c7623a9fe220ab471715
   )
 
 add_subdirectory(Intel_LoopAnalysis)  #INTEL_CUSTOMIZATION
