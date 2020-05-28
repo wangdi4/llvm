@@ -3960,13 +3960,6 @@ static void RenderDebugOptions(const ToolChain &TC, const Driver &D,
     CmdArgs.push_back("-mllvm");
     CmdArgs.push_back("-dwarf-inlined-strings=Enable");
   }
-
-  if (Args.hasFlag(options::OPT_qopt_matmul,
-                   options::OPT_qno_opt_matmul, false)) {
-    CmdArgs.push_back("-mllvm");
-// TODO: move to addIntelOptimizationArgs
-    CmdArgs.push_back("-disable-hir-generate-mkl-call");
-  }
 #endif // INTEL_CUSTOMIZATION
 
   // -gdwarf-aranges turns on the emission of the aranges section in the
@@ -6647,11 +6640,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
   // Disable extensions for SYCL device compilation since some of them cause
   // problems for SPIRV translator.
-  if (Args.hasArg(options::OPT__intel) && !IsSYCLOffloadDevice) {
+  if (Args.hasArg(options::OPT__intel) && !IsSYCLOffloadDevice)
     CmdArgs.push_back("-fintel-compatibility");
-    CmdArgs.push_back("-mllvm");
-    CmdArgs.push_back("-intel-libirc-allowed");
-  }
 
   if (Args.hasFlag(options::OPT_intel_mintrinsic_promote,
                    options::OPT_intel_mno_intrinsic_promote, false))
@@ -6669,7 +6659,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (Arg *A = Args.getLastArgNoClaim(options::OPT__SLASH_arch,
                                       options::OPT__SLASH_Qx))
     addAdvancedOptimFlag(*A, options::OPT__SLASH_Qx);
-  addIntelOptimizationArgs(TC, Args, CmdArgs, JA);
+  addIntelOptimizationArgs(TC, Args, CmdArgs, false);
 #endif // INTEL_CUSTOMIZATION
 
   // Add the "-o out -x type src.c" flags last. This is done primarily to make
@@ -7037,6 +7027,9 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
       CmdArgs.push_back("--dependent-lib=libirc");
       CmdArgs.push_back(FlagForIntelSVMLLib.data());
       CmdArgs.push_back("--dependent-lib=libdecimal");
+      if (Args.hasFlag(options::OPT_qopt_matmul, options::OPT_qno_opt_matmul,
+                       false))
+        CmdArgs.push_back("--dependent-lib=libmatmul");
     }
     CmdArgs.push_back(FlagForIntelMathLib.data());
 #endif // INTEL_CUSTOMIZATION

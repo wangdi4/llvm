@@ -65,8 +65,7 @@ void addLTOOptions(const ToolChain &ToolChain, const llvm::opt::ArgList &Args,
 #if INTEL_CUSTOMIZATION
 void addIntelOptimizationArgs(const ToolChain &TC,
                               const llvm::opt::ArgList &Args,
-                              llvm::opt::ArgStringList &CmdArgs,
-                              const JobAction &JA);
+                              llvm::opt::ArgStringList &CmdArgs, bool IsLink);
 #endif // INTEL_CUSTOMIZATION
 
 std::tuple<llvm::Reloc::Model, unsigned, bool>

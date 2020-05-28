@@ -763,7 +763,6 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     assert(!Inputs.empty() && "Must have at least one input.");
     addLTOOptions(ToolChain, Args, CmdArgs, Output, Inputs[0],
                   D.getLTOMode() == LTOK_Thin);
-    addIntelOptimizationArgs(ToolChain, Args, CmdArgs, JA); // INTEL
   }
 
   if (Args.hasArg(options::OPT_Z_Xlinker__no_demangle))
@@ -806,10 +805,12 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   if (Args.hasArg(options::OPT_tbb, options::OPT_daal_EQ) ||
       (Args.hasArg(options::OPT_mkl_EQ) && Args.hasArg(options::OPT__dpcpp)))
     addTBBLibs(CmdArgs, Args, ToolChain);
-  if (Args.hasArg(options::OPT__intel) &&
-      !Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs)) {
+  if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs)) {
     addIntelLib("-lirc", CmdArgs, Args);
     addIntelLib("-lsvml", CmdArgs, Args);
+    if (Args.hasFlag(options::OPT_qopt_matmul, options::OPT_qno_opt_matmul,
+                     false))
+      addIntelLib("-lmatmul", CmdArgs, Args);
   }
 #endif // INTEL_CUSTOMIZATION
 

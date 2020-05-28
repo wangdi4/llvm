@@ -518,10 +518,10 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
         Args.MakeArgString(Twine("-plugin-opt=stats-file=") + StatsFile));
 #if INTEL_CUSTOMIZATION
   if (Args.hasArg(options::OPT__intel)) {
-    CmdArgs.push_back("-plugin-opt=-intel-libirc-allowed");
     if (Arg * A = Args.getLastArg(options::OPT_fveclib))
       Args.MakeArgString(Twine("-plugin-opt=-vector-library=") + A->getValue());
   }
+  addIntelOptimizationArgs(ToolChain, Args, CmdArgs, true);
   // All -mllvm flags as provided by the user will be passed through.
   for (const StringRef &AV : Args.getAllArgValues(options::OPT_mllvm))
     CmdArgs.push_back(Args.MakeArgString(Twine("-plugin-opt=") + AV));
@@ -532,8 +532,7 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
 void tools::addIntelOptimizationArgs(const ToolChain &TC,
                                      const llvm::opt::ArgList &Args,
                                      llvm::opt::ArgStringList &CmdArgs,
-                                     const JobAction &JA) {
-  bool IsLink = isa<LinkJobAction>(JA);
+                                     bool IsLink) {
   bool IsMSVC = TC.getTriple().isKnownWindowsMSVCEnvironment();
 
   auto addllvmOption = [&](const char *Opt) {
@@ -576,6 +575,14 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
                 Twine("-hir-general-unroll-max-factor=") + Value));
       }
     }
+  }
+  if (Args.hasFlag(options::OPT_qno_opt_matmul, options::OPT__intel,
+                   options::OPT_qopt_matmul, false))
+    addllvmOption("-disable-hir-generate-mkl-call");
+  // Handle --intel defaults
+  if (Args.hasArg(options::OPT__intel)) {
+    if (!Args.hasArg(options::OPT_ffreestanding))
+      addllvmOption("-intel-libirc-allowed");
   }
 }
 #endif // INTEL_CUSTOMIZATION

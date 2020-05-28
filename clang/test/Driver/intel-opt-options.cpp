@@ -80,6 +80,12 @@
 // NO-UNROLL: "-fno-unroll-loops"
 
 // Behavior with -qopt-matmul and /Qopt-matmul option
-// RUN: %clang -### %s -c -qopt-matmul 2>&1 | FileCheck %s --check-prefix=CHECK-QOPT-MATMUL
-// RUN: %clang_cl -### %s -c /Qopt-matmul 2>&1 | FileCheck %s --check-prefix=CHECK-QOPT-MATMUL
-// CHECK-QOPT-MATMUL: "-mllvm" "-disable-hir-generate-mkl-call"
+// RUN: %clang -### %s -target x86_64-unknown-linux-gnu --intel -qopt-matmul 2>&1 | FileCheck %s --check-prefixes=CHECK-QOPT-MATMUL,CHECK-QOPT-MATMUL-LIN
+// RUN: %clang_cl -### %s --intel /Qopt-matmul 2>&1 | FileCheck %s --check-prefixes=CHECK-QOPT-MATMUL,CHECK-QOPT-MATMUL-WIN
+// CHECK-QOPT-MATMUL-NOT: "-mllvm" "-disable-hir-generate-mkl-call"
+// CHECK-QOPT-MATMUL-WIN: "--dependent-lib=libmatmul"
+// CHECK-QOPT-MATMUL-LIN: ld{{.*}} "-lmatmul"
+
+// RUN: %clang -### %s -c -qno-opt-matmul 2>&1 | FileCheck %s --check-prefix=CHECK-QNO-OPT-MATMUL
+// RUN: %clang_cl -### %s -c /Qopt-matmul- 2>&1 | FileCheck %s --check-prefix=CHECK-QNO-OPT-MATMUL
+// CHECK-QNO-OPT-MATMUL: "-mllvm" "-disable-hir-generate-mkl-call"
