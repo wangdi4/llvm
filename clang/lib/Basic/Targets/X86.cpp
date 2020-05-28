@@ -860,7 +860,6 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
       Features["avx512convert"] = false;
     }
 #endif // INTEL_FEATURE_ISA_AVX512_CONVERT
-#endif // INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX512_DOTPROD
     if (Name == "avx512dotprod" && Enabled) {
       setFeatureEnabledImpl(Features, "avx512fp16", true);
@@ -881,6 +880,7 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
 #if INTEL_FEATURE_ISA_AVX512_CONVERT
     }
 #endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#endif // INTEL_CUSTOMIZATION
   } else if (Name == "fma") {
     if (Enabled)
       setSSELevel(Features, AVX, Enabled);
