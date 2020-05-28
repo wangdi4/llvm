@@ -1928,15 +1928,11 @@ bool JumpThreadingPass::ProcessThreadableEdges(Value *Cond, BasicBlock *BB,
         isa<CallBrInst>(Pred->getTerminator()))
       continue;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     if (CountableLoopLatches.count(BB) && CountableLoopHeaders.count(DestBB))
       ThreadingBackedge = true;
 #endif // INTEL_CUSTOMIZATION
-    PredToDestList.push_back(std::make_pair(Pred, DestBB));
-=======
     PredToDestList.emplace_back(Pred, DestBB);
->>>>>>> c4990a03c6c347df120c0dbf6039e900889c4a92
   }
 
   // If all edges were unthreadable, we fail.
