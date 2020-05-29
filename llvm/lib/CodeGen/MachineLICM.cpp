@@ -791,6 +791,7 @@ void MachineLICMBase::HoistPostRA(MachineInstr *MI, unsigned Def) {
   // Since we are moving the instruction out of its basic block, we do not
   // retain its debug location. Doing so would degrade the debugging
   // experience and adversely affect the accuracy of profiling information.
+  assert(!MI->isDebugInstr() && "Should not hoist debug inst");
   MI->setDebugLoc(DebugLoc());
 
   // Add register to livein list to all the BBs in the current loop since a
@@ -994,6 +995,7 @@ void MachineLICMBase::SinkIntoLoop() {
 
     // The instruction is is moved from its basic block, so do not retain the
     // debug information.
+    assert(!I->isDebugInstr() && "Should not sink debug inst");
     I->setDebugLoc(DebugLoc());
   }
 }
@@ -1693,8 +1695,13 @@ bool MachineLICMBase::Hoist(MachineInstr *MI, MachineBasicBlock *Preheader) {
     // Since we are moving the instruction out of its basic block, we do not
     // retain its debug location. Doing so would degrade the debugging
     // experience and adversely affect the accuracy of profiling information.
+<<<<<<< HEAD
     // MI->setDebugLoc(DebugLoc());
 #endif // INTEL_CUSTOMIZATION
+=======
+    assert(!MI->isDebugInstr() && "Should not hoist debug inst");
+    MI->setDebugLoc(DebugLoc());
+>>>>>>> 0aa201eaf97681f59b72baee6552aa1b9b5c9129
 
     // Update register pressure for BBs from header to this block.
     UpdateBackTraceRegPressure(MI);
