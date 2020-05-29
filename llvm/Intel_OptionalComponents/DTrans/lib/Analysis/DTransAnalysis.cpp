@@ -5180,8 +5180,66 @@ public:
   // TODO: Need to extend the analysis for IntToPtr instruction for more
   // accurate safety checks.
   void visitIntToPtrInst(IntToPtrInst &I) {
+
+    // Return true if the IntToPtr instruction represents a load. For
+    // example:
+    //
+    // %"class.std::vector.12" = type { %"struct.std::_Vector_base.13" }
+    // %"struct.std::_Vector_base.13" =
+    //     type { %"struct.std::_Vector_base<TestClass,
+    //     std::allocator<TestClass>>::_Vector_impl.67" }
+    // %"struct.std::_Vector_base<TestClass,
+    //     std::allocator<TestClass>>::_Vector_impl.67" =
+    //     type { %class.TestClass*, %class.TestClass*, %class.TestClass* }
+    // %class.TestClass = type {i64, i64, i64}
+    //
+    // %tmp = getelementptr inbounds %"class.std::vector.12",
+    //                      %"class.std::vector.12"* %arg, i64 0, i32 0
+    // %tmp2 = bitcast %"struct.std::_Vector_base.13"* %tmp to i64*
+    // %tmp3 = load i64, i64* %tmp2
+    // %tmp4 = inttoptr i64 %tmp3 to %class.TestClass*
+    //
+    // In the example above there is a GEP (%tmp) that goes through a BitCast
+    // (%tmp2) and then is loading the innermost structure (%tmp3 and %tmp4).
+    // This function will validate that %classTestClass* is an inner structure
+    // of %"struct.std::_Vector_base.13".
+    auto IsLoadingInnermostStructure = [&I, this]() -> bool {
+      LoadInst *Load = dyn_cast<LoadInst>(I.getOperand(0));
+      if (!Load || !Load->hasOneUse())
+        return false;
+
+      BitCastInst *BC = dyn_cast<BitCastInst>(Load->getPointerOperand());
+      if (!BC || !BC->hasOneUse())
+        return false;
+
+      // Check that the destination pointer in the int-to-pointer instruction
+      // is the same size as the load and the source pointer in the BitCast
+      llvm::Type *LoadTy = I.getSrcTy();
+      llvm::Type *DestTy = I.getDestTy();
+      llvm::Type *BCSourceTy = BC->getSrcTy();
+
+      uint64_t DestSize = DL.getTypeSizeInBits(DestTy).getFixedSize();
+      uint64_t LoadSize = DL.getTypeSizeInBits(LoadTy).getFixedSize();
+      uint64_t BCSourceSize = DL.getTypeSizeInBits(BCSourceTy).getFixedSize();
+
+      if (DestSize != LoadSize || LoadSize != BCSourceSize ||
+          DestSize != BCSourceSize)
+        return false;
+
+      // Now make sure that the destination for the IntToPointer is a pointee
+      // of the BitCast instruction
+      return isBitCastUsedToAccessAnInnerStructure(cast<BitCastOperator>(BC),
+                                                   DestTy);
+    };
+
     if (!isValueOfInterest(&I))
       return;
+
+    // It is OK if the IntToPtr instruction is used to represent a load to a
+    // field in a structure
+    if (IsLoadingInnermostStructure())
+      return;
+
     LLVM_DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
                       << "Integer to ptr to aggregate cast:\n"
                       << "  " << I << "\n");
@@ -6630,6 +6688,171 @@ private:
     return true;
   }
 
+  // Return true if the BitCast is used to access a field in a nested
+  // structure. For example:
+  //
+  // %"class.outer" = type { %"class.inner" }
+  // %"class.inner" = type { %"class.inner2" }
+  // %"class.inner2" = type { %class.TestClass*, %class.TestClass* }
+  // %class.TestClass = type { i64, i64, i64 }
+  //
+  // Consider the following BitCast and Load instructions, where %tmp
+  // is a GEP or an Argument with type %"class.outer":
+  //
+  // %tmp2 = bitcast %"class.outer"* %tmp to i64*
+  // %tmp3 = load i64, i64* %tmp2
+  // %tmp4 = inttoptr i64 %tmp3 to %class.TestClass*
+  //
+  // The example above shows that the casting in %tmp2 will be used
+  // for loading the innermost structure (%class.TestClass). This could be
+  // collected by calling the local pointers information related to %tmp2
+  // and check if there is a pointee with the same type as the destination.
+  bool isBitCastUsedToAccessAnInnerStructure(BitCastOperator *BC,
+                                             llvm::Type *DestinationType) {
+    if (!BC || !DestinationType)
+      return false;
+
+    // Given a PointerType, traverse through the element types until
+    // it reaches to the actual type that is not a poiner. For example:
+    //
+    //   Input  -> %"class.outer"**
+    //   Output -> %"class.outer"
+    auto GetPtrElementType = [](PointerType *PtrTy) -> Type* {
+      if (!PtrTy)
+        return nullptr;
+
+      Type *CurrType = cast<Type>(PtrTy);
+      while (CurrType && CurrType->isPointerTy()) {
+        auto CurrPtr = cast<PointerType>(CurrType);
+        CurrType = CurrPtr->getElementType();
+      }
+
+      return CurrType;
+    };
+
+    // Return true if SrcTy is a nested structure, and traversing the
+    // 0 element it reaches to DstTy. This is a simplified version
+    // of dtrans::isElementZeroAccess since the Type stored in
+    // the pointees of interest is a StructType.
+    auto IsFieldZeroAccess = [](Type *SrcTy, Type *DstTy) -> bool {
+      if (!SrcTy || !DstTy)
+        return false;
+
+      if (!SrcTy->isStructTy())
+        return false;
+
+      Type *CurrType = SrcTy;
+      while (CurrType) {
+        if (CurrType == DstTy)
+          return true;
+
+        if (auto *StructTy = dyn_cast<StructType>(CurrType))
+          CurrType = StructTy->getElementType(0);
+        else
+          break;
+      }
+      return false;
+    };
+
+    PointerType *BCSourceTy = dyn_cast<PointerType>(BC->getSrcTy());
+    PointerType *BCDestTy = dyn_cast<PointerType>(BC->getDestTy());
+    if (!BCSourceTy || !BCDestTy)
+      return false;
+
+    // If source is not a pointer to a structure or destination is not
+    // a pointer to an integer then return
+    if (!GetPtrElementType(BCSourceTy)->isStructTy() ||
+        !BCDestTy->getElementType()->isIntegerTy())
+      return false;
+
+    uint64_t BCDestSize = DL.getTypeSizeInBits(BCDestTy).getFixedSize();
+    uint64_t BCSourceSize = DL.getTypeSizeInBits(BCSourceTy).getFixedSize();
+    uint64_t DestinationSize =
+        DL.getTypeSizeInBits(DestinationType).getFixedSize();
+
+    // Make sure that the size of the pointers match
+    if (BCSourceSize != BCDestSize || BCSourceSize != DestinationSize ||
+        BCDestSize != DestinationSize)
+      return false;
+
+    LocalPointerInfo &LPI = LPA.getLocalPointerInfo(BC);
+    if (!LPI.pointsToSomeElement())
+      return false;
+
+    // If the BitCast is used to access fields in a structure then the
+    // LocalPointerInfo will provide the information of which fields could be
+    // accessed. For example mentioned before, the bitcast and load
+    // instructions are loading the inner structures. This means that there
+    // will be one pointee with the following information:
+    //
+    //   Parent type: %"class.inner2"
+    //   Field number: 0
+    //
+    // This basically says that the BitCast will be used to access field 0 in
+    // %"class.inner2", which is type %class.TestClass* (DestinationType)
+    for (auto &PointeePair : LPI.getElementPointeeSet()) {
+
+      if (PointeePair.second.getKind() !=
+          LocalPointerInfo::PointeeLoc::PLK_Field)
+        return false;
+
+      llvm::Type *ParentTy = PointeePair.first;
+      size_t ElementNum = PointeePair.second.getElementNum();
+
+      // Check that the pointee is a structure
+      llvm::StructType *ParentStruct = dyn_cast<StructType>(ParentTy);
+      if (!ParentStruct)
+        return false;
+
+      // NOTE: The pointee should not necessarily need to be element 0.
+      // Consider the following example:
+      //
+      // %"class.std::vector.12" = type { %"struct.std::_Vector_base.13" }
+      // %"struct.std::_Vector_base.13" =
+      //     type { %"struct.std::_Vector_base<TestClass,
+      //     std::allocator<TestClass>>::_Vector_impl.67" }
+      // %"struct.std::_Vector_base<TestClass,
+      //     std::allocator<TestClass>>::_Vector_impl.67" =
+      //     type { %class.TestClass*, %class.TestClass*, %class.TestClass* }
+      // %class.TestClass = type {i64, i64, i64}
+      //
+      // %tmp = getelementptr inbounds %"class.std::vector.12",
+      //             %"class.std::vector.12"* %arg, i64 0, i32 0, i32 0, i32 1
+      // %tmp2 = bitcast %class.TestClass** %tmp to i64*
+      // %tmp3 = load i64, i64* %tmp2
+      // %tmp4 = inttoptr i64 %tmp3 to %class.TestClass*
+      //
+      // In the example above the local pointer info for the BitCast in %tmp2
+      // will produce the following pointee information:
+      //
+      //   Parent type:  %"struct.std::_Vector_base<TestClass,
+      //                  std::allocator<TestClass>>::_Vector_impl.67" =
+      //                      type { %class.TestClass*, %class.TestClass*,
+      //                      %class.TestClass* }
+      //   Field number: 1
+      //
+      // This BitCast is OK too.
+      if (ElementNum >= ParentStruct->getNumElements())
+        return false;
+
+      // Check if the type of the field matches with the destination
+      llvm::Type *FieldTy = ParentStruct->getElementType(ElementNum);
+      if (DestinationType == FieldTy)
+        continue;
+
+      // If not, then check if it is possible to reach the destination by
+      // traversing the 0 elements in the parent structure
+      if (ElementNum == 0 && IsFieldZeroAccess(ParentStruct, DestinationType))
+        continue;
+
+      // The destination doesn't match any information related to the pointee
+      return false;
+    }
+
+    // The pointees in the BitCast matches the destination
+    return true;
+  }
+
   // Verify that a bitcast from \p SrcTy to \p DestTy would be safe. The
   // caller has analyzed the bitcast instruction to determine that these
   // types need to be considered. These may not be the actual types used
@@ -6651,7 +6874,9 @@ private:
     // safe cast.
     if (dtrans::isElementZeroAccess(SrcTy, DestTy) ||
         dtrans::isPtrToPtrToElementZeroAccess(SrcTy, DestTy) ||
-        dtrans::isVTableAccess(SrcTy, DestTy))
+        dtrans::isVTableAccess(SrcTy, DestTy) ||
+        (isa<BitCastInst>(I) &&
+        dtrans::isBitCastLoadingZeroElement(dyn_cast<BitCastInst>(I))))
       return;
 
     // If element zero is an i8* and we're casting the source value as a
