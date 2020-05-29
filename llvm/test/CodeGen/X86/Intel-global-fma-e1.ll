@@ -6,8 +6,9 @@
 ; the output code must have only 5 arithmetic instructions:
 ;   F0=f*g; F1=d+e; F2=b*c+F0; F3=F1*a+F1; F4=F3*F2+F2;
 
-; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mcpu=core-avx2 -fp-contract=fast -enable-unsafe-fp-math | FileCheck %s
-; RUN: llc < %s -mtriple=x86_64-unknown-unknown -mcpu=skx       -fp-contract=fast -enable-unsafe-fp-math | FileCheck %s
+; RUN: llc < %s -verify-machineinstrs -mtriple=x86_64-unknown-unknown -mcpu=core-avx2 -fp-contract=fast -enable-unsafe-fp-math | FileCheck %s --check-prefixes=CHECK,AVX2
+; RUN: llc < %s -verify-machineinstrs -mtriple=x86_64-unknown-unknown -mcpu=skx       -fp-contract=fast -enable-unsafe-fp-math | FileCheck %s --check-prefixes=CHECK,SKX
+; RUN: llc < %s -verify-machineinstrs -mtriple=x86_64-unknown-unknown -mcpu=knl       -fp-contract=fast -enable-unsafe-fp-math | FileCheck %s --check-prefixes=CHECK,KNL
 
 ; These attributes are used for functions testing scalar and 128/256 bit types.
 attributes #0 = { nounwind "target-features"="+avx2,+fma" }
@@ -28,15 +29,15 @@ attributes #1 = { nounwind "target-cpu"="skx" "target-features"="+avx512f,+fma" 
 
 define void @func32() #0 {
 ; CHECK-LABEL: func32:
-; CHECK:       %bb.0: # %entry
+; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; CHECK-NEXT:    vmovss {{.*#+}} xmm1 = mem[0],zero,zero,zero
 ; CHECK-NEXT:    vmovss {{.*#+}} xmm2 = mem[0],zero,zero,zero
 ; CHECK-NEXT:    vmulss {{.*}}(%rip), %xmm0, %xmm0
-; CHECK-NEXT:    vfmadd231ss {{.*}}(%rip), %xmm2, %xmm0
+; CHECK-NEXT:    vfmadd231ss {{.*#+}} xmm0 = (xmm2 * mem) + xmm0
 ; CHECK-NEXT:    vaddss {{.*}}(%rip), %xmm1, %xmm1
-; CHECK-NEXT:    vfmadd132ss {{.*}}(%rip), %xmm1, %xmm1
-; CHECK-NEXT:    vfmadd213ss %xmm0, %xmm0, %xmm1
+; CHECK-NEXT:    vfmadd132ss {{.*#+}} xmm1 = (xmm1 * mem) + xmm1
+; CHECK-NEXT:    vfmadd213ss {{.*#+}} xmm1 = (xmm0 * xmm1) + xmm0
 ; CHECK-NEXT:    vmovss %xmm1, {{.*}}(%rip)
 ; CHECK-NEXT:    retq
 entry:
@@ -91,15 +92,15 @@ entry:
 
 define void @func64() #0 {
 ; CHECK-LABEL: func64:
-; CHECK:       %bb.0: # %entry
+; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    vmovsd {{.*#+}} xmm0 = mem[0],zero
 ; CHECK-NEXT:    vmovsd {{.*#+}} xmm1 = mem[0],zero
 ; CHECK-NEXT:    vmovsd {{.*#+}} xmm2 = mem[0],zero
 ; CHECK-NEXT:    vmulsd {{.*}}(%rip), %xmm0, %xmm0
-; CHECK-NEXT:    vfmadd231sd {{.*}}(%rip), %xmm2, %xmm0
+; CHECK-NEXT:    vfmadd231sd {{.*#+}} xmm0 = (xmm2 * mem) + xmm0
 ; CHECK-NEXT:    vaddsd {{.*}}(%rip), %xmm1, %xmm1
-; CHECK-NEXT:    vfmadd132sd {{.*}}(%rip), %xmm1, %xmm1
-; CHECK-NEXT:    vfmadd213sd %xmm0, %xmm0, %xmm1
+; CHECK-NEXT:    vfmadd132sd {{.*#+}} xmm1 = (xmm1 * mem) + xmm1
+; CHECK-NEXT:    vfmadd213sd {{.*#+}} xmm1 = (xmm0 * xmm1) + xmm0
 ; CHECK-NEXT:    vmovsd %xmm1, {{.*}}(%rip)
 ; CHECK-NEXT:    retq
 entry:
@@ -153,18 +154,62 @@ entry:
 @i32x4 = common global <4 x float> zeroinitializer, align 16
 
 define void @func32x4() #0 {
-; CHECK-LABEL: func32x4:
-; CHECK:       %bb.0: # %entry
-; CHECK-NEXT:    vmovaps {{.*}}(%rip), %xmm0
-; CHECK-NEXT:    vmovaps {{.*}}(%rip), %xmm1
-; CHECK-NEXT:    vmovaps {{.*}}(%rip), %xmm2
-; CHECK-NEXT:    vmulps {{.*}}(%rip), %xmm0, %xmm0
-; CHECK-NEXT:    vfmadd231ps {{.*}}(%rip), %xmm2, %xmm0
-; CHECK-NEXT:    vaddps {{.*}}(%rip), %xmm1, %xmm1
-; CHECK-NEXT:    vfmadd132ps {{.*}}(%rip), %xmm1, %xmm1
-; CHECK-NEXT:    vfmadd213ps %xmm0, %xmm0, %xmm1
-; CHECK-NEXT:    vmovaps %xmm1, {{.*}}(%rip)
-; CHECK-NEXT:    retq
+; AVX2-LABEL: func32x4:
+; AVX2:       # %bb.0: # %entry
+; AVX2-NEXT:    vmovaps {{.*}}(%rip), %xmm0
+; AVX2-NEXT:    vmovaps {{.*}}(%rip), %xmm1
+; AVX2-NEXT:    vmovaps {{.*}}(%rip), %xmm2
+; AVX2-NEXT:    vmulps {{.*}}(%rip), %xmm0, %xmm0
+; AVX2-NEXT:    vfmadd231ps {{.*#+}} xmm0 = (xmm2 * mem) + xmm0
+; AVX2-NEXT:    vaddps {{.*}}(%rip), %xmm1, %xmm1
+; AVX2-NEXT:    vfmadd132ps {{.*#+}} xmm1 = (xmm1 * mem) + xmm1
+; AVX2-NEXT:    vfmadd213ps {{.*#+}} xmm1 = (xmm0 * xmm1) + xmm0
+; AVX2-NEXT:    vmovaps %xmm1, {{.*}}(%rip)
+; AVX2-NEXT:    retq
+;
+; SKX-LABEL: func32x4:
+; SKX:       # %bb.0: # %entry
+; SKX-NEXT:    vmovaps {{.*}}(%rip), %xmm0
+; SKX-NEXT:    vmovaps {{.*}}(%rip), %xmm1
+; SKX-NEXT:    vmovaps {{.*}}(%rip), %xmm2
+; SKX-NEXT:    vmulps {{.*}}(%rip), %xmm0, %xmm0
+; SKX-NEXT:    vfmadd231ps {{.*#+}} xmm0 = (xmm2 * mem) + xmm0
+; SKX-NEXT:    vaddps {{.*}}(%rip), %xmm1, %xmm1
+; SKX-NEXT:    vfmadd132ps {{.*#+}} xmm1 = (xmm1 * mem) + xmm1
+; SKX-NEXT:    vfmadd213ps {{.*#+}} xmm1 = (xmm0 * xmm1) + xmm0
+; SKX-NEXT:    vmovaps %xmm1, {{.*}}(%rip)
+; SKX-NEXT:    retq
+;
+; KNL-LABEL: func32x4:
+; KNL:       # %bb.0: # %entry
+; KNL-NEXT:    vmovaps {{.*}}(%rip), %xmm0
+; KNL-NEXT:    vmovaps {{.*}}(%rip), %xmm8
+; KNL-NEXT:    vmulps %xmm0, %xmm8, %xmm2
+; KNL-NEXT:    vmovaps {{.*}}(%rip), %xmm3
+; KNL-NEXT:    vmulps %xmm3, %xmm2, %xmm2
+; KNL-NEXT:    vmovaps {{.*}}(%rip), %xmm4
+; KNL-NEXT:    vmovaps {{.*}}(%rip), %xmm5
+; KNL-NEXT:    vmulps %xmm5, %xmm2, %xmm6
+; KNL-NEXT:    vfmadd231ps {{.*#+}} xmm6 = (xmm4 * xmm2) + xmm6
+; KNL-NEXT:    vmulps %xmm4, %xmm0, %xmm2
+; KNL-NEXT:    vmovaps {{.*}}(%rip), %xmm7
+; KNL-NEXT:    vmulps %xmm7, %xmm2, %xmm2
+; KNL-NEXT:    vmovaps {{.*}}(%rip), %xmm1
+; KNL-NEXT:    vfmadd213ps {{.*#+}} xmm2 = (xmm1 * xmm2) + xmm6
+; KNL-NEXT:    vmulps %xmm5, %xmm0, %xmm0
+; KNL-NEXT:    vmulps %xmm7, %xmm0, %xmm0
+; KNL-NEXT:    vfmadd213ps {{.*#+}} xmm0 = (xmm1 * xmm0) + xmm2
+; KNL-NEXT:    vmulps %xmm3, %xmm8, %xmm2
+; KNL-NEXT:    vfmadd231ps {{.*#+}} xmm0 = (xmm2 * xmm4) + xmm0
+; KNL-NEXT:    vfmadd231ps {{.*#+}} xmm0 = (xmm2 * xmm5) + xmm0
+; KNL-NEXT:    vmulps %xmm7, %xmm4, %xmm3
+; KNL-NEXT:    vfmadd213ps {{.*#+}} xmm3 = (xmm1 * xmm3) + xmm0
+; KNL-NEXT:    vmulps %xmm7, %xmm5, %xmm0
+; KNL-NEXT:    vfmadd213ps {{.*#+}} xmm0 = (xmm1 * xmm0) + xmm3
+; KNL-NEXT:    vaddps %xmm2, %xmm0, %xmm0
+; KNL-NEXT:    vfmadd231ps {{.*#+}} xmm0 = (xmm7 * xmm1) + xmm0
+; KNL-NEXT:    vmovaps %xmm0, {{.*}}(%rip)
+; KNL-NEXT:    retq
 entry:
   %load_a = load <4 x float>, <4 x float>* @a32x4, align 16
   %load_b = load <4 x float>, <4 x float>* @b32x4, align 16
@@ -216,18 +261,62 @@ entry:
 @i64x2 = common global <2 x double> zeroinitializer, align 16
 
 define void @func64x2() #0 {
-; CHECK-LABEL: func64x2:
-; CHECK:       %bb.0: # %entry
-; CHECK-NEXT:    vmovapd {{.*}}(%rip), %xmm0
-; CHECK-NEXT:    vmovapd {{.*}}(%rip), %xmm1
-; CHECK-NEXT:    vmovapd {{.*}}(%rip), %xmm2
-; CHECK-NEXT:    vmulpd {{.*}}(%rip), %xmm0, %xmm0
-; CHECK-NEXT:    vfmadd231pd {{.*}}(%rip), %xmm2, %xmm0
-; CHECK-NEXT:    vaddpd {{.*}}(%rip), %xmm1, %xmm1
-; CHECK-NEXT:    vfmadd132pd {{.*}}(%rip), %xmm1, %xmm1
-; CHECK-NEXT:    vfmadd213pd %xmm0, %xmm0, %xmm1
-; CHECK-NEXT:    vmovapd %xmm1, {{.*}}(%rip)
-; CHECK-NEXT:    retq
+; AVX2-LABEL: func64x2:
+; AVX2:       # %bb.0: # %entry
+; AVX2-NEXT:    vmovapd {{.*}}(%rip), %xmm0
+; AVX2-NEXT:    vmovapd {{.*}}(%rip), %xmm1
+; AVX2-NEXT:    vmovapd {{.*}}(%rip), %xmm2
+; AVX2-NEXT:    vmulpd {{.*}}(%rip), %xmm0, %xmm0
+; AVX2-NEXT:    vfmadd231pd {{.*#+}} xmm0 = (xmm2 * mem) + xmm0
+; AVX2-NEXT:    vaddpd {{.*}}(%rip), %xmm1, %xmm1
+; AVX2-NEXT:    vfmadd132pd {{.*#+}} xmm1 = (xmm1 * mem) + xmm1
+; AVX2-NEXT:    vfmadd213pd {{.*#+}} xmm1 = (xmm0 * xmm1) + xmm0
+; AVX2-NEXT:    vmovapd %xmm1, {{.*}}(%rip)
+; AVX2-NEXT:    retq
+;
+; SKX-LABEL: func64x2:
+; SKX:       # %bb.0: # %entry
+; SKX-NEXT:    vmovapd {{.*}}(%rip), %xmm0
+; SKX-NEXT:    vmovapd {{.*}}(%rip), %xmm1
+; SKX-NEXT:    vmovapd {{.*}}(%rip), %xmm2
+; SKX-NEXT:    vmulpd {{.*}}(%rip), %xmm0, %xmm0
+; SKX-NEXT:    vfmadd231pd {{.*#+}} xmm0 = (xmm2 * mem) + xmm0
+; SKX-NEXT:    vaddpd {{.*}}(%rip), %xmm1, %xmm1
+; SKX-NEXT:    vfmadd132pd {{.*#+}} xmm1 = (xmm1 * mem) + xmm1
+; SKX-NEXT:    vfmadd213pd {{.*#+}} xmm1 = (xmm0 * xmm1) + xmm0
+; SKX-NEXT:    vmovapd %xmm1, {{.*}}(%rip)
+; SKX-NEXT:    retq
+;
+; KNL-LABEL: func64x2:
+; KNL:       # %bb.0: # %entry
+; KNL-NEXT:    vmovapd {{.*}}(%rip), %xmm0
+; KNL-NEXT:    vmovapd {{.*}}(%rip), %xmm8
+; KNL-NEXT:    vmulpd %xmm0, %xmm8, %xmm2
+; KNL-NEXT:    vmovapd {{.*}}(%rip), %xmm3
+; KNL-NEXT:    vmulpd %xmm3, %xmm2, %xmm2
+; KNL-NEXT:    vmovapd {{.*}}(%rip), %xmm4
+; KNL-NEXT:    vmovapd {{.*}}(%rip), %xmm5
+; KNL-NEXT:    vmulpd %xmm5, %xmm2, %xmm6
+; KNL-NEXT:    vfmadd231pd {{.*#+}} xmm6 = (xmm4 * xmm2) + xmm6
+; KNL-NEXT:    vmulpd %xmm4, %xmm0, %xmm2
+; KNL-NEXT:    vmovapd {{.*}}(%rip), %xmm7
+; KNL-NEXT:    vmulpd %xmm7, %xmm2, %xmm2
+; KNL-NEXT:    vmovapd {{.*}}(%rip), %xmm1
+; KNL-NEXT:    vfmadd213pd {{.*#+}} xmm2 = (xmm1 * xmm2) + xmm6
+; KNL-NEXT:    vmulpd %xmm5, %xmm0, %xmm0
+; KNL-NEXT:    vmulpd %xmm7, %xmm0, %xmm0
+; KNL-NEXT:    vfmadd213pd {{.*#+}} xmm0 = (xmm1 * xmm0) + xmm2
+; KNL-NEXT:    vmulpd %xmm3, %xmm8, %xmm2
+; KNL-NEXT:    vfmadd231pd {{.*#+}} xmm0 = (xmm2 * xmm4) + xmm0
+; KNL-NEXT:    vfmadd231pd {{.*#+}} xmm0 = (xmm2 * xmm5) + xmm0
+; KNL-NEXT:    vmulpd %xmm7, %xmm4, %xmm3
+; KNL-NEXT:    vfmadd213pd {{.*#+}} xmm3 = (xmm1 * xmm3) + xmm0
+; KNL-NEXT:    vmulpd %xmm7, %xmm5, %xmm0
+; KNL-NEXT:    vfmadd213pd {{.*#+}} xmm0 = (xmm1 * xmm0) + xmm3
+; KNL-NEXT:    vaddpd %xmm2, %xmm0, %xmm0
+; KNL-NEXT:    vfmadd231pd {{.*#+}} xmm0 = (xmm7 * xmm1) + xmm0
+; KNL-NEXT:    vmovapd %xmm0, {{.*}}(%rip)
+; KNL-NEXT:    retq
 entry:
   %load_a = load <2 x double>, <2 x double>* @a64x2, align 16
   %load_b = load <2 x double>, <2 x double>* @b64x2, align 16
@@ -279,19 +368,64 @@ entry:
 @i32x8 = common global <8 x float> zeroinitializer, align 32
 
 define void @func32x8() #0 {
-; CHECK-LABEL: func32x8:
-; CHECK:       %bb.0: # %entry
-; CHECK-NEXT:    vmovaps {{.*}}(%rip), %ymm0
-; CHECK-NEXT:    vmovaps {{.*}}(%rip), %ymm1
-; CHECK-NEXT:    vmovaps {{.*}}(%rip), %ymm2
-; CHECK-NEXT:    vmulps {{.*}}(%rip), %ymm0, %ymm0
-; CHECK-NEXT:    vfmadd231ps {{.*}}(%rip), %ymm2, %ymm0
-; CHECK-NEXT:    vaddps {{.*}}(%rip), %ymm1, %ymm1
-; CHECK-NEXT:    vfmadd132ps {{.*}}(%rip), %ymm1, %ymm1
-; CHECK-NEXT:    vfmadd213ps %ymm0, %ymm0, %ymm1
-; CHECK-NEXT:    vmovaps %ymm1, {{.*}}(%rip)
-; CHECK-NEXT:    vzeroupper
-; CHECK-NEXT:    retq
+; AVX2-LABEL: func32x8:
+; AVX2:       # %bb.0: # %entry
+; AVX2-NEXT:    vmovaps {{.*}}(%rip), %ymm0
+; AVX2-NEXT:    vmovaps {{.*}}(%rip), %ymm1
+; AVX2-NEXT:    vmovaps {{.*}}(%rip), %ymm2
+; AVX2-NEXT:    vmulps {{.*}}(%rip), %ymm0, %ymm0
+; AVX2-NEXT:    vfmadd231ps {{.*#+}} ymm0 = (ymm2 * mem) + ymm0
+; AVX2-NEXT:    vaddps {{.*}}(%rip), %ymm1, %ymm1
+; AVX2-NEXT:    vfmadd132ps {{.*#+}} ymm1 = (ymm1 * mem) + ymm1
+; AVX2-NEXT:    vfmadd213ps {{.*#+}} ymm1 = (ymm0 * ymm1) + ymm0
+; AVX2-NEXT:    vmovaps %ymm1, {{.*}}(%rip)
+; AVX2-NEXT:    vzeroupper
+; AVX2-NEXT:    retq
+;
+; SKX-LABEL: func32x8:
+; SKX:       # %bb.0: # %entry
+; SKX-NEXT:    vmovaps {{.*}}(%rip), %ymm0
+; SKX-NEXT:    vmovaps {{.*}}(%rip), %ymm1
+; SKX-NEXT:    vmovaps {{.*}}(%rip), %ymm2
+; SKX-NEXT:    vmulps {{.*}}(%rip), %ymm0, %ymm0
+; SKX-NEXT:    vfmadd231ps {{.*#+}} ymm0 = (ymm2 * mem) + ymm0
+; SKX-NEXT:    vaddps {{.*}}(%rip), %ymm1, %ymm1
+; SKX-NEXT:    vfmadd132ps {{.*#+}} ymm1 = (ymm1 * mem) + ymm1
+; SKX-NEXT:    vfmadd213ps {{.*#+}} ymm1 = (ymm0 * ymm1) + ymm0
+; SKX-NEXT:    vmovaps %ymm1, {{.*}}(%rip)
+; SKX-NEXT:    vzeroupper
+; SKX-NEXT:    retq
+;
+; KNL-LABEL: func32x8:
+; KNL:       # %bb.0: # %entry
+; KNL-NEXT:    vmovaps {{.*}}(%rip), %ymm0
+; KNL-NEXT:    vmovaps {{.*}}(%rip), %ymm1
+; KNL-NEXT:    vmulps %ymm1, %ymm0, %ymm2
+; KNL-NEXT:    vmovaps {{.*}}(%rip), %ymm3
+; KNL-NEXT:    vmulps %ymm3, %ymm2, %ymm2
+; KNL-NEXT:    vmovaps {{.*}}(%rip), %ymm4
+; KNL-NEXT:    vmovaps {{.*}}(%rip), %ymm5
+; KNL-NEXT:    vmulps %ymm5, %ymm2, %ymm6
+; KNL-NEXT:    vfmadd231ps {{.*#+}} ymm6 = (ymm4 * ymm2) + ymm6
+; KNL-NEXT:    vmulps %ymm4, %ymm0, %ymm2
+; KNL-NEXT:    vmovaps {{.*}}(%rip), %ymm7
+; KNL-NEXT:    vmulps %ymm7, %ymm2, %ymm2
+; KNL-NEXT:    vmovaps {{.*}}(%rip), %ymm8
+; KNL-NEXT:    vfmadd213ps {{.*#+}} ymm2 = (ymm8 * ymm2) + ymm6
+; KNL-NEXT:    vmulps %ymm5, %ymm0, %ymm0
+; KNL-NEXT:    vmulps %ymm7, %ymm0, %ymm0
+; KNL-NEXT:    vfmadd213ps {{.*#+}} ymm0 = (ymm8 * ymm0) + ymm2
+; KNL-NEXT:    vmulps %ymm3, %ymm1, %ymm1
+; KNL-NEXT:    vfmadd231ps {{.*#+}} ymm0 = (ymm1 * ymm4) + ymm0
+; KNL-NEXT:    vfmadd231ps {{.*#+}} ymm0 = (ymm1 * ymm5) + ymm0
+; KNL-NEXT:    vmulps %ymm7, %ymm4, %ymm2
+; KNL-NEXT:    vfmadd213ps {{.*#+}} ymm2 = (ymm8 * ymm2) + ymm0
+; KNL-NEXT:    vmulps %ymm7, %ymm5, %ymm0
+; KNL-NEXT:    vfmadd213ps {{.*#+}} ymm0 = (ymm8 * ymm0) + ymm2
+; KNL-NEXT:    vaddps %ymm1, %ymm0, %ymm0
+; KNL-NEXT:    vfmadd231ps {{.*#+}} ymm0 = (ymm7 * ymm8) + ymm0
+; KNL-NEXT:    vmovaps %ymm0, {{.*}}(%rip)
+; KNL-NEXT:    retq
 entry:
   %load_a = load <8 x float>, <8 x float>* @a32x8, align 32
   %load_b = load <8 x float>, <8 x float>* @b32x8, align 32
@@ -343,19 +477,64 @@ entry:
 @i64x4 = common global <4 x double> zeroinitializer, align 32
 
 define void @func64x4() #0 {
-; CHECK-LABEL: func64x4:
-; CHECK:       %bb.0: # %entry
-; CHECK-NEXT:    vmovapd {{.*}}(%rip), %ymm0
-; CHECK-NEXT:    vmovapd {{.*}}(%rip), %ymm1
-; CHECK-NEXT:    vmovapd {{.*}}(%rip), %ymm2
-; CHECK-NEXT:    vmulpd {{.*}}(%rip), %ymm0, %ymm0
-; CHECK-NEXT:    vfmadd231pd {{.*}}(%rip), %ymm2, %ymm0
-; CHECK-NEXT:    vaddpd {{.*}}(%rip), %ymm1, %ymm1
-; CHECK-NEXT:    vfmadd132pd {{.*}}(%rip), %ymm1, %ymm1
-; CHECK-NEXT:    vfmadd213pd %ymm0, %ymm0, %ymm1
-; CHECK-NEXT:    vmovapd %ymm1, {{.*}}(%rip)
-; CHECK-NEXT:    vzeroupper
-; CHECK-NEXT:    retq
+; AVX2-LABEL: func64x4:
+; AVX2:       # %bb.0: # %entry
+; AVX2-NEXT:    vmovapd {{.*}}(%rip), %ymm0
+; AVX2-NEXT:    vmovapd {{.*}}(%rip), %ymm1
+; AVX2-NEXT:    vmovapd {{.*}}(%rip), %ymm2
+; AVX2-NEXT:    vmulpd {{.*}}(%rip), %ymm0, %ymm0
+; AVX2-NEXT:    vfmadd231pd {{.*#+}} ymm0 = (ymm2 * mem) + ymm0
+; AVX2-NEXT:    vaddpd {{.*}}(%rip), %ymm1, %ymm1
+; AVX2-NEXT:    vfmadd132pd {{.*#+}} ymm1 = (ymm1 * mem) + ymm1
+; AVX2-NEXT:    vfmadd213pd {{.*#+}} ymm1 = (ymm0 * ymm1) + ymm0
+; AVX2-NEXT:    vmovapd %ymm1, {{.*}}(%rip)
+; AVX2-NEXT:    vzeroupper
+; AVX2-NEXT:    retq
+;
+; SKX-LABEL: func64x4:
+; SKX:       # %bb.0: # %entry
+; SKX-NEXT:    vmovapd {{.*}}(%rip), %ymm0
+; SKX-NEXT:    vmovapd {{.*}}(%rip), %ymm1
+; SKX-NEXT:    vmovapd {{.*}}(%rip), %ymm2
+; SKX-NEXT:    vmulpd {{.*}}(%rip), %ymm0, %ymm0
+; SKX-NEXT:    vfmadd231pd {{.*#+}} ymm0 = (ymm2 * mem) + ymm0
+; SKX-NEXT:    vaddpd {{.*}}(%rip), %ymm1, %ymm1
+; SKX-NEXT:    vfmadd132pd {{.*#+}} ymm1 = (ymm1 * mem) + ymm1
+; SKX-NEXT:    vfmadd213pd {{.*#+}} ymm1 = (ymm0 * ymm1) + ymm0
+; SKX-NEXT:    vmovapd %ymm1, {{.*}}(%rip)
+; SKX-NEXT:    vzeroupper
+; SKX-NEXT:    retq
+;
+; KNL-LABEL: func64x4:
+; KNL:       # %bb.0: # %entry
+; KNL-NEXT:    vmovapd {{.*}}(%rip), %ymm0
+; KNL-NEXT:    vmovapd {{.*}}(%rip), %ymm1
+; KNL-NEXT:    vmulpd %ymm1, %ymm0, %ymm2
+; KNL-NEXT:    vmovapd {{.*}}(%rip), %ymm3
+; KNL-NEXT:    vmulpd %ymm3, %ymm2, %ymm2
+; KNL-NEXT:    vmovapd {{.*}}(%rip), %ymm4
+; KNL-NEXT:    vmovapd {{.*}}(%rip), %ymm5
+; KNL-NEXT:    vmulpd %ymm5, %ymm2, %ymm6
+; KNL-NEXT:    vfmadd231pd {{.*#+}} ymm6 = (ymm4 * ymm2) + ymm6
+; KNL-NEXT:    vmulpd %ymm4, %ymm0, %ymm2
+; KNL-NEXT:    vmovapd {{.*}}(%rip), %ymm7
+; KNL-NEXT:    vmulpd %ymm7, %ymm2, %ymm2
+; KNL-NEXT:    vmovapd {{.*}}(%rip), %ymm8
+; KNL-NEXT:    vfmadd213pd {{.*#+}} ymm2 = (ymm8 * ymm2) + ymm6
+; KNL-NEXT:    vmulpd %ymm5, %ymm0, %ymm0
+; KNL-NEXT:    vmulpd %ymm7, %ymm0, %ymm0
+; KNL-NEXT:    vfmadd213pd {{.*#+}} ymm0 = (ymm8 * ymm0) + ymm2
+; KNL-NEXT:    vmulpd %ymm3, %ymm1, %ymm1
+; KNL-NEXT:    vfmadd231pd {{.*#+}} ymm0 = (ymm1 * ymm4) + ymm0
+; KNL-NEXT:    vfmadd231pd {{.*#+}} ymm0 = (ymm1 * ymm5) + ymm0
+; KNL-NEXT:    vmulpd %ymm7, %ymm4, %ymm2
+; KNL-NEXT:    vfmadd213pd {{.*#+}} ymm2 = (ymm8 * ymm2) + ymm0
+; KNL-NEXT:    vmulpd %ymm7, %ymm5, %ymm0
+; KNL-NEXT:    vfmadd213pd {{.*#+}} ymm0 = (ymm8 * ymm0) + ymm2
+; KNL-NEXT:    vaddpd %ymm1, %ymm0, %ymm0
+; KNL-NEXT:    vfmadd231pd {{.*#+}} ymm0 = (ymm7 * ymm8) + ymm0
+; KNL-NEXT:    vmovapd %ymm0, {{.*}}(%rip)
+; KNL-NEXT:    retq
 entry:
   %load_a = load <4 x double>, <4 x double>* @a64x4, align 32
   %load_b = load <4 x double>, <4 x double>* @b64x4, align 32
@@ -408,15 +587,15 @@ entry:
 
 define void @func32x16() #1 {
 ; CHECK-LABEL: func32x16:
-; CHECK:       %bb.0: # %entry
+; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    vmovaps {{.*}}(%rip), %zmm0
 ; CHECK-NEXT:    vmovaps {{.*}}(%rip), %zmm1
 ; CHECK-NEXT:    vmovaps {{.*}}(%rip), %zmm2
 ; CHECK-NEXT:    vmulps {{.*}}(%rip), %zmm0, %zmm0
-; CHECK-NEXT:    vfmadd231ps {{.*}}(%rip), %zmm2, %zmm0
+; CHECK-NEXT:    vfmadd231ps {{.*#+}} zmm0 = (zmm2 * mem) + zmm0
 ; CHECK-NEXT:    vaddps {{.*}}(%rip), %zmm1, %zmm1
-; CHECK-NEXT:    vfmadd132ps {{.*}}(%rip), %zmm1, %zmm1
-; CHECK-NEXT:    vfmadd213ps %zmm0, %zmm0, %zmm1
+; CHECK-NEXT:    vfmadd132ps {{.*#+}} zmm1 = (zmm1 * mem) + zmm1
+; CHECK-NEXT:    vfmadd213ps {{.*#+}} zmm1 = (zmm0 * zmm1) + zmm0
 ; CHECK-NEXT:    vmovaps %zmm1, {{.*}}(%rip)
 ; CHECK-NEXT:    vzeroupper
 ; CHECK-NEXT:    retq
@@ -472,15 +651,15 @@ entry:
 
 define void @func64x8() #1 {
 ; CHECK-LABEL: func64x8:
-; CHECK:       %bb.0: # %entry
+; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    vmovapd {{.*}}(%rip), %zmm0
 ; CHECK-NEXT:    vmovapd {{.*}}(%rip), %zmm1
 ; CHECK-NEXT:    vmovapd {{.*}}(%rip), %zmm2
 ; CHECK-NEXT:    vmulpd {{.*}}(%rip), %zmm0, %zmm0
-; CHECK-NEXT:    vfmadd231pd {{.*}}(%rip), %zmm2, %zmm0
+; CHECK-NEXT:    vfmadd231pd {{.*#+}} zmm0 = (zmm2 * mem) + zmm0
 ; CHECK-NEXT:    vaddpd {{.*}}(%rip), %zmm1, %zmm1
-; CHECK-NEXT:    vfmadd132pd {{.*}}(%rip), %zmm1, %zmm1
-; CHECK-NEXT:    vfmadd213pd %zmm0, %zmm0, %zmm1
+; CHECK-NEXT:    vfmadd132pd {{.*#+}} zmm1 = (zmm1 * mem) + zmm1
+; CHECK-NEXT:    vfmadd213pd {{.*#+}} zmm1 = (zmm0 * zmm1) + zmm0
 ; CHECK-NEXT:    vmovapd %zmm1, {{.*}}(%rip)
 ; CHECK-NEXT:    vzeroupper
 ; CHECK-NEXT:    retq

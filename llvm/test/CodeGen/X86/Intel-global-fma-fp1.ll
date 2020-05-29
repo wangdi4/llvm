@@ -20,9 +20,11 @@
 
 ; RUN: llc < %s -verify-machineinstrs -mtriple=x86_64-unknown-unknown -mcpu=core-avx2 -fp-contract=fast -enable-unsafe-fp-math -enable-misched=0 -code-model=kernel | FileCheck --check-prefix=OTHER --check-prefix=AVX2OTHER %s
 ; RUN: llc < %s -verify-machineinstrs -mtriple=x86_64-unknown-unknown -mcpu=skx       -fp-contract=fast -enable-unsafe-fp-math -enable-misched=0 -code-model=kernel | FileCheck --check-prefix=OTHER --check-prefix=SKXOTHER %s
+; RUN: llc < %s -verify-machineinstrs -mtriple=x86_64-unknown-unknown -mcpu=knl       -fp-contract=fast -enable-unsafe-fp-math -enable-misched=0 -code-model=kernel | FileCheck --check-prefix=OTHER --check-prefix=KNLOTHER %s
 
 ; RUN: llc < %s -verify-machineinstrs -mtriple=i686-unknown-unknown -mcpu=core-avx2 -fp-contract=fast -enable-unsafe-fp-math -enable-misched=0 -code-model=kernel | FileCheck --check-prefix=X86OTHER --check-prefix=X86AVX2OTHER %s
 ; RUN: llc < %s -verify-machineinstrs -mtriple=i686-unknown-unknown -mcpu=skx       -fp-contract=fast -enable-unsafe-fp-math -enable-misched=0 -code-model=kernel | FileCheck --check-prefix=X86OTHER --check-prefix=X86SKXOTHER %s
+; RUN: llc < %s -verify-machineinstrs -mtriple=i686-unknown-unknown -mcpu=knl       -fp-contract=fast -enable-unsafe-fp-math -enable-misched=0 -code-model=kernel | FileCheck --check-prefix=X86OTHER --check-prefix=X86KNLOTHER %s
 
 attributes #0 = { nounwind }
 
