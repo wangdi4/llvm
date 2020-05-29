@@ -383,6 +383,10 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "active-lane";
   case VPInstruction::ActiveLaneExtract:
     return "lane-extract";
+  case VPInstruction::ReuseLoop:
+    return "re-use-loop";
+  case VPInstruction::OrigLiveOut:
+    return "orig-live-out";
 #endif
   default:
     return Instruction::getOpcodeName(Opcode);
@@ -514,6 +518,16 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
   default:
     O << getOpcodeName(getOpcode());
   }
+  if (auto *ReuseLoop = dyn_cast<VPReuseLoop>(this)) {
+    ReuseLoop->print(O);
+    return;
+  }
+
+  if (auto *LiveOut = dyn_cast<VPOrigLiveOut>(this)) {
+    LiveOut->print(O);
+    return;
+  }
+
   if (getOpcode() == VPInstruction::OrigTripCountCalculation) {
     auto *Self = cast<VPOrigTripCountCalculation>(this);
     O << " for original loop " << Self->getOrigLoop()->getName();
@@ -1186,6 +1200,10 @@ void VPValue::invalidateUnderlyingIR() {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPValue::printAsOperand(raw_ostream &OS) const {
+  if (getType()->isLabelTy()) {
+    OS << "label " << cast<VPBasicBlock>(this)->getName();
+    return;
+  }
   if (EnableNames && !Name.empty())
     // There is no interface to enforce uniqueness of the names, so continue
     // using the pointer-based name for the suffix.
