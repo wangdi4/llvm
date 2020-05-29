@@ -21,15 +21,10 @@ namespace llvm {
 namespace vpo {    
 
 class VPBuilder {
-#if INTEL_CUSTOMIZATION
 protected:
-#else
-private:
-#endif
   VPBasicBlock *BB = nullptr;
   VPBasicBlock::iterator InsertPt = VPBasicBlock::iterator();
 
-#if INTEL_CUSTOMIZATION
   VPInstruction *createInstruction(unsigned Opcode, Type *BaseTy,
                                    ArrayRef<VPValue *> Operands,
                                    const Twine &Name = "") {
@@ -50,18 +45,9 @@ private:
     return createInstruction(Opcode, BaseTy, ArrayRef<VPValue *>(Operands));
   }
 
-#else
-  VPInstruction *createInstruction(unsigned Opcode,
-                                   std::initializer_list<VPValue *> Operands) {
-    VPInstruction *Instr = new VPInstruction(Opcode, Operands);
-    BB->insert(Instr, InsertPt);
-    return Instr;
-  }
-#endif //INTEL_CUSTOMIZATION
-
 public:
   VPBuilder() {}
-#if INTEL_CUSTOMIZATION
+
   /// Clear the insertion point: created instructions will not be
   /// inserted into a block.
   void clearInsertionPoint() {
@@ -105,7 +91,6 @@ public:
     else
       clearInsertionPoint();
   }
-#endif
 
   /// This specifies that created VPInstructions should be appended to the end
   /// of the specified block.
@@ -114,7 +99,7 @@ public:
     BB = TheBB;
     InsertPt = BB->end();
   }
-#if INTEL_CUSTOMIZATION
+
   /// This specifies that created instructions should be inserted
   /// before the specified instruction.
   void setInsertPoint(VPInstruction *I) {
@@ -198,22 +183,7 @@ public:
     return createInstruction(Instruction::Select, Tval->getType(),
                              {Mask, Tval, Fval}, Name);
   }
-#else
 
-  VPValue *createNot(VPValue *Operand) {
-    return createInstruction(VPInstruction::Not, {Operand});
-  }
-
-  VPValue *createAnd(VPValue *LHS, VPValue *RHS) {
-    return createInstruction(Instruction::BinaryOps::And, {LHS, RHS});
-  }
-
-  VPValue *createOr(VPValue *LHS, VPValue *RHS) {
-    return createInstruction(Instruction::BinaryOps::Or, {LHS, RHS});
-  }
-#endif //INTEL_CUSTOMIZATION
-
-#if INTEL_CUSTOMIZATION
   // Create a VPCmpInst with \p LeftOp and \p RightOp as operands, and \p CI's
   // predicate as predicate. \p CI is also set as underlying Instruction.
   VPCmpInst *createCmpInst(VPValue *LeftOp, VPValue *RightOp, CmpInst *CI) {
@@ -496,7 +466,6 @@ public:
       Builder.restoreIP(VPInsertPoint(Block, Point));
     }
   };
-#endif // INTEL_CUSTOMIZATION
 };
 
 } // namespace vpo
