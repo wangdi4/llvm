@@ -2090,6 +2090,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
     }
 
     if (RunLoopOpts == LoopOptMode::Full) {
+      PM.add(createHIRConditionalLoadStoreMotionPass());
       PM.add(createHIRLMMPass());
       if (SizeLevel == 0)
         PM.add(createHIRMemoryReductionSinkingPass());

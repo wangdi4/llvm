@@ -277,6 +277,15 @@ unsigned VPlanCostModel::getArithmeticInstructionCost(const unsigned Opcode,
     return UnknownCost;
   Type *VecTy = getVectorizedType(ScalarTy, VF);
 
+  auto IsPowerOf2 = [](const VPValue *Val) -> bool {
+    if (const VPConstant *VPConst = dyn_cast<VPConstant>(Val))
+      if (const ConstantInt *IntConst =
+            dyn_cast<ConstantInt>(VPConst->getConstant()))
+        if (IntConst->getValue().isPowerOf2())
+          return true;
+    return false;
+  };
+
   TargetTransformInfo::OperandValueKind Op1VK =
     TargetTransformInfo::OK_AnyValue;
   TargetTransformInfo::OperandValueKind Op2VK =
@@ -285,6 +294,16 @@ unsigned VPlanCostModel::getArithmeticInstructionCost(const unsigned Opcode,
     TargetTransformInfo::OP_None;
   TargetTransformInfo::OperandValueProperties Op2VP =
     TargetTransformInfo::OP_None;
+
+  if (IsPowerOf2(Op1)) {
+    Op1VP = TargetTransformInfo::OP_PowerOf2;
+    Op1VK = TargetTransformInfo::OK_UniformConstantValue;
+  }
+
+  if (Op2 && IsPowerOf2(Op2)) {
+    Op2VP = TargetTransformInfo::OP_PowerOf2;
+    Op2VK = TargetTransformInfo::OK_UniformConstantValue;
+  }
 
   return TTI->getArithmeticInstrCost(Opcode, VecTy, TTI::TCK_RecipThroughput,
                                      Op1VK, Op2VK, Op1VP, Op2VP);
@@ -388,12 +407,6 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
       Opcode, VPInst->getOperand(0), VPInst->getOperand(1),
       VPInst->getCMType(), VF);
   case VPInstruction::Not: // Treat same as Xor.
-    // TODO: More precise kinds/properties for VPConstants. However, we'd need
-    // to distinguish
-    //   <i32 1, i32 1, i32 1, i32 1>
-    // from
-    //   <i32 1, i32 2, i32 3, i32 4>
-    // that would have had the same underlying llvm::Constant (i32 1).
     return getArithmeticInstructionCost(
       Instruction::Xor, VPInst->getOperand(0), nullptr,
       VPInst->getCMType(), VF);

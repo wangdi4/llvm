@@ -263,6 +263,7 @@
 // Transformation passes
 #include "llvm/Transforms/Intel_LoopTransforms/HIRAosToSoaPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRArrayTransposePass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRConditionalLoadStoreMotion.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRConditionalTempSinkingPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRDeadStoreEliminationPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRGeneralUnrollPass.h"
