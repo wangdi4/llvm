@@ -141,6 +141,12 @@ if(TARGET LLVMgold)
   set(LLVM_TEST_DEPENDS ${LLVM_TEST_DEPENDS} LLVMgold)
 endif()
 
+if(INTEL_CUSTOMIZATION)
+  if(TARGET icx-lto)
+    set(LLVM_TEST_DEPENDS ${LLVM_TEST_DEPENDS} icx-lto)
+  endif()
+endif(INTEL_CUSTOMIZATION)
+
 if(TARGET llvm-go)
   set(LLVM_TEST_DEPENDS ${LLVM_TEST_DEPENDS} llvm-go)
 endif()

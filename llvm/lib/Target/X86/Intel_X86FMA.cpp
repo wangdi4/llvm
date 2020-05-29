@@ -1352,30 +1352,32 @@ unsigned X86GlobalFMA::createConstOneFromImm(MVT VT,
 
   // Put GPReg to XMM.
   unsigned R128 = MRI->createVirtualRegister(&X86::VR128RegClass);
-  if (IsF32 || !ST->is64Bit()) {
+  if (IsF32 || F64viaGPReg32) {
     Opc = HasAVX512 ? X86::VMOVDI2PDIZrr : X86::VMOVDI2PDIrr;
     BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(Opc), R128)
         .addReg(GPReg, RegState::Kill);
   } else {
-    Opc = HasAVX512 ? X86::VMOVDI2PDIZrr : X86::VMOVDI2PDIrr;
+    Opc = HasAVX512 ? X86::VMOV64toPQIZrr : X86::VMOV64toPQIrr;
     BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(Opc), R128)
         .addReg(GPReg, RegState::Kill);
   }
 
   // Fix the value in XMM if it is an F64 copied to XMM as 32-bit value.
-  if (!IsF32 && !ST->is64Bit()) {
+  if (F64viaGPReg32) {
     R = MRI->createVirtualRegister(&X86::VR128RegClass);
     // If the result is a vector, then copy the lowest 32-bit element
     // R128[31:0] to R[63:31] and R[127:96]; copy 0 to other elements.
     // Otherwise, swap 2 elements in R128: R128[31:0] and R128[63:32].
     unsigned Imm8 = VTBitSize >= 128 ? 0x11 : 0xE1;
-    Opc = HasAVX512 ? X86::VPERMILPSZ128rr : X86::VPERMILPSrr;
+    Opc = HasAVX512 ? X86::VPERMILPSZ128ri : X86::VPERMILPSri;
     BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(Opc), R)
         .addReg(R128, RegState::Kill).addImm(Imm8);
 
     // For scalar and 128-bit vector types the result is ready.
     if (VT.getSizeInBits() <= 128)
       return R;
+
+    R128 = R;
   }
 
   // Broadcast the lowest element of the XMM to the bigger vector register.
@@ -1387,11 +1389,9 @@ unsigned X86GlobalFMA::createConstOneFromImm(MVT VT,
     break;
   case 128:
     R = MRI->createVirtualRegister(&X86::VR128RegClass);
-    Opc = IsF32 ? X86::VBROADCASTSSrr : X86::VUNPCKLPDrr;
+    Opc = IsF32 ? X86::VBROADCASTSSrr : X86::VMOVDDUPrr;
     MIB = BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(Opc), R);
     MIB.addReg(R128, RegState::Kill);
-    if (!IsF32)
-      MIB.addReg(R128);
     break;
   case 256:
     R = MRI->createVirtualRegister(&X86::VR256RegClass);
@@ -1421,11 +1421,11 @@ unsigned X86GlobalFMA::createConstOne(MVT VT, MachineInstr *InsertPointMI) {
   Type *Ty;
   switch (VT.SimpleTy) {
   case MVT::f32:
-    Opc = HasAVX512 ? X86::VMOVSSZrm : X86::VMOVSSrm;
+    Opc = HasAVX512 ? X86::VMOVSSZrm_alt : X86::VMOVSSrm_alt;
     Ty = Type::getFloatTy(Context);
     break;
   case MVT::f64:
-    Opc = HasAVX512 ? X86::VMOVSDZrm : X86::VMOVSDrm;
+    Opc = HasAVX512 ? X86::VMOVSDZrm_alt : X86::VMOVSDrm_alt;
     Ty = Type::getDoubleTy(Context);
     break;
   case MVT::v4f32:

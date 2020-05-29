@@ -2,7 +2,7 @@
 ; wmain.
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: %gold -shared -plugin %llvmshlibdir/LLVMgold%shlibext \
+; RUN: %gold -shared -plugin %llvmshlibdir/icx-lto%shlibext \
 ; RUN:    -plugin-opt=O3 \
 ; RUN:    -plugin-opt=-whole-program-assume \
 ; RUN:    -plugin-opt=-print-after-all  \

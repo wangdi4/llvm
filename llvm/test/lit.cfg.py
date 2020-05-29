@@ -274,7 +274,12 @@ import subprocess
 def have_ld_plugin_support():
     if not os.path.exists(os.path.join(config.llvm_shlib_dir, 'LLVMgold' + config.llvm_shlib_ext)):
         return False
-
+# INTEL_CUSTOMIZATION
+# Community tests use LLVMgold, Intel tests use icx-lto,
+# so they both should be present to enable ld_plugin feature.
+    if not os.path.exists(os.path.join(config.llvm_shlib_dir, 'icx-lto' + config.llvm_shlib_ext)):
+        return False
+# end INTEL_CUSTOMIZATION
     ld_cmd = subprocess.Popen(
         [config.gold_executable, '--help'], stdout=subprocess.PIPE, env={'LANG': 'C'})
     ld_out = ld_cmd.stdout.read().decode()

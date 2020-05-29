@@ -5,7 +5,7 @@
 ; RUN: llvm-as %s -o %t.bc
 ; RUN: llc %p/Inputs/whole_program_read_trace_5_sub.ll -o %t2.o \
 ; RUN:     -filetype=obj
-; RUN: %gold -shared -plugin %llvmshlibdir/LLVMgold%shlibext \
+; RUN: %gold -shared -plugin %llvmshlibdir/icx-lto%shlibext \
 ; RUN:    -plugin-opt=O3 \
 ; RUN:    -plugin-opt=-debug-only=whole-program-analysis \
 ; RUN:    -plugin-opt=-whole-program-read-trace %t.bc -o %t %t2.o \
