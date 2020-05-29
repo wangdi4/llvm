@@ -54,8 +54,7 @@ define float @test_ss(float %a32, float %b32, float %c32, float %d32) #0 {
 ; X86OTHER:       # %bb.0: # %entry
 ; X86OTHER-NEXT:    pushl %eax
 ; X86OTHER-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
-; X86OTHER-NEXT:    movl $1065353216, %eax # imm = 0x3F800000
-; X86OTHER-NEXT:    vmovd %eax, %xmm1
+; X86OTHER-NEXT:    vmovss {{.*#+}} xmm1 = mem[0],zero,zero,zero
 ; X86OTHER-NEXT:    vfmadd231ss {{.*#+}} xmm1 = (xmm0 * mem) + xmm1
 ; X86OTHER-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
 ; X86OTHER-NEXT:    vfmadd231ss {{.*#+}} xmm0 = (xmm1 * mem) + xmm0
@@ -100,9 +99,7 @@ define double @test_sd(double %a64, double %b64, double %c64, double %d64) #0 {
 ; X86OTHER-NEXT:    andl $-8, %esp
 ; X86OTHER-NEXT:    subl $8, %esp
 ; X86OTHER-NEXT:    vmovsd {{.*#+}} xmm0 = mem[0],zero
-; X86OTHER-NEXT:    movl $1072693248, %eax # imm = 0x3FF00000
-; X86OTHER-NEXT:    vmovd %eax, %xmm1
-; X86OTHER-NEXT:    vpshufd {{.*#+}} xmm1 = xmm1[1,0,2,3]
+; X86OTHER-NEXT:    vmovsd {{.*#+}} xmm1 = mem[0],zero
 ; X86OTHER-NEXT:    vfmadd231sd {{.*#+}} xmm1 = (xmm0 * mem) + xmm1
 ; X86OTHER-NEXT:    vmovsd {{.*#+}} xmm0 = mem[0],zero
 ; X86OTHER-NEXT:    vfmadd231sd {{.*#+}} xmm0 = (xmm1 * mem) + xmm0
@@ -158,48 +155,17 @@ define <4 x float> @test_ps(<4 x float> %a32, <4 x float> %b32, <4 x float> %c32
 ; KNLOTHER-NEXT:    vfmadd213ps {{.*#+}} xmm0 = (xmm3 * xmm0) + xmm1
 ; KNLOTHER-NEXT:    retq
 ;
-; X86AVX2OTHER-LABEL: test_ps:
-; X86AVX2OTHER:       # %bb.0: # %entry
-; X86AVX2OTHER-NEXT:    pushl %ebp
-; X86AVX2OTHER-NEXT:    movl %esp, %ebp
-; X86AVX2OTHER-NEXT:    andl $-16, %esp
-; X86AVX2OTHER-NEXT:    subl $16, %esp
-; X86AVX2OTHER-NEXT:    movl $1065353216, %eax # imm = 0x3F800000
-; X86AVX2OTHER-NEXT:    vmovd %eax, %xmm3
-; X86AVX2OTHER-NEXT:    vpbroadcastd %xmm3, %xmm3
-; X86AVX2OTHER-NEXT:    vfmadd213ps {{.*#+}} xmm0 = (xmm2 * xmm0) + xmm3
-; X86AVX2OTHER-NEXT:    vfmadd132ps {{.*#+}} xmm0 = (xmm0 * mem) + xmm1
-; X86AVX2OTHER-NEXT:    movl %ebp, %esp
-; X86AVX2OTHER-NEXT:    popl %ebp
-; X86AVX2OTHER-NEXT:    retl
-;
-; X86SKXOTHER-LABEL: test_ps:
-; X86SKXOTHER:       # %bb.0: # %entry
-; X86SKXOTHER-NEXT:    pushl %ebp
-; X86SKXOTHER-NEXT:    movl %esp, %ebp
-; X86SKXOTHER-NEXT:    andl $-16, %esp
-; X86SKXOTHER-NEXT:    subl $16, %esp
-; X86SKXOTHER-NEXT:    movl $1065353216, %eax # imm = 0x3F800000
-; X86SKXOTHER-NEXT:    vpbroadcastd %eax, %xmm3
-; X86SKXOTHER-NEXT:    vfmadd213ps {{.*#+}} xmm0 = (xmm2 * xmm0) + xmm3
-; X86SKXOTHER-NEXT:    vfmadd132ps {{.*#+}} xmm0 = (xmm0 * mem) + xmm1
-; X86SKXOTHER-NEXT:    movl %ebp, %esp
-; X86SKXOTHER-NEXT:    popl %ebp
-; X86SKXOTHER-NEXT:    retl
-;
-; X86KNLOTHER-LABEL: test_ps:
-; X86KNLOTHER:       # %bb.0: # %entry
-; X86KNLOTHER-NEXT:    pushl %ebp
-; X86KNLOTHER-NEXT:    movl %esp, %ebp
-; X86KNLOTHER-NEXT:    andl $-16, %esp
-; X86KNLOTHER-NEXT:    subl $16, %esp
-; X86KNLOTHER-NEXT:    movl $1065353216, %eax # imm = 0x3F800000
-; X86KNLOTHER-NEXT:    vpbroadcastd %eax, %zmm3
-; X86KNLOTHER-NEXT:    vfmadd213ps {{.*#+}} xmm0 = (xmm2 * xmm0) + xmm3
-; X86KNLOTHER-NEXT:    vfmadd132ps {{.*#+}} xmm0 = (xmm0 * mem) + xmm1
-; X86KNLOTHER-NEXT:    movl %ebp, %esp
-; X86KNLOTHER-NEXT:    popl %ebp
-; X86KNLOTHER-NEXT:    retl
+; X86OTHER-LABEL: test_ps:
+; X86OTHER:       # %bb.0: # %entry
+; X86OTHER-NEXT:    pushl %ebp
+; X86OTHER-NEXT:    movl %esp, %ebp
+; X86OTHER-NEXT:    andl $-16, %esp
+; X86OTHER-NEXT:    subl $16, %esp
+; X86OTHER-NEXT:    vfmadd213ps {{.*#+}} xmm0 = (xmm2 * xmm0) + mem
+; X86OTHER-NEXT:    vfmadd132ps {{.*#+}} xmm0 = (xmm0 * mem) + xmm1
+; X86OTHER-NEXT:    movl %ebp, %esp
+; X86OTHER-NEXT:    popl %ebp
+; X86OTHER-NEXT:    retl
 entry:
   %mul = fmul fast <4 x float> %a32, %d32
   %mul1 = fmul fast <4 x float> %mul, %c32
@@ -247,50 +213,17 @@ define <2 x double> @test_pd(<2 x double> %a32, <2 x double> %b32, <2 x double> 
 ; KNLOTHER-NEXT:    vfmadd213pd {{.*#+}} xmm0 = (xmm3 * xmm0) + xmm1
 ; KNLOTHER-NEXT:    retq
 ;
-; X86AVX2OTHER-LABEL: test_pd:
-; X86AVX2OTHER:       # %bb.0: # %entry
-; X86AVX2OTHER-NEXT:    pushl %ebp
-; X86AVX2OTHER-NEXT:    movl %esp, %ebp
-; X86AVX2OTHER-NEXT:    andl $-16, %esp
-; X86AVX2OTHER-NEXT:    subl $16, %esp
-; X86AVX2OTHER-NEXT:    movl $1072693248, %eax # imm = 0x3FF00000
-; X86AVX2OTHER-NEXT:    vmovd %eax, %xmm3
-; X86AVX2OTHER-NEXT:    vpshufd {{.*#+}} xmm3 = xmm3[1,0,1,0]
-; X86AVX2OTHER-NEXT:    vfmadd213pd {{.*#+}} xmm0 = (xmm2 * xmm0) + xmm3
-; X86AVX2OTHER-NEXT:    vfmadd132pd {{.*#+}} xmm0 = (xmm0 * mem) + xmm1
-; X86AVX2OTHER-NEXT:    movl %ebp, %esp
-; X86AVX2OTHER-NEXT:    popl %ebp
-; X86AVX2OTHER-NEXT:    retl
-;
-; X86SKXOTHER-LABEL: test_pd:
-; X86SKXOTHER:       # %bb.0: # %entry
-; X86SKXOTHER-NEXT:    pushl %ebp
-; X86SKXOTHER-NEXT:    movl %esp, %ebp
-; X86SKXOTHER-NEXT:    andl $-16, %esp
-; X86SKXOTHER-NEXT:    subl $16, %esp
-; X86SKXOTHER-NEXT:    movl $1072693248, %eax # imm = 0x3FF00000
-; X86SKXOTHER-NEXT:    vpbroadcastd %eax, %xmm3
-; X86SKXOTHER-NEXT:    vpsllq $32, %xmm3, %xmm3
-; X86SKXOTHER-NEXT:    vfmadd213pd {{.*#+}} xmm0 = (xmm2 * xmm0) + xmm3
-; X86SKXOTHER-NEXT:    vfmadd132pd {{.*#+}} xmm0 = (xmm0 * mem) + xmm1
-; X86SKXOTHER-NEXT:    movl %ebp, %esp
-; X86SKXOTHER-NEXT:    popl %ebp
-; X86SKXOTHER-NEXT:    retl
-;
-; X86KNLOTHER-LABEL: test_pd:
-; X86KNLOTHER:       # %bb.0: # %entry
-; X86KNLOTHER-NEXT:    pushl %ebp
-; X86KNLOTHER-NEXT:    movl %esp, %ebp
-; X86KNLOTHER-NEXT:    andl $-16, %esp
-; X86KNLOTHER-NEXT:    subl $16, %esp
-; X86KNLOTHER-NEXT:    movl $1072693248, %eax # imm = 0x3FF00000
-; X86KNLOTHER-NEXT:    vpbroadcastd %eax, %zmm3
-; X86KNLOTHER-NEXT:    vpsllq $32, %zmm3, %zmm3
-; X86KNLOTHER-NEXT:    vfmadd213pd {{.*#+}} xmm0 = (xmm2 * xmm0) + xmm3
-; X86KNLOTHER-NEXT:    vfmadd132pd {{.*#+}} xmm0 = (xmm0 * mem) + xmm1
-; X86KNLOTHER-NEXT:    movl %ebp, %esp
-; X86KNLOTHER-NEXT:    popl %ebp
-; X86KNLOTHER-NEXT:    retl
+; X86OTHER-LABEL: test_pd:
+; X86OTHER:       # %bb.0: # %entry
+; X86OTHER-NEXT:    pushl %ebp
+; X86OTHER-NEXT:    movl %esp, %ebp
+; X86OTHER-NEXT:    andl $-16, %esp
+; X86OTHER-NEXT:    subl $16, %esp
+; X86OTHER-NEXT:    vfmadd213pd {{.*#+}} xmm0 = (xmm2 * xmm0) + mem
+; X86OTHER-NEXT:    vfmadd132pd {{.*#+}} xmm0 = (xmm0 * mem) + xmm1
+; X86OTHER-NEXT:    movl %ebp, %esp
+; X86OTHER-NEXT:    popl %ebp
+; X86OTHER-NEXT:    retl
 entry:
   %mul = fmul fast <2 x double> %a32, %d32
   %mul1 = fmul fast <2 x double> %mul, %c32
@@ -338,48 +271,17 @@ define <8 x float> @test_ps256(<8 x float> %a32, <8 x float> %b32, <8 x float> %
 ; KNLOTHER-NEXT:    vfmadd213ps {{.*#+}} ymm0 = (ymm3 * ymm0) + ymm1
 ; KNLOTHER-NEXT:    retq
 ;
-; X86AVX2OTHER-LABEL: test_ps256:
-; X86AVX2OTHER:       # %bb.0: # %entry
-; X86AVX2OTHER-NEXT:    pushl %ebp
-; X86AVX2OTHER-NEXT:    movl %esp, %ebp
-; X86AVX2OTHER-NEXT:    andl $-32, %esp
-; X86AVX2OTHER-NEXT:    subl $32, %esp
-; X86AVX2OTHER-NEXT:    movl $1065353216, %eax # imm = 0x3F800000
-; X86AVX2OTHER-NEXT:    vmovd %eax, %xmm3
-; X86AVX2OTHER-NEXT:    vpbroadcastd %xmm3, %ymm3
-; X86AVX2OTHER-NEXT:    vfmadd213ps {{.*#+}} ymm0 = (ymm2 * ymm0) + ymm3
-; X86AVX2OTHER-NEXT:    vfmadd132ps {{.*#+}} ymm0 = (ymm0 * mem) + ymm1
-; X86AVX2OTHER-NEXT:    movl %ebp, %esp
-; X86AVX2OTHER-NEXT:    popl %ebp
-; X86AVX2OTHER-NEXT:    retl
-;
-; X86SKXOTHER-LABEL: test_ps256:
-; X86SKXOTHER:       # %bb.0: # %entry
-; X86SKXOTHER-NEXT:    pushl %ebp
-; X86SKXOTHER-NEXT:    movl %esp, %ebp
-; X86SKXOTHER-NEXT:    andl $-32, %esp
-; X86SKXOTHER-NEXT:    subl $32, %esp
-; X86SKXOTHER-NEXT:    movl $1065353216, %eax # imm = 0x3F800000
-; X86SKXOTHER-NEXT:    vpbroadcastd %eax, %ymm3
-; X86SKXOTHER-NEXT:    vfmadd213ps {{.*#+}} ymm0 = (ymm2 * ymm0) + ymm3
-; X86SKXOTHER-NEXT:    vfmadd132ps {{.*#+}} ymm0 = (ymm0 * mem) + ymm1
-; X86SKXOTHER-NEXT:    movl %ebp, %esp
-; X86SKXOTHER-NEXT:    popl %ebp
-; X86SKXOTHER-NEXT:    retl
-;
-; X86KNLOTHER-LABEL: test_ps256:
-; X86KNLOTHER:       # %bb.0: # %entry
-; X86KNLOTHER-NEXT:    pushl %ebp
-; X86KNLOTHER-NEXT:    movl %esp, %ebp
-; X86KNLOTHER-NEXT:    andl $-32, %esp
-; X86KNLOTHER-NEXT:    subl $32, %esp
-; X86KNLOTHER-NEXT:    movl $1065353216, %eax # imm = 0x3F800000
-; X86KNLOTHER-NEXT:    vpbroadcastd %eax, %zmm3
-; X86KNLOTHER-NEXT:    vfmadd213ps {{.*#+}} ymm0 = (ymm2 * ymm0) + ymm3
-; X86KNLOTHER-NEXT:    vfmadd132ps {{.*#+}} ymm0 = (ymm0 * mem) + ymm1
-; X86KNLOTHER-NEXT:    movl %ebp, %esp
-; X86KNLOTHER-NEXT:    popl %ebp
-; X86KNLOTHER-NEXT:    retl
+; X86OTHER-LABEL: test_ps256:
+; X86OTHER:       # %bb.0: # %entry
+; X86OTHER-NEXT:    pushl %ebp
+; X86OTHER-NEXT:    movl %esp, %ebp
+; X86OTHER-NEXT:    andl $-32, %esp
+; X86OTHER-NEXT:    subl $32, %esp
+; X86OTHER-NEXT:    vfmadd213ps {{.*#+}} ymm0 = (ymm2 * ymm0) + mem
+; X86OTHER-NEXT:    vfmadd132ps {{.*#+}} ymm0 = (ymm0 * mem) + ymm1
+; X86OTHER-NEXT:    movl %ebp, %esp
+; X86OTHER-NEXT:    popl %ebp
+; X86OTHER-NEXT:    retl
 entry:
   %mul = fmul fast <8 x float> %a32, %d32
   %mul1 = fmul fast <8 x float> %mul, %c32
@@ -427,51 +329,17 @@ define <4 x double> @test_pd256(<4 x double> %a32, <4 x double> %b32, <4 x doubl
 ; KNLOTHER-NEXT:    vfmadd213pd {{.*#+}} ymm0 = (ymm3 * ymm0) + ymm1
 ; KNLOTHER-NEXT:    retq
 ;
-; X86AVX2OTHER-LABEL: test_pd256:
-; X86AVX2OTHER:       # %bb.0: # %entry
-; X86AVX2OTHER-NEXT:    pushl %ebp
-; X86AVX2OTHER-NEXT:    movl %esp, %ebp
-; X86AVX2OTHER-NEXT:    andl $-32, %esp
-; X86AVX2OTHER-NEXT:    subl $32, %esp
-; X86AVX2OTHER-NEXT:    movl $1072693248, %eax # imm = 0x3FF00000
-; X86AVX2OTHER-NEXT:    vmovd %eax, %xmm3
-; X86AVX2OTHER-NEXT:    vpshufd {{.*#+}} xmm3 = xmm3[1,0,1,0]
-; X86AVX2OTHER-NEXT:    vpbroadcastq %xmm3, %ymm3
-; X86AVX2OTHER-NEXT:    vfmadd213pd {{.*#+}} ymm0 = (ymm2 * ymm0) + ymm3
-; X86AVX2OTHER-NEXT:    vfmadd132pd {{.*#+}} ymm0 = (ymm0 * mem) + ymm1
-; X86AVX2OTHER-NEXT:    movl %ebp, %esp
-; X86AVX2OTHER-NEXT:    popl %ebp
-; X86AVX2OTHER-NEXT:    retl
-;
-; X86SKXOTHER-LABEL: test_pd256:
-; X86SKXOTHER:       # %bb.0: # %entry
-; X86SKXOTHER-NEXT:    pushl %ebp
-; X86SKXOTHER-NEXT:    movl %esp, %ebp
-; X86SKXOTHER-NEXT:    andl $-32, %esp
-; X86SKXOTHER-NEXT:    subl $32, %esp
-; X86SKXOTHER-NEXT:    movl $1072693248, %eax # imm = 0x3FF00000
-; X86SKXOTHER-NEXT:    vpbroadcastd %eax, %ymm3
-; X86SKXOTHER-NEXT:    vpsllq $32, %ymm3, %ymm3
-; X86SKXOTHER-NEXT:    vfmadd213pd {{.*#+}} ymm0 = (ymm2 * ymm0) + ymm3
-; X86SKXOTHER-NEXT:    vfmadd132pd {{.*#+}} ymm0 = (ymm0 * mem) + ymm1
-; X86SKXOTHER-NEXT:    movl %ebp, %esp
-; X86SKXOTHER-NEXT:    popl %ebp
-; X86SKXOTHER-NEXT:    retl
-;
-; X86KNLOTHER-LABEL: test_pd256:
-; X86KNLOTHER:       # %bb.0: # %entry
-; X86KNLOTHER-NEXT:    pushl %ebp
-; X86KNLOTHER-NEXT:    movl %esp, %ebp
-; X86KNLOTHER-NEXT:    andl $-32, %esp
-; X86KNLOTHER-NEXT:    subl $32, %esp
-; X86KNLOTHER-NEXT:    movl $1072693248, %eax # imm = 0x3FF00000
-; X86KNLOTHER-NEXT:    vpbroadcastd %eax, %zmm3
-; X86KNLOTHER-NEXT:    vpsllq $32, %zmm3, %zmm3
-; X86KNLOTHER-NEXT:    vfmadd213pd {{.*#+}} ymm0 = (ymm2 * ymm0) + ymm3
-; X86KNLOTHER-NEXT:    vfmadd132pd {{.*#+}} ymm0 = (ymm0 * mem) + ymm1
-; X86KNLOTHER-NEXT:    movl %ebp, %esp
-; X86KNLOTHER-NEXT:    popl %ebp
-; X86KNLOTHER-NEXT:    retl
+; X86OTHER-LABEL: test_pd256:
+; X86OTHER:       # %bb.0: # %entry
+; X86OTHER-NEXT:    pushl %ebp
+; X86OTHER-NEXT:    movl %esp, %ebp
+; X86OTHER-NEXT:    andl $-32, %esp
+; X86OTHER-NEXT:    subl $32, %esp
+; X86OTHER-NEXT:    vfmadd213pd {{.*#+}} ymm0 = (ymm2 * ymm0) + mem
+; X86OTHER-NEXT:    vfmadd132pd {{.*#+}} ymm0 = (ymm0 * mem) + ymm1
+; X86OTHER-NEXT:    movl %ebp, %esp
+; X86OTHER-NEXT:    popl %ebp
+; X86OTHER-NEXT:    retl
 entry:
   %mul = fmul fast <4 x double> %a32, %d32
   %mul1 = fmul fast <4 x double> %mul, %c32
@@ -510,9 +378,7 @@ define <16 x float> @test_ps512(<16 x float> %a32, <16 x float> %b32, <16 x floa
 ; X86OTHER-NEXT:    movl %esp, %ebp
 ; X86OTHER-NEXT:    andl $-64, %esp
 ; X86OTHER-NEXT:    subl $64, %esp
-; X86OTHER-NEXT:    movl $1065353216, %eax # imm = 0x3F800000
-; X86OTHER-NEXT:    vpbroadcastd %eax, %zmm3
-; X86OTHER-NEXT:    vfmadd213ps {{.*#+}} zmm0 = (zmm2 * zmm0) + zmm3
+; X86OTHER-NEXT:    vfmadd213ps {{.*#+}} zmm0 = (zmm2 * zmm0) + mem
 ; X86OTHER-NEXT:    vfmadd132ps {{.*#+}} zmm0 = (zmm0 * mem) + zmm1
 ; X86OTHER-NEXT:    movl %ebp, %esp
 ; X86OTHER-NEXT:    popl %ebp
@@ -553,10 +419,7 @@ define <8 x double> @test_pd512(<8 x double> %a32, <8 x double> %b32, <8 x doubl
 ; X86OTHER-NEXT:    movl %esp, %ebp
 ; X86OTHER-NEXT:    andl $-64, %esp
 ; X86OTHER-NEXT:    subl $64, %esp
-; X86OTHER-NEXT:    movl $1072693248, %eax # imm = 0x3FF00000
-; X86OTHER-NEXT:    vpbroadcastd %eax, %zmm3
-; X86OTHER-NEXT:    vpsllq $32, %zmm3, %zmm3
-; X86OTHER-NEXT:    vfmadd213pd {{.*#+}} zmm0 = (zmm2 * zmm0) + zmm3
+; X86OTHER-NEXT:    vfmadd213pd {{.*#+}} zmm0 = (zmm2 * zmm0) + mem
 ; X86OTHER-NEXT:    vfmadd132pd {{.*#+}} zmm0 = (zmm0 * mem) + zmm1
 ; X86OTHER-NEXT:    movl %ebp, %esp
 ; X86OTHER-NEXT:    popl %ebp

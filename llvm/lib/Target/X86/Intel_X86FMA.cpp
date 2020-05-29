@@ -1279,13 +1279,13 @@ X86GlobalFMA::selectBroadcastFromGPR(unsigned VecBitSize, unsigned ElemBitSize,
 
 unsigned X86GlobalFMA::createConstOneFromImm(MVT VT,
                                              MachineInstr *InsertPointMI) {
+  assert(ST->is64Bit() && "32-bit should always use constant pool!");
   const DebugLoc &DbgLoc = InsertPointMI->getDebugLoc();
   MachineBasicBlock *MBB = InsertPointMI->getParent();
   unsigned Opc;
 
   MVT ElementType = VT.isVector() ? VT.getVectorElementType() : VT;
   bool IsF32 = ElementType == MVT::f32;
-  bool F64viaGPReg32 = !IsF32 && !ST->is64Bit();
   unsigned GPReg;
   unsigned R;
   uint64_t Imm;
@@ -1296,7 +1296,7 @@ unsigned X86GlobalFMA::createConstOneFromImm(MVT VT,
   // the upper 32-bits of fp64 1.0 are loaded to 32-bit GPR register. Such
   // solution would require additional shift left or permute operation
   // on the destination vector register.
-  if (IsF32 || F64viaGPReg32) {
+  if (IsF32) {
     GPReg = MRI->createVirtualRegister(&X86::GR32RegClass);
     Opc = X86::MOV32ri;
     Imm = IsF32 ? 0x3f800000 : 0x3ff00000;
@@ -1311,28 +1311,14 @@ unsigned X86GlobalFMA::createConstOneFromImm(MVT VT,
   if (ST->hasAVX512() && VTBitSize >= 128) {
     bool UseVLX = ST->hasVLX() && VTBitSize <= 256;
     unsigned VecBitSize = UseVLX ? VTBitSize : 512;
-    unsigned ElemSize = IsF32 || F64viaGPReg32 ? 32 : 64;
+    unsigned ElemSize = IsF32 ? 32 : 64;
 
     const TargetRegisterClass *RC;
     Opc = selectBroadcastFromGPR(VecBitSize, ElemSize, &RC);
     unsigned VReg = MRI->createVirtualRegister(RC);
     BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(Opc), VReg)
         .addReg(GPReg, RegState::Kill);
-
-    // Shift left by 32-bits if it is FP64 1.0 value loaded to vector register
-    // from 32-bit GPR.
-    if (F64viaGPReg32) {
-      R = MRI->createVirtualRegister(RC);
-      if (!UseVLX)
-        Opc = X86::VPSLLQZri;
-      else if (VTBitSize == 256)
-        Opc = X86::VPSLLQZ256ri;
-      else
-        Opc = X86::VPSLLQZ128ri;
-      BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(Opc), R)
-          .addReg(VReg, RegState::Kill).addImm(32);
-    } else
-      R = VReg;
+    R = VReg;
 
     if (!UseVLX && VTBitSize <= 256) {
       const TargetRegisterClass *ExtractRC;
@@ -1355,7 +1341,7 @@ unsigned X86GlobalFMA::createConstOneFromImm(MVT VT,
 
   // Put GPReg to XMM.
   unsigned R128 = MRI->createVirtualRegister(&X86::VR128RegClass);
-  if (IsF32 || F64viaGPReg32) {
+  if (IsF32) {
     Opc = ST->hasAVX512() ? X86::VMOVDI2PDIZrr : X86::VMOVDI2PDIrr;
     BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(Opc), R128)
         .addReg(GPReg, RegState::Kill);
@@ -1363,24 +1349,6 @@ unsigned X86GlobalFMA::createConstOneFromImm(MVT VT,
     Opc = ST->hasAVX512() ? X86::VMOV64toPQIZrr : X86::VMOV64toPQIrr;
     BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(Opc), R128)
         .addReg(GPReg, RegState::Kill);
-  }
-
-  // Fix the value in XMM if it is an F64 copied to XMM as 32-bit value.
-  if (F64viaGPReg32) {
-    R = MRI->createVirtualRegister(&X86::VR128RegClass);
-    // If the result is a vector, then copy the lowest 32-bit element
-    // R128[31:0] to R[63:31] and R[127:96]; copy 0 to other elements.
-    // Otherwise, swap 2 elements in R128: R128[31:0] and R128[63:32].
-    unsigned Imm8 = VTBitSize >= 128 ? 0x11 : 0xE1;
-    Opc = ST->hasVLX() ? X86::VPERMILPSZ128ri : X86::VPERMILPSri;
-    BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(Opc), R)
-        .addReg(R128, RegState::Kill).addImm(Imm8);
-
-    // For scalar and 128-bit vector types the result is ready.
-    if (VT.getSizeInBits() <= 128)
-      return R;
-
-    R128 = R;
   }
 
   // Broadcast the lowest element of the XMM to the bigger vector register.
@@ -1413,7 +1381,7 @@ unsigned X86GlobalFMA::createConstOne(MVT VT, MachineInstr *InsertPointMI) {
   // code models. Use alternative approach for other code models.
   const TargetMachine &TM = MF->getTarget();
   CodeModel::Model CM = TM.getCodeModel();
-  if (CM != CodeModel::Small && CM != CodeModel::Large)
+  if (ST->is64Bit() && CM != CodeModel::Small && CM != CodeModel::Large)
     return createConstOneFromImm(VT, InsertPointMI);
 
   LLVMContext &Context = MF->getFunction().getContext();
@@ -1478,7 +1446,7 @@ unsigned X86GlobalFMA::createConstOne(MVT VT, MachineInstr *InsertPointMI) {
     BaseReg = TII->getGlobalBaseReg(MF);
   } else if (ST->isPICStyleRIPRel() && CM == CodeModel::Small)
     BaseReg = X86::RIP;
-  else if (CM == CodeModel::Large)
+  else if (ST->is64Bit() && CM == CodeModel::Large)
     BaseReg = MRI->createVirtualRegister(&X86::GR64RegClass);
 
   // Create the load from the constant pool.
@@ -1492,7 +1460,7 @@ unsigned X86GlobalFMA::createConstOne(MVT VT, MachineInstr *InsertPointMI) {
   MachineInstrBuilder MIB;
   const DebugLoc &DbgLoc = InsertPointMI->getDebugLoc();
   MachineBasicBlock *MBB = InsertPointMI->getParent();
-  if (CM == CodeModel::Large) {
+  if (ST->is64Bit() && CM == CodeModel::Large) {
     BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(X86::MOV64ri), BaseReg)
         .addConstantPoolIndex(CPI, 0, LoadFlags);
 
