@@ -119,6 +119,9 @@ public:
   /// using the presumed-location mechanism.
   std::vector<Inclusion> preambleIncludes() const;
 
+  /// Returns textual patch contents.
+  llvm::StringRef text() const { return PatchContents; }
+
 private:
   PreamblePatch() = default;
   std::string PatchContents;
@@ -127,6 +130,11 @@ private:
   /// patching includes of baseline preamble.
   std::vector<Inclusion> PreambleIncludes;
 };
+
+/// Translates locations inside preamble patch to their main-file equivalent
+/// using presumed locations. Returns \p Loc if it isn't inside preamble patch.
+SourceLocation translatePreamblePatchLocation(SourceLocation Loc,
+                                              const SourceManager &SM);
 
 } // namespace clangd
 } // namespace clang
