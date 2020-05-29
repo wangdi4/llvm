@@ -6,6 +6,7 @@
 // CHECK-INTEL: "-O2"
 // CHECK-INTEL: "-vectorize-loops"
 // CHECK-INTEL: "-fintel-compatibility"
+// CHECK-INTEL: "-mllvm" "-disable-hir-generate-mkl-call"
 // CHECK-INTEL: "-mllvm" "-intel-libirc-allowed"
 
 // default header behavior with --intel
