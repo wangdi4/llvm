@@ -59,3 +59,18 @@
 // RUN: %clangxx -### --intel -target x86_64-unknown-linux -stdlib=libc++ -### %t.o 2>&1 | FileCheck -check-prefix=CHECK-LIBCXX %s
 // CHECK-LIBCXX: "-lc++" "-lc++abi"
 // CHECK-LIBCXX" "-lpthread"
+
+// loopopt settings
+// RUN: %clang -### --intel -c %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT %s
+// RUN: %clang_cl -### --intel -c %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT %s
+// CHECK-INTEL-LOOPOPT: "-mllvm" "-loopopt=0" "-mllvm" "-enable-lv"
+
+// RUN: %clang -### --intel -c -xAVX %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT-AVX %s
+// RUN: %clang_cl -### --intel -c -QxAVX %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT-AVX %s
+// CHECK-INTEL-LOOPOPT-AVX: "-mllvm" "-loopopt"
+// CHECK-INTEL-LOOPOPT-AVX-NOT: "-mllvm" "-enable-lv"
+
+// RUN: %clang -### --intel -c -flto -qopt-mem-layout-trans=4 -Ofast %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT-LIGHT %s
+// RUN: %clang_cl -### --intel -c -Qipo -Qopt-mem-layout-trans:4 -Ofast %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT-LIGHT %s
+// CHECK-INTEL-LOOPOPT-LIGHT: "-mllvm" "-loopopt=1"
+// CHECK-INTEL-LOOPOPT-AVX-NOT: "-mllvm" "-enable-lv"
