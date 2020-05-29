@@ -563,7 +563,7 @@ void HIROptVarPredicate::updateLoopLowerBound(HLLoop *Loop, BlobTy LowerBlob,
   setSelfBlobDDRef(Loop->getLowerDDRef(), MaxBlob, MaxBlobIndex);
 }
 
-static bool isLoopRedundant(HLLoop *Loop) {
+static bool isLoopRedundant(const HLLoop *Loop, const HLNode *ContextNode) {
   if (!Loop->hasChildren()) {
     return true;
   }
@@ -579,7 +579,10 @@ static bool isLoopRedundant(HLLoop *Loop) {
     return ConstantTrip <= 0;
   }
 
-  return false;
+  bool IsNegativeOrZeroTC =
+      HLNodeUtils::isKnownNonPositive(TripCount.get(), ContextNode);
+
+  return IsNegativeOrZeroTC;
 }
 
 void HIROptVarPredicate::addVarPredicateReport(
@@ -730,7 +733,7 @@ void HIROptVarPredicate::splitLoop(
 
     updateLoopLowerBound(ThirdLoop, LowerBlob, SplitPointPlusBlob, IsSigned);
 
-    if (!isLoopRedundant(ThirdLoop)) {
+    if (!isLoopRedundant(ThirdLoop, Loop)) {
       HLNodeUtils::insertAfter(SecondLoop, ThirdLoop);
       ThirdLoop->getLowerDDRef()->makeConsistent(Aux, Level);
 
@@ -749,7 +752,7 @@ void HIROptVarPredicate::splitLoop(
   updateLoopUpperBound(Loop, UpperBlob, SplitPointMinusBlob, IsSigned);
   updateLoopLowerBound(SecondLoop, LowerBlob, SplitPointBlob, IsSigned);
 
-  if (!isLoopRedundant(Loop)) {
+  if (!isLoopRedundant(Loop, Loop)) {
     Loop->getUpperDDRef()->makeConsistent(Aux, Level);
     Loop->createZtt(false, true);
 
@@ -761,7 +764,7 @@ void HIROptVarPredicate::splitLoop(
     NodesToInvalidate.erase(Loop);
   }
 
-  if (!isLoopRedundant(SecondLoop)) {
+  if (!isLoopRedundant(SecondLoop, SecondLoop)) {
     SecondLoop->getLowerDDRef()->makeConsistent(Aux, Level);
     SecondLoop->createZtt(false, true);
 
