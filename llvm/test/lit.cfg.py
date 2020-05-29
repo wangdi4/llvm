@@ -370,3 +370,8 @@ if config.llvm_libxml2_enabled:
 
 if config.have_opt_viewer_modules:
     config.available_features.add('have_opt_viewer_modules')
+
+# INTEL_CUSTOMIZATION
+if config.llvm_use_sanitizer:
+    config.available_features.add('intel_use_sanitizers')
+# end INTEL_CUSTOMIZATION
