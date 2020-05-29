@@ -541,7 +541,13 @@ static bool isDeadPredicateInst(VPInstruction &Inst) {
   if (Inst.getNumUsers() != 1)
     return false;
 
-  return isDeadPredicateInst(*cast<VPInstruction>(*Inst.user_begin()));
+  auto *InstUser = *Inst.user_begin();
+
+  if (!isa<VPInstruction>(InstUser))
+    // Instruction has a single non-instruction user.
+    return false;
+
+  return isDeadPredicateInst(*cast<VPInstruction>(InstUser));
 }
 
 void VPBasicBlock::executeHIR(VPOCodeGenHIR *CG) {

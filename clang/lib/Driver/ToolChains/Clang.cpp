@@ -5382,6 +5382,18 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-fopenmp-simd");
     CmdArgs.push_back("-fopenmp-late-outline");
   }
+
+  if (Arg *A = Args.getLastArg(options::OPT_qopenmp_threadprivate_EQ)) {
+    StringRef Value = A->getValue();
+
+    if ((Value != "compat") && (Value != "legacy"))
+      D.Diag(diag::err_drv_unsupported_option_argument)
+          << A->getOption().getName() << Value;
+
+    if (Value == "legacy")
+      CmdArgs.push_back("-fopenmp-threadprivate-legacy");
+  }
+
   if (Args.hasFlag(options::OPT__SLASH_Qvla_, options::OPT__SLASH_Qvla, false))
     CmdArgs.push_back("-Werror=vla");
   if (Args.hasFlag(options::OPT_fpermissive, options::OPT_fno_permissive,
@@ -5443,7 +5455,14 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 #if INTEL_COLLAB
   if (Args.hasArg(options::OPT_fiopenmp)) {
     CmdArgs.push_back("-fopenmp-late-outline");
-    CmdArgs.push_back("-fopenmp-threadprivate-legacy");
+#if INTEL_CUSTOMIZATION
+    if (Arg *A = Args.getLastArg(options::OPT_qopenmp_threadprivate_EQ)) {
+      StringRef Value = A->getValue();
+      if (Value != "compat")
+        CmdArgs.push_back("-fopenmp-threadprivate-legacy");
+    } else
+#endif // INTEL_CUSTOMIZATION
+      CmdArgs.push_back("-fopenmp-threadprivate-legacy");
   }
 #endif // INTEL_COLLAB
 

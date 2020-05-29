@@ -225,6 +225,11 @@ def _SLASH_Qopenmp_version_EQ : CLJoinedNoDpcpp<"Qopenmp-version=">,
 def _SLASH_Qopenmp_version_COL : CLJoinedNoDpcpp<"Qopenmp-version:">,
   Alias<fopenmp_version_EQ>, HelpText<"Choose which OpenMP version to"
   " link with.">;
+def _SLASH_Qopenmp_threadprivate_EQ : CLJoinedNoDpcpp<"Qopenmp-threadprivate=">,
+  Alias<qopenmp_threadprivate_EQ>;
+def _SLASH_Qopenmp_threadprivate_COL : CLJoinedNoDpcpp<"Qopenmp-threadprivate:">,
+  HelpText<"Choose which threadprivate implementation to use: compat or legacy.">,
+  Alias<qopenmp_threadprivate_EQ>;
 def _SLASH_Qopt_jump_tables : CLFlag<"Qopt-jump-tables">,
   Alias<fjump_tables>, HelpText<"Control the generation of jump tables">;
 def _SLASH_Qopt_jump_tables_ : CLFlag<"Qopt-jump-tables-">,
