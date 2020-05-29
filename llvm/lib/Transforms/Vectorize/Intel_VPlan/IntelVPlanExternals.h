@@ -231,7 +231,7 @@ public:
   }
 
   /// Return VPExternalUse by its MergeId.
-  const VPExternalUse *getVPExternalUse(unsigned MergeId) const {
+  VPExternalUse *getVPExternalUse(unsigned MergeId) const {
     return VPExternalUses[MergeId].get();
   }
 

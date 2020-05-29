@@ -979,6 +979,18 @@ public:
   const VPBasicBlock *getParent() const { return Parent; }
   void setParent(VPBasicBlock *NewParent) { Parent = NewParent; }
 
+  /// Unlink this instruction from its current basic block and insert it into
+  /// the basic block that MovePos lives in, right before MovePos.
+  void moveBefore(VPInstruction *MovePos);
+
+  /// Unlink this instruction from its current basic block and insert it into
+  /// the basic block that MovePos lives in, right after MovePos.
+  void moveAfter(VPInstruction *MovePos);
+
+  /// Unlink this instruction from its current basic block and insert it into
+  /// the basic block BB, right before \p I.
+  void moveBefore(VPBasicBlock &BB, VPBasicBlock::iterator I);
+
   /// Generate the instruction.
   /// TODO: We currently execute only per-part unless a specific instance is
   /// provided.
@@ -1211,8 +1223,14 @@ protected:
 
 /// Concrete class for PHI instruction.
 class VPPHINode : public VPInstruction {
-private:
+  friend class VPlanCFGMerger;
+
   SmallVector<VPBasicBlock *, 2> VPBBUsers;
+  unsigned MergeId = VPExternalUse::UndefMergeId;
+
+  VPPHINode(unsigned Id, Type *BaseTy)
+      : VPInstruction(Instruction::PHI, BaseTy, ArrayRef<VPValue *>()),
+        MergeId(Id) {}
 
 public:
   using vpblock_iterator = SmallVectorImpl<VPBasicBlock *>::iterator;
@@ -1355,6 +1373,8 @@ public:
     }
     return true;
   }
+
+  unsigned getMergeId() const { return MergeId; }
 
 protected:
   /// Create new PHINode and copy original incoming values to the newly created
@@ -2840,7 +2860,7 @@ public:
   Loop *getLoop() const { return Lp; }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void print(raw_ostream &O) const override {
+  void printImpl(raw_ostream &O) const {
     O << " " << Lp->getName() << ", LiveInMap:";
     assert(getNumOperands() == OpLiveInMap.size() &&
            "Inconsistent live-ins data!");
@@ -2911,7 +2931,7 @@ public:
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void print(raw_ostream &O) const override {
+  void printImpl(raw_ostream &O) const {
     O << " ";
     getOperand(0)->printAsOperand(O);
     O << ", liveout: " << *LiveOutVal;
@@ -2992,6 +3012,10 @@ private:
 
   /// Holds the name of the VPlan, for printing.
   std::string Name;
+
+  /// Flag showing that a new scheme of CG for loops and basic blocks
+  /// should be used.
+  bool ExplicitRemainderUsed = false;
 
   /// Map: VF -> PreferredPeeling.
   std::map<unsigned, std::unique_ptr<VPlanPeelingVariant>> PreferredPeelingMap;
@@ -3108,7 +3132,7 @@ public:
       return V.get();});
   }
 
-  const VPLiveOutValue *getLiveOutValue(unsigned MergeId) const {
+  VPLiveOutValue *getLiveOutValue(unsigned MergeId) const {
     return LiveOutValues[MergeId].get();
   }
 
@@ -3123,6 +3147,9 @@ public:
   }
 
   size_t getLiveOutValuesSize() const { return LiveOutValues.size(); }
+
+  bool hasExplicitRemainder() const { return ExplicitRemainderUsed; }
+  void setExplicitRemainderUsed() { ExplicitRemainderUsed = true; }
 
   /// Return an existing or newly created LoopEntities for the loop \p L.
   VPLoopEntityList *getOrCreateLoopEntities(const VPLoop *L) {

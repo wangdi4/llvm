@@ -112,6 +112,20 @@ void ilist_traits<VPBasicBlock>::deleteNode(VPBasicBlock *VPBB) {
   delete VPBB;
 }
 
+void VPInstruction::moveBefore(VPInstruction *MovePos) {
+  moveBefore(*MovePos->getParent(), MovePos->getIterator());
+}
+
+void VPInstruction::moveAfter(VPInstruction *MovePos) {
+  moveBefore(*MovePos->getParent(), ++MovePos->getIterator());
+}
+
+void VPInstruction::moveBefore(VPBasicBlock &BB, VPBasicBlock::iterator I) {
+  assert((I == BB.end() || I->getParent() == &BB) &&
+         "Iterator is out of basic block");
+  BB.getInstructions().splice(I, getParent()->getInstructions(), getIterator());
+}
+
 void VPInstruction::generateInstruction(VPTransformState &State,
                                         unsigned Part) {
 #if INTEL_CUSTOMIZATION
@@ -519,12 +533,12 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
     O << getOpcodeName(getOpcode());
   }
   if (auto *ReuseLoop = dyn_cast<VPReuseLoop>(this)) {
-    ReuseLoop->print(O);
+    ReuseLoop->printImpl(O);
     return;
   }
 
   if (auto *LiveOut = dyn_cast<VPOrigLiveOut>(this)) {
-    LiveOut->print(O);
+    LiveOut->printImpl(O);
     return;
   }
 
@@ -536,6 +550,8 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
   // TODO: print type when this information will be available.
   // So far don't print anything, because PHI may not have Instruction
   if (auto *Phi = dyn_cast<const VPPHINode>(this)) {
+    if (Phi->getMergeId() != VPExternalUse::UndefMergeId)
+      O << "-merge";
     auto PrintValueWithBB = [&](const unsigned i) {
       O << " ";
       O << " [ ";
