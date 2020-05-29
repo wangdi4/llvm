@@ -801,7 +801,6 @@ private:
   RangeSet::Factory F;
 
   RangeSet getRange(ProgramStateRef State, SymbolRef Sym);
-  const RangeSet *getRangeForMinusSymbol(ProgramStateRef State, SymbolRef Sym);
 
   RangeSet getSymLTRange(ProgramStateRef St, SymbolRef Sym,
                          const llvm::APSInt &Int,
@@ -927,30 +926,6 @@ RangeConstraintManager::removeDeadBindings(ProgramStateRef State,
 RangeSet RangeConstraintManager::getRange(ProgramStateRef State,
                                           SymbolRef Sym) {
   return SymbolicRangeInferrer::inferRange(getBasicVals(), F, State, Sym);
-}
-
-// FIXME: Once SValBuilder supports unary minus, we should use SValBuilder to
-//        obtain the negated symbolic expression instead of constructing the
-//        symbol manually. This will allow us to support finding ranges of not
-//        only negated SymSymExpr-type expressions, but also of other, simpler
-//        expressions which we currently do not know how to negate.
-const RangeSet*
-RangeConstraintManager::getRangeForMinusSymbol(ProgramStateRef State,
-                                               SymbolRef Sym) {
-  if (const SymSymExpr *SSE = dyn_cast<SymSymExpr>(Sym)) {
-    if (SSE->getOpcode() == BO_Sub) {
-      QualType T = Sym->getType();
-      SymbolManager &SymMgr = State->getSymbolManager();
-      SymbolRef negSym = SymMgr.getSymSymExpr(SSE->getRHS(), BO_Sub,
-                                              SSE->getLHS(), T);
-      if (const RangeSet *negV = State->get<ConstraintRange>(negSym)) {
-        if (T->isUnsignedIntegerOrEnumerationType() ||
-            T->isSignedIntegerOrEnumerationType())
-          return negV;
-      }
-    }
-  }
-  return nullptr;
 }
 
 //===------------------------------------------------------------------------===
