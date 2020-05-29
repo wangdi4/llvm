@@ -1688,6 +1688,7 @@ bool MachineLICMBase::Hoist(MachineInstr *MI, MachineBasicBlock *Preheader) {
     // Otherwise, splice the instruction to the preheader.
     Preheader->splice(Preheader->getFirstTerminator(),MI->getParent(),MI);
 
+    assert(!MI->isDebugInstr() && "Should not hoist debug inst");
 #if INTEL_CUSTOMIZATION
     // INTEL - Maintain the original (correct) source correlation. Hoisting
     //         the instruction does not invalidate the source correlation.
@@ -1695,13 +1696,8 @@ bool MachineLICMBase::Hoist(MachineInstr *MI, MachineBasicBlock *Preheader) {
     // Since we are moving the instruction out of its basic block, we do not
     // retain its debug location. Doing so would degrade the debugging
     // experience and adversely affect the accuracy of profiling information.
-<<<<<<< HEAD
     // MI->setDebugLoc(DebugLoc());
 #endif // INTEL_CUSTOMIZATION
-=======
-    assert(!MI->isDebugInstr() && "Should not hoist debug inst");
-    MI->setDebugLoc(DebugLoc());
->>>>>>> 0aa201eaf97681f59b72baee6552aa1b9b5c9129
 
     // Update register pressure for BBs from header to this block.
     UpdateBackTraceRegPressure(MI);
