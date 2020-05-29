@@ -189,6 +189,7 @@ llvm::ModulePass *createAddTLSGlobalsPass();
 llvm::ModulePass *createCoerceTypesPass();
 llvm::ModulePass *createRemoveAtExitPass();
 llvm::FunctionPass *createAddNTAttrPass();
+llvm::ModulePass *createChooseVectorizationDimensionModulePass();
 }
 
 using namespace intel;
@@ -460,7 +461,7 @@ static void populatePassesPostFailCheck(
     const intel::OptimizerConfig *pConfig,
     std::vector<std::string> &UndefinedExternals, bool isOcl20,
     bool isFpgaEmulator, bool isEyeQEmulator, bool UnrollLoops,
-    bool EnableInferAS, bool UseVplan,
+    bool EnableInferAS, bool UseVplan, bool IsSYCL,
     TStringToVFState &kernelVFStates) {
   bool isProfiling = pConfig->GetProfilingFlag();
   bool HasGatherScatter = pConfig->GetCpuId().HasGatherScatter();
@@ -574,6 +575,9 @@ static void populatePassesPostFailCheck(
         PM.add(createOCLVPOCheckVFPass(*pConfig, kernelVFStates));
 
         // Prepare Function for VecClone and call VecClone
+        // We won't automatically switch vectorization dimension for SYCL.
+        if (!IsSYCL)
+          PM.add(createChooseVectorizationDimensionModulePass());
         PM.add(createOCLVecClonePass(pConfig));
         PM.add(createScalarizerPass(pConfig->GetCpuId(), true));
 
@@ -884,7 +888,7 @@ Optimizer::Optimizer(llvm::Module *pModule,
   populatePassesPostFailCheck(m_PostFailCheckPM, pModule, m_pRtlModuleList,
                               OptLevel, pConfig, m_undefinedExternalFunctions,
                               isOcl20, m_IsFpgaEmulator, m_IsEyeQEmulator,
-                              UnrollLoops, EnableInferAS, UseVplan,
+                              UnrollLoops, EnableInferAS, UseVplan, IsSYCL,
                               m_kernelToVFState);
 }
 
