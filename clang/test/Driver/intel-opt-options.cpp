@@ -89,3 +89,12 @@
 // RUN: %clang -### %s -c -qno-opt-matmul 2>&1 | FileCheck %s --check-prefix=CHECK-QNO-OPT-MATMUL
 // RUN: %clang_cl -### %s -c /Qopt-matmul- 2>&1 | FileCheck %s --check-prefix=CHECK-QNO-OPT-MATMUL
 // CHECK-QNO-OPT-MATMUL: "-mllvm" "-disable-hir-generate-mkl-call"
+
+// Behavior with /Qopt/-qopt-multiple-gather-scatter-by-shuffles option
+// RUN: %clang -### %s -c -qopt-multiple-gather-scatter-by-shuffles 2>&1 | FileCheck %s --check-prefix=CHECK-GATHER-SCATTER-SHUFFLES
+// RUN: %clang_cl -### %s -c /Qopt-multiple-gather-scatter-by-shuffles 2>&1 | FileCheck %s --check-prefix=CHECK-GATHER-SCATTER-SHUFFLES
+// CHECK-GATHER-SCATTER-SHUFFLES: "-mllvm" "-vplan-vls-level=always"
+// RUN: %clang -### %s -c -qno-opt-multiple-gather-scatter-by-shuffles 2>&1 | FileCheck %s --check-prefix=CHECK-NO-GATHER-SCATTER-SHUFFLES
+// RUN: %clang_cl -### %s -c /Qopt-multiple-gather-scatter-by-shuffles- 2>&1 | FileCheck %s --check-prefix=CHECK-NO-GATHER-SCATTER-SHUFFLES
+// CHECK-NO-GATHER-SCATTER-SHUFFLES: "-mllvm" "-vplan-vls-level=never"
+

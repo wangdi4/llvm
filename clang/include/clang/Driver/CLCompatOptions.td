@@ -247,9 +247,9 @@ def _SLASH_Qopt_jump_tables : CLFlag<"Qopt-jump-tables">,
   Alias<fjump_tables>, HelpText<"Control the generation of jump tables">;
 def _SLASH_Qopt_jump_tables_ : CLFlag<"Qopt-jump-tables-">,
   Alias<fno_jump_tables>, HelpText<"Do not use jump tables for lowering switches">;
-def _SLASH_Qopt_matmul :CLFlag<"Qopt-matmul">, Alias<qopt_matmul>,
+def _SLASH_Qopt_matmul : CLFlag<"Qopt-matmul">, Alias<qopt_matmul>,
   HelpText<"Enables compiler-generated Matrix Multiply (matmul) library call">;
-def _SLASH_Qopt_matmul_ :CLFlag<"Qopt-matmul-">, Alias<qno_opt_matmul>,
+def _SLASH_Qopt_matmul_ : CLFlag<"Qopt-matmul-">, Alias<qno_opt_matmul>,
   HelpText<"Disables compiler-generated Matrix Multiply (matmul) library call">;
 def _SLASH_Qopt_mem_layout_trans_EQ : CLJoined<"Qopt-mem-layout-trans=">,
   Alias<qopt_mem_layout_trans_EQ>;
@@ -261,6 +261,12 @@ def _SLASH_Qopt_mem_layout_trans_COL : CLJoined<"Qopt-mem-layout-trans:">,
 def _SLASH_Qopt_mem_layout_trans_ : CLFlag<"Qopt-mem-layout-trans-">,
   Alias<qopt_mem_layout_trans_EQ>, AliasArgs<["0"]>,
   HelpText<"Disable memory layout transformations">;
+def _SLASH_Qopt_multiple_gather_scatter_by_shuffles : CLFlag<"Qopt-multiple-gather-scatter-by-shuffles">,
+  Alias<qopt_multiple_gather_scatter_by_shuffles>,
+  HelpText<"Enables the optimization for multiple adjacent gather/scatter type vector memory references">;
+def _SLASH_Qopt_multiple_gather_scatter_by_shuffles_ : CLFlag<"Qopt-multiple-gather-scatter-by-shuffles-">,
+  Alias<qno_opt_multiple_gather_scatter_by_shuffles>,
+  HelpText<"Disables the optimization for multiple adjacent gather/scatter type vector memory references">;
 def : CLJoined<"Qopt-zmm-usage:">, Alias<qopt_zmm_usage_EQ>,
   HelpText<"Specifies the level of zmm registers usage, low or high">;
 def : CLJoined<"Qopt-zmm-usage=">, Alias<qopt_zmm_usage_EQ>;
