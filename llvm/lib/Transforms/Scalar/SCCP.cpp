@@ -75,15 +75,12 @@ STATISTIC(IPNumInstRemoved, "Number of instructions removed by IPSCCP");
 STATISTIC(IPNumArgsElimed ,"Number of arguments constant propagated by IPSCCP");
 STATISTIC(IPNumGlobalConst, "Number of globals found to be constant by IPSCCP");
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 static cl::opt<bool>
     EnableCallbacks("sccp-enable-callbacks", cl::init(true), cl::Hidden,
                     cl::desc("propagate constants to callback calls"));
 #endif // INTEL_CUSTOMIZATION
 
-=======
-// The maximum number of range extensions allowed for operations requiring
 // widening.
 static const unsigned MaxNumRangeExtensions = 10;
 
@@ -92,7 +89,6 @@ static ValueLatticeElement::MergeOptions getMaxWidenStepsOpts() {
   return ValueLatticeElement::MergeOptions().setMaxWidenSteps(
       MaxNumRangeExtensions);
 }
->>>>>>> 01f999ae8871544ab4996fd1368c0dfe4c4a0765
 namespace {
 
 // Helper to check if \p LV is either a constant or a constant
@@ -1229,7 +1225,6 @@ void SCCPSolver::handleCallArguments(CallBase &CB) {
           continue;
         }
 
-<<<<<<< HEAD
         // If this argument is byval, and if the function is not readonly, there
         // will be an implicit copy formed of the input aggregate.
         if (A.hasByValAttr() && !F->onlyReadsMemory()) {
@@ -1248,23 +1243,12 @@ void SCCPSolver::handleCallArguments(CallBase &CB) {
         if (auto *STy = dyn_cast<StructType>(A.getType())) {
           for (unsigned i = 0, e = STy->getNumElements(); i != e; ++i) {
             ValueLatticeElement CallArg = getStructValueState(V, i);
-            mergeInValue(getStructValueState(&A, i), &A, CallArg);
+            mergeInValue(getStructValueState(&A, i), &A, CallArg,
+                         getMaxWidenStepsOpts());
           }
         } else
-          mergeInValue(
-              &A, getValueState(V),
-              ValueLatticeElement::MergeOptions().setCheckWiden(false));
+          mergeInValue(&A, getValueState(V), getMaxWidenStepsOpts());
       }
-=======
-      if (auto *STy = dyn_cast<StructType>(AI->getType())) {
-        for (unsigned i = 0, e = STy->getNumElements(); i != e; ++i) {
-          ValueLatticeElement CallArg = getStructValueState(*CAI, i);
-          mergeInValue(getStructValueState(&*AI, i), &*AI, CallArg,
-                       getMaxWidenStepsOpts());
-        }
-      } else
-        mergeInValue(&*AI, getValueState(*CAI), getMaxWidenStepsOpts());
->>>>>>> 01f999ae8871544ab4996fd1368c0dfe4c4a0765
     }
   };
 
