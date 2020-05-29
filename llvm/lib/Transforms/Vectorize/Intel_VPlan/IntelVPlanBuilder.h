@@ -85,49 +85,55 @@ public:
   };
 
   /// Sets the current insert point to a previously-saved location.
-  void restoreIP(VPInsertPoint IP) {
+  VPBuilder &restoreIP(VPInsertPoint IP) {
     if (IP.isSet())
       setInsertPoint(IP.getBlock(), IP.getPoint());
     else
       clearInsertionPoint();
+    return *this;
   }
 
   /// This specifies that created VPInstructions should be appended to the end
   /// of the specified block.
-  void setInsertPoint(VPBasicBlock *TheBB) {
+  VPBuilder &setInsertPoint(VPBasicBlock *TheBB) {
     assert(TheBB && "Attempting to set a null insert point");
     BB = TheBB;
     InsertPt = BB->end();
+    return *this;
   }
 
   /// This specifies that created instructions should be inserted
   /// before the specified instruction.
-  void setInsertPoint(VPInstruction *I) {
+  VPBuilder &setInsertPoint(VPInstruction *I) {
     BB = I->getParent();
     InsertPt = I->getIterator();
+    return *this;
   }
 
   /// This specifies that created instructions should be inserted at the
   /// specified point.
-  void setInsertPoint(VPBasicBlock *TheBB, VPBasicBlock::iterator IP) {
+  VPBuilder &setInsertPoint(VPBasicBlock *TheBB, VPBasicBlock::iterator IP) {
     BB = TheBB;
     InsertPt = IP;
+    return *this;
   }
 
-  void setInsertPointFirstNonPhi(VPBasicBlock *TheBB) {
+  VPBuilder &setInsertPointFirstNonPhi(VPBasicBlock *TheBB) {
     BB = TheBB;
     VPBasicBlock::iterator IP = TheBB->begin();
     while (IP != TheBB->end() && isa<VPPHINode>(*IP))
       ++IP;
     InsertPt = IP;
+    return *this;
   }
 
-  void setInsertPointAfterBlends(VPBasicBlock *TheBB) {
+  VPBuilder &setInsertPointAfterBlends(VPBasicBlock *TheBB) {
     BB = TheBB;
     VPBasicBlock::iterator IP = TheBB->begin();
     while (IP != TheBB->end() && (isa<VPPHINode>(*IP) || isa<VPBlendInst>(*IP)))
       ++IP;
     InsertPt = IP;
+    return *this;
   }
 
   // Create an N-ary operation with \p Opcode, \p Operands and set \p Inst as
