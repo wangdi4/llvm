@@ -56,6 +56,7 @@ const char *getCPUForIntel(StringRef Arch, const llvm::Triple &Triple) {
                           "icelake-client")
               .CasesLower("icelake-server", "icelake_server", "icelake-server")
               .CaseLower("cascadelake", "cascadelake")
+              .CaseLower("host", llvm::sys::getHostCPUName().data())
               .Default(nullptr);
   }
   if (!CPU) {
