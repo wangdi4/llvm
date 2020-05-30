@@ -307,6 +307,15 @@
 // RUN: %clang_cl -### /QMM /QMT outfile.out %s 2>&1 | FileCheck -check-prefix=CHECK-QMT %s
 // CHECK-QMT: "-MT" "outfile.out"
 
+// Behavior with finstrument-functions/Qinstrument-functions option
+// RUN: %clang -### -c -finstrument-functions %s 2>&1 | FileCheck -check-prefix CHECK-INSTRUMENT-FUNCTIONS %s
+// RUN: %clang -### -c -finstrument-functions -finstrument-functions-after-inlining %s 2>&1 | FileCheck -check-prefix CHECK-FINSTRUMENT %s
+// RUN: %clang -### -c -finstrument-functions -finstrument-function-entry-bare %s 2>&1 | FileCheck -check-prefix CHECK-FENTRY %s
+// RUN: %clang_cl -### -c /Qinstrument-functions %s 2>&1 | FileCheck -check-prefix CHECK-INSTRUMENT-FUNCTIONS %s
+// CHECK-INSTRUMENT-FUNCTIONS: "-finstrument-functions"
+// CHECK-FINSTRUMENT: "-finstrument-functions-after-inlining"
+// CHECK-FENTRY: "-finstrument-function-entry-bare"
+
 // Behavior with Qopenmp-version option
 // RUN: %clang_cl -### -c /Qopenmp-version=50 %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-VERSION %s
 // RUN: %clang_cl -### -c /Qopenmp-version:50 %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-VERSION %s

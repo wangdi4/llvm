@@ -5141,9 +5141,16 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                    options::OPT_fno_unique_internal_linkage_names, false))
     CmdArgs.push_back("-funique-internal-linkage-names");
 
-  Args.AddLastArg(CmdArgs, options::OPT_finstrument_functions,
-                  options::OPT_finstrument_functions_after_inlining,
+  Args.AddLastArg(CmdArgs, options::OPT_finstrument_functions_after_inlining,
                   options::OPT_finstrument_function_entry_bare);
+
+#if INTEL_CUSTOMIZATION
+  if ((Args.hasFlag(options::OPT_finstrument_functions,
+                    options::OPT_fno_instrument_functions, false)) &&
+      (!Args.hasArg(options::OPT_finstrument_functions_after_inlining,
+                    options::OPT_finstrument_function_entry_bare)))
+    Args.AddLastArg(CmdArgs, options::OPT_finstrument_functions);
+#endif // INTEL_CUSTOMIZATION
 
   // NVPTX doesn't support PGO or coverage. There's no runtime support for
   // sampling, overhead of call arc collection is way too high and there's no

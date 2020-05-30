@@ -206,6 +206,11 @@ def _SLASH_Qfnalign_ : CLFlag<"Qfnalign-">, Alias<fno_align_functions>,
   HelpText<"Aligns on a 2-byte boundary">;
 def _SLASH_Qansi_alias_ : CLFlag<"Qansi-alias-">, Alias<fno_strict_aliasing>,
   HelpText<"disable use of ANSI aliasing rules optimizations">;
+def _SLASH_Qinstrument_functions : CLFlag<"Qinstrument-functions">,
+  Alias<finstrument_functions>, HelpText<"Generate calls to instrument "
+  "function entry and exit">;
+def _SLASH_Qinstrument_functions_ : CLFlag<"Qinstrument-functions-">,
+  Alias<fno_instrument_functions>;
 def _SLASH_Qipo : CLFlag<"Qipo">, Alias<flto>,
   HelpText<"Enable LTO in 'full' mode">;
 def _SLASH_QdD : CLFlag<"QdD">, Alias<dD>,
