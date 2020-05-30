@@ -2681,7 +2681,10 @@ void CodeGenFunction::RemapForLateOutlining(const OMPExecutableDirective &D,
       if (auto *VD = dyn_cast<VarDecl>(DRE->getDecl())) {
         if (isa<OMPCapturedExprDecl>(VD)) {
           PrivScope.addPrivateNoTemps(VD, [this, VD]() -> Address {
-            return EmitLValue(VD->getAnyInitializer()).getAddress(*this);
+            Address A = EmitLValue(VD->getAnyInitializer()).getAddress(*this);
+            if (VD->getType()->isReferenceType())
+              A.setRemovedReference();
+            return A;
           });
         }
       }

@@ -1,6 +1,10 @@
 // INTEL_COLLAB
-// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fintel-compatibility -fopenmp-late-outline -triple x86_64-unknown-linux-gnu %s | FileCheck %s
-// RUN: %clang_cc1 -emit-llvm -o - -fexceptions -fopenmp -fintel-compatibility -fopenmp-late-outline -triple x86_64-unknown-linux-gnu %s | FileCheck %s
+// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fintel-compatibility \
+// RUN:  -fopenmp-late-outline -triple x86_64-unknown-linux-gnu %s \
+// RUN:  | FileCheck %s
+// RUN: %clang_cc1 -emit-llvm -o - -fexceptions -fopenmp \
+// RUN:  -fintel-compatibility -fopenmp-late-outline \
+// RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 #define LOOP for(int i=0;i<16;++i) {}
 
@@ -86,5 +90,43 @@ void bar5(int &yref, int other, short *&zptr_ref, float (*&y_arrptr_ref)[10]) {
     foo(zptr_ref_addr != &zptr_ref);
     foo(y_arrptr_ref_addr != &y_arrptr_ref);
   }
+}
+
+struct Iterator {
+  int* It;
+  Iterator(int *i) : It(i) {}
+  Iterator(const Iterator& i) : It(i.It) {}
+  int& operator*() const { return *It; }
+  Iterator& operator++() { ++It; return *this; }
+  Iterator operator+(long n) const noexcept { return Iterator(It + n); }
+};
+
+inline bool operator<(const Iterator &lhs, const Iterator &rhs) noexcept
+{ return lhs.It < rhs.It; }
+
+inline long operator-(const Iterator& lhs, const Iterator& rhs) noexcept
+{ return lhs.It - rhs.It; }
+
+struct A {
+  int arr[10] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+  Iterator begin() { return Iterator(&arr[0]); }
+  Iterator end() { return Iterator(&arr[10]); }
+};
+
+//CHECK-LABEL: bar6
+int bar6()
+{
+  A avar;
+  int sum = 0;
+
+  //CHECK:[[L0:%[0-9]+]] = load {{.*}}Iterator{{.*}}capture_expr
+  //CHECK-NEXT: call {{.*}}_ZmiRK8IteratorS1_{{.*}}[[L0]]
+  //CHECK: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //CHECK-SAME: "DIR.OMP.PARALLEL.LOOP"()
+  #pragma omp parallel for reduction(+:sum)
+  for (auto i = avar.begin(); i < avar.end(); ++i)
+    sum += *i + 2;
+  //CHECK: directive.region.exit(token [[T0]]) [ "DIR.OMP.END.PARALLEL.LOOP"
+  return sum;
 }
 // end INTEL_COLLAB

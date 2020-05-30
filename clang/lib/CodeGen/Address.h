@@ -24,6 +24,14 @@ namespace CodeGen {
 class Address {
   llvm::Value *Pointer;
   CharUnits Alignment;
+#if INTEL_COLLAB
+  // True if this address has been remapped directly and should not generate
+  // the load normally required for variables with reference type.
+  bool ReferenceRemovedWithRemap = false;
+public:
+  bool hasRemovedReference() { return ReferenceRemovedWithRemap; }
+  void setRemovedReference() { ReferenceRemovedWithRemap = true; }
+#endif // INTEL_COLLAB
 public:
   Address(llvm::Value *pointer, CharUnits alignment)
       : Pointer(pointer), Alignment(alignment) {
