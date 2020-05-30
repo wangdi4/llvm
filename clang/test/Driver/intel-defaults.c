@@ -28,8 +28,8 @@
 // CHECK-INTEL-LIBS: "{{.*}}ld{{(.exe)?}}" "--sysroot=[[SYSROOT:[^"]+]]"
 // CHECK-INTEL-LIBS: "-L{{.*}}../compiler/lib/intel64_lin" "-L{{.*}}bin/../lib"
 // CHECK-INTEL-LIBS: "-L[[SYSROOT]]/usr/lib/gcc/x86_64-unknown-linux/4.6.0"
-// CHECK-INTEL-LIBS: "-Bstatic" "-lirc" "-Bdynamic"
 // CHECK-INTEL-LIBS: "-Bstatic" "-lsvml" "-Bdynamic"
+// CHECK-INTEL-LIBS: "-Bstatic" "-lirc" "-Bdynamic"
 
 // default libs with --intel (Windows)
 // RUN: %clang_cl -### --intel -c %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-WIN %s
@@ -47,8 +47,8 @@
 // RUN: touch %t.o
 // RUN: %clang -### --intel -target i386-unknown-linux-gnu %t.o 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS32 %s
 // CHECK-INTEL-LIBS32: "-L{{.*}}../compiler/lib/ia32_lin" "-L{{.*}}bin/../lib"
-// CHECK-INTEL-LIBS32: "-Bstatic" "-lirc" "-Bdynamic"
 // CHECK-INTEL-LIBS32: "-Bstatic" "-lsvml" "-Bdynamic"
+// CHECK-INTEL-LIBS32: "-Bstatic" "-lirc" "-Bdynamic"
 
 // -fveclib=SVML can be overridden
 // RUN: %clang -### -c --intel -fveclib=none %s 2>&1 | FileCheck -check-prefix CHECK-VECLIB %s
