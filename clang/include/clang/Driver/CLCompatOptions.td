@@ -202,6 +202,10 @@ def _SLASH_Qansi_alias_ : CLFlag<"Qansi-alias-">, Alias<fno_strict_aliasing>,
   HelpText<"disable use of ANSI aliasing rules optimizations">;
 def _SLASH_Qipo : CLFlag<"Qipo">, Alias<flto>,
   HelpText<"Enable LTO in 'full' mode">;
+def _SLASH_QdD : CLFlag<"QdD">, Alias<dD>,
+  HelpText<"Print macro definitions in -E mode in addition to normal output.">;
+def _SLASH_QdM : CLFlag<"QdM">, Alias<dM>,
+  HelpText<"Print macro definitions in -E mode instead of normal output.">;
 def _SLASH_Qipo_ : CLFlag<"Qipo-">, Alias<fno_lto>,
   HelpText<"Disable LTO mode (default)">;
 def _SLASH_Qkeep_static_consts : CLFlag<"Qkeep-static-consts">,

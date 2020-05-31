@@ -300,6 +300,14 @@
 // RUN: %clang_cl -### /Qstd=c11 -c %s 2>&1 | FileCheck -check-prefix=CHECK-STD-C11 %s
 // CHECK-STD-C11: clang{{.*}} "-std=c11"
 
+// Behavior with dD/QdD and dM/QdM options
+// RUN: %clang -### -c -dD %s 2>&1 | FileCheck -check-prefix CHECK-DD %s
+// RUN: %clang_cl -### -c /QdD %s 2>&1 | FileCheck -check-prefix CHECK-DD %s
+// RUN: %clang -### -c -dM %s 2>&1 | FileCheck -check-prefix CHECK-DM %s
+// RUN: %clang_cl -### -c /QdM %s 2>&1 | FileCheck -check-prefix CHECK-DM %s
+// CHECK-DD: "-dD"
+// CHECK-DM: "-dM"
+
 // Behavior with Qfnalign option
 // RUN: %clang -### -falign-functions %s 2>&1 | FileCheck %s -check-prefix CHECK-FUN-ALN
 // RUN: %clang -### -fno-align-functions %s 2>&1 | FileCheck %s -check-prefix CHECK-FNO-ALN
