@@ -1,13 +1,13 @@
-; INTEL_FEATURE_CPU_GLC
-; REQUIRES: intel_feature_cpu_glc
+; INTEL_FEATURE_CPU_SPR
+; REQUIRES: intel_feature_cpu_spr
 ; Test that the CPU names work.
 ; CHECK-NO-ERROR-NOT: not a recognized processor for this target
 
-; RUN: llc < %s -o /dev/null -mtriple=x86_64-unknown-unknown -mcpu=goldencove 2>&1 | FileCheck %s --check-prefix=CHECK-NO-ERROR --allow-empty
+; RUN: llc < %s -o /dev/null -mtriple=x86_64-unknown-unknown -mcpu=sapphirerapids 2>&1 | FileCheck %s --check-prefix=CHECK-NO-ERROR --allow-empty
 
 ; Needed to ensure a subtarget object gets created
 define void @foo() {
   ret void
 }
 
-; end INTEL_FEATURE_CPU_GLC
+; end INTEL_FEATURE_CPU_SPR
