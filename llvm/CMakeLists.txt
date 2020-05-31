@@ -1002,6 +1002,11 @@ list(APPEND features_enabled_by_default
 ${LLVM_INTELFEATURE_PREFIX}_CPU_ADL)
 # end INTEL_FEATURE_CPU_ADL
 
+# INTEL_FEATURE_CPU_RKL
+list(APPEND features_enabled_by_default
+${LLVM_INTELFEATURE_PREFIX}_CPU_RKL)
+# end INTEL_FEATURE_CPU_RKL
+
 # INTEL_FEATURE_ISA_AVX_VNNI
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_VNNI)

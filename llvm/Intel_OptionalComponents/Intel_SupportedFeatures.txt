@@ -181,12 +181,13 @@
 @CPU_SPR:SECRET@
 # end INTEL_FEATURE_CPU_SPR
 
-# === New CPU section end ===
-
-# === New CPU section begin ===
 # INTEL_FEATURE_CPU_ADL
 @CPU_ADL:SECRET@
 # end INTEL_FEATURE_CPU_ADL
+
+# INTEL_FEATURE_CPU_RKL
+@CPU_RKL:SECRET@
+# end INTEL_FEATURE_CPU_RKL
 
 # === New CPU section end ===
 
