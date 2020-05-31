@@ -221,6 +221,8 @@ def _SLASH_Qiopenmp : CLFlag<"Qiopenmp">, Alias<fiopenmp>;
 def _SLASH_Qopenmp_simd : CLFlagNoDpcpp<"Qopenmp-simd">, Alias<fopenmp_simd>,
   HelpText<"Emit OpenMP code only for SIMD-based constructs.">;
 def _SLASH_Qopenmp_simd_ : CLFlagNoDpcpp<"Qopenmp-simd-">, Alias<fno_openmp_simd>;
+def _SLASH_QM : CLFlag<"QM">, Alias<M>, HelpText<"Like -MD, but also implies "
+  "-E and writes to stdout by default">;
 def _SLASH_Qiopenmp_simd : CLFlagNoDpcpp<"Qiopenmp-simd">, Alias<fiopenmp_simd>;
 def _SLASH_Qopenmp_targets_EQ : CLCommaJoinedNoDpcpp<"Qopenmp-targets=">,
   Alias<fopenmp_targets_EQ>;

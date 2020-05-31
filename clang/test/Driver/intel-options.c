@@ -278,6 +278,10 @@
 // RUN: %clang_cl -### -c /QMP %s 2>&1 | FileCheck -check-prefix CHECK-MP %s
 // CHECK-MP: "-MP"
 
+// Behavior with QM option
+// RUN: %clang_cl -### -c /QM %s 2>&1 | FileCheck -check-prefix CHECK-QM %s
+// CHECK-QM: "-sys-header-deps"
+
 // Behavior with Qopenmp-version option
 // RUN: %clang_cl -### -c /Qopenmp-version=50 %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-VERSION %s
 // RUN: %clang_cl -### -c /Qopenmp-version:50 %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-VERSION %s
