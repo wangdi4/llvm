@@ -147,6 +147,7 @@ def : CLFlag<"O2">, Alias<_SLASH_O>, AliasArgs<["2"]>,
 #if INTEL_CUSTOMIZATION
 def _SLASH_Oa :CLFlag<"Oa">, Alias<fno_alias>,
   HelpText<"Enables 'noalias' attribute for all pointer-type arguments">;
+def _SLASH_Ofast : CLFlag<"Ofast">, Alias<Ofast>;
 #endif // INTEL_CUSTOMIZATION
 def : CLFlag<"Ob0">, Alias<_SLASH_O>, AliasArgs<["b0"]>,
   HelpText<"Disable function inlining">;

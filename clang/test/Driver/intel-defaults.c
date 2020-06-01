@@ -28,8 +28,8 @@
 // CHECK-INTEL-LIBS: "{{.*}}ld{{(.exe)?}}" "--sysroot=[[SYSROOT:[^"]+]]"
 // CHECK-INTEL-LIBS: "-L{{.*}}../compiler/lib/intel64_lin" "-L{{.*}}bin/../lib"
 // CHECK-INTEL-LIBS: "-L[[SYSROOT]]/usr/lib/gcc/x86_64-unknown-linux/4.6.0"
-// CHECK-INTEL-LIBS: "-Bstatic" "-lirc" "-Bdynamic"
 // CHECK-INTEL-LIBS: "-Bstatic" "-lsvml" "-Bdynamic"
+// CHECK-INTEL-LIBS: "-Bstatic" "-lirc" "-Bdynamic"
 
 // default libs with --intel (Windows)
 // RUN: %clang_cl -### --intel -c %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-WIN %s
@@ -47,8 +47,8 @@
 // RUN: touch %t.o
 // RUN: %clang -### --intel -target i386-unknown-linux-gnu %t.o 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS32 %s
 // CHECK-INTEL-LIBS32: "-L{{.*}}../compiler/lib/ia32_lin" "-L{{.*}}bin/../lib"
-// CHECK-INTEL-LIBS32: "-Bstatic" "-lirc" "-Bdynamic"
 // CHECK-INTEL-LIBS32: "-Bstatic" "-lsvml" "-Bdynamic"
+// CHECK-INTEL-LIBS32: "-Bstatic" "-lirc" "-Bdynamic"
 
 // -fveclib=SVML can be overridden
 // RUN: %clang -### -c --intel -fveclib=none %s 2>&1 | FileCheck -check-prefix CHECK-VECLIB %s
@@ -59,3 +59,18 @@
 // RUN: %clangxx -### --intel -target x86_64-unknown-linux -stdlib=libc++ -### %t.o 2>&1 | FileCheck -check-prefix=CHECK-LIBCXX %s
 // CHECK-LIBCXX: "-lc++" "-lc++abi"
 // CHECK-LIBCXX" "-lpthread"
+
+// loopopt settings
+// RUN: %clang -### --intel -c %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT %s
+// RUN: %clang_cl -### --intel -c %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT %s
+// CHECK-INTEL-LOOPOPT: "-mllvm" "-loopopt=0" "-mllvm" "-enable-lv"
+
+// RUN: %clang -### --intel -c -xAVX %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT-AVX %s
+// RUN: %clang_cl -### --intel -c -QxAVX %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT-AVX %s
+// CHECK-INTEL-LOOPOPT-AVX: "-mllvm" "-loopopt"
+// CHECK-INTEL-LOOPOPT-AVX-NOT: "-mllvm" "-enable-lv"
+
+// RUN: %clang -### --intel -c -flto -qopt-mem-layout-trans=4 -Ofast %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT-LIGHT %s
+// RUN: %clang_cl -### --intel -c -Qipo -Qopt-mem-layout-trans:4 -Ofast %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT-LIGHT %s
+// CHECK-INTEL-LOOPOPT-LIGHT: "-mllvm" "-loopopt=1"
+// CHECK-INTEL-LOOPOPT-AVX-NOT: "-mllvm" "-enable-lv"

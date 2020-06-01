@@ -489,8 +489,8 @@ static void addPerfLibPaths(ArgStringList &CmdArgs,
 // Intel libraries are added in statically by default
 static void addIntelLib(const char* IntelLibName, ArgStringList &CmdArgs,
     const llvm::opt::ArgList &Args) {
-  // without --intel, do not pull in Intel libs
-  if (!Args.hasArg(options::OPT__intel))
+  // without --intel or --dpcpp, do not pull in Intel libs
+  if (!Args.hasArg(options::OPT__intel, options::OPT__dpcpp))
     return;
 
   // FIXME - Right now this is rather simplistic - just check to see if
@@ -753,7 +753,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   Args.AddAllArgs(CmdArgs, options::OPT_u);
 
 #if INTEL_CUSTOMIZATION
-  if (Args.hasArg(options::OPT__intel))
+  if (Args.hasArg(options::OPT__intel, options::OPT__dpcpp))
     addIntelLibPaths(CmdArgs, Args, ToolChain);
   addPerfLibPaths(CmdArgs, Args, ToolChain);
 #endif // INTEL_CUSTOMIZATION
@@ -806,8 +806,8 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       (Args.hasArg(options::OPT_mkl_EQ) && Args.hasArg(options::OPT__dpcpp)))
     addTBBLibs(CmdArgs, Args, ToolChain);
   if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs)) {
-    addIntelLib("-lirc", CmdArgs, Args);
     addIntelLib("-lsvml", CmdArgs, Args);
+    addIntelLib("-lirc", CmdArgs, Args);
     if (Args.hasFlag(options::OPT_qopt_matmul, options::OPT_qno_opt_matmul,
                      false))
       addIntelLib("-lmatmul", CmdArgs, Args);

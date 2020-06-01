@@ -178,6 +178,13 @@
 // RUN:  | FileCheck -check-prefixes=XCASCADELAKE,ADV_OPT %s
 // XCASCADELAKE: "-target-cpu" "cascadelake"
 
+// RUN: %clang -### -c -xHOST %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XHOST,ADV_OPT %s
+// RUN: %clang_cl -### -c /QxHOST %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XHOST,ADV_OPT %s
+// XHOST: "-target-cpu"
+// XHOST-NOT: "HOST"
+
 // Unknown argument, pass it through
 // RUN: %clang -### -c -xdummy %s 2>&1 \
 // RUN:  | FileCheck -check-prefixes=XDUMMY,ADV_OPT %s

@@ -52,9 +52,7 @@ private:
 public:
   VPlanVLSAnalysisHIR(HIRDDAnalysis *DDA, LLVMContext &Context,
                       const DataLayout &DL, TargetTransformInfo *TTI)
-      : VPlanVLSAnalysis(/*MainLoop=*/nullptr, Context, DL, /*VPSE=*/nullptr,
-                         TTI),
-        DDA(DDA) {}
+      : VPlanVLSAnalysis(/*MainLoop=*/nullptr, Context, DL, TTI), DDA(DDA) {}
 
   static bool isUnitStride(const RegDDRef *Ref, unsigned Level);
 

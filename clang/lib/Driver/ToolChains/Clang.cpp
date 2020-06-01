@@ -6984,7 +6984,7 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
   } else {
     CmdArgs.push_back(FlagForCRT.data());
 #if INTEL_CUSTOMIZATION
-    if (Args.hasArg(options::OPT__intel)) {
+    if (Args.hasArg(options::OPT__intel, options::OPT__dpcpp)) {
       CmdArgs.push_back("--dependent-lib=libirc");
       CmdArgs.push_back(FlagForIntelSVMLLib.data());
       CmdArgs.push_back("--dependent-lib=libdecimal");

@@ -546,22 +546,23 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
       CmdArgs.push_back(Opt);
     }
   };
+  StringRef MLTVal;
   if (const Arg *A = Args.getLastArg(options::OPT_qopt_mem_layout_trans_EQ)) {
-    StringRef Val(A->getValue());
-    if (Val == "1" || Val == "2" || Val == "3" || Val == "4") {
+    MLTVal = A->getValue();
+    if (MLTVal == "1" || MLTVal == "2" || MLTVal == "3" || MLTVal == "4") {
       addllvmOption("-enable-dtrans");
       addllvmOption("-enable-npm-dtrans");
       addllvmOption(
-          Args.MakeArgString(Twine("-dtrans-mem-layout-level=") + Val));
+          Args.MakeArgString(Twine("-dtrans-mem-layout-level=") + MLTVal));
       addllvmOption("-dtrans-outofboundsok=false");
       addllvmOption("-dtrans-usecrulecompat=true");
       addllvmOption("-dtrans-inline-heuristics=true");
       addllvmOption("-dtrans-partial-inline=true");
       addllvmOption("-irmover-type-merging=false");
       addllvmOption("-spill-freq-boost=true");
-    } else if (Val != "0")
+    } else if (MLTVal != "0")
       TC.getDriver().Diag(diag::err_drv_invalid_argument_to_option)
-          << Val << A->getOption().getName();
+          << MLTVal << A->getOption().getName();
   }
   if (Arg *A =
           Args.getLastArg(options::OPT_funroll_loops,
@@ -585,6 +586,39 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
   if (Args.hasArg(options::OPT__intel)) {
     if (!Args.hasArg(options::OPT_ffreestanding))
       addllvmOption("-intel-libirc-allowed");
+    // Add loopopt default values.  Full loopopt is enabled when -x is provided
+    // otherwise, we enable lightweight loopopt dependent on various options.
+    bool FullLoopOpt = false;
+    if (const Arg *A =
+            Args.getLastArgNoClaim(options::OPT_march_EQ, options::OPT_x))
+      if (A->getOption().matches(options::OPT_x) &&
+          x86::isValidIntelCPU(A->getValue(), TC.getTriple()))
+        // -x wins, so full loopopt is enabled
+        // FIXME: Only keying off of -x addition to set loopopt.  This should
+        // only be done when we are setting P4 w/SSE3 or higher
+        FullLoopOpt = true;
+    // Handle /arch /Qx as well.
+    if (const Arg *A = Args.getLastArgNoClaim(options::OPT__SLASH_arch,
+                                              options::OPT__SLASH_Qx))
+      if (A->getOption().matches(options::OPT__SLASH_Qx) &&
+          x86::isValidIntelCPU(A->getValue(), TC.getTriple()))
+        FullLoopOpt = true;
+    if (FullLoopOpt)
+      addllvmOption("-loopopt");
+    else {
+      int MLTInt = 0;
+      MLTVal.getAsInteger(0, MLTInt);
+      bool OfastSet = false;
+      if (const Arg *A = Args.getLastArg(options::OPT_O_Group))
+        OfastSet = A->getOption().matches(options::OPT_Ofast);
+      if (MLTInt >= 4 && Args.hasArg(options::OPT_flto) && OfastSet)
+        addllvmOption("-loopopt=1");
+      else {
+        addllvmOption("-loopopt=0");
+        if (!TC.getTriple().isSPIR())
+          addllvmOption("-enable-lv");
+      }
+    }
   }
 }
 #endif // INTEL_CUSTOMIZATION

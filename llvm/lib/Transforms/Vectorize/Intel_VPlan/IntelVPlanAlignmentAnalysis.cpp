@@ -12,6 +12,12 @@
 #include "IntelVPlanAlignmentAnalysis.h"
 
 #include "IntelVPlan.h"
+#include "IntelVPlanUtils.h"
+#include "IntelVPlanValueTracking.h"
+
+#include <llvm/Analysis/VectorUtils.h>
+
+#include <numeric>
 
 #define DEBUG_TYPE "vplan-alignment-analysis"
 
@@ -66,14 +72,48 @@ VPlanDynamicPeeling::VPlanDynamicPeeling(VPInstruction *Memref,
       Multiplier(computeMultiplierForDynamicPeeling(
           AccessAddress.Step, RequiredAlignment, TargetAlignment)) {}
 
+int VPlanPeelingCostModelSimple::getCost(VPInstruction *Mrf, int VF,
+                                         Align Alignment) {
+  auto Size = DL->getTypeAllocSize(getLoadStoreType(Mrf));
+  Align BestAlign(VF * MinAlign(0, Size));
+  auto Opcode = Mrf->getOpcode();
+
+  if (Alignment >= BestAlign)
+    return 0;
+
+  if (Opcode == Instruction::Load)
+    return 2;
+
+  if (Opcode == Instruction::Store)
+    return 3;
+
+  llvm_unreachable("Unexpected Opcode");
+}
+
+VPlanPeelingCandidate::VPlanPeelingCandidate(VPInstruction *Memref,
+                                             VPConstStepInduction AccessAddress,
+                                             KnownBits InvariantBaseKnownBits)
+    : Memref(Memref), AccessAddress(AccessAddress),
+      InvariantBaseKnownBits(std::move(InvariantBaseKnownBits)) {
+#ifndef NDEBUG
+  auto *DL = Memref->getParent()->getParent()->getDataLayout();
+  auto AccessSize = DL->getTypeAllocSize(getLoadStoreType(Memref));
+  auto AccessStep = AccessAddress.Step;
+  assert(AccessSize == TypeSize::Fixed(AccessStep) &&
+         "Non-unit stride memory access");
+  assert((InvariantBaseKnownBits.One & (MinAlign(0, AccessStep) - 1)) == 0 &&
+         "Misaligned memory access");
+#endif
+}
+
 void VPlanPeelingAnalysis::collectMemrefs(VPlan &Plan) {
   for (auto &VPBB : Plan)
     for (auto &VPInst : VPBB) {
-      // Ignore Loads for now. Aligning Stores is more profitable.
-      if (VPInst.getOpcode() != Instruction::Store)
+      auto Opcode = VPInst.getOpcode();
+      if (Opcode != Instruction::Load && Opcode != Instruction::Store)
         continue;
 
-      auto *Pointer = VPInst.getOperand(1);
+      auto *Pointer = getLoadStorePointerOperand(&VPInst);
       auto *Expr = VPSE->getVPlanSCEV(*Pointer);
       Optional<VPConstStepInduction> Ind = VPSE->asConstStepInduction(Expr);
 
@@ -86,19 +126,53 @@ void VPlanPeelingAnalysis::collectMemrefs(VPlan &Plan) {
       if (DL->getTypeAllocSize(EltTy) != TypeSize::Fixed(Ind->Step))
         continue;
 
-      // Found a candidate for peeling (unit-strided store). Stop iterating.
-      Memref = &VPInst;
-      AccessAddress = *Ind;
-      return;
+      KnownBits KB = VPVT->getKnownBits(Ind->InvariantBase, &VPInst);
+
+      // Skip the memref if the address is statically known to be misaligned.
+      auto RequiredAlignment = MinAlign(0, Ind->Step);
+      if ((KB.One & (RequiredAlignment - 1)) != 0)
+        continue;
+
+      CandidateMemrefs.push_back({&VPInst, *Ind, std::move(KB)});
     }
 }
 
 std::unique_ptr<VPlanPeelingVariant>
 VPlanPeelingAnalysis::selectBestPeelingVariant(int VF) {
-  if (!Memref)
-    return std::make_unique<VPlanStaticPeeling>(0);
+  auto Static = selectBestStaticPeelingVariant(VF);
+  auto DynamicOrNone = selectBestDynamicPeelingVariant(VF);
+  if (DynamicOrNone && DynamicOrNone->second > Static.second)
+    return std::make_unique<VPlanDynamicPeeling>(DynamicOrNone->first);
+  return std::make_unique<VPlanStaticPeeling>(Static.first);
+}
 
-  Align TargetAlignment(VF * MinAlign(0, AccessAddress.Step));
-  return std::make_unique<VPlanDynamicPeeling>(Memref, AccessAddress,
-                                               TargetAlignment);
+std::pair<VPlanStaticPeeling, int>
+VPlanPeelingAnalysis::selectBestStaticPeelingVariant(int VF) {
+  return {VPlanStaticPeeling(0), 0};
+}
+
+Optional<std::pair<VPlanDynamicPeeling, int>>
+VPlanPeelingAnalysis::selectBestDynamicPeelingVariant(int VF) {
+  if (CandidateMemrefs.empty())
+    return None;
+
+  // Map every collected memref to {Peeling, Profit} pair.
+  auto Map = map_range(
+      CandidateMemrefs,
+      [this, VF](auto &Cand) -> std::pair<VPlanDynamicPeeling, int> {
+        Align ReqAlign(MinAlign(0, Cand.accessAddress().Step));
+        int Profit = CM->getCost(Cand.memref(), VF, ReqAlign) -
+                     CM->getCost(Cand.memref(), VF, ReqAlign * VF);
+        VPlanDynamicPeeling Peeling(Cand.memref(), Cand.accessAddress(),
+                                    ReqAlign * VF);
+        return {std::move(Peeling), Profit};
+      });
+
+  // Select the most profitable peeling variant in Map.
+  auto Reduce = std::accumulate(Map.begin() + 1, Map.end(), *Map.begin(),
+                                [](const auto &lhs, const auto &rhs) {
+                                  return rhs.second > lhs.second ? rhs : lhs;
+                                });
+
+  return Reduce;
 }
