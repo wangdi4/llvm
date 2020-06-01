@@ -1799,9 +1799,8 @@ define <4 x double> @test_v4f64_fneg_fmul_no_nsz(<4 x double> %x, <4 x double> %
 define double @fadd_fma_fmul_1(double %a, double %b, double %c, double %d, double %n1) nounwind {
 ; FMA-LABEL: fadd_fma_fmul_1:
 ; FMA:       # %bb.0:
-; FMA-NEXT:    vmulsd %xmm3, %xmm2, %xmm2
-; FMA-NEXT:    vfmadd231sd {{.*#+}} xmm2 = (xmm1 * xmm0) + xmm2
-; FMA-NEXT:    vaddsd %xmm4, %xmm2, %xmm0
+; FMA-NEXT:    vfmadd213sd {{.*#+}} xmm2 = (xmm3 * xmm2) + xmm4 ;INTEL
+; FMA-NEXT:    vfmadd213sd {{.*#+}} xmm0 = (xmm1 * xmm0) + xmm2 ;INTEL
 ; FMA-NEXT:    retq
 ;
 ; FMA4-LABEL: fadd_fma_fmul_1:
@@ -1813,9 +1812,8 @@ define double @fadd_fma_fmul_1(double %a, double %b, double %c, double %d, doubl
 ;
 ; AVX512-LABEL: fadd_fma_fmul_1:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vmulsd %xmm3, %xmm2, %xmm2
-; AVX512-NEXT:    vfmadd231sd {{.*#+}} xmm2 = (xmm1 * xmm0) + xmm2
-; AVX512-NEXT:    vaddsd %xmm4, %xmm2, %xmm0
+; AVX512-NEXT:    vfmadd213sd {{.*#+}} xmm2 = (xmm3 * xmm2) + xmm4 ;INTEL
+; AVX512-NEXT:    vfmadd213sd {{.*#+}} xmm0 = (xmm1 * xmm0) + xmm2 ;INTEL
 ; AVX512-NEXT:    retq
   %m1 = fmul fast double %a, %b
   %m2 = fmul fast double %c, %d
