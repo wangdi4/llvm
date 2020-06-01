@@ -14,7 +14,7 @@ declare void @llvm.directive.region.exit(token) #2
 
 ; Function Attrs: nounwind uwtable
 define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* nocapture %c, i32 %x, i32 %y) local_unnamed_addr #0 {
-; CHECK-LABEL:  VPlan after all zero bypass insertion
+; CHECK-LABEL:  VPlan after all zero bypass insertion:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -53,7 +53,7 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* n
 ; CHECK-NEXT:      PREDECESSORS(1): all.zero.bypass.begin29
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]:
-; CHECK-NEXT:       [DA: Div] i32 [[VP2:%.*]] = phi  [ i32 [[VP0]], [[BB4]] ],  [ i32 [[VP__PRE_SSA_PHI:%.*]], [[BB6:BB[0-9]+]] ]
+; CHECK-NEXT:       [DA: Div] i32 [[VP2:%.*]] = phi  [ i32 [[VP0]], [[BB4]] ],  [ i32 [[VP__PRE_SSA_PHI_BLEND_BB7:%.*]], [[BB6:BB[0-9]+]] ]
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_STOREMERGE28:%.*]] = phi  [ i32 [[VP0]], [[BB4]] ],  [ i32 [[VP_INC:%.*]], [[BB6]] ]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 [[VP_CMP127]], [[BB4]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB6]] ]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP_CMP127]]
@@ -148,28 +148,27 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* n
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB19]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[NEW_LOOP_LATCH0]]:
-; CHECK-NEXT:       [DA: Div] i32 [[VP__PRE_SSA_PHI]] = blend [ i32 undef, i1 [[VP_BB19_BR_VP_LOOP_MASK]] ], [ i32 [[VP__PRE]], i1 [[VP_BB12_BR_VP_EXITCOND_NOT]] ]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_TAKEBACKEDGECOND:%.*]] = blend [ i1 false, i1 [[VP_BB19_BR_VP_LOOP_MASK]] ], [ i1 true, i1 [[VP_BB12_BR_VP_EXITCOND_NOT]] ]
+; CHECK-NEXT:       [DA: Div] i32 [[VP__PRE_SSA_PHI_BLEND_BB7]] = blend [ i32 undef, i1 [[VP_BB19_BR_VP_LOOP_MASK]] ], [ i32 [[VP__PRE]], i1 [[VP_BB12_BR_VP_EXITCOND_NOT]] ]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_TAKEBACKEDGECOND_BLEND_BB7:%.*]] = blend [ i1 false, i1 [[VP_BB19_BR_VP_LOOP_MASK]] ], [ i1 true, i1 [[VP_BB12_BR_VP_EXITCOND_NOT]] ]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP15:%.*]] = block-predicate i1 [[VP_BB19_BR_VP_LOOP_MASK]]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB21:BB[0-9]+]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB20]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB21]]:
 ; CHECK-NEXT:       [DA: Div] i1 [[VP16:%.*]] = block-predicate i1 [[VP_CMP127]]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_TAKEBACKEDGECOND]] i1 [[VP_LOOP_MASK]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_TAKEBACKEDGECOND_BLEND_BB7]] i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP17:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
-; CHECK-NEXT:       [DA: Uni] i1 [[VP18:%.*]] = not i1 [[VP17]]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB6]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB6]]:
-; CHECK-NEXT:       [DA: Div] i1 [[VP19:%.*]] = block-predicate i1 [[VP_CMP127]]
-; CHECK-NEXT:       Condition([[BB21]]): [DA: Uni] i1 [[VP18]] = not i1 [[VP17]]
-; CHECK-NEXT:      SUCCESSORS(2):[[BB5]](i1 [[VP18]]), [[BB22:BB[0-9]+]](!i1 [[VP18]])
+; CHECK-NEXT:       [DA: Div] i1 [[VP18:%.*]] = block-predicate i1 [[VP_CMP127]]
+; CHECK-NEXT:       Condition([[BB21]]): [DA: Uni] i1 [[VP17]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
+; CHECK-NEXT:      SUCCESSORS(2):[[BB22:BB[0-9]+]](i1 [[VP17]]), [[BB5]](!i1 [[VP17]])
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB21]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB22]]:
-; CHECK-NEXT:       [DA: Div] i1 [[VP20:%.*]] = block-predicate i1 [[VP_CMP127]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP19:%.*]] = block-predicate i1 [[VP_CMP127]]
 ; CHECK-NEXT:      SUCCESSORS(1):all.zero.bypass.end31
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB6]]
 ; CHECK-EMPTY:

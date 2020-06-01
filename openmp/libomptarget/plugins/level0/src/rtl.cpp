@@ -418,6 +418,8 @@ public:
 
   RTLDeviceInfoTy() {
     NumDevices = 0;
+    Mutexes = nullptr;
+    DataMutexes = nullptr;
     DataTransferLatency = 0;
     DeviceType = ZE_DEVICE_TYPE_GPU;
     readEnvironmentVars();

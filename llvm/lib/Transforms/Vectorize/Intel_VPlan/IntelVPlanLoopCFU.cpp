@@ -99,19 +99,6 @@ void VPlanLoopCFU::run(VPLoop *VPL) {
   else
     RegionExitBlock = VPBlockUtils::splitBlockEnd(VPLLatch, VPLI, DT, PDT);
 
-  // Remove the loop backedge condition from its original parent and place
-  // in the region exit. Not needed for correctness, but easier to see
-  // when debugging because the successor of the region exit block is
-  // the loop latch containing this condition as the condition bit.This will
-  // not work if the condition is a phi node. For this reason, only conditions
-  // that are compare instructions are moved to the RegionExitBlock.
-  if (dyn_cast<VPCmpInst>(BottomTest)) {
-    VPBasicBlock *BottomTestBlock =
-        cast<VPInstruction>(BottomTest)->getParent();
-    BottomTestBlock->removeInstruction(cast<VPInstruction>(BottomTest));
-    RegionExitBlock->addInstruction(cast<VPInstruction>(BottomTest));
-  }
-
   // Construct loop body mask and insert into the loop header
   VPPHINode *LoopBodyMask = new VPPHINode(BottomTest->getType());
   LoopBodyMask->setName("vp.loop.mask");
@@ -282,16 +269,8 @@ void VPlanLoopCFU::run(VPLoop *VPL) {
   // lanes are inactive, new condition bit will be true.
   auto *NewCondBit = Builder.createAllZeroCheck(BottomTest);
   Plan.getVPlanDA()->updateDivergence(*NewCondBit);
-
-  // If back edge is the false successor, we can use new condition bit as
-  // the loop latch condition. However, if back edge is the true
-  // successor, we need to negate the new condition bit before using it as
-  // the loop latch condition.
-  if (!BackEdgeIsFalseSucc) {
-    NewCondBit = Builder.createNot(NewCondBit);
-  }
-  NewLoopLatch->setCondBit(NewCondBit);
-  Plan.getVPlanDA()->updateDivergence(*NewCondBit);
+  NewLoopLatch->clearSuccessors();
+  NewLoopLatch->setTwoSuccessors(NewCondBit, VPLExitBlock, VPLHeader);
 
   LoopBodyMask->addIncoming(BottomTest, NewLoopLatch);
   VPLHeader->addInstruction(LoopBodyMask);

@@ -46,11 +46,11 @@ define dso_local void @foo(i64 %N, i64 %lb, i64 %ub) local_unnamed_addr {
 ; CHECK-NEXT:         [DA: Div] i64* [[VP_ARRAYIDX4:%.*]] = getelementptr inbounds [100 x [100 x i64]]* @A i64 0 i64 [[VP_IV]] i32 [[VP_LANE]]
 ; CHECK-NEXT:         [DA: Div] store i64 [[VP_ADD]] i64* [[VP_ARRAYIDX4]]
 ; CHECK-NEXT:         [DA: Uni] i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 1
+; CHECK-NEXT:         [DA: Div] i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_IV]] i32 [[VP_LANE]]
 ; CHECK-NEXT:        SUCCESSORS(1):[[BB7]]
 ; CHECK-NEXT:        PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB7]]:
-; CHECK-NEXT:       [DA: Div] i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_IV]] i32 [[VP_LANE]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_EXITCOND_NOT:%.*]] = not i1 [[VP_EXITCOND]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_EXITCOND_NOT]] i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP0:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]

@@ -499,12 +499,12 @@ define dso_local void @test_divergent_loop_with_double_top_test(i32 %N, i32 *%a,
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_LD:%.*]] = load i32* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_SOME_CMP:%.*]] = icmp i32 [[VP_LD]] i32 42
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_IV_NEXT]] = add i32 [[VP_IV]] i32 1
+; CHECK-NEXT:     [DA: Div] i1 [[VP_EXITCOND:%.*]] = icmp i32 [[VP_IV_NEXT]] i32 [[VP_LANE]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB9:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB7]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB9]]:
 ; CHECK-NEXT:     [DA: Div] i1 [[VP5:%.*]] = block-predicate i1 [[VP_BB2_BR_VP_SECOND_TEST_NOT]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_EXITCOND:%.*]] = icmp i32 [[VP_IV_NEXT]] i32 [[VP_LANE]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_EXITCOND_NOT:%.*]] = not i1 [[VP_EXITCOND]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_EXITCOND_NOT]] i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_IV_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i32 [[VP_IV]] i32 [[VP_IV_LIVE_OUT_PREV]]

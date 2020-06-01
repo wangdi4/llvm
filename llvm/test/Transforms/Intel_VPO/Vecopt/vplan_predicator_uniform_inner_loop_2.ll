@@ -59,11 +59,11 @@ define void @foo(i32 %n1, i32 %n2, i64 %vf) {
 ; CHECK-NEXT:    [[BB9]]:
 ; CHECK-NEXT:     [DA: Div] i1 [[VP7:%.*]] = block-predicate i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VF0:%.*]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_EXITCOND15:%.*]] = icmp i64 [[VP_INDVARS_IV_NEXT]] i64 1024
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB10:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB8]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB10]]:
-; CHECK-NEXT:     [DA: Div] i1 [[VP_EXITCOND15:%.*]] = icmp i64 [[VP_INDVARS_IV_NEXT]] i64 1024
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_EXITCOND15_NOT:%.*]] = not i1 [[VP_EXITCOND15]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_EXITCOND15_NOT]] i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP8:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]

@@ -166,6 +166,7 @@ define dso_local void @foo_non_lcssa_from_uniform_sub_loop(i64 %N, i64 *%a, i64 
 ; CHECK-NEXT:      [[BB4]]:
 ; CHECK-NEXT:       [DA: Div] i64* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64* [[A0:%.*]] i64 [[VP_IV]]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_LD:%.*]] = load i64* [[VP_ARRAYIDX]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_SOME_CMP:%.*]] = icmp i64 [[VP_LD]] i64 42
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 1
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB6:BB[0-9]+]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB3]]
@@ -182,7 +183,6 @@ define dso_local void @foo_non_lcssa_from_uniform_sub_loop(i64 %N, i64 *%a, i64 
 ; CHECK-NEXT:      PREDECESSORS(2): [[BB6]] [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]:
-; CHECK-NEXT:     [DA: Div] i1 [[VP_SOME_CMP:%.*]] = icmp i64 [[VP_LD]] i64 42
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_SOME_CMP_NOT:%.*]] = not i1 [[VP_SOME_CMP]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_SOME_CMP_NOT]] i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP0:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
