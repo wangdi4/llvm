@@ -455,6 +455,7 @@ FUNCTION_PASS("hir-cond-ldst-motion", loopopt::HIRConditionalLoadStoreMotionPass
 FUNCTION_PASS("vpo-paropt-optimize-data-sharing", VPOParoptOptimizeDataSharingPass())
 FUNCTION_PASS("hir-store-result-into-temp-array", loopopt::HIRStoreResultIntoTempArrayPass())
 FUNCTION_PASS("hir-sum-window-reuse", loopopt::HIRSumWindowReusePass())
+FUNCTION_PASS("hir-non-zero-sinking-for-perfect-loopnest", loopopt::HIRNonZeroSinkingForPerfectLoopnestPass())
 
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB

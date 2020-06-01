@@ -195,6 +195,9 @@ FunctionPass *createHIRStoreResultIntoTempArrayPass();
 
 /// Create pass that performs sum window reuse.
 FunctionPass *createHIRSumWindowReusePass();
+
+/// Create pass that implements non-zero sinking for perfect loopnest.
+FunctionPass *createHIRNonZeroSinkingForPerfectLoopnestPass();
 } // namespace llvm
 
 #endif
