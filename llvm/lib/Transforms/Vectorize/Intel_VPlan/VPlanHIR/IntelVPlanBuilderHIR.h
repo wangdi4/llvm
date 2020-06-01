@@ -126,18 +126,19 @@ public:
   // Build a VPCallInstruction for the HIR instruction \p HInst using callee \p
   // CalledValue and list of argument operands \p ArgList.
   VPInstruction *createCall(VPValue *CalledValue, ArrayRef<VPValue *> ArgList,
-                            loopopt::HLInst *HInst) {
+                            loopopt::HLInst *HInst,
+                            loopopt::HLDDNode *DDNode = nullptr) {
     assert(HInst && "Cannot create VPCallInstruction without underlying IR.");
     assert(HInst->isCallInst() &&
            "Underlying HLInst is not a call instruction.");
     auto *Call = HInst->getCallInst();
     VPCallInstruction *NewVPCall =
         new VPCallInstruction(CalledValue, ArgList, Call);
-    NewVPCall->HIR.setUnderlyingNode(HInst);
-    NewVPCall->HIR.setValid();
     NewVPCall->setName(HInst->getLLVMInstruction()->getName());
     if (BB)
       BB->insert(NewVPCall, InsertPt);
+    if (DDNode)
+      NewVPCall->HIR.setUnderlyingNode(DDNode);
     return NewVPCall;
   }
 };
