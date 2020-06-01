@@ -585,7 +585,7 @@ TEST(FrameworkTestType, cl_device_local_mem_size_test)
     EXPECT_TRUE(cl_device_local_mem_size_test());
 }
 
-TEST(FrameworkTestType, DISABLED_cl_device_private_mem_size_test)
+TEST(FrameworkTestType, cl_device_private_mem_size_test)
 {
     EXPECT_TRUE(cl_device_private_mem_size_test());
 }
