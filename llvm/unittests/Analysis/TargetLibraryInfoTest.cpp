@@ -962,11 +962,16 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i32 @getrlimit(i32, i8*)\n"
       "declare i32 @FindClose(i8*)\n"
       "declare i8* @FindFirstFileA(i8*, %struct*)\n"
+      "declare i8* @FindFirstFileW(i16*, %struct*)\n"
       "declare i32 @FindNextFileA(i8*, %struct*)\n"
+      "declare i32 @FindNextFileW(i8*, %struct*)\n"
+      "declare %struct* @FindResourceA(%struct*, i8*, i8*)\n"
       "declare i32 @GetCurrentThreadId()\n"
       "declare i32 @GetFullPathNameA(i8*, i32, i8*, i8**)\n"
+      "declare i32 @GetModuleFileNameA(%struct*, i8*, i32)\n"
       "declare %struct* @GetModuleHandleA(i8*)\n"
       "declare i64* @GetProcAddress(%struct*, i8*)\n"
+      "declare void @GetSystemTime(%struct*)\n"
       "declare i32 @GetShortPathNameW(i16*, i16*, i32)\n"
       "declare void @GlobalMemoryStatus(%struct*)\n"
       "declare i32 @InitializeCriticalSectionAndSpinCount(%struct*, i32)\n"
@@ -974,6 +979,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i32 @MultiByteToWideChar(i32, i32, i8*, i32, i16*, i32)\n"
       "declare i32 @QueryPerformanceCounter(%struct*)\n"
       "declare void @Sleep(i32)\n"
+      "declare i32 @SystemTimeToFileTime(%struct*, %struct*)\n"
       "declare i32 @getrusage(i32, i8*)\n"
       "declare i32 @getuid()\n"
       "declare i32 @glob(i8*, i32, i8*, i8*)\n"
@@ -1095,6 +1101,7 @@ TEST_F(TargetLibraryInfoTest, ValidProto) {
       "declare i16* @wcscpy(i16*, i16*)\n"
       "declare i16* @wcsncat(i16*, i16*, i64)\n"
       "declare i64 @wcstombs(i8*, i8*, i64)\n"
+      "declare i32 @WideCharToMultiByte(i32, i32, i16*, i32, i8*, i32, i8*, i32*)\n"
 #endif // INTEL_CUSTOMIZATION
       );
 
