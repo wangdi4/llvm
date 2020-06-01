@@ -366,11 +366,11 @@ void DataPerValue::calculateConnectedGraph(Module &M) {
     if (!DataPerBarrierAnalysis->hasSyncInstruction(F)) {
       // Function has no synchronize instruction: skip it!
       // CSSD100016517: workaround
-      // Functions with no barrier still need to have an entry
-      // However, it should be a unique entry.
-      assert(FunctionEntryMap.count(F) == 0 &&
-             "function with no barrier does not have a unique entry");
-      FunctionEntryMap[F] = CurrEntry++;
+      // Functions with no barrier still need to have an entry.
+      if (FunctionEntryMap.count(F))
+        fixEntryMap(FunctionEntryMap[F], CurrEntry++);
+      else
+        FunctionEntryMap[F] = CurrEntry++;
       continue;
     }
     if (FunctionEntryMap.count(F)) {
