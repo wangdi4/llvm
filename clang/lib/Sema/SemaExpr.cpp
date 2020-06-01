@@ -10611,7 +10611,11 @@ QualType Sema::CheckAdditionOperands(ExprResult &LHS, ExprResult &RHS,
     return compType;
   }
 
-<<<<<<< HEAD
+  if (LHS.get()->getType()->isConstantMatrixType() ||
+      RHS.get()->getType()->isConstantMatrixType()) {
+    return CheckMatrixElementwiseOperands(LHS, RHS, Loc, CompLHSTy);
+  }
+
 #if INTEL_CUSTOMIZATION
   if (LHS.get()->getType()->isArbPrecIntType() ||
       RHS.get()->getType()->isArbPrecIntType()) {
@@ -10622,12 +10626,6 @@ QualType Sema::CheckAdditionOperands(ExprResult &LHS, ExprResult &RHS,
     return compType;
   }
 #endif // INTEL_CUSTOMIZATION
-=======
-  if (LHS.get()->getType()->isConstantMatrixType() ||
-      RHS.get()->getType()->isConstantMatrixType()) {
-    return CheckMatrixElementwiseOperands(LHS, RHS, Loc, CompLHSTy);
-  }
->>>>>>> 6f6e91d19337315548f550479f94cbc0af93c8fe
 
   QualType compType = UsualArithmeticConversions(
       LHS, RHS, Loc, CompLHSTy ? ACK_CompAssign : ACK_Arithmetic);
@@ -10724,7 +10722,11 @@ QualType Sema::CheckSubtractionOperands(ExprResult &LHS, ExprResult &RHS,
     return compType;
   }
 
-<<<<<<< HEAD
+  if (LHS.get()->getType()->isConstantMatrixType() ||
+      RHS.get()->getType()->isConstantMatrixType()) {
+    return CheckMatrixElementwiseOperands(LHS, RHS, Loc, CompLHSTy);
+  }
+
 #if INTEL_CUSTOMIZATION
   if (LHS.get()->getType()->isArbPrecIntType() ||
       RHS.get()->getType()->isArbPrecIntType()) {
@@ -10735,12 +10737,6 @@ QualType Sema::CheckSubtractionOperands(ExprResult &LHS, ExprResult &RHS,
     return compType;
   }
 #endif // INTEL_CUSTOMIZATION
-=======
-  if (LHS.get()->getType()->isConstantMatrixType() ||
-      RHS.get()->getType()->isConstantMatrixType()) {
-    return CheckMatrixElementwiseOperands(LHS, RHS, Loc, CompLHSTy);
-  }
->>>>>>> 6f6e91d19337315548f550479f94cbc0af93c8fe
 
   QualType compType = UsualArithmeticConversions(
       LHS, RHS, Loc, CompLHSTy ? ACK_CompAssign : ACK_Arithmetic);
