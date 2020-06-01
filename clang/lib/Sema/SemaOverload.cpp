@@ -544,12 +544,6 @@ void ImplicitConversionSequence::dump() const {
   if (isStdInitializerListElement())
     OS << "Worst std::initializer_list element conversion: ";
   switch (ConversionKind) {
-#if INTEL_CUSTOMIZATION
-  case PermissiveConversion:
-    OS << "Permissive standard conversion: ";
-    Standard.dump();
-    break;
-#endif // INTEL_CUSTOMIZATION
   case StandardConversion:
     OS << "Standard conversion: ";
     Standard.dump();
@@ -1400,87 +1394,6 @@ TryUserDefinedConversion(Sema &S, Expr *From, QualType ToType,
   return ICS;
 }
 
-#if INTEL_CUSTOMIZATION
-// CQ#376357: GCC in -fpermissive mode allows weird conversions.
-static bool isPermissivePointerConversion(QualType FromType,
-                                          QualType ToType,
-                                          ASTContext &Context) {
-  // Any integral to enumeration type.
-  if (FromType->isIntegralOrEnumerationType() && ToType->isEnumeralType())
-    return true;
-
-  // Any pointer to any integral (but not enum) type.
-  if (FromType->isPointerType() && ToType->isIntegralType(Context))
-    return true;
-
-  // Any integral type to any pointer.
-  if (FromType->isIntegralType(Context) && ToType->isPointerType())
-    return true;
-
-  // Only pointer cases left.
-  if (!FromType->isPointerType() || !ToType->isPointerType())
-    return false;
-
-  QualType FromPointeeType = FromType->getAs<PointerType>()->getPointeeType();
-  QualType ToPointeeType = ToType->getAs<PointerType>()->getPointeeType();
-
-  if (FromPointeeType->isPointerType() && ToPointeeType->isPointerType())
-    return isPermissivePointerConversion(FromPointeeType, ToPointeeType, Context);
-
-  // If the ToType is const-qualified and the FromType is not,
-  // a temporary is created, so disallow this conversion.
-  if (ToType.isConstQualified() && !FromType.isConstQualified())
-    return false;
-
-  // Either from a void* type or to a void* type
-  if (ToPointeeType->isVoidType() || FromPointeeType->isVoidType())
-    return true;
-
-  // Conversion from one function pointer to another
-  if (ToPointeeType->isFunctionType() && FromPointeeType->isFunctionType())
-    return true;
-
-  if (FromPointeeType->isCharType() && ToPointeeType->isIntegralType(Context))
-    return false;
-
-  if (FromPointeeType->isCharType() && ToPointeeType->isCharType())
-    return true;
-
-  if (ToPointeeType->isIntegralType(Context) &&
-      FromPointeeType->isIntegralType(Context)) {
-    const bool FromSigned = FromPointeeType->isSignedIntegerOrEnumerationType();
-    const unsigned FromWidth = Context.getIntWidth(FromPointeeType);
-    const bool ToSigned = ToPointeeType->isSignedIntegerOrEnumerationType();
-    const unsigned ToWidth = Context.getIntWidth(ToPointeeType);
-    // gcc allows a conversion from a pointer-to-a-wider integral type to
-    // a pointer-to-a-narrower integral type
-    //
-    // And gcc allows conversion from a pointer-to-a-signed type to
-    // a pointer-to-an-unsigned type
-    if (ToWidth >= FromWidth || (!ToSigned && FromSigned))
-      return true;
-  }
-
-  // Allow the conversion only if the types are compatible
-  if (!Context.typesAreCompatible(ToPointeeType, FromPointeeType))
-    return false;
-
-  // Allow the conversion if either is not a pointer-to-struct type
-  if (!FromPointeeType->isRecordType() || !ToPointeeType->isRecordType())
-    return true;
-
-  return false;
-}
-
-// CQ#376357: GCC in -fpermissive mode allows weird conversions.
-static bool hasPermissiveConversion(const OverloadCandidate &Cand) {
-  for (unsigned ArgIdx = !Cand.IgnoreObjectArgument ? 0 : 1;
-       ArgIdx < Cand.Conversions.size(); ++ArgIdx)
-    if (Cand.Conversions[ArgIdx].isPermissive())
-      return true;
-  return false;
-}
-#endif  // INTEL_CUSTOMIZATION
 /// TryImplicitConversion - Attempt to perform an implicit conversion
 /// from the given expression (Expr) to the given type (ToType). This
 /// function returns an implicit conversion sequence that can be used
@@ -1515,8 +1428,7 @@ TryImplicitConversion(Sema &S, Expr *From, QualType ToType,
                       bool InOverloadResolution,
                       bool CStyle,
                       bool AllowObjCWritebackConversion,
-                      bool AllowObjCConversionOnExplicit, // INTEL
-                      bool AllowGnuPermissive = true) {  // INTEL
+                      bool AllowObjCConversionOnExplicit) {
   ImplicitConversionSequence ICS;
   if (IsStandardConversion(S, From, ToType, InOverloadResolution,
                            ICS.Standard, CStyle, AllowObjCWritebackConversion)){
@@ -1557,24 +1469,10 @@ TryImplicitConversion(Sema &S, Expr *From, QualType ToType,
 
     return ICS;
   }
-
-#if INTEL_CUSTOMIZATION
-  // CQ#376357: GCC in -fpermissive mode allows weird conversions.
-  ImplicitConversionSequence Result = TryUserDefinedConversion(
-      S, From, ToType, SuppressUserConversions, AllowExplicit,
-      InOverloadResolution, CStyle, AllowObjCWritebackConversion,
-      AllowObjCConversionOnExplicit);
-  if (AllowGnuPermissive && Result.isBad() &&
-      S.getLangOpts().IntelCompat && S.getLangOpts().GnuPermissive &&
-      isPermissivePointerConversion(FromType, ToType, S.Context)) {
-    // Permissive conversion like a standard conversion but for overloading
-    //  purpose should have the worst match (worse than ellipsis).
-    ICS.setPermissive();
-    ICS.Standard.Second = ICK_Pointer_Conversion;
-    return ICS;
-  }
-  return Result;
-#endif // INTEL_CUSTOMIZATION
+  return TryUserDefinedConversion(S, From, ToType, SuppressUserConversions,
+                                  AllowExplicit, InOverloadResolution, CStyle,
+                                  AllowObjCWritebackConversion,
+                                  AllowObjCConversionOnExplicit);
 }
 
 ImplicitConversionSequence
@@ -1583,13 +1481,11 @@ Sema::TryImplicitConversion(Expr *From, QualType ToType,
                             AllowedExplicit AllowExplicit,
                             bool InOverloadResolution,
                             bool CStyle,
-                            bool AllowObjCWritebackConversion, // INTEL
-                            bool AllowGnuPermissive) {  // INTEL
+                            bool AllowObjCWritebackConversion) {
   return ::TryImplicitConversion(*this, From, ToType, SuppressUserConversions,
                                  AllowExplicit, InOverloadResolution, CStyle,
                                  AllowObjCWritebackConversion,
-                                 /*AllowObjCConversionOnExplicit=*/false, // INTEL
-                                 AllowGnuPermissive); // INTEL
+                                 /*AllowObjCConversionOnExplicit=*/false);
 }
 
 /// PerformImplicitConversion - Perform an implicit conversion of the
@@ -3137,19 +3033,6 @@ bool Sema::CheckPointerConversion(Expr *From, QualType ToType,
       Diag(From->getExprLoc(), diag::warn_non_literal_null_pointer)
         << ToType << From->getSourceRange();
   }
-#if INTEL_CUSTOMIZATION
-  // CQ#376357: GCC in -fpermissive mode allows weird conversions.
-  if (getLangOpts().IntelCompat && getLangOpts().GnuPermissive) {
-    if (FromType->isIntegralOrEnumerationType() && ToType->isAnyPointerType())
-      Kind = CK_IntegralToPointer;
-    else if (FromType->isAnyPointerType() &&
-             ToType->isIntegralOrEnumerationType())
-      Kind = CK_PointerToIntegral;
-    else if (FromType->isIntegralOrEnumerationType() &&
-             ToType->isIntegralOrEnumerationType())
-      Kind = CK_IntegralCast;
-  }
-#endif // INTEL_CUSTOMIZATION
   if (const PointerType *ToPtrType = ToType->getAs<PointerType>()) {
     if (const PointerType *FromPtrType = FromType->getAs<PointerType>()) {
       QualType FromPointeeType = FromPtrType->getPointeeType(),
@@ -5728,7 +5611,6 @@ static ExprResult CheckConvertedConstantExpression(Sema &S, Expr *From,
                                   /*AllowExplicit=*/false);
   StandardConversionSequence *SCS = nullptr;
   switch (ICS.getKind()) {
-  case ImplicitConversionSequence::PermissiveConversion: // INTEL
   case ImplicitConversionSequence::StandardConversion:
     SCS = &ICS.Standard;
     break;
@@ -5897,7 +5779,6 @@ TryContextuallyConvertToObjCPointer(Sema &S, Expr *From) {
     dropPointerConversion(ICS.UserDefined.After);
     break;
 
-  case ImplicitConversionSequence::PermissiveConversion: // INTEL
   case ImplicitConversionSequence::StandardConversion:
     dropPointerConversion(ICS.Standard);
     break;
@@ -9700,16 +9581,6 @@ bool clang::isBetterOverloadCandidate(
     return Cand1.Viable;
   else if (!Cand1.Viable)
     return false;
-
-#if INTEL_CUSTOMIZATION
-  // CQ#376357: GCC in -fpermissive mode allows weird conversions.
-  bool CandHasPermissiveConversion1 = hasPermissiveConversion(Cand1);
-  bool CandHasPermissiveConversion2 = hasPermissiveConversion(Cand2);
-  if (!CandHasPermissiveConversion1 && CandHasPermissiveConversion2)
-    return true;
-  else if (CandHasPermissiveConversion1 && !CandHasPermissiveConversion2)
-    return false;
-#endif // INTEL_CUSTOMIZATION
 
   // C++ [over.match.best]p1:
   //

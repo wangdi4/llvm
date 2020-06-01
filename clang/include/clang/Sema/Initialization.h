@@ -1118,21 +1118,15 @@ public:
   ///        narrowing conversions in C++11 onwards.
   /// \param TreatUnavailableAsInvalid true if we want to treat unavailable
   ///        as invalid.
-  /// \param AllowGnuPermissive GNU Permissive mode allows a large //INTEL
-  ///        amount of additional conversions that aren't always // INTEL
-  ///        needed.  This flag enables this feature. // INTEL
   InitializationSequence(Sema &S,
                          const InitializedEntity &Entity,
                          const InitializationKind &Kind,
                          MultiExprArg Args,
                          bool TopLevelOfInitList = false,
-                         bool TreatUnavailableAsInvalid = true, // INTEL
-                         bool AllowGnuPermissive = true); // INTEL
+                         bool TreatUnavailableAsInvalid = true);
   void InitializeFrom(Sema &S, const InitializedEntity &Entity,
                       const InitializationKind &Kind, MultiExprArg Args,
-                      bool TopLevelOfInitList,  // INTEL
-                      bool TreatUnavailableAsInvalid, // INTEL
-                      bool AllowGnuPermissive = true); // INTEL
+                      bool TopLevelOfInitList, bool TreatUnavailableAsInvalid);
 
   ~InitializationSequence();
 

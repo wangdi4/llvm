@@ -2489,9 +2489,10 @@ HLInst *VPOCodeGenHIR::widenCall(const HLInst *INode,
         auto *OperandCE = CallArgs[I]->getSingleCanonExpr();
         assert(OperandCE->isInvariantAtLevel(OrigLoop->getNestingLevel()) &&
                "Scalar operand of intrinsic is loop variant.");
-        Type *OperandScalarTy = OperandCE->getDestType()->getScalarType();
-        OperandCE->setSrcAndDestType(OperandScalarTy);
-        ArgTys[I] = OperandScalarTy;
+        Type *OperandScalarDestTy = OperandCE->getDestType()->getScalarType();
+        OperandCE->setSrcType(OperandCE->getSrcType()->getScalarType());
+        OperandCE->setDestType(OperandScalarDestTy);
+        ArgTys[I] = OperandScalarDestTy;
       }
     }
   }

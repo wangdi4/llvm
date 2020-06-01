@@ -19,6 +19,7 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/FormattedStream.h"
 
 #include <sstream>
 
@@ -388,22 +389,27 @@ public:
     }
   }
 
-  LLVM_DUMP_METHOD void dump(void) {
+  void print(raw_ostream &OS) const {
     if (DetailMode) {
-      dbgs() << PassName << " preliminary analysis: "
-             << (PassPreliminaryAnalysis ? "" : "NOT") << " good\n";
-      dbgs() << PassName << " collection: " << (PassCollection ? "" : "NOT")
-             << " good\n";
-      dbgs() << PassName << " analysis: " << (PassAnalysis ? "" : "NOT")
-             << " good\n";
-      dbgs() << PassName
-             << " transformation: " << (PassTransformation ? "" : "NOT")
-             << " good\n";
+      OS << PassName
+         << " preliminary analysis: " << (PassPreliminaryAnalysis ? "" : "NOT")
+         << " good\n";
+      OS << PassName << " collection: " << (PassCollection ? "" : "NOT")
+         << " good\n";
+      OS << PassName << " analysis: " << (PassAnalysis ? "" : "NOT")
+         << " good\n";
+      OS << PassName << " transformation: " << (PassTransformation ? "" : "NOT")
+         << " good\n";
     }
 
     bool Summary = PassCollection && PassAnalysis && PassTransformation;
     StringRef Msg = Summary ? " Triggered " : " NOT Triggered";
-    dbgs() << PassName << Msg << "\n";
+    OS << PassName << Msg << "\n";
+  }
+
+  void dump() const {
+    formatted_raw_ostream FOS(dbgs());
+    print(FOS);
   }
 };
 #endif // #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

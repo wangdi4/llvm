@@ -2735,7 +2735,12 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
         // All OMPCapturedExprDecls are remapped in OMPLateOutlineLexicalScope.
         auto I = LocalDeclMap.find(VD);
         assert(I != LocalDeclMap.end() && "OMPCapturedExprDecl not remapped.");
-        return MakeAddrLValue(I->second, T, AlignmentSource::Decl);
+        Address A = I->second;
+        if (!VD->getType()->isReferenceType() || A.hasRemovedReference())
+          return MakeAddrLValue(A, VD->getType(), AlignmentSource::Decl);
+        else
+          return EmitLoadOfReferenceLValue(A, VD->getType(),
+                                           AlignmentSource::Decl);
       }
       if (E->refersToEnclosingVariableOrCapture() &&
           OMPLateOutlineLexicalScope::isCapturedVar(*this, VD)) {

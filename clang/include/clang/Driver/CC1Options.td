@@ -852,9 +852,6 @@ def no_expr_source_pos : Flag<["--"], "no_expr_source_pos">,
 // support for '-fargument-noalias' option.
 def fargument_noalias : Flag<["-"], "fargument-noalias">,
   HelpText<"Enables 'noalias' attribute for all pointer-type arguments">;
-// CQ#373517,CQ#376357 - GCC option -fpermissive.
-def gnu_permissive : Flag<["-"], "gnu-permissive">,
-  HelpText<"Turn on GNU -fpermissive mode">;
 // CQ380574: Ability to set various predefines based on gcc version needed.
 def gnu_version_EQ : Joined<["--"], "gnu_version=">,
   HelpText<"Emulate GNU C++ version">;

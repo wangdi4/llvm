@@ -7030,15 +7030,6 @@ NamedDecl *Sema::ActOnVariableDeclarator(
       case SC_None:
         break;
       case SC_Static:
-#if INTEL_CUSTOMIZATION
-        // CQ#376357: Allow static specifier for outline method definition.
-        if (getLangOpts().IntelCompat && getLangOpts().GnuPermissive) {
-          Diag(D.getDeclSpec().getStorageClassSpecLoc(),
-               diag::warn_static_out_of_line)
-              << FixItHint::CreateRemoval(
-                     D.getDeclSpec().getStorageClassSpecLoc());
-        } else
-#endif // INTEL_CUSTOMIZATION
         Diag(D.getDeclSpec().getStorageClassSpecLoc(),
              diag::err_static_out_of_line)
           << FixItHint::CreateRemoval(D.getDeclSpec().getStorageClassSpecLoc());
@@ -9338,15 +9329,6 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
 
       // Complain about the 'static' specifier if it's on an out-of-line
       // member function definition.
-#if INTEL_CUSTOMIZATION
-      // CQ#376357: Allow static specifier for outline method definition.
-      if (getLangOpts().IntelCompat && getLangOpts().GnuPermissive) {
-        Diag(D.getDeclSpec().getStorageClassSpecLoc(),
-             diag::warn_static_out_of_line)
-            << FixItHint::CreateRemoval(
-                   D.getDeclSpec().getStorageClassSpecLoc());
-      } else
-#endif // INTEL_CUSTOMIZATION
 
       // MSVC permits the use of a 'static' storage specifier on an out-of-line
       // member function template declaration and class member template
@@ -9830,13 +9812,6 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
       // C++ [temp.expl.spec]p2. We also allow these declarations as an
       // extension for compatibility with old SWIG code which likes to
       // generate them.
-#if INTEL_CUSTOMIZATION
-      // CQ#376357: Allow out of class declaration.
-      if (getLangOpts().IntelCompat && getLangOpts().GnuPermissive) {
-        Diag(NewFD->getLocation(), diag::warn_out_of_line_declaration)
-          << D.getCXXScopeSpec().getRange();
-      } else
-#endif // INTEL_CUSTOMIZATION
       Diag(NewFD->getLocation(), diag::ext_out_of_line_declaration)
         << D.getCXXScopeSpec().getRange();
     }

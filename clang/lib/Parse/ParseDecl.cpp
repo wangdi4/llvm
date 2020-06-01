@@ -4010,12 +4010,6 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
           DS.getTypeSpecType() != DeclSpec::TST_unspecified &&
           DS.getStorageClassSpec() == DeclSpec::SCS_typedef) {
         PrevSpec = ""; // Not used by the diagnostic.
-#if INTEL_CUSTOMIZATION
-        // CQ#376357: Allow bool redeclaration.
-        if (getLangOpts().IntelCompat && getLangOpts().GnuPermissive)
-          DiagID = diag::warn_bool_redeclaration;
-        else
-#endif  // INTEL_CUSTOMIZATION
         DiagID = diag::err_bool_redeclaration;
         // For better error recovery.
         Tok.setKind(tok::identifier);
@@ -4254,11 +4248,7 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
         Diag(Loc, DiagID) << PrevSpec;
     }
 
-#if INTEL_CUSTOMIZATION
-    // CQ#376357: Allow bool redeclaration.
-    if (DiagID != diag::err_bool_redeclaration &&
-        DiagID != diag::warn_bool_redeclaration && ConsumedEnd.isInvalid())
-#endif // INTEL_CUSTOMIZATION
+    if (DiagID != diag::err_bool_redeclaration && ConsumedEnd.isInvalid())
       // After an error the next token can be an annotation token.
       ConsumeAnyToken();
 

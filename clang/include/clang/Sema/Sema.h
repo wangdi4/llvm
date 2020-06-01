@@ -3317,8 +3317,7 @@ public:
                         AllowedExplicit AllowExplicit,
                         bool InOverloadResolution,
                         bool CStyle,
-                        bool AllowObjCWritebackConversion, // INTEL
-                        bool AllowGnuPermissive = true); // INTEL
+                        bool AllowObjCWritebackConversion);
 
   bool IsIntegralPromotion(Expr *From, QualType FromType, QualType ToType);
   bool IsFloatingPointPromotion(QualType FromType, QualType ToType);
@@ -11526,16 +11525,13 @@ public:
                                           ExprResult &RHS,
                                           SourceLocation QuestionLoc);
   QualType FindCompositePointerType(SourceLocation Loc, Expr *&E1, Expr *&E2,
-                                    bool ConvertArgs = true, // INTEL
-                                    bool AllowGnuPermissive = true); // INTEL
+                                    bool ConvertArgs = true);
   QualType FindCompositePointerType(SourceLocation Loc,
                                     ExprResult &E1, ExprResult &E2,
-                                    bool ConvertArgs = true, // INTEL
-                                    bool AllowGnuPermissive = true) { // INTEL
+                                    bool ConvertArgs = true) {
     Expr *E1Tmp = E1.get(), *E2Tmp = E2.get();
     QualType Composite =
-        FindCompositePointerType(Loc, E1Tmp, E2Tmp, ConvertArgs, // INTEL
-                                 AllowGnuPermissive); // INTEL
+        FindCompositePointerType(Loc, E1Tmp, E2Tmp, ConvertArgs);
     E1 = E1Tmp;
     E2 = E2Tmp;
     return Composite;
