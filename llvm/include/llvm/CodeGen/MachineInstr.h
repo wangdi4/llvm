@@ -105,19 +105,15 @@ public:
                                         // known to be exact.
     NoFPExcept   = 1 << 14,             // Instruction does not raise
                                         // floatint-point exceptions.
-<<<<<<< HEAD
-                                        // exceptions.
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CSA
-    NonSequential = 1 << 15,            // Instruction removed from sequence
-    RasReplayable = 1 << 16,            // Instruction can be replayed
-#endif // INTEL_FEATURE_CSA
-#endif // INTEL_CUSTOMIZATION
-=======
     NoMerge      = 1 << 15,             // Passes that drop source location info
                                         // (e.g. branch folding) should skip
                                         // this instruction.
->>>>>>> 80e107ccd088a2705d0e776799a8815a58061cb3
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CSA
+    NonSequential = 1 << 16,            // Instruction removed from sequence
+    RasReplayable = 1 << 17,            // Instruction can be replayed
+#endif // INTEL_FEATURE_CSA
+#endif // INTEL_CUSTOMIZATION
   };
 
 private:
