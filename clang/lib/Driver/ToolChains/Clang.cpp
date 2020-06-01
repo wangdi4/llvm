@@ -5389,6 +5389,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
   if (Args.hasFlag(options::OPT__SLASH_Qvla_, options::OPT__SLASH_Qvla, false))
     CmdArgs.push_back("-Werror=vla");
+
   if (Args.hasFlag(options::OPT_fpermissive, options::OPT_fno_permissive,
                    false))
     CmdArgs.push_back("-gnu-permissive");
@@ -5437,7 +5438,12 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   Args.AddLastArg(CmdArgs, options::OPT_fno_operator_names);
   Args.AddLastArg(CmdArgs, options::OPT_femulated_tls,
                   options::OPT_fno_emulated_tls);
-  Args.AddLastArg(CmdArgs, options::OPT_fkeep_static_consts);
+
+#if INTEL_CUSTOMIZATION
+  if (Args.hasFlag(options::OPT_fkeep_static_consts,
+                   options::OPT_fno_keep_static_consts, false))
+    CmdArgs.push_back("-fkeep-static-consts");
+#endif // INTEL_CUSTOMIZATION
 
   // AltiVec-like language extensions aren't relevant for assembling.
   if (!isa<PreprocessJobAction>(JA) || Output.getType() != types::TY_PP_Asm)

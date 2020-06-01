@@ -269,6 +269,11 @@
 // RUN: %clang_cl -### -c /Qiopenmp-simd %s 2>&1 | FileCheck -check-prefix CHECK-QIOPENMP-SIMD %s
 // CHECK-QIOPENMP-SIMD: "-fopenmp-simd" "-fopenmp-late-outline"
 
+// Behavior with fkeep-static-consts/Qkeep-static-consts option
+// RUN: %clang -### -c -fkeep-static-consts %s 2>&1 | FileCheck -check-prefix CHECK-STATIC-CONSTS %s
+// RUN: %clang_cl -### -c /Qkeep-static-consts %s 2>&1 | FileCheck -check-prefix CHECK-STATIC-CONSTS %s
+// CHECK-STATIC-CONSTS: "-fkeep-static-consts"
+
 // Behavior with QMP option
 // RUN: %clang_cl -### -c /QMP %s 2>&1 | FileCheck -check-prefix CHECK-MP %s
 // CHECK-MP: "-MP"
