@@ -1606,6 +1606,17 @@ void OpenMPLateOutliner::emitOMPSIMDClause(const OMPSIMDClause *) {
   addArg("QUAL.OMP.ORDERED.SIMD");
 }
 
+void OpenMPLateOutliner::emitOMPAllocateClause(const OMPAllocateClause *Cl) {
+  const Expr *A = Cl->getAllocator();
+  for (const auto *E : Cl->varlists()) {
+    ClauseEmissionHelper CEH(*this, OMPC_allocate);
+    addArg("QUAL.OMP.ALLOCATE");
+    addArg(E);
+    if (A)
+      addArg(CGF.EmitScalarExpr(A));
+  }
+}
+
 void OpenMPLateOutliner::emitOMPReadClause(const OMPReadClause *) {}
 void OpenMPLateOutliner::emitOMPWriteClause(const OMPWriteClause *) {}
 void OpenMPLateOutliner::emitOMPFromClause(const OMPFromClause *) {assert(false);}
@@ -1625,7 +1636,6 @@ void OpenMPLateOutliner::emitOMPDynamicAllocatorsClause(
 void OpenMPLateOutliner::emitOMPAtomicDefaultMemOrderClause(
     const OMPAtomicDefaultMemOrderClause *) {}
 void OpenMPLateOutliner::emitOMPAllocatorClause(const OMPAllocatorClause *) {}
-void OpenMPLateOutliner::emitOMPAllocateClause(const OMPAllocateClause *) {}
 void OpenMPLateOutliner::emitOMPNontemporalClause(const OMPNontemporalClause *) {}
 void OpenMPLateOutliner::emitOMPOrderClause(const OMPOrderClause *) {}
 void OpenMPLateOutliner::emitOMPAcqRelClause(const OMPAcqRelClause *) {}
@@ -2547,13 +2557,13 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
     break;
 
   // These directives are not yet implemented.
-  case OMPD_allocate:
   case OMPD_requires:
   case OMPD_depobj:
   case OMPD_scan:
     break;
 
   // These directives do not create region directives.
+  case OMPD_allocate:
   case OMPD_declare_target:
   case OMPD_end_declare_target:
   case OMPD_declare_variant:
