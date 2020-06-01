@@ -10611,6 +10611,7 @@ QualType Sema::CheckAdditionOperands(ExprResult &LHS, ExprResult &RHS,
     return compType;
   }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (LHS.get()->getType()->isArbPrecIntType() ||
       RHS.get()->getType()->isArbPrecIntType()) {
@@ -10621,6 +10622,12 @@ QualType Sema::CheckAdditionOperands(ExprResult &LHS, ExprResult &RHS,
     return compType;
   }
 #endif // INTEL_CUSTOMIZATION
+=======
+  if (LHS.get()->getType()->isConstantMatrixType() ||
+      RHS.get()->getType()->isConstantMatrixType()) {
+    return CheckMatrixElementwiseOperands(LHS, RHS, Loc, CompLHSTy);
+  }
+>>>>>>> 6f6e91d19337315548f550479f94cbc0af93c8fe
 
   QualType compType = UsualArithmeticConversions(
       LHS, RHS, Loc, CompLHSTy ? ACK_CompAssign : ACK_Arithmetic);
@@ -10717,6 +10724,7 @@ QualType Sema::CheckSubtractionOperands(ExprResult &LHS, ExprResult &RHS,
     return compType;
   }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (LHS.get()->getType()->isArbPrecIntType() ||
       RHS.get()->getType()->isArbPrecIntType()) {
@@ -10727,6 +10735,12 @@ QualType Sema::CheckSubtractionOperands(ExprResult &LHS, ExprResult &RHS,
     return compType;
   }
 #endif // INTEL_CUSTOMIZATION
+=======
+  if (LHS.get()->getType()->isConstantMatrixType() ||
+      RHS.get()->getType()->isConstantMatrixType()) {
+    return CheckMatrixElementwiseOperands(LHS, RHS, Loc, CompLHSTy);
+  }
+>>>>>>> 6f6e91d19337315548f550479f94cbc0af93c8fe
 
   QualType compType = UsualArithmeticConversions(
       LHS, RHS, Loc, CompLHSTy ? ACK_CompAssign : ACK_Arithmetic);
@@ -12335,6 +12349,63 @@ QualType Sema::CheckVectorLogicalOperands(ExprResult &LHS, ExprResult &RHS,
     return InvalidLogicalVectorOperands(Loc, LHS, RHS);
 
   return GetSignedVectorType(LHS.get()->getType());
+}
+
+static bool tryConvertScalarToMatrixElementTy(Sema &S, QualType ElementType,
+                                              ExprResult *Scalar) {
+  InitializedEntity Entity =
+      InitializedEntity::InitializeTemporary(ElementType);
+  InitializationKind Kind = InitializationKind::CreateCopy(
+      Scalar->get()->getBeginLoc(), SourceLocation());
+  Expr *Arg = Scalar->get();
+  InitializationSequence InitSeq(S, Entity, Kind, Arg);
+  *Scalar = InitSeq.Perform(S, Entity, Kind, Arg);
+  return !Scalar->isInvalid();
+}
+
+QualType Sema::CheckMatrixElementwiseOperands(ExprResult &LHS, ExprResult &RHS,
+                                              SourceLocation Loc,
+                                              bool IsCompAssign) {
+  if (!IsCompAssign) {
+    LHS = DefaultFunctionArrayLvalueConversion(LHS.get());
+    if (LHS.isInvalid())
+      return QualType();
+  }
+  RHS = DefaultFunctionArrayLvalueConversion(RHS.get());
+  if (RHS.isInvalid())
+    return QualType();
+
+  // For conversion purposes, we ignore any qualifiers.
+  // For example, "const float" and "float" are equivalent.
+  QualType LHSType = LHS.get()->getType().getUnqualifiedType();
+  QualType RHSType = RHS.get()->getType().getUnqualifiedType();
+
+  const MatrixType *LHSMatType = LHSType->getAs<MatrixType>();
+  const MatrixType *RHSMatType = RHSType->getAs<MatrixType>();
+  assert((LHSMatType || RHSMatType) && "At least one operand must be a matrix");
+
+  if (Context.hasSameType(LHSType, RHSType))
+    return LHSType;
+
+  // Type conversion may change LHS/RHS. Keep copies to the original results, in
+  // case we have to return InvalidOperands.
+  ExprResult OriginalLHS = LHS;
+  ExprResult OriginalRHS = RHS;
+  if (LHSMatType && !RHSMatType) {
+    if (tryConvertScalarToMatrixElementTy(*this, LHSMatType->getElementType(),
+                                          &RHS))
+      return LHSType;
+    return InvalidOperands(Loc, OriginalLHS, OriginalRHS);
+  }
+
+  if (!LHSMatType && RHSMatType) {
+    if (tryConvertScalarToMatrixElementTy(*this, RHSMatType->getElementType(),
+                                          &LHS))
+      return RHSType;
+    return InvalidOperands(Loc, OriginalLHS, OriginalRHS);
+  }
+
+  return InvalidOperands(Loc, LHS, RHS);
 }
 
 inline QualType Sema::CheckBitwiseOperands(ExprResult &LHS, ExprResult &RHS,
