@@ -582,7 +582,19 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
   if (Args.hasFlag(options::OPT_qno_opt_matmul, options::OPT__intel,
                    options::OPT_qopt_matmul, false))
     addllvmOption("-disable-hir-generate-mkl-call");
-  // Handle --intel defaults
+
+  if (Arg *A = Args.getLastArg(
+          options::OPT_qopt_multiple_gather_scatter_by_shuffles,
+          options::OPT_qno_opt_multiple_gather_scatter_by_shuffles)) {
+    if (A->getOption().matches(
+            options::OPT_qopt_multiple_gather_scatter_by_shuffles))
+      addllvmOption("-vplan-vls-level=always");
+    if (A->getOption().matches(
+            options::OPT_qno_opt_multiple_gather_scatter_by_shuffles))
+      addllvmOption("-vplan-vls-level=never");
+  }
+
+ // Handle --intel defaults
   if (Args.hasArg(options::OPT__intel)) {
     if (!Args.hasArg(options::OPT_ffreestanding))
       addllvmOption("-intel-libirc-allowed");

@@ -3774,6 +3774,12 @@ def qopt_mem_layout_trans : Flag<["-"], "qopt-mem-layout-trans">, Alias<qopt_mem
   AliasArgs<["2"]>;
 def qno_opt_mem_layout_trans : Flag<["-"], "qno-opt-mem-layout-trans">, Alias<qopt_mem_layout_trans_EQ>,
   AliasArgs<["0"]>, HelpText<"Disable memory layout transformations">;
+def qopt_multiple_gather_scatter_by_shuffles : Flag<["-"], "qopt-multiple-gather-scatter-by-shuffles">,
+  Flags<[DriverOption]>,
+  HelpText<"Enables the optimization for multiple adjacent gather/scatter type vector memory references">;
+def qno_opt_multiple_gather_scatter_by_shuffles : Flag<["-"], "qno-opt-multiple-gather-scatter-by-shuffles">,
+  Flags<[DriverOption]>,
+  HelpText<"Disables the optimization for multiple adjacent gather/scatter type vector memory references">;
 def qopt_zmm_usage_EQ : Joined<["-"], "qopt-zmm-usage=">, Values<"low,high">,
   HelpText<"Specifies the level of zmm registers usage, low or high">;
 #endif // INTEL_CUSTOMIZATION

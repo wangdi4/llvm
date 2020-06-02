@@ -182,12 +182,29 @@ private:
   bool isTransposeProfitable(void);
   void transformMemRefs(void);
   int64_t computeTransposedOffset(int64_t Idx);
+  bool checkConstantMulExpr(const SCEV *, int64_t &, const SCEV *&);
+  bool parseSCEVSignExtExpr(const SCEV *, int64_t &, const SCEV *&);
   bool parseSCEVExprs(const SCEV *, SmallVectorImpl<int64_t> &,
                       SmallVectorImpl<const Loop *> &, SmallSet<int64_t, 4> &,
+                      SmallSet<int64_t, 2> &, SmallSet<int64_t, 1> &,
                       const SCEV *, ScalarEvolution &);
+  bool parseUnoptimizedSCEVExprs(const SCEV *, SmallVectorImpl<int64_t> &,
+                                 SmallVectorImpl<const Loop *> &,
+                                 SmallSet<int64_t, 4> &, SmallSet<int64_t, 2> &,
+                                 SmallSet<int64_t, 1> &, const SCEV *,
+                                 ScalarEvolution &);
+  bool parseAddRecSCEVExprs(const SCEV *, SmallVectorImpl<int64_t> &,
+                            SmallVectorImpl<const Loop *> &,
+                            SmallSet<int64_t, 4> &, SmallSet<int64_t, 2> &,
+                            SmallSet<int64_t, 1> &, const SCEV *,
+                            ScalarEvolution &);
   const SCEV *fixSCEVConst(int64_t, const SCEV *, ScalarEvolution &SE);
   const SCEV *fixSCEVAddRecExpr(const SCEV *, const SCEV *, ScalarEvolution &);
   const SCEV *fixSCEVAddExpr(const SCEV *, const SCEV *, ScalarEvolution &);
+  const SCEV *fixSCEVMulExpr(const SCEV *S, ScalarEvolution &SE);
+  const SCEV *fixSCEVExpr(const SCEV *, const SCEV *, ScalarEvolution &);
+  const SCEV *fixUnoptimizedSCEVExpr(const SCEV *, const SCEV *,
+                                     ScalarEvolution &);
 };
 
 // Returns true if F is "LibF" library function.
@@ -715,6 +732,46 @@ bool ArrayTransposeImpl::collectAllMemRefs() {
   return true;
 }
 
+// Return true if "SC" is SCEVMulExpr with only two operands and the first
+// operand is constant. Constant operand is saved in "CVal" and the second
+// operand is saved in "MOp".
+bool ArrayTransposeImpl::checkConstantMulExpr(const SCEV *SC, int64_t &CVal,
+                                              const SCEV *&MOp) {
+  auto *M = dyn_cast<SCEVMulExpr>(SC);
+  if (!M || M->getNumOperands() != 2)
+    return false;
+  auto C = dyn_cast<SCEVConstant>(M->getOperand(0));
+  if (!C)
+    return false;
+  CVal = C->getAPInt().getSExtValue();
+  MOp = M->getOperand(1);
+  return true;
+}
+
+// Returns true if "SC" is in "Constant * SExt(some_expr)" format when
+// "some_expr" is not terminal.
+// SignExtOp is updated with "some_expr" and CVal is updated with the constant
+// value.
+//  Ex:    (8 * (sext i32 (20 * %10)))
+bool ArrayTransposeImpl::parseSCEVSignExtExpr(const SCEV *SC, int64_t &CVal,
+                                              const SCEV *&SignExtOp) {
+  int64_t MulVal;
+  const SCEV *MulOp;
+  if (!checkConstantMulExpr(SC, MulVal, MulOp))
+    return false;
+  auto SignExt = dyn_cast<SCEVSignExtendExpr>(MulOp);
+  if (!SignExt)
+    return false;
+  // Don't need to treat it as special SignExtend expression if operand
+  // is terminal.
+  // Ex: (8 * (sext i32 %11))
+  if (isa<SCEVUnknown>(SignExt->getOperand()))
+    return false;
+  SignExtOp = SignExt->getOperand();
+  CVal = MulVal;
+  return true;
+}
+
 // This recursive function checks if "S" is in expected format and collects
 // strides, loops, constant exprs and start value. This allows only AddRecExpr
 // like "{Start, +, Step}". "Step" is basically stride. Only constant values
@@ -726,16 +783,17 @@ bool ArrayTransposeImpl::collectAllMemRefs() {
 //   {{{152,+,6400000},+,32000},+,160}
 //   {{{(320152 + (160 * %lb3) + (16000 * %lb2) + (1600000 *
 //   %lb1)),+,1600000},+,16000},+,160}
-bool ArrayTransposeImpl::parseSCEVExprs(const SCEV *S,
-                                        SmallVectorImpl<int64_t> &Strides,
-                                        SmallVectorImpl<const Loop *> &Loops,
-                                        SmallSet<int64_t, 4> &AllConstExprs,
-                                        const SCEV *Base, ScalarEvolution &SE) {
+bool ArrayTransposeImpl::parseAddRecSCEVExprs(
+    const SCEV *S, SmallVectorImpl<int64_t> &Strides,
+    SmallVectorImpl<const Loop *> &Loops, SmallSet<int64_t, 4> &AllConstExprs,
+    SmallSet<int64_t, 2> &AllUnscaledMultipliers,
+    SmallSet<int64_t, 1> &SignExtMultipliers, const SCEV *Base,
+    ScalarEvolution &SE) {
 
   // Returns true if "S" is in one of the below formats.
   //   1. Base
-  //   2. AddExpr like "Constant0 + Constant1 * Some_scev_expr + Constant2 *
-  //   Some_scev_expr ..."
+  //   2. "Constant0 + Constant1 * Some_scev_expr + Constant2 *
+  //   3. "Constant0 + 8 * sext (Constant1 * Some_scev_expr) + ..."
   //
   //   Ex: (320152 + (160 * %lb3) + (16000 * %lb2) + (1600000 * %lb1))
   //
@@ -751,13 +809,25 @@ bool ArrayTransposeImpl::parseSCEVExprs(const SCEV *S,
     for (const SCEV *Op : A->operands()) {
       if (isa<SCEVConstant>(Op) || Op == Base)
         continue;
-      auto *M = dyn_cast<SCEVMulExpr>(Op);
+      int64_t MulVal;
+      const SCEV *NewOp = Op;
+      int64_t ScaleV = 1;
+      if (parseSCEVSignExtExpr(Op, MulVal, NewOp)) {
+        // The constant is added to "SignExtMultipliers". Later, we will verify
+        // that the constant is equal to "MaxElemSize".
+        SignExtMultipliers.insert(MulVal);
+        ScaleV = MulVal;
+      }
+      // Only MulExpr is allowed as operand of SignExt.
+      auto *M = dyn_cast<SCEVMulExpr>(NewOp);
       if (!M)
         return false;
       auto C = dyn_cast<SCEVConstant>(M->getOperand(0));
       if (!C)
         return false;
-      AllConstExprs.insert(C->getAPInt().getSExtValue());
+      int64_t MVal = C->getAPInt().getSExtValue();
+      AllUnscaledMultipliers.insert(MVal);
+      AllConstExprs.insert(MVal * ScaleV);
     }
     return true;
   };
@@ -786,7 +856,151 @@ bool ArrayTransposeImpl::parseSCEVExprs(const SCEV *S,
   if (IsStartOkay(StartS, L)) {
     return true;
   }
-  return parseSCEVExprs(StartS, Strides, Loops, AllConstExprs, Base, SE);
+  return parseAddRecSCEVExprs(StartS, Strides, Loops, AllConstExprs,
+                              AllUnscaledMultipliers, SignExtMultipliers, Base,
+                              SE);
+}
+
+// Due to SExt in IR, SCEV expressions may not be optimized. Until SExt
+// are eliminated by the earlier phases, we try to parse and fix
+// unoptimized SCEV expressions. We mainly check for the following during
+// parsing.
+//   1. All stride values are constants.
+//   2. Except base pointer and constant values, all other values
+//      have constant multiplier that is evenly divisible by Stride.
+//      Ex: (Stride * ({{((40000 * %11)),+,40000}<%16>,+,200}<%22> + %49))
+//
+// For now, we allow the below patterns:
+// 1. Expressions with SCEVAdd/SCEVAddRec/SCEVMul operands
+// 2. Only very limited use of "MaxElemSize * SExt (some_scev_expr)" pattern
+// Ex:
+// (24 + (8 * (sext i32 (16 + (20 * ({{(-80000 + (40000 *
+// %11)),+,40000}<%16>,+,200}<%22> + %49))) to i64))<nsw> + %2)
+//
+// ((8 * (sext i32 {(19 + (20 * ({{(-80000 + (40000 *
+// %11)),+,40000}<%16>,+,200}<%22> + %61))),+,20}<%40> to i64))<nsw> + %2)
+//
+// When a SCEV expression is multiplied with a constant, the value of the
+// constant is propagated while collecting strides.
+bool ArrayTransposeImpl::parseUnoptimizedSCEVExprs(
+    const SCEV *S, SmallVectorImpl<int64_t> &Strides,
+    SmallVectorImpl<const Loop *> &Loops, SmallSet<int64_t, 4> &AllConstExprs,
+    SmallSet<int64_t, 2> &AllUnscaledMultipliers,
+    SmallSet<int64_t, 1> &SignExtMultipliers, const SCEV *Base,
+    ScalarEvolution &SE) {
+
+  std::function<bool(const SCEV *, int64_t)> ParseScaledAddRecExpr;
+  std::function<bool(const SCEV *, int64_t)> ParseScaledExpr;
+
+  // Returns true if "SC" is terminal or "SExt (terminal)".
+  auto CheckTerminal = [&](const SCEV *SC) {
+    // Allowing base pointer only at top level expression tree.
+    if (SC == Base)
+      return false;
+    if (isa<SCEVUnknown>(SC))
+      return true;
+    auto SignExt = dyn_cast<SCEVSignExtendExpr>(SC);
+    if (SignExt && isa<SCEVUnknown>(SignExt->getOperand()))
+      return true;
+    return false;
+  };
+
+  // Parse operands of "SC" SCEVAdd expression and propagate "ScaledV".
+  auto ParseScaledAddExpr = [&, this](const SCEV *SC, int64_t ScaledV) {
+    auto A = dyn_cast<SCEVAddExpr>(SC);
+    assert(A && "Expected SCEVAdd Expr");
+    for (const SCEV *S1 : A->operands()) {
+      if (isa<SCEVConstant>(S1))
+        continue;
+      if (CheckTerminal(S1)) {
+        AllConstExprs.insert(ScaledV);
+        continue;
+      }
+      if (!ParseScaledExpr(S1, ScaledV))
+        return false;
+    }
+    return true;
+  };
+
+  // Parse operands of "SC" SCEVAddRec expression and propagate "ScaledV".
+  ParseScaledAddRecExpr = [&, this](const SCEV *SC, int64_t ScaledV) {
+    const SCEVAddRecExpr *AR = dyn_cast<SCEVAddRecExpr>(SC);
+    assert(AR && "Expected SCEVAddRec Expr");
+    if (!AR->isAffine())
+      return false;
+    auto Step = dyn_cast<SCEVConstant>(AR->getStepRecurrence(SE));
+    if (!Step)
+      return false;
+    // Scaled stride value is collected.
+    Strides.push_back(Step->getAPInt().getSExtValue() * ScaledV);
+    auto L = AR->getLoop();
+    if (!L)
+      return false;
+    Loops.push_back(L);
+    const SCEV *StartS = AR->getStart();
+    // Check if StartS is loop invariant.
+    if (!SE.isLoopInvariant(StartS, L))
+      return false;
+    return ParseScaledExpr(StartS, ScaledV);
+  };
+
+  // Parse SCEV expressions recursively. Only SCEVAdd/SCEVAddRec/SCEVMul
+  // are allowed.
+  ParseScaledExpr = [&](const SCEV *SC, int64_t ScaledV) {
+    int64_t CVal;
+    const SCEV *MulOp;
+    if (checkConstantMulExpr(SC, CVal, MulOp)) {
+      int64_t NewScaledV = CVal * ScaledV;
+      // Collect unscaled constant multiplier and propagate scaled
+      // constant value.
+      AllConstExprs.insert(NewScaledV);
+      AllUnscaledMultipliers.insert(CVal);
+      if (CheckTerminal(MulOp))
+        return true;
+      return ParseScaledExpr(MulOp, NewScaledV);
+    }
+    if (isa<SCEVAddExpr>(SC))
+      return ParseScaledAddExpr(SC, ScaledV);
+    else if (isa<SCEVAddRecExpr>(SC))
+      return ParseScaledAddRecExpr(SC, ScaledV);
+    return false;
+  };
+
+  auto A = dyn_cast<SCEVAddExpr>(S);
+  if (!A)
+    return false;
+  int64_t CVal;
+  const SCEV *SignExtOp;
+  for (const SCEV *S1 : A->operands()) {
+    // Allow only base pointer and constants here.
+    if (S1 == Base || isa<SCEVConstant>(S1))
+      continue;
+    // Allow "MaxElemSize * SExt (some_expr)" only at the top level
+    // of SCEV expression tree.
+    if (parseSCEVSignExtExpr(S1, CVal, SignExtOp)) {
+      SignExtMultipliers.insert(CVal);
+      return ParseScaledExpr(SignExtOp, CVal);
+    }
+
+    return ParseScaledExpr(S1, 1);
+  }
+  return true;
+}
+
+bool ArrayTransposeImpl::parseSCEVExprs(
+    const SCEV *S, SmallVectorImpl<int64_t> &Strides,
+    SmallVectorImpl<const Loop *> &Loops, SmallSet<int64_t, 4> &AllConstExprs,
+    SmallSet<int64_t, 2> &AllUnscaledMultipliers,
+    SmallSet<int64_t, 1> &SignExtMultipliers, const SCEV *Base,
+    ScalarEvolution &SE) {
+  if (isa<SCEVAddRecExpr>(S))
+    return parseAddRecSCEVExprs(S, Strides, Loops, AllConstExprs,
+                                AllUnscaledMultipliers, SignExtMultipliers,
+                                Base, SE);
+
+  return parseUnoptimizedSCEVExprs(S, Strides, Loops, AllConstExprs,
+                                   AllUnscaledMultipliers, SignExtMultipliers,
+                                   Base, SE);
 }
 
 // Check all memory references for legality issues using SCEV.
@@ -822,6 +1036,24 @@ bool ArrayTransposeImpl::validateAllMemRefs() {
   // Ex: Possible constant expression for the below MemRef is 160.
   // {(32 + (160 * ((100 * %lb2) + (10000 * %lb1) + %lb3)) + %p1),+,1600000}
   SmallSet<int64_t, 4> AllConstExprs;
+
+  // Collection of all unscaled constant multipliers.
+  // Ex: 20 will be collected as unscaled constant multiplier for the below
+  // example and 160 ( i.e 8 times 20) will be collected in "AllConstExprs".
+  // We will check all unscaled constant multipliers are evenly divisible
+  // by "TransposedNumCols" to simplify the transformations.
+  //
+  //    (8 * (sext i32 (16 + (20 * (some_expr)))))
+  //
+  SmallSet<int64_t, 2> AllUnscaledMultipliers;
+
+  // Collection of all constant multipliers of SExt expressions.
+  // Ex: 8 will be collected in "SignExtMultipliers" for below example.
+  // We will make sure the value of the constant is equal to "MaxElemSize".
+  //  (8 * (sext i32 (some_expr)))
+  //
+  SmallSet<int64_t, 1> SignExtMultipliers;
+
   for (auto Pair : FunctionMemRefs) {
     Function *F = Pair.first;
     LLVM_DEBUG(dbgs() << " Processing MemRefs in " << F->getName() << ":\n");
@@ -851,7 +1083,11 @@ bool ArrayTransposeImpl::validateAllMemRefs() {
       }
       SmallVector<const Loop *, 4> Loops;
       SmallVector<int64_t, 4> Strides;
-      if (!parseSCEVExprs(SC, Strides, Loops, AllConstExprs, Base, SE)) {
+      LLVM_DEBUG(dbgs() << "Processing SCEVExpr: " << *SC << "\n");
+      if (!parseSCEVExprs(SC, Strides, Loops, AllConstExprs,
+                          AllUnscaledMultipliers, SignExtMultipliers, Base,
+                          SE) ||
+          Strides.size() < 1) {
         LLVM_DEBUG(dbgs() << "    Index expr is complex to process: " << *SC
                           << "\n");
         return false;
@@ -908,6 +1144,18 @@ bool ArrayTransposeImpl::validateAllMemRefs() {
       dbgs() << "          " << CE << " ";
     dbgs() << "\n";
   });
+  LLVM_DEBUG({
+    dbgs() << "    All unscaled constant multipliers: \n";
+    for (auto CE : AllUnscaledMultipliers)
+      dbgs() << "          " << CE << " ";
+    dbgs() << "\n";
+  });
+  LLVM_DEBUG({
+    dbgs() << "    All SExt constant multipliers: \n";
+    for (auto CE : SignExtMultipliers)
+      dbgs() << "          " << CE << " ";
+    dbgs() << "\n";
+  });
   // Check that all unknown constant multipliers are evenly divisible by Stride.
   for (auto CE : AllConstExprs) {
     if (CE % Stride != 0) {
@@ -936,6 +1184,25 @@ bool ArrayTransposeImpl::validateAllMemRefs() {
 
   LLVM_DEBUG(dbgs() << "  TransposedNumRows: " << TransposedNumRows
                     << "  TransposedNumCols: " << TransposedNumCols << "\n");
+
+  // Check that all unscaled constant multipliers are evenly divisible by
+  // TransposedNumCols.
+  for (auto CE : AllUnscaledMultipliers) {
+    if (CE % TransposedNumCols != 0) {
+      LLVM_DEBUG(
+          dbgs()
+          << "    Constant Value is not divisible by TransposedNumCols \n");
+      return false;
+    }
+  }
+  // Check that constant multiplier of SExt is equal to MaxElemSize.
+  for (auto CE : SignExtMultipliers) {
+    if (CE != MaxElemSize) {
+      LLVM_DEBUG(
+          dbgs() << "    SExt multiplier is not equal to MaxElemSize \n");
+      return false;
+    }
+  }
   return true;
 }
 
@@ -996,6 +1263,24 @@ const SCEV *ArrayTransposeImpl::fixSCEVConst(int64_t ElemOffset,
   return SE.getConstant(BasePtr->getType(), TransposedElemOffset * MaxElemSize);
 }
 
+// Return expressions like "Mul" / "TransposedNumCols"
+// "Mul" is expected to be like "Constant * some_expr", which will
+// be converted to "Constant / TransposedNumCols * some_expr".
+//
+const SCEV *ArrayTransposeImpl::fixSCEVMulExpr(const SCEV *S,
+                                               ScalarEvolution &SE) {
+  SmallVector<const SCEV *, 4> Ops;
+  auto Mul = dyn_cast<SCEVMulExpr>(S);
+  assert(Mul && "Expected MulExpr");
+  const SCEVConstant *SC = dyn_cast<SCEVConstant>(Mul->getOperand(0));
+  assert(SC && "Expected SCEVConstant");
+  const APInt &LA = SC->getAPInt();
+  Ops.push_back(SE.getConstant(LA.sdiv(TransposedNumCols)));
+  for (int32_t I = 1, E = Mul->getNumOperands(); I < E; I++)
+    Ops.push_back(Mul->getOperand(I));
+  return SE.getMulExpr(Ops);
+}
+
 // This routine returns new AddExpr by fixing the given Constant/AddExpr "S" to
 // represent transposed memory access. No change is needed to the "BasePtr",
 // which is in "MallocPtrIncrAliases". Only constant and constant expressions
@@ -1009,22 +1294,6 @@ const SCEV *ArrayTransposeImpl::fixSCEVConst(int64_t ElemOffset,
 const SCEV *ArrayTransposeImpl::fixSCEVAddExpr(const SCEV *S,
                                                const SCEV *BasePtr,
                                                ScalarEvolution &SE) {
-
-  // Return expressions like "Mul" / "TransposedNumCols"
-  // "Mul" is expected to be like "Constant * some_expr", which will
-  // be converted to "Constant / TransposedNumCols * some_expr".
-  //
-  auto FixSCEVMulExpr = [&, this](const SCEVMulExpr *Mul) {
-    SmallVector<const SCEV *, 4> Ops;
-    const SCEVConstant *SC = dyn_cast<SCEVConstant>(Mul->getOperand(0));
-    assert(SC && "Expected SCEVConstant");
-    const APInt &LA = SC->getAPInt();
-    Ops.push_back(SE.getConstant(LA.sdiv(TransposedNumCols)));
-    for (int32_t I = 1, E = Mul->getNumOperands(); I < E; I++)
-      Ops.push_back(Mul->getOperand(I));
-    return SE.getMulExpr(Ops);
-  };
-
   int64_t Offset = 0;
   SmallVector<const SCEV *, 4> Ops;
   if (S == BasePtr) {
@@ -1042,9 +1311,26 @@ const SCEV *ArrayTransposeImpl::fixSCEVAddExpr(const SCEV *S,
         // offsets if it has to be on the safe side.
         Offset += StartC->getAPInt().getSExtValue();
       } else {
-        auto Mul = dyn_cast<SCEVMulExpr>(S);
-        assert(Mul && "Expected MulExpr");
-        Ops.push_back(FixSCEVMulExpr(Mul));
+        int64_t MulVal;
+        const SCEV *SignExtOp;
+        if (!parseSCEVSignExtExpr(S, MulVal, SignExtOp)) {
+          Ops.push_back(fixSCEVMulExpr(S, SE));
+          continue;
+        }
+        // Convert special SignExt.
+        //  Before:  (8 * sext (20 * %11))
+        //  After:   (8 * sext (%11))
+
+        // We already proved that it is in "MaxElemSize * sext (Const * expr)"
+        // pattern. So, we just divide "Const" by "TransposedNumCols".
+        const SCEV *NewSignExtOp = fixSCEVMulExpr(SignExtOp, SE);
+        SmallVector<const SCEV *, 4> MulOps;
+        auto Mul = cast<SCEVMulExpr>(S);
+        auto SignExt = cast<SCEVSignExtendExpr>(Mul->getOperand(1));
+        MulOps.push_back(Mul->getOperand(0));
+        MulOps.push_back(
+            SE.getSignExtendExpr(NewSignExtOp, SignExt->getType()));
+        Ops.push_back(SE.getMulExpr(MulOps));
       }
     }
   }
@@ -1070,11 +1356,157 @@ const SCEV *ArrayTransposeImpl::fixSCEVAddRecExpr(const SCEV *S,
   else
     Start = fixSCEVAddExpr(Start, BasePtr, SE);
   auto StepC = cast<SCEVConstant>(AR->getStepRecurrence(SE));
-  const SCEV *St = SE.getConstant(AR->getStepRecurrence(SE)->getType(), 20);
+  const SCEV *St =
+      SE.getConstant(AR->getStepRecurrence(SE)->getType(), TransposedNumCols);
   assert(StepC && "Expected Step AddRecExpr");
   const SCEV *Step = SE.getConstant(
       StepC->getAPInt().sdiv(cast<SCEVConstant>(St)->getAPInt()));
   return SE.getAddRecExpr(Start, Step, L, AR->getNoWrapFlags(SCEV::FlagNW));
+}
+
+// This routine makes unoptimized SCEV expression "S" of a memory reference
+// to the corresponding transposed array memory reference.
+// Ex:
+// Before:
+//   (24 + (8 * (sext i32 (16 + (20 * ({{(-80000 + (40000 *
+//   %11)),+,40000}<%19>,+,200}<nw><%27> + %73))) to i64))<nsw> + %2)
+// After:
+//  (254080000 + (8 * (sext i32 ({{(168880000 + (40000 *
+//  %11)),+,40000}<%19>,+,200}<nw><%27> + %73) to i64))<nsw> + %2)
+//
+// Constants: SCEV expression may have multiple constant values, which may be
+// processed independently. In the above example, 24 and 160 (i.e 8 * 16).
+// Displacement of base pointer to the original memory allocation is added
+// only once at the top level of expression tree.
+//
+// Other exprs: All other exprs are expected to have constant multipliers that
+// are divisible by TransposedNumCols. During transformation, we just divide
+// the constant multiplier by TransposedNumCols and don't process the remaining
+// expression.
+// Ex:
+//  "(20 * %12)" will be converted to "%12".
+//
+//  "(20 * ({{(const + (40000 * %11)),+,40000}<%21>,+,200}<nw><%30> + %78))"
+//  will be converted to
+//  "({{(const + (40000 * %11)),+,40000}<%21>,+,200}<nw><%30> + %78)"
+//
+// Strides: Just divide stride values by TransposedNumCols. If a AddRec
+// expression is multiplied by constant value, we don't need to process the
+// the AddRec during the transformation because the constant multiplier is
+// divided by TransposedNumCols.
+//
+const SCEV *ArrayTransposeImpl::fixUnoptimizedSCEVExpr(const SCEV *S,
+                                                       const SCEV *BasePtr,
+                                                       ScalarEvolution &SE) {
+
+  std::function<const SCEV *(const SCEV *S, int64_t ScaledV)> FixScaledExpr;
+
+  // Convert constant "StartC" to transposed constant.
+  auto FixScaledConst = [&, this](const SCEVConstant *StartC, int64_t ScaledV) {
+    auto Pair =
+        MallocPtrIncrAliases.find(cast<SCEVUnknown>(BasePtr)->getValue());
+    int64_t Disp = Pair->second;
+    // First, get scaled value.
+    int64_t Offset = StartC->getAPInt().getSExtValue() * ScaledV / MaxElemSize;
+    // Since some offsets may be negative, add displacement of base pointer
+    // before computing transposed constant and then subtract the transposed
+    // displacement to get correct element offset in the transposed
+    // array.
+    int64_t TotalOffset = Offset + Disp / MaxElemSize;
+    int64_t TransposedTotalOffset = computeTransposedOffset(TotalOffset);
+    int64_t TransposedOffset =
+        TransposedTotalOffset - computeTransposedOffset(Disp / MaxElemSize);
+    // Fix scaling if there is any.
+    return SE.getConstant(StartC->getType(),
+                          TransposedOffset * MaxElemSize / ScaledV);
+  };
+
+  // Fix SExt expressions like "8 * SExt()".
+  auto FixSignExtExpr = [&](const SCEV *S, int64_t ScaledV,
+                            const SCEV *SignExtOp) {
+    const SCEV *NewSignExtOp = FixScaledExpr(SignExtOp, ScaledV);
+    SmallVector<const SCEV *, 4> MulOps;
+    auto Mul = cast<SCEVMulExpr>(S);
+    auto SignExt = cast<SCEVSignExtendExpr>(Mul->getOperand(1));
+    MulOps.push_back(Mul->getOperand(0));
+    MulOps.push_back(SE.getSignExtendExpr(NewSignExtOp, SignExt->getType()));
+    return SE.getMulExpr(MulOps);
+  };
+
+  // Fix SCEVAdd expression.
+  auto FixScaledAdd = [&](const SCEV *SC, int64_t ScaledV) {
+    SmallVector<const SCEV *, 4> Ops;
+    auto A = dyn_cast<SCEVAddExpr>(SC);
+    assert(A && "Expected AddExpr");
+    for (const SCEV *S : A->operands())
+      if (auto StartC = dyn_cast<SCEVConstant>(S))
+        Ops.push_back(FixScaledConst(StartC, ScaledV));
+      else
+        Ops.push_back(FixScaledExpr(S, ScaledV));
+    return SE.getAddExpr(Ops);
+  };
+
+  // Fix SCEVAddRec expression.
+  auto FixScaledAddRecExpr = [&, this](const SCEV *S, int64_t ScaledV) {
+    const SCEVAddRecExpr *AR = dyn_cast<SCEVAddRecExpr>(S);
+    assert(AR && AR->isAffine() && "Expected AddRecExpr");
+    auto Start = AR->getStart();
+    // Fix start expression.
+    Start = FixScaledExpr(Start, ScaledV);
+    auto L = AR->getLoop();
+    assert(L && "Expected Valid loop");
+    // Fix step expression: StepC / TransposedNumCols
+    auto StepC = cast<SCEVConstant>(AR->getStepRecurrence(SE));
+    assert(StepC && "Expected Step AddRecExpr");
+    const SCEV *St = SE.getConstant(StepC->getType(), TransposedNumCols);
+    const SCEV *Step = SE.getConstant(
+        StepC->getAPInt().sdiv(cast<SCEVConstant>(St)->getAPInt()));
+    // Create new AddRec expression.
+    return SE.getAddRecExpr(Start, Step, L, AR->getNoWrapFlags(SCEV::FlagNW));
+  };
+
+  // Fix expressions recursively.
+  FixScaledExpr = [&, this](const SCEV *S, int64_t ScaledV) {
+    // Since we already proved that it is just constant multiplier, just
+    // fix the multiplier.
+    if (isa<SCEVMulExpr>(S))
+      return fixSCEVMulExpr(S, SE);
+    else if (isa<SCEVAddExpr>(S))
+      return FixScaledAdd(S, ScaledV);
+    else if (isa<SCEVAddRecExpr>(S))
+      return FixScaledAddRecExpr(S, ScaledV);
+    llvm_unreachable("Unexpected SCEV Type");
+  };
+  auto A = dyn_cast<SCEVAddExpr>(S);
+  assert(A && "Expected AddExpr");
+  int64_t Offset = 0;
+  SmallVector<const SCEV *, 4> Ops;
+  int64_t MulVal;
+  const SCEV *SignExtOp;
+  // Fix top level expression tree.
+  for (const SCEV *S1 : A->operands())
+    if (S1 == BasePtr)
+      Ops.push_back(S1);
+    else if (auto StartC = dyn_cast<SCEVConstant>(S1))
+      Offset += StartC->getAPInt().getSExtValue();
+    else if (parseSCEVSignExtExpr(S1, MulVal, SignExtOp))
+      Ops.push_back(FixSignExtExpr(S1, MulVal, SignExtOp));
+    else
+      Ops.push_back(FixScaledExpr(S1, 1));
+
+  // Invoking fixSCEVConst here to add displacement of base pointer to the
+  // original malloc allocation.
+  Ops.push_back(fixSCEVConst(Offset / MaxElemSize, BasePtr, SE));
+  return SE.getAddExpr(Ops);
+}
+
+const SCEV *ArrayTransposeImpl::fixSCEVExpr(const SCEV *S, const SCEV *BasePtr,
+                                            ScalarEvolution &SE) {
+  if (isa<SCEVAddRecExpr>(S))
+    return fixSCEVAddRecExpr(S, BasePtr, SE);
+
+  // Fix unoptimized SCEV expression.
+  return fixUnoptimizedSCEVExpr(S, BasePtr, SE);
 }
 
 // Apply transformations to all memory references.
@@ -1082,6 +1514,7 @@ const SCEV *ArrayTransposeImpl::fixSCEVAddRecExpr(const SCEV *S,
 void ArrayTransposeImpl::transformMemRefs(void) {
   for (auto Pair : FunctionMemRefs) {
     Function *F = Pair.first;
+    LLVM_DEBUG(dbgs() << " Transforming MemRefs in " << F->getName() << ":\n");
     ScalarEvolution &SE = (GetSE)(*F);
     SCEVExpander Exp(SE, DL, "transpose");
     for (auto II : Pair.second) {
@@ -1096,7 +1529,7 @@ void ArrayTransposeImpl::transformMemRefs(void) {
       assert(Base && "Expected valid Base");
 
       LLVM_DEBUG(dbgs() << "SCEV before: " << *SC << "\n");
-      const SCEV *NewSC = fixSCEVAddRecExpr(SC, Base, SE);
+      const SCEV *NewSC = fixSCEVExpr(SC, Base, SE);
       LLVM_DEBUG(dbgs() << "SCEV after: " << *NewSC << "\n");
       // Expand code for NewSC using Expander.
       Value *NewPtrOp = Exp.expandCodeFor(NewSC, NewSC->getType(), II);

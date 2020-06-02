@@ -15,11 +15,11 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-NOT: %pinc = getelementptr inbounds i8, i8* %p1, i64 320000
 
 ; Check updated memory references are generated.
-; CHECK:  [[M0:%[0-9]+]]  = mul nuw nsw i64 %ph2, 80000
+; CHECK:  [[M0:%[0-9]+]]  = mul nuw nsw i64 %ph2, 40000
 ; CHECK:  [[A0:%[0-9]+]] = add nuw i64 [[M0]], 203688000
-; CHECK:  [[M1:%[0-9]+]] = mul nuw nsw i64 %ph0, 800
+; CHECK:  [[M1:%[0-9]+]] = mul nuw nsw i64 %ph0, 400
 ; CHECK:  [[A1:%[0-9]+]] = add i64 [[A0]], [[M1]]
-; CHECK:  [[S0:%[0-9]+]] = shl nuw nsw i64 %ph1, 3
+; CHECK:  [[S0:%[0-9]+]] = shl nuw nsw i64 %ph1, 2
 ; CHECK:  [[A2:%[0-9]+]]  = add i64 [[A1]], [[S0]]
 ; CHECK:  [[G0:%[a-z0-9]+]] = getelementptr i8, i8* %p1, i64 [[A2]]
 ; CHECK:  [[B0:%[0-9]+]] = bitcast i8* [[G0]] to i32*

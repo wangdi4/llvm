@@ -1613,15 +1613,23 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_FindFirstFileA:
+  case LibFunc_FindFirstFileW:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_FindNextFileA:
+  case LibFunc_FindNextFileW:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_FindResourceA:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_GetCurrentThreadId:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_GetFullPathNameA:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_GetModuleFileNameA:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_GetModuleHandleA:
@@ -1631,6 +1639,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_GetShortPathNameW:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_GetSystemTime:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_GlobalMemoryStatus:
@@ -1760,6 +1771,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_MultiByteToWideChar:
+  case LibFunc_WideCharToMultiByte:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_munmap:
@@ -2022,6 +2034,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_sysconf:
     Changed |= setOnlyReadsMemory(F);
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_SystemTimeToFileTime:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_time:

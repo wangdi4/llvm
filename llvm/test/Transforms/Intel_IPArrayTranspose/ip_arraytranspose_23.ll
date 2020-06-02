@@ -28,9 +28,9 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:  define void @foo(i8* %in1)
 ; CHECK:  b1:
 ; CHECK:  [[I0:%[a-z0-9.]+]] = phi i64 [ [[I1:%[a-z0-9.]+]], %b2 ], [ 0, %b0 ]
-; CHECK:  [[S0:%[0-9]+]] = shl nuw nsw i64 [[I0]], 3
-; CHECK:  [[a0:%[0-9]+]] = add i64 [[S0]], 203688000
-; CHECK:  [[G0:%[a-z0-9]+]] = getelementptr i8, i8* %in1, i64 %1
+; CHECK:  [[S0:%[0-9]+]] = shl nuw nsw i64 [[I0]], 2
+; CHECK:  [[A0:%[0-9]+]] = add i64 [[S0]], 203688000
+; CHECK:  [[G0:%[a-z0-9]+]] = getelementptr i8, i8* %in1, i64 [[A0]]
 ; CHECK:  [[B0:%[0-9]+]] = bitcast i8* [[G0]] to i32*
 ; CHECK:  %ld = load i32, i32* [[B0]], align 4
 ; CHECK:  b2:
