@@ -2904,11 +2904,12 @@ RegDDRef *VPOCodeGenHIR::widenRef(const VPValue *VPVal, unsigned VF) {
 }
 
 RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPValue *VPPtr,
-                                      unsigned ScalSymbase) {
+                                      unsigned ScalSymbase, bool Lane0Value) {
   bool IsUnitStride = isUnitStridePtr(VPPtr);
+  bool NeedScalarRef = IsUnitStride || Lane0Value;
 
   RegDDRef *PtrRef;
-  if (IsUnitStride)
+  if (NeedScalarRef)
     PtrRef = getOrCreateScalarRef(VPPtr);
   else
     PtrRef = widenRef(VPPtr, getVF());
@@ -2934,19 +2935,21 @@ RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPValue *VPPtr,
     auto Zero = CanonExprUtilities.createCanonExpr(Is64Bit ? Int64Ty : Int32Ty);
 
     // We need to set destination type of the created canon expression
-    // to VF wide vector type if not unit strided.
-    if (!IsUnitStride)
+    // to VF wide vector type if we are not setting up a scalar ref.
+    if (!NeedScalarRef)
       Zero->setDestType(VectorType::get(Zero->getSrcType(), VF));
     MemRef->addDimension(Zero);
   }
 
   PointerType *PtrTy = cast<PointerType>(VPPtr->getType());
   Type *ValTy = PtrTy->getElementType();
-  Type *VecValTy = VectorType::get(ValTy, VF);
+  if (!Lane0Value) {
+    Type *VecValTy = VectorType::get(ValTy, VF);
 
-  // MemRef's bitcast type needs to be set to a pointer to <VF x ValType>.
-  MemRef->setBitCastDestType(
-      PointerType::get(VecValTy, PtrTy->getAddressSpace()));
+    // MemRef's bitcast type needs to be set to a pointer to <VF x ValType>.
+    MemRef->setBitCastDestType(
+        PointerType::get(VecValTy, PtrTy->getAddressSpace()));
+  }
   MemRef->setSymbase(ScalSymbase);
 
   // TODO - Alignment information needs to be obtained from VPInstruction.
@@ -3259,6 +3262,64 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
   }
 }
 
+RegDDRef *VPOCodeGenHIR::generateCompareToZero(RegDDRef *Value,
+                                               RegDDRef *InstMask, bool Equal) {
+  assert(Value && "Expected a non-null mask");
+  Type *Ty = Value->getDestType();
+  assert((Ty->isVectorTy() && Ty->getScalarType()->isIntegerTy(1)) &&
+         "Expected <N x i1> type");
+
+  // Bitcast <VF x i1> to an integer value VF bits long.
+  Type *IntTy =
+      IntegerType::get(Ty->getContext(), Ty->getPrimitiveSizeInBits());
+  auto *BitCastInst = HLNodeUtilities.createCastHLInst(
+      IntTy, Instruction::BitCast, Value->clone());
+  addInst(BitCastInst, InstMask);
+
+  // Compare that the bitcast value against zero. If Equal is true we check
+  // for equality otherwise, check for inequality.
+  PredicateTy Pred = Equal ? PredicateTy::ICMP_EQ : PredicateTy::ICMP_NE;
+  auto *CmpInst =
+      HLNodeUtilities.createCmp(Pred, BitCastInst->getLvalDDRef()->clone(),
+                                DDRefUtilities.createNullDDRef(IntTy));
+  addInst(CmpInst, InstMask);
+  return CmpInst->getLvalDDRef();
+}
+
+void VPOCodeGenHIR::widenUniformLoadImpl(const VPInstruction *VPInst,
+                                         RegDDRef *Mask) {
+  // For a uniform load, do a scalar load followed by a broadcast. We need to
+  // mask the scalar load appropriately. The mask to use is !AllZeroCheck(Mask)
+  // which will ensure that we do the load if any vector lane is active. Using a
+  // scalar load followed by broadcast is especially important for the masked
+  // case as we need to ensure that lane 0 value is properly set as it can feed
+  // unit stride memory references in cases like the following:
+  //     t1 = load unif_ptr @mask = cond
+  //     t2 = a[t1][i1]  @mask = cond
+  if (Mask) {
+    Mask =
+        generateCompareToZero(Mask, nullptr /* InstMask */, false /* Equal */);
+  }
+
+  const VPValue *PtrOp = getLoadStorePointerOperand(VPInst);
+  RegDDRef *MemRef =
+      getMemoryRef(PtrOp, VPInst->getSymbase(), true /* Lane0Value */);
+  auto *ScalarInst = HLNodeUtilities.createLoad(MemRef, ".unifload");
+  if (Mask) {
+    HLIf *If = HLNodeUtilities.createHLIf(
+        PredicateTy::ICMP_EQ, Mask->clone(),
+        DDRefUtilities.createConstDDRef(Mask->getDestType(), 1));
+    addInst(If, nullptr /* Mask */);
+    HLNodeUtils::insertAsFirstThenChild(If, ScalarInst);
+  } else {
+    addInstUnmasked(ScalarInst);
+  }
+
+  addVPValueScalRefMapping(VPInst, ScalarInst->getLvalDDRef(), 0);
+  addVPValueWideRefMapping(
+      VPInst, widenRef(ScalarInst->getLvalDDRef()->clone(), getVF()));
+}
+
 void VPOCodeGenHIR::widenLoadStoreImpl(const VPInstruction *VPInst,
                                        RegDDRef *Mask) {
   // Loads/stores need to be masked with current mask value if Mask is null.
@@ -3269,8 +3330,14 @@ void VPOCodeGenHIR::widenLoadStoreImpl(const VPInstruction *VPInst,
   assert((Opcode == Instruction::Load || Opcode == Instruction::Store) &&
          "Expected load/store instruction");
 
-  RegDDRef *MemRef = getMemoryRef(getLoadStorePointerOperand(VPInst),
-                                  VPInst->getSymbase());;
+  // Handle uniform load
+  const VPValue *PtrOp = getLoadStorePointerOperand(VPInst);
+  if (Opcode == Instruction::Load && !Plan->getVPlanDA()->isDivergent(*PtrOp)) {
+    widenUniformLoadImpl(VPInst, Mask);
+    return;
+  }
+
+  RegDDRef *MemRef = getMemoryRef(PtrOp, VPInst->getSymbase());
   HLInst *WInst;
   if (Opcode == Instruction::Load) {
     WInst = HLNodeUtilities.createLoad(MemRef, ".vec");
@@ -3694,29 +3761,16 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
 
   case VPInstruction::AllZeroCheck: {
     RegDDRef *A = RefOp0;
-    Type *Ty = A->getDestType();
     if (Mask || CurMaskValue) {
       // TODO: Is this needed for HIR? The comment block in LLVM-IR CG adds this
       // case for masked inner-loops which we won't see in HIR. add A, Mask
       assert(false && "Mask supported for AllZeroCheck?");
     }
 
-    // Bitcast <VF x i1> to an integer value VF bits long.
-    Type *IntTy =
-        IntegerType::get(Ty->getContext(), Ty->getPrimitiveSizeInBits());
-    auto *BitCastInst =
-        HLNodeUtilities.createCastHLInst(IntTy, Instruction::BitCast, A);
-    addInst(BitCastInst, Mask);
-
-    // Compare the bitcast value to zero. Compare will be true if all the i1
-    // masks in <VF x i1> are false.
-    auto *CmpInst = HLNodeUtilities.createCmp(
-        PredicateTy::ICMP_EQ, BitCastInst->getLvalDDRef()->clone(),
-        DDRefUtilities.createNullDDRef(IntTy));
-    addInst(CmpInst, Mask);
-
+    RegDDRef *AllZeroCmp = generateCompareToZero(A, Mask, true /* Equal */);
+    addVPValueScalRefMapping(VPInst, AllZeroCmp, 0);
     NewInst = HLNodeUtilities.createCopyInst(
-        widenRef(CmpInst->getLvalDDRef()->clone(), getVF()), "all.zero.check");
+        widenRef(AllZeroCmp->clone(), getVF()), "all.zero.check");
     break;
   }
 

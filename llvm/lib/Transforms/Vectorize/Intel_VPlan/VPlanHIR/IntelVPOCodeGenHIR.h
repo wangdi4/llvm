@@ -415,8 +415,11 @@ public:
 
   // Given the pointer operand of a load/store instruction, setup and return the
   // memory ref to use in generating the load/store HLInst. ScalSymbase
-  // specifies the symbase to set for the returned ref.
-  RegDDRef *getMemoryRef(const VPValue *VPPtr, unsigned ScalSymbase);
+  // specifies the symbase to set for the returned ref. Lane0Value specifies if
+  // we need memory ref corresponding to just vector lane 0. This is used to
+  // handle uniform memory accesses.
+  RegDDRef *getMemoryRef(const VPValue *VPPtr, unsigned ScalSymbase,
+                         bool Lane0Value = false);
 
   bool isSearchLoop() const {
     return VPlanIdioms::isAnySearchLoop(SearchLoopType);
@@ -726,6 +729,20 @@ private:
 
   // Implementation of VPPhi widening.
   void widenPhiImpl(const VPPHINode *VPPhi, RegDDRef *Mask);
+
+  // Generate instructions to compare Value against zero. Value's type is
+  // expected to be a vector of i1. InstMask specifies the mask to add
+  // for the generated instructions. The compare predicate is ICMP_EQ if Equal
+  // is true and ICMP_NE otherwise.
+  RegDDRef *generateCompareToZero(RegDDRef *Value, RegDDRef *InstMask,
+                                  bool Equal);
+
+  // Implementation of load where the pointer operand being loaded from is
+  // uniform. VPInst is the load instruction and Mask specifies the load Mask. A
+  // scalar load is done using the pointer operand and the value is
+  // broadcast to generate the vector value. If Mask is non-null, the load
+  // is done conditionally only if Mask is non-zero.
+  void widenUniformLoadImpl(const VPInstruction *VPInst, RegDDRef *Mask);
 
   // Implementation of load/store widening.
   void widenLoadStoreImpl(const VPInstruction *VPInst, RegDDRef *Mask);
