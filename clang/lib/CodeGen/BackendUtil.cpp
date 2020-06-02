@@ -493,14 +493,10 @@ static void initTargetOptions(llvm::TargetOptions &Options,
   Options.NoInfsFPMath = LangOpts.NoHonorInfs;
   Options.NoNaNsFPMath = LangOpts.NoHonorNaNs;
   Options.NoZerosInBSS = CodeGenOpts.NoZeroInitializedInBSS;
-<<<<<<< HEAD
-  Options.UnsafeFPMath = CodeGenOpts.UnsafeFPMath;
+  Options.UnsafeFPMath = LangOpts.UnsafeFPMath;
 #if INTEL_CUSTOMIZATION
   Options.IntelAdvancedOptim = CodeGenOpts.IntelAdvancedOptim;
 #endif // INTEL_CUSTOMIZATION
-=======
-  Options.UnsafeFPMath = LangOpts.UnsafeFPMath;
->>>>>>> 8a8d703be0986dd6785cba0b610c9c4708b83e89
   Options.StackAlignmentOverride = CodeGenOpts.StackAlignment;
   Options.FunctionSections = CodeGenOpts.FunctionSections;
   Options.DataSections = CodeGenOpts.DataSections;
