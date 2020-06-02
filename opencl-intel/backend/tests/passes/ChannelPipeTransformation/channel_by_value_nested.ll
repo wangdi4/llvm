@@ -1,6 +1,3 @@
-; Disable this case temporarily because of random failure.
-; UNSUPPORTED: windows
-; REQUIRES: windows
 ; Compiled from:
 ; ----------------------------------------------------
 ; #pragma OPENCL EXTENSION cl_intel_channels: enable

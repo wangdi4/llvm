@@ -711,6 +711,10 @@ static void cleanup(Module &M, SmallPtrSetImpl<Instruction *> &ToDelete,
     }
 
     I->eraseFromParent();
+
+    // Need to erase the instruction from VMap to avoid flaky failures since it
+    // might be polluted after it's deleted.
+    VMap.erase(I);
   }
 
   SetVector <Function *> UsesToDelete;
