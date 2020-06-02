@@ -228,11 +228,14 @@ void HIRFramework::processDeferredZtts() {
       continue;
     }
 
-    // Ztt is being moved from (LoopLevel-1) to LoopLevel so we will need to
-    // update level of non-linear blobs.
+    HIRLoopFormation::setRecognizedZtt(Lp, Ztt, false);
+
+    // If ztt was successfuly recognized, it moved from (LoopLevel-1) to
+    // LoopLevel so we will need to update level of non-linear blobs.
     unsigned LoopLevel = Lp->getNestingLevel();
 
-    for (auto *ZttRef : make_range(Ztt->ddref_begin(), Ztt->ddref_end())) {
+    for (auto *ZttRef :
+         make_range(Lp->ztt_ddref_begin(), Lp->ztt_ddref_end())) {
 
       if (ZttRef->isSelfBlob()) {
         if (ZttRef->isNonLinear()) {
@@ -253,8 +256,6 @@ void HIRFramework::processDeferredZtts() {
         }
       }
     }
-
-    HIRLoopFormation::setRecognizedZtt(Lp, Ztt, false);
   }
 }
 
