@@ -149,7 +149,7 @@ class BackEndTests_FactoryMethods : public BackendWrapper {};
 class BackEndTests_CompilationService : public BackendWrapper {};
 
 /// @brief dummy inheritance, only for the output of gtest
-class BackEndTests_KernelSubGroupInfo : public BackendWrapper {};
+class DISABLED_BackEndTests_KernelSubGroupInfo : public BackendWrapper {};
 
 /// @brief inheritance is needed for overloading SetUp()
 class BackEndTests_Plugins : public BackendWrapper

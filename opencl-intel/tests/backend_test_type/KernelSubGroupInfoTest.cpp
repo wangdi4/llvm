@@ -16,7 +16,7 @@
 // The tested function GetRequiredNumSubGroups() must return
 // value of required number of subgroups defined in attribute (i.e. 5).
 
-TEST_F(BackEndTests_KernelSubGroupInfo, SubGroupInfoSuccess)
+TEST_F(DISABLED_BackEndTests_KernelSubGroupInfo, SubGroupInfoSuccess)
 {
     ICLDevBackendServiceFactory* funcGetFactory = BackendWrapper::GetInstance().GetBackendServiceFactory();
     ASSERT_TRUE(funcGetFactory);
