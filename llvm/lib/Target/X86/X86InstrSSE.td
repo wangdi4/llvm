@@ -8269,3 +8269,44 @@ defm VPMADD52HUQ : avx_ifma_rm<0xb5, "vpmadd52huq", x86vpmadd52hvex>, VEX_W;
 defm VPMADD52LUQ : avx_ifma_rm<0xb4, "vpmadd52luq", x86vpmadd52lvex>, VEX_W;
 #endif // INTEL_FEATURE_ISA_AVX_IFMA
 #endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+multiclass VPCOMPRESS_mr<bits<8> opc, string OpcodeStr, ValueType OpVT,
+                        RegisterClass RC, X86MemOperand X86MemOp,
+                        X86FoldableSchedWrite sched> {
+  let Predicates  = [HasAVXCOMPRESS, In64BitMode] in {
+      def rr : AVX8I<opc, MRMDestReg4VOp3, (outs RC:$dst),
+                     (ins RC:$src1, RC:$src2),
+                     OpcodeStr#"\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                     [(set RC:$dst, (OpVT
+                      (X86vpcompress RC:$src1, RC:$src2)))]>,
+                     VEX_4V, Sched<[sched]>;
+      def mr : AVX8I<opc, MRMDestMem4VOp3, (outs),
+                     (ins X86MemOp:$dst, RC:$src1, RC:$src2),
+                     OpcodeStr#"\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                     [(X86vpcompress_store addr:$dst,
+                      (OpVT RC:$src1), (OpVT RC:$src2))]>,
+                     VEX_4V, Sched<[sched]>, NotMemoryFoldable;
+  }
+}
+
+
+defm VPCOMPRESSB    : VPCOMPRESS_mr<0x63, "vpcompressb", v16i8, VR128, i128mem,
+                                    SchedWriteVarShuffle.XMM>;
+defm VPCOMPRESSBY   : VPCOMPRESS_mr<0x63, "vpcompressb", v32i8, VR256, i256mem,
+                                    SchedWriteVarShuffle.YMM>, VEX_L;
+defm VPCOMPRESSD    : VPCOMPRESS_mr<0x8b, "vpcompressd", v4i32, VR128, i128mem,
+                                    SchedWriteVarShuffle.XMM>;
+defm VPCOMPRESSDY   : VPCOMPRESS_mr<0x8b, "vpcompressd", v8i32, VR256, i256mem,
+                                    SchedWriteVarShuffle.YMM>, VEX_L;
+defm VPCOMPRESSQ    : VPCOMPRESS_mr<0x8b, "vpcompressq", v2i64, VR128, i128mem,
+                                    SchedWriteVarShuffle.XMM>, VEX_W;
+defm VPCOMPRESSQY   : VPCOMPRESS_mr<0x8b, "vpcompressq", v4i64, VR256, i256mem,
+                                    SchedWriteVarShuffle.YMM>, VEX_W, VEX_L;
+defm VPCOMPRESSW    : VPCOMPRESS_mr<0x63, "vpcompressw", v8i16, VR128, i128mem,
+                                    SchedWriteVarShuffle.XMM>, VEX_W;
+defm VPCOMPRESSWY   : VPCOMPRESS_mr<0x63, "vpcompressw", v16i16, VR256, i256mem,
+                                    SchedWriteVarShuffle.YMM>, VEX_W, VEX_L;
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION

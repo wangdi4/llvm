@@ -991,6 +991,9 @@ def HasCONVERT   : Predicate<"Subtarget->hasCONVERT()">;
 #if INTEL_FEATURE_ISA_AVX_CONVERT
 def HasAVXCONVERT   : Predicate<"Subtarget->hasAVXCONVERT()">;
 #endif // INTEL_FEATURE_ISA_AVX_CONVERT
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+def HasAVXCOMPRESS   : Predicate<"Subtarget->hasAVXCOMPRESS()">;
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
 #endif // INTEL_CUSTOMIZATION
 
 def HasBITALG    : Predicate<"Subtarget->hasBITALG()">;

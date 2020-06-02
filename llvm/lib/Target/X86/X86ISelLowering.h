@@ -621,6 +621,9 @@ namespace llvm {
     VCVT2PS2PH_RND,
     VCVTBF162PH_RND,
 #endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+    VPCOMPRESS,
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
 #endif // INTEL_CUSTOMIZATION
 
     // Compress and expand.
@@ -903,6 +906,11 @@ namespace llvm {
     // X86 specific gather and scatter
     MGATHER,
     MSCATTER,
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+    VPCOMPRESS_STORE,
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
 
     // WARNING: Do not add anything in the end unless you want the node to
     // have memop! In fact, starting from FIRST_TARGET_MEMORY_OPCODE all

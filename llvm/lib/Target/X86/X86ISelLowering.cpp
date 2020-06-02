@@ -5267,6 +5267,18 @@ bool X86TargetLowering::getTgtMemIntrinsic(IntrinsicInfo &Info,
     Info.flags |= MachineMemOperand::MOStore;
     break;
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  case COMPRESS_TO_MEM: {
+    Info.opc = ISD::INTRINSIC_VOID;
+    Info.ptrVal = I.getArgOperand(0);
+    Info.memVT = MVT::getVT(I.getArgOperand(1)->getType());
+    Info.align = Align(1);
+    Info.flags |= MachineMemOperand::MOStore;
+    break;
+  }
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   default:
     return false;
   }
@@ -25838,6 +25850,24 @@ static SDValue getPrefetchNode(unsigned Opc, SDValue Op, SelectionDAG &DAG,
   return SDValue(Res, 0);
 }
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+static SDValue getCompressStoreNode(SDValue Op, SelectionDAG &DAG,
+                                    SDValue Dst, SDValue Src1, SDValue Src2,
+                                    SDValue Chain) {
+  SDLoc dl(Op);
+  MemIntrinsicSDNode *MemIntr = cast<MemIntrinsicSDNode>(Op);
+  SDVTList VTs = DAG.getVTList(MVT::Other);
+  SDValue Ops[] = {Chain, Dst, Src1, Src2};
+  SDValue Res =
+    DAG.getMemIntrinsicNode(X86ISD::VPCOMPRESS_STORE, dl, VTs, Ops,
+                            MemIntr->getMemoryVT(), MemIntr->getMemOperand());
+  return Res;
+}
+
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
+
 /// Handles the lowering of builtin intrinsics with chain that return their
 /// value into registers EDX:EAX.
 /// If operand ScrReg is a valid register identifier, then operand 2 of N is
@@ -26404,6 +26434,17 @@ static SDValue LowerINTRINSIC_W_CHAIN(SDValue Op, const X86Subtarget &Subtarget,
       llvm_unreachable("Unsupported truncstore intrinsic");
     }
   }
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  case COMPRESS_TO_MEM: {
+    SDValue Chain = Op.getOperand(0);
+    SDValue Addr  = Op.getOperand(2);
+    SDValue Src1  = Op.getOperand(3);
+    SDValue Src2  = Op.getOperand(4);
+    return getCompressStoreNode(Op, DAG, Addr, Src1, Src2, Chain);
+  }
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   }
 }
 
@@ -31388,6 +31429,10 @@ const char *X86TargetLowering::getTargetNodeName(unsigned Opcode) const {
   NODE_NAME_CASE(VCVTBF162PH_RND)
   NODE_NAME_CASE(VCVTNEPH2BF16)
 #endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  NODE_NAME_CASE(VPCOMPRESS)
+  NODE_NAME_CASE(VPCOMPRESS_STORE)
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
 #endif // INTEL_CUSTOMIZATION
   }
   return nullptr;
