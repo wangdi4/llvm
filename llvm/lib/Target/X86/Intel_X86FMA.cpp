@@ -1263,10 +1263,12 @@ X86GlobalFMA::selectBroadcastFromGPR(unsigned VecBitSize, unsigned ElemBitSize,
          "Unsupported element size in selectBroadcastFromGPR()");
   switch (VecBitSize) {
   case 128:
-    *RC = &X86::VR128RegClass;
+    assert(ST->hasVLX() && "Expected AVX512VL");
+    *RC = &X86::VR128XRegClass;
     return IsF32 ? X86::VPBROADCASTDrZ128rr : X86::VPBROADCASTQrZ128rr;
   case 256:
-    *RC = &X86::VR256RegClass;
+    assert(ST->hasVLX() && "Expected AVX512VL");
+    *RC = &X86::VR256XRegClass;
     return IsF32 ? X86::VPBROADCASTDrZ256rr : X86::VPBROADCASTQrZ256rr;
   case 512:
     *RC = &X86::VR512RegClass;
@@ -1339,7 +1341,24 @@ unsigned X86GlobalFMA::createConstOneFromImm(MVT VT,
     return R;
   }
 
-  // Put GPReg to XMM.
+  // For scalars, use the instructions that use a scalar register class.
+  if (VT.getSizeInBits() < 128) {
+    const TargetRegisterClass *RC = ST->getTargetLowering()->getRegClassFor(VT);
+    R = MRI->createVirtualRegister(RC);
+    if (IsF32) {
+      Opc = ST->hasAVX512() ? X86::VMOVDI2SSZrr : X86::VMOVDI2SSrr;
+      BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(Opc), R)
+          .addReg(GPReg, RegState::Kill);
+    } else {
+      Opc = ST->hasAVX512() ? X86::VMOV64toSDZrr : X86::VMOV64toSDrr;
+      BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(Opc), R)
+          .addReg(GPReg, RegState::Kill);
+    }
+
+    return R;
+  }
+
+  // For vectors we need to insert into 128 bits and then broadcast.
   unsigned R128 = MRI->createVirtualRegister(&X86::VR128RegClass);
   if (IsF32) {
     Opc = ST->hasAVX512() ? X86::VMOVDI2PDIZrr : X86::VMOVDI2PDIrr;
@@ -1352,27 +1371,17 @@ unsigned X86GlobalFMA::createConstOneFromImm(MVT VT,
   }
 
   // Broadcast the lowest element of the XMM to the bigger vector register.
-  MachineInstrBuilder MIB;
-  switch (VT.getSizeInBits()) {
-  case 32:
-  case 64:
-    R = R128;
-    break;
-  case 128:
+  if (VT.getSizeInBits() == 128) {
     R = MRI->createVirtualRegister(&X86::VR128RegClass);
     Opc = IsF32 ? X86::VBROADCASTSSrr : X86::VMOVDDUPrr;
-    MIB = BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(Opc), R);
-    MIB.addReg(R128, RegState::Kill);
-    break;
-  case 256:
+  } else {
+    assert(VT.getSizeInBits() == 256 && "Unexpected size!");
     R = MRI->createVirtualRegister(&X86::VR256RegClass);
     Opc = IsF32 ? X86::VBROADCASTSSYrr : X86::VBROADCASTSDYrr;
-    BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(Opc), R)
-        .addReg(R128, RegState::Kill);
-    break;
-  default:
-    llvm_unreachable("Unsupported type for 1.0 const.");
   }
+
+  auto MIB = BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(Opc), R);
+  MIB.addReg(R128, RegState::Kill);
   return R;
 }
 

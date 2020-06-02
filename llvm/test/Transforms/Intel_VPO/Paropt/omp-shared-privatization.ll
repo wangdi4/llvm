@@ -6,6 +6,13 @@
 ;     A[i] = 2.0f * B[i];
 ;}
 ;
+;void goo(float * A, float * B, int N) {
+;#pragma omp parallel
+;#pragma omp for
+;   for (int i = 0; i < N; ++i)
+;     A[i] = 2.0f * B[i];
+;}
+;
 ;void bar(float * A, int N) {
 ;#pragma omp parallel for
 ;   for (int i = 0; i < N; ++i)
@@ -103,6 +110,92 @@ omp.loop.exit:                                    ; preds = %omp.inner.for.end
   br label %omp.precond.end
 
 omp.precond.end:                                  ; preds = %omp.loop.exit, %entry
+  ret void
+}
+
+define dso_local void @goo(float* %A, float* %B, i32 %N) {
+entry:
+  %A.addr = alloca float*, align 8
+  %B.addr = alloca float*, align 8
+  %N.addr = alloca i32, align 4
+  %tmp = alloca i32, align 4
+  %.capture_expr. = alloca i32, align 4
+  %.capture_expr.1 = alloca i32, align 4
+  %.omp.iv = alloca i32, align 4
+  %.omp.lb = alloca i32, align 4
+  %.omp.ub = alloca i32, align 4
+  %i = alloca i32, align 4
+  store float* %A, float** %A.addr, align 8
+  store float* %B, float** %B.addr, align 8
+  store i32 %N, i32* %N.addr, align 4
+
+; CHECK: call {{.*}} @__kmpc_fork_call({{.*}}, i32 3, void (i32*, i32*, ...)* bitcast (void (i32*, i32*, float*, float*, i64)* [[OUTLINED_GOO:@.+]] to void (i32*, i32*, ...)*), float* %A, float* %B,
+
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL"(), "QUAL.OMP.SHARED"(float** %A.addr), "QUAL.OMP.SHARED"(float** %B.addr), "QUAL.OMP.SHARED"(i32* %N.addr), "QUAL.OMP.PRIVATE"(i32* %.capture_expr.1), "QUAL.OMP.PRIVATE"(i32* %.omp.iv), "QUAL.OMP.PRIVATE"(i32* %.omp.lb), "QUAL.OMP.PRIVATE"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i), "QUAL.OMP.PRIVATE"(i32* %.capture_expr.), "QUAL.OMP.PRIVATE"(i32* %tmp) ]
+  %1 = load i32, i32* %N.addr, align 4
+  store i32 %1, i32* %.capture_expr., align 4
+  %2 = load i32, i32* %.capture_expr., align 4
+  %sub = sub nsw i32 %2, 0
+  %sub2 = sub nsw i32 %sub, 1
+  %add = add nsw i32 %sub2, 1
+  %div = sdiv i32 %add, 1
+  %sub3 = sub nsw i32 %div, 1
+  store i32 %sub3, i32* %.capture_expr.1, align 4
+  %3 = load i32, i32* %.capture_expr., align 4
+  %cmp = icmp slt i32 0, %3
+  br i1 %cmp, label %omp.precond.then, label %omp.precond.end
+
+omp.precond.then:                                 ; preds = %entry
+  store i32 0, i32* %.omp.lb, align 4
+  %4 = load i32, i32* %.capture_expr.1, align 4
+  store i32 %4, i32* %.omp.ub, align 4
+  %5 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i) ]
+  %6 = load i32, i32* %.omp.lb, align 4
+  store i32 %6, i32* %.omp.iv, align 4
+  br label %omp.inner.for.cond
+
+omp.inner.for.cond:                               ; preds = %omp.inner.for.inc, %omp.precond.then
+  %7 = load i32, i32* %.omp.iv, align 4
+  %8 = load i32, i32* %.omp.ub, align 4
+  %cmp4 = icmp sle i32 %7, %8
+  br i1 %cmp4, label %omp.inner.for.body, label %omp.inner.for.end
+
+omp.inner.for.body:                               ; preds = %omp.inner.for.cond
+  %9 = load i32, i32* %.omp.iv, align 4
+  %mul = mul nsw i32 %9, 1
+  %add5 = add nsw i32 0, %mul
+  store i32 %add5, i32* %i, align 4
+  %10 = load float*, float** %B.addr, align 8
+  %11 = load i32, i32* %i, align 4
+  %idxprom = sext i32 %11 to i64
+  %arrayidx = getelementptr inbounds float, float* %10, i64 %idxprom
+  %12 = load float, float* %arrayidx, align 4
+  %mul6 = fmul float 2.000000e+00, %12
+  %13 = load float*, float** %A.addr, align 8
+  %14 = load i32, i32* %i, align 4
+  %idxprom7 = sext i32 %14 to i64
+  %arrayidx8 = getelementptr inbounds float, float* %13, i64 %idxprom7
+  store float %mul6, float* %arrayidx8, align 4
+  br label %omp.body.continue
+
+omp.body.continue:                                ; preds = %omp.inner.for.body
+  br label %omp.inner.for.inc
+
+omp.inner.for.inc:                                ; preds = %omp.body.continue
+  %15 = load i32, i32* %.omp.iv, align 4
+  %add9 = add nsw i32 %15, 1
+  store i32 %add9, i32* %.omp.iv, align 4
+  br label %omp.inner.for.cond
+
+omp.inner.for.end:                                ; preds = %omp.inner.for.cond
+  br label %omp.loop.exit
+
+omp.loop.exit:                                    ; preds = %omp.inner.for.end
+  call void @llvm.directive.region.exit(token %5) [ "DIR.OMP.END.LOOP"() ]
+  br label %omp.precond.end
+
+omp.precond.end:                                  ; preds = %omp.loop.exit, %entry
+  call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.PARALLEL"() ]
   ret void
 }
 
@@ -259,20 +352,31 @@ declare token @llvm.directive.region.entry()
 
 declare void @llvm.directive.region.exit(token)
 
-; CHECK: define internal void [[OUTLINED_FUNC]](i32* nocapture readonly %tid, i32* nocapture readnone %bid, float* nocapture readonly [[BBASE:%.+]], float* nocapture [[ABASE:%.+]], i64 %{{.+}}, i64 %{{.+}})
+; CHECK: define internal void [[OUTLINED_FUNC]](i32* nocapture readonly %tid, i32* nocapture readnone %bid, float* nocapture readonly [[BBASE:%.+]], float* nocapture [[ABASE:%.+]], i64 %{{.+}}, i64 %{{.+}}) #{{[0-9]+}} {
 ; CHECK: omp.inner.for.body:
 ; CHECK:   [[BADDR:%.+]] = getelementptr inbounds float, float* [[BBASE]], i64 [[IV:%.+]]
 ; CHECK:   %{{.+}} = load float, float* [[BADDR]]
 ; CHECK:   [[AADDR:%.+]] = getelementptr inbounds float, float* [[ABASE]], i64 [[IV]]
 ; CHECK:   store float %{{.+}}, float* [[AADDR]]
+; CHECK: }
 
-; CHECK: define internal void [[OUTLINED_BAR2]](i32* nocapture readonly %tid, i32* nocapture readnone %bid, float* nocapture [[ABASE:%.+]], i64 %{{.+}}, i64 %{{.+}})
+; CHECK: define internal void [[OUTLINED_GOO]](i32* nocapture readonly %tid, i32* nocapture readnone %bid, float* nocapture [[ABASE:%.+]], float* nocapture readonly [[BBASE:%.+]], i64 %{{.+}}) #{{[0-9]+}} {
+; CHECK: omp.inner.for.body:
+; CHECK:   [[BADDR:%.+]] = getelementptr inbounds float, float* [[BBASE]], i64 [[IV:%.+]]
+; CHECK:   %{{.+}} = load float, float* [[BADDR]]
+; CHECK:   [[AADDR:%.+]] = getelementptr inbounds float, float* [[ABASE]], i64 [[IV]]
+; CHECK:   store float %{{.+}}, float* [[AADDR]]
+; CHECK: }
+
+; CHECK: define internal void [[OUTLINED_BAR2]](i32* nocapture readonly %tid, i32* nocapture readnone %bid, float* nocapture [[ABASE:%.+]], i64 %{{.+}}, i64 %{{.+}}) #{{[0-9]+}} {
 ; CHECK: omp.inner.for.body{{.*}}:
 ; CHECK:   [[AADDR:%.+]] = getelementptr inbounds float, float* [[ABASE]], i64 [[IV:%.+]]
 ; CHECK:   %{{.+}} = load float, float* [[AADDR]]
 ; CHECK:   store float %{{.+}}, float* [[AADDR]]
+; CHECK: }
 
-; CHECK: define internal void [[OUTLINED_BAR1]](i32* nocapture readonly %tid, i32* nocapture readnone %bid, float* nocapture [[ABASE:%.+]], i64 %{{.+}}, i64 %{{.+}})
+; CHECK: define internal void [[OUTLINED_BAR1]](i32* nocapture readonly %tid, i32* nocapture readnone %bid, float* nocapture [[ABASE:%.+]], i64 %{{.+}}, i64 %{{.+}}) #{{[0-9]+}} {
 ; CHECK: omp.inner.for.body{{.*}}:
 ; CHECK:   [[AADDR:%.+]] = getelementptr inbounds float, float* [[ABASE]], i64 [[IV:%.+]]
 ; CHECK:   store float %{{.+}}, float* [[AADDR]]
+; CHECK: }
