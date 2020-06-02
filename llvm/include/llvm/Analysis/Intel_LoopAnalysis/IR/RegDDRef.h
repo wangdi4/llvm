@@ -661,11 +661,11 @@ public:
   /// Dimension index iterator methods
   //    Iterates through dimension 1 to getNumDimensions(), inclusively.
   //     ex)
-  //        for (auto I : make_range(Ref->dim_index_begin(),
-  //        Ref->dim_index_end()))
+  //        for (auto I : make_range(Ref->dim_num_begin(),
+  //        Ref->dim_num_end()))
   //          CanonExpr *CE = Ref->getNumDimension(I);
-  IntegerRangeIterator dim_index_begin() { return IntegerRangeIterator(1); }
-  IntegerRangeIterator dim_index_end() {
+  IntegerRangeIterator dim_num_begin() const { return IntegerRangeIterator(1); }
+  IntegerRangeIterator dim_num_end() const {
     return IntegerRangeIterator(getNumDimensions() + 1);
   }
 

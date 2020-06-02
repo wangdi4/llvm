@@ -30,7 +30,7 @@ bool isSymetricCenteredAt(const RegDDRef *Center, const RefGroupTy &Group) {
 
     unsigned numNonZeroDist = 0;
     for (auto DimNum :
-         make_range(Ref->dim_index_begin(), Ref->dim_index_end())) {
+         make_range(Ref->dim_num_begin(), Ref->dim_num_end())) {
       int64_t Dist = 0;
       if (!CanonExprUtils::getConstDistance(Center->getDimensionIndex(DimNum),
                                             Ref->getDimensionIndex(DimNum),
