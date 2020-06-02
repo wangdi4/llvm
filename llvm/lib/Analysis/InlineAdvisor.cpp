@@ -110,16 +110,11 @@ private:
 
 } // namespace
 
-<<<<<<< HEAD
 std::unique_ptr<InlineAdvice>
 #if INTEL_CUSTOMIZATION
-DefaultInlineAdvisor::getAdvice(CallBase &CB, FunctionAnalysisManager &FAM,
-                                InliningLoopInfoCache *ILIC,
+DefaultInlineAdvisor::getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
                                 InlineReport *Report) {
 #endif // INTEL_CUSTOMIZATION
-=======
-std::unique_ptr<InlineAdvice> DefaultInlineAdvisor::getAdvice(CallBase &CB) {
->>>>>>> 999ea25a9eeab72f95acaa7f753f4f3a7ac450b3
   Function &Caller = *CB.getCaller();
   ProfileSummaryInfo *PSI =
       FAM.getResult<ModuleAnalysisManagerFunctionProxy>(Caller)

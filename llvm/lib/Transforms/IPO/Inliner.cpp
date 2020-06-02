@@ -1127,11 +1127,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
         continue;
       }
 
-<<<<<<< HEAD
-      auto Advice = Advisor.getAdvice(*CB, FAM, ILIC, &Report); // INTEL
-=======
-      auto Advice = Advisor.getAdvice(*CB);
->>>>>>> 999ea25a9eeab72f95acaa7f753f4f3a7ac450b3
+      auto Advice = Advisor.getAdvice(*CB, ILIC, &Report); // INTEL
       // Check whether we want to inline this callsite.
       if (!Advice->isInliningRecommended()) {
         Advice->recordUnattemptedInlining();

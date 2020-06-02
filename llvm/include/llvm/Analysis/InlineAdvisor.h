@@ -130,14 +130,11 @@ public:
   /// inline or not. \p CB is assumed to be a direct call. \p FAM is assumed to
   /// be up-to-date wrt previous inlining decisions.
   /// Returns an InlineAdvice with the inlining recommendation.
-<<<<<<< HEAD
-  virtual std::unique_ptr<InlineAdvice>
-  getAdvice(CallBase &CB, FunctionAnalysisManager &FAM,   // INTEL
-            InliningLoopInfoCache *ILIC,                  // INTEL
-            InlineReport *Report) = 0;                    // INTEL
-=======
-  virtual std::unique_ptr<InlineAdvice> getAdvice(CallBase &CB) = 0;
->>>>>>> 999ea25a9eeab72f95acaa7f753f4f3a7ac450b3
+#if INTEL_CUSTOMIZATION
+  virtual std::unique_ptr<InlineAdvice> getAdvice(CallBase &CB,
+                                                  InliningLoopInfoCache *ILIC,
+                                                  InlineReport *Report) = 0;
+#endif // INTEL_CUSTOMIZATION
 
   /// This must be called when the Inliner pass is entered, to allow the
   /// InlineAdvisor update internal state, as result of function passes run
@@ -182,14 +179,11 @@ public:
       : InlineAdvisor(FAM), Params(Params) {}
 
 private:
-<<<<<<< HEAD
+#if INTEL_CUSTOMIZATION
   std::unique_ptr<InlineAdvice>
-  getAdvice(CallBase &CB, FunctionAnalysisManager &FAM,             // INTEL
-            InliningLoopInfoCache *ILIC = nullptr,                  // INTEL
-            InlineReport *Report = nullptr) override;               // INTEL
-=======
-  std::unique_ptr<InlineAdvice> getAdvice(CallBase &CB) override;
->>>>>>> 999ea25a9eeab72f95acaa7f753f4f3a7ac450b3
+  getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC = nullptr,
+            InlineReport *Report = nullptr) override;
+#endif // INTEL_CUSTOMIZATION
 
   void onPassExit() override { freeDeletedFunctions(); }
 
