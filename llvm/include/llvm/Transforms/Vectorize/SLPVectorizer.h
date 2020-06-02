@@ -93,12 +93,7 @@ private:
   bool tryToVectorizePair(Value *A, Value *B, slpvectorizer::BoUpSLP &R);
 
   /// Try to vectorize a list of operands.
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  /// When \param InsertUses is provided and its entries are non-zero
-=======
   /// When \p InsertUses is provided and its entries are non-zero
->>>>>>> a45688a72c63b6359df7c23f2a2895f271d414e9
   /// then users of \p VL are known to be InsertElement instructions
   /// each associated with same VL entry index. Their cost is then
   /// used to adjust cost of the vectorization assuming instcombine pass
@@ -106,12 +101,7 @@ private:
   /// \returns true if a value was vectorized.
   bool tryToVectorizeList(ArrayRef<Value *> VL, slpvectorizer::BoUpSLP &R,
                           bool AllowReorder = false,
-<<<<<<< HEAD
-                          ArrayRef<Value *> InsertUses = {});
-#endif // INTEL_CUSTOMIZATION
-=======
                           ArrayRef<Value *> InsertUses = None);
->>>>>>> a45688a72c63b6359df7c23f2a2895f271d414e9
 
   /// Try to vectorize a chain that may start at the operands of \p I.
   bool tryToVectorize(Instruction *I, slpvectorizer::BoUpSLP &R);

@@ -55,7 +55,6 @@ define <8 x float> @fmul_fdiv_v8f32(<8 x float> %a, <8 x float> %b) {
 ; SSE-NEXT:    [[R7:%.*]] = shufflevector <8 x float> [[TMP1]], <8 x float> [[TMP2]], <8 x i32> <i32 0, i32 9, i32 10, i32 3, i32 4, i32 13, i32 14, i32 7>
 ; SSE-NEXT:    ret <8 x float> [[R7]]
 ;
-; INTEL_CUSTOMIZATION
 ; SLM-LABEL: @fmul_fdiv_v8f32(
 ; SLM-NEXT:    [[A0:%.*]] = extractelement <8 x float> [[A:%.*]], i32 0
 ; SLM-NEXT:    [[A1:%.*]] = extractelement <8 x float> [[A]], i32 1
@@ -90,7 +89,6 @@ define <8 x float> @fmul_fdiv_v8f32(<8 x float> %a, <8 x float> %b) {
 ; SLM-NEXT:    [[R6:%.*]] = insertelement <8 x float> [[R5]], float [[AB6]], i32 6
 ; SLM-NEXT:    [[R7:%.*]] = insertelement <8 x float> [[R6]], float [[AB7]], i32 7
 ; SLM-NEXT:    ret <8 x float> [[R7]]
-; end INTEL_CUSTOMIZATION
 ;
 ; AVX-LABEL: @fmul_fdiv_v8f32(
 ; AVX-NEXT:    [[TMP1:%.*]] = fmul <8 x float> [[A:%.*]], [[B:%.*]]
