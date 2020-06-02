@@ -22,6 +22,7 @@
 #include <string>
 
 #define SPECIAL_BUFFER_ADDR_SPACE 0
+#define CLK_LOCAL_MEM_FENCE 0x01
 #define GET_SPECIAL_BUFFER "get_special_buffer."
 
 #define NO_BARRIER_PATH_ATTRNAME "dpcpp-no-barrier-path"
@@ -114,6 +115,16 @@ public:
   /// Returns true if and only if the function calls a module function.
   bool doesCallModuleFunction(Function *F);
 
+  /// Create new call instruction to barrier(),
+  /// InsertBefore instruction to insert new call instruction before.
+  /// Returns new created call instruction.
+  Instruction* createBarrier(Instruction *InsertBefore = nullptr);
+
+  /// Create new call instruction to dummyBarrier(),
+  /// InsertBefore instruction to insert new call instruction before.
+  /// Returns new created call instruction.
+  Instruction* createDummyBarrier(Instruction *InsertBefore = nullptr);
+
   /// Create new call instruction to get_special_buffer().
   /// InsertBefore instruction to insert new call instruction before,
   /// Returns new created call instruction/
@@ -187,6 +198,13 @@ private:
 
   /// This holds size of size_t of processed module.
   unsigned int SizeTSize;
+
+  /// Pointer to value argument of barier function.
+  Value     *LocalMemFenceValue;
+  /// Pointer to barrier function in module.
+  Function  *BarrierFunc;
+  /// Pointer to dummyBarrier function in module.
+  Function  *DummyBarrierFunc;
 
   /// This indicates that synchronize data is initialized.
   bool IsSyncDataInitialized;

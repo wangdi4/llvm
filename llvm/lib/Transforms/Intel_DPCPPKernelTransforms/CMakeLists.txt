@@ -15,6 +15,7 @@ add_llvm_component_library(LLVMIntel_DPCPPKernelTransforms
   DataPerBarrierPass.cpp
   DataPerValuePass.cpp
   BarrierPass.cpp
+  BarrierInFunctionPass.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms/Intel_DPCPPKernelTransforms
