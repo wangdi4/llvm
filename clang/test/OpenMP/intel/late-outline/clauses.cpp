@@ -429,4 +429,117 @@ void bar7(float *A, int N, int S)
   //CHECK: "DIR.OMP.END.DISTRIBUTE.PARLOOP"
 }
 
+// Test there are no PRIVATE clauses on SIMD for the loop counter.
+#define LOOP for (int x = 0; x < 20; ++x) arr[x] = x;
+
+//CHECK-LABEL: bar8
+void bar8(int *arr)
+{
+  //CHECK: "DIR.OMP.SIMD"
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: QUAL.OMP.LINEAR:IV
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: "DIR.OMP.END.SIMD"
+  #pragma omp parallel for simd
+  LOOP
+
+  //CHECK: "DIR.OMP.SIMD"
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: QUAL.OMP.LINEAR:IV
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: "DIR.OMP.END.SIMD"
+  #pragma omp for simd
+  LOOP
+
+  //CHECK: "DIR.OMP.SIMD"
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: QUAL.OMP.LINEAR:IV
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: "DIR.OMP.END.SIMD"
+  #pragma omp taskloop simd
+  LOOP
+
+  //CHECK: "DIR.OMP.SIMD"
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: QUAL.OMP.LINEAR:IV
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: "DIR.OMP.END.SIMD"
+  #pragma omp distribute parallel for simd
+  LOOP
+
+  //CHECK: "DIR.OMP.SIMD"
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: QUAL.OMP.LINEAR:IV
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: "DIR.OMP.END.SIMD"
+  #pragma omp distribute simd
+  LOOP
+
+  //CHECK: "DIR.OMP.SIMD"
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: QUAL.OMP.LINEAR:IV
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: "DIR.OMP.END.SIMD"
+  #pragma omp target parallel for simd
+  LOOP
+
+  //CHECK: "DIR.OMP.SIMD"
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: QUAL.OMP.LINEAR:IV
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: "DIR.OMP.END.SIMD"
+  #pragma omp target simd
+  LOOP
+
+  //CHECK: "DIR.OMP.SIMD"
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: QUAL.OMP.LINEAR:IV
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: "DIR.OMP.END.SIMD"
+  #pragma omp target
+  #pragma omp teams distribute simd
+  LOOP
+
+  //CHECK: "DIR.OMP.SIMD"
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: QUAL.OMP.LINEAR:IV
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: "DIR.OMP.END.SIMD"
+  #pragma omp target
+  #pragma omp teams distribute parallel for simd
+  LOOP
+
+  //CHECK: "DIR.OMP.SIMD"
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: QUAL.OMP.LINEAR:IV
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: "DIR.OMP.END.SIMD"
+  #pragma omp target teams distribute parallel for simd
+  LOOP
+
+  //CHECK: "DIR.OMP.SIMD"
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: QUAL.OMP.LINEAR:IV
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: "DIR.OMP.END.SIMD"
+  #pragma omp target teams distribute simd
+  LOOP
+
+  //CHECK: "DIR.OMP.SIMD"
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: QUAL.OMP.LINEAR:IV
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: "DIR.OMP.END.SIMD"
+  #pragma omp master taskloop simd
+  LOOP
+
+  //CHECK: "DIR.OMP.SIMD"
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: QUAL.OMP.LINEAR:IV
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: "DIR.OMP.END.SIMD"
+  #pragma omp parallel master taskloop simd
+  LOOP
+}
+
 // end INTEL_COLLAB
