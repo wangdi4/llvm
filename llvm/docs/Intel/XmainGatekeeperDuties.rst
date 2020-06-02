@@ -29,9 +29,10 @@ stable or preferably on a positive trend.
    several times per day. That includes checkin requests made both through
    email and through gerrit.
 
-#. This `gerrit query <https://git-amr-2.devtools.intel.com/gerrit/#/q/status:open+reviewer:%22xmain+gatekeeper+%253Cxmain.gatekeeper%2540intel.com%253E%22>`_
-   is an easy way to check for pending checkin requests. The CR column shows
-   whether gatekeeper review is still needed.
+#. The following queries can be used to check for pending checkin requests:
+   `git-amr-2 <https://git-amr-2.devtools.intel.com/gerrit/#/q/status:open+AND+reviewer:%22xmain+gatekeeper+%253Cxmain.gatekeeper%2540intel.com%253E%22+label:Code-Review%253D%252B1+-label:Code-Review%253D%252B2+label:Verified%253D%252B1>`_
+   and
+   `git-amr-1 <https://git-amr-1.devtools.intel.com/gerrit/#/q/status:open+AND+reviewer:%22xmain+gatekeeper+%253Cxmain.gatekeeper%2540intel.com%253E%22+label:Code-Review%253D%252B1+-label:Code-Review%253D%252B2+label:Verified%253D%252B1>`_.
 
 Desirable Qualities of an Xmain Gatekeeper
 ==========================================
@@ -42,18 +43,9 @@ Desirable Qualities of an Xmain Gatekeeper
 #. Ability to assess checkin risk
 #. Ability not to be pressured into allowing/compromising checkin requirements
 
-Historical Xmain Gatekeepers
-============================
+Xmain Gatekeepers Assignments
+=============================
 
-2018
-----
-- Q4: TBD
-- Q3: Zia Ansari, Hideki Saito (coverage during Dave's sabbatical)
-- Q2: Dave Kreitzer
-- Q1: Dave Kreitzer
-
-Prior Years
------------
-- Kevin B Smith was the gatekeeper from the initiation of the xmain project
-  until his retirement in June 2016.
-- Dave Kreitzer took over from Kevin and was the gatekeeper through 2017.
+`CE DevOps team <mailto:CE.DevOps@intel.com>`_ manages xmain gatekeeper
+duties assignments. The current xmain gatekeeper assignments can be seen
+at any time on the `CE DevOps team wiki <https://wiki.ith.intel.com/display/ITSCompilersDevOps/Pulldown+coordinators+and+gatekeepers>`_.

@@ -115,7 +115,7 @@ bug report against the test suite and proceed with the commit.
 Performance regressions may be allowed in some cases. It is impossible to
 write a set of rules that covers all scenarios, but here are a few reasons why
 a performance regression may be allowed. If in doubt, contact the `performance
-architect <mailto:zia.ansari@intel.com>`_.
+architect <mailto:sergey.v.maslov@intel.com>`_.
 
 #. The regression is the result of a necessary correctness fix.
 

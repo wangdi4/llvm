@@ -432,6 +432,8 @@ differ from the usual patches he/she works on, here is a brief reference to
 judge the quality of the chosen ``xmain-cand`` regarding its stability (as
 opposite to generated code performance):
 
+.. _xmain-pulldown-with-lit-failures:
+
 * Any build/LIT-tests failure is a blocking issue.
 
   - That probably might be weakened for Windows in some special circumstances but
