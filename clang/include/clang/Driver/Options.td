@@ -3779,11 +3779,9 @@ def qopt_zmm_usage_EQ : Joined<["-"], "qopt-zmm-usage=">, Values<"low,high">,
 #endif // INTEL_CUSTOMIZATION
 
 // Ignored options
-// FIXME: multiclasess produce suffixes, not prefixes. This is fine for now
-// since it is only used in ignored options.
 multiclass BooleanFFlag<string name> {
-  def _f : Flag<["-"], "f"#name>;
-  def _fno : Flag<["-"], "fno-"#name>;
+  def f#NAME : Flag<["-"], "f"#name>;
+  def fno_#NAME : Flag<["-"], "fno-"#name>;
 }
 
 defm : BooleanFFlag<"keep-inline-functions">, Group<clang_ignored_gcc_optimization_f_Group>;
