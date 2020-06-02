@@ -4269,6 +4269,15 @@ recurse:
     break;
   }
 
+  case Expr::MatrixSubscriptExprClass: {
+    const MatrixSubscriptExpr *ME = cast<MatrixSubscriptExpr>(E);
+    Out << "ixix";
+    mangleExpression(ME->getBase());
+    mangleExpression(ME->getRowIdx());
+    mangleExpression(ME->getColumnIdx());
+    break;
+  }
+
   case Expr::CompoundAssignOperatorClass: // fallthrough
   case Expr::BinaryOperatorClass: {
     const BinaryOperator *BO = cast<BinaryOperator>(E);

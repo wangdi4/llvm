@@ -1307,6 +1307,7 @@ CanThrowResult Sema::canThrow(const Stmt *S) {
 
     // Some might be dependent for other reasons.
   case Expr::ArraySubscriptExprClass:
+  case Expr::MatrixSubscriptExprClass:
   case Expr::OMPArraySectionExprClass:
   case Expr::OMPArrayShapingExprClass:
   case Expr::OMPIteratorExprClass:

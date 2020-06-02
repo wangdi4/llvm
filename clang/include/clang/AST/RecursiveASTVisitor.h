@@ -2615,6 +2615,7 @@ DEF_TRAVERSE_STMT(CXXMemberCallExpr, {})
 // over the children.
 DEF_TRAVERSE_STMT(AddrLabelExpr, {})
 DEF_TRAVERSE_STMT(ArraySubscriptExpr, {})
+DEF_TRAVERSE_STMT(MatrixSubscriptExpr, {})
 DEF_TRAVERSE_STMT(OMPArraySectionExpr, {})
 DEF_TRAVERSE_STMT(OMPArrayShapingExpr, {})
 DEF_TRAVERSE_STMT(OMPIteratorExpr, {})
