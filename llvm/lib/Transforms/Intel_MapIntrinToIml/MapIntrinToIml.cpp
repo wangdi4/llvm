@@ -388,8 +388,7 @@ void MapIntrinToImlImpl::splitMathLibCalls(
       NewArgs.push_back(LegalArg);
     }
 
-    CallInst *NewCI = Builder.CreateCall(Func, NewArgs, "vcall");
-    NewCI->setCallingConv(CallingConv::SVML);
+    CallInst *NewCI = createSVMLCall(Func, NewArgs, "vcall");
     SplitCalls.push_back(NewCI);
   }
 }
@@ -653,9 +652,8 @@ Value *MapIntrinToImlImpl::extractLowerPart(Value *V, unsigned ExtractingVL,
 // of elements returned is the number of elements indicated by the 1st argument
 // since it is 2x the size of the return. Case 2 will work as is.
 
-VectorType *MapIntrinToImlImpl::getCallType(CallInst *CI) {
-  FunctionType *CallFT = CI->getFunctionType();
-  Type *CallRetType = CallFT->getReturnType();
+VectorType *MapIntrinToImlImpl::getVectorTypeForSVMLFunction(FunctionType *FT) {
+  Type *CallRetType = FT->getReturnType();
   auto *RetStructTy = dyn_cast_or_null<StructType>(CallRetType);
   // For structure return types, return the first structure element as
   // a vector type.
@@ -932,8 +930,7 @@ bool MapIntrinToImlImpl::replaceVectorIDivAndRemWithSVMLCall(
         SmallVector<Value *, 2> NewArgs;
         generateNewArgsFromPartialVectors(Args, NewArgTypes, TargetVL, NewArgs);
 
-        CallInst *NewCI = Builder.CreateCall(Func, NewArgs, "vcall");
-        NewCI->setCallingConv(CallingConv::SVML);
+        CallInst *NewCI = createSVMLCall(Func, NewArgs, "vcall");
         Result = NewCI;
 
         bool LessThanFullVector = isLessThanFullVector(VecTy, LegalVecTy);
@@ -1017,6 +1014,31 @@ void MapIntrinToImlImpl::legalizeAVX512MaskArgs(
   }
 }
 
+CallInst *MapIntrinToImlImpl::createSVMLCall(FunctionCallee Callee,
+                                             ArrayRef<Value *> Args,
+                                             const Twine &Name) {
+  CallInst *NewCI = Builder.CreateCall(Callee, Args, Name);
+
+  // Set calling convention according to the VL of the call.
+  unsigned BitWidth = getVectorTypeForSVMLFunction(Callee.getFunctionType())
+                          ->getPrimitiveSizeInBits();
+  assert(isPowerOf2_32(BitWidth) && BitWidth <= 512 && "Invalid vector width");
+  switch (BitWidth) {
+  case 256:
+    NewCI->setCallingConv(CallingConv::SVML_AVX);
+    break;
+  case 512:
+    NewCI->setCallingConv(CallingConv::SVML_AVX512);
+    break;
+  // All smaller VLs use the 128-bit calling convention
+  default:
+    NewCI->setCallingConv(CallingConv::SVML);
+    break;
+  }
+
+  return NewCI;
+}
+
 bool MapIntrinToIml::runOnFunction(Function &F) {
   auto *TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
   auto *TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
@@ -1088,7 +1110,8 @@ bool MapIntrinToImlImpl::runImpl() {
     CallInst *CI = dyn_cast<CallInst>(&*Inst);
     if (CI && CI->getCalledFunction()) {
       StringRef FuncName = CI->getCalledFunction()->getName();
-      if (FuncName.startswith("__svml") && getCallType(CI))
+      if (FuncName.startswith("__svml") &&
+          getVectorTypeForSVMLFunction(CI->getFunctionType()))
         InstToTranslate.insert(CI);
       else if (is_libm_function(FuncName.str().c_str()))
         ScalarCallsToTranslate.insert(CI);
@@ -1107,9 +1130,10 @@ bool MapIntrinToImlImpl::runImpl() {
 
     // The function call is only inserted into the candidates map
     // (InstToTranslate) when it is known the return/arguments are explicitly
-    // vector typed. Thus, here it is known that getCallType(CI) will return
-    // a vector type.
-    VectorType *VecCallType = getCallType(CI);
+    // vector typed. Thus, here it is known that
+    // getVectorTypeForSVMLFunction(FunctionType) will return a vector type.
+    VectorType *VecCallType =
+        getVectorTypeForSVMLFunction(CI->getFunctionType());
 
     Type *ElemType = VecCallType->getElementType();
     unsigned ReturnVL = VecCallType->getNumElements();
@@ -1125,7 +1149,8 @@ bool MapIntrinToImlImpl::runImpl() {
 
     // Get the number of library calls that will be required, indicated by
     // NumRet. NumRet is determined by getting the vector type info from the
-    // call signature. See notes in getCallType() for more information.
+    // call signature. See notes in getVectorTypeForSVMLFunction() for more
+    // information.
     unsigned TargetVL = 0;
     unsigned NumRet =
         calculateNumReturns(TTI, ComponentBitWidth, LogicalVL, &TargetVL);
@@ -1241,8 +1266,7 @@ bool MapIntrinToImlImpl::runImpl() {
         SmallVector<Value *, 8> NewArgs;
         generateNewArgsFromPartialVectors(Args, FT->params(), TargetVL, NewArgs);
 
-        CallInst *NewCI = Builder.CreateCall(FCache, NewArgs, "vcall");
-        NewCI->setCallingConv(CallingConv::SVML);
+        CallInst *NewCI = createSVMLCall(FCache, NewArgs, "vcall");
         Value *CallResult = NewCI;
 
         bool LessThanFullVector = isLessThanFullVector(

@@ -8,7 +8,7 @@ target triple = "x86_64-unknown-linux-gnu"
 define <32 x i8> @test_s8div32(<32 x i8> %A, <32 x i8> %B) #0 {
 ; CHECK-LABEL: @test_s8div32(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[VCALL:%.*]] = call svml_cc <32 x i8> @__svml_i8div32(<32 x i8> [[A:%.*]], <32 x i8> [[B:%.*]])
+; CHECK-NEXT:    [[VCALL:%.*]] = call svml_cc_avx <32 x i8> @__svml_i8div32(<32 x i8> [[A:%.*]], <32 x i8> [[B:%.*]])
 ; CHECK-NEXT:    ret <32 x i8> [[VCALL]]
 ;
 entry:
@@ -19,7 +19,7 @@ entry:
 define <16 x i16> @test_s16div16(<16 x i16> %A, <16 x i16> %B) #0 {
 ; CHECK-LABEL: @test_s16div16(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[VCALL:%.*]] = call svml_cc <16 x i16> @__svml_i16div16(<16 x i16> [[A:%.*]], <16 x i16> [[B:%.*]])
+; CHECK-NEXT:    [[VCALL:%.*]] = call svml_cc_avx <16 x i16> @__svml_i16div16(<16 x i16> [[A:%.*]], <16 x i16> [[B:%.*]])
 ; CHECK-NEXT:    ret <16 x i16> [[VCALL]]
 ;
 entry:
@@ -30,7 +30,7 @@ entry:
 define <8 x i32> @test_s32div8(<8 x i32> %A, <8 x i32> %B) #0 {
 ; CHECK-LABEL: @test_s32div8(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[VCALL:%.*]] = call svml_cc <8 x i32> @__svml_idiv8(<8 x i32> [[A:%.*]], <8 x i32> [[B:%.*]])
+; CHECK-NEXT:    [[VCALL:%.*]] = call svml_cc_avx <8 x i32> @__svml_idiv8(<8 x i32> [[A:%.*]], <8 x i32> [[B:%.*]])
 ; CHECK-NEXT:    ret <8 x i32> [[VCALL]]
 ;
 entry:
@@ -41,7 +41,7 @@ entry:
 define <8 x i32> @test_s32rem8(<8 x i32> %A, <8 x i32> %B) #0 {
 ; CHECK-LABEL: @test_s32rem8(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[VCALL:%.*]] = call svml_cc <8 x i32> @__svml_irem8(<8 x i32> [[A:%.*]], <8 x i32> [[B:%.*]])
+; CHECK-NEXT:    [[VCALL:%.*]] = call svml_cc_avx <8 x i32> @__svml_irem8(<8 x i32> [[A:%.*]], <8 x i32> [[B:%.*]])
 ; CHECK-NEXT:    ret <8 x i32> [[VCALL]]
 ;
 entry:
@@ -52,7 +52,7 @@ entry:
 define <8 x i32> @test_u32div8(<8 x i32> %A, <8 x i32> %B) #0 {
 ; CHECK-LABEL: @test_u32div8(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[VCALL:%.*]] = call svml_cc <8 x i32> @__svml_udiv8(<8 x i32> [[A:%.*]], <8 x i32> [[B:%.*]])
+; CHECK-NEXT:    [[VCALL:%.*]] = call svml_cc_avx <8 x i32> @__svml_udiv8(<8 x i32> [[A:%.*]], <8 x i32> [[B:%.*]])
 ; CHECK-NEXT:    ret <8 x i32> [[VCALL]]
 ;
 entry:
@@ -63,7 +63,7 @@ entry:
 define <8 x i32> @test_u32rem8(<8 x i32> %A, <8 x i32> %B) #0 {
 ; CHECK-LABEL: @test_u32rem8(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[VCALL:%.*]] = call svml_cc <8 x i32> @__svml_urem8(<8 x i32> [[A:%.*]], <8 x i32> [[B:%.*]])
+; CHECK-NEXT:    [[VCALL:%.*]] = call svml_cc_avx <8 x i32> @__svml_urem8(<8 x i32> [[A:%.*]], <8 x i32> [[B:%.*]])
 ; CHECK-NEXT:    ret <8 x i32> [[VCALL]]
 ;
 entry:
@@ -74,7 +74,7 @@ entry:
 define <4 x i64> @test_s64div4(<4 x i64> %A, <4 x i64> %B) #0 {
 ; CHECK-LABEL: @test_s64div4(
 ; CHECK-NEXT:  entry:
-; CHECK-NEXT:    [[VCALL:%.*]] = call svml_cc <4 x i64> @__svml_i64div4(<4 x i64> [[A:%.*]], <4 x i64> [[B:%.*]])
+; CHECK-NEXT:    [[VCALL:%.*]] = call svml_cc_avx <4 x i64> @__svml_i64div4(<4 x i64> [[A:%.*]], <4 x i64> [[B:%.*]])
 ; CHECK-NEXT:    ret <4 x i64> [[VCALL]]
 ;
 entry:

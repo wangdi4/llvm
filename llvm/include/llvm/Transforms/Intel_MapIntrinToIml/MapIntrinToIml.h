@@ -126,9 +126,8 @@ class MapIntrinToImlImpl {
   /// returns true.
   bool isLessThanFullVector(Type *ValType, Type *LegalType);
 
-  /// \brief Returns the largest vector type represented in the call
-  /// signature.
-  VectorType *getCallType(CallInst *CI);
+  /// Returns the largest vector type represented in the function signature.
+  VectorType *getVectorTypeForSVMLFunction(FunctionType *FT);
 
   /// Extract information of an SVML function using it's function name and VL of
   /// its return type. Returns the scalar function name for the SVML function.
@@ -154,6 +153,12 @@ class MapIntrinToImlImpl {
   void legalizeAVX512MaskArgs(CallInst *CI, SmallVectorImpl<Value *> &Args,
                               Value *MaskValue, unsigned LogicalVL,
                               unsigned TargetVL, unsigned ComponentBitWidth);
+
+  // Create a call instruction to SVML function \p Callee with arguments
+  // specified in \p Args. Set an appropriate calling convention and return the
+  // newly created instruction.
+  CallInst *createSVMLCall(FunctionCallee Callee, ArrayRef<Value *> Args,
+                           const Twine &Name);
 
 public:
   // Use TTI to provide information on the legal vector register size for the

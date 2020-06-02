@@ -546,6 +546,8 @@ def RetCC_X86 : CallingConv<[
   CCIfCC<"CallingConv::Intel_OCL_BI_AVX", CCDelegateTo<RetCC_Intel_OCL_BI>>,
   CCIfCC<"CallingConv::Intel_OCL_BI_AVX512", CCDelegateTo<RetCC_Intel_OCL_BI>>,
   CCIfCC<"CallingConv::SVML", CCDelegateTo<RetCC_SVML>>,
+  CCIfCC<"CallingConv::SVML_AVX", CCDelegateTo<RetCC_SVML>>,
+  CCIfCC<"CallingConv::SVML_AVX512", CCDelegateTo<RetCC_SVML>>,
 // endif INTEL_CUSTOMIZATION
   CCIfSubtarget<"is64Bit()", CCDelegateTo<RetCC_X86_64>>,
   CCDelegateTo<RetCC_X86_32>
@@ -1318,6 +1320,8 @@ def CC_X86 : CallingConv<[
   CCIfCC<"CallingConv::Intel_OCL_BI_AVX", CCDelegateTo<CC_Intel_OCL_BI>>,
   CCIfCC<"CallingConv::Intel_OCL_BI_AVX512", CCDelegateTo<CC_Intel_OCL_BI>>,
   CCIfCC<"CallingConv::SVML", CCDelegateTo<CC_SVML>>,
+  CCIfCC<"CallingConv::SVML_AVX", CCDelegateTo<CC_SVML>>,
+  CCIfCC<"CallingConv::SVML_AVX512", CCDelegateTo<CC_SVML>>,
 // endif INTEL_CUSTOMIZATION
   CCIfSubtarget<"is64Bit()", CCDelegateTo<CC_X86_64>>,
   CCDelegateTo<CC_X86_32>
@@ -1420,22 +1424,38 @@ def CSR_64_Intel_OCL_BI_AVX512 : CalleeSavedRegs<(add RBX, RSI, R14, R15,
 // if INTEL_CUSTOMIZATION
 
 // Intel SVML
-def CSR_32_Intel_SVML : CalleeSavedRegs<(add EBX, EDI, ESI, EBP, ESP,
-                                         K4, K5, K6, K7)>;
+def CSR_32_Intel_SVML : CalleeSavedRegs<(add EBX, EDI, ESI, EBP, ESP)>;
+def CSR_32_Intel_SVML_AVX512 : CalleeSavedRegs<(add EBX, EDI, ESI, EBP, ESP,
+                                               K4, K5, K6, K7)>;
 
 def CSR_32_SVML : CalleeSavedRegs<(add EBX, EDI, ESI, EBP,
                                        K4, K5, K6, K7)>;
 def CSR_Win64_SVML : CalleeSavedRegs<(add RBX, RDI, RSI, RBP, R12, R13, R14, R15,
-                                     (sequence "XMM%u", 6, 21),
-                                     (sequence "YMM%u", 6, 21),
-                                     (sequence "ZMM%u", 6, 21),
-                                     K4, K5, K6, K7)>;
+                                     (sequence "XMM%u", 6, 15))>;
+def CSR_Win64_SVML_AVX : CalleeSavedRegs<(add RBX, RDI, RSI, RBP, R12, R13, R14,
+                                         R15,
+                                         (sequence "XMM%u", 6, 15),
+                                         (sequence "YMM%u", 6, 15))>;
+def CSR_Win64_SVML_AVX512 : CalleeSavedRegs<(add RBX, RDI, RSI, RBP, R12, R13,
+                                            R14, R15,
+                                            (sequence "XMM%u", 6, 21),
+                                            (sequence "YMM%u", 6, 21),
+                                            (sequence "ZMM%u", 6, 21),
+                                            K4, K5, K6, K7)>;
 def CSR_Lin64_SVML : CalleeSavedRegs<(add RBX, RDI, RSI, RBP, R12, R13, R14, R15,
-                                     (sequence "XMM%u", 8, 31),
-                                     (sequence "YMM%u", 8, 31),
-                                     (sequence "ZMM%u", 8, 31),
-                                     K4, K5, K6, K7)>;
-
+                                     (sequence "XMM%u", 8, 15))>;
+// FIXME: The assumption that 256-bit SVML functions preserve YMM16-31 and K4-7
+// is not correct. It breaks if the SVML function dispatches to an AVX512
+// implementation. But putting this constraint induces serious performance
+// regression since we're operating on YMM pervasively in many benchmarks. We
+// know the vast majority of SVML functions will just dispatch to an AVX2
+// implementation when using 256-bit variant, so we just assume that and will
+// fix it after static dispatch is available.
+def CSR_Lin64_SVML_AVX : CalleeSavedRegs<(add RBX, RDI, RSI, RBP, R12, R13, R14,
+                                         R15,
+                                         (sequence "XMM%u", 8, 31),
+                                         (sequence "YMM%u", 8, 31),
+                                         K4, K5, K6, K7)>;
 def CSR_Lin64_SVML_AVX512 : CalleeSavedRegs<(add RBX, RDI, RSI, RBP, R12, R13,
                                              R14, R15,
                                              (sequence "XMM%u", 16, 31),
