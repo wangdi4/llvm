@@ -3970,26 +3970,20 @@ int X86TTIImpl::getGSVectorCost(unsigned Opcode, Type *SrcVTy, Value *Ptr,
   return getGSVectorCost(Opcode, SrcVTy, IndexSize, Alignment, AddressSpace);
 }
 
-<<<<<<< HEAD
 // Return an average cost of Gather / Scatter instruction, maybe improved later
 int X86TTIImpl::getGSVectorCost(unsigned Opcode, Type *SrcVTy,
                                 unsigned IndexSize, unsigned Alignment,
                                 unsigned AddressSpace) {
   unsigned VF = cast<VectorType>(SrcVTy)->getNumElements();
-  Type *IndexVTy = VectorType::get(IntegerType::get(SrcVTy->getContext(),
-                                                    IndexSize), VF);
-=======
   auto *IndexVTy = FixedVectorType::get(
       IntegerType::get(SrcVTy->getContext(), IndexSize), VF);
->>>>>>> 5a99ec10f5df7fa351e81b9bc90bf38e670653ae
   std::pair<int, MVT> IdxsLT = TLI->getTypeLegalizationCost(DL, IndexVTy);
   std::pair<int, MVT> SrcLT = TLI->getTypeLegalizationCost(DL, SrcVTy);
   int SplitFactor = std::max(IdxsLT.first, SrcLT.first);
   if (SplitFactor > 1) {
     // Handle splitting of vector of pointers
-<<<<<<< HEAD
-    Type *SplitSrcTy =
-      VectorType::get(SrcVTy->getScalarType(), VF / SplitFactor);
+    auto *SplitSrcTy =
+        FixedVectorType::get(SrcVTy->getScalarType(), VF / SplitFactor);
     return SplitFactor * getGSVectorCost(
       Opcode, SplitSrcTy, IndexSize, Alignment, AddressSpace);
   }
@@ -4095,12 +4089,6 @@ int X86TTIImpl::getGSVectorCost(unsigned Opcode, Type *SrcVTy,
         return Entry->Cost;
       }
     }
-=======
-    auto *SplitSrcTy =
-        FixedVectorType::get(SrcVTy->getScalarType(), VF / SplitFactor);
-    return SplitFactor * getGSVectorCost(Opcode, SplitSrcTy, Ptr, Alignment,
-                                         AddressSpace);
->>>>>>> 5a99ec10f5df7fa351e81b9bc90bf38e670653ae
   }
 #endif // INTEL_CUSTOMIZATION
 
