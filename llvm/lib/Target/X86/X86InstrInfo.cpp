@@ -3792,9 +3792,10 @@ static unsigned getLoadStoreRegOpcode(unsigned Reg,
   }
 }
 
-bool X86InstrInfo::getMemOperandsWithOffset(
+bool X86InstrInfo::getMemOperandsWithOffsetWidth(
     const MachineInstr &MemOp, SmallVectorImpl<const MachineOperand *> &BaseOps,
-    int64_t &Offset, bool &OffsetIsScalable, const TargetRegisterInfo *TRI) const {
+    int64_t &Offset, bool &OffsetIsScalable, unsigned &Width,
+    const TargetRegisterInfo *TRI) const {
   const MCInstrDesc &Desc = MemOp.getDesc();
   int MemRefBegin = X86II::getMemoryOperandNo(Desc.TSFlags);
   if (MemRefBegin < 0)
@@ -3826,6 +3827,11 @@ bool X86InstrInfo::getMemOperandsWithOffset(
     return false;
 
   OffsetIsScalable = false;
+  // FIXME: Relying on memoperands() may not be right thing to do here. Check
+  // with X86 maintainers, and fix it accordingly. For now, it is ok, since
+  // there is no use of `Width` for X86 back-end at the moment.
+  Width =
+      !MemOp.memoperands_empty() ? MemOp.memoperands().front()->getSize() : 0;
   BaseOps.push_back(BaseOp);
   return true;
 }
