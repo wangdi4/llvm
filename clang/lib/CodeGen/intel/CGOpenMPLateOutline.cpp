@@ -551,7 +551,7 @@ void OpenMPLateOutliner::emitImplicit(Expr *E, ImplicitClauseKind K) {
     addArg(CGF.EmitScalarExpr(LD->getLateOutlineLinearCounterStep()));
     // Plain SIMD doesn't use the private/lastprivate clause but the
     // implicit clause kind is used to determine if the increment is emitted.
-    if (LD->getDirectiveKind() == OMPD_simd)
+    if (CurrentDirectiveKind == OMPD_simd)
       return;
   }
   switch (K) {
