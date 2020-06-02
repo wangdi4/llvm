@@ -8,8 +8,10 @@
 
 #pragma once
 
+#include <CL/sycl/accessor.hpp>
 #include <CL/sycl/backend_types.hpp>
 #include <CL/sycl/detail/accessor_impl.hpp>
+#include <CL/sycl/detail/cg_types.hpp>
 #include <CL/sycl/detail/common.hpp>
 #include <CL/sycl/detail/export.hpp>
 #include <CL/sycl/detail/helpers.hpp>
@@ -21,6 +23,7 @@
 #include <CL/sycl/detail/type_traits.hpp>
 #include <CL/sycl/group.hpp>
 #include <CL/sycl/id.hpp>
+#include <CL/sycl/interop_handler.hpp>
 #include <CL/sycl/kernel.hpp>
 #include <CL/sycl/nd_item.hpp>
 #include <CL/sycl/range.hpp>
@@ -39,65 +42,11 @@ namespace detail {
 class queue_impl;
 } // namespace detail
 
-// Interoperability handler
-//
-class interop_handler {
-  // Make accessor class friend to access the detail mem objects
-  template <typename DataT, int Dims, access::mode AccMode,
-            access::target AccTarget, access::placeholder isPlaceholder>
-  friend class accessor;
-
-public:
-  using QueueImplPtr = std::shared_ptr<detail::queue_impl>;
-  using ReqToMem = std::pair<detail::Requirement *, pi_mem>;
-
-  interop_handler(std::vector<ReqToMem> MemObjs, QueueImplPtr Queue)
-      : MQueue(std::move(Queue)), MMemObjs(std::move(MemObjs)) {}
-
-  template <backend BackendName = backend::opencl>
-  auto get_queue() const -> typename interop<BackendName, queue>::type {
-    return reinterpret_cast<typename interop<BackendName, queue>::type>(
-        GetNativeQueue());
-  }
-
-  template <backend BackendName = backend::opencl, typename DataT, int Dims,
-            access::mode AccessMode, access::target AccessTarget,
-            access::placeholder IsPlaceholder = access::placeholder::false_t>
-  auto get_mem(accessor<DataT, Dims, AccessMode, AccessTarget,
-                        access::placeholder::false_t>
-                   Acc) const ->
-      typename interop<BackendName,
-                       accessor<DataT, Dims, AccessMode, AccessTarget,
-                                access::placeholder::false_t>>::type {
-    detail::AccessorBaseHost *AccBase = (detail::AccessorBaseHost *)&Acc;
-    return getMemImpl<BackendName, DataT, Dims, AccessMode, AccessTarget,
-                      access::placeholder::false_t>(
-        detail::getSyclObjImpl(*AccBase).get());
-  }
-
-private:
-  QueueImplPtr MQueue;
-  std::vector<ReqToMem> MMemObjs;
-
-  template <backend BackendName, typename DataT, int Dims,
-            access::mode AccessMode, access::target AccessTarget,
-            access::placeholder IsPlaceholder>
-  auto getMemImpl(detail::Requirement *Req) const -> typename interop<
-      BackendName,
-      accessor<DataT, Dims, AccessMode, AccessTarget, IsPlaceholder>>::type {
-    return (typename interop<BackendName,
-                             accessor<DataT, Dims, AccessMode, AccessTarget,
-                                      IsPlaceholder>>::type)GetNativeMem(Req);
-  }
-
-  __SYCL_EXPORT pi_native_handle GetNativeMem(detail::Requirement *Req) const;
-  __SYCL_EXPORT pi_native_handle GetNativeQueue() const;
-};
-
 namespace detail {
 
 using namespace cl;
 
+<<<<<<< HEAD
 // The structure represents kernel argument.
 class ArgDesc {
 public:
@@ -424,6 +373,8 @@ public:
   ~HostKernel() = default;
 };
 
+=======
+>>>>>>> 04733160ece62f03128475afcd4076c83a2dc189
 class stream_impl;
 /// Base class for all types of command groups.
 class CG {
