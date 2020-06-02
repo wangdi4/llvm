@@ -1520,8 +1520,8 @@ ABIArgInfo X86_32ABIInfo::classifyReturnType(QualType RetTy,
       // registers and we need to make sure to pick a type the LLVM
       // backend will like.
       if (Size == 128)
-        return ABIArgInfo::getDirect(llvm::VectorType::get(
-                  llvm::Type::getInt64Ty(getVMContext()), 2));
+        return ABIArgInfo::getDirect(llvm::FixedVectorType::get(
+            llvm::Type::getInt64Ty(getVMContext()), 2));
 
       // Always return in register if it fits in a general purpose
       // register, or if it is 64 bits and has a single element.
@@ -3199,8 +3199,8 @@ llvm::Type *X86_64ABIInfo::GetByteVectorType(QualType Ty) const {
         cast<llvm::VectorType>(IRType)->getElementType()->isIntegerTy(128)) {
       // Use a vXi64 vector.
       uint64_t Size = getContext().getTypeSize(Ty);
-      return llvm::VectorType::get(llvm::Type::getInt64Ty(getVMContext()),
-                                   Size / 64);
+      return llvm::FixedVectorType::get(llvm::Type::getInt64Ty(getVMContext()),
+                                        Size / 64);
     }
 
     return IRType;
@@ -3215,8 +3215,8 @@ llvm::Type *X86_64ABIInfo::GetByteVectorType(QualType Ty) const {
 
 
   // Return a LLVM IR vector type based on the size of 'Ty'.
-  return llvm::VectorType::get(llvm::Type::getDoubleTy(getVMContext()),
-                               Size / 64);
+  return llvm::FixedVectorType::get(llvm::Type::getDoubleTy(getVMContext()),
+                                    Size / 64);
 }
 
 /// BitsContainNoUserData - Return true if the specified [start,end) bit range
@@ -3424,9 +3424,14 @@ GetSSETypeAtOffset(llvm::Type *IRType, unsigned IROffset,
   // case.
   if (ContainsFloatAtOffset(IRType, IROffset, getDataLayout()) &&
       ContainsFloatAtOffset(IRType, IROffset+4, getDataLayout()))
+<<<<<<< HEAD
     return llvm::VectorType::get(llvm::Type::getFloatTy(getVMContext()), 2);
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
+=======
+    return llvm::FixedVectorType::get(llvm::Type::getFloatTy(getVMContext()),
+                                      2);
+>>>>>>> 796898172c48a475f27f038e587c35dbba9ab7a6
 
   return llvm::Type::getDoubleTy(getVMContext());
 }
@@ -4298,8 +4303,8 @@ ABIArgInfo WinX86_64ABIInfo::classify(QualType Ty, unsigned &FreeSSERegs,
 
       // Mingw64 GCC returns i128 in XMM0. Coerce to v2i64 to handle that.
       // Clang matches them for compatibility.
-      return ABIArgInfo::getDirect(
-          llvm::VectorType::get(llvm::Type::getInt64Ty(getVMContext()), 2));
+      return ABIArgInfo::getDirect(llvm::FixedVectorType::get(
+          llvm::Type::getInt64Ty(getVMContext()), 2));
 
 #if INTEL_CUSTOMIZATION
     // Pass float128 return and arguments indirectly on x64 Windows to match
@@ -5649,13 +5654,13 @@ ABIArgInfo AArch64ABIInfo::classifyArgumentType(QualType Ty) const {
       return ABIArgInfo::getDirect(ResType);
     }
     if (Size == 64) {
-      llvm::Type *ResType =
-          llvm::VectorType::get(llvm::Type::getInt32Ty(getVMContext()), 2);
+      auto *ResType =
+          llvm::FixedVectorType::get(llvm::Type::getInt32Ty(getVMContext()), 2);
       return ABIArgInfo::getDirect(ResType);
     }
     if (Size == 128) {
-      llvm::Type *ResType =
-          llvm::VectorType::get(llvm::Type::getInt32Ty(getVMContext()), 4);
+      auto *ResType =
+          llvm::FixedVectorType::get(llvm::Type::getInt32Ty(getVMContext()), 4);
       return ABIArgInfo::getDirect(ResType);
     }
     return getNaturalAlignIndirect(Ty, /*ByVal=*/false);
@@ -6380,7 +6385,7 @@ ABIArgInfo ARMABIInfo::coerceIllegalVector(QualType Ty) const {
     return ABIArgInfo::getDirect(ResType);
   }
   if (Size == 64 || Size == 128) {
-    llvm::Type *ResType = llvm::VectorType::get(
+    auto *ResType = llvm::FixedVectorType::get(
         llvm::Type::getInt32Ty(getVMContext()), Size / 32);
     return ABIArgInfo::getDirect(ResType);
   }
@@ -6396,7 +6401,7 @@ ABIArgInfo ARMABIInfo::classifyHomogeneousAggregate(QualType Ty,
     // FP16 vectors should be converted to integer vectors
     if (!getTarget().hasLegalHalfType() && containsAnyFP16Vectors(Ty)) {
       uint64_t Size = getContext().getTypeSize(VT);
-      llvm::Type *NewVecTy = llvm::VectorType::get(
+      auto *NewVecTy = llvm::FixedVectorType::get(
           llvm::Type::getInt32Ty(getVMContext()), Size / 32);
       llvm::Type *Ty = llvm::ArrayType::get(NewVecTy, Members);
       return ABIArgInfo::getDirect(Ty, 0, nullptr, false);
