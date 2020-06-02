@@ -1286,8 +1286,9 @@ unsigned X86GlobalFMA::createConstOneFromImm(MVT VT,
   MachineBasicBlock *MBB = InsertPointMI->getParent();
   unsigned Opc;
 
-  MVT ElementType = VT.isVector() ? VT.getVectorElementType() : VT;
+  MVT ElementType = VT.getScalarType();
   bool IsF32 = ElementType == MVT::f32;
+  assert(IsF32 || ElementType == MVT::f64 && "Unexpected element type!");
   unsigned GPReg;
   unsigned R;
   uint64_t Imm;
@@ -1309,8 +1310,22 @@ unsigned X86GlobalFMA::createConstOneFromImm(MVT VT,
   }
   BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(Opc), GPReg).addImm(Imm);
 
+  // For scalars, use the instructions that use a scalar register class.
+  if (!VT.isVector()) {
+    const TargetRegisterClass *RC = ST->getTargetLowering()->getRegClassFor(VT);
+    R = MRI->createVirtualRegister(RC);
+    if (IsF32)
+      Opc = ST->hasAVX512() ? X86::VMOVDI2SSZrr : X86::VMOVDI2SSrr;
+    else
+      Opc = ST->hasAVX512() ? X86::VMOV64toSDZrr : X86::VMOV64toSDrr;
+    BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(Opc), R)
+        .addReg(GPReg, RegState::Kill);
+
+    return R;
+  }
+
   // Use a broadcast from GPR if such is available in the target ISA.
-  if (ST->hasAVX512() && VTBitSize >= 128) {
+  if (ST->hasAVX512()) {
     bool UseVLX = ST->hasVLX() && VTBitSize <= 256;
     unsigned VecBitSize = UseVLX ? VTBitSize : 512;
     unsigned ElemSize = IsF32 ? 32 : 64;
@@ -1341,34 +1356,14 @@ unsigned X86GlobalFMA::createConstOneFromImm(MVT VT,
     return R;
   }
 
-  // For scalars, use the instructions that use a scalar register class.
-  if (VT.getSizeInBits() < 128) {
-    const TargetRegisterClass *RC = ST->getTargetLowering()->getRegClassFor(VT);
-    R = MRI->createVirtualRegister(RC);
-    if (IsF32) {
-      Opc = ST->hasAVX512() ? X86::VMOVDI2SSZrr : X86::VMOVDI2SSrr;
-      BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(Opc), R)
-          .addReg(GPReg, RegState::Kill);
-    } else {
-      Opc = ST->hasAVX512() ? X86::VMOV64toSDZrr : X86::VMOV64toSDrr;
-      BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(Opc), R)
-          .addReg(GPReg, RegState::Kill);
-    }
-
-    return R;
-  }
-
   // For vectors we need to insert into 128 bits and then broadcast.
   unsigned R128 = MRI->createVirtualRegister(&X86::VR128RegClass);
-  if (IsF32) {
+  if (IsF32)
     Opc = ST->hasAVX512() ? X86::VMOVDI2PDIZrr : X86::VMOVDI2PDIrr;
-    BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(Opc), R128)
-        .addReg(GPReg, RegState::Kill);
-  } else {
+  else
     Opc = ST->hasAVX512() ? X86::VMOV64toPQIZrr : X86::VMOV64toPQIrr;
-    BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(Opc), R128)
-        .addReg(GPReg, RegState::Kill);
-  }
+  BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(Opc), R128)
+      .addReg(GPReg, RegState::Kill);
 
   // Broadcast the lowest element of the XMM to the bigger vector register.
   if (VT.getSizeInBits() == 128) {
