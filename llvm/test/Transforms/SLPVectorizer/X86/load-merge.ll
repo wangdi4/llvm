@@ -105,7 +105,6 @@ define <4 x float> @PR16739_byref_alt(<4 x float>* nocapture readonly dereferenc
 }
 
 define <4 x float> @PR16739_byval(<4 x float>* nocapture readonly dereferenceable(16) %x) {
-; INTEL_CUSTOMIZATION
 ; CHECK-LABEL: @PR16739_byval(
 ; CHECK-NEXT:    [[T0:%.*]] = bitcast <4 x float>* [[X:%.*]] to i64*
 ; CHECK-NEXT:    [[T1:%.*]] = load i64, i64* [[T0]], align 16
@@ -124,7 +123,6 @@ define <4 x float> @PR16739_byval(<4 x float>* nocapture readonly dereferenceabl
 ; CHECK-NEXT:    [[T14:%.*]] = insertelement <4 x float> [[T11]], float [[T13]], i32 2
 ; CHECK-NEXT:    [[T15:%.*]] = insertelement <4 x float> [[T14]], float [[T13]], i32 3
 ; CHECK-NEXT:    ret <4 x float> [[T15]]
-; end INTEL_CUSTOMIZATION
 ;
   %t0 = bitcast <4 x float>* %x to i64*
   %t1 = load i64, i64* %t0, align 16
