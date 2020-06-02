@@ -17,6 +17,7 @@
 #include "IntelVPlan.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "IntelVPlanUtils.h"
+#include "llvm/Analysis/VectorUtils.h"
 
 #define DEBUG_TYPE "vplan-cost-model"
 using namespace loopopt;
@@ -79,8 +80,7 @@ VPlanVLSCostModel::getGatherScatterOpCost(const OVLSMemref &Memref) const {
 #if 0
   return VPCM.getLoadStoreCost(VPMemref->getInstruction());
 #else
-  Type *VecTy =
-      VPCM.getVectorizedType(VPMemref->getInstruction()->getType(), VPCM.VF);
+  Type *VecTy = getWidenedType(VPMemref->getInstruction()->getType(), VPCM.VF);
   // FIXME: Without proper decomposition it's impossible to call
   // getLoadStoreCost(), because opcode may not be valid in the VPInstruction.
   // Assume load instruction for non-memref opcode, because store instruction
@@ -93,15 +93,6 @@ VPlanVLSCostModel::getGatherScatterOpCost(const OVLSMemref &Memref) const {
 #endif
 }
 #endif // INTEL_CUSTOMIZATION
-
-// TODO: ideally this function should be moved into utils.
-Type *VPlanCostModel::getVectorizedType(const Type *BaseTy, unsigned VF) {
-  auto *BaseVecTy = dyn_cast<VectorType>(BaseTy);
-  if (BaseVecTy)
-    VF *= BaseVecTy->getNumElements();
-
-  return VectorType::get(BaseTy->getScalarType(), VF);
-}
 
 Type *VPlanCostModel::getMemInstValueType(const VPInstruction *VPInst) {
   unsigned Opcode = VPInst->getOpcode();
@@ -275,7 +266,7 @@ unsigned VPlanCostModel::getArithmeticInstructionCost(const unsigned Opcode,
   assert(Op1 != nullptr && "First operand is expected.");
   if (!ScalarTy)
     return UnknownCost;
-  Type *VecTy = getVectorizedType(ScalarTy, VF);
+  Type *VecTy = getWidenedType(const_cast<Type *>(ScalarTy), VF);
 
   auto IsPowerOf2 = [](const VPValue *Val) -> bool {
     if (const VPConstant *VPConst = dyn_cast<VPConstant>(Val))
@@ -312,23 +303,46 @@ unsigned VPlanCostModel::getArithmeticInstructionCost(const unsigned Opcode,
 unsigned VPlanCostModel::getLoadStoreCost(const VPInstruction *VPInst) {
   Type *OpTy = getMemInstValueType(VPInst);
   assert(OpTy && "Can't get type of the load/store instruction!");
+  Type *OpScalTy = OpTy->getScalarType();
 
   unsigned Opcode = VPInst->getOpcode();
   unsigned Alignment = getMemInstAlignment(VPInst);
   unsigned AddrSpace = getMemInstAddressSpace(VPInst);
-  Type *VecTy = getVectorizedType(OpTy, VF);
+  Type *VecTy;
+  unsigned Scale;
+
   // TODO: VF check in IsMasked might become redundant once a separate VPlan
   // is maintained for VF = 1 meaning that the cost calculation for scalar loop
   // is done over VPlan that doesn't undergo any vector transformations such as
   // predication.
   bool IsMasked = (VF > 1) && (VPInst->getParent()->getPredicate() != nullptr);
 
-  if (VF == 1 || isUnitStrideLoadStore(VPInst))
+  // Aggregates are serialized.  If we see an aggregate type we set Scale to VF
+  // and substitude VecTy with base aggregate type.
+  //
+  // TODO:
+  // ScalarCost * VF is Zero order approximation of scalarization for aggregate
+  // types.  Yet to be tuned further.
+  if (VectorType::isValidElementType(OpScalTy)) {
+    Scale = 1;
+    VecTy = getWidenedType(OpTy, VF);
+  }
+  else {
+    Scale = VF;
+    VecTy = OpTy;
+  }
+
+  // Call get[Masked]MemoryOpCost() for the following cases.
+  // 1. VF = 1 VPlan even for vector OpTy.
+  // 2. Unit stride load/store.
+  // 3. Aggregate OpTy (they enter this code though Scale > 1 check of VF == 1
+  //    check).
+  if (VF == 1 || isUnitStrideLoadStore(VPInst) || Scale > 1)
     return IsMasked ?
-      TTI->getMaskedMemoryOpCost(Opcode, getVectorizedType(OpTy, VF),
-                                 Alignment, AddrSpace) :
-      TTI->getMemoryOpCost(Opcode, VecTy,
-                           Alignment? Align(Alignment): Align(), AddrSpace);
+      Scale * TTI->getMaskedMemoryOpCost(Opcode, VecTy, Alignment, AddrSpace) :
+      Scale * TTI->getMemoryOpCost(Opcode, VecTy,
+                                   Alignment ? Align(Alignment): Align(),
+                                   AddrSpace);
 
   return TTI->getGatherScatterOpCost(
     Opcode, VecTy, getLoadStoreIndexSize(VPInst),
@@ -426,7 +440,7 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
     if (!Ty)
       return UnknownCost;
 
-    Type *VectorTy = getVectorizedType(Ty, VF);
+    Type *VectorTy = getWidenedType(Ty, VF);
     unsigned Cost = TTI->getCmpSelInstrCost(Opcode, VectorTy);
     return Cost;
   }
@@ -449,8 +463,8 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
     if (!OpTy)
       return UnknownCost;
 
-    Type *VecCondTy = getVectorizedType(CondTy, VF);
-    Type *VecOpTy = getVectorizedType(OpTy, VF);
+    Type *VecCondTy = getWidenedType(CondTy, VF);
+    Type *VecOpTy = getWidenedType(OpTy, VF);
     unsigned Cost = TTI->getCmpSelInstrCost(Opcode, VecOpTy, VecCondTy);
     return Cost;
   }
@@ -475,8 +489,8 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
            "Vector base types are not yet implemented!");
     assert(!BaseDstTy->isAggregateType() && "Unexpected aggregate type!");
 
-    Type *VecDstTy = getVectorizedType(BaseDstTy, VF);
-    Type *VecSrcTy = getVectorizedType(BaseSrcTy, VF);
+    Type *VecDstTy = getWidenedType(BaseDstTy, VF);
+    Type *VecSrcTy = getWidenedType(BaseSrcTy, VF);
     // TODO: The following will report cost "1" for sext/zext in scalar case
     // because no Instruction* is passed to TTI and it is unable to analyze that
     // such a cast can be folded into the defining load for free. We should
