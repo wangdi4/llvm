@@ -3383,14 +3383,15 @@ GetSSETypeAtOffset(llvm::Type *IRType, unsigned IROffset,
                             SourceOffset*8+64, getContext())) {
     if (ContainsHalfAtOffset(IRType, IROffset, getDataLayout()) &&
         ContainsHalfAtOffset(IRType, IROffset+2, getDataLayout()))
-      return llvm::VectorType::get(llvm::Type::getHalfTy(getVMContext()), 2);
+      return llvm::FixedVectorType::get(llvm::Type::getHalfTy(getVMContext()),
+                                        2);
     return llvm::Type::getFloatTy(getVMContext());
   }
 
   // If 48 bits are used, we pass as <3 x half>.
   if (BitsContainNoUserData(SourceTy, SourceOffset*8+48,
                             SourceOffset*8+64, getContext())) {
-    return llvm::VectorType::get(llvm::Type::getHalfTy(getVMContext()), 3);
+    return llvm::FixedVectorType::get(llvm::Type::getHalfTy(getVMContext()), 3);
   }
 
   // We want to pass as <2 x float> if the LLVM IR type contains a float at
@@ -3398,7 +3399,8 @@ GetSSETypeAtOffset(llvm::Type *IRType, unsigned IROffset,
   // case.
   if (ContainsFloatAtOffset(IRType, IROffset, getDataLayout()) &&
       ContainsFloatAtOffset(IRType, IROffset+4, getDataLayout()))
-    return llvm::VectorType::get(llvm::Type::getFloatTy(getVMContext()), 2);
+    return llvm::FixedVectorType::get(llvm::Type::getFloatTy(getVMContext()),
+                                      2);
 
   // We want to pass as <4 x half> if the LLVM IR type contains a half at
   // offset+0, +2, +4, +6.  Walk the LLVM IR type to find out if this is the
@@ -3407,9 +3409,9 @@ GetSSETypeAtOffset(llvm::Type *IRType, unsigned IROffset,
       ContainsHalfAtOffset(IRType, IROffset+2, getDataLayout()) &&
       ContainsHalfAtOffset(IRType, IROffset+4, getDataLayout()) &&
       ContainsHalfAtOffset(IRType, IROffset+6, getDataLayout()))
-    return llvm::VectorType::get(llvm::Type::getHalfTy(getVMContext()), 4);
+    return llvm::FixedVectorType::get(llvm::Type::getHalfTy(getVMContext()), 4);
 
-  // TODO: What about mixes of float and half?
+    // TODO: What about mixes of float and half?
 
 #else // INTEL_FEATURE_ISA_FP16
   // The only three choices we have are either double, <2 x float>, or float. We
@@ -3424,14 +3426,11 @@ GetSSETypeAtOffset(llvm::Type *IRType, unsigned IROffset,
   // case.
   if (ContainsFloatAtOffset(IRType, IROffset, getDataLayout()) &&
       ContainsFloatAtOffset(IRType, IROffset+4, getDataLayout()))
-<<<<<<< HEAD
-    return llvm::VectorType::get(llvm::Type::getFloatTy(getVMContext()), 2);
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
-=======
+
     return llvm::FixedVectorType::get(llvm::Type::getFloatTy(getVMContext()),
                                       2);
->>>>>>> 796898172c48a475f27f038e587c35dbba9ab7a6
+#endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
   return llvm::Type::getDoubleTy(getVMContext());
 }
