@@ -382,22 +382,47 @@
 #endif
 
 /* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ISA_AVX_DOTPROD */
+/* INTEL_FEATURE_ISA_AVX_DOTPROD_INT8 */
+#if defined(__AVXDOTPRODINT8_SUPPORTED__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVXDOTPRODINT8__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <avxdotprodint8/avxdotprodint8intrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_AVX_DOTPROD_INT8 */
+
+/* INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS */
 /*
  * FIXME: When _Float16 type is supported, this should be:
- * "if defined(__AVXDOTPROD_SUPPORTED__)
+ * "if defined(__AVXDOTPRODPHPS_SUPPORTED__)
  * "!(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||
- * defined(__AVX_DOTPROD__) || defined(__M_INTRINSIC_PROMOTE__)"
+ * defined(__AVX_DOTPRODPHPS__) || defined(__M_INTRINSIC_PROMOTE__)"
  *
  */
-#if defined(__AVXDOTPROD__) && defined(__AVX512FP16__)
-#include <avxdotprod/avxdotprodintrin.h>
+#if defined(__AVXDOTPRODPHPS__) && defined(__AVX512FP16__)
+#include <avxdotprodphps/avxdotprodphpsintrin.h>
 #endif
-/* end INTEL_FEATURE_ISA_AVX_DOTPROD */
+/* end INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS */
 /* end INTEL_CUSTOMIZATION */
 
 /* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ISA_AVX512_DOTPROD */
+/* INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8 */
+#if defined(__AVX512DOTPRODINT8_SUPPORTED__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+      defined(__AVX512DOTPRODINT8__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <avx512dotprodint8/avx512dotprodint8intrin.h>
+#endif
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    (defined(__AVX512VL__) && defined(__AVX512DOTPRODINT8__)) ||                      \
+    defined(__M_INTRINSIC_PROMOTE__)
+#include <avx512dotprodint8/avx512vldotprodint8intrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8 */
+/* end INTEL_CUSTOMIZATION */
+
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS */
 /*
  * FIXME: When _Float16 type is supported, this should be:
  * "if defined(__AVX512DOTPROD_SUPPORTED__)
@@ -405,13 +430,13 @@
  * defined(__AVX512_DOTPROD__) || defined(__M_INTRINSIC_PROMOTE__)"
  *
  */
-#if defined(__AVX512DOTPROD__)
-#include <avx512dotprod/avx512dotprodintrin.h>
+#if defined(__AVX512DOTPRODPHPS__)
+#include <avx512dotprodphps/avx512dotprodphpsintrin.h>
 #endif
-#if defined(__AVX512VL__) && defined(__AVX512DOTPROD__)
-#include <avx512dotprod/avx512vldotprodintrin.h>
+#if defined(__AVX512VL__) && defined(__AVX512DOTPRODPHPS__)
+#include <avx512dotprodphps/avx512vldotprodphpsintrin.h>
 #endif
-/* end INTEL_FEATURE_ISA_AVX512_DOTPROD */
+/* end INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS */
 /* end INTEL_CUSTOMIZATION */
 
 /* INTEL_CUSTOMIZATION */
