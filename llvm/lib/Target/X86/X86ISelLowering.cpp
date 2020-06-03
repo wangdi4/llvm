@@ -38872,24 +38872,6 @@ bool X86TargetLowering::SimplifyDemandedVectorEltsForTargetNode(
           SrcElts.setBit(M);
       }
 
-#if INTEL_CUSTOMIZATION
-    // As for OpInputs[Src] which has users excluding Op.getNode(),
-    // we assume that all elements are needed, i.e, set SrcElts.setAllBits()
-    // For example:
-    // t1317: v8i32 = insert_subvector undef:v8i32, t1414, Constant:i64<0>
-    // t1315: v8i32 = X86ISD::BLENDI t380, t1317, TargetConstant:i8<2>
-    // t1414: v4i32 = insert_vector_elt t679, t677, Constant:i64<2>
-    // t1416: v8i32 = X86ISD::VBROADCAST t1414
-    // When getTargetShuffleInputs(...) processed t1416, it created
-    //  NewNode: v8i32 = insert_subvector undef:v8i32, t1414, Constant:i64<0>
-    //  which is the same with t1317.
-    // So getTargetShuffleInputs(...) set
-    //  OpInputs[0] = t1317 which is used by t1315
-    // Before SimplifyDemandedVectorElts processes OpInputs[0] which is used by
-    // t1315, we assume that all elements are needed, i.e. SrcElts.setAllBits()
-    if (!OpInputs[Src].isOperandOf(Op.getNode()) && !OpInputs[Src].use_empty())
-      SrcElts.setAllBits();
-#endif // INTEL_CUSTOMIZATION
     // TODO - Propagate input undef/zero elts.
     APInt SrcUndef, SrcZero;
     if (SimplifyDemandedVectorElts(OpInputs[Src], SrcElts, SrcUndef, SrcZero,
