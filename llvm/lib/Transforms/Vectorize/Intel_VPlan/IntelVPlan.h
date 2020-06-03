@@ -1598,6 +1598,21 @@ private:
   /// VF.
   CallVecScenarios VecScenario = CallVecScenarios::Undefined;
 
+  /// Helper utility to access underlying CallInst corresponding to this
+  /// VPCallInstruction. The utility works for both LLVM-IR and HIR paths.
+  const CallInst *getUnderlyingCallInst() const {
+    if (auto *IRCall = dyn_cast_or_null<CallInst>(getInstruction())) {
+      return IRCall;
+    } else if (auto *HIRCall = HIR.getUnderlyingNode()) {
+      assert(isa<loopopt::HLInst>(HIRCall) &&
+             "Underlying HIR DDNode for Call is not HLInst.");
+      return cast<loopopt::HLInst>(HIRCall)->getCallInst();
+    } else {
+      llvm_unreachable(
+          "VPlan created a new VPCallInstruction without underlying IR.");
+    }
+  }
+
 public:
   using CallVecScenariosTy = CallVecScenarios;
 
@@ -1631,37 +1646,12 @@ public:
 
   /// Getter for original call's calling convention.
   CallingConv::ID getOrigCallingConv() const {
-    CallingConv::ID CC = CallingConv::MaxID;
-    if (auto *IRCall = dyn_cast_or_null<CallInst>(getInstruction())) {
-      CC = IRCall->getCallingConv();
-    } else if (auto *HIRCall = HIR.getUnderlyingNode()) {
-      assert(isa<loopopt::HLInst>(HIRCall) &&
-             "Underlying HIR DDNode for Call is not HLInst.");
-      CC = cast<loopopt::HLInst>(HIRCall)->getCallInst()->getCallingConv();
-    } else {
-      llvm_unreachable(
-          "VPlan created a new VPCallInstruction without underlying IR.");
-    }
-
-    return CC;
+    return getUnderlyingCallInst()->getCallingConv();
   }
 
   // Getter for original call's callsite attributes.
   AttributeList getOrigCallAttrs() const {
-    AttributeList CallAttrs;
-    if (auto *IRCall = dyn_cast_or_null<CallInst>(getInstruction())) {
-      CallAttrs = IRCall->getAttributes();
-    } else if (auto *HIRCall = HIR.getUnderlyingNode()) {
-      assert(isa<loopopt::HLInst>(HIRCall) &&
-             "Underlying HIR DDNode for Call is not HLInst.");
-      CallAttrs =
-          cast<loopopt::HLInst>(HIRCall)->getCallInst()->getAttributes();
-    } else {
-      llvm_unreachable(
-          "VPlan created a new VPCallInstruction without underlying IR.");
-    }
-
-    return CallAttrs;
+    return getUnderlyingCallInst()->getAttributes();
   }
 
   // Some helpful getters based on underlying call's attributes.
@@ -1789,7 +1779,7 @@ public:
   virtual VPCallInstruction *cloneImpl() const final {
     VPCallInstruction *Cloned = new VPCallInstruction(
         getCalledValue(), ArrayRef<VPValue *>(op_begin(), op_end() - 1),
-        cast<CallInst>(getInstruction()) /* Clone gets same underlying Call */);
+        getUnderlyingCallInst() /* Clone gets same underlying Call */);
     Cloned->VecScenario = VecScenario;
     Cloned->VecProperties = VecProperties;
     return Cloned;
