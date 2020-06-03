@@ -15,7 +15,7 @@
 ; Test to check that we combine the store values, shuffle these values using
 ; interleaved mask and do a wide store.
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -enable-vplan-vls-cg -hir-cg -S -print-after=VPlanDriverHIR  < %s 2>&1  | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -enable-vplan-vls-cg -hir-cg -enable-vp-value-codegen-hir=0 -disable-output -print-after=VPlanDriverHIR  < %s 2>&1  | FileCheck %s
 ; CHECK: DO i1 = 0, 99, 4
 ; CHECK:  [[COMB:%.*]] = shufflevector i1 + <i32 0, i32 1, i32 2, i32 3> + 2,  i1 + <i64 0, i64 1, i64 2, i64 3> + 1,  <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
 ; CHECK:  [[EXT:%.*]] = shufflevector i1 + <i64 0, i64 1, i64 2, i64 3>,  undef,  <i32 0, i32 1, i32 2, i32 3, i32 undef, i32 undef, i32 undef, i32 undef>

@@ -15,7 +15,7 @@
 ; Test to check that we generate wide load and appropriate shuffles for the
 ; two loads with stride 2. Test loads from multi dimensional array.
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -enable-vplan-vls-cg -hir-cg -S -print-after=VPlanDriverHIR  < %s 2>&1  | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -enable-vplan-vls-cg -hir-cg -enable-vp-value-codegen-hir=0 -disable-output -print-after=VPlanDriverHIR  < %s 2>&1  | FileCheck %s
 ; CHECK: DO i1 = 0, 99, 4
 ; CHECK:  [[WLd:%.*]] = (<8 x i32>*)(@arr)[0][i1][0];
 ; CHECK:  [[V1:%.*]] = shufflevector [[WLd]],  undef,  <i32 0, i32 2, i32 4, i32 6>;
