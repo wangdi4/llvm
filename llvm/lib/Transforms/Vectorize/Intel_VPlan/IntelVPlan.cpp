@@ -63,6 +63,12 @@ static cl::opt<bool>
                      cl::desc("Print VPlan instructions' details like "
                               "underlying attributes/metadata."));
 
+static cl::opt<bool> UseGetType(
+  "vplan-cost-model-use-gettype", cl::init(false), cl::Hidden,
+  cl::desc("Use getType() instead of getCMType() if true. "
+           "The knob is temporal and should be removed once every "
+           "getCMType() is replaced with getType()."));
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 raw_ostream &llvm::vpo::operator<<(raw_ostream &OS, const VPValue &V) {
   if (const VPInstruction *I = dyn_cast<VPInstruction>(&V))
@@ -244,7 +250,30 @@ void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
   CG->widenNode(this, nullptr, Group, InterleaveFactor, InterleaveIndex,
                 GrpStartInst);
 }
-#endif
+
+Type *VPInstruction::getCMType() const {
+  if (UseGetType)
+    return getType();
+
+  if (getUnderlyingValue())
+    return getUnderlyingValue()->getType();
+
+  if (!HIR.isMaster())
+    return nullptr;
+
+  const loopopt::HLNode *Node = HIR.getUnderlyingNode();
+  const loopopt::HLInst *Inst = dyn_cast_or_null<loopopt::HLInst>(Node);
+
+  if (!Inst)
+    return nullptr;
+
+  const Instruction *LLVMInst = Inst->getLLVMInstruction();
+  if (!LLVMInst)
+    return nullptr;
+
+  return LLVMInst->getType();
+}
+#endif // INTEL_CUSTOMIZATION
 
 void VPInstruction::execute(VPTransformState &State) {
   assert(!State.Instance && "VPInstruction executing an Instance");

@@ -791,25 +791,7 @@ public:
   // instruction is not set and this makes the cost of this instruction
   // undefined (i.e. 0). Non-null return value causes calculation by TTI with
   // incorrect result.
-  virtual Type *getCMType() const override {
-    if (getUnderlyingValue())
-      return getUnderlyingValue()->getType();
-
-    if (!HIR.isMaster())
-      return nullptr;
-
-    const loopopt::HLNode *Node = HIR.getUnderlyingNode();
-    const loopopt::HLInst *Inst = dyn_cast_or_null<loopopt::HLInst>(Node);
-
-    if (!Inst)
-      return nullptr;
-
-    const Instruction *LLVMInst = Inst->getLLVMInstruction();
-    if (!LLVMInst)
-      return nullptr;
-
-    return LLVMInst->getType();
-  }
+  virtual Type *getCMType() const override;
 
   // Return true if this VPInstruction represents a cast operation.
   bool isCast() const { return Instruction::isCast(getOpcode()); }
