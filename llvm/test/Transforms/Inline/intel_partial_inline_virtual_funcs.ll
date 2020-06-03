@@ -571,11 +571,11 @@ attributes #12 = { builtin nounwind }
 ; partially inlined correctly.
 ;
 ; CHECK: define internal zeroext i1 @_ZN7Manager6runnerEPii(%class.Manager* %this, i32* %A, i32 %Size)
-; CHECK: br i1 %tmp6, label %BBDevirt__ZN7Derived3fooEPvi_0_0, label %BBDevirt__ZN8Derived23fooEPvi_0_0
+; CHECK: br i1 %i6, label %BBDevirt__ZN7Derived3fooEPvi_0_0, label %BBDevirt__ZN8Derived23fooEPvi_0_0
 ;
 ; Partially inline (A == null) in Derived::foo
 ; CHECK-LABEL: BBDevirt__ZN7Derived3fooEPvi_0_0:                 ; preds = %entry
-; CHECK:         %cmp.i10 = icmp eq i8* %tmp1, null
+; CHECK:         %cmp.i10 = icmp eq i8* %i1, null
 ; CHECK-NEXT:    br i1 %cmp.i10, label %_ZN7Derived3fooEPvi.2.exit, label %for.cond.preheader.i12
 ;
 ; Partially inline (Size = 0) in Derived::foo
@@ -594,7 +594,7 @@ attributes #12 = { builtin nounwind }
 ;
 ; Partially inline (A == null) in Derived2::foo
 ; CHECK-LABEL: BBDevirt__ZN8Derived23fooEPvi_0_0:                ; preds = %entry
-; CHECK:         %cmp.i = icmp eq i8* %tmp1, null
+; CHECK:         %cmp.i = icmp eq i8* %i1, null
 ; CHECK-NEXT:    br i1 %cmp.i, label %_ZN8Derived23fooEPvi.1.exit, label %for.cond.preheader.i
 ;
 ; Partially inline (Size == 0) in Derived2::foo
@@ -612,7 +612,7 @@ attributes #12 = { builtin nounwind }
 ; CHECK-NEXT:    br label %MergeBB_0_0
 ;
 ; CHECK-LABEL: MergeBB_0_0:                                      ; preds = %_ZN8Derived23fooEPvi.1.exit, %_ZN7Derived3fooEPvi.2.exit
-; CHECK-NEXT:    %tmp9 = phi i1 [ %retval.0.i14, %_ZN7Derived3fooEPvi.2.exit ], [ %retval.0.i, %_ZN8Derived23fooEPvi.1.exit ]
+; CHECK-NEXT:    %i9 = phi i1 [ %retval.0.i14, %_ZN7Derived3fooEPvi.2.exit ], [ %retval.0.i, %_ZN8Derived23fooEPvi.1.exit ]
 ; CHECK-NEXT:    br label %bb
 
 
