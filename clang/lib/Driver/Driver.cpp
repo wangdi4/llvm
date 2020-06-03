@@ -344,6 +344,78 @@ static Arg *MakeInputArg(DerivedArgList &Args, const OptTable &Opts,
   return A;
 }
 
+#if INTEL_CUSTOMIZATION
+// Add any of the device libraries that are used for offload.  This includes
+// math and system device libraries.
+static void addIntelDeviceLibs(const ToolChain &TC, Driver::InputList &Inputs,
+                               const OptTable &Opts, DerivedArgList &Args) {
+  // Only add the math device libs if requested by the user
+  // TODO - this will become the default sometime in the future.
+  // FIXME - There is a bit of common code in this function that can be
+  // cleaned up.
+  bool addFP64 = false, addFP32 = false;
+  if (Arg *A = Args.getLastArg(options::OPT_device_math_lib_EQ,
+                               options::OPT_no_device_math_lib_EQ)) {
+    if (A->getOption().matches(options::OPT_no_device_math_lib_EQ))
+      return;
+    for (StringRef Val : A->getValues()) {
+      if (Val == "fp64")
+        addFP64 = true;
+      if (Val == "fp32")
+        addFP32 = true;
+    }
+  } else
+    return;
+
+  SmallVector<std::pair<const StringRef, bool>, 4> omp_device_libs = {
+    { "libomp-complex", false },
+    { "libomp-complex-fp64", true },
+    { "libomp-cmath", false },
+    { "libomp-cmath-fp64", true } };
+  SmallVector<std::pair<const StringRef, bool>, 4> sycl_device_libs = {
+    { "libsycl-complex", false },
+    { "libsycl-complex-fp64", true },
+    { "libsycl-cmath", false },
+    { "libsycl-cmath-fp64", true } };
+
+  StringRef LibLoc(Args.MakeArgString(TC.getDriver().Dir + "/../lib"));
+  // Go through the lib vectors and add them accordingly.
+  auto addInput = [&](const char * LibName) {
+    Arg *InputArg = MakeInputArg(Args, Opts, LibName);
+    Inputs.push_back(std::make_pair(types::TY_Object, InputArg));
+  };
+  StringRef Ext(TC.getTriple().isWindowsMSVCEnvironment() ? ".obj" : ".o");
+  if (Args.hasFlag(options::OPT_fsycl, options::OPT_fno_sycl, false)) {
+    for (const std::pair<const StringRef, bool> &Lib : sycl_device_libs) {
+      SmallString<128> LibName(LibLoc);
+      llvm::sys::path::append(LibName, Lib.first);
+      llvm::sys::path::replace_extension(LibName, Ext);
+      if (addFP64 && Lib.second && llvm::sys::fs::exists(LibName))
+        addInput(Args.MakeArgString(LibName));
+      if (addFP32 && !Lib.second && llvm::sys::fs::exists(LibName))
+        addInput(Args.MakeArgString(LibName));
+    }
+  }
+  bool addOmpLibs = false;
+  if (Arg *A = Args.getLastArg(options::OPT_fopenmp_targets_EQ)) {
+    for (const StringRef &Val : A->getValues())
+      if (Val == "spir64")
+        addOmpLibs = true;
+  }
+  if (addOmpLibs) {
+    for (const std::pair<const StringRef, bool> &Lib : omp_device_libs) {
+      SmallString<128> LibName(LibLoc);
+      llvm::sys::path::append(LibName, Lib.first);
+      llvm::sys::path::replace_extension(LibName, Ext);
+      if (addFP64 && Lib.second && llvm::sys::fs::exists(LibName))
+        addInput(Args.MakeArgString(LibName));
+      if (addFP32 && !Lib.second && llvm::sys::fs::exists(LibName))
+        addInput(Args.MakeArgString(LibName));
+    }
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
 DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
   const llvm::opt::OptTable &Opts = getOpts();
   DerivedArgList *DAL = new DerivedArgList(Args);
@@ -2623,6 +2695,7 @@ void Driver::BuildInputs(const ToolChain &TC, DerivedArgList &Args,
     }
 #endif // INTEL_CUSTOMIZATION
   }
+  addIntelDeviceLibs(TC, Inputs, Opts, Args); // INTEL
   if (CCCIsCPP() && Inputs.empty()) {
     // If called as standalone preprocessor, stdin is processed
     // if no other input is present.
