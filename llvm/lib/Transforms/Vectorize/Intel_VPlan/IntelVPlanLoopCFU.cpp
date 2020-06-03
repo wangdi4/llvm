@@ -67,9 +67,9 @@ void VPlanLoopCFU::run(VPLoop *VPL) {
       // If the subloop region is the false successor of the predecessor,
       // we need to negate the top test.
       if (VPLRegnPred->getSuccessors()[1] == VPLPreHeader) {
-        VPBuilder Builder;
-        Builder.setInsertPoint(VPLRegnPred);
-        TopTest = Builder.createNot(TopTest, TopTest->getName() + ".not");
+        TopTest = VPBuilder()
+                      .setInsertPoint(VPLRegnPred)
+                      .createNot(TopTest, TopTest->getName() + ".not");
         VPDA->updateDivergence(*TopTest);
       }
       LLVM_DEBUG(dbgs() << "Top Test: "; TopTest->dump(); errs() << "\n");
