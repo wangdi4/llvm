@@ -394,6 +394,12 @@ def daal : Flag<["-"], "daal">, Alias<daal_EQ>, AliasArgs<["parallel"]>;
 def x_intel : Joined<["-"], "x">, Flags<[DriverOption]>,
   HelpText<"Generate specialized code to run exclusively on processors "
   "indicated by <code>.">, MetaVarName<"<code>">;
+def device_math_lib_EQ : CommaJoined<["-"], "device-math-lib=">,
+  Flags<[DriverOption]>, Values<"fp32,fp64">, HelpText<"Control the addition "
+  "of device math libraries when compiling for other devices.  Valid arguments "
+  "are fp64, fp32">;
+def no_device_math_lib_EQ : CommaJoined<["-"], "no-device-math-lib=">,
+  Flags<[DriverOption]>, Values<"fp32,fp64">;
 #endif // INTEL_CUSTOMIZATION
 
 def _HASH_HASH_HASH : Flag<["-"], "###">, Flags<[DriverOption, CoreOption]>,
