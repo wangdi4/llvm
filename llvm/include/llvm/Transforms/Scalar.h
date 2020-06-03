@@ -319,6 +319,10 @@ FunctionPass *createLoopOptMarkerLegacyPass();
 // new Phi Node if their latch values have the same binary operation.
 FunctionPass *createLoopCarriedCSEPass();
 
+// NontemporalStore - Convert unaligned nontemporal stores to aligned stores by
+// use of a buffer.
+FunctionPass *createNontemporalStoreWrapperPass();
+
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB

@@ -652,6 +652,7 @@ void initializeAddSubReassociateLegacyPassPass(PassRegistry&);
 void initializeForcedCMOVGenerationLegacyPassPass(PassRegistry&);
 void initializeRAReportEmitterPass(PassRegistry&);
 void initializeVPOParoptOptimizeDataSharingPass(PassRegistry&);
+void initializeNontemporalStoreWrapperPassPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_COLLAB

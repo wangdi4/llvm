@@ -123,6 +123,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
 #if INTEL_CUSTOMIZATION
   initializeNonLTOGlobalOptLegacyPassPass(Registry);
   initializeFunctionRecognizerLegacyPassPass(Registry);
+  initializeNontemporalStoreWrapperPassPass(Registry);
   initializeIndirectCallConvLegacyPassPass(Registry);
   initializeStdContainerOptPass(Registry);
   initializeTbaaMDPropagationLegacyPassPass(Registry);
