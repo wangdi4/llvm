@@ -2788,17 +2788,21 @@ bool HLNodeUtils::hasStructuredFlow(const HLNode *Parent, const HLNode *Node,
   // TODO: We probably need to enhance it to recurse into multi-exit loops.
   if (UpwardTraversal) {
     // We want to traverse the range [FirstNode, LastNode) in the backward
-    // direction. If Node is same as LastNode we skip it.
-    auto EndIt = (Node == LastNode) ? LastNode->getIterator()
-                                    : ++(LastNode->getIterator());
+    // direction. If Node is a parent node and same as LastNode we skip it so as
+    // so avoid traversing nodes outside range of interest.
+    auto EndIt = (Node == LastNode && Node->isParentNode())
+                     ? LastNode->getIterator()
+                     : ++(LastNode->getIterator());
 
     visitRange<true, false, false>(SFC, FirstNode->getIterator(), EndIt);
 
   } else {
     // We want to traverse the range (FirstNode, LastNode] in the forward
-    // direction. If Node is same as FirstNode we skip it.
-    auto BeginIt = (Node != FirstNode) ? FirstNode->getIterator()
-                                       : ++(FirstNode->getIterator());
+    // direction. If Node is a parent node and same as FirstNode we skip it so
+    // as so avoid traversing nodes outside range of interest.
+    auto BeginIt = (Node == FirstNode && Node->isParentNode())
+                       ? ++(FirstNode->getIterator())
+                       : FirstNode->getIterator();
 
     visitRange<true, false, true>(SFC, BeginIt, ++(LastNode->getIterator()));
   }

@@ -65,6 +65,16 @@
 // RUN: %clang_cl -### --intel -c %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT %s
 // CHECK-INTEL-LOOPOPT: "-mllvm" "-loopopt=0" "-mllvm" "-enable-lv"
 
+// RUN: %clang -### --intel -mllvm -loopopt=1 -c %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT1 %s
+// RUN: %clang_cl -### --intel -mllvm -loopopt=1 -c %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT1 %s
+// CHECK-INTEL-LOOPOPT1: "-mllvm" "-loopopt=1"
+// CHECK-INTEL-LOOPOPT1-NOT: "-mllvm" "-loopopt=0"
+
+// RUN: %clang -### --intel -mllvm -loopopt -c %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT2 %s
+// RUN: %clang_cl -### --intel -mllvm -loopopt -c %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT2 %s
+// CHECK-INTEL-LOOPOPT2: "-mllvm" "-loopopt"
+// CHECK-INTEL-LOOPOPT2-NOT: "-mllvm" "-loopopt=0"
+
 // RUN: %clang -### --intel -c -xAVX %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT-AVX %s
 // RUN: %clang_cl -### --intel -c -QxAVX %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT-AVX %s
 // CHECK-INTEL-LOOPOPT-AVX: "-mllvm" "-loopopt"

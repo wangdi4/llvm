@@ -234,18 +234,49 @@ static void
 sortInReverseLexOrder(const HIRRegionIdentification &RI,
                       SmallVectorImpl<BasicBlock *> &BBlocks,
                       const SmallPtrSetImpl<const BasicBlock *> &EndBBs) {
+  unsigned ID = 0;
+  DenseMap<const BasicBlock *, unsigned> BBlockIDs;
+
+  // In order to satisfy the strict weak ordering requirements of the comparator
+  // function (equivalent to less operator) we need to make it such that no two
+  // different bblocks can be considered equivalent.
+  //
+  // (a == b) and (b == c) does not imply (a == c) because we are testing bblock
+  // reachability. The best way to fix equivalence is to make all bblocks
+  // different by assigning them unique ID.
+  for (auto *BB : BBlocks) {
+    BBlockIDs[BB] = ID++;
+  }
+
   // This check orders dom children that are reachable from other children,
   // before them.
   // This is because I couldn't think of an appropriate check for sorting in the
   // reverse order. So instead the children are visited in reverse order after
   // sorting.
-  auto ReverseLexOrder = [&RI, &EndBBs](BasicBlock *B1, BasicBlock *B2) {
+  auto ReverseLexOrder = [&](BasicBlock *B1, BasicBlock *B2) {
+    if (B1 == B2) {
+      return false;
+    }
+
     SmallPtrSet<const BasicBlock *, 8> FromBBs;
     FromBBs.insert(B2);
 
-    // First check satisfies the strict weak ordering requirements of
-    // comparator function.
-    return ((B1 != B2) && RI.isReachableFrom(B1, EndBBs, FromBBs));
+    // B1 is reachable from B2, return true so we visit B2 before B1.
+    if (RI.isReachableFrom(B1, EndBBs, FromBBs)) {
+      return true;
+    }
+
+    FromBBs.clear();
+    FromBBs.insert(B1);
+
+    // B2 is reachable from B1, return false so we visit B1 before B2.
+    if (RI.isReachableFrom(B2, EndBBs, FromBBs)) {
+      return false;
+    }
+
+    // Neither B1 or B2 can reach each other (like if-else case), use unqiue ID
+    // as tie-breaker.
+    return BBlockIDs[B1] > BBlockIDs[B2];
   };
 
   std::sort(BBlocks.begin(), BBlocks.end(), ReverseLexOrder);

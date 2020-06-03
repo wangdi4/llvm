@@ -598,37 +598,44 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
   if (Args.hasArg(options::OPT__intel)) {
     if (!Args.hasArg(options::OPT_ffreestanding))
       addllvmOption("-intel-libirc-allowed");
-    // Add loopopt default values.  Full loopopt is enabled when -x is provided
-    // otherwise, we enable lightweight loopopt dependent on various options.
-    bool FullLoopOpt = false;
-    if (const Arg *A =
-            Args.getLastArgNoClaim(options::OPT_march_EQ, options::OPT_x))
-      if (A->getOption().matches(options::OPT_x) &&
-          x86::isValidIntelCPU(A->getValue(), TC.getTriple()))
-        // -x wins, so full loopopt is enabled
-        // FIXME: Only keying off of -x addition to set loopopt.  This should
-        // only be done when we are setting P4 w/SSE3 or higher
-        FullLoopOpt = true;
-    // Handle /arch /Qx as well.
-    if (const Arg *A = Args.getLastArgNoClaim(options::OPT__SLASH_arch,
-                                              options::OPT__SLASH_Qx))
-      if (A->getOption().matches(options::OPT__SLASH_Qx) &&
-          x86::isValidIntelCPU(A->getValue(), TC.getTriple()))
-        FullLoopOpt = true;
-    if (FullLoopOpt)
-      addllvmOption("-loopopt");
-    else {
-      int MLTInt = 0;
-      MLTVal.getAsInteger(0, MLTInt);
-      bool OfastSet = false;
-      if (const Arg *A = Args.getLastArg(options::OPT_O_Group))
-        OfastSet = A->getOption().matches(options::OPT_Ofast);
-      if (MLTInt >= 4 && Args.hasArg(options::OPT_flto) && OfastSet)
-        addllvmOption("-loopopt=1");
+    bool AddLoopOpt = true;
+    for (const StringRef &AV : Args.getAllArgValues(options::OPT_mllvm))
+      if (AV.startswith("-loopopt=") || AV.equals("-loopopt"))
+        AddLoopOpt = false;
+    if (AddLoopOpt) {
+      // Add loopopt default values.  Full loopopt is enabled when -x is
+      // provided otherwise, we enable lightweight loopopt dependent on various
+      // options.  Only add if -loopopt wasn't added via other means.
+      bool FullLoopOpt = false;
+      if (const Arg *A =
+              Args.getLastArgNoClaim(options::OPT_march_EQ, options::OPT_x))
+        if (A->getOption().matches(options::OPT_x) &&
+            x86::isValidIntelCPU(A->getValue(), TC.getTriple()))
+          // -x wins, so full loopopt is enabled
+          // FIXME: Only keying off of -x addition to set loopopt.  This should
+          // only be done when we are setting P4 w/SSE3 or higher
+          FullLoopOpt = true;
+      // Handle /arch /Qx as well.
+      if (const Arg *A = Args.getLastArgNoClaim(options::OPT__SLASH_arch,
+                                                options::OPT__SLASH_Qx))
+        if (A->getOption().matches(options::OPT__SLASH_Qx) &&
+            x86::isValidIntelCPU(A->getValue(), TC.getTriple()))
+          FullLoopOpt = true;
+      if (FullLoopOpt)
+        addllvmOption("-loopopt");
       else {
-        addllvmOption("-loopopt=0");
-        if (!TC.getTriple().isSPIR())
-          addllvmOption("-enable-lv");
+        int MLTInt = 0;
+        MLTVal.getAsInteger(0, MLTInt);
+        bool OfastSet = false;
+        if (const Arg *A = Args.getLastArg(options::OPT_O_Group))
+          OfastSet = A->getOption().matches(options::OPT_Ofast);
+        if (MLTInt >= 4 && Args.hasArg(options::OPT_flto) && OfastSet)
+          addllvmOption("-loopopt=1");
+        else {
+          addllvmOption("-loopopt=0");
+          if (!TC.getTriple().isSPIR())
+            addllvmOption("-enable-lv");
+        }
       }
     }
   }
