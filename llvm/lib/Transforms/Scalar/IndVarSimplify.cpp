@@ -147,8 +147,10 @@ class IndVarSimplify {
   SmallVector<WeakTrackingVH, 16> DeadInsts;
 #if INTEL_CUSTOMIZATION
   DenseMap<const SCEV *, ConstantRange> NonNegativeIVRanges;
+  DenseMap<const Loop *, SCEV::NoWrapFlags> PostIncIVLimitFlags;
 
   void cacheIVRange(PHINode *NarrowIV);
+  void cachePostIncIVLimitFlags(const Loop *Lp);
 #endif // INTEL_CUSTOMIZATION
   bool handleFloatingPointIV(Loop *L, PHINode *PH);
   bool rewriteNonIntegerIVs(Loop *L);
@@ -2147,7 +2149,8 @@ static Value *genLoopLimit(PHINode *IndVar, BasicBlock *ExitingBB,
                            const SCEV *ExitCount, bool UsePostInc, Loop *L,
 #if INTEL_CUSTOMIZATION
                            SCEVExpander &Rewriter, ScalarEvolution *SE,
-              DenseMap<const SCEV *, ConstantRange> &NonNegativeIVRanges) {
+              DenseMap<const SCEV *, ConstantRange> &NonNegativeIVRanges,
+              DenseMap<const Loop *, SCEV::NoWrapFlags> &PostIncIVLimitFlags) {
 #endif // INTEL_CUSTOMIZATION
   assert(isLoopCounter(IndVar, L, SE));
   const SCEVAddRecExpr *AR = cast<SCEVAddRecExpr>(SE->getSCEV(IndVar));
@@ -2240,6 +2243,11 @@ static Value *genLoopLimit(PHINode *IndVar, BasicBlock *ExitingBB,
 #endif // INTEL_CUSTOMIZATION
     const SCEV *IVLimit = SE->getAddExpr(IVInit, ExitCount, Flags); // INTEL
 
+#if INTEL_CUSTOMIZATION
+    auto FlagIt = PostIncIVLimitFlags.find(L);
+    if (FlagIt != PostIncIVLimitFlags.end())
+      Flags = (SCEV::NoWrapFlags)(Flags | FlagIt->second);
+#endif // INTEL_CUSTOMIZATION
     if (UsePostInc)
 #if INTEL_CUSTOMIZATION
       IVLimit = SE->getAddExpr(IVLimit, SE->getOne(IVLimit->getType()), Flags);
@@ -2339,7 +2347,7 @@ linearFunctionTestReplace(Loop *L, BasicBlock *ExitingBB,
 
   Value *ExitCnt = genLoopLimit(
       IndVar, ExitingBB, ExitCount, UsePostInc, L, Rewriter, SE, // INTEL
-      NonNegativeIVRanges); // INTEL
+      NonNegativeIVRanges, PostIncIVLimitFlags);                 // INTEL
   assert(ExitCnt->getType()->isPointerTy() ==
              IndVar->getType()->isPointerTy() &&
          "genLoopLimit missed a cast");
@@ -2853,6 +2861,62 @@ bool IndVarSimplify::predicateLoopExits(Loop *L, SCEVExpander &Rewriter) {
   return Changed;
 }
 
+#if INTEL_CUSTOMIZATION
+// Tries to deduce nowrap flags on post-inc IV limit using undefined behavior.
+// If the loop is single exit and countable and the exit condition looks like
+// this-
+//
+// %iv.inc = add i32 nsw %iv, 1
+// %cmp = icmp sgt i32 %iv.inc, %n
+// br i1 %cmp, %exit, %loop
+//
+// We can assume that %n cannot be max value or loop will never exit.
+// This means appropriate nowrap flag can be applied to (%n + 1) in
+// genLoopLimit().
+void IndVarSimplify::cachePostIncIVLimitFlags(const Loop *Lp) {
+  auto *Latch = Lp->getLoopLatch();
+
+  if (!Latch || Latch != Lp->getExitingBlock())
+    return;
+
+  auto *BrInst = dyn_cast<BranchInst>(Latch->getTerminator());
+
+  if (!BrInst)
+    return;
+
+  if (Lp->getHeader() != BrInst->getSuccessor(1))
+    return;
+
+  auto *CmpInst = dyn_cast<ICmpInst>(BrInst->getCondition());
+
+  if (!CmpInst)
+    return;
+
+  bool IsSigned = false;
+
+  // Only handle conditions of the form-
+  // IV > Limit
+  if (CmpInst->getPredicate() == ICmpInst::ICMP_SGT) {
+    IsSigned = true;
+  } else if (CmpInst->getPredicate() != ICmpInst::ICMP_UGT)
+    return;
+
+  if (isa<SCEVCouldNotCompute>(SE->getBackedgeTakenCount(Lp)))
+    return;
+
+  auto *IV = dyn_cast<SCEVAddRecExpr>(SE->getSCEV(CmpInst->getOperand(0)));
+
+  if (!IV || !IV->isAffine() ||
+      !IV->getNoWrapFlags(IsSigned ? SCEV::FlagNSW : SCEV::FlagNUW))
+    return;
+
+  // IV stride should be positive
+  if (!SE->isKnownPositive(IV->getOperand(1)))
+    return;
+
+  PostIncIVLimitFlags.insert({Lp, IsSigned ? SCEV::FlagNSW : SCEV::FlagNUW});
+}
+#endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 //  IndVarSimplify driver. Manage several subpasses of IV simplification.
 //===----------------------------------------------------------------------===//
@@ -2895,6 +2959,11 @@ bool IndVarSimplify::run(Loop *L) {
   Rewriter.setDebugType(DEBUG_TYPE);
 #endif
 
+#if INTEL_CUSTOMIZATION
+  // These flags are lost during simplifyAndExtend() call below but we need them
+  // to add no-wrap flags when generating loop limit for LFTR.
+  cachePostIncIVLimitFlags(L);
+#endif // INTEL_CUSTOMIZATION
   // Eliminate redundant IV users.
   //
   // Simplification works best when run before other consumers of SCEV. We
