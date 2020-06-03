@@ -3469,9 +3469,22 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     RegDDRef *RedRef = nullptr;
     if (ReductionRefs.count(VPInst))
       RedRef = ReductionRefs[VPInst];
+
+    // FIXME - operator flags are being obtained here using binary operator from
+    // underlying IR. This is a temporary fix to achieve performance parity in
+    // VPValue CG until we start preserving the flags during VPlan HIR
+    // construction (CMPLRLLVM-11656).
+    const HLNode *HNode =
+        VPInst->HIR.isMaster() ? VPInst->HIR.getUnderlyingNode() : nullptr;
+    const BinaryOperator *BOp = nullptr;
+    if (auto *HInst = dyn_cast_or_null<HLInst>(HNode)) {
+      auto *LInst = HInst->getLLVMInstruction();
+      BOp = dyn_cast<BinaryOperator>(LInst);
+    }
+
     NewInst = HLNodeUtilities.createBinaryHLInst(
         VPInst->getOpcode(), RefOp0, RefOp1, InstName,
-        RedRef ? RedRef->clone() : nullptr);
+        RedRef ? RedRef->clone() : nullptr, BOp);
     break;
   }
 

@@ -22,6 +22,12 @@
 #include <thread>
 #include <vector>
 #include <ze_api.h>
+#ifdef _WIN32
+#include <fcntl.h>
+#include <io.h>
+#else
+#include <unistd.h>
+#endif // !_WIN32
 #include "omptargetplugin.h"
 #include "omptarget-tools.h"
 #include "rtl-trace.h"
@@ -350,12 +356,14 @@ static ze_fence_handle_t createFence(ze_command_queue_handle_t cmdQueue) {
 
 /// RTL flags
 struct RTLFlagsTy {
+  uint64_t DumpTargetImage : 1;
   uint64_t EnableProfile : 1;
   uint64_t EnableTargetGlobals : 1;
   uint64_t UseHostMemForUSM : 1;
   uint64_t UseMemoryPool : 1;
-  uint64_t Reserved : 60;
+  uint64_t Reserved : 59;
   RTLFlagsTy() :
+      DumpTargetImage(0),
       EnableProfile(0),
       EnableTargetGlobals(0),
       UseHostMemForUSM(0),
@@ -512,6 +520,13 @@ public:
     if (char *env = readEnvVar("LIBOMPTARGET_LEVEL0_MEMORY_POOL")) {
       if (env[0] == 'T' || env[0] == 't' || env[0] == '1')
         Flags.UseMemoryPool = 1;
+    }
+
+    // Target image dump
+    if (char *env = readEnvVar("LIBOMPTARGET_DUMP_TARGET_IMAGE",
+                               "LIBOMPTARGET_SAVE_TEMPS")) {
+      if (env[0] == 'T' || env[0] == 't' || env[0] == '1')
+        Flags.DumpTargetImage = 1;
     }
   }
 
@@ -805,6 +820,56 @@ static int32_t initModule(int32_t DeviceId) {
   return OFFLOAD_SUCCESS;
 }
 
+static void dumpImageToFile(
+    const void *Image, size_t ImageSize, const char *Type) {
+#if INTEL_INTERNAL_BUILD
+  if (DebugLevel <= 0)
+    return;
+
+  if (!DeviceInfo->Flags.DumpTargetImage)
+    return;
+
+  char TmpFileName[] = "omptarget_spir64_image_XXXXXX";
+#if _WIN32
+  errno_t CErr = _mktemp_s(TmpFileName, sizeof(TmpFileName));
+  if (CErr) {
+    DPI("Error creating temporary file template name.\n");
+    return;
+  }
+  int TmpFileFd;
+  _sopen_s(&TmpFileFd, TmpFileName, _O_RDWR | _O_CREAT | _O_BINARY,
+           _SH_DENYNO, _S_IREAD | _S_IWRITE);
+#else  // !_WIN32
+  int TmpFileFd = mkstemp(TmpFileName);
+#endif  // !_WIN32
+  DPI("Dumping %s image of size %d from address " DPxMOD " to file %s\n",
+      Type, static_cast<int32_t>(ImageSize), DPxPTR(Image), TmpFileName);
+
+  if (TmpFileFd < 0) {
+    DPI("Error creating temporary file: %s\n", strerror(errno));
+    return;
+  }
+
+#if _WIN32
+  int WErr = _write(TmpFileFd, Image, ImageSize);
+#else  // !_WIN32
+  int WErr = write(TmpFileFd, Image, ImageSize);
+#endif  // !_WIN32
+  if (WErr < 0) {
+    DPI("Error writing temporary file %s: %s\n", TmpFileName, strerror(errno));
+  }
+
+#if _WIN32
+  int CloseErr = _close(TmpFileFd);
+#else  // !_WIN32
+  int CloseErr = close(TmpFileFd);
+#endif  // !_WIN32
+  if (CloseErr < 0) {
+    DPI("Error closing temporary file %s: %s\n", TmpFileName, strerror(errno));
+  }
+#endif  // INTEL_INTERNAL_BUILD
+}
+
 EXTERN
 int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *Image) {
   uint32_t magicWord = *(uint32_t *)Image->ImageStart;
@@ -942,6 +1007,8 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
   DP("Module compilation options: %s\n", compilationOptions.c_str());
   compilationOptions += " " + DeviceInfo->InternalCompilationOptions;
   DPI("Final module compilation options: %s\n", compilationOptions.c_str());
+
+  dumpImageToFile(Image->ImageStart, imageSize, "OpenMP");
 
   ze_module_desc_t moduleDesc = {
     ZE_MODULE_DESC_VERSION_CURRENT,

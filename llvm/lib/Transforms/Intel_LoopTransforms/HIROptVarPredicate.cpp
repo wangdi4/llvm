@@ -112,6 +112,48 @@ STATISTIC(LoopsSplit, "Loops split during optimization of predicates.");
 
 namespace {
 
+struct EqualCandidates : public SmallSetVector<HLIf *, 8> {
+  bool HasUnsafeCall = false;
+
+  EqualCandidates(HLIf *If) { insert(If); }
+
+  bool isEqual(const HLIf *If) const {
+    return HLNodeUtils::areEqualConditions(front(), If);
+  }
+
+  bool hasCandidateWithNumber(unsigned Number) const {
+    return std::any_of(begin(), end(), [&](const HLIf *If) {
+      return If->getNumber() == Number;
+    });
+  }
+
+  bool isProfitable(const HLLoop *Lp) const {
+    if (DisableCostModel) {
+      return true;
+    }
+
+    return Lp->isInnermost() || HasUnsafeCall;
+  }
+
+  bool shouldGenCode(const HLLoop *Lp) const {
+    if (DisableCostModel) {
+      return true;
+    }
+
+    return Lp->isInnermost();
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  LLVM_DUMP_METHOD
+  void dump() const {
+    for (auto *If : *this) {
+      If->dumpHeader();
+      dbgs() << "\n";
+    }
+  }
+#endif
+};
+
 class HIROptVarPredicate {
   HIRFramework &HIRF;
   BlobUtils &BU;
@@ -130,8 +172,8 @@ private:
                  const RegDDRef *RHSDDRef, unsigned Level,
                  bool &ShouldInvertCondition);
 
-  void splitLoop(HLLoop *Loop, HLIf *Candidate, const RegDDRef *LHS,
-                 PredicateTy Pred, const RegDDRef *RHS,
+  void splitLoop(HLLoop *Loop, const EqualCandidates &Candidates,
+                 const RegDDRef *LHS, PredicateTy Pred, const RegDDRef *RHS,
                  const CanonExpr *LowerCE, const CanonExpr *UpperCE,
                  const CanonExpr *SplitPoint, bool ShouldInvertCondition);
 
@@ -159,16 +201,17 @@ private:
 } // namespace
 
 class IfLookup final : public HLNodeVisitorBase {
-  SmallVectorImpl<HLIf *> &Candidates;
+  SmallVectorImpl<EqualCandidates> &Candidates;
   unsigned Level;
   const HLNode *SkipNode;
 
   bool HasLabel;
+  bool HasUnsafeCall;
 
 public:
-  IfLookup(SmallVectorImpl<HLIf *> &Candidates, unsigned Level)
+  IfLookup(SmallVectorImpl<EqualCandidates> &Candidates, unsigned Level)
       : Candidates(Candidates), Level(Level), SkipNode(nullptr),
-        HasLabel(false) {}
+        HasLabel(false), HasUnsafeCall(false) {}
 
   bool isCandidateRef(const RegDDRef *Ref, bool *HasIV) const {
     // Only handle scalar references.
@@ -185,7 +228,7 @@ public:
     return true;
   }
 
-  void visit(const HLLabel *Goto) { HasLabel = true; }
+  void visit(const HLLabel *) { HasLabel = true; }
 
   void visit(HLIf *If) {
     SkipNode = If;
@@ -197,6 +240,16 @@ public:
     HLNodeUtils::visitRange(Lookup, If->else_begin(), If->else_end());
 
     if (Lookup.HasLabel) {
+      return;
+    }
+
+    // Find existing candidate
+    auto ExistingI = std::find_if(
+        Candidates.begin(), Candidates.end(),
+        [If](const EqualCandidates &EC) { return EC.isEqual(If); });
+    if (ExistingI != Candidates.end()) {
+      ExistingI->HasUnsafeCall |= Lookup.HasUnsafeCall;
+      ExistingI->insert(If);
       return;
     }
 
@@ -219,7 +272,8 @@ public:
       }
     }
 
-    Candidates.push_back(If);
+    Candidates.emplace_back(If);
+    Candidates.back().HasUnsafeCall = Lookup.HasUnsafeCall;
   }
 
   void visit(const HLIf *If) { llvm_unreachable("Unexpected const HLIf."); }
@@ -230,8 +284,12 @@ public:
     HLNodeUtils::visitRange(Lookup, Loop->child_begin(), Loop->child_end());
   }
 
-  void visit(const HLNode *Node) {}
-  void postVisit(const HLNode *Node) {}
+  void visit(const HLInst *Inst) {
+    HasUnsafeCall = HasUnsafeCall || Inst->isUnsafeSideEffectsCallInst();
+  }
+
+  void visit(const HLNode *) {}
+  void postVisit(const HLNode *) {}
 
   bool skipRecursion(const HLNode *Node) const { return SkipNode == Node; }
 };
@@ -505,7 +563,7 @@ void HIROptVarPredicate::updateLoopLowerBound(HLLoop *Loop, BlobTy LowerBlob,
   setSelfBlobDDRef(Loop->getLowerDDRef(), MaxBlob, MaxBlobIndex);
 }
 
-static bool isLoopRedundant(HLLoop *Loop) {
+static bool isLoopRedundant(const HLLoop *Loop, const HLNode *ContextNode) {
   if (!Loop->hasChildren()) {
     return true;
   }
@@ -521,7 +579,10 @@ static bool isLoopRedundant(HLLoop *Loop) {
     return ConstantTrip <= 0;
   }
 
-  return false;
+  bool IsNegativeOrZeroTC =
+      HLNodeUtils::isKnownNonPositive(TripCount.get(), ContextNode);
+
+  return IsNegativeOrZeroTC;
 }
 
 void HIROptVarPredicate::addVarPredicateReport(
@@ -553,9 +614,10 @@ void HIROptVarPredicate::addVarPredicateReport(
 // for i = %b, %b              ztt: 0 < %b <= %UB     <-- LoopClone
 // for i = max(%b + 1, 0), %UB ztt: %b + 1 <= %UB     <-- LoopRest
 void HIROptVarPredicate::splitLoop(
-    HLLoop *Loop, HLIf *Candidate, const RegDDRef *LHS, PredicateTy Pred,
-    const RegDDRef *RHS, const CanonExpr *LowerCE, const CanonExpr *UpperCE,
-    const CanonExpr *SplitPoint, bool ShouldInvertCondition) {
+    HLLoop *Loop, const EqualCandidates &Candidates, const RegDDRef *LHS,
+    PredicateTy Pred, const RegDDRef *RHS, const CanonExpr *LowerCE,
+    const CanonExpr *UpperCE, const CanonExpr *SplitPoint,
+    bool ShouldInvertCondition) {
 
   assert((LowerCE->isIntConstant() || LowerCE->isStandAloneBlob(false)) &&
          "LowerCE should be a constant or stand-alone blob");
@@ -577,41 +639,61 @@ void HIROptVarPredicate::splitLoop(
   Loop->extractZtt();
   Loop->extractPreheaderAndPostexit();
 
-  HLContainerTy ThenContainer;
-  HLContainerTy ElseContainer;
+  // Process HLIfs inside the loops.
 
-  if (!ShouldInvertCondition) {
-    removeThenElseChildren(Candidate, &ThenContainer, &ElseContainer);
-  } else {
-    removeThenElseChildren(Candidate, &ElseContainer, &ThenContainer);
+  SmallVector<HLContainerTy, 2> ThenContainers;
+  SmallVector<HLContainerTy, 2> ElseContainers;
+  ThenContainers.resize(Candidates.size());
+  ElseContainers.resize(Candidates.size());
+
+  for (auto CI : enumerate(Candidates)) {
+    auto &ThenContainer = ThenContainers[CI.index()];
+    auto &ElseContainer = ElseContainers[CI.index()];
+
+    if (!ShouldInvertCondition) {
+      removeThenElseChildren(CI.value(), &ThenContainer, &ElseContainer);
+    } else {
+      removeThenElseChildren(CI.value(), &ElseContainer, &ThenContainer);
+    }
   }
 
   unsigned Level = Loop->getNestingLevel();
 
   // Split loop into two loops
   auto CloneMapper =
-      HLNodeLambdaMapper::mapper([Candidate](const HLNode *Node) {
-        return Node == Candidate || isa<HLLabel>(Node);
+      HLNodeLambdaMapper::mapper([&Candidates](const HLNode *Node) {
+        const HLIf *If = dyn_cast<HLIf>(Node);
+        return (If && Candidates.count(const_cast<HLIf *>(If))) ||
+               isa<HLLabel>(Node);
       });
 
   HLLoop *SecondLoop = Loop->clone(&CloneMapper);
-  HLIf *CandidateClone = CloneMapper.getMapped(Candidate);
+
+  // Replace nodes back.
+  for (auto CI : enumerate(Candidates)) {
+    auto &ThenContainer = ThenContainers[CI.index()];
+    auto &ElseContainer = ElseContainers[CI.index()];
+
+    HLIf *CandidateClone = CloneMapper.getMapped(CI.value());
+
+    // Replace HIf with the statement body
+    if (!ThenContainer.empty()) {
+      HLNodeUtils::insertAfter(CI.value(), &ThenContainer);
+    }
+
+    if (!ElseContainer.empty()) {
+      HIRTransformUtils::remapLabelsRange(CloneMapper, &ElseContainer.front(),
+                                          &ElseContainer.back());
+      HLNodeUtils::insertAfter(CandidateClone, &ElseContainer);
+    }
+
+    HLNodeUtils::remove(CI.value());
+    HLNodeUtils::remove(CandidateClone);
+  }
 
   HLNodeUtils::insertAfter(Loop, SecondLoop);
 
-  // Replace HIf with the statement body
-  if (!ThenContainer.empty()) {
-    HLNodeUtils::insertAfter(Candidate, &ThenContainer);
-  }
-
-  if (!ElseContainer.empty()) {
-    HIRTransformUtils::remapLabelsRange(CloneMapper, &ElseContainer.front(),
-                                        &ElseContainer.back());
-    HLNodeUtils::insertAfter(CandidateClone, &ElseContainer);
-  }
-
-  HLNodeUtils::remove(Candidate);
-  HLNodeUtils::remove(CandidateClone);
+  // Update loop bounds and create third clone if needed.
 
   int64_t Val;
   bool SplitPtIsConst = SplitPoint->isIntConstant(&Val);
@@ -651,7 +733,7 @@ void HIROptVarPredicate::splitLoop(
 
     updateLoopLowerBound(ThirdLoop, LowerBlob, SplitPointPlusBlob, IsSigned);
 
-    if (!isLoopRedundant(ThirdLoop)) {
+    if (!isLoopRedundant(ThirdLoop, Loop)) {
       HLNodeUtils::insertAfter(SecondLoop, ThirdLoop);
       ThirdLoop->getLowerDDRef()->makeConsistent(Aux, Level);
 
@@ -670,7 +752,7 @@ void HIROptVarPredicate::splitLoop(
   updateLoopUpperBound(Loop, UpperBlob, SplitPointMinusBlob, IsSigned);
   updateLoopLowerBound(SecondLoop, LowerBlob, SplitPointBlob, IsSigned);
 
-  if (!isLoopRedundant(Loop)) {
+  if (!isLoopRedundant(Loop, Loop)) {
     Loop->getUpperDDRef()->makeConsistent(Aux, Level);
     Loop->createZtt(false, true);
 
@@ -682,7 +764,7 @@ void HIROptVarPredicate::splitLoop(
     NodesToInvalidate.erase(Loop);
   }
 
-  if (!isLoopRedundant(SecondLoop)) {
+  if (!isLoopRedundant(SecondLoop, SecondLoop)) {
     SecondLoop->getLowerDDRef()->makeConsistent(Aux, Level);
     SecondLoop->createZtt(false, true);
 
@@ -731,19 +813,13 @@ void HIROptVarPredicate::splitLoop(
     LORBuilder(*ThirdLoop).addOrigin("Predicate Optimized v%d", VNum++);
   }
 
-  addVarPredicateReport(Candidate, OptReportLoop, LORBuilder);
+  for (HLIf *If : Candidates) {
+    addVarPredicateReport(If, OptReportLoop, LORBuilder);
+  }
 }
 
 bool HIROptVarPredicate::processLoop(HLLoop *Loop) {
   LLVM_DEBUG(dbgs() << "Processing loop <" << Loop->getNumber() << ">\n");
-
-  // Opt on non-innermost loops is likely to cause degradations.
-  if (!DisableCostModel && !Loop->isInnermost()) {
-    LLVM_DEBUG(
-        dbgs()
-        << "Non-innermost loop skipped due to profitability assumptions\n");
-    return false;
-  }
 
   if (!Loop->isDo()) {
     LLVM_DEBUG(dbgs() << "Unknown/Multiexit loop skipped.\n");
@@ -760,7 +836,7 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop) {
     return false;
   }
 
-  SmallVector<HLIf *, 4> Candidates;
+  SmallVector<EqualCandidates, 4> Candidates;
 
   std::unique_ptr<CanonExpr> LowerCE(Loop->getLowerCanonExpr()->clone());
   std::unique_ptr<CanonExpr> UpperCE(Loop->getUpperCanonExpr()->clone());
@@ -777,29 +853,38 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop) {
   IfLookup Lookup(Candidates, Level);
   HLNodeUtils::visitRange(Lookup, Loop->child_begin(), Loop->child_end());
 
-  for (HLIf *Candidate :
+  for (const EqualCandidates &Candidate :
        llvm::make_range(Candidates.begin(), Candidates.end())) {
-    LLVM_DEBUG(dbgs() << "Processing: ");
-    LLVM_DEBUG(Candidate->dumpHeader());
+    LLVM_DEBUG(dbgs() << "Processing Ifs:\n");
+    LLVM_DEBUG(Candidate.dump());
     LLVM_DEBUG(dbgs() << "\n");
 
+    if (!Candidate.isProfitable(Loop)) {
+      LLVM_DEBUG(dbgs() << "Skipping candidate is non-profitable.\n");
+      continue;
+    }
+
     if (!TransformNodes.empty()) {
-      if (std::find(TransformNodes.begin(), TransformNodes.end(),
-                    Candidate->getNumber()) == TransformNodes.end()) {
+      if (std::any_of(TransformNodes.begin(), TransformNodes.end(),
+                      [&](unsigned Number) {
+                        return Candidate.hasCandidateWithNumber(Number);
+                      })) {
         LLVM_DEBUG(dbgs() << "Skipped due to the command line option\n");
         continue;
       }
     }
 
+    HLIf *IfCandidate = Candidate.front();
+
     // TODO: Skip complex HLIfs for now
-    if (Candidate->getNumPredicates() > 1) {
+    if (IfCandidate->getNumPredicates() > 1) {
       LLVM_DEBUG(dbgs() << "Complex predicate skipped\n");
       continue;
     }
 
-    auto PredI = Candidate->pred_begin();
-    RegDDRef *LHS = Candidate->getPredicateOperandDDRef(PredI, true);
-    RegDDRef *RHS = Candidate->getPredicateOperandDDRef(PredI, false);
+    auto PredI = IfCandidate->pred_begin();
+    RegDDRef *LHS = IfCandidate->getPredicateOperandDDRef(PredI, true);
+    RegDDRef *RHS = IfCandidate->getPredicateOperandDDRef(PredI, false);
 
     PredicateTy Pred = *PredI;
 
@@ -834,7 +919,9 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop) {
     splitLoop(Loop, Candidate, LHS, Pred, RHS, LowerCE.get(), UpperCE.get(),
               SplitPoint.get(), ShouldInvertCondition);
 
-    Region->setGenCode();
+    if (Candidate.shouldGenCode(Loop)) {
+      Region->setGenCode();
+    }
 
     NodesToInvalidate.insert(ParentLoop ? static_cast<HLNode *>(ParentLoop)
                                         : static_cast<HLNode *>(Region));
