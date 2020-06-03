@@ -18,7 +18,7 @@ namespace llvm {
 
 namespace vpo {
 cl::opt<bool> UseDevicePtrIsDefaultByRef(
-    "vpo-paropt-use-device-ptr-is-default-by-ref", cl::Hidden, cl::init(true),
+    "vpo-paropt-use-device-ptr-is-default-by-ref", cl::Hidden, cl::init(false),
     cl::desc("Temporary flag to be used until Clang starts adding PTR_TO_PTR "
              "modifier to use_device_ptr clause."));
 

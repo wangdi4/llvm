@@ -1053,6 +1053,18 @@ void VPOParoptTransform::genFprivInitForTask(WRegionNode *W,
     Value *OrigV = FprivI->getOrig();
     StringRef NamePrefix = OrigV->getName();
 
+    // CodeExtractor may have moved the firstprivate value's definition into
+    // the extractee, if it was totally unused in the parent.
+    if ((isa<Instruction>(OrigV) && cast<Instruction>(OrigV)->getFunction() !=
+                                        InsertBefore->getFunction()) ||
+        (isa<Argument>(OrigV) &&
+         cast<Argument>(OrigV)->getParent() != InsertBefore->getFunction())) {
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Skipping firstprivate init for '";
+                 OrigV->printAsOperand(dbgs());
+                 dbgs() << "' as it's no longer in the current function.\n");
+      continue;
+    }
+
     if (FprivI->getIsVla()) {
       Type *Int8PtrTy = Builder.getInt8PtrTy();
       Value *TaskThunkBasePtr = Builder.CreateBitCast(
