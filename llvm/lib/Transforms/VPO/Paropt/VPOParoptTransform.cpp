@@ -7307,6 +7307,65 @@ void VPOParoptTransform::fixThreadedEntryFormalParmName(WRegionNode *W,
   }
 }
 
+// Utility to find Alignment of the COPYIN Variable passed.
+// Default is 1.
+unsigned VPOParoptTransform::getAlignmentCopyIn(Value *V, const DataLayout DL) {
+  // Eg:
+  // 1. Global Variable is passed.
+  // C Code: int nder; ...
+  //         #pragma omp parallel copyin(nder)
+  // IR:
+  // @nder = dso_local thread_private global i32 0, align 4
+  // "QUAL.OMP.COPYIN"(i32* @nder)
+  // Alignment : 4
+  //
+  // 2. Bitcast to get the pointer.
+  // Fortran Code:
+  //          INTEGER NDER,BBB
+  //          COMMON/DERPAR/NDER,BBB  ...
+  //          !$OMP PARALLEL copyin(NDER)
+  // IR:
+  // @derpar_ = common thread_private unnamed_addr global [8 x i8]
+  //     zeroinitializer, align 32
+  // "QUAL.OMP.COPYIN"(i32* bitcast ([8 x i8]* @derpar_ to i32*))
+  // Alignment : 32
+  //
+  // 3. Bitcast with getelementpointer.
+  // Fortran Code:
+  //          CHARACTER X
+  //          INTEGER NDER,BBB
+  //          COMMON/DERPAR/X,NDER,BBB  ...
+  //          !$OMP PARALLEL copyin(NDER)
+  // IR:
+  // @derpar_ = common thread_private unnamed_addr global [9 x i8]
+  //     zeroinitializer, align 32
+  // "QUAL.OMP.COPYIN"(i32* bitcast (i8* getelementptr inbounds
+  //     ([9 x i8], [9 x i8]* @derpar_, i32 0, i64 1) to i32*))
+  // Alignment : 1, BaseAlignment:32, Offset:1
+  //
+  GlobalVariable *GVPtr;
+  if (GVPtr = dyn_cast<GlobalVariable>(V))
+    return GVPtr->getAlignment();
+
+  if (auto *BC = dyn_cast<BitCastOperator>(V)) {
+    Value *BCOperand = BC->getOperand(0);
+    if (GVPtr = dyn_cast<GlobalVariable>(BCOperand))
+      return GVPtr->getAlignment();
+    if (auto *GEP = dyn_cast<GEPOperator>(BCOperand)) {
+      auto *BasePointer = GEP->getPointerOperand()->stripPointerCasts();
+      if (GVPtr = dyn_cast<GlobalVariable>(BasePointer)) {
+        unsigned BaseAlignment = GVPtr->getAlignment();
+        APInt ConstOffset(64, 0);
+        GEP->accumulateConstantOffset(DL, ConstOffset);
+        unsigned Offset = ConstOffset.getZExtValue();
+        return ((Offset == 0) ? BaseAlignment
+                              : greatestCommonDivisor(BaseAlignment, Offset));
+      }
+    }
+  }
+  return 1;
+}
+
 // Emit the code for copyin variable. One example is as follows.
 //   %0 = ptrtoint i32* %tpv_a to i64
 //   %1 = icmp ne i64 %0, ptrtoint (i32* @a to i64)
@@ -7366,12 +7425,11 @@ void VPOParoptTransform::genTpvCopyIn(WRegionNode *W,
         // Emit a barrier after copyin code for threadprivate variable.
         VPOParoptUtils::genKmpcBarrier(W, FirstArgOfOutlineFunc,
            CopyinEndBB->getTerminator(), IdentTy, true);
-
       }
-      VPOUtils::genMemcpy(
-          C->getOrig(), &*NewArgI, NDL,
-          dyn_cast<GlobalVariable>(C->getOrig())->getAlignment(),
-          Term->getParent());
+
+      VPOUtils::genMemcpy(C->getOrig(), &*NewArgI, NDL,
+                          getAlignmentCopyIn(C->getOrig(), NDL),
+                          Term->getParent());
 
       ++NewArgI;
     }

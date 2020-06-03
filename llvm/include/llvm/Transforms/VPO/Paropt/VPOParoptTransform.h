@@ -897,6 +897,9 @@ private:
   void fixThreadedEntryFormalParmName(WRegionNode *W,
                                       Function *NFn);
 
+  /// Utility to find Alignment of the COPYIN Variable passed.
+  unsigned getAlignmentCopyIn(Value *V, const DataLayout DL);
+
   /// Generate the copy code for the copyin variables.
   void genTpvCopyIn(WRegionNode *W,
                     Function *NFn);
