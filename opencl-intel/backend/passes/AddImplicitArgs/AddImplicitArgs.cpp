@@ -295,11 +295,18 @@ namespace intel{
       }
     }
 
+    // It seems that removing function use (by changing its operand to another
+    // function) somehow breaks data structure used to hold uses and for example
+    // for two uses, the loop stops after the first one.
+    // Let's store info which need to be updated and perform updates outside
+    // of the loop over function uses.
+    DenseMap<User *, std::pair<unsigned, Value *>> UsersToReplace;
+
     // All users which are not to be replaced are handled here
     for (Use &U : pFunc->uses()) {
       User *Usr = U.getUser();
-      unsigned OpNo = U.getOperandNo();
       if (auto *SI = dyn_cast<SelectInst>(Usr)) {
+        unsigned OpNo = U.getOperandNo();
         // This function goes though a select instruction, but the type of the
         // function was changed (implicit args were added) - to avoid changing
         // types let's just cast new function type into the old one before
@@ -307,9 +314,14 @@ namespace intel{
         if (SI->getOperand(OpNo)->getType() != pNewF->getType()) {
           auto *Cast = CastInst::CreatePointerCast(
               pNewF, SI->getOperand(OpNo)->getType(), "", SI);
-          SI->setOperand(OpNo, Cast);
+          UsersToReplace[SI] = {OpNo, Cast};
         }
       }
+    }
+
+    for (const auto &I : UsersToReplace) {
+      const std::pair<unsigned, Value *> &R = I.second;
+      I.first->setOperand(R.first, R.second);
     }
 
     for (User *user : pNewF->users()) {
