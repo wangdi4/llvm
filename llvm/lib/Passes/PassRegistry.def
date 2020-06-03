@@ -159,8 +159,6 @@ MODULE_PASS("tsan-module", ThreadSanitizerPass())
 MODULE_PASS("kasan-module", ModuleAddressSanitizerPass(/*CompileKernel=*/true, false, true, false))
 MODULE_PASS("sancov-module", ModuleSanitizerCoveragePass())
 MODULE_PASS("poison-checking", PoisonCheckingPass())
-<<<<<<< HEAD
-MODULE_PASS("stack-safety-annotator", StackSafetyGlobalAnnotatorPass())
 MODULE_PASS("inlinelists", InlineListsPass()) // INTEL
 MODULE_PASS("inlinereportsetup", InlineReportSetupPass()) // INTEL
 MODULE_PASS("inlinereportemitter", InlineReportEmitterPass()) // INTEL
@@ -171,8 +169,6 @@ MODULE_PASS("intel-ipoprefetch", IntelIPOPrefetchPass()) // INTEL
 MODULE_PASS("vpo-paropt", VPOParoptPass())
 MODULE_PASS("vpo-paropt-tpv", VPOParoptTpvLegacyPass())
 #endif // INTEL_COLLAB
-=======
->>>>>>> 232d348c6eff8493fc016b1ea8a99db0e5620d81
 #undef MODULE_PASS
 
 #ifndef CGSCC_ANALYSIS
