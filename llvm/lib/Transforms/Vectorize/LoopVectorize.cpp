@@ -1325,8 +1325,9 @@ public:
 private:
   unsigned NumPredStores = 0;
 
-  /// \return An upper bound for the vectorization factor, larger than zero.
-  /// One is returned if vectorization should best be avoided due to cost.
+  /// \return An upper bound for the vectorization factor, a power-of-2 larger
+  /// than zero. One is returned if vectorization should best be avoided due
+  /// to cost.
   unsigned computeFeasibleMaxVF(unsigned ConstTripCount);
 
   /// The vectorization cost is a combination of the cost itself and a boolean
@@ -5072,9 +5073,8 @@ LoopVectorizationCostModel::computeFeasibleMaxVF(unsigned ConstTripCount) {
   WidestRegister = std::min(WidestRegister, MaxSafeRegisterWidth);
 
   // Ensure MaxVF is a power of 2; the dependence distance bound may not be.
-  WidestRegister = PowerOf2Floor(WidestRegister);
-
-  unsigned MaxVectorSize = WidestRegister / WidestType;
+  // Note that both WidestRegister and WidestType may not be a powers of 2.
+  unsigned MaxVectorSize = PowerOf2Floor(WidestRegister / WidestType);
 
   LLVM_DEBUG(dbgs() << "LV: The Smallest and Widest types: " << SmallestType
                     << " / " << WidestType << " bits.\n");

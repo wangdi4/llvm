@@ -82,7 +82,7 @@ static lto::Config createConfig() {
   // Check if basic block sections must be used.
   // Allowed values for --lto-basicblock-sections are "all", "labels",
   // "<file name specifying basic block ids>", or none.  This is the equivalent
-  // of -fbasicblock-sections= flag in clang.
+  // of -fbasic-block-sections= flag in clang.
   if (!config->ltoBasicBlockSections.empty()) {
     if (config->ltoBasicBlockSections == "all") {
       c.Options.BBSections = BasicBlockSection::All;
@@ -103,7 +103,8 @@ static lto::Config createConfig() {
     }
   }
 
-  c.Options.UniqueBBSectionNames = config->ltoUniqueBBSectionNames;
+  c.Options.UniqueBasicBlockSectionNames =
+      config->ltoUniqueBasicBlockSectionNames;
 
   if (auto relocModel = getRelocModelFromCMModel())
     c.RelocModel = *relocModel;

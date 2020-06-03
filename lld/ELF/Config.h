@@ -171,7 +171,7 @@ struct Configuration {
   bool ltoDebugPassManager;
   bool ltoEmitAsm;
   bool ltoNewPassManager;
-  bool ltoUniqueBBSectionNames;
+  bool ltoUniqueBasicBlockSectionNames;
   bool ltoWholeProgramVisibility;
   bool mergeArmExidx;
   bool mipsN32Abi = false;

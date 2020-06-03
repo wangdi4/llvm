@@ -4774,6 +4774,7 @@ ExprResult Sema::CreateBuiltinMatrixSubscriptExpr(Expr *Base, Expr *RowIdx,
     bool ConversionOk = tryConvertToTy(*this, Context.getSizeType(), &ConvExpr);
     assert(ConversionOk &&
            "should be able to convert any integer type to size type");
+    (void)ConversionOk;
     return ConvExpr.get();
   };
 
@@ -8290,7 +8291,8 @@ QualType Sema::CheckConditionalOperands(ExprResult &Cond, ExprResult &LHS,
 
   // The OpenCL operator with a vector condition is sufficiently
   // different to merit its own checker.
-  if (getLangOpts().OpenCL && Cond.get()->getType()->isVectorType())
+  if ((getLangOpts().OpenCL && Cond.get()->getType()->isVectorType()) ||
+      Cond.get()->getType()->isExtVectorType())
     return OpenCLCheckVectorConditional(*this, Cond, LHS, RHS, QuestionLoc);
 
   // First, check the condition.
