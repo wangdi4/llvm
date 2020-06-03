@@ -233,6 +233,14 @@ def _SLASH_Qopenmp_simd : CLFlagNoDpcpp<"Qopenmp-simd">, Alias<fopenmp_simd>,
 def _SLASH_Qopenmp_simd_ : CLFlagNoDpcpp<"Qopenmp-simd-">, Alias<fno_openmp_simd>;
 def _SLASH_QM : CLFlag<"QM">, Alias<M>, HelpText<"Like -MD, but also implies "
   "-E and writes to stdout by default">;
+def _SLASH_QMM : CLFlag<"QMM">, Alias<MM>, HelpText<"Like -MMD, but also "
+  "implies -E and writes to stdout by default.">;
+def _SLASH_QMG : CLFlag<"QMG">, Alias<MG>, HelpText<"Add missing headers to "
+  "depfile.">;
+def _SLASH_QMT : CLJoinedOrSeparate<"QMT">, Alias<MT>, HelpText<"Specify name "
+  "of main file output in depfile.">;
+def _SLASH_QMQ : CLJoinedOrSeparate<"QMQ">, Alias<MQ>, HelpText<"Specify name "
+  "of main file output to quote in depfile.">;
 def _SLASH_Qiopenmp_simd : CLFlagNoDpcpp<"Qiopenmp-simd">, Alias<fiopenmp_simd>;
 def _SLASH_Qopenmp_targets_EQ : CLCommaJoinedNoDpcpp<"Qopenmp-targets=">,
   Alias<fopenmp_targets_EQ>;
