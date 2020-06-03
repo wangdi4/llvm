@@ -194,7 +194,7 @@
 // CHECK-SPIR64-DAG: #define __IMAGE_SUPPORT__ 1
 // CHECK-SPIR64-DAG: #define __SPIR__ 1
 // CHECK-SPIR64-DAG: #define __SPIR64__ 1
-// CHECK-SPIR32-NOT: #define __SPIR32__ 1
+// CHECK-SPIR64-NOT: #define __SPIR32__ 1
 
 // INTEL_CUSTOMIZATION
 // RUN: %clang_cc1 %s -E -dM -o - -x cl -triple spir-unknown-unknown-intelfpga \
