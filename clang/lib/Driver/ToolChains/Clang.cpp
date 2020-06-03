@@ -5456,12 +5456,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   Args.AddLastArg(CmdArgs, options::OPT_femulated_tls,
                   options::OPT_fno_emulated_tls);
 
-#if INTEL_CUSTOMIZATION
-  if (Args.hasFlag(options::OPT_fkeep_static_consts,
-                   options::OPT_fno_keep_static_consts, false))
-    CmdArgs.push_back("-fkeep-static-consts");
-#endif // INTEL_CUSTOMIZATION
-
   // AltiVec-like language extensions aren't relevant for assembling.
   if (!isa<PreprocessJobAction>(JA) || Output.getType() != types::TY_PP_Asm)
     Args.AddLastArg(CmdArgs, options::OPT_fzvector);
@@ -6559,6 +6553,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     if (A->getOption().matches(options::OPT_fforce_enable_int128))
       CmdArgs.push_back("-fforce-enable-int128");
   }
+
+  if (Args.hasFlag(options::OPT_fkeep_static_consts,
+                   options::OPT_fno_keep_static_consts, false))
+    CmdArgs.push_back("-fkeep-static-consts");
 
   if (Args.hasFlag(options::OPT_fcomplete_member_pointers,
                    options::OPT_fno_complete_member_pointers, false))

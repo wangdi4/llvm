@@ -1095,31 +1095,9 @@ def fno_math_errno : Flag<["-"], "fno-math-errno">, Group<f_Group>;
 def fbracket_depth_EQ : Joined<["-"], "fbracket-depth=">, Group<f_Group>, Flags<[CoreOption]>;
 def fsignaling_math : Flag<["-"], "fsignaling-math">, Group<f_Group>;
 def fno_signaling_math : Flag<["-"], "fno-signaling-math">, Group<f_Group>;
-<<<<<<< HEAD
-def fjump_tables : Flag<["-"], "fjump-tables">, Group<f_Group>;
-def fno_jump_tables : Flag<["-"], "fno-jump-tables">, Group<f_Group>, Flags<[CC1Option]>,
-  HelpText<"Do not use jump tables for lowering switches">;
-def fforce_enable_int128 : Flag<["-"], "fforce-enable-int128">,
-  Group<f_Group>, Flags<[CC1Option]>,
-  HelpText<"Enable support for int128_t type">;
-def fno_force_enable_int128 : Flag<["-"], "fno-force-enable-int128">,
-  Group<f_Group>, Flags<[CC1Option]>,
-  HelpText<"Disable support for int128_t type">;
-#if INTEL_CUSTOMIZATION
-def fkeep_static_consts : Flag<["-"], "fkeep-static-consts">, Group<f_Group>,
-  Flags<[DriverOption, CC1Option]>, HelpText<"Keep static const variables even"
-  " if unused">;
-def fno_keep_static_consts : Flag<["-"], "fno-keep-static-consts">,
-  Group<f_Group>, Flags<[DriverOption, CC1Option]>, HelpText<"Disable the "
-  "ability to preserve allocation of variables that are not referenced in "
-  "the source">;
-#endif // INTEL_CUSTOMIZATION
-=======
 defm jump_tables : OptOutFFlag<"jump-tables", "Use", "Do not use", " jump tables for lowering switches">;
 defm force_enable_int128 : OptInFFlag<"force-enable-int128", "Enable", "Disable", " support for int128_t type">;
-def fkeep_static_consts : Flag<["-"], "fkeep-static-consts">, Group<f_Group>, Flags<[CC1Option]>,
-  HelpText<"Keep static const variables even if unused">;
->>>>>>> 7694b571d9fd6a8a6c96af1e7995068f7066f6f1
+defm keep_static_consts : OptInFFlag<"keep-static-consts", "Keep", "Don't keep", " static const variables if unused", [DriverOption]>;
 def ffixed_point : Flag<["-"], "ffixed-point">, Group<f_Group>,
                    Flags<[CC1Option]>, HelpText<"Enable fixed point types">;
 def fno_fixed_point : Flag<["-"], "fno-fixed-point">, Group<f_Group>,
