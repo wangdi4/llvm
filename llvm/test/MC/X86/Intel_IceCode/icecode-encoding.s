@@ -197,9 +197,9 @@
 // CHECK: encoding: [0xf3,0x83,0xf0,0x06]
           nr_read $6, %eax
 
-// CHECK: sigeventjump $33, %ebx, %eax
+// CHECK: sigeventjump $33, %ebx
 // CHECK: encoding: [0xf3,0x81,0xd3,0x21,0x00,0x00,0x00]
-          sigeventjump $0x21, %ebx, %eax
+          sigeventjump $0x21, %ebx
 
 // CHECK: sserialize
 // CHECK: encoding: [0x0f,0x01,0xd4]

@@ -1,5 +1,5 @@
 // REQUIRES: intel_feature_icecode
-// RUN: %clang_cc1 %s -ffreestanding -triple=x86_icecode-unknown-unknown -emit-llvm -o - -Wall -Werror -pedantic | FileCheck %s
+// RUN: %clang_cc1 %s -ffreestanding -triple=x86_icecode-unknown-unknown -emit-llvm -o - -Wall -Werror -pedantic -Wno-gnu | FileCheck %s
 
 #include <immintrin.h>
 
@@ -116,7 +116,7 @@ void test_icecode() {
   _ce_nr_read(0);
   _ce_ucodecall(reg);
   _ce_cmodemov(data64, data64, 0);
-  _ce_sigeventjump(data32, data32, 0);
+  _ce_sigeventjump(data64, data32, 0);
   _ce_sserialize();
   _ce_nop_set_sb();
   _ce_nop_read_sb();

@@ -258,8 +258,9 @@ _ce_ucodecall(unsigned target) {
 #define _ce_cmodemov(_SRC1, _SRC2, _COND) \
   __builtin_ia32_icecode_cmodemov((_SRC1), (_SRC2), (_COND))
 
-#define _ce_sigeventjump(_SRC1, _SRC2, _IMM) \
-  __asm__ __volatile__ ("sigeventjump $" #_IMM ", %0, %1" :: "q"(_SRC1), "a"(_SRC2))
+#define _ce_sigeventjump(_RAX, _SRC1, _IMM) ({ \
+  long long rax = _RAX; \
+  __asm__ __volatile__ ("sigeventjump $" #_IMM ", %0" :: "q"(_SRC1), "a"(rax)); })
 
 #define _ce_sserialize() __asm__ __volatile__ ("sserialize")
 #define _ce_nop_set_sb() __asm__ __volatile__ ("nop_set_sb")
