@@ -1,3 +1,4 @@
+; REQUIRES: asserts
 ; RUN: opt -dtransanalysis -whole-program-assume -dtrans-print-types -dtrans-outofboundsok=false -disable-output < %s 2>&1 | FileCheck %s
 ; RUN: opt -passes="require<dtransanalysis>" -whole-program-assume -dtrans-print-types -dtrans-outofboundsok=false -disable-output < %s 2>&1 | FileCheck %s
 

@@ -1,9 +1,9 @@
+; REQUIRES: asserts
 ; Tests to check that the call graph was not seen to be too large for
 ; DTransAnalysis to run.
 
 ; RUN: opt < %s -whole-program-assume -dtransanalysis -debug-only=dtransanalysis -dtrans-maxcallsitecount=100 -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -passes='require<dtransanalysis>' -debug-only=dtransanalysis -dtrans-maxcallsitecount=100 -disable-output 2>&1 | FileCheck %s
-; REQUIRES: asserts
 
 ; CHECK-NOT: Call graph too large
 

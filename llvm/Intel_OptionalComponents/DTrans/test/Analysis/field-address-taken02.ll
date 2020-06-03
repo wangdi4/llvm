@@ -1,3 +1,4 @@
+; REQUIRES: asserts
 ; RUN: opt < %s -whole-program-assume  -dtransanalysis -dtrans-outofboundsok=false -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 ; Check that the OUTERSTRUCT is marked Field Address Taken, with the second
