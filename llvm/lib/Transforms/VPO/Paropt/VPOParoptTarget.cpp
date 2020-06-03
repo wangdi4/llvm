@@ -1068,26 +1068,22 @@ void VPOParoptTransform::genTgtInformationForPtrs(
     for (IsDevicePtrItem *IsDevicePtrI : IDevicePtrClause.items()) {
       if (IsDevicePtrI->getOrig() != V)
         continue;
-      Type *T = V->getType()->getPointerElementType();
-      ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C),
-                                            DL.getTypeAllocSize(T)));
+      Type *T = V->getType();
+      ConstSizes.push_back(
+          ConstantInt::get(Type::getInt64Ty(C), DL.getTypeAllocSize(T)));
       // Example:
       //   int *p;
       //   #pragma omp target is_device_ptr(p)
       //
-      // is_device_ptr clause will refer to (i32 **%p), where
-      // %p is defined as:
-      //   %p = alloca i32 *
+      // The IR will look like:
+      //   %p = load i32* i32** @p
+      //   ...IS_DEVICE_PTR(i32* %p) PRIVATE(i32** @p)
+      //   store i32* %p, i32** @p
       //
-      // We have to map 'p' as MAP_TO, so that device allocates
-      // a memory to hold the pointer value, and the pointer value
-      // is supposed to be a valid device pointer.
-      MapTypes.push_back(TGT_MAP_TARGET_PARAM | TGT_MAP_TO);
-      // TODO: we may get rid of the double pointer for is_device_ptr()
-      //       representation the same way as for firstprivate() clause.
-      //       See setIsPointer() call in VPOParoptTransform.cpp.
-      //       When we do this, we need to use the following mapping:
-      //         TGT_MAP_TARGET_PARAM | TGT_MAP_LITERAL
+      // We have to map 'p' as MAP_TYPE_LITERAL so that we pass the value
+      // of the pointer as is to the target construct without mapping/
+      // allocating memory.
+      MapTypes.push_back(TGT_MAP_TARGET_PARAM | TGT_MAP_LITERAL);
     }
   }
   if (isa<WRNTargetNode>(W) && W->getParLoopNdInfoAlloca() == V) {

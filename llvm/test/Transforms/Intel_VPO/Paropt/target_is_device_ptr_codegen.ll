@@ -17,11 +17,11 @@
 ; FPRIV(hh):    33= 0x21= TGT_MAP_TO | TGT_MAP_TARGET_PARAM
 ; FPRIV(n):     33= 0x21= TGT_MAP_TO | TGT_MAP_TARGET_PARAM
 ; MAPFROM(gg):  34= 0x22= TGT_MAP_FROM | TGT_MAP_TARGET_PARAM
-; IsDevPtr(a):  33= 0x21= TGT_MAP_TO | TGT_MAP_TARGET_PARAM
-; CHECK: @.offload_maptypes = private unnamed_addr constant [4 x i64] [i64 34, i64 33, i64 33, i64 33]
+; IsDevPtr(a):  288= 0x120= TGT_MAP_LITERAL | TGT_MAP_TARGET_PARAM
+; CHECK: @.offload_maptypes = private unnamed_addr constant [4 x i64] [i64 34, i64 33, i64 33, i64 288]
 ;
 ; Verify that the offload entry has the 4 matching arguments
-; CHECK: call void @__omp_offloading{{.*}}(double* %gg, i32* %n.addr, double* %hh, i32** %a)
+; CHECK: call void @__omp_offloading{{.*}}(double* %gg, i32* %n.addr, double* %hh, i32* %a)
 
 target triple = "x86_64-unknown-linux-gnu"
 target device_triples = "x86_64-mic"
@@ -37,10 +37,12 @@ entry:
   %n.addr = alloca i32, align 4
   %i = alloca i32, align 4
   store i32 %n, i32* %n.addr, align 4, !tbaa !2
+  %a = load i32*, i32** @a, align 8
   br label %DIR.OMP.TARGET.1
 
 DIR.OMP.TARGET.1:                                 ; preds = %entry
-  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.FIRSTPRIVATE"(i32* %n.addr), "QUAL.OMP.MAP.FROM"(double* @gg), "QUAL.OMP.IS_DEVICE_PTR"(i32** @a), "QUAL.OMP.FIRSTPRIVATE"(double* @hh), "QUAL.OMP.PRIVATE"(i32* %i), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0) ]
+  %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.TARGET"(), "QUAL.OMP.FIRSTPRIVATE"(i32* %n.addr), "QUAL.OMP.MAP.FROM"(double* @gg), "QUAL.OMP.IS_DEVICE_PTR"(i32* %a), "QUAL.OMP.FIRSTPRIVATE"(double* @hh), "QUAL.OMP.PRIVATE"(i32* %i), "QUAL.OMP.PRIVATE"(i32** @a), "QUAL.OMP.OFFLOAD.ENTRY.IDX"(i32 0) ]
+  store i32* %a, i32** @a, align 8
   %1 = bitcast i32* %i to i8*
   call void @llvm.lifetime.start.p0i8(i64 4, i8* %1) #1
   store i32 0, i32* %i, align 4, !tbaa !2
