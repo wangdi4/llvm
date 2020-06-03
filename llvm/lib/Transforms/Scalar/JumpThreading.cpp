@@ -1753,10 +1753,6 @@ FindMostPopularDest(BasicBlock *BB,
     if (PredToDest.second)
       DestPopularity[PredToDest.second]++;
 
-<<<<<<< HEAD
-  if (DestPopularity.empty())
-    return nullptr;
-
 #if INTEL_CUSTOMIZATION
   // Avoid picking a block in the thread region if there are any other
   // available choices, since thread-to-self is disallowed. At this point, we
@@ -1768,8 +1764,6 @@ FindMostPopularDest(BasicBlock *BB,
   }
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> f355c7fc2f8fb0db829313b8e43f974ed730cf6d
   // Find the most popular dest.
   using VT = decltype(DestPopularity)::value_type;
   auto MostPopular = std::max_element(
