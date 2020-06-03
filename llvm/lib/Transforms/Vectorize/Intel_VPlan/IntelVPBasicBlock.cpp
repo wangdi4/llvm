@@ -795,6 +795,18 @@ VPBasicBlock *VPBlockUtils::splitEdge(VPBasicBlock *From, VPBasicBlock *To,
   VPBlockUtils::replaceBlockPredecessor(To, From, NewBB);
   NewBB->appendPredecessor(From);
   NewBB->appendSuccessor(To);
+
+  for (VPPHINode &VPN : To->getVPPhis()) {
+    // Transform the VPBBUsers vector of the PHI node by replacing any
+    // occurrence of BB with NewBB
+    llvm::transform(VPN.blocks(), VPN.block_begin(),
+                    [From, NewBB](VPBasicBlock *A) -> VPBasicBlock * {
+                      if (A == From)
+                        return NewBB;
+                      return A;
+                    });
+  }
+
   // FIXME: VPLInfo update.
   if (VPLInfo) {
     auto *FromLoop = VPLInfo->getLoopFor(From);

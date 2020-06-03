@@ -888,10 +888,9 @@ void VPBranchInst::print(raw_ostream &O) const {
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-void VPBlendInst::addIncoming(VPValue *IncomingVal, VPValue *BlockPred) {
+void VPBlendInst::addIncoming(VPValue *IncomingVal, VPValue *BlockPred, VPlan *Plan) {
   addOperand(IncomingVal);
-  if (!BlockPred) {
-    VPlan *Plan = getParent()->getParent();
+  if (!BlockPred && Plan) {
     BlockPred =
         Plan->getVPConstant(ConstantInt::getTrue(*Plan->getLLVMContext()));
   }

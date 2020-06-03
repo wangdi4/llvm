@@ -679,6 +679,33 @@ void VPlanPredicator::transformPhisToBlends(VPBasicBlock *Block) {
           !(BBForMerge == Block && ForceFinalPhiToBlendTransform))
         continue;
 
+      // VPBlendInst requires its operands to be in sorted order.
+      sort(BBToBlend, [&](const VPBasicBlock *LHS, const VPBasicBlock *RHS) {
+        return !VPPostDomTree.dominates(LHS, RHS);
+      });
+
+      // Create the blends outside the actual CFG first. We need to do that to
+      // keep CFG intact as any modifictations might invalidate the information
+      // carried in the PHIs' incoming blocks.
+      MapVector<VPBlendInst *, VPPHINode *> BlendsMap;
+      for (VPPHINode *OrigPhi : Phis) {
+        auto *Blend = new VPBlendInst(OrigPhi->getType());
+        Blend->setName(OrigPhi->getName() + ".blend." + PredBB->getName());
+        // TODO: This is needed only because of HIR Mixed CG limitations.
+        Blend->copyUnderlyingFrom(*OrigPhi);
+
+        for (auto *IncomingBB : BBToBlend) {
+          Blend->addIncoming(OrigPhi->getIncomingValue(IncomingBB),
+                             IncomingBB->getPredicate(), &Plan);
+          OrigPhi->removeIncomingValue(IncomingBB);
+        }
+
+        VPPHINode *MergePhi = OrigPhiToMergeMap[OrigPhi];
+        BlendsMap[Blend] = MergePhi;
+      }
+
+      // Now determine actual insertion place for the blends created earlier and
+      // insert them.
       VPBuilder BlendBuilder;
       VPBasicBlock *BlendBB;
       if (BBForMerge == Block && ForceFinalPhiToBlendTransform) {
@@ -687,35 +714,18 @@ void VPlanPredicator::transformPhisToBlends(VPBasicBlock *Block) {
         // ForceFinalPhiToBlendTransform at the end of this routine.
         BlendBuilder.setInsertPointAfterBlends(Block);
       } else {
+        // This is the operation we wanted to delay as the split can rewrite
+        // dest block's phis.
         BlendBB = VPBlockUtils::splitEdge(
             PredBB, BBForMerge, VPlanUtils::createUniqueName("blend.bb"), VPLI,
             &VPDomTree, &VPPostDomTree);
         BlendBuilder.setInsertPoint(BlendBB);
       }
-
-      // VPBlendInst requires its operands to be in sorted order.
-      sort(BBToBlend, [&](const VPBasicBlock *LHS, const VPBasicBlock *RHS) {
-        return !VPPostDomTree.dominates(LHS, RHS);
-      });
-
-      for (VPPHINode *OrigPhi : Phis) {
-        auto *Blend = BlendBuilder.createBlendInstruction(
-            OrigPhi->getType(),
-            OrigPhi->getName() + ".blend." + PredBB->getName());
-        // TODO: This is needed only because of HIR Mixed CG limitations.
-        Blend->copyUnderlyingFrom(*OrigPhi);
-
-        for (auto *IncomingBB : BBToBlend) {
-          Blend->addIncoming(OrigPhi->getIncomingValue(IncomingBB),
-                             IncomingBB->getPredicate());
-          OrigPhi->removeIncomingValue(IncomingBB);
-        }
-
-        // MergePhi might be the same as OrigPhi, insert the incoming blend
-        // after removals are done.
-        VPPHINode *MergePhi = OrigPhiToMergeMap[OrigPhi];
-        MergePhi->addIncoming(Blend, BlendBB);
+      for (auto It : BlendsMap) {
+        BlendBuilder.insert(It.first);
+        It.second->addIncoming(It.first, BlendBB);
       }
+
     }
 
     // We've already removed the incoming values from original phis that are
