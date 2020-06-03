@@ -172,13 +172,6 @@ public:
     if (FtzDaz & 0b01)
       FtzDazMask |= 0x8000; // FTZ
 
-#if INTEL_FEATURE_ISA_FP16
-    if (FtzDaz & 0b10000)
-      FtzDazMask |= 0x40000; // DAZ-F16
-    if (FtzDaz & 0b01000)
-      FtzDazMask |= 0x80000; // FTZ-F16
-#endif // INTEL_FEATURE_ISA_FP16
-
     // %or = or i32 %stmxcsr, <FtzDazMask>
     ConstantInt *CInt = IRB.getInt32(FtzDazMask);
     Value *Or = IRB.CreateOr(LI, CInt, "ftz_daz");
@@ -262,22 +255,6 @@ public:
     return FtzDaz;
  }
 
-#if INTEL_FEATURE_ISA_FP16
-   uint32_t getFtzDazF16(Function &F) const {
-    Attribute Attr = F.getFnAttribute("denormal-fp-math-f16");
-    StringRef Val = Attr.getValueAsString();
-    if (Val.empty())
-      return 0;
-    DenormalMode Mode = parseDenormalFPAttribute(Val);
-    uint32_t FtzDaz = 0;
-    if (Mode.Input == DenormalMode::PreserveSign)
-      FtzDaz |= 0b10000; // DAZ-F16
-    if (Mode.Output == DenormalMode::PreserveSign)
-      FtzDaz |= 0b01000; // FTZ-F16
-    return FtzDaz;
- }
-#endif // INTEL_FEATURE_ISA_FP16
-
   bool insertProcInitCall(Function &F) {
     // To Be Done
     // Maybe better to follow icc's behavior, which is to call the base version
@@ -302,9 +279,6 @@ public:
     auto FirstNonAlloca = getFirstNonAllocaInTheEntryBlock(F);
     IRBuilder<> IRB(FirstNonAlloca);
     uint32_t FtzDaz = getFtzDaz(F);
-#if INTEL_FEATURE_ISA_FP16
-    FtzDaz = FtzDaz | getFtzDazF16(F);
-#endif // INTEL_FEATURE_ISA_FP16
     Value *Args[] = {
         ConstantInt::get(IRB.getInt32Ty(), FtzDaz),
         ConstantInt::get(IRB.getInt64Ty(), CpuBitMap[0]),
@@ -353,9 +327,6 @@ public:
     bool ProcInit = insertProcInitCall(F);
     bool FTZ = false;
     uint32_t FtzDaz = getFtzDaz(F);
-#if INTEL_FEATURE_ISA_FP16
-    FtzDaz = FtzDaz | getFtzDazF16(F);
-#endif // INTEL_FEATURE_ISA_FP16
 
     // If FTZ + DAZ are set by libirc call __intel_new_feature_proc_init
     // in insertProcInitCall, we should not set them again.

@@ -413,12 +413,6 @@ def cfguard : Flag<["-"], "cfguard">,
 def fdenormal_fp_math_f32_EQ : Joined<["-"], "fdenormal-fp-math-f32=">,
    Group<f_Group>;
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
-def fdenormal_fp_math_f16_EQ : Joined<["-"], "fdenormal-fp-math-f16=">,
-  Group<f_Group>;
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 // Dependency Output Options
 //===----------------------------------------------------------------------===//

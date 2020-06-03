@@ -179,13 +179,6 @@ public:
   /// The floating-point denormal mode to use, for float.
   llvm::DenormalMode FP32DenormalMode = llvm::DenormalMode::getIEEE();
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
-  /// The floating-point denormal mode to use, for _Float16.
-  llvm::DenormalMode FP16DenormalMode = llvm::DenormalMode::getIEEE();
-#endif // INTEL_FEATURE_ISA_FP16
-#endif // INTEL_CUSTOMIZATION
-
   /// The float precision limit to use, if non-empty.
   std::string LimitFloatPrecision;
 

@@ -1338,15 +1338,6 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
     Val.getAsInteger(10, X87Precision);
   }
   Opts.X87Precision = X87Precision;
-
-#if INTEL_FEATURE_ISA_FP16
-  if (Arg *A = Args.getLastArg(OPT_fdenormal_fp_math_f16_EQ)){
-    StringRef Val = A->getValue();
-    Opts.FP16DenormalMode = llvm::parseDenormalFPAttribute(Val);
-    if (!Opts.FP16DenormalMode.isValid())
-      Diags.Report(diag::err_drv_invalid_value) << A->getAsString(Args) << Val;
-  }
-#endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 
   if (Arg *A = Args.getLastArg(OPT_fdenormal_fp_math_EQ)) {
