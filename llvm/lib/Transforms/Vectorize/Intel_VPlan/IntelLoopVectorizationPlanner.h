@@ -98,9 +98,10 @@ public:
 #endif
   static void EnterExplicitData(WRNVecLoopNode *WRLp, VPOVectorizationLegality &Legal);
 
-  /// Post VPlan FrontEnd legality pass to verify validity of initial VPlan that
-  /// was contructed.
-  bool isVPlanLegalToProcess(const VPlan &Plan);
+  /// Post VPlan FrontEnd pass to verify that we can process the VPlan that
+  /// was constructed. There are some limitations in CG, CM, and other parts of
+  /// VPlan vectorizer on which we better gracefully bail out than assert.
+  bool canProcessVPlan(const VPlan &Plan);
 
   /// Select the best plan and dispose all other VPlans.
   /// \Returns the selected vectorization factor.

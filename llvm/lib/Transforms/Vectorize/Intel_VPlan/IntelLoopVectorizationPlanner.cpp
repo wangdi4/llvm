@@ -234,7 +234,7 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
         buildInitialVPlan(StartRangeVF, EndRangeVF, Context, DL);
 
     // Check legality of VPlan before proceeding with other transforms/analyses.
-    if (!isVPlanLegalToProcess(*Plan.get())) {
+    if (!canProcessVPlan(*Plan.get())) {
       LLVM_DEBUG(
           dbgs() << "LVP: VPlan is not legal to process, bailing out.\n");
       return 0;
@@ -667,7 +667,28 @@ void LoopVectorizationPlanner::EnterExplicitData(
   }
 }
 
-bool LoopVectorizationPlanner::isVPlanLegalToProcess(const VPlan &Plan) {
+bool LoopVectorizationPlanner::canProcessVPlan(const VPlan &Plan) {
+  VPLoop *VPLp = *(Plan.getVPLoopInfo()->begin());
+  VPBasicBlock *Header = VPLp->getHeader();
+  const VPLoopEntityList *LE = Plan.getLoopEntities(VPLp);
+  // Check whether all header phis are recognized as entities.
+  for (auto &Phi : Header->getVPPhis())
+    if (!LE->getInduction(&Phi) && !LE->getReduction(&Phi) &&
+        !LE->getPrivate(&Phi)) {
+      // Non-entity phi. Check whether it is explicit vector loop induction.
+      if (llvm::any_of(Phi.operands(), [](const VPValue *V) {
+            if (auto *I = dyn_cast<VPInstruction>(V))
+              return I->getOpcode() == Instruction::Add &&
+                     llvm::any_of(I->operands(), [](const VPValue *V) {
+                       return isa<VPInductionInitStep>(V);
+                     });
+            return false;
+          }))
+        continue;
+      LLVM_DEBUG(dbgs() << "LVP: Unrecognized phi found.\n" << Phi);
+      return false;
+    }
+
   for (const VPBasicBlock &VPBB : Plan) {
     for (const VPInstruction &VPInst : VPBB) {
       // 1. Is instruction type supported/handled by VPlan?

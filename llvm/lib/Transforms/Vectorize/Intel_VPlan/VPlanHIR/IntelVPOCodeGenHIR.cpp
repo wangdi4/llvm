@@ -761,40 +761,6 @@ bool VPOCodeGenHIR::loopIsHandled(HLLoop *Loop, unsigned int VF) {
   if (isSearchLoop())
     setForceMixedCG(true);
 
-  // Check that each loop header-phi is either an induction or a reduction.
-  // Bail out of vectorizing the loop if this is not the case.
-  std::function<bool(const VPlan *Plan)> hasValidHeaderPhis =
-      [&](const VPlan *Plan) {
-        if (isSearchLoop())
-          return true;
-
-        assert(Plan->getVPLoopInfo()->size() == 1 && "Expected one loop");
-        VPLoop *VLoop = *(Plan->getVPLoopInfo()->begin());
-
-        for (const VPBasicBlock &VPBB : *Plan)
-          if (&VPBB == VLoop->getHeader())
-            for (const VPPHINode &Phi : VPBB.getVPPhis()) {
-              bool Valid = false;
-              for (const VPValue *Operand : Phi.operands())
-                if (isa<VPInductionInit>(Operand) ||
-                    isa<VPReductionInit>(Operand)) {
-                  Valid = true;
-                  break;
-                }
-              if (!Valid) {
-                LLVM_DEBUG(dbgs()
-                           << "VPLAN_OPTREPORT: Loop not handled - header phi "
-                              "neither an induction or reduction\n");
-                return false;
-              }
-            }
-
-        return true;
-      };
-
-  if (!hasValidHeaderPhis(Plan))
-    return false;
-
   // Only handle normalized loops
   if (!Loop->isNormalized()) {
     LLVM_DEBUG(

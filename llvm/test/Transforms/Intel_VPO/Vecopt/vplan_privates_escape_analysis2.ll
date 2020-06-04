@@ -1,7 +1,8 @@
 ; This test verifies that private-variables escaping out through a write
 ; to an output argument are unsafe for data-layout transformation.
-
-; RUN: opt -VPlanDriver -vplan-enable-soa -vplan-dump-soa-info -disable-vplan-codegen %s 2>&1 | FileCheck %s
+; cmplrllvm-20281, due to aliases unsafety ouside of the loop
+; XFAIL: *
+; RUN: opt -disable-output -VPlanDriver -vplan-enable-soa -vplan-dump-soa-info -disable-vplan-codegen %s 2>&1 | FileCheck %s
 ; TODO: Enbale the test for HIR codegen path CMPLRLLVM-10967.
 
 ; REQUIRES:asserts

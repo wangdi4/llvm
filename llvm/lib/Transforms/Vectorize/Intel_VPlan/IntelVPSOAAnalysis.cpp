@@ -414,6 +414,7 @@ void VPSOAAnalysis::dump(raw_ostream &OS) const {
 
   VPBasicBlock *Preheader = Loop.getLoopPreheader();
   // TODO: Dump profitability information along with safety information.
+  OS << "SOA profitability:\n";
   for (VPInstruction &VPInst : *Preheader) {
     if (VPAllocatePrivate *VPAllocaPriv =
             dyn_cast<VPAllocatePrivate>(&VPInst)) {
