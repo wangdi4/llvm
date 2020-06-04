@@ -801,7 +801,9 @@ int CPUDeviceTest_Main()
 	EXPECT_TRUE(CL_DEV_SUCCEEDED(iRes));
 
 	int rc = RUN_ALL_TESTS();
-	dev_entry->clDevCloseDevice();
+        // This is disabled due to shutdown issue and will be fixed by
+        // CMPLRLLVM-20324.
+	//dev_entry->clDevCloseDevice();
     return rc;
 }
 #ifndef _WIN32

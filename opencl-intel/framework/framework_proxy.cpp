@@ -730,6 +730,8 @@ void FrameworkProxy::DeactivateTaskExecutor() const
 
         if (0 == m_uiTEActivationCount)
         {
+// This is disabled due to shutdown issue and will be fixed by CMPLRLLVM-20324
+#if 0
             // this is the normal deletion - undo the counting here to delete the object
             long ref = m_pTaskList->DecRefCnt();
             if ( 0 == ref )
@@ -744,6 +746,7 @@ void FrameworkProxy::DeactivateTaskExecutor() const
                 m_pTaskList_immediate->Cleanup();
             }
             m_pTaskList_immediate = nullptr;
+#endif
         }
     }
 }

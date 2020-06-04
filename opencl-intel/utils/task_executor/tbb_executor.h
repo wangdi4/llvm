@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2020 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -15,7 +15,6 @@
 #pragma once
 
 #include "task_executor.h"
-#include <tbb/tbb.h>
 
 #include "cl_synch_objects.h"
 #include "cl_dynamic_lib.h"
@@ -24,6 +23,8 @@
 #include "base_command_list.h"
 #include "tbb_thread_manager.h"
 #include "arena_handler.h"
+
+#include <tbb/global_control.h>
 
 #ifdef DEVICE_NATIVE
     // no logger on discrete device
@@ -87,14 +88,13 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
         // Load TBB library explicitly
         bool LoadTBBLibrary();
 
+        // TBB global_control variables. Impact of a variable ends with its
+        // lifetime.
+        std::unique_ptr<tbb::global_control> m_tbbMaxParallelism;
+        std::unique_ptr<tbb::global_control> m_tbbStackSize;
+
         ThreadManager                          m_threadManager;
         Intel::OpenCL::Utils::OclDynamicLib    m_dllTBBLib;
-
-        /* We need this because of a bug Anton has reported: we should initialize the task_scheduler_init to P+1 threads, instead of P. Apparently, if we explicitly create a task_scheduler_init
-           in a certain master thread, TBB creates a global task_scheduler_init object that future created task_arenas will use. Once they fix this bug, we can remove this attribute.
-           They seem to have another bug in ~task_scheduler_init(), so we work around it by allocating and not deleting it. */
-        tbb::task_scheduler_init*           m_pScheduler;
-
         SharedPtr<ITaskList>                m_pDebugInOrderDeviceQueue;
 
         // Logger
@@ -110,7 +110,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
     public:
         in_order_executor_task(const SharedPtr<base_command_list>& list) : m_list(list){}
 
-        void operator()();
+        void operator()() const;
 
     protected:
         SharedPtr<base_command_list> m_list;
@@ -126,10 +126,10 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
             assert(m_list != 0);
         }
 
-        void operator()();
+        void operator()() const;
 
     private:
-        SharedPtr<ITaskBase> GetTask();
+        SharedPtr<ITaskBase> GetTask() const;
         SharedPtr<out_of_order_command_list> m_list;
     };
 
@@ -139,7 +139,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
         immediate_executor_task(immediate_command_list* list, const SharedPtr<ITaskBase>& pTask ) : 
             m_list(list), m_pTask( pTask ) {}
 
-        void operator()();
+        void operator()() const;
 
     protected:
         immediate_command_list*     m_list;

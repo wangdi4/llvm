@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2020 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -13,10 +13,10 @@
 // License.
 
 #include "arena_handler.h"
-#include "tbb_executor.h"
+#include "base_command_list.hpp"
 #include "cl_shared_ptr.hpp"
 #include "task_group.hpp"
-#include "base_command_list.hpp"
+#include "tbb_executor.h"
 
 using namespace Intel::OpenCL::TaskExecutor;
 
@@ -26,7 +26,7 @@ TbbTaskGroup::~TbbTaskGroup()
     try {
         m_tskGrp.reset();
     } catch (...) {
-        assert(0 && "tbb::task_group dtor throws");
+        assert(0 && "task_group_with_reference dtor throws");
     }
 }
 
@@ -41,7 +41,7 @@ IThreadLibTaskGroup::TaskGroupStatus TbbTaskGroup::Wait()
     case tbb::canceled:
         return IThreadLibTaskGroup::CANCELED;
     default:
-        assert(false && "invalid return code from tbb::task_group::wait");
+        assert(false && "invalid return code from task_group_with_reference::wait");
         return (IThreadLibTaskGroup::TaskGroupStatus)-1;
     }
 }
@@ -88,9 +88,9 @@ te_wait_result base_command_list::WaitForCompletion(const SharedPtr<ITaskBase>& 
         }
     }
 
-    bool bVal = m_bMasterRunning.compare_and_swap(true, false);
-    if (bVal)
-    {
+    bool expected = false;
+    (void)m_bMasterRunning.compare_exchange_strong(expected, true);
+    if (expected) {
       // When another master is running we can't block this thread
       return TE_WAIT_MASTER_THREAD_BLOCKING;
     }
@@ -160,7 +160,7 @@ unsigned int in_order_command_list::LaunchExecutorTask(bool blocking, const Inte
     }
     else
     {
-        m_device->Execute<in_order_executor_task>(functor);
+        m_taskGroup->ExecuteFunc(functor);
         return 0;
     }
 }
@@ -177,39 +177,40 @@ unsigned int out_of_order_command_list::LaunchExecutorTask(bool blocking, const 
     }
     else
     {
-        m_device->Execute<out_of_order_executor_task>(functor);
+        m_taskGroup->ExecuteFunc(functor);
         return 0;
     }
 }
 
 out_of_order_command_list::~out_of_order_command_list()
 {
-    /* Although in ~base_command_list we also wait for idle, we need to first wait here, otherwise m_oooTaskGroup might be destroyed before we make sure all tasks are completed in
-       ~base_command_list */
-	  WaitForIdle();
- }
+    /* Although in ~base_command_list we also wait for idle, we need to first
+       wait here, otherwise m_oooTaskGroup might be destroyed before we make
+       sure all tasks are completed in ~base_command_list */
+    WaitForIdle();
+}
 
 class TaskGroupWaiter
 {
 public:
-    TaskGroupWaiter(const SharedPtr<SpawningTaskGroup>& tbbTskGrp, TaskGroup& tskGrp, const TEDevice& dev) : m_spawnTskGrp(tbbTskGrp), m_tskGrp(tskGrp), m_dev(dev) { }
+    TaskGroupWaiter(const SharedPtr<SpawningTaskGroup> &oooTskGrp, TaskGroup *taskGrp)
+        : m_oooTskGrp(oooTskGrp), m_taskGrp(taskGrp) {}
 
-    void operator()()
+    void operator()() const
     {
-        m_spawnTskGrp->WaitForAll();
-        m_tskGrp.WaitForAll();
+        m_oooTskGrp->WaitForAll();
+        m_taskGrp->WaitForAll();
     }
 
 private:
-    SharedPtr<SpawningTaskGroup> m_spawnTskGrp;
-    TaskGroup& m_tskGrp;
-    const TEDevice& m_dev;
+    SharedPtr<SpawningTaskGroup> m_oooTskGrp;
+    TaskGroup *m_taskGrp;
 };
 
 void out_of_order_command_list::WaitForIdle()
 {
     // we wait here for 2 things separately: commands and execution tasks
-    TaskGroupWaiter waiter(m_oooTaskGroup, *m_taskGroup, *m_device);
+    TaskGroupWaiter waiter(m_oooTaskGroup, m_taskGroup.GetPtr());
     m_device->Execute(waiter);
 }
 

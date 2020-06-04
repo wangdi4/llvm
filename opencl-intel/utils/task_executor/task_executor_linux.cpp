@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2020 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -27,7 +27,6 @@
 #define PTR_CAST	ThreadTaskExecutor
 #endif
 
-#include "cl_shared_ptr.h"
 #include "cl_shared_ptr.hpp"
 #include <stdio.h>
 #include <pthread.h>

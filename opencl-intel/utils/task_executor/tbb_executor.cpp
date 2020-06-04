@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2020 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -24,14 +24,10 @@
 #include <cl_sys_info.h>
 #include <cl_shutdown.h>
 #include <tbb/blocked_range.h>
-#include <tbb/atomic.h>
-#include <tbb/tbb.h>
 #include <tbb/scalable_allocator.h>
 #include <tbb/concurrent_queue.h>
 #include <tbb/task.h>
 #include <tbb/enumerable_thread_specific.h>
-#define TBB_PREVIEW_GLOBAL_CONTROL 1
-#include <tbb/global_control.h>
 #include "cl_shared_ptr.hpp"
 #include "task_group.hpp"
 #include "tbb_execution_schedulers.h"
@@ -102,7 +98,7 @@ bool execute_command(const SharedPtr<ITaskBase>& pCmd, base_command_list& cmdLis
     return (cancel || runNextCommand);
 }
 
-void in_order_executor_task::operator()()
+void in_order_executor_task::operator()() const
 {
     assert(m_list);
     ConcurrentTaskQueue* work = m_list->GetExecutingContainer();
@@ -132,7 +128,7 @@ void in_order_executor_task::operator()()
 
         if ( mustExit )
         {
-            if (m_list->m_execTaskRequests.fetch_and_store(0) > 1)
+            if (m_list->m_execTaskRequests.exchange(0) > 1)
             {
                 m_list->InternalFlush(false);
             }
@@ -145,7 +141,7 @@ void in_order_executor_task::operator()()
     }
 }
 
-void out_of_order_executor_task::operator()()
+void out_of_order_executor_task::operator()() const
 {
     while (true)
     {
@@ -173,20 +169,20 @@ void out_of_order_executor_task::operator()()
             // synchronization point
             m_list->WaitForAllCommands();
             static_cast<SyncTask*>(pTask.GetPtr())->Execute();
-            if (m_list->m_execTaskRequests.fetch_and_store(0) > 1)
+            if (m_list->m_execTaskRequests.exchange(0) > 1)
             {
                 m_list->InternalFlush(false);
             }
             break;
         }
         if (1 == m_list->m_execTaskRequests--)
-        {                
+        {
             break;
         }
     }
 }
 
-SharedPtr<ITaskBase> out_of_order_executor_task::GetTask()
+SharedPtr<ITaskBase> out_of_order_executor_task::GetTask() const
 {
     SharedPtr<ITaskBase> pTask;
     if (m_list->GetExecutingContainer()->TryPop(pTask))
@@ -199,7 +195,7 @@ SharedPtr<ITaskBase> out_of_order_executor_task::GetTask()
     }        
 }
 
-void immediate_executor_task::operator()()
+void immediate_executor_task::operator()() const
 {    
     assert(m_list);
     assert(m_pTask);
@@ -208,8 +204,7 @@ void immediate_executor_task::operator()()
 }
 
 /////////////// TaskExecutor //////////////////////
-TBBTaskExecutor::TBBTaskExecutor() :
-    m_pScheduler(NULL)
+TBBTaskExecutor::TBBTaskExecutor()
 {
     // we deliberately don't delete m_pScheduler (see comment above its definition)
 }
@@ -249,10 +244,12 @@ int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger,
 
     // Minimal TBB version that we support(7001 is TBB 4.2).
     const int MINIMAL_TBB_INTERFACE_VERSION = 7001;
-    if(MINIMAL_TBB_INTERFACE_VERSION > tbb::TBB_runtime_interface_version())
+    if(MINIMAL_TBB_INTERFACE_VERSION > TBB_runtime_interface_version())
     {
         std::stringstream stream;
-        stream << "TBB version doesn't match. Required " << __TBB_STRING(MINIMAL_TBB_INTERFACE_VERSION) << ", loaded " << tbb::TBB_runtime_interface_version() << "." << std::ends;
+        stream << "TBB version doesn't match. Required "
+               << __TBB_STRING(MINIMAL_TBB_INTERFACE_VERSION) << ", loaded "
+               << TBB_runtime_interface_version() << "." << std::ends;
         LOG_ERROR(TEXT(stream.str().c_str()), "");
         if (NULL != pUserLogger && pUserLogger->IsErrorLoggingEnabled())
         {
@@ -319,36 +316,32 @@ int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger,
         gWorker_threads = std::max(hardwareThreads, minThreads);
     }
 
-    if (ulAdditionalRequiredStackSize == 0)
-    {
-        m_pScheduler = new tbb::task_scheduler_init(tbb::task_scheduler_init::deferred);
-    }
-    else
-    {
+    m_tbbMaxParallelism = std::make_unique<tbb::global_control>(
+        tbb::global_control::max_allowed_parallelism, gWorker_threads);
+    assert(tbb::global_control::active_value(
+               tbb::global_control::max_allowed_parallelism) ==
+               gWorker_threads &&
+           "Failed to set tbb global_control max_allowed_parallelism");
+    if (ulAdditionalRequiredStackSize != 0) {
         // We force stack size of TBB created threads to match required value
-        const size_t TBBDefaultStackSize = (sizeof(uintptr_t) <= 4 ? 2 : 4 ) * 1024 * 1024; // 2 or 4 MBytes
+        const size_t TBBDefaultStackSize =
+            (sizeof(uintptr_t) <= 4 ? 2 : 4) * 1024 * 1024; // 2 or 4 MBytes
         size_t stackSize = TBBDefaultStackSize + ulAdditionalRequiredStackSize;
-        // align stack size to 4 bytes according to assert in tbb:task_scheduler_init constructor
-        if ((stackSize & 3u) != 0)
-        {
-            // check that we can align ulAdditionalRequiredStackSize without overflowing of size_t
-            assert((((size_t)-1) - 4u >= (stackSize & (~3u))) &&
-                   "ulAdditionalRequiedStackSize is too big");
-            // if last 2 bits are non-zero
-            // clear it and add 4 bytes to cover the loss
-            stackSize = (stackSize & (~3u)) + 4u;
+        // align stack size to 4 bytes
+        if ((stackSize & 3u) != 0) {
+          // check that we can align ulAdditionalRequiredStackSize without
+          // overflowing of size_t
+          assert((((size_t)-1) - 4u >= (stackSize & (~3u))) &&
+                 "ulAdditionalRequiedStackSize is too big");
+          // if last 2 bits are non-zero
+          // clear it and add 4 bytes to cover the loss
+          stackSize = (stackSize & (~3u)) + 4u;
         }
-
-        m_pScheduler = new tbb::task_scheduler_init(gWorker_threads, stackSize);
-    }
-    if (NULL == m_pScheduler)
-    {
-        LOG_ERROR(TEXT("%s"), "Failed to allocate task_scheduler_init");
-        return 0;
-    }
-    if (ulAdditionalRequiredStackSize == 0)
-    {
-        m_pScheduler->initialize(gWorker_threads);
+        m_tbbStackSize = std::make_unique<tbb::global_control>(
+            tbb::global_control::thread_stack_size, stackSize);
+        assert(tbb::global_control::active_value(
+                   tbb::global_control::thread_stack_size) == stackSize &&
+               "Failed to set tbb global_control thread_stack_size");
     }
 
     m_threadManager.Init(gWorker_threads + SPARE_STATIC_DATA);
@@ -363,13 +356,7 @@ int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger,
 
 void TBBTaskExecutor::Finalize()
 {
-    if (NULL != m_pScheduler)
-    {
-        delete m_pScheduler;
-        m_pScheduler = NULL;
-    }
-
-    gWorker_threads = 0;    
+    gWorker_threads = 0;
     LOG_INFO(TEXT("%s"),"TBBTaskExecutor Destroyed");
     RELEASE_LOGGER_CLIENT;
 }

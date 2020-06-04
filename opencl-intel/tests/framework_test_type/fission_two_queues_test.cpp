@@ -165,10 +165,10 @@ bool fission_two_queues_test()
 
 	err      = clReleaseCommandQueue(cmd_queue[1]);
 	bResult &= SilentCheck("clReleaseCommandQueue [1]",CL_SUCCESS,err);
+        err      = clReleaseKernel(kernel);
+        bResult &= SilentCheck("clReleaseKernel",CL_SUCCESS,err);
 	err      = clReleaseProgram(program);
 	bResult &= SilentCheck("clReleaseProgram",CL_SUCCESS,err);
-	err      = clReleaseKernel(kernel);
-	bResult &= SilentCheck("clReleaseKernel",CL_SUCCESS,err);
 	err      = clReleaseMemObject(buf);
 	bResult &= SilentCheck("clReleaseMemObject",CL_SUCCESS,err);
 	err      = clReleaseContext(context);

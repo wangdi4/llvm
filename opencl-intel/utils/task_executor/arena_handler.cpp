@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2020 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -41,8 +41,8 @@ ArenaHandler::ArenaHandler() :
 ArenaHandler::~ArenaHandler()
 {
     RELEASE_LOGGER_CLIENT;
-    Terminate();
     StopMonitoring();
+    Terminate();
 }
 
 void ArenaHandler::Init(
@@ -84,7 +84,7 @@ unsigned int ArenaHandler::AllocateThreadPosition()
         // ALERT!!! DK!!!
         // TBB now always allocate slot for master. TaskExecutor now never allows master to join, but number of slots 
         // may be more that size of device
-        unsigned int position = tbb::task_arena::current_thread_index();
+        unsigned int position = tbb::this_task_arena::current_thread_index();
         if (position >= m_uiMaxNumThreads)
         {
             // wrap around
@@ -621,7 +621,7 @@ protected:
 public:
     TrapperRunner(tbb::Harness::TbbWorkersTrapper& trapper) : my_trapper(trapper) {};
 
-    void operator()(void)
+    void operator()(void) const
     {
         my_trapper();
     }
@@ -639,7 +639,9 @@ bool TEDevice::AcquireWorkerThreads(int num_workers, int timeout)
       num_workers = m_numOfActiveThreads;
     }
 
-    tbb::Harness::TbbWorkersTrapper* new_trapper = new tbb::Harness::TbbWorkersTrapper(num_workers, true);
+    tbb::Harness::TbbWorkersTrapper *new_trapper =
+        new tbb::Harness::TbbWorkersTrapper(num_workers, true,
+                                            &m_mainArena.getArena());
     tbb::Harness::TbbWorkersTrapper* old_trapper = m_worker_trapper.test_and_set(nullptr, new_trapper);
     assert( nullptr == old_trapper && "Another trapper already exists");
     if ( nullptr != old_trapper )

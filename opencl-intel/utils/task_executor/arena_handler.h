@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2020 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,18 +14,17 @@
 
 #pragma once
 
-#include <cassert>
-#include <vector>
-#include <set>
-#include <tbb/task_scheduler_observer.h>
-#include <tbb/task_arena.h>
-#include <tbb/task.h>
-#include <harness_trapper.h>
+#include "cl_device_api.h"
+#include "cl_synch_objects.h"
+#include "cl_shutdown.h"
+#include "harness_trapper.h"
+#include "task_executor.h"
 
-#include <cl_device_api.h>
-#include <cl_synch_objects.h>
-#include <cl_shutdown.h>
-#include <task_executor.h>
+#include <tbb/task_arena.h>
+#include <tbb/task_group.h>
+#include <tbb/task_scheduler_observer.h>
+
+#include <vector>
 
 #ifdef DEVICE_NATIVE
     // no logger on discrete device
@@ -45,10 +44,6 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 class TBBTaskExecutor;
 class ArenaHandler;
 class TEDevice;
-class in_order_executor_task;
-class out_of_order_command_list;
-class base_command_list;
-template<typename T> class command_list;
 
 using Intel::OpenCL::Utils::IsShutdownMode;
 
@@ -114,12 +109,14 @@ public:
     unsigned int GetArenaLevel() const { return m_uiLevel; }
     const unsigned int* GetArenaPosition() const { return m_uiPosition; }
 
+    tbb::task_arena& getArena() { return m_arena; }
+
     unsigned int AllocateThreadPosition();
     void         FreeThreadPosition( unsigned int pos );
 
     // overriden task_scheduler_observer methods
-    virtual void on_scheduler_entry(bool bIsWorker);
-    virtual void on_scheduler_exit(bool bIsWorker);
+    virtual void on_scheduler_entry(bool bIsWorker) override;
+    virtual void on_scheduler_exit(bool bIsWorker) override;
     virtual bool on_scheduler_leaving();
 
 private:
@@ -135,7 +132,7 @@ private:
     /**
      * The explicit arena of this device
      */
-    tbb::task_arena     m_arena; 
+    tbb::task_arena     m_arena;
     TEDevice*           m_device;
 
     unsigned int        m_uiMaxNumThreads;
@@ -311,6 +308,8 @@ private:
     ArenaHandler                                m_mainArena;
     ArenaHandler*                               m_lowLevelArenas[TE_MAX_LEVELS_COUNT-1]; // arrray or arrys of all levels except of 0
 
+    task_group_with_reference                   m_trappingTaskGroup;
+
     Intel::OpenCL::Utils::AtomicCounter         m_numOfActiveThreads; 
     unsigned int                                m_maxNumOfActiveThreads;
 
@@ -388,28 +387,18 @@ bool ArenaHandler::on_scheduler_leaving()
     return (IsShutdownMode()) ? true : m_device->on_scheduler_leaving( *this ); 
 }
 
-template<class F > class trapping_delegate_task : public tbb::task
-{
-     F my_functor;
-public:
-     trapping_delegate_task(const F& f) : my_functor(f) {};
-
-     tbb::task* execute()
-       {
-           my_functor();
-           return nullptr;
-       }
-};
-
 template<class F > class TrappingEnqueueFunctor
 {
+    task_group_with_reference *m_group;
     F my_functor;
 public:
-    TrappingEnqueueFunctor(const F& f) : my_functor(f) {}
 
-    void operator()(void)
+    TrappingEnqueueFunctor(task_group_with_reference *group, const F& f)
+        : m_group(group), my_functor(f) {}
+
+    void operator()(void) const
     {
-        tbb::task::spawn( *new( tbb::task::allocate_root() ) trapping_delegate_task<F>(my_functor) );
+        m_group->run_and_wait(my_functor);
     }
 };
 template <class F>
@@ -420,15 +409,13 @@ void TEDevice::Enqueue(F& f)
 
     // If trapping exists for device, we need to some w/o to submit a task
 #ifdef __HARD_TRAPPING__
-    tbb::Harness::TbbWorkersTrapper* trapper = m_worker_trapper;
-    if ( nullptr != trapper )
+    if (m_worker_trapper)
     {
-        TrappingEnqueueFunctor<F> trapFunctor(f);
+        TrappingEnqueueFunctor<F> trapFunctor(&m_trappingTaskGroup, f);
         m_mainArena.Execute(trapFunctor);
         return;
     }
 #endif
-
     m_mainArena.Enqueue( f );
 
 }

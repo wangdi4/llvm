@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2020 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -12,38 +12,31 @@
 // or implied warranties, other than those that are expressly stated in the
 // License.
 
-#ifdef _WIN32
-#include <Windows.h>
-#else
-#include <sched.h>
-#endif
 #include "task_group.hpp"
 #include "arena_handler.h"
+#include "cl_shared_ptr.hpp"
 #include "tbb_executor.h"
-#include "cl_user_logger.h"
 
 using namespace Intel::OpenCL::TaskExecutor;
-using Intel::OpenCL::Utils::ApiLogger;
 
 // TaskGroup methods:
 
-void TaskGroup::WaitForAll()
-{
-    if (m_pRootTask->ref_count() > 1)
-    {
-        ArenaFunctorWaiter waiter(m_pRootTask);
-        m_device->Execute(waiter);
-        // at this point ref_count() might return again a value greater than 1, since another task might have already been enqueued after waiter was executed
-    }
+void TaskGroup::WaitForAll() {
+  if (ref_count() > 0) {
+    ArenaFunctorWaiter waiter(this);
+    m_device->Execute(waiter);
+    // at this point ref_count() might return again a value greater than 1,
+    // since another task might have already been enqueued after waiter was
+    // executed
+  }
 }
 
 // SpawningTaskGroup methods
 
-void SpawningTaskGroup::WaitForAll()
-{
-    if (!m_device->IsCurrentThreadInArena() || m_device->GetTaskExecutor().IsMaster())
-    {
-        ArenaFunctorWaiter func(m_pRootTask);
-        m_device->Execute(func);    
-    }
+void SpawningTaskGroup::WaitForAll() {
+  if (!m_device->IsCurrentThreadInArena() ||
+      m_device->GetTaskExecutor().IsMaster()) {
+    ArenaFunctorWaiter waiter(this);
+    m_device->Execute(waiter);
+  }
 }

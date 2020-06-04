@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2020 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -13,11 +13,6 @@
 // License.
 
 #pragma once
-
-// Uneven/OpenCL partitioner
-#include <uneven/blocked_range.h>
-#include <uneven/blocked_range2d.h>
-#include <uneven/blocked_range3d.h>
 
 #include <tbb/tbb.h>
 #include <tbb/task.h>
@@ -509,82 +504,5 @@ public:
         tbb::blocked_range3d<size_t> ( o, tbb::split() ) {};
 };
 
-
-//
-//  Just wrapper above uneven TBB blocked range
-//
-
-class BlockedRangeByUnevenTBB1d : public tbb::uneven::blocked_range<size_t>
-{
-public:
-    BlockedRangeByUnevenTBB1d() : tbb::uneven::blocked_range<size_t> () {};
-    
-    BlockedRangeByUnevenTBB1d( size_t left, 
-                                size_t right, 
-                                size_t grain = 1 ) : 
-        tbb::uneven::blocked_range<size_t> ( left, right, grain ) {};
-
-    BlockedRangeByUnevenTBB1d( const BlockedRangeByUnevenTBB1d& o ) : 
-        tbb::uneven::blocked_range<size_t> ( o ) {};
-
-    BlockedRangeByUnevenTBB1d(const size_t dims[], size_t grainsize) :
-        tbb::uneven::blocked_range<size_t> ( 0, dims[0], grainsize ) {};
-
-    // make me the right side of the range, update other to be the left side of the range
-    BlockedRangeByUnevenTBB1d( BlockedRangeByUnevenTBB1d& o, const tbb::uneven::split& s) : 
-        tbb::uneven::blocked_range<size_t> ( o, s ) {};
-};
-
-class BlockedRangeByUnevenTBB2d : public tbb::uneven::blocked_range2d<size_t> 
-{
-public:
-    BlockedRangeByUnevenTBB2d() : tbb::uneven::blocked_range2d<size_t> (0,0,0,0) {};
-    
-    BlockedRangeByUnevenTBB2d( size_t min_rows, 
-                                size_t max_rows, 
-                                size_t min_cols, 
-                                size_t max_cols, 
-                                size_t grain = 1 ) : 
-        tbb::uneven::blocked_range2d<size_t> ( min_rows, max_rows, grain, min_cols, max_cols, grain ) {};
-
-    BlockedRangeByUnevenTBB2d( const BlockedRangeByUnevenTBB2d& o ) : 
-        tbb::uneven::blocked_range2d<size_t> ( o ) {};
-    
-    BlockedRangeByUnevenTBB2d(const size_t dims[], size_t grainsize) :
-        tbb::uneven::blocked_range2d<size_t> ( 0, dims[1], grainsize, 0, dims[0], grainsize ) {};
-
-    BlockedRange::BlockedRangeSizeType  grainsize() const { return cols().grainsize(); };
-
-    // make me the right side of the range, update other to be the left side of the range
-    BlockedRangeByUnevenTBB2d( BlockedRangeByUnevenTBB2d& o, const tbb::uneven::split& s ) : 
-        tbb::uneven::blocked_range2d<size_t> ( o, s ) {};
-};
-
-class BlockedRangeByUnevenTBB3d : public tbb::uneven::blocked_range3d<size_t> 
-{
-public:
-    BlockedRangeByUnevenTBB3d() : tbb::uneven::blocked_range3d<size_t> (0,0,0,0,0,0) {};
-    
-    BlockedRangeByUnevenTBB3d( size_t min_pages, 
-                                size_t max_pages, 
-                                size_t min_rows, 
-                                size_t max_rows, 
-                                size_t min_cols, 
-                                size_t max_cols, 
-                                size_t grain = 1 ) : 
-        tbb::uneven::blocked_range3d<size_t> ( min_pages, max_pages, grain, min_rows, max_rows, grain, min_cols, max_cols, grain ) {};
-
-    BlockedRangeByUnevenTBB3d( const BlockedRangeByUnevenTBB3d& o ) : 
-        tbb::uneven::blocked_range3d<size_t> ( o ) {};
-    
-    BlockedRangeByUnevenTBB3d(const size_t dims[], size_t grainsize) :
-        tbb::uneven::blocked_range3d<size_t> (  0, dims[2], grainsize, 0, dims[1], grainsize, 0, dims[0], grainsize ) {};
-
-    BlockedRange::BlockedRangeSizeType  grainsize() const { return cols().grainsize(); };
-
-    // make me the right side of the range, update other to be the left side of the range
-    BlockedRangeByUnevenTBB3d( BlockedRangeByUnevenTBB3d& o, const tbb::uneven::split& s ) : 
-        tbb::uneven::blocked_range3d<size_t> ( o, s ) {};
-};
 }}}
 
