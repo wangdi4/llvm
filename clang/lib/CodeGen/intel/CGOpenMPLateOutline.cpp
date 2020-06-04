@@ -1354,18 +1354,6 @@ void OpenMPLateOutliner::emitOMPDeviceClause(const OMPDeviceClause *Cl) {
   addArg(CGF.EmitScalarExpr(Cl->getDevice()));
 }
 
-void OpenMPLateOutliner::emitOMPIsDevicePtrClause(
-    const OMPIsDevicePtrClause *Cl) {
-  ClauseEmissionHelper CEH(*this, OMPC_is_device_ptr);
-  addArg("QUAL.OMP.IS_DEVICE_PTR");
-  for (auto *E : Cl->varlists()) {
-    const VarDecl *PVD = getExplicitVarDecl(E);
-    assert(PVD && "expected VarDecl in is_device_ptr clause");
-    addExplicit(PVD, OMPC_is_device_ptr);
-    addArg(E);
-  }
-}
-
 void OpenMPLateOutliner::emitOMPDefaultmapClause(
     const OMPDefaultmapClause *Cl) {
 
@@ -1652,6 +1640,11 @@ void OpenMPLateOutliner::emitOMPExclusiveClause(const OMPExclusiveClause *) {}
 void OpenMPLateOutliner::emitOMPUsesAllocatorsClause(
     const OMPUsesAllocatorsClause *) {}
 void OpenMPLateOutliner::emitOMPAffinityClause(const OMPAffinityClause *) {}
+
+// The needed information has been emit in map directive, no info needs to
+// pass to BE.
+void OpenMPLateOutliner::emitOMPIsDevicePtrClause(
+    const OMPIsDevicePtrClause *Cl) {}
 
 void OpenMPLateOutliner::addFenceCalls(bool IsBegin) {
   // Check current specific directive rather than directive kind (it can
