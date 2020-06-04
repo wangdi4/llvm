@@ -14,6 +14,14 @@
 // CHECK-ZMM-LOW: "-mprefer-vector-width=256"
 // CHECK-ZMM-INVALID: invalid value 'invalid'
 
+// /tune: support (ignore)
+// RUN: %clang_cl -### /c /tune:pentium4 %s 2>&1 | \
+// RUN:  FileCheck -check-prefix=CHECK-TUNE %s
+// RUN: %clang_cl -### /c -tune:pentium4 %s 2>&1 | \
+// RUN:  FileCheck -check-prefix=CHECK-TUNE %s
+// CHECK-TUNE-NOT: no such file or directory
+// CHECK-TUNE-NOT: unknown argument ignored
+
 // -fpermissive support
 // RUN: %clang -### -c -fpermissive %s 2>&1 | FileCheck -check-prefix CHECK-FPERMISSIVE %s
 // CHECK-FPERMISSIVE: "-gnu-permissive"
