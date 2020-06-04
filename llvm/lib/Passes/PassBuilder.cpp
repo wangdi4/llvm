@@ -631,9 +631,24 @@ FunctionPassManager PassBuilder::buildO1FunctionSimplificationPipeline(
 
   FunctionPassManager FPM(DebugLogging);
 
+#if INTEL_CUSTOMIZATION
+  // Propagate TBAA information before SROA so that we can remove mid-function
+  // fakeload intrinsics which would block SROA.
+  FPM.addPass(TbaaMDPropagationPass());
+  // Run OptReportOptionsPass early so that it is available to all users.
+  FPM.addPass(RequireAnalysisPass<OptReportOptionsAnalysis, Function>());
+#endif // INTEL_CUSTOMIZATION
+
   // Form SSA out of local memory accesses after breaking apart aggregates into
   // scalars.
   FPM.addPass(SROA());
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_INCLUDE_DTRANS
+  if (EnableDTrans)
+    FPM.addPass(FunctionRecognizerPass());
+#endif // INTEL_INCLUDE_DTRANS
+#endif // INTEL_CUSTOMIZATION
 
   // Catch trivial redundancies
   FPM.addPass(EarlyCSEPass(true /* Enable mem-ssa. */));
