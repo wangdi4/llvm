@@ -69,6 +69,7 @@ pi_result redefinedKernelGetInfo(pi_kernel kernel, pi_kernel_info param_name,
 }
 
 TEST(KernelReleaseTest, GetKernelRelease) {
+<<<<<<< HEAD
 #ifdef INTEL_CUSTOMIZATION
   // Handle the case where no devices are available until the tests can be run
   // with the spec-conformant behaviour of host device with default_selector.
@@ -79,6 +80,8 @@ TEST(KernelReleaseTest, GetKernelRelease) {
     return;
   }
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> ccefc93c884556ca1de01cfe2184274ea7c1d2f7
   unittest::PiMock Mock;
   platform Plt = Mock.getPlatform();
   if (Plt.is_host()) {
