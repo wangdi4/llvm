@@ -10,13 +10,13 @@
 ; CHECK: |   switch(%t5)
 ; CHECK: |   {
 ; CHECK: |   case 3:
-; CHECK: |      break;
+; CHECK: |      goto sw.bb;
 ; CHECK: |   case 1:
-; CHECK: |      break;
+; CHECK: |      goto sw.bb;
 ; CHECK: |   case 2:
-; CHECK: |      goto sw.bb17;
+; CHECK: |      break;
 ; CHECK: |   case 4:
-; CHECK: |      goto sw.bb17;
+; CHECK: |      break;
 ; CHECK: |   case 9:
 ; CHECK: |      goto for.inc24;
 ; CHECK: |   default:
@@ -24,10 +24,10 @@
 ; CHECK: |      %LargestLegalizableToSameSizeIdx.086 = i1;
 ; CHECK: |      goto for.inc24;
 ; CHECK: |   }
-; CHECK: |   %SmallestNarrowIdx.083 = (%SmallestNarrowIdx.083 == -1) ? i1 : %SmallestNarrowIdx.083;
-; CHECK: |   goto for.inc24;
-; CHECK: |   sw.bb17:
 ; CHECK: |   %LargestWidenIdx.084 = i1;
+; CHECK: |   goto for.inc24;
+; CHECK: |   sw.bb:
+; CHECK: |   %SmallestNarrowIdx.083 = (%SmallestNarrowIdx.083 == -1) ? i1 : %SmallestNarrowIdx.083;
 ; CHECK: |   for.inc24:
 ; CHECK: + END LOOP
 

@@ -231,55 +231,48 @@ bool HIRCreation::isCrossLinked(const SwitchInst *SI,
 }
 
 static void
-sortInReverseLexOrder(const HIRRegionIdentification &RI,
+sortUsingReachability(const HIRRegionIdentification &RI,
                       SmallVectorImpl<BasicBlock *> &BBlocks,
                       const SmallPtrSetImpl<const BasicBlock *> &EndBBs) {
-  unsigned ID = 0;
-  DenseMap<const BasicBlock *, unsigned> BBlockIDs;
+  assert(!BBlocks.empty() && "Empty bblocks not expected!");
 
-  // In order to satisfy the strict weak ordering requirements of the comparator
-  // function (equivalent to less operator) we need to make it such that no two
-  // different bblocks can be considered equivalent.
+  unsigned I = BBlocks.size() - 1;
+  unsigned LowestSwapIndex = 0;
+
+  // We need to order bblocks such that if B1 reaches B2, we place B1 before B2.
   //
-  // (a == b) and (b == c) does not imply (a == c) because we are testing bblock
-  // reachability. The best way to fix equivalence is to make all bblocks
-  // different by assigning them unique ID.
-  for (auto *BB : BBlocks) {
-    BBlockIDs[BB] = ID++;
-  }
-
-  // This check orders dom children that are reachable from other children,
-  // before them.
-  // This is because I couldn't think of an appropriate check for sorting in the
-  // reverse order. So instead the children are visited in reverse order after
-  // sorting.
-  auto ReverseLexOrder = [&](BasicBlock *B1, BasicBlock *B2) {
-    if (B1 == B2) {
-      return false;
-    }
-
+  // We will start from the highest index and swap it with lowest index bblock
+  // which is reachable from it. We keep doing this until there is no swapping,
+  // then move on to the next highest index.
+  // TODO: Is there a more efficient algorithm to do the partial sort?
+  while (I > 0) {
     SmallPtrSet<const BasicBlock *, 8> FromBBs;
-    FromBBs.insert(B2);
+    FromBBs.insert(BBlocks[I]);
+    bool Swapped = false;
 
-    // B1 is reachable from B2, return true so we visit B2 before B1.
-    if (RI.isReachableFrom(B1, EndBBs, FromBBs)) {
-      return true;
+    // Find the lowest index J such that BBlocks[J] is reachable from
+    // BBlocks[I], then swap and break.
+    for (unsigned J = LowestSwapIndex; J < I; ++J) {
+      if (RI.isReachableFrom(BBlocks[J], EndBBs, FromBBs)) {
+        std::swap(BBlocks[I], BBlocks[J]);
+        // We don't need to check for indices lower than this as long as we are
+        // dealing with index I. This is because we know BBlocks[I] reaches
+        // BBlocks[J], but doesn'treach any of the bblocks from [0, J-1]. Since
+        // reachability is transitive, BBlocks[J] which will become the new
+        // BBlocks[I] after swap cannot reach any of them either.
+        LowestSwapIndex = J + 1;
+        Swapped = true;
+        break;
+      }
     }
 
-    FromBBs.clear();
-    FromBBs.insert(B1);
-
-    // B2 is reachable from B1, return false so we visit B1 before B2.
-    if (RI.isReachableFrom(B2, EndBBs, FromBBs)) {
-      return false;
+    // I is in the correct place if not swapped since none of the bblocks below
+    // it are reachable from it.
+    if (!Swapped) {
+      LowestSwapIndex = 0;
+      --I;
     }
-
-    // Neither B1 or B2 can reach each other (like if-else case), use unqiue ID
-    // as tie-breaker.
-    return BBlockIDs[B1] > BBlockIDs[B2];
-  };
-
-  std::sort(BBlocks.begin(), BBlocks.end(), ReverseLexOrder);
+  }
 }
 
 bool HIRCreation::sortDomChildren(
@@ -300,7 +293,7 @@ bool HIRCreation::sortDomChildren(
   SmallPtrSet<const BasicBlock *, 1> EndBBs;
   EndBBs.insert(NodeBB);
 
-  sortInReverseLexOrder(RI, SortedChildren, EndBBs);
+  sortUsingReachability(RI, SortedChildren, EndBBs);
 
   return true;
 }
@@ -321,7 +314,7 @@ HLNode *HIRCreation::doPreOrderRegionWalk(BasicBlock *BB,
 
   SmallVector<BasicBlock *, 8> DomChildren;
 
-  // Sort dominator children.
+  // Sort dominator children using reachability.`
   if (!sortDomChildren(DT.getNode(BB), DomChildren)) {
     // No children to process.
     return InsertionPos;
@@ -341,12 +334,8 @@ HLNode *HIRCreation::doPreOrderRegionWalk(BasicBlock *BB,
   // 2) BB is a loop latch which dominates outer multi-exit loop's latch bblock.
   bool DomChildMayBeMultiExitLoopLatch = (IsMultiExitLoop || IsLoopLatch);
 
-  // Walk over dominator children in reverse since they are sorted in reverse
-  // lexical order.
-  for (auto RI = DomChildren.rbegin(), RE = DomChildren.rend(); RI != RE;
-       ++RI) {
-
-    auto DomChildBB = (*RI);
+  // Walk over dominator children sorted using reachability.
+  for (auto *DomChildBB : DomChildren) {
     Loop *DomChildLp = nullptr;
 
     // Loop latch should be processed at the same lexical level as the loop
@@ -444,13 +433,15 @@ HLNode *HIRCreation::doPreOrderRegionWalk(BasicBlock *BB,
     // backward jumps.
     auto &ExitBlocks = EarlyExits[Lp];
 
-    SmallPtrSet<const BasicBlock *, 1> EndBBs;
-    EndBBs.insert(BB);
-    sortInReverseLexOrder(RI, ExitBlocks, EndBBs);
+    if (!ExitBlocks.empty()) {
+      SmallPtrSet<const BasicBlock *, 1> EndBBs;
+      EndBBs.insert(BB);
 
-    for (auto RI = ExitBlocks.rbegin(), RE = ExitBlocks.rend(); RI != RE;
-         ++RI) {
-      InsertionPos = doPreOrderRegionWalk(*RI, InsertionPos);
+      sortUsingReachability(RI, ExitBlocks, EndBBs);
+
+      for (auto *ExitBB : ExitBlocks) {
+        InsertionPos = doPreOrderRegionWalk(ExitBB, InsertionPos);
+      }
     }
   }
 
