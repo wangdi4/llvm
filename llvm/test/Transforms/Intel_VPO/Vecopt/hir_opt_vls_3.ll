@@ -19,7 +19,7 @@
 ; c0, a1, b1, c2, a2, b2, c2, a3, b3, c3> and do a wide store. Testing struct
 ; field accesses. Test also checks that TBAA metadata is updated appropriately.
 ;
-; RUN: opt -tbaa -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -enable-vplan-vls-cg -hir-cg -S -print-after=VPlanDriverHIR  < %s 2>&1  | FileCheck %s
+; RUN: opt -tbaa -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -enable-vplan-vls-cg -hir-cg -enable-vp-value-codegen-hir=0 -S -print-after=VPlanDriverHIR  < %s 2>&1  | FileCheck %s
 ;
 ; CHECK: DO i1 = 0, 99, 4
 ; CHECK:  [[COMB:%.*]] = shufflevector i1 + <i64 0, i64 1, i64 2, i64 3>,  i1 + <i64 0, i64 1, i64 2, i64 3> + 2,  <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>;
