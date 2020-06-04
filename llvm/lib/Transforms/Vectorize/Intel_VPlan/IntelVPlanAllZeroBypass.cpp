@@ -530,6 +530,27 @@ void VPlanAllZeroBypass::collectAllZeroBypassNonLoopRegions(
                 }))
         break;
 
+      // Stop region collection for any blocks that don't have a block-
+      // predicate and have reference to a CondBit. For now, it is
+      // conservatively assumed that these blocks should not appear in
+      // the region. TODO: check post-dominator of this block to see
+      // if there is a block-predicate that is under the influence of
+      // the block-predicate of the region. Reference CMPLRLLVM-20647.
+      //
+      // BB3:
+      //  [DA: Div] i1 %vp27040 = block-predicate i1 %vp64112
+      //  [DA: Div] i32 %vp25424 = add i32 %vp57152 i32 42
+      // SUCCESSORS(1):BB4
+      // PREDECESSORS(1): BB2
+      //
+      // BB4:
+      //  <VPTerminator>
+      //  Condition(BB1): [DA: Uni] i1 %vp57584 = icmp i32 %n i32 7
+      // SUCCESSORS(2):BB5(i1 %vp57584), BB6(!i1 %vp57584)
+      // PREDECESSORS(1): BB3
+      if (!(*BlockIt)->getPredicate() && (*BlockIt)->getNumSuccessors() == 2)
+        break;
+
       if (auto *BlockPred = (*BlockIt)->getPredicate())
         if (!isStricterOrEqualPred(BlockPred, CandidateBlockPred))
           break;
