@@ -140,7 +140,8 @@ define dso_local void @foo_non_lcssa_from_uniform_sub_loop(i64 %N, i64 *%a, i64 
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]:
-; CHECK-NEXT:     [DA: Div] i64 [[VP_IV:%.*]] = phi  [ i32 [[VP_LANE]], [[BB0]] ],  [ i64 [[VP_IV_NEXT:%.*]], [[BB2:BB[0-9]+]] ]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_INNER_DEF_LIVE_OUT_PREV:%.*]] = phi  [ i64 [[VP_INNER_DEF_LIVE_OUT_BLEND:%.*]], [[BB2:BB[0-9]+]] ],  [ i64 undef, [[BB0]] ]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_IV:%.*]] = phi  [ i32 [[VP_LANE]], [[BB0]] ],  [ i64 [[VP_IV_NEXT:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 true, [[BB0]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB2]] ]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB3:BB[0-9]+]](i1 [[VP_LOOP_MASK]]), [[BB2]](!i1 [[VP_LOOP_MASK]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB2]] [[BB0]]
@@ -173,12 +174,12 @@ define dso_local void @foo_non_lcssa_from_uniform_sub_loop(i64 %N, i64 *%a, i64 
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_SOME_CMP_NOT:%.*]] = not i1 [[VP_SOME_CMP]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_SOME_CMP_NOT]] i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP0:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_INNER_DEF_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i64 [[VP_INNER_DEF]] i64 [[VP_INNER_DEF_LIVE_OUT_PREV]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB6:BB[0-9]+]](i1 [[VP0]]), [[BB1]](!i1 [[VP0]])
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB5]] [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]:
-; FIXME: Must come through a blend phi.
-; CHECK-NEXT:     [DA: Div] i64 [[VP_PHI_USE:%.*]] = phi  [ i64 [[VP_INNER_DEF]], [[BB2]] ]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_PHI_USE:%.*]] = phi  [ i64 [[VP_INNER_DEF_LIVE_OUT_BLEND]], [[BB2]] ]
 ; CHECK-NEXT:     [DA: Div] void [[VP1:%.*]] = ret
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]

@@ -57,7 +57,8 @@ static cl::opt<bool> PreserveUniformCFG(
 // contains {P3, P4, P5, OR1}.
 // The process iterates until we have only one element in the Worklist (OR4).
 // The last element is the root predicate which is returned.
-VPValue *VPlanPredicator::genPredicateTree(std::list<VPValue *> &Worklist) {
+VPValue *VPlanPredicator::genPredicateTree(std::list<VPValue *> &Worklist,
+                                           VPBuilder &Builder) {
   if (Worklist.empty())
     return nullptr;
 
@@ -96,14 +97,10 @@ VPValue *VPlanPredicator::getOrCreateNot(VPValue *Cond) {
     return It->second;
 
   auto *Inst = dyn_cast<VPInstruction>(Cond);
-  VPBuilder::InsertPointGuard Guard(Builder);
-  if (Inst)
-    Builder.setInsertPoint(Inst->getParent(), ++Inst->getIterator());
-  else
-    Builder.setInsertPoint(Plan.getEntryBlock());
-
-  auto *Not = Builder.createNot(Cond, Cond->getName() + ".not");
-
+  auto *Not = (Inst ? VPBuilder().setInsertPoint(Inst->getParent(),
+                                                 ++Inst->getIterator())
+                    : VPBuilder().setInsertPoint(Plan.getEntryBlock()))
+                  .createNot(Cond, Cond->getName() + ".not");
   Plan.getVPlanDA()->updateDivergence(*Not);
 
   Cond2NotCond[Cond] = Not;
@@ -267,15 +264,13 @@ VPlanPredicator::createDefiningValueForPredicateTerm(PredicateTerm Term) {
   if (!Val)
     return Predicate;
 
-  VPBuilder::InsertPointGuard Guard(Builder);
   // TODO: Don't do splitting once we start preserving uniform control flow
   // and the Block is uniform.
-  Builder.setInsertPoint(Block);
   // TODO: Once we start presrving uniform control flow, there will be no
   // need to create "and" for uniform predicate that is true on all incoming
   // edges.
-  Val = Builder.createAnd(Predicate, Val,
-                          Block->getName() + ".br." + Val->getName());
+  Val = VPBuilder().setInsertPoint(Block).createAnd(
+      Predicate, Val, Block->getName() + ".br." + Val->getName());
   Plan.getVPlanDA()->updateDivergence(*Val);
   if (!BlocksToSplit.count(Block))
     BlocksToSplit[Block] = cast<VPInstruction>(Val);
@@ -893,9 +888,8 @@ void VPlanPredicator::emitPredicates() {
 
       if (Predicate &&
           (!shouldPreserveUniformBranches() || DA->isDivergent(*Predicate))) {
-        VPBuilder::InsertPointGuard Guard(Builder);
-        Builder.setInsertPointAfterBlends(Block);
-        auto *BlockPredicateInst = Builder.createPred(Predicate);
+        auto *BlockPredicateInst =
+            VPBuilder().setInsertPointAfterBlends(Block).createPred(Predicate);
         Block->setBlockPredicate(BlockPredicateInst);
         Plan.getVPlanDA()->updateDivergence(*BlockPredicateInst);
       }
@@ -910,10 +904,10 @@ void VPlanPredicator::emitPredicates() {
       if (auto *Val = getOrCreateValueForPredicateTerm(Term, Block))
         IncomingConditions.push_back(Val);
 
-    VPBuilder::InsertPointGuard Guard(Builder);
+    VPBuilder Builder;
     Builder.setInsertPointAfterBlends(Block);
 
-    auto *Predicate = genPredicateTree(IncomingConditions);
+    auto *Predicate = genPredicateTree(IncomingConditions, Builder);
     Block2Predicate[Block] = Predicate;
     if (Predicate &&
         (!shouldPreserveUniformBranches() || DA->isDivergent(*Predicate))) {

@@ -14,6 +14,14 @@
 // CHECK-ZMM-LOW: "-mprefer-vector-width=256"
 // CHECK-ZMM-INVALID: invalid value 'invalid'
 
+// /tune: support (ignore)
+// RUN: %clang_cl -### /c /tune:pentium4 %s 2>&1 | \
+// RUN:  FileCheck -check-prefix=CHECK-TUNE %s
+// RUN: %clang_cl -### /c -tune:pentium4 %s 2>&1 | \
+// RUN:  FileCheck -check-prefix=CHECK-TUNE %s
+// CHECK-TUNE-NOT: no such file or directory
+// CHECK-TUNE-NOT: unknown argument ignored
+
 // -fpermissive support
 // RUN: %clang -### -c -fpermissive %s 2>&1 | FileCheck -check-prefix CHECK-FPERMISSIVE %s
 // CHECK-FPERMISSIVE: "-gnu-permissive"
@@ -281,6 +289,23 @@
 // Behavior with QM option
 // RUN: %clang_cl -### -c /QM %s 2>&1 | FileCheck -check-prefix CHECK-QM %s
 // CHECK-QM: "-sys-header-deps"
+
+// Behavior with QMM option
+// RUN: %clang_cl -### -c /QMM %s 2>&1 | FileCheck -check-prefix CHECK-QMM %s
+// CHECK-QMM: "-w" "-dependency-file"
+
+// Behavior with QMG option
+// RUN: %clang_cl -### -c /QMM /QMG %s 2>&1 | FileCheck -check-prefix CHECK-QMG %s
+// RUN: %clang_cl -### -c /QM /QMG %s 2>&1 | FileCheck -check-prefix CHECK-QMG %s
+// CHECK-QMG: "-MG"
+
+// Behavior with QMQ option
+// RUN: %clang_cl -### -c /QMM /QMQ outfile.out  %s 2>&1 | FileCheck -check-prefix CHECK-QMQ %s
+// CHECK-QMQ: "-MT" "outfile.out"
+
+// Behavior with QMT option
+// RUN: %clang_cl -### /QMM /QMT outfile.out %s 2>&1 | FileCheck -check-prefix=CHECK-QMT %s
+// CHECK-QMT: "-MT" "outfile.out"
 
 // Behavior with Qopenmp-version option
 // RUN: %clang_cl -### -c /Qopenmp-version=50 %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-VERSION %s
