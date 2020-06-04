@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2020 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -18,56 +18,50 @@
     writing.
 */
 
-#include "tbb/atomic.h"
-#include "tbb/task.h"
-#include "tbb/task_arena.h"
-
-#include "stdio.h"
+#ifndef HARNESS_TRAPPER_H
 
 #ifndef ASSERT
     #define ASSERT __TBB_ASSERT
     #define __TBB_UNDEF_ASSERT
 #endif
 #include "harness_barrier.h"
+#include "task_group_with_reference.h"
+
+#include <tbb/task_arena.h>
+#include <tbb/task_group.h>
 
 namespace tbb { namespace Harness {
 
 class TbbWorkersTrapper {
-    tbb::task *my_root;
-    tbb::task_group_context* my_context;
+    tbb::task_arena *m_arena;
+    task_group_with_reference m_group;
     Harness::SpinBarrier* my_barrier;
 
-    friend class TrapperTask;
-
-    class TrapperTask : public tbb::task {
-        tbb::task*                root_task;
-        Harness::SpinBarrier*     barrier;
-        int my_id;
-
-        tbb::task* execute () {
-            barrier->wait(); // Wait until all workers are ready
-            root_task->wait_for_all();
-            barrier->signal_nowait();
-            return NULL;
-        }
+    class TrapperTaskRunner
+    {
+        task_group_with_reference *m_group;
+        Harness::SpinBarrier* m_barrier;
     public:
-        TrapperTask ( TbbWorkersTrapper& owner, int id ) :
-          root_task(owner.my_root), barrier(owner.my_barrier), my_id(id) {}
+        TrapperTaskRunner(task_group_with_reference * group,
+                          Harness::SpinBarrier * barrier)
+            : m_group(group), m_barrier(barrier) {}
+
+        void operator()() const
+        {
+            m_barrier->wait(); // Wait until all workers are ready
+            m_group->wait();
+            m_barrier->signal_nowait();
+        }
     };
 
-    class TrapperReleaseTask : public tbb::task {
-        tbb::task*                root_task;
+    class TrapperReleaseRunner {
         Harness::SpinBarrier*     barrier;
-        tbb::task_group_context*  context;
     public:
-        TrapperReleaseTask( TbbWorkersTrapper& owner) :
-          root_task(owner.my_root), barrier(owner.my_barrier), context(owner.my_context) {}
-        tbb::task* execute () {
+        TrapperReleaseRunner( TbbWorkersTrapper& owner) :
+          barrier(owner.my_barrier) {}
+        void operator()() const {
             barrier->wait(); // Make sure no tasks are referencing us
-            tbb::task::destroy(*root_task);
             delete barrier;
-            delete context;
-            return NULL;
         }
     };
 
@@ -75,35 +69,30 @@ class TbbWorkersTrapper {
     bool          is_async;
     volatile bool is_trapped;
 public:
-    TbbWorkersTrapper ( int _num_threads, bool _is_async )
-        : my_root(NULL),
-          my_context(NULL),
+    TbbWorkersTrapper (int _num_threads, bool _is_async, tbb::task_arena *arena)
+        : m_arena(arena),
           num_threads(_num_threads),
           is_async(_is_async),
           is_trapped(false)
     {
         my_barrier = new Harness::SpinBarrier;
         my_barrier->initialize(num_threads + (is_async ? 1 : 0));
-        my_context = new tbb::task_group_context(tbb::task_group_context::bound,
-            tbb::task_group_context::default_traits | tbb::task_group_context::concurrent_wait);
     }
 
     ~TbbWorkersTrapper () {
         if ( !is_trapped )
             return;
-
-        my_root->decrement_ref_count();
-        if ( tbb::task_arena::current_thread_index() > 0 )
+        m_group.release_wait();
+        if ( tbb::this_task_arena::current_thread_index() > 0 )
         {
-            // executing by a worker, so we must enqueue a task that will destroy the root task
-            tbb::task::enqueue( *new ( tbb::task::allocate_root() ) TrapperReleaseTask(*this) );
+            // executing by a worker, so we must enqueue a task that will destroy the barrier
+            TrapperReleaseRunner f(*this);
+            m_arena->enqueue(f);
             return;
         } else
         {
             my_barrier->wait(); // Make sure no tasks are referencing us
-            tbb::task::destroy(*my_root);
             delete my_barrier;
-            delete my_context;
         }
     }
 
@@ -115,53 +104,24 @@ public:
 
     void operator()(void)
     {
-        assert( (task_arena::current_thread_index() == 0 || is_async) && "Trapper must be executed from the master slot or be async" );
-        my_root = new ( tbb::task::allocate_root(*my_context) ) tbb::empty_task;
-        my_root->set_ref_count(2);
-        for ( int i = 1; i < num_threads; ++i )
-        {
-            tbb::task::spawn( *new(tbb::task::allocate_root()) TrapperTask(*this, i) );
+        assert( (tbb::this_task_arena::current_thread_index() == 0 || is_async) && "Trapper must be executed from the master slot or be async" );
+        m_group.reserve_wait();
+        for (int i = 1; i < num_threads; ++i) {
+            TrapperTaskRunner f(&m_group, my_barrier);
+            m_group.run(f);
         }
+
         my_barrier->wait(); // Wait until all workers are ready
         is_trapped = true;
         // For async we need to trap this task as well
         if ( is_async )
         {
-            my_root->wait_for_all();
+            m_group.wait();
             my_barrier->wait();
         }
     }
 
 }; // TbbWorkersTrapper
-
-class TbbWorkersPrefetcher {
-    Harness::SpinBarrier my_barrier;
-
-    friend class PrefetcherTask;
-
-    class PrefetcherTask : public tbb::task {
-        Harness::SpinBarrier& my_owner_barrier;
-
-        tbb::task* execute () {
-            my_owner_barrier.wait();
-            return NULL;
-        }
-    public:
-        PrefetcherTask ( Harness::SpinBarrier& bar ) : my_owner_barrier(bar) {}
-    };
-
-public:
-    TbbWorkersPrefetcher ( int numThreads ) {
-        my_barrier.initialize(numThreads);
-        tbb::task_group_context ctx(tbb::task_group_context::isolated);
-        tbb::task &r = *new ( tbb::task::allocate_root(ctx) ) tbb::empty_task;
-        r.set_ref_count(numThreads + 1);
-        for ( int i = 0; i < numThreads; ++i )
-            tbb::task::spawn( *new(r.allocate_child()) PrefetcherTask(my_barrier) );
-        r.wait_for_all(); // Wait until all workers are ready
-        tbb::task::destroy(r);
-    }
-}; // TbbWorkersPrefetcher
 
 } // namespace Harness
 } // namespace tbb
@@ -170,3 +130,4 @@ public:
     #undef ASSERT
 #endif
 
+#endif // #ifndef HARNESS_TRAPPER_H
