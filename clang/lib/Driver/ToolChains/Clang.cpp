@@ -4889,26 +4889,32 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     case options::OPT_fimf_arch_consistency_EQ:
       CmdArgs.push_back(Args.MakeArgString(
           Twine("-mGLOB_imf_attr=arch-consistency:") + A->getValue()));
+      A->claim();
       break;
     case options::OPT_fimf_max_error_EQ:
       CmdArgs.push_back(Args.MakeArgString(Twine("-mGLOB_imf_attr=max-error:") +
                                            A->getValue()));
+      A->claim();
       break;
     case options::OPT_fimf_absolute_error_EQ:
       CmdArgs.push_back(Args.MakeArgString(
           Twine("-mGLOB_imf_attr=absolute-error:") + A->getValue()));
+      A->claim();
       break;
     case options::OPT_fimf_accuracy_bits_EQ:
       CmdArgs.push_back(Args.MakeArgString(
           Twine("-mGLOB_imf_attr=accuracy-bits:") + A->getValue()));
+      A->claim();
       break;
     case options::OPT_fimf_domain_exclusion_EQ:
       CmdArgs.push_back(Args.MakeArgString(
           Twine("-mGLOB_imf_attr=domain-exclusion:") + A->getValue()));
+      A->claim();
       break;
     case options::OPT_fimf_precision_EQ:
       CmdArgs.push_back(Args.MakeArgString(Twine("-mGLOB_imf_attr=precision:") +
                                            A->getValue()));
+      A->claim();
       break;
     default:
       break;
