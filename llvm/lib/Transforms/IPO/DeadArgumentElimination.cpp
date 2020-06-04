@@ -225,10 +225,7 @@ bool DeadArgumentEliminationPass::DeleteDeadVarargs(Function &Fn) {
     }
     NewCB->setCallingConv(CB->getCallingConv());
     NewCB->setAttributes(PAL);
-    NewCB->setDebugLoc(CB->getDebugLoc());
-    uint64_t W;
-    if (CB->extractProfTotalWeight(W))
-      NewCB->setProfWeight(W);
+    NewCB->copyMetadata(*CB, {LLVMContext::MD_prof, LLVMContext::MD_dbg});
 
     Args.clear();
 
@@ -956,10 +953,7 @@ bool DeadArgumentEliminationPass::RemoveDeadStuffFromFunction(Function *F) {
     }
     NewCB->setCallingConv(CB.getCallingConv());
     NewCB->setAttributes(NewCallPAL);
-    NewCB->setDebugLoc(CB.getDebugLoc());
-    uint64_t W;
-    if (CB.extractProfTotalWeight(W))
-      NewCB->setProfWeight(W);
+    NewCB->copyMetadata(CB, {LLVMContext::MD_prof, LLVMContext::MD_dbg});
     Args.clear();
     ArgAttrVec.clear();
 

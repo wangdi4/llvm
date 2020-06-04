@@ -410,6 +410,7 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
     NewCS->setAttributes(
         AttributeList::get(F->getContext(), CallPAL.getFnAttributes(),
                            CallPAL.getRetAttributes(), ArgAttrVec));
+<<<<<<< HEAD
     NewCS->setDebugLoc(CB.getDebugLoc());
     uint64_t W;
     if (CB.extractProfTotalWeight(W))
@@ -419,6 +420,9 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
     if (MD)
       NewCS->setMetadata(LLVMContext::MD_intel_profx, MD);
 #endif // INTEL_CUSTOMIZATION
+=======
+    NewCS->copyMetadata(CB, {LLVMContext::MD_prof, LLVMContext::MD_dbg});
+>>>>>>> 417bcb8827671da271e5b745ad189e2ba978f776
     Args.clear();
     ArgAttrVec.clear();
 
