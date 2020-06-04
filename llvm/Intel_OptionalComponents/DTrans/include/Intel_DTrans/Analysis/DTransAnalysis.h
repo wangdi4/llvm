@@ -21,6 +21,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/Analysis/Intel_WP.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/ValueMap.h"
@@ -93,7 +94,8 @@ public:
       std::function<const TargetLibraryInfo &(const Function &)> GetTLI,
       WholeProgramInfo &WPInfo,
       function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
-      DTransImmutableInfo &DTImmutInfo);
+      DTransImmutableInfo &DTImmutInfo,
+      std::function<DominatorTree &(Function &)> GetDomTree);
   /// Parse command line option and create an internal map of
   /// <transform> -> <list_of_type_names>.
   void parseIgnoreList();
