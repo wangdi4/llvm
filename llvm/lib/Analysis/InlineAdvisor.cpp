@@ -152,7 +152,13 @@ DefaultInlineAdvisor::getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
                          GetBFI, PSI, RemarksEnabled ? &ORE : nullptr, // INTEL
                          ILIC, AggI);                                  // INTEL
   };
+<<<<<<< HEAD
   auto OIC = shouldInline(CB, GetInlineCost, ORE, Report); // INTEL
+=======
+  auto OIC = llvm::shouldInline(CB, GetInlineCost, ORE,
+                                Params.EnableDeferral.hasValue() &&
+                                    Params.EnableDeferral.getValue());
+>>>>>>> 347a599e5f03ab708943559d0a131127b206b576
   return std::make_unique<DefaultInlineAdvice>(this, CB, OIC, ORE);
 }
 
@@ -340,7 +346,11 @@ void llvm::setInlineRemark(CallBase &CB, StringRef Message) {
 Optional<InlineCost>
 llvm::shouldInline(CallBase &CB,
                    function_ref<InlineCost(CallBase &CB)> GetInlineCost,
+<<<<<<< HEAD
                    OptimizationRemarkEmitter &ORE, InlineReport *IR) { // INTEL
+=======
+                   OptimizationRemarkEmitter &ORE, bool EnableDeferral) {
+>>>>>>> 347a599e5f03ab708943559d0a131127b206b576
   using namespace ore;
 
   InlineCost IC = GetInlineCost(CB);
@@ -398,7 +408,8 @@ llvm::shouldInline(CallBase &CB,
   }
 
   int TotalSecondaryCost = 0;
-  if (shouldBeDeferred(Caller, IC, TotalSecondaryCost, GetInlineCost)) {
+  if (EnableDeferral &&
+      shouldBeDeferred(Caller, IC, TotalSecondaryCost, GetInlineCost)) {
     LLVM_DEBUG(dbgs() << "    NOT Inlining: " << CB
                       << " Cost = " << IC.getCost()
                       << ", outer Cost = " << TotalSecondaryCost << '\n');

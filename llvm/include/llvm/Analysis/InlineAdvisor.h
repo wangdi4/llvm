@@ -225,7 +225,11 @@ public:
 /// inlining should not be attempted.
 Optional<InlineCost>
 shouldInline(CallBase &CB, function_ref<InlineCost(CallBase &CB)> GetInlineCost,
+<<<<<<< HEAD
              OptimizationRemarkEmitter &ORE, InlineReport *IR); // INTEL
+=======
+             OptimizationRemarkEmitter &ORE, bool EnableDeferral = true);
+>>>>>>> 347a599e5f03ab708943559d0a131127b206b576
 
 /// Emit ORE message.
 void emitInlinedInto(OptimizationRemarkEmitter &ORE, DebugLoc DLoc,
