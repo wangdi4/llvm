@@ -180,6 +180,14 @@ static cl::opt<bool> StressIVChain(
 static bool StressIVChain = false;
 #endif
 
+#if INTEL_CUSTOMIZATION
+// LSR on abnormal deep loop can significantly increase register pressure.
+static cl::opt<unsigned> LSRLoopDepthLimit(
+  "lsr-loop-depth-limit", cl::Hidden,
+  cl::init(57),
+  cl::desc("LSR loop depth limit"));
+#endif // INTEL_CUSTOMIZATION
+
 namespace {
 
 struct MemAccessTy {
@@ -5567,6 +5575,14 @@ LSRInstance::LSRInstance(Loop *L, IVUsers &IU, ScalarEvolution &SE,
     LLVM_DEBUG(dbgs() << "LSR skipping outer loop " << *L << "\n");
     return;
   }
+
+#if INTEL_CUSTOMIZATION
+  // JIRA: CMPLRLLVM-19856
+  if(L->getLoopDepth() >= LSRLoopDepthLimit) {
+    LLVM_DEBUG(dbgs() << "LSR skipping abnormal deep loop " << *L << "\n");
+    return;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Start collecting data and preparing for the solver.
   CollectChains();
