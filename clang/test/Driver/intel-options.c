@@ -278,6 +278,11 @@
 // RUN: %clang -### -c -use_msasm %s 2>&1 | FileCheck -check-prefix=CHECK-USE-MSASM %s
 // CHECK-USE-MSASM: "-fasm-blocks"
 
+// Behavior with EP option
+// RUN: %clang -### -c -EP %s 2>&1 | FileCheck -check-prefix CHECK-EP %s
+// RUN: %clang_cl -### -c /EP %s 2>&1 | FileCheck -check-prefix CHECK-EP %s
+// CHECK-EP: "-E" "-P"
+
 // Behavior with fiopenmp-simd/Qiopenmp-simd option
 // RUN: %clang -### -c -fiopenmp-simd %s 2>&1 | FileCheck -check-prefix CHECK-QIOPENMP-SIMD %s
 // RUN: %clang_cl -### -c /Qiopenmp-simd %s 2>&1 | FileCheck -check-prefix CHECK-QIOPENMP-SIMD %s

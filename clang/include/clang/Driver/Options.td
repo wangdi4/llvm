@@ -475,6 +475,10 @@ def O_flag : Flag<["-"], "O">, Flags<[CC1Option]>, Alias<O>, AliasArgs<["1"]>;
 def Ofast : Joined<["-"], "Ofast">, Group<O_Group>, Flags<[CC1Option]>;
 def P : Flag<["-"], "P">, Flags<[CC1Option]>, Group<Preprocessor_Group>,
   HelpText<"Disable linemarker output in -E mode">;
+#if INTEL_CUSTOMIZATION
+def EP : Flag<["-"], "EP">, Flags<[DriverOption]>, HelpText<"Preprocess to "
+  "stdout, omitting #line directives.">;
+#endif // INTEL_CUSTOMIZATION
 def Qy : Flag<["-"], "Qy">, Flags<[CC1Option]>,
   HelpText<"Emit metadata containing compiler name and version">;
 def Qn : Flag<["-"], "Qn">, Flags<[CC1Option]>,

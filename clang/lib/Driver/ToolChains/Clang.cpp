@@ -58,6 +58,7 @@ static void CheckPreprocessingOptions(const Driver &D, const ArgList &Args) {
   if (Arg *A =
           Args.getLastArg(clang::driver::options::OPT_C, options::OPT_CC)) {
     if (!Args.hasArg(options::OPT_E) && !Args.hasArg(options::OPT__SLASH_P) &&
+        !Args.hasArg(options::OPT_EP) && // INTEL
         !Args.hasArg(options::OPT__SLASH_EP) && !D.CCCIsCPP()) {
       D.Diag(clang::diag::err_drv_argument_only_allowed_with)
           << A->getBaseArg().getAsString(Args)
@@ -5116,6 +5117,13 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   Args.AddLastArg(CmdArgs, options::OPT_P);
   Args.AddLastArg(CmdArgs, options::OPT_print_ivar_layout);
 
+#if INTEL_CUSTOMIZATION
+  // EP should expand to -E -P.
+  if (Args.hasArg(options::OPT_EP)) {
+    CmdArgs.push_back("-E");
+    CmdArgs.push_back("-P");
+  }
+#endif // INTEL_CUSTOMIZATION
   if (D.CCLogDiagnostics && !D.CCGenDiagnostics) {
     CmdArgs.push_back("-diagnostic-log-file");
     CmdArgs.push_back(D.CCLogDiagnosticsFilename ? D.CCLogDiagnosticsFilename
