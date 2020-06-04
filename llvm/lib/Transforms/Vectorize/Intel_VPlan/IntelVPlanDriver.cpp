@@ -230,10 +230,6 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
       return false;
   }
 
-  // Create a VPlanOptReportBuilder object, lifetime is a single loop that we
-  // process for vectorization
-  VPlanOptReportBuilder VPORBuilder(LORBuilder, LI);
-
   BasicBlock *Header = Lp->getHeader();
   VPlanVLSAnalysis VLSA(Lp, Header->getContext(), *DL, TTI);
   LoopVectorizationPlanner LVP(WRLp, Lp, LI, TLI, TTI, DL, DT, &LVL, &VLSA);
@@ -329,7 +325,8 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   if (VF == 1) {
     // Emit opt report remark if a VPlan candidate SIMD loop was not vectorized.
     // TODO: Emit reason for bailing out.
-    VPORBuilder.addRemark(Lp, OptReportVerbosity::Medium, 15436, "");
+    VPlanOptReportBuilder(LORBuilder, LI)
+        .addRemark(Lp, OptReportVerbosity::Medium, 15436, "");
     return false;
   }
 
@@ -351,6 +348,7 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
     VPOUtils::stripDirectives(WRLp);
 
   CandLoopsVectorized++;
+  VPlanOptReportBuilder VPORBuilder(LORBuilder, LI);
   addOptReportRemarks<VPOCodeGen>(VPORBuilder, &VCodeGen);
 
   // Emit kernel optimization remarks.
@@ -384,10 +382,6 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
     OptimizationRemarkEmitter &ORE = WR->getORE();
     ORE.emit(R);
   }
-
-  DT->recalculate(Fn);
-  LI->releaseMemory();
-  LI->analyze(*DT);
 
   return true;
 }
