@@ -739,6 +739,16 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       *Subtype = X86::INTEL_COREI7_ICELAKE_SERVER; // "icelake-server"
       break;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_SPR
+    // Sapphire Rapids:
+    case 0x8f:
+      *Type = X86::INTEL_COREI7;
+      *Subtype = X86::INTEL_COREI7_SAPPHIRERAPIDS; // "sapphirerapids"
+    break;
+#endif // INTEL_FEATURE_CPU_SPR
+#endif // INTEL_CUSTOMIZATION
+
     case 0x1c: // Most 45 nm Intel Atom processors
     case 0x26: // 45 nm Atom Lincroft
     case 0x27: // 32 nm Atom Medfield
@@ -775,11 +785,6 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
     case 0x85:
       *Type = X86::INTEL_KNM; // knm
       break;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_SPR
-    //TODO detect SPR host by Model
-#endif // INTEL_FEATURE_CPU_SPR
-#endif // INTEL_CUSTOMIZATION
 
     default: // Unknown family 6 CPU, try to guess.
       // TODO detect tigerlake host
@@ -788,11 +793,6 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
         *Subtype = X86::INTEL_COREI7_TIGERLAKE;
         break;
       }
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_SPR
-      // TODO detect SPR host by Feature
-#endif // INTEL_FEATURE_CPU_SPR
-#endif // INTEL_CUSTOMIZATION
       if (Features & (1 << X86::FEATURE_AVX512VBMI2)) {
         *Type = X86::INTEL_COREI7;
         *Subtype = X86::INTEL_COREI7_ICELAKE_CLIENT;
