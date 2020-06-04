@@ -152,13 +152,9 @@ DefaultInlineAdvisor::getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
                          GetBFI, PSI, RemarksEnabled ? &ORE : nullptr, // INTEL
                          ILIC, AggI);                                  // INTEL
   };
-<<<<<<< HEAD
-  auto OIC = shouldInline(CB, GetInlineCost, ORE, Report); // INTEL
-=======
-  auto OIC = llvm::shouldInline(CB, GetInlineCost, ORE,
+  auto OIC = llvm::shouldInline(CB, GetInlineCost, ORE, Report, // INTEL
                                 Params.EnableDeferral.hasValue() &&
                                     Params.EnableDeferral.getValue());
->>>>>>> 347a599e5f03ab708943559d0a131127b206b576
   return std::make_unique<DefaultInlineAdvice>(this, CB, OIC, ORE);
 }
 
@@ -343,14 +339,11 @@ void llvm::setInlineRemark(CallBase &CB, StringRef Message) {
 /// CallSite. If we return the cost, we will emit an optimisation remark later
 /// using that cost, so we won't do so from this function. Return None if
 /// inlining should not be attempted.
-Optional<InlineCost>
-llvm::shouldInline(CallBase &CB,
-                   function_ref<InlineCost(CallBase &CB)> GetInlineCost,
-<<<<<<< HEAD
-                   OptimizationRemarkEmitter &ORE, InlineReport *IR) { // INTEL
-=======
-                   OptimizationRemarkEmitter &ORE, bool EnableDeferral) {
->>>>>>> 347a599e5f03ab708943559d0a131127b206b576
+#if INTEL_CUSTOMIZATION
+Optional<InlineCost> llvm::shouldInline(
+    CallBase &CB, function_ref<InlineCost(CallBase &CB)> GetInlineCost,
+    OptimizationRemarkEmitter &ORE, InlineReport *IR, bool EnableDeferral) {
+#endif // INTEL_CUSTOMIZATION
   using namespace ore;
 
   InlineCost IC = GetInlineCost(CB);
