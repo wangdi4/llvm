@@ -690,17 +690,21 @@ static bool isLeafFunction(const Function &F) {
 //
 static bool has2SubInstWithValInF(Function *F, const Value *Val0,
                                   const Value *Val1) {
-
-  for (inst_iterator I = inst_begin(F), E = std::prev(inst_end(F)); I != E;
-       ++I) {
-
-    auto NextI = std::next(I);
-
-    if ((!isa<BinaryOperator>(&*I)) || (!isa<BinaryOperator>(&*NextI)))
+  for (auto &I : instructions(*F)) {
+    //
+    // CMPLRLLVM-20190: Skip debug info intrinsics when doing the matching
+    //
+    if (isa<DbgInfoIntrinsic>(&I))
+      continue;
+    Instruction *NextI = I.getNextNonDebugInstruction();
+    if (!NextI)
       continue;
 
-    BinaryOperator *BOp = dyn_cast<BinaryOperator>(&*I);
-    BinaryOperator *NextBOp = dyn_cast<BinaryOperator>(&*NextI);
+    if ((!isa<BinaryOperator>(&I)) || (!isa<BinaryOperator>(NextI)))
+      continue;
+
+    BinaryOperator *BOp = dyn_cast<BinaryOperator>(&I);
+    BinaryOperator *NextBOp = dyn_cast<BinaryOperator>(NextI);
 
     // Check: both are bit-wise AND instructions
     if (BOp->getOpcode() != Instruction::And)
