@@ -686,6 +686,12 @@ void StmtPrinter::VisitOMPTargetVariantDispatchDirective(
   Indent() << "#pragma omp target variant dispatch";
   PrintOMPExecutableDirective(Node);
 }
+
+void StmtPrinter::VisitOMPGenericLoopDirective(
+    OMPGenericLoopDirective *Node) {
+  Indent() << "#pragma omp loop";
+  PrintOMPExecutableDirective(Node);
+}
 #endif // INTEL_COLLAB
 
 void StmtPrinter::VisitOMPSingleDirective(OMPSingleDirective *Node) {

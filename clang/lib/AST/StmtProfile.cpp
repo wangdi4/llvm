@@ -451,6 +451,9 @@ void OMPClauseProfiler::VisitOMPNumThreadsClause(const OMPNumThreadsClause *C) {
     Profiler->VisitStmt(C->getNumThreads());
 }
 
+#if INTEL_COLLAB
+void OMPClauseProfiler::VisitOMPBindClause(const OMPBindClause *C) { }
+#endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 void OMPClauseProfiler::VisitOMPTileClause(const OMPTileClause *C) {
   for (auto *E : C->sizes())
@@ -897,6 +900,11 @@ void StmtProfiler::VisitOMPSectionDirective(const OMPSectionDirective *S) {
 void StmtProfiler::VisitOMPTargetVariantDispatchDirective(
     const OMPTargetVariantDispatchDirective *S) {
   VisitOMPExecutableDirective(S);
+}
+
+void StmtProfiler::VisitOMPGenericLoopDirective(
+    const OMPGenericLoopDirective *S) {
+  VisitOMPLoopDirective(S);
 }
 #endif // INTEL_COLLAB
 

@@ -10396,6 +10396,13 @@ def err_omp_allocator_used_in_clauses : Error<
   "data-sharing or data-mapping attribute clauses">;
 def err_omp_allocator_not_in_uses_allocators : Error<
   "allocator must be specified in the 'uses_allocators' clause">;
+// INTEL_COLLAB
+def err_omp_lastprivate_loop_var_non_loop_iteration : Error<
+  "only loop iteration variables are allowed in 'lastprivate' clause in "
+  "loop directives">;
+def err_omp_loop_directive_without_bind : Error<
+  "'loop' directive without 'bind' clause must be nested in another construct">;
+// end INTEL_COLLAB
 } // end of OpenMP category
 
 let CategoryName = "Related Result Type Issue" in {

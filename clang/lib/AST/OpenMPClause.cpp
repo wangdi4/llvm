@@ -109,6 +109,9 @@ const OMPClauseWithPreInit *OMPClauseWithPreInit::get(const OMPClause *C) {
   case OMPC_allocator:
   case OMPC_allocate:
   case OMPC_collapse:
+#if INTEL_COLLAB
+  case OMPC_bind:
+#endif // INTEL_COLLAB`
   case OMPC_tile:  // INTEL
   case OMPC_private:
   case OMPC_shared:
@@ -252,6 +255,9 @@ const OMPClauseWithPostUpdate *OMPClauseWithPostUpdate::get(const OMPClause *C) 
   case OMPC_exclusive:
   case OMPC_uses_allocators:
   case OMPC_affinity:
+#if INTEL_COLLAB
+  case OMPC_bind:
+#endif //INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
@@ -1558,6 +1564,13 @@ void OMPClausePrinter::VisitOMPNumThreadsClause(OMPNumThreadsClause *Node) {
   OS << ")";
 }
 
+#if INTEL_COLLAB
+void OMPClausePrinter::VisitOMPBindClause(OMPBindClause *Node) {
+  OS << "bind("
+     << getOpenMPSimpleClauseTypeName(OMPC_bind, unsigned(Node->getBindKind()))
+     << ")";
+}
+#endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 void OMPClausePrinter::VisitOMPTileClause(OMPTileClause *Node) {
   bool PrintComma = false;

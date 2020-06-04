@@ -63,6 +63,13 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind,
 #define OMP_DEFAULT_KIND(Enum, Name) .Case(Name, unsigned(Enum))
 #include "llvm/Frontend/OpenMP/OMPKinds.def"
         .Default(unsigned(llvm::omp::OMP_DEFAULT_unknown));
+#if INTEL_COLLAB
+  case OMPC_bind:
+    return llvm::StringSwitch<unsigned>(Str)
+#define OMP_BIND_KIND(Enum, Name) .Case(Name, unsigned(Enum))
+#include "llvm/Frontend/OpenMP/OMPKinds.def"
+        .Default(unsigned(llvm::omp::OMP_BIND_unknown));
+#endif // INTEL_COLLAB
   case OMPC_proc_bind:
     return llvm::StringSwitch<unsigned>(Str)
 #define OMP_PROC_BIND_KIND(Enum, Name, Value) .Case(Name, Value)
@@ -239,6 +246,16 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
 #include "llvm/Frontend/OpenMP/OMPKinds.def"
     }
     llvm_unreachable("Invalid OpenMP 'default' clause type");
+#if INTEL_COLLAB
+  case OMPC_bind:
+    switch (llvm::omp::BindKind(Type)) {
+#define OMP_BIND_KIND(Enum, Name)                                              \
+  case Enum:                                                                   \
+    return Name;
+#include "llvm/Frontend/OpenMP/OMPKinds.def"
+    }
+    llvm_unreachable("Invalid OpenMP 'bind' clause type");
+#endif // INTEL_COLLAB
   case OMPC_proc_bind:
     switch (Type) {
 #define OMP_PROC_BIND_KIND(Enum, Name, Value)                                  \
@@ -504,6 +521,9 @@ bool clang::isOpenMPLoopDirective(OpenMPDirectiveKind DKind) {
          DKind == OMPD_distribute_parallel_for_simd ||
          DKind == OMPD_distribute_simd ||
          DKind == OMPD_target_parallel_for_simd || DKind == OMPD_target_simd ||
+#if INTEL_COLLAB
+         DKind == OMPD_loop ||
+#endif // INTEL_COLLAB
          DKind == OMPD_teams_distribute ||
          DKind == OMPD_teams_distribute_simd ||
          DKind == OMPD_teams_distribute_parallel_for_simd ||
@@ -520,6 +540,10 @@ bool clang::isOpenMPWorksharingDirective(OpenMPDirectiveKind DKind) {
          DKind == OMPD_single || DKind == OMPD_parallel_for ||
          DKind == OMPD_parallel_for_simd || DKind == OMPD_parallel_sections ||
          DKind == OMPD_target_parallel_for ||
+#if INTEL_COLLAB
+         // To get the needed late-outlining loop expressions.
+         DKind == OMPD_loop ||
+#endif // INTEL_COLLAB
          DKind == OMPD_distribute_parallel_for ||
          DKind == OMPD_distribute_parallel_for_simd ||
          DKind == OMPD_target_parallel_for_simd ||
@@ -705,6 +729,11 @@ void clang::getOpenMPCaptureRegions(
     CaptureRegions.push_back(OMPD_teams);
     CaptureRegions.push_back(OMPD_parallel);
     break;
+#if INTEL_COLLAB
+  case OMPD_loop:
+    CaptureRegions.push_back(OMPD_loop);
+    break;
+#endif // INTEL_COLLAB
   case OMPD_simd:
   case OMPD_for:
   case OMPD_for_simd:

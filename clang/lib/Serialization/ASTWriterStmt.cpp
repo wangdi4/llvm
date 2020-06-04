@@ -2273,6 +2273,11 @@ void ASTStmtWriter::VisitOMPSectionDirective(OMPSectionDirective *D) {
 }
 
 #if INTEL_COLLAB
+void ASTStmtWriter::VisitOMPGenericLoopDirective(OMPGenericLoopDirective *D) {
+  VisitOMPLoopDirective(D);
+  Code = serialization::STMT_OMP_GENERIC_LOOP_DIRECTIVE;
+}
+
 void ASTStmtWriter::VisitOMPTargetVariantDispatchDirective(
     OMPTargetVariantDispatchDirective *D) {
   VisitStmt(D);

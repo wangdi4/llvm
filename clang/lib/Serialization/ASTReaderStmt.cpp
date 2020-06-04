@@ -2378,6 +2378,10 @@ void ASTStmtReader::VisitOMPSectionDirective(OMPSectionDirective *D) {
 }
 
 #if INTEL_COLLAB
+void ASTStmtReader::VisitOMPGenericLoopDirective( OMPGenericLoopDirective *D) {
+  VisitOMPLoopDirective(D);
+}
+
 void ASTStmtReader::VisitOMPTargetVariantDispatchDirective(
     OMPTargetVariantDispatchDirective *D) {
   VisitStmt(D);
@@ -3285,6 +3289,14 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
       break;
 
 #if INTEL_COLLAB
+    case STMT_OMP_GENERIC_LOOP_DIRECTIVE: {
+      unsigned NumClauses = Record[ASTStmtReader::NumStmtFields];
+      unsigned CollapsedNum = Record[ASTStmtReader::NumStmtFields + 1];
+      S = OMPGenericLoopDirective::CreateEmpty(Context, NumClauses,
+                                               CollapsedNum, Empty);
+      break;
+    }
+
     case STMT_OMP_TARGET_VARIANT_DISPATCH_DIRECTIVE:
       S = OMPTargetVariantDispatchDirective::CreateEmpty(
           Context, Record[ASTStmtReader::NumStmtFields], Empty);

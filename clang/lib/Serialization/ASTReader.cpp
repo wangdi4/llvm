@@ -11764,6 +11764,11 @@ OMPClause *OMPClauseReader::readClause() {
   case llvm::omp::OMPC_num_threads:
     C = new (Context) OMPNumThreadsClause();
     break;
+#if INTEL_COLLAB
+  case llvm::omp::OMPC_bind:
+    C = new (Context) OMPBindClause();
+    break;
+#endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   case llvm::omp::OMPC_tile:
     C = OMPTileClause::CreateEmpty(Context, Record.readInt());
@@ -12059,6 +12064,13 @@ void OMPClauseReader::VisitOMPNumThreadsClause(OMPNumThreadsClause *C) {
   C->setLParenLoc(Record.readSourceLocation());
 }
 
+#if INTEL_COLLAB
+void OMPClauseReader::VisitOMPBindClause(OMPBindClause *C) {
+  C->setBindKind(static_cast<llvm::omp::BindKind>(Record.readInt()));
+  C->setLParenLoc(Record.readSourceLocation());
+  C->setBindKindKwLoc(Record.readSourceLocation());
+}
+#endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 void OMPClauseReader::VisitOMPTileClause(OMPTileClause *C) {
   for (unsigned I = 0, E = C->getNumLoops(); I < E; ++I) {

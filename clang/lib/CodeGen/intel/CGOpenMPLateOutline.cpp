@@ -673,7 +673,7 @@ bool OpenMPLateOutliner::alreadyHandled(llvm::Value *V) {
 void OpenMPLateOutliner::addImplicitClauses() {
   if (!isOpenMPLoopDirective(CurrentDirectiveKind) &&
       !isOpenMPParallelDirective(CurrentDirectiveKind) &&
-      CurrentDirectiveKind != OMPD_task &&
+      CurrentDirectiveKind != OMPD_task && CurrentDirectiveKind != OMPD_loop &&
       CurrentDirectiveKind != OMPD_target && CurrentDirectiveKind != OMPD_teams)
     return;
 
@@ -690,7 +690,8 @@ void OpenMPLateOutliner::addImplicitClauses() {
         // An alloca inserted inside the region cannot be used on a clause.
         continue;
       } else if (VD->getStorageDuration() == SD_Static) {
-        if (isAllowedClauseForDirective(CurrentDirectiveKind, OMPC_shared,
+        if (CurrentDirectiveKind == OMPD_loop ||
+            isAllowedClauseForDirective(CurrentDirectiveKind, OMPC_shared,
                                         CGF.getLangOpts().OpenMP))
           emitImplicit(VD, ICK_shared);
       } else {
@@ -703,7 +704,8 @@ void OpenMPLateOutliner::addImplicitClauses() {
       emitImplicit(VD, ICK_firstprivate);
     } else if (isImplicitTask(OMPD_task)) {
       emitImplicit(VD, ICK_firstprivate);
-    } else if (isAllowedClauseForDirective(CurrentDirectiveKind, OMPC_shared,
+    } else if (CurrentDirectiveKind == OMPD_loop ||
+               isAllowedClauseForDirective(CurrentDirectiveKind, OMPC_shared,
                                            CGF.getLangOpts().OpenMP)) {
       // Referenced but not defined in the region: shared
       emitImplicit(VD, ICK_shared);
@@ -741,7 +743,8 @@ void OpenMPLateOutliner::addImplicitClauses() {
         addArg("QUAL.OMP.FIRSTPRIVATE");
         addArg(V, /*Handled=*/true);
       }
-    } else if (isAllowedClauseForDirective(CurrentDirectiveKind, OMPC_shared,
+    } else if (CurrentDirectiveKind == OMPD_loop ||
+               isAllowedClauseForDirective(CurrentDirectiveKind, OMPC_shared,
                                            CGF.getLangOpts().OpenMP)) {
       // Referenced but not defined in the region: shared
       if (!alreadyHandled(V)) {
@@ -1596,6 +1599,23 @@ void OpenMPLateOutliner::emitOMPTileClause(const OMPTileClause *C) {
 }
 #endif // INTEL_CUSTOMIZATION
 
+void OpenMPLateOutliner::emitOMPBindClause(const OMPBindClause *Cl) {
+  ClauseEmissionHelper CEH(*this, OMPC_bind);
+  switch (Cl->getBindKind()) {
+  case OMP_BIND_teams:
+    addArg("QUAL.OMP.BIND.TEAMS");
+    break;
+  case OMP_BIND_parallel:
+    addArg("QUAL.OMP.BIND.PARALLEL");
+    break;
+  case OMP_BIND_thread:
+    addArg("QUAL.OMP.BIND.THREAD");
+    break;
+  case OMP_BIND_unknown:
+    llvm_unreachable("Unknown bind clause");
+  }
+}
+
 void OpenMPLateOutliner::emitOMPThreadsClause(const OMPThreadsClause *) {
   ClauseEmissionHelper CEH(*this, OMPC_threads);
   addArg("QUAL.OMP.ORDERED.THREADS");
@@ -1614,6 +1634,17 @@ void OpenMPLateOutliner::emitOMPAllocateClause(const OMPAllocateClause *Cl) {
     addArg(E);
     if (A)
       addArg(CGF.EmitScalarExpr(A));
+  }
+}
+
+void OpenMPLateOutliner::emitOMPOrderClause(const OMPOrderClause *Cl) {
+  ClauseEmissionHelper CEH(*this, OMPC_order);
+  switch (Cl->getKind()) {
+  case OMPC_ORDER_concurrent:
+    addArg("QUAL.OMP.ORDER.CONCURRENT");
+    break;
+  case OMPC_ORDER_unknown:
+    llvm_unreachable("Unknown order clause");
   }
 }
 
@@ -1637,7 +1668,6 @@ void OpenMPLateOutliner::emitOMPAtomicDefaultMemOrderClause(
     const OMPAtomicDefaultMemOrderClause *) {}
 void OpenMPLateOutliner::emitOMPAllocatorClause(const OMPAllocatorClause *) {}
 void OpenMPLateOutliner::emitOMPNontemporalClause(const OMPNontemporalClause *) {}
-void OpenMPLateOutliner::emitOMPOrderClause(const OMPOrderClause *) {}
 void OpenMPLateOutliner::emitOMPAcqRelClause(const OMPAcqRelClause *) {}
 void OpenMPLateOutliner::emitOMPAcquireClause(const OMPAcquireClause *) {}
 void OpenMPLateOutliner::emitOMPReleaseClause(const OMPReleaseClause *) {}
@@ -2048,6 +2078,11 @@ void OpenMPLateOutliner::emitOMPTargetVariantDispatchDirective() {
                              OMPD_target_variant_dispatch);
 }
 
+void OpenMPLateOutliner::emitOMPGenericLoopDirective() {
+  startDirectiveIntrinsicSet("DIR.OMP.GENERICLOOP", "DIR.OMP.END.GENERICLOOP",
+                             OMPD_loop);
+}
+
 OpenMPLateOutliner &OpenMPLateOutliner::
 operator<<(ArrayRef<OMPClause *> Clauses) {
   for (auto *C : Clauses) {
@@ -2145,6 +2180,7 @@ bool OpenMPLateOutliner::needsVLAExprEmission() {
   case OMPD_parallel_sections:
   case OMPD_for_simd:
   case OMPD_parallel_for_simd:
+  case OMPD_loop:
   case OMPD_task:
   case OMPD_simd:
   case OMPD_sections:
@@ -2588,6 +2624,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
   case OMPD_parallel_for_simd:
   case OMPD_taskloop:
   case OMPD_taskloop_simd:
+  case OMPD_loop:
     llvm_unreachable("OpenMP loops not handled here");
 
   case OMPD_target_parallel:

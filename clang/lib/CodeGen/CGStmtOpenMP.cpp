@@ -1398,6 +1398,7 @@ void CodeGenFunction::EmitOMPReductionClauseInit(
     case OMPD_end_declare_variant:
 #if INTEL_COLLAB
     case OMPD_target_variant_dispatch:
+    case OMPD_loop:
 #endif // INTEL_COLLAB
     case OMPD_unknown:
       llvm_unreachable("Enexpected directive with task reductions.");
@@ -5142,6 +5143,9 @@ static void emitOMPAtomicExpr(CodeGenFunction &CGF, OpenMPClauseKind Kind,
   case OMPC_exclusive:
   case OMPC_uses_allocators:
   case OMPC_affinity:
+#if INTEL_COLLAB
+  case OMPC_bind:
+#endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   case OMPC_tile:
 #if INTEL_FEATURE_CSA
@@ -6811,6 +6815,9 @@ void CodeGenFunction::EmitLateOutlineOMPLoop(const OMPLoopDirective &S,
         break;
       case OMPD_distribute_simd:
         Outliner.emitOMPDistributeSimdDirective();
+        break;
+      case OMPD_loop:
+        Outliner.emitOMPGenericLoopDirective();
         break;
       default:
         llvm_unreachable("unexpected loop kind");

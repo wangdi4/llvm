@@ -1484,6 +1484,7 @@ CanThrowResult Sema::canThrow(const Stmt *S) {
   case Stmt::OMPTargetTeamsDistributeSimdDirectiveClass:
   case Stmt::OMPTargetUpdateDirectiveClass:
 #if INTEL_COLLAB
+  case Stmt::OMPGenericLoopDirectiveClass:
   case Stmt::OMPTargetVariantDispatchDirectiveClass:
 #endif // INTEL_COLLAB
   case Stmt::OMPTaskDirectiveClass:
