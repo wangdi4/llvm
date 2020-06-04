@@ -1,6 +1,6 @@
 //===----------------- DTransCommon.cpp - Shared DTrans code --------------===//
 //
-// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -170,6 +170,7 @@ void llvm::initializeDTransPasses(PassRegistry &PR) {
   initializeDTransAnalysisWrapperPass(PR);
   initializeDTransFieldModRefAnalysisWrapperPass(PR);
   initializeDTransFieldModRefResultWrapperPass(PR);
+  initializeDTransSafetyAnalyzerWrapperPass(PR);
   initializeDTransImmutableAnalysisWrapperPass(PR);
   initializeDTransPaddedMallocWrapperPass(PR);
   initializePaddedPtrPropWrapperPass(PR);
@@ -331,6 +332,7 @@ void llvm::createDTransPasses() {
   (void)llvm::createDTransSOAToAOSWrapperPass();
   (void)llvm::createDTransAnalysisWrapperPass();
   (void)llvm::createDTransImmutableAnalysisWrapperPass();
+  (void)llvm::createDTransSafetyAnalyzerTestWrapperPass();
   (void)llvm::createDTransFieldModRefAnalysisWrapperPass();
   (void)llvm::createDTransFieldModRefResultWrapperPass();
   (void)llvm::createDTransDynCloneWrapperPass();
