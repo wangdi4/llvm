@@ -36,8 +36,11 @@ public:
   using AllZeroBypassRegionsTy = SmallVector<BypassPairTy, 8>;
 
   // Keeps track of regions formed so as to not introduce unnecessary ones.
-  // This maps reflects the regions after the bypass transformation.
-  using RegionsInsertedTy = std::map<VPValue *, AllZeroBypassRegionsTy>;
+  // This maps reflects the regions after the bypass transformation. Use a
+  // multimap because it could be possible that multiple regions are formed
+  // using the same block-predicate.
+  using RegionsCollectedTy =
+      std::multimap<VPValue *, SmallPtrSet<VPBasicBlock *, 4>>;
 
 private:
   // VPlan for bypass insertion.
@@ -93,15 +96,31 @@ private:
                              VPLoopInfo *VPLI);
 
   /// Assert if the structure of the bypass is not well formed.
-  void verifyBypassRegion(BypassPairTy &Region);
+  void verifyBypassRegion(VPBasicBlock *FirstBlockInRegion,
+                          SmallPtrSetImpl<VPBasicBlock *> &RegionBlocks);
+
+  /// Returns true if \p Block has already been included within a region
+  /// under block-predicate \p Pred.
+  bool regionFoundForBlock(VPBasicBlock *Block, VPValue *Pred,
+                           RegionsCollectedTy &RegionsCollected);
+
+  /// Returns true if \p MaybePred is an anded condition of \p BaseCond.
+  bool isStricterOrEqualPred(const VPValue *MaybePred, const VPValue *BaseCond);
 
 public:
   VPlanAllZeroBypass(VPlan &Plan) : Plan(Plan) {};
 
   /// Collect regions of blocks that are safe/profitable for all-zero bypass
-  /// insertion.
-  void collectAllZeroBypassRegions(
-      AllZeroBypassRegionsTy &AllZeroBypassRegions);
+  /// insertion for non-loops.
+  void collectAllZeroBypassNonLoopRegions(
+      AllZeroBypassRegionsTy &AllZeroBypassRegions,
+      RegionsCollectedTy &RegionsCollected);
+
+  /// Collect regions of blocks that are safe/profitable for all-zero bypass
+  /// insertion for loops.
+  void collectAllZeroBypassLoopRegions(
+      AllZeroBypassRegionsTy &AllZeroBypassRegions,
+      RegionsCollectedTy &RegionsCollected);
 
   /// Iterate over blocks previously collected and insert an all-zero bypass
   /// around those blocks. This is also done for loops with divergent loop
