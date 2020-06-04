@@ -370,6 +370,9 @@ void DTransOptBase::collectDependenciesForTypeRecurse(Type *Dependee,
     if (!Dependee->isAggregateType() || !Depender->isAggregateType())
       return;
 
+    if (dtrans::isPaddedStruct(Depender, Dependee))
+      return;
+
     LLVM_DEBUG(dbgs() << "DTRANS-OPTBASE: Type dependency: Replacing "
                       << *Depender << " will require replacing  " << *Dependee
                       << "\n");

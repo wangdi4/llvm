@@ -9250,6 +9250,7 @@ DTransAnalysisInfo::getOrCreateTypeInfoForArray(llvm::Type *Ty,
 }
 
 dtrans::TypeInfo *DTransAnalysisInfo::getOrCreateTypeInfo(llvm::Type *Ty) {
+
   // If we already have this type in our map, just return it.
   auto TI = getTypeInfo(Ty);
   if (TI)
@@ -9286,6 +9287,29 @@ dtrans::TypeInfo *DTransAnalysisInfo::getOrCreateTypeInfo(llvm::Type *Ty) {
   }
 
   TypeInfoMap[Ty] = DTransTy;
+  auto RelatedTypeIT = RelatedTypesMap.find(Ty);
+
+  // Set the related type
+  if (RelatedTypeIT != RelatedTypesMap.end()) {
+    llvm::Type *RelatedType = RelatedTypesMap[Ty];
+    dtrans::StructInfo *CurrInfo =  cast<dtrans::StructInfo>(DTransTy);
+    dtrans::StructInfo *RelatedInfo = nullptr;
+    auto TypeInfoIT = TypeInfoMap.find(RelatedType);
+    if (TypeInfoIT != TypeInfoMap.end())
+      RelatedInfo = cast<dtrans::StructInfo>(TypeInfoMap[RelatedType]);
+    else
+      RelatedInfo = cast<dtrans::StructInfo>(
+        getOrCreateTypeInfo(RelatedTypesMap[Ty]));
+
+    CurrInfo->setRelatedType(RelatedInfo);
+
+    // If Ty is the padded type, then set the last field as
+    // padded field.
+    int64_t CurrNumFields = CurrInfo->getNumFields();
+    int64_t RelatedNumFields = RelatedInfo->getNumFields();
+    if ((CurrNumFields - RelatedNumFields) == 1)
+      CurrInfo->getField(CurrNumFields - 1).setPaddedField();
+  }
   return DTransTy;
 }
 
@@ -9815,6 +9839,28 @@ bool DTransAnalysisInfo::requiresBadCastValidation(
   return !Func.empty();
 }
 
+// Build the related types map. This map will store the relationship between
+// a padded structure and a base structure.
+void DTransAnalysisInfo::buildRelatedTypesMap(Module &M) {
+
+  SetVector<llvm::StructType *> TypesCollected;
+  dtrans::collectAllStructTypes(M, TypesCollected);
+
+  for (StructType *STy : TypesCollected) {
+    llvm::Type *Ty = cast<llvm::Type>(STy);
+
+    if (RelatedTypesMap.count(Ty) > 0)
+      continue;
+
+    llvm::Type *RelatedType = dtrans::collectRelatedType(Ty, M);
+    if (!RelatedType)
+      continue;
+
+    RelatedTypesMap[RelatedType] = Ty;
+    RelatedTypesMap[Ty] = RelatedType;
+  }
+}
+
 bool DTransAnalysisInfo::analyzeModule(
     Module &M, GetTLIFnType GetTLI, WholeProgramInfo &WPInfo,
     function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
@@ -9828,6 +9874,7 @@ bool DTransAnalysisInfo::analyzeModule(
   }
 
   setCallGraphStats(M);
+  buildRelatedTypesMap(M);
 
   if (!shouldComputeDTransAnalysis())
     return false;

@@ -295,8 +295,12 @@ private:
   // Return true if we should run DTransAnalysis.
   bool shouldComputeDTransAnalysis(void) const;
 
+  // Build a map that relates types with ABI padding to base types
+  void buildRelatedTypesMap(Module &M);
+
   DenseMap<dtrans::Transform, StringSet<>> IgnoreTypeMap;
   DenseMap<llvm::Type *, dtrans::TypeInfo *> TypeInfoMap;
+  DenseMap<llvm::Type *, llvm::Type *> RelatedTypesMap;
 
   // A mapping from function calls that special information is collected for
   // (malloc, free, memset, etc) to the information stored about those calls.
