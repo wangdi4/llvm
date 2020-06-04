@@ -1261,3 +1261,22 @@ llvm::Type* dtrans::getTypeForZeroElementLoaded(LoadInst *Load,
 
   return nullptr;
 }
+
+// Helper function to identify if the BitCast instruction will be used for
+// loading the 0 element in a structure.
+bool dtrans::isBitCastLoadingZeroElement(BitCastInst* BC) {
+  if (!BC)
+    return false;
+
+  for (User *U : BC->users()) {
+    if (auto *Load = dyn_cast<LoadInst>(U)) {
+      // Check if the load represents the zero element of a structure.
+      Type *Pointee = nullptr;
+      Type *LoadedType = dtrans::getTypeForZeroElementLoaded(Load, &Pointee);
+      if (LoadedType && Pointee)
+        // Store the structure that is being accessed at 0
+        return true;
+    }
+  }
+  return false;
+}

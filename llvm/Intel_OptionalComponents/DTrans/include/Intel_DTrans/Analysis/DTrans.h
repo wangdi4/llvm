@@ -1134,6 +1134,10 @@ llvm::Type *dtransCompositeGetTypeAtIndex(llvm::Type *Ty, unsigned Idx);
 llvm::Type* getTypeForZeroElementLoaded(LoadInst *Load,
                                         llvm::Type **Pointee);
 
+// Return true if the BitCast instruction is used for loading the 0 element
+// in a structure
+bool isBitCastLoadingZeroElement(BitCastInst *BC);
+
 } // namespace dtrans
 
 } // namespace llvm

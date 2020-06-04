@@ -167,6 +167,7 @@ class PagePoolTy {
 
   std::vector<std::vector<ChunkedPageTy>> Buckets;
   int32_t DeviceId = 0;
+  int32_t TargetAllocKind = TARGET_ALLOC_SHARED;
   ze_driver_handle_t Driver = nullptr;
   ze_device_handle_t Device = nullptr;
 
@@ -184,11 +185,12 @@ public:
   /// Initialize a page pool for the given device.
   /// Multiple threads cannot call this simultaneously.
   void initialize(int32_t deviceId, ze_driver_handle_t driver,
-                  ze_device_handle_t device) {
+                  ze_device_handle_t device, int32_t allocKind) {
     Buckets.resize(MaxSize - MinSize + 1);
     DeviceId = deviceId;
     Driver = driver;
     Device = device;
+    TargetAllocKind = allocKind;
   }
 
   /// Return supported max size in bytes.
@@ -209,15 +211,8 @@ public:
       return mem;
     }
     // Bucket is empty or all pages in the bucket are full
-    ze_device_mem_alloc_desc_t allocDesc = {
-      ZE_DEVICE_MEM_ALLOC_DESC_VERSION_CURRENT,
-      ZE_DEVICE_MEM_ALLOC_FLAG_DEFAULT,
-      0 /* ordinal */
-    };
-    void *base = nullptr;
-    CALL_ZE_RET_NULL(zeDriverAllocDeviceMem, Driver, &allocDesc,
-                     LEVEL0_PAGE_SIZE, 0, Device, &base);
-    MEMSTAT_UPDATE(DeviceId, Driver, LEVEL0_PAGE_SIZE, base);
+    void *base = __tgt_rtl_data_alloc_explicit(
+        DeviceId, LEVEL0_PAGE_SIZE, TargetAllocKind);
     DP("New allocation from page pool: base = " DPxMOD ", size = %" PRIu32 "\n",
        DPxPTR(base), LEVEL0_PAGE_SIZE);
     Buckets[bucketId].emplace_back(1U << (bucketId + MinSize), base);
@@ -414,6 +409,7 @@ public:
   uint32_t DataTransferLatency; // Emulated data transfer latency in us
   int32_t DeviceType;
   uint32_t ThreadLimit; // Global thread limit
+  int32_t TargetAllocKind = TARGET_ALLOC_SHARED;
 
   // Compilation options for IGC
   // OpenCL 2.0 builtins (like atomic_load_explicit and etc.) are used by
@@ -527,6 +523,12 @@ public:
                                "LIBOMPTARGET_SAVE_TEMPS")) {
       if (env[0] == 'T' || env[0] == 't' || env[0] == '1')
         Flags.DumpTargetImage = 1;
+    }
+
+    // Target allocation kind
+    if (char *env = readEnvVar("LIBOMPTARGET_LEVEL0_USE_DEVICE_MEM")) {
+      if (env[0] == 'T' || env[0] == 't' || env[0] == '1')
+        TargetAllocKind = TARGET_ALLOC_DEVICE;
     }
   }
 
@@ -753,6 +755,33 @@ static void closeRTL() {
   DP("Closed RTL successfully\n");
 }
 
+static int32_t copyData(int32_t DeviceId, void *Dest, void *Src, size_t Size,
+                        std::unique_lock<std::mutex> &copyLock) {
+  // Mtx == nullptr means we already own the lock.
+  if (DeviceInfo->TargetAllocKind == TARGET_ALLOC_SHARED) {
+    char *src = static_cast<char *>(Src);
+    std::copy(src, src + Size, static_cast<char *>(Dest));
+  } else {
+    auto cmdList = DeviceInfo->getCmdList(DeviceId);
+    auto cmdQueue = DeviceInfo->getCmdQueue(DeviceId);
+    bool ownsLock = false;
+    if (!copyLock.owns_lock()) {
+      copyLock.lock();
+      ownsLock = true;
+    }
+    CALL_ZE_RET_FAIL(
+        zeCommandListAppendMemoryCopy, cmdList, Dest, Src, Size, nullptr);
+    CALL_ZE_RET_FAIL(zeCommandListClose, cmdList);
+    CALL_ZE_RET_FAIL(
+        zeCommandQueueExecuteCommandLists, cmdQueue, 1, &cmdList, nullptr);
+    if (ownsLock)
+      copyLock.unlock();
+    CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT32_MAX);
+    CALL_ZE_RET_FAIL(zeCommandListReset, cmdList);
+  }
+  return OFFLOAD_SUCCESS;
+}
+
 /// Initialize module data
 static int32_t initModule(int32_t DeviceId) {
   // Prepare host data to copy
@@ -764,12 +793,6 @@ static int32_t initModule(int32_t DeviceId) {
 
   // Prepare device data location
   auto driver = DeviceInfo->Driver;
-  auto device = DeviceInfo->Devices[DeviceId];
-  ze_device_mem_alloc_desc_t allocDesc = {
-    ZE_DEVICE_MEM_ALLOC_DESC_VERSION_CURRENT,
-    ZE_DEVICE_MEM_ALLOC_FLAG_DEFAULT,
-    0 /* ordinal */
-  };
   void *deviceData = nullptr;
 
   std::unique_lock<std::mutex> kernelLock(DeviceInfo->Mutexes[DeviceId]);
@@ -777,11 +800,9 @@ static int32_t initModule(int32_t DeviceId) {
   if (DeviceInfo->Flags.UseMemoryPool)
     deviceData = DeviceInfo->PagePools[DeviceId].allocate(sizeof(hostData));
 
-  if (!deviceData) {
-    CALL_ZE_RET_FAIL(zeDriverAllocDeviceMem, driver, &allocDesc, sizeof(hostData),
-                     LEVEL0_ALIGNMENT, device, &deviceData);
-    MEMSTAT_UPDATE(DeviceId, driver, sizeof(hostData), deviceData);
-  }
+  if (!deviceData)
+    deviceData = __tgt_rtl_data_alloc_explicit(
+        DeviceId, sizeof(hostData), DeviceInfo->TargetAllocKind);
 
   // Prepare kernel to initialize data
   ze_kernel_desc_t kernelDesc = {
@@ -797,12 +818,15 @@ static int32_t initModule(int32_t DeviceId) {
   ze_group_count_t groupCounts = {1, 1, 1};
   CALL_ZE_RET_FAIL(zeKernelSetGroupSize, initModuleData, 1, 1, 1);
 
+  // Copy data
+  int32_t rc = copyData(DeviceId, deviceData, &hostData, sizeof(hostData),
+                        kernelLock);
+  if (rc != OFFLOAD_SUCCESS)
+    return OFFLOAD_FAIL;
+
   // Invoke the kernel
   auto cmdList = DeviceInfo->getCmdList(DeviceId);
   auto cmdQueue = DeviceInfo->getCmdQueue(DeviceId);
-  CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, cmdList, deviceData,
-                   &hostData, sizeof(hostData), nullptr);
-  CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, cmdList, nullptr, 0, nullptr);
   CALL_ZE_RET_FAIL(zeCommandListAppendLaunchKernel, cmdList, initModuleData,
                    &groupCounts, nullptr, 0, nullptr);
   CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, cmdList, nullptr, 0, nullptr);
@@ -980,7 +1004,7 @@ int32_t __tgt_rtl_init_device(int32_t DeviceId) {
 
   if (DeviceInfo->Flags.UseMemoryPool)
     DeviceInfo->PagePools[DeviceId].initialize(DeviceId, DeviceInfo->Driver,
-                                               DeviceInfo->Devices[DeviceId]);
+        DeviceInfo->Devices[DeviceId], DeviceInfo->TargetAllocKind);
 
   DeviceInfo->Initialized[DeviceId] = true;
 
@@ -1141,24 +1165,21 @@ static void *allocData(int32_t DeviceId, int64_t Size, void *HstPtr,
   offset = (offset >= 0) ? offset : 0;
   size += offset;
 
-  ze_device_mem_alloc_desc_t allocDesc = {
-    ZE_DEVICE_MEM_ALLOC_DESC_VERSION_CURRENT,
-    ZE_DEVICE_MEM_ALLOC_FLAG_DEFAULT,
-    0 /* ordinal */
-  };
   void *base = nullptr;
   void *mem = nullptr;
   if (DeviceInfo->Flags.UseMemoryPool &&
       (base = DeviceInfo->PagePools[DeviceId].allocate(size))) {
     mem = (void *)((intptr_t)base + offset);
-    DP("Allocated device memory " DPxMOD " (Base: " DPxMOD ", Size: %zu) "
+    DP("Allocated target memory " DPxMOD " (Base: " DPxMOD ", Size: %zu) "
        "from memory pool for host ptr " DPxMOD "\n",
        DPxPTR(mem), DPxPTR(base), size, DPxPTR(HstPtr));
     return mem;
   }
-  CALL_ZE_RET_NULL(zeDriverAllocDeviceMem, DeviceInfo->Driver, &allocDesc, size,
-                   LEVEL0_ALIGNMENT, DeviceInfo->Devices[DeviceId], &base);
-  MEMSTAT_UPDATE(DeviceId, DeviceInfo->Driver, Size, base);
+
+  // We use shared USM to avoid overheads coming from explicit data copy to
+  // device memory.
+  base = __tgt_rtl_data_alloc_explicit(
+      DeviceId, size, DeviceInfo->TargetAllocKind);
   mem = (void *)((intptr_t)base + offset);
 
   if (DebugLevel > 0) {
@@ -1167,7 +1188,7 @@ static void *allocData(int32_t DeviceId, int64_t Size, void *HstPtr,
     CALL_ZE_RET_NULL(zeDriverGetMemAddressRange, DeviceInfo->Driver, mem,
                      &actualBase, &actualSize);
     assert(base == actualBase && "Invalid memory address range!");
-    DP("Allocated device memory " DPxMOD " (Base: " DPxMOD
+    DP("Allocated target memory " DPxMOD " (Base: " DPxMOD
        ", Size: %zu) for host ptr " DPxMOD "\n", DPxPTR(mem), DPxPTR(actualBase),
        actualSize, DPxPTR(HstPtr));
   }
@@ -1193,10 +1214,7 @@ EXTERN void *__tgt_rtl_data_alloc_managed(int32_t DeviceId, int64_t Size) {
 }
 
 EXTERN int32_t __tgt_rtl_data_delete_managed(int32_t DeviceId, void *Ptr) {
-  auto &mutex = DeviceInfo->Mutexes[DeviceId];
-  CALL_ZE_RET_FAIL_MTX(zeDriverFreeMem, mutex, DeviceInfo->Driver, Ptr);
-  DP("Deleted a managed memory object " DPxMOD "\n", DPxPTR(Ptr));
-  return OFFLOAD_SUCCESS;
+  return __tgt_rtl_data_delete(DeviceId, Ptr);
 }
 
 EXTERN int32_t __tgt_rtl_is_managed_ptr(int32_t DeviceId, void *Ptr) {
@@ -1237,7 +1255,9 @@ EXTERN void *__tgt_rtl_data_alloc_explicit(
 
   switch (Kind) {
   case TARGET_ALLOC_DEVICE:
-    mem = allocData(DeviceId, Size, nullptr, nullptr, 0);
+    CALL_ZE_RET_NULL(zeDriverAllocDeviceMem, driver, &deviceDesc, Size,
+                     LEVEL0_ALIGNMENT, device, &mem);
+    DP("Allocated a device memory object " DPxMOD "\n", DPxPTR(mem));
     break;
   case TARGET_ALLOC_HOST:
     CALL_ZE_RET_NULL(zeDriverAllocHostMem, driver, &hostDesc, Size,
@@ -1252,6 +1272,8 @@ EXTERN void *__tgt_rtl_data_alloc_explicit(
   default:
     FATAL_ERROR("Invalid target data allocation kind");
   }
+
+  MEMSTAT_UPDATE(DeviceId, driver, Size, mem);
 
   return mem;
 }
@@ -1317,39 +1339,32 @@ static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
   // Add synthetic delay for experiments
   addDataTransferLatency();
 
-  std::unique_lock<std::mutex> copyLock(DeviceInfo->Mutexes[DeviceId]);
-
-  auto cmdList = DeviceInfo->getCmdList(DeviceId);
-  auto cmdQueue = DeviceInfo->getCmdQueue(DeviceId);
+  std::unique_lock<std::mutex> copyLock(DeviceInfo->Mutexes[DeviceId],
+                                        std::defer_lock);
 
   if (AsyncEvent) {
-    cmdList = createCmdList(DeviceInfo->Devices[DeviceId]);
+    copyLock.lock();
+    auto cmdList = createCmdList(DeviceInfo->Devices[DeviceId]);
+    auto cmdQueue = DeviceInfo->getCmdQueue(DeviceId);
     if (!cmdList) {
       DP("Error: Asynchronous data submit failed -- invalid command list\n");
       return OFFLOAD_FAIL;
     }
-    CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, cmdList, TgtPtr, HstPtr,
-                     Size, nullptr);
     auto fence = createFence(cmdQueue);
     if (!fence) {
       DP("Error: Asynchronous data submit failed -- invalid fence\n");
       return OFFLOAD_FAIL;
     }
+    CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, cmdList, TgtPtr, HstPtr,
+                     Size, nullptr);
     if (beginAsyncCommand(cmdList, cmdQueue,
         static_cast<AsyncEventTy *>(AsyncEvent), fence) == OFFLOAD_FAIL)
       return OFFLOAD_FAIL;
     DP("Asynchronous data submit started -- %" PRId64 " bytes (hst:"
        DPxMOD ") -> (tgt:" DPxMOD ")\n", Size, DPxPTR(HstPtr), DPxPTR(TgtPtr));
   } else {
-    CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, cmdList, TgtPtr, HstPtr,
-                     Size, nullptr);
-    CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, cmdList, nullptr, 0, nullptr);
-    CALL_ZE_RET_FAIL(zeCommandListClose, cmdList);
-    CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, cmdQueue, 1, &cmdList,
-                     nullptr);
-    copyLock.unlock();
-    CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT32_MAX);
-    CALL_ZE_RET_FAIL(zeCommandListReset, cmdList);
+    if (copyData(DeviceId, TgtPtr, HstPtr, Size, copyLock) != OFFLOAD_SUCCESS)
+      return OFFLOAD_FAIL;
     DP("Copied %" PRId64 " bytes (hst:" DPxMOD ") -> (tgt:" DPxMOD ")\n", Size,
        DPxPTR(HstPtr), DPxPTR(TgtPtr));
   }
@@ -1388,39 +1403,32 @@ static int32_t retrieveData(int32_t DeviceId, void *HstPtr, void *TgtPtr,
   // Add synthetic delay for experiments
   addDataTransferLatency();
 
-  std::unique_lock<std::mutex> copyLock(DeviceInfo->Mutexes[DeviceId]);
-
-  auto cmdList = DeviceInfo->getCmdList(DeviceId);
-  auto cmdQueue = DeviceInfo->getCmdQueue(DeviceId);
+  std::unique_lock<std::mutex> copyLock(DeviceInfo->Mutexes[DeviceId],
+                                        std::defer_lock);
 
   if (AsyncEvent) {
-    cmdList = createCmdList(DeviceInfo->Devices[DeviceId]);
+    copyLock.lock();
+    auto cmdList = createCmdList(DeviceInfo->Devices[DeviceId]);
+    auto cmdQueue = DeviceInfo->getCmdQueue(DeviceId);
     if (!cmdList) {
       DP("Error: Asynchronous data retrieve failed -- invalid command list\n");
       return OFFLOAD_FAIL;
     }
-    CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, cmdList, HstPtr, TgtPtr,
-                     Size, nullptr);
     auto fence = createFence(cmdQueue);
     if (!fence) {
       DP("Error: Asynchronous data retrieve failed -- invalid fence\n");
       return OFFLOAD_FAIL;
     }
+    CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, cmdList, HstPtr, TgtPtr,
+                     Size, nullptr);
     if (beginAsyncCommand(cmdList, cmdQueue,
         static_cast<AsyncEventTy *>(AsyncEvent), fence) == OFFLOAD_FAIL)
       return OFFLOAD_FAIL;
     DP("Asynchronous data retrieve started -- %" PRId64 " bytes (tgt:"
        DPxMOD ") -> (hst:" DPxMOD ")\n", Size, DPxPTR(TgtPtr), DPxPTR(HstPtr));
   } else {
-    CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, cmdList, HstPtr, TgtPtr,
-                     Size, nullptr);
-    CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, cmdList, nullptr, 0, nullptr);
-    CALL_ZE_RET_FAIL(zeCommandListClose, cmdList);
-    CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, cmdQueue, 1, &cmdList,
-                     nullptr);
-    copyLock.unlock();
-    CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT32_MAX);
-    CALL_ZE_RET_FAIL(zeCommandListReset, cmdList);
+    if (copyData(DeviceId, HstPtr, TgtPtr, Size, copyLock) != OFFLOAD_SUCCESS)
+      return OFFLOAD_FAIL;
     DP("Copied %" PRId64 " bytes (tgt:" DPxMOD ") -> (hst:" DPxMOD ")\n", Size,
        DPxPTR(TgtPtr), DPxPTR(HstPtr));
   }

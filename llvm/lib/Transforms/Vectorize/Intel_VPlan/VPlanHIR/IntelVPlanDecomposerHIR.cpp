@@ -832,7 +832,9 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
       }
       SmallVector<VPValue *, 4> ArgList(VPOperands.begin(),
                                         VPOperands.end() - ArgOperandOffset);
-      NewVPInst = Builder.createCall(CalledValue, ArgList, HInst);
+      NewVPInst = Builder.createCall(
+          CalledValue, ArgList, HInst /*Used to get underlying call*/,
+          DDNode /*Used to determine if this VPCall is master/slave*/);
     } else
       // Generic VPInstruction.
       NewVPInst = cast<VPInstruction>(Builder.createNaryOp(

@@ -2,16 +2,18 @@
 
 ; RUN: opt  < %s -whole-program-assume -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s -check-prefix=CHECKUNHUSE
 ; RUN: opt  < %s -whole-program-assume -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s -check-prefix=CHECKMISS
+; RUN: opt  < %s -whole-program-assume -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s -check-prefix=CHECKBC
 ; RUN: opt  < %s -whole-program-assume -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s -check-prefix=CHECKREAD
 
 ; RUN: opt  < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s -check-prefix=CHECKUNHUSE
 ; RUN: opt  < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s -check-prefix=CHECKMISS
+; RUN: opt  < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s -check-prefix=CHECKBC
 ; RUN: opt  < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s -check-prefix=CHECKREAD
 
 ; Test that checks that the type %class.TestClass isn't marked as
-; "Unhandled use" nor "Mismatched element access" because the 0 element is
-; computed with a BitCast and a Load. It also makes sure that entries 0 and 1
-; in %"struct.std::_Vector_base<TestClass,
+; "Unhandled use", "Mismatched element access" or "Bad casting" because the
+; 0 element is computed with a BitCast and a Load. It also makes sure that
+; entries 0 and 1 in %"struct.std::_Vector_base<TestClass,
 ; std::allocator<TestClass>>::_Vector_impl.67" are marked as Read. This test
 ; case checks when the source is an argument.
 
@@ -22,6 +24,10 @@
 ; Check Mismatched element access
 ; CHECKMISS-LABEL:  LLVMType: %class.TestClass = type { i64, i64, i64 }
 ; CHECKMISS-NOT: Safety data:{{.*}}Mismatched element access{{.*}}
+
+; Check Bad casting
+; CHECKBC-LABEL:  LLVMType: %class.TestClass = type { i64, i64, i64 }
+; CHECKBC-NOT: Safety data:{{.*}}Bad casting{{.*}}
 
 ; Check Read
 ; CHECKREAD-LABEL:  LLVMType: %"struct.std::_Vector_base<TestClass, std::allocator<TestClass>>::_Vector_impl.67" = type { %class.TestClass*, %class.TestClass*, %class.TestClass* }
