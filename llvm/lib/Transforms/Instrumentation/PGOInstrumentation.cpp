@@ -1366,7 +1366,7 @@ void PGOUseFunc::setBranchWeights() {
     if (TI->getNumSuccessors() < 2)
       continue;
     if (!(isa<BranchInst>(TI) || isa<SwitchInst>(TI) ||
-          isa<IndirectBrInst>(TI)))
+          isa<IndirectBrInst>(TI) || isa<InvokeInst>(TI)))
       continue;
 
     if (getBBInfo(&BB).CountValue == 0)
