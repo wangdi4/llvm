@@ -722,6 +722,15 @@ public:
   }
 };
 
+// Checks if the innermost loop body has a certain stencil pattern.
+// Checks
+//  - kinds of binary operations.
+//  - Per memref group (grouping is done by RefGrouper)
+//    + Get the median by compareMemRefAddress.
+//    + Check all other memrefs in the same group has
+//      a constant distance.
+//    + for a 3-D reference, upto 2 dimensions can have different
+//      from those of median ref.
 class StencilChecker {
   typedef DDRefGrouping::RefGroupVecTy<RegDDRef *> RefGroupVecTy;
   typedef DDRefGrouping::RefGroupTy<RegDDRef *> RefGroupTy;

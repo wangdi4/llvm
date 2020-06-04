@@ -1,18 +1,22 @@
+//===--- HIRStencilPattern.h - Utils for checking stencil pattern -------===//
+//
+// Copyright (C) 2020 Intel Corporation. All rights reserved.
+//
+// The information and source code contained herein is the exclusive
+// property of Intel Corporation and may not be disclosed, examined
+// or reproduced in whole or in part without explicit written authorization
+// from the company.
+//
+//===--------------------------------------------------------------------===//
+// Note: Mind the namespace "stencilpattern"
+//
+
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRSTENCIPATTERN_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_HIRSTENCIPATTERN_H
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/RegDDRef.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGrouping.h"
 
-/// Checks if the innermost loop body has a certain stencil pattern.
-/// Checks
-///  - kinds of binary operations.
-///  - Per memref group (grouping is done by RefGrouper)
-///    + Get the median by compareMemRefAddress.
-///    + Check all other memrefs in the same group has
-///      a constant distance.
-///    + for a 3-D reference, upto 2 dimensions can have different
-///      from those of median ref.
 namespace llvm {
 
 namespace loopopt {
