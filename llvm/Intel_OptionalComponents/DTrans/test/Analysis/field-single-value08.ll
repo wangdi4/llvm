@@ -1,3 +1,4 @@
+; REQUIRES: asserts
 ; RUN: opt  < %s -whole-program-assume -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 ; Check for all fields being Single Value, except for the embedded union.

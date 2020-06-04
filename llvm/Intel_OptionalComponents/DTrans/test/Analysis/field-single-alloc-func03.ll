@@ -1,3 +1,4 @@
+; REQUIRES: asserts
 ; RUN: opt  < %s -whole-program-assume -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 ; Test that malloc wrapped in another function and assigned to a void*

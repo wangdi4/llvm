@@ -1,3 +1,4 @@
+; REQUIRES: asserts
 ; CMPLRLLVM-8956: This verifies that compiler (Dtrans) shouldn't
 ; fail when handling bitcast instructions involving vector types
 ; in foo and bar. Makes sure Bad casting is set for %struct.C.
