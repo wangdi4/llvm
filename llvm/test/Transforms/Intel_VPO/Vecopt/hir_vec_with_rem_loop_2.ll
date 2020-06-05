@@ -6,12 +6,13 @@
 ;   unsigned index;
 ; 
 ;   for (index = 0; index < n; index++)
-;     arr[index] += index;
+;     arr[index] = index;
 ; 
 ;   return 0;
 ; }
 ; 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -print-before=VPlanDriverHIR -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -print-before=VPlanDriverHIR -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir=0 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -print-before=VPlanDriverHIR -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir -disable-output < %s 2>&1 | FileCheck %s
 ;
 ; HIR Test.
 
@@ -24,7 +25,7 @@
 ; CHECK: (<4 x i32>*)(@arr)[0][i1] = i1 + 
 ; CHECK: END LOOP
 ; CHECK: DO i1 = 4 * %tgu, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>  <MAX_TC_EST = 3> <nounroll> <novectorize> <max_trip_count = 3>
-; CHECK: (@arr)[0][i1] = i1 + 
+; CHECK: (@arr)[0][i1] = i1
 ; CHECK: END LOOP
 ; ModuleID = 'rem3.ll'
 source_filename = "rem3.c"
@@ -47,8 +48,7 @@ for.body:                                         ; preds = %for.body.preheader,
   %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr, i64 0, i64 %indvars.iv
   %0 = load i32, i32* %arrayidx, align 4, !tbaa !1
   %1 = trunc i64 %indvars.iv to i32
-  %add = add i32 %0, %1
-  store i32 %add, i32* %arrayidx, align 4, !tbaa !1
+  store i32 %1, i32* %arrayidx, align 4, !tbaa !1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %lftr.wideiv = trunc i64 %indvars.iv.next to i32
   %exitcond = icmp eq i32 %lftr.wideiv, %n
