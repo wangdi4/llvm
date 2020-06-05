@@ -101,13 +101,17 @@ struct VPlanLoopVFParser : public cl::parser<ForceVFTy> {
   bool parse(cl::Option &O, StringRef ArgName, StringRef Arg,
              ForceVFTy &Result) {
     std::pair<StringRef, StringRef> LoopVFPair = Arg.split(':');
-    int LoopId;
+    int LoopId = -1;
     if (LoopVFPair.first.getAsInteger(10, LoopId))
       return O.error("Cannot parse LoopID!");
 
-    unsigned VF;
+    assert(LoopId != -1 && "Couldn't get a valid LoopId.");
+
+    unsigned VF = 0;
     if (LoopVFPair.second.getAsInteger(10, VF))
       return O.error("Cannot parse VF!");
+
+    assert(VF != 0 && "Couldn't get a valid value for VF.");
 
     Result = std::make_pair(LoopId, VF);
     return false;
