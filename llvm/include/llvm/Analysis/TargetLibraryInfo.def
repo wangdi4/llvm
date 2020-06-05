@@ -172,6 +172,12 @@ TLI_DEFINE_STRING_INTERNAL("FindNextFileW")
 /// HRSRC FindResourceA(HMODULE hModule, LPCSTR lpName, LPCSTR lpType);
 TLI_DEFINE_ENUM_INTERNAL(FindResourceA)
 TLI_DEFINE_STRING_INTERNAL("FindResourceA")
+/// BOOL FreeResource(HGLOBAL hResData)
+TLI_DEFINE_ENUM_INTERNAL(FreeResource)
+TLI_DEFINE_STRING_INTERNAL("FreeResource")
+/// HANDLE GetCurrentProcess();
+TLI_DEFINE_ENUM_INTERNAL(GetCurrentProcess)
+TLI_DEFINE_STRING_INTERNAL("GetCurrentProcess")
 /// DWORD GetCurrentThreadId();
 TLI_DEFINE_ENUM_INTERNAL(GetCurrentThreadId)
 TLI_DEFINE_STRING_INTERNAL("GetCurrentThreadId")
@@ -187,12 +193,18 @@ TLI_DEFINE_STRING_INTERNAL("GetModuleHandleA")
 /// FARPROC GetProcAddress(HMODULE hModule, LPCSTR  lpProcName);
 TLI_DEFINE_ENUM_INTERNAL(GetProcAddress)
 TLI_DEFINE_STRING_INTERNAL("GetProcAddress")
+/// BOOL GetProcessTimes(HANDLE hProcess, LPFILETIME lpCreationTime, LPFILETIME lpExitTime, LPFILETIME lpKernelTime, LPFILETIME lpUserTime);
+TLI_DEFINE_ENUM_INTERNAL(GetProcessTimes)
+TLI_DEFINE_STRING_INTERNAL("GetProcessTimes")
 /// DWORD GetShortPathNameW(LPCWSTR lpszLongPath, LPWSTR lpszShortPath, DWORD cchBuffer);
 TLI_DEFINE_ENUM_INTERNAL(GetShortPathNameW)
 TLI_DEFINE_STRING_INTERNAL("GetShortPathNameW")
 /// void GetSystemTime(LPSYSTEMTIME lpSystemTime);
 TLI_DEFINE_ENUM_INTERNAL(GetSystemTime)
 TLI_DEFINE_STRING_INTERNAL("GetSystemTime")
+/// NOT_BUILD_WINDOWS_DEPRECATE BOOL GetVersionExA(LPOSVERSIONINFOA lpVersionInformation);
+TLI_DEFINE_ENUM_INTERNAL(GetVersionExA)
+TLI_DEFINE_STRING_INTERNAL("GetVersionExA")
 /// void GlobalMemoryStatus(LPMEMORYSTATUS lpBuffer);
 TLI_DEFINE_ENUM_INTERNAL(GlobalMemoryStatus)
 TLI_DEFINE_STRING_INTERNAL("GlobalMemoryStatus")
@@ -202,12 +214,21 @@ TLI_DEFINE_STRING_INTERNAL("InitializeCriticalSectionAndSpinCount")
 /// void LeaveCriticalSection(LPCRITICAL_SECTION lpCriticalSection);
 TLI_DEFINE_ENUM_INTERNAL(LeaveCriticalSection)
 TLI_DEFINE_STRING_INTERNAL("LeaveCriticalSection")
+/// HGLOBAL LoadResource(HMODULE hModule, HRSRC hResInfo);
+TLI_DEFINE_ENUM_INTERNAL(LoadResource)
+TLI_DEFINE_STRING_INTERNAL("LoadResource")
+/// LPVOID LockResource(HGLOBAL hResData)
+TLI_DEFINE_ENUM_INTERNAL(LockResource)
+TLI_DEFINE_STRING_INTERNAL("LockResource")
 /// int MultiByteToWideChar(UINT CodePage, DWORD dwFlags, _In_NLS_string_(cbMultiByte)LPCCH lpMultiByteStr, int cbMultiByte, LPWSTR lpWideCharStr, int cchWideChar);
 TLI_DEFINE_ENUM_INTERNAL(MultiByteToWideChar)
 TLI_DEFINE_STRING_INTERNAL("MultiByteToWideChar")
 /// BOOL QueryPerformanceCounter(LARGE_INTEGER *lpPerformanceCount);
 TLI_DEFINE_ENUM_INTERNAL(QueryPerformanceCounter)
 TLI_DEFINE_STRING_INTERNAL("QueryPerformanceCounter")
+/// DWORD SizeofResource(HMODULE hModule, HRSRC hResInfo)
+TLI_DEFINE_ENUM_INTERNAL(SizeofResource)
+TLI_DEFINE_STRING_INTERNAL("SizeofResource")
 /// void Sleep(DWORD dwMilliseconds)
 TLI_DEFINE_ENUM_INTERNAL(Sleep)
 TLI_DEFINE_STRING_INTERNAL("Sleep")

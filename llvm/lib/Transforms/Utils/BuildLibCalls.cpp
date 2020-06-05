@@ -1623,6 +1623,12 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_FindResourceA:
     Changed |= setDoesNotThrow(F);
     return Changed;
+  case LibFunc_FreeResource:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_GetCurrentProcess:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
   case LibFunc_GetCurrentThreadId:
     Changed |= setDoesNotThrow(F);
     return Changed;
@@ -1638,10 +1644,16 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_GetProcAddress:
     Changed |= setDoesNotThrow(F);
     return Changed;
+  case LibFunc_GetProcessTimes:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
   case LibFunc_GetShortPathNameW:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_GetSystemTime:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_GetVersionExA:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_GlobalMemoryStatus:
@@ -1727,6 +1739,12 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_link:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_LoadResource:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_LockResource:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_local_stdio_printf_options:
@@ -1978,6 +1996,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_signbit:
     Changed |= setOnlyReadsMemory(F);
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_SizeofResource:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_Sleep:
