@@ -18,6 +18,7 @@
 #define LLVM_ANALYSIS_INTEL_LOOPANALYSIS_HIRFRAMEWORK_H
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRAnalysisPass.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRRegionIdentification.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 #include "llvm/IR/IRPrintingPasses.h"
@@ -29,7 +30,6 @@ namespace llvm {
 class DominatorTree;
 class PostDominatorTree;
 class LoopInfo;
-class ScalarEvolution;
 class AAResults;
 
 namespace loopopt {
@@ -39,7 +39,6 @@ class HIRCleanup;
 class HIRLoopFormation;
 class HIRScalarSymbaseAssignment;
 class HIRParser;
-class HIRRegionIdentification;
 class HIRSCCFormation;
 
 const unsigned InvalidBlobIndex = 0;
@@ -100,7 +99,6 @@ private:
   DominatorTree &DT;
   PostDominatorTree &PDT;
   LoopInfo &LI;
-  ScalarEvolution &SE;
   AAResults &AA;
   HIRRegionIdentification &RI;
   HIRSCCFormation &SCCF;
@@ -135,9 +133,8 @@ private:
 
 public:
   HIRFramework(Function &F, DominatorTree &DT, PostDominatorTree &PDT,
-               LoopInfo &LI, ScalarEvolution &SE, AAResults &AA,
-               HIRRegionIdentification &RI, HIRSCCFormation &SCCF,
-               OptReportVerbosity::Level VerbosityLevel,
+               LoopInfo &LI, AAResults &AA, HIRRegionIdentification &RI,
+               HIRSCCFormation &SCCF, OptReportVerbosity::Level VerbosityLevel,
                HIRAnalysisProvider AnalysisProvider);
   HIRFramework(const HIRFramework &) = delete;
   HIRFramework(HIRFramework &&);
@@ -147,6 +144,8 @@ public:
   void print(bool FrameworkDetails, raw_ostream &OS) const;
 
   void verify() const;
+
+  ScopedScalarEvolution &getScopedSE() { return RI.getScopedSE(); }
 
   // The biggest symbase seen during compilation of this fuction
   unsigned getMaxSymbase() const { return MaxSymbase; }

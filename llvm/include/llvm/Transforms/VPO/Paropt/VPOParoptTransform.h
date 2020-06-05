@@ -1420,6 +1420,34 @@ private:
   static CallInst* isFenceCall(Instruction *I);
 
   /// Collect the live-in value for the phis at the loop header.
+  /// Collect the live-out set for the loop.
+  /// "LiveIn" Values are PHINode values with one incoming value from Loop
+  /// preheader and others from other basic blocks/Loop Latch.
+  /// A defined Value is considered "LiveOut" if it is used outside the loop or
+  /// it has loop-carried dependence. A variable has loop-carried dependence if
+  /// it is present in "LiveIn" set of the Loop.
+  /// LoopInductionVariables are not included in the sets,since they are handled
+  /// in a special way using threadID.
+  /// Eg:
+  /// LoopHeader:                             %preds=LoopPreheader, LoopLatch
+  ///  %phi0 = (0 LoopPreheader, %phi3 LoopLatch)
+  ///  %phi1 = (0 LoopPreheader, %add LoopLatch)
+  ///  %phi2 = (0 LoopPreheader, %phi4 LoopLatch)
+  /// ....
+  ///
+  /// LoopBody1:
+  ///  %add = phi1 + 1
+  /// ....
+  ///
+  /// LoopLatch:                                  %preds=LoopBody1, LoopBody2
+  ///  %phi3 = (1 LoopBody1, 1 LoopBody2) <<- PHI inserted in
+  ///                                         updateConstantLoopHeaderPhis()
+  ///  %phi4 = (%phi2 LoopBody2, 1 LoopBody1)
+  ///  ...
+  ///  br LoopHeader
+  ///
+  /// LiveIn : %phi3, %add, %phi4
+  /// LiveOut: %add, %phi3, %phi4
   void wrnUpdateSSAPreprocess(
       Loop *L,
       DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap,
@@ -1447,7 +1475,7 @@ private:
 
   /// Build the equivalence class for the value a, b if there exists some
   /// phi node e.g. a = phi(b).
-  void buildECs(Loop *L, PHINode *PN, EquivalenceClasses<Value *> &ECs);
+  void buildECs(Loop *L, Value *PN, EquivalenceClasses<Value *> &ECs);
 
   /// The utility to build the equivalence class for the value phi.
   void AnalyzePhisECs(Loop *L, Value *PV, Value *V,
@@ -1455,9 +1483,10 @@ private:
                       SmallPtrSet<PHINode *, 16> &PhiUsers);
 
   /// Collect the live-out values for a given loop.
-  void wrnCollectLiveOutVals(Loop &L,
-                             SmallSetVector<Instruction *, 8> &LiveOutVals,
-                             EquivalenceClasses<Value *> &ECs);
+  void wrnCollectLiveOutVals(
+      Loop &L, SmallSetVector<Instruction *, 8> &LiveOutVals,
+      DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap,
+      EquivalenceClasses<Value *> &ECs);
 
   /// The utility to update the liveout set from the given BB.
   void wrnUpdateLiveOutVals(Loop *L, BasicBlock *BB,

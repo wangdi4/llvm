@@ -20,6 +20,8 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRRegionIdentification.h"
+
 namespace llvm {
 
 class Function;
@@ -39,7 +41,6 @@ class HLRegion;
 class HLLabel;
 class HLLoop;
 class HLIf;
-class HIRRegionIdentification;
 class HIRCreation;
 class HIRCleanup;
 class HLNodeUtils;
@@ -56,8 +57,8 @@ private:
   Function *Func;
 
   LoopInfo &LI;
-  ScalarEvolution &SE;
   HIRRegionIdentification &RI;
+  ScopedScalarEvolution &ScopedSE;
   HIRCreation &HIRCr;
   HIRCleanup &HIRC;
   HLNodeUtils &HNU;
@@ -105,9 +106,6 @@ private:
   /// Sets the parent if node of the loop as its ztt.
   void setZtt(HLLoop *HLoop);
 
-  /// Returns the outermost parent loop of \p Lp contained in the HIR region.
-  const Loop *getOutermostHIRParentLoop(const Loop *Lp) const;
-
   /// Moves the loop exit goto after the loop if it is not removed as redundant
   /// by HIRCleanup pass.
   void processLoopExitGoto(HLIf *BottomTest, HLLabel *LoopLabel,
@@ -117,10 +115,10 @@ private:
   void formLoops();
 
 public:
-  HIRLoopFormation(LoopInfo &LI, ScalarEvolution &SE,
-                   HIRRegionIdentification &RI, HIRCreation &HIRCr,
-                   HIRCleanup &HIRC, HLNodeUtils &HNU)
-      : LI(LI), SE(SE), RI(RI), HIRCr(HIRCr), HIRC(HIRC), HNU(HNU) {}
+  HIRLoopFormation(LoopInfo &LI, HIRRegionIdentification &RI,
+                   HIRCreation &HIRCr, HIRCleanup &HIRC, HLNodeUtils &HNU)
+      : LI(LI), RI(RI), ScopedSE(RI.getScopedSE()), HIRCr(HIRCr), HIRC(HIRC),
+        HNU(HNU) {}
 
   void run();
 

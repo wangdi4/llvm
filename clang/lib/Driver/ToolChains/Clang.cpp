@@ -5228,7 +5228,19 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
         CmdArgs.push_back("-std=c++98");
       else
         CmdArgs.push_back("-std=c89");
-    else
+#if INTEL_CUSTOMIZATION
+    // Intel compiler allows for /Qstd which is an alias -std.  We want to be
+    // sure to limit valid args to C++14 or higher.
+    else if (Args.hasArg(options::OPT__intel) && IsWindowsMSVC) {
+      StringRef Val(Std->getValue());
+      if (Val == "c++98" || Val == "c++03" || Val == "c++0x" ||
+          Val == "c++11") {
+        D.Diag(clang::diag::warn_drv_unused_argument) << Std->getAsString(Args);
+        ImplyVCPPCXXVer = true;
+      } else
+        Std->render(Args, CmdArgs);
+    } else
+#endif // INTEL_CUSTOMIZATION
       Std->render(Args, CmdArgs);
 
     // If -f(no-)trigraphs appears after the language standard flag, honor it.

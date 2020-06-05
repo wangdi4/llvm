@@ -507,23 +507,6 @@ public:
   /// Returns MDNode associated with this instruction for the particular HIR
   /// metadata type.
   MDNode *getHIRMetadata(const Instruction *Inst, HIRLiveKind Kind);
-
-  /// Return a SCEV expression suitable for HIR consumption. Specified loop
-  /// is assumed to be the outermost loop of the loopnest. A null outermost
-  /// loop specifies disabling all AddRecs.
-  const SCEV *getSCEVForHIR(Value *Val, const Loop *OutermostLoop);
-
-  /// Returns a SCEVAtScope expression suitable for HIR consumption.
-  const SCEV *getSCEVAtScopeForHIR(const SCEV *SC, const Loop *Lp,
-                                   const Loop *OutermostLoop);
-
-  /// Clears HIR relates SCEV caches.
-  void clearHIRCache() {
-    HIRValueExprMap.clear();
-    HIRBackedgeTakenCounts.clear();
-    HIRDummyBackedgeTakenCounts.clear();
-  }
-
 #endif  // INTEL_CUSTOMIZATION
   // Returns a wider type among {Ty1, Ty2}.
   Type *getWiderType(Type *Ty1, Type *Ty2) const;
@@ -729,15 +712,13 @@ public:
   /// prematurely via another branch.
   unsigned getSmallConstantTripCount(const Loop *L, BasicBlock *ExitingBlock);
 
-#if INTEL_CUSTOMIZATION // HIR parsing
-  /// Returns a backedge taken count suitable for HIR consumption.
-  const SCEV *getBackedgeTakenCountForHIR(const Loop *Lp, 
-                                          const Loop *OutermostLoop);
+#if INTEL_CUSTOMIZATION
+  /// Returns true if this is a ScopedScalarEvolution object.
+  bool isScoped() const { return IsScoped; }
 
   /// Returns true if ZttInst represents the ztt of the loop.
-  bool isLoopZtt(const Loop *Lp, const Loop *OutermostLoop,
-                 const BranchInst *ZttInst, bool Inverse);
-  
+  bool isLoopZtt(const Loop *Lp, const BranchInst *ZttInst, bool Inverse);
+
   // NOTE--the below function should be called as part of getRange. However,
   // this does appear to impact compile time, so it is being reserved for
   // consumers who really care about tighter bounds.
@@ -745,7 +726,6 @@ public:
   /// Try to bound a range for a loop-varying, but non-affine, SCEV representing
   /// a PHI by finding bounds on how much it can grow each loop iteration.
   ConstantRange getRangeBoundedByLoop(const PHINode &Phi);
-
 #endif  // INTEL_CUSTOMIZATION
   /// Returns the upper bound of the loop trip count as a normal unsigned
   /// value.
@@ -1150,7 +1130,7 @@ public:
       const SCEV *S, const Loop *L,
       SmallPtrSetImpl<const SCEVPredicate *> &Preds);
 
-private:
+protected: // INTEL
   /// A CallbackVH to arrange for ScalarEvolution to be notified whenever a
   /// Value is deleted.
   class SCEVCallbackVH final : public CallbackVH {
@@ -1229,64 +1209,6 @@ private:
   /// This is a cache of the values we have analyzed so far.
   ValueExprMapType ValueExprMap;
 
-#if INTEL_CUSTOMIZATION // HIR parsing
-  /// The typedef for HIRValueExprMap.
-  ///
-  typedef DenseMap<Value *, const SCEV *> HIRValueExprMapType;
-
-  /// This is a cache of HIR values we have analyzed so far. It is built
-  /// on top of ValueExprMap and needs to stay in sync with it.
-  HIRValueExprMapType HIRValueExprMap;
-
-  /// Structure to contain all HIR related info.
-  struct HIRInfoStruct {
-  private:
-    // Indicates whether we are parsing for HIR.
-    bool IsValid;
-    // Sets the outermost loop in HIR's context. Used to suppress AddRecs
-    // belonging to parents of this loop.
-    const Loop *OutermostLoop;
-    // Set by getBackedgeTakenCountForHIR() function to the loop for which we
-    // are trying to compute the trip count.
-    const Loop *BTCLoop;
-
-    // Used to differentiate between constructed and copy constructed objects.
-    HIRInfoStruct *Initializer;
-
-  public:
-    HIRInfoStruct() : Initializer(nullptr) { reset(); }
-
-    // Copy construction is a hack to disable HIR mode temporarily.
-    HIRInfoStruct(HIRInfoStruct &);
-    // Destructor restores the initializer, if it exists.
-    ~HIRInfoStruct();
-
-    bool isValid() const { return IsValid; }
-    const Loop *getOutermostLoop() const { return OutermostLoop; }
-    const Loop *getBackedgeTakenCountLoop() const { return BTCLoop; }
-
-    void set(const Loop *OutermostLoop,
-             const Loop *BackedgeTakenCountLoop = nullptr) {
-      IsValid = true;
-      this->OutermostLoop = OutermostLoop;
-      this->BTCLoop = BackedgeTakenCountLoop;
-    }
-
-    void reset() {
-      IsValid = false;
-      OutermostLoop = nullptr;
-      BTCLoop = nullptr;
-    }
-  };
-
-  HIRInfoStruct HIRInfo;
-
-  // MDKind ID for HIR metadata.
-  unsigned HIRLiveInID = 0;
-  unsigned HIRLiveOutID = 0;
-  unsigned HIRLiveRangeID = 0;
-#endif  // INTEL_CUSTOMIZATION
-
   /// Mark predicate values currently being processed by isImpliedCond.
   SmallPtrSet<Value *, 6> PendingLoopPredicates;
 
@@ -1300,6 +1222,14 @@ private:
   // Recursion depth for PHINode traversal. Avoids adding a parameter to all
   // the intermediate functions such as getSCEV.
   unsigned int PhiDepth = 0;
+
+  // MDKind ID for HIR metadata.
+  unsigned HIRLiveInID = 0;
+  unsigned HIRLiveOutID = 0;
+  unsigned HIRLiveRangeID = 0;
+
+  // Added to support isa<> for derived ScopedScalarEvolution.
+  bool IsScoped = false;
 
   // Phis currently being processed by createNodeForIdenticalOperandsPHI().
   DenseMap<const PHINode *, bool> PhiSimplificationCandidates;
@@ -1319,8 +1249,8 @@ private:
 public: // INTEL
   /// Return the Value set from which the SCEV expr is generated.
   SetVector<ValueOffsetPair> *getSCEVValues(const SCEV *S);
-private: // INTEL
 
+protected: // INTEL
   /// Private helper method for the GetMinTrailingZeros method
   uint32_t GetMinTrailingZerosImpl(const SCEV *S);
 
@@ -1488,16 +1418,6 @@ private: // INTEL
   /// Cache the backedge-taken count of the loops for this function as they
   /// are computed.
   DenseMap<const Loop *, BackedgeTakenInfo> BackedgeTakenCounts;
-
-#if INTEL_CUSTOMIZATION // HIR parsing
-  /// This is a cache of HIR backedge taken counts. It is built on top of
-  /// BackedgeTakenCounts and needs to stay in sync with it.
-  DenseMap<const Loop*, BackedgeTakenInfo> HIRBackedgeTakenCounts;
-  /// This is used to hold dummy backedge taken counts for multi-exit loops. It
-  /// is used to answer queries when the backedge count being requested is for
-  /// some other loop.
-  DenseMap<const Loop *, BackedgeTakenInfo> HIRDummyBackedgeTakenCounts;
-#endif  // INTEL_CUSTOMIZATION
 
   /// Cache the predicated backedge-taken count of the loops for this
   /// function as they are computed.
@@ -1893,13 +1813,10 @@ private: // INTEL
   bool isKnownPredicateViaSplitting(ICmpInst::Predicate Pred, const SCEV *LHS,
                                     const SCEV *RHS);
 
-#if INTEL_CUSTOMIZATION // HIR parsing 
-  /// Returns true if specified SCEV is suitable for HIR consumption. 
-  bool isValidSCEVForHIR(const SCEV *SC) const;
-
-  /// Constructs the original SCEV corresponding to this HIR SCEV by 
+#if INTEL_CUSTOMIZATION
+  /// Constructs the original SCEV corresponding to the scoped SCEV by
   /// re-parsing contained SCEVUnknowns.
-  const SCEV *getOriginalSCEV(const SCEV *SC);
+  const SCEV *getNonScopedSCEV(const SCEV *SC);
 
   /// Returns true if \p Val's uses are known to be safe for propagation of
   /// no-wrap flags. This function assumes that IR does not change during
@@ -1907,7 +1824,7 @@ private: // INTEL
   bool hasWrapSafeUses(const Value *Val, const Value *KnownSafeUse) const;
 
   /// Returns true if we can safely propagate no-wrap flags from \p BinOp to it
-  /// SCEV form by analyzing its operands. This only works in HIR mode.
+  /// SCEV form by analyzing its operands. This only works in immutable IR mode.
   bool hasWrapSafeOperands(const BinaryOperator *BinOp) const;
 #endif  // INTEL_CUSTOMIZATION
 
@@ -2231,6 +2148,146 @@ private:
   const SCEV *BackedgeCount = nullptr;
 };
 
+#if INTEL_CUSTOMIZATION
+/// This is a modified version of scalar evolution generalized based on HIR
+/// specific requirements. It provides these 3 extra features-
+///
+/// 1) Clients can restrict the scope of analysis to certain loops/loopnests.
+/// AddRecurrences outside these loops will be suppressed. This is needed
+/// because in many cases HIR only builds inner loops/loopnests to save compile
+/// time.
+///
+/// For example, consider this pseudo loopnest-
+///
+/// L1:
+///  %iv1 = phi [ 0, %pre ], [ %iv1.inc, %L1Latch ]
+///  L2
+///   %iv2 = phi [ 0, %L1 ], [ %iv2.inc, %L2 ]
+///   %add = add %iv1, %iv2
+///   %iv2.inc = add %iv2, 1
+///  END L2
+///   %iv1.inc = add %iv1, 1
+/// END L1
+///
+/// If the scope is set to 'L1', %add will evaluate to something like this-
+/// {{0,+,1}<L1>,+,1}<L2>
+///
+/// If the scope is set to L2, %add will evaluate to this-
+/// {%iv1,+,1}<L2>
+///
+/// Because AddRec of L1 is not allowed.
+///
+/// Scope is allowed to be changed dynamically and results in automatic flush of
+/// the cache unless requested otherwise by the client.
+///
+/// Note: Passing all top level loops of the function makes the scope the same
+/// as regular ScalarEvolution.
+///
+///
+/// 2) Backedge taken count of multi-exit loops is based on just the backedge
+/// exit and not the other exits. Other exits are considered 'early-exits'.
+/// Regular ScalarEvolution requires all loop exits to be computable to be able
+/// to compute the trip count.
+///
+/// For example, consider this loop-
+///
+/// for(i=0; i<n; i++) {
+///   if (A[i] > 0)
+///     break;
+///   A[i]++;
+/// }
+///
+/// Regular ScalarEvolution will return SCEVCouldNotCompute for this loop
+/// whereas ScopedScalarEvolution will return 'n'.
+///
+///
+/// 3) More information can be propagated by assuming immutability of IR.
+///
+/// Design constraints of regular ScalarEvolution prevent it from assuming
+/// immutability as clients can follow the pattern of-
+///
+/// a) Query SCEV
+/// b) Change IR
+/// c) Requery SCEV
+///
+/// This results in conservative behavior in terms of propagating no-wrap flags.
+/// For example, regular scalar evolution will not propagate no-wrap flags for
+/// this simple add unless they can be concluded using range information of %n.
+/// %add = add nuw nsw %n, 1
+/// --> (1 + n)
+///
+/// Clients of ScopedScalarEvolution can declare 'immutability' during
+/// construction which allows for better information. It is valid to pass this
+/// if the analysis and transformation parts of the client transformation are
+/// cleanly separated. It is up to the client to honor this property. Violations
+/// cannot be caught.
+///
+class ScopedScalarEvolution : public ScalarEvolution {
+  // Used in analysis mode for more precise range info.
+  ScalarEvolution OrigSE;
+
+  /// Assumes the underlying IR is not being changed by the client.
+  bool AssumeIRImmutability;
+
+  /// Sets the loop for which the backedge taken count is supposed to be
+  /// computed. This only makes a difference for multi-exit loops.
+  const Loop *BTCLoop;
+
+  /// AddRecs of any loops not contained in these loops is suppressed.
+  SmallVector<const Loop *, 8> OutermostLps;
+
+  /// This is used to hold dummy backedge taken counts for multi-exit loops. It
+  /// is used to answer queries when the backedge count being requested is for
+  /// some other loop.
+  DenseMap<const Loop *, BackedgeTakenInfo> DummyBackedgeTakenCounts;
+
+public:
+  ScopedScalarEvolution(Function &F, TargetLibraryInfo &TLI,
+                        AssumptionCache &AC, DominatorTree &DT, LoopInfo &LI,
+                        bool AssumeIRImmutability)
+      : ScalarEvolution(F, TLI, AC, DT, LI), OrigSE(F, TLI, AC, DT, LI),
+        AssumeIRImmutability(AssumeIRImmutability) {
+    IsScoped = true;
+  }
+
+  ScalarEvolution &getOrigSE() { return OrigSE; }
+
+  bool mayAssumeImmutableIR() const { return AssumeIRImmutability; }
+
+  const Loop *getBackedgeTakenCountLoop() const { return BTCLoop; }
+
+  void setBackedgeTakenCountLoop(const Loop *Lp) {
+    assert(Lp && "Loop is null!");
+    BTCLoop = Lp;
+  }
+
+  void resetBackedgeTakenCountLoop() { BTCLoop = nullptr; }
+
+  ArrayRef<const Loop *> getOutermostLoops() const { return OutermostLps; }
+
+  // Sets the scope based on specified \p OutermostLoops. The cache is cleared
+  // as the result from one scope may not be valid in another scope.
+  void setScope(ArrayRef<const Loop *> OutermostLoops) {
+    OutermostLps.assign(OutermostLoops.begin(), OutermostLoops.end());
+    clear();
+  }
+
+  const BackedgeTakenInfo &getDummyBackedgeTakenCount(const Loop *Lp) {
+    return DummyBackedgeTakenCounts[Lp];
+  }
+
+  // Clears relevant cache. Handy when changing scope.
+  void clear() {
+    ValueExprMap.clear();
+    ExprValueMap.clear();
+    BackedgeTakenCounts.clear();
+    DummyBackedgeTakenCounts.clear();
+  }
+
+  /// Method for supporting type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const ScalarEvolution *SE) { return SE->isScoped(); }
+};
+#endif // INTEL_CUSTOMIZATION
 } // end namespace llvm
 
 #endif // LLVM_ANALYSIS_SCALAREVOLUTION_H

@@ -83,8 +83,8 @@ public:
 private:
   LoopInfo &LI;
   DominatorTree &DT;
-  ScalarEvolution &SE;
   const HIRRegionIdentification &RI;
+  ScopedScalarEvolution &ScopedSE;
 
   /// RegionSCCs - Vector of SCCs identified by this pass.
   RegionSCC RegionSCCs;
@@ -213,8 +213,7 @@ private:
   void runImpl();
 
 public:
-  HIRSCCFormation(LoopInfo &LI, DominatorTree &DT, ScalarEvolution &SE,
-                  HIRRegionIdentification &RI);
+  HIRSCCFormation(LoopInfo &LI, DominatorTree &DT, HIRRegionIdentification &RI);
   HIRSCCFormation(const HIRSCCFormation &) = delete;
   HIRSCCFormation(HIRSCCFormation &&SCCF);
 

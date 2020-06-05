@@ -29,9 +29,12 @@ using namespace llvm::loopopt;
 IRRegion::IRRegion(BasicBlock *EntryBB, BasicBlock *ExitBB,
                    const RegionBBlocksTy &BBs,
                    const RegionBBlocksTy &NonLoopBBs,
+                   ArrayRef<const Loop *> OutermostLoops,
                    bool IsMaterializationCandidate, bool IsFunctionLevel)
     : EntryBBlock(EntryBB), ExitBBlock(ExitBB), BBlocks(BBs),
-      NonLoopBBlocks(NonLoopBBs), ParentRegion(nullptr),
+      NonLoopBBlocks(NonLoopBBs),
+      OutermostLps(OutermostLoops.begin(), OutermostLoops.end()),
+      ParentRegion(nullptr),
       IsLoopMaterializationCandidate(IsMaterializationCandidate),
       IsFunctionLevel(IsFunctionLevel) {
   assert(EntryBB && "Entry basic block cannot be null!");
@@ -42,6 +45,7 @@ IRRegion::IRRegion(IRRegion &&Reg)
     : EntryBBlock(Reg.EntryBBlock), ExitBBlock(Reg.ExitBBlock),
       BBlocks(std::move(Reg.BBlocks)), BBlocksSet(std::move(Reg.BBlocksSet)),
       NonLoopBBlocks(std::move(Reg.NonLoopBBlocks)),
+      OutermostLps(std::move(Reg.OutermostLps)),
       LiveInMap(std::move(Reg.LiveInMap)),
       LiveOutMap(std::move(Reg.LiveOutMap)), ParentRegion(Reg.ParentRegion),
       IsLoopMaterializationCandidate(Reg.IsLoopMaterializationCandidate),
@@ -53,6 +57,7 @@ IRRegion &IRRegion::operator=(IRRegion &&Reg) {
   BBlocks = std::move(Reg.BBlocks);
   BBlocksSet = std::move(Reg.BBlocksSet);
   NonLoopBBlocks = std::move(Reg.NonLoopBBlocks);
+  OutermostLps = std::move(Reg.OutermostLps);
   LiveInMap = std::move(Reg.LiveInMap);
   LiveOutMap = std::move(Reg.LiveOutMap);
   ParentRegion = Reg.ParentRegion;

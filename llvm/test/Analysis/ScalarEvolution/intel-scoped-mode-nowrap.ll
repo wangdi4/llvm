@@ -1,7 +1,7 @@
 ; RUN: opt < %s -analyze -scalar-evolution | FileCheck %s
-; RUN: opt < %s -analyze -scalar-evolution -scalar-evolution-print-hir-mode | FileCheck %s --check-prefix=HIR-MODE
+; RUN: opt < %s -analyze -scalar-evolution -scalar-evolution-print-scoped-mode | FileCheck %s --check-prefix=SCOPED-MODE
 
-; Verify that in HIR mode we can propagate nowrap flags to SCEV of %add by
+; Verify that in scoped mode we can propagate nowrap flags to SCEV of %add by
 ; assuming that IR will not change during analysis.
 
 ; %n is only used in one SCEVable instruction(icmp is not counted) which makes
@@ -10,7 +10,7 @@
 
 ; CHECK: -->  (1 + %n) U: full-set S: full-set
 
-; HIR-MODE: -->  (1 + %n)<nuw><nsw> U: [1,0) S: [-2147483647,-2147483648)
+; SCOPED-MODE: -->  (1 + %n)<nuw><nsw> U: [1,0) S: [-2147483647,-2147483648)
 
 
 define i32 @foo(i32 %n) "intel-lang"="fortran" {

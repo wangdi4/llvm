@@ -27,6 +27,7 @@
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/IntrinsicInst.h"
 
+#include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRRegionIdentification.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/CanonExpr.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
@@ -83,6 +84,7 @@ HIRRegionIdentificationAnalysis::run(Function &F, FunctionAnalysisManager &AM) {
   return HIRRegionIdentification(
       F, AM.getResult<LoopAnalysis>(F), AM.getResult<DominatorTreeAnalysis>(F),
       AM.getResult<PostDominatorTreeAnalysis>(F),
+      AM.getResult<AssumptionAnalysis>(F),
       AM.getResult<ScalarEvolutionAnalysis>(F),
       AM.getResult<TargetLibraryAnalysis>(F),
       AM.getResult<XmainOptLevelAnalysis>(F).getOptLevel());
@@ -93,6 +95,7 @@ INITIALIZE_PASS_BEGIN(HIRRegionIdentificationWrapperPass,
                       false, true)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
@@ -114,6 +117,7 @@ bool HIRRegionIdentificationWrapperPass::runOnFunction(Function &F) {
       F, getAnalysis<LoopInfoWrapperPass>().getLoopInfo(),
       getAnalysis<DominatorTreeWrapperPass>().getDomTree(),
       getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree(),
+      getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F),
       getAnalysis<ScalarEvolutionWrapperPass>().getSE(),
       getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F),
       getAnalysis<XmainOptLevelWrapperPass>().getOptLevel()));
@@ -126,6 +130,7 @@ void HIRRegionIdentificationWrapperPass::getAnalysisUsage(
   AU.setPreservesAll();
   AU.addRequiredTransitive<DominatorTreeWrapperPass>();
   AU.addRequiredTransitive<PostDominatorTreeWrapperPass>();
+  AU.addRequiredTransitive<AssumptionCacheTracker>();
   AU.addRequiredTransitive<LoopInfoWrapperPass>();
   AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
   AU.addRequiredTransitive<TargetLibraryInfoWrapperPass>();
@@ -1557,7 +1562,7 @@ bool HIRRegionIdentification::areBBlocksGenerable(const Loop &Lp) const {
   return true;
 }
 
-const Loop *HIRRegionIdentification::getOutermostParentLoop(const Loop *Lp) {
+static const Loop *getOutermostParentLoop(const Loop *Lp) {
   const Loop *ParLp, *TmpLp;
 
   ParLp = Lp;
@@ -1630,12 +1635,9 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
     return false;
   }
 
-  // Use the outermost LLVM loop to evaluate the trip count as we do not know
-  // the outermost HIR parent loop. This is okay for the initial analysis. If
-  // we are not able to compute trip count of the loop after suppressing some
-  // parent loops, the loop will be handled as an unknown loop.
-  auto BECount =
-      SE.getBackedgeTakenCountForHIR(&Lp, getOutermostParentLoop(&Lp));
+  ScopedSE->setBackedgeTakenCountLoop(&Lp);
+  auto BECount = ScopedSE->getBackedgeTakenCount(&Lp);
+  ScopedSE->resetBackedgeTakenCountLoop();
 
   auto ConstBECount = dyn_cast<SCEVConstant>(BECount);
 
@@ -1712,7 +1714,7 @@ void HIRRegionIdentification::createRegion(
 
   IRRegions.emplace_back(EntryBB,
                          ExitBB ? ExitBB : Loops.back()->getLoopLatch(),
-                         BBlocks, NonLoopBBlocks);
+                         BBlocks, NonLoopBBlocks, Loops);
 
   // Keep track of all bblocks part of regular regions.
   AllLoopBasedRegionsBBlocks.insert(BBlocks.begin(), BBlocks.end());
@@ -1742,9 +1744,16 @@ bool HIRRegionIdentification::isGenerableLoopnest(
 
   bool ThrottleParentLoop = false;
   // Check whether Lp is generable.
-  if (Generable &&
-      !isSelfGenerable(Lp, ++LoopnestDepth, false, ThrottleParentLoop)) {
-    Generable = false;
+  if (Generable) {
+    // Use the outermost LLVM loop to evaluate the trip count as we do not know
+    // the outermost HIR parent loop. This is okay for the initial analysis. If
+    // we are not able to compute trip count of the loop after suppressing some
+    // parent loops, the loop will be handled as an unknown loop.
+    ScopedSE->setScope({getOutermostParentLoop(&Lp)});
+
+    if (!isSelfGenerable(Lp, ++LoopnestDepth, false, ThrottleParentLoop)) {
+      Generable = false;
+    }
   }
 
   if (Generable) {
@@ -2120,7 +2129,7 @@ void HIRRegionIdentification::formRegionsForLoopMaterialization(
     BBs.push_back(&BB);
     NonLoopBBs.push_back(&BB);
 
-    IRRegion TempRegion(&BB, &BB, BBs, NonLoopBBs, true);
+    IRRegion TempRegion(&BB, &BB, BBs, NonLoopBBs, {}, true);
 
     // SmallVector does not have emplace().
     IRRegions.insert(InsertPos, std::move(TempRegion));
@@ -2172,7 +2181,7 @@ void HIRRegionIdentification::createFunctionLevelRegion(Function &Func) {
 
   IRRegion::RegionBBlocksTy NonLoopBBlocks;
   IRRegions.emplace_back(&Func.getEntryBlock(), nullptr, BBlocks,
-                         NonLoopBBlocks, false, true);
+                         NonLoopBBlocks, LI.getTopLevelLoops(), false, true);
 
   RegionCount++;
 }
@@ -2204,6 +2213,8 @@ bool HIRRegionIdentification::canFormFunctionLevelRegion(Function &Func) {
   }
 
   SmallVector<Loop *, 16> AllLoops = LI.getLoopsInPreorder();
+
+  ScopedSE->setScope(LI.getTopLevelLoops());
 
   bool ThrottleParentLoop;
   for (auto Lp : AllLoops) {
@@ -2303,7 +2314,7 @@ bool HIRRegionIdentification::isLoopConcatenationCandidate() const {
 
   // Check backedge taken count.
   for (auto Lp : LI) {
-    auto BECount = SE.getBackedgeTakenCountForHIR(Lp, Lp);
+    auto BECount = SE.getBackedgeTakenCount(Lp);
     auto ConstBECount = dyn_cast<SCEVConstant>(BECount);
 
     if (!ConstBECount || (ConstBECount->getValue()->getSExtValue() != 3)) {
@@ -2324,8 +2335,11 @@ bool HIRRegionIdentification::isLoopConcatenationCandidate() const {
 
 HIRRegionIdentification::HIRRegionIdentification(
     Function &F, LoopInfo &LI, DominatorTree &DT, PostDominatorTree &PDT,
-    ScalarEvolution &SE, TargetLibraryInfo &TLI, unsigned OptLevel)
-    : LI(LI), DT(DT), PDT(PDT), SE(SE), TLI(TLI), OptLevel(OptLevel) {
+    AssumptionCache &AC, ScalarEvolution &SE, TargetLibraryInfo &TLI,
+    unsigned OptLevel)
+    : LI(LI), DT(DT), PDT(PDT), SE(SE), TLI(TLI),
+      ScopedSE(new ScopedScalarEvolution(F, TLI, AC, DT, LI, true)),
+      OptLevel(OptLevel) {
   runImpl(F);
 }
 
@@ -2346,7 +2360,8 @@ void HIRRegionIdentification::runImpl(Function &F) {
 
 HIRRegionIdentification::HIRRegionIdentification(HIRRegionIdentification &&RI)
     : IRRegions(std::move(RI.IRRegions)), LI(RI.LI), DT(RI.DT), PDT(RI.PDT),
-      SE(RI.SE), TLI(RI.TLI), OptLevel(RI.OptLevel) {}
+      SE(RI.SE), TLI(RI.TLI), ScopedSE(std::move(RI.ScopedSE)),
+      OptLevel(RI.OptLevel) {}
 
 void HIRRegionIdentification::print(raw_ostream &OS) const {
 
