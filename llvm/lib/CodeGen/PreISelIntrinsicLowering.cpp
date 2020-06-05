@@ -167,6 +167,27 @@ static bool lowerFakeload(Function &F) {
   return Changed;
 }
 
+static bool lowerSSACopy(Function &F) {
+  if (F.use_empty())
+    return false;
+
+  bool Changed = false;
+  for (auto I = F.use_begin(), E = F.use_end(); I != E;) {
+    IntrinsicInst *CI = dyn_cast<IntrinsicInst>(I->getUser());
+    ++I;
+    if (!CI || CI->getIntrinsicID() != Intrinsic::ssa_copy ||
+        CI->getCalledOperand() != &F)
+      continue;
+
+    CI->replaceAllUsesWith(CI->getOperand(0));
+    salvageDebugInfo(*CI);
+    CI->eraseFromParent();
+
+    Changed = true;
+  }
+  return Changed;
+}
+
 static bool lowerWholeProgramSafe(Function &F) {
   if (F.use_empty())
     return false;
@@ -211,6 +232,9 @@ static bool lowerIntrinsics(Module &M) {
 
     if (F.getIntrinsicID() == Intrinsic::intel_wholeprogramsafe)
       Changed |= lowerWholeProgramSafe(F);
+
+    if (F.getIntrinsicID() == Intrinsic::ssa_copy)
+      Changed |= lowerSSACopy(F);
 #endif // INTEL_CUSTOMIZATION
 
     switch (F.getIntrinsicID()) {
