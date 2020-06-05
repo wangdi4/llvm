@@ -81,9 +81,6 @@ using namespace llvm::PatternMatch;
 static cl::opt<bool> DTransPrintAllocations("dtrans-print-allocations",
                                             cl::ReallyHidden);
 
-static cl::opt<bool> DTransPrintAnalyzedTypes("dtrans-print-types",
-                                              cl::ReallyHidden);
-
 static cl::opt<bool>
     DTransPrintImmutableAnalyzedTypes("dtrans-print-immutable-types",
                                       cl::ReallyHidden);
@@ -5631,7 +5628,7 @@ public:
     // but in lit tests a type with few uses and no safety issues might not
     // be added to the type info map.
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    if (DTransPrintAnalyzedTypes)
+    if (dtrans::DTransPrintAnalyzedTypes)
       for (auto &Arg : F.args())
         if (DTInfo.isTypeOfInterest(Arg.getType()))
           (void)DTInfo.getOrCreateTypeInfo(Arg.getType());
@@ -9295,7 +9292,7 @@ dtrans::TypeInfo *DTransAnalysisInfo::getOrCreateTypeInfo(llvm::Type *Ty) {
         new dtrans::ArrayInfo(Ty, ElementInfo, Ty->getArrayNumElements());
   } else if (Ty->isStructTy()) {
     llvm::StructType *STy = cast<StructType>(Ty);
-    SmallVector<llvm::Type *, 16> FieldTypes;
+    SmallVector<dtrans::AbstractType, 16> FieldTypes;
     for (llvm::Type *FieldTy : STy->elements()) {
       FieldTypes.push_back(FieldTy);
       // Create a DTrans type for the field, in case it is an aggregate.
@@ -9931,7 +9928,7 @@ bool DTransAnalysisInfo::analyzeModule(
   DTransAnalysisRan = true;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  if (DTransPrintAnalyzedTypes) {
+  if (dtrans::DTransPrintAnalyzedTypes) {
     // Prints the list of transformations for which the safety data will be
     // ignored on the structure 'SI' based on the command line option.
     auto &IgnoreTypeMap = this->IgnoreTypeMap;

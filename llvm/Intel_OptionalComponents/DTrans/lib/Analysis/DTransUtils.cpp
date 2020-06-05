@@ -31,6 +31,11 @@ using namespace dtrans;
 
 #define DEBUG_TYPE "dtransanalysis"
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+cl::opt<bool> dtrans::DTransPrintAnalyzedTypes("dtrans-print-types",
+                                               cl::ReallyHidden);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
 bool dtrans::dtransIsCompositeType(Type *Ty) {
   if (isa<StructType>(Ty) || isa<ArrayType>(Ty) || isa<VectorType>(Ty))
     return true;
@@ -592,6 +597,8 @@ void dtrans::ArrayInfo::print(raw_ostream &OS) const {
   }
   OS << "  Number of elements: " << getNumElements() << "\n";
   OS << "  Element LLVM Type: " << *getElementLLVMType() << "\n";
+  if (DTransElemTy->isDTransType())
+    OS << "  Element DTrans Type: " << *DTransElemTy->getDTransType() << "\n";
   printSafetyData(OS);
   OS << "\n";
 }
