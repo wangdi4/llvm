@@ -3056,14 +3056,13 @@ int X86TTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src,
                                 MaybeAlign Alignment, unsigned AddressSpace,
                                 TTI::TargetCostKind CostKind,
                                 const Instruction *I) {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Defer to base implementation to split.
   if (Src->isAggregateType())
     return BaseT::getMemoryOpCost(Opcode, Src, Alignment, AddressSpace,
                                   CostKind, I);
 #endif
-=======
+
   // TODO: Handle other cost kinds.
   if (CostKind != TTI::TCK_RecipThroughput) {
     if (isa_and_nonnull<StoreInst>(I)) {
@@ -3077,7 +3076,6 @@ int X86TTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src,
     }
     return TTI::TCC_Basic;
   }
->>>>>>> 9303546b423f38d5693565623edcfb832ad8acd5
 
   // Handle non-power-of-two vectors such as <3 x float>
   if (VectorType *VTy = dyn_cast<VectorType>(Src)) {
