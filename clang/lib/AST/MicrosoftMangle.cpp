@@ -2153,12 +2153,17 @@ void MicrosoftCXXNameMangler::mangleType(const BuiltinType *T, Qualifiers,
   case BuiltinType::SatUShortFract:
   case BuiltinType::SatUFract:
   case BuiltinType::SatULongFract:
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Float128 warning message is intentionally disabled, since we handle it
   // above under an Intel Customization block.
   // case BuiltinType::Float128:
   {
 #endif // INTEL_CUSTOMIZATION
+=======
+  case BuiltinType::BFloat16:
+  case BuiltinType::Float128: {
+>>>>>>> ecd682bbf5e69e8690b7e3634258f05ae0a70448
     DiagnosticsEngine &Diags = Context.getDiags();
     unsigned DiagID = Diags.getCustomDiagID(
         DiagnosticsEngine::Error, "cannot mangle this built-in %0 type yet");
