@@ -2201,16 +2201,12 @@ bool Type::isRealType() const {
 bool Type::isArithmeticType() const {
   if (const auto *BT = dyn_cast<BuiltinType>(CanonicalType))
     return BT->getKind() >= BuiltinType::Bool &&
-<<<<<<< HEAD
-           BT->getKind() <= BuiltinType::Float128;
+           BT->getKind() <= BuiltinType::Float128 &&
+           BT->getKind() != BuiltinType::BFloat16;
 #if INTEL_CUSTOMIZATION
   if (isa<ArbPrecIntType>(CanonicalType))
     return true;
 #endif //INTEL_CUSTOMIZATION
-=======
-           BT->getKind() <= BuiltinType::Float128 &&
-           BT->getKind() != BuiltinType::BFloat16;
->>>>>>> ecd682bbf5e69e8690b7e3634258f05ae0a70448
   if (const auto *ET = dyn_cast<EnumType>(CanonicalType))
     // GCC allows forward declaration of enum types (forbid by C99 6.7.2.3p2).
     // If a body isn't seen by the time we get here, return false.
