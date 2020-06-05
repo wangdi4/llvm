@@ -1640,7 +1640,6 @@ cl_int ExecCGCommand::enqueueImp() {
   switch (MCommandGroup->getType()) {
 
   case CG::CGTYPE::UPDATE_HOST: {
-    assert(!"Update host should be handled by the Scheduler.");
     throw runtime_error("Update host should be handled by the Scheduler.",
                         PI_INVALID_OPERATION);
   }
@@ -1851,8 +1850,6 @@ cl_int ExecCGCommand::enqueueImp() {
                                                          Arg.MSize, Arg.MPtr);
         break;
       }
-      default:
-        assert(!"Unhandled");
       }
     }
 
@@ -1954,17 +1951,16 @@ cl_int ExecCGCommand::enqueueImp() {
       }
     }
 
-    MQueue->getThreadPool().submit<DispatchHostTask>(
-        std::move(DispatchHostTask(this)));
+    MQueue->getThreadPool().submit<DispatchHostTask>(DispatchHostTask(this));
 
     MShouldCompleteEventIfPossible = false;
 
     return CL_SUCCESS;
   }
   case CG::CGTYPE::NONE:
-  default:
     throw runtime_error("CG type not implemented.", PI_INVALID_OPERATION);
   }
+  return PI_INVALID_OPERATION;
 }
 
 } // namespace detail
