@@ -267,6 +267,8 @@ def Shape_MulOp : Shape_Op<"mul", [SameOperandsAndResultType]> {
 
   let arguments = (ins Shape_SizeType:$lhs, Shape_SizeType:$rhs);
   let results = (outs Shape_SizeType:$result);
+
+  let assemblyFormat = "attr-dict $lhs `,` $rhs";
 }
 
 def Shape_NumElementsOp : Shape_Op<"num_elements", [NoSideEffect]> {
@@ -274,6 +276,10 @@ def Shape_NumElementsOp : Shape_Op<"num_elements", [NoSideEffect]> {
   let description = [{
     Returns the number of elements for a given shape which is the product of its
     dimensions.
+
+    ```mlir
+    %product = shape.mul %lhs, %rhs
+    ```
   }];
 
   let arguments = (ins Shape_ShapeType:$shape);
@@ -432,7 +438,7 @@ def Shape_ConcatOp : Shape_Op<"concat", []> {
 //===----------------------------------------------------------------------===//
 
 //TODO(tpopp): Move the code below and witnesses to a different file.
-def Shape_AnyOp : Shape_Op<"any", [NoSideEffect]> {
+def Shape_AnyOp : Shape_Op<"any", [Commutative, NoSideEffect]> {
   let summary = "Return any combination of the input shapes";
   let description = [{
     This operation takes multiple input shapes and returns some combination of
@@ -443,8 +449,8 @@ def Shape_AnyOp : Shape_Op<"any", [NoSideEffect]> {
 
     Example:
     ```mlir
-      %s0 = shape.any [2,?], [?,3] // [2,3]
-      %s1 = shape.any [?,?], [1,2] // [1,2]
+    %s0 = shape.any [2,?], [?,3] // [2,3]
+    %s1 = shape.any [?,?], [1,2] // [1,2]
     ```
   }];
 
@@ -452,9 +458,11 @@ def Shape_AnyOp : Shape_Op<"any", [NoSideEffect]> {
   let results = (outs Shape_ShapeType:$result);
 
   let assemblyFormat = "$inputs attr-dict";
+
+  let hasFolder = 1;
 }
 
-def Shape_AssumingAllOp : Shape_Op<"assuming_all", [NoSideEffect]> {
+def Shape_AssumingAllOp : Shape_Op<"assuming_all", [Commutative, NoSideEffect]> {
   let summary = "Return a logical AND of all witnesses";
   let description = [{
     Used to simplify constraints as any single failing precondition is enough
@@ -467,11 +475,11 @@ def Shape_AssumingAllOp : Shape_Op<"assuming_all", [NoSideEffect]> {
 
     Example:
     ```mlir
-      %w0 = shape.cstr_broadcastable [2,2], [3,1,2] // Success
-      %w1 = shape.cstr_broadcastable [2,2], [3,2] // Failure
-      %w2 = shape.cstr_eq [1,2], [1,2], [1,2] // Success
-      %wf = shape.assuming_all %w0, %w1 // Failure
-      %wt = shape.assuming_all %w0, %w2 // Success
+    %w0 = shape.cstr_broadcastable [2,2], [3,1,2] // Passing
+    %w1 = shape.cstr_broadcastable [2,2], [3,2] // Failure
+    %w2 = shape.cstr_eq [1,2], [1,2], [1,2] // Passing
+    %wf = shape.assuming_all %w0, %w1 // Failure
+    %wt = shape.assuming_all %w0, %w2 // Passing
     ```
   }];
 
@@ -479,6 +487,8 @@ def Shape_AssumingAllOp : Shape_Op<"assuming_all", [NoSideEffect]> {
   let results = (outs Shape_WitnessType:$result);
 
   let assemblyFormat = "$inputs attr-dict";
+
+  let hasFolder = 1;
 }
 
 def Shape_AssumingOp : Shape_Op<"assuming",
@@ -499,6 +509,8 @@ def Shape_AssumingOp : Shape_Op<"assuming",
 
   let printer = [{ return ::print(p, *this); }];
   let parser = [{ return ::parse$cppClass(parser, result); }];
+
+  let hasCanonicalizer = 1;
 }
 
 def Shape_AssumingYieldOp : Shape_Op<"assuming_yield",
@@ -521,7 +533,7 @@ def Shape_AssumingYieldOp : Shape_Op<"assuming_yield",
   let assemblyFormat = "attr-dict ($operands^ `:` type($operands))?";
 }
 
-def Shape_CstrBroadcastableOp : Shape_Op<"cstr_broadcastable", []> {
+def Shape_CstrBroadcastableOp : Shape_Op<"cstr_broadcastable", [Commutative]> {
   let summary = "Determines if 2 shapes can be successfully broadcasted";
   let description = [{
     Given 2 input shapes, return a witness specifying if they are broadcastable.
@@ -531,8 +543,8 @@ def Shape_CstrBroadcastableOp : Shape_Op<"cstr_broadcastable", []> {
 
     Example:
     ```mlir
-      %w0 = shape.cstr_broadcastable [2,2], [3,1,2] // Success
-      %w1 = shape.cstr_broadcastable [2,2], [3,2] // Failure
+    %w0 = shape.cstr_broadcastable [2,2], [3,1,2] // Passing
+    %w1 = shape.cstr_broadcastable [2,2], [3,2] // Failure
     ```
   }];
 
@@ -540,9 +552,12 @@ def Shape_CstrBroadcastableOp : Shape_Op<"cstr_broadcastable", []> {
   let results = (outs Shape_WitnessType:$result);
 
   let assemblyFormat = "$lhs `,` $rhs attr-dict";
+
+  let hasCanonicalizer = 1;
+  let hasFolder = 1;
 }
 
-def Shape_CstrEqOp : Shape_Op<"cstr_eq", []> {
+def Shape_CstrEqOp : Shape_Op<"cstr_eq", [Commutative]> {
   let summary = "Determines if all input shapes are equal";
   let description = [{
     Given 1 or more input shapes, determine if all shapes are the exact same.
@@ -551,16 +566,41 @@ def Shape_CstrEqOp : Shape_Op<"cstr_eq", []> {
 
     Example:
     ```mlir
-      %w0 = shape.cstr_eq [1,2], [1,2], [1,2] // Success
-      %w1 = shape.cstr_eq [2,2], [1,2] // Failure
+    %w0 = shape.cstr_eq [1,2], [1,2], [1,2] // Passing
+    %w1 = shape.cstr_eq [2,2], [1,2] // Failure
     ```
   }];
   let arguments = (ins Variadic<Shape_ShapeType>:$inputs);
   let results = (outs Shape_WitnessType:$result);
 
   let assemblyFormat = "$inputs attr-dict";
+
+  let hasCanonicalizer = 1;
+  let hasFolder = 1;
 }
 
-// Canonicalization patterns.
+def Shape_ConstWitnessOp : Shape_Op<"const_witness", [ConstantLike, NoSideEffect]> {
+  let summary = "An operation that returns a statically known witness value";
+  let description = [{
+  This operation represents a statically known witness result. This can be
+  often used to canonicalize/fold constraint and assuming code that will always
+  pass.
+
+  ```mlir
+  %0 = shape.const_shape [1,2,3]
+  %1 = shape.const_shape [1, 2, 3]
+  %w0 = shape.cstr_eq(%0, %1) // Can be folded to "const_witness true"
+  %w1 = shape.const_witness true
+  %w2 = shape.assuming_all(%w0, %w2) // Can be folded to "const_witness true"
+  ```
+  }];
+  let arguments = (ins BoolAttr:$passing);
+  let results = (outs Shape_WitnessType:$result);
+
+  let assemblyFormat = "$passing attr-dict";
+
+  let hasFolder = 1;
+}
+
 
 #endif // SHAPE_OPS
