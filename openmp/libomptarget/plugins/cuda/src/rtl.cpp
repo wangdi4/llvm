@@ -980,11 +980,6 @@ int64_t __tgt_rtl_init_requires(int64_t RequiresFlags) {
   return RequiresFlags;
 }
 
-<<<<<<< HEAD
-#if INTEL_COLLAB
-EXTERN
-#endif  // INTEL_COLLAB
-=======
 int32_t __tgt_rtl_is_data_exchangable(int32_t src_dev_id, int dst_dev_id) {
   if (DeviceRTL.isValidDeviceId(src_dev_id) &&
       DeviceRTL.isValidDeviceId(dst_dev_id))
@@ -993,7 +988,9 @@ int32_t __tgt_rtl_is_data_exchangable(int32_t src_dev_id, int dst_dev_id) {
   return 0;
 }
 
->>>>>>> a014fbbc219fc8e1dbce382fd6f9280c3b720219
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_init_device(int32_t device_id) {
   assert(DeviceRTL.isValidDeviceId(device_id) && "device_id is invalid");
 
@@ -1077,11 +1074,6 @@ int32_t __tgt_rtl_data_retrieve_async(int32_t device_id, void *hst_ptr,
                                 async_info_ptr);
 }
 
-<<<<<<< HEAD
-#if INTEL_COLLAB
-EXTERN
-#endif  // INTEL_COLLAB
-=======
 int32_t __tgt_rtl_data_exchange_async(int32_t src_dev_id, void *src_ptr,
                                       int dst_dev_id, void *dst_ptr,
                                       int64_t size,
@@ -1109,7 +1101,9 @@ int32_t __tgt_rtl_data_exchange(int32_t src_dev_id, void *src_ptr,
   return __tgt_rtl_synchronize(src_dev_id, &async_info);
 }
 
->>>>>>> a014fbbc219fc8e1dbce382fd6f9280c3b720219
+#if INTEL_COLLAB
+EXTERN
+#endif  // INTEL_COLLAB
 int32_t __tgt_rtl_data_delete(int32_t device_id, void *tgt_ptr) {
   assert(DeviceRTL.isValidDeviceId(device_id) && "device_id is invalid");
 

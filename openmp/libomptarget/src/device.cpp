@@ -638,7 +638,6 @@ DeviceTy::run_team_nd_region_nowait(void *TgtEntryPtr, void **TgtVarsPtr,
   return ret;
 }
 
-<<<<<<< HEAD
 int32_t DeviceTy::run_region_nowait(void *TgtEntryPtr, void **TgtVarsPtr,
                                     ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
                                     void *AsyncData) {
@@ -720,7 +719,7 @@ void *DeviceTy::data_alloc_explicit(int64_t Size, int32_t Kind) {
     return nullptr;
 }
 #endif // INTEL_COLLAB
-=======
+
 // Whether data can be copied to DstDevice directly
 bool DeviceTy::isDataExchangable(const DeviceTy &DstDevice) {
   if (RTL != DstDevice.RTL || !RTL->is_data_exchangable)
@@ -733,7 +732,6 @@ bool DeviceTy::isDataExchangable(const DeviceTy &DstDevice) {
   return false;
 }
 
->>>>>>> a014fbbc219fc8e1dbce382fd6f9280c3b720219
 /// Check whether a device has an associated RTL and initialize it if it's not
 /// already initialized.
 bool device_is_ready(int device_num) {
