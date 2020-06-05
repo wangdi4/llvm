@@ -25,7 +25,7 @@ cl_ulong trySetPrivateMemSize(cl_ulong size)
         return 0;
     }
 
-    return size;
+    return size;  //Pass STACK_SIZE to kernel
 }
 
 bool vectorizerMode(bool enabled)
@@ -62,7 +62,7 @@ bool cl_device_private_mem_size_test()
     std::string programSources =
     "__kernel void test(__global int* o)\n"
     "{\n"
-    "    const int size = (STACK_SIZE/16) / sizeof(int);\n" // (STACK_SIZE/SIMD_WIDTH)MB of private memory
+    "    const int size = (STACK_SIZE/17) / sizeof(int);\n" // (STACK_SIZE/(SIMD_WIDTH+1))MB of private memory
     "    __private volatile int buf[size];\n"
     "    int gid = get_global_id(0);\n"
     "    for (int i = 0; i < size; ++i)\n"
@@ -72,7 +72,7 @@ bool cl_device_private_mem_size_test()
 
     printf("cl_device_private_mem_size_test\n");
 
-    cl_ulong stackSize = trySetStackSize(STACK_SIZE);
+    cl_ulong stackSize = trySetStackSize(STACK_SIZE);  //Extra stack size for scalar kernel
     EXIT_IF_FAILED(CheckCondition("trySetStackSize", stackSize != 0));
 
     bool enabledVectorizer = vectorizerMode(true);

@@ -35,9 +35,10 @@ set( TARGET_LIBS ${TARGET_LIBS} intelocl${BUILD_PLATFORM} )
 
 # In test with local memory we allocate 7MB for array. And allocate additional stack size with size 8MB = 8388608
 set_source_files_properties( cl_device_local_mem_size.cpp PROPERTIES COMPILE_DEFINITIONS STACK_SIZE=8388608 )
-# In test with private memory we allocate 1MB for array. But due to vectorization stack size depends on width of SIMD.
-# Our compiler can works with maximum width equals to 16. So we have to allocate additional stack size equals to 16MB.
-set_source_files_properties( cl_device_private_mem_size.cpp PROPERTIES COMPILE_DEFINITIONS STACK_SIZE=16777216 )
+# In test with private memory we allocate 1MB for array. But due to vectorization stack size depends on width of SIMD
+# and scalar kernel, our compiler can works with maximum width equals to 17. So we have to allocate additional stack
+# size equals to 17MB.
+set_source_files_properties( cl_device_private_mem_size.cpp PROPERTIES COMPILE_DEFINITIONS STACK_SIZE=17825792 )
 
 add_ocl_unittest( ${TARGET} SOURCE_FILES ${TARGET_SOURCES}
     LINK_LIBRARIES ${TARGET_LIBS} )
@@ -48,8 +49,8 @@ if (WIN32)
     LINK_FLAGS_DEBUG "${LINK_FLAGS_DEBUG} /DELAYLOAD:tbb_debug${TBB_BINARIES_POSTFIX}.dll"
   )
 
-  # set 8 MB of stack size
-  set_target_properties( ${TARGET} PROPERTIES LINK_FLAGS /STACK:"16777216" )
+  # set 17 MB of stack size
+  set_target_properties( ${TARGET} PROPERTIES LINK_FLAGS /STACK:"17825792" )
 endif (WIN32)
 
 
