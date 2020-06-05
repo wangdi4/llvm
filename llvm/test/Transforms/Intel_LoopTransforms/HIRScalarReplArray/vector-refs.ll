@@ -1,4 +1,5 @@
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-scalarrepl-array -vplan-force-vf=4 -print-after=hir-scalarrepl-array -hir-details -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -enable-vp-value-codegen-hir=0 -hir-scalarrepl-array -vplan-force-vf=4 -print-after=hir-scalarrepl-array -hir-details -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -enable-vp-value-codegen-hir -hir-scalarrepl-array -vplan-force-vf=4 -print-after=hir-scalarrepl-array -hir-details -disable-output < %s 2>&1 | FileCheck %s
 
 ; Verify that we are successfully able to handle vector refs. In this case the inner loop is vectorized and completely unrolled. The vector refs of @B[][] are then scalar replaced.
 
@@ -21,16 +22,16 @@
 
 ; CHECK: + DO i64 i1 = 0, sext.i32.i64(%n) + -1, 1   <DO_LOOP>  <MAX_TC_EST = 99>
 ; CHECK: |   %.vec = %scalarepl;
-; CHECK: |   %scalarepl3 = (<4 x float>*)(@B)[0][<i64 0, i64 1, i64 2, i64 3>][i1 + 1];
-; CHECK: |   %.vec2 = %scalarepl3;
-; CHECK: |   %add10.vec = %.vec  +  %.vec2;
-; CHECK: |   (<4 x float>*)(@A)[0][<i64 0, i64 1, i64 2, i64 3>][i1] = %add10.vec;
-; CHECK: |   %inc.vec = %.vec  +  1.000000e+00;
-; CHECK: |   %scalarepl = %inc.vec;
+; CHECK: |   %scalarepl[[NUM:3|6]] = (<4 x float>*)(@B)[0][<i64 0, i64 1, i64 2, i64 3>][i1 + 1];
+; CHECK: |   %.vec2 = %scalarepl[[NUM]];
+; CHECK: |   [[ADDVEC:%.*]] = %.vec  +  %.vec2;
+; CHECK: |   (<4 x float>*)(@A)[0][<i64 0, i64 1, i64 2, i64 3>][i1] = [[ADDVEC]];
+; CHECK: |   [[INCVEC:%.*]] = %.vec  +  1.000000e+00;
+; CHECK: |   %scalarepl = [[INCVEC]];
 ; CHECK: |   (<4 x float>*)(@B)[0][<i64 0, i64 1, i64 2, i64 3>][i1] = %scalarepl;
-; CHECK: |   %inc24.vec = %.vec2  +  1.000000e+00;
-; CHECK: |   %scalarepl3 = %inc24.vec;
-; CHECK: |   %scalarepl = %scalarepl3;
+; CHECK: |   [[INCVEC2:%.*]] = %.vec2  +  1.000000e+00;
+; CHECK: |   %scalarepl[[NUM]] = [[INCVEC2]];
+; CHECK: |   %scalarepl = %scalarepl[[NUM]];
 ; CHECK: + END LOOP
 
 ; CHECK: (<4 x float>*)(@B)[0][<i64 0, i64 1, i64 2, i64 3>][(-1 + sext.i32.i64(%n)) + 1] = %scalarepl;
