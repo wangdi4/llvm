@@ -718,31 +718,19 @@ def ptxas_path_EQ : Joined<["--"], "ptxas-path=">, Group<i_Group>, Flags<[DpcppU
 def fcuda_flush_denormals_to_zero : Flag<["-"], "fcuda-flush-denormals-to-zero">, Flags<[DpcppUnsupported]>,
   HelpText<"Flush denormal floating point values to zero in CUDA device mode.">;
 def fno_cuda_flush_denormals_to_zero : Flag<["-"], "fno-cuda-flush-denormals-to-zero">;
-<<<<<<< HEAD
-def fcuda_approx_transcendentals : Flag<["-"], "fcuda-approx-transcendentals">,
-  Flags<[CC1Option, DpcppUnsupported]>, HelpText<"Use approximate transcendental functions">;
 #endif // INTEL_CUSTOMIZATION
-def fno_cuda_approx_transcendentals : Flag<["-"], "fno-cuda-approx-transcendentals">;
-def fgpu_rdc : Flag<["-"], "fgpu-rdc">, Flags<[CC1Option]>,
-  HelpText<"Generate relocatable device code, also known as separate compilation mode.">;
-def fno_gpu_rdc : Flag<["-"], "fno-gpu-rdc">;
-def : Flag<["-"], "fcuda-rdc">, Alias<fgpu_rdc>;
-def : Flag<["-"], "fno-cuda-rdc">, Alias<fno_gpu_rdc>;
 #if INTEL_CUSTOMIZATION
-def fcuda_short_ptr : Flag<["-"], "fcuda-short-ptr">, Flags<[CC1Option, DpcppUnsupported]>,
-  HelpText<"Use 32-bit pointers for accessing const/local/shared address spaces.">;
-#endif // INTEL_CUSTOMIZATION
-def fno_cuda_short_ptr : Flag<["-"], "fno-cuda-short-ptr">;
-=======
 defm cuda_approx_transcendentals : OptInFFlag<"cuda-approx-transcendentals", "Use", "Don't use",
-  " approximate transcendental functions">;
+  " approximate transcendental functions", [DpcppUnsupported]>;
+#endif // INTEL_CUSTOMIZATION
 defm gpu_rdc : OptInFFlag<"gpu-rdc",
   "Generate relocatable device code, also known as separate compilation mode", "", "">;
 def : Flag<["-"], "fcuda-rdc">, Alias<fgpu_rdc>;
 def : Flag<["-"], "fno-cuda-rdc">, Alias<fno_gpu_rdc>;
+#if INTEL_CUSTOMIZATION
 defm cuda_short_ptr : OptInFFlag<"cuda-short-ptr",
-  "Use 32-bit pointers for accessing const/local/shared address spaces">;
->>>>>>> e5158b52730d323bb8cd2cba6dc6c89b90cba452
+  "Use 32-bit pointers for accessing const/local/shared address spaces", "", "", [DpcppUnsupported]>;
+#endif // INTEL_CUSTOMIZATION
 def rocm_path_EQ : Joined<["--"], "rocm-path=">, Group<i_Group>,
   HelpText<"ROCm installation path, used for finding and automatically linking required bitcode libraries.">;
 def hip_device_lib_path_EQ : Joined<["--"], "hip-device-lib-path=">, Group<Link_Group>,
@@ -802,8 +790,7 @@ def fPIC : Flag<["-"], "fPIC">, Group<f_Group>;
 def fno_PIC : Flag<["-"], "fno-PIC">, Group<f_Group>;
 def fPIE : Flag<["-"], "fPIE">, Group<f_Group>;
 def fno_PIE : Flag<["-"], "fno-PIE">, Group<f_Group>;
-<<<<<<< HEAD
-def faccess_control : Flag<["-"], "faccess-control">, Group<f_Group>;
+defm access_control : OptOutFFlag<"no-access-control", "", "Disable C++ access control">;
 #if INTEL_CUSTOMIZATION
 def falign_functions : Flag<["-"], "falign-functions">, Group<f_Group>,
   HelpText<"align the start of functions to an optimal machine-dependent value.">;
@@ -815,12 +802,6 @@ def fno_align_functions: Flag<["-"], "fno-align-functions">, Group<f_Group>,
 def fno_alias : Flag<["-"], "fno-alias">,
   HelpText<"Enables 'noalias' attribute for all pointer-type arguments">;
 #endif // INTEL_CUSTOMIZATION
-=======
-defm access_control : OptOutFFlag<"no-access-control", "", "Disable C++ access control">;
-def falign_functions : Flag<["-"], "falign-functions">, Group<f_Group>;
-def falign_functions_EQ : Joined<["-"], "falign-functions=">, Group<f_Group>;
-def fno_align_functions: Flag<["-"], "fno-align-functions">, Group<f_Group>;
->>>>>>> e5158b52730d323bb8cd2cba6dc6c89b90cba452
 def fallow_unsupported : Flag<["-"], "fallow-unsupported">, Group<f_Group>;
 def fapple_kext : Flag<["-"], "fapple-kext">, Group<f_Group>, Flags<[CC1Option]>,
   HelpText<"Use Apple's kernel extensions ABI">;
@@ -1091,7 +1072,6 @@ def ffp_model_EQ : Joined<["-"], "ffp-model=">, Group<f_Group>, Flags<[DriverOpt
   HelpText<"Controls the semantics of floating-point calculations.">;
 def ffp_exception_behavior_EQ : Joined<["-"], "ffp-exception-behavior=">, Group<f_Group>, Flags<[CC1Option]>,
   HelpText<"Specifies the exception behavior of floating-point operations.">;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 def fp_model_EQ : Joined<["-"], "fp-model=">, Alias<ffp_model_EQ>,
   HelpText<"Controls the semantics of floating-point calculations.">;
@@ -1099,16 +1079,8 @@ def fp_model : Separate<["-"], "fp-model">, Alias<ffp_model_EQ>;
 def fp_speculation_EQ : Joined<["-"], "fp-speculation=">,Alias<ffp_exception_behavior_EQ>,
   HelpText<"Specifies the exception behavior of floating-point operations.">;
 #endif // INTEL_CUSTOMIZATION
-def ffast_math : Flag<["-"], "ffast-math">, Group<f_Group>, Flags<[CC1Option]>,
-  HelpText<"Allow aggressive, lossy floating-point optimizations">;
-def fno_fast_math : Flag<["-"], "fno-fast-math">, Group<f_Group>;
-def fmath_errno : Flag<["-"], "fmath-errno">, Group<f_Group>, Flags<[CC1Option]>,
-  HelpText<"Require math functions to indicate errors by setting errno">;
-def fno_math_errno : Flag<["-"], "fno-math-errno">, Group<f_Group>;
-=======
 defm fast_math : OptInFFlag<"fast-math", "Allow aggressive, lossy floating-point optimizations">;
 defm math_errno : OptInFFlag<"math-errno", "Require math functions to indicate errors by setting errno">;
->>>>>>> e5158b52730d323bb8cd2cba6dc6c89b90cba452
 def fbracket_depth_EQ : Joined<["-"], "fbracket-depth=">, Group<f_Group>, Flags<[CoreOption]>;
 def fsignaling_math : Flag<["-"], "fsignaling-math">, Group<f_Group>;
 def fno_signaling_math : Flag<["-"], "fno-signaling-math">, Group<f_Group>;
@@ -1659,16 +1631,11 @@ def fno_builtin : Flag<["-"], "fno-builtin">, Group<f_Group>, Flags<[CC1Option, 
   HelpText<"Disable implicit builtin knowledge of functions">;
 def fno_builtin_ : Joined<["-"], "fno-builtin-">, Group<f_Group>, Flags<[CC1Option, CoreOption]>,
   HelpText<"Disable implicit builtin knowledge of a specific function">;
-<<<<<<< HEAD
-def fno_caret_diagnostics : Flag<["-"], "fno-caret-diagnostics">, Group<f_Group>,
- Flags<[CC1Option]>;
 #if INTEL_CUSTOMIZATION
 def nolib_inline : Flag<["-"], "nolib-inline">, Flags<[DriverOption]>, Alias<fno_builtin>,
   HelpText<"disable inline expansion of intrinsic functions">;
 def : Flag<["-"], "nolib_inline">, Alias<fno_builtin>;
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> e5158b52730d323bb8cd2cba6dc6c89b90cba452
 def fno_color_diagnostics : Flag<["-"], "fno-color-diagnostics">, Group<f_Group>,
   Flags<[CoreOption, CC1Option]>;
 def fno_diagnostics_color : Flag<["-"], "fno-diagnostics-color">, Group<f_Group>,
