@@ -894,6 +894,13 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
       ++OptRptStats.VectorMathCalls;
       return;
     }
+    case VPCallInstruction::CallVecScenariosTy::TrivialVectorIntrinsic: {
+      // Call that can be vectorized trviailly using vector overload of
+      // intrinsics.
+      vectorizeTrivialIntrinsic(VPCall);
+      ++OptRptStats.VectorMathCalls;
+      return;
+    }
     case VPCallInstruction::CallVecScenariosTy::VectorVariant: {
       // Call that can be vectorized using SIMD vector-variants.
       vectorizeVecVariant(VPCall);
@@ -1505,8 +1512,9 @@ void VPOCodeGen::vectorizeOpenCLSinCos(VPCallInstruction *VPCall,
 }
 
 void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
-                                   VectorVariant *VecVariant, unsigned PumpPart,
-                                   unsigned PumpFactor,
+                                   VectorVariant *VecVariant,
+                                   Intrinsic::ID VectorIntrinID,
+                                   unsigned PumpPart, unsigned PumpFactor,
                                    SmallVectorImpl<Value *> &VecArgs,
                                    SmallVectorImpl<Type *> &VecArgTys) {
   unsigned PumpedVF = VF / PumpFactor;
@@ -1526,7 +1534,8 @@ void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
     }
 
     if ((!VecVariant || Parms[OrigArgIdx].isVector()) &&
-        !isScalarArgument(FnName, OrigArgIdx)) {
+        !isScalarArgument(FnName, OrigArgIdx) &&
+        !hasVectorInstrinsicScalarOpd(VectorIntrinID, OrigArgIdx)) {
       // This is a vector call arg, so vectorize it.
       VPValue *Arg = VPCall->getOperand(OrigArgIdx);
 
@@ -1547,7 +1556,8 @@ void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
     // args, extract from lane 0. Linear args can use the value at lane 0
     // because this will be the starting value for which the stride will be
     // added. The same method applies to built-in functions for args that
-    // need to be treated as uniform.
+    // need to be treated as uniform (example trivial vector intrinsics with
+    // always scalar operands).
 
     // TODO: To support pumping for linear arguments of vector-variants, special
     // processing is needed to correctly update the linear argument for each
@@ -1581,8 +1591,11 @@ void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
     VecArgTys.push_back(VecArg->getType());
   }
 
-  // Process mask parameters for current part being pumped.
-  bool IsMasked = MaskValue != nullptr;
+  // Process mask parameters for current part being pumped. Masked intrinsics
+  // will not have explicit mask parameter. They are handled like other BinOp
+  // instructions i.e. execute on all lanes.
+  bool IsMasked =
+      MaskValue != nullptr && VectorIntrinID == Intrinsic::not_intrinsic;
   // NOTE: We can potentially cache the subvector extracted for MaskValue with a
   // map from {MaskValue, PumpPart, PumpFactor} to SubMaskValue. Since same mask
   // might be used for multiple calls, this would prevent dead code. However
@@ -2415,8 +2428,8 @@ void VPOCodeGen::generateVectorCalls(VPCallInstruction *VPCall,
     SmallVector<Value *, 2> VecArgs;
     SmallVector<Type *, 2> VecArgTys;
 
-    vectorizeCallArgs(VPCall, MatchedVariant, PumpPart, PumpFactor, VecArgs,
-                      VecArgTys);
+    vectorizeCallArgs(VPCall, MatchedVariant, VectorIntrinID, PumpPart,
+                      PumpFactor, VecArgs, VecArgTys);
 
     Function *VectorF =
         getOrInsertVectorFunction(CalledFunc, VF / PumpFactor, VecArgTys, TLI,
@@ -2583,6 +2596,28 @@ void VPOCodeGen::vectorizeLibraryCall(VPCallInstruction *VPCall) {
           ->getName()
           .startswith("__svml_sincos"))
     generateStoreForSinCos(VPCall, VPWidenMap[VPCall]);
+}
+
+void VPOCodeGen::vectorizeTrivialIntrinsic(VPCallInstruction *VPCall) {
+  assert(VPCall->getVectorizationScenario() ==
+             VPCallInstruction::CallVecScenariosTy::TrivialVectorIntrinsic &&
+         "vectorizeTrivialIntrinsic called for mismatched scenario.");
+  unsigned PumpFactor = VPCall->getPumpFactor();
+  assert(PumpFactor == 1 &&
+         "Pumping feature is not expected for trivial vector intrinsics.");
+  bool IsMasked = MaskValue != nullptr;
+  Intrinsic::ID VectorIntrinID = VPCall->getVectorIntrinsic();
+  assert(VectorIntrinID != Intrinsic::not_intrinsic &&
+         "Unexpected non-intrinsic call.");
+
+  // Generate vector call using vector intrinsic.
+  SmallVector<Value *, 4> CallResults;
+  generateVectorCalls(VPCall, PumpFactor, IsMasked,
+                      nullptr /*No vector variant*/, VectorIntrinID,
+                      CallResults);
+
+  // Post process generated vector calls.
+  VPWidenMap[VPCall] = getCombinedCallResults(CallResults);
 }
 
 void VPOCodeGen::vectorizeVecVariant(VPCallInstruction *VPCall) {

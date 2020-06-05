@@ -1016,6 +1016,13 @@ void VPCallInstruction::print(raw_ostream &O) const {
       O << " [@CurrMask]";
     break;
   }
+  // For trivially vectorizable intrinsics, the overload version of intrinsic
+  // name that will be used by CG is printed.
+  case CallVecScenarios::TrivialVectorIntrinsic: {
+    O << getVectorIntrinName();
+    O << " [x " << getPumpFactor() << "]";
+    break;
+  }
   default:
     llvm_unreachable("Unexpected VecScenario.");
   }

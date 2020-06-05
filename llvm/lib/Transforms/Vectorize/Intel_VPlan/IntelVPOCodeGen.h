@@ -115,12 +115,13 @@ public:
   /// MaskValue setter
   void setMaskValue(Value *MV) { MaskValue = MV; }
 
-  /// Vectorize call arguments, or for simd functions scalarize if the arg
-  /// is linear or uniform. If the call is being pumped by \p PumpFactor times,
-  /// then the appropriate sub-vector is extracted for given \p PumpPart.
+  /// Vectorize call arguments, or for simd functions and trivial vector
+  /// intrinsics scalarize if the arg is linear/uniform/always scalar. If the
+  /// call is being pumped by \p PumpFactor times, then the appropriate
+  /// sub-vector is extracted for given \p PumpPart.
   void vectorizeCallArgs(VPCallInstruction *VPCall, VectorVariant *VecVariant,
-                         unsigned PumpPart, unsigned PumpFactor,
-                         SmallVectorImpl<Value *> &VecArgs,
+                         Intrinsic::ID VectorIntrinID, unsigned PumpPart,
+                         unsigned PumpFactor, SmallVectorImpl<Value *> &VecArgs,
                          SmallVectorImpl<Type *> &VecArgTys);
 
   // Return true if the argument at position /p Idx for function /p FnName is
@@ -542,6 +543,9 @@ private:
   // %pump2 = call <64 x float> @__svml_sinf64(%shuffle2)
   // %combine = shufflevector %pump1, %pump2, <0, 1, ... 127>
   void vectorizeLibraryCall(VPCallInstruction *VPCall);
+
+  // Widen call instruction using vector intrinsic.
+  void vectorizeTrivialIntrinsic(VPCallInstruction *VPCall);
 
   // Widen call instruction using a matched SIMD vector variant.
   // TODO: Add support for pumping.

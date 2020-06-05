@@ -35,6 +35,7 @@ define dso_local void @foo() local_unnamed_addr #0 {
 ; CHECK-NEXT:     [DA: Div] double [[VP_CONV:%.*]] = fpext float [[VP0]] to double
 ; CHECK-NEXT:     [DA: Div] double [[VP_LIB_CALL:%.*]] = call double [[VP_CONV]] __svml_sin4 [x 1]
 ; CHECK-NEXT:     [DA: Div] float [[VP_LIB_TRUNC:%.*]] = fptrunc double [[VP_LIB_CALL]] to float
+; CHECK-NEXT:     [DA: Div] float [[VP_INTRIN:%.*]] = call float [[VP0]] float [[VP_SERIAL_CALL]] float [[VP_VEC_VARIANT]] llvm.fmuladd.v4f32 [x 1]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_COND:%.*]] = and i64 [[VP_INDVARS_IV]] i64 1
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP13:%.*]] = icmp i64 [[VP_COND]] i64 0
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
@@ -55,8 +56,9 @@ define dso_local void @foo() local_unnamed_addr #0 {
 ; CHECK-NEXT:     [DA: Div] float [[VP3:%.*]] = fadd float [[VP2]] float [[VP_PHI_MASK_VV_BLEND_BB3]]
 ; CHECK-NEXT:     [DA: Div] float [[VP4:%.*]] = fadd float [[VP3]] float [[VP_LIB_TRUNC]]
 ; CHECK-NEXT:     [DA: Div] float [[VP5:%.*]] = fadd float [[VP4]] float [[VP_PHI_MASK_LIB_BLEND_BB3]]
+; CHECK-NEXT:     [DA: Div] float [[VP6:%.*]] = fadd float [[VP5]] float [[VP_INTRIN]]
 ; CHECK-NEXT:     [DA: Div] float* [[VP_ARRAYIDX2:%.*]] = getelementptr inbounds [1024 x float]* @dst i64 0 i64 [[VP_INDVARS_IV]]
-; CHECK-NEXT:     [DA: Div] store float [[VP5]] float* [[VP_ARRAYIDX2]]
+; CHECK-NEXT:     [DA: Div] store float [[VP6]] float* [[VP_ARRAYIDX2]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
@@ -93,6 +95,8 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.inc, 
   ; Unmasked vector library call.
   %lib.call = call double @sin(double %conv) #1
   %lib.trunc = fptrunc double %lib.call to float
+  ; Unmasked trivially vectorizable intrinsic call.
+  %intrin = call float @llvm.fmuladd.f32(float %1, float %serial.call, float %vec.variant)
   %cond = and i64 %indvars.iv, 1
   %cmp13 = icmp eq i64 %cond, 0
   br i1 %cmp13, label %if.then, label %omp.inner.for.inc
@@ -114,8 +118,9 @@ omp.inner.for.inc:                                ; preds = %if.then, %omp.inner
   %3 = fadd float %2, %phi.mask.vv
   %4 = fadd float %3, %lib.trunc
   %5 = fadd float %4, %phi.mask.lib
+  %6 = fadd float %5, %intrin
   %arrayidx2 = getelementptr inbounds [1024 x float], [1024 x float]* @dst, i64 0, i64 %indvars.iv
-  store float %5, float* %arrayidx2
+  store float %6, float* %arrayidx2
 
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1024
@@ -212,6 +217,7 @@ declare dso_local double @sin(double) local_unnamed_addr #4
 declare dso_local double @log(double) local_unnamed_addr #4
 ; Function Attrs: nounwind readnone
 declare float @sinf(float) local_unnamed_addr
+declare float @llvm.fmuladd.f32(float %a, float %b, float %c) nounwind readnone
 
 attributes #0 = { nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "may-have-openmp-directive"="true" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { nounwind }

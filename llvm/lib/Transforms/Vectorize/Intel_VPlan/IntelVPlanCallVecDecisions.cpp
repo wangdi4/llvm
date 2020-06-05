@@ -92,7 +92,28 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
     }
   }
 
-  // 7. Vectorize by pumping the call for a lower VF.
+  // 7. Trivially vectorizable call using vector intrinsics.
+  Intrinsic::ID ID = getVectorIntrinsicIDForCall(UnderlyingCI, TLI);
+  bool TrivialVectorIntrinsic =
+      (ID != Intrinsic::not_intrinsic) && isTriviallyVectorizable(ID);
+  if (TrivialVectorIntrinsic) {
+    // Check if the vectorizable intrinsic call has any always scalar operand
+    // (for example, cttz, ctlz, powi) that is loop variant/divergent. Such
+    // intrinsic calls cannot be vectorized, they should be strictly serialized.
+    for (auto *ArgOp : VPCall->arg_operands()) {
+      unsigned ArgIdx = VPCall->getOperandIndex(ArgOp);
+      if (hasVectorInstrinsicScalarOpd(ID, ArgIdx) &&
+          Plan.getVPlanDA()->isDivergent(*ArgOp)) {
+        VPCall->setShouldBeSerialized();
+        return;
+      }
+    }
+
+    VPCall->setVectorizeWithIntrinsic(ID);
+    return;
+  }
+
+  // 8. Vectorize by pumping the call for a lower VF.
   unsigned PumpFactor = getPumpFactor(CalledFuncName, IsMasked, VF, TLI);
   if (PumpFactor > 1) {
     unsigned LowerVF = VF / PumpFactor;
@@ -104,7 +125,7 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
     return;
   }
 
-  // 8. All other cases implies default properties i.e. call serialization.
+  // 9. All other cases implies default properties i.e. call serialization.
   // TODO: Deterministic function calls with no side effects that operate on
   // uniform operands need to be marked as DoNotWiden.
   VPCall->setShouldBeSerialized();
