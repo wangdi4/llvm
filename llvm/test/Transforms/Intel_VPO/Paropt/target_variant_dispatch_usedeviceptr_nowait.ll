@@ -1,5 +1,7 @@
-; RUN: opt -vpo-paropt-prepare -S < %s | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -S | FileCheck %s
+; RUN: opt -vpo-paropt-prepare -S < %s | FileCheck %s -check-prefix=BUFFCHECK
+; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -S | FileCheck %s -check-prefix=BUFFCHECK
+; RUN: opt -vpo-paropt-prepare -vpo-paropt-use-raw-dev-ptr=true -S < %s | FileCheck %s -check-prefix=NOBUFFCHECK
+; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -vpo-paropt-use-raw-dev-ptr=true -S | FileCheck %s -check-prefix=NOBUFFCHECK
 ; Test for TARGET VARIANT DISPATCH NOWAIT with USE_DEVICE_PTR clause
 ; Presence of a NOWAIT clause implies asynchronous execution
 
@@ -27,44 +29,53 @@
 
 ; 1a. Allocate AsyncObj (type: %__struct.AsyncObj) and create a pointer to it
 ;
-; CHECK: [[ASYNCOBJ:%[a-zA-Z._0-9]+]] = call i8* @__kmpc_omp_task_alloc(%struct.ident_t* @.kmpc_loc{{.*}}, i32 0, i32 16, i64 24, i64 16, i8* null)
-; CHECK: [[ASYNCPTR:%[a-zA-Z._0-9]+]] = bitcast i8* [[ASYNCOBJ]] to %__struct.AsyncObj*
+; BUFFCHECK: [[ASYNCOBJ:%[a-zA-Z._0-9]+]] = call i8* @__kmpc_omp_task_alloc(%struct.ident_t* @.kmpc_loc{{.*}}, i32 0, i32 16, i64 24, i64 16, i8* null)
+; BUFFCHECK: [[ASYNCPTR:%[a-zA-Z._0-9]+]] = bitcast i8* [[ASYNCOBJ]] to %__struct.AsyncObj*
+; NOBUFFCHECK: [[ASYNCOBJ:%[a-zA-Z._0-9]+]] = call i8* @__kmpc_omp_task_alloc(%struct.ident_t* @.kmpc_loc{{.*}}, i32 0, i32 16, i64 24, i64 0, i8* null)
+; NOBUFFCHECK: [[ASYNCPTR:%[a-zA-Z._0-9]+]] = bitcast i8* [[ASYNCOBJ]] to %__struct.AsyncObj*
 
 ; 1b. Initialize AsyncObj.NumPtr field (3rd field) with "2"
 ;     (because there are 2 use_device_ptr pointers)
+;     With -vpo-paropt-use-raw-dev-ptr make sure no buffers are created.
 ;
-; CHECK: [[NUMPTRGEP:%[a-zA-Z._0-9]+]] = getelementptr inbounds %__struct.AsyncObj, %__struct.AsyncObj* [[ASYNCPTR]], i32 0, i32 3
-; CHECK: store i32 2, i32* [[NUMPTRGEP]]
+; BUFFCHECK: [[NUMPTRGEP:%[a-zA-Z._0-9]+]] = getelementptr inbounds %__struct.AsyncObj, %__struct.AsyncObj* [[ASYNCPTR]], i32 0, i32 3
+; BUFFCHECK: store i32 2, i32* [[NUMPTRGEP]]
+; NOBUFFCHECK-NOT: store i32 2, i32* [[NUMPTRGEP]]
 
 ; 1c. Create a pointer to %__struct.UDPtrs, whose address
 ;     is in field#0 of the AsyncObj
 ;
-; CHECK: [[UDPTRSGEP:%[a-zA-Z._0-9]+]] = getelementptr inbounds %__struct.AsyncObj, %__struct.AsyncObj* [[ASYNCPTR]], i32 0, i32 0
-; CHECK: [[PTRLOAD:%[a-zA-Z._0-9]+]] = load i8*, i8** [[UDPTRSGEP]]
-; CHECK: [[PTRCAST:%[a-zA-Z._0-9]+]] = bitcast i8* [[PTRLOAD]] to %__struct.UDPtrs*
+; BUFFCHECK: [[UDPTRSGEP:%[a-zA-Z._0-9]+]] = getelementptr inbounds %__struct.AsyncObj, %__struct.AsyncObj* [[ASYNCPTR]], i32 0, i32 0
+; BUFFCHECK: [[PTRLOAD:%[a-zA-Z._0-9]+]] = load i8*, i8** [[UDPTRSGEP]]
+; BUFFCHECK: [[PTRCAST:%[a-zA-Z._0-9]+]] = bitcast i8* [[PTRLOAD]] to %__struct.UDPtrs*
 
 ; 1d. Store a buffer pointer into field#0 of the %__struct.UDPtrs object
+;     With -vpo-paropt-use-raw-dev-ptr make sure no buffers are created.
 ;
-; CHECK: [[GEP0:%[a-zA-Z._0-9]+]] = getelementptr inbounds %__struct.UDPtrs, %__struct.UDPtrs* [[PTRCAST]], i32 0, i32 0
-; CHECK: [[BUFFER0:%[a-zA-Z._0-9]+]] = load i8*, i8** %{{.*}}
-; CHECK: store i8* [[BUFFER0]], i8** [[GEP0]]
+; BUFFCHECK: [[GEP0:%[a-zA-Z._0-9]+]] = getelementptr inbounds %__struct.UDPtrs, %__struct.UDPtrs* [[PTRCAST]], i32 0, i32 0
+; BUFFCHECK: [[BUFFER0:%[a-zA-Z._0-9]+]] = load i8*, i8** %{{.*}}
+; BUFFCHECK: store i8* [[BUFFER0]], i8** [[GEP0]]
+; NOBUFFCHECK-NOT: [[BUFFER0:%[a-zA-Z._0-9]+]] = load i8*, i8** %{{.*}}
 
 ; 1e. Store a buffer pointer into field#1 of the %__struct.UDPtrs object
 ;
-; CHECK: [[GEP1:%[a-zA-Z._0-9]+]] = getelementptr inbounds %__struct.UDPtrs, %__struct.UDPtrs* [[PTRCAST]], i32 0, i32 1
-; CHECK: [[BUFFER1:%[a-zA-Z._0-9]+]] = load i8*, i8** %{{.*}}
-; CHECK: store i8* [[BUFFER1]], i8** [[GEP1]]
+; BUFFCHECK: [[GEP1:%[a-zA-Z._0-9]+]] = getelementptr inbounds %__struct.UDPtrs, %__struct.UDPtrs* [[PTRCAST]], i32 0, i32 1
+; BUFFCHECK: [[BUFFER1:%[a-zA-Z._0-9]+]] = load i8*, i8** %{{.*}}
+; BUFFCHECK: store i8* [[BUFFER1]], i8** [[GEP1]]
 
 ; 2a. Create the InteropObj
 ;
-; CHECK: [[INTEROPOBJ:%[a-zA-Z._0-9]+]] = call i8* @__tgt_create_interop_obj(i64 -1, i8 1, i8* [[ASYNCOBJ]])
+; BUFFCHECK: [[INTEROPOBJ:%[a-zA-Z._0-9]+]] = call i8* @__tgt_create_interop_obj(i64 -1, i8 1, i8* [[ASYNCOBJ]])
+; NOBUFFCHECK: [[INTEROPOBJ:%[a-zA-Z._0-9]+]] = call i8* @__tgt_create_interop_obj(i64 -1, i8 1, i8* [[ASYNCOBJ]])
 
 ; 2b. The InteropObj becomes the last argument of the call to foo_gpu
 ;
-; CHECK: call i32 @foo_gpu(float* %{{.*}}, double* %{{.*}}, i8* [[INTEROPOBJ]])
+; BUFFCHECK: call i32 @foo_gpu(float* %{{.*}}, double* %{{.*}}, i8* [[INTEROPOBJ]])
+; NOBUFFCHECK: call i32 @foo_gpu(float* %{{.*}}, double* %{{.*}}, i8* [[INTEROPOBJ]])
 
 ; 3. Check that no calls to __tgt_release_buffer exist beyond this point
-; CHECK-NOT: call i32 @__tgt_release_buffer
+; BUFFCHECK-NOT: call i32 @__tgt_release_buffer
+; NOBUFFCHECK-NOT: call i32 @__tgt_release_buffer
 
 source_filename = "target_variant_dispatch_usedeviceptr_nowait.c"
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

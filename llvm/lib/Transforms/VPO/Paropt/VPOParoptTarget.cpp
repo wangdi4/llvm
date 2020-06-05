@@ -2314,11 +2314,14 @@ StringRef getVariantName(CallInst *BaseCall, StringRef &MatchConstruct,
 //
 //      struct AsyncObjTy { // struct size = 8+8+4+4 = 24 on 64bit arch
 //        void* UDPtrs;     // pointer to a UseDevicePtrsTy struct
+//                          // unused when UseRawDevicePtr is set
 //        void* task_entry; // unused
 //        int   part_id;    // unused
 //        int   num_ptrs;   // number of use_device_ptr pointers
+//                          // unused when UseRawDevicePtr is set
 //      };
 //
+// TODO : Remove struct UseDevicePtrsTy when UseRawDevicePtr is default
 // where the UseDevicePtrsTy is a struct to hold void* pointers corresponding
 // to the target buffers created for each pointer. For example, for the
 // clause use_device_ptr(a,b,c,d), the structure will look like this:
@@ -2370,7 +2373,7 @@ static Value *createAsyncObj(WRegionNode *W, Value *DeviceNum,
   StructType *UseDevicePtrsTy = nullptr;
   int UseDevicePtrsTySize = 0;
   UseDevicePtrClause &UDPtrClause = W->getUseDevicePtr();
-  int NumberOfPointers = UDPtrClause.size();
+  int NumberOfPointers = UseRawDevicePtr ? 0 : UDPtrClause.size();
   if (NumberOfPointers > 0) {
     SmallVector<Type *, 4> StructFields; // {i8*, i8*, i8*, etc.}
     for (int I = 0; I < NumberOfPointers; I++)
@@ -2392,6 +2395,7 @@ static Value *createAsyncObj(WRegionNode *W, Value *DeviceNum,
   //                        i32 16,     // "proxy" flag 0x10
   //                        i64 24,     // sizeof(AsyncObjTy) = 8+8+4+4 = 24
   //                        i64 32,     // sizeof(UseDevicePtrsTy) = 4*8 = 32
+  //                                    // 0 for UseRawDevicePtr
   //                        i8* null)   // unused
 
   CallInst *AsyncObj = VPOParoptUtils::genKmpcTaskAllocForAsyncObj(
