@@ -1234,8 +1234,8 @@ define void @test_blend_splitting_for_early_path_join(i32* %a, i32 %b) local_unn
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]:
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI_PHI_BB7:%.*]] = phi  [ i32 [[VP_PHI_BLEND_BB8]], [[BLEND_BB1]] ],  [ i32 [[VP_PHI_BLEND_BB6]], [[BLEND_BB0]] ]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB6_BR_VP_BB3_VARYING_NOT_PHI_BB7:%.*]] = phi  [ i1 false, [[BB7]] ],  [ i1 [[VP_BB6_BR_VP_BB3_VARYING_NOT]], [[BB4]] ]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB8_BR_VP_BB4_VARYING_NOT_PHI_BB7:%.*]] = phi  [ i1 [[VP_BB8_BR_VP_BB4_VARYING_NOT]], [[BB7]] ],  [ i1 false, [[BB4]] ]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB6_BR_VP_BB3_VARYING_NOT_PHI_BB7:%.*]] = phi  [ i1 false, [[BLEND_BB1]] ],  [ i1 [[VP_BB6_BR_VP_BB3_VARYING_NOT]], [[BLEND_BB0]] ]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB8_BR_VP_BB4_VARYING_NOT_PHI_BB7:%.*]] = phi  [ i1 [[VP_BB8_BR_VP_BB4_VARYING_NOT]], [[BLEND_BB1]] ],  [ i1 false, [[BLEND_BB0]] ]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP2:%.*]] = or i1 [[VP_BB8_BR_VP_BB4_VARYING_NOT_PHI_BB7]] i1 [[VP_BB6_BR_VP_BB3_VARYING_NOT_PHI_BB7]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP2]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_BB5_ADD:%.*]] = add i32 [[VP_LD]] i32 5

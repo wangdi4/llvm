@@ -1019,8 +1019,9 @@ public:
   }
 
   /// Add operands of incoming value and block-predicate to the end of the
-  /// blend operand list.
-  void addIncoming(VPValue *IncomingVal, VPValue *BlockPred);
+  /// blend operand list. If \p Plan is provided and \p BlockPred is nullptr,
+  /// the "true" will be used as the predicate.
+  void addIncoming(VPValue *IncomingVal, VPValue *BlockPred, VPlan *Plan = nullptr);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &O) const;

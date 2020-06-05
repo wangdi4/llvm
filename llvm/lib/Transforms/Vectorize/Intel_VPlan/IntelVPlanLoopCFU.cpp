@@ -198,13 +198,10 @@ void VPlanLoopCFU::run(VPLoop *VPL) {
 
       SmallVector<VPUser *, 8> Users(Inst->user_begin(), Inst->user_end());
       for (VPUser *U : Users) {
-        auto *UserInst = dyn_cast<VPInstruction>(U);
-        if (!UserInst)
-          continue;
-
-        if (VPL->contains(UserInst))
-          // Not live-out.
-          continue;
+        if (auto *UserInst = dyn_cast<VPInstruction>(U))
+          if (VPL->contains(UserInst))
+            // Not live-out.
+            continue;
 
         // Ok, Inst is live-out, need to create a proper blend for the
         // live-out value and update the use.
@@ -237,7 +234,7 @@ void VPlanLoopCFU::run(VPLoop *VPL) {
                             << "and phi: " << *NewPhi << "\n";);
         }
 
-        if (auto *Phi = dyn_cast<VPPHINode>(UserInst)) {
+        if (auto *Phi = dyn_cast<VPPHINode>(U)) {
           if (Phi->getParent() == VPLExitBlock) {
             // LCSSA phi, just update incoming value.
             assert(Phi->getNumIncomingValues() == 1 &&
