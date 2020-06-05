@@ -401,10 +401,6 @@ SkylakeCommon:
   case CK_Tremont:
     setFeatureEnabledImpl(Features, "clwb", true);
     setFeatureEnabledImpl(Features, "gfni", true);
-    setFeatureEnabledImpl(Features, "waitpkg", true);
-#if INTEL_CUSTOMIZATION
-    // FIXME: tremont should set clwb
-#endif // INTEL_CUSTOMIZATION
     LLVM_FALLTHROUGH;
   case CK_GoldmontPlus:
     setFeatureEnabledImpl(Features, "ptwrite", true);
