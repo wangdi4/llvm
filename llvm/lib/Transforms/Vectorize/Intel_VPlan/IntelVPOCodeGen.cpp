@@ -991,6 +991,7 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     if (!F) {
       // Indirect calls.
       serializeWithPredication(VPCall);
+      ++OptRptStats.SerializedCalls;
       return;
     }
 
@@ -1021,6 +1022,7 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
       assert(!VPCall->isKernelCallOnce() &&
              "VPVALCG: Serialization of a kernel called-once function is not "
              "allowed.");
+      ++OptRptStats.SerializedCalls;
       serializeWithPredication(VPCall);
     }
     return;
@@ -2489,30 +2491,38 @@ void VPOCodeGen::vectorizeCallInstruction(VPCallInstruction *VPCall,
     assert(PumpFactor == 1 &&
            "Pumping feature is not supported for OpenCL sincos.");
     vectorizeOpenCLSinCos(VPCall, IsMasked);
+    ++OptRptStats.VectorMathCalls;
     return;
   }
 
-  if (!TLI->isFunctionVectorizable(CalledFunc->getName()) &&
-      !isOpenCLReadChannel(CalledFunc->getName()) &&
-      !isOpenCLWriteChannel(CalledFunc->getName())) {
-    // TLI is not used to check for SIMD functions for two reasons:
-    // 1) A more sophisticated interface is needed to determine the most
-    //    appropriate match.
-    // 2) A SIMD function is not a library function.
-    // TODO: When matchVectorVariant is updated to search based on specific VF,
-    // use VF/PumpFactor to support pumping feature.
-    MatchedVariant = matchVectorVariant(UnderlyingCI, IsMasked);
-    if (!MatchedVariant && !IsMasked) {
-      // If non-masked version isn't available, try running the masked version
-      // with all-ones mask.
-      MatchedVariant = matchVectorVariant(UnderlyingCI, true);
-      IsMasked = true;
+  if (TLI->isFunctionVectorizable(CalledFunc->getName())) {
+    ++OptRptStats.VectorMathCalls;
+  } else {
+    // TODO: This will report OpenCL read/write as "vector function call", which
+    // isn't perfect but is closest to the available optimization remarks.
+    ++OptRptStats.VectorVariantCalls;
+
+    if (!isOpenCLReadChannel(CalledFunc->getName()) &&
+        !isOpenCLWriteChannel(CalledFunc->getName())) {
+      // TLI is not used to check for SIMD functions for two reasons:
+      // 1) A more sophisticated interface is needed to determine the most
+      //    appropriate match.
+      // 2) A SIMD function is not a library function.
+      // TODO: When matchVectorVariant is updated to search based on specific
+      // VF, use VF/PumpFactor to support pumping feature.
+      MatchedVariant = matchVectorVariant(UnderlyingCI, IsMasked);
+      if (!MatchedVariant && !IsMasked) {
+        // If non-masked version isn't available, try running the masked version
+        // with all-ones mask.
+        MatchedVariant = matchVectorVariant(UnderlyingCI, true);
+        IsMasked = true;
+      }
+      assert(MatchedVariant && "Unexpected null matched vector variant");
+      assert(PumpFactor == 1 && "Pumping feature is not supported for SIMD "
+                                "functions with vector variants.");
+      LLVM_DEBUG(dbgs() << "Matched Variant: " << MatchedVariant->encode()
+                        << "\n");
     }
-    assert(MatchedVariant && "Unexpected null matched vector variant");
-    assert(PumpFactor == 1 && "Pumping feature is not supported for SIMD "
-                              "functions with vector variants.");
-    LLVM_DEBUG(dbgs() << "Matched Variant: " << MatchedVariant->encode()
-                      << "\n");
   }
 
   // Call results for each pumped part.
@@ -2550,8 +2560,9 @@ void VPOCodeGen::vectorizeCallInstruction(VPCallInstruction *VPCall,
     copyRequiredAttributes(UnderlyingCI, VecCall);
 
     // Set calling convention for SVML function calls.
-    if (isSVMLFunction(TLI, CalledFunc->getName(), VectorF->getName()))
+    if (isSVMLFunction(TLI, CalledFunc->getName(), VectorF->getName())) {
       VecCall->setCallingConv(CallingConv::SVML);
+    }
 
 #if 0
     // TODO: Need a VPValue based analysis for call arg memory references.

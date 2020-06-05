@@ -1189,6 +1189,8 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
 
   // Check to see if the call was vectorized in the main loop.
   if (TLI->isFunctionVectorizable(FnName, VF)) {
+    ++OptRptStats.VectorMathCalls;
+
     SmallVector<RegDDRef *, 1> CallArgs;
     SmallVector<Type *, 1> ArgTys;
 
@@ -2516,8 +2518,10 @@ HLInst *VPOCodeGenHIR::widenCall(const HLInst *INode,
     }
   }
 
-  Function *VectorF =
-      getOrInsertVectorFunction(Fn, VF, ArgTys, TLI, ID, nullptr, Masked);
+  // TODO: Fix when vector-variants will become supported.
+  ++OptRptStats.VectorMathCalls;
+  Function *VectorF = getOrInsertVectorFunction(
+      Fn, VF, ArgTys, TLI, ID, nullptr /* vector-variant */, Masked);
   assert(VectorF && "Can't create vector function.");
 
   auto *WideInst = HLNodeUtilities.createCall(VectorF, CallArgs,

@@ -17,6 +17,7 @@
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPOCODEGEN_H
 
 #include "IntelVPlan.h"
+#include "IntelVPlanOptrpt.h"
 
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SmallSet.h"
@@ -140,6 +141,8 @@ public:
     Plan = P;
     VPEntities = Entities;
   }
+
+  OptReportStatsTracker &getOptReportStatsTracker() { return OptRptStats; }
 
 private:
   /// Find the best simd function variant.
@@ -445,6 +448,8 @@ private:
   // Pointer to current transformation state - used to obtain VPBasicBlock to
   // BasicBlock mapping.
   struct VPTransformState *State = nullptr;
+
+  OptReportStatsTracker OptRptStats;
 
   // Get alignment for load/store VPInstruction using underlying
   // llvm::Instruction.

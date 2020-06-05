@@ -673,6 +673,8 @@ void VPlanDriverImpl::addOptReportRemarks(VPlanOptReportBuilder &VPORBuilder,
   VPORBuilder.addRemark(MainLoop, OptReportVerbosity::Low, 15305,
                         Twine(VCodeGen->getVF()).str());
 
+  VCodeGen->getOptReportStatsTracker().emitRemarks(VPORBuilder, MainLoop);
+
   // If remainder loop was generated for MainLoop, report that it is currently
   // not vectorized
   if (VCodeGen->getNeedRemainderLoop()) {

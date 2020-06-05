@@ -19,6 +19,7 @@
 #include "../IntelVPlanIdioms.h"
 #include "../IntelVPlanLoopUnroller.h"
 #include "../IntelVPlanValue.h"
+#include "../IntelVPlanOptrpt.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HIRVisitor.h"
@@ -117,6 +118,8 @@ public:
   const VPlan *getPlan() const { return Plan; }
   bool getNeedRemainderLoop() const { return NeedRemainderLoop; }
   HLLoop *getRemainderLoop() const { return OrigLoop; }
+
+  OptReportStatsTracker &getOptReportStatsTracker() { return OptRptStats; }
 
   void setForceMixedCG(bool MixedCG) { ForceMixedCG = MixedCG; }
   bool getForceMixedCG() const { return ForceMixedCG; }
@@ -543,6 +546,7 @@ private:
   unsigned UF;
 
   LoopOptReportBuilder &LORBuilder;
+  OptReportStatsTracker OptRptStats;
 
   // Map of DDRef symbase and widened ref
   DenseMap<unsigned, RegDDRef *> WidenMap;
