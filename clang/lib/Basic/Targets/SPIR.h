@@ -65,6 +65,8 @@ static const unsigned SPIRAddrSpaceDefIsGenMap[] = {
     2, // opencl_constant
     0, // opencl_private
     4, // opencl_generic
+    11, // opencl_global_device
+    12, // opencl_global_host
     0, // cuda_device
     0, // cuda_constant
     0, // cuda_shared
