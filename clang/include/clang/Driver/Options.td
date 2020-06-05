@@ -790,7 +790,6 @@ def fno_PIC : Flag<["-"], "fno-PIC">, Group<f_Group>;
 def fPIE : Flag<["-"], "fPIE">, Group<f_Group>;
 def fno_PIE : Flag<["-"], "fno-PIE">, Group<f_Group>;
 defm access_control : OptOutFFlag<"no-access-control", "", "Disable C++ access control">;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 def falign_functions : Flag<["-"], "falign-functions">, Group<f_Group>,
   HelpText<"align the start of functions to an optimal machine-dependent value.">;
@@ -802,12 +801,7 @@ def fno_align_functions: Flag<["-"], "fno-align-functions">, Group<f_Group>,
 def fno_alias : Flag<["-"], "fno-alias">,
   HelpText<"Enables 'noalias' attribute for all pointer-type arguments">;
 #endif // INTEL_CUSTOMIZATION
-=======
-def falign_functions : Flag<["-"], "falign-functions">, Group<f_Group>;
-def falign_functions_EQ : Joined<["-"], "falign-functions=">, Group<f_Group>;
-def fno_align_functions: Flag<["-"], "fno-align-functions">, Group<f_Group>;
 defm allow_editor_placeholders : OptInFFlag<"allow-editor-placeholders", "Treat editor placeholders as valid source code">;
->>>>>>> 78702dec3bbc9eadf7c0469f2c54e5c105ffea78
 def fallow_unsupported : Flag<["-"], "fallow-unsupported">, Group<f_Group>;
 def fapple_kext : Flag<["-"], "fapple-kext">, Group<f_Group>, Flags<[CC1Option]>,
   HelpText<"Use Apple's kernel extensions ABI">;
@@ -1625,16 +1619,11 @@ def fno_builtin : Flag<["-"], "fno-builtin">, Group<f_Group>, Flags<[CC1Option, 
   HelpText<"Disable implicit builtin knowledge of functions">;
 def fno_builtin_ : Joined<["-"], "fno-builtin-">, Group<f_Group>, Flags<[CC1Option, CoreOption]>,
   HelpText<"Disable implicit builtin knowledge of a specific function">;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 def nolib_inline : Flag<["-"], "nolib-inline">, Flags<[DriverOption]>, Alias<fno_builtin>,
   HelpText<"disable inline expansion of intrinsic functions">;
 def : Flag<["-"], "nolib_inline">, Alias<fno_builtin>;
 #endif // INTEL_CUSTOMIZATION
-def fno_color_diagnostics : Flag<["-"], "fno-color-diagnostics">, Group<f_Group>,
-  Flags<[CoreOption, CC1Option]>;
-=======
->>>>>>> 78702dec3bbc9eadf7c0469f2c54e5c105ffea78
 def fno_diagnostics_color : Flag<["-"], "fno-diagnostics-color">, Group<f_Group>,
   Flags<[CoreOption, DriverOption]>;
 def fno_common : Flag<["-"], "fno-common">, Group<f_Group>, Flags<[CC1Option]>,
