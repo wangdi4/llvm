@@ -1804,15 +1804,6 @@ void CodeGenModule::getDefaultFunctionAttributes(StringRef Name,
           "denormal-fp-math-f32",
           CodeGenOpts.FP32DenormalMode.str());
     }
-  #if INTEL_CUSTOMIZATION
-  #if INTEL_FEATURE_ISA_FP16
-    if (CodeGenOpts.FP16DenormalMode != llvm::DenormalMode::getIEEE()) {
-        FuncAttrs.addAttribute(
-            "denormal-fp-math-f16",
-            CodeGenOpts.FP16DenormalMode.str());
-    }
-  #endif // INTEL_FEATURE_ISA_FP16
-  #endif // INTEL_CUSTOMIZATION
 
     FuncAttrs.addAttribute("no-trapping-math",
                            llvm::toStringRef(LangOpts.getFPExceptionMode() ==
