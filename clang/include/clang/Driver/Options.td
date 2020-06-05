@@ -1350,8 +1350,13 @@ def fexperimental_new_pass_manager : Flag<["-"], "fexperimental-new-pass-manager
   HelpText<"Enables an experimental new pass manager in LLVM.">;
 def finput_charset_EQ : Joined<["-"], "finput-charset=">, Group<f_Group>;
 def fexec_charset_EQ : Joined<["-"], "fexec-charset=">, Group<f_Group>;
-def finstrument_functions : Flag<["-"], "finstrument-functions">, Group<f_Group>, Flags<[CC1Option]>,
-  HelpText<"Generate calls to instrument function entry and exit">;
+#if INTEL_CUSTOMIZATION
+def finstrument_functions : Flag<["-"], "finstrument-functions">,
+  Group<f_Group>, Flags<[CC1Option]>, HelpText<"Generate calls "
+  "to instrument function entry and exit">;
+def fno_instrument_functions : Flag<["-"], "fno-instrument-functions">,
+  Group<f_Group>, Flags<[DriverOption]>;
+#endif // INTEL_CUSTOMIZATION
 def finstrument_functions_after_inlining : Flag<["-"], "finstrument-functions-after-inlining">, Group<f_Group>, Flags<[CC1Option]>,
   HelpText<"Like -finstrument-functions, but insert the calls after inlining">;
 def finstrument_function_entry_bare : Flag<["-"], "finstrument-function-entry-bare">, Group<f_Group>, Flags<[CC1Option]>,
