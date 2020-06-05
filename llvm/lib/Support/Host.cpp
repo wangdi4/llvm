@@ -777,6 +777,15 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
     case 0x86:
       *Type = X86::INTEL_TREMONT;
       break;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_ADL
+    case 0x97:
+    case 0x9a:
+      *Type = X86::INTEL_COREI7;
+      *Subtype = X86::INTEL_COREI7_ALDERLAKE;
+      break;
+#endif // INTEL_FEATURE_CPU_ADL
+#endif // INTEL_CUSTOMIZATION
 
     case 0x57:
       *Type = X86::INTEL_KNL; // knl

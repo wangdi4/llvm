@@ -192,6 +192,20 @@ bool X86TargetInfo::initFeatureMap(
   AnonymousCPU1Features.push_back("sse2"); // To avoid unused variable error.
 #endif // INTEL_CUSTOMIZATION
 
+#if INTEL_CUSTOMIZATION
+  SmallVector<StringRef, 8> AnonymousCPU2Features;
+#if INTEL_FEATURE_ISA_AVX_VNNI
+  AnonymousCPU2Features.push_back("avxvnni");
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#if INTEL_FEATURE_ISA_HRESET
+  AnonymousCPU2Features.push_back("hreset");
+#endif // INTEL_FEATURE_ISA_HRESET
+#if INTEL_FEATURE_ISA_KEYLOCKER
+  AnonymousCPU2Features.push_back("keylocker");
+#endif // INTEL_FEATURE_ISA_KEYLOCKER
+  AnonymousCPU2Features.push_back("sse2"); // To avoid unused variable error.
+#endif // INTEL_CUSTOMIZATION
+
   switch (Kind) {
   case CK_Generic:
   case CK_i386:
@@ -355,9 +369,45 @@ SkylakeCommon:
     setFeatureEnabledImpl(Features, "mmx", true);
     break;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_ADL
+  case CK_Alderlake:
+    for (auto Feature : AnonymousCPU2Features)
+      setFeatureEnabledImpl(Features, Feature, true);
+    setFeatureEnabledImpl(Features, "avx2", true);
+    // TODO: set "aes" when confirm if goldmont shouldn't set "aes", else delete me
+    setFeatureEnabledImpl(Features, "vaes", true);
+    setFeatureEnabledImpl(Features, "fma", true);
+    setFeatureEnabledImpl(Features, "vpclmulqdq", true);
+    setFeatureEnabledImpl(Features, "invpcid", true);
+    setFeatureEnabledImpl(Features, "f16c", true);
+    setFeatureEnabledImpl(Features, "bmi", true);
+    setFeatureEnabledImpl(Features, "bmi2", true);
+    setFeatureEnabledImpl(Features, "lzcnt", true);
+    setFeatureEnabledImpl(Features, "serialize", true);
+    setFeatureEnabledImpl(Features, "pku", true);
+    setFeatureEnabledImpl(Features, "pconfig", true);
+    setFeatureEnabledImpl(Features, "shstk", true);
+    setFeatureEnabledImpl(Features, "adx", true);
+    setFeatureEnabledImpl(Features, "gfni", true);
+    // TODO: set feature of RAO-INT when it's ready
+    // FIXME: delete features below when Snow Ridge is ready
+    setFeatureEnabledImpl(Features, "movdiri", true);
+    setFeatureEnabledImpl(Features, "movdir64b", true);
+    setFeatureEnabledImpl(Features, "waitpkg", true);
+    LLVM_FALLTHROUGH;
+#endif // INTEL_FEATURE_CPU_ADL
+#endif // INTEL_CUSTOMIZATION
   case CK_Tremont:
     setFeatureEnabledImpl(Features, "clwb", true);
     setFeatureEnabledImpl(Features, "gfni", true);
+<<<<<<< HEAD
+=======
+    setFeatureEnabledImpl(Features, "waitpkg", true);
+#if INTEL_CUSTOMIZATION
+    // FIXME: tremont should set clwb
+#endif // INTEL_CUSTOMIZATION
+>>>>>>> 25d6891693c87e32a89fe00d4898e0ea7f128299
     LLVM_FALLTHROUGH;
   case CK_GoldmontPlus:
     setFeatureEnabledImpl(Features, "ptwrite", true);
@@ -1473,6 +1523,11 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
 #if INTEL_FEATURE_CPU_SPR
   case CK_SapphireRapids:
 #endif // INTEL_FEATURE_CPU_SPR
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_ADL
+  case CK_Alderlake:
+#endif // INTEL_FEATURE_CPU_ADL
 #endif // INTEL_CUSTOMIZATION
     // FIXME: Historically, we defined this legacy name, it would be nice to
     // remove it at some point. We've never exposed fine-grained names for
@@ -2600,6 +2655,11 @@ Optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
     case CK_Goldmont:
     case CK_GoldmontPlus:
     case CK_Tremont:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_ADL
+    case CK_Alderlake:
+#endif // INTEL_FEATURE_CPU_ADL
+#endif // INTEL_CUSTOMIZATION
 
     case CK_Westmere:
     case CK_SandyBridge:

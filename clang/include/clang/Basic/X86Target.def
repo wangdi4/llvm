@@ -114,6 +114,14 @@ PROC(Goldmont, "goldmont", PROC_64_BIT)
 PROC(GoldmontPlus, "goldmont-plus", PROC_64_BIT)
 
 PROC(Tremont, "tremont", PROC_64_BIT)
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_ADL
+/// \name Alderlake
+/// Alderlake microarchitecture based processors.
+PROC(Alderlake, "alderlake", PROC_64_BIT)
+#endif // INTEL_FEATURE_CPU_ADL
+#endif // INTEL_CUSTOMIZATION
 //@}
 
 /// \name Nehalem
