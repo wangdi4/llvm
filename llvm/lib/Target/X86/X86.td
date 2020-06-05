@@ -1026,10 +1026,6 @@ def ProcessorFeatures {
     !listconcat(GLPInheritableFeatures, GLPSpecificFeatures);
 
   // Tremont
-<<<<<<< HEAD
-  list<SubtargetFeature> TRMAdditionalFeatures = [FeatureCLWB,
-                                                  FeatureGFNI];
-=======
   list<SubtargetFeature> TRMAdditionalFeatures = [FeatureCLDEMOTE,
                                                   FeatureGFNI,
                                                   FeatureMOVDIRI,
@@ -1038,7 +1034,6 @@ def ProcessorFeatures {
 #if INTEL_CUSTOMIZATION
   // FIXME: Tremont should set FeatureCLWB
 #endif // INTEL_CUSTOMIZATION
->>>>>>> 25d6891693c87e32a89fe00d4898e0ea7f128299
   list<SubtargetFeature> TRMSpecificFeatures = [FeatureUseGLMDivSqrtCosts];
   list<SubtargetFeature> TRMInheritableFeatures =
     !listconcat(GLPInheritableFeatures, TRMAdditionalFeatures);
