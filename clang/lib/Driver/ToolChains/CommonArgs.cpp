@@ -519,7 +519,8 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
 #if INTEL_CUSTOMIZATION
   if (Args.hasArg(options::OPT__intel)) {
     if (Arg * A = Args.getLastArg(options::OPT_fveclib))
-      Args.MakeArgString(Twine("-plugin-opt=-vector-library=") + A->getValue());
+      CmdArgs.push_back(Args.MakeArgString(
+          Twine("-plugin-opt=-vector-library=") + A->getValue()));
   }
   addIntelOptimizationArgs(ToolChain, Args, CmdArgs, true);
   // All -mllvm flags as provided by the user will be passed through.
