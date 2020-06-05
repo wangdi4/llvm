@@ -6669,6 +6669,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   }
 
 #if INTEL_CUSTOMIZATION
+  if (Arg *A = Args.getLastArg(options::OPT_fstack_limit_register_EQ)) {
+    A->render(Args, CmdArgs);
+  }
   if (Args.hasArg(options::OPT_fno_alias)) {
     CmdArgs.push_back("-fargument-noalias");
   }

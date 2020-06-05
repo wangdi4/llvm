@@ -98,3 +98,6 @@
 // RUN: %clang_cl -### %s -c /Qopt-multiple-gather-scatter-by-shuffles- 2>&1 | FileCheck %s --check-prefix=CHECK-NO-GATHER-SCATTER-SHUFFLES
 // CHECK-NO-GATHER-SCATTER-SHUFFLES: "-mllvm" "-vplan-vls-level=never"
 
+// Behavior with /fstack-limit-register=<arg> option
+// RUN: %clang -### %s -c -fstack-limit-register=et 2>&1 | FileCheck %s --check-prefix=CHECK-FSTACK-LIMIT-REGISTER
+// CHECK-FSTACK-LIMIT-REGISTER: "-fstack-limit-register=et"

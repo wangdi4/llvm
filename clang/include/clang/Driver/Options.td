@@ -2033,6 +2033,8 @@ def fstack_protector_strong : Flag<["-"], "fstack-protector-strong">, Group<f_Gr
 #if INTEL_CUSTOMIZATION
 def fstack_security_check : Flag<["-"], "fstack-security-check">, Alias<fstack_protector_strong>,
   HelpText<"Enable overflow security checks">;
+def fstack_limit_register_EQ : Joined<["-"], "fstack-limit-register=">,
+  Flags<[DriverOption]>, HelpText<"Limits the stack register size">;
 #endif // INTEL_CUSTOMIZATION
 def fstack_protector : Flag<["-"], "fstack-protector">, Group<f_Group>,
   HelpText<"Enable stack protectors for some functions vulnerable to stack smashing. "
