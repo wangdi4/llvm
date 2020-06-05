@@ -293,6 +293,14 @@ private:
   bool getCrashDiagnosticFile(StringRef ReproCrashFilename,
                               SmallString<128> &CrashDiagDir);
 
+#if INTEL_CUSTOMIZATION
+  /// Add any Intel specific arguments that are either set by default or
+  /// implied from other options.
+  void addIntelArgs(llvm::opt::DerivedArgList &DAL,
+                    const llvm::opt::InputArgList &Args,
+                    const llvm::opt::OptTable &Opts) const;
+#endif // INTEL_CUSTOMIZATION
+
 public:
 
   /// Takes the path to a binary that's either in bin/ or lib/ and returns

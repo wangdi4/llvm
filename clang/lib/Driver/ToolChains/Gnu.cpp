@@ -507,6 +507,10 @@ static void addIntelLib(const char* IntelLibName, ArgStringList &CmdArgs,
                                      options::OPT_dynamic))
     isCurrentStateStatic = A->getOption().matches(options::OPT_static);
 
+  // -debug parallel implies -shared-intel, but allow it to be overridden by
+  // -static-intel below.
+  if (const Arg *A = Args.getLastArg(options::OPT_intel_debug_Group))
+    isSharedIntel = StringRef(A->getValue()) == "parallel";
   if (const Arg *A = Args.getLastArg(options::OPT_shared_intel,
                                      options::OPT_static_intel))
     isSharedIntel = A->getOption().matches(options::OPT_shared_intel);
@@ -808,6 +812,11 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs)) {
     addIntelLib("-lsvml", CmdArgs, Args);
     addIntelLib("-lirc", CmdArgs, Args);
+    if (const Arg *A = Args.getLastArg(options::OPT_intel_debug_Group))
+      if (StringRef(A->getValue()) == "parallel") {
+        addIntelLib("-lpdbx", CmdArgs, Args);
+        addIntelLib("-lpdbxinst", CmdArgs, Args);
+      }
     if (Args.hasFlag(options::OPT_qopt_matmul, options::OPT_qno_opt_matmul,
                      false))
       addIntelLib("-lmatmul", CmdArgs, Args);
@@ -885,6 +894,10 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       if (ToolChain.GetCXXStdlibType(Args) == ToolChain::CST_Libcxx &&
           Args.hasArg(options::OPT__intel))
         WantPthread = true;
+      // -debug parallel implies pthread
+      if (const Arg *A = Args.getLastArg(options::OPT_intel_debug_Group))
+        if (StringRef(A->getValue()) == "parallel")
+          WantPthread = true;
 #endif // INTEL_CUSTOMIZATION
 
       AddRunTimeLibs(ToolChain, D, CmdArgs, Args);

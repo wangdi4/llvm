@@ -187,6 +187,11 @@ def gTune_Group : OptionGroup<"<gTune group>">, Group<g_Group>,
 def g_flags_Group : OptionGroup<"<g flags group>">, Group<DebugInfo_Group>,
                     DocName<"Debug information flags">;
 
+#if INTEL_CUSTOMIZATION
+def intel_debug_Group : OptionGroup<"<intel debug group>">,
+  Group<DebugInfo_Group>, DocName<"Intel debug options">;
+#endif // INTEL_CUSTOMIZATION
+
 def StaticAnalyzer_Group : OptionGroup<"<Static analyzer group>">,
                            DocName<"Static analyzer flags">, DocBrief<[{
 Flags controlling the behavior of the Clang Static Analyzer.}]>;
@@ -738,6 +743,12 @@ def dI : Flag<["-"], "dI">, Group<d_Group>, Flags<[CC1Option]>,
 def dM : Flag<["-"], "dM">, Group<d_Group>, Flags<[CC1Option]>,
   HelpText<"Print macro definitions in -E mode instead of normal output">;
 def dead__strip : Flag<["-"], "dead_strip">;
+#if INTEL_CUSTOMIZATION
+def debug_EQ : Joined<["-"], "debug=">, Group<intel_debug_Group>,
+  Flags<[DriverOption]>, HelpText<"Enable debug information. Valid args: "
+  "none, all, full, minimal">;
+def debug_Separate : Separate<["-"], "debug">, Alias<debug_EQ>;
+#endif // INTEL_CUSTOMIZATION
 def dependency_file : Separate<["-"], "dependency-file">, Flags<[CC1Option]>,
   HelpText<"Filename (or -) to write dependency output to">;
 def dependency_dot : Separate<["-"], "dependency-dot">, Flags<[CC1Option]>,

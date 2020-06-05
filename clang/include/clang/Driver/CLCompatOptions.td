@@ -81,6 +81,13 @@ def _SLASH_d1PP : CLFlag<"d1PP">,
 def _SLASH_d1reportAllClassLayout : CLFlag<"d1reportAllClassLayout">,
   HelpText<"Dump record layout information">,
   Alias<Xclang>, AliasArgs<["-fdump-record-layouts"]>;
+#if INTEL_CUSTOMIZATION
+def _SLASH_debug_COL : CLJoined<"debug:">, Alias<debug_EQ>,
+  HelpText<"Enable debug information. Valid args: none, all, full, minimal">;
+def _SLASH_debug_EQ : CLJoined<"debug=">, Alias<debug_EQ>;
+def _SLASH_debug_Flag : CLFlag<"debug">, Alias<debug_EQ>, AliasArgs<["full"]>,
+  HelpText<"Enable debug information">;
+#endif // INTEL_CUSTOMIZATION
 def _SLASH_diagnostics_caret : CLFlag<"diagnostics:caret">,
   HelpText<"Enable caret and column diagnostics (default)">;
 def _SLASH_diagnostics_column : CLFlag<"diagnostics:column">,
