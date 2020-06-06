@@ -2082,6 +2082,7 @@ bool llvm::runIPSCCP(
     while (!GV->use_empty()) {
       StoreInst *SI = cast<StoreInst>(GV->user_back());
       SI->eraseFromParent();
+      MadeChanges = true;
     }
 #if INTEL_COLLAB
     if (GV->isTargetDeclare())
