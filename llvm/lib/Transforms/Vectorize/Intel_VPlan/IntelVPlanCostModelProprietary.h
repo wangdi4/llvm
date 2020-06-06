@@ -147,7 +147,10 @@ private:
   unsigned NumberOfBoolComputations = 0;
 
   /// \Returns True iff \p VPInst is Unit Strided load or store.
-  virtual bool isUnitStrideLoadStore(const VPInstruction *VPInst) const final;
+  /// When load/store is strided NegativeStride is set to true if the stride is
+  /// negative (-1 in number of elements) or to false otherwise.
+  virtual bool isUnitStrideLoadStore(
+    const VPInstruction *VPInst, bool &NegativeStride) const final;
 };
 
 } // namespace vpo
