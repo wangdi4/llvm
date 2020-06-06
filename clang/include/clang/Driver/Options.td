@@ -2938,15 +2938,10 @@ def no_pedantic : Flag<["-", "--"], "no-pedantic">, Group<pedantic_Group>;
 def no__dead__strip__inits__and__terms : Flag<["-"], "no_dead_strip_inits_and_terms">;
 def nobuiltininc : Flag<["-"], "nobuiltininc">, Flags<[CC1Option, CoreOption]>,
   HelpText<"Disable builtin #include directories">;
-<<<<<<< HEAD
-def nocudainc : Flag<["-"], "nocudainc">;
-#if INTEL_CUSTOMIZATION
-def nogpulib : Flag<["-"], "nogpulib">, Flags<[DpcppUnsupported]>,
-=======
 def nogpuinc : Flag<["-"], "nogpuinc">;
 def : Flag<["-"], "nocudainc">, Alias<nogpuinc>;
-def nogpulib : Flag<["-"], "nogpulib">,
->>>>>>> 030a52d4e5225d6197e30fa188814644dd0a7235
+#if INTEL_CUSTOMIZATION
+def nogpulib : Flag<["-"], "nogpulib">, Flags<[DpcppUnsupported]>,
   HelpText<"Do not link device library for CUDA/HIP device compilation">;
 #endif // INTEL_CUSTOMIZATION
 def : Flag<["-"], "nocudalib">, Alias<nogpulib>;
