@@ -610,8 +610,14 @@ bool VPOParoptTransform::genTaskLoopInitCode(
   IRBuilder<> Builder(InsertBefore);
   Value *Zero = Builder.getInt32(0);
 
-  AllocaInst *DummyTaskTWithPrivates = Builder.CreateAlloca(
+  Instruction *DummyTaskTWithPrivates = Builder.CreateAlloca(
       KmpTaskTTWithPrivatesTy, nullptr, "taskt.withprivates");
+  if (isTargetSPIRV()) {
+    // Pointers passed to the target function must be in generic space.
+    DummyTaskTWithPrivates = cast<Instruction>(Builder.CreateAddrSpaceCast(
+        DummyTaskTWithPrivates,
+        KmpTaskTTWithPrivatesTy->getPointerTo(vpo::ADDRESS_SPACE_GENERIC)));
+  }
 
   Builder.SetInsertPoint(W->getEntryBBlock()->getTerminator());
   Value *BaseTaskTGep =
