@@ -1073,9 +1073,8 @@ bool MapIntrinToImlImpl::runImpl() {
   // OpenCL CPU RT uses an alternative version of SVML and is incompatible
   // with the interface we're assuming, so vector idiv transformation is
   // disabled when generating code for OpenCL.
-  // FIXME: The "acosf" is a hack to proxy for SVML being enabled.
   bool isOCL = M->getNamedMetadata("opencl.ocl.version") != nullptr;
-  if (!isOCL && TLI->isFunctionVectorizable("acosf", 2, false))
+  if (!isOCL && TLI->isSVMLEnabled()) // INTEL_CUSTOMIZATION
     Dirty |= replaceVectorIDivAndRemWithSVMLCall(TTI, *Func);
 
   // Begin searching for calls that are candidates for legalization and/or

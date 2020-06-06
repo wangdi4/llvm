@@ -163,6 +163,9 @@ public:
   bool isFunctionVectorizable(StringRef F, unsigned VF, bool IsMasked) const {
     return !getVectorizedFunction(F, VF, IsMasked).empty();
   }
+
+  /// True iff vector library is set to SVML.
+  bool isSVMLEnabled(void) const;
 #endif
 
   /// Return true if the function F has a vector equivalent with any
@@ -332,16 +335,20 @@ public:
                               bool IsMasked = false) const {
     return Impl->isFunctionVectorizable(F, VF, IsMasked);
   }
-#endif
 
-#if INTEL_CUSTOMIZATION
   /// \p IsMasked defaults to 'false'. This is to leave many of the current
   /// callsites which do not necessarily care about the availability of
   /// masked or unmasked version of a function, unchanged.
   bool isFunctionVectorizable(StringRef F, bool IsMasked = false) const {
     return Impl->isFunctionVectorizable(F, IsMasked);
   }
-#endif
+
+  /// True iff vector library is set to SVML.
+  bool isSVMLEnabled(void) const {
+    return Impl->isSVMLEnabled();
+  }
+#endif // INTEL_CUSTOMIZATION
+
   StringRef getVectorizedFunction(StringRef F, unsigned VF,
                                   bool Masked=false) const { // INTEL
     return Impl->getVectorizedFunction(F, VF, Masked); // INTEL

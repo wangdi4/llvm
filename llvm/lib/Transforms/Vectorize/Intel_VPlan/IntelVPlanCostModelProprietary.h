@@ -23,9 +23,10 @@ class VPlanCostModelProprietary : public VPlanCostModel {
 public:
   explicit VPlanCostModelProprietary(const VPlan *Plan, unsigned VF,
                                      const TargetTransformInfo *TTI,
+                                     const TargetLibraryInfo *TLI,
                                      const DataLayout *DL,
                                      VPlanVLSAnalysis *VLSA)
-      : VPlanCostModel(Plan, VF, TTI, DL, VLSA) {
+    : VPlanCostModel(Plan, VF, TTI, TLI, DL, VLSA) {
     VLSA->getOVLSMemrefs(Plan, VF);
   }
 
@@ -51,6 +52,14 @@ private:
   void printForVPBasicBlock(
     raw_ostream &OS, const VPBasicBlock *VPBlock);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+  // Consolidates proprietary code that gets the cost of one operand or two
+  // operands arithmetics instructions.
+  virtual unsigned getArithmeticInstructionCost(const unsigned Opcode,
+                                                const VPValue *Op1,
+                                                const VPValue *Op2,
+                                                const Type *ScalarTy,
+                                                const unsigned VF) final;
 
   // ProcessedOVLSGroups holds the groups which Cost has already been taken into
   // account while traversing through VPlan during getCost().  This way we avoid

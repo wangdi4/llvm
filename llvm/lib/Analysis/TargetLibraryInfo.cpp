@@ -4400,6 +4400,12 @@ void TargetLibraryInfoImpl::addVectorizableFunctionsFromVecLib(
   }
 }
 
+#if INTEL_CUSTOMIZATION
+bool TargetLibraryInfoImpl::isSVMLEnabled() const {
+  return ClVectorLibrary == SVML;
+}
+#endif // INTEL_CUSTOMIZATION
+
 bool TargetLibraryInfoImpl::isFunctionVectorizable(StringRef funcName,
                                        /* INTEL */ bool IsMasked) const {
   funcName = sanitizeFunctionName(funcName);

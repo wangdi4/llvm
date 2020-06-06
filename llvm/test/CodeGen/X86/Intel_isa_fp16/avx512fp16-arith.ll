@@ -504,3 +504,83 @@ entry:
   %a = fptosi <8 x double> %x to  <8 x i16>
   ret <8 x i16> %a
 }
+
+define <8 x i1> @fcmp_v8f16(<8 x half> %a, <8 x half> %b)
+; CHECK-LABEL: fcmp_v8f16:
+; CHECK:       ## %bb.0: ## %entry
+; CHECK-NEXT:    vcmpeqph %xmm1, %xmm0, %k0
+; CHECK-NEXT:    vpmovm2w %k0, %xmm0
+; CHECK-NEXT:    retq
+{
+entry:
+  %0 = fcmp oeq <8 x half> %a, %b
+  ret <8 x i1> %0
+}
+
+define <16 x i1> @fcmp_v16f16(<16 x half> %a, <16 x half> %b)
+; CHECK-LABEL: fcmp_v16f16:
+; CHECK:       ## %bb.0: ## %entry
+; CHECK-NEXT:    vcmpeqph %ymm1, %ymm0, %k0
+; CHECK-NEXT:    vpmovm2b %k0, %xmm0
+; CHECK-NEXT:    vzeroupper
+; CHECK-NEXT:    retq
+{
+entry:
+  %0 = fcmp oeq <16 x half> %a, %b
+  ret <16 x i1> %0
+}
+
+define <32 x i1> @fcmp_v32f16(<32 x half> %a, <32 x half> %b)
+; CHECK-LABEL: fcmp_v32f16:
+; CHECK:       ## %bb.0: ## %entry
+; CHECK-NEXT:    vcmpeqph %zmm1, %zmm0, %k0
+; CHECK-NEXT:    vpmovm2b %k0, %ymm0
+; CHECK-NEXT:    retq
+{
+entry:
+  %0 = fcmp oeq <32 x half> %a, %b
+  ret <32 x i1> %0
+}
+
+define <8 x i16> @zext_fcmp_v8f16(<8 x half> %a, <8 x half> %b)
+; CHECK-LABEL: zext_fcmp_v8f16:
+; CHECK:       ## %bb.0: ## %entry
+; CHECK-NEXT:    vcmpeqph %xmm1, %xmm0, %k0
+; CHECK-NEXT:    vpmovm2w %k0, %xmm0
+; CHECK-NEXT:    vpsrlw $15, %xmm0, %xmm0
+; CHECK-NEXT:    retq
+{
+entry:
+  %0 = fcmp oeq <8 x half> %a, %b
+  %1 = zext <8 x i1> %0 to <8 x i16>
+  ret <8 x i16> %1
+}
+
+define <16 x i16> @zext_fcmp_v16f16(<16 x half> %a, <16 x half> %b)
+; CHECK-LABEL: zext_fcmp_v16f16:
+; CHECK:       ## %bb.0: ## %entry
+; CHECK-NEXT:    vcmpeqph %ymm1, %ymm0, %k0
+; CHECK-NEXT:    vpmovm2w %k0, %ymm0
+; CHECK-NEXT:    vpsrlw $15, %ymm0, %ymm0
+; CHECK-NEXT:    retq
+{
+entry:
+  %0 = fcmp oeq <16 x half> %a, %b
+  %1 = zext <16 x i1> %0 to <16 x i16>
+  ret <16 x i16> %1
+}
+
+define <32 x i16> @zext_fcmp_v32f16(<32 x half> %a, <32 x half> %b)
+; CHECK-LABEL: zext_fcmp_v32f16:
+; CHECK:       ## %bb.0: ## %entry
+; CHECK-NEXT:    vcmpeqph %zmm1, %zmm0, %k0
+; CHECK-NEXT:    vpmovm2w %k0, %zmm0
+; CHECK-NEXT:    vpsrlw $15, %zmm0, %zmm0
+; CHECK-NEXT:    retq
+{
+entry:
+  %0 = fcmp oeq <32 x half> %a, %b
+  %1 = zext <32 x i1> %0 to <32 x i16>
+  ret <32 x i16> %1
+}
+

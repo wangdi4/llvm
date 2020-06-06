@@ -62,9 +62,11 @@ class VPlanCostModel {
 public:
 #if INTEL_CUSTOMIZATION
   VPlanCostModel(const VPlan *Plan, const unsigned VF,
-                 const TargetTransformInfo *TTI, const DataLayout *DL,
+                 const TargetTransformInfo *TTI,
+                 const TargetLibraryInfo *TLI,
+                 const DataLayout *DL,
                  VPlanVLSAnalysis *VLSA)
-      : Plan(Plan), VF(VF), TTI(TTI), DL(DL), VLSA(VLSA) {
+    : Plan(Plan), VF(VF), TTI(TTI), TLI(TLI), DL(DL), VLSA(VLSA) {
     if (VLSA)
       // FIXME: Really ugly to get LLVMContext from VLSA, which may not
       // even exist, but so far there's no other simple way to pass it here.
@@ -74,8 +76,10 @@ public:
   }
 #else
   VPlanCostModel(const VPlan *Plan, const unsigned VF,
-                 const TargetTransformInfo *TTI, const DataLayout *DL)
-      : Plan(Plan), VF(VF), TTI(TTI), DL(DL) {}
+                 const TargetTransformInfo *TTI,
+                 const TargetLibraryInfo *TLI,
+                 const DataLayout *DL)
+    : Plan(Plan), VF(VF), TTI(TTI), TLI(TLI), DL(DL) {}
 #endif // INTEL_CUSTOMIZATION
   virtual unsigned getCost(const VPInstruction *VPInst);
   virtual unsigned getCost(const VPBasicBlock *VPBB);
@@ -92,6 +96,7 @@ protected:
   const VPlan *Plan;
   unsigned VF;
   const TargetTransformInfo *TTI;
+  const TargetLibraryInfo *TLI;
   const DataLayout *DL;
 #if INTEL_CUSTOMIZATION
   VPlanVLSAnalysis *VLSA;
