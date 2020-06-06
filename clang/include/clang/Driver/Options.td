@@ -2442,6 +2442,10 @@ def include_ : JoinedOrSeparate<["-", "--"], "include">, Group<clang_i_Group>, E
     MetaVarName<"<file>">, HelpText<"Include file before parsing">, Flags<[CC1Option]>;
 def include_pch : Separate<["-"], "include-pch">, Group<clang_i_Group>, Flags<[CC1Option]>,
   HelpText<"Include precompiled header file">, MetaVarName<"<file>">;
+#if INTEL_CUSTOMIZATION
+def pch_use : Separate<["-"], "pch-use">, Flags<[DriverOption]>, Alias<include_pch>,
+  HelpText<"Include precompiled header file">, MetaVarName<"<file>">;
+#endif // INTEL_CUSTOMIZATION
 def relocatable_pch : Flag<["-", "--"], "relocatable-pch">, Flags<[CC1Option]>,
   HelpText<"Whether to build a relocatable precompiled header">;
 def verify_pch : Flag<["-"], "verify-pch">, Group<Action_Group>, Flags<[CC1Option]>,

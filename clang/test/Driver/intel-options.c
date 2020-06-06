@@ -407,3 +407,8 @@
 // Behavior with -fstack-security-check option
 // RUN: %clang -### -fstack-security-check %s 2>&1 | FileCheck -check-prefix CHECK-FSTACK-SECURITY-CHECK %s
 // CHECK-FSTACK-SECURITY-CHECK: "-stack-protector" "2"
+
+// Behavior with -pch-use option
+// RUN: touch %t.h
+// RUN: %clang -### -pch-use %t.h %s 2>&1 | FileCheck -check-prefix CHECK-PCH-USE %s
+// CHECK-PCH-USE: "-include-pch"
