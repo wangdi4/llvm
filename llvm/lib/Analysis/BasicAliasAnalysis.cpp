@@ -161,6 +161,24 @@ static bool isEscapeArgDereference(const Value *V) {
   }
   return false;
 }
+
+static bool isPtrNoAliasLoad(const Value *V, const DataLayout &DL,
+                             unsigned Level = 1) {
+  auto *LI = dyn_cast<LoadInst>(V);
+  if (!LI) {
+    return false;
+  }
+
+  auto *V1 = LI->getPointerOperand()->stripPointerCastsAndInvariantGroups();
+  V1 = GetUnderlyingObject(V1, DL, MaxLookupSearchDepth);
+
+  if (auto *A = dyn_cast<Argument>(V1)) {
+    return A->hasAttribute("ptrnoalias") &&
+           !PointerMayBeCaptured(V1, false, /*StoreCaptures=*/true);
+  }
+
+  return false;
+}
 #endif // INTEL_CUSTOMIZATION
 
 /// Returns true if the pointer is to a function-local object that never
@@ -168,6 +186,7 @@ static bool isEscapeArgDereference(const Value *V) {
 static bool isNonEscapingLocalObject(
     const Value *V,
     unsigned PtrCaptureMaxUses, // INTEL
+    const DataLayout &DL,       // INTEL
     SmallDenseMap<const Value *, bool, 8> *IsCapturedCache = nullptr) {
   SmallDenseMap<const Value *, bool, 8>::iterator CacheIt;
   if (IsCapturedCache) {
@@ -212,6 +231,15 @@ static bool isNonEscapingLocalObject(
         CacheIt->second = Ret;
       return Ret;
     }
+
+#if INTEL_CUSTOMIZATION
+  if (isPtrNoAliasLoad(V, DL)) {
+    auto Ret = !PointerMayBeCaptured(V, false, /*StoreCaptures=*/true);
+    if (IsCapturedCache)
+      CacheIt->second = Ret;
+    return Ret;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   return false;
 }
@@ -1071,8 +1099,8 @@ ModRefInfo BasicAAResult::getModRefInfo(const CallBase *Call,
   // then the call can not mod/ref the pointer unless the call takes the pointer
   // as an argument, and itself doesn't capture it.
   if (!isa<Constant>(Object) && Call != Object &&
-      isNonEscapingLocalObject(Object, PtrCaptureMaxUses, // INTEL
-                               &AAQI.IsCapturedCache)) {  // INTEL
+      isNonEscapingLocalObject(Object, PtrCaptureMaxUses,     // INTEL
+                               DL, &AAQI.IsCapturedCache)) {  // INTEL
 
     // Optimistically assume that call doesn't touch Object and check this
     // assumption in the following loop.
@@ -2203,12 +2231,12 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
     // location if that memory location doesn't escape. Or it may pass a
     // nocapture value to other functions as long as they don't capture it.
     if (isEscapeSource(O1) &&
-        isNonEscapingLocalObject(O2, PtrCaptureMaxUses,  // INTEL
-                                 &AAQI.IsCapturedCache)) // INTEL
+        isNonEscapingLocalObject(O2, PtrCaptureMaxUses,      // INTEL
+                                 DL, &AAQI.IsCapturedCache)) // INTEL
       return NoAlias;
     if (isEscapeSource(O2) &&
-        isNonEscapingLocalObject(O1, PtrCaptureMaxUses,  // INTEL
-                                 &AAQI.IsCapturedCache)) // INTEL
+        isNonEscapingLocalObject(O1, PtrCaptureMaxUses,      // INTEL
+                                 DL, &AAQI.IsCapturedCache)) // INTEL
       return NoAlias;
 
 #if INTEL_CUSTOMIZATION

@@ -132,6 +132,11 @@ public:
   /// Check if an argument has a given attribute.
   bool hasAttribute(Attribute::AttrKind Kind) const;
 
+#if INTEL_CUSTOMIZATION
+  /// Check if an argument has a given attribute.
+  bool hasAttribute(StringRef Kind) const;
+#endif // INTEL_CUSTOMIZATION
+
   Attribute getAttribute(Attribute::AttrKind Kind) const;
 
   /// Method for support type inquiry through isa, cast, and dyn_cast.

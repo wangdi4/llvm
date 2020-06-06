@@ -258,6 +258,12 @@ def MayHaveHugeLocalMalloc : StrBoolAttr<"may_have_huge_local_malloc">;
 
 // endif INTEL_CUSTOMIZATION
 
+// if INTEL_CUSTOMIZATION
+/// The attribute indicates that pointers loaded from the function argument have
+/// "noalias" semantic.
+def PtrNoAlias : StrBoolAttr<"ptrnoalias">;
+// endif INTEL_CUSTOMIZATION
+
 class CompatRule<string F> {
   // The name of the function called to check the attribute of the caller and
   // callee and decide whether inlining should be allowed. The function's

@@ -224,6 +224,13 @@ bool Argument::hasAttribute(Attribute::AttrKind Kind) const {
   return getParent()->hasParamAttribute(getArgNo(), Kind);
 }
 
+#if INTEL_CUSTOMIZATION
+bool Argument::hasAttribute(StringRef Kind) const {
+  auto PAL = getParent()->getAttributes();
+  return PAL.hasParamAttr(getArgNo(), Kind);
+}
+#endif // INTEL_CUSTOMIZATION
+
 Attribute Argument::getAttribute(Attribute::AttrKind Kind) const {
   return getParent()->getParamAttribute(getArgNo(), Kind);
 }
