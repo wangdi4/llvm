@@ -40,7 +40,7 @@ static cl::opt<unsigned> BoolInstsBailOut(
            "is higher than the threshold."));
 
 static cl::opt<unsigned> CMGatherScatterThreshold(
-  "vplan-cm-gather-scatter-threshold", cl::init(100), // is off currently
+  "vplan-cm-gather-scatter-threshold", cl::init(50),
   cl::desc("If gather/scatter cost is more than CMGatherScatterThreshold "
            "percent of whole loop price the price of gather/scatter is "
            "doubled to make it harder to choose in favor of "

@@ -64,7 +64,7 @@ static cl::opt<bool>
                               "underlying attributes/metadata."));
 
 static cl::opt<bool> UseGetType(
-  "vplan-cost-model-use-gettype", cl::init(false), cl::Hidden,
+  "vplan-cost-model-use-gettype", cl::init(true), cl::Hidden,
   cl::desc("Use getType() instead of getCMType() if true. "
            "The knob is temporal and should be removed once every "
            "getCMType() is replaced with getType()."));
