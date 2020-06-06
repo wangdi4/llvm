@@ -230,7 +230,11 @@ def _SLASH_Qno_builtin_ : CLJoined<"Qno-builtin-">, Alias<fno_builtin_>,
   HelpText<"Disable implicit builtin knowledge of a specific function">;
 def _SLASH_Qopenmp : CLFlagNoDpcpp<"Qopenmp">, Alias<fopenmp>,
   HelpText<"Parse OpenMP pragmas and generate parallel code.">;
+def _SLASH_QopenmpP : CLFlagNoDpcpp<"QopenmpP">, Alias<fopenmp>,
+  HelpText<"Parse OpenMP pragmas and generate parallel code.">;
 def _SLASH_Qopenmp_ : CLFlagNoDpcpp<"Qopenmp-">, Alias<fno_openmp>,
+  HelpText<"Disable OpenMP support">;
+def _SLASH_QopenmpP_ : CLFlagNoDpcpp<"QopenmpP-">, Alias<fno_openmp>,
   HelpText<"Disable OpenMP support">;
 def _SLASH_Qiopenmp : CLFlag<"Qiopenmp">, Alias<fiopenmp>;
 def _SLASH_Qopenmp_simd : CLFlagNoDpcpp<"Qopenmp-simd">, Alias<fopenmp_simd>,

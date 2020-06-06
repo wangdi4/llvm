@@ -327,6 +327,12 @@
 // RUN: %clang_cl -### -c /Qopenmp-version:50 %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-VERSION %s
 // CHECK-QOPENMP-VERSION: "-fopenmp-version=50"
 
+// Behavior with QopenmpP and QopenmpP- option
+// RUN: %clang_cl -### -c  /QopenmpP %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMPP %s
+// RUN: %clang_cl -### -c  /QopenmpP /QopenmpP- %s 2>&1 | FileCheck -check-prefix CHECK-NO-QOPENMPP %s
+// CHECK-QOPENMPP: "-fopenmp"
+// CHECK-NO-QOPENMPP-NOT: "-fopenmp"
+
 // Use of -S with clang-cl
 // RUN: %clang_cl -### -S %s 2>&1 | FileCheck -check-prefix=CHECK-S %s
 // CHECK-S: clang{{.*}} "-S"
