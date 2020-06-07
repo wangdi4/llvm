@@ -13,6 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Analysis/GlobalsModRef.h" // INTEL_CUSTOMIZATION
+#include "llvm/Analysis/MemorySSA.h" // INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Vectorize/IntelVPlanDriver.h"
 #include "IntelVPlanAllZeroBypass.h"
 #include "IntelLoopVectorizationLegality.h"
