@@ -10,11 +10,8 @@
 #define LLVM_CLANG_LIB_DRIVER_TOOLCHAINS_GNU_H
 
 #include "Cuda.h"
-<<<<<<< HEAD
 #include "SYCL.h" // INTEL_CUSTOMIZATION
-=======
 #include "ROCm.h"
->>>>>>> 1fa43e0b34d9736f62c6c1b6c371a5e39cd1624d
 #include "clang/Driver/Tool.h"
 #include "clang/Driver/ToolChain.h"
 #include <set>
