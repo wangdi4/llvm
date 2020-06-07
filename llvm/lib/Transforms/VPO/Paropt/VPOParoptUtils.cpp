@@ -3602,11 +3602,30 @@ GlobalVariable *VPOParoptUtils::genKmpcCriticalLockVar(
     WRegionNode *W, const Twine &LockNameSuffix, bool IsTargetSPIRV) {
 
   assert(W && "WRegionNode is null.");
+  unsigned AddressSpace = vpo::ADDRESS_SPACE_PRIVATE;
+
+  if (IsTargetSPIRV) {
+    AddressSpace = vpo::ADDRESS_SPACE_GLOBAL;
+#if INTEL_CUSTOMIZATION
+#if 0
+    // FIXME: re-enable this.
+    //        WG-local global variables require initialization
+    //        for each WG. We have to check if we can find the parent
+    //        target (or teams) region and insert the initialization there.
+    //        Experimental enabling of this code did not seem to affect
+    //        specACCEL performance at all.
+    if (isa<WRNDistributeParLoopNode>(W) ||
+        isa<WRNParallelLoopNode>(W))
+      AddressSpace = vpo::ADDRESS_SPACE_LOCAL;
+#endif
+#endif  // INTEL_CUSTOMIZATION
+  }
 
   // We first get the lock name prefix for the lock var based on the target.
   SmallString<64> LockName = getKmpcCriticalLockNamePrefix(W);
   LockName += LockNameSuffix.str();
-  LockName += ".var";
+
+  LockName += ".AS" + std::to_string(AddressSpace) + ".var";
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Lock name:" << LockName << "\n");
 
@@ -3638,9 +3657,7 @@ GlobalVariable *VPOParoptUtils::genKmpcCriticalLockVar(
       new GlobalVariable(*M, LockVarTy, false, GlobalValue::CommonLinkage,
                          ConstantAggregateZero::get(LockVarTy), LockName,
                          nullptr, GlobalValue::ThreadLocalMode::NotThreadLocal,
-                         IsTargetSPIRV ?
-                             vpo::ADDRESS_SPACE_GLOBAL :
-                             vpo::ADDRESS_SPACE_PRIVATE);
+                         AddressSpace);
 
   assert(GV && "Unable to generate Kmpc critical lock var.");
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Lock var generated: " << *GV << "\n");
@@ -3715,8 +3732,14 @@ bool VPOParoptUtils::genKmpcCriticalSectionImpl(WRegionNode *W,
   else
     EndCritical->insertAfter(EndInst);
 
-  if (IsTargetSPIRV)
-    genCriticalLoopForSPIR(BeginInst, EndCritical, DT, LI);
+  if (IsTargetSPIRV) {
+    if (!isa<WRNTeamsNode>(W))
+      // Critical loop must not be generated for teams region,
+      // since it will result in redundant execution and incorrect
+      // result. Only the master thread must execute the critical
+      // section (the master thread guards will be generated later).
+      genCriticalLoopForSPIR(BeginInst, EndCritical, DT, LI);
+  }
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Critical Section generated.\n");
   return true;

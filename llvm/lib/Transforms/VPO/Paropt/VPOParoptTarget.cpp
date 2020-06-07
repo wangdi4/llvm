@@ -353,6 +353,46 @@ static Instruction *getExitInstruction(Instruction *DirectiveBegin,
   return nullptr;
 }
 
+/// If the given \p CallI is a __kmpc_critical call,
+/// then this function will return its pairing __kmpc_end_critical call,
+/// otherwise, it will return nullptr.
+/// The function assumes that there are no early exits from the critical
+/// region, which is a valid assumption for SPIR targets (where we can
+/// only support well-formed critical regions).
+static CallInst *getCriticalEndCall(CallInst *CallI) {
+  auto CalledF = CallI->getCalledOperand()->stripPointerCasts();
+
+  if (!CalledF || !CalledF->hasName() ||
+      CalledF->getName() != "__kmpc_critical")
+    return nullptr;
+
+  SmallVector<BasicBlock *, 32> WorkStack{CallI->getParent()};
+  SmallPtrSet<BasicBlock *, 32> Visited;
+  while (!WorkStack.empty()) {
+    BasicBlock *BB = WorkStack.pop_back_val();
+
+    for (auto &I : *BB)
+      if (auto *EndCallI = dyn_cast<CallInst>(&I)) {
+        auto CalledF = EndCallI->getCalledOperand()->stripPointerCasts();
+
+        if (CalledF && CalledF->hasName() &&
+            CalledF->getName() == "__kmpc_end_critical")
+          return EndCallI;
+      }
+
+    Visited.insert(BB);
+    assert(BB->getTerminator()->getNumSuccessors() > 0 &&
+           "Block inside critical section has zero successors.");
+    // Place the successors into the work stack.
+    for (auto *SBB : successors(BB))
+      if (Visited.count(SBB) == 0)
+        WorkStack.push_back(SBB);
+  }
+
+  llvm_unreachable("OpenMP critical region is malformed.");
+  return nullptr;
+}
+
 /// This function ignores special instructions with side effect.
 /// Returns true if the call instruction is a special call.
 /// Returns true if the store address is an alloca instruction,
@@ -368,7 +408,7 @@ static bool ignoreSpecialOperands(const Instruction *I) {
       "_f90_dope_vector_init", "_f90_firstprivate_copy",
       "_f90_dope_vector_size", "_f90_lastprivate_copy",
 #endif // INTEL_CUSTOMIZATION
-      "__kmpc_critical",     "__kmpc_end_critical", "omp_get_thread_num"};
+      "omp_get_thread_num"};
 
   if (auto CallI = dyn_cast<CallInst>(I)) {
     // Unprototyped function calls may result in a call of a bitcasted
@@ -416,6 +456,7 @@ void VPOParoptTransform::guardSideEffectStatements(
   SmallVector<BasicBlock *, 10> ParBBVector, TargetBBSet;
   SmallVector<Instruction *, 10> EntryDirectivesToDelete;
   SmallVector<Instruction *, 10> ExitDirectivesToDelete;
+  SmallVector<std::pair<CallInst *, CallInst *>, 10> OmpCriticalCalls;
 
   auto InsertWorkGroupBarrier = [](Instruction *InsertPt) {
     LLVMContext &C = InsertPt->getContext();
@@ -493,11 +534,33 @@ void VPOParoptTransform::guardSideEffectStatements(
 
       GeneralUtils::collectBBSet(TargetDirectiveBegin->getParent(),
           TargetDirectiveExit->getParent(), TargetBBSet);
-    }
+    } else if (auto *CallI = dyn_cast<CallInst>(&*I))
+      if (auto *EndCallI = getCriticalEndCall(CallI))
+        // Collect critical regions. If a side-effect instruction
+        // inside a critical region must be guarded (e.g. the critical
+        // region is inside a teams region), then there must be no
+        // barrier at the merge point.
+        //
+        // FIXME: this is not really needed, because we guard the
+        //        lock acqure/release calls with the master thread checks
+        //        as well. For some reason specACCEL/552 hangs with
+        //        the barrier calls.
+        OmpCriticalCalls.push_back({CallI, EndCallI});
   }
 
   SmallPtrSet<BasicBlock *, 10> ParBBSet(ParBBVector.begin(),
                                          ParBBVector.end());
+  SmallPtrSet<BasicBlock *, 10> CriticalBBSet;
+  SmallPtrSet<Instruction *, 10> SideEffectsInCritical;
+
+  for (auto &CriticalPair : OmpCriticalCalls) {
+    SmallVector<BasicBlock *, 32> BBSet;
+    GeneralUtils::collectBBSet(CriticalPair.first->getParent(),
+                               CriticalPair.second->getParent(),
+                               BBSet);
+    CriticalBBSet.insert(BBSet.begin(), BBSet.end());
+  }
+
   // Iterate over all instructions and add the side effect instructions
   // to the set "SideEffectInstructions".
 
@@ -530,6 +593,8 @@ void VPOParoptTransform::guardSideEffectStatements(
         LLVM_DEBUG(dbgs() << "\nInstruction has side effect::" << I
                           << "\nBasicBlock: " << I.getParent());
         SideEffectInstructions.push_back(&I);
+        if (CriticalBBSet.find(BB) != CriticalBBSet.end())
+          SideEffectsInCritical.insert(&I);
       }
     }
   }
@@ -665,7 +730,8 @@ void VPOParoptTransform::guardSideEffectStatements(
     }
 
     // Insert group barrier at the merge point.
-    InsertWorkGroupBarrier(BarrierInsertPt); //                           (4)
+    if (SideEffectsInCritical.count(StartI) == 0)
+      InsertWorkGroupBarrier(BarrierInsertPt); //                         (4)
     I = std::next(I);
   }
 
