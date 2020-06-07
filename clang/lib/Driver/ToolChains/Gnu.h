@@ -10,7 +10,11 @@
 #define LLVM_CLANG_LIB_DRIVER_TOOLCHAINS_GNU_H
 
 #include "Cuda.h"
+<<<<<<< HEAD
 #include "SYCL.h" // INTEL_CUSTOMIZATION
+=======
+#include "ROCm.h"
+>>>>>>> 8422bc9efcbc1253281e2b8043a97d6e8f842234
 #include "clang/Driver/Tool.h"
 #include "clang/Driver/ToolChain.h"
 #include <set>
@@ -307,6 +311,7 @@ public:
 protected:
   GCCInstallationDetector GCCInstallation;
   CudaInstallationDetector CudaInstallation;
+  RocmInstallationDetector RocmInstallation;
 
 public:
   Generic_GCC(const Driver &D, const llvm::Triple &Triple,
