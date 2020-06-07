@@ -44,11 +44,7 @@
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/LoopAnalysisManager.h"
 #include "llvm/Analysis/LoopInfo.h"
-<<<<<<< HEAD
-#include "llvm/Analysis/MemorySSA.h" // INTEL_CUSTOMIZATION
-=======
 #include "llvm/Analysis/MemorySSA.h"
->>>>>>> 72e8f07c65d74a6fe5449515dcd6b8a117d4d6e2
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionAliasAnalysis.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
