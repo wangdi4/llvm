@@ -532,6 +532,36 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
       }
 #endif //INTEL_CUSTOMIZATION
     }
+#if INTEL_CUSTOMIZATION
+    // Expected valid 'tools': assembly,compiler,preprocessor and linker for now
+    // TODO - for adding other 'tools'
+    if (A->getOption().matches(options::OPT_Qoption_COMMA)) {
+      if (A->getNumValues() < 2) {
+        Diag(clang::diag::warn_invalid_num_qopt) << A->getNumValues();
+      } else {
+        StringRef ToolName = A->getValue(0);
+        Option ToolOpt =
+            llvm::StringSwitch<Option>(ToolName.str())
+                .Cases("preprocessor","cpp","p", Opts.getOption(options::OPT_Wp_COMMA))
+                .Cases("asm","assembler","a", Opts.getOption(options::OPT_Wa_COMMA))
+                .Cases("link","ld","l", Opts.getOption(options::OPT_Wl_COMMA))
+                .Cases("compiler","c","clang", Opts.getOption(options::OPT_Xclang))
+                .Default(Opts.getOption(options::Unsupported));
+
+        if (ToolOpt.getID() == options::Unsupported)
+          Diag(clang::diag::warn_invalid_tool) << A->getValue(0);
+        else {
+          for (unsigned i = 1; i < A->getNumValues(); i++) {
+            if (ToolOpt.getID() == options::OPT_Xclang)
+              DAL->AddSeparateArg(A, ToolOpt, A->getValue(i));
+            else
+              DAL->AddJoinedArg(A, ToolOpt, A->getValue(i));
+          }
+        }
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
+
 
     // Pick up inputs via the -- option.
     if (A->getOption().matches(options::OPT__DASH_DASH)) {

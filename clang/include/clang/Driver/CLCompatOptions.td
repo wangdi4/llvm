@@ -257,6 +257,11 @@ def _SLASH_Qpc : CLJoined<"Qpc">, Alias<pc>, HelpText<"Initialize X87 "
   "values of 32, 64, and 80.">;
 def _SLASH_Qpc_COL : CLJoined<"Qpc:">, Alias<pc>;
 def _SLASH_Qpc_EQ : CLJoined<"Qpc=">, Alias<pc>;
+def _SLASH_Qoption_COMMA : CLCommaJoined<"Qoption,">, Alias<Qoption_COMMA>,
+  HelpText<" Qoption,<tool>,<args> to pass the comma separated arguments to the"
+           " <tool>; <tool> can be asm for assembler (or) link/ld for linker"
+           " (or) preprocessor for preprocessor (or) compiler for compiler">,
+  MetaVarName<"<arg>">;
 def _SLASH_QM : CLFlag<"QM">, Alias<M>, HelpText<"Like -MD, but also implies "
   "-E and writes to stdout by default">;
 def _SLASH_QMM : CLFlag<"QMM">, Alias<MM>, HelpText<"Like -MMD, but also "

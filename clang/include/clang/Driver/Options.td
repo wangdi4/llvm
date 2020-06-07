@@ -548,6 +548,13 @@ def T : JoinedOrSeparate<["-"], "T">, Group<T_Group>,
 def U : JoinedOrSeparate<["-"], "U">, Group<Preprocessor_Group>,
   Flags<[CC1Option]>, MetaVarName<"<macro>">, HelpText<"Undefine macro <macro>">;
 def V : JoinedOrSeparate<["-"], "V">, Flags<[DriverOption, Unsupported]>;
+#if INTEL_CUSTOMIZATION
+def Qoption_COMMA : CommaJoined<["-"], "Qoption,">, Flags<[DriverOption]>,
+  HelpText<" Qoption,<tool>,<args> to pass the comma separated arguments to the"
+           " <tool>; <tool> can be asm for assembler (or) link/ld for linker"
+           " (or) preprocessor for preprocessor (or) compiler for compiler">,
+  MetaVarName<"<arg>">;
+#endif // INTEL_CUSTOMIZATION
 def Wa_COMMA : CommaJoined<["-"], "Wa,">,
   HelpText<"Pass the comma separated arguments in <arg> to the assembler">,
   MetaVarName<"<arg>">;

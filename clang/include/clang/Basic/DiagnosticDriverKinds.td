@@ -296,6 +296,12 @@ def warn_ignored_gcc_optimization : Warning<"optimization flag '%0' is not suppo
   InGroup<IgnoredOptimizationArgument>;
 def warn_ignored_clang_option : Warning<"the flag '%0' has been deprecated and will be ignored">,
   InGroup<UnusedCommandLineArgument>;
+#if INTEL_CUSTOMIZATION
+def warn_invalid_num_qopt : Warning<"Invalid number(%0) of arguments for the -Qoption, option ignored">,
+  InGroup<UnusedCommandLineArgument>;
+def warn_invalid_tool : Warning<"Invalid tool(%0) for the -Qoption, option ignored">,
+  InGroup<UnusedCommandLineArgument>;
+#endif //INTEL_CUSTOMIZATION
 def warn_drv_unsupported_opt_for_target : Warning<
   "optimization flag '%0' is not supported for target '%1'">,
   InGroup<IgnoredOptimizationArgument>;
