@@ -5091,7 +5091,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
   // Add metadata for calls to MSAllocator functions
   if (getDebugInfo() && TargetDecl &&
       TargetDecl->hasAttr<MSAllocatorAttr>())
-    getDebugInfo()->addHeapAllocSiteMetadata(CI, RetTy, Loc);
+    getDebugInfo()->addHeapAllocSiteMetadata(CI, RetTy->getPointeeType(), Loc);
 
 #if INTEL_CUSTOMIZATION
   // Assign scopes to function arguments. They will be stored as a list in
