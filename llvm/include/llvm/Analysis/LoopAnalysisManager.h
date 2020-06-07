@@ -30,6 +30,7 @@
 #define LLVM_ANALYSIS_LOOPANALYSISMANAGER_H
 
 #include "llvm/ADT/PostOrderIterator.h"
+<<<<<<< HEAD
 #include "llvm/ADT/PriorityWorklist.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Analysis/AliasAnalysis.h"
@@ -43,9 +44,22 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/Dominators.h"
+=======
+>>>>>>> 5006e551d3101202ebb300f97106759472968549
 #include "llvm/IR/PassManager.h"
 
 namespace llvm {
+
+class AAResults;
+class AssumptionCache;
+class DominatorTree;
+class Function;
+class Loop;
+class LoopInfo;
+class MemorySSA;
+class ScalarEvolution;
+class TargetLibraryInfo;
+class TargetTransformInfo;
 
 /// The adaptor from a function pass to a loop pass computes these analyses and
 /// makes them available to the loop passes "for free". Each loop pass is
