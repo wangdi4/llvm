@@ -327,7 +327,7 @@ def Shape_ReduceOp : Shape_Op<"reduce",
 
   let arguments = (ins Shape_ShapeType:$shape, Variadic<AnyType>:$initVals);
   let results = (outs Variadic<AnyType>:$result);
-  let regions = (region SizedRegion<1>:$body);
+  let regions = (region SizedRegion<1>:$region);
 
   let builders = [
     OpBuilder<"OpBuilder &builder, OperationState &result, "
@@ -367,7 +367,11 @@ def Shape_SizeToIndexOp : Shape_Op<"size_to_index", [NoSideEffect]> {
   let hasFolder = 1;
 }
 
-def Shape_YieldOp : Shape_Op<"yield", [NoSideEffect, Terminator]> {
+def Shape_YieldOp : Shape_Op<"yield", 
+    [HasParent<"ReduceOp">,
+     NoSideEffect,
+     ReturnLike,
+     Terminator]> {
   let summary = "Returns the value to parent op";
 
   let arguments = (ins Variadic<AnyType>:$operands);
@@ -376,6 +380,7 @@ def Shape_YieldOp : Shape_Op<"yield", [NoSideEffect, Terminator]> {
     "OpBuilder &b, OperationState &result", [{ build(b, result, llvm::None); }]
   >];
 
+  let verifier = [{ return ::verify(*this); }];
   let assemblyFormat = "attr-dict ($operands^ `:` type($operands))?";
 }
 

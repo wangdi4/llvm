@@ -391,6 +391,26 @@ OpFoldResult SizeToIndexOp::fold(ArrayRef<Attribute> operands) {
 }
 
 //===----------------------------------------------------------------------===//
+// YieldOp
+//===----------------------------------------------------------------------===//
+
+static LogicalResult verify(YieldOp op) {
+  auto *parentOp = op.getParentOp();
+  auto results = parentOp->getResults();
+  auto operands = op.getOperands();
+
+  if (parentOp->getNumResults() != op.getNumOperands())
+    return op.emitOpError() << "number of operands does not match number of "
+                               "results of its parent";
+  for (auto e : llvm::zip(results, operands))
+    if (std::get<0>(e).getType() != std::get<1>(e).getType())
+      return op.emitOpError()
+             << "types mismatch between yield op and its parent";
+
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
 // SplitAtOp
 //===----------------------------------------------------------------------===//
 
@@ -453,7 +473,7 @@ void ReduceOp::build(OpBuilder &builder, OperationState &result, Value shape,
 
 static LogicalResult verify(ReduceOp op) {
   // Verify block arg types.
-  Block &block = op.body().front();
+  Block &block = op.region().front();
 
   auto blockArgsCount = op.initVals().size() + 2;
   if (block.getNumArguments() != blockArgsCount)
@@ -509,7 +529,7 @@ static void print(OpAsmPrinter &p, ReduceOp op) {
   p << op.getOperationName() << '(' << op.shape() << ", " << op.initVals()
     << ") ";
   p.printOptionalArrowTypeList(op.getResultTypes());
-  p.printRegion(op.body());
+  p.printRegion(op.region());
   p.printOptionalAttrDict(op.getAttrs());
 }
 
