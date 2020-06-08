@@ -882,6 +882,28 @@ private:
     return CopyInst->getLvalDDRef();
   }
 
+  // Internal helper utility to get operator overflow flags (nuw/nsw) for a
+  // VPInstruction and the reduction ref if it participates in reduction
+  // sequence.
+  void getOverflowFlagsAndRednRef(const VPInstruction *VPInst, bool &HasNUW,
+                                  bool &HasNSW, RegDDRef *&RedRef) {
+    // Overflow flags should be preserved only for instructions that don't
+    // participate in reduction sequence.
+    bool PreserveOverflowFlags = ReductionVPInsts.count(VPInst) == 0;
+    HasNUW = PreserveOverflowFlags && VPInst->hasNoUnsignedWrap();
+    HasNSW = PreserveOverflowFlags && VPInst->hasNoSignedWrap();
+
+    // If binop instruction corresponds to a reduction, then we need to write
+    // the result back to the corresponding reduction variable. Overflow flags
+    // should not be preserved for this instruction.
+    RedRef = nullptr;
+    if (ReductionRefs.count(VPInst)) {
+      assert(!PreserveOverflowFlags &&
+             "Overflow flags cannot be preserved for reduction instruction.");
+      RedRef = ReductionRefs[VPInst];
+    }
+  }
+
   // The small loop trip count and body thresholds used to determine where it
   // is appropriate for complete unrolling. May eventually need to be moved to
   // the cost model.

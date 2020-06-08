@@ -503,9 +503,12 @@ HLInst *HLNodeUtils::createAddrSpaceCast(Type *DestTy, RegDDRef *RvalRef,
 }
 
 HLInst *HLNodeUtils::createFNeg(RegDDRef *RvalRef, const Twine &Name,
-                                RegDDRef *LvalRef, MDNode *FPMathTag) {
-  return createUnaryHLInstImpl(Instruction::FNeg, RvalRef, Name, LvalRef,
-                               nullptr, FPMathTag);
+                                RegDDRef *LvalRef, MDNode *FPMathTag,
+                                FastMathFlags FMF) {
+  HLInst *HInst = createUnaryHLInstImpl(Instruction::FNeg, RvalRef, Name,
+                                        LvalRef, nullptr, FPMathTag);
+  copyFMFForHLInst(HInst, FMF);
+  return HInst;
 }
 
 HLInst *HLNodeUtils::createFreeze(RegDDRef *RvalRef, const Twine &Name,
@@ -819,6 +822,37 @@ HLInst *HLNodeUtils::createBinaryHLInst(unsigned OpCode, RegDDRef *OpRef1,
   return HInst;
 }
 
+HLInst *HLNodeUtils::createFPMathBinOp(unsigned OpCode, RegDDRef *OpRef1,
+                                       RegDDRef *OpRef2, FastMathFlags FMF,
+                                       const Twine &Name, RegDDRef *LvalRef) {
+  HLInst *HInst = createBinaryHLInstImpl(OpCode, OpRef1, OpRef2, Name, LvalRef,
+                                         false, false, nullptr);
+  copyFMFForHLInst(HInst, FMF);
+  return HInst;
+}
+
+HLInst *HLNodeUtils::createOverflowingBinOp(unsigned OpCode, RegDDRef *OpRef1,
+                                            RegDDRef *OpRef2, bool HasNUW,
+                                            bool HasNSW, const Twine &Name,
+                                            RegDDRef *LvalRef) {
+  HLInst *HInst = createBinaryHLInstImpl(OpCode, OpRef1, OpRef2, Name, LvalRef,
+                                         HasNUW, HasNSW, nullptr);
+  assert(isa<OverflowingBinaryOperator>(HInst->getLLVMInstruction()) &&
+         "OverflowingBinaryOperator instruction expected here");
+  return HInst;
+}
+
+HLInst *HLNodeUtils::createPossiblyExactBinOp(unsigned OpCode, RegDDRef *OpRef1,
+                                              RegDDRef *OpRef2, bool IsExact,
+                                              const Twine &Name,
+                                              RegDDRef *LvalRef) {
+  HLInst *HInst = createBinaryHLInstImpl(OpCode, OpRef1, OpRef2, Name, LvalRef,
+                                         IsExact, false, nullptr);
+  assert(isa<PossiblyExactOperator>(HInst->getLLVMInstruction()) &&
+         "PossiblyExactOperator instruction expected here");
+  return HInst;
+}
+
 HLInst *HLNodeUtils::createAdd(RegDDRef *OpRef1, RegDDRef *OpRef2,
                                const Twine &Name, RegDDRef *LvalRef,
                                bool HasNUW, bool HasNSW) {
@@ -950,7 +984,7 @@ HLInst *HLNodeUtils::createXor(RegDDRef *OpRef1, RegDDRef *OpRef2,
 
 HLInst *HLNodeUtils::createCmp(const HLPredicate &Pred, RegDDRef *OpRef1,
                                RegDDRef *OpRef2, const Twine &Name,
-                               RegDDRef *LvalRef) {
+                               RegDDRef *LvalRef, FastMathFlags FMF) {
   Value *InstVal;
   HLInst *HInst;
 
@@ -974,6 +1008,7 @@ HLInst *HLNodeUtils::createCmp(const HLPredicate &Pred, RegDDRef *OpRef1,
   }
 
   HInst = createLvalHLInst(cast<Instruction>(InstVal), LvalRef);
+  copyFMFForHLInst(HInst, FMF);
   HInst->setPredicate(Pred);
 
   HInst->setOperandDDRef(OpRef1, 1);
@@ -985,7 +1020,7 @@ HLInst *HLNodeUtils::createCmp(const HLPredicate &Pred, RegDDRef *OpRef1,
 HLInst *HLNodeUtils::createSelect(const HLPredicate &Pred, RegDDRef *OpRef1,
                                   RegDDRef *OpRef2, RegDDRef *OpRef3,
                                   RegDDRef *OpRef4, const Twine &Name,
-                                  RegDDRef *LvalRef) {
+                                  RegDDRef *LvalRef, FastMathFlags FMF) {
   Value *InstVal;
   HLInst *HInst;
 
@@ -1001,6 +1036,7 @@ HLInst *HLNodeUtils::createSelect(const HLPredicate &Pred, RegDDRef *OpRef1,
   InstVal = DummyIRBuilder->CreateSelect(CmpVal, DummyVal, DummyVal, Name);
 
   HInst = createLvalHLInst(cast<Instruction>(InstVal), LvalRef);
+  copyFMFForHLInst(HInst, FMF);
   HInst->setPredicate(Pred);
 
   HInst->setOperandDDRef(OpRef1, 1);
@@ -1108,8 +1144,15 @@ HLInst *HLNodeUtils::createCall(FunctionCallee Func,
                                 ArrayRef<RegDDRef *> CallArgs,
                                 const Twine &Name, RegDDRef *LvalRef,
                                 ArrayRef<OperandBundleDef> Bundle,
-                                ArrayRef<RegDDRef *> BundelOps) {
-  return createCallImpl(Func, CallArgs, Name, LvalRef, Bundle, BundelOps).first;
+                                ArrayRef<RegDDRef *> BundelOps,
+                                FastMathFlags FMF) {
+  HLInst *HInst;
+  CallInst *Call;
+  std::tie(HInst, Call) =
+      createCallImpl(Func, CallArgs, Name, LvalRef, Bundle, BundelOps);
+  copyFMFForHLInst(HInst, FMF);
+
+  return HInst;
 }
 
 HLInst *HLNodeUtils::createStacksave(const DebugLoc &DLoc) {

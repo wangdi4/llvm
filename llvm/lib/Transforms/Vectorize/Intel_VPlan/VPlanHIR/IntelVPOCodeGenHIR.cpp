@@ -1209,8 +1209,11 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
         false /*non-masked*/);
     assert(VectorF && "Can't create vector function.");
 
-    HLInst *WideCall = HLNodeUtilities.createCall(VectorF, CallArgs,
-                                                  VectorF->getName(), nullptr);
+    FastMathFlags FMF =
+        isa<FPMathOperator>(Call) ? Call->getFastMathFlags() : FastMathFlags();
+    HLInst *WideCall = HLNodeUtilities.createCall(
+        VectorF, CallArgs, VectorF->getName(), nullptr /*Lval*/, {} /*Bundle*/,
+        {} /*BundleOps*/, FMF);
     HLNodeUtils::insertBefore(HInst, WideCall);
 
     Instruction *Inst =
@@ -1220,10 +1223,6 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
     // attributes are taken from call sites in MapIntrinToIml to refine
     // SVML calls for precision.
     cast<CallInst>(Inst)->setAttributes(Call->getAttributes());
-
-    if (isa<FPMathOperator>(Inst)) {
-      Inst->copyFastMathFlags(Call);
-    }
 
     // TODO: Matt can you look into the following code review comment
     // from Pankaj?
@@ -2475,13 +2474,12 @@ HLInst *VPOCodeGenHIR::widenCall(const HLInst *INode,
       Fn, VF, ArgTys, TLI, ID, nullptr /* vector-variant */, Masked);
   assert(VectorF && "Can't create vector function.");
 
-  auto *WideInst = HLNodeUtilities.createCall(VectorF, CallArgs,
-                                              VectorF->getName(), WideLval);
+  FastMathFlags FMF =
+      isa<FPMathOperator>(Call) ? Call->getFastMathFlags() : FastMathFlags();
+  auto *WideInst = HLNodeUtilities.createCall(
+      VectorF, CallArgs, VectorF->getName(), WideLval, {} /*Bundle*/,
+      {} /*BundleOps*/, FMF);
   Instruction *Inst = const_cast<Instruction *>(WideInst->getLLVMInstruction());
-
-  if (isa<FPMathOperator>(Inst)) {
-    Inst->copyFastMathFlags(Call);
-  }
 
   // Make sure we don't lose attributes at the call site. E.g., IMF
   // attributes are taken from call sites in MapIntrinToIml to refine
@@ -3462,7 +3460,9 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
 
   switch (VPInst->getOpcode()) {
   case Instruction::FNeg:
-    NewInst = HLNodeUtilities.createFNeg(RefOp0, InstName);
+    NewInst = HLNodeUtilities.createFNeg(RefOp0, InstName, nullptr /*Lval*/,
+                                         nullptr /*FPMathTag*/,
+                                         VPInst->getFastMathFlags());
     break;
 
   case Instruction::Freeze:
@@ -3490,13 +3490,12 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     if (!Widen)
       return;
 
-    // If this instruction corresponds to a reduction, then we need to
-    // write the result back to the corresponding reduction variable.
+    bool HasNUW = false, HasNSW = false;
     RegDDRef *RedRef = nullptr;
-    if (ReductionRefs.count(VPInst))
-      RedRef = ReductionRefs[VPInst];
-    NewInst = HLNodeUtilities.createBinaryHLInst(
-        VPInst->getOpcode(), RefOp0, RefOp1, ".vec",
+    getOverflowFlagsAndRednRef(VPInst, HasNUW, HasNSW, RedRef);
+
+    NewInst = HLNodeUtilities.createOverflowingBinOp(
+        VPInst->getOpcode(), RefOp0, RefOp1, HasNUW, HasNSW, ".vec",
         RedRef ? RedRef->clone() : nullptr);
     break;
   }
@@ -3528,8 +3527,9 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
       }
     }
 
-    NewInst = HLNodeUtilities.createBinaryHLInst(VPInst->getOpcode(), RefOp0,
-                                                 RefOp1, ".vec", nullptr);
+    NewInst = HLNodeUtilities.createPossiblyExactBinOp(
+        VPInst->getOpcode(), RefOp0, RefOp1, VPInst->isExact(), ".vec",
+        nullptr);
     break;
   }
 
@@ -3570,13 +3570,12 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
       }
     }
 
-    // If this instruction corresponds to a reduction, then we need to
-    // write the result back to the corresponding reduction variable.
+    bool HasNUW = false, HasNSW = false;
     RegDDRef *RedRef = nullptr;
-    if (ReductionRefs.count(VPInst))
-      RedRef = ReductionRefs[VPInst];
-    NewInst = HLNodeUtilities.createBinaryHLInst(
-        VPInst->getOpcode(), RefOp0, RefOp1, ".vec",
+    getOverflowFlagsAndRednRef(VPInst, HasNUW, HasNSW, RedRef);
+
+    NewInst = HLNodeUtilities.createOverflowingBinOp(
+        VPInst->getOpcode(), RefOp0, RefOp1, HasNUW, HasNSW, ".vec",
         RedRef ? RedRef->clone() : nullptr);
     break;
   }
@@ -3595,35 +3594,36 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   case Instruction::And:
   case Instruction::Or:
   case Instruction::Xor: {
-    // If this binop instruction corresponds to a reduction, then we need to
-    // write the result back to the corresponding reduction variable.
+    bool HasNUW = false, HasNSW = false;
     RegDDRef *RedRef = nullptr;
-    if (ReductionRefs.count(VPInst))
-      RedRef = ReductionRefs[VPInst];
+    getOverflowFlagsAndRednRef(VPInst, HasNUW, HasNSW, RedRef);
 
-    // FIXME - operator flags are being obtained here using binary operator from
-    // underlying IR. This is a temporary fix to achieve performance parity in
-    // VPValue CG until we start preserving the flags during VPlan HIR
-    // construction (CMPLRLLVM-11656).
-    const HLNode *HNode =
-        VPInst->HIR.isMaster() ? VPInst->HIR.getUnderlyingNode() : nullptr;
-    const BinaryOperator *BOp = nullptr;
-    if (auto *HInst = dyn_cast_or_null<HLInst>(HNode)) {
-      auto *LInst = HInst->getLLVMInstruction();
-      BOp = dyn_cast<BinaryOperator>(LInst);
+    if (VPInst->hasFastMathFlags()) {
+      NewInst = HLNodeUtilities.createFPMathBinOp(
+          VPInst->getOpcode(), RefOp0, RefOp1, VPInst->getFastMathFlags(),
+          InstName, RedRef ? RedRef->clone() : nullptr);
+    } else if (HasNUW || HasNSW) {
+      NewInst = HLNodeUtilities.createOverflowingBinOp(
+          VPInst->getOpcode(), RefOp0, RefOp1, HasNUW, HasNSW, InstName);
+    } else if (VPInst->isExact()) {
+      NewInst = HLNodeUtilities.createPossiblyExactBinOp(
+          VPInst->getOpcode(), RefOp0, RefOp1, VPInst->isExact(), InstName,
+          RedRef ? RedRef->clone() : nullptr);
+    } else {
+      NewInst = HLNodeUtilities.createBinaryHLInst(
+          VPInst->getOpcode(), RefOp0, RefOp1, InstName,
+          RedRef ? RedRef->clone() : nullptr);
     }
-
-    NewInst = HLNodeUtilities.createBinaryHLInst(
-        VPInst->getOpcode(), RefOp0, RefOp1, InstName,
-        RedRef ? RedRef->clone() : nullptr, BOp);
     break;
   }
 
   case Instruction::ICmp:
   case Instruction::FCmp: {
     auto *VPCmp = cast<VPCmpInst>(VPInst);
+    FastMathFlags FMF = VPInst->hasFastMathFlags() ? VPInst->getFastMathFlags()
+                                                   : FastMathFlags();
     NewInst = HLNodeUtilities.createCmp(VPCmp->getPredicate(), RefOp0, RefOp1,
-                                        InstName);
+                                        InstName, nullptr /*Lval*/, FMF);
     break;
   }
 
@@ -3642,9 +3642,11 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     RegDDRef *RedRef = nullptr;
     if (ReductionRefs.count(VPInst))
       RedRef = ReductionRefs[VPInst];
-    NewInst = HLNodeUtilities.createSelect(PredInst->getPredicate(), Pred0,
-                                           Pred1, RefOp0, RefOp1, InstName,
-                                           RedRef ? RedRef->clone() : nullptr);
+    FastMathFlags FMF = VPInst->hasFastMathFlags() ? VPInst->getFastMathFlags()
+                                                   : FastMathFlags();
+    NewInst = HLNodeUtilities.createSelect(
+        PredInst->getPredicate(), Pred0, Pred1, RefOp0, RefOp1, InstName,
+        RedRef ? RedRef->clone() : nullptr, FMF);
     break;
   }
 

@@ -589,7 +589,8 @@ class VPInstruction : public VPUser,
         return FlagsKind::VPFastMathFlags;
       case Instruction::PHI:
       case Instruction::Select:
-      case Instruction::Call: {
+      case Instruction::Call:
+      case VPInstruction::HIRCopy: {
         // Conservatively return UnknownOperatorFlags if instruction type info
         // is not provided for opcode.
         if (!InstTy)
