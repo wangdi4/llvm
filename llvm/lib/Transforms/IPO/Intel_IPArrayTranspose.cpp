@@ -336,15 +336,19 @@ bool ArrayTransposeImpl::computePointerAliases() {
     return true;
   };
 
-  // Returns true if "Ptr" is used by only calls. Uses of "Ptr" are ignored
-  // in "SI" and "lifetime_start / lifetime_end / DbgInfo" intrinsics. All
-  // uses of "Ptr" are collected in "Calls".
+  // Returns true if "Ptr" is used by only calls and loads. Uses of "Ptr" are
+  // ignored in "SI" and "lifetime_start / lifetime_end / DbgInfo" intrinsics.
+  // All call users of "Ptr" are collected in "Calls" and load users of "Ptr"
+  // are collected in "Loads".
   auto IsPtrUsedByOnlyCalls = [](Value *Ptr, StoreInst *SI,
-                                 SmallPtrSetImpl<CallInst *> &Calls) {
+                                 SmallPtrSetImpl<CallInst *> &Calls,
+                                 SmallPtrSetImpl<LoadInst *> &Loads) {
     for (auto *UI : Ptr->users()) {
       if (SI == UI)
         continue;
-      if (auto CB = dyn_cast<CallInst>(UI)) {
+      if (auto Ld = dyn_cast<LoadInst>(UI)) {
+        Loads.insert(Ld);
+      } else if (auto CB = dyn_cast<CallInst>(UI)) {
         Calls.insert(CB);
       } else if (isa<BitCastInst>(UI)) {
         if (!UI->hasOneUse())
@@ -443,15 +447,38 @@ bool ArrayTransposeImpl::computePointerAliases() {
           // ...
           // __kmpc_fork_call(..., bar, %PtrOp, ...)
           // ...
+          //
+          //  or
+          //
+          // %PtrOp = alloca double*
+          // store %Ptr, %PtrOp
+          // ...
+          // load double*, double** %PtrOp
+          // ...
+          // load double*, double** %PtrOp
+          //
           Value *PtrOp = SI->getPointerOperand();
           if (PtrOp == V)
             return false;
           if (!isa<AllocaInst>(PtrOp))
             return false;
           SmallPtrSet<CallInst *, 4> Calls;
-          if (!IsPtrUsedByOnlyCalls(PtrOp, SI, Calls))
+          SmallPtrSet<LoadInst *, 4> Loads;
+          if (!IsPtrUsedByOnlyCalls(PtrOp, SI, Calls, Loads))
             return false;
           ProcessedInsts.insert(SI);
+          if (Loads.size() > 0) {
+            // Don't allow if stack address is used by both calls and loads.
+            // There are no legality issues to allow both but not required for
+            // now to allow both.
+            if (Calls.size() > 0)
+              return false;
+            for (auto Ld : Loads)
+              if (Visited.insert(Ld).second) {
+                WorkList.push_back(Ld);
+                MallocPtrIncrAliases[Ld] = MallocPtrIncrAliases[V];
+              }
+          }
           for (auto CB : Calls) {
             SmallPtrSet<Argument *, 16> Args;
             if (!CollectAliasArguments(CB, PtrOp, Args))
