@@ -26,6 +26,9 @@
 
 #define DEBUG_TYPE "dtrans-safetyanalyzer"
 
+// Print detailed messages regarding the safety checks.
+#define SAFETY_VERBOSE "dtrans-safetyanalyzer-verbose"
+
 using namespace llvm;
 using namespace dtrans;
 
@@ -58,7 +61,87 @@ public:
       if (auto *DTStructType = TM.getStructType(Ty->getStructName()))
         DTInfo.getOrCreateTypeInfo(DTStructType);
 
-    // TODO: Collect basic safety bits on the structures.
+    // Analyze definitions of the StructInfo types collected.
+    for (dtrans::TypeInfo *TI : DTInfo.type_info_entries())
+      if (auto *StructInfo = dyn_cast<dtrans::StructInfo>(TI))
+        analyzeStructureType(StructInfo);
+  }
+
+  // Analyze the structure to collect basic information, such as whether it is
+  // nested or contains a vtable, etc.
+  void analyzeStructureType(dtrans::StructInfo *StructInfo) {
+    size_t NumElements = StructInfo->getNumFields();
+    if (NumElements == 0) {
+      DEBUG_WITH_TYPE(SAFETY_VERBOSE,
+                      dbgs() << "dtrans-safety: No fields in structure: "
+                             << *StructInfo->getDTransType() << "\n");
+      StructInfo->setSafetyData(dtrans::NoFieldsInStruct);
+      return;
+    }
+
+    // Check whether the structure ends with an array containing zero elements.
+    // This is necessary to allow for treating memory allocation sizes that are
+    // not an exact multiple of the structure as safe in some instances. We only
+    // check that the last field is an array, not the possibility that the last
+    // field is a nested structure which ends with a zero-sized array, because
+    // it not permitted to nest a flexible structure within an array or another
+    // structure.
+    FieldInfo &LastField = StructInfo->getField(NumElements - 1);
+    DTransType *LastFieldType = LastField.getDTransType();
+    if (auto *ArType = dyn_cast<DTransArrayType>(LastFieldType))
+      if (ArType->getNumElements() == 0) {
+        DEBUG_WITH_TYPE(SAFETY_VERBOSE,
+                        dbgs() << "dtrans-safety: Type has zero-sized array: "
+                               << *StructInfo->getDTransType() << "\n");
+        StructInfo->setSafetyData(dtrans::HasZeroSizedArray);
+      }
+
+    for (auto &FI : StructInfo->getFields()) {
+      // Check for possible nested structures. If the field is an array or
+      // vector, find the underlying element type, which could be a nested
+      // structure.
+      DTransType *FieldType = FI.getDTransType();
+      DTransType *UnderlyingType = FI.getDTransType();
+      while (auto *SeqTy = dyn_cast<DTransSequentialType>(UnderlyingType))
+        UnderlyingType = SeqTy->getTypeAtIndex(0);
+
+      if (auto StTy = dyn_cast<DTransStructType>(UnderlyingType)) {
+        DEBUG_WITH_TYPE(SAFETY_VERBOSE,
+                        dbgs() << "dtrans-safety: Contains nested structure: "
+                               << *StructInfo->getDTransType() << "\n"
+                               << "  child : " << *UnderlyingType << "\n");
+
+        StructInfo->setSafetyData(dtrans::ContainsNestedStruct);
+        dtrans::TypeInfo *ContainedStInfo = DTInfo.getOrCreateTypeInfo(StTy);
+        ContainedStInfo->setSafetyData(dtrans::NestedStruct);
+      }
+
+      // Check for function pointer fields and potential vtable fields.
+      if (FieldType->isPointerTy()) {
+        if (FieldType->getPointerElementType()->isFunctionTy()) {
+          DEBUG_WITH_TYPE(SAFETY_VERBOSE,
+                          dbgs() << "dtrans-safety: Has function ptr: "
+                                 << *StructInfo->getDTransType() << "\n");
+          StructInfo->setSafetyData(dtrans::HasFnPtr);
+        } else if (auto *PtrTy = dyn_cast<dtrans::DTransPointerType>(
+                       FieldType->getPointerElementType())) {
+          if (auto *FnTy = dyn_cast<dtrans::DTransFunctionType>(
+                  PtrTy->getPointerElementType()))
+            if (FnTy->getNumArgs() == 0 && FnTy->isVarArg()) {
+              // Fields matching this check might not actually be vtable
+              // pointers, but we will treat them as though they are since the
+              // false positives do not affect any cases we are currently
+              // interested in.
+              DEBUG_WITH_TYPE(SAFETY_VERBOSE,
+                              dbgs()
+                                  << "dtrans-safety: Has vtable-like element: "
+                                  << *StructInfo->getDTransType() << "\n"
+                                  << "  field: " << *FieldType << "\n");
+              StructInfo->setSafetyData(dtrans::HasVTable);
+            }
+        }
+      }
+    }
   }
 
 private:

@@ -3,7 +3,9 @@
 ; RUN: opt -whole-program-assume -passes='require<dtrans-safetyanalyzer>' -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; Basic test of the DTransSafetyAnalyzer pass to check that TypeInfo
-; objects get created and reported for the structure types.
+; objects get created and reported for the structure types. Also,
+; checks that 'Contains nested structure' and 'Nested structure'
+; safety bit get set.
 
 %struct.test01a0 = type { %struct.test01a1 }
 %struct.test01a1 = type { [4 x %struct.test01a2] }
@@ -16,21 +18,27 @@ define void @test01() {
 }
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: Name: struct.test01a0
+; CHECK: Safety data: Contains nested structure
 
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: Name: struct.test01a1
+; CHECK: Safety data: Nested structure | Contains nested structure
 
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: Name: struct.test01a2
+; CHECK: Safety data: Nested structure
 
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: Name: struct.test01a2impl
+; CHECK: Safety data: No issues found
 
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: Name: struct.test01a3
+; CHECK: Safety data: No issues found
 
 ; CHECK: DTRANS_StructInfo:
 ; CHECK: Name: struct.test01a4
+; CHECK: Safety data: No issues found
 
 ; CHECK: DTRANS_ArrayInfo:
 ; CHECK: LLVMType: [4 x %struct.test01a2]
