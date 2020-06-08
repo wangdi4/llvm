@@ -1,3 +1,8 @@
+#if INTEL_CUSTOMIZATION
+// Temporarily disable the test (CMPLRLLVM-20374)
+// UNSUPPORTED: linux
+// REQUIRES: linux
+#endif // INTEL_CUSTOMIZATION
 // INTEL_COLLAB
 
 // Checks that -mlong-double-64 and -mlong-double-128 are matched on
