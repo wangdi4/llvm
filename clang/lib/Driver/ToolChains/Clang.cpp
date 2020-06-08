@@ -5453,6 +5453,12 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-fopenmp-simd");
     CmdArgs.push_back("-fopenmp-late-outline");
   }
+  // When compiling for SPIR, we want to be sure that -fiopenmp is used
+  // and not -fopenmp.
+  if (IsOpenMPDevice && !Args.hasArg(options::OPT_fiopenmp) &&
+      Args.hasArg(options::OPT_fopenmp_EQ, options::OPT_fopenmp) &&
+      Triple.isSPIR())
+    D.Diag(diag::err_drv_fopenmp_targets_requires_fiopenmp);
 
   if (Arg *A = Args.getLastArg(options::OPT_qopenmp_threadprivate_EQ)) {
     StringRef Value = A->getValue();
