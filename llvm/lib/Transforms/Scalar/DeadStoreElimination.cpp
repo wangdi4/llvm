@@ -1793,7 +1793,7 @@ struct DSEState {
       return false;
 
     if (SI->getParent() == NI->getParent())
-      return ThrowingBlocks.find(SI->getParent()) != ThrowingBlocks.end();
+      return ThrowingBlocks.count(SI->getParent());
     return !ThrowingBlocks.empty();
   }
 
