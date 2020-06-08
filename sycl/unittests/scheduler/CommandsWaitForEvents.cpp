@@ -66,11 +66,21 @@ pi_result getEventInfoFunc(pi_event Event, pi_event_info PName, size_t PVSize,
 
 TEST_F(SchedulerTest, CommandsWaitForEvents) {
   default_selector Selector{};
-  if (Selector.select_device().is_host()) {
-    std::cerr << "Not run due to host-only environment\n";
-    return;
-  }
+#if INTEL_CUSTOMIZATION
+  try {
+    if (Selector.select_device().is_host()) {
+      std::cerr << "Not run due to host-only environment\n";
+      return;
+    }
+  } catch (const runtime_error &E) {
+    if (E.get_cl_code() == PI_DEVICE_NOT_FOUND) {
+      std::cerr << "Not run due to no device";
+      return;
+    }
 
+    throw E;
+  }
+#endif // INTEL_CUSTOMIZATION
   queue Q1;
   queue Q2;
 
