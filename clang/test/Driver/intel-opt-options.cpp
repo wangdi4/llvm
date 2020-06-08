@@ -62,6 +62,12 @@
 // RUN:  | FileCheck -check-prefix=LAYOUT_TRANS %s
 // LAYOUT_TRANS-NOT: "-mllvm" "-dtrans-mem-layout-level{{.+}}"
 
+// Behavior with -#x option
+// RUN: %clang -#x %s -c 2>&1 | FileCheck %s --check-prefix=CHECK-HASH-X
+// RUN: %clang_cl -#x %s -c 2>&1 | FileCheck %s --check-prefix=CHECK-HASH-X
+// CHECK-HASH-X: -emit-obj \
+// CHECK-HASH-X: -mrelax-all \
+
 /// -unroll support
 // RUN: %clang -unroll3 -### -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefixes=UNROLL,UNROLL3 %s

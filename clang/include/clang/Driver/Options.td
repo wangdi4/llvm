@@ -441,7 +441,7 @@ def _HASH_HASH_HASH : Flag<["-"], "###">, Flags<[DriverOption, CoreOption]>,
 #if INTEL_CUSTOMIZATION
 def _dryrun : Flag<["-"], "dryrun">, Flags<[DriverOption]>, Alias<_HASH_HASH_HASH>,
   HelpText<"Print (but do not run) the commands to run for this compilation">;
-def _HASH : Flag<["-"], "#">, Flags<[DriverOption]>, Alias<_HASH_HASH_HASH>,
+def _HASH : Flag<["-"], "#">, Flags<[DriverOption]>,
     HelpText<"Print (but do not run) the commands to run for this compilation">;
 #endif // INTEL_CUSTOMIZATION
 def _DASH_DASH : Option<["--"], "", KIND_REMAINING_ARGS>,
@@ -3173,6 +3173,8 @@ def u : JoinedOrSeparate<["-"], "u">, Group<u_Group>;
 def v : Flag<["-"], "v">, Flags<[CC1Option, CoreOption]>,
   HelpText<"Show commands to run and use verbose output">;
 #if INTEL_CUSTOMIZATION
+def HASH_x : Flag<["-"], "#x">, Flags<[DriverOption]>,
+  HelpText<"Show commands to run and use verbose output">;
 def unroll : Joined<["-"], "unroll">, Flags<[DriverOption]>,
   HelpText<"Set maximum number of times to unroll loops.  Omit n to use "
   "default heuristics.  Use 0 to disable the loop unroller.">;

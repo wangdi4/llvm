@@ -133,8 +133,10 @@ def _SLASH_help : CLFlag<"help">, Alias<help>,
   HelpText<"Display available options">;
 def _SLASH_HELP : CLFlag<"HELP">, Alias<help>;
 #if INTEL_CUSTOMIZATION
-def _SLASH_HASH : CLFlag<"#">, Alias<_HASH_HASH_HASH>,
+def _SLASH_HASH : CLFlag<"#">, Alias<_HASH>,
   HelpText<"Print (but do not run) the commands to run for this compilation">;
+def _SLASH_HASH_x : CLFlag<"#x">, Alias<HASH_x>,
+  HelpText<"Show commands to run and use verbose output">;
 #endif // INTEL_CUSTOMIZATION
 def _SLASH_I : CLJoinedOrSeparate<"I">,
   HelpText<"Add directory to include search path">, MetaVarName<"<dir>">,

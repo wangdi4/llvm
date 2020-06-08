@@ -470,6 +470,10 @@ public:
 #if INTEL_CUSTOMIZATION
   /// \param Args - arguments used to control help information
   void PrintHelp(const llvm::opt::ArgList &Args) const;
+
+  /// Intel Print formating.
+  unsigned IntelPrintOptions : 1;
+
 #endif // INTEL_CUSTOMIZATION
 
   /// PrintSYCLToolHelp - Print help text from offline compiler tools.
