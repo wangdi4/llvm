@@ -4721,12 +4721,7 @@ void Driver::handleArguments(Compilation &C, DerivedArgList &Args,
     types::ID InputType = I.first;
     const Arg *InputArg = I.second;
 
-<<<<<<< HEAD
-    PL.clear();
-    types::getCompilationPhases(InputType, PL);
-=======
     auto PL = types::getCompilationPhases(InputType);
->>>>>>> b4cf0e0113a46d5b7b2e554d5eb0ac96aedaa03d
     LastPLSize = PL.size();
 
     // If the first step comes after the final phase we are doing as part of
