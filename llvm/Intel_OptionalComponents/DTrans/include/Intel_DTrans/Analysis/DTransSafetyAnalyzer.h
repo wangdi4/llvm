@@ -74,6 +74,10 @@ public:
   // Cleanup memory, and set object back to default state.
   void reset();
 
+  void setUnhandledPtrType(Value *V);
+
+  bool getUnhandledPtrType() const { return UnhandledPtrType; }
+
   // Return true if safety analysis has been run and can be used in
   // transformations.
   bool useDTransSafetyAnalysis() const;
@@ -104,6 +108,11 @@ private:
   // A mapping from DTransTypes to the TypeInfo object that is used to
   // store information and safety bits about the types.
   DenseMap<DTransType *, TypeInfo *> TypeInfoMap;
+
+  // Indicates DTrans safety information could not be computed because a Value
+  // object was encountered that the PointerTypeAnalyzer could not collect
+  // information for.
+  bool UnhandledPtrType = false;
 
   // Indicates whether the module was completely analyzed for safety checks.
   bool DTransSafetyAnalysisRan = false;

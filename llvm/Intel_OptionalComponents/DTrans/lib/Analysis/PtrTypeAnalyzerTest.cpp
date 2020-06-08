@@ -24,12 +24,6 @@ using namespace llvm;
 
 #define DEBUG_TYPE "dtrans-ptrtypeanalyzertest"
 
-// When 'true', print the IR intermixed with comments indicating the types
-// resolved by the pointer type analyzer.
-static cl::opt<bool> PrintPTAResults(
-    "dtrans-print-pta-results", cl::ReallyHidden,
-    cl::desc("Print IR with pointer type analyzer results as comments"));
-
 namespace {
 
 // Class that executes pointer type analyzer to produce analysis traces for
@@ -61,10 +55,6 @@ public:
     const DataLayout &DL = M.getDataLayout();
     dtrans::PtrTypeAnalyzer Analyzer(Ctx, TM, Reader, DL, GetTLI);
     Analyzer.run(M);
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    if (PrintPTAResults)
-      Analyzer.dumpPTA(M);
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   }
 };
 

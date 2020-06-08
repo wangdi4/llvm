@@ -36,6 +36,41 @@ cl::opt<bool> dtrans::DTransPrintAnalyzedTypes("dtrans-print-types",
                                                cl::ReallyHidden);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
+//
+// An option that indicates that a pointer to a struct could access
+// somewhere beyond the boundaries of that struct:
+//
+// For example:
+//
+// %struct.A = type { i32, i32 }
+// %struct.B = type { i16, i16, i16, i16 }
+// %struct.C = type { %struct.A, %struct.B }
+//
+// define void @foo(%struct.A* nocapture) local_unnamed_addr #0 {
+//   %2 = getelementptr inbounds %struct.A, %struct.A* %0, i64 1, i32 1
+//   store i32 -1, i32* %2, align 4, !tbaa !2
+//   ret void
+// }
+//
+// define void @bar(%struct.C* nocapture) local_unnamed_addr #0 {
+//   %2 = getelementptr inbounds %struct.C, %struct.C* %0, i64 0, i32 0
+//   tail call void @foo(%struct.A* %2)
+//   ret void
+// }
+//
+// Here the getelementptr in @foo is accessing beyond the end of the inner
+// %struct.A within %struct.C.
+//
+// With respect to dtransanalysis, having -dtrans-outofboundsok=true will
+// cause safety checks to be propagated from outer structs to inner structs.
+// So, in the above example, if -dtrans-outofboundsok=false, 'Field address
+// taken' will be true only for %structC. But if -dtrans-outofboundsok=true,
+// it will also be true for %struct.A and %struct.B.
+//
+cl::opt<bool> dtrans::DTransOutOfBoundsOK("dtrans-outofboundsok",
+                                                 cl::init(true),
+                                                 cl::ReallyHidden);
+
 bool dtrans::dtransIsCompositeType(Type *Ty) {
   if (isa<StructType>(Ty) || isa<ArrayType>(Ty) || isa<VectorType>(Ty))
     return true;

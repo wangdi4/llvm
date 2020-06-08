@@ -11,6 +11,7 @@
 #include "Intel_DTrans/Analysis/PtrTypeAnalyzer.h"
 
 #include "Intel_DTrans/Analysis/DTransAllocAnalyzer.h"
+#include "Intel_DTrans/Analysis/DTransDebug.h"
 #include "Intel_DTrans/Analysis/DTransTypes.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
@@ -32,52 +33,13 @@
 // Trace message about information collected for dependent values.
 #define VERBOSE_DEP_TRACE "dtrans-pta-dep-verbose"
 
-// A predicate test version of the DEBUG_WITH_TYPE macro, where the
-// DEBUG_WITH_TYPE will only be executed when the predicate is 'true'. This is
-// to enable verbose traces to be enabled/disabled based on the function being
-// processed.
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-#define DEBUG_WITH_TYPE_P(PRED, TYPE, X)                                       \
-  if (PRED()) {                                                                \
-    DEBUG_WITH_TYPE(TYPE, X);                                                  \
-  }
-#else
-#define DEBUG_WITH_TYPE_P(PRED, TYPE, X)                                       \
-  do {                                                                         \
-  } while (false)
-#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-
 namespace llvm {
 namespace dtrans {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-// This is not using an anonymous namespace to allow access to this declaration
-// from within the debugger to allow performing conditional breakpoints based on
-// the value of the 'Enabled' member of the DebugFilter class.
-namespace ptr_type_analyzer_debug {
-
-// Predicate class for use with DEBUG_WITH_TYPE_P macro to control
-// verbose message output.
-class DebugFilter {
-public:
-  void reset() { setEnabled(true); }
-  void setEnabled(bool Val) { Enabled = Val; }
-
-  // predicate function for DEBUG_WITH_TYPE_P macro.
-  bool operator()() { return Enabled; }
-
-private:
-  // Default to always emit. If message filtering is enabled,
-  // calls to setEnabled will turn this on and off as needed.
-  bool Enabled = true;
-};
-
 // A trace filter that will be enabled/disabled based on the function name.
-static DebugFilter FNFilter;
-} // end namespace ptr_type_analyzer_debug
-
-using namespace ptr_type_analyzer_debug;
+static llvm::dtrans::debug::DebugFilter FNFilter;
 
 // Comma separated list of function names that the verbose debug output should
 // be reported for. If empty, all verbose messages are generated when the
@@ -87,6 +49,13 @@ static cl::list<std::string> DTransPTAFilterPrintFuncs(
     "dtrans-pta-filter-print-funcs", cl::CommaSeparated, cl::ReallyHidden,
     cl::desc(
         "Filter emission of verbose debug messages to specific functions"));
+
+// When 'true', print the IR intermixed with comments indicating the types
+// resolved by the pointer type analyzer.
+static cl::opt<bool> PrintPTAResults(
+  "dtrans-print-pta-results", cl::ReallyHidden,
+  cl::desc("Print IR with pointer type analyzer results as comments"));
+
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 // Control whether the 'declared' type and 'usage' type sets are reported
@@ -3128,7 +3097,14 @@ PtrTypeAnalyzer &PtrTypeAnalyzer::operator=(PtrTypeAnalyzer &&Other) {
   return *this;
 }
 
-void PtrTypeAnalyzer::run(Module &M) { Impl->run(M); }
+void PtrTypeAnalyzer::run(Module &M) {
+  Impl->run(M);
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  if (PrintPTAResults)
+    dumpPTA(M);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+}
 
 ValueTypeInfo *PtrTypeAnalyzer::getValueTypeInfo(const Value *V) const {
   return Impl->getValueTypeInfo(V);
