@@ -365,7 +365,9 @@ bool VectorizerCore::runOnFunction(Function &F) {
       ////////////////////////////////////////////////////////////////////////////
       m_postWeight = postCounter->getWeight();
       float Ratio = (float)m_postWeight / m_preWeight;
+#ifndef NDEBUG
       int attemptedWidth = m_packetWidth;
+#endif
       // TODO: I'm allowing forced vec width to override the subgroup size for now.
       // It's debatable how exactly that should behave.
       if ((Ratio >= WeightedInstCounter::RATIO_MULTIPLIER * m_packetWidth) &&
