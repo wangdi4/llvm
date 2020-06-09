@@ -785,7 +785,7 @@ void WeightedInstCounter::
   else
     LLVM_DEBUG(dbgs() << " After");
   LLVM_DEBUG(dbgs() << "\n");
-  PDF->dump();
+  LLVM_DEBUG(PDF->dump());
 
   // Check which instructions depend on "data" (results of loads and stores).
   DenseSet<Instruction*> DepSet;
