@@ -180,7 +180,9 @@ bool ImplicitGlobalIdPass::getBBScope(const BasicBlock& BB, DIScope** scope_out,
             continue;
         assert(dyn_cast<DIScope>(loc.getScope()) && "DIScope is expected");
         DIScope *scope = dyn_cast<DIScope>(loc.getScope());
-        if (dyn_cast<DILexicalBlock>(scope) || dyn_cast<DISubprogram>(scope)) {
+        if (dyn_cast<DILexicalBlock>(scope) ||
+            dyn_cast<DILexicalBlockFile>(scope) ||
+            dyn_cast<DISubprogram>(scope)) {
             *scope_out = scope;
             loc_out = loc;
             return true;
