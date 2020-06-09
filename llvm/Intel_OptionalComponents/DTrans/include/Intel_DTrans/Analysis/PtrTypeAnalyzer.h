@@ -340,12 +340,19 @@ public:
   ValueTypeInfo *getValueTypeInfo(const Value *V) const;
   ValueTypeInfo *getValueTypeInfo(const User *U, unsigned OpNum) const;
 
+  // If the type is used for a single aggregate type, return the type. Returns
+  // nullptr if the value does not alias an aggregate type
+  // (i.e. canAliasToAggregatePointer() == false), or when an dominant type does
+  // not exist.
+  DTransType *getDominantAggregateUsageType(ValueTypeInfo &Info) const;
+
   // Check whether the Value should have had pointer type information collected
   // for it.
   bool isPossiblePtrValue(Value *V) const;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dumpPTA(Module &M);
+  void printDominantAggregateUsageType(raw_ostream &OS, ValueTypeInfo &Info);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 private:
