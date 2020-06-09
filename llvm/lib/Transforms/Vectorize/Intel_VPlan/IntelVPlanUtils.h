@@ -99,12 +99,10 @@ inline bool isMemoryDependency(const Instruction *SrcI,
   return RAW || WAR;
 }
 
-/// Helper function to identify Types that are supported by VPlan for
-/// vectorization. AggregateType like structs and arrays are excluded from this
-/// list.
-// TODO: Allow AggregateType when all VPlan components are aware on how to
-// handle them. Example JIRA CMPLRLLVM-19870.
-inline bool isVPlanSupportedTy(Type *Ty) {
+/// Helper function to identify Types that are valid for vectorization.
+/// AggregateType like structs and arrays cannot be represented in vectors, such
+/// operations are expected to be serialized in vector loops.
+inline bool isVectorizableTy(Type *Ty) {
   if (auto *VecTy = dyn_cast<VectorType>(Ty))
     return VecTy->getElementType()->isSingleValueType();
 
