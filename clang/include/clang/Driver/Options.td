@@ -191,6 +191,11 @@ def gTune_Group : OptionGroup<"<gTune group>">, Group<g_Group>,
 def g_flags_Group : OptionGroup<"<g flags group>">, Group<DebugInfo_Group>,
                     DocName<"Debug information flags">;
 
+#if INTEL_CUSTOMIZATION
+def intel_debug_Group : OptionGroup<"<intel debug group>">,
+  Group<DebugInfo_Group>, DocName<"Intel debug options">;
+#endif // INTEL_CUSTOMIZATION
+
 def StaticAnalyzer_Group : OptionGroup<"<Static analyzer group>">,
                            DocName<"Static analyzer flags">, DocBrief<[{
 Flags controlling the behavior of the Clang Static Analyzer.}]>;
@@ -500,6 +505,10 @@ def O_flag : Flag<["-"], "O">, Flags<[CC1Option]>, Alias<O>, AliasArgs<["1"]>;
 def Ofast : Joined<["-"], "Ofast">, Group<O_Group>, Flags<[CC1Option]>;
 def P : Flag<["-"], "P">, Flags<[CC1Option]>, Group<Preprocessor_Group>,
   HelpText<"Disable linemarker output in -E mode">;
+#if INTEL_CUSTOMIZATION
+def EP : Flag<["-"], "EP">, Flags<[DriverOption]>, HelpText<"Preprocess to "
+  "stdout, omitting #line directives.">;
+#endif // INTEL_CUSTOMIZATION
 def Qy : Flag<["-"], "Qy">, Flags<[CC1Option]>,
   HelpText<"Emit metadata containing compiler name and version">;
 def Qn : Flag<["-"], "Qn">, Flags<[CC1Option]>,
@@ -755,6 +764,12 @@ def dI : Flag<["-"], "dI">, Group<d_Group>, Flags<[CC1Option]>,
 def dM : Flag<["-"], "dM">, Group<d_Group>, Flags<[CC1Option]>,
   HelpText<"Print macro definitions in -E mode instead of normal output">;
 def dead__strip : Flag<["-"], "dead_strip">;
+#if INTEL_CUSTOMIZATION
+def debug_EQ : Joined<["-"], "debug=">, Group<intel_debug_Group>,
+  Flags<[DriverOption]>, HelpText<"Enable debug information. Valid args: "
+  "none, all, full, minimal">;
+def debug_Separate : Separate<["-"], "debug">, Alias<debug_EQ>;
+#endif // INTEL_CUSTOMIZATION
 def dependency_file : Separate<["-"], "dependency-file">, Flags<[CC1Option]>,
   HelpText<"Filename (or -) to write dependency output to">;
 def dependency_dot : Separate<["-"], "dependency-dot">, Flags<[CC1Option]>,
@@ -1951,6 +1966,8 @@ def fstack_protector_strong : Flag<["-"], "fstack-protector-strong">, Group<f_Gr
 #if INTEL_CUSTOMIZATION
 def fstack_security_check : Flag<["-"], "fstack-security-check">, Alias<fstack_protector_strong>,
   HelpText<"Enable overflow security checks">;
+def fstack_limit_register_EQ : Joined<["-"], "fstack-limit-register=">,
+  Flags<[DriverOption]>, HelpText<"Limits the stack register size">;
 #endif // INTEL_CUSTOMIZATION
 def fstack_protector : Flag<["-"], "fstack-protector">, Group<f_Group>,
   HelpText<"Enable stack protectors for some functions vulnerable to stack smashing. "
@@ -2319,6 +2336,10 @@ def include_ : JoinedOrSeparate<["-", "--"], "include">, Group<clang_i_Group>, E
     MetaVarName<"<file>">, HelpText<"Include file before parsing">, Flags<[CC1Option]>;
 def include_pch : Separate<["-"], "include-pch">, Group<clang_i_Group>, Flags<[CC1Option]>,
   HelpText<"Include precompiled header file">, MetaVarName<"<file>">;
+#if INTEL_CUSTOMIZATION
+def pch_use : Separate<["-"], "pch-use">, Flags<[DriverOption]>, Alias<include_pch>,
+  HelpText<"Include precompiled header file">, MetaVarName<"<file>">;
+#endif // INTEL_CUSTOMIZATION
 def relocatable_pch : Flag<["-", "--"], "relocatable-pch">, Flags<[CC1Option]>,
   HelpText<"Whether to build a relocatable precompiled header">;
 def verify_pch : Flag<["-"], "verify-pch">, Group<Action_Group>, Flags<[CC1Option]>,

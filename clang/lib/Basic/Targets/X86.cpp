@@ -275,6 +275,11 @@ TGLExceptKeylocker:
     setFeatureEnabledImpl(Features, "pconfig", true);
     setFeatureEnabledImpl(Features, "wbnoinvd", true);
     LLVM_FALLTHROUGH;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_RKL
+  case CK_Rocketlake:
+#endif // INTEL_FEATURE_CPU_RKL
+#endif // INTEL_CUSTOMIZATION
   case CK_IcelakeClient:
 IcelakeCommon:
     setFeatureEnabledImpl(Features, "vaes", true);
@@ -1522,6 +1527,11 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   case CK_Alderlake:
 #endif // INTEL_FEATURE_CPU_ADL
 #endif // INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_RKL
+  case CK_Rocketlake:
+#endif // INTEL_FEATURE_CPU_RKL
+#endif // INTEL_CUSTOMIZATION
     // FIXME: Historically, we defined this legacy name, it would be nice to
     // remove it at some point. We've never exposed fine-grained names for
     // recent primary x86 CPUs, and we should keep it that way.
@@ -2666,6 +2676,11 @@ Optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
     case CK_Cooperlake:
     case CK_Cannonlake:
     case CK_Tigerlake:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_RKL
+    case CK_Rocketlake:
+#endif // INTEL_FEATURE_CPU_RKL
+#endif // INTEL_CUSTOMIZATION
     case CK_IcelakeClient:
     case CK_IcelakeServer:
 #if INTEL_CUSTOMIZATION

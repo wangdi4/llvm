@@ -56,6 +56,7 @@ add_llvm_component_library(LLVMIntel_LoopTransforms
         HIRPrintDiag.cpp
         HIRConditionalLoadStoreMotion.cpp
         HIRStencilPattern.cpp
+        HIRStoreResultIntoTempArray.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms

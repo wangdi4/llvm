@@ -16,8 +16,6 @@
 #include <thread>
 #include <vector>
 
-#include <level_zero/zet_api.h>
-
 // Controls L0 calls serialization to w/a of L0 driver being not MT ready.
 // Recognized values (can be used as a bit mask):
 enum {
@@ -536,7 +534,7 @@ pi_result piPlatformsGet(pi_uint32 NumEntries, pi_platform *Platforms,
 
     ze_api_version_t ZeApiVersion;
     ZE_CALL(zeDriverGetApiVersion(ZeDriver, &ZeApiVersion));
-    Platforms[0]->ZeDriverApiVersion =
+    Platforms[0]->ZeDriverApiVersion = "Level Zero " +
         std::to_string(ZE_MAJOR_VERSION(ZeApiVersion)) + std::string(".") +
         std::to_string(ZE_MINOR_VERSION(ZeApiVersion));
   }

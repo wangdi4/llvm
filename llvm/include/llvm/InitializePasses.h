@@ -590,6 +590,7 @@ void initializeHIRConditionalTempSinkingLegacyPassPass(PassRegistry&);
 void initializeHIRMemoryReductionSinkingLegacyPassPass(PassRegistry&);
 void initializeHIRRowWiseMVLegacyPassPass(PassRegistry &);
 void initializeHIRConditionalLoadStoreMotionLegacyPassPass(PassRegistry &);
+void initializeHIRStoreResultIntoTempArrayLegacyPassPass(PassRegistry&);
 // VPO Vectorizer Passes
 void initializeAVRGeneratePass(PassRegistry&);
 void initializeAVRGenerateHIRPass(PassRegistry&);
