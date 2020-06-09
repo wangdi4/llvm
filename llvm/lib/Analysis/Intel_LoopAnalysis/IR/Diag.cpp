@@ -267,6 +267,11 @@ OptReportDiag OptReportDiag::Diags[] = {
     {15471, "masked aligned streaming stores: %s "},
     {15472, "masked unaligned streaming loads: %s "},
     {15473, "masked unaligned streaming stores: %s "},
+    // These are really added below. Copy-pasted here for readability.
+    // {25532, "Unmasked VLS-optimized loads (each part of the group counted separately): %s"},
+    // {25533, "Masked VLS-optimized loads (each part of the group counted separately): %s"},
+    // {25534, "Unmasked VLS-optimized stores (each part of the group counted separately): %s"},
+    // {25535, "Masked VLS-optimized stores (each part of the group counted separately): %s"},
     {15474, "--- end vector loop memory reference summary ---"},
     {15475, "--- begin vector loop cost summary ---"},
     {15476, "scalar loop cost: %s "},
@@ -389,6 +394,14 @@ OptReportDiag OptReportDiag::Diags[] = {
     {15552, "%s was not vectorized with \"simd\""},
     {15553, "loop was not vectorized: outer loop is not an auto-vectorization "
             "candidate at -O2. Consider using -O3."},
+    // Four entries below semantically belong to "vector loop memory reference
+    // summary". Be sure to update their mentiones under respective section
+    // above.
+    {15554, "Unmasked VLS-optimized loads (each part of the group counted separately): %s"},
+    {15555, "Masked VLS-optimized loads (each part of the group counted separately): %s"},
+    {15556, "Unmasked VLS-optimized stores (each part of the group counted separately): %s"},
+    {15557, "Masked VLS-optimized stores (each part of the group counted separately): %s"},
+
     {25481, "LOOP WAS INTERCHANGED"},
     {25482, "LOOP WAS REVERSED"},
     {25483, "LOOP WAS SKEWED"},

@@ -2017,6 +2017,10 @@ HLInst *VPOCodeGenHIR::widenInterleavedAccess(
           cast<VPVLSClientMemrefHIR>(Grp->getFirstMemref())->getRegDDRef();
       RegDDRef *WMemRef = widenRef(MemRef, getVF() * InterleaveFactor, true);
       assert(WMemRef && "The memory reference should not be null pointer");
+      if (Mask)
+        OptRptStats.MaskedVLSLoads += Grp->size();
+      else
+        OptRptStats.UnmaskedVLSLoads += Grp->size();
       HLInst *WideLoad =
           HLNodeUtilities.createLoad(WMemRef, CurInst->getName() + ".vls.load");
       propagateMetadata(WMemRef, Grp);
@@ -2070,6 +2074,10 @@ HLInst *VPOCodeGenHIR::widenInterleavedAccess(
     // If we have seen all the instructions in a store group, go ahead and
     // generate the interleaved store.
     if (Index == InterleaveFactor) {
+      if (Mask)
+        OptRptStats.MaskedVLSStores += Grp->size();
+      else
+        OptRptStats.UnmaskedVLSStores += Grp->size();
       WideInst =
           createInterleavedStore(StoreValRefs, GrpStartInst->getOperandDDRef(0),
                                  InterleaveFactor, Mask);
@@ -3375,13 +3383,19 @@ void VPOCodeGenHIR::widenLoadStoreImpl(const VPInstruction *VPInst,
 
   // Reverse mask for negative -1 stride.
   bool IsNegOneStride;
-  isUnitStridePtr(PtrOp, IsNegOneStride);
+  bool IsUnitStride = isUnitStridePtr(PtrOp, IsNegOneStride);
   if (Mask && IsNegOneStride) {
     auto *RevInst = createReverseVector(Mask->clone());
     Mask = RevInst->getLvalDDRef();
   }
 
   if (Opcode == Instruction::Load) {
+    if (IsUnitStride)
+      ++(Mask ? OptRptStats.MaskedUnalignedUnitStrideLoads
+              : OptRptStats.UnmaskedUnalignedUnitStrideLoads);
+    else
+      ++(Mask ? OptRptStats.MaskedGathers : OptRptStats.UnmaskedGathers);
+
     WInst = HLNodeUtilities.createLoad(MemRef, ".vec");
     addInst(WInst, Mask);
     // Reverse the loaded value for negative -1 stride.
@@ -3389,6 +3403,12 @@ void VPOCodeGenHIR::widenLoadStoreImpl(const VPInstruction *VPInst,
       WInst = createReverseVector(WInst->getLvalDDRef()->clone());
     addVPValueWideRefMapping(VPInst, WInst->getLvalDDRef());
   } else {
+    if (IsUnitStride)
+      ++(Mask ? OptRptStats.MaskedUnalignedUnitStrideStores
+              : OptRptStats.UnmaskedUnalignedUnitStrideStores);
+    else
+      ++(Mask ? OptRptStats.MaskedScatters : OptRptStats.UnmaskedScatters);
+
     RegDDRef *StoreVal = widenRef(VPInst->getOperand(0), getVF());
     // Reverse the value to be stored for negative -1 stride.
     if (IsNegOneStride) {
