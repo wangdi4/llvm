@@ -247,11 +247,13 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
   unsigned StartRangeVF = MinVF;
   unsigned EndRangeVF = MaxVF + 1;
 
+  Externals = std::make_unique<VPExternalValues>(Context, DL);
+
   unsigned i = 0;
   for (; StartRangeVF < EndRangeVF; ++i) {
     // TODO: revisit when we build multiple VPlans.
     std::shared_ptr<VPlan> Plan =
-        buildInitialVPlan(StartRangeVF, EndRangeVF, Context, DL);
+        buildInitialVPlan(StartRangeVF, EndRangeVF, *Externals);
 
     // Check legality of VPlan before proceeding with other transforms/analyses.
     if (!canProcessVPlan(*Plan.get())) {
@@ -594,10 +596,9 @@ LoopVectorizationPlanner::getTypesWidthRangeInBits() const {
 }
 
 std::shared_ptr<VPlan> LoopVectorizationPlanner::buildInitialVPlan(
-    unsigned StartRangeVF, unsigned &EndRangeVF, LLVMContext *Context,
-    const DataLayout *DL) {
+    unsigned StartRangeVF, unsigned &EndRangeVF, VPExternalValues &Ext) {
   // Create new empty VPlan
-  std::shared_ptr<VPlan> SharedPlan = std::make_shared<VPlan>(Context, DL);
+  std::shared_ptr<VPlan> SharedPlan = std::make_shared<VPlan>(Ext);
   VPlan *Plan = SharedPlan.get();
 
   // Build hierarchical CFG

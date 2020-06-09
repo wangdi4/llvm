@@ -152,8 +152,7 @@ protected:
   // class.
   virtual std::shared_ptr<VPlan> buildInitialVPlan(unsigned StartRangeVF,
                                                    unsigned &EndRangeVF,
-                                                   LLVMContext *Context,
-                                                   const DataLayout *DL);
+                                                   VPExternalValues &Ext);
 
   /// \Returns a pair of the <min, max> types' width used in the underlying loop.
   /// Doesn't take into account i1 type.
@@ -189,6 +188,9 @@ protected:
   };
   unsigned BestVF = 0;
   unsigned BestUF = 0;
+
+  // Storage for common external data (VPExternalDefs, Uses, Consts etc).
+  std::unique_ptr<VPExternalValues> Externals;
 
 private:
   /// Determine whether \p I will be scalarized in a given range of VFs.
