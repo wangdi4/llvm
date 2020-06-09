@@ -162,26 +162,32 @@
 
 // RUN: %clang -### -fimf-arch-consistency=none -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-ARCH %s
 // RUN: %clang_cl -### /Qimf-arch-consistency=none -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-ARCH %s
+// RUN: %clang_cl -### /Qimf-arch-consistency:none -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-ARCH %s
 // CHECK-FIMF-ARCH: "-mGLOB_imf_attr=arch-consistency:none"
 
 // RUN: %clang -### -fimf-max-error=5 -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-MAX %s
 // RUN: %clang_cl -### /Qimf-max-error=5 -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-MAX %s
+// RUN: %clang_cl -### /Qimf-max-error:5 -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-MAX %s
 // CHECK-FIMF-MAX: "-mGLOB_imf_attr=max-error:5"
 
 // RUN: %clang -### -fimf-absolute-error=none -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-ABSOLUTE %s
 // RUN: %clang_cl -### /Qimf-absolute-error=none -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-ABSOLUTE %s
+// RUN: %clang_cl -### /Qimf-absolute-error:none -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-ABSOLUTE %s
 // CHECK-FIMF-ABSOLUTE: "-mGLOB_imf_attr=absolute-error:none"
 
 // RUN: %clang -### -fimf-accuracy-bits=none -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-ACCURACY %s
 // RUN: %clang_cl -### /Qimf-accuracy-bits=none -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-ACCURACY %s
+// RUN: %clang_cl -### /Qimf-accuracy-bits:none -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-ACCURACY %s
 // CHECK-FIMF-ACCURACY: "-mGLOB_imf_attr=accuracy-bits:none"
 
 // RUN: %clang -### -fimf-domain-exclusion=none -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-EXCLUSION %s
 // RUN: %clang_cl -### /Qimf-domain-exclusion=none -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-EXCLUSION %s
+// RUN: %clang_cl -### /Qimf-domain-exclusion:none -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-EXCLUSION %s
 // CHECK-FIMF-EXCLUSION: "-mGLOB_imf_attr=domain-exclusion:none"
 
 // RUN: %clang -### -fimf-precision=none -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-PRECISION %s
 // RUN: %clang_cl -### /Qimf-precision=none -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-PRECISION %s
+// RUN: %clang_cl -### /Qimf-precision:none -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIMF-PRECISION %s
 // CHECK-FIMF-PRECISION: "-mGLOB_imf_attr=precision:none"
 
 // Behavior with -femit-class-debug-always option maps to -fstandalone-debug

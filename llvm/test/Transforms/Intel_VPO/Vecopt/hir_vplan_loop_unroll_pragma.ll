@@ -105,9 +105,9 @@ define dso_local void @_Z3fooPii(i32* nocapture %a, i32 %n) local_unnamed_addr #
 ; VPVALCG-NEXT:  <27>                  |   [[DOTVEC0:%.*]] = (<4 x i32>*)([[A0:%.*]])[i1]
 ; VPVALCG-NEXT:  <28>                  |   (<4 x i32>*)([[A0]])[i1] = [[DOTVEC0]] + 1
 ; VPVALCG-NEXT:  <29>                  |   [[DOTVEC20:%.*]] = (<4 x i32>*)([[A0]])[i1 + 4]
-; VPVALCG-NEXT:  <30>                  |   (<4 x i32>*)([[A0]])[i1 + 4] = 1 + [[DOTVEC20]]
+; VPVALCG-NEXT:  <30>                  |   (<4 x i32>*)([[A0]])[i1 + 4] = [[DOTVEC20]] + 1
 ; VPVALCG-NEXT:  <31>                  |   [[DOTVEC30:%.*]] = (<4 x i32>*)([[A0]])[i1 + 8]
-; VPVALCG-NEXT:  <32>                  |   (<4 x i32>*)([[A0]])[i1 + 8] = 1 + [[DOTVEC30]]
+; VPVALCG-NEXT:  <32>                  |   (<4 x i32>*)([[A0]])[i1 + 8] = [[DOTVEC30]] + 1
 ; VPVALCG-NEXT:  <24>                  + END LOOP
 ; VPVALCG-NEXT:  <25>               }
 ; VPVALCG-NEXT:  <22>

@@ -629,7 +629,8 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     // Add any Intel defaults.
     if (Args.hasArg(options::OPT__intel))
       if (Arg * A = Args.getLastArg(options::OPT_fveclib))
-        Args.MakeArgString(Twine("-mllvm:-vector-library=") + A->getValue());
+        CmdArgs.push_back(Args.MakeArgString(Twine("-mllvm:-vector-library=") +
+                                             A->getValue()));
     addIntelOptimizationArgs(TC, Args, CmdArgs, true);
     // Using lld-link and -flto, we need to add any additional -mllvm options
     // and implied options.

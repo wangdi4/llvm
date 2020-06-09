@@ -322,6 +322,10 @@ static cl::opt<bool>
   EnableDPCPPKernelTransforms("enable-dpcpp-kernel-transforms",
   cl::init(false), cl::Hidden, cl::ZeroOrMore,
   cl::desc("Enable extra passes for DPCPP WGLoopCreator/Barrier approach."));
+
+static cl::opt<bool> EnableArgNoAliasProp(
+    "enable-arg-noalias-prop", cl::init(false), cl::Hidden, cl::ZeroOrMore,
+    cl::desc("Enable noalias propagation for function arguments."));
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool>
@@ -1035,6 +1039,10 @@ void PassManagerBuilder::populateModulePassManager(
   // functions which represent outlined OpenMP parallel loops where possible.
   if (RunVPOParopt && OptLevel > 2)
     MPM.add(createIPSCCPPass());
+
+  // Propagate noalias attribute to function arguments.
+  if (EnableArgNoAliasProp && OptLevel > 2)
+    MPM.add(createArgNoAliasPropPass());
 #endif // INTEL_CUSTOMIZATION
 
   // FIXME: This is a HACK! The inliner pass above implicitly creates a CGSCC
@@ -1712,6 +1720,11 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 
   // Infer attributes on declarations, call sites, arguments, etc.
   PM.add(createPostOrderFunctionAttrsLegacyPass()); // Add nocapture.
+#if INTEL_CUSTOMIZATION
+  // Propagate noalias attribute to function arguments.
+  if (EnableArgNoAliasProp && OptLevel > 2)
+    PM.add(createArgNoAliasPropPass());
+#endif // INTEL_CUSTOMIZATION
   // Run a few AA driven optimizations here and now, to cleanup the code.
   PM.add(createGlobalsAAWrapperPass()); // IP alias analysis.
 
