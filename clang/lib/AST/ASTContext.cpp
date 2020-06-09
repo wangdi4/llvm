@@ -2114,12 +2114,9 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
       Align = Target->getDoubleAlign();
       break;
     case BuiltinType::LongDouble:
-<<<<<<< HEAD
       if (((getLangOpts().SYCL && getLangOpts().SYCLIsDevice) ||
            (getLangOpts().OpenMP && getLangOpts().OpenMPIsDevice)) &&
           AuxTarget != nullptr &&
-=======
-      if (getLangOpts().OpenMP && getLangOpts().OpenMPIsDevice &&
 #if INTEL_COLLAB
           // AuxTarget is not adjusted for command-line options such as
           // -mlong-double-64 so using it for LongDoubleWidth is a problem.
@@ -2128,7 +2125,6 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
           (!getLangOpts().OpenMPLateOutline ||
            getLangOpts().LongDoubleSize == 0) &&
 #endif // INTEL_COLLAB
->>>>>>> f0df10be787ef1bf5f09060cfd36a2faadb0f4ee
           (Target->getLongDoubleWidth() != AuxTarget->getLongDoubleWidth() ||
            Target->getLongDoubleAlign() != AuxTarget->getLongDoubleAlign())) {
         Width = AuxTarget->getLongDoubleWidth();
