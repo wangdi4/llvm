@@ -55,29 +55,25 @@ define void @test_blend_outside_bypass_region(i32* %a, i32 %b) local_unnamed_add
 ; CHECK-NEXT:        [[BB5]]:
 ; CHECK-NEXT:         [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_BB1_VARYING]]
 ; CHECK-NEXT:         [DA: Div] i32 [[VP_BB3_ADD:%.*]] = add i32 [[VP_LD]] i32 3
-; CHECK-NEXT:        SUCCESSORS(1):[[BLEND_BB0:blend.bb[0-9]+]]
+; CHECK-NEXT:        SUCCESSORS(1):all.zero.bypass.end15
 ; CHECK-NEXT:        PREDECESSORS(1): all.zero.bypass.begin13
 ; CHECK-EMPTY:
-;
-; FIXME: BLEND_BB0 should not be included in the bypass region because if VP_BB1_VARYING is all-zero then the constant 2 will
-;        never be selected.
-;
-; CHECK-NEXT:        [[BLEND_BB0]]:
-; CHECK-NEXT:         [DA: Div] i32 [[VP_PHI_BLEND_BB5:%.*]] = blend [ i32 2, i1 [[VP_BB1_VARYING_NOT]] ], [ i32 3, i1 [[VP_BB1_VARYING]] ]
-; CHECK-NEXT:        SUCCESSORS(1):all.zero.bypass.end15
-; CHECK-NEXT:        PREDECESSORS(1): [[BB5]]
-; CHECK-EMPTY:
 ; CHECK-NEXT:      all.zero.bypass.end15:
-; CHECK-NEXT:       [DA: Div] i32 [[VP2:%.*]] = phi  [ i32 [[VP_PHI_BLEND_BB5]], [[BLEND_BB0]] ],  [ i32 0, all.zero.bypass.begin13 ]
+; CHECK-NEXT:       <Empty Block>
+; CHECK-NEXT:      SUCCESSORS(1):[[BLEND_BB0:blend.bb[0-9]+]]
+; CHECK-NEXT:      PREDECESSORS(2): [[BB5]] all.zero.bypass.begin13
+; CHECK-EMPTY:
+; CHECK-NEXT:      [[BLEND_BB0]]:
+; CHECK-NEXT:       [DA: Div] i32 [[VP_PHI_BLEND_BB5:%.*]] = blend [ i32 2, i1 [[VP_BB1_VARYING_NOT]] ], [ i32 3, i1 [[VP_BB1_VARYING]] ]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB3]]
-; CHECK-NEXT:      PREDECESSORS(2): [[BLEND_BB0]] all.zero.bypass.begin13
+; CHECK-NEXT:      PREDECESSORS(1): all.zero.bypass.end15
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]:
-; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI:%.*]] = phi  [ i32 0, [[BB1]] ],  [ i32 [[VP2]], all.zero.bypass.end15 ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI:%.*]] = phi  [ i32 0, [[BB1]] ],  [ i32 [[VP_PHI_BLEND_BB5]], [[BLEND_BB0]] ]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_BB4_ADD:%.*]] = add i32 [[VP_LD]] i32 4
-; CHECK-NEXT:     [DA: Div] void [[VP3:%.*]] = ret
+; CHECK-NEXT:     [DA: Div] void [[VP2:%.*]] = ret
 ; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] all.zero.bypass.end15
+; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BLEND_BB0]]
 ;
 ;        entry
 ;          |

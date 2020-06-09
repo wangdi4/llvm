@@ -107,6 +107,10 @@ private:
   /// Returns true if \p MaybePred is an anded condition of \p BaseCond.
   bool isStricterOrEqualPred(const VPValue *MaybePred, const VPValue *BaseCond);
 
+  /// Returns true if the incoming predicates of \p Blend are not under the
+  /// influence of the same block-predicate as the region.
+  bool blendTerminatesRegion(const VPBlendInst *Blend, VPValue *RegionPred);
+
 public:
   VPlanAllZeroBypass(VPlan &Plan) : Plan(Plan) {};
 

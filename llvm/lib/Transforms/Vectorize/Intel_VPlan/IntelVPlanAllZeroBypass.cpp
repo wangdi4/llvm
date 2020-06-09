@@ -342,6 +342,17 @@ void VPlanAllZeroBypass::collectAllZeroBypassLoopRegions(
   }
 }
 
+bool VPlanAllZeroBypass::blendTerminatesRegion(const VPBlendInst *Blend,
+                                               VPValue *RegionPred) {
+  for (unsigned I = 0, E = Blend->getNumIncomingValues(); I != E; ++I) {
+    VPValue *IncomingPred = Blend->getIncomingPredicate(I);
+    if (!isStricterOrEqualPred(IncomingPred, RegionPred))
+      return true;
+  }
+
+  return false;
+}
+
 void VPlanAllZeroBypass::collectAllZeroBypassNonLoopRegions(
     AllZeroBypassRegionsTy &AllZeroBypassRegions,
     RegionsCollectedTy &RegionsCollected) {
@@ -478,44 +489,13 @@ void VPlanAllZeroBypass::collectAllZeroBypassNonLoopRegions(
       getUnpredicatedInstructions(*BlockIt, UnpredicatedInsts);
       if (any_of(UnpredicatedInsts,
                  [CandidateBlockPred, this] (const VPInstruction *VPInst) {
+                   if (const VPBlendInst *Blend = dyn_cast<VPBlendInst>(VPInst))
+                     return blendTerminatesRegion(Blend, CandidateBlockPred);
                    // Skip phi nodes here because even though they are
                    // unpredicated we will use a separate check to ensure that
                    // all predecessors of the block containing the phi belong
                    // to the region.
-                   // FIXME: Blend handling is wrong. Blend instruction mask
-                   // operands must also be anded (isStricterOrEqualPred
-                   // returns true) with the block-predicate used in the all-
-                   // zero bypass check. Otherwise, we will have a blend under
-                   // the influence of one block-predicate that could be
-                   // bypassed (blend never executed), and we won't get the
-                   // correct result from the blend since the other values will
-                   // never be selected. See vplan_predicator.ll.
-                   // (test_separate_blend_bb_for_2_div_plus_uniform)
-                   // E.g., prevent a region formed around blocks BB5 and
-                   // BLEND_BB0 because VP_BB1_VARYING_NOT may have all lanes
-                   // active, which means VP_BB1_VARYING is all-zero, and the
-                   // live-out value for the blend along the all-zero edge
-                   // will be incorrect. Will create a separate patch for
-                   // this.
-                   //
-                   // [[BB4]]:
-                   //  [[VP0:%.*]] = block-predicate i1 [[VP_BB1_VARYING_NOT]]
-                   //  SUCCESSORS(1):[[BB5:BB[0-9]+]]
-                   //  PREDECESSORS(1): [[BB2]]
-                   //
-                   // [[BB5]]:
-                   //  [[VP1:%.*]] = block-predicate i1 [[VP_BB1_VARYING]]
-                   //  SUCCESSORS(1):[[BLEND_BB0:blend.bb[0-9]+]]
-                   //  PREDECESSORS(1): [[BB4]]
-                   //
-                   // [[BLEND_BB0]]:
-                   //  [[VP_PHI_BLEND_BB5:%.*]] =
-                   //    blend [ i32 2, i1 [[VP_BB1_VARYING_NOT]] ],
-                   //          [ i32 3, i1 [[VP_BB1_VARYING]] ]
-                   //  SUCCESSORS(1):[[BB3]]
-                   //  PREDECESSORS(1): [[BB5]]
                    return (!isa<VPPHINode>(VPInst) &&
-                           !isa<VPBlendInst>(VPInst) &&
                            !isa<VPBranchInst>(VPInst) &&
                            !isStricterOrEqualPred(VPInst, CandidateBlockPred));
                }))
