@@ -98,4 +98,5 @@ piEnqueueMemBufferReadRect
 piMemBufferPartition
 piEnqueueMemBufferWriteRect
 piextUSMHostAlloc
-
+piextPlatformGetNativeHandle
+piextPlatformCreateWithNativeHandle

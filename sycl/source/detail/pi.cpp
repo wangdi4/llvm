@@ -212,23 +212,9 @@ bool findPlugins(vector_class<std::pair<std::string, backend>> &PluginNames) {
   // search is done for libpi_opencl.so/pi_opencl.dll file in LD_LIBRARY_PATH
   // env only.
   //
-<<<<<<< HEAD
-  PluginNames.push_back(std::make_pair<std::string, backend>(OPENCL_PLUGIN_NAME,
-                                                             backend::opencl));
-#if INTEL_CUSTOMIZATION
-  PluginNames.push_back(std::make_pair<std::string, backend>(LEVEL0_PLUGIN_NAME,
-                                                             backend::level0));
-#if 0
-  // Disabling use of CUDA plugin.
-  PluginNames.push_back(
-      std::make_pair<std::string, backend>(CUDA_PLUGIN_NAME, backend::cuda));
-#endif
-#endif // INTEL_CUSTOMIZATION
-=======
   PluginNames.emplace_back(OPENCL_PLUGIN_NAME, backend::opencl);
   PluginNames.emplace_back(LEVEL0_PLUGIN_NAME, backend::level0);
   PluginNames.emplace_back(CUDA_PLUGIN_NAME, backend::cuda);
->>>>>>> d32da99fed6595c11c4be40f8db2312e11b07cdf
   return true;
 }
 

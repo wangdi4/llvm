@@ -757,10 +757,6 @@ ProgramManager::build(ProgramPtr Program, const ContextImplPtr Context,
     LinkOpts = LinkOptions.c_str();
   }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-=======
->>>>>>> d32da99fed6595c11c4be40f8db2312e11b07cdf
   // L0 plugin doesn't support piProgramCompile/piProgramLink commands, program
   // is built during piProgramCreate.
   // TODO: remove this check as soon as piProgramCompile/piProgramLink will be
@@ -768,10 +764,6 @@ ProgramManager::build(ProgramPtr Program, const ContextImplPtr Context,
   if (Context->getPlugin().getBackend() == backend::level0) {
     LinkDeviceLibs = false;
   }
-<<<<<<< HEAD
-#endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> d32da99fed6595c11c4be40f8db2312e11b07cdf
 
   std::vector<RT::PiProgram> LinkPrograms;
   if (LinkDeviceLibs) {
