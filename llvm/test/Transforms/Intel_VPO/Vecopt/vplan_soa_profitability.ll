@@ -3,9 +3,6 @@
 ; RUN: opt -VPlanDriver -vplan-enable-soa -vplan-dump-da -vplan-dump-soa-info \
 ; RUN: -disable-output -disable-vplan-codegen %s 2>&1 | FileCheck %s
 
-; TODO: Enable the test for HIR codegen path CMPLRLLVM-10967.
-; see cmplrllvm-20281, VPInductionInit case
-; XFAIL: *
 ; REQUIRES:asserts
 
 ;; Source-code for testing the profitability-analysis.
@@ -254,6 +251,7 @@ for.end:                                          ; preds = %for.body
   ret void
 }
 
+; TODO: Update the stride information for private-pointer induction. It should be '4096' and not '4'. The fix will happen in the follow-up patch.
 define void @test_pointer_induction_escape() {
 ; CHECK:       Printing Divergence info for Loop at depth 1 containing: [[BB0:BB[0-9]+]]<header>,[[BB1:BB[0-9]+]]<latch><exiting>
 ; CHECK-EMPTY:

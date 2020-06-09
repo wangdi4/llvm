@@ -246,7 +246,7 @@ return:
 define void @test_pointer_induction_escape() {
 ;CHECK-LABEL: SOA profitability
 ;CHECK-NEXT: SOAUnsafe = arr_e.priv
-;CHECK-NEXT: SOAUnsafe = arr_ne.priv
+;CHECK-NEXT: SOASafe = arr_ne.priv
   %arr_e.priv = alloca [1024 x i32], align 4
   %arr_ne.priv = alloca [1024 x i32], align 4
   %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr_e.priv, i64 0, i64 0
