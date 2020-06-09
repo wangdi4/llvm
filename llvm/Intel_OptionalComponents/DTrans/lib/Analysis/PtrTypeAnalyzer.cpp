@@ -200,10 +200,13 @@ public:
       // report any information that may have been collected due to an inttoptr
       // conversion detected on a non-pointer argument.
       auto Info = Analyzer.getValueTypeInfo(&A);
-      if (Info)
+      if (Info) {
         Info->print(OS, CombineUseAndDecl, ";    ");
-      else if (A.getType()->isPointerTy())
+        OS << ";      ";
+        Analyzer.printDominantAggregateUsageType(OS, *Info);
+      } else if (A.getType()->isPointerTy()) {
         OS << ";    <NO PTR INFO AVAILABLE>\n";
+      }
     }
   }
 
@@ -216,10 +219,13 @@ public:
                                        ConstantExpr *CE) -> void {
       OS << "\n;        CE: " << *CE << "\n";
       auto *Info = Analyzer.getValueTypeInfo(CE);
-      if (Info)
+      if (Info) {
         Info->print(OS, CombineUseAndDecl, ";          ");
-      else if (CE->getType()->isPointerTy())
+        OS << ";            ";
+        Analyzer.printDominantAggregateUsageType(OS, *Info);
+      } else if (CE->getType()->isPointerTy()) {
         OS << ";          <NO PTR INFO AVAILABLE FOR ConstantExpr>\n";
+      }
 
       // There may be constant expressions nested within this CE that should be
       // reported.
@@ -255,6 +261,8 @@ public:
     if (Info && (ExpectPointerInfo || !Info->empty())) {
       OS << "\n";
       Info->print(OS, CombineUseAndDecl, ";    ");
+      OS << ";      ";
+      Analyzer.printDominantAggregateUsageType(OS, *Info);
     }
   }
 
@@ -3115,11 +3123,28 @@ ValueTypeInfo *PtrTypeAnalyzer::getValueTypeInfo(const User *U,
   return Impl->getValueTypeInfo(U, OpNum);
 }
 
+DTransType *
+PtrTypeAnalyzer::getDominantAggregateUsageType(ValueTypeInfo &Info) const {
+  return Impl->getDominantAggregateUsageType(Info);
+}
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void PtrTypeAnalyzer::dumpPTA(Module &M) {
   PtrTypeAnalyzerAnnotationWriter Annotator(*this, PTAEmitCombinedSets);
   M.print(dbgs(), &Annotator);
 }
+
+void PtrTypeAnalyzer::printDominantAggregateUsageType(raw_ostream &OS,
+                                                      ValueTypeInfo &Info) {
+  DTransType *DomTy = getDominantAggregateUsageType(Info);
+  if (DomTy)
+    OS << "DomTy: " << *DomTy << "\n";
+  else if (Info.canAliasToAggregatePointer())
+    OS << "Ambiguous Dominant Type\n";
+  else
+    OS << "No Dominant Type\n";
+}
+
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 } // end namespace dtrans

@@ -6012,6 +6012,8 @@ public:
           OS << "\n;        CE: " << *CE << "\n";
           auto &LPI = LPA.getLocalPointerInfo(CE);
           LPI.print(OS, 10, ";");
+          OS << ";            ";
+          printDomTy(OS, LPI);
 
           // There may be constant expressions nested within this CE that should
           // be reported.
@@ -6034,7 +6036,19 @@ public:
         if (V->getType()->isPointerTy() || LPI.canAliasToAggregatePointer()) {
           OS << "\n";
           LPI.print(OS, 4, ";");
+          OS << ";      ";
+          printDomTy(OS, LPI);
         }
+      }
+
+      void printDomTy(formatted_raw_ostream &OS, LocalPointerInfo &LPI) {
+        auto *DomTy = LPI.getDominantAggregateTy();
+        if (DomTy)
+          OS << "DomTy: " << *DomTy << "\n";
+        else if (LPI.canAliasToAggregatePointer())
+          OS << "Ambiguous Dominant Type\n";
+        else
+          OS << "No Dominant Type\n";
       }
     };
 
