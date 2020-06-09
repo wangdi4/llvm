@@ -378,6 +378,12 @@ void SymbolTable::reportUnresolvable() {
       if (imp && isa<Defined>(imp))
         continue;
     }
+#if INTEL_CUSTOMIZATION
+    // If LTO is enabled then skip SVML intrinsics, these will
+    // be emitted by CodeGen.
+    if (!BitcodeFile::instances.empty() && name.startswith("__svml_"))
+      continue;
+#endif // INTEL_CUSTOMIZATION
     if (name.contains("_PchSym_"))
       continue;
     if (config->mingw && impSymbol(name))
