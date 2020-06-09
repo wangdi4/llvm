@@ -283,6 +283,10 @@ private:
   /// Verify the shape of each instruction in give Block \p VPBB.
   void verifyBasicBlock(const VPBasicBlock *VPBB);
 
+  /// Improve stride information where possible by using information provided
+  /// by underlying IR.
+  void improveStrideUsingIR();
+
   VPlan *Plan;
 
   // If regionLoop != nullptr, analysis is only performed within \p RegionLoop.
