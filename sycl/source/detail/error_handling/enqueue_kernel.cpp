@@ -115,39 +115,6 @@ bool oclHandleInvalidWorkGroupSize(const device_impl &DeviceImpl,
          NDRDesc.GlobalSize[1] % NDRDesc.LocalSize[1] != 0) ||
         (NDRDesc.LocalSize[2] != 0 &&
          NDRDesc.GlobalSize[2] % NDRDesc.LocalSize[2] != 0);
-<<<<<<< HEAD
-
-    if (Ver[0] == '1') {
-      // OpenCL 1.x:
-      // PI_INVALID_WORK_GROUP_SIZE if local_work_size is specified and
-      // number of workitems specified by global_work_size is not evenly
-      // divisible by size of work-group given by local_work_size
-
-      if (NonUniformWGs)
-        throw sycl::nd_range_error(
-            "Non-uniform work-groups are not supported by the target device",
-            PI_INVALID_WORK_GROUP_SIZE);
-    } else {
-      // OpenCL 2.x:
-      // PI_INVALID_WORK_GROUP_SIZE if the program was compiled with
-      // –cl-uniform-work-group-size and the number of work-items specified
-      // by global_work_size is not evenly divisible by size of work-group
-      // given by local_work_size
-
-      pi_program Program = nullptr;
-
-      Plugin.call<PiApiKind::piKernelGetInfo>(
-          Kernel, PI_KERNEL_INFO_PROGRAM, sizeof(pi_program), &Program, nullptr);
-
-      size_t OptsSize = 0;
-      Plugin.call<PiApiKind::piProgramGetBuildInfo>(
-          Program, Device, PI_PROGRAM_BUILD_INFO_OPTIONS, 0, nullptr, &OptsSize);
-      string_class Opts(OptsSize, '\0');
-      Plugin.call<PiApiKind::piProgramGetBuildInfo>(
-          Program, Device, PI_PROGRAM_BUILD_INFO_OPTIONS, OptsSize, &Opts.front(),
-          nullptr);
-      if (NonUniformWGs) {
-=======
     // Is the local size of the workgroup greater than the global range size in
     // any dimension? This is a sub-case of NonUniformWGs.
     const bool LocalExceedsGlobal =
@@ -189,7 +156,6 @@ bool oclHandleInvalidWorkGroupSize(const device_impl &DeviceImpl,
         Plugin.call<PiApiKind::piProgramGetBuildInfo>(
             Program, Device, PI_PROGRAM_BUILD_INFO_OPTIONS, OptsSize,
             &Opts.front(), nullptr);
->>>>>>> 894c10d8eb090649b85703476a9f4beda4cac2f5
         const bool HasStd20 = Opts.find("-cl-std=CL2.0") != string_class::npos;
         const bool RequiresUniformWGSize =
             Opts.find("-cl-uniform-work-group-size") != string_class::npos;
