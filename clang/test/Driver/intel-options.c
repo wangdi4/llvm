@@ -26,6 +26,10 @@
 // RUN: %clang -### -c -fpermissive %s 2>&1 | FileCheck -check-prefix CHECK-FPERMISSIVE %s
 // CHECK-FPERMISSIVE: "-gnu-permissive"
 
+// -Qfreestanding
+// RUN: %clang_cl -### -c -Qfreestanding %s 2>&1 | FileCheck -check-prefix CHECK-QFREESTANDING %s
+// CHECK-QFREESTANDING: "-ffreestanding"
+
 // Behavior with -ipo/Qipo option
 // RUN: %clang -### -c -ipo %s 2>&1 | FileCheck -check-prefix CHECK-IPO %s
 // RUN: %clang_cl -### -c /Qipo %s 2>&1 | FileCheck -check-prefix CHECK-IPO %s

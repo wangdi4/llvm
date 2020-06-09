@@ -25,7 +25,7 @@ define void @main() {
 ; CHECK-NEXT:     i32 [[VP_DEF_PHI:%.*]] = phi  [ i32 0, [[BB0]] ],  [ i32 [[VP_DEF:%.*]], [[NEW_LOOP_LATCH0]] ]
 ; CHECK-NEXT:     i32 [[VP_VAR1:%.*]] = add i32 [[VP_IV]] i32 [[VP_DEF_PHI]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(2): [[NEW_LOOP_LATCH0]] [[BB0]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]:
 ; CHECK-NEXT:     i32 [[VP_DEF]] = add i32 [[VP_IV]] i32 [[VP_VAR1]]
@@ -74,7 +74,8 @@ define void @main() {
 ; CHECK-NEXT:    [[BB7]]:
 ; CHECK-NEXT:     void [[VP1:%.*]] = ret
 ; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(2): [[BB6]] [[BB5]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB5]] [[BB6]]
+;
 entry:
   %lane = call i32 @llvm.vplan.laneid()
   br label %inner_loop_header

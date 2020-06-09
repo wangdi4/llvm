@@ -699,10 +699,17 @@ unsigned VPDecomposerHIR::getNumReachingDefinitions(DDRef *UseDDR) {
     return NumEdges;
 }
 
-// Return a pointer to the last VPInstruction of \p VPBB. Return nullptr if \p
-// VPBB is empty.
+// Return a pointer to the last VPInstruction of \p VPBB (before terminator
+// instruction). Return nullptr if \p VPBB is empty (or has only terminator
+// instruction).
 static VPInstruction *getLastVPI(VPBasicBlock *VPBB) {
-  return VPBB->empty() ? nullptr : &VPBB->back();
+  if (VPBB->empty())
+    return nullptr;
+  if (VPBB->size() == 1) {
+    assert(isa<VPTerminator>(VPBB->begin()));
+    return nullptr;
+  }
+  return &*std::prev(VPBB->terminator());
 }
 
 // Set \p MasterVPI as master VPInstruction of all the decomposed VPInstructions
@@ -1629,8 +1636,9 @@ void VPDecomposerHIR::fixPhiNodePass(
       assert(Pred && "VPBB has null predecessor.");
 
       // Number of incoming edges from Pred to VPBB
+      auto &Successors = Pred->getSuccessors();
       unsigned NumEdges =
-          std::count(Pred->succ_begin(), Pred->succ_end(), VPBB);
+          std::count(Successors.begin(), Successors.end(), VPBB);
       assert(NumEdges && "Atleast one edge must exist from Pred to VPBB.");
 
       // Find Symbase that this PHI node corresponds to in TrackedSymbases

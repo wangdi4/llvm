@@ -19,7 +19,7 @@ define void @test_2_level_loop_nest(i64 %vf) local_unnamed_addr {
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_OUTER_INDUCTION_PHI:%.*]] = phi  [ i32 [[VP_LANE]], [[BB0]] ],  [ i64 [[VP_OUTER_INDUCTION:%.*]], [[BB2:BB[0-9]+]] ]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 true, [[BB0]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB2]] ]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB3:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(2): [[BB2]] [[BB0]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]:
 ; CHECK-NEXT:     [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_LOOP_MASK]]
@@ -46,7 +46,7 @@ define void @test_2_level_loop_nest(i64 %vf) local_unnamed_addr {
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP3:%.*]] = all-zero-check i1 [[VP_BB8_BR_VP_OUTER_LOOP_VARYING]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP4:%.*]] = or i1 [[VP3]] i1 [[VP_EXITCOND]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB7:BB[0-9]+]](i1 [[VP4]]), [[BB6]](!i1 [[VP4]])
-; CHECK-NEXT:    PREDECESSORS(2): [[BB6]] [[BB5]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB5]] [[BB6]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]:
 ; CHECK-NEXT:     [DA: Div] i1 [[VP5:%.*]] = block-predicate i1 [[VP_BB8_BR_VP_OUTER_LOOP_VARYING]]
@@ -127,7 +127,7 @@ define void @test_2_level_loop_nest_swap_inner_branch(i64 %vf) local_unnamed_add
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_OUTER_INDUCTION_PHI:%.*]] = phi  [ i32 [[VP_LANE]], [[BB0]] ],  [ i64 [[VP_OUTER_INDUCTION:%.*]], [[BB2:BB[0-9]+]] ]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 true, [[BB0]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB2]] ]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB3:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(2): [[BB2]] [[BB0]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]:
 ; CHECK-NEXT:     [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_LOOP_MASK]]
@@ -155,7 +155,7 @@ define void @test_2_level_loop_nest_swap_inner_branch(i64 %vf) local_unnamed_add
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP4:%.*]] = not i1 [[VP3]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP5:%.*]] = and i1 [[VP4]] i1 [[VP_CONTINUE_COND]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB6]](i1 [[VP5]]), [[BB7:BB[0-9]+]](!i1 [[VP5]])
-; CHECK-NEXT:    PREDECESSORS(2): [[BB6]] [[BB5]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB5]] [[BB6]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]:
 ; CHECK-NEXT:     [DA: Div] i1 [[VP6:%.*]] = block-predicate i1 [[VP_BB8_BR_VP_OUTER_LOOP_VARYING]]

@@ -37,7 +37,7 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* n
 ; CHECK-NEXT:     [DA: Div] i32 [[VP0:%.*]] = load i32* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_CMP127:%.*]] = icmp i32 [[VP0]] i32 256
 ; CHECK-NEXT:    SUCCESSORS(1):all.zero.bypass.begin27
-; CHECK-NEXT:    PREDECESSORS(2): [[BB3]] [[BB1]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    all.zero.bypass.begin27:
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_ALL_ZERO_CHECK:%.*]] = all-zero-check i1 [[VP_CMP127]]
@@ -110,13 +110,13 @@ define dso_local void @foo(i32* nocapture readonly %a, i32* nocapture %b, i32* n
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB13]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB15]]:
-; CHECK-NEXT:       [DA: Div] i1 [[VP8:%.*]] = or i1 [[VP_BB8_BR_VP_SWITCHLEAF_NOT]] i1 [[VP_BB9_BR_VP_SWITCHLEAF31_NOT]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP8:%.*]] = or i1 [[VP_BB9_BR_VP_SWITCHLEAF31_NOT]] i1 [[VP_BB8_BR_VP_SWITCHLEAF_NOT]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP9:%.*]] = block-predicate i1 [[VP8]]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB16:BB[0-9]+]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB14]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB16]]:
-; CHECK-NEXT:       [DA: Div] i1 [[VP10:%.*]] = or i1 [[VP_BB8_BR_VP_SWITCHLEAF]] i1 [[VP_BB9_BR_VP_SWITCHLEAF31]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP10:%.*]] = or i1 [[VP_BB9_BR_VP_SWITCHLEAF31]] i1 [[VP_BB8_BR_VP_SWITCHLEAF]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP11:%.*]] = block-predicate i1 [[VP10]]
 ; CHECK-NEXT:       [DA: Div] store i32 [[SUB0:%.*]] i32* [[VP_ARRAYIDX9]]
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB17:BB[0-9]+]]

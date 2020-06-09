@@ -3774,6 +3774,10 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     break;
   }
 
+  case VPInstruction::Terminator:
+    // Do nothing.
+    return;
+
   default:
     LLVM_DEBUG(VPInst->dump());
     llvm_unreachable("Unexpected VPInstruction opcode");

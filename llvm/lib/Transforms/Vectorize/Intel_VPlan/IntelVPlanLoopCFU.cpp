@@ -105,9 +105,8 @@ void VPlanLoopCFU::run(VPLoop *VPL) {
       VPBlockUtils::splitBlockEnd(MaskedRegionLast, VPLI, DT, PDT);
 
   // TODO: This is the only place that doesn't incrementally update DT/PDT.
-  VPBlockUtils::disconnectBlocks(VPLHeader, MaskedRegionStart);
-  VPBlockUtils::connectBlocks(VPLHeader, LoopBodyMask, MaskedRegionStart,
-                              NewLoopLatch);
+  VPLHeader->removeSuccessor(MaskedRegionStart);
+  VPLHeader->setTwoSuccessors(LoopBodyMask, MaskedRegionStart, NewLoopLatch);
 
   if (TopTest)
     LoopBodyMask->addIncoming(TopTest, VPLPreHeader);

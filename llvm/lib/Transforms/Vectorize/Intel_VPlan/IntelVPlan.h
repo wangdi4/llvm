@@ -678,6 +678,7 @@ public:
       HIRCopy,
       OrigTripCountCalculation,
       VectorTripCountCalculation,
+      Terminator,
   };
 #else
   enum { Not = Instruction::OtherOpsEnd + 1 };
@@ -990,6 +991,106 @@ public:
   virtual VPBranchInst *cloneImpl() const final {
     return new VPBranchInst(getType());
   }
+};
+
+/// Concrete class to represent terminator instruction in VPlan.
+class VPTerminator : public VPInstruction {
+public:
+  explicit VPTerminator(Type *BaseTy)
+    : VPInstruction(VPInstruction::Terminator, BaseTy, {}) {}
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void print(raw_ostream &O) const;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+  static inline bool classof(const VPInstruction *VPI) {
+    return VPI->getOpcode() == VPInstruction::Terminator;
+  }
+  static bool classof(const VPUser *U) {
+    return isa<VPInstruction>(U) && classof(cast<VPInstruction>(U));
+  }
+
+  virtual VPTerminator *cloneImpl() const final {
+    // Note: don't need to clone CondBit and Successors,
+    // VPCloneUtils will do that through VPBasicBlock interface.
+    return new VPTerminator(getType());
+  }
+
+  /// Iterators and types to access Successors of terminator's
+  /// parent VPBasicBlock.
+  using SuccType = SmallVector<VPBasicBlock *, 2>;
+  using succ_iterator = SuccType::iterator;
+  using succ_const_iterator = SuccType::const_iterator;
+  using succ_reverse_iterator = SuccType::reverse_iterator;
+  using succ_const_reverse_iterator = SuccType::const_reverse_iterator;
+
+  inline succ_iterator succ_begin() { return Successors.begin(); }
+  inline succ_iterator succ_end() { return Successors.end(); }
+  inline succ_const_iterator succ_begin() const { return Successors.begin(); }
+  inline succ_const_iterator succ_end() const { return Successors.end(); }
+  inline succ_reverse_iterator succ_rbegin() { return Successors.rbegin(); }
+  inline succ_reverse_iterator succ_rend() { return Successors.rend(); }
+  inline succ_const_reverse_iterator succ_rbegin() const {
+    return Successors.rbegin();
+  }
+  inline succ_const_reverse_iterator succ_rend() const {
+    return Successors.rend();
+  }
+
+  /// Add \p Successor as the last successor to this terminator.
+  void appendSuccessor(VPBasicBlock *Successor);
+
+  /// Remove \p Successor from the successors of this terminator.
+  void removeSuccessor(VPBasicBlock *Successor);
+
+  /// Replace \p OldSuccessor by \p NewSuccessor in terminator's successor
+  /// list. \p NewSuccessor will be inserted in the same position as
+  /// \p OldSuccessor.
+  void replaceSuccessor(VPBasicBlock *OldSuccessor, VPBasicBlock *NewSuccessor);
+
+  const SmallVectorImpl<VPBasicBlock *> &getSuccessors() const {
+    return Successors;
+  }
+
+  size_t getNumSuccessors() const { return Successors.size(); }
+
+  /// \Return the successor of this terminator if it has a single successor.
+  /// Otherwise return a null pointer.
+  VPBasicBlock *getSingleSuccessor() const {
+    return (Successors.size() == 1 ? *Successors.begin() : nullptr);
+  }
+
+  /// Set a given VPBasicBlock \p Successor as the single successor of this
+  /// terminator. This terminator must have no successors.
+  void setOneSuccessor(VPBasicBlock *Successor);
+
+  /// Set two given VPBasicBlocks \p IfTrue and \p IfFalse to be the two
+  /// successors of this terminator. This terminator must have no
+  /// successors. \p ConditionV is set as successor selector.
+  void setTwoSuccessors(VPValue *ConditionV, VPBasicBlock *IfTrue,
+                        VPBasicBlock *IfFalse);
+
+  /// Remove all the successors of this terminator and set its condition bit
+  /// to null.
+  void clearSuccessors() {
+    for (auto Succ : Successors)
+      Succ->removeUser(*this);
+    Successors.clear();
+  }
+
+  /// \Return the condition bit selecting the successor.
+  VPValue *getCondBit() { return CondBit; }
+
+  const VPValue *getCondBit() const { return CondBit; }
+
+  void setCondBit(VPValue *CB) { CondBit = CB; }
+
+private:
+  /// List of successor blocks.
+  SmallVector<VPBasicBlock *, 2> Successors;
+
+  /// Successor selector, null for zero or single successor blocks.
+  VPValue *CondBit = nullptr;
 };
 
 /// Concrete class for blending instruction. Was previously represented as
@@ -2806,8 +2907,8 @@ template <class... Args> inline void VPLAN_DOT(const Args &...) {}
 // for VPBasicBlocks.
 template <> struct GraphTraits<vpo::VPBasicBlock *> {
   using NodeRef = vpo::VPBasicBlock *;
-  using ChildVectorType = SmallVectorImpl<vpo::VPBasicBlock *>;
-  using ChildIteratorType = ChildVectorType::iterator;
+  using ChildVectorType = const SmallVectorImpl<vpo::VPBasicBlock *>;
+  using ChildIteratorType = ChildVectorType::const_iterator;
 
   static NodeRef getEntryNode(NodeRef N) { return N; }
 
@@ -2849,8 +2950,8 @@ template <> struct GraphTraits<const vpo::VPBasicBlock *> {
 // GraphTraits specialization for VPBasicBlocks using inverse iterator.
 template <> struct GraphTraits<Inverse<vpo::VPBasicBlock *>> {
   using NodeRef = vpo::VPBasicBlock *;
-  using ChildVectorType = SmallVectorImpl<vpo::VPBasicBlock *>;
-  using ChildIteratorType = ChildVectorType::iterator;
+  using ChildRangeType = decltype(std::declval<NodeRef>()->getPredecessors());
+  using ChildIteratorType = decltype(std::declval<ChildRangeType>().begin());
 
   static NodeRef getEntryNode(Inverse<NodeRef> N) { return N.Graph; }
 

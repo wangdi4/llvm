@@ -59,7 +59,7 @@ define void @test_uni_loop(i32 %vf) {
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_VEC:%.*]] = phi  [ i32 [[VP_LANE]], [[BB0]] ],  [ i32 [[VP_VEC_NEXT:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_COND:%.*]] = icmp i32 [[VP_LANE]] i32 3
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB3:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(2): [[BB2]] [[BB0]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]:
 ; CHECK-NEXT:     [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_COND]]
@@ -122,7 +122,7 @@ define void @test_div_loop(i32 %vf) {
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_MASK:%.*]] = phi  [ i1 true, [[BB0]] ],  [ i1 [[VP_MASK_NEXT:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_LIVEOUT_PREV:%.*]] = phi  [ i32 undef, [[BB0]] ],  [ i32 [[VP_LIVEOUT_BLEND_BB3:%.*]], [[BB2]] ]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB3:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(2): [[BB2]] [[BB0]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]:
 ; CHECK-NEXT:     [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_MASK]]
@@ -201,7 +201,7 @@ define void @test_uni_loop_div_top_test(i32 %vf) {
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP2:%.*]] = all-zero-check i1 [[VP_TOPTEST_NOT]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP3:%.*]] = or i1 [[VP2]] i1 [[VP_EXIT_COND]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB3:BB[0-9]+]](i1 [[VP3]]), [[BB2]](!i1 [[VP3]])
-; CHECK-NEXT:    PREDECESSORS(2): [[BB2]] [[BB1]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]:
 ; CHECK-NEXT:     [DA: Div] i1 [[VP4:%.*]] = block-predicate i1 [[VP_TOPTEST_NOT]]

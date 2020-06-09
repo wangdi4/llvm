@@ -33,7 +33,7 @@ define dso_local void @foo(i64 %N, i64 %lb, i64 %ub) local_unnamed_addr {
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_IV:%.*]] = phi  [ i64 [[VP_IV_NEXT:%.*]], [[BB4:BB[0-9]+]] ],  [ i64 0, [[BB2]] ]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 [[VP_TOPTEST_NOT]], [[BB2]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB4]] ]
 ; CHECK-NEXT:      SUCCESSORS(2):[[BB5:BB[0-9]+]](i1 [[VP_LOOP_MASK]]), [[BB4]](!i1 [[VP_LOOP_MASK]])
-; CHECK-NEXT:      PREDECESSORS(2): [[BB4]] [[BB2]]
+; CHECK-NEXT:      PREDECESSORS(2): [[BB2]] [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB5]]:
 ; CHECK-NEXT:         [DA: Div] i64 [[VP_ADD:%.*]] = add i64 [[VP_IV]] i32 [[VP_LANE]]
@@ -59,7 +59,7 @@ define dso_local void @foo(i64 %N, i64 %lb, i64 %ub) local_unnamed_addr {
 ; CHECK-NEXT:    [[BB1]]:
 ; CHECK-NEXT:     [DA: Div] void [[VP1:%.*]] = ret
 ; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(2): [[BB6]] [[BB0]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[BB6]]
 ;
 entry:
   %lane = call i64 @llvm.vplan.laneid()

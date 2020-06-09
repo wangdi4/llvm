@@ -213,6 +213,8 @@ def _SLASH_Qfnalign_ : CLFlag<"Qfnalign-">, Alias<fno_align_functions>,
   HelpText<"Aligns on a 2-byte boundary">;
 def _SLASH_Qansi_alias_ : CLFlag<"Qansi-alias-">, Alias<fno_strict_aliasing>,
   HelpText<"disable use of ANSI aliasing rules optimizations">;
+def : CLFlag<"Qfreestanding">, Alias<ffreestanding>,
+  HelpText<"Assert that the compilation takes place in a freestanding environment">;
 def _SLASH_Qinstrument_functions : CLFlag<"Qinstrument-functions">,
   Alias<finstrument_functions>, HelpText<"Generate calls to instrument "
   "function entry and exit">;
