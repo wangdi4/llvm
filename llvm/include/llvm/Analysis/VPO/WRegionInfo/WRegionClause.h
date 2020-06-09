@@ -107,7 +107,8 @@ class Item
       IK_Uniform,
       IK_Map,
       IK_IsDevicePtr,
-      IK_UseDevicePtr
+      IK_UseDevicePtr,
+      IK_UseDeviceAddr
     };
 
   private :
@@ -854,6 +855,7 @@ public:
 typedef SmallVector<MapAggrTy*, 2> MapChainTy;
 
 class UseDevicePtrItem;
+class UseDeviceAddrItem;
 //
 //   MapItem: OMP MAP clause item
 //
@@ -863,6 +865,7 @@ private:
   unsigned MapKind;                 // bit vector for map kind and modifiers
   FirstprivateItem *InFirstprivate; // FirstprivateItem with the same opnd
   UseDevicePtrItem *InUseDevicePtr; // The map is for a use-device-ptr clause
+  UseDeviceAddrItem* InUseDeviceAddr; // The map is for a use-device-addr clause
   MapChainTy MapChain;
   ArraySectionInfo ArrSecInfo;    // For TARGET UPDATE TO/FROM clauses
   Instruction *BasePtrGEPForOrig; // GEP for Orig in the  baseptrs struct sent
@@ -977,6 +980,7 @@ public:
   void setIsMapPresent() { MapKind |= WRNMapPresent; }
   void setInFirstprivate(FirstprivateItem *FI) { InFirstprivate = FI; }
   void setInUseDevicePtr(UseDevicePtrItem *UDPI) { InUseDevicePtr = UDPI; }
+  void setInUseDeviceAddr(UseDeviceAddrItem* UDAI) { InUseDeviceAddr = UDAI; }
   void setBasePtrGEPForOrig(Instruction *GEP) { BasePtrGEPForOrig = GEP; }
 
   unsigned getMapKind()     const { return MapKind; }
@@ -995,6 +999,7 @@ public:
   bool getIsMapUpdateFrom() const { return MapKind & WRNMapUpdateFrom; }
   FirstprivateItem *getInFirstprivate() const { return InFirstprivate; }
   UseDevicePtrItem *getInUseDevicePtr() const { return InUseDevicePtr; }
+  UseDeviceAddrItem* getInUseDeviceAddr() const { return InUseDeviceAddr; }
   Instruction *getBasePtrGEPForOrig() const { return BasePtrGEPForOrig; }
 
   ArraySectionInfo &getArraySectionInfo() { return ArrSecInfo; }
@@ -1064,6 +1069,19 @@ public:
   static bool classof(const Item *I) { return I->getKind() == IK_UseDevicePtr; }
 };
 
+//
+//   UseDeviceAddrItem: OMP USE_DEVICE_ADDR clause item
+//
+class UseDeviceAddrItem : public Item {
+    MapItem* InMap;
+
+public:
+    UseDeviceAddrItem(VAR Orig) : Item(Orig, IK_UseDeviceAddr) {}
+    void setInMap(MapItem* MI) { InMap = MI; }
+    MapItem* getInMap() const { return InMap; }
+    static bool classof(const Item* I)
+                        { return I->getKind() == IK_UseDeviceAddr; }
+};
 
 //
 // These item classes for list-type clauses are not derived from the
@@ -1299,41 +1317,43 @@ typename std::vector<ClauseItem>::iterator Clause<ClauseItem>::findOrig(VAR V)
 //
 // typedef for list-type clause classes and associated iterator types
 //
-typedef Clause<SharedItem>       SharedClause;
-typedef Clause<PrivateItem>      PrivateClause;
-typedef Clause<FirstprivateItem> FirstprivateClause;
-typedef Clause<LastprivateItem>  LastprivateClause;
-typedef Clause<ReductionItem>    ReductionClause;
-typedef Clause<CopyinItem>       CopyinClause;
-typedef Clause<CopyprivateItem>  CopyprivateClause;
-typedef Clause<LinearItem>       LinearClause;
-typedef Clause<UniformItem>      UniformClause;
-typedef Clause<MapItem>          MapClause;
-typedef Clause<IsDevicePtrItem>  IsDevicePtrClause;
-typedef Clause<UseDevicePtrItem> UseDevicePtrClause;
-typedef Clause<DependItem>       DependClause;
-typedef Clause<DepSinkItem>      DepSinkClause;
-typedef Clause<DepSourceItem>    DepSourceClause;
-typedef Clause<AlignedItem>      AlignedClause;
-typedef Clause<FlushItem>        FlushSet;
+typedef Clause<SharedItem>        SharedClause;
+typedef Clause<PrivateItem>       PrivateClause;
+typedef Clause<FirstprivateItem>  FirstprivateClause;
+typedef Clause<LastprivateItem>   LastprivateClause;
+typedef Clause<ReductionItem>     ReductionClause;
+typedef Clause<CopyinItem>        CopyinClause;
+typedef Clause<CopyprivateItem>   CopyprivateClause;
+typedef Clause<LinearItem>        LinearClause;
+typedef Clause<UniformItem>       UniformClause;
+typedef Clause<MapItem>           MapClause;
+typedef Clause<IsDevicePtrItem>   IsDevicePtrClause;
+typedef Clause<UseDevicePtrItem>  UseDevicePtrClause;
+typedef Clause<UseDeviceAddrItem> UseDeviceAddrClause;
+typedef Clause<DependItem>        DependClause;
+typedef Clause<DepSinkItem>       DepSinkClause;
+typedef Clause<DepSourceItem>     DepSourceClause;
+typedef Clause<AlignedItem>       AlignedClause;
+typedef Clause<FlushItem>         FlushSet;
 
-typedef std::vector<SharedItem>::iterator       SharedIter;
-typedef std::vector<PrivateItem>::iterator      PrivateIter;
-typedef std::vector<FirstprivateItem>::iterator FirstprivateIter;
-typedef std::vector<LastprivateItem>::iterator  LastprivateIter;
-typedef std::vector<ReductionItem>::iterator    ReductionIter;
-typedef std::vector<CopyinItem>::iterator       CopyinIter;
-typedef std::vector<CopyprivateItem>::iterator  CopyprivateIter;
-typedef std::vector<LinearItem>::iterator       LinearIter;
-typedef std::vector<UniformItem>::iterator      UniformIter;
-typedef std::vector<MapItem>::iterator          MapIter;
-typedef std::vector<IsDevicePtrItem>::iterator  IsDevicePtrter;
-typedef std::vector<UseDevicePtrItem>::iterator UseDevicePtrter;
-typedef std::vector<DependItem>::iterator       DependIter;
-typedef std::vector<DepSinkItem>::iterator      DepSinkIter;
-typedef std::vector<DepSourceItem>::iterator    DepSourceIter;
-typedef std::vector<AlignedItem>::iterator      AlignedIter;
-typedef std::vector<FlushItem>::iterator        FlushIter;
+typedef std::vector<SharedItem>::iterator        SharedIter;
+typedef std::vector<PrivateItem>::iterator       PrivateIter;
+typedef std::vector<FirstprivateItem>::iterator  FirstprivateIter;
+typedef std::vector<LastprivateItem>::iterator   LastprivateIter;
+typedef std::vector<ReductionItem>::iterator     ReductionIter;
+typedef std::vector<CopyinItem>::iterator        CopyinIter;
+typedef std::vector<CopyprivateItem>::iterator   CopyprivateIter;
+typedef std::vector<LinearItem>::iterator        LinearIter;
+typedef std::vector<UniformItem>::iterator       UniformIter;
+typedef std::vector<MapItem>::iterator           MapIter;
+typedef std::vector<IsDevicePtrItem>::iterator   IsDevicePtrIter;
+typedef std::vector<UseDevicePtrItem>::iterator  UseDevicePtrIter;
+typedef std::vector<UseDeviceAddrItem>::iterator UseDeviceAddrIter;
+typedef std::vector<DependItem>::iterator        DependIter;
+typedef std::vector<DepSinkItem>::iterator       DepSinkIter;
+typedef std::vector<DepSourceItem>::iterator     DepSourceIter;
+typedef std::vector<AlignedItem>::iterator       AlignedIter;
+typedef std::vector<FlushItem>::iterator         FlushIter;
 
 
 //
