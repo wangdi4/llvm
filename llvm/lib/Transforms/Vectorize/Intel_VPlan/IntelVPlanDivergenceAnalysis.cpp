@@ -697,6 +697,8 @@ void VPlanDivergenceAnalysis::print(raw_ostream &OS, const VPLoop *VPLp) {
   for (VPBasicBlock *VPBB : RPOT) {
     OS << "Basic Block: " << VPBB->getName() << "\n";
     for (auto &VPInst : *VPBB) {
+      if (!PrintTerminatorInst && isa<VPTerminator>(VPInst))
+        continue;
       if (isDivergent(VPInst))
         OS << "Divergent: ";
       else
@@ -1242,7 +1244,11 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::HIRCopy)
     NewShape = getObservedShape(ParentBB, *(I->getOperand(0)));
-  else if (Opcode >= VPInstruction::SMax && Opcode <= VPInstruction::FMin) {
+  else if (Opcode == VPInstruction::Terminator) {
+    const VPValue *CondBit = cast<VPTerminator>(I)->getCondBit();
+    NewShape = !CondBit ? getUniformVectorShape()
+                        : getObservedShape(ParentBB, *CondBit);
+  } else if (Opcode >= VPInstruction::SMax && Opcode <= VPInstruction::FMin) {
     LLVM_DEBUG(dbgs() << "MIN/MAX DA is overly conservative: " << *I);
     // FIXME: Compute divergence based on the operands.
     NewShape = getRandomVectorShape();

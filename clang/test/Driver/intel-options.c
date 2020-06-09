@@ -26,6 +26,10 @@
 // RUN: %clang -### -c -fpermissive %s 2>&1 | FileCheck -check-prefix CHECK-FPERMISSIVE %s
 // CHECK-FPERMISSIVE: "-gnu-permissive"
 
+// -Qfreestanding
+// RUN: %clang_cl -### -c -Qfreestanding %s 2>&1 | FileCheck -check-prefix CHECK-QFREESTANDING %s
+// CHECK-QFREESTANDING: "-ffreestanding"
+
 // Behavior with -ipo/Qipo option
 // RUN: %clang -### -c -ipo %s 2>&1 | FileCheck -check-prefix CHECK-IPO %s
 // RUN: %clang_cl -### -c /Qipo %s 2>&1 | FileCheck -check-prefix CHECK-IPO %s
@@ -278,6 +282,11 @@
 // RUN: %clang -### -c -use_msasm %s 2>&1 | FileCheck -check-prefix=CHECK-USE-MSASM %s
 // CHECK-USE-MSASM: "-fasm-blocks"
 
+// Behavior with EP option
+// RUN: %clang -### -c -EP %s 2>&1 | FileCheck -check-prefix CHECK-EP %s
+// RUN: %clang_cl -### -c /EP %s 2>&1 | FileCheck -check-prefix CHECK-EP %s
+// CHECK-EP: "-E" "-P"
+
 // Behavior with fiopenmp-simd/Qiopenmp-simd option
 // RUN: %clang -### -c -fiopenmp-simd %s 2>&1 | FileCheck -check-prefix CHECK-QIOPENMP-SIMD %s
 // RUN: %clang_cl -### -c /Qiopenmp-simd %s 2>&1 | FileCheck -check-prefix CHECK-QIOPENMP-SIMD %s
@@ -326,6 +335,12 @@
 // RUN: %clang_cl -### -c /Qopenmp-version=50 %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-VERSION %s
 // RUN: %clang_cl -### -c /Qopenmp-version:50 %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-VERSION %s
 // CHECK-QOPENMP-VERSION: "-fopenmp-version=50"
+
+// Behavior with QopenmpP and QopenmpP- option
+// RUN: %clang_cl -### -c  /QopenmpP %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMPP %s
+// RUN: %clang_cl -### -c  /QopenmpP /QopenmpP- %s 2>&1 | FileCheck -check-prefix CHECK-NO-QOPENMPP %s
+// CHECK-QOPENMPP: "-fopenmp"
+// CHECK-NO-QOPENMPP-NOT: "-fopenmp"
 
 // Use of -S with clang-cl
 // RUN: %clang_cl -### -S %s 2>&1 | FileCheck -check-prefix=CHECK-S %s
@@ -396,3 +411,8 @@
 // Behavior with -fstack-security-check option
 // RUN: %clang -### -fstack-security-check %s 2>&1 | FileCheck -check-prefix CHECK-FSTACK-SECURITY-CHECK %s
 // CHECK-FSTACK-SECURITY-CHECK: "-stack-protector" "2"
+
+// Behavior with -pch-use option
+// RUN: touch %t.h
+// RUN: %clang -### -pch-use %t.h %s 2>&1 | FileCheck -check-prefix CHECK-PCH-USE %s
+// CHECK-PCH-USE: "-include-pch"

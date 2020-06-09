@@ -46,8 +46,8 @@ static int modularMultiplicativeInverse(int Val, int Mod) {
 /// Compute -a^{-1} (mod b),
 /// where a = InductionStep / RequiredAlignment
 ///       b = TargetAlignment / RequiredAlignment
-static int computeMultiplierForDynamicPeeling(int Step, Align RequiredAlignment,
-                                              Align TargetAlignment) {
+static int computeMultiplierForPeeling(int Step, Align RequiredAlignment,
+                                       Align TargetAlignment) {
   assert(TargetAlignment > RequiredAlignment &&
          "Peeling makes sense only if TargetAlignment > RequiredAlignment");
   assert(Step % RequiredAlignment.value() == 0 && "Bad RequiredAlignment");
@@ -69,7 +69,7 @@ VPlanDynamicPeeling::VPlanDynamicPeeling(VPInstruction *Memref,
       InvariantBase(AccessAddress.InvariantBase),
       RequiredAlignment(MinAlign(0, AccessAddress.Step)),
       TargetAlignment(TargetAlignment),
-      Multiplier(computeMultiplierForDynamicPeeling(
+      Multiplier(computeMultiplierForPeeling(
           AccessAddress.Step, RequiredAlignment, TargetAlignment)) {}
 
 int VPlanPeelingCostModelSimple::getCost(VPInstruction *Mrf, int VF,
@@ -148,7 +148,109 @@ VPlanPeelingAnalysis::selectBestPeelingVariant(int VF) {
 
 std::pair<VPlanStaticPeeling, int>
 VPlanPeelingAnalysis::selectBestStaticPeelingVariant(int VF) {
-  return {VPlanStaticPeeling(0), 0};
+  // We are going to compute profit for every possible static peel count and
+  // select the most profitable one. The peel count can be any number in
+  // [0...VF) interval. PeelCountProfit is a zero-initialized array of profits
+  // for every possible peel count.
+  std::vector<int> PeelCountProfit(VF);
+
+  for (VPlanPeelingCandidate &Cand : CandidateMemrefs) {
+    VPInstruction *Memref = Cand.memref();
+    auto Step = Cand.accessAddress().Step;
+    const KnownBits &KB = Cand.invariantBaseKnownBits();
+
+    // How many lower bits are known.
+    auto Known = (KB.Zero | KB.One).countTrailingOnes();
+
+    // Required initial alignment.
+    Align ReqAlign(MinAlign(0, Step));
+
+    // Nothing can be done if there's not enough known bits.
+    if (Known <= Log2(ReqAlign))
+      continue;
+
+    // Initial cost of the memory access.
+    int CostBasis = CM->getCost(Memref, VF, ReqAlign);
+
+    // How much we can improve alignment of the memref.
+    int MaxExtraBits = std::min<int>(Known - Log2(ReqAlign), Log2_32(VF));
+
+    // The best alignment that can be achieved is (VF * ReqAlign). However, the
+    // algorithm below tries smaller alignments as well (starting from
+    // 2 * ReqAlign). The smaller alignments may be beneficial as well and may
+    // allow to align more memrefs simultaneously.
+    //
+    // The algorithm computes profit incrementally. It starts with 2*ReqAlign
+    // (ExtraBits = 1), continues with 4*ReqAlign (ExtraBits = 2) and so on up
+    // to VF*ReqAlign. At each step, the algorithm computes profit relative to
+    // the previous step. As an example, let's assume that Memref is an access
+    // to i32, that VF = 8, and that the access to <8 x i32> would be aligned
+    // by 32 with peel count = 3. Then, PeelCountProfit[3] will be updated in
+    // three steps:
+    //
+    //   ExtraBits = 1 (TgtAlign = 8):
+    //     PeelCountProfit[3] += cost(align = 4) - cost(align = 8)
+    //
+    //   ExtraBits = 2 (TgtAlign = 16):
+    //     PeelCountProfit[3] += cost(align = 8) - cost(align = 16)
+    //
+    //   ExtraBits = 3 (TgtAlign = 32):
+    //     PeelCountProfit[3] += cost(align = 16) - cost(align = 32)
+    //
+    // Obviously, if we combine all the updates, the net result is as expected:
+    //
+    //   PeelCountProfit[3] += cost(align = 4) - cost(align = 32)
+    //
+    for (int ExtraBits = 1; ExtraBits <= MaxExtraBits; ++ExtraBits) {
+      Align TgtAlign = ReqAlign * (1ULL << ExtraBits);
+      int NewCost = CM->getCost(Memref, VF, TgtAlign);
+
+      // Check if the new alignment is beneficial at all.
+      if (NewCost == CostBasis)
+        continue;
+
+      // Compute the difference between the previous and the new costs. Update
+      // the cost basis.
+      auto Profit = CostBasis - NewCost;
+      assert(Profit > 0 && "Broken cost model");
+      CostBasis = NewCost;
+
+      // Compute the peel count to make the memref aligned by TgtAlign.
+      auto Multiplier = computeMultiplierForPeeling(Step, ReqAlign, TgtAlign);
+      assert(KB.One.getLoBits(Log2(ReqAlign)) == 0 &&
+             "Misaligned memory access in CandidateMemrefs");
+      auto Quotient = KB.One.lshr(Log2(ReqAlign)).getZExtValue();
+      auto MinPeelCount = (Quotient * Multiplier) & ((1 << ExtraBits) - 1);
+
+      // MinPeelCount is the smallest peel count to achieve the new alignment,
+      // but it may be not the only one in [0...VF) interval. For example,
+      // for access to i32 with base_address ≡ 20 (mod 32) and VF = 8:
+      //
+      //   ExtraBits = 1 (TgtAlign = 8):
+      //     MinPeelCount = 1;
+      //     PeelCountProfit[1] += cost(align = 4) - cost(align = 8);
+      //     PeelCountProfit[3] += cost(align = 4) - cost(align = 8);
+      //     PeelCountProfit[5] += cost(align = 4) - cost(align = 8);
+      //     PeelCountProfit[7] += cost(align = 4) - cost(align = 8);
+      //
+      //   ExtraBits = 2 (TgtAlign = 16):
+      //     MinPeelCount = 3;
+      //     PeelCountProfit[3] += cost(align = 8) - cost(align = 16);
+      //     PeelCountProfit[7] += cost(align = 8) - cost(align = 16);
+      //
+      //   ExtraBits = 3 (TgtAlign = 32):
+      //     MinPeelCount = 3;
+      //     PeelCountProfit[3] += cost(align = 16) - cost(align = 32);
+      //
+      for (int PC = MinPeelCount; PC < VF; PC += (1 << ExtraBits))
+        PeelCountProfit[PC] += Profit;
+    }
+  }
+
+  auto Iter = std::max_element(PeelCountProfit.begin(), PeelCountProfit.end());
+  int BestPeelCount = std::distance(PeelCountProfit.begin(), Iter);
+  int MaxProfit = *Iter;
+  return { VPlanStaticPeeling(BestPeelCount), MaxProfit };
 }
 
 Optional<std::pair<VPlanDynamicPeeling, int>>

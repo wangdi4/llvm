@@ -398,7 +398,8 @@ void VPInstruction::print(raw_ostream &O,
       O << "[DA: Uni] ";
   }
 
-  if (getOpcode() != Instruction::Store && !isa<VPBranchInst>(this)) {
+  if (getOpcode() != Instruction::Store && !isa<VPBranchInst>(this) &&
+      !isa<VPTerminator>(this)) {
     printAsOperand(O);
     O << " = ";
   }
@@ -411,6 +412,9 @@ void VPInstruction::print(raw_ostream &O,
 #if INTEL_CUSTOMIZATION
   case Instruction::Br:
     cast<VPBranchInst>(this)->print(O);
+    return;
+  case VPInstruction::Terminator:
+    cast<VPTerminator>(this)->print(O);
     return;
   case VPInstruction::Blend: {
     cast<VPBlendInst>(this)->print(O);
@@ -914,7 +918,61 @@ void VPBlendInst::print(raw_ostream &O) const {
     PrintValueWithBP(i);
   }
 }
+
+void VPTerminator::print(raw_ostream &O) const {
+  if (Successors.empty())
+    O << "br <External Block>";
+  else
+    O << "br ";
+  if (CondBit) {
+    CondBit->printAsOperand(O);
+    O << ", ";
+  }
+  for (unsigned I = 0; I < Successors.size(); I++) {
+    if (I > 0)
+      O << ", ";
+    O << Successors[I]->getName();
+  }
+}
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+void VPTerminator::appendSuccessor(VPBasicBlock *Successor) {
+  assert(Successor && "Cannot add nullptr successor!");
+  Successors.push_back(Successor);
+  Successor->addUser(*this);
+}
+
+void VPTerminator::removeSuccessor(VPBasicBlock *Successor) {
+  auto Pos = std::find(Successors.begin(), Successors.end(), Successor);
+  assert(Pos && "Successor does not exist");
+  Successors.erase(Pos);
+  Successor->removeUser(*this);
+}
+
+void VPTerminator::replaceSuccessor(VPBasicBlock *OldSuccessor,
+                                    VPBasicBlock *NewSuccessor) {
+
+  auto SuccIt = std::find(Successors.begin(), Successors.end(), OldSuccessor);
+  assert(SuccIt != Successors.end() && "Successor not found");
+  SuccIt = Successors.erase(SuccIt);
+  Successors.insert(SuccIt, NewSuccessor);
+
+  OldSuccessor->removeUser(*this);
+  NewSuccessor->addUser(*this);
+}
+
+void VPTerminator::setOneSuccessor(VPBasicBlock *Successor) {
+  assert(Successors.empty() && "Setting one successor when others exist.");
+  appendSuccessor(Successor);
+}
+
+void VPTerminator::setTwoSuccessors(VPValue *ConditionV, VPBasicBlock *IfTrue,
+                                    VPBasicBlock *IfFalse) {
+  assert(Successors.empty() && "Setting two successors when others exist.");
+  setCondBit(ConditionV);
+  appendSuccessor(IfTrue);
+  appendSuccessor(IfFalse);
+}
 
 void VPValue::replaceAllUsesWithImpl(VPValue *NewVal, VPLoop *Loop,
                                      VPBasicBlock *VPBB, bool InvalidateIR) {

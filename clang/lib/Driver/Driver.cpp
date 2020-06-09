@@ -414,6 +414,56 @@ static void addIntelDeviceLibs(const ToolChain &TC, Driver::InputList &Inputs,
     }
   }
 }
+
+// Add any Intel specific options to the command line which are implied or
+// are the default.
+void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
+                                 const llvm::opt::OptTable &Opts) const {
+  if (Args.hasArg(options::OPT__intel)) {
+    // The Intel compiler defaults to -O2
+    if (!Args.hasArg(options::OPT_O_Group))
+      DAL.AddJoinedArg(0, Opts.getOption(options::OPT_O), "2");
+    // For LTO on Windows, use -fuse-ld=lld when Qipo is used.
+    if (Args.hasArg(options::OPT_flto) &&
+        !Args.hasArg(options::OPT_fuse_ld_EQ)) {
+      Arg *A = Args.getLastArg(options::OPT_flto);
+      StringRef Opt(A->getAsString(Args));
+      // TODO - improve determination of last phase
+      if (Opt.contains("Qipo") && !Args.hasArg(options::OPT_c, options::OPT_S))
+        DAL.AddJoinedArg(0, Opts.getOption(options::OPT_fuse_ld_EQ), "lld");
+    }
+  }
+  // Make SVML the default for dpcpp and --intel.
+  // FIXME: This is temporary, as moving forward --intel should be the
+  // default for dpcpp compilations.  We cannot do this right now due to a
+  // problem with testing (use of dpcpp on Windows, causing link problems with
+  // Intel specific libs)
+  if (Args.hasArg(options::OPT__intel, options::OPT__dpcpp))
+    // -fveclib=SVML default.
+    if (!Args.hasArg(options::OPT_fveclib))
+      DAL.AddJoinedArg(0, Opts.getOption(options::OPT_fveclib), "SVML");
+
+  // Any -debug options will be 'replaced' with -g equivalents to simplify
+  // logic later in the driver.
+  if (Arg *A = Args.getLastArg(options::OPT_intel_debug_Group,
+                               options::OPT_g_Group)) {
+    if (A->getOption().matches(options::OPT_intel_debug_Group)) {
+      StringRef Value(A->getValue());
+      if (Value != "none")
+        DAL.AddFlagArg(A, Opts.getOption(options::OPT_g_Flag));
+      if (Value == "full" || Value == "all" || Value == "extended" ||
+          Value == "parallel")
+        ; // Do nothing, we already enabled debug above
+      else if (Value == "minimal")
+        DAL.AddFlagArg(A, Opts.getOption(options::OPT_gline_tables_only));
+      else if (Value == "emit-column")
+        DAL.AddFlagArg(A, Opts.getOption(options::OPT_gcolumn_info));
+      else if (Value != "none")
+        Diag(diag::err_drv_unsupported_option_argument)
+            << A->getOption().getName() << A->getValue();
+    }
+  }
+}
 #endif // INTEL_CUSTOMIZATION
 
 DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
@@ -519,31 +569,7 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
   }
 #endif
 
-#if INTEL_CUSTOMIZATION
-  if (Args.hasArg(options::OPT__intel)) {
-    // The Intel compiler defaults to -O2
-    if (!Args.hasArg(options::OPT_O_Group))
-      DAL->AddJoinedArg(0, Opts.getOption(options::OPT_O), "2");
-    // For LTO on Windows, use -fuse-ld=lld when Qipo is used.
-    if (Args.hasArg(options::OPT_flto) &&
-        !Args.hasArg(options::OPT_fuse_ld_EQ)) {
-      Arg *A = Args.getLastArg(options::OPT_flto);
-      StringRef Opt(A->getAsString(Args));
-      // TODO - improve determination of last phase
-      if (Opt.contains("Qipo") && !Args.hasArg(options::OPT_c, options::OPT_S))
-        DAL->AddJoinedArg(0, Opts.getOption(options::OPT_fuse_ld_EQ), "lld");
-    }
-  }
-  // Make SVML the default for dpcpp and --intel.
-  // FIXME: This is temporary, as moving forward --intel should be the
-  // default for dpcpp compilations.  We cannot do this right now due to a
-  // problem with testing (use of dpcpp on Windows, causing link problems with
-  // Intel specific libs)
-  if (Args.hasArg(options::OPT__intel, options::OPT__dpcpp))
-    // -fveclib=SVML default.
-    if (!Args.hasArg(options::OPT_fveclib))
-      DAL->AddJoinedArg(0, Opts.getOption(options::OPT_fveclib), "SVML");
-#endif // INTEL_CUSTOMIZATION
+  addIntelArgs(*DAL, Args, Opts);
 
   return DAL;
 }

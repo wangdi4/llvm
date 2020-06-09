@@ -59,6 +59,7 @@ static void CheckPreprocessingOptions(const Driver &D, const ArgList &Args) {
   if (Arg *A =
           Args.getLastArg(clang::driver::options::OPT_C, options::OPT_CC)) {
     if (!Args.hasArg(options::OPT_E) && !Args.hasArg(options::OPT__SLASH_P) &&
+        !Args.hasArg(options::OPT_EP) && // INTEL
         !Args.hasArg(options::OPT__SLASH_EP) && !D.CCCIsCPP()) {
       D.Diag(clang::diag::err_drv_argument_only_allowed_with)
           << A->getBaseArg().getAsString(Args)
@@ -5088,6 +5089,13 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   Args.AddLastArg(CmdArgs, options::OPT_P);
   Args.AddLastArg(CmdArgs, options::OPT_print_ivar_layout);
 
+#if INTEL_CUSTOMIZATION
+  // EP should expand to -E -P.
+  if (Args.hasArg(options::OPT_EP)) {
+    CmdArgs.push_back("-E");
+    CmdArgs.push_back("-P");
+  }
+#endif // INTEL_CUSTOMIZATION
   if (D.CCLogDiagnostics && !D.CCGenDiagnostics) {
     CmdArgs.push_back("-diagnostic-log-file");
     CmdArgs.push_back(D.CCLogDiagnosticsFilename ? D.CCLogDiagnosticsFilename
@@ -5431,6 +5439,12 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-fopenmp-simd");
     CmdArgs.push_back("-fopenmp-late-outline");
   }
+  // When compiling for SPIR, we want to be sure that -fiopenmp is used
+  // and not -fopenmp.
+  if (IsOpenMPDevice && !Args.hasArg(options::OPT_fiopenmp) &&
+      Args.hasArg(options::OPT_fopenmp_EQ, options::OPT_fopenmp) &&
+      Triple.isSPIR())
+    D.Diag(diag::err_drv_fopenmp_targets_requires_fiopenmp);
 
   if (Arg *A = Args.getLastArg(options::OPT_qopenmp_threadprivate_EQ)) {
     StringRef Value = A->getValue();
@@ -6649,6 +6663,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   }
 
 #if INTEL_CUSTOMIZATION
+  if (Arg *A = Args.getLastArg(options::OPT_fstack_limit_register_EQ)) {
+    A->render(Args, CmdArgs);
+  }
   if (Args.hasArg(options::OPT_fno_alias)) {
     CmdArgs.push_back("-fargument-noalias");
   }

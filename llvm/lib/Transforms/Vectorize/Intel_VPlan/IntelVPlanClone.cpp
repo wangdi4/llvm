@@ -93,7 +93,6 @@ VPBasicBlock *VPCloneUtils::cloneBlocksRange(VPBasicBlock *Begin,
     for (VPBasicBlock *OrigSucc : BB->getSuccessors()) {
       auto *CloneSucc = cast<VPBasicBlock>(ValueMap[OrigSucc]);
       Clone->appendSuccessor(CloneSucc);
-      CloneSucc->appendPredecessor(Clone);
     }
   }
 

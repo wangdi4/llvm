@@ -189,6 +189,9 @@ FunctionPass *createHIRRowWiseMVPass();
 
 /// Create pass that performs merged load/store motion.
 FunctionPass *createHIRConditionalLoadStoreMotionPass();
+
+/// Create pass that stores result into a temp array.
+FunctionPass *createHIRStoreResultIntoTempArrayPass();
 } // namespace llvm
 
 #endif

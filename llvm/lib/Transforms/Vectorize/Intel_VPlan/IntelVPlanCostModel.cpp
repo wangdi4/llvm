@@ -209,11 +209,15 @@ unsigned VPlanCostModel::getLoadStoreIndexSize(
   unsigned NumOfVarIndices = 0;
   for (auto *OpIt = VPGEP->op_begin() + 1; OpIt != VPGEP->op_end(); ++OpIt) {
     const VPConstant* VPConst = dyn_cast<VPConstant>(*OpIt);
-    if (VPConst && VPConst->isConstantInt()) {
-      int64_t Val = cast<ConstantInt>(VPConst->getConstant())->getSExtValue();
-      if (Val <= LONG_MAX && Val >= LONG_MIN)
-        continue;
-    }
+    // We don't check that the Constant fits 32 bits as we expect CG is able to
+    // pull the splat Constant into splat Base and form scalar base for gather/
+    // scatter which is Base + Constant.
+    //
+    // TODO:
+    // Currently it doesn't happen as uniform Base is not recognized by ISel.
+    // Once we see a problem due to that we need to fix it in CG.
+    if (VPConst && VPConst->isConstantInt())
+      continue;
 
     const VPInstruction* VPIdx = dyn_cast<VPInstruction>(*OpIt);
     if (!VPIdx || ++NumOfVarIndices > 1)
@@ -317,6 +321,9 @@ unsigned VPlanCostModel::getLoadStoreCost(const VPInstruction *VPInst) {
                                    Alignment ? Align(Alignment): Align(),
                                    AddrSpace);
 
+  // TODO:
+  // Currently TTI doesn't add cost of index split and data join in case
+  // gather/scatter operation is implemented with two HW gathers/scatters.
   return TTI->getGatherScatterOpCost(
     Opcode, VecTy, getLoadStoreIndexSize(VPInst),
     IsMasked, Alignment, AddrSpace);
@@ -368,6 +375,9 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
     return 0;
   // This is a no-op - used to mark block predicate.
   case VPInstruction::Pred:
+    return 0;
+  // No-op terminator instruction.
+  case VPInstruction::Terminator:
     return 0;
 #endif // INTEL_CUSTOMIZATION
   case Instruction::Load:
@@ -510,7 +520,8 @@ void VPlanCostModel::printForVPBasicBlock(raw_ostream &OS,
   OS << "Analyzing VPBasicBlock " << VPBB->getName() << ", total cost: " <<
     getCostNumberString(getCost(VPBB)) << '\n';
   for (const VPInstruction &VPInst : *VPBB)
-    printForVPInstruction(OS, &VPInst);
+    if (PrintTerminatorInst || !isa<VPTerminator>(VPInst))
+      printForVPInstruction(OS, &VPInst);
 }
 
 void VPlanCostModel::print(raw_ostream &OS, const std::string &Header) {

@@ -1461,6 +1461,12 @@ def : ProcessorModel<"cannonlake", SkylakeServerModel,
                      ProcessorFeatures.CNLFeatures>;
 def : ProcessorModel<"icelake-client", SkylakeServerModel,
                      ProcessorFeatures.ICLFeatures>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_RKL
+def : ProcessorModel<"rocketlake", SkylakeServerModel,
+                     ProcessorFeatures.ICLFeatures>;
+#endif // INTEL_FEATURE_CPU_RKL
+#endif // INTEL_CUSTOMIZATION
 def : ProcessorModel<"icelake-server", SkylakeServerModel,
                      ProcessorFeatures.ICXFeatures>;
 def : ProcessorModel<"tigerlake", SkylakeServerModel,

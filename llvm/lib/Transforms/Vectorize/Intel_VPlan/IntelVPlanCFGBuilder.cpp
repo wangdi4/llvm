@@ -23,17 +23,6 @@ using namespace llvm::vpo;
 #define DEBUG_TYPE "vplan-cfg-builder"
 
 template <class CFGBuilder>
-void VPlanCFGBuilderBase<CFGBuilder>::setVPBBPredsFromBB(VPBasicBlock *VPBB,
-                                                         BasicBlock *BB) {
-  SmallVector<VPBasicBlock *, 8> VPBBPreds;
-  // Collect VPBB predecessors.
-  for (BasicBlock *Pred : predecessors(BB))
-    VPBBPreds.push_back(getOrCreateVPBB(Pred));
-
-  VPBB->setPredecessors(VPBBPreds);
-}
-
-template <class CFGBuilder>
 void VPlanCFGBuilderBase<CFGBuilder>::fixPhiNodes() {
   for (auto *Phi : PhisToFix) {
     assert(IRDef2VPValue.count(Phi) && "Missing VPInstruction for PHINode.");
@@ -286,9 +275,6 @@ void VPlanCFGBuilderBase<CFGBuilder>::processBB(BasicBlock *BB) {
   } else {
     llvm_unreachable("Number of successors not supported");
   }
-
-  // Set VPBB predecessors in the same order as they are in the incoming BB.
-  setVPBBPredsFromBB(VPBB, BB);
 }
 
 void VPlanLoopCFGBuilder::buildCFG() {
@@ -327,12 +313,6 @@ void VPlanLoopCFGBuilder::buildCFG() {
   // related or not to the loop nest, we do not create VPInstructions for them.
   SmallVector<BasicBlock *, 2> LoopExits;
   TheLoop->getUniqueExitBlocks(LoopExits);
-  for (BasicBlock *BB : LoopExits) {
-    VPBasicBlock *VPBB = BB2VPBB[BB];
-    // Loop exit was already set as successor of the loop exiting BB.
-    // We only set its predecessor VPBB now.
-    setVPBBPredsFromBB(VPBB, BB);
-  }
 
   // 3. The whole CFG has been built at this point so all the input Values must
   // have a VPlan couterpart. Fix VPlan phi nodes by adding their corresponding
@@ -344,7 +324,7 @@ void VPlanLoopCFGBuilder::buildCFG() {
   VPBasicBlock *PlanEntryBB =
       new VPBasicBlock(VPlanUtils::createUniqueName("BB"), Plan);
   Plan->insertAtFront(PlanEntryBB);
-  VPBlockUtils::connectBlocks(PlanEntryBB, PreheaderVPBB);
+  PlanEntryBB->appendSuccessor(PreheaderVPBB);
 
   // Create ExitBlock.
   VPBasicBlock *NewPlanExitBB =
@@ -354,7 +334,7 @@ void VPlanLoopCFGBuilder::buildCFG() {
   // Update CFG for ExitBlock.
   if (LoopExits.size() == 1) {
     VPBasicBlock *LoopExitVPBB = BB2VPBB[LoopExits.front()];
-    VPBlockUtils::connectBlocks(LoopExitVPBB, NewPlanExitBB);
+    LoopExitVPBB->appendSuccessor(NewPlanExitBB);
   } else {
     // If there are multiple exits in the outermost loop, we need another dummy
     // block as landing pad for all of them.
@@ -367,11 +347,11 @@ void VPlanLoopCFGBuilder::buildCFG() {
     // Connect multiple exits to landing pad
     for (auto ExitBB : make_range(LoopExits.begin(), LoopExits.end())) {
       VPBasicBlock *ExitVPBB = BB2VPBB[ExitBB];
-      VPBlockUtils::connectBlocks(ExitVPBB, LandingPad);
+      ExitVPBB->appendSuccessor(LandingPad);
     }
 
     // Connect landing pad to ExitBlock.
-    VPBlockUtils::connectBlocks(LandingPad, NewPlanExitBB);
+    LandingPad->appendSuccessor(NewPlanExitBB);
   }
 
   return;

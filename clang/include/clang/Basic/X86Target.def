@@ -199,6 +199,14 @@ PROC(SapphireRapids, "sapphirerapids", PROC_64_BIT)
 #endif // INTEL_FEATURE_CPU_SPR
 #endif // INTEL_CUSTOMIZATION
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_RKL
+/// \name Rocketlake
+/// Rocketlake microarchitecture based processors.
+PROC(Rocketlake, "rocketlake", PROC_64_BIT)
+#endif // INTEL_FEATURE_CPU_RKL
+#endif // INTEL_CUSTOMIZATION
+
 /// \name Knights Landing
 /// Knights Landing processor.
 PROC_WITH_FEAT(KNL, "knl", PROC_64_BIT, FEATURE_AVX512F)

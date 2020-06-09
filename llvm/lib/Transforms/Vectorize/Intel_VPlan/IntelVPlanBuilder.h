@@ -98,7 +98,7 @@ public:
   VPBuilder &setInsertPoint(VPBasicBlock *TheBB) {
     assert(TheBB && "Attempting to set a null insert point");
     BB = TheBB;
-    InsertPt = BB->end();
+    InsertPt = BB->terminator();
     return *this;
   }
 

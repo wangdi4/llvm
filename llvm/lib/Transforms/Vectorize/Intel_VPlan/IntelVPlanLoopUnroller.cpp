@@ -184,14 +184,13 @@ void VPlanLoopUnroller::run(VPInstUnrollPartTy *VPInstUnrollPart) {
     }
 
     // Insert cloned blocks into the loop.
-    for (auto Succ : ClonedLatch->getSuccessors())
-      VPBlockUtils::disconnectBlocks(ClonedLatch, Succ);
+    ClonedLatch->clearSuccessors();
 
     for (auto Pred : ClonedHeader->getPredecessors())
-      VPBlockUtils::disconnectBlocks(Pred, ClonedHeader);
+      Pred->removeSuccessor(ClonedHeader);
 
     VPBlockUtils::moveSuccessors(CurrentLatch, ClonedLatch);
-    VPBlockUtils::connectBlocks(CurrentLatch, ClonedHeader);
+    CurrentLatch->appendSuccessor(ClonedHeader);
 
     // Move forward latch's condition.
     VPValue *CondBit = CurrentLatch->getCondBit();

@@ -18,13 +18,13 @@ define void @main(i32 %vf) {
 ; CHECK-NEXT:    [[BB1]]:
 ; CHECK-NEXT:     i32 [[VP_OUTER_LOOP_INDUCTION_VAR:%.*]] = phi  [ i32 0, [[BB0]] ],  [ i32 [[VP_OUTER_LOOP_INDUCTION:%.*]], [[BB2:BB[0-9]+]] ]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB3:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(2): [[BB2]] [[BB0]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]:
 ; CHECK-NEXT:     i32 [[VP_INNER_LOOP_1_INDUCTION_VAR:%.*]] = phi  [ i32 0, [[BB1]] ],  [ i32 [[VP_INNER_LOOP_1_INDUCTION_SSA_PHI:%.*]], [[NEW_LOOP_LATCH0:new.loop.latch[0-9]+]] ]
 ; CHECK-NEXT:     i1 [[VP_CMP1:%.*]] = icmp i32 [[VP_INNER_LOOP_1_INDUCTION_VAR]] i32 8
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP_CMP1]]), [[INTERMEDIATE_BB0:intermediate.bb[0-9]+]](!i1 [[VP_CMP1]])
-; CHECK-NEXT:    PREDECESSORS(2): [[NEW_LOOP_LATCH0]] [[BB1]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]:
 ; CHECK-NEXT:       <Empty Block>
@@ -35,7 +35,7 @@ define void @main(i32 %vf) {
 ; CHECK-NEXT:       i32 [[VP_INNER_LOOP_2_INDUCTION_VAR:%.*]] = phi  [ i32 0, [[BB4]] ],  [ i32 [[VP_INNER_LOOP_2_INDUCTION_SSA_PHI:%.*]], [[NEW_LOOP_LATCH1:new.loop.latch[0-9]+]] ]
 ; CHECK-NEXT:       i1 [[VP_CMP2:%.*]] = icmp i32 [[VP_INNER_LOOP_2_INDUCTION_VAR]] i32 16
 ; CHECK-NEXT:      SUCCESSORS(2):[[BB6:BB[0-9]+]](i1 [[VP_CMP2]]), [[INTERMEDIATE_BB1:intermediate.bb[0-9]+]](!i1 [[VP_CMP2]])
-; CHECK-NEXT:      PREDECESSORS(2): [[NEW_LOOP_LATCH1]] [[BB4]]
+; CHECK-NEXT:      PREDECESSORS(2): [[BB4]] [[NEW_LOOP_LATCH1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[INTERMEDIATE_BB1]]:
 ; CHECK-NEXT:         <Empty Block>
@@ -133,7 +133,7 @@ define void @main(i32 %vf) {
 ; CHECK-NEXT:     i32 [[VP_OUTER_LOOP_INDUCTION]] = add i32 [[VP_OUTER_LOOP_INDUCTION_VAR]] i32 [[VF0:%.*]]
 ; CHECK-NEXT:     i1 [[VP_CMP4:%.*]] = icmp i32 [[VP_OUTER_LOOP_INDUCTION]] i32 1024
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB1]](i1 [[VP_CMP4]]), [[BB13:BB[0-9]+]](!i1 [[VP_CMP4]])
-; CHECK-NEXT:    PREDECESSORS(2): [[BB11]] [[BB12]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB12]] [[BB11]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB13]]:
 ; CHECK-NEXT:     <Empty Block>

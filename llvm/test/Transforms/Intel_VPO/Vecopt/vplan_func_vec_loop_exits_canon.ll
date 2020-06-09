@@ -26,7 +26,7 @@ define void @test_simple_while() {
 ; CHECK-NEXT:     i32 [[VP_IV_NEXT]] = add i32 [[VP_IV]] i32 1
 ; CHECK-NEXT:     i1 [[VP_EXITCOND:%.*]] = icmp i32 [[VP_IV]] i32 42
 ; CHECK-NEXT:    SUCCESSORS(2):[[NEW_LOOP_LATCH0]](i1 [[VP_EXITCOND]]), [[BB2:BB[0-9]+]](!i1 [[VP_EXITCOND]])
-; CHECK-NEXT:    PREDECESSORS(2): [[NEW_LOOP_LATCH0]] [[BB0]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB2]]:
 ; CHECK-NEXT:       <Empty Block>
@@ -72,7 +72,7 @@ define void @test_multi_exit() {
 ; CHECK-NEXT:     i32 [[VP_IV_NEXT]] = add i32 [[VP_IV]] i32 1
 ; CHECK-NEXT:     i1 [[VP_SIDEEXIT_COND:%.*]] = icmp i32 [[VP_IV]] i32 [[VP_LANE]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[INTERMEDIATE_BB0:intermediate.bb[0-9]+]](i1 [[VP_SIDEEXIT_COND]]), [[BB2:BB[0-9]+]](!i1 [[VP_SIDEEXIT_COND]])
-; CHECK-NEXT:    PREDECESSORS(2): [[NEW_LOOP_LATCH0]] [[BB0]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB2]]:
 ; CHECK-NEXT:       i1 [[VP_EXIT_COND:%.*]] = icmp i32 [[VP_IV]] i32 42
@@ -128,7 +128,7 @@ define void @test_while_loop_with_allzero() {
 ; CHECK-NEXT:     i1 [[VP_MASK:%.*]] = phi  [ i1 true, [[BB0]] ],  [ i1 [[VP_MASK_NEXT:%.*]], [[NEW_LOOP_LATCH0]] ]
 ; CHECK-NEXT:     i32 [[VP_LIVEOUT_PREV:%.*]] = phi  [ i32 undef, [[BB0]] ],  [ i32 [[VP_LIVEOUT:%.*]], [[NEW_LOOP_LATCH0]] ]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2:BB[0-9]+]](i1 [[VP_MASK]]), [[BB3:BB[0-9]+]](!i1 [[VP_MASK]])
-; CHECK-NEXT:    PREDECESSORS(2): [[NEW_LOOP_LATCH0]] [[BB0]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB2]]:
 ; CHECK-NEXT:       i32 [[VP_ADD:%.*]] = add i32 [[VP_LOOP_IV]] i32 7
@@ -143,7 +143,7 @@ define void @test_while_loop_with_allzero() {
 ; CHECK-NEXT:     i1 [[VP_MASK_NEXT]] = and i1 [[VP_MASK]] i1 [[VP_NOT]]
 ; CHECK-NEXT:     i1 [[VP_EXIT_COND:%.*]] = call i1 [[VP_MASK_NEXT]] i1 (i1)* @allzero
 ; CHECK-NEXT:    SUCCESSORS(2):[[NEW_LOOP_LATCH0]](i1 [[VP_EXIT_COND]]), [[BB4:BB[0-9]+]](!i1 [[VP_EXIT_COND]])
-; CHECK-NEXT:    PREDECESSORS(2): [[BB2]] [[BB1]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]:
 ; CHECK-NEXT:       <Empty Block>
