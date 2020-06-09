@@ -366,6 +366,7 @@ set( SYCL_TOOLCHAIN_DEPLOY_COMPONENTS
      sycl-headers-extras
      sycl
      pi_opencl
+     pi_level0
      libsycldevice
 # INTEL_CUSTOMIZATION
      # Please add xmain specific deploy components

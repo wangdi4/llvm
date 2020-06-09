@@ -1,8 +1,34 @@
+<<<<<<< HEAD
+=======
+//===---------- pi_level0.hpp - Level Zero Plugin -------------------------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+
+/// \defgroup sycl_pi_level0 Level Zero Plugin
+/// \ingroup sycl_pi
+
+/// \file pi_level0.hpp
+/// Declarations for Level Zero Plugin. It is the interface between the
+/// device-agnostic SYCL runtime layer and underlying Level Zero runtime.
+///
+/// \ingroup sycl_pi_level0
+
+#ifndef PI_LEVEL0_HPP
+#define PI_LEVEL0_HPP
+
+>>>>>>> d32da99fed6595c11c4be40f8db2312e11b07cdf
 #include <CL/sycl/detail/pi.h>
 #include <atomic>
 #include <cassert>
 #include <iostream>
+<<<<<<< HEAD
 #include <map>
+=======
+>>>>>>> d32da99fed6595c11c4be40f8db2312e11b07cdf
 #include <mutex>
 #include <unordered_map>
 
@@ -22,21 +48,42 @@ template <> uint32_t pi_cast(uint64_t Value) {
 }
 
 // TODO: Currently die is defined in each plugin. Probably some
+<<<<<<< HEAD
 // common header file with utilities should be created. Resolve after open
 // sourcing.
+=======
+// common header file with utilities should be created.
+>>>>>>> d32da99fed6595c11c4be40f8db2312e11b07cdf
 [[noreturn]] void die(const char *Message) {
   std::cerr << "die: " << Message << std::endl;
   std::terminate();
 }
 
+<<<<<<< HEAD
+=======
+// Base class to store common data
+struct _pi_object {
+  _pi_object() : RefCount{1} {}
+
+  // L0 doesn't do the reference counting, so we have to do.
+  // Must be atomic to prevent data race when incrementing/decrementing.
+  std::atomic<pi_uint32> RefCount;
+};
+
+>>>>>>> d32da99fed6595c11c4be40f8db2312e11b07cdf
 // Define the types that are opaque in pi.h in a manner suitabale for L0 plugin
 
 struct _pi_platform {
   _pi_platform(ze_driver_handle_t Driver) : ZeDriver{Driver} {}
 
+<<<<<<< HEAD
   // L0 lacks the notion of a platform, but thert is a driver, which is a
   // pretty good fit to keep here.
   //
+=======
+  // L0 lacks the notion of a platform, but there is a driver, which is a
+  // pretty good fit to keep here.
+>>>>>>> d32da99fed6595c11c4be40f8db2312e11b07cdf
   ze_driver_handle_t ZeDriver;
 
   // Cache versions info from zeDriverGetProperties.
@@ -44,11 +91,19 @@ struct _pi_platform {
   std::string ZeDriverApiVersion;
 };
 
+<<<<<<< HEAD
 struct _pi_device {
   _pi_device(ze_device_handle_t Device, pi_platform Plt,
              bool isSubDevice = false)
       : ZeDevice{Device}, Platform{Plt}, ZeCommandListInit{nullptr},
         IsSubDevice{isSubDevice}, RefCount{1}, ZeDeviceProperties{},
+=======
+struct _pi_device : _pi_object {
+  _pi_device(ze_device_handle_t Device, pi_platform Plt,
+             bool isSubDevice = false)
+      : ZeDevice{Device}, Platform{Plt}, ZeCommandListInit{nullptr},
+        IsSubDevice{isSubDevice}, ZeDeviceProperties{},
+>>>>>>> d32da99fed6595c11c4be40f8db2312e11b07cdf
         ZeDeviceComputeProperties{} {
     // NOTE: one must additionally call initialize() to complete
     // PI device creation.
@@ -57,7 +112,11 @@ struct _pi_device {
   // Initialize the entire PI device.
   pi_result initialize();
 
+<<<<<<< HEAD
 // L0 device handle.
+=======
+  // L0 device handle.
+>>>>>>> d32da99fed6595c11c4be40f8db2312e11b07cdf
   ze_device_handle_t ZeDevice;
 
   // PI platform to which this device belongs.
@@ -74,6 +133,7 @@ struct _pi_device {
   // Indicates if this is a root-device or a sub-device.
   // Technically this information can be queried from a device handle, but it
   // seems better to just keep it here.
+<<<<<<< HEAD
   //
   bool IsSubDevice;
 
@@ -85,6 +145,13 @@ struct _pi_device {
   // It's caller's responsibility to remember and destroy the created
   // command list when no longer needed.
   //
+=======
+  bool IsSubDevice;
+
+  // Create a new command list for executing on this device.
+  // It's caller's responsibility to remember and destroy the created
+  // command list when no longer needed.
+>>>>>>> d32da99fed6595c11c4be40f8db2312e11b07cdf
   pi_result createCommandList(ze_command_list_handle_t *ze_command_list);
 
   // Cache of the immutable device properties.
@@ -92,14 +159,22 @@ struct _pi_device {
   ze_device_compute_properties_t ZeDeviceComputeProperties;
 };
 
+<<<<<<< HEAD
 struct _pi_context {
   _pi_context(pi_device Device)
       : Device{Device}, RefCount{1}, ZeEventPool{nullptr},
         NumEventsAvailableInEventPool{}, NumEventsLiveInEventPool{} {}
+=======
+struct _pi_context : _pi_object {
+  _pi_context(pi_device Device)
+      : Device{Device}, ZeEventPool{nullptr}, NumEventsAvailableInEventPool{},
+        NumEventsLiveInEventPool{} {}
+>>>>>>> d32da99fed6595c11c4be40f8db2312e11b07cdf
 
   // L0 does not have notion of contexts.
   // Keep the device here (must be exactly one) to return it when PI context
   // is queried for devices.
+<<<<<<< HEAD
   //
   pi_device Device;
 
@@ -107,6 +182,10 @@ struct _pi_context {
   // Must be atomic to prevent data race when incrementing/decrementing.
   std::atomic<pi_uint32> RefCount;
 
+=======
+  pi_device Device;
+
+>>>>>>> d32da99fed6595c11c4be40f8db2312e11b07cdf
   // Get index of the free slot in the available pool. If there is no avialble
   // pool then create new one.
   ze_result_t getFreeSlotInExistingOrNewPool(ze_event_pool_handle_t &,
@@ -120,6 +199,7 @@ private:
   // Following member variables are used to manage assignment of events
   // to event pools.
   // TODO: These variables may be moved to pi_device and pi_platform
+<<<<<<< HEAD
   // if appropriate
   // Event pool to which events are being added to
   ze_event_pool_handle_t ZeEventPool;
@@ -133,6 +213,24 @@ private:
   std::map<ze_event_pool_handle_t, pi_uint32> NumEventsLiveInEventPool;
 
   // TODO: we'd like to create a  thread safe map class instead of mutex + map,
+=======
+  // if appropriate.
+
+  // Event pool to which events are being added to.
+  ze_event_pool_handle_t ZeEventPool;
+  // This map will be used to determine if a pool is full or not
+  // by storing number of empty slots available in the pool.
+  std::unordered_map<ze_event_pool_handle_t, pi_uint32>
+      NumEventsAvailableInEventPool;
+  // This map will be used to determine number of live events in the pool.
+  // We use separate maps for number of event slots available in the pool.
+  // number of events live in the pool live.
+  // This will help when we try to make the code thread-safe.
+  std::unordered_map<ze_event_pool_handle_t, pi_uint32>
+      NumEventsLiveInEventPool;
+
+  // TODO: we'd like to create a thread safe map class instead of mutex + map,
+>>>>>>> d32da99fed6595c11c4be40f8db2312e11b07cdf
   // that must be carefully used together.
 
   // Mutex to control operations on NumEventsAvailableInEventPool map.
@@ -142,9 +240,15 @@ private:
   std::mutex NumEventsLiveInEventPoolMutex;
 };
 
+<<<<<<< HEAD
 struct _pi_queue {
   _pi_queue(ze_command_queue_handle_t Queue, pi_context Context)
       : ZeCommandQueue{Queue}, Context{Context}, RefCount{1} {}
+=======
+struct _pi_queue : _pi_object {
+  _pi_queue(ze_command_queue_handle_t Queue, pi_context Context)
+      : ZeCommandQueue{Queue}, Context{Context} {}
+>>>>>>> d32da99fed6595c11c4be40f8db2312e11b07cdf
 
   // L0 command queue handle.
   ze_command_queue_handle_t ZeCommandQueue;
@@ -152,6 +256,7 @@ struct _pi_queue {
   // Keeps the PI context to which this queue belongs.
   pi_context Context;
 
+<<<<<<< HEAD
   // L0 doesn't do the reference counting, so we have to do.
   // Must be atomic to prevent data race when incrementing/decrementing.
   std::atomic<pi_uint32> RefCount;
@@ -160,17 +265,27 @@ struct _pi_queue {
   // Note that this command list cannot be appended to after this.
   // The "is_blocking" tells if the wait for completion is requested.
   //
+=======
+  // Attach a command list to this queue, close, and execute it.
+  // Note that this command list cannot be appended to after this.
+  // The "is_blocking" tells if the wait for completion is requested.
+>>>>>>> d32da99fed6595c11c4be40f8db2312e11b07cdf
   pi_result executeCommandList(ze_command_list_handle_t ZeCommandList,
                                bool is_blocking = false);
 };
 
+<<<<<<< HEAD
 struct _pi_mem {
+=======
+struct _pi_mem : _pi_object {
+>>>>>>> d32da99fed6595c11c4be40f8db2312e11b07cdf
   // Keeps the PI platform of this memory handle.
   pi_platform Platform;
 
   // Keeps the host pointer where the buffer will be mapped to,
   // if created with PI_MEM_FLAGS_HOST_PTR_USE (see
   // piEnqueueMemBufferMap for details).
+<<<<<<< HEAD
   //
   char *MapHostPtr;
 
@@ -181,6 +296,12 @@ struct _pi_mem {
   // Supplementary data to keep track of the mappings of this memory
   // created with piEnqueueMemBufferMap and piEnqueueMemImageMap.
   //
+=======
+  char *MapHostPtr;
+
+  // Supplementary data to keep track of the mappings of this memory
+  // created with piEnqueueMemBufferMap and piEnqueueMemImageMap.
+>>>>>>> d32da99fed6595c11c4be40f8db2312e11b07cdf
   struct Mapping {
     // The offset in the buffer giving the start of the mapped region.
     size_t Offset;
@@ -188,6 +309,7 @@ struct _pi_mem {
     size_t Size;
   };
 
+<<<<<<< HEAD
   virtual ~_pi_mem() = default;
 
   // Interface of the _pi_mem object.
@@ -197,19 +319,42 @@ struct _pi_mem {
 
   virtual bool isImage() const = 0;
 
+=======
+  // Interface of the _pi_mem object
+
+  // Get the L0 handle of the current memory object
+  virtual void *getZeHandle() = 0;
+
+  // Get a pointer to the L0 handle of the current memory object
+  virtual void *getZeHandlePtr() = 0;
+
+  // Method to get type of the derived object (image or buffer)
+  virtual bool isImage() const = 0;
+
+  virtual ~_pi_mem() = default;
+
+>>>>>>> d32da99fed6595c11c4be40f8db2312e11b07cdf
   // Thread-safe methods to work with memory mappings
   pi_result addMapping(void *MappedTo, size_t Size, size_t Offset);
   pi_result removeMapping(void *MappedTo, Mapping &MapInfo);
 
 protected:
   _pi_mem(pi_platform Plt, char *HostPtr)
+<<<<<<< HEAD
       : Platform{Plt}, MapHostPtr{HostPtr}, RefCount{1}, Mappings{} {}
+=======
+      : Platform{Plt}, MapHostPtr{HostPtr}, Mappings{} {}
+>>>>>>> d32da99fed6595c11c4be40f8db2312e11b07cdf
 
 private:
   // The key is the host pointer representing an active mapping.
   // The value is the information needed to maintain/undo the mapping.
+<<<<<<< HEAD
   //
   std::map<void *, Mapping> Mappings;
+=======
+  std::unordered_map<void *, Mapping> Mappings;
+>>>>>>> d32da99fed6595c11c4be40f8db2312e11b07cdf
 
   // TODO: we'd like to create a thread safe map class instead of mutex + map,
   // that must be carefully used together.
@@ -233,7 +378,10 @@ struct _pi_buffer final : _pi_mem {
 
   // L0 memory handle is really just a naked pointer.
   // It is just convenient to have it char * to simplify offset arithmetics.
+<<<<<<< HEAD
   //
+=======
+>>>>>>> d32da99fed6595c11c4be40f8db2312e11b07cdf
   char *ZeMem;
 
   struct {
@@ -263,12 +411,20 @@ struct _pi_image final : _pi_mem {
   ze_image_handle_t ZeImage;
 };
 
+<<<<<<< HEAD
 struct _pi_event {
   _pi_event(ze_event_handle_t ZeEvent, ze_event_pool_handle_t ZeEventPool,
             pi_context Context, pi_command_type CommandType)
       : ZeEvent{ZeEvent}, ZeEventPool{ZeEventPool}, ZeCommandList{nullptr},
         CommandType{CommandType}, Context{Context},
         CommandData{nullptr}, RefCount{1} {}
+=======
+struct _pi_event : _pi_object {
+  _pi_event(ze_event_handle_t ZeEvent, ze_event_pool_handle_t ZeEventPool,
+            pi_context Context, pi_command_type CommandType)
+      : ZeEvent{ZeEvent}, ZeEventPool{ZeEventPool}, ZeCommandList{nullptr},
+        CommandType{CommandType}, Context{Context}, CommandData{nullptr} {}
+>>>>>>> d32da99fed6595c11c4be40f8db2312e11b07cdf
 
   // L0 event handle.
   ze_event_handle_t ZeEvent;
@@ -278,30 +434,43 @@ struct _pi_event {
   // L0 command list where the command signaling this event was appended to.
   // This is currently used to remember/destroy the command list after
   // all commands in it are completed, i.e. this event signaled.
+<<<<<<< HEAD
   //
+=======
+>>>>>>> d32da99fed6595c11c4be40f8db2312e11b07cdf
   ze_command_list_handle_t ZeCommandList;
 
   // Keeps the command-queue and command associated with the event.
   // These are NULL for the user events.
   pi_queue Queue;
   pi_command_type CommandType;
+<<<<<<< HEAD
   // Provide direct access to Context, instead of going via queue
   // Not every PI event has a queue, and we need a handle to Context
   // to get to event pool related information
+=======
+  // Provide direct access to Context, instead of going via queue.
+  // Not every PI event has a queue, and we need a handle to Context
+  // to get to event pool related information.
+>>>>>>> d32da99fed6595c11c4be40f8db2312e11b07cdf
   pi_context Context;
 
   // Opaque data to hold any data needed for CommandType.
   void *CommandData;
 
+<<<<<<< HEAD
   // L0 doesn't do the reference counting, so we have to do.
   // Must be atomic to prevent data race when incrementing/decrementing.
   std::atomic<pi_uint32> RefCount;
 
+=======
+>>>>>>> d32da99fed6595c11c4be40f8db2312e11b07cdf
   // Methods for translating PI events list into L0 events list
   static ze_event_handle_t *createZeEventList(pi_uint32, const pi_event *);
   static void deleteZeEventList(ze_event_handle_t *);
 };
 
+<<<<<<< HEAD
 struct _pi_program {
   _pi_program(ze_module_handle_t Module, ze_module_desc_t ModuleDesc,
               pi_context Context)
@@ -333,12 +502,29 @@ struct _pi_kernel {
              const char *KernelName)
       : ZeKernel{Kernel}, Program{Program}, RefCount{1},
         KernelName(KernelName) {}
+=======
+struct _pi_program : _pi_object {
+  _pi_program(ze_module_handle_t Module, pi_context Context)
+      : ZeModule{Module}, Context{Context} {}
+
+  // L0 module handle.
+  ze_module_handle_t ZeModule;
+
+  // Keep the context of the program.
+  pi_context Context;
+};
+
+struct _pi_kernel : _pi_object {
+  _pi_kernel(ze_kernel_handle_t Kernel, pi_program Program)
+      : ZeKernel{Kernel}, Program{Program} {}
+>>>>>>> d32da99fed6595c11c4be40f8db2312e11b07cdf
 
   // L0 function handle.
   ze_kernel_handle_t ZeKernel;
 
   // Keep the program of the kernel.
   pi_program Program;
+<<<<<<< HEAD
 
   // L0 doesn't do the reference counting, so we have to do.
   // Must be atomic to prevent data race when incrementing/decrementing.
@@ -352,15 +538,27 @@ struct _pi_kernel {
 
 struct _pi_sampler {
   _pi_sampler(ze_sampler_handle_t Sampler) : ZeSampler{Sampler}, RefCount{1} {}
+=======
+};
+
+struct _pi_sampler : _pi_object {
+  _pi_sampler(ze_sampler_handle_t Sampler) : ZeSampler{Sampler} {}
+>>>>>>> d32da99fed6595c11c4be40f8db2312e11b07cdf
 
   // L0 sampler handle.
   // TODO: It is important that L0 handler is the first data member. Workaround
   // in SYCL RT (in ExecCGCommand::enqueueImp()) relies on this. This comment
   // should be removed when workaround in SYCL runtime will be removed.
   ze_sampler_handle_t ZeSampler;
+<<<<<<< HEAD
 
   // L0 doesn't do the reference counting, so we have to do.
   // Must be atomic to prevent data race when incrementing/decrementing.
   std::atomic<pi_uint32> RefCount;
 };
 
+=======
+};
+
+#endif // PI_LEVEL0_HPP
+>>>>>>> d32da99fed6595c11c4be40f8db2312e11b07cdf

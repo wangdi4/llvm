@@ -13,7 +13,11 @@
 __SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
 
+<<<<<<< HEAD
 enum class backend { host, opencl, cuda, level0 }; // INTEL
+=======
+enum class backend : char { host, opencl, level0, cuda };
+>>>>>>> d32da99fed6595c11c4be40f8db2312e11b07cdf
 
 template <backend name, typename SYCLObjectT> struct interop;
 
