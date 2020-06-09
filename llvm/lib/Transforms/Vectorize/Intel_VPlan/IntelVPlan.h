@@ -350,6 +350,11 @@ class VPInstruction : public VPUser,
     // assigned the same symbase.
     unsigned Symbase = loopopt::InvalidSymbase;
 
+    // Temporarily used to store alias analysis related metadata for memory
+    // refs. TODO - remove this once metadata representation/propagation fix
+    // is in place (CMPLRLLVM-11656).
+    AAMDNodes AANodes;
+
     /// Pointer to access the underlying HIR data attached to this
     /// VPInstruction, if any, depending on its sub-type:
     ///   1) Master VPInstruction: MasterData points to a VPInstDataHIR holding
@@ -494,6 +499,7 @@ class VPInstruction : public VPUser,
         }
       }
       setSymbase(HIR.getSymbase());
+      AANodes = HIR.AANodes;
 
       // Verify correctness of the cloned HIR.
       assert(isMaster() == HIR.isMaster() &&
