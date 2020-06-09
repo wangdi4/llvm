@@ -1340,6 +1340,10 @@ static bool preferInlineTileChoice(CallBase &CB) {
   return CB.hasFnAttr("prefer-inline-tile-choice");
 }
 
+static bool preferInlineForManyRecursiveCallsSplitting(CallBase &CB) {
+  return CB.hasFnAttr("prefer-inline-mrc-split");
+}
+
 // Return 'true' if 'F' calls an Intel partial inlining inlined clone,
 // which calls an Intel partial inlining outlined function, which calls
 // 'F'. (Note that the functions are tested in reverse order, because it
@@ -3145,6 +3149,10 @@ static int worthInliningUnderSpecialCondition(CallBase &CB,
   }
   if (preferInlineTileChoice(CB)) {
     YesReasonVector.push_back(InlrPreferTileChoice);
+    return -InlineConstants::VeryDeepInliningHeuristicBonus;
+  }
+  if (preferInlineForManyRecursiveCallsSplitting(CB)) {
+    YesReasonVector.push_back(InlrManyRecursiveCallsSplitting);
     return -InlineConstants::VeryDeepInliningHeuristicBonus;
   }
   return 0;
