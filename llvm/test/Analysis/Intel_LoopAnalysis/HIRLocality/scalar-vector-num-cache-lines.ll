@@ -18,7 +18,8 @@
 ; SCALAR: Locality Info for Loop level: 1     NumCacheLines: 7        SpatialCacheLines: 7     TempInvCacheLines: 0     AvgLvalStride: 4         AvgStride: 4
 
 
-; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=8 -analyze -hir-locality-analysis -hir-spatial-locality | FileCheck %s --check-prefix=VECTOR
+; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=8 -enable-vp-value-codegen-hir=0 -analyze -hir-locality-analysis -hir-spatial-locality | FileCheck %s --check-prefix=VECTOR
+; RUN: opt < %s -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=8 -enable-vp-value-codegen-hir -analyze -hir-locality-analysis -hir-spatial-locality | FileCheck %s --check-prefix=VECTOR
 
 ; Verify that the number of cache lines accessed by vectorized loop is the same as the scalar loop but the average stride gets multiplied by vector factor of 8.
 

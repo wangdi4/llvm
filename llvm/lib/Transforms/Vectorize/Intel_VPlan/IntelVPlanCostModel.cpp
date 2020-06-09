@@ -131,33 +131,6 @@ unsigned VPlanCostModel::getMemInstAddressSpace(const VPInstruction *VPInst) {
   return 0; // CHECKME: Is that correct?
 }
 
-Value* VPlanCostModel::getGEP(const VPInstruction *VPInst) {
-  unsigned Opcode = VPInst->getOpcode();
-  (void)Opcode;
-  assert(Opcode == Instruction::Load || Opcode == Instruction::Store);
-
-  if (const Instruction *Inst =
-          dyn_cast_or_null<Instruction>(VPInst->getUnderlyingValue())) {
-    auto GEPInst = Opcode == Instruction::Load ? Inst->getOperand(0)
-                                               : Inst->getOperand(1);
-    if (dyn_cast_or_null<GetElementPtrInst>(GEPInst))
-      return GEPInst;
-  }
-
-#if INTEL_CUSTOMIZATION
-  if (!VPInst->HIR.isMaster())
-    return nullptr;
-  if (const auto *HInst = dyn_cast<HLInst>(VPInst->HIR.getUnderlyingNode())) {
-    auto RegDD = Opcode == Instruction::Load ? HInst->getOperandDDRef(1)
-                                             : HInst->getLvalDDRef();
-
-    return RegDD->getTempBaseValue();
-  }
-#endif // INTEL_CUSTOMIZATION
-
-  return nullptr;
-}
-
 unsigned
 VPlanCostModel::getMemInstAlignment(const VPInstruction *VPInst) const {
   unsigned Opcode = VPInst->getOpcode();
