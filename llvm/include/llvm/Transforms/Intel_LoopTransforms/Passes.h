@@ -71,6 +71,10 @@ FunctionPass *createHIRGenerateMKLCallPass();
 /// Blocking.
 FunctionPass *createHIRLoopBlockingPass();
 
+/// createHIRPragmaLoopBlockingPass - This creates a pass that performs Loop
+/// Blocking for pragma directives.
+FunctionPass *createHIRPragmaLoopBlockingPass();
+
 /// createHIRLoopRematerializePass - This creates a pass that performs Loop
 /// Rematerialize.
 FunctionPass *createHIRLoopRematerializePass();

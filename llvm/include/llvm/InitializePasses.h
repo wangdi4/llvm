@@ -558,6 +558,7 @@ void initializeHIRPreVecCompleteUnrollLegacyPassPass(PassRegistry&);
 void initializeHIRPostVecCompleteUnrollLegacyPassPass(PassRegistry&);
 void initializeHIRLoopInterchangeLegacyPassPass(PassRegistry&);
 void initializeHIRLoopBlockingLegacyPassPass(PassRegistry&);
+void initializeHIRPragmaLoopBlockingLegacyPassPass(PassRegistry&);
 void initializeHIRGenerateMKLCallLegacyPassPass(PassRegistry&);
 void initializeHIRLoopDistributionForMemRecLegacyPassPass(PassRegistry&);
 void initializeHIRLoopDistributionForLoopNestLegacyPassPass(PassRegistry&);

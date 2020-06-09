@@ -338,6 +338,7 @@ namespace {
       (void) llvm::createHIRTempCleanupPass();
       (void) llvm::createHIRLoopInterchangePass();
       (void) llvm::createHIRLoopBlockingPass();
+      (void) llvm::createHIRPragmaLoopBlockingPass();
       (void) llvm::createHIRGenerateMKLCallPass();
       (void) llvm::createHIROptPredicatePass();
       (void) llvm::createHIROptVarPredicatePass();

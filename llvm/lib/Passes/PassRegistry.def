@@ -433,6 +433,7 @@ FUNCTION_PASS("hir-pm-symbolic-tripcount-completeunroll", loopopt::HIRPMSymbolic
 FUNCTION_PASS("hir-unroll-and-jam", loopopt::HIRUnrollAndJamPass())
 FUNCTION_PASS("hir-vec-dir-insert", loopopt::HIRVecDirInsertPass())
 FUNCTION_PASS("hir-loop-blocking", loopopt::HIRLoopBlockingPass())
+FUNCTION_PASS("hir-pragma-loop-blocking", loopopt::HIRPragmaLoopBlockingPass())
 FUNCTION_PASS("hir-generate-mkl-call", loopopt::HIRGenerateMKLCallPass())
 FUNCTION_PASS("intel-ir-optreport-emitter", LoopOptReportEmitterPass())
 FUNCTION_PASS("vplan-driver", vpo::VPlanDriverPass());
