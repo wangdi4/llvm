@@ -73,6 +73,10 @@ static cl::opt<unsigned> LoopMaterializationBBSize(
     cl::desc("Threshold for number of instructions allowed in the basic block "
              "which may be a loop materialization candidate"));
 
+static cl::opt<unsigned> HugeLoopSize("hir-huge-loop-size", cl::init(42),
+                                      cl::Hidden,
+                                      cl::desc("Threshold for huge loop size"));
+
 STATISTIC(RegionCount, "Number of regions created");
 
 AnalysisKey HIRRegionIdentificationAnalysis::Key;
@@ -1154,6 +1158,35 @@ static bool containsInvariantSwitchInInnermostLoop(const Loop *Lp,
   return containsInvariantSwitchInInnermostLoop(Lp, InnermostLp, PDT);
 }
 
+// Do not throttle huge countable loop.
+static bool isHugeOutermostLoop(const Loop *Lp, const SCEV *BECount) {
+  // Only consider countable loop.
+  if (BECount && isa<SCEVCouldNotCompute>(BECount))
+    return false;
+
+  // Only single exit outermost loop.
+  if (!Lp->getExitingBlock() || Lp->getParentLoop())
+    return false;
+
+  return std::distance(Lp->begin(), Lp->end()) >= HugeLoopSize;
+}
+
+// Do not throttle parent loop of the unknown loop if his parent loop is the
+// outermost huge loop.
+static bool hasHugeOutermostParentLoop(const Loop *Lp, const SCEV *BECount) {
+  if (BECount && !isa<SCEVCouldNotCompute>(BECount))
+    return false;
+
+  if (!Lp->getExitingBlock() || Lp->getLoopDepth() > 2 || !Lp->empty())
+    return false;
+
+  Loop *PLp = Lp->getParentLoop();
+  if (!PLp || !isHugeOutermostLoop(PLp, nullptr))
+    return false;
+
+  return Lp == *PLp->rbegin();
+}
+
 bool HIRRegionIdentification::shouldThrottleLoop(
     const Loop &Lp, const SCEV *BECount, bool &ThrottleParentLoop) const {
 
@@ -1169,6 +1202,12 @@ bool HIRRegionIdentification::shouldThrottleLoop(
     if (containsInvariantSwitchInInnermostLoop(&Lp, BECount, PDT)) {
       return false;
     }
+
+    if (hasHugeOutermostParentLoop(&Lp, BECount))
+      return false;
+
+    if (isHugeOutermostLoop(&Lp, BECount))
+      return false;
   }
 
   CostModelAnalyzer CMA(*this, Lp, BECount, ThrottleParentLoop);
