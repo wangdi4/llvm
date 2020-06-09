@@ -5134,14 +5134,17 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                    options::OPT_fno_unique_internal_linkage_names, false))
     CmdArgs.push_back("-funique-internal-linkage-names");
 
+<<<<<<< HEAD
   if (Args.hasFlag(options::OPT_funique_basic_block_section_names,
                    options::OPT_fno_unique_basic_block_section_names, false))
     CmdArgs.push_back("-funique-basic-block-section-names");
 
+=======
+#if INTEL_CUSTOMIZATION
+>>>>>>> 42366f98858c62d6f401a6ee545abcada634a38f
   Args.AddLastArg(CmdArgs, options::OPT_finstrument_functions_after_inlining,
                   options::OPT_finstrument_function_entry_bare);
 
-#if INTEL_CUSTOMIZATION
   if ((Args.hasFlag(options::OPT_finstrument_functions,
                     options::OPT_fno_instrument_functions, false)) &&
       (!Args.hasArg(options::OPT_finstrument_functions_after_inlining,
