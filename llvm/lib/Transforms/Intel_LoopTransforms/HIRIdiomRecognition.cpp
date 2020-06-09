@@ -610,6 +610,11 @@ bool HIRIdiomRecognition::runOnLoop(HLLoop *Loop) {
       continue;
     }
 
+    // Check if executes on each iteration
+    if (!HLNodeUtils::postDominates(Inst, Loop->getFirstChild())) {
+      continue;
+    }
+
     MemOpCandidate NewCandidate;
 
     if (!analyzeStore(Loop, Ref, NewCandidate)) {

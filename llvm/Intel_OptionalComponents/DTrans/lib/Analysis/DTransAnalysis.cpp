@@ -4110,6 +4110,18 @@ public:
   void visitCallArgument(CallBase *Call, Function *F, bool HasICMatch,
                          Value *Arg, unsigned ArgNo) {
 
+    // Return true if the formal argument will be dead in Function F
+    auto IsDeadArgument = [F, ArgNo](bool IsFnLocal) {
+      if (!F || !IsFnLocal)
+        return false;
+
+      if (F->isVarArg() || F->arg_size() <= ArgNo)
+        return false;
+
+      Value *FormalArg = F->getArg(ArgNo);
+      return FormalArg->user_empty();
+    };
+
     if (F && F->hasName()) {
       if (F->hasDLLExportStorageClass()) {
         LLVM_DEBUG(dbgs() << "dtrans-safety: System object: "
@@ -4240,6 +4252,15 @@ public:
             ParentStInfo->getField(0).setAddressTaken();
           continue;
         }
+
+        // If there is no use for the argument inside the function then we
+        // don't need to worry because it will be deleted later. There is no
+        // need to mark it as Address taken.
+        // NOTE: Perhaps other safety checks inside visitCallArgument could
+        // be relaxed in the same way.
+        if (IsDeadArgument(IsFnLocal))
+          continue;
+
         LLVM_DEBUG(dbgs() << "dtrans-safety: Address taken -- "
                           << "pointer to aggregate passed as argument:\n"
                           << "  " << *Call << "\n  " << *Arg << "\n");
