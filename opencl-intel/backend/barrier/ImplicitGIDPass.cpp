@@ -95,7 +95,7 @@ void ImplicitGlobalIdPass::runOnBasicBlock(unsigned i, Instruction *pGIDAlloca, 
                      Twine("gid") + Twine(i) + Twine("_i64"));
     gid_at_dim = zext_gid;
   }
-  B.CreateStore(gid_at_dim, pGIDAlloca);
+  B.CreateStore(gid_at_dim, pGIDAlloca, /*isVolatile*/true);
 }
 
 void ImplicitGlobalIdPass::insertComputeGlobalIds(Function* pFunc)

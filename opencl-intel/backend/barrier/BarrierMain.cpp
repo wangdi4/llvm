@@ -91,7 +91,6 @@ namespace intel {
 #endif
 
     if( m_optLevel > 0 ) {
-      //In DBG mode do not run extra llvm optimizations
       barrierModulePM.add(createPromoteMemoryToRegisterPass());
     }
 
