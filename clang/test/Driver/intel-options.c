@@ -47,6 +47,10 @@
 // RUN: %clang_cl -### -c /Qansi-alias- %s 2>&1 | FileCheck -check-prefix CHECK-NO_ANSI_ALIAS %s
 // CHECK-NO_ANSI_ALIAS: "-relaxed-aliasing"
 
+// -Fsize support
+// RUN: %clang_cl -### -F1000 %s 2>&1 | FileCheck -check-prefix CHECK-FSTACK %s
+// CHECK-FSTACK: link{{.*}} "-stack:1000"
+
 // Behavior with -fno-alias option
 // RUN: %clang -### -c -fno-alias %s 2>&1 | FileCheck -check-prefix CHECK-FNO_ALIAS %s
 // RUN: %clang_cl -### -c /Oa %s 2>&1 | FileCheck -check-prefix CHECK-FNO_ALIAS %s

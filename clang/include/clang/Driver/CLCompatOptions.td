@@ -530,6 +530,10 @@ def _SLASH_volatile_Group : OptionGroup<"</volatile group>">,
 def _SLASH_EH : CLJoined<"EH">, HelpText<"Set exception handling model">;
 def _SLASH_EP : CLFlag<"EP">,
   HelpText<"Disable linemarker output and preprocess to stdout">;
+#if INTEL_CUSTOMIZATION
+def _SLASH_F : CLJoinedOrSeparate<"F">, HelpText<"Set the stack reserve amount "
+  "specified to the linker">;
+#endif // INTEL_CUSTOMIZATION
 def _SLASH_FA : CLFlag<"FA">,
   HelpText<"Output assembly code file during compilation">;
 def _SLASH_Fa : CLJoined<"Fa">,
@@ -684,7 +688,9 @@ def _SLASH_d2 : CLJoined<"d2">;
 def _SLASH_doc : CLJoined<"doc">;
 def _SLASH_FA_joined : CLJoined<"FA">;
 def _SLASH_favor : CLJoined<"favor">;
+#ifndef INTEL_CUSTOMIZATION
 def _SLASH_F : CLJoinedOrSeparate<"F">;
+#endif // INTEL_CUSTOMIZATION
 def _SLASH_Fm : CLJoined<"Fm">;
 def _SLASH_Fr : CLJoined<"Fr">;
 def _SLASH_FR : CLJoined<"FR">;
