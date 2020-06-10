@@ -3357,12 +3357,8 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
                                 const OVLSGroup *Grp, int64_t InterleaveFactor,
                                 int64_t InterleaveIndex,
                                 const HLInst *GrpStartInst, bool Widen) {
-  assert((Widen || VPInst->getOpcode() == Instruction::GetElementPtr ||
-          VPInst->getOpcode() == Instruction::Add ||
-          VPInst->getOpcode() == Instruction::ZExt ||
-          VPInst->getOpcode() == Instruction::SExt ||
-          VPInst->getOpcode() == Instruction::Trunc) &&
-         "Expected add/gep/zext/sext/trunc for scalar constructs");
+  assert((Widen || isOpcodeForScalarInst(VPInst->getOpcode())) &&
+         "Unxpected instruction for scalar constructs");
 
   std::function<void(RegDDRef *, const VPInstruction *,
                      SmallVectorImpl<const RegDDRef *> &, bool)>
@@ -3661,10 +3657,14 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     // For bitcasts of addressof refs, it is enough to set the bitcast
     // destination type.
     if (VPInst->getOpcode() == Instruction::BitCast && RefOp0->isAddressOf()) {
+      SmallVector<const RegDDRef *, 1> AuxRefs = {RefOp0->clone()};
       RefOp0->setBitCastDestType(ResultRefTy);
-      addVPValueWideRefMapping(VPInst, RefOp0);
+      makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen);
       return;
     }
+
+    if (!Widen)
+      return;
 
     NewInst = HLNodeUtilities.createCastHLInst(ResultRefTy, VPInst->getOpcode(),
                                                RefOp0, InstName);
@@ -3852,17 +3852,17 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
 
   // Generate a scalar instruction for unitstride GEPs. This will be changed
   // later to use SVA information.
-  if (isa<VPGEPInstruction>(VPInst) && isUnitStridePtr(VPInst))
-    generateHIR(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
-                GrpStartInst, false /* Widen */);
+  if (isa<VPGEPInstruction>(VPInst)) {
+    if (isUnitStridePtr(VPInst))
+      generateHIR(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
+                  GrpStartInst, false /* Widen */);
+    return;
+  }
 
   // Generate a scalar value for some opcodes to avoid making references
   // non-linear. This is made possible due to support for folding such opcodes.
   // This will be changed later to use SVA information.
-  if (VPInst->getOpcode() == Instruction::Add ||
-      VPInst->getOpcode() == Instruction::SExt ||
-      VPInst->getOpcode() == Instruction::ZExt ||
-      VPInst->getOpcode() == Instruction::Trunc)
+  if (isOpcodeForScalarInst(VPInst->getOpcode()))
     generateHIR(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
                 GrpStartInst, false /* Widen */);
 }
