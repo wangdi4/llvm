@@ -2641,7 +2641,7 @@ CallInst *specializeCallSite(CallInst *Call, Function *Clone,
     NewCall->setMetadata(LLVMContext::MD_dbg, MD);
   Call->replaceAllUsesWith(NewCall);
   Call->dropAllReferences();
-  Call->removeFromParent();
+  Call->eraseFromParent();
   ++NumCTCClonedCalls;
 
   return NewCall;
