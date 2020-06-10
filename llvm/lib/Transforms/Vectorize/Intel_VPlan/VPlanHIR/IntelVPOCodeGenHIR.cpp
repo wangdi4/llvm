@@ -3601,6 +3601,36 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     if (CE->getDestType() == CE->getSrcType()) {
       // Used to make the folded ref consistent.
       SmallVector<const RegDDRef *, 1> AuxRefs = {RefOp0->clone()};
+      const VPValue *VPOp0 = VPInst->getOperand(0);
+
+      // The IV in a canon expression is allowed to be of a type different from
+      // the src type of the canon expression. When this is the case and
+      // generating LLVM IR during HIRCG, the IV value is generated followed by
+      // generation of an appropriate convert instruction to convert the value
+      // to canon expression source type. In order to preserve linear canon
+      // expressions, we flagged such converts during decomposition. Fold such
+      // converts.
+      if (VPInst->getFoldIVConvert()) {
+        if (Widen) {
+          // The type of blobs in the canon expression needs to match the source
+          // type of canon expression. For a widened IV, the type of the blob
+          // corresponding to the constant <0, 1, .., VF-1> would match the
+          // current source type of canon expression. Since we are going to
+          // change the source type, this is handled by getting the scalar ref,
+          // changing the source type, and then widening this scalar ref.
+          RefOp0 = getScalRefForVPVal(VPOp0, 0)->clone();
+          CE = RefOp0->getSingleCanonExpr();
+          CE->setSrcType(RefDestTy);
+          CE->setDestType(RefDestTy);
+          RefOp0 = widenRef(RefOp0, VF);
+        } else {
+          CE->setSrcType(ResultRefTy);
+          CE->setDestType(ResultRefTy);
+        }
+        makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen);
+        return;
+      }
+
       CE->setDestType(ResultRefTy);
       CE->setExtType(VPInst->getOpcode() == Instruction::SExt);
       makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen);
