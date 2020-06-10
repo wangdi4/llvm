@@ -1692,9 +1692,10 @@ if (INTEL_CUSTOMIZATION)
 
       set (manifest ${CMAKE_CURRENT_BINARY_DIR}/install_manifest_${comp}.txt)
       add_custom_command(OUTPUT ${manifest}
-                         COMMAND "${CMAKE_COMMAND}"
-                                 "-DCMAKE_INSTALL_COMPONENT=${comp}"
-                                 -P "${CMAKE_BINARY_DIR}/cmake_install.cmake"
+                         COMMAND ${CMAKE_COMMAND}
+                                 -DCMAKE_INSTALL_COMPONENT=${comp}
+                                 -DCMAKE_INSTALL_CONFIG_NAME=$<CONFIG>
+                                 -P ${CMAKE_BINARY_DIR}/cmake_install.cmake
                          # If ${comp} component does not exist, cmake
                          # will just open and immediately close the manifest
                          # file. This will not update the manifest file's ctime,
@@ -1730,8 +1731,9 @@ if (INTEL_CUSTOMIZATION)
     # no specific components was given so do full installation
     set (manifest ${CMAKE_CURRENT_BINARY_DIR}/install_manifest.txt)
     add_custom_command(OUTPUT ${manifest}
-                       COMMAND "${CMAKE_COMMAND}"
-                               -P "${CMAKE_BINARY_DIR}/cmake_install.cmake"
+                       COMMAND ${CMAKE_COMMAND}
+                               -DCMAKE_INSTALL_CONFIG_NAME=$<CONFIG>
+                               -P ${CMAKE_BINARY_DIR}/cmake_install.cmake
                        DEPENDS  __force_it
                        COMMENT "Performing deploy operation..."
                        USES_TERMINAL)
