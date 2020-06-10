@@ -685,10 +685,7 @@ TypeInfo *DTransSafetyInfo::getOrCreateTypeInfo(DTransType *Ty) {
       getOrCreateTypeInfo(FieldTy);
       FieldTypes.push_back(FieldTy);
     }
-    // TODO: StructInfo constructor should be cleaned up to not require
-    // the IgnoreFor parameter, because they are always created with 0,
-    // and then updated with a call to the SetIgnoreFor method.
-    DTransTI = new dtrans::StructInfo(Ty, FieldTypes, /*IgnoreFor=*/0);
+    DTransTI = new dtrans::StructInfo(Ty, FieldTypes);
   } else {
     // TODO: TypeInfo does not support vector types, so they will be stored
     // within NonAggregateTypeInfo objects currently.

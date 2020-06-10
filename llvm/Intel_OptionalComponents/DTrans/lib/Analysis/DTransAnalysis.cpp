@@ -9278,7 +9278,7 @@ dtrans::TypeInfo *DTransAnalysisInfo::getOrCreateTypeInfo(llvm::Type *Ty) {
       // Create a DTrans type for the field, in case it is an aggregate.
       (void)getOrCreateTypeInfo(FieldTy);
     }
-    DTransTy = new dtrans::StructInfo(Ty, FieldTypes, 0);
+    DTransTy = new dtrans::StructInfo(Ty, FieldTypes);
   } else {
     assert(!Ty->isAggregateType() &&
            "DTransAnalysisInfo::getOrCreateTypeInfo unexpected aggregate type");
