@@ -518,7 +518,7 @@ public:
   llvm::DIType *getOrCreateStandaloneType(QualType Ty, SourceLocation Loc);
 
   /// Add heapallocsite metadata for MSAllocator calls.
-  void addHeapAllocSiteMetadata(llvm::CallBase *CallSite, QualType AllocatedTy,
+  void addHeapAllocSiteMetadata(llvm::Instruction *CallSite, QualType Ty,
                                 SourceLocation Loc);
 
   void completeType(const EnumDecl *ED);
