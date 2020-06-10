@@ -33,13 +33,14 @@
 //   use with dominance frontier logic.
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Scalar/IVSplit.h"
+#include "llvm/Transforms/Scalar/Intel_IVSplit.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Analysis/IteratedDominanceFrontier.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Dominators.h"
@@ -60,6 +61,10 @@ STATISTIC(NumIVSplit, "Number of IV split");
 static cl::opt<unsigned> IVSplitLoopDepthThreshold(
     "iv-split-loop-depth-threshold", cl::Hidden, cl::init(8),
     cl::desc("Loop depth threshold for enabling IV Split"));
+
+static cl::opt<unsigned> IVSExtPromoteScaleThreshold(
+    "iv-sext-promote-scale-threshold", cl::Hidden, cl::init(16),
+    cl::desc("Scale threshold for enabling IV SExt promote"));
 
 namespace {
 
@@ -82,10 +87,17 @@ namespace {
 
     unsigned CurDepth;
 
+    unsigned NumCastInst;
+    unsigned NumPromoteInst;
+    bool canPromoteSExt_internal(Value *V, Type *Ty);
+    bool canPromoteSExt(Value *V, Type *Ty);
+    Value *promoteSExtType(Value *V, Type *Ty);
+
   public:
     IVSplit(Function *Fn, DominatorTree *Dt, LoopInfo *Li)
         : FN(Fn), DT(Dt), LI(Li), SpillBB(nullptr), ReloadBB(nullptr),
-        ReloadFrom(nullptr), ReloadTo(nullptr), CurDepth(0) {
+        ReloadFrom(nullptr), ReloadTo(nullptr), CurDepth(0),
+        NumCastInst(0), NumPromoteInst(0) {
     }
 
     bool hasLoopSplitInductionVariables(Loop * L);
@@ -99,6 +111,7 @@ namespace {
     void updateIVUser(Loop * L, IRBuilder<> &Builder);
 
     void loopIVComputationSink();
+    bool optimizeIVComputeSExt(Loop * L);
 
     bool loopIVSplitRecursion(Loop * L);
 
@@ -121,7 +134,9 @@ namespace {
         if(maxLoopDepth(L) < IVSplitLoopDepthThreshold)
           return false;
 
-        auto result = loopIVSplitRecursion(L);
+        bool result = false;
+        result |= optimizeIVComputeSExt(L);
+        result |= loopIVSplitRecursion(L);
 
         return result;
     }
@@ -512,7 +527,8 @@ Loop8
    BB1 = I9_7->getParent();
    Loop *UserLoop = LI->getLoopFor(BB1);
    // Search for loop8 user of IV which is a part of i9 computation
-   if(UserLoop->getLoopDepth() == CurDepth+7)
+   // The loop7 can also be the innermost IV user due to loop clone opt
+   if(UserLoop->getLoopDepth() >= CurDepth+6)
      break;
   }
 
@@ -623,7 +639,8 @@ Loop8
     return;
 
   Instruction *IIV8_32bit = dyn_cast<Instruction>(I9_32bit->getOperand(1));
-  if (!IIV8_32bit || !match(IIV8_32bit, m_Trunc(m_Specific(IV8))))
+  if (!IIV8_32bit || !(match(IIV8_32bit, m_Trunc(m_Specific(IV8))) ||
+                       match(IV8, m_SExt(m_Specific(IIV8_32bit)))))
     return;
 
   // ??? Need more checks to confirm the pattern ???
@@ -759,6 +776,249 @@ bool IVSplit::loopIVSplitRecursion(Loop * L) {
       Changed |= loopIVSplitRecursion(SubLoop);
   }
 
+  return Changed;
+}
+
+/* Return true if we can take the specified value and return it as type Ty
+   without changing the value of the common low bits and with inserting some
+   (NumCastInst) new cast instructions or promoting original (NumPromoteInst)
+   instructions. This is used to promote integer operations to a wider types
+   which will allow us to eliminate the extension. E.g., in following sequence
+   %6708 (i64) is calculated based on the operations on values (i32) truncated
+   from wider types (i64):
+
+    %6155 = load i32, i32* getelementptr ...
+    %6694 = trunc i64 %3999 to i32
+    %3996 = trunc i64 %3970 to i32
+    %3967 = trunc i64 %3938 to i32
+    %3935 = trunc i64 %3903 to i32
+    %3900 = trunc i64 %3865 to i32
+    %3862 = trunc i64 %3824 to i32
+    %3821 = trunc i64 %3780 to i32
+    %6700 = add i32 %6155, %6694
+    %6701 = add i32 %6700, %3996
+    %6702 = add i32 %6701, %3967
+    %6703 = add i32 %6702, %3935
+    %6704 = add i32 %6703, %3900
+    %6705 = add i32 %6704, %3862
+    %6706 = add i32 %6705, %3821
+    %6707 = sub i32 45, %6706
+    %6708 = sext i32 %6707 to i64
+
+   These add/sub operations can be promoted to the wider type (i64) with
+   some special shifting operations on the final result to handle overflow
+   of original narrow type (i32) as below. The promote is valid only when there
+   is only one use for the promoted add/sub operations.
+
+    %6155 = load i32, i32* getelementptr ...
+    %6156 = sext i32 %6155 to i64
+    %6702 = add i64 %6156, %3999
+    %6704 = add i64 %6702, %3970
+    %6706 = add i64 %6704, %3938
+    %6708 = add i64 %6706, %3903
+    %6710 = add i64 %6708, %3865
+    %6712 = add i64 %6710, %3824
+    %6714 = add i64 %6712, %3780
+    %6716 = bitcast i64 193273528320 to i64 # 193273528320 = 45<<32
+    %6717 = shl i64 %6714, 32
+    %6718 = sub i64 %6716, %6717
+    %6719 = ashr i64 %6718, 32
+
+*/
+bool IVSplit::canPromoteSExt_internal(Value *V, Type *Ty) {
+  if (isa<Constant>(V)) {
+    NumPromoteInst++;
+    return true;
+  }
+
+  auto *I = dyn_cast<Instruction>(V);
+  if (!I)
+    return false;
+
+  switch (I->getOpcode()) {
+  case Instruction::Trunc:
+    if (I->getOperand(0)->getType() == Ty) {
+      NumPromoteInst++;
+      return true;
+    }
+    break;
+  case Instruction::Add:
+  case Instruction::Sub:
+    if (!I->hasOneUse())
+      return false;
+    // These operators can all arbitrarily be extended if their inputs can.
+    if (canPromoteSExt_internal(I->getOperand(0), Ty) &&
+        canPromoteSExt_internal(I->getOperand(1), Ty)) {
+      NumPromoteInst++;
+      return true;
+    }
+    break;
+  case Instruction::Load:
+    NumCastInst++;
+    return true;
+  default:
+    // TODO: Can handle more cases here.
+    break;
+  }
+
+  return false;
+}
+
+bool IVSplit::canPromoteSExt(Value *V, Type *Ty) {
+  // Try to promote the pattern to optimize sext
+  NumCastInst = 0;
+  NumPromoteInst = 0;
+  if (!canPromoteSExt_internal(V, Ty))
+    return false;
+  // Use heuristic to check whether the promote is profitable
+  if (NumPromoteInst < IVSExtPromoteScaleThreshold)
+    return false;
+  if (NumCastInst) {
+    if (NumPromoteInst/NumCastInst < IVSExtPromoteScaleThreshold)
+      return false;
+  }
+  return true;
+}
+
+// Given an expression that CcanPromoteSExt returns true for, actually insert
+// the code to promote the expression.
+Value *IVSplit::promoteSExtType(Value *V, Type *Ty) {
+  if (Constant *C = dyn_cast<Constant>(V))
+    return ConstantExpr::getIntegerCast(C, Ty, true);
+
+  // Otherwise, it must be an instruction.
+  Instruction *I = cast<Instruction>(V);
+  Instruction *Res = nullptr;
+  unsigned Opc = I->getOpcode();
+  switch (Opc) {
+  case Instruction::Add:
+  case Instruction::Sub: {
+    Value *LHS = promoteSExtType(I->getOperand(0), Ty);
+    Value *RHS = promoteSExtType(I->getOperand(1), Ty);
+    Res = BinaryOperator::Create((Instruction::BinaryOps)Opc, LHS, RHS, "", I);
+    break;
+  }
+  case Instruction::Trunc:
+    // If the source type of the cast is the type we're trying for then we can
+    // just return the source.  There's no need to insert it because it is not
+    // new.
+    assert(I->getOperand(0)->getType() == Ty);
+    return I->getOperand(0);
+  case Instruction::Load:
+    Res = CastInst::CreateIntegerCast(I, Ty, true);
+    Res->insertAfter(I);
+    break;
+  default:
+    // TODO: Can handle more cases here.
+    llvm_unreachable("Unreachable!");
+  }
+
+  Res->takeName(I);
+  Res->setDebugLoc(I->getDebugLoc());
+  return Res;
+}
+
+/*
+Try to transform below sequence:
+
+  %6155 = load i32, i32* getelementptr ...
+  %6694 = trunc i64 %3999 to i32
+  %3996 = trunc i64 %3970 to i32
+  %3967 = trunc i64 %3938 to i32
+  %3935 = trunc i64 %3903 to i32
+  %3900 = trunc i64 %3865 to i32
+  %3862 = trunc i64 %3824 to i32
+  %3821 = trunc i64 %3780 to i32
+  %6700 = add i32 %6155, %6694
+  %6701 = add i32 %6700, %3996
+  %6702 = add i32 %6701, %3967
+  %6703 = add i32 %6702, %3935
+  %6704 = add i32 %6703, %3900
+  %6705 = add i32 %6704, %3862
+  %6706 = add i32 %6705, %3821
+  %6707 = sub i32 45, %6706
+  %6708 = sext i32 %6707 to i64
+
+to below sequence (with less trunc) for enabling IV sink opt:
+
+  %6155 = load i32, i32* getelementptr ...
+  %6156 = sext i32 %6155 to i64
+  %6702 = add i64 %6156, %3999
+  %6704 = add i64 %6702, %3970
+  %6706 = add i64 %6704, %3938
+  %6708 = add i64 %6706, %3903
+  %6710 = add i64 %6708, %3865
+  %6712 = add i64 %6710, %3824
+  %6714 = add i64 %6712, %3780
+  %6716 = bitcast i64 193273528320 to i64 # 193273528320 = 45<<32
+  %6717 = shl i64 %6714, 32
+  %6718 = sub i64 %6716, %6717
+  %6719 = ashr i64 %6718, 32
+
+*/
+bool IVSplit::optimizeIVComputeSExt(Loop * L) {
+  bool Changed = false;
+  for (auto *Block : L->blocks()) {
+    for (BasicBlock::iterator BI = Block->begin(), BIE = Block->end();
+         BI != BIE;) {
+      Instruction &I = *BI;
+      ++BI;
+      // Search for pattern: %To = sext i32 %From to i64
+      if (I.getOpcode() != Instruction::SExt)
+        continue;
+      Type *From = I.getOperand(0)->getType();
+      Type *To = I.getType();
+      if (!From->isIntegerTy() || !To->isIntegerTy())
+        continue;
+      unsigned FromWidth = From->getIntegerBitWidth();
+      unsigned ToWidth = To->getIntegerBitWidth();
+      if (FromWidth != 32 || ToWidth != 64)
+        continue;
+      if (!canPromoteSExt(I.getOperand(0), To))
+        continue;
+      Value *Res = promoteSExtType(I.getOperand(0), To);
+      if (!Res)
+        continue;
+      IRBuilder<> Builder(&I);
+      // Emit shl + ashr to do the sign extend after type promotion
+      Constant *ShAmt = ConstantInt::get(To, ToWidth-FromWidth);
+      Value *Result64 = Builder.CreateShl(Res, ShAmt);
+      if (BinaryOperator *Op0BO = dyn_cast<BinaryOperator>(Res)) {
+        // If the operand is a subtract with a constant LHS, and the shift
+        // is the only use, we can pull it out of the shift.
+        // This folds (shl (sub C1, X), C2) -> (sub (C1 << C2), (shl X, C2))
+        const APInt *Op0C;
+        if (Op0BO->getOpcode() == Instruction::Sub &&
+            match(Op0BO->getOperand(0), m_APInt(Op0C))) {
+          Constant *NewRHS = ConstantExpr::get(Instruction::Shl,
+              cast<Constant>(Op0BO->getOperand(0)), ShAmt);
+          // Create Bitcast on purpose to match IV Sink pattern
+          Value *RHSBitCast = CastInst::Create(Instruction::BitCast, NewRHS,
+              Result64->getType(), "", &I);
+          Value *NewShift = Builder.CreateShl(Op0BO->getOperand(1),
+              ShAmt, "");
+          NewShift->takeName(Op0BO);
+
+          // Old Shl is not used anymore.
+          RecursivelyDeleteTriviallyDeadInstructions(Result64);
+
+          Result64 = Builder.CreateSub(RHSBitCast, NewShift);
+        }
+      }
+      Value *Result = Builder.CreateAShr(Result64, ShAmt);
+      Result->takeName(&I);
+      // Everything uses the new instruction now.
+      I.replaceAllUsesWith(Result);
+
+      LLVM_DEBUG(dbgs() << "optimizeIVComputeSExt : Old = " << I << '\n'
+                        << "                   New = " << *Result << '\n');
+
+      Changed = true;
+
+      // Erase all old instructions which are not used by others.
+      RecursivelyDeleteTriviallyDeadInstructions(&I);
+    }
+  }
   return Changed;
 }
 
