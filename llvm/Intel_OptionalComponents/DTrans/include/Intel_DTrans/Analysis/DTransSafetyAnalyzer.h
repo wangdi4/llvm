@@ -30,8 +30,10 @@ class TargetLibraryInfo;
 class WholeProgramInfo;
 
 namespace dtrans {
+class DTransType;
 class DTransTypeManager;
 class PtrTypeAnalyzer;
+class TypeInfo;
 class TypeMetadataReader;
 
 // This class holds the results of the safety analysis of the aggregate
@@ -39,6 +41,20 @@ class TypeMetadataReader;
 // the DTrans information.
 class DTransSafetyInfo {
 public:
+  // Adapter for directly iterating over the dtrans::TypeInfo pointers.
+  struct type_info_iterator
+      : public iterator_adaptor_base<
+            type_info_iterator,
+            DenseMap<DTransType *, dtrans::TypeInfo *>::iterator,
+            std::forward_iterator_tag, dtrans::TypeInfo *> {
+    explicit type_info_iterator(
+        DenseMap<DTransType *, dtrans::TypeInfo *>::iterator X)
+        : iterator_adaptor_base(X) {}
+
+    dtrans::TypeInfo *&operator*() const { return I->second; }
+    dtrans::TypeInfo *&operator->() const { return operator*(); }
+  };
+
   DTransSafetyInfo() = default;
   DTransSafetyInfo(const DTransSafetyInfo &) = delete;
   DTransSafetyInfo &operator=(const DTransSafetyInfo &) = delete;
@@ -62,10 +78,32 @@ public:
   // transformations.
   bool useDTransSafetyAnalysis() const;
 
+  // Retrieve the DTrans type information entry for the specified type.
+  // If there is no entry for the specified type, create one.
+  TypeInfo *getOrCreateTypeInfo(DTransType *Ty);
+
+  // Retrieve the DTrans type information entry for the specified type.
+  // If there is no entry for the specified type, return nullptr.
+  TypeInfo *getTypeInfo(DTransType *Ty) const;
+
+  // Accessor for the set of TypeInfo objects.
+  iterator_range<type_info_iterator> type_info_entries() {
+    return make_range(type_info_iterator(TypeInfoMap.begin()),
+                      type_info_iterator(TypeInfoMap.end()));
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void printAnalyzedTypes();
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
 private:
   std::unique_ptr<DTransTypeManager> TM;
   std::unique_ptr<TypeMetadataReader> MDReader;
   std::unique_ptr<PtrTypeAnalyzer> PtrAnalyzer;
+
+  // A mapping from DTransTypes to the TypeInfo object that is used to
+  // store information and safety bits about the types.
+  DenseMap<DTransType *, TypeInfo *> TypeInfoMap;
 
   // Indicates whether the module was completely analyzed for safety checks.
   bool DTransSafetyAnalysisRan = false;
