@@ -2356,7 +2356,8 @@ static inline int32_t run_target_team_nd_region(
 
         while (local_work_size_max > kernel_simd_width) {
           size_t threads_per_wg = local_work_size_max / kernel_simd_width;
-          size_t wgs_per_ss = threads_per_ss / threads_per_wg;
+          size_t wgs_per_ss =
+              (threads_per_ss + threads_per_wg - 1) / threads_per_wg;
           size_t number_of_simultaneous_wgs = wgs_per_ss * number_of_subslices;
           if (number_of_simultaneous_wgs >= num_work_groups_max)
             break;
@@ -2373,7 +2374,8 @@ static inline int32_t run_target_team_nd_region(
       // which will be used later to set the global size.
       size_t threads_per_wg =
           (local_work_size_max + kernel_simd_width - 1) / kernel_simd_width;
-      size_t wgs_per_ss = threads_per_ss / threads_per_wg;
+      size_t wgs_per_ss =
+          (threads_per_ss + threads_per_wg - 1) / threads_per_wg;
       num_work_groups_max = wgs_per_ss * number_of_subslices;
     } else {
       assert(!local_size_forced_by_user && !num_teams_forced_by_user &&
