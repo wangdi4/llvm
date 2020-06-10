@@ -37,6 +37,13 @@ using namespace PatternMatch;
 
 #define DEBUG_TYPE "instcombine"
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool> DisableInstCombineAddSubReassoc(
+    "disable-instcombine-add-sub-reassoc", cl::init(true), cl::Hidden,
+    cl::desc("Temporary workaround for InstCombine AddSub reassociation "
+             "interfering with SLP."));
+#endif // INTEL_CUSTOMIZATION
+
 namespace {
 
   /// Class representing coefficient of floating-point addend.
@@ -1765,16 +1772,20 @@ Instruction *InstCombiner::visitSub(BinaryOperator &I) {
   if (match(Op0, m_OneUse(m_Add(m_Value(X), m_AllOnes()))))
     return BinaryOperator::CreateAdd(Builder.CreateNot(Op1), X);
 
-  // Reassociate sub/add sequences to create more add instructions and
-  // reduce dependency chains:
-  // ((X - Y) + Z) - Op1 --> (X + Z) - (Y + Op1)
-  Value *Z;
-  if (match(Op0, m_OneUse(m_c_Add(m_OneUse(m_Sub(m_Value(X), m_Value(Y))),
-                                  m_Value(Z))))) {
-    Value *XZ = Builder.CreateAdd(X, Z);
-    Value *YW = Builder.CreateAdd(Y, Op1);
-    return BinaryOperator::CreateSub(XZ, YW);
+#if INTEL_CUSTOMIZATION
+  if (!DisableInstCombineAddSubReassoc) {
+    // Reassociate sub/add sequences to create more add instructions and
+    // reduce dependency chains:
+    // ((X - Y) + Z) - Op1 --> (X + Z) - (Y + Op1)
+    Value *Z;
+    if (match(Op0, m_OneUse(m_c_Add(m_OneUse(m_Sub(m_Value(X), m_Value(Y))),
+                                    m_Value(Z))))) {
+      Value *XZ = Builder.CreateAdd(X, Z);
+      Value *YW = Builder.CreateAdd(Y, Op1);
+      return BinaryOperator::CreateSub(XZ, YW);
+    }
   }
+#endif // INTEL_CUSTOMIZATION
 
   if (Constant *C = dyn_cast<Constant>(Op0)) {
     Value *X;
