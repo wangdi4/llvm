@@ -20,6 +20,7 @@
 #ifndef INTEL_DTRANS_ANALYSIS_DTRANSUTILS_H
 #define INTEL_DTRANS_ANALYSIS_DTRANSUTILS_H
 
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 
 namespace llvm {
@@ -31,6 +32,8 @@ class Type;
 namespace dtrans {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+extern cl::opt<bool> DTransPrintAnalyzedTypes;
+
 // This template function is to support dumping a collection of items in
 // lexically sorted order so that debug traces do not change due to pointer
 // addresses changing. This is done by first printing each item within the

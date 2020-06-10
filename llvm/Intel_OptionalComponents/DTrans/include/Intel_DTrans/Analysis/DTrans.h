@@ -21,8 +21,10 @@
 #define INTEL_DTRANS_ANALYSIS_DTRANS_H
 
 #include "Intel_DTrans/Analysis/DTransAllocAnalyzer.h"
+#include "Intel_DTrans/Analysis/DTransTypes.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/PointerIntPair.h"
+#include "llvm/ADT/PointerUnion.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
@@ -46,6 +48,38 @@ class raw_ostream;
 class DTransAnalysisInfo;
 
 namespace dtrans {
+
+// This class is used to represent a data type as either a llvm::Type or a
+// dtrans::DtransType to allow the TypeInfo class objects to work with either
+// the LocalPointerAnalyzer (by using llvm::Type objects) or the
+// DTransSafetyAnalyzer (by using dtrans::DtransType objects). This is to enable
+// the sharing of the existing TypeInfo classes while developing the DTrans
+// support for opaque pointers. When the compiler is transitioned to fully using
+// opaque pointers, and the LocalPointerAnalyzer is removed, this class can be
+// removed.
+class AbstractType {
+public:
+  AbstractType(llvm::Type* Ty) : Ty(Ty) {}
+  AbstractType(DTransType* Ty) : Ty(Ty) {}
+
+  // Get the corresponding type in the llvm::Type class hierarchy.
+  Type *getLLVMType() const {
+    return Ty.is<llvm::Type *>() ? Ty.get<llvm::Type *>()
+      : Ty.get<DTransType *>()->getLLVMType();
+  }
+
+  bool isDTransType() const {
+    return Ty.is<DTransType*>();
+  }
+
+  DTransType *getDTransType() const {
+    assert(isDTransType() && "Only valid when using DTransTypes");
+    return Ty.get<DTransType*>();
+  }
+
+private:
+  PointerUnion<llvm::Type*, DTransType*> Ty;
+};
 
 //Type used for DTrans transformation bitmask
 typedef uint32_t Transform;
@@ -71,13 +105,15 @@ enum SingleAllocFunctionKind { SAFK_Top, SAFK_Single, SAFK_Bottom };
 
 class FieldInfo {
 public:
-  FieldInfo(llvm::Type *Ty)
-      : LLVMType(Ty), Read(false), Written(false), UnusedValue(true),
+  FieldInfo(AbstractType Ty)
+      : Ty(Ty), Read(false), Written(false), UnusedValue(true),
         ComplexUse(false), AddressTaken(false), MismatchedElementAccess(false),
         SVKind(SVK_Complete), SVIAKind(SVK_Incomplete), SAFKind(SAFK_Top),
         SingleAllocFunction(nullptr), RWState(RWK_Top), Frequency(0) {}
 
-  llvm::Type *getLLVMType() const { return LLVMType; }
+  llvm::Type *getLLVMType() const { return Ty.getLLVMType(); }
+  DTransType *getDTransType() const { return Ty.getDTransType(); }
+  bool isDTransType() const { return Ty.isDTransType(); }
 
   bool isRead() const { return Read; }
   bool isWritten() const { return Written; }
@@ -211,7 +247,7 @@ public:
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 private:
-  llvm::Type *LLVMType;
+  AbstractType Ty;
   bool Read;
   bool Written;
   bool UnusedValue;
@@ -571,11 +607,13 @@ public:
 
 protected:
   // This class should only be instantiated through its subclasses.
-  TypeInfo(TypeInfoKind Kind, llvm::Type *Ty)
-      : LLVMTy(Ty), SafetyInfo(0), TIK(Kind), CRTypeKind(CRT_Unknown) {}
+  TypeInfo(TypeInfoKind Kind, AbstractType Ty)
+      : Ty(Ty), SafetyInfo(0), TIK(Kind), CRTypeKind(CRT_Unknown) {}
 
 public:
-  llvm::Type *getLLVMType() const { return LLVMTy; }
+  llvm::Type *getLLVMType() const { return Ty.getLLVMType(); }
+  DTransType *getDTransType() const { return Ty.getDTransType(); }
+  bool isDTransType() const { return Ty.isDTransType(); }
 
   bool testSafetyData(SafetyData Conditions) const {
     // If any unhandled uses have been seen, assume all conditions are set.
@@ -601,7 +639,7 @@ public:
   }
 
 private:
-  llvm::Type *LLVMTy;
+  AbstractType Ty;
   SafetyData SafetyInfo;
 
   // ID to support type inquiry through isa, cast, and dyn_cast
@@ -612,7 +650,7 @@ private:
 
 class NonAggregateTypeInfo : public TypeInfo {
 public:
-  NonAggregateTypeInfo(llvm::Type *Ty)
+  NonAggregateTypeInfo(AbstractType Ty)
       : TypeInfo(TypeInfo::NonAggregateInfo, Ty) {}
 
   /// Method to support type inquiry through isa, cast, and dyn_cast:
@@ -623,7 +661,7 @@ public:
 
 class PointerInfo : public TypeInfo {
 public:
-  PointerInfo(llvm::Type *Ty) : TypeInfo(TypeInfo::PtrInfo, Ty) {}
+  PointerInfo(AbstractType Ty) : TypeInfo(TypeInfo::PtrInfo, Ty) {}
 
   /// Method to support type inquiry through isa, cast, and dyn_cast:
   static inline bool classof(const TypeInfo *TI) {
@@ -633,10 +671,11 @@ public:
 
 class StructInfo : public TypeInfo {
 public:
-  StructInfo(llvm::Type *Ty, ArrayRef<llvm::Type *> FieldTypes, bool IgnoreFlag)
-      : TypeInfo(TypeInfo::StructInfo, Ty), IsIgnoredFor(IgnoreFlag),
-        SubGraph() {
-    for (llvm::Type *FieldTy : FieldTypes)
+  StructInfo(AbstractType Ty, ArrayRef<AbstractType> FieldTypes,
+             bool IgnoreFlag)
+      : TypeInfo(TypeInfo::StructInfo, Ty), TotalFrequency(0),
+        IsIgnoredFor(IgnoreFlag), SubGraph() {
+    for (AbstractType FieldTy : FieldTypes)
       Fields.push_back(FieldInfo(FieldTy));
   }
 
@@ -715,7 +754,7 @@ private:
 
 class ArrayInfo : public TypeInfo {
 public:
-  ArrayInfo(llvm::Type *Ty, dtrans::TypeInfo *DTransElemTy, size_t Size)
+  ArrayInfo(AbstractType Ty, dtrans::TypeInfo *DTransElemTy, size_t Size)
       : TypeInfo(TypeInfo::ArrayInfo, Ty), DTransElemTy(DTransElemTy),
         NumElements(Size) {}
 
@@ -774,6 +813,7 @@ struct MemfuncRegion {
 // for more than a single function argument.
 class CallInfoElementTypes {
 public:
+  // TODO: Change to use AbstractType
   typedef SmallVector<llvm::Type *, 2> TypeAliasSet;
   typedef SmallVectorImpl<llvm::Type *> &TypeAliasSetRef;
 
