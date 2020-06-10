@@ -3515,13 +3515,90 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   }
 
   case Instruction::UDiv:
-  case Instruction::SDiv:
+  case Instruction::SDiv: {
+    assert(RefOp0->isTerminalRef() && RefOp1->isTerminalRef() &&
+           "Expected terminal refs");
+
+    auto *CE1 = RefOp0->getSingleCanonExpr();
+
+    // Try and fold the divide operation into the canon expression for RefOp0 if
+    // it is linear. This helps preserve linear values and also avoids
+    // unnecessary HLInsts.
+    auto *ConstOp = dyn_cast<VPConstant>(VPInst->getOperand(1));
+    if (CE1->isLinearAtLevel(MainLoop->getNestingLevel()) &&
+        CE1->getDenominator() == 1 && ConstOp) {
+      auto *CI = cast<ConstantInt>(ConstOp->getConstant());
+
+      // The constant value needs to fit in 64 bits which is what setDenominator
+      // takes. Try folding only if this is the case.
+      if (CI->getBitWidth() <= 64) {
+        SmallVector<const RegDDRef *, 2> AuxRefs = {RefOp0->clone()};
+
+        CE1->setDenominator(CI->getSExtValue());
+        CE1->setDivisionType(VPInst->getOpcode() == Instruction::SDiv);
+        makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen);
+        return;
+      }
+    }
+
+    NewInst = HLNodeUtilities.createBinaryHLInst(VPInst->getOpcode(), RefOp0,
+                                                 RefOp1, ".vec", nullptr);
+    break;
+  }
+
+  case Instruction::Mul: {
+    // Try and fold the mul operation into the canon expression. This helps
+    // preserve linear values and also avoids unnecessary HLInsts. Reductions
+    // cannot be folded.
+    assert(RefOp0->isTerminalRef() && RefOp1->isTerminalRef() &&
+           "Expected terminal refs");
+
+    auto *CE1 = RefOp0->getSingleCanonExpr();
+    auto *CE2 = RefOp1->getSingleCanonExpr();
+    const VPConstant *ConstOp = nullptr;
+    unsigned NonConstIndex = 0;
+
+    if (!ReductionVPInsts.count(VPInst) &&
+        CE1->isLinearAtLevel(MainLoop->getNestingLevel()) &&
+        CE2->isLinearAtLevel(MainLoop->getNestingLevel()))
+      if (ConstOp = dyn_cast<VPConstant>(VPInst->getOperand(0)))
+        NonConstIndex = 1;
+      else if (ConstOp = dyn_cast<VPConstant>(VPInst->getOperand(1)))
+        NonConstIndex = 0;
+
+    if (ConstOp) {
+      auto *CI = cast<ConstantInt>(ConstOp->getConstant());
+      // The constant value needs to fit in 64 bits which is what
+      // multiplyByConstant takes. Try folding only if this is the case.
+      if (CI->getBitWidth() <= 64) {
+        auto *NonConstCE = NonConstIndex == 0 ? CE1 : CE2;
+        auto *ResultRef = NonConstIndex == 0 ? RefOp0 : RefOp1;
+
+        SmallVector<const RegDDRef *, 2> AuxRefs = {ResultRef->clone()};
+        int64_t ConstVal = CI->getSExtValue();
+        if (NonConstCE->multiplyByConstant(ConstVal)) {
+          makeConsistentAndAddToMap(ResultRef, VPInst, AuxRefs, Widen);
+          return;
+        }
+      }
+    }
+
+    // If this instruction corresponds to a reduction, then we need to
+    // write the result back to the corresponding reduction variable.
+    RegDDRef *RedRef = nullptr;
+    if (ReductionRefs.count(VPInst))
+      RedRef = ReductionRefs[VPInst];
+    NewInst = HLNodeUtilities.createBinaryHLInst(
+        VPInst->getOpcode(), RefOp0, RefOp1, ".vec",
+        RedRef ? RedRef->clone() : nullptr);
+    break;
+  }
+
   case Instruction::SRem:
   case Instruction::URem:
   case Instruction::FAdd:
   case Instruction::Sub:
   case Instruction::FSub:
-  case Instruction::Mul:
   case Instruction::FMul:
   case Instruction::FDiv:
   case Instruction::FRem:
