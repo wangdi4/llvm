@@ -264,13 +264,13 @@ private:
   VPVectorShape getRandomVectorShape();
 
   /// Returns a sequential vector shape with the given stride.
-  VPVectorShape getSequentialVectorShape(uint64_t Stride);
+  VPVectorShape getSequentialVectorShape(int64_t Stride);
 
   /// Returns a strided vector shape with the given stride.
-  VPVectorShape getStridedVectorShape(uint64_t Stride);
+  VPVectorShape getStridedVectorShape(int64_t Stride);
 
   /// Returns in integer value in \p IntVal if \p V is an integer VPConstant.
-  bool getConstantIntVal(VPValue *V, uint64_t &IntVal);
+  bool getConstantIntVal(VPValue *V, int64_t &IntVal);
 
   /// Returns a VPConstant of \p Val.
   VPConstant* getConstantInt(int64_t Val);
