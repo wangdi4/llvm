@@ -655,11 +655,11 @@ VPVectorShape VPlanDivergenceAnalysis::getRandomVectorShape() {
 }
 
 VPVectorShape
-VPlanDivergenceAnalysis::getSequentialVectorShape(uint64_t Stride) {
+VPlanDivergenceAnalysis::getSequentialVectorShape(int64_t Stride) {
   return {VPVectorShape::Seq, getConstantInt(Stride)};
 }
 
-VPVectorShape VPlanDivergenceAnalysis::getStridedVectorShape(uint64_t Stride) {
+VPVectorShape VPlanDivergenceAnalysis::getStridedVectorShape(int64_t Stride) {
   return {VPVectorShape::Str, getConstantInt(Stride)};
 }
 
@@ -720,7 +720,7 @@ VPConstant* VPlanDivergenceAnalysis::getConstantInt(int64_t Val) {
   return VPCInt;
 }
 
-bool VPlanDivergenceAnalysis::getConstantIntVal(VPValue *V, uint64_t &IntVal) {
+bool VPlanDivergenceAnalysis::getConstantIntVal(VPValue *V, int64_t &IntVal) {
   if (V && isa<VPConstant>(V)) {
     Constant *C = cast<Constant>(V->getUnderlyingValue());
     if (ConstantInt *CInt = dyn_cast<ConstantInt>(C)) {
@@ -768,13 +768,13 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForBinaryInst(
       // A constant integer multiplied by a known stride results in another
       // known stride that has been scaled.
       VPValue *NewStride = nullptr;
-      uint64_t Op1IntVal;
-      uint64_t Op0StrideIntVal;
+      int64_t Op1IntVal;
+      int64_t Op0StrideIntVal;
       bool Op1IsInt = getConstantIntVal(Op1, Op1IntVal);
       bool Shape0StrideIsInt = getConstantIntVal(Shape0.getStride(),
                                                  Op0StrideIntVal);
       if (Op1IsInt && Shape0StrideIsInt) {
-        uint64_t NewStrideVal = Op1IntVal * Op0StrideIntVal;
+        int64_t NewStrideVal = Op1IntVal * Op0StrideIntVal;
         ConstantInt *NewStrideInt = ConstantInt::get(Type::getInt64Ty(C),
                                                      NewStrideVal);
         NewStride = Plan->getVPConstant(NewStrideInt);
@@ -794,8 +794,8 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForBinaryInst(
     case Instruction::Add:
     case Instruction::FAdd: {
       VPValue *NewStride = nullptr;
-      uint64_t Op0StrideIntVal;
-      uint64_t Op1StrideIntVal;
+      int64_t Op0StrideIntVal;
+      int64_t Op1StrideIntVal;
       bool Op0StrideIsInt = getConstantIntVal(Shape0.getStride(),
                                               Op0StrideIntVal);
       bool Op1StrideIsInt = getConstantIntVal(Shape1.getStride(),
@@ -812,8 +812,8 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForBinaryInst(
     case Instruction::Sub:
     case Instruction::FSub: {
       VPValue *NewStride = nullptr;
-      uint64_t Op0StrideIntVal;
-      uint64_t Op1StrideIntVal;
+      int64_t Op0StrideIntVal;
+      int64_t Op1StrideIntVal;
       bool Op0StrideIsInt =
           getConstantIntVal(Shape0.getStride(), Op0StrideIntVal);
       bool Op1StrideIsInt =
@@ -1067,7 +1067,7 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForSelectInst(
     VPVectorShape Shape2 = getObservedShape(VPBB, *Op2);
     VPVectorShape::VPShapeDescriptor Shape1Desc = Shape1.getShapeDescriptor();
     VPVectorShape::VPShapeDescriptor Shape2Desc = Shape2.getShapeDescriptor();
-    uint64_t MaskConstIntVal;
+    int64_t MaskConstIntVal;
     bool MaskIsConstInt = getConstantIntVal(Mask, MaskConstIntVal);
     if (isa<VPConstant>(Mask) && MaskIsConstInt) {
       if (MaskConstIntVal)
@@ -1138,7 +1138,7 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForAllocatePrivateInst(
   // tentative shape.
   Type *PointeeTy = cast<PointerType>(AI->getType())->getPointerElementType();
   // We set the stride in terms of bytes.
-  uint64_t Stride = getTypeSizeInBytes(PointeeTy);
+  int64_t Stride = getTypeSizeInBytes(PointeeTy);
   updateVectorShape(AI, getStridedVectorShape(Stride));
 
   return getVectorShape(AI);
@@ -1175,6 +1175,8 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForInductionInit(
     StepInt = StepConst->getZExtValue();
 
   if (StepInt == 1 || StepInt == -1)
+    // Step could be of i32 type. That is why we do not use
+    // getSequentialVectorShape().
     return VPVectorShape{VPVectorShape::Seq, const_cast<VPValue *>(Step)};
 
   return getStridedVectorShape(StepInt);
