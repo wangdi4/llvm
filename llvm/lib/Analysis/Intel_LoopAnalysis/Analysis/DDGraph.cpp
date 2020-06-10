@@ -71,7 +71,7 @@ void DDEdge::print(raw_ostream &OS) const {
   // todo
 }
 
-unsigned DDGraph::getNumIncomingFlowEdges(const DDRef *Ref) const {
+unsigned DDGraph::getTotalNumIncomingFlowEdges(const DDRef *Ref) const {
   unsigned Num = 0;
   for (auto &Edge : incoming(Ref)) {
     if (Edge->isFlow()) {
