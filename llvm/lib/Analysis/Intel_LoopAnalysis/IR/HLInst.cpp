@@ -21,8 +21,8 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Transforms/Utils/LoopUtils.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -32,8 +32,9 @@ static cl::opt<bool>
                  cl::desc("Show LLVM instructions instead of dummy HLInst"));
 
 static cl::opt<bool>
-  PrintSafeReductionOp("hir-safe-reduction-analysis-print-op", cl::init(false), cl::Hidden,
-                                              cl::desc("print reduction operation"));
+    PrintSafeReductionOp("hir-safe-reduction-analysis-print-op",
+                         cl::init(false), cl::Hidden,
+                         cl::desc("print reduction operation"));
 
 void HLInst::initialize() {
   /// This call is to get around calling virtual functions in the constructor.
@@ -162,11 +163,11 @@ void HLInst::printBeginOpcode(formatted_raw_ostream &OS,
 #if !INTEL_PRODUCT_RELEASE
 
   if (auto CInst = dyn_cast<CastInst>(Inst)) {
-      OS << CInst->getOpcodeName() << ".";
-      OS << *(CInst->getSrcTy());
-      OS << ".";
-      OS << *(CInst->getDestTy());
-      OS << "(";
+    OS << CInst->getOpcodeName() << ".";
+    OS << *(CInst->getSrcTy());
+    OS << ".";
+    OS << *(CInst->getDestTy());
+    OS << "(";
   } else if (auto *FInst = getCallInst()) {
     if (isIndirectCallInst()) {
       // Use the last operand which is the function pointer.
@@ -333,7 +334,8 @@ void HLInst::printReductionInfo(formatted_raw_ostream &OS) const {
                                       .getHIRFramework()
                                       .getHIRAnalysisProvider()
                                       .get<HIRSafeReductionAnalysis>();
-  if (SRA && SRA->isSafeReduction(this)) {
+  bool HasUnsafeAlgebra = false;
+  if (SRA && SRA->isSafeReduction(this, nullptr, &HasUnsafeAlgebra)) {
     OS << " <Safe Reduction>";
     if (PrintSafeReductionOp) {
       OS << " Red Op: " << (SRA->getSafeRedInfo(this))->OpCode;
@@ -348,6 +350,10 @@ void HLInst::printReductionInfo(formatted_raw_ostream &OS) const {
   if (SARA && SARA->isSparseArrayReduction(this)) {
     OS << " <Sparse Array Reduction>";
   }
+
+  // Unsafe Algebra:
+  StringRef Msg = HasUnsafeAlgebra ? " Yes" : " No";
+  OS << " <Has Unsafe Algebra-" << Msg << ">";
 }
 
 RegDDRef *HLInst::getLvalDDRef() {

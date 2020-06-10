@@ -167,7 +167,7 @@ HIRSparseArrayReductionAnalysis::HIRSparseArrayReductionAnalysis(
   }
 }
 
-void printAChain(formatted_raw_ostream &OS, unsigned Indented,
+void printSafeRedChain(formatted_raw_ostream &OS, unsigned Indented,
                  const loopopt::SparseArrayReductionChain &SRC) {
   for (auto *Inst : SRC) {
     Inst->print(OS, Indented, false);
@@ -685,7 +685,7 @@ void HIRSparseArrayReductionAnalysis::validateAndCreateSparseArrayReduction(
                                      StoreRef->getSymbase(), ReductionOpCode);
     LLVM_DEBUG(dbgs() << "Sparse Array Reduction Chain:\n");
     LLVM_DEBUG(formatted_raw_ostream FOS(dbgs());
-               printAChain(FOS, 1, ReductionInsts));
+               printSafeRedChain(FOS, 1, ReductionInsts));
     LLVM_DEBUG(dbgs() << "\n");
   }
 }
@@ -733,7 +733,7 @@ void HIRSparseArrayReductionAnalysis::print(
   }
 
   for (auto &SARI : *SARCL) {
-    printAChain(OS, Depth, SARI.Chain);
+    printSafeRedChain(OS, Depth, SARI.Chain);
   }
 }
 
