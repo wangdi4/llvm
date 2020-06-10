@@ -49,6 +49,7 @@
 #include "llvm/IR/IntrinsicsWebAssembly.h"
 #include "llvm/IR/IntrinsicsX86.h"
 #include "llvm/IR/MDBuilder.h"
+#include "llvm/IR/MatrixBuilder.h"
 #include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/Intel_CPU_utils.h" // INTEL
 #include "llvm/Support/ScopedPrinter.h"
@@ -2739,6 +2740,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     return RValue::get(Builder.CreateZExt(V, ConvertType(E->getType())));
   }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   case Builtin::BI__builtin_isinff:
   case Builtin::BI__builtin_isinfl:
@@ -2746,6 +2748,17 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
   case Builtin::BI__builtin_finitef:
   case Builtin::BI__builtin_finitel:
 #endif  // INTEL_CUSTOMIZATION
+=======
+  case Builtin::BI__builtin_matrix_transpose: {
+    const auto *MatrixTy = E->getArg(0)->getType()->getAs<ConstantMatrixType>();
+    Value *MatValue = EmitScalarExpr(E->getArg(0));
+    MatrixBuilder<CGBuilderTy> MB(Builder);
+    Value *Result = MB.CreateMatrixTranspose(MatValue, MatrixTy->getNumRows(),
+                                             MatrixTy->getNumColumns());
+    return RValue::get(Result);
+  }
+
+>>>>>>> 755e53b421cd55b11ca6909ce4003e53c2993e37
   case Builtin::BIfinite:
   case Builtin::BI__finite:
   case Builtin::BIfinitef:
