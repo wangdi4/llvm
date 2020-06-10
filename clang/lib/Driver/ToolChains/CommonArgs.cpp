@@ -392,11 +392,14 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
     const char *Suffix = ".so";
 #endif
 
+#if INTEL_CUSTOMIZATION
+    const char * PluginName = "LLVMgold";
+    if (Args.hasArg(options::OPT__intel))
+      PluginName = "icx-lto";
     SmallString<1024> Plugin;
     llvm::sys::path::native(Twine(ToolChain.getDriver().Dir) +
-                                "/../lib" CLANG_LIBDIR_SUFFIX "/LLVMgold" +
-                                Suffix,
-                            Plugin);
+        "/../lib" CLANG_LIBDIR_SUFFIX "/" + PluginName + Suffix, Plugin);
+#endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back(Args.MakeArgString(Plugin));
   }
 
