@@ -4879,15 +4879,11 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
     if (getCodeGenOpts().hasReducedDebugInfo())
       DI->EmitGlobalVariable(GV, D);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   maybeEmitGlobalChannelMetadata(D, GV, *this);
 #endif // INTEL_CUSTOMIZATION
 
-  if (LangOpts.SYCLIsDevice)
-=======
   if (LangOpts.SYCLIsDevice) {
->>>>>>> bba5911aeaa493bb76903344157d75bef866100b
     maybeEmitPipeStorageMetadata(D, GV, *this);
     // Notify SYCL code generation infrastructure that a global variable is
     // being generated.
