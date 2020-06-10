@@ -15,6 +15,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "IntelVPlanAllZeroBypass.h"
+#include "IntelVPlanCostModelProprietary.h"
 #include "IntelVPlanUtils.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
@@ -24,12 +25,11 @@
 
 using namespace llvm;
 
-// A basic tuning knob to control the size of all-zero byass regions.
-// RegionThreshold is specified in the minimum number of blocks that need to be
-// in the region in order to insert the bypass.
+// RegionThreshold is specified as the minimum cost of the region in order to
+// insert the bypass.
 static cl::opt<unsigned> RegionThreshold(
-    "vplan-all-zero-bypass-region-threshold", cl::init(1), cl::Hidden,
-    cl::desc("Tune the size of all-zero bypass regions in number of blocks"));
+    "vplan-all-zero-bypass-region-threshold", cl::init(125), cl::Hidden,
+    cl::desc("Tune bypass insertion based on cost of instructions in region"));
 
 namespace llvm {
 namespace vpo {
@@ -355,7 +355,8 @@ bool VPlanAllZeroBypass::blendTerminatesRegion(const VPBlendInst *Blend,
 
 void VPlanAllZeroBypass::collectAllZeroBypassNonLoopRegions(
     AllZeroBypassRegionsTy &AllZeroBypassRegions,
-    RegionsCollectedTy &RegionsCollected) {
+    RegionsCollectedTy &RegionsCollected,
+    VPlanCostModelProprietary *CM) {
 
   VPLoopInfo *VPLI = Plan.getVPLoopInfo();
 
@@ -547,9 +548,16 @@ void VPlanAllZeroBypass::collectAllZeroBypassNonLoopRegions(
                             RegionsCollected))
       continue;
 
-    // Basic tuning for all-zero bypass candidate regions at the moment.
-    // Later, we can switch to a cost-model based approach if necessary.
-    if (RegionBlocks.size() >= RegionThreshold) {
+    // Cost model not yet available for function vectorization pipeline. It's
+    // ok because there's really no reason for it there yet anyway since this
+    // pipeline is only used for testing at the moment.
+    unsigned RegionCost = RegionThreshold;
+    if (CM)
+      RegionCost = CM->getBlockRangeCost(CandidateBlock, LastBB);
+
+    // If the region meets minimum cost requirements, record it for later
+    // insertion.
+    if (RegionCost >= RegionThreshold) {
       BypassPairTy BypassRegion = std::make_pair(CandidateBlock, LastBB);
       verifyBypassRegion(CandidateBlock, RegionBlocks);
       AllZeroBypassRegions.push_back(BypassRegion);

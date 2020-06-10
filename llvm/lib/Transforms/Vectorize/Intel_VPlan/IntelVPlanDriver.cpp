@@ -321,7 +321,7 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
 
   // All-zero bypass is added after best plan selection because cost model
   // tuning is not yet implemented and we don't want to prevent vectorization.
-  LVP.insertAllZeroBypasses(Plan);
+  LVP.insertAllZeroBypasses(Plan, VF);
 
   unsigned UF = VPlanForceUF;
   if (UF == 0)
@@ -1119,7 +1119,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 
   // All-zero bypass is added after best plan selection because cost model
   // tuning is not yet implemented and we don't want to prevent vectorization.
-  LVP.insertAllZeroBypasses(Plan);
+  LVP.insertAllZeroBypasses(Plan, VF);
 
   unsigned UF = HLoop->getUnrollPragmaCount();
   if (VPlanForceUF)

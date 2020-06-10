@@ -16,6 +16,7 @@
 #include "IntelVPlanCostModelProprietary.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanIdioms.h"
+#include "IntelVPlanUtils.h"
 #include "IntelVPlanVLSAnalysis.h"
 #include "VPlanHIR/IntelVPlanVLSAnalysisHIR.h"
 #include "VPlanHIR/IntelVPlanVLSClientHIR.h"
@@ -536,6 +537,14 @@ unsigned VPlanCostModelProprietary::getGatherScatterCost(
 // to have more precise cost estimation for VPBB.
 unsigned VPlanCostModelProprietary::getCost(const VPBasicBlock *VPBB) {
   return VPlanCostModel::getCost(VPBB);
+}
+
+unsigned VPlanCostModelProprietary::getBlockRangeCost(const VPBasicBlock *Begin,
+                                                      const VPBasicBlock *End) {
+  unsigned Cost = 0;
+  for (auto *Block : sese_depth_first(Begin, End))
+    Cost += getCost(Block);
+  return Cost;
 }
 
 unsigned VPlanCostModelProprietary::getSpillFillCost(

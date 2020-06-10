@@ -26,6 +26,8 @@ using namespace llvm::vpo;
 namespace llvm {
 namespace vpo {
 
+class VPlanCostModelProprietary;
+
 class VPlanAllZeroBypass {
 
 public:
@@ -118,7 +120,8 @@ public:
   /// insertion for non-loops.
   void collectAllZeroBypassNonLoopRegions(
       AllZeroBypassRegionsTy &AllZeroBypassRegions,
-      RegionsCollectedTy &RegionsCollected);
+      RegionsCollectedTy &RegionsCollected,
+      VPlanCostModelProprietary *CM = nullptr);
 
   /// Collect regions of blocks that are safe/profitable for all-zero bypass
   /// insertion for loops.

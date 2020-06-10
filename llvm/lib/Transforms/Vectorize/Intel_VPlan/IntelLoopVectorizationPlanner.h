@@ -115,7 +115,7 @@ public:
   void predicate(void);
 
   /// Insert all-zero bypasses for \p Plan.
-  void insertAllZeroBypasses(VPlan *Plan);
+  void insertAllZeroBypasses(VPlan *Plan, unsigned VF);
 
   /// Perform VPlan loop unrolling if needed
   void
