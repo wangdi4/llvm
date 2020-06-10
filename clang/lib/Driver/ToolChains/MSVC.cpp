@@ -405,6 +405,14 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     if (!C.getDriver().IsCLMode())
       getToolChain().AddDAALLibArgs(Args, CmdArgs, "-defaultlib:");
   }
+  if (Arg *A = Args.getLastArgNoClaim(options::OPT__SLASH_F)) {
+    StringRef Value(A->getValue());
+    unsigned SSize;
+    if (!Value.getAsInteger(10, SSize)) {
+      CmdArgs.push_back(Args.MakeArgString(Twine("-stack:") + Value));
+      A->claim();
+    }
+  }
 #endif // INTEL_CUSTOMIZATION
 
   if (!llvm::sys::Process::GetEnv("LIB")) {
