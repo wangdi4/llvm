@@ -381,6 +381,12 @@ void VPOCodeGen::finalizeLoop() {
   fixLCSSAPHIs();
 
   predicateInstructions();
+
+  DT->recalculate(*LoopVectorPreHeader->getParent());
+  LI->releaseMemory();
+  LI->analyze(*DT);
+
+  NewLoop = LI->getLoopFor(LoopVectorBody);
 }
 
 void VPOCodeGen::updateAnalysis() {

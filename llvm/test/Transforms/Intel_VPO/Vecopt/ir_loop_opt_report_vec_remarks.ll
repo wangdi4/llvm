@@ -52,8 +52,9 @@ DIR.QUAL.LIST.END.2:                              ; preds = %omp.loop.exit
 define void @test_outer([1024 x [1024 x i64]]* %a) local_unnamed_addr {
 ; OPTREPORT-LABEL:Global loop optimization report for : test_outer
 ; OPTREPORT-EMPTY:
-; FIXME: This loop should be marked as vectorized.
 ; OPTREPORT-NEXT: LOOP BEGIN
+; OPTREPORT-NEXT:     Remark: LOOP WAS VECTORIZED
+; OPTREPORT-NEXT:     Remark: vectorization support: vector length 4
 ; OPTREPORT-EMPTY:
 ; OPTREPORT-NEXT:     LOOP BEGIN
 ; OPTREPORT-NEXT:     LOOP END
@@ -67,8 +68,7 @@ define void @test_outer([1024 x [1024 x i64]]* %a) local_unnamed_addr {
 ; OPTREPORT-NEXT: =================================================================
 
 ; CHECK-LABEL: define void @test_outer(
-; FIXME: Should contain !llvm.loop metadata
-; CHECK-NOT: !llvm.loop
+; CHECK: !llvm.loop [[TEST_OUTER_LOOP_MD:!.*]]
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
   br label %outer.loop
@@ -97,12 +97,15 @@ exit:
 }
 
 ; Check metadata for remarks from vectorized IR
-; CHECK: [[FOO_LOOP_MD]] = distinct !{[[FOO_LOOP_MD]], [[M1:!.*]]}
-; CHECK: [[M1]] = distinct !{!"llvm.loop.optreport", [[M2:!.*]]}
-; CHECK-NEXT: [[M2]] = distinct !{!"intel.loop.optreport", [[M3:!.*]]}
-; CHECK-NEXT: [[M3]] = !{!"intel.optreport.remarks", [[M4:!.*]], [[M5:!.*]]}
-; CHECK-NEXT: [[M4]] = !{!"intel.optreport.remark", !"LOOP WAS VECTORIZED"}
-; CHECK-NEXT: [[M5]] = !{!"intel.optreport.remark", !"vectorization support: vector length %s", {{.*}}}
+; CHECK: [[FOO_LOOP_MD]] = distinct !{[[FOO_LOOP_MD]], [[FOO_OPTRPT:!.*]]}
+; CHECK: [[FOO_OPTRPT]] = distinct !{!"llvm.loop.optreport", [[FOO_OPTRPT_INTEL:!.*]]}
+; CHECK-NEXT: [[FOO_OPTRPT_INTEL]] = distinct !{!"intel.loop.optreport", [[REMARKS:!.*]]}
+; CHECK-NEXT: [[REMARKS]] = !{!"intel.optreport.remarks", [[R1:!.*]], [[R2:!.*]]}
+; CHECK-NEXT: [[R1]] = !{!"intel.optreport.remark", !"LOOP WAS VECTORIZED"}
+; CHECK-NEXT: [[R2]] = !{!"intel.optreport.remark", !"vectorization support: vector length %s", {{.*}}}
+; CHECK-NEXT: [[TEST_OUTER_LOOP_MD]] = distinct !{[[TEST_OUTER_LOOP_MD]], [[TEST_OUTER_OPTRPT:!.*]]}
+; CHECK-NEXT: [[TEST_OUTER_OPTRPT]] = distinct !{!"llvm.loop.optreport", [[TEST_OUTER_OPTRPT_INTEL:!.*]]}
+; CHECK-NEXT: [[TEST_OUTER_OPTRPT_INTEL]] = distinct !{!"intel.loop.optreport", [[REMARKS]]}
 
 
 ; Function Attrs: argmemonly nounwind
