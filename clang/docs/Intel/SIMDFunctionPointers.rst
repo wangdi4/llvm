@@ -123,10 +123,11 @@ DPC++ Wrapper Class
 
 This will require two clang builtins that are called from the wrapper class.
 
-(1) FType\* __builtin_generate_SIMD_variant(FType \*Func, (SpecType\*)())
--------------------------------------------------------------------------
+(1) FType\* __builtin_generate_SIMD_variant(FType \*Func, int VLen, (SpecType\*)())
+-----------------------------------------------------------------------------------
 
 * Func is the constant address of the base function.
+* VLen is the vector length of the variant.
 * SpecType is a function type that represents the variant we want to generate.
 * The return is a pointer to the actual specific variant.
 
@@ -141,7 +142,7 @@ Example:
  int foo(int i, float f) {return (int)f+i+1;}
 
  int (*fp)(int, float) =
-   __builtin_generate_SIMD_variant(foo, std::add_pointer_t<unmasked(linear,uniform)>());
+   __builtin_generate_SIMD_variant(foo, 4, std::add_pointer_t<unmasked(linear,uniform)>());
 
 This will generate a call to this llvm intrinsic:
 
@@ -157,15 +158,16 @@ a attribute to the intrinsic call.
  %call = call i32 (i32, float)* @llvm.create.SIMD.variant(i32 (i32, float)* @foo) #0
  store i32 (i32, float)* %call, i32 (i32, float)** %fp, align 8
 
- attributes #0 = { "vector-variants"="_ZGVxN0lu_foo" }
+ attributes #0 = { "vector-variants"="_ZGVxN4lu_foo" }
 
-(2) Ret __builtin_call_SIMD_variant(detail::variant_list<SpecType...>(), (F**)ptrs, args...)
---------------------------------------------------------------------------------------------
+(2) Ret __builtin_call_SIMD_variant(detail::variant_list<SpecType...>(), int_list<int...>(), (F**)ptrs, args...)
+----------------------------------------------------------------------------------------------------------------
 
 This builtin takes the following arguments:
 
 * A list of SpecTypes in the same form as passed to
   __builtin_generate_SIMD_variant
+* A list of vector lengths passed as template parameters
 * A pointer to the table of function variants previously returned from
   __builtin_generate_SIMD_variant stored in the same order as the SpecTypes
 * Arguments to the function call
@@ -176,10 +178,10 @@ As an example, the templates used may expand to something like this:
 
  typedef int (*fp)(int,float);
  fp ptrs[2];
- ptrs[0] = __builtin_generate_SIMD_variant(foo, std::add_pointer_t<unmasked(linear,uniform)>());
- ptrs[1] = __builtin_generate_SIMD_variant(foo, std::add_pointer_t<masked(varying,varying)>());
+ ptrs[0] = __builtin_generate_SIMD_variant(foo, 4, std::add_pointer_t<unmasked(linear,uniform)>());
+ ptrs[1] = __builtin_generate_SIMD_variant(foo, 4, std::add_pointer_t<masked(varying,varying)>());
  // The call
- int i = __builtin_call_SIMD_variant(detail::variant_list<unmasked(linear,uniform), masked(varying,varying)>(), ptrs, 1, 2.0);
+ int i = __builtin_call_SIMD_variant(detail::variant_list<unmasked(linear,uniform), masked(varying,varying)>(), int_list<4>, ptrs, 1, 2.0);
 
 This call also uses the llvm intrinsic llvm.indirect.call but in this case
 the call attribute must be specified.
@@ -191,7 +193,7 @@ The IR for the call would be something like:
  %call = call i32 @llvm.indirect.call(i32 (i32, float)** @ptrs, i32 1, float 2.000000e+00) #0
  store i32 %call1, i32* %i, align 4
 
- attributes #0 = { "vector-variants"="_ZGVxN0lu_foo,_ZGVxM0vv_foo" }
+ attributes #0 = { "vector-variants"="_ZGVxN4lu_foo,_ZGVxM4vv_foo" }
 
 .. _Full Functionality:
 
