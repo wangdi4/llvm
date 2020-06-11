@@ -48,12 +48,60 @@ enum class DistHeuristics : unsigned char {
   BreakScalarRec    // Break recurrence among scalars. Requires scalar expansion
 };
 
+typedef SmallVector<HLDDNode *, 12> HLDDNodeList;
+typedef SmallVector<PiBlock *, 4> PiBlockList;
+typedef DDRefGatherer<DDRef, AllRefs ^ (ConstantRefs | GenericRValRefs |
+                                        IsAddressOfRefs)>
+    Gatherer;
+
+class ScalarExpansion {
+public:
+  struct Candidate {
+    bool StripminingRequired = true;
+
+    SmallVector<RegDDRef *, 8> SrcRefs;
+
+    // DstRef and IsTempRedefined
+    SmallVector<std::pair<DDRef *, bool>, 8> DstRefs;
+
+    bool getSymbase() const { return SrcRefs.front()->getSymbase(); }
+  };
+
+private:
+  bool HasDistributePoint;
+
+  SmallVector<Candidate, 8> Candidates;
+
+public:
+  ScalarExpansion(bool HasDistributePoint, ArrayRef<HLDDNodeList> Chunks);
+
+  ArrayRef<Candidate> getCandidates() const { return Candidates; }
+
+  bool isStripmineRequired() const {
+    return std::any_of(Candidates.begin(), Candidates.end(),
+                       isStripmineRequiredPredicate);
+  }
+
+  bool isScalarExpansionRequired() const {
+    return !Candidates.empty();
+  }
+
+  unsigned getNumTempsRequired() const {
+    return std::count_if(Candidates.begin(), Candidates.end(),
+                         isStripmineRequiredPredicate);
+  }
+
+private:
+  void analyze(ArrayRef<HLDDNodeList> Chunks);
+
+  bool isScalarExpansionCandidate(const DDRef *Ref) const;
+
+  static bool isStripmineRequiredPredicate(const Candidate &C) {
+    return C.StripminingRequired;
+  }
+};
+
 class HIRLoopDistribution {
-  typedef SmallVector<PiBlock *, 4> PiBlockList;
-  typedef DDRefGatherer<DDRef, AllRefs ^ (ConstantRefs | GenericRValRefs |
-                                          IsAddressOfRefs)>
-      Gatherer;
-  typedef SmallVector<HLDDNode *, 12> HLDDNodeList;
   typedef unsigned LoopNum;
   typedef bool InsertOrMove;
 
@@ -77,11 +125,8 @@ private:
 
   DistHeuristics DistCostModel;
   unsigned AllocaBlobIdx;
-  unsigned NumArrayTemps;
-  unsigned LastLoopNum;
   unsigned LoopLevel;
   HLRegion *RegionNode;
-  bool LoopHasDistributePoint;
   HLLoop *NewLoops[MaxDistributedLoop];
   SmallVector<unsigned, 12> TempArraySB;
   SmallDenseMap<const HLDDNode *, std::pair<LoopNum, InsertOrMove>, 16>
@@ -119,23 +164,17 @@ private:
   // Each PiBlockList will form a new loop(with same bounds as Loop) containing
   // each piblock's hlnodes.
 
-  bool distributeLoop(HLLoop *L, SmallVectorImpl<PiBlockList> &DistPoints,
-                      LoopOptReportBuilder &LORBuilder);
-
   void distributeLoop(HLLoop *L,
                       SmallVectorImpl<HLDDNodeList> &DistributedLoops,
-                      bool ForDirective, LoopOptReportBuilder &LORBuilder);
-
-  //  Different selection criteria for pragma
-  bool isScalarExpansionCandidate(const DDRef *Ref) const;
+                      const ScalarExpansion &SCEX,
+                      LoopOptReportBuilder &LORBuilder, bool ForDirective);
 
   // Create TEMP[i] = temp and insert
-  RegDDRef *createTempArrayStore(HLLoop *Lp, DDRef *TempRef);
+  RegDDRef *createTempArrayStore(HLLoop *Lp, RegDDRef *TempRef);
 
   // Insert an assignment TEMP[i] = temp after DDNode
-  RegDDRef *insertTempArrayStore(HLLoop *Lp, RegDDRef *TempRef,
-                                 RegDDRef *TmpArrayRef,
-                                 HLDDNode *TempRefDDNode);
+  void insertTempArrayStore(HLLoop *Lp, RegDDRef *TempRef,
+                            RegDDRef *TmpArrayRef, HLDDNode *TempRefDDNode);
 
   // Create an assignment  temp = TEMP[i]
   // TempRefined if true means temp is refined in the sink loop
@@ -144,11 +183,8 @@ private:
                            HLDDNode *Node, bool TempRefined);
 
   // After scalar expansion, scalar temps is need to be replaced with Array Temp
-  void replaceWithArrayTemp(Gatherer::VectorTy *Refs);
-
-  // Do not distribute if number of array temps exceeded
-  bool arrayTempExceeded(unsigned LastLoopNum, unsigned &NumArrayTemps,
-                         Gatherer::VectorTy *Refs);
+  void replaceWithArrayTemp(unsigned LoopCount,
+                            ArrayRef<ScalarExpansion::Candidate> Candidates);
 
   // After calling Stripmining util, temp iv coeffs need to fixed
   // as single IV:  TEMP[i2], while other indexes have i1, i2
