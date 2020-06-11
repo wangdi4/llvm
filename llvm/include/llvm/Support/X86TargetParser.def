@@ -290,6 +290,15 @@ PROC(GoldmontPlus, "goldmont-plus", PROC_64_BIT)
 PROC(Tremont, "tremont", PROC_64_BIT)
 //@}
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_ADL
+/// \name Alderlake
+/// Alderlake microarchitecture based processors.
+PROC(Alderlake, "alderlake", PROC_64_BIT)
+#endif // INTEL_FEATURE_CPU_ADL
+#endif // INTEL_CUSTOMIZATION
+//@}
+
 /// \name Nehalem
 /// Nehalem microarchitecture based processors.
 PROC_WITH_FEAT(Nehalem, "nehalem", PROC_64_BIT, FEATURE_SSE4_2)
@@ -317,6 +326,12 @@ PROC_ALIAS(Haswell, "core-avx2")
 /// \name Broadwell
 /// Broadwell microarchitecture based processors.
 PROC_WITH_FEAT(Broadwell, "broadwell", PROC_64_BIT, FEATURE_AVX2)
+
+#if INTEL_CUSTOMIZATION
+/// \name CommonAVX512
+/// Intersection of SKX and KNL.
+PROC(CommonAVX512, "common-avx512", PROC_64_BIT)
+#endif // INTEL_CUSTOMIZATION
 
 /// \name Skylake Client
 /// Skylake client microarchitecture based processors.
@@ -350,6 +365,22 @@ PROC(IcelakeServer, "icelake-server", PROC_64_BIT)
 /// \name Tigerlake
 /// Tigerlake microarchitecture based processors.
 PROC(Tigerlake, "tigerlake", PROC_64_BIT)
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_SPR
+/// \name Sapphire Rapids
+/// Sapphire Rapids microarchitecture based processors.
+PROC(SapphireRapids, "sapphirerapids", PROC_64_BIT)
+#endif // INTEL_FEATURE_CPU_SPR
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_RKL
+/// \name Rocketlake
+/// Rocketlake microarchitecture based processors.
+PROC(Rocketlake, "rocketlake", PROC_64_BIT)
+#endif // INTEL_FEATURE_CPU_RKL
+#endif // INTEL_CUSTOMIZATION
 
 /// \name Knights Landing
 /// Knights Landing processor.

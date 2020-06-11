@@ -147,7 +147,6 @@ bool X86TargetInfo::initFeatureMap(
   if (getTriple().getArch() == llvm::Triple::x86_64)
     setFeatureEnabledImpl(Features, "sse2", true);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ICECODE
   // Enable icecode-mode for IceCode target.
@@ -163,11 +162,8 @@ bool X86TargetInfo::initFeatureMap(
 #endif // INTEL_FEATURE_ICECODE
 #endif // INTEL_CUSTOMIZATION
 
-  const CPUKind Kind = getCPUKind(CPU);
-=======
   using namespace llvm::X86;
   const enum CPUKind Kind = parseArchX86(CPU);
->>>>>>> d5c28c4094324e94f6eee403022ca21c8d76998e
 
   // Enable X87 for all X86 processors but Lakemont.
   if (Kind != CK_Lakemont)
