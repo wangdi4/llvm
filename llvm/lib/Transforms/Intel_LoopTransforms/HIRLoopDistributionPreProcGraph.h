@@ -226,7 +226,9 @@ public:
     return DistPPNodeList.end();
   }
 
-  DenseMap<HLNode *, DistPPNode *> &getNodeMap() { return HLToDistPPNodeMap; }
+  DenseMap<const HLNode *, DistPPNode *> &getNodeMap() {
+    return HLToDistPPNodeMap;
+  }
 
   DistPPGraph(HLLoop *Loop, HIRDDAnalysis &DDA,
               HIRSparseArrayReductionAnalysis &SARA,
@@ -268,7 +270,7 @@ private:
   // of hlnodes
   SmallVector<DistPPNode *, 36> DistPPNodeList;
 
-  DenseMap<HLNode *, DistPPNode *> HLToDistPPNodeMap;
+  DenseMap<const HLNode *, DistPPNode *> HLToDistPPNodeMap;
 
   // Control dependencies between: S1 -> (S2, True/False branch)
   // Means that S1 statement is control dependent on S2 statement's true or

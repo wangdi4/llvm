@@ -61,6 +61,79 @@ void PiBlock::setPiBlockType(ArrayRef<DistPPNode *> SCCNodes) {
   }
 }
 
+void PiGraph::sortNodes() {
+  unsigned NumNodes = PiBlocks.size();
+
+  decltype(PiBlocks) TmpPiBlocks;
+  TmpPiBlocks.reserve(NumNodes);
+
+  SmallPtrSet<PiBlock *, 16> Visited;
+
+  SmallVector<PiBlock *, 8> WorkList;
+  WorkList.reserve(NumNodes);
+
+  auto ByTopNumLesser = [](PiBlock *A, PiBlock *B) {
+    return A->getTopSortNumber() < B->getTopSortNumber();
+  };
+  auto ByTopNumGreater = [](PiBlock *A, PiBlock *B) {
+    return A->getTopSortNumber() > B->getTopSortNumber();
+  };
+
+  std::sort(PiBlocks.begin(), PiBlocks.end(), ByTopNumLesser);
+
+  for (auto *Block : PiBlocks) {
+    if (Visited.count(Block)) {
+      continue;
+    }
+
+    WorkList.push_back(Block);
+
+    while (!WorkList.empty()) {
+      auto *CurPiBlock = WorkList.back();
+      if (Visited.count(CurPiBlock)) {
+        WorkList.pop_back();
+        continue;
+      }
+
+      bool UnvisitedPredecessors = false;
+
+      auto IncomingEdges = incoming(CurPiBlock);
+      if (!IncomingEdges.empty()) {
+        auto PredNodes = map_range(IncomingEdges,
+                                   [](PiGraphEdge *E) { return E->getSrc(); });
+
+        // Sort predecessors to make the final sequence stable - original
+        // order preserved if no reordering is required.
+        SmallVector<PiBlock *, 8> SortedPredNodes(PredNodes.begin(),
+                                                  PredNodes.end());
+
+        // Use std::greater<unsigned>() because we push nodes to the back and
+        // nodes from the back would be handled first.
+        std::sort(SortedPredNodes.begin(), SortedPredNodes.end(),
+                  ByTopNumGreater);
+
+        for (auto Pred : SortedPredNodes) {
+          if (!Visited.count(Pred)) {
+            WorkList.push_back(Pred);
+            UnvisitedPredecessors = true;
+          }
+        }
+      }
+
+      if (!UnvisitedPredecessors) {
+        WorkList.pop_back();
+
+        TmpPiBlocks.push_back(CurPiBlock);
+
+        assert(!Visited.count(CurPiBlock) && "Found already visited node");
+        Visited.insert(CurPiBlock);
+      }
+    }
+  }
+
+  PiBlocks.swap(TmpPiBlocks);
+}
+
 void PiGraph::createNodes() {
   for (auto I = all_scc_begin(PPGraph), E = all_scc_end(PPGraph); I != E; ++I) {
     addPiBlock(*I);

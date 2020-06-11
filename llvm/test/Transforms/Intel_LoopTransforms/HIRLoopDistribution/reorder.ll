@@ -1,6 +1,6 @@
 
-;RUN: opt -hir-ssa-deconstruction -hir-loop-distribute-memrec -S -print-after=hir-loop-distribute-memrec  < %s 2>&1 | FileCheck %s
-;RUN: opt -passes="hir-ssa-deconstruction,hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa" -S  < %s 2>&1 | FileCheck %s
+;RUN: opt -hir-ssa-deconstruction -hir-loop-distribute-memrec -S -print-after=hir-loop-distribute-memrec -disable-output < %s 2>&1 | FileCheck %s
+;RUN: opt -passes="hir-ssa-deconstruction,hir-loop-distribute-memrec,print<hir>" -aa-pipeline="basic-aa" -S -disable-output < %s 2>&1 | FileCheck %s
 ; Some stmt reordering can be handled. There are two pi blocks
 ;here {12,16} and {...}. There is a < edge between the former
 ; and latter, so we should distribute, but ensure {12,16}
