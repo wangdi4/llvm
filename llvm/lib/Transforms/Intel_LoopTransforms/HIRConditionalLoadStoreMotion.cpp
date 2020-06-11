@@ -730,8 +730,9 @@ static bool isInnermostHLIf(const HLIf *If) {
 }
 
 /// Performs conditional load/store motion using the given analysis results.
-static bool runMLdStMotion(HIRFramework &HIRF, HIRDDAnalysis &HDDA,
-                           HIRLoopStatistics &HLS) {
+static bool runConditionalLoadStoreMotion(HIRFramework &HIRF,
+                                          HIRDDAnalysis &HDDA,
+                                          HIRLoopStatistics &HLS) {
   if (DisablePass) {
     LLVM_DEBUG(dbgs() << OPT_DESC " Disabled\n");
     return false;
@@ -783,16 +784,17 @@ bool HIRConditionalLoadStoreMotionLegacyPass::runOnFunction(Function &F) {
     return false;
   }
 
-  return runMLdStMotion(getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
-                        getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
-                        getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS());
+  return runConditionalLoadStoreMotion(
+    getAnalysis<HIRFrameworkWrapperPass>().getHIR(),
+    getAnalysis<HIRDDAnalysisWrapperPass>().getDDA(),
+    getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS());
 }
 
 PreservedAnalyses
 HIRConditionalLoadStoreMotionPass::run(Function &F,
                                        llvm::FunctionAnalysisManager &AM) {
-  runMLdStMotion(AM.getResult<HIRFrameworkAnalysis>(F),
-                 AM.getResult<HIRDDAnalysisPass>(F),
-                 AM.getResult<HIRLoopStatisticsAnalysis>(F));
+  runConditionalLoadStoreMotion(AM.getResult<HIRFrameworkAnalysis>(F),
+                                AM.getResult<HIRDDAnalysisPass>(F),
+                                AM.getResult<HIRLoopStatisticsAnalysis>(F));
   return PreservedAnalyses::all();
 }
