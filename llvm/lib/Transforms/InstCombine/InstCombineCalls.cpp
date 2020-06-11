@@ -3401,6 +3401,14 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
   case Intrinsic::x86_avx2_maskload_q:
   case Intrinsic::x86_avx2_maskload_d_256:
   case Intrinsic::x86_avx2_maskload_q_256:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  case Intrinsic::x86_avx2_maskload_b:
+  case Intrinsic::x86_avx2_maskload_b_256:
+  case Intrinsic::x86_avx2_maskload_w:
+  case Intrinsic::x86_avx2_maskload_w_256:
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
     if (Instruction *I = simplifyX86MaskedLoad(*II, *this))
       return I;
     break;
@@ -3414,6 +3422,14 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
   case Intrinsic::x86_avx2_maskstore_q:
   case Intrinsic::x86_avx2_maskstore_d_256:
   case Intrinsic::x86_avx2_maskstore_q_256:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  case Intrinsic::x86_avx2_maskstore_b:
+  case Intrinsic::x86_avx2_maskstore_w:
+  case Intrinsic::x86_avx2_maskstore_b_256:
+  case Intrinsic::x86_avx2_maskstore_w_256:
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
     if (simplifyX86MaskedStore(*II, *this))
       return nullptr;
     break;

@@ -13036,6 +13036,18 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_storesd128_mask:
     return EmitX86MaskedStore(*this, Ops, Align(1));
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  case X86::BI__builtin_ia32_avxcompress_vpopcntb_128:
+  case X86::BI__builtin_ia32_avxcompress_vpopcntd_128:
+  case X86::BI__builtin_ia32_avxcompress_vpopcntq_128:
+  case X86::BI__builtin_ia32_avxcompress_vpopcntw_128:
+  case X86::BI__builtin_ia32_avxcompress_vpopcntb_256:
+  case X86::BI__builtin_ia32_avxcompress_vpopcntd_256:
+  case X86::BI__builtin_ia32_avxcompress_vpopcntq_256:
+  case X86::BI__builtin_ia32_avxcompress_vpopcntw_256:
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vpopcntb_128:
   case X86::BI__builtin_ia32_vpopcntd_128:
   case X86::BI__builtin_ia32_vpopcntq_128:
@@ -14074,6 +14086,18 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
     return SI;
   }
   // Rotate is a special case of funnel shift - 1st 2 args are the same.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  case X86::BI__builtin_ia32_avxcompress_vprold128:
+  case X86::BI__builtin_ia32_avxcompress_vprold256:
+  case X86::BI__builtin_ia32_avxcompress_vprolq128:
+  case X86::BI__builtin_ia32_avxcompress_vprolq256:
+  case X86::BI__builtin_ia32_avxcompress_vprolvd128:
+  case X86::BI__builtin_ia32_avxcompress_vprolvd256:
+  case X86::BI__builtin_ia32_avxcompress_vprolvq128:
+  case X86::BI__builtin_ia32_avxcompress_vprolvq256:
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vprotb:
   case X86::BI__builtin_ia32_vprotw:
   case X86::BI__builtin_ia32_vprotd:
@@ -14095,6 +14119,18 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_prolvq256:
   case X86::BI__builtin_ia32_prolvq512:
     return EmitX86FunnelShift(*this, Ops[0], Ops[0], Ops[1], false);
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  case X86::BI__builtin_ia32_avxcompress_vprord128:
+  case X86::BI__builtin_ia32_avxcompress_vprord256:
+  case X86::BI__builtin_ia32_avxcompress_vprorq128:
+  case X86::BI__builtin_ia32_avxcompress_vprorq256:
+  case X86::BI__builtin_ia32_avxcompress_vprorvd128:
+  case X86::BI__builtin_ia32_avxcompress_vprorvd256:
+  case X86::BI__builtin_ia32_avxcompress_vprorvq128:
+  case X86::BI__builtin_ia32_avxcompress_vprorvq256:
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_prord128:
   case X86::BI__builtin_ia32_prord256:
   case X86::BI__builtin_ia32_prord512:
@@ -14346,7 +14382,14 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
                                              makeArrayRef(Indices, NumElts));
     return Builder.CreateBitCast(Res, Ops[0]->getType());
   }
-
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  case X86::BI__builtin_ia32_avxcompress_vplzcntd_128:
+  case X86::BI__builtin_ia32_avxcompress_vplzcntd_256:
+  case X86::BI__builtin_ia32_avxcompress_vplzcntq_128:
+  case X86::BI__builtin_ia32_avxcompress_vplzcntq_256:
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vplzcntd_128:
   case X86::BI__builtin_ia32_vplzcntd_256:
   case X86::BI__builtin_ia32_vplzcntd_512:
@@ -14564,6 +14607,16 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_pternlogq256_maskz:
     return EmitX86Ternlog(*this, /*ZeroMask*/true, Ops);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  case X86::BI__builtin_ia32_avxcompress_vpshldd128:
+  case X86::BI__builtin_ia32_avxcompress_vpshldd256:
+  case X86::BI__builtin_ia32_avxcompress_vpshldq128:
+  case X86::BI__builtin_ia32_avxcompress_vpshldq256:
+  case X86::BI__builtin_ia32_avxcompress_vpshldw128:
+  case X86::BI__builtin_ia32_avxcompress_vpshldw256:
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vpshldd128:
   case X86::BI__builtin_ia32_vpshldd256:
   case X86::BI__builtin_ia32_vpshldd512:
@@ -14575,6 +14628,16 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_vpshldw512:
     return EmitX86FunnelShift(*this, Ops[0], Ops[1], Ops[2], false);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  case X86::BI__builtin_ia32_avxcompress_vpshrdd128:
+  case X86::BI__builtin_ia32_avxcompress_vpshrdd256:
+  case X86::BI__builtin_ia32_avxcompress_vpshrdq128:
+  case X86::BI__builtin_ia32_avxcompress_vpshrdq256:
+  case X86::BI__builtin_ia32_avxcompress_vpshrdw128:
+  case X86::BI__builtin_ia32_avxcompress_vpshrdw256:
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vpshrdd128:
   case X86::BI__builtin_ia32_vpshrdd256:
   case X86::BI__builtin_ia32_vpshrdd512:
@@ -14587,6 +14650,16 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
     // Ops 0 and 1 are swapped.
     return EmitX86FunnelShift(*this, Ops[1], Ops[0], Ops[2], true);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  case X86::BI__builtin_ia32_avxcompress_vpshldvd128:
+  case X86::BI__builtin_ia32_avxcompress_vpshldvd256:
+  case X86::BI__builtin_ia32_avxcompress_vpshldvq128:
+  case X86::BI__builtin_ia32_avxcompress_vpshldvq256:
+  case X86::BI__builtin_ia32_avxcompress_vpshldvw128:
+  case X86::BI__builtin_ia32_avxcompress_vpshldvw256:
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vpshldvd128:
   case X86::BI__builtin_ia32_vpshldvd256:
   case X86::BI__builtin_ia32_vpshldvd512:
@@ -14598,6 +14671,16 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
   case X86::BI__builtin_ia32_vpshldvw512:
     return EmitX86FunnelShift(*this, Ops[0], Ops[1], Ops[2], false);
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  case X86::BI__builtin_ia32_avxcompress_vpshrdvd128:
+  case X86::BI__builtin_ia32_avxcompress_vpshrdvd256:
+  case X86::BI__builtin_ia32_avxcompress_vpshrdvq128:
+  case X86::BI__builtin_ia32_avxcompress_vpshrdvq256:
+  case X86::BI__builtin_ia32_avxcompress_vpshrdvw128:
+  case X86::BI__builtin_ia32_avxcompress_vpshrdvw256:
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_vpshrdvd128:
   case X86::BI__builtin_ia32_vpshrdvd256:
   case X86::BI__builtin_ia32_vpshrdvd512:

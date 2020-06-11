@@ -1587,6 +1587,22 @@ let TargetPrefix = "x86" in {  // All intrinsics start with "llvm.x86.".
   def int_x86_avx2_maskload_q_256 : GCCBuiltin<"__builtin_ia32_maskloadq256">,
         Intrinsic<[llvm_v4i64_ty], [llvm_ptr_ty, llvm_v4i64_ty],
                   [IntrReadMem, IntrArgMemOnly]>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  def int_x86_avx2_maskload_b : GCCBuiltin<"__builtin_ia32_maskloadb">,
+        Intrinsic<[llvm_v16i8_ty], [llvm_ptr_ty, llvm_v16i8_ty],
+                  [IntrReadMem, IntrArgMemOnly]>;
+  def int_x86_avx2_maskload_w : GCCBuiltin<"__builtin_ia32_maskloadw">,
+        Intrinsic<[llvm_v8i16_ty], [llvm_ptr_ty, llvm_v8i16_ty],
+                  [IntrReadMem, IntrArgMemOnly]>;
+  def int_x86_avx2_maskload_b_256 : GCCBuiltin<"__builtin_ia32_maskloadb256">,
+        Intrinsic<[llvm_v32i8_ty], [llvm_ptr_ty, llvm_v32i8_ty],
+                  [IntrReadMem, IntrArgMemOnly]>;
+  def int_x86_avx2_maskload_w_256 : GCCBuiltin<"__builtin_ia32_maskloadw256">,
+        Intrinsic<[llvm_v16i16_ty], [llvm_ptr_ty, llvm_v16i16_ty],
+                  [IntrReadMem, IntrArgMemOnly]>;
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
 }
 
 // Conditional store ops
@@ -1605,6 +1621,24 @@ let TargetPrefix = "x86" in {  // All intrinsics start with "llvm.x86.".
         GCCBuiltin<"__builtin_ia32_maskstoreq256">,
         Intrinsic<[], [llvm_ptr_ty, llvm_v4i64_ty, llvm_v4i64_ty],
                   [IntrArgMemOnly]>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  def int_x86_avx2_maskstore_b : GCCBuiltin<"__builtin_ia32_maskstoreb">,
+        Intrinsic<[], [llvm_ptr_ty, llvm_v16i8_ty, llvm_v16i8_ty],
+                  [IntrArgMemOnly]>;
+  def int_x86_avx2_maskstore_w : GCCBuiltin<"__builtin_ia32_maskstorew">,
+        Intrinsic<[], [llvm_ptr_ty, llvm_v8i16_ty, llvm_v8i16_ty],
+                  [IntrArgMemOnly]>;
+  def int_x86_avx2_maskstore_b_256 :
+        GCCBuiltin<"__builtin_ia32_maskstoreb256">,
+        Intrinsic<[], [llvm_ptr_ty, llvm_v32i8_ty, llvm_v32i8_ty],
+                  [IntrArgMemOnly]>;
+  def int_x86_avx2_maskstore_w_256 :
+        GCCBuiltin<"__builtin_ia32_maskstorew256">,
+        Intrinsic<[], [llvm_ptr_ty, llvm_v16i16_ty, llvm_v16i16_ty],
+                  [IntrArgMemOnly]>;
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
 }
 
 // Variable bit shift ops
