@@ -25,15 +25,5 @@ protected:
           }
         }
       };
-<<<<<<< HEAD
-
-  cl::sycl::queue MQueue = sycl::queue(sycl::host_selector(), MAsyncHandler);
-
-public:
-  void SetUp() override {
-    MQueue = cl::sycl::queue(cl::sycl::host_selector(), MAsyncHandler);
-  }
-=======
   cl::sycl::queue MQueue = cl::sycl::queue(cl::sycl::device(), MAsyncHandler);
->>>>>>> d196ca58e892ba458a2b1e70c0d94779f7c2c133
 };
