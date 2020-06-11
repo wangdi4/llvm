@@ -8,17 +8,24 @@ add_subdirectory(sycl-ls)
 add_executable(get_device_count_by_type get_device_count_by_type.cpp)
 add_dependencies(get_device_count_by_type ocl-headers ocl-icd l0-loader)
 
-if(MSVC)
-  set(L0_LIBRARY
+# INTEL_CUSTOMIZATION
+if (NOT DEFINED L0_LIBRARY)
+  if(MSVC)
+    set(L0_LIBRARY
       "${LLVM_LIBRARY_OUTPUT_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}ze_loader${CMAKE_STATIC_LIBRARY_SUFFIX}")
-else()
-  set(L0_LIBRARY
+  else()
+    set(L0_LIBRARY
       "${LLVM_LIBRARY_OUTPUT_INTDIR}/${CMAKE_SHARED_LIBRARY_PREFIX}ze_loader${CMAKE_SHARED_LIBRARY_SUFFIX}")
+  endif()
 endif()
+# end INTEL_CUSTOMIZATION
 
 target_link_libraries(get_device_count_by_type
   PRIVATE
     OpenCL::Headers
+# INTEL_CUSTOMIZATION
+    L0Loader::Headers
+# end INTEL_CUSTOMIZATION
     ${OpenCL_LIBRARIES}
     ${L0_LIBRARY}
     $<$<BOOL:${SYCL_BUILD_PI_CUDA}>:cudadrv>

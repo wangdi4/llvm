@@ -117,7 +117,7 @@ def getDeviceCount(device_type):
     # then return 0 to prohibit using all devices except HOST.
     host_only = os.getenv('SYCL_LIT_USE_HOST_ONLY', 'true').lower()
     if host_only != '0' and host_only != 'false' and host_only != 'no':
-        return [0, False]
+        return [0, False, False]
 # end INTEL_CUSTOMIZATION
 
     is_cuda = False;
@@ -130,7 +130,7 @@ def getDeviceCount(device_type):
     if exit_code != 0:
         lit_config.error("getDeviceCount {TYPE} {BACKEND}: Non-zero exit code {CODE}".format(
             TYPE=device_type, BACKEND=backend, CODE=exit_code))
-        return [0,False]
+        return [0,False, False] # INTEL
 
     result = output.decode().replace('\n', '').split(':', 1)
     try:
