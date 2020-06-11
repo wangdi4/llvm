@@ -75,13 +75,6 @@ static FunctionPass* createPacketizer(const Intel::CPUId& CpuId,
 }
 
 namespace intel {
-
-static const bool enableDebugPrints = false;
-static raw_ostream &dbgPrint() {
-  static raw_null_ostream devNull;
-  return enableDebugPrints ? errs() : devNull;
-}
-
 /// @returns False if we don't want to vectorize function due to some reasons
 /// like usage of channels or infinite loops.
 static bool isFunctionVectorizable(Function &F, LoopInfo &LI) {
@@ -95,7 +88,7 @@ static bool isFunctionVectorizable(Function &F, LoopInfo &LI) {
     SmallVector<BasicBlock *, 16> ExitingBlocks;
     L->getExitingBlocks(ExitingBlocks);
     if (ExitingBlocks.empty()) {
-      dbgPrint() << "Function contains infinite loops, can not vectorize\n";
+      LLVM_DEBUG(dbgs() << "Function contains infinite loops, can not vectorize\n");
       OCLSTAT_DEFINE(CantVectInfLoops,
           "Unable to vectorizer because infinite loops are present",
           KernelStats);
@@ -372,7 +365,9 @@ bool VectorizerCore::runOnFunction(Function &F) {
       ////////////////////////////////////////////////////////////////////////////
       m_postWeight = postCounter->getWeight();
       float Ratio = (float)m_postWeight / m_preWeight;
+#ifndef NDEBUG
       int attemptedWidth = m_packetWidth;
+#endif
       // TODO: I'm allowing forced vec width to override the subgroup size for now.
       // It's debatable how exactly that should behave.
       if ((Ratio >= WeightedInstCounter::RATIO_MULTIPLIER * m_packetWidth) &&
@@ -386,16 +381,14 @@ bool VectorizerCore::runOnFunction(Function &F) {
         Vectorized_version_discarded++;
         intel::Statistic::pushFunctionStats (kernelStats, F, DEBUG_TYPE);
       }
-      if (enableDebugPrints) {
-        dbgPrint() << "Function: " << F.getName() << "\n";
-        dbgPrint() << "Pre count: " << (long long)m_preWeight << "\n";
-        dbgPrint() << "Post count: " << (long long)m_postWeight << "\n";
-        std::ostringstream os;
-        os << std::setprecision(3) << Ratio;
-        dbgPrint() << "Ratio: " << os.str() << "\n";
-        dbgPrint() << "Attempted Width: " << attemptedWidth << "\n";
-        dbgPrint() << "New Decision: " <<  (m_packetWidth ? m_packetWidth : 1) << "\n";
-      }
+      LLVM_DEBUG(dbgs() << "Function: " << F.getName() << "\n");
+      LLVM_DEBUG(dbgs() << "Pre count: " << (long long)m_preWeight << "\n");
+      LLVM_DEBUG(dbgs() << "Post count: " << (long long)m_postWeight << "\n");
+      std::ostringstream os;
+      os << std::setprecision(3) << Ratio;
+      LLVM_DEBUG(dbgs() << "Ratio: " << os.str() << "\n");
+      LLVM_DEBUG(dbgs() << "Attempted Width: " << attemptedWidth << "\n");
+      LLVM_DEBUG(dbgs() << "New Decision: " <<  (m_packetWidth ? m_packetWidth : 1) << "\n");
     }
   }
   return true;

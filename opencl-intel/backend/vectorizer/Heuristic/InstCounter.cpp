@@ -129,12 +129,6 @@ WeightedInstCounter::FuncCostEntry WeightedInstCounter::CostDB32Bit[] = {
    { 0, 0 }
 };
 
-static const bool enableDebugPrints = false;
-static raw_ostream &dbgPrint() {
-  static raw_null_ostream devNull;
-  return enableDebugPrints ? errs() : devNull;
-}
-
 WeightedInstCounter::FuncCostEntry* WeightedInstCounter::getCostDB() const {
   if(is64BitArch()) return CostDB64Bit;
   return CostDB32Bit;
@@ -785,16 +779,13 @@ void WeightedInstCounter::
   PostDominanceFrontier* PDF = &getAnalysis<PostDominanceFrontier>();
 
   //Debug output
-  if (enableDebugPrints)
-  {
-    dbgPrint() << F.getName();
-    if (m_preVec)
-      dbgPrint() << " Before";
-    else
-      dbgPrint() << " After";
-    dbgPrint() << "\n";
-    PDF->dump();
-  }
+  LLVM_DEBUG(dbgs() << F.getName());
+  if (m_preVec)
+    LLVM_DEBUG(dbgs() << " Before");
+  else
+    LLVM_DEBUG(dbgs() << " After");
+  LLVM_DEBUG(dbgs() << "\n");
+  LLVM_DEBUG(PDF->dump());
 
   // Check which instructions depend on "data" (results of loads and stores).
   DenseSet<Instruction*> DepSet;
@@ -962,8 +953,8 @@ void WeightedInstCounter::
 
 void WeightedInstCounter::estimateMemOpCosts(Function &F, DenseMap<Instruction*, int> &CostMap) const
 {
-  dbgPrint() << "Estimate MemOp Cost for : ";
-  dbgPrint() << F.getName() << "\n";
+  LLVM_DEBUG(dbgs() << "Estimate MemOp Cost for : ");
+  LLVM_DEBUG(dbgs() << F.getName() << "\n");
 
   std::vector<Instruction*> TIDUsers;
   std::vector<Instruction*> Muls;
@@ -1091,9 +1082,8 @@ void WeightedInstCounter::estimateMemOpCosts(Function &F, DenseMap<Instruction*,
       if (Instruction* User = dyn_cast<Instruction>(*U))
         CostMap[User] = EXPENSIVE_MEMOP_WEIGHT;
 
-      dbgPrint() << "Expensive: ";
-      if (enableDebugPrints)
-        U->dump();
+      LLVM_DEBUG(dbgs() << "Expensive: ");
+      LLVM_DEBUG(U->dump());
     }
   }
 
@@ -1104,9 +1094,8 @@ void WeightedInstCounter::estimateMemOpCosts(Function &F, DenseMap<Instruction*,
     {
       if (Instruction* User = dyn_cast<Instruction>(*U))
         CostMap[User] = CHEAP_MEMOP_WEIGHT;
-      dbgPrint() << "Cheap: ";
-      if (enableDebugPrints)
-        U->dump();
+      LLVM_DEBUG(dbgs() << "Cheap: ");
+      LLVM_DEBUG(U->dump());
     }
   }
 }
@@ -1203,7 +1192,7 @@ bool CanVectorizeImpl::canVectorizeForVPO(Function &F, RuntimeServices *services
 {
   Statistic::ActiveStatsT kernelStats;
   if (hasVariableGetTIDAccess(F, services)) {
-    dbgPrint() << "Variable TID access, can not vectorize\n";
+    LLVM_DEBUG(dbgs() << "Variable TID access, can not vectorize\n");
     OCLSTAT_DEFINE(CantVectGIDMess,"Unable to vectorize because get_global_id is messed up",kernelStats);
     CantVectGIDMess++;
     intel::Statistic::pushFunctionStats (kernelStats, F, DEBUG_TYPE);
@@ -1211,7 +1200,7 @@ bool CanVectorizeImpl::canVectorizeForVPO(Function &F, RuntimeServices *services
   }
 
   if (hasNonInlineUnsupportedFunctions(F)) {
-    dbgPrint() << "Call to unsupported functions, can not vectorize\n";
+    LLVM_DEBUG(dbgs() << "Call to unsupported functions, can not vectorize\n");
     OCLSTAT_DEFINE(CantVectNonInlineUnsupportedFunctions,"Unable to vectorize because of calls to functions that can't be inlined",kernelStats);
     CantVectNonInlineUnsupportedFunctions++;
     intel::Statistic::pushFunctionStats (kernelStats, F, DEBUG_TYPE);
@@ -1231,7 +1220,7 @@ bool CanVectorizeImpl::canVectorize(Function &F, DominatorTree &DT, RuntimeServi
   Statistic::ActiveStatsT kernelStats;
 
   if (hasVariableGetTIDAccess(F, services)) {
-    dbgPrint() << "Variable TID access, can not vectorize\n";
+    LLVM_DEBUG(dbgs() << "Variable TID access, can not vectorize\n");
     OCLSTAT_DEFINE(CantVectGIDMess,"Unable to vectorize because get_global_id is messed up",kernelStats);
     CantVectGIDMess++;
     intel::Statistic::pushFunctionStats (kernelStats, F, DEBUG_TYPE);
@@ -1239,7 +1228,7 @@ bool CanVectorizeImpl::canVectorize(Function &F, DominatorTree &DT, RuntimeServi
   }
 
   if (!isReducibleControlFlow(F, DT)) {
-    dbgPrint()<< "Irreducible control flow, can not vectorize\n";
+    LLVM_DEBUG(dbgs() << "Irreducible control flow, can not vectorize\n");
     OCLSTAT_DEFINE(CantVectNonReducable,"Unable to vectorize because the control flow is irreducible",kernelStats);
     CantVectNonReducable++;
     intel::Statistic::pushFunctionStats (kernelStats, F, DEBUG_TYPE);
@@ -1247,7 +1236,7 @@ bool CanVectorizeImpl::canVectorize(Function &F, DominatorTree &DT, RuntimeServi
   }
 
   if (hasIllegalTypes(F)) {
-    dbgPrint() << "Types unsupported by codegen, can not vectorize\n";
+    LLVM_DEBUG(dbgs() << "Types unsupported by codegen, can not vectorize\n");
     OCLSTAT_DEFINE(CantVectIllegalTypes,"Unable to vectorize because of unsupported opcodes",kernelStats);
     CantVectIllegalTypes++;
     intel::Statistic::pushFunctionStats (kernelStats, F, DEBUG_TYPE);
@@ -1255,7 +1244,7 @@ bool CanVectorizeImpl::canVectorize(Function &F, DominatorTree &DT, RuntimeServi
   }
 
   if (hasNonInlineUnsupportedFunctions(F)) {
-    dbgPrint() << "Call to unsupported functions, can not vectorize\n";
+    LLVM_DEBUG(dbgs() << "Call to unsupported functions, can not vectorize\n");
     OCLSTAT_DEFINE(CantVectNonInlineUnsupportedFunctions,"Unable to vectorize because of calls to functions that can't be inlined",kernelStats);
     CantVectNonInlineUnsupportedFunctions++;
     intel::Statistic::pushFunctionStats (kernelStats, F, DEBUG_TYPE);
@@ -1263,7 +1252,7 @@ bool CanVectorizeImpl::canVectorize(Function &F, DominatorTree &DT, RuntimeServi
   }
 
   if (hasDirectStreamCalls(F, services)) {
-    dbgPrint() << "Has direct calls to stream functions, can not vectorize\n";
+    LLVM_DEBUG(dbgs() << "Has direct calls to stream functions, can not vectorize\n");
     OCLSTAT_DEFINE(CantVectStreamCalls,"Unable to vectorize because the code contains direct stream calls",kernelStats);
     CantVectStreamCalls++;
     intel::Statistic::pushFunctionStats (kernelStats, F, DEBUG_TYPE);
@@ -1271,7 +1260,7 @@ bool CanVectorizeImpl::canVectorize(Function &F, DominatorTree &DT, RuntimeServi
   }
 
   if (hasUnreachableInstructions(F)) {
-    dbgPrint() << "Has unreachable instructions, can not vectorize\n";
+    LLVM_DEBUG(dbgs() << "Has unreachable instructions, can not vectorize\n");
     OCLSTAT_DEFINE(CantVectUnreachableCode,"Unable to vectorize because the code contains unreachable code",kernelStats);
     CantVectUnreachableCode++;
     intel::Statistic::pushFunctionStats (kernelStats, F, DEBUG_TYPE);

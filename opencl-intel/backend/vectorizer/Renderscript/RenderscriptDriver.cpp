@@ -17,6 +17,7 @@
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
 
+#include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Pass.h"

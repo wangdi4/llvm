@@ -457,6 +457,7 @@ double  __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_max( 
 double  __attribute__((overloadable)) sub_group_non_uniform_scan_exclusive_mul( double x );
 #endif
 #if defined(cl_khr_fp16)
+#pragma OPENCL EXTENSION cl_khr_fp16 : enable
 half  __attribute__((overloadable)) sub_group_non_uniform_reduce_add( half x );
 half  __attribute__((overloadable)) sub_group_non_uniform_reduce_min( half x );
 half  __attribute__((overloadable)) sub_group_non_uniform_reduce_max( half x );
