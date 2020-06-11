@@ -164,6 +164,8 @@ char    __attribute__((overloadable)) sub_group_broadcast( char  x, uint sub_gro
 uchar   __attribute__((overloadable)) sub_group_broadcast( uchar  x, uint sub_group_local_id );
 char2    __attribute__((overloadable)) sub_group_broadcast( char2  x, uint sub_group_local_id );
 uchar2   __attribute__((overloadable)) sub_group_broadcast( uchar2  x, uint sub_group_local_id );
+char3    __attribute__((overloadable)) sub_group_broadcast( char3  x, uint sub_group_local_id );
+uchar3   __attribute__((overloadable)) sub_group_broadcast( uchar3  x, uint sub_group_local_id );
 char4    __attribute__((overloadable)) sub_group_broadcast( char4  x, uint sub_group_local_id );
 uchar4   __attribute__((overloadable)) sub_group_broadcast( uchar4  x, uint sub_group_local_id );
 char8    __attribute__((overloadable)) sub_group_broadcast( char8  x, uint sub_group_local_id );
@@ -175,6 +177,8 @@ short    __attribute__((overloadable)) sub_group_broadcast( short  x, uint sub_g
 ushort   __attribute__((overloadable)) sub_group_broadcast( ushort  x, uint sub_group_local_id );
 short2    __attribute__((overloadable)) sub_group_broadcast( short2  x, uint sub_group_local_id );
 ushort2   __attribute__((overloadable)) sub_group_broadcast( ushort2  x, uint sub_group_local_id );
+short3    __attribute__((overloadable)) sub_group_broadcast( short3  x, uint sub_group_local_id );
+ushort3   __attribute__((overloadable)) sub_group_broadcast( ushort3  x, uint sub_group_local_id );
 short4    __attribute__((overloadable)) sub_group_broadcast( short4  x, uint sub_group_local_id );
 ushort4   __attribute__((overloadable)) sub_group_broadcast( ushort4  x, uint sub_group_local_id );
 short8    __attribute__((overloadable)) sub_group_broadcast( short8  x, uint sub_group_local_id );
@@ -186,6 +190,8 @@ int    __attribute__((overloadable)) sub_group_broadcast( int  x, uint sub_group
 uint   __attribute__((overloadable)) sub_group_broadcast( uint  x, uint sub_group_local_id );
 int2    __attribute__((overloadable)) sub_group_broadcast( int2  x, uint sub_group_local_id );
 uint2   __attribute__((overloadable)) sub_group_broadcast( uint2  x, uint sub_group_local_id );
+int3    __attribute__((overloadable)) sub_group_broadcast( int3  x, uint sub_group_local_id );
+uint3   __attribute__((overloadable)) sub_group_broadcast( uint3  x, uint sub_group_local_id );
 int4    __attribute__((overloadable)) sub_group_broadcast( int4  x, uint sub_group_local_id );
 uint4   __attribute__((overloadable)) sub_group_broadcast( uint4  x, uint sub_group_local_id );
 int8    __attribute__((overloadable)) sub_group_broadcast( int8  x, uint sub_group_local_id );
@@ -195,6 +201,7 @@ uint16   __attribute__((overloadable)) sub_group_broadcast( uint16  x, uint sub_
 
 float    __attribute__((overloadable)) sub_group_broadcast( float  x, uint sub_group_local_id );
 float2    __attribute__((overloadable)) sub_group_broadcast( float2  x, uint sub_group_local_id );
+float3    __attribute__((overloadable)) sub_group_broadcast( float3  x, uint sub_group_local_id );
 float4    __attribute__((overloadable)) sub_group_broadcast( float4  x, uint sub_group_local_id );
 float8    __attribute__((overloadable)) sub_group_broadcast( float8  x, uint sub_group_local_id );
 float16    __attribute__((overloadable)) sub_group_broadcast( float16  x, uint sub_group_local_id );
@@ -202,6 +209,7 @@ float16    __attribute__((overloadable)) sub_group_broadcast( float16  x, uint s
 #if defined(cl_khr_fp64)
 double    __attribute__((overloadable)) sub_group_broadcast( double  x, uint sub_group_local_id );
 double2    __attribute__((overloadable)) sub_group_broadcast( double2  x, uint sub_group_local_id );
+double3    __attribute__((overloadable)) sub_group_broadcast( double3  x, uint sub_group_local_id );
 double4    __attribute__((overloadable)) sub_group_broadcast( double4  x, uint sub_group_local_id );
 double8    __attribute__((overloadable)) sub_group_broadcast( double8  x, uint sub_group_local_id );
 double16    __attribute__((overloadable)) sub_group_broadcast( double16  x, uint sub_group_local_id );
@@ -495,6 +503,36 @@ double __attribute__((overloadable)) sub_group_shuffle_xor( double x, uint c );
 #if defined(cl_khr_fp16)
 half __attribute__((overloadable)) sub_group_shuffle( half x, uint c );
 half __attribute__((overloadable)) sub_group_shuffle_xor( half x, uint c );
+#endif
+#endif
+
+#if defined(cl_khr_subgroup_shuffle_relative)
+char   __attribute__((overloadable)) sub_group_shuffle_up( char x, uint c );
+uchar  __attribute__((overloadable)) sub_group_shuffle_up( uchar x, uint c );
+short  __attribute__((overloadable)) sub_group_shuffle_up( short x, uint c );
+ushort __attribute__((overloadable)) sub_group_shuffle_up( ushort x, uint c );
+int    __attribute__((overloadable)) sub_group_shuffle_up( int x, uint c );
+uint   __attribute__((overloadable)) sub_group_shuffle_up( uint x, uint c );
+long   __attribute__((overloadable)) sub_group_shuffle_up( long x, uint c );
+ulong  __attribute__((overloadable)) sub_group_shuffle_up( ulong x, uint c );
+float  __attribute__((overloadable)) sub_group_shuffle_up( float x, uint c );
+
+char   __attribute__((overloadable)) sub_group_shuffle_down( char x, uint c );
+uchar  __attribute__((overloadable)) sub_group_shuffle_down( uchar x, uint c );
+short  __attribute__((overloadable)) sub_group_shuffle_down( short x, uint c );
+ushort __attribute__((overloadable)) sub_group_shuffle_down( ushort x, uint c );
+int    __attribute__((overloadable)) sub_group_shuffle_down( int x, uint c );
+uint   __attribute__((overloadable)) sub_group_shuffle_down( uint x, uint c );
+long   __attribute__((overloadable)) sub_group_shuffle_down( long x, uint c );
+ulong  __attribute__((overloadable)) sub_group_shuffle_down( ulong x, uint c );
+float  __attribute__((overloadable)) sub_group_shuffle_down( float x, uint c );
+#if defined(cl_khr_fp64)
+double __attribute__((overloadable)) sub_group_shuffle_up( double x, uint c );
+double __attribute__((overloadable)) sub_group_shuffle_down( double x, uint c );
+#endif
+#if defined(cl_khr_fp16)
+half __attribute__((overloadable)) sub_group_shuffle_up( half x, uint c );
+half __attribute__((overloadable)) sub_group_shuffle_down( half x, uint c );
 #endif
 
 #endif

@@ -1,3 +1,4 @@
+defvar khr_shuffle_gentype = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f32, v1f64];
 //
 // Ballot (NEO-like)
 //
@@ -186,6 +187,15 @@ Attrs = [OVERLOADABLE] in {
         def sub_group_shuffle_down : OclBuiltin<"intel_sub_group_shuffle_down", (outs gentype:$ret), (ins gentype:$current, gentype:$next, v1u32:$value), [], [], 1, 0>;
         def sub_group_shuffle_up : OclBuiltin<"intel_sub_group_shuffle_up", (outs gentype:$ret), (ins gentype:$previous, gentype:$current, v1u32:$value), [], [], 1, 0>;
       }
+
+  def khr_sub_group_shuffle_up : OclBuiltin<"sub_group_shuffle_up", (outs gentype:$ret), (ins gentype:$data, v1u32:$delta), khr_shuffle_gentype, [], 1, 0>;
+  def khr_sub_group_shuffle_down : OclBuiltin<"sub_group_shuffle_down", (outs gentype:$ret), (ins gentype:$data, v1u32:$delta), khr_shuffle_gentype, [], 1, 0>;
+  foreach suffix = ["_avx", "_avx2", "_avx512"] in {
+      defvar types = VFType<khr_shuffle_gentype, suffix>.Tout;
+      defvar delta_mask = !head(VFType<[v1u32], suffix>.Tout);
+      def khr_sub_group_shuffle_up#suffix : OclBuiltin<"sub_group_shuffle_up", (outs gentype:$ret), (ins gentype:$data, delta_mask:$delta, delta_mask:$vec_mask), types, [], 1, 0>;
+      def khr_sub_group_shuffle_down#suffix : OclBuiltin<"sub_group_shuffle_down", (outs gentype:$ret), (ins gentype:$data, delta_mask:$delta, delta_mask:$vec_mask), types, [], 1, 0>;
+  }
 
   // AVX (VF = 4)
   let Types = [v4i32, v4u32, v4i64, v4u64, v4f32, v4f64, v4i8, v4u8, v4i16, v4u16,
@@ -779,3 +789,5 @@ let Types = [v1u8, v1u16, v1u32, v1u64], NeedWidenTypes = 0 in {
 let Types = [v1i32] in {
 def intel_sub_group_ballot_vect_info : VectInfo<[], intel_sub_group_ballot, intel_sub_group_ballot_vf4, intel_sub_group_ballot_vf8, intel_sub_group_ballot_vf16>;
 }
+def  khr_sub_group_shuffle_up_vect_info : VectInfo<khr_shuffle_gentype, khr_sub_group_shuffle_up, khr_sub_group_shuffle_up_avx, khr_sub_group_shuffle_up_avx2, khr_sub_group_shuffle_up_avx512>;
+def  khr_sub_group_shuffle_down_vect_info : VectInfo<khr_shuffle_gentype, khr_sub_group_shuffle_down, khr_sub_group_shuffle_down_avx, khr_sub_group_shuffle_down_avx2, khr_sub_group_shuffle_down_avx512>;
