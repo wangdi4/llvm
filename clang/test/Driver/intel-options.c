@@ -37,6 +37,10 @@
 // RUN: %clang_cl -### -c -Qfreestanding %s 2>&1 | FileCheck -check-prefix CHECK-QFREESTANDING %s
 // CHECK-QFREESTANDING: "-ffreestanding"
 
+// -Qcommon
+// RUN: %clang_cl -### -c -Qcommon %s 2>&1 | FileCheck -check-prefix CHECK-QCOMMON %s
+// CHECK-QCOMMON: "-fcommon"
+
 // Behavior with -ipo/Qipo option
 // RUN: %clang -### -c -ipo %s 2>&1 | FileCheck -check-prefix CHECK-IPO %s
 // RUN: %clang_cl -### -c /Qipo %s 2>&1 | FileCheck -check-prefix CHECK-IPO %s
