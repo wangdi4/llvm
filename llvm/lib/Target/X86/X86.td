@@ -239,6 +239,11 @@ def FeatureCONVERT    : SubtargetFeature<"avx512convert", "HasCONVERT", "true",
                            "Enable AVX512-CONVERT",
                            [FeatureAVXCONVERT, FeatureBF16, FeatureFP16, FeatureAVX512]>;
 #endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+def FeatureAVXCOMPRESS    : SubtargetFeature<"avxcompress", "HasAVXCOMPRESS", "true",
+                           "Enable AVX-COMPRESS",
+                           [FeatureAVX2]>;
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
 #endif // INTEL_CUSTOMIZATION
 
 def FeaturePCLMUL  : SubtargetFeature<"pclmul", "HasPCLMUL", "true",

@@ -563,10 +563,23 @@ void RecognizableInstr::emitInstructionSpecifier() {
     HANDLE_OPTIONAL(immediate)
     break;
 #if INTEL_CUSTOMIZATION
+  case X86Local::MRMDestReg4VOp3:
+    // Operand 1 is a register operand in the R/M field.
+    // Operand 2 is a register operand in the Reg/Opcode field.
+    // Operand 3 is a register operand in VEX.vvvv field.
+    assert(numPhysicalOperands == 3 &&
+           "Unexpected number of operands for MRMDestReg4VOp3");
+    HANDLE_OPERAND(rmRegister)
+    HANDLE_OPERAND(roRegister)
+    HANDLE_OPERAND(vvvvRegister)
+    break;
+  case X86Local::MRMDestMem4VOp3:
   case X86Local::MRMDestMem4VOp2FSIB:
-    // Operand 1 is a sibmem operand
+    // Operand 1 is a sibmem/memory operand
     // Operand 2 is a mod/r
     // Operand 3 is VEX.vvvv
+    assert(numPhysicalOperands == 3 &&
+           "Unexpected number of operands for MRMDestMem4VOp3/MRMDestMem4VOp2FSIB");
     HANDLE_OPERAND(memory)
     HANDLE_OPERAND(roRegister)
     HANDLE_OPERAND(vvvvRegister)
@@ -826,6 +839,7 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
     filter = std::make_unique<DumbFilter>();
     break;
   case X86Local::MRMDestReg:
+  case X86Local::MRMDestReg4VOp3:  // INTEL
   case X86Local::MRMSrcReg:
   case X86Local::MRMSrcReg4VOp3:
   case X86Local::MRMSrcRegOp4:
@@ -837,6 +851,7 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
   case X86Local::MRMDestMem4VOp2FSIB: // INTEL
   case X86Local::MRMDestMem:
   case X86Local::MRMDestMemFSIB: // INTEL
+  case X86Local::MRMDestMem4VOp3: // INTEL
 #if INTEL_CUSTOMIZATION
   case X86Local::MRMSrcMemFSIB:
 #endif // INTEL_CUSTOMIZATION
