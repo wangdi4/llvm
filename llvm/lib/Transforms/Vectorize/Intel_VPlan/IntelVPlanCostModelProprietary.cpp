@@ -164,6 +164,10 @@ const RegDDRef* VPlanCostModelProprietary::getHIRMemref(
   if (!VPInst->HIR.isMaster())
     return nullptr;
   auto *HInst = dyn_cast<HLInst>(VPInst->HIR.getUnderlyingNode());
+
+  if (!HInst)
+    return nullptr;
+
   return Opcode == Instruction::Load ? HInst->getOperandDDRef(1) :
                                        HInst->getLvalDDRef();
 }
