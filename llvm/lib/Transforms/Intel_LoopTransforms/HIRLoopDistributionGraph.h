@@ -224,6 +224,10 @@ public:
     return PPGraph->hasControlDependences();
   }
 
+  PiBlock *getPiBlockFromRef(const RegDDRef *Ref) {
+    return DistPPNodeToPiBlock[PPGraph->getNodeMap()[Ref->getHLDDNode()]];
+  };
+
 private:
   void addPiBlock(ArrayRef<DistPPNode *> Nodes) {
     PiBlock *CurPiBlock = new PiBlock(Nodes, this);

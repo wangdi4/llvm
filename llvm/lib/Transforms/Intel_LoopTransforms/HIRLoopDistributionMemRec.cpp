@@ -39,7 +39,8 @@ HIRLoopDistributionForMemRecPass::run(llvm::Function &F,
       AM.getResult<HIRFrameworkAnalysis>(F), AM.getResult<HIRDDAnalysisPass>(F),
       AM.getResult<HIRSafeReductionAnalysisPass>(F),
       AM.getResult<HIRSparseArrayReductionAnalysisPass>(F),
-      AM.getResult<HIRLoopResourceAnalysis>(F), DistHeuristics::BreakMemRec)
+      AM.getResult<HIRLoopResourceAnalysis>(F),
+      AM.getResult<HIRLoopLocalityAnalysis>(F), DistHeuristics::BreakMemRec)
       .run();
 
   return PreservedAnalyses::all();
@@ -78,6 +79,7 @@ INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopResourceWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopLocalityWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRSparseArrayReductionAnalysisWrapperPass)
 INITIALIZE_PASS_END(HIRLoopDistributionForMemRecLegacyPass,

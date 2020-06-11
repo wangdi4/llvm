@@ -506,9 +506,8 @@ void DDRefUtils::printMDNodes(formatted_raw_ostream &OS,
                               const RegDDRef::MDNodesTy &MDNodes) const {
 
   SmallVector<StringRef, 8> MDNames;
-  auto &HIRP = getHIRParser();
 
-  HIRP.getContext().getMDKindNames(MDNames);
+  getContext().getMDKindNames(MDNames);
 
   for (auto const &I : MDNodes) {
     OS << " ";
@@ -517,7 +516,7 @@ void DDRefUtils::printMDNodes(formatted_raw_ostream &OS,
       OS << MDNames[I.first] << " ";
     }
 
-    I.second->printAsOperand(OS, &HIRP.getModule());
+    I.second->printAsOperand(OS, &getModule());
   }
 }
 

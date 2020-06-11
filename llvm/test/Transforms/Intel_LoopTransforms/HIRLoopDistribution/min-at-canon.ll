@@ -167,6 +167,7 @@ for.body4:                                        ; preds = %newFuncRoot, %for.b
   %sub159 = fsub float %sub155, %mul98
   store float %sub159, float* %arrayidx143, align 4, !tbaa !2
   %arrayidx163 = getelementptr inbounds [100 x float], [100 x float]* @MAIN__.f13, i64 0, i64 %sub
+  store float 2.000000e+00, float* %arrayidx163
   %16 = load float, float* %arrayidx163, align 4, !tbaa !2
   %arrayidx165 = getelementptr inbounds [100 x float], [100 x float]* @MAIN__.a13, i64 0, i64 %inc939
   %17 = load float, float* %arrayidx165, align 4, !tbaa !2

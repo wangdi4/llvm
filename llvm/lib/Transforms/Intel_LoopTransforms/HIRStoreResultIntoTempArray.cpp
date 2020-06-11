@@ -1204,6 +1204,8 @@ bool HIRStoreResultIntoTempArray::run() {
     }
 
     if (Transformed) {
+      Lp->addInt32LoopMetadata("intel.loop.distribute.loopnest.enable", 1);
+
       Lp->getParentRegion()->setGenCode();
       HIRInvalidationUtils::invalidateBody(Lp);
       HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(
