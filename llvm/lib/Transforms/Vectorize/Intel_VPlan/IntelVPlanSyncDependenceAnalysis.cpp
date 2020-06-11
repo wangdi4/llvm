@@ -100,17 +100,8 @@
 /// loop exit and the loop header (_after_ SSA construction).
 ///
 //===----------------------------------------------------------------------===//
-#include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanSyncDependenceAnalysis.h"
-#include "llvm/ADT/PostOrderIterator.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/Analysis/PostDominators.h"
-#include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/CFG.h"
-#include "llvm/IR/Dominators.h"
-#include "llvm/IR/Function.h"
-
-#include <stack>
+#include "IntelVPlanDominatorTree.h"
 #include <unordered_set>
 
 #define DEBUG_TYPE "vplan-sync-dependence"

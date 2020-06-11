@@ -1308,10 +1308,9 @@ void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
   DT = &VPDomTree;
   PDT = &VPPostDomTree;
   IsLCSSAForm = IsLCSSA;
-  SDA = new SyncDependenceAnalysis(CandidateLoop ? CandidateLoop->getHeader()
-                                                 : P->getEntryBlock(),
-                                   VPDomTree, VPPostDomTree, *VPLInfo);
-
+  SDA = std::make_unique<SyncDependenceAnalysis>(
+      CandidateLoop ? CandidateLoop->getHeader() : P->getEntryBlock(),
+      VPDomTree, VPPostDomTree, *VPLInfo);
   // Push everything to the worklist.
   ReversePostOrderTraversal<VPBasicBlock *> RPOT(Plan->getEntryBlock());
   for (auto *BB : RPOT) {

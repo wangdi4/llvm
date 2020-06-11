@@ -17,6 +17,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLAN_DIVERGENCE_ANALYSIS_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLAN_DIVERGENCE_ANALYSIS_H
 
+#include "IntelVPlanSyncDependenceAnalysis.h"
 #include "IntelVPlanVectorShape.h"
 #include "llvm/ADT/DenseSet.h"
 #include <queue>
@@ -28,7 +29,6 @@ class VPValue;
 class VPInstruction;
 class VPLoop;
 class VPLoopInfo;
-class SyncDependenceAnalysis;
 #if INTEL_CUSTOMIZATION
 class VPVectorShape;
 class VPPHINode;
@@ -305,7 +305,7 @@ private:
   DenseSet<const VPLoop *> DivergentLoops;
 
   // The SDA links divergent branches to divergent control-flow joins.
-  SyncDependenceAnalysis *SDA;
+  std::unique_ptr<SyncDependenceAnalysis> SDA;
 
   // Use simplified code path for LCSSA form.
   bool IsLCSSAForm;
