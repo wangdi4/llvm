@@ -11,19 +11,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef PROC_WITH_FEAT
-#define PROC_WITH_FEAT(ENUM, STRING, IS64BIT, KEYFEATURE)                      \
-  PROC(ENUM, STRING, IS64BIT)
-#endif
-
-#ifndef PROC
-#define PROC(ENUM, STRING, IS64BIT)
-#endif
-
-#ifndef PROC_ALIAS
-#define PROC_ALIAS(ENUM, ALIAS)
-#endif
-
 #ifndef FEATURE
 #define FEATURE(ENUM)
 #endif
@@ -36,6 +23,7 @@
 #define CPU_SPECIFIC_ALIAS(NEW_NAME, NAME)
 #endif
 
+<<<<<<< HEAD
 #define PROC_64_BIT true
 #define PROC_32_BIT false
 
@@ -290,6 +278,8 @@ PROC(x86_64, "x86-64", PROC_64_BIT)
 PROC(Geode, "geode", PROC_32_BIT)
 //@}
 
+=======
+>>>>>>> d5c28c4094324e94f6eee403022ca21c8d76998e
 // List of CPU Supports features in order.  These need to remain in the order
 // required by attribute 'target' checking.  Note that not all are supported/
 // prioritized by GCC, so synchronization with GCC's implementation may require
@@ -380,6 +370,3 @@ CPU_SPECIFIC("knm", 'j', "+cmov,+mmx,+sse,+sse2,+sse3,+ssse3,+sse4.1,+sse4.2,+mo
 #undef PROC_64_BIT
 #undef PROC_32_BIT
 #undef FEATURE
-#undef PROC
-#undef PROC_ALIAS
-#undef PROC_WITH_FEAT

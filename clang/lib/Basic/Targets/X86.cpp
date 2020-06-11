@@ -147,6 +147,7 @@ bool X86TargetInfo::initFeatureMap(
   if (getTriple().getArch() == llvm::Triple::x86_64)
     setFeatureEnabledImpl(Features, "sse2", true);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ICECODE
   // Enable icecode-mode for IceCode target.
@@ -163,6 +164,10 @@ bool X86TargetInfo::initFeatureMap(
 #endif // INTEL_CUSTOMIZATION
 
   const CPUKind Kind = getCPUKind(CPU);
+=======
+  using namespace llvm::X86;
+  const enum CPUKind Kind = parseArchX86(CPU);
+>>>>>>> d5c28c4094324e94f6eee403022ca21c8d76998e
 
   // Enable X87 for all X86 processors but Lakemont.
   if (Kind != CK_Lakemont)
@@ -170,7 +175,7 @@ bool X86TargetInfo::initFeatureMap(
 
   // Enable cmpxchg8 for i586 and greater CPUs. Include generic for backwards
   // compatibility.
-  if (Kind >= CK_i586 || Kind == CK_Generic)
+  if (Kind >= CK_i586 || Kind == CK_None)
     setFeatureEnabledImpl(Features, "cx8", true);
 
 #if INTEL_CUSTOMIZATION
@@ -207,7 +212,7 @@ bool X86TargetInfo::initFeatureMap(
 #endif // INTEL_CUSTOMIZATION
 
   switch (Kind) {
-  case CK_Generic:
+  case CK_None:
   case CK_i386:
   case CK_i486:
   case CK_i586:
@@ -1441,8 +1446,9 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   // Subtarget options.
   // FIXME: We are hard-coding the tune parameters based on the CPU, but they
   // truly should be based on -mtune options.
+  using namespace llvm::X86;
   switch (CPU) {
-  case CK_Generic:
+  case CK_None:
     break;
   case CK_i386:
     // The rest are coming from the i386 define above.
@@ -1996,7 +2002,7 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     break;
   }
 
-  if (CPU >= CK_i486 || CPU == CK_Generic) {
+  if (CPU >= CK_i486 || CPU == CK_None) {
     Builder.defineMacro("__GCC_HAVE_SYNC_COMPARE_AND_SWAP_1");
     Builder.defineMacro("__GCC_HAVE_SYNC_COMPARE_AND_SWAP_2");
     Builder.defineMacro("__GCC_HAVE_SYNC_COMPARE_AND_SWAP_4");
@@ -2404,8 +2410,9 @@ static unsigned getFeaturePriority(llvm::X86::ProcessorFeatures Feat) {
 unsigned X86TargetInfo::multiVersionSortPriority(StringRef Name) const {
   // Valid CPUs have a 'key feature' that compares just better than its key
   // feature.
-  CPUKind Kind = getCPUKind(Name);
-  if (Kind != CK_Generic) {
+  using namespace llvm::X86;
+  CPUKind Kind = parseArchX86(Name);
+  if (Kind != CK_None) {
     switch (Kind) {
     default:
       llvm_unreachable(
@@ -2413,7 +2420,7 @@ unsigned X86TargetInfo::multiVersionSortPriority(StringRef Name) const {
 #define PROC_WITH_FEAT(ENUM, STR, IS64, KEY_FEAT)                              \
   case CK_##ENUM:                                                              \
     return (getFeaturePriority(llvm::X86::KEY_FEAT) << 1) + 1;
-#include "clang/Basic/X86Target.def"
+#include "llvm/Support/X86TargetParser.def"
     }
   }
 
@@ -2617,6 +2624,7 @@ bool X86TargetInfo::validateAsmConstraint(
 // | Knights Mill                       |                      64 | https://software.intel.com/sites/default/files/managed/9e/bc/64-ia-32-architectures-optimization-manual.pdf?countrylabel=Colombia "2.5.5.2 L1 DCache "       |
 // +------------------------------------+-------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------+
 Optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
+  using namespace llvm::X86;
   switch (CPU) {
     // i386
     case CK_i386:
@@ -2718,7 +2726,7 @@ Optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
 
     // The following currently have unknown cache line sizes (but they are probably all 64):
     // Core
-    case CK_Generic:
+    case CK_None:
       return None;
   }
   llvm_unreachable("Unknown CPU kind");
@@ -2849,38 +2857,9 @@ std::string X86TargetInfo::convertConstraint(const char *&Constraint) const {
   }
 }
 
-bool X86TargetInfo::checkCPUKind(CPUKind Kind) const {
-  // Perform any per-CPU checks necessary to determine if this CPU is
-  // acceptable.
-  switch (Kind) {
-  case CK_Generic:
-    // No processor selected!
-    return false;
-#define PROC(ENUM, STRING, IS64BIT)                                            \
-  case CK_##ENUM:                                                              \
-    return IS64BIT || getTriple().getArch() == llvm::Triple::x86;
-#include "clang/Basic/X86Target.def"
-  }
-  llvm_unreachable("Unhandled CPU kind");
-}
-
 void X86TargetInfo::fillValidCPUList(SmallVectorImpl<StringRef> &Values) const {
-#define PROC(ENUM, STRING, IS64BIT)                                            \
-  if (IS64BIT || getTriple().getArch() == llvm::Triple::x86)                   \
-    Values.emplace_back(STRING);
-  // For aliases we need to lookup the CPUKind to check get the 64-bit ness.
-#define PROC_ALIAS(ENUM, ALIAS)                                                \
-  if (checkCPUKind(CK_##ENUM))                                                      \
-    Values.emplace_back(ALIAS);
-#include "clang/Basic/X86Target.def"
-}
-
-X86TargetInfo::CPUKind X86TargetInfo::getCPUKind(StringRef CPU) const {
-  return llvm::StringSwitch<CPUKind>(CPU)
-#define PROC(ENUM, STRING, IS64BIT) .Case(STRING, CK_##ENUM)
-#define PROC_ALIAS(ENUM, ALIAS) .Case(ALIAS, CK_##ENUM)
-#include "clang/Basic/X86Target.def"
-      .Default(CK_Generic);
+  bool Only64Bit = getTriple().getArch() != llvm::Triple::x86;
+  llvm::X86::fillValidCPUArchList(Values, Only64Bit);
 }
 
 ArrayRef<const char *> X86TargetInfo::getGCCRegNames() const {
