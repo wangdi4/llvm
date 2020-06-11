@@ -24,7 +24,6 @@ class InlineReport;        // INTEL
 class InlineReportBuilder; // INTEL
 class Module;
 class OptimizationRemarkEmitter;
-class PreservedAnalyses;
 
 using namespace InlineReportTypes; // INTEL
 
@@ -131,10 +130,11 @@ public:
   /// inline or not. \p CB is assumed to be a direct call. \p FAM is assumed to
   /// be up-to-date wrt previous inlining decisions.
   /// Returns an InlineAdvice with the inlining recommendation.
-  virtual std::unique_ptr<InlineAdvice>
-  getAdvice(CallBase &CB, FunctionAnalysisManager &FAM,   // INTEL
-            InliningLoopInfoCache *ILIC,                  // INTEL
-            InlineReport *Report) = 0;                    // INTEL
+#if INTEL_CUSTOMIZATION
+  virtual std::unique_ptr<InlineAdvice> getAdvice(CallBase &CB,
+                                                  InliningLoopInfoCache *ILIC,
+                                                  InlineReport *Report) = 0;
+#endif // INTEL_CUSTOMIZATION
 
   /// This must be called when the Inliner pass is entered, to allow the
   /// InlineAdvisor update internal state, as result of function passes run
@@ -147,7 +147,9 @@ public:
   virtual void onPassExit() {}
 
 protected:
-  InlineAdvisor() = default;
+  InlineAdvisor(FunctionAnalysisManager &FAM) : FAM(FAM) {}
+
+  FunctionAnalysisManager &FAM;
 
   /// We may want to defer deleting functions to after the inlining for a whole
   /// module has finished. This allows us to reliably use function pointers as
@@ -173,15 +175,18 @@ private:
 /// reusable as-is for inliner pass test scenarios, as well as for regular use.
 class DefaultInlineAdvisor : public InlineAdvisor {
 public:
-  DefaultInlineAdvisor(InlineParams Params) : Params(Params) {}
+  DefaultInlineAdvisor(FunctionAnalysisManager &FAM, InlineParams Params)
+      : InlineAdvisor(FAM), Params(Params) {}
 
 private:
+#if INTEL_CUSTOMIZATION
   std::unique_ptr<InlineAdvice>
-  getAdvice(CallBase &CB, FunctionAnalysisManager &FAM,             // INTEL
-            InliningLoopInfoCache *ILIC = nullptr,                  // INTEL
-            InlineReport *Report = nullptr) override;               // INTEL
+  getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC = nullptr,
+            InlineReport *Report = nullptr) override;
+#endif // INTEL_CUSTOMIZATION
 
   void onPassExit() override { freeDeletedFunctions(); }
+
   InlineParams Params;
 };
 
@@ -192,7 +197,7 @@ public:
   static AnalysisKey Key;
   InlineAdvisorAnalysis() = default;
   struct Result {
-    Result(Module &M, ModuleAnalysisManager &MAM) {}
+    Result(Module &M, ModuleAnalysisManager &MAM) : M(M), MAM(MAM) {}
     bool invalidate(Module &, const PreservedAnalyses &,
                     ModuleAnalysisManager::Invalidator &) {
       // InlineAdvisor must be preserved across analysis invalidations.
@@ -203,6 +208,8 @@ public:
     void clear() { Advisor.reset(); }
 
   private:
+    Module &M;
+    ModuleAnalysisManager &MAM;
     std::unique_ptr<InlineAdvisor> Advisor;
   };
 
@@ -218,7 +225,8 @@ public:
 /// inlining should not be attempted.
 Optional<InlineCost>
 shouldInline(CallBase &CB, function_ref<InlineCost(CallBase &CB)> GetInlineCost,
-             OptimizationRemarkEmitter &ORE, InlineReport *IR); // INTEL
+             OptimizationRemarkEmitter &ORE, InlineReport *IR, // INTEL
+             bool EnableDeferral = true);                      // INTEL
 
 /// Emit ORE message.
 void emitInlinedInto(OptimizationRemarkEmitter &ORE, DebugLoc DLoc,

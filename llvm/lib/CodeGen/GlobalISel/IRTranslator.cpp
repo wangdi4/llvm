@@ -1281,6 +1281,8 @@ unsigned IRTranslator::getSimpleIntrinsicOpcode(Intrinsic::ID ID) {
       return TargetOpcode::G_INTRINSIC_TRUNC;
     case Intrinsic::readcyclecounter:
       return TargetOpcode::G_READCYCLECOUNTER;
+    case Intrinsic::ptrmask:
+      return TargetOpcode::G_PTRMASK;
   }
   return Intrinsic::not_intrinsic;
 }
@@ -1302,6 +1304,51 @@ bool IRTranslator::translateSimpleIntrinsic(const CallInst &CI,
 
   MIRBuilder.buildInstr(Op, {getOrCreateVReg(CI)}, VRegs,
                         MachineInstr::copyFlagsFromInstruction(CI));
+  return true;
+}
+
+// TODO: Include ConstainedOps.def when all strict instructions are defined.
+static unsigned getConstrainedOpcode(Intrinsic::ID ID) {
+  switch (ID) {
+  case Intrinsic::experimental_constrained_fadd:
+    return TargetOpcode::G_STRICT_FADD;
+  case Intrinsic::experimental_constrained_fsub:
+    return TargetOpcode::G_STRICT_FSUB;
+  case Intrinsic::experimental_constrained_fmul:
+    return TargetOpcode::G_STRICT_FMUL;
+  case Intrinsic::experimental_constrained_fdiv:
+    return TargetOpcode::G_STRICT_FDIV;
+  case Intrinsic::experimental_constrained_frem:
+    return TargetOpcode::G_STRICT_FREM;
+  case Intrinsic::experimental_constrained_fma:
+    return TargetOpcode::G_STRICT_FMA;
+  case Intrinsic::experimental_constrained_sqrt:
+    return TargetOpcode::G_STRICT_FSQRT;
+  default:
+    return 0;
+  }
+}
+
+bool IRTranslator::translateConstrainedFPIntrinsic(
+  const ConstrainedFPIntrinsic &FPI, MachineIRBuilder &MIRBuilder) {
+  fp::ExceptionBehavior EB = FPI.getExceptionBehavior().getValue();
+
+  unsigned Opcode = getConstrainedOpcode(FPI.getIntrinsicID());
+  if (!Opcode)
+    return false;
+
+  unsigned Flags = MachineInstr::copyFlagsFromInstruction(FPI);
+  if (EB == fp::ExceptionBehavior::ebIgnore)
+    Flags |= MachineInstr::NoFPExcept;
+
+  SmallVector<llvm::SrcOp, 4> VRegs;
+  VRegs.push_back(getOrCreateVReg(*FPI.getArgOperand(0)));
+  if (!FPI.isUnaryOp())
+    VRegs.push_back(getOrCreateVReg(*FPI.getArgOperand(1)));
+  if (FPI.isTernaryOp())
+    VRegs.push_back(getOrCreateVReg(*FPI.getArgOperand(2)));
+
+  MIRBuilder.buildInstr(Opcode, {getOrCreateVReg(FPI)}, VRegs, Flags);
   return true;
 }
 
@@ -1570,6 +1617,12 @@ bool IRTranslator::translateKnownIntrinsic(const CallInst &CI, Intrinsic::ID ID,
       .addUse(getOrCreateVReg(*CI.getArgOperand(1)));
     return true;
   }
+#define INSTRUCTION(NAME, NARG, ROUND_MODE, INTRINSIC)  \
+  case Intrinsic::INTRINSIC:
+#include "llvm/IR/ConstrainedOps.def"
+    return translateConstrainedFPIntrinsic(cast<ConstrainedFPIntrinsic>(CI),
+                                           MIRBuilder);
+
   }
   return false;
 }

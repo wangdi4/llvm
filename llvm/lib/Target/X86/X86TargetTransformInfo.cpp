@@ -1463,6 +1463,13 @@ int X86TTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src,
   int ISD = TLI->InstructionOpcodeToISD(Opcode);
   assert(ISD && "Invalid opcode");
 
+  // TODO: Allow non-throughput costs that aren't binary.
+  auto AdjustCost = [&CostKind](int Cost) {
+    if (CostKind != TTI::TCK_RecipThroughput)
+      return Cost == 0 ? 0 : 1;
+    return Cost;
+  };
+
   // FIXME: Need a better design of the cost table to handle non-simple types of
   // potential massive combinations (elem_num x src_type x dst_type).
 
@@ -2064,7 +2071,7 @@ int X86TTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src,
   if (ST->hasSSE2() && !ST->hasAVX()) {
     if (const auto *Entry = ConvertCostTableLookup(SSE2ConversionTbl, ISD,
                                                    LTDest.second, LTSrc.second))
-      return LTSrc.first * Entry->Cost;
+      return AdjustCost(LTSrc.first * Entry->Cost);
   }
 
   EVT SrcTy = TLI->getValueType(DL, Src);
@@ -2072,7 +2079,7 @@ int X86TTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src,
 
   // The function getSimpleVT only handles simple value types.
   if (!SrcTy.isSimple() || !DstTy.isSimple())
-    return BaseT::getCastInstrCost(Opcode, Dst, Src, CostKind);
+    return AdjustCost(BaseT::getCastInstrCost(Opcode, Dst, Src, CostKind));
 
   MVT SimpleSrcTy = SrcTy.getSimpleVT();
   MVT SimpleDstTy = DstTy.getSimpleVT();
@@ -2081,59 +2088,59 @@ int X86TTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src,
     if (ST->hasBWI())
       if (const auto *Entry = ConvertCostTableLookup(AVX512BWConversionTbl, ISD,
                                                      SimpleDstTy, SimpleSrcTy))
-        return Entry->Cost;
+        return AdjustCost(Entry->Cost);
 
     if (ST->hasDQI())
       if (const auto *Entry = ConvertCostTableLookup(AVX512DQConversionTbl, ISD,
                                                      SimpleDstTy, SimpleSrcTy))
-        return Entry->Cost;
+        return AdjustCost(Entry->Cost);
 
     if (ST->hasAVX512())
       if (const auto *Entry = ConvertCostTableLookup(AVX512FConversionTbl, ISD,
                                                      SimpleDstTy, SimpleSrcTy))
-        return Entry->Cost;
+        return AdjustCost(Entry->Cost);
   }
 
   if (ST->hasBWI())
     if (const auto *Entry = ConvertCostTableLookup(AVX512BWVLConversionTbl, ISD,
                                                    SimpleDstTy, SimpleSrcTy))
-      return Entry->Cost;
+      return AdjustCost(Entry->Cost);
 
   if (ST->hasDQI())
     if (const auto *Entry = ConvertCostTableLookup(AVX512DQVLConversionTbl, ISD,
                                                    SimpleDstTy, SimpleSrcTy))
-      return Entry->Cost;
+      return AdjustCost(Entry->Cost);
 
   if (ST->hasAVX512())
     if (const auto *Entry = ConvertCostTableLookup(AVX512VLConversionTbl, ISD,
                                                    SimpleDstTy, SimpleSrcTy))
-      return Entry->Cost;
+      return AdjustCost(Entry->Cost);
 
   if (ST->hasAVX2()) {
     if (const auto *Entry = ConvertCostTableLookup(AVX2ConversionTbl, ISD,
                                                    SimpleDstTy, SimpleSrcTy))
-      return Entry->Cost;
+      return AdjustCost(Entry->Cost);
   }
 
   if (ST->hasAVX()) {
     if (const auto *Entry = ConvertCostTableLookup(AVXConversionTbl, ISD,
                                                    SimpleDstTy, SimpleSrcTy))
-      return Entry->Cost;
+      return AdjustCost(Entry->Cost);
   }
 
   if (ST->hasSSE41()) {
     if (const auto *Entry = ConvertCostTableLookup(SSE41ConversionTbl, ISD,
                                                    SimpleDstTy, SimpleSrcTy))
-      return Entry->Cost;
+      return AdjustCost(Entry->Cost);
   }
 
   if (ST->hasSSE2()) {
     if (const auto *Entry = ConvertCostTableLookup(SSE2ConversionTbl, ISD,
                                                    SimpleDstTy, SimpleSrcTy))
-      return Entry->Cost;
+      return AdjustCost(Entry->Cost);
   }
 
-  return BaseT::getCastInstrCost(Opcode, Dst, Src, CostKind, I);
+  return AdjustCost(BaseT::getCastInstrCost(Opcode, Dst, Src, CostKind, I));
 }
 
 int X86TTIImpl::getCmpSelInstrCost(unsigned Opcode, Type *ValTy, Type *CondTy,
@@ -2794,6 +2801,9 @@ int X86TTIImpl::getTypeBasedIntrinsicInstrCost(
 
 int X86TTIImpl::getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
                                       TTI::TargetCostKind CostKind) {
+  if (CostKind != TTI::TCK_RecipThroughput)
+    return BaseT::getIntrinsicInstrCost(ICA, CostKind);
+
   if (ICA.isTypeBasedOnly())
     return getTypeBasedIntrinsicInstrCost(ICA, CostKind);
 
@@ -3053,6 +3063,20 @@ int X86TTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src,
                                   CostKind, I);
 #endif
 
+  // TODO: Handle other cost kinds.
+  if (CostKind != TTI::TCK_RecipThroughput) {
+    if (isa_and_nonnull<StoreInst>(I)) {
+      Value *Ptr = I->getOperand(1);
+      // Store instruction with index and scale costs 2 Uops.
+      // Check the preceding GEP to identify non-const indices.
+      if (auto *GEP = dyn_cast<GetElementPtrInst>(Ptr)) {
+        if (!all_of(GEP->indices(), [](Value *V) { return isa<Constant>(V); }))
+          return TTI::TCC_Basic * 2;
+      }
+    }
+    return TTI::TCC_Basic;
+  }
+
   // Handle non-power-of-two vectors such as <3 x float>
   if (VectorType *VTy = dyn_cast<VectorType>(Src)) {
     unsigned NumElem = VTy->getNumElements();
@@ -3256,8 +3280,8 @@ int X86TTIImpl::getArithmeticReductionCost(unsigned Opcode, VectorType *ValTy,
   if (LT.first != 1 && MTy.isVector() &&
       MTy.getVectorNumElements() < ValVTy->getNumElements()) {
     // Type needs to be split. We need LT.first - 1 arithmetic ops.
-    VectorType *SingleOpTy =
-        VectorType::get(ValVTy->getElementType(), MTy.getVectorNumElements());
+    auto *SingleOpTy = FixedVectorType::get(ValVTy->getElementType(),
+                                            MTy.getVectorNumElements());
     ArithmeticCost = getArithmeticInstrCost(Opcode, SingleOpTy, CostKind);
     ArithmeticCost *= LT.first - 1;
   }
@@ -3326,8 +3350,8 @@ int X86TTIImpl::getArithmeticReductionCost(unsigned Opcode, VectorType *ValTy,
     if (LT.first != 1 && MTy.isVector() &&
         MTy.getVectorNumElements() < ValVTy->getNumElements()) {
       // Type needs to be split. We need LT.first - 1 arithmetic ops.
-      Type *SingleOpTy =
-          VectorType::get(ValVTy->getElementType(), MTy.getVectorNumElements());
+      auto *SingleOpTy = FixedVectorType::get(ValVTy->getElementType(),
+                                              MTy.getVectorNumElements());
       ArithmeticCost = getArithmeticInstrCost(Opcode, SingleOpTy, CostKind);
       ArithmeticCost *= LT.first - 1;
     }
@@ -3402,7 +3426,7 @@ int X86TTIImpl::getArithmeticReductionCost(unsigned Opcode, VectorType *ValTy,
           getShuffleCost(TTI::SK_PermuteSingleSrc, ShufTy, 0, nullptr);
     } else {
       // Reducing from smaller size is a shift by immediate.
-      auto *ShiftTy = VectorType::get(
+      auto *ShiftTy = FixedVectorType::get(
           Type::getIntNTy(ValVTy->getContext(), Size), 128 / Size);
       ReductionCost += getArithmeticInstrCost(
           Instruction::LShr, ShiftTy, CostKind,
@@ -3709,8 +3733,8 @@ int X86TTIImpl::getMinMaxReductionCost(VectorType *ValTy, VectorType *CondTy,
     }
 
     // Add the arithmetic op for this level.
-    auto *SubCondTy = VectorType::get(CondTy->getElementType(),
-                                      Ty->getNumElements());
+    auto *SubCondTy =
+        FixedVectorType::get(CondTy->getElementType(), Ty->getNumElements());
     MinMaxCost += getMinMaxCost(Ty, SubCondTy, IsUnsigned);
   }
 
@@ -3899,22 +3923,6 @@ int X86TTIImpl::getIntImmCostIntrin(Intrinsic::ID IID, unsigned Idx,
   return X86TTIImpl::getIntImmCost(Imm, Ty, CostKind);
 }
 
-unsigned
-X86TTIImpl::getUserCost(const User *U, ArrayRef<const Value *> Operands,
-                        TTI::TargetCostKind CostKind) {
-  if (isa<StoreInst>(U)) {
-    Value *Ptr = U->getOperand(1);
-    // Store instruction with index and scale costs 2 Uops.
-    // Check the preceding GEP to identify non-const indices.
-    if (auto GEP = dyn_cast<GetElementPtrInst>(Ptr)) {
-      if (!all_of(GEP->indices(), [](Value *V) { return isa<Constant>(V); }))
-        return TTI::TCC_Basic * 2;
-    }
-    return TTI::TCC_Basic;
-  }
-  return BaseT::getUserCost(U, Operands, CostKind);
-}
-
 // Return an average cost of Gather / Scatter instruction, maybe improved later
 int X86TTIImpl::getGSVectorCost(unsigned Opcode, Type *SrcVTy, Value *Ptr,
                                 unsigned Alignment, unsigned AddressSpace) {
@@ -3965,15 +3973,15 @@ int X86TTIImpl::getGSVectorCost(unsigned Opcode, Type *SrcVTy,
                                 unsigned IndexSize, unsigned Alignment,
                                 unsigned AddressSpace) {
   unsigned VF = cast<VectorType>(SrcVTy)->getNumElements();
-  Type *IndexVTy = VectorType::get(IntegerType::get(SrcVTy->getContext(),
-                                                    IndexSize), VF);
+  auto *IndexVTy = FixedVectorType::get(
+      IntegerType::get(SrcVTy->getContext(), IndexSize), VF);
   std::pair<int, MVT> IdxsLT = TLI->getTypeLegalizationCost(DL, IndexVTy);
   std::pair<int, MVT> SrcLT = TLI->getTypeLegalizationCost(DL, SrcVTy);
   int SplitFactor = std::max(IdxsLT.first, SrcLT.first);
   if (SplitFactor > 1) {
     // Handle splitting of vector of pointers
-    Type *SplitSrcTy =
-      VectorType::get(SrcVTy->getScalarType(), VF / SplitFactor);
+    auto *SplitSrcTy =
+        FixedVectorType::get(SrcVTy->getScalarType(), VF / SplitFactor);
     return SplitFactor * getGSVectorCost(
       Opcode, SplitSrcTy, IndexSize, Alignment, AddressSpace);
   }
@@ -4152,6 +4160,9 @@ int X86TTIImpl::getGatherScatterOpCost(
     unsigned Opcode, Type *SrcVTy, Value *Ptr, bool VariableMask,
     unsigned Alignment, TTI::TargetCostKind CostKind,
     const Instruction *I = nullptr) {
+
+  if (CostKind != TTI::TCK_RecipThroughput)
+    return 1;
 
   assert(SrcVTy->isVectorTy() && "Unexpected data type for Gather/Scatter");
   unsigned VF = cast<VectorType>(SrcVTy)->getNumElements();
@@ -4606,14 +4617,14 @@ int X86TTIImpl::getInterleavedMemoryOpCostAVX2(unsigned Opcode, Type *VecTy,
   unsigned NumOfMemOps = (VecTySize + LegalVTSize - 1) / LegalVTSize;
 
   // Get the cost of one memory operation.
-  Type *SingleMemOpTy =
-      VectorType::get(cast<VectorType>(VecTy)->getElementType(),
-                      LegalVT.getVectorNumElements());
+  auto *SingleMemOpTy =
+      FixedVectorType::get(cast<VectorType>(VecTy)->getElementType(),
+                           LegalVT.getVectorNumElements());
   unsigned MemOpCost = getMemoryOpCost(Opcode, SingleMemOpTy,
                                        MaybeAlign(Alignment), AddressSpace,
                                        CostKind);
 
-  VectorType *VT = VectorType::get(ScalarTy, VF);
+  auto *VT = FixedVectorType::get(ScalarTy, VF);
   EVT ETy = TLI->getValueType(DL, VT);
   if (!ETy.isSimple())
     return BaseT::getInterleavedMemoryOpCost(Opcode, VecTy, Factor, Indices,
@@ -4749,9 +4760,9 @@ int X86TTIImpl::getInterleavedMemoryOpCostAVX512(unsigned Opcode, Type *VecTy,
 
     unsigned NumOfLoadsInInterleaveGrp =
         Indices.size() ? Indices.size() : Factor;
-    Type *ResultTy =
-        VectorType::get(cast<VectorType>(VecTy)->getElementType(),
-                        cast<VectorType>(VecTy)->getNumElements() / Factor);
+    auto *ResultTy = FixedVectorType::get(
+        cast<VectorType>(VecTy)->getElementType(),
+        cast<VectorType>(VecTy)->getNumElements() / Factor);
     unsigned NumOfResults =
         getTLI()->getTypeLegalizationCost(DL, ResultTy).first *
         NumOfLoadsInInterleaveGrp;

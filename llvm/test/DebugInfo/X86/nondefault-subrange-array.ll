@@ -1,5 +1,4 @@
-;;***INTEL
-; RUN: llc -mtriple=x86_64-apple-darwin -O0 -filetype=obj -debug-emit-dwarf-attr-count -o %t < %s
+; RUN: llc -mtriple=x86_64-apple-darwin -O0 -filetype=obj -o %t < %s
 ; RUN: llvm-dwarfdump -v -debug-info %t | FileCheck %s
 
 source_filename = "test/DebugInfo/X86/nondefault-subrange-array.ll"
@@ -20,7 +19,7 @@ source_filename = "test/DebugInfo/X86/nondefault-subrange-array.ll"
 
 ; CHECK: DW_TAG_subrange_type
 ; CHECK-NEXT:                   DW_AT_type [DW_FORM_ref4]  (cu + 0x{{[0-9a-f]*}} => {[[BASE2:0x[0-9a-f]*]]}
-; CHECK-NEXT:                   DW_AT_lower_bound [DW_FORM_data8]       (0xfffffffffffffffd)
+; CHECK-NEXT:                   DW_AT_lower_bound [DW_FORM_sdata] (-3)
 ; CHECK-NEXT:                   DW_AT_count [DW_FORM_data1]       (0x2a)
 
 ; CHECK: [[BASE]]: DW_TAG_base_type

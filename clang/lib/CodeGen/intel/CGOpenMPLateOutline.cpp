@@ -1650,6 +1650,7 @@ void OpenMPLateOutliner::emitOMPExclusiveClause(const OMPExclusiveClause *) {}
 void OpenMPLateOutliner::emitOMPUsesAllocatorsClause(
     const OMPUsesAllocatorsClause *) {}
 void OpenMPLateOutliner::emitOMPAffinityClause(const OMPAffinityClause *) {}
+void OpenMPLateOutliner::emitOMPUseDeviceAddrClause(const OMPUseDeviceAddrClause *) {}
 
 // The needed information has been emit in map directive, no info needs to
 // pass to BE.

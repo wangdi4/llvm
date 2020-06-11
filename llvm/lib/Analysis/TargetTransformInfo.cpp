@@ -12,6 +12,7 @@
 #include "llvm/Analysis/TargetTransformInfoImpl.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
@@ -63,7 +64,20 @@ IntrinsicCostAttributes::IntrinsicCostAttributes(const IntrinsicInst &I) :
    FMF = FPMO->getFastMathFlags();
 }
 
-IntrinsicCostAttributes::IntrinsicCostAttributes(Intrinsic::ID Id, CallInst &CI,
+IntrinsicCostAttributes::IntrinsicCostAttributes(Intrinsic::ID Id,
+                                                 const CallBase &CI) :
+  II(dyn_cast<IntrinsicInst>(&CI)),  RetTy(CI.getType()), IID(Id) {
+
+  if (auto *FPMO = dyn_cast<FPMathOperator>(&CI))
+    FMF = FPMO->getFastMathFlags();
+
+  FunctionType *FTy =
+    CI.getCalledFunction()->getFunctionType();
+  ParamTys.insert(ParamTys.begin(), FTy->param_begin(), FTy->param_end());
+}
+
+IntrinsicCostAttributes::IntrinsicCostAttributes(Intrinsic::ID Id,
+                                                 const CallBase &CI,
                                                  unsigned Factor) :
     RetTy(CI.getType()), IID(Id), VF(Factor) {
 
@@ -76,7 +90,8 @@ IntrinsicCostAttributes::IntrinsicCostAttributes(Intrinsic::ID Id, CallInst &CI,
   ParamTys.insert(ParamTys.begin(), FTy->param_begin(), FTy->param_end());
 }
 
-IntrinsicCostAttributes::IntrinsicCostAttributes(Intrinsic::ID Id, CallInst &CI,
+IntrinsicCostAttributes::IntrinsicCostAttributes(Intrinsic::ID Id,
+                                                 const CallBase &CI,
                                                  unsigned Factor,
                                                  unsigned ScalarCost) :
     RetTy(CI.getType()), IID(Id), VF(Factor), ScalarizationCost(ScalarCost) {
@@ -236,15 +251,6 @@ int TargetTransformInfo::getGEPCost(Type *PointeeType, const Value *Ptr,
   return TTIImpl->getGEPCost(PointeeType, Ptr, Operands, CostKind);
 }
 
-int TargetTransformInfo::getIntrinsicCost(Intrinsic::ID IID, Type *RetTy,
-                                          ArrayRef<const Value *> Arguments,
-                                          const User *U,
-                                          TTI::TargetCostKind CostKind) const {
-  int Cost = TTIImpl->getIntrinsicCost(IID, RetTy, Arguments, U, CostKind);
-  assert(Cost >= 0 && "TTI should not produce negative costs!");
-  return Cost;
-}
-
 unsigned TargetTransformInfo::getEstimatedNumberOfCaseClusters(
     const SwitchInst &SI, unsigned &JTSize, ProfileSummaryInfo *PSI,
     BlockFrequencyInfo *BFI) const {
@@ -255,7 +261,8 @@ int TargetTransformInfo::getUserCost(const User *U,
                                      ArrayRef<const Value *> Operands,
                                      enum TargetCostKind CostKind) const {
   int Cost = TTIImpl->getUserCost(U, Operands, CostKind);
-  assert(Cost >= 0 && "TTI should not produce negative costs!");
+  assert((CostKind == TTI::TCK_RecipThroughput || Cost >= 0) &&
+         "TTI should not produce negative costs!");
   return Cost;
 }
 
@@ -284,9 +291,8 @@ bool TargetTransformInfo::collectFlatAddressOperands(
   return TTIImpl->collectFlatAddressOperands(OpIndexes, IID);
 }
 
-bool TargetTransformInfo::rewriteIntrinsicWithAddressSpace(IntrinsicInst *II,
-                                                           Value *OldV,
-                                                           Value *NewV) const {
+Value *TargetTransformInfo::rewriteIntrinsicWithAddressSpace(
+    IntrinsicInst *II, Value *OldV, Value *NewV) const {
   return TTIImpl->rewriteIntrinsicWithAddressSpace(II, OldV, NewV);
 }
 
@@ -305,6 +311,11 @@ bool TargetTransformInfo::preferPredicateOverEpilogue(
     TargetLibraryInfo *TLI, DominatorTree *DT,
     const LoopAccessInfo *LAI) const {
   return TTIImpl->preferPredicateOverEpilogue(L, LI, SE, AC, TLI, DT, LAI);
+}
+
+bool TargetTransformInfo::emitGetActiveLaneMask(Loop *L, LoopInfo *LI,
+    ScalarEvolution &SE, bool TailFolded) const {
+  return TTIImpl->emitGetActiveLaneMask(L, LI, SE, TailFolded);
 }
 
 void TargetTransformInfo::getUnrollingPreferences(
@@ -1344,17 +1355,9 @@ int TargetTransformInfo::getInstructionThroughput(const Instruction *I) const {
     return getCmpSelInstrCost(I->getOpcode(), ValTy, I->getType(),
                               CostKind, I);
   }
-  case Instruction::Store: {
-    const StoreInst *SI = cast<StoreInst>(I);
-    Type *ValTy = SI->getValueOperand()->getType();
-    return getMemoryOpCost(I->getOpcode(), ValTy, SI->getAlign(),
-                           SI->getPointerAddressSpace(), CostKind, I);
-  }
-  case Instruction::Load: {
-    const LoadInst *LI = cast<LoadInst>(I);
-    return getMemoryOpCost(I->getOpcode(), I->getType(), LI->getAlign(),
-                           LI->getPointerAddressSpace(), CostKind, I);
-  }
+  case Instruction::Store:
+  case Instruction::Load:
+    return getUserCost(I, CostKind);
   case Instruction::ZExt:
   case Instruction::SExt:
   case Instruction::FPToUI:
@@ -1367,10 +1370,8 @@ int TargetTransformInfo::getInstructionThroughput(const Instruction *I) const {
   case Instruction::Trunc:
   case Instruction::FPTrunc:
   case Instruction::BitCast:
-  case Instruction::AddrSpaceCast: {
-    Type *SrcTy = I->getOperand(0)->getType();
-    return getCastInstrCost(I->getOpcode(), I->getType(), SrcTy, CostKind, I);
-  }
+  case Instruction::AddrSpaceCast:
+    return getUserCost(I, CostKind);
   case Instruction::ExtractElement: {
     const ExtractElementInst *EEI = cast<ExtractElementInst>(I);
     ConstantInt *CI = dyn_cast<ConstantInt>(I->getOperand(1));
@@ -1463,11 +1464,7 @@ int TargetTransformInfo::getInstructionThroughput(const Instruction *I) const {
     return TTIImpl->getShuffleCost(SK_PermuteTwoSrc, Ty, 0, nullptr);
   }
   case Instruction::Call:
-    if (const IntrinsicInst *II = dyn_cast<IntrinsicInst>(I)) {
-      IntrinsicCostAttributes CostAttrs(*II);
-      return getIntrinsicInstrCost(CostAttrs, CostKind);
-    }
-    return -1;
+    return getUserCost(I, CostKind);
   default:
     // We don't have any information on this instruction.
     return -1;

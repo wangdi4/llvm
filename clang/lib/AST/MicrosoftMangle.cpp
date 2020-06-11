@@ -1851,6 +1851,12 @@ void MicrosoftCXXNameMangler::mangleAddressSpaceType(QualType T,
     case LangAS::opencl_global:
       Extra.mangleSourceName("_ASCLglobal");
       break;
+    case LangAS::opencl_global_device:
+      Extra.mangleSourceName("_ASCLDevice");
+      break;
+    case LangAS::opencl_global_host:
+      Extra.mangleSourceName("_ASCLHost");
+      break;
     case LangAS::opencl_local:
       Extra.mangleSourceName("_ASCLlocal");
       break;
@@ -2147,6 +2153,7 @@ void MicrosoftCXXNameMangler::mangleType(const BuiltinType *T, Qualifiers,
   case BuiltinType::SatUShortFract:
   case BuiltinType::SatUFract:
   case BuiltinType::SatULongFract:
+  case BuiltinType::BFloat16:
 #if INTEL_CUSTOMIZATION
   // Float128 warning message is intentionally disabled, since we handle it
   // above under an Intel Customization block.

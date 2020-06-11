@@ -237,6 +237,7 @@ def UnsafeFPMath : StrBoolAttr<"unsafe-fp-math">;
 def NoJumpTables : StrBoolAttr<"no-jump-tables">;
 def NoInlineLineTables : StrBoolAttr<"no-inline-line-tables">;
 def ProfileSampleAccurate : StrBoolAttr<"profile-sample-accurate">;
+def UseSampleProfile : StrBoolAttr<"use-sample-profile">;
 // if INTEL_CUSTOMIZATION
 def MayHaveOpenmpDirective : StrBoolAttr<"may-have-openmp-directive">;
     // The "may-have-openmp-directive" attribute is set by the front-end for
@@ -280,6 +281,7 @@ def : CompatRule<"isEqual<SanitizeHWAddressAttr>">;
 def : CompatRule<"isEqual<SanitizeMemTagAttr>">;
 def : CompatRule<"isEqual<SafeStackAttr>">;
 def : CompatRule<"isEqual<ShadowCallStackAttr>">;
+def : CompatRule<"isEqual<UseSampleProfileAttr>">;
 
 class MergeRule<string F> {
   // The name of the function called to merge the attributes of the caller and

@@ -8,6 +8,8 @@
 
 #include "device_complex.h"
 #include "device_math.h"
+
+#ifdef __SPIR__
 #include <cmath>
 
 #if INTEL_COLLAB
@@ -439,3 +441,4 @@ float __complex__ __devicelib_catanf(float __complex__ z) {
 #pragma omp end declare target
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
+#endif // __SPIR__

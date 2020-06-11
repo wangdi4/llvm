@@ -759,22 +759,20 @@ enum IIT_Info {
   IIT_SUBDIVIDE2_ARG = 44,
   IIT_SUBDIVIDE4_ARG = 45,
   IIT_VEC_OF_BITCASTS_TO_INT = 46,
-  IIT_V128  = 47
+  IIT_V128 = 47,
+  IIT_BF16 = 48
 #if INTEL_CUSTOMIZATION
   ,
-  IIT_STRUCT9 = 48
+  IIT_STRUCT9 = 49
 #endif  // INTEL_CUSTOMIZATION
 };
 
 static void DecodeIITType(unsigned &NextElt, ArrayRef<unsigned char> Infos,
+                      IIT_Info LastInfo,
                       SmallVectorImpl<Intrinsic::IITDescriptor> &OutputTable) {
   using namespace Intrinsic;
 
-  bool IsScalableVector = false;
-  if (NextElt > 0) {
-    IIT_Info LastInfo = IIT_Info(Infos[NextElt - 1]);
-    IsScalableVector = (LastInfo == IIT_SCALABLE_VEC);
-  }
+  bool IsScalableVector = (LastInfo == IIT_SCALABLE_VEC);
 
   IIT_Info Info = IIT_Info(Infos[NextElt++]);
   unsigned StructElts = 2;
@@ -797,6 +795,9 @@ static void DecodeIITType(unsigned &NextElt, ArrayRef<unsigned char> Infos,
     return;
   case IIT_F16:
     OutputTable.push_back(IITDescriptor::get(IITDescriptor::Half, 0));
+    return;
+  case IIT_BF16:
+    OutputTable.push_back(IITDescriptor::get(IITDescriptor::BFloat, 0));
     return;
   case IIT_F32:
     OutputTable.push_back(IITDescriptor::get(IITDescriptor::Float, 0));
@@ -827,52 +828,52 @@ static void DecodeIITType(unsigned &NextElt, ArrayRef<unsigned char> Infos,
     return;
   case IIT_V1:
     OutputTable.push_back(IITDescriptor::getVector(1, IsScalableVector));
-    DecodeIITType(NextElt, Infos, OutputTable);
+    DecodeIITType(NextElt, Infos, Info, OutputTable);
     return;
   case IIT_V2:
     OutputTable.push_back(IITDescriptor::getVector(2, IsScalableVector));
-    DecodeIITType(NextElt, Infos, OutputTable);
+    DecodeIITType(NextElt, Infos, Info, OutputTable);
     return;
   case IIT_V4:
     OutputTable.push_back(IITDescriptor::getVector(4, IsScalableVector));
-    DecodeIITType(NextElt, Infos, OutputTable);
+    DecodeIITType(NextElt, Infos, Info, OutputTable);
     return;
   case IIT_V8:
     OutputTable.push_back(IITDescriptor::getVector(8, IsScalableVector));
-    DecodeIITType(NextElt, Infos, OutputTable);
+    DecodeIITType(NextElt, Infos, Info, OutputTable);
     return;
   case IIT_V16:
     OutputTable.push_back(IITDescriptor::getVector(16, IsScalableVector));
-    DecodeIITType(NextElt, Infos, OutputTable);
+    DecodeIITType(NextElt, Infos, Info, OutputTable);
     return;
   case IIT_V32:
     OutputTable.push_back(IITDescriptor::getVector(32, IsScalableVector));
-    DecodeIITType(NextElt, Infos, OutputTable);
+    DecodeIITType(NextElt, Infos, Info, OutputTable);
     return;
   case IIT_V64:
     OutputTable.push_back(IITDescriptor::getVector(64, IsScalableVector));
-    DecodeIITType(NextElt, Infos, OutputTable);
+    DecodeIITType(NextElt, Infos, Info, OutputTable);
     return;
   case IIT_V128:
     OutputTable.push_back(IITDescriptor::getVector(128, IsScalableVector));
-    DecodeIITType(NextElt, Infos, OutputTable);
+    DecodeIITType(NextElt, Infos, Info, OutputTable);
     return;
   case IIT_V512:
     OutputTable.push_back(IITDescriptor::getVector(512, IsScalableVector));
-    DecodeIITType(NextElt, Infos, OutputTable);
+    DecodeIITType(NextElt, Infos, Info, OutputTable);
     return;
   case IIT_V1024:
     OutputTable.push_back(IITDescriptor::getVector(1024, IsScalableVector));
-    DecodeIITType(NextElt, Infos, OutputTable);
+    DecodeIITType(NextElt, Infos, Info, OutputTable);
     return;
   case IIT_PTR:
     OutputTable.push_back(IITDescriptor::get(IITDescriptor::Pointer, 0));
-    DecodeIITType(NextElt, Infos, OutputTable);
+    DecodeIITType(NextElt, Infos, Info, OutputTable);
     return;
   case IIT_ANYPTR: {  // [ANYPTR addrspace, subtype]
     OutputTable.push_back(IITDescriptor::get(IITDescriptor::Pointer,
                                              Infos[NextElt++]));
-    DecodeIITType(NextElt, Infos, OutputTable);
+    DecodeIITType(NextElt, Infos, Info, OutputTable);
     return;
   }
   case IIT_ARG: {
@@ -938,7 +939,7 @@ static void DecodeIITType(unsigned &NextElt, ArrayRef<unsigned char> Infos,
     OutputTable.push_back(IITDescriptor::get(IITDescriptor::Struct,StructElts));
 
     for (unsigned i = 0; i != StructElts; ++i)
-      DecodeIITType(NextElt, Infos, OutputTable);
+      DecodeIITType(NextElt, Infos, Info, OutputTable);
     return;
   }
   case IIT_SUBDIVIDE2_ARG: {
@@ -960,7 +961,7 @@ static void DecodeIITType(unsigned &NextElt, ArrayRef<unsigned char> Infos,
     return;
   }
   case IIT_SCALABLE_VEC: {
-    DecodeIITType(NextElt, Infos, OutputTable);
+    DecodeIITType(NextElt, Infos, Info, OutputTable);
     return;
   }
   case IIT_VEC_OF_BITCASTS_TO_INT: {
@@ -1005,9 +1006,9 @@ void Intrinsic::getIntrinsicInfoTableEntries(ID id,
   }
 
   // Okay, decode the table into the output vector of IITDescriptors.
-  DecodeIITType(NextElt, IITEntries, T);
+  DecodeIITType(NextElt, IITEntries, IIT_Done, T);
   while (NextElt != IITEntries.size() && IITEntries[NextElt] != 0)
-    DecodeIITType(NextElt, IITEntries, T);
+    DecodeIITType(NextElt, IITEntries, IIT_Done, T);
 }
 
 static Type *DecodeFixedType(ArrayRef<Intrinsic::IITDescriptor> &Infos,
@@ -1024,6 +1025,7 @@ static Type *DecodeFixedType(ArrayRef<Intrinsic::IITDescriptor> &Infos,
   case IITDescriptor::Token: return Type::getTokenTy(Context);
   case IITDescriptor::Metadata: return Type::getMetadataTy(Context);
   case IITDescriptor::Half: return Type::getHalfTy(Context);
+  case IITDescriptor::BFloat: return Type::getBFloatTy(Context);
   case IITDescriptor::Float: return Type::getFloatTy(Context);
   case IITDescriptor::Double: return Type::getDoubleTy(Context);
   case IITDescriptor::Quad: return Type::getFP128Ty(Context);
@@ -1202,6 +1204,7 @@ static bool matchIntrinsicType(
     case IITDescriptor::Token: return !Ty->isTokenTy();
     case IITDescriptor::Metadata: return !Ty->isMetadataTy();
     case IITDescriptor::Half: return !Ty->isHalfTy();
+    case IITDescriptor::BFloat: return !Ty->isBFloatTy();
     case IITDescriptor::Float: return !Ty->isFloatTy();
     case IITDescriptor::Double: return !Ty->isDoubleTy();
     case IITDescriptor::Quad: return !Ty->isFP128Ty();

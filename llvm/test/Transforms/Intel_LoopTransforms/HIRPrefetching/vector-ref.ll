@@ -27,10 +27,10 @@
 ; CHECK:             {
 ; CHECK:                + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 25000> <nounroll> <novectorize>
 ; CHECK:                |   (<4 x i32>*)(@A)[0][i1 + <i64 0, i64 1, i64 2, i64 3>][0] = i1 + <i64 0, i64 1, i64 2, i64 3>;
-; CHECK:                |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 240][0]),  0,  3,  1);
-; CHECK:                |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 241][0]),  0,  3,  1);
-; CHECK:                |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 242][0]),  0,  3,  1);
-; CHECK:                |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 243][0]),  0,  3,  1);
+; CHECK:                |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 256][0]),  0,  3,  1);
+; CHECK:                |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 257][0]),  0,  3,  1);
+; CHECK:                |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 258][0]),  0,  3,  1);
+; CHECK:                |   @llvm.prefetch.p0i8(&((i8*)(@A)[0][i1 + 259][0]),  0,  3,  1);
 ; CHECK:                + END LOOP
 ; CHECK:             }
 ;
@@ -44,7 +44,7 @@
 ; OPTREPORT: LOOP BEGIN
 ; OPTREPORT:     Remark: LOOP WAS VECTORIZED
 ; OPTREPORT:     Remark: vectorization support: vector length 4
-; OPTREPORT:     Remark: Number of spatial prefetches=4, dist=60
+; OPTREPORT:     Remark: Number of spatial prefetches=4, dist=64
 ; OPTREPORT: LOOP END
 ;
 ; OPTREPORT: LOOP BEGIN

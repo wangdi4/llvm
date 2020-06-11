@@ -8,6 +8,7 @@
 
 #include "device_math.h"
 
+#ifdef __SPIR__
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #pragma omp declare target
@@ -150,3 +151,4 @@ double __devicelib_atanh(double x) { return __spirv_ocl_atanh(x); }
 #pragma omp end declare target
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
+#endif // __SPIR__

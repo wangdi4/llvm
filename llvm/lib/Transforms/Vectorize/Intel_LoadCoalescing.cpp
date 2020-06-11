@@ -24,6 +24,7 @@
 #include "llvm/Transforms/Vectorize/Intel_LoadCoalescing.h"
 #include "Intel_VPlan/IntelVPlanUtils.h"
 #include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/LoopAccessAnalysis.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/ValueTracking.h"

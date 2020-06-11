@@ -92,7 +92,27 @@ struct StreamState {
 
   /// State of the error flags.
   /// Ignored in non-opened stream state but must be NoError.
-  StreamErrorState ErrorState;
+  StreamErrorState const ErrorState;
+
+  /// Indicate if the file has an "indeterminate file position indicator".
+  /// This can be set at a failing read or write or seek operation.
+  /// If it is set no more read or write is allowed.
+  /// This value is not dependent on the stream error flags:
+  /// The error flag may be cleared with `clearerr` but the file position
+  /// remains still indeterminate.
+  /// This value applies to all error states in ErrorState except FEOF.
+  /// An EOF+indeterminate state is the same as EOF state.
+  bool const FilePositionIndeterminate = false;
+
+  StreamState(const FnDescription *L, KindTy S, const StreamErrorState &ES,
+              bool IsFilePositionIndeterminate)
+      : LastOperation(L), State(S), ErrorState(ES),
+        FilePositionIndeterminate(IsFilePositionIndeterminate) {
+    assert((!ES.isFEof() || !IsFilePositionIndeterminate) &&
+           "FilePositionIndeterminate should be false in FEof case.");
+    assert((State == Opened || ErrorState.isNoError()) &&
+           "ErrorState should be None in non-opened stream state.");
+  }
 
   bool isOpened() const { return State == Opened; }
   bool isClosed() const { return State == Closed; }
@@ -102,24 +122,27 @@ struct StreamState {
     // In not opened state error state should always NoError, so comparison
     // here is no problem.
     return LastOperation == X.LastOperation && State == X.State &&
-           ErrorState == X.ErrorState;
+           ErrorState == X.ErrorState &&
+           FilePositionIndeterminate == X.FilePositionIndeterminate;
   }
 
   static StreamState getOpened(const FnDescription *L,
-                               const StreamErrorState &ES = {}) {
-    return StreamState{L, Opened, ES};
+                               const StreamErrorState &ES = ErrorNone,
+                               bool IsFilePositionIndeterminate = false) {
+    return StreamState{L, Opened, ES, IsFilePositionIndeterminate};
   }
   static StreamState getClosed(const FnDescription *L) {
-    return StreamState{L, Closed, {}};
+    return StreamState{L, Closed, {}, false};
   }
   static StreamState getOpenFailed(const FnDescription *L) {
-    return StreamState{L, OpenFailed, {}};
+    return StreamState{L, OpenFailed, {}, false};
   }
 
   void Profile(llvm::FoldingSetNodeID &ID) const {
     ID.AddPointer(LastOperation);
     ID.AddInteger(State);
     ID.AddInteger(ErrorState);
+    ID.AddBoolean(FilePositionIndeterminate);
   }
 };
 
@@ -172,8 +195,29 @@ ProgramStateRef bindInt(uint64_t Value, ProgramStateRef State,
 
 class StreamChecker
     : public Checker<check::PreCall, eval::Call, check::DeadSymbols> {
-  mutable std::unique_ptr<BuiltinBug> BT_nullfp, BT_illegalwhence,
-      BT_UseAfterClose, BT_UseAfterOpenFailed, BT_ResourceLeak, BT_StreamEof;
+  BuiltinBug BT_FileNull{this, "NULL stream pointer",
+                         "Stream pointer might be NULL."};
+  BuiltinBug BT_UseAfterClose{
+      this, "Closed stream",
+      "Stream might be already closed. Causes undefined behaviour."};
+  BuiltinBug BT_UseAfterOpenFailed{this, "Invalid stream",
+                                   "Stream might be invalid after "
+                                   "(re-)opening it has failed. "
+                                   "Can cause undefined behaviour."};
+  BuiltinBug BT_IndeterminatePosition{
+      this, "Invalid stream state",
+      "File position of the stream might be 'indeterminate' "
+      "after a failed operation. "
+      "Can cause undefined behavior."};
+  BuiltinBug BT_IllegalWhence{this, "Illegal whence argument",
+                              "The whence argument to fseek() should be "
+                              "SEEK_SET, SEEK_END, or SEEK_CUR."};
+  BuiltinBug BT_StreamEof{this, "Stream already in EOF",
+                          "Read function called when stream is in EOF state. "
+                          "Function has no effect."};
+  BuiltinBug BT_ResourceLeak{
+      this, "Resource Leak",
+      "Opened File never closed. Potential Resource leak."};
 
 public:
   void checkPreCall(const CallEvent &Call, CheckerContext &C) const;
@@ -278,6 +322,16 @@ private:
   /// and nullptr returned, otherwise the original state is returned.
   ProgramStateRef ensureStreamOpened(SVal StreamVal, CheckerContext &C,
                                      ProgramStateRef State) const;
+
+  /// Check that the stream has not an invalid ("indeterminate") file position,
+  /// generate warning for it.
+  /// (EOF is not an invalid position.)
+  /// The returned state can be nullptr if a fatal error was generated.
+  /// It can return non-null state if the stream has not an invalid position or
+  /// there is execution path with non-invalid position.
+  ProgramStateRef
+  ensureNoFilePositionIndeterminate(SVal StreamVal, CheckerContext &C,
+                                    ProgramStateRef State) const;
 
   /// Check the legality of the 'whence' argument of 'fseek'.
   /// Generate error and return nullptr if it is found to be illegal.
@@ -449,6 +503,9 @@ void StreamChecker::preFread(const FnDescription *Desc, const CallEvent &Call,
   State = ensureStreamOpened(StreamVal, C, State);
   if (!State)
     return;
+  State = ensureNoFilePositionIndeterminate(StreamVal, C, State);
+  if (!State)
+    return;
 
   SymbolRef Sym = StreamVal.getAsSymbol();
   if (Sym && State->get<StreamMap>(Sym)) {
@@ -468,6 +525,9 @@ void StreamChecker::preFwrite(const FnDescription *Desc, const CallEvent &Call,
   if (!State)
     return;
   State = ensureStreamOpened(StreamVal, C, State);
+  if (!State)
+    return;
+  State = ensureNoFilePositionIndeterminate(StreamVal, C, State);
   if (!State)
     return;
 
@@ -548,7 +608,9 @@ void StreamChecker::evalFreadFwrite(const FnDescription *Desc,
     NewES = (SS->ErrorState == ErrorFEof) ? ErrorFEof : ErrorFEof | ErrorFError;
   else
     NewES = ErrorFError;
-  StreamState NewState = StreamState::getOpened(Desc, NewES);
+  // If a (non-EOF) error occurs, the resulting value of the file position
+  // indicator for the stream is indeterminate.
+  StreamState NewState = StreamState::getOpened(Desc, NewES, !NewES.isFEof());
   StateFailed = StateFailed->set<StreamMap>(StreamSym, NewState);
   C.addTransition(StateFailed);
 }
@@ -601,9 +663,11 @@ void StreamChecker::evalFseek(const FnDescription *Desc, const CallEvent &Call,
       StateNotFailed->set<StreamMap>(StreamSym, StreamState::getOpened(Desc));
   // We get error.
   // It is possible that fseek fails but sets none of the error flags.
+  // If fseek failed, assume that the file position becomes indeterminate in any
+  // case.
   StateFailed = StateFailed->set<StreamMap>(
       StreamSym,
-      StreamState::getOpened(Desc, ErrorNone | ErrorFEof | ErrorFError));
+      StreamState::getOpened(Desc, ErrorNone | ErrorFEof | ErrorFError, true));
 
   C.addTransition(StateNotFailed);
   C.addTransition(StateFailed);
@@ -623,7 +687,10 @@ void StreamChecker::evalClearerr(const FnDescription *Desc,
 
   assertStreamStateOpened(SS);
 
-  State = State->set<StreamMap>(StreamSym, StreamState::getOpened(Desc));
+  // FilePositionIndeterminate is not cleared.
+  State = State->set<StreamMap>(
+      StreamSym,
+      StreamState::getOpened(Desc, ErrorNone, SS->FilePositionIndeterminate));
   C.addTransition(State);
 }
 
@@ -651,7 +718,9 @@ void StreamChecker::evalFeofFerror(const FnDescription *Desc,
     // From now on it is the only one error state.
     ProgramStateRef TrueState = bindAndAssumeTrue(State, C, CE);
     C.addTransition(TrueState->set<StreamMap>(
-        StreamSym, StreamState::getOpened(Desc, ErrorKind)));
+        StreamSym, StreamState::getOpened(Desc, ErrorKind,
+                                          SS->FilePositionIndeterminate &&
+                                              !ErrorKind.isFEof())));
   }
   if (StreamErrorState NewES = SS->ErrorState & (~ErrorKind)) {
     // Execution path(s) with ErrorKind not set.
@@ -659,7 +728,9 @@ void StreamChecker::evalFeofFerror(const FnDescription *Desc,
     // New error state is everything before minus ErrorKind.
     ProgramStateRef FalseState = bindInt(0, State, C, CE);
     C.addTransition(FalseState->set<StreamMap>(
-        StreamSym, StreamState::getOpened(Desc, NewES)));
+        StreamSym,
+        StreamState::getOpened(
+            Desc, NewES, SS->FilePositionIndeterminate && !NewES.isFEof())));
   }
 }
 
@@ -704,11 +775,8 @@ StreamChecker::ensureStreamNonNull(SVal StreamVal, CheckerContext &C,
 
   if (!StateNotNull && StateNull) {
     if (ExplodedNode *N = C.generateErrorNode(StateNull)) {
-      if (!BT_nullfp)
-        BT_nullfp.reset(new BuiltinBug(this, "NULL stream pointer",
-                                       "Stream pointer might be NULL."));
       C.emitReport(std::make_unique<PathSensitiveBugReport>(
-          *BT_nullfp, BT_nullfp->getDescription(), N));
+          BT_FileNull, BT_FileNull.getDescription(), N));
     }
     return nullptr;
   }
@@ -732,12 +800,8 @@ ProgramStateRef StreamChecker::ensureStreamOpened(SVal StreamVal,
     // according to cppreference.com .
     ExplodedNode *N = C.generateErrorNode();
     if (N) {
-      if (!BT_UseAfterClose)
-        BT_UseAfterClose.reset(new BuiltinBug(this, "Closed stream",
-                                              "Stream might be already closed. "
-                                              "Causes undefined behaviour."));
       C.emitReport(std::make_unique<PathSensitiveBugReport>(
-          *BT_UseAfterClose, BT_UseAfterClose->getDescription(), N));
+          BT_UseAfterClose, BT_UseAfterClose.getDescription(), N));
       return nullptr;
     }
 
@@ -751,17 +815,53 @@ ProgramStateRef StreamChecker::ensureStreamOpened(SVal StreamVal,
     // failed to open.
     ExplodedNode *N = C.generateErrorNode();
     if (N) {
-      if (!BT_UseAfterOpenFailed)
-        BT_UseAfterOpenFailed.reset(
-            new BuiltinBug(this, "Invalid stream",
-                           "Stream might be invalid after "
-                           "(re-)opening it has failed. "
-                           "Can cause undefined behaviour."));
       C.emitReport(std::make_unique<PathSensitiveBugReport>(
-          *BT_UseAfterOpenFailed, BT_UseAfterOpenFailed->getDescription(), N));
+          BT_UseAfterOpenFailed, BT_UseAfterOpenFailed.getDescription(), N));
       return nullptr;
     }
     return State;
+  }
+
+  return State;
+}
+
+ProgramStateRef StreamChecker::ensureNoFilePositionIndeterminate(
+    SVal StreamVal, CheckerContext &C, ProgramStateRef State) const {
+  SymbolRef Sym = StreamVal.getAsSymbol();
+  if (!Sym)
+    return State;
+
+  const StreamState *SS = State->get<StreamMap>(Sym);
+  if (!SS)
+    return State;
+
+  assert(SS->isOpened() && "First ensure that stream is opened.");
+
+  if (SS->FilePositionIndeterminate) {
+    if (SS->ErrorState & ErrorFEof) {
+      // The error is unknown but may be FEOF.
+      // Continue analysis with the FEOF error state.
+      // Report warning because the other possible error states.
+      ExplodedNode *N = C.generateNonFatalErrorNode(State);
+      if (!N)
+        return nullptr;
+
+      C.emitReport(std::make_unique<PathSensitiveBugReport>(
+          BT_IndeterminatePosition, BT_IndeterminatePosition.getDescription(),
+          N));
+      return State->set<StreamMap>(
+          Sym, StreamState::getOpened(SS->LastOperation, ErrorFEof, false));
+    }
+
+    // Known or unknown error state without FEOF possible.
+    // Stop analysis, report error.
+    ExplodedNode *N = C.generateErrorNode(State);
+    if (N)
+      C.emitReport(std::make_unique<PathSensitiveBugReport>(
+          BT_IndeterminatePosition, BT_IndeterminatePosition.getDescription(),
+          N));
+
+    return nullptr;
   }
 
   return State;
@@ -779,13 +879,8 @@ StreamChecker::ensureFseekWhenceCorrect(SVal WhenceVal, CheckerContext &C,
     return State;
 
   if (ExplodedNode *N = C.generateNonFatalErrorNode(State)) {
-    if (!BT_illegalwhence)
-      BT_illegalwhence.reset(
-          new BuiltinBug(this, "Illegal whence argument",
-                         "The whence argument to fseek() should be "
-                         "SEEK_SET, SEEK_END, or SEEK_CUR."));
     C.emitReport(std::make_unique<PathSensitiveBugReport>(
-        *BT_illegalwhence, BT_illegalwhence->getDescription(), N));
+        BT_IllegalWhence, BT_IllegalWhence.getDescription(), N));
     return nullptr;
   }
 
@@ -795,13 +890,8 @@ StreamChecker::ensureFseekWhenceCorrect(SVal WhenceVal, CheckerContext &C,
 void StreamChecker::reportFEofWarning(CheckerContext &C,
                                       ProgramStateRef State) const {
   if (ExplodedNode *N = C.generateNonFatalErrorNode(State)) {
-    if (!BT_StreamEof)
-      BT_StreamEof.reset(
-          new BuiltinBug(this, "Stream already in EOF",
-                         "Read function called when stream is in EOF state. "
-                         "Function has no effect."));
     C.emitReport(std::make_unique<PathSensitiveBugReport>(
-        *BT_StreamEof, BT_StreamEof->getDescription(), N));
+        BT_StreamEof, BT_StreamEof.getDescription(), N));
     return;
   }
   C.addTransition(State);
@@ -823,12 +913,8 @@ void StreamChecker::checkDeadSymbols(SymbolReaper &SymReaper,
     if (!N)
       continue;
 
-    if (!BT_ResourceLeak)
-      BT_ResourceLeak.reset(
-          new BuiltinBug(this, "Resource Leak",
-                         "Opened File never closed. Potential Resource leak."));
     C.emitReport(std::make_unique<PathSensitiveBugReport>(
-        *BT_ResourceLeak, BT_ResourceLeak->getDescription(), N));
+        BT_ResourceLeak, BT_ResourceLeak.getDescription(), N));
   }
 }
 

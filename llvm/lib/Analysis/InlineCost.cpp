@@ -5383,7 +5383,8 @@ Optional<int> llvm::getInliningCostEstimate(
                                /*HotCallSiteThreshold*/ {},
                                /*LocallyHotCallSiteThreshold*/ {},
                                /*ColdCallSiteThreshold*/ {},
-                               /* ComputeFullInlineCost*/ true};
+                               /*ComputeFullInlineCost*/ true,
+                               /*EnableDeferral*/ true};
 
   InlineCostCallAnalyzer CA(*Call.getCalledFunction(), Call, Params, CalleeTTI,
                             GetAssumptionCache, GetBFI, PSI, ORE, TLI, // INTEL

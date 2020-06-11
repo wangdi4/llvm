@@ -125,7 +125,7 @@ public:
   InlineReportBuilder *getMDReport() { return MDReport; } // INTEL
 private:
   InlineAdvisor &getAdvisor(const ModuleAnalysisManagerCGSCCProxy::Result &MAM,
-                            Module &M);
+                            FunctionAnalysisManager &FAM, Module &M);
   std::unique_ptr<ImportedFunctionsInliningStatistics> ImportedFunctionsStats;
   Optional<DefaultInlineAdvisor> OwnedDefaultAdvisor;
 

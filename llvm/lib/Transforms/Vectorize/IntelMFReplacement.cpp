@@ -25,6 +25,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/BasicAliasAnalysis.h" // INTEL_CUSTOMIZATION
+#include "llvm/Analysis/GlobalsModRef.h" // INTEL_CUSTOMIZATION
+#include "llvm/Analysis/ScalarEvolutionAliasAnalysis.h" // INTEL_CUSTOMIZATION
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/Function.h"

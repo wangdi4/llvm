@@ -178,7 +178,6 @@ define <4 x double> @test_v4f64(<4 x double> %a, <4 x double> %b) {
 ; SSE-NEXT:    [[R03:%.*]] = shufflevector <2 x double> [[TMP3]], <2 x double> [[TMP6]], <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; SSE-NEXT:    ret <4 x double> [[R03]]
 ;
-; INTEL_CUSTOMIZATION
 ; SLM-LABEL: @test_v4f64(
 ; SLM-NEXT:    [[A0:%.*]] = extractelement <4 x double> [[A:%.*]], i32 0
 ; SLM-NEXT:    [[A1:%.*]] = extractelement <4 x double> [[A]], i32 1
@@ -197,7 +196,6 @@ define <4 x double> @test_v4f64(<4 x double> %a, <4 x double> %b) {
 ; SLM-NEXT:    [[R02:%.*]] = insertelement <4 x double> [[R01]], double [[R2]], i32 2
 ; SLM-NEXT:    [[R03:%.*]] = insertelement <4 x double> [[R02]], double [[R3]], i32 3
 ; SLM-NEXT:    ret <4 x double> [[R03]]
-; end INTEL_CUSTOMIZATION
 ;
 ; AVX-LABEL: @test_v4f64(
 ; AVX-NEXT:    [[TMP1:%.*]] = shufflevector <4 x double> [[A:%.*]], <4 x double> [[B:%.*]], <4 x i32> <i32 0, i32 4, i32 2, i32 6>

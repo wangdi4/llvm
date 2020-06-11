@@ -8,22 +8,23 @@
 
 #include "wrapper.h"
 
+#ifdef __SPIR__
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #include <stdio.h>
-
-#pragma omp declare target
 // FIXME: teach clang to understand opencl_constant attribute during
 //        OpenMP offload compilation, and get rid of this specialization code.
 #ifndef __STDC_FORMAT_MACROS
 #define __STDC_FORMAT_MACROS
-#endif
-
 #include <inttypes.h>
+
 static const char assert_fmt[] =
     "%s:%" PRId32 ": %s: global id: [%" PRIu64 ",%" PRIu64 ",%" PRIu64 "], "
     "local id: [%" PRIu64 ",%" PRIu64 ",%" PRIu64 "] "
     "Assertion `%s` failed.\n";
+
+#pragma omp declare target
+#endif
 
 DEVICE_EXTERN_C void __devicelib_assert_fail(const char *expr, const char *file,
                                              int32_t line, const char *func,
@@ -92,3 +93,4 @@ DEVICE_EXTERN_C void __devicelib_assert_fail(const char *expr, const char *file,
   // *die = 0xdead;
 }
 #endif // INTEL_COLLAB
+#endif // __SPIR__

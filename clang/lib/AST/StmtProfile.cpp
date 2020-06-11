@@ -627,6 +627,20 @@ void OMPClauseProfiler::VisitOMPReductionClause(
     if (E)
       Profiler->VisitStmt(E);
   }
+  if (C->getModifier() == clang::OMPC_REDUCTION_inscan) {
+    for (auto *E : C->copy_ops()) {
+      if (E)
+        Profiler->VisitStmt(E);
+    }
+    for (auto *E : C->copy_array_temps()) {
+      if (E)
+        Profiler->VisitStmt(E);
+    }
+    for (auto *E : C->copy_array_elems()) {
+      if (E)
+        Profiler->VisitStmt(E);
+    }
+  }
 }
 void OMPClauseProfiler::VisitOMPTaskReductionClause(
     const OMPTaskReductionClause *C) {
@@ -800,6 +814,10 @@ void OMPClauseProfiler::VisitOMPFromClause(const OMPFromClause *C) {
 }
 void OMPClauseProfiler::VisitOMPUseDevicePtrClause(
     const OMPUseDevicePtrClause *C) {
+  VisitOMPClauseList(C);
+}
+void OMPClauseProfiler::VisitOMPUseDeviceAddrClause(
+    const OMPUseDeviceAddrClause *C) {
   VisitOMPClauseList(C);
 }
 void OMPClauseProfiler::VisitOMPIsDevicePtrClause(
@@ -1226,6 +1244,10 @@ StmtProfiler::VisitUnaryExprOrTypeTraitExpr(const UnaryExprOrTypeTraitExpr *S) {
 }
 
 void StmtProfiler::VisitArraySubscriptExpr(const ArraySubscriptExpr *S) {
+  VisitExpr(S);
+}
+
+void StmtProfiler::VisitMatrixSubscriptExpr(const MatrixSubscriptExpr *S) {
   VisitExpr(S);
 }
 

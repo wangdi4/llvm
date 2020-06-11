@@ -101,7 +101,6 @@ define <4 x i32> @add_mul_v4i32(<4 x i32> %a, <4 x i32> %b) {
 }
 
 define <8 x i32> @ashr_shl_v8i32(<8 x i32> %a, <8 x i32> %b) {
-; INTEL_CUSTOMIZATION
 ; SSE-LABEL: @ashr_shl_v8i32(
 ; SSE-NEXT:    [[TMP1:%.*]] = ashr <8 x i32> [[A:%.*]], [[B:%.*]]
 ; SSE-NEXT:    [[TMP2:%.*]] = shl <8 x i32> [[A]], [[B]]
@@ -140,7 +139,6 @@ define <8 x i32> @ashr_shl_v8i32(<8 x i32> %a, <8 x i32> %b) {
 ; AVX512-NEXT:    [[TMP2:%.*]] = shl <8 x i32> [[A]], [[B]]
 ; AVX512-NEXT:    [[R7:%.*]] = shufflevector <8 x i32> [[TMP1]], <8 x i32> [[TMP2]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 12, i32 13, i32 14, i32 15>
 ; AVX512-NEXT:    ret <8 x i32> [[R7]]
-; end INTEL_CUSTOMIZATION
 ;
   %a0 = extractelement <8 x i32> %a, i32 0
   %a1 = extractelement <8 x i32> %a, i32 1

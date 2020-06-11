@@ -1142,11 +1142,9 @@ bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(StoreInst *SI,
   else {
     // We cannot allow unaligned ops for unordered load/store, so reject
     // anything where the alignment isn't at least the element size.
-    const MaybeAlign StoreAlign = SI->getAlign();
-    const MaybeAlign LoadAlign = LI->getAlign();
-    if (StoreAlign == None || LoadAlign == None)
-      return false;
-    if (*StoreAlign < StoreSize || *LoadAlign < StoreSize)
+    const Align StoreAlign = SI->getAlign();
+    const Align LoadAlign = LI->getAlign();
+    if (StoreAlign < StoreSize || LoadAlign < StoreSize)
       return false;
 
     // If the element.atomic memcpy is not lowered into explicit
@@ -1160,7 +1158,7 @@ bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(StoreInst *SI,
     // Note that unordered atomic loads/stores are *required* by the spec to
     // have an alignment but non-atomic loads/stores may not.
     NewCall = Builder.CreateElementUnorderedAtomicMemCpy(
-        StoreBasePtr, *StoreAlign, LoadBasePtr, *LoadAlign, NumBytes,
+        StoreBasePtr, StoreAlign, LoadBasePtr, LoadAlign, NumBytes,
         StoreSize);
   }
   NewCall->setDebugLoc(SI->getDebugLoc());
@@ -1568,7 +1566,7 @@ bool LoopIdiomRecognize::recognizeAndInsertFFS() {
   //  %inc = add nsw %i.0, 1
   //  br i1 %tobool
 
-  const Value *Args[] =
+  Value *Args[] =
       {InitX, ZeroCheck ? ConstantInt::getTrue(InitX->getContext())
                         : ConstantInt::getFalse(InitX->getContext())};
 
@@ -1577,9 +1575,11 @@ bool LoopIdiomRecognize::recognizeAndInsertFFS() {
   uint32_t HeaderSize =
       std::distance(InstWithoutDebugIt.begin(), InstWithoutDebugIt.end());
 
+  IntrinsicCostAttributes Attrs(IntrinID, InitX->getType(), Args);
+  int Cost =
+    TTI->getIntrinsicInstrCost(Attrs, TargetTransformInfo::TCK_SizeAndLatency);
   if (HeaderSize != IdiomCanonicalSize &&
-      TTI->getIntrinsicCost(IntrinID, InitX->getType(), Args) >
-          TargetTransformInfo::TCC_Basic)
+      Cost > TargetTransformInfo::TCC_Basic)
     return false;
 
   transformLoopToCountable(IntrinID, PH, CntInst, CntPhi, InitX, DefX,

@@ -1762,7 +1762,7 @@ protected: // INTEL
                                       const SCEV *FoundRHS);
 
   /// Return true if the condition denoted by \p LHS \p Pred \p RHS is implied
-  /// by a call to \c @llvm.experimental.guard in \p BB.
+  /// by a call to @llvm.experimental.guard in \p BB.
   bool isImpliedViaGuard(BasicBlock *BB, ICmpInst::Predicate Pred,
                          const SCEV *LHS, const SCEV *RHS);
 

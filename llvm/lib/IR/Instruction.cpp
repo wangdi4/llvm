@@ -235,6 +235,11 @@ void Instruction::setHasAllowReciprocal(bool B) {
   cast<FPMathOperator>(this)->setHasAllowReciprocal(B);
 }
 
+void Instruction::setHasAllowContract(bool B) {
+  assert(isa<FPMathOperator>(this) && "setting fast-math flag on invalid op");
+  cast<FPMathOperator>(this)->setHasAllowContract(B);
+}
+
 void Instruction::setHasApproxFunc(bool B) {
   assert(isa<FPMathOperator>(this) && "setting fast-math flag on invalid op");
   cast<FPMathOperator>(this)->setHasApproxFunc(B);
@@ -841,13 +846,4 @@ Instruction *Instruction::clone() const {
   New->SubclassOptionalData = SubclassOptionalData;
   New->copyMetadata(*this);
   return New;
-}
-
-void Instruction::setProfWeight(uint64_t W) {
-  assert(isa<CallBase>(this) &&
-         "Can only set weights for call like instructions");
-  SmallVector<uint32_t, 1> Weights;
-  Weights.push_back(W);
-  MDBuilder MDB(getContext());
-  setMetadata(LLVMContext::MD_prof, MDB.createBranchWeights(Weights));
 }

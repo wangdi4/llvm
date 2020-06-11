@@ -20,6 +20,7 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
+#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/Type.h"
 
@@ -86,9 +87,9 @@ public:
     return false;
   }
 
-  bool rewriteIntrinsicWithAddressSpace(IntrinsicInst *II, Value *OldV,
-                                        Value *NewV) const {
-    return false;
+  Value *rewriteIntrinsicWithAddressSpace(IntrinsicInst *II, Value *OldV,
+                                          Value *NewV) const {
+    return nullptr;
   }
 
   bool isLoweredToCall(const Function *F) {
@@ -137,6 +138,11 @@ public:
                                    AssumptionCache &AC, TargetLibraryInfo *TLI,
                                    DominatorTree *DT,
                                    const LoopAccessInfo *LAI) const {
+    return false;
+  }
+
+  bool emitGetActiveLaneMask(Loop *L, LoopInfo *LI, ScalarEvolution &SE,
+                             bool TailFold) const {
     return false;
   }
 
@@ -801,37 +807,17 @@ public:
     return TTI::TCC_Basic;
   }
 
-  unsigned getIntrinsicCost(Intrinsic::ID IID, Type *RetTy,
-                            ArrayRef<Type *> ParamTys, const User *U,
-                            TTI::TargetCostKind CostKind) {
-    switch (IID) {
-    default:
-      break;
-    // TODO: other libc intrinsics.
-    case Intrinsic::memcpy:
-      return static_cast<T *>(this)->getMemcpyCost(dyn_cast<Instruction>(U));
-    }
-    IntrinsicCostAttributes Attrs(IID, RetTy, ParamTys);
-    return getIntrinsicInstrCost(Attrs, CostKind);
-  }
-
-  unsigned getIntrinsicCost(Intrinsic::ID IID, Type *RetTy,
-                            ArrayRef<const Value *> Arguments, const User *U,
-                            TTI::TargetCostKind CostKind) {
-    // Delegate to the generic intrinsic handling code. This mostly provides an
-    // opportunity for targets to (for example) special case the cost of
-    // certain intrinsics based on constants used as arguments.
-    SmallVector<Type *, 8> ParamTys;
-    ParamTys.reserve(Arguments.size());
-    for (unsigned Idx = 0, Size = Arguments.size(); Idx != Size; ++Idx)
-      ParamTys.push_back(Arguments[Idx]->getType());
-    return static_cast<T *>(this)->getIntrinsicCost(IID, RetTy, ParamTys, U,
-                                                    CostKind);
-  }
-
-  unsigned getUserCost(const User *U, ArrayRef<const Value *> Operands,
-                       TTI::TargetCostKind CostKind) {
+  int getUserCost(const User *U, ArrayRef<const Value *> Operands,
+                  TTI::TargetCostKind CostKind) {
     auto *TargetTTI = static_cast<T *>(this);
+
+    // FIXME: We shouldn't have to special-case intrinsics here.
+    if (CostKind == TTI::TCK_RecipThroughput) {
+      if (const IntrinsicInst *II = dyn_cast<IntrinsicInst>(U)) {
+        IntrinsicCostAttributes CostAttrs(*II);
+        return TargetTTI->getIntrinsicInstrCost(CostAttrs, CostKind);
+      }
+    }
 
     // FIXME: Unlikely to be true for anything but CodeSize.
     if (const auto *CB = dyn_cast<CallBase>(U)) {
@@ -839,9 +825,8 @@ public:
       if (F) {
         FunctionType *FTy = F->getFunctionType();
         if (Intrinsic::ID IID = F->getIntrinsicID()) {
-          SmallVector<Type *, 8> ParamTys(FTy->param_begin(), FTy->param_end());
-          return TargetTTI->getIntrinsicCost(IID, FTy->getReturnType(),
-                                             ParamTys, U, CostKind);
+          IntrinsicCostAttributes Attrs(IID, *CB);
+          return TargetTTI->getIntrinsicInstrCost(Attrs, CostKind);
         }
 
         if (!TargetTTI->isLoweredToCall(F))
@@ -884,18 +869,31 @@ public:
       return TTI::TCC_Expensive;
     case Instruction::IntToPtr:
     case Instruction::PtrToInt:
+    case Instruction::SIToFP:
+    case Instruction::UIToFP:
+    case Instruction::FPToUI:
+    case Instruction::FPToSI:
     case Instruction::Trunc:
+    case Instruction::FPTrunc:
     case Instruction::BitCast:
-      if (TargetTTI->getCastInstrCost(Opcode, Ty, OpTy, CostKind, I) ==
-          TTI::TCC_Free)
-        return TTI::TCC_Free;
-      break;
     case Instruction::FPExt:
     case Instruction::SExt:
     case Instruction::ZExt:
-      if (TargetTTI->getCastInstrCost(Opcode, Ty, OpTy, CostKind, I) == TTI::TCC_Free)
-        return TTI::TCC_Free;
-      break;
+    case Instruction::AddrSpaceCast:
+      return TargetTTI->getCastInstrCost(Opcode, Ty, OpTy, CostKind, I);
+    case Instruction::Store: {
+      auto *SI = cast<StoreInst>(U);
+      Type *ValTy = U->getOperand(0)->getType();
+      return TargetTTI->getMemoryOpCost(Opcode, ValTy, SI->getAlign(),
+                                        SI->getPointerAddressSpace(),
+                                        CostKind, I);
+    }
+    case Instruction::Load: {
+      auto *LI = cast<LoadInst>(U);
+      return TargetTTI->getMemoryOpCost(Opcode, U->getType(), LI->getAlign(),
+                                        LI->getPointerAddressSpace(),
+                                        CostKind, I);
+    }
     }
     // By default, just classify everything as 'basic'.
     return TTI::TCC_Basic;

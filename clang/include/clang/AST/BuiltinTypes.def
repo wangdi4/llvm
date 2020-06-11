@@ -212,6 +212,9 @@ FLOATING_TYPE(LongDouble, LongDoubleTy)
 // '_Float16'
 FLOATING_TYPE(Float16, HalfTy)
 
+// '__bf16'
+FLOATING_TYPE(BFloat16, BFloat16Ty)
+
 // '__float128'
 FLOATING_TYPE(Float128, Float128Ty)
 
@@ -314,6 +317,9 @@ PLACEHOLDER_TYPE(ARCUnbridgedCast, ARCUnbridgedCastTy)
 // The type that __builtin_va_arg_pack returns.
 PLACEHOLDER_TYPE(VAArgPack, VAArgPackTy)
 // endif // INTEL_CUSTOMIZATION
+
+// A placeholder type for incomplete matrix index expressions.
+PLACEHOLDER_TYPE(IncompleteMatrixIdx, IncompleteMatrixIdxTy)
 
 // A placeholder type for OpenMP array sections.
 PLACEHOLDER_TYPE(OMPArraySection, OMPArraySectionTy)

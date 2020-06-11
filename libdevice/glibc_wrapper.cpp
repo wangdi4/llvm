@@ -6,9 +6,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "device.h"
 #include "wrapper.h"
 
+#ifdef __SPIR__
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #pragma omp declare target
@@ -30,3 +30,4 @@ void __assert_fail(const char *expr, const char *file, unsigned int line,
 #pragma omp end declare target
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
+#endif // __SPIR__

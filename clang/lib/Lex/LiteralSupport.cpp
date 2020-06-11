@@ -586,6 +586,7 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
 
   // Parse the suffix.  At this point we can classify whether we have an FP or
   // integer constant.
+  bool isFixedPointConstant = isFixedPointLiteral();
   bool isFPConstant = isFloatingLiteral();
 
   // Loop over all of the characters of the suffix.  If we see something bad,
@@ -744,7 +745,8 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
       // Report an error if there are any.
       PP.Diag(PP.AdvanceToTokenCharacter(TokLoc, SuffixBegin - ThisTokBegin),
               diag::err_invalid_suffix_constant)
-          << StringRef(SuffixBegin, ThisTokEnd - SuffixBegin) << isFPConstant;
+          << StringRef(SuffixBegin, ThisTokEnd - SuffixBegin)
+          << (isFixedPointConstant ? 2 : isFPConstant);
       hadError = true;
     }
   }

@@ -620,6 +620,7 @@ ReprocessLoop:
       if (!PreserveLCSSA || LI->replacementPreservesLCSSAForm(PN, V)) {
         PN->replaceAllUsesWith(V);
         PN->eraseFromParent();
+        Changed = true;
       }
     }
 

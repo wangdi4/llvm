@@ -24,6 +24,7 @@
 #include "llvm/Transforms/IPO/Intel_AdvancedFastCall.h"
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
+#include "llvm/ADT/Triple.h" // INTEL_CUSTOMIZATION
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"

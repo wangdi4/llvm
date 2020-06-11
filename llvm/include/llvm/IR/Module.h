@@ -46,6 +46,7 @@ class FunctionType;
 class GVMaterializer;
 class LLVMContext;
 class MemoryBuffer;
+class ModuleSummaryIndex;
 class Pass;
 class RandomNumberGenerator;
 template <class PtrType> class SmallPtrSetImpl;
@@ -886,6 +887,7 @@ public:
 
   /// Returns whether semantic interposition is to be respected.
   bool getSemanticInterposition() const;
+  bool noSemanticInterposition() const;
 
   /// Set whether semantic interposition is to be respected.
   void setSemanticInterposition(bool);
@@ -910,6 +912,10 @@ public:
 
   /// Take ownership of the given memory buffer.
   void setOwnedMemoryBuffer(std::unique_ptr<MemoryBuffer> MB);
+
+  /// Set the partial sample profile ratio in the profile summary module flag,
+  /// if applicable.
+  void setPartialSampleProfileRatio(const ModuleSummaryIndex &Index);
 };
 
 /// Given "llvm.used" or "llvm.compiler.used" as a global name, collect

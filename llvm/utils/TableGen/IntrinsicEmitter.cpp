@@ -245,10 +245,11 @@ enum IIT_Info {
   IIT_SUBDIVIDE2_ARG = 44,
   IIT_SUBDIVIDE4_ARG = 45,
   IIT_VEC_OF_BITCASTS_TO_INT = 46,
-  IIT_V128  = 47
+  IIT_V128 = 47,
+  IIT_BF16 = 48
 #if INTEL_CUSTOMIZATION
   ,
-  IIT_STRUCT9 = 48
+  IIT_STRUCT9 = 49
 #endif  // INTEL_CUSTOMIZATION
 };
 
@@ -270,6 +271,7 @@ static void EncodeFixedValueType(MVT::SimpleValueType VT,
   switch (VT) {
   default: PrintFatalError("unhandled MVT in intrinsic!");
   case MVT::f16: return Sig.push_back(IIT_F16);
+  case MVT::bf16: return Sig.push_back(IIT_BF16);
   case MVT::f32: return Sig.push_back(IIT_F32);
   case MVT::f64: return Sig.push_back(IIT_F64);
   case MVT::f128: return Sig.push_back(IIT_F128);
@@ -668,14 +670,15 @@ void IntrinsicEmitter::EmitAttributes(const CodeGenIntrinsicTable &Ints,
     unsigned ai = 0, ae = intrinsic.ArgumentAttributes.size();
     if (ae) {
       while (ai != ae) {
-        unsigned argNo = intrinsic.ArgumentAttributes[ai].first;
-        unsigned attrIdx = argNo + 1; // Must match AttributeList::FirstArgIndex
+        unsigned attrIdx = intrinsic.ArgumentAttributes[ai].Index;
 
         OS << "      const Attribute::AttrKind AttrParam" << attrIdx << "[]= {";
         bool addComma = false;
 
+        bool AllValuesAreZero = true;
+        SmallVector<uint64_t, 8> Values;
         do {
-          switch (intrinsic.ArgumentAttributes[ai].second) {
+          switch (intrinsic.ArgumentAttributes[ai].Kind) {
           case CodeGenIntrinsic::NoCapture:
             if (addComma)
               OS << ",";
@@ -718,13 +721,39 @@ void IntrinsicEmitter::EmitAttributes(const CodeGenIntrinsicTable &Ints,
             OS << "Attribute::ImmArg";
             addComma = true;
             break;
+          case CodeGenIntrinsic::Alignment:
+            if (addComma)
+              OS << ',';
+            OS << "Attribute::Alignment";
+            addComma = true;
+            break;
           }
+          uint64_t V = intrinsic.ArgumentAttributes[ai].Value;
+          Values.push_back(V);
+          AllValuesAreZero &= (V == 0);
 
           ++ai;
-        } while (ai != ae && intrinsic.ArgumentAttributes[ai].first == argNo);
+        } while (ai != ae && intrinsic.ArgumentAttributes[ai].Index == attrIdx);
         OS << "};\n";
+
+        // Generate attribute value array if not all attribute values are zero.
+        if (!AllValuesAreZero) {
+          OS << "      const uint64_t AttrValParam" << attrIdx << "[]= {";
+          addComma = false;
+          for (const auto V : Values) {
+            if (addComma)
+              OS << ',';
+            OS << V;
+            addComma = true;
+          }
+          OS << "};\n";
+        }
+
         OS << "      AS[" << numAttrs++ << "] = AttributeList::get(C, "
-           << attrIdx << ", AttrParam" << attrIdx << ");\n";
+           << attrIdx << ", AttrParam" << attrIdx;
+        if (!AllValuesAreZero)
+          OS << ", AttrValParam" << attrIdx;
+        OS << ");\n";
       }
     }
 

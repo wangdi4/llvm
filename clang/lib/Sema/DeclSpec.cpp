@@ -371,6 +371,7 @@ bool Declarator::isDeclarationOfFunction() const {
     case TST_unspecified:
     case TST_void:
     case TST_wchar:
+    case TST_BFloat16:
 #define GENERIC_IMAGE_TYPE(ImgType, Id) case TST_##ImgType##_t:
 #include "clang/Basic/OpenCLImageTypes.def"
       return false;
@@ -569,6 +570,7 @@ const char *DeclSpec::getSpecifierName(DeclSpec::TST T,
   case DeclSpec::TST_underlyingType: return "__underlying_type";
   case DeclSpec::TST_unknown_anytype: return "__unknown_anytype";
   case DeclSpec::TST_atomic: return "_Atomic";
+  case DeclSpec::TST_BFloat16: return "__bf16";
 #define GENERIC_IMAGE_TYPE(ImgType, Id) \
   case DeclSpec::TST_##ImgType##_t: \
     return #ImgType "_t";
@@ -1298,14 +1300,13 @@ void DeclSpec::Finish(Sema &S, const PrintingPolicy &Policy) {
       // Note that this intentionally doesn't include _Complex _Bool.
       if (!S.getLangOpts().CPlusPlus)
         S.Diag(TSTLoc, diag::ext_integer_complex);
-    } else if (TypeSpecType != TST_float && // INTEL
-               TypeSpecType != TST_double && // INTEL
+    } else if (TypeSpecType != TST_float && TypeSpecType != TST_double &&
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
                TypeSpecType != TST_float16 && // INTEL
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
-               TypeSpecType != TST_float128) { // INTEL
+               TypeSpecType != TST_float128) {
       S.Diag(TSCLoc, diag::err_invalid_complex_spec)
           << getSpecifierName((TST)TypeSpecType, Policy);
       TypeSpecComplex = TSC_unspecified;

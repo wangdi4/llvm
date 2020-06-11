@@ -91,6 +91,7 @@ Using Clang Tools
    ClangCheck
    ClangFormat
    ClangFormatStyleOptions
+   ClangFormattedStatus
 
 Design Documents
 ================

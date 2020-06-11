@@ -6,9 +6,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "device.h"
 #include "device_complex.h"
 
+#ifdef __SPIR__
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #pragma omp declare target
@@ -110,3 +110,4 @@ double __complex__ __divdc3(double __a, double __b, double __c, double __d) {
 #pragma omp end declare target
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
+#endif // __SPIR__
