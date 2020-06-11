@@ -112,6 +112,7 @@ public:
         m_dumpHeuristcIR = runConfig.GetValue<bool>(RC_BR_DUMP_HEURISTIC_IR, false);
         m_vectorizerType = runConfig.GetValue<VectorizerType>(RC_BR_VECTORIZER_TYPE, DEFAULT_VECTORIZER);
         m_nativeSubgroups = runConfig.GetValue<bool>(RC_BR_NATIVE_SUBGROUPS, false);
+        m_expensiveMemOpts = runConfig.GetValue<unsigned>(RC_BR_EXPENSIVE_MEM_OPT, false);
     }
 
     virtual void InitTargetDescriptionSession(ICLDevBackendExecutionService* pExecutionService)
@@ -143,6 +144,8 @@ public:
             return m_transposeSize;
         case CL_DEV_BACKEND_OPTION_VECTORIZER_TYPE:
             return m_vectorizerType;
+        case CL_DEV_BACKEND_OPTION_EXPENSIVE_MEM_OPTS:
+            return m_expensiveMemOpts;
         default:
              return defaultValue;
         }
@@ -189,6 +192,7 @@ protected:
     std::string    m_cpuFeatures;
     DeviceMode     m_deviceMode;
     bool           m_useVTune;
+    unsigned       m_expensiveMemOpts;
     const std::vector<IRDumpOptions>* m_DumpIROptionAfter;
     const std::vector<IRDumpOptions>* m_DumpIROptionBefore;
     std::string m_DumpIRDir;

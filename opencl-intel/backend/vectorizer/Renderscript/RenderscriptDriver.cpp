@@ -120,6 +120,7 @@ RenderscriptVectorizer::RenderscriptVectorizer() :
             false,
             0,
             1,
+            0,
             false);
   V_INIT_PRINT;
 }
@@ -274,6 +275,7 @@ extern "C" intel::OptimizerConfig* createRenderscriptConfiguration(int width)
             false,
             0,
             1,
+            0,
             false);
 }
 

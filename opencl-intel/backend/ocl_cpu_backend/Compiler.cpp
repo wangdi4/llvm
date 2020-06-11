@@ -377,7 +377,8 @@ Compiler::Compiler(const ICompilerConfig& config):
     m_debug(false),
     m_disableOptimization(false),
     m_useNativeDebugger(false),
-    m_streamingAlways(config.GetStreamingAlways())
+    m_streamingAlways(config.GetStreamingAlways()),
+    m_expensiveMemOpts(config.GetExpensiveMemOpts())
 {
     // WORKAROUND!!! See the notes in TerminationBlocker description
    static Utils::TerminationBlocker blocker;
@@ -504,7 +505,8 @@ Compiler::BuildProgram(llvm::Module *pModule, const char *pBuildOptions,
                                             m_dumpHeuristicIR,
                                             buildOptions.GetAPFLevel(),
                                             m_rtLoopUnrollFactor,
-                                            m_streamingAlways);
+                                            m_streamingAlways,
+                                            m_expensiveMemOpts);
     Optimizer optimizer(pModule, GetBuiltinModuleList(), &optimizerConfig);
     optimizer.Optimize();
 

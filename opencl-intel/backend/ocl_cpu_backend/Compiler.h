@@ -237,6 +237,7 @@ protected:
     bool                     m_disableOptimization;
     bool                     m_useNativeDebugger;
     bool                     m_streamingAlways;
+    unsigned                 m_expensiveMemOpts;
 
     static bool s_globalStateInitialized;
 

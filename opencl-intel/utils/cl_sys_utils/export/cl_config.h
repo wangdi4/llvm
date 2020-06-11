@@ -318,6 +318,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 	{
 		T returned_type;
 		std::istringstream istInput(str);
+		istInput.unsetf(std::ios::basefield);
 		istInput >> returned_type;
 		return returned_type;
 	}
@@ -669,6 +670,12 @@ T GetRegistryKeyValue(const string& keyName, const string& valName, T defaultVal
         {
             return m_pConfigFile->Read<bool>(
                 "CL_CONFIG_CPU_STREAMING_ALWAYS", false);
+        }
+
+        unsigned GetExpensiveMemOpts() const
+        {
+          return m_pConfigFile->Read<unsigned>(
+              "CL_CONFIG_CPU_EXPENSIVE_MEM_OPT", 0);
         }
 
     private:

@@ -68,7 +68,8 @@ public:
                      m_DumpIROptionAfter(NULL),
                      m_DumpIROptionBefore(NULL),
                      m_dumpHeuristicIR(false),
-                     m_streamingAlways(false) {}
+                     m_streamingAlways(false),
+                     m_expensiveMemOpts(0) {}
 
     // CompilerConfiguration methods
     void LoadDefaults();
@@ -115,6 +116,8 @@ public:
 
     bool GetStreamingAlways() const { return m_streamingAlways; }
 
+    unsigned GetExpensiveMemOpts() const { return m_expensiveMemOpts; }
+
     DeviceMode TargetDevice() const override { return m_targetDevice; }
 
 protected:
@@ -133,6 +136,7 @@ protected:
     std::string m_statFileBaseName;
     int m_forcedPrivateMemorySize;
     bool        m_streamingAlways;
+    unsigned    m_expensiveMemOpts;
     DeviceMode  m_targetDevice;
 };
 

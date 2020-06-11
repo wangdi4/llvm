@@ -15,8 +15,9 @@
 #ifndef __VEC_OPTIONS__H__
 #define __VEC_OPTIONS__H__
 
-#include "TargetArch.h"
+#include "CompilationUtils.h"
 #include "ICLDevBackendOptions.h"
+#include "TargetArch.h"
 
 using namespace Intel::OpenCL::DeviceBackend;
 
@@ -45,7 +46,8 @@ public:
             bool heuristicIR,
             int  APFLevel,
             int rtLoopUnrollFactor,
-            bool streamingAlways):
+            bool streamingAlways,
+            unsigned expensiveMemOpts):
       m_cpuId(cpuId),
       m_transposeSize(tranposeSize),
       m_dumpIROptionsAfter(dumpIROptionAfter),
@@ -63,7 +65,8 @@ public:
       m_dumpHeuristicIR(heuristicIR),
       m_APFLevel(APFLevel),
       m_rtLoopUnrollFactor(rtLoopUnrollFactor),
-      m_streamingAlways(streamingAlways)
+      m_streamingAlways(streamingAlways),
+      m_expensiveMemOpts(expensiveMemOpts)
     {}
 
     const Intel::CPUId &GetCpuId() const { return m_cpuId; }
@@ -85,6 +88,7 @@ public:
     bool GetDumpHeuristicIRFlag() const {return m_dumpHeuristicIR; }
     int  GetAPFLevel() const { return m_APFLevel; }
     bool GetStreamingAlways() const { return m_streamingAlways; }
+    bool EnableOCLAA() const { return m_expensiveMemOpts & ExpensiveMemOpts::OCLAA; }
 
 private:
     Intel::CPUId m_cpuId;
@@ -111,6 +115,7 @@ private:
 
     int m_rtLoopUnrollFactor;
     bool m_streamingAlways;
+    unsigned m_expensiveMemOpts;
 };
 
 
