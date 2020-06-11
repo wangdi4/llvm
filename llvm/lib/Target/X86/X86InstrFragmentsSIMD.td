@@ -915,6 +915,22 @@ def X86vcvtbf162phRnd :   SDNode<"X86ISD::VCVTBF162PH_RND",
                                                SDTCVecEltisVT<1, i16>,
                                                SDTCisVT<2, i32>]>>;
 #endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+def SDTIntCompress : SDTypeProfile<1, 2, [SDTCisVec<0>, SDTCisInt<0>,
+                                          SDTCisSameAs<0, 1>,
+                                          SDTCisSameAs<0, 2>]>;
+
+def SDTIntCompress_store : SDTypeProfile<0, 3, [SDTCisPtrTy<0>,
+                                         SDTCisInt<1>, SDTCisVec<1>,
+                                         SDTCisSameAs<1, 2>]>;
+
+def X86vpcompress : SDNode<"X86ISD::VPCOMPRESS", SDTIntCompress>;
+
+def X86vpcompress_store : SDNode<"X86ISD::VPCOMPRESS_STORE",
+                          SDTIntCompress_store,
+                          [SDNPHasChain, SDNPMayStore, SDNPMemOperand]>;
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
 #endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 // SSE pattern fragments

@@ -2185,6 +2185,72 @@ let TargetPrefix = "x86" in {  // All intrinsics start with "llvm.x86.".
         Intrinsic<[llvm_v16i16_ty],
                   [llvm_v16f16_ty], [IntrNoMem]>;
 #endif // INTEL_FEATURE_ISA_AVX_CONVERT
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  def int_x86_avx2_vpcompressb_store_128 :
+               GCCBuiltin<"__builtin_ia32_vpcompressb_store_128">,
+               Intrinsic<[], [llvm_ptr_ty, llvm_v16i8_ty,
+                          llvm_v16i8_ty], [IntrArgMemOnly]>;
+  def int_x86_avx2_vpcompressb_store_256 :
+              GCCBuiltin<"__builtin_ia32_vpcompressb_store_256">,
+              Intrinsic<[], [llvm_ptr_ty, llvm_v32i8_ty,
+                         llvm_v32i8_ty], [IntrArgMemOnly]>;
+  def int_x86_avx2_vpcompressw_store_128 :
+              GCCBuiltin<"__builtin_ia32_vpcompressw_store_128">,
+              Intrinsic<[], [llvm_ptr_ty, llvm_v8i16_ty,
+                         llvm_v8i16_ty], [IntrArgMemOnly]>;
+  def int_x86_avx2_vpcompressw_store_256 :
+              GCCBuiltin<"__builtin_ia32_vpcompressw_store_256">,
+              Intrinsic<[], [llvm_ptr_ty, llvm_v16i16_ty,
+                         llvm_v16i16_ty], [IntrArgMemOnly]>;
+  def int_x86_avx2_vpcompressd_store_128 :
+              GCCBuiltin<"__builtin_ia32_vpcompressd_store_128">,
+              Intrinsic<[], [llvm_ptr_ty, llvm_v4i32_ty,
+                         llvm_v4i32_ty], [IntrArgMemOnly]>;
+  def int_x86_avx2_vpcompressd_store_256 :
+              GCCBuiltin<"__builtin_ia32_vpcompressd_store_256">,
+              Intrinsic<[], [llvm_ptr_ty, llvm_v8i32_ty,
+                         llvm_v8i32_ty], [IntrArgMemOnly]>;
+  def int_x86_avx2_vpcompressq_store_128 :
+              GCCBuiltin<"__builtin_ia32_vpcompressq_store_128">,
+              Intrinsic<[], [llvm_ptr_ty, llvm_v2i64_ty,
+                         llvm_v2i64_ty], [IntrArgMemOnly]>;
+  def int_x86_avx2_vpcompressq_store_256 :
+              GCCBuiltin<"__builtin_ia32_vpcompressq_store_256">,
+              Intrinsic<[], [llvm_ptr_ty, llvm_v4i64_ty,
+                         llvm_v4i64_ty], [IntrArgMemOnly]>;
+  def int_x86_avx2_vpcompressb_128 :
+              GCCBuiltin<"__builtin_ia32_vpcompressb_128">,
+              Intrinsic<[llvm_v16i8_ty], [llvm_v16i8_ty,
+                         llvm_v16i8_ty], [IntrNoMem]>;
+  def int_x86_avx2_vpcompressb_256 :
+              GCCBuiltin<"__builtin_ia32_vpcompressb_256">,
+              Intrinsic<[llvm_v32i8_ty], [llvm_v32i8_ty,
+                         llvm_v32i8_ty], [IntrNoMem]>;
+  def int_x86_avx2_vpcompressw_128 :
+              GCCBuiltin<"__builtin_ia32_vpcompressw_128">,
+              Intrinsic<[llvm_v8i16_ty], [llvm_v8i16_ty,
+                         llvm_v8i16_ty], [IntrNoMem]>;
+  def int_x86_avx2_vpcompressw_256 :
+              GCCBuiltin<"__builtin_ia32_vpcompressw_256">,
+              Intrinsic<[llvm_v16i16_ty], [llvm_v16i16_ty,
+                         llvm_v16i16_ty], [IntrNoMem]>;
+  def int_x86_avx2_vpcompressd_128 :
+              GCCBuiltin<"__builtin_ia32_vpcompressd_128">,
+              Intrinsic<[llvm_v4i32_ty], [llvm_v4i32_ty,
+                         llvm_v4i32_ty], [IntrNoMem]>;
+  def int_x86_avx2_vpcompressd_256 :
+              GCCBuiltin<"__builtin_ia32_vpcompressd_256">,
+              Intrinsic<[llvm_v8i32_ty], [llvm_v8i32_ty,
+                         llvm_v8i32_ty], [IntrNoMem]>;
+  def int_x86_avx2_vpcompressq_128 :
+              GCCBuiltin<"__builtin_ia32_vpcompressq_128">,
+              Intrinsic<[llvm_v2i64_ty], [llvm_v2i64_ty,
+                         llvm_v2i64_ty], [IntrNoMem]>;
+  def int_x86_avx2_vpcompressq_256 :
+              GCCBuiltin<"__builtin_ia32_vpcompressq_256">,
+              Intrinsic<[llvm_v4i64_ty], [llvm_v4i64_ty,
+                         llvm_v4i64_ty], [IntrNoMem]>;
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
 #endif // INTEL_CUSTOMIZATION
 }
 

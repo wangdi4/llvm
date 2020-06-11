@@ -491,6 +491,10 @@ protected:
 #if INTEL_FEATURE_ISA_AVX_DOTPROD
   bool HasAVXDOTPROD = false;
 #endif // INTEL_FEATURE_ISA_AVX_DOTPROD
+
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  bool HasAVXCOMPRESS = false;
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
 #endif // INTEL_CUSTOMIZATION
   /// Processor supports SERIALIZE instruction
   bool HasSERIALIZE = false;
@@ -932,6 +936,9 @@ public:
 #if INTEL_FEATURE_ISA_AVX_CONVERT
   bool hasAVXCONVERT() const { return HasAVXCONVERT; }
 #endif // INTEL_FEATURE_ISA_AVX_CONVERT
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  bool hasAVXCOMPRESS() const { return HasAVXCOMPRESS; }
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
 #endif // INTEL_CUSTOMIZATION
   bool useRetpolineExternalThunk() const { return UseRetpolineExternalThunk; }
 

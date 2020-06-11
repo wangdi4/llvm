@@ -624,11 +624,23 @@ namespace X86II {
     ///
 
 #if INTEL_CUSTOMIZATION
+    /// MRMDestReg4VOp3 - This form is used for instructions that use the Mod/RM
+    /// byte to specify a destination which in this case is register and operand
+    /// 3 with VEX.VVVV and do not load from memory.
+    ///
+    MRMDestReg4VOp3 = 27,
+
+    /// MRMDestMem4VOp3 - This form is used for instructions that use the Mod/RM
+    /// byte to specify a destination which in this case is memory and operand 3
+    /// with VEX.VVVV.
+    ///
+    MRMDestMem4VOp3 = 28,
+
     /// MRMDestMem4VOp2FSIB - sibmem encoding for dst memory.
     /// src1 mod/r, src2 vex.4v
     MRMDestMem4VOp2FSIB = 29,
 
-    /// MRMSrcMem4VOp3 - But force to use the SIB field.
+    /// MRMSrcMem4VOp3FSIB - But force to use the SIB field.
     MRMSrcMem4VOp3FSIB = 30,
 
     /// MRMDestMem - But force to use the SIB field.
@@ -1115,6 +1127,7 @@ namespace X86II {
 #if INTEL_CUSTOMIZATION
     case X86II::MRMDestMem4VOp2FSIB:
     case X86II::MRMDestMemFSIB:
+    case X86II::MRMDestMem4VOp3:
 #endif // INTEL_CUSTOMIZATION
       return 0;
     case X86II::MRMSrcMem:
@@ -1146,6 +1159,7 @@ namespace X86II {
     case X86II::MRMXr:
 #if INTEL_CUSTOMIZATION
     case X86II::MRMr0:
+    case X86II::MRMDestReg4VOp3:
 #endif // INTEL_CUSTOMIZATION
     case X86II::MRM0r: case X86II::MRM1r:
     case X86II::MRM2r: case X86II::MRM3r:
