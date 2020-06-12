@@ -337,6 +337,22 @@
 // RUN: %clang_cl -### /QMM /QMT outfile.out %s 2>&1 | FileCheck -check-prefix=CHECK-QMT %s
 // CHECK-QMT: "-MT" "outfile.out"
 
+// Behavior with QMF option
+// RUN: %clang_cl -### /QMM /QMF outfile.out %s 2>&1 | FileCheck -check-prefix=CHECK-QMF %s
+// CHECK-QMF: "-w" "-dependency-file" "outfile.out" "-MT"
+
+// Behavior with QMD option
+// RUN: %clang_cl -### -c /QMD %s 2>&1 | FileCheck -check-prefix CHECK-QMD %s
+// CHECK-QMD: "-sys-header-deps"
+
+// Behavior with QMP option
+// RUN: %clang_cl -### -c /QMP %s 2>&1 | FileCheck -check-prefix CHECK-QMP %s
+// CHECK-QMP: "-MP"
+
+// Behavior with QMMD option
+// RUN: %clang_cl -### -c /QMMD %s 2>&1 | FileCheck -check-prefix CHECK-QMMD %s
+// CHECK-QMMD: "-dependency-file"
+
 // Behavior with finstrument-functions/Qinstrument-functions option
 // RUN: %clang -### -c -finstrument-functions %s 2>&1 | FileCheck -check-prefix CHECK-INSTRUMENT-FUNCTIONS %s
 // RUN: %clang -### -c -finstrument-functions -finstrument-functions-after-inlining %s 2>&1 | FileCheck -check-prefix CHECK-FINSTRUMENT %s
