@@ -52,6 +52,8 @@ constexpr const char *GVerStr = "sycl 1.0";
 
 namespace pi {
 
+static void initializePlugins(vector_class<plugin> *Plugins);
+
 bool XPTIInitDone = false;
 
 // Implementation of the SYCL PI API call tracing methods that use XPTI
@@ -254,6 +256,7 @@ bool trace(TraceLevel Level) {
 }
 
 // Initializes all available Plugins.
+<<<<<<< HEAD
 vector_class<plugin> initialize() {
   static bool PluginsInitDone = false;
   static vector_class<plugin> Plugins;
@@ -261,6 +264,25 @@ vector_class<plugin> initialize() {
     return Plugins;
   }
 
+=======
+const vector_class<plugin> &initialize() {
+  static std::once_flag PluginsInitDone;
+  static vector_class<plugin> *Plugins = nullptr;
+
+  std::call_once(PluginsInitDone, []() {
+    // The memory for "Plugins" is intentionally leaked because the application
+    // may call into the SYCL runtime from a global destructor, and such a call
+    // could eventually call down to initialize().  Therefore, there is no safe
+    // time when "Plugins" could be deleted.
+    Plugins = new vector_class<plugin>;
+    initializePlugins(Plugins);
+  });
+
+  return *Plugins;
+}
+
+static void initializePlugins(vector_class<plugin> *Plugins) {
+>>>>>>> 03dd60d7c9dbcd046176b75a669643d46cb1d6e3
   vector_class<std::pair<std::string, backend>> PluginNames;
   findPlugins(PluginNames);
 
@@ -316,8 +338,12 @@ vector_class<plugin> initialize() {
       GlobalPlugin =
           std::make_shared<plugin>(PluginInformation, backend::level0);
     }
+<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
     Plugins.emplace_back(plugin(PluginInformation, PluginNames[I].second));
+=======
+    Plugins->emplace_back(plugin(PluginInformation, PluginNames[I].second));
+>>>>>>> 03dd60d7c9dbcd046176b75a669643d46cb1d6e3
     if (trace(TraceLevel::PI_TRACE_BASIC))
       std::cerr << "SYCL_PI_TRACE[basic]: "
                 << "Plugin found and successfully loaded: "
@@ -328,7 +354,7 @@ vector_class<plugin> initialize() {
 #if INTEL_CUSTOMIZATION
 #ifdef XPTI_ENABLE_INSTRUMENTATION
   if (!(xptiTraceEnabled() && !XPTIInitDone))
-    return Plugins;
+    return;
   // Not sure this is the best place to initialize the framework; SYCL runtime
   // team needs to advise on the right place, until then we piggy-back on the
   // initialization of the PI layer.
@@ -369,9 +395,12 @@ vector_class<plugin> initialize() {
       xptiMakeEvent("PI Layer", &PIPayload, xpti::trace_algorithm_event,
                     xpti_at::active, &PiInstanceNo);
 #endif
+<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
 
   return Plugins;
+=======
+>>>>>>> 03dd60d7c9dbcd046176b75a669643d46cb1d6e3
 }
 
 // Report error and no return (keeps compiler from printing warnings).
