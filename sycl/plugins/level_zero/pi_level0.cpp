@@ -1834,10 +1834,21 @@ pi_result piProgramLink(pi_context Context, pi_uint32 NumDevices,
                         const pi_program *InputPrograms,
                         void (*PFnNotify)(pi_program Program, void *UserData),
                         void *UserData, pi_program *RetProgram) {
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // TODO: L0 does not [yet] support linking so dummy implementation here.
   // See https://gitlab.devtools.intel.com/one-api/level_zero/issues/172 // INTEL
 #endif // INTEL_CUSTOMIZATION
+=======
+  die("piProgramLink: Program Linking is not supported yet in Level0");
+
+  // TODO: L0 builds the program at the time of piProgramCreate.
+  // But build options are not available at that time, so we must
+  // stop building it there, but move it here. The problem though
+  // is that this would mean moving zeModuleCreate here entirely,
+  // and so L0 module creation would be deferred until
+  // piProgramCompile/piProgramLink/piProgramBuild.
+>>>>>>> d4a5b715069fac4017d94b08a1f1e03ea930bcc4
   assert(NumInputPrograms == 1 && InputPrograms);
   assert(RetProgram);
   *RetProgram = InputPrograms[0];
@@ -1952,6 +1963,7 @@ pi_result piProgramRetain(pi_program Program) {
 
 pi_result piProgramRelease(pi_program Program) {
   assert(Program);
+  assert((Program->RefCount > 0) && "Program is already released.");
   if (--(Program->RefCount) == 0) {
 #if INTEL_CUSTOMIZATION
     delete[] Program->ZeModuleDesc.pInputModule;
