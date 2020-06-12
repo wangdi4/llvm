@@ -249,6 +249,11 @@ def _SLASH_Qiopenmp : CLFlag<"Qiopenmp">, Alias<fiopenmp>;
 def _SLASH_Qopenmp_simd : CLFlagNoDpcpp<"Qopenmp-simd">, Alias<fopenmp_simd>,
   HelpText<"Emit OpenMP code only for SIMD-based constructs.">;
 def _SLASH_Qopenmp_simd_ : CLFlagNoDpcpp<"Qopenmp-simd-">, Alias<fno_openmp_simd>;
+def _SLASH_Qpc : CLJoined<"Qpc">, Alias<pc>, HelpText<"Initialize X87 "
+  "floating point precision to single, double or double extended.  Valid "
+  "values of 32, 64, and 80.">;
+def _SLASH_Qpc_COL : CLJoined<"Qpc:">, Alias<pc>;
+def _SLASH_Qpc_EQ : CLJoined<"Qpc=">, Alias<pc>;
 def _SLASH_QM : CLFlag<"QM">, Alias<M>, HelpText<"Like -MD, but also implies "
   "-E and writes to stdout by default">;
 def _SLASH_QMM : CLFlag<"QMM">, Alias<MM>, HelpText<"Like -MMD, but also "

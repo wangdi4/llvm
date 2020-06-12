@@ -2920,6 +2920,17 @@ static void RenderFloatingPointOptions(const ToolChain &TC, const Driver &D,
   if (Args.hasFlag(options::OPT_fno_strict_float_cast_overflow,
                    options::OPT_fstrict_float_cast_overflow, false))
     CmdArgs.push_back("-fno-strict-float-cast-overflow");
+#if INTEL_CUSTOMIZATION
+  // Handle Intel options -pc<val> (/Qpc<val> for Windows)
+  if (const Arg *A = Args.getLastArg(options::OPT_pc)) {
+    StringRef Value(A->getValue());
+    if (Value == "32" || Value == "64" || Value == "80")
+      CmdArgs.push_back(Args.MakeArgString("-mx87-precision=" + Value));
+    else
+      D.Diag(diag::err_drv_unsupported_option_argument) << A->getSpelling() <<
+          Value;
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 
 static void RenderAnalyzerOptions(const ArgList &Args, ArgStringList &CmdArgs,

@@ -2987,6 +2987,12 @@ def nostdlibxx : Flag<["-"], "nostdlib++">;
 def object : Flag<["-"], "object">;
 def o : JoinedOrSeparate<["-"], "o">, Flags<[DriverOption, RenderAsInput, CC1Option, CC1AsOption]>,
   HelpText<"Write output to <file>">, MetaVarName<"<file>">;
+#if INTEL_CUSTOMIZATION
+def pc : Joined<["-"], "pc">, Flags<[DriverOption]>;
+def : Joined<["-"], "pc=">, Alias<pc>, HelpText<"Initialize X87 floating "
+  "point precision to single, double or double extendedSet FPU precision. "
+  "Valid values of 32, 64 and 80">;
+#endif // INTEL_CUSTOMIZATION
 def pagezero__size : JoinedOrSeparate<["-"], "pagezero_size">;
 def pass_exit_codes : Flag<["-", "--"], "pass-exit-codes">, Flags<[Unsupported]>;
 def pedantic_errors : Flag<["-", "--"], "pedantic-errors">, Group<pedantic_Group>, Flags<[CC1Option]>;
