@@ -52,6 +52,9 @@ class InlineAdvisor;
 /// obligations.
 class InlineAdvice {
 public:
+  InlineAdvice(InlineAdvisor *Advisor, CallBase &CB,
+               OptimizationRemarkEmitter &ORE, bool IsInliningRecommended);
+
   InlineAdvice(InlineAdvice &&) = delete;
   InlineAdvice(const InlineAdvice &) = delete;
   virtual ~InlineAdvice() {
@@ -90,11 +93,10 @@ public:
 
   /// Get the inlining recommendation.
   bool isInliningRecommended() const { return IsInliningRecommended; }
+  const DebugLoc &getOriginalCallSiteDebugLoc() const { return DLoc; }
+  const BasicBlock *getOriginalCallSiteBasicBlock() const { return Block; }
 
 protected:
-  InlineAdvice(InlineAdvisor *Advisor, CallBase &CB,
-               bool IsInliningRecommended);
-
   virtual void recordInliningImpl() {}
   virtual void recordInliningWithCalleeDeletedImpl() {}
 #if INTEL_CUSTOMIZATION
@@ -109,6 +111,13 @@ protected:
   /// Caller and Callee are pre-inlining.
   Function *const Caller;
   Function *const Callee;
+
+  // Capture the context of CB before inlining, as a successful inlining may
+  // change that context, and we want to report success or failure in the
+  // original context.
+  const DebugLoc DLoc;
+  const BasicBlock *const Block;
+  OptimizationRemarkEmitter &ORE;
   const bool IsInliningRecommended;
 
 private:
@@ -160,14 +169,14 @@ protected:
   /// after each SCC inlining (e.g. argument promotion does that).
   void freeDeletedFunctions();
 
-  bool isFunctionDeleted(Function *F) const {
+  bool isFunctionDeleted(const Function *F) const {
     return DeletedFunctions.count(F);
   }
 
 private:
   friend class InlineAdvice;
   void markFunctionAsDeleted(Function *F);
-  std::unordered_set<Function *> DeletedFunctions;
+  std::unordered_set<const Function *> DeletedFunctions;
 };
 
 /// The default (manual heuristics) implementation of the InlineAdvisor. This
