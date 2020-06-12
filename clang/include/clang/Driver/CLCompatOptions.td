@@ -312,6 +312,8 @@ def : CLJoined<"Qstd=">, Alias<std_EQ>;
 def : CLJoined<"Qstd:">, Alias<std_EQ>, HelpText<"Language standard to compile for">;
 def _SLASH_Qstrict_overflow : CLFlag<"Qstrict-overflow">,
   Alias<fstrict_overflow>;
+def _SLASH_Qsave_temps : CLFlag<"Qsave-temps">, Alias<save_temps_EQ>,
+  HelpText<"Save intermediate compilation results">, AliasArgs<["cwd"]>;
 def _SLASH_Qno_strict_overflow : CLFlag<"Qno-strict-overflow">,
   Alias<fno_strict_overflow>;
 def _SLASH_Qstrict_overflow_ : CLFlag<"Qstrict-overflow-">,
