@@ -981,7 +981,7 @@ void FuseGraph::constructDirectedEdges(
     for (DDRef *Ref : Refs) {
       // Collect Directed Dependency Edges
       for (const DDEdge *DDEdge : DDG.outgoing(Ref)) {
-        if (!DDEdge->isForwardDep()) {
+        if (DDEdge->isBackwardDep()) {
           continue;
         }
 

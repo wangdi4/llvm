@@ -86,6 +86,9 @@ public:
   // Returns true if the edge is a Forward dependence
   bool isForwardDep() const;
 
+  // Returns true if the edge is a Backward dependence
+  bool isBackwardDep() const { return !isForwardDep(); }
+
   // Returns true if the edge prevents parallelization of Loop at Level
   // Note that this function only performs a quick check. It doesn't
   // perform the same level of analysis as ParVec analysis.
@@ -96,7 +99,7 @@ public:
   // Note that this function only performs a quick check. It doesn't
   // perform the same level of analysis as ParVec analysis.
   bool preventsVectorization(unsigned Level) const {
-    return preventsParallelization(Level) && !isForwardDep() &&
+    return preventsParallelization(Level) && isBackwardDep() &&
            (getSrc() != getSink());
   }
 
