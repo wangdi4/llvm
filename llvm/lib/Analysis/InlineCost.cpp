@@ -3612,24 +3612,12 @@ public:
         ComputeFullInlineCost(OptComputeFullInlineCost ||
                               Params.ComputeFullInlineCost || ORE),
         Params(Params), Threshold(Params.DefaultThreshold),
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
         BoostIndirectCalls(BoostIndirect), IgnoreThreshold(IgnoreThreshold),
+#if INTEL_CUSTOMIZATION
         EarlyExitThreshold(INT_MAX), EarlyExitCost(INT_MAX), TLI(TLI),
-        ILIC(ILIC), AI(AI), SubtractedBonus(false) {}
-#endif // INTEL_CUSTOMIZATION
-=======
-        BoostIndirectCalls(BoostIndirect), IgnoreThreshold(IgnoreThreshold),
-        Writer(this) {}
->>>>>>> 1022b5eb5b37f7dc93ae36002de694541db0e0c1
+        ILIC(ILIC), AI(AI), SubtractedBonus(false), Writer(this) {
+  }
 
-  /// Annotation Writer for instruction details
-  InlineCostAnnotationWriter Writer;
-
-  void dump();
-
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
   // The cost and the threshold used for early exit during usual
   // inlining process. Under IntelInlineReportLevel=64  we compute both
   // "early exit" and real cost of inlining.  A value of INT_MAX indicates
@@ -3649,13 +3637,17 @@ public:
   // Queued callers subject to dealyed inlining
   static SmallPtrSet<Function *, 10> QueuedCallers;
 #endif // INTEL_CUSTOMIZATION
-=======
+
+  /// Annotation Writer for instruction details
+  InlineCostAnnotationWriter Writer;
+
+  void dump();
+
   Optional<InstructionCostDetail> getCostDetails(const Instruction *I) {
     if (InstructionCostDetailMap.find(I) != InstructionCostDetailMap.end())
       return InstructionCostDetailMap[I];
     return None;
   }
->>>>>>> 1022b5eb5b37f7dc93ae36002de694541db0e0c1
 
   virtual ~InlineCostCallAnalyzer() {}
   int getThreshold() { return Threshold; }
