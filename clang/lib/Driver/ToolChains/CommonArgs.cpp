@@ -402,11 +402,7 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
     if (Args.hasArg(options::OPT__intel))
       PluginName = "icx-lto";
     SmallString<1024> Plugin;
-<<<<<<< HEAD
-    llvm::sys::path::native(Twine(D.Dir) +
-=======
     llvm::sys::path::native(Twine(ToolChain.getDriver().Dir) +
->>>>>>> 108d984d781bd419f40ef505c84ecc4b78133b48
         "/../lib" CLANG_LIBDIR_SUFFIX "/" + PluginName + Suffix, Plugin);
 #endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back(Args.MakeArgString(Plugin));
