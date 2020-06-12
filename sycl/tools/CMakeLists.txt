@@ -8,7 +8,10 @@ add_subdirectory(sycl-ls)
 add_executable(get_device_count_by_type get_device_count_by_type.cpp)
 add_dependencies(get_device_count_by_type ocl-headers ocl-icd l0-loader)
 
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
+=======
+>>>>>>> ad4a2ac113f478022362b1be4c888fb5a2238c59
 if (NOT DEFINED L0_LIBRARY)
   if(MSVC)
     set(L0_LIBRARY
@@ -23,9 +26,13 @@ endif()
 target_link_libraries(get_device_count_by_type
   PRIVATE
     OpenCL::Headers
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
     L0Loader::Headers
 # end INTEL_CUSTOMIZATION
+=======
+    L0Loader::Headers
+>>>>>>> ad4a2ac113f478022362b1be4c888fb5a2238c59
     ${OpenCL_LIBRARIES}
     ${L0_LIBRARY}
     $<$<BOOL:${SYCL_BUILD_PI_CUDA}>:cudadrv>
