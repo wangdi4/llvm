@@ -1569,7 +1569,7 @@ if (INTEL_CUSTOMIZATION)
       # LLVM components
       clang lld llc llvm-link llvm-profdata llvm-spirv
       clang_rt.profile-x86_64 clang_rt.profile-i386 llvm-config
-      clang-resource-headers
+      clang-resource-headers llvm-cov
       # XDEV components
       xdev-dpcpp xdev-icx xdev-ifx xdev-fpp xdev-xfortcom xdev-fort-target-rtl
       xdev-compilervars xdev-il0-llvm-common-headers xdev-il0-llvm-common-lib
@@ -1602,12 +1602,9 @@ if (INTEL_CUSTOMIZATION)
         cxx cxxabi cxx-headers
         )
 
-      # FIXME: temporary deploy LLVMgold for release builds.
-      #        When ICX/clang drivers are able to use icx-lto,
-      #        this has to be removed.
-      list(APPEND INTEL_DEPLOY_COMPONENTS_LIST LLVMgold)
-
       # CMPLRLLVM-20054: icx-lto is a release name for LLVMgold plugin.
+      # Darwin uses libLTO.dylib (from tools/lto), so if/when we support
+      # Darwin, we will need to deploy it instead of icx-lto.
       list(APPEND INTEL_DEPLOY_COMPONENTS_LIST icx-lto)
     endif()
 
