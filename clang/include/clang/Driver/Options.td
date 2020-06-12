@@ -385,6 +385,10 @@ def ccc_ : Joined<["-"], "ccc-">, Group<internal_Group>, Flags<[Unsupported]>;
 
 // Intel-specific options
 #if INTEL_CUSTOMIZATION
+// Add -ax so it does not error out.
+// TODO - there is some usage of this option even though it isn't supported.
+// we are accepting it so we can get around these usages for now.
+def ax : Joined<["-"], "ax">;
 def _intel : Flag<["--"], "intel">, Flags<[DriverOption, CoreOption]>,
   HelpText<"Run in Intel Compiler mode">;
 def shared_intel : Flag<["-"], "shared-intel">, Flags<[DriverOption]>,
