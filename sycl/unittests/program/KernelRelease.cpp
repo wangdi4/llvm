@@ -69,7 +69,6 @@ pi_result redefinedKernelGetInfo(pi_kernel kernel, pi_kernel_info param_name,
 }
 
 TEST(KernelReleaseTest, GetKernelRelease) {
-<<<<<<< HEAD
 #ifdef INTEL_CUSTOMIZATION
   // Handle the case where no devices are available until the tests can be run
   // with the spec-conformant behaviour of host device with default_selector.
@@ -80,11 +79,7 @@ TEST(KernelReleaseTest, GetKernelRelease) {
     return;
   }
 #endif // INTEL_CUSTOMIZATION
-  unittest::PiMock Mock;
-  platform Plt = Mock.getPlatform();
-=======
   platform Plt{default_selector()};
->>>>>>> 5c54a42c0dfdbb434ba428df4edb26584ad7165e
   if (Plt.is_host()) {
     std::cout << "The program/kernel methods are mostly no-op on the host "
                  "device, the test is not run."
