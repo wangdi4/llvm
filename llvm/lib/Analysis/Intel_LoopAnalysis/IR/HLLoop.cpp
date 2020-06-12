@@ -1851,6 +1851,55 @@ HLLoop *HLLoop::peelFirstIteration(bool UpdateMainLoop) {
   return PeelLoop;
 }
 
+void HLLoop::undefInitializeUnconditionalLiveoutTemps() {
+  SmallSet<unsigned, 4> LiveoutOnlyTemps;
+
+  for (auto SB : make_range(live_out_begin(), live_out_end())) {
+    // Temps which are also livein are not a concern.
+    if (!isLiveIn(SB)) {
+      LiveoutOnlyTemps.insert(SB);
+    }
+  }
+
+  if (LiveoutOnlyTemps.empty()) {
+    return;
+  }
+
+  auto &HNU = getHLNodeUtils();
+  auto &DDRU = getDDRefUtils();
+  auto &BU = getBlobUtils();
+  auto *FirstChild = getFirstChild();
+
+  for (auto &Node : make_range(child_begin(), child_end())) {
+    auto *Inst = dyn_cast<HLInst>(&Node);
+
+    if (!Inst) {
+      continue;
+    }
+
+    auto *LvalRef = Inst->getLvalDDRef();
+
+    if (!LvalRef) {
+      continue;
+    }
+
+    unsigned SB = LvalRef->getSymbase();
+
+    if (!LiveoutOnlyTemps.count(SB) ||
+        !HLNodeUtils::postDominates(Inst, FirstChild)) {
+      continue;
+    }
+
+    auto *LiveoutTempRef =
+        DDRU.createSelfBlobRef(BU.findOrInsertTempBlobIndex(SB));
+    auto *UndefRef = DDRU.createUndefDDRef(LiveoutTempRef->getDestType());
+
+    auto *InitInst = HNU.createCopyInst(UndefRef, "undefinit", LiveoutTempRef);
+
+    HLNodeUtils::insertBefore(this, InitInst);
+  }
+}
+
 HLLoop *HLLoop::generatePeelLoop(const RegDDRef *PeelArrayRef, unsigned VF) {
   assert(!isUnknown() && isNormalized() && "Unsupported loop for peeling.");
   assert(PeelArrayRef && PeelArrayRef->isMemRef() &&
@@ -1931,6 +1980,8 @@ HLLoop *HLLoop::generatePeelLoop(const RegDDRef *PeelArrayRef, unsigned VF) {
   // that the peel loop doesn't include them.
   extractZtt();
   extractPreheaderAndPostexit();
+
+  undefInitializeUnconditionalLiveoutTemps();
 
   HLLoop *PeelLoop = clone();
   PeelLoop->setMaxTripCountEstimate(NeededAlignment - 1);
