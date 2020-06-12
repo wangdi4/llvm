@@ -12,11 +12,8 @@
 ; Gather is expected for %yarrrr load.
 ;
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -print-after=VPlanDriverHIR -vplan-force-vf=4 -disable-output -enable-vp-value-codegen-hir=0 < %s 2>&1 | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -print-after=VPlanDriverHIR -vplan-force-vf=4 -disable-output -enable-vp-value-codegen-hir < %s 2>&1 | FileCheck %s --check-prefix=VPCHECK
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -print-after=VPlanDriverHIR -vplan-force-vf=4 -disable-output -enable-vp-value-codegen-hir < %s 2>&1 | FileCheck %s
 ; CHECK: (<4 x i32>*)(%yarrrr)[0][i1 + <i32 0, i32 1, i32 2, i32 3> + -1];
-;
-; VPCHECK:        %.vec = i1 + <i64 0, i64 1, i64 2, i64 3>  +  -1;
-; VPCHECK-NEXT:   %.vec1 = (<4 x i32>*)(%yarrrr)[0][%.vec];
 
 source_filename = "hir_unsigned_wrap.cpp"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

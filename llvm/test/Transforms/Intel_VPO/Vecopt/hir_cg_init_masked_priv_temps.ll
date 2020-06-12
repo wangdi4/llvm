@@ -41,22 +41,20 @@
 
 ; Checks for VPValue based code generation.
 ; VPCHECK:        + DO i1 = 0, 1023, 4   <DO_LOOP> <novectorize>
-; VPCHECK-NEXT:   |   %.vec8 = undef;
+; VPCHECK-NEXT:   |   %.vec6 = undef;
 ; VPCHECK-NEXT:   |   %.vec4 = undef;
 ; VPCHECK-NEXT:   |   %.vec = (<4 x i32>*)(@a)[0][i1];
-; VPCHECK-NEXT:   |   %.vec1 = %.vec  *  i1 + <i64 0, i64 1, i64 2, i64 3>;
+; VPCHECK-NEXT:   |   %.vec1 = %.vec  *  i1 + <i32 0, i32 1, i32 2, i32 3>;
 ; VPCHECK-NEXT:   |   %.vec2 = (<4 x i32>*)(@b)[0][i1];
 ; VPCHECK-NEXT:   |   %.vec3 = %constant + %.vec1 >= %.vec2;
 ; VPCHECK-NEXT:   |   %.vec4 = (<4 x i32>*)(@c)[0][i1]; Mask = @{%.vec3}
-; VPCHECK-NEXT:   |   %.vec5 = %constant  *  -1;
-; VPCHECK-NEXT:   |   %.vec6 = %.vec4  *  2;
-; VPCHECK-NEXT:   |   %.vec7 = %.vec5 + %.vec6  +  i1 + <i64 0, i64 1, i64 2, i64 3>;
-; VPCHECK-NEXT:   |   %.vec8 = (<4 x i32>*)(@d)[0][i1]; Mask = @{%.vec3}
-; VPCHECK-NEXT:   |   %.vec10 = %.vec7 < %.vec8;
-; VPCHECK-NEXT:   |   %.vec11 = %.vec3  &  %.vec10;
-; VPCHECK-NEXT:   |   %.vec12 = %.vec4  *  2;
-; VPCHECK-NEXT:   |   %.vec13 = %.vec  *  i1 + <i64 0, i64 1, i64 2, i64 3>;
-; VPCHECK-NEXT:   |   (<4 x i32>*)(@e)[0][i1] = %.vec12 + %.vec13; Mask = @{%.vec11}
+; VPCHECK-NEXT:   |   %.vec5 = %.vec4  *  2;
+; VPCHECK-NEXT:   |   %.vec6 = (<4 x i32>*)(@d)[0][i1]; Mask = @{%.vec3}
+; VPCHECK-NEXT:   |   %.vec8 = i1 + -1 * %constant + <i32 0, i32 1, i32 2, i32 3> + %.vec5 < %.vec6;
+; VPCHECK-NEXT:   |   %.vec9 = %.vec3  &  %.vec8;
+; VPCHECK-NEXT:   |   %.vec10 = %.vec4  *  2;
+; VPCHECK-NEXT:   |   %.vec11 = %.vec  *  i1 + <i32 0, i32 1, i32 2, i32 3>;
+; VPCHECK-NEXT:   |   (<4 x i32>*)(@e)[0][i1] = %.vec10 + %.vec11; Mask = @{%.vec9}
 ; VPCHECK-NEXT:   + END LOOP
 
 ; Check LLVM-IR after HIR CG and SROA to ensure no PHIs are added for masked temps.

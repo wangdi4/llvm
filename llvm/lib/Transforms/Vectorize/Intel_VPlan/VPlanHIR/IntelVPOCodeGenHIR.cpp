@@ -3357,12 +3357,8 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
                                 const OVLSGroup *Grp, int64_t InterleaveFactor,
                                 int64_t InterleaveIndex,
                                 const HLInst *GrpStartInst, bool Widen) {
-  assert((Widen || VPInst->getOpcode() == Instruction::GetElementPtr ||
-          VPInst->getOpcode() == Instruction::Add ||
-          VPInst->getOpcode() == Instruction::ZExt ||
-          VPInst->getOpcode() == Instruction::SExt ||
-          VPInst->getOpcode() == Instruction::Trunc) &&
-         "Expected add/gep/zext/sext/trunc for scalar constructs");
+  assert((Widen || isOpcodeForScalarInst(VPInst->getOpcode())) &&
+         "Unxpected instruction for scalar constructs");
 
   std::function<void(RegDDRef *, const VPInstruction *,
                      SmallVectorImpl<const RegDDRef *> &, bool)>
@@ -3519,13 +3515,90 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   }
 
   case Instruction::UDiv:
-  case Instruction::SDiv:
+  case Instruction::SDiv: {
+    assert(RefOp0->isTerminalRef() && RefOp1->isTerminalRef() &&
+           "Expected terminal refs");
+
+    auto *CE1 = RefOp0->getSingleCanonExpr();
+
+    // Try and fold the divide operation into the canon expression for RefOp0 if
+    // it is linear. This helps preserve linear values and also avoids
+    // unnecessary HLInsts.
+    auto *ConstOp = dyn_cast<VPConstant>(VPInst->getOperand(1));
+    if (CE1->isLinearAtLevel(MainLoop->getNestingLevel()) &&
+        CE1->getDenominator() == 1 && ConstOp) {
+      auto *CI = cast<ConstantInt>(ConstOp->getConstant());
+
+      // The constant value needs to fit in 64 bits which is what setDenominator
+      // takes. Try folding only if this is the case.
+      if (CI->getBitWidth() <= 64) {
+        SmallVector<const RegDDRef *, 2> AuxRefs = {RefOp0->clone()};
+
+        CE1->setDenominator(CI->getSExtValue());
+        CE1->setDivisionType(VPInst->getOpcode() == Instruction::SDiv);
+        makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen);
+        return;
+      }
+    }
+
+    NewInst = HLNodeUtilities.createBinaryHLInst(VPInst->getOpcode(), RefOp0,
+                                                 RefOp1, ".vec", nullptr);
+    break;
+  }
+
+  case Instruction::Mul: {
+    // Try and fold the mul operation into the canon expression. This helps
+    // preserve linear values and also avoids unnecessary HLInsts. Reductions
+    // cannot be folded.
+    assert(RefOp0->isTerminalRef() && RefOp1->isTerminalRef() &&
+           "Expected terminal refs");
+
+    auto *CE1 = RefOp0->getSingleCanonExpr();
+    auto *CE2 = RefOp1->getSingleCanonExpr();
+    const VPConstant *ConstOp = nullptr;
+    unsigned NonConstIndex = 0;
+
+    if (!ReductionVPInsts.count(VPInst) &&
+        CE1->isLinearAtLevel(MainLoop->getNestingLevel()) &&
+        CE2->isLinearAtLevel(MainLoop->getNestingLevel()))
+      if (ConstOp = dyn_cast<VPConstant>(VPInst->getOperand(0)))
+        NonConstIndex = 1;
+      else if (ConstOp = dyn_cast<VPConstant>(VPInst->getOperand(1)))
+        NonConstIndex = 0;
+
+    if (ConstOp) {
+      auto *CI = cast<ConstantInt>(ConstOp->getConstant());
+      // The constant value needs to fit in 64 bits which is what
+      // multiplyByConstant takes. Try folding only if this is the case.
+      if (CI->getBitWidth() <= 64) {
+        auto *NonConstCE = NonConstIndex == 0 ? CE1 : CE2;
+        auto *ResultRef = NonConstIndex == 0 ? RefOp0 : RefOp1;
+
+        SmallVector<const RegDDRef *, 2> AuxRefs = {ResultRef->clone()};
+        int64_t ConstVal = CI->getSExtValue();
+        if (NonConstCE->multiplyByConstant(ConstVal)) {
+          makeConsistentAndAddToMap(ResultRef, VPInst, AuxRefs, Widen);
+          return;
+        }
+      }
+    }
+
+    // If this instruction corresponds to a reduction, then we need to
+    // write the result back to the corresponding reduction variable.
+    RegDDRef *RedRef = nullptr;
+    if (ReductionRefs.count(VPInst))
+      RedRef = ReductionRefs[VPInst];
+    NewInst = HLNodeUtilities.createBinaryHLInst(
+        VPInst->getOpcode(), RefOp0, RefOp1, ".vec",
+        RedRef ? RedRef->clone() : nullptr);
+    break;
+  }
+
   case Instruction::SRem:
   case Instruction::URem:
   case Instruction::FAdd:
   case Instruction::Sub:
   case Instruction::FSub:
-  case Instruction::Mul:
   case Instruction::FMul:
   case Instruction::FDiv:
   case Instruction::FRem:
@@ -3601,6 +3674,36 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     if (CE->getDestType() == CE->getSrcType()) {
       // Used to make the folded ref consistent.
       SmallVector<const RegDDRef *, 1> AuxRefs = {RefOp0->clone()};
+      const VPValue *VPOp0 = VPInst->getOperand(0);
+
+      // The IV in a canon expression is allowed to be of a type different from
+      // the src type of the canon expression. When this is the case and
+      // generating LLVM IR during HIRCG, the IV value is generated followed by
+      // generation of an appropriate convert instruction to convert the value
+      // to canon expression source type. In order to preserve linear canon
+      // expressions, we flagged such converts during decomposition. Fold such
+      // converts.
+      if (VPInst->getFoldIVConvert()) {
+        if (Widen) {
+          // The type of blobs in the canon expression needs to match the source
+          // type of canon expression. For a widened IV, the type of the blob
+          // corresponding to the constant <0, 1, .., VF-1> would match the
+          // current source type of canon expression. Since we are going to
+          // change the source type, this is handled by getting the scalar ref,
+          // changing the source type, and then widening this scalar ref.
+          RefOp0 = getScalRefForVPVal(VPOp0, 0)->clone();
+          CE = RefOp0->getSingleCanonExpr();
+          CE->setSrcType(RefDestTy);
+          CE->setDestType(RefDestTy);
+          RefOp0 = widenRef(RefOp0, VF);
+        } else {
+          CE->setSrcType(ResultRefTy);
+          CE->setDestType(ResultRefTy);
+        }
+        makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen);
+        return;
+      }
+
       CE->setDestType(ResultRefTy);
       CE->setExtType(VPInst->getOpcode() == Instruction::SExt);
       makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen);
@@ -3631,10 +3734,14 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     // For bitcasts of addressof refs, it is enough to set the bitcast
     // destination type.
     if (VPInst->getOpcode() == Instruction::BitCast && RefOp0->isAddressOf()) {
+      SmallVector<const RegDDRef *, 1> AuxRefs = {RefOp0->clone()};
       RefOp0->setBitCastDestType(ResultRefTy);
-      addVPValueWideRefMapping(VPInst, RefOp0);
+      makeConsistentAndAddToMap(RefOp0, VPInst, AuxRefs, Widen);
       return;
     }
+
+    if (!Widen)
+      return;
 
     NewInst = HLNodeUtilities.createCastHLInst(ResultRefTy, VPInst->getOpcode(),
                                                RefOp0, InstName);
@@ -3822,17 +3929,17 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
 
   // Generate a scalar instruction for unitstride GEPs. This will be changed
   // later to use SVA information.
-  if (isa<VPGEPInstruction>(VPInst) && isUnitStridePtr(VPInst))
-    generateHIR(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
-                GrpStartInst, false /* Widen */);
+  if (isa<VPGEPInstruction>(VPInst)) {
+    if (isUnitStridePtr(VPInst))
+      generateHIR(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
+                  GrpStartInst, false /* Widen */);
+    return;
+  }
 
   // Generate a scalar value for some opcodes to avoid making references
   // non-linear. This is made possible due to support for folding such opcodes.
   // This will be changed later to use SVA information.
-  if (VPInst->getOpcode() == Instruction::Add ||
-      VPInst->getOpcode() == Instruction::SExt ||
-      VPInst->getOpcode() == Instruction::ZExt ||
-      VPInst->getOpcode() == Instruction::Trunc)
+  if (isOpcodeForScalarInst(VPInst->getOpcode()))
     generateHIR(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
                 GrpStartInst, false /* Widen */);
 }

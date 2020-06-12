@@ -345,10 +345,17 @@ class VPInstruction : public VPUser,
     // VPInstruction.
     std::unique_ptr<VPOperandHIR> LHSHIROperand;
 
-    // Used to save the symbase of the scalar memref corresponding to a
-    // load/store instruction. Vector memref generated during vector CG is
-    // assigned the same symbase.
-    unsigned Symbase = loopopt::InvalidSymbase;
+    // Union used to save needed information based on instruction opcode.
+    // 1) For a load/store instruction, save the symbase of the corresponding
+    //    scalar memref. Vector memref generated during vector CG is assigned
+    //    the same symbase.
+    // 2) For convert instructions, save whether the convert represents a
+    //    convert of a loop IV that needs to be folded into the containing canon
+    //    expression.
+    union {
+      unsigned Symbase = loopopt::InvalidSymbase;
+      bool FoldIVConvert;
+    };
 
     // Temporarily used to store alias analysis related metadata for memory
     // refs. TODO - remove this once metadata representation/propagation fix
@@ -481,6 +488,9 @@ class VPInstruction : public VPUser,
     void setSymbase(unsigned SB) { Symbase = SB; }
     unsigned getSymbase(void) const { return Symbase; }
 
+    void setFoldIVConvert(bool Fold) { FoldIVConvert = Fold; }
+    bool getFoldIVConvert(void) const { return FoldIVConvert; }
+
     void cloneFrom(const HIRSpecifics &HIR) {
       if (HIR.isMaster()) {
         setUnderlyingNode(HIR.getUnderlyingNode());
@@ -500,6 +510,7 @@ class VPInstruction : public VPUser,
       }
       setSymbase(HIR.getSymbase());
       AANodes = HIR.AANodes;
+      setFoldIVConvert(HIR.getFoldIVConvert());
 
       // Verify correctness of the cloned HIR.
       assert(isMaster() == HIR.isMaster() &&
@@ -763,6 +774,21 @@ protected:
            "Unexpected invalid symbase");
     return HIR.getSymbase();
   }
+
+  void setFoldIVConvert(bool Fold) {
+    assert(Fold == false || Opcode == Instruction::SExt ||
+           Opcode == Instruction::Trunc ||
+           Opcode == Instruction::ZExt &&
+               "unexpected call to setFoldIVConvert");
+    HIR.setFoldIVConvert(Fold);
+  }
+
+  bool getFoldIVConvert(void) const {
+    assert(Opcode == Instruction::SExt || Opcode == Instruction::Trunc ||
+           Opcode == Instruction::ZExt &&
+               "getFoldIVConvert called for invalid VPInstruction");
+    return HIR.getFoldIVConvert();
+  }
 #endif
 
   virtual VPInstruction *cloneImpl() const {
@@ -778,12 +804,16 @@ public:
       : VPUser(VPValue::VPInstructionSC, Operands, BaseTy), Opcode(Opcode),
         OperatorFlags(Opcode, BaseTy) {
     assert(BaseTy && "BaseTy can't be null!");
+    if (Opcode != Instruction::Load && Opcode != Instruction::Store)
+      setFoldIVConvert(false);
   }
   VPInstruction(unsigned Opcode, Type *BaseTy,
                 std::initializer_list<VPValue *> Operands)
       : VPUser(VPValue::VPInstructionSC, Operands, BaseTy), Opcode(Opcode),
         OperatorFlags(Opcode, BaseTy) {
     assert(BaseTy && "BaseTy can't be null!");
+    if (Opcode != Instruction::Load && Opcode != Instruction::Store)
+      setFoldIVConvert(false);
   }
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.

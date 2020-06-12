@@ -347,6 +347,10 @@
 // RUN: %clang_cl -### -c /Qopenmp-version:50 %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMP-VERSION %s
 // CHECK-QOPENMP-VERSION: "-fopenmp-version=50"
 
+// Behavior with Qsave-temps option
+// RUN: %clang_cl -### -c /Qsave-temps %s 2>&1 | FileCheck -check-prefix CHECK-QSAVE-TEMPS %s
+// CHECK-QSAVE-TEMPS: "-save-temps=cwd"
+
 // Behavior with QopenmpP and QopenmpP- option
 // RUN: %clang_cl -### -c  /QopenmpP %s 2>&1 | FileCheck -check-prefix CHECK-QOPENMPP %s
 // RUN: %clang_cl -### -c  /QopenmpP /QopenmpP- %s 2>&1 | FileCheck -check-prefix CHECK-NO-QOPENMPP %s

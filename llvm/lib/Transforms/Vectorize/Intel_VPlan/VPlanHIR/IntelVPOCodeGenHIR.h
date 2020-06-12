@@ -672,6 +672,23 @@ private:
     RedFinalInsertPoint = Save;
   }
 
+  /// Return true if the opcode is one for which we want to generate a scalar
+  /// HLInst. Temporary solution until such decision is driven by the results
+  /// of SVA analysis.
+  bool isOpcodeForScalarInst(unsigned Opcode) {
+    switch (Opcode) {
+    case Instruction::Add:
+    case Instruction::BitCast:
+    case Instruction::GetElementPtr:
+    case Instruction::SExt:
+    case Instruction::Trunc:;
+    case Instruction::ZExt:
+      return true;
+    default:
+      return false;
+    }
+  }
+
   /// Analyzes the memory references of \p OrigCall to determine stride. The
   /// resulting stride information is attached to the arguments of \p WideCall
   /// in the form of attributes.

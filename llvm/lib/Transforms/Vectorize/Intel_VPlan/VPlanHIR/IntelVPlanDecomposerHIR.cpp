@@ -227,6 +227,11 @@ VPValue *VPDecomposerHIR::decomposeIV(RegDDRef *RDDR, CanonExpr *CE,
                        : decomposeConversion(VPIndVar, Instruction::ZExt, Ty);
     } else
       VPIndVar = decomposeConversion(VPIndVar, Instruction::Trunc, Ty);
+
+    // Mark that the IV convert needs to be folded into the containing canon
+    // expression. This is important for preserving linear canon expressions in
+    // generated vector code.
+    cast<VPInstruction>(VPIndVar)->setFoldIVConvert(true);
   }
 
   DecompIV = combineDecompDefs(DecompIV, VPIndVar, Ty, Instruction::Mul);
