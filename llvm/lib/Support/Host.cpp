@@ -823,12 +823,8 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
         *Subtype = X86::INTEL_COREI7_TIGERLAKE;
         break;
       }
-<<<<<<< HEAD
-      if (Features & (1 << X86::FEATURE_AVX512VBMI2)) {
-=======
 
       if (testFeature(X86::FEATURE_AVX512VBMI2)) {
->>>>>>> 0ce9bf6eed4a630f2b2735a7226c2d5bf2c7c57a
         *Type = X86::INTEL_COREI7;
         *Subtype = X86::INTEL_COREI7_ICELAKE_CLIENT;
         break;
@@ -877,14 +873,10 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
         *Subtype = X86::INTEL_COREI7_BROADWELL;
         break;
       }
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       //TODO: detect tgl host
 #endif // INTEL_CUSTOMIZATION
-      if (Features & (1 << X86::FEATURE_AVX2)) {
-=======
       if (testFeature(X86::FEATURE_AVX2)) {
->>>>>>> 0ce9bf6eed4a630f2b2735a7226c2d5bf2c7c57a
         *Type = X86::INTEL_COREI7;
         *Subtype = X86::INTEL_COREI7_HASWELL;
         break;
