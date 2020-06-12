@@ -226,6 +226,7 @@ void initializeIPCloningLegacyPassPass(PassRegistry&);             // INTEL
 void initializeCallTreeCloningLegacyPassPass(PassRegistry &);      // INTEL
 void initializeIVUsersWrapperPassPass(PassRegistry&);
 void initializeIfConverterPass(PassRegistry&);
+void initializeImmutableModuleSummaryIndexWrapperPassPass(PassRegistry&);
 void initializeImplicitNullChecksPass(PassRegistry&);
 void initializeIndVarSimplifyLegacyPassPass(PassRegistry&);
 void initializeIndirectBrExpandPassPass(PassRegistry&);
