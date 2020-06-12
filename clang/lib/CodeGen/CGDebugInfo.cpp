@@ -2887,6 +2887,12 @@ llvm::DIType *CGDebugInfo::CreateType(const ArrayType *Ty, llvm::DIFile *Unit) {
     }
 
     auto SizeNode = SizeExprCache.find(EltTy);
+#if INTEL_CUSTOMIZATION
+    // The LLVM <--> SPIR-V translator does not currently support variable
+    // length array dimensions.
+    if (CGM.getTarget().getTriple().isSPIR())
+      SizeNode = SizeExprCache.end();
+#endif // INTEL_CUSTOMIZATION
     if (SizeNode != SizeExprCache.end())
       Subscripts.push_back(DBuilder.getOrCreateSubrange(
           SizeNode->getSecond() /*count*/, nullptr /*lowerBound*/,

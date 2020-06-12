@@ -161,24 +161,6 @@ static bool isEscapeArgDereference(const Value *V) {
   }
   return false;
 }
-
-static bool isPtrNoAliasLoad(const Value *V, const DataLayout &DL,
-                             unsigned Level = 1) {
-  auto *LI = dyn_cast<LoadInst>(V);
-  if (!LI) {
-    return false;
-  }
-
-  auto *V1 = LI->getPointerOperand()->stripPointerCastsAndInvariantGroups();
-  V1 = GetUnderlyingObject(V1, DL, MaxLookupSearchDepth);
-
-  if (auto *A = dyn_cast<Argument>(V1)) {
-    return A->hasAttribute("ptrnoalias") &&
-           !PointerMayBeCaptured(V1, false, /*StoreCaptures=*/true);
-  }
-
-  return false;
-}
 #endif // INTEL_CUSTOMIZATION
 
 /// Returns true if the pointer is to a function-local object that never
@@ -232,15 +214,6 @@ static bool isNonEscapingLocalObject(
       return Ret;
     }
 
-#if INTEL_CUSTOMIZATION
-  if (isPtrNoAliasLoad(V, DL)) {
-    auto Ret = !PointerMayBeCaptured(V, false, /*StoreCaptures=*/true);
-    if (IsCapturedCache)
-      CacheIt->second = Ret;
-    return Ret;
-  }
-#endif // INTEL_CUSTOMIZATION
-
   return false;
 }
 
@@ -261,6 +234,48 @@ static bool isEscapeSource(const Value *V) {
 
   return false;
 }
+
+#ifdef INTEL_CUSTOMIZATION
+static bool isNonEscapingPtrNoAliasLoad(const Value *V, const DataLayout &DL,
+                                        const Value **BasePtr) {
+  auto *LI = dyn_cast<LoadInst>(V);
+  if (!LI) {
+    return false;
+  }
+
+  auto *V1 = LI->getPointerOperand()->stripPointerCastsAndInvariantGroups();
+  V1 = GetUnderlyingObject(V1, DL, MaxLookupSearchDepth);
+
+  auto *A = dyn_cast<Argument>(V1);
+  if (!A) {
+    return false;
+  }
+
+  bool Ret = A->hasAttribute("ptrnoalias") &&
+             !PointerMayBeCaptured(V1, false, /*StoreCaptures=*/true) &&
+             !PointerMayBeCaptured(V, false, /*StoreCaptures=*/true);
+
+  *BasePtr = Ret ? V1 : nullptr;
+  return Ret;
+}
+
+static bool checkPtrNoAlias(const Value *V1, const Value *V2,
+                            const DataLayout &DL) {
+  const Value *V1BasePtr;
+  const Value *V2BasePtr;
+
+  bool V1PtrNoAlias = isNonEscapingPtrNoAliasLoad(V1, DL, &V1BasePtr);
+  bool V2PtrNoAlias = isNonEscapingPtrNoAliasLoad(V2, DL, &V2BasePtr);
+
+  // Check if they based on the same value, they may alias.
+  if (V1PtrNoAlias && V2PtrNoAlias && V1BasePtr == V2BasePtr) {
+    return false;
+  }
+
+  return V1PtrNoAlias && isEscapeSource(V2) ||
+         V2PtrNoAlias && isEscapeSource(V1);
+}
+#endif // INTEL_CUSTOMIZATION
 
 /// Returns the size of the object specified by V or UnknownSize if unknown.
 static uint64_t getObjectSize(const Value *V, const DataLayout &DL,
@@ -2238,6 +2253,12 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
         isNonEscapingLocalObject(O1, PtrCaptureMaxUses,      // INTEL
                                  DL, &AAQI.IsCapturedCache)) // INTEL
       return NoAlias;
+
+#if INTEL_CUSTOMIZATION
+    if (checkPtrNoAlias(O1, O2, DL)) {
+      return NoAlias;
+    }
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
     //

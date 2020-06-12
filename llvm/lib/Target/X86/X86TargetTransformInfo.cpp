@@ -119,7 +119,12 @@ llvm::Optional<unsigned> X86TTIImpl::getCacheAssociativity(
 
 unsigned X86TTIImpl::getNumberOfRegisters(unsigned ClassID) const {
   bool Vector = (ClassID == 1);
-  if (Vector && !ST->hasSSE1())
+#if INTEL_CUSTOMIZATION
+  // Avoid vectorization for SSE1 targets which will just need to be undone
+  // in the backend for vXf64 and integer vectors. Also prevents creation
+  // of v2f64 SVML functions the backend can't handle until SSE2.
+  if (Vector && !ST->hasSSE2())
+#endif
     return 0;
 
   if (ST->is64Bit()) {
@@ -137,7 +142,12 @@ unsigned X86TTIImpl::getRegisterBitWidth(bool Vector) const {
       return 512;
     if (ST->hasAVX() && PreferVectorWidth >= 256)
       return 256;
-    if (ST->hasSSE1() && PreferVectorWidth >= 128)
+#if INTEL_CUSTOMIZATION
+    // Avoid vectorization for SSE1 targets which will just need to be undone
+    // in the backend for vXf64 and integer vectors. Also prevents creation
+    // of v2f64 SVML functions the backend can't handle until SSE2.
+    if (ST->hasSSE2() && PreferVectorWidth >= 128)
+#endif
       return 128;
     return 0;
   }

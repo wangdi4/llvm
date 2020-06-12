@@ -350,6 +350,11 @@ class VPInstruction : public VPUser,
     // assigned the same symbase.
     unsigned Symbase = loopopt::InvalidSymbase;
 
+    // Temporarily used to store alias analysis related metadata for memory
+    // refs. TODO - remove this once metadata representation/propagation fix
+    // is in place (CMPLRLLVM-11656).
+    AAMDNodes AANodes;
+
     /// Pointer to access the underlying HIR data attached to this
     /// VPInstruction, if any, depending on its sub-type:
     ///   1) Master VPInstruction: MasterData points to a VPInstDataHIR holding
@@ -494,6 +499,7 @@ class VPInstruction : public VPUser,
         }
       }
       setSymbase(HIR.getSymbase());
+      AANodes = HIR.AANodes;
 
       // Verify correctness of the cloned HIR.
       assert(isMaster() == HIR.isMaster() &&
@@ -2899,70 +2905,6 @@ template <class... Args> inline void VPLAN_DOT(const Args &...) {}
 
 } // namespace vpo
 
-//===----------------------------------------------------------------------===//
-// GraphTraits specializations for VPBasicBlock                               //
-//===----------------------------------------------------------------------===//
-
-// The following template specializations are implemented to support GraphTraits
-// for VPBasicBlocks.
-template <> struct GraphTraits<vpo::VPBasicBlock *> {
-  using NodeRef = vpo::VPBasicBlock *;
-  using ChildVectorType = const SmallVectorImpl<vpo::VPBasicBlock *>;
-  using ChildIteratorType = ChildVectorType::const_iterator;
-
-  static NodeRef getEntryNode(NodeRef N) { return N; }
-
-  static inline ChildIteratorType child_begin(NodeRef N) {
-    return N->getSuccessors().begin();
-  }
-
-  static inline ChildIteratorType child_end(NodeRef N) {
-    return N->getSuccessors().end();
-  }
-};
-
-// This specialization is for the ChildrenGetterTy from
-// GenericIteratedDominanceFrontier.h. Clang's GraphTraits for clang::CFGBlock
-// do the same trick.
-// TODO: Consider fixing GenericIteratedDominanceFrontier.h during upstreaming
-// instead.
-template <>
-struct GraphTraits<vpo::VPBasicBlock>
-    : public GraphTraits<vpo::VPBasicBlock *> {};
-
-// GraphTraits specialization for VPBasicBlocks using constant iterator.
-template <> struct GraphTraits<const vpo::VPBasicBlock *> {
-  using NodeRef = const vpo::VPBasicBlock *;
-  using ChildVectorType = const SmallVectorImpl<vpo::VPBasicBlock *>;
-  using ChildIteratorType = ChildVectorType::const_iterator;
-
-  static NodeRef getEntryNode(NodeRef N) { return N; }
-
-  static inline ChildIteratorType child_begin(NodeRef N) {
-    return N->getSuccessors().begin();
-  }
-
-  static inline ChildIteratorType child_end(NodeRef N) {
-    return N->getSuccessors().end();
-  }
-};
-
-// GraphTraits specialization for VPBasicBlocks using inverse iterator.
-template <> struct GraphTraits<Inverse<vpo::VPBasicBlock *>> {
-  using NodeRef = vpo::VPBasicBlock *;
-  using ChildRangeType = decltype(std::declval<NodeRef>()->getPredecessors());
-  using ChildIteratorType = decltype(std::declval<ChildRangeType>().begin());
-
-  static NodeRef getEntryNode(Inverse<NodeRef> N) { return N.Graph; }
-
-  static inline ChildIteratorType child_begin(NodeRef N) {
-    return N->getPredecessors().begin();
-  }
-
-  static inline ChildIteratorType child_end(NodeRef N) {
-    return N->getPredecessors().end();
-  }
-};
 
 // The following template specializations are implemented to support GraphTraits
 // for VPlan.

@@ -1263,6 +1263,37 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
 
   return NewShape;
 }
+
+void VPlanDivergenceAnalysis::improveStrideUsingIR() {
+  for (const VPBasicBlock &VPBB : *Plan) {
+    for (auto &VPInst : VPBB) {
+      // We are only attempting to improve the stride information of load/store
+      // pointer operand.
+      const VPValue *PtrOp = getLoadStorePointerOperand(&VPInst);
+      if (!PtrOp)
+        continue;
+
+      // Nothing further to do if pointer shape is already marked not random.
+      if (!getVectorShape(PtrOp).isRandom())
+        continue;
+
+      // HIR allows instructions like t1 = a[i] + b[i]. We can reliably
+      // determine the underlying memory reference only for master instructions.
+      // For stores, it is the LVAL ref. For loads, it is the RVAL ref.
+      if (!VPInst.HIR.isMaster())
+        continue;
+
+      const loopopt::HLNode *HNode = VPInst.HIR.getUnderlyingNode();
+      assert(HNode && "Unexpected null underlying node for master");
+
+      int64_t Stride;
+      if (getStrideUsingHIR(*HNode, Stride)) {
+        LLVM_DEBUG(dbgs() << "Improved stride information for: " << VPInst);
+        updateVectorShape(PtrOp, getStridedVectorShape(Stride));
+      }
+    }
+  }
+}
 #endif // INTEL_CUSTOMIZATION
 
 void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
@@ -1277,10 +1308,9 @@ void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
   DT = &VPDomTree;
   PDT = &VPPostDomTree;
   IsLCSSAForm = IsLCSSA;
-  SDA = new SyncDependenceAnalysis(CandidateLoop ? CandidateLoop->getHeader()
-                                                 : P->getEntryBlock(),
-                                   VPDomTree, VPPostDomTree, *VPLInfo);
-
+  SDA = std::make_unique<SyncDependenceAnalysis>(
+      CandidateLoop ? CandidateLoop->getHeader() : P->getEntryBlock(),
+      VPDomTree, VPPostDomTree, *VPLInfo);
   // Push everything to the worklist.
   ReversePostOrderTraversal<VPBasicBlock *> RPOT(Plan->getEntryBlock());
   for (auto *BB : RPOT) {
@@ -1311,6 +1341,7 @@ void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
   if (VPlanVerifyDA)
     verifyVectorShapes();
 
+  improveStrideUsingIR();
 #endif // INTEL_CUSTOMIZATION
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
