@@ -1367,8 +1367,6 @@ void CodeGenFunction::EmitReturnOfRValue(RValue RV, QualType Ty) {
   EmitBranchThroughCleanup(ReturnBlock);
 }
 
-<<<<<<< HEAD
-
 #if INTEL_CUSTOMIZATION
 // Checks the expression is the candidate of the fakeload intrinsic
 bool CodeGenFunction::IsFakeLoadCand(const Expr *RV) {
@@ -1392,9 +1390,8 @@ llvm::Value *CodeGenFunction::EmitFakeLoadForRetPtr(const Expr *RV) {
   }
   return Des.getPointer(*this);
 }
-
 #endif // INTEL_CUSTOMIZATION
-=======
+
 namespace {
 // RAII struct used to save and restore a return statment's result expression.
 struct SaveRetExprRAII {
@@ -1407,7 +1404,6 @@ struct SaveRetExprRAII {
   CodeGenFunction &CGF;
 };
 } // namespace
->>>>>>> c9a52de0026093327daedda7ea2eead8b64657b4
 
 /// EmitReturnStmt - Note that due to GCC extensions, this can have an operand
 /// if the function returns void, or may be missing one if the function returns
