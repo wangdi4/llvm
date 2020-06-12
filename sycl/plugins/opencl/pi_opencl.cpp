@@ -567,12 +567,12 @@ pi_result piclProgramCreateWithSource(pi_context context, pi_uint32 count,
   return ret_err;
 }
 
-pi_result piclProgramCreateWithBinary(pi_context context, pi_uint32 num_devices,
-                                      const pi_device *device_list,
-                                      const size_t *lengths,
-                                      const unsigned char **binaries,
-                                      pi_int32 *binary_status,
-                                      pi_program *ret_program) {
+pi_result piProgramCreateWithBinary(pi_context context, pi_uint32 num_devices,
+                                    const pi_device *device_list,
+                                    const size_t *lengths,
+                                    const unsigned char **binaries,
+                                    pi_int32 *binary_status,
+                                    pi_program *ret_program) {
 
   pi_result ret_err = PI_INVALID_OPERATION;
   *ret_program = cast<pi_program>(clCreateProgramWithBinary(
@@ -1165,7 +1165,7 @@ pi_result piPluginInit(pi_plugin *PluginInit) {
   // Program
   _PI_CL(piProgramCreate, piProgramCreate)
   _PI_CL(piclProgramCreateWithSource, piclProgramCreateWithSource)
-  _PI_CL(piclProgramCreateWithBinary, piclProgramCreateWithBinary)
+  _PI_CL(piProgramCreateWithBinary, piProgramCreateWithBinary)
   _PI_CL(piProgramGetInfo, clGetProgramInfo)
   _PI_CL(piProgramCompile, clCompileProgram)
   _PI_CL(piProgramBuild, clBuildProgram)
@@ -1207,6 +1207,7 @@ pi_result piPluginInit(pi_plugin *PluginInit) {
   _PI_CL(piEnqueueKernelLaunch, clEnqueueNDRangeKernel)
   _PI_CL(piEnqueueNativeKernel, clEnqueueNativeKernel)
   _PI_CL(piEnqueueEventsWait, clEnqueueMarkerWithWaitList)
+  _PI_CL(piEnqueueEventsWaitWithBarrier, clEnqueueBarrierWithWaitList)
   _PI_CL(piEnqueueMemBufferRead, clEnqueueReadBuffer)
   _PI_CL(piEnqueueMemBufferReadRect, clEnqueueReadBufferRect)
   _PI_CL(piEnqueueMemBufferWrite, clEnqueueWriteBuffer)
