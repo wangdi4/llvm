@@ -46,7 +46,7 @@ define void @fp_iv_loop(float %init, float* noalias nocapture %A, i64 %N) {
 ; CHECK-NEXT:       [DA: Uni] br [[BB5:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]: # preds: scalar.ph
-; CHECK-NEXT:       [DA: Uni] token [[VP_ORIG_LOOP:%.*]] = re-use-loop for.body, LiveInMap:
+; CHECK-NEXT:       [DA: Uni] token [[VP_ORIG_LOOP:%.*]] = scalar-remainder for.body, LiveInMap:
 ; CHECK-NEXT:         {i64 0 in {  [[INDVARS_IV0:%.*]] = phi i64 [ 0, [[ENTRY0:%.*]] ], [ [[INDVARS_IV_NEXT0:%.*]], [[FOR_BODY0:%.*]] ]} -> i64 [[VP0]] }
 ; CHECK-NEXT:         {float [[INIT0]] in {  [[X_070:%.*]] = phi float [ [[INIT0]], [[ENTRY0]] ], [ [[SUB0:%.*]], [[FOR_BODY0]] ]} -> float [[VP1]] }
 ; CHECK-NEXT:         {label [[FOR_COND_CLEANUP_LOOPEXIT0:%.*]] in {  br i1 [[EXITCOND0:%.*]], label [[FOR_COND_CLEANUP_LOOPEXIT0]], label [[FOR_BODY0]], !llvm.loop !0} -> label [[BB4]] }

@@ -83,12 +83,12 @@ private:
   // Create scalar remainder for original loop \p OrigLoop, inserting it after
   // the VPBasicBlock \p InsertAfter. The \p InsertAfter is supposed to be a
   // merge block (i.e. containing special VPPHINodes).
-  // A block with VPReuseLoop and VPInstructions to get scalar liveouts is
-  // created and linked as successor to InsertAfter block. VPReuseLoop input
-  // values are linked to VPPHINodes from InsertAfter block, using VPlan scalar
-  // in/out list. \p FinalBB is the block in VPlan which should be used to jump
-  // from the last basic block of the loop (see FinalBB on the diagram above).
-  // Returns the block created.
+  // A block with VPScalarRemainder and VPInstructions to get scalar liveouts is
+  // created and linked as successor to InsertAfter block. VPScalarRemainder
+  // input values are linked to VPPHINodes from InsertAfter block, using VPlan
+  // scalar in/out list. \p FinalBB is the block in VPlan which should be used
+  // to jump from the last basic block of the loop (see FinalBB on the diagram
+  // above). Returns the block created.
   VPBasicBlock *createScalarRemainder(Loop *OrigLoop, VPBasicBlock *InsertAfter,
                                       VPBasicBlock *FinalBB);
 

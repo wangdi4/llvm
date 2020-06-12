@@ -214,7 +214,7 @@ VPBasicBlock *VPlanCFGMerger::createScalarRemainder(Loop *OrigLoop,
       InsertAfter, Plan.getVPLoopInfo(), Plan.getDT(), Plan.getPDT());
   VPBuilder Builder;
   Builder.setInsertPoint(RemainderBB);
-  auto *Remainder = Builder.create<VPReuseLoop>("orig.loop", OrigLoop);
+  auto *Remainder = Builder.create<VPScalarRemainder>("orig.loop", OrigLoop, false);
   Plan.getVPlanDA()->markUniform(*Remainder);
   const ScalarInOutList &ScalarInOuts =
       *Plan.getExternals().getScalarLoopInOuts(OrigLoop);

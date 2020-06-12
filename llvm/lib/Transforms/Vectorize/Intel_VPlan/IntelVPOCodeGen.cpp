@@ -1435,8 +1435,8 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
   case Instruction::Br:
     // Do nothing.
     return;
-  case VPInstruction::ReuseLoop: {
-    auto *LoopReuse = cast<VPReuseLoop>(VPInst);
+  case VPInstruction::ScalarRemainder: {
+    auto *LoopReuse = cast<VPScalarRemainder>(VPInst);
     // Make the current block predecessor of the original loop header.
     ReplaceInstWithInst(Builder.GetInsertBlock()->getTerminator(),
                         BranchInst::Create(LoopReuse->getLoop()->getHeader()));
@@ -4130,7 +4130,7 @@ void VPOCodeGen::fixNonInductionVPPhis() {
         if (Plan->hasExplicitRemainder()) {
           BasicBlock *BB = State->CFG.VPBB2IREndBB[VPBB];
           if (auto *LiveOut = dyn_cast<VPOrigLiveOut>(VPVal))
-            BB = cast<VPReuseLoop>(LiveOut->getOperand(0))
+            BB = cast<VPScalarRemainder>(LiveOut->getOperand(0))
                      ->getLoop()
                      ->getLoopLatch();
           Phi->addIncoming(IncValue, BB);

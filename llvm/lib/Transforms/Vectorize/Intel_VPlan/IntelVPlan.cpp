@@ -324,15 +324,17 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
     return "active-lane";
   case VPInstruction::ActiveLaneExtract:
     return "lane-extract";
-  case VPInstruction::ReuseLoop:
-    return "re-use-loop";
   case VPInstruction::OrigLiveOut:
     return "orig-live-out";
   case VPInstruction::PushVF:
     return "pushvf";
   case VPInstruction::PopVF:
     return "popvf";
- #endif
+  case VPInstruction::ScalarPeel:
+    return "scalar-peel";
+  case VPInstruction::ScalarRemainder:
+    return "scalar-remainder";
+#endif
   default:
     return Instruction::getOpcodeName(Opcode);
   }
@@ -469,8 +471,14 @@ void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
   default:
     O << getOpcodeName(getOpcode());
   }
-  if (auto *ReuseLoop = dyn_cast<VPReuseLoop>(this)) {
-    ReuseLoop->printImpl(O);
+
+  if (auto *ScalarPeel = dyn_cast<VPScalarPeel>(this)) {
+    ScalarPeel->printImpl(O);
+    return;
+  }
+
+  if (auto *ScalarRemainder = dyn_cast<VPScalarRemainder>(this)) {
+    ScalarRemainder->printImpl(O);
     return;
   }
 
@@ -1148,6 +1156,22 @@ void VPCallInstruction::printImpl(raw_ostream &O) const {
   }
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+Use *VPScalarPeel::findUpperBoundUseInLatch() const {
+  Loop *L = getLoop();
+  BasicBlock *Latch = L->getLoopLatch();
+  auto BI = dyn_cast<BranchInst>(Latch->getTerminator());
+  assert((BI && BI->isConditional()) &&
+         "expected conditional branch instruction");
+  auto Cond = cast<CmpInst>(BI->getCondition());
+  if (L->isLoopInvariant(Cond->getOperand(0)))
+    return &Cond->getOperandUse(0);
+  else {
+    assert(L->isLoopInvariant(Cond->getOperand(1)) &&
+           "unexpectd non invariant");
+    return &Cond->getOperandUse(1);
+  }
+}
 
 void VPValue::replaceUsesWithIf(
     VPValue *NewVal, llvm::function_ref<bool(VPUser *U)> ShouldReplace,

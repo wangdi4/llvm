@@ -1534,7 +1534,7 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     LLVM_DEBUG(dbgs() << "MIN/MAX DA is overly conservative: " << *I);
     // FIXME: Compute divergence based on the operands.
     NewShape = getRandomVectorShape();
-  } else if (Opcode == VPInstruction::ReuseLoop)
+  } else if (Opcode == VPInstruction::ScalarRemainder)
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::OrigLiveOut)
     NewShape = getUniformVectorShape();
