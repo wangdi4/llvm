@@ -141,20 +141,40 @@ if( DEFINED ICD_LOADER_SRC_DIR )
                         -DCMAKE_INSTALL_LIBDIR:PATH=lib${LLVM_LIBDIR_SUFFIX}
                         -DCMAKE_INSTALL_BINDIR:PATH=bin
                         ${OPENCL_ICD_LOADER_WDK}
-                        -DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/icd_build/deploy
+# INTEL_CUSTOMIZATION
+                        # For multi-config generators we have to install
+                        # to config specific directory. Note that this install
+                        # point will be used only for the purpose of the final
+                        # deployment.
+                        -DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/icd_build/deploy/$<CONFIG>
+# end INTEL_CUSTOMIZATION
                         -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
       INSTALL_COMMAND   ${CMAKE_COMMAND} --build <BINARY_DIR> --target install
-      COMMAND           ${CMAKE_COMMAND} -DCMAKE_INSTALL_PREFIX=${LLVM_BINARY_DIR}
+# INTEL_CUSTOMIZATION
+                        # Specify which config to build for multi-config
+                        # generators.
+                        --config $<CONFIG>
+                        # This installation is done so that the loader
+                        # is installed into the llvm's build structure.
+                        # This copy will be used for resolving any dependencies
+                        # on the loader (e.g. in libsycl).
+      COMMAND           ${CMAKE_COMMAND}
+                        -DCMAKE_INSTALL_PREFIX=${LLVM_BINARY_DIR}/${CMAKE_CFG_INTDIR}
+                        -DCMAKE_INSTALL_CONFIG_NAME=$<CONFIG>
+# end INTEL_CUSTOMIZATION
                         -P <BINARY_DIR>/cmake_install.cmake
       STEP_TARGETS      install
   )
-
-  install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/icd_build/deploy/lib
+# INTEL_CUSTOMIZATION
+  install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/icd_build/deploy/$<CONFIG>/lib
+# end INTEL_CUSTOMIZATION
       DESTINATION .
       COMPONENT khronos-icd-loader
   )
   if(MSVC)
-    install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/icd_build/deploy/bin
+# INTEL_CUSTOMIZATION
+    install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/icd_build/deploy/$<CONFIG>/bin
+# end INTEL_CUSTOMIZATION
         DESTINATION .
         COMPONENT khronos-icd-loader
     )

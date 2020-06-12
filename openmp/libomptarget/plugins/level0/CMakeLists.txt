@@ -27,11 +27,6 @@ if(LIBOMPTARGET_DEP_LEVEL0_FOUND)
       add_definitions(-DOMPTARGET_LEVEL0_DEBUG)
     endif()
 
-    if(CMAKE_SYSTEM_NAME MATCHES "Linux")
-      include_directories(${LIBOMPTARGET_DEP_LIBELF_INCLUDE_DIRS})
-    endif()
-
-    include_directories(${LIBOMPTARGET_DEP_OPENCL_INCLUDE_DIRS})
     include_directories(${LIBOMPTARGET_DEP_LEVEL0_INCLUDE_DIRS})
     add_library(omptarget.rtl.level0 SHARED src/rtl.cpp src/ompt-level0.cpp)
 

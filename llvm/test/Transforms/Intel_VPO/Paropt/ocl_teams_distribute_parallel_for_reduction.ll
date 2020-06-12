@@ -12,8 +12,28 @@
 ;   return d;
 ; }
 
-; Make sure that we generate only one critical section for the reduction update:
+; Make sure that we generate two critical sections for the reduction update,
+; one for "distribute parallel for" and another for "teams":
+; CHECK-DAG: [[ID0:%[a-zA-Z._0-9]+]] = call spir_func i64 @_Z12get_local_idj(i32 0)
+; CHECK-DAG: [[CMP0:%[a-zA-Z._0-9]+]] = icmp eq i64 [[ID0]], 0
+; CHECK-DAG: [[ID1:%[a-zA-Z._0-9]+]] = call spir_func i64 @_Z12get_local_idj(i32 1)
+; CHECK-DAG: [[CMP1:%[a-zA-Z._0-9]+]] = icmp eq i64 [[ID1]], 0
+; CHECK-DAG: [[ID2:%[a-zA-Z._0-9]+]] = call spir_func i64 @_Z12get_local_idj(i32 2)
+; CHECK-DAG: [[CMP2:%[a-zA-Z._0-9]+]] = icmp eq i64 [[ID2]], 0
+; CHECK-DAG: [[AND:%[a-zA-Z._0-9]+]] = and i1 [[CMP0]], [[CMP1]]
+; CHECK-DAG: [[PRED:%[a-zA-Z._0-9]+]] = and i1 [[AND]], [[CMP2]]
 ; CHECK: call spir_func void @__kmpc_critical
+; CHECK: br i1 [[PRED]], label %[[MASTERCODE1:[a-zA-Z._0-9]+]], label %[[FALLTHRU1:[a-zA-Z._0-9]+]]
+; CHECK: [[MASTERCODE1]]:
+; CHECK: call spir_func void @__kmpc_critical
+; CHECK: br label %[[FALLTHRU1]]
+; CHECK: [[FALLTHRU1]]:
+; CHECK: br i1 [[PRED]], label
+; CHECK: br i1 [[PRED]], label %[[MASTERCODE2:[a-zA-Z._0-9]+]], label %[[FALLTHRU2:[a-zA-Z._0-9]+]]
+; CHECK: [[MASTERCODE2]]:
+; CHECK: call spir_func void @__kmpc_end_critical
+; CHECK: br label %[[FALLTHRU2]]
+; CHECK: [[FALLTHRU2]]:
 ; CHECK-NOT: call spir_func void @__kmpc_critical
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"

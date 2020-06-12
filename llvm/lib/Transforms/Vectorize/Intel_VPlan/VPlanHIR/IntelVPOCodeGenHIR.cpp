@@ -2904,7 +2904,9 @@ RegDDRef *VPOCodeGenHIR::widenRef(const VPValue *VPVal, unsigned VF) {
 }
 
 RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPValue *VPPtr,
-                                      unsigned ScalSymbase, bool Lane0Value) {
+                                      unsigned ScalSymbase,
+                                      const AAMDNodes &AANodes,
+                                      bool Lane0Value) {
   bool IsUnitStride = isUnitStridePtr(VPPtr);
   bool NeedScalarRef = IsUnitStride || Lane0Value;
 
@@ -2951,6 +2953,7 @@ RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPValue *VPPtr,
         PointerType::get(VecValTy, PtrTy->getAddressSpace()));
   }
   MemRef->setSymbase(ScalSymbase);
+  MemRef->setAAMetadata(AANodes);
 
   // TODO - Alignment information needs to be obtained from VPInstruction.
   // For now we are forcing alignment based on value type.
@@ -3302,8 +3305,8 @@ void VPOCodeGenHIR::widenUniformLoadImpl(const VPInstruction *VPInst,
   }
 
   const VPValue *PtrOp = getLoadStorePointerOperand(VPInst);
-  RegDDRef *MemRef =
-      getMemoryRef(PtrOp, VPInst->getSymbase(), true /* Lane0Value */);
+  RegDDRef *MemRef = getMemoryRef(PtrOp, VPInst->getSymbase(),
+                                  VPInst->HIR.AANodes, true /* Lane0Value */);
   auto *ScalarInst = HLNodeUtilities.createLoad(MemRef, ".unifload");
   if (Mask) {
     HLIf *If = HLNodeUtilities.createHLIf(
@@ -3337,7 +3340,8 @@ void VPOCodeGenHIR::widenLoadStoreImpl(const VPInstruction *VPInst,
     return;
   }
 
-  RegDDRef *MemRef = getMemoryRef(PtrOp, VPInst->getSymbase());
+  RegDDRef *MemRef =
+      getMemoryRef(PtrOp, VPInst->getSymbase(), VPInst->HIR.AANodes);
   HLInst *WInst;
   if (Opcode == Instruction::Load) {
     WInst = HLNodeUtilities.createLoad(MemRef, ".vec");

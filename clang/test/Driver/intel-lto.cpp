@@ -20,3 +20,13 @@
 // CHECK_LTO_WIN: "-mllvm:-disable-hir-generate-mkl-call"
 // CHECK_LTO_WIN: "-mllvm:-intel-libirc-allowed"
 // CHECK_LTO_WIN: "-mllvm:-dummy-option"
+
+/// With ld.bfd or gold, link against icx-lto.so.
+// RUN: %clang --intel -target x86_64-unknown-linux-gnu --sysroot %S/Inputs/basic_cross_linux_tree %s \
+// RUN:   -fuse-ld=bfd -flto=thin -### 2>&1 | FileCheck --check-prefix=LLVMGOLD %s
+// RUN: %clang --intel -target x86_64-unknown-linux-gnu --sysroot %S/Inputs/basic_cross_linux_tree %s \
+// RUN:   -fuse-ld=gold -flto=full -### 2>&1 | FileCheck --check-prefix=LLVMGOLD %s
+// RUN: %clang --intel -target x86_64-unknown-linux-gnu --sysroot %S/Inputs/basic_cross_linux_tree %s \
+// RUN:   -fuse-ld=gold -fno-lto -flto -### 2>&1 | FileCheck --check-prefix=LLVMGOLD %s
+// LLVMGOLD: "-plugin" "{{.*}}{{[/\\]}}icx-lto.{{dll|dylib|so}}"
+

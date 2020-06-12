@@ -189,7 +189,7 @@ void RegDDRef::getAAMetadata(AAMDNodes &AANodes) const {
   AANodes.TBAA = getMetadata(LLVMContext::MD_tbaa);
 }
 
-void RegDDRef::setAAMetadata(AAMDNodes &AANodes) {
+void RegDDRef::setAAMetadata(const AAMDNodes &AANodes) {
   setMetadata(LLVMContext::MD_alias_scope, AANodes.Scope);
   setMetadata(LLVMContext::MD_noalias, AANodes.NoAlias);
   setMetadata(LLVMContext::MD_tbaa, AANodes.TBAA);

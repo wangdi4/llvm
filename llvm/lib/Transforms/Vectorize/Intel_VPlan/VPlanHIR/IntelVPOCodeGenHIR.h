@@ -415,11 +415,12 @@ public:
 
   // Given the pointer operand of a load/store instruction, setup and return the
   // memory ref to use in generating the load/store HLInst. ScalSymbase
-  // specifies the symbase to set for the returned ref. Lane0Value specifies if
+  // specifies the symbase to set for the returned ref. AANodes specify alias
+  // analysis metadata to set for the returned ref. Lane0Value specifies if
   // we need memory ref corresponding to just vector lane 0. This is used to
   // handle uniform memory accesses.
   RegDDRef *getMemoryRef(const VPValue *VPPtr, unsigned ScalSymbase,
-                         bool Lane0Value = false);
+                         const AAMDNodes &AANodes, bool Lane0Value = false);
 
   bool isSearchLoop() const {
     return VPlanIdioms::isAnySearchLoop(SearchLoopType);

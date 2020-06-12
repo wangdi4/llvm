@@ -193,7 +193,7 @@ static bool contains(RegDDRef *OpRef, BlobTy SCEVBlob) {
 
 static bool checkIV(const BlobDDRef *Ref, DDGraph &DDG, unsigned LoopLevel,
                     int64_t &Constant) {
-  if (DDG.getNumIncomingFlowEdges(Ref) != 1) {
+  if (DDG.getTotalNumIncomingFlowEdges(Ref) != 1) {
     return false;
   }
 
@@ -446,8 +446,8 @@ static bool corresponds(HLInst *Inst1, HLInst *Inst2, DDGraph &DDG,
       continue;
     }
 
-    unsigned NumIncomingEdge1 = DDG.getNumIncomingFlowEdges(*RvalIt1);
-    unsigned NumIncomingEdge2 = DDG.getNumIncomingFlowEdges(*RvalIt2);
+    unsigned NumIncomingEdge1 = DDG.getTotalNumIncomingFlowEdges(*RvalIt1);
+    unsigned NumIncomingEdge2 = DDG.getTotalNumIncomingFlowEdges(*RvalIt2);
 
     if (NumIncomingEdge1 != NumIncomingEdge2) {
       return false;
