@@ -1,5 +1,7 @@
-; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
+; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-fast-reduction=false -S | FileCheck %s --check-prefix=CRITICAL --check-prefix=ALL
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-fast-reduction=false -S | FileCheck %s --check-prefix=CRITICAL --check-prefix=ALL
+; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s --check-prefix=FASTRED --check-prefix=ALL
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S | FileCheck %s --check-prefix=FASTRED --check-prefix=ALL
 
 
 ;
@@ -90,6 +92,27 @@ entry:
 ; CHECK: call void @.omp_combiner.(i16* %{{.*}}, i16* %{{.*}})
 ; CHECK: br i1 %red.cpy.done{{.*}}, label %red.update.done{{.*}}, label %red.update.body{{.*}}
 ; CHECK: call void @__kmpc_end_critical({{.*}})
+
+; ALL-NOT: "QUAL.OMP.REDUCTION.UDR"
+; ALL: red.init.body{{.*}}:
+; ALL-NEXT: %{{.*}} = phi {{.*}} [ {{.*}} ], [ {{.*}}, %red.init.body{{.*}} ]
+; ALL: store {{.*}} 0, {{.*}}
+; ALL: br i1 %red.cpy.done{{.*}}, label %red.init.done{{.*}}, label %red.init.body{{.*}}
+
+; CRITICAL: call void @__kmpc_critical({{.*}})
+; CRITICAL: red.update.body{{.*}}:
+; CRITICAL-NEXT: %{{.*}} = phi {{.*}} [ {{.*}} ], [ {{.*}}, %red.update.body{{.*}} ]
+; CRITICAL: call void @.omp_combiner.(i16* %{{.*}}, i16* %{{.*}})
+; CRITICAL: br i1 %red.cpy.done{{.*}}, label %red.update.done{{.*}}, label %red.update.body{{.*}}
+; CRITICAL: call void @__kmpc_end_critical({{.*}})
+
+; FASTRED: call i32 @__kmpc_reduce({{.*}})
+; FASTRED-DAG: red.update.body{{.*}}:
+; FASTRED-DAG: %{{.*}} = phi {{.*}} [ {{.*}} ], [ {{.*}}, %red.update.body{{.*}} ]
+; FASTRED-DAG: call void @.omp_combiner.(i16* %{{.*}}, i16* %{{.*}})
+; FASTRED-DAG: br i1 %red.cpy.done{{.*}}, label %red.update.done{{.*}}, label %red.update.body{{.*}}
+; FASTRED-DAG: call void @__kmpc_end_reduce({{.*}})
+
 
   %1 = load i32, i32* %.omp.lb, align 4
   store i32 %1, i32* %.omp.iv, align 4

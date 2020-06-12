@@ -1,5 +1,7 @@
-; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
+; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-fast-reduction=false -S | FileCheck %s --check-prefix=CRITICAL --check-prefix=ALL
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-fast-reduction=false -S | FileCheck %s --check-prefix=CRITICAL --check-prefix=ALL
+; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s --check-prefix=FASTRED --check-prefix=ALL
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S | FileCheck %s --check-prefix=FASTRED --check-prefix=ALL
 
 
 ;
@@ -140,18 +142,28 @@ entry:
   store i32 99, i32* %.omp.ub, align 4
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.REDUCTION.UDR:ARRSECT"([100 x %struct.my_struct]** %yptr, i64 2, i64 0, i64 1, i64 1, i64 5, i64 4, i64 1, i8* null, void ([1 x [4 x %struct.my_struct]]*)* @_ZTSA1_A4_9my_struct.omp.destr, void (%struct.my_struct*, %struct.my_struct*)* @.omp_combiner., void (%struct.my_struct*, %struct.my_struct*)* @.omp_initializer.), "QUAL.OMP.NUM_THREADS"(i32 100), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i), "QUAL.OMP.PRIVATE"(i32* %j), "QUAL.OMP.SHARED"([100 x %struct.my_struct]* @_ZL1x_6a7269ab6e93a4e3ddfa7e54961f4dc9) ]
 
-; CHECK-NOT: "QUAL.OMP.REDUCTION.UDR"
-; CHECK: red.init.body{{.*}}:
-; CHECK-NEXT: %{{.*}} = phi {{.*}} [ {{.*}} ], [ {{.*}}, %red.init.body{{.*}} ]
-; CHECK: call void @.omp_initializer.(%struct.my_struct* %{{.*}}, %struct.my_struct* %{{.*}})
-; CHECK: br i1 %red.cpy.done{{.*}}, label %red.init.done{{.*}}, label %red.init.body{{.*}}
-; CHECK: call void @__kmpc_critical({{.*}})
-; CHECK: red.update.body{{.*}}:
-; CHECK-NEXT: %{{.*}} = phi {{.*}} [ {{.*}} ], [ {{.*}}, %red.update.body{{.*}} ]
-; CHECK: call void @.omp_combiner.(%struct.my_struct* %{{.*}}, %struct.my_struct* %{{.*}})
-; CHECK: br i1 %red.cpy.done{{.*}}, label %red.update.done{{.*}}, label %red.update.body{{.*}}
-; CHECK: call void @__kmpc_end_critical({{.*}})
-; CHECK: call void @_ZTSA1_A4_9my_struct.omp.destr([1 x [4 x %struct.my_struct]]* %{{.*}})
+
+; ALL-NOT: "QUAL.OMP.REDUCTION.UDR"
+; ALL: red.init.body{{.*}}:
+; ALL-NEXT: %{{.*}} = phi {{.*}} [ {{.*}} ], [ {{.*}}, %red.init.body{{.*}} ]
+; ALL: call void @.omp_initializer.(%struct.my_struct* %{{.*}}, %struct.my_struct* %{{.*}})
+; ALL: br i1 %red.cpy.done{{.*}}, label %red.init.done{{.*}}, label %red.init.body{{.*}}
+
+; CRITICAL: call void @__kmpc_critical({{.*}})
+; CRITICAL: red.update.body{{.*}}:
+; CRITICAL-NEXT: %{{.*}} = phi {{.*}} [ {{.*}} ], [ {{.*}}, %red.update.body{{.*}} ]
+; CRITICAL: call void @.omp_combiner.(%struct.my_struct* %{{.*}}, %struct.my_struct* %{{.*}})
+; CRITICAL: br i1 %red.cpy.done{{.*}}, label %red.update.done{{.*}}, label %red.update.body{{.*}}
+; CRITICAL: call void @__kmpc_end_critical({{.*}})
+; CRITICAL: call void @_ZTSA1_A4_9my_struct.omp.destr([1 x [4 x %struct.my_struct]]* %{{.*}})
+
+; FASTRED: call i32 @__kmpc_reduce({{.*}})
+; FASTRED-DAG: red.update.body{{.*}}:
+; FASTRED-DAG: %{{.*}} = phi {{.*}} [ {{.*}} ], [ {{.*}}, %red.update.body{{.*}} ]
+; FASTRED-DAG: call void @.omp_combiner.(%struct.my_struct* %{{.*}}, %struct.my_struct* %{{.*}})
+; FASTRED-DAG: br i1 %red.cpy.done{{.*}}, label %red.update.done{{.*}}, label %red.update.body{{.*}}
+; FASTRED-DAG: call void @__kmpc_end_reduce({{.*}})
+; FASTRED-DAG: call void @_ZTSA1_A4_9my_struct.omp.destr([1 x [4 x %struct.my_struct]]* %{{.*}})
 
   %1 = load i32, i32* %.omp.lb, align 4
   store i32 %1, i32* %.omp.iv, align 4

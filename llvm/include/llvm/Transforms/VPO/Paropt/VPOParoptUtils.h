@@ -873,9 +873,11 @@ public:
   /// \endcode
   /// The emitted code is inserted after the alloca NewV, which is the local
   /// dope vector corresponding to \p I, and OrigV is the original. If NewV is
-  /// a global variable, then the code is inserted before \p InsertPt.
+  /// a global variable or AllowOverrideInsertPt is false, then the code is
+  /// inserted before \p InsertPt.
   static void genF90DVInitCode(Item *I, Instruction *InsertPt,
-                               bool IsTargetSPIRV = false);
+                               bool IsTargetSPIRV = false,
+                               bool AllowOverrideInsertPt = true);
 
   /// Emits `_f90_dope_vector_init` calls to initialize dope vectors in task's
   /// privates thunk. This is done after the `__kmpc_task_alloc` call, but
@@ -1508,6 +1510,15 @@ public:
 #endif  // NDEBUG
   /// @}
 
+  /// Find users of \p V in function \p F and put all users of \p V into \p
+  /// UserInsts, and add all ConstantExpr users of \p V in UserExprs.
+  static void findUsesInFunction(Function *F, Value *V,
+                                 SmallVectorImpl<Instruction *> *UserInsts,
+                                 SmallPtrSetImpl<ConstantExpr *> *UserExprs);
+
+  /// Replace users of \p Old with \p New value in the function \p F.
+  static void replaceUsesInFunction(Function *F, Value *Old, Value *New);
+
 private:
   /// \name Private constructor and destructor to disable instantiation.
   /// @{
@@ -1604,7 +1615,6 @@ private:
                                                       Value *Tid,
                                                       Instruction *InsertPt,
                                                       bool IsTaskGroupStart);
-
   /// @}
 };
 

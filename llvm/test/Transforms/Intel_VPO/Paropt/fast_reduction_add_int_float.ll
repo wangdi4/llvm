@@ -48,13 +48,17 @@ entry:
 ; ALL: define internal void @main_tree_reduce_{{.*}}(i8* %dst, i8* %src) {
 ; ALL: declare i32 @__kmpc_reduce(%struct.ident_t*, i32, i32, i32, i8*, void (i8*, i8*)*, [8 x i32]*)
 ; ALL: declare void @__kmpc_end_reduce(%struct.ident_t*, i32, [8 x i32]*)
-; USE-LOCAL: %[[FP_LOCAL:[^,]+]] = alloca double, align 8
-; USE-LOCAL-NEXT: %[[I32_LOCAL:[^,]+]] = alloca i32, align 4
 ; ALL: %fast_red_struct{{.*}} = alloca %struct.fast_red_t, align 8
-; USE-REC: %[[FP_REC:[^,]+]] = getelementptr inbounds %struct.fast_red_t, %struct.fast_red_t* %fast_red_struct, i32 0, i32 1
-; USE-REC-NEXT: %[[I32_REC:[^,]+]] = getelementptr inbounds %struct.fast_red_t, %struct.fast_red_t* %fast_red_struct, i32 0, i32 0
+; USE-LOCAL: %[[I32_LOCAL:[^,]+]] = alloca i32, align 4
+; USE-LOCAL-NEXT: %[[FP_LOCAL:[^,]+]] = alloca double, align 8
+; USE-REC: %[[I32_REC:[^,]+]] = getelementptr inbounds %struct.fast_red_t, %struct.fast_red_t* %fast_red_struct, i32 0, i32 0
+; USE-REC-NEXT: %[[FP_REC:[^,]+]] = getelementptr inbounds %struct.fast_red_t, %struct.fast_red_t* %fast_red_struct, i32 0, i32 1
 
+; USE-LOCAL: %[[FP_REC:[^,]+]] = getelementptr inbounds %struct.fast_red_t, %struct.fast_red_t* %fast_red_struct, i32 0, i32 1
+; CHECK-USE-LOCAL-NEXT: store double 0.000000e+00, double* %[[FP_REC]], align 8
 ; USE-LOCAL: store double 0.000000e+00, double* %[[FP_LOCAL]], align 8
+; USE-LOCAL: %[[I32_REC:[^,]+]] = getelementptr inbounds %struct.fast_red_t, %struct.fast_red_t* %fast_red_struct, i32 0, i32 0
+; CHECK-USE-LOCAL-NEXT: store i32 0, i32* %[[I32_REC]], align 4
 ; USE-LOCAL: store i32 0, i32* %[[I32_LOCAL]], align 4
 ; USE-LOCAL: %[[I32_LOCAL_VAL:[^,]+]] = load i32, i32* %[[I32_LOCAL]], align 4
 ; USE-LOCAL-NEXT: %[[I32_ADD:[^,]+]] = add nsw i32 %[[I32_LOCAL_VAL]], %{{.*}}
@@ -72,13 +76,11 @@ entry:
 ; USE-REC-NEXT: %[[FP_ADD:[^,]+]] = fadd double %[[FP_REC_VAL]], %{{.*}}
 ; USE-REC-NEXT: store double %[[FP_ADD]], double* %[[FP_REC]], align 8
 
-; USE-LOCAL: %[[FP_REC:[^,]+]] = getelementptr inbounds %struct.fast_red_t, %struct.fast_red_t* %fast_red_struct, i32 0, i32 1
-; USE-LOCAL-NEXT: %[[FP_LOCAL_VAL2:[^,]+]] = load double, double* %[[FP_LOCAL]], align 8
-; USE-LOCAL-NEXT: store double %[[FP_LOCAL_VAL2]], double* %[[FP_REC]], align 8
-; USE-LOCAL-NEXT: %[[I32_REC:[^,]+]] = getelementptr inbounds %struct.fast_red_t, %struct.fast_red_t* %fast_red_struct, i32 0, i32 0
-; USE-LOCAL-NEXT: %[[I32_LOCAL_VAL2:[^,]+]] = load i32, i32* %[[I32_LOCAL]], align 4
+; USE-LOCAL: %[[I32_LOCAL_VAL2:[^,]+]] = load i32, i32* %[[I32_LOCAL]], align 4
 ; USE-LOCAL-NEXT: store i32 %[[I32_LOCAL_VAL2]], i32* %[[I32_REC]]
-; USE-LOCAL-NEXT: call void @__kmpc_for_static_fini(%struct.ident_t* @{{.*}}, i32 %{{.*}})
+; USE-LOCAL: %[[FP_LOCAL_VAL2:[^,]+]] = load double, double* %[[FP_LOCAL]], align 8
+; USE-LOCAL-NEXT: store double %[[FP_LOCAL_VAL2]], double* %[[FP_REC]], align 8
+; USE-LOCAL: call void @__kmpc_for_static_fini(%struct.ident_t* @{{.*}}, i32 %{{.*}})
 
 ; ALL: %[[BITCAST:[^,]+]] = bitcast %struct.fast_red_t* %fast_red_struct to i8*
 ; ALL: %[[RET:[^,]+]] = call i32 @__kmpc_reduce(%struct.ident_t* @{{.*}}, i32 %{{.*}}, i32 2, i32 12, i8* %[[BITCAST]], void (i8*, i8*)* @main_tree_reduce_{{.*}}, [8 x i32]* @{{.*}})

@@ -178,6 +178,18 @@
 // RUN:  | FileCheck -check-prefixes=XCASCADELAKE,ADV_OPT %s
 // XCASCADELAKE: "-target-cpu" "cascadelake"
 
+// RUN: %clang -### -c -xTIGERLAKE %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XTIGERLAKE,ADV_OPT %s
+// RUN: %clang_cl -### -c /QxTIGERLAKE %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XTIGERLAKE,ADV_OPT %s
+// XTIGERLAKE: "-target-cpu" "tigerlake"
+
+// RUN: %clang -### -c -xSAPPHIRERAPIDS %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XSAPPHIRERAPIDS,ADV_OPT %s
+// RUN: %clang_cl -### -c /QxSAPPHIRERAPIDS %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XSAPPHIRERAPIDS,ADV_OPT %s
+// XSAPPHIRERAPIDS: "-target-cpu" "sapphirerapids"
+
 // RUN: %clang -### -c -xHOST %s 2>&1 \
 // RUN:  | FileCheck -check-prefixes=XHOST,ADV_OPT %s
 // RUN: %clang_cl -### -c /QxHOST %s 2>&1 \

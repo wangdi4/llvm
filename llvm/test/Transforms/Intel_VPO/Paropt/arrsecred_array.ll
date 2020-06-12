@@ -1,5 +1,8 @@
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S < %s | FileCheck %s
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S < %s  | FileCheck %s
+; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-fast-reduction=false -S | FileCheck %s --check-prefix=CRITICAL --check-prefix=ALL
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-fast-reduction=false -S | FileCheck %s --check-prefix=CRITICAL --check-prefix=ALL
+; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s --check-prefix=FASTRED --check-prefix=ALL
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -S | FileCheck %s --check-prefix=FASTRED --check-prefix=ALL
+
 ;
 ; Test src:
 ;
@@ -40,15 +43,26 @@ entry:
   store i32 1, i32* %.omp.stride, align 4
   store i32 0, i32* %.omp.is_last, align 4
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.REDUCTION.ADD:ARRSECT"([3 x [4 x [5 x i32]]]* @_Z1y, i64 3, i64 1, i64 2, i64 1, i64 0, i64 4, i64 1, i64 0, i64 5, i64 1), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i), "QUAL.OMP.PRIVATE"(i32* %j), "QUAL.OMP.PRIVATE"(i32* %k) ]
-; CHECK-NOT: call token @llvm.directive.region.entry()
-; CHECK-NOT: call token @llvm.directive.region.exit()
+; ALLNOT: call token @llvm.directive.region.entry()
+; ALL-NOT: call token @llvm.directive.region.exit()
 ; Check for array section reduction local copy preparation
-; CHECK-DAG: %[[LOCAL_GEP:[a-zA-Z._0-9]+]] = getelementptr inbounds [40 x i32], [40 x i32]* %[[LOCAL:[a-zA-Z._0-9]+]], i32 0, i32 0
-; CHECK-DAG: %[[LOCAL_MINUS_OFFSET:[a-zA-Z._0-9]+]] = getelementptr i32, i32* %[[LOCAL_GEP]], i64 -20
-; CHECK-DAG: %[[LOCAL_MINUS_OFFSET_CAST:[a-zA-Z._0-9]+]] = bitcast i32* %[[LOCAL_MINUS_OFFSET]] to [3 x [4 x [5 x i32]]]*
+; CRITICAL-DAG: %[[LOCAL_GEP:[a-zA-Z._0-9]+]] = getelementptr inbounds [40 x i32], [40 x i32]* %[[LOCAL:[a-zA-Z._0-9]+]], i32 0, i32 0
+; CRITICAL-DAG: %[[LOCAL_MINUS_OFFSET:[a-zA-Z._0-9]+]] = getelementptr i32, i32* %[[LOCAL_GEP]], i64 -20
+; CRITICAL-DAG: %[[LOCAL_MINUS_OFFSET_CAST:[a-zA-Z._0-9]+]] = bitcast i32* %[[LOCAL_MINUS_OFFSET]] to [3 x [4 x [5 x i32]]]*
 ; Zero-trip test for reduction array initialization
-; CHECK-DAG: %[[LOCAL_END:[0-9]+]] = getelementptr i32, i32* %[[LOCAL_GEP]], i64 40
-; CHECK-DAG: %{{[a-zA-Z._0-9]+}} = icmp eq i32* %[[LOCAL_GEP]], %[[LOCAL_END]]
+; CRITICAL-DAG: %[[LOCAL_END:[0-9]+]] = getelementptr i32, i32* %[[LOCAL_GEP]], i64 40
+; CRITICAL-DAG: %{{[a-zA-Z._0-9]+}} = icmp eq i32* %[[LOCAL_GEP]], %[[LOCAL_END]]
+
+; FASTRED: %[[LOCAL:[a-zA-Z._0-9]+]] = getelementptr inbounds %struct.fast_red_t, %struct.fast_red_t* %fast_red_struct, i32 0, i32 0
+; FASTRED-NEXT: %[[LOCAL_GEP:[a-zA-Z._0-9]+]] = getelementptr inbounds [40 x i32], [40 x i32]* %[[LOCAL:[a-zA-Z._0-9]+]], i32 0, i32 0
+; FASTRED-DAG: %[[LOCAL_MINUS_OFFSET:[a-zA-Z._0-9]+]] = getelementptr i32, i32* %[[LOCAL_GEP]], i64 -20
+; FASTRED-DAG: %[[LOCAL_MINUS_OFFSET2:[a-zA-Z._0-9]+]] = bitcast i32* %[[LOCAL_MINUS_OFFSET]] to [3 x [4 x [5 x i32]]]*
+; FASTRED-DAG: %[[LOCAL_MINUS_OFFSET_CAST:[a-zA-Z._0-9]+]] = bitcast [3 x [4 x [5 x i32]]]* %[[LOCAL_MINUS_OFFSET2]] to i32*
+; FASTRED-DAG: %[[LOCAL_MINUS_OFFSET_CAST_PLUS_OFFSET:[a-zA-Z._0-9]+]] = getelementptr i32, i32* %[[LOCAL_MINUS_OFFSET_CAST]]
+; Zero-trip test for reduction array initialization
+; FASTRED-DAG: %[[LOCAL_END:[0-9]+]] = getelementptr i32, i32* %[[LOCAL_MINUS_OFFSET_CAST_PLUS_OFFSET]], i64 40
+; FASTRED-DAG: %{{[a-zA-Z._0-9]+}} = icmp eq i32* %[[LOCAL_MINUS_OFFSET_CAST_PLUS_OFFSET]], %[[LOCAL_END]]
+
   %1 = load i32, i32* %.omp.lb, align 4
   store i32 %1, i32* %.omp.iv, align 4
   br label %omp.inner.for.cond
@@ -85,7 +99,7 @@ for.body4:                                        ; preds = %for.cond2
   %7 = load i32, i32* %k, align 4
   %idxprom = sext i32 %7 to i64
 ; Check for the replacement of original @_Z1y with "%y_local - offset".
-; CHECK-DAG: %{{[0-9]+}} = getelementptr inbounds [3 x [4 x [5 x i32]]], [3 x [4 x [5 x i32]]]* %[[LOCAL_MINUS_OFFSET_CAST]], i64 0, i64 1, i64 2
+; CRITICAL-DAG: %{{[0-9]+}} = getelementptr inbounds [3 x [4 x [5 x i32]]], [3 x [4 x [5 x i32]]]* %[[LOCAL_MINUS_OFFSET_CAST]], i64 0, i64 1, i64 2
   %arrayidx = getelementptr inbounds [5 x i32], [5 x i32]* getelementptr inbounds ([3 x [4 x [5 x i32]]], [3 x [4 x [5 x i32]]]* @_Z1y, i64 0, i64 1, i64 2), i64 0, i64 %idxprom
   %8 = load i32, i32* %arrayidx, align 4
   %add5 = add nsw i32 %8, 1
@@ -123,7 +137,7 @@ omp.inner.for.end:                                ; preds = %omp.inner.for.cond
   br label %omp.loop.exit
 
   ; Zero-trip test for reduction array finalization
-; CHECK-DAG: icmp eq (i32* getelementptr (i32, i32* getelementptr inbounds ([3 x [4 x [5 x i32]]], [3 x [4 x [5 x i32]]]* @_Z1y, i32 0, i32 0, i32 0, i32 0), i64 20), i32* getelementptr (i32, i32* getelementptr inbounds ([3 x [4 x [5 x i32]]], [3 x [4 x [5 x i32]]]* @_Z1y, i32 0, i32 0, i32 0, i32 0), i64 60))
+; ALL-DAG: icmp eq (i32* getelementptr (i32, i32* getelementptr inbounds ([3 x [4 x [5 x i32]]], [3 x [4 x [5 x i32]]]* @_Z1y, i32 0, i32 0, i32 0, i32 0), i64 20), i32* getelementptr (i32, i32* getelementptr inbounds ([3 x [4 x [5 x i32]]], [3 x [4 x [5 x i32]]]* @_Z1y, i32 0, i32 0, i32 0, i32 0), i64 60))
 
 omp.loop.exit:                                    ; preds = %omp.inner.for.end
   call void @llvm.directive.region.exit(token %0) [ "DIR.OMP.END.PARALLEL.LOOP"() ]

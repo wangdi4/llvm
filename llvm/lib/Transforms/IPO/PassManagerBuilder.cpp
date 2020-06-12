@@ -324,7 +324,7 @@ static cl::opt<bool>
   cl::desc("Enable extra passes for DPCPP WGLoopCreator/Barrier approach."));
 
 static cl::opt<bool> EnableArgNoAliasProp(
-    "enable-arg-noalias-prop", cl::init(false), cl::Hidden, cl::ZeroOrMore,
+    "enable-arg-noalias-prop", cl::init(true), cl::Hidden, cl::ZeroOrMore,
     cl::desc("Enable noalias propagation for function arguments."));
 #endif // INTEL_CUSTOMIZATION
 

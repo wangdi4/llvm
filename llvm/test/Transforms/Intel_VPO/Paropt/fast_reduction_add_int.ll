@@ -44,21 +44,25 @@ entry:
 ; ALL: define internal void @main_tree_reduce_{{.*}}(i8* %dst, i8* %src) {
 ; ALL: declare i32 @__kmpc_reduce(%struct.ident_t*, i32, i32, i32, i8*, void (i8*, i8*)*, [8 x i32]*)
 ; ALL: declare void @__kmpc_end_reduce(%struct.ident_t*, i32, [8 x i32]*)
-; USE-LOCAL: %[[LOCAL:[^,]+]] = alloca i32, align 4
 ; ALL: %fast_red_struct{{.*}} = alloca %struct.fast_red_t, align 4
 ; USE-REC: %[[REC:[^,]+]] = getelementptr inbounds %struct.fast_red_t, %struct.fast_red_t* %fast_red_struct, i32 0, i32 0
-; USE-LOCAL: store i32 0, i32* %[[LOCAL]]
 ; USE-REC: store i32 0, i32* %[[REC]]
+
+; USE-LOCAL: %[[LOCAL:[^,]+]] = alloca i32, align 4
+; USE-LOCAL: %[[REC:[^,]+]] = getelementptr inbounds %struct.fast_red_t, %struct.fast_red_t* %fast_red_struct, i32 0, i32 0
+; USE-LOCAL: store i32 0, i32* %[[LOCAL]]
+
 ; USE-LOCAL: %[[LOCAL_VAL:[^,]+]] = load i32, i32* %[[LOCAL]], align 4
 ; USE-LOCAL-NEXT: %[[ADD:[^,]+]] = add nsw i32 %[[LOCAL_VAL]], %{{.*}}
 ; USE-LOCAL-NEXT: store i32 %[[ADD]], i32* %[[LOCAL]], align 4
+
 ; USE-REC: %[[REC_VAL:[^,]+]] = load i32, i32* %[[REC]], align 4
 ; USE-REC-NEXT: %[[ADD:[^,]+]] = add nsw i32 %[[REC_VAL]], %{{.*}}
 ; USE-REC-NEXT: store i32 %[[ADD]], i32* %[[REC]], align 4
-; USE-LOCAL: %[[REC:[^,]+]] = getelementptr inbounds %struct.fast_red_t, %struct.fast_red_t* %fast_red_struct, i32 0, i32 0
-; USE-LOCAL-NEXT: %[[LOCAL_VAL2:[^,]+]] = load i32, i32* %[[LOCAL]], align 4
+
+; USE-LOCAL: %[[LOCAL_VAL2:[^,]+]] = load i32, i32* %[[LOCAL]], align 4
 ; USE-LOCAL-NEXT: store i32 %[[LOCAL_VAL2]], i32* %[[REC]]
-; USE-LOCAL-NEXT: call void @__kmpc_for_static_fini(%struct.ident_t* @{{.*}}, i32 %{{.*}})
+; USE-LOCAL: call void @__kmpc_for_static_fini(%struct.ident_t* @{{.*}}, i32 %{{.*}})
 ; ALL: %[[BITCAST:[^,]+]] = bitcast %struct.fast_red_t* %fast_red_struct to i8*
 ; ALL: %[[RET:[^,]+]] = call i32 @__kmpc_reduce(%struct.ident_t* @{{.*}}, i32 %{{.*}}, i32 1, i32 4, i8* %[[BITCAST]], void (i8*, i8*)* @main_tree_reduce_{{.*}}, [8 x i32]* @{{.*}})
 ; ALL-NEXT: %to.tree.reduce = icmp eq i32 %[[RET]], 1
