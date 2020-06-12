@@ -1451,6 +1451,10 @@ bool VPOParoptTransform::paroptTransforms() {
           } else {
             if (isa<WRNTeamsNode>(W))
               Changed |= genPrivatizationCode(W);
+            // TODO: enabling firstprivatization requires more optimizations
+            //       to avoid performance tanking.
+            // Changed |= genFirstPrivatizationCode(W);
+            Changed |= genReductionCode(W);
 
             // The directive gets removed, when processing the target region,
             // do not remove it here, since guardSideEffects needs the
@@ -2510,19 +2514,25 @@ bool VPOParoptTransform::genReductionScalarFini(
     //
     // Insert new instruction(s) after the definition of the private
     // reduction value.
-    auto *TempRedLoad = Rhs2->clone();
-    TempRedLoad->insertAfter(Rhs2);
-    TempRedLoad->takeName(Rhs2);
-    auto *HRed = VPOParoptUtils::genSPIRVHorizontalReduction(
-        RedI, ScalarTy, TempRedLoad, spirv::Scope::Subgroup);
+    if (!isa<WRNTeamsNode>(W)) {
+      // Only the master thread must execute the reduction update
+      // code in teams region. Executing the horizontal reduction
+      // will result in redundant reduction operations producing
+      // incorrect result.
+      auto *TempRedLoad = Rhs2->clone();
+      TempRedLoad->insertAfter(Rhs2);
+      TempRedLoad->takeName(Rhs2);
+      auto *HRed = VPOParoptUtils::genSPIRVHorizontalReduction(
+          RedI, ScalarTy, TempRedLoad, spirv::Scope::Subgroup);
 
-    if (HRed)
-      Rhs2->replaceAllUsesWith(HRed);
-    else
-      LLVM_DEBUG(dbgs() << __FUNCTION__ <<
-                 ": SPIRV horizontal reduction is not available "
-                 "for critical section reduction: " << RedI->getOpName() <<
-                 " with type " << *ScalarTy << "\n");
+      if (HRed)
+        Rhs2->replaceAllUsesWith(HRed);
+      else
+        LLVM_DEBUG(dbgs() << __FUNCTION__ <<
+                   ": SPIRV horizontal reduction is not available "
+                   "for critical section reduction: " << RedI->getOpName() <<
+                   " with type " << *ScalarTy << "\n");
+    }
 
     OptimizationRemarkMissed R(DEBUG_TYPE, "ReductionAtomic", Tmp0);
     R << ore::NV("Kind", RedI->getOpName()) << " reduction update of type " <<
@@ -2568,16 +2578,9 @@ bool VPOParoptTransform::genReductionFini(WRegionNode *W, ReductionItem *RedI,
                                           Value *OldV, Instruction *InsertPt,
                                           DominatorTree *DT,
                                           bool NoNeedToOffsetOrDerefOldV) {
-  Value *NewAI = RedI->getNew();
-  // NewAI is either AllocaInst or an AddrSpaceCastInst of AllocaInst.
-  assert(GeneralUtils::isOMPItemLocalVAR(NewAI) &&
-         "genReductionFini: Expect isOMPItemLocalVAR().");
   Type *AllocaTy;
   Value *NumElements;
-  std::tie(AllocaTy, NumElements) =
-      GeneralUtils::getOMPItemLocalVARPointerTypeAndNumElem(NewAI);
-  assert(AllocaTy && "genReductionFini: item type cannot be deduced.");
-  AllocaTy = cast<PointerType>(AllocaTy)->getElementType();
+  std::tie(AllocaTy, NumElements, std::ignore) = getItemInfo(RedI);
 
   // TODO: for a VLA AllocaTy will be just a scalar type, and NumElements
   //       will specify the array size. Right now, VLA reductions are
@@ -2586,6 +2589,7 @@ bool VPOParoptTransform::genReductionFini(WRegionNode *W, ReductionItem *RedI,
   //       with array sections (which would have an explicit number of elements
   //       specified).
 
+  Value *NewV = RedI->getNew();
   IRBuilder<> Builder(InsertPt);
   // For by-refs, do a pointer dereference to reach the actual operand.
   if (RedI->getIsByRef() && !NoNeedToOffsetOrDerefOldV)
@@ -2593,16 +2597,16 @@ bool VPOParoptTransform::genReductionFini(WRegionNode *W, ReductionItem *RedI,
 
 #if INTEL_CUSTOMIZATION
   if (RedI->getIsF90DopeVector())
-    return genRedAggregateInitOrFini(W, RedI, NewAI, OldV, InsertPt, false, DT,
+    return genRedAggregateInitOrFini(W, RedI, NewV, OldV, InsertPt, false, DT,
                                      NoNeedToOffsetOrDerefOldV);
 
 #endif // INTEL_CUSTOMIZATION
   if (RedI->getIsArraySection() || AllocaTy->isArrayTy())
-    return genRedAggregateInitOrFini(W, RedI, NewAI, OldV, InsertPt, false, DT,
+    return genRedAggregateInitOrFini(W, RedI, NewV, OldV, InsertPt, false, DT,
                                      NoNeedToOffsetOrDerefOldV);
 
   if (RedI->getType() == ReductionItem::WRNReductionUdr)
-    return genReductionUdrFini(RedI, OldV, NewAI, Builder);
+    return genReductionUdrFini(RedI, OldV, NewV, Builder);
 
   assert((VPOUtils::canBeRegisterized(AllocaTy,
                                       InsertPt->getModule()->getDataLayout()) ||
@@ -2610,7 +2614,7 @@ bool VPOParoptTransform::genReductionFini(WRegionNode *W, ReductionItem *RedI,
          "genReductionFini: Expect incoming scalar/complex type.");
   Type *ScalarTy = AllocaTy->getScalarType();
 
-  return genReductionScalarFini(W, RedI, OldV, NewAI, ScalarTy, Builder, DT);
+  return genReductionScalarFini(W, RedI, OldV, NewV, ScalarTy, Builder, DT);
 }
 
 // Generate the reduction initialization/update for array.
@@ -3292,16 +3296,9 @@ void VPOParoptTransform::genReductionInit(WRegionNode *W,
                                           ReductionItem *RedI,
                                           Instruction *InsertPt,
                                           DominatorTree *DT) {
-  Value *AI = RedI->getNew();
-  // AI is either AllocaInst or an AddrSpaceCastInst of AllocaInst.
-  assert(GeneralUtils::isOMPItemLocalVAR(AI) &&
-         "genReductionInit: Expect isOMPItemLocalVAR().");
   Type *AllocaTy;
   Value *NumElements;
-  std::tie(AllocaTy, NumElements) =
-      GeneralUtils::getOMPItemLocalVARPointerTypeAndNumElem(AI);
-  assert(AllocaTy && "genReductionInit: item type cannot be deduced.");
-  AllocaTy = cast<PointerType>(AllocaTy)->getElementType();
+  std::tie(AllocaTy, NumElements, std::ignore) = getItemInfo(RedI);
 
   // TODO: for a VLA AllocaTy will be just a scalar type, and NumElements
   //       will specify the array size. Right now, VLA reductions are
@@ -3312,6 +3309,7 @@ void VPOParoptTransform::genReductionInit(WRegionNode *W,
   bool IsUDR = (RedI->getType() == ReductionItem::WRNReductionUdr);
   bool NeedSrc = IsUDR && (RedI->getInitializer() != nullptr);
   Value *OldV = RedI->getOrig();
+  Value *NewV = RedI->getNew();
   if (NeedSrc) {
     IRBuilder<> Builder(InsertPt);
     // For by-refs, do a pointer dereference to reach the actual operand.
@@ -3321,20 +3319,20 @@ void VPOParoptTransform::genReductionInit(WRegionNode *W,
 
 #if INTEL_CUSTOMIZATION
   if (RedI->getIsF90DopeVector()) {
-    genRedAggregateInitOrFini(W, RedI, AI, NeedSrc ? OldV : nullptr, InsertPt,
+    genRedAggregateInitOrFini(W, RedI, NewV, NeedSrc ? OldV : nullptr, InsertPt,
                               true, DT, true);
     return;
   }
 
 #endif // INTEL_CUSTOMIZATION
   if (RedI->getIsArraySection() || AllocaTy->isArrayTy()) {
-    genRedAggregateInitOrFini(W, RedI, AI, NeedSrc ? OldV : nullptr, InsertPt,
+    genRedAggregateInitOrFini(W, RedI, NewV, NeedSrc ? OldV : nullptr, InsertPt,
                               true, DT, true);
     return;
   }
   IRBuilder<> Builder(InsertPt);
   if (IsUDR) {
-    genReductionUdrInit(RedI, RedI->getOrig(), AI, AllocaTy, Builder);
+    genReductionUdrInit(RedI, RedI->getOrig(), NewV, AllocaTy, Builder);
     return;
   }
 
@@ -3343,7 +3341,7 @@ void VPOParoptTransform::genReductionInit(WRegionNode *W,
           RedI->getIsComplex()) &&
          "genReductionInit: Expect incoming scalar/complex type.");
   Value *V = genReductionScalarInit(RedI, AllocaTy);
-  Builder.CreateStore(V, AI);
+  Builder.CreateStore(V, NewV);
 }
 
 // Prepare the empty basic block for the array reduction initialization.
@@ -3609,8 +3607,11 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
         NewRedInst = GetElementPtrInst::CreateInBounds(
             FastRedStructTy, FastRedInst, ValueIndex,
             Orig->getName() + ".fast_red", InsertPt);
-      } else
-        NewRedInst = genPrivatizationAlloca(RedI, InsertPt, ".red");
+      } else {
+        auto AllocaAddrSpace = getPrivatizationAllocaAddrSpace(W, RedI);
+        NewRedInst =
+            genPrivatizationAlloca(RedI, InsertPt, ".red", AllocaAddrSpace);
+      }
 
       RedI->setNew(NewRedInst);
 

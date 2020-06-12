@@ -247,9 +247,15 @@ public:
 
   // Returns the total number of incoming flow edges associated with this Ref
   // It includes the edges attached to blobs (if any) too
-  unsigned getNumIncomingFlowEdges(const DDRef *Ref) const;
+  unsigned getTotalNumIncomingFlowEdges(const DDRef *Ref) const;
 
-  // Returns the total number of outgoing edges associated with this Ref
+  // Returns the number of incoming flow edges associated with this Ref
+  // It excludes the edges attached to blobs
+  unsigned getNumIncomingEdges(const DDRef *Ref) const {
+    return std::distance(incoming_edges_begin(Ref), incoming_edges_end(Ref));
+  }
+
+  // Returns the number of outgoing edges associated with this Ref
   unsigned getNumOutgoingEdges(const DDRef *Ref) const {
     return std::distance(outgoing_edges_begin(Ref), outgoing_edges_end(Ref));
   };

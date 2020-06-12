@@ -1,5 +1,5 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg --S -enable-vp-value-codegen-hir=0 < %s | FileCheck %s
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg --S -enable-vp-value-codegen-hir < %s | FileCheck %s --check-prefix=VPCHECK
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg --S -enable-vp-value-codegen-hir < %s | FileCheck %s
 
 ; CMPLRLLVM-7224: WRN support in HIR for SIMD with OperandBundle representation
 ; Test case from the Jira:
@@ -22,12 +22,6 @@
 ;   call void @llvm.masked.store.v4f32.p0v4f32(<4 x float> %t25., <4 x float>* %19, i32 4, <4 x i1> %t23.6)
 ;
 ; CHECK: call void @llvm.masked.store.v{{4|8}}f32.p0v{{4|8}}f32({{.*}})
-;
-; For VPValue based code generation DA does not give unit stride information
-; due to trunc instruction. We generate a scatter as a result.
-; TODO - We need to see if this can be improved.
-;
-; VPCHECK: call void @llvm.masked.scatter.v{{4|8}}f32.v{{4|8}}p0f32({{.*}})
 ;
 
 source_filename = "test2.c"

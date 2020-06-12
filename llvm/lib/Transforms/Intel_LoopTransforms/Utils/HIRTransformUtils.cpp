@@ -505,6 +505,11 @@ HLLoop *HIRTransformUtils::setupPeelMainAndRemainderLoops(
   NeedRemainderLoop = isRemainderLoopNeeded(
       OrigLoop, UnrollOrVecFactor, &NewTripCount, &NewTCRef, RuntimeCheck);
 
+  // Initialize liveout temp before the main non-const trip count loop if there
+  // is no peel loop.
+  if (NewTripCount == 0 && !PeelArrayRef)
+    OrigLoop->undefInitializeUnconditionalLiveoutTemps();
+
   // Create the main loop.
   // Profile data is calculated internally in createUnrollOrVecLoop
   HLLoop *MainLoop = createUnrollOrVecLoop(

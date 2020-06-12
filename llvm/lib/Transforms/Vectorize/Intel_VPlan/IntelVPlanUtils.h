@@ -16,6 +16,11 @@
 #include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/RegDDRef.h"
+#endif // INTEL_CUSTOMIZATION
 #include <iterator>
 
 namespace llvm {
@@ -174,6 +179,41 @@ inline unsigned getLoadStoreAlignment(VPInstruction *VPInst, Loop *L) {
   const DataLayout &DL = L->getHeader()->getModule()->getDataLayout();
   return DL.getPrefTypeAlignment(PtrType);
 }
+
+#if INTEL_CUSTOMIZATION
+// Obtain stride information using loopopt interfaces. HNode is expected to
+// specify the underlying node for a load/store VPInstruction. We return false
+// if this is not the case. Function returns true if the memory reference
+// corresponding to pointer operand of load/store VPInst has known stride. The
+// stride value is returned in Stride. Function returns false for unknown
+// stride.
+inline bool getStrideUsingHIR(const loopopt::HLNode &HNode, int64_t &Stride) {
+  const loopopt::HLInst *HInst = dyn_cast<loopopt::HLInst>(&HNode);
+  if (!HInst)
+    return false;
+
+  const loopopt::RegDDRef *MemRef =
+      HInst->getLLVMInstruction()->getOpcode() == Instruction::Load
+          ? HInst->getRvalDDRef()
+          : HInst->getLvalDDRef();
+
+  // Memref is expected to be non-null and a memory reference. If this is not
+  // the case, return false. We assert in debug mode.
+  if (!MemRef || !MemRef->isMemRef()) {
+    assert(false && "Unexpected null or non-memory ref");
+    return false;
+  }
+
+  const loopopt::HLLoop *HLoop = HInst->getParentLoop();
+  // The code here assumes inner loop vectorization. TODO: Once we start
+  // supporting outer loop vectorization, this interface will need to be changed
+  // to also take the HLLoop being vectorized.
+  assert(HLoop && HLoop->isInnermost() &&
+         "Outerloop vectorization is not supported.");
+
+  return MemRef->getConstStrideAtLevel(HLoop->getNestingLevel(), &Stride);
+}
+#endif // INTEL_CUSTOMIZATION
 
 // Add a new depth-first iterator (sese_df_iterator) for traversing the blocks
 // of SESE region.

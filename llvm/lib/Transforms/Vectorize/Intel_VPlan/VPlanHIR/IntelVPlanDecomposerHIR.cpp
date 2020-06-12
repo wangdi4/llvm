@@ -581,8 +581,11 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
         Instruction::Load, {MemOpVPI},
         cast<PointerType>(MemOpVPI->getType())->getElementType());
 
-    // Save away scalar memref symbase for later use.
-    cast<VPInstruction>(MemOpVPI)->setSymbase(Ref->getSymbase());
+    // Save away scalar memref symbase and alias analysis metadata for later
+    // use.
+    auto *MemOpVPInst = cast<VPInstruction>(MemOpVPI);
+    MemOpVPInst->setSymbase(Ref->getSymbase());
+    Ref->getAAMetadata(MemOpVPInst->HIR.AANodes);
 
     // FIXME: This special-casing for loads that are HLInst is becoming more
     // complicated than expected since we also have to special-case
@@ -885,11 +888,13 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
       // standalone loads.
       NewVPInst->HIR.setOperandDDR(LvalDDR);
 
-      // Save away scalar memref symbase for later use.
+      // Save away scalar memref symbase and alias analysis metadata for later
+      // use.
       if (NewVPInst->getOpcode() == Instruction::Store) {
         assert(LvalDDR->isMemRef() &&
                "Expected Lval of a store HLInst to be a memref");
         NewVPInst->setSymbase(LvalDDR->getSymbase());
+        LvalDDR->getAAMetadata(NewVPInst->HIR.AANodes);
       }
 
       if (OutermostHLp->isLiveOut(LvalDDR->getSymbase())) {

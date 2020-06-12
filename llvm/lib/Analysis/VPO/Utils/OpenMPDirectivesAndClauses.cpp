@@ -262,6 +262,8 @@ bool VPOAnalysisUtils::isBeginDirective(int DirID) {
 #if INTEL_CUSTOMIZATION
   case DIR_VPO_AUTO_VEC:
   case DIR_PRAGMA_IVDEP:
+  case DIR_PRAGMA_BLOCK_LOOP:
+  case DIR_PRAGMA_DISTRIBUTE_POINT:
 #endif // INTEL_CUSTOMIZATION
     return true;
   }
@@ -335,6 +337,8 @@ bool VPOAnalysisUtils::isEndDirective(int DirID) {
 #if INTEL_CUSTOMIZATION
   case DIR_VPO_END_AUTO_VEC:
   case DIR_PRAGMA_END_IVDEP:
+  case DIR_PRAGMA_END_BLOCK_LOOP:
+  case DIR_PRAGMA_END_DISTRIBUTE_POINT:
 #endif // INTEL_CUSTOMIZATION
     return true;
   }
@@ -539,6 +543,10 @@ int VPOAnalysisUtils::getMatchingEndDirective(int DirID) {
     return DIR_VPO_END_AUTO_VEC;
   case DIR_PRAGMA_IVDEP:
     return DIR_PRAGMA_END_IVDEP;
+  case DIR_PRAGMA_BLOCK_LOOP:
+    return DIR_PRAGMA_END_BLOCK_LOOP;
+  case DIR_PRAGMA_DISTRIBUTE_POINT:
+    return DIR_PRAGMA_END_DISTRIBUTE_POINT;
 #endif // INTEL_CUSTOMIZATION
 
   // StandAlone Directives

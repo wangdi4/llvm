@@ -1,4 +1,6 @@
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR -vplan-force-vf=8 < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR -vplan-force-vf=8 -disable-output -enable-vp-value-codegen-hir=0 < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR -vplan-force-vf=8 -disable-output -enable-vp-value-codegen-hir < %s 2>&1 | FileCheck %s
+
 
 ; Verify that vectorizer generates a unit stride store for this loop because %s.0 is known positive.
 
