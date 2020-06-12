@@ -22,6 +22,13 @@
 // CHECK-TUNE-NOT: no such file or directory
 // CHECK-TUNE-NOT: unknown argument ignored
 
+// -ax support (accept, but don't use)
+// RUN: %clang_cl -### /c /QaxCORE-AVX2 %s 2>&1 | \
+// RUN:  FileCheck -check-prefix=CHECK-AX %s
+// RUN: %clang -### -c -axCORE-AVX2 %s 2>&1 | \
+// RUN:  FileCheck -check-prefix=CHECK-AX %s
+// CHECK-AX: argument unused
+
 // -fpermissive support
 // RUN: %clang -### -c -fpermissive %s 2>&1 | FileCheck -check-prefix CHECK-FPERMISSIVE %s
 // CHECK-FPERMISSIVE: "-gnu-permissive"

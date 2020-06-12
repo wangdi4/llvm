@@ -671,10 +671,9 @@ public:
 
 class StructInfo : public TypeInfo {
 public:
-  StructInfo(AbstractType Ty, ArrayRef<AbstractType> FieldTypes,
-             bool IgnoreFlag)
-      : TypeInfo(TypeInfo::StructInfo, Ty), TotalFrequency(0),
-        IsIgnoredFor(IgnoreFlag), SubGraph() {
+  StructInfo(AbstractType Ty, ArrayRef<AbstractType> FieldTypes)
+      : TypeInfo(TypeInfo::StructInfo, Ty), TotalFrequency(0), IsIgnoredFor(0),
+        SubGraph() {
     for (AbstractType FieldTy : FieldTypes)
       Fields.push_back(FieldInfo(FieldTy));
   }

@@ -126,40 +126,6 @@ static cl::opt<bool> DTransIdentifyUnusedValues("dtrans-identify-unused-values",
                                                 cl::ReallyHidden);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-//
-// An option that indicates that a pointer to a struct could access
-// somewhere beyond the boundaries of that struct:
-//
-// For example:
-//
-// %struct.A = type { i32, i32 }
-// %struct.B = type { i16, i16, i16, i16 }
-// %struct.C = type { %struct.A, %struct.B }
-//
-// define void @foo(%struct.A* nocapture) local_unnamed_addr #0 {
-//   %2 = getelementptr inbounds %struct.A, %struct.A* %0, i64 1, i32 1
-//   store i32 -1, i32* %2, align 4, !tbaa !2
-//   ret void
-// }
-//
-// define void @bar(%struct.C* nocapture) local_unnamed_addr #0 {
-//   %2 = getelementptr inbounds %struct.C, %struct.C* %0, i64 0, i32 0
-//   tail call void @foo(%struct.A* %2)
-//   ret void
-// }
-//
-// Here the getelementptr in @foo is accessing beyond the end of the inner
-// %struct.A within %struct.C.
-//
-// With respect to dtransanalysis, having -dtrans-outofboundsok=true will
-// cause safety checks to be propagated from outer structs to inner structs.
-// So, in the above example, if -dtrans-outofboundsok=false, 'Field address
-// taken' will be true only for %structC. But if -dtrans-outofboundsok=true,
-// it will also be true for %struct.A and %struct.B.
-//
-static cl::opt<bool> DTransOutOfBoundsOK("dtrans-outofboundsok", cl::init(true),
-                                         cl::ReallyHidden);
-
 // Use the C language compatibility rule to determine if two aggregate types
 // are compatible. This is used by the analysis of AddressTaken safety checks.
 // If the actual argument of a call is a pointer to an aggregate with type T,
@@ -1564,7 +1530,7 @@ private:
       // If the last argument is not constant and out-of-bound flag is false
       // then it is safe to have non-constant array access. Use 0 index for
       // Pointee set.
-      if (!DTransOutOfBoundsOK)
+      if (!dtrans::DTransOutOfBoundsOK)
         Info.addElementPointee(IndexedTy, 0);
     }
 
@@ -4642,7 +4608,7 @@ public:
                                  ? DL.getTypeSizeInBits(
                                    ParentStInfo->getField(0).getLLVMType())
                                  : TypeSize(0, false);
-            if (DTransOutOfBoundsOK || LoadSize > FieldSize) {
+            if (dtrans::DTransOutOfBoundsOK || LoadSize > FieldSize) {
               for (auto &FI : ParentStInfo->getFields())
                 FI.setMismatchedElementAccess();
             } else if (ParentStInfo->getNumFields() != 0) {
@@ -6046,6 +6012,8 @@ public:
           OS << "\n;        CE: " << *CE << "\n";
           auto &LPI = LPA.getLocalPointerInfo(CE);
           LPI.print(OS, 10, ";");
+          OS << ";            ";
+          printDomTy(OS, LPI);
 
           // There may be constant expressions nested within this CE that should
           // be reported.
@@ -6068,7 +6036,19 @@ public:
         if (V->getType()->isPointerTy() || LPI.canAliasToAggregatePointer()) {
           OS << "\n";
           LPI.print(OS, 4, ";");
+          OS << ";      ";
+          printDomTy(OS, LPI);
         }
+      }
+
+      void printDomTy(formatted_raw_ostream &OS, LocalPointerInfo &LPI) {
+        auto *DomTy = LPI.getDominantAggregateTy();
+        if (DomTy)
+          OS << "DomTy: " << *DomTy << "\n";
+        else if (LPI.canAliasToAggregatePointer())
+          OS << "Ambiguous Dominant Type\n";
+        else
+          OS << "No Dominant Type\n";
       }
     };
 
@@ -6937,14 +6917,14 @@ private:
              << "unsafe cast of aliased pointer:\n"
              << "  " << *I << "\n";
     });
-    if (DTransOutOfBoundsOK)
+    if (dtrans::DTransOutOfBoundsOK)
       setValueTypeInfoSafetyData(I->getOperand(0), dtrans::BadCasting);
     else
       (void)setValueTypeInfoSafetyDataBase(I->getOperand(0),
                                            dtrans::BadCasting);
 
     if (DTInfo.isTypeOfInterest(DestTy)) {
-      if (DTransOutOfBoundsOK)
+      if (dtrans::DTransOutOfBoundsOK)
         setValueTypeInfoSafetyData(I, dtrans::BadCasting);
       else
         (void)setValueTypeInfoSafetyDataBase(I, dtrans::BadCasting);
@@ -7327,7 +7307,7 @@ private:
           LLVM_DEBUG(dbgs() << "  " << I << "\n");
 
           auto *TI = DTInfo.getOrCreateTypeInfo(ParentTy);
-          if (DTransOutOfBoundsOK) {
+          if (dtrans::DTransOutOfBoundsOK) {
             // Assuming out of bound access, set safety issue for the entire
             // ParentTy.
             setBaseTypeInfoSafetyData(ParentTy,
@@ -7341,7 +7321,7 @@ private:
             TypeSize ValSize = DL.getTypeSizeInBits(ValTy);
             TypeSize FieldSize = DL.getTypeSizeInBits(
                 ParentStInfo->getField(ElementNum).getLLVMType());
-            if (DTransOutOfBoundsOK || ValSize > FieldSize) {
+            if (dtrans::DTransOutOfBoundsOK || ValSize > FieldSize) {
               for (auto &FI : ParentStInfo->getFields())
                 FI.setMismatchedElementAccess();
             } else {
@@ -9015,7 +8995,7 @@ private:
   // the bounds of a structure. This is strictly not allowed in C/C++, but
   // is allowed under the definition of LLVM IR.
   bool isCascadingSafetyCondition(dtrans::SafetyData Data) {
-    if (DTransOutOfBoundsOK)
+    if (dtrans::DTransOutOfBoundsOK)
       return true;
     switch (Data) {
     // We can add additional cases here to reduce the conservative behavior
@@ -9064,7 +9044,7 @@ private:
       // possible to access elements of pointed-to objects, as well, in methods
       // that DTrans would not be able to analyze.
     case dtrans::FieldAddressTaken:
-      return DTransOutOfBoundsOK;
+      return dtrans::DTransOutOfBoundsOK;
 
     default:
       return false;
@@ -9298,7 +9278,7 @@ dtrans::TypeInfo *DTransAnalysisInfo::getOrCreateTypeInfo(llvm::Type *Ty) {
       // Create a DTrans type for the field, in case it is an aggregate.
       (void)getOrCreateTypeInfo(FieldTy);
     }
-    DTransTy = new dtrans::StructInfo(Ty, FieldTypes, 0);
+    DTransTy = new dtrans::StructInfo(Ty, FieldTypes);
   } else {
     assert(!Ty->isAggregateType() &&
            "DTransAnalysisInfo::getOrCreateTypeInfo unexpected aggregate type");
@@ -9819,7 +9799,7 @@ bool DTransAnalysisInfo::useDTransAnalysis(void) const {
 }
 
 bool DTransAnalysisInfo::getDTransOutOfBoundsOK() {
-  return DTransOutOfBoundsOK;
+  return dtrans::DTransOutOfBoundsOK;
 }
 
 bool DTransAnalysisInfo::requiresBadCastValidation(
