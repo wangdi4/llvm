@@ -654,6 +654,15 @@ def int_objectsize : Intrinsic<[llvm_anyint_ty],
                                 ImmArg<ArgIndex<3>>]>,
                                GCCBuiltin<"__builtin_object_size">;
 
+#if INTEL_CUSTOMIZATION
+//===----------------- Intel Fortran Library Intrinsics -------------------===//
+//
+
+def int_for_cpystr : Intrinsic<[],
+                               [llvm_ptr_ty, llvm_anyint_ty, llvm_ptr_ty,
+                                llvm_anyint_ty, llvm_anyint_ty]>;
+#endif // INTEL_CUSTOMIZATION
+
 //===--------------- Access to Floating Point Environment -----------------===//
 //
 

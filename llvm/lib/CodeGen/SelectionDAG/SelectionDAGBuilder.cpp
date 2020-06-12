@@ -5853,6 +5853,37 @@ void SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I,
     updateDAGForMaybeTailCall(MC);
     return;
   }
+#if INTEL_CUSTOMIZATION
+  case Intrinsic::for_cpystr: {
+    TargetLowering::ArgListTy Args;
+    auto setArgs = [&Args] (SDValue Op, Type *Ty) {
+      TargetLowering::ArgListEntry Entry;
+      Entry.Ty = Ty; Entry.Node = Op;
+      Args.push_back(Entry);
+    };
+    auto *Context = DAG.getContext();
+    Type *Int8PtrTy = Type::getInt8PtrTy(*Context);
+    Type *IntPtrTy = DAG.getDataLayout().getIntPtrType(*Context);
+    setArgs(getValue(I.getArgOperand(0)), Int8PtrTy);
+    setArgs(getValue(I.getArgOperand(1)), IntPtrTy);
+    setArgs(getValue(I.getArgOperand(2)), Int8PtrTy);
+    setArgs(getValue(I.getArgOperand(3)), IntPtrTy);
+    setArgs(getValue(I.getArgOperand(4)), IntPtrTy);
+    bool isTC = I.isTailCall() && isInTailCallPosition(I, DAG.getTarget());
+    TargetLowering::CallLoweringInfo CLI(DAG);
+    CLI.setDebugLoc(sdl)
+        .setChain(getRoot())
+        .setLibCallee(CallingConv::C, Type::getVoidTy(*Context),
+                      DAG.getExternalSymbol(
+                        TLI.getLibcallName(RTLIB::FOR_CPYSTR),
+                        TLI.getPointerTy(DAG.getDataLayout())),
+                      std::move(Args))
+        .setTailCall(isTC);
+    std::pair<SDValue, SDValue> Result = TLI.LowerCallTo(CLI);
+    updateDAGForMaybeTailCall(Result.second);
+    return;
+  }
+#endif // INTEL_CUSTOMIZATION
   case Intrinsic::call_preallocated_setup: {
     const CallBase *PreallocatedCall = FindPreallocatedCall(&I);
     SDValue SrcValue = DAG.getSrcValue(PreallocatedCall);
