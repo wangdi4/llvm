@@ -41,6 +41,7 @@
 #include "llvm/IR/Value.h"
 #include "llvm/Support/AtomicOrdering.h"
 #include "llvm/Support/Format.h"
+#include "llvm/Support/MD5.h" // INTEL
 #include "llvm/Support/raw_ostream.h"
 #include <cassert>
 #include <numeric>
@@ -1721,6 +1722,25 @@ static void getTargetEntryUniqueInfo(ASTContext &C, SourceLocation Loc,
 
   DeviceID = ID.getDevice();
   FileID = ID.getFile();
+#if INTEL_CUSTOMIZATION
+  if (C.getLangOpts().OpenMPStableFileID)
+    // Hash relative file name to single unsigned value.
+    // This is a non-product mode to get buildsame binaries built
+    // from files located in different directories
+    // (e.g. for experimental and reference builds of benchmarks).
+    // This may produce conflicting file IDs for files named the same way
+    // and compiled with the same relative paths, but this is expected
+    // and should be considered an error.
+    //
+    // For example:
+    //   File /ref/test.c compiled inside /ref, and file /exp/test.c
+    //   compiled inside /exp will have the same file ID.
+    //
+    //   File /ref/1/test.c compiled inside /ref/1, and file
+    //   /ref/2/test.c compiled inside /ref/2 will also have
+    //   the same file ID, which may break linking the files together.
+    FileID = llvm::MD5Hash(PLoc.getFilename());
+#endif // INTEL_CUSTOMIZATION
   LineNum = PLoc.getLine();
 }
 

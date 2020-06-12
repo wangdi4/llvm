@@ -4429,6 +4429,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
         A->render(Args, CmdArgs);
     }
   };
+  if (Args.hasArg(options::OPT_fopenmp_stable_file_id))
+    CmdArgs.push_back("-fopenmp-stable-file-id");
 #endif // INTEL_CUSTOMIZATION
 
   // Embed-bitcode option.
