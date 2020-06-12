@@ -195,6 +195,28 @@ public:
   uint8_t getNDRangeStartDim() const {
     return NDRangeStartDim;
   }
+  // If the LoopInfo completely contained F before outlining, remove F's
+  // blocks from the LoopInfo.
+  // Remove any resulting empty Loops.
+  void removeBlocksInFn(Function *F) {
+    // If the entry block is contained in LI, the entire function is
+    // contained.
+    // But we must use the original entry before outlining, not the new
+    // outlined entry. This entry is a single-entry block following the new
+    // entry.
+    BasicBlock *OrigEntry = &(F->getEntryBlock());
+    if (auto *SingleSucc = OrigEntry->getSingleSuccessor())
+      if (SingleSucc->hasNPredecessors(1))
+        OrigEntry = SingleSucc;
+    if (LI && F && LI->getLoopDepth(OrigEntry)) {
+      for (BasicBlock &BB : *F)
+        LI->removeBlock(&BB);
+      // If F had a loop, it will be empty after block removal. Remove it.
+      for (Loop *L : LI->getLoopsInPreorder())
+        if (L->getNumBlocks() == 0)
+          LI->erase(L);
+    }
+  }
 
   void print(formatted_raw_ostream &OS, unsigned Depth,
              unsigned Verbosity=1) const;
