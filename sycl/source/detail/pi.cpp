@@ -256,15 +256,6 @@ bool trace(TraceLevel Level) {
 }
 
 // Initializes all available Plugins.
-<<<<<<< HEAD
-vector_class<plugin> initialize() {
-  static bool PluginsInitDone = false;
-  static vector_class<plugin> Plugins;
-  if (PluginsInitDone) {
-    return Plugins;
-  }
-
-=======
 const vector_class<plugin> &initialize() {
   static std::once_flag PluginsInitDone;
   static vector_class<plugin> *Plugins = nullptr;
@@ -282,7 +273,6 @@ const vector_class<plugin> &initialize() {
 }
 
 static void initializePlugins(vector_class<plugin> *Plugins) {
->>>>>>> 03dd60d7c9dbcd046176b75a669643d46cb1d6e3
   vector_class<std::pair<std::string, backend>> PluginNames;
   findPlugins(PluginNames);
 
@@ -338,18 +328,13 @@ static void initializePlugins(vector_class<plugin> *Plugins) {
       GlobalPlugin =
           std::make_shared<plugin>(PluginInformation, backend::level0);
     }
-<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
-    Plugins.emplace_back(plugin(PluginInformation, PluginNames[I].second));
-=======
     Plugins->emplace_back(plugin(PluginInformation, PluginNames[I].second));
->>>>>>> 03dd60d7c9dbcd046176b75a669643d46cb1d6e3
     if (trace(TraceLevel::PI_TRACE_BASIC))
       std::cerr << "SYCL_PI_TRACE[basic]: "
                 << "Plugin found and successfully loaded: "
                 << PluginNames[I].first << std::endl;
   }
-  PluginsInitDone = true;
 
 #if INTEL_CUSTOMIZATION
 #ifdef XPTI_ENABLE_INSTRUMENTATION
@@ -395,12 +380,7 @@ static void initializePlugins(vector_class<plugin> *Plugins) {
       xptiMakeEvent("PI Layer", &PIPayload, xpti::trace_algorithm_event,
                     xpti_at::active, &PiInstanceNo);
 #endif
-<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
-
-  return Plugins;
-=======
->>>>>>> 03dd60d7c9dbcd046176b75a669643d46cb1d6e3
 }
 
 // Report error and no return (keeps compiler from printing warnings).
