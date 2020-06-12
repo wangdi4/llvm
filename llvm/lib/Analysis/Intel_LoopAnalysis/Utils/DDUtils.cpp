@@ -93,7 +93,7 @@ inline void reportFail(const char *Banner) {
 bool canMoveLoadIntoLoop(const DDRef *TempRef, const DDRef *MemRef,
                          HLLoop *InnermostLoop, DDGraph DDG,
                          const SmallVectorImpl<HLInst *> &PostLoopInsts,
-                         HLInst **StoreInstPtr) {
+                         HLInst *PreLoopStoreInst, HLInst **StoreInstPtr) {
 
   HLNode *StoreNode1 = nullptr;
   const DDEdge *AntiOrOutputEdge = nullptr;
@@ -121,6 +121,11 @@ bool canMoveLoadIntoLoop(const DDRef *TempRef, const DDRef *MemRef,
     if (MemRef->isRval() ? Edge->isAnti() : Edge->isOutput()) {
       AntiOrOutputEdge = Edge;
       StoreNode1 = SinkNode;
+
+      // Avoid the case that the store node is before the innermost loop
+      if (StoreNode1 == PreLoopStoreInst) {
+        return false;
+      }
     }
   }
 
@@ -156,6 +161,11 @@ bool canMoveLoadIntoLoop(const DDRef *TempRef, const DDRef *MemRef,
       if (ParentLoop == ParentOfInnermost) {
         FlowEdge = Edge;
         StoreNode2 = SinkNode;
+
+        // Avoid the case that the store node is before the innermost loop
+        if (StoreNode2 == PreLoopStoreInst) {
+          return false;
+        }
       }
     }
   }
@@ -311,7 +321,7 @@ bool gatherPreloopInsts(HLInst *Inst, HLLoop *InnermostLoop, DDGraph DDG,
   const Instruction *LLVMInst = Inst->getLLVMInstruction();
   RegDDRef *LRef = Inst->getLvalDDRef();
 
-  // Collect store insts into a vector if non-perfect sinking is allowed
+  // Get the store inst if non-perfect sinking is allowed
   if (AllowNonPerfectSinking && !PreLoopStoreInst && isa<StoreInst>(LLVMInst)) {
 
     if (DDUtils::anyEdgeToLoop(DDG, LRef, InnermostLoop)) {
@@ -471,7 +481,7 @@ bool enablePerfectLPLegalityCheckPre(
     HLInst *StoreInst = nullptr;
 
     if (!canMoveLoadIntoLoop(LRef, RRef, InnermostLoop, DDG, PostLoopInsts,
-                             &StoreInst)) {
+                             PreLoopStoreInst, &StoreInst)) {
       LLVM_DEBUG(dbgs() << "\n Fails at canMoveLoadIntoLoop \n");
       LLVM_DEBUG(Inst->dump());
       return false;
@@ -533,8 +543,7 @@ bool enablePerfectLPLegalityCheckPost(
          I != E; ++I) {
       const DDEdge *Edge = *I;
       DDRef *DDRefSrc = Edge->getSrc();
-      if (DDRefSrc->getLexicalParentLoop() == InnermostLoop &&
-          Edge->isFlow()) {
+      if (DDRefSrc->getLexicalParentLoop() == InnermostLoop && Edge->isFlow()) {
         return false;
       }
     }
@@ -1035,11 +1044,9 @@ struct CollectDDInfoForPermute final : public HLNodeVisitorBase {
   CollectDDInfoForPermute(const HLLoop *CandidateLoop, unsigned InnermostLevel,
                           HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
                           const SpecialSymbasesTy *SpecialSBs,
-                          bool IgnoreSpecialSymbases, bool RefineDV,
-                          T &DVs);
+                          bool IgnoreSpecialSymbases, bool RefineDV, T &DVs);
 
-  void addToDVs(T &DVs,
-                const DirectionVector& DV, const DDEdge *Edge);
+  void addToDVs(T &DVs, const DirectionVector &DV, const DDEdge *Edge);
 
   void visit(const HLDDNode *DDNode);
 
@@ -1048,23 +1055,23 @@ struct CollectDDInfoForPermute final : public HLNodeVisitorBase {
   void postVisit(const HLDDNode *Node) {}
 };
 
-template<>
+template <>
 void CollectDDInfoForPermute<SmallVectorImpl<DirectionVector>>::addToDVs(
-  SmallVectorImpl<DirectionVector> &DVs,
-  const DirectionVector& DV, const DDEdge *Edge) {
+    SmallVectorImpl<DirectionVector> &DVs, const DirectionVector &DV,
+    const DDEdge *Edge) {
   DVs.push_back(DV);
 }
 
-template<>
+template <>
 void CollectDDInfoForPermute<
-SmallVectorImpl<std::pair<DirectionVector, unsigned>>>::addToDVs(
-  SmallVectorImpl<std::pair<DirectionVector, unsigned>> &DVs,
-  const DirectionVector& DV, const DDEdge *Edge) {
+    SmallVectorImpl<std::pair<DirectionVector, unsigned>>>::
+    addToDVs(SmallVectorImpl<std::pair<DirectionVector, unsigned>> &DVs,
+             const DirectionVector &DV, const DDEdge *Edge) {
 
   unsigned BasePtrBlobIndex = InvalidBlobIndex;
 
-  if (const RegDDRef* SrcRef = dyn_cast<RegDDRef>(Edge->getSrc())) {
-    if (const RegDDRef* DstRef = dyn_cast<RegDDRef>(Edge->getSink())) {
+  if (const RegDDRef *SrcRef = dyn_cast<RegDDRef>(Edge->getSrc())) {
+    if (const RegDDRef *DstRef = dyn_cast<RegDDRef>(Edge->getSink())) {
       if (SrcRef->isMemRef() && DDRefUtils::areEqual(SrcRef, DstRef)) {
         BasePtrBlobIndex = SrcRef->getBasePtrBlobIndex();
       }
@@ -1079,8 +1086,7 @@ template <typename T>
 CollectDDInfoForPermute<T>::CollectDDInfoForPermute(
     const HLLoop *CandidateLoop, unsigned InnermostLevel, HIRDDAnalysis &DDA,
     HIRSafeReductionAnalysis &SRA, const SpecialSymbasesTy *SpecialSBs,
-    bool IgnoreSpecialSymbases, bool RefineDV,
-    T &DVs)
+    bool IgnoreSpecialSymbases, bool RefineDV, T &DVs)
     : CandidateLoop(CandidateLoop),
       OutermostLevel(CandidateLoop->getNestingLevel()),
       InnermostLevel(InnermostLevel), DDA(DDA),
@@ -1190,24 +1196,21 @@ void DDUtils::computeDVsForPermute(SmallVectorImpl<DirectionVector> &DVs,
                                    bool RefineDV) {
 
   CollectDDInfoForPermute<SmallVectorImpl<DirectionVector>> CDD(
-    OutermostLoop, InnermostNestingLevel, DDA, SRA,
-                              nullptr, true, RefineDV, DVs);
+      OutermostLoop, InnermostNestingLevel, DDA, SRA, nullptr, true, RefineDV,
+      DVs);
 
   HLNodeUtils::visit(CDD, OutermostLoop);
 }
 
 void DDUtils::computeDVsForPermuteWithSBs(
-  SmallVectorImpl<std::pair<DirectionVector, unsigned>> &DVs,
-                                          const HLLoop *OutermostLoop,
-                                          unsigned InnermostNestingLevel,
-                                          HIRDDAnalysis &DDA,
-                                          HIRSafeReductionAnalysis &SRA,
-                                          bool RefineDV,
-                                          const SpecialSymbasesTy *SpecialSBs) {
+    SmallVectorImpl<std::pair<DirectionVector, unsigned>> &DVs,
+    const HLLoop *OutermostLoop, unsigned InnermostNestingLevel,
+    HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA, bool RefineDV,
+    const SpecialSymbasesTy *SpecialSBs) {
 
-  CollectDDInfoForPermute<SmallVectorImpl<std::pair<DirectionVector, unsigned>
-    >> CDD(OutermostLoop, InnermostNestingLevel, DDA, SRA,
-           SpecialSBs, false, RefineDV, DVs);
+  CollectDDInfoForPermute<SmallVectorImpl<std::pair<DirectionVector, unsigned>>>
+      CDD(OutermostLoop, InnermostNestingLevel, DDA, SRA, SpecialSBs, false,
+          RefineDV, DVs);
 
   HLNodeUtils::visit(CDD, OutermostLoop);
 }
@@ -1219,8 +1222,8 @@ void DDUtils::computeDVsForPermuteIgnoringSBs(
     const SpecialSymbasesTy *SpecialSBs) {
 
   CollectDDInfoForPermute<SmallVectorImpl<DirectionVector>> CDD(
-    OutermostLoop, InnermostNestingLevel, DDA, SRA,
-                              SpecialSBs, true, RefineDV, DVs);
+      OutermostLoop, InnermostNestingLevel, DDA, SRA, SpecialSBs, true,
+      RefineDV, DVs);
 
   HLNodeUtils::visit(CDD, OutermostLoop);
 }
@@ -1238,7 +1241,7 @@ const RegDDRef *DDUtils::getSingleBasePtrLoadRef(const DDGraph &DDG,
     return nullptr;
   }
 
-  const RegDDRef *SrcRef         = nullptr;
+  const RegDDRef *SrcRef = nullptr;
   const RegDDRef *BasePtrLoadRef = nullptr;
 
   for (const DDEdge *Edge : DDG.incoming(BasePtrBlobRef)) {
