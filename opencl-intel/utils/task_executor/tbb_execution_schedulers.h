@@ -29,38 +29,34 @@ public:
 
 private:
 
-    // specific execution methods
-    template <class BlockedRange, class TaskLoopBodySpecific>
-    static void opencl_executor( 
-        const size_t                                      dims[],
-        size_t                                            grainsize,
-        const Intel::OpenCL::Utils::SharedPtr<ITaskSet>&  task,
-        base_command_list&                                cmdList );
-
     // tiled, horizontal, vertical
     template <class BlockedRange, class TaskLoopBodySpecific>        
     static void auto_executor(
-        const size_t                                      dims[],
+        const size_t                                      dimsBegin[],
+        const size_t                                      dimsEnd[],
         size_t                                            grainsize,
         const Intel::OpenCL::Utils::SharedPtr<ITaskSet>&  task,
         base_command_list&                                cmdList );
     
     template <class BlockedRange, class TaskLoopBodySpecific>        
     static void affinity_executor( 
-        const size_t                                      dims[],
+        const size_t                                      dimsBegin[],
+        const size_t                                      dimsEnd[],
         size_t                                            grainsize,
         const Intel::OpenCL::Utils::SharedPtr<ITaskSet>&  task,
         base_command_list&                                cmdList );
 
     template <class BlockedRange, class TaskLoopBodySpecific>
     static void static_executor(
-        const size_t                                      dims[],
+        const size_t                                      dimsBegin[],
+        const size_t                                      dimsEnd[],
         size_t                                            grainsize,
         const Intel::OpenCL::Utils::SharedPtr<ITaskSet>&  task,
         base_command_list&                                cmdList );
 
     typedef void (*ExecutorFunc)( 
-        const size_t                                      dims[],
+        const size_t                                      dimsBegin[],
+        const size_t                                      dimsEnd[],
         size_t                                            grainsize,
         const Intel::OpenCL::Utils::SharedPtr<ITaskSet>&  task,
         base_command_list&                                cmdList );

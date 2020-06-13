@@ -425,6 +425,7 @@ void CPUDevice::calculateComputeUnitMap()
 
     // DPCPP_CPU_CU_AFFINITY = {close | spread | master} controls thread
     // affinity, similar to OMP_PROC_BIND in OpenMP.
+    // By default, the DPCPP_CPU_CU_AFFINITY variable is not set.
     std::string env_dpcpp_affinity;
     cl_err_code err = Intel::OpenCL::Utils::GetEnvVar(env_dpcpp_affinity,
                                                       "DPCPP_CPU_CU_AFFINITY");
@@ -446,9 +447,12 @@ void CPUDevice::calculateComputeUnitMap()
     // set correctly.
     m_pinMaster = true;
 
-    // DPCPP_CPU_PLACES = {sockets | cores | threads} controls which place to
-    // set affinity, analogous to OMP_PLACES in OpenMP.
-    std::string places;
+    // DPCPP_CPU_PLACES = {sockets | numa_domains | cores | threads} controls
+    // which place to set affinity, analogous to OMP_PLACES in OpenMP.
+    // DPCPP_CPU_PLACES must be used together with DPCPP_CPU_CU_AFFINITY.
+    // Default value is cores.
+    // If value is numa_domains, TBB NUMA API will be used.
+    std::string places = "cores";
     (void)Intel::OpenCL::Utils::GetEnvVar(places, "DPCPP_CPU_PLACES");
 
     // Assume we have a 2 sockets, 4 physical cores per socket

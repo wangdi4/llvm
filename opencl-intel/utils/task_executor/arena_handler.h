@@ -79,7 +79,8 @@ public:
     void Init(unsigned int                  uiMaxNumThreads, 
               unsigned int                  uiReservedPlacesForMasters,
               unsigned int uiLevel, const unsigned int p_uiPosition[],
-              TEDevice*                     device);
+              TEDevice*                     device,
+              int                           numaNode = 0);
 
     /**
      * Destructor
@@ -101,6 +102,9 @@ public:
      */
     template<class F>
     void Execute(F& f) { m_arena.execute(f); }
+
+    template<class F>
+    void Execute(const F& f) { m_arena.execute(f); }
 
     /**
      * @return the number of compute units of the sub-device of this ArenaHandler
@@ -271,6 +275,8 @@ public:
     TBBTaskExecutor&  GetTaskExecutor() { return m_taskExecutor; }
     const TBBTaskExecutor&  GetTaskExecutor() const { return m_taskExecutor; }
 
+    ArenaHandler* GetLowLevelArenas() { return m_lowLevelArenas[0]; }
+
     // observer methods
     void on_scheduler_entry(bool bIsWorker, ArenaHandler& arena );
     void on_scheduler_exit(bool bIsWorker, ArenaHandler& arena );
@@ -405,7 +411,8 @@ template <class F>
 inline
 void TEDevice::Enqueue(F& f)
 {
-    assert (1 == m_deviceDescriptor.uiNumOfLevels && "Currently we support single level arenas");
+    assert (m_deviceDescriptor.uiNumOfLevels <= TE_MAX_LEVELS_COUNT &&
+        "Device level must not exceed TE_MAX_LEVELS_COUNT");
 
     // If trapping exists for device, we need to some w/o to submit a task
 #ifdef __HARD_TRAPPING__
@@ -424,7 +431,8 @@ template <class F>
 inline
 void TEDevice::Execute(F& f)
 {
-    assert (1 == m_deviceDescriptor.uiNumOfLevels && "Currently we support single level arenas");
+    assert (m_deviceDescriptor.uiNumOfLevels <= TE_MAX_LEVELS_COUNT &&
+        "Device level must not exceed TE_MAX_LEVELS_COUNT");
 #if defined(__HARD_TRAPPING__) && !defined(DEVICE_NATIVE)
     assert (m_worker_trapper == nullptr && "Execute() is not allowed on device with trapped workers");
 #endif

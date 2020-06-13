@@ -214,6 +214,7 @@ public:
     // Optimize By
     TASK_SET_OPTIMIZATION OptimizeBy()                        const { return TASK_SET_OPTIMIZE_DEFAULT; }
     size_t          PreferredSequentialItemsPerThread() const override;
+    bool    PreferNumaNodes() const override { return true; }
 
     bool IsCompleted() const { return CommandBaseClass<ITaskSet>::IsCompleted(); }
 

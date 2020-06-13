@@ -53,16 +53,33 @@ base_command_list::base_command_list(TBBTaskExecutor& pTBBExec, const Intel::Ope
 	m_taskGroup(TaskGroup::Allocate(device.GetPtr())),
 	m_bProfilingEnabled(bProfilingEnabled),
 	m_bIsDefaultQueue(param.isQueueDefault),
+        m_numaTaskGroups(nullptr),
 	m_scheduling(param.preferredScheduling),
 	m_bCanceled(false)
 {
     m_execTaskRequests = 0;
     m_bMasterRunning = false;
+
+    // Initialize task groups and dims for NUMA nodes
+    if (m_pTBBExecutor.IsTBBNumaEnabled())
+    {
+       unsigned numaNodesCount = m_pTBBExecutor.GetTBBNumaNodesCount();
+       m_numaTaskGroups = new tbb::task_group[numaNodesCount];
+       m_numaDimsBegin.resize(numaNodesCount);
+       m_numaDimsEnd.resize(numaNodesCount);
+       for (unsigned i = 0; i < numaNodesCount; ++i)
+       {
+           m_numaDimsBegin[i].resize(MAX_WORK_DIM);
+           m_numaDimsEnd[i].resize(MAX_WORK_DIM);
+       }
+    }
 }
 
 base_command_list::~base_command_list()
 {
     WaitForIdle();
+    if (m_numaTaskGroups)
+        delete[] m_numaTaskGroups;
 }
 
 unsigned int base_command_list::Enqueue(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask)

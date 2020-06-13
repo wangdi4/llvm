@@ -48,8 +48,10 @@ ArenaHandler::~ArenaHandler()
 void ArenaHandler::Init(
             unsigned int                  uiMaxNumThreads, 
             unsigned int                  uiReservedPlacesForMasters,
-            unsigned int uiLevel, const unsigned int p_uiPosition[],
-            TEDevice*                     device)
+            unsigned int                  uiLevel,
+            const unsigned int            p_uiPosition[],
+            TEDevice*                     device,
+            int                           numaNode)
 {
     LOG_INFO(TEXT("ArenaHandler::Init(uiMaxNumThreads=%d, uiReservedPlacesForMasters=%d, uiLevel=%d)"), uiMaxNumThreads, uiReservedPlacesForMasters, uiLevel);
     m_uiMaxNumThreads = uiMaxNumThreads;
@@ -72,7 +74,12 @@ void ArenaHandler::Init(
     }
 
     LOG_INFO(TEXT("Calling to task_arena::initialize(%d, %d)"), uiMaxNumThreads, uiReservedPlacesForMasters);
-    m_arena.initialize( uiMaxNumThreads, uiReservedPlacesForMasters );
+    if (uiLevel == 0)
+        m_arena.initialize( uiMaxNumThreads, uiReservedPlacesForMasters );
+#if __TBB_NUMA_SUPPORT
+    else
+        m_arena.initialize(tbb::task_arena::constraints(numaNode));
+#endif
     StartMonitoring();
 }
 
@@ -125,10 +132,13 @@ void TEDevice::init_next_arena_level( unsigned int current_level, unsigned int p
     ArenaHandler* next_level_array = new ArenaHandler[ arenas_per_level ];;
     m_lowLevelArenas[current_level-1] = next_level_array;
 
+    const std::vector<int>& numaNodes = m_taskExecutor.GetTBBNumaNodes();
+
     for (unsigned int arena_idx = 0; arena_idx < arenas_per_level; ++arena_idx)
     {
         position[current_level-1] = arena_idx;   // this is position of current arena on the previous level
-        next_level_array[arena_idx].Init( threads_per_level, 1, current_level, position, this );
+        next_level_array[arena_idx].Init(threads_per_level, 1, current_level,
+                                         position, this, numaNodes[arena_idx]);
 
         if (current_level < m_deviceDescriptor.uiNumOfLevels-1)
         {
@@ -262,7 +272,8 @@ void TEDevice::ShutDown()
         {
             ArenaHandler* ar = m_lowLevelArenas[i-1];
             assert( (nullptr != ar) && "Low level arena array in NULL for hierarchical arenas?" );
-            for (unsigned int j = 0; j < m_deviceDescriptor.uiThreadsPerLevel[ i ]; ++i)
+            for (unsigned int j = 0;
+                 j < m_deviceDescriptor.uiThreadsPerLevel[i - 1]; ++j)
             {
                 ar[j].StopMonitoring();
             }
@@ -276,7 +287,8 @@ void TEDevice::ShutDown()
     {
         ArenaHandler* ar = m_lowLevelArenas[i-1];
         assert( (nullptr != ar) && "Low level arena array in NULL for hierarchical arenas?" );
-        for (unsigned int j = 0; j < m_deviceDescriptor.uiThreadsPerLevel[ i ]; ++i)
+        for (unsigned int j = 0;
+             j < m_deviceDescriptor.uiThreadsPerLevel[i - 1]; ++j)
         {
             ar[j].Terminate();
         }
@@ -299,8 +311,11 @@ void TEDevice::free_thread_arenas_resources( TBB_PerActiveThreadData* tls, unsig
     // free all allocations in the lower level arenas
     for (unsigned int i = starting_level; i < m_deviceDescriptor.uiNumOfLevels; ++i)
     {
-        tls->attached_arenas[i]->FreeThreadPosition( tls->position[i] );
-        tls->attached_arenas[i] = nullptr;
+        if (tls->attached_arenas[i])
+        {
+            tls->attached_arenas[i]->FreeThreadPosition( tls->position[i] );
+            tls->attached_arenas[i] = nullptr;
+        }
     }
 }
 
@@ -402,7 +417,8 @@ void TEDevice::on_scheduler_entry( bool bIsWorker, ArenaHandler& arena )
         // Arena was used but not this... Intermediate thread moved to another sub-arena?
         // This may be the case if task tries to join the top level arena during execution in the low level arena
         // free all allocations in the lower level arenas
-        assert( false && "Looks like task tries to join top level arena while executing inside low level arena" );
+        assert((curr_arena_level == 1) && "Looks like task tries to join "
+            "top level arena while executing inside low level arena");
         free_thread_arenas_resources( tls, curr_arena_level );
     }
 
@@ -413,8 +429,16 @@ void TEDevice::on_scheduler_entry( bool bIsWorker, ArenaHandler& arena )
         tls->attached_arenas[curr_arena_level]  = &arena;
     }
 
+    bool reportEntry = !tls->enter_tried_to_report;
+    // If TBB NUMA is enabled, we need to report entry at the top level for
+    // tasks (e.g. AffinitizeThreads) in main arena and at the low level for
+    // tasks (e.g. NDRange) in low-level arenas.
+#if !__TBB_NUMA_SUPPORT
     // report entry to user - need be done only at the lowest level
-    if ((!tls->enter_tried_to_report) && (curr_arena_level == (m_deviceDescriptor.uiNumOfLevels-1)))
+    reportEntry = reportEntry &&
+                  (curr_arena_level == (m_deviceDescriptor.uiNumOfLevels-1));
+#endif
+    if (reportEntry)
     {
         tls->enter_tried_to_report = true;
 
@@ -601,9 +625,15 @@ SharedPtr<ITaskList> TEDevice::CreateTaskList(const CommandListCreationParam& pa
     */
 int TEDevice::GetConcurrency() const
 {
-    assert ( (1 == m_deviceDescriptor.uiNumOfLevels)  && "Currently only single level devices are supported");
+    unsigned levels = m_deviceDescriptor.uiNumOfLevels;
+    assert ( (levels <= TE_MAX_LEVELS_COUNT) &&
+        "Device level must not exceed TE_MAX_LEVELS_COUNT");
 
-    return m_deviceDescriptor.uiThreadsPerLevel[0];
+    int concurrency = 1;
+    for (unsigned i = 0; i < levels; ++i)
+        concurrency *= m_deviceDescriptor.uiThreadsPerLevel[i];
+
+    return concurrency;
 }
 
 bool TEDevice::IsCurrentThreadInArena() const

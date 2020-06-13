@@ -344,6 +344,8 @@ public:
     virtual TASK_SET_OPTIMIZATION OptimizeBy()                        const = 0;
     virtual size_t PreferredSequentialItemsPerThread() const = 0;
 
+    // Whether the task prefers to run on arenas bound to TBB NUMA nodes
+    virtual bool PreferNumaNodes() const = 0;
 };
 
 /////////////////////////////////////////////////////////////////////////////
@@ -581,6 +583,24 @@ public:
      *                 thread is outside of any TE Device or sub-device
      */
     virtual unsigned int GetPosition( unsigned int level = 0 ) const = 0;
+
+    /**
+     * Check if TBB numa support is available and enabled.
+     * @return true if TBB numa support is enabled.
+     */
+    virtual bool IsTBBNumaEnabled() const = 0;
+
+    /**
+     * Get the number of numa nodes in tbb.
+     * @return the number of numa nodes in tbb.
+     */
+    virtual unsigned int GetTBBNumaNodesCount() const = 0;
+
+    /**
+     * Get numa node indexes in tbb.
+     * @return numa node indexes in tbb.
+     */
+    virtual const std::vector<int>& GetTBBNumaNodes() const = 0;
 
     /**
      * @param device a ITEDevice

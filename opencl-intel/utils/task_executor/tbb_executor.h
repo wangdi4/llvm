@@ -60,6 +60,9 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
                   DeviceMode deviceMode = CPU_DEVICE);
         void Finalize();
 
+        // Initialize TBB NUMA and check if it is supported
+        void InitTBBNuma();
+
         Intel::OpenCL::Utils::SharedPtr<ITEDevice>  CreateRootDevice(
                                                 const RootDeviceCreationParam& device_desc = RootDeviceCreationParam(),  
                                                 void* user_data = nullptr, ITaskExecutorObserver* my_observer = nullptr );
@@ -71,6 +74,16 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
         virtual DeviceHandleStruct GetCurrentDevice() const;
         virtual bool IsMaster() const;
         virtual unsigned int GetPosition( unsigned int level = 0 ) const;
+
+        virtual bool IsTBBNumaEnabled() const override {
+            return m_tbbNumaEnabled;
+        }
+        virtual unsigned int GetTBBNumaNodesCount() const override {
+            return (unsigned int)m_tbbNumaNodes.size();
+        }
+        virtual const std::vector<int>& GetTBBNumaNodes() const override {
+            return m_tbbNumaNodes;
+        }
 
         typedef TBB_ThreadManager<TBB_PerActiveThreadData> ThreadManager;
         ThreadManager& GetThreadManager() { return m_threadManager; }
@@ -95,6 +108,11 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
         ThreadManager                          m_threadManager;
         Intel::OpenCL::Utils::OclDynamicLib    m_dllTBBLib;
+
+        // whether TBB NUMA API is enabled
+        bool                                   m_tbbNumaEnabled;
+        std::vector<int>                       m_tbbNumaNodes;
+
         SharedPtr<ITaskList>                m_pDebugInOrderDeviceQueue;
 
         // Logger

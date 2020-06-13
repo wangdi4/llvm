@@ -134,7 +134,15 @@ public:
     SharedPtr<ITEDevice> GetDevice() { return m_device; }
 
     ConstSharedPtr<ITEDevice> GetDevice() const { return (const ITEDevice*)m_device.GetPtr(); }
-    
+
+    tbb::task_group* GetNumaTaskGroups() const { return m_numaTaskGroups; }
+    std::vector<std::vector<size_t>>& GetNumaDimsBegin() {
+        return m_numaDimsBegin;
+    }
+    std::vector<std::vector<size_t>>& GetNumaDimsEnd() {
+        return m_numaDimsEnd;
+    }
+
     virtual tbb::affinity_partitioner& GetAffinityPartitioner() { return m_part; }
     virtual tbb::static_partitioner&   GetStaticPartitioner()
     {
@@ -184,6 +192,13 @@ protected:
     SharedPtr<TaskGroup>    m_taskGroup;	
     const bool				m_bProfilingEnabled;
     const bool				m_bIsDefaultQueue;
+
+    // TBB task groups used for arenas bound to NUMA nodes.
+    tbb::task_group*                    m_numaTaskGroups;
+    // Beginning of ranges for NUMA arenas.
+    std::vector<std::vector<size_t>>    m_numaDimsBegin;
+    // End of ranges for NUMA arenas.
+    std::vector<std::vector<size_t>>    m_numaDimsEnd;
 
     // Affinity partitioner used in execution
     tbb::affinity_partitioner	m_part;
