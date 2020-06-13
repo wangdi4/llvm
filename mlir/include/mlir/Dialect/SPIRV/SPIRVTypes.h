@@ -19,7 +19,6 @@
 #include "mlir/IR/TypeSupport.h"
 #include "mlir/IR/Types.h"
 
-#include <bits/stdint-uintn.h>
 #include <tuple>
 
 // Forward declare enum classes related to op availability. Their definitions
