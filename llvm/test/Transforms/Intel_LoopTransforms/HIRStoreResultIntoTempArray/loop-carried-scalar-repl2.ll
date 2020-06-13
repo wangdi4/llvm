@@ -4,6 +4,7 @@
 ; In this case, MinRef is (%"jacobian_$Q")[i1 + 1][i2][i3][0], and MaxRef is (%"jacobian_$Q")[i1 + 2][%mod][%mod27 + 1][0].
 ; We enlarge the array size by 1 for i2, because of  %mod = i2 + 3  %  %"jacobian_$NY_fetch" + 1.
 ; We enlarge the array size by 1 for i3, because of %mod27 + 1.
+; We also set TempArray's dimenion by [i1][i2][i3], the use of it will be shifted accordingly to reduce the array size.
 ;
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-store-result-into-temp-array -print-after=hir-store-result-into-temp-array < %s 2>&1 | FileCheck %s
 ;RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-store-result-into-temp-array,print<hir>" 2>&1 < %s | FileCheck %s
@@ -51,7 +52,7 @@
 ; CHECK:      BEGIN REGION { modified }
 ; CHECK:           %call = @llvm.stacksave();
 ; CHECK:           %array_size = sext.i32.i64((1 + %"jacobian_$NY_fetch"))  *  sext.i32.i64((1 + %"jacobian_$NX_fetch")) + -1;
-; CHECK:           %array_size3 = sext.i32.i64(%"jacobian_$NZ_fetch1") + 2  *  %array_size;
+; CHECK:           %array_size3 = sext.i32.i64(%"jacobian_$NZ_fetch1") + 1 *  %array_size;
 ; CHECK:           %TempArray = alloca %array_size3;
 ;
 ; CHECK:           + DO i1 = 0, sext.i32.i64(%"jacobian_$NZ_fetch1"), 1   <DO_LOOP>
@@ -66,7 +67,7 @@
 ; CHECK:           |   |   |   %mul103 = %add102  *  2.000000e+00;
 ; CHECK:           |   |   |   %mul107 = %mul103  *  2.000000e+00;
 ; CHECK:           |   |   |   %div106 = %mul107  /  %"jacobian_$Q[]53[][][]_fetch";
-; CHECK:           |   |   |   (%TempArray)[i1 + 1][i2][i3] = @llvm.pow.f64(%div106,  2.500000e+00);
+; CHECK:           |   |   |   (%TempArray)[i1][i2][i3] = @llvm.pow.f64(%div106,  2.500000e+00);
 ; CHECK:           |   |   + END LOOP
 ; CHECK:           |   + END LOOP
 ; CHECK:           + END LOOP
@@ -79,8 +80,8 @@
 ; CHECK:           |   |
 ; CHECK:           |   |   + DO i3 = 0, sext.i32.i64((1 + %"jacobian_$NX_fetch")) + -2, 1   <DO_LOOP>
 ; CHECK:           |   |   |   %mod27 = i3 + 2  %  %"jacobian_$NX_fetch";
-; CHECK:           |   |   |   %func_result = (%TempArray)[i1 + 1][i2][i3];
-; CHECK:           |   |   |   %func_result250 = (%TempArray)[i1 + 2][%mod][zext.i32.i64(%mod27)];
+; CHECK:           |   |   |   %func_result = (%TempArray)[i1][i2][i3];
+; CHECK:           |   |   |   %func_result250 = (%TempArray)[i1 + 1][%mod][zext.i32.i64(%mod27)];
 ; CHECK:           |   |   |   %add251 = %"jacobian_$M.0"  +  %func_result250;
 ; CHECK:           |   |   |   %"jacobian_$M.0" = %func_result  +  %add251;
 ; CHECK:           |   |   + END LOOP
