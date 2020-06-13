@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2020 Intel Corporation.  All Rights Reserved.
 
     The source code contained or described herein and all documents related
     to the source code ("Material") are owned by Intel Corporation or its
@@ -18,11 +18,13 @@
     writing.
 */
 
-#include "tbb/atomic.h"
-#include "tbb/tick_count.h"
-
 #ifndef harness_barrier_H
 #define harness_barrier_H
+
+#include <tbb/tick_count.h>
+#include <tbb/detail/_utils.h>
+#include <atomic>
+#include <thread>
 
 namespace tbb { namespace Harness {
 
@@ -41,7 +43,10 @@ public:
         double time_passed;
         do {
             time_passed = (tbb::tick_count::now()-start).seconds();
-            if( time_passed < 0.0001 ) __TBB_Pause(10); else __TBB_Yield();
+            if( time_passed < 0.0001 )
+                std::this_thread::sleep_for(10ms);
+            else
+                std::this_thread::yield();
         } while( time_passed < my_limit && location == value);
         my_limit -= time_passed;
     }
@@ -53,15 +58,15 @@ class WaitWhileEq {
     void operator=( const WaitWhileEq& );
 public:
     template<typename T, typename U>
-    void operator()( const volatile T& location, U value ) const {
-        tbb::internal::spin_wait_while_eq(location, value);
+    void operator()( const T& location, U value ) const {
+        tbb::detail::spin_wait_while_eq(location, value);
     }
 };
 class SpinBarrier
 {
     unsigned numThreads;
-    tbb::atomic<unsigned> numThreadsFinished; /* threads reached barrier in this epoch */
-    tbb::atomic<unsigned> epoch;   /* how many times this barrier used - XXX move to a separate cache line */
+    std::atomic<unsigned> numThreadsFinished; /* threads reached barrier in this epoch */
+    std::atomic<unsigned> epoch;   /* how many times this barrier used - XXX move to a separate cache line */
 
     struct DummyCallback {
         void operator() () const {}
@@ -87,7 +92,7 @@ public:
     bool custom_wait(const WaitEq &onWaitCallback, const Callback &onOpenBarrierCallback)
     { // return true if last thread
         unsigned myEpoch = epoch;
-        int threadsLeft = numThreads - numThreadsFinished.fetch_and_increment() - 1;
+        int threadsLeft = numThreads - (numThreadsFinished++) - 1;
         ASSERT(threadsLeft>=0, "Broken barrier");
         if (threadsLeft > 0) {
             /* not the last threading reaching barrier, wait until epoch changes & return 0 */

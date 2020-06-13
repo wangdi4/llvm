@@ -1,5 +1,5 @@
 /*
-    Copyright (c) 2005-2019 Intel Corporation
+    Copyright (c) 2005-2020 Intel Corporation
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -17,10 +17,15 @@
 #ifndef __TBB_global_control_H
 #define __TBB_global_control_H
 
-#include "tbb_stddef.h"
+#include "detail/_config.h"
+
+#include "detail/_assert.h"
+
+#include <cstddef>
 
 namespace tbb {
-namespace interface9 {
+namespace detail {
+namespace d1 {
 
 class global_control {
 public:
@@ -30,7 +35,7 @@ public:
         parameter_max // insert new parameters above this point
     };
 
-    global_control(parameter p, size_t value) :
+    global_control(parameter p, std::size_t value) :
         my_value(value), my_next(NULL), my_param(p) {
         __TBB_ASSERT(my_param < parameter_max, "Invalid parameter");
 #if __TBB_WIN8UI_SUPPORT && (_WIN32_WINNT < 0x0A00)
@@ -56,23 +61,27 @@ public:
         internal_destroy();
     }
 
-    static size_t active_value(parameter p) {
+    static std::size_t active_value(parameter p) {
         __TBB_ASSERT(p < parameter_max, "Invalid parameter");
         return active_value((int)p);
     }
 private:
-    size_t    my_value;
+    std::size_t   my_value;
     global_control *my_next;
     parameter my_param;
 
     void __TBB_EXPORTED_METHOD internal_create();
     void __TBB_EXPORTED_METHOD internal_destroy();
-    static size_t __TBB_EXPORTED_FUNC active_value(int param);
+    static std::size_t __TBB_EXPORTED_FUNC active_value(int param);
 };
-} // namespace interface9
 
-using interface9::global_control;
+} // namespace d1
+} // namespace detail
 
-} // tbb
+inline namespace v1 {
+using detail::d1::global_control;
+} // namespace v1
+
+} // namespace tbb
 
 #endif // __TBB_global_control_H

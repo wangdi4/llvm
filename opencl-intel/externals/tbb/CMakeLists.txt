@@ -10,10 +10,10 @@ if (WIN32)
         endif()
 
         set (TBB_BINARIES_OUTPUT_SRC_DIR
-            ${CMAKE_CURRENT_SOURCE_DIR}/bin/VS2010${TBB_BINARIES_POSTFIX}/${OS}${ADDR}_${build_suffix}/)
+            ${CMAKE_CURRENT_SOURCE_DIR}/bin/vc14${TBB_BINARIES_POSTFIX}/${OS}${ADDR}_${build_suffix}/)
     else()
         set (TBB_BINARIES_OUTPUT_SRC_DIR
-            ${CMAKE_CURRENT_SOURCE_DIR}/bin/VS2010${TBB_BINARIES_POSTFIX}/${OS}${ADDR}_${CMAKE_CFG_INTDIR}/)
+            ${CMAKE_CURRENT_SOURCE_DIR}/bin/vc14${TBB_BINARIES_POSTFIX}/${OS}${ADDR}_${CMAKE_CFG_INTDIR}/)
     endif()
     set (TBB_BINARIES_OUTPUT_DIR ${OCL_OUTPUT_LIBRARY_DIR})
 
