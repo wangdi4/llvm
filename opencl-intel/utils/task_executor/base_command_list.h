@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2020 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,12 +14,12 @@
 
 #pragma once
 
-#include "cl_synch_objects.h"
 #include "cl_shared_ptr.h"
+#include "cl_synch_objects.h"
 #include "task_executor.h"
 #include "task_group.h"
-#include "tbb/tbb.h"
-#include "tbb/task_group.h"
+
+#include <tbb/partitioner.h>
 
 namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
@@ -70,7 +70,7 @@ protected:
 class TbbTaskGroup : public IThreadLibTaskGroup
 {
 public:
-    TbbTaskGroup() : m_tskGrp(new tbb::task_group()) { }
+    TbbTaskGroup() : m_tskGrp(new task_group_with_reference()) { }
 
     PREPARE_SHARED_PTR(TbbTaskGroup)
 
@@ -92,7 +92,7 @@ public:
 
 private:
 
-    std::unique_ptr<tbb::task_group> m_tskGrp;
+    std::unique_ptr<task_group_with_reference> m_tskGrp;
 
 };
 
@@ -140,21 +140,10 @@ public:
     {
         return m_staticPartitioner;
     }
-    virtual tbb::task_group_context&   GetTBBContext() { return m_taskGroup->GetContext(); }
 
     virtual void Cancel() { m_bCanceled = true; }
     bool         Is_canceled() const { return m_bCanceled; }
    
-    /**
-     * Enqueue a functor to be run on the device's arena
-     * @param F type of functor
-     * @param func the functor object to be enqueued
-     */
-    template<typename F>
-    void EnqueueFunc(const F& func)
-    {
-        m_taskGroup->EnqueueFunc(func);
-    }
     friend class immediate_executor_task;
 
     bool HaveIncomingWork() const
@@ -181,13 +170,13 @@ protected:
 
     ConcurrentTaskQueue		m_quIncomingWork;
 
-    tbb::atomic<unsigned int>	m_execTaskRequests;
+    std::atomic<unsigned int>	m_execTaskRequests;
     Intel::OpenCL::Utils::SharedPtr<SyncTask> m_pMasterSync;
 
     // Only single muster thread can join the execution on specific queue
     // this mutex will block others. The atomic prevents wait on
     // the master if another master is running
-    tbb::atomic<bool>		m_bMasterRunning;
+    std::atomic<bool>		m_bMasterRunning;
 
     // In most cases m_device should be a shared pointer, but in the case of default command list this will create a cycle. As default command list is 
     // invisible from outside, we need it not to cointain pointer to TEDevice.
@@ -305,9 +294,12 @@ private:
 
     SharedPtr<SpawningTaskGroup> m_oooTaskGroup;
 
-    out_of_order_command_list(TBBTaskExecutor& pTBBExec, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device, const CommandListCreationParam& param) :
-        base_command_list(pTBBExec, device, param, param.isProfilingEnabled), m_oooTaskGroup(SpawningTaskGroup::Allocate(device.GetPtr())) { }
-
+    out_of_order_command_list(
+        TBBTaskExecutor & pTBBExec,
+        const Intel::OpenCL::Utils::SharedPtr<TEDevice> &device,
+        const CommandListCreationParam &param)
+        : base_command_list(pTBBExec, device, param, param.isProfilingEnabled),
+          m_oooTaskGroup(SpawningTaskGroup::Allocate(device.GetPtr())) {}
 };
 
 bool execute_command(const SharedPtr<ITaskBase>& pCmd, base_command_list& cmdList);
@@ -320,7 +312,7 @@ struct ExecuteContainerBody
     ExecuteContainerBody(const SharedPtr<ITaskBase>& pTask, base_command_list& list) :
 			m_pTask(pTask), m_list(list) {}
 
-    void operator()()
+    void operator()() const
     {
         execute_command(m_pTask, m_list);
     }

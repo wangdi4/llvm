@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2006-2018 Intel Corporation.
+// Copyright 2006-2020 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -14,11 +14,9 @@
 
 #pragma once
 
-#include "task_executor.h"
 #include "base_command_list.h"
-
-#include <cl_shared_ptr.h>
-#include <tbb/tbb.h>
+#include "cl_shared_ptr.h"
+#include "task_executor.h"
 
 namespace Intel { namespace OpenCL { namespace TaskExecutor {
 

@@ -385,8 +385,11 @@ cl_err_code Device::CloseDeviceInstance()
     {
         if ( !m_bTerminate )
         {
+// This is disabled due to shutdown issue and will be fixed by CMPLRLLVM-20324
+#if 0
             m_pDevice->clDevCloseDevice();
             m_pPlatformModule->DeviceClosed();
+#endif
         }
         m_pDevice = nullptr;
     }

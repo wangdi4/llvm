@@ -17,16 +17,17 @@ if (WIN32 AND NOT BUILD_X64)
     string( REPLACE /Ob2  "/Ob1" CMAKE_C_FLAGS_RELEASE   ${CMAKE_CXX_FLAGS_RELEASE} )
     string( REPLACE /Ob2  "/Ob1" CMAKE_CXX_FLAGS_RELEASE   ${CMAKE_CXX_FLAGS_RELEASE} )
 endif (WIN32 AND NOT BUILD_X64)
+if (NOT WIN32)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -faligned-new")
+endif(NOT WIN32)
 
 link_directories( ${TBB_LIB_DIR} )
 
 add_definitions(-DTASK_EXECUTOR_EXPORTS
                 -D__TBB_EXECUTOR__
+                -D__TBB_EXTRA_DEBUG
                 -D_USRDLL
-                -DTBB_PREVIEW_LOCAL_OBSERVER=1
-                -DTBB_PREVIEW_TASK_ARENA=1
-                -D__TBB_NO_IMPLICIT_LINKAGE=1
-                -D__TBB_ALLOW_MUTABLE_FUNCTORS=1)
+                -D__TBB_NO_IMPLICIT_LINKAGE=1)
 
 SET_UNICODE_OFF()
 
