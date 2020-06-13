@@ -119,7 +119,7 @@ static cl::opt<bool> PrintHIRAfterVPlan(
 
 namespace llvm {
 namespace vpo {
-bool EnableVPValueCodegenHIR = false;
+bool EnableVPValueCodegenHIR = true;
 } // namespace vpo
 } // namespace llvm
 
