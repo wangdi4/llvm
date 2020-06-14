@@ -39572,9 +39572,6 @@ static SDValue combineBitcastvxi1(SelectionDAG &DAG, EVT VT, SDValue Src,
       PreferMovMsk = true;
   }
 
-  // With AVX512 vxi1 types are legal and we prefer using k-regs.
-  // MOVMSK is supported in SSE2 or later.
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Is this a bitcast of a v32i8/v16i8 setcc to the integer domain that's also
   // used by a setcc in the integer domain? In this case its probably better to
@@ -39583,15 +39580,15 @@ static SDValue combineBitcastvxi1(SelectionDAG &DAG, EVT VT, SDValue Src,
   // cycle latency on SKX.
   // TODO: This may be worth open sourcing in some form. Since it only effects
   // codegen for Intel CPUs until other vendors implement AVX512.
-  bool UseMovMsk = UserIsSetcc && Src.getOpcode() == ISD::SETCC &&
-                   (Src.getOperand(0).getValueType() == MVT::v16i8 ||
-                    Src.getOperand(0).getValueType() == MVT::v32i8);
-  if (!Subtarget.hasSSE2() ||
-      (Subtarget.hasAVX512() && !IsTruncated && !UseMovMsk))
+  if (UserIsSetcc && Src.getOpcode() == ISD::SETCC &&
+      (Src.getOperand(0).getValueType() == MVT::v16i8 ||
+       Src.getOperand(0).getValueType() == MVT::v32i8))
+    PreferMovMsk = true;
 #endif // INTEL_CUSTOMIZATION
-=======
+
+  // With AVX512 vxi1 types are legal and we prefer using k-regs.
+  // MOVMSK is supported in SSE2 or later.
   if (!Subtarget.hasSSE2() || (Subtarget.hasAVX512() && !PreferMovMsk))
->>>>>>> cb5072d1877b38c972f95092db2cedbcddb81da6
     return SDValue();
 
   // There are MOVMSK flavors for types v16i8, v32i8, v4f32, v8f32, v4f64 and

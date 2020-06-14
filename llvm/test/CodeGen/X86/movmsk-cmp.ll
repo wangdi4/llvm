@@ -29,15 +29,9 @@ define i1 @allones_v16i8_sign(<16 x i8> %arg) {
 ;
 ; SKX-LABEL: allones_v16i8_sign:
 ; SKX:       # %bb.0:
-<<<<<<< HEAD
-; SKX-NEXT:    vpmovmskb %xmm0, %eax ;INTEL
-; SKX-NEXT:    cmpw $-1, %ax ;INTEL
-; SKX-NEXT:    sete %al ;INTEL
-=======
 ; SKX-NEXT:    vpmovmskb %xmm0, %eax
 ; SKX-NEXT:    cmpw $-1, %ax
 ; SKX-NEXT:    sete %al
->>>>>>> cb5072d1877b38c972f95092db2cedbcddb81da6
 ; SKX-NEXT:    retq
   %tmp = icmp slt <16 x i8> %arg, zeroinitializer
   %tmp1 = bitcast <16 x i1> %tmp to i16
@@ -69,13 +63,8 @@ define i1 @allzeros_v16i8_sign(<16 x i8> %arg) {
 ;
 ; SKX-LABEL: allzeros_v16i8_sign:
 ; SKX:       # %bb.0:
-<<<<<<< HEAD
-; SKX-NEXT:    vpmovmskb %xmm0, %eax ;INTEL
-; SKX-NEXT:    testw %ax, %ax ;INTEL
-=======
 ; SKX-NEXT:    vpmovmskb %xmm0, %eax
 ; SKX-NEXT:    testw %ax, %ax
->>>>>>> cb5072d1877b38c972f95092db2cedbcddb81da6
 ; SKX-NEXT:    sete %al
 ; SKX-NEXT:    retq
   %tmp = icmp slt <16 x i8> %arg, zeroinitializer
@@ -125,15 +114,9 @@ define i1 @allones_v32i8_sign(<32 x i8> %arg) {
 ;
 ; SKX-LABEL: allones_v32i8_sign:
 ; SKX:       # %bb.0:
-<<<<<<< HEAD
-; SKX-NEXT:    vpmovmskb %ymm0, %eax ;INTEL
-; SKX-NEXT:    cmpl $-1, %eax ;INTEL
-; SKX-NEXT:    sete %al ;INTEL
-=======
 ; SKX-NEXT:    vpmovmskb %ymm0, %eax
 ; SKX-NEXT:    cmpl $-1, %eax
 ; SKX-NEXT:    sete %al
->>>>>>> cb5072d1877b38c972f95092db2cedbcddb81da6
 ; SKX-NEXT:    vzeroupper
 ; SKX-NEXT:    retq
   %tmp = icmp slt <32 x i8> %arg, zeroinitializer
@@ -181,13 +164,8 @@ define i1 @allzeros_v32i8_sign(<32 x i8> %arg) {
 ;
 ; SKX-LABEL: allzeros_v32i8_sign:
 ; SKX:       # %bb.0:
-<<<<<<< HEAD
-; SKX-NEXT:    vpmovmskb %ymm0, %eax ;INTEL
-; SKX-NEXT:    testl %eax, %eax ;INTEL
-=======
 ; SKX-NEXT:    vpmovmskb %ymm0, %eax
 ; SKX-NEXT:    testl %eax, %eax
->>>>>>> cb5072d1877b38c972f95092db2cedbcddb81da6
 ; SKX-NEXT:    sete %al
 ; SKX-NEXT:    vzeroupper
 ; SKX-NEXT:    retq
