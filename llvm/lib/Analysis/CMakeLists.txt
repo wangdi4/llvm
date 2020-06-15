@@ -136,6 +136,7 @@ add_llvm_component_library(LLVMAnalysis
 
   DEPENDS
   intrinsics_gen
+<<<<<<< HEAD
 # INTEL_COLLAB
   directives_gen
 # end INTEL_COLLAB
@@ -144,6 +145,8 @@ add_llvm_component_library(LLVMAnalysis
 
   LINK_LIBS
   PRIVATE LLVMMLPolicies
+=======
+>>>>>>> 29e57229497711a3a294f437b59afa6ddc36a3d8
   )
 
 add_subdirectory(Intel_LoopAnalysis)  #INTEL_CUSTOMIZATION
