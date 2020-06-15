@@ -852,6 +852,14 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     return;
   }
 
+  case Instruction::Freeze: {
+    // Widen operand.
+    Value *Src = getVectorValue(VPInst->getOperand(0));
+    Value *V = Builder.CreateFreeze(Src);
+    VPWidenMap[VPInst] = V;
+    return;
+  }
+
   case Instruction::Add:
   case Instruction::FAdd:
   case Instruction::Sub:

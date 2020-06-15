@@ -3465,6 +3465,10 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     NewInst = HLNodeUtilities.createFNeg(RefOp0, InstName);
     break;
 
+  case Instruction::Freeze:
+    NewInst = HLNodeUtilities.createFreeze(RefOp0, InstName);
+    break;
+
   case Instruction::Add: {
     // Try and fold the add operation into the canon expression for RefOps[0].
     // This helps preserve linear values and also avoids unnecessary HLInsts.

@@ -244,6 +244,11 @@ HLInst *HLNodeUtils::createUnaryHLInstImpl(unsigned OpCode, RegDDRef *RvalRef,
     break;
   }
 
+  case Instruction::Freeze: {
+    InstVal = DummyIRBuilder->CreateFreeze(DummyVal, Name);
+    break;
+  }
+
   case Instruction::Trunc:
   case Instruction::ZExt:
   case Instruction::SExt:
@@ -501,6 +506,12 @@ HLInst *HLNodeUtils::createFNeg(RegDDRef *RvalRef, const Twine &Name,
                                 RegDDRef *LvalRef, MDNode *FPMathTag) {
   return createUnaryHLInstImpl(Instruction::FNeg, RvalRef, Name, LvalRef,
                                nullptr, FPMathTag);
+}
+
+HLInst *HLNodeUtils::createFreeze(RegDDRef *RvalRef, const Twine &Name,
+                                  RegDDRef *LvalRef) {
+  return createUnaryHLInstImpl(Instruction::Freeze, RvalRef, Name, LvalRef,
+                               nullptr, nullptr);
 }
 
 HLInst *HLNodeUtils::createBinaryHLInstImpl(unsigned OpCode, RegDDRef *OpRef1,
