@@ -343,7 +343,7 @@ static bool isIntraIfEdge(const DDEdge *Edge, const HLIf *If,
     return false;
 
   // Also filter out backwards deps.
-  if (!Edge->isForwardDep())
+  if (Edge->isBackwardDep())
     return false;
 
   // All checks passed; keep this edge.

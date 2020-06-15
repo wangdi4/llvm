@@ -118,7 +118,6 @@ double omp_get_wtime(void) __attribute__((weak));
 
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 #define OFFLOADSECTIONNAME "omp_offloading_entries"
-#define DEVICE_RTL_NAME "libomptarget-opencl.spv"
 
 //#pragma OPENCL EXTENSION cl_khr_spir : enable
 
@@ -312,7 +311,6 @@ struct ProgramData {
 
 /// RTL flags
 struct RTLFlagsTy {
-  uint64_t LinkDeviceRTL : 1;
   uint64_t CollectDataTransferLatency : 1;
   uint64_t EnableProfile : 1;
   uint64_t UseInteropQueueInorderAsync : 1;
@@ -321,7 +319,6 @@ struct RTLFlagsTy {
   // Add new flags here
   uint64_t Reserved : 58;
   RTLFlagsTy() :
-      LinkDeviceRTL(0),
       CollectDataTransferLatency(0),
       EnableProfile(0),
       UseInteropQueueInorderAsync(0),
@@ -479,13 +476,6 @@ public:
       // Set some reasonable limits.
       if (value > 0 || value <= 0xFFFF)
         SubscriptionRate = value;
-    }
-
-    // Read LIBOMPTARGET_OPENCL_LINK_DEVICE_RTL
-    if (env = readEnvVar("LIBOMPTARGET_OPENCL_LINK_DEVICE_RTL",
-                         "LIBOMPTARGET_LINK_OPENCL_DEVICE_RTL")) {
-      if (std::stoi(env) != 0)
-        Flags.LinkDeviceRTL = 1;
     }
 
     // Read LIBOMPTARGET_PROFILE
@@ -1479,15 +1469,6 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
     return NULL;
   }
   programs.push_back(program);
-
-  // Link OpenCL deviceRTL, if needed.
-  if (DeviceInfo->Flags.LinkDeviceRTL) {
-    cl_program program =
-        createProgramFromFile(DEVICE_RTL_NAME, device_id, compilation_options);
-    if (program)
-      programs.push_back(program);
-  } else
-    DP("Skipped device RTL: %s\n", DEVICE_RTL_NAME);
 
   // Link libdevice fallback implementations, if needed.
   auto &libdevice_extensions =

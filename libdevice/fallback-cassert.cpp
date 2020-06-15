@@ -18,11 +18,6 @@
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h>
 
-static const char assert_fmt[] =
-    "%s:%" PRId32 ": %s: global id: [%" PRIu64 ",%" PRIu64 ",%" PRIu64 "], "
-    "local id: [%" PRIu64 ",%" PRIu64 ",%" PRIu64 "] "
-    "Assertion `%s` failed.\n";
-
 #pragma omp declare target
 #endif
 
@@ -31,6 +26,11 @@ DEVICE_EXTERN_C void __devicelib_assert_fail(const char *expr, const char *file,
                                              uint64_t gid0, uint64_t gid1,
                                              uint64_t gid2, uint64_t lid0,
                                              uint64_t lid1, uint64_t lid2) {
+  static const char assert_fmt[] =
+      "%s:%" PRId32 ": %s: global id: [%" PRIu64 ",%" PRIu64 ",%" PRIu64 "], "
+      "local id: [%" PRIu64 ",%" PRIu64 ",%" PRIu64 "] "
+      "Assertion `%s` failed.\n";
+
   // intX_t types are used instead of `int' and `long' because the format string
   // is defined in terms of *device* types (OpenCL types): %d matches a 32 bit
   // integer, %lu matches a 64 bit unsigned integer. Host `int' and
