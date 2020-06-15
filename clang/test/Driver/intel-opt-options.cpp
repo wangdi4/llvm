@@ -90,6 +90,51 @@
 // RUN: %clang_cl -### %s -c /Qopt-matmul- 2>&1 | FileCheck %s --check-prefix=CHECK-QNO-OPT-MATMUL
 // CHECK-QNO-OPT-MATMUL: "-mllvm" "-disable-hir-generate-mkl-call"
 
+//Behavior with -Qoption,tool,arg
+// RUN: %clang -### %s -c -Qoption,asm,--compress-debug-sections 2>&1 | FileCheck %s --check-prefix=CHECK-QOPTION-ASM
+// RUN: %clang_cl -### %s -c /Qoption,asm,--compress-debug-sections 2>&1 | FileCheck %s --check-prefix=CHECK-QOPTION-ASM
+// CHECK-QOPTION-ASM: "--compress-debug-sections"
+// RUN: %clang -### %s -c -Qoption,assembler,-Ifoo_dir 2>&1 | FileCheck %s --check-prefix=CHECK-QOPTION-ASSEMBLER
+// RUN: %clang_cl -### %s -c /Qoption,assembler,-Ifoo_dir 2>&1 | FileCheck %s --check-prefix=CHECK-QOPTION-ASSEMBLER
+// CHECK-QOPTION-ASSEMBLER: "-Ifoo_dir"
+// RUN: %clang -### %s -c -Qoption,asm,--compress-debug-sections,-fdebug-compilation-dir=.,--noexecstack 2>&1 | FileCheck %s --check-prefix=CHECK-QOPTION-ASM-ARGS
+// RUN: %clang_cl -### %s -c /Qoption,asm,--compress-debug-sections,-fdebug-compilation-dir=.,--noexecstack 2>&1 | FileCheck %s --check-prefix=CHECK-QOPTION-ASM-ARGS
+// CHECK-QOPTION-ASM-ARGS: "--compress-debug-sections" "-fdebug-compilation-dir" "." "-mnoexecstack"
+
+// RUN: %clang -### %s -c -Qoption,preprocessor,-MMD 2>&1 | FileCheck %s --check-prefix=CHECK-QOPTION-PREPROCESSOR
+// RUN: %clang_cl -### %s -c /Qoption,preprocessor,-MMD 2>&1 | FileCheck %s --check-prefix=CHECK-QOPTION-PREPROCESSOR
+// RUN: %clang -### %s -c -Qoption,cpp,-MMD 2>&1 | FileCheck %s --check-prefix=CHECK-QOPTION-PREPROCESSOR
+// RUN: %clang_cl -### %s -c /Qoption,cpp,-MMD 2>&1 | FileCheck %s --check-prefix=CHECK-QOPTION-PREPROCESSOR
+// CHECK-QOPTION-PREPROCESSOR: "-MMD"
+
+// RUN: %clang -### %s -Qoption,ld,--no-demangle 2>&1 | FileCheck %s --check-prefix=CHECK-QOPTION-LD-ARG
+// RUN: %clang -### %s -Qoption,link,--no-demangle 2>&1 | FileCheck %s --check-prefix=CHECK-QOPTION-LD-ARG
+// RUN: %clang_cl -### %s /Qoption,ld,--no-demangle 2>&1 | FileCheck %s --check-prefix=CHECK-QOPTIONCL-LD-ARG
+// RUN: %clang_cl -### %s /Qoption,link,--no-demangle 2>&1 | FileCheck %s --check-prefix=CHECK-QOPTIONCL-LD-ARG
+// CHECK-QOPTION-LD-ARG: ld{{.*}} "--no-demangle"
+// CHECK-QOPTIONCL-LD-ARG: link{{.*}} "--no-demangle"
+
+// RUN: %clang -c -### %s -Qoption,compiler,-MP 2>&1 | FileCheck %s --check-prefix=CHECK-QOPTION-COMPILER-ARG
+// RUN: %clang_cl -c -### %s /Qoption,compiler,-MP 2>&1 | FileCheck %s --check-prefix=CHECK-QOPTION-COMPILER-ARG
+// RUN: %clang -c -### %s -Qoption,clang,-MP 2>&1 | FileCheck %s --check-prefix=CHECK-QOPTION-COMPILER-ARG
+// RUN: %clang_cl -c -### %s /Qoption,clang,-MP 2>&1 | FileCheck %s --check-prefix=CHECK-QOPTION-COMPILER-ARG
+// CHECK-QOPTION-COMPILER-ARG: "-MP"
+// RUN: %clang -c -### %s -Qoption,compiler,-MP,-mintrinsic-promote,-extended_float_types 2>&1 | FileCheck %s --check-prefix=CHECK-QOPTION-COMPILER-ARGS
+// RUN: %clang_cl -c -### %s /Qoption,compiler,-MP,-mintrinsic-promote,-extended_float_types 2>&1 | FileCheck %s --check-prefix=CHECK-QOPTION-COMPILER-ARGS
+// CHECK-QOPTION-COMPILER-ARGS: "-MP" "-mintrinsic-promote" "-extended_float_types"
+
+// RUN: %clang -### %s -Qoption,l,--no-demangle -Qoption,compiler,-MP,-mintrinsic-promote,--extended_float_types -Qoption,cpp,-MMD -Qoption,a,--compress-debug-sections 2>&1 | FileCheck %s --check-prefix=CHECK-QOPTION-TOOLS-ARGS
+// CHECK-QOPTION-TOOLS-ARGS: "--compress-debug-sections"
+// CHECK-QOPTION-TOOLS-ARGS: "-MMD"
+// CHECK-QOPTION-TOOLS-ARGS: "-MP" "-mintrinsic-promote" "--extended_float_types"
+// CHECK-QOPTION-TOOLS-ARGS: ld{{.*}} "--no-demangle"
+// RUN: %clang_cl -### %s /Qoption,l,--no-demangle /Qoption,compiler,-MP,-mintrinsic-promote,--extended_float_types /Qoption,cpp,-MMD /Qoption,a,--compress-debug-sections 2>&1 | FileCheck %s --check-prefix=CHECK-QOPTIONCL-TOOLS-ARGS
+// CHECK-QOPTIONCL-TOOLS-ARGS: "--compress-debug-sections"
+// CHECK-QOPTIONCL-TOOLS-ARGS: "-MMD"
+// CHECK-QOPTIONCL-TOOLS-ARGS: "-MP" "-mintrinsic-promote" "--extended_float_types"
+// CHECK-QOPTIONCL-TOOLS-ARGS: link{{.*}} "--no-demangle"
+
+
 // Behavior with /Qopt/-qopt-multiple-gather-scatter-by-shuffles option
 // RUN: %clang -### %s -c -qopt-multiple-gather-scatter-by-shuffles 2>&1 | FileCheck %s --check-prefix=CHECK-GATHER-SCATTER-SHUFFLES
 // RUN: %clang_cl -### %s -c /Qopt-multiple-gather-scatter-by-shuffles 2>&1 | FileCheck %s --check-prefix=CHECK-GATHER-SCATTER-SHUFFLES
