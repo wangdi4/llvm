@@ -950,9 +950,17 @@ bool VPOCodeGenHIR::initializeVectorLoop(unsigned int VF, unsigned int UF) {
   bool NeedFirstIterationPeelLoop =
       NeedPeelLoop && getSearchLoopType() == VPlanIdioms::SearchLoopStrEq;
 
+  assert(!(NeedFirstIterationPeelLoop && SearchLoopPeelArrayRef) &&
+       "First iteration peeling idiom cannot have SearchLoopPeelArrayRef set.");
+
+  if (NeedFirstIterationPeelLoop) {
+    PeelLoop = OrigLoop->peelFirstIteration(
+                false /*OrigLoop will also executed peeled its.*/);
+  }
+
   auto MainLoop = HIRTransformUtils::setupPeelMainAndRemainderLoops(
       OrigLoop, VF * UF, NeedRemainderLoop, LORBuilder, OptimizationType::Vectorizer,
-      &PeelLoop, NeedFirstIterationPeelLoop, SearchLoopPeelArrayRef, &RTChecks);
+      &PeelLoop, SearchLoopPeelArrayRef, &RTChecks);
 
   if (!MainLoop) {
     assert(false && "Main loop could not be setup.");

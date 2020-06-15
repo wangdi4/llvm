@@ -222,8 +222,7 @@ public:
   static HLLoop *setupPeelMainAndRemainderLoops(
       HLLoop *OrigLoop, unsigned UnrollOrVecFactor, bool &NeedRemainderLoop,
       LoopOptReportBuilder &LORBuilder, OptimizationType,
-      HLLoop **PeelLoop = nullptr, bool PeelFirstIteration = false,
-      const RegDDRef *PeelArrayRef = nullptr,
+      HLLoop **PeelLoop = nullptr, const RegDDRef *PeelArrayRef = nullptr,
       SmallVectorImpl<std::tuple<HLPredicate, RegDDRef *, RegDDRef *>>
           *RTChecks = nullptr);
 
