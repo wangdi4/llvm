@@ -193,6 +193,17 @@ bool HIRLoopDistribution::run() {
       //       "Inconsistent logic: scalar expansion is required while "
       //       "being not allowed");
 
+      // Bail out if exceed number of maximum temps allowed, but only if there
+      // were no control dependencies - in this case processPiBlocksToHLNodes()
+      // already made irreversible changes to HIR.
+      if (!PG->hasControlDependences() &&
+          SCEX.getNumTempsRequired() > MaxArrayTempsAllowed) {
+        LLVM_DEBUG(dbgs() << "LOOP DISTRIBUTION: "
+                          << "Number of temps required for distribution exceed "
+                             "MaxArrayTempsAllowed\n");
+        continue;
+      }
+
       // Do not do loop distribution for loopnest formation if stripmine is
       // inevitable.
       if (DistCostModel == DistHeuristics::NestFormation &&
