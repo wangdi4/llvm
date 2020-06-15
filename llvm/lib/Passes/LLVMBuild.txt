@@ -18,11 +18,7 @@
 type = Library
 name = Passes
 parent = Libraries
-<<<<<<< HEAD
-required_libraries = AggressiveInstCombine Analysis MLPolicies CodeGen Core Coroutines IPO InstCombine Scalar Support Target TransformUtils Vectorize Instrumentation
+required_libraries = AggressiveInstCombine Analysis CodeGen Core Coroutines IPO InstCombine Scalar Support Target TransformUtils Vectorize Instrumentation
                      Intel_LoopAnalysis Intel_LoopTransforms Intel_OpenCLTransforms VPOAnalysis VPOTransforms Intel_OptReport Intel_MapIntrinToIml Intel_DPCPPKernelTransforms
 
 ; ***INTEL: Intel_LoopAnalysis, Intel_LoopTransforms, Intel_OpenCLTransforms, VPOAnalysis, VPOTransforms, Intel_OptReport, Intel_MapIntrinToIml, Intel_DPCPPKernelTransforms
-=======
-required_libraries = AggressiveInstCombine Analysis CodeGen Core Coroutines IPO InstCombine Scalar Support Target TransformUtils Vectorize Instrumentation
->>>>>>> 695c7d6313d74dc02222f6497d4c4985d67f433f
