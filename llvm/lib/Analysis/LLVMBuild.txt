@@ -14,6 +14,7 @@
 ;
 ;===------------------------------------------------------------------------===;
 
+<<<<<<< HEAD
 ; INTEL_COLLAB
 [common]
 ; INTEL_CUSTOMIZATION
@@ -23,6 +24,8 @@ subdirectories = Intel_LoopAnalysis ML VPO Intel_OptReport
 ; end INTEL_CUSTOMIZATION
 ; end INTEL_COLLAB
 
+=======
+>>>>>>> 695c7d6313d74dc02222f6497d4c4985d67f433f
 [component_0]
 type = Library
 name = Analysis
