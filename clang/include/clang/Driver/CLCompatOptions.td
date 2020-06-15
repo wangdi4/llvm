@@ -201,6 +201,8 @@ def _SLASH_Qcf_protection_EQ : CLJoined<"Qcf-protection=">, Alias<fcf_protection
 def _SLASH_Qcf_protection : CLFlag<"Qcf-protection">,
   Alias<fcf_protection_EQ>, AliasArgs<["full"]>,
   HelpText<"Enable cf-protection in 'full' mode">;
+def : CLFlag<"Qcommon">, Alias<fcommon>, HelpText<"Place uninitialized global "
+  "variables in a common block">;
 def _SLASH_Qfp_speculation_EQ : CLJoined<"Qfp-speculation=">, Alias<ffp_exception_behavior_EQ>,
   HelpText<"Specifies the exception behavior of floating-point operations.">;
 def _SLASH_Qfp_speculation_COL : CLJoined<"Qfp-speculation:">, Alias<ffp_exception_behavior_EQ>;
@@ -265,6 +267,12 @@ def _SLASH_QMT : CLJoinedOrSeparate<"QMT">, Alias<MT>, HelpText<"Specify name "
   "of main file output in depfile.">;
 def _SLASH_QMQ : CLJoinedOrSeparate<"QMQ">, Alias<MQ>, HelpText<"Specify name "
   "of main file output to quote in depfile.">;
+def _SLASH_QMD : CLFlag<"QMD">, Alias<MD>, HelpText<"Write a depfile "
+  "containing user and system headers.">;
+def _SLASH_QMMD : CLFlag<"QMMD">, Alias<MMD>, HelpText<"Write a depfile "
+  "containing user headers.">;
+def _SLASH_QMF : CLJoinedOrSeparate<"QMF">, Alias<MF>, HelpText<"Write depfile "
+  "output from -MMD, -MD, -MM, or -M to <file>">, MetaVarName<"<file>">;
 def _SLASH_Qiopenmp_simd : CLFlagNoDpcpp<"Qiopenmp-simd">, Alias<fiopenmp_simd>;
 def _SLASH_Qopenmp_targets_EQ : CLCommaJoinedNoDpcpp<"Qopenmp-targets=">,
   Alias<fopenmp_targets_EQ>;
