@@ -4721,9 +4721,9 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
       return;
     }
 #endif // INTEL_FEATURE_ISA_AMX_MEMORY2
-#if INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+#if INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
     case Intrinsic::x86_tcvtd2pse: {
-      if (!Subtarget->hasAMXCONVERTEVEX())
+      if (!Subtarget->hasAMXELEMENTEVEX())
         break;
       unsigned Opc;
       switch (IntNo) {
@@ -4744,7 +4744,7 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
       ReplaceNode(Node, CNode);
       return;
     }
-#endif // INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+#endif // INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
 #if INTEL_FEATURE_ISA_AMX_TILE_EVEX
     case Intrinsic::x86_tileloadde64:
     case Intrinsic::x86_tileloaddt1e64:

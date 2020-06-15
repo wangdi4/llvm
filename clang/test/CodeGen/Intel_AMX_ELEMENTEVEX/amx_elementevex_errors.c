@@ -1,6 +1,6 @@
-// REQUIRES: intel_feature_isa_amx_convert_evex
+// REQUIRES: intel_feature_isa_amx_element_evex
 // RUN: %clang_cc1 %s -ffreestanding -triple=x86_64-unknown-unknown \
-// RUN: -target-feature +amx-tile -target-feature +amx-convert-evex \
+// RUN: -target-feature +amx-tile -target-feature +amx-element-evex \
 // RUN: -emit-llvm -fsyntax-only -verify
 
 #include <immintrin.h>

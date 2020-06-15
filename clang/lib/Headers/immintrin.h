@@ -837,14 +837,14 @@ _storebe_i64(void * __P, long long __D) {
 #endif
 /* end INTEL_FEATURE_ISA_AMX_BF16_EVEX */
 
-/* INTEL_FEATURE_ISA_AMX_CONVERT_EVEX */
-#if defined(__AMX_CONVERTEVEX_SUPPORTED__)
+/* INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX */
+#if defined(__AMX_ELEMENTEVEX_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AMX_CONVERTEVEX__) || defined(__M_INTRINSIC_PROMOTE__)
-#include <Intel_amxconvertevexintrin.h>
+    defined(__AMX_ELEMENTEVEX__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <Intel_amxelementevexintrin.h>
 #endif
 #endif
-/* end INTEL_FEATURE_ISA_AMX_CONVERT_EVEX */
+/* end INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX */
 
 /* INTEL_FEATURE_ISA_AMX_INT8_EVEX */
 #if defined(__AMX_INT8EVEX_SUPPORTED__)

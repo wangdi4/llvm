@@ -1,5 +1,5 @@
-; REQUIRES: intel_feature_isa_amx_convert_evex
-; RUN: llc < %s -O0 -mtriple=x86_64-unknown-unknown -mattr=+amx-tile,+amx-convert-evex | FileCheck %s
+; REQUIRES: intel_feature_isa_amx_element_evex
+; RUN: llc < %s -O0 -mtriple=x86_64-unknown-unknown -mattr=+amx-tile,+amx-element-evex | FileCheck %s
 
 ; CHECK-LABEL: test_amx:
 ; CHECK:       # %bb.0:

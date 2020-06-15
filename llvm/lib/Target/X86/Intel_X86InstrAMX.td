@@ -1157,9 +1157,9 @@ let Predicates = [HasAMXBF16EVEX, In64BitMode] in {
 
 // end INTEL_FEATURE_ISA_AMX_BF16_EVEX
 
-// INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+// INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
 //AMX-CONVERT-EVEX
-let Predicates = [HasAMXCONVERTEVEX, In64BitMode] in {
+let Predicates = [HasAMXELEMENTEVEX, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
     def TCVTD2PSE : I<0xe1, MRMDestMemFSIB, (outs),
                      (ins opaquemem:$dst, VTILEX:$src),
@@ -1171,7 +1171,7 @@ let Predicates = [HasAMXCONVERTEVEX, In64BitMode] in {
   }
 } // HasAMXTILE, HasAMXCONVERTEVEX
 
-// end INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+// end INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
 
 #if INTEL_FEATURE_ISA_AMX_CONVERT
 let Predicates = [HasAMXCONVERT, In64BitMode] in {

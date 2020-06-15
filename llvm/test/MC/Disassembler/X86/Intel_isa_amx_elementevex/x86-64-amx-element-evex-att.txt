@@ -1,4 +1,4 @@
-# REQUIRES: intel_feature_isa_amx_convert_evex
+# REQUIRES: intel_feature_isa_amx_element_evex
 # RUN: llvm-mc --disassemble %s -triple=x86_64 | FileCheck %s
 
 # CHECK:      tcvtd2pse %tmm6, 268435456(%rbp,%r14,8)

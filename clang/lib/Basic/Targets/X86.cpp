@@ -1016,9 +1016,9 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
 #if INTEL_FEATURE_ISA_AMX_BF16_EVEX
     Features["amx-bf16-evex"] = false;
 #endif // INTEL_FEATURE_ISA_AMX_BF16_EVEX
-#if INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
-    Features["amx-convert-evex"] = false;
-#endif // INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+#if INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
+    Features["amx-element-evex"] = false;
+#endif // INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
 #if INTEL_FEATURE_ISA_AMX_INT8_EVEX
     Features["amx-int8-evex"] = false;
 #endif // INTEL_FEATURE_ISA_AMX_INT8_EVEX
@@ -1064,10 +1064,10 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
   else if (Name == "amx-bf16-evex" && Enabled)
     Features["amx-tile"] = true;
 #endif // INTEL_FEATURE_ISA_AMX_BF16_EVEX
-#if INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
-  else if (Name == "amx-convert-evex" && Enabled)
+#if INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
+  else if (Name == "amx-element-evex" && Enabled)
     Features["amx-tile"] = true;
-#endif // INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+#endif // INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
 #if INTEL_FEATURE_ISA_AMX_INT8_EVEX
   else if (Name == "amx-int8-evex" && Enabled)
     Features["amx-tile"] = true;
@@ -1309,10 +1309,10 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+amx-bf16-evex") {
       HasAMXBF16EVEX = true;
 #endif // INTEL_FEATURE_ISA_AMX_BF16_EVEX
-#if INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
-    } else if (Feature == "+amx-convert-evex") {
-      HasAMXCONVERTEVEX = true;
-#endif // INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+#if INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
+    } else if (Feature == "+amx-element-evex") {
+      HasAMXELEMENTEVEX = true;
+#endif // INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
 #if INTEL_FEATURE_ISA_AMX_INT8_EVEX
     } else if (Feature == "+amx-int8-evex") {
       HasAMXINT8EVEX = true;
@@ -1843,11 +1843,11 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AMX_BF16EVEX__");
   Builder.defineMacro("__AMX_BF16EVEX_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX_BF16_EVEX
-#if INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
-  if (HasAMXCONVERTEVEX)
-    Builder.defineMacro("__AMX_CONVERTEVEX__");
-  Builder.defineMacro("__AMX_CONVERTEVEX_SUPPORTED__");
-#endif // INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+#if INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
+  if (HasAMXELEMENTEVEX)
+    Builder.defineMacro("__AMX_ELEMENTEVEX__");
+  Builder.defineMacro("__AMX_ELEMENTEVEX_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
 #if INTEL_FEATURE_ISA_AMX_INT8_EVEX
   if (HasAMXINT8EVEX)
     Builder.defineMacro("__AMX_INT8EVEX__");
@@ -2085,9 +2085,9 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
 #if INTEL_FEATURE_ISA_AMX_BF16_EVEX
       .Case("amx-bf16-evex", true)
 #endif // INTEL_FEATURE_ISA_AMX_BF16_EVEX
-#if INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
-      .Case("amx-convert-evex", true)
-#endif // INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+#if INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
+      .Case("amx-element-evex", true)
+#endif // INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
 #if INTEL_FEATURE_ISA_AMX_INT8_EVEX
       .Case("amx-int8-evex", true)
 #endif // INTEL_FEATURE_ISA_AMX_INT8_EVEX
@@ -2264,9 +2264,9 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
 #if INTEL_FEATURE_ISA_AMX_BF16_EVEX
       .Case("amx-bf16-evex", HasAMXBF16EVEX)
 #endif // INTEL_FEATURE_ISA_AMX_BF16_EVEX
-#if INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
-      .Case("amx-convert-evex", HasAMXCONVERTEVEX)
-#endif // INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+#if INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
+      .Case("amx-element-evex", HasAMXELEMENTEVEX)
+#endif // INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
 #if INTEL_FEATURE_ISA_AMX_INT8_EVEX
       .Case("amx-int8-evex", HasAMXINT8EVEX)
 #endif // INTEL_FEATURE_ISA_AMX_INT8_EVEX
