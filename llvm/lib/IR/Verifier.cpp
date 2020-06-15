@@ -818,7 +818,7 @@ void Verifier::visitMDNode(const MDNode &MD, AreDebugLocsAllowed AllowLocs) {
   }
 
 #if INTEL_CUSTOMIZATION
-  auto CheckOptReportDebugLoc = [](const MDNode &MD) {
+  auto IsOptReportDebugLoc = [](const MDNode &MD) {
     auto *Tuple = dyn_cast<MDTuple>(&MD);
     if (!Tuple || Tuple->getNumOperands() != 2)
       return false;
@@ -831,15 +831,15 @@ void Verifier::visitMDNode(const MDNode &MD, AreDebugLocsAllowed AllowLocs) {
     return Str && (Str->getString() == LoopOptReportTag::DebugLoc);
   };
 
-  bool IsOptReportDebugLoc = CheckOptReportDebugLoc(MD);
+  if ((AllowLocs != AreDebugLocsAllowed::Yes) && IsOptReportDebugLoc(MD))
+    AllowLocs = AreDebugLocsAllowed::Yes;
 #endif // INTEL_CUSTOMIZATION
   for (const Metadata *Op : MD.operands()) {
     if (!Op)
       continue;
     Assert(!isa<LocalAsMetadata>(Op), "Invalid operand for global metadata!",
            &MD, Op);
-    AssertDI(!isa<DILocation>(Op) || IsOptReportDebugLoc || // INTEL
-                 AllowLocs == AreDebugLocsAllowed::Yes,     // INTEL
+    AssertDI(!isa<DILocation>(Op) || AllowLocs == AreDebugLocsAllowed::Yes,
              "DILocation not allowed within this metadata node", &MD, Op);
     if (auto *N = dyn_cast<MDNode>(Op)) {
       visitMDNode(*N, AllowLocs);
