@@ -1,9 +1,10 @@
 // default behavior with --intel
 // RUN: %clang -### -c --intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL %s
 // RUN: %clang -### -c -qnextgen %s 2>&1 | FileCheck -check-prefix CHECK-INTEL %s
-// RUN: %clang_cl -### -c -Qnextgen %s 2>&1 | FileCheck -check-prefix CHECK-INTEL %s
+// RUN: %clang_cl -### -c -Qnextgen %s 2>&1 | FileCheck -check-prefixes=CHECK-INTEL,CHECK-INTEL-WIN %s
 // CHECK-INTEL: "-fveclib=SVML"
 // CHECK-INTEL: "-O2"
+// CHECK-INTEL-WIN: "-fpack-struct=16"
 // CHECK-INTEL: "-vectorize-loops"
 // CHECK-INTEL: "-fintel-compatibility"
 // CHECK-INTEL: "-mllvm" "-disable-hir-generate-mkl-call"
@@ -33,14 +34,14 @@
 
 // default libs with --intel (Windows)
 // RUN: %clang_cl -### --intel -c %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-WIN %s
-// CHECK-INTEL-LIBS-WIN: "--dependent-lib=libirc"
+// CHECK-INTEL-LIBS-WIN: "--dependent-lib=libircmt"
 // CHECK-INTEL-LIBS-WIN: "--dependent-lib=svml_dispmt"
 // CHECK-INTEL-LIBS-WIN: "--dependent-lib=libdecimal"
 
 // default libs with --intel (Windows)
 // RUN: touch %t.obj
 // RUN: %clang -### -target x86_64-pc-windows-msvc --intel %t.obj 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-WIN2 %s
-// CHECK-INTEL-LIBS-WIN2: "-defaultlib:libirc"
+// CHECK-INTEL-LIBS-WIN2: "-defaultlib:libircmt"
 // CHECK-INTEL-LIBS-WIN2: "-defaultlib:svml_dispmt"
 // CHECK-INTEL-LIBS-WIN2: "-defaultlib:libdecimal"
 

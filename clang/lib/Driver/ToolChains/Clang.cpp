@@ -6110,7 +6110,11 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   } else if (Args.hasFlag(options::OPT_fpack_struct,
                           options::OPT_fno_pack_struct, false)) {
     CmdArgs.push_back("-fpack-struct=1");
-  }
+#if INTEL_CUSTOMIZATION
+  } else if (Args.hasArg(options::OPT__intel))
+    // For the Intel compiler, /Zp16 is the default
+    CmdArgs.push_back("-fpack-struct=16");
+#endif // INTEL_CUSTOMIZATION
 
   // Handle -fmax-type-align=N and -fno-type-align
   bool SkipMaxTypeAlign = Args.hasArg(options::OPT_fno_max_type_align);
@@ -6689,6 +6693,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   // problems for SPIRV translator.
   if (Args.hasArg(options::OPT__intel) && !IsSYCLOffloadDevice)
     CmdArgs.push_back("-fintel-compatibility");
+  if (D.IsCLMode() && Args.hasArg(options::OPT__intel))
+    CmdArgs.push_back("-fintel-ms-compatibility");
 
   if (Args.hasFlag(options::OPT_intel_mintrinsic_promote,
                    options::OPT_intel_mno_intrinsic_promote, false))
@@ -7071,7 +7077,7 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
     CmdArgs.push_back(FlagForCRT.data());
 #if INTEL_CUSTOMIZATION
     if (Args.hasArg(options::OPT__intel, options::OPT__dpcpp)) {
-      CmdArgs.push_back("--dependent-lib=libirc");
+      CmdArgs.push_back("--dependent-lib=libircmt");
       CmdArgs.push_back(FlagForIntelSVMLLib.data());
       CmdArgs.push_back("--dependent-lib=libdecimal");
       if (Args.hasFlag(options::OPT_qopt_matmul, options::OPT_qno_opt_matmul,
