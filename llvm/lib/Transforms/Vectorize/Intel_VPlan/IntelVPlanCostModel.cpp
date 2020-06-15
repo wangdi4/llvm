@@ -169,9 +169,15 @@ VPlanCostModel::getMemInstAlignment(const VPInstruction *VPInst) const {
   return DL->getABITypeAlignment(getMemInstValueType(VPInst));
 }
 
-bool VPlanCostModel::isUnitStrideLoadStore(const VPInstruction *VPInst) const {
-  return
-    Plan->getVPlanDA()->isUnitStridePtr(getLoadStorePointerOperand(VPInst));
+bool VPlanCostModel::isUnitStrideLoadStore(
+  const VPInstruction *VPInst,
+  bool &NegativeStride) const {
+  const VPValue *P = getLoadStorePointerOperand(VPInst);
+  if (!Plan->getVPlanDA()->isUnitStridePtr(P))
+    return false;
+
+  NegativeStride = (Plan->getVPlanDA()->getVectorShape(P).getStrideVal() < 0);
+  return true;
 }
 
 unsigned VPlanCostModel::getLoadStoreIndexSize(
@@ -314,12 +320,31 @@ unsigned VPlanCostModel::getLoadStoreCost(const VPInstruction *VPInst) {
   // 2. Unit stride load/store.
   // 3. Aggregate OpTy (they enter this code though Scale > 1 check of VF == 1
   //    check).
-  if (VF == 1 || isUnitStrideLoadStore(VPInst) || Scale > 1)
-    return IsMasked ?
+  bool NegativeStride = false;
+  if (VF == 1 || Scale > 1 || isUnitStrideLoadStore(VPInst, NegativeStride)) {
+    unsigned Cost = 0;
+
+    // For negative stride we need to reverse elements in the vector after load
+    // or before store.
+    //
+    // TODO:
+    // In case of vector input type (re-vectorization case) reverse operation
+    // might cost more than reversing vanilla vector and TTI interface doesn't
+    // take into account the vector parts.  Once TTI is fixed VPlan should pass
+    // particles type to TTI as well.
+    if (NegativeStride) {
+      assert(VF > 1 && Scale == 1 &&
+             "Unexpected conditions for NegativeStride == true.");
+      Cost += TTI->getShuffleCost(TTI::SK_Reverse, cast<VectorType>(VecTy));
+    }
+
+    Cost += IsMasked ?
       Scale * TTI->getMaskedMemoryOpCost(Opcode, VecTy, Alignment, AddrSpace) :
       Scale * TTI->getMemoryOpCost(Opcode, VecTy,
                                    Alignment ? Align(Alignment): Align(),
                                    AddrSpace);
+    return Cost;
+  }
 
   // TODO:
   // Currently TTI doesn't add cost of index split and data join in case

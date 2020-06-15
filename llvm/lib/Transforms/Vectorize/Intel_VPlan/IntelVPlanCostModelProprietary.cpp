@@ -40,12 +40,13 @@ namespace llvm {
 namespace vpo {
 
 bool VPlanCostModelProprietary::isUnitStrideLoadStore(
-  const VPInstruction *VPInst) const {
+  const VPInstruction *VPInst,
+  bool &NegativeStride) const {
   unsigned Opcode = VPInst->getOpcode();
   assert((Opcode == Instruction::Load || Opcode == Instruction::Store) &&
          "Is not load or store instruction.");
 
-  if (VPlanCostModel::isUnitStrideLoadStore(VPInst))
+  if (VPlanCostModel::isUnitStrideLoadStore(VPInst, NegativeStride))
     return true;
 
   if (!VPInst->HIR.isMaster())
@@ -61,11 +62,9 @@ bool VPlanCostModelProprietary::isUnitStrideLoadStore(
            "Outerloop vectorization is not supported.");
     unsigned NestingLevel = Inst->getParentLoop()->getNestingLevel();
 
-    return Opcode == Instruction::Load
-      ? VPlanVLSAnalysisHIR::isUnitStride(Inst->getOperandDDRef(1),
-                                          NestingLevel)
-      : VPlanVLSAnalysisHIR::isUnitStride(Inst->getLvalDDRef(),
-                                          NestingLevel);
+    return Opcode == Instruction::Load ?
+      Inst->getOperandDDRef(1)->isUnitStride(NestingLevel, NegativeStride) :
+      Inst->getLvalDDRef()->isUnitStride(NestingLevel, NegativeStride);
   }
   return false;
 }
