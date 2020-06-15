@@ -237,6 +237,28 @@ public:
   bool isRWComputed() const { return RWState == RWK_Computed; }
   bool isRWBottom() const { return RWState == RWK_Bottom; }
 
+  // This enum is used for storing which information we have related to the
+  // padded fields:
+  // PFK_Clean : We know that there is no safety violation that could
+  //             compromise the field and it is never accessed
+  // PFK_Dirty : A safety violation happens, the field is accessed and/or
+  //             we don't have enough information to mark it clean
+  // PFK_NoPadding : The field is not used for padding.
+  enum PF_Kind { PFK_Clean, PFK_Dirty, PFK_NoPadding };
+
+  // Set the padded field as clean.
+  // NOTE: Once the field is dirty it can't be clean.
+  void setPaddedField() {
+    if (PaddedField != PFK_Dirty)
+      PaddedField = PFK_Clean;
+  }
+  // Set if the padded field is dirty
+  // TODO: We need to mark the padded field as dirty for the multiple safety
+  // violations (bad casting, etc.). Plus, we need to make sure this field is
+  // never accessed.
+  void invalidatePaddedField() { PaddedField = PFK_Dirty; }
+  bool isPaddedField() const { return PaddedField != PFK_NoPadding; }
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const { print(dbgs()); }
 
@@ -279,6 +301,18 @@ private:
   // TODO: Frequency is not computed correctly for aggregate fields. Need
   // to compute more accurate Frequency for aggregate fields.
   uint64_t Frequency;
+
+  // Identify if the field is used for ABI padding. For example:
+  // %class.A.base = type <{ %"class.boost::array", [2 x i8],
+  //                         %"class.std::vector", i32 }>
+  // %class.A = type <{ %"class.boost::array", [2 x i8],
+  //                         %"class.std::vector", i32, [4 x i8] }>
+  //
+  // The structure type %class.A.base is the same as %class.A, except for
+  // the last entry of structure %class.A. This entry at the end ([4 x i8])
+  // is used for the application binary interface (ABI) and it will
+  // be identified as the PaddedField.
+  PF_Kind PaddedField = PFK_NoPadding;
 };
 
 /// DTrans optimization safety conditions for a structure type.
@@ -621,9 +655,10 @@ public:
       return true;
     return (SafetyInfo & Conditions);
   }
-  void setSafetyData(SafetyData Conditions);
-  void resetSafetyData(SafetyData Conditions) { SafetyInfo &= ~Conditions; }
-  void clearSafetyData() { SafetyInfo = 0; }
+
+  void setSafetyData(SafetyData Conditions, bool SetRelated = true);
+  void resetSafetyData(SafetyData Conditions, bool ResetRelated = true);
+  void clearSafetyData(bool ClearRelated = true);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printSafetyData(raw_ostream &OS) const;
@@ -743,12 +778,51 @@ public:
   }
   const CallSubGraph &getCallSubGraph() const { return SubGraph; }
 
+  // Return the related type stored in the StructInfo
+  dtrans::StructInfo* getRelatedType() const { return RelatedType; }
+
+  void setRelatedType(dtrans::StructInfo *RelType) {
+    assert (!RelatedType && "Only one related type could be set");
+    RelatedType = RelType;
+  }
+
 private:
   SmallVector<FieldInfo, 16> Fields;
   // Total Frequency of all fields in struct.
   uint64_t TotalFrequency;
   dtrans::Transform IsIgnoredFor;
   CallSubGraph SubGraph;
+
+  // The related type is used to map a base type to a padded type.
+  // For example, consider the following classes:
+  //
+  // class A {
+  //   int a;
+  //   int b;
+  //   int c;
+  // }
+  //
+  // class B : public A {
+  //   int d;
+  // }
+  //
+  // Also consider that if there is an instantiation of A and B, then we will
+  // see something like this in the IR:
+  //
+  // %class.A = type <{i32, i32, i32, [ 4 x i8 ]}>
+  // %class.A.base = type <{i32, i32, i32}>
+  // %class.B = type {%class.A.base, i32}
+  //
+  // The IR creates two forms of class A. The ".base" form is used for the
+  // structure hierarchy, and the padded form (non ".base") is used across
+  // the whole IR (bitcasting, GEPs, etc.). The padding is added by the CFE
+  // and is used by the application binary interface (ABI). When we find
+  // this relationship then we set the padded type as the RelatedType for
+  // the ".base" class, and vice-versa. From the example above:
+  //
+  //   RelatedType for %class.A = %class.A.base
+  //   RelatedType for %class.A.base = %class.A
+  dtrans::StructInfo *RelatedType = nullptr;
 };
 
 class ArrayInfo : public TypeInfo {
@@ -1177,6 +1251,16 @@ llvm::Type* getTypeForZeroElementLoaded(LoadInst *Load,
 // in a structure
 bool isBitCastLoadingZeroElement(BitCastInst *BC);
 
+// Return true if the input type Type1 is the same as Type2 except for
+// the last element (or vice versa). This last element is used by the ABI.
+bool isPaddedStruct(llvm::Type *Type1, llvm::Type *Type2);
+
+// Given a type, find the related type from the input Module M.
+llvm::Type* collectRelatedType(llvm::Type *InTy, Module &M);
+
+StringRef getTypeBaseName(StringRef TyName);
+llvm::StructType *getContainedStructTy(llvm::Type *Ty);
+void collectAllStructTypes(Module &M, SetVector<llvm::StructType *> &SeenTypes);
 } // namespace dtrans
 
 } // namespace llvm

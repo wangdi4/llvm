@@ -71,6 +71,22 @@ cl::opt<bool> dtrans::DTransOutOfBoundsOK("dtrans-outofboundsok",
                                                  cl::init(true),
                                                  cl::ReallyHidden);
 
+// Enable merging padded structures with base structures. For example,
+// consider that there is a class A which will be a base class for other
+// derived classes and there is an instantiation of A. Then we might see
+// the following structure types in the IR:
+//
+// %class.A.base = type <{ %"class.boost::array", [2 x i8],
+//                         %"class.std::vector", i32 }>
+// %class.A = type <{ %"class.boost::array", [2 x i8],
+//                         %"class.std::vector", i32, [4 x i8] }>
+//
+// This option enables treating both types as the same in DTrans. Any
+// safety information we find in one type will be added to the other type.
+static cl::opt<bool> DTransMergePaddedStructs("dtrans-merge-padded-structs",
+                                              cl::init(false),
+                                              cl::ReallyHidden);
+
 bool dtrans::dtransIsCompositeType(Type *Ty) {
   if (isa<StructType>(Ty) || isa<ArrayType>(Ty) || isa<VectorType>(Ty))
     return true;
@@ -269,7 +285,8 @@ bool dtrans::isElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy,
     auto *ElementZeroTy = dtransCompositeGetTypeAtIndex(SrcPointeeTy, 0u);
     // If the element zero type matches the destination pointee type,
     // this is an element zero access.
-    if (DestPointeeTy == ElementZeroTy) {
+    if (DestPointeeTy == ElementZeroTy ||
+        isPaddedStruct(DestPointeeTy, ElementZeroTy)) {
       if (AccessedTy)
         *AccessedTy = SrcTy;
       return true;
@@ -606,6 +623,17 @@ void dtrans::StructInfo::print(
   if (Annotator)
     (*Annotator)(OS, this);
 
+  if (auto *RelatedInfo =
+        dyn_cast_or_null<dtrans::StructInfo>(getRelatedType())) {
+    llvm::StructType *RelatedType = cast<llvm::StructType>(RelatedInfo->getLLVMType());
+    if (S->getName().endswith(".base"))
+      OS << "  Related padded structure: ";
+    else
+      OS << "  Related base structure: ";
+
+    OS << RelatedType->getName() << "\n";
+  }
+
   OS << "  Number of fields: " << getNumFields() << "\n";
   unsigned Number = 0;
   for (auto &Field : getFields()) {
@@ -660,6 +688,9 @@ void dtrans::FieldInfo::print(raw_ostream &OS,
 
   if (isMismatchedElementAccess())
     OS << " MismatchedElementAccess";
+
+  if (isPaddedField())
+    OS << " PaddedField";
 
   OS << "\n";
   OS << "    Frequency: " << getFrequency();
@@ -731,10 +762,50 @@ void dtrans::FieldInfo::print(raw_ostream &OS,
 
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-void dtrans::TypeInfo::setSafetyData(SafetyData Conditions) {
+void dtrans::TypeInfo::setSafetyData(SafetyData Conditions, bool SetRelated) {
   SafetyInfo |= Conditions;
+
   LLVM_DEBUG(dbgs() << "dtrans-safety-detail: " << *getLLVMType() << " :: ");
   LLVM_DEBUG(printSafetyInfo(Conditions, dbgs()));
+
+  // Set the safety data in the related type (default is true)
+  if (SetRelated) {
+    if (dtrans::StructInfo *StructureInfo =
+        dyn_cast<dtrans::StructInfo>(this)) {
+      dtrans::StructInfo *RelatedInfo = StructureInfo->getRelatedType();
+      if (RelatedInfo)
+        RelatedInfo->setSafetyData(Conditions, false /* ResetRelated */);
+    }
+  }
+}
+
+void dtrans::TypeInfo::resetSafetyData(SafetyData Conditions,
+                                       bool ResetRelated) {
+  SafetyInfo &= ~Conditions;
+
+  // Reset the safety data in the related type (default is true)
+  if (ResetRelated) {
+    if (dtrans::StructInfo *StructureInfo =
+        dyn_cast<dtrans::StructInfo>(this)) {
+      dtrans::StructInfo *RelatedInfo = StructureInfo->getRelatedType();
+      if (RelatedInfo)
+        RelatedInfo->resetSafetyData(Conditions, false /* ResetRelated */);
+    }
+  }
+}
+
+void dtrans::TypeInfo::clearSafetyData(bool ClearRelated) {
+  SafetyInfo = 0;
+
+  // Clear the safety data in the related type (default is true)
+  if (ClearRelated) {
+    if (dtrans::StructInfo *StructureInfo =
+        dyn_cast<dtrans::StructInfo>(this)) {
+      dtrans::StructInfo *RelatedInfo = StructureInfo->getRelatedType();
+      if (RelatedInfo)
+        RelatedInfo->clearSafetyData(false /* ResetRelated */);
+    }
+  }
 }
 
 bool dtrans::FieldInfo::processNewSingleValue(llvm::Constant *C) {
@@ -1321,4 +1392,255 @@ bool dtrans::isBitCastLoadingZeroElement(BitCastInst* BC) {
     }
   }
   return false;
+}
+
+// Return true if the input type Type1 is the same as Type2 except for
+// the last element (or vice versa). For example, consider that there is
+// a class A which will be a base class for other derived classes and
+// there is an instantiation of A. Then we will see something like the
+// following in the IR:
+//
+// %class.A.base = type <{ %"class.boost::array", [2 x i8],
+//                         %"class.std::vector", i32 }>
+// %class.A = type <{ %"class.boost::array", [2 x i8],
+//                         %"class.std::vector", i32, [4 x i8] }>
+//
+// The structure type %class.A.base is the same as %class.A, except for the last
+// entry of structure %class.A. This entry at the end ([4 x i8]) is used for
+// the application binary interface (ABI).
+bool dtrans::isPaddedStruct(llvm::Type *Type1, llvm::Type *Type2) {
+
+  if (!DTransMergePaddedStructs)
+    return false;
+
+  if (!Type1 || !Type2)
+    return false;
+
+  if (!Type1->isStructTy() || !Type2->isStructTy())
+    return false;
+
+  unsigned Type1Size = cast<StructType>(Type1)->getNumElements();
+  unsigned Type2Size = cast<StructType>(Type2)->getNumElements();
+  unsigned PaddedSize = 0;
+  unsigned BaseSize = 0;
+
+  if (Type1Size == 0 || Type2Size == 0)
+    return false;
+
+  StructType *BaseType = nullptr;
+  StructType *PaddedType = nullptr;
+
+  // Find the possible base and the padded types
+  if (Type1Size - Type2Size == 1) {
+    PaddedType = cast<StructType>(Type1);
+    PaddedSize = Type1Size;
+
+    BaseType = cast<StructType>(Type2);
+    BaseSize = Type2Size;
+  }
+  else if (Type2Size - Type1Size == 1) {
+    BaseType = cast<StructType>(Type1);
+    BaseSize = Type1Size;
+
+    PaddedType = cast<StructType>(Type2);
+    PaddedSize = Type1Size;
+  } else {
+    return false;
+  }
+
+  if (PaddedType->isLiteral() || BaseType->isLiteral())
+    return false;
+
+  ArrayType *PaddedEntry =
+      dyn_cast<ArrayType>(PaddedType->getElementType(PaddedSize - 1));
+
+  // Check if the current structure is a candidate for padded structure
+  if (!PaddedEntry || !PaddedEntry->getElementType()->isIntegerTy(8))
+    return false;
+
+  StringRef PaddedName = PaddedType->getName();
+  StringRef BaseName = BaseType->getName();
+
+  if (!BaseName.endswith(".base"))
+      return false;
+
+  // FIXME: There could be cases where the base name doesn't match.
+  // For example:
+  //
+  //   %class.A = type opaque
+  //   %class.A.1 = type <{ i32 (...)**, i32, i8, [3 x i8] }>
+  //   %class.A.base = type <{ i32 (...)**, float, i8 }>
+  //   %class.A.base.2 = type <{ i32 (...)**, i32, i8 }>
+  //
+  // This issue happens when templates are involved in the source code.
+  if (BaseName.compare(PaddedName.str() + ".base") != 0)
+    return false;
+
+  // All the elements must match except the last one;
+
+  bool AllElementsMatch = true;
+  for(unsigned Element = 0; Element < BaseSize; Element++) {
+    if (PaddedType->getElementType(Element) !=
+        BaseType->getElementType(Element)) {
+      AllElementsMatch = false;
+      break;
+    }
+  }
+
+  return AllElementsMatch;
+}
+
+// Given a type, find the related type from the input Module M. For example,
+// assume that InTy is a base type:
+//
+// %class.A.base = type <{ %"class.boost::array", [2 x i8],
+//                         %"class.std::vector", i32 }>
+//
+// This function will find the padded form from the input module:
+//
+// %class.A = type <{ %"class.boost::array", [2 x i8],
+//                         %"class.std::vector", i32, [4 x i8] }>
+//
+// It also works the other way around, given a padded structure InTy it will
+// find the base form.
+llvm::Type* dtrans::collectRelatedType(llvm::Type *InTy, Module &M) {
+
+  if (!DTransMergePaddedStructs)
+    return nullptr;
+
+  StructType *CurrStruct = dyn_cast_or_null<StructType>(InTy);
+
+  if (!CurrStruct)
+    return nullptr;
+
+  if (CurrStruct->isLiteral())
+    return nullptr;
+
+  StringRef StructName = CurrStruct->getName();
+  llvm::Type *RelatedType = nullptr;
+  std::string StrRelatedName;
+
+  // Generate the type's name that we need to find in the module.
+
+  // Input type is a base type (%class.A.base), generate the
+  // padded type name (%class.A)
+  if (StructName.endswith(".base"))
+    StrRelatedName = StructName.drop_back(5).str();
+
+  // Input type is a padded type (%class.A), generate the base
+  // type name (%class.A)
+  else
+    StrRelatedName = StructName.str() + ".base";
+
+  // FIXME: There could be cases, where the base name doesn't match.
+  // For example:
+  //
+  //   %class.A = type opaque
+  //   %class.A.1 = type <{ i32 (...)**, i32, i8, [3 x i8] }>
+  //   %class.A.base = type <{ i32 (...)**, float, i8 }>
+  //   %class.A.base.2 = type <{ i32 (...)**, i32, i8 }>
+  //
+  // This issue happens when templates are involved in the source code.
+  RelatedType = M.getTypeByName(StrRelatedName);
+  if (!RelatedType)
+    return nullptr;
+
+  if (!dtrans::isPaddedStruct(InTy, RelatedType))
+    return nullptr;
+
+  return RelatedType;
+}
+
+// Check to see if the specified name ends with a suffix consisting of a '.'
+// and one or more digits. If it does, return the name without the suffix.
+// If not, return the name as is.
+//
+// We're looking for types that have the same name except for an appended
+// suffix, like this:
+//
+//   %struct.A = type {...}
+//   %struct.A.123 = type {...}
+//   %struct.A.456 = type {...}
+//   %struct.A.2.789 = type {...}
+//
+// However, we don't want to attempt to match types like this:
+//
+//   %struct.CO = type {...}
+//   %struct.CO2 = type {...}
+//
+// So we start by trimming trailing numbers, then look for and trim a
+// single '.', and repeat this as long as we trimmed something and found
+// a trailing '.'.
+StringRef dtrans::getTypeBaseName(StringRef TyName) {
+  StringRef RefName = TyName;
+  StringRef BaseName = TyName.rtrim("0123456789");
+  while (RefName.size() != BaseName.size()) {
+    if (!BaseName.endswith("."))
+      return RefName;
+    RefName = BaseName.drop_back(1);
+    BaseName = RefName.rtrim("0123456789");
+  }
+  return RefName;
+}
+
+// If \p Ty refers to a structure type (potentially with some level of
+// indirection or array usage), return the StructureType, otherwise nullptr.
+llvm::StructType* dtrans::getContainedStructTy(llvm::Type *Ty) {
+  auto *BaseTy = Ty;
+  while (BaseTy->isPointerTy() || BaseTy->isArrayTy() || BaseTy->isVectorTy()) {
+    if (BaseTy->isPointerTy())
+      BaseTy = BaseTy->getPointerElementType();
+    else if (BaseTy->isArrayTy())
+      BaseTy = cast<ArrayType>(BaseTy)->getElementType();
+    else
+      BaseTy = cast<VectorType>(BaseTy)->getElementType();
+  }
+  return dyn_cast<StructType>(BaseTy);
+}
+
+// Collect all the named structure types that are reachable in the IR into \p
+// SeenTypes
+//
+// The method Module::getIdentifiedStructTypes() may not return some
+// structures that are nested inside of other types. This function will
+// include those.
+void dtrans::collectAllStructTypes(Module &M,
+                           SetVector<llvm::StructType *> &SeenTypes) {
+  std::function<void(StructType *)> findMissedNestedTypes =
+      [&](StructType *Ty) {
+        for (Type *ElemTy : Ty->elements()) {
+          // Look past pointer, array, and vector wrappers.
+          // If the element is a structure, add it to the SeenTypes set.
+          // If it wasn't already there, check for nested types.
+          if (StructType *ElemStTy = getContainedStructTy(ElemTy))
+            if (SeenTypes.insert(ElemStTy))
+              findMissedNestedTypes(ElemStTy);
+        }
+        if (!Ty->hasName())
+          return;
+        StringRef TyName = Ty->getName();
+        StringRef BaseName = getTypeBaseName(TyName);
+        // If the type name didn't have a suffix, TyName and BaseName will be
+        // the same. Checking the size is sufficient.
+        if (TyName.size() == BaseName.size())
+          return;
+        // Add the base type now. This might be the only way it is found.
+        StructType *BaseTy = M.getTypeByName(BaseName);
+        if (!BaseTy || !SeenTypes.insert(BaseTy))
+          return;
+        findMissedNestedTypes(BaseTy);
+      };
+
+  // Sometimes previous optimizations will have left types that are not
+  // used in a way that allows Module::getIndentifiedStructTypes() to find
+  // them. This can confuse our mapping algorithm, so here we check for
+  // missing types and add them to the set we're looking at. In order to
+  // consistently choose the same target type for equivalent types and
+  // compatible types, a SetVector is used for collecting the available types.
+  for (StructType *Ty : M.getIdentifiedStructTypes()) {
+    // If we've seen this type already, skip it.
+    if (!SeenTypes.insert(Ty))
+      continue;
+    findMissedNestedTypes(Ty);
+  }
 }
