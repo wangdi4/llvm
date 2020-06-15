@@ -1232,6 +1232,7 @@ void PassManagerBuilder::populateModulePassManager(
     // common computations, hoist loop-invariant aspects out of any outer loop,
     // and unswitch the runtime checks if possible. Once hoisted, we may have
     // dead (or speculatable) control flows or more combining opportunities.
+    MPM.add(createEarlyCSEPass());
     MPM.add(createCorrelatedValuePropagationPass());
     addInstructionCombiningPass(MPM);  // INTEL
     MPM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap));
