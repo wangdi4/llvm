@@ -810,9 +810,12 @@ private:
         dbgs() << "\n";
       });
 
-      // TODO: Add support for users that are not instructions to handle a case
-      // such as:
+      // Try to infer a usage type for case like:
       //   getelementptr (%ty2, %ty2* (bitcast %ty1* @V to %ty2*), i64 0, i32 0)
+      if (auto *GEPOp = dyn_cast<GEPOperator>(User)) {
+        inferGetElementPtr(ValueToInfer, GEPOp);
+        continue;
+      }
 
       if (auto *I = dyn_cast<Instruction>(User))
         switch (I->getOpcode()) {
@@ -836,7 +839,7 @@ private:
           inferCall(ValueToInfer, cast<CallBase>(User));
           break;
         case Instruction::GetElementPtr:
-          inferGetElementPtr(ValueToInfer, cast<GetElementPtrInst>(User));
+          inferGetElementPtr(ValueToInfer, cast<GEPOperator>(User));
           break;
         case Instruction::ICmp:
           inferICmpInst(ValueToInfer, cast<ICmpInst>(User));
@@ -867,7 +870,7 @@ private:
   }
 
   // Try to determine the type of the GEP pointer operand.
-  void inferGetElementPtr(Value *ValueToInfer, GetElementPtrInst *GEP) {
+  void inferGetElementPtr(Value *ValueToInfer, GEPOperator *GEP) {
     // GEPs that have a simple source type being indexed into are inferred as
     // being that type.
     //   %x = getelementptr %struct.arc, p0 %ptr, i64 0, i32
