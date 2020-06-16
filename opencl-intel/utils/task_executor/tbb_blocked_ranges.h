@@ -43,6 +43,10 @@ public:
 	BlockedRange(const size_t dims[], size_t grainsize) :
 		m_min(0), m_max(dims[0]), m_grain(grainsize) {}
 
+    BlockedRange(const size_t dimsBegin[], const size_t dimsEnd[],
+                 size_t grainsize)
+        : m_min(dimsBegin[0]), m_max(dimsEnd[0]), m_grain(grainsize) {}
+
     BlockedRange(const tbb::blocked_range<size_t>& tbb_r) :
         m_min(tbb_r.begin()), m_max(tbb_r.end()), m_grain(tbb_r.grainsize()) {};
 
@@ -217,6 +221,10 @@ public:
 	BlockedRangeByRow2d(const size_t dims[], size_t grainsize) :
         BlockedRange2d( 0, dims[1], 0, dims[0], grainsize ) {}
 
+    BlockedRangeByRow2d(const size_t dimsBegin[], const size_t dimsEnd[],
+                        size_t grainsize)
+        : BlockedRange2d( dimsBegin[1], dimsEnd[1], dimsBegin[0], dimsEnd[0], grainsize ) {}
+
     const BlockedRangeByRow1d& rows() const { return m_coord_split_first; };
     const BlockedRangeByRow1d& cols() const { return m_coord_split_second; };
 
@@ -244,6 +252,10 @@ public:
 	BlockedRangeByRow3d(const size_t dims[], size_t grainsize) :
         BlockedRange3d( 0, dims[2], 0, dims[1], 0, dims[0], grainsize ) {}
 
+    BlockedRangeByRow3d(const size_t dimsBegin[], const size_t dimsEnd[],
+                        size_t grainsize)
+        : BlockedRange3d(dimsBegin[2], dimsEnd[2], dimsBegin[1], dimsEnd[1],
+                         dimsBegin[0], dimsEnd[0], grainsize) {}
         
     const BlockedRangeByRow1d& pages() const { return m_coord_split_first; };
     const BlockedRangeByRow1d& rows()  const { return m_coord_split_second;  };
@@ -277,6 +289,11 @@ public:
 	BlockedRangeByColumn2d(const size_t dims[], size_t grainsize) :
         BlockedRange2d( 0, dims[0], 0, dims[1], grainsize ) {}
 
+    BlockedRangeByColumn2d(const size_t dimsBegin[], const size_t dimsEnd[],
+                           size_t grainsize)
+        : BlockedRange2d(dimsBegin[0], dimsEnd[0], dimsBegin[1], dimsEnd[1],
+                         grainsize ) {}
+
     const BlockedRangeByColumn1d& rows() const { return m_coord_split_second; };
     const BlockedRangeByColumn1d& cols() const { return m_coord_split_first; };
 
@@ -307,6 +324,10 @@ public:
 	BlockedRangeByColumn3d(const size_t dims[], size_t grainsize) :
         BlockedRange3d( 0, dims[2], 0, dims[0], 0, dims[1], grainsize ) {}
 
+    BlockedRangeByColumn3d(const size_t dimsBegin[], const size_t dimsEnd[],
+                           size_t grainsize)
+        : BlockedRange3d(dimsBegin[2], dimsEnd[2], dimsBegin[0], dimsEnd[0],
+                         dimsBegin[1], dimsEnd[1], grainsize ) {}
 
     const BlockedRangeByColumn1d& pages() const { return m_coord_split_first;  };
     const BlockedRangeByColumn1d& rows()  const { return m_coord_split_third;  };
@@ -340,6 +361,11 @@ public:
     
 	BlockedRangeByTile2d(const size_t dims[], size_t grainsize) :
         m_rows(0, dims[1], grainsize), m_cols(0, dims[0], grainsize) {};
+
+    BlockedRangeByTile2d(const size_t dimsBegin[], const size_t dimsEnd[],
+                         size_t grainsize)
+        : m_rows(dimsBegin[1], dimsEnd[1], grainsize),
+          m_cols(dimsBegin[0], dimsEnd[0], grainsize) {}
 
     // if any is empty - the whole range is empty
     bool empty()                  const { return (m_rows.empty() || m_cols.empty()); };
@@ -389,6 +415,12 @@ public:
     
 	BlockedRangeByTile3d(const size_t dims[], size_t grainsize) :
         m_pages(0, dims[2], grainsize), m_rows(0, dims[1], grainsize), m_cols(0, dims[0], grainsize) {};
+
+    BlockedRangeByTile3d(const size_t dimsBegin[], const size_t dimsEnd[],
+                         size_t grainsize)
+        : m_pages(dimsBegin[2], dimsEnd[2], grainsize),
+          m_rows(dimsBegin[1], dimsEnd[1], grainsize),
+          m_cols(dimsBegin[0], dimsEnd[0], grainsize) {};
 
     // if any is empty - the whole range is empty
     bool empty()                  const { return (m_pages.empty() || m_rows.empty() || m_cols.empty()); };
@@ -447,6 +479,10 @@ public:
 	BlockedRangeByDefaultTBB1d(const size_t dims[], size_t grainsize) :
         tbb::blocked_range<size_t> ( 0, dims[0], grainsize ) {};
 
+    BlockedRangeByDefaultTBB1d(const size_t dimsBegin[], const size_t dimsEnd[],
+                               size_t grainsize)
+        : tbb::blocked_range<size_t> (dimsBegin[0], dimsEnd[0], grainsize ) {}
+
     // make me the right side of the range, update other to be the left side of the range
     BlockedRangeByDefaultTBB1d( BlockedRangeByDefaultTBB1d& o, tbb::split ) : 
         tbb::blocked_range<size_t> ( o, tbb::split() ) {};
@@ -469,6 +505,11 @@ public:
     
 	BlockedRangeByDefaultTBB2d(const size_t dims[], size_t grainsize) :
         tbb::blocked_range2d<size_t> ( 0, dims[1], grainsize, 0, dims[0], grainsize ) {};
+
+    BlockedRangeByDefaultTBB2d(const size_t dimsBegin[], const size_t dimsEnd[],
+                               size_t grainsize)
+        : tbb::blocked_range2d<size_t> (dimsBegin[1], dimsEnd[1], grainsize,
+                                        dimsBegin[0], dimsEnd[0], grainsize ) {}
 
     BlockedRange::BlockedRangeSizeType  grainsize() const { return cols().grainsize(); };
 
@@ -496,6 +537,12 @@ public:
     
 	BlockedRangeByDefaultTBB3d(const size_t dims[], size_t grainsize) :
         tbb::blocked_range3d<size_t> ( 0, dims[2], grainsize, 0, dims[1], grainsize, 0, dims[0], grainsize ) {};
+
+    BlockedRangeByDefaultTBB3d(const size_t dimsBegin[], const size_t dimsEnd[],
+                               size_t grainsize)
+        : tbb::blocked_range3d<size_t> (dimsBegin[2], dimsEnd[2], grainsize,
+                                        dimsBegin[1], dimsEnd[1], grainsize,
+                                        dimsBegin[0], dimsEnd[0], grainsize ) {}
 
     BlockedRange::BlockedRangeSizeType  grainsize() const { return cols().grainsize(); };
 

@@ -204,7 +204,7 @@ void immediate_executor_task::operator()() const
 }
 
 /////////////// TaskExecutor //////////////////////
-TBBTaskExecutor::TBBTaskExecutor()
+TBBTaskExecutor::TBBTaskExecutor() : m_tbbNumaEnabled(false)
 {
     // we deliberately don't delete m_pScheduler (see comment above its definition)
 }
@@ -257,6 +257,9 @@ int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger,
         }
         return 0;
     }
+
+    // Initialize TBB NUMA support
+    InitTBBNuma();
 
     gWorker_threads = uiNumOfThreads;
     if (gWorker_threads == TE_AUTO_THREADS)
@@ -354,6 +357,21 @@ int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger,
     return gWorker_threads;
 }
 
+void TBBTaskExecutor::InitTBBNuma()
+{
+#if __TBB_NUMA_SUPPORT
+    m_tbbNumaNodes = tbb::info::numa_nodes();
+    int nodesCount = (int)m_tbbNumaNodes.size();
+    std::string envCPUPlaces;
+    cl_err_code err = Intel::OpenCL::Utils::GetEnvVar(envCPUPlaces,
+                                                      "DPCPP_CPU_PLACES");
+    // Only use TBB NUMA support if env is "numa_domains" and there are at least
+    // two NUMA nodes.
+    m_tbbNumaEnabled = CL_SUCCEEDED(err) && ("numa_domains" == envCPUPlaces) &&
+                       (nodesCount > 1);
+#endif
+}
+
 void TBBTaskExecutor::Finalize()
 {
     gWorker_threads = 0;
@@ -384,6 +402,17 @@ TBBTaskExecutor::CreateRootDevice( const RootDeviceCreationParam& device_desc, v
             (TE_DISABLE_MASTERS_JOIN == device.mastersJoining)
             ? gWorker_threads - device.uiNumOfExecPlacesForMasters
             : gWorker_threads;
+    }
+
+    assert((device.uiNumOfLevels <= TE_MAX_LEVELS_COUNT) &&
+        "Too many levels of devices");
+    if (TE_MAX_LEVELS_COUNT == device.uiNumOfLevels)
+    {
+        device.uiThreadsPerLevel[0] = GetTBBNumaNodesCount();
+        device.uiThreadsPerLevel[1] =
+            ((TE_DISABLE_MASTERS_JOIN == device.mastersJoining)
+            ? gWorker_threads - device.uiNumOfExecPlacesForMasters
+            : gWorker_threads) / device.uiThreadsPerLevel[0];
     }
 
     // check params

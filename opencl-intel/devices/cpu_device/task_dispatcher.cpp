@@ -270,9 +270,11 @@ cl_dev_err_code TaskDispatcher::init()
         TaskExecutorMastersJoinMode = TE_DISABLE_MASTERS_JOIN;
 
     const size_t numMasters = 1;
-    m_pRootDevice = m_pTaskExecutor->CreateRootDevice(
-        RootDeviceCreationParam(TE_AUTO_THREADS, TaskExecutorMastersJoinMode,
-                                numMasters), nullptr, this);
+    RootDeviceCreationParam param(TE_AUTO_THREADS, TaskExecutorMastersJoinMode,
+                                  numMasters);
+    if (m_pTaskExecutor->IsTBBNumaEnabled())
+        param.uiNumOfLevels = TE_MAX_LEVELS_COUNT;
+    m_pRootDevice = m_pTaskExecutor->CreateRootDevice(param, nullptr, this);
 
     m_bTEActivated = (0 != m_pRootDevice);
     if ( !m_bTEActivated )

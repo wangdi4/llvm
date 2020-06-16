@@ -230,34 +230,40 @@ protected:
 
 template <class BlockedRange, class TaskLoopBodySpecific>
 void TBB_ExecutionSchedulers::auto_executor(
-    const size_t                                      dims[],
+    const size_t                                      dimsBegin[],
+    const size_t                                      dimsEnd[],
     size_t                                            grainsize,
     const Intel::OpenCL::Utils::SharedPtr<ITaskSet>&  task,
     base_command_list&                                cmdList )
 {
-    tbb::parallel_for(BlockedRange(dims, grainsize), TaskLoopBodySpecific(task), tbb::auto_partitioner());
+    tbb::parallel_for(BlockedRange(dimsBegin, dimsEnd, grainsize),
+                      TaskLoopBodySpecific(task), tbb::auto_partitioner());
 }
 
 template <class BlockedRange, class TaskLoopBodySpecific>        
 void TBB_ExecutionSchedulers::affinity_executor(
-    const size_t                                      dims[],
+    const size_t                                      dimsBegin[],
+    const size_t                                      dimsEnd[],
     size_t                                            grainsize,
     const Intel::OpenCL::Utils::SharedPtr<ITaskSet>&  task,
     base_command_list&                                cmdList )
 {
     tbb::affinity_partitioner& ap = cmdList.GetAffinityPartitioner();
-    tbb::parallel_for(BlockedRange(dims, grainsize), TaskLoopBodySpecific(task), ap);
+    tbb::parallel_for(BlockedRange(dimsBegin, dimsEnd, grainsize),
+                      TaskLoopBodySpecific(task), ap);
 }
 
 template <class BlockedRange, class TaskLoopBodySpecific>
 void TBB_ExecutionSchedulers::static_executor(
-    const size_t                                      dims[],
+    const size_t                                      dimsBegin[],
+    const size_t                                      dimsEnd[],
     size_t                                            grainsize,
     const Intel::OpenCL::Utils::SharedPtr<ITaskSet>&  task,
     base_command_list&                                cmdList )
 {
     tbb::static_partitioner& sp = cmdList.GetStaticPartitioner();
-    tbb::parallel_for(BlockedRange(dims, grainsize), TaskLoopBodySpecific(task), sp);
+    tbb::parallel_for(BlockedRange(dimsBegin, dimsEnd, grainsize),
+                      TaskLoopBodySpecific(task), sp);
 }
 
 #define DEFINE_EXECUTOR_DIMS_ARRAY( name, ExecutorFuncName, BlockedRangeNamePrefix )                  \
@@ -311,7 +317,8 @@ bool TBB_ExecutionSchedulers::parallel_execute( base_command_list& cmdList,
     TE_CMD_LIST_PREFERRED_SCHEDULING scheduler    = cmdList.GetPreferredScheduler();
     TASK_SET_OPTIMIZATION            optimization = task->OptimizeBy();
 
-    int res = task->Init(dims, dimCount, cmdList.GetTEDevice()->GetConcurrency());
+    TEDevice* rootDevice = cmdList.GetTEDevice();
+    int res = task->Init(dims, dimCount, rootDevice->GetConcurrency());
 
     assert( scheduler < TE_CMD_LIST_PREFERRED_SCHEDULING_LAST && "Invalid preferred scheduling" );
     assert( optimization < TASK_SET_OPTIMIZE_BY_LAST && "Invalid ");
@@ -330,7 +337,59 @@ bool TBB_ExecutionSchedulers::parallel_execute( base_command_list& cmdList,
 
     ExecutorFunc execute = g_executor[scheduler][optimization][dimCount-1];
 
-    execute( dims, grainSize, task, cmdList  );
+    const TBBTaskExecutor& taskExecutor = rootDevice->GetTaskExecutor();
+    bool useNuma = false;
+    if (taskExecutor.IsTBBNumaEnabled() && task->PreferNumaNodes())
+    {
+        unsigned int nodesCount = taskExecutor.GetTBBNumaNodesCount();
+        assert(nodesCount > 1 && "Need at least 2 NUMA nodes");
+        unsigned int lastDimIdx = dimCount - 1;
+        while (lastDimIdx > 0 && dims[lastDimIdx] == 1)
+          lastDimIdx--;
+        size_t lastDimSize = dims[lastDimIdx];
+        if (lastDimSize > nodesCount)
+        {
+            useNuma = true;
+
+            ArenaHandler *lowLevelArenas = rootDevice->GetLowLevelArenas();
+            tbb::task_group *taskGroups = cmdList.GetNumaTaskGroups();
+            std::vector<std::vector<size_t>>& dimsBegin =
+                cmdList.GetNumaDimsBegin();
+            std::vector<std::vector<size_t>>& dimsEnd =
+                cmdList.GetNumaDimsEnd();
+            // Uniformly distribute Range to low level arenas which are bound to
+            // NUMA nodes.
+            size_t interval = lastDimSize / nodesCount;
+            for (unsigned i = 0; i < nodesCount; ++i)
+            {
+                std::fill(dimsBegin[i].begin(), dimsBegin[i].end(), 0);
+                dimsBegin[i][lastDimIdx] = interval * i;
+                MEMCPY_S(dimsEnd[i].data(), MAX_WORK_DIM * sizeof(size_t),
+                         dims, sizeof(dims));
+                dimsEnd[i][lastDimIdx] = (i == (nodesCount - 1)) ?
+                    lastDimSize : (interval * i + interval);
+            }
+            for (unsigned i = 0; i < nodesCount; ++i)
+            {
+                lowLevelArenas[i].Execute([&, i]{
+                    taskGroups[i].run([&, i](){
+                        execute(dimsBegin[i].data(), dimsEnd[i].data(),
+                                grainSize, task, cmdList);
+                    });
+                });
+            }
+            for (unsigned i = 0; i < nodesCount; ++i)
+            {
+                lowLevelArenas[i].Execute([&, i]{ taskGroups[i].wait(); });
+            }
+        }
+    }
+
+    if (!useNuma)
+    {
+        size_t dimsBegin[MAX_WORK_DIM] = { 0 };
+        execute(dimsBegin, dims, grainSize, task, cmdList);
+    }
 
     return task->Finish(FINISH_COMPLETED);
 }
