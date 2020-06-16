@@ -1644,3 +1644,19 @@ void dtrans::collectAllStructTypes(Module &M,
     findMissedNestedTypes(Ty);
   }
 }
+
+// Return 'true' if the value is only used as the destination pointer of memset
+// calls.
+bool dtrans::valueOnlyUsedForMemset(Value *V) {
+  if (V->users().empty())
+    return false;
+
+  for (auto *U : V->users()) {
+    if (auto *MC = dyn_cast<MemSetInst>(U))
+      if (MC->getDest() == V)
+        continue;
+    return false;
+  }
+
+  return true;
+}

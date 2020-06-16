@@ -28,6 +28,7 @@ class raw_ostream;
 class CallBase;
 class Function;
 class Type;
+class Value;
 
 namespace dtrans {
 
@@ -78,6 +79,10 @@ Function *getCalledFunction(const CallBase &Call);
 // Helper function to check whether \p Ty is a pointer type, or contains a
 // reference to a pointer type.
 bool hasPointerType(llvm::Type *Ty);
+
+// Return 'true' if the value is only used as the destination pointer of memset
+// calls.
+bool valueOnlyUsedForMemset(llvm::Value *V);
 
 } // namespace dtrans
 } // namespace llvm
