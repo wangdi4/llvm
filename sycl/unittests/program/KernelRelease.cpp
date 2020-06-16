@@ -74,7 +74,7 @@ TEST(KernelReleaseTest, GetKernelRelease) {
   // with the spec-conformant behaviour of host device with default_selector.
   try {
     device dev{default_selector{}};
-  } catch (const runtime_error &re) {
+  } catch (const runtime_error &) {
     std::cerr << "Not run: no device available." << std::endl;
     return;
   }
