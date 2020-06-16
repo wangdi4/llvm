@@ -1537,19 +1537,56 @@ impact.
 
 If the developer and gatekeeper agree that a new failure has low impact, the
 gatekeeper may approve the checkin in spite of the failure, provided that the
-developer first submit a CQ. This commonly occurs when the failure is caused
+developer first submit a JIRA. This commonly occurs when the failure is caused
 by an error in the failing test itself.
 
-For new LIT failures, in addition to submitting a CQ, you must mark the test as
-an expected failure by adding a line like this.
+New LIT failures are :ref:`allowed <xmain-pulldown-with-lit-failures>`
+only for pulldowns to ``xmain``.
+For new LIT failures, in addition to submitting a JIRA, you must mark the test
+as an expected failure by adding a line like this.
 
 ::
 
-  ; INTEL - This test is marked XFAIL due to cq415116,cq415117. Once those
-  ; problems are fixed, we can restore this test to the community version.
+  ; INTEL_CUSTOMIZATION - This test is marked XFAIL due to CMPLRLLVM-777.
+  ; Once those problems are fixed, we can restore this test
+  ; to the community version.
   ; XFAIL: *
-  ; END INTEL
+  ; END INTEL_CUSTOMIZATION
 
+There always has to be an unresolved JIRA tracking the task of re-enabling
+the test back, so that we are able to keep our test coverage as close
+to the community as possible.
+
+.. _xmain-lit-notification:
+
+Expectations Regarding Unrelated LIT Failures
+---------------------------------------------
+
+It is possible that a LIT breakage sneaks into trunk unnoticed, e.g.
+two interfering commits got clean testing results, when tested separately,
+but break a LIT test together. In this case the LIT failure may appear
+in testing results of an unrelated commit(s).
+
+Developer(s) that get an unrelated LIT failure in their testing
+should immediately notify ``xmain gatekeeper`` about the fail
+and follow their instructions. If there are no other fails
+in the testing, developers that use `Gerrit <https://git-amr-2.devtools.intel.com/gerrit>`_
+for their reviews may force `Verified+1` and add ``xmain gatekeeper``
+code reviewer.
+Developers that do not use ``Gerrit`` should send a `mail
+<mailto:icl.xmain.gatekeeper@intel.com?subject=Important!%20New%20LIT%20fail%20in%20xmain>`_
+with an attached ``fail.log`` (if the fail happened during alloy run) or
+with a description of the fail in the local LIT testing (please provide
+OS version, build variant and builtype information).
+
+The notification must be sent as described above, so that all
+``xmain gatekeepers`` recieve it. At the same time a developer may
+use other channels to communicate with an acting ``xmain gatekeeper``
+regarding the fail (e.g. to query whether this is a known problem
+or/and JIRA was already created).
+
+The process for dealing with the current LIT failures in ``xmain``
+for ``xmain gatekeeper`` is defined :doc:`here <XmainCurrentLITFailures>`.
 
 Expectations Regarding Performance Regressions
 ----------------------------------------------
@@ -1570,3 +1607,21 @@ Expectations Regarding Compile Time Regressions
 All compile time regressions need to be approved by the architecture team
 prior to checkin. In general, compile time regressions will require
 improvements in generated code performance to justify the cost.
+
+Expectations Regarding Flaky Tests
+----------------------------------
+
+Timely disabling of flaky tests helps reduce developers' wasted time
+(e.g. spent on figuring out whether the fail is caused by one's changes),
+and also save machine resources (e.g. developers restart testing several
+times to get rid of the flaky test fails). Thus, every developer
+is required to report flaky tests ASAP. This is related to both
+stability and performance flaky fails.
+
+Developers should follow the process of submitting a JIRA described
+`here <https://wiki.ith.intel.com/display/ITSCompilersDevOps/Flaky+tests>`_,
+so that JIRA can be used as a data base for figuring out whether the fails
+in the developer's testing are known flaky fails or not.
+
+**TBD** Integrate creation of JIRA for flaky test fails with :doc:`AlloyGerrit <XmainAlloyGerrit>`
+to save developers' time for filling JIRA fields (`CMPLRTOOLS-20224 <https://jira.devtools.intel.com/browse/CMPLRTOOLS-20224>`_).

@@ -21,6 +21,7 @@ Xmain
    JIRA
    XmainAlloyGerrit
    XmainGatekeeperDuties
+   XmainCurrentLITFailures
    IRSuppression
    LoopOptReport
    InlineReportViaMetadata
