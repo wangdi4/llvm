@@ -681,16 +681,12 @@ public:
       return getExtractSubvectorOverhead(cast<FixedVectorType>(Tp), Index,
                                          cast<FixedVectorType>(SubTp));
     case TTI::SK_InsertSubvector:
-<<<<<<< HEAD
-      return getInsertSubvectorOverhead(Tp, Index, SubTp);
+      return getInsertSubvectorOverhead(cast<FixedVectorType>(Tp), Index,
+                                        cast<FixedVectorType>(SubTp));
 #if INTEL_CUSTOMIZATION
     case TTI::SK_TargetSpecific:
       return 1;
 #endif // INTEL_CUSTOMIZATION
-=======
-      return getInsertSubvectorOverhead(cast<FixedVectorType>(Tp), Index,
-                                        cast<FixedVectorType>(SubTp));
->>>>>>> b3e77c6d55853eea5f5c32ec8a3510c0b0e438e1
     }
     llvm_unreachable("Unknown TTI::ShuffleKind");
   }
