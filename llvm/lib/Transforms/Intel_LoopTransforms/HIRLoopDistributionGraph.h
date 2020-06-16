@@ -93,6 +93,8 @@ public:
   static HLNode *DistToHNode(DistPPNode *DNode) { return DNode->getNode(); }
   PiBlockType getBlockType() { return BlockType; }
 
+  unsigned getTopSortNumber() { return (*nodes_begin())->getTopSortNum(); }
+
 private:
   void setPiBlockType(ArrayRef<DistPPNode *> SCCNodes);
   PiGraph *Graph;
@@ -182,7 +184,11 @@ public:
     // Simplify DistPPGraph into PiGraph
     createNodes();
     createEdges();
+
+    sortNodes();
   }
+
+  void sortNodes();
 
   void createNodes();
 

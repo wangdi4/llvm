@@ -4,8 +4,10 @@
 # RUN: llvm-objcopy --dump-section .test2=%t1.dump -R .test2 %t %t1
 # RUN: od -t x1 %t1.dump | FileCheck %s --ignore-case --match-full-lines
 
-# CHECK: 0000000 de ad be ef
-# CHECK-NEXT: 0000004
+# INTEL_CUSTOMIZATION
+# CHECK: {{[0]*}}0000000 de ad be ef
+# CHECK-NEXT: {{[0]*}}0000004
+# end INTEL_CUSTOMIZATION
 
 ## Verify that the newly added section is not dumped.
 # RUN: echo CAFE > %t3.txt

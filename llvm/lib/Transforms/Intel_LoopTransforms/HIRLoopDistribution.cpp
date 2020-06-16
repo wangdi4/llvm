@@ -115,7 +115,6 @@ bool HIRLoopDistribution::run() {
       continue;
     }
 
-    unsigned TotalMemOps = 0;
     bool AllowScalarExpansion = false;
     bool CreateControlNodes = false;
 
@@ -126,6 +125,7 @@ bool HIRLoopDistribution::run() {
     if (DistCostModel == DistHeuristics::BreakMemRec) {
       CreateControlNodes = true;
 
+      unsigned TotalMemOps = 0;
       TotalMemOps = HLR.getSelfLoopResource(Lp).getNumIntMemOps() +
                     HLR.getSelfLoopResource(Lp).getNumFPMemOps();
 
