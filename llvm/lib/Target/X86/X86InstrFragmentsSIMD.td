@@ -591,12 +591,6 @@ def SDTIFma : SDTypeProfile<1, 3, [SDTCisInt<0>, SDTCisSameAs<0,1>,
 def x86vpmadd52l     : SDNode<"X86ISD::VPMADD52L",     SDTIFma, [SDNPCommutative]>;
 def x86vpmadd52h     : SDNode<"X86ISD::VPMADD52H",     SDTIFma, [SDNPCommutative]>;
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_IFMA
-def x86vpmadd52lvex  : SDNode<"X86ISD::VPMADD52LVEX",  SDTIFma, [SDNPCommutative]>;
-def x86vpmadd52hvex  : SDNode<"X86ISD::VPMADD52HVEX",  SDTIFma, [SDNPCommutative]>;
-#endif // INTEL_FEATURE_ISA_AVX_IFMA
-#endif // INTEL_CUSTOMIZATION
-#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
 def x86vfmaddc     : SDNode<"X86ISD::VFMADDC",         SDTFPTernaryOp>;
 def x86vfmaddcRnd  : SDNode<"X86ISD::VFMADDC_RND",     SDTFmaRound>;
@@ -629,15 +623,6 @@ def X86Vpdpbusds : SDNode<"X86ISD::VPDPBUSDS", SDTVnni>;
 def X86Vpdpwssd  : SDNode<"X86ISD::VPDPWSSD", SDTVnni>;
 def X86Vpdpwssds : SDNode<"X86ISD::VPDPWSSDS", SDTVnni>;
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_VNNI
-def X86VpdpbusdVex  : SDNode<"X86ISD::VPDPBUSDVEX", SDTVnni>;
-def X86VpdpbusdsVex : SDNode<"X86ISD::VPDPBUSDSVEX", SDTVnni>;
-def X86VpdpwssdVex  : SDNode<"X86ISD::VPDPWSSDVEX", SDTVnni>;
-def X86VpdpwssdsVex : SDNode<"X86ISD::VPDPWSSDSVEX", SDTVnni>;
-
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
-#endif // INTEL_CUSTOMIZATION
 def X86rsqrt28   : SDNode<"X86ISD::RSQRT28",     SDTFPUnaryOp>;
 def X86rsqrt28SAE: SDNode<"X86ISD::RSQRT28_SAE", SDTFPUnaryOp>;
 def X86rcp28     : SDNode<"X86ISD::RCP28",       SDTFPUnaryOp>;
@@ -840,23 +825,7 @@ def X86dpbf16ps :      SDNode<"X86ISD::DPBF16PS",
                                             SDTCisSameAs<0,1>,
                                             SDTCVecEltisVT<2, i32>,
                                             SDTCisSameAs<2,3>]>>;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_BF16
-def X86cvtne2ps2bf16vex : SDNode<"X86ISD::CVTNE2PS2BF16VEX",
-                          SDTypeProfile<1, 2, [SDTCVecEltisVT<0, i16>,
-                                               SDTCVecEltisVT<1, f32>,
-                                               SDTCisSameSizeAs<0,1>,
-                                               SDTCisSameAs<1,2>]>>;
-def X86cvtneps2bf16vex :  SDNode<"X86ISD::CVTNEPS2BF16VEX",
-                          SDTypeProfile<1, 1, [SDTCVecEltisVT<0, i16>,
-                                               SDTCVecEltisVT<1, f32>]>>;
-def X86dpbf16psvex :      SDNode<"X86ISD::DPBF16PSVEX",
-                          SDTypeProfile<1, 3, [SDTCVecEltisVT<0, f32>,
-                                               SDTCisSameAs<0,1>,
-                                               SDTCVecEltisVT<2, i32>,
-                                               SDTCisSameAs<2,3>]>>;
-#endif // INTEL_FEATURE_ISA_AVX_BF16
-#endif // INTEL_CUSTOMIZATION
+
 // galois field arithmetic
 def X86GF2P8affineinvqb : SDNode<"X86ISD::GF2P8AFFINEINVQB", SDTBlend>;
 def X86GF2P8affineqb    : SDNode<"X86ISD::GF2P8AFFINEQB", SDTBlend>;
