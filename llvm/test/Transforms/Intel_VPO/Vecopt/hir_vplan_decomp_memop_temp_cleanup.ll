@@ -21,17 +21,17 @@
 ; <15>      + END LOOP
 
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-simplify-cfg -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-simplify-cfg -vplan-dump-subscript-details -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check decomposed VPInstructions
 ; CHECK: i64 [[I1:%vp.*]] = phi
-; CHECK-NEXT: float* [[GEP1:%vp.*]] = getelementptr inbounds [1024 x float]* @arr1 i64 0 i64 [[I1]]
-; CHECK-NEXT: float [[LOAD1:%vp.*]] = load float* [[GEP1]]
-; CHECK-NEXT: float* [[GEP2:%vp.*]] = getelementptr inbounds [1024 x float]* @arr2 i64 0 i64 [[I1]]
-; CHECK-NEXT: float [[LOAD2:%vp.*]] = load float* [[GEP2]]
+; CHECK-NEXT: float* [[ADDR1:%vp.*]] = subscript inbounds [1024 x float]* @arr1 {i64 0 : i64 0 : i64 4096 : [1024 x float]*} {i64 0 : i64 [[I1]] : i64 4 : [1024 x float]}
+; CHECK-NEXT: float [[LOAD1:%vp.*]] = load float* [[ADDR1]]
+; CHECK-NEXT: float* [[ADDR2:%vp.*]] = subscript inbounds [1024 x float]* @arr2 {i64 0 : i64 0 : i64 4096 : [1024 x float]*} {i64 0 : i64 [[I1]] : i64 4 : [1024 x float]}
+; CHECK-NEXT: float [[LOAD2:%vp.*]] = load float* [[ADDR2]]
 ; CHECK-NEXT: float [[ADD:%vp.*]] = fadd float [[LOAD1]] float [[LOAD2]]
-; CHECK-NEXT: float* [[GEP3:%vp.*]] = getelementptr inbounds [1024 x float]* @ip i64 0 i64 [[I1]]
-; CHECK-NEXT: store float [[ADD]] float* [[GEP3]]
+; CHECK-NEXT: float* [[ADDR3:%vp.*]] = subscript inbounds [1024 x float]* @ip {i64 0 : i64 0 : i64 4096 : [1024 x float]*} {i64 0 : i64 [[I1]] : i64 4 : [1024 x float]}
+; CHECK-NEXT: store float [[ADD]] float* [[ADDR3]]
 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

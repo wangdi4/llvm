@@ -427,7 +427,7 @@ VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
 //
 // The incoming DDRef can either be a LHS or RHS operand for the parent DDNode.
 // In case of a RHS operand we generate an additional `load` VPInstruction along
-// with decomposing the DDRef into GEP (and bitcast if needed). For a LHS
+// with decomposing the DDRef into subscript (and bitcast if needed). For a LHS
 // operand no additional instruction is generated, since VPInstructions
 // representing the RHS must be generated first before generating the `store`.
 // This technique also simplifies the decomposition code to handle loads cleaned
@@ -438,7 +438,7 @@ VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
 // 1. %0 = (@b)[0][i1]
 //
 //    The RHS memory operand will be decomposed as -
-//    %vp0 = gep %b, 0, %vpi1
+//    %vp0 = subscript %b, 0, %vpi1
 //    %vpl = load %vp0
 //
 //    createVPInstruction will later pick the load (always the last generated
@@ -447,9 +447,9 @@ VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
 // 2. %0 = (@b)[0][i1]  +  (@c)[0][i1]
 //
 //    Both the RHS memory operands will be decomposed as -
-//    %vp0 = gep %b, 0, %vpi1
+//    %vp0 = subscript %b, 0, %vpi1
 //    %vp1 = load %vp0
-//    %vp2 = gep %c, 0, %vpi1
+//    %vp2 = subscript %c, 0, %vpi1
 //    %vp3 = load %vp2
 //
 //    createVPInstruction will be responsible for generating the `add`
@@ -458,7 +458,7 @@ VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
 // 3. (@a)[0][i1] = %0
 //
 //    The LHS memory operand will be decomposed as -
-//    %vp0 = gep %a, 0, %vpi1
+//    %vp0 = subscript %a, 0, %vpi1
 //
 //    createVPInstruction will then generate a `store` VPInstruction using %vp0
 //    as operand.
@@ -481,85 +481,85 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
   unsigned NumDims = Ref->getNumDimensions();
   assert(NumDims > 0 && "Number of dimensions in memory operand is 0.");
 
-  // If Ref is of the form a[0] or &a[0], GEP instructions are not needed.
+  // If Ref is of the form a[0] or &a[0], subscript instructions are not needed.
   // TODO: This is needed for correctness of any analysis with opaque types.
-  // However HIR codegen should be aware of this lack of GEP for Refs of form
-  // a[0] and &a[0] and generate them if needed during codegen. For example
+  // However HIR codegen should be aware of this lack of subscript for Refs of
+  // form a[0] and &a[0] and generate them if needed during codegen. For example
   // check Transforms/Intel_VPO/Vecopt/hir_vector_opaque_type.ll
   if (NumDims == 1 && !Ref->hasTrailingStructOffsets() &&
       (*Ref->canon_begin())->isZero())
     MemOpVPI = DecompBaseCE;
   else {
-    // Determine resulting type of the GEP instruction
+    // Determine resulting type of the subscript instruction
     //
     // Example: float a[1024];
     //
     // @a[0][i] will be decomposed as -
-    // float* %vp = getelementptr [1024 x float]* %a, i64 0, i64 %i
+    // float* %vp = subscript [1024 x float]* %a, i64 0, i64 %i
     //
     // Here -
-    // GepResultType = float*
+    // SubscriptResultType = float*
     //
     // NOTE: Type information about pointer type or pointer element type can be
-    // retrieved anytime from the first operand of GEP instruction
+    // retrieved anytime from the pointer operand of subscript instruction.
     //
 
-    Type *GepResultType = Ref->getSrcType();
+    Type *SubscriptResultType = Ref->getSrcType();
 
     // For store/load references we need to convert to PointerType
     if (!Ref->isAddressOf())
-      GepResultType =
-          PointerType::get(GepResultType, Ref->getPointerAddressSpace());
+      SubscriptResultType =
+          PointerType::get(SubscriptResultType, Ref->getPointerAddressSpace());
 
-    // The VPGEPInstruction generated for given memory operand.
-    // NOTE: At this point, the instruction is built with only the base pointer
-    // operand. The indices operands are added subsequently below.
-    VPGEPInstruction *MemOpVPGEP;
-    if (Ref->isInBounds())
-      MemOpVPGEP = cast<VPGEPInstruction>(
-          Builder.createInBoundsGEP(GepResultType, DecompBaseCE));
-    else
-      MemOpVPGEP = cast<VPGEPInstruction>(
-          Builder.createGEP(GepResultType, DecompBaseCE));
+    // Process lowers, strides, indices and struct offsets for each dimension to
+    // create operands of VPSubscript.
+    SmallVector<VPValue *, 4> Lowers;
+    SmallVector<VPValue *, 4> Strides;
+    SmallVector<VPValue *, 4> Indices;
+    VPSubscriptInst::DimStructOffsetsMapTy StructOffsets;
+    VPSubscriptInst::DimTypeMapTy Types;
+    for (unsigned I = NumDims; I > 0; --I) {
+      VPValue *DecompLower = decomposeCanonExpr(Ref, Ref->getDimensionLower(I));
+      VPValue *DecompStride =
+          decomposeCanonExpr(Ref, Ref->getDimensionStride(I));
+      VPValue *DecompIndex = decomposeCanonExpr(Ref, Ref->getDimensionIndex(I));
+      LLVM_DEBUG(dbgs() << "VPDecomp: Memop DecompLower: "; DecompLower->dump();
+                 dbgs() << "\n");
+      LLVM_DEBUG(dbgs() << "VPDecomp: Memop DecompStride: ";
+                 DecompStride->dump(); dbgs() << "\n");
+      LLVM_DEBUG(dbgs() << "VPDecomp: Memop DecompIndex: "; DecompIndex->dump();
+                 dbgs() << "\n");
+      Lowers.push_back(DecompLower);
+      Strides.push_back(DecompStride);
+      Indices.push_back(DecompIndex);
 
-    { // This scope is for the Guard (RAII)
+      // Get trailing struct offsets for dimension.
+      auto HIRDimOffsets = Ref->getTrailingStructOffsets(I);
 
-      VPBuilder::InsertPointGuard Guard(Builder);
-      // Ensure that all the VPInstructions created for decomposition of the
-      // index DDRefs are inserted before the GEP VPInstruction
-      Builder.setInsertPoint(MemOpVPGEP);
-
-      // Process indices for each dimension and update operands of VPGEP.
-      for (unsigned I = NumDims; I > 0; --I) {
-        VPValue *DecompIndex =
-            decomposeCanonExpr(Ref, Ref->getDimensionIndex(I));
-        LLVM_DEBUG(dbgs() << "VPDecomp: Memop DecompIndex: ";
-                   DecompIndex->dump(); dbgs() << "\n");
-        MemOpVPGEP->addOperand(DecompIndex);
-
-        // Add indices for trailing struct offsets and record it in the struct
-        // offset tracker
-        auto HIRDimOffsets = Ref->getTrailingStructOffsets(I);
-
-        // Add the offsets for the corresponding dimension operand only if it is
-        // non-empty
-        if (!HIRDimOffsets.empty()) {
-          // Trailing struct offsets are always I32 type constants
-          auto I32Ty = Type::getInt32Ty(*Plan->getLLVMContext());
-          for (auto OffsetVal : HIRDimOffsets) {
-            auto OffsetIndex = ConstantInt::get(I32Ty, OffsetVal);
-            // Build a VPConstant to represent the offset value
-            VPConstant *VPOffset = Plan->getVPConstant(OffsetIndex);
-            LLVM_DEBUG(dbgs() << "VPDecomp: Struct Offset: "; VPOffset->dump();
-                       dbgs() << "\n");
-            MemOpVPGEP->addOperand(VPOffset, true /*IsStructOffset*/);
-          }
+      // Add the offsets for the corresponding dimension operand only if it is
+      // non-empty
+      if (!HIRDimOffsets.empty()) {
+        for (auto OffsetVal : HIRDimOffsets) {
+          LLVM_DEBUG(dbgs()
+                     << "VPDecomp: Struct Offset: " << OffsetVal << "\n");
+          // Dimensions in VPSubscriptInst are zero-indexed, hence attach the
+          // offset to I-1 dimension.
+          StructOffsets[I - 1].push_back(OffsetVal);
         }
       }
 
-    } // End Guard scope
+      // Get type associated for dimension.
+      Types[I - 1] = Ref->getDimensionType(I);
+    }
 
-    MemOpVPI = MemOpVPGEP;
+    if (Ref->isInBounds())
+      MemOpVPI = Builder.createInBoundsSubscriptInst(
+          SubscriptResultType, NumDims, Lowers, Strides, DecompBaseCE, Indices,
+          StructOffsets, Types);
+    else
+      MemOpVPI = Builder.createSubscriptInst(SubscriptResultType, NumDims,
+                                             Lowers, Strides, DecompBaseCE,
+                                             Indices, StructOffsets, Types);
   }
 
   // Create a bitcast instruction if needed
@@ -824,8 +824,7 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
     } else if (auto *Call = dyn_cast<CallInst>(LLVMInst)) {
       if (auto *IntrinCall = dyn_cast<IntrinsicInst>(Call)) {
         if (IntrinCall->getIntrinsicID() == Intrinsic::intel_subscript) {
-          // TODO: This should be VPSubscriptInst in future.
-          NewVPInst = cast<VPGEPInstruction>(VPOperands[0]);
+          NewVPInst = cast<VPSubscriptInst>(VPOperands[0]);
           // Make subscript the master instruction since it was already created.
           NewVPInst->HIR.setUnderlyingNode(DDNode);
           return NewVPInst;

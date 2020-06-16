@@ -68,7 +68,7 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; CHECK-NEXT:    [[BB2]]:
 ; CHECK-NEXT:     [DA: Div] float [[VP0:%.*]] = phi  [ float [[VP__RED_INIT]], [[BB1]] ],  [ float [[VP1:%.*]], [[BB3:BB[0-9]+]] ]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP2:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB3]] ]
-; CHECK-NEXT:     [DA: Div] float* [[VP4:%.*]] = getelementptr inbounds float* [[ARR0:%.*]] i64 [[VP2]]
+; CHECK-NEXT:     [DA: Div] float* [[VP4:%.*]] = subscript inbounds float* [[ARR0:%.*]] i64 [[VP2]]
 ; CHECK-NEXT:     [DA: Div] float [[VP5:%.*]] = load float* [[VP4]]
 ; CHECK-NEXT:     [DA: Div] float [[VP6:%.*]] =  hir-copy float [[VP5]] , OriginPhiId: -1
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP7:%.*]] = icmp i32 [[N10:%.*]] i32 0
@@ -79,7 +79,7 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]:
 ; CHECK-NEXT:       [DA: Div] float [[VP10:%.*]] = fadd float [[VP5]] float 0.000000e+00
-; CHECK-NEXT:       [DA: Div] float* [[VP11:%.*]] = getelementptr inbounds float* [[ARR0]] i64 [[VP2]]
+; CHECK-NEXT:       [DA: Div] float* [[VP11:%.*]] = subscript inbounds float* [[ARR0]] i64 [[VP2]]
 ; CHECK-NEXT:       [DA: Div] store float [[VP10]] float* [[VP11]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP12:%.*]] = fcmp float [[VP5]] float 0.000000e+00
 ; CHECK-NEXT:       [DA: Div] i1 [[VP__NOT:%.*]] = not i1 [[VP12]]
@@ -89,7 +89,7 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; CHECK-NEXT:      [[BB5]]:
 ; CHECK-NEXT:       [DA: Div] i1 [[VP13:%.*]] = block-predicate i1 [[VP__NOT]]
 ; CHECK-NEXT:       [DA: Div] float [[VP14:%.*]] = fadd float [[VP10]] float 2.000000e+00
-; CHECK-NEXT:       [DA: Div] float* [[VP15:%.*]] = getelementptr inbounds float* [[ARR0]] i64 [[VP2]]
+; CHECK-NEXT:       [DA: Div] float* [[VP15:%.*]] = subscript inbounds float* [[ARR0]] i64 [[VP2]]
 ; CHECK-NEXT:       [DA: Div] store float [[VP14]] float* [[VP15]]
 ; CHECK-NEXT:       [DA: Div] float [[VP16:%.*]] = hir-copy float [[VP14]] , OriginPhiId: -1
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB6:BB[0-9]+]]
@@ -98,7 +98,7 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; CHECK-NEXT:      [[BB6]]:
 ; CHECK-NEXT:       [DA: Div] i1 [[VP17:%.*]] = block-predicate i1 [[VP12]]
 ; CHECK-NEXT:       [DA: Div] float [[VP18:%.*]] = fadd float [[VP10]] float 1.000000e+00
-; CHECK-NEXT:       [DA: Div] float* [[VP19:%.*]] = getelementptr inbounds float* [[ARR0]] i64 [[VP2]]
+; CHECK-NEXT:       [DA: Div] float* [[VP19:%.*]] = subscript inbounds float* [[ARR0]] i64 [[VP2]]
 ; CHECK-NEXT:       [DA: Div] store float [[VP18]] float* [[VP19]]
 ; CHECK-NEXT:       [DA: Div] float [[VP20:%.*]] = hir-copy float [[VP18]] , OriginPhiId: -1
 ; CHECK-NEXT:      SUCCESSORS(1):[[BLEND_BB0:blend.bb[0-9]+]]

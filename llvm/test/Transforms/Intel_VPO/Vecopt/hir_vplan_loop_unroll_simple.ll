@@ -28,10 +28,10 @@ define dso_local void @_Z3fooPii(i32* nocapture %a, i32 %n) local_unnamed_addr #
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]:
 ; CHECK-NEXT:     [DA: Div] i64 [[VP2:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP3:%.*]], cloned.[[BB3:BB[0-9]+]] ]
-; CHECK-NEXT:     [DA: Div] i32* [[VP4:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i64 [[VP2]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP4:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP2]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP5:%.*]] = load i32* [[VP4]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP6:%.*]] = add i32 [[VP5]] i32 1
-; CHECK-NEXT:     [DA: Div] i32* [[VP7:%.*]] = getelementptr inbounds i32* [[A0]] i64 [[VP2]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP7:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP2]]
 ; CHECK-NEXT:     [DA: Div] store i32 [[VP6]] i32* [[VP7]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP8:%.*]] = add i64 [[VP2]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP9:%.*]] = icmp i64 [[VP8]] i64 [[VP0]]
@@ -39,10 +39,10 @@ define dso_local void @_Z3fooPii(i32* nocapture %a, i32 %n) local_unnamed_addr #
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] cloned.[[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    cloned.[[BB4]]:
-; CHECK-NEXT:     [DA: Div] i32* [[VP10:%.*]] = getelementptr inbounds i32* [[A0]] i64 [[VP8]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP10:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP8]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP11:%.*]] = load i32* [[VP10]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP12:%.*]] = add i32 [[VP11]] i32 1
-; CHECK-NEXT:     [DA: Div] i32* [[VP13:%.*]] = getelementptr inbounds i32* [[A0]] i64 [[VP8]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP13:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP8]]
 ; CHECK-NEXT:     [DA: Div] store i32 [[VP12]] i32* [[VP13]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP14:%.*]] = add i64 [[VP8]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP15:%.*]] = icmp i64 [[VP14]] i64 [[VP0]]
@@ -50,10 +50,10 @@ define dso_local void @_Z3fooPii(i32* nocapture %a, i32 %n) local_unnamed_addr #
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    cloned.[[BB3]]:
-; CHECK-NEXT:     [DA: Div] i32* [[VP16:%.*]] = getelementptr inbounds i32* [[A0]] i64 [[VP14]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP16:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP14]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP17:%.*]] = load i32* [[VP16]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP18:%.*]] = add i32 [[VP17]] i32 1
-; CHECK-NEXT:     [DA: Div] i32* [[VP19:%.*]] = getelementptr inbounds i32* [[A0]] i64 [[VP14]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP19:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP14]]
 ; CHECK-NEXT:     [DA: Div] store i32 [[VP18]] i32* [[VP19]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP3]] = add i64 [[VP14]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP20:%.*]] = icmp i64 [[VP3]] i64 [[VP0]]

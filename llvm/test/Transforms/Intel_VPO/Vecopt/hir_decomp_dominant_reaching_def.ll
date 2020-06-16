@@ -73,7 +73,7 @@ define dso_local i32 @_Z3foov() local_unnamed_addr {
 ; CHECK-NEXT:     i32 [[VP0:%.*]] = phi  [ i32 [[ADD4260:%.*]], [[BB1]] ],  [ i32 [[VP1:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     i32 [[VP2:%.*]] = phi  [ i32 [[ADD8240:%.*]], [[BB1]] ],  [ i32 [[VP3:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     i64 [[VP4:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP5:%.*]], [[BB2]] ]
-; CHECK-NEXT:     i32* [[VP6:%.*]] = getelementptr inbounds [1024 x i32]* @a i64 0 i64 [[VP4]]
+; CHECK-NEXT:     i32* [[VP6:%.*]] = subscript inbounds [1024 x i32]* @a i64 0 i64 [[VP4]]
 ; CHECK-NEXT:     i32 [[VP7:%.*]] = load i32* [[VP6]]
 ; CHECK-NEXT:     i32 [[VP8:%.*]] = mul i32 [[VP7]] i32 2
 ; CHECK-NEXT:     i32 [[VP9:%.*]] = trunc i64 [[VP4]] to i32

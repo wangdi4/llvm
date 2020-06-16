@@ -90,7 +90,7 @@ define dso_local i32 @foo(i32 %N) local_unnamed_addr {
 ; CHECK-NEXT:     i32 [[VP0:%.*]] = phi  [ i32 [[T2_0690:%.*]], [[BB1]] ],  [ i32 [[VP1:%.*]], [[BB3:BB[0-9]+]] ]
 ; CHECK-NEXT:     i64 [[VP2:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     i32 [[VP4:%.*]] = hir-copy i32 [[VP0]] , OriginPhiId: -1
-; CHECK-NEXT:     i32* [[VP5:%.*]] = getelementptr inbounds [1024 x i32]* @a i64 0 i64 [[VP2]]
+; CHECK-NEXT:     i32* [[VP5:%.*]] = subscript inbounds [1024 x i32]* @a i64 0 i64 [[VP2]]
 ; CHECK-NEXT:     i32 [[VP6:%.*]] = load i32* [[VP5]]
 ; CHECK-NEXT:     i64 [[VP7:%.*]] = sext i32 [[VP6]] to i64
 ; CHECK-NEXT:     i1 [[VP8:%.*]] = icmp i64 [[VP2]] i64 [[VP7]]
@@ -99,7 +99,7 @@ define dso_local i32 @foo(i32 %N) local_unnamed_addr {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]:
 ; CHECK-NEXT:       i64 [[VP9:%.*]] = add i64 [[VP2]] i64 1
-; CHECK-NEXT:       i32* [[VP10:%.*]] = getelementptr inbounds [1024 x i32]* @a i64 0 i64 [[VP9]]
+; CHECK-NEXT:       i32* [[VP10:%.*]] = subscript inbounds [1024 x i32]* @a i64 0 i64 [[VP9]]
 ; CHECK-NEXT:       i32 [[VP11:%.*]] = load i32* [[VP10]]
 ; CHECK-NEXT:       i32 [[VP12:%.*]] = hir-copy i32 [[VP11]] , OriginPhiId: -1
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB3]]
@@ -112,7 +112,7 @@ define dso_local i32 @foo(i32 %N) local_unnamed_addr {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:        [[BB7]]:
 ; CHECK-NEXT:         i64 [[VP14:%.*]] = add i64 [[VP2]] i64 134
-; CHECK-NEXT:         i32* [[VP15:%.*]] = getelementptr inbounds [1024 x i32]* @a i64 0 i64 [[VP14]]
+; CHECK-NEXT:         i32* [[VP15:%.*]] = subscript inbounds [1024 x i32]* @a i64 0 i64 [[VP14]]
 ; CHECK-NEXT:         i32 [[VP16:%.*]] = load i32* [[VP15]]
 ; CHECK-NEXT:         i32 [[VP17:%.*]] = hir-copy i32 [[VP16]] , OriginPhiId: -1
 ; CHECK-NEXT:         i32 [[VP18:%.*]] = hir-copy i32 [[VP6]] , OriginPhiId: -1
@@ -139,13 +139,13 @@ define dso_local i32 @foo(i32 %N) local_unnamed_addr {
 ; CHECK-NEXT:     i32 [[VP27:%.*]] = phi  [ i32 [[VP26]], [[BB8]] ],  [ i32 [[VP12]], [[BB5]] ]
 ; CHECK-NEXT:     i32 [[VP1]] = phi  [ i32 [[VP25]], [[BB8]] ],  [ i32 [[VP0]], [[BB5]] ]
 ; CHECK-NEXT:     i32 [[VP28:%.*]] = hir-copy i32 [[VP1]] , OriginPhiId: -1
-; CHECK-NEXT:     i32* [[VP29:%.*]] = getelementptr inbounds [1024 x i32]* @b i64 0 i64 [[VP2]]
+; CHECK-NEXT:     i32* [[VP29:%.*]] = subscript inbounds [1024 x i32]* @b i64 0 i64 [[VP2]]
 ; CHECK-NEXT:     store i32 [[VP27]] i32* [[VP29]]
 ; CHECK-NEXT:     i32 [[VP30:%.*]] = mul i32 [[N0:%.*]] i32 2
 ; CHECK-NEXT:     i32 [[VP31:%.*]] = add i32 [[VP27]] i32 [[VP30]]
-; CHECK-NEXT:     i32* [[VP32:%.*]] = getelementptr inbounds [1024 x i32]* @c i64 0 i64 [[VP2]]
+; CHECK-NEXT:     i32* [[VP32:%.*]] = subscript inbounds [1024 x i32]* @c i64 0 i64 [[VP2]]
 ; CHECK-NEXT:     store i32 [[VP31]] i32* [[VP32]]
-; CHECK-NEXT:     i32* [[VP33:%.*]] = getelementptr inbounds [1024 x i32]* @d i64 0 i64 [[VP2]]
+; CHECK-NEXT:     i32* [[VP33:%.*]] = subscript inbounds [1024 x i32]* @d i64 0 i64 [[VP2]]
 ; CHECK-NEXT:     i32 [[VP34:%.*]] = load i32* [[VP33]]
 ; CHECK-NEXT:     i32 [[VP35:%.*]] = mul i32 [[N0]] i32 2
 ; CHECK-NEXT:     i32 [[VP36:%.*]] = add i32 [[VP27]] i32 [[VP35]]
@@ -153,7 +153,7 @@ define dso_local i32 @foo(i32 %N) local_unnamed_addr {
 ; CHECK-NEXT:     i64 [[VP38:%.*]] = sext i32 [[VP37]] to i64
 ; CHECK-NEXT:     i1 [[VP39:%.*]] = icmp i64 [[VP2]] i64 [[VP38]]
 ; CHECK-NEXT:     i32 [[VP40:%.*]] = select i1 [[VP39]] i32 [[VP27]] i32 [[VP34]]
-; CHECK-NEXT:     i32* [[VP41:%.*]] = getelementptr inbounds [1024 x i32]* @d i64 0 i64 [[VP2]]
+; CHECK-NEXT:     i32* [[VP41:%.*]] = subscript inbounds [1024 x i32]* @d i64 0 i64 [[VP2]]
 ; CHECK-NEXT:     store i32 [[VP40]] i32* [[VP41]]
 ; CHECK-NEXT:     i64 [[VP3]] = add i64 [[VP2]] i64 1
 ; CHECK-NEXT:     i1 [[VP42:%.*]] = icmp i64 [[VP3]] i64 1023

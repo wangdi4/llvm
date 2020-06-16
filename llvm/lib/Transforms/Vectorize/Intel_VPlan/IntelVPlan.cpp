@@ -69,6 +69,11 @@ static cl::opt<bool> UseGetType(
            "The knob is temporal and should be removed once every "
            "getCMType() is replaced with getType()."));
 
+static cl::opt<bool> VPlanDumpSubscriptDetails(
+    "vplan-dump-subscript-details", cl::init(false), cl::Hidden,
+    cl::desc("Print details for subscript instructions like lower, stride and "
+             "struct offsets."));
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 raw_ostream &llvm::vpo::operator<<(raw_ostream &OS, const VPValue &V) {
   if (const VPInstruction *I = dyn_cast<VPInstruction>(&V))
@@ -403,6 +408,12 @@ void VPInstruction::print(raw_ostream &O,
     printAsOperand(O);
     O << " = ";
   }
+
+  auto PrintOpcodeWithInBounds = [&](auto MemAddrInst) {
+    O << getOpcodeName(getOpcode());
+    if (MemAddrInst->isInBounds())
+      O << " inbounds";
+  };
 #else
   printAsOperand(O);
   O << " = ";
@@ -421,12 +432,10 @@ void VPInstruction::print(raw_ostream &O,
     return;
   }
   case Instruction::GetElementPtr:
-    O << getOpcodeName(getOpcode());
-    if (auto *VPGEP = dyn_cast<const VPGEPInstruction>(this)) {
-      if (VPGEP->isInBounds()) {
-        O << " inbounds";
-      }
-    }
+    PrintOpcodeWithInBounds(cast<const VPGEPInstruction>(this));
+    break;
+  case VPInstruction::Subscript:
+    PrintOpcodeWithInBounds(cast<const VPSubscriptInst>(this));
     break;
   case VPInstruction::InductionInit:
     O << getOpcodeName(getOpcode()) << "{"
@@ -481,6 +490,38 @@ void VPInstruction::print(raw_ostream &O,
       if (i > 0)
         O << ",";
       PrintValueWithBB(i);
+    }
+  } else if (auto *Subscript = dyn_cast<VPSubscriptInst>(this)) {
+    O << " ";
+    Subscript->getPointerOperand()->printAsOperand(O);
+    auto PrintStructOffsets = [&](ArrayRef<unsigned> Offsets) {
+      if (!Offsets.empty()) {
+        O << " (";
+        for (unsigned I : Offsets)
+          O << I << " ";
+        O << ")";
+      }
+    };
+    // Dump operands per dimension (with details if needed).
+    for (int Dim = Subscript->getNumDimensions() - 1; Dim >= 0; --Dim) {
+      auto *Idx = Subscript->getIndex(Dim);
+      ArrayRef<unsigned> DimStructOffsets = Subscript->getStructOffsets(Dim);
+      if (!VPlanDumpSubscriptDetails) {
+        O << " ";
+        Idx->printAsOperand(O);
+        PrintStructOffsets(DimStructOffsets);
+      } else {
+        O << " {";
+        Subscript->getLower(Dim)->printAsOperand(O);
+        O << " : ";
+        Idx->printAsOperand(O);
+        O << " : ";
+        Subscript->getStride(Dim)->printAsOperand(O);
+        O << " : ";
+        Subscript->getDimensionType(Dim)->print(O);
+        PrintStructOffsets(DimStructOffsets);
+        O << "}";
+      }
     }
   } else {
     if (getOpcode() == VPInstruction::AllocatePrivate) {
