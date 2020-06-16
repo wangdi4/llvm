@@ -39,6 +39,7 @@ public:
   unsigned getLoadStoreCost(const VPInstruction *VPInst,
                             const bool UseVLSCost);
 
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS, const std::string &Header);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
@@ -52,6 +53,10 @@ private:
   void printForVPBasicBlock(
     raw_ostream &OS, const VPBasicBlock *VPBlock);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
+  // Implements basic register pressure calculation pass.
+  // Bothers vector registers only currently.
+  unsigned getSpillFillCost(const VPBasicBlock *VPBlock);
+  unsigned getSpillFillCost(void);
 
   // Consolidates proprietary code that gets the cost of one operand or two
   // operands arithmetics instructions.

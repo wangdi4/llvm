@@ -22,6 +22,8 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Analysis/VectorUtils.h"
+#include <numeric>
 
 #define DEBUG_TYPE "vplan-cost-model-proprietary"
 
@@ -32,6 +34,11 @@ static cl::opt<unsigned> BoolInstsBailOut(
     "vplan-cost-model-i1-bail-out-limit", cl::init(45), cl::Hidden,
     cl::desc("Don't vectorize if number of boolean computations in the VPlan "
              "is higher than the threshold."));
+
+static cl::opt<unsigned> NumberOfSpillsPerExtraReg(
+    "vplan-cost-model-number-of-spills-per-extra-reg", cl::init(2), cl::Hidden,
+    cl::desc("The number of spills/fills generated on average for each HW "
+             "register spilled and restored."));
 
 using namespace llvm::loopopt;
 
@@ -235,6 +242,182 @@ unsigned VPlanCostModelProprietary::getCost(const VPBasicBlock *VPBB) {
   return VPlanCostModel::getCost(VPBB);
 }
 
+unsigned VPlanCostModelProprietary::getSpillFillCost(
+  const VPBasicBlock *VPBlock) {
+  // LiveValues map contains the liveness of the given instruction multiplied
+  // by its legalization factor.  The map is updated on each VPInstruction in
+  // the loop below.
+  //
+  // Consider the following IR and the map content at each VPInst.  The
+  // traversal is backward.
+  //
+  // 1: %val1 = def              ; LiveValues[%1] = 0,  LiveValues[%2] = 0
+  // 2: %val2 = use %val1, %val1 ; LiveValues[%1] = L1, LiveValues[%2] = 0
+  // 3: %val3 = use %val1, %val2 ; LiveValues[%1] = L1, LiveValues[%2] = L2
+  //
+  // where L1 - number of HW registers to hold value defined by %1,
+  //       L2 - number of HW registers to hold value defined by %2.
+  //
+  // Register pressure in any given point the sum of all Ln values in the map.
+  // The code below figures out what is maximum of register pressure in given
+  // basic block.
+  //
+  DenseMap<const VPInstruction*, int> LiveValues;
+  int NumberLiveValuesMax = 0;
+  VPLoop *OuterMostVPLoop = *(Plan->getVPLoopInfo()->begin());
+  auto PHIs = (cast<VPBasicBlock>(OuterMostVPLoop->getHeader()))->getVPPhis();
+  int NumberPHIs = std::distance(PHIs.begin(), PHIs.end());
+  int FreeVecHWRegsNum =
+    TTI->getNumberOfRegisters(TTI->getRegisterClassForType(true)) - NumberPHIs;
+
+  // TODO:
+  // SVA should be utilized to calculate GPR pressure separately (i.e. detect
+  // instructions that we don't vectorize and that go to GPR instead of
+  // vector registers).
+  for (const VPInstruction &VPInst : reverse(*VPBlock)) {
+    // Zero-cost and unknown-cost instructions are ignored.  That might be
+    // pseudo inst that don't induce real code on output.
+    //
+    // Use TTI Cost model as Proprietary cost can be 0 for loads/stores that
+    // are part of OVLS group.
+    unsigned InstCost = VPlanCostModel::getCost(&VPInst);
+    if (InstCost == UnknownCost || InstCost == 0)
+      continue;
+
+    // Once definition is met the value is marked dead as the result of
+    // instruction generally can occupy the same register as one of its
+    // operand, unless all its operands are alive throughout the intruction.
+    LiveValues[&VPInst] = 0;
+
+    // Populate LiveValues for operands of given inst.
+
+    // When legalization cost is greater than '1' the VP instruction is
+    // eventually represented with two or more HW instructions which makes RP
+    // spread across several HW instructions.  Math below adjust VPInst
+    // granularity register pressure to HW instructions register pressure.
+    //
+    // The main idea here is that a VPInstructions that needs N registers to
+    // hold its result is encoded into N machine instructions and the highest
+    // register pressure is N / 2, not N, when N is big enough.
+    //
+    // N / 2 is too coarse for small N.  The approximation for small N is:
+    // N = 1    ==>   RP = 1
+    // N = 2    ==>   RP = 2
+    // N = 4    ==>   RP = 3
+    // N = 8    ==>   RP = 5
+    // N > 8    ==>   RP = N / 2
+    auto TranslateVPInstRPToHWRP =
+      [](unsigned VPInstRP) -> unsigned {
+      switch (VPInstRP) {
+        case 1:
+        case 2:
+          return VPInstRP;
+        case 4:
+          return 3;
+        case 8:
+          return 5;
+        default:
+          return VPInstRP / 2;
+      }
+    };
+
+    for (auto *Op : VPInst.operands()) {
+      // TODO:
+      // Constants yet to be supported.
+      if (!isa<VPInstruction>(Op))
+        continue;
+
+      const VPInstruction *OpInst = cast<VPInstruction>(Op);
+      InstCost = VPlanCostModel::getCost(OpInst);
+      if (InstCost == UnknownCost || InstCost == 0)
+        continue;
+
+      Type *OpScalTy = OpInst->getType()->getScalarType();
+
+      if (VectorType::isValidElementType(OpScalTy))
+        LiveValues[OpInst] = TranslateVPInstRPToHWRP(
+          TTI->getNumberOfParts(getWidenedType(OpInst->getType(), VF)));
+      else
+        // RP for aggregate types are modelled as if they serialized with
+        // VF instructions.
+        LiveValues[OpInst] = TranslateVPInstRPToHWRP(VF);
+    }
+
+    auto LiveValuesNumbers = make_second_range(LiveValues);
+    int NumberLiveValuesCur =
+      std::accumulate(LiveValuesNumbers.begin(), LiveValuesNumbers.end(), 0);
+
+    // Model that some intructions are lowered into a sequence of more basic
+    // instructions requiring N-times more registers, where N is the number of
+    // basic instructions.
+    //
+    // As we don't have information which operand is required within
+    // N-sequence, we estimate that N-element sequence burns N / 2 registers.
+    // The same heuristics as for N legalization cost is applied.
+    //
+    // The number of instructions VPInst is lowered into is its TTI Cost if it
+    // is Load/Store.  Doesn't apply to other costly instructions such as Mul
+    // or Div.
+    //
+    // TODO: the model doesn't apply to Instructions that remain as a call to a
+    // library (such as SVML).  For call cases we need estimation of how many
+    // registers such call requires.
+    if ((VPInst.getOpcode() == Instruction::Load ||
+         VPInst.getOpcode() == Instruction::Store) &&
+        (InstCost = VPlanCostModel::getCost(&VPInst)) > 1)
+      NumberLiveValuesCur = TranslateVPInstRPToHWRP(
+        InstCost * NumberLiveValuesCur);
+
+    LLVM_DEBUG(dbgs() << "RP " << NumberLiveValuesCur << " for ";
+               VPInst.print(dbgs());
+               dbgs() << "\nLive vals:";
+               for (auto LiveValue : LiveValues)
+                 if (LiveValue.second) {
+                   dbgs() << ' ';
+                   LiveValue.first->printAsOperand(dbgs());
+                 }
+               dbgs() << '\n';);
+
+    NumberLiveValuesMax = std::max(NumberLiveValuesCur, NumberLiveValuesMax);
+  }
+
+  LLVM_DEBUG(dbgs() << "Max RP " << NumberLiveValuesMax <<
+             ", Num free regs: " << FreeVecHWRegsNum <<
+             " for block " << VPBlock->getName() << '\n';);
+
+  if (NumberLiveValuesMax <= FreeVecHWRegsNum)
+    return 0;
+
+  unsigned AS = DL->getAllocaAddrSpace();
+  unsigned RegBitWidth = TTI->getLoadStoreVecRegBitWidth(AS);
+  unsigned RegByteWidth = RegBitWidth / 8;
+  Type *VecTy = getWidenedType(Type::getInt8Ty(*Plan->getLLVMContext()),
+                               RegByteWidth);
+  assert(TTI->isTypeLegal(VecTy) && "Bad type has chosen.");
+  unsigned StoreCost = TTI->getMemoryOpCost(
+    Instruction::Store, VecTy, Align(RegByteWidth), AS);
+  unsigned LoadCost = TTI->getMemoryOpCost(
+    Instruction::Load, VecTy, Align(RegByteWidth), AS);
+
+  return NumberOfSpillsPerExtraReg *
+    (NumberLiveValuesMax - FreeVecHWRegsNum) *
+    (StoreCost + LoadCost);
+}
+
+unsigned VPlanCostModelProprietary::getSpillFillCost() {
+  NumberOfBoolComputations = 0;
+  unsigned Cost = 0;
+
+  for (auto *Block : post_order(Plan->getEntryBlock())) {
+    // TODO: lives-in from CFG successors should compose their predecessor
+    // lives-out.  For the current approximation each block has no lives-out
+    // and each block Cost is calcuated independently.
+    Cost += getSpillFillCost(Block);
+  }
+
+  return Cost;
+}
+
 unsigned VPlanCostModelProprietary::getCost() {
   NumberOfBoolComputations = 0;
   ProcessedOVLSGroups.clear();
@@ -278,8 +461,9 @@ unsigned VPlanCostModelProprietary::getCost() {
     return UnknownCost;
   }
 
-  // If gathers/scatters present in the region SLP is possible.  Go though
-  // all instructions again to find obvious SLP patterns.
+  Cost += getSpillFillCost();
+
+  // Go though all instructions again to find obvious SLP patterns.
   if (CheckForSLPExtraCost())
     Cost *= VF;
 
@@ -399,8 +583,13 @@ void VPlanCostModelProprietary::printForVPInstruction(
 
 void VPlanCostModelProprietary::printForVPBasicBlock(
   raw_ostream &OS, const VPBasicBlock *VPBB) {
+  unsigned SpillFillCost = getSpillFillCost(VPBB);
   OS << "Analyzing VPBasicBlock " << VPBB->getName() << ", total cost: " <<
-    getCostNumberString(getCost(VPBB)) << '\n';
+    getCostNumberString(getCost(VPBB));
+
+  if (SpillFillCost > 0)
+    OS << ", extra spill/fill cost: " << SpillFillCost;
+  OS << '\n';
 
   // Clearing ProcessedOVLSGroups is valid while VLS works within a basic block.
   // TODO: The code should be revisited once the assumption is changed.
@@ -416,8 +605,13 @@ void VPlanCostModelProprietary::printForVPBasicBlock(
 
 void VPlanCostModelProprietary::print(
   raw_ostream &OS, const std::string &Header) {
+  unsigned SpillFillCost = getSpillFillCost();
   OS << "HIR Cost Model for VPlan " << Header << " with VF = " << VF << ":\n";
-  OS << "Total Cost: " << getCost() << '\n';
+  OS << "Total Cost: " << getCost();
+
+  if (SpillFillCost)
+    OS << ", spill/fill cost: +" << SpillFillCost;
+  OS << '\n';
 
   if (CheckForSLPExtraCost())
     OS << "SLP breaking penalty applied.\n";
