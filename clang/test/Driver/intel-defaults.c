@@ -4,6 +4,7 @@
 // RUN: %clang_cl -### -c -Qnextgen %s 2>&1 | FileCheck -check-prefixes=CHECK-INTEL,CHECK-INTEL-WIN %s
 // CHECK-INTEL: "-fveclib=SVML"
 // CHECK-INTEL: "-O2"
+// CHECK-INTEL-WIN: "-Wno-c++11-narrowing"
 // CHECK-INTEL-WIN: "-fpack-struct=16"
 // CHECK-INTEL: "-vectorize-loops"
 // CHECK-INTEL: "-fintel-compatibility"
