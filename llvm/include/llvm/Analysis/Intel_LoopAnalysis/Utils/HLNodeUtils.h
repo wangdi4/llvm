@@ -713,6 +713,10 @@ public:
   HLInst *createFNeg(RegDDRef *RvalRef, const Twine &Name = "fneg",
                      RegDDRef *LvalRef = nullptr, MDNode *FPMathTag = nullptr);
 
+  /// Creates a new Freeze instruction.
+  HLInst *createFreeze(RegDDRef *RvalRef, const Twine &Name = "freeze",
+                       RegDDRef *LvalRef = nullptr);
+
   /// Creates a unary instruction with specified opcode. If OrigUnInst is not
   /// null, copy IR flags from OrigUnInst to the newly created instruction.
   HLInst *createUnaryHLInst(unsigned OpCode, RegDDRef *RvalRef,

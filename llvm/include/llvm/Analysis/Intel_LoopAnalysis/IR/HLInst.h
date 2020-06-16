@@ -92,7 +92,8 @@ public:
 
   /// Returns true if the underlying instruction has a single rval.
   virtual bool hasRval() const override {
-    return (isa<StoreInst>(Inst) || isa<GetElementPtrInst>(Inst) ||
+    return (isa<StoreInst>(Inst) || isa<FreezeInst>(Inst) ||
+            isa<GetElementPtrInst>(Inst) ||
             (hasLval() && isa<UnaryInstruction>(Inst)) || isCopyInst());
   }
 
