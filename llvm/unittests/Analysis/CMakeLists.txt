@@ -21,9 +21,13 @@ add_llvm_unittest(AnalysisTests
   DivergenceAnalysisTest.cpp
   DomTreeUpdaterTest.cpp
   GlobalsModRefTest.cpp
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
   Intel_VectorVariantTest.cpp
 # end INTEL_CUSTOMIZATION
+=======
+  InlineFeaturesAnalysisTest.cpp
+>>>>>>> e2cc854015fe962654f439561c84098fb9aadbb2
   IVDescriptorsTest.cpp
   LazyCallGraphTest.cpp
   LoadsTest.cpp
@@ -43,6 +47,10 @@ add_llvm_unittest(AnalysisTests
   ValueLatticeTest.cpp
   ValueTrackingTest.cpp
   VectorUtilsTest.cpp
+<<<<<<< HEAD
   )
 
 add_subdirectory(ML)
+=======
+  )
+>>>>>>> e2cc854015fe962654f439561c84098fb9aadbb2
