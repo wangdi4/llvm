@@ -2185,6 +2185,32 @@ void Generic_GCC::GCCInstallationDetector::init(
                                        D.PrefixDirs.end());
 
   StringRef GCCToolchainDir = getGCCToolchainDir(Args, D.SysRoot);
+#if INTEL_CUSTOMIZATION
+  if (Args.hasArg(options::OPT__intel) &&
+      !Args.hasArg(options::OPT_gcc_toolchain)) {
+    // Check the location of where gcc is being picked up.  If it is not
+    // located in the expected /usr/bin, use '..' as the sysroot.  Only do
+    // this for --intel
+    StringRef GCCName("gcc");
+    if (D.CCCIsCXX())
+      GCCName = "g++";
+
+    if (llvm::ErrorOr<std::string> Gcc =
+            llvm::sys::findProgramByName(GCCName)) {
+      StringRef Exec(Gcc.get());
+      if (!Exec.startswith("/usr/bin")) {
+        SmallString<128> GccDir(Exec);
+        llvm::sys::path::remove_filename(GccDir);
+        llvm::sys::path::remove_filename(GccDir);
+        // One last check for bin/lib, if those exist assume that
+        // the location is valid and use it.
+        if (llvm::sys::fs::exists(Twine(GccDir) + "/lib") &&
+            llvm::sys::fs::exists(Twine(GccDir) + "/bin"))
+          GCCToolchainDir = Args.MakeArgString(GccDir);
+      }
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
   if (GCCToolchainDir != "") {
     if (GCCToolchainDir.back() == '/')
       GCCToolchainDir = GCCToolchainDir.drop_back(); // remove the /
