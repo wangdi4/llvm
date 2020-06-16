@@ -137,6 +137,13 @@ static cl::opt<bool> DTransIdentifyUnusedValues("dtrans-identify-unused-values",
 static cl::opt<bool> DTransUseCRuleCompat("dtrans-usecrulecompat",
                                           cl::init(false), cl::ReallyHidden);
 
+// Enable merging padded structures with base structures even if the
+// safety checks didn't pass. This option is for testing purposes and
+// must remain turned off.
+static cl::opt<bool> DTransTestPaddedStructs("dtrans-test-padded-structs",
+                                              cl::init(false),
+                                              cl::ReallyHidden);
+
 using GetTLIFnType = std::function<const TargetLibraryInfo &(const Function &)>;
 
 namespace {
@@ -10049,6 +10056,71 @@ bool DTransAnalysisInfo::analyzeModule(
     }
   }
   setMaxTotalFrequency(MaxTFrequency);
+
+  // Go through the multiple StructInfo and check if there is a safety
+  // violation that makes the padded field dirty. Also, this is the moment
+  // where we are going to merge the safety violations.
+  // NOTE: A dirty padded field means that we don't have enough information
+  // to make sure if the field is not being modified.
+  //
+  // TODO: This is the point where we are going to decide if a pending
+  // safety violation can be removed or not.
+  for (auto *TI : type_info_entries()) {
+    if (auto *STInfo = dyn_cast<dtrans::StructInfo>(TI)) {
+
+      // Return true if the input StructInfo has a padded field and
+      // we found any safety violation for that field.
+      auto HasInvalidPaddedField = [](dtrans::StructInfo *StrInfo) {
+        if (!StrInfo)
+          return true;
+
+        if (!StrInfo->hasPaddedField())
+          return false;
+
+        size_t NumFields = StrInfo->getNumFields();
+        auto &PaddedField = StrInfo->getField(NumFields - 1);
+
+        // TODO: We might want to add other potential failures here like
+        // "isSingleValue" or "isMultipleValue". Another possible solution
+        // will be to use "isValueUnused".
+        if (PaddedField.isRead() || PaddedField.isWritten() ||
+            PaddedField.hasComplexUse() || PaddedField.isAddressTaken() ||
+            PaddedField.isMismatchedElementAccess())
+          return true;
+
+        return false;
+      };
+
+      dtrans::StructInfo *RelatedTypeInfo = STInfo->getRelatedType();
+      if (!RelatedTypeInfo)
+        continue;
+
+      // If the safety test fails then mark the padded field as dirty.
+      // Also, check if the padded field has any safety violation that
+      // could break the relationship.
+      bool BadSafetyData =
+          STInfo->testSafetyData(dtrans::SDPaddedStructures) ||
+          RelatedTypeInfo->testSafetyData(dtrans::SDPaddedStructures) ||
+          HasInvalidPaddedField(STInfo);
+
+      if (BadSafetyData) {
+        size_t NumFields = STInfo->getNumFields();
+        auto &Field = STInfo->getField(NumFields - 1);
+        if (Field.isPaddedField())
+          Field.invalidatePaddedField();
+      }
+
+      // DTransTestPaddedStructs is used for testing purposes.
+      if (!BadSafetyData || DTransTestPaddedStructs) {
+        STInfo->mergeSafetyDataWithRelatedType();
+        RelatedTypeInfo->mergeSafetyDataWithRelatedType();
+      } else {
+        // If the safety data fails then break the relationship between
+        // padded and base.
+        STInfo->unsetRelatedType();
+      }
+    }
+  }
 
   // Invalidate the fields for which the corresponding types do not pass
   // the SafetyData checks.
