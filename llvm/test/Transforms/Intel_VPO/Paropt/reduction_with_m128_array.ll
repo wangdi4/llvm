@@ -39,14 +39,14 @@ entry:
 ; FASTRED: define internal void @[[REDUCE_CALLBACK:[^,]+]](i8* %dst, i8* %src) {
 ; CRICTICAL: %sum.addr.red = alloca [1000 x <4 x float>], align 8
 ; CRITICAL: store <4 x float> zeroinitializer, <4 x float>* %red.cpy.dest.ptr, align 16
-; CRITICAL: call void @__kmpc_critical(%struct.ident_t* @.kmpc_loc{{.*}}, i32 %my.tid17{{.*}}, [8 x i32]* @.gomp_critical_user_.reduction.var)
+; CRITICAL: call void @__kmpc_critical(%struct.ident_t* @.kmpc_loc{{.*}}, i32 %my.tid17{{.*}}, [8 x i32]* @{{.*}})
 ; ALL: red.update.body:
 ; ALL: %[[LOCAL_VAL:[^,]+]] = load <4 x float>, <4 x float>* %[[LOCAL:[^,]+]], align 16
 ; ALL-NEXT: %[[GLOBAL_VAL:[^,]+]] = load <4 x float>, <4 x float>* %[[GLOBAL:[^,]+]], align 16
 ; ALL-NEXT: %[[SUM:[^,]+]] = fadd <4 x float> %[[GLOBAL_VAL]], %[[LOCAL_VAL]]
 ; ALL-NEXT: store <4 x float> %[[SUM]], <4 x float>* %[[GLOBAL]], align 16
-; CRITICAL: call void @__kmpc_end_critical(%struct.ident_t* @.kmpc_loc{{.*}}, i32 %my.tid{{.*}}, [8 x i32]* @.gomp_critical_user_.reduction.var)
-; FASTRED:  %[[RET:[^,]+]] = call i32 @__kmpc_reduce(%struct.ident_t* @.kmpc_loc{{.*}}, i32 %my.tid{{.*}}, i32 1, i32 16000, i8* %{{.*}}, void (i8*, i8*)* @[[REDUCE_CALLBACK]], [8 x i32]* @.gomp_critical_user_.fast_reduction.var)
+; CRITICAL: call void @__kmpc_end_critical(%struct.ident_t* @.kmpc_loc{{.*}}, i32 %my.tid{{.*}}, [8 x i32]* @{{.*}})
+; FASTRED:  %[[RET:[^,]+]] = call i32 @__kmpc_reduce(%struct.ident_t* @.kmpc_loc{{.*}}, i32 %my.tid{{.*}}, i32 1, i32 16000, i8* %{{.*}}, void (i8*, i8*)* @[[REDUCE_CALLBACK]], [8 x i32]* @{{.*}})
 ; FASTRED-NEXT: %[[TO:[^,]+]] = icmp eq i32 %[[RET]], 1
 ; FASTRED-NEXT: br i1 %[[TO]], label %tree.reduce, label %tree.reduce.exit
 ; FASTRED: tree.reduce:
@@ -56,7 +56,7 @@ entry:
 ; FASTRED-NEXT: %[[RED_GLOBAL_VAL:[^,]+]] = load <4 x float>, <4 x float>* %[[RED_GLOBAL:[^,]+]], align 16
 ; FASTRED-NEXT: %[[RED_SUM:[^,]+]] = fadd <4 x float> %[[RED_GLOBAL_VAL]], %[[RED_LOCAL_VAL]]
 ; FASTRED-NEXT: store <4 x float> %[[RED_SUM]], <4 x float>* %[[RED_GLOBAL]], align 16
-; FASTRED: call void @__kmpc_end_reduce(%struct.ident_t* @.kmpc_loc{{.*}}, i32 %my.tid{{.*}}, [8 x i32]* @.gomp_critical_user_.fast_reduction.var)
+; FASTRED: call void @__kmpc_end_reduce(%struct.ident_t* @.kmpc_loc{{.*}}, i32 %my.tid{{.*}}, [8 x i32]* @{{.*}})
 ; FASTRED-NEXT: br label %tree.reduce.exit
 
   %1 = load i32, i32* %.omp.lb, align 4
