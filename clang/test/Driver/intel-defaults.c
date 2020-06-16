@@ -18,10 +18,14 @@
 // -O2 should be not be set when any other -O is passed
 // RUN: %clang -### -c --intel -O0 %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-O0 %s
 // RUN: %clang -### -c --intel -O1 %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-O1 %s
+// RUN: %clang_cl -### -c --intel -Od %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-O0 %s
+// RUN: %clang_cl -### -c --intel -O1 %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-OS %s
 // CHECK-INTEL-O0: "-O0"
 // CHECK-INTEL-O0-NOT: "-O2"
 // CHECK-INTEL-O1: "-O1"
 // CHECK-INTEL-O1-NOT: "-O2"
+// CHECK-INTEL-OS: "-Os"
+// CHECK-INTEL-OS-NOT: "-O2"
 
 // default libs with --intel (Linux)
 // RUN: touch %t.o

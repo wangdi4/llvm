@@ -421,8 +421,9 @@ void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
                                  const llvm::opt::OptTable &Opts) const {
   if (Args.hasArg(options::OPT__intel)) {
     // The Intel compiler defaults to -O2
-    if (!Args.hasArg(options::OPT_O_Group))
-      DAL.AddJoinedArg(0, Opts.getOption(options::OPT_O), "2");
+    if (!Args.hasArg(options::OPT_O_Group, options::OPT__SLASH_O))
+      DAL.AddJoinedArg(0, IsCLMode() ? Opts.getOption(options::OPT__SLASH_O)
+                                     : Opts.getOption(options::OPT_O), "2");
     // For LTO on Windows, use -fuse-ld=lld when Qipo is used.
     if (Args.hasArg(options::OPT_flto) &&
         !Args.hasArg(options::OPT_fuse_ld_EQ)) {
