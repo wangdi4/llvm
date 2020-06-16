@@ -1648,6 +1648,27 @@ void OpenMPLateOutliner::emitOMPOrderClause(const OMPOrderClause *Cl) {
   }
 }
 
+void OpenMPLateOutliner::emitOMPUseDeviceAddrClause(
+    const OMPUseDeviceAddrClause *Cl) {
+  for (auto *E : Cl->varlists()) {
+    const VarDecl *VD = getExplicitVarDecl(E);
+    assert(VD && "expected VarDecl in use_device_addr clause");
+    addExplicit(VD, OMPC_use_device_addr);
+    bool IsCapturedExpr = isa<OMPCapturedExprDecl>(VD);
+    bool IsRef = !IsCapturedExpr && VD->getType()->isReferenceType();
+    ClauseEmissionHelper CEH(*this, OMPC_use_device_addr,
+                             "QUAL.OMP.USE_DEVICE_ADDR");
+    ClauseStringBuilder &CSB = CEH.getBuilder();
+    if (isa<ArraySubscriptExpr>(E->IgnoreParenImpCasts()) ||
+        E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection))
+      CSB.setArrSect();
+    if (IsRef)
+      CSB.setByRef();
+    addArg(CSB.getString());
+    addArg(E, IsRef);
+  }
+}
+
 void OpenMPLateOutliner::emitOMPReadClause(const OMPReadClause *) {}
 void OpenMPLateOutliner::emitOMPWriteClause(const OMPWriteClause *) {}
 void OpenMPLateOutliner::emitOMPFromClause(const OMPFromClause *) {assert(false);}
@@ -1680,7 +1701,6 @@ void OpenMPLateOutliner::emitOMPExclusiveClause(const OMPExclusiveClause *) {}
 void OpenMPLateOutliner::emitOMPUsesAllocatorsClause(
     const OMPUsesAllocatorsClause *) {}
 void OpenMPLateOutliner::emitOMPAffinityClause(const OMPAffinityClause *) {}
-void OpenMPLateOutliner::emitOMPUseDeviceAddrClause(const OMPUseDeviceAddrClause *) {}
 
 // The needed information has been emit in map directive, no info needs to
 // pass to BE.
@@ -2705,6 +2725,9 @@ void CodeGenFunction::RemapForLateOutlining(const OMPExecutableDirective &D,
      for (const auto *Ref : C->varlists())
        RemapVars.push_back(Ref);
   for (const auto *C : D.getClausesOfKind<OMPLastprivateClause>())
+     for (const auto *Ref : C->varlists())
+       RemapVars.push_back(Ref);
+  for (const auto *C : D.getClausesOfKind<OMPUseDeviceAddrClause>())
      for (const auto *Ref : C->varlists())
        RemapVars.push_back(Ref);
   for (const auto *C : D.getClausesOfKind<OMPReductionClause>())
