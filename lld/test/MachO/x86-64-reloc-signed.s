@@ -1,3 +1,7 @@
+# INTEL_CUSTOMIZATION
+# CMPLRLLVM-20589: disable the test, while it is being settled upstream.
+# XFAIL: *
+# end INTEL_CUSTOMIZATION
 # REQUIRES: x86
 # RUN: llvm-mc -filetype=obj -triple=x86_64-apple-darwin %s -o %t.o
 # RUN: lld -flavor darwinnew -o %t %t.o
