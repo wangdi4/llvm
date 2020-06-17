@@ -1222,6 +1222,12 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
                                                getLpriv());
     break;
   }
+  case QUAL_OMP_SUBDEVICE: {
+    assert(NumArgs == 2 && "SubDevice clause expects two arguments.");
+    setSubDeviceBase (Args[0]);
+    setSubDeviceLength (Args[1]);
+    break;
+  }
   case QUAL_OMP_COPYIN: {
     extractQualOpndList<CopyinClause>(Args, NumArgs, ClauseInfo, getCopyin());
     break;
@@ -1864,6 +1870,24 @@ void vpo::printVal(StringRef Title, Value *Val, formatted_raw_ostream &OS,
     return;
   }
   OS << *Val << "\n";
+}
+
+// Auxiliary function to print a range of Values in a WRN dump.
+void vpo::printValRange(StringRef Title, Value *Val1, Value *Val2,
+                   formatted_raw_ostream &OS, int Indent, unsigned Verbosity) {
+  if (Verbosity==0 && !Val1 && !Val2)
+    return; // When Verbosity is 0, print nothing if both Vals are null
+
+  OS.indent(Indent) << Title << "(";
+  if (!Val1)
+    OS << "UNSPECIFIED:";
+  else
+    OS << *Val1 << ":";
+  if (!Val2) {
+    OS << "UNSPECIFIED)\n";
+    return;
+  }
+  OS << *Val2 << ")\n";
 }
 
 // Auxiliary function to print an ArrayRef of Values in a WRN dump
