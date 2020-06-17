@@ -141,7 +141,9 @@ Driver::Driver(StringRef ClangExecutable, StringRef TargetTriple,
       CCLogDiagnostics(false), CCGenDiagnostics(false),
       TargetTriple(TargetTriple), CCCGenericGCCName(""), Saver(Alloc),
       CheckInputsExist(true), GenReproducer(false),
-      SuppressMissingInputWarning(false) {
+#if INTEL_CUSTOMIZATION
+      SuppressMissingInputWarning(false), IntelPrintOptions(false) {
+#endif // INTEL_CUSTOMIZATION
   // Provide a sane fallback if no VFS is specified.
   if (!this->VFS)
     this->VFS = llvm::vfs::getRealFileSystem();
@@ -464,6 +466,15 @@ void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
             << A->getOption().getName() << A->getValue();
     }
   }
+
+  if (Arg *VA = Args.getLastArg(options::OPT_HASH_x, options::OPT__HASH,
+                           options::OPT_v, options::OPT__HASH_HASH_HASH)) {
+    if (VA->getOption().matches(options::OPT_HASH_x))
+      DAL.AddFlagArg(VA, Opts.getOption(options::OPT_v));
+    else if (VA->getOption().matches(options::OPT__HASH))
+      DAL.AddFlagArg(VA, Opts.getOption(options::OPT__HASH_HASH_HASH));
+  }
+
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -1410,6 +1421,15 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
 
   // Silence driver warnings if requested
   Diags.setIgnoreAllWarnings(Args.hasArg(options::OPT_w));
+
+#if INTEL_CUSTOMIZATION
+  if (Arg *VA = Args.getLastArg(options::OPT_HASH_x, options::OPT__HASH,
+                           options::OPT_v, options::OPT__HASH_HASH_HASH)) {
+    if (VA->getOption().matches(options::OPT_HASH_x) ||
+                 VA->getOption().matches(options::OPT__HASH))
+      IntelPrintOptions = 1;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // -no-canonical-prefixes is used very early in main.
   Args.ClaimAllArgs(options::OPT_no_canonical_prefixes);

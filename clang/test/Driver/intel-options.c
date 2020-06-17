@@ -427,11 +427,9 @@
 // RUN: %clang_cl -### -c /Qcf-protection=none %s 2>&1 | FileCheck -check-prefix CHECK-QCF-PROTECTION-NONE %s
 // CHECK-QCF-PROTECTION-NONE: "-fcf-protection=none"
 
-// Behavior with -dryrun and -# maps to -###
-// RUN: %clang -# %s -c 2>&1 | FileCheck %s --check-prefix=CHECK-HASH
-// RUN: %clang_cl -# %s -c 2>&1 | FileCheck %s --check-prefix=CHECK-HASH
-// RUN: %clang -dryrun  %s -c 2>&1 | FileCheck %s --check-prefix=CHECK-HASH
-// CHECK-HASH: "-cc1"{{.*}}"-emit-obj"
+// Behavior with -dryrun maps to -###
+// RUN: %clang -dryrun  %s -c 2>&1 | FileCheck %s --check-prefix=CHECK-DRYRUN-OPT
+// CHECK-DRYRUN-OPT: "-cc1"{{.*}}"-emit-obj"
 
 //Behavior with -qno-openmp/Qopenmp- option
 // RUN: %clang -### -c -qopenmp -qno-openmp %s 2>&1 | FileCheck -check-prefix CHECK-FOPENMP %s

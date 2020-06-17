@@ -275,6 +275,16 @@ void Command::Print(raw_ostream &OS, const char *Terminator, bool Quote,
       }
     }
 
+#if INTEL_CUSTOMIZATION
+  const Driver &D = getCreator().getToolChain().getDriver();
+  if (D.IntelPrintOptions) {
+    OS << ' ';
+    OS << '\\';
+    OS << '\n';
+    OS << '\t';
+  }
+#endif // INTEL_CUSTOMIZATION
+
     OS << ' ';
     printArg(OS, Arg, Quote);
   }
