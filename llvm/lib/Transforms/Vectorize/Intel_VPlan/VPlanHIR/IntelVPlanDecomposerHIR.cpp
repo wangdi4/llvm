@@ -802,8 +802,10 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
       VPValue *FVal = VPOperands[3];
 
       // Decompose first 2 operands into a CmpInst used as predicate for select
-      VPCmpInst *Pred =
-          Builder.createCmpInst(HInst->getPredicate(), CmpLHS, CmpRHS);
+      HLPredicate HLPred = HInst->getPredicate();
+      VPCmpInst *Pred = Builder.createCmpInst(HLPred.Kind, CmpLHS, CmpRHS);
+      if (CmpInst::isFPPredicate(HLPred.Kind))
+        Pred->setFastMathFlags(HLPred.FMF);
       // Set underlying DDNode for the select VPInstruction since it may be the
       // master VPInstruction which will be the case if DDNode is non-null.
       NewVPInst = cast<VPInstruction>(Builder.createNaryOp(
@@ -853,6 +855,12 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
       // Generic VPInstruction.
       NewVPInst = cast<VPInstruction>(Builder.createNaryOp(
           LLVMInst->getOpcode(), VPOperands, LLVMInst->getType(), DDNode));
+
+    // Capture operator flags like FastMathFlags, overflowing flags (nsw/nuw)
+    // and exact flag.
+    // TODO: Check other parts of decomposer where operator instructions can be
+    // emitted. Example NUW/NSW flags from CanonExprs (in future?).
+    NewVPInst->copyOperatorFlagsFrom(LLVMInst);
 
     return NewVPInst;
   };
@@ -937,6 +945,9 @@ VPDecomposerHIR::createVPInstsForHLIf(HLIf *HIf,
   // Create a new VPCmpInst corresponding to the first predicate
   VPInstruction *CurVPInst =
       Builder.createCmpInst(FirstPred->Kind, VPOperands[0], VPOperands[1]);
+  if (CmpInst::isFPPredicate(FirstPred->Kind))
+    CurVPInst->setFastMathFlags(FirstPred->FMF);
+
   LLVM_DEBUG(dbgs() << "VPDecomp: First Pred VPInst: "; CurVPInst->dump());
 
   unsigned OperandIt = 2;
@@ -948,6 +959,9 @@ VPDecomposerHIR::createVPInstsForHLIf(HLIf *HIf,
     // Create a new VPCmpInst for the current predicate
     VPInstruction *NewVPInst = Builder.createCmpInst(
         It->Kind, VPOperands[OperandIt], VPOperands[OperandIt + 1]);
+    if (CmpInst::isFPPredicate(It->Kind))
+      NewVPInst->setFastMathFlags(It->FMF);
+
     LLVM_DEBUG(dbgs() << "VPDecomp: NewVPInst: "; NewVPInst->dump());
     // Conjoin the new VPInst with current VPInst using implicit AND
     CurVPInst = cast<VPInstruction>(Builder.createAnd(CurVPInst, NewVPInst));
