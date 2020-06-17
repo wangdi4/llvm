@@ -805,7 +805,10 @@ __SYCL_EXPORT pi_result piPlatformGetInfo(pi_platform platform,
                                           void *param_value,
                                           size_t *param_value_size_ret);
 
+<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
+=======
+>>>>>>> bae06395eb6fa2978dfa4d9e611e0ffef2fd71e1
 /// Gets the native handle of a PI platform object.
 ///
 /// \param platform is the PI platform to get the native handle of.
@@ -820,7 +823,10 @@ __SYCL_EXPORT pi_result piextPlatformGetNativeHandle(
 /// \param platform is the PI platform created from the native handle.
 __SYCL_EXPORT pi_result piextPlatformCreateWithNativeHandle(
     pi_native_handle nativeHandle, pi_platform *platform);
+<<<<<<< HEAD
 /* end INTEL_CUSTOMIZATION */
+=======
+>>>>>>> bae06395eb6fa2978dfa4d9e611e0ffef2fd71e1
 
 __SYCL_EXPORT pi_result piDevicesGet(pi_platform platform,
                                      pi_device_type device_type,

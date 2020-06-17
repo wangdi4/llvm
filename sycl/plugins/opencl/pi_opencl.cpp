@@ -175,7 +175,10 @@ pi_result piPlatformsGet(pi_uint32 num_entries, pi_platform *platforms,
   return static_cast<pi_result>(result);
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
+=======
+>>>>>>> bae06395eb6fa2978dfa4d9e611e0ffef2fd71e1
 pi_result piextPlatformCreateWithNativeHandle(pi_native_handle nativeHandle,
                                               pi_platform *platform) {
   assert(platform);
@@ -183,8 +186,13 @@ pi_result piextPlatformCreateWithNativeHandle(pi_native_handle nativeHandle,
   *platform = reinterpret_cast<pi_platform>(nativeHandle);
   return PI_SUCCESS;
 }
+<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
 
+=======
+
+// Example of a PI interface that does not map exactly to an OpenCL one.
+>>>>>>> bae06395eb6fa2978dfa4d9e611e0ffef2fd71e1
 pi_result piDevicesGet(pi_platform platform, pi_device_type device_type,
                        pi_uint32 num_entries, pi_device *devices,
                        pi_uint32 *num_devices) {
@@ -1083,6 +1091,11 @@ static pi_result piextGetNativeHandle(void *piObj,
   return PI_SUCCESS;
 }
 
+pi_result piextPlatformGetNativeHandle(pi_platform platform,
+                                       pi_native_handle *nativeHandle) {
+  return piextGetNativeHandle(platform, nativeHandle);
+}
+
 pi_result piextDeviceGetNativeHandle(pi_device device,
                                      pi_native_handle *nativeHandle) {
   return piextGetNativeHandle(device, nativeHandle);
@@ -1124,9 +1137,15 @@ pi_result piPluginInit(pi_plugin *PluginInit) {
   // Platform
   _PI_CL(piPlatformsGet, piPlatformsGet)
   _PI_CL(piPlatformGetInfo, clGetPlatformInfo)
+<<<<<<< HEAD
   _PI_CL(piextPlatformGetNativeHandle, piextGetNativeHandle)
   _PI_CL(piextPlatformCreateWithNativeHandle, // INTEL
          piextPlatformCreateWithNativeHandle) // INTEL
+=======
+  _PI_CL(piextPlatformGetNativeHandle, piextPlatformGetNativeHandle)
+  _PI_CL(piextPlatformCreateWithNativeHandle,
+         piextPlatformCreateWithNativeHandle)
+>>>>>>> bae06395eb6fa2978dfa4d9e611e0ffef2fd71e1
   // Device
   _PI_CL(piDevicesGet, piDevicesGet)
   _PI_CL(piDeviceGetInfo, clGetDeviceInfo)

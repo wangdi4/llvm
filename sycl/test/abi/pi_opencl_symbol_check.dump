@@ -47,3 +47,5 @@ piextUSMFree
 piextUSMGetMemAllocInfo
 piextUSMHostAlloc
 piextUSMSharedAlloc
+piextPlatformGetNativeHandle
+piextPlatformCreateWithNativeHandle
