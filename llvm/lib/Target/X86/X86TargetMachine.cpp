@@ -497,8 +497,8 @@ bool X86PassConfig::addPreISel() {
   if (getOptLevel() == CodeGenOpt::Aggressive &&
       TM->Options.IntelAdvancedOptim)
     addPass(createX86CiscizationHelperPass());
-  if (getOptLevel() != CodeGenOpt::None)
-    addPass(createFeatureInitPass());
+  // Always run this pass for feature like X87 precision control.
+  addPass(createFeatureInitPass());
   if (getOptLevel() == CodeGenOpt::Aggressive)
     addPass(createIVSplitLegacyPass());
 #endif // INTEL_CUSTOMIZATION
