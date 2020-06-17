@@ -400,6 +400,14 @@ casting analyzer, and involve certain functions' arguments being nullptr
 on entry to those functions. (See the description of the Bad Casting
 Analyzer below.) `Bad Casting Analyzer`_
 
+BadCastingForRelatedTypes
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This safety data is used for special bad casting cases that won't affect
+related types. These types are structures that have two types in the IR,
+where one type represents the base form and the other type has the same
+fields with an extra field at the end used for padding.
+
 DopeVector
 ~~~~~~~~~~
 The type was identified as a dope vector.

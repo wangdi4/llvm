@@ -6851,6 +6851,131 @@ private:
     return true;
   }
 
+  // Return true if the Bitcast is used for store. This case is looking
+  // for the following:
+  //
+  // %1 = getelementptr inbounds %struct.test, %struct.test* %VAR,
+  //      i64 0, i32 1
+  // %2 = bitcast %"inner.struct"* %1 to i64*
+  //
+  // %3 = getelementptr inbounds %struct.test, %struct.test* %VAR2,
+  //      i64 0, i32 1
+  // %4 = bitcast %"inner.struct"* %3 to i64*
+  // %5 = load i64, i64* %4, align 8
+  //
+  // store i64 %5, i64* %2
+  //
+  // In the above example, both bitcast instructions (%2 and %4) have the
+  // same source and destination types. Also, both point to GEP instructions
+  // (%1 and %3 respectively) that access the same data type.
+  bool castUsedForStore(BitCastOperator *I) {
+
+    // Return true if the size of the source matches with the size of
+    // the destination.
+    auto IsValidSize = [this](Type *SrcTy, Type *DestTy) {
+
+      if (!SrcTy || !DestTy)
+        return false;
+
+      if (!SrcTy->isPointerTy() || !DestTy->isPointerTy())
+        return false;
+
+      if (DestTy != PtrSizeIntPtrTy)
+        return false;
+
+      llvm::PointerType *SrcPtr = cast<PointerType>(SrcTy);
+
+      // Check if the source is a pointer to a structure. This checks for the
+      // the following example:
+      //
+      // %tmp = getelementptr inbounds %struct.test, %struct.test* %VAR,
+      //       i64 0, i32 1
+      // %tmp2 = bitcast %"inner.struct"* %tmp to i64*
+      //
+      // In this case we are looking if the casting goes from a pointer to a
+      // structure to i64*.
+      if (SrcPtr->getElementType()->isStructTy())
+        return true;
+
+      // Else, check if the source is an i8 pointer. We want to also cover
+      // the case when the casting is done to a "new" allocated space.
+      // For example:
+      //
+      // %tmp = invoke noalias nonnull dereferenceable(8512)
+      //        i8* @_Znwm(i64 8512)
+      //
+      // %tmp2 = getelementptr inbounds i8, i8* %tmp, i64 8440
+      // %tmp3 = bitcast i8* %tmp2 to i64*
+      //
+      // In this case, the casting is being done to a new allocated space and
+      // its type is i8*.
+      return (SrcPtr->getElementType()->isIntegerTy(8));
+    };
+
+    BitCastInst *BC = dyn_cast_or_null<BitCastInst>(I);
+    if (!BC)
+      return false;
+
+    if (!BC->hasOneUse())
+      return false;
+
+    StoreInst *Store = dyn_cast<StoreInst>(BC->user_back());
+    if (!Store)
+      return false;
+
+    LoadInst *StoredValue = dyn_cast<LoadInst>(Store->getValueOperand());
+    if (!StoredValue)
+      return false;
+
+    BitCastInst *BCLoaded = dyn_cast<BitCastInst>(StoredValue->getOperand(0));
+    if (!BCLoaded)
+      return false;
+
+    llvm::Type *BCDestTy = BC->getDestTy();
+    llvm::Type *BCLoadedDestTy = BCLoaded->getDestTy();
+
+    if (BCDestTy != BCLoadedDestTy)
+      return false;
+
+    if (!IsValidSize(BC->getSrcTy(), BC->getDestTy()) ||
+        !IsValidSize(BCLoaded->getSrcTy(), BCLoaded->getDestTy()))
+      return false;
+
+
+    // In the previous example, we could get away with comparing the bitcats
+    // and the GEP instructions, but it doesn't cover other the possible cases.
+    // For example:
+    //
+    // %tmp = invoke noalias nonnull dereferenceable(8512) i8* @_Znwm(i64 8512)
+    //
+    // %tmp2 = getelementptr inbounds i8, i8* %tmp, i64 8440
+    // %tmp3 = bitcast i8* %tmp2 to i64*
+    //
+    // %tmp4 = getelementptr inbounds %class.test, %class.test* %VAR,
+    //         i64 0, i32 1
+    // %tmp5 = bitcast %"class.inner"* %tmp4 to i64*
+    // %tmp6 = load i64, i64* %tmp5
+    // store i64 %tmp6, i64* %tmp3
+    //
+    // In the above case, assuming that the size of %class.test is 8512 and
+    // %"class.inner" is nested in %class.test, there is no GEP, just storing
+    // in a "new". For this case is better to collect the local pointers'
+    // information and make sure the dominant aggregate types match.
+    LocalPointerInfo &LPIStoredValue = LPA.getLocalPointerInfo(BCLoaded);
+    LocalPointerInfo &LPIPointer = LPA.getLocalPointerInfo(BC);
+
+    if (!LPIPointer.pointsToSomeElement() ||
+        !LPIStoredValue.pointsToSomeElement())
+      return false;
+
+    if (!LPIPointer.getDominantAggregateTy() ||
+        !LPIStoredValue.getDominantAggregateTy())
+      return false;
+
+    return LPIPointer.getDominantAggregateTy() ==
+        LPIStoredValue.getDominantAggregateTy();
+  }
+
   // Verify that a bitcast from \p SrcTy to \p DestTy would be safe. The
   // caller has analyzed the bitcast instruction to determine that these
   // types need to be considered. These may not be the actual types used
@@ -6905,6 +7030,21 @@ private:
                           << "  " << *I << "\n");
         (void)setValueTypeInfoSafetyDataBase(I, dtrans::BadCasting);
       }
+      return;
+    }
+
+    // Check if the bitcast is used for moving data from a source to a
+    // destination with the same type.
+    if (castUsedForStore(I)) {
+      LLVM_DEBUG(dbgs() << "dtrans-safety: Bad casting (related types) -- "
+                      << "unsafe cast of aliased pointer:\n"
+                      << "  " << *I << "\n");
+      if (dtrans::DTransOutOfBoundsOK)
+        setValueTypeInfoSafetyData(I->getOperand(0),
+                                  dtrans::BadCastingForRelatedTypes);
+      else
+        (void)setValueTypeInfoSafetyDataBase(I->getOperand(0),
+            dtrans::BadCastingForRelatedTypes);
       return;
     }
 
@@ -9022,6 +9162,7 @@ private:
     case dtrans::BadCasting:
     case dtrans::BadCastingPending:
     case dtrans::BadMemFuncManipulation:
+    case dtrans::BadCastingForRelatedTypes:
     case dtrans::SystemObject:
     case dtrans::UnsafePtrMerge:
     case dtrans::UnhandledUse:
