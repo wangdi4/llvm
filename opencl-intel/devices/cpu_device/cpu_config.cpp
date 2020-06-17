@@ -103,7 +103,7 @@ VectorizerType CPUDeviceConfig::GetVectorizerType() const
 
 bool CPUDeviceConfig::GetUseNativeSubgroups() const {
   return m_pConfigFile->Read<bool>(
-      CL_CONFIG_CPU_ENABLE_NATIVE_SUBGROUPS, false);
+      CL_CONFIG_CPU_ENABLE_NATIVE_SUBGROUPS, true);
 }
 
 bool CPUDeviceConfig::IsSpirSupported() const
