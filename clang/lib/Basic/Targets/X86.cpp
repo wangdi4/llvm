@@ -401,6 +401,7 @@ SkylakeCommon:
     setFeatureEnabledImpl(Features, "movdiri", true);
     setFeatureEnabledImpl(Features, "movdir64b", true);
     setFeatureEnabledImpl(Features, "waitpkg", true);
+    setFeatureEnabledImpl(Features, "cldemote", true);
     LLVM_FALLTHROUGH;
 #endif // INTEL_FEATURE_CPU_ADL
 #endif // INTEL_CUSTOMIZATION
