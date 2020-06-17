@@ -871,6 +871,9 @@ public:
   bool threewayBranchProfitable() const { return ThreewayBranchProfitable; }
 #if INTEL_CUSTOMIZATION
   bool hasDSB() const { return HasDSB; }
+  // In SKL, DSB window size is 64B. It is implemented as 2 DSBs of 32B each
+  // (even and odd) that run in parallel every lookup
+  unsigned getDSBWindowSize() const { return 32; }
 #endif // INTEL_CUSTOMIZATION
   bool hasINVPCID() const { return HasINVPCID; }
   bool hasENQCMD() const { return HasENQCMD; }
