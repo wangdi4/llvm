@@ -10522,6 +10522,11 @@ public:
   StmtResult ActOnOpenMPTargetVariantDispatchDirective(
       ArrayRef<OMPClause *> Clauses, Stmt *AStmt, SourceLocation StartLoc,
       SourceLocation EndLoc);
+  /// Called on well-formed '\#pragma omp loop' after parsing of the
+  /// associated statement.
+  StmtResult ActOnOpenMPGenericLoopDirective(
+      ArrayRef<OMPClause *> Clauses, Stmt *AStmt, SourceLocation StartLoc,
+      SourceLocation EndLoc, VarsWithInheritedDSAType &VarsWithImplicitDSA);
 #endif // INTEL_COLLAB
 
   /// Called on well-formed '\#pragma omp single' after parsing of the
@@ -10830,6 +10835,14 @@ public:
                                          SourceLocation StartLoc,
                                          SourceLocation LParenLoc,
                                          SourceLocation EndLoc);
+#if INTEL_COLLAB
+  /// Called on a well-formed 'bind' clause.
+  OMPClause *ActOnOpenMPBindClause(llvm::omp::BindKind Kind,
+                                   SourceLocation KindLoc,
+                                   SourceLocation StartLoc,
+                                   SourceLocation LParenLoc,
+                                   SourceLocation EndLoc);
+#endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   /// Called on well-formed 'tile' clause.
   OMPClause *ActOnOpenMPTileClause(ArrayRef<Expr *> Sizes,

@@ -2042,6 +2042,7 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
   case OMPD_target_parallel_for_simd:
   case OMPD_target_simd:
 #if INTEL_COLLAB
+  case OMPD_loop:
   case OMPD_target_variant_dispatch:
 #endif // INTEL_COLLAB
   case OMPD_teams_distribute:
@@ -2334,6 +2335,7 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
   case OMPD_target_parallel:
   case OMPD_target_parallel_for:
 #if INTEL_COLLAB
+  case OMPD_loop:
   case OMPD_target_variant_dispatch:
 #endif // INTEL_COLLAB
   case OMPD_taskloop:
@@ -2636,6 +2638,9 @@ OMPClause *Parser::ParseOpenMPUsesAllocatorClause(OpenMPDirectiveKind DKind) {
 ///       acq_rel-clause | acquire-clause | release-clause | relaxed-clause |
 ///       depobj-clause | destroy-clause | detach-clause | inclusive-clause |
 ///       exclusive-clause | uses_allocators-clause | use_device_addr-clause
+#if INTEL_COLLAB
+///       | bind-clause
+#endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
 ///       | dataflow-clause
@@ -2750,6 +2755,12 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
 
     Clause = ParseOpenMPSimpleClause(CKind, WrongDirective);
     break;
+#if INTEL_COLLAB
+    case OMPC_bind:
+    // 5.0 Spec doesn't specify if multiple bind clauses are allowed.
+    Clause = ParseOpenMPSimpleClause(CKind, WrongDirective);
+    break;
+#endif // INTEL_COLLAB
   case OMPC_device:
   case OMPC_schedule:
   case OMPC_dist_schedule:
@@ -2942,6 +2953,10 @@ OMPClause *Parser::ParseOpenMPSingleExprClause(OpenMPClauseKind Kind,
 ///    default-clause:
 ///         'default' '(' 'none' | 'shared' ')'
 ///
+#if INTEL_COLLAB
+///    bind-clause:
+///         'bind' '(' 'teams' | 'parallel' | 'thread' ')'
+#endif // INTEL_COLLAB
 ///    proc_bind-clause:
 ///         'proc_bind' '(' 'master' | 'close' | 'spread' ')'
 ///

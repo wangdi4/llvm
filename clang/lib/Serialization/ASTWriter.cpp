@@ -6186,6 +6186,13 @@ void OMPClauseWriter::VisitOMPNumThreadsClause(OMPNumThreadsClause *C) {
   Record.AddSourceLocation(C->getLParenLoc());
 }
 
+#if INTEL_COLLAB
+void OMPClauseWriter::VisitOMPBindClause(OMPBindClause *C) {
+  Record.push_back(unsigned(C->getBindKind()));
+  Record.AddSourceLocation(C->getLParenLoc());
+  Record.AddSourceLocation(C->getBindKindKwLoc());
+}
+#endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 void OMPClauseWriter::VisitOMPTileClause(OMPTileClause *C) {
   Record.push_back(C->getNumLoops());

@@ -461,6 +461,62 @@ OMPTargetVariantDispatchDirective::CreateEmpty(const ASTContext &C,
       C.Allocate(Size + sizeof(OMPClause *) * NumClauses + sizeof(Stmt *));
   return new (Mem) OMPTargetVariantDispatchDirective(NumClauses);
 }
+
+OMPGenericLoopDirective *OMPGenericLoopDirective::Create(
+    const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
+    unsigned CollapsedNum, ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt,
+    const HelperExprs &Exprs) {
+  unsigned Size =
+      llvm::alignTo(sizeof(OMPGenericLoopDirective), alignof(OMPClause *));
+  void *Mem =
+      C.Allocate(Size + sizeof(OMPClause *) * Clauses.size() +
+                 sizeof(Stmt *) * numLoopChildren(CollapsedNum, OMPD_loop));
+  auto *Dir = new (Mem)
+      OMPGenericLoopDirective(StartLoc, EndLoc, CollapsedNum, Clauses.size());
+  Dir->setClauses(Clauses);
+  Dir->setAssociatedStmt(AssociatedStmt);
+  Dir->setIterationVariable(Exprs.IterationVarRef);
+  Dir->setLastIteration(Exprs.LastIteration);
+  Dir->setCalcLastIteration(Exprs.CalcLastIteration);
+  Dir->setPreCond(Exprs.PreCond);
+  Dir->setCond(Exprs.Cond);
+  Dir->setLateOutlineCond(Exprs.LateOutlineCond);
+  Dir->setLateOutlineLinearCounterStep(Exprs.LateOutlineLinearCounterStep);
+  Dir->setLateOutlineLinearCounterIncrement(
+      Exprs.LateOutlineLinearCounterIncrement);
+  Dir->setInit(Exprs.Init);
+  Dir->setInc(Exprs.Inc);
+  Dir->setIsLastIterVariable(Exprs.IL);
+  Dir->setLowerBoundVariable(Exprs.LB);
+  Dir->setUpperBoundVariable(Exprs.UB);
+  Dir->setStrideVariable(Exprs.ST);
+  Dir->setEnsureUpperBound(Exprs.EUB);
+  Dir->setNextLowerBound(Exprs.NLB);
+  Dir->setNextUpperBound(Exprs.NUB);
+  Dir->setNumIterations(Exprs.NumIterations);
+  Dir->setCounters(Exprs.Counters);
+  Dir->setPrivateCounters(Exprs.PrivateCounters);
+  Dir->setInits(Exprs.Inits);
+  Dir->setUpdates(Exprs.Updates);
+  Dir->setFinals(Exprs.Finals);
+  Dir->setDependentCounters(Exprs.DependentCounters);
+  Dir->setDependentInits(Exprs.DependentInits);
+  Dir->setFinalsConditions(Exprs.FinalsConditions);
+  CALL_ALL_SET_UNCOLLAPSED // INTEL
+  Dir->setPreInits(Exprs.PreInits);
+  return Dir;
+}
+
+OMPGenericLoopDirective *
+OMPGenericLoopDirective::CreateEmpty(const ASTContext &C, unsigned NumClauses,
+                                     unsigned CollapsedNum, EmptyShell) {
+  unsigned Size =
+      llvm::alignTo(sizeof(OMPGenericLoopDirective), alignof(OMPClause *));
+  void *Mem =
+      C.Allocate(Size + sizeof(OMPClause *) * NumClauses +
+                 sizeof(Stmt *) * numLoopChildren(CollapsedNum, OMPD_loop));
+  return new (Mem) OMPGenericLoopDirective(CollapsedNum, NumClauses);
+}
 #endif // INTEL_COLLAB
 
 OMPSingleDirective *OMPSingleDirective::Create(const ASTContext &C,

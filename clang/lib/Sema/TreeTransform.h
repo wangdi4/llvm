@@ -1608,6 +1608,19 @@ public:
                                                  LParenLoc, EndLoc);
   }
 
+#if INTEL_COLLAB
+  /// Build a new OpenMP 'bind' clause.
+  ///
+  /// By default, performs semantic analysis to build the new OpenMP clause.
+  /// Subclasses may override this routine to provide different behavior.
+  OMPClause *RebuildOMPBindClause(BindKind Kind, SourceLocation KindKwLoc,
+                                  SourceLocation StartLoc,
+                                  SourceLocation LParenLoc,
+                                  SourceLocation EndLoc) {
+    return getSema().ActOnOpenMPBindClause(Kind, KindKwLoc, StartLoc, LParenLoc,
+                                           EndLoc);
+  }
+#endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
   /// Build a new OpenMP 'tile' clause.
   ///
@@ -8547,6 +8560,18 @@ TreeTransform<Derived>::TransformOMPSectionDirective(OMPSectionDirective *D) {
 
 #if INTEL_COLLAB
 template <typename Derived>
+StmtResult
+TreeTransform<Derived>::TransformOMPGenericLoopDirective(
+    OMPGenericLoopDirective *D) {
+  DeclarationNameInfo DirName;
+  getDerived().getSema().StartOpenMPDSABlock(
+      OMPD_loop, DirName, nullptr, D->getBeginLoc());
+  StmtResult Res = getDerived().TransformOMPExecutableDirective(D);
+  getDerived().getSema().EndOpenMPDSABlock(Res.get());
+  return Res;
+}
+
+template <typename Derived>
 StmtResult TreeTransform<Derived>::TransformOMPTargetVariantDispatchDirective(
     OMPTargetVariantDispatchDirective *D) {
   DeclarationNameInfo DirName;
@@ -9126,6 +9151,15 @@ TreeTransform<Derived>::TransformOMPNumThreadsClause(OMPNumThreadsClause *C) {
       NumThreads.get(), C->getBeginLoc(), C->getLParenLoc(), C->getEndLoc());
 }
 
+#if INTEL_COLLAB
+template <typename Derived>
+OMPClause *
+TreeTransform<Derived>::TransformOMPBindClause(OMPBindClause *C) {
+  return getDerived().RebuildOMPBindClause(
+      C->getBindKind(), C->getBindKindKwLoc(), C->getBeginLoc(),
+      C->getLParenLoc(), C->getEndLoc());
+}
+#endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 template <typename Derived>
 OMPClause *

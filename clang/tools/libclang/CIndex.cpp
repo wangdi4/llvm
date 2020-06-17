@@ -2205,6 +2205,9 @@ void OMPClauseEnqueue::VisitOMPNumThreadsClause(const OMPNumThreadsClause *C) {
   Visitor->AddStmt(C->getNumThreads());
 }
 
+#if INTEL_COLLAB
+void OMPClauseEnqueue::VisitOMPBindClause(const OMPBindClause *C) {}
+#endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 void OMPClauseEnqueue::VisitOMPTileClause(const OMPTileClause *C) {
   for (auto *E : C->sizes()) {
@@ -5551,6 +5554,8 @@ CXString clang_getCursorKindSpelling(enum CXCursorKind Kind) {
   case CXCursor_OMPSectionDirective:
     return cxstring::createRef("OMPSectionDirective");
 #if INTEL_COLLAB
+  case CXCursor_OMPGenericLoopDirective:
+    return cxstring::createRef("OMPGenericLoopDirective");
   case CXCursor_OMPTargetVariantDispatchDirective:
     return cxstring::createRef("OMPTargetVariantDispatchDirective");
 #endif // INTEL_COLLAB

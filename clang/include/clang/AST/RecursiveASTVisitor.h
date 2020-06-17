@@ -2874,6 +2874,9 @@ DEF_TRAVERSE_STMT(OMPSectionDirective,
 #if INTEL_COLLAB
 DEF_TRAVERSE_STMT(OMPTargetVariantDispatchDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
+
+DEF_TRAVERSE_STMT(OMPGenericLoopDirective,
+                  { TRY_TO(TraverseOMPExecutableDirective(S)); })
 #endif // INTEL_COLLAB
 
 DEF_TRAVERSE_STMT(OMPSingleDirective,
@@ -3091,6 +3094,12 @@ RecursiveASTVisitor<Derived>::VisitOMPNumThreadsClause(OMPNumThreadsClause *C) {
   return true;
 }
 
+#if INTEL_COLLAB
+template <typename Derived>
+bool RecursiveASTVisitor<Derived>::VisitOMPBindClause(OMPBindClause *C) {
+  return true;
+}
+#endif // INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 template <typename Derived>
 bool
