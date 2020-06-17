@@ -110,13 +110,10 @@ endfunction(add_sycl_rt_library)
 
 set(SYCL_SOURCES
     "${sycl_inc_dir}/CL/sycl.hpp"
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
     "backend/Intel_level0.cpp"
 # end INTEL_CUSTOMIZATION
-=======
     "backend/opencl.cpp"
->>>>>>> bae06395eb6fa2978dfa4d9e611e0ffef2fd71e1
     "detail/accessor_impl.cpp"
     "detail/buffer_impl.cpp"
     "detail/builtins_common.cpp"

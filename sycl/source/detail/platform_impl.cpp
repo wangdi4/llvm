@@ -307,15 +307,6 @@ platform_impl::get_info() const {
       param>::get(this->getHandleRef(), getPlugin());
 }
 
-#if INTEL_CUSTOMIZATION
-pi_native_handle platform_impl::getNative() const {
-  const auto &Plugin = getPlugin();
-  pi_native_handle Handle;
-  Plugin.call<PiApiKind::piextPlatformGetNativeHandle>(MPlatform, &Handle);
-  return Handle;
-}
-#endif // INTEL_CUSTOMIZATION
-
 #define PARAM_TRAITS_SPEC(param_type, param, ret_type)                         \
   template ret_type platform_impl::get_info<info::param_type::param>() const;
 

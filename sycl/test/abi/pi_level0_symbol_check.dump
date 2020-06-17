@@ -101,7 +101,4 @@ piEnqueueMemBufferWriteRect
 piextUSMHostAlloc
 piextPlatformGetNativeHandle
 piextPlatformCreateWithNativeHandle
-<<<<<<< HEAD
-=======
 
->>>>>>> bae06395eb6fa2978dfa4d9e611e0ffef2fd71e1

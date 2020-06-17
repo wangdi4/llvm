@@ -49,11 +49,7 @@ platform::get_info() const {
   return impl->get_info<param>();
 }
 
-<<<<<<< HEAD
-pi_native_handle platform::getNative() const { return impl->getNative(); } // INTEL
-=======
 pi_native_handle platform::getNative() const { return impl->getNative(); }
->>>>>>> bae06395eb6fa2978dfa4d9e611e0ffef2fd71e1
 
 #define PARAM_TRAITS_SPEC(param_type, param, ret_type)                         \
   template __SYCL_EXPORT ret_type                                              \

@@ -1210,30 +1210,6 @@ pi_result piextDeviceGetNativeHandle(pi_device Device,
   return PI_SUCCESS;
 }
 
-#if INTEL_CUSTOMIZATION
-pi_result piextPlatformGetNativeHandle(pi_platform Platform,
-                                       pi_native_handle *NativeHandle) {
-  assert(Platform);
-  assert(NativeHandle);
-
-  auto ZeDriver = pi_cast<ze_driver_handle_t*>(NativeHandle);
-  // Extract the L0 driver handle from the given PI platform
-  *ZeDriver = Platform->ZeDriver;
-  return PI_SUCCESS;
-}
-
-pi_result piextPlatformCreateWithNativeHandle(pi_native_handle NativeHandle,
-                                              pi_platform *Platform) {
-  assert(NativeHandle);
-  assert(Platform);
-
-  // Create PI platform from the given L0 driver handle.
-  auto ZeDriver = pi_cast<ze_driver_handle_t>(NativeHandle);
-  *Platform = new _pi_platform(ZeDriver);
-  return PI_SUCCESS;
-}
-#endif // INTEL_CUSTOMIZATION
-
 pi_result piextDeviceCreateWithNativeHandle(pi_native_handle NativeHandle,
                                             pi_platform Platform, // INTEL
                                             pi_device *Device) {
