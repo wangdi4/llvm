@@ -14337,7 +14337,7 @@ defm VFCMULCSHZ : avx512_cfmbinop_sh_common<0xD7, "vfcmulcsh", x86vfcmulcSh, x86
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
 multiclass avx512_vdpd_round<bits<8> opc, string OpcodeStr, SDNode OpNode,
                                  X86FoldableSchedWrite sched,
                                  X86VectorVTInfo _> {
@@ -14376,12 +14376,12 @@ multiclass avx512_vdpd_rm<bits<8> opc, string OpcodeStr, SDNode OpNode,
 
 multiclass avx512_vdpd_common<bits<8> opc, string OpcodeStr, X86SchedWriteWidths sched,
                               SDNode OpNode, SDNode OpNodeRnd, AVX512VLVectorVTInfo _> {
-  let Predicates = [HasDOTPROD] in {
+  let Predicates = [HasAVX512DOTPRODPHPS] in {
     defm Z      : avx512_vdpd_rm<opc, OpcodeStr, OpNode, sched.ZMM, _.info512>,
                   avx512_vdpd_round<opc, OpcodeStr, OpNodeRnd, sched.ZMM, _.info512>,
                               EVEX_V512, EVEX_CD8<32, CD8VF>;
   }
-  let Predicates = [HasDOTPROD, HasAVX512] in {
+  let Predicates = [HasAVX512DOTPRODPHPS, HasVLX] in {
     defm Z256 : avx512_vdpd_rm<opc, OpcodeStr, OpNode, sched.YMM, _.info256>,
                       EVEX_V256, EVEX_CD8<32, CD8VF>;
     defm Z128 : avx512_vdpd_rm<opc, OpcodeStr, OpNode, sched.XMM, _.info128>,
@@ -14392,7 +14392,8 @@ multiclass avx512_vdpd_common<bits<8> opc, string OpcodeStr, X86SchedWriteWidths
 defm VDPPHPS : avx512_vdpd_common<0x52, "vdpphps",
                            SchedWriteCvtPD2PS, // FIXME: Using SchedWriteCvtPD2PS is a workaround.
                            X86vdpphps, X86vdpphpsRnd, avx512vl_f32_info>, T8PS;
-
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
 let Constraints = "$src1 = $dst" in
 multiclass avx512_vpdpb_rmb<bits<8> Op, string OpStr, SDNode OpNode,
                     X86FoldableSchedWrite sched, X86VectorVTInfo VTI,
@@ -14423,10 +14424,10 @@ multiclass avx512_vpdpb_rmb<bits<8> Op, string OpStr, SDNode OpNode,
 
 multiclass avx512_vpdpb_common<bits<8> Op, string OpStr, X86SchedWriteWidths sched,
                                SDNode OpNode, bit IsCommutable = 0> {
-  let Predicates = [HasDOTPROD] in
+  let Predicates = [HasAVX512DOTPRODINT8] in
   defm Z      :   avx512_vpdpb_rmb<Op, OpStr, OpNode, sched.ZMM, v16i32_info,
                                    IsCommutable>,  EVEX_V512;
-  let Predicates = [HasDOTPROD, HasVLX] in {
+  let Predicates = [HasAVX512DOTPRODINT8, HasVLX] in {
     defm Z256 :   avx512_vpdpb_rmb<Op, OpStr, OpNode, sched.YMM, v8i32x_info,
                                    IsCommutable>, EVEX_V256;
     defm Z128 :   avx512_vpdpb_rmb<Op, OpStr, OpNode, sched.XMM, v4i32x_info,
@@ -14445,8 +14446,7 @@ defm VPDPBSUDS : avx512_vpdpb_common<0x51, "vpdpbsuds",SchedWriteVecIMul, X86vpd
 defm VPDPBUUD  : avx512_vpdpb_common<0x50, "vpdpbuud", SchedWriteVecIMul, X86vpdpbuud, 1>, T8PS;
 
 defm VPDPBUUDS : avx512_vpdpb_common<0x51, "vpdpbuuds", SchedWriteVecIMul, X86vpdpbuuds, 1>, T8PS;
-
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION

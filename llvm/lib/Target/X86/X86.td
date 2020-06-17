@@ -219,16 +219,30 @@ def FeatureFP16    : SubtargetFeature<"avx512fp16", "HasFP16", "true",
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_DOTPROD
-def FeatureAVXDOTPROD    : SubtargetFeature<"avxdotprod", "HasAVXDOTPROD", "true",
-                           "Enable AVX-DOTPROD",
-                           [FeatureAVX2]>;
-#endif // INTEL_FEATURE_ISA_AVX_DOTPROD
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD
-def FeatureDOTPROD    : SubtargetFeature<"avx512dotprod", "HasDOTPROD", "true",
-                           "Enable AVX512-DOTPROD",
-                           [FeatureAVXDOTPROD, FeatureFP16, FeatureAVX512]>;
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+#if INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
+def FeatureAVXDOTPRODINT8  : SubtargetFeature<"avxdotprodint8",
+                             "HasAVXDOTPRODINT8", "true",
+                             "Enable AVX-DOTPROD-INT8",
+                             [FeatureAVX2]>;
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
+def FeatureAVXDOTPRODPHPS  : SubtargetFeature<"avxdotprodphps",
+                             "HasAVXDOTPRODPHPS", "true",
+                             "Enable AVX-DOTPROD-PHPS",
+                             [FeatureAVX2]>;
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+def FeatureAVX512DOTPRODINT8 : SubtargetFeature<"avx512dotprodint8",
+                               "HasAVX512DOTPRODINT8", "true",
+                               "Enable AVX512-DOTPROD-INT8",
+                               [FeatureAVXDOTPRODINT8, FeatureAVX512]>;
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+def FeatureAVX512DOTPRODPHPS : SubtargetFeature<"avx512dotprodphps",
+                               "HasAVX512DOTPRODPHPS", "true",
+                               "Enable AVX512-DOTPROD-PHPS",
+                               [FeatureAVXDOTPRODPHPS, FeatureFP16, FeatureAVX512]>;
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
 #if INTEL_FEATURE_ISA_AVX_CONVERT
 def FeatureAVXCONVERT  : SubtargetFeature<"avxconvert", "HasAVXCONVERT", "true",
                            "Enable AVX-CONVERT",

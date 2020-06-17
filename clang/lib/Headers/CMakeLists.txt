@@ -157,13 +157,20 @@ intel_add_file(INTEL_HEADERS
   Intel_Headers/avxvnni/avxvnniintrin.h
   )
 # end INTEL_FEATURE_ISA_AVX_VNNI
-# INTEL_FEATURE_ISA_AVX512_DOTPROD
+# INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
 intel_add_file(INTEL_HEADERS
-  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_DOTPROD
-  Intel_Headers/avx512dotprod/avx512dotprodintrin.h
-  Intel_Headers/avx512dotprod/avx512vldotprodintrin.h
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_DOTPROD_INT8
+  Intel_Headers/avx512dotprodint8/avx512dotprodint8intrin.h
+  Intel_Headers/avx512dotprodint8/avx512vldotprodint8intrin.h
   )
-# end INTEL_FEATURE_ISA_AVX512_DOTPROD
+# end INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+# INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_DOTPROD_PHPS
+  Intel_Headers/avx512dotprodphps/avx512dotprodphpsintrin.h
+  Intel_Headers/avx512dotprodphps/avx512vldotprodphpsintrin.h
+  )
+# end INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
 # INTEL_FEATURE_ISA_AVX512_CONVERT
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_CONVERT
@@ -177,12 +184,18 @@ intel_add_file(INTEL_HEADERS
   Intel_Headers/avxifma/avxifmaintrin.h
   )
 # end INTEL_FEATURE_ISA_AVX_IFMA
-# INTEL_FEATURE_ISA_AVX_DOTPROD
+# INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
 intel_add_file(INTEL_HEADERS
-  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_DOTPROD
-  Intel_Headers/avxdotprod/avxdotprodintrin.h
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_DOTPROD_INT8
+  Intel_Headers/avxdotprodint8/avxdotprodint8intrin.h
   )
-# end INTEL_FEATURE_ISA_AVX_DOTPROD
+# end INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
+# INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_DOTPROD_PHPS
+  Intel_Headers/avxdotprodphps/avxdotprodphpsintrin.h
+  )
+# end INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
 # INTEL_FEATURE_ISA_AVX_CONVERT
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_CONVERT
