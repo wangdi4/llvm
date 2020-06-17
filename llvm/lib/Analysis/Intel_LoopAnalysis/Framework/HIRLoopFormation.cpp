@@ -202,6 +202,42 @@ bool HIRLoopFormation::hasNSWSemantics(const Loop *Lp, Type *IVType,
   return false;
 }
 
+const PHINode *
+HIRLoopFormation::findIVDefInHeader(const Loop &Lp,
+                                    const Instruction *Inst) const {
+
+  // Is this a phi node in the loop header?
+  if (Inst->getParent() == Lp.getHeader()) {
+    if (auto Phi = dyn_cast<PHINode>(Inst)) {
+      return Phi;
+    }
+  }
+
+  for (auto I = Inst->op_begin(), E = Inst->op_end(); I != E; ++I) {
+    if (auto OpInst = dyn_cast<Instruction>(I)) {
+
+      // Instruction lies outside the loop.
+      if (!Lp.contains(LI.getLoopFor(OpInst->getParent()))) {
+        continue;
+      }
+
+      // Skip backedges.
+      // This can happen for outer unknown loops.
+      if (DT.dominates(Inst, OpInst)) {
+        continue;
+      }
+
+      auto IVNode = findIVDefInHeader(Lp, OpInst);
+
+      if (IVNode) {
+        return IVNode;
+      }
+    }
+  }
+
+  return nullptr;
+}
+
 void HIRLoopFormation::setIVType(HLLoop *HLoop, const SCEV *BECount) const {
   Value *Cond;
   auto Lp = HLoop->getLLVMLoop();
@@ -222,13 +258,21 @@ void HIRLoopFormation::setIVType(HLLoop *HLoop, const SCEV *BECount) const {
   assert(isa<Instruction>(Cond) &&
          "Loop exit condition is not an instruction!");
 
-  auto *IVNode = RI.findIVDefInHeader(*Lp, cast<Instruction>(Cond));
+  auto *IVNode = findIVDefInHeader(*Lp, cast<Instruction>(Cond));
 
   auto *IVType = IVNode ? IVNode->getType() : nullptr;
 
   // If the IVType is not an integer, assign it an integer type which is able to
   // represent the address space.
-  if (!IVType || !IVType->isIntegerTy()) {
+  if (!IVType || !IVType->isIntegerTy() ||
+      // Due to a quirk of SSA, it is possible for the loop trip count to be
+      // oustide the range of IV with i1 type so we use pointer sized IV
+      // instead. The trip count of this loop is 2-
+      //
+      // for.i:
+      //   %i.08.i = phi i1 [ true, %entry ], [ false, %for.i ]
+      //   br i1 %i.08.i, label %for.i, label %exit
+      (IVType->getPrimitiveSizeInBits() == 1)) {
     IVType = Type::getIntNTy(
         Func->getContext(),
         Func->getParent()->getDataLayout().getPointerSizeInBits());

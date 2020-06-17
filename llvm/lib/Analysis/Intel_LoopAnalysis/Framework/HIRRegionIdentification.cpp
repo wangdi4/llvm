@@ -593,42 +593,6 @@ bool HIRRegionIdentification::containsUnsupportedTy(const Instruction *Inst,
   return false;
 }
 
-const PHINode *
-HIRRegionIdentification::findIVDefInHeader(const Loop &Lp,
-                                           const Instruction *Inst) const {
-
-  // Is this a phi node in the loop header?
-  if (Inst->getParent() == Lp.getHeader()) {
-    if (auto Phi = dyn_cast<PHINode>(Inst)) {
-      return Phi;
-    }
-  }
-
-  for (auto I = Inst->op_begin(), E = Inst->op_end(); I != E; ++I) {
-    if (auto OpInst = dyn_cast<Instruction>(I)) {
-
-      // Instruction lies outside the loop.
-      if (!Lp.contains(LI.getLoopFor(OpInst->getParent()))) {
-        continue;
-      }
-
-      // Skip backedges.
-      // This can happen for outer unknown loops.
-      if (DT.dominates(Inst, OpInst)) {
-        continue;
-      }
-
-      auto IVNode = findIVDefInHeader(Lp, OpInst);
-
-      if (IVNode) {
-        return IVNode;
-      }
-    }
-  }
-
-  return nullptr;
-}
-
 class HIRRegionIdentification::CostModelAnalyzer
     : public InstVisitor<CostModelAnalyzer, bool> {
   const HIRRegionIdentification &RI;
@@ -1649,24 +1613,9 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
     return false;
   }
 
-  // Check whether the loop contains irreducible CFG before calling
-  // findIVDefInHeader() otherwise it may loop infinitely.
   // We skip the bblock check for function region mode as it is done at the
   // function level by the caller.
   if (!IsFunctionRegionMode && !areBBlocksGenerable(Lp)) {
-    return false;
-  }
-
-  auto *IVNode = findIVDefInHeader(Lp, LatchCmpInst);
-
-  if (IVNode && (IVNode->getType()->getPrimitiveSizeInBits() == 1)) {
-    // The following loop with i1 type IV has a trip count of 2 which is
-    // outside its range. This is a quirk of SSA. CG will generate an infinite
-    // loop for this case if we let it through.
-    // for.i:
-    // %i.08.i = phi i1 [ true, %entry ], [ false, %for.i ]
-    // br i1 %i.08.i, label %for.i, label %exit
-    printOptReportRemark(&Lp, "i1 type IV currently not handled.");
     return false;
   }
 

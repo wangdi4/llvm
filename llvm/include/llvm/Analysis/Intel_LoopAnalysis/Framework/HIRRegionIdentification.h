@@ -224,10 +224,6 @@ public:
   /// Returns true if Phi occurs in the header of a loop.
   bool isHeaderPhi(const PHINode *Phi) const;
 
-  /// Returns IV definition PHINode of the loop.
-  const PHINode *findIVDefInHeader(const Loop &Lp,
-                                   const Instruction *Inst) const;
-
   /// Returns true if \p BB can be reached from any of the \p FromBBs before
   /// hitting any \p EndBBs and without going through any backedges.
   bool
