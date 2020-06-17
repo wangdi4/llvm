@@ -177,7 +177,12 @@ unsigned VPlanDivergenceAnalysis::getTypeSizeInBytes(Type *Ty) const {
 }
 
 bool VPlanDivergenceAnalysis::isUnitStridePtr(const VPValue *Ptr) const {
+  bool IsNegOneStride;
+  return isUnitStridePtr(Ptr, IsNegOneStride);
+}
 
+bool VPlanDivergenceAnalysis::isUnitStridePtr(const VPValue *Ptr,
+                                              bool &IsNegOneStride) const {
   assert(isa<PointerType>(Ptr->getType()) &&
          "Expect argument of isUnitStridePtr to be of PointerType.");
   // Compute the pointee-size in bytes.
@@ -186,10 +191,18 @@ bool VPlanDivergenceAnalysis::isUnitStridePtr(const VPValue *Ptr) const {
 
   auto VectorShape = getVectorShape(Ptr);
 
-  // Compare that the absolute value of stride is equal to the pointee-size
-  // in bytes.
-  return VectorShape.isStrided() && VectorShape.hasKnownStride() &&
-         std::abs(VectorShape.getStrideVal()) == PtrNumBytes;
+  // Compare stride value and pointee-size in bytes to appropriately set
+  // IsNegOneStride and return true for unit stride case.
+  if (VectorShape.isStrided() && VectorShape.hasKnownStride()) {
+    auto StrideVal = VectorShape.getStrideVal();
+    if (std::abs(StrideVal) == PtrNumBytes) {
+      IsNegOneStride = StrideVal < 0;
+      return true;
+    }
+  }
+
+  IsNegOneStride = false;
+  return false;
 }
 
 #if INTEL_CUSTOMIZATION

@@ -234,6 +234,8 @@ public:
   HLInst *createInterleavedStore(RegDDRef **StoreVals, const RegDDRef *StoreRef,
                                  int64_t InterleaveFactor, RegDDRef *Mask);
 
+  HLInst *createReverseVector(RegDDRef *ValRef);
+
   HLInst *handleLiveOutLinearInEarlyExit(HLInst *Inst, RegDDRef *Mask,
                                          bool MaskIsNonZero);
 
@@ -416,11 +418,10 @@ public:
   // main induction variable.
   RegDDRef *generateLoopInductionRef(Type *RefDestTy);
 
-  // Return true if the given VPPtr has a stride of 1.
-  bool isUnitStridePtr(const VPValue *VPPtr) const {
-    assert(isa<PointerType>(VPPtr->getType()) && "Expected pointer value");
-    return Plan->getVPlanDA()->isUnitStridePtr(VPPtr) &&
-           Plan->getVPlanDA()->getVectorShape(VPPtr).getStrideVal() > 0;
+  // Return true if the given VPPtr has a stride of 1 or -1. IsNegOneStride is
+  // set to true if stride is -1 and false otherwise.
+  bool isUnitStridePtr(const VPValue *VPPtr, bool &IsNegOneStride) const {
+    return Plan->getVPlanDA()->isUnitStridePtr(VPPtr, IsNegOneStride);
   }
 
   // Given the pointer operand of a load/store instruction, setup and return the
@@ -428,7 +429,8 @@ public:
   // specifies the symbase to set for the returned ref. AANodes specify alias
   // analysis metadata to set for the returned ref. Lane0Value specifies if
   // we need memory ref corresponding to just vector lane 0. This is used to
-  // handle uniform memory accesses.
+  // handle uniform memory accesses. If VPPtr is unit strided(stride of 1/-1),
+  // the ref returned is properly adjusted to enable wide load/store.
   RegDDRef *getMemoryRef(const VPValue *VPPtr, unsigned ScalSymbase,
                          const AAMDNodes &AANodes, bool Lane0Value = false);
 
@@ -690,6 +692,7 @@ private:
     switch (Opcode) {
     case Instruction::Add:
     case Instruction::BitCast:
+    case Instruction::Mul:
     case Instruction::GetElementPtr:
     case VPInstruction::Subscript:
     case Instruction::SExt:

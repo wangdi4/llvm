@@ -150,6 +150,25 @@ static bool refIsUnit(unsigned Level, const RegDDRef *Ref, VPOCodeGenHIR *CG) {
   return true;
 }
 
+HLInst *VPOCodeGenHIR::createReverseVector(RegDDRef *ValRef) {
+  unsigned NumElems = cast<VectorType>(ValRef->getDestType())->getNumElements();
+  SmallVector<Constant *, 4> ShuffleMask;
+  for (unsigned I = 0; I < NumElems; I++) {
+    Constant *Mask =
+        ConstantInt::get(Type::getInt32Ty(Context), NumElems - I - 1);
+    ShuffleMask.push_back(Mask);
+  }
+
+  Constant *MaskVec = ConstantVector::get(ShuffleMask);
+  RegDDRef *ShuffleMaskRef = DDRefUtilities.createConstDDRef(MaskVec);
+  RegDDRef *UndefRef = DDRefUtilities.createUndefDDRef(ValRef->getDestType());
+
+  HLInst *Shuffle = HLNodeUtilities.createShuffleVectorInst(
+      ValRef, UndefRef, ShuffleMaskRef, "reverse");
+  addInstUnmasked(Shuffle);
+  return Shuffle;
+}
+
 // Utility to check if a given VPPHINode has been deconstructed via copies. A
 // PHI is deconstructed if all its incoming values are copy instructions that
 // are tagged with the same origin PHI ID.
@@ -1803,9 +1822,7 @@ RegDDRef *VPOCodeGenHIR::concatenateTwoVectors(RegDDRef *V1, RegDDRef *V2,
     Constant *ExtMask =
         createSequentialMask(0, NumElts2, NumElts1 - NumElts2, Context);
     RegDDRef *ExtMaskDDRef = DDRefUtilities.createConstDDRef(ExtMask);
-
-    Constant *Undef = UndefValue::get(VecTy2);
-    RegDDRef *UndefDDRef = DDRefUtilities.createConstDDRef(Undef);
+    RegDDRef *UndefDDRef = DDRefUtilities.createUndefDDRef(VecTy2);
 
     HLInst *ExtShuffle = HLNodeUtilities.createShuffleVectorInst(
         V2->clone(), UndefDDRef, ExtMaskDDRef, "ext.shuf");
@@ -1868,9 +1885,7 @@ HLInst *VPOCodeGenHIR::createInterleavedLoad(const RegDDRef *LvalRef,
   }
   Constant *MaskVec = ConstantVector::get(ShuffleMask);
   RegDDRef *ShuffleMaskRef = DDRefUtilities.createConstDDRef(MaskVec);
-
-  Constant *UndefVal = UndefValue::get(WLoadRes->getDestType());
-  RegDDRef *UndefRef = DDRefUtilities.createConstDDRef(UndefVal);
+  RegDDRef *UndefRef = DDRefUtilities.createUndefDDRef(WLoadRes->getDestType());
 
   // Create shuffle instruction using the result of the wide load and the
   // computed shuffle mask.
@@ -1897,8 +1912,8 @@ HLInst *VPOCodeGenHIR::createInterleavedStore(RegDDRef **StoreVals,
 
   // Create interleaved store mask shuffle instruction to shuffle the
   // concatenated vectors in the desired order for the wide store.
-  Constant *UndefVal = UndefValue::get(ConcatVec->getDestType());
-  RegDDRef *UndefRef = DDRefUtilities.createConstDDRef(UndefVal);
+  RegDDRef *UndefRef =
+      DDRefUtilities.createUndefDDRef(ConcatVec->getDestType());
 
   Constant *InterleaveMask =
       createInterleaveMask(Context, getVF(), InterleaveFactor);
@@ -2279,8 +2294,7 @@ void VPOCodeGenHIR::addMaskToSVMLCall(Function *OrigF,
     if (FnName == "sincos" || FnName == "sincosf")
       SourceTy = StructType::get(VecTy, VecTy);
 
-    Constant *Undef = UndefValue::get(SourceTy);
-    RegDDRef *UndefDDRef = DDRefUtilities.createConstDDRef(Undef);
+    RegDDRef *UndefDDRef = DDRefUtilities.createUndefDDRef(SourceTy);
 
     NewArgTys.push_back(SourceTy);
     NewArgs.push_back(UndefDDRef);
@@ -2834,7 +2848,8 @@ RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPValue *VPPtr,
                                       unsigned ScalSymbase,
                                       const AAMDNodes &AANodes,
                                       bool Lane0Value) {
-  bool IsUnitStride = isUnitStridePtr(VPPtr);
+  bool IsNegOneStride;
+  bool IsUnitStride = isUnitStridePtr(VPPtr, IsNegOneStride);
   bool NeedScalarRef = IsUnitStride || Lane0Value;
 
   RegDDRef *PtrRef;
@@ -2881,6 +2896,11 @@ RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPValue *VPPtr,
   }
   MemRef->setSymbase(ScalSymbase);
   MemRef->setAAMetadata(AANodes);
+
+  // Adjust the memory reference for the negative one stride case so that
+  // the client can do a wide load/store.
+  if (IsNegOneStride)
+    MemRef->shift(MainLoop->getNestingLevel(), (int64_t)VF - 1);
 
   // TODO - Alignment information needs to be obtained from VPInstruction.
   // For now we are forcing alignment based on value type.
@@ -3270,14 +3290,32 @@ void VPOCodeGenHIR::widenLoadStoreImpl(const VPInstruction *VPInst,
   RegDDRef *MemRef =
       getMemoryRef(PtrOp, VPInst->getSymbase(), VPInst->HIR.AANodes);
   HLInst *WInst;
+
+  // Reverse mask for negative -1 stride.
+  bool IsNegOneStride;
+  isUnitStridePtr(PtrOp, IsNegOneStride);
+  if (Mask && IsNegOneStride) {
+    auto *RevInst = createReverseVector(Mask->clone());
+    Mask = RevInst->getLvalDDRef();
+  }
+
   if (Opcode == Instruction::Load) {
     WInst = HLNodeUtilities.createLoad(MemRef, ".vec");
+    addInst(WInst, Mask);
+    // Reverse the loaded value for negative -1 stride.
+    if (IsNegOneStride)
+      WInst = createReverseVector(WInst->getLvalDDRef()->clone());
     addVPValueWideRefMapping(VPInst, WInst->getLvalDDRef());
   } else {
     RegDDRef *StoreVal = widenRef(VPInst->getOperand(0), getVF());
+    // Reverse the value to be stored for negative -1 stride.
+    if (IsNegOneStride) {
+      WInst = createReverseVector(StoreVal);
+      StoreVal = WInst->getLvalDDRef()->clone();
+    }
     WInst = HLNodeUtilities.createStore(StoreVal, ".vec", MemRef);
+    addInst(WInst, Mask);
   }
-  addInst(WInst, Mask);
 }
 
 void VPOCodeGenHIR::generateHIRForSubscript(const VPSubscriptInst *VPSubscript,
@@ -3543,6 +3581,9 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
         }
       }
     }
+
+    if (!Widen)
+      return;
 
     bool HasNUW = false, HasNSW = false;
     RegDDRef *RedRef = nullptr;
@@ -3906,7 +3947,8 @@ void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,
   // Generate a scalar instruction for unitstride GEPs/subscripts. This will be
   // changed later to use SVA information.
   if (isa<VPGEPInstruction>(VPInst) || isa<VPSubscriptInst>(VPInst)) {
-    if (isUnitStridePtr(VPInst))
+    bool IsNegOneStride;
+    if (isUnitStridePtr(VPInst, IsNegOneStride))
       generateHIR(VPInst, Mask, Grp, InterleaveFactor, InterleaveIndex,
                   GrpStartInst, false /* Widen */);
     return;

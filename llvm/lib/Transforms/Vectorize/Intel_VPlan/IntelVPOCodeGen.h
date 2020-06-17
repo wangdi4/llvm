@@ -477,7 +477,7 @@ private:
                                 bool EmitIntrinsic = false);
 
   // Generate a wide (un)masked load for a given consecutive stride load.
-  Value *vectorizeUnitStrideLoad(VPInstruction *VPInst, int StrideVal,
+  Value *vectorizeUnitStrideLoad(VPInstruction *VPInst, bool IsNegOneStride,
                                  bool IsPvtPtr);
 
   // Widen the given store instruction. EmitIntrinsic needs to be set to true
@@ -488,7 +488,7 @@ private:
                                  bool EmitIntrinsic = false);
 
   // Generate a wide (un)masked store for a given consecutive stride store.
-  void vectorizeUnitStrideStore(VPInstruction *VPInst, int StrideVal,
+  void vectorizeUnitStrideStore(VPInstruction *VPInst, bool IsNegOneStride,
                                 bool IsPvtPtr);
 
   // Widen a BitCast/AddrSpaceCast instructions

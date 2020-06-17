@@ -72,10 +72,11 @@ static const VPValue *getVPValuePrivateMemoryPtr(const VPValue *V) {
   return nullptr;
 }
 
-/// Helper function to check if given VPValue has consecutive pointer stride and
-/// return the stride value.
-static Optional<int> getVPValueConsecutivePtrStride(const VPValue *Ptr,
-                                                    const VPlan *Plan) {
+/// Helper function to check if given VPValue has consecutive pointer stride(1
+/// or -1) and return true if this is the case. IsNegOneStride is set to true if
+/// stride is -1 and false otherwise.
+static bool isVPValueConsecutivePtrStride(const VPValue *Ptr, const VPlan *Plan,
+                                          bool &IsNegOneStride) {
   // TODO: Direct access to Private ptr, i.e., without an intermediate GEP would
   // trip DA. DA would report the shape as 'Undef'. We have to copy over the
   // shape when we 'createPrivateMemory'.
@@ -83,17 +84,22 @@ static Optional<int> getVPValueConsecutivePtrStride(const VPValue *Ptr,
   // This checks if we are dealing with a scalar-private. Return the stride-size
   // in that case.
   if (auto *Private = getVPValuePrivateMemoryPtr(Ptr)) {
+    IsNegOneStride = false;
     if (isScalarPointeeTy(Private))
-      return Plan->getDataLayout()->getTypeSizeInBits(
-                 Private->getType()->getPointerElementType()) >>
-             3;
-    return None;
+      return true;
+
+    return false;
   }
 
-  if (Plan->getVPlanDA()->isUnitStridePtr(Ptr))
-    return Plan->getVPlanDA()->getVectorShape(Ptr).getStrideVal();
+  return Plan->getVPlanDA()->isUnitStridePtr(Ptr, IsNegOneStride);
+}
 
-  return None;
+// Variant of isVPValueConsecutivePtrStride where the client does not care about
+// IsNegOneStride value.
+static bool isVPValueConsecutivePtrStride(const VPValue *Ptr,
+                                          const VPlan *Plan) {
+  bool IsNegOneStride;
+  return isVPValueConsecutivePtrStride(Ptr, Plan, IsNegOneStride);
 }
 
 /// Helper function to check if given VPValue is uniform based on DA.
@@ -738,7 +744,7 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
                [&](VPUser *U) -> bool {
                  return IsSimpleLoadStoreFrom(U, VPInst);
                }) &&
-        getVPValueConsecutivePtrStride(VPInst, Plan) &&
+        isVPValueConsecutivePtrStride(VPInst, Plan) &&
         VPlanUseDAForUnitStride) {
       SmallVector<Value *, 6> ScalarOperands;
       for (unsigned Op = 0; Op < VPInst->getNumOperands(); ++Op) {
@@ -1949,15 +1955,15 @@ Value *VPOCodeGen::vectorizeInterleavedLoad(VPInstruction *VPLoad,
       "groupCast");
 }
 
-Value *VPOCodeGen::vectorizeUnitStrideLoad(VPInstruction *VPInst, int StrideVal,
-                                           bool IsPvtPtr) {
+Value *VPOCodeGen::vectorizeUnitStrideLoad(VPInstruction *VPInst,
+                                           bool IsNegOneStride, bool IsPvtPtr) {
   Instruction *WideLoad = nullptr;
   VPValue *Ptr = getLoadStorePointerOperand(VPInst);
   Type *LoadType = getLoadStoreType(VPInst);
   auto *LoadVecType = dyn_cast<VectorType>(LoadType);
   unsigned OriginalVL = LoadVecType ? LoadVecType->getNumElements() : 1;
   Align Alignment = getOriginalLoadStoreAlignment(VPInst);
-  Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(Ptr, StrideVal < 0);
+  Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(Ptr, IsNegOneStride);
 
   // Masking not needed for privates.
   // TODO: This needs to be generalized for all "dereferenceable" pointers
@@ -1966,6 +1972,10 @@ Value *VPOCodeGen::vectorizeUnitStrideLoad(VPInstruction *VPInst, int StrideVal,
     // Replicate the mask if VPInst is a vector instruction.
     Value *RepMaskValue = replicateVectorElts(MaskValue, OriginalVL, Builder,
                                               "replicatedMaskElts.");
+    // We need to reverse the mask for -1 stride.
+    if (IsNegOneStride)
+      RepMaskValue = reverseVector(RepMaskValue, OriginalVL);
+
     WideLoad = Builder.CreateMaskedLoad(VecPtr, Alignment, RepMaskValue,
                                         nullptr, "wide.masked.load");
   } else
@@ -1976,7 +1986,7 @@ Value *VPOCodeGen::vectorizeUnitStrideLoad(VPInstruction *VPInst, int StrideVal,
     if (VPInst == DynPeeling->memref())
       attachPreferredAlignmentMetadata(WideLoad, DynPeeling->targetAlignment());
 
-  if (StrideVal < 0) // Reverse
+  if (IsNegOneStride) // Reverse
     return reverseVector(WideLoad);
   return WideLoad;
 }
@@ -2023,11 +2033,12 @@ void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
 
   // Try to handle consecutive loads without VLS.
   if (VPlanUseDAForUnitStride) {
-    Optional<int> ConsecutiveStride = getVPValueConsecutivePtrStride(Ptr, Plan);
+    bool IsNegOneStride;
+    bool ConsecutiveStride =
+        isVPValueConsecutivePtrStride(Ptr, Plan, IsNegOneStride);
     if (ConsecutiveStride) {
       bool IsPvtPtr = getVPValuePrivateMemoryPtr(Ptr) != nullptr;
-      NewLI = vectorizeUnitStrideLoad(VPInst, ConsecutiveStride.getValue(),
-                                      IsPvtPtr);
+      NewLI = vectorizeUnitStrideLoad(VPInst, IsNegOneStride, IsPvtPtr);
       VPWidenMap[VPInst] = NewLI;
       return;
     }
@@ -2155,17 +2166,17 @@ void VPOCodeGen::vectorizeInterleavedStore(VPInstruction *VPStoreArg,
   (void) GroupStore;
 }
 
-void VPOCodeGen::vectorizeUnitStrideStore(VPInstruction *VPInst, int StrideVal,
-                                          bool IsPvtPtr) {
+void VPOCodeGen::vectorizeUnitStrideStore(VPInstruction *VPInst,
+                                          bool IsNegOneStride, bool IsPvtPtr) {
   VPValue *Ptr = getLoadStorePointerOperand(VPInst);
   Value *VecDataOp = getVectorValue(VPInst->getOperand(0));
   Type *StoreType = getLoadStoreType(VPInst);
   auto *StoreVecType = dyn_cast<VectorType>(StoreType);
   unsigned OriginalVL = StoreVecType ? StoreVecType->getNumElements() : 1;
   Align Alignment = getOriginalLoadStoreAlignment(VPInst);
-  Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(Ptr, StrideVal < 0);
+  Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(Ptr, IsNegOneStride);
 
-  if (StrideVal < 0) // Reverse
+  if (IsNegOneStride) // Reverse
     // If we store to reverse consecutive memory locations, then we need
     // to reverse the order of elements in the stored value.
     VecDataOp = reverseVector(VecDataOp);
@@ -2175,6 +2186,10 @@ void VPOCodeGen::vectorizeUnitStrideStore(VPInstruction *VPInst, int StrideVal,
     // Replicate the mask if VPInst is a vector instruction originally.
     Value *RepMaskValue = replicateVectorElts(MaskValue, OriginalVL, Builder,
                                               "replicatedMaskElts.");
+    // We need to reverse the mask for -1 stride.
+    if (IsNegOneStride)
+      RepMaskValue = reverseVector(RepMaskValue, OriginalVL);
+
     Store =
         Builder.CreateMaskedStore(VecDataOp, VecPtr, Alignment, RepMaskValue);
   } else
@@ -2231,12 +2246,14 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
 
   // Try to handle consecutive stores without VLS.
   if (VPlanUseDAForUnitStride) {
-    Optional<int> ConsecutiveStride = getVPValueConsecutivePtrStride(Ptr, Plan);
+    bool IsNegOneStride;
+    bool ConsecutiveStride =
+        isVPValueConsecutivePtrStride(Ptr, Plan, IsNegOneStride);
     if (ConsecutiveStride) {
       // TODO: VPVALCG: Special handling for mask value is also needed for
       // conditional last privates.
       bool IsPvtPtr = getVPValuePrivateMemoryPtr(Ptr) != nullptr;
-      vectorizeUnitStrideStore(VPInst, ConsecutiveStride.getValue(), IsPvtPtr);
+      vectorizeUnitStrideStore(VPInst, IsNegOneStride, IsPvtPtr);
       return;
     }
   }
@@ -2454,12 +2471,13 @@ void VPOCodeGen::generateStoreForSinCos(VPCallInstruction *VPCall,
     assert(cast<VectorType>(VecValue->getType())->getNumElements() == VF &&
            "Invalid vector width of value");
 
-    Optional<int> ConsecutiveStride =
-        getVPValueConsecutivePtrStride(ScalarPtr, Plan);
+    bool IsNegOneStride;
+    bool ConsecutiveStride =
+        isVPValueConsecutivePtrStride(ScalarPtr, Plan, IsNegOneStride);
 
     // TODO: Currently only address with stride = 1 can be optimized. Need to
     // handle other cases.
-    if (ConsecutiveStride && ConsecutiveStride.getValue() > 0) {
+    if (ConsecutiveStride && !IsNegOneStride) {
       Value *VecPtr = createWidenedBasePtrConsecutiveLoadStore(
           ScalarPtr, false /*Reverse*/);
       if (MaskValue)

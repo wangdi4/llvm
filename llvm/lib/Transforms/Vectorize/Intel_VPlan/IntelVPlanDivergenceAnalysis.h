@@ -88,8 +88,12 @@ public:
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
 
-  /// Return \p true if the given pointer is unit-stride.
+  /// Return \p true if the given pointer is unit-strided(1 or -1).
   bool isUnitStridePtr(const VPValue *Ptr) const;
+
+  /// Return \p true if the given pointer is unit-strided(1 or -1).
+  /// \p IsNegOneStride is set to true if stride is -1 and false otherwise.
+  bool isUnitStridePtr(const VPValue *VPPtr, bool &IsNegOneStride) const;
 
   void updateDivergence(const VPValue &Val) {
     assert(isa<VPInstruction>(&Val) &&
