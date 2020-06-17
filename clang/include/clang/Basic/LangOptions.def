@@ -253,6 +253,9 @@ LANGOPT(OpenMPLateOutlineTarget, 1, 1, "Outline OpenMP target construct in the b
 LANGOPT(OpenMPLateOutlineAtomic, 1, 0, "Outline OpenMP atomic construct in the back end")
 LANGOPT(OpenMPLateOutlineAllowUncollapsedLoops, 1, 1,
         "Generate an uncollapsed form of OpenMP loops")
+LANGOPT(OpenMPStableFileID, 1, 0,
+    "Compute file ids for OpenMP mangling using relative file path "
+    "instead of using file system's file id.")
 #endif // INTEL_CUSTOMIZATION
 LANGOPT(OpenMPIsDevice    , 1, 0, "Generate code only for OpenMP target device")
 LANGOPT(OpenMPCUDAMode    , 1, 0, "Generate code for OpenMP pragmas in SIMT/SPMD mode")

@@ -331,7 +331,7 @@ HIRFramework::HIRFramework(Function &F, DominatorTree &DT,
   PhaseCreation.reset(new HIRCreation(DT, PDT, LI, RI, *HNU));
   PhaseCleanup.reset(new HIRCleanup(LI, *PhaseCreation, *HNU));
   PhaseLoopFormation.reset(
-      new HIRLoopFormation(LI, RI, *PhaseCreation, *PhaseCleanup, *HNU));
+      new HIRLoopFormation(DT, LI, RI, *PhaseCreation, *PhaseCleanup, *HNU));
   PhaseScalarSA.reset(new HIRScalarSymbaseAssignment(
       LI, RI.getScopedSE(), RI, SCCF, *PhaseLoopFormation, *HNU));
   PhaseParser.reset(new HIRParser(DT, LI, RI, *this, *PhaseCreation,

@@ -3321,6 +3321,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   if (Opts.OpenMPLateOutlineAllowUncollapsedLoops)
     Opts.OpenMPLateOutlineAllowUncollapsedLoops =
       !Args.hasArg(OPT_fintel_openmp_region_early_collapsed_loops);
+  Opts.OpenMPStableFileID =
+      Opts.OpenMP && Args.hasArg(options::OPT_fopenmp_stable_file_id);
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
   if (Opts.OpenMPLateOutline) {

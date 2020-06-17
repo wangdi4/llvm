@@ -1,9 +1,10 @@
 // default behavior with --intel
 // RUN: %clang -### -c --intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL %s
 // RUN: %clang -### -c -qnextgen %s 2>&1 | FileCheck -check-prefix CHECK-INTEL %s
-// RUN: %clang_cl -### -c -Qnextgen %s 2>&1 | FileCheck -check-prefix CHECK-INTEL %s
+// RUN: %clang_cl -### -c -Qnextgen %s 2>&1 | FileCheck -check-prefixes=CHECK-INTEL,CHECK-INTEL-WIN %s
 // CHECK-INTEL: "-fveclib=SVML"
 // CHECK-INTEL: "-O2"
+// CHECK-INTEL-WIN: "-fpack-struct=16"
 // CHECK-INTEL: "-vectorize-loops"
 // CHECK-INTEL: "-fintel-compatibility"
 // CHECK-INTEL: "-mllvm" "-disable-hir-generate-mkl-call"
@@ -17,10 +18,14 @@
 // -O2 should be not be set when any other -O is passed
 // RUN: %clang -### -c --intel -O0 %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-O0 %s
 // RUN: %clang -### -c --intel -O1 %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-O1 %s
+// RUN: %clang_cl -### -c --intel -Od %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-O0 %s
+// RUN: %clang_cl -### -c --intel -O1 %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-OS %s
 // CHECK-INTEL-O0: "-O0"
 // CHECK-INTEL-O0-NOT: "-O2"
 // CHECK-INTEL-O1: "-O1"
 // CHECK-INTEL-O1-NOT: "-O2"
+// CHECK-INTEL-OS: "-Os"
+// CHECK-INTEL-OS-NOT: "-O2"
 
 // default libs with --intel (Linux)
 // RUN: touch %t.o
@@ -33,14 +38,14 @@
 
 // default libs with --intel (Windows)
 // RUN: %clang_cl -### --intel -c %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-WIN %s
-// CHECK-INTEL-LIBS-WIN: "--dependent-lib=libirc"
+// CHECK-INTEL-LIBS-WIN: "--dependent-lib=libircmt"
 // CHECK-INTEL-LIBS-WIN: "--dependent-lib=svml_dispmt"
 // CHECK-INTEL-LIBS-WIN: "--dependent-lib=libdecimal"
 
 // default libs with --intel (Windows)
 // RUN: touch %t.obj
 // RUN: %clang -### -target x86_64-pc-windows-msvc --intel %t.obj 2>&1 | FileCheck -check-prefix CHECK-INTEL-LIBS-WIN2 %s
-// CHECK-INTEL-LIBS-WIN2: "-defaultlib:libirc"
+// CHECK-INTEL-LIBS-WIN2: "-defaultlib:libircmt"
 // CHECK-INTEL-LIBS-WIN2: "-defaultlib:svml_dispmt"
 // CHECK-INTEL-LIBS-WIN2: "-defaultlib:libdecimal"
 

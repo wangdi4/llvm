@@ -378,7 +378,7 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   // Add other Intel specific libraries (libirc, svml, libdecimal)
   if (!Args.hasArg(options::OPT_nostdlib) && !C.getDriver().IsCLMode() &&
       Args.hasArg(options::OPT__intel, options::OPT__dpcpp)) {
-    CmdArgs.push_back("-defaultlib:libirc");
+    CmdArgs.push_back("-defaultlib:libircmt");
     CmdArgs.push_back("-defaultlib:svml_dispmt");
     CmdArgs.push_back("-defaultlib:libdecimal");
   }

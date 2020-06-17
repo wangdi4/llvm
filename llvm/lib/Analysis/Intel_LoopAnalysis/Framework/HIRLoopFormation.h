@@ -56,6 +56,7 @@ private:
   /// The function we are analyzing.
   Function *Func;
 
+  DominatorTree &DT;
   LoopInfo &LI;
   HIRRegionIdentification &RI;
   ScopedScalarEvolution &ScopedSE;
@@ -95,6 +96,10 @@ private:
   /// Returns true if normalized loop IV has NSW semantics.
   bool hasNSWSemantics(const Loop *Lp, Type *IVType, const SCEV *BECount) const;
 
+  /// Returns IV definition PHINode of the loop.
+  const PHINode *findIVDefInHeader(const Loop &Lp,
+                                   const Instruction *Inst) const;
+
   /// Sets the IV type for HLoop.
   void setIVType(HLLoop *HLoop, const SCEV *BECount) const;
 
@@ -115,10 +120,10 @@ private:
   void formLoops();
 
 public:
-  HIRLoopFormation(LoopInfo &LI, HIRRegionIdentification &RI,
+  HIRLoopFormation(DominatorTree &DT, LoopInfo &LI, HIRRegionIdentification &RI,
                    HIRCreation &HIRCr, HIRCleanup &HIRC, HLNodeUtils &HNU)
-      : LI(LI), RI(RI), ScopedSE(RI.getScopedSE()), HIRCr(HIRCr), HIRC(HIRC),
-        HNU(HNU) {}
+      : DT(DT), LI(LI), RI(RI), ScopedSE(RI.getScopedSE()), HIRCr(HIRCr),
+        HIRC(HIRC), HNU(HNU) {}
 
   void run();
 
