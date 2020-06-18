@@ -8,8 +8,8 @@
 ;   }
 ; }
 
-; RUN: opt -vector-library=SVML -VPlanDriver -S -vplan-force-vf=4 %s | FileCheck -DVL=4 --check-prefixes=CHECK,CHECK-128 %s
-; RUN: opt -vector-library=SVML -VPlanDriver -S -vplan-force-vf=16 %s | FileCheck -DVL=16 --check-prefixes=CHECK,CHECK-512 %s
+; RUN: opt -vector-library=SVML -VPlanDriver -verify -S -vplan-force-vf=4 %s | FileCheck -DVL=4 --check-prefixes=CHECK,CHECK-128 %s
+; RUN: opt -vector-library=SVML -VPlanDriver -verify -S -vplan-force-vf=16 %s | FileCheck -DVL=16 --check-prefixes=CHECK,CHECK-512 %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -49,7 +49,7 @@ if.then:                                          ; preds = %omp.inner.for.body
   %3 = load float, float* %arrayidx8, align 4, !tbaa !6
   %arrayidx10 = getelementptr inbounds float, float* %vsin, i64 %indvars.iv
   %arrayidx12 = getelementptr inbounds float, float* %vcos, i64 %indvars.iv
-  tail call void @sincosf(float %3, float* %arrayidx10, float* %arrayidx12) #2
+  tail call void @sincosf(float %3, float* nonnull %arrayidx10, float* nonnull %arrayidx12) #2
   br label %omp.body.continue
 
 omp.body.continue:                                ; preds = %omp.inner.for.body, %if.then

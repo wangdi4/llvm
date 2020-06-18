@@ -122,7 +122,8 @@ public:
   void vectorizeCallArgs(VPCallInstruction *VPCall, VectorVariant *VecVariant,
                          Intrinsic::ID VectorIntrinID, unsigned PumpPart,
                          unsigned PumpFactor, SmallVectorImpl<Value *> &VecArgs,
-                         SmallVectorImpl<Type *> &VecArgTys);
+                         SmallVectorImpl<Type *> &VecArgTys,
+                         SmallVectorImpl<AttributeSet> &VecArgAttrs);
 
   // Return true if the argument at position /p Idx for function /p FnName is
   // scalar.
@@ -509,8 +510,10 @@ private:
   /// CallMaskValue defines the mask being applied to the current SVML call
   /// instruction that is processed.
   void addMaskToSVMLCall(Function *OrigF, Value *CallMaskValue,
+                         AttributeList OrigAttrs,
                          SmallVectorImpl<Value *> &VecArgs,
-                         SmallVectorImpl<Type *> &VecArgTys);
+                         SmallVectorImpl<Type *> &VecArgTys,
+                         SmallVectorImpl<AttributeSet> &VecArgAttrs);
 
   /// Generate instructions to extract two results of a sincos call, and store
   /// them to locations designated in the original call.

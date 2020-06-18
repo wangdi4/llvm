@@ -890,7 +890,17 @@ template Value *llvm::getPtrThruCast<AddrSpaceCastInst>(Value *Ptr);
 void llvm::copyRequiredAttributes(const CallInst *OrigCall, CallInst *VecCall) {
   AttributeList Attrs = OrigCall->getAttributes();
   VecCall->setAttributes(Attrs.removeAttribute(
-      OrigCall->getContext(), AttributeList::FunctionIndex, "vector-variants"));
+    OrigCall->getContext(), AttributeList::FunctionIndex, "vector-variants"));
+}
+
+void llvm::copyRequiredAttributes(const CallInst *OrigCall, CallInst *VecCall,
+                                  ArrayRef<AttributeSet> ArgAttrs) {
+  AttributeList Attrs = OrigCall->getAttributes();
+  AttributeSet FnAttrs = Attrs.getFnAttributes().removeAttribute(
+      OrigCall->getContext(), "vector-variants");
+
+  VecCall->setAttributes(AttributeList::get(
+      OrigCall->getContext(), FnAttrs, Attrs.getRetAttributes(), ArgAttrs));
 }
 
 std::unique_ptr<VectorVariant>
