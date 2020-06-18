@@ -22,6 +22,11 @@
 // CHECK-TUNE-NOT: no such file or directory
 // CHECK-TUNE-NOT: unknown argument ignored
 
+// -ZI support (same as /Zi and /Z7)
+// RUN: %clang_cl -### /c /ZI %s 2>&1 | FileCheck -check-prefix=CHECK-ZI %s
+// CHECK-ZI: "-gcodeview"
+// CHECK-ZI: "-debug-info-kind=limited"
+
 // -ax support (accept, but don't use)
 // RUN: %clang_cl -### /c /QaxCORE-AVX2 %s 2>&1 | \
 // RUN:  FileCheck -check-prefix=CHECK-AX %s

@@ -532,6 +532,7 @@ def _SLASH_Zp_flag : CLFlag<"Zp">,
 def _SLASH_Zs : CLFlag<"Zs">, HelpText<"Syntax-check only">,
   Alias<fsyntax_only>;
 #if INTEL_CUSTOMIZATION
+def _SLASH_ZI : CLFlag<"ZI">, Alias<_SLASH_Z7>, HelpText<"Like /Z7">;
 def _SLASH_openmp_ : CLFlagNoDpcpp<"openmp-">,
   HelpText<"Disable OpenMP support">, Alias<fno_openmp>;
 def _SLASH_openmp : CLFlagNoDpcpp<"openmp">, HelpText<"Enable OpenMP support">,
@@ -757,5 +758,7 @@ def _SLASH_Za : CLFlag<"Za">;
 def _SLASH_Zc : CLJoined<"Zc:">;
 def _SLASH_Ze : CLFlag<"Ze">;
 def _SLASH_Zg : CLFlag<"Zg">;
+#ifndef INTEL_CUSTOMIZATION
 def _SLASH_ZI : CLFlag<"ZI">;
+#endif // !INTEL_CUSTOMIZATION
 def _SLASH_ZW : CLJoined<"ZW">;
