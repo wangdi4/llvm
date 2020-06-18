@@ -149,11 +149,6 @@ static cl::opt<bool> InlineCallerSupersetNoBuiltin(
     cl::desc("Allow inlining when caller has a superset of callee's nobuiltin "
              "attributes."));
 
-<<<<<<< HEAD
-static cl::opt<bool> DisableGEPConstOperand(
-    "disable-gep-const-evaluation", cl::Hidden, cl::init(false),
-    cl::desc("Disables evaluation of GetElementPtr with constant operands"));
-
 #if INTEL_CUSTOMIZATION
 // InliningForDeeplyNestedIfs has three possible values(BOU_UNSET is
 // default). Use TRUE to force enabling of heuristic. Use FALSE to disable.
@@ -222,8 +217,6 @@ static cl::opt<unsigned> DummyArgsMinCallsiteCount(
 
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> 39a4505e34387d9e9165127a4f2fd64223f1d833
 namespace {
 
 typedef SmallVector<InlineReason,2> InlineReasonVector;  // INTEL
