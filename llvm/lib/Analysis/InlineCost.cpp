@@ -149,7 +149,10 @@ static cl::opt<bool> InlineCallerSupersetNoBuiltin(
     cl::desc("Allow inlining when caller has a superset of callee's nobuiltin "
              "attributes."));
 
-<<<<<<< HEAD
+static cl::opt<bool> DisableGEPConstOperand(
+    "disable-gep-const-evaluation", cl::Hidden, cl::init(false),
+    cl::desc("Disables evaluation of GetElementPtr with constant operands"));
+
 #if INTEL_CUSTOMIZATION
 // InliningForDeeplyNestedIfs has three possible values(BOU_UNSET is
 // default). Use TRUE to force enabling of heuristic. Use FALSE to disable.
@@ -217,11 +220,6 @@ static cl::opt<unsigned> DummyArgsMinCallsiteCount(
     cl::desc("Minimum callsite count for dummy-args function"));
 
 #endif // INTEL_CUSTOMIZATION
-=======
-static cl::opt<bool> DisableGEPConstOperand(
-    "disable-gep-const-evaluation", cl::Hidden, cl::init(false),
-    cl::desc("Disables evaluation of GetElementPtr with constant operands"));
->>>>>>> 34fba68d80051e3c53e7843157c036f6d511ae03
 
 namespace {
 
