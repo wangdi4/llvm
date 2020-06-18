@@ -1,5 +1,5 @@
-; RUN: opt < %s -hir-details-refs -hir-ssa-deconstruction -hir-framework -analyze | FileCheck %s
-; RUN: opt < %s -hir-details-refs -passes="hir-ssa-deconstruction,print<hir>" 2>&1 | FileCheck %s
+; RUN: opt < %s -hir-details-dims -hir-ssa-deconstruction -hir-framework -analyze | FileCheck %s
+; RUN: opt < %s -hir-details-dims -passes="hir-ssa-deconstruction,print<hir>" 2>&1 | FileCheck %s
 
 ; Check that "-1" and "0" array indices are parsed for appropriate dimensions.
 

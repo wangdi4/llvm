@@ -264,6 +264,9 @@ private:
   /// The GEP Inst is cached for reuse.
   GetElementPtrInst *getOrCreateLocationGEP() const;
 
+  void printImpl(formatted_raw_ostream &OS, bool Detailed, bool DimDetails)
+    const;
+
 public:
   /// Returns HLDDNode this DDRef is attached to.
   const HLDDNode *getHLDDNode() const override { return Node; };
@@ -273,6 +276,10 @@ public:
   /// Prints RegDDRef.
   virtual void print(formatted_raw_ostream &OS,
                      bool Detailed = false) const override;
+
+  /// Prints details of dimensions, matching with -hir-details-refs
+  /// Argument Detailed has the same meaning of Detailed in print.
+  void dumpDims(bool Detailed = false) const;
 
   /// Returns true if the DDRef has GEP Info.
   bool hasGEPInfo() const { return (GepInfo != nullptr); }

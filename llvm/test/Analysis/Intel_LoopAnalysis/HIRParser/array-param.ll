@@ -1,5 +1,5 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser -hir-details-refs | FileCheck %s
-; RUN: opt < %s -convert-to-subscript -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser -hir-details-refs | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser -hir-details-dims | FileCheck %s
+; RUN: opt < %s -convert-to-subscript -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser -hir-details-dims | FileCheck %s
 
 ; Check parsing output for the loop verifying that the load of %A is parsed correctly as a 2 dimentional array.
 ; CHECK: DO i1 = 0, 63, 1
