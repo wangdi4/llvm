@@ -1119,14 +1119,7 @@ bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(StoreInst *SI,
   SmallPtrSet<Instruction *, 1> Stores;
   Stores.insert(SI);
   if (mayLoopAccessLocation(StoreBasePtr, ModRefInfo::ModRef, CurLoop, BECount,
-<<<<<<< HEAD
-                            StoreSize, *AA, Stores, &AAInfo)) {  // INTEL
-    Expander.clear();
-    // If we generated new code for the base pointer, clean up.
-    RecursivelyDeleteTriviallyDeadInstructions(StoreBasePtr, TLI);
-=======
-                            StoreSize, *AA, Stores))
->>>>>>> 1cafd8a5d1a3f80a93a6d996f24ef4b730f896e5
+                            StoreSize, *AA, Stores, &AAInfo)) // INTEL
     return false;
 
   const SCEV *LdStart = LoadEv->getStart();
@@ -1143,15 +1136,7 @@ bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(StoreInst *SI,
   EVC.add(LoadBasePtr);
 
   if (mayLoopAccessLocation(LoadBasePtr, ModRefInfo::Mod, CurLoop, BECount,
-<<<<<<< HEAD
-                            StoreSize, *AA, Stores, nullptr)) { // INTEL
-    Expander.clear();
-    // If we generated new code for the base pointer, clean up.
-    RecursivelyDeleteTriviallyDeadInstructions(LoadBasePtr, TLI);
-    RecursivelyDeleteTriviallyDeadInstructions(StoreBasePtr, TLI);
-=======
-                            StoreSize, *AA, Stores))
->>>>>>> 1cafd8a5d1a3f80a93a6d996f24ef4b730f896e5
+                            StoreSize, *AA, Stores, nullptr)) // INTEL
     return false;
 
   if (avoidLIRForMultiBlockLoop())
