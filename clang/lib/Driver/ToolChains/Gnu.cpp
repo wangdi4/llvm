@@ -810,7 +810,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     addTBBLibs(CmdArgs, Args, ToolChain);
   if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs)) {
     addIntelLib("-lsvml", CmdArgs, Args);
-    addIntelLib("-lirc", CmdArgs, Args);
+    addIntelLib("-lirng", CmdArgs, Args);
     if (const Arg *A = Args.getLastArg(options::OPT_intel_debug_Group))
       if (StringRef(A->getValue()) == "parallel") {
         addIntelLib("-lpdbx", CmdArgs, Args);
@@ -850,9 +850,17 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back("-limf");
     CmdArgs.push_back("-lm");
   }
-  // Add -ldl for -mkl
-  if (Args.hasArg(options::OPT_mkl_EQ))
-    CmdArgs.push_back("-ldl");
+  if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs)) {
+    // Add libirc to resolve any Intel and libimf references
+    if (Args.hasArg(options::OPT_shared_intel))
+      addIntelLib("-lintlc", CmdArgs, Args);
+    else
+      addIntelLib("-lirc", CmdArgs, Args);
+
+    // Add -ldl for -mkl
+    if (Args.hasArg(options::OPT_mkl_EQ))
+      CmdArgs.push_back("-ldl");
+  }
 #endif // INTEL_CUSTOMIZATION
 
   // Silence warnings when linking C code with a C++ '-stdlib' argument.
@@ -933,6 +941,10 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         CmdArgs.push_back("-lsoftfp");
         CmdArgs.push_back("--no-as-needed");
       }
+#if INTEL_CUSTOMIZATION
+      if (Args.hasArg(options::OPT__intel))
+        addIntelLib("-lirc_s", CmdArgs, Args);
+#endif // INTEL_CUSTOMIZATION
     }
 
     if (!Args.hasArg(options::OPT_nostartfiles) && !IsIAMCU) {
