@@ -783,7 +783,12 @@ void UnloopUpdater::updateSubloopParents() {
     Loop *Subloop = *std::prev(Unloop.end());
     Unloop.removeChildLoop(std::prev(Unloop.end()));
 
+#if INTEL_COLLAB
+    assert((Subloop->getNumBlocks() == 0 || SubloopParents.count(Subloop)) &&
+           "DFS failed to visit non-empty subloop");
+#else // INTEL_COLLAB
     assert(SubloopParents.count(Subloop) && "DFS failed to visit subloop");
+#endif // INTEL_COLLAB
     if (Loop *Parent = SubloopParents[Subloop])
       Parent->addChildLoop(Subloop);
     else

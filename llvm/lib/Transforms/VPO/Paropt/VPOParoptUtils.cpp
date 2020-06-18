@@ -4793,6 +4793,21 @@ Function *VPOParoptUtils::genOutlineFunction(const WRegionNode &W,
 
   auto *CallSite = cast<CallInst>(NewFunction->user_back());
 
+  // Remove the extracted blocks from the LoopInfo of enclosing regions. The
+  // Loops and Blocks in the extracted function are no longer valid
+  // outside of that function.
+  // Some regions (WRNDistribute, etc.) carry the LoopInfo of the child region
+  // and should be ignored.
+  LoopInfo *ThisLI =
+      W.getIsOmpLoop() ? W.getWRNLoopInfo().getLoopInfo() : nullptr;
+  WRegionNode *ParentW = W.getParent();
+  while (ParentW) {
+    if (ParentW->getIsOmpLoop() &&
+        ParentW->getWRNLoopInfo().getLoopInfo() != ThisLI) {
+      ParentW->getWRNLoopInfo().removeBlocksInFn(NewFunction);
+    }
+    ParentW = ParentW->getParent();
+  }
 #if 0
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Call to Outlined Function:\n"
                     << *CallSite << "\n\n");
