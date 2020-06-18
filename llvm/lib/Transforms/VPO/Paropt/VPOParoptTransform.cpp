@@ -1138,6 +1138,9 @@ bool VPOParoptTransform::renameAndReplaceLibatomicCallsForSPIRV(Function *F) {
     Type *I64Ty = Builder.getInt64Ty();
     Type *I1Ty = Builder.getInt1Ty();
 
+    // TODO: OPAQUEPOINTER: Use of Opaque Pointer compliant APIs when created.
+    // The AddrSpaceCast maybe needed. PointerCasts will be removed when
+    // opaque pointers are used.
     auto castArgumentToAddressSpaceGeneric = [&Builder, &PtrTy,
                                               &CI](unsigned Idx) {
       CI->setArgOperand(Idx, Builder.CreatePointerBitCastOrAddrSpaceCast(
@@ -1149,6 +1152,8 @@ bool VPOParoptTransform::renameAndReplaceLibatomicCallsForSPIRV(Function *F) {
           Idx, Builder.CreateIntCast(CI->getArgOperand(Idx), I64Ty, false));
     };
 
+    // TODO: OPAQUEPOINTER:Use of Opaque Pointer compliant APIs when created.
+    // Currently, Function Creation relies on FunctionTy-PointerTy.
     FunctionCallee NewFC;
     if (FName == "__atomic_load") {
       NewFC = M->getOrInsertFunction("__kmpc_atomic_load", Attributes, VoidTy,
@@ -1212,7 +1217,8 @@ void VPOParoptTransform::addBranchToEndDirective(WRegionNode *W) {
       AllocaBuilder.getInt1Ty(), nullptr, "end.dir.temp"); //           (1)
 
   IRBuilder<> Builder(InsertPt);
-  Value *GlobLoad = Builder.CreateLoad(TempAddr, true, "temp.load"); // (3)
+  Value *GlobLoad = Builder.CreateLoad(AllocaBuilder.getInt1Ty(), TempAddr,
+                                       true, "temp.load"); // (3)
   Value *CmpInst =
       Builder.CreateICmpNE(GlobLoad, Builder.getInt1(0), "cmp"); //     (4)
 
@@ -3843,10 +3849,12 @@ void VPOParoptTransform::genFastRedCopy(ReductionItem *RedI, Value *Dst,
          "genFastRedCopy: Expect isOMPItemLocalVAR().");
   Type *AllocaTy;
   Value *NumElements;
+  // TODO: OPAQUEPOINTER: Replace the use of getElemenType() with the
+  // approproiate logic.
   std::tie(AllocaTy, NumElements) =
-      GeneralUtils::getOMPItemLocalVARPointerTypeAndNumElem(Src);
+      GeneralUtils::getOMPItemLocalVARPointerTypeAndNumElem(
+          Src, cast<PointerType>(Src->getType())->getElementType());
   assert(AllocaTy && "genFastRedCopy: item type cannot be deduced.");
-  AllocaTy = cast<PointerType>(AllocaTy)->getElementType();
 
   IRBuilder<> Builder(InsertPt);
   // For by-refs, do a pointer dereference to reach the actual operand.
@@ -3861,6 +3869,8 @@ void VPOParoptTransform::genFastRedCopy(ReductionItem *RedI, Value *Dst,
   }
 
 #endif // INTEL_CUSTOMIZATION
+  // TODO: Is this possible to be true? AllocaTy as per the previous code was
+  // always PointerTy.
   if (RedI->getIsArraySection() || AllocaTy->isArrayTy()) {
     genFastRedAggregateCopy(RedI, Src, Dst, InsertPt, DT,
                             NoNeedToOffsetOrDerefOldV);
@@ -4466,6 +4476,7 @@ Value *VPOParoptTransform::getArrSecReductionItemReplacementValue(
 // Extract the type and size of local Alloca to be created to privatize
 // OrigValue.
 void VPOParoptTransform::getItemInfoFromValue(Value *OrigValue,
+                                              Type *OrigValueElemType,
                                               Type *&ElementType,    // out
                                               Value *&NumElements,   // out
                                               unsigned &AddrSpace) { // out
@@ -4476,7 +4487,7 @@ void VPOParoptTransform::getItemInfoFromValue(Value *OrigValue,
   NumElements = nullptr;
 
   if (GeneralUtils::isOMPItemGlobalVAR(OrigValue)) {
-    ElementType = cast<PointerType>(OrigValue->getType())->getElementType();
+    ElementType = OrigValueElemType;
     AddrSpace = cast<PointerType>(OrigValue->getType())->getAddressSpace();
     return;
   }
@@ -4485,14 +4496,14 @@ void VPOParoptTransform::getItemInfoFromValue(Value *OrigValue,
          "getItemInfoFromValue: Expect isOMPItemLocalVAR().");
 
   std::tie(ElementType, NumElements) =
-      GeneralUtils::getOMPItemLocalVARPointerTypeAndNumElem(OrigValue);
+      GeneralUtils::getOMPItemLocalVARPointerTypeAndNumElem(OrigValue,
+                                                            OrigValueElemType);
   assert(ElementType && "getItemInfoFromValue: item type cannot be deduced.");
 
   if (auto *ConstNumElements = dyn_cast<Constant>(NumElements))
     if (ConstNumElements->isOneValue())
       NumElements = nullptr;
 
-  ElementType = cast<PointerType>(ElementType)->getElementType();
   // The final addresspace is inherited from the clause's item.
   AddrSpace = cast<PointerType>(OrigValue->getType())->getAddressSpace();
 }
@@ -4505,6 +4516,7 @@ std::tuple<Type *, Value *, unsigned> VPOParoptTransform::getItemInfo(Item *I) {
   assert(I && "Null Clause Item.");
 
   Value *Orig = I->getOrig();
+  Type *OrigElemTy = I->getOrigElemType();
   assert(Orig && "Null original Value in clause item.");
 
   auto getItemInfoIfArraySection = [I, &ElementType, &NumElements,
@@ -4524,7 +4536,7 @@ std::tuple<Type *, Value *, unsigned> VPOParoptTransform::getItemInfo(Item *I) {
   };
 
   if (!getItemInfoIfArraySection()) {
-    getItemInfoFromValue(Orig, ElementType, NumElements, AddrSpace);
+    getItemInfoFromValue(Orig, OrigElemTy, ElementType, NumElements, AddrSpace);
     assert(ElementType && "Failed to find element type for reduction operand.");
 
     if (I->getIsByRef()) {
@@ -4547,8 +4559,8 @@ std::tuple<Type *, Value *, unsigned> VPOParoptTransform::getItemInfo(Item *I) {
 
 // Generate a private variable version for the local copy of OrigValue.
 Value *VPOParoptTransform::genPrivatizationAlloca(
-    Value *OrigValue, Instruction *InsertPt, const Twine &NameSuffix,
-    llvm::Optional<unsigned> AllocaAddrSpace,
+    Value *OrigValue, Type *OrigElemTy, Instruction *InsertPt,
+    const Twine &NameSuffix, llvm::Optional<unsigned> AllocaAddrSpace,
     bool PreserveAddressSpace) const {
 
   assert(OrigValue && "genPrivatizationAlloca: Null input value.");
@@ -4559,7 +4571,8 @@ Value *VPOParoptTransform::genPrivatizationAlloca(
   MaybeAlign OrigAlignment =
       OrigValue->getPointerAlignment(InsertPt->getModule()->getDataLayout());
 
-  getItemInfoFromValue(OrigValue, ElementType, NumElements, AddrSpace);
+  getItemInfoFromValue(OrigValue, OrigElemTy, ElementType, NumElements,
+                       AddrSpace);
   auto *NewVal = VPOParoptUtils::genPrivatizationAlloca(
       ElementType, NumElements, OrigAlignment, InsertPt,
       isTargetSPIRV(), OrigValue->getName() + NameSuffix, AllocaAddrSpace,
@@ -5448,7 +5461,7 @@ Value *VPOParoptTransform::replaceWithStoreThenLoad(
                                      ? EntryBB->getFirstNonPHI()
                                      : EntryBB->getTerminator();
   IRBuilder<> BuilderInner(InsertPtForLoad);
-  LoadInst *VRenamed = BuilderInner.CreateLoad(VAddr); // (3)
+  LoadInst *VRenamed = BuilderInner.CreateLoad(V->getType(), VAddr); // (3)
   if (!InsertLoadInBeginningOfEntryBB)
     // InstCombine may transform:
     //   %1 = load float*, float** %.addr
