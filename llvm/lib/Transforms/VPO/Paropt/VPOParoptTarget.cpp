@@ -2925,11 +2925,14 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   // base function call. All other instructions in the region are ignored.
 
   CallInst *BaseCall = nullptr;
-  for (auto *BB : make_range(W->bbset_begin()+1, W->bbset_end()-1))
+  for (auto *BB : make_range(W->bbset_begin()+1, W->bbset_end()-1)) {
     for (Instruction &I : *BB) {
       if ((BaseCall = dyn_cast<CallInst>(&I)) != nullptr)
         break;
     }
+    if (BaseCall)
+      break;
+  }
 
   assert(BaseCall && "Base call not found in Target Variant Dispatch");
   if (!BaseCall)
