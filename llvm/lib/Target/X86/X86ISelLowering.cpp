@@ -100,6 +100,13 @@ static void errorUnsupported(SelectionDAG &DAG, const SDLoc &dl,
       DiagnosticInfoUnsupported(MF.getFunction(), Msg, dl.getDebugLoc()));
 }
 
+#if INTEL_CUSTOMIZATION
+static bool isSVMLCallingConv(CallingConv::ID CC) {
+  return CC == CallingConv::SVML || CC == CallingConv::SVML_AVX ||
+         CC == CallingConv::SVML_AVX512;
+}
+#endif // INTEL_CUSTOMIZATION
+
 X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
                                      const X86Subtarget &STI)
     : TargetLowering(TM), Subtarget(STI) {
@@ -2274,7 +2281,7 @@ MVT X86TargetLowering::getRegisterTypeForCallingConv(LLVMContext &Context,
 #if INTEL_CUSTOMIZATION
   // Preserve mask arguments in their original type. Otherwise they'll be
   // modified on pre-AVX512 targets before we get a chance to analyze them.
-  if (CC == CallingConv::SVML && VT.isSimple() && VT.isVector() &&
+  if (isSVMLCallingConv(CC) && VT.isSimple() && VT.isVector() &&
       VT.getVectorElementType() == MVT::i1)
     return VT.getSimpleVT();
 #endif
@@ -2300,7 +2307,7 @@ unsigned X86TargetLowering::getNumRegistersForCallingConv(LLVMContext &Context,
 #if INTEL_CUSTOMIZATION
   // Preserve mask arguments in their original type. Otherwise they'll be
   // modified on pre-AVX512 targets before we get a chance to analyze them.
-  if (CC == CallingConv::SVML && VT.isSimple() && VT.isVector() &&
+  if (isSVMLCallingConv(CC) && VT.isSimple() && VT.isVector() &&
       VT.getVectorElementType() == MVT::i1)
     return 1;
 #endif
@@ -4435,7 +4442,7 @@ X86TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
     // to allow direct calls to be selected without first materializing the
     // address into a register.
     Callee = LowerGlobalOrExternal(Callee, DAG, /*ForCall=*/true, // INTEL
-                                   CallConv == CallingConv::SVML); // INTEL
+                                   isSVMLCallingConv(CallConv)); // INTEL
   } else if (Subtarget.isTarget64BitILP32() &&
              Callee->getValueType(0) == MVT::i32) {
     // Zero-extend the 32-bit Callee address into a 64-bit according to x32 ABI

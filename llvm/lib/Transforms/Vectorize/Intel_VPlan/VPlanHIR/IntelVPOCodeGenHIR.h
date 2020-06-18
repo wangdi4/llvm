@@ -163,6 +163,13 @@ public:
                          SmallVectorImpl<Type *> &VecArgTys,
                          RegDDRef *MaskValue);
 
+  /// Generate instructions to extract two results of a widened sincos call
+  /// \p WideInst, and store them to locations designated in the original call
+  /// \p HInst. Instructions may be generated for both vector loop body and
+  /// remainder loop, \p IsRemainderLoop is used to distinguish these scenarios.
+  void generateStoreForSinCos(const HLInst *HInst, HLInst *WideInst,
+                              RegDDRef *Mask, bool IsRemainderLoop);
+
   // Given the function being called and the widened operands, generate and
   // return the widened call. The call arguments are returned in CallRegs
   // if they need to be analyzed for stride information. The flag HasLvalArg
@@ -693,12 +700,6 @@ private:
       return false;
     }
   }
-
-  /// Analyzes the memory references of \p OrigCall to determine stride. The
-  /// resulting stride information is attached to the arguments of \p WideCall
-  /// in the form of attributes.
-  void analyzeCallArgMemoryReferences(const HLInst *OrigCall, HLInst *WideCall,
-                                      SmallVectorImpl<RegDDRef *> &Args);
 
   // Given reduction operator identity value, insert vector reduction operand
   // initialization to a vector of length VF identity values. Return the

@@ -3,7 +3,7 @@
 ; RUN: opt -iml-trans -S < %s | FileCheck %s
 
 ; CHECK-LABEL: @vector_foo
-; CHECK: %{{.*}} = call svml_cc { <16 x float>, <16 x float> } @__svml_sincosf16_ha_mask({ <16 x float>, <16 x float> } %tmp2, <16 x i1> %tmp, <16 x float> %E)
+; CHECK: %{{.*}} = call svml_cc_avx512 { <16 x float>, <16 x float> } @__svml_sincosf16_ha_mask({ <16 x float>, <16 x float> } %tmp2, <16 x i1> %tmp, <16 x float> %E)
 ; CHECK: ret
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

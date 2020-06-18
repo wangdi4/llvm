@@ -1145,11 +1145,15 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
     SmallVector<RegDDRef *, 1> CallArgs;
     SmallVector<Type *, 1> ArgTys;
 
+    // Glibc sincos function uses pointers as out parameters. They need to be
+    // discarded since SVML sincos functions don't have them.
+    auto ItEnd = HInst->rval_op_ddref_end();
+    if (FnName.find("sincos") != StringRef::npos)
+      ItEnd -= 2;
+
     // For each call argument, insert a scalar load of the element,
     // broadcast it to a vector.
-    for (auto It = HInst->rval_op_ddref_begin(),
-              ItEnd = HInst->rval_op_ddref_end();
-         It != ItEnd; ++It) {
+    for (auto It = HInst->rval_op_ddref_begin(); It != ItEnd; ++It) {
       // TODO: it is assumed that call arguments need to become vector.
       // In the future, some vectorizable calls may contain scalar
       // arguments. Additional checking is needed for these cases.
@@ -1224,37 +1228,17 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
     // SVML calls for precision.
     cast<CallInst>(Inst)->setAttributes(Call->getAttributes());
 
-    // TODO: Matt can you look into the following code review comment
-    // from Pankaj?
-    // Call instructions can have one fake memref for each AddressOf
-    // operand that can be read from/written into. This is necessary to
-    // preserve data dependence semantics. I would recommend that vectorizer
-    // handle those as well. You can access them using
-    // HInst->fake_ddref_begin(). Keep in mind that they may contain
-    // 'undef' in the index. This is used to obtain DV of *.
-    if (FnName.find("sincos") != StringRef::npos) {
-      // Since we're in the remainder loop and scalarizing for now,
-      // then set the call argument strides for the sin/cos results
-      // to indirect to force scalarization in MapIntrinToIml. Later,
-      // when we support remainder loop vectorization, swap out the
-      // following loop with the call to analyzeCallArgMemoryReferences().
-      Instruction *WideInst =
-          const_cast<Instruction *>(WideCall->getLLVMInstruction());
-      CallInst *VecCall = cast<CallInst>(WideInst);
-      for (unsigned I = 1; I < 3; I++) {
-        AttrBuilder AttrList;
-        AttrList.addAttribute("stride", "indirect");
-        VecCall->setAttributes(VecCall->getAttributes().addAttributes(
-            VecCall->getContext(), I + 1, AttrList));
-      }
-      // analyzeCallArgMemoryReferences(HInst, WideCall, CallArgs);
-    }
-
     // Set calling conventions for SVML function calls
     if (isSVMLFunction(TLI, FnName, VectorF->getName())) {
       Instruction *WideInst =
           const_cast<Instruction *>(WideCall->getLLVMInstruction());
       cast<CallInst>(WideInst)->setCallingConv(CallingConv::SVML);
+    }
+
+    // Handle results of SVML sincos function calls
+    if (VectorF->getName().startswith("__svml_sincos")) {
+      generateStoreForSinCos(HInst, WideCall, nullptr /* Mask */,
+                             true /* IsRemainderLoop */);
     }
 
     InstsToRemove.push_back(HInst);
@@ -1673,56 +1657,6 @@ static HLInst *createVectorReduce(Intrinsic::ID VecRedIntrin, RegDDRef *VecRef,
 
   return HLNodeUtilities.createCall(VecReduceFunc, Ops, "vec.reduce",
                                     RednDescriptor);
-}
-
-void VPOCodeGenHIR::analyzeCallArgMemoryReferences(
-    const HLInst *OrigCall, HLInst *WideCall,
-    SmallVectorImpl<RegDDRef *> &Args) {
-
-  Instruction *Inst = const_cast<Instruction *>(WideCall->getLLVMInstruction());
-
-  CallInst *VecCall = cast<CallInst>(Inst);
-
-  HLLoop *L = cast<HLLoop>(OrigCall->getParentLoop());
-  unsigned LoopLevel = L->getNestingLevel();
-
-  // Analyze memory references for the arguments used to store sin/cos
-  // results. This information will later be used to generate appropriate
-  // store instructions.
-
-  for (unsigned I = 0; I < Args.size(); I++) {
-
-    // Only consider call arguments that involve address computations.
-    // For example, this is limited at the moment to call arguments like:
-    // sincos(..., &a[i], &b[i], ...). In order to extend to other memory
-    // references, the type derivations below will need to change. Some
-    // assumptions are made for addressOf references.
-    if (Args[I]->isAddressOf()) {
-      AttrBuilder AttrList;
-      int64_t ByteStride;
-
-      if (Args[I]->getConstStrideAtLevel(LoopLevel, &ByteStride)) {
-        // Type of the argument will be something like <4 x double*>
-        // The following code will yield a type of double. This type is used
-        // to determine the stride in elements.
-        Type *ArgTy = Args[I]->getDestType();
-        assert(isa<VectorType>(ArgTy) && "Expected vector of pointers");
-        PointerType *PtrTy = cast<PointerType>(ArgTy->getScalarType());
-        Type *ElemTy = PtrTy->getElementType();
-        unsigned ElemSize = ElemTy->getPrimitiveSizeInBits() / 8;
-        unsigned ElemStride = ByteStride / ElemSize;
-        AttrList.addAttribute("stride",
-                              APInt(32, ElemStride).toString(10, false));
-      } else {
-        AttrList.addAttribute("stride", "indirect");
-      }
-
-      if (AttrList.hasAttributes()) {
-        VecCall->setAttributes(VecCall->getAttributes().addAttributes(
-            VecCall->getContext(), I + 1, AttrList));
-      }
-    }
-  }
 }
 
 HLInst *VPOCodeGenHIR::widenPred(const HLIf *HIf,
@@ -2374,10 +2308,15 @@ void VPOCodeGenHIR::addMaskToSVMLCall(Function *OrigF,
     SmallVector<Type *, 1> NewArgTys;
     SmallVector<RegDDRef *, 1> NewArgs;
 
-    Constant *Undef = UndefValue::get(VecTy);
+    Type *SourceTy = VecTy;
+    StringRef FnName = OrigF->getName();
+    if (FnName == "sincos" || FnName == "sincosf")
+      SourceTy = StructType::get(VecTy, VecTy);
+
+    Constant *Undef = UndefValue::get(SourceTy);
     RegDDRef *UndefDDRef = DDRefUtilities.createConstDDRef(Undef);
 
-    NewArgTys.push_back(VecTy);
+    NewArgTys.push_back(SourceTy);
     NewArgs.push_back(UndefDDRef);
 
     CanonExpr *CE = MaskValue->getSingleCanonExpr();
@@ -2391,6 +2330,68 @@ void VPOCodeGenHIR::addMaskToSVMLCall(Function *OrigF,
     VecArgTys = std::move(NewArgTys);
     VecArgs = std::move(NewArgs);
   }
+}
+
+void VPOCodeGenHIR::generateStoreForSinCos(const HLInst *HInst,
+                                           HLInst *WideInst,
+                                           RegDDRef *Mask,
+                                           bool IsRemainderLoop) {
+  // Track the latest instruction inserted by this function.
+  // Only used for remainder loop. addInst() is used for main loop instead.
+  HLInst *InsertionPoint = WideInst;
+
+  auto AppendInst = [this, IsRemainderLoop, &InsertionPoint](
+                        HLInst *NewHInst, RegDDRef *Mask) -> void {
+    if (!IsRemainderLoop) {
+      addInst(NewHInst, Mask);
+    } else {
+      // Append new instruction to the remainder loop (instead of main loop)
+      HLNodeUtils::insertAfter(InsertionPoint, NewHInst);
+      InsertionPoint = NewHInst;
+    }
+  };
+
+  auto *ExtractSinInst = HLNodeUtilities.createExtractValueInst(
+      WideInst->getLvalDDRef()->clone(), {0}, "sincos.sin");
+  auto *ExtractCosInst = HLNodeUtilities.createExtractValueInst(
+      WideInst->getLvalDDRef()->clone(), {1}, "sincos.cos");
+  AppendInst(ExtractSinInst, nullptr);
+  AppendInst(ExtractCosInst, nullptr);
+
+  auto generateStore = [this, Mask, IsRemainderLoop, AppendInst](
+                           const RegDDRef *VecValueRef, const RegDDRef *AddrRef,
+                           const Twine &Name) {
+    RegDDRef *MemRef = AddrRef->clone();
+    MemRef->setAddressOf(false);
+
+    // If we're generating code for remainder loop, only the first lane is
+    // needed.
+    HLInst *Store;
+    if (!IsRemainderLoop) {
+      bool IsUnitStride = false;
+      int64_t Stride;
+      // This should use RegDDRef::isUnitStride(), but neither MemRef nor
+      // AddrRef is eligible for calling it.
+      if (AddrRef->getConstStrideAtLevel(OrigLoop->getNestingLevel(), &Stride))
+        IsUnitStride =
+            (Stride == static_cast<int64_t>(MemRef->getDestTypeSizeInBytes()));
+      RegDDRef *VecMemRef = widenRef(MemRef, getVF(), IsUnitStride);
+      Store =
+          HLNodeUtilities.createStore(VecValueRef->clone(), Name, VecMemRef);
+    } else {
+      HLInst *ExtractInst = HLNodeUtilities.createExtractElementInst(
+          VecValueRef->clone(), unsigned(0), "elem");
+      AppendInst(ExtractInst, nullptr);
+      Store = HLNodeUtilities.createStore(ExtractInst->getLvalDDRef()->clone(),
+                                          Name, MemRef);
+    }
+    AppendInst(Store, Mask);
+  };
+
+  generateStore(ExtractSinInst->getLvalDDRef(), HInst->getOperandDDRef(1),
+                "sincos.sin.store");
+  generateStore(ExtractCosInst->getLvalDDRef(), HInst->getOperandDDRef(2),
+                "sincos.cos.store");
 }
 
 HLInst *VPOCodeGenHIR::widenCall(const HLInst *INode,
@@ -2423,8 +2424,15 @@ HLInst *VPOCodeGenHIR::widenCall(const HLInst *INode,
   if (HasLvalArg) {
     ArgOffset = 1;
   }
+  unsigned ArgIgnored = 0;
+  // glibc scalar sincos function has 2 pointer out parameters, but SVML sincos
+  // functions return the results directly in a struct. The pointers should be
+  // omitted in vectorized call.
+  if (FnName == "sincos" || FnName == "sincosf")
+    ArgIgnored = 2;
+
   SmallVector<Type *, 1> ArgTys;
-  for (unsigned i = ArgOffset; i < WideOps.size(); i++) {
+  for (unsigned i = ArgOffset; i < WideOps.size() - ArgIgnored; i++) {
     CallArgs.push_back(WideOps[i]);
     ArgTys.push_back(WideOps[i]->getDestType());
   }
@@ -2490,12 +2498,6 @@ HLInst *VPOCodeGenHIR::widenCall(const HLInst *INode,
   if (isSVMLFunction(TLI, FnName, VectorF->getName())) {
     cast<CallInst>(Inst)->setCallingConv(CallingConv::SVML);
   }
-
-  // We analyze memory references in call arguments to add stride information
-  // for sincos calls. Clear call args for non-sincos calls. Caller analyzes
-  // call args if they are non-empty.
-  if (FnName.find("sincos") == StringRef::npos)
-    CallArgs.clear();
 
   return WideInst;
 }
@@ -2657,13 +2659,19 @@ void VPOCodeGenHIR::widenNodeImpl(const HLInst *INode, RegDDRef *Mask,
       WideInst->getLvalDDRef()->makeSelfBlob();
   }
 
+  // Handle results of SVML sincos function calls
+  // sincos function has two return values. The scalar sincos function uses
+  // pointers as out-parameters. SVML sincos function, instead, returns them in
+  // a struct directly. This bridges the gap between these two approaches.
+  const CallInst *Call = WideInst->getCallInst();
+  if (Call && Call->getCalledFunction()->getName().startswith("__svml_sincos")) {
+      addInst(WideInst, nullptr);
+      generateStoreForSinCos(INode, WideInst, Mask,
+                             false /* IsRemainderLoop */);
+      return;
+  }
+
   addInst(WideInst, Mask);
-  // We need to hook up WideInst before we call analyzeCallArgMemoryReferences
-  // as getConstStrideAtLevel expects a ref whose stride is being checked to be
-  // attached to HIR. We analyze memory references in call args for stride
-  // information if CallArgs is non-empty.
-  if (!CallArgs.empty())
-    analyzeCallArgMemoryReferences(INode, WideInst, CallArgs);
 }
 
 HLInst *VPOCodeGenHIR::insertReductionInitializer(Constant *Iden,
@@ -3889,16 +3897,23 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     llvm_unreachable("Unexpected VPInstruction opcode");
   }
 
+  // Handle results of SVML sincos function calls
+  // sincos function has two return values. The scalar sincos function uses
+  // pointers as out-parameters. SVML sincos function, instead, returns them in
+  // a struct directly. This bridges the gap between these two approaches.
+  const class CallInst *Call = NewInst->getCallInst();
+  if (Call &&
+      Call->getCalledFunction()->getName().startswith("__svml_sincos")) {
+    assert(CallInst && "Expected non-null CallInst");
+    addInst(NewInst, nullptr);
+    generateStoreForSinCos(CallInst, NewInst, Mask,
+                           false /* IsRemainderLoop */);
+    return;
+  }
+
   addInst(NewInst, Mask);
   if (NewInst->hasLval())
     addVPValueWideRefMapping(VPInst, NewInst->getLvalDDRef());
-
-  // We need to hook up WideInst before we call analyzeCallArgMemoryReferences
-  // as getConstStrideAtLevel expects a ref whose stride is being checked to be
-  // attached to HIR. We analyze memory references in call args for stride
-  // information if CallArgs is non-empty.
-  if (!CallArgs.empty())
-    analyzeCallArgMemoryReferences(CallInst, NewInst, CallArgs);
 }
 
 void VPOCodeGenHIR::widenNodeImpl(const VPInstruction *VPInst, RegDDRef *Mask,

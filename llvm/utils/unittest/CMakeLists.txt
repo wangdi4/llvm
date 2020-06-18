@@ -70,6 +70,27 @@ add_llvm_library(gtest
   BUILDTREE_ONLY
 )
 
+# INTEL_CUSTOMIZATION
+if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
+    add_llvm_library(gtest_stdcpp
+    googletest/src/gtest-all.cc
+    googlemock/src/gmock-all.cc
+
+    LINK_LIBS
+    ${LIBS}
+
+    LINK_COMPONENTS
+    Support_stdcpp # Depends on llvm::raw_ostream
+
+    # This is a library meant only for the build tree.
+    BUILDTREE_ONLY
+
+    STDLIB
+    stdc++
+    )
+endif()
+# end INTEL_CUSTOMIZATION
+
 add_subdirectory(UnitTestMain)
 
 # When LLVM_LINK_LLVM_DYLIB is enabled, libLLVM.so is added to the interface
@@ -91,3 +112,9 @@ endfunction()
 
 gtest_remove_dylib_from_link_interface(gtest)
 gtest_remove_dylib_from_link_interface(gtest_main)
+# INTEL_CUSTOMIZATION
+if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
+  gtest_remove_dylib_from_link_interface(gtest_stdcpp)
+  gtest_remove_dylib_from_link_interface(gtest_main_stdcpp)
+endif()
+# end INTEL_CUSTOMIZATION

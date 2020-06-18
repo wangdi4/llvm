@@ -612,6 +612,8 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(intel_ocl_bicc_avx);
   KEYWORD(intel_ocl_bicc_avx512);
   KEYWORD(svml_cc);
+  KEYWORD(svml_avx_cc);
+  KEYWORD(svml_avx512_cc);
 #endif // INTEL_CUSTOMIZATION
   KEYWORD(x86_64_sysvcc);
   KEYWORD(win64cc);

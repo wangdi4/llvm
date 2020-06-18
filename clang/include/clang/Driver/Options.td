@@ -554,6 +554,10 @@ def Qoption_COMMA : CommaJoined<["-"], "Qoption,">, Flags<[DriverOption]>,
            " <tool>; <tool> can be asm for assembler (or) link/ld for linker"
            " (or) preprocessor for preprocessor (or) compiler for compiler">,
   MetaVarName<"<arg>">;
+def Wcxx11_narrowing : Flag<["-"], "Wc++11-narrowing">, Group<W_Group>,
+  Flags<[CC1Option, CoreOption]>;
+def Wno_cxx11_narrowing : Flag<["-"], "Wno-c++11-narrowing">, Group<W_Group>,
+  Flags<[CC1Option, CoreOption]>;
 #endif // INTEL_CUSTOMIZATION
 def Wa_COMMA : CommaJoined<["-"], "Wa,">,
   HelpText<"Pass the comma separated arguments in <arg> to the assembler">,

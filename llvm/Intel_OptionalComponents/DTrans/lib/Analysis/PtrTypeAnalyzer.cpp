@@ -810,9 +810,12 @@ private:
         dbgs() << "\n";
       });
 
-      // TODO: Add support for users that are not instructions to handle a case
-      // such as:
+      // Try to infer a usage type for case like:
       //   getelementptr (%ty2, %ty2* (bitcast %ty1* @V to %ty2*), i64 0, i32 0)
+      if (auto *GEPOp = dyn_cast<GEPOperator>(User)) {
+        inferGetElementPtr(ValueToInfer, GEPOp);
+        continue;
+      }
 
       if (auto *I = dyn_cast<Instruction>(User))
         switch (I->getOpcode()) {
@@ -836,7 +839,7 @@ private:
           inferCall(ValueToInfer, cast<CallBase>(User));
           break;
         case Instruction::GetElementPtr:
-          inferGetElementPtr(ValueToInfer, cast<GetElementPtrInst>(User));
+          inferGetElementPtr(ValueToInfer, cast<GEPOperator>(User));
           break;
         case Instruction::ICmp:
           inferICmpInst(ValueToInfer, cast<ICmpInst>(User));
@@ -867,7 +870,7 @@ private:
   }
 
   // Try to determine the type of the GEP pointer operand.
-  void inferGetElementPtr(Value *ValueToInfer, GetElementPtrInst *GEP) {
+  void inferGetElementPtr(Value *ValueToInfer, GEPOperator *GEP) {
     // GEPs that have a simple source type being indexed into are inferred as
     // being that type.
     //   %x = getelementptr %struct.arc, p0 %ptr, i64 0, i32
@@ -1992,7 +1995,7 @@ private:
         continue;
 
       for (auto &APOffsetVal : APOffset) {
-        if (!analyzePossibleOffsetAggregateAccess(ElemType,
+        if (!analyzePossibleOffsetAggregateAccess(GEP, ElemType,
                                                   APOffsetVal.getLimitedValue(),
                                                   LocalInfo, PendingByteGEPs)) {
           AllValid = false;
@@ -2026,7 +2029,8 @@ private:
   //   pointee.
   // - update PendingByteGEPs with the type and index accessed.
   bool analyzePossibleOffsetAggregateAccess(
-      DTransType *AggregateTy, uint64_t Offset, ValueTypeInfo &Info,
+      GEPOperator &GEP, DTransType *AggregateTy, uint64_t Offset,
+      ValueTypeInfo &Info,
       SmallVectorImpl<std::pair<DTransType *, size_t>> &PendingByteGEPs) {
 
     // For analyzing the offset, get the corresponding type within
@@ -2040,19 +2044,19 @@ private:
 
     if (auto *StructTy = dyn_cast<StructType>(IRType))
       return analyzePossibleOffsetStructureAccess(
-          cast<DTransStructType>(AggregateTy), StructTy, Offset, Info,
+          GEP, cast<DTransStructType>(AggregateTy), StructTy, Offset, Info,
           PendingByteGEPs);
 
-    return analyzePossibleOffsetArrayAccess(cast<DTransArrayType>(AggregateTy),
-                                            cast<ArrayType>(IRType), Offset,
-                                            Info, PendingByteGEPs);
+    return analyzePossibleOffsetArrayAccess(
+        GEP, cast<DTransArrayType>(AggregateTy), cast<ArrayType>(IRType),
+        Offset, Info, PendingByteGEPs);
   }
 
   // Return 'true' if 'Offset' is the address of an element within 'StructTy'.
   // If so, also update 'Info' and 'PendingByteGEPs'.
   bool analyzePossibleOffsetStructureAccess(
-      DTransStructType *DTStructTy, llvm::StructType *StructTy, uint64_t Offset,
-      ValueTypeInfo &Info,
+      GEPOperator &GEP, DTransStructType *DTStructTy,
+      llvm::StructType *StructTy, uint64_t Offset, ValueTypeInfo &Info,
       SmallVectorImpl<std::pair<DTransType *, size_t>> &PendingByteGEPs) {
 
     // If the offset is beyond the end of the structure, this isn't a match.
@@ -2072,8 +2076,16 @@ private:
     if (ElementOffset != Offset) {
       // If the element at that offset is an aggregate type, we may be accessing
       // an element within the nested type.
-      return analyzePossibleOffsetAggregateAccess(
-          FieldType, Offset - ElementOffset, Info, PendingByteGEPs);
+      if (FieldType->isAggregateType()) {
+        return analyzePossibleOffsetAggregateAccess(
+            GEP, FieldType, Offset - ElementOffset, Info, PendingByteGEPs);
+      } else if (valueOnlyUsedForMemset(&GEP)) {
+        Info.addElementPointeeByOffset(ValueTypeInfo::VAT_Decl, DTStructTy,
+                                       Offset);
+        return true;
+      } else {
+        return false;
+      }
     }
 
     // Otherwise, this is a match.
@@ -2087,8 +2099,8 @@ private:
   // Return 'true' if 'Offset' is the address of an element of 'ArrayTy'.
   // If so, also update 'Info' and 'PendingByteGEPs'.
   bool analyzePossibleOffsetArrayAccess(
-      DTransArrayType *DTArrayType, llvm::ArrayType *ArrayTy, uint64_t Offset,
-      ValueTypeInfo &Info,
+      GEPOperator &GEP, DTransArrayType *DTArrayType, llvm::ArrayType *ArrayTy,
+      uint64_t Offset, ValueTypeInfo &Info,
       SmallVectorImpl<std::pair<DTransType *, size_t>> &PendingByteGEPs) {
 
     DTransType *DTransElemTy = DTArrayType->getArrayElementType();
@@ -2107,8 +2119,8 @@ private:
     }
 
     // Otherwise, we may be accessing a sub-element within a nested aggregate.
-    return analyzePossibleOffsetAggregateAccess(DTransElemTy, NewOffset, Info,
-                                                PendingByteGEPs);
+    return analyzePossibleOffsetAggregateAccess(GEP, DTransElemTy, NewOffset,
+                                                Info, PendingByteGEPs);
   }
 
   // There's an odd case where LLVM's constant folder will transform

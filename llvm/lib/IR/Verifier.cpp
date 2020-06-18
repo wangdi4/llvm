@@ -2328,6 +2328,8 @@ void Verifier::visitFunction(const Function &F) {
   case CallingConv::Intel_OCL_BI_AVX:
   case CallingConv::Intel_OCL_BI_AVX512:
   case CallingConv::SVML:
+  case CallingConv::SVML_AVX:
+  case CallingConv::SVML_AVX512:
 #endif // INTEL_CUSTOMIZATION
   case CallingConv::PTX_Kernel:
   case CallingConv::PTX_Device:

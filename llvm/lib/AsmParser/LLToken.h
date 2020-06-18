@@ -145,7 +145,9 @@ enum Kind {
   kw_x86_thiscallcc,
   kw_x86_vectorcallcc,
   kw_x86_regcallcc,
-  kw_svml_cc,       // INTEL
+  kw_svml_cc,        // INTEL
+  kw_svml_avx_cc,    // INTEL
+  kw_svml_avx512_cc, // INTEL
   kw_arm_apcscc,
   kw_arm_aapcscc,
   kw_arm_aapcs_vfpcc,

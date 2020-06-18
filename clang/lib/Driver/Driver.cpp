@@ -421,11 +421,17 @@ static void addIntelDeviceLibs(const ToolChain &TC, Driver::InputList &Inputs,
 // are the default.
 void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
                                  const llvm::opt::OptTable &Opts) const {
+  auto addClaim = [&](const OptSpecifier &Opt, StringRef OptArg="") {
+    if (!OptArg.empty())
+      DAL.AddJoinedArg(0, Opts.getOption(Opt), OptArg);
+    else
+      DAL.AddFlagArg(0, Opts.getOption(Opt));
+    DAL.getLastArg(Opt)->claim();
+  };
   if (Args.hasArg(options::OPT__intel)) {
     // The Intel compiler defaults to -O2
     if (!Args.hasArg(options::OPT_O_Group, options::OPT__SLASH_O))
-      DAL.AddJoinedArg(0, IsCLMode() ? Opts.getOption(options::OPT__SLASH_O)
-                                     : Opts.getOption(options::OPT_O), "2");
+      addClaim(IsCLMode() ? options::OPT__SLASH_O : options::OPT_O, "2");
     // For LTO on Windows, use -fuse-ld=lld when Qipo is used.
     if (Args.hasArg(options::OPT_flto) &&
         !Args.hasArg(options::OPT_fuse_ld_EQ)) {
@@ -433,8 +439,12 @@ void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
       StringRef Opt(A->getAsString(Args));
       // TODO - improve determination of last phase
       if (Opt.contains("Qipo") && !Args.hasArg(options::OPT_c, options::OPT_S))
-        DAL.AddJoinedArg(0, Opts.getOption(options::OPT_fuse_ld_EQ), "lld");
+        addClaim(options::OPT_fuse_ld_EQ, "lld");
     }
+    // -Wno-c++11-narrowing is default for Windows
+    if (IsCLMode() && !Args.hasArg(options::OPT_Wcxx11_narrowing,
+                                   options::OPT_Wno_cxx11_narrowing))
+      addClaim(options::OPT_Wno_cxx11_narrowing);
   }
   // Make SVML the default for dpcpp and --intel.
   // FIXME: This is temporary, as moving forward --intel should be the
@@ -444,7 +454,7 @@ void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
   if (Args.hasArg(options::OPT__intel, options::OPT__dpcpp))
     // -fveclib=SVML default.
     if (!Args.hasArg(options::OPT_fveclib))
-      DAL.AddJoinedArg(0, Opts.getOption(options::OPT_fveclib), "SVML");
+      addClaim(options::OPT_fveclib, "SVML");
 
   // Any -debug options will be 'replaced' with -g equivalents to simplify
   // logic later in the driver.
@@ -453,14 +463,14 @@ void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
     if (A->getOption().matches(options::OPT_intel_debug_Group)) {
       StringRef Value(A->getValue());
       if (Value != "none")
-        DAL.AddFlagArg(A, Opts.getOption(options::OPT_g_Flag));
+        addClaim(options::OPT_g_Flag);
       if (Value == "full" || Value == "all" || Value == "extended" ||
           Value == "parallel")
         ; // Do nothing, we already enabled debug above
       else if (Value == "minimal")
-        DAL.AddFlagArg(A, Opts.getOption(options::OPT_gline_tables_only));
+        addClaim(options::OPT_gline_tables_only);
       else if (Value == "emit-column")
-        DAL.AddFlagArg(A, Opts.getOption(options::OPT_gcolumn_info));
+        addClaim(options::OPT_gcolumn_info);
       else if (Value != "none")
         Diag(diag::err_drv_unsupported_option_argument)
             << A->getOption().getName() << A->getValue();

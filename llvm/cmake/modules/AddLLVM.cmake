@@ -424,7 +424,9 @@ endfunction(set_windows_version_resource_properties)
 function(llvm_add_library name)
   cmake_parse_arguments(ARG
     "MODULE;SHARED;STATIC;OBJECT;DISABLE_LLVM_LINK_LLVM_DYLIB;SONAME;NO_INSTALL_RPATH;COMPONENT_LIB;CUSTOM_WIN_VER"
-    "OUTPUT_NAME;PLUGIN_TOOL;ENTITLEMENTS;BUNDLE_PATH"
+# INTEL_CUSTOMIZATION
+    "OUTPUT_NAME;PLUGIN_TOOL;ENTITLEMENTS;BUNDLE_PATH;STDLIB"
+# end INTEL_CUSTOMIZATION
     "ADDITIONAL_HEADERS;DEPENDS;LINK_COMPONENTS;LINK_LIBS;OBJLIBS"
     ${ARGN})
   list(APPEND LLVM_COMMON_DEPENDS ${ARG_DEPENDS})
@@ -649,6 +651,20 @@ function(llvm_add_library name)
       ${lib_deps}
       ${llvm_libs}
       )
+
+  # INTEL_CUSTOMIZATION
+  #if it forced - override with provided value
+  if (ARG_STDLIB)
+    check_cxx_compiler_flag("-stdlib=lib${ARG_STDLIB}"
+                            CXX_COMPILER_SUPPORTS_STDLIB)
+    if (CXX_COMPILER_SUPPORTS_STDLIB)
+      set_property(TARGET ${name} APPEND_STRING PROPERTY
+                   COMPILE_FLAGS " -stdlib=lib${ARG_STDLIB}")
+      set_property(TARGET ${name} APPEND_STRING PROPERTY
+                   LINK_FLAGS " -l${ARG_STDLIB}")
+    endif()
+  endif()
+  # end INTEL_CUSTOMIZATION
 
   if(LLVM_COMMON_DEPENDS)
     add_dependencies(${name} ${LLVM_COMMON_DEPENDS})
@@ -1423,14 +1439,27 @@ function(add_unittest test_suite test_name)
 
   set(LLVM_REQUIRES_RTTI OFF)
 
-  list(APPEND LLVM_LINK_COMPONENTS Support) # gtest needs it for raw_ostream
-  add_llvm_executable(${test_name} IGNORE_EXTERNALIZE_DEBUGINFO NO_INSTALL_RPATH ${ARGN})
-  set(outdir ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR})
-  set_output_directory(${test_name} BINARY_DIR ${outdir} LIBRARY_DIR ${outdir})
-  # libpthreads overrides some standard library symbols, so main
-  # executable must be linked with it in order to provide consistent
-  # API for all shared libaries loaded by this executable.
-  target_link_libraries(${test_name} PRIVATE gtest_main gtest ${LLVM_PTHREAD_LIB})
+  # INTEL_CUSTOMIZATION
+  string(FIND "${test_suite}" "SYCL" IS_SYCL_TEST)
+  if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX AND UNIX AND NOT (${IS_SYCL_TEST} STREQUAL "-1"))
+    list(APPEND LLVM_LINK_COMPONENTS Support_stdcpp) # gtest needs it for raw_ostream
+    add_llvm_executable(${test_name} IGNORE_EXTERNALIZE_DEBUGINFO NO_INSTALL_RPATH ${ARGN})
+    set(outdir ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR})
+    set_output_directory(${test_name} BINARY_DIR ${outdir} LIBRARY_DIR ${outdir})
+    target_link_libraries(${test_name} PRIVATE gtest_main_stdcpp gtest_stdcpp stdc++ ${LLVM_PTHREAD_LIB})
+    set_property(TARGET ${test_name} APPEND_STRING PROPERTY
+                 COMPILE_FLAGS " -stdlib=libstdc++")
+  else()
+    list(APPEND LLVM_LINK_COMPONENTS Support) # gtest needs it for raw_ostream
+    add_llvm_executable(${test_name} IGNORE_EXTERNALIZE_DEBUGINFO NO_INSTALL_RPATH ${ARGN})
+    set(outdir ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR})
+    set_output_directory(${test_name} BINARY_DIR ${outdir} LIBRARY_DIR ${outdir})
+    # libpthreads overrides some standard library symbols, so main
+    # executable must be linked with it in order to provide consistent
+    # API for all shared libaries loaded by this executable.
+    target_link_libraries(${test_name} PRIVATE gtest_main gtest ${LLVM_PTHREAD_LIB})
+  endif()
+  # end INTEL_CUSTOMIZATION
 
   add_dependencies(${test_suite} ${test_name})
   get_target_property(test_suite_folder ${test_suite} FOLDER)
