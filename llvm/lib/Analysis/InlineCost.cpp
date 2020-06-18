@@ -536,12 +536,6 @@ public:
 
   InlineResult analyze(const TargetTransformInfo &CalleeTTI); // INTEL
 
-  Optional<Constant*> getSimplifiedValue(Instruction *I) {
-    if (SimplifiedValues.find(I) != SimplifiedValues.end())
-      return SimplifiedValues[I];
-    return None;
-  }
-
   // Keep a bunch of stats about the cost savings found so we can print them
   // out when debugging.
   unsigned NumConstantArgs = 0;
@@ -2916,7 +2910,6 @@ static bool worthInliningForAddressComputations(CallBase &CB,
       break;
   }
 
-<<<<<<< HEAD
   // Not enough arguments-arrays were found in callee.
   if (ArgCnt < InliningForACMinArgRefs) {
     LLVM_DEBUG(llvm::dbgs() << "IC: No inlining for AC: not enough argument "
@@ -2927,16 +2920,6 @@ static bool worthInliningForAddressComputations(CallBase &CB,
   LLVM_DEBUG(llvm::dbgs() << "IC: Do inlining for AC.\n");
   return true;
 }
-=======
-  // Keep a bunch of stats about the cost savings found so we can print them
-  // out when debugging.
-  unsigned NumConstantArgs = 0;
-  unsigned NumConstantOffsetPtrArgs = 0;
-  unsigned NumAllocaArgs = 0;
-  unsigned NumConstantPtrCmps = 0;
-  unsigned NumConstantPtrDiffs = 0;
-  unsigned NumInstructionsSimplified = 0;
->>>>>>> dcf2a9f2ee3a730d603d69f9fbc96fdd64a744ca
 
 //
 // Return 'true' if the Function F should be inlined because it exposes some
