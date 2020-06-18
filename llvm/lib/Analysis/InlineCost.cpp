@@ -5694,6 +5694,7 @@ InlineParams llvm::getInlineParams(unsigned OptLevel, unsigned SizeOptLevel) {
     Params.LocallyHotCallSiteThreshold = LocallyHotCallSiteThreshold;
   return Params;
 }
+<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
 // This routine does exactly same as what "getInlineParams(unsigned OptLevel,
@@ -5745,3 +5746,5 @@ InlineCostAnnotationPrinterPass::run(Function &F,
   }
   return PreservedAnalyses::all();
 }
+=======
+>>>>>>> ea844c75207a9e809ccfc0922f436f972e5d5a7a
