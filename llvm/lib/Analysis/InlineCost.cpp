@@ -5695,6 +5695,7 @@ InlineParams llvm::getInlineParams(unsigned OptLevel, unsigned SizeOptLevel) {
   return Params;
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // This routine does exactly same as what "getInlineParams(unsigned OptLevel,
 // unsigned SizeOptLevel)" function does except it also sets PrepareForLTO
@@ -5708,3 +5709,41 @@ InlineParams llvm::getInlineParams(unsigned OptLevel, unsigned SizeOptLevel,
   return InlParams;
 }
 #endif // INTEL_CUSTOMIZATION
+=======
+PreservedAnalyses
+InlineCostAnnotationPrinterPass::run(Function &F,
+                                     FunctionAnalysisManager &FAM) {
+  PrintInstructionComments = true;
+  std::function<AssumptionCache &(Function &)> GetAssumptionCache = [&](
+      Function &F) -> AssumptionCache & {
+    return FAM.getResult<AssumptionAnalysis>(F);
+  };
+  Module *M = F.getParent();
+  ProfileSummaryInfo PSI(*M);
+  DataLayout DL(M);
+  TargetTransformInfo TTI(DL);
+  // FIXME: Redesign the usage of InlineParams to expand the scope of this pass.
+  // In the current implementation, the type of InlineParams doesn't matter as
+  // the pass serves only for verification of inliner's decisions.
+  // We can add a flag which determines InlineParams for this run. Right now,
+  // the default InlineParams are used.
+  const InlineParams Params = llvm::getInlineParams();
+    for (BasicBlock &BB : F) {
+    for (Instruction &I : BB) {
+      if (CallInst *CI = dyn_cast<CallInst>(&I)) {
+        Function *CalledFunction = CI->getCalledFunction();
+        if (!CalledFunction || CalledFunction->isDeclaration())
+          continue;
+        OptimizationRemarkEmitter ORE(CalledFunction);
+        InlineCostCallAnalyzer ICCA(*CalledFunction, *CI, Params, TTI,
+                                    GetAssumptionCache, nullptr, &PSI, &ORE);
+        ICCA.analyze();
+        OS << "      Analyzing call of " << CalledFunction->getName()
+           << "... (caller:" << CI->getCaller()->getName() << ")\n";
+        ICCA.dump();
+      }
+    }
+  }
+  return PreservedAnalyses::all();
+}
+>>>>>>> 37e06e8f5c6ee39a1d7cbaf7d5f5a3ebfa1b4e15
