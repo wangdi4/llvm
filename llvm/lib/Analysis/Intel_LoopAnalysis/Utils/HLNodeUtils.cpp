@@ -3583,7 +3583,8 @@ bool HLNodeUtils::getMinMaxValueImpl(const CanonExpr *CE,
           // The minimum value of lower bound of loops in HIR is 0.
           BoundVal = 0;
         }
-      } else if (!getMinMaxValueImpl(Lp->getUpperCanonExpr(), Lp, false,
+      } else if (Lp->isUnknown() ||
+                 !getMinMaxValueImpl(Lp->getUpperCanonExpr(), Lp, false,
                                      IsExact, BoundVal)) {
         return false;
       }
