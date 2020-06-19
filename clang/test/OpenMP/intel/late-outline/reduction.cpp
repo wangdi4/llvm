@@ -707,6 +707,54 @@ void test1()
   for (j = 0; j < 10; ++j);
   // CHECK: [ "DIR.OMP.END.PARALLEL"() ]
 }
+volatile double g, g_orig;
+volatile double &g1 = g_orig;
+template <class T> struct S {
+  T f;
+  S(T a) : f(a + g) {}
+  S() : f(g) {}
+  operator T() { return T(); }
+  S &operator&(const S &) { return *this; }
+  ~S() {}
+};
 
+
+template <typename T, int length>
+T tmain()
+{
+  T t;
+  S<T> test;
+  T t_var = T(), t_var1;
+  T vec[] = {1, 2} ;
+  S<T> s_arr[] = {1, 2};
+  S<T> &var = test;
+  S<T> var1;
+  S<T> arr[length];
+  // CHECK: [[T0:%[0-9]*]] = call token @llvm.directive.region.entry()
+  // CHECK-SAME: "DIR.OMP.PARALLEL"
+  // CHECK: [[T1:%[0-9]*]] = call token @llvm.directive.region.entry()
+  // CHECK-SAME: "DIR.OMP.LOOP"
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"([42 x %struct.S]* %arr,
+  // CHECK-SAME:  void ([42 x %struct.S]*, [42 x %struct.S]*)* @.omp_combiner..38
+  // CHECK-SAME: i8* null)
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR:BYREF"(%struct.S** %var,
+  // CHECK-SAME: void (%struct.S**, %struct.S**)* @.omp_combiner..39
+  // CHECK-SAME: i8* null)
+  // CHECK-SAME: "QUAL.OMP.REDUCTION.UDR"(%struct.S* %var1,
+  // CHECK-SAME: void (%struct.S*, %struct.S*)* @.omp_combiner..40
+  // CHECK-SAME: i8* null)
+#pragma omp parallel
+#pragma omp for reduction(&:arr, var, var1)
+  for (int i = 0; i < 2; ++i) {
+  }
+  // CHECK: [ "DIR.OMP.END.LOOP"() ]
+  // CHECK: [ "DIR.OMP.END.PARALLEL"() ]
+  return T();
+}
+
+int main()
+{
+  return tmain<int, 42>();
+}
 
 // end INTEL_COLLAB

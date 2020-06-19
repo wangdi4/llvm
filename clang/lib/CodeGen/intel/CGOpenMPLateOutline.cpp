@@ -904,6 +904,8 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
                                                       StringRef QualName) {
   auto I = Cl->reduction_ops().begin();
   auto IPriv = Cl->privates().begin();
+  auto IRHS = Cl->rhs_exprs().begin();
+  auto ILHS = Cl->lhs_exprs().begin();
   for (auto *E : Cl->varlists()) {
     const VarDecl *PVD = getExplicitVarDecl(E);
     auto *Private = cast<VarDecl>(cast<DeclRefExpr>(*IPriv)->getDecl());
@@ -919,8 +921,12 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
           CGF.CGM.getOpenMPRuntime().getUserDefinedReduction(DRD);
       CombinerFn = InitCombiner.first;
       InitFn = InitCombiner.second;
+    } else if (!isa<BinaryOperator>((*I)->IgnoreImpCasts())) {
+      const auto *LVD = cast<VarDecl>(cast<DeclRefExpr>(*ILHS)->getDecl());
+      const auto *RVD = cast<VarDecl>(cast<DeclRefExpr>(*IRHS)->getDecl());
+      CombinerFn =
+          CGOpenMPRuntime::emitCombiner(CGF.CGM, PVD->getType(), *I, RVD, LVD);
     }
-    assert(CombinerFn || isa<BinaryOperator>((*I)->IgnoreImpCasts()));
     OverloadedOperatorKind OOK =
         CombinerFn ? OO_None
                    : Cl->getNameInfo().getName().getCXXOverloadedOperator();
@@ -1040,6 +1046,8 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
     }
     ++I;
     ++IPriv;
+    ++ILHS;
+    ++IRHS;
   }
 }
 
