@@ -88,6 +88,9 @@ public:
     for (dtrans::TypeInfo *TI : DTInfo.type_info_entries())
       if (auto *StructInfo = dyn_cast<dtrans::StructInfo>(TI))
         analyzeStructureType(StructInfo);
+
+    for (auto &GV : M.globals())
+      analyzeGlobalVariable(GV);
   }
 
   // Analyze the structure to collect basic information, such as whether it is
@@ -167,6 +170,103 @@ public:
     }
   }
 
+  // Analyze global variables to mark "Global array", Global instance", and
+  // "Global pointer" safety flags on types of interest. Also, analyze the
+  // initializer value to collect constants, and check for incompatible types
+  // being stored into the the global.
+  void analyzeGlobalVariable(GlobalVariable &GV) {
+    // Declarations do not need to be analyzed
+    if (GV.isDeclaration())
+      return;
+
+    ValueTypeInfo *Info = PTA.getValueTypeInfo(&GV);
+    assert(Info &&
+           "PtrTypeAnalyzer failed to construct ValueTypeInfo for global");
+
+    // We are expecting the pointer type analyzer to have the type, so we are
+    // only looking at elements from the 'VAT_Decl' list. If the pointer type
+    // analyzer could not handle it, mark the DTrans safety info as not being
+    // valid. This can occur due to the losing the type metadata attached to the
+    // GlobalVariable.
+    if (Info->getUnhandled())
+      DTInfo.setUnhandledPtrType(&GV);
+
+    // These are conservative conditions meant to restrict us to
+    // global variables that are definitely handled. Additional analysis
+    // may be required to safely support these cases.
+    //
+    // hasLocalLinkage() indicates that the linkage is either internal or
+    //   private. This should be the case for all program defined variables
+    //   during LTO. The primary intention of this check is to eliminate
+    //   externally accessible variables, but we're using a more general
+    //   check to defer decisions about other linkage types until they
+    //   are encountered.
+    //
+    // isThreadLocal() may be acceptable, but is included here so that
+    //   consideration of its implications can be deferred until it must
+    //   be handled.
+    //
+    if (!GV.hasLocalLinkage() || GV.isThreadLocal()) {
+      setAllAliasedTypeSafetyData(Info, dtrans::UnhandledUse,
+                                  "Unsupported global variable use", &GV);
+      return;
+    }
+
+    // Look at the information set by the PtrTypeAnalyzer for the variable.
+    // There generally should only be a single declared type. We need to rely on
+    // the PtrTypeAnalyzer rather than looking at the type returned by
+    // GV.getValueType() because all pointer types will just be 'p0' when opaque
+    // pointers are used.
+    auto &Pointees = Info->getPointerTypeAliasSet(ValueTypeInfo::VAT_Decl);
+    for (auto *AliasTy : Pointees) {
+      DTransType *ElemTy = AliasTy->getPointerElementType();
+      if (!isTypeOfInterest(ElemTy))
+        continue;
+
+      // TODO: When 'GlobalInstance' is set below, any pointers contained within
+      // the aggregate type being created should be marked with the 'GlobalPtr'
+      // flag to indicate there is a pointer to those types at the module level.
+
+      if (auto *ArTy = dyn_cast<DTransArrayType>(ElemTy)) {
+        setBaseTypeInfoSafetyData(ArTy, dtrans::GlobalArray,
+                                  "Array of type of interest", &GV);
+
+        // For arrays, we need to find the actual type that makes up the
+        // array. If the array is made up of pointer elements, then our
+        // analysis will effectively treat that type as a "Global Pointer"
+        //   For example: [4 x %struct.T1*]
+        // Otherwise, only set "Global instance" on the array itself.
+        // TODO: The following is similar to the handling of "alloca"
+        // instructions, so it may be good to unify the code in the future.
+        DTransType *UnitTy = getArrayUnitType(ArTy);
+        if (UnitTy->isPointerTy())
+          setBaseTypeInfoSafetyData(UnitTy, dtrans::GlobalPtr,
+                                    "Global array of pointers to type defined",
+                                    &GV);
+        else if (UnitTy->isVectorTy())
+          setBaseTypeInfoSafetyData(AliasTy, dtrans::UnhandledUse,
+                                    "Global array of vector type defined", &GV);
+        else
+          setBaseTypeInfoSafetyData(AliasTy, dtrans::GlobalInstance,
+                                    "Global array of type defined", &GV);
+        continue;
+      }
+
+      if (ElemTy->isPointerTy())
+        setBaseTypeInfoSafetyData(AliasTy, dtrans::GlobalPtr,
+                                  "Pointer allocated", &GV);
+      else if (ElemTy->isVectorTy())
+        setBaseTypeInfoSafetyData(AliasTy, dtrans::UnhandledUse,
+                                  "Vector allocated", &GV);
+      else
+        setBaseTypeInfoSafetyData(AliasTy, dtrans::GlobalInstance,
+                                  "Instance allocated", &GV);
+    }
+
+    // TODO: Analyze the initializer values for constant values or incompatible
+    // types.
+  }
+
   void visitFunction(Function &F) {
     LLVM_DEBUG(dbgs() << "visitFunction: " << F.getName() << "\n");
 
@@ -187,12 +287,8 @@ public:
   // the "Local Instance" and "Local Pointer" safety bits.
   void visitAlloca(AllocaInst &I) {
     ValueTypeInfo *Info = PTA.getValueTypeInfo(&I);
-    if (!Info) {
-      // There should always be a ValueTypeInfo object available for an
-      // AllocaInst because the result type of an "alloca" is a pointer type.
-      DTInfo.setUnhandledPtrType(&I);
-      return;
-    }
+    assert(Info &&
+           "PtrTypeAnalyzer failed to construct ValueTypeInfo for alloca");
 
     // We are expecting the pointer type analyzer to have the type, so we are
     // only looking at elements from the 'VAT_Decl' list. If the pointer type
@@ -205,6 +301,10 @@ public:
          Info->getPointerTypeAliasSet(ValueTypeInfo::VAT_Decl)) {
       assert(AliasTy->isPointerTy() &&
              "Expecting alloca to produce a pointer type");
+
+      // TODO: When 'LocalInstance' is set below, any pointers contained within
+      // the aggregate type being created should be marked with the
+      // 'LocalPointer' flag.
 
       DTransType *ElemTy = AliasTy->getPointerElementType();
       if (auto *ArTy = dyn_cast<DTransArrayType>(ElemTy)) {
@@ -231,7 +331,7 @@ public:
                                   "Pointer allocated", &I);
       else if (ElemTy->isVectorTy())
         setBaseTypeInfoSafetyData(AliasTy, dtrans::UnhandledUse,
-                                  "Array of vector allocated", &I);
+                                  "Vector allocated", &I);
       else
         setBaseTypeInfoSafetyData(AliasTy, dtrans::LocalInstance,
                                   "Instance allocated", &I);
@@ -404,9 +504,9 @@ private:
 
   // Set the safety data on all the aliased types of 'PtrInfo'
   // 'Reason' and 'V' are optional parameters that provide for debug traces.
-  void setBaseTypeInfoSafetyData(ValueTypeInfo *PtrInfo,
-                                 dtrans::SafetyData Data, const char *Reason,
-                                 Value *V) {
+  void setAllAliasedTypeSafetyData(ValueTypeInfo *PtrInfo,
+                                   dtrans::SafetyData Data, const char *Reason,
+                                   Value *V) {
     DEBUG_WITH_TYPE_P(FNFilter, SAFETY_VERBOSE, {
       if (Reason) {
         dbgs() << "dtrans-safety: " << getSafetyDataName(Data) << " -- "
@@ -421,6 +521,7 @@ private:
             dbgs() << "  [" << F->getName() << "] ";
           dbgs() << *V << "\n";
         }
+        PtrInfo->print(dbgs());
       }
     });
 
@@ -514,14 +615,15 @@ private:
                                     IsCascading, IsPointerCarried);
   }
 
-  // Retrun 'true' if the DTransType is something that may require safety data
+  // Return 'true' if the DTransType is something that may require safety data
   // to be set on it.
   bool isTypeOfInterest(DTransType *Ty) {
     DTransType *BaseTy = Ty;
-
-    // For pointers, see what they point to.
-    while (BaseTy->isPointerTy())
-      BaseTy = cast<DTransPointerType>(BaseTy)->getPointerElementType();
+    while (BaseTy->isPointerTy() || BaseTy->isVectorTy())
+      if (BaseTy->isPointerTy())
+        BaseTy = BaseTy->getPointerElementType();
+      else
+        BaseTy = BaseTy->getVectorElementType();
 
     if (auto *ArTy = dyn_cast<DTransArrayType>(BaseTy))
       return isTypeOfInterest(ArTy->getArrayElementType());

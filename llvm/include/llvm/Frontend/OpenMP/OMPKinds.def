@@ -99,6 +99,7 @@ __OMP_DIRECTIVE_EXT(end_declare_variant, "end declare variant")
 #if INTEL_COLLAB
 __OMP_DIRECTIVE_EXT(target_variant_dispatch, "target variant dispatch")
 __OMP_DIRECTIVE(loop)
+__OMP_DIRECTIVE_EXT(teams_loop, "teams loop")
 #endif // INTEL_COLLAB
 
 // Has to be the last because Clang implicitly expects it to be.
@@ -1431,6 +1432,20 @@ __OMP_DIRECTIVE_CLAUSE(loop, 1, ~0, order)
 __OMP_DIRECTIVE_CLAUSE(loop, 1, ~0, private)
 __OMP_DIRECTIVE_CLAUSE(loop, 1, ~0, lastprivate)
 __OMP_DIRECTIVE_CLAUSE(loop, 1, ~0, reduction)
+
+__OMP_DIRECTIVE_CLAUSE(teams_loop, 1, ~0, bind)
+__OMP_DIRECTIVE_CLAUSE(teams_loop, 1, ~0, collapse)
+__OMP_DIRECTIVE_CLAUSE(teams_loop, 1, ~0, order)
+__OMP_DIRECTIVE_CLAUSE(teams_loop, 1, ~0, private)
+__OMP_DIRECTIVE_CLAUSE(teams_loop, 1, ~0, lastprivate)
+__OMP_DIRECTIVE_CLAUSE(teams_loop, 1, ~0, reduction)
+__OMP_DIRECTIVE_CLAUSE(teams_loop, 1, ~0, default)
+__OMP_DIRECTIVE_CLAUSE(teams_loop, 1, ~0, firstprivate)
+__OMP_DIRECTIVE_CLAUSE(teams_loop, 1, ~0, shared)
+__OMP_DIRECTIVE_CLAUSE(teams_loop, 1, ~0, num_teams)
+__OMP_DIRECTIVE_CLAUSE(teams_loop, 1, ~0, thread_limit)
+__OMP_DIRECTIVE_CLAUSE(teams_loop, 1, ~0, allocate)
+
 #endif // INTEL_COLLAB
 __OMP_DIRECTIVE_CLAUSE(target_data, 1, ~0, if)
 __OMP_DIRECTIVE_CLAUSE(target_data, 1, ~0, device)
