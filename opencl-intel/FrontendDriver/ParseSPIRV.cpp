@@ -200,6 +200,7 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
     case spv::CapabilityArbitraryPrecisionFixedPointINTEL:
     case spv::CapabilityArbitraryPrecisionFloatingPointINTEL:
     case spv::CapabilityIOPipeINTEL:
+    case spv::CapabilityUSMStorageClassesINTEL:
       break;
     }
   }
