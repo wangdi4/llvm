@@ -524,6 +524,7 @@ bool clang::isOpenMPLoopDirective(OpenMPDirectiveKind DKind) {
 #if INTEL_COLLAB
          DKind == OMPD_loop ||
          DKind == OMPD_teams_loop ||
+         DKind == OMPD_target_teams_loop ||
 #endif // INTEL_COLLAB
          DKind == OMPD_teams_distribute ||
          DKind == OMPD_teams_distribute_simd ||
@@ -545,6 +546,7 @@ bool clang::isOpenMPWorksharingDirective(OpenMPDirectiveKind DKind) {
          // To get the needed late-outlining loop expressions.
          DKind == OMPD_loop ||
          DKind == OMPD_teams_loop ||
+         DKind == OMPD_target_teams_loop ||
 #endif // INTEL_COLLAB
          DKind == OMPD_distribute_parallel_for ||
          DKind == OMPD_distribute_parallel_for_simd ||
@@ -583,6 +585,9 @@ bool clang::isOpenMPTargetExecutionDirective(OpenMPDirectiveKind DKind) {
          DKind == OMPD_target_parallel_for ||
          DKind == OMPD_target_parallel_for_simd || DKind == OMPD_target_simd ||
          DKind == OMPD_target_teams || DKind == OMPD_target_teams_distribute ||
+#if INTEL_COLLAB
+         DKind == OMPD_target_teams_loop ||
+#endif // INTEL_COLLAB
          DKind == OMPD_target_teams_distribute_parallel_for ||
          DKind == OMPD_target_teams_distribute_parallel_for_simd ||
          DKind == OMPD_target_teams_distribute_simd;
@@ -606,6 +611,9 @@ bool clang::isOpenMPNestingTeamsDirective(OpenMPDirectiveKind DKind) {
 bool clang::isOpenMPTeamsDirective(OpenMPDirectiveKind DKind) {
   return isOpenMPNestingTeamsDirective(DKind) ||
          DKind == OMPD_target_teams || DKind == OMPD_target_teams_distribute ||
+#if INTEL_COLLAB
+         DKind == OMPD_target_teams_loop ||
+#endif // INTEL_COLLAB
          DKind == OMPD_target_teams_distribute_parallel_for ||
          DKind == OMPD_target_teams_distribute_parallel_for_simd ||
          DKind == OMPD_target_teams_distribute_simd;
@@ -645,7 +653,8 @@ bool clang::isOpenMPDistributeDirective(OpenMPDirectiveKind Kind) {
 
 #if INTEL_COLLAB
 bool clang::isOpenMPGenericLoopDirective(OpenMPDirectiveKind Kind) {
-  return Kind == OMPD_loop || Kind == OMPD_teams_loop;
+  return Kind == OMPD_loop || Kind == OMPD_teams_loop ||
+         Kind == OMPD_target_teams_loop;
 }
 #endif // INTEL_COLLAB
 
@@ -745,6 +754,12 @@ void clang::getOpenMPCaptureRegions(
     CaptureRegions.push_back(OMPD_loop);
     break;
   case OMPD_teams_loop:
+    CaptureRegions.push_back(OMPD_teams);
+    CaptureRegions.push_back(OMPD_loop);
+    break;
+  case OMPD_target_teams_loop:
+    CaptureRegions.push_back(OMPD_task);
+    CaptureRegions.push_back(OMPD_target);
     CaptureRegions.push_back(OMPD_teams);
     CaptureRegions.push_back(OMPD_loop);
     break;

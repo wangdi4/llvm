@@ -664,6 +664,9 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
   case Stmt::OMPTeamsGenericLoopDirectiveClass:
     K = CXCursor_OMPTeamsGenericLoopDirective;
     break;
+  case Stmt::OMPTargetTeamsGenericLoopDirectiveClass:
+    K = CXCursor_OMPTargetTeamsGenericLoopDirective;
+    break;
   case Stmt::OMPTargetVariantDispatchDirectiveClass:
     K = CXCursor_OMPTargetVariantDispatchDirective;
     break;

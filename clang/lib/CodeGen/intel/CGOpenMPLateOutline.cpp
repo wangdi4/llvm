@@ -2151,6 +2151,7 @@ bool OpenMPLateOutliner::isFirstDirectiveInSet(const OMPExecutableDirective &S,
   case OMPD_target_teams_distribute_simd:
   case OMPD_target_teams_distribute_parallel_for:
   case OMPD_target_teams_distribute_parallel_for_simd:
+  case OMPD_target_teams_loop:
   case OMPD_target:
   case OMPD_target_enter_data:
   case OMPD_target_exit_data:
@@ -2195,6 +2196,7 @@ bool OpenMPLateOutliner::needsVLAExprEmission() {
   case OMPD_target_teams_distribute_simd:
   case OMPD_target_teams_distribute_parallel_for:
   case OMPD_target_teams_distribute_parallel_for_simd:
+  case OMPD_target_teams_loop:
   case OMPD_parallel:
   case OMPD_for:
   case OMPD_parallel_for:
@@ -2381,6 +2383,14 @@ static OpenMPDirectiveKind nextDirectiveKind(OpenMPDirectiveKind FullDirKind,
 
   case OMPD_teams_loop:
     // OMPD_teams -> omp_loop
+    if (CurrDirKind == OMPD_teams)
+      return OMPD_loop;
+    return OMPD_unknown;
+
+  case OMPD_target_teams_loop:
+    //  OMPD_target -> OMPD_teams -> OMPD_loop
+    if (CurrDirKind == OMPD_target)
+      return OMPD_teams;
     if (CurrDirKind == OMPD_teams)
       return OMPD_loop;
     return OMPD_unknown;
@@ -2664,6 +2674,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
   case OMPD_target_teams_distribute_simd:
   case OMPD_target_teams_distribute_parallel_for:
   case OMPD_target_teams_distribute_parallel_for_simd:
+  case OMPD_target_teams_loop:
   case OMPD_teams_distribute:
   case OMPD_teams_distribute_simd:
   case OMPD_teams_distribute_parallel_for:
