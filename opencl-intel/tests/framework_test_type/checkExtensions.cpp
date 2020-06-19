@@ -84,8 +84,17 @@ TEST_F(CheckExtensions, CpuDevice) {
 #endif
                                      "cl_khr_spir",
                                      "cl_khr_fp64",
-                                     "cl_khr_image2d_from_buffer"};
-
+                                     "cl_khr_image2d_from_buffer",
+                                     "cl_intel_required_subgroup_size",
+                                     "cl_intel_spirv_subgroups",
+                                     "cl_intel_subgroups",
+                                     "cl_intel_subgroups_char",
+                                     "cl_intel_subgroups_long",
+                                     "cl_intel_subgroups_short",
+                                     "cl_khr_subgroup_extended_types",
+                                     "cl_khr_subgroup_non_uniform_arithmetic",
+                                     "cl_khr_subgroup_shuffle",
+                                     "cl_khr_subgroup_shuffle_relative"};
   // Remove trailing '\0'
   extensions.erase(std::find(extensions.begin(), extensions.end(), '\0'),
                    extensions.end());

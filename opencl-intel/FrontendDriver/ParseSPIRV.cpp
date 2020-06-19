@@ -181,6 +181,7 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported(std::string &error) const {
     case spv::CapabilitySubgroupShuffleINTEL:
     case spv::CapabilitySubgroupBufferBlockIOINTEL:
     case spv::CapabilitySubgroupImageBlockIOINTEL:
+    case spv::CapabilitySubgroupDispatch:
     case spv::CapabilityInt64Atomics:
       // Function pointers support
     case spv::CapabilityFunctionPointersINTEL:
