@@ -1032,7 +1032,9 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
       for (auto *FV : {Cons, Des, CombinerFn, Init}) {
         addArg(FV);
         if (auto *Fn = dyn_cast_or_null<llvm::Function>(FV))
-          if (CGF.getLangOpts().OpenMPIsDevice && CGF.CGM.inTargetRegion())
+          if (CGF.getLangOpts().OpenMPIsDevice &&
+              (CGF.CGM.inTargetRegion() ||
+               isOpenMPTargetExecutionDirective(Directive.getDirectiveKind())))
             Fn->addFnAttr("openmp-target-declare", "true");
       }
     }
