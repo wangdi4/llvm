@@ -795,10 +795,12 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   } else
     AddLinkerInputs(ToolChain, Inputs, Args, CmdArgs, JA);
 
-  // The profile runtime also needs access to system libraries.
-  getToolChain().addProfileRTLibs(Args, CmdArgs);
-
 #if INTEL_CUSTOMIZATION
+  if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs) ||
+      !Args.hasArg(options::OPT__intel))
+    // The profile runtime also needs access to system libraries.
+    getToolChain().addProfileRTLibs(Args, CmdArgs);
+
   if (Args.hasArg(options::OPT_ipp_EQ))
     addIPPLibs(CmdArgs, Args, ToolChain);
   if (Args.hasArg(options::OPT_mkl_EQ))

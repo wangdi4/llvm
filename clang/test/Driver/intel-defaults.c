@@ -98,3 +98,11 @@
 // RUN: %clang_cl -### --intel -c -Qipo -Qopt-mem-layout-trans:4 -Ofast %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT-LIGHT %s
 // CHECK-INTEL-LOOPOPT-LIGHT: "-mllvm" "-loopopt=1"
 // CHECK-INTEL-LOOPOPT-AVX-NOT: "-mllvm" "-enable-lv"
+
+// Profiling lib not linked in with -nodefaultlibs
+// RUN: %clang -target i686-pc-linux-gnu -### %s --intel -fprofile-generate -nodefaultlibs 2>&1 \
+// RUN:   | FileCheck -check-prefix CHECK-PROFLIB %s
+// RUN: %clang -target i686-pc-linux-gnu -### %s --intel -fprofile-instr-generate -nodefaultlibs 2>&1 \
+// RUN:   | FileCheck -check-prefix CHECK-PROFLIB %s
+// CHECK-PROFLIB-NOT: clang_rt.profile
+
