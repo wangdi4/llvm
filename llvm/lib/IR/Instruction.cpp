@@ -793,6 +793,15 @@ static MDNode *eraseLoopOptReport(MDNode *LoopID, LLVMContext &Context) {
   NewLoopID->replaceOperandWith(0, NewLoopID);
   return NewLoopID;
 }
+
+// Returns a copy of MD with operands(0) => operands(maxOps).
+static MDNode *cloneMDNodeWithMaxOps(MDNode *MD, unsigned maxOps) {
+  SmallVector<Metadata *, 2> ops;
+  for (unsigned i = 0; i <= maxOps; i++)
+    ops.push_back(MD->getOperand(i));
+  return MDNode::get(MD->getContext(), ops);
+}
+
 #endif // INTEL_CUSTOMIZATION
 void Instruction::copyMetadata(const Instruction &SrcInst,
                                ArrayRef<unsigned> WL) {
@@ -821,8 +830,21 @@ void Instruction::copyMetadata(const Instruction &SrcInst,
         setMetadata(MD.first, NewMD);
         continue;
       }
+
+      // 20563: If we are attaching !prof branch_weights to a call, use
+      // only the 1st edge operand.
+      MDNode *MDN = MD.second;
+      if (MD.first == LLVMContext::MD_prof) {
+        assert(MDN->getNumOperands() >= 2 && MDN->getOperand(0) &&
+               isa<MDString>(MDN->getOperand(0)) && "Invalid !prof annotation");
+        StringRef ProfName = (cast<MDString>(MDN->getOperand(0)))->getString();
+        if (ProfName.equals("branch_weights"))
+          if (getOpcode() == Instruction::Call)
+            MDN = cloneMDNodeWithMaxOps(MDN, 1);
+      }
+
       if (MD.second != MDIR)
-        setMetadata(MD.first, MD.second);
+        setMetadata(MD.first, MDN);
     }
 #endif // INTEL_CUSTOMIZATION
   }
