@@ -109,6 +109,7 @@ VPlanPeelingCandidate::VPlanPeelingCandidate(VPInstruction *Memref,
 void VPlanPeelingAnalysis::collectMemrefs(VPlan &Plan) {
   collectCandidateMemrefs(Plan);
   computeCongruentMemrefs();
+  LLVM_DEBUG(dump());
 }
 
 std::unique_ptr<VPlanPeelingVariant>
@@ -332,4 +333,39 @@ void VPlanPeelingAnalysis::computeCongruentMemrefs() {
 
     StepBegin = StepEnd;
   }
+}
+
+void VPlanPeelingAnalysis::dump() {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  dbgs() << "\nVPlanPeelingAnalysis Candidate Memrefs:\n";
+
+  for (auto &Mrf : CandidateMemrefs) {
+    // Print the memref.
+    dbgs() << '[' << Mrf.memref() << "] ";
+    Mrf.memref()->print(dbgs());
+
+    // Print 8 low (known) bits.
+    dbgs() << " | KB = 0b";
+    const KnownBits &KB = Mrf.invariantBaseKnownBits();
+    for (int i = 7; i >= 0; --i) {
+      if (KB.One[i])
+        dbgs() << '1';
+      else if (KB.Zero[i])
+        dbgs() << '0';
+      else
+        dbgs() << '?';
+    }
+    dbgs() << '\n';
+
+    // Print congruent memrefs.
+    auto &CongruentList = CongruentMemrefs[Mrf.memref()];
+    for (auto &Pair : CongruentList) {
+      dbgs() << "  -> [" << Pair.first << "] ";
+      Pair.first->print(dbgs());
+      dbgs() << " (A" << Pair.second.value() << ")\n";
+    }
+    if (CongruentList.empty())
+      dbgs() << "  (none)\n";
+  }
+#endif
 }
