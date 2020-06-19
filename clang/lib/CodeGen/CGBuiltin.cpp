@@ -2770,15 +2770,6 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     return RValue::get(Result);
   }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  case Builtin::BI__builtin_isinff:
-  case Builtin::BI__builtin_isinfl:
-  case Builtin::BI__builtin_finite:
-  case Builtin::BI__builtin_finitef:
-  case Builtin::BI__builtin_finitel:
-#endif  // INTEL_CUSTOMIZATION
-=======
   case Builtin::BI__builtin_matrix_column_major_store: {
     MatrixBuilder<CGBuilderTy> MB(Builder);
     Value *Matrix = EmitScalarExpr(E->getArg(0));
@@ -2797,8 +2788,13 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
         Stride, IsVolatile, MatrixTy->getNumRows(), MatrixTy->getNumColumns());
     return RValue::get(Result);
   }
-
->>>>>>> 817831345772152da3cefdaf660e877b3b5a1267
+#if INTEL_CUSTOMIZATION
+  case Builtin::BI__builtin_isinff:
+  case Builtin::BI__builtin_isinfl:
+  case Builtin::BI__builtin_finite:
+  case Builtin::BI__builtin_finitef:
+  case Builtin::BI__builtin_finitel:
+#endif  // INTEL_CUSTOMIZATION
   case Builtin::BIfinite:
   case Builtin::BI__finite:
   case Builtin::BIfinitef:
