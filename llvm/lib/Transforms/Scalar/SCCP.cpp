@@ -70,10 +70,15 @@ using namespace llvm;
 
 STATISTIC(NumInstRemoved, "Number of instructions removed");
 STATISTIC(NumDeadBlocks , "Number of basic blocks unreachable");
+STATISTIC(NumInstReplaced,
+          "Number of instructions replaced with (simpler) instruction");
 
 STATISTIC(IPNumInstRemoved, "Number of instructions removed by IPSCCP");
 STATISTIC(IPNumArgsElimed ,"Number of arguments constant propagated by IPSCCP");
 STATISTIC(IPNumGlobalConst, "Number of globals found to be constant by IPSCCP");
+STATISTIC(
+    IPNumInstReplaced,
+    "Number of instructions replaced with (simpler) instruction by IPSCCP");
 
 #if INTEL_CUSTOMIZATION
 static cl::opt<bool>
@@ -290,6 +295,8 @@ public:
     }
     return StructValues;
   }
+
+  void removeLatticeValueFor(Value *V) { ValueState.erase(V); }
 
   const ValueLatticeElement &getLatticeValueFor(Value *V) const {
     assert(!V->getType()->isStructTy() &&
@@ -1642,7 +1649,9 @@ static bool tryToReplaceWithConstant(SCCPSolver &Solver, Value *V) {
 }
 
 static bool simplifyInstsInBlock(SCCPSolver &Solver, BasicBlock &BB,
-                                 Statistic &InstRemovedStat) {
+                                 SmallPtrSetImpl<Value *> &InsertedValues,
+                                 Statistic &InstRemovedStat,
+                                 Statistic &InstReplacedStat) {
   bool MadeChanges = false;
   for (Instruction &Inst : make_early_inc_range(BB)) {
     if (Inst.getType()->isVoidTy())
@@ -1653,6 +1662,22 @@ static bool simplifyInstsInBlock(SCCPSolver &Solver, BasicBlock &BB,
       // Hey, we just changed something!
       MadeChanges = true;
       ++InstRemovedStat;
+    } else if (isa<SExtInst>(&Inst)) {
+      Value *ExtOp = Inst.getOperand(0);
+      if (isa<Constant>(ExtOp) || InsertedValues.count(ExtOp))
+        continue;
+      const ValueLatticeElement &IV = Solver.getLatticeValueFor(ExtOp);
+      if (!IV.isConstantRange(/*UndefAllowed=*/false))
+        continue;
+      if (IV.getConstantRange().isAllNonNegative()) {
+        auto *ZExt = new ZExtInst(ExtOp, Inst.getType(), "", &Inst);
+        InsertedValues.insert(ZExt);
+        Inst.replaceAllUsesWith(ZExt);
+        Solver.removeLatticeValueFor(&Inst);
+        Inst.eraseFromParent();
+        InstReplacedStat++;
+        MadeChanges = true;
+      }
     }
   }
   return MadeChanges;
@@ -1688,6 +1713,7 @@ static bool runSCCP(Function &F, const DataLayout &DL,
   // delete their contents now.  Note that we cannot actually delete the blocks,
   // as we cannot modify the CFG of the function.
 
+  SmallPtrSet<Value *, 32> InsertedValues;
   for (BasicBlock &BB : F) {
     if (!Solver.isBlockExecutable(&BB)) {
       LLVM_DEBUG(dbgs() << "  BasicBlock Dead:" << BB);
@@ -1699,7 +1725,8 @@ static bool runSCCP(Function &F, const DataLayout &DL,
       continue;
     }
 
-    MadeChanges |= simplifyInstsInBlock(Solver, BB, NumInstRemoved);
+    MadeChanges |= simplifyInstsInBlock(Solver, BB, InsertedValues,
+                                        NumInstRemoved, NumInstReplaced);
   }
 
   return MadeChanges;
@@ -1944,6 +1971,7 @@ bool llvm::runIPSCCP(
         }
       }
 
+    SmallPtrSet<Value *, 32> InsertedValues;
     for (BasicBlock &BB : F) {
       if (!Solver.isBlockExecutable(&BB)) {
         LLVM_DEBUG(dbgs() << "  BasicBlock Dead:" << BB);
@@ -1956,7 +1984,8 @@ bool llvm::runIPSCCP(
         continue;
       }
 
-      MadeChanges |= simplifyInstsInBlock(Solver, BB, IPNumInstRemoved);
+      MadeChanges |= simplifyInstsInBlock(Solver, BB, InsertedValues,
+                                          IPNumInstRemoved, IPNumInstReplaced);
     }
 
     DomTreeUpdater DTU = Solver.getDTU(F);

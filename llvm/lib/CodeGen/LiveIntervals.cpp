@@ -1344,7 +1344,7 @@ private:
           OldIdxOut->start = NewIdxDef;
           OldIdxVNI->def = NewIdxDef;
           if (OldIdxIn != E && SlotIndex::isEarlierInstr(NewIdx, OldIdxIn->end))
-            OldIdxIn->end = NewIdx.getRegSlot();
+            OldIdxIn->end = NewIdxDef;
         }
       } else if (OldIdxIn != E
           && SlotIndex::isEarlierInstr(NewIdxOut->start, NewIdx)
