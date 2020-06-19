@@ -113,8 +113,8 @@
 // RUN: %clang_cl -### %s -c /Qoption,cpp,-MMD 2>&1 | FileCheck %s --check-prefix=CHECK-QOPTION-PREPROCESSOR
 // CHECK-QOPTION-PREPROCESSOR: "-MMD"
 
-// RUN: %clang -### %s -Qoption,ld,--no-demangle 2>&1 | FileCheck %s --check-prefix=CHECK-QOPTION-LD-ARG
-// RUN: %clang -### %s -Qoption,link,--no-demangle 2>&1 | FileCheck %s --check-prefix=CHECK-QOPTION-LD-ARG
+// RUN: %clang -target x86_64-unknown-linux-gnu -### %s -Qoption,ld,--no-demangle 2>&1 | FileCheck %s --check-prefix=CHECK-QOPTION-LD-ARG
+// RUN: %clang -target x86_64-unknown-linux-gnu -### %s -Qoption,link,--no-demangle 2>&1 | FileCheck %s --check-prefix=CHECK-QOPTION-LD-ARG
 // RUN: %clang_cl -### %s /Qoption,ld,--no-demangle 2>&1 | FileCheck %s --check-prefix=CHECK-QOPTIONCL-LD-ARG
 // RUN: %clang_cl -### %s /Qoption,link,--no-demangle 2>&1 | FileCheck %s --check-prefix=CHECK-QOPTIONCL-LD-ARG
 // CHECK-QOPTION-LD-ARG: ld{{.*}} "--no-demangle"
@@ -129,7 +129,7 @@
 // RUN: %clang_cl -c -### %s /Qoption,compiler,-MP,-mintrinsic-promote,-extended_float_types 2>&1 | FileCheck %s --check-prefix=CHECK-QOPTION-COMPILER-ARGS
 // CHECK-QOPTION-COMPILER-ARGS: "-MP" "-mintrinsic-promote" "-extended_float_types"
 
-// RUN: %clang -### %s -Qoption,l,--no-demangle -Qoption,compiler,-MP,-mintrinsic-promote,--extended_float_types -Qoption,cpp,-MMD -Qoption,a,--compress-debug-sections 2>&1 | FileCheck %s --check-prefix=CHECK-QOPTION-TOOLS-ARGS
+// RUN: %clang -target x86_64-unknown-linux-gnu -### %s -Qoption,l,--no-demangle -Qoption,compiler,-MP,-mintrinsic-promote,--extended_float_types -Qoption,cpp,-MMD -Qoption,a,--compress-debug-sections 2>&1 | FileCheck %s --check-prefix=CHECK-QOPTION-TOOLS-ARGS
 // CHECK-QOPTION-TOOLS-ARGS: "--compress-debug-sections"
 // CHECK-QOPTION-TOOLS-ARGS: "-MMD"
 // CHECK-QOPTION-TOOLS-ARGS: "-MP" "-mintrinsic-promote" "--extended_float_types"
