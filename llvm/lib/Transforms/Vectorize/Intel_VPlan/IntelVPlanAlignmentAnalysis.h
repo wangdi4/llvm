@@ -185,6 +185,9 @@ public:
   selectBestDynamicPeelingVariant(int VF);
 
 private:
+  void collectCandidateMemrefs(VPlan &Plan);
+
+private:
   VPlanPeelingCostModel *CM;
   VPlanScalarEvolution *VPSE;
   VPlanValueTracking *VPVT;
