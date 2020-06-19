@@ -137,9 +137,11 @@ bool HIRNontemporalMarking::markInnermostLoop(HLLoop *Loop) {
         ConstantInt::get(Type::getInt32Ty(HIRF.getContext()), 1)));
   HLNode &LoopHead = *Loop->child_begin();
   for (HLNode &N : make_range(Loop->child_begin(), Loop->child_end())) {
-    // Stop processing if we'll not be executed every iteration.
+    // Only consider stores that postdominate the header, as only they have the
+    // potential to be contiguous (needed for the library function to kick in
+    // for unaligned stores).
     if (!HLNodeUtils::postDominates(&N, &LoopHead))
-      break;
+      continue;
 
     // Check if it's a store that's not marked nontemporal.
     HLInst *I = dyn_cast<HLInst>(&N);
