@@ -1792,6 +1792,7 @@ bool VPOParoptTransform::paroptTransforms() {
           debugPrintHeader(W, Mode);
           Changed |= regularizeOMPLoop(W, false);
           Changed |= genPrivatizationCode(W);
+          Changed |= genAlignedCode(W);
           if (W->getWRNLoopInfo().getNormIVSize() != 0) {
             // Code for SIMD clauses, such as lastprivate, must be inserted
             // outside of the loop. And this insertion must be coordinated
@@ -4123,6 +4124,85 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
   return Changed;
 }
 
+// Generate code for aligned clause.
+bool VPOParoptTransform::genAlignedCode(WRegionNode *W) {
+  bool Changed = false;
+
+  LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genAlignedCode\n");
+
+  AlignedClause &Aligned = W->getAligned();
+  if (!Aligned.empty()) {
+    W->populateBBSet();
+
+    BasicBlock *Entry = W->getEntryBBlock();
+    assert(VPOAnalysisUtils::isBeginDirective(Entry));
+    auto *EntryDir = cast<IntrinsicInst>(W->getEntryDirective());
+
+    // Helper lambda that on demand creates a separate block for generating
+    // aligned code. This block is a successor of the work region entry block.
+    auto GetAlignedBlock = [this, Entry,
+                            Block = (BasicBlock *)nullptr]() mutable {
+      if (!Block)
+        Block = SplitBlock(Entry, Entry->getTerminator(), DT, LI);
+      return Block;
+    };
+
+    for (const AlignedItem *AI : Aligned) {
+      Value *Ptr = AI->getOrig();
+      if (!Ptr)
+        continue;
+
+      // Replace reference to the 'orig' value with 'null' in the directive
+      // since there is no need to keep it in the directive after paropt
+      // lowering.
+      for (auto &BOI : make_range(std::next(EntryDir->bundle_op_info_begin()),
+                                  EntryDir->bundle_op_info_end())) {
+        // Get clause ID and check if it is a clause of interest.
+        ClauseSpecifier CS(BOI.Tag->getKey());
+        if (CS.getId() != QUAL_OMP_ALIGNED)
+          continue;
+
+        // Check bundle operand uses and zap the ones matching.
+        for (unsigned I = BOI.Begin, E = BOI.End; I < E; ++I) {
+          Use &U = EntryDir->getOperandUse(I);
+          if (Ptr != U.get())
+            continue;
+          U.set(Constant::getNullValue(U->getType()));
+        }
+      }
+
+      // According to the specification 'alignmnent' value is optional and when
+      // it is not provided FE sets 'alignment' to 0. In such case, according to
+      // specification, we can use an "implementation-defined default alignments
+      // for SIMD instructions on the target platforms", but I am not sure that
+      // TTI currently provides such information.
+      int Align = AI->getAlign();
+      if (!Align)
+        continue;
+
+      // Generate llvm.assume call for the specified value.
+      // TODO: Can change IRBuilder::CreateAlignmentAssumption() to generate
+      // such call and then use this method here.
+      IRBuilder<> Builder(GetAlignedBlock()->getTerminator());
+      CallInst *Call = Builder.CreateCall(
+          Intrinsic::getDeclaration(F->getParent(), Intrinsic::assume),
+          Builder.getTrue(),
+          OperandBundleDef(
+              "align", std::vector<Value *>({Ptr, Builder.getInt32(Align)})));
+
+      // And then add it to the assumption cache.
+      AC->registerAssumption(Call);
+
+      Changed = true;
+    }
+  }
+
+  LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genAlignedCode\n");
+
+  W->resetBBSetIfChanged(Changed);
+  return Changed;
+}
+
 // For array sections, generate a base + offset GEP corresponding to the
 // section's starting address.
 Value *VPOParoptTransform::genBasePlusOffsetGEPForArraySection(
@@ -5086,14 +5166,19 @@ bool VPOParoptTransform::genLinearCodeForVecLoop(WRegionNode *W,
 
   LLVM_DEBUG(dbgs() << "\nEnter VPOParoptTransform::genLinearCodeForVecLoop\n");
 
-  W->populateBBSet();
   Instruction *EntryDirective = W->getEntryDirective();
   Instruction *LinearAllocaInsertPt =
       VPOParoptUtils::getInsertionPtForAllocas(W, F);
 
+  // Create separate block for linear initialization code.
+  BasicBlock *InitBB = W->getEntryBBlock();
+  BasicBlock *EntryBB = SplitBlock(InitBB, EntryDirective, DT, LI);
+  W->setEntryBBlock(EntryBB);
+  W->populateBBSet(/*Always=*/true);
+
   // Create IRBuilders for initial copyin and final copyout to/from the local
   // copy of linear.
-  IRBuilder<> InitBuilder(EntryDirective);
+  IRBuilder<> InitBuilder(InitBB->getTerminator());
   IRBuilder<> FiniBuilder(LinearFiniBB->getTerminator());
 
   for (LinearItem *LinearI : LrClause.items()) {
@@ -5133,6 +5218,7 @@ bool VPOParoptTransform::genLinearCodeForVecLoop(WRegionNode *W,
   }
 
   LLVM_DEBUG(dbgs() << "\nExit VPOParoptTransform::genLinearCodeForVecLoop\n");
+  W->resetBBSet(); // CFG changed; clear BBSet
   return true;
 }
 

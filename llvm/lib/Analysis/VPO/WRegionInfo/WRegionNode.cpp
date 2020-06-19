@@ -1432,6 +1432,11 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     AlignedClause &C = getAligned();
     for (unsigned I = 0; I < NumArgs - 1; ++I) {
       Value *V = Args[I];
+      if (!V || isa<ConstantPointerNull>(V)) {
+        LLVM_DEBUG(dbgs() << __FUNCTION__
+                          << " Ignoring null clause operand.\n");
+        continue;
+      }
       C.add(V);
       C.back()->setAlign(Alignment);
     }
