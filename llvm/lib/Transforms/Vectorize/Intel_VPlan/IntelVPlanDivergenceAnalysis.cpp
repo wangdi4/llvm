@@ -1258,6 +1258,10 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     NewShape = computeVectorShapeForUnaryInst(I);
   else if (Opcode == VPInstruction::Not || Opcode == VPInstruction::Pred)
     NewShape = getObservedShape(ParentBB, *(I->getOperand(0)));
+  else if (Opcode == VPInstruction::Abs)
+    // Shape computation of abs instruction is same as unary instruction for
+    // now. Revisit in future if this needs to change.
+    NewShape = computeVectorShapeForUnaryInst(I);
   else if (Opcode == VPInstruction::AllZeroCheck)
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::InductionInit)

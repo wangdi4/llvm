@@ -3642,6 +3642,25 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
     break;
   }
 
+  case VPInstruction::Abs: {
+    assert(RefOp0->isTerminalRef() && "Expected terminal ref");
+
+    // Generate DDRef for -RefOp0.
+    SmallVector<const RegDDRef *, 2> AuxRefs = {RefOp0};
+    RegDDRef *NegRef = RefOp0->clone();
+    NegRef->getSingleCanonExpr()->negate();
+    NegRef->makeConsistent(AuxRefs, OrigLoop->getNestingLevel());
+
+    // Create the following select instruction:
+    //    RefOp0 < 0 ? NegRef : RefOp0
+    RegDDRef *ZeroRef =
+        DDRefUtilities.createConstDDRef(RefOp0->getDestType(), (int64_t)0);
+    NewInst =
+        HLNodeUtilities.createSelect(CmpInst::ICMP_SLT, RefOp0, ZeroRef, NegRef,
+                                     RefOp0->clone(), InstName, nullptr);
+    break;
+  }
+
   case Instruction::Select: {
     auto PredInst = cast<VPCmpInst>(VPInst->getOperand(0));
     RegDDRef *Pred0, *Pred1;

@@ -30,12 +30,8 @@
 ; VPCHECK: |   %.vec2 = (<16 x i8>*)(%2)[sext.i32.i64(%3) * i1];
 ; VPCHECK: |   %.vec3 = %.vec2  *  -1;
 ; VPCHECK: |   %.vec4 = %.vec  +  %.vec3;
-; VPCHECK: |   %.vec5 = %.vec  *  -1;
-; VPCHECK: |   %.vec6 = %.vec5  +  %.vec2;
-; VPCHECK: |   %.vec7 = %.vec2  *  -1;
-; VPCHECK: |   %.vec8 = %.vec  +  %.vec7;
-; VPCHECK: |   %.vec9 = (%.vec4 < 0) ? %.vec6 : %.vec8;
-; VPCHECK: |   %red.var = %.vec9  +  %red.var;
+; VPCHECK: |   %.vec5 = (%.vec4 < 0) ? -1 * %.vec4 : %.vec4;
+; VPCHECK: |   %red.var = %.vec5  +  %red.var;
 ; VPCHECK: + END LOOP
 
 ; UNR-CHECK: Function: x264_pixel_sad_16x16

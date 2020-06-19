@@ -119,6 +119,13 @@ public:
       NewVPCall->HIR.setUnderlyingNode(DDNode);
     return NewVPCall;
   }
+
+  VPInstruction *createAbs(VPValue *Operand, loopopt::HLDDNode *DDNode) {
+    VPInstruction *AbsInst = cast<VPInstruction>(VPBuilder::createAbs(Operand));
+    if (DDNode)
+      AbsInst->HIR.setUnderlyingNode(DDNode);
+    return AbsInst;
+  }
 };
 
 } // namespace vpo

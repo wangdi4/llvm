@@ -404,6 +404,24 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
     return 0;
   }
 #if INTEL_CUSTOMIZATION
+  case VPInstruction::Abs: {
+    // Cost of Abs instruction is computed as cost of a compare followed by
+    // a select for now.
+    Type *OpTy = VPInst->getOperand(0)->getCMType();
+    if (!OpTy)
+      return UnknownCost;
+
+    Type *VecOpTy = getWidenedType(OpTy, VF);
+    Type *CmpTy = Type::getInt1Ty(*(Plan->getLLVMContext()));
+    Type *VecCmpTy =
+        getWidenedType(CmpTy, cast<VectorType>(VecOpTy)->getNumElements());
+
+    unsigned CmpCost = TTI->getCmpSelInstrCost(Instruction::ICmp, VecOpTy);
+    unsigned SelectCost =
+        TTI->getCmpSelInstrCost(Instruction::Select, VecOpTy, VecCmpTy);
+    return CmpCost + SelectCost;
+  }
+
   // TODO - costmodel support for AllZeroCheck.
   case VPInstruction::AllZeroCheck:
     return 0;
