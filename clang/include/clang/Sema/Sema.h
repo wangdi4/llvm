@@ -12539,6 +12539,8 @@ private:
                                         ExprResult CallResult);
   ExprResult SemaBuiltinMatrixColumnMajorLoad(CallExpr *TheCall,
                                               ExprResult CallResult);
+  ExprResult SemaBuiltinMatrixColumnMajorStore(CallExpr *TheCall,
+                                               ExprResult CallResult);
 
 public:
   enum FormatStringType {
