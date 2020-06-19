@@ -140,9 +140,16 @@ public:
                         VPConstStepInduction AccessAddress,
                         KnownBits InvariantBaseKnownBits);
 
-  VPInstruction *memref() { return Memref; }
-  const VPConstStepInduction &accessAddress() { return AccessAddress; }
-  const KnownBits &invariantBaseKnownBits() { return InvariantBaseKnownBits; }
+  VPInstruction *memref() const { return Memref; }
+  const VPConstStepInduction &accessAddress() const { return AccessAddress; }
+  const KnownBits &invariantBaseKnownBits() const {
+    return InvariantBaseKnownBits;
+  }
+
+  static bool ordByStep(const VPlanPeelingCandidate &L,
+                        const VPlanPeelingCandidate &R) {
+    return L.accessAddress().Step < R.accessAddress().Step;
+  }
 
 private:
   /// Load or Store instruction.
@@ -186,13 +193,25 @@ public:
 
 private:
   void collectCandidateMemrefs(VPlan &Plan);
+  void computeCongruentMemrefs();
 
 private:
   VPlanPeelingCostModel *CM;
   VPlanScalarEvolution *VPSE;
   VPlanValueTracking *VPVT;
   const DataLayout *DL;
+
+  /// List of all memrefs that are candidates for peeling sorted by step of
+  /// access address.
   std::vector<VPlanPeelingCandidate> CandidateMemrefs;
+
+  /// Table that describes relations between alignment of different memrefs. It
+  /// maps every memref Mrf from CandidateMemrefs to a possibly empty list of
+  /// pairs [(MrfX, AlignX)], where AlignX is the maximum alignment that can be
+  /// propagated from Mrf to MrfX. Notice that for the sake of efficiency, the
+  /// map doesn't contain non-interesting cases with AlignX ≤ RequiredAlignment.
+  DenseMap<VPInstruction *, std::vector<std::pair<VPInstruction *, Align>>>
+      CongruentMemrefs;
 };
 
 } // namespace vpo

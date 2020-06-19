@@ -279,6 +279,89 @@ TEST_F(VPlanPeelingAnalysisTest, DynamicPeeling_Load) {
   EXPECT_EQ(DP16.multiplier(), 15);
 }
 
+TEST_F(VPlanPeelingAnalysisTest, DynamicPeeling_Cost) {
+  buildVPlanFromString(
+    "define void @foo(i32 *%buf, i64 %x) {\n"
+    "entry:\n"
+    "  %offset0 = mul i64 %x, 16\n"
+    "  %offset1 = mul i64 %x, 32\n"
+    "  %offset2 = mul i64 %x, 64\n"
+    "  %offset3 = add i64 %offset0, 3\n"
+    "  %offset4 = add i64 %offset1, 5\n"
+    "  %offset5 = add i64 %offset2, 7\n"
+    // %ptr1 = %buf + 128 * %x
+    "  %ptr1 = getelementptr inbounds i32, i32* %buf, i64 %offset1\n"
+    // %ptr2 = %buf + 256 * %x
+    "  %ptr2 = getelementptr inbounds i32, i32* %buf, i64 %offset2\n"
+    // %ptr3 = %buf + 64 * %x + 12
+    "  %ptr3 = getelementptr inbounds i32, i32* %buf, i64 %offset3\n"
+    // %ptr4 = %buf + 128 * %x + 20
+    "  %ptr4 = getelementptr inbounds i32, i32* %buf, i64 %offset4\n"
+    // %ptr5 = %buf + 256 * %x + 28
+    "  %ptr5 = getelementptr inbounds i32, i32* %buf, i64 %offset5\n"
+    "  br label %for.body\n"
+    "for.body:\n"
+    "  %counter = phi i64 [ 0, %entry ], [ %counter.next, %for.body ]\n"
+    "  %count32 = trunc i64 %counter to i32\n"
+    "  %p1 = getelementptr inbounds i32, i32* %ptr1, i64 %counter\n"
+    "  %p2 = getelementptr inbounds i32, i32* %ptr2, i64 %counter\n"
+    "  %p3 = getelementptr inbounds i32, i32* %ptr3, i64 %counter\n"
+    "  %p4 = getelementptr inbounds i32, i32* %ptr4, i64 %counter\n"
+    "  %p5 = getelementptr inbounds i32, i32* %ptr5, i64 %counter\n"
+    "  store i32 %count32, i32* %p1\n"
+    "  store i32 %count32, i32* %p2\n"
+    "  store i32 %count32, i32* %p3\n"
+    "  store i32 %count32, i32* %p4\n"
+    "  store i32 %count32, i32* %p5\n"
+    "  %counter.next = add nsw i64 %counter, 1\n"
+    "  %exitcond = icmp sge i64 %counter.next, 10240\n"
+    "  br i1 %exitcond, label %exit, label %for.body\n"
+    "exit:\n"
+    "  ret void\n"
+    "}\n");
+
+  VPlanPeelingCostModelLog CM;
+  setupPeelingAnalysis(CM);
+
+  // Check that the dynamic variant beats the static one.
+  std::unique_ptr<VPlanPeelingVariant> PV4 = VPPA->selectBestPeelingVariant(4);
+  EXPECT_TRUE(isa<VPlanDynamicPeeling>(*PV4));
+
+  // VF = 4.
+  // Best alignment:
+  //   %ptr1: 4 ->  4 (cost -= 0)
+  //   %ptr2: 4 ->  4 (cost -= 0)
+  //   %ptr3: 4 -> 16 (cost -= 2)
+  //   %ptr4: 4 ->  8 (cost -= 1)
+  //   %ptr5: 4 -> 16 (cost -= 2)
+  Optional<std::pair<VPlanDynamicPeeling, int>> P4 =
+      VPPA->selectBestDynamicPeelingVariant(4);
+  EXPECT_EQ(P4->second, 5);
+
+  std::string S4;
+  raw_string_ostream OS4(S4);
+  VPSE->toSCEV(P4->first.invariantBase())->print(OS4);
+  EXPECT_EQ(S4, "(12 + (64 * %x) + %buf)");
+  EXPECT_EQ(P4->first.targetAlignment(), 16);
+
+  // VF = 16.
+  // Best alignment:
+  //   %ptr1: 4 -> 64 (cost -= 4)
+  //   %ptr2: 4 -> 64 (cost -= 4)
+  //   %ptr3: 4 ->  4 (cost -= 0)
+  //   %ptr4: 4 ->  4 (cost -= 0)
+  //   %ptr5: 4 ->  4 (cost -= 0)
+  Optional<std::pair<VPlanDynamicPeeling, int>> P16 =
+      VPPA->selectBestDynamicPeelingVariant(16);
+  EXPECT_EQ(P16->second, 8);
+
+  std::string S16;
+  raw_string_ostream OS16(S16);
+  VPSE->toSCEV(P16->first.invariantBase())->print(OS16);
+  EXPECT_EQ(S16, "((128 * %x) + %buf)<nsw>");
+  EXPECT_EQ(P16->first.targetAlignment(), 64);
+}
+
 TEST_F(VPlanPeelingAnalysisTest, StaticPeeling_LowPeelCount) {
   // Static peeling with lower PeelCount should be preferred to peeling with
   // higher PeelCount if the profit is the same (same access type).
