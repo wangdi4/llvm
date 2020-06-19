@@ -169,15 +169,10 @@ VPlanCostModel::getMemInstAlignment(const VPInstruction *VPInst) const {
   return DL->getABITypeAlignment(getMemInstValueType(VPInst));
 }
 
-bool VPlanCostModel::isUnitStrideLoadStore(
-  const VPInstruction *VPInst,
-  bool &NegativeStride) const {
+bool VPlanCostModel::isUnitStrideLoadStore(const VPInstruction *VPInst,
+                                           bool &NegativeStride) const {
   const VPValue *P = getLoadStorePointerOperand(VPInst);
-  if (!Plan->getVPlanDA()->isUnitStridePtr(P))
-    return false;
-
-  NegativeStride = (Plan->getVPlanDA()->getVectorShape(P).getStrideVal() < 0);
-  return true;
+  return Plan->getVPlanDA()->isUnitStridePtr(P, NegativeStride);
 }
 
 unsigned VPlanCostModel::getLoadStoreIndexSize(

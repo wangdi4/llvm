@@ -6133,7 +6133,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                           options::OPT_fno_pack_struct, false)) {
     CmdArgs.push_back("-fpack-struct=1");
 #if INTEL_CUSTOMIZATION
-  } else if (Args.hasArg(options::OPT__intel))
+  } else if (Args.hasArg(options::OPT__intel) && C.getDriver().IsCLMode())
     // For the Intel compiler, /Zp16 is the default
     CmdArgs.push_back("-fpack-struct=16");
 #endif // INTEL_CUSTOMIZATION

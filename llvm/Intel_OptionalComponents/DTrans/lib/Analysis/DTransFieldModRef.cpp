@@ -411,7 +411,7 @@ void DTransModRefAnalyzer::initialize(Module &M) {
       dtrans::AmbiguousPointerTarget | dtrans::AddressTaken |
       dtrans::NoFieldsInStruct | dtrans::NestedStruct | dtrans::SystemObject |
       dtrans::MismatchedArgUse | dtrans::BadCastingConditional |
-      dtrans::UnsafePointerStoreConditional;
+      dtrans::BadCastingForRelatedTypes | dtrans::UnsafePointerStoreConditional;
 
   // List of additional safety conditions that are done to be conservative.
   // These could be relaxed in the future with additional analysis.
