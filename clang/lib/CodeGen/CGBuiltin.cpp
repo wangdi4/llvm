@@ -2751,15 +2751,6 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     return RValue::get(Result);
   }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-  case Builtin::BI__builtin_isinff:
-  case Builtin::BI__builtin_isinfl:
-  case Builtin::BI__builtin_finite:
-  case Builtin::BI__builtin_finitef:
-  case Builtin::BI__builtin_finitel:
-#endif  // INTEL_CUSTOMIZATION
-=======
   case Builtin::BI__builtin_matrix_column_major_load: {
     MatrixBuilder<CGBuilderTy> MB(Builder);
     // Emit everything that isn't dependent on the first parameter type
@@ -2779,7 +2770,13 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     return RValue::get(Result);
   }
 
->>>>>>> 934bcaf10b57fc199d9b15722ea50f65a791ca4e
+#if INTEL_CUSTOMIZATION
+  case Builtin::BI__builtin_isinff:
+  case Builtin::BI__builtin_isinfl:
+  case Builtin::BI__builtin_finite:
+  case Builtin::BI__builtin_finitef:
+  case Builtin::BI__builtin_finitel:
+#endif  // INTEL_CUSTOMIZATION
   case Builtin::BIfinite:
   case Builtin::BI__finite:
   case Builtin::BIfinitef:
