@@ -720,29 +720,16 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     // For consecutive load/store we create a scalar GEP.
     // TODO: Extend support for private pointers and VLS-based unit-stride
     // optimization.
-    auto IsSimpleLoadStoreFrom = [](const VPValue *V,
-                                    const VPValue *Ptr) -> bool {
+    auto isVectorizableLoadStoreFrom = [this](const VPValue *V,
+                                              const VPValue *Ptr) -> bool {
       if (getLoadStorePointerOperand(V) != Ptr)
         return false;
 
-      auto *VPInst = cast<VPInstruction>(V);
-
-      // FIXME: Represent volatile/atomic property in VPInstruction itself,
-      // without using underlying LLVM instruction.
-      auto *Underlying = VPInst->getUnderlyingValue();
-      if (!Underlying)
-        return true;
-
-      unsigned Opcode = VPInst->getOpcode();
-
-      if (Opcode == Instruction::Load)
-        return cast<LoadInst>(Underlying)->isSimple();
-
-      return cast<StoreInst>(Underlying)->isSimple();
+      return isVectorizableLoadStore(V);
     };
     if (all_of(VPInst->users(),
                [&](VPUser *U) -> bool {
-                 return IsSimpleLoadStoreFrom(U, VPInst);
+                 return isVectorizableLoadStoreFrom(U, VPInst);
                }) &&
         isVPValueConsecutivePtrStride(VPInst, Plan) &&
         VPlanUseDAForUnitStride) {
@@ -2002,11 +1989,11 @@ void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
   VPValue *Ptr = VPInst->getOperand(0);
   int LinStride = 0;
 
+  // Loads that are non-vectorizable should be serialized.
   // TODO: First-class representation for volatile/atomic property inside
   // VPInstruction's subclass.
-  if (auto *Underlying = VPInst->getUnderlyingValue()) {
-    if (!cast<LoadInst>(Underlying)->isSimple())
-      return serializeWithPredication(VPInst);
+  if (!isVectorizableLoadStore(VPInst)) {
+    return serializeWithPredication(VPInst);
   }
 
   // Handle vectorization of a linear value load.
@@ -2212,9 +2199,9 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
   // Pointer operand of Store will always be second operand.
   VPValue *Ptr = VPInst->getOperand(1);
 
-  if (auto *Underlying = VPInst->getUnderlyingValue())
-    if (!cast<StoreInst>(Underlying)->isSimple())
-      return serializeWithPredication(VPInst);
+  // Stores that are non-vectorizable should be serialized.
+  if (!isVectorizableLoadStore(VPInst))
+    return serializeWithPredication(VPInst);
 
   // Handle vectorization of a linear value store.
   if (isVPValueLinear(Ptr)) {
@@ -2288,6 +2275,34 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
                                        "replicatedMaskElts.");
   Align Alignment = getAlignmentForGatherScatter(VPInst);
   Builder.CreateMaskedScatter(VecDataOp, ScatterPtr, Alignment, RepMaskValue);
+}
+
+bool VPOCodeGen::isVectorizableLoadStore(const VPValue *V) {
+  auto *VPInst = dyn_cast<VPInstruction>(V);
+  if (!VPInst)
+    return false;
+
+  if (VPInst->getOpcode() != Instruction::Load &&
+      VPInst->getOpcode() != Instruction::Store)
+    return false;
+
+  // TODO: Load/store to struct types can be potentially vectorized by doing a
+  // wide load/store followed by shuffle + bitcast.
+  if (!isVectorizableTy(getLoadStoreType(VPInst)))
+    return false;
+
+  // FIXME: Represent volatile/atomic property in VPInstruction itself,
+  // without using underlying LLVM instruction.
+  auto *Underlying = VPInst->getUnderlyingValue();
+  if (!Underlying)
+    return true;
+
+  unsigned Opcode = VPInst->getOpcode();
+
+  if (Opcode == Instruction::Load)
+    return cast<LoadInst>(Underlying)->isSimple();
+
+  return cast<StoreInst>(Underlying)->isSimple();
 }
 
 // This function returns computed addresses of memory locations which should be

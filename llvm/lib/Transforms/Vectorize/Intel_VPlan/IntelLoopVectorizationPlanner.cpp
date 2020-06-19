@@ -689,16 +689,6 @@ bool LoopVectorizationPlanner::canProcessVPlan(const VPlan &Plan) {
       return false;
     }
 
-  for (const VPBasicBlock &VPBB : Plan) {
-    for (const VPInstruction &VPInst : VPBB) {
-      // 1. Is instruction type supported/handled by VPlan?
-      if (!isVPlanSupportedTy(VPInst.getType())) {
-        LLVM_DEBUG(dbgs() << "LVP: Unsupported type found.\n");
-        return false;
-      }
-    }
-  }
-
   // All safety checks passed.
   return true;
 }
