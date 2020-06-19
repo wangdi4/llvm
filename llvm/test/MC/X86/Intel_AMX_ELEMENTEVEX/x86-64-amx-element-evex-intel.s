@@ -1,4 +1,4 @@
-// REQUIRES: intel_feature_isa_amx_convert_evex
+// REQUIRES: intel_feature_isa_amx_element_evex
 // RUN: llvm-mc -triple x86_64-unknown-unknown -x86-asm-syntax=intel -output-asm-variant=1 --show-encoding %s | FileCheck %s
 
 // CHECK:      tcvtd2pse [rbp + 8*r14 + 268435456], tmm6

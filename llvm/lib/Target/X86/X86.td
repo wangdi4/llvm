@@ -383,12 +383,12 @@ def FeatureAMXBF16EVEX     : SubtargetFeature<"amx-bf16-evex", "HasAMXBF16EVEX",
 
 #endif // INTEL_FEATURE_ISA_AMX_BF16_EVEX
 
-#if INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
-def FeatureAMXCONVERTEVEX     : SubtargetFeature<"amx-convert-evex", "HasAMXCONVERTEVEX", "true",
-                                      "Support AMX amx-convert-evex instructions",
+#if INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
+def FeatureAMXELEMENTEVEX     : SubtargetFeature<"amx-element-evex", "HasAMXELEMENTEVEX", "true",
+                                      "Support AMX amx-element-evex instructions",
                                       [FeatureAMXTILE]>;
 
-#endif // INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+#endif // INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
 
 #if INTEL_FEATURE_ISA_AMX_CONVERT
 def FeatureAMXCONVERT         : SubtargetFeature<"amx-convert", "HasAMXCONVERT", "true",

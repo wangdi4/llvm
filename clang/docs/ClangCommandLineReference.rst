@@ -3107,10 +3107,10 @@ X86
 
 .. end INTEL_FEATURE_ISA_AMX_BF16_EVEX
 
-.. INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
-.. option:: -mamx-convert-evex, -mno-amx-convert-evex
+.. INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
+.. option:: -mamx-element-evex, -mno-amx-element-evex
 
-.. end INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+.. end INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
 
 .. INTEL_FEATURE_ISA_AMX_INT8_EVEX
 .. option:: -mamx-int8-evex, -mno-amx-int8-evex

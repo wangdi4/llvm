@@ -6628,16 +6628,16 @@ let TargetPrefix = "x86" in {
 }
 #endif // INTEL_FEATURE_ISA_AMX_BF16_EVEX
 
-#if INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+#if INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
 //===----------------------------------------------------------------------===//
 let TargetPrefix = "x86" in {
-//AMX-CONVERT-EVEX
+//AMX-ELEMENT-EVEX
   def int_x86_tcvtd2pse
       : GCCBuiltin<"__builtin_ia32_tcvtd2pse">,
         Intrinsic<[], [llvm_ptr_ty, llvm_i64_ty, llvm_i8_ty], [ImmArg<ArgIndex<2>>]>;
 
 }
-#endif // INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+#endif // INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
 
 #if INTEL_FEATURE_ISA_AMX_INT8_EVEX
 //===----------------------------------------------------------------------===//

@@ -1,5 +1,5 @@
-/* INTEL_FEATURE_ISA_AMX_CONVERT_EVEX */
-/*===- Intel_amxconvertevexintrin.h - AMX_CONVERT_EVEX intrinsics -*- C++ -*-===
+/* INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX */
+/*===- Intel_amxelementevexintrin.h - AMX_ELEMENT_EVEX intrinsics -*- C++ -*-===
 *
 * Copyright (C) 2019 Intel Corporation. All rights reserved.
 *
@@ -10,17 +10,17 @@
 * ===---------------------------------------------------------------------=== */
 
 #ifndef __IMMINTRIN_H
-#error "Never use <Intel_amxconvertevexintrin.h> directly; use <immintrin.h> instead."
+#error "Never use <Intel_amxelementevexintrin.h> directly; use <immintrin.h> instead."
 #endif /* __IMMINTRIN_H */
 
-#ifndef __AMX_CONVERTEVEXINTRIN_H
-#define __AMX_CONVERTEVEXINTRIN_H
+#ifndef __AMX_ELEMENTEVEXINTRIN_H
+#define __AMX_ELEMENTEVEXINTRIN_H
 #ifdef __x86_64__
 
-//AMX_CONVERT_EVEX
+//AMX_ELEMENT_EVEX
 #define _tile_cvtd2pse(base, stride, tsrc)                                    \
   __builtin_ia32_tcvtd2pse(base, stride, tsrc)
 
 #endif /* __x86_64__ */
-#endif /* __AMX_CONVERTEVEXINTRIN_H */
-/* end INTEL_FEATURE_ISA_AMX_CONVERT_EVEX */
+#endif /* __AMX_ELEMENTEVEXINTRIN_H */
+/* end INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX */

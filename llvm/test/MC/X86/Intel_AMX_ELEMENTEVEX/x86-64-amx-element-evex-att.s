@@ -1,4 +1,4 @@
-// REQUIRES: intel_feature_isa_amx_convert_evex
+// REQUIRES: intel_feature_isa_amx_element_evex
 // RUN: llvm-mc -triple x86_64-unknown-unknown --show-encoding %s | FileCheck %s
 
 // CHECK:      tcvtd2pse %tmm6, 268435456(%rbp,%r14,8)
