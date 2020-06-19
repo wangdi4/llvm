@@ -2637,8 +2637,10 @@ CallInst *specializeCallSite(CallInst *Call, Function *Clone,
   CallInst *NewCall = CallInst::Create(Clone, NewArgs, "", Call);
   NewCall->setCallingConv(Call->getCallingConv());
   NewCall->setAttributes(NewAttrs);
-  if (MDNode *MD = Call->getMetadata(LLVMContext::MD_dbg))
-    NewCall->setMetadata(LLVMContext::MD_dbg, MD);
+  for (auto Kind : {LLVMContext::MD_dbg, LLVMContext::MD_alias_scope,
+                    LLVMContext::MD_noalias})
+    if (MDNode *MD = Call->getMetadata(Kind))
+      NewCall->setMetadata(Kind, MD);
   Call->replaceAllUsesWith(NewCall);
   Call->dropAllReferences();
   Call->eraseFromParent();
