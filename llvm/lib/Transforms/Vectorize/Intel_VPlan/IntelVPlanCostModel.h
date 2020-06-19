@@ -81,10 +81,7 @@ public:
                  const DataLayout *DL)
     : Plan(Plan), VF(VF), TTI(TTI), TLI(TLI), DL(DL) {}
 #endif // INTEL_CUSTOMIZATION
-  virtual unsigned getCost(const VPInstruction *VPInst);
-  virtual unsigned getCost(const VPBasicBlock *VPBB);
   virtual unsigned getCost();
-  virtual unsigned getLoadStoreCost(const VPInstruction *VPInst);
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS, const std::string &Header);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
@@ -123,6 +120,9 @@ protected:
                                                 const VPValue *Op2,
                                                 const Type *ScalarTy,
                                                 const unsigned VF);
+  virtual unsigned getCost(const VPInstruction *VPInst);
+  virtual unsigned getCost(const VPBasicBlock *VPBB);
+  virtual unsigned getLoadStoreCost(const VPInstruction *VPInst);
 
   // These utilities are private for the class instead of being defined as
   // static functions because they need access to underlying Inst/HIRData in
