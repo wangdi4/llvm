@@ -806,6 +806,22 @@ public:
                                       StringRef IntrinsicName, Type *ReturnTy,
                                       ArrayRef<Value *> Args);
 
+  /// Inserts \p Call1 and \p Call2 at \p W's region boundary. If \p
+  /// InsideRegion is \b true, \p Call1 is inserted after \p W's entry
+  /// directive, and \p Call2 is inserted before \p W's exit directive.
+  /// Otherwise, \p Call1 is inserted before the entry directive, and \p Call2
+  /// is inserted after the exit directive. By default, \p InsideRegion is
+  /// false.
+  static void insertCallsAtRegionBoundary(WRegionNode *W, CallInst *Call1,
+                                          CallInst *Call2,
+                                          bool InsideRegion = false);
+
+  /// Returns a pair containing calls to `__kmpc_spmd_push_num_threads` and
+  /// `__kmpc_spmd_pop_num_threads`. If provided, \p NumThreads is used for the
+  /// push_num_threads call, otherwise, \b 1 is used by default.
+  static std::pair<CallInst *, CallInst *>
+  genKmpcSpmdPushPopNumThreadsCalls(Module *M, Value *NumThreads = nullptr);
+
   /// \name Utilities to emit calls to ctor, dtor, cctor, and copyassign.
   /// @{
   static void genConstructorCall(Function *Ctor, Value *V,

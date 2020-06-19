@@ -1419,6 +1419,8 @@ bool VPOParoptTransform::paroptTransforms() {
         debugPrintHeader(W, Mode);
         if (Mode & ParPrepare) {
           Changed |= canonicalizeGlobalVariableReferences(W);
+          if (isTargetSPIRV() && isa<WRNParallelNode>(W) && hasParentTarget(W))
+            Changed |= callPopPushNumThreadsAtRegionBoundary(W);
           Changed |= renameOperandsUsingStoreThenLoad(W);
           Changed |= propagateCancellationPointsToIR(W);
         }
@@ -1477,6 +1479,8 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= regularizeOMPLoop(W);
           Changed |= canonicalizeGlobalVariableReferences(W);
           Changed |= renameOperandsUsingStoreThenLoad(W);
+          if (isTargetSPIRV() && hasParentTarget(W))
+            Changed |= callPopPushNumThreadsAtRegionBoundary(W);
           Changed |= propagateCancellationPointsToIR(W);
           Changed |= fixupKnownNDRange(W);
         }
@@ -1657,6 +1661,9 @@ bool VPOParoptTransform::paroptTransforms() {
           if (hasOffloadCompilation())
             F->setLinkage(GlobalValue::LinkageTypes::ExternalLinkage);
           Changed |= canonicalizeGlobalVariableReferences(W);
+          if (isTargetSPIRV() && !hasParentTarget(W) &&
+              !isFunctionOpenMPTargetDeclare())
+            Changed |= callPushPopNumThreadsAtRegionBoundary(W, true);
           Changed |= renameOperandsUsingStoreThenLoad(W);
         } else if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed |= constructNDRangeInfo(W);
