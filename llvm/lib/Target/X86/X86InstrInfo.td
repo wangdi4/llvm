@@ -997,6 +997,7 @@ def HasCONVERT   : Predicate<"Subtarget->hasCONVERT()">;
 #endif // INTEL_FEATURE_ISA_AVX512_CONVERT
 #if INTEL_FEATURE_ISA_AVX_CONVERT
 def HasAVXCONVERT   : Predicate<"Subtarget->hasAVXCONVERT()">;
+def NoVLX_Or_NoCONVERT : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasCONVERT()">;
 #endif // INTEL_FEATURE_ISA_AVX_CONVERT
 #if INTEL_FEATURE_ISA_AVX_COMPRESS
 def HasAVXCOMPRESS   : Predicate<"Subtarget->hasAVXCOMPRESS()">;
