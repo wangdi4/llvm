@@ -351,29 +351,6 @@ int main() {
   // Several levels of wrappers for accessor.
   {
     sycl::queue queue;
-<<<<<<< HEAD
-    int array[10] = {0};
-    {
-      sycl::buffer<int, 1> buf((int *)array, sycl::range<1>(10),
-                               {cl::sycl::property::buffer::use_host_ptr()});
-      queue.submit([&](sycl::handler &cgh) {
-        auto acc = buf.get_access<sycl::access::mode::read_write>(cgh);
-        auto acc_wrapped = AccWrapper<decltype(acc)>{acc};
-        Wrapper1 wr1;
-        auto wr2 = Wrapper2<decltype(acc)>{wr1, acc_wrapped};
-        auto wr3 = Wrapper3<decltype(acc)>{wr2};
-        cgh.parallel_for<class wrapped_access3>(
-            sycl::range<1>(buf.get_count()), [=](sycl::item<1> it) {
-              auto idx = it.get_linear_id();
-              wr3.w2.wrapped.accessor[idx] = 333;
-            });
-      });
-      queue.wait();
-    }
-    for (int i = 0; i < 10; i++) {
-      std::cout << "array[" << i << "]=" << array[i] << std::endl;
-      assert(array[i] == 333);
-=======
     if (!queue.is_host()) {
       int array[10] = {0};
       {
@@ -401,7 +378,6 @@ int main() {
         std::cout << "array[" << i << "]=" << array[i] << std::endl;
         assert(array[i] == 333);
       }
->>>>>>> 1f76efcac64a1dccb23c114810333723e33f1a8d
     }
   }
 
