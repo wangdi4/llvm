@@ -192,6 +192,9 @@ FunctionPass *createHIRConditionalLoadStoreMotionPass();
 
 /// Create pass that stores result into a temp array.
 FunctionPass *createHIRStoreResultIntoTempArrayPass();
+
+/// Create pass that performs sum window reuse.
+FunctionPass *createHIRSumWindowReusePass();
 } // namespace llvm
 
 #endif

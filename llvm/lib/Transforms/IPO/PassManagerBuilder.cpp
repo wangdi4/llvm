@@ -2088,6 +2088,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
         PM.add(createHIRRuntimeDDPass());
         PM.add(createHIRMVForConstUBPass());
         PM.add(createHIRRowWiseMVPass());
+        PM.add(createHIRSumWindowReusePass());
       }
 
       PM.add(createHIRSinkingForPerfectLoopnestPass());
