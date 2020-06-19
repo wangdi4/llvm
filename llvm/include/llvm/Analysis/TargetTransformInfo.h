@@ -377,6 +377,8 @@ public:
   bool collectFlatAddressOperands(SmallVectorImpl<int> &OpIndexes,
                                   Intrinsic::ID IID) const;
 
+  bool isNoopAddrSpaceCast(unsigned FromAS, unsigned ToAS) const;
+
   /// Rewrite intrinsic call \p II such that \p OldV will be replaced with \p
   /// NewV, which has a different address space. This should happen for every
   /// operand index that collectFlatAddressOperands returned for the intrinsic.
@@ -1331,6 +1333,7 @@ public:
   virtual unsigned getFlatAddressSpace() = 0;
   virtual bool collectFlatAddressOperands(SmallVectorImpl<int> &OpIndexes,
                                           Intrinsic::ID IID) const = 0;
+  virtual bool isNoopAddrSpaceCast(unsigned FromAS, unsigned ToAS) const = 0;
   virtual Value *rewriteIntrinsicWithAddressSpace(IntrinsicInst *II,
                                                   Value *OldV,
                                                   Value *NewV) const = 0;
@@ -1619,6 +1622,10 @@ public:
   bool collectFlatAddressOperands(SmallVectorImpl<int> &OpIndexes,
                                   Intrinsic::ID IID) const override {
     return Impl.collectFlatAddressOperands(OpIndexes, IID);
+  }
+
+  bool isNoopAddrSpaceCast(unsigned FromAS, unsigned ToAS) const override {
+    return Impl.isNoopAddrSpaceCast(FromAS, ToAS);
   }
 
   Value *rewriteIntrinsicWithAddressSpace(IntrinsicInst *II, Value *OldV,

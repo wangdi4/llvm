@@ -4334,7 +4334,6 @@ public:
                                    QualType RTy);
   llvm::Value *EmitCMSEClearRecord(llvm::Value *V, llvm::ArrayType *ATy,
                                    QualType RTy);
-  llvm::Value *EmitCMSEClearFP16(llvm::Value *V);
 
 #if INTEL_CUSTOMIZATION
   llvm::Value *EmitIntelFPGABuiltinExpr(unsigned BuiltinID, const CallExpr *E);
