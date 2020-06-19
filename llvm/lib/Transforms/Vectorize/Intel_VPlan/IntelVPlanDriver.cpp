@@ -13,22 +13,23 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Analysis/GlobalsModRef.h" // INTEL_CUSTOMIZATION
-#include "llvm/Analysis/MemorySSA.h" // INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Vectorize/IntelVPlanDriver.h"
-#include "IntelVPlanAllZeroBypass.h"
 #include "IntelLoopVectorizationLegality.h"
 #include "IntelLoopVectorizationPlanner.h"
 #include "IntelVPOCodeGen.h"
 #include "IntelVPOLoopAdapters.h"
+#include "IntelVPlan.h"
+#include "IntelVPlanAllZeroBypass.h"
 #include "IntelVPlanCostModel.h"
 #include "IntelVPlanIdioms.h"
 #include "IntelVPlanScalarEvolution.h"
 #include "IntelVolcanoOpenCL.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/Analysis/DemandedBits.h" // INTEL
+#include "llvm/Analysis/DemandedBits.h"  // INTEL
+#include "llvm/Analysis/GlobalsModRef.h" // INTEL_CUSTOMIZATION
 #include "llvm/Analysis/LoopAccessAnalysis.h"
 #include "llvm/Analysis/LoopIterator.h"
+#include "llvm/Analysis/MemorySSA.h" // INTEL_CUSTOMIZATION
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -279,14 +280,15 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");
     return false;
   }
+
+  VPAnalysesFactory VPAF(SE, Lp, DT, AC, DL, true);
+
   for (auto &Pair : LVP.getAllVPlans()) {
     auto &Plan = *Pair.second;
     if (!Plan.getVPSE())
-      Plan.setVPSE(std::make_unique<VPlanScalarEvolutionLLVM>(SE, Lp));
-    if (!Plan.getVPVT()) {
-      auto &VPSE = *static_cast<VPlanScalarEvolutionLLVM *>(Plan.getVPSE());
-      Plan.setVPVT(std::make_unique<VPlanValueTrackingLLVM>(VPSE, *DL, AC, DT));
-    }
+      Plan.setVPSE(VPAF.createVPSE());
+    if (!Plan.getVPVT())
+      Plan.setVPVT(VPAF.createVPVT(Plan.getVPSE()));
   }
 #else
   LVP.buildInitialVPlans();

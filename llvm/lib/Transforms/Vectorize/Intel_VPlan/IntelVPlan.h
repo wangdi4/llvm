@@ -119,6 +119,45 @@ typedef SmallPtrSet<VPValue *, 8> UniformsTy;
 struct TripCountInfo;
 #endif // INTEL_CUSTOMIZATION
 
+// This class is used to create all the necessairy analyses that are needed for
+// VPlan.
+class VPAnalysesFactory {
+private:
+  ScalarEvolution &SE;
+  const Loop *Lp = nullptr;
+  DominatorTree *DT = nullptr;
+  AssumptionCache *AC = nullptr;
+  const DataLayout *DL = nullptr;
+  bool IsLLVMIR = false;
+
+public:
+  VPAnalysesFactory(ScalarEvolution &SE, Loop *Lp, DominatorTree *DT,
+                    AssumptionCache *AC, const DataLayout *DL, bool IsLLVMIR)
+      : SE(SE), Lp(Lp), DT(DT), AC(AC), DL(DL), IsLLVMIR(IsLLVMIR) {}
+
+  std::unique_ptr<VPlanScalarEvolution> createVPSE() {
+    if (IsLLVMIR) {
+      return std::make_unique<VPlanScalarEvolutionLLVM>(SE, Lp);
+    } else
+      llvm_unreachable("Unimplemented for HIR path.");
+  }
+
+  std::unique_ptr<VPlanValueTracking> createVPVT(VPlanScalarEvolution *VPSE) {
+    if (IsLLVMIR) {
+      auto *VPSELLVM = static_cast<VPlanScalarEvolutionLLVM *>(VPSE);
+      return std::make_unique<VPlanValueTrackingLLVM>(*VPSELLVM, *DL, AC, DT);
+    } else
+      llvm_unreachable("Unimplemented for HIR path.");
+  }
+
+  bool isLLVMIRPath() { return IsLLVMIR; }
+
+  const Loop *getLoop() { return Lp; }
+  DominatorTree *getDominatorTree() { return DT; }
+  AssumptionCache *getAssumptionCache() { return AC; }
+  const DataLayout *getDataLayout() { return DL; }
+};
+
 template <typename ParentTy, typename NodeTy>
 ParentTy *getListOwner(ilist_traits<NodeTy> *NodeList) {
   size_t Offset(
@@ -2801,8 +2840,9 @@ public:
   // Add a VPInstruction that needs to be erased in UnlinkedVPInsns vector.
   void addUnlinkedVPInst(VPInstruction *I) { UnlinkedVPInsns.emplace_back(I); }
 
-  // Clones VPlan.
-  std::unique_ptr<VPlan> clone();
+  // Clones VPlan. VPAnalysesFactory has methods to create additional analyses
+  // required for cloned VPlan.
+  std::unique_ptr<VPlan> clone(VPAnalysesFactory &VPAF);
 
 private:
   /// Add to the given dominator tree the header block and every new basic block

@@ -83,7 +83,10 @@ TEST_F(CloneVPlan, TestCloneVPlan) {
   Function *F = M.getFunction("f");
   BasicBlock *LoopHeader = F->getEntryBlock().getSingleSuccessor();
   std::unique_ptr<VPlan> OrigVPlan = buildHCFG(LoopHeader);
-  std::unique_ptr<VPlan> ClonedVPlan = OrigVPlan->clone();
+  ScalarEvolution SE(*F, *TLI.get(), *AC.get(), *DT.get(), *LI.get());
+  VPAnalysesFactory VPAF(SE, *(LI.get())->begin(), DT.get(), AC.get(), DL.get(),
+                         true);
+  std::unique_ptr<VPlan> ClonedVPlan = OrigVPlan->clone(VPAF);
   EXPECT_EQ(OrigVPlan->size(), ClonedVPlan->size());
 
   // Compare ClonedVPlan and OrigVPlan graphs.

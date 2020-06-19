@@ -817,7 +817,7 @@ void VPlan::dump(raw_ostream &OS) const {
 
 void VPlan::dump() const { dump(dbgs()); }
 
-std::unique_ptr<VPlan> VPlan::clone(void) {
+std::unique_ptr<VPlan> VPlan::clone(VPAnalysesFactory &VPAF) {
   // Create new VPlan
   std::unique_ptr<VPlan> ClonedVPlan = std::make_unique<VPlan>(getExternals());
 
@@ -830,6 +830,20 @@ std::unique_ptr<VPlan> VPlan::clone(void) {
   VPValueMapper Mapper(OrigClonedValuesMap);
   for (VPBasicBlock &OrigVPBB : *this)
     Mapper.remapOperands(&OrigVPBB);
+
+  // Update FullLinearizationForced
+  if (isFullLinearizationForced())
+    ClonedVPlan->markFullLinearizationForced();
+
+  // Update ForceOuterLoopBackedgeUniformity
+  if (isBackedgeUniformityForced())
+    ClonedVPlan->markBackedgeUniformityForced();
+
+  // Set SCEV to Cloned Plan
+  ClonedVPlan->setVPSE(VPAF.createVPSE());
+
+  // Set Value Tracking to Cloned Plan
+  ClonedVPlan->setVPVT(VPAF.createVPVT(ClonedVPlan->getVPSE()));
 
   // Update dominator tree and post-dominator tree of new VPlan
   ClonedVPlan->computeDT();
