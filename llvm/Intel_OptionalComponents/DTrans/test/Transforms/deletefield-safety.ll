@@ -30,6 +30,7 @@ define i32 @main(i32 %argc, i8** %argv) {
 
   ; Introduce a bad bitcast.
   %p_other = bitcast i32* %p_test_A to %struct.other*
+  %gep = getelementptr %struct.other, %struct.other* %p_other, i64 0, i32 0
 
   ; Free the structure
   call void @free(i8* %p)

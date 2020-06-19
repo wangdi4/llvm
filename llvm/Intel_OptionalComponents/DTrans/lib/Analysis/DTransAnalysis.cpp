@@ -4411,8 +4411,8 @@ public:
     llvm::Type *DestTy = I->getDestTy();
     llvm::Value *SrcVal = I->getOperand(0);
 
-    // If the BitCast is used as a dead argument then is safe to skip it
-    if (isBitCastUsedAsDeadArgument(I))
+    // If the BitCast is dead then is safe to skip it
+    if (isBitCastDead(I))
       return;
 
     // If the source operand is not a value of interest, we only need to
@@ -6638,7 +6638,8 @@ private:
     }
   }
 
-  // Return true if the input BitCast is only used as a dead argument. Else,
+  // Return true if the input BitCast doesn't have any user or if its only
+  // use is a dead argument. Else,
   // return false. For example:
   //
   // define void @bar(%struct.test01b* %p2) {
@@ -6655,12 +6656,12 @@ private:
   // %struct.test01b* and it is only used as an argument in the callsite for
   // @bar. The formal argument of %p2 in @bar doesn't have any user, therefore
   // it will be a dead argument. This is safe to cast.
-  bool isBitCastUsedAsDeadArgument(BitCastOperator *BC) {
+  bool isBitCastDead(BitCastOperator *BC) {
     if (!BC)
       return false;
 
     if (BC->user_empty())
-      return false;
+      return true;
 
     for (User *User : BC->users()) {
       CallBase *CI = dyn_cast<CallBase>(User);

@@ -14,11 +14,11 @@
 
 declare noalias i8* @malloc(i64)
 
-define i32 @main() {
+define %__DFDT__struct.str* @main() {
   %1 = tail call noalias i8* @malloc(i64 10)
   store i8* %1, i8** getelementptr inbounds (%struct.mystruct, %struct.mystruct* @globalstruct, i64 0, i32 0), align 8
   %s = bitcast i8** getelementptr (%struct.mystruct, %struct.mystruct* @globalstruct, i64 0, i32 0) to %__DFDT__struct.str*
-  ret i32 0
+  ret %__DFDT__struct.str* %s
 }
 
 
@@ -65,4 +65,4 @@ define i32 @main() {
 ; CHECK-NEXT:    Single Value: i32 0 (ignored)
 ; CHECK-NEXT:    Multiple IA Value: [  ] <incomplete>
 ; CHECK-NEXT:    Bottom Alloc Function (ignored)
-; CHECK:  Safety data: Bad casting | Global instance
+; CHECK:  Safety data: Bad casting | Field address taken | Global instance
