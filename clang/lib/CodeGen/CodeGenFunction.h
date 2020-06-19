@@ -4383,6 +4383,7 @@ public:
   llvm::Type *SVEBuiltinMemEltTy(SVETypeFlags TypeFlags);
 
   SmallVector<llvm::Type *, 2> getSVEOverloadTypes(SVETypeFlags TypeFlags,
+                                                   llvm::Type *ReturnType,
                                                    ArrayRef<llvm::Value *> Ops);
   llvm::Type *getEltType(SVETypeFlags TypeFlags);
   llvm::ScalableVectorType *getSVEType(const SVETypeFlags &TypeFlags);
