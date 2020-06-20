@@ -1862,7 +1862,7 @@ llvm::Function *CGOpenMPRuntime::emitThreadPrivateVarDefinition(
       llvm::FunctionType *FTy = CGM.getTypes().GetFunctionType(FI);
       std::string Name = getName({"__kmpc_global_ctor_", ""});
       llvm::Function *Fn =
-          CGM.CreateGlobalInitOrDestructFunction(FTy, Name, FI, Loc);
+          CGM.CreateGlobalInitOrCleanUpFunction(FTy, Name, FI, Loc);
       CtorCGF.StartFunction(GlobalDecl(), CGM.getContext().VoidPtrTy, Fn, FI,
                             Args, Loc, Loc);
       llvm::Value *ArgVal = CtorCGF.EmitLoadOfScalar(
@@ -1895,7 +1895,7 @@ llvm::Function *CGOpenMPRuntime::emitThreadPrivateVarDefinition(
       llvm::FunctionType *FTy = CGM.getTypes().GetFunctionType(FI);
       std::string Name = getName({"__kmpc_global_dtor_", ""});
       llvm::Function *Fn =
-          CGM.CreateGlobalInitOrDestructFunction(FTy, Name, FI, Loc);
+          CGM.CreateGlobalInitOrCleanUpFunction(FTy, Name, FI, Loc);
       auto NL = ApplyDebugLocation::CreateEmpty(DtorCGF);
       DtorCGF.StartFunction(GlobalDecl(), CGM.getContext().VoidTy, Fn, FI, Args,
                             Loc, Loc);
@@ -1938,7 +1938,7 @@ llvm::Function *CGOpenMPRuntime::emitThreadPrivateVarDefinition(
       auto *InitFunctionTy =
           llvm::FunctionType::get(CGM.VoidTy, /*isVarArg*/ false);
       std::string Name = getName({"__omp_threadprivate_init_", ""});
-      llvm::Function *InitFunction = CGM.CreateGlobalInitOrDestructFunction(
+      llvm::Function *InitFunction = CGM.CreateGlobalInitOrCleanUpFunction(
           InitFunctionTy, Name, CGM.getTypes().arrangeNullaryFunction());
       CodeGenFunction InitCGF(CGM);
       FunctionArgList ArgList;
@@ -2000,7 +2000,7 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
 
       const CGFunctionInfo &FI = CGM.getTypes().arrangeNullaryFunction();
       llvm::FunctionType *FTy = CGM.getTypes().GetFunctionType(FI);
-      llvm::Function *Fn = CGM.CreateGlobalInitOrDestructFunction(
+      llvm::Function *Fn = CGM.CreateGlobalInitOrCleanUpFunction(
           FTy, Twine(Buffer, "_ctor"), FI, Loc);
       auto NL = ApplyDebugLocation::CreateEmpty(CtorCGF);
       CtorCGF.StartFunction(GlobalDecl(), CGM.getContext().VoidTy, Fn, FI,
@@ -2041,7 +2041,7 @@ bool CGOpenMPRuntime::emitDeclareTargetVarDefinition(const VarDecl *VD,
 
       const CGFunctionInfo &FI = CGM.getTypes().arrangeNullaryFunction();
       llvm::FunctionType *FTy = CGM.getTypes().GetFunctionType(FI);
-      llvm::Function *Fn = CGM.CreateGlobalInitOrDestructFunction(
+      llvm::Function *Fn = CGM.CreateGlobalInitOrCleanUpFunction(
           FTy, Twine(Buffer, "_dtor"), FI, Loc);
       auto NL = ApplyDebugLocation::CreateEmpty(DtorCGF);
       DtorCGF.StartFunction(GlobalDecl(), CGM.getContext().VoidTy, Fn, FI,
@@ -10488,7 +10488,7 @@ llvm::Function *CGOpenMPRuntime::emitRequiresDirectiveRegFun() {
     const auto &FI = CGM.getTypes().arrangeNullaryFunction();
     llvm::FunctionType *FTy = CGM.getTypes().GetFunctionType(FI);
     std::string ReqName = getName({"omp_offloading", "requires_reg"});
-    RequiresRegFn = CGM.CreateGlobalInitOrDestructFunction(FTy, ReqName, FI);
+    RequiresRegFn = CGM.CreateGlobalInitOrCleanUpFunction(FTy, ReqName, FI);
     CGF.StartFunction(GlobalDecl(), C.VoidTy, RequiresRegFn, FI, {});
     OpenMPOffloadingRequiresDirFlags Flags = OMP_REQ_NONE;
     // TODO: check for other requires clauses.
