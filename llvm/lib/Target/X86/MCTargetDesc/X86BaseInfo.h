@@ -628,23 +628,23 @@ namespace X86II {
     /// byte to specify a destination which in this case is register and operand
     /// 3 with VEX.VVVV and do not load from memory.
     ///
-    MRMDestReg4VOp3 = 27,
+    MRMDestReg4VOp3 = 19,
 
     /// MRMDestMem4VOp3 - This form is used for instructions that use the Mod/RM
     /// byte to specify a destination which in this case is memory and operand 3
     /// with VEX.VVVV.
     ///
-    MRMDestMem4VOp3 = 28,
+    MRMDestMem4VOp3 = 20,
 
     /// MRMDestMem4VOp2FSIB - sibmem encoding for dst memory.
     /// src1 mod/r, src2 vex.4v
-    MRMDestMem4VOp2FSIB = 29,
+    MRMDestMem4VOp2FSIB = 21,
 
     /// MRMSrcMem4VOp3FSIB - But force to use the SIB field.
-    MRMSrcMem4VOp3FSIB = 30,
+    MRMSrcMem4VOp3FSIB = 22,
 
     /// MRMDestMem - But force to use the SIB field.
-    MRMDestMemFSIB = 31,
+    MRMDestMemFSIB = 23,
 #endif // INTEL_CUSTOMIZATION
 
     /// MRMDestMem - This form is used for instructions that use the Mod/RM byte
@@ -674,7 +674,7 @@ namespace X86II {
 
 #if INTEL_CUSTOMIZATION
     /// MRMSrcMem - But force to use the SIB field.
-    MRMSrcMemFSIB  = 37,
+    MRMSrcMemFSIB  = 29,
 #endif // INTEL_CUSTOMIZATION
 
     /// MRMXm - This form is used for instructions that use the Mod/RM byte
@@ -719,7 +719,7 @@ namespace X86II {
 
 #if INTEL_CUSTOMIZATION
     // Instructions operate on a register Reg/Opcode operand not the r/m field.
-    MRMr0 = 53,
+    MRMr0 = 45,
 #endif // INTEL_CUSTOMIZATION
 
     /// MRMXCCr - This form is used for instructions that use the Mod/RM byte

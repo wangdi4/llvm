@@ -103,40 +103,19 @@ namespace X86Local {
     RawFrmImm16   = 8,
     AddCCFrm      = 9,
     PrefixByte    = 10,
-<<<<<<< HEAD
-    MRMDestReg4VOp3     = 27, // INTEL
-    MRMDestMem4VOp3     = 28, // INTEL
-    MRMDestMem4VOp2FSIB = 29, // INTEL
-    MRMSrcMem4VOp3FSIB  = 30, // INTEL
-    MRMDestMemFSIB      = 31, // INTEL
-    MRMDestMem     = 32,
-    MRMSrcMem      = 33,
-    MRMSrcMem4VOp3 = 34,
-    MRMSrcMemOp4   = 35,
-    MRMSrcMemCC    = 36,
-#if INTEL_CUSTOMIZATION
-    MRMSrcMemFSIB  = 37,
-#endif // INTEL_CUSTOMIZATION
-    MRMXmCC = 38, MRMXm = 39,
-    MRM0m = 40, MRM1m = 41, MRM2m = 42, MRM3m = 43,
-    MRM4m = 44, MRM5m = 45, MRM6m = 46, MRM7m = 47,
-    MRMDestReg     = 48,
-    MRMSrcReg      = 49,
-    MRMSrcReg4VOp3 = 50,
-    MRMSrcRegOp4   = 51,
-    MRMSrcRegCC    = 52,
-#if INTEL_CUSTOMIZATION
-    MRMr0 = 53,
-#endif // INTEL_CUSTOMIZATION
-    MRMXrCC = 54, MRMXr = 55,
-    MRM0r = 56, MRM1r = 57, MRM2r = 58, MRM3r = 59,
-    MRM4r = 60, MRM5r = 61, MRM6r = 62, MRM7r = 63,
-=======
+    MRMDestReg4VOp3     = 19, // INTEL
+    MRMDestMem4VOp3     = 20, // INTEL
+    MRMDestMem4VOp2FSIB = 21, // INTEL
+    MRMSrcMem4VOp3FSIB  = 22, // INTEL
+    MRMDestMemFSIB      = 23, // INTEL
     MRMDestMem     = 24,
     MRMSrcMem      = 25,
     MRMSrcMem4VOp3 = 26,
     MRMSrcMemOp4   = 27,
     MRMSrcMemCC    = 28,
+#if INTEL_CUSTOMIZATION
+    MRMSrcMemFSIB  = 29,
+#endif // INTEL_CUSTOMIZATION
     MRMXmCC = 30, MRMXm = 31,
     MRM0m = 32, MRM1m = 33, MRM2m = 34, MRM3m = 35,
     MRM4m = 36, MRM5m = 37, MRM6m = 38, MRM7m = 39,
@@ -145,12 +124,14 @@ namespace X86Local {
     MRMSrcReg4VOp3 = 42,
     MRMSrcRegOp4   = 43,
     MRMSrcRegCC    = 44,
+#if INTEL_CUSTOMIZATION
+    MRMr0 = 45,
+#endif // INTEL_CUSTOMIZATION
     MRMXrCC = 46, MRMXr = 47,
     MRM0r = 48, MRM1r = 49, MRM2r = 50, MRM3r = 51,
     MRM4r = 52, MRM5r = 53, MRM6r = 54, MRM7r = 55,
     MRM0X = 56, MRM1X = 57, MRM2X = 58, MRM3X = 59,
     MRM4X = 60, MRM5X = 61, MRM6X = 62, MRM7X = 63,
->>>>>>> 0dda5e4ce2924e59a19f1e466f34a92c0c1638f7
 #define MAP(from, to) MRM_##from = to,
     X86_INSTR_MRM_MAPPING
 #undef MAP

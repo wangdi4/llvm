@@ -878,7 +878,6 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
   case X86Local::MRM6r: case X86Local::MRM7r:
     filter = std::make_unique<ExtendedFilter>(true, Form - X86Local::MRM0r);
     break;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
   case X86Local::MRMr0:
@@ -886,14 +885,12 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
     break;
 #endif // INTEL_FEATURE_ISA_AMX
 #endif // INTEL_CUSTOMIZATION
-=======
   case X86Local::MRM0X: case X86Local::MRM1X:
   case X86Local::MRM2X: case X86Local::MRM3X:
   case X86Local::MRM4X: case X86Local::MRM5X:
   case X86Local::MRM6X: case X86Local::MRM7X:
     filter = std::make_unique<ExtendedFilter>(true, Form - X86Local::MRM0X);
     break;
->>>>>>> 0dda5e4ce2924e59a19f1e466f34a92c0c1638f7
   case X86Local::MRM0m: case X86Local::MRM1m:
   case X86Local::MRM2m: case X86Local::MRM3m:
   case X86Local::MRM4m: case X86Local::MRM5m:
