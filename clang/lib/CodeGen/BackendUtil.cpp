@@ -245,8 +245,8 @@ static void addSanitizerCoveragePass(const PassManagerBuilder &Builder,
   const CodeGenOptions &CGOpts = BuilderWrapper.getCGOpts();
   auto Opts = getSancovOptsFromCGOpts(CGOpts);
   PM.add(createModuleSanitizerCoverageLegacyPassPass(
-      Opts, CGOpts.SanitizeCoverageWhitelistFiles,
-      CGOpts.SanitizeCoverageBlacklistFiles));
+      Opts, CGOpts.SanitizeCoverageAllowlistFiles,
+      CGOpts.SanitizeCoverageBlocklistFiles));
 }
 
 // Check if ASan should use GC-friendly instrumentation for globals.
@@ -1073,8 +1073,8 @@ static void addSanitizersAtO0(ModulePassManager &MPM,
       CodeGenOpts.SanitizeCoverageTraceCmp) {
     auto SancovOpts = getSancovOptsFromCGOpts(CodeGenOpts);
     MPM.addPass(ModuleSanitizerCoveragePass(
-        SancovOpts, CodeGenOpts.SanitizeCoverageWhitelistFiles,
-        CodeGenOpts.SanitizeCoverageBlacklistFiles));
+        SancovOpts, CodeGenOpts.SanitizeCoverageAllowlistFiles,
+        CodeGenOpts.SanitizeCoverageBlocklistFiles));
   }
 
   auto ASanPass = [&](SanitizerMask Mask, bool CompileKernel) {
@@ -1334,8 +1334,8 @@ void EmitAssemblyHelper::EmitAssemblyWithNewPassManager(
                    PassBuilder::OptimizationLevel Level) {
               auto SancovOpts = getSancovOptsFromCGOpts(CodeGenOpts);
               MPM.addPass(ModuleSanitizerCoveragePass(
-                  SancovOpts, CodeGenOpts.SanitizeCoverageWhitelistFiles,
-                  CodeGenOpts.SanitizeCoverageBlacklistFiles));
+                  SancovOpts, CodeGenOpts.SanitizeCoverageAllowlistFiles,
+                  CodeGenOpts.SanitizeCoverageBlocklistFiles));
             });
       }
 
