@@ -172,6 +172,8 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtCost, "Callee has block address"},
     // NinlrCallsLocalEscape,
     {InlPrtCost, "Callee calls localescape"},
+    // NinlrCallsBranchFunnel,
+    {InlPrtCost, "Callee calls branch funnel"},
     // NinlrNeverInline,
     {InlPrtSimple, "Callee is never inline"},
     // NinlrIntrinsic,

@@ -148,6 +148,7 @@ typedef enum {
    NinlrIndirectBranch,
    NinlrBlockAddress,
    NinlrCallsLocalEscape,
+   NinlrCallsBranchFunnel,
    NinlrNeverInline,
    NinlrIntrinsic,
    NinlrOuterInlining,

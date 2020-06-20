@@ -392,7 +392,8 @@ protected:
   bool ContainsNoDuplicateCall = false;
   bool HasReturn = false;
   bool HasIndirectBr = false;
-  bool HasUninlineableIntrinsic = false;
+  bool HasBranchFunnel = false;
+  bool HasLocalEscape = false;
   bool InitsVargArgs = false;
 
   /// Number of bytes allocated statically by the callee.
@@ -4659,8 +4660,10 @@ bool CallAnalyzer::visitCallBase(CallBase &Call) {
       // SROA can usually chew through these intrinsics, but they aren't free.
       return false;
     case Intrinsic::icall_branch_funnel:
+      HasBranchFunnel = true;
+      return false;
     case Intrinsic::localescape:
-      HasUninlineableIntrinsic = true;
+      HasLocalEscape = true;
       return false;
     case Intrinsic::vastart:
       InitsVargArgs = true;
@@ -4918,9 +4921,14 @@ CallAnalyzer::analyzeBlock(BasicBlock *BB,
     else if (HasIndirectBr)
       IR = InlineResult::failure("indirect branch")     // INTEL
                .setIntelInlReason(NinlrIndirectBranch); // INTEL
-    else if (HasUninlineableIntrinsic)
-      IR = InlineResult::failure("uninlinable intrinsic") // INTEL
-               .setIntelInlReason(NinlrCallsLocalEscape); // INTEL
+    else if (HasLocalEscape)
+      IR = InlineResult::failure("disallowed inlining of "   // INTEL
+                                 "@llvm.localescape")        // INTEL
+               .setIntelInlReason(NinlrCallsLocalEscape);    // INTEL
+    else if (HasBranchFunnel)
+      IR = InlineResult::failure("disallowed inlining of "    // INTEL
+                                 "@llvm.icall.branch.funnel") // INTEL
+               .setIntelInlReason(NinlrCallsBranchFunnel);    // INTEL
     else if (InitsVargArgs)
       IR = InlineResult::failure("varargs")      // INTEL
                .setIntelInlReason(NinlrVarargs); // INTEL
@@ -5586,7 +5594,7 @@ InlineResult llvm::isInlineViable(Function &F) {
           // backend can't separate call targets from call arguments.
           return InlineResult::failure("disallowed inlining of "    // INTEL
                                        "@llvm.icall.branch.funnel") // INTEL
-              .setIntelInlReason(NinlrCallsLocalEscape);            // INTEL
+              .setIntelInlReason(NinlrCallsBranchFunnel);           // INTEL
         case llvm::Intrinsic::localescape:
           // Disallow inlining functions that call @llvm.localescape. Doing this
           // correctly would require major changes to the inliner.
