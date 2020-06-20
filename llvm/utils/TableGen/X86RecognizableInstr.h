@@ -103,6 +103,7 @@ namespace X86Local {
     RawFrmImm16   = 8,
     AddCCFrm      = 9,
     PrefixByte    = 10,
+<<<<<<< HEAD
     MRMDestReg4VOp3     = 27, // INTEL
     MRMDestMem4VOp3     = 28, // INTEL
     MRMDestMem4VOp2FSIB = 29, // INTEL
@@ -130,6 +131,26 @@ namespace X86Local {
     MRMXrCC = 54, MRMXr = 55,
     MRM0r = 56, MRM1r = 57, MRM2r = 58, MRM3r = 59,
     MRM4r = 60, MRM5r = 61, MRM6r = 62, MRM7r = 63,
+=======
+    MRMDestMem     = 24,
+    MRMSrcMem      = 25,
+    MRMSrcMem4VOp3 = 26,
+    MRMSrcMemOp4   = 27,
+    MRMSrcMemCC    = 28,
+    MRMXmCC = 30, MRMXm = 31,
+    MRM0m = 32, MRM1m = 33, MRM2m = 34, MRM3m = 35,
+    MRM4m = 36, MRM5m = 37, MRM6m = 38, MRM7m = 39,
+    MRMDestReg     = 40,
+    MRMSrcReg      = 41,
+    MRMSrcReg4VOp3 = 42,
+    MRMSrcRegOp4   = 43,
+    MRMSrcRegCC    = 44,
+    MRMXrCC = 46, MRMXr = 47,
+    MRM0r = 48, MRM1r = 49, MRM2r = 50, MRM3r = 51,
+    MRM4r = 52, MRM5r = 53, MRM6r = 54, MRM7r = 55,
+    MRM0X = 56, MRM1X = 57, MRM2X = 58, MRM3X = 59,
+    MRM4X = 60, MRM5X = 61, MRM6X = 62, MRM7X = 63,
+>>>>>>> 0dda5e4ce2924e59a19f1e466f34a92c0c1638f7
 #define MAP(from, to) MRM_##from = to,
     X86_INSTR_MRM_MAPPING
 #undef MAP
