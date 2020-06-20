@@ -51,7 +51,7 @@ OpenMPLateOutliner::emitOpenMPDefaultConstructor(const Expr *IPriv) {
 
   auto &FI = CGM.getTypes().arrangeBuiltinFunctionDeclaration(PtrTy, Args);
   auto FTy = CGM.getTypes().GetFunctionType(FI);
-  auto *Fn = CGM.CreateGlobalInitOrDestructFunction(FTy, OutName, FI);
+  auto *Fn = CGM.CreateGlobalInitOrCleanUpFunction(FTy, OutName, FI);
   NewCGF.StartFunction(GlobalDecl(), PtrTy, Fn, FI, Args, SourceLocation());
   auto *Init = Private->getInit();
   if (Init && !NewCGF.isTrivialInitializer(Init)) {
@@ -90,7 +90,7 @@ OpenMPLateOutliner::emitOpenMPDestructor(QualType Ty) {
   auto &FI = CGM.getTypes().arrangeBuiltinFunctionDeclaration(
       CGM.getContext().VoidTy, Args);
   auto FTy = CGM.getTypes().GetFunctionType(FI);
-  auto *Fn = CGM.CreateGlobalInitOrDestructFunction(FTy, OutName, FI);
+  auto *Fn = CGM.CreateGlobalInitOrCleanUpFunction(FTy, OutName, FI);
   NewCGF.StartFunction(GlobalDecl(), CGM.getContext().VoidTy, Fn, FI, Args,
                     SourceLocation());
   if (Ty.isDestructedType() != QualType::DK_none) {
