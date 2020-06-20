@@ -8300,6 +8300,11 @@ public:
           Pointers.push_back(Ptr);
           Sizes.push_back(llvm::Constant::getNullValue(CGF.Int64Ty));
           Types.push_back(OMP_MAP_RETURN_PARAM | OMP_MAP_TARGET_PARAM);
+#if INTEL_COLLAB
+          if (VarChain)
+            VarChain->push_back(
+                std::make_pair(cast_or_null<VarDecl>(VD), false));
+#endif  // INTEL_COLLAB
         }
       }
     }
