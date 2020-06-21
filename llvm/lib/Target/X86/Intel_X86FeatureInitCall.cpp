@@ -324,6 +324,10 @@ public:
     if (X87Precision)
       X87PrecisionInit = setX87Precision(F, X87Precision);
 
+    // This pass only works for X87 precision control when OptLevel is -O0.
+    if (TM->getOptLevel() == CodeGenOpt::None)
+      return X87PrecisionInit;
+
     bool ProcInit = insertProcInitCall(F);
     bool FTZ = false;
     uint32_t FtzDaz = getFtzDaz(F);
