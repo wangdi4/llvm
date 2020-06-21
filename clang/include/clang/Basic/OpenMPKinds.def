@@ -132,6 +132,7 @@ OPENMP_DIRECTIVE_SPIR_SUBSET(distribute_simd)
 OPENMP_DIRECTIVE_SPIR_SUBSET(loop)
 OPENMP_DIRECTIVE_SPIR_SUBSET(teams_loop)
 OPENMP_DIRECTIVE_SPIR_SUBSET(target_teams_loop)
+OPENMP_DIRECTIVE_SPIR_SUBSET(parallel_loop)
 #endif // INTEL_CUSTOMIZATION
 
 // Static attributes for 'schedule' clause.

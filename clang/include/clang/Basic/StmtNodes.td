@@ -256,6 +256,7 @@ def OMPTargetVariantDispatchDirective : StmtNode<OMPExecutableDirective>;
 def OMPGenericLoopDirective : StmtNode<OMPLoopDirective>;
 def OMPTeamsGenericLoopDirective : StmtNode<OMPLoopDirective>;
 def OMPTargetTeamsGenericLoopDirective : StmtNode<OMPLoopDirective>;
+def OMPParallelGenericLoopDirective : StmtNode<OMPLoopDirective>;
 //end INTEL_COLLAB
 def OMPTaskLoopDirective : StmtNode<OMPLoopDirective>;
 def OMPTaskLoopSimdDirective : StmtNode<OMPLoopDirective>;

@@ -916,6 +916,11 @@ void StmtProfiler::VisitOMPTargetTeamsGenericLoopDirective(
     const OMPTargetTeamsGenericLoopDirective *S) {
   VisitOMPLoopDirective(S);
 }
+
+void StmtProfiler::VisitOMPParallelGenericLoopDirective(
+    const OMPParallelGenericLoopDirective *S) {
+  VisitOMPLoopDirective(S);
+}
 #endif // INTEL_COLLAB
 
 void StmtProfiler::VisitOMPSingleDirective(const OMPSingleDirective *S) {

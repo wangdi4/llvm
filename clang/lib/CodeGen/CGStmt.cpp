@@ -124,6 +124,7 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
     if (S->getStmtClass() == Stmt::OMPParallelMasterTaskLoopDirectiveClass ||
         S->getStmtClass() ==
             Stmt::OMPParallelMasterTaskLoopSimdDirectiveClass ||
+        S->getStmtClass() == Stmt::OMPParallelGenericLoopDirectiveClass ||
         S->getStmtClass() == Stmt::OMPParallelMasterDirectiveClass) {
       auto *Dir = dyn_cast<OMPExecutableDirective>(S);
       return EmitLateOutlineOMPDirective(*Dir, llvm::omp::OMPD_parallel);
@@ -438,6 +439,8 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
     llvm_unreachable("teams loop not supported with FE outlining");
   case Stmt::OMPTargetTeamsGenericLoopDirectiveClass:
     llvm_unreachable("target teams loop not supported with FE outlining");
+  case Stmt::OMPParallelGenericLoopDirectiveClass:
+    llvm_unreachable("parallel loop not supported with FE outlining");
 #endif // INTEL_COLLAB
   }
 }

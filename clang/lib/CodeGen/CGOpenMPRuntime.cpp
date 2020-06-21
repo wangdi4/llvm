@@ -6788,6 +6788,7 @@ emitNumTeamsForTargetDirective(CodeGenFunction &CGF,
   case OMPD_teams_loop:
   // 'target teams loop' unexpected in clang-outlining.
   case OMPD_target_teams_loop:
+  case OMPD_parallel_loop:
 #endif // INTEL_COLLAB
   case OMPD_declare_reduction:
   case OMPD_declare_mapper:
@@ -7110,6 +7111,7 @@ emitNumThreadsForTargetDirective(CodeGenFunction &CGF,
   case OMPD_teams_loop:
   // 'target teams loop' unexpected in clang-outlined code
   case OMPD_target_teams_loop:
+  case OMPD_parallel_loop:
 #endif // INTEL_COLLAB
   case OMPD_declare_reduction:
   case OMPD_declare_mapper:
@@ -9110,6 +9112,7 @@ getNestedDistributeDirective(ASTContext &Ctx, const OMPExecutableDirective &D) {
     case OMPD_loop:
     case OMPD_teams_loop:
     case OMPD_target_teams_loop:
+    case OMPD_parallel_loop:
 #endif // INTEL_COLLAB
     case OMPD_declare_mapper:
     case OMPD_taskloop:
@@ -9921,6 +9924,7 @@ void CGOpenMPRuntime::scanForTargetRegionsFunctions(const Stmt *S,
     case OMPD_loop:
     case OMPD_teams_loop:
     case OMPD_target_teams_loop:
+    case OMPD_parallel_loop:
 #endif // INTEL_COLLAB
     case OMPD_declare_reduction:
     case OMPD_declare_mapper:
@@ -10727,6 +10731,7 @@ void CGOpenMPRuntime::emitTargetDataStandAloneCall(
     case OMPD_loop:
     case OMPD_teams_loop:
     case OMPD_target_teams_loop:
+    case OMPD_parallel_loop:
 #endif // INTEL_COLLAB
     case OMPD_declare_reduction:
     case OMPD_declare_mapper:

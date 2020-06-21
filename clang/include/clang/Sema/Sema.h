@@ -10528,6 +10528,11 @@ public:
   StmtResult ActOnOpenMPTargetTeamsGenericLoopDirective(
       ArrayRef<OMPClause *> Clauses, Stmt *AStmt, SourceLocation StartLoc,
       SourceLocation EndLoc, VarsWithInheritedDSAType &VarsWithImplicitDSA);
+  /// Called on well-formed '\#pragma omp parallel loop' after parsing of the
+  /// associated statement.
+  StmtResult ActOnOpenMPParallelGenericLoopDirective(
+      ArrayRef<OMPClause *> Clauses, Stmt *AStmt, SourceLocation StartLoc,
+      SourceLocation EndLoc, VarsWithInheritedDSAType &VarsWithImplicitDSA);
 #endif // INTEL_COLLAB
 
   /// Called on well-formed '\#pragma omp single' after parsing of the

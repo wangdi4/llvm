@@ -2881,6 +2881,8 @@ DEF_TRAVERSE_STMT(OMPTeamsGenericLoopDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
 DEF_TRAVERSE_STMT(OMPTargetTeamsGenericLoopDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
+DEF_TRAVERSE_STMT(OMPParallelGenericLoopDirective,
+                  { TRY_TO(TraverseOMPExecutableDirective(S)); })
 #endif // INTEL_COLLAB
 
 DEF_TRAVERSE_STMT(OMPSingleDirective,
