@@ -666,7 +666,13 @@ bool BasicAAResult::DecomposeGEPExpression(const Value *V,
 
     const GEPOperator *GEPOp = dyn_cast<GEPOperator>(Op);
     if (!GEPOp) {
-      if (const auto *Call = dyn_cast<CallBase>(V)) {
+      if (const auto *PHI = dyn_cast<PHINode>(V)) {
+        // Look through single-arg phi nodes created by LCSSA.
+        if (PHI->getNumIncomingValues() == 1) {
+          V = PHI->getIncomingValue(0);
+          continue;
+        }
+      } else if (const auto *Call = dyn_cast<CallBase>(V)) {
         // CaptureTracking can know about special capturing properties of some
         // intrinsics like launder.invariant.group, that can't be expressed with
         // the attributes, but have properties like returning aliasing pointer.
@@ -682,6 +688,7 @@ bool BasicAAResult::DecomposeGEPExpression(const Value *V,
         }
       }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       // Matches GetUnderlyingObject
       if (auto *Subs = dyn_cast<SubscriptInst>(V)) {
@@ -717,6 +724,8 @@ bool BasicAAResult::DecomposeGEPExpression(const Value *V,
           continue;
         }
 
+=======
+>>>>>>> 37d3030711cc30564fb142154e4e8cabdc91724e
       Decomposed.Base = V;
       return false;
     }
