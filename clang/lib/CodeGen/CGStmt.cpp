@@ -95,6 +95,7 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
         S->getStmtClass() == Stmt::OMPTargetTeamsDirectiveClass ||
         S->getStmtClass() == Stmt::OMPTargetTeamsDistributeDirectiveClass ||
         S->getStmtClass() == Stmt::OMPTargetTeamsDistributeSimdDirectiveClass ||
+        S->getStmtClass() == Stmt::OMPTargetTeamsGenericLoopDirectiveClass ||
         S->getStmtClass() ==
             Stmt::OMPTargetTeamsDistributeParallelForDirectiveClass ||
         S->getStmtClass() ==
@@ -435,6 +436,8 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
     llvm_unreachable("loop not supported with FE outlining");
   case Stmt::OMPTeamsGenericLoopDirectiveClass:
     llvm_unreachable("teams loop not supported with FE outlining");
+  case Stmt::OMPTargetTeamsGenericLoopDirectiveClass:
+    llvm_unreachable("target teams loop not supported with FE outlining");
 #endif // INTEL_COLLAB
   }
 }

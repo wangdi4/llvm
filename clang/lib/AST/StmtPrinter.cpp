@@ -698,6 +698,12 @@ void StmtPrinter::VisitOMPTeamsGenericLoopDirective(
   Indent() << "#pragma omp teams loop";
   PrintOMPExecutableDirective(Node);
 }
+
+void StmtPrinter::VisitOMPTargetTeamsGenericLoopDirective(
+    OMPTargetTeamsGenericLoopDirective *Node) {
+  Indent() << "#pragma omp target teams loop";
+  PrintOMPExecutableDirective(Node);
+}
 #endif // INTEL_COLLAB
 
 void StmtPrinter::VisitOMPSingleDirective(OMPSingleDirective *Node) {
