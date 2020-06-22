@@ -2573,8 +2573,9 @@ enum CXCursorKind {
   CXCursor_OMPGenericLoopDirective = 289,
   CXCursor_OMPTeamsGenericLoopDirective = 290,
   CXCursor_OMPTargetTeamsGenericLoopDirective = 291,
+  CXCursor_OMPParallelGenericLoopDirective = 292,
 
-  CXCursor_LastStmt = CXCursor_OMPTargetTeamsGenericLoopDirective,
+  CXCursor_LastStmt = CXCursor_OMPParallelGenericLoopDirective,
 #else /* INTEL_COLLAB */
   CXCursor_LastStmt = CXCursor_OMPScanDirective,
 #endif /* INTEL_COLLAB */

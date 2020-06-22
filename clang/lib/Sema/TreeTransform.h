@@ -8596,6 +8596,18 @@ TreeTransform<Derived>::TransformOMPTargetTeamsGenericLoopDirective(
 }
 
 template <typename Derived>
+StmtResult
+TreeTransform<Derived>::TransformOMPParallelGenericLoopDirective(
+    OMPParallelGenericLoopDirective *D) {
+  DeclarationNameInfo DirName;
+  getDerived().getSema().StartOpenMPDSABlock(
+      OMPD_parallel_loop, DirName, nullptr, D->getBeginLoc());
+  StmtResult Res = getDerived().TransformOMPExecutableDirective(D);
+  getDerived().getSema().EndOpenMPDSABlock(Res.get());
+  return Res;
+}
+
+template <typename Derived>
 StmtResult TreeTransform<Derived>::TransformOMPTargetVariantDispatchDirective(
     OMPTargetVariantDispatchDirective *D) {
   DeclarationNameInfo DirName;
