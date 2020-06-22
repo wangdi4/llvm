@@ -15,8 +15,9 @@
 
 #include "IntelVPlanCostModel.h"
 #include "IntelVPlan.h"
-#include "llvm/Analysis/TargetTransformInfo.h"
+#include "IntelVPlanCallVecDecisions.h"
 #include "IntelVPlanUtils.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/VectorUtils.h"
 
 #define DEBUG_TYPE "vplan-cost-model"
@@ -534,6 +535,10 @@ unsigned VPlanCostModel::getCost(const VPBasicBlock *VPBB) {
 }
 
 unsigned VPlanCostModel::getCost() {
+  // CallVecDecisions analysis invocation.
+  VPlanCallVecDecisions CallVecDecisions(*const_cast<VPlan *>(Plan));
+  CallVecDecisions.run(VF, TLI, TTI);
+
   unsigned Cost = 0;
   for (auto *Block : depth_first(Plan->getEntryBlock()))
     Cost += getCost(Block);
