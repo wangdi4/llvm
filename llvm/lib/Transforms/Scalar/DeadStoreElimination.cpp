@@ -1803,11 +1803,8 @@ struct DSEState {
         if (CommonPred)
           WorkList.insert(CommonPred);
         else
-          for (BasicBlock *R : PDT.getRoots()) {
-            if (!DT.isReachableFromEntry(R))
-              continue;
+          for (BasicBlock *R : PDT.getRoots())
             WorkList.insert(R);
-          }
 
         NumCFGTries++;
         // Check if all paths starting from an exit node go through one of the
@@ -1819,6 +1816,12 @@ struct DSEState {
             continue;
           if (Current == DomAccess->getBlock())
             return None;
+
+          // DomAccess is reachable from the entry, so we don't have to explore
+          // unreachable blocks further.
+          if (!DT.isReachableFromEntry(Current))
+            continue;
+
           unsigned CPO = PostOrderNumbers.find(Current)->second;
           // Current block is not on a path starting at DomAccess.
           if (CPO > UpperBound)
