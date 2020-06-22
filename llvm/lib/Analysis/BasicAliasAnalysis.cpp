@@ -688,7 +688,6 @@ bool BasicAAResult::DecomposeGEPExpression(const Value *V,
         }
       }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       // Matches GetUnderlyingObject
       if (auto *Subs = dyn_cast<SubscriptInst>(V)) {
@@ -724,8 +723,6 @@ bool BasicAAResult::DecomposeGEPExpression(const Value *V,
           continue;
         }
 
-=======
->>>>>>> 37d3030711cc30564fb142154e4e8cabdc91724e
       Decomposed.Base = V;
       return false;
     }
