@@ -710,6 +710,12 @@ void StmtPrinter::VisitOMPParallelGenericLoopDirective(
   Indent() << "#pragma omp parallel loop";
   PrintOMPExecutableDirective(Node);
 }
+
+void StmtPrinter::VisitOMPTargetParallelGenericLoopDirective(
+    OMPTargetParallelGenericLoopDirective *Node) {
+  Indent() << "#pragma omp target parallel loop";
+  PrintOMPExecutableDirective(Node);
+}
 #endif // INTEL_COLLAB
 
 void StmtPrinter::VisitOMPSingleDirective(OMPSingleDirective *Node) {

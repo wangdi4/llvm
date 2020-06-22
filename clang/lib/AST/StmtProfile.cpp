@@ -921,6 +921,11 @@ void StmtProfiler::VisitOMPParallelGenericLoopDirective(
     const OMPParallelGenericLoopDirective *S) {
   VisitOMPLoopDirective(S);
 }
+
+void StmtProfiler::VisitOMPTargetParallelGenericLoopDirective(
+    const OMPTargetParallelGenericLoopDirective *S) {
+  VisitOMPLoopDirective(S);
+}
 #endif // INTEL_COLLAB
 
 void StmtProfiler::VisitOMPSingleDirective(const OMPSingleDirective *S) {

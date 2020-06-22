@@ -812,6 +812,7 @@ static bool hasNestedSPMDDirective(ASTContext &Ctx,
     case OMPD_teams_loop:
     case OMPD_target_teams_loop:
     case OMPD_parallel_loop:
+    case OMPD_target_parallel_loop:
 #endif // INTEL_COLLAB
     case OMPD_declare_reduction:
     case OMPD_declare_mapper:
@@ -899,6 +900,7 @@ static bool supportsSPMDExecutionMode(ASTContext &Ctx,
   case OMPD_teams_loop:
   case OMPD_target_teams_loop:
   case OMPD_parallel_loop:
+  case OMPD_target_parallel_loop:
 #endif // INTEL_COLLAB
   case OMPD_declare_reduction:
   case OMPD_declare_mapper:
@@ -1080,6 +1082,7 @@ static bool hasNestedLightweightDirective(ASTContext &Ctx,
     case OMPD_teams_loop:
     case OMPD_target_teams_loop:
     case OMPD_parallel_loop:
+    case OMPD_target_parallel_loop:
 #endif // INTEL_COLLAB
     case OMPD_declare_mapper:
     case OMPD_taskloop:
@@ -1172,6 +1175,7 @@ static bool supportsLightweightRuntime(ASTContext &Ctx,
   case OMPD_teams_loop:
   case OMPD_target_teams_loop:
   case OMPD_parallel_loop:
+  case OMPD_target_parallel_loop:
 #endif // INTEL_COLLAB
   case OMPD_declare_reduction:
   case OMPD_declare_mapper:
