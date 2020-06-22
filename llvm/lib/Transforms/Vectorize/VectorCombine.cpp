@@ -77,6 +77,11 @@ private:
   bool scalarizeBinopOrCmp(Instruction &I);
 };
 
+static void replaceValue(Value &Old, Value &New) {
+  Old.replaceAllUsesWith(&New);
+  New.takeName(&Old);
+}
+
 /// Compare the relative costs of 2 extracts followed by scalar operation vs.
 /// vector operation(s) followed by extract. Return true if the existing
 /// instructions are cheaper than a vector alternative. Otherwise, return false
@@ -229,8 +234,7 @@ void VectorCombine::foldExtExtCmp(ExtractElementInst *Ext0,
   Value *V0 = Ext0->getVectorOperand(), *V1 = Ext1->getVectorOperand();
   Value *VecCmp = Builder.CreateCmp(Pred, V0, V1);
   Value *NewExt = Builder.CreateExtractElement(VecCmp, Ext0->getIndexOperand());
-  I.replaceAllUsesWith(NewExt);
-  NewExt->takeName(&I);
+  replaceValue(I, *NewExt);
 }
 
 /// Try to reduce extract element costs by converting scalar binops to vector
@@ -255,8 +259,7 @@ void VectorCombine::foldExtExtBinop(ExtractElementInst *Ext0,
     VecBOInst->copyIRFlags(&I);
 
   Value *NewExt = Builder.CreateExtractElement(VecBO, Ext0->getIndexOperand());
-  I.replaceAllUsesWith(NewExt);
-  NewExt->takeName(&I);
+  replaceValue(I, *NewExt);
 }
 
 /// Match an instruction with extracted vector operands.
@@ -361,7 +364,7 @@ bool VectorCombine::foldBitcastShuf(Instruction &I) {
   Value *CastV = Builder.CreateBitCast(V, DestTy);
   Value *Shuf =
       Builder.CreateShuffleVector(CastV, UndefValue::get(DestTy), NewMask);
-  I.replaceAllUsesWith(Shuf);
+  replaceValue(I, *Shuf);
   return true;
 }
 
@@ -478,8 +481,7 @@ bool VectorCombine::scalarizeBinopOrCmp(Instruction &I) {
   Constant *NewVecC = IsCmp ? ConstantExpr::getCompare(Pred, VecC0, VecC1)
                             : ConstantExpr::get(Opcode, VecC0, VecC1);
   Value *Insert = Builder.CreateInsertElement(NewVecC, Scalar, Index);
-  I.replaceAllUsesWith(Insert);
-  Insert->takeName(&I);
+  replaceValue(I, *Insert);
   return true;
 }
 
