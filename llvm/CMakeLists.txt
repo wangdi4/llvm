@@ -1594,7 +1594,7 @@ if (INTEL_CUSTOMIZATION)
 # end INTEL_FEATURE_CSA
 # end INTEL_CUSTOMIZATION
       # SYCL components
-      khronos-icd-loader opencl-aot
+      khronos-icd-loader opencl-aot aocl-ioc64
       )
 
     if (WIN32)
