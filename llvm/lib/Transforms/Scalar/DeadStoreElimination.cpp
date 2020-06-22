@@ -1901,9 +1901,8 @@ struct DSEState {
   //  * A memory instruction that may throw and \p SI accesses a non-stack
   //  object.
   //  * Atomic stores stronger that monotonic.
-  bool isDSEBarrier(Instruction *SI, MemoryLocation &SILoc,
-                    const Value *SILocUnd, Instruction *NI,
-                    MemoryLocation &NILoc) const {
+  bool isDSEBarrier(Instruction *SI, const Value *SILocUnd,
+                    Instruction *NI) const {
     // If NI may throw it acts as a barrier, unless we are to an alloca/alloca
     // like object that does not escape.
     if (NI->mayThrow() && !InvisibleToCallerBeforeRet.count(SILocUnd))
@@ -2041,10 +2040,9 @@ bool eliminateDeadStoresMemorySSA(Function &F, AliasAnalysis &AA,
         continue;
       }
 
-      MemoryLocation NILoc = *State.getLocForWriteEx(NI);
       // Check for anything that looks like it will be a barrier to further
       // removal
-      if (State.isDSEBarrier(SI, SILoc, SILocUnd, NI, NILoc)) {
+      if (State.isDSEBarrier(SI, SILocUnd, NI)) {
         LLVM_DEBUG(dbgs() << "  ... skip, barrier\n");
         continue;
       }
@@ -2059,6 +2057,7 @@ bool eliminateDeadStoresMemorySSA(Function &F, AliasAnalysis &AA,
       if (!DebugCounter::shouldExecute(MemorySSACounter))
         continue;
 
+      MemoryLocation NILoc = *State.getLocForWriteEx(NI);
       // Check if NI overwrites SI.
       int64_t InstWriteOffset, DepWriteOffset;
       auto Iter = State.IOLs.insert(
