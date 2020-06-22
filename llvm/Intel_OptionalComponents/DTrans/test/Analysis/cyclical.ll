@@ -81,6 +81,7 @@ merge:
 
 exit_A:
   %badA = bitcast i8* %a to %struct.test01.a*
+  %gep = getelementptr %struct.test01.a, %struct.test01.a* %badA, i64 0, i32 0
   br label %exit
 
 exit_B:
@@ -91,13 +92,13 @@ exit:
 }
 
 ; CHECK: LLVMType: %struct.test01.a = type { i32, i32 }
-; CHECK: Safety data: Bad casting | Unsafe pointer merge
+; CHECK: Safety data: Bad casting | Ambiguous GEP | Unsafe pointer merge
 
 ; CHECK: LLVMType: %struct.test01.b = type { i32, i32 }
-; CHECK: Safety data: Bad casting | Unsafe pointer merge
+; CHECK: Safety data: Bad casting | Ambiguous GEP | Unsafe pointer merge
 
 ; CHECK: LLVMType: %struct.test01.c = type { i32, i32 }
-; CHECK: Safety data: Bad casting | Unsafe pointer merge
+; CHECK: Safety data: Bad casting | Ambiguous GEP | Unsafe pointer merge
 
 
 ; test02 uses a less complex dependency graph and checks the handling of
@@ -184,7 +185,7 @@ define void @test04(%struct.test04*** %ARG) {
 ; In test05, a PHI node with a self-dependency must be analyzed.
 
 %struct.test05 = type { i32, i32 }
-define void @test05() {
+define %struct.test05* @test05() {
 BB1:
   br label %BB2
 
@@ -194,7 +195,7 @@ BB2:
 
 BB3:
   %bad = bitcast i8* %P1 to %struct.test05*
-  ret void
+  ret %struct.test05* %bad
 }
 
 ; CHECK: LLVMType: %struct.test05 = type { i32, i32 }
@@ -205,7 +206,7 @@ BB3:
 ; block.
 
 %struct.test06 = type { i32, i32 }
-define void @test06() {
+define %struct.test06* @test06() {
 BB1:
   br label %BB2
 
@@ -217,7 +218,7 @@ BB2:
 
 BB3:
   %bad = bitcast i8* %P1 to %struct.test06*
-  ret void
+  ret %struct.test06* %bad
 }
 
 ; CHECK: LLVMType: %struct.test06 = type { i32, i32 }
