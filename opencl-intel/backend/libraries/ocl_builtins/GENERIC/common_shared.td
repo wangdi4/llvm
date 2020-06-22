@@ -72,13 +72,8 @@ OclBuiltinImpl smoothstep_f32_generic = OclBuiltinImpl<smoothstep,
  * current LLVM/clang. That still work with '*.ll' files but '*.bc' would cause
  * a crash in LLVM as the way where the constant expression is constructed.
  */
-OclBuiltinImpl smoothstep_v3f32_workaround = OclBuiltinImpl<smoothstep, [v3f32], 0, [{
-    float4 v4$Arg0VarName; v4$Arg0VarName$Pattern = $Arg0VarName;
-    float4 v4$Arg1VarName; v4$Arg1VarName$Pattern = $Arg1VarName;
-    float4 v4$Arg2VarName; v4$Arg2VarName$Pattern = $Arg2VarName;
-    float4 $ReturnVarName = smoothstep(v4$Arg0VarName, v4$Arg1VarName, v4$Arg2VarName);
-    return $ReturnVarName$Pattern;
-  }]>;
+OclBuiltinImpl smoothstep_v3f32_workaround = OclBuiltinImpl<smoothstep, [v3f32], 0, Promote3>;
+
 OclBuiltinImpl smoothstep_f64_generic = OclBuiltinImpl<smoothstep,
   [v1f64, v2f64, v4f64, v8f64, v16f64] , 0, [{
     $ReturnType t = clamp(($Arg2VarName - $Arg0VarName) / ($Arg1VarName - $Arg0VarName), 0.0, 1.0);

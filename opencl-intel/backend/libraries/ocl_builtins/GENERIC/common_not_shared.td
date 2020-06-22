@@ -30,6 +30,13 @@ OclBuiltinImpl step_f64_generic_not_shared = OclBuiltinImpl<step,
     return ($Arg1VarName < $Arg0VarName) ? ($ReturnType)0.0 : ($ReturnType)1.0;
   }]>;
 
+// smoothstep
+OclBuiltinImpl smoothstep_f64_generic_not_shared = OclBuiltinImpl<smoothstep,
+  [v3f64] , 0, [{
+    $ReturnType t = clamp(($Arg2VarName - $Arg0VarName) / ($Arg1VarName - $Arg0VarName), 0.0, 1.0);
+    return t * t * (3.0 - 2.0 * t);
+  }]>;
+
 // sign
 OclBuiltinImpl sign_f32_generic_not_shared = OclBuiltinImpl<sign,
   [v8f32, v16f32] , 0, [{
