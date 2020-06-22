@@ -3643,6 +3643,10 @@ bool DDTest::delinearizeTo2Dim(const RegDDRef *DDRef, const CanonExpr *CE,
   const HLLoop *Lp = DDRef->getParentLoop();
   const HLLoop *ParentLoop = Lp->getParentLoopAtLevel(LoopLevelForUnitStride);
 
+  if (!RelaxChecking && ParentLoop->isUnknown()) {
+    return false;
+  }
+
   for (auto CurIVPair = CE->iv_begin(), E = CE->iv_end(); CurIVPair != E;
        ++CurIVPair) {
 
@@ -3666,10 +3670,8 @@ bool DDTest::delinearizeTo2Dim(const RegDDRef *DDRef, const CanonExpr *CE,
 
     // Verify that Coeff is > UB of LoopForUnitStride
 
-    const CanonExpr *UpperBound = ParentLoop->getUpperCanonExpr();
-
-    if (RelaxChecking ||
-        isKnownPredicate(CmpInst::ICMP_SGT, TmpCE, UpperBound)) {
+    if (RelaxChecking || isKnownPredicate(CmpInst::ICMP_SGT, TmpCE,
+                                          ParentLoop->getUpperCanonExpr())) {
       // Construct the subscript e.g. 4  from 4 * n * i by removing the
       // symbolic stride
       CanonExpr *Tmp = const_cast<CanonExpr *>(TmpCE);
