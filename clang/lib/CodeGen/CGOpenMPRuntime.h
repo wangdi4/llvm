@@ -1544,6 +1544,10 @@ public:
   /// UDR decl used for reduction.
   static const OMPDeclareReductionDecl *getRedInit(const Expr *ReductionOp);
 
+  static llvm::Function *emitCombiner(CodeGenModule &CGM, QualType Ty,
+                                      const Expr *Combiner, const VarDecl *In,
+                                      const VarDecl *Out);
+
   /// Register target region in the offload entry manager. Return entry's index.
   virtual int registerTargetRegion(const OMPExecutableDirective &D,
                                    StringRef ParentName);

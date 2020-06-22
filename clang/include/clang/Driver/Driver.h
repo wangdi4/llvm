@@ -312,6 +312,10 @@ public:
          DiagnosticsEngine &Diags,
          IntrusiveRefCntPtr<llvm::vfs::FileSystem> VFS = nullptr);
 
+#if INTEL_CUSTOMIZATION
+  void setDriverName(const std::string &Name) { this->Name = Name; }
+#endif // INTEL_CUSTOMIZATION
+
   /// @name Accessors
   /// @{
 

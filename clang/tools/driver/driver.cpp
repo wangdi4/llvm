@@ -71,6 +71,14 @@ std::string GetExecutablePath(const char *Argv0, bool CanonicalPrefixes) {
   return llvm::sys::fs::getMainExecutable(Argv0, P);
 }
 
+#if INTEL_CUSTOMIZATION
+static bool CheckDpcppOption(const char *Argv1) {
+  std::string Expected("--dpcpp");
+  std::string Arg(Argv1);
+  return Expected == Arg;
+}
+#endif // INTEL_CUSTOMIZATION
+
 static const char *GetStableCStr(std::set<std::string> &SavedStrings,
                                  StringRef S) {
   return SavedStrings.insert(std::string(S)).first->c_str();
@@ -465,7 +473,17 @@ int main(int argc_, const char **argv_) {
   TextDiagnosticPrinter *DiagClient
     = new TextDiagnosticPrinter(llvm::errs(), &*DiagOpts);
   FixupDiagPrefixExeName(DiagClient, Path);
-
+#if INTEL_CUSTOMIZATION
+  bool HasDpcppOption = false;
+  for (int i = 1, size = argv.size(); i < size; ++i) {
+    if (argv[i] != nullptr && CheckDpcppOption(argv[i])) {
+      HasDpcppOption = true;
+      break;
+    }
+  }
+  if (HasDpcppOption)
+    DiagClient->setPrefix(std::string("dpcpp"));
+#endif // INTEL_CUSTOMIZATION
   IntrusiveRefCntPtr<DiagnosticIDs> DiagID(new DiagnosticIDs());
 
   DiagnosticsEngine Diags(DiagID, &*DiagOpts, DiagClient);
@@ -481,6 +499,10 @@ int main(int argc_, const char **argv_) {
   ProcessWarningOptions(Diags, *DiagOpts, /*ReportDiags=*/false);
 
   Driver TheDriver(Path, llvm::sys::getDefaultTargetTriple(), Diags);
+#if INTEL_CUSTOMIZATION
+  if (HasDpcppOption)
+    TheDriver.setDriverName(std::string("dpcpp"));
+#endif // INTEL_CUSTOMIZATION
   SetInstallDir(argv, TheDriver, CanonicalPrefixes);
   TheDriver.setTargetAndMode(TargetAndMode);
 

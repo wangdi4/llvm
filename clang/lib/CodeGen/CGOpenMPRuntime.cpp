@@ -6414,6 +6414,13 @@ CGOpenMPRuntime::getRedInit(const Expr *ReductionOp) {
   return getReductionInit(ReductionOp);
 }
 
+llvm::Function *CGOpenMPRuntime::emitCombiner(CodeGenModule &CGM, QualType Ty,
+                                              const Expr *Combiner,
+                                              const VarDecl *In,
+                                              const VarDecl *Out) {
+  return emitCombinerOrInitializer(CGM, Ty, Combiner, In, Out, true);
+}
+
 int CGOpenMPRuntime::registerTargetRegion(const OMPExecutableDirective &D,
                                           StringRef ParentName) {
 
