@@ -708,7 +708,6 @@ bool BasicAAResult::DecomposeGEPExpression(const Value *V,
         V = Fakeload->getPointerOperand();
         continue;
       }
-#endif // INTEL_CUSTOMIZATION
 
       // If it's not a GEP, hand it off to SimplifyInstruction to see if it
       // can come up with something. This matches what GetUnderlyingObject does.
@@ -722,6 +721,7 @@ bool BasicAAResult::DecomposeGEPExpression(const Value *V,
           V = Simplified;
           continue;
         }
+#endif // INTEL_CUSTOMIZATION
 
       Decomposed.Base = V;
       return false;
