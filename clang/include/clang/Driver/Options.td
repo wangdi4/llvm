@@ -726,13 +726,9 @@ def hip_link : Flag<["--"], "hip-link">, Flags<[DpcppUnsupported]>,
 def no_offload_arch_EQ : Joined<["--"], "no-offload-arch=">, Flags<[DriverOption, DpcppUnsupported]>,
   HelpText<"Remove CUDA/HIP offloading device architecture (e.g. sm_35, gfx906) from the list of devices to compile for. "
            "'all' resets the list to its default value.">;
-<<<<<<< HEAD
-def no_cuda_gpu_arch_EQ : Joined<["--"], "no-cuda-gpu-arch=">, Flags<[DriverOption, DpcppUnsupported]>,
-=======
 def emit_static_lib : Flag<["--"], "emit-static-lib">,
   HelpText<"Enable linker job to emit a static library.">;
-def no_cuda_gpu_arch_EQ : Joined<["--"], "no-cuda-gpu-arch=">, Flags<[DriverOption]>,
->>>>>>> 5c9c55313ca1cc8486384d437ca1f351096cf8a8
+def no_cuda_gpu_arch_EQ : Joined<["--"], "no-cuda-gpu-arch=">, Flags<[DriverOption, DpcppUnsupported]>,
   Alias<no_offload_arch_EQ>;
 def cuda_noopt_device_debug : Flag<["--"], "cuda-noopt-device-debug">, Flags<[DpcppUnsupported]>,
   HelpText<"Enable device-side debug info generation. Disables ptxas optimizations.">;
