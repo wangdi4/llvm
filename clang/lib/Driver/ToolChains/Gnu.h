@@ -80,16 +80,25 @@ private:
                               const llvm::opt::ArgList &Args) const;
 };
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 class LLVM_LIBRARY_VISIBILITY SYCLLinker : public GnuTool {
 public:
   SYCLLinker(const ToolChain &TC) : GnuTool("GNU::SYCLLinker", "linker (spirv)", TC) {}
+=======
+class LLVM_LIBRARY_VISIBILITY StaticLibTool : public GnuTool {
+public:
+  StaticLibTool(const ToolChain &TC)
+      : GnuTool("GNU::StaticLibTool", "static-lib-linker", TC) {}
+
+>>>>>>> 5c9c55313ca1cc8486384d437ca1f351096cf8a8
   bool hasIntegratedCPP() const override { return false; }
   bool isLinkJob() const override { return true; }
 
   void ConstructJob(Compilation &C, const JobAction &JA,
                     const InputInfo &Output, const InputInfoList &Inputs,
                     const llvm::opt::ArgList &TCArgs,
+<<<<<<< HEAD
                     const char *LinkingOutput) const override {}
   Tool* GetSYCLToolChainLinker() const {
     if (!SYCLToolChainLinker)
@@ -101,6 +110,10 @@ private:
 };
 #endif // INTEL_CUSTOMIZATION
 
+=======
+                    const char *LinkingOutput) const override;
+};
+>>>>>>> 5c9c55313ca1cc8486384d437ca1f351096cf8a8
 } // end namespace gnutools
 
 /// gcc - Generic GCC tool implementations.
