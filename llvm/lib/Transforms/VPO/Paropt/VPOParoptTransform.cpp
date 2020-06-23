@@ -5752,9 +5752,9 @@ bool VPOParoptTransform::sinkSIMDDirectives(WRegionNode *W) {
     assert(!FindDirectiveCall(LoopExitBB) &&
            "Loop exit block already contains directives.");
 #endif  // NDEBUG
-    LoopExitBB->getInstList().splice(LoopExitBB->begin(), ExitBB->getInstList(),
-                                     ExitDir->getIterator(),
-                                     ++(ExitDir->getIterator()));
+    LoopExitBB->getInstList().splice(
+        LoopExitBB->getFirstInsertionPt(), ExitBB->getInstList(),
+        ExitDir->getIterator(), ++(ExitDir->getIterator()));
     Changed = true;
   }
 
