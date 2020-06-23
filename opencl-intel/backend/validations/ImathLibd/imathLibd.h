@@ -31,10 +31,6 @@
     #define _LIB_VERSIONIMF_TYPE
 #endif
 
-#ifndef _LIB_VERSION_TYPE
-    #define _LIB_VERSION_TYPE
-#endif
-
 // This class is exported from the imathLibd.dll
 class IMATHLIBD_API CimathLibd {
 public:

@@ -25,7 +25,7 @@ target_link_libraries(${TARGET_NAME}
 )
 
 if(NOT WIN32)
-    add_dependencies(${TARGET_NAME} ImathLibd_wrapper)
+    add_dependencies(${TARGET_NAME} ImathLibd)
 endif(NOT WIN32)
 
 install(TARGETS ${TARGET_NAME} RUNTIME DESTINATION tests/LITTests)
