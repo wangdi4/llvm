@@ -1507,8 +1507,8 @@ OclBuiltinImpl sub_group_scan_inclusive_min_avx512fv8i64 = OclBuiltinImpl<sub_gr
 #pragma clang unroll(full)
     for (int i = 0; i < 7; i++) { // VF - 1 iterations
         mask <<= 1;
-        rotated = (__v8di)_mm512_permutexvar_epi32(rotate_mask, (__m512i)res);
-        res = (__v8di)_mm512_mask_min_epu64((__m512i)res, mask, (__m512i)res, (__m512i)rotated);
+        rotated = (__v8di)_mm512_permutexvar_epi64(rotate_mask, (__m512i)res);
+        res = (__v8di)_mm512_mask_min_epi64((__m512i)res, mask, (__m512i)res, (__m512i)rotated);
     }
     return *(($ReturnType *)&res);
   }]>;
