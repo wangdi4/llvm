@@ -309,7 +309,7 @@ public:
 
 /// WRN for
 /// \code
-///   #pragma omp parallel loop
+///   #pragma omp parallel for
 /// \endcode
 class WRNParallelLoopNode : public WRegionNode {
 private:
@@ -327,6 +327,7 @@ private:
   ScheduleClause Schedule;
   int Collapse;
   int Ordered;
+  WRNLoopOrderKind LoopOrder;
   WRNLoopInfo WRNLI;
   SmallVector<Value *, 2> OrderedTripCounts;
   SmallVector<Instruction *, 2> CancellationPoints;
@@ -359,6 +360,8 @@ protected:
   void setProcBind(WRNProcBindKind P) { ProcBind = P; }
   void setCollapse(int N) { Collapse = N; }
   void setOrdered(int N) { Ordered = N; }
+  void setLoopOrder(WRNLoopOrderKind LO) { LoopOrder = LO; }
+
 #if INTEL_CUSTOMIZATION
   void setEntryHLNode(loopopt::HLNode *E) { EntryHLNode = E; }
   void setExitHLNode(loopopt::HLNode *X) { ExitHLNode = X; }
@@ -391,6 +394,7 @@ public:
   WRNProcBindKind getProcBind() const { return ProcBind; }
   int getCollapse() const { return Collapse; }
   int getOrdered() const { return Ordered; }
+  WRNLoopOrderKind getLoopOrder() const { return LoopOrder; }
   void addOrderedTripCount(Value *TC) { OrderedTripCounts.push_back(TC); }
   const SmallVectorImpl<Value *> &getOrderedTripCounts() const {
     return OrderedTripCounts;
@@ -616,6 +620,7 @@ private:
   ScheduleClause DistSchedule;
   int Collapse;
   int Ordered;
+  WRNLoopOrderKind LoopOrder;
   WRNLoopInfo WRNLI;
 
 public:
@@ -628,6 +633,7 @@ protected:
   void setProcBind(WRNProcBindKind P) { ProcBind = P; }
   void setCollapse(int N) { Collapse = N; }
   void setOrdered(int N) { Ordered = N; }
+  void setLoopOrder(WRNLoopOrderKind LO) { LoopOrder = LO; }
 
 public:
   DEFINE_GETTER(SharedClause,       getShared, Shared)
@@ -647,6 +653,7 @@ public:
   WRNProcBindKind getProcBind() const { return ProcBind; }
   int getCollapse() const { return Collapse; }
   int getOrdered() const { return Ordered; }
+  WRNLoopOrderKind getLoopOrder() const { return LoopOrder; }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const;
@@ -1123,6 +1130,7 @@ private:
   int Simdlen;
   int Safelen;
   int Collapse;
+  WRNLoopOrderKind LoopOrder;
   WRNLoopInfo WRNLI;
 #if INTEL_CUSTOMIZATION
   bool IsAutoVec;
@@ -1145,6 +1153,8 @@ public:
   void setSimdlen(int N) { Simdlen = N; }
   void setSafelen(int N) { Safelen = N; }
   void setCollapse(int N) { Collapse = N; }
+  void setLoopOrder(WRNLoopOrderKind LO) { LoopOrder = LO; }
+
 #if INTEL_CUSTOMIZATION
   void setIsAutoVec(bool Flag) { IsAutoVec = Flag; }
   void setHasVectorAlways(bool Flag) { HasVectorAlways = Flag; }
@@ -1164,6 +1174,8 @@ public:
   int getSimdlen() const { return Simdlen; }
   int getSafelen() const { return Safelen; }
   int getCollapse() const { return Collapse; }
+  WRNLoopOrderKind getLoopOrder() const { return LoopOrder; }
+
 #if INTEL_CUSTOMIZATION
   bool getIsAutoVec() const { return IsAutoVec; }
   bool getHasVectorAlways() const { return HasVectorAlways; }
@@ -1212,6 +1224,7 @@ private:
   ScheduleClause Schedule;
   int Collapse;
   int Ordered;
+  WRNLoopOrderKind LoopOrder;
   bool Nowait;
   WRNLoopInfo WRNLI;
   SmallVector<Value *, 2> OrderedTripCounts;
@@ -1229,6 +1242,7 @@ public:
 protected:
   void setCollapse(int N) { Collapse = N; }
   void setOrdered(int N) { Ordered = N; }
+  void setLoopOrder(WRNLoopOrderKind LO) { LoopOrder = LO; }
   void setNowait(bool Flag) { Nowait = Flag; }
 
 public:
@@ -1247,7 +1261,9 @@ public:
 
   int getCollapse() const { return Collapse; }
   int getOrdered() const { return Ordered; }
+  WRNLoopOrderKind getLoopOrder() const { return LoopOrder; }
   bool getNowait() const { return Nowait; }
+
   void addOrderedTripCount(Value *TC) { OrderedTripCounts.push_back(TC); }
   const SmallVectorImpl<Value *> &getOrderedTripCounts() const {
     return OrderedTripCounts;
@@ -1747,7 +1763,7 @@ extern void printExtraForParallel(WRegionNode const *W,
 
 /// \brief Print the fields common to some WRNs for which getIsOmpLoop()==true.
 /// Possible constructs are: WRNParallelLoop, WRNDistributeParLoop, WRNWksLoop
-/// The fields to print are: Collapse, Ordered, Nowait
+/// The fields to print are: Collapse, Ordered, Order, Nowait
 extern void printExtraForOmpLoop(WRegionNode const *W,
                                   formatted_raw_ostream &OS, int Depth,
                                   unsigned Verbosity=1);

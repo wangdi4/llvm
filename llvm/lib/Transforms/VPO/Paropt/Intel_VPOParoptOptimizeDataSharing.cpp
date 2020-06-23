@@ -97,7 +97,7 @@ static bool optimizeDataSharing(
 } // end anonymous namespace
 
 char VPOParoptOptimizeDataSharing::ID = 0;
-INITIALIZE_PASS_BEGIN(VPOParoptOptimizeDataSharing, DEBUG__TYPE, PASS_NAME,
+INITIALIZE_PASS_BEGIN(VPOParoptOptimizeDataSharing, DEBUG_TYPE, PASS_NAME,
                       false, false)
 INITIALIZE_PASS_DEPENDENCY(WRegionInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(OptimizationRemarkEmitterWrapperPass)
