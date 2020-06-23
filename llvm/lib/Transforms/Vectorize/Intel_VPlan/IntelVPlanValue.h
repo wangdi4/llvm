@@ -482,6 +482,47 @@ public:
   }
 };
 
+/// VPConstantInt is subset of VPConstant representing Integer constants only.
+class VPConstantInt : public VPConstant {
+  // VPlan is currently the context where we hold the pool of VPConstants.
+  friend class VPlan;
+
+protected:
+  VPConstantInt(ConstantInt *ConstInt) : VPConstant(ConstInt) {}
+
+public:
+  VPConstantInt(const VPConstantInt &) = delete;
+  VPConstantInt &operator=(const VPConstantInt &) const = delete;
+
+  /// Return the underlying Constant attached to this VPConstant. This interface
+  /// is similar to getValue() but hides the cast when we are working with
+  /// VPConstant pointers.
+  ConstantInt *getConstantInt() const {
+    assert(isa<ConstantInt>(getUnderlyingValue()) &&
+           "Expected Constant as underlying Value.");
+    return cast<ConstantInt>(getUnderlyingValue());
+  }
+
+  /// Return the APInt value of underlying Constant.
+  const APInt &getValue() const {
+    return getConstantInt()->getValue();
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void printAsOperand(raw_ostream &OS) const override {
+    getUnderlyingValue()->printAsOperand(OS);
+  }
+  void dump(raw_ostream &OS) const override { printAsOperand(OS); }
+  void dump() const override { dump(errs()); }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPValue *V) {
+    auto *C = dyn_cast<VPConstant>(V);
+    return C && C->isConstantInt();
+  }
+};
+
 /// This class augments VPValue with definitions that happen outside of the
 /// top region represented in VPlan. Similar to VPConstants and Constants,
 /// VPExternalDefs are immutable (once created they never change) and are fully

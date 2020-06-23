@@ -44,6 +44,69 @@
 #include <cstdint>
 
 namespace llvm {
+
+#if INTEL_CUSTOMIZATION
+// Forward declarations.
+// We don't want to include VPlan headers outside of VPlan to avoid inducing
+// library dependency on VPlan objects.
+namespace vpo {
+class VPValue;
+class VPInstruction;
+class VPCmpInst;
+class VPConstantInt;
+}
+
+struct LLVMMatcherTraits {
+  using Instruction = llvm::Instruction;
+  using BinaryOperator = llvm::BinaryOperator;
+  using ConstantExpr = llvm::ConstantExpr;
+  using Operator = llvm::Operator;
+  using ICmpInst = llvm::ICmpInst;
+  using ConstantInt = llvm::ConstantInt;
+};
+
+struct VPlanMatcherTraits {
+  using Instruction = vpo::VPInstruction;
+  using BinaryOperator = vpo::VPInstruction;
+  using ConstantExpr = vpo::VPInstruction;
+  using Operator = vpo::VPInstruction;
+  using ICmpInst = vpo::VPCmpInst;
+  using ConstantInt = vpo::VPConstantInt;
+};
+
+// MatcherTraitsDeducer deduces a set of basic types basing on input 'T'.
+template <typename T, typename = void>
+struct MatcherTraitsDeducer {
+  using MatcherTraits = LLVMMatcherTraits;
+};
+
+// Specialization for T, which is derived from vpo::VPValue.
+template <typename T>
+struct MatcherTraitsDeducer<
+  T, typename std::enable_if<
+       std::is_base_of<vpo::VPValue, T>::value>::type> {
+  using MatcherTraits = VPlanMatcherTraits;
+};
+
+// Specialization to propagate MatcherTraits through Matcher types.
+template <typename T>
+struct MatcherTraitsDeducer<
+  T, typename std::enable_if<
+       std::is_same<typename T::MatcherTraits,
+                    typename T::MatcherTraits>::value>::type> {
+  using MatcherTraits = typename T::MatcherTraits;
+};
+
+#define INTEL_INTRODUCE_USINGS(MATCHER_TYPE) \
+  using MatcherTraits = typename MatcherTraitsDeducer<MATCHER_TYPE>::MatcherTraits; \
+  using Instruction = typename MatcherTraits::Instruction;                    \
+  using BinaryOperator = typename MatcherTraits::BinaryOperator;              \
+  using ConstantExpr = typename MatcherTraits::ConstantExpr;                  \
+  using ConstantInt = typename MatcherTraits::ConstantInt;                    \
+  using Operator = typename MatcherTraits::Operator
+
+#endif // INTEL_CUSTOMIZATION
+
 namespace PatternMatch {
 
 template <typename Val, typename Pattern> bool match(Val *V, const Pattern &P) {
@@ -120,6 +183,7 @@ template <typename Ty> inline match_unless<Ty> m_Unless(const Ty &M) {
 
 /// Matching combinators
 template <typename LTy, typename RTy> struct match_combine_or {
+  INTEL_INTRODUCE_USINGS(LTy); // INTEL
   LTy L;
   RTy R;
 
@@ -242,7 +306,13 @@ inline apfloat_match m_APFloatForbidUndef(const APFloat *&Res) {
   return apfloat_match(Res, /* AllowUndef */ false);
 }
 
+#if INTEL_CUSTOMIZATION
+template <int64_t Val, typename Class = llvm::ConstantInt>
+struct constantint_match {
+  INTEL_INTRODUCE_USINGS(Class);
+#else
 template <int64_t Val> struct constantint_match {
+#endif // INTEL_CUSTOMIZATION
   template <typename ITy> bool match(ITy *V) {
     if (const auto *CI = dyn_cast<ConstantInt>(V)) {
       const APInt &CIV = CI->getValue();
@@ -258,9 +328,12 @@ template <int64_t Val> struct constantint_match {
 };
 
 /// Match a ConstantInt with a specific value.
-template <int64_t Val> inline constantint_match<Val> m_ConstantInt() {
-  return constantint_match<Val>();
+#if INTEL_CUSTOMIZATION
+template <int64_t Val, typename Class = llvm::ConstantInt>
+inline decltype(auto) m_ConstantInt() {
+  return constantint_match<Val, Class>();
 }
+#endif // INTEL_CUSTOMIZATION
 
 /// This helper class is used to match scalar and fixed width vector integer
 /// constants that satisfy a specified predicate.
@@ -620,6 +693,7 @@ inline cstfp_pred_ty<is_neg_zero_fp> m_NegZeroFP() {
 template <typename Class> struct bind_ty {
   Class *&VR;
 
+  INTEL_INTRODUCE_USINGS(Class); // INTEL
   bind_ty(Class *&V) : VR(V) {}
 
   template <typename ITy> bool match(ITy *V) {
@@ -630,6 +704,32 @@ template <typename Class> struct bind_ty {
     return false;
   }
 };
+
+#if INTEL_CUSTOMIZATION
+template <typename MatcherTy, typename Class> struct match_and_bind_ty {
+  MatcherTy Match;
+  Class *&VR;
+
+  INTEL_INTRODUCE_USINGS(Class);
+  match_and_bind_ty(MatcherTy &Match, Class *&V) : Match(Match), VR(V){};
+  template <typename ITy> bool match(ITy *V) {
+    if (!Match.match(V))
+      return false;
+    VR = cast<Class>(V);
+    return true;
+  }
+};
+
+/// Match entity of any type, capturing the value.
+template <typename Class>
+inline bind_ty<Class> m_Bind(Class *&V) { return V; }
+
+/// Match and capture the result.
+template <typename MatcherTy, typename Class>
+inline match_and_bind_ty<MatcherTy, Class> m_Bind(MatcherTy Match, Class *&V) {
+  return match_and_bind_ty<MatcherTy, Class>(Match, V);
+}
+#endif // INTEL_CUSTOMIZATION
 
 /// Match a value, capturing it if we match.
 inline bind_ty<Value> m_Value(Value *&V) { return V; }
@@ -674,6 +774,7 @@ inline specificval_ty m_Specific(const Value *V) { return V; }
 /// Stores a reference to the Value *, not the Value * itself,
 /// thus can be used in commutative matchers.
 template <typename Class> struct deferredval_ty {
+  INTEL_INTRODUCE_USINGS(Class); // INTEL
   Class *const &Val;
 
   deferredval_ty(Class *const &V) : Val(V) {}
@@ -682,7 +783,9 @@ template <typename Class> struct deferredval_ty {
 };
 
 /// A commutative-friendly version of m_Specific().
+template <typename Value> // INTEL
 inline deferredval_ty<Value> m_Deferred(Value *const &V) { return V; }
+template <typename Value> // INTEL
 inline deferredval_ty<const Value> m_Deferred(const Value *const &V) {
   return V;
 }
@@ -837,6 +940,7 @@ template <typename OP_t> inline AnyUnaryOp_match<OP_t> m_UnOp(const OP_t &X) {
 template <typename LHS_t, typename RHS_t, unsigned Opcode,
           bool Commutable = false>
 struct BinaryOp_match {
+  INTEL_INTRODUCE_USINGS(LHS_t); // INTEL
   LHS_t L;
   RHS_t R;
 
@@ -845,7 +949,13 @@ struct BinaryOp_match {
   BinaryOp_match(const LHS_t &LHS, const RHS_t &RHS) : L(LHS), R(RHS) {}
 
   template <typename OpTy> bool match(OpTy *V) {
+#ifdef INTEL_CUSTOMIZATION
+    // Use unified for Value and VPValue way to check whether it is
+    // (VP)Instruction of given Opcode.
+    if (isa<Instruction>(V) && cast<Instruction>(V)->getOpcode() == Opcode) {
+#else
     if (V->getValueID() == Value::InstructionVal + Opcode) {
+#endif // INTEL_CUSTOMIZATION
       auto *I = cast<BinaryOperator>(V);
       return (L.match(I->getOperand(0)) && R.match(I->getOperand(1))) ||
              (Commutable && L.match(I->getOperand(1)) &&
@@ -1255,11 +1365,15 @@ m_Cmp(CmpInst::Predicate &Pred, const LHS &L, const RHS &R) {
   return CmpClass_match<LHS, RHS, CmpInst, CmpInst::Predicate>(Pred, L, R);
 }
 
+#if INTEL_CUSTOMIZATION
 template <typename LHS, typename RHS>
-inline CmpClass_match<LHS, RHS, ICmpInst, ICmpInst::Predicate>
+inline decltype(auto)
 m_ICmp(ICmpInst::Predicate &Pred, const LHS &L, const RHS &R) {
-  return CmpClass_match<LHS, RHS, ICmpInst, ICmpInst::Predicate>(Pred, L, R);
+  return CmpClass_match<LHS, RHS,
+           typename MatcherTraitsDeducer<LHS>::MatcherTraits::ICmpInst,
+           ICmpInst::Predicate>(Pred, L, R);
 }
+#endif // INTEL_CUSTOMIZATION
 
 template <typename LHS, typename RHS>
 inline CmpClass_match<LHS, RHS, FCmpInst, FCmpInst::Predicate>
@@ -1305,6 +1419,7 @@ template <typename T0, typename T1, unsigned Opcode> struct TwoOps_match {
 /// Matches instructions with Opcode and three operands.
 template <typename T0, typename T1, typename T2, unsigned Opcode>
 struct ThreeOps_match {
+  INTEL_INTRODUCE_USINGS(T0); // INTEL
   T0 Op1;
   T1 Op2;
   T2 Op3;
@@ -1313,7 +1428,13 @@ struct ThreeOps_match {
       : Op1(Op1), Op2(Op2), Op3(Op3) {}
 
   template <typename OpTy> bool match(OpTy *V) {
+#ifdef INTEL_CUSTOMIZATION
+    // Use unified for Value and VPValue way to check whether it is
+    // (VP)Instruction of given Opcode.
+    if (isa<Instruction>(V) && cast<Instruction>(V)->getOpcode() == Opcode) {
+#else
     if (V->getValueID() == Value::InstructionVal + Opcode) {
+#endif // INTEL_CUSTOMIZATION
       auto *I = cast<Instruction>(V);
       return Op1.match(I->getOperand(0)) && Op2.match(I->getOperand(1)) &&
              Op3.match(I->getOperand(2));
@@ -1443,6 +1564,7 @@ m_Store(const ValueOpTy &ValueOp, const PointerOpTy &PointerOp) {
 //
 
 template <typename Op_t, unsigned Opcode> struct CastClass_match {
+  INTEL_INTRODUCE_USINGS(Op_t); // INTEL
   Op_t Op;
 
   CastClass_match(const Op_t &OpMatch) : Op(OpMatch) {}
@@ -2023,12 +2145,15 @@ inline AnyBinaryOp_match<LHS, RHS, true> m_c_BinOp(const LHS &L, const RHS &R) {
 
 /// Matches an ICmp with a predicate over LHS and RHS in either order.
 /// Swaps the predicate if operands are commuted.
+#if INTEL_CUSTOMIZATION
 template <typename LHS, typename RHS>
-inline CmpClass_match<LHS, RHS, ICmpInst, ICmpInst::Predicate, true>
+inline decltype(auto)
 m_c_ICmp(ICmpInst::Predicate &Pred, const LHS &L, const RHS &R) {
-  return CmpClass_match<LHS, RHS, ICmpInst, ICmpInst::Predicate, true>(Pred, L,
-                                                                       R);
+  return CmpClass_match<LHS, RHS,
+    typename MatcherTraitsDeducer<LHS>::MatcherTraits::ICmpInst,
+    ICmpInst::Predicate, true>(Pred, L, R);
 }
+#endif // INTEL_CUSTOMIZATION
 
 /// Matches a Add with LHS and RHS in either order.
 template <typename LHS, typename RHS>

@@ -142,6 +142,27 @@ private:
   using OVLSGroupMap = DenseMap<const OVLSGroup *, bool>;
   OVLSGroupMap ProcessedOVLSGroups;
 
+  // PsadbwPatternInsts holds all instructions that are part of any PSADBW
+  // pattern.  Used by dumping facilities only.
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  // PsadbwPatternInsts holds all instructions that are part of any PSADBW
+  // pattern.  Used by dumping facilities only.
+  SmallPtrSet<const VPInstruction*, 32> PsadbwPatternInsts;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
+  // Checks for PSADWB pattern starting SelInst and updates
+  // CurrPsadbwPatternInsts argument with instructions forming PSADWB pattern
+  // based on SelInst.
+  //
+  // Returns true if pattern is found, false otherwise.
+  bool checkPsadwbPattern(
+    const VPInstruction *SelInst,
+    SmallPtrSetImpl<const VPInstruction*> &CurrPsadbwPatternInsts);
+
+  // Return the sum of costs of all PSADWB patterns in VPlan.
+  // Also populates PsadbwPatternInsts with pattern instructions.
+  unsigned getPsadwbPatternCost();
+
   // FIXME: This is a temporary workaround until proper cost modeling is
   // implemented.
   //

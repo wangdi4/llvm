@@ -970,6 +970,11 @@ public:
   /// Return the predicate for this instruction
   Predicate getPredicate() const { return Pred; }
 
+  /// Return the predicate as if the operands were swapped.
+  Predicate getSwappedPredicate() const {
+    return CmpInst::getSwappedPredicate(Pred);
+  }
+
   /// Methods for supporting type inquiry through isa, cast, and
   /// dyn_cast:
   static bool classof(const VPInstruction *VPI) {
@@ -2628,9 +2633,13 @@ public:
   /// existing one.
   VPConstant *getVPConstant(Constant *Const) {
     std::unique_ptr<VPConstant> &UPtr = VPConstants[Const];
-    if (!UPtr)
+    if (!UPtr) {
       // Const is a new VPConstant to be inserted in the map.
-      UPtr.reset(new VPConstant(Const));
+      if (isa<ConstantInt>(Const))
+        UPtr.reset(new VPConstantInt(cast<ConstantInt>(Const)));
+      else
+        UPtr.reset(new VPConstant(Const));
+    }
 
     return UPtr.get();
   }
