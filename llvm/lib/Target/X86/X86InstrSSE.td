@@ -8097,7 +8097,7 @@ let Uses = [MXCSR],
 multiclass avx_vcvt2ps2ph_rm<ValueType OpVT, RegisterClass RC,
                              PatFrag MemOpFrag, X86MemOperand X86MemOp,
                              X86FoldableSchedWrite sched> {
-  let Predicates = [HasAVXCONVERT] in {
+  let Predicates = [HasAVXCONVERT, NoVLX_Or_NoCONVERT] in {
     def rr : I<0x67, MRMSrcReg, (outs RC:$dst), (ins RC:$src1, RC:$src2),
                "vcvt2ps2ph\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                [(set RC:$dst, (OpVT (X86vcvt2ps2ph RC:$src1, RC:$src2)))]>,
@@ -8116,7 +8116,7 @@ defm VCVT2PS2PHY : avx_vcvt2ps2ph_rm<v16f16, VR256, loadv8f32, f256mem, SchedWri
 multiclass VCVTPHBF16_rm<bits<8> opc, string OpcodeStr, RegisterClass RC,
                           X86MemOperand x86memop, PatFrag MemOpFrag, SDNode OpNode,
                           X86FoldableSchedWrite sched> {
-  let Uses = [MXCSR], Predicates = [HasAVXCONVERT] in {
+  let Uses = [MXCSR], Predicates = [HasAVXCONVERT, NoVLX_Or_NoCONVERT] in {
     def rr : I<opc, MRMSrcReg, (outs RC:$dst), (ins RC:$src),
                !strconcat(OpcodeStr, "\t{$src, $dst|$dst, $src}"),
                [(set RC:$dst, (OpNode RC:$src))]>, Sched<[sched]>, VEX;
