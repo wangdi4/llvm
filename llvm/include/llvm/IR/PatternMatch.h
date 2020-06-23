@@ -58,20 +58,24 @@ class VPConstantInt;
 
 struct LLVMMatcherTraits {
   using Instruction = llvm::Instruction;
-  using BinaryOperator = llvm::BinaryOperator;
-  using ConstantExpr = llvm::ConstantExpr;
-  using Operator = llvm::Operator;
   using ICmpInst = llvm::ICmpInst;
   using ConstantInt = llvm::ConstantInt;
+  using BinaryOperator = llvm::BinaryOperator;
+  using UnaryOperator = llvm::UnaryOperator;
+  using Operator = llvm::Operator;
+  using ConstantExpr = llvm::ConstantExpr;
 };
 
 struct VPlanMatcherTraits {
   using Instruction = vpo::VPInstruction;
-  using BinaryOperator = vpo::VPInstruction;
-  using ConstantExpr = vpo::VPInstruction;
-  using Operator = vpo::VPInstruction;
   using ICmpInst = vpo::VPCmpInst;
   using ConstantInt = vpo::VPConstantInt;
+  // TODO:
+  // *Operator and ConstantExpr types need fine grained counterparts in VPlan.
+  using BinaryOperator = vpo::VPInstruction;
+  using UnaryOperator = vpo::VPInstruction;
+  using Operator = vpo::VPInstruction;
+  using ConstantExpr = vpo::VPInstruction;
 };
 
 // MatcherTraitsDeducer deduces a set of basic types basing on input 'T'.
@@ -101,6 +105,7 @@ struct MatcherTraitsDeducer<
   using MatcherTraits = typename MatcherTraitsDeducer<MATCHER_TYPE>::MatcherTraits; \
   using Instruction = typename MatcherTraits::Instruction;                    \
   using BinaryOperator = typename MatcherTraits::BinaryOperator;              \
+  using UnaryOperator = typename MatcherTraits::UnaryOperator;                \
   using ConstantExpr = typename MatcherTraits::ConstantExpr;                  \
   using ConstantInt = typename MatcherTraits::ConstantInt;                    \
   using Operator = typename MatcherTraits::Operator
@@ -2321,5 +2326,9 @@ inline VScaleVal_match m_VScale(const DataLayout &DL) {
 
 } // end namespace PatternMatch
 } // end namespace llvm
+
+#if INTEL_CUSTOMIZATION
+#undef INTEL_INTRODUCE_USINGS
+#endif // #if INTEL_CUSTOMIZATION
 
 #endif // LLVM_IR_PATTERNMATCH_H
