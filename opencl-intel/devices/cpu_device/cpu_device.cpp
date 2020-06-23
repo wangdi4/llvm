@@ -1994,7 +1994,9 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                 }
                 if (nullptr != paramVal)
                 {
-                    *(cl_uint*)paramVal = 1;
+                    *(cl_uint*)paramVal =
+                        m_CPUDeviceConfig.GetUseNativeSubgroups() ?
+                        m_CPUDeviceConfig.GetCpuMaxWGSize() >> 2 : 1;
                 }
                 return CL_DEV_SUCCESS;
             }
