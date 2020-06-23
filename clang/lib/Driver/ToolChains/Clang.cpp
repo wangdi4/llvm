@@ -5120,7 +5120,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (D.CCGenDiagnostics)
     CmdArgs.push_back("-disable-pragma-debug-crash");
 
-  bool UseSeparateSections = isUseSeparateSections(Triple);
+  bool UseSeparateSections = isUseSeparateSections(Args, Triple); // INTEL
 
   if (Args.hasFlag(options::OPT_ffunction_sections,
                    options::OPT_fno_function_sections, UseSeparateSections)) {
@@ -5673,7 +5673,13 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   Args.AddLastArg(CmdArgs, options::OPT_ftime_trace);
   Args.AddLastArg(CmdArgs, options::OPT_ftime_trace_granularity_EQ);
   Args.AddLastArg(CmdArgs, options::OPT_ftrapv);
-  Args.AddLastArg(CmdArgs, options::OPT_malign_double);
+#if INTEL_CUSTOMIZATION
+  // -malign-double is the default for Windows Intel
+  if (Args.hasArg(options::OPT__intel) && D.IsCLMode())
+    CmdArgs.push_back("-malign-double");
+  else
+    Args.AddLastArg(CmdArgs, options::OPT_malign_double);
+#endif // INTEL_CUSTOMIZATION
   Args.AddLastArg(CmdArgs, options::OPT_fno_temp_file);
 
   if (Arg *A = Args.getLastArg(options::OPT_ftrapv_handler_EQ)) {
@@ -5858,8 +5864,12 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-fregister-global-dtors-with-atexit");
 
   // -fno-use-line-directives is default.
+#if INTEL_CUSTOMIZATION
+  // -fuse-line-directives is default for Intel Windows
   if (Args.hasFlag(options::OPT_fuse_line_directives,
-                   options::OPT_fno_use_line_directives, false))
+                   options::OPT_fno_use_line_directives,
+                   Args.hasArg(options::OPT__intel) && D.IsCLMode()))
+#endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-fuse-line-directives");
 
   // -fms-extensions=0 is default.
@@ -6668,6 +6678,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                       !TC.getTriple().isOSNetBSD() &&
                       !Distro(D.getVFS(), TC.getTriple()).IsGentoo() &&
                       !TC.getTriple().isAndroid() &&
+                      !Args.hasArg(options::OPT__intel) &&
                        TC.useIntegratedAs()))
     CmdArgs.push_back("-faddrsig");
 
@@ -7124,7 +7135,7 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
   // This controls whether or not we emit stack-protector instrumentation.
   // In MSVC, Buffer Security Check (/GS) is on by default.
   if (!isNVPTX && Args.hasFlag(options::OPT__SLASH_GS, options::OPT__SLASH_GS_,
-                               /*Default=*/true)) {
+           /*Default=*/!Args.hasArg(options::OPT__intel))) { // INTEL
     CmdArgs.push_back("-stack-protector");
     CmdArgs.push_back(Args.MakeArgString(Twine(LangOptions::SSPStrong)));
   }

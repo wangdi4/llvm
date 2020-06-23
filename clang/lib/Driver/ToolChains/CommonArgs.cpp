@@ -373,7 +373,13 @@ llvm::StringRef tools::getLTOParallelism(const ArgList &Args, const Driver &D) {
 }
 
 // CloudABI uses -ffunction-sections and -fdata-sections by default.
-bool tools::isUseSeparateSections(const llvm::Triple &Triple) {
+#if INTEL_CUSTOMIZATION
+bool tools::isUseSeparateSections(const ArgList &Args,
+                                  const llvm::Triple &Triple) {
+  // -ffunction-sections not enabled by default for Intel.
+  if (Args.hasArg(options::OPT__intel))
+    return false;
+#endif // INTEL_CUSTOMIZATION
   return Triple.getOS() == llvm::Triple::CloudABI;
 }
 
@@ -461,7 +467,7 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
   }
 
   bool UseSeparateSections =
-      isUseSeparateSections(ToolChain.getEffectiveTriple());
+      isUseSeparateSections(Args, ToolChain.getEffectiveTriple()); // INTEL
 
   if (Args.hasFlag(options::OPT_ffunction_sections,
                    options::OPT_fno_function_sections, UseSeparateSections)) {
