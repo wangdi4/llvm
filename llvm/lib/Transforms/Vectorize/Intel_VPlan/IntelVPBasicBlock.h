@@ -133,7 +133,21 @@ public:
   /// \p NewSuccessor will be inserted in the same position as \p OldSuccessor.
   void replaceSuccessor(VPBasicBlock *OldSuccessor, VPBasicBlock *NewSuccessor);
 
-  const SmallVectorImpl<VPBasicBlock *> &getSuccessors() const;
+  VPBasicBlock *getSuccessor(unsigned idx) const;
+
+  auto getSuccessors() const {
+    // llvm::mapped_itrator class has limited support of functions returning
+    // by value. Creating a closure here to be able to return reference value
+    // from the lambda.
+    // TODO: switch to a usual lambda when mapped_itrator class is fixed.
+    VPBasicBlock *BB;
+    auto F = [BB](VPValue *V) mutable -> VPBasicBlock *& {
+      return BB = cast<VPBasicBlock>(V);
+    };
+    // std::function is required here to compile the code with MSVC.
+    return map_range(successors(),
+                     std::function<VPBasicBlock *&(VPValue *)>(F));
+  }
 
   auto getPredecessors() const {
     return map_range(users(), getVPUserParent);
@@ -352,6 +366,8 @@ private:
   /// containing the block-predicate instruction after the split is used.
   VPBasicBlock *splitBlock(iterator I, const Twine &NewBBName = "");
 
+  VPUser::const_operand_range successors() const;
+
   static VPBasicBlock *getVPUserParent(VPUser *User);
 };
 
@@ -410,8 +426,8 @@ public:
 // for VPBasicBlocks.
 template <> struct GraphTraits<vpo::VPBasicBlock *> {
   using NodeRef = vpo::VPBasicBlock *;
-  using ChildVectorType = const SmallVectorImpl<vpo::VPBasicBlock *>;
-  using ChildIteratorType = ChildVectorType::const_iterator;
+  using ChildRangeType = decltype(std::declval<NodeRef>()->getSuccessors());
+  using ChildIteratorType = decltype(std::declval<ChildRangeType>().begin());
 
   static NodeRef getEntryNode(NodeRef N) { return N; }
 
@@ -436,8 +452,8 @@ struct GraphTraits<vpo::VPBasicBlock>
 // GraphTraits specialization for VPBasicBlocks using constant iterator.
 template <> struct GraphTraits<const vpo::VPBasicBlock *> {
   using NodeRef = const vpo::VPBasicBlock *;
-  using ChildVectorType = const SmallVectorImpl<vpo::VPBasicBlock *>;
-  using ChildIteratorType = ChildVectorType::const_iterator;
+  using ChildRangeType = decltype(std::declval<NodeRef>()->getSuccessors());
+  using ChildIteratorType = decltype(std::declval<ChildRangeType>().begin());
 
   static NodeRef getEntryNode(NodeRef N) { return N; }
 

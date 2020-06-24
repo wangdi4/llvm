@@ -166,7 +166,10 @@ void VPlanLoopUnroller::run(VPInstUnrollPartTy *VPInstUnrollPart) {
       auto *ClonedBlock = cast<VPBasicBlock>(ValueMap[Block]);
 
       for (VPInstruction &Inst : *ClonedBlock) {
-        Mapper.remapInstruction(&Inst);
+        if (!isa<VPTerminator>(Inst))
+          // Skip remapping operands for terminators because them are already
+          // remapped by VPCloneUtils
+          Mapper.remapInstruction(&Inst);
 
         // Save unrolled part number for the instruction if needed.
         if (VPInstUnrollPart)
@@ -189,12 +192,13 @@ void VPlanLoopUnroller::run(VPInstUnrollPartTy *VPInstUnrollPart) {
     for (auto Pred : ClonedHeader->getPredecessors())
       Pred->removeSuccessor(ClonedHeader);
 
+    VPValue *CondBit = CurrentLatch->getCondBit();
+    assert(CondBit && "The loop latch is expected to have CondBit");
+
     VPBlockUtils::moveSuccessors(CurrentLatch, ClonedLatch);
     CurrentLatch->appendSuccessor(ClonedHeader);
 
     // Move forward latch's condition.
-    VPValue *CondBit = CurrentLatch->getCondBit();
-    assert(CondBit && "The loop latch is expected to have CondBit");
     ClonedLatch->setCondBit(CondBit);
     CurrentLatch->setCondBit(nullptr);
 

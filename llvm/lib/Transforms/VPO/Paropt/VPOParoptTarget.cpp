@@ -777,6 +777,45 @@ void VPOParoptTransform::guardSideEffectStatements(
   W->setEntryDirective(NewEntryDir);
 }
 
+bool VPOParoptTransform::callPopPushNumThreadsAtRegionBoundary(
+    WRegionNode *W, bool InsideRegion) {
+
+  if (!moduleHasOmpGetNumThreadsFunction())
+    return false;
+
+  assert(W && "WRegionNode is null.");
+
+  Instruction *EntryDir = W->getEntryDirective();
+  assert(EntryDir && "Null Entry directive.");
+
+  CallInst *PushCall, *PopCall;
+  std::tie(PushCall, PopCall) =
+      VPOParoptUtils::genKmpcSpmdPushPopNumThreadsCalls(EntryDir->getModule());
+
+  VPOParoptUtils::insertCallsAtRegionBoundary(W, PopCall, PushCall,
+                                              InsideRegion);
+  return true;
+}
+
+bool VPOParoptTransform::callPushPopNumThreadsAtRegionBoundary(
+    WRegionNode *W, bool InsideRegion) {
+  assert(W && "WRegionNode is null.");
+
+  if (!moduleHasOmpGetNumThreadsFunction())
+    return false;
+
+  Instruction *EntryDir = W->getEntryDirective();
+  assert(EntryDir && "Null Entry directive.");
+
+  CallInst *PushCall, *PopCall;
+  std::tie(PushCall, PopCall) =
+      VPOParoptUtils::genKmpcSpmdPushPopNumThreadsCalls(EntryDir->getModule());
+
+  VPOParoptUtils::insertCallsAtRegionBoundary(W, PushCall, PopCall,
+                                              InsideRegion);
+  return true;
+}
+
 // Generate the code for the directive omp target
 bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
 
@@ -2149,6 +2188,15 @@ bool VPOParoptTransform::deviceTriplesHasSPIRV() {
       return true;
   }
   return false;
+}
+
+bool VPOParoptTransform::moduleHasOmpGetNumThreadsFunction() {
+  return F->getParent()->getFunction("omp_get_num_threads");
+}
+
+bool VPOParoptTransform::isFunctionOpenMPTargetDeclare() {
+  return (F->getAttributes().hasAttribute(AttributeList::FunctionIndex,
+                                          "openmp-target-declare"));
 }
 
 // Return true if one of the region W's ancestor is OMP target
