@@ -18,6 +18,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHIR_INTELVPLANHCFGBUILDER_HIR_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLANHIR_INTELVPLANHCFGBUILDER_HIR_H
 
+#include "../IntelVPlanEntityDescr.h"
 #include "../IntelVPlanHCFGBuilder.h"
 #include "IntelVPlanVerifierHIR.h"
 
@@ -52,88 +53,66 @@ public:
       return Ref1->getSymbase() < Ref2->getSymbase();
     }
   };
-  // Base class for descriptors which have init/finalize HIR values
-  struct DescrValues {
-    DescrValues(const DDRef *RefV) : Ref(RefV), InitValue(nullptr) {}
+
+  using DescrValueTy = DescrValue<DDRef>;
+  using DescrWithAliasesTy = DescrWithAliases<DDRef>;
+
+  // Class used to store aliases and initvalue required for loop vectorization
+  // legality analysis for incoming HIR.
+  class DescrWithInitValue : public DescrWithAliasesTy {
+    using DescrKind = typename DescrValueTy::DescrKind;
+    // NOTE: InitValue holds only DDRefs for which VPExternalDefs were created
+    // for a descriptor/alias. DDRefs with VPConstants are not accounted for.
+    // Each descriptor/alias may have multiple updating HLInsts within the loop.
+    const DDRef *InitValue;
+
+  public:
+    DescrWithInitValue(DDRef *RefV)
+        : DescrWithAliasesTy(RefV, DescrKind::DK_WithInitValue),
+          InitValue(nullptr) {}
     // Move constructor
-    DescrValues(DescrValues &&Other) = default;
+    DescrWithInitValue(DescrWithInitValue &&Other) = default;
+
+    void setInitValue(DDRef *Val) { InitValue = Val; }
+    const DDRef *getInitValue() const { return InitValue; }
+
+    bool isValidAlias() const override {
+      return InitValue && getUpdateInstructions().size() > 0;
+    }
+
+    static bool classof(const DescrWithAliasesTy *Descr) {
+      return Descr->getKind() == DescrKind::DK_WithInitValue;
+    }
+
+    static bool classof(const DescrValueTy *Descr) {
+      return Descr->getKind() == DescrKind::DK_WithInitValue;
+    }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    void dump(raw_ostream &OS, unsigned Indent = 0) const {
+    void print(raw_ostream &OS, unsigned Indent = 0) const override {
       OS << "Ref: ";
-      Ref->dump();
+      DescrValueTy::getRef()->dump();
       OS << "\n";
       if (InitValue) {
         OS.indent(Indent + 2) << "InitValue: ";
         InitValue->dump();
         OS << "\n";
       }
-      for (auto &V : UpdateInstructions) {
-        OS.indent(Indent + 2) << "UpdateInstruction: ";
+      OS.indent(Indent + 2) << "UpdateInstruction: ";
+      for (auto &V : DescrValueTy::getUpdateInstructions()) {
         V->dump();
       }
+      DescrWithAliasesTy::print(OS);
     }
-
-    void dump() const { dump(errs()); }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
-
-    const DDRef *Ref;
-    // NOTE: InitValue holds only DDRefs for which VPExternalDefs were created
-    // for a descriptor/alias. DDRefs with VPConstants are not accounted for.
-    // Each descriptor/alias may have multiple updating HLInsts within the loop.
-    const DDRef *InitValue;
-    SmallVector<HLInst *, 4> UpdateInstructions;
   };
-  // Base class for descriptors which may have alias DDRefs used within the loop
-  // of incoming HIR. These descriptors are specific to HIR, so any analysis
-  // which requires underyling HIR information must be done with these
-  // descriptors. NOTE : Only original descriptors can have aliases and they are
-  // always of the form &(%a)[0]
-  struct DescrWithAliases : public DescrValues {
-    DescrWithAliases(const RegDDRef *RefV) : DescrValues(RefV) {
-      assert(RefV->isSelfAddressOf() && "Unexpected clause Ref!");
-    }
-    // Move constructor
-    DescrWithAliases(DescrWithAliases &&Other) = default;
 
-    // Filter out invalid aliases and return the valid one. If no valid alias is
-    // found return nullptr.
-    DescrValues *getValidAlias() const {
-      DescrValues *ValidAlias = nullptr;
-      for (auto &AliasItPair : Aliases) {
-        DescrValues *Alias = AliasItPair.second.get();
-        if (Alias->InitValue && Alias->UpdateInstructions.size() > 0) {
-          assert(!ValidAlias &&
-                 "HIRLegality descriptor has multiple valid aliases.");
-          ValidAlias = Alias;
-        }
-      }
-
-      return ValidAlias;
-    }
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    void dump(raw_ostream &OS) const {
-      DescrValues::dump(OS);
-      for (const auto &AliasIt : Aliases) {
-        OS << "\n";
-        OS.indent(2) << "Alias";
-        AliasIt.second->dump(OS, 2);
-      }
-    }
-
-    void dump() const { dump(errs()); }
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
-
-    std::map<const DDRef *, std::unique_ptr<DescrValues>, CompareByDDRefSymbase>
-        Aliases;
-  };
   // Specialized class to represent reduction descriptors specified explicitly
   // via SIMD reduction clause. The reduction's kind and signed datatype
   // information is also stored within this class.
-  struct RedDescr : public DescrWithAliases {
-    RedDescr(const RegDDRef *RegV, RecurKind KindV, bool Signed)
-        : DescrWithAliases(RegV), Kind(KindV), IsSigned(Signed) {}
+  struct RedDescr : public DescrWithInitValue {
+    RedDescr(RegDDRef *RegV, RecurKind KindV, bool Signed)
+        : DescrWithInitValue(RegV), Kind(KindV), IsSigned(Signed) {}
     // Move constructor
     RedDescr(RedDescr &&Other) = default;
 
@@ -141,24 +120,17 @@ public:
     bool IsSigned;
   };
   typedef SmallVector<RedDescr, 8> ReductionListTy;
-  // Specialized class to represent private descriptors specified explicitly via
-  // SIMD private clause.
-  struct PrivDescr : public DescrWithAliases {
-    PrivDescr(const RegDDRef *RegV, bool IsLastV, bool IsCondV)
-        : DescrWithAliases(RegV), IsLast(IsLastV), IsCond(IsCondV) {}
-    // Move constructor
-    PrivDescr(PrivDescr &&Other) = default;
 
-    bool IsLast;
-    bool IsCond;
-  };
-  typedef SmallVector<PrivDescr, 8> PrivatesListTy;
+  using PrivDescrTy = PrivDescr<DDRef>;
+  using PrivDescrNonPODTy = PrivDescrNonPOD<DDRef>;
+  using PrivateKindTy = PrivDescrTy::PrivateKind;
+  typedef SmallVector<PrivDescrTy, 8> PrivatesListTy;
   // Specialized class to represent linear descriptors specified explicitly via
   // SIMD linear clause. The linear's Step value is also stored within this
   // class.
-  struct LinearDescr : public DescrWithAliases {
-    LinearDescr(const RegDDRef *RegV, const RegDDRef *StepV)
-        : DescrWithAliases(RegV), Step(StepV) {}
+  struct LinearDescr : public DescrWithInitValue {
+    LinearDescr(RegDDRef *RegV, const RegDDRef *StepV)
+        : DescrWithInitValue(RegV), Step(StepV) {}
     // Move constructor
     LinearDescr(LinearDescr &&Other) = default;
 
@@ -178,10 +150,31 @@ public:
       : SRA(SafeReds), DDAnalysis(DDA) {}
 
   // Add explicit private.
+  // Add POD privates to PrivatesList
   void addLoopPrivate(RegDDRef *PrivVal, bool IsLast = false,
                       bool IsConditional = false) {
     assert(PrivVal->isAddressOf() && "Private ref is not address of type.");
-    PrivatesList.emplace_back(PrivVal, IsLast, IsConditional);
+    PrivateKindTy Kind = PrivateKindTy::NonLast;
+    if (IsLast)
+      Kind = PrivateKindTy::Last;
+    if (IsConditional)
+      Kind = PrivateKindTy::Conditional;
+    // TODO Put new element in PrivatesList - requires change of PrivatesList
+    // vector to use unique_ptr
+    PrivatesList.emplace_back(PrivVal, Kind);
+  }
+
+  // Add non-POD privates to PrivatesList
+  // TODO: Use Constr, Destr and CopyAssign for non-POD privates.
+  void addLoopPrivate(RegDDRef *PrivVal, Function *Constr, Function *Destr,
+                      Function *CopyAssign, bool IsLast = false) {
+    assert(PrivVal->isAddressOf() && "Private ref is not address of type.");
+    PrivateKindTy Kind = PrivateKindTy::NonLast;
+    if (IsLast)
+      Kind = PrivateKindTy::Last;
+    // TODO Put new element in PrivatesList - requires change of PrivatesList
+    // vector to use unique_ptr
+    PrivatesList.emplace_back(PrivVal, Kind);
   }
 
   /// Register explicit reduction variables provided from outside.
@@ -220,8 +213,8 @@ public:
   const LinearListTy &getLinears() const { return LinearList; }
   const ReductionListTy &getReductions() const { return ReductionList; }
 
-  PrivDescr *isPrivate(const DDRef *Ref) const {
-    return findDescr<PrivDescr>(PrivatesList, Ref);
+  PrivDescrTy *isPrivate(const DDRef *Ref) const {
+    return findDescr<PrivDescrTy>(PrivatesList, Ref);
   }
   LinearDescr *isLinear(const DDRef *Ref) const {
     return findDescr<LinearDescr>(LinearList, Ref);
@@ -272,9 +265,9 @@ private:
   /// Return the descriptor object corresponding to the input \p Ref, if it
   /// represents a reduction or linear SIMD variable (original or aliases). If
   /// \p Ref is not a SIMD descriptor variable nullptr is returned.
-  DescrWithAliases *getLinearRednDescriptors(DDRef *Ref) {
+  DescrWithInitValue *getLinearRednDescriptors(DDRef *Ref) {
     // Check if Ref is a linear descriptor
-    DescrWithAliases *Descr = isLinear(Ref);
+    DescrWithInitValue *Descr = isLinear(Ref);
 
     // If Ref is not linear, check if it is a reduction variable
     if (!Descr)
