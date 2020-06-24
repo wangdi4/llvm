@@ -58,7 +58,7 @@ uint64_t VPlanVLSCostModel::getInstructionCost(const OVLSInstruction *I) const {
   uint32_t ElemSize = I->getType().getElementSize();
   Type *ElemType = Type::getIntNTy(getContext(), ElemSize);
   if (isa<OVLSLoad>(I) || isa<OVLSStore>(I)) {
-    VectorType *VecTy = VectorType::get(ElemType, VPCM.VF);
+    VectorType *VecTy = FixedVectorType::get(ElemType, VPCM.VF);
     return TTI.getMemoryOpCost(
         isa<OVLSStore>(I) ? Instruction::Store : Instruction::Load, VecTy,
         // FIXME: Next values are not used in getMemoryOpCost(), however
@@ -68,7 +68,7 @@ uint64_t VPlanVLSCostModel::getInstructionCost(const OVLSInstruction *I) const {
   if (auto Shuffle = dyn_cast<OVLSShuffle>(I)) {
     SmallVector<int, 16> Mask;
     Shuffle->getShuffleMask(Mask);
-    VectorType *VecTy = VectorType::get(ElemType, Mask.size());
+    VectorType *VecTy = FixedVectorType::get(ElemType, Mask.size());
     SmallVector<uint32_t, 16> UMask(Mask.begin(), Mask.end());
     return getShuffleCost(UMask, VecTy);
   }

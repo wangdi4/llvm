@@ -118,11 +118,11 @@ uint64_t OVLSCostModel::getShuffleCost(SmallVectorImpl<uint32_t> &Mask,
     index = Mask[0] == 0 ? 0 : 1;
     return TTI.getShuffleCost(
         TargetTransformInfo::SK_ExtractSubvector, VTp, index,
-        VectorType::get(Tp->getScalarType(), NumVecElems / 2));
+        FixedVectorType::get(Tp->getScalarType(), NumVecElems / 2));
   } else if (isInsertSubvectorMask(Mask, index, NumSubVecElems))
     return TTI.getShuffleCost(
         TargetTransformInfo::SK_InsertSubvector, VTp, index,
-        VectorType::get(Tp->getScalarType(), NumSubVecElems));
+        FixedVectorType::get(Tp->getScalarType(), NumSubVecElems));
   else if (TTI.isTargetSpecificShuffleMask(Mask))
     return TTI.getShuffleCost(TargetTransformInfo::SK_TargetSpecific, VTp, 0,
                               nullptr);
@@ -901,14 +901,14 @@ public:
 
     // Compute inward impact.
     SmallVector<uint32_t, 16> Mask = getPossibleIncomingMask(N1, N2);
-    VectorType *VecTy = VectorType::get(ElemType, Mask.size());
+    VectorType *VecTy = FixedVectorType::get(ElemType, Mask.size());
     uint64_t Cost = CM.getShuffleCost(Mask, VecTy);
 
     // Compute outward impact.
     SmallVector<SmallVector<uint32_t, 16>, 16> Masks =
         getPossibleOutgoingMergeMasks(N1, N2);
     for (auto Mask : Masks) {
-      VecTy = VectorType::get(ElemType, Mask.size());
+      VecTy = FixedVectorType::get(ElemType, Mask.size());
       Cost += CM.getShuffleCost(Mask, VecTy);
     }
 

@@ -7106,7 +7106,7 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
         Value *VL0 = Scalars[0];
         // Loads are inserted at the head of the tree because we don't want to
         // sink them all the way down past store instructions.
-        VectorType *VecTy = VectorType::get(VL0->getType(), Scalars.size());
+        VectorType *VecTy = FixedVectorType::get(VL0->getType(), Scalars.size());
 #endif // INTEL_CUSTOMIZATION
       // Loads are inserted at the head of the tree because we don't want to
       // sink them all the way down past store instructions.

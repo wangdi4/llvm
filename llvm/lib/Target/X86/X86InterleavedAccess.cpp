@@ -68,7 +68,7 @@ public:
                    AKind) {
     MId = MemrefId;
     Dist = Distance;
-    DataType = VectorType::get(ElemType, NumElements);
+    DataType = FixedVectorType::get(ElemType, NumElements);
     VecStride = VStride;
   }
 
@@ -226,7 +226,7 @@ class X86InterleavedAccessGroup {
       Type *ShuffleEltTy = VecTy->getElementType();
       unsigned NumSubVecElems = VecTy->getNumElements() / Factor;
       decomposeInterleavedShuffle(Shuffles[0], Factor,
-                                  VectorType::get(ShuffleEltTy, NumSubVecElems),
+                                  FixedVectorType::get(ShuffleEltTy, NumSubVecElems),
                                   StoreShuffles);
       // Makes Shuffles point to the new set of Decomposed ShuffleVectorInsts.
       Shuffles = makeArrayRef(StoreShuffles);

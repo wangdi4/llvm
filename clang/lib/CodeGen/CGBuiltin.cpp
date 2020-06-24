@@ -7559,7 +7559,7 @@ CodeGenFunction::EmitSVMLBuiltinExpr(unsigned BuiltinID,
   llvm::VectorType *VectorTy = OrigVectorTy;
   if (IntBitWidth && VectorTy->getScalarSizeInBits() != IntBitWidth) {
     assert(VectorTy->getScalarType()->isIntegerTy());
-    VectorTy = llvm::VectorType::get(
+    VectorTy = llvm::FixedVectorType::get(
         Builder.getIntNTy(IntBitWidth),
         VectorTy->getPrimitiveSizeInBits().getFixedSize() / IntBitWidth);
   }
@@ -7582,9 +7582,9 @@ CodeGenFunction::EmitSVMLBuiltinExpr(unsigned BuiltinID,
     llvm::Type *Ty = Ops[i]->getType();
     if (!Ty->isVectorTy()) {
       if (Ty == Int8Ty)
-        Ty = llvm::VectorType::get(Builder.getInt1Ty(), 8);
+        Ty = llvm::FixedVectorType::get(Builder.getInt1Ty(), 8);
       else if (Ty == Int16Ty)
-        Ty = llvm::VectorType::get(Builder.getInt1Ty(), 16);
+        Ty = llvm::FixedVectorType::get(Builder.getInt1Ty(), 16);
       Ops[i] = Builder.CreateBitCast(Ops[i], Ty);
       HasMask = true;
     } else if (Ty != VectorTy) {

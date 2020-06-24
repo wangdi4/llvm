@@ -551,7 +551,7 @@ Instruction *IRBuilderBase::CreateSubscript(unsigned Rank, Value *LowerBound,
     unsigned ResVNE = SubscriptInst::getResultVectorNumElements(Ops);
     Type *ResTy = Ptr->getType();
     if (ResVNE != 0 && !isa<VectorType>(ResTy)) {
-      ResTy = VectorType::get(ResTy, ResVNE);
+      ResTy = FixedVectorType::get(ResTy, ResVNE);
     }
     Types[0] = ResTy;
   }

@@ -893,7 +893,7 @@ bool MapIntrinToImlImpl::replaceVectorIDivAndRemWithSVMLCall(
           calculateNumReturns(TTI, ScalarBitWidth, LogicalVL, &TargetVL);
 
       VectorType *LegalVecTy =
-          VectorType::get(VecTy->getScalarType(), TargetVL);
+          FixedVectorType::get(VecTy->getScalarType(), TargetVL);
       // Find an appropriate SVML function to call. If there is none, this
       // instruction will not be optimized to SVML.
       std::string FuncName = getSVMLIDivOrRemFuncName(
@@ -968,7 +968,7 @@ void MapIntrinToImlImpl::legalizeAVX512MaskArgs(
     // absent in non-512bit SVML functions.
     IntegerType *NewMaskElementType =
         IntegerType::getIntNTy(CI->getContext(), ComponentBitWidth);
-    VectorType *NewMaskType = VectorType::get(NewMaskElementType, LogicalVL);
+    VectorType *NewMaskType = FixedVectorType::get(NewMaskElementType, LogicalVL);
 
     Constant *Zeros = ConstantAggregateZero::get(NewMaskType);
     Constant *Ones =
@@ -980,7 +980,7 @@ void MapIntrinToImlImpl::legalizeAVX512MaskArgs(
     assert(Args.size() > 2 && "Too few arguments in SVML call");
     assert(Args[0]->getType() == CI->getType() && "Invalid source argument");
     assert(Args[1]->getType() ==
-               VectorType::get(IntegerType::getInt1Ty(CI->getContext()),
+               FixedVectorType::get(IntegerType::getInt1Ty(CI->getContext()),
                                LogicalVL) &&
            "Invalid mask argument");
 
@@ -1003,7 +1003,7 @@ void MapIntrinToImlImpl::legalizeAVX512MaskArgs(
 
     assert(Args.size() >= 2 && "Too few arguments in SVML call");
     assert(Args.back()->getType() ==
-               VectorType::get(
+               FixedVectorType::get(
                    IntegerType::getIntNTy(CI->getContext(), ComponentBitWidth),
                    LogicalVL) &&
            "Invalid mask argument");

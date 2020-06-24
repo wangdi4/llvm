@@ -354,7 +354,7 @@ Value *emitBaseOffset(IRBuilderTy *Builder, const DataLayout &DL, Type *ElTy,
       Type *DestTy = Builder->getIntNTy(DiffWidth);
       DestTy = NumVectorElements == 0
                    ? DestTy
-                   : VectorType::get(DestTy, NumVectorElements);
+                   : FixedVectorType::get(DestTy, NumVectorElements);
 
       // No wrap, Index >= Lower
       Diff = Builder->CreateNSWSub(Builder->CreateSExt(Index, DestTy),

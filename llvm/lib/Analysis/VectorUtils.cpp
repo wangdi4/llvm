@@ -1033,7 +1033,7 @@ Function *llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
       // function call below traces back through bitcast instructions to
       // find the alloca.
       VecRetTy =
-          VectorType::get(Alloca->getType()->getPointerElementType(), VL);
+          FixedVectorType::get(Alloca->getType()->getPointerElementType(), VL);
     }
     if (isOpenCLWriteChannel(FnName)) {
       VecRetTy = RetTy;
