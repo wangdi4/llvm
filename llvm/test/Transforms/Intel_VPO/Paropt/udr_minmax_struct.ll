@@ -220,6 +220,7 @@ for.end:                                          ; preds = %for.cond
 ; CRITICAL: call void @_ZTS5point.omp.destr(%struct.point* %maxp.red{{.*}})
 
 ; FASTRED-NOT: "QUAL.OMP.REDUCTION.UDR"
+; FASTRED-NOT: __kmpc_atomic
 ; FASTRED: call void @.omp_initializer..2(%struct.point* %maxp.red{{.*}}, %struct.point* %maxp)
 ; FASTRED: call void @.omp_initializer.(%struct.point* %minp.red{{.*}}, %struct.point* %minp)
 ; FASTRED: call i32 @__kmpc_reduce({{.*}})

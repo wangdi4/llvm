@@ -83,6 +83,7 @@ for.end:                                          ; preds = %for.cond
 ; CRITICAL: call void @_ZTSi.omp.destr(i32* %sum_udr.red{{.*}})
 
 ; FASTRED-NOT: "QUAL.OMP.REDUCTION.UDR"
+; FASTRED-NOT: __kmpc_atomic
 ; FASTRED: call void @.omp_initializer.(i32* %sum_udr.red{{.*}}, i32* %sum_udr)
 ; FASTRED: call i32 @__kmpc_reduce({{.*}})
 ; FASTRED-DAG: call void @.omp_combiner.(i32* %sum_udr, i32* %sum_udr.fast_red{{.*}})

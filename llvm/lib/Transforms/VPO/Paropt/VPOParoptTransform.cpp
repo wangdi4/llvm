@@ -2504,9 +2504,8 @@ bool VPOParoptTransform::genReductionScalarFini(
     // This method may insert a new call before the store instruction (Tmp0)
     // and erase the store instruction, but in any case it does not invalidate
     // the IRBuilder.
-    Instruction *AtomicCall =
-        VPOParoptAtomics::handleAtomicUpdateInBlock(W, Tmp0->getParent(),
-                                                    nullptr, nullptr, true);
+    Instruction *AtomicCall = VPOParoptAtomics::handleAtomicUpdateInBlock(
+        W, Tmp0->getParent(), nullptr, nullptr, true);
 
     if (AtomicCall) {
       OptimizationRemark R(DEBUG_TYPE, "ReductionAtomic", AtomicCall);
@@ -2548,8 +2547,8 @@ bool VPOParoptTransform::genReductionScalarFini(
     }
 
     OptimizationRemarkMissed R(DEBUG_TYPE, "ReductionAtomic", Tmp0);
-    R << ore::NV("Kind", RedI->getOpName()) << " reduction update of type " <<
-        ore::NV("Type", ScalarTy) << " cannot be done using atomic API";
+    R << ore::NV("Kind", RedI->getOpName()) << " reduction update of type "
+      << ore::NV("Type", ScalarTy) << " cannot be done using atomic API";
     ORE.emit(R);
   }
 
@@ -3412,16 +3411,47 @@ bool VPOParoptTransform::isArrayReduction(ReductionItem *I) {
   return false;
 }
 
-// Determine if we want to generate fast reduction code.
+// Determine if we want to generate fast reduction code and which method will
+// be generated (tree reduction only or tree + atomic reduction).
 int VPOParoptTransform::checkFastReduction(WRegionNode *W) {
   if (!UseFastReduction)
-    return 0;
+    return FastReductionNoneMode;
 
   // TODO: add offloading support for fast reduction. Now only support CPU.
   if (isTargetSPIRV())
-    return 0;
+    return FastReductionNoneMode;
 
-  return 1;
+  bool IsAtomic = true;
+  ReductionClause &RedClause = W->getRed();
+  for (ReductionItem *RedI : RedClause.items()) {
+    // array section and UDR cannot use atomic
+    if (isArrayReduction(RedI) ||
+        (RedI->getType() == ReductionItem::WRNReductionUdr)) {
+      IsAtomic = false;
+      break;
+    } else {
+      // if type of reduction variable is not supported, atomic cannot be used
+      Type *AllocaTy;
+      std::tie(AllocaTy, std::ignore, std::ignore) = getItemInfo(RedI);
+      if (!(AllocaTy->isIntegerTy() || AllocaTy->isFloatTy() ||
+            AllocaTy->isDoubleTy())) {
+        IsAtomic = false;
+        break;
+      }
+    }
+  }
+
+  FastReductionMode Mode =
+      (IsAtomic ? FastReductionAtomicMode : FastReductionTreeOnlyMode);
+  LLVM_DEBUG(dbgs() << "Fast reduction is "
+                    << ((Mode == FastReductionNoneMode)
+                            ? "disabled"
+                            : ((Mode == FastReductionTreeOnlyMode)
+                                   ? "enabled (tree-like only)"
+                                   : "enabled (tree-like and atomic)"))
+                    << ".\n");
+
+  return Mode;
 }
 
 // Generate fast reduction callback routine.
@@ -3626,11 +3656,11 @@ RDECL VPOParoptTransform::genFastRedCallback(WRegionNode *W,
 
 // Create struct type and variable for fast reduction
 std::pair<StructType *, Value *>
-VPOParoptTransform::genFastRedTyAndVar(WRegionNode *W, int FastReduction) {
+VPOParoptTransform::genFastRedTyAndVar(WRegionNode *W, int FastRedMode) {
   StructType *FastRedStructTy = nullptr;
   Value *FastRedInst = nullptr;
 
-  if (!FastReduction)
+  if (FastRedMode == FastReductionNoneMode)
     return std::make_pair(nullptr, nullptr);
 
   // Create structure type for fast reduction
@@ -3915,6 +3945,77 @@ Value *VPOParoptTransform::genFastRedPrivateVariable(ReductionItem *RedI,
   return RecInst;
 }
 
+/// Generate reduce blocks for tree and atomic reduction. The basic blocks are
+/// organized as below:
+/// EntryBB:
+///   ...
+///   br BeginBB
+/// BeginBB:
+///   BeginInst
+///   ...
+///   EndInst
+///   br EndBB
+/// EndBB:
+///   ...
+///   br AtomicUpdateEntryBB
+/// AtomicUpdateEntryBB:
+///   ...
+///   br AtomicBeginBB
+/// AtomicBeginBB:
+///   AtomicBeginInst
+///   ...
+///   AtomicEndInst
+///   br AtomicEndBB
+/// AtomicEndBB:
+///   ...
+///
+void VPOParoptTransform::genFastReduceBB(WRegionNode *W,
+                                         FastReductionMode FastRedMode,
+                                         StructType *FastRedStructTy,
+                                         Value *FastRedVar, BasicBlock *EntryBB,
+                                         BasicBlock *EndBB) {
+  BasicBlock *AtomicUpdateEntryBB = nullptr, *AtomicEndBB = nullptr;
+  if (FastRedMode == FastReductionAtomicMode) {
+    ReductionClause &RedClause = W->getRed();
+    // Create a basic block as the successor of tree reduce block
+    AtomicUpdateEntryBB = createEmptyPrivFiniBB(W, !isTargetSPIRV());
+    for (ReductionItem *RedI : RedClause.items()) {
+      BasicBlock *AtomicBeginBB = createEmptyPrivFiniBB(W, !isTargetSPIRV());
+      // Generate reduction fini code to update reduction variable
+      genReductionFini(W, RedI, RedI->getOrig(), AtomicBeginBB->getTerminator(),
+                       DT);
+      // This method may insert a new call to atomic update routine before the
+      // last store instruction and erase the store instruction.
+      Instruction *AtomicCall = VPOParoptAtomics::handleAtomicUpdateInBlock(
+          W, AtomicBeginBB, IdentTy, TidPtrHolder, isTargetSPIRV());
+      if (AtomicCall) {
+        Type *AllocaTy;
+        std::tie(AllocaTy, std::ignore, std::ignore) = getItemInfo(RedI);
+
+        OptimizationRemark R(DEBUG_TYPE, "FastReductionAtomic", AtomicCall);
+        R << ore::NV("Kind", RedI->getOpName()) << " reduction update of type "
+          << ore::NV("Type", AllocaTy) << " made atomic";
+        ORE.emit(R);
+      }
+    }
+    // AtomicEndBB is created to be used as the insertion point for
+    // __kmpc_end_reduce in atomic reduction block.
+    AtomicEndBB = createEmptyPrivFiniBB(W, !isTargetSPIRV());
+  }
+
+  // Generate fast reduction callback and function calls of __kmpc_reduce
+  // and __kmpc_end_reduce
+  RDECL FastRedCallback = genFastRedCallback(W, FastRedStructTy);
+  VPOParoptUtils::genKmpcReduce(
+      W, IdentTy, TidPtrHolder, FastRedVar, FastRedCallback,
+      dyn_cast<Instruction>(EntryBB->begin()), EndBB->getTerminator(),
+      (AtomicUpdateEntryBB != nullptr)
+          ? dyn_cast<Instruction>(AtomicUpdateEntryBB->begin())
+          : nullptr,
+      (AtomicEndBB != nullptr) ? AtomicEndBB->getTerminator() : nullptr, DT, LI,
+      isTargetSPIRV(), ".fast_reduction");
+}
+
 // Generate the reduction code for reduction clause.
 bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
   bool Changed = false;
@@ -3926,10 +4027,9 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
 
   ReductionClause &RedClause = W->getRed();
   if (!RedClause.empty()) {
-    int FastReduction = checkFastReduction(W);
-    LLVM_DEBUG(dbgs() << "Fast reduction is "
-                      << ((FastReduction == 1) ? "enabled" : "disabled")
-                      << ".\n");
+    // Check if fast reduction is enabled and which mode should be used:
+    // tree-like reduction only and tree-like + atomic reduction.
+    FastReductionMode FastRedMode = (FastReductionMode)checkFastReduction(W);
 
     W->populateBBSet();
 
@@ -3944,8 +4044,8 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
 
     StructType *FastRedStructTy = nullptr;
     Value *FastRedInst = nullptr;
-    std::tie(FastRedStructTy, FastRedInst) =
-        genFastRedTyAndVar(W, FastReduction);
+    // Generate struct type and related variable for fast reduction.
+    std::tie(FastRedStructTy, FastRedInst) = genFastRedTyAndVar(W, FastRedMode);
 
     int ItemIndex = 0;
     for (ReductionItem *RedI : RedClause.items()) {
@@ -3962,20 +4062,20 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
       // above the size's defintion point. getInsertPtForAllocas cannot handle
       // this case since we do not outline some regions for SPIRV target.
       Instruction *InsertPt =
-          (FastReduction == 0)
+          (FastRedMode == FastReductionNoneMode)
               ? &EntryBB->front()
               : VPOParoptUtils::getInsertionPtForAllocas(W, F, false);
 
       // For fast reduction, the function is called in genFastRedTyAndVar so
       // it's only needed to call here if fast reduction is disabled
-      if (!FastReduction)
+      if (FastRedMode == FastReductionNoneMode)
         computeArraySectionTypeOffsetSize(*RedI, InsertPt);
 
       bool UseRecForScalar = ((FastReductionCtrl & 0x1) == 0);
       bool UseRecForArray = ((FastReductionCtrl & 0x2) == 0);
       bool UseRec = ((!isArrayReduction(RedI) && UseRecForScalar) ||
                      (isArrayReduction(RedI) && UseRecForArray));
-      if (FastReduction && UseRec) {
+      if ((FastRedMode != FastReductionNoneMode) && UseRec) {
         // Get private reduction variable from structure and set to NewRedInst
         NewRedInst = genFastRedPrivateVariable(
             RedI, ItemIndex++, FastRedStructTy, FastRedInst, InsertPt);
@@ -3997,18 +4097,18 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
       RedInitEntryBB = createEmptyPrivInitBB(W);
       genReductionInit(W, RedI, RedInitEntryBB->getTerminator(), DT);
 
-      if (FastReduction && !UseRec) {
+      if ((FastRedMode != FastReductionNoneMode) && !UseRec) {
         BasicBlock *RecInitEntryBB = createEmptyPrivInitBB(W);
-        // Generate private variable used by fast reduction callback, and
-        // copy private reduction variable (RedInst) to private variable
-        // (RedInst)
+        // Generate private variable (RecInst) used by fast reduction callback
         Value *RecInst = genFastRedPrivateVariable(
             RedI, ItemIndex++, FastRedStructTy, FastRedInst,
             RecInitEntryBB->getTerminator());
-        RedI->setNew(RecInst);
         BasicBlock *PrevBB = RedUpdateEntryBB->getSinglePredecessor();
         SplitBlock(PrevBB, cast<Instruction>(PrevBB->begin()), DT, LI);
 
+        // And copy private reduction variable (NewRedInst) to private variable
+        // (RecInst)
+        RedI->setNew(RecInst);
         Value *ReplacementVal =
             getClauseItemReplacementValue(RedI, PrevBB->getTerminator());
         genFastRedCopy(RedI, ReplacementVal, NewRedInst,
@@ -4035,7 +4135,8 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
 
     if (NeedsKmpcCritical) {
       // Wrap the reduction fini code inside a critical region.
-      // EndBB is created to be used as the insertion point for end_critical().
+      // EndBB is created to be used as the insertion point for
+      // end_critical()/end_reduce().
       //
       // This insertion point cannot be W->getExitBBlock()->begin() because
       // we don't want the END DIRECTIVE of the construct to be inside the
@@ -4047,15 +4148,10 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
       // the critical section is trying to guard.
       BasicBlock *EndBB = createEmptyPrivFiniBB(W, !isTargetSPIRV());
 
-      if (FastReduction) {
-        // Generate fast reduction callback and function call of __kmpc_reduce
-        // and __kmpc_end_reduce
-        RDECL FastRedCallback = genFastRedCallback(W, FastRedStructTy);
-        VPOParoptUtils::genKmpcReduce(
-            W, IdentTy, TidPtrHolder, FastRedInst, FastRedCallback,
-            dyn_cast<Instruction>(RedUpdateEntryBB->begin()),
-            EndBB->getTerminator(), DT, LI, isTargetSPIRV(), ".fast_reduction");
-      } else
+      if (FastRedMode != FastReductionNoneMode)
+        genFastReduceBB(W, FastRedMode, FastRedStructTy, FastRedInst,
+                        RedUpdateEntryBB, EndBB);
+      else
         VPOParoptUtils::genKmpcCriticalSection(
             W, IdentTy, TidPtrHolder,
             dyn_cast<Instruction>(RedUpdateEntryBB->begin()),

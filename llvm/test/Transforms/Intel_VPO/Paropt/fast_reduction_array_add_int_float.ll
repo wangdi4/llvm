@@ -131,6 +131,7 @@ for.end17:                                        ; preds = %for.cond
 
 
 ; ALL-NOT: "QUAL.OMP.REDUCTION.ADD:ARRSECT"
+; ALL-NOT: __kmpc_atomic
 ; ALL: %struct.fast_red_t = type <{ [100 x i32], [100 x float] }>
 ; ALL: define internal void @main_tree_reduce_{{.*}}(i8* %dst, i8* %src) {
 ; ALL: declare i32 @__kmpc_reduce(%struct.ident_t*, i32, i32, i32, i8*, void (i8*, i8*)*, [8 x i32]*)
@@ -194,7 +195,6 @@ for.end17:                                        ; preds = %for.cond
 ; ALL-NEXT: br i1 %to.tree.reduce, label %tree.reduce, label %tree.reduce.exit
 ; ALL: tree.reduce:
 ; ALL: tree.reduce.exit:
-; ALL-NEXT: {{.*}} = phi i1 [ false, {{.*}} ], [ true, {{.*}} ]
 ; ALL: %[[GLOBAL_CAST:[^,]+]] = bitcast [100 x i32]* %[[GLOBAL:[^,]+]] to i32*
 ; ALL-NEXT: %[[GLOBAL_CAST_PLUS_OFFSET:[^,]+]] = getelementptr i32, i32* %[[GLOBAL_CAST]], i64 0
 ; ALL: %[[GLOBAL_END:[^,]+]] = getelementptr i32, i32* %[[GLOBAL_CAST_PLUS_OFFSET]], i64 100

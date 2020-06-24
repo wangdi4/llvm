@@ -37,7 +37,7 @@ entry:
 
 ; ALL-NOT: "QUAL.OMP.REDUCTION.ADD:ARRSECT"
 ; FASTRED: define internal void @[[REDUCE_CALLBACK:[^,]+]](i8* %dst, i8* %src) {
-; CRICTICAL: %sum.addr.red = alloca [1000 x <4 x float>], align 8
+; CRITICAL: %sum.addr.red = alloca [1000 x <4 x float>], align 8
 ; CRITICAL: store <4 x float> zeroinitializer, <4 x float>* %red.cpy.dest.ptr, align 16
 ; CRITICAL: call void @__kmpc_critical(%struct.ident_t* @.kmpc_loc{{.*}}, i32 %my.tid17{{.*}}, [8 x i32]* @{{.*}})
 ; ALL: red.update.body:
