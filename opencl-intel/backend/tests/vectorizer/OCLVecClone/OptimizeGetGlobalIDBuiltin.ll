@@ -19,6 +19,16 @@
 ; LT2GIG-NEXT: %other.trunc = trunc i64 %non.trunc.user to i32
 ; LT2GIG-NEXT: %ret0 = mul i32 %other.trunc, %add
 ; LT2GIG-NEXT: %ret1 = mul i64 %non.trunc.user, [[ADD_SEXT]]
+; LT2GIG-NEXT: %mul.shl = mul i64 2, [[ADD_SEXT]]
+; LT2GIG-NEXT: %add.shl = add i64 %mul.shl, 1
+; LT2GIG-NEXT: %sub.shl = add i64 %mul.shl, -1
+; LT2GIG-NEXT: %ret3 = mul i64 %non.trunc.user, %add.shl
+; LT2GIG-NEXT: %ret4 = mul i64 %non.trunc.user, %sub.shl
+; LT2GIG-NEXT: %shl.keep = shl i64 [[ADD_SEXT]], 32
+; LT2GIG-NEXT: %add2.shl = add i64 %shl.keep, 4294967296
+; LT2GIG-NEXT: %call = call i64 @dummy(i64 %add2.shl)
+; LT2GIG-NEXT: %call.ashr = ashr exact i64 %call, 32
+; LT2GIG-NEXT: %ret5 = mul i64 %non.trunc.user, %call.ashr
 ; LT2GIG-NEXT: br label %simd.loop.exit
 
 
@@ -40,6 +50,18 @@
 ; GT2GIG-NEXT: %ashr.inst = ashr exact i64 %shl.user, 32
 ; GT2GIG-NEXT: %ret0 = mul i32 %other.trunc, %trunc.user
 ; GT2GIG-NEXT: %ret1 = mul i64 %non.trunc.user, %ashr.inst
+; GT2GIG-NEXT: %mul.shl = mul i64 8589934592, %shl.user
+; GT2GIG-NEXT: %add.shl = add i64 %mul.shl, 4294967296
+; GT2GIG-NEXT: %sub.shl = add i64 %mul.shl, -4294967296
+; GT2GIG-NEXT: %gid.add = ashr exact i64 %add.shl, 32
+; GT2GIG-NEXT: %gid.sub = ashr exact i64 %sub.shl, 32
+; GT2GIG-NEXT: %ret3 = mul i64 %non.trunc.user, %gid.add
+; GT2GIG-NEXT: %ret4 = mul i64 %non.trunc.user, %gid.sub
+; GT2GIG-NEXT: %shl.keep = shl i64 %add, 32
+; GT2GIG-NEXT: %add2.shl = add i64 %shl.keep, 4294967296
+; GT2GIG-NEXT: %call = call i64 @dummy(i64 %add2.shl)
+; GT2GIG-NEXT: %call.ashr = ashr exact i64 %call, 32
+; GT2GIG-NEXT: %ret5 = mul i64 %non.trunc.user, %call.ashr
 ; GT2GIG-NEXT: br label %simd.loop.exit
 
 
@@ -61,8 +83,24 @@ entry:
    %ashr.inst = ashr exact i64 %shl.user, 32
    %ret0 = mul i32 %other.trunc, %trunc.user
    %ret1 = mul i64 %non.trunc.user, %ashr.inst
+
+   %mul.shl = mul i64 8589934592, %shl.user ; %mul = 2 * gid
+   %add.shl = add i64 %mul.shl, 4294967296  ; %gid.add = %mul + 1
+   %sub.shl = add i64 %mul.shl, -4294967296 ; %gid.sub = %mul - 1
+   %gid.add = ashr exact i64 %add.shl, 32
+   %gid.sub = ashr exact i64 %sub.shl, 32
+   %ret3 = mul i64 %non.trunc.user, %gid.add
+   %ret4 = mul i64 %non.trunc.user, %gid.sub
+
+   %shl.keep = shl i64 %gid_call, 32
+   %add2.shl = add i64 %shl.keep, 4294967296
+   %call = call i64 @dummy(i64 %add2.shl) ; %call blocks handling this path
+   %call.ashr = ashr exact i64 %call, 32
+   %ret5 = mul i64 %non.trunc.user, %call.ashr
    ret void
 }
+
+declare i64 @dummy(i64)
 
 attributes #0 = { convergent nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "denorms-are-zero"="true" "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "stackrealign" "uniform-work-group-size"="true" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { nounwind readnone }
