@@ -66,7 +66,7 @@ void VPlanLoopCFU::run(VPLoop *VPL) {
     if (TopTest) {
       // If the subloop region is the false successor of the predecessor,
       // we need to negate the top test.
-      if (VPLRegnPred->getSuccessors()[1] == VPLPreHeader) {
+      if (VPLRegnPred->getSuccessor(1) == VPLPreHeader) {
         TopTest = VPBuilder()
                       .setInsertPoint(VPLRegnPred)
                       .createNot(TopTest, TopTest->getName() + ".not");
@@ -122,7 +122,7 @@ void VPlanLoopCFU::run(VPLoop *VPL) {
 
   // If the back edge is the false successor of the loop latch, the bottom
   // test needs to be adjusted when masking the loop body by negating it.
-  bool BackEdgeIsFalseSucc = NewLoopLatch->getSuccessors()[1] == VPLHeader;
+  bool BackEdgeIsFalseSucc = NewLoopLatch->getSuccessor(1) == VPLHeader;
 
   if (BackEdgeIsFalseSucc) {
     assert(VPDA->isDivergent(*BottomTest));

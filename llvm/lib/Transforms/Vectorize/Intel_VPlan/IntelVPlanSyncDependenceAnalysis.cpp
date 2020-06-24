@@ -280,9 +280,10 @@ struct DivergencePropagator {
   // Source of code divergence with the community is with how NodeSuccessors
   // is passed into this function. The community uses an iterable range of
   // successors (succ_const_range), while we just use a SmallVector.
+  template<typename SuccessorsRangeType>
   std::unique_ptr<ConstBlockSet>
   computeJoinPoints(const VPBasicBlock &RootBlock,
-                    const SmallVectorImpl<VPBasicBlock *> &NodeSuccessors,
+                    SuccessorsRangeType NodeSuccessors,
                     const VPLoop *ParentLoop) {
 
     assert(JoinBlocks &&

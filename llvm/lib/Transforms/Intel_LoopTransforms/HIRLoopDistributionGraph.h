@@ -170,8 +170,7 @@ class PiGraph : public HIRGraph<PiBlock, PiGraphEdge> {
 
 public:
   PiGraph(HLLoop *Loop, HIRDDAnalysis &DDA,
-          HIRSparseArrayReductionAnalysis &SARA,
-          bool AllowScalarExpansion,
+          HIRSparseArrayReductionAnalysis &SARA, bool AllowScalarExpansion,
           bool CreateControlNodes) {
 
     PPGraph = new DistPPGraph(Loop, DDA, SARA, AllowScalarExpansion,

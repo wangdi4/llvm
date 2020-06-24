@@ -4052,6 +4052,56 @@ CallInst *VPOParoptUtils::genKmpcCancelOrCancellationPointCall(
   return CancelCall;
 }
 
+void VPOParoptUtils::insertCallsAtRegionBoundary(WRegionNode *W,
+                                                 CallInst *Call1,
+                                                 CallInst *Call2,
+                                                 bool InsideRegion) {
+  assert(W && "WRegionNode is null.");
+  assert(Call1 && "Call1 is null.");
+  assert(Call2 && "Call2 is null.");
+
+  Instruction *EntryDir = W->getEntryDirective();
+  Instruction *ExitDir = W->getExitDirective();
+  assert(EntryDir && ExitDir && "Null Entry/Exit directive.");
+
+  if (InsideRegion) {
+    Call1->insertAfter(EntryDir);
+    Call2->insertBefore(ExitDir);
+  } else {
+    Call1->insertBefore(EntryDir);
+    Call2->insertAfter(ExitDir);
+  }
+}
+
+std::pair<CallInst *, CallInst *>
+VPOParoptUtils::genKmpcSpmdPushPopNumThreadsCalls(Module *M,
+                                                  Value *NumThreads) {
+  assert(M && "Module is null.");
+
+  LLVMContext &C = M->getContext();
+  auto *VoidTy = Type::getVoidTy(C);
+  auto *RetTy = VoidTy;
+
+  if (!NumThreads)
+    NumThreads = ConstantInt::get(Type::getInt32Ty(C), 1);
+
+  CallInst *PushCall =
+      genCall(M, "__kmpc_spmd_push_num_threads", RetTy, {NumThreads});
+  assert(PushCall && "Could not emit __kmpc_spmd_push_num_threads");
+
+  CallInst *PopCall = genCall(M, "__kmpc_spmd_pop_num_threads", RetTy, {});
+  assert(PopCall && "Could not emit __kmpc_spmd_pop_num_threads");
+
+  PushCall->getCalledFunction()->setConvergent();
+  setFuncCallingConv(PushCall, true);
+  PopCall->getCalledFunction()->setConvergent();
+  setFuncCallingConv(PopCall, true);
+
+  LLVM_DEBUG(dbgs() << __FUNCTION__
+                    << ": Push/Pop num_threads calls generated.\n");
+  return {PushCall, PopCall};
+}
+
 void VPOParoptUtils::genConstructorCall(Function *Ctor, Value *V,
                                         IRBuilder<> &Builder) {
   if (Ctor == nullptr)

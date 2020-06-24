@@ -1054,30 +1054,28 @@ public:
   }
 
   virtual VPTerminator *cloneImpl() const final {
-    // Note: don't need to clone CondBit and Successors,
-    // VPCloneUtils will do that through VPBasicBlock interface.
     return new VPTerminator(getType());
   }
 
   /// Iterators and types to access Successors of terminator's
   /// parent VPBasicBlock.
-  using SuccType = SmallVector<VPBasicBlock *, 2>;
-  using succ_iterator = SuccType::iterator;
-  using succ_const_iterator = SuccType::const_iterator;
-  using succ_reverse_iterator = SuccType::reverse_iterator;
-  using succ_const_reverse_iterator = SuccType::const_reverse_iterator;
-
-  inline succ_iterator succ_begin() { return Successors.begin(); }
-  inline succ_iterator succ_end() { return Successors.end(); }
-  inline succ_const_iterator succ_begin() const { return Successors.begin(); }
-  inline succ_const_iterator succ_end() const { return Successors.end(); }
-  inline succ_reverse_iterator succ_rbegin() { return Successors.rbegin(); }
-  inline succ_reverse_iterator succ_rend() { return Successors.rend(); }
-  inline succ_const_reverse_iterator succ_rbegin() const {
-    return Successors.rbegin();
+  inline operand_iterator succ_begin() { return op_begin(); }
+  inline operand_iterator succ_end() {
+    // CondBit is expected to be last operand of VPTerminator (if available)
+    return getCondBit() ? std::prev(op_end()) : op_end();
   }
-  inline succ_const_reverse_iterator succ_rend() const {
-    return Successors.rend();
+  inline const_operand_iterator succ_begin() const { return op_begin(); }
+  inline const_operand_iterator succ_end() const {
+    return const_cast<VPTerminator *>(this)->succ_end();
+  }
+
+  const_operand_range successors() const {
+    return make_range(succ_begin(), succ_end());
+  }
+
+  VPBasicBlock *getSuccessor(unsigned idx) const {
+    assert(idx < getNumSuccessors() && "Successor # out of range for Branch!");
+    return cast<VPBasicBlock>(getOperand(idx));
   }
 
   /// Add \p Successor as the last successor to this terminator.
@@ -1091,16 +1089,15 @@ public:
   /// \p OldSuccessor.
   void replaceSuccessor(VPBasicBlock *OldSuccessor, VPBasicBlock *NewSuccessor);
 
-  const SmallVectorImpl<VPBasicBlock *> &getSuccessors() const {
-    return Successors;
+  size_t getNumSuccessors() const {
+    return std::distance(succ_begin(), succ_end());
   }
-
-  size_t getNumSuccessors() const { return Successors.size(); }
 
   /// \Return the successor of this terminator if it has a single successor.
   /// Otherwise return a null pointer.
   VPBasicBlock *getSingleSuccessor() const {
-    return (Successors.size() == 1 ? *Successors.begin() : nullptr);
+    return (getNumSuccessors() == 1 ? cast<VPBasicBlock>(*succ_begin())
+                                    : nullptr);
   }
 
   /// Set a given VPBasicBlock \p Successor as the single successor of this
@@ -1116,24 +1113,32 @@ public:
   /// Remove all the successors of this terminator and set its condition bit
   /// to null.
   void clearSuccessors() {
-    for (auto Succ : Successors)
-      Succ->removeUser(*this);
-    Successors.clear();
+    while (getNumOperands() > 0)
+      removeOperand(0);
   }
 
   /// \Return the condition bit selecting the successor.
-  VPValue *getCondBit() { return CondBit; }
+  VPValue *getCondBit() const {
+    VPValue *CondBit = nullptr;
+    if (unsigned Count = getNumOperands()) {
+      CondBit = getOperand(Count - 1);
+      // Condition could not be a basic block.
+      if (isa<VPBasicBlock>(CondBit))
+        CondBit = nullptr;
+    }
+    return CondBit;
+  }
 
-  const VPValue *getCondBit() const { return CondBit; }
-
-  void setCondBit(VPValue *CB) { CondBit = CB; }
-
-private:
-  /// List of successor blocks.
-  SmallVector<VPBasicBlock *, 2> Successors;
-
-  /// Successor selector, null for zero or single successor blocks.
-  VPValue *CondBit = nullptr;
+  void setCondBit(VPValue *CB) {
+    if (getCondBit()) {
+      if (CB)
+        setOperand(getNumOperands() - 1, CB);
+      else
+        removeOperand(getNumOperands() - 1);
+    }
+    else if (CB)
+      addOperand(CB);
+  }
 };
 
 /// Concrete class for blending instruction. Was previously represented as
@@ -3011,7 +3016,6 @@ template <class... Args> inline void VPLAN_DOT(const Args &...) {}
 #endif
 
 } // namespace vpo
-
 
 // The following template specializations are implemented to support GraphTraits
 // for VPlan.

@@ -953,6 +953,51 @@ private:
   /// Reset the value of \p V in OpenMP clauses of \p W to be empty.
   void resetValueInOmpClauseGeneric(WRegionNode *W, Value *V);
 
+  /// \name Utilities to emit kmpc_spmd_push/pop_num_threads for offloading.
+  ///
+  /// Code generation like this is needed to support `omp_get_num_threads()`
+  /// in user code when hierarchical parallelism is used.
+  ///
+  /// \code
+  ///   #pragma omp target
+  ///   {
+  ///     __kmpc_spmd_push_num_threads(1);
+  ///       ...
+  ///       __kmpc_spmd_pop_num_threads();
+  ///       #pragma omp parallel
+  ///       {}
+  ///       __kmpc_spmd_push_num_threads(1)
+  ///       ...
+  ///     __kmpc_spmd_pop_num_threads();
+  ///   }
+  /// \endcode
+  ///
+  /// Note that these calls are emitted only if the current module
+  /// contains `omp_get_num_threads` function, to avoid performance impact
+  /// of these calls and the barriers associated with them.
+  ///
+  /// @{
+  ///
+  /// Inserts calls to `__kmpc_spmd_pop_num_threads` and
+  /// `__kmpc_spmd_push_num_threads` around \p W. If \p InsideRegion is \b true,
+  /// the pop call is inserted after \p W's entry directive, and the push call
+  /// is inserted before \p W's exit directive. Otherwise, the pop call is
+  /// inserted before the entry directive, and push call is inserted after the
+  /// exit directive. By default, \p InsideRegion is false.
+  bool callPopPushNumThreadsAtRegionBoundary(WRegionNode *W,
+                                             bool InsideRegion = false);
+
+  /// Inserts calls to `__kmpc_spmd_push_num_threads` and
+  /// `__kmpc_spmd_pop_num_threads` around \p W. If \p InsideRegion is \b true,
+  /// the push call is inserted after \p W's entry directive, and the pop call
+  /// is inserted before \p W's exit directive. Otherwise, the push call is
+  /// inserted before the entry directive, and pop call is inserted after the
+  /// exit directive. By default, \p InsideRegion is false.
+  bool callPushPopNumThreadsAtRegionBoundary(WRegionNode *W,
+                                             bool InsideRegion = false);
+
+  /// @}
+
   /// Generate the code for the directive omp target
   bool genTargetOffloadingCode(WRegionNode *W);
 
@@ -1611,6 +1656,14 @@ private:
 
   /// Replace the use of OldV within region W with the value NewV.
   void replaceUseWithinRegion(WRegionNode *W, Value *OldV, Value *NewV);
+
+  /// \returns \b true if current Module contains the function
+  /// `omp_get_num_threads`, \b false otherwise.
+  bool moduleHasOmpGetNumThreadsFunction();
+
+  /// \returns \b true if current function is marked with
+  /// `openmp-declare-target=true` attribute, \b false otherwise.
+  bool isFunctionOpenMPTargetDeclare();
 
   /// Return true if one of the region W's ancestor is OMP target
   /// construct or the function where W lies in has target declare attribute.

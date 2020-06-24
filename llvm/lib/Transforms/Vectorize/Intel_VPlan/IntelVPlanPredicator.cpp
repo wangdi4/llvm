@@ -228,14 +228,14 @@ void VPlanPredicator::calculatePredicateTerms(VPBasicBlock *CurrBlock) {
                       << "}\n");
     Uniform &= Block2PredicateTermsAndUniformity[InfluenceBB].second;
     Uniform &= !Plan.getVPlanDA()->isDivergent(*Cond);
-    assert((Cond || CurrBlock == InfluenceBB->getSuccessors()[0]) &&
+    assert((Cond || CurrBlock == InfluenceBB->getSuccessor(0)) &&
            "Single predecessor on false edge?");
     // Cond == nullptr would just mean that PredBB's predicate should be used.
     // Still ok.
     PredicateTerm Term(
         InfluenceBB, Cond,
         !VPPostDomTree.dominates(CurrBlock,
-                                 InfluenceBB->getSuccessors()[0]) /* Negate */);
+                                 InfluenceBB->getSuccessor(0)) /* Negate */);
     Block2PredicateTermsAndUniformity[CurrBlock].first.push_back(Term);
     PredicateTerm2UseBlocks[Term].push_back(CurrBlock);
   }
@@ -382,8 +382,8 @@ bool VPlanPredicator::shouldPreserveOutgoingEdges(VPBasicBlock *Block) {
 
     assert(Block->getNumSuccessors() == 2 &&
            "While and/or multi-exit loops aren't expected!");
-    assert(Block->getSuccessors()[0]->getNumPredecessors() +
-                   Block->getSuccessors()[1]->getNumPredecessors() ==
+    assert(Block->getSuccessor(0)->getNumPredecessors() +
+                   Block->getSuccessor(1)->getNumPredecessors() ==
                3 &&
            "Not in loop-simplified form?");
     assert(!Plan.getVPlanDA()->isDivergent(*Block->getCondBit()) &&
@@ -802,7 +802,7 @@ void VPlanPredicator::fixupUniformInnerLoops() {
     LLVM_DEBUG(dbgs() << "Fixing up uniform loop with header "
                       << Header->getName() << "\n");
 
-    bool BackEdgeIsFalseSucc = Latch->getSuccessors()[1] == Header;
+    bool BackEdgeIsFalseSucc = Latch->getSuccessor(1) == Header;
     VPBuilder Builder;
     Builder.setInsertPoint(Latch);
     auto *NewAllZeroCheck = Builder.createAllZeroCheck(Predicate);
