@@ -27,11 +27,14 @@
 
 namespace tbb {
 namespace detail {
-namespace d1 {
 
+namespace r1 {
 void*       __TBB_EXPORTED_FUNC cache_aligned_allocate(std::size_t size);
 void        __TBB_EXPORTED_FUNC cache_aligned_deallocate(void* p);
 std::size_t __TBB_EXPORTED_FUNC cache_line_size();
+}
+
+namespace d1 {
 
 template<typename T>
 class cache_aligned_allocator {
@@ -47,17 +50,17 @@ public:
 
     //! Allocate space for n objects, starting on a cache/sector line.
     T* allocate(std::size_t n) {
-        return static_cast<T*>(cache_aligned_allocate(n * sizeof(value_type)));
+        return static_cast<T*>(r1::cache_aligned_allocate(n * sizeof(value_type)));
     }
 
     //! Free block of memory that starts on a cache line
     void deallocate(T* p, std::size_t) {
-        cache_aligned_deallocate(p);
+        r1::cache_aligned_deallocate(p);
     }
 
     //! Largest value for which method allocate might succeed.
     std::size_t max_size() const noexcept {
-        return (~std::size_t(0) - cache_line_size()) / sizeof(value_type);
+        return (~std::size_t(0) - r1::cache_line_size()) / sizeof(value_type);
     }
 
 #if TBB_ALLOCATOR_TRAITS_BROKEN
@@ -152,7 +155,7 @@ private:
 #if __TBB_CPP17_HW_INTERFERENCE_SIZE_PRESENT
         std::size_t cache_line_size = std::hardware_destructive_interference_size;
 #else
-        std::size_t cache_line_size = detail::d1::cache_line_size();
+        std::size_t cache_line_size = r1::cache_line_size();
 #endif
         return alignment < cache_line_size ? cache_line_size : alignment;
     }

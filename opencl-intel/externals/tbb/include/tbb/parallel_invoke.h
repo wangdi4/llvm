@@ -36,24 +36,24 @@ namespace d1 {
 //! Simple task object, executing user method
 template<typename Function, typename WaitObject>
 struct function_invoker : public task {
-    function_invoker(const Function& function, WaitObject& wait_obj) :
+    function_invoker(const Function& function, WaitObject& wait_ctx) :
         my_function(function),
-        parent_wait_obj(wait_obj)
+        parent_wait_ctx(wait_ctx)
     {}
 
-    task* execute(const execute_data& ed) override {
+    task* execute(execution_data& ed) override {
         my_function();
-        parent_wait_obj.release_wait(ed);
+        parent_wait_ctx.release(ed);
         return nullptr;
     }
 
-    task* cancel(const execute_data& ed) override {
-        parent_wait_obj.release_wait(ed);
+    task* cancel(execution_data& ed) override {
+        parent_wait_ctx.release(ed);
         return nullptr;
     }
 
     const Function& my_function;
-    WaitObject& parent_wait_obj;
+    WaitObject& parent_wait_ctx;
 }; // struct function_invoker
 
 //! Task object for managing subroots in trinary task trees.
@@ -63,7 +63,7 @@ struct function_invoker : public task {
 // the subroot task.
 template<typename F1, typename F2, typename F3>
 struct invoke_subroot_task : public task {
-    wait_object& root_wait_obj;
+    wait_context& root_wait_ctx;
     std::atomic<unsigned> ref_count{0};
     bool child_spawned = false;
 
@@ -74,44 +74,44 @@ struct invoke_subroot_task : public task {
     task_group_context& my_execution_context;
     small_object_allocator my_allocator;
 
-    invoke_subroot_task(const F1& f1, const F2& f2, const F3& f3, wait_object& wait_obj, task_group_context& context,
+    invoke_subroot_task(const F1& f1, const F2& f2, const F3& f3, wait_context& wait_ctx, task_group_context& context,
                  small_object_allocator& alloc) :
-        root_wait_obj(wait_obj),
+        root_wait_ctx(wait_ctx),
         self_invoked_functor(f1),
         f2_invoker(f2, *this),
         f3_invoker(f3, *this),
         my_execution_context(context),
         my_allocator(alloc)
     {
-        root_wait_obj.reserve_wait();
+        root_wait_ctx.reserve();
     }
 
-    void finalize(const execute_data& ed) {
-        root_wait_obj.release_wait();
+    void finalize(const execution_data& ed) {
+        root_wait_ctx.release();
 
         my_allocator.delete_object(this, ed);
     }
 
-    void release_wait(const execute_data& ed) {
+    void release(const execution_data& ed) {
         __TBB_ASSERT(ref_count > 0, nullptr);
         if( --ref_count == 0 ) {
             finalize(ed);
         }
     }
 
-    task* execute(const execute_data& ed) override {
+    task* execute(execution_data& ed) override {
         ref_count.fetch_add(3, std::memory_order_relaxed);
         spawn(f3_invoker, my_execution_context);
         spawn(f2_invoker, my_execution_context);
         self_invoked_functor();
 
-        release_wait(ed);
+        release(ed);
         return nullptr;
     }
 
-    task* cancel(const execute_data& ed) override {
-        if( ref_count > 0 ) { // detect childs spawn
-            release_wait(ed);
+    task* cancel(execution_data& ed) override {
+        if( ref_count > 0 ) { // detect children spawn
+            release(ed);
         } else {
             finalize(ed);
         }
@@ -121,73 +121,73 @@ struct invoke_subroot_task : public task {
 
 class invoke_root_task {
 public:
-    invoke_root_task(wait_object& obj) : my_object(obj) {}
-    void release_wait(const execute_data&) {
-        my_object.release_wait();
+    invoke_root_task(wait_context& wc) : my_wait_context(wc) {}
+    void release(const execution_data&) {
+        my_wait_context.release();
     }
 private:
-    wait_object& my_object;
+    wait_context& my_wait_context;
 };
 
 template<typename F1>
-void invoke_recursive_separation(wait_object& root_wait_obj, task_group_context& context, const F1& f1) {
-    root_wait_obj.reserve_wait(1);
-    invoke_root_task root(root_wait_obj);
+void invoke_recursive_separation(wait_context& root_wait_ctx, task_group_context& context, const F1& f1) {
+    root_wait_ctx.reserve(1);
+    invoke_root_task root(root_wait_ctx);
     function_invoker<F1, invoke_root_task> invoker1(f1, root);
 
-    task::execute_and_wait(invoker1, context, root_wait_obj, context);
+    execute_and_wait(invoker1, context, root_wait_ctx, context);
 }
 
 template<typename F1, typename F2>
-void invoke_recursive_separation(wait_object& root_wait_obj, task_group_context& context, const F1& f1, const F2& f2) {
-    root_wait_obj.reserve_wait(2);
-    invoke_root_task root(root_wait_obj);
+void invoke_recursive_separation(wait_context& root_wait_ctx, task_group_context& context, const F1& f1, const F2& f2) {
+    root_wait_ctx.reserve(2);
+    invoke_root_task root(root_wait_ctx);
     function_invoker<F1, invoke_root_task> invoker1(f1, root);
     function_invoker<F2, invoke_root_task> invoker2(f2, root);
 
-    task::spawn(invoker1, context);
-    task::execute_and_wait(invoker2, context, root_wait_obj, context);
+    spawn(invoker1, context);
+    execute_and_wait(invoker2, context, root_wait_ctx, context);
 }
 
 template<typename F1, typename F2, typename F3>
-void invoke_recursive_separation(wait_object& root_wait_obj, task_group_context& context, const F1& f1, const F2& f2, const F3& f3) {
-    root_wait_obj.reserve_wait(3);
-    invoke_root_task root(root_wait_obj);
+void invoke_recursive_separation(wait_context& root_wait_ctx, task_group_context& context, const F1& f1, const F2& f2, const F3& f3) {
+    root_wait_ctx.reserve(3);
+    invoke_root_task root(root_wait_ctx);
     function_invoker<F1, invoke_root_task> invoker1(f1, root);
     function_invoker<F2, invoke_root_task> invoker2(f2, root);
     function_invoker<F3, invoke_root_task> invoker3(f3, root);
 
     //TODO: implement sub root for two tasks (measure performance)
-    task::spawn(invoker1, context);
-    task::spawn(invoker2, context);
-    task::execute_and_wait(invoker3, context, root_wait_obj, context);
+    spawn(invoker1, context);
+    spawn(invoker2, context);
+    execute_and_wait(invoker3, context, root_wait_ctx, context);
 }
 
 template<typename F1, typename F2, typename F3, typename... Fs>
-void invoke_recursive_separation(wait_object& root_wait_obj, task_group_context& context,
+void invoke_recursive_separation(wait_context& root_wait_ctx, task_group_context& context,
                                  const F1& f1, const F2& f2, const F3& f3, const Fs&... fs) {
     small_object_allocator alloc{};
-    auto sub_root = alloc.new_object<invoke_subroot_task<F1, F2, F3>>(f1, f2, f3, root_wait_obj, context, alloc);
-    task::spawn(*sub_root, context);
+    auto sub_root = alloc.new_object<invoke_subroot_task<F1, F2, F3>>(f1, f2, f3, root_wait_ctx, context, alloc);
+    spawn(*sub_root, context);
 
-    invoke_recursive_separation(root_wait_obj, context, fs...);
+    invoke_recursive_separation(root_wait_ctx, context, fs...);
 }
 
 template<typename... Fs>
 void parallel_invoke_impl(task_group_context& context, const Fs&... fs) {
     static_assert(sizeof...(Fs) >= 2, "Parallel invoke may be called with at least two callable");
-    wait_object root_wait_obj{0};
+    wait_context root_wait_ctx{0};
 
-    invoke_recursive_separation(root_wait_obj, context, fs...);
+    invoke_recursive_separation(root_wait_ctx, context, fs...);
 }
 
 template<typename F1, typename... Fs>
 void parallel_invoke_impl(const F1& f1, const Fs&... fs) {
     static_assert(sizeof...(Fs) >= 1, "Parallel invoke may be called with at least two callable");
     task_group_context context(PARALLEL_INVOKE);
-    wait_object root_wait_obj{0};
+    wait_context root_wait_ctx{0};
 
-    invoke_recursive_separation(root_wait_obj, context, fs..., f1);
+    invoke_recursive_separation(root_wait_ctx, context, fs..., f1);
 }
 
 //! Passes last argument of variadic pack as first for handling user provided task_group_context

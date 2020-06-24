@@ -657,7 +657,7 @@ public:
 
     float max_load_factor() const { return my_max_load_factor; }
 
-    void max_load_factor( float mlf ) { 
+    void max_load_factor( float mlf ) {
         if (mlf != mlf || mlf < 0) {
             tbb::detail::throw_exception(exception_id::invalid_load_factor);
         }
@@ -995,7 +995,7 @@ private:
         return internal_insert_return_type{ nullptr, static_cast<value_node_ptr>(new_node), true };
     }
 
-    // Searchs the node with the key, equivalent to key with requested order key after the node prev
+    // Searches the node with the key, equivalent to key with requested order key after the node prev
     // Returns the existing node and true if the node is already in the list
     // Returns the first node with the order key, greater than requested and false if the node is not presented in the list
     std::pair<value_node_ptr, bool> search_after( node_ptr& prev, sokey_type order_key, const key_type& key ) {
@@ -1249,7 +1249,7 @@ private:
             } else if (curr->order_key() == order_key &&
                        my_hash_compare(traits_type::get_key(static_cast<value_node_ptr>(curr)->value()), key)) {
                 // The fact that order keys match does not mean that the element is found.
-                // Key function comparison has to be performed to check whethe this is the
+                // Key function comparison has to be performed to check whether this is the
                 // right element. If not, keep searching while order key is the same.
                 return static_cast<value_node_ptr>(curr);
             }

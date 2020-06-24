@@ -20,16 +20,17 @@
 #include "detail/_config.h"
 #include "detail/_task.h"
 
-#if __TBB_RESUMABLE_TASKS
 namespace tbb {
 inline namespace v1 {
 namespace task {
+#if __TBB_RESUMABLE_TASKS
     using detail::d1::suspend_point;
     using detail::d1::resume;
     using detail::d1::suspend;
+#endif /* __TBB_RESUMABLE_TASKS */
+    using detail::d1::current_context;
 } // namespace task
 } // namespace v1
 } // namespace tbb
-#endif /* __TBB_RESUMABLE_TASKS */
 
 #endif /* __TBB_task_H */

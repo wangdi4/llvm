@@ -26,28 +26,30 @@
 
 namespace tbb {
 namespace detail {
+
 namespace d1 {
-
-struct execute_data;
-
-class small_object_pool
-{
-public:
-    static void* __TBB_EXPORTED_FUNC allocate(small_object_pool*& allocator, std::size_t number_of_bytes,
-                                              const execute_data& ed);
-    static void* __TBB_EXPORTED_FUNC allocate(small_object_pool*& allocator, std::size_t number_of_bytes);
-    void  __TBB_EXPORTED_METHOD deallocate(void* ptr, std::size_t number_of_bytes, const execute_data& ed);
-    void  __TBB_EXPORTED_METHOD deallocate(void* ptr, std::size_t number_of_bytes);
+class small_object_pool {
 protected:
     small_object_pool() = default;
 };
+struct execution_data;
+}
 
-class small_object_allocator
-{
+namespace r1 {
+void* __TBB_EXPORTED_FUNC allocate(d1::small_object_pool*& pool, std::size_t number_of_bytes,
+                                    const d1::execution_data& ed);
+void* __TBB_EXPORTED_FUNC allocate(d1::small_object_pool*& pool, std::size_t number_of_bytes);
+void  __TBB_EXPORTED_FUNC deallocate(d1::small_object_pool& pool, void* ptr, std::size_t number_of_bytes,
+                                        const d1::execution_data& ed);
+void  __TBB_EXPORTED_FUNC deallocate(d1::small_object_pool& pool, void* ptr, std::size_t number_of_bytes);
+}
+
+namespace d1 {
+class small_object_allocator {
 public:
     template <typename Type, typename... Args>
-    Type* new_object(const execute_data& ed, Args&&... args) {
-        void* allocated_object = small_object_pool::allocate(m_pool, sizeof(Type), ed);
+    Type* new_object(execution_data& ed, Args&&... args) {
+        void* allocated_object = r1::allocate(m_pool, sizeof(Type), ed);
 
         auto constructed_object = new(allocated_object) Type(std::forward<Args>(args)...);
         return constructed_object;
@@ -55,14 +57,14 @@ public:
 
     template <typename Type, typename... Args>
     Type* new_object(Args&&... args) {
-        void* allocated_object = small_object_pool::allocate(m_pool, sizeof(Type));
+        void* allocated_object = r1::allocate(m_pool, sizeof(Type));
 
         auto constructed_object = new(allocated_object) Type(std::forward<Args>(args)...);
         return constructed_object;
     }
 
     template <typename Type>
-    void delete_object(Type* object, const execute_data& ed) {
+    void delete_object(Type* object, const execution_data& ed) {
         // Copy this since the it can be the member of the passed object and
         // unintentionally destroyed when Type destructor is called below
         small_object_allocator alloc = *this;
@@ -80,15 +82,15 @@ public:
     }
 
     template <typename Type>
-    void deallocate(Type* ptr, const execute_data& ed) {
+    void deallocate(Type* ptr, const execution_data& ed) {
         __TBB_ASSERT(m_pool != nullptr, "Pool must be valid for deallocate call");
-        m_pool->deallocate(ptr, sizeof(Type), ed);
+        r1::deallocate(*m_pool, ptr, sizeof(Type), ed);
     }
 
     template <typename Type>
     void deallocate(Type* ptr) {
         __TBB_ASSERT(m_pool != nullptr, "Pool must be valid for deallocate call");
-        m_pool->deallocate(ptr, sizeof(Type));
+        r1::deallocate(*m_pool, ptr, sizeof(Type));
     }
 private:
     small_object_pool* m_pool{};

@@ -37,7 +37,7 @@
 #include "profiling.h"
 #include "task_arena.h"
 
-#if TBB_USE_THREADING_TOOLS && TBB_PREVIEW_FLOW_GRAPH_TRACE && ( __linux__ || __APPLE__ )
+#if TBB_USE_PROFILING_TOOLS && ( __linux__ || __APPLE__ )
    #if __INTEL_COMPILER
        // Disabled warning "routine is both inline and noinline"
        #pragma warning (push)
@@ -372,18 +372,18 @@ void graph_iterator<C,N>::internal_forward() {
 }
 
 //! Constructs a graph with isolated task_group_context
-inline graph::graph() : my_nodes(NULL), my_nodes_last(NULL), my_task_arena(NULL) {
+inline graph::graph() : my_wait_context(0), my_nodes(NULL), my_nodes_last(NULL), my_task_arena(NULL) {
     prepare_task_arena();
     own_context = true;
     cancelled = false;
     caught_exception = false;
-    my_context = new (cache_aligned_allocate(sizeof(task_group_context))) task_group_context(FLOW_TASKS);
+    my_context = new (r1::cache_aligned_allocate(sizeof(task_group_context))) task_group_context(FLOW_TASKS);
     fgt_graph(this);
     my_is_active = true;
 }
 
 inline graph::graph(task_group_context& use_this_context) :
-    my_context(&use_this_context), my_nodes(NULL), my_nodes_last(NULL), my_task_arena(NULL) {
+    my_wait_context(0), my_context(&use_this_context), my_nodes(NULL), my_nodes_last(NULL), my_task_arena(NULL) {
     prepare_task_arena();
     own_context = false;
     cancelled = false;
@@ -396,19 +396,19 @@ inline graph::~graph() {
     wait_for_all();
     if (own_context) {
         my_context->~task_group_context();
-        cache_aligned_deallocate(my_context);
+        r1::cache_aligned_deallocate(my_context);
     }
     delete my_task_arena;
 }
 
 inline void graph::reserve_wait() {
-    my_wait_object.reserve_wait();
+    my_wait_context.reserve();
     fgt_reserve_wait(this);
 }
 
 inline void graph::release_wait() {
     fgt_release_wait(this);
-    my_wait_object.release_wait();
+    my_wait_context.release();
 }
 
 inline void graph::register_node(graph_node *n) {
@@ -464,12 +464,6 @@ inline graph::const_iterator graph::cbegin() const { return const_iterator(this,
 
 inline graph::const_iterator graph::cend() const { return const_iterator(this, false); }
 
-#if TBB_PREVIEW_FLOW_GRAPH_TRACE
-inline void graph::set_name(const char *name) {
-    fgt_graph_desc(this, name);
-}
-#endif
-
 inline graph_node::graph_node(graph& g) : my_graph(g) {
     my_graph.register_node(this);
 }
@@ -504,7 +498,7 @@ public:
         my_reserved(false), my_has_cached_item(false)
     {
         my_successors.set_owner(this);
-	fgt_node_with_body( CODEPTR(), FLOW_INPUT_NODE, &this->my_graph,
+        fgt_node_with_body( CODEPTR(), FLOW_INPUT_NODE, &this->my_graph,
                                            static_cast<sender<output_type> *>(this), this->my_body );
     }
 
@@ -530,12 +524,6 @@ public:
 
     //! The destructor
     ~input_node() { delete my_body; delete my_init_body; }
-
-#if TBB_PREVIEW_FLOW_GRAPH_TRACE
-    void set_name( const char *name ) override {
-        fgt_node_desc( this, name );
-    }
-#endif
 
     //! Add a new successor to this node
     bool register_successor( successor_type &r ) override {
@@ -765,12 +753,6 @@ public:
                 static_cast<receiver<input_type> *>(this), static_cast<sender<output_type> *>(this), this->my_body );
     }
 
-#if TBB_PREVIEW_FLOW_GRAPH_TRACE
-    void set_name( const char *name ) override {
-        fgt_node_desc( this, name );
-    }
-#endif
-
 protected:
     template< typename R, typename B > friend class run_and_put_task;
     template<typename X, typename Y> friend class broadcast_cache;
@@ -836,8 +818,8 @@ public:
     }
 
     template <typename Body>
-    __TBB_NOINLINE_SYM multifunction_node(graph& g, size_t concurrency, Body body, node_priority_t priority)
-        : multifunction_node(g, concurrency, body, Policy(), priority) {}
+    __TBB_NOINLINE_SYM multifunction_node(graph& g, size_t concurrency, Body body, node_priority_t a_priority)
+        : multifunction_node(g, concurrency, body, Policy(), a_priority) {}
 
 #if __TBB_PREVIEW_FLOW_GRAPH_NODE_SET
     template <typename Body, typename... Args>
@@ -848,8 +830,8 @@ public:
     }
 
     template <typename Body, typename... Args>
-    __TBB_NOINLINE_SYM multifunction_node(const node_set<Args...>& nodes, size_t concurrency, Body body, node_priority_t priority)
-        : multifunction_node(nodes, concurrency, body, Policy(), priority) {}
+    __TBB_NOINLINE_SYM multifunction_node(const node_set<Args...>& nodes, size_t concurrency, Body body, node_priority_t a_priority)
+        : multifunction_node(nodes, concurrency, body, Policy(), a_priority) {}
 #endif // __TBB_PREVIEW_FLOW_GRAPH_NODE_SET
 
     __TBB_NOINLINE_SYM multifunction_node( const multifunction_node &other) :
@@ -858,12 +840,6 @@ public:
                 &this->my_graph, static_cast<receiver<input_type> *>(this),
                 this->output_ports(), this->my_body );
     }
-
-#if TBB_PREVIEW_FLOW_GRAPH_TRACE
-    void set_name( const char *name ) override {
-        fgt_multioutput_node_desc( this, name );
-    }
-#endif
 
     // all the guts are in multifunction_input...
 protected:
@@ -906,12 +882,6 @@ public:
         fgt_multioutput_node<N>(CODEPTR(), FLOW_SPLIT_NODE, &this->my_graph,
             static_cast<receiver<input_type> *>(this), this->output_ports());
     }
-
-#if TBB_PREVIEW_FLOW_GRAPH_TRACE
-    void set_name( const char *name ) override {
-        fgt_multioutput_node_desc( this, name );
-    }
-#endif
 
     output_ports_type &output_ports() { return my_output_ports; }
 
@@ -1017,12 +987,6 @@ public:
                                            static_cast<sender<output_type> *>(this), this->my_body );
     }
 
-#if TBB_PREVIEW_FLOW_GRAPH_TRACE
-    void set_name( const char *name ) override {
-        fgt_node_desc( this, name );
-    }
-#endif
-
 protected:
     template< typename R, typename B > friend class run_and_put_task;
     template<typename X, typename Y> friend class broadcast_cache;
@@ -1070,12 +1034,6 @@ public:
         fgt_node( CODEPTR(), FLOW_BROADCAST_NODE, &this->my_graph,
                                  static_cast<receiver<input_type> *>(this), static_cast<sender<output_type> *>(this) );
     }
-
-#if TBB_PREVIEW_FLOW_GRAPH_TRACE
-    void set_name( const char *name ) override {
-        fgt_node_desc( this, name );
-    }
-#endif
 
     //! Adds a successor
     bool register_successor( successor_type &r ) override {
@@ -1359,12 +1317,6 @@ public:
                                  static_cast<receiver<input_type> *>(this), static_cast<sender<output_type> *>(this) );
     }
 
-#if TBB_PREVIEW_FLOW_GRAPH_TRACE
-    void set_name( const char *name ) override {
-        fgt_node_desc( this, name );
-    }
-#endif
-
     //
     // message sender implementation
     //
@@ -1558,11 +1510,6 @@ public:
                                  static_cast<sender<output_type> *>(this) );
     }
 
-#if TBB_PREVIEW_FLOW_GRAPH_TRACE
-    void set_name( const char *name ) override {
-        fgt_node_desc( this, name );
-    }
-#endif
 
 protected:
     void reset_node( reset_flags f) override {
@@ -1609,12 +1556,6 @@ public:
 
     //! Destructor
     ~sequencer_node() { delete my_sequencer; }
-
-#if TBB_PREVIEW_FLOW_GRAPH_TRACE
-    void set_name( const char *name ) override {
-        fgt_node_desc( this, name );
-    }
-#endif
 
 protected:
     typedef typename buffer_node<T>::size_type size_type;
@@ -1679,12 +1620,6 @@ public:
                                  static_cast<receiver<input_type> *>(this),
                                  static_cast<sender<output_type> *>(this) );
     }
-
-#if TBB_PREVIEW_FLOW_GRAPH_TRACE
-    void set_name( const char *name ) override {
-        fgt_node_desc( this, name );
-    }
-#endif
 
 protected:
 
@@ -2009,12 +1944,6 @@ public:
         initialize();
     }
 
-#if TBB_PREVIEW_FLOW_GRAPH_TRACE
-    void set_name( const char *name ) override {
-        fgt_node_desc( this, name );
-    }
-#endif
-
     //! Replace the current successor with this new successor
     bool register_successor( successor_type &r ) override {
         spin_mutex::scoped_lock lock(my_mutex);
@@ -2146,12 +2075,6 @@ public:
                                             this->input_ports(), static_cast< sender< output_type > *>(this) );
     }
 
-#if TBB_PREVIEW_FLOW_GRAPH_TRACE
-    void set_name( const char *name ) override {
-        fgt_node_desc( this, name );
-    }
-#endif
-
 };
 
 template<typename OutputTuple>
@@ -2178,12 +2101,6 @@ public:
         fgt_multiinput_node<N>( CODEPTR(), FLOW_JOIN_NODE_QUEUEING, &this->my_graph,
                                             this->input_ports(), static_cast< sender< output_type > *>(this) );
     }
-
-#if TBB_PREVIEW_FLOW_GRAPH_TRACE
-    void set_name( const char *name ) override {
-        fgt_node_desc( this, name );
-    }
-#endif
 
 };
 
@@ -2292,12 +2209,6 @@ public:
                                                            this->input_ports(), static_cast< sender< output_type > *>(this) );
     }
 
-#if TBB_PREVIEW_FLOW_GRAPH_TRACE
-    void set_name( const char *name ) override {
-        fgt_node_desc( this, name );
-    }
-#endif
-
 };
 
 // indexer node
@@ -2334,12 +2245,6 @@ public:
         fgt_multiinput_node<N>( CODEPTR(), FLOW_INDEXER_NODE, &this->my_graph,
                                            this->input_ports(), static_cast< sender< output_type > *>(this) );
     }
-
-#if TBB_PREVIEW_FLOW_GRAPH_TRACE
-     void set_name( const char *name ) override {
-        fgt_node_desc( this, name );
-    }
-#endif
 };
 
 template<typename T0, typename T1>
@@ -2368,11 +2273,6 @@ public:
                                            this->input_ports(), static_cast< sender< output_type > *>(this) );
     }
 
-#if TBB_PREVIEW_FLOW_GRAPH_TRACE
-     void set_name( const char *name ) override {
-        fgt_node_desc( this, name );
-    }
-#endif
 };
 
 template<typename T0, typename T1, typename T2>
@@ -2401,11 +2301,6 @@ public:
                                            this->input_ports(), static_cast< sender< output_type > *>(this) );
     }
 
-#if TBB_PREVIEW_FLOW_GRAPH_TRACE
-    void set_name( const char *name ) override {
-        fgt_node_desc( this, name );
-    }
-#endif
 };
 
 template<typename T0, typename T1, typename T2, typename T3>
@@ -2434,11 +2329,6 @@ public:
                                            this->input_ports(), static_cast< sender< output_type > *>(this) );
     }
 
-#if TBB_PREVIEW_FLOW_GRAPH_TRACE
-    void set_name( const char *name ) override {
-        fgt_node_desc( this, name );
-    }
-#endif
 };
 
 template<typename T0, typename T1, typename T2, typename T3, typename T4>
@@ -2467,11 +2357,6 @@ public:
                                            this->input_ports(), static_cast< sender< output_type > *>(this) );
     }
 
-#if TBB_PREVIEW_FLOW_GRAPH_TRACE
-    void set_name( const char *name ) override {
-        fgt_node_desc( this, name );
-    }
-#endif
 };
 
 #if __TBB_VARIADIC_MAX >= 6
@@ -2501,11 +2386,6 @@ public:
                                            this->input_ports(), static_cast< sender< output_type > *>(this) );
     }
 
-#if TBB_PREVIEW_FLOW_GRAPH_TRACE
-    void set_name( const char *name ) override {
-        fgt_node_desc( this, name );
-    }
-#endif
 };
 #endif //variadic max 6
 
@@ -2537,11 +2417,6 @@ public:
                                            this->input_ports(), static_cast< sender< output_type > *>(this) );
     }
 
-#if TBB_PREVIEW_FLOW_GRAPH_TRACE
-    void set_name( const char *name ) override {
-        fgt_node_desc( this, name );
-    }
-#endif
 };
 #endif //variadic max 7
 
@@ -2573,11 +2448,6 @@ public:
                                            this->input_ports(), static_cast< sender< output_type > *>(this) );
     }
 
-#if TBB_PREVIEW_FLOW_GRAPH_TRACE
-    void set_name( const char *name ) override {
-        fgt_node_desc( this, name );
-    }
-#endif
 };
 #endif //variadic max 8
 
@@ -2609,11 +2479,6 @@ public:
                                            this->input_ports(), static_cast< sender< output_type > *>(this) );
     }
 
-#if TBB_PREVIEW_FLOW_GRAPH_TRACE
-    void set_name( const char *name ) override {
-        fgt_node_desc( this, name );
-    }
-#endif
 };
 #endif //variadic max 9
 
@@ -2645,11 +2510,6 @@ public:
                                            this->input_ports(), static_cast< sender< output_type > *>(this) );
     }
 
-#if TBB_PREVIEW_FLOW_GRAPH_TRACE
-    void set_name( const char *name ) override {
-        fgt_node_desc( this, name );
-    }
-#endif
 };
 #endif //variadic max 10
 
@@ -2745,26 +2605,20 @@ protected:
     void reset_node(reset_flags) override {}
 
 public:
-#if TBB_PREVIEW_FLOW_GRAPH_TRACE
-    composite_node( graph &g, const char *type_name = "composite_node" ) : graph_node(g) {
-        fgt_multiinput_multioutput_node( CODEPTR(), FLOW_COMPOSITE_NODE, this, &this->my_graph );
-        fgt_multiinput_multioutput_node_desc( this, type_name );
-    }
-#else
     composite_node( graph &g ) : graph_node(g) {
         fgt_multiinput_multioutput_node( CODEPTR(), FLOW_COMPOSITE_NODE, this, &this->my_graph );
     }
-#endif
 
     template<typename T1, typename T2>
     void set_external_ports(T1&& input_ports_tuple, T2&& output_ports_tuple) {
         static_assert(NUM_INPUTS == std::tuple_size<input_ports_type>::value, "number of arguments does not match number of input ports");
         static_assert(NUM_OUTPUTS == std::tuple_size<output_ports_type>::value, "number of arguments does not match number of output ports");
-        my_input_ports.reset( new input_ports_type(std::forward<T1>(input_ports_tuple)) );
-        my_output_ports.reset( new output_ports_type(std::forward<T2>(output_ports_tuple)) );
 
         fgt_internal_input_alias_helper<T1, NUM_INPUTS>::alias_port( this, input_ports_tuple);
         fgt_internal_output_alias_helper<T2, NUM_OUTPUTS>::alias_port( this, output_ports_tuple);
+
+        my_input_ports.reset( new input_ports_type(std::forward<T1>(input_ports_tuple)) );
+        my_output_ports.reset( new output_ports_type(std::forward<T2>(output_ports_tuple)) );
     }
 
     template< typename... NodeTypes >
@@ -2773,11 +2627,6 @@ public:
     template< typename... NodeTypes >
     void add_nodes(const NodeTypes&... n) { add_nodes_impl(this, false, n...); }
 
-#if TBB_PREVIEW_FLOW_GRAPH_TRACE
-    void set_name( const char *name ) override {
-        fgt_multiinput_multioutput_node_desc( this, name );
-    }
-#endif
 
     input_ports_type& input_ports() {
          __TBB_ASSERT(my_input_ports, "input ports not set, call set_external_ports to set input ports");
@@ -2804,24 +2653,17 @@ protected:
     void reset_node(reset_flags) override {}
 
 public:
-#if TBB_PREVIEW_FLOW_GRAPH_TRACE
-    composite_node( graph &g, const char *type_name = "composite_node") : graph_node(g) {
-        fgt_composite( CODEPTR(), this, &g );
-        fgt_multiinput_multioutput_node_desc( this, type_name );
-    }
-#else
     composite_node( graph &g ) : graph_node(g) {
         fgt_composite( CODEPTR(), this, &g );
     }
-#endif
 
    template<typename T>
    void set_external_ports(T&& input_ports_tuple) {
        static_assert(NUM_INPUTS == std::tuple_size<input_ports_type>::value, "number of arguments does not match number of input ports");
 
-       my_input_ports.reset( new input_ports_type(std::forward<T>(input_ports_tuple)) );
+       fgt_internal_input_alias_helper<T, NUM_INPUTS>::alias_port( this, input_ports_tuple);
 
-       fgt_internal_input_alias_helper<T, NUM_INPUTS>::alias_port( this, std::forward<T>(input_ports_tuple));
+       my_input_ports.reset( new input_ports_type(std::forward<T>(input_ports_tuple)) );
    }
 
     template< typename... NodeTypes >
@@ -2830,11 +2672,6 @@ public:
     template< typename... NodeTypes >
     void add_nodes( const NodeTypes&... n) { add_nodes_impl(this, false, n...); }
 
-#if TBB_PREVIEW_FLOW_GRAPH_TRACE
-    void set_name( const char *name ) override {
-        fgt_multiinput_multioutput_node_desc( this, name );
-    }
-#endif
 
     input_ports_type& input_ports() {
          __TBB_ASSERT(my_input_ports, "input ports not set, call set_external_ports to set input ports");
@@ -2857,24 +2694,17 @@ protected:
     void reset_node(reset_flags) override {}
 
 public:
-#if TBB_PREVIEW_FLOW_GRAPH_TRACE
-    __TBB_NOINLINE_SYM composite_node( graph &g, const char *type_name = "composite_node") : graph_node(g) {
-        fgt_composite( CODEPTR(), this, &g );
-        fgt_multiinput_multioutput_node_desc( this, type_name );
-    }
-#else
     __TBB_NOINLINE_SYM composite_node( graph &g ) : graph_node(g) {
         fgt_composite( CODEPTR(), this, &g );
     }
-#endif
 
    template<typename T>
    void set_external_ports(T&& output_ports_tuple) {
        static_assert(NUM_OUTPUTS == std::tuple_size<output_ports_type>::value, "number of arguments does not match number of output ports");
 
-       my_output_ports.reset( new output_ports_type(std::forward<T>(output_ports_tuple)) );
+       fgt_internal_output_alias_helper<T, NUM_OUTPUTS>::alias_port( this, output_ports_tuple);
 
-       fgt_internal_output_alias_helper<T, NUM_OUTPUTS>::alias_port( this, std::forward<T>(output_ports_tuple));
+       my_output_ports.reset( new output_ports_type(std::forward<T>(output_ports_tuple)) );
    }
 
     template<typename... NodeTypes >
@@ -2883,11 +2713,6 @@ public:
     template<typename... NodeTypes >
     void add_nodes(const NodeTypes&... n) { add_nodes_impl(this, false, n...); }
 
-#if TBB_PREVIEW_FLOW_GRAPH_TRACE
-    void set_name( const char *name ) override {
-        fgt_multiinput_multioutput_node_desc( this, name );
-    }
-#endif
 
     output_ports_type& output_ports() {
          __TBB_ASSERT(my_output_ports, "output ports not set, call set_external_ports to set output ports");
@@ -3052,12 +2877,6 @@ public:
         return my_gateway;
     }
 
-#if TBB_PREVIEW_FLOW_GRAPH_TRACE
-    void set_name( const char *name ) override {
-        fgt_multioutput_node_desc( this, name );
-    }
-#endif
-
     // Define sender< Output >
 
     //! Add a new successor to this node
@@ -3119,12 +2938,6 @@ public:
     }
 
     ~overwrite_node() {}
-
-#if TBB_PREVIEW_FLOW_GRAPH_TRACE
-    void set_name( const char *name ) override {
-        fgt_node_desc( this, name );
-    }
-#endif
 
    bool register_successor( successor_type &s ) override {
         spin_mutex::scoped_lock l( my_mutex );
@@ -3216,7 +3029,7 @@ protected:
             graph& g, small_object_allocator& allocator, predecessor_type& owner, successor_type& succ)
             : graph_task(g, allocator), o(owner), s(succ) {};
 
-        task* execute(const execute_data& ed) override {
+        task* execute(execution_data& ed) override {
             // TODO revamp: investigate why qualification is needed for register_successor() call
             using tbb::detail::d1::register_predecessor;
             using tbb::detail::d1::register_successor;
@@ -3275,12 +3088,6 @@ public:
                                  static_cast<sender<output_type> *>(this) );
     }
 
-#if TBB_PREVIEW_FLOW_GRAPH_TRACE
-    void set_name( const char *name ) override {
-        fgt_node_desc( this, name );
-    }
-#endif
-
 protected:
     template< typename R, typename B > friend class run_and_put_task;
     template<typename X, typename Y> friend class broadcast_cache;
@@ -3291,6 +3098,95 @@ protected:
     }
 }; // write_once_node
 
+inline void set_name(const graph& g, const char *name) {
+    fgt_graph_desc(&g, name);
+}
+
+template <typename Output>
+inline void set_name(const input_node<Output>& node, const char *name) {
+    fgt_node_desc(&node, name);
+}
+
+template <typename Input, typename Output, typename Policy>
+inline void set_name(const function_node<Input, Output, Policy>& node, const char *name) {
+    fgt_node_desc(&node, name);
+}
+
+template <typename Output, typename Policy>
+inline void set_name(const continue_node<Output,Policy>& node, const char *name) {
+    fgt_node_desc(&node, name);
+}
+
+template <typename T>
+inline void set_name(const broadcast_node<T>& node, const char *name) {
+    fgt_node_desc(&node, name);
+}
+
+template <typename T>
+inline void set_name(const buffer_node<T>& node, const char *name) {
+    fgt_node_desc(&node, name);
+}
+
+template <typename T>
+inline void set_name(const queue_node<T>& node, const char *name) {
+    fgt_node_desc(&node, name);
+}
+
+template <typename T>
+inline void set_name(const sequencer_node<T>& node, const char *name) {
+    fgt_node_desc(&node, name);
+}
+
+template <typename T, typename Compare>
+inline void set_name(const priority_queue_node<T, Compare>& node, const char *name) {
+    fgt_node_desc(&node, name);
+}
+
+template <typename T, typename DecrementType>
+inline void set_name(const limiter_node<T, DecrementType>& node, const char *name) {
+    fgt_node_desc(&node, name);
+}
+
+template <typename OutputTuple, typename JP>
+inline void set_name(const join_node<OutputTuple, JP>& node, const char *name) {
+    fgt_node_desc(&node, name);
+}
+
+template <typename... Types>
+inline void set_name(const indexer_node<Types...>& node, const char *name) {
+    fgt_node_desc(&node, name);
+}
+
+template <typename T>
+inline void set_name(const overwrite_node<T>& node, const char *name) {
+    fgt_node_desc(&node, name);
+}
+
+template <typename T>
+inline void set_name(const write_once_node<T>& node, const char *name) {
+    fgt_node_desc(&node, name);
+}
+
+template<typename Input, typename Output, typename Policy>
+inline void set_name(const multifunction_node<Input, Output, Policy>& node, const char *name) {
+    fgt_multioutput_node_desc(&node, name);
+}
+
+template<typename TupleType>
+inline void set_name(const split_node<TupleType>& node, const char *name) {
+    fgt_multioutput_node_desc(&node, name);
+}
+
+template< typename InputTuple, typename OutputTuple >
+inline void set_name(const composite_node<InputTuple, OutputTuple>& node, const char *name) {
+    fgt_multiinput_multioutput_node_desc(&node, name);
+}
+
+template<typename Input, typename Output, typename Policy>
+inline void set_name(const async_node<Input, Output, Policy>& node, const char *name)
+{
+    fgt_multioutput_node_desc(&node, name);
+}
 } // d1
 } // detail
 } // tbb
@@ -3359,10 +3255,14 @@ inline namespace v1 {
 
     using detail::d1::flow_control;
 
+namespace profiling {
+    using detail::d1::set_name;
+} // profiling
+
 } // tbb
 
 
-#if TBB_USE_THREADING_TOOLS && TBB_PREVIEW_FLOW_GRAPH_TRACE && ( __linux__ || __APPLE__ )
+#if TBB_USE_PROFILING_TOOLS  && ( __linux__ || __APPLE__ )
    // We don't do pragma pop here, since it still gives warning on the USER side
    #undef __TBB_NOINLINE_SYM
 #endif

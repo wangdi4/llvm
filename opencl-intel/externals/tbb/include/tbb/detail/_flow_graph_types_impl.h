@@ -51,7 +51,6 @@ struct wrap_tuple_elements;
 template<int N, template<class> class PT, typename KeyTraits, typename TypeTuple>
 struct wrap_key_tuple_elements;
 
-// #if __TBB_CPP11_VARIADIC_TEMPLATES_PRESENT && __TBB_CPP11_VARIADIC_TUPLE_PRESENT
 template<int N, template<class> class PT,  typename... Args>
 struct wrap_tuple_elements<N, PT, std::tuple<Args...> >{
     typedef typename std::tuple<PT<Args>... > type;
@@ -64,7 +63,6 @@ struct wrap_key_tuple_elements<N, PT, KeyTraits, std::tuple<Args...> > {
     typedef typename std::tuple<PT<KeyTrait<K, KHash, Args> >... > type;
 };
 
-// #if __TBB_CPP11_VARIADIC_TEMPLATES_PRESENT
 template< int... S > class sequence {};
 
 template< int N, int... S >
@@ -75,7 +73,6 @@ struct make_sequence < 0, S... > {
     typedef sequence<S...> type;
 };
 
-// #if __TBB_INITIALIZER_LISTS_PRESENT
 // Until C++14 std::initializer_list does not guarantee life time of contained objects.
 template <typename T>
 class initializer_list_wrapper {
@@ -102,7 +99,6 @@ public:
         my_end = dst;
     }
 
-    // #if __TBB_CPP11_RVALUE_REF_PRESENT
     initializer_list_wrapper( initializer_list_wrapper<T>&& ilw ) noexcept : my_begin( ilw.my_begin ), my_end( ilw.my_end ) {
         ilw.my_begin = ilw.my_end = NULL;
     }
@@ -428,10 +424,8 @@ public:
     template<typename T, typename R>
     tagged_msg(T const &index, R const &value) : my_tag(index), my_msg(value) {}
 
-    #if __TBB_CONST_REF_TO_ARRAY_TEMPLATE_PARAM_BROKEN
     template<typename T, typename R, size_t N>
     tagged_msg(T const &index,  R (&value)[N]) : my_tag(index), my_msg(value) {}
-    #endif
 
     void set_tag(TagType const &index) {my_tag = index;}
     TagType tag() const {return my_tag;}

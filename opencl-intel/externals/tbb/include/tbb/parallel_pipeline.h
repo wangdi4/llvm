@@ -27,6 +27,11 @@
 
 namespace tbb {
 namespace detail {
+
+namespace r1 {
+void __TBB_EXPORTED_FUNC parallel_pipeline(task_group_context&, std::size_t, const d1::filter_node&);
+}
+
 namespace d1 {
 
 enum class filter_mode : unsigned int
@@ -63,7 +68,7 @@ public:
 
     template<typename Body>
     filter( filter_mode mode, const Body& body ) :
-        my_root( new(allocate_memory(sizeof(filter_node_leaf<InputType, OutputType, Body>)))
+        my_root( new(r1::allocate_memory(sizeof(filter_node_leaf<InputType, OutputType, Body>)))
                     filter_node_leaf<InputType, OutputType, Body>(static_cast<unsigned int>(mode), body) ) {
     }
 
@@ -82,7 +87,7 @@ public:
 /** @ingroup algorithms */
 template<typename InputType, typename OutputType, typename Body>
 filter<InputType, OutputType> make_filter( filter_mode mode, const Body& body ) {
-    return filter_node_ptr( new(allocate_memory(sizeof(filter_node_leaf<InputType, OutputType, Body>)))
+    return filter_node_ptr( new(r1::allocate_memory(sizeof(filter_node_leaf<InputType, OutputType, Body>)))
                                 filter_node_leaf<InputType, OutputType, Body>(static_cast<unsigned int>(mode), body) );
 }
 
@@ -99,7 +104,7 @@ template<typename T, typename V, typename U>
 filter<T,U> operator&( const filter<T,V>& left, const filter<V,U>& right ) {
     __TBB_ASSERT(left.my_root,"cannot use default-constructed filter as left argument of '&'");
     __TBB_ASSERT(right.my_root,"cannot use default-constructed filter as right argument of '&'");
-    return filter_node_ptr( new (allocate_memory(sizeof(filter_node))) filter_node(left.my_root,right.my_root) );
+    return filter_node_ptr( new (r1::allocate_memory(sizeof(filter_node))) filter_node(left.my_root,right.my_root) );
 }
 
 #if __TBB_CPP17_DEDUCTION_GUIDES_PRESENT
@@ -111,7 +116,7 @@ filter(filter_mode, Body)
 //! Parallel pipeline over chain of filters with user-supplied context.
 /** @ingroup algorithms **/
 inline void parallel_pipeline(size_t max_number_of_live_tokens, const filter<void,void>& filter_chain, task_group_context& context) {
-    parallel_pipeline_impl(context, max_number_of_live_tokens, *filter_chain.my_root);
+    r1::parallel_pipeline(context, max_number_of_live_tokens, *filter_chain.my_root);
 }
 
 //! Parallel pipeline over chain of filters.

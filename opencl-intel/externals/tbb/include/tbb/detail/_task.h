@@ -30,94 +30,89 @@
 
 namespace tbb {
 namespace detail {
+
 namespace d1 {
+using slot_id = unsigned short;
+constexpr slot_id no_slot = slot_id(~0);
+constexpr slot_id any_slot = slot_id(~1);
 
 class task;
-class task_arena;
-class wait_object;
+class wait_context;
 class task_group_context;
-class thread_data;
-class task_dispatcher;
+struct execution_data;
+}
 
-//! An id as used for specifying affinity
-using affinity_id = unsigned short;
-
-//! A tag for task isolation
-using isolation_tag = intptr_t;
-constexpr isolation_tag no_isolation = 0;
-
-// TODO (TBB_REVAMP_TODO): reconsider entry points
+namespace r1 {
 //! Task spawn/wait entry points
-void __TBB_EXPORTED_FUNC spawn_impl(task& t, task_group_context& ctx);
-void __TBB_EXPORTED_FUNC spawn_with_affinity_impl(task& t, task_group_context& ctx, affinity_id id);
-void __TBB_EXPORTED_FUNC execute_and_wait_impl(task&t, task_group_context& t_ctx, wait_object&, task_group_context& w_ctx);
-void __TBB_EXPORTED_FUNC wait_impl(wait_object&, task_group_context& ctx);
+void __TBB_EXPORTED_FUNC spawn(d1::task& t, d1::task_group_context& ctx);
+void __TBB_EXPORTED_FUNC spawn(d1::task& t, d1::task_group_context& ctx, d1::slot_id id);
+void __TBB_EXPORTED_FUNC execute_and_wait(d1::task& t, d1::task_group_context& t_ctx, d1::wait_context&, d1::task_group_context& w_ctx);
+void __TBB_EXPORTED_FUNC wait(d1::wait_context&, d1::task_group_context& ctx);
+d1::slot_id __TBB_EXPORTED_FUNC execution_slot(const d1::execution_data*);
+d1::task_group_context* __TBB_EXPORTED_FUNC current_context();
 
-//! A tag for suspend point
 // Do not place under __TBB_RESUMABLE_TASKS. It is a stub for unsupported platforms.
 struct suspend_point_type;
-using suspend_point = suspend_point_type*;
-using suspend_callback_type = void(*)(void*, suspend_point);
+using suspend_callback_type = void(*)(void*, suspend_point_type*);
+//! The resumable tasks entry points
+void __TBB_EXPORTED_FUNC suspend(suspend_callback_type suspend_callback, void* user_callback);
+void __TBB_EXPORTED_FUNC resume(suspend_point_type* tag);
+suspend_point_type* __TBB_EXPORTED_FUNC current_suspend_point();
+
+class thread_data;
+class task_dispatcher;
+class external_waiter;
+struct task_accessor;
+struct task_arena_impl;
+} // namespace r1
+
+namespace d1 {
+
+class task_arena;
+using suspend_point = r1::suspend_point_type*;
 
 #if __TBB_RESUMABLE_TASKS
-//! The resumable tasks entry points
-void __TBB_EXPORTED_FUNC internal_suspend(suspend_callback_type suspend_callback, void* user_callback);
-void __TBB_EXPORTED_FUNC internal_resume(suspend_point tag);
-suspend_point __TBB_EXPORTED_FUNC internal_current_suspend_point();
-
 template <typename F>
-static void suspend_callback(void* user_callback, suspend_point tag) {
+static void suspend_callback(void* user_callback, suspend_point sp) {
     // Copy user function to a new stack after the context switch to avoid a race when the previous
     // suspend point is resumed while the user_callback is being called.
     F user_callback_copy = *static_cast<F*>(user_callback);
-    user_callback_copy(tag);
+    user_callback_copy(sp);
 }
 
 template <typename F>
 void suspend(F f) {
-    internal_suspend(&suspend_callback<F>, &f);
+    r1::suspend(&suspend_callback<F>, &f);
 }
 
 inline void resume(suspend_point tag) {
-    internal_resume(tag);
+    r1::resume(tag);
 }
-#endif
+#endif /* __TBB_RESUMABLE_TASKS */
 
-class wait_object {
+class wait_context {
     static constexpr std::uint64_t abandon_wait_flag = 1LLU << 33;
     static constexpr std::uint64_t overflow_mask = ~((1LLU << 32) - 1) & ~abandon_wait_flag;
 
     std::uint64_t m_version_and_traits{};
     std::atomic<std::uint64_t> m_ref_count{};
-#if __TBB_RESUMABLE_TASKS
     suspend_point m_waiting_coroutine{};
 
     void abandon_wait() {
         __TBB_ASSERT((m_ref_count.load(std::memory_order_relaxed) & abandon_wait_flag) == 0, "The wait object can be abandoned only once");
         add_reference(abandon_wait_flag);
     }
-#endif /* __TBB_RESUMABLE_TASKS */
 
-    void add_reference(const std::int64_t delta) {
+    void add_reference(std::int64_t delta) {
         std::uint64_t r = m_ref_count.fetch_add(delta) + delta;
         __TBB_ASSERT_EX((r & overflow_mask) == 0, "Overflow is detected");
-#if __TBB_RESUMABLE_TASKS
         if (r == abandon_wait_flag) {
             // There is no any more references but the waiting stack is
             // suspended (abandoned) so resume it.
             __TBB_ASSERT(m_waiting_coroutine != nullptr, nullptr);
             m_ref_count.store(0, std::memory_order_relaxed);
-            resume(m_waiting_coroutine);
+            r1::resume(m_waiting_coroutine);
         }
-#endif /* __TBB_RESUMABLE_TASKS */
-    }
-
-    void internal_reserve_wait(std::uint32_t delta) {
-        add_reference(delta);
-    }
-
-    void internal_release_wait(std::uint32_t delta) {
-        add_reference(-std::int64_t(delta));
     }
 
     bool continue_execution() const {
@@ -126,26 +121,25 @@ class wait_object {
         return (r & ~abandon_wait_flag) > 0;
     }
 
-    friend class thread_data;
-    friend class task_dispatcher;
-    friend class external_waiter;
+    friend class r1::thread_data;
+    friend class r1::task_dispatcher;
+    friend class r1::external_waiter;
     friend class task_group;
     friend class task_group_base;
-    friend class task_arena_base;
-    friend struct suspend_point_type;
+    friend struct r1::task_arena_impl;
+    friend struct r1::suspend_point_type;
 public:
-    wait_object() = default;
     // Despite the internal reference count is uin64_t we limit the user interface with uint32_t
     // to preserve a part of the internal reference count for special needs.
-    wait_object(std::uint32_t ref_count) : m_ref_count{ref_count} { suppress_unused_warning(m_version_and_traits); }
-    wait_object(const wait_object&) = delete;
+    wait_context(std::uint32_t ref_count) : m_ref_count{ref_count} { suppress_unused_warning(m_version_and_traits); }
+    wait_context(const wait_context&) = delete;
 
-    void reserve_wait(std::uint32_t delta = 1) {
-        internal_reserve_wait(delta);
+    void reserve(std::uint32_t delta = 1) {
+        add_reference(delta);
     }
 
-    void release_wait(std::uint32_t delta = 1) {
-        internal_release_wait(delta);
+    void release(std::uint32_t delta = 1) {
+        add_reference(-std::int64_t(delta));
     }
 #if __TBB_EXTRA_DEBUG
     unsigned reference_count() const {
@@ -154,37 +148,44 @@ public:
 #endif
 };
 
-struct execute_data;
-execute_data* __TBB_EXPORTED_FUNC current_execute_data_impl();
-int __TBB_EXPORTED_FUNC current_thread_index_impl(const execute_data*);
-
-struct execute_data {
+struct execution_data {
     task_group_context* context{};
-    unsigned short task_owner_thread_id{};
-    unsigned short task_affinity_id{};
-
-    int current_thread_index() const {
-        int idx = current_thread_index_impl(this);
-        __TBB_ASSERT(idx >= 0, nullptr);
-        return idx;
-    }
-
-    bool is_stolen_task() const {
-        return current_thread_index() != task_owner_thread_id;
-    }
-
-    bool is_not_my_affinity() const {
-        return task_affinity_id != 0 && task_affinity_id != (current_thread_index() + 1);
-    }
-
-    unsigned short current_affinity() const {
-        return (unsigned short)(current_thread_index() + 1);
-    }
+    slot_id original_slot{};
+    slot_id affinity_slot{};
 };
+
+inline task_group_context* context(const execution_data& ed) {
+    return ed.context;
+}
+
+inline slot_id original_slot(const execution_data& ed) {
+    return ed.original_slot;
+}
+
+inline slot_id affinity_slot(const execution_data& ed) {
+    return ed.affinity_slot;
+}
+
+inline slot_id execution_slot(const execution_data& ed) {
+    return r1::execution_slot(&ed);
+}
+
+inline bool is_same_affinity(const execution_data& ed) {
+    return affinity_slot(ed) == no_slot || affinity_slot(ed) != execution_slot(ed);
+}
+
+inline bool is_stolen(const execution_data& ed) {
+    return original_slot(ed) != execution_slot(ed);
+}
+
+using r1::spawn;
+using r1::execute_and_wait;
+using r1::wait;
+using r1::current_context;
 
 class task_traits {
     std::uint64_t m_version_and_traits{};
-    friend struct task_accessor;
+    friend struct r1::task_accessor;
 };
 
 //! Alignment for a task object
@@ -197,28 +198,18 @@ protected:
     virtual ~task() = default;
 
 public:
-    virtual task* execute(const execute_data&) = 0;
-    virtual task* cancel(const execute_data&) = 0;
+    virtual task* execute(execution_data&) = 0;
+    virtual task* cancel(execution_data&) = 0;
 
-    using affinity_id = unsigned short;
-
-    static void spawn(task& t, task_group_context& ctx) { spawn_impl(t, ctx); }
-
-    static void spawn_with_affinity(task& t, task_group_context& ctx, affinity_id id) { spawn_with_affinity_impl(t, ctx, id); }
-
-    static void execute_and_wait(task& t, task_group_context& t_ctx, wait_object& wo, task_group_context& w_ctx) { execute_and_wait_impl(t, t_ctx, wo, w_ctx); }
-
-    static void wait(wait_object& wo, task_group_context& ctx) { wait_impl(wo, ctx); }
-
-    static execute_data* current_execute_data() { return current_execute_data_impl(); }
+    // TODO: remove in Gold release
+    static task_group_context* current_execute_data() { return current_context(); }
 
 private:
     std::uint64_t m_reserved[5];
 
     // Reserve one pointer-sized object in derived class
     // static_assert(sizeof(task) == 64 - 8);
-
-    friend struct task_accessor;
+    friend struct r1::task_accessor;
 };
 
 } // namespace d1

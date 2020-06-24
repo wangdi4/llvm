@@ -20,7 +20,6 @@
 #include <type_traits>
 #include <cstdint>
 #include <atomic>
-#include <thread> // std::this_thread::yield()
 
 #include "_config.h"
 #include "_assert.h"
@@ -67,7 +66,7 @@ public:
             count *= 2;
         } else {
             // Pause is so long that we might as well yield CPU to scheduler.
-            std::this_thread::yield();
+            yield();
         }
     }
 

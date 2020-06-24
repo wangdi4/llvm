@@ -82,4 +82,46 @@ private:
 } // namespace detail
 } // namespace tbb
 
+#if TBB_DEFINE_STD_HASH_SPECIALIZATIONS
+
+namespace std {
+
+template <typename T, typename U>
+struct hash<std::pair<T, U>> {
+public:
+    std::size_t operator()( const std::pair<T, U>& p ) const {
+        return first_hash(p.first) ^ second_hash(p.second);
+    }
+
+private:
+    std::hash<T> first_hash;
+    std::hash<U> second_hash;
+}; // struct hash<std::pair>
+
+// Apple clang and MSVC defines their own specializations for std::hash<std::basic_string<T, Traits, Alloc>>
+#if !(_LIBCPP_VERSION) && !(_CPPLIB_VER)
+
+template <typename CharT, typename Traits, typename Allocator>
+class hash<std::basic_string<CharT, Traits, Allocator>> {
+public:
+    std::size_t operator()( const std::basic_string<CharT, Traits, Allocator>& s ) const {
+        std::size_t h = 0;
+        for ( const CharT* c = s.c_str(); *c; ++c ) {
+            h = h * hash_multiplier ^ char_hash(*c);
+        }
+        return h;
+    }
+
+private:
+    static constexpr std::size_t hash_multiplier = tbb::detail::select_size_t_constant<2654435769U, 11400714819323198485ULL>::value;
+
+    std::hash<CharT> char_hash;
+}; // struct hash<std::basic_string>
+
+#endif // !(_LIBCPP_VERSION || _CPPLIB_VER)
+
+} // namespace std
+
+#endif // TBB_DEFINE_STD_HASH_SPECIALIZATIONS
+
 #endif // __TBB_detail__hash_compare_H

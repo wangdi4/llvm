@@ -17,10 +17,17 @@
 #ifndef __TBB_scalable_allocator_H
 #define __TBB_scalable_allocator_H
 
+#ifdef __cplusplus
 #include "tbb/detail/_config.h"
 #include "tbb/detail/_utils.h"
 #include <cstdlib>
 #include <utility>
+#else
+#include <stddef.h> /* Need ptrdiff_t and size_t from here. */
+#if !_MSC_VER
+#include <stdint.h> /* Need intptr_t from here. */
+#endif
+#endif
 
 #if __TBB_CPP17_MEMORY_RESOURCE_PRESENT
 #include <memory_resource>
@@ -29,6 +36,12 @@
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
+
+#if _MSC_VER
+    #define __TBB_EXPORTED_FUNC __cdecl
+#else
+    #define __TBB_EXPORTED_FUNC
+#endif
 
 /** The "malloc" analogue to allocate block of memory of size bytes.
   * @ingroup memory_allocation */
@@ -178,6 +191,19 @@ std::size_t pool_msize(MemoryPool *memPool, void *object);
 
 } // namespace rml
 
+#if TBB_USE_EXCEPTIONS
+    #define __TBB_TRY try
+    #define __TBB_CATCH(e) catch(e)
+    #define __TBB_THROW(e) throw e
+    #define __TBB_RETHROW() throw
+#else /* !TBB_USE_EXCEPTIONS */
+    inline bool __TBB_false() { return false; }
+    #define __TBB_TRY
+    #define __TBB_CATCH(e) if ( __TBB_false() )
+    #define __TBB_THROW(e) tbb::detail::suppress_unused_warning(e)
+    #define __TBB_RETHROW() ((void)0)
+#endif /* !TBB_USE_EXCEPTIONS */
+
 namespace tbb {
 namespace detail {
 namespace d1 {
@@ -185,11 +211,7 @@ namespace d1 {
 // keep throw in a separate function to prevent code bloat
 template<typename E>
 void throw_exception(const E &e) {
-#if TBB_USE_EXCEPTIONS
-    throw e;
-#else
-    suppress_unused_warning(e);
-#endif
+    __TBB_THROW(e);
 }
 
 template<typename T>

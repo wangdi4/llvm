@@ -21,9 +21,8 @@
 #include "detail/_exception.h"
 #include "detail/_task.h"
 #include "detail/_small_object_pool.h"
-// TBB_REVAMP_TODO: #include "internal/_tbb_trace_impl.h"
-
 #include "profiling.h"
+
 #include "partitioner.h"
 #include "blocked_range.h"
 #include "task_group.h"
@@ -46,29 +45,23 @@ struct start_for : public task {
     typename Partitioner::task_partition_type my_partition;
     small_object_allocator my_allocator;
 
-    task* execute(const execute_data&) override;
-    task* cancel(const execute_data&) override;
-    void finalize(const execute_data&);
+    task* execute(execution_data&) override;
+    task* cancel(execution_data&) override;
+    void finalize(const execution_data&);
 
     //! Constructor for root task.
     start_for( const Range& range, const Body& body, Partitioner& partitioner, small_object_allocator& alloc ) :
         my_range(range),
         my_body(body),
         my_partition(partitioner),
-        my_allocator(alloc)
-    {
-        // TBB_REVAMP_TODO (and all the others) tbb::internal::fgt_algorithm(tbb::internal::PARALLEL_FOR_TASK, this, NULL);
-    }
+        my_allocator(alloc) {}
     //! Splitting constructor used to generate children.
     /** parent_ becomes left child.  Newly constructed object is right child. */
     start_for( start_for& parent_, typename Partitioner::split_type& split_obj, small_object_allocator& alloc ) :
         my_range(parent_.my_range, split_obj),
         my_body(parent_.my_body),
         my_partition(parent_.my_partition, split_obj),
-        my_allocator(alloc)
-    {
-        // tbb::internal::fgt_algorithm(tbb::internal::PARALLEL_FOR_TASK, this, (void *)&parent_);
-    }
+        my_allocator(alloc) {}
     //! Construct right child from the given range as response to the demand.
     /** parent_ remains left child.  Newly constructed object is right child. */
     start_for( start_for& parent_, const Range& r, depth_t d, small_object_allocator& alloc ) :
@@ -78,7 +71,6 @@ struct start_for : public task {
         my_allocator(alloc)
     {
         my_partition.align_depth( d );
-        // tbb::internal::fgt_algorithm(tbb::internal::PARALLEL_FOR_TASK, this, (void *)&parent_);
     }
     static void run(const Range& range, const Body& body, Partitioner& partitioner) {
         task_group_context context(PARALLEL_FOR);
@@ -92,33 +84,27 @@ struct start_for : public task {
             small_object_allocator alloc{};
             start_for& for_task = *alloc.new_object<start_for>(range, body, partitioner, alloc);
             for_task.my_parent = &wn;
-            // REGION BEGIN
-            // fgt_begin_algorithm( tbb::internal::PARALLEL_FOR_TASK, (void*)&context );
-            task::execute_and_wait(for_task, context, wn.m_wait, context);
-            // fgt_end_al
-            // END REGION
+            execute_and_wait(for_task, context, wn.m_wait, context);
         }
     }
     //! Run body for range, serves as callback for partitioner
     void run_body( Range &r ) {
-        // fgt_alg_begin_body( tbb::internal::PARALLEL_FOR_TASK, (void *)const_cast<Body*>(&(this->my_body)), (void*)this );
         my_body( r );
-        // fgt_alg_end_body( (void *)const_cast<Body*>(&(this->my_body)) );
     }
 
     //! spawn right task, serves as callback for partitioner
-    void offer_work(typename Partitioner::split_type& split_obj, const execute_data& ed) {
+    void offer_work(typename Partitioner::split_type& split_obj, execution_data& ed) {
        offer_work_impl(ed, *this, split_obj);
     }
 
     //! spawn right task, serves as callback for partitioner
-    void offer_work(const Range& r, depth_t d, const execute_data& ed) {
+    void offer_work(const Range& r, depth_t d, execution_data& ed) {
         offer_work_impl(ed, *this, r, d);
     }
 
 private:
     template <typename... Args>
-    void offer_work_impl(const execute_data& ed, Args&&... constructor_args) {
+    void offer_work_impl(execution_data& ed, Args&&... constructor_args) {
         // New right child
         small_object_allocator alloc{};
         start_for& right_child = *alloc.new_object<start_for>(ed, std::forward<Args>(constructor_args)..., alloc);
@@ -129,14 +115,14 @@ private:
         right_child.spawn_self(ed);
     }
 
-    void spawn_self(const execute_data& ed) {
-        my_partition.spawn_task(*this, *ed.context);
+    void spawn_self(execution_data& ed) {
+        my_partition.spawn_task(*this, *context(ed));
     }
 };
 
 //! fold the tree and deallocate the task
 template<typename Range, typename Body, typename Partitioner>
-void start_for<Range, Body, Partitioner>::finalize(const execute_data& ed) {
+void start_for<Range, Body, Partitioner>::finalize(const execution_data& ed) {
     // Get the current parent and allocator an object destruction
     node* parent = my_parent;
     auto allocator = my_allocator;
@@ -151,9 +137,9 @@ void start_for<Range, Body, Partitioner>::finalize(const execute_data& ed) {
 
 //! execute task for parallel_for
 template<typename Range, typename Body, typename Partitioner>
-task* start_for<Range, Body, Partitioner>::execute(const execute_data& ed) {
-    if (ed.is_not_my_affinity()) {
-        my_partition.note_affinity(ed.current_affinity());
+task* start_for<Range, Body, Partitioner>::execute(execution_data& ed) {
+    if (!is_same_affinity(ed)) {
+        my_partition.note_affinity(execution_slot(ed));
     }
     my_partition.check_being_stolen(*this, ed);
     my_partition.execute(*this, my_range, ed);
@@ -163,7 +149,7 @@ task* start_for<Range, Body, Partitioner>::execute(const execute_data& ed) {
 
 //! cancel task for parallel_for
 template<typename Range, typename Body, typename Partitioner>
-task* start_for<Range, Body, Partitioner>::cancel(const execute_data& ed) {
+task* start_for<Range, Body, Partitioner>::cancel(execution_data& ed) {
     finalize(ed);
     return nullptr;
 }

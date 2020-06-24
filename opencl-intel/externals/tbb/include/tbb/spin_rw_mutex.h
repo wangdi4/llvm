@@ -263,13 +263,30 @@ protected:
     std::atomic<state_type> m_state;
 }; // class spin_rw_mutex
 
+#if TBB_USE_PROFILING_TOOLS
+inline void set_name(spin_rw_mutex& obj, const char* name) {
+    itt_set_sync_name(&obj, name);
+}
+#if (_WIN32||_WIN64) && !__MINGW32__
+inline void set_name(spin_rw_mutex& obj, const wchar_t* name) {
+    itt_set_sync_name(&obj, name);
+}
+#endif // WIN
+#else
+inline void set_name(spin_rw_mutex&, const char*) {}
+#if (_WIN32||_WIN64) && !__MINGW32__
+inline void set_name(spin_rw_mutex&, const wchar_t*) {}
+#endif // WIN
+#endif
 } // namespace d1
 } // namespace detail
 
 inline namespace v1 {
 using detail::d1::spin_rw_mutex;
-__TBB_DEFINE_PROFILING_SET_NAME(spin_rw_mutex)
 } // namespace v1
+namespace profiling {
+    using detail::d1::set_name;
+}
 } // namespace tbb
 
 #include "detail/_rtm_rw_mutex.h"

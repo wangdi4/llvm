@@ -67,9 +67,9 @@ struct start_reduce : public task {
     small_object_allocator my_allocator;
     bool is_right_child;
 
-    task* execute(const execute_data&) override;
-    task* cancel(const execute_data&) override;
-    void finalize(const execute_data&);
+    task* execute(execution_data&) override;
+    task* cancel(execution_data&) override;
+    void finalize(const execution_data&);
 
     using tree_node_type = reduction_tree_node<Body>;
 
@@ -79,10 +79,7 @@ struct start_reduce : public task {
         my_body(&body),
         my_partition(partitioner),
         my_allocator(alloc),
-        is_right_child(false)
-    {
-        // TBB_REVAMP_TODO (and all the others) tbb::internal::fgt_algorithm(tbb::internal::PARALLEL_REDUCE_TASK, this, NULL);
-    }
+        is_right_child(false) {}
     //! Splitting constructor used to generate children.
     /** parent_ becomes left child. Newly constructed object is right child. */
     start_reduce( start_reduce& parent_, typename Partitioner::split_type& split_obj, small_object_allocator& alloc ) :
@@ -93,7 +90,6 @@ struct start_reduce : public task {
         is_right_child(true)
     {
         parent_.is_right_child = false;
-        // tbb::internal::fgt_algorithm(tbb::internal::PARALLEL_REDUCE_TASK, this, (void *)&parent_);
     }
     //! Construct right child from the given range as response to the demand.
     /** parent_ remains left child. Newly constructed object is right child. */
@@ -106,7 +102,6 @@ struct start_reduce : public task {
     {
         my_partition.align_depth( d );
         parent_.is_right_child = false;
-        // tbb::internal::fgt_algorithm(tbb::internal::PARALLEL_REDUCE_TASK, this, (void *)&parent_);
     }
     static void run(const Range& range, Body& body, Partitioner& partitioner, task_group_context& context) {
         if ( !range.empty() ) {
@@ -114,11 +109,7 @@ struct start_reduce : public task {
             small_object_allocator alloc{};
             auto reduce_task = alloc.new_object<start_reduce>(range, body, partitioner, alloc);
             reduce_task->my_parent = &wn;
-            // REGION BEGIN
-            // fgt_begin_algorithm( tbb::internal::PARALLEL_REDUCE_TASK, (void*)&context );
-            task::execute_and_wait(*reduce_task, context, wn.m_wait, context);
-            // fgt_end_al
-            // END REGION
+            execute_and_wait(*reduce_task, context, wn.m_wait, context);
         }
     }
     static void run(const Range& range, Body& body, Partitioner& partitioner) {
@@ -129,23 +120,21 @@ struct start_reduce : public task {
     }
     //! Run body for range, serves as callback for partitioner
     void run_body( Range &r ) {
-        // fgt_alg_begin_body( tbb::internal::PARALLEL_REDUCE_TASK, (void *)const_cast<Body*>(&(this->my_body)), (void*)this );
         (*my_body)(r);
-        // fgt_alg_end_body( (void *)const_cast<Body*>(&(this->my_body)) );
     }
 
     //! spawn right task, serves as callback for partitioner
-    void offer_work(typename Partitioner::split_type& split_obj, const execute_data& ed) {
+    void offer_work(typename Partitioner::split_type& split_obj, execution_data& ed) {
         offer_work_impl(ed, *this, split_obj);
     }
     //! spawn right task, serves as callback for partitioner
-    void offer_work(const Range& r, depth_t d, const execute_data& ed) {
+    void offer_work(const Range& r, depth_t d, execution_data& ed) {
         offer_work_impl(ed, *this, r, d);
     }
 
 private:
     template <typename... Args>
-    void offer_work_impl(const execute_data& ed, Args&&... args) {
+    void offer_work_impl(execution_data& ed, Args&&... args) {
         small_object_allocator alloc{};
         // New right child
         auto right_child = alloc.new_object<start_reduce>(ed, std::forward<Args>(args)..., alloc);
@@ -157,14 +146,14 @@ private:
         right_child->spawn_self(ed);
     }
 
-    void spawn_self(const execute_data& ed) {
-        my_partition.spawn_task(*this, *ed.context);
+    void spawn_self(execution_data& ed) {
+        my_partition.spawn_task(*this, *context(ed));
     }
 };
 
 //! fold the tree and deallocate the task
 template<typename Range, typename Body, typename Partitioner>
-void start_reduce<Range, Body, Partitioner>::finalize(const execute_data& ed) {
+void start_reduce<Range, Body, Partitioner>::finalize(const execution_data& ed) {
     // Get the current parent and wait object before an object destruction
     node* parent = my_parent;
     auto allocator = my_allocator;
@@ -177,9 +166,9 @@ void start_reduce<Range, Body, Partitioner>::finalize(const execute_data& ed) {
 
 //! Execute parallel_reduce task
 template<typename Range, typename Body, typename Partitioner>
-task* start_reduce<Range,Body,Partitioner>::execute(const execute_data& ed) {
-    if (ed.is_not_my_affinity()) {
-        my_partition.note_affinity(ed.current_affinity());
+task* start_reduce<Range,Body,Partitioner>::execute(execution_data& ed) {
+    if (!is_same_affinity(ed)) {
+        my_partition.note_affinity(execution_slot(ed));
     }
     my_partition.check_being_stolen(*this, ed);
 
@@ -198,7 +187,7 @@ task* start_reduce<Range,Body,Partitioner>::execute(const execute_data& ed) {
 
 //! Cancel parallel_reduce task
 template<typename Range, typename Body, typename Partitioner>
-task* start_reduce<Range, Body, Partitioner>::cancel(const execute_data& ed) {
+task* start_reduce<Range, Body, Partitioner>::cancel(execution_data& ed) {
     finalize(ed);
     return nullptr;
 }
@@ -233,9 +222,9 @@ struct start_deterministic_reduce : public task {
     typename Partitioner::task_partition_type my_partition;
     small_object_allocator my_allocator;
 
-    task* execute(const execute_data&) override;
-    task* cancel(const execute_data&) override;
-    void finalize(const execute_data&);
+    task* execute(execution_data&) override;
+    task* cancel(execution_data&) override;
+    void finalize(const execution_data&);
 
     using tree_node_type = deterministic_reduction_tree_node<Body>;
 
@@ -244,10 +233,7 @@ struct start_deterministic_reduce : public task {
         my_range(range),
         my_body(body),
         my_partition(partitioner),
-        my_allocator(alloc)
-    {
-        // TBB_REVAMP_TODO (and all the others) tbb::internal::fgt_algorithm(tbb::internal::PARALLEL_REDUCE_TASK, this, NULL);
-    }
+        my_allocator(alloc) {}
     //! Splitting constructor used to generate children.
     /** parent_ becomes left child.  Newly constructed object is right child. */
     start_deterministic_reduce( start_deterministic_reduce& parent_, typename Partitioner::split_type& split_obj, Body& body,
@@ -255,10 +241,7 @@ struct start_deterministic_reduce : public task {
         my_range(parent_.my_range, split_obj),
         my_body(body),
         my_partition(parent_.my_partition, split_obj),
-        my_allocator(alloc)
-    {
-        // tbb::internal::fgt_algorithm(tbb::internal::PARALLEL_REDUCE_TASK, this, (void *)&parent_);
-    }
+        my_allocator(alloc) {}
     //! Construct right child from the given range as response to the demand.
     /** parent_ remains left child.  Newly constructed object is right child. */
     start_deterministic_reduce( start_deterministic_reduce& parent_, const Range& r, depth_t d, Body& body,
@@ -269,7 +252,6 @@ struct start_deterministic_reduce : public task {
         my_allocator(alloc)
     {
         my_partition.align_depth( d );
-        // tbb::internal::fgt_algorithm(tbb::internal::PARALLEL_REDUCE_TASK, this, (void *)&parent_);
     }
     static void run(const Range& range, Body& body, Partitioner& partitioner, task_group_context& context) {
         if ( !range.empty() ) {
@@ -278,11 +260,7 @@ struct start_deterministic_reduce : public task {
             auto deterministic_reduce_task =
                 alloc.new_object<start_deterministic_reduce>(range, partitioner, body, alloc);
             deterministic_reduce_task->my_parent = &wn;
-            // REGION BEGIN
-            // fgt_begin_algorithm( tbb::internal::PARALLEL_REDUCE_TASK, (void*)&context );
-            task::execute_and_wait(*deterministic_reduce_task, context, wn.m_wait, context);
-            // fgt_end_al
-            // END REGION
+            execute_and_wait(*deterministic_reduce_task, context, wn.m_wait, context);
         }
     }
     static void run(const Range& range, Body& body, Partitioner& partitioner) {
@@ -294,23 +272,21 @@ struct start_deterministic_reduce : public task {
     }
     //! Run body for range, serves as callback for partitioner
     void run_body( Range &r ) {
-        // fgt_alg_begin_body( tbb::internal::PARALLEL_REDUCE_TASK, (void *)const_cast<Body*>(&(this->my_body)), (void*)this );
         my_body( r );
-        // fgt_alg_end_body( (void *)const_cast<Body*>(&(this->my_body)) );
     }
 
     //! Spawn right task, serves as callback for partitioner
-    void offer_work(typename Partitioner::split_type& split_obj, const execute_data& ed) {
+    void offer_work(typename Partitioner::split_type& split_obj, execution_data& ed) {
         offer_work_impl(ed, *this, split_obj);
     }
     //! Spawn right task, serves as callback for partitioner
-    void offer_work(const Range& r, depth_t d, const execute_data& ed) {
+    void offer_work(const Range& r, depth_t d, execution_data& ed) {
         offer_work_impl(ed, *this, r, d);
     }
 
 private:
     template <typename... Args>
-    void offer_work_impl(const execute_data& ed, Args&&... args) {
+    void offer_work_impl(execution_data& ed, Args&&... args) {
         small_object_allocator alloc{};
         // New root node as a continuation and ref count. Left and right child attach to the new parent. Split the body.
         auto new_tree_node = alloc.new_object<tree_node_type>(ed, my_parent, 2, my_body, alloc);
@@ -324,14 +300,14 @@ private:
         right_child->spawn_self(ed);
     }
 
-    void spawn_self(const execute_data& ed) {
-        my_partition.spawn_task(*this, *ed.context);
+    void spawn_self(execution_data& ed) {
+        my_partition.spawn_task(*this, *context(ed));
     }
 };
 
 //! Fold the tree and deallocate the task
 template<typename Range, typename Body, typename Partitioner>
-void start_deterministic_reduce<Range, Body, Partitioner>::finalize(const execute_data& ed) {
+void start_deterministic_reduce<Range, Body, Partitioner>::finalize(const execution_data& ed) {
     // Get the current parent and wait object before an object destruction
     node* parent = my_parent;
 
@@ -345,9 +321,9 @@ void start_deterministic_reduce<Range, Body, Partitioner>::finalize(const execut
 
 //! Execute parallel_deterministic_reduce task
 template<typename Range, typename Body, typename Partitioner>
-task* start_deterministic_reduce<Range,Body,Partitioner>::execute(const execute_data& ed) {
-    if (ed.is_not_my_affinity()) {
-        my_partition.note_affinity(ed.current_affinity());
+task* start_deterministic_reduce<Range,Body,Partitioner>::execute(execution_data& ed) {
+    if (!is_same_affinity(ed)) {
+        my_partition.note_affinity(execution_slot(ed));
     }
     my_partition.check_being_stolen(*this, ed);
 
@@ -359,7 +335,7 @@ task* start_deterministic_reduce<Range,Body,Partitioner>::execute(const execute_
 
 //! Cancel parallel_deterministic_reduce task
 template<typename Range, typename Body, typename Partitioner>
-task* start_deterministic_reduce<Range, Body, Partitioner>::cancel(const execute_data& ed) {
+task* start_deterministic_reduce<Range, Body, Partitioner>::cancel(execution_data& ed) {
     finalize(ed);
     return NULL;
 }

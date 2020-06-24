@@ -379,7 +379,11 @@ public:
         my_body( src.my_init_body->clone() ),
         my_init_body(src.my_init_body->clone() ) {
     }
-
+#if __INTEL_COMPILER == 2021
+    // Suppress superfluous diagnostic about virtual keyword absence in a destructor of an inherited
+    // class while the parent class has the virtual keyword for the destrocutor.
+    virtual
+#endif
     ~function_input() {
         delete my_body;
         delete my_init_body;
@@ -473,7 +477,6 @@ template<> struct clear_element<1> {
 
 template <typename OutputTuple>
 struct init_output_ports {
-// #if __TBB_CPP11_VARIADIC_TEMPLATES_PRESENT
     template <typename... Args>
     static OutputTuple call(graph& g, const std::tuple<Args...>&) {
         return OutputTuple(Args(g)...);
