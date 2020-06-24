@@ -216,8 +216,12 @@ static OpenMPDirectiveKindExWrapper parseOpenMPDirectiveKind(Parser &P) {
     DKind = OMPD_unknown;
   }
 #endif // INTEL_COLLAB
-  return DKind < OMPD_unknown ? static_cast<OpenMPDirectiveKind>(DKind)
-                              : OMPD_unknown;
+
+#if INTEL_CUSTOMIZATION
+  return DKind < llvm::omp::Directive_enumSize
+             ? static_cast<OpenMPDirectiveKind>(DKind)
+             : OMPD_unknown;
+#endif // INTEL_CUSTOMIZATION
 }
 
 static DeclarationName parseOpenMPReductionId(Parser &P) {
