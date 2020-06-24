@@ -2841,8 +2841,10 @@ public:
   void addUnlinkedVPInst(VPInstruction *I) { UnlinkedVPInsns.emplace_back(I); }
 
   // Clones VPlan. VPAnalysesFactory has methods to create additional analyses
-  // required for cloned VPlan.
-  std::unique_ptr<VPlan> clone(VPAnalysesFactory &VPAF);
+  // required for cloned VPlan. RecalculateDA indicates whether DA will be
+  // calculated from scratch (true) or we will just copy instructions' vector
+  // shapes (false).
+  std::unique_ptr<VPlan> clone(VPAnalysesFactory &VPAF, bool RecalculateDA);
 
 private:
   /// Add to the given dominator tree the header block and every new basic block

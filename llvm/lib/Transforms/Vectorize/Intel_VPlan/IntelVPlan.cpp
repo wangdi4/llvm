@@ -18,9 +18,10 @@
 
 #if INTEL_CUSTOMIZATION
 #include "IntelVPlan.h"
-#include "IntelVPlanClone.h"
 #include "IntelVPOCodeGen.h"
 #include "IntelVPSOAAnalysis.h"
+#include "IntelVPlanClone.h"
+#include "IntelVPlanDivergenceAnalysis.h"
 #include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanVLSAnalysis.h"
 #include "VPlanHIR/IntelVPOCodeGenHIR.h"
@@ -817,7 +818,8 @@ void VPlan::dump(raw_ostream &OS) const {
 
 void VPlan::dump() const { dump(dbgs()); }
 
-std::unique_ptr<VPlan> VPlan::clone(VPAnalysesFactory &VPAF) {
+std::unique_ptr<VPlan> VPlan::clone(VPAnalysesFactory &VPAF,
+                                    bool RecalculateDA) {
   // Create new VPlan
   std::unique_ptr<VPlan> ClonedVPlan = std::make_unique<VPlan>(getExternals());
 
@@ -855,6 +857,30 @@ std::unique_ptr<VPlan> VPlan::clone(VPAnalysesFactory &VPAF) {
   ClonedVPLInfo->analyze(*ClonedVPlan->getDT());
   LLVM_DEBUG(ClonedVPLInfo->verify(*ClonedVPlan->getDT()));
 
+  // Clone DA from the original VPlan to the new one. If RecalculateDA is true,
+  // then we compute DA from scratch. If we clone VPlan after the predicator
+  // (RecalculateDA=false), then we just have to clone instructions' vector
+  // shapes.
+  if (RecalculateDA) {
+    auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
+    ClonedVPlan->setVPlanDA(std::move(VPDA));
+    auto *VPLInfo = ClonedVPlan->getVPLoopInfo();
+    VPLoop *CandidateLoop = *VPLInfo->begin();
+    ClonedVPlan->getVPlanDA()->compute(
+        ClonedVPlan.get(), CandidateLoop, VPLInfo, *ClonedVPlan->getDT(),
+        *ClonedVPlan->getPDT(), false /*Not in LCSSA form*/);
+    VPSOAAnalysis VPSOAA(*this, *CandidateLoop);
+    SmallPtrSet<VPInstruction *, 32> SOAVars;
+    VPSOAA.doSOAAnalysis(SOAVars);
+
+    if (EnableSOAAnalysis)
+      ClonedVPlan->getVPlanDA()->recomputeShapes(SOAVars);
+  } else {
+    auto ClonedVPlanDA = std::make_unique<VPlanDivergenceAnalysis>();
+    ClonedVPlan->setVPlanDA(std::move(ClonedVPlanDA));
+    getVPlanDA()->cloneVectorShapes(ClonedVPlan.get(), OrigClonedValuesMap);
+    ClonedVPlan->getVPlanDA()->disableDARecomputation();
+  }
   return ClonedVPlan;
 }
 

@@ -1459,6 +1459,9 @@ void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
                                       VPPostDominatorTree &VPPostDomTree,
                                       bool IsLCSSA) {
 
+  assert(!DARecomputationDisabled &&
+         "DA should not be computed for this Cloned VPlan!");
+
   Plan = P;
   RegionLoop = CandidateLoop;
   VPLI = VPLInfo;
@@ -1517,6 +1520,9 @@ void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
 void VPlanDivergenceAnalysis::recomputeShapes(
     SmallPtrSetImpl<VPInstruction *> &Seeds) {
 
+  assert(!DARecomputationDisabled &&
+         "DA should not be computed for this Cloned VPlan!");
+
   if (Seeds.empty())
     return;
 
@@ -1548,6 +1554,32 @@ void VPlanDivergenceAnalysis::recomputeShapes(
 }
 
 #endif // INTEL_CUSTOMIZATION
+
+void VPlanDivergenceAnalysis::cloneVectorShapes(
+    VPlan *ClonedVPlan, DenseMap<VPValue *, VPValue *> &OrigClonedValuesMap) {
+
+  ClonedVPlan->getVPlanDA()->Plan = ClonedVPlan;
+
+  for (const auto &Pair : OrigClonedValuesMap) {
+    VPValue *OrigVal = Pair.first;
+    VPValue *ClonedVal = Pair.second;
+
+    if (isa<VPBasicBlock>(OrigVal))
+      continue;
+
+    VPVectorShape OrigShape = getVectorShape(OrigVal);
+    VPVectorShape *NewClonedShape = OrigShape.clone();
+    VPValue *OrigStride = OrigShape.getStride();
+    auto It = OrigClonedValuesMap.find(OrigStride);
+    VPValue *ClonedStride = nullptr;
+    if (OrigStride != nullptr)
+      ClonedStride =
+          (It != OrigClonedValuesMap.end()) ? It->second : OrigStride;
+    NewClonedShape->setStride(ClonedStride);
+    ClonedVPlan->getVPlanDA()->updateVectorShape(ClonedVal, *NewClonedShape);
+  }
+}
+
 // Note: community version contains a LoopDivergencePrinter class that creates
 // a SyncDependenceAnalysis object and a LoopDivergenceAnalysis object. The
 // constructor for the LoopDivergenceAnalysis object then calls compute() to
