@@ -17,72 +17,71 @@
 
 #include "BuiltinLibInfo.h"
 
-#include "llvm/Pass.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/Pass.h"
 
 namespace intel {
 
-  using namespace llvm;
+using namespace llvm;
 
-  class ResolveSubGroupWICall : public ModulePass {
+class ResolveSubGroupWICall : public ModulePass {
 
-  public:
+public:
+  static char ID;
 
-    static char ID;
+  ResolveSubGroupWICall();
 
-    ResolveSubGroupWICall();
+  llvm::StringRef getPassName() const override {
+    return "ResolveSubGroupWICall";
+  }
 
-    llvm::StringRef getPassName() const override {
-      return "ResolveSubGroupWICall";
-    }
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<BuiltinLibInfo>();
+  }
 
-    void getAnalysisUsage(AnalysisUsage &AU) const override {
-      AU.addRequired<BuiltinLibInfo>();
-    }
+  bool runOnModule(Module &M) override;
 
-    bool runOnModule(Module &M) override;
+private:
+  bool runOnFunction(Function &F, size_t VF, int32_t VD);
 
-  private:
+  Value *replaceGetSubGroupSize(Module *M, Instruction *insertBefore, size_t VF,
+                                int32_t VD);
+  Value *replaceGetMaxSubGroupSize(Module *M, Instruction *insertBefore,
+                                   size_t VF);
+  Value *replaceGetSubGroupLocalId(Module *M, Instruction *insertBefore,
+                                   size_t VF);
 
-    bool runOnFunction(Function &F, size_t VF, int32_t VD);
+  Instruction *replaceGetEnqueuedNumSubGroups(Module *M,
+                                              Instruction *insertBefore,
+                                              size_t VF, int32_t VD);
+  Instruction *replaceGetNumSubGroups(Module *M, Instruction *insertBefore,
+                                      size_t VF, int32_t VD);
+  Instruction *replaceSubGroupBarrier(Module *M, CallInst *insertBefore);
 
-    Value* replaceGetSubGroupSize(
-      Module *M, Instruction *insertBefore, size_t VF, int32_t VD);
-    Value* replaceGetMaxSubGroupSize(
-      Module *M, Instruction *insertBefore, size_t VF);
-    Value* replaceGetSubGroupLocalId(
-      Module *M, Instruction *insertBefore, size_t VF);
+  Instruction *replaceGetSubGroupId(Module *M, Instruction *insertBefore,
+                                    size_t VF, int32_t VD);
 
-    Instruction* replaceGetEnqueuedNumSubGroups(
-      Module *M, Instruction *insertBefore, size_t VF, int32_t VD);
-    Instruction* replaceGetNumSubGroups(
-      Module *M, Instruction *insertBefore, size_t VF, int32_t VD);
-    Instruction* replaceSubGroupBarrier(Module *M, CallInst *insertBefore);
+  // Helpers:
+  CallInst *createWIFunctionCall(Module *M, char const *twine,
+                                 std::string const &name,
+                                 Instruction *insertBefore, Value *actPar);
 
-    Instruction* replaceGetSubGroupId(Module *M, Instruction *insertBefore, size_t VF);
+  ConstantInt *createVFConstant(LLVMContext &, const DataLayout &, size_t VF);
 
-    // Helpers:
-    CallInst* createWIFunctionCall(
-      Module *M, char const *twine, std::string const &name,
-      Instruction *insertBefore, Value *actPar);
+private:
+  // Constant values to be used by function calls
+  Value *m_zero;
+  Value *m_one;
+  Value *m_two;
 
-    ConstantInt* createVFConstant(LLVMContext&, const DataLayout&, size_t VF);
+  // The return type for the work-item functions
+  Type *m_ret;
 
-  private:
-
-    // Constant values to be used by function calls
-    Value *m_zero;
-    Value *m_one;
-    Value *m_two;
-
-    // The return type for the work-item functions
-    Type  *m_ret;
-
-    // Pointer to runtime service object
-    const RuntimeServices *m_rtServices;
-  };
-}
+  // Pointer to runtime service object
+  const RuntimeServices *m_rtServices;
+};
+} // namespace intel
 
 #endif

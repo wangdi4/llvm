@@ -44,16 +44,20 @@ entry:
 ; CHECK: %lid2 = call i64 @_Z12get_local_idj(i32 2)
 ; CHECK: %lid1 = call i64 @_Z12get_local_idj(i32 1)
 ; CHECK: %lid0 = call i64 @_Z12get_local_idj(i32 0)
+; CHECK: %lsz2 = call i64 @_Z14get_local_sizej(i32 2)
 ; CHECK: %lsz1 = call i64 @_Z14get_local_sizej(i32 1)
 ; CHECK: %lsz0 = call i64 @_Z14get_local_sizej(i32 0)
-; CHECK: %llid.op0 = mul i64 %lid2, %lsz1
-; CHECK: %llid.op1 = add i64 %llid.op0, %lid1
-; CHECK: %llid.op2 = mul i64 %llid.op1, %lsz0
-; CHECK: %llid.res = add i64 %llid.op2, %lid0
-; CHECK: %llid.res.div = udiv i64 %llid.res, 16
-; CHECK: %llid.res.div.trunc = trunc i64 %llid.res.div to i32
+; CHECK: %sg.id.op0 = mul i64 %lid2, %lsz1
+; CHECK: %sg.id.op1 = add i64 %sg.id.op0, %lid1
+; CHECK: %sg.id.op2 = sub i64 %lsz0, 1
+; CHECK: %sg.id.op3 = udiv i64 %sg.id.op2, 16
+; CHECK: %sg.id.op4 = add i64 %sg.id.op3, 1
+; CHECK: %sg.id.op5 = mul i64 %sg.id.op4, %sg.id.op1
+; CHECK: %sg.id.op6 = udiv i64 %lid0, 16
+; CHECK: %sg.id.res = add i64 %sg.id.op5, %sg.id.op6
+; CHECK: %sg.id.res.trunc = trunc i64 %sg.id.res to i32
 ; CHECK: insertelement <16 x i32> undef
-; CHECK-SAME: i32 %llid.res.div.trunc, i32 0
+; CHECK-SAME: i32 %sg.id.res.trunc, i32 0
   %temp20 = insertelement <16 x i32> undef, i32 %call2, i32 0
   %vector19 = shufflevector <16 x i32> %temp20, <16 x i32> undef, <16 x i32> zeroinitializer
   %2 = getelementptr inbounds i32, i32 addrspace(1)* %sub_groups_ids, i64 %call
