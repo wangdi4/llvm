@@ -1135,7 +1135,7 @@ int32_t __tgt_rtl_number_of_devices() {
     CALL_CL(rc, clGetPlatformInfo, id, CL_PLATFORM_VERSION, buf_size,
             buf.data(), nullptr);
     // clCreateProgramWithIL() requires OpenCL 2.1.
-    if (rc != CL_SUCCESS || strncmp("OpenCL 2.1", buf.data(), 8)) {
+    if (rc != CL_SUCCESS || std::stof(std::string(buf.data() + 6)) <= 2.0) {
       continue;
     }
     cl_uint numDevices = 0;
