@@ -781,7 +781,6 @@ class WRNTargetDataNode : public WRegionNode {
 private:
   MapClause Map;
   UseDevicePtrClause UseDevicePtr;
-  UseDeviceAddrClause UseDeviceAddr;
   EXPR IfExpr;
   EXPR Device;
   EXPR SubDeviceBase;
@@ -799,7 +798,6 @@ protected:
 public:
   DEFINE_GETTER(MapClause,          getMap,          Map)
   DEFINE_GETTER(UseDevicePtrClause, getUseDevicePtr, UseDevicePtr)
-  DEFINE_GETTER(UseDeviceAddrClause, getUseDeviceAddr, UseDeviceAddr)
 
   EXPR getIf() const { return IfExpr; }
   EXPR getDevice() const { return Device; }
@@ -952,7 +950,6 @@ class WRNTargetVariantNode : public WRegionNode {
 private:
   MapClause Map;
   UseDevicePtrClause UseDevicePtr;
-  UseDeviceAddrClause UseDeviceAddr;
   EXPR Device;
   EXPR SubDeviceBase;
   EXPR SubDeviceLength;
@@ -970,7 +967,6 @@ protected:
 public:
   DEFINE_GETTER(MapClause,          getMap,          Map)
   DEFINE_GETTER(UseDevicePtrClause, getUseDevicePtr, UseDevicePtr)
-  DEFINE_GETTER(UseDeviceAddrClause, getUseDeviceAddr, UseDeviceAddr)
   EXPR getDevice() const { return Device; }
   EXPR getSubDeviceBase() const { return SubDeviceBase; }
   EXPR getSubDeviceLength() const { return SubDeviceLength; }

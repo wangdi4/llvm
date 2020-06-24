@@ -107,8 +107,7 @@ class Item
       IK_Uniform,
       IK_Map,
       IK_IsDevicePtr,
-      IK_UseDevicePtr,
-      IK_UseDeviceAddr
+      IK_UseDevicePtr
     };
 
   private :
@@ -878,7 +877,6 @@ public:
 typedef SmallVector<MapAggrTy*, 2> MapChainTy;
 
 class UseDevicePtrItem;
-class UseDeviceAddrItem;
 //
 //   MapItem: OMP MAP clause item
 //
@@ -888,7 +886,6 @@ private:
   unsigned MapKind;                 // bit vector for map kind and modifiers
   FirstprivateItem *InFirstprivate; // FirstprivateItem with the same opnd
   UseDevicePtrItem *InUseDevicePtr; // The map is for a use-device-ptr clause
-  UseDeviceAddrItem* InUseDeviceAddr; // The map is for a use-device-addr clause
   MapChainTy MapChain;
   ArraySectionInfo ArrSecInfo;    // For TARGET UPDATE TO/FROM clauses
   Instruction *BasePtrGEPForOrig; // GEP for Orig in the  baseptrs struct sent
@@ -1003,7 +1000,6 @@ public:
   void setIsMapPresent() { MapKind |= WRNMapPresent; }
   void setInFirstprivate(FirstprivateItem *FI) { InFirstprivate = FI; }
   void setInUseDevicePtr(UseDevicePtrItem *UDPI) { InUseDevicePtr = UDPI; }
-  void setInUseDeviceAddr(UseDeviceAddrItem* UDAI) { InUseDeviceAddr = UDAI; }
   void setBasePtrGEPForOrig(Instruction *GEP) { BasePtrGEPForOrig = GEP; }
 
   unsigned getMapKind()     const { return MapKind; }
@@ -1022,7 +1018,6 @@ public:
   bool getIsMapUpdateFrom() const { return MapKind & WRNMapUpdateFrom; }
   FirstprivateItem *getInFirstprivate() const { return InFirstprivate; }
   UseDevicePtrItem *getInUseDevicePtr() const { return InUseDevicePtr; }
-  UseDeviceAddrItem* getInUseDeviceAddr() const { return InUseDeviceAddr; }
   Instruction *getBasePtrGEPForOrig() const { return BasePtrGEPForOrig; }
 
   ArraySectionInfo &getArraySectionInfo() { return ArrSecInfo; }
@@ -1084,26 +1079,15 @@ class IsDevicePtrItem : public Item
 class UseDevicePtrItem : public Item
 {
   MapItem *InMap;
-
+  bool IsUseDeviceAddr; // true only if parsing a use_device_addr clause
 public:
-  UseDevicePtrItem(VAR Orig) : Item(Orig, IK_UseDevicePtr) {}
+  UseDevicePtrItem(VAR Orig) : Item(Orig, IK_UseDevicePtr),
+                               IsUseDeviceAddr(false) {}
   void setInMap(MapItem *MI) { InMap = MI; }
+  void setIsUseDeviceAddr(bool Flag) { IsUseDeviceAddr = Flag; }
   MapItem *getInMap() const { return InMap; }
+  bool getIsUseDeviceAddr() const { return IsUseDeviceAddr; }
   static bool classof(const Item *I) { return I->getKind() == IK_UseDevicePtr; }
-};
-
-//
-//   UseDeviceAddrItem: OMP USE_DEVICE_ADDR clause item
-//
-class UseDeviceAddrItem : public Item {
-    MapItem* InMap;
-
-public:
-    UseDeviceAddrItem(VAR Orig) : Item(Orig, IK_UseDeviceAddr) {}
-    void setInMap(MapItem* MI) { InMap = MI; }
-    MapItem* getInMap() const { return InMap; }
-    static bool classof(const Item* I)
-                        { return I->getKind() == IK_UseDeviceAddr; }
 };
 
 //
@@ -1352,7 +1336,6 @@ typedef Clause<UniformItem>       UniformClause;
 typedef Clause<MapItem>           MapClause;
 typedef Clause<IsDevicePtrItem>   IsDevicePtrClause;
 typedef Clause<UseDevicePtrItem>  UseDevicePtrClause;
-typedef Clause<UseDeviceAddrItem> UseDeviceAddrClause;
 typedef Clause<DependItem>        DependClause;
 typedef Clause<DepSinkItem>       DepSinkClause;
 typedef Clause<DepSourceItem>     DepSourceClause;
@@ -1371,7 +1354,6 @@ typedef std::vector<UniformItem>::iterator       UniformIter;
 typedef std::vector<MapItem>::iterator           MapIter;
 typedef std::vector<IsDevicePtrItem>::iterator   IsDevicePtrIter;
 typedef std::vector<UseDevicePtrItem>::iterator  UseDevicePtrIter;
-typedef std::vector<UseDeviceAddrItem>::iterator UseDeviceAddrIter;
 typedef std::vector<DependItem>::iterator        DependIter;
 typedef std::vector<DepSinkItem>::iterator       DepSinkIter;
 typedef std::vector<DepSourceItem>::iterator     DepSourceIter;

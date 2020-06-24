@@ -380,9 +380,6 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
   if (canHaveUseDevicePtr())
     PrintedSomething |= getUseDevicePtr().print(OS, Depth, Verbosity);
 
-  if (canHaveUseDeviceAddr())
-      PrintedSomething |= getUseDeviceAddr().print(OS, Depth, Verbosity);
-
   if (canHaveDepend())
     PrintedSomething |= getDepend().print(OS, Depth, Verbosity);
 
@@ -733,7 +730,12 @@ template <typename ClauseTy>
 void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
                                       const ClauseSpecifier &ClauseInfo,
                                       ClauseTy &C) {
+  bool IsUseDeviceAddr = false;
   int ClauseID = ClauseInfo.getId();
+  if (ClauseID == QUAL_OMP_USE_DEVICE_ADDR) {
+    ClauseID = QUAL_OMP_USE_DEVICE_PTR;
+    IsUseDeviceAddr = true;
+  }
   C.setClauseID(ClauseID);
   bool IsByRef = ClauseInfo.getIsByRef();
   bool IsPointerToPointer = ClauseInfo.getIsPointerToPointer();
@@ -744,6 +746,10 @@ void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
       C.back()->setIsByRef(true);
     if (IsPointerToPointer)
       C.back()->setIsPointerToPointer(true);
+    if (IsUseDeviceAddr) {
+      UseDevicePtrItem *UDPI = cast<UseDevicePtrItem>(C.back());
+      UDPI->setIsUseDeviceAddr(true);
+    }
 #if INTEL_CUSTOMIZATION
     if (!CurrentBundleDDRefs.empty() &&
         WRegionUtils::supportsRegDDRefs(ClauseID))
@@ -1285,15 +1291,11 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
                                            getIsDevicePtr());
     break;
   }
-  case QUAL_OMP_USE_DEVICE_PTR: {
+  case QUAL_OMP_USE_DEVICE_PTR:
+  case QUAL_OMP_USE_DEVICE_ADDR: {
     extractQualOpndList<UseDevicePtrClause>(Args, NumArgs, ClauseInfo,
                                             getUseDevicePtr());
     break;
-  }
-  case QUAL_OMP_USE_DEVICE_ADDR: {
-      extractQualOpndList<UseDeviceAddrClause>(Args, NumArgs, ClauseInfo,
-                                               getUseDeviceAddr());
-      break;
   }
   case QUAL_OMP_TO:
   case QUAL_OMP_FROM:
@@ -1705,16 +1707,6 @@ bool WRegionNode::canHaveIsDevicePtr() const {
 }
 
 bool WRegionNode::canHaveUseDevicePtr() const {
-  unsigned SubClassID = getWRegionKindID();
-  switch (SubClassID) {
-  case WRNTargetData:
-  case WRNTargetVariant:
-    return true;
-  }
-  return false;
-}
-
-bool WRegionNode::canHaveUseDeviceAddr() const {
   unsigned SubClassID = getWRegionKindID();
   switch (SubClassID) {
   case WRNTargetData:

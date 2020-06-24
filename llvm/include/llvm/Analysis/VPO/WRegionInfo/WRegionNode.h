@@ -227,7 +227,6 @@ public:
   bool canHaveMap() const;
   bool canHaveIsDevicePtr() const;
   bool canHaveUseDevicePtr() const;
-  bool canHaveUseDeviceAddr() const;
   bool canHaveDepend() const;
   bool canHaveDepSrcSink() const;
   bool canHaveAligned() const;
@@ -285,8 +284,6 @@ public:
   virtual UniformClause &getUniform()        {WRNERROR(QUAL_OMP_UNIFORM);     }
   virtual UseDevicePtrClause &getUseDevicePtr()
                                            {WRNERROR(QUAL_OMP_USE_DEVICE_PTR);}
-  virtual UseDeviceAddrClause &getUseDeviceAddr()
-                                          {WRNERROR(QUAL_OMP_USE_DEVICE_ADDR);}
 
   // list-type clauses (const getters)
 
@@ -334,8 +331,6 @@ public:
                                            {WRNERROR(QUAL_OMP_UNIFORM);     }
   virtual const UseDevicePtrClause &getUseDevicePtr() const
                                            {WRNERROR(QUAL_OMP_USE_DEVICE_PTR);}
-  virtual const UseDeviceAddrClause &getUseDeviceAddr() const
-                                          {WRNERROR(QUAL_OMP_USE_DEVICE_ADDR);}
 
   // other clauses (both getters and setters)
 
