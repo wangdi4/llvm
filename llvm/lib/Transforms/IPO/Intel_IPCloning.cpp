@@ -3511,7 +3511,7 @@ bool Splitter::canReloadPHI(PHINode *PHIN) {
         if (CI->isIndirectCall())
           return false;
         Function *F = CI->getCalledFunction();
-        if (F->isVarArg())
+        if (!F || F->isVarArg())
           return false;
         for (unsigned I = 0, E = CI->getNumArgOperands(); I < E; ++I)
           if (CI->getArgOperand(I) == Arg && CouldMod(F->getArg(I)))
@@ -3821,9 +3821,26 @@ bool Splitter::validateSplitInsts() {
 }
 
 bool Splitter::canSplitFunction() {
+
+  //
+  // Returns 'true' if 'F' has a Use that is not a CallInst
+  //
+  auto HasNonCallInstUse = [](Function *F) -> bool {
+    for (User *U : F->users()) {
+      auto CI = dyn_cast<CallInst>(U);
+      if (!CI || CI->getCalledFunction() != F) {
+        LLVM_DEBUG(dbgs() << "MRCS: EXIT: Non-CallInst Use\n");
+        return true;
+      }
+    }
+    return false;
+  };
+
   if (F->isDeclaration())
     return false;
   if (!canSplitBlocks())
+    return false;
+  if (HasNonCallInstUse(F))
     return false;
   if (!findSplitInsts())
     return false;
@@ -4063,16 +4080,14 @@ void Splitter::retargetReturns() {
 
 void Splitter::markForInlining() {
   for (User *U : F1->users()) {
-    auto CB = dyn_cast<CallBase>(U);
-    if (CB) {
-      Function *Caller = CB->getCaller();
-      Function *Callee = CB->getCalledFunction();
-      if (Callee == F1 && Caller != F && Caller != Callee && Caller != F2) {
-        CB->addAttribute(llvm::AttributeList::FunctionIndex,
-                         "prefer-inline-mrc-split");
-        LLVM_DEBUG(dbgs() << "MRCS: Inline " << Caller->getName() << " TO "
-                          << F1->getName() << "\n");
-      }
+    auto CB = cast<CallBase>(U);
+    Function *Caller = CB->getCaller();
+    Function *Callee = CB->getCalledFunction();
+    if (Callee == F1 && Caller != F && Caller != Callee && Caller != F2) {
+      CB->addAttribute(llvm::AttributeList::FunctionIndex,
+                       "prefer-inline-mrc-split");
+      LLVM_DEBUG(dbgs() << "MRCS: Inline " << Caller->getName() << " TO "
+                        << F1->getName() << "\n");
     }
     unsigned Count = 0;
     for (unsigned I = 0, E = CB->getNumArgOperands(); I < E; ++I) {
@@ -4091,13 +4106,13 @@ void Splitter::markForInlining() {
     auto Arg = dyn_cast<Argument>(GEPI->getPointerOperand());
     if (!Arg || Arg->getArgNo() != 0)
       continue;
-    Function *Caller = CB->getCaller();
     for (User *V : Caller->users()) {
       auto CBB = dyn_cast<CallBase>(V);
       if (CBB) {
         Function *NCaller = CBB->getCaller();
         Function *NCallee = CBB->getCalledFunction();
-        if (NCallee == Caller && NCaller != F && NCaller != NCallee) {
+        if (NCallee && NCallee == Caller && NCaller != F &&
+            NCaller != NCallee) {
           CBB->addAttribute(llvm::AttributeList::FunctionIndex,
                             "prefer-inline-mrc-split");
           LLVM_DEBUG(dbgs() << "MRCS: Inline " << NCaller->getName() << " TO "
