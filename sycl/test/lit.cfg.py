@@ -101,6 +101,7 @@ config.substitutions.append( ('%opencl_libs_dir',  config.opencl_libs_dir) )
 # INTEL_CUSTOMIZATION
 # Ask llvm-config about assertions.
 llvm_config.feature_config([('--assertion-mode', {'ON': 'asserts'})])
+llvm_config.feature_config([('--build-mode', {'Debug': 'debug'})])
 # end INTEL_CUSTOMIZATION
 llvm_config.add_tool_substitutions(['llvm-spirv'], [config.sycl_tools_dir])
 
