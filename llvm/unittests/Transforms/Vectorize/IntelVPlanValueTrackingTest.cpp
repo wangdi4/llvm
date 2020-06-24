@@ -75,6 +75,38 @@ TEST_F(VPlanValueTrackingTest, Bitwise) {
   EXPECT_EQ(KB.One,  0b101000);
 }
 
+TEST_F(VPlanValueTrackingTest, BitwiseMul) {
+  const char *ModuleString =
+    "define void @foo(i64* %buf, i64 %x) {\n"
+    "entry:\n"
+    "  %buf.asInt = ptrtoint i64* %buf to i64\n"
+    "  %ptr.asInt = and i64 %buf.asInt, -1024\n" // 10 trailing zero bits.
+    "  %ptr = inttoptr i64 %ptr.asInt to i64*\n"
+    // %y = 2 * %x
+    "  %y = mul i64 %x, 2\n"
+    "  br label %for.body\n"
+    "for.body:\n"
+    "  %counter = phi i64 [ 0, %entry ], [ %counter.next, %for.body ]\n"
+    // %offset = 72 * (2 * %x) = 16 * (9 * %x)
+    "  %offset = mul i64 %y, 72\n"
+    "  %add1 = add nuw nsw i64 %counter, %offset\n"
+    // %arrayidx = %ptr + (16 * sizeof(i64)) * (9 * %x) + %counter
+    "  %arrayidx = getelementptr inbounds i64, i64* %ptr, i64 %add1\n"
+    "  store i64 %counter, i64* %arrayidx, align 8\n"
+    "  %counter.next = add nuw nsw i64 %counter, 1\n"
+    "  %exitcond = icmp eq i64 %counter.next, 1024\n"
+    "  br i1 %exitcond, label %for.cond.cleanup, label %for.body\n"
+    "for.cond.cleanup:\n"
+    "  ret void\n"
+    "}\n";
+
+  // Store address base is a multiple of (16 * sizeof(i64) = 2^7),
+  // which means 7 trailing zero bits.
+  KnownBits KB = getKnownBitsForStoreAddressBase(ModuleString);
+  EXPECT_EQ(KB.Zero, 0b01111111);
+  EXPECT_EQ(KB.One, 0);
+}
+
 TEST_F(VPlanValueTrackingTest, SimpleAssumeAlignedLegacy) {
   // __builtin_assume_aligned(buf, 64);
   // buf[3 + i] = ...

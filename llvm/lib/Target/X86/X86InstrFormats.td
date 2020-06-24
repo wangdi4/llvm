@@ -299,6 +299,11 @@ class NotMemoryFoldable { bit isMemoryFoldable = 0; }
 // Prevent EVEX->VEX conversion from considering this instruction.
 class NotEVEX2VEXConvertible { bit notEVEX2VEXConvertible = 1; }
 
+#if INTEL_CUSTOMIZATION
+// Force the instruction to use VEX encoding.
+class ExplicitVEXPrefix { bit ExplicitVEXPrefix = 1; }
+#endif // INTEL_CUSTOMIZATION
+
 class X86Inst<bits<8> opcod, Format f, ImmType i, dag outs, dag ins,
               string AsmStr, Domain d = GenericDomain>
   : Instruction {
@@ -385,6 +390,7 @@ class X86Inst<bits<8> opcod, Format f, ImmType i, dag outs, dag ins,
 
   bit isMemoryFoldable = 1;     // Is it allowed to memory fold/unfold this instruction?
   bit notEVEX2VEXConvertible = 0; // Prevent EVEX->VEX conversion.
+  bit ExplicitVEXPrefix = 0; // Force the instruction to use VEX encoding.   // INTEL
 
   // TSFlags layout should be kept in sync with X86BaseInfo.h.
   let TSFlags{6-0}   = FormBits;
@@ -414,6 +420,8 @@ class X86Inst<bits<8> opcod, Format f, ImmType i, dag outs, dag ins,
   let TSFlags{52-46} = CD8_Scale;
   let TSFlags{53}    = hasEVEX_RC;
   let TSFlags{54}    = hasNoTrackPrefix;
+  // Force the instruction to use VEX encoding.
+  let TSFlags{55}    = ExplicitVEXPrefix;  // INTEL
 #endif // INTEL_CUSTOMIZATION
 }
 

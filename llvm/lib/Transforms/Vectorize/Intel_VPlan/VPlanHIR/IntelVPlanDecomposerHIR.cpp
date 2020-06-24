@@ -792,24 +792,33 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
       NewVPInst = Builder.createCmpInst(CmpPredicate, VPOperands[0],
                                         VPOperands[1], DDNode);
     } else if (isa<SelectInst>(LLVMInst)) {
-      // Handle decomposition of select instruction
-      assert(VPOperands.size() == 4 &&
-             "Invalid number of operands for HIR select instruction.");
+      // Handle HLInst idioms such as Abs.
+      if (HInst->isAbs()) {
+        assert(VPOperands.size() == 1 &&
+               "Invalid number of operands for abs instruction.");
+        NewVPInst = Builder.createAbs(VPOperands[0], DDNode);
+      } else {
+        // Handle decomposition of generic select instruction
+        assert(VPOperands.size() == 4 &&
+               "Invalid number of operands for HIR select instruction.");
 
-      VPValue *CmpLHS = VPOperands[0];
-      VPValue *CmpRHS = VPOperands[1];
-      VPValue *TVal = VPOperands[2];
-      VPValue *FVal = VPOperands[3];
+        VPValue *CmpLHS = VPOperands[0];
+        VPValue *CmpRHS = VPOperands[1];
+        VPValue *TVal = VPOperands[2];
+        VPValue *FVal = VPOperands[3];
 
-      // Decompose first 2 operands into a CmpInst used as predicate for select
-      HLPredicate HLPred = HInst->getPredicate();
-      VPCmpInst *Pred = Builder.createCmpInst(HLPred.Kind, CmpLHS, CmpRHS);
-      if (CmpInst::isFPPredicate(HLPred.Kind))
-        Pred->setFastMathFlags(HLPred.FMF);
-      // Set underlying DDNode for the select VPInstruction since it may be the
-      // master VPInstruction which will be the case if DDNode is non-null.
-      NewVPInst = cast<VPInstruction>(Builder.createNaryOp(
-          Instruction::Select, {Pred, TVal, FVal}, TVal->getType(), DDNode));
+        // Decompose first 2 operands into a CmpInst used as predicate for
+        // select
+        HLPredicate HLPred = HInst->getPredicate();
+        VPCmpInst *Pred = Builder.createCmpInst(HLPred.Kind, CmpLHS, CmpRHS);
+        if (CmpInst::isFPPredicate(HLPred.Kind))
+          Pred->setFastMathFlags(HLPred.FMF);
+        // Set underlying DDNode for the select VPInstruction since it may be
+        // the master VPInstruction which will be the case if DDNode is
+        // non-null.
+        NewVPInst = cast<VPInstruction>(Builder.createNaryOp(
+            Instruction::Select, {Pred, TVal, FVal}, TVal->getType(), DDNode));
+      }
     } else if (isa<LoadInst>(LLVMInst)) {
       // No-op behavior for load nodes since the VPInstruction is already added
       // by decomposeMemoryOp. Check comments in decomposeMemoryOp definition
@@ -990,17 +999,24 @@ void VPDecomposerHIR::createVPOperandsForMasterVPInst(
   if (!DDNode)
     return;
 
-  // Collect operands necessary to build a VPInstruction out of an HLInst and
-  // translate them into VPValue's.
-  for (RegDDRef *HIROp :
-       make_range(DDNode->op_ddref_begin(), DDNode->op_ddref_end())) {
-    // We skip LHS operands for all instructions. Lval for stores is handled
-    // later.
-    if (HIROp->isLval())
-      continue;
+  // If we are dealing with an HLInst that is computing the absolute value(a
+  // select instruction of the form t = v1 < 0 ? -v1 : v1), we only decompose
+  // decompose the first rval operand and generate an Abs VPInstruction.
+  HLInst *HInst;
+  if ((HInst = dyn_cast<HLInst>(DDNode)) && HInst->isAbs())
+    VPOperands.push_back(decomposeVPOperand(HInst->getOperandDDRef(1)));
+  else
+    // Collect operands necessary to build a VPInstruction out of an HLInst and
+    // translate them into VPValue's.
+    for (RegDDRef *HIROp :
+         make_range(DDNode->op_ddref_begin(), DDNode->op_ddref_end())) {
+      // We skip LHS operands for all instructions. Lval for stores is handled
+      // later.
+      if (HIROp->isLval())
+        continue;
 
-    VPOperands.push_back(decomposeVPOperand(HIROp));
-  }
+      VPOperands.push_back(decomposeVPOperand(HIROp));
+    }
 
   if (RegDDRef *Lval = DDNode->getLvalDDRef()) {
     // Insert the Lval operand of store for decomposition to the end. The Lval

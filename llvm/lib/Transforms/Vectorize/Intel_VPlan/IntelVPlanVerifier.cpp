@@ -509,6 +509,9 @@ void VPlanVerifier::verifySpecificInstruction(
   case Instruction::PHI:
     verifyPHINode(cast<VPPHINode>(VPInst));
     break;
+  case VPInstruction::Abs:
+    verifyAbsInst(VPInst);
+    break;
   default:
     // TODO: There are more LLVM instructions than the ones that we handle here.
     // E.g., 'br' or 'call'. Once we have VPlan support for all, we can
@@ -622,6 +625,23 @@ void VPlanVerifier::verifySubscriptInst(
     (void)IntArgs;
     (void)Rank;
   }
+}
+
+void VPlanVerifier::verifyAbsInst(const VPInstruction *I) const {
+  assert(I->getOpcode() == VPInstruction::Abs);
+
+  // Abs instruction has one operand.
+  assert(I->getNumOperands() == 1 && "Abs instruction should have 1 operand");
+
+  // Operand and instruction types should match.
+  Type *OpTy = I->getOperand(0)->getType();
+  Type *InstTy = I->getType();
+  assert(OpTy == InstTy && "Unexpected operand/inst type mismatch");
+
+  assert(OpTy->isIntOrIntVectorTy() && "Abs only operates on integers");
+
+  (void)OpTy;
+  (void)InstTy;
 }
 
 // Verify information of \p Inst nested in \p Block.

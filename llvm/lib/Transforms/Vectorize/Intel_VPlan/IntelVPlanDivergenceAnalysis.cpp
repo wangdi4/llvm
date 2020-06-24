@@ -41,6 +41,7 @@
 
 #include "IntelVPlanDivergenceAnalysis.h"
 #include "IntelVPLoopAnalysis.h"
+#include "IntelVPSOAAnalysis.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanLoopInfo.h"
@@ -685,6 +686,25 @@ VPVectorShape VPlanDivergenceAnalysis::getStridedVectorShape(int64_t Stride) {
   return {VPVectorShape::Str, getConstantInt(Stride)};
 }
 
+/// Return true if the given variable has SOA Shape.
+bool VPlanDivergenceAnalysis::isSOAShape(const VPValue *Val) const {
+  assert(Val && "Expected a non-null value.");
+  auto Shape = getVectorShape(Val).getShapeDescriptor();
+  return Shape == VPVectorShape::SOASeq || Shape == VPVectorShape::SOAStr ||
+         Shape == VPVectorShape::SOARnd;
+}
+
+// Returns a SOASequential vector shape with the given stride.
+VPVectorShape
+VPlanDivergenceAnalysis::getSOASequentialVectorShape(int64_t Stride) {
+  return {VPVectorShape::SOASeq, getConstantInt(Stride)};
+}
+
+// Returns a SOARandom vector shape with the given stride.
+VPVectorShape VPlanDivergenceAnalysis::getSOARandomVectorShape() {
+  return {VPVectorShape::SOARnd};
+}
+
 // Verify the shape of each instruction in give Block \p VPBB.
 void VPlanDivergenceAnalysis::verifyBasicBlock(const VPBasicBlock *VPBB) {
   for (auto &VPInst : *VPBB) {
@@ -922,11 +942,81 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForCastInst(
   }
 }
 
-VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForMemAddrInst(
-    const VPInstruction *I) {
+VPVectorShape
+VPlanDivergenceAnalysis::computeVectorShapeForSOAGepInst(const VPInstruction *I) {
+  const auto &VPBB = *I->getParent();
+  VPValue *PtrOp = I->getOperand(0);
+  VPVectorShape PtrShape = getObservedShape(VPBB, *PtrOp);
+
+  unsigned NumOperands = I->getNumOperands();
+  // If any of the gep indices, except the last, are not uniform, then return
+  // random shape.
+  for (unsigned i = 1; i < NumOperands - 1; i++) {
+    const VPValue *Op = I->getOperand(i);
+    VPVectorShape OpShape = getVectorShape(Op);
+    if (!OpShape.isUniform())
+      return getSOARandomVectorShape();
+  }
+
+  const VPValue *LastIdx = I->getOperand(NumOperands - 1);
+  VPVectorShape IdxShape = getObservedShape(VPBB, *LastIdx);
+
+  VPConstant *NewStride = nullptr;
+
+  VPVectorShape::VPShapeDescriptor PtrShapeDesc =
+      PtrShape.getShapeDescriptor();
+
+  VPVectorShape::VPShapeDescriptor IdxShapeDesc =
+      IdxShape.getShapeDescriptor();
+
+  VPVectorShape::VPShapeDescriptor NewDesc =
+      GepConversion[PtrShapeDesc][IdxShapeDesc];
+
+  // If shape is not random, then a new stride (in bytes) can be calculated for
+  // the gep. Gep stride is always in bytes.
+  if (NewDesc != VPVectorShape::SOARnd) {
+    Type *PointedToTy = cast<PointerType>(I->getType())->getElementType();
+    uint64_t PointedToTySize = getTypeSizeInBytes(PointedToTy);
+    // For known strides:
+    // 1) Uniform gep on an array-private should result in strided-access with
+    //   stride = PointedToTySize.
+    // 2) Unit-Stride gep's result in strided access with stride = VF *
+    // PointedToTySize. Since we do not know the value of VF, the stride is unknown.
+    if (PtrShape.hasKnownStride() && IdxShape.hasKnownStride()) {
+      VPValue *IdxStride = IdxShape.getStride();
+
+      uint64_t IdxStrideVal =
+          cast<ConstantInt>(IdxStride->getUnderlyingValue())->getSExtValue();
+
+      if (IdxStrideVal == 0)
+        NewStride = getConstantInt(PointedToTySize);
+      else {
+        // TODO: Set up symbolic stride and express it as multiple of
+        // VF (CMPLRLLVM-19061).
+        if (PtrShape.isSOAUnitStride())
+          NewStride = getConstantInt(IdxStrideVal * PointedToTySize);
+        else if (PtrShape.isSOAStrided())
+          // Can be refined further and the correct stride set.
+          NewStride = nullptr;
+        NewDesc = VPVectorShape::SOAStr;
+      }
+    }
+  }
+  return {NewDesc, NewStride};
+}
+
+
+VPVectorShape
+VPlanDivergenceAnalysis::computeVectorShapeForMemAddrInst(const VPInstruction *I) {
 
   const auto &VPBB = *I->getParent();
   VPValue *PtrOp = I->getOperand(0);
+
+  // If this is a GEP on SOA variable, invoke the SOA-specific GEP-Shape
+  // computation function.
+  if (isSOAShape(PtrOp))
+    return computeVectorShapeForSOAGepInst(I);
+
   VPVectorShape PtrShape = getObservedShape(VPBB, *PtrOp);
   unsigned NumOperands = I->getNumOperands();
 
@@ -1169,6 +1259,14 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForAllocatePrivateInst(
   // Allocate-private is of a pointer type. Get the pointee size and set a
   // tentative shape.
   Type *PointeeTy = cast<PointerType>(AI->getType())->getPointerElementType();
+
+  // Check for SOA-layout.
+  if (AI->isSOALayout() && isa<ArrayType>(PointeeTy)) {
+    uint64_t StrideVal =
+        getTypeSizeInBytes(cast<ArrayType>(PointeeTy)->getElementType());
+    return getSOASequentialVectorShape(StrideVal);
+  }
+
   // We set the stride in terms of bytes.
   int64_t Stride = getTypeSizeInBytes(PointeeTy);
   updateVectorShape(AI, getStridedVectorShape(Stride));
@@ -1258,6 +1356,10 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     NewShape = computeVectorShapeForUnaryInst(I);
   else if (Opcode == VPInstruction::Not || Opcode == VPInstruction::Pred)
     NewShape = getObservedShape(ParentBB, *(I->getOperand(0)));
+  else if (Opcode == VPInstruction::Abs)
+    // Shape computation of abs instruction is same as unary instruction for
+    // now. Revisit in future if this needs to change.
+    NewShape = computeVectorShapeForUnaryInst(I);
   else if (Opcode == VPInstruction::AllZeroCheck)
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::InductionInit)
@@ -1383,6 +1485,45 @@ void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 }
 
+// Recomputes the shapes of all the instructions in the \p Seeds set and
+// triggers the recomputation of all dependent instructions.
+// This function assumes that all the required information like VPlan,
+// Dominator/Post-Dominator tree, etc. are unchanged from the previous
+// invocation of the \p compute method.
+void VPlanDivergenceAnalysis::recomputeShapes(
+    SmallPtrSetImpl<VPInstruction *> &Seeds) {
+
+  if (Seeds.empty())
+    return;
+
+  // Clear the Worklist.
+  clearWorklist();
+
+  // Compute the shapes of the VPAllocatePrivate seed-instructions and push
+  // their users to the Worklist.
+  for (auto *Priv : Seeds) {
+    auto Shape = computeVectorShape(Priv);
+    updateVectorShape(Priv, Shape);
+    pushUsers(*Priv);
+  }
+
+  // Compute the shapes of instructions.
+  computeImpl();
+
+#if INTEL_CUSTOMIZATION
+
+  // We verify the shapes of the instructions 'always' in the debug-build and if
+  // the command-line switch is enabled.
+  if (VPlanVerifyDA)
+    verifyVectorShapes();
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  if (DumpDA)
+    print(dbgs(), RegionLoop);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+}
+
+#endif // INTEL_CUSTOMIZATION
 // Note: community version contains a LoopDivergencePrinter class that creates
 // a SyncDependenceAnalysis object and a LoopDivergenceAnalysis object. The
 // constructor for the LoopDivergenceAnalysis object then calls compute() to

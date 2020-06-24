@@ -158,9 +158,11 @@ public:
     OS << "[Shape: " << getShapeDescriptorStr();
     if (isAnyStrided()) {
       OS << ", Stride: ";
-      if (hasKnownStride())
+      if (hasKnownStride()) {
+        if (isSOAStrided())
+          OS << "VF x ";
         Stride->dump(OS);
-      else
+      } else
         OS << "?";
     }
     OS << ']';

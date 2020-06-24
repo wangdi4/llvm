@@ -984,7 +984,13 @@ namespace X86II {
 
     // NOTRACK prefix
     NoTrackShift = EVEX_RCShift + 1,
-    NOTRACK = 1ULL << NoTrackShift
+    NOTRACK = 1ULL << NoTrackShift,  // INTEL
+
+#if INTEL_CUSTOMIZATION
+    // Force VEX encoding
+    ExplicitVEXShift = NoTrackShift + 1,
+    ExplicitVEXPrefix = 1ULL << ExplicitVEXShift
+#endif // INTEL_CUSTOMIZATION
   };
 
   /// \returns true if the instruction with given opcode is a prefix.

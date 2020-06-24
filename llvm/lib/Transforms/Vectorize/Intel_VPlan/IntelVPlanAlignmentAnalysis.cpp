@@ -107,34 +107,7 @@ VPlanPeelingCandidate::VPlanPeelingCandidate(VPInstruction *Memref,
 }
 
 void VPlanPeelingAnalysis::collectMemrefs(VPlan &Plan) {
-  for (auto &VPBB : Plan)
-    for (auto &VPInst : VPBB) {
-      auto Opcode = VPInst.getOpcode();
-      if (Opcode != Instruction::Load && Opcode != Instruction::Store)
-        continue;
-
-      auto *Pointer = getLoadStorePointerOperand(&VPInst);
-      auto *Expr = VPSE->getVPlanSCEV(*Pointer);
-      Optional<VPConstStepInduction> Ind = VPSE->asConstStepInduction(Expr);
-
-      // Skip if access address is not an induction variable.
-      if (!Ind)
-        continue;
-
-      // Skip accesses that are not unit-strided.
-      Type *EltTy = cast<PointerType>(Pointer->getType())->getElementType();
-      if (DL->getTypeAllocSize(EltTy) != TypeSize::Fixed(Ind->Step))
-        continue;
-
-      KnownBits KB = VPVT->getKnownBits(Ind->InvariantBase, &VPInst);
-
-      // Skip the memref if the address is statically known to be misaligned.
-      auto RequiredAlignment = MinAlign(0, Ind->Step);
-      if ((KB.One & (RequiredAlignment - 1)) != 0)
-        continue;
-
-      CandidateMemrefs.push_back({&VPInst, *Ind, std::move(KB)});
-    }
+  collectCandidateMemrefs(Plan);
 }
 
 std::unique_ptr<VPlanPeelingVariant>
@@ -277,4 +250,35 @@ VPlanPeelingAnalysis::selectBestDynamicPeelingVariant(int VF) {
                                 });
 
   return Reduce;
+}
+
+void VPlanPeelingAnalysis::collectCandidateMemrefs(VPlan &Plan) {
+  for (auto &VPBB : Plan)
+    for (auto &VPInst : VPBB) {
+      auto Opcode = VPInst.getOpcode();
+      if (Opcode != Instruction::Load && Opcode != Instruction::Store)
+        continue;
+
+      auto *Pointer = getLoadStorePointerOperand(&VPInst);
+      auto *Expr = VPSE->getVPlanSCEV(*Pointer);
+      Optional<VPConstStepInduction> Ind = VPSE->asConstStepInduction(Expr);
+
+      // Skip if access address is not an induction variable.
+      if (!Ind)
+        continue;
+
+      // Skip accesses that are not unit-strided.
+      Type *EltTy = cast<PointerType>(Pointer->getType())->getElementType();
+      if (DL->getTypeAllocSize(EltTy) != TypeSize::Fixed(Ind->Step))
+        continue;
+
+      KnownBits KB = VPVT->getKnownBits(Ind->InvariantBase, &VPInst);
+
+      // Skip the memref if the address is statically known to be misaligned.
+      auto RequiredAlignment = MinAlign(0, Ind->Step);
+      if ((KB.One & (RequiredAlignment - 1)) != 0)
+        continue;
+
+      CandidateMemrefs.push_back({&VPInst, *Ind, std::move(KB)});
+    }
 }

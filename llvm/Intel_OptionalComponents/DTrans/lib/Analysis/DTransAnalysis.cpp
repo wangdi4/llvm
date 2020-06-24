@@ -5188,8 +5188,9 @@ public:
     // This function will validate that %classTestClass* is an inner structure
     // of %"struct.std::_Vector_base.13".
     auto IsLoadingInnermostStructure = [&I, this]() -> bool {
+
       LoadInst *Load = dyn_cast<LoadInst>(I.getOperand(0));
-      if (!Load || !Load->hasOneUse())
+      if (!Load)
         return false;
 
       BitCastInst *BC = dyn_cast<BitCastInst>(Load->getPointerOperand());
@@ -6841,7 +6842,7 @@ private:
 
       // If not, then check if it is possible to reach the destination by
       // traversing the 0 elements in the parent structure
-      if (ElementNum == 0 && IsFieldZeroAccess(ParentStruct, DestinationType))
+      if (IsFieldZeroAccess(FieldTy, DestinationType))
         continue;
 
       // The destination doesn't match any information related to the pointee

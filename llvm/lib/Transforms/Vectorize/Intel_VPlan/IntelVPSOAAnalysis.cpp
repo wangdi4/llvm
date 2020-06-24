@@ -47,7 +47,9 @@ static bool checkInstructionInLoop(const VPValue *V, const VPLoop &Loop) {
          Loop.contains(cast<VPInstruction>(V)->getParent());
 }
 
-void VPSOAAnalysis::doSOAAnalysis() {
+// Public interface for SOA-analysis for all loop-privates. \p SOAVars is the
+// output argument that return the variables marked for SOA-layout.
+void VPSOAAnalysis::doSOAAnalysis(SmallPtrSetImpl<VPInstruction *> &SOAVars) {
   if (!EnableSOAAnalysis)
     return;
   assert(Plan.getVPlanDA() && "Expect DA to be run and the DA object be set "
@@ -61,8 +63,10 @@ void VPSOAAnalysis::doSOAAnalysis() {
     if (VPAllocatePrivate *AllocaPriv = dyn_cast<VPAllocatePrivate>(&VInst))
       if (!memoryEscapes(AllocaPriv)) {
         AllocaPriv->setSOASafe();
-        if (isSOAProfitable(AllocaPriv))
+        if (isSOAProfitable(AllocaPriv)) {
           AllocaPriv->setSOAProfitable();
+          SOAVars.insert(AllocaPriv);
+        }
       }
   }
 

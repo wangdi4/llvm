@@ -7204,13 +7204,13 @@ multiclass avx_vnni_rm<bits<8> opc, string OpcodeStr, Intrinsic Int128,
 }
 
 defm VPDPBUSD   : avx_vnni_rm<0x50, "vpdpbusd", int_x86_avx_vpdpbusd_128,
-                              int_x86_avx_vpdpbusd_256, 0>;
+                              int_x86_avx_vpdpbusd_256, 0>, ExplicitVEXPrefix;
 defm VPDPBUSDS  : avx_vnni_rm<0x51, "vpdpbusds", int_x86_avx_vpdpbusds_128,
-                              int_x86_avx_vpdpbusds_256, 0>;
+                              int_x86_avx_vpdpbusds_256, 0>, ExplicitVEXPrefix;
 defm VPDPWSSD   : avx_vnni_rm<0x52, "vpdpwssd", int_x86_avx_vpdpwssd_128,
-                              int_x86_avx_vpdpwssd_256, 1>;
+                              int_x86_avx_vpdpwssd_256, 1>, ExplicitVEXPrefix;
 defm VPDPWSSDS  : avx_vnni_rm<0x53, "vpdpwssds", int_x86_avx_vpdpwssds_128,
-                              int_x86_avx_vpdpwssds_256, 1>;
+                              int_x86_avx_vpdpwssds_256, 1>, ExplicitVEXPrefix;
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
 #endif // INTEL_CUSTOMIZATION
 
@@ -8170,13 +8170,13 @@ multiclass VDPBF16PS_rm<bits<8> opc, string OpcodeStr, ValueType OpVT,
 }  // Constraints = "$src1 = $dst"
 
   defm VDPBF16PS       : VDPBF16PS_rm<0x52, "vdpbf16ps", v4f32, VR128, loadv4i32,
-                                    f128mem, X86dpbf16psvex>, T8XS;
+                                    f128mem, X86dpbf16psvex>, T8XS, ExplicitVEXPrefix;
   defm VDPBF16PSY      : VDPBF16PS_rm<0x52, "vdpbf16ps", v8f32, VR256, loadv8i32,
-                                    f256mem, X86dpbf16psvex>, VEX_L, T8XS;
+                                    f256mem, X86dpbf16psvex>, VEX_L, T8XS, ExplicitVEXPrefix;
   defm VCVTNE2PS2BF16  : VCVTBF16_rm<0x72, "vcvtne2ps2bf16", v8i16, VR128, loadv4f32,
-                                    f128mem, X86cvtne2ps2bf16vex>, T8XD;
+                                    f128mem, X86cvtne2ps2bf16vex>, T8XD, ExplicitVEXPrefix;
   defm VCVTNE2PS2BF16Y : VCVTBF16_rm<0x72, "vcvtne2ps2bf16", v16i16, VR256, loadv8f32,
-                                    f256mem, X86cvtne2ps2bf16vex>, VEX_L, T8XD;
+                                    f256mem, X86cvtne2ps2bf16vex>, VEX_L, T8XD, ExplicitVEXPrefix;
 
 multiclass VCVTNEPS2BF16_rm<bits<8> opc, string OpcodeStr, RegisterClass RC,
                           X86MemOperand x86memop, PatFrag MemOpFrag, SDNode OpNode> {
@@ -8191,9 +8191,11 @@ multiclass VCVTNEPS2BF16_rm<bits<8> opc, string OpcodeStr, RegisterClass RC,
 }
 
   defm VCVTNEPS2BF16  : VCVTNEPS2BF16_rm<0x72, "vcvtneps2bf16", VR128,
-                                    f128mem,  loadv4f32 ,X86cvtneps2bf16vex>, T8XS;
+                                    f128mem,  loadv4f32 ,X86cvtneps2bf16vex>,
+                                    T8XS, ExplicitVEXPrefix;
   defm VCVTNEPS2BF16Y : VCVTNEPS2BF16_rm<0x72, "vcvtneps2bf16", VR256,
-                                    f256mem, loadv8f32, X86cvtneps2bf16vex>, VEX_L, T8XS;
+                                    f256mem, loadv8f32, X86cvtneps2bf16vex>,
+                                    VEX_L, T8XS, ExplicitVEXPrefix;
 #endif // INTEL_FEATURE_ISA_AVX_BF16
 #endif // INTEL_CUSTOMIZATION
 
@@ -8233,8 +8235,8 @@ multiclass avx_ifma_rm<bits<8> opc, string OpcodeStr, SDNode OpNode> {
                VEX_4V, VEX_L, Sched<[SchedWriteVecIMul.YMM]>;
 }
 
-defm VPMADD52HUQ : avx_ifma_rm<0xb5, "vpmadd52huq", x86vpmadd52hvex>, VEX_W;
-defm VPMADD52LUQ : avx_ifma_rm<0xb4, "vpmadd52luq", x86vpmadd52lvex>, VEX_W;
+defm VPMADD52HUQ : avx_ifma_rm<0xb5, "vpmadd52huq", x86vpmadd52hvex>, VEX_W, ExplicitVEXPrefix;
+defm VPMADD52LUQ : avx_ifma_rm<0xb4, "vpmadd52luq", x86vpmadd52lvex>, VEX_W, ExplicitVEXPrefix;
 #endif // INTEL_FEATURE_ISA_AVX_IFMA
 #endif // INTEL_CUSTOMIZATION
 

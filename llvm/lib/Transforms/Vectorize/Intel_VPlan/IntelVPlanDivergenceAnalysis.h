@@ -62,6 +62,13 @@ public:
                VPDominatorTree &DT, VPPostDominatorTree &PDT,
                bool IsLCSSA = true);
 
+  /// Recomputes the shapes of all the instructions in the \p Seeds set and
+  /// triggers the recomputation of all dependent instructions.
+  /// This function assumes that all the required information like VPlan,
+  /// Dominator/Post-Dominator tree, etc. are unchanged from the previous
+  /// invocation of the \p compute method.
+  void recomputeShapes(SmallPtrSetImpl<VPInstruction *> &Seeds);
+
   /// Mark \p DivVal as a value that is always divergent.
   void markDivergent(const VPValue &DivVal);
 
@@ -112,6 +119,13 @@ private:
 
   /// Pop the instruction from the Worklist.
   const VPInstruction *popFromWorklist();
+
+  // Clear the Worklist.
+  void clearWorklist() {
+    std::queue<const VPInstruction*> EmptyWL;
+    std::swap(Worklist, EmptyWL);
+    OnWorklist.clear();
+  }
 
   /// Whether \p BB is part of the region.
   bool inRegion(const VPBasicBlock &BB) const;
@@ -234,6 +248,8 @@ private:
   /// (includes GEP and VPSubscript).
   VPVectorShape computeVectorShapeForMemAddrInst(const VPInstruction *I);
 
+  VPVectorShape computeVectorShapeForSOAGepInst(const VPInstruction *I);
+
   /// Computes vector shapes for phi nodes.
   VPVectorShape computeVectorShapeForPhiNode(const VPPHINode *Phi);
 
@@ -273,6 +289,15 @@ private:
 
   /// Returns a strided vector shape with the given stride.
   VPVectorShape getStridedVectorShape(int64_t Stride);
+
+  /// Return true if the given variable has VectorShape.
+  bool isSOAShape(const VPValue *Val) const;
+
+  /// Returns a SOASequential vector shape with the given stride.
+  VPVectorShape getSOASequentialVectorShape(int64_t Stride);
+
+  /// Returns a SOARandom vector shape with the given stride.
+  VPVectorShape getSOARandomVectorShape();
 
   /// Returns in integer value in \p IntVal if \p V is an integer VPConstant.
   bool getConstantIntVal(VPValue *V, int64_t &IntVal);

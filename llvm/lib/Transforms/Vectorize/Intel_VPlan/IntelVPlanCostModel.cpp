@@ -21,6 +21,7 @@
 #include "llvm/Analysis/VectorUtils.h"
 
 #define DEBUG_TYPE "vplan-cost-model"
+
 using namespace loopopt;
 /// A helper function that returns the alignment of load or store instruction.
 static unsigned getMemInstAlignment(const Value *I) {
@@ -404,6 +405,24 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
     return 0;
   }
 #if INTEL_CUSTOMIZATION
+  case VPInstruction::Abs: {
+    // Cost of Abs instruction is computed as cost of a compare followed by
+    // a select for now.
+    Type *OpTy = VPInst->getOperand(0)->getCMType();
+    if (!OpTy)
+      return UnknownCost;
+
+    Type *VecOpTy = getWidenedType(OpTy, VF);
+    Type *CmpTy = Type::getInt1Ty(*(Plan->getLLVMContext()));
+    Type *VecCmpTy =
+        getWidenedType(CmpTy, cast<VectorType>(VecOpTy)->getNumElements());
+
+    unsigned CmpCost = TTI->getCmpSelInstrCost(Instruction::ICmp, VecOpTy);
+    unsigned SelectCost =
+        TTI->getCmpSelInstrCost(Instruction::Select, VecOpTy, VecCmpTy);
+    return CmpCost + SelectCost;
+  }
+
   // TODO - costmodel support for AllZeroCheck.
   case VPInstruction::AllZeroCheck:
     return 0;
@@ -416,7 +435,7 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
 #endif // INTEL_CUSTOMIZATION
   case Instruction::Load:
   case Instruction::Store:
-    return VPlanCostModel::getLoadStoreCost(VPInst);
+    return getLoadStoreCost(VPInst);
   case Instruction::Add:
   case Instruction::FAdd:
   case Instruction::Sub:
@@ -458,8 +477,7 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
       return UnknownCost;
 
     Type *VectorTy = getWidenedType(Ty, VF);
-    unsigned Cost = TTI->getCmpSelInstrCost(Opcode, VectorTy);
-    return Cost;
+    return TTI->getCmpSelInstrCost(Opcode, VectorTy);
   }
   case Instruction::Select: {
     // FIXME: Due to issues in VPlan creation VPInstruction with Select opcode
@@ -482,8 +500,7 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
 
     Type *VecCondTy = getWidenedType(CondTy, VF);
     Type *VecOpTy = getWidenedType(OpTy, VF);
-    unsigned Cost = TTI->getCmpSelInstrCost(Opcode, VecOpTy, VecCondTy);
-    return Cost;
+    return TTI->getCmpSelInstrCost(Opcode, VecOpTy, VecCondTy);
   }
   case Instruction::ZExt:
   case Instruction::SExt:
@@ -513,9 +530,7 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
     // such a cast can be folded into the defining load for free. We should
     // consider adding an overload accepting VPInstruction for TTI to be able to
     // analyze that.
-    unsigned Cost = TTI->getCastInstrCost(Opcode, VecDstTy, VecSrcTy);
-
-    return Cost;
+    return TTI->getCastInstrCost(Opcode, VecDstTy, VecSrcTy);
   }
   }
 }
@@ -523,8 +538,6 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
 unsigned VPlanCostModel::getCost(const VPBasicBlock *VPBB) {
   unsigned Cost = 0;
   for (const VPInstruction &VPInst : *VPBB) {
-    // FIXME: Use Block Frequency Info (or similar VPlan-specific analysis) to
-    // correctly scale the cost of the basic block.
     unsigned InstCost = getCost(&VPInst);
     if (InstCost == UnknownCost)
       continue;
@@ -541,7 +554,10 @@ unsigned VPlanCostModel::getCost() {
 
   unsigned Cost = 0;
   for (auto *Block : depth_first(Plan->getEntryBlock()))
+    // FIXME: Use Block Frequency Info (or similar VPlan-specific analysis) to
+    // correctly scale the cost of the basic block.
     Cost += getCost(Block);
+
   return Cost;
 }
 

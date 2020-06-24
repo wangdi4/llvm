@@ -3588,71 +3588,19 @@ unsigned X86AsmParser::checkTargetMatchPredicate(MCInst &Inst) {
       (MCID.TSFlags & X86II::EncodingMask) != X86II::VEX)
     return Match_Unsupported;
 
+  // These instructions are only available with {vex2} or {vex3} prefix
+#if INTEL_CUSTOMIZATION
+  if (MCID.TSFlags & X86II::ExplicitVEXPrefix &&
+      (ForcedVEXEncoding != VEXEncoding_VEX &&
+       ForcedVEXEncoding != VEXEncoding_VEX3))
+        return Match_Unsupported;
+#endif // INTEL_CUSTOMIZATION
+
   // These instructions match ambiguously with their VEX encoded counterparts
   // and appear first in the matching table. Reject them unless we're forcing
   // EVEX encoding.
   // FIXME: We really need a way to break the ambiguity.
   switch (Opc) {
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_VNNI
-  case X86::VPDPBUSDSYrm:
-  case X86::VPDPBUSDSYrr:
-  case X86::VPDPBUSDSrm:
-  case X86::VPDPBUSDSrr:
-  case X86::VPDPBUSDYrm:
-  case X86::VPDPBUSDYrr:
-  case X86::VPDPBUSDrm:
-  case X86::VPDPBUSDrr:
-  case X86::VPDPWSSDSYrm:
-  case X86::VPDPWSSDSYrr:
-  case X86::VPDPWSSDSrm:
-  case X86::VPDPWSSDSrr:
-  case X86::VPDPWSSDYrm:
-  case X86::VPDPWSSDYrr:
-  case X86::VPDPWSSDrm:
-  case X86::VPDPWSSDrr:
-    // These instructions are only available with {vex2} or {vex3} prefix
-    if (ForcedVEXEncoding != VEXEncoding_VEX &&
-        ForcedVEXEncoding != VEXEncoding_VEX3)
-      return Match_Unsupported;
-    break;
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
-#if INTEL_FEATURE_ISA_AVX_BF16
-  case X86::VDPBF16PSrr:
-  case X86::VDPBF16PSrm:
-  case X86::VDPBF16PSYrr:
-  case X86::VDPBF16PSYrm:
-  case X86::VCVTNE2PS2BF16rr:
-  case X86::VCVTNE2PS2BF16rm:
-  case X86::VCVTNE2PS2BF16Yrr:
-  case X86::VCVTNE2PS2BF16Yrm:
-  case X86::VCVTNEPS2BF16rr:
-  case X86::VCVTNEPS2BF16rm:
-  case X86::VCVTNEPS2BF16Yrr:
-  case X86::VCVTNEPS2BF16Yrm:
-    // These instructions are only available with {vex2} or {vex3} prefix
-    if (ForcedVEXEncoding != VEXEncoding_VEX &&
-        ForcedVEXEncoding != VEXEncoding_VEX3)
-      return Match_Unsupported;
-    break;
-#endif // INTEL_FEATURE_ISA_AVX_BF16
-#if INTEL_FEATURE_ISA_AVX_IFMA
-  case X86:: VPMADD52HUQrr:
-  case X86:: VPMADD52HUQrm:
-  case X86:: VPMADD52HUQYrr:
-  case X86:: VPMADD52HUQYrm:
-  case X86:: VPMADD52LUQrr:
-  case X86:: VPMADD52LUQrm:
-  case X86:: VPMADD52LUQYrr:
-  case X86:: VPMADD52LUQYrm:
-    // These instructions are only available with {vex2} or {vex3} prefix
-    if (ForcedVEXEncoding != VEXEncoding_VEX &&
-        ForcedVEXEncoding != VEXEncoding_VEX3)
-      return Match_Unsupported;
-    break;
-#endif // INTEL_FEATURE_ISA_AVX_IFMA
-#endif // INTEL_CUSTOMIZATION
-
   case X86::VCVTSD2SIZrm_Int:
   case X86::VCVTSD2SI64Zrm_Int:
   case X86::VCVTSS2SIZrm_Int:

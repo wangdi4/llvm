@@ -164,6 +164,11 @@ public:
                              {Operand}, Name);
   }
 
+  VPValue *createAbs(VPValue *Operand, const Twine &Name = "") {
+    return createInstruction(VPInstruction::Abs, Operand->getType(), {Operand},
+                             Name);
+  }
+
   VPValue *createAnd(VPValue *LHS, VPValue *RHS, const Twine &Name = "") {
     return createInstruction(Instruction::BinaryOps::And, LHS->getType(),
                              {LHS, RHS}, Name);

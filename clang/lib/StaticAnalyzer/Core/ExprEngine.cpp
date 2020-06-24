@@ -1249,6 +1249,7 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
     case Stmt::OMPTeamsGenericLoopDirectiveClass:
     case Stmt::OMPTargetTeamsGenericLoopDirectiveClass:
     case Stmt::OMPParallelGenericLoopDirectiveClass:
+    case Stmt::OMPTargetParallelGenericLoopDirectiveClass:
     case Stmt::OMPTargetVariantDispatchDirectiveClass:
 #endif // INTEL_COLLAB
     case Stmt::OMPSingleDirectiveClass:

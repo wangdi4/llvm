@@ -33,6 +33,7 @@ void foo1(int ploop) {
   int i;
   int z = 6;
   int x;
+  int pr;
 
   //CHECK-DAG: [[I:%i[0-9]*]] = alloca i32
   //CHECK-DAG: [[IV:%.omp.iv[0-9]*]] = alloca i32
@@ -41,7 +42,11 @@ void foo1(int ploop) {
   //CHECK-DAG: [[Z:%z[0-9]*]] = alloca i32
   //CHECK-DAG: [[X:%x[0-9]*]] = alloca i32
   //CHECK-DAG: [[CCC:%ccc[0-9]*]] = alloca [100 x i32]
+  //CHECK-DAG: [[PR:%pr[0-9]*]] = alloca i32
 
+  //CHECK: "DIR.OMP.TARGET"(),
+  //CHECK-DAG: "QUAL.OMP.DEVICE"(i32 0),
+  //CHECK-DAG: "QUAL.OMP.MAP.TOFROM"(i32* [[PR]],
   //CHECK: "DIR.OMP.PARALLEL"(),
   //CHECK-DAG: "QUAL.OMP.PRIVATE"([100 x i32]* [[CCC]])
   //CHECK-DAG: "QUAL.OMP.IF"
@@ -58,29 +63,59 @@ void foo1(int ploop) {
   //CHECK-DAG: "QUAL.OMP.FIRSTPRIVATE"(i32* [[LB]])
   //CHECK: "DIR.OMP.END.GENERICLOOP"()
   //CHECK: "DIR.OMP.END.PARALLEL"()
+  //CHECK: "DIR.OMP.END.TARGET"()
 
   int ccc[100];
-  #pragma omp parallel loop private(ccc) collapse(2) bind(parallel) copyin(y) \
-                            reduction(+:x) allocate(omp_default_mem_alloc:z)  \
-                            if(ploop) proc_bind(master) num_threads(16)       \
-                            firstprivate(z) order(concurrent) lastprivate(i)
+  #pragma omp target parallel loop private(ccc) collapse(2) bind(parallel)    \
+                                   copyin(y) device(0) map(tofrom:pr)         \
+                                   reduction(+:x)                             \
+                                   allocate(omp_default_mem_alloc:z)          \
+                                   if(ploop) proc_bind(master) num_threads(16)\
+                                   firstprivate(z) order(concurrent)          \
+                                   lastprivate(i)
   for (i=0; i<1000; ++i)
   for (int j=0; j<1000; ++j) {
     ccc[i] = i + j;
     aaa[i] = bbb[i] + ccc[i] + i + z;
     x = i+z;
+    pr = pr + 33;
   }
 
   //CHECK: "DIR.OMP.PARALLEL"(),
   //CHECK-DAG: "QUAL.OMP.DEFAULT.NONE"()
   //CHECK: "DIR.OMP.GENERICLOOP"(),
-  #pragma omp parallel loop default(none) private(ccc)
+  #pragma omp target parallel loop default(none) private(ccc)
   for (i=0; i<1000; ++i) {
     ccc[i] = 0;
   }
   //CHECK: "DIR.OMP.END.GENERICLOOP"()
   //CHECK: "DIR.OMP.END.PARALLEL"()
 
+}
+
+//CHECK-LABEL: task_target
+void task_target() {
+  int i;
+  short y = 3;
+  //CHECK-DAG: [[I:%i[0-9]*]] = alloca i32
+  //CHECK-DAG: [[Y:%.+]] = alloca i16,
+
+  //CHECK: DIR.OMP.TASK
+  //CHECK-DAG: "QUAL.OMP.IF"(i32 0)
+  //CHECK-DAG: "QUAL.OMP.TARGET.TASK"
+  //CHECK-DAG: "QUAL.OMP.DEPEND.OUT"(i16* [[Y]])
+  //CHECK: DIR.OMP.TARGET
+  //CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i16* [[Y]],
+  //CHECK: DIR.OMP.PARALLEL
+  //CHECK: DIR.OMP.GENERICLOOP
+  //CHECK: DIR.OMP.END.GENERICLOOP
+  //CHECK: DIR.OMP.END.PARALLEL
+  //CHECK: DIR.OMP.END.TARGET
+  //CHECK: DIR.OMP.END.TASK
+  #pragma omp target parallel loop map(tofrom:y) depend(out:y)
+  for (i=0; i<10; ++i) {
+    y = 3+i;
+  }
 }
 #endif
 // end INTEL_COLLAB

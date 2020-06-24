@@ -311,7 +311,7 @@ bool VPInstruction::mayHaveSideEffects() const {
       Opcode == Instruction::Select || Opcode == Instruction::GetElementPtr ||
       Opcode == Instruction::PHI || Opcode == Instruction::ICmp ||
       Opcode == Instruction::FCmp || Opcode == VPInstruction::Not ||
-      Opcode == VPInstruction::AllZeroCheck ||
+      Opcode == VPInstruction::Abs || Opcode == VPInstruction::AllZeroCheck ||
       Opcode == VPInstruction::InductionInit)
     return false;
 
@@ -324,6 +324,8 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
   case VPInstruction::Not:
     return "not";
 #if INTEL_CUSTOMIZATION
+  case VPInstruction::Abs:
+    return "abs";
   case VPInstruction::AllZeroCheck:
     return "all-zero-check";
   case VPInstruction::Pred:

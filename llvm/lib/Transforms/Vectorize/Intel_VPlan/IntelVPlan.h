@@ -677,6 +677,7 @@ public:
   /// VPlan opcodes, extending LLVM IR with idiomatics instructions.
   enum {
       Not = Instruction::OtherOpsEnd + 1,
+      Abs,
       AllZeroCheck,
       Pred,
       SMax,

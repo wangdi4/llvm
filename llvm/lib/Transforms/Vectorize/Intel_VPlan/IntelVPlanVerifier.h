@@ -51,6 +51,7 @@ private:
   void verifySpecificInstruction(const VPInstruction *Inst) const;
 
   /// Verify VPInstructions.
+  void verifyAbsInst(const VPInstruction *I) const;
   void verifyICmpInst(const VPInstruction *I) const;
   void verifyFCmpInst(const VPInstruction *I) const;
   void verifyZExtInst(const VPInstruction *I) const;

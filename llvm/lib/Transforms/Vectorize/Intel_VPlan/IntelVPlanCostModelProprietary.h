@@ -30,16 +30,7 @@ public:
     VLSA->getOVLSMemrefs(Plan, VF);
   }
 
-  virtual unsigned getCost(const VPInstruction *VPInst) final;
-  virtual unsigned getCost(const VPBasicBlock *VPBB) final;
   virtual unsigned getCost() final;
-  virtual unsigned getLoadStoreCost(const VPInstruction *VPInst) {
-    return getLoadStoreCost(VPInst, false /* Don't use VLS cost by default */);
-  }
-  unsigned getLoadStoreCost(const VPInstruction *VPInst,
-                            const bool UseVLSCost);
-
-
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS, const std::string &Header);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
@@ -47,12 +38,21 @@ public:
   ~VPlanCostModelProprietary() {}
 
 private:
+  virtual unsigned getCost(const VPInstruction *VPInst) final;
+  virtual unsigned getCost(const VPBasicBlock *VPBB) final;
+  virtual unsigned getLoadStoreCost(const VPInstruction *VPInst) {
+    return getLoadStoreCost(VPInst, false /* Don't use VLS cost by default */);
+  }
+  unsigned getLoadStoreCost(const VPInstruction *VPInst,
+                            const bool UseVLSCost);
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printForVPInstruction(
     raw_ostream &OS, const VPInstruction *VPInst);
   void printForVPBasicBlock(
     raw_ostream &OS, const VPBasicBlock *VPBlock);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
+
   // Implements basic register pressure calculation pass.
   // Bothers vector registers only currently.
   unsigned getSpillFillCost(const VPBasicBlock *VPBlock);
