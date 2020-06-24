@@ -21,6 +21,7 @@
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO/Intel_InlineReport.h"   // INTEL
 #include "llvm/Transforms/IPO/Intel_MDInlineReport.h" // INTEL
