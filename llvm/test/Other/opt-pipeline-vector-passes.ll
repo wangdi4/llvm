@@ -30,7 +30,10 @@
 ; Optionally run cleanup passes.
 
 ; OLDPM_O2_EXTRA-LABEL:  Pass Arguments:
-; OLDPM_O2_EXTRA:        Loop Vectorization
+; INTEL_CUSTOMIZATION
+; Xmain's loop vectorization is customized
+; O;LDPM_O2_EXTRA:        Loop Vectorization
+; end INTEL_CUSTOMIZATION
 ; OLDPM_O2_EXTRA:        Early CSE
 ; OLDPM_O2_EXTRA:        Value Propagation
 ; OLDPM_O2_EXTRA:        Combine redundant instructions
