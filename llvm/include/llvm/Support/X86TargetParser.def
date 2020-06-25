@@ -196,6 +196,7 @@ X86_FEATURE       (FEATURE_CLFLUSHOPT)
 X86_FEATURE       (FEATURE_SHA)
 #undef X86_FEATURE_COMPAT
 #undef X86_FEATURE
+<<<<<<< HEAD
 
 
 #ifndef PROC_WITH_FEAT
@@ -469,3 +470,5 @@ PROC(Geode, "geode", PROC_32_BIT)
 #undef PROC
 #undef PROC_ALIAS
 #undef PROC_WITH_FEAT
+=======
+>>>>>>> 8dc92142e3c5332d741aff4bc81ee6aeed7784b2
