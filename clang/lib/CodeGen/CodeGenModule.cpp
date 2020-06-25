@@ -6503,22 +6503,6 @@ void CodeGenModule::EmitCommandLineMetadata() {
   CommandLineMetadata->addOperand(llvm::MDNode::get(Ctx, CommandLineNode));
 }
 
-<<<<<<< HEAD
-void CodeGenModule::EmitTargetMetadata() {
-  // Warning, new MangledDeclNames may be appended within this loop.
-  // We rely on MapVector insertions adding new elements to the end
-  // of the container.
-  // FIXME: Move this loop into the one target that needs it, and only
-  // loop over those declarations for which we couldn't emit the target
-  // metadata when we emitted the declaration.
-  for (unsigned I = 0; I != MangledDeclNames.size(); ++I) {
-    auto Val = *(MangledDeclNames.begin() + I);
-    const Decl *D = Val.first.getDecl()->getMostRecentDecl();
-    llvm::GlobalValue *GV = GetGlobalValue(Val.second);
-    getTargetCodeGenInfo().emitTargetMD(D, GV, *this);
-  }
-}
-
 #if INTEL_CUSTOMIZATION
 /// Emits metadata in TheModule with the given Name and Value.
 static void AddLLVMDbgMetadata(llvm::Module &TheModule, StringRef Name,
@@ -6576,8 +6560,6 @@ void CodeGenModule::EmitIntelDriverTempfile() {
 }
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> dc3f8913d2ad33b1129ea488393e12cc88061aff
 void CodeGenModule::EmitCoverageFile() {
   if (getCodeGenOpts().CoverageDataFile.empty() &&
       getCodeGenOpts().CoverageNotesFile.empty())
