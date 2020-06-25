@@ -348,9 +348,11 @@ bool GeneralUtils::isOMPItemGlobalVAR(const Value *V) {
   // the original type of the OpenMP clause's item VAR in both cases, i.e.
   // when VAR is represented directly with a GlobalVariable or with
   // GlobalVariable followed by AddrSpaceCast.
+  // TODO: OPAQUEPOINTER: Remove this call. It will not be needed after opaque
+  // pointers are introduced.
   assert(isa<PointerType>(CE->getType()) &&
          cast<PointerType>(CE->getType())->getElementType() ==
-         cast<GlobalVariable>(CE->getOperand(0))->getValueType() &&
+             cast<GlobalVariable>(CE->getOperand(0))->getValueType() &&
          "isOMPItemGlobalVAR: Type mismatch for a GlobalVariable and "
          "its addrspacecast.");
 
@@ -378,6 +380,9 @@ bool GeneralUtils::isOMPItemLocalVAR(const Value *V) {
     // If we reach an AllocaInst by following AddrSpaceCastInst
     // chain, and the type changes along the way, then it is not
     // clear what object type was specified in the clause.
+    // TODO: OPAQUEPOINTER: Delete the check below or change it appropriately.
+    // There will only be an AddrSpaceCast, the pointer type cannot be
+    // changed.
     V = ASCI->getPointerOperand();
     if (cast<PointerType>(ASCI->getType())->getElementType() !=
         cast<PointerType>(V->getType())->getElementType())
@@ -392,9 +397,8 @@ bool GeneralUtils::isOMPItemLocalVAR(const Value *V) {
   return true;
 }
 
-std::tuple<PointerType *, Value *>
-    GeneralUtils::getOMPItemLocalVARPointerTypeAndNumElem(
-  Value *V) {
+std::tuple<Type *, Value *>
+GeneralUtils::getOMPItemLocalVARPointerTypeAndNumElem(Value *V, Type *VElemTy) {
   if (!isOMPItemLocalVAR(V)) {
     llvm_unreachable("getItemLocalVARPointerType: expect isOMPItemLocalVAR().");
     return std::make_tuple(nullptr, nullptr);
@@ -408,12 +412,12 @@ std::tuple<PointerType *, Value *>
   if (auto *AI = dyn_cast<AllocaInst>(V)) {
     // VLA allocas specify the number of allocated elements.
     Value *NumElements = AI->getArraySize();
-    return std::make_tuple(AI->getType(), NumElements);
+    return std::make_tuple(AI->getAllocatedType(), NumElements);
   }
 
   // If we did not find an AllocaInst, then we treat this as a scalar
   // clause item.
-  return std::make_tuple(cast<PointerType>(V->getType()),
-      cast<Value>(ConstantInt::get(Type::getInt32Ty(V->getContext()), 1)));
+  return std::make_tuple(VElemTy, cast<Value>(ConstantInt::get(
+                                      Type::getInt32Ty(V->getContext()), 1)));
 }
 #endif // INTEL_COLLAB

@@ -677,6 +677,8 @@ private:
   IsDevicePtrClause IsDevicePtr;
   EXPR IfExpr;
   EXPR Device;
+  EXPR SubDeviceBase;
+  EXPR SubDeviceLength;
   AllocaInst *ParLoopNdInfoAlloca;    // supports kernel loop parallelization
   bool Nowait;
   WRNDefaultmapBehavior Defaultmap[WRNDefaultmapCategorySize] =
@@ -693,6 +695,8 @@ public:
 protected:
   void setIf(EXPR E) { IfExpr = E; }
   void setDevice(EXPR E) { Device = E; }
+  void setSubDeviceBase(EXPR E) { SubDeviceBase = E; }
+  void setSubDeviceLength(EXPR E) { SubDeviceLength = E; }
   void setNowait(bool Flag) { Nowait = Flag; }
   void setDefaultmap(WRNDefaultmapCategory C, WRNDefaultmapBehavior B) {
     Defaultmap[C] = B;
@@ -717,6 +721,8 @@ public:
   AllocaInst *getParLoopNdInfoAlloca() const { return ParLoopNdInfoAlloca; }
   EXPR getIf() const { return IfExpr; }
   EXPR getDevice() const { return Device; }
+  EXPR getSubDeviceBase() const { return SubDeviceBase; }
+  EXPR getSubDeviceLength() const { return SubDeviceLength; }
   bool getNowait() const { return Nowait; }
   WRNDefaultmapBehavior getDefaultmap(WRNDefaultmapCategory C) const {
     return Defaultmap[C];
@@ -775,9 +781,10 @@ class WRNTargetDataNode : public WRegionNode {
 private:
   MapClause Map;
   UseDevicePtrClause UseDevicePtr;
-  UseDeviceAddrClause UseDeviceAddr;
   EXPR IfExpr;
   EXPR Device;
+  EXPR SubDeviceBase;
+  EXPR SubDeviceLength;
 
 public:
   WRNTargetDataNode(BasicBlock *BB);
@@ -785,14 +792,17 @@ public:
 protected:
   void setIf(EXPR E) { IfExpr = E; }
   void setDevice(EXPR E) { Device = E; }
+  void setSubDeviceBase(EXPR E) { SubDeviceBase = E; }
+  void setSubDeviceLength(EXPR E) { SubDeviceLength = E; }
 
 public:
   DEFINE_GETTER(MapClause,          getMap,          Map)
   DEFINE_GETTER(UseDevicePtrClause, getUseDevicePtr, UseDevicePtr)
-  DEFINE_GETTER(UseDeviceAddrClause, getUseDeviceAddr, UseDeviceAddr)
 
   EXPR getIf() const { return IfExpr; }
   EXPR getDevice() const { return Device; }
+  EXPR getSubDeviceBase() const { return SubDeviceBase; }
+  EXPR getSubDeviceLength() const { return SubDeviceLength; }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const;
@@ -813,6 +823,8 @@ private:
   DependClause Depend;
   EXPR IfExpr;
   EXPR Device;
+  EXPR SubDeviceBase;
+  EXPR SubDeviceLength;
   bool Nowait;
 
 public:
@@ -821,6 +833,8 @@ public:
 protected:
   void setIf(EXPR E) { IfExpr = E; }
   void setDevice(EXPR E) { Device = E; }
+  void setSubDeviceBase(EXPR E) { SubDeviceBase = E; }
+  void setSubDeviceLength(EXPR E) { SubDeviceLength = E; }
   void setNowait(bool Flag) { Nowait = Flag; }
 
 public:
@@ -829,6 +843,8 @@ public:
 
   EXPR getIf() const { return IfExpr; }
   EXPR getDevice() const { return Device; }
+  EXPR getSubDeviceBase() const { return SubDeviceBase; }
+  EXPR getSubDeviceLength() const { return SubDeviceLength; }
   bool getNowait() const { return Nowait; }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
@@ -850,6 +866,8 @@ private:
   DependClause Depend;
   EXPR IfExpr;
   EXPR Device;
+  EXPR SubDeviceBase;
+  EXPR SubDeviceLength;
   bool Nowait;
 
 public:
@@ -858,6 +876,8 @@ public:
 protected:
   void setIf(EXPR E) { IfExpr = E; }
   void setDevice(EXPR E) { Device = E; }
+  void setSubDeviceBase(EXPR E) { SubDeviceBase = E; }
+  void setSubDeviceLength(EXPR E) { SubDeviceLength = E; }
   void setNowait(bool Flag) { Nowait = Flag; }
 
 public:
@@ -866,6 +886,8 @@ public:
 
   EXPR getIf() const { return IfExpr; }
   EXPR getDevice() const { return Device; }
+  EXPR getSubDeviceBase() const { return SubDeviceBase; }
+  EXPR getSubDeviceLength() const { return SubDeviceLength; }
   bool getNowait() const { return Nowait; }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
@@ -887,6 +909,8 @@ private:
   DependClause Depend;
   EXPR IfExpr;
   EXPR Device;
+  EXPR SubDeviceBase;
+  EXPR SubDeviceLength;
   bool Nowait;
 
 public:
@@ -895,6 +919,8 @@ public:
 protected:
   void setIf(EXPR E) { IfExpr = E; }
   void setDevice(EXPR E) { Device = E; }
+  void setSubDeviceBase(EXPR E) { SubDeviceBase = E; }
+  void setSubDeviceLength(EXPR E) { SubDeviceLength = E; }
   void setNowait(bool Flag) { Nowait = Flag; }
 
 public:
@@ -903,6 +929,8 @@ public:
 
   EXPR getIf() const { return IfExpr; }
   EXPR getDevice() const { return Device; }
+  EXPR getSubDeviceBase() const { return SubDeviceBase; }
+  EXPR getSubDeviceLength() const { return SubDeviceLength; }
   bool getNowait() const { return Nowait; }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
@@ -922,8 +950,9 @@ class WRNTargetVariantNode : public WRegionNode {
 private:
   MapClause Map;
   UseDevicePtrClause UseDevicePtr;
-  UseDeviceAddrClause UseDeviceAddr;
   EXPR Device;
+  EXPR SubDeviceBase;
+  EXPR SubDeviceLength;
   bool Nowait;
 
 public:
@@ -931,13 +960,16 @@ public:
 
 protected:
   void setDevice(EXPR E) { Device = E; }
+  void setSubDeviceBase(EXPR E) { SubDeviceBase = E; }
+  void setSubDeviceLength(EXPR E) { SubDeviceLength = E; }
   void setNowait(bool Flag) { Nowait = Flag; }
 
 public:
   DEFINE_GETTER(MapClause,          getMap,          Map)
   DEFINE_GETTER(UseDevicePtrClause, getUseDevicePtr, UseDevicePtr)
-  DEFINE_GETTER(UseDeviceAddrClause, getUseDeviceAddr, UseDeviceAddr)
   EXPR getDevice() const { return Device; }
+  EXPR getSubDeviceBase() const { return SubDeviceBase; }
+  EXPR getSubDeviceLength() const { return SubDeviceLength; }
   bool getNowait() const { return Nowait; }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,

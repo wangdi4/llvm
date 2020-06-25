@@ -243,6 +243,7 @@ def "QUAL.OMP.ALIGNED" : Clause;
 def "QUAL.OMP.FLUSH" : Clause;
 def "QUAL.OMP.THREADPRIVATE" : Clause;
 def "QUAL.OMP.DEVICE" : Clause;
+def "QUAL.OMP.SUBDEVICE" : Clause;
 def "QUAL.OMP.IS_DEVICE_PTR" : Clause;
 def "QUAL.OMP.USE_DEVICE_PTR" : Clause;
 def "QUAL.OMP.USE_DEVICE_ADDR" : Clause;

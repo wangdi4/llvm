@@ -380,9 +380,6 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
   if (canHaveUseDevicePtr())
     PrintedSomething |= getUseDevicePtr().print(OS, Depth, Verbosity);
 
-  if (canHaveUseDeviceAddr())
-      PrintedSomething |= getUseDeviceAddr().print(OS, Depth, Verbosity);
-
   if (canHaveDepend())
     PrintedSomething |= getDepend().print(OS, Depth, Verbosity);
 
@@ -733,7 +730,12 @@ template <typename ClauseTy>
 void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
                                       const ClauseSpecifier &ClauseInfo,
                                       ClauseTy &C) {
+  bool IsUseDeviceAddr = false;
   int ClauseID = ClauseInfo.getId();
+  if (ClauseID == QUAL_OMP_USE_DEVICE_ADDR) {
+    ClauseID = QUAL_OMP_USE_DEVICE_PTR;
+    IsUseDeviceAddr = true;
+  }
   C.setClauseID(ClauseID);
   bool IsByRef = ClauseInfo.getIsByRef();
   bool IsPointerToPointer = ClauseInfo.getIsPointerToPointer();
@@ -744,6 +746,10 @@ void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
       C.back()->setIsByRef(true);
     if (IsPointerToPointer)
       C.back()->setIsPointerToPointer(true);
+    if (IsUseDeviceAddr) {
+      UseDevicePtrItem *UDPI = cast<UseDevicePtrItem>(C.back());
+      UDPI->setIsUseDeviceAddr(true);
+    }
 #if INTEL_CUSTOMIZATION
     if (!CurrentBundleDDRefs.empty() &&
         WRegionUtils::supportsRegDDRefs(ClauseID))
@@ -1222,6 +1228,12 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
                                                getLpriv());
     break;
   }
+  case QUAL_OMP_SUBDEVICE: {
+    assert(NumArgs == 2 && "SubDevice clause expects two arguments.");
+    setSubDeviceBase (Args[0]);
+    setSubDeviceLength (Args[1]);
+    break;
+  }
   case QUAL_OMP_COPYIN: {
     extractQualOpndList<CopyinClause>(Args, NumArgs, ClauseInfo, getCopyin());
     break;
@@ -1279,15 +1291,11 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
                                            getIsDevicePtr());
     break;
   }
-  case QUAL_OMP_USE_DEVICE_PTR: {
+  case QUAL_OMP_USE_DEVICE_PTR:
+  case QUAL_OMP_USE_DEVICE_ADDR: {
     extractQualOpndList<UseDevicePtrClause>(Args, NumArgs, ClauseInfo,
                                             getUseDevicePtr());
     break;
-  }
-  case QUAL_OMP_USE_DEVICE_ADDR: {
-      extractQualOpndList<UseDeviceAddrClause>(Args, NumArgs, ClauseInfo,
-                                               getUseDeviceAddr());
-      break;
   }
   case QUAL_OMP_TO:
   case QUAL_OMP_FROM:
@@ -1708,16 +1716,6 @@ bool WRegionNode::canHaveUseDevicePtr() const {
   return false;
 }
 
-bool WRegionNode::canHaveUseDeviceAddr() const {
-  unsigned SubClassID = getWRegionKindID();
-  switch (SubClassID) {
-  case WRNTargetData:
-  case WRNTargetVariant:
-    return true;
-  }
-  return false;
-}
-
 bool WRegionNode::canHaveDepend() const {
   unsigned SubClassID = getWRegionKindID();
   switch (SubClassID) {
@@ -1864,6 +1862,24 @@ void vpo::printVal(StringRef Title, Value *Val, formatted_raw_ostream &OS,
     return;
   }
   OS << *Val << "\n";
+}
+
+// Auxiliary function to print a range of Values in a WRN dump.
+void vpo::printValRange(StringRef Title, Value *Val1, Value *Val2,
+                   formatted_raw_ostream &OS, int Indent, unsigned Verbosity) {
+  if (Verbosity==0 && !Val1 && !Val2)
+    return; // When Verbosity is 0, print nothing if both Vals are null
+
+  OS.indent(Indent) << Title << "(";
+  if (!Val1)
+    OS << "UNSPECIFIED:";
+  else
+    OS << *Val1 << ":";
+  if (!Val2) {
+    OS << "UNSPECIFIED)\n";
+    return;
+  }
+  OS << *Val2 << ")\n";
 }
 
 // Auxiliary function to print an ArrayRef of Values in a WRN dump

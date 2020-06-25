@@ -107,12 +107,12 @@ class Item
       IK_Uniform,
       IK_Map,
       IK_IsDevicePtr,
-      IK_UseDevicePtr,
-      IK_UseDeviceAddr
+      IK_UseDevicePtr
     };
 
   private :
     VAR   OrigItem;  // original var
+    Type *OrigItemElemType; // original var type/ element type if PointerType
 #if INTEL_CUSTOMIZATION
     HVAR HOrigItem;       // original var for HIR
     bool IsF90DopeVector; // true for a F90 dope vector
@@ -138,6 +138,18 @@ class Item
     MDNode *AliasScope; // alias info (loads)  to help registerize private vars
     MDNode *NoAlias;    // alias info (stores) to help registerize private vars
     const ItemKind Kind; // Item kind for LLVM's RTTI
+    // Utility function.
+    // TODO: OPAQUEPOINTER: VTy Will be passed as a Item String by Front End
+    // after Opaque Pointers are introduced.
+    void setValueType(VAR &V, Type *&VTy) {
+      if (V)
+        VTy = isa<PointerType>(V->getType())
+                  ? V->getType()->getPointerElementType()
+                  : V->getType();
+      else
+        VTy = nullptr;
+      return;
+    }
 
   public:
     Item(VAR Orig, ItemKind K)
@@ -154,11 +166,16 @@ class Item
           ThunkBufferSize(nullptr), NewThunkBufferSize(nullptr),
           PrivateThunkIdx(-1), SharedThunkIdx(-1), ThunkBufferOffset(nullptr),
           AliasScope(nullptr), NoAlias(nullptr), Kind(K) {
+      setValueType(OrigItem, OrigItemElemType);
     }
     virtual ~Item() = default;
 
-    void setOrig(VAR V)           { OrigItem = V;       }
-    void setNew(VAR V)            { NewItem = V;        }
+    void setOrig(VAR V) {
+      OrigItem = V;
+      setValueType(OrigItem, OrigItemElemType);
+    }
+    void setOrigElemType(Type *VTy) { OrigItemElemType = VTy; }
+    void setNew(VAR V) { NewItem = V; }
     void setOrigGEP(VAR V)        { OrigGEP = V;        }
     void setIsByRef(bool Flag)    { IsByRef = Flag;     }
     void setIsNonPod(bool Flag)   { IsNonPod = Flag;    }
@@ -173,6 +190,7 @@ class Item
     void setNoAlias(MDNode *M)    { NoAlias = M;        }
 
     VAR getOrig()           const { return OrigItem;       }
+    Type *getOrigElemType() const { return OrigItemElemType; }
     VAR getNew()            const { return NewItem;        }
     VAR getOrigGEP()        const { return OrigGEP;        }
     bool getIsByRef()       const { return IsByRef;        }
@@ -859,7 +877,6 @@ public:
 typedef SmallVector<MapAggrTy*, 2> MapChainTy;
 
 class UseDevicePtrItem;
-class UseDeviceAddrItem;
 //
 //   MapItem: OMP MAP clause item
 //
@@ -869,7 +886,6 @@ private:
   unsigned MapKind;                 // bit vector for map kind and modifiers
   FirstprivateItem *InFirstprivate; // FirstprivateItem with the same opnd
   UseDevicePtrItem *InUseDevicePtr; // The map is for a use-device-ptr clause
-  UseDeviceAddrItem* InUseDeviceAddr; // The map is for a use-device-addr clause
   MapChainTy MapChain;
   ArraySectionInfo ArrSecInfo;    // For TARGET UPDATE TO/FROM clauses
   Instruction *BasePtrGEPForOrig; // GEP for Orig in the  baseptrs struct sent
@@ -984,7 +1000,6 @@ public:
   void setIsMapPresent() { MapKind |= WRNMapPresent; }
   void setInFirstprivate(FirstprivateItem *FI) { InFirstprivate = FI; }
   void setInUseDevicePtr(UseDevicePtrItem *UDPI) { InUseDevicePtr = UDPI; }
-  void setInUseDeviceAddr(UseDeviceAddrItem* UDAI) { InUseDeviceAddr = UDAI; }
   void setBasePtrGEPForOrig(Instruction *GEP) { BasePtrGEPForOrig = GEP; }
 
   unsigned getMapKind()     const { return MapKind; }
@@ -1003,7 +1018,6 @@ public:
   bool getIsMapUpdateFrom() const { return MapKind & WRNMapUpdateFrom; }
   FirstprivateItem *getInFirstprivate() const { return InFirstprivate; }
   UseDevicePtrItem *getInUseDevicePtr() const { return InUseDevicePtr; }
-  UseDeviceAddrItem* getInUseDeviceAddr() const { return InUseDeviceAddr; }
   Instruction *getBasePtrGEPForOrig() const { return BasePtrGEPForOrig; }
 
   ArraySectionInfo &getArraySectionInfo() { return ArrSecInfo; }
@@ -1065,26 +1079,15 @@ class IsDevicePtrItem : public Item
 class UseDevicePtrItem : public Item
 {
   MapItem *InMap;
-
+  bool IsUseDeviceAddr; // true only if parsing a use_device_addr clause
 public:
-  UseDevicePtrItem(VAR Orig) : Item(Orig, IK_UseDevicePtr) {}
+  UseDevicePtrItem(VAR Orig) : Item(Orig, IK_UseDevicePtr),
+                               IsUseDeviceAddr(false) {}
   void setInMap(MapItem *MI) { InMap = MI; }
+  void setIsUseDeviceAddr(bool Flag) { IsUseDeviceAddr = Flag; }
   MapItem *getInMap() const { return InMap; }
+  bool getIsUseDeviceAddr() const { return IsUseDeviceAddr; }
   static bool classof(const Item *I) { return I->getKind() == IK_UseDevicePtr; }
-};
-
-//
-//   UseDeviceAddrItem: OMP USE_DEVICE_ADDR clause item
-//
-class UseDeviceAddrItem : public Item {
-    MapItem* InMap;
-
-public:
-    UseDeviceAddrItem(VAR Orig) : Item(Orig, IK_UseDeviceAddr) {}
-    void setInMap(MapItem* MI) { InMap = MI; }
-    MapItem* getInMap() const { return InMap; }
-    static bool classof(const Item* I)
-                        { return I->getKind() == IK_UseDeviceAddr; }
 };
 
 //
@@ -1333,7 +1336,6 @@ typedef Clause<UniformItem>       UniformClause;
 typedef Clause<MapItem>           MapClause;
 typedef Clause<IsDevicePtrItem>   IsDevicePtrClause;
 typedef Clause<UseDevicePtrItem>  UseDevicePtrClause;
-typedef Clause<UseDeviceAddrItem> UseDeviceAddrClause;
 typedef Clause<DependItem>        DependClause;
 typedef Clause<DepSinkItem>       DepSinkClause;
 typedef Clause<DepSourceItem>     DepSourceClause;
@@ -1352,7 +1354,6 @@ typedef std::vector<UniformItem>::iterator       UniformIter;
 typedef std::vector<MapItem>::iterator           MapIter;
 typedef std::vector<IsDevicePtrItem>::iterator   IsDevicePtrIter;
 typedef std::vector<UseDevicePtrItem>::iterator  UseDevicePtrIter;
-typedef std::vector<UseDeviceAddrItem>::iterator UseDeviceAddrIter;
 typedef std::vector<DependItem>::iterator        DependIter;
 typedef std::vector<DepSinkItem>::iterator       DepSinkIter;
 typedef std::vector<DepSourceItem>::iterator     DepSourceIter;

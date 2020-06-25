@@ -135,8 +135,6 @@ template<>Clause<UniformItem>     ::Clause():ClauseID(QUAL_OMP_UNIFORM){}
 template<>Clause<MapItem>         ::Clause():ClauseID(QUAL_OMP_MAP_TO){}
 template<>Clause<IsDevicePtrItem> ::Clause():ClauseID(QUAL_OMP_IS_DEVICE_PTR){}
 template<>Clause<UseDevicePtrItem>::Clause():ClauseID(QUAL_OMP_USE_DEVICE_PTR){}
-template<>Clause<UseDeviceAddrItem>::Clause():ClauseID(QUAL_OMP_USE_DEVICE_ADDR)
-                                                                              {}
 template<>Clause<DependItem>      ::Clause():ClauseID(QUAL_OMP_DEPEND_IN){}
 template<>Clause<DepSinkItem>     ::Clause():ClauseID(QUAL_OMP_DEPEND_SINK){}
 template<>Clause<DepSourceItem>   ::Clause():ClauseID(QUAL_OMP_DEPEND_SOURCE){}
