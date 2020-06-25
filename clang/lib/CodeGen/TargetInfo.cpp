@@ -1557,7 +1557,7 @@ ABIArgInfo X86_32ABIInfo::classifyReturnType(QualType RetTy,
     if (const ComplexType *CT = RetTy->getAs<ComplexType>()) {
       QualType ET = getContext().getCanonicalType(CT->getElementType());
       if (ET->isFloat16Type())
-        return ABIArgInfo::getDirect(llvm::VectorType::get(
+        return ABIArgInfo::getDirect(llvm::FixedVectorType::get(
                   llvm::Type::getHalfTy(getVMContext()), 2));
     }
 #endif // INTEL_FEATURE_ISA_FP16
