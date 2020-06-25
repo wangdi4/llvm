@@ -252,12 +252,8 @@ private:
                       unsigned AddressSpace);
   int getGSVectorCost(unsigned Opcode, Type *DataTy, unsigned IndexSize,
                       unsigned Alignment, unsigned AddressSpace);
-<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
-  int getGSVectorCost(unsigned Opcode, Type *DataTy, Value *Ptr,
-=======
   int getGSVectorCost(unsigned Opcode, Type *DataTy, const Value *Ptr,
->>>>>>> 7ddee0922fc2b8629fa12392e61801a8ad96b7af
                       unsigned Alignment, unsigned AddressSpace);
   /// @}
 };

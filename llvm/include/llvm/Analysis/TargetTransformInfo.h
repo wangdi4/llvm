@@ -1048,10 +1048,10 @@ public:
   /// \p I - the optional original context instruction, if one exists, e.g. the
   ///        load/store to transform or the call to the gather/scatter intrinsic
   int getGatherScatterOpCost(
-<<<<<<< HEAD
-    unsigned Opcode, Type *DataTy, Value *Ptr, bool VariableMask,
-    unsigned Alignment, TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
-    const Instruction *I = nullptr) const;
+      unsigned Opcode, Type *DataTy, const Value *Ptr, bool VariableMask,
+      unsigned Alignment,
+      TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
+      const Instruction *I = nullptr) const;
 #if INTEL_CUSTOMIZATION
   /// \return The cost of Gather or Scatter operation
   /// \p Opcode - is a type of memory access Load or Store
@@ -1069,12 +1069,6 @@ public:
       TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
       const Instruction *I = nullptr) const;
 #endif // INTEL_CUSTOMIZATION
-=======
-      unsigned Opcode, Type *DataTy, const Value *Ptr, bool VariableMask,
-      unsigned Alignment,
-      TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
-      const Instruction *I = nullptr) const;
->>>>>>> 7ddee0922fc2b8629fa12392e61801a8ad96b7af
 
   /// \return The cost of the interleaved memory operation.
   /// \p Opcode is the memory operation code
