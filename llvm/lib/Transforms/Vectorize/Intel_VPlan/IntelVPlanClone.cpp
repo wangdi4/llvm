@@ -52,6 +52,10 @@ VPBasicBlock *VPCloneUtils::cloneBasicBlock(VPBasicBlock *Block,
     }
   }
 
+  // Remove unnecessary terminator added by VPBasicBlock constructor
+  // FIXME: this is a temporary workaround which should be removed
+  ClonedBlock->removeInstruction(ClonedBlock->getTerminator());
+
   ValueMap.insert({Block, ClonedBlock});
   if (auto CondBit = Block->getCondBit()) {
     VPValue *ClonedCondBit = CondBit;

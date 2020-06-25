@@ -3,8 +3,11 @@
 // RUN: %clang -### -c -qnextgen %s 2>&1 | FileCheck -check-prefix CHECK-INTEL %s
 // RUN: %clang_cl -### -c -Qnextgen %s 2>&1 | FileCheck -check-prefixes=CHECK-INTEL,CHECK-INTEL-WIN %s
 // CHECK-INTEL: "-fveclib=SVML"
+// CHECK-INTEL-WIN: "-ffunction-sections"
 // CHECK-INTEL: "-O2"
 // CHECK-INTEL-WIN: "-Wno-c++11-narrowing"
+// CHECK-INTEL-WIN: "-malign-double"
+// CHECK-INTEL-WIN: "-fuse-line-directives"
 // CHECK-INTEL: "-vectorize-loops"
 // CHECK-INTEL: "-fintel-compatibility"
 // CHECK-INTEL: "-mllvm" "-disable-hir-generate-mkl-call"
@@ -14,6 +17,10 @@
 // RUN: %clang_cl -### -c --intel %s 2>&1 | FileCheck -check-prefixes=CHECK-INTEL-ZP-WIN %s
 // CHECK-INTEL-ZP-WIN: "-fpack-struct=16"
 // CHECK-INTEL-ZP-LIN-NOT: "-fpack-struct=16"
+
+// /GS is not default
+// RUN: %clang_cl -### -c --intel %s 2>&1 | FileCheck -check-prefixes=CHECK-INTEL-GS %s
+// CHECK-INTEL-GS-NOT: "-stack-protector"
 
 // default header behavior with --intel
 // RUN: %clang -### -c --intel -target x86_64-unknown-linux-gnu %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-HEADER %s

@@ -2252,6 +2252,7 @@ void Generic_GCC::GCCInstallationDetector::init(
         // One last check for bin/lib, if those exist assume that
         // the location is valid and use it.
         if (llvm::sys::fs::exists(Twine(GccDir) + "/lib") &&
+            llvm::sys::fs::exists(Twine(GccDir) + "/include") &&
             llvm::sys::fs::exists(Twine(GccDir) + "/bin"))
           GCCToolchainDir = Args.MakeArgString(GccDir);
       }
