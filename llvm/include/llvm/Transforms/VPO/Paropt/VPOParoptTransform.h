@@ -976,6 +976,9 @@ private:
   /// contains `omp_get_num_threads` function, to avoid performance impact
   /// of these calls and the barriers associated with them.
   ///
+  /// Emission of these calls can also be disabled using the command line flag:
+  ///   -vpo-paropt-simulate-get-num-threads-in-target=false
+  ///
   /// @{
   ///
   /// Inserts calls to `__kmpc_spmd_pop_num_threads` and
