@@ -418,6 +418,18 @@ BadPtrManipulationForRelatedTypes
 This safety data is used to check if bad pointer manipulation won't affect
 the related types.
 
+MismatchedElementAccessRelatedTypes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This safety data is used for a special mismatched element access to
+the zero field of a structure but won't affect the related types.
+
+UnsafePointerStoreRelatedTypes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This safety data is used for special unsafe pointer store to the zero
+field of a structure but won't affect related types.
+
 UnhandledUse
 ~~~~~~~~~~~~
 This is a catch-all flag that will be used to mark any usage pattern that we

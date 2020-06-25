@@ -527,6 +527,10 @@ const char *dtrans::getSafetyDataName(const SafetyData &SafetyInfo) {
     return "Bad casting (related types)";
   if (SafetyInfo & dtrans::BadPtrManipulationForRelatedTypes)
     return "Bad pointer manipulation (related types)";
+  if (SafetyInfo & dtrans::MismatchedElementAccessRelatedTypes)
+    return "Mismatched element access (related types)";
+  if (SafetyInfo & dtrans::UnsafePointerStoreRelatedTypes)
+    return "Unsafe pointer store (related types)";
   if (SafetyInfo & dtrans::UnhandledUse)
     return "Unhandled use";
 
@@ -556,8 +560,10 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
       dtrans::BadCastingPending | dtrans::BadCastingConditional |
       dtrans::UnsafePointerStorePending |
       dtrans::UnsafePointerStoreConditional | dtrans::DopeVector |
-      dtrans:: BadCastingForRelatedTypes |
-      dtrans::BadPtrManipulationForRelatedTypes | dtrans::UnhandledUse;
+      dtrans::BadCastingForRelatedTypes |
+      dtrans::BadPtrManipulationForRelatedTypes |
+      dtrans::MismatchedElementAccessRelatedTypes |
+      dtrans::UnsafePointerStoreRelatedTypes | dtrans::UnhandledUse;
   // This assert is intended to catch non-unique safety condition values.
   // It needs to be kept synchronized with the statement above.
   static_assert(
@@ -581,6 +587,8 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
            dtrans::UnsafePointerStoreConditional ^ dtrans::DopeVector ^
            dtrans::BadCastingForRelatedTypes ^
            dtrans::BadPtrManipulationForRelatedTypes ^
+           dtrans::MismatchedElementAccessRelatedTypes ^
+           dtrans::UnsafePointerStoreRelatedTypes ^
            dtrans::UnhandledUse),
       "Duplicate value used in dtrans safety conditions");
 
