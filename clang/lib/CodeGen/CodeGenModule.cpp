@@ -790,7 +790,7 @@ void CodeGenModule::Release() {
   if (!getCodeGenOpts().RecordCommandLine.empty())
     EmitCommandLineMetadata();
 
-  EmitTargetMetadata();
+  getTargetCodeGenInfo().emitTargetMetadata(*this, MangledDeclNames);
 
   EmitBackendOptionsMetadata(getCodeGenOpts());
 }
@@ -6503,6 +6503,7 @@ void CodeGenModule::EmitCommandLineMetadata() {
   CommandLineMetadata->addOperand(llvm::MDNode::get(Ctx, CommandLineNode));
 }
 
+<<<<<<< HEAD
 void CodeGenModule::EmitTargetMetadata() {
   // Warning, new MangledDeclNames may be appended within this loop.
   // We rely on MapVector insertions adding new elements to the end
@@ -6575,6 +6576,8 @@ void CodeGenModule::EmitIntelDriverTempfile() {
 }
 #endif // INTEL_CUSTOMIZATION
 
+=======
+>>>>>>> dc3f8913d2ad33b1129ea488393e12cc88061aff
 void CodeGenModule::EmitCoverageFile() {
   if (getCodeGenOpts().CoverageDataFile.empty() &&
       getCodeGenOpts().CoverageNotesFile.empty())
