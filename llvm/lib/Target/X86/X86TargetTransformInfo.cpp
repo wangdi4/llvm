@@ -2876,7 +2876,7 @@ int X86TTIImpl::getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
 
   Intrinsic::ID IID = ICA.getID();
   Type *RetTy = ICA.getReturnType();
-  const SmallVectorImpl<Value *> &Args = ICA.getArgs();
+  const SmallVectorImpl<const Value *> &Args = ICA.getArgs();
   unsigned ISD = ISD::DELETED_NODE;
   switch (IID) {
   default:
@@ -3961,7 +3961,7 @@ X86TTIImpl::getCFInstrCost(unsigned Opcode, TTI::TargetCostKind CostKind) {
 }
 
 // Return an average cost of Gather / Scatter instruction, maybe improved later
-int X86TTIImpl::getGSVectorCost(unsigned Opcode, Type *SrcVTy, Value *Ptr,
+int X86TTIImpl::getGSVectorCost(unsigned Opcode, Type *SrcVTy, const Value *Ptr,
                                 unsigned Alignment, unsigned AddressSpace) {
 
   assert(isa<VectorType>(SrcVTy) && "Unexpected type in getGSVectorCost");
@@ -3972,14 +3972,14 @@ int X86TTIImpl::getGSVectorCost(unsigned Opcode, Type *SrcVTy, Value *Ptr,
   // operation will use 16 x 64 indices which do not fit in a zmm and needs
   // to split. Also check that the base pointer is the same for all lanes,
   // and that there's at most one variable index.
-  auto getIndexSizeInBits = [](Value *Ptr, const DataLayout& DL) {
+  auto getIndexSizeInBits = [](const Value *Ptr, const DataLayout &DL) {
     unsigned IndexSize = DL.getPointerSizeInBits();
-    GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(Ptr);
+    const GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(Ptr);
     if (IndexSize < 64 || !GEP)
       return IndexSize;
 
     unsigned NumOfVarIndices = 0;
-    Value *Ptrs = GEP->getPointerOperand();
+    const Value *Ptrs = GEP->getPointerOperand();
     if (Ptrs->getType()->isVectorTy() && !getSplatValue(Ptrs))
       return IndexSize;
     for (unsigned i = 1; i < GEP->getNumOperands(); ++i) {
@@ -3995,7 +3995,6 @@ int X86TTIImpl::getGSVectorCost(unsigned Opcode, Type *SrcVTy, Value *Ptr,
     }
     return (unsigned)32;
   };
-
 
   // Trying to reduce IndexSize to 32 bits for vector 16.
   // By default the IndexSize is equal to pointer size.
@@ -4193,10 +4192,11 @@ int X86TTIImpl::getGSScalarCost(unsigned Opcode, Type *PtrTy, Type *SrcVTy,
 #endif // INTEL_CUSTOMIZATION
 
 /// Calculate the cost of Gather / Scatter operation
-int X86TTIImpl::getGatherScatterOpCost(
-    unsigned Opcode, Type *SrcVTy, Value *Ptr, bool VariableMask,
-    unsigned Alignment, TTI::TargetCostKind CostKind,
-    const Instruction *I = nullptr) {
+int X86TTIImpl::getGatherScatterOpCost(unsigned Opcode, Type *SrcVTy,
+                                       const Value *Ptr, bool VariableMask,
+                                       unsigned Alignment,
+                                       TTI::TargetCostKind CostKind,
+                                       const Instruction *I = nullptr) {
 
   if (CostKind != TTI::TCK_RecipThroughput)
     return 1;
