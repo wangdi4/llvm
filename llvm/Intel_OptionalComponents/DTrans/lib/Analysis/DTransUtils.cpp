@@ -694,7 +694,7 @@ void dtrans::FieldInfo::print(raw_ostream &OS,
     OS << " MismatchedElementAccess";
 
   if (isPaddedField())
-    OS << " PaddedField";
+    OS << (isCleanPaddedField() ? "" : " Dirty") << " PaddedField";
 
   OS << "\n";
   OS << "    Frequency: " << getFrequency();
@@ -766,50 +766,21 @@ void dtrans::FieldInfo::print(raw_ostream &OS,
 
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-void dtrans::TypeInfo::setSafetyData(SafetyData Conditions, bool SetRelated) {
+void dtrans::TypeInfo::mergeSafetyDataWithRelatedType() {
+  dtrans::StructInfo *CurrStrInfo = dyn_cast<dtrans::StructInfo>(this);
+  if (!CurrStrInfo)
+    return;
+
+  dtrans::StructInfo *RelatedInfo = CurrStrInfo->getRelatedType();
+  if (RelatedInfo)
+    RelatedInfo->setSafetyData(SafetyInfo);
+}
+
+void dtrans::TypeInfo::setSafetyData(SafetyData Conditions) {
   SafetyInfo |= Conditions;
 
   LLVM_DEBUG(dbgs() << "dtrans-safety-detail: " << *getLLVMType() << " :: ");
   LLVM_DEBUG(printSafetyInfo(Conditions, dbgs()));
-
-  // Set the safety data in the related type (default is true)
-  if (SetRelated) {
-    if (dtrans::StructInfo *StructureInfo =
-        dyn_cast<dtrans::StructInfo>(this)) {
-      dtrans::StructInfo *RelatedInfo = StructureInfo->getRelatedType();
-      if (RelatedInfo)
-        RelatedInfo->setSafetyData(Conditions, false /* ResetRelated */);
-    }
-  }
-}
-
-void dtrans::TypeInfo::resetSafetyData(SafetyData Conditions,
-                                       bool ResetRelated) {
-  SafetyInfo &= ~Conditions;
-
-  // Reset the safety data in the related type (default is true)
-  if (ResetRelated) {
-    if (dtrans::StructInfo *StructureInfo =
-        dyn_cast<dtrans::StructInfo>(this)) {
-      dtrans::StructInfo *RelatedInfo = StructureInfo->getRelatedType();
-      if (RelatedInfo)
-        RelatedInfo->resetSafetyData(Conditions, false /* ResetRelated */);
-    }
-  }
-}
-
-void dtrans::TypeInfo::clearSafetyData(bool ClearRelated) {
-  SafetyInfo = 0;
-
-  // Clear the safety data in the related type (default is true)
-  if (ClearRelated) {
-    if (dtrans::StructInfo *StructureInfo =
-        dyn_cast<dtrans::StructInfo>(this)) {
-      dtrans::StructInfo *RelatedInfo = StructureInfo->getRelatedType();
-      if (RelatedInfo)
-        RelatedInfo->clearSafetyData(false /* ResetRelated */);
-    }
-  }
 }
 
 bool dtrans::FieldInfo::processNewSingleValue(llvm::Constant *C) {
@@ -925,6 +896,84 @@ void dtrans::StructInfo::CallSubGraph::insertFunction(Function *F,
     return;
   }
   // else do nothing
+}
+
+// This is a helper function used to break the relationship between
+// a base and a padded structure.
+void StructInfo::unsetRelatedType() {
+  if (!RelatedType)
+    return;
+
+  // Clear the related type
+  StructInfo *CurrRelated = RelatedType;
+  RelatedType = nullptr;
+
+  // Clear the padded field
+  size_t NumFields = getNumFields();
+  FieldInfo &LastField = getField(NumFields - 1);
+  if (LastField.isPaddedField())
+    LastField.clearPaddedField();
+
+  CurrRelated->unsetRelatedType();
+}
+
+// Return true if the input offset can access incorrectly the padded field.
+// If FullBase is true then it means that the offset can be equal to the base,
+// else it should be smaller.
+bool StructInfo::offsetAccessesPaddingField(int64_t Offset,
+                                            const llvm::DataLayout &DL,
+                                            bool FullBase) {
+  if (Offset == 0)
+    return false;
+
+  if (!getRelatedType() || getNumFields() == 0)
+    return false;
+
+  if(!hasPaddedField())
+    return false;
+
+  int64_t LastField = getNumFields() - 1;
+  dtrans::FieldInfo &Field = getField(LastField);
+
+  int64_t StructSize =  DL.getTypeStoreSize(getLLVMType());
+  Type *FieldType = Field.getLLVMType();
+  int64_t FieldSize = DL.getTypeStoreSize(FieldType);
+  int64_t BaseSize = StructSize - FieldSize;
+
+  // If FullBase is true then is OK for the offset to be equal as the base.
+  // For example:
+  //
+  //  %struct.test.a = type <{ i32, i32, [4 x i8] }>
+  //  %struct.test.a.base = type <{ i32, i32 }>
+  //
+  //  %p1 = bitcast %struct.test.a* %a1 to i8*
+  //  %p2 = bitcast %struct.test.a.base* %a2 to i8*
+  //  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %p1, i8* %p2, i64 8, i1 false)
+  //
+  // The call to memcpy only copies the base part, that is OK.
+  //
+  // If FullBase is false then it means that the offset can't reach the base
+  // size. For example:
+  //
+  // %agep = getelementptr %struct.test.a, %struct.test.a* %aptr, i64 8
+  //
+  // The GEP %agep returns the address of the padded field in  %struct.test.a.
+  // This is a wrong access.
+  if (FullBase && Offset == BaseSize)
+    return false;
+
+  return Offset >= BaseSize;
+}
+
+// Return true if the last field in the structure is used for padding.
+bool StructInfo::hasPaddedField() {
+  if (!getRelatedType())
+    return false;
+
+  int64_t LastField = getNumFields() - 1;
+  dtrans::FieldInfo &Field = getField(LastField);
+
+  return Field.isPaddedField();
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
