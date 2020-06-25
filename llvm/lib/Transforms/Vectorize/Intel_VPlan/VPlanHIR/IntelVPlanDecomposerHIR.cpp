@@ -999,15 +999,62 @@ void VPDecomposerHIR::createVPOperandsForMasterVPInst(
   if (!DDNode)
     return;
 
-  // If we are dealing with an HLInst that is computing the absolute value(a
-  // select instruction of the form t = v1 < 0 ? -v1 : v1), we only decompose
-  // decompose the first rval operand and generate an Abs VPInstruction.
-  HLInst *HInst;
-  if ((HInst = dyn_cast<HLInst>(DDNode)) && HInst->isAbs())
-    VPOperands.push_back(decomposeVPOperand(HInst->getOperandDDRef(1)));
-  else
-    // Collect operands necessary to build a VPInstruction out of an HLInst and
-    // translate them into VPValue's.
+  HLInst *HInst = dyn_cast<HLInst>(DDNode);
+  bool ProcessRvalOps = true;
+  if (HInst && isa<SelectInst>(HInst->getLLVMInstruction())) {
+    if (HInst->isAbs()) {
+      // If we are dealing with an HLInst that is computing the absolute value
+      // (a select instruction of the form t = v1 < 0 ? -v1 : v1), we only
+      // decompose the first rval operand and generate an Abs VPInstruction.
+      VPOperands.push_back(decomposeVPOperand(HInst->getOperandDDRef(1)));
+      ProcessRvalOps = false;
+    } else if (HInst->isMax() || HInst->isMin()) {
+      // When decomposing a min/max HLInst, we can avoid decomposing the 3rd and
+      // 4th operands of the instruction by reusing the 1st and 2nd operands
+      // appropriately. This reduces number of VPInstructions and also helps
+      // preserve min/max form in generated vector code.
+      RegDDRef *Op1, *Op2, *Op3, *Op4;
+      Op1 = HInst->getOperandDDRef(1);
+      Op2 = HInst->getOperandDDRef(2);
+      Op3 = HInst->getOperandDDRef(3);
+      Op4 = HInst->getOperandDDRef(4);
+      (void)Op4;
+
+      VPValue *VPOp1 = decomposeVPOperand(Op1);
+      VPValue *VPOp2 = decomposeVPOperand(Op2);
+      VPOperands.push_back(VPOp1);
+      VPOperands.push_back(VPOp2);
+
+      // Op1 is expected to be equal to Op3 or Op4. Op2 is expected to be equal
+      // to Op3 or Op4. Example min/max HLInsts:
+      //     min = t1 < t2 ? t1 : t2
+      //     max = t1 < t2 ? t2 : t1
+      if (DDRefUtils::areEqual(Op1, Op3)) {
+        // Push VPOp1 as 3rd VPValue operand
+        VPOperands.push_back(VPOp1);
+        // Op2 and Op4 should match
+        assert(DDRefUtils::areEqual(Op2, Op4) &&
+               "Inconsistent min/max operands");
+        // Push VPOp2 as 4th VPValue operand
+        VPOperands.push_back(VPOp2);
+      } else {
+        assert(DDRefUtils::areEqual(Op2, Op3) &&
+               "Inconsistent min/max operands");
+        // Push VPOp2 as 3rd VPValue operand
+        VPOperands.push_back(VPOp2);
+        assert(DDRefUtils::areEqual(Op1, Op4) &&
+               "Inconsistent min/max operands");
+        // Push VPOp1 as 4th VPValue operand
+        VPOperands.push_back(VPOp1);
+      }
+      ProcessRvalOps = false;
+    }
+  }
+
+  // Decompose Rval operands if not processed already.
+  if (ProcessRvalOps)
+    // Collect operands necessary to build a VPInstruction out of an HLInst
+    // and translate them into VPValue's.
     for (RegDDRef *HIROp :
          make_range(DDNode->op_ddref_begin(), DDNode->op_ddref_end())) {
       // We skip LHS operands for all instructions. Lval for stores is handled
@@ -1020,10 +1067,10 @@ void VPDecomposerHIR::createVPOperandsForMasterVPInst(
 
   if (RegDDRef *Lval = DDNode->getLvalDDRef()) {
     // Insert the Lval operand of store for decomposition to the end. The Lval
-    // HIR operand of a store is identified by checking if the Lval of a DDNode
-    // is memref.
-    // HLInst: (%A)[i1] = %add;
-    // VPInstruction: store %add, %decompAi1
+    // HIR operand of a store is identified by checking if the Lval of a
+    // DDNode is memref.
+    //     HLInst: (%A)[i1] = %add;
+    //     VPInstruction: store %add, %decompAi1
     if (Lval->isMemRef())
       VPOperands.push_back(decomposeVPOperand(Lval));
   }

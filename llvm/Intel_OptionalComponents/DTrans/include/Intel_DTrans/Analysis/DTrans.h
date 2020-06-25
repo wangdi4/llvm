@@ -29,6 +29,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Constant.h"
+#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instruction.h"
@@ -254,11 +255,10 @@ public:
       PaddedField = PFK_Clean;
   }
   // Set if the padded field is dirty
-  // TODO: We need to mark the padded field as dirty for the multiple safety
-  // violations (bad casting, etc.). Plus, we need to make sure this field is
-  // never accessed.
   void invalidatePaddedField() { PaddedField = PFK_Dirty; }
+  void clearPaddedField() { PaddedField = PFK_NoPadding; }
   bool isPaddedField() const { return PaddedField != PFK_NoPadding; }
+  bool isCleanPaddedField() const { return PaddedField == PFK_Clean; }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const { print(dbgs()); }
@@ -616,6 +616,14 @@ const SafetyData SDMemInitTrimDown =
         BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse |
         BadCastingForRelatedTypes | DopeVector;
 
+// Safety conditions for structures with padding
+const SafetyData SDPaddedStructures =
+    BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
+        VolatileData | MismatchedElementAccess |
+        UnsafePointerStore | UnsafePtrMerge | BadMemFuncSize |
+        BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
+        MismatchedArgUse | UnhandledUse;
+
 //
 // TODO: Update the list each time we add a new safety conditions check for a
 // new transformation pass.
@@ -669,9 +677,13 @@ public:
     return (SafetyInfo & Conditions);
   }
 
-  void setSafetyData(SafetyData Conditions, bool SetRelated = true);
-  void resetSafetyData(SafetyData Conditions, bool ResetRelated = true);
-  void clearSafetyData(bool ClearRelated = true);
+  void setSafetyData(SafetyData Conditions);
+
+  void resetSafetyData(SafetyData Conditions) { SafetyInfo &= ~Conditions; }
+
+  void clearSafetyData() { SafetyInfo = 0; }
+
+  void mergeSafetyDataWithRelatedType();
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printSafetyData(raw_ostream &OS) const;
@@ -798,6 +810,16 @@ public:
     assert (!RelatedType && "Only one related type could be set");
     RelatedType = RelType;
   }
+
+  // Remove the related type and restore the safety conditions.
+  void unsetRelatedType();
+
+  // Return true if the input offset accesses the padded field.
+  bool offsetAccessesPaddingField(int64_t Offset, const llvm::DataLayout &DL,
+                                  bool FullBase = true);
+
+  // Return true if the last field in the structure is used for padding.
+  bool hasPaddedField();
 
 private:
   SmallVector<FieldInfo, 16> Fields;
