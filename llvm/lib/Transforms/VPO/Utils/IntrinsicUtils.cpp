@@ -16,6 +16,7 @@
 
 #include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
@@ -254,7 +255,7 @@ CallInst *VPOUtils::genMemset(Value *P, Value *V, const DataLayout &DL,
 // Alias scope is an optimization
 using ScopeSetType = SmallSetVector<Metadata *, 8>;
 
-void VPOUtils::genAliasSet(ArrayRef<BasicBlock *> BBs, AliasAnalysis *AA,
+void VPOUtils::genAliasSet(ArrayRef<BasicBlock *> BBs, AAResults *AA,
                            const DataLayout *DL) {
 
   SmallVector<Instruction *, 8> MemoryInsns;
@@ -318,7 +319,7 @@ void VPOUtils::genAliasSet(ArrayRef<BasicBlock *> BBs, AliasAnalysis *AA,
 
   // Build an alias matrix based on the AA for the incoming loads/stores.
   auto initAliasMatrix = [&](SmallVectorImpl<Instruction *> &Insns,
-                             AliasAnalysis *AA, const DataLayout *DL,
+                             AAResults *AA, const DataLayout *DL,
                              BitMatrix &BM) {
     int N = Insns.size();
     BM.clear();

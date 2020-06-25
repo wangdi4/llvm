@@ -35,6 +35,7 @@
 
 namespace llvm {
 
+class AAResults;
 class Value;
 class Module;
 class Function;
@@ -144,7 +145,7 @@ public:
 #if INTEL_CUSTOMIZATION
 
   /// Generate the alias_scope and no_alias metadata for the incoming BBs.
-  static void genAliasSet(ArrayRef<BasicBlock *> BBs, AliasAnalysis *AA,
+  static void genAliasSet(ArrayRef<BasicBlock *> BBs, AAResults *AA,
                           const DataLayout *DL);
 #endif  // INTEL_CUSTOMIZATION
 
