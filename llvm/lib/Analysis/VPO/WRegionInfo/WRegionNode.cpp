@@ -1448,7 +1448,11 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
         // IVs are all null or nonnull; cannot have some null and some nonnull
         break;
       }
-      getWRNLoopInfo().addNormIV(V);
+      // TODO: OPAQUEPOINTER: Add this information in the clause
+      Type *VTy = isa<PointerType>(V->getType())
+                      ? cast<PointerType>(V->getType())->getElementType()
+                      : V->getType();
+      getWRNLoopInfo().addNormIV(V, VTy);
     }
     break;
   case QUAL_OMP_NORMALIZED_UB:
@@ -1459,7 +1463,11 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
         assert(I==0 && "malformed NORMALIZED_UB clause");
         break;
       }
-      getWRNLoopInfo().addNormUB(V);
+      // TODO: OPAQUEPOINTER: Add this information in the clause
+      Type *VTy = isa<PointerType>(V->getType())
+                      ? cast<PointerType>(V->getType())->getElementType()
+                      : V->getType();
+      getWRNLoopInfo().addNormUB(V, VTy);
     }
     break;
   case QUAL_OMP_OFFLOAD_NDRANGE: {

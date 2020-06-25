@@ -59,11 +59,25 @@ Value *WRNLoopInfo::getNormIV(unsigned I) const {
   return NormIV[I];
 }
 
+Type *WRNLoopInfo::getNormIVElemTy(unsigned I) const {
+  if (NormIVElemTy.size() == 0)
+    return nullptr;
+  assert(I < NormIVElemTy.size() && "getNormIVElemTy: bad idx");
+  return NormIVElemTy[I];
+}
+
 Value *WRNLoopInfo::getNormUB(unsigned I) const {
   if (NormUB.size() == 0)
     return nullptr;
   assert(I < NormUB.size() && "getNormUB: bad idx");
   return NormUB[I];
+}
+
+Type *WRNLoopInfo::getNormUBElemTy(unsigned I) const {
+  if (NormUBElemTy.size() == 0)
+    return nullptr;
+  assert(I < NormUBElemTy.size() && "getNormUBElemTy: bad idx");
+  return NormUBElemTy[I];
 }
 
 void WRNLoopInfo::print(formatted_raw_ostream &OS, unsigned Depth,

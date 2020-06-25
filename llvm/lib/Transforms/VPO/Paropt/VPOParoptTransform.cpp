@@ -9693,7 +9693,7 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
   auto *OutermostLoop = W->getWRNLoopInfo().getLoop(0);
 
   // First, find the Loop's lower bound pointer definition.
-  SmallVector<Value *, 3> LBPtrDefs;
+  SmallVector<std::pair<Value *, Type *>, 3> LBPtrDefs;
 
   for (unsigned Idx = 0; Idx < NumLoops; ++Idx) {
     // Assumptions:
@@ -9757,10 +9757,11 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
     LLVM_DEBUG(dbgs() << __FUNCTION__ << ": IV assignment value: " <<
                *LoadFromLB << "\n");
 
-    LBPtrDefs.push_back(LoadFromLB->getPointerOperand());
+    LBPtrDefs.push_back(std::make_pair<Value *, Type *>(
+        LoadFromLB->getPointerOperand(), LoadFromLB->getType()));
 
-    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": LB pointer definition: " <<
-               *LBPtrDefs.back() << "\n");
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": LB pointer definition: "
+                      << *(LBPtrDefs.back().first) << "\n");
   }
 
   // Second, compute the collapsed iteration space before the region.
@@ -10099,14 +10100,11 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
     Value *UpdateVal = ThenBuilder.CreateSDiv(NewBndVal, Dimensions[Idx]);
     // Store the value into LB and UB, so that the original loop runs
     // exactly one iteration.
-    PointerType *StorePtrTy = cast<PointerType>(LBPtrDefs[Idx]->getType());
     Value *StoreVal =
-        ThenBuilder.CreateZExtOrTrunc(UpdateVal, StorePtrTy->getElementType());
-    ThenBuilder.CreateStore(StoreVal, LBPtrDefs[Idx]);
-    StorePtrTy =
-        cast<PointerType>(W->getWRNLoopInfo().getNormUB(Idx)->getType());
-    StoreVal =
-        ThenBuilder.CreateZExtOrTrunc(UpdateVal, StorePtrTy->getElementType());
+        ThenBuilder.CreateZExtOrTrunc(UpdateVal, LBPtrDefs[Idx].second);
+    ThenBuilder.CreateStore(StoreVal, LBPtrDefs[Idx].first);
+    Type *StorePtrElemTy = (W->getWRNLoopInfo().getNormUBElemTy(Idx));
+    StoreVal = ThenBuilder.CreateZExtOrTrunc(UpdateVal, StorePtrElemTy);
     ThenBuilder.CreateStore(StoreVal, W->getWRNLoopInfo().getNormUB(Idx));
     NewBndVal = ThenBuilder.CreateSRem(NewBndVal, Dimensions[Idx]);
 
@@ -10120,11 +10118,8 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
     // only for the outermost IV, since other IVs initializations
     // are dominated by this block.
     if (Idx == 0) {
-      StorePtrTy =
-          cast<PointerType>(W->getWRNLoopInfo().getNormIV(0)->getType());
-      StoreVal =
-          ThenBuilder.CreateZExtOrTrunc(UpdateVal,
-                                        StorePtrTy->getElementType());
+      StorePtrElemTy = (W->getWRNLoopInfo().getNormIVElemTy(0));
+      StoreVal = ThenBuilder.CreateZExtOrTrunc(UpdateVal, StorePtrElemTy);
       ThenBuilder.CreateStore(StoreVal, W->getWRNLoopInfo().getNormIV(0));
     }
   }
