@@ -37,6 +37,7 @@ void call() {
   // CHECK: HLSMaxIIAttr
   // CHECK-NEXT: ConstantExpr
   // CHECK-NEXT: SubstNonTypeTemplateParmExpr
+  // CHECK-NEXT: NonTypeTemplateParmDecl
   // CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
 }
 

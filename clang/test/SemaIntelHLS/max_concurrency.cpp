@@ -48,6 +48,7 @@ void call()
   // CHECK: MaxConcurrencyAttr
   // CHECK-NEXT: ConstantExpr
   // CHECK-NEXT: SubstNonTypeTemplateParmExpr
+  // CHECK-NEXT: NonTypeTemplateParmDecl
   // CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
   tfoo2<8>();
 }

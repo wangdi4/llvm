@@ -671,25 +671,30 @@ void foo1()
 //CHECK: BankBitsAttr
 //CHECK-NEXT: ConstantExpr
 //CHECK-NEXT: SubstNonTypeTemplateParmExpr
+//CHECK-NEXT: NonTypeTemplateParmDecl
 //CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
 //CHECK-NEXT: ConstantExpr
 //CHECK-NEXT: IntegerLiteral{{.*}}3{{$}}
 //CHECK-NEXT: ConstantExpr
 //CHECK-NEXT: SubstNonTypeTemplateParmExpr
+//CHECK-NEXT: NonTypeTemplateParmDecl
 //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
 //CHECK: NumBanksAttr
 //CHECK-NEXT: ConstantExpr
 //CHECK-NEXT: SubstNonTypeTemplateParmExpr
+//CHECK-NEXT: NonTypeTemplateParmDecl
 //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
 //CHECK: BankWidthAttr
 //CHECK-NEXT: ConstantExpr
 //CHECK-NEXT: SubstNonTypeTemplateParmExpr
+//CHECK-NEXT: NonTypeTemplateParmDecl
 //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
 //CHECK: VarDecl{{.*}}var2
 //CHECK: MemoryAttr{{.*}}Implicit
 //CHECK: PrivateCopiesAttr
 //CHECK-NEXT: ConstantExpr
 //CHECK-NEXT: SubstNonTypeTemplateParmExpr
+//CHECK-NEXT: NonTypeTemplateParmDecl
 //CHECK-NEXT: IntegerLiteral{{.*}}8{{.*}}
 template <int max_concurrency, unsigned bankwidth, unsigned numbanks,
           int bit1, int bit2, int bit3, int private_copies>

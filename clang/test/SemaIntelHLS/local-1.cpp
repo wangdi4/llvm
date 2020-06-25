@@ -88,8 +88,9 @@ void foo() {
 
 //CHECK: VarDecl{{.*}}var_one
 //CHECK: MaxReplicatesAttr
-//CHECK_NEXT: ConstantExpr
-//CHECK_NEXT: SubstNonTypeTemplateParmExpr
+//CHECK-NEXT: ConstantExpr
+//CHECK-NEXT: SubstNonTypeTemplateParmExpr
+//CHECK-NEXT: NonTypeTemplateParmDecl
 //CHECK_NEXT: IntegerLiteral{{.*}}2{{$}}
 
 //CHECK: VarDecl{{.*}}var_two
@@ -97,10 +98,12 @@ void foo() {
 //CHECK: BankWidthAttr
 //CHECK-NEXT: ConstantExpr
 //CHECK-NEXT: SubstNonTypeTemplateParmExpr
+//CHECK-NEXT: NonTypeTemplateParmDecl
 //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
 //CHECK: NumBanksAttr
 //CHECK-NEXT: ConstantExpr
 //CHECK-NEXT: SubstNonTypeTemplateParmExpr
+//CHECK-NEXT: NonTypeTemplateParmDecl
 //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
 
 //CHECK: VarDecl{{.*}}var_three
@@ -108,10 +111,12 @@ void foo() {
 //CHECK: BankWidthAttr
 //CHECK-NEXT: ConstantExpr
 //CHECK-NEXT: SubstNonTypeTemplateParmExpr
+//CHECK-NEXT: NonTypeTemplateParmDecl
 //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
 //CHECK: NumBanksAttr
 //CHECK-NEXT: ConstantExpr
 //CHECK-NEXT: SubstNonTypeTemplateParmExpr
+//CHECK-NEXT: NonTypeTemplateParmDecl
 //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
 //CHECK: SimpleDualPortAttr
 
@@ -125,6 +130,7 @@ void foo() {
 //CHECK: MaxReplicatesAttr
 //CHECK-NEXT: ConstantExpr
 //CHECK-NEXT: SubstNonTypeTemplateParmExpr
+//CHECK-NEXT: NonTypeTemplateParmDecl
 //CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
 
 template <int bankwidth, int numbanks, int readports, int writeports,

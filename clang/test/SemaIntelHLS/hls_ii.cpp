@@ -37,6 +37,7 @@ void call() {
   // CHECK: HLSIIAttr
   // CHECK-NEXT: ConstantExpr
   // CHECK-NEXT: SubstNonTypeTemplateParmExpr
+  // CHECK-NEXT: NonTypeTemplateParmDecl
   // CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
 }
 
