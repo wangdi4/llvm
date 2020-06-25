@@ -69,6 +69,11 @@ static cl::opt<uint32_t> FixedSIMDWidth(
     "vpo-paropt-fixed-simd-width", cl::Hidden, cl::init(0),
     cl::desc("Fixed SIMD width for all target regions in the module."));
 
+static cl::opt<bool> SimulateGetNumThreadsInTarget(
+    "vpo-paropt-simulate-get-num-threads-in-target", cl::Hidden, cl::init(true),
+    cl::desc("Simulate support for omp_get_num_threads in OpenMP target "
+             "region. (This may have performance impact)."));
+
 // Reset the value in the Map clause to be empty.
 //
 // Do not reset base pointers (including the item's getOrig() pointer),
@@ -780,7 +785,7 @@ void VPOParoptTransform::guardSideEffectStatements(
 bool VPOParoptTransform::callPopPushNumThreadsAtRegionBoundary(
     WRegionNode *W, bool InsideRegion) {
 
-  if (!moduleHasOmpGetNumThreadsFunction())
+  if (!SimulateGetNumThreadsInTarget || !moduleHasOmpGetNumThreadsFunction())
     return false;
 
   assert(W && "WRegionNode is null.");
@@ -801,7 +806,7 @@ bool VPOParoptTransform::callPushPopNumThreadsAtRegionBoundary(
     WRegionNode *W, bool InsideRegion) {
   assert(W && "WRegionNode is null.");
 
-  if (!moduleHasOmpGetNumThreadsFunction())
+  if (!SimulateGetNumThreadsInTarget || !moduleHasOmpGetNumThreadsFunction())
     return false;
 
   Instruction *EntryDir = W->getEntryDirective();
