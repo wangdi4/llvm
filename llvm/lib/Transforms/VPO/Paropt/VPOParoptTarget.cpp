@@ -1594,6 +1594,7 @@ void VPOParoptTransform::useUpdatedUseDevicePtrsInTgtDataRegion(
     assert(BasePtrGEP && "No GEP found for base-ptr of Map item's orig.");
 
     Value *OrigV = UDPI->getOrig();
+    Type *OrigElemTy = UDPI->getOrigElemType();
 
     Value *GepCast = Builder.CreateBitOrPointerCast(
         BasePtrGEP, MapI->getOrig()->getType()->getPointerTo(),
@@ -1603,7 +1604,8 @@ void VPOParoptTransform::useUpdatedUseDevicePtrsInTgtDataRegion(
         Builder.CreateLoad(GepCast, OrigV->getName() + ".updated.val"); //  (4)
     Value *NewV = nullptr;
     if (UDPI->getIsPointerToPointer()) {
-      NewV = genPrivatizationAlloca(OrigV, AllocaInsertPt, ".new"); //      (2)
+      NewV = genPrivatizationAlloca(OrigV, OrigElemTy, AllocaInsertPt,
+                                    ".new");                        //      (2)
       Builder.CreateStore(UpdatedUDPVal, NewV);                     //      (5)
     } else
       NewV = UpdatedUDPVal;
@@ -2784,8 +2786,8 @@ createTargetVariantDispatchHostPtrs(WRegionNode *W, Instruction *InsertPt,
     Instruction *NextInsertBefore = nullptr;
     Value *HostPtr = nullptr;
     if (Item->getIsPointerToPointer()) {
-      Type *LoadTy = cast<PointerType>(Orig->getType())->getElementType();
-      HostPtr = Builder.CreateLoad(LoadTy, Orig, "hostPtr");
+      Type *OrigElemType = Item->getOrigElemType();
+      HostPtr = Builder.CreateLoad(OrigElemType, Orig, "hostPtr");
       NextInsertBefore = cast<Instruction>(HostPtr);
     } else
       HostPtr = Orig;

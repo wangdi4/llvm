@@ -353,12 +353,14 @@ private:
   /// Extract the type and size of local Alloca to be created to privatize
   /// \p OrigValue.
   /// \param [in] OrigValue Input Value
+  /// \param [in] OrigValueElemType Input Value's Element Type
   /// \param [out] ElementType Type of one element
   /// \param [out] NumElements Number of elements, in case \p OrigValue is
   /// an array, \b nullptr otherwise.
   /// \param [out] AddrSpace Address space of the input value object.
-  static void getItemInfoFromValue(Value *OrigValue, Type *&ElementType,
-                                   Value *&NumElements, unsigned &AddrSpace);
+  static void getItemInfoFromValue(Value *OrigValue, Type *OrigValueElemType,
+                                   Type *&ElementType, Value *&NumElements,
+                                   unsigned &AddrSpace);
 
   /// Extract the type and size of local Alloca to be created to privatize
   /// \p I.
@@ -369,13 +371,12 @@ private:
   static std::tuple<Type *, Value *, unsigned> getItemInfo(Item *I);
 
   /// Generate an optionally addrspacecast'ed pointer Value for the local copy
-  /// of \p OrigValue, with \p NameSuffix appended at the end of its name.
-  /// If new instructions need to be generated, they will be inserted
-  /// before \p InsertPt.
-  /// \p AllocaAddrSpace specifies address space in which the memory
-  /// for the privatized variable needs to be allocated. If it is
-  /// llvm::None, then the address space matches the default alloca's
-  /// address space, as specified by DataLayout. Note that some address
+  /// of \p OrigValue with \p OrigElemTy Element Type, with \p NameSuffix
+  /// appended at the end of its name. If new instructions need to be generated,
+  /// they will be inserted before \p InsertPt. \p AllocaAddrSpace specifies
+  /// address space in which the memory for the privatized variable needs to be
+  /// allocated. If it is llvm::None, then the address space matches the default
+  /// alloca's address space, as specified by DataLayout. Note that some address
   /// spaces may require allocating the private version of the variable
   /// as a GlobalVariable, not as an AllocaInst.
   /// If \p PreserveAddressSpace is true, then the generated Value
@@ -384,12 +385,11 @@ private:
   /// by \p AllocaAddrSpace.
   //  FIXME: get rid of PreserveAddressSpace, when PromoteMemToReg
   //         supports AddrSpaceCastInst.
-  Value *genPrivatizationAlloca(
-      Value *OrigValue,
-      Instruction *InsertPt,
-      const Twine &NameSuffix = "",
-      llvm::Optional<unsigned> AllocaAddrSpace = llvm::None,
-      bool PreserveAddressSpace = true) const;
+  Value *
+  genPrivatizationAlloca(Value *OrigValue, Type *OrigElemTy,
+                         Instruction *InsertPt, const Twine &NameSuffix = "",
+                         llvm::Optional<unsigned> AllocaAddrSpace = llvm::None,
+                         bool PreserveAddressSpace = true) const;
 
   /// Generate an optionally addrspacecast'ed pointer Value for the local copy
   /// of ClauseItem \I for various data-sharing clauses like private,

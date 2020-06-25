@@ -2266,9 +2266,15 @@ VPOParoptUtils::genKmpcLocfromDebugLoc(Function *F, Instruction *AI,
   ConstantInt *ValueFlags = ConstantInt::get(Type::getInt32Ty(C), Flags);
   // Get a pointer to the global variable containing loc string.
   Constant *Zeros[] = {ValueZero, ValueZero};
+  // TODO: OPAQUEPOINTER: Use opaque pointer compliant APIs when added.
+  // GlobalVariable will eventually contain the ElementType information
+  // somewhere else, eg: in GlobalValue
+  Type *Ty = cast<PointerType>(LocStringVar->getType()->getScalarType())
+                 ->getElementType();
   Constant *LocStringPtr =
-      ConstantExpr::getGetElementPtr(nullptr, LocStringVar, Zeros);
+      ConstantExpr::getGetElementPtr(Ty, LocStringVar, Zeros);
   if (VPOAnalysisUtils::isTargetSPIRV(F->getParent()))
+    // TODO: OPAQUEPOINTER: PointerBitcast will not be needed.
     LocStringPtr = ConstantExpr::getPointerBitCastOrAddrSpaceCast(
         LocStringPtr, Type::getInt8PtrTy(C, vpo::ADDRESS_SPACE_GENERIC));
 
@@ -3145,8 +3151,8 @@ CallInst *VPOParoptUtils::genDoacrossWaitOrPostCall(
         Builder.CreateSExtOrBitCast(DepVecValue, Int64Ty, "conv"); // (2) (5)
 
     // Get a pointer to where DepVecValue should go.
-    Value *PtrForLoopI =
-        Builder.CreateInBoundsGEP(DepVec, {Builder.getInt64(I)});  // (3) (6)
+    Value *PtrForLoopI = Builder.CreateInBoundsGEP(
+        DepVec->getAllocatedType(), DepVec, {Builder.getInt64(I)}); // (3) (6)
     Builder.CreateStore(DepVecValueCast, PtrForLoopI);             // (4) (7)
   }
 
@@ -4685,12 +4691,13 @@ Value *VPOParoptUtils::genArrayLength(Value *AI, Value *BaseAddr,
 
   Type *AllocaTy;
   Value *NumElements;
+
+  Type *AIElemType = cast<PointerType>(AI->getType())->getElementType();
   std::tie(AllocaTy, NumElements) =
-      GeneralUtils::getOMPItemLocalVARPointerTypeAndNumElem(AI);
+      GeneralUtils::getOMPItemLocalVARPointerTypeAndNumElem(AI, AIElemType);
   assert(AllocaTy && "genArrayLength: item type cannot be deduced.");
 
   // TODO: NumElements??
-  AllocaTy = cast<PointerType>(AllocaTy)->getElementType();
   Type *ScalarTy = AllocaTy->getScalarType();
   ArrayType *ArrTy = dyn_cast<ArrayType>(ScalarTy);
   assert(ArrTy && "Expect array type. ");
@@ -4743,8 +4750,12 @@ Value *VPOParoptUtils::genAddrSpaceCast(Value *Ptr, Instruction *InsertPt,
                                         unsigned AddrSpace) {
   PointerType *PtType = cast<PointerType>(Ptr->getType());
   IRBuilder<> Builder(InsertPt);
-  return Builder.CreatePointerBitCastOrAddrSpaceCast(
+  // TODO: OPAQUEPOINTER: Use the appropriate API for getting PointerType to a
+  // specific AddressSpace. The API currently needs the Element Type as well.
+  Value *RetVal = Builder.CreatePointerBitCastOrAddrSpaceCast(
       Ptr, PtType->getElementType()->getPointerTo(AddrSpace));
+
+  return RetVal;
 }
 
 #if 0
