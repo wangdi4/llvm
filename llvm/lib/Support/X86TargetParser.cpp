@@ -68,6 +68,11 @@ static constexpr ProcInfo Processors[] = {
   { {"goldmont"}, CK_Goldmont, FEATURE_SSE4_2, PROC_64_BIT },
   { {"goldmont-plus"}, CK_GoldmontPlus, FEATURE_SSE4_2, PROC_64_BIT },
   { {"tremont"}, CK_Tremont, FEATURE_SSE4_2, PROC_64_BIT },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_ADL
+  { {"alderlake"}, CK_Alderlake, ~0U, PROC_64_BIT },
+#endif // INTEL_FEATURE_CPU_ADL
+#endif // INTEL_CUSTOMIZATION
   // Nehalem microarchitecture based processors.
   { {"nehalem"}, CK_Nehalem, FEATURE_SSE4_2, PROC_64_BIT },
   { {"corei7"}, CK_Nehalem, FEATURE_SSE4_2, PROC_64_BIT },
@@ -84,6 +89,10 @@ static constexpr ProcInfo Processors[] = {
   { {"core-avx2"}, CK_Haswell, FEATURE_AVX2, PROC_64_BIT },
   // Broadwell microarchitecture based processors.
   { {"broadwell"}, CK_Broadwell, FEATURE_AVX2, PROC_64_BIT },
+#if INTEL_CUSTOMIZATION
+  // Intersection of SKX and KNL.
+  { {"common-avx512"}, CK_CommonAVX512, ~0U, PROC_64_BIT },
+#endif // INTEL_CUSTOMIZATION
   // Skylake client microarchitecture based processors.
   { {"skylake"}, CK_SkylakeClient, FEATURE_AVX2, PROC_64_BIT },
   // Skylake server microarchitecture based processors.
@@ -101,6 +110,18 @@ static constexpr ProcInfo Processors[] = {
   { {"icelake-server"}, CK_IcelakeServer, FEATURE_AVX512VBMI2, PROC_64_BIT },
   // Tigerlake microarchitecture based processors.
   { {"tigerlake"}, CK_Tigerlake, FEATURE_AVX512VP2INTERSECT, PROC_64_BIT },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_SPR
+  // Sapphire Rapids microarchitecture based processors.
+  { {"sapphirerapids"}, CK_SapphireRapids, ~0U, PROC_64_BIT },
+#endif // INTEL_FEATURE_CPU_SPR
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_RKL
+  // Rocketlake microarchitecture based processors.
+  { {"rocketlake"}, CK_Rocketlake, ~0U, PROC_64_BIT },
+#endif // INTEL_FEATURE_CPU_RKL
+#endif // INTEL_CUSTOMIZATION
   // Knights Landing processor.
   { {"knl"}, CK_KNL, FEATURE_AVX512F, PROC_64_BIT },
   // Knights Mill processor.

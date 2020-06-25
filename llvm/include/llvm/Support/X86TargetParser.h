@@ -86,12 +86,20 @@ enum CPUKind {
   CK_Goldmont,
   CK_GoldmontPlus,
   CK_Tremont,
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_ADL
+  CK_Alderlake,
+#endif // INTEL_FEATURE_CPU_ADL
+#endif // INTEL_CUSTOMIZATION
   CK_Nehalem,
   CK_Westmere,
   CK_SandyBridge,
   CK_IvyBridge,
   CK_Haswell,
   CK_Broadwell,
+#if INTEL_CUSTOMIZATION
+  CK_CommonAVX512,
+#endif // INTEL_CUSTOMIZATION
   CK_SkylakeClient,
   CK_SkylakeServer,
   CK_Cascadelake,
@@ -100,6 +108,16 @@ enum CPUKind {
   CK_IcelakeClient,
   CK_IcelakeServer,
   CK_Tigerlake,
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_SPR
+  CK_SapphireRapids,
+#endif // INTEL_FEATURE_CPU_SPR
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_RKL
+  CK_Rocketlake,
+#endif // INTEL_FEATURE_CPU_RKL
+#endif // INTEL_CUSTOMIZATION
   CK_KNL,
   CK_KNM,
   CK_Lakemont,
