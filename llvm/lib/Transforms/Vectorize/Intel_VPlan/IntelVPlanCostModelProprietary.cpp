@@ -23,7 +23,7 @@
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Analysis/VectorUtils.h"
-#include "llvm/IR/PatternMatch.h"
+#include "IntelVPlanPatternMatch.h"
 #include <numeric>
 #include <stack>
 
@@ -242,49 +242,24 @@ unsigned VPlanCostModelProprietary::getCost(const VPInstruction *VPInst) {
 // The utility below searches for patterns that form PSADBW instruction
 // semantics.  The current implementation searches for the following pattern:
 //
-// %Add1    = ZExt(A) + ZExt(B) * (-1)
-// %Add2    = ZExt(A) * (-1) + ZExt(B)
-// %Cmp     = ICmp slt/sle %Add1, 0
-// %Add3    = ZExt(A) + ZExt(B) * (-1)
-// %SelInst = %Cmp ? %Add2 : %Add3
+// %Add    = ZExt(A) + ZExt(B) * (-1)
+// %Abs    = Abs(%Add)
 //
 // Returns true if pattern is detected.
 // Any outside users of instructions forming the pattern are ignored.
 // The utility captures participating intructions into PatternInsts.
 bool VPlanCostModelProprietary::checkPsadwbPattern(
-   const VPInstruction *SelInst,
+   const VPInstruction *AbsInst,
    SmallPtrSetImpl<const VPInstruction*> &PatternInsts) {
-  const VPInstruction *Cmp, *Add1, *Add2, *Add3;
-  const VPInstruction *ZExt1A, *ZExt2A, *ZExt3A;
-  const VPInstruction *ZExt1B, *ZExt2B, *ZExt3B;
-  const VPInstruction *Mul1, *Mul2, *Mul3;
-  ICmpInst::Predicate P;
+  const VPInstruction *Add, *Mul, *ZExtA, *ZExtB;
   const VPValue *A, *B;
 
-  auto MAdd1 =
-    m_Bind(m_c_Add(m_Bind(m_ZExt(m_Bind(A)), ZExt1A),
-                   m_Bind(m_c_Mul(m_Bind(m_ZExt(m_Bind(B)), ZExt1B),
+  auto MAdd =
+    m_Bind(m_c_Add(m_Bind(m_ZExt(m_Bind(A)), ZExtA),
+                   m_Bind(m_c_Mul(m_Bind(m_ZExt(m_Bind(B)), ZExtB),
                                   m_ConstantInt<-1, VPConstantInt>()),
-                          Mul1)), Add1);
-  auto MAdd2 =
-    m_Bind(m_c_Add(m_Bind(m_ZExt(m_Deferred(B)), ZExt2B),
-                   m_Bind(m_c_Mul(m_Bind(m_ZExt(m_Deferred(A)), ZExt2A),
-                                  m_ConstantInt<-1, VPConstantInt>()),
-                          Mul2)), Add2);
-  auto MAdd3 =
-    m_Bind(m_c_Add(m_Bind(m_ZExt(m_Deferred(A)), ZExt3A),
-                   m_Bind(m_c_Mul(m_Bind(m_ZExt(m_Deferred(B)), ZExt3B),
-                                  m_ConstantInt<-1, VPConstantInt>()),
-                          Mul3)), Add3);
-  auto MSelInst =
-    m_Select(
-      m_Bind(m_c_ICmp(P, MAdd1, m_ConstantInt<0, VPConstantInt>()), Cmp),
-      MAdd2, MAdd3);
-
-  if (!match(SelInst, MSelInst))
-    return false;
-
-  if (P != CmpInst::ICMP_SLT && P != CmpInst::ICMP_SLE)
+                          Mul)), Add);
+  if (!match(AbsInst, m_VPAbs(MAdd)))
     return false;
 
   if (A->getType()->getScalarSizeInBits() != 8 ||
@@ -292,22 +267,11 @@ bool VPlanCostModelProprietary::checkPsadwbPattern(
     return false;
 
   // Store participating instructions into PatternInsts.
-  PatternInsts.insert(SelInst);
-  PatternInsts.insert(Cmp);
-  PatternInsts.insert(Add1);
-  PatternInsts.insert(Add2);
-  PatternInsts.insert(Add3);
-
-  PatternInsts.insert(Mul1);
-  PatternInsts.insert(Mul2);
-  PatternInsts.insert(Mul3);
-
-  PatternInsts.insert(ZExt1A);
-  PatternInsts.insert(ZExt2A);
-  PatternInsts.insert(ZExt3A);
-  PatternInsts.insert(ZExt1B);
-  PatternInsts.insert(ZExt2B);
-  PatternInsts.insert(ZExt3B);
+  PatternInsts.insert(AbsInst);
+  PatternInsts.insert(Add);
+  PatternInsts.insert(Mul);
+  PatternInsts.insert(ZExtA);
+  PatternInsts.insert(ZExtB);
   return true;
 }
 
@@ -328,8 +292,8 @@ unsigned VPlanCostModelProprietary::getPsadwbPatternCost() {
 
   const VPLoop *TopLoop = *(Plan->getVPLoopInfo()->begin());
   for (const VPLoop *VPL : post_order(TopLoop)) {
-    // Check innermost loops only.
-    if (!VPL->empty())
+    assert(VPL->getLoopDepth() == 1 && "Innermost loop is expect.");
+    if (VPL->getLoopDepth() != 1)
       continue;
 
     VPBasicBlock *Block = VPL->getHeader();
