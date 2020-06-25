@@ -36,6 +36,7 @@
 #include "llvm/IR/Value.h"
 #include "llvm/Support/AtomicOrdering.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/Support/CommandLine.h" // INTEL
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/TypeSize.h"

@@ -75,6 +75,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 #include "llvm/InitializePasses.h"
+#include "llvm/Support/CommandLine.h"
 
 #define OPT_SWITCH "hir-sum-window-reuse"
 #define OPT_DESC "HIR Sum Window Reuse"
