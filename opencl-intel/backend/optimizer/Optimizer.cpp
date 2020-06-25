@@ -121,6 +121,11 @@ llvm::Pass *createOCLVPOCheckVFPass(const intel::OptimizerConfig &Config,
 llvm::Pass *createOCLPostVectPass();
 llvm::Pass *createBarrierMainPass(unsigned OptLevel, intel::DebuggingServiceType debugType,
                                   bool useTLSGlobals);
+llvm::ModulePass* createSGSizeCollectorPass(const Intel::CPUId &CPUId);
+llvm::ModulePass* createSGSizeCollectorIndirectPass(const Intel::CPUId &CPUId);
+llvm::ModulePass* createVectorVariantLoweringPass(const Intel::CPUId &CPUId);
+llvm::ModulePass* createVectorVariantFillInPass();
+llvm::ModulePass* createUpdateCallAttrsPass();
 
 llvm::ModulePass *createInfiniteLoopCreatorPass();
 llvm::ModulePass *createAutorunReplicatorPass();

@@ -89,6 +89,11 @@ set(TARGET_INCLUDE_FILES
   Utils/VecConfig.h
   Utils/VectorizerCommon.h
   Utils/VectorizerCore.h
+  VectorVariant/SGSizeCollector.h
+  VectorVariant/SGSizeCollectorIndirect.h
+  VectorVariant/VectorVariantLowering.h
+  VectorVariant/VectorVariantFillIn.h
+  VectorVariant/UpdateCallAttrs.h
   VolcanoWrapper/Main.h
   WIAnalysis/WIAnalysis.h
   OCLBranchProbability/OCLBranchProbability.h
@@ -127,6 +132,11 @@ set(TARGET_SOURCE_FILES
   SoaAllocaAnalysis/SoaAllocaAnalysis.cpp
   Utils/SimplifyGEP.cpp
   Utils/VectorizerCore.cpp
+  VectorVariant/SGSizeCollector.cpp
+  VectorVariant/SGSizeCollectorIndirect.cpp
+  VectorVariant/VectorVariantLowering.cpp
+  VectorVariant/VectorVariantFillIn.cpp
+  VectorVariant/UpdateCallAttrs.cpp
   VolcanoWrapper/Main.cpp
   WIAnalysis/WIAnalysis.cpp
   OCLBranchProbability/OCLBranchProbability.cpp
