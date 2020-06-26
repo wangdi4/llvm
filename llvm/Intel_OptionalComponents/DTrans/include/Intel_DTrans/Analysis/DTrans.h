@@ -460,14 +460,21 @@ const SafetyData UnsafePointerStorePending = 0x0000000000100000000;
 // on entry to those functions.
 const SafetyData UnsafePointerStoreConditional = 0x0000000000200000000;
 
-// This safety data is used for special bad casting cases that won't affect
-// related types. These types are structures that have two types in the IR,
-// where one type represents the base form and the other type has the same
-// fields with an extra field at the end used for padding.
-const SafetyData BadCastingForRelatedTypes = 0x0000000000400000000;
-
 /// The structure was identified as a dope vector type.
-const SafetyData DopeVector = 0x0000000000800000000;
+const SafetyData DopeVector = 0x0000000000400000000;
+
+// The following safety violations are for related types. These types are
+// structures that have two types in the IR, where one type represents the
+// base form and the other type has the same fields with an extra field at
+// the end used for padding.
+
+// This safety data is used for special bad casting cases that won't affect
+// related types.
+const SafetyData BadCastingForRelatedTypes = 0x0000000000800000000;
+
+// This safety data is used to check if a bad pointer manipulation won't
+// affect the related types.
+const SafetyData BadPtrManipulationForRelatedTypes = 0x0000000001000000000;
 
 /// This is a catch-all flag that will be used to mark any usage pattern
 /// that we don't specifically recognize. The use might actually be safe
@@ -486,8 +493,8 @@ const SafetyData SDDeleteField =
         BadMemFuncManipulation | AmbiguousPointerTarget | UnsafePtrMerge |
         AddressTaken | NoFieldsInStruct | SystemObject | MismatchedArgUse |
         HasVTable | HasFnPtr | HasZeroSizedArray | HasFnPtr |
-        BadCastingConditional | UnsafePointerStoreConditional |
-        BadCastingForRelatedTypes | DopeVector;
+        BadCastingConditional | UnsafePointerStoreConditional | DopeVector |
+        BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes;
 
 const SafetyData SDReorderFields =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
@@ -498,14 +505,15 @@ const SafetyData SDReorderFields =
         AddressTaken | NoFieldsInStruct | NestedStruct | ContainsNestedStruct |
         SystemObject | MismatchedArgUse | LocalInstance | HasCppHandling |
         BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse |
-        BadCastingForRelatedTypes | DopeVector;
+        DopeVector | BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes;
 
 const SafetyData SDReorderFieldsDependent =
     BadPtrManipulation | GlobalInstance | HasInitializerList |
         MemFuncPartialWrite | NoFieldsInStruct | LocalInstance |
         BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse |
         WholeStructureReference | VolatileData | BadMemFuncSize |
-        BadMemFuncManipulation | AmbiguousPointerTarget | DopeVector;
+        BadMemFuncManipulation | AmbiguousPointerTarget | DopeVector |
+        BadPtrManipulationForRelatedTypes;
 
 //
 // Safety conditions for field single value analysis
@@ -514,7 +522,8 @@ const SafetyData SDFieldSingleValueNoFieldAddressTaken =
     BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
         MismatchedElementAccess | UnsafePointerStore | AmbiguousPointerTarget |
         UnsafePtrMerge | AddressTaken | MismatchedArgUse |
-        BadCastingForRelatedTypes | UnhandledUse;
+        BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
+        UnhandledUse;
 
 const SafetyData SDFieldSingleValue =
     SDFieldSingleValueNoFieldAddressTaken | FieldAddressTaken;
@@ -524,7 +533,8 @@ const SafetyData SDSingleAllocFunctionNoFieldAddressTaken =
         MismatchedElementAccess | UnsafePointerStore | BadMemFuncSize |
         BadMemFuncManipulation | AmbiguousPointerTarget | UnsafePtrMerge |
         AddressTaken | MismatchedArgUse |
-        BadCastingForRelatedTypes | UnhandledUse;
+        BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
+        UnhandledUse;
 
 const SafetyData SDSingleAllocFunction =
     SDSingleAllocFunctionNoFieldAddressTaken | FieldAddressTaken;
@@ -535,7 +545,8 @@ const SafetyData SDElimROFieldAccess =
         BadMemFuncSize | BadMemFuncManipulation | AmbiguousPointerTarget |
         HasInitializerList | UnsafePtrMerge | AddressTaken | MismatchedArgUse |
         BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse |
-        BadCastingForRelatedTypes | DopeVector;
+        DopeVector | BadCastingForRelatedTypes |
+        BadPtrManipulationForRelatedTypes;
 
 //
 // Safety conditions for a structure to be considered for the AOS-to-SOA
@@ -549,8 +560,8 @@ const SafetyData SDAOSToSOA =
         NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
         LocalInstance | MismatchedArgUse | GlobalArray | HasVTable | HasFnPtr |
         HasCppHandling | HasZeroSizedArray |
-        BadCastingConditional | UnsafePointerStoreConditional |
-        BadCastingForRelatedTypes | DopeVector;
+        BadCastingConditional | UnsafePointerStoreConditional | DopeVector |
+        BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes;
 
 //
 // Safety conditions for a structure type that contains a pointer to a
@@ -562,8 +573,8 @@ const SafetyData SDAOSToSOADependent =
         UnsafePtrMerge | AmbiguousPointerTarget | AddressTaken |
         NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
         MismatchedArgUse | GlobalArray | HasVTable | HasCppHandling |
-        BadCastingConditional | UnsafePointerStoreConditional |
-        BadCastingForRelatedTypes | DopeVector;
+        BadCastingConditional | UnsafePointerStoreConditional | DopeVector |
+        BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes;
 
 //
 // Safety conditions for a structure type that contains a pointer to a
@@ -579,7 +590,8 @@ const SafetyData SDAOSToSOADependentIndex32 =
         AddressTaken | NoFieldsInStruct | NestedStruct | ContainsNestedStruct |
         SystemObject | MismatchedArgUse | GlobalArray | HasVTable |
         HasCppHandling | HasZeroSizedArray | BadCastingConditional |
-        UnsafePointerStoreConditional | BadCastingForRelatedTypes |DopeVector;
+        UnsafePointerStoreConditional | DopeVector |
+        BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes;
 
 const SafetyData SDDynClone =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
@@ -590,8 +602,8 @@ const SafetyData SDDynClone =
         AddressTaken | NoFieldsInStruct | NestedStruct | ContainsNestedStruct |
         SystemObject | LocalInstance | MismatchedArgUse | GlobalArray |
         HasVTable | HasFnPtr | HasZeroSizedArray | BadCastingConditional |
-        UnsafePointerStoreConditional | UnhandledUse |
-        BadCastingForRelatedTypes | DopeVector;
+        UnsafePointerStoreConditional | UnhandledUse | DopeVector |
+        BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes;
 
 const SafetyData SDSOAToAOS =
     BadCasting | BadPtrManipulation |
@@ -602,7 +614,8 @@ const SafetyData SDSOAToAOS =
         NoFieldsInStruct | SystemObject | LocalInstance | MismatchedArgUse |
         GlobalArray | HasFnPtr | HasZeroSizedArray |
         BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse |
-        BadCastingForRelatedTypes | DopeVector;
+        DopeVector | BadCastingForRelatedTypes |
+        BadPtrManipulationForRelatedTypes;
 
 const SafetyData SDMemInitTrimDown =
     BadCasting | BadPtrManipulation |
@@ -613,7 +626,8 @@ const SafetyData SDMemInitTrimDown =
         NoFieldsInStruct | SystemObject | LocalInstance | MismatchedArgUse |
         GlobalArray | HasFnPtr | HasZeroSizedArray |
         BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse |
-        BadCastingForRelatedTypes | DopeVector;
+        DopeVector | BadCastingForRelatedTypes |
+        BadPtrManipulationForRelatedTypes;
 
 // Safety conditions for structures with padding
 const SafetyData SDPaddedStructures =

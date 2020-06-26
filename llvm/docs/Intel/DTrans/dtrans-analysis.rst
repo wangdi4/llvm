@@ -400,6 +400,10 @@ casting analyzer, and involve certain functions' arguments being nullptr
 on entry to those functions. (See the description of the Bad Casting
 Analyzer below.) `Bad Casting Analyzer`_
 
+DopeVector
+~~~~~~~~~~
+The type was identified as a dope vector.
+
 BadCastingForRelatedTypes
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -408,9 +412,11 @@ related types. These types are structures that have two types in the IR,
 where one type represents the base form and the other type has the same
 fields with an extra field at the end used for padding.
 
-DopeVector
-~~~~~~~~~~
-The type was identified as a dope vector.
+BadPtrManipulationForRelatedTypes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This safety data is used to check if bad pointer manipulation won't affect
+the related types.
 
 UnhandledUse
 ~~~~~~~~~~~~
