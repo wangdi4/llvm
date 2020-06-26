@@ -612,6 +612,7 @@ bool VPOParoptTransform::genTaskLoopInitCode(
 
   Instruction *DummyTaskTWithPrivates = Builder.CreateAlloca(
       KmpTaskTTWithPrivatesTy, nullptr, "taskt.withprivates");
+
   if (isTargetSPIRV()) {
     // Pointers passed to the target function must be in generic space.
     DummyTaskTWithPrivates = cast<Instruction>(Builder.CreateAddrSpaceCast(
@@ -1792,8 +1793,13 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
                                           TaskAllocCI, ElseTerm);
       MTFnArgs.clear();
       MTFnArgs.push_back(ElseBuilder.CreateLoad(TidPtrHolder));
-      MTFnArgs.push_back(ElseBuilder.CreateBitCast(
-          TaskAllocCI, PointerType::getUnqual(KmpTaskTTWithPrivatesTy)));
+      if (isTargetSPIRV())
+        MTFnArgs.push_back(ElseBuilder.CreateAddrSpaceCast(
+            TaskAllocCI, PointerType::get(KmpTaskTTWithPrivatesTy,
+                                          vpo::ADDRESS_SPACE_GENERIC)));
+      else
+        MTFnArgs.push_back(ElseBuilder.CreateBitCast(
+            TaskAllocCI, PointerType::getUnqual(KmpTaskTTWithPrivatesTy)));
       CallInst *SeqCI = CallInst::Create(MTFn->getFunctionType(), MTFn,
                                          MTFnArgs, "", ElseTerm);
       SeqCI->setCallingConv(NewCall->getCallingConv());
