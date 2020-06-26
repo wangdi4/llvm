@@ -2643,13 +2643,14 @@ void VPOCodeGenHIR::widenNodeImpl(const HLInst *INode, RegDDRef *Mask,
   // sincos function has two return values. The scalar sincos function uses
   // pointers as out-parameters. SVML sincos function, instead, returns them in
   // a struct directly. This bridges the gap between these two approaches.
-  const CallInst *Call = WideInst->getCallInst();
-  if (Call && Call->getCalledFunction()->getName().startswith("__svml_sincos")) {
-      addInst(WideInst, nullptr);
-      generateStoreForSinCos(INode, WideInst, Mask,
-                             false /* IsRemainderLoop */);
-      return;
-  }
+  if (const CallInst *Call = WideInst->getCallInst())
+    if (const Function *Fn = Call->getCalledFunction())
+      if (Fn->getName().startswith("__svml_sincos")) {
+        addInst(WideInst, nullptr);
+        generateStoreForSinCos(INode, WideInst, Mask,
+                               false /* IsRemainderLoop */);
+        return;
+      }
 
   addInst(WideInst, Mask);
 }
