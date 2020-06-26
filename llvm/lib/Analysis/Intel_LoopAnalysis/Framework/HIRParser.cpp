@@ -3770,6 +3770,9 @@ void HIRParser::addPhiBaseGEPDimensions(const GEPOrSubsOperator *GEPOp,
                                         RegDDRef *Ref, CanonExpr *IndexCE,
                                         CanonExpr *StrideCE, Type *DimType,
                                         unsigned Level) {
+  assert((!InitGEPOp || !IndexCE->isZero()) &&
+         "If InitGEPOp then !IndexCE->isZero()");
+
   // First populate the dimensions using the GEPOperator that we started
   // parsing from and then merge IndexCE into resulting Ref's highest dimension.
   if (GEPOp || (Ref->getNumDimensions() != 0)) {
@@ -3881,6 +3884,7 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
 
     // Non-linear base is parsed as base + zero offset: (%p)[0].
     if (!IndexCE) {
+      InitGEPOp = nullptr;
       BaseVal = CurBasePhi;
       IndexCE = getCanonExprUtils().createCanonExpr(OffsetTy);
     }
