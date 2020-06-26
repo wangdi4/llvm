@@ -79,6 +79,7 @@
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/ScalarEvolutionDivision.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -862,30 +863,6 @@ static void GroupByComplexity(SmallVectorImpl<const SCEV *> &Ops,
   }
 }
 
-// Returns the size of the SCEV S.
-static inline int sizeOfSCEV(const SCEV *S) {
-  struct FindSCEVSize {
-    int Size = 0;
-
-    FindSCEVSize() = default;
-
-    bool follow(const SCEV *S) {
-      ++Size;
-      // Keep looking at all operands of S.
-      return true;
-    }
-
-    bool isDone() const {
-      return false;
-    }
-  };
-
-  FindSCEVSize F;
-  SCEVTraversal<FindSCEVSize> ST(F);
-  ST.visitAll(S);
-  return F.Size;
-}
-
 /// Returns true if \p Ops contains a huge SCEV (the subtree of S contains at
 /// least HugeExprThreshold nodes).
 static bool hasHugeExpression(ArrayRef<const SCEV *> Ops) {
@@ -894,6 +871,7 @@ static bool hasHugeExpression(ArrayRef<const SCEV *> Ops) {
   });
 }
 
+<<<<<<< HEAD
 namespace {
 
 struct SCEVDivision : public SCEVVisitor<SCEVDivision, void> {
@@ -1140,6 +1118,8 @@ private:
 
 } // end anonymous namespace
 
+=======
+>>>>>>> 1e2691fe238b9b47dd3fa2c7a8874826ead45760
 //===----------------------------------------------------------------------===//
 //                      Simple SCEV method implementations
 //===----------------------------------------------------------------------===//
