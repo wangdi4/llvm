@@ -17,7 +17,9 @@
 #include <unistd.h>
 #endif
 #include <sys/stat.h>
+#if defined(__APPLE__)
 #include <sys/sysctl.h>
+#endif
 #include <sys/types.h>
 #include <time.h>
 
