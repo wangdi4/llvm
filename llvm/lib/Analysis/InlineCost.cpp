@@ -537,6 +537,12 @@ public:
 
   InlineResult analyze(const TargetTransformInfo &CalleeTTI); // INTEL
 
+  Optional<Constant*> getSimplifiedValue(Instruction *I) {
+    if (SimplifiedValues.find(I) != SimplifiedValues.end())
+      return SimplifiedValues[I];
+    return None;
+  }
+
   // Keep a bunch of stats about the cost savings found so we can print them
   // out when debugging.
   unsigned NumConstantArgs = 0;
@@ -3044,7 +3050,6 @@ static bool worthInliningForStackComputations(Function *F,
     return false;
   };
 
-<<<<<<< HEAD
   //
   // Use 'WorthyFunction' to store the single worthy Function if found.
   // Use SmallPtrSet to store those Functions that have already been tested
@@ -3066,22 +3071,6 @@ static bool worthInliningForStackComputations(Function *F,
   WorthyFunction = F;
   return true;
 }
-=======
-  Optional<Constant*> getSimplifiedValue(Instruction *I) {
-    if (SimplifiedValues.find(I) != SimplifiedValues.end())
-      return SimplifiedValues[I];
-    return None;
-  }
-
-  // Keep a bunch of stats about the cost savings found so we can print them
-  // out when debugging.
-  unsigned NumConstantArgs = 0;
-  unsigned NumConstantOffsetPtrArgs = 0;
-  unsigned NumAllocaArgs = 0;
-  unsigned NumConstantPtrCmps = 0;
-  unsigned NumConstantPtrDiffs = 0;
-  unsigned NumInstructionsSimplified = 0;
->>>>>>> 7f094f7f9d3e3c529afcfd553cee3b64419e72f2
 
 //
 // Test a series of special conditions to determine if it is worth inlining
