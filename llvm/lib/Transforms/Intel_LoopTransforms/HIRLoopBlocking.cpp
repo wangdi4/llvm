@@ -41,6 +41,7 @@
 
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/IR/Function.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
@@ -1311,9 +1312,10 @@ HLLoop *tryKAndRWithFixedStripmineSizes(
 
 // Returns the outermost loop where blocking will be applied
 // in the range of [outermost, InnermostLoop]
-HLLoop *findLoopNestToBlock(HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
+HLLoop *findLoopNestToBlock(HIRFramework &HIRF, HIRDDAnalysis &DDA,
+                            HIRSafeReductionAnalysis &SRA,
                             HLLoop *InnermostLoop, bool Advanced,
-                            StringRef Func, LoopMapTy &LoopMap) {
+                            LoopMapTy &LoopMap) {
 
   // Get the highest outermost ancestor of given InnermostLoop
   // that can make a perfect loop nest.
@@ -1326,6 +1328,7 @@ HLLoop *findLoopNestToBlock(HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
   // now.
   // If it is still IsNearPerfect, sinking pass was not able to
   // enable a perfect loop nest. Just bail out.
+  StringRef Func = HIRF.getFunction().getName();
   if (IsNearPerfect) {
     printDiag(NO_PERFECTNEST, Func);
     return nullptr;
@@ -1357,8 +1360,12 @@ HLLoop *findLoopNestToBlock(HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
   MemRefGatherer::gatherRange(InnermostLoop->child_begin(),
                               InnermostLoop->child_end(), Refs);
 
+  llvm::Triple TargetTriple(HIRF.getModule().getTargetTriple());
+  bool Is32Bit = (TargetTriple.getArch() == llvm::Triple::x86);
+  // Avoid delinearized results when 32-bit to avoid performance drop.
+  // TODO: Extend blocking algorithm to work when num_dims >= loop_depth
   RefAnalyzer::RefAnalysisResult RefKind =
-      RefAnalyzer::analyzeRefs(Refs, Advanced);
+      RefAnalyzer::analyzeRefs(Refs, !Is32Bit);
 
   // If any Ref is a non-linear, give up here.
   if (RefAnalyzer::hasNonLinear(RefKind)) {
@@ -1634,8 +1641,7 @@ bool doLoopBlocking(HIRFramework &HIRF, HIRDDAnalysis &DDA,
 
     LoopMapTy LoopMap;
     HLLoop *OutermostLoop =
-        findLoopNestToBlock(DDA, SRA, InnermostLoop, Advanced,
-                            HIRF.getFunction().getName(), LoopMap);
+        findLoopNestToBlock(HIRF, DDA, SRA, InnermostLoop, Advanced, LoopMap);
 
     if (!OutermostLoop)
       continue;
