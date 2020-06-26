@@ -44,6 +44,10 @@ set (LIBOMPTARGET_TESTED_PLUGINS "")
 # Check whether using debug mode. In debug mode, allow dumping progress
 # messages at runtime by default. Otherwise, it can be enabled
 # independently using the LIBOMPTARGET_ENABLE_DEBUG option.
+# INTEL_CUSTOMIZATION
+# Always build debug version for Intel compiler product.
+option(LIBOMPTARGET_ENABLE_DEBUG "Allow debug output with the environment variable LIBOMPTARGET_DEBUG=1" ON)
+# end INTEL_CUSTOMIZATION
 string( TOLOWER "${CMAKE_BUILD_TYPE}" LIBOMPTARGET_CMAKE_BUILD_TYPE)
 if(LIBOMPTARGET_CMAKE_BUILD_TYPE MATCHES debug)
   option(LIBOMPTARGET_ENABLE_DEBUG "Allow debug output with the environment variable LIBOMPTARGET_DEBUG=1" ON)
@@ -53,9 +57,6 @@ endif()
 if(LIBOMPTARGET_ENABLE_DEBUG)
   add_definitions(-DOMPTARGET_DEBUG)
 endif()
-# INTEL_CUSTOMIZATION
-add_definitions(-DOMPTARGET_DEBUG)
-# end INTEL_CUSTOMIZATION
 
 include_directories(include)
 
