@@ -125,6 +125,8 @@ entry:
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.REDUCTION.UDR:ARRSECT"(%struct.my_struct** %ypas.addr, i64 1, i64 5, i64 4, i64 1, [4 x %struct.my_struct]* ([4 x %struct.my_struct]*)* @_ZTSA4_9my_struct.omp.def_constr, void ([4 x %struct.my_struct]*)* @_ZTSA4_9my_struct.omp.destr, void (%struct.my_struct*, %struct.my_struct*)* @.omp_combiner., i8* null), "QUAL.OMP.NUM_THREADS"(i32 100), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i), "QUAL.OMP.PRIVATE"(i32* %j), "QUAL.OMP.SHARED"([100 x %struct.my_struct]* @_ZL1x_cfb28f0ac03fe018acd8fdbeebb430b5) ]
 
 ; ALL-NOT: "QUAL.OMP.REDUCTION.UDR"
+; FASTRED-NOT: __kmpc_atomic
+
 ; ALL: red.init.body{{.*}}:
 ; ALL-NEXT: %{{.*}} = phi {{.*}} [ {{.*}} ], [ {{.*}}, %red.init.body{{.*}} ]
 ; ALL: {{.*}} = call {{.*}} @_ZTSA4_9my_struct.omp.def_constr({{.*}})

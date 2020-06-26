@@ -94,7 +94,9 @@ private:
   LoopInfo   *LI = nullptr;
   Loop       *Lp = nullptr;
   SmallVector<Value *, 2> NormIV; // normalized IV's created by FE
+  SmallVector<Type *, 2> NormIVElemTy; // normalized IV's ElementTypes
   SmallVector<Value *, 2> NormUB; // normalized UB's
+  SmallVector<Type *, 2> NormUBElemTy; // normalized UB's ElementTypes
 
   /// Basic blocks with the zero-trip test for all loops in a loop nest.
   DenseMap<unsigned, BasicBlock *> ZTTBB;
@@ -125,8 +127,14 @@ public:
   WRNLoopInfo(LoopInfo *L) : LI(L) {}
   void setLoopInfo(LoopInfo *L) { LI = L; }
   void setLoop(Loop *L) { Lp = L; }
-  void addNormIV(Value *IV) { NormIV.push_back(IV); }
-  void addNormUB(Value *UB) { NormUB.push_back(UB); }
+  void addNormIV(Value *IV, Type *IVElemTy) {
+    NormIV.push_back(IV);
+    NormIVElemTy.push_back(IVElemTy);
+  }
+  void addNormUB(Value *UB, Type *UBElemTy) {
+    NormUB.push_back(UB);
+    NormUBElemTy.push_back(UBElemTy);
+  }
 
   /// Set basic block \p BB as a zero-trip test block for the loop nest's
   /// loop with the given index \p Idx.
@@ -155,7 +163,9 @@ public:
     return CurLoop;
   }
   Value *getNormIV(unsigned I=0) const;
+  Type *getNormIVElemTy(unsigned I = 0) const;
   Value *getNormUB(unsigned I=0) const;
+  Type *getNormUBElemTy(unsigned I = 0) const;
   ArrayRef<Value *> getNormUBs() const { return NormUB; }
   unsigned getNormIVSize() const { return NormIV.size(); }
   unsigned getNormUBSize() const { return NormUB.size(); }

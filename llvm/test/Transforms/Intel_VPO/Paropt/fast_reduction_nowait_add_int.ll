@@ -1,5 +1,7 @@
-; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
+; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s --check-prefix=USE-LOCAL --check-prefix=ALL
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s --check-prefix=USE-LOCAL --check-prefix=ALL
+; RUN: opt < %s -vpo-cfg-restructuring -vpo-paropt-prepare -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -vpo-paropt-fast-reduction-ctrl=0 -S | FileCheck %s --check-prefix=USE-REC --check-prefix=ALL
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -vpo-paropt-fast-reduction-ctrl=0  -S | FileCheck %s --check-prefix=USE-REC --check-prefix=ALL
 
 
 ;
@@ -39,20 +41,65 @@ entry:
   store i32 9, i32* %.omp.ub, align 4
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"(), "QUAL.OMP.REDUCTION.ADD"(i32* %sum), "QUAL.OMP.NOWAIT"(), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i) ]
 
-; CHECK-NOT: "QUAL.OMP.REDUCTION.ADD"
-; CHECK: %struct.fast_red_t = type <{ i32 }>
-; CHECK: define internal void @main_tree_reduce_{{.*}}(i8* %dst, i8* %src) {
-; CHECK: declare i32 @__kmpc_reduce_nowait(%struct.ident_t*, i32, i32, i32, i8*, void (i8*, i8*)*, [8 x i32]*)
-; CHECK: declare void @__kmpc_end_reduce_nowait(%struct.ident_t*, i32, [8 x i32]*)
-; CHECK: %fast_red_struct{{.*}} = alloca %struct.fast_red_t, align 4
-; CHECK: call i32 @__kmpc_reduce_nowait({{.*}})
-; CHECK-NEXT: %to.tree.reduce = icmp eq i32 %{{.*}}, 1
-; CHECK-NEXT: br i1 %to.tree.reduce, label %tree.reduce, label %tree.reduce.exit
-; CHECK: tree.reduce:
-; CHECK: tree.reduce.exit:
-; CHECK-NEXT: {{.*}} = phi i1 [ false, {{.*}} ], [ true, {{.*}} ]
-; CHECK: call void @__kmpc_end_reduce_nowait({{.*}})
-; CHECK-NEXT: br label %tree.reduce.exit
+; ALL-NOT: "QUAL.OMP.REDUCTION.ADD"
+; ALL: %struct.fast_red_t = type <{ i32 }>
+; ALL: define internal void @main_tree_reduce_{{.*}}(i8* %dst, i8* %src) {
+; ALL-NEXT: entry:
+; ALL-NEXT:   %dst.cast = bitcast i8* %dst to %struct.fast_red_t*
+; ALL-NEXT:   %src.cast = bitcast i8* %src to %struct.fast_red_t*
+; ALL-NEXT:   %dst.sum = getelementptr inbounds %struct.fast_red_t, %struct.fast_red_t* %dst.cast, i32 0, i32 0
+; ALL-NEXT:   %src.sum = getelementptr inbounds %struct.fast_red_t, %struct.fast_red_t* %src.cast, i32 0, i32 0
+; ALL-NEXT:   %0 = load i32, i32* %src.sum, align 4
+; ALL-NEXT:   %1 = load i32, i32* %dst.sum, align 4
+; ALL-NEXT:   %2 = add i32 %1, %0
+; ALL-NEXT:   store i32 %2, i32* %dst.sum, align 4
+; ALL-NEXT:   ret void
+; ALL-NEXT: }
+; ALL: declare i32 @__kmpc_reduce_nowait(%struct.ident_t*, i32, i32, i32, i8*, void (i8*, i8*)*, [8 x i32]*)
+; ALL: declare void @__kmpc_end_reduce_nowait(%struct.ident_t*, i32, [8 x i32]*)
+
+; USE-LOCAL: %[[LOCAL:[^,]+.red]] = alloca i32, align 4
+; ALL: %fast_red_struct{{.*}} = alloca %struct.fast_red_t, align 4
+; USE-REC: %[[REC:[^,]+]] = getelementptr inbounds %struct.fast_red_t, %struct.fast_red_t* %fast_red_struct, i32 0, i32 0
+; USE-REC: store i32 0, i32* %[[REC]]
+
+; USE-LOCAL: %[[REC:[^,]+]] = getelementptr inbounds %struct.fast_red_t, %struct.fast_red_t* %fast_red_struct, i32 0, i32 0
+; USE-LOCAL: store i32 0, i32* %[[LOCAL]]
+
+
+; USE-LOCAL: %[[LOCAL_VAL:[^,]+]] = load i32, i32* %[[LOCAL]], align 4
+; USE-LOCAL-NEXT: %[[ADD:[^,]+]] = add nsw i32 %[[LOCAL_VAL]], %{{.*}}
+; USE-LOCAL-NEXT: store i32 %[[ADD]], i32* %[[LOCAL]], align 4
+
+; USE-REC: %[[REC_VAL:[^,]+]] = load i32, i32* %[[REC]], align 4
+; USE-REC-NEXT: %[[ADD:[^,]+]] = add nsw i32 %[[REC_VAL]], %{{.*}}
+; USE-REC-NEXT: store i32 %[[ADD]], i32* %[[REC]], align 4
+
+; USE-LOCAL: %[[LOCAL_VAL2:[^,]+]] = load i32, i32* %[[LOCAL]], align 4
+; USE-LOCAL-NEXT: store i32 %[[LOCAL_VAL2]], i32* %[[REC]]
+; USE-LOCAL: call void @__kmpc_for_static_fini(%struct.ident_t* @{{.*}}, i32 %{{.*}})
+; ALL: %[[BITCAST:[^,]+]] = bitcast %struct.fast_red_t* %fast_red_struct to i8*
+; ALL: %[[RET:[^,]+]] = call i32 @__kmpc_reduce_nowait(%struct.ident_t* @{{.*}}, i32 %{{.*}}, i32 1, i32 4, i8* %[[BITCAST]], void (i8*, i8*)* @main_tree_reduce_{{.*}}, [8 x i32]* @{{.*}})
+; ALL-NEXT: %to.tree.reduce = icmp eq i32 %[[RET]], 1
+; ALL-NEXT: br i1 %to.tree.reduce, label %tree.reduce, label %tree.reduce.exit
+; ALL: tree.reduce:
+; ALL: tree.reduce.exit:
+; ALL-NEXT: %[[PHI:[^,]+]] = phi i1 [ false, {{.*}} ], [ true, {{.*}} ]
+; ALL-NEXT: %[[CMP_RESULT:[^,]+]] = icmp eq i1 %[[PHI]], false
+; ALL-NEXT: br i1 %[[CMP_RESULT]], label %{{.*}}, label %[[ATOMIC_REDUCE_EXIT:[^,]+]]
+; ALL: %[[COMB_LOCAL_VAL:[^,]+]] = load i32, i32* %[[REC]], align 4
+; ALL-NEXT: %[[COMB_GLOBAL_VAL:[^,]+]] = load i32, i32* %[[COMB_GLOBAL:[^,]+]], align 4
+; ALL-NEXT: %[[COMB_ADD:[^,]+]] = add i32 %[[COMB_GLOBAL_VAL]], %[[COMB_LOCAL_VAL]]
+; ALL-NEXT: store i32 %[[COMB_ADD]], i32* %[[COMB_GLOBAL]], align 4
+; ALL: %[[TO_ATOMIC_REDUCE:[^,]+]] = icmp eq i32 %[[RET]], 2
+; ALL-NEXT: br i1 %[[TO_ATOMIC_REDUCE]], label %[[ATOMIC_REDUCE:[^,]+]], label %[[ATOMIC_REDUCE_EXIT]]
+; ALL: [[ATOMIC_REDUCE_EXIT]]:
+; ALL: call void @__kmpc_end_reduce_nowait({{.*}})
+; ALL-NEXT: br label %tree.reduce.exit
+; ALL: [[ATOMIC_REDUCE]]:
+; ALL: %[[REC_LOCAL:[^,]+]] = load i32, i32* %[[REC]], align 4
+; ALL: call void @__kmpc_atomic_fixed4_add(%struct.ident_t* @.kmpc_loc{{.*}}, i32 %my.tid{{.*}}, i32* %[[COMB_GLOBAL]], i32 %[[REC_LOCAL]])
+; ALL-NOT: call void @__kmpc_end_reduce_nowait({{.*}})
 
   %2 = load i32, i32* %.omp.lb, align 4
   store i32 %2, i32* %.omp.iv, align 4

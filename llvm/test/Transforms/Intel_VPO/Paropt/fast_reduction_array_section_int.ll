@@ -102,6 +102,7 @@ for.end10:                                        ; preds = %for.cond
   %9 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.REDUCTION.ADD:ARRSECT"([100 x i32]* %a, i64 1, i64 0, i64 100, i64 1), "QUAL.OMP.PRIVATE"(i32* %j), "QUAL.OMP.PRIVATE"(i32* %i), "QUAL.OMP.SHARED"([100 x [100 x i32]]* %b), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub) ]
 
 ; ALL-NOT: "QUAL.OMP.REDUCTION.ADD:ARRSECT"
+; ALL-NOT: __kmpc_atomic
 ; ALL: %struct.fast_red_t = type <{ [100 x i32] }>
 ; ALL: define internal void @main_tree_reduce_{{.*}}(i8* %dst, i8* %src) {
 ; ALL: declare i32 @__kmpc_reduce(%struct.ident_t*, i32, i32, i32, i8*, void (i8*, i8*)*, [8 x i32]*)
@@ -139,7 +140,6 @@ for.end10:                                        ; preds = %for.cond
 ; ALL-NEXT: br i1 %to.tree.reduce, label %tree.reduce, label %tree.reduce.exit
 ; ALL: tree.reduce:
 ; ALL: tree.reduce.exit:
-; ALL-NEXT: {{.*}} = phi i1 [ false, {{.*}} ], [ true, {{.*}} ]
 ; ALL: %[[GLOBAL_CAST:[^,]+]] = bitcast [100 x i32]* %[[GLOBAL:[^,]+]] to i32*
 ; ALL-NEXT: %[[GLOBAL_CAST_PLUS_OFFSET:[^,]+]] = getelementptr i32, i32* %[[GLOBAL_CAST]], i64 0
 ; ALL: %[[GLOBAL_END:[^,]+]] = getelementptr i32, i32* %[[GLOBAL_CAST_PLUS_OFFSET]], i64 100

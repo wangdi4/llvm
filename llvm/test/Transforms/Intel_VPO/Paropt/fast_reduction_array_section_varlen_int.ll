@@ -150,6 +150,7 @@ omp.precond.then:                                 ; preds = %for.end10
   %24 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.REDUCTION.ADD:ARRSECT"(i32** %a.addr, i64 1, i64 0, i64 %conv, i64 1), "QUAL.OMP.PRIVATE"(i32* %j), "QUAL.OMP.SHARED"(i32* %n.addr), "QUAL.OMP.PRIVATE"(i32* %i), "QUAL.OMP.SHARED"(i32* %vla), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.SHARED"(i64* %omp.vla.tmp), "QUAL.OMP.SHARED"(i64* %omp.vla.tmp16) ]
 
 ; ALL-NOT: "QUAL.OMP.REDUCTION.ADD:ARRSECT"
+; ALL-NOT: __kmpc_atomic
 ; ALL: %struct.fast_red_t = type <{ i32* }>
 ; ALL: define internal void @foo_tree_reduce_{{.*}}(i8* %dst, i8* %src) {
 ; ALL-NEXT: entry:
@@ -228,7 +229,6 @@ omp.precond.then:                                 ; preds = %for.end10
 ; ALL-NEXT: br i1 %to.tree.reduce, label %tree.reduce, label %tree.reduce.exit
 ; ALL: tree.reduce:
 ; ALL: tree.reduce.exit:
-; ALL-NEXT: {{.*}} = phi i1 [ false, {{.*}} ], [ true, {{.*}} ]
 ; ALL: %[[GLOBAL_LOAD:[^,]+]] = load i32*, i32** %[[GLOBAL_ADDR:[^,]+]], align 8
 ; ALL-NEXT: %[[GLOBAL_PLUS_OFFSET:[^,]+]] = getelementptr i32, i32* %[[GLOBAL_LOAD]], i64 0
 ; ALL: %[[GLOBAL_END:[^,]+]] = getelementptr i32, i32* %[[GLOBAL_PLUS_OFFSET]], i64 %[[SIZE]]

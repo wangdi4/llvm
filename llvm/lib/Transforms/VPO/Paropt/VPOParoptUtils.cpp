@@ -2738,52 +2738,99 @@ bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
                                 DT, LI, IsTargetSPIRV, LockNameSuffix);
 }
 
-// Generates reduce block around Instructions `begin` and `end`.
+// Generates tree reduce block around Instructions `BeginInst` and `EndInst` and
+// atomic reduce block around Instructions `AtomicBeginInst` and
+// `AtomicEndInst`.
 // Here is an example of fast reduction for the scalar type.
-// omp.loop.exit.split:                              ; preds =
-// %tree.reduce.exit, %DIR.OMP.PARALLEL.LOOP.3
-//   br label %DIR.OMP.END.PARALLEL.LOOP.4
+// Source code:
+//   int main(void)
+//   {
+//     int i, sum = 0;
+//     #pragma omp parallel for reduction(+:sum)
+//     for (i=0; i<10; i++) {
+//       sum+=i;
+//     }
+//     return 0;
+//   }
+//
+// Generated IR:
+// omp.loop.exit.split:                              ; preds = %omp.loop.exit
+//   br label %DIR.OMP.END.PARALLEL.LOOP.48
 // ...
-// loop.region.exit.split:                           ; preds = %loop.region.exit
-//   %my.tid13 = load i32, i32* %tid, align 4
-//   %5 = call i32 @__kmpc_reduce(%struct.ident_t* @.kmpc_loc.0.0.4,
-//   i32 %my.tid13, i32 1, i32 4, %struct.fast_red_t* %fast_red_struct,
-//   void (%struct.fast_red_t*, %struct.fast_red_t*)* @main_tree_reduce_4,
-//   [8 x i32]* @.gomp_critical_user_.fast_reduction.var)
-//   %tobool = icmp eq i32 %5, 1
-//   br i1 %tobool, label %tree.reduce, label %tree.reduce.exit
+// loop.region.exit.split:                           ; preds =
+// %loop.region.exit.split14
+//   %7 = bitcast %struct.fast_red_t* %fast_red_struct to i8*            ; (1)
+//   %my.tid16 = load i32, i32* %tid, align 4
+//   %8 = call i32 @__kmpc_reduce(%struct.ident_t* @.kmpc_loc.0.0.6,
+//   i32 %my.tid16, i32 1, i32 4, i8* %7, void (i8*, i8*)* @main_tree_reduce_2,
+//   [8 x i32]* @.gomp_critical_user_.fast_reduction.AS0.var)            ; (2)
+//   %to.tree.reduce = icmp eq i32 %8, 1                                 ; (3)
+//   br i1 %to.tree.reduce, label %tree.reduce, label %tree.reduce.exit  ; (4)
+// ...
 //
 // tree.reduce:                                      ; preds =
-// %loop.region.exit.split
+// %loop.region.exit.split                                               ; (5)
 //   br label %loop.region.exit.split.split
 //
-// tree.reduce.exit:                                  ; preds =
-// %loop.region.exit.split, %loop.region.exit.split.split.split
-//   %6 = phi i1 [ false, %loop.region.exit.split ], [ true,
-//   %loop.region.exit.split.split.split ]
-//   br label %omp.loop.exit.split
+// tree.reduce.exit:                                 ; preds =
+// %loop.region.exit.split, %loop.region.exit.split.split.split          ; (6)
+//   %9 = phi i1 [ false, %loop.region.exit.split ], [ true,
+//   %loop.region.exit.split.split.split ]                               ; (7)
+//   %10 = icmp eq i1 %9, false                                          ; (8)
+//   br i1 %10, label %loop.region.exit.split.split.split.split, label
+//   %atomic.reduce.exit                                                 ; (9)
 //
 // loop.region.exit.split.split:                     ; preds = %tree.reduce
-//   %7 = load i32, i32* %sum.fast_red, align 4
-//   %8 = load i32, i32* %sum, align 4
-//   %9 = add i32 %8, %7
-//   store i32 %9, i32* %sum, align 4
+//   %11 = load i32, i32* %sum.fast_red, align 4
+//   %12 = load i32, i32* %sum, align 4
+//   %13 = add i32 %12, %11
+//   store i32 %13, i32* %sum, align 4
 //   br label %loop.region.exit.split.split.split
+//
+// loop.region.exit.split.split.split.split:         ; preds = %tree.reduce.exit
+//   %to.atomic.reduce = icmp eq i32 %8, 2                               ; (10)
+//   br i1 %to.atomic.reduce, label %atomic.reduce, label
+//   %atomic.reduce.exit                                                 ; (11)
+//
+// atomic.reduce.exit:                               ; preds =
+// %tree.reduce.exit, %loop.region.exit.split.split.split.split,
+// %loop.region.exit.split.split.split.split.split.split                 ; (12)
+//   br label %omp.inner.for.end
 //
 // loop.region.exit.split.split.split:               ; preds =
 // %loop.region.exit.split.split
-//   %my.tid14 = load i32, i32* %tid, align 4
-//   call void @__kmpc_end_reduce(%struct.ident_t* @.kmpc_loc.0.0.6,
-//   i32 %my.tid14, [8 x i32]* @.gomp_critical_user_.fast_reduction.var)
+//   %my.tid17 = load i32, i32* %tid, align 4
+//   call void @__kmpc_end_reduce(%struct.ident_t* @.kmpc_loc.0.0.8, i32
+//   %my.tid17, [8 x i32]* @.gomp_critical_user_.fast_reduction.AS0.var) ; (13)
 //   br label %tree.reduce.exit
 //
-// DIR.OMP.END.PARALLEL.LOOP.4:                      ; preds =
+// atomic.reduce:                                    ; preds =
+// %loop.region.exit.split.split.split.split                             ; (14)
+//   br label %loop.region.exit.split.split.split.split.split
+//
+// loop.region.exit.split.split.split.split.split:   ; preds =
+// %atomic.reduce
+//   %14 = load i32, i32* %sum.fast_red, align 4
+//   %my.tid15 = load i32, i32* %tid, align 4
+//   call void @__kmpc_atomic_fixed4_add(%struct.ident_t* @.kmpc_loc.0.0.4, i32
+//   %my.tid15, i32* %sum, i32 %14)
+//   br label %loop.region.exit.split.split.split.split.split.split
+//
+// loop.region.exit.split.split.split.split.split.split: ; preds =
+// %loop.region.exit.split.split.split.split.split
+//   %my.tid20 = load i32, i32* %tid, align 4
+//   call void @__kmpc_end_reduce(%struct.ident_t* @.kmpc_loc.0.0.10, i32
+//   %my.tid20, [8 x i32]* @.gomp_critical_user_.fast_reduction.AS0.var) ; (15)
+//   br label %atomic.reduce.exit
+//
+// DIR.OMP.END.PARALLEL.LOOP.48:                     ; preds =
 // %omp.loop.exit.split
-//   br label %DIR.OMP.END.PARALLEL.LOOP.5.exitStub
+//  br label %DIR.OMP.END.PARALLEL.LOOP.4.exitStub
 //
 bool VPOParoptUtils::genKmpcReduceImpl(
     WRegionNode *W, StructType *IdentTy, Constant *TidPtr, Value *RedVar,
     RDECL RedCallback, Instruction *BeginInst, Instruction *EndInst,
+    Instruction *AtomicBeginInst, Instruction *AtomicEndInst,
     GlobalVariable *LockVar, DominatorTree *DT, LoopInfo *LI,
     bool IsTargetSPIRV) {
 
@@ -2810,7 +2857,8 @@ bool VPOParoptUtils::genKmpcReduceImpl(
   CallInst *BeginReduce = nullptr;
   SmallVector<Value *, 5> BeginArgs;
 
-  Value *RedVarI8 = Builder.CreateBitCast(RedVar, Builder.getInt8PtrTy());
+  Value *RedVarI8 =
+      Builder.CreateBitCast(RedVar, Builder.getInt8PtrTy()); // (1)
 
   // add num of reductions, reduction variable, and size of reduction variable
   ReductionClause &RedClause = W->getRed();
@@ -2824,8 +2872,11 @@ bool VPOParoptUtils::genKmpcReduceImpl(
   BeginArgs.push_back(RedCallback);
   BeginArgs.push_back(LockVar);
 
+  bool EnableAtomicReduce = false;
+  if (AtomicBeginInst != nullptr && AtomicEndInst != nullptr)
+    EnableAtomicReduce = true;
   BeginReduce = genKmpcCallWithTid(W, IdentTy, TidPtr, BeginInst, BeginName,
-                                   RetTy, BeginArgs);
+                                   RetTy, BeginArgs, EnableAtomicReduce); // (2)
   assert(BeginReduce != nullptr && "Could not call __kmp_reduce");
 
   if (BeginReduce == nullptr)
@@ -2839,7 +2890,7 @@ bool VPOParoptUtils::genKmpcReduceImpl(
   auto *EndRetTy = Builder.getVoidTy();
   Value *EndArg = LockVar;
   EndReduce = genKmpcCallWithTid(W, IdentTy, TidPtr, EndInst, EndName, EndRetTy,
-                                 {EndArg});
+                                 {EndArg}); // (13)
 
   assert(EndReduce != nullptr && "Could not call __kmpc_end_reduce");
 
@@ -2853,26 +2904,77 @@ bool VPOParoptUtils::genKmpcReduceImpl(
     EndReduce->insertAfter(EndInst);
 
   ConstantInt *ValueOne = Builder.getInt32(1);
-  auto IsTrue = Builder.CreateICmpEQ(BeginReduce, ValueOne, "to.tree.reduce");
+  auto IsTrue =
+      Builder.CreateICmpEQ(BeginReduce, ValueOne, "to.tree.reduce"); // (3)
   auto EntryBB = Builder.GetInsertBlock();
-  auto ContBB = SplitBlock(EntryBB, BeginInst, DT, LI);
+  auto ContBB = SplitBlock(EntryBB, BeginInst, DT, LI); // (5)
   ContBB->setName("tree.reduce");
 
   Instruction *SplitPt = GeneralUtils::nextUniqueInstruction(EndReduce);
-  // TODO: add atomic reduce function call in ElseBB
-  auto ElseBB = SplitBlock(SplitPt->getParent(), SplitPt, DT, LI);
+  auto ElseBB = SplitBlock(SplitPt->getParent(), SplitPt, DT, LI); // (6)
   ElseBB->setName("tree.reduce.exit");
 
   EntryBB->getTerminator()->eraseFromParent();
   Builder.SetInsertPoint(EntryBB);
-  Builder.CreateCondBr(IsTrue, ContBB, ElseBB);
+  Builder.CreateCondBr(IsTrue, ContBB, ElseBB); // (4)
 
-  Builder.SetInsertPoint(ElseBB->getTerminator());
-  PHINode *PN = Builder.CreatePHI(Builder.getInt1Ty(), 2, "");
-  auto PhiEntryBBVal = Builder.getFalse();
-  PN->addIncoming(PhiEntryBBVal, EntryBB);
-  auto PhiElseBBVal = Builder.getTrue();
-  PN->addIncoming(PhiElseBBVal, EndReduce->getParent());
+  if (AtomicBeginInst != nullptr) {
+    assert(AtomicEndInst != nullptr &&
+           "begin and end instructions for atomic "
+           "reduce block must be not null at same time");
+    Builder.SetInsertPoint(ElseBB->getTerminator());
+    PHINode *PN = Builder.CreatePHI(Builder.getInt1Ty(), 2, ""); // (7)
+    auto PhiEntryBBVal = Builder.getFalse();
+    PN->addIncoming(PhiEntryBBVal, EntryBB);
+    auto PhiElseBBVal = Builder.getTrue();
+    PN->addIncoming(PhiElseBBVal, EndReduce->getParent());
+    auto IsFalse = Builder.CreateICmpEQ(PN, Builder.getFalse(), ""); // (8)
+
+    Instruction *AtomicEndReduce = AtomicEndInst;
+    if (!Nowait) {
+      AtomicEndReduce = genKmpcCallWithTid(W, IdentTy, TidPtr, AtomicEndInst,
+                                           EndName, EndRetTy, {EndArg}); // (15)
+      assert(AtomicEndReduce != nullptr &&
+             "Could not call __kmpc_end_reduce after atomic statements.");
+      if (AtomicEndReduce == nullptr)
+        return false;
+      if (AtomicEndInst->isTerminator())
+        AtomicEndReduce->insertBefore(AtomicEndInst);
+      else
+        AtomicEndReduce->insertAfter(AtomicEndInst);
+    }
+
+    Builder.SetInsertPoint(AtomicBeginInst);
+    ConstantInt *ValueTwo = Builder.getInt32(2);
+    auto IsAtomicTrue =
+        Builder.CreateICmpEQ(BeginReduce, ValueTwo, "to.atomic.reduce"); // (10)
+    auto AtomicEntryBB = Builder.GetInsertBlock();
+    auto AtomicContBB =
+        SplitBlock(AtomicEntryBB, AtomicBeginInst, DT, LI); // (14)
+    AtomicContBB->setName("atomic.reduce");
+
+    BasicBlock *AtomicElseBB = nullptr;
+    if (AtomicEndReduce->isTerminator()) {
+      assert((AtomicEndReduce == AtomicEndInst) && "Something wrong.");
+      assert(Nowait && "Nowait should be true");
+
+      // no __kmpc_end_reduce function call
+      AtomicElseBB = AtomicEndReduce->getParent();
+    } else {
+      SplitPt = GeneralUtils::nextUniqueInstruction(AtomicEndReduce);
+      AtomicElseBB =
+          SplitBlock(AtomicEndInst->getParent(), SplitPt, DT, LI); // (12)
+      AtomicElseBB->setName("atomic.reduce.exit");
+    }
+
+    AtomicEntryBB->getTerminator()->eraseFromParent();
+    Builder.SetInsertPoint(AtomicEntryBB);
+    Builder.CreateCondBr(IsAtomicTrue, AtomicContBB, AtomicElseBB); // (11)
+
+    Builder.SetInsertPoint(ElseBB->getTerminator());
+    Builder.CreateCondBr(IsFalse, AtomicEntryBB, AtomicElseBB); // (9)
+    ElseBB->getTerminator()->eraseFromParent();
+  }
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Fast Reduce Block generated.\n");
   return true;
@@ -2880,13 +2982,15 @@ bool VPOParoptUtils::genKmpcReduceImpl(
 
 // Generates a reduce block around Instructions `BeginInst` and `Endinst`,
 // by emitting calls to `__kmpc_reduce` before `BeginInst`, and
-// `__kmpc_end_reduce` after `EndInst`.
-bool VPOParoptUtils::genKmpcReduce(WRegionNode *W, StructType *IdentTy,
-                                   Constant *TidPtr, Value *RedVar,
-                                   RDECL RedCallback, Instruction *BeginInst,
-                                   Instruction *EndInst, DominatorTree *DT,
-                                   LoopInfo *LI, bool IsTargetSPIRV,
-                                   const StringRef LockNameSuffix) {
+// `__kmpc_end_reduce` after `EndInst`; and generates atomic reduce block around
+// Instructions `AtomicBeginInst` and `AtomicEndinst`, by emitting calls to
+// atomic update routine and use it to replace reduction update instruction, and
+// `__kmpc_end_reduce` after `AtomicEndInst`.
+bool VPOParoptUtils::genKmpcReduce(
+    WRegionNode *W, StructType *IdentTy, Constant *TidPtr, Value *RedVar,
+    RDECL RedCallback, Instruction *BeginInst, Instruction *EndInst,
+    Instruction *AtomicBeginInst, Instruction *AtomicEndInst, DominatorTree *DT,
+    LoopInfo *LI, bool IsTargetSPIRV, const StringRef LockNameSuffix) {
   assert(W != nullptr && "WRegionNode is null.");
   assert(IdentTy != nullptr && "IdentTy is null.");
   assert(TidPtr != nullptr && "TidPtr is null.");
@@ -2899,13 +3003,15 @@ bool VPOParoptUtils::genKmpcReduce(WRegionNode *W, StructType *IdentTy,
   assert(Lock != nullptr && "Could not create reduce block lock variable.");
 
   return genKmpcReduceImpl(W, IdentTy, TidPtr, RedVar, RedCallback, BeginInst,
-                           EndInst, Lock, DT, LI, IsTargetSPIRV);
+                           EndInst, AtomicBeginInst, AtomicEndInst, Lock, DT,
+                           LI, IsTargetSPIRV);
 }
 
 // Generates a KMPC call to IntrinsicName with Tid obtained using TidPtr.
 CallInst *VPOParoptUtils::genKmpcCallWithTid(
     WRegionNode *W, StructType *IdentTy, Value *TidPtr, Instruction *InsertPt,
-    StringRef IntrinsicName, Type *ReturnTy, ArrayRef<Value *> Args) {
+    StringRef IntrinsicName, Type *ReturnTy, ArrayRef<Value *> Args,
+    bool EnableAtomicReduce) {
   assert(W != nullptr && "WRegionNode is null.");
   assert(IdentTy != nullptr && "IdentTy is null.");
   assert(InsertPt != nullptr && "InsertPt is null.");
@@ -2929,7 +3035,8 @@ CallInst *VPOParoptUtils::genKmpcCallWithTid(
 
   // And then try to generate the KMPC call.
   return VPOParoptUtils::genKmpcCall(W, IdentTy, InsertPt, IntrinsicName,
-                                     ReturnTy, FnArgs);
+                                     ReturnTy, FnArgs, false,
+                                     EnableAtomicReduce);
 }
 
 // This function generates a call as follows.
@@ -3329,7 +3436,8 @@ CallInst *VPOParoptUtils::genKmpcFlush(WRegionNode *W, StructType *IdentTy,
 CallInst *VPOParoptUtils::genKmpcCall(WRegionNode *W, StructType *IdentTy,
                                       Instruction *InsertPt,
                                       StringRef IntrinsicName, Type *ReturnTy,
-                                      ArrayRef<Value *> Args, bool Insert) {
+                                      ArrayRef<Value *> Args, bool Insert,
+                                      bool EnableAtomicReduce) {
   assert(W != nullptr && "WRegionNode is null.");
   assert(IdentTy != nullptr && "IdentTy is null.");
   assert(InsertPt != nullptr && "InsertPt is null.");
@@ -3343,6 +3451,8 @@ CallInst *VPOParoptUtils::genKmpcCall(WRegionNode *W, StructType *IdentTy,
   Module *M = F->getParent();
 
   int Flags = KMP_IDENT_KMPC;
+  if (EnableAtomicReduce)
+    Flags |= KMP_IDENT_ATOMIC_REDUCE;
 
   // Before emitting the KMPC call, we need the Loc information.
   GlobalVariable *Loc =
