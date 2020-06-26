@@ -5720,7 +5720,6 @@ InlineParams llvm::getInlineParams(unsigned OptLevel, unsigned SizeOptLevel) {
   return Params;
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // This routine does exactly same as what "getInlineParams(unsigned OptLevel,
 // unsigned SizeOptLevel)" function does except it also sets PrepareForLTO
@@ -5734,7 +5733,7 @@ InlineParams llvm::getInlineParams(unsigned OptLevel, unsigned SizeOptLevel,
   return InlParams;
 }
 #endif // INTEL_CUSTOMIZATION
-=======
+
 PreservedAnalyses
 InlineCostAnnotationPrinterPass::run(Function &F,
                                      FunctionAnalysisManager &FAM) {
@@ -5762,7 +5761,7 @@ InlineCostAnnotationPrinterPass::run(Function &F,
         OptimizationRemarkEmitter ORE(CalledFunction);
         InlineCostCallAnalyzer ICCA(*CalledFunction, *CI, Params, TTI,
                                     GetAssumptionCache, nullptr, &PSI, &ORE);
-        ICCA.analyze();
+        ICCA.analyze(TTI); // INTEL
         OS << "      Analyzing call of " << CalledFunction->getName()
            << "... (caller:" << CI->getCaller()->getName() << ")\n";
         ICCA.print();
@@ -5771,4 +5770,3 @@ InlineCostAnnotationPrinterPass::run(Function &F,
   }
   return PreservedAnalyses::all();
 }
->>>>>>> 6a5d7d498c0b16b13ace802f422b223eb510c303
