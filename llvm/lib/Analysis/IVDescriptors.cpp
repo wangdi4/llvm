@@ -1112,7 +1112,12 @@ bool InductionDescriptor::isInductionPHI(
     return false;
   BinaryOperator *BOp =
       dyn_cast<BinaryOperator>(Phi->getIncomingValueForBlock(Latch));
-
+#if INTEL_CUSTOMIZATION
+  // Loop Vectorizer assumes latch value of IV to be an instruction but this may
+  // not be true in some cases.
+  if (!isa<Instruction>(Phi->getIncomingValueForBlock(Latch)))
+    return false;
+#endif // INTEL_CUSTOMIZATION
   const SCEV *Step = AR->getStepRecurrence(*SE);
   // Calculate the pointer stride and check if it is consecutive.
   // The stride may be a constant or a loop invariant integer value.

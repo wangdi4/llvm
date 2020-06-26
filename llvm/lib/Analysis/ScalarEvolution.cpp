@@ -5477,6 +5477,38 @@ const SCEV *ScalarEvolution::createAddRecFromPHI(PHINode *PN) {
         return Shifted;
       }
     }
+#if INTEL_CUSTOMIZATION
+    // Handle special case when the backedge taken count is 1 and the loop
+    // header phi changes from one constant to another. For example, we want to
+    // create {0,+,1}<L> for %iv in the following loop-
+    //
+    // L:
+    //  %iv = phi i1 [ false, %entry ], [ true, %L ]
+    //  br i1 %iv, label %L, label %exit
+    if (isa<SCEVConstant>(BEValue) && isa<ConstantInt>(StartValueV)) {
+      auto *Backedge = getBackedgeTakenCount(L);
+
+      if (Backedge->isOne()) {
+        const SCEV *Start = getSCEV(StartValueV);
+        const SCEV *Stride = getMinusSCEV(BEValue, Start);
+
+        SCEV::NoWrapFlags Flags = SCEV::FlagAnyWrap;
+
+        // We can possibly set one of the two flags by doing more checks but
+        // this takes care of the most common cases.
+        if (isKnownNonNegative(Start) && isKnownNonNegative(Stride))
+          Flags = setFlags(Flags,
+                           (SCEV::NoWrapFlags)(SCEV::FlagNUW | SCEV::FlagNSW));
+
+        auto *AddRec = getAddRecExpr(Start, Stride, L, Flags);
+
+        forgetSymbolicName(PN, SymbolicName);
+        ValueExprMap[SCEVCallbackVH(PN, this)] = AddRec;
+
+        return AddRec;
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
   }
 
   // Remove the temporary PHI node SCEV that has been inserted while intending
