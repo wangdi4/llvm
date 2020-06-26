@@ -68,8 +68,7 @@ cl::opt<bool> dtrans::DTransPrintAnalyzedTypes("dtrans-print-types",
 // it will also be true for %struct.A and %struct.B.
 //
 cl::opt<bool> dtrans::DTransOutOfBoundsOK("dtrans-outofboundsok",
-                                                 cl::init(true),
-                                                 cl::ReallyHidden);
+                                          cl::init(true), cl::ReallyHidden);
 
 // Enable merging padded structures with base structures. For example,
 // consider that there is a class A which will be a base class for other
@@ -639,8 +638,9 @@ void dtrans::StructInfo::print(
     (*Annotator)(OS, this);
 
   if (auto *RelatedInfo =
-        dyn_cast_or_null<dtrans::StructInfo>(getRelatedType())) {
-    llvm::StructType *RelatedType = cast<llvm::StructType>(RelatedInfo->getLLVMType());
+          dyn_cast_or_null<dtrans::StructInfo>(getRelatedType())) {
+    llvm::StructType *RelatedType =
+        cast<llvm::StructType>(RelatedInfo->getLLVMType());
     if (S->getName().endswith(".base"))
       OS << "  Related padded structure: ";
     else
@@ -940,13 +940,13 @@ bool StructInfo::offsetAccessesPaddingField(int64_t Offset,
   if (!getRelatedType() || getNumFields() == 0)
     return false;
 
-  if(!hasPaddedField())
+  if (!hasPaddedField())
     return false;
 
   int64_t LastField = getNumFields() - 1;
   dtrans::FieldInfo &Field = getField(LastField);
 
-  int64_t StructSize =  DL.getTypeStoreSize(getLLVMType());
+  int64_t StructSize = DL.getTypeStoreSize(getLLVMType());
   Type *FieldType = Field.getLLVMType();
   int64_t FieldSize = DL.getTypeStoreSize(FieldType);
   int64_t BaseSize = StructSize - FieldSize;
@@ -1188,6 +1188,116 @@ bool dtrans::hasZeroSizedArrayAsLastField(llvm::Type *Ty) {
 // Check that function only throws an exception.
 bool dtrans::isDummyFuncWithUnreachable(const CallBase *Call,
                                         const TargetLibraryInfo &TLI) {
+
+  // Returns true if "BB" just calls _CxxThrowException function (Windows EH).
+  // It allows store instructions that save data to std::bad_alloc object.
+  //
+  // entry:
+  // %3 = alloca %"bad_alloc", align 8
+  // %4 = getelementptr %"bad_alloc", %"bad_alloc"* %3, i64 0, i32 0, i32 1
+  // %5 = bitcast i8* %4 to i64*
+  // store i64 0, i64* %5, align 8
+  // %6 = getelementptr %"bad_alloc", %"bad_alloc"* %3, i64 0, i32 0, i32 1
+  // store i8* some_const, i8** %6
+  // %7 = getelementptr %"bad_alloc", %"bad_alloc"* %3, i64 0, i32 0, i32 0
+  // store i32 some_const, i32 (...)*** %7
+  // %8 = bitcast %"bad_alloc"* %3 to i8*
+  // call void @_CxxThrowException(i8* nonnull %8, ...)
+  // unreachable
+  //
+  auto DummyAllocBBWithCxxThrowException = [&](BasicBlock &BB) {
+    auto CI =
+        dyn_cast<CallInst>(BB.getTerminator()->getPrevNonDebugInstruction());
+    if (!CI)
+      return false;
+    auto *Func = dtrans::getCalledFunction(*CI);
+    if (!Func)
+      return false;
+    LibFunc LFunc;
+    if (!TLI.getLibFunc(*Func, LFunc) || !TLI.has(LFunc) ||
+        LFunc != LibFunc_msvc_std_CxxThrowException)
+      return false;
+
+    // Get std::bad_alloc object pointer from _CxxThrowException call.
+    Value *EhArg = CI->getArgOperand(0);
+    if (auto BC = dyn_cast<BitCastInst>(EhArg))
+      EhArg = BC->getOperand(0);
+    auto AI = dyn_cast<AllocaInst>(EhArg);
+    if (!AI)
+      return false;
+    // Makes sure BB doesn't have any instruction that has side effects
+    // except stores to std::bad_alloc object.
+    for (auto &I : BB) {
+      if (&I == CI)
+        continue;
+      if (auto SI = dyn_cast<StoreInst>(&I)) {
+        if (!isa<Constant>(SI->getValueOperand()))
+          return false;
+        Value *PtrOp = SI->getPointerOperand();
+        if (auto BC = dyn_cast<BitCastInst>(PtrOp))
+          PtrOp = BC->getOperand(0);
+        auto GEPI = dyn_cast<GetElementPtrInst>(PtrOp);
+        if (!GEPI || GEPI->getPointerOperand() != AI)
+          return false;
+        continue;
+      }
+      if (I.mayReadOrWriteMemory())
+        return false;
+    }
+    return true;
+  };
+
+  // Returns true if "BB" just calls _cxa_throw function (Linux EH).
+  //
+  // entry:
+  //  %3 = tail call i8* @__cxa_allocate_exception(i64 8)
+  //  %4 = bitcast i8* %3 to %"bad_alloc"*
+  //  %5 = getelementptr %"bad_alloc", %"bad_alloc"* %4, i64 0, i32 0, i32 0
+  //  store i32 some_const, i32 (...)*** %5, align 8, !tbaa !14619
+  //  call void @__cxa_throw() #62
+  //  unreachable
+  //
+  auto DummyAllocBBWithCxaThrow = [&](BasicBlock &BB) {
+    // In dummy function we expect to see only those instructions which throw
+    // bad_alloc exception.
+    bool CallExAllocFound = false, StoreFound = false, BitCastFound = false;
+    bool GEPFound = true, CallExThrowFound = false;
+    for (auto &I : BB) {
+      if (isa<BitCastInst>(&I))
+        BitCastFound = true;
+      if (isa<GetElementPtrInst>(&I))
+        GEPFound = true;
+      auto *Call = dyn_cast<CallInst>(&I);
+      if (Call) {
+        // Skip debug intrinsics
+        if (isa<DbgInfoIntrinsic>(&I))
+          continue;
+        auto *Func = dtrans::getCalledFunction(*Call);
+        if (!Func)
+          return false;
+
+        LibFunc LFunc;
+        if (!TLI.getLibFunc(*Func, LFunc) || !TLI.has(LFunc))
+          return false;
+
+        if (LFunc == LibFunc_cxa_allocate_exception)
+          CallExAllocFound = true;
+        else if (LFunc == LibFunc_cxa_throw)
+          CallExThrowFound = true;
+        else
+          return false;
+      }
+      if (isa<StoreInst>(&I)) {
+        if (!StoreFound && CallExAllocFound)
+          StoreFound = true;
+        else
+          return false;
+      }
+    }
+    return CallExAllocFound && StoreFound && BitCastFound && GEPFound &&
+           CallExThrowFound;
+  };
+
   auto *F = dtrans::getCalledFunction(*Call);
   if (!F)
     return false;
@@ -1196,45 +1306,14 @@ bool dtrans::isDummyFuncWithUnreachable(const CallBase *Call,
   auto &BB = F->getEntryBlock();
   if (!isa<UnreachableInst>(BB.getTerminator()))
     return false;
+  // Makes sure arguments of "F" are not used.
+  for (Argument &Arg : F->args())
+    if (!Arg.use_empty())
+      return false;
 
-  // In dummy function we expect to see only those instructions which throw
-  // bad_alloc exception.
-  bool CallExAllocFound = false, StoreFound = false, BitCastFound = false;
-  bool GEPFound = true, CallExThrowFound = false;
-  for (auto &I : BB) {
-    if (isa<BitCastInst>(&I))
-      BitCastFound = true;
-    if (isa<GetElementPtrInst>(&I))
-      GEPFound = true;
-    auto *Call = dyn_cast<CallInst>(&I);
-    if (Call) {
-      // Skip debug intrinsics
-      if (isa<DbgInfoIntrinsic>(&I))
-        continue;
-      auto *Func = dtrans::getCalledFunction(*Call);
-      if (!Func)
-        return false;
-
-      LibFunc LFunc;
-      if (!TLI.getLibFunc(*Func, LFunc) || !TLI.has(LFunc))
-        return false;
-
-      if (LFunc == LibFunc_cxa_allocate_exception)
-        CallExAllocFound = true;
-      else if (LFunc == LibFunc_cxa_throw)
-        CallExThrowFound = true;
-      else
-        return false;
-    }
-    if (isa<StoreInst>(&I)) {
-      if (!StoreFound && CallExAllocFound)
-        StoreFound = true;
-      else
-        return false;
-    }
-  }
-  return CallExAllocFound && StoreFound && BitCastFound && GEPFound &&
-         CallExThrowFound;
+  if (!DummyAllocBBWithCxaThrow(BB) && !DummyAllocBBWithCxxThrowException(BB))
+    return false;
+  return true;
 }
 
 bool dtrans::isDummyFuncWithThisAndIntArgs(const CallBase *Call,
@@ -1323,13 +1402,13 @@ bool dtrans::hasPointerType(llvm::Type *Ty) {
 // in %class.inner (%class.TestClass*). This function will return the pointer
 // type that is being loaded. Also, it will store the structure that
 // encapsulates the loaded pointer in the parameter Pointee.
-llvm::Type* dtrans::getTypeForZeroElementLoaded(LoadInst *Load,
+llvm::Type *dtrans::getTypeForZeroElementLoaded(LoadInst *Load,
                                                 llvm::Type **Pointee) {
 
   // If the input type is a Structure, then return the casted form, else check
   // if it is a Pointer type. If so, then check if the pointer's element is a
   // a structure and return it. Else, return nullptr.
-  auto GetStructFromPtr = [](Type *PtrTy) -> StructType* {
+  auto GetStructFromPtr = [](Type *PtrTy) -> StructType * {
     if (!PtrTy)
       return nullptr;
 
@@ -1351,8 +1430,7 @@ llvm::Type* dtrans::getTypeForZeroElementLoaded(LoadInst *Load,
   if (!BCSrc)
     return nullptr;
 
-  PointerType *OperandTy =
-      dyn_cast<PointerType>(Load->getPointerOperandType());
+  PointerType *OperandTy = dyn_cast<PointerType>(Load->getPointerOperandType());
   // Make sure that we are loading from a pointer to an integer type
   if (!OperandTy || !OperandTy->getPointerElementType()->isIntegerTy())
     return nullptr;
@@ -1412,8 +1490,7 @@ llvm::Type* dtrans::getTypeForZeroElementLoaded(LoadInst *Load,
 
     // Else, there is more to catch, check the zero element
     SourceType = cast<Type>(CurrStruct);
-  }
-  else if (isa<Argument>(Src))
+  } else if (isa<Argument>(Src))
     SourceType = Src->getType();
   else
     return nullptr;
@@ -1426,8 +1503,7 @@ llvm::Type* dtrans::getTypeForZeroElementLoaded(LoadInst *Load,
     Type *Element = CurrTy->getElementType(0);
     if (Element->isStructTy()) {
       CurrTy = cast<StructType>(Element);
-    }
-    else if (GetStructFromPtr(Element)) {
+    } else if (GetStructFromPtr(Element)) {
       *Pointee = cast<Type>(CurrTy);
       return Element;
     } else {
@@ -1441,7 +1517,7 @@ llvm::Type* dtrans::getTypeForZeroElementLoaded(LoadInst *Load,
 
 // Helper function to identify if the BitCast instruction will be used for
 // loading the 0 element in a structure.
-bool dtrans::isBitCastLoadingZeroElement(BitCastInst* BC) {
+bool dtrans::isBitCastLoadingZeroElement(BitCastInst *BC) {
   if (!BC)
     return false;
 
@@ -1501,8 +1577,7 @@ bool dtrans::isPaddedStruct(llvm::Type *Type1, llvm::Type *Type2) {
 
     BaseType = cast<StructType>(Type2);
     BaseSize = Type2Size;
-  }
-  else if (Type2Size - Type1Size == 1) {
+  } else if (Type2Size - Type1Size == 1) {
     BaseType = cast<StructType>(Type1);
     BaseSize = Type1Size;
 
@@ -1526,7 +1601,7 @@ bool dtrans::isPaddedStruct(llvm::Type *Type1, llvm::Type *Type2) {
   StringRef BaseName = BaseType->getName();
 
   if (!BaseName.endswith(".base"))
-      return false;
+    return false;
 
   // FIXME: There could be cases where the base name doesn't match.
   // For example:
@@ -1543,7 +1618,7 @@ bool dtrans::isPaddedStruct(llvm::Type *Type1, llvm::Type *Type2) {
   // All the elements must match except the last one;
 
   bool AllElementsMatch = true;
-  for(unsigned Element = 0; Element < BaseSize; Element++) {
+  for (unsigned Element = 0; Element < BaseSize; Element++) {
     if (PaddedType->getElementType(Element) !=
         BaseType->getElementType(Element)) {
       AllElementsMatch = false;
@@ -1567,7 +1642,7 @@ bool dtrans::isPaddedStruct(llvm::Type *Type1, llvm::Type *Type2) {
 //
 // It also works the other way around, given a padded structure InTy it will
 // find the base form.
-llvm::Type* dtrans::collectRelatedType(llvm::Type *InTy, Module &M) {
+llvm::Type *dtrans::collectRelatedType(llvm::Type *InTy, Module &M) {
 
   if (!DTransMergePaddedStructs)
     return nullptr;
@@ -1649,7 +1724,7 @@ StringRef dtrans::getTypeBaseName(StringRef TyName) {
 
 // If \p Ty refers to a structure type (potentially with some level of
 // indirection or array usage), return the StructureType, otherwise nullptr.
-llvm::StructType* dtrans::getContainedStructTy(llvm::Type *Ty) {
+llvm::StructType *dtrans::getContainedStructTy(llvm::Type *Ty) {
   auto *BaseTy = Ty;
   while (BaseTy->isPointerTy() || BaseTy->isArrayTy() || BaseTy->isVectorTy()) {
     if (BaseTy->isPointerTy())
@@ -1669,7 +1744,7 @@ llvm::StructType* dtrans::getContainedStructTy(llvm::Type *Ty) {
 // structures that are nested inside of other types. This function will
 // include those.
 void dtrans::collectAllStructTypes(Module &M,
-                           SetVector<llvm::StructType *> &SeenTypes) {
+                                   SetVector<llvm::StructType *> &SeenTypes) {
   std::function<void(StructType *)> findMissedNestedTypes =
       [&](StructType *Ty) {
         for (Type *ElemTy : Ty->elements()) {
