@@ -24,6 +24,7 @@ class VPBuilder {
 protected:
   VPBasicBlock *BB = nullptr;
   VPBasicBlock::iterator InsertPt = VPBasicBlock::iterator();
+  DebugLoc CurDbgLocation;
 
   VPInstruction *createInstruction(unsigned Opcode, Type *BaseTy,
                                    ArrayRef<VPValue *> Operands,
@@ -34,8 +35,7 @@ protected:
            "Expected 1 operand");
 
     VPInstruction *Instr = new VPInstruction(Opcode, BaseTy, Operands);
-    if (BB)
-      BB->insert(Instr, InsertPt);
+    insert(Instr);
     Instr->setName(Name);
     return Instr;
   }
@@ -58,9 +58,13 @@ public:
   VPBasicBlock *getInsertBlock() const { return BB; }
   VPBasicBlock::iterator getInsertPoint() const { return InsertPt; }
 
-  /// Insert and return the specified instruction.
+  /// Insert and return the specified instruction. Appropriate debug location is
+  /// also set for the instruction if available.
   VPInstruction *insert(VPInstruction *I) const {
-    BB->insert(I, InsertPt);
+    if (BB)
+      BB->insert(I, InsertPt);
+    if (CurDbgLocation)
+      I->setDebugLocation(CurDbgLocation);
     return I;
   }
 
@@ -135,6 +139,12 @@ public:
     InsertPt = IP;
     return *this;
   }
+
+  // Set location information used by debugging information.
+  void setCurrentDebugLocation(DebugLoc L) { CurDbgLocation = std::move(L); }
+
+  // Get location information used by debugging information.
+  const DebugLoc &getCurrentDebugLocation() const { return CurDbgLocation; }
 
   // Create an N-ary operation with \p Opcode, \p Operands and set \p Inst as
   // its underlying Instruction.
@@ -212,16 +222,14 @@ public:
     assert(LeftOp && RightOp && "VPCmpInst's operands can't be null!");
     VPCmpInst *Instr = new VPCmpInst(LeftOp, RightOp, Pred);
     Instr->setName(Name);
-    if (BB)
-      BB->insert(Instr, InsertPt);
+    insert(Instr);
     return Instr;
   }
 
   // Create dummy VPBranchInst instruction.
   VPBranchInst *createBr(Type *BaseTy) {
     VPBranchInst *Instr = new VPBranchInst(BaseTy);
-    if (BB)
-      BB->insert(Instr, InsertPt);
+    insert(Instr);
     return Instr;
   }
 
@@ -235,16 +243,14 @@ public:
   VPPHINode *createPhiInstruction(Type *BaseTy, const Twine &Name = "") {
     VPPHINode *NewVPPHINode = new VPPHINode(BaseTy);
     NewVPPHINode->setName(Name);
-    if (BB)
-      BB->insert(NewVPPHINode, InsertPt);
+    insert(NewVPPHINode);
     return NewVPPHINode;
   }
 
   VPBlendInst *createBlendInstruction(Type *Ty, const Twine &Name = "") {
     auto *Blend = new VPBlendInst(Ty);
     Blend->setName(Name);
-    if (BB)
-      BB->insert(Blend, InsertPt);
+    insert(Blend);
     return Blend;
   }
 
@@ -259,8 +265,7 @@ public:
     // arrays when simd reductions/privates will support arrays.
     Type *Ty = Inst ? Inst->getType() : Ptr->getType();
     VPInstruction *NewVPInst = new VPGEPInstruction(Ty, Ptr, IdxList);
-    if (BB)
-      BB->insert(NewVPInst, InsertPt);
+    insert(NewVPInst);
     if (Inst)
       NewVPInst->setUnderlyingValue(*Inst);
     return NewVPInst;
@@ -285,8 +290,7 @@ public:
     VPSubscriptInst *NewSubscript =
         new VPSubscriptInst(BaseTy, Rank, Lower, Stride, Base, Index);
     NewSubscript->setName(Name);
-    if (BB)
-      BB->insert(NewSubscript, InsertPt);
+    insert(NewSubscript);
     if (Inst)
       NewSubscript->setUnderlyingValue(*Inst);
     return NewSubscript;
@@ -305,8 +309,7 @@ public:
     VPSubscriptInst *NewSubscript =
         new VPSubscriptInst(BaseTy, NumDims, Lowers, Strides, Base, Indices);
     NewSubscript->setName(Name);
-    if (BB)
-      BB->insert(NewSubscript, InsertPt);
+    insert(NewSubscript);
     return NewSubscript;
   }
 
@@ -321,8 +324,7 @@ public:
     VPSubscriptInst *NewSubscript = new VPSubscriptInst(
         BaseTy, NumDims, Lowers, Strides, Base, Indices, StructOffsets, Types);
     NewSubscript->setName(Name);
-    if (BB)
-      BB->insert(NewSubscript, InsertPt);
+    insert(NewSubscript);
     return NewSubscript;
   }
   VPSubscriptInst *createInBoundsSubscriptInst(
@@ -347,8 +349,7 @@ public:
         new VPCallInstruction(CalledValue, ArgList, Call);
     NewVPCall->setUnderlyingValue(*Call);
     NewVPCall->setName(Inst->getName());
-    if (BB)
-      BB->insert(NewVPCall, InsertPt);
+    insert(NewVPCall);
     return NewVPCall;
   }
 
@@ -358,8 +359,7 @@ public:
     VPInstruction *NewVPInst = Start ? new VPReductionInit(Identity, Start)
                                      : new VPReductionInit(Identity);
     NewVPInst->setName(Name);
-    if (BB)
-      BB->insert(NewVPInst, InsertPt);
+    insert(NewVPInst);
     return NewVPInst;
   }
 
@@ -369,8 +369,7 @@ public:
     VPReductionFinal *NewVPInst =
         new VPReductionFinal(BinOp, ReducVec, StartValue, Sign);
     NewVPInst->setName(Name);
-    if (BB)
-      BB->insert(NewVPInst, InsertPt);
+    insert(NewVPInst);
     return NewVPInst;
   }
 
@@ -378,8 +377,7 @@ public:
                                          const Twine &Name = "") {
     VPReductionFinal *NewVPInst = new VPReductionFinal(BinOp, ReducVec);
     NewVPInst->setName(Name);
-    if (BB)
-      BB->insert(NewVPInst, InsertPt);
+    insert(NewVPInst);
     return NewVPInst;
   }
 
@@ -391,8 +389,7 @@ public:
     VPReductionFinal *NewVPInst =
         new VPReductionFinal(BinOp, ReducVec, ParentExit, ParentFinal, Sign);
     NewVPInst->setName(Name);
-    if (BB)
-      BB->insert(NewVPInst, InsertPt);
+    insert(NewVPInst);
     return NewVPInst;
   }
 
@@ -402,8 +399,7 @@ public:
                                      const Twine &Name = "") {
     VPInstruction *NewVPInst = new VPInductionInit(Start, Step, Opc);
     NewVPInst->setName(Name);
-    if (BB)
-      BB->insert(NewVPInst, InsertPt);
+    insert(NewVPInst);
     return NewVPInst;
   }
 
@@ -412,8 +408,7 @@ public:
                                          const Twine &Name = "") {
     VPInstruction *NewVPInst = new VPInductionInitStep(Step, Opcode);
     NewVPInst->setName(Name);
-    if (BB)
-      BB->insert(NewVPInst, InsertPt);
+    insert(NewVPInst);
     return NewVPInst;
   }
 
@@ -421,8 +416,7 @@ public:
                                       const Twine &Name = "") {
     VPInstruction *NewVPInst = new VPInductionFinal(InducVec);
     NewVPInst->setName(Name);
-    if (BB)
-      BB->insert(NewVPInst, InsertPt);
+    insert(NewVPInst);
     return NewVPInst;
   }
 
@@ -431,15 +425,13 @@ public:
                                       const Twine &Name = "") {
     VPInstruction *NewVPInst = new VPInductionFinal(Start, Step, Opcode);
     NewVPInst->setName(Name);
-    if (BB)
-      BB->insert(NewVPInst, InsertPt);
+    insert(NewVPInst);
     return NewVPInst;
   }
 
   VPInstruction *createAllocaPrivate(const VPValue *AI) {
     VPInstruction *NewVPInst = new VPAllocatePrivate(AI->getType());
-    if (BB)
-      BB->insert(NewVPInst, InsertPt);
+    insert(NewVPInst);
     NewVPInst->setName(AI->getName());
     return NewVPInst;
   }
@@ -449,8 +441,7 @@ public:
                                  const Twine &Name = "orig.trip.count") {
     auto *OrigTC = new VPOrigTripCountCalculation(OrigLoop, VPLp, Ty);
     OrigTC->setName(Name);
-    if (BB)
-      BB->insert(OrigTC, InsertPt);
+    insert(OrigTC);
     return OrigTC;
   }
 
@@ -459,8 +450,7 @@ public:
                                    const Twine &Name = "vector.trip.count") {
     auto *TC = new VPVectorTripCountCalculation(OrigTC);
     TC->setName(Name);
-    if (BB)
-      BB->insert(TC, InsertPt);
+    insert(TC);
     return TC;
   }
 

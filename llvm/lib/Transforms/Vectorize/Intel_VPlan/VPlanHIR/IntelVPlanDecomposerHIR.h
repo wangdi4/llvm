@@ -157,6 +157,16 @@ private:
   void getOrCreateVPDefsForUse(loopopt::DDRef *UseDDR,
                                SmallVectorImpl<VPValue *> &VPDefs);
 
+  // Private helper method to create CmpInsts in VPlan using given HLPredicate
+  // and operands.
+  VPCmpInst *createCmpInst(const HLPredicate &P, VPValue *LHS, VPValue *RHS) {
+    ScopeDbgLoc DbgLoc(Builder, P.DbgLoc);
+    VPCmpInst *Inst = Builder.createCmpInst(P.Kind, LHS, RHS);
+    if (CmpInst::isFPPredicate(P.Kind))
+      Inst->setFastMathFlags(P.FMF);
+    return Inst;
+  }
+
   // Methods to decompose complex HIR.
   VPValue *combineDecompDefs(VPValue *LHS, VPValue *RHS, Type *Ty,
                              unsigned OpCode);
@@ -211,6 +221,27 @@ private:
     VPValue *visitCouldNotCompute(const SCEVCouldNotCompute *Expr);
   };
   friend class VPBlobDecompVisitor;
+
+  // Helper class to track debug location of VPInstructions obtained via
+  // decomposition of HIR constructs. Inspired by namesake helper in HIRCodeGen.
+  class ScopeDbgLoc {
+    VPBuilderHIR &Builder;
+    DebugLoc OldDbgLoc;
+
+  public:
+    ScopeDbgLoc(ScopeDbgLoc &&Scope) : Builder(Scope.Builder) {}
+    ScopeDbgLoc(const ScopeDbgLoc &) = delete;
+
+    ScopeDbgLoc(VPBuilderHIR &Builder, const DebugLoc &Loc) : Builder(Builder) {
+      OldDbgLoc = Builder.getCurrentDebugLocation();
+
+      if (Loc) {
+        Builder.setCurrentDebugLocation(Loc);
+      }
+    }
+
+    ~ScopeDbgLoc() { Builder.setCurrentDebugLocation(OldDbgLoc); }
+  };
 
 public:
   VPDecomposerHIR(VPlan *P, const loopopt::HLLoop *OHLp,

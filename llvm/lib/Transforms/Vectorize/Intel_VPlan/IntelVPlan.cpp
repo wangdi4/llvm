@@ -254,6 +254,8 @@ void VPInstruction::executeHIR(VPOCodeGenHIR *CG) {
 
   CG->widenNode(this, nullptr, Group, InterleaveFactor, InterleaveIndex,
                 GrpStartInst);
+  // Propagate debug location for the generated HIR construct.
+  CG->propagateDebugLocation(this);
 }
 
 Type *VPInstruction::getCMType() const {

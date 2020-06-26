@@ -1,6 +1,25 @@
 ; Test to check correctness of HIR decomposer and vector codegen to capture and preserve
 ; underlying operator flags (FMF, NSW, NUW, exact).
 
+; Incoming HIR
+; <0>          BEGIN REGION { }
+; <23:8>             %entry.region = @llvm.directive.region.entry(); [ DIR.VPO.AUTO.VEC() ]
+; <22:8>
+; <22:8>             + DO i1 = 0, 1023, 1   <DO_LOOP>
+; <3:10>             |   %0 = (@B)[0][i1];
+; <5:10>             |   %1 = (@C)[0][i1];
+; <6:10>             |   %mul3 = %1  *  %0;
+; <8:10>             |   (@A)[0][i1] = %mul3;
+; <9:11>             |   %2 = 42  >>  4;
+; <10:11>            |   %fp.cmp = %mul3 > %1;
+; <13:11>            |   %red.phi = zext.i1.i32(%fp.cmp) + %2  +  %red.phi; <Safe Reduction>
+; <14:11>            |   %fp.select = (%mul3 > %1) ? %mul3 : %1;
+; <15:11>            |   (@A)[0][i1] = %fp.select;
+; <22:8>             + END LOOP
+; <22:8>
+; <24:8>             @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
+; <0>          END REGION
+
 ; REQUIRES: asserts
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-plain-cfg -vplan-dump-details -disable-output < %s 2>&1 | FileCheck %s --check-prefix=VPLAN-IR
 ; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -enable-vp-value-codegen-hir -print-after=VPlanDriverHIR -hir-details-llvm-inst -disable-output < %s 2>&1 | FileCheck %s --check-prefix=VEC-HIR
@@ -9,16 +28,16 @@
 ; VEC-HIR-NEXT: <26:8>                  %red.init = call <4 x i32> @llvm.ssa.copy.v4i32(<4 x i32> undef), !dbg !29
 ; VEC-HIR-NEXT: <27:8>                  %red.init.insert = insertelement <4 x i32> undef, i32 undef, i64 0, !dbg !29
 ; VEC-HIR-NEXT: <25:8>             + DO i1 = 0, 1023, 4   <DO_LOOP> <novectorize>
-; VEC-HIR-NEXT: <28>               |     %.vec = load <4 x float>, <4 x float>* undef, align 16, !dbg !29
-; VEC-HIR-NEXT: <29>               |     %.vec1 = load <4 x float>, <4 x float>* undef, align 16, !dbg !29
-; VEC-HIR-NEXT: <30:8>             |     %.vec2 = fmul fast <4 x float> undef, undef, !dbg !29
-; VEC-HIR-NEXT: <31>               |     store <4 x float> undef, <4 x float>* undef, align 16, !dbg !29
-; VEC-HIR-NEXT: <32:8>             |     %.vec3 = ashr exact <4 x i32> undef, undef, !dbg !29
-; VEC-HIR-NEXT: <33:8>             |     %.vec4 = fcmp fast true <4 x float> undef, undef, !dbg !29
-; VEC-HIR-NEXT: <34:8>             |     %.vec5 = add <4 x i32> undef, undef, !dbg !29
-; VEC-HIR-NEXT: <35:8>             |     %.vec6 = add <4 x i32> undef, undef, !dbg !29
-; VEC-HIR-NEXT: <36:8>             |     %.vec7 = select fast i1 undef, <4 x float> undef, <4 x float> undef, !dbg !29
-; VEC-HIR-NEXT: <37>               |     store <4 x float> undef, <4 x float>* undef, align 16, !dbg !29
+; VEC-HIR-NEXT: <28:10>            |     %.vec = load <4 x float>, <4 x float>* undef, align 16, !dbg !29
+; VEC-HIR-NEXT: <29:10>            |     %.vec1 = load <4 x float>, <4 x float>* undef, align 16, !dbg !29
+; VEC-HIR-NEXT: <30:10>            |     %.vec2 = fmul fast <4 x float> undef, undef, !dbg !30
+; VEC-HIR-NEXT: <31:10>            |     store <4 x float> undef, <4 x float>* undef, align 16, !dbg !29
+; VEC-HIR-NEXT: <32:11>            |     %.vec3 = ashr exact <4 x i32> undef, undef, !dbg !32
+; VEC-HIR-NEXT: <33:11>            |     %.vec4 = fcmp fast true <4 x float> undef, undef, !dbg !32
+; VEC-HIR-NEXT: <34:11>            |     %.vec5 = add <4 x i32> undef, undef, !dbg !32
+; VEC-HIR-NEXT: <35:11>            |     %.vec6 = add <4 x i32> undef, undef, !dbg !32
+; VEC-HIR-NEXT: <36:11>            |     %.vec7 = select fast i1 undef, <4 x float> undef, <4 x float> undef, !dbg !32
+; VEC-HIR-NEXT: <37:11>            |     store <4 x float> undef, <4 x float>* undef, align 16, !dbg !29
 ; VEC-HIR-NEXT: <25:8>             + END LOOP
 ; VEC-HIR-NEXT: <38:8>                  %vec.reduce = call i32 @llvm.experimental.vector.reduce.add.v4i32(<4 x i32> undef), !dbg !29
 ; VEC-HIR-NEXT: <0>          END REGION
@@ -54,124 +73,124 @@ loop.body:                               ; predggs = %omp.inner.for.body, %DIR.O
 
   %arrayidx = getelementptr inbounds [1024 x float], [1024 x float]* @B, i64 0, i64 %indvars.iv, !dbg !30, !intel-tbaa !32
 ; VPLAN-IR:          float* [[VP8:%.*]] = subscript inbounds [1024 x float]* @B i64 0 i64 [[VP6]]
-; VPLAN-IR-NEXT:      DbgLoc:
+; VPLAN-IR-NEXT:      DbgLoc: lit_test.c:10:12
 ; VPLAN-IR-NEXT:      OperatorFlags -
 ; VPLAN-IR-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
 ; VPLAN-IR-NEXT:      end of details
 
   %0 = load float, float* %arrayidx, align 4, !dbg !30, !tbaa !32
 ; VPLAN-IR:          float [[VP9:%.*]] = load float* [[VP8]]
-; VPLAN-IR-NEXT:      DbgLoc:
+; VPLAN-IR-NEXT:      DbgLoc: lit_test.c:10:12
 ; VPLAN-IR-NEXT:      OperatorFlags -
 ; VPLAN-IR-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
 ; VPLAN-IR-NEXT:      end of details
 
   %arrayidx2 = getelementptr inbounds [1024 x float], [1024 x float]* @C, i64 0, i64 %indvars.iv, !dbg !37, !intel-tbaa !32
 ; VPLAN-IR:          float* [[VP10:%.*]] = subscript inbounds [1024 x float]* @C i64 0 i64 [[VP6]]
-; VPLAN-IR-NEXT:      DbgLoc:
+; VPLAN-IR-NEXT:      DbgLoc: lit_test.c:10:19
 ; VPLAN-IR-NEXT:      OperatorFlags -
 ; VPLAN-IR-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
 ; VPLAN-IR-NEXT:      end of details
 
   %1 = load float, float* %arrayidx2, align 4, !dbg !37, !tbaa !32
 ; VPLAN-IR:          float [[VP11:%.*]] = load float* [[VP10]]
-; VPLAN-IR-NEXT:      DbgLoc:
+; VPLAN-IR-NEXT:      DbgLoc: lit_test.c:10:19
 ; VPLAN-IR-NEXT:      OperatorFlags -
 ; VPLAN-IR-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
 ; VPLAN-IR-NEXT:      end of details
 
   %mul3 = fmul fast float %1, %0, !dbg !38
 ; VPLAN-IR:          float [[VP12:%.*]] = fmul float [[VP11]] float [[VP9]]
-; VPLAN-IR-NEXT:      DbgLoc:
+; VPLAN-IR-NEXT:      DbgLoc: lit_test.c:10:17
 ; VPLAN-IR-NEXT:      OperatorFlags -
 ; VPLAN-IR-NEXT:        FMF: 1, NSW: 0, NUW: 0, Exact: 0
 ; VPLAN-IR-NEXT:      end of details
 
   %arrayidx5 = getelementptr inbounds [1024 x float], [1024 x float]* @A, i64 0, i64 %indvars.iv, !dbg !39, !intel-tbaa !32
 ; VPLAN-IR:          float* [[VP13:%.*]] = subscript inbounds [1024 x float]* @A i64 0 i64 [[VP6]]
-; VPLAN-IR-NEXT:      DbgLoc:
+; VPLAN-IR-NEXT:      DbgLoc: lit_test.c:10:5
 ; VPLAN-IR-NEXT:      OperatorFlags -
 ; VPLAN-IR-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
 ; VPLAN-IR-NEXT:      end of details
 
   store float %mul3, float* %arrayidx5, align 4, !dbg !40, !tbaa !32
 ; VPLAN-IR:          store float [[VP12]] float* [[VP13]]
-; VPLAN-IR-NEXT:      DbgLoc:
+; VPLAN-IR-NEXT:      DbgLoc: lit_test.c:10:10
 ; VPLAN-IR-NEXT:      OperatorFlags -
 ; VPLAN-IR-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
 ; VPLAN-IR-NEXT:      end of details
 
-  %2 = ashr exact i32 42, 4
+  %2 = ashr exact i32 42, 4, !dbg !41
 ; VPLAN-IR:          i32 [[VP14:%.*]] = ashr i32 42 i32 4
-; VPLAN-IR-NEXT:      DbgLoc:
+; VPLAN-IR-NEXT:      DbgLoc: lit_test.c:11:5
 ; VPLAN-IR-NEXT:      OperatorFlags -
 ; VPLAN-IR-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 1
 ; VPLAN-IR-NEXT:      end of details
 
-  %fp.cmp = fcmp fast ogt float %mul3, %1
+  %fp.cmp = fcmp fast ogt float %mul3, %1, !dbg !41
 ; VPLAN-IR:          i1 [[VP15:%.*]] = fcmp float [[VP12]] float [[VP11]]
-; VPLAN-IR-NEXT:      DbgLoc:
+; VPLAN-IR-NEXT:      DbgLoc: lit_test.c:11:5
 ; VPLAN-IR-NEXT:      OperatorFlags -
 ; VPLAN-IR-NEXT:        FMF: 1, NSW: 0, NUW: 0, Exact: 0
 ; VPLAN-IR-NEXT:      end of details
 
-  %zext.fp.cmp = zext i1 %fp.cmp to i32
+  %zext.fp.cmp = zext i1 %fp.cmp to i32, !dbg !41
 ; VPLAN-IR:          i32 [[VP16:%.*]] = zext i1 [[VP15]] to i32
-; VPLAN-IR-NEXT:      DbgLoc:
+; VPLAN-IR-NEXT:      DbgLoc: lit_test.c:11:5
 ; VPLAN-IR-NEXT:      OperatorFlags -
 ; VPLAN-IR-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
 ; VPLAN-IR-NEXT:      end of details
 
-  %tmp.add = add i32 %zext.fp.cmp, %2
+  %tmp.add = add i32 %zext.fp.cmp, %2, !dbg !41
 ; VPLAN-IR:          i32 [[VP17:%.*]] = add i32 [[VP16]] i32 [[VP14]]
-; VPLAN-IR-NEXT:      DbgLoc:
+; VPLAN-IR-NEXT:      DbgLoc: lit_test.c:11:5
 ; VPLAN-IR-NEXT:      OperatorFlags -
 ; VPLAN-IR-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
 ; VPLAN-IR-NEXT:      end of details
 
-  %red.add = add nsw nuw i32 %tmp.add, %red.phi
+  %red.add = add nsw nuw i32 %tmp.add, %red.phi, !dbg !41
 ; VPLAN-IR:          i32 [[VP5]] = add i32 [[VP17]] i32 [[VP4]]
-; VPLAN-IR-NEXT:      DbgLoc:
+; VPLAN-IR-NEXT:      DbgLoc: lit_test.c:11:5
 ; VPLAN-IR-NEXT:      OperatorFlags -
 ; VPLAN-IR-NEXT:        FMF: 0, NSW: 1, NUW: 1, Exact: 0
 ; VPLAN-IR-NEXT:      end of details
 
-  %fp.select = select fast i1 %fp.cmp, float %mul3, float %1
+  %fp.select = select fast i1 %fp.cmp, float %mul3, float %1, !dbg !41
 ; VPLAN-IR:          i1 [[VP18:%.*]] = fcmp float [[VP12]] float [[VP11]]
-; VPLAN-IR-NEXT:      DbgLoc:
+; VPLAN-IR-NEXT:      DbgLoc: lit_test.c:11:5
 ; VPLAN-IR-NEXT:      OperatorFlags -
 ; VPLAN-IR-NEXT:        FMF: 1, NSW: 0, NUW: 0, Exact: 0
 ; VPLAN-IR-NEXT:      end of details
 ; VPLAN-IR-EMPTY:
 ; VPLAN-IR-NEXT:     float [[VP19:%.*]] = select i1 [[VP18]] float [[VP12]] float [[VP11]]
-; VPLAN-IR-NEXT:      DbgLoc:
+; VPLAN-IR-NEXT:      DbgLoc: lit_test.c:11:5
 ; VPLAN-IR-NEXT:      OperatorFlags -
 ; VPLAN-IR-NEXT:        FMF: 1, NSW: 0, NUW: 0, Exact: 0
 ; VPLAN-IR-NEXT:      end of details
 
-  store float %fp.select, float* %arrayidx5
+  store float %fp.select, float* %arrayidx5, !dbg !41
 ; VPLAN-IR:          float* [[VP20:%.*]] = subscript inbounds [1024 x float]* @A i64 0 i64 [[VP6]]
-; VPLAN-IR-NEXT:      DbgLoc:
+; VPLAN-IR-NEXT:      DbgLoc: lit_test.c:10:5
 ; VPLAN-IR-NEXT:      OperatorFlags -
 ; VPLAN-IR-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
 ; VPLAN-IR-NEXT:      end of details
 ; VPLAN-IR-EMPTY:
 ; VPLAN-IR-NEXT:     store float [[VP19]] float* [[VP20]]
-; VPLAN-IR-NEXT:      DbgLoc:
+; VPLAN-IR-NEXT:      DbgLoc: lit_test.c:11:5
 ; VPLAN-IR-NEXT:      OperatorFlags -
 ; VPLAN-IR-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
 ; VPLAN-IR-NEXT:      end of details
 
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1, !dbg !42
 ; VPLAN-IR:          i64 [[VP7]] = add i64 [[VP6]] i64 1
-; VPLAN-IR-NEXT:      DbgLoc:
+; VPLAN-IR-NEXT:      DbgLoc: lit_test.c:9:3
 ; VPLAN-IR-NEXT:      OperatorFlags -
 ; VPLAN-IR-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
 ; VPLAN-IR-NEXT:      end of details
 
   %exitcond = icmp eq i64 %indvars.iv.next, 1024, !dbg !42
 ; VPLAN-IR:          i1 [[VP21:%.*]] = icmp i64 [[VP7]] i64 1023
-; VPLAN-IR-NEXT:      DbgLoc:
+; VPLAN-IR-NEXT:      DbgLoc: lit_test.c:9:3
 ; VPLAN-IR-NEXT:      OperatorFlags -
 ; VPLAN-IR-NEXT:        FMF: 0, NSW: 0, NUW: 0, Exact: 0
 ; VPLAN-IR-NEXT:      end of details

@@ -94,8 +94,7 @@ public:
   VPHIRCopyInst *createHIRCopy(VPValue *CopyFrom,
                                loopopt::HLDDNode *DDNode = nullptr) {
     VPHIRCopyInst *CopyInst = new VPHIRCopyInst(CopyFrom);
-    if (BB)
-      BB->insert(CopyInst, InsertPt);
+    insert(CopyInst);
     if (DDNode)
       CopyInst->HIR.setUnderlyingNode(DDNode);
     return CopyInst;
@@ -113,8 +112,7 @@ public:
     VPCallInstruction *NewVPCall =
         new VPCallInstruction(CalledValue, ArgList, Call);
     NewVPCall->setName(HInst->getLLVMInstruction()->getName());
-    if (BB)
-      BB->insert(NewVPCall, InsertPt);
+    insert(NewVPCall);
     if (DDNode)
       NewVPCall->HIR.setUnderlyingNode(DDNode);
     return NewVPCall;
