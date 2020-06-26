@@ -1121,6 +1121,7 @@ void VPOParoptTransform::genTgtInformationForPtrs(
         if (MapType) {
           // MemberOf flag is in the 16 MSBs of the 64 bit MapType.
           uint64_t MemberOfFlag = MapType >> 48;
+          uint64_t NewMapType = MapType;
 
           if (MemberOfFlag && MemberOfFlag != MapTypeIndexForBaseOfChain) {
             // We need to set MemberOf to the index of the base of the chain,
@@ -1128,13 +1129,26 @@ void VPOParoptTransform::genTgtInformationForPtrs(
             assert(MapTypeIndexForBaseOfChain < (1 << 16) &&
                    "Too many maps. MemberOf flag exceeding 16 bits.");
             uint64_t Mask = (~(0ull)) >> 16;
-            uint64_t NewMapType = MapType & Mask;
+            NewMapType = NewMapType & Mask;
             NewMapType = NewMapType | (MapTypeIndexForBaseOfChain << 48);
             LLVM_DEBUG(dbgs()
                        << __FUNCTION__ << ": Updated MemberOf Flag from '"
                        << MemberOfFlag << "' to '" << MapTypeIndexForBaseOfChain
-                       << "'; MapType from '" << MapType << "' to '"
-                       << NewMapType << "'\n");
+                       << "'.\n");
+          }
+
+          // For operands in a map chain, as well as use_device_ptr clause, we
+          // need to add TGT_MAP_RETURN_PARAM to the map-type of the base of
+          // the chain (if not already present).
+          if (I == 0 && MapI->getInUseDevicePtr()) {
+            NewMapType = NewMapType | TGT_MAP_RETURN_PARAM;
+            LLVM_DEBUG(dbgs() << __FUNCTION__
+                              << ": Added TGT_MAP_RETURN_PARAM flag.\n");
+          }
+
+          if (MapType != NewMapType) {
+            LLVM_DEBUG(dbgs() << __FUNCTION__ << ": MapType changed from '"
+                              << MapType << "' to '" << NewMapType << "'.\n");
             MapType = NewMapType;
           }
           MapTypes.push_back(MapType);
@@ -1505,6 +1519,10 @@ bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W,
   IRBuilder<> LoadBuilder(InsertPt);
   MapClause &MapC = W->getMap();
   for (UseDevicePtrItem *UDPI : UDPC.items()) {
+    // There's already a map clause present for the use_device_ptr clause item.
+    if (UDPI->getInMap())
+      continue;
+
     Value *UDP = UDPI->getOrig();
     Value *MappedVal =
         UDPI->getIsPointerToPointer()
@@ -1709,23 +1727,24 @@ void VPOParoptTransform::genOffloadArraysInitForClause(
     if (ForceMapping)
       BPVal = MapI->getOrig();
     Match = true;
+    Instruction *BasePtrGEP = nullptr;
     if (MapI->getIsMapChain()) {
       MapChainTy const &MapChain = MapI->getMapChain();
       for (unsigned I = 0; I < MapChain.size(); ++I) {
         MapAggrTy *Aggr = MapChain[I];
         genOffloadArraysInitUtil(
             Builder, Aggr->getBasePtr(), Aggr->getSectionPtr(), Aggr->getSize(),
-            Info, ConstSizes, Cnt, hasRuntimeEvaluationCaptureSize);
+            Info, ConstSizes, Cnt, hasRuntimeEvaluationCaptureSize,
+            I == 0 ? &BasePtrGEP : nullptr);
       }
     } else {
       assert(!MapI->getIsArraySection() &&
              "Map with an array section must have a map chain.");
-      Instruction *BasePtrGEP = nullptr;
       genOffloadArraysInitUtil(Builder, BPVal, BPVal, nullptr, Info, ConstSizes,
                                Cnt, hasRuntimeEvaluationCaptureSize,
                                &BasePtrGEP);
-      MapI->setBasePtrGEPForOrig(BasePtrGEP);
     }
+    MapI->setBasePtrGEPForOrig(BasePtrGEP);
   }
 
   LLVM_DEBUG(
