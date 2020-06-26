@@ -234,7 +234,7 @@ public:
     void SetDAZ(bool value)        { m_DAZ = value; }
     void SetHasBarrier(bool value) { m_hasBarrier = value; }
     void SetHasGlobalSync(bool value) { m_hasGlobalSync = value; }
-    void SetHasNativeSubgroups(bool value) { m_hasNativeSubgroups = value; }
+    void SetUseNativeSubgroups(bool value) { m_useNativeSubgroups = value; }
     void SetBarrierBufferSize(size_t size) { m_barrierBufferSize = size; }
     void SetPrivateMemorySize(size_t size) { m_privateMemorySize = size; }
     void SetMaxPrivateMemorySize(size_t size) { m_maxPrivateMemorySize = size; }
@@ -278,7 +278,7 @@ public:
 protected:
     bool m_hasBarrier;
     bool m_hasGlobalSync;
-    bool m_hasNativeSubgroups;
+    bool m_useNativeSubgroups;
     bool m_DAZ;
     Intel::CPUId m_cpuId;       // selected cpuId for current kernel codegen
     unsigned int m_optWGSize;
