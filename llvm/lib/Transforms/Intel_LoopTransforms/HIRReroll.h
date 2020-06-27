@@ -166,10 +166,11 @@ public:
 
   /// Given a ref, extend CEOpSequence
   /// and replenish stack as needed.
-  void processRegDDRef(const RegDDRef *Ref) {
+  bool processRegDDRef(const RegDDRef *Ref) {
+
     if (Ref->isConstant()) {
       Seq.add(Ref);
-      return;
+      return true;
     }
 
     if (Ref->isSelfBlob()) {
@@ -177,10 +178,15 @@ public:
         // Output it to RefList and than return.
         Seq.add(Ref);
       } else if (pushIntoStack(Ref)) {
+
+        if (VisitedRefSet.count(Ref)) {
+          return false;
+        }
         // If Ref is not linear-at-level then push it to stack and return.
         TempStack.push(Ref);
+        VisitedRefSet.insert(Ref);
       }
-      return;
+      return true;
     }
 
     Seq.add(Ref);
@@ -213,8 +219,16 @@ public:
     std::sort(Blobs.begin(), Blobs.end(), rerollcomparator::BlobDDRefLess());
 
     for (const DDRef *Blob : Blobs) {
+
+      if (VisitedRefSet.count(Blob)) {
+        return false;
+      }
+
       TempStack.push(Blob);
+      VisitedRefSet.insert(Blob);
     }
+
+    return true;
   }
 
   /// Track the temp at the top and process RHS of the defining inst.
@@ -255,7 +269,8 @@ public:
       for (const RegDDRef *ChildDDRef :
            make_range(ChildrenRvalDDRefs.begin(), ChildrenRvalDDRefs.end())) {
         // TODO: Forward typecast in a CE?
-        processRegDDRef(ChildDDRef);
+        if (!processRegDDRef(ChildDDRef))
+          return false;
       }
     }
     return true;
@@ -283,6 +298,7 @@ private:
   }
 
   TempStackTy TempStack;
+  std::set<const DDRef*> VisitedRefSet; // set of refs ever entered into stack.
 
 protected:
   // Loop level where the seed is found
@@ -325,7 +341,9 @@ bool extendSeq(const RegDDRef *StartRef, const ContainerTy *Container,
                DDGraph &DDG, CEOpSequence &Seq, VecNodesTy &InstList) {
 
   BuilderTy Builder(Container, DDG, Seq, InstList);
-  Builder.processRegDDRef(StartRef);
+  if (!Builder.processRegDDRef(StartRef))
+    return false;
+
   return Builder.trackTemps();
 }
 
