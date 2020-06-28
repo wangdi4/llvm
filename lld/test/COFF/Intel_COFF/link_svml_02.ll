@@ -1,3 +1,8 @@
+; INTEL_CUSTOMIZATION
+; Temporarily disable the test (CMPLRTST-9844)
+; UNSUPPORTED: linux
+; REQUIRES: linux
+; end INTEL_CUSTOMIZATION
 ; REQUIRES: x86
 ; RUN: llvm-as -o %T/link_svml.bc %s
 ; RUN: lld-link /out:%T/link_svml.exe /entry:main %T/link_svml.bc /subsystem:console \
