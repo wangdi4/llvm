@@ -323,9 +323,9 @@ namespace intel{
                 // after the Inst instruction.
                 Instruction *pNextInst = cast<Instruction>(&*(++BasicBlock::iterator(Inst)));
                 builder.SetInsertPoint(pNextInst);
-                builder.CreateMemCpy(
-                    pLclBuff, MaybeAlign(pLclBuff->getAlignment()), pLocalAddr,
-                    MaybeAlign(pLclBuff->getAlignment()), uiArraySize, false);
+                auto Alignment = MaybeAlign(pLclBuff->getPointerAlignment(DL));
+                builder.CreateMemCpy(pLclBuff, Alignment, pLocalAddr, Alignment,
+                                     uiArraySize, false);
               }
             }
           } else {
@@ -346,9 +346,9 @@ namespace intel{
                 //Constant *pSizeToCopy = ConstantExpr::getSizeOf(pLclBuff->getType());
                 // Create copy to thread global (from local memory)
                 builder.SetInsertPoint(&insertBeforeEnd);
-                builder.CreateMemCpy(
-                    pLclBuff, MaybeAlign(pLclBuff->getAlignment()), pLocalAddr,
-                    MaybeAlign(pLclBuff->getAlignment()), uiArraySize, false);
+                auto Alignment = MaybeAlign(pLclBuff->getPointerAlignment(DL));
+                builder.CreateMemCpy(pLclBuff, Alignment, pLocalAddr, Alignment,
+                                     uiArraySize, false);
             }
           }
         }
