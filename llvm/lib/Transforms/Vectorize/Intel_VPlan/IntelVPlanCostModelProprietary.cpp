@@ -520,26 +520,8 @@ unsigned VPlanCostModelProprietary::getCost(const VPBasicBlock *VPBB) {
 }
 
 unsigned VPlanCostModelProprietary::getSpillFillCost(
-  const VPBasicBlock *VPBlock) {
-  // LiveValues map contains the liveness of the given instruction multiplied
-  // by its legalization factor.  The map is updated on each VPInstruction in
-  // the loop below.
-  //
-  // Consider the following IR and the map content at each VPInst.  The
-  // traversal is backward.
-  //
-  // 1: %val1 = def              ; LiveValues[%1] = 0,  LiveValues[%2] = 0
-  // 2: %val2 = use %val1, %val1 ; LiveValues[%1] = L1, LiveValues[%2] = 0
-  // 3: %val3 = use %val1, %val2 ; LiveValues[%1] = L1, LiveValues[%2] = L2
-  //
-  // where L1 - number of HW registers to hold value defined by %1,
-  //       L2 - number of HW registers to hold value defined by %2.
-  //
-  // Register pressure in any given point the sum of all Ln values in the map.
-  // The code below figures out what is maximum of register pressure in given
-  // basic block.
-  //
-  DenseMap<const VPInstruction*, int> LiveValues;
+  const VPBasicBlock *VPBlock,
+  DenseMap<const VPInstruction*, int>& LiveValues) {
   int NumberLiveValuesMax = 0;
   VPLoop *OuterMostVPLoop = *(Plan->getVPLoopInfo()->begin());
   auto PHIs = (cast<VPBasicBlock>(OuterMostVPLoop->getHeader()))->getVPPhis();
@@ -688,12 +670,38 @@ unsigned VPlanCostModelProprietary::getSpillFillCost(
 unsigned VPlanCostModelProprietary::getSpillFillCost() {
   NumberOfBoolComputations = 0;
   unsigned Cost = 0;
+  // LiveValues map contains the liveness of the given instruction multiplied
+  // by its legalization factor.  The map is updated on each VPInstruction in
+  // the loop below.
+  //
+  // Consider the following IR and the map content at each VPInst.  The
+  // traversal is backward.
+  //
+  // 1: %val1 = def              ; LiveValues[%1] = 0,  LiveValues[%2] = 0
+  // 2: %val2 = use %val1, %val1 ; LiveValues[%1] = L1, LiveValues[%2] = 0
+  // 3: %val3 = use %val1, %val2 ; LiveValues[%1] = L1, LiveValues[%2] = L2
+  //
+  // where L1 - number of HW registers to hold value defined by %1,
+  //       L2 - number of HW registers to hold value defined by %2.
+  //
+  // Register pressure in any given point the sum of all Ln values in the map.
+  // The code below figures out what is maximum of register pressure in given
+  // basic block.
+  //
+  DenseMap<const VPInstruction*, int> LiveValues;
 
   for (auto *Block : post_order(Plan->getEntryBlock())) {
-    // TODO: lives-in from CFG successors should compose their predecessor
-    // lives-out.  For the current approximation each block has no lives-out
-    // and each block Cost is calcuated independently.
-    Cost += getSpillFillCost(Block);
+    // For simplicity we pass LiveOut from previous block as LiveIn to the next
+    // block in walk like walking through a linear sequence of BBs.
+    // TODO:
+    // Eventually we need to fix the code to work correctly for non linear CFG:
+    // possible inner loops and if-else conditions.
+    // Currently CM is focused on inner loop vectorization and we can ignore
+    // inner loops.  Non unifom conditions are turned into masked linear BB
+    // sequence.  Uniform conditions are moved out of the loop by LoopOpt
+    // normally and we don't see non linear CFG in VPlan in the most cases for
+    // HIR pipeline.
+    Cost += getSpillFillCost(Block, LiveValues);
   }
 
   return Cost;
@@ -892,9 +900,10 @@ void VPlanCostModelProprietary::printForVPBasicBlock(
   if (GatherScatterCost > 0)
     OS << "total cost includes GS Cost: " << GatherScatterCost << '\n';
 
-  unsigned SpillFillCost = getSpillFillCost(VPBB);
+  DenseMap<const VPInstruction*, int> LiveValues;
+  unsigned SpillFillCost = getSpillFillCost(VPBB, LiveValues);
   if (SpillFillCost > 0)
-    OS << "Block spill/fill standalone cost (not included into total cost): "
+    OS << "Block spill/fill approximate cost (not included into total cost): "
        << SpillFillCost << '\n';
 
   // Clearing ProcessedOVLSGroups is valid while VLS works within a basic block.

@@ -55,7 +55,13 @@ private:
 
   // Implements basic register pressure calculation pass.
   // Bothers vector registers only currently.
-  unsigned getSpillFillCost(const VPBasicBlock *VPBlock);
+  // LiveValues map contains the liveness of the given instruction multiplied
+  // by its legalization factor.  The map contains LiveOut values for the block
+  // on input of getSpillFillCost(Block, LiveValues) and the map is updated
+  // by getSpillFillCost() and contains LiveIn values after the call.
+  unsigned getSpillFillCost(
+    const VPBasicBlock *VPBlock,
+    DenseMap<const VPInstruction*, int /* legalization factor */> &LiveValues);
   unsigned getSpillFillCost(void);
 
   // Consolidates proprietary code that gets the cost of one operand or two
