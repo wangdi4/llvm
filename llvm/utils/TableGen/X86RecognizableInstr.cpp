@@ -786,6 +786,14 @@ void RecognizableInstr::emitInstructionSpecifier() {
     HANDLE_OPERAND(immediate)
     HANDLE_OPERAND(immediate)
     break;
+  case X86Local::MRM0X:
+  case X86Local::MRM1X:
+  case X86Local::MRM2X:
+  case X86Local::MRM3X:
+  case X86Local::MRM4X:
+  case X86Local::MRM5X:
+  case X86Local::MRM6X:
+  case X86Local::MRM7X:
 #define MAP(from, to) case X86Local::MRM_##from:
   X86_INSTR_MRM_MAPPING
 #undef MAP
@@ -877,6 +885,12 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
     break;
 #endif // INTEL_FEATURE_ISA_AMX
 #endif // INTEL_CUSTOMIZATION
+  case X86Local::MRM0X: case X86Local::MRM1X:
+  case X86Local::MRM2X: case X86Local::MRM3X:
+  case X86Local::MRM4X: case X86Local::MRM5X:
+  case X86Local::MRM6X: case X86Local::MRM7X:
+    filter = std::make_unique<ExtendedFilter>(true, Form - X86Local::MRM0X);
+    break;
   case X86Local::MRM0m: case X86Local::MRM1m:
   case X86Local::MRM2m: case X86Local::MRM3m:
   case X86Local::MRM4m: case X86Local::MRM5m:

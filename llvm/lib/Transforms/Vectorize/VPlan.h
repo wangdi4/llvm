@@ -693,6 +693,7 @@ public:
     ICmpULE,
     SLPLoad,
     SLPStore,
+    ActiveLaneMask,
   };
 
 private:

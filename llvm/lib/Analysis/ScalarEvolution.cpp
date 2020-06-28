@@ -4031,7 +4031,8 @@ bool ScalarEvolution::containsAddRecurrence(const SCEV *S) {
   if (I != HasRecMap.end())
     return I->second;
 
-  bool FoundAddRec = SCEVExprContains(S, isa<SCEVAddRecExpr, const SCEV *>);
+  bool FoundAddRec =
+      SCEVExprContains(S, [](const SCEV *S) { return isa<SCEVAddRecExpr>(S); });
   HasRecMap.insert({S, FoundAddRec});
   return FoundAddRec;
 }
@@ -7618,6 +7619,10 @@ void ScalarEvolution::forgetValue(Value *V) {
     ScopedSE->getOrigSE().forgetValue(V);
   }
 #endif // INTEL_CUSTOMIZATION
+}
+
+void ScalarEvolution::forgetLoopDispositions(const Loop *L) {
+  LoopDispositions.clear();
 }
 
 /// Get the exact loop backedge taken count considering all loop exits. A
@@ -12354,8 +12359,9 @@ static bool findArrayDimensionsRec(ScalarEvolution &SE,
 // Returns true when one of the SCEVs of Terms contains a SCEVUnknown parameter.
 static inline bool containsParameters(SmallVectorImpl<const SCEV *> &Terms) {
   for (const SCEV *T : Terms)
-    if (SCEVExprContains(T, isa<SCEVUnknown, const SCEV *>))
+    if (SCEVExprContains(T, [](const SCEV *S) { return isa<SCEVUnknown>(S); }))
       return true;
+
   return false;
 }
 

@@ -5362,6 +5362,22 @@ static void handleSYCLDeviceIndirectlyCallableAttr(Sema &S, Decl *D,
   handleSimpleAttribute<SYCLDeviceIndirectlyCallableAttr>(S, D, AL);
 }
 
+static void handleSYCLRegisterNumAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
+  auto *VD = cast<VarDecl>(D);
+  if (!VD->hasGlobalStorage()) {
+    S.Diag(AL.getLoc(), diag::err_sycl_attibute_cannot_be_applied_here)
+        << AL << 0;
+    return;
+  }
+  if (!checkAttributeNumArgs(S, AL, 1))
+    return;
+  uint32_t RegNo = 0;
+  const Expr *E = AL.getArgAsExpr(0);
+  if (!checkUInt32Argument(S, AL, E, RegNo, 0, /*StrictlyUnsigned=*/true))
+    return;
+  D->addAttr(::new (S.Context) SYCLRegisterNumAttr(S.Context, AL, RegNo));
+}
+
 static void handleConstantAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   if (checkAttrMutualExclusion<CUDASharedAttr>(S, D, AL))
     return;
@@ -8444,13 +8460,20 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handlePassObjectSizeAttr(S, D, AL);
     break;
   case ParsedAttr::AT_Constructor:
-    handleConstructorAttr(S, D, AL);
+    if (S.Context.getTargetInfo().getTriple().isOSAIX())
+      llvm::report_fatal_error(
+          "'constructor' attribute is not yet supported on AIX");
+    else
+      handleConstructorAttr(S, D, AL);
     break;
   case ParsedAttr::AT_Deprecated:
     handleDeprecatedAttr(S, D, AL);
     break;
   case ParsedAttr::AT_Destructor:
-    handleDestructorAttr(S, D, AL);
+    if (S.Context.getTargetInfo().getTriple().isOSAIX())
+      llvm::report_fatal_error("'destructor' attribute is not yet supported on AIX");
+    else
+      handleDestructorAttr(S, D, AL);
     break;
   case ParsedAttr::AT_EnableIf:
     handleEnableIfAttr(S, D, AL);
@@ -8487,11 +8510,17 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case ParsedAttr::AT_SYCLKernel:
     handleSYCLKernelAttr(S, D, AL);
     break;
+  case ParsedAttr::AT_SYCLSimd:
+    handleSimpleAttribute<SYCLSimdAttr>(S, D, AL);
+    break;
   case ParsedAttr::AT_SYCLDevice:
     handleSYCLDeviceAttr(S, D, AL);
     break;
   case ParsedAttr::AT_SYCLDeviceIndirectlyCallable:
     handleSYCLDeviceIndirectlyCallableAttr(S, D, AL);
+    break;
+  case ParsedAttr::AT_SYCLRegisterNum:
+    handleSYCLRegisterNumAttr(S, D, AL);
     break;
   case ParsedAttr::AT_Format:
     handleFormatAttr(S, D, AL);
@@ -8670,7 +8699,11 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleVecTypeHint(S, D, AL);
     break;
   case ParsedAttr::AT_InitPriority:
-    handleInitPriorityAttr(S, D, AL);
+    if (S.Context.getTargetInfo().getTriple().isOSAIX())
+      llvm::report_fatal_error(
+          "'init_priority' attribute is not yet supported on AIX");
+    else
+      handleInitPriorityAttr(S, D, AL);
     break;
   case ParsedAttr::AT_Packed:
     handlePackedAttr(S, D, AL);

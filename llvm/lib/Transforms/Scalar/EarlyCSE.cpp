@@ -967,7 +967,7 @@ bool EarlyCSE::processNode(DomTreeNode *Node) {
       }
 
       salvageKnowledge(&Inst, &AC);
-      salvageDebugInfoOrMarkUndef(Inst);
+      salvageDebugInfo(Inst);
       removeMSSA(Inst);
       Inst.eraseFromParent();
       Changed = true;

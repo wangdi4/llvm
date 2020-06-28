@@ -475,7 +475,7 @@ void CodeGenModule::Release() {
   checkAliases();
   emitMultiVersionFunctions();
   EmitCXXGlobalInitFunc();
-  EmitCXXGlobalDtorFunc();
+  EmitCXXGlobalCleanUpFunc();
   registerGlobalDtorsWithAtExit();
   EmitCXXThreadLocalInitFunc();
   if (ObjCRuntime)
@@ -718,8 +718,16 @@ void CodeGenModule::Release() {
     SPIRVerMD->addOperand(llvm::MDNode::get(Ctx, SPIRVerElts));
     // We are trying to look like OpenCL C++ for SPIR-V translator.
     // 4 - OpenCL_CPP, 100000 - OpenCL C++ version 1.0
+    // 6 - ESIMD, if any kernel or function is an explicit SIMD one
+    int Lang = llvm::any_of(TheModule,
+                            [](const auto &F) {
+                              return F.getMetadata("sycl_explicit_simd");
+                            })
+                   ? 6
+                   : 4;
+
     llvm::Metadata *SPIRVSourceElts[] = {
-        llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(Int32Ty, 4)),
+        llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(Int32Ty, Lang)),
         llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(Int32Ty, 100000))};
     llvm::NamedMDNode *SPIRVSourceMD =
         TheModule.getOrInsertNamedMetadata("spirv.Source");
@@ -1090,9 +1098,9 @@ static llvm::GlobalVariable::ThreadLocalMode GetLLVMTLSModel(StringRef S) {
       .Case("local-exec", llvm::GlobalVariable::LocalExecTLSModel);
 }
 
-static llvm::GlobalVariable::ThreadLocalMode GetLLVMTLSModel(
-    CodeGenOptions::TLSModel M) {
-  switch (M) {
+llvm::GlobalVariable::ThreadLocalMode
+CodeGenModule::GetDefaultLLVMTLSModel() const {
+  switch (CodeGenOpts.getDefaultTLSModel()) {
   case CodeGenOptions::GeneralDynamicTLSModel:
     return llvm::GlobalVariable::GeneralDynamicTLSModel;
   case CodeGenOptions::LocalDynamicTLSModel:
@@ -1109,7 +1117,7 @@ void CodeGenModule::setTLSMode(llvm::GlobalValue *GV, const VarDecl &D) const {
   assert(D.getTLSKind() && "setting TLS mode on non-TLS var!");
 
   llvm::GlobalValue::ThreadLocalMode TLM;
-  TLM = GetLLVMTLSModel(CodeGenOpts.getDefaultTLSModel());
+  TLM = GetDefaultLLVMTLSModel();
 
   // Override the TLS model if it is explicitly specified.
   if (const TLSModelAttr *Attr = D.getAttr<TLSModelAttr>()) {
@@ -3679,6 +3687,8 @@ llvm::Constant *CodeGenModule::GetAddrOfFunction(GlobalDecl GD,
                                                  bool ForVTable,
                                                  bool DontDefer,
                                               ForDefinition_t IsForDefinition) {
+  assert(!cast<FunctionDecl>(GD.getDecl())->isConsteval() &&
+         "consteval function should never be emitted");
   // If there was no specific requested type, just convert it now.
   if (!Ty) {
     const auto *FD = cast<FunctionDecl>(GD.getDecl());
@@ -4883,8 +4893,12 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D,
   maybeEmitGlobalChannelMetadata(D, GV, *this);
 #endif // INTEL_CUSTOMIZATION
 
-  if (LangOpts.SYCLIsDevice)
+  if (LangOpts.SYCLIsDevice) {
     maybeEmitPipeStorageMetadata(D, GV, *this);
+    // Notify SYCL code generation infrastructure that a global variable is
+    // being generated.
+    getSYCLRuntime().actOnGlobalVarEmit(*this, *D, GV);
+  }
 }
 
 void CodeGenModule::EmitExternalVarDeclaration(const VarDecl *D) {
@@ -6026,6 +6040,11 @@ void CodeGenModule::EmitTopLevelDecl(Decl *D) {
   if (D->isTemplated())
     return;
 
+  // Consteval function shouldn't be emitted.
+  if (auto *FD = dyn_cast<FunctionDecl>(D))
+    if (FD->isConsteval())
+      return;
+
   switch (D->getKind()) {
   case Decl::CXXConversion:
   case Decl::CXXMethod:
@@ -6779,4 +6798,29 @@ CharUnits CodeGenModule::getNaturalTypeAlignment(QualType T,
     }
   }
   return Alignment;
+}
+
+bool CodeGenModule::stopAutoInit() {
+  unsigned StopAfter = getContext().getLangOpts().TrivialAutoVarInitStopAfter;
+  if (StopAfter) {
+    // This number is positive only when -ftrivial-auto-var-init-stop-after=* is
+    // used
+    if (NumAutoVarInit >= StopAfter) {
+      return true;
+    }
+    if (!NumAutoVarInit) {
+      unsigned DiagID = getDiags().getCustomDiagID(
+          DiagnosticsEngine::Warning,
+          "-ftrivial-auto-var-init-stop-after=%0 has been enabled to limit the "
+          "number of times ftrivial-auto-var-init=%1 gets applied.");
+      getDiags().Report(DiagID)
+          << StopAfter
+          << (getContext().getLangOpts().getTrivialAutoVarInit() ==
+                      LangOptions::TrivialAutoVarInitKind::Zero
+                  ? "zero"
+                  : "pattern");
+    }
+    ++NumAutoVarInit;
+  }
+  return false;
 }

@@ -102,19 +102,17 @@ public:
   /// \return a vector of all available SYCL platforms.
   static vector_class<platform> get_platforms();
 
-/* INTEL_CUSTOMIZATION */
   /// Gets the native handle of the SYCL platform.
   ///
   /// \return a native handle, the type of which defined by the backend.
   template <backend BackendName>
   auto get_native() const -> typename interop<BackendName, platform>::type {
-    return reinterpret_cast<typename interop<BackendName, platform>::type>(
+    return detail::pi::cast<typename interop<BackendName, platform>::type>(
         getNative());
   }
-/* end INTEL_CUSTOMIZATION */
 
 private:
-  pi_native_handle getNative() const;   // INTEL
+  pi_native_handle getNative() const;
 
   shared_ptr_class<detail::platform_impl> impl;
   platform(shared_ptr_class<detail::platform_impl> impl) : impl(impl) {}

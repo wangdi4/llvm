@@ -118,8 +118,11 @@ public:
     assert(!MHostPlatform && "Plugin is not available for Host");
     MPlugin = std::move(PluginPtr);
   }
-  // Returns the native plugin handle.    // INTEL
-  pi_native_handle getNative() const;     // INTEL
+
+  /// Gets the native handle of the SYCL platform.
+  ///
+  /// \return a native handle.
+  pi_native_handle getNative() const;
 
 private:
   bool MHostPlatform = false;

@@ -45,8 +45,28 @@ void bar() {
     baz();
   });
 #endif
+
   kernel<class kernel_name5>([]() [[cl::intel_reqd_sub_group_size(2)]] { });
+  kernel<class kernel_name6>([]() [[cl::intel_reqd_sub_group_size(4)]] { foo(); });
 }
+
+[[cl::intel_reqd_sub_group_size(16)]] SYCL_EXTERNAL void B();
+[[cl::intel_reqd_sub_group_size(16)]] void A() {
+}
+[[cl::intel_reqd_sub_group_size(16)]] SYCL_EXTERNAL void B() {
+  A();
+}
+
+#ifdef TRIGGER_ERROR
+// expected-note@+1 {{conflicting attribute is here}}
+[[cl::intel_reqd_sub_group_size(2)]] void sg_size2() {}
+
+// expected-note@+2 {{conflicting attribute is here}}
+// expected-error@+1 {{conflicting attributes applied to a SYCL kernel}}
+[[cl::intel_reqd_sub_group_size(4)]] __attribute__((sycl_device)) void sg_size4() {
+  sg_size2();
+}
+#endif
 
 // CHECK: FunctionDecl {{.*}} {{.*}}kernel_name1
 // CHECK: IntelReqdSubGroupSizeAttr {{.*}}

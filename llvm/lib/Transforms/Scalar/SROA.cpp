@@ -99,11 +99,6 @@
 #include <utility>
 #include <vector>
 
-#ifndef NDEBUG
-// We only use this for a debug check.
-#include <random>
-#endif
-
 using namespace llvm;
 using namespace llvm::sroa;
 
@@ -119,11 +114,6 @@ STATISTIC(NumPromoted, "Number of allocas promoted to SSA values");
 STATISTIC(NumLoadsSpeculated, "Number of loads speculated to allow promotion");
 STATISTIC(NumDeleted, "Number of instructions deleted");
 STATISTIC(NumVectorized, "Number of vectorized aggregates");
-
-/// Hidden option to enable randomly shuffling the slices to help uncover
-/// instability in their order.
-static cl::opt<bool> SROARandomShuffleSlices("sroa-random-shuffle-slices",
-                                             cl::init(false), cl::Hidden);
 
 /// Hidden option to experiment with completely strict handling of inbounds
 /// GEPs.
@@ -1092,17 +1082,9 @@ AllocaSlices::AllocaSlices(const DataLayout &DL, AllocaInst &AI)
       llvm::remove_if(Slices, [](const Slice &S) { return S.isDead(); }),
       Slices.end());
 
-#ifndef NDEBUG
-  if (SROARandomShuffleSlices) {
-    std::mt19937 MT(static_cast<unsigned>(
-        std::chrono::system_clock::now().time_since_epoch().count()));
-    std::shuffle(Slices.begin(), Slices.end(), MT);
-  }
-#endif
-
   // Sort the uses. This arranges for the offsets to be in ascending order,
   // and the sizes to be in descending order.
-  llvm::sort(Slices);
+  std::stable_sort(Slices.begin(), Slices.end());
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -1913,8 +1895,15 @@ static bool canConvertValue(const DataLayout &DL, Type *OldTy, Type *NewTy) {
   NewTy = NewTy->getScalarType();
   if (NewTy->isPointerTy() || OldTy->isPointerTy()) {
     if (NewTy->isPointerTy() && OldTy->isPointerTy()) {
-      return cast<PointerType>(NewTy)->getPointerAddressSpace() ==
-        cast<PointerType>(OldTy)->getPointerAddressSpace();
+      unsigned OldAS = OldTy->getPointerAddressSpace();
+      unsigned NewAS = NewTy->getPointerAddressSpace();
+      // Convert pointers if they are pointers from the same address space or
+      // different integral (not non-integral) address spaces with the same
+      // pointer size.
+      return OldAS == NewAS ||
+             (!DL.isNonIntegralAddressSpace(OldAS) &&
+              !DL.isNonIntegralAddressSpace(NewAS) &&
+              DL.getPointerSize(OldAS) == DL.getPointerSize(NewAS));
     }
 
     // We can convert integers to integral pointers, but not to non-integral
@@ -1982,6 +1971,22 @@ static Value *convertValue(const DataLayout &DL, IRBuilderTy &IRB, Value *V,
     return IRB.CreatePtrToInt(V, NewTy);
   }
 
+  if (OldTy->isPtrOrPtrVectorTy() && NewTy->isPtrOrPtrVectorTy()) {
+    unsigned OldAS = OldTy->getPointerAddressSpace();
+    unsigned NewAS = NewTy->getPointerAddressSpace();
+    // To convert pointers with different address spaces (they are already
+    // checked convertible, i.e. they have the same pointer size), so far we
+    // cannot use `bitcast` (which has restrict on the same address space) or
+    // `addrspacecast` (which is not always no-op casting). Instead, use a pair
+    // of no-op `ptrtoint`/`inttoptr` casts through an integer with the same bit
+    // size.
+    if (OldAS != NewAS) {
+      assert(DL.getPointerSize(OldAS) == DL.getPointerSize(NewAS));
+      return IRB.CreateIntToPtr(IRB.CreatePtrToInt(V, DL.getIntPtrType(OldTy)),
+                                NewTy);
+    }
+  }
+
   return IRB.CreateBitCast(V, NewTy);
 }
 
@@ -2010,7 +2015,7 @@ static bool isVectorPromotionViableForSlice(Partition &P, const Slice &S,
   uint64_t NumElements = EndIndex - BeginIndex;
   Type *SliceTy = (NumElements == 1)
                       ? Ty->getElementType()
-                      : VectorType::get(Ty->getElementType(), NumElements);
+                      : FixedVectorType::get(Ty->getElementType(), NumElements);
 
   Type *SplitIntTy =
       Type::getIntNTy(Ty->getContext(), NumElements * ElementSize * 8);
@@ -2797,7 +2802,7 @@ private:
       assert(NumElements <= VecTy->getNumElements() && "Too many elements!");
       Type *SliceTy = (NumElements == 1)
                           ? ElementTy
-                          : VectorType::get(ElementTy, NumElements);
+                          : FixedVectorType::get(ElementTy, NumElements);
       if (V->getType() != SliceTy)
         V = convertValue(DL, IRB, V, SliceTy);
 
@@ -2984,7 +2989,7 @@ private:
         return false;
       const auto Len = C->getZExtValue();
       auto *Int8Ty = IntegerType::getInt8Ty(NewAI.getContext());
-      auto *SrcTy = VectorType::get(Int8Ty, Len);
+      auto *SrcTy = FixedVectorType::get(Int8Ty, Len);
       return canConvertValue(DL, SrcTy, AllocaTy) &&
              DL.isLegalInteger(DL.getTypeSizeInBits(ScalarTy).getFixedSize());
     }();
@@ -3207,7 +3212,7 @@ private:
       if (NumElements == 1)
         OtherTy = VecTy->getElementType();
       else
-        OtherTy = VectorType::get(VecTy->getElementType(), NumElements);
+        OtherTy = FixedVectorType::get(VecTy->getElementType(), NumElements);
     } else if (IntTy && !IsWholeAlloca) {
       OtherTy = SubIntTy;
     } else {
@@ -3700,6 +3705,7 @@ private:
         llvm::any_of(PHI->incoming_values(), [](Value *In)
           { Instruction *I = dyn_cast<Instruction>(In);
             return !I || isa<GetElementPtrInst>(I) || isa<PHINode>(I) ||
+                   succ_empty(I->getParent()) ||
                    !I->getParent()->isLegalToHoistInto();
           }))
       return false;

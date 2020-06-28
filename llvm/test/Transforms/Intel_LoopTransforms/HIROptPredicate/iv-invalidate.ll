@@ -15,7 +15,7 @@
 ;    from 1) detached.
 
 ; RUN: opt -hir-ssa-deconstruction -hir-dd-analysis -hir-dd-analysis-dump-nodes=-1 -hir-opt-var-predicate -print-after=hir-opt-var-predicate -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-var-predicate,print<hir>" -aa-pipeline="basic-aa" -hir-dd-analysis -hir-dd-analysis-dump-nodes=-1 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-opt-var-predicate,print<hir>,print<hir-dd-analysis>" -aa-pipeline="basic-aa" -hir-dd-analysis-dump-nodes=-1 -disable-output < %s 2>&1 | FileCheck %s
 
 ; Note: -hir-dd-analysis is used to construct DDGraph before the var predicate to catch the issue while invalidation.
 

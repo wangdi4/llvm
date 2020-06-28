@@ -46,7 +46,6 @@
 // elsewhere, e.g. in the pi_opencl, but constants/enums mapping is now
 // done here, for efficiency and simplicity.
 #include <CL/cl_ext_intel.h>
-#include <CL/cl_usm_ext.h>
 #include <CL/sycl/detail/cl.h>
 #include <CL/sycl/detail/export.hpp>
 #include <cstdint>
@@ -806,7 +805,6 @@ __SYCL_EXPORT pi_result piPlatformGetInfo(pi_platform platform,
                                           void *param_value,
                                           size_t *param_value_size_ret);
 
-/* INTEL_CUSTOMIZATION */
 /// Gets the native handle of a PI platform object.
 ///
 /// \param platform is the PI platform to get the native handle of.
@@ -821,7 +819,6 @@ __SYCL_EXPORT pi_result piextPlatformGetNativeHandle(
 /// \param platform is the PI platform created from the native handle.
 __SYCL_EXPORT pi_result piextPlatformCreateWithNativeHandle(
     pi_native_handle nativeHandle, pi_platform *platform);
-/* end INTEL_CUSTOMIZATION */
 
 __SYCL_EXPORT pi_result piDevicesGet(pi_platform platform,
                                      pi_device_type device_type,
@@ -1012,7 +1009,7 @@ __SYCL_EXPORT pi_result piclProgramCreateWithSource(pi_context context,
                                                     const size_t *lengths,
                                                     pi_program *ret_program);
 
-__SYCL_EXPORT pi_result piclProgramCreateWithBinary(
+__SYCL_EXPORT pi_result piProgramCreateWithBinary(
     pi_context context, pi_uint32 num_devices, const pi_device *device_list,
     const size_t *lengths, const unsigned char **binaries,
     pi_int32 *binary_status, pi_program *ret_program);
@@ -1247,6 +1244,10 @@ __SYCL_EXPORT pi_result piEnqueueEventsWait(pi_queue command_queue,
                                             const pi_event *event_wait_list,
                                             pi_event *event);
 
+__SYCL_EXPORT pi_result piEnqueueEventsWaitWithBarrier(
+    pi_queue command_queue, pi_uint32 num_events_in_wait_list,
+    const pi_event *event_wait_list, pi_event *event);
+
 __SYCL_EXPORT pi_result piEnqueueMemBufferRead(
     pi_queue queue, pi_mem buffer, pi_bool blocking_read, size_t offset,
     size_t size, void *ptr, pi_uint32 num_events_in_wait_list,
@@ -1360,8 +1361,6 @@ typedef enum {
   PI_MEM_ALLOC_BASE_PTR = CL_MEM_ALLOC_BASE_PTR_INTEL,
   PI_MEM_ALLOC_SIZE = CL_MEM_ALLOC_SIZE_INTEL,
   PI_MEM_ALLOC_DEVICE = CL_MEM_ALLOC_DEVICE_INTEL,
-  PI_MEM_ALLOC_INFO_TBD0 = CL_MEM_ALLOC_INFO_TBD0_INTEL,
-  PI_MEM_ALLOC_INFO_TBD1 = CL_MEM_ALLOC_INFO_TBD1_INTEL,
 } _pi_mem_info;
 
 typedef enum {

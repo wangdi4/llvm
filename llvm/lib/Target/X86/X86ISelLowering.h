@@ -1147,6 +1147,12 @@ namespace llvm {
                                                  TargetLoweringOpt &TLO,
                                                  unsigned Depth) const override;
 
+    bool SimplifyDemandedVectorEltsForTargetShuffle(SDValue Op,
+                                                    const APInt &DemandedElts,
+                                                    unsigned MaskIndex,
+                                                    TargetLoweringOpt &TLO,
+                                                    unsigned Depth) const;
+
     bool SimplifyDemandedBitsForTargetNode(SDValue Op,
                                            const APInt &DemandedBits,
                                            const APInt &DemandedElts,
@@ -1268,6 +1274,7 @@ namespace llvm {
 
     bool shouldSinkOperands(Instruction *I,
                             SmallVectorImpl<Use *> &Ops) const override;
+    bool shouldConvertPhiType(Type *From, Type *To) const override;
 
     /// Return true if folding a vector load into ExtVal (a sign, zero, or any
     /// extend node) is profitable.

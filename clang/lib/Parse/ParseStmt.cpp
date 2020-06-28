@@ -2222,6 +2222,8 @@ StmtResult Parser::ParsePragmaLoopHint(StmtVector &Stmts,
   // Create temporary attribute list.
   ParsedAttributesWithRange TempAttrs(AttrFactory);
 
+  SourceLocation StartLoc = Tok.getLocation();
+
   // Get loop hints and consume annotated token.
   while (Tok.is(tok::annot_pragma_loop_hint)) {
     LoopHint Hint;
@@ -2243,6 +2245,12 @@ StmtResult Parser::ParsePragmaLoopHint(StmtVector &Stmts,
       Stmts, StmtCtx, TrailingElseLoc, Attrs);
 
   Attrs.takeAllFrom(TempAttrs);
+
+  // Start of attribute range may already be set for some invalid input.
+  // See PR46336.
+  if (Attrs.Range.getBegin().isInvalid())
+    Attrs.Range.setBegin(StartLoc);
+
   return S;
 }
 

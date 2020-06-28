@@ -21,6 +21,7 @@ add_llvm_unittest(AnalysisTests
   DivergenceAnalysisTest.cpp
   DomTreeUpdaterTest.cpp
   GlobalsModRefTest.cpp
+  InlineFeaturesAnalysisTest.cpp
 # INTEL_CUSTOMIZATION
   Intel_VectorVariantTest.cpp
 # end INTEL_CUSTOMIZATION
@@ -44,5 +45,3 @@ add_llvm_unittest(AnalysisTests
   ValueTrackingTest.cpp
   VectorUtilsTest.cpp
   )
-
-add_subdirectory(ML)

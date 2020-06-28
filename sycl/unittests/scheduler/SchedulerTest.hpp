@@ -25,7 +25,5 @@ protected:
           }
         }
       };
-
-  cl::sycl::queue MQueue =
-      cl::sycl::queue(cl::sycl::device(), MAsyncHandler);
+  cl::sycl::queue MQueue = cl::sycl::queue(cl::sycl::device(), MAsyncHandler);
 };

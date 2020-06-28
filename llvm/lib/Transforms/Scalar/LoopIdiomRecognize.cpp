@@ -1032,6 +1032,29 @@ bool LoopIdiomRecognize::processLoopStridedStore(
   return true;
 }
 
+class ExpandedValuesCleaner {
+  SCEVExpander &Expander;
+  TargetLibraryInfo *TLI;
+  SmallVector<Value *, 4> ExpandedValues;
+  bool Commit = false;
+
+public:
+  ExpandedValuesCleaner(SCEVExpander &Expander, TargetLibraryInfo *TLI)
+      : Expander(Expander), TLI(TLI) {}
+
+  void add(Value *V) { ExpandedValues.push_back(V); }
+
+  void commit() { Commit = true; }
+
+  ~ExpandedValuesCleaner() {
+    if (!Commit) {
+      Expander.clear();
+      for (auto *V : ExpandedValues)
+        RecursivelyDeleteTriviallyDeadInstructions(V, TLI);
+    }
+  }
+};
+
 /// If the stored value is a strided load in the same loop with the same stride
 /// this may be transformable into a memcpy.  This kicks in for stuff like
 /// for (i) A[i] = B[i];
@@ -1068,6 +1091,8 @@ bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(StoreInst *SI,
   IRBuilder<> Builder(Preheader->getTerminator());
   SCEVExpander Expander(*SE, *DL, "loop-idiom");
 
+  ExpandedValuesCleaner EVC(Expander, TLI);
+
   const SCEV *StrStart = StoreEv->getStart();
   unsigned StrAS = SI->getPointerAddressSpace();
   Type *IntIdxTy = Builder.getIntNTy(DL->getIndexSizeInBits(StrAS));
@@ -1084,6 +1109,7 @@ bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(StoreInst *SI,
   // checking everything.
   Value *StoreBasePtr = Expander.expandCodeFor(
       StrStart, Builder.getInt8PtrTy(StrAS), Preheader->getTerminator());
+  EVC.add(StoreBasePtr);
 
 #if INTEL_CUSTOMIZATION
   AAMDNodes AAInfo;
@@ -1093,12 +1119,8 @@ bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(StoreInst *SI,
   SmallPtrSet<Instruction *, 1> Stores;
   Stores.insert(SI);
   if (mayLoopAccessLocation(StoreBasePtr, ModRefInfo::ModRef, CurLoop, BECount,
-                            StoreSize, *AA, Stores, &AAInfo)) {  // INTEL
-    Expander.clear();
-    // If we generated new code for the base pointer, clean up.
-    RecursivelyDeleteTriviallyDeadInstructions(StoreBasePtr, TLI);
+                            StoreSize, *AA, Stores, &AAInfo)) // INTEL
     return false;
-  }
 
   const SCEV *LdStart = LoadEv->getStart();
   unsigned LdAS = LI->getPointerAddressSpace();
@@ -1111,15 +1133,11 @@ bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(StoreInst *SI,
   // mutated by the loop.
   Value *LoadBasePtr = Expander.expandCodeFor(
       LdStart, Builder.getInt8PtrTy(LdAS), Preheader->getTerminator());
+  EVC.add(LoadBasePtr);
 
   if (mayLoopAccessLocation(LoadBasePtr, ModRefInfo::Mod, CurLoop, BECount,
-                            StoreSize, *AA, Stores, nullptr)) { // INTEL
-    Expander.clear();
-    // If we generated new code for the base pointer, clean up.
-    RecursivelyDeleteTriviallyDeadInstructions(LoadBasePtr, TLI);
-    RecursivelyDeleteTriviallyDeadInstructions(StoreBasePtr, TLI);
+                            StoreSize, *AA, Stores, nullptr)) // INTEL
     return false;
-  }
 
   if (avoidLIRForMultiBlockLoop())
     return false;
@@ -1131,6 +1149,7 @@ bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(StoreInst *SI,
 
   Value *NumBytes =
       Expander.expandCodeFor(NumBytesS, IntIdxTy, Preheader->getTerminator());
+  EVC.add(NumBytes);
 
   CallInst *NewCall = nullptr;
   // Check whether to generate an unordered atomic memcpy:
@@ -1190,6 +1209,7 @@ bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(StoreInst *SI,
   if (MSSAU && VerifyMemorySSA)
     MSSAU->getMemorySSA()->verifyMemorySSA();
   ++NumMemCpy;
+  EVC.commit();
   return true;
 }
 

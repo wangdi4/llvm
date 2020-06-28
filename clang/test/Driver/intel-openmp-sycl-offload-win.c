@@ -6,6 +6,11 @@
 // REQUIRES: clang-driver
 // REQUIRES: x86-registered-target
 // REQUIRES: system-windows
+#if INTEL_CUSTOMIZATION
+// Temporaily disable the test
+// JIRA:CMPLRLLVM-20771
+// UNSUPPORTED: system-windows
+#endif // INTEL_CUSTOMIZATION
 
 /// ###########################################################################
 

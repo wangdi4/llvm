@@ -50,7 +50,7 @@ static bool IsBannedPlatform(platform Platform) {
 
 vector_class<platform> platform_impl::get_platforms() {
   vector_class<platform> Platforms;
-  vector_class<plugin> Plugins = RT::initialize();
+  const vector_class<plugin> &Plugins = RT::initialize();
 
   info::device_type ForcedType = detail::get_forced_type();
   for (unsigned int i = 0; i < Plugins.size(); i++) {
@@ -127,6 +127,9 @@ static std::vector<DevDescT> getAllowListDesc() {
       valuePtr = &decDescs.back().devDriverVer;
       size = &decDescs.back().devDriverVerSize;
       str += sizeof(driverVerStr) - 1;
+    } else {
+      throw sycl::runtime_error("Unrecognized key in device allowlist",
+                                PI_INVALID_VALUE);
     }
 
     if (':' != *str)
@@ -289,6 +292,13 @@ bool platform_impl::has_extension(const string_class &ExtensionName) const {
   return (AllExtensionNames.find(ExtensionName) != std::string::npos);
 }
 
+pi_native_handle platform_impl::getNative() const {
+  const auto &Plugin = getPlugin();
+  pi_native_handle Handle;
+  Plugin.call<PiApiKind::piextPlatformGetNativeHandle>(getHandleRef(), &Handle);
+  return Handle;
+}
+
 template <info::platform param>
 typename info::param_traits<info::platform, param>::return_type
 platform_impl::get_info() const {
@@ -299,15 +309,6 @@ platform_impl::get_info() const {
       typename info::param_traits<info::platform, param>::return_type,
       param>::get(this->getHandleRef(), getPlugin());
 }
-
-#if INTEL_CUSTOMIZATION
-pi_native_handle platform_impl::getNative() const {
-  const auto &Plugin = getPlugin();
-  pi_native_handle Handle;
-  Plugin.call<PiApiKind::piextPlatformGetNativeHandle>(MPlatform, &Handle);
-  return Handle;
-}
-#endif // INTEL_CUSTOMIZATION
 
 #define PARAM_TRAITS_SPEC(param_type, param, ret_type)                         \
   template ret_type platform_impl::get_info<info::param_type::param>() const;

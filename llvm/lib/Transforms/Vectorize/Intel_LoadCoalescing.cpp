@@ -99,7 +99,7 @@ bool MemInstGroup::isCoalescingLoadsProfitable(
          "The group should exclusively hold LoadInst's.");
   LoadInst *LI = cast<LoadInst>(getHead());
   VectorType *GroupTy =
-      VectorType::get(getScalarType(), getTotalScalarElements());
+      FixedVectorType::get(getScalarType(), getTotalScalarElements());
 
   size_t ShuffleCost = 0;
   size_t CoalescedLoadScalarOffset = 0;

@@ -128,6 +128,11 @@ public:
   }
 
   void VisitConstantExpr(ConstantExpr *E) {
+    if (llvm::Value *Result = ConstantEmitter(CGF).tryEmitConstantExpr(E)) {
+      CGF.EmitAggregateStore(Result, Dest.getAddress(),
+                             E->getType().isVolatileQualified());
+      return;
+    }
     return Visit(E->getSubExpr());
   }
 
@@ -1350,7 +1355,6 @@ AggExprEmitter::VisitLambdaExpr(LambdaExpr *E) {
 }
 
 void AggExprEmitter::VisitExprWithCleanups(ExprWithCleanups *E) {
-  CGF.enterFullExpression(E);
   CodeGenFunction::RunCleanupsScope cleanups(CGF);
   Visit(E->getSubExpr());
 }

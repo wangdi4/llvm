@@ -52,6 +52,8 @@ constexpr const char *GVerStr = "sycl 1.0";
 
 namespace pi {
 
+static void initializePlugins(vector_class<plugin> *Plugins);
+
 bool XPTIInitDone = false;
 
 // Implementation of the SYCL PI API call tracing methods that use XPTI
@@ -212,17 +214,9 @@ bool findPlugins(vector_class<std::pair<std::string, backend>> &PluginNames) {
   // search is done for libpi_opencl.so/pi_opencl.dll file in LD_LIBRARY_PATH
   // env only.
   //
-  PluginNames.push_back(std::make_pair<std::string, backend>(OPENCL_PLUGIN_NAME,
-                                                             backend::opencl));
-#if INTEL_CUSTOMIZATION
-  PluginNames.push_back(std::make_pair<std::string, backend>(LEVEL0_PLUGIN_NAME,
-                                                             backend::level0));
-#if 0
-  // Disabling use of CUDA plugin.
-  PluginNames.push_back(
-      std::make_pair<std::string, backend>(CUDA_PLUGIN_NAME, backend::cuda));
-#endif
-#endif // INTEL_CUSTOMIZATION
+  PluginNames.emplace_back(OPENCL_PLUGIN_NAME, backend::opencl);
+  PluginNames.emplace_back(LEVEL0_PLUGIN_NAME, backend::level0);
+  PluginNames.emplace_back(CUDA_PLUGIN_NAME, backend::cuda);
   return true;
 }
 
@@ -262,13 +256,23 @@ bool trace(TraceLevel Level) {
 }
 
 // Initializes all available Plugins.
-vector_class<plugin> initialize() {
-  static bool PluginsInitDone = false;
-  static vector_class<plugin> Plugins;
-  if (PluginsInitDone) {
-    return Plugins;
-  }
+const vector_class<plugin> &initialize() {
+  static std::once_flag PluginsInitDone;
+  static vector_class<plugin> *Plugins = nullptr;
 
+  std::call_once(PluginsInitDone, []() {
+    // The memory for "Plugins" is intentionally leaked because the application
+    // may call into the SYCL runtime from a global destructor, and such a call
+    // could eventually call down to initialize().  Therefore, there is no safe
+    // time when "Plugins" could be deleted.
+    Plugins = new vector_class<plugin>;
+    initializePlugins(Plugins);
+  });
+
+  return *Plugins;
+}
+
+static void initializePlugins(vector_class<plugin> *Plugins) {
   vector_class<std::pair<std::string, backend>> PluginNames;
   findPlugins(PluginNames);
 
@@ -325,18 +329,17 @@ vector_class<plugin> initialize() {
           std::make_shared<plugin>(PluginInformation, backend::level0);
     }
 #endif // INTEL_CUSTOMIZATION
-    Plugins.emplace_back(plugin(PluginInformation, PluginNames[I].second));
+    Plugins->emplace_back(plugin(PluginInformation, PluginNames[I].second));
     if (trace(TraceLevel::PI_TRACE_BASIC))
       std::cerr << "SYCL_PI_TRACE[basic]: "
                 << "Plugin found and successfully loaded: "
                 << PluginNames[I].first << std::endl;
   }
-  PluginsInitDone = true;
 
 #if INTEL_CUSTOMIZATION
 #ifdef XPTI_ENABLE_INSTRUMENTATION
   if (!(xptiTraceEnabled() && !XPTIInitDone))
-    return Plugins;
+    return;
   // Not sure this is the best place to initialize the framework; SYCL runtime
   // team needs to advise on the right place, until then we piggy-back on the
   // initialization of the PI layer.
@@ -378,9 +381,26 @@ vector_class<plugin> initialize() {
                     xpti_at::active, &PiInstanceNo);
 #endif
 #endif // INTEL_CUSTOMIZATION
-
-  return Plugins;
 }
+
+// Get the plugin serving given backend.
+template <backend BE> const plugin &getPlugin() {
+  static const plugin *Plugin = nullptr;
+  if (Plugin)
+    return *Plugin;
+
+  const vector_class<plugin> &Plugins = pi::initialize();
+  for (const auto &P : Plugins)
+    if (P.getBackend() == BE) {
+      Plugin = &P;
+      return *Plugin;
+    }
+
+  throw runtime_error("pi::getPlugin couldn't find plugin",
+                      PI_INVALID_OPERATION);
+}
+
+template const plugin &getPlugin<backend::opencl>();
 
 // Report error and no return (keeps compiler from printing warnings).
 // TODO: Probably change that to throw a catchable exception,

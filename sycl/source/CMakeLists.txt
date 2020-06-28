@@ -113,6 +113,7 @@ set(SYCL_SOURCES
 # INTEL_CUSTOMIZATION
     "backend/Intel_level0.cpp"
 # end INTEL_CUSTOMIZATION
+    "backend/opencl.cpp"
     "detail/accessor_impl.cpp"
     "detail/buffer_impl.cpp"
     "detail/builtins_common.cpp"
@@ -162,6 +163,7 @@ set(SYCL_SOURCES
     "function_pointer.cpp"
     "half_type.cpp"
     "handler.cpp"
+    "interop_handle.cpp"
     "interop_handler.cpp"
     "kernel.cpp"
     "platform.cpp"

@@ -1,22 +1,68 @@
 # PI Level0 plugin library
 
-set(L0 "${CMAKE_SYCL_USE_LEVEL0}")
-if (NOT DEFINED L0_INCLUDE_DIR)
-  if (UNIX)
-    set (L0_INCLUDE_DIR "${L0}/usr/include")
-  else()
-    set (L0_INCLUDE_DIR "${L0}/include")
-  endif()
-endif()
-if (NOT DEFINED L0_LIBRARY)
-  if (UNIX)
-    set (L0_LIBRARY "${L0}/usr/lib/liblevel_zero.so")
-  else()
-    set (L0_LIBRARY "${L0}/level_zero64.lib")
-  endif()
+if(MSVC)
+  set(L0_LOADER
+      "${LLVM_LIBRARY_OUTPUT_INTDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}ze_loader${CMAKE_STATIC_LIBRARY_SUFFIX}")
+else()
+  set(L0_LOADER
+      "${LLVM_LIBRARY_OUTPUT_INTDIR}/${CMAKE_SHARED_LIBRARY_PREFIX}ze_loader${CMAKE_SHARED_LIBRARY_SUFFIX}")
 endif()
 
-include_directories("${L0_INCLUDE_DIR}")
+if (NOT DEFINED L0_LIBRARY OR NOT DEFINED L0_INCLUDE_DIR)
+  message(STATUS "Download Level Zero loader and headers from github.com")
+  if (CMAKE_C_COMPILER)
+      list(APPEND AUX_CMAKE_FLAGS -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER})
+  endif()
+  if (CMAKE_CXX_COMPILER)
+      list(APPEND AUX_CMAKE_FLAGS -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER})
+  endif()
+  file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/l0_loader_build)
+  set(L0_LOADER_SOURCE_DIR "${CMAKE_CURRENT_BINARY_DIR}/Level0/l0_loader")
+  if (NOT DEFINED SYCL_EP_L0_LOADER_SKIP_AUTO_UPDATE)
+    set(SYCL_EP_L0_LOADER_SKIP_AUTO_UPDATE ${SYCL_EXTERNAL_PROJECTS_SKIP_AUTO_UPDATE})
+  endif()
+  ExternalProject_Add(l0-loader
+    GIT_REPOSITORY    https://github.com/oneapi-src/level-zero.git
+    GIT_TAG           origin/master
+    UPDATE_DISCONNECTED ${SYCL_EP_L0_LOADER_SKIP_AUTO_UPDATE}
+    SOURCE_DIR        ${L0_LOADER_SOURCE_DIR}
+    BINARY_DIR        "${CMAKE_CURRENT_BINARY_DIR}/l0_loader_build"
+    INSTALL_DIR       "${CMAKE_CURRENT_BINARY_DIR}/l0_loader_install"
+    CMAKE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+               -DCMAKE_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}
+               -DOpenCL_INCLUDE_DIR=${OpenCL_INCLUDE_DIRS}
+               -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+               -DCMAKE_INSTALL_LIBDIR:PATH=lib${LLVM_LIBDIR_SUFFIX}
+               ${AUX_CMAKE_FLAGS}
+    STEP_TARGETS      configure,build,install
+    DEPENDS           ocl-headers
+    BUILD_BYPRODUCTS ${L0_LOADER}
+  )
+  ExternalProject_Add_Step(l0-loader llvminstall
+    COMMAND ${CMAKE_COMMAND} -E copy_directory <INSTALL_DIR>/ ${LLVM_BINARY_DIR}
+    COMMENT "Installing l0-loader into the LLVM binary directory"
+    DEPENDEES install
+  )
+
+  install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/l0_loader_install/"
+    DESTINATION "."
+    COMPONENT l0-loader
+  )
+
+  list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS l0-loader)
+else()
+  include_directories("${L0_INCLUDE_DIR}")
+  file(GLOB L0_LIBRARY_SRC "${L0_LIBRARY}*")
+  file(COPY ${L0_LIBRARY_SRC} DESTINATION ${LLVM_LIBRARY_OUTPUT_INTDIR})
+  add_custom_target(l0-loader DEPENDS ${L0_LIBRARY} COMMENT "Copying Level Zero Loader ...")
+endif()
+
+add_library (L0Loader-Headers INTERFACE)
+add_library (L0Loader::Headers ALIAS L0Loader-Headers)
+target_include_directories(L0Loader-Headers
+  INTERFACE "${L0_INCLUDE_DIR}"
+)
+
 include_directories("${sycl_inc_dir}")
 include_directories(${OPENCL_INCLUDE})
 
@@ -26,35 +72,6 @@ add_library(pi_level0 SHARED
   "${CMAKE_CURRENT_SOURCE_DIR}/pi_level0.hpp"
 )
 
-add_dependencies(sycl-toolchain pi_level0)
-
-if (UNIX)
-  target_link_libraries(pi_level0 PRIVATE "${L0_LIBRARY}")
-  target_link_libraries(pi_level0 PRIVATE pthread)
-else()
-  # We cannot use UNC paths with forward slashes with MS linker,
-  # so we have to copy the L0 library to the current binary directory.
-  # Only static import library is copied which means that runtime is
-  # not affected by this copy.
-  # TODO: implement removal of this file to be sure that it doesn't
-  # cause any side effects
-  get_filename_component(L0_LIB_BASENAME "${L0_LIBRARY}" NAME)
-  set(L0_LIB_FILE ${CMAKE_CURRENT_BINARY_DIR}/${L0_LIB_BASENAME})
-  add_custom_target(l0-lib-file
-    DEPENDS "${L0_LIBRARY}"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-	  "${L0_LIBRARY}" ${CMAKE_CURRENT_BINARY_DIR}
-    COMMENT "Copying ${L0_LIBRARY} to ${CMAKE_CURRENT_BINARY_DIR}")
-
-  add_dependencies(pi_level0 l0-lib-file)
-  target_link_libraries(pi_level0 PRIVATE ${L0_LIB_FILE})
-  if (INTEL_CUSTOMIZATION)
-    dpcpptarget_add_resource_file(pi_level0
-                                  "pi_level0.dll"
-                                  "Intel(R) oneAPI DPC++ Library"
-                                  "Intel(R) oneAPI DPC++ Library")
-  endif()
-endif()
 if (MSVC)
   # by defining __SYCL_BUILD_SYCL_DLL, we can use __declspec(dllexport)
   # which are individually tagged for all pi* symbols in pi.h
@@ -75,6 +92,22 @@ else()
   )
 endif()
 
+if (TARGET l0-loader)
+  add_dependencies(pi_level0 l0-loader)
+endif()
+  add_dependencies(sycl-toolchain pi_level0)
+
+  target_link_libraries(pi_level0 PRIVATE "${L0_LOADER}")
+if (UNIX)
+  target_link_libraries(pi_level0 PRIVATE pthread)
+else()
+  if (INTEL_CUSTOMIZATION)
+    dpcpptarget_add_resource_file(pi_level0
+                                  "pi_level0.dll"
+                                  "Intel(R) oneAPI DPC++ Library"
+                                  "Intel(R) oneAPI DPC++ Library")
+  endif()
+endif()
 
 add_common_options(pi_level0)
 

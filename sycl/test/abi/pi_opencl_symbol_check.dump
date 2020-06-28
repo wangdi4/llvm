@@ -17,7 +17,7 @@ piProgramCreate
 piProgramLink
 piQueueCreate
 piSamplerCreate
-piclProgramCreateWithBinary
+piProgramCreateWithBinary
 piclProgramCreateWithSource
 piextContextCreateWithNativeHandle
 piextContextGetNativeHandle
@@ -47,3 +47,5 @@ piextUSMFree
 piextUSMGetMemAllocInfo
 piextUSMHostAlloc
 piextUSMSharedAlloc
+piextPlatformGetNativeHandle
+piextPlatformCreateWithNativeHandle

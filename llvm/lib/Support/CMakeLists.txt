@@ -149,6 +149,7 @@ set (SUPPORT_SOURCES
   StringMap.cpp
   StringSaver.cpp
   StringRef.cpp
+  SuffixTree.cpp
   SymbolRemappingReader.cpp
   SystemUtils.cpp
   TarWriter.cpp
@@ -165,6 +166,7 @@ set (SUPPORT_SOURCES
   VersionTuple.cpp
   VirtualFileSystem.cpp
   WithColor.cpp
+  X86TargetParser.cpp
   YAMLParser.cpp
   YAMLTraits.cpp
   raw_os_ostream.cpp

@@ -247,7 +247,7 @@ Function* VecCloneImpl::CloneFunction(Function &F, VectorVariant &V)
 
   // Expand return type to vector.
   if (!ReturnType->isVoidTy())
-    ReturnType = VectorType::get(ReturnType, V.getVlen());
+    ReturnType = FixedVectorType::get(ReturnType, V.getVlen());
 
   std::vector<VectorKind> ParmKinds = V.getParameters();
   SmallVector<Type*, 4> ParmTypes;
@@ -256,7 +256,7 @@ Function* VecCloneImpl::CloneFunction(Function &F, VectorVariant &V)
   std::vector<VectorKind>::iterator VKIt = ParmKinds.begin();
   for (; ParmIt != ParmEnd; ++ParmIt, ++VKIt) {
     if (VKIt->isVector())
-      ParmTypes.push_back(VectorType::get((*ParmIt)->getScalarType(),
+      ParmTypes.push_back(FixedVectorType::get((*ParmIt)->getScalarType(),
                                           V.getVlen()));
     else
       ParmTypes.push_back(*ParmIt);
@@ -265,7 +265,7 @@ Function* VecCloneImpl::CloneFunction(Function &F, VectorVariant &V)
   if (V.isMasked()) {
     Type *MaskScalarTy = (Usei1MaskForSimdFunctions) ?
       Type::getInt1Ty(F.getContext()) : CharacteristicType;
-    Type *MaskVecTy = VectorType::get(MaskScalarTy, V.getVlen());
+    Type *MaskVecTy = FixedVectorType::get(MaskScalarTy, V.getVlen());
     ParmTypes.push_back(MaskVecTy);
   }
 

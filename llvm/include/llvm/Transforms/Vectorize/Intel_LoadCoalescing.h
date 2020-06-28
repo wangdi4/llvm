@@ -118,7 +118,7 @@ public:
   /// Returns the wide vector type of the group after the loads get
   /// coalesced.
   VectorType *getWideType() const {
-    return VectorType::get(getScalarType(), getNumElements());
+    return FixedVectorType::get(getScalarType(), getNumElements());
   }
 
   /// Return the total byte size of the group.

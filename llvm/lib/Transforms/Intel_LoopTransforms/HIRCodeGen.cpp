@@ -1001,7 +1001,7 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
 
       // We have a vector of pointers of BaseSrcType. We need to convert it to
       // vector of pointers of DestScType.
-      GEPVal = Builder.CreateBitCast(GEPVal, VectorType::get(DestScPtrTy, VL));
+      GEPVal = Builder.CreateBitCast(GEPVal, FixedVectorType::get(DestScPtrTy, VL));
     }
   } else if (BitCastDestTy) {
     // Base CE could have different src and dest types in which case we need a

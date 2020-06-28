@@ -1307,7 +1307,9 @@ void Verifier::visitDIGlobalVariable(const DIGlobalVariable &N) {
 
   AssertDI(N.getTag() == dwarf::DW_TAG_variable, "invalid tag", &N);
   AssertDI(isType(N.getRawType()), "invalid type ref", &N, N.getRawType());
-  AssertDI(N.getType(), "missing global variable type", &N);
+  // Assert only if the global variable is not an extern
+  if (N.isDefinition())
+    AssertDI(N.getType(), "missing global variable type", &N);
   if (auto *Member = N.getRawStaticDataMemberDeclaration()) {
     AssertDI(isa<DIDerivedType>(Member),
              "invalid static data member declaration", &N, Member);
@@ -2649,8 +2651,7 @@ void Verifier::visitCallBrInst(CallBrInst &CBI) {
       if (auto *BA = dyn_cast<BlockAddress>(V))
         ArgBBs.insert(BA->getBasicBlock());
     for (BasicBlock *BB : CBI.getIndirectDests())
-      Assert(ArgBBs.find(BB) != ArgBBs.end(),
-             "Indirect label missing from arglist.", &CBI);
+      Assert(ArgBBs.count(BB), "Indirect label missing from arglist.", &CBI);
   }
 
   visitTerminator(CBI);
@@ -2778,8 +2779,8 @@ void Verifier::visitUIToFPInst(UIToFPInst &I) {
          &I);
 
   if (SrcVec && DstVec)
-    Assert(cast<VectorType>(SrcTy)->getNumElements() ==
-               cast<VectorType>(DestTy)->getNumElements(),
+    Assert(cast<VectorType>(SrcTy)->getElementCount() ==
+               cast<VectorType>(DestTy)->getElementCount(),
            "UIToFP source and dest vector length mismatch", &I);
 
   visitInstruction(I);
@@ -2801,8 +2802,8 @@ void Verifier::visitSIToFPInst(SIToFPInst &I) {
          &I);
 
   if (SrcVec && DstVec)
-    Assert(cast<VectorType>(SrcTy)->getNumElements() ==
-               cast<VectorType>(DestTy)->getNumElements(),
+    Assert(cast<VectorType>(SrcTy)->getElementCount() ==
+               cast<VectorType>(DestTy)->getElementCount(),
            "SIToFP source and dest vector length mismatch", &I);
 
   visitInstruction(I);
@@ -2824,8 +2825,8 @@ void Verifier::visitFPToUIInst(FPToUIInst &I) {
          "FPToUI result must be integer or integer vector", &I);
 
   if (SrcVec && DstVec)
-    Assert(cast<VectorType>(SrcTy)->getNumElements() ==
-               cast<VectorType>(DestTy)->getNumElements(),
+    Assert(cast<VectorType>(SrcTy)->getElementCount() ==
+               cast<VectorType>(DestTy)->getElementCount(),
            "FPToUI source and dest vector length mismatch", &I);
 
   visitInstruction(I);
@@ -2847,8 +2848,8 @@ void Verifier::visitFPToSIInst(FPToSIInst &I) {
          "FPToSI result must be integer or integer vector", &I);
 
   if (SrcVec && DstVec)
-    Assert(cast<VectorType>(SrcTy)->getNumElements() ==
-               cast<VectorType>(DestTy)->getNumElements(),
+    Assert(cast<VectorType>(SrcTy)->getElementCount() ==
+               cast<VectorType>(DestTy)->getElementCount(),
            "FPToSI source and dest vector length mismatch", &I);
 
   visitInstruction(I);
@@ -2870,9 +2871,9 @@ void Verifier::visitPtrToIntInst(PtrToIntInst &I) {
          &I);
 
   if (SrcTy->isVectorTy()) {
-    VectorType *VSrc = cast<VectorType>(SrcTy);
-    VectorType *VDest = cast<VectorType>(DestTy);
-    Assert(VSrc->getNumElements() == VDest->getNumElements(),
+    auto *VSrc = cast<VectorType>(SrcTy);
+    auto *VDest = cast<VectorType>(DestTy);
+    Assert(VSrc->getElementCount() == VDest->getElementCount(),
            "PtrToInt Vector width mismatch", &I);
   }
 
@@ -2895,9 +2896,9 @@ void Verifier::visitIntToPtrInst(IntToPtrInst &I) {
   Assert(SrcTy->isVectorTy() == DestTy->isVectorTy(), "IntToPtr type mismatch",
          &I);
   if (SrcTy->isVectorTy()) {
-    VectorType *VSrc = cast<VectorType>(SrcTy);
-    VectorType *VDest = cast<VectorType>(DestTy);
-    Assert(VSrc->getNumElements() == VDest->getNumElements(),
+    auto *VSrc = cast<VectorType>(SrcTy);
+    auto *VDest = cast<VectorType>(DestTy);
+    Assert(VSrc->getElementCount() == VDest->getElementCount(),
            "IntToPtr Vector width mismatch", &I);
   }
   visitInstruction(I);
@@ -2992,15 +2993,14 @@ void Verifier::visitCallBase(CallBase &Call) {
   Function *Callee =
       dyn_cast<Function>(Call.getCalledOperand()->stripPointerCasts());
 
-  if (Attrs.hasAttribute(AttributeList::FunctionIndex, Attribute::Speculatable)) {
+  if (Attrs.hasFnAttribute(Attribute::Speculatable)) {
     // Don't allow speculatable on call sites, unless the underlying function
     // declaration is also speculatable.
     Assert(Callee && Callee->isSpeculatable(),
            "speculatable attribute may not apply to call sites", Call);
   }
 
-  if (Attrs.hasAttribute(AttributeList::FunctionIndex,
-                         Attribute::Preallocated)) {
+  if (Attrs.hasFnAttribute(Attribute::Preallocated)) {
     Assert(Call.getCalledFunction()->getIntrinsicID() ==
                Intrinsic::call_preallocated_arg,
            "preallocated as a call site attribute can only be on "
@@ -4982,8 +4982,8 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
            "masked_load: return must match pointer type", Call);
     Assert(PassThru->getType() == DataTy,
            "masked_load: pass through and data type must match", Call);
-    Assert(cast<VectorType>(Mask->getType())->getNumElements() ==
-               cast<VectorType>(DataTy)->getNumElements(),
+    Assert(cast<VectorType>(Mask->getType())->getElementCount() ==
+               cast<VectorType>(DataTy)->getElementCount(),
            "masked_load: vector mask must be same length as data", Call);
     break;
   }
@@ -5001,8 +5001,8 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
     Type *DataTy = cast<PointerType>(Ptr->getType())->getElementType();
     Assert(DataTy == Val->getType(),
            "masked_store: storee must match pointer type", Call);
-    Assert(cast<VectorType>(Mask->getType())->getNumElements() ==
-               cast<VectorType>(DataTy)->getNumElements(),
+    Assert(cast<VectorType>(Mask->getType())->getElementCount() ==
+               cast<VectorType>(DataTy)->getElementCount(),
            "masked_store: vector mask must be same length as data", Call);
     break;
   }
@@ -5118,8 +5118,8 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
   }
   case Intrinsic::matrix_multiply:
   case Intrinsic::matrix_transpose:
-  case Intrinsic::matrix_columnwise_load:
-  case Intrinsic::matrix_columnwise_store: {
+  case Intrinsic::matrix_column_major_load:
+  case Intrinsic::matrix_column_major_store: {
     ConstantInt *NumRows;
     ConstantInt *NumColumns;
     VectorType *TypeToCheck;
@@ -5134,14 +5134,14 @@ void Verifier::visitIntrinsicCall(Intrinsic::ID ID, CallBase &Call) {
       NumColumns = cast<ConstantInt>(Call.getArgOperand(2));
       TypeToCheck = cast<VectorType>(Call.getType());
       break;
-    case Intrinsic::matrix_columnwise_load:
-      NumRows = cast<ConstantInt>(Call.getArgOperand(2));
-      NumColumns = cast<ConstantInt>(Call.getArgOperand(3));
-      TypeToCheck = cast<VectorType>(Call.getType());
-      break;
-    case Intrinsic::matrix_columnwise_store:
+    case Intrinsic::matrix_column_major_load:
       NumRows = cast<ConstantInt>(Call.getArgOperand(3));
       NumColumns = cast<ConstantInt>(Call.getArgOperand(4));
+      TypeToCheck = cast<VectorType>(Call.getType());
+      break;
+    case Intrinsic::matrix_column_major_store:
+      NumRows = cast<ConstantInt>(Call.getArgOperand(4));
+      NumColumns = cast<ConstantInt>(Call.getArgOperand(5));
       TypeToCheck = cast<VectorType>(Call.getArgOperand(0)->getType());
       break;
     default:

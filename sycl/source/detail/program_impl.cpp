@@ -204,7 +204,9 @@ void program_impl::compile_with_kernel_name(string_class KernelName,
   throw_if_state_is_not(program_state::none);
   MProgramModuleHandle = M;
   if (!is_host()) {
-    create_pi_program_with_kernel_name(M, KernelName);
+    create_pi_program_with_kernel_name(
+        M, KernelName,
+        /*JITCompilationIsRequired=*/(!CompileOptions.empty()));
     compile(CompileOptions);
   }
   MState = program_state::compiled;
@@ -233,11 +235,14 @@ void program_impl::build_with_kernel_name(string_class KernelName,
     if (is_cacheable_with_options(BuildOptions)) {
       MProgramAndKernelCachingAllowed = true;
       MProgram = ProgramManager::getInstance().getBuiltPIProgram(
-          Module, get_context(), KernelName, this);
+          Module, get_context(), KernelName, this,
+          /*JITCompilationIsRequired=*/(!BuildOptions.empty()));
       const detail::plugin &Plugin = getPlugin();
       Plugin.call<PiApiKind::piProgramRetain>(MProgram);
     } else {
-      create_pi_program_with_kernel_name(Module, KernelName);
+      create_pi_program_with_kernel_name(
+          Module, KernelName,
+          /*JITCompilationIsRequired=*/(!BuildOptions.empty()));
       build(BuildOptions);
     }
   }
@@ -301,23 +306,24 @@ kernel program_impl::get_kernel(string_class KernelName,
 
 vector_class<vector_class<char>> program_impl::get_binaries() const {
   throw_if_state_is(program_state::none);
+  if (is_host())
+    return {};
+
   vector_class<vector_class<char>> Result;
   const detail::plugin &Plugin = getPlugin();
-  if (!is_host()) {
-    vector_class<size_t> BinarySizes(MDevices.size());
-    Plugin.call<PiApiKind::piProgramGetInfo>(
-        MProgram, PI_PROGRAM_INFO_BINARY_SIZES,
-        sizeof(size_t) * BinarySizes.size(), BinarySizes.data(), nullptr);
+  vector_class<size_t> BinarySizes(MDevices.size());
+  Plugin.call<PiApiKind::piProgramGetInfo>(
+      MProgram, PI_PROGRAM_INFO_BINARY_SIZES,
+      sizeof(size_t) * BinarySizes.size(), BinarySizes.data(), nullptr);
 
-    vector_class<char *> Pointers;
-    for (size_t I = 0; I < BinarySizes.size(); ++I) {
-      Result.emplace_back(BinarySizes[I]);
-      Pointers.push_back(Result[I].data());
-    }
-    Plugin.call<PiApiKind::piProgramGetInfo>(MProgram, PI_PROGRAM_INFO_BINARIES,
-                                             sizeof(char *) * Pointers.size(),
-                                             Pointers.data(), nullptr);
+  vector_class<char *> Pointers;
+  for (size_t I = 0; I < BinarySizes.size(); ++I) {
+    Result.emplace_back(BinarySizes[I]);
+    Pointers.push_back(Result[I].data());
   }
+  Plugin.call<PiApiKind::piProgramGetInfo>(MProgram, PI_PROGRAM_INFO_BINARIES,
+                                           sizeof(char *) * Pointers.size(),
+                                           Pointers.data(), nullptr);
   return Result;
 }
 
@@ -439,11 +445,12 @@ void program_impl::throw_if_state_is_not(program_state State) const {
 }
 
 void program_impl::create_pi_program_with_kernel_name(
-    OSModuleHandle Module, const string_class &KernelName) {
+    OSModuleHandle Module, const string_class &KernelName,
+    bool JITCompilationIsRequired) {
   assert(!MProgram && "This program already has an encapsulated PI program");
   ProgramManager &PM = ProgramManager::getInstance();
-  RTDeviceBinaryImage &Img =
-      PM.getDeviceImage(Module, KernelName, get_context());
+  RTDeviceBinaryImage &Img = PM.getDeviceImage(
+      Module, KernelName, get_context(), JITCompilationIsRequired);
   MProgram = PM.createPIProgram(Img, get_context());
 }
 
@@ -472,6 +479,9 @@ vector_class<device> program_impl::get_info<info::program::devices>() const {
 
 void program_impl::set_spec_constant_impl(const char *Name, const void *ValAddr,
                                           size_t ValSize) {
+  if (MState != program_state::none)
+    throw cl::sycl::experimental::spec_const_error("Invalid program state",
+                                                   PI_INVALID_PROGRAM);
   // Reuse cached programs lock as opposed to introducing a new lock.
   auto LockGuard = MContext->getKernelProgramCache().acquireCachedPrograms();
   spec_constant_impl &SC = SpecConstRegistry[Name];

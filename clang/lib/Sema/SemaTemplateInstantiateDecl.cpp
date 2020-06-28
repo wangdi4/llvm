@@ -554,48 +554,21 @@ static void instantiateDependentAMDGPUWavesPerEUAttr(
   S.addAMDGPUWavesPerEUAttr(New, Attr, MinExpr, MaxExpr);
 }
 
-static void instantiateIntelFPGABankWidthAttr(
+template <typename AttrName>
+static void instantiateIntelFPGAMemoryAttr(
     Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
-    const IntelFPGABankWidthAttr *Attr, Decl *New) {
+    const AttrName *Attr, Decl *New) {
   EnterExpressionEvaluationContext Unevaluated(
       S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
   ExprResult Result = S.SubstExpr(Attr->getValue(), TemplateArgs);
-  if (!Result.isInvalid())
-    return S.AddOneConstantPowerTwoValueAttr<IntelFPGABankWidthAttr>(
-        New, *Attr, Result.getAs<Expr>());
-}
-
-static void instantiateIntelFPGANumBanksAttr(
-    Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
-    const IntelFPGANumBanksAttr *Attr, Decl *New) {
-  EnterExpressionEvaluationContext Unevaluated(
-      S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
-  ExprResult Result = S.SubstExpr(Attr->getValue(), TemplateArgs);
-  if (!Result.isInvalid())
-    return S.AddOneConstantPowerTwoValueAttr<IntelFPGANumBanksAttr>(
-        New, *Attr, Result.getAs<Expr>());
-}
-
-static void instantiateIntelFPGAPrivateCopiesAttr(
-    Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
-    const IntelFPGAPrivateCopiesAttr *Attr, Decl *New) {
-  EnterExpressionEvaluationContext Unevaluated(
-      S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
-  ExprResult Result = S.SubstExpr(Attr->getValue(), TemplateArgs);
-  if (!Result.isInvalid())
-    return S.AddOneConstantValueAttr<IntelFPGAPrivateCopiesAttr>(
-        New, *Attr, Result.getAs<Expr>());
-}
-
-static void instantiateIntelFPGAMaxReplicatesAttr(
-    Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
-    const IntelFPGAMaxReplicatesAttr *Attr, Decl *New) {
-  EnterExpressionEvaluationContext Unevaluated(
-      S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
-  ExprResult Result = S.SubstExpr(Attr->getValue(), TemplateArgs);
-  if (!Result.isInvalid())
-    return S.AddOneConstantValueAttr<IntelFPGAMaxReplicatesAttr>(
-        New, *Attr, Result.getAs<Expr>());
+  if (!Result.isInvalid()) {
+    if (std::is_same<AttrName, IntelFPGABankWidthAttr>::value ||
+        std::is_same<AttrName, IntelFPGANumBanksAttr>::value)
+      return S.AddOneConstantPowerTwoValueAttr<AttrName>(New, *Attr,
+                                                         Result.getAs<Expr>());
+    return S.AddOneConstantValueAttr<AttrName>(New, *Attr,
+                                               Result.getAs<Expr>());
+  }
 }
 
 static void instantiateIntelFPGABankBitsAttr(
@@ -611,17 +584,6 @@ static void instantiateIntelFPGABankBitsAttr(
     Args.push_back(Result.getAs<Expr>());
   }
   S.AddIntelFPGABankBitsAttr(New, *Attr, Args.data(), Args.size());
-}
-
-static void instantiateIntelFPGAForcePow2DepthAttr(
-    Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
-    const IntelFPGAForcePow2DepthAttr *Attr, Decl *New) {
-  EnterExpressionEvaluationContext Unevaluated(
-      S, Sema::ExpressionEvaluationContext::ConstantEvaluated);
-  ExprResult Result = S.SubstExpr(Attr->getValue(), TemplateArgs);
-  if (!Result.isInvalid())
-    S.AddOneConstantValueAttr<IntelFPGAForcePow2DepthAttr>(
-        New, *Attr, Result.getAs<Expr>());
 }
 
 static void instantiateSYCLIntelPipeIOAttr(
@@ -840,23 +802,24 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
 
     if (const auto *IntelFPGABankWidth =
             dyn_cast<IntelFPGABankWidthAttr>(TmplAttr)) {
-      instantiateIntelFPGABankWidthAttr(*this, TemplateArgs, IntelFPGABankWidth,
-                                        New);
+      instantiateIntelFPGAMemoryAttr<IntelFPGABankWidthAttr>(
+          *this, TemplateArgs, IntelFPGABankWidth, New);
     }
+
     if (const auto *IntelFPGANumBanks =
             dyn_cast<IntelFPGANumBanksAttr>(TmplAttr)) {
-      instantiateIntelFPGANumBanksAttr(*this, TemplateArgs, IntelFPGANumBanks,
-                                       New);
+      instantiateIntelFPGAMemoryAttr<IntelFPGANumBanksAttr>(
+          *this, TemplateArgs, IntelFPGANumBanks, New);
     }
     if (const auto *IntelFPGAPrivateCopies =
             dyn_cast<IntelFPGAPrivateCopiesAttr>(TmplAttr)) {
-      instantiateIntelFPGAPrivateCopiesAttr(*this, TemplateArgs,
-                                            IntelFPGAPrivateCopies, New);
+      instantiateIntelFPGAMemoryAttr<IntelFPGAPrivateCopiesAttr>(
+          *this, TemplateArgs, IntelFPGAPrivateCopies, New);
     }
     if (const auto *IntelFPGAMaxReplicates =
             dyn_cast<IntelFPGAMaxReplicatesAttr>(TmplAttr)) {
-      instantiateIntelFPGAMaxReplicatesAttr(*this, TemplateArgs,
-                                            IntelFPGAMaxReplicates, New);
+      instantiateIntelFPGAMemoryAttr<IntelFPGAMaxReplicatesAttr>(
+          *this, TemplateArgs, IntelFPGAMaxReplicates, New);
     }
     if (const auto *IntelFPGABankBits =
             dyn_cast<IntelFPGABankBitsAttr>(TmplAttr)) {
@@ -865,8 +828,8 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
     }
     if (const auto *IntelFPGAForcePow2Depth =
             dyn_cast<IntelFPGAForcePow2DepthAttr>(TmplAttr)) {
-      instantiateIntelFPGAForcePow2DepthAttr(*this, TemplateArgs,
-                                             IntelFPGAForcePow2Depth, New);
+      instantiateIntelFPGAMemoryAttr<IntelFPGAForcePow2DepthAttr>(
+          *this, TemplateArgs, IntelFPGAForcePow2Depth, New);
     }
     if (const auto *SYCLIntelPipeIO = dyn_cast<SYCLIntelPipeIOAttr>(TmplAttr)) {
       instantiateSYCLIntelPipeIOAttr(*this, TemplateArgs, SYCLIntelPipeIO, New);
@@ -3992,6 +3955,8 @@ FunctionDecl *Sema::SubstSpaceshipAsEqualEqual(CXXRecordDecl *RD,
   //   access and function-definition and in the same class scope as the
   //   three-way comparison operator function
   MultiLevelTemplateArgumentList NoTemplateArgs;
+  NoTemplateArgs.setKind(TemplateSubstitutionKind::Rewrite);
+  NoTemplateArgs.addOuterRetainedLevels(RD->getTemplateDepth());
   TemplateDeclInstantiator Instantiator(*this, RD, NoTemplateArgs);
   Decl *R;
   if (auto *MD = dyn_cast<CXXMethodDecl>(Spaceship)) {
@@ -5883,6 +5848,20 @@ DeclContext *Sema::FindInstantiatedContext(SourceLocation Loc, DeclContext* DC,
   } else return DC;
 }
 
+/// Determine whether the given context is dependent on template parameters at
+/// level \p Level or below.
+///
+/// Sometimes we only substitute an inner set of template arguments and leave
+/// the outer templates alone. In such cases, contexts dependent only on the
+/// outer levels are not effectively dependent.
+static bool isDependentContextAtLevel(DeclContext *DC, unsigned Level) {
+  if (!DC->isDependentContext())
+    return false;
+  if (!Level)
+    return true;
+  return cast<Decl>(DC)->getTemplateDepth() > Level;
+}
+
 /// Find the instantiation of the given declaration within the
 /// current instantiation.
 ///
@@ -5913,6 +5892,10 @@ NamedDecl *Sema::FindInstantiatedDecl(SourceLocation Loc, NamedDecl *D,
                           const MultiLevelTemplateArgumentList &TemplateArgs,
                           bool FindingInstantiatedContext) {
   DeclContext *ParentDC = D->getDeclContext();
+  // Determine whether our parent context depends on any of the tempalte
+  // arguments we're currently substituting.
+  bool ParentDependsOnArgs = isDependentContextAtLevel(
+      ParentDC, TemplateArgs.getNumRetainedOuterLevels());
   // FIXME: Parmeters of pointer to functions (y below) that are themselves
   // parameters (p below) can have their ParentDC set to the translation-unit
   // - thus we can not consistently check if the ParentDC of such a parameter
@@ -5929,15 +5912,14 @@ NamedDecl *Sema::FindInstantiatedDecl(SourceLocation Loc, NamedDecl *D,
   //  - as long as we have a ParmVarDecl whose parent is non-dependent and
   //    whose type is not instantiation dependent, do nothing to the decl
   //  - otherwise find its instantiated decl.
-  if (isa<ParmVarDecl>(D) && !ParentDC->isDependentContext() &&
+  if (isa<ParmVarDecl>(D) && !ParentDependsOnArgs &&
       !cast<ParmVarDecl>(D)->getType()->isInstantiationDependentType())
     return D;
   if (isa<ParmVarDecl>(D) || isa<NonTypeTemplateParmDecl>(D) ||
       isa<TemplateTypeParmDecl>(D) || isa<TemplateTemplateParmDecl>(D) ||
-      ((ParentDC->isFunctionOrMethod() ||
-        isa<OMPDeclareReductionDecl>(ParentDC) ||
-        isa<OMPDeclareMapperDecl>(ParentDC)) &&
-       ParentDC->isDependentContext()) ||
+      (ParentDependsOnArgs && (ParentDC->isFunctionOrMethod() ||
+                               isa<OMPDeclareReductionDecl>(ParentDC) ||
+                               isa<OMPDeclareMapperDecl>(ParentDC))) ||
       (isa<CXXRecordDecl>(D) && cast<CXXRecordDecl>(D)->isLambda())) {
     // D is a local of some kind. Look into the map of local
     // declarations to their instantiations.
@@ -5980,6 +5962,9 @@ NamedDecl *Sema::FindInstantiatedDecl(SourceLocation Loc, NamedDecl *D,
     bool NeedInstantiate = false;
     if (CXXRecordDecl *RD = dyn_cast<CXXRecordDecl>(D))
       NeedInstantiate = RD->isLocalClass();
+    else if (isa<TypedefNameDecl>(D) &&
+             isa<CXXDeductionGuideDecl>(D->getDeclContext()))
+      NeedInstantiate = true;
     else
       NeedInstantiate = isa<EnumDecl>(D);
     if (NeedInstantiate) {
@@ -6088,7 +6073,7 @@ NamedDecl *Sema::FindInstantiatedDecl(SourceLocation Loc, NamedDecl *D,
     // anonymous unions in class templates).
   }
 
-  if (!ParentDC->isDependentContext())
+  if (!ParentDependsOnArgs)
     return D;
 
   ParentDC = FindInstantiatedContext(Loc, ParentDC, TemplateArgs);
@@ -6157,10 +6142,11 @@ NamedDecl *Sema::FindInstantiatedDecl(SourceLocation Loc, NamedDecl *D,
     if (!Result) {
       if (isa<UsingShadowDecl>(D)) {
         // UsingShadowDecls can instantiate to nothing because of using hiding.
-      } else if (Diags.hasErrorOccurred()) {
-        // We've already complained about something, so most likely this
-        // declaration failed to instantiate. There's no point in complaining
-        // further, since this is normal in invalid code.
+      } else if (Diags.hasUncompilableErrorOccurred()) {
+        // We've already complained about some ill-formed code, so most likely
+        // this declaration failed to instantiate. There's no point in
+        // complaining further, since this is normal in invalid code.
+        // FIXME: Use more fine-grained 'invalid' tracking for this.
       } else if (IsBeingInstantiated) {
         // The class in which this member exists is currently being
         // instantiated, and we haven't gotten around to instantiating this
@@ -6202,6 +6188,7 @@ NamedDecl *Sema::FindInstantiatedDecl(SourceLocation Loc, NamedDecl *D,
 void Sema::PerformPendingInstantiations(bool LocalOnly) {
   std::unique_ptr<MangleContext> MangleCtx(
       getASTContext().createMangleContext());
+  std::deque<PendingImplicitInstantiation> delayedPCHInstantiations;
   while (!PendingLocalImplicitInstantiations.empty() ||
          (!LocalOnly && !PendingInstantiations.empty())) {
     PendingImplicitInstantiation Inst;
@@ -6249,6 +6236,10 @@ void Sema::PerformPendingInstantiations(bool LocalOnly) {
           Function->setInstantiationIsPending(false);
         }
       }
+      // Definition of a PCH-ed template declaration may be available only in the TU.
+      if (!LocalOnly && LangOpts.PCHInstantiateTemplates &&
+          TUKind == TU_Prefix && Function->instantiationIsPending())
+        delayedPCHInstantiations.push_back(Inst);
       continue;
     }
 
@@ -6294,6 +6285,9 @@ void Sema::PerformPendingInstantiations(bool LocalOnly) {
     InstantiateVariableDefinition(/*FIXME:*/ Inst.second, Var, true,
                                   DefinitionRequired, true);
   }
+
+  if (!LocalOnly && LangOpts.PCHInstantiateTemplates)
+    PendingInstantiations.swap(delayedPCHInstantiations);
 }
 
 void Sema::PerformDependentDiagnostics(const DeclContext *Pattern,

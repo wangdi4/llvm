@@ -657,7 +657,7 @@ void KernelBarrier::fixSpecialValues() {
       // Base type is i1 need to ZEXT/TRUNC to/from i32.
       VectorType *VecType = dyn_cast<VectorType>(Inst->getType());
       if (VecType) {
-        TypeInSP = VectorType::get(IntegerType::get(*Context, 32),
+        TypeInSP = FixedVectorType::get(IntegerType::get(*Context, 32),
                                     VecType->getNumElements());
       } else {
         TypeInSP = IntegerType::get(*Context, 32);
