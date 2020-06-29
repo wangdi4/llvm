@@ -849,6 +849,12 @@ std::unique_ptr<VPlan> VPlan::clone(VPAnalysesFactory &VPAF) {
   ClonedVPlan->computeDT();
   ClonedVPlan->computePDT();
 
+  // Calclulate VPLoopInfo for the ClonedVPlan
+  ClonedVPlan->setVPLoopInfo(std::make_unique<VPLoopInfo>());
+  VPLoopInfo *ClonedVPLInfo = ClonedVPlan->getVPLoopInfo();
+  ClonedVPLInfo->analyze(*ClonedVPlan->getDT());
+  LLVM_DEBUG(ClonedVPLInfo->verify(*ClonedVPlan->getDT()));
+
   return ClonedVPlan;
 }
 
