@@ -1517,6 +1517,8 @@ bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W,
     InsertPt = EntryBB->getTerminator();
   }
   IRBuilder<> LoadBuilder(InsertPt);
+  Value *MapSize = LoadBuilder.getInt64(0);
+  uint64_t MapType = TGT_MAP_TARGET_PARAM | TGT_MAP_RETURN_PARAM;
   MapClause &MapC = W->getMap();
   for (UseDevicePtrItem *UDPI : UDPC.items()) {
     // There's already a map clause present for the use_device_ptr clause item.
@@ -1530,9 +1532,11 @@ bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W,
                   cast<PointerType>(UDP->getType())->getPointerElementType(),
                   UDP, UDP->getName() + ".load")
             : UDP;
-    MapC.add(MappedVal);
+    MapAggrTy *MapAggr = new MapAggrTy(MappedVal, MappedVal, MapSize, MapType);
+    MapItem *MapI = new MapItem(MapAggr);
+    MapI->setOrig(MappedVal);
+    MapC.add(MapI);
 
-    MapItem *MapI = MapC.back();
     MapI->setInUseDevicePtr(UDPI);
     UDPI->setInMap(MapI);
 

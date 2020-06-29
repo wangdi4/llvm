@@ -918,22 +918,10 @@ public:
     MapChain.push_back(Aggr);
   }
   ~MapItem() {
-    // If this map clause specifies an array section, we transform
-    // it into a map chain in
-    // VPOParoptTranform::genMapChainsForMapArraySections(), which
-    // dynamically allocates a single map chain element
-    // (see setMapChainForArraySection() below as well).
-    // We have to delete this map chain element here.
-    if (!getIsArraySection())
+    if (MapChain.empty())
       return;
 
-    if (MapChain.size() == 0)
-      return;
-
-    assert(MapChain.size() == 1 &&
-           "Map clause with an array section must contain "
-           "exactly one map chain.");
-    delete MapChain[0];
+    llvm::for_each(MapChain, deleter<MapAggrTy>);
   }
 
   const MapChainTy &getMapChain() const { return MapChain; }
