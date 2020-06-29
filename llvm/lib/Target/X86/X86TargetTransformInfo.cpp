@@ -3158,8 +3158,8 @@ int X86TTIImpl::getMaskedMemoryOpCost(unsigned Opcode, Type *SrcTy,
   unsigned NumElem = SrcVTy->getNumElements();
   auto *MaskTy =
       FixedVectorType::get(Type::getInt8Ty(SrcVTy->getContext()), NumElem);
-  if ((IsLoad && !isLegalMaskedLoad(SrcVTy, MaybeAlign(Alignment))) ||
-      (IsStore && !isLegalMaskedStore(SrcVTy, MaybeAlign(Alignment))) ||
+  if ((IsLoad && !isLegalMaskedLoad(SrcVTy, Align(Alignment))) ||
+      (IsStore && !isLegalMaskedStore(SrcVTy, Align(Alignment))) ||
       !isPowerOf2_32(NumElem)) {
     // Scalarization
     APInt DemandedElts = APInt::getAllOnesValue(NumElem);
@@ -4212,9 +4212,9 @@ int X86TTIImpl::getGatherScatterOpCost(unsigned Opcode, Type *SrcVTy,
 
   bool Scalarize = false;
   if ((Opcode == Instruction::Load &&
-       !isLegalMaskedGather(SrcVTy, MaybeAlign(Alignment))) ||
+       !isLegalMaskedGather(SrcVTy, Align(Alignment))) ||
       (Opcode == Instruction::Store &&
-       !isLegalMaskedScatter(SrcVTy, MaybeAlign(Alignment))))
+       !isLegalMaskedScatter(SrcVTy, Align(Alignment))))
     Scalarize = true;
   // Gather / Scatter for vector 2 is not profitable on KNL / SKX
   // Vector-4 of gather/scatter instruction does not exist on KNL.
@@ -4284,7 +4284,7 @@ bool X86TTIImpl::canMacroFuseCmp() {
   return ST->hasMacroFusion() || ST->hasBranchFusion();
 }
 
-bool X86TTIImpl::isLegalMaskedLoad(Type *DataTy, MaybeAlign Alignment) {
+bool X86TTIImpl::isLegalMaskedLoad(Type *DataTy, Align Alignment) {
   if (!ST->hasAVX())
     return false;
 
@@ -4315,7 +4315,7 @@ bool X86TTIImpl::isLegalMaskedLoad(Type *DataTy, MaybeAlign Alignment) {
          ((IntWidth == 8 || IntWidth == 16) && ST->hasBWI());
 }
 
-bool X86TTIImpl::isLegalMaskedStore(Type *DataType, MaybeAlign Alignment) {
+bool X86TTIImpl::isLegalMaskedStore(Type *DataType, Align Alignment) {
   return isLegalMaskedLoad(DataType, Alignment);
 }
 
@@ -4382,6 +4382,7 @@ bool X86TTIImpl::isLegalMaskedCompressStore(Type *DataTy) {
   return isLegalMaskedExpandLoad(DataTy);
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 bool X86TTIImpl::isAdvancedOptEnabled(TTI::AdvancedOptLevel AO) const {
     const TargetMachine &TM = getTLI()->getTargetMachine();
@@ -4466,6 +4467,9 @@ bool X86TTIImpl::adjustCallArgs(CallInst* CI) {
 #endif // INTEL_CUSTOMIZATION
 
 bool X86TTIImpl::isLegalMaskedGather(Type *DataTy, MaybeAlign Alignment) {
+=======
+bool X86TTIImpl::isLegalMaskedGather(Type *DataTy, Align Alignment) {
+>>>>>>> 324cda2073d1eba1758ab7529af3f3880d6f18c6
   // Some CPUs have better gather performance than others.
   // TODO: Remove the explicit ST->hasAVX512()?, That would mean we would only
   // enable gather with a -march.
@@ -4503,7 +4507,7 @@ bool X86TTIImpl::isLegalMaskedGather(Type *DataTy, MaybeAlign Alignment) {
   return IntWidth == 32 || IntWidth == 64;
 }
 
-bool X86TTIImpl::isLegalMaskedScatter(Type *DataType, MaybeAlign Alignment) {
+bool X86TTIImpl::isLegalMaskedScatter(Type *DataType, Align Alignment) {
   // AVX2 doesn't support scatter
   if (!ST->hasAVX512())
     return false;
