@@ -1433,12 +1433,18 @@ public:
     case Intrinsic::directive_region_exit:
 #endif // INTEL_CUSTOMIZATION
       return 0;
-    case Intrinsic::masked_store:
-      return ConcreteTTI->getMaskedMemoryOpCost(Instruction::Store, Tys[0], 0,
+    case Intrinsic::masked_store: {
+      Type *Ty = Tys[0];
+      unsigned TyAlign = ConcreteTTI->DL.getABITypeAlignment(Ty);
+      return ConcreteTTI->getMaskedMemoryOpCost(Instruction::Store, Ty, TyAlign,
                                                 0, CostKind);
-    case Intrinsic::masked_load:
-      return ConcreteTTI->getMaskedMemoryOpCost(Instruction::Load, RetTy, 0, 0,
-                                                CostKind);
+    }
+    case Intrinsic::masked_load: {
+      Type *Ty = RetTy;
+      unsigned TyAlign = ConcreteTTI->DL.getABITypeAlignment(Ty);
+      return ConcreteTTI->getMaskedMemoryOpCost(Instruction::Load, Ty, TyAlign,
+                                                0, CostKind);
+    }
     case Intrinsic::experimental_vector_reduce_add:
       return ConcreteTTI->getArithmeticReductionCost(Instruction::Add, VecOpTy,
                                                      /*IsPairwiseForm=*/false,
