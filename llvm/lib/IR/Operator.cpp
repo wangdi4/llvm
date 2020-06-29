@@ -134,7 +134,6 @@ bool GEPOperator::accumulateConstantOffset(
   }
   return true;
 }
-<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
 bool GEPOrSubsOperator::accumulateConstantOffset(const DataLayout &DL,
@@ -160,7 +159,4 @@ bool GEPOrSubsOperator::accumulateConstantOffset(const DataLayout &DL,
   return true;
 }
 #endif // INTEL_CUSTOMIZATION
-}
-=======
 } // namespace llvm
->>>>>>> 8b52037c7f9f44f5deea7f128f9560a96a6b449c
