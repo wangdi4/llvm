@@ -1914,18 +1914,8 @@ def fopenmp_optimistic_collapse : Flag<["-"], "fopenmp-optimistic-collapse">, Gr
   Flags<[CC1Option, NoArgumentUnused, HelpHidden]>;
 def fno_openmp_optimistic_collapse : Flag<["-"], "fno-openmp-optimistic-collapse">, Group<f_Group>,
   Flags<[NoArgumentUnused, HelpHidden]>;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 def static_openmp: Flag<["-"], "static-openmp">, Flags<[DpcppUnsupported]>,
-=======
-def fopenmp_cuda_parallel_target_regions : Flag<["-"], "fopenmp-cuda-parallel-target-regions">, Group<f_Group>,
-  Flags<[CC1Option, NoArgumentUnused, HelpHidden]>,
-  HelpText<"Support parallel execution of target regions on Cuda-based devices.">;
-def fno_openmp_cuda_parallel_target_regions : Flag<["-"], "fno-openmp-cuda-parallel-target-regions">, Group<f_Group>,
-  Flags<[NoArgumentUnused, HelpHidden]>,
-  HelpText<"Support only serial execution of target regions on Cuda-based devices.">;
-def static_openmp: Flag<["-"], "static-openmp">,
->>>>>>> 32ea3397bec820f98f0b77ca37244142ce700207
   HelpText<"Use the static host OpenMP runtime while linking.">;
 def qopenmp_simd: Flag<["-"], "qopenmp-simd">, Alias<fopenmp_simd>,
   Flags<[DpcppUnsupported]>, HelpText<" Emit OpenMP code only for SIMD-based"
@@ -1936,6 +1926,12 @@ def qno_openmp_simd: Flag<["-"], "qno-openmp-simd">, Alias<fno_openmp_simd>,
 // INTEL_COLLAB
 def fiopenmp : Flag<["-"], "fiopenmp">, Group<f_Group>, Flags<[NoArgumentUnused]>;
 // end INTEL_COLLAB
+def fopenmp_cuda_parallel_target_regions : Flag<["-"], "fopenmp-cuda-parallel-target-regions">, Group<f_Group>,
+  Flags<[CC1Option, NoArgumentUnused, HelpHidden]>,
+  HelpText<"Support parallel execution of target regions on Cuda-based devices.">;
+def fno_openmp_cuda_parallel_target_regions : Flag<["-"], "fno-openmp-cuda-parallel-target-regions">, Group<f_Group>,
+  Flags<[NoArgumentUnused, HelpHidden]>,
+  HelpText<"Support only serial execution of target regions on Cuda-based devices.">;
 def fno_optimize_sibling_calls : Flag<["-"], "fno-optimize-sibling-calls">, Group<f_Group>;
 def foptimize_sibling_calls : Flag<["-"], "foptimize-sibling-calls">, Group<f_Group>;
 def fno_escaping_block_tail_calls : Flag<["-"], "fno-escaping-block-tail-calls">, Group<f_Group>, Flags<[CC1Option]>;
