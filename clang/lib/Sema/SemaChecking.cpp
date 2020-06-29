@@ -4521,6 +4521,16 @@ bool Sema::CheckX86BuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
   case X86::BI__builtin_ia32_reduceph256_mask:
   case X86::BI__builtin_ia32_reduceph512_mask:
 #endif // INTEL_FEATURE_ISA_FP16
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  case X86::BI__builtin_ia32_avxcompress_vprold128:
+  case X86::BI__builtin_ia32_avxcompress_vprold256:
+  case X86::BI__builtin_ia32_avxcompress_vprolq128:
+  case X86::BI__builtin_ia32_avxcompress_vprolq256:
+  case X86::BI__builtin_ia32_avxcompress_vprord128:
+  case X86::BI__builtin_ia32_avxcompress_vprord256:
+  case X86::BI__builtin_ia32_avxcompress_vprorq128:
+  case X86::BI__builtin_ia32_avxcompress_vprorq256:
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
 #endif // INTEL_CUSTOMIZATION
   case X86::BI__builtin_ia32_prold512:
   case X86::BI__builtin_ia32_prolq512:
@@ -4618,6 +4628,22 @@ bool Sema::CheckX86BuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
   case X86::BI__builtin_ia32_vpshrdw128:
   case X86::BI__builtin_ia32_vpshrdw256:
   case X86::BI__builtin_ia32_vpshrdw512:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  case X86::BI__builtin_ia32_avxcompress_vpshldd128:
+  case X86::BI__builtin_ia32_avxcompress_vpshldd256:
+  case X86::BI__builtin_ia32_avxcompress_vpshldq128:
+  case X86::BI__builtin_ia32_avxcompress_vpshldq256:
+  case X86::BI__builtin_ia32_avxcompress_vpshldw128:
+  case X86::BI__builtin_ia32_avxcompress_vpshldw256:
+  case X86::BI__builtin_ia32_avxcompress_vpshrdd128:
+  case X86::BI__builtin_ia32_avxcompress_vpshrdd256:
+  case X86::BI__builtin_ia32_avxcompress_vpshrdq128:
+  case X86::BI__builtin_ia32_avxcompress_vpshrdq256:
+  case X86::BI__builtin_ia32_avxcompress_vpshrdw128:
+  case X86::BI__builtin_ia32_avxcompress_vpshrdw256:
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
     i = 2; l = 0; u = 255;
     break;
   case X86::BI__builtin_ia32_fixupimmpd512_mask:

@@ -208,6 +208,12 @@ intel_add_file(INTEL_HEADERS
   Intel_Headers/avxbf16/avxbf16intrin.h
   )
 # end INTEL_FEATURE_ISA_AVX_BF16
+# INTEL_FEATURE_ISA_AVX_COMPRESS
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_COMPRESS
+  Intel_Headers/avxcompress/avxcompressintrin.h
+  )
+# end INTEL_FEATURE_ISA_AVX_COMPRESS
 # end INTEL_CUSTOMIZATION
 
 set(files
