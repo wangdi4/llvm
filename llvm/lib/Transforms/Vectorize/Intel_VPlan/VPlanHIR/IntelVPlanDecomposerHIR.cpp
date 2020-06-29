@@ -762,8 +762,15 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
   assert(!isa<HLLoop>(Node) && "HLLoop shouldn't be processed here!");
 
   if (isa<HLGoto>(Node)) {
+    // Create new terminator instruction
     Type *BaseTy = Type::getInt1Ty(*Plan->getLLVMContext());
-    return Builder.createBr(BaseTy, cast<HLGoto>(Node));
+    VPTerminator *T = Builder.createTerminator(BaseTy, cast<HLGoto>(Node));
+
+    // Remove unnecessary existing terminator
+    VPBasicBlock *BB = Builder.getInsertBlock();
+    BB->removeInstruction(BB->getTerminator());
+
+    return T;
   }
 
   // Create VPCmpInst for HLInst representing a CmpInst.

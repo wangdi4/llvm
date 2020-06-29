@@ -477,7 +477,9 @@ static bool isDeadPredicateInst(VPInstruction &Inst) {
   unsigned Opcode = Inst.getOpcode();
   if (Opcode == VPInstruction::Pred) {
     auto *BB = Inst.getParent();
-    return ++(Inst.getIterator()) == BB->terminator();
+    auto NextIt = ++Inst.getIterator();
+    return NextIt == BB->terminator() &&
+           !cast<VPTerminator>(NextIt)->getHLGoto();
   }
 
   if (Opcode != VPInstruction::Not && Opcode != Instruction::And)
@@ -563,11 +565,13 @@ void VPBasicBlock::print(raw_ostream &OS, unsigned Indent,
   OS << "\n";
 
   // Print block body
-  if (empty() || !PrintTerminatorInst && size() == 1) {
+  if (empty() || !PrintTerminatorInst && size() == 1 &&
+                     !cast<VPTerminator>(front()).getHLGoto()) {
     OS << StrIndent << " <Empty Block>\n";
   } else {
     for (const VPInstruction &Inst : Instructions) {
-      if (!PrintTerminatorInst && isa<VPTerminator>(Inst))
+      if (!PrintTerminatorInst && isa<VPTerminator>(Inst) &&
+          !cast<VPTerminator>(Inst).getHLGoto())
         continue;
       OS << StrIndent << " ";
       Inst.dump(OS, DA);

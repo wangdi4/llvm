@@ -430,7 +430,7 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
   case VPInstruction::Pred:
     return 0;
   // No-op terminator instruction.
-  case VPInstruction::Terminator:
+  case Instruction::Br:
     return 0;
 #endif // INTEL_CUSTOMIZATION
   case Instruction::Load:
