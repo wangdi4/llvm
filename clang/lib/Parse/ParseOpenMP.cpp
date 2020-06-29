@@ -209,7 +209,6 @@ static OpenMPDirectiveKindExWrapper parseOpenMPDirectiveKind(Parser &P) {
       DKind = F[I][2];
     }
   }
-<<<<<<< HEAD
 #if INTEL_COLLAB
   // If not late-outlining, don't accept unsupported directives.
   if (!P.getLangOpts().OpenMPLateOutline &&
@@ -218,16 +217,9 @@ static OpenMPDirectiveKindExWrapper parseOpenMPDirectiveKind(Parser &P) {
   }
 #endif // INTEL_COLLAB
 
-#if INTEL_CUSTOMIZATION
-  return DKind < llvm::omp::Directive_enumSize
-             ? static_cast<OpenMPDirectiveKind>(DKind)
-             : OMPD_unknown;
-#endif // INTEL_CUSTOMIZATION
-=======
   return unsigned(DKind) < llvm::omp::Directive_enumSize
              ? static_cast<OpenMPDirectiveKind>(DKind)
              : OMPD_unknown;
->>>>>>> 5b9ce07a761f7d62ad793f9827750243de597215
 }
 
 static DeclarationName parseOpenMPReductionId(Parser &P) {
