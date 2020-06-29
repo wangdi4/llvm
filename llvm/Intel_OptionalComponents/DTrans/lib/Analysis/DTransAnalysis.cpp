@@ -7673,6 +7673,128 @@ private:
     // Otherwise, the merge is safe.
   }
 
+  // Return true if the input size for a memory allocation is multiple
+  // of the size's type. Else return false.
+  bool isSizeMultipleOfAllocationType(CallBase *Call) {
+    if (!Call)
+      return false;
+
+    // Return true if the allocation size is a subtraction whose result
+    // is a multiple of the type's size. For example:
+    //
+    //   %class.OuterClass = type {%class.TestClass, %"class.std::vector.12"}
+    //   %"class.std::vector.12" = type { %"struct.std::_Vector_base.13" }
+    //   %"struct.std::_Vector_base.13" =
+    //       type { %"struct.std::_Vector_base<OuterClass,
+    //       std::allocator<OuterClass>>::_Vector_impl" }
+    //   %"struct.std::_Vector_base<OuterClass,
+    //       std::allocator<OuterClass>>::_Vector_impl" =
+    //       type { %class.OuterClass*, %class.OuterClass*, %class.OuterClass* }
+    //   %class.TestClass = type {i64, i64, i64}
+    //
+    //   %tmp = getelementptr inbounds %class.OuterClass,
+    //          %class.OuterClass* %arg1, i64 0, i32 1
+    //   %tmp1 = bitcast %"class.std::vector.12"* %tmp to i64*
+    //   %tmp2 = load i64, i64* %tmp1
+    //
+    //   %tmp3 = getelementptr inbounds %class.OuterClass,
+    //           %class.OuterClass* %arg1, i64 0, i32 1
+    //   %tmp4 = getelementptr inbounds %"class.std::vector.12",
+    //           %"class.std::vector.12"* %tmp3, i64 0, i32 0
+    //   %tmp5 = getelementptr inbounds %"struct.std::_Vector_base.13",
+    //           %"struct.std::_Vector_base.13"* %tmp4, i64 0, i32 0
+    //   %tmp6 = getelementptr inbounds %"struct.std::_Vector_base<OuterClass,
+    //           std::allocator<OuterClass>>::_Vector_impl",
+    //           %"struct.std::_Vector_base<OuterClass,
+    //           std::allocator<OuterClass>>::_Vector_impl"* %tmp5, i64 0, i32 1
+    //   %tmp7 = bitcast %class.OuterClass** %tmp6 to i64*
+    //   %tmp8 = load i64, i64* %tmp7
+    //
+    //   %tmp9 = sub i64 %tmp8, %tmp2
+    //   %tmp10 = sdiv exact i64 %tmp9, 48
+    //   %tmp11 = icmp eq i64 %tmp10, 0
+    //   br i1 %tmp11, label %bbcheck, label %bbcont
+    //
+    //  bbcheck:
+    //   %tmp12 = icmp ugt i64 %tmp10, 2167145685351216
+    //   br i1 %tmp12, label %bbnew, label %unreachable
+    //
+    //  bbnew:
+    //   %tmp13 = invoke noalias nonnull i8* @_Znwm(i64 %tmp9)
+    //            to label %bb2 unwind label %lpad
+    //
+    //  bb2:
+    //   %tmp14 = bitcast i8* %tmp13 to %class.OuterClass*
+    //
+    // The allocation site in %tmp13 uses %tmp9 as the allocation size, which is
+    // a subtraction. The operands of %tmp9 are %tmp8 and %tmp2. The local
+    // pointer information for both instructions has the same dominant
+    // aggregate type (%class.OuterClass*). Also, the local pointer information
+    // for %tmp13 has the same dominant aggregate type. This subtraction is
+    // guarded with a division by the exact size of this dominant aggregate
+    // type (%tmp10). This means that the input size in %tmp13 is a multiple of
+    // the type that is being allocated.
+    auto CheckSubtraction = [this, Call](BinaryOperator *Sub) -> bool {
+      if (!Sub)
+        return false;
+
+      if(Sub->getOpcode() != Instruction::Sub)
+        return false;
+
+      if (!isValueOfInterest(Sub->getOperand(0)) &&
+          !isValueOfInterest(Sub->getOperand(1)))
+        return false;
+
+      LocalPointerInfo &LeftLPI = LPA.getLocalPointerInfo(Sub->getOperand(0));
+      LocalPointerInfo &RightLPI = LPA.getLocalPointerInfo(Sub->getOperand(1));
+
+      // If we have a pointer to an element in the subtraction then don't
+      // continue.
+      if (LeftLPI.pointsToSomeElement() || RightLPI.pointsToSomeElement())
+        return false;
+
+      Type *LeftDomType = LeftLPI.getDominantAggregateTy();
+      Type *RightDomType = RightLPI.getDominantAggregateTy();
+      if (!LeftDomType || !LeftDomType->isPointerTy() ||
+          !RightDomType || !RightDomType->isPointerTy() ||
+          LeftDomType != RightDomType)
+        return false;
+
+      LocalPointerInfo &CallLPI = LPA.getLocalPointerInfo(Call);
+      Type *CallDomType = CallLPI.getDominantAggregateTy();
+      if (!CallDomType || CallDomType != LeftDomType)
+        return false;
+
+      llvm::Type *ElementTy = LeftDomType->getPointerElementType();
+      if (ElementTy->isPointerTy())
+        return false;
+
+      uint64_t ElementSize = DL.getTypeAllocSize(ElementTy);
+      return subUsedForAllocation(Sub, ElementSize);
+    };
+
+    Value *CallSize = nullptr;
+
+    // This catches the case when the function for memory allocation
+    // uses one argument
+    if (Call->arg_size() == 1)
+      CallSize = Call->getArgOperand(0);
+
+    if (!CallSize)
+      return false;
+
+    // NOTE: For now we are going to catch a subtraction, but there are
+    // other possible ways to get a multiple of the size. Also, the
+    // "bad pointer manipulation (related type)" safety check will be set
+    // when the subtract instruction is evaluated. This is needed to prevent
+    // transformations that adjust the allocation size when "bad alloc size"
+    // isn't set and the operation is not a multiplication.
+    if (auto *BC = dyn_cast<BinaryOperator>(CallSize))
+      return CheckSubtraction(BC);
+
+    return false;
+  }
+
   /// Given a call instruction that has been determined to be an allocation
   /// of the specified aggregate type, check the size arguments to verify
   /// that the allocation is a multiple of the type size.
@@ -7728,6 +7850,11 @@ private:
     uint64_t Res;
     if (!dtrans::isValueConstant(AllocSizeVal, &Res) &&
         traceNonConstantValue(Ty, AllocSizeVal, ElementSize))
+      return;
+
+    // Check if the allocation size is not constant, but we can prove that the
+    // variable is a multiple of the type's size
+    if (isSizeMultipleOfAllocationType(Call))
       return;
 
     // Otherwise, we must assume the size arguments are not acceptable.
@@ -9135,7 +9262,7 @@ private:
   //            to label %bb2 unwind label %lpad
   //
   //  bb2:
-  //   %tmp13 = bitcast i8* %tmp12 to %class.OuterClass*
+  //   %tmp14 = bitcast i8* %tmp13 to %class.OuterClass*
   //
   // In this example, the subtraction in %tmp9 is used as an argument for the
   // call to "new" (@_Znwm) in %tmp13. From the division in %tmp10 we know that

@@ -21,8 +21,8 @@ using namespace clang;
 using namespace CodeGen;
 using namespace llvm::omp;
 
-llvm::Value *
-OpenMPLateOutliner::emitOpenMPDefaultConstructor(const Expr *IPriv) {
+llvm::Value *OpenMPLateOutliner::emitOpenMPDefaultConstructor(const Expr *IPriv,
+                                                              bool IsUDR) {
 
   if (!IPriv)
     return llvm::ConstantPointerNull::get(CGF.VoidPtrTy);
@@ -33,6 +33,9 @@ OpenMPLateOutliner::emitOpenMPDefaultConstructor(const Expr *IPriv) {
   CodeGenModule &CGM = CGF.CGM;
   SmallString<256> OutName;
   llvm::raw_svector_ostream Out(OutName);
+  auto &Ctx = CGM.getContext();
+  if (IsUDR && Ty->isArrayType())
+    Ty = Ctx.getBaseElementType(Ty).getNonReferenceType();
   CGM.getCXXABI().getMangleContext().mangleTypeName(Ty, Out);
   Out << ".omp.def_constr";
 
@@ -41,7 +44,6 @@ OpenMPLateOutliner::emitOpenMPDefaultConstructor(const Expr *IPriv) {
 
   // Generate function that re-emits the declaration's initializer into the
   // threadprivate copy of the variable VD
-  auto &Ctx = CGM.getContext();
   QualType PtrTy = Ctx.getPointerType(Ty);
   CodeGenFunction NewCGF(CGM);
   FunctionArgList Args;
@@ -67,10 +69,13 @@ OpenMPLateOutliner::emitOpenMPDefaultConstructor(const Expr *IPriv) {
 }
 
 llvm::Value *
-OpenMPLateOutliner::emitOpenMPDestructor(QualType Ty) {
+OpenMPLateOutliner::emitOpenMPDestructor(QualType Ty, bool IsUDR) {
   CodeGenModule &CGM = CGF.CGM;
   SmallString<256> OutName;
   llvm::raw_svector_ostream Out(OutName);
+  auto &Ctx = CGM.getContext();
+  if (IsUDR && Ty->isArrayType())
+    Ty = Ctx.getBaseElementType(Ty).getNonReferenceType();
   CGM.getCXXABI().getMangleContext().mangleTypeName(Ty, Out);
   Out << ".omp.destr";
 
@@ -79,7 +84,6 @@ OpenMPLateOutliner::emitOpenMPDestructor(QualType Ty) {
 
   // Generate function that emits destructor call for the threadprivate copy
   // of the variable VD
-  auto &Ctx = CGM.getContext();
   QualType PtrTy = Ctx.getPointerType(Ty);
   CodeGenFunction NewCGF(CGM);
   FunctionArgList Args;
@@ -106,8 +110,7 @@ OpenMPLateOutliner::emitOpenMPDestructor(QualType Ty) {
   return Fn;
 }
 
-llvm::Value *
-OpenMPLateOutliner::emitOpenMPCopyConstructor(const Expr *IPriv) {
+llvm::Value *OpenMPLateOutliner::emitOpenMPCopyConstructor(const Expr *IPriv) {
   if (!IPriv)
     return llvm::ConstantPointerNull::get(CGF.VoidPtrTy);
 
@@ -1032,8 +1035,8 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
           InitFn ? InitFn : llvm::ConstantPointerNull::get(CGF.VoidPtrTy);
       if (Private->getInit() || Private->getType().isDestructedType()) {
         if (!InitFn)
-          Cons = emitOpenMPDefaultConstructor(*IPriv);
-        Des = emitOpenMPDestructor(Private->getType());
+          Cons = emitOpenMPDefaultConstructor(*IPriv, /*IsUDR=*/true);
+        Des = emitOpenMPDestructor(Private->getType(), /*IsUDR=*/true);
       }
       for (auto *FV : {Cons, Des, CombinerFn, Init}) {
         addArg(FV);
