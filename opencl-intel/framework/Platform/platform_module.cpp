@@ -185,7 +185,7 @@ cl_err_code    PlatformModule::Initialize(ocl_entry_points * pOclEntryPoints, OC
     if (FPGA_EMU_DEVICE == m_deviceMode)
     {
         m_vPlatformVersionStr +=
-          " Intel(R) FPGA SDK for OpenCL(TM), Version 19.2";
+          " Intel(R) FPGA SDK for OpenCL(TM), Version 20.3";
     }
     else
     {
@@ -297,7 +297,7 @@ cl_int    PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
         m_vPlatformInfoStr = "EMBEDDED_PROFILE";
         pcPlatformICDSuffixKhr = "IntelFPGA";
         m_vPlatformNameStr =
-          "Intel(R) FPGA Emulation Platform for OpenCL(TM) (preview)";
+          "Intel(R) FPGA Emulation Platform for OpenCL(TM)";
     }
     else
     {

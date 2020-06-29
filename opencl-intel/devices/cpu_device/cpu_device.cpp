@@ -1578,7 +1578,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                     }
                     break;
                 case FPGA_EMU_DEVICE:
-                    name = "Intel(R) FPGA Emulation Device (preview)";
+                    name = "Intel(R) FPGA Emulation Device";
                     break;
                 case EYEQ_EMU_DEVICE:
                     name = "Mobileye(R) EyeQ(R) Emulation Device";
