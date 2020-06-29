@@ -3375,6 +3375,11 @@ void CodeGenModule::emitCPUDispatchDefinition(GlobalDecl GD) {
     Target.getCPUSpecificCPUDispatchFeatures(II->getName(), Features);
     llvm::transform(Features, Features.begin(),
                     [](StringRef Str) { return Str.substr(1); });
+#if INTEL_CUSTOMIZATION
+    // Don't remove the features that aren't supported in CpuSupports if we're
+    // using LibIRC.
+    if (!getLangOpts().isIntelCompat(LangOptions::CpuDispatchUseLibIrc))
+#endif // INTEL_CUSTOMIZATION
     Features.erase(std::remove_if(
         Features.begin(), Features.end(), [&Target](StringRef Feat) {
           return !Target.validateCpuSupports(Feat);
@@ -3383,20 +3388,42 @@ void CodeGenModule::emitCPUDispatchDefinition(GlobalDecl GD) {
     ++Index;
   }
 
+#if INTEL_CUSTOMIZATION
+  if (getLangOpts().isIntelCompat(LangOptions::CpuDispatchUseLibIrc)) {
+    llvm::sort(
+        Options, [](const CodeGenFunction::MultiVersionResolverOption &LHS,
+                    const CodeGenFunction::MultiVersionResolverOption &RHS) {
+          std::array<uint64_t, 2> LHSBits =
+              CodeGenFunction::GetCpuFeatureBitmap(LHS.Conditions.Features);
+          std::array<uint64_t, 2> RHSBits =
+              CodeGenFunction::GetCpuFeatureBitmap(RHS.Conditions.Features);
+          return LHSBits[1] > RHSBits[1] ||
+                 (LHSBits[1] == RHSBits[1] && LHSBits[0] > RHSBits[0]);
+        });
+  } else {
   llvm::sort(
       Options, [](const CodeGenFunction::MultiVersionResolverOption &LHS,
                   const CodeGenFunction::MultiVersionResolverOption &RHS) {
         return CodeGenFunction::GetX86CpuSupportsMask(LHS.Conditions.Features) >
                CodeGenFunction::GetX86CpuSupportsMask(RHS.Conditions.Features);
       });
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // If the list contains multiple 'default' versions, such as when it contains
   // 'pentium' and 'generic', don't emit the call to the generic one (since we
   // always run on at least a 'pentium'). We do this by deleting the 'least
   // advanced' (read, lowest mangling letter).
+#if INTEL_CUSTOMIZATION
   while (Options.size() > 1 &&
-         CodeGenFunction::GetX86CpuSupportsMask(
-             (Options.end() - 2)->Conditions.Features) == 0) {
+             (getLangOpts().isIntelCompat(LangOptions::CpuDispatchUseLibIrc) &&
+              CodeGenFunction::GetCpuFeatureBitmap(
+                  (Options.end() - 2)->Conditions.Features) ==
+                  std::array<uint64_t, 2>{0, 0}) ||
+         (!getLangOpts().isIntelCompat(LangOptions::CpuDispatchUseLibIrc) &&
+          CodeGenFunction::GetX86CpuSupportsMask(
+              (Options.end() - 2)->Conditions.Features) == 0)) {
+#endif // INTEL_CUSTOMIZATION
     StringRef LHSName = (Options.end() - 2)->Function->getName();
     StringRef RHSName = (Options.end() - 1)->Function->getName();
     if (LHSName.compare(RHSName) < 0)

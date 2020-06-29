@@ -3090,7 +3090,7 @@ will cause this promotion to happen automatically.
 def CpuDispatchUseLibIrcDocs : Documentation {
   let Category = DocCatIntelCompat;
   let Option = "IntelCompat";
-  let RegressionTest = "CodeGen/intel/cpu-dispatch.c";
+  let RegressionTest = "CodeGen/intel/attr-cpudispatch.c";
   let Owner = "ekeane1";
   let Content = [{
 Typically, the cpu-dispatch functionality uses libgcc's (or compiler-rt's)

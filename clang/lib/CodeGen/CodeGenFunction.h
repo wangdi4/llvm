@@ -5055,6 +5055,9 @@ public:
                                 ArrayRef<MultiVersionResolverOption> Options,
                                 bool IsCpuDispatch);
   void EmitCpuFeaturesInit();
+  static std::array<uint64_t, 2>
+  GetCpuFeatureBitmap(ArrayRef<StringRef> FeatureStrs);
+
 #endif // INTEL_CUSTOMIZATION
 
   static uint64_t GetX86CpuSupportsMask(ArrayRef<StringRef> FeatureStrs);

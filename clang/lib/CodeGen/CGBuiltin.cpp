@@ -1725,13 +1725,20 @@ llvm::Value *CodeGenFunction::EmitX86MayIUseCpuFeatureStr(const CallExpr *E) {
 llvm::Value *CodeGenFunction::EmitX86CpuDispatchLibIrcFeaturesTest(
     ArrayRef<StringRef> FeatureStrs) {
   std::array<uint64_t, 2> Bitmaps =
-      llvm::X86::getCpuFeatureBitmap(FeatureStrs, /*OnlyAutoGen=*/true);
+      GetCpuFeatureBitmap(FeatureStrs);
   return MayIUseCpuFeatureHelper(*this,
                                  {APSInt{APInt(64, Bitmaps[0]), true},
                                   APSInt{APInt(64, Bitmaps[1]), true}},
                                  /*CreateInitCall=*/false,
                                  /*ConvertToInt=*/false);
 }
+
+std::array<uint64_t, 2>
+CodeGenFunction::GetCpuFeatureBitmap(ArrayRef<StringRef> FeaturesStrs) {
+  return llvm::X86::getCpuFeatureBitmap(FeaturesStrs,
+                                        /*OnlyAutoGen=*/true);
+}
+
 #endif // INTEL_CUSTOMIZATION
 
 /// Determine if a binop is a checked mixed-sign multiply we can specialize.
