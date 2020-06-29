@@ -18,10 +18,6 @@ struct TestCtx {
 
   context &Ctx;
   int NEventsWaitedFor = 0;
-<<<<<<< HEAD
-  int EventReferenceCount = 0;
-=======
->>>>>>> 001a4e5aa58f6ccc2c357d56cb8edb4a95e42980
 };
 
 std::unique_ptr<TestCtx> TestContext;
@@ -33,10 +29,6 @@ pi_result redefinedUSMEnqueueMemset(pi_queue queue, void *ptr, pi_int32 value,
                                     pi_event *event) {
   // Provide a dummy non-nullptr value
   *event = reinterpret_cast<pi_event>(1);
-<<<<<<< HEAD
-  TestContext->EventReferenceCount = 1;
-=======
->>>>>>> 001a4e5aa58f6ccc2c357d56cb8edb4a95e42980
   return PI_SUCCESS;
 }
 
@@ -58,27 +50,13 @@ pi_result redefinedEventGetInfo(pi_event event, pi_event_info param_name,
   return PI_SUCCESS;
 }
 
-<<<<<<< HEAD
-pi_result redefinedEventRetain(pi_event event) {
-  ++TestContext->EventReferenceCount;
-  return PI_SUCCESS;
-}
-
-pi_result redefinedEventRelease(pi_event event) {
-  --TestContext->EventReferenceCount;
-  return PI_SUCCESS;
-}
-=======
 pi_result redefinedEventRetain(pi_event event) { return PI_SUCCESS; }
 
 pi_result redefinedEventRelease(pi_event event) { return PI_SUCCESS; }
->>>>>>> 001a4e5aa58f6ccc2c357d56cb8edb4a95e42980
 
 // Check that the USM events are cleared from the queue upon call to wait(),
 // so that they are not waited for multiple times.
 TEST(QueueWaitTest, USMEventClear) {
-<<<<<<< HEAD
-=======
 #ifdef INTEL_CUSTOMIZATION
   // Handle the case where no devices are available until the tests can be run
   // with the spec-conformant behaviour of host device with default_selector.
@@ -89,7 +67,6 @@ TEST(QueueWaitTest, USMEventClear) {
     return;
   }
 #endif // INTEL_CUSTOMIZATION
->>>>>>> 001a4e5aa58f6ccc2c357d56cb8edb4a95e42980
   platform Plt{default_selector()};
   if (Plt.is_host()) {
     std::cout << "Not run on host - no PI events created in that case"
@@ -120,10 +97,6 @@ TEST(QueueWaitTest, USMEventClear) {
   Q.memset(HostAlloc, 42, 1);
   Q.wait();
   ASSERT_EQ(TestContext->NEventsWaitedFor, 1);
-<<<<<<< HEAD
-  ASSERT_EQ(TestContext->EventReferenceCount, 0);
-=======
->>>>>>> 001a4e5aa58f6ccc2c357d56cb8edb4a95e42980
   Q.wait();
   ASSERT_EQ(TestContext->NEventsWaitedFor, 1);
 }
