@@ -149,6 +149,7 @@ static cl::opt<bool> InlineCallerSupersetNoBuiltin(
     cl::desc("Allow inlining when caller has a superset of callee's nobuiltin "
              "attributes."));
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // InliningForDeeplyNestedIfs has three possible values(BOU_UNSET is
 // default). Use TRUE to force enabling of heuristic. Use FALSE to disable.
@@ -216,6 +217,11 @@ static cl::opt<unsigned> DummyArgsMinCallsiteCount(
     cl::desc("Minimum callsite count for dummy-args function"));
 
 #endif // INTEL_CUSTOMIZATION
+=======
+static cl::opt<bool> DisableGEPConstOperand(
+    "disable-gep-const-evaluation", cl::Hidden, cl::init(false),
+    cl::desc("Disables evaluation of GetElementPtr with constant operands"));
+>>>>>>> d48c7859fbb911045b34ecd7f816186b9357d894
 
 namespace {
 
@@ -4005,6 +4011,16 @@ bool CallAnalyzer::visitGetElementPtr(GetElementPtrInst &I) {
         return false;
     return true;
   };
+
+  if (!DisableGEPConstOperand)
+    if (simplifyInstruction(I, [&](SmallVectorImpl<Constant *> &COps) {
+        SmallVector<Constant *, 2> Indices;
+        for (unsigned int Index = 1 ; Index < COps.size() ; ++Index)
+            Indices.push_back(COps[Index]);
+        return ConstantExpr::getGetElementPtr(I.getSourceElementType(), COps[0],
+                                              Indices, I.isInBounds());
+        }))
+      return true;
 
   if ((I.isInBounds() && canFoldInboundsGEP(I)) || IsGEPOffsetConstant(I)) {
     if (SROAArg)
