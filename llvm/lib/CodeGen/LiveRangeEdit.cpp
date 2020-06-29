@@ -12,6 +12,7 @@
 
 #include "llvm/CodeGen/LiveRangeEdit.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/CodeGen/CalcSpillWeights.h"
 #include "llvm/CodeGen/LiveIntervals.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
@@ -70,7 +71,7 @@ unsigned LiveRangeEdit::createFrom(unsigned OldReg) {
 
 bool LiveRangeEdit::checkRematerializable(VNInfo *VNI,
                                           const MachineInstr *DefMI,
-                                          AliasAnalysis *aa) {
+                                          AAResults *aa) {
   assert(DefMI && "Missing instruction");
   ScannedRemattable = true;
   if (!TII.isTriviallyReMaterializable(*DefMI, aa))
@@ -79,7 +80,7 @@ bool LiveRangeEdit::checkRematerializable(VNInfo *VNI,
   return true;
 }
 
-void LiveRangeEdit::scanRemattable(AliasAnalysis *aa) {
+void LiveRangeEdit::scanRemattable(AAResults *aa) {
   for (VNInfo *VNI : getParent().valnos) {
     if (VNI->isUnused())
       continue;
@@ -96,7 +97,7 @@ void LiveRangeEdit::scanRemattable(AliasAnalysis *aa) {
   ScannedRemattable = true;
 }
 
-bool LiveRangeEdit::anyRematerializable(AliasAnalysis *aa) {
+bool LiveRangeEdit::anyRematerializable(AAResults *aa) {
   if (!ScannedRemattable)
     scanRemattable(aa);
   return !Remattable.empty();
@@ -260,7 +261,7 @@ bool LiveRangeEdit::useIsKill(const LiveInterval &LI,
 
 /// Find all live intervals that need to shrink, then remove the instruction.
 void LiveRangeEdit::eliminateDeadDef(MachineInstr *MI, ToShrinkSet &ToShrink,
-                                     AliasAnalysis *AA) {
+                                     AAResults *AA) {
   assert(MI->allDefsAreDead() && "Def isn't really dead");
   SlotIndex Idx = LIS.getInstructionIndex(*MI).getRegSlot();
 
@@ -405,7 +406,7 @@ void LiveRangeEdit::eliminateDeadDef(MachineInstr *MI, ToShrinkSet &ToShrink,
 
 void LiveRangeEdit::eliminateDeadDefs(SmallVectorImpl<MachineInstr *> &Dead,
                                       ArrayRef<unsigned> RegsBeingSpilled,
-                                      AliasAnalysis *AA) {
+                                      AAResults *AA) {
   ToShrinkSet ToShrink;
 
   for (;;) {
