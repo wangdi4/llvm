@@ -473,6 +473,17 @@
 /* end INTEL_CUSTOMIZATION */
 
 /* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_AVX_COMPRESS */
+#if defined(__AVXCOMPRESS_SUPPORTED__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVXCOMPRESS__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <avxcompress/avxcompressintrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_AVX_COMPRESS */
+/* end INTEL_CUSTOMIZATION */
+
+/* INTEL_CUSTOMIZATION */
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     defined(__RDPID__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */

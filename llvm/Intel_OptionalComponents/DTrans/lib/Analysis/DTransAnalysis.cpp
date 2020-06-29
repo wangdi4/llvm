@@ -8971,7 +8971,16 @@ private:
       llvm::Type *ElementTy = DomTy->getPointerElementType();
       if (!ElementTy->isPointerTy()) {
         uint64_t ElementSize = DL.getTypeAllocSize(ElementTy);
-        if (hasNonDivBySizeUses(&I, ElementSize)) {
+        if (subUsedForAllocation(&I, ElementSize)) {
+          LLVM_DEBUG(dbgs() << "dtrans-safety: Bad pointer manipulation "
+                            << "(related types) -- "
+                            << "Pointer subtraction result used to allocate "
+                            << "a new space:\n"
+                            << "  " << I << "\n");
+          setAllAliasedTypeSafetyData(LHSLPI,
+              dtrans::BadPtrManipulationForRelatedTypes);
+        }
+        else if (hasNonDivBySizeUses(&I, ElementSize)) {
           LLVM_DEBUG(dbgs() << "dtrans-safety: Bad pointer manipulation -- "
                             << "Pointer subtract result has non-div use:\n"
                             << "  " << I << "\n");
@@ -8988,17 +8997,228 @@ private:
     }
   }
 
+  // Return true if the binary operator is a division between the input
+  // Value and the input Size. The parameter IsExact is used to store if
+  // the operation is marked as "exact".
+  bool isValidDivision(BinaryOperator *BinOp, Value *V,
+                       uint64_t Size, bool *IsExact) {
+    *IsExact = false;
+    if (!BinOp || !V)
+      return false;
+
+    if (BinOp->getOpcode() != Instruction::SDiv &&
+        BinOp->getOpcode() != Instruction::UDiv)
+      return false;
+
+    if (BinOp->getOperand(0) != V)
+      return false;
+
+    if (auto *Inst = dyn_cast<Instruction>(BinOp))
+      *IsExact = Inst->isExact();
+
+    return dtrans::isValueMultipleOfSize(BinOp->getOperand(1), Size);
+  }
+
+  // Return true if the input Call is a call to "new" and the type of the
+  // values used to compute the size matches with the result type of "new".
+  bool isValidCallToNew(CallBase *Call, Value *V) {
+
+    // Return the dominant aggregate type for the input Value
+    auto CollectDominantAggregateType = [this](Value *V) -> Type * {
+      // If V is a binary operator then the dominant aggregate type
+      // of the operands must match
+      if (auto *BinOp = dyn_cast<BinaryOperator>(V)) {
+
+        LoadInst *LoadA = dyn_cast<LoadInst>(BinOp->getOperand(0));
+        LoadInst *LoadB = dyn_cast<LoadInst>(BinOp->getOperand(1));
+        if (!LoadA || !LoadB)
+          return nullptr;
+
+        LocalPointerInfo &LPILoadA = LPA.getLocalPointerInfo(LoadA);
+        LocalPointerInfo &LPILoadB = LPA.getLocalPointerInfo(LoadB);
+
+        Type *LoadADominantType = LPILoadA.getDominantAggregateTy();
+        Type *LoadBDominantType = LPILoadB.getDominantAggregateTy();
+
+        if (!LoadADominantType || !LoadBDominantType)
+          return nullptr;
+
+        if (LoadADominantType != LoadBDominantType)
+          return nullptr;
+
+        return LoadADominantType;
+      }
+
+      return nullptr;
+    };
+
+    if (!Call || !V || Call->isIndirectCall())
+      return false;
+
+    Value *Arg  = nullptr;
+    Function *CalledFunction = Call->getCalledFunction();
+    LibFunc TheLibFunc;
+    const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
+    if (TLI.getLibFunc(CalledFunction->getName(), TheLibFunc) &&
+        TLI.has(TheLibFunc)) {
+
+      // NOTE: We might want to add other forms of "new" and "alloc"
+      switch (TheLibFunc) {
+        case LibFunc_Znwm:
+          Arg = Call->getArgOperand(0);
+          break;
+        default:
+          return false;
+      }
+    }
+
+    if (!Arg || Arg != V)
+      return false;
+
+    // Now we are going to check that the types for the allocated space
+    // matches the types used for the subtraction
+    LocalPointerInfo &LPICall = LPA.getLocalPointerInfo(Call);
+    Type *CallDominantType = LPICall.getDominantAggregateTy();
+    if (!CallDominantType)
+      return false;
+
+    Type *ValueDominantAggregateType = CollectDominantAggregateType(V);
+    if (!ValueDominantAggregateType)
+      return false;
+
+    return ValueDominantAggregateType == CallDominantType;
+  }
+
+  // Return true if the input Value is used to allocate a memory space,
+  // and we know that the allocated size is a multiple of the input Size.
+  // For example:
+  //
+  //   %class.OuterClass = type {%class.TestClass, %"class.std::vector.12"}
+  //   %"class.std::vector.12" = type { %"struct.std::_Vector_base.13" }
+  //   %"struct.std::_Vector_base.13" =
+  //       type { %"struct.std::_Vector_base<OuterClass,
+  //       std::allocator<OuterClass>>::_Vector_impl" }
+  //   %"struct.std::_Vector_base<OuterClass,
+  //       std::allocator<OuterClass>>::_Vector_impl" =
+  //       type { %class.OuterClass*, %class.OuterClass*, %class.OuterClass* }
+  //   %class.TestClass = type {i64, i64, i64}
+  //
+  //   %tmp = getelementptr inbounds %class.OuterClass,
+  //          %class.OuterClass* %arg1, i64 0, i32 1
+  //   %tmp1 = bitcast %"class.std::vector.12"* %tmp to i64*
+  //   %tmp2 = load i64, i64* %tmp1
+  //
+  //   %tmp3 = getelementptr inbounds %class.OuterClass,
+  //           %class.OuterClass* %arg1, i64 0, i32 1
+  //   %tmp4 = getelementptr inbounds %"class.std::vector.12",
+  //           %"class.std::vector.12"* %tmp3, i64 0, i32 0
+  //   %tmp5 = getelementptr inbounds %"struct.std::_Vector_base.13",
+  //           %"struct.std::_Vector_base.13"* %tmp4, i64 0, i32 0
+  //   %tmp6 = getelementptr inbounds %"struct.std::_Vector_base<OuterClass,
+  //           std::allocator<OuterClass>>::_Vector_impl",
+  //           %"struct.std::_Vector_base<OuterClass,
+  //           std::allocator<OuterClass>>::_Vector_impl"* %tmp5, i64 0, i32 1
+  //   %tmp7 = bitcast %class.OuterClass** %tmp6 to i64*
+  //   %tmp8 = load i64, i64* %tmp7
+  //
+  //   %tmp9 = sub i64 %tmp8, %tmp2
+  //   %tmp10 = sdiv exact i64 %tmp9, 48
+  //   %tmp11 = icmp eq i64 %tmp10, 0
+  //   br i1 %tmp11, label %bbcheck, label %bbcont
+  //
+  //  bbcheck:
+  //   %tmp12 = icmp ugt i64 %tmp10, 2167145685351216
+  //   br i1 %tmp12, label %bbnew, label %unreachable
+  //
+  //  bbnew:
+  //   %tmp13 = invoke noalias nonnull i8* @_Znwm(i64 %tmp9)
+  //            to label %bb2 unwind label %lpad
+  //
+  //  bb2:
+  //   %tmp13 = bitcast i8* %tmp12 to %class.OuterClass*
+  //
+  // In this example, the subtraction in %tmp9 is used as an argument for the
+  // call to "new" (@_Znwm) in %tmp13. From the division in %tmp10 we know that
+  // the result of the subtraction is a multiple of %class.OuterClass size.
+  // Also, using the local pointer information for the operands of the
+  // subtraction (%tmp8 and %tmp2), we can compare with the result type
+  // of the "new" (%tmp13). This is how we can ensure that the size of
+  // the new allocated space is matches with the destination of bitcast.
+  bool subUsedForAllocation(Value *V, uint64_t Size) {
+    if (!V)
+      return false;
+
+    bool DivisionFound = false;
+    bool AllocSiteFound = false;
+    for (User *U : V->users()) {
+      // Find the division
+      if (auto *BinOp = dyn_cast<BinaryOperator>(U)) {
+        if (!DivisionFound) {
+          bool IsExact = false;
+          if (isValidDivision(BinOp, V, Size, &IsExact) && IsExact) {
+
+            // Check that the division is guarded
+            bool ZeroFound = false;
+            bool PositiveFound = false;
+            for (User * DivU : BinOp->users()) {
+              // Check if it is comparing against positive numbers.
+              // These instructions can be used to ensure limits.
+              if (auto *ICmp = dyn_cast<ICmpInst>(DivU)) {
+                ConstantInt *Const = nullptr;
+                if (BinOp == ICmp->getOperand(0))
+                  Const = dyn_cast<ConstantInt>(ICmp->getOperand(1));
+                else
+                  Const = dyn_cast<ConstantInt>(ICmp->getOperand(0));
+
+                if (!Const)
+                  return false;
+
+                if (Const->isZero())
+                  ZeroFound = true;
+                else if (!Const->isNegative())
+                  PositiveFound = true;
+                else
+                  return false;
+              }
+            }
+            DivisionFound = ZeroFound && PositiveFound;
+          } else {
+            return false;
+          }
+        } else {
+          return false;
+        }
+      }
+
+      // Check the callsite for "new"
+      else if (auto *Call = dyn_cast<CallBase>(U)) {
+        if (!AllocSiteFound) {
+          if (isValidCallToNew(Call, V))
+            AllocSiteFound = true;
+          else
+            return false;
+        } else {
+          return false;
+        }
+      }
+
+      // Else, the input Value is used for something we don't know.
+      else {
+        return false;
+      }
+    }
+
+    // Return if the division was found and the call to new was found.
+    return DivisionFound && AllocSiteFound;
+  }
+
   bool hasNonDivBySizeUses(Value *V, uint64_t Size) {
     for (auto *U : V->users()) {
       if (auto *BinOp = dyn_cast<BinaryOperator>(U)) {
-        if (BinOp->getOpcode() != Instruction::SDiv &&
-            BinOp->getOpcode() != Instruction::UDiv)
-          return true;
-        if (BinOp->getOperand(0) != V)
-          return true;
-        if (!dtrans::isValueMultipleOfSize(BinOp->getOperand(1), Size))
-          return true;
-        continue;
+        bool IsExact = false;
+        if (isValidDivision(BinOp, V, Size, &IsExact))
+          continue;
+        return true;
       }
       LLVM_DEBUG(dbgs() << "Non-div use found for pointer sub: " << *U << "\n");
       return true;

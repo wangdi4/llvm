@@ -6660,9 +6660,11 @@ defm VPSRA : avx512_shift_rmi_dq<0x72, 0x72, MRM4r, MRM4m, "vpsra", X86vsrai,
                                 SchedWriteVecShiftImm>, AVX512BIi8Base, EVEX_4V;
 
 defm VPROR : avx512_shift_rmi_dq<0x72, 0x72, MRM0r, MRM0m, "vpror", X86vrotri,
-                                 SchedWriteVecShiftImm>, AVX512BIi8Base, EVEX_4V;
+                                 SchedWriteVecShiftImm>, AVX512BIi8Base, EVEX_4V, // INTEL
+                                 NotEVEX2VEXConvertible;  // INTEL
 defm VPROL : avx512_shift_rmi_dq<0x72, 0x72, MRM1r, MRM1m, "vprol", X86vrotli,
-                                 SchedWriteVecShiftImm>, AVX512BIi8Base, EVEX_4V;
+                                 SchedWriteVecShiftImm>, AVX512BIi8Base, EVEX_4V, // INTEL
+                                 NotEVEX2VEXConvertible; // INTEL
 
 defm VPSLL : avx512_shift_types<0xF2, 0xF3, 0xF1, "vpsll", X86vshl,
                                 SchedWriteVecShift>;
@@ -6798,8 +6800,10 @@ defm VPSRAV : avx512_var_shift_types<0x46, "vpsrav", X86vsrav, SchedWriteVarVecS
 defm VPSRLV : avx512_var_shift_types<0x45, "vpsrlv", X86vsrlv, SchedWriteVarVecShift>,
               avx512_var_shift_w<0x10, "vpsrlvw", X86vsrlv, SchedWriteVarVecShift>;
 
-defm VPRORV : avx512_var_shift_types<0x14, "vprorv", rotr, SchedWriteVarVecShift>;
-defm VPROLV : avx512_var_shift_types<0x15, "vprolv", rotl, SchedWriteVarVecShift>;
+defm VPRORV : avx512_var_shift_types<0x14, "vprorv", rotr, SchedWriteVarVecShift>, // INTEL
+              NotEVEX2VEXConvertible;       // INTEL
+defm VPROLV : avx512_var_shift_types<0x15, "vprolv", rotl, SchedWriteVarVecShift>, // INTEL
+              NotEVEX2VEXConvertible;       // INTEL
 
 defm : avx512_var_shift_lowering<avx512vl_i64_info, "VPSRAVQ", X86vsrav, [HasAVX512, NoVLX]>;
 defm : avx512_var_shift_lowering<avx512vl_i16_info, "VPSLLVW", X86vshlv, [HasBWI, NoVLX]>;
@@ -11991,7 +11995,8 @@ multiclass avx512_unary_lowering<string InstrStr, SDNode OpNode,
 }
 
 defm VPLZCNT    : avx512_unary_rm_vl_dq<0x44, 0x44, "vplzcnt", ctlz,
-                                        SchedWriteVecIMul, HasCDI>;
+                                        SchedWriteVecIMul, HasCDI>, // INTEL
+                                        NotEVEX2VEXConvertible;     // INTEL
 
 // FIXME: Is there a better scheduler class for VPCONFLICT?
 defm VPCONFLICT : avx512_unary_rm_vl_dq<0xC4, 0xC4, "vpconflict", X86Conflict,
@@ -12007,7 +12012,8 @@ defm : avx512_unary_lowering<"VPLZCNTD", ctlz, avx512vl_i32_info, HasCDI>;
 
 // FIXME: Is there a better scheduler class for VPOPCNTD/VPOPCNTQ?
 defm VPOPCNT : avx512_unary_rm_vl_dq<0x55, 0x55, "vpopcnt", ctpop,
-                                     SchedWriteVecALU, HasVPOPCNTDQ>;
+                                     SchedWriteVecALU, HasVPOPCNTDQ>, // INTEL
+                                     NotEVEX2VEXConvertible;          // INTEL
 
 defm : avx512_unary_lowering<"VPOPCNTQ", ctpop, avx512vl_i64_info, HasVPOPCNTDQ>;
 defm : avx512_unary_lowering<"VPOPCNTD", ctpop, avx512vl_i32_info, HasVPOPCNTDQ>;
@@ -13178,10 +13184,14 @@ multiclass VBMI2_shift_imm<bits<8> wOp, bits<8> dqOp, string Prefix,
 }
 
 // Concat & Shift
-defm VPSHLDV : VBMI2_shift_var<0x70, 0x71, "vpshldv", X86VShldv, SchedWriteVecIMul>;
-defm VPSHRDV : VBMI2_shift_var<0x72, 0x73, "vpshrdv", X86VShrdv, SchedWriteVecIMul>;
-defm VPSHLD  : VBMI2_shift_imm<0x70, 0x71, "vpshld", X86VShld, SchedWriteVecIMul>;
-defm VPSHRD  : VBMI2_shift_imm<0x72, 0x73, "vpshrd", X86VShrd, SchedWriteVecIMul>;
+defm VPSHLDV : VBMI2_shift_var<0x70, 0x71, "vpshldv", X86VShldv, SchedWriteVecIMul>, // INTEL
+               NotEVEX2VEXConvertible;      // INTEL
+defm VPSHRDV : VBMI2_shift_var<0x72, 0x73, "vpshrdv", X86VShrdv, SchedWriteVecIMul>, // INTEL
+               NotEVEX2VEXConvertible;      // INTEL
+defm VPSHLD  : VBMI2_shift_imm<0x70, 0x71, "vpshld", X86VShld, SchedWriteVecIMul>, // INTEL
+               NotEVEX2VEXConvertible;      // INTEL
+defm VPSHRD  : VBMI2_shift_imm<0x72, 0x73, "vpshrd", X86VShrd, SchedWriteVecIMul>, // INTEL
+               NotEVEX2VEXConvertible;      // INTEL
 
 // Compress
 defm VPCOMPRESSB : compress_by_elt_width<0x63, "vpcompressb", WriteVarShuffle256,
@@ -13284,9 +13294,11 @@ let Predicates = [HasVNNI,HasVLX] in {
 
 // FIXME: Is there a better scheduler class for VPOPCNTB/VPOPCNTW?
 defm VPOPCNTB : avx512_unary_rm_vl<0x54, "vpopcntb", ctpop, SchedWriteVecALU,
-                                   avx512vl_i8_info, HasBITALG>;
+                                   avx512vl_i8_info, HasBITALG>, // INTEL
+                                   NotEVEX2VEXConvertible; // INTEL
 defm VPOPCNTW : avx512_unary_rm_vl<0x54, "vpopcntw", ctpop, SchedWriteVecALU,
-                                   avx512vl_i16_info, HasBITALG>, VEX_W;
+                                   avx512vl_i16_info, HasBITALG>, VEX_W, // INTEL
+                                   NotEVEX2VEXConvertible; // INTEL
 
 defm : avx512_unary_lowering<"VPOPCNTB", ctpop, avx512vl_i8_info, HasBITALG>;
 defm : avx512_unary_lowering<"VPOPCNTW", ctpop, avx512vl_i16_info, HasBITALG>;

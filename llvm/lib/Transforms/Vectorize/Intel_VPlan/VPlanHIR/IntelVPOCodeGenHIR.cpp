@@ -298,7 +298,7 @@ RegDDRef *NestedBlobCG::codegenConversion(RegDDRef *Src, unsigned ConvOpCode,
           ConvOpCode == Instruction::Trunc) &&
          "Unexpected conversion OpCode");
 
-  Type *VecTy = VectorType::get(DestType, ACG->getVF());
+  Type *VecTy = FixedVectorType::get(DestType, ACG->getVF());
   HLInst *WideInst =
       HNU.createCastHLInst(VecTy, ConvOpCode, Src->clone(), "NBConv");
   addInst(WideInst);
@@ -1147,7 +1147,7 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
       RegDDRef *Ref = *It;
 
       // The resulting type of the widened ref/broadcast.
-      auto VecDestTy = VectorType::get(Ref->getDestType(), VF);
+      auto VecDestTy = FixedVectorType::get(Ref->getDestType(), VF);
 
       RegDDRef *WideRef = nullptr;
       HLInst *LoadInst = nullptr;
@@ -1311,9 +1311,9 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
                                   bool InterLeaveAccess) {
   RegDDRef *WideRef;
   auto RefDestTy = Ref->getDestType();
-  auto VecRefDestTy = VectorType::get(RefDestTy, VF);
+  auto VecRefDestTy = FixedVectorType::get(RefDestTy, VF);
   auto RefSrcTy = Ref->getSrcType();
-  auto VecRefSrcTy = VectorType::get(RefSrcTy, VF);
+  auto VecRefSrcTy = FixedVectorType::get(RefSrcTy, VF);
 
   // If the DDREF has a widened counterpart, return the same after setting
   // SrcType/DestType appropriately.
@@ -1483,8 +1483,8 @@ RegDDRef *VPOCodeGenHIR::widenRef(const RegDDRef *Ref, unsigned VF,
       }
     }
 
-    auto VecCEDestTy = VectorType::get(CE->getDestType(), VF);
-    auto VecCESrcTy = VectorType::get(CE->getSrcType(), VF);
+    auto VecCEDestTy = FixedVectorType::get(CE->getDestType(), VF);
+    auto VecCESrcTy = FixedVectorType::get(CE->getSrcType(), VF);
 
     CE->setDestType(VecCEDestTy);
     CE->setSrcType(VecCESrcTy);
@@ -2594,7 +2594,7 @@ void VPOCodeGenHIR::widenNodeImpl(const HLInst *INode, RegDDRef *Mask,
     assert(WideOps.size() == 2 && "invalid cast");
 
     WideInst = HLNodeUtilities.createCastHLInst(
-        VectorType::get(CurInst->getType(), VF), CurInst->getOpcode(),
+        FixedVectorType::get(CurInst->getType(), VF), CurInst->getOpcode(),
         WideOps[1], CurInst->getName() + ".vec", WideOps[0]);
   } else if (isa<SelectInst>(CurInst)) {
     WideInst = HLNodeUtilities.createSelect(
@@ -2643,13 +2643,14 @@ void VPOCodeGenHIR::widenNodeImpl(const HLInst *INode, RegDDRef *Mask,
   // sincos function has two return values. The scalar sincos function uses
   // pointers as out-parameters. SVML sincos function, instead, returns them in
   // a struct directly. This bridges the gap between these two approaches.
-  const CallInst *Call = WideInst->getCallInst();
-  if (Call && Call->getCalledFunction()->getName().startswith("__svml_sincos")) {
-      addInst(WideInst, nullptr);
-      generateStoreForSinCos(INode, WideInst, Mask,
-                             false /* IsRemainderLoop */);
-      return;
-  }
+  if (const CallInst *Call = WideInst->getCallInst())
+    if (const Function *Fn = Call->getCalledFunction())
+      if (Fn->getName().startswith("__svml_sincos")) {
+        addInst(WideInst, nullptr);
+        generateStoreForSinCos(INode, WideInst, Mask,
+                               false /* IsRemainderLoop */);
+        return;
+      }
 
   addInst(WideInst, Mask);
 }
@@ -2881,14 +2882,14 @@ RegDDRef *VPOCodeGenHIR::getMemoryRef(const VPValue *VPPtr,
     // We need to set destination type of the created canon expression
     // to VF wide vector type if we are not setting up a scalar ref.
     if (!NeedScalarRef)
-      Zero->setDestType(VectorType::get(Zero->getSrcType(), VF));
+      Zero->setDestType(FixedVectorType::get(Zero->getSrcType(), VF));
     MemRef->addDimension(Zero);
   }
 
   PointerType *PtrTy = cast<PointerType>(VPPtr->getType());
   Type *ValTy = PtrTy->getElementType();
   if (!Lane0Value) {
-    Type *VecValTy = VectorType::get(ValTy, VF);
+    Type *VecValTy = FixedVectorType::get(ValTy, VF);
 
     // MemRef's bitcast type needs to be set to a pointer to <VF x ValType>.
     MemRef->setBitCastDestType(
@@ -2998,7 +2999,7 @@ void VPOCodeGenHIR::widenPhiImpl(const VPPHINode *VPPhi, RegDDRef *Mask) {
 }
 
 RegDDRef *VPOCodeGenHIR::generateLoopInductionRef(Type *RefDestTy) {
-  auto VecRefDestTy = VectorType::get(RefDestTy, VF);
+  auto VecRefDestTy = FixedVectorType::get(RefDestTy, VF);
 
   auto *CE = CanonExprUtilities.createCanonExpr(RefDestTy);
   CE->setSrcType(VecRefDestTy);
@@ -3894,7 +3895,7 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
         // Lval for all copies. TODO: Use SVA in future to decide between
         // vector/scalar type here.
         LValTmp = HLNodeUtilities.createTemp(
-            VectorType::get(VPInst->getType(), getVF()), "phi.temp");
+            FixedVectorType::get(VPInst->getType(), getVF()), "phi.temp");
         PhiIdLValTempsMap[OriginPhiId] = LValTmp;
       }
     }
@@ -4043,7 +4044,7 @@ void VPOCodeGenHIR::createAndMapLoopEntityRefs(unsigned VF) {
   for (VPInstruction &Inst : *OuterMostLpPreheader) {
     if (auto *RedInit = dyn_cast<VPReductionInit>(&Inst)) {
       RegDDRef *RednRef = HLNodeUtilities.createTemp(
-          VectorType::get(RedInit->getType(), VF), "red.var");
+          FixedVectorType::get(RedInit->getType(), VF), "red.var");
       mapRednToRednRef(RedInit, RednRef);
       collectRednVPInsts(RedInit);
     }

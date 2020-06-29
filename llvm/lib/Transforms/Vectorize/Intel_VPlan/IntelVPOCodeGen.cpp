@@ -132,7 +132,7 @@ static bool isVPValueUnitStepLinear(VPValue *V, int *Step = nullptr,
 static Type *getVPInstVectorType(Type *VPInstTy, unsigned VF) {
   auto *VPInstVecTy = dyn_cast<VectorType>(VPInstTy);
   unsigned NumElts = VPInstVecTy ? VPInstVecTy->getNumElements() * VF : VF;
-  return VectorType::get(VPInstTy->getScalarType(), NumElts);
+  return FixedVectorType::get(VPInstTy->getScalarType(), NumElts);
 }
 
 Value *VPOCodeGen::generateSerialInstruction(VPInstruction *VPInst,
@@ -685,7 +685,7 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
 
     /// Vectorize casts.
     Type *ScalTy = VPInst->getType();
-    Type *VecTy = VectorType::get(ScalTy, VF);
+    Type *VecTy = FixedVectorType::get(ScalTy, VF);
     VPValue *ScalOp = VPInst->getOperand(0);
     Value *VecOp = getVectorValue(ScalOp);
     VPWidenMap[VPInst] = Builder.CreateCast(Opcode, VecOp, VecTy);
@@ -1607,7 +1607,7 @@ void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
                             "functions with vector-variants.");
   Value *MaskToUse = PumpPartMaskValue
                          ? PumpPartMaskValue
-                         : Constant::getAllOnesValue(VectorType::get(
+                         : Constant::getAllOnesValue(FixedVectorType::get(
                                Type::getInt1Ty(F->getContext()), PumpedVF));
 
   // Add the mask parameter for masked simd functions.
@@ -1634,13 +1634,13 @@ void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
   // characteristic type.
   Type *ScalarToType =
       IntegerType::get(MaskTy->getContext(), CharacteristicTypeSize);
-  VectorType *VecToType = VectorType::get(ScalarToType, PumpedVF);
+  VectorType *VecToType = FixedVectorType::get(ScalarToType, PumpedVF);
   Value *MaskExt = Builder.CreateSExt(MaskToUse, VecToType, "maskext");
 
   // Bitcast if the promoted type is not the same as the characteristic
   // type.
   if (ScalarToType != CharacteristicType) {
-    Type *MaskCastTy = VectorType::get(CharacteristicType, PumpedVF);
+    Type *MaskCastTy = FixedVectorType::get(CharacteristicType, PumpedVF);
     Value *MaskCast = Builder.CreateBitCast(MaskExt, MaskCastTy, "maskcast");
     VecArgs.push_back(MaskCast);
     VecArgTys.push_back(MaskCastTy);
@@ -2150,7 +2150,7 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
   Value *ScatterPtr = getWidenedAddressForScatterGather(Ptr);
   Type *PtrToElemTy = cast<VectorType>(ScatterPtr->getType())->getElementType();
   Type *ElemTy = PtrToElemTy->getPointerElementType();
-  VectorType *DesiredDataTy = VectorType::get(ElemTy, VF * OriginalVL);
+  VectorType *DesiredDataTy = FixedVectorType::get(ElemTy, VF * OriginalVL);
   // TODO: Verify if this bitcast should be done this late. Maybe an earlier
   // transform can introduce it, if needed.
   VecDataOp = Builder.CreateBitCast(VecDataOp, DesiredDataTy, "cast");
@@ -2219,7 +2219,7 @@ Value *VPOCodeGen::getWidenedAddressForScatterGather(VPValue *VPBasePtr) {
   //                <VF x Ty addrspace(x)*>
   Value *TypeCastBasePtr = Builder.CreateBitCast(
       BasePtr,
-      VectorType::get(
+      FixedVectorType::get(
           cast<VectorType>(LSIType)->getElementType()->getPointerTo(AddrSpace),
           VF));
   // Replicate the base-address OriginalVL times
@@ -2391,7 +2391,7 @@ void VPOCodeGen::generateStoreForSinCos(VPCallInstruction *VPCall,
       Type *PtrToElemTy =
           cast<VectorType>(VectorPtr->getType())->getElementType();
       Type *ElemTy = PtrToElemTy->getPointerElementType();
-      VectorType *DesiredDataTy = VectorType::get(ElemTy, VF);
+      VectorType *DesiredDataTy = FixedVectorType::get(ElemTy, VF);
       VecValue = Builder.CreateBitCast(VecValue, DesiredDataTy, "cast");
 
       Builder.CreateMaskedScatter(VecValue, VectorPtr, Alignment, MaskValue);
@@ -2649,7 +2649,7 @@ Value *VPOCodeGen::getVectorValue(VPValue *V) {
       UpdateInsertPoint(ScalarValue);
       VectorValue = joinVectors(Parts, Builder);
     } else {
-      VectorValue = UndefValue::get(VectorType::get(V->getType(), VF));
+      VectorValue = UndefValue::get(FixedVectorType::get(V->getType(), VF));
       for (unsigned Lane = 0; Lane < VF; ++Lane) {
         Value *ScalarValue = VPScalarMap[V][Lane];
         assert(isa<Instruction>(ScalarValue) &&
@@ -2793,7 +2793,7 @@ void VPOCodeGen::vectorizeExtractElement(VPInstruction *VPInst) {
     }
 
     Value *WideExtract =
-        UndefValue::get(VectorType::get(VPInst->getType(), VF));
+        UndefValue::get(FixedVectorType::get(VPInst->getType(), VF));
     Value *IndexValVec = getVectorValue(OrigIndexVal);
 
     for (unsigned VIdx = 0; VIdx < VF; ++VIdx) {
@@ -3219,7 +3219,7 @@ void VPOCodeGen::vectorizeAllocatePrivate(VPAllocatePrivate *V) {
       EltTy = OrigVecTy->getElementType();
       NumEls *= OrigVecTy->getNumElements();
     }
-    VecTyForAlloca = VectorType::get(EltTy, NumEls);
+    VecTyForAlloca = FixedVectorType::get(EltTy, NumEls);
   }
 
   // Create an alloca in the appropriate block

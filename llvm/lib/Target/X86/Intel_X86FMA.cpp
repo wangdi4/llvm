@@ -1536,29 +1536,29 @@ unsigned X86GlobalFMA::createConstOne(MVT VT, MachineInstr *InsertPointMI) {
     break;
   case MVT::v4f32:
     Opc = ST->hasVLX() ? X86::VMOVAPSZ128rm : X86::VMOVAPSrm;
-    Ty = VectorType::get(Type::getFloatTy(Context), 4);
+    Ty = FixedVectorType::get(Type::getFloatTy(Context), 4);
     break;
   case MVT::v2f64:
     Opc = ST->hasVLX() ? X86::VMOVAPDZ128rm : X86::VMOVAPDrm;
-    Ty = VectorType::get(Type::getDoubleTy(Context), 2);
+    Ty = FixedVectorType::get(Type::getDoubleTy(Context), 2);
     break;
   case MVT::v8f32:
     Opc = ST->hasVLX() ? X86::VMOVAPSZ256rm : X86::VMOVAPSYrm;
-    Ty = VectorType::get(Type::getFloatTy(Context), 8);
+    Ty = FixedVectorType::get(Type::getFloatTy(Context), 8);
     break;
   case MVT::v4f64:
     Opc = ST->hasVLX() ? X86::VMOVAPDZ256rm : X86::VMOVAPDYrm;
-    Ty = VectorType::get(Type::getDoubleTy(Context), 4);
+    Ty = FixedVectorType::get(Type::getDoubleTy(Context), 4);
     break;
   case MVT::v16f32:
     assert(ST->hasAVX512() && "Expected AVX512 enabled!");
     Opc = X86::VMOVAPSZrm;
-    Ty = VectorType::get(Type::getFloatTy(Context), 16);
+    Ty = FixedVectorType::get(Type::getFloatTy(Context), 16);
     break;
   case MVT::v8f64:
     assert(ST->hasAVX512() && "Expected AVX512 enabled!");
     Opc = X86::VMOVAPDZrm;
-    Ty = VectorType::get(Type::getDoubleTy(Context), 8);
+    Ty = FixedVectorType::get(Type::getDoubleTy(Context), 8);
     break;
   default:
     llvm_unreachable("Unsupported type of 1.0 const.");

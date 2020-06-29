@@ -1954,6 +1954,25 @@ X86TargetLowering::X86TargetLowering(const X86TargetMachine &TM,
     addLegalFPImmediate(APFloat::getZero(APFloat::IEEEhalf()));
   }
 #endif // INTEL_FEATURE_ISA_FP16
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  if (!Subtarget.useSoftFloat() && Subtarget.hasAVXCOMPRESS()) {
+    for (auto VT : { MVT::v16i8, MVT::v32i8, MVT::v8i16, MVT::v16i16 })
+      setOperationAction(ISD::CTPOP, VT, Legal);
+
+    for (auto VT : { MVT::v4i32, MVT::v8i32, MVT::v2i64, MVT::v4i64 }) {
+      setOperationAction(ISD::CTPOP, VT, Legal);
+      setOperationAction(ISD::CTLZ,  VT, Legal);
+      setOperationAction(ISD::ROTL,  VT, Custom);
+      setOperationAction(ISD::ROTR,  VT, Custom);
+    }
+
+    for (auto VT : { MVT::v8i16,  MVT::v4i32, MVT::v2i64,
+                     MVT::v16i16, MVT::v8i32, MVT::v4i64 }) {
+      setOperationAction(ISD::FSHL, VT, Custom);
+      setOperationAction(ISD::FSHR, VT, Custom);
+    }
+  }
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
 #endif // INTEL_CUSTOMIZATION
 
   if (!Subtarget.useSoftFloat() && Subtarget.hasVLX()) {
@@ -19450,7 +19469,14 @@ static SDValue LowerFunnelShift(SDValue Op, const X86Subtarget &Subtarget,
   bool IsFSHR = Op.getOpcode() == ISD::FSHR;
 
   if (VT.isVector()) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+    assert((Subtarget.hasVBMI2() || Subtarget.hasAVXCOMPRESS()) &&
+           "Expected VBMI2 or AVXCOMPRESS");
+#else // INTEL_FEATURE_ISA_AVX_COMPRESS
     assert(Subtarget.hasVBMI2() && "Expected VBMI2");
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
 
     if (IsFSHR)
       std::swap(Op0, Op1);
@@ -28490,7 +28516,14 @@ static SDValue LowerRotate(SDValue Op, const X86Subtarget &Subtarget,
     return R;
 
   // AVX512 implicitly uses modulo rotation amounts.
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+ if ((Subtarget.hasAVX512() || Subtarget.hasAVXCOMPRESS()) &&
+     32 <= EltSizeInBits) {
+#else // INTEL_FEATURE_ISA_AVX_COMPRESS
   if (Subtarget.hasAVX512() && 32 <= EltSizeInBits) {
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
     // Attempt to rotate by immediate.
     if (IsCstSplat) {
       unsigned RotOpc = (Opcode == ISD::ROTL ? X86ISD::VROTLI : X86ISD::VROTRI);
@@ -31323,12 +31356,6 @@ const char *X86TargetLowering::getTargetNodeName(unsigned Opcode) const {
 #endif // INTEL_CUSTOMIZATION
   NODE_NAME_CASE(VPMADD52H)
   NODE_NAME_CASE(VPMADD52L)
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_IFMA
-  NODE_NAME_CASE(VPMADD52HVEX)
-  NODE_NAME_CASE(VPMADD52LVEX)
-#endif // INTEL_FEATURE_ISA_AVX_IFMA
-#endif // INTEL_CUSTOMIZATION
   NODE_NAME_CASE(VRNDSCALE)
   NODE_NAME_CASE(STRICT_VRNDSCALE)
   NODE_NAME_CASE(VRNDSCALE_SAE)
@@ -31435,13 +31462,6 @@ const char *X86TargetLowering::getTargetNodeName(unsigned Opcode) const {
   NODE_NAME_CASE(CVTNEPS2BF16)
   NODE_NAME_CASE(MCVTNEPS2BF16)
   NODE_NAME_CASE(DPBF16PS)
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_BF16
-  NODE_NAME_CASE(CVTNE2PS2BF16VEX)
-  NODE_NAME_CASE(CVTNEPS2BF16VEX)
-  NODE_NAME_CASE(DPBF16PSVEX)
-#endif // INTEL_FEATURE_ISA_AVX_BF16
-#endif // INTEL_CUSTOMIZATION
   NODE_NAME_CASE(LWPINS)
   NODE_NAME_CASE(MGATHER)
   NODE_NAME_CASE(MSCATTER)

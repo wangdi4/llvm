@@ -200,7 +200,7 @@ static void parseInput(unsigned &GroupSize, OVLSMemrefVector &Mrfs) {
       assert(IdxNumElems == NumElements &&
              "IdxNumElems needs to match the NumElements!");
       VectorType *IdxType =
-          VectorType::get(getScalarType(SIdxElemType), IdxNumElems);
+          FixedVectorType::get(getScalarType(SIdxElemType), IdxNumElems);
       mrf = new ClientMemref(MemrefId, Dist, ElemType, NumElements, AccKind,
                              IndexId, IdxType);
     } else {

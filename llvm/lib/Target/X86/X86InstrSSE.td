@@ -7169,48 +7169,44 @@ defm VMASKMOVPD : avx_movmask_rm<0x2D, 0x2F, "vmaskmovpd",
 //===----------------------------------------------------------------------===//
 // AVX_VNNI
 //===----------------------------------------------------------------------===//
-let Predicates = [HasAVXVNNI], Constraints = "$src1 = $dst" in
-multiclass avx_vnni_rm<bits<8> opc, string OpcodeStr, Intrinsic Int128,
-                       Intrinsic Int256, bit IsCommutable> {
+let Predicates = [HasAVXVNNI, NoVLX_Or_NoVNNI], Constraints = "$src1 = $dst" in
+multiclass avx_vnni_rm<bits<8> opc, string OpcodeStr, SDNode OpNode,
+                       bit IsCommutable> {
   let isCommutable = IsCommutable in
   def rr  : AVX8I<opc, MRMSrcReg, (outs VR128:$dst),
              (ins VR128:$src1, VR128:$src2, VR128:$src3),
              !strconcat(OpcodeStr, "\t{$src3, $src2, $dst|$dst, $src2, $src3}"),
-             [(set VR128:$dst, (Int128 VR128:$src1,
-                                       VR128:$src2, VR128:$src3))]>,
+             [(set VR128:$dst, (v4i32 (OpNode VR128:$src1,
+                                       VR128:$src2, VR128:$src3)))]>,
              VEX_4V, Sched<[SchedWriteVecIMul.XMM]>;
 
   def rm  : AVX8I<opc, MRMSrcMem, (outs VR128:$dst),
              (ins VR128:$src1, VR128:$src2, i128mem:$src3),
              !strconcat(OpcodeStr, "\t{$src3, $src2, $dst|$dst, $src2, $src3}"),
-             [(set VR128:$dst, (Int128 VR128:$src1, VR128:$src2,
-                                       (load addr:$src3)))]>,
+             [(set VR128:$dst, (v4i32 (OpNode VR128:$src1, VR128:$src2,
+                                      (loadv4i32 addr:$src3))))]>,
              VEX_4V, Sched<[SchedWriteVecIMul.XMM]>;
 
   let isCommutable = IsCommutable in
   def Yrr  : AVX8I<opc, MRMSrcReg, (outs VR256:$dst),
              (ins VR256:$src1, VR256:$src2, VR256:$src3),
              !strconcat(OpcodeStr, "\t{$src3, $src2, $dst|$dst, $src2, $src3}"),
-             [(set VR256:$dst, (Int256 VR256:$src1,
-                                       VR256:$src2, VR256:$src3))]>,
+             [(set VR256:$dst, (v8i32 (OpNode VR256:$src1,
+                                       VR256:$src2, VR256:$src3)))]>,
              VEX_4V, VEX_L, Sched<[SchedWriteVecIMul.XMM]>;
 
   def Yrm  : AVX8I<opc, MRMSrcMem, (outs VR256:$dst),
              (ins VR256:$src1, VR256:$src2, i256mem:$src3),
              !strconcat(OpcodeStr, "\t{$src3, $src2, $dst|$dst, $src2, $src3}"),
-             [(set VR256:$dst, (Int256 VR256:$src1, VR256:$src2,
-                                       (load addr:$src3)))]>,
+             [(set VR256:$dst, (v8i32 (OpNode VR256:$src1, VR256:$src2,
+                                      (loadv8i32 addr:$src3))))]>,
              VEX_4V, VEX_L, Sched<[SchedWriteVecIMul.XMM]>;
 }
 
-defm VPDPBUSD   : avx_vnni_rm<0x50, "vpdpbusd", int_x86_avx_vpdpbusd_128,
-                              int_x86_avx_vpdpbusd_256, 0>, ExplicitVEXPrefix;
-defm VPDPBUSDS  : avx_vnni_rm<0x51, "vpdpbusds", int_x86_avx_vpdpbusds_128,
-                              int_x86_avx_vpdpbusds_256, 0>, ExplicitVEXPrefix;
-defm VPDPWSSD   : avx_vnni_rm<0x52, "vpdpwssd", int_x86_avx_vpdpwssd_128,
-                              int_x86_avx_vpdpwssd_256, 1>, ExplicitVEXPrefix;
-defm VPDPWSSDS  : avx_vnni_rm<0x53, "vpdpwssds", int_x86_avx_vpdpwssds_128,
-                              int_x86_avx_vpdpwssds_256, 1>, ExplicitVEXPrefix;
+defm VPDPBUSD   : avx_vnni_rm<0x50, "vpdpbusd", X86Vpdpbusd, 0>, ExplicitVEXPrefix;
+defm VPDPBUSDS  : avx_vnni_rm<0x51, "vpdpbusds", X86Vpdpbusds, 0>, ExplicitVEXPrefix;
+defm VPDPWSSD   : avx_vnni_rm<0x52, "vpdpwssd",  X86Vpdpwssd, 1>, ExplicitVEXPrefix;
+defm VPDPWSSDS  : avx_vnni_rm<0x53, "vpdpwssds", X86Vpdpwssds, 1>, ExplicitVEXPrefix;
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
 #endif // INTEL_CUSTOMIZATION
 
@@ -8143,7 +8139,7 @@ defm VCVTNEPH2BF16Y : VCVTPHBF16_rm<0x67, "vcvtneph2bf16", VR256, f256mem, loadv
 multiclass VCVTBF16_rm<bits<8> opc, string OpcodeStr, ValueType OpVT,
                         RegisterClass RC, PatFrag MemOpFrag, X86MemOperand X86MemOp,
                         SDNode OpNode> {
-  let Predicates  = [HasAVXBF16] in {
+  let Predicates  = [HasAVXBF16, NoVLX_Or_NoBF16] in {
     def rr : I<opc, MRMSrcReg, (outs RC:$dst), (ins RC:$src1, RC:$src2),
                OpcodeStr#"\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                [(set RC:$dst, (OpVT (OpNode RC:$src1, RC:$src2)))]>, VEX_4V;
@@ -8158,7 +8154,7 @@ let Constraints = "$src1 = $dst" in {
 multiclass VDPBF16PS_rm<bits<8> opc, string OpcodeStr, ValueType OpVT,
                         RegisterClass RC, PatFrag MemOpFrag, X86MemOperand X86MemOp,
                         SDNode OpNode> {
-  let Predicates  = [HasAVXBF16] in {
+  let Predicates  = [HasAVXBF16, NoVLX_Or_NoBF16] in {
     def rr : I<opc, MRMSrcReg, (outs RC:$dst), (ins RC:$src1, RC:$src2, RC:$src3),
                OpcodeStr#"\t{$src3, $src2, $dst|$dst, $src2, $src3}",
                [(set RC:$dst, (OpVT (OpNode RC:$src1, RC:$src2, RC:$src3)))]>, VEX_4V;
@@ -8170,17 +8166,17 @@ multiclass VDPBF16PS_rm<bits<8> opc, string OpcodeStr, ValueType OpVT,
 }  // Constraints = "$src1 = $dst"
 
   defm VDPBF16PS       : VDPBF16PS_rm<0x52, "vdpbf16ps", v4f32, VR128, loadv4i32,
-                                    f128mem, X86dpbf16psvex>, T8XS, ExplicitVEXPrefix;
+                                    f128mem, X86dpbf16ps>, T8XS, ExplicitVEXPrefix;
   defm VDPBF16PSY      : VDPBF16PS_rm<0x52, "vdpbf16ps", v8f32, VR256, loadv8i32,
-                                    f256mem, X86dpbf16psvex>, VEX_L, T8XS, ExplicitVEXPrefix;
+                                    f256mem, X86dpbf16ps>, VEX_L, T8XS, ExplicitVEXPrefix;
   defm VCVTNE2PS2BF16  : VCVTBF16_rm<0x72, "vcvtne2ps2bf16", v8i16, VR128, loadv4f32,
-                                    f128mem, X86cvtne2ps2bf16vex>, T8XD, ExplicitVEXPrefix;
+                                    f128mem, X86cvtne2ps2bf16>, T8XD, ExplicitVEXPrefix;
   defm VCVTNE2PS2BF16Y : VCVTBF16_rm<0x72, "vcvtne2ps2bf16", v16i16, VR256, loadv8f32,
-                                    f256mem, X86cvtne2ps2bf16vex>, VEX_L, T8XD, ExplicitVEXPrefix;
+                                    f256mem, X86cvtne2ps2bf16>, VEX_L, T8XD, ExplicitVEXPrefix;
 
 multiclass VCVTNEPS2BF16_rm<bits<8> opc, string OpcodeStr, RegisterClass RC,
                           X86MemOperand x86memop, PatFrag MemOpFrag, SDNode OpNode> {
-  let Predicates  = [HasAVXBF16] in {
+  let Predicates  = [HasAVXBF16, NoVLX_Or_NoBF16] in {
     def rr : I<opc, MRMSrcReg, (outs VR128:$dst), (ins RC:$src),
                !strconcat(OpcodeStr, "\t{$src, $dst|$dst, $src}"),
                [(set VR128:$dst, (OpNode RC:$src))]>, VEX;
@@ -8191,17 +8187,17 @@ multiclass VCVTNEPS2BF16_rm<bits<8> opc, string OpcodeStr, RegisterClass RC,
 }
 
   defm VCVTNEPS2BF16  : VCVTNEPS2BF16_rm<0x72, "vcvtneps2bf16", VR128,
-                                    f128mem,  loadv4f32 ,X86cvtneps2bf16vex>,
+                                    f128mem,  loadv4f32 ,X86cvtneps2bf16>,
                                     T8XS, ExplicitVEXPrefix;
   defm VCVTNEPS2BF16Y : VCVTNEPS2BF16_rm<0x72, "vcvtneps2bf16", VR256,
-                                    f256mem, loadv8f32, X86cvtneps2bf16vex>,
+                                    f256mem, loadv8f32, X86cvtneps2bf16>,
                                     VEX_L, T8XS, ExplicitVEXPrefix;
 #endif // INTEL_FEATURE_ISA_AVX_BF16
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX_IFMA
-let Predicates = [HasAVXIFMA], Constraints = "$src1 = $dst" in
+let Predicates = [HasAVXIFMA, NoVLX_Or_NoIFMA], Constraints = "$src1 = $dst" in
 multiclass avx_ifma_rm<bits<8> opc, string OpcodeStr, SDNode OpNode> {
   // NOTE: The SDNode have the multiply operands first with the add last.
   // This enables commuted load patterns to be autogenerated by tablegen.
@@ -8235,8 +8231,8 @@ multiclass avx_ifma_rm<bits<8> opc, string OpcodeStr, SDNode OpNode> {
                VEX_4V, VEX_L, Sched<[SchedWriteVecIMul.YMM]>;
 }
 
-defm VPMADD52HUQ : avx_ifma_rm<0xb5, "vpmadd52huq", x86vpmadd52hvex>, VEX_W, ExplicitVEXPrefix;
-defm VPMADD52LUQ : avx_ifma_rm<0xb4, "vpmadd52luq", x86vpmadd52lvex>, VEX_W, ExplicitVEXPrefix;
+defm VPMADD52HUQ : avx_ifma_rm<0xb5, "vpmadd52huq", x86vpmadd52h>, VEX_W, ExplicitVEXPrefix;
+defm VPMADD52LUQ : avx_ifma_rm<0xb4, "vpmadd52luq", x86vpmadd52l>, VEX_W, ExplicitVEXPrefix;
 #endif // INTEL_FEATURE_ISA_AVX_IFMA
 #endif // INTEL_CUSTOMIZATION
 
@@ -8246,13 +8242,13 @@ multiclass VPCOMPRESS_mr<bits<8> opc, string OpcodeStr, ValueType OpVT,
                         RegisterClass RC, X86MemOperand X86MemOp,
                         X86FoldableSchedWrite sched> {
   let Predicates  = [HasAVXCOMPRESS, In64BitMode] in {
-      def rr : AVX8I<opc, MRMDestReg4VOp3, (outs RC:$dst),
+      def rr : AVX28I<opc, MRMDestReg4VOp3, (outs RC:$dst),
                      (ins RC:$src1, RC:$src2),
                      OpcodeStr#"\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                      [(set RC:$dst, (OpVT
                       (X86vpcompress RC:$src1, RC:$src2)))]>,
                      VEX_4V, Sched<[sched]>;
-      def mr : AVX8I<opc, MRMDestMem4VOp3, (outs),
+      def mr : AVX28I<opc, MRMDestMem4VOp3, (outs),
                      (ins X86MemOp:$dst, RC:$src1, RC:$src2),
                      OpcodeStr#"\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                      [(X86vpcompress_store addr:$dst,
@@ -8260,7 +8256,6 @@ multiclass VPCOMPRESS_mr<bits<8> opc, string OpcodeStr, ValueType OpVT,
                      VEX_4V, Sched<[sched]>, NotMemoryFoldable;
   }
 }
-
 
 defm VPCOMPRESSB    : VPCOMPRESS_mr<0x63, "vpcompressb", v16i8, VR128, i128mem,
                                     SchedWriteVarShuffle.XMM>;
@@ -8278,5 +8273,261 @@ defm VPCOMPRESSW    : VPCOMPRESS_mr<0x63, "vpcompressw", v8i16, VR128, i128mem,
                                     SchedWriteVarShuffle.XMM>, VEX_W;
 defm VPCOMPRESSWY   : VPCOMPRESS_mr<0x63, "vpcompressw", v16i16, VR256, i256mem,
                                     SchedWriteVarShuffle.YMM>, VEX_W, VEX_L;
+
+multiclass avx_compress_2op_rm<bits<8> opc, string OpcodeStr, SDNode OpNode,
+                ValueType OpVT, PatFrag MemOpFrag, X86MemOperand X86MemOp,
+                RegisterClass RC, X86FoldableSchedWrite sched, Predicate prd> {
+  let Predicates = [HasAVXCOMPRESS, In64BitMode, prd] in {
+    def rr  : I<opc, MRMSrcReg, (outs RC:$dst), (ins RC:$src1),
+               !strconcat(OpcodeStr, "\t{$src1, $dst|$dst, $src1}"),
+               [(set RC:$dst, (OpVT (OpNode (OpVT RC:$src1))))]>,
+               VEX, T8PD, Sched<[sched]>;
+    def rm  : I<opc, MRMSrcMem, (outs RC:$dst), (ins MemOpFrag:$src1),
+               !strconcat(OpcodeStr, "\t{$src1, $dst|$dst, $src1}"),
+               [(set RC:$dst, (OpVT (OpNode
+                (OpVT (bitconvert (X86MemOp addr:$src1))))))]>,
+               VEX,T8PD, Sched<[sched.Folded, sched.ReadAfterFold]>;
+  }
+}
+
+multiclass avx_compress_2op_dq<bits<8> opc, string OpcodeStr, SDNode OpNode,
+              X86SchedWriteWidths sched, Predicate prd> {
+    defm D  : avx_compress_2op_rm<opc, OpcodeStr#"d", OpNode, v4i32, i128mem,
+              loadv4i32, VR128, sched.XMM, prd>;
+    defm DY : avx_compress_2op_rm<opc, OpcodeStr#"d", OpNode, v8i32, i256mem,
+              loadv8i32, VR256, sched.YMM, prd>, VEX_L;
+    defm Q  : avx_compress_2op_rm<opc, OpcodeStr#"q", OpNode, v2i64, i128mem,
+              loadv2i64, VR128, sched.XMM, prd>, VEX_W;
+    defm QY : avx_compress_2op_rm<opc, OpcodeStr#"q", OpNode, v4i64, i256mem,
+              loadv4i64, VR256, sched.YMM, prd>, VEX_W, VEX_L;
+}
+
+multiclass avx_compress_2op_bw<bits<8> opc, string OpcodeStr, SDNode OpNode,
+              X86SchedWriteWidths sched, Predicate prd> {
+    defm B  : avx_compress_2op_rm<opc, OpcodeStr#"b", OpNode, v16i8, i128mem,
+              loadv16i8, VR128, sched.XMM, prd>;
+    defm BY : avx_compress_2op_rm<opc, OpcodeStr#"b", OpNode, v32i8, i256mem,
+              loadv32i8, VR256, sched.YMM, prd>, VEX_L;
+    defm W  : avx_compress_2op_rm<opc, OpcodeStr#"w", OpNode, v8i16, i128mem,
+              loadv8i16, VR128, sched.XMM, prd>, VEX_W;
+    defm WY : avx_compress_2op_rm<opc, OpcodeStr#"w", OpNode, v16i16, i256mem,
+              loadv16i16, VR256, sched.YMM, prd>, VEX_W, VEX_L;
+}
+
+// VPLZCNT[D,Q]
+defm VPLZCNT : avx_compress_2op_dq<0x44, "vplzcnt", ctlz, SchedWriteVecIMul,
+                                  NoVLX_Or_NoCDI>, ExplicitVEXPrefix;
+
+// VPOPCNT[B,W,D,Q]
+defm VPOPCNT : avx_compress_2op_bw<0x54, "vpopcnt", ctpop, SchedWriteVecALU,
+                                   NoVLX_Or_NoBITALG>, ExplicitVEXPrefix;
+defm VPOPCNT : avx_compress_2op_dq<0x55, "vpopcnt", ctpop, SchedWriteVecALU,
+                                   NoVLX_Or_NoVPOPCNTDQ>, ExplicitVEXPrefix;
+
+// VPMASKMOV[B,W]
+multiclass avxcompress_pmovmask<string OpcodeStr,
+                         Intrinsic IntLd128, Intrinsic IntLd256,
+                         Intrinsic IntSt128, Intrinsic IntSt256,
+                         X86SchedWriteMaskMove schedX,
+                         X86SchedWriteMaskMove schedY> {
+  def rm  : I<0x8c, MRMSrcMem, (outs VR128:$dst),
+             (ins VR128:$src1, i128mem:$src2),
+             !strconcat(OpcodeStr, "\t{$src2, $src1, $dst|$dst, $src1, $src2}"),
+             [(set VR128:$dst, (IntLd128 addr:$src2, VR128:$src1))]>,
+             T8PS, VEX_4V, Sched<[schedX.RM]>;
+  def Yrm : I<0x8c, MRMSrcMem, (outs VR256:$dst),
+             (ins VR256:$src1, i256mem:$src2),
+             !strconcat(OpcodeStr, "\t{$src2, $src1, $dst|$dst, $src1, $src2}"),
+             [(set VR256:$dst, (IntLd256 addr:$src2, VR256:$src1))]>,
+             T8PS, VEX_4V, VEX_L, Sched<[schedY.RM]>;
+  def mr  : I<0x8e, MRMDestMem, (outs),
+             (ins i128mem:$dst, VR128:$src1, VR128:$src2),
+             !strconcat(OpcodeStr, "\t{$src2, $src1, $dst|$dst, $src1, $src2}"),
+             [(IntSt128 addr:$dst, VR128:$src1, VR128:$src2)]>,
+             T8PS, VEX_4V, Sched<[schedX.MR]>;
+  def Ymr : I<0x8e, MRMDestMem, (outs),
+             (ins i256mem:$dst, VR256:$src1, VR256:$src2),
+             !strconcat(OpcodeStr, "\t{$src2, $src1, $dst|$dst, $src1, $src2}"),
+             [(IntSt256 addr:$dst, VR256:$src1, VR256:$src2)]>,
+             T8PS, VEX_4V, VEX_L, Sched<[schedY.MR]>;
+}
+
+// FIXME: Parameter schedX and schedY is a workaround.
+let Predicates = [HasAVXCOMPRESS, In64BitMode] in {
+defm VPMASKMOVB : avxcompress_pmovmask<"vpmaskmovb",
+                                int_x86_avx2_maskload_b,
+                                int_x86_avx2_maskload_b_256,
+                                int_x86_avx2_maskstore_b,
+                                int_x86_avx2_maskstore_b_256,
+                                WriteVecMaskMove32, WriteVecMaskMove32Y>;
+defm VPMASKMOVW : avxcompress_pmovmask<"vpmaskmovw",
+                                int_x86_avx2_maskload_w,
+                                int_x86_avx2_maskload_w_256,
+                                int_x86_avx2_maskstore_w,
+                                int_x86_avx2_maskstore_w_256,
+                                WriteVecMaskMove64, WriteVecMaskMove64Y>, VEX_W;
+
+  defm : maskmov_lowering<"VPMASKMOVB", VR128, v16i8,  v16i8>;
+  defm : maskmov_lowering<"VPMASKMOVW", VR128, v8i16,  v8i16>;
+  defm : maskmov_lowering<"VPMASKMOVBY",  VR256, v32i8,  v32i8>;
+  defm : maskmov_lowering<"VPMASKMOVWY",  VR256, v16i16, v16i16>;
+}
+
+// VPRO[R,L][D,Q]
+multiclass avxcompress_shift_rmi<Format ImmFormR, Format ImmFormM,
+                          string OpcodeStr, SDNode OpNode,
+                          X86FoldableSchedWrite sched, ValueType OpVT,
+                          PatFrag MemOpFrag, X86MemOperand X86MemOp,
+                          RegisterClass RC> {
+  let Predicates = [HasAVXCOMPRESS, In64BitMode, NoVLX], ImmT = Imm8 in {
+  def ri : I<0x72, ImmFormR, (outs RC:$dst), (ins RC:$src1, u8imm:$src2),
+             OpcodeStr#"\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+             [(set RC:$dst, (OpVT (OpNode RC:$src1, timm:$src2)))]>,
+             Sched<[sched]>, PD, VEX_4V;
+  def mi : I<0x72, ImmFormM, (outs RC:$dst), (ins MemOpFrag:$src1, u8imm:$src2),
+             OpcodeStr#"\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+             [(set RC:$dst, (OpVT (OpNode (X86MemOp addr:$src1),
+                                           timm:$src2)))]>,
+             Sched<[sched.Folded]>, PD, VEX_4V;
+  }
+}
+
+multiclass avxcompress_shift<Format ImmFormR, Format ImmFormM, string OpcodeStr,
+              SDNode OpNode, X86SchedWriteWidths sched> {
+  defm D  : avxcompress_shift_rmi<ImmFormR, ImmFormM, OpcodeStr#"d",
+            OpNode, sched.XMM, v4i32, i128mem, loadv4i32, VR128>;
+  defm Q  : avxcompress_shift_rmi<ImmFormR, ImmFormM, OpcodeStr#"q",
+            OpNode, sched.XMM, v2i64, i128mem, loadv2i64, VR128>,
+            VEX_W;
+  defm DY : avxcompress_shift_rmi<ImmFormR, ImmFormM, OpcodeStr#"d",
+            OpNode, sched.YMM, v8i32, i256mem, loadv8i32, VR256>,
+            VEX_L;
+  defm QY : avxcompress_shift_rmi<ImmFormR, ImmFormM, OpcodeStr#"q",
+            OpNode, sched.YMM, v4i64, i256mem, loadv4i64, VR256>,
+            VEX_W, VEX_L;
+}
+
+defm VPROL : avxcompress_shift<MRM1r, MRM1m, "vprol", X86vrotli,
+                               SchedWriteVecShiftImm>, ExplicitVEXPrefix;
+
+defm VPROR : avxcompress_shift<MRM0r, MRM0m, "vpror", X86vrotri,
+                               SchedWriteVecShiftImm>, ExplicitVEXPrefix;
+
+// VPRO[R,L]V[D,Q]
+multiclass avxcompress_var_shift_rm<bits<8> opc, string OpcodeStr, SDNode OpNode,
+                            X86FoldableSchedWrite sched, ValueType OpVT,
+                            PatFrag MemOpFrag, X86MemOperand X86MemOp,
+                            RegisterClass RC> {
+  let Predicates = [HasAVXCOMPRESS, In64BitMode, NoVLX] in {
+  def rr : AVX28I<opc, MRMSrcReg, (outs RC:$dst), (ins RC:$src1, RC:$src2),
+                  OpcodeStr#"\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                  [(set RC:$dst, (OpVT (OpNode RC:$src1, (OpVT RC:$src2))))]>,
+                  VEX_4V, Sched<[sched]>;
+  def rm : AVX28I<opc, MRMSrcMem, (outs RC:$dst), (ins RC:$src1, MemOpFrag:$src2),
+                  OpcodeStr#"\t{$src2, $src1, $dst|$dst, $src1, $src2}",
+                  [(set RC:$dst, (OpVT (OpNode RC:$src1,
+                                  (OpVT (X86MemOp addr:$src2)))))]>,
+                  VEX_4V, Sched<[sched.Folded, sched.ReadAfterFold]>;
+  }
+}
+
+multiclass avxcompress_var_shift<bits<8> Opc, string OpcodeStr, SDNode OpNode,
+                                 X86SchedWriteWidths sched> {
+  defm D  : avxcompress_var_shift_rm<Opc, OpcodeStr#"d", OpNode, sched.XMM,
+                                 v4i32, i128mem, loadv4i32, VR128>;
+  defm Q  : avxcompress_var_shift_rm<Opc, OpcodeStr#"q", OpNode, sched.XMM,
+                                 v2i64, i128mem, loadv2i64, VR128>, VEX_W;
+  defm DY : avxcompress_var_shift_rm<Opc, OpcodeStr#"d", OpNode, sched.YMM,
+                                 v8i32, i256mem, loadv8i32, VR256>, VEX_L;
+  defm QY : avxcompress_var_shift_rm<Opc, OpcodeStr#"q", OpNode, sched.YMM,
+                                 v4i64, i256mem, loadv4i64, VR256>, VEX_W, VEX_L;
+}
+
+defm VPROLV : avxcompress_var_shift<0x15, "vprolv", rotl, SchedWriteVarVecShift>, ExplicitVEXPrefix;
+defm VPRORV : avxcompress_var_shift<0x14, "vprorv", rotr, SchedWriteVarVecShift>, ExplicitVEXPrefix;
+
+// VPSH[L,R]DV[W,D,Q]
+multiclass avxcompress_shift_var_rm<bits<8> Op, string OpcodeStr, SDNode OpNode,
+                              X86FoldableSchedWrite sched, ValueType OpVT,
+                              PatFrag MemOpFrag, X86MemOperand X86MemOp,
+                              RegisterClass RC> {
+  let Constraints = "$src1 = $dst",
+      Predicates = [HasAVXCOMPRESS, In64BitMode, NoVLX_Or_NoVBMI2] in {
+    def rr:   AVX28I<Op, MRMSrcReg, (outs RC:$dst),
+                (ins RC:$src1, RC:$src2, RC:$src3),
+                OpcodeStr#"\t{$src3, $src2, $dst|$dst, $src2, $src3}",
+                [(set RC:$dst, (OpVT (OpNode RC:$src1, RC:$src2, RC:$src3)))]>,
+                VEX_4V, Sched<[sched]>;
+    def rm:   AVX28I<Op, MRMSrcMem, (outs RC:$dst),
+                (ins RC:$src1, RC:$src2, MemOpFrag:$src3),
+                OpcodeStr#"\t{$src3, $src2, $dst|$dst, $src2, $src3}",
+                [(set RC:$dst, (OpVT (OpNode RC:$src1, RC:$src2,
+                               (X86MemOp addr:$src3))))]>,
+                VEX_4V, Sched<[sched.Folded, sched.ReadAfterFold]>;
+  }
+}
+
+multiclass avxcompress_shift_var<bits<8> Opcdq, bits<8> Opcw, string OpcodeStr,
+                                 SDNode OpNode, X86SchedWriteWidths sched> {
+  defm W  : avxcompress_shift_var_rm<Opcw, OpcodeStr#"w", OpNode, sched.XMM,
+                                  v8i16, i128mem, loadv8i16, VR128>, VEX_W;
+  defm D  : avxcompress_shift_var_rm<Opcdq, OpcodeStr#"d", OpNode, sched.XMM,
+                                  v4i32, i128mem, loadv4i32, VR128>;
+  defm Q  : avxcompress_shift_var_rm<Opcdq, OpcodeStr#"q", OpNode, sched.XMM,
+                                  v2i64, i128mem, loadv2i64, VR128>, VEX_W;
+  defm WY : avxcompress_shift_var_rm<Opcw, OpcodeStr#"w", OpNode, sched.YMM,
+                                  v16i16, i256mem, loadv16i16, VR256>,
+                                  VEX_W, VEX_L;
+  defm DY : avxcompress_shift_var_rm<Opcdq, OpcodeStr#"d", OpNode, sched.YMM,
+                                  v8i32, i256mem, loadv8i32, VR256>, VEX_L;
+  defm QY : avxcompress_shift_var_rm<Opcdq, OpcodeStr#"q", OpNode, sched.YMM,
+                                  v4i64, i256mem, loadv4i64, VR256>,
+                                  VEX_W, VEX_L;
+}
+
+defm VPSHLDV : avxcompress_shift_var<0x71, 0x70, "vpshldv", X86VShldv,
+                                     SchedWriteVecIMul>, ExplicitVEXPrefix;
+defm VPSHRDV : avxcompress_shift_var<0x73, 0x72, "vpshrdv", X86VShrdv,
+                                     SchedWriteVecIMul>, ExplicitVEXPrefix;
+
+// VPSH[L,R]D[W,D,Q]
+multiclass avxcompress_3Op_rm_imm8<bits<8> Op, string OpcodeStr, SDNode OpNode,
+                   X86FoldableSchedWrite sched, ValueType OpVT, PatFrag MemOpFrag,
+                   X86MemOperand X86MemOp, RegisterClass RC> {
+  let Predicates = [HasAVXCOMPRESS, In64BitMode, NoVLX_Or_NoVBMI2] in {
+    def rri : AVX2AIi8<Op, MRMSrcReg, (outs RC:$dst),
+        (ins RC:$src1, RC:$src2, u8imm:$src3),
+        OpcodeStr#"\t{$src3, $src2, $src1, $dst|$dst, $src1, $src2, $src3}",
+        [(set RC:$dst, (OpVT (OpNode RC:$src1, RC:$src2, timm:$src3)))]>,
+        VEX_4V, Sched<[sched]>;
+    def rmi : AVX2AIi8<Op, MRMSrcMem, (outs RC:$dst),
+        (ins RC:$src1, MemOpFrag:$src2, u8imm:$src3),
+        OpcodeStr#"\t{$src3, $src2, $src1, $dst|$dst, $src1, $src2, $src3}",
+        [(set RC:$dst, (OpVT (OpNode RC:$src1, (OpVT (X86MemOp addr:$src2)),
+                                                timm:$src3)))]>, VEX_4V,
+        Sched<[sched.Folded, sched.ReadAfterFold]>;
+  }
+}
+
+multiclass avxcompress_3Op_imm8<bits<8> Opcdq, bits<8> Opcw, string OpcodeStr,
+                                 SDNode OpNode, X86SchedWriteWidths sched> {
+  defm W  : avxcompress_3Op_rm_imm8<Opcw, OpcodeStr#"w", OpNode, sched.XMM,
+                              v8i16, i128mem, loadv8i16, VR128>, VEX_W;
+  defm D  : avxcompress_3Op_rm_imm8<Opcdq, OpcodeStr#"d", OpNode, sched.XMM,
+                              v4i32, i128mem, loadv4i32, VR128>;
+  defm Q  : avxcompress_3Op_rm_imm8<Opcdq, OpcodeStr#"q", OpNode, sched.XMM,
+                              v2i64, i128mem, loadv2i64, VR128>, VEX_W;
+  defm WY : avxcompress_3Op_rm_imm8<Opcw, OpcodeStr#"w", OpNode, sched.YMM,
+                              v16i16, i256mem, loadv16i16, VR256>, VEX_W, VEX_L;
+  defm DY : avxcompress_3Op_rm_imm8<Opcdq, OpcodeStr#"d", OpNode, sched.YMM,
+                              v8i32, i256mem, loadv8i32, VR256>, VEX_L;
+  defm QY : avxcompress_3Op_rm_imm8<Opcdq, OpcodeStr#"q", OpNode, sched.YMM,
+                              v4i64, i256mem, loadv4i64, VR256>, VEX_W, VEX_L;
+}
+
+defm VPSHLD : avxcompress_3Op_imm8<0x71, 0x70, "vpshld", X86VShld,
+                                   SchedWriteVecIMul>, ExplicitVEXPrefix;
+defm VPSHRD : avxcompress_3Op_imm8<0x73, 0x72, "vpshrd", X86VShrd,
+                                   SchedWriteVecIMul>, ExplicitVEXPrefix;
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
 #endif // INTEL_CUSTOMIZATION

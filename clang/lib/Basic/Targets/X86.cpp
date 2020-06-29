@@ -712,6 +712,9 @@ void X86TargetInfo::setSSELevel(llvm::StringMap<bool> &Features,
 #if INTEL_FEATURE_ISA_AVX_BF16
     Features["avxbf16"] = false;
 #endif // INTEL_FEATURE_ISA_AVX_BF16
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+    Features["avxcompress"] = false;
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
 #endif // INTEL_CUSTOMIZATION
     LLVM_FALLTHROUGH;
   case AVX512F:
@@ -1117,6 +1120,11 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
     setSSELevel(Features, AVX2, Enabled);
   }
 #endif // INTEL_FEATURE_ISA_AVX_BF16
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  else if (Name == "avxcompress" && Enabled) {
+    setSSELevel(Features, AVX2, Enabled);
+  }
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -1370,6 +1378,10 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+avxbf16") {
       HasAVXBF16 = true;
 #endif // INTEL_FEATURE_ISA_AVX_BF16
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+    } else if (Feature == "+avxcompress") {
+      HasAVXCOMPRESS = true;
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
 #endif // INTEL_CUSTOMIZATION
     } else if (Feature == "+serialize") {
       HasSERIALIZE = true;
@@ -1943,6 +1955,11 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AVXBF16__");
   Builder.defineMacro("__AVXBF16_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AVX_BF16
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  if (HasAVXCOMPRESS)
+    Builder.defineMacro("__AVXCOMPRESS__");
+  Builder.defineMacro("__AVXCOMPRESS_SUPPORTED__");
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
@@ -2233,6 +2250,9 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
 #if INTEL_FEATURE_ISA_AVX_CONVERT
       .Case("avxconvert", true)
 #endif // INTEL_FEATURE_ISA_AVX_CONVERT
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+      .Case("avxcompress", true)
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
 #endif // INTEL_CUSTOMIZATION
       .Default(false);
 }
@@ -2335,6 +2355,9 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
 #if INTEL_FEATURE_ISA_AVX_CONVERT
       .Case("avxconvert", HasAVXCONVERT)
 #endif // INTEL_FEATURE_ISA_AVX_CONVERT
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+      .Case("avxcompress", HasAVXCOMPRESS)
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
 #endif // INTEL_CUSTOMIZATION
       .Case("bmi", HasBMI)
       .Case("bmi2", HasBMI2)

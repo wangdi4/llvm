@@ -1415,7 +1415,7 @@ static void debugPrintBuildLog(cl_program program, cl_device_id did) {
   std::vector<char> buffer(len);
   CALL_CL_RET_VOID(clGetProgramBuildInfo, program, did, CL_PROGRAM_BUILD_LOG,
                    len, buffer.data(), nullptr);
-  DPI("%s\n", buffer.data());
+  DP("%s\n", buffer.data());
 #endif // INTEL_CUSTOMIZATION
 }
 

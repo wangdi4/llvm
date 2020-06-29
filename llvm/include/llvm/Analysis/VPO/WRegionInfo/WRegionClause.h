@@ -1081,8 +1081,8 @@ class UseDevicePtrItem : public Item
   MapItem *InMap;
   bool IsUseDeviceAddr; // true only if parsing a use_device_addr clause
 public:
-  UseDevicePtrItem(VAR Orig) : Item(Orig, IK_UseDevicePtr),
-                               IsUseDeviceAddr(false) {}
+  UseDevicePtrItem(VAR Orig)
+      : Item(Orig, IK_UseDevicePtr), InMap(nullptr), IsUseDeviceAddr(false) {}
   void setInMap(MapItem *MI) { InMap = MI; }
   void setIsUseDeviceAddr(bool Flag) { IsUseDeviceAddr = Flag; }
   MapItem *getInMap() const { return InMap; }

@@ -468,7 +468,7 @@ Type* calcCharacteristicType(Function& F, VectorVariant& Variant);
 inline VectorType *getWidenedType(Type *Ty, unsigned VF) {
   unsigned NumElts =
       Ty->isVectorTy() ? cast<VectorType>(Ty)->getNumElements() * VF : VF;
-  return VectorType::get(Ty->getScalarType(), NumElts);
+  return FixedVectorType::get(Ty->getScalarType(), NumElts);
 }
 
 /// \brief Get all functions marked for vectorization in module and their

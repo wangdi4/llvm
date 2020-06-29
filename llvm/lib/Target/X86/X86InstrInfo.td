@@ -955,6 +955,14 @@ def HasVLX       : Predicate<"Subtarget->hasVLX()">;
 def NoVLX        : Predicate<"!Subtarget->hasVLX()">;
 def NoVLX_Or_NoBWI : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasBWI()">;
 def NoVLX_Or_NoDQI : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasDQI()">;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+def NoVLX_Or_NoVBMI2 : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasVBMI2()">;
+def NoVLX_Or_NoCDI   : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasCDI()">;
+def NoVLX_Or_NoVPOPCNTDQ : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasVPOPCNTDQ()">;
+def NoVLX_Or_NoBITALG    : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasBITALG()">;
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
 def PKU        : Predicate<"Subtarget->hasPKU()">;
 def HasVNNI    : Predicate<"Subtarget->hasVNNI()">;
 def HasVP2INTERSECT : Predicate<"Subtarget->hasVP2INTERSECT()">;
@@ -962,9 +970,11 @@ def HasBF16      : Predicate<"Subtarget->hasBF16()">;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX_BF16
 def HasAVXBF16   : Predicate<"Subtarget->hasAVXBF16()">;
+def NoVLX_Or_NoBF16 : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasBF16()">;
 #endif // INTEL_FEATURE_ISA_AVX_BF16
 #if INTEL_FEATURE_ISA_AVX_VNNI
 def HasAVXVNNI : Predicate <"Subtarget->hasAVXVNNI()">;
+def NoVLX_Or_NoVNNI : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasVNNI()">;
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
 #endif // INTEL_CUSTOMIZATION
 
@@ -992,7 +1002,7 @@ def NoVLX_Or_NoAVX512DOTPRODPHPS :
     Predicate<"!Subtarget->hasVLX() || !Subtarget->hasAVX512DOTPRODPHPS()">;
 #endif // INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
 #if INTEL_FEATURE_ISA_AVX512_CONVERT
-def HasCONVERT   : Predicate<"Subtarget->hasCONVERT()">;
+def HasCONVERT : Predicate<"Subtarget->hasCONVERT()">;
 #endif // INTEL_FEATURE_ISA_AVX512_CONVERT
 #if INTEL_FEATURE_ISA_AVX_CONVERT
 def HasAVXCONVERT   : Predicate<"Subtarget->hasAVXCONVERT()">;
@@ -1039,6 +1049,7 @@ def HasIFMA      : Predicate<"Subtarget->hasIFMA()">;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AVX_IFMA
 def HasAVXIFMA   : Predicate<"Subtarget->hasAVXIFMA()">;
+def NoVLX_Or_NoIFMA : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasIFMA()">;
 #endif // INTEL_FEATURE_ISA_AVX_IFMA
 #endif // INTEL_CUSTOMIZATION
 def HasRTM       : Predicate<"Subtarget->hasRTM()">;

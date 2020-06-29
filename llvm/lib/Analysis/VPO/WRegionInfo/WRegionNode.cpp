@@ -112,6 +112,7 @@ void WRegionNode::finalize(Instruction *ExitDir, DominatorTree *DT) {
   // Update the IsInFirstprivate/Lastprivate/Map flags of the clauses
   bool hasLastprivate = (canHaveLastprivate() && !getLpriv().empty());
   bool hasMap = (canHaveMap() && !getMap().empty());
+  bool hasUDP = (canHaveUseDevicePtr() && !getUseDevicePtr().empty());
   if ((hasLastprivate || hasMap) && canHaveFirstprivate()) {
     for (FirstprivateItem *FprivI : getFpriv().items()) {
       Value *Orig = FprivI->getOrig();
@@ -136,6 +137,31 @@ void WRegionNode::finalize(Instruction *ExitDir, DominatorTree *DT) {
                              << ") in both Firstprivate and Map\n");
         }
       }
+    }
+  }
+
+  // UseDevicePtr clause items might also be present in Map clause. Update
+  // InMap/InUseDevicePtr fields for them.
+  if (hasUDP && hasMap) {
+    for (UseDevicePtrItem *UDPI : getUseDevicePtr().items()) {
+      // For use_device_ptr:ptr_to_ptr(i32** %x), the mapped value needs to be
+      // a load from %x (e.g %x.val = load i32*, i32** %x), and not %x itself.
+      // It's not reliable to search for a map on a load, using %x. So, we skip
+      // it. We'll create another map for this case in
+      // VPOParoptTransform::addMapForUseDevicePtr().
+      if (UDPI->getIsPointerToPointer())
+        continue;
+
+      Value *Orig = UDPI->getOrig();
+      MapItem *MapI = WRegionUtils::wrnSeenAsMap(this, Orig);
+      if (!MapI)
+        continue;
+
+      // Orig appears in both use_device_ptr and map clauses
+      UDPI->setInMap(MapI);
+      MapI->setInUseDevicePtr(UDPI);
+      LLVM_DEBUG(dbgs() << "Found (" << *Orig
+                        << ") in both UseDevicePtr and Map\n");
     }
   }
 
@@ -1422,7 +1448,11 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
         // IVs are all null or nonnull; cannot have some null and some nonnull
         break;
       }
-      getWRNLoopInfo().addNormIV(V);
+      // TODO: OPAQUEPOINTER: Add this information in the clause
+      Type *VTy = isa<PointerType>(V->getType())
+                      ? cast<PointerType>(V->getType())->getElementType()
+                      : V->getType();
+      getWRNLoopInfo().addNormIV(V, VTy);
     }
     break;
   case QUAL_OMP_NORMALIZED_UB:
@@ -1433,7 +1463,11 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
         assert(I==0 && "malformed NORMALIZED_UB clause");
         break;
       }
-      getWRNLoopInfo().addNormUB(V);
+      // TODO: OPAQUEPOINTER: Add this information in the clause
+      Type *VTy = isa<PointerType>(V->getType())
+                      ? cast<PointerType>(V->getType())->getElementType()
+                      : V->getType();
+      getWRNLoopInfo().addNormUB(V, VTy);
     }
     break;
   case QUAL_OMP_OFFLOAD_NDRANGE: {

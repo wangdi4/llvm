@@ -65,6 +65,7 @@ entry:
 ; CRITICAL: call void @_ZTSSt7complexIfE.omp.destr(%"struct.std::complex"* %sum.red)
 
 ; FASTRED-NOT: "QUAL.OMP.REDUCTION.UDR"
+; FASTRED-NOT: __kmpc_atomic
 ; FASTRED: call void @.omp_initializer.(%"struct.std::complex"* %sum.red, %"struct.std::complex"* %sum)
 ; FASTRED: call i32 @__kmpc_reduce({{.*}})
 ; FASTRED-DAG: call void @.omp_combiner.(%"struct.std::complex"* %sum, %"struct.std::complex"* %sum.fast_red)

@@ -4227,7 +4227,7 @@ int X86TTIImpl::getGatherScatterOpCost(unsigned Opcode, Type *SrcVTy,
 
 #if INTEL_CUSTOMIZATION
   if (Scalarize)
-    return getGSScalarCost(Opcode, VectorType::get(PtrTy, VF), SrcVTy,
+    return getGSScalarCost(Opcode, FixedVectorType::get(PtrTy, VF), SrcVTy,
                            VariableMask, Alignment, AddressSpace);
 #endif // INTEL_CUSTOMIZATION
 
@@ -4262,7 +4262,7 @@ int X86TTIImpl::getGatherScatterOpCost(unsigned Opcode, Type *SrcVTy,
     Scalarize = true;
 
   if (Scalarize)
-    return getGSScalarCost(Opcode, VectorType::get(PtrTy, VF), SrcVTy,
+    return getGSScalarCost(Opcode, FixedVectorType::get(PtrTy, VF), SrcVTy,
                            VariableMask, Alignment, AddressSpace);
 
   return getGSVectorCost(Opcode, SrcVTy, IndexSize, Alignment, AddressSpace);
@@ -4435,7 +4435,7 @@ bool X86TTIImpl::adjustCallArgs(CallInst* CI) {
   LLVMContext &C(CI->getFunction()->getContext());
   Type *Int32Ty = Type::getInt32Ty(C);
   Type *Int64Ty = Type::getInt64Ty(C);
-  Type* newType = VectorType::get(firstOpType->isDoubleTy()?
+  Type* newType = FixedVectorType::get(firstOpType->isDoubleTy()?
                                   Int64Ty : Int32Ty,
                                   firstOpType->getNumElements());
   lastOp = Builder.CreateSExt(lastOp, newType, "extMask");

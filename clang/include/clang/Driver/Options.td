@@ -3583,6 +3583,10 @@ def mno_avxbf16 : Flag<["-"], "mno-avxbf16">, Group<m_x86_Features_Group>;
 def mavxifma : Flag<["-"], "mavxifma">, Group<m_x86_Features_Group>;
 def mno_avxifma : Flag<["-"], "mno-avxifma">, Group<m_x86_Features_Group>;
 #endif // INTEL_FEATURE_ISA_AVX_IFMA
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+def mavxcompress : Flag<["-"], "mavxcompress">, Group<m_x86_Features_Group>;
+def mno_avxcompress : Flag<["-"], "mno-avxcompress">, Group<m_x86_Features_Group>;
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
 #if INTEL_FEATURE_ISA_AVX_CONVERT
 def mavxconvert : Flag<["-"], "mavxconvert">, Group<m_x86_Features_Group>;
 def mno_avxconvert : Flag<["-"], "mno-avxconvert">, Group<m_x86_Features_Group>;

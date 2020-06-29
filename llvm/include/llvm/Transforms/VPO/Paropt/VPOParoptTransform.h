@@ -555,6 +555,14 @@ private:
   /// Generate the reduction code for reduction clause.
   bool genReductionCode(WRegionNode *W);
 
+  // Fast reduction mode: none, tree reduction and atomic.
+  // Used for return value of checkFastReduction.
+  enum FastReductionMode : int {
+    FastReductionNoneMode = 0,
+    FastReductionTreeOnlyMode = 1,
+    FastReductionAtomicMode = 2
+  };
+
   /// Check if it's array reduction (type of reduction variable is array).
   bool isArrayReduction(ReductionItem *I);
 
@@ -587,6 +595,11 @@ private:
   Value *genFastRedPrivateVariable(ReductionItem *RedI, unsigned ItemIndex,
                                    Type *FastRedStructTy, Value *FastRedInst,
                                    Instruction *InsertPt);
+
+  /// Generate reduce blocks for tree and atomic reduction.
+  void genFastReduceBB(WRegionNode *W, FastReductionMode Mode,
+                       StructType *FastRedStructTy, Value *FastRedVar,
+                       BasicBlock *EntryBB, BasicBlock *EndBB);
 
   /// For the given region \p W returns a BasicBlock, where
   /// new alloca instructions may be inserted.
