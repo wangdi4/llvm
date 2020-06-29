@@ -120,24 +120,15 @@
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Casting.h"
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
 #include "llvm/Support/CommandLine.h"
-#endif // INTEL_CUSTOMIZATION
-=======
-#include "llvm/Support/CommandLine.h"
->>>>>>> dccfaacf93e1c4801cbcc4686f64eb8a35564ff7
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Scalar.h"
-<<<<<<< HEAD
 #if INTEL_COLLAB
 #include "llvm/Transforms/Utils/InferAddressSpacesUtils.h"
 #endif // INTEL_COLLAB
-=======
->>>>>>> dccfaacf93e1c4801cbcc4686f64eb8a35564ff7
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include <cassert>
