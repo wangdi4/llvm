@@ -2560,12 +2560,8 @@ INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(PhiValuesWrapperPass)
-<<<<<<< HEAD
 INITIALIZE_PASS_DEPENDENCY(XmainOptLevelWrapperPass) // INTEL
-INITIALIZE_PASS_END(BasicAAWrapperPass, "basicaa",
-=======
 INITIALIZE_PASS_END(BasicAAWrapperPass, "basic-aa",
->>>>>>> 0c6bf90b568ff832f1465959d6adca219da84513
                     "Basic Alias Analysis (stateless AA impl)", true, true)
 
 FunctionPass *llvm::createBasicAAWrapperPass() {
