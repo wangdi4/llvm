@@ -3,7 +3,6 @@
 ; llvm.intel.wholeprogramsafe should be removed.
 
 ; RUN: opt < %s -pre-isel-intrinsic-lowering -S 2>&1 | FileCheck %s
-; RUN: opt < %s -passes='pre-isel-intrinsic-lowering' -S 2>&1 | FileCheck %s
 
 declare i1 @llvm.intel.wholeprogramsafe()
 
