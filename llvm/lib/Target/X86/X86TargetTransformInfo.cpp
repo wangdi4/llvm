@@ -4248,9 +4248,9 @@ int X86TTIImpl::getGatherScatterOpCost(unsigned Opcode, Type *SrcVTy,
 
   bool Scalarize = false;
   if ((Opcode == Instruction::Load &&
-       !isLegalMaskedGather(SrcVTy, MaybeAlign(Alignment))) ||
+       !isLegalMaskedGather(SrcVTy, Align(Alignment))) ||
       (Opcode == Instruction::Store &&
-       !isLegalMaskedScatter(SrcVTy, MaybeAlign(Alignment))))
+       !isLegalMaskedScatter(SrcVTy, Align(Alignment))))
     Scalarize = true;
   // Gather / Scatter for vector 2 is not profitable on KNL / SKX
   // Vector-4 of gather/scatter instruction does not exist on KNL.
@@ -4382,7 +4382,6 @@ bool X86TTIImpl::isLegalMaskedCompressStore(Type *DataTy) {
   return isLegalMaskedExpandLoad(DataTy);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 bool X86TTIImpl::isAdvancedOptEnabled(TTI::AdvancedOptLevel AO) const {
     const TargetMachine &TM = getTLI()->getTargetMachine();
@@ -4466,10 +4465,7 @@ bool X86TTIImpl::adjustCallArgs(CallInst* CI) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-bool X86TTIImpl::isLegalMaskedGather(Type *DataTy, MaybeAlign Alignment) {
-=======
 bool X86TTIImpl::isLegalMaskedGather(Type *DataTy, Align Alignment) {
->>>>>>> 324cda2073d1eba1758ab7529af3f3880d6f18c6
   // Some CPUs have better gather performance than others.
   // TODO: Remove the explicit ST->hasAVX512()?, That would mean we would only
   // enable gather with a -march.
