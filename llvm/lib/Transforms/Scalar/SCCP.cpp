@@ -1267,7 +1267,7 @@ void SCCPSolver::handleCallArguments(CallBase &CB) {
 
   // Then do the same for the callback call sites if enabled.
   if (EnableCallbacks)
-    for_each_callback_callsite(CB, [&HandleArgs](AbstractCallSite &ACS) {
+    forEachCallbackCallSite(CB, [&HandleArgs](AbstractCallSite &ACS) {
       HandleArgs(ACS, /*IsCallback=*/true,
                  [&ACS](Argument &A) { return ACS.getCallArgOperand(A); });
     });
