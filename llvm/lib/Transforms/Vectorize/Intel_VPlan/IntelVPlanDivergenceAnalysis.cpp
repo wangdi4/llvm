@@ -740,7 +740,7 @@ void VPlanDivergenceAnalysis::print(raw_ostream &OS, const VPLoop *VPLp) {
   for (VPBasicBlock *VPBB : RPOT) {
     OS << "Basic Block: " << VPBB->getName() << "\n";
     for (auto &VPInst : *VPBB) {
-      if (!PrintTerminatorInst && isa<VPTerminator>(VPInst))
+      if (!PrintTerminatorInst && isa<VPBranchInst>(VPInst))
         continue;
       if (isDivergent(VPInst))
         OS << "Divergent: ";
@@ -1350,7 +1350,7 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
   else if (Opcode == Instruction::Call)
     NewShape = computeVectorShapeForCallInst(I);
   else if (Opcode == Instruction::Br) {
-    VPValue *CondBit = cast<VPTerminator>(I)->getCondBit();
+    VPValue *CondBit = cast<VPBranchInst>(I)->getCondBit();
     NewShape = !CondBit ? getUniformVectorShape()
                         : getObservedShape(ParentBB, *CondBit);
   } else if (Instruction::isUnaryOp(Opcode))

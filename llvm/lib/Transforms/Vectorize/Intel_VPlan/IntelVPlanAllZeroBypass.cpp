@@ -334,7 +334,7 @@ void VPlanAllZeroBypass::collectAllZeroBypassRegions(
                    // (i.e., regions are formed while maintaining proper SSA).
                    return (!isa<VPPHINode>(VPInst) &&
                            !isa<VPBlendInst>(VPInst) &&
-                           !isa<VPTerminator>(VPInst) &&
+                           !isa<VPBranchInst>(VPInst) &&
                            !isStricterOrEqualPred(VPInst, CandidateBlockPred));
                  }))
         break;

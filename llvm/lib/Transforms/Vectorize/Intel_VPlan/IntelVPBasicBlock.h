@@ -47,11 +47,11 @@ class VPlan;
 class VPlanDivergenceAnalysis;
 class VPLoopInfo;
 class VPValue;
+class VPBranchInst;
 class VPDominatorTree;
 class VPOCodeGenHIR;
 class VPPostDominatorTree;
 class VPPHINode;
-class VPTerminator;
 struct TripCountInfo;
 
 // llvm::mapped_itrator has limited support of functions returning by value.
@@ -368,8 +368,8 @@ public:
     TCInfo = std::move(OtherBB->TCInfo);
   }
 
-  VPTerminator *getTerminator();
-  const VPTerminator *getTerminator() const;
+  VPBranchInst *getTerminator();
+  const VPBranchInst *getTerminator() const;
 
 private:
   /// Create an IR BasicBlock to hold the instructions vectorized from this
