@@ -57,7 +57,6 @@ set(GENERIC_SOURCES
   absvti2.c
   adddf3.c
   addsf3.c
-  addtf3.c
   addvdi3.c
   addvsi3.c
   addvti3.c
@@ -86,9 +85,7 @@ set(GENERIC_SOURCES
   divsc3.c
   divsf3.c
   divsi3.c
-  divtc3.c
   divti3.c
-  divtf3.c
   extendsfdf2.c
   extendhfsf2.c
   ffsdi2.c
@@ -134,7 +131,6 @@ set(GENERIC_SOURCES
   mulsc3.c
   mulsf3.c
   multi3.c
-  multf3.c
   mulvdi3.c
   mulvsi3.c
   mulvti3.c
@@ -154,13 +150,11 @@ set(GENERIC_SOURCES
   popcountti2.c
   powidf2.c
   powisf2.c
-  powitf2.c
   subdf3.c
   subsf3.c
   subvdi3.c
   subvsi3.c
   subvti3.c
-  subtf3.c
   trampoline_setup.c
   truncdfhf2.c
   truncdfsf2.c
@@ -179,7 +173,10 @@ set(GENERIC_SOURCES
 )
 
 set(GENERIC_TF_SOURCES
+  addtf3.c
   comparetf2.c
+  divtc3.c
+  divtf3.c
   extenddftf2.c
   extendsftf2.c
   fixtfdi.c
@@ -195,6 +192,9 @@ set(GENERIC_TF_SOURCES
   floatunsitf.c
   floatuntitf.c
   multc3.c
+  multf3.c
+  powitf2.c
+  subtf3.c
   trunctfdf2.c
   trunctfsf2.c
 )
