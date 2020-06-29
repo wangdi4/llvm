@@ -84,12 +84,13 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		*				call as Read<T>(key, default_value)
 		* Arguments:	const string& key [in]		reference to the string that represnts the key
 		*				const T& value [in]			reference to the default value
+		*		bool loadEnvFirst  define whether read the value from environment variables first or not
 		* Return value:	class T - the value which assign to the key
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
 		template<class T>
-		T Read( const string& strKey, const T& value ) const;
+		T Read( const string& strKey, const T& value, bool loadEnvFirst = true) const;
 
 		/******************************************************************************************
 		* Function: 	ReadInto
@@ -357,14 +358,18 @@ namespace Intel { namespace OpenCL { namespace Utils {
 	}
 
 	template<class T>
-	T ConfigFile::Read( const string& key, const T& value ) const
+	T ConfigFile::Read( const string& key, const T& value, bool loadEnvFirst) const
 	{
 		// search first for environment variable
 		string strEnv;
-		cl_err_code clErr = Intel::OpenCL::Utils::GetEnvVar(strEnv, key);
-		if (CL_SUCCEEDED(clErr))
+		// For some key, we only load value from config file.
+		if (loadEnvFirst)
 		{
+                    cl_err_code clErr = Intel::OpenCL::Utils::GetEnvVar(strEnv, key);
+                    if (CL_SUCCEEDED(clErr))
+		    {
 			return ConvertStringToType<T>( strEnv );
+		    }
 		}
 
 		// Return the value corresponding to key or given default value

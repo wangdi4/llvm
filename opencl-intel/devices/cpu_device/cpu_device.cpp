@@ -310,7 +310,7 @@ cl_dev_err_code CPUDevice::Init()
     // We need to pass some options from cl.cfg to GlobalCompilerConfig
     ProgramConfig programConfig;
     programConfig.InitFromCpuConfig(m_CPUDeviceConfig);
-    ret = m_backendWrapper.Init(&programConfig);
+    ret = m_backendWrapper.Init(&programConfig, m_CPUDeviceConfig.GetDeviceMode());
     if (CL_DEV_FAILED(ret))
     {
         return CL_DEV_ERROR_FAIL;
@@ -2998,7 +2998,14 @@ const char* CPUDevice::clDevFEModuleName() const
 #else
     static const char* sFEModuleName = "clang_compiler";
 #endif
-    return sFEModuleName;
+
+#ifndef OUTPUT_EMU_SUFF
+#define OUTPUT_EMU_SUFF "_emu"
+#endif
+    static string FEModuleNameStr = std::string(sFEModuleName) + std::string(OUTPUT_EMU_SUFF);
+    static const char* sFEModuleName_emu = FEModuleNameStr.c_str();
+
+    return FPGA_EMU_DEVICE == m_CPUDeviceConfig.GetDeviceMode() ? sFEModuleName_emu : sFEModuleName;
 }
 
 const void* CPUDevice::clDevFEDeviceInfo() const

@@ -48,6 +48,8 @@ vector<string> OCLConfig::GetDevices() const
 {
 	vector<string> vectDevices;
 	string s = DEFAULT_DEVICES_LIB_LIST;
+	if (GetDeviceMode() == FPGA_EMU_DEVICE)
+            s += OUTPUT_EMU_SUFF;
 	ConfigFile::tokenize(s, vectDevices);
 	return vectDevices;
 }

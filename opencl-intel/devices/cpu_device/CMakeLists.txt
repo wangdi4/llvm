@@ -7,6 +7,13 @@
 # set that name of the main output file as a target name
 set( TARGET_NAME cpu_device${BUILD_PLATFORM} )
 
+# set emulator target name
+# FIXME: that is a hack to build both CPU and FPGA emulator libs within a single
+# building process. Better solutions:
+# - Merge _all_ CPU RT libraries into one;
+# - Make both CPU and FPGA emu platforms be accessible from a single binary set.
+set( TARGET_NAME_EMU ${TARGET_NAME}_${OUTPUT_EMU_SUFF})
+
 set( CMAKE_CXX_FLAGS_DEBUG "-DOCLDEVICE_PLUGINS ${CMAKE_CXX_FLAGS_DEBUG}")
 
 if (NOT WIN32)
@@ -87,15 +94,41 @@ add_opencl_library (${TARGET_NAME} SHARED
       device_commands
       ${LINK_LIBS}
 
-    RC_TEMPLATE DEFAULT)
+    RC_TEMPLATE DEFAULT
+
+    INSTALL_PATH
+      ${OUTPUT_ARCH_SUFF})
+
+# add an FPGA emulator library
+add_opencl_library (${TARGET_NAME_EMU} SHARED
+    ${TARGET_SOURCES}
+
+    COMPONENTS
+      task_executor${BUILD_PLATFORM}_${OUTPUT_EMU_SUFF}
+      cl_logger_${OUTPUT_EMU_SUFF}
+
+    LINK_LIBS
+      ${HW_UTILS_PROJ_NAME}
+      cl_sys_utils
+      device_commands
+      ${LINK_LIBS}
+
+    RC_TEMPLATE DEFAULT
+
+    INSTALL_PATH
+      ${OUTPUT_EMU_SUFF})
 
 SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} cpu_device_linux_exports.txt )
+#SET_LINUX_EXPORTS_FILE( ${TARGET_NAME_EMU} cpu_device_linux_exports.txt )
 
 if (INCLUDE_MKL)
     target_link_libraries( ${TARGET_NAME} LINK_PRIVATE ${MKL_LINK_LIBS})
+    # FIXME: do we have support of MKL on the emulator?
+    target_link_libraries( ${TARGET_NAME_EMU} LINK_PRIVATE ${MKL_LINK_LIBS})
 endif(INCLUDE_MKL)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${DEVICES_FOLDER_NAME} )
+set_target_properties( ${TARGET_NAME_EMU} PROPERTIES FOLDER ${DEVICES_FOLDER_NAME} )
 
 if (WIN32)
     get_target_property(LK_FLAGS_DEBUG ${TARGET_NAME} LINK_FLAGS_DEBUG)
@@ -103,9 +136,16 @@ if (WIN32)
     set_target_properties (${TARGET_NAME} PROPERTIES
         LINK_FLAGS_DEBUG "${LK_FLAGS_DEBUG} /NODEFAULTLIB:MSVCRT /DELAYLOAD:tbbmalloc_debug.dll /DELAYLOAD:task_executor${BUILD_PLATFORM}.dll"
         LINK_FLAGS_RELEASE  "${LK_FLAGS_RELEASE} /DELAYLOAD:tbbmalloc.dll /DELAYLOAD:task_executor${BUILD_PLATFORM}.dll")
+
+    get_target_property(LK_FLAGS_DEBUG ${TARGET_NAME_EMU} LINK_FLAGS_DEBUG)
+    get_target_property(LK_FLAGS_RELEASE ${TARGET_NAME_EMU} LINK_FLAGS_RELEASE)
+    set_target_properties (${TARGET_NAME_EMU} PROPERTIES
+        LINK_FLAGS_DEBUG "${LK_FLAGS_DEBUG} /NODEFAULTLIB:MSVCRT /DELAYLOAD:tbbmalloc_debug.dll /DELAYLOAD:task_executor${BUILD_PLATFORM}_${OUTPUT_EMU_SUFF}.dll"
+        LINK_FLAGS_RELEASE  "${LK_FLAGS_RELEASE} /DELAYLOAD:tbbmalloc.dll /DELAYLOAD:task_executor${BUILD_PLATFORM}_${OUTPUT_EMU_SUFF}.dll")
 else (WIN32)
     if (INCLUDE_MKL)
         #need explicitly set the full path to prevent failure in cpu_device_type compilation
         set_property (TARGET ${TARGET_NAME} APPEND_STRING PROPERTY LINK_FLAGS " -Wl,-z,defs")
+        set_property (TARGET ${TARGET_NAME_EMU} APPEND_STRING PROPERTY LINK_FLAGS " -Wl,-z,defs")
     endif (INCLUDE_MKL)
 endif (WIN32)

@@ -18,6 +18,8 @@ set( CCLANG_LIBRARY_VERSION "${PRODUCTVER_MAJOR}.${CCLANG_MAJOR_VERSION}.${PRODU
 # set that name of the main output file as a target name
 set( TARGET_NAME clang_compiler${BUILD_PLATFORM} )
 
+set( TARGET_NAME_EMU ${TARGET_NAME}_${OUTPUT_EMU_SUFF} )
+
 # Embed RPATH/RUNPATH for libraries which dependencies aren't in the standard system library directories
 include(embed.rpath)
 
@@ -94,6 +96,25 @@ endif (WIN32)
 
 add_subdirectory(pre_release_header)
 
+set(LINK_LIBS
+    OclPluginManager
+    CacheBinaryHandler
+    CLElfLib
+    name_mangle
+    dynamic_load
+    cl_sys_utils
+    # LLVM LIBS
+    # Doing so must be done with caution as cclang export all the symbols
+    # on Linux (CORC-159). So one can never know which LLVM symbol (this or from cclang) would
+    # be actually used for every particular call to LLVM.
+    LLVMBitWriter
+    LLVMCore
+    LLVMLinker
+    LLVMOption
+    LLVMSupport
+    LLVMSPIRVLib
+)
+
 add_opencl_library (${TARGET_NAME} SHARED
     ${TARGET_SOURCES}
     $<TARGET_OBJECTS:pre_release_header>
@@ -105,28 +126,36 @@ add_opencl_library (${TARGET_NAME} SHARED
 
     LINK_LIBS
       ${COMMON_CLANG_LIB}
-      OclPluginManager
-      CacheBinaryHandler
-      CLElfLib
-      name_mangle
-      dynamic_load
-      cl_sys_utils
-      # LLVM LIBS
-      # Doing so must be done with caution as cclang export all the symbols
-      # on Linux (CORC-159). So one can never know which LLVM symbol (this or from cclang) would
-      # be actually used for every particular call to LLVM.
-      LLVMBitWriter
-      LLVMCore
-      LLVMLinker
-      LLVMOption
-      LLVMSupport
-      LLVMSPIRVLib
+      ${LINK_LIBS}
 
     RC_TEMPLATE DEFAULT
+
+    INSTALL_PATH
+      ${OUTPUT_ARCH_SUFF}
+)
+
+add_opencl_library (${TARGET_NAME_EMU} SHARED
+    ${TARGET_SOURCES}
+    $<TARGET_OBJECTS:pre_release_header>
+    INCLUDE_DIRS
+      ${INCLUDE_DIRS}
+
+    COMPONENTS
+      cl_logger_${OUTPUT_EMU_SUFF}
+
+    LINK_LIBS
+      ${COMMON_CLANG_LIB}
+      ${LINK_LIBS}
+
+    RC_TEMPLATE DEFAULT
+
+    INSTALL_PATH
+      ${OUTPUT_EMU_SUFF}
 )
 
 if (OPENCL_INTREE_BUILD)
   add_dependencies(${TARGET_NAME} common_clang${BUILD_PLATFORM})
+  add_dependencies(${TARGET_NAME_EMU} common_clang${BUILD_PLATFORM})
 endif()
 
 if (WIN32)
@@ -134,6 +163,7 @@ if (WIN32)
 endif (WIN32)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${FRONTEND_FOLDER_NAME} )
+set_target_properties( ${TARGET_NAME_EMU} PROPERTIES FOLDER ${FRONTEND_FOLDER_NAME} )
 
 if (WIN32)
     set (COMMON_CLANG_FILES ${LLVM_BINARY_DIR}/common_clang${BUILD_PLATFORM}.dll)
@@ -151,9 +181,12 @@ SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} FrontendDriver.map )
 
 if (NOT OPENCL_INTREE_BUILD)
   copy_to (${COMMON_CLANG_FILES} DESTINATION lib/${OUTPUT_ARCH_SUFF})
+  copy_to (${COMMON_CLANG_FILES} DESTINATION lib/${OUTPUT_EMU_SUFF})
 elseif (WIN32)
   add_custom_command( TARGET ${TARGET_NAME}
                       POST_BUILD
                       COMMAND  ${CMAKE_COMMAND} -E copy ${COMMON_CLANG_FILES}  ${OCL_OUTPUT_LIBRARY_DIR})
 endif()
+
 install_to (${COMMON_CLANG_FILES} DESTINATION lib/${OUTPUT_ARCH_SUFF} COMPONENT ocl-common_clang)
+install_to (${COMMON_CLANG_FILES} DESTINATION lib/${OUTPUT_EMU_SUFF} COMPONENT ocl-common_clang_emu)

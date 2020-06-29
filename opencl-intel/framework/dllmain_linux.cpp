@@ -28,12 +28,7 @@
 #include "queue_event.h"
 #include "ocl_event.h"
 
-#define CL_LOGGER_LIB "libcl_logger.so." VERSIONSTRING
-#define TASK_EXE_LIB "libtask_executor.so." VERSIONSTRING
-
 #pragma comment(lib, "libcl_sys_utils.a")
-#pragma comment(lib, CL_LOGGER_LIB)
-#pragma comment(lib, TASK_EXE_LIB)
 
 __attribute__ ((constructor)) static void dll_init(void);
 __attribute__ ((destructor)) static void dll_fini(void);

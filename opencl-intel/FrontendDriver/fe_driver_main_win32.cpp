@@ -20,7 +20,6 @@
 #include <Windows.h>
 #include <string>
 
-#pragma comment (lib, "cl_logger.lib")
 #pragma comment (lib, "cl_sys_utils.lib")
 
 #ifdef _M_X64
