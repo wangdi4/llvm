@@ -29,6 +29,8 @@
 ; LT2GIG-NEXT: %call = call i64 @dummy(i64 %add2.shl)
 ; LT2GIG-NEXT: %call.ashr = ashr exact i64 %call, 32
 ; LT2GIG-NEXT: %ret5 = mul i64 %non.trunc.user, %call.ashr
+; LT2GIG-NEXT: %add2 = ashr exact i64 %add2.shl, 32
+; LT2GIG-NEXT: %ret6 = mul i64 %non.trunc.user, %add2
 ; LT2GIG-NEXT: br label %simd.loop.exit
 
 
@@ -50,7 +52,7 @@
 ; GT2GIG-NEXT: %ashr.inst = ashr exact i64 %shl.user, 32
 ; GT2GIG-NEXT: %ret0 = mul i32 %other.trunc, %trunc.user
 ; GT2GIG-NEXT: %ret1 = mul i64 %non.trunc.user, %ashr.inst
-; GT2GIG-NEXT: %mul.shl = mul i64 8589934592, %shl.user
+; GT2GIG-NEXT: %mul.shl = mul i64 2, %shl.user
 ; GT2GIG-NEXT: %add.shl = add i64 %mul.shl, 4294967296
 ; GT2GIG-NEXT: %sub.shl = add i64 %mul.shl, -4294967296
 ; GT2GIG-NEXT: %gid.add = ashr exact i64 %add.shl, 32
@@ -62,6 +64,8 @@
 ; GT2GIG-NEXT: %call = call i64 @dummy(i64 %add2.shl)
 ; GT2GIG-NEXT: %call.ashr = ashr exact i64 %call, 32
 ; GT2GIG-NEXT: %ret5 = mul i64 %non.trunc.user, %call.ashr
+; GT2GIG-NEXT: %add2 = ashr exact i64 %add2.shl, 32
+; GT2GIG-NEXT: %ret6 = mul i64 %non.trunc.user, %add2
 ; GT2GIG-NEXT: br label %simd.loop.exit
 
 
@@ -84,7 +88,7 @@ entry:
    %ret0 = mul i32 %other.trunc, %trunc.user
    %ret1 = mul i64 %non.trunc.user, %ashr.inst
 
-   %mul.shl = mul i64 8589934592, %shl.user ; %mul = 2 * gid
+   %mul.shl = mul i64 2, %shl.user ; %mul = 2 * gid
    %add.shl = add i64 %mul.shl, 4294967296  ; %gid.add = %mul + 1
    %sub.shl = add i64 %mul.shl, -4294967296 ; %gid.sub = %mul - 1
    %gid.add = ashr exact i64 %add.shl, 32
@@ -97,6 +101,8 @@ entry:
    %call = call i64 @dummy(i64 %add2.shl) ; %call blocks handling this path
    %call.ashr = ashr exact i64 %call, 32
    %ret5 = mul i64 %non.trunc.user, %call.ashr
+   %add2 = ashr exact i64 %add2.shl, 32
+   %ret6 = mul i64 %non.trunc.user, %add2
    ret void
 }
 
