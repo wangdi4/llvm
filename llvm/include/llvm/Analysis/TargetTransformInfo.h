@@ -1049,8 +1049,7 @@ public:
   ///        load/store to transform or the call to the gather/scatter intrinsic
   int getGatherScatterOpCost(
       unsigned Opcode, Type *DataTy, const Value *Ptr, bool VariableMask,
-      unsigned Alignment,
-      TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
+      Align Alignment, TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
       const Instruction *I = nullptr) const;
 #if INTEL_CUSTOMIZATION
   /// \return The cost of Gather or Scatter operation
@@ -1489,7 +1488,7 @@ public:
                                     TTI::TargetCostKind CostKind) = 0;
   virtual int getGatherScatterOpCost(unsigned Opcode, Type *DataTy,
                                      const Value *Ptr, bool VariableMask,
-                                     unsigned Alignment,
+                                     Align Alignment,
                                      TTI::TargetCostKind CostKind,
                                      const Instruction *I = nullptr) = 0;
 
@@ -1925,7 +1924,7 @@ public:
                                       CostKind);
   }
   int getGatherScatterOpCost(unsigned Opcode, Type *DataTy, const Value *Ptr,
-                             bool VariableMask, unsigned Alignment,
+                             bool VariableMask, Align Alignment,
                              TTI::TargetCostKind CostKind,
                              const Instruction *I = nullptr) override {
     return Impl.getGatherScatterOpCost(Opcode, DataTy, Ptr, VariableMask,

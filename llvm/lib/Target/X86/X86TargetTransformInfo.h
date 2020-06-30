@@ -149,7 +149,7 @@ public:
       unsigned Opcode, Type *Src, Align Alignment, unsigned AddressSpace,
       TTI::TargetCostKind CostKind = TTI::TCK_SizeAndLatency);
   int getGatherScatterOpCost(unsigned Opcode, Type *DataTy, const Value *Ptr,
-                             bool VariableMask, unsigned Alignment,
+                             bool VariableMask, Align Alignment,
                              TTI::TargetCostKind CostKind,
                              const Instruction *I);
 #if INTEL_CUSTOMIZATION
@@ -243,6 +243,7 @@ public:
   }
 
 private:
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   int getGSScalarCost(unsigned Opcode, Type *PtrTy, Type *DataTy,
                       bool VariableMask, unsigned Alignment,
@@ -252,6 +253,13 @@ private:
 #endif // INTEL_CUSTOMIZATION
   int getGSVectorCost(unsigned Opcode, Type *DataTy, const Value *Ptr,
                       unsigned Alignment, unsigned AddressSpace);
+=======
+  int getGSScalarCost(unsigned Opcode, Type *DataTy, bool VariableMask,
+                      Align Alignment, unsigned AddressSpace);
+  int getGSVectorCost(unsigned Opcode, Type *DataTy, const Value *Ptr,
+                      Align Alignment, unsigned AddressSpace);
+
+>>>>>>> b66e33a689caec1b3fe468c3a637691b17979940
   /// @}
 };
 
