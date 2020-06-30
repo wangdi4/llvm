@@ -4850,25 +4850,14 @@ int X86TTIImpl::getInterleavedMemoryOpCostAVX512(
   return Cost;
 }
 
-<<<<<<< HEAD
-int X86TTIImpl::getInterleavedMemoryOpCost(unsigned Opcode, Type *VecTy,
-                                           unsigned Factor,
-                                           ArrayRef<unsigned> Indices,
-                                           unsigned Alignment,
-                                           unsigned AddressSpace,
-                                           TTI::TargetCostKind CostKind,
-                                           bool UseMaskForCond,
-                                           bool UseMaskForGaps) {
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_FP16
-  auto isSupportedOnAVX512 = [&](Type *VecTy, bool HasBW) {
-#else // INTEL_FEATURE_ISA_FP16
-=======
 int X86TTIImpl::getInterleavedMemoryOpCost(
     unsigned Opcode, Type *VecTy, unsigned Factor, ArrayRef<unsigned> Indices,
     Align Alignment, unsigned AddressSpace, TTI::TargetCostKind CostKind,
     bool UseMaskForCond, bool UseMaskForGaps) {
->>>>>>> fdc7c7fb8772515669414e8562e3d55d9e742e3e
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_FP16
+  auto isSupportedOnAVX512 = [&](Type *VecTy, bool HasBW) {
+#else // INTEL_FEATURE_ISA_FP16
   auto isSupportedOnAVX512 = [](Type *VecTy, bool HasBW) {
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION

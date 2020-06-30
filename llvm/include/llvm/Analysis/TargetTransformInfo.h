@@ -1493,14 +1493,10 @@ public:
                                      TTI::TargetCostKind CostKind,
                                      const Instruction *I = nullptr) = 0;
 
-<<<<<<< HEAD
-  virtual int
-  getInterleavedMemoryOpCost(unsigned Opcode, Type *VecTy, unsigned Factor,
-                             ArrayRef<unsigned> Indices, unsigned Alignment,
-                             unsigned AddressSpace,
-                             TTI::TargetCostKind CostKind,
-                             bool UseMaskForCond = false,
-                             bool UseMaskForGaps = false) = 0;
+  virtual int getInterleavedMemoryOpCost(
+      unsigned Opcode, Type *VecTy, unsigned Factor, ArrayRef<unsigned> Indices,
+      Align Alignment, unsigned AddressSpace, TTI::TargetCostKind CostKind,
+      bool UseMaskForCond = false, bool UseMaskForGaps = false) = 0;
 #if INTEL_CUSTOMIZATION
   virtual int getGatherScatterOpCost(
       unsigned Opcode, Type *DataTy, unsigned IndexSize, bool VariableMask,
@@ -1508,12 +1504,6 @@ public:
       TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
       const Instruction *I = nullptr) = 0;
 #endif // INTEL_CUSTOMIZATION
-=======
-  virtual int getInterleavedMemoryOpCost(
-      unsigned Opcode, Type *VecTy, unsigned Factor, ArrayRef<unsigned> Indices,
-      Align Alignment, unsigned AddressSpace, TTI::TargetCostKind CostKind,
-      bool UseMaskForCond = false, bool UseMaskForGaps = false) = 0;
->>>>>>> fdc7c7fb8772515669414e8562e3d55d9e742e3e
   virtual int getArithmeticReductionCost(unsigned Opcode, VectorType *Ty,
                                          bool IsPairwiseForm,
                                          TTI::TargetCostKind CostKind) = 0;

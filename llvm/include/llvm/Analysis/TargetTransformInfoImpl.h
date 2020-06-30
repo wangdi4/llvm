@@ -479,7 +479,7 @@ public:
                                   const Instruction *I = nullptr) {
     return 1;
   }
-<<<<<<< HEAD
+
 #if INTEL_CUSTOMIZATION
   unsigned getGatherScatterOpCost(unsigned Opcode, Type *DataTy,
                                   unsigned IndexSize, bool VariableMask,
@@ -489,20 +489,11 @@ public:
     return 1;
   }
 #endif // INTEL_CUSTOMIZATION
-  unsigned getInterleavedMemoryOpCost(unsigned Opcode, Type *VecTy,
-                                      unsigned Factor,
-                                      ArrayRef<unsigned> Indices,
-                                      unsigned Alignment, unsigned AddressSpace,
-                                      TTI::TargetCostKind CostKind,
-                                      bool UseMaskForCond,
-                                      bool UseMaskForGaps) {
-=======
 
   unsigned getInterleavedMemoryOpCost(
       unsigned Opcode, Type *VecTy, unsigned Factor, ArrayRef<unsigned> Indices,
       Align Alignment, unsigned AddressSpace, TTI::TargetCostKind CostKind,
       bool UseMaskForCond, bool UseMaskForGaps) {
->>>>>>> fdc7c7fb8772515669414e8562e3d55d9e742e3e
     return 1;
   }
 
