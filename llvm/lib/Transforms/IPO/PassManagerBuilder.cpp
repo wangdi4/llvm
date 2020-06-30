@@ -2164,8 +2164,10 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
 
     if (RunLoopOpts == LoopOptMode::Full) {
       PM.add(createHIRScalarReplArrayPass());
-      if (OptLevel > 2)
+      if (OptLevel > 2) {
+        PM.add(createHIRNontemporalMarkingPass());
         PM.add(createHIRPrefetchingPass());
+      }
     }
   }
 

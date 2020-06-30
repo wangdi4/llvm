@@ -287,6 +287,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRMVForVariableStridePass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRMemoryReductionSinkingPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRMultiExitLoopRerollPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRNontemporalMarking.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIROptPredicatePass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIROptVarPredicatePass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRPMSymbolicTripCountCompleteUnrollPass.h"
