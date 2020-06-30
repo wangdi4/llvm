@@ -128,6 +128,10 @@ errno_t Intel::OpenCL::Utils::safeMemCpy(void* dst, size_t numOfElements, const 
 		errno = ERANGE;
 		return errno;
 	}
+	if (dst == src)
+	{
+		return 0;
+	}
 	memcpy(dst, src, count);
 	return 0;
 }
