@@ -17,7 +17,6 @@
 ///////////////////////////////////////////////////////////
 
 #pragma comment(lib, "cl_sys_utils.lib")
-#pragma comment(lib, "cl_logger.lib")
 #ifdef _M_X64
 #define TASK_EXECUTOR_LIB_NAME "task_executor64.dll"
 #else
@@ -74,6 +73,7 @@ static void DisableSystemDialogsOnCrash() {
 
 BOOL LoadTaskExecutor()
 {
+#if 0
     std::string tePath = std::string(MAX_PATH, '\0');
 
     Intel::OpenCL::Utils::GetModuleDirectory(&tePath[0], MAX_PATH);
@@ -83,6 +83,7 @@ BOOL LoadTaskExecutor()
     if (!m_dlTaskExecutor->Load(tePath.c_str())) {
         return FALSE;
     }
+#endif
     return TRUE;
 }
 

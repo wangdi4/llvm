@@ -24,11 +24,10 @@
 #endif
 
 #pragma comment(lib, "cl_sys_utils.lib")
-#pragma comment(lib, "cl_logger.lib")
 #ifdef _M_X64
-#define TASK_EXECUTOR_LIB_NAME "task_executor64.dll"
+#define TASK_EXECUTOR_LIB_NAME "task_executor64"
 #else
-#define TASK_EXECUTOR_LIB_NAME "task_executor32.dll"
+#define TASK_EXECUTOR_LIB_NAME "task_executor32"
 #endif
 
 namespace {
@@ -68,9 +67,15 @@ BOOL LoadTaskExecutor()
 {
 	std::string tePath = std::string(MAX_PATH, '\0');
 
+        Intel::OpenCL::Utils::ConfigFile config(GetConfigFilePath());
 	Intel::OpenCL::Utils::GetModuleDirectory(&tePath[0], MAX_PATH);
 	tePath.resize(tePath.find_first_of('\0'));
 	tePath += TASK_EXECUTOR_LIB_NAME;
+
+        if (config.Read<std::string>("CL_CONFIG_DEVICES", "cpu") == "fpga-emu") {
+            tePath += OUTPUT_EMU_SUFF;
+        }
+        tePath += ".dll";
 
 	if (!m_dlTaskExecutor->Load(tePath.c_str())) {
 		return FALSE;

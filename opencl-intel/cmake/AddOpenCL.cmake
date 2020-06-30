@@ -15,6 +15,9 @@ else () # x64
     set(OUTPUT_ARCH_SUFF "x64")
 endif (CMAKE_SIZEOF_VOID_P EQUAL 4)
 
+# Define output install path for the emulator if needed
+set(OUTPUT_EMU_SUFF "emu")
+add_definitions( -DOUTPUT_EMU_SUFF="_${OUTPUT_EMU_SUFF}" )
 # This macro sets OpenCL libraries version as 'x.y', where 'x' is a major
 # version of LLVM and 'y' is an internally agreed digit.
 macro(set_opencl_version)
@@ -84,7 +87,7 @@ function(add_opencl_library name)
     cmake_parse_arguments(ARG
         "SHARED;STATIC"
         "RC_TEMPLATE"
-        "INCLUDE_DIRS;COMPONENTS;LINK_LIBS"
+        "INCLUDE_DIRS;COMPONENTS;LINK_LIBS;INSTALL_PATH"
         ${ARGN})
 
     set(sources ${ARG_UNPARSED_ARGUMENTS})
@@ -140,20 +143,26 @@ function(add_opencl_library name)
             LINK_FLAGS_RELEASE "/PDBSTRIPPED:${PDB_NAME} /DEBUG"
             LINK_FLAGS_DEBUG "/PDBSTRIPPED:${PDB_NAME}")
 
-        install_to (${OCL_OUTPUT_LIBRARY_DIR}/${name}_stripped.pdb
-                    DESTINATION lib/${OUTPUT_ARCH_SUFF}
-                    COMPONENT ocl-${name})
+        foreach (path ${ARG_INSTALL_PATH})
+            install_to (${OCL_OUTPUT_LIBRARY_DIR}/${name}_stripped.pdb
+                        DESTINATION lib/${path}
+                        COMPONENT ocl-${name})
+        endforeach (path)
 
         if (INSTALL_PDBS)
-            install_to (${OCL_OUTPUT_LIBRARY_DIR}/${name}.pdb
-                        DESTINATION lib/${OUTPUT_ARCH_SUFF}
-                        COMPONENT ocl-${name})
+            foreach (path ${ARG_INSTALL_PATH})
+                install_to (${OCL_OUTPUT_LIBRARY_DIR}/${name}.pdb
+                            DESTINATION lib/${path}
+                            COMPONENT ocl-${name})
+            endforeach (path)
         endif (INSTALL_PDBS)
     endif (WIN32 AND ARG_SHARED)
 
-    install_to (${name}
-                DESTINATION lib/${OUTPUT_ARCH_SUFF}
-                COMPONENT ocl-${name})
+    foreach (path ${ARG_INSTALL_PATH})
+        install_to (${name}
+                    DESTINATION lib/${path}
+                    COMPONENT ocl-${name})
+    endforeach (path)
 
 endfunction(add_opencl_library name)
 

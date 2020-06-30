@@ -29,6 +29,10 @@ add_opencl_library (${TARGET_NAME} STATIC
     INCLUDE_DIRS
     ${HW_UTILS_HEADERS}
     ${CL_API_HEADERS}
+
+    INSTALL_PATH
+    ${OUTPUT_ARCH_SUFF}
+    ${OUTPUT_EMU_SUFF}
     )
 
 set_target_properties (${TARGET_NAME} PROPERTIES FOLDER ${DEVICES_FOLDER_NAME})

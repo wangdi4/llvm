@@ -19,12 +19,12 @@
 
 #if defined(_WIN32)
 #if defined(_M_X64)
-const char* szOclCpuBackendDllName = "OclCpuBackEnd64.dll";
+const char* szOclCpuBackendDllName = "OclCpuBackEnd64";
 #else
-const char* szOclCpuBackendDllName = "OclCpuBackEnd32.dll";
+const char* szOclCpuBackendDllName = "OclCpuBackEnd32";
 #endif
 #else
-const char* szOclCpuBackendDllName = "libOclCpuBackEnd.so";
+const char* szOclCpuBackendDllName = "OclCpuBackEnd";
 #endif
 
 namespace Intel{ namespace OpenCL { namespace CPUDevice {
@@ -34,13 +34,17 @@ OpenCLBackendWrapper::OpenCLBackendWrapper(void):
     m_dll(false),
     m_funcInit(nullptr),
     m_funcTerminate(nullptr),
-    m_funcGetFactory(nullptr)
+    m_funcGetFactory(nullptr),
+    m_targetDev(CPU_DEVICE)
 {
 }
 
 cl_dev_err_code OpenCLBackendWrapper::LoadDll()
 {
-    if( !m_dll.Load(Intel::OpenCL::Utils::GetFullModuleNameForLoad(szOclCpuBackendDllName)) )
+    std::string dllName = std::string(szOclCpuBackendDllName) +
+                          (m_targetDev == FPGA_EMU_DEVICE ? OUTPUT_EMU_SUFF : "");
+
+    if( !m_dll.Load(Intel::OpenCL::Utils::GetFullModuleNameForLoad(OS_DLL_POST(dllName).c_str())) )
     {
         return CL_DEV_ERROR_FAIL;
     }
@@ -75,10 +79,10 @@ void OpenCLBackendWrapper::UnloadDll()
     //m_dll.Close();
 }
 
-cl_dev_err_code OpenCLBackendWrapper::Init(const ICLDevBackendOptions* pBackendOptions)
+cl_dev_err_code OpenCLBackendWrapper::Init(const ICLDevBackendOptions* pBackendOptions, DeviceMode dev)
 {
     assert( !m_funcInit && "You must not call Init more then once, without calling Terminate first");
-
+    m_targetDev = dev;
     cl_dev_err_code ret = LoadDll();
     if( CL_DEV_FAILED(ret) )
     {

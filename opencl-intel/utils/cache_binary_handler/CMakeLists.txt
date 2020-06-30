@@ -8,6 +8,10 @@ add_opencl_library(${TARGET_NAME}
     ${CL_API_HEADERS}
     ${OCL_SOURCE_DIR}/utils/CLElfLib
     ${OCL_SOURCE_DIR}/cl_api
+
+    INSTALL_PATH
+    ${OUTPUT_ARCH_SUFF}
+    ${OUTPUT_EMU_SUFF}
 )
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${UTILS_FOLDER_NAME})

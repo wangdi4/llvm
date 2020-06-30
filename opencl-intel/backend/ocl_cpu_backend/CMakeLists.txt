@@ -1,4 +1,6 @@
 set(TARGET_NAME OclCpuBackEnd${BUILD_PLATFORM})
+set(TARGET_NAME_EMU ${TARGET_NAME}_${OUTPUT_EMU_SUFF})
+
 project(${TARGET_NAME})
 add_subdirectory(emutls)
 
@@ -280,6 +282,21 @@ set(UTILS_LIBS
     OclOptimizer
 )
 
+set(LINK_LIBS
+    LoopUtils
+    OclBackendUtils
+    reflection_module
+    name_mangle
+    dynamic_load
+    cl_sys_utils
+    metadataapi
+    CacheBinaryHandler
+    CLElfLib
+    emutls
+    fp_extend_trunc
+    ObjDump
+)
+
 if (WIN32)
     set(LLD_LIBS
         lldCOFF
@@ -300,24 +317,38 @@ add_opencl_library (${TARGET_NAME} SHARED
       # internal passes
       ${BACKEND_PASSES}
 
-      LoopUtils
-      OclBackendUtils
-      reflection_module
-      name_mangle
-      dynamic_load
-      cl_sys_utils
-      metadataapi
-      CacheBinaryHandler
-      CLElfLib
-      emutls
-      fp_extend_trunc
-      ObjDump
+      ${LINK_LIBS}
       ${LLD_LIBS}
 
       # LLVM LIBS
       ${LLVM_MODULE_LIBS}
 
     RC_TEMPLATE DEFAULT
+
+    INSTALL_PATH ${OUTPUT_ARCH_SUFF}
+)
+
+add_opencl_library (${TARGET_NAME_EMU} SHARED
+    ${OCL_CPU_BACKEND_INCLUDE_FILES}
+    ${OCL_CPU_BACKEND_SOURCE_FILES}
+    ${ASM_ADD_TO_SOURCES_LIST}
+
+    INCLUDE_DIRS ${INCLUDE_DIRS}
+
+    LINK_LIBS
+      ${UTILS_LIBS}
+      # internal passes
+      ${BACKEND_PASSES}
+
+      ${LINK_LIBS}
+      ${LLD_LIBS}
+
+      # LLVM LIBS
+      ${LLVM_MODULE_LIBS}
+
+    RC_TEMPLATE DEFAULT
+
+    INSTALL_PATH ${OUTPUT_EMU_SUFF}
 )
 
 SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} ${TARGET_NAME}_linux_exports.txt )
@@ -332,3 +363,4 @@ if (ENABLE_SDE)
 endif (ENABLE_SDE)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME} )
+set_target_properties( ${TARGET_NAME_EMU} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME} )
