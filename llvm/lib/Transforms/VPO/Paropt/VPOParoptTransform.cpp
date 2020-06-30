@@ -109,6 +109,10 @@ static cl::opt<bool> AvoidStridedProcessing(
 static cl::opt<bool> UseFastReduction("vpo-paropt-fast-reduction", cl::Hidden,
                                       cl::init(true),
                                       cl::desc("Enable fast reduction."));
+static cl::opt<bool> UseFastRedAtomic("vpo-paropt-fast-reduction-atomic",
+                                      cl::Hidden, cl::init(true),
+                                      cl::desc("Allow to use atomic reduction "
+                                               "within fast reduction."));
 static cl::opt<uint32_t> FastReductionCtrl("vpo-paropt-fast-reduction-ctrl",
                                            cl::Hidden, cl::init(0x3),
                                            cl::desc("Control option for fast "
@@ -3421,22 +3425,38 @@ int VPOParoptTransform::checkFastReduction(WRegionNode *W) {
   if (isTargetSPIRV())
     return FastReductionNoneMode;
 
-  bool IsAtomic = true;
-  ReductionClause &RedClause = W->getRed();
-  for (ReductionItem *RedI : RedClause.items()) {
-    // array section and UDR cannot use atomic
-    if (isArrayReduction(RedI) ||
-        (RedI->getType() == ReductionItem::WRNReductionUdr)) {
-      IsAtomic = false;
-      break;
-    } else {
-      // if type of reduction variable is not supported, atomic cannot be used
-      Type *AllocaTy;
-      std::tie(AllocaTy, std::ignore, std::ignore) = getItemInfo(RedI);
-      if (!(AllocaTy->isIntegerTy() || AllocaTy->isFloatTy() ||
-            AllocaTy->isDoubleTy())) {
+  bool IsAtomic = UseFastRedAtomic;
+  if (IsAtomic) {
+    ReductionClause &RedClause = W->getRed();
+    for (ReductionItem *RedI : RedClause.items()) {
+      // array section and UDR cannot use atomic
+      if (isArrayReduction(RedI) ||
+          (RedI->getType() == ReductionItem::WRNReductionUdr)) {
         IsAtomic = false;
         break;
+      } else {
+        // FIXME: enable atomic mode for and, or, max, min, eqv, neqv
+        ReductionItem::WRNReductionKind RedKind = RedI->getType();
+        if (RedKind == ReductionItem::WRNReductionAnd ||
+            RedKind == ReductionItem::WRNReductionOr ||
+            RedKind == ReductionItem::WRNReductionMax ||
+            RedKind == ReductionItem::WRNReductionMin
+#if INTEL_CUSTOMIZATION
+            || RedKind == ReductionItem::WRNReductionEqv ||
+            RedKind == ReductionItem::WRNReductionNeqv
+#endif // INTEL_CUSTOMIZATION
+        ) {
+          IsAtomic = false;
+          break;
+        }
+        // if type of reduction variable is not supported, atomic cannot be used
+        Type *AllocaTy;
+        std::tie(AllocaTy, std::ignore, std::ignore) = getItemInfo(RedI);
+        if (!(AllocaTy->isIntegerTy() || AllocaTy->isFloatTy() ||
+              AllocaTy->isDoubleTy())) {
+          IsAtomic = false;
+          break;
+        }
       }
     }
   }
@@ -3988,15 +4008,16 @@ void VPOParoptTransform::genFastReduceBB(WRegionNode *W,
       // last store instruction and erase the store instruction.
       Instruction *AtomicCall = VPOParoptAtomics::handleAtomicUpdateInBlock(
           W, AtomicBeginBB, IdentTy, TidPtrHolder, isTargetSPIRV());
-      if (AtomicCall) {
-        Type *AllocaTy;
-        std::tie(AllocaTy, std::ignore, std::ignore) = getItemInfo(RedI);
+      assert(AtomicCall != nullptr &&
+             "No atomic call is generated for fast reduction.");
 
-        OptimizationRemark R(DEBUG_TYPE, "FastReductionAtomic", AtomicCall);
-        R << ore::NV("Kind", RedI->getOpName()) << " reduction update of type "
-          << ore::NV("Type", AllocaTy) << " made atomic";
-        ORE.emit(R);
-      }
+      Type *AllocaTy;
+      std::tie(AllocaTy, std::ignore, std::ignore) = getItemInfo(RedI);
+
+      OptimizationRemark R(DEBUG_TYPE, "FastReductionAtomic", AtomicCall);
+      R << ore::NV("Kind", RedI->getOpName()) << " reduction update of type "
+        << ore::NV("Type", AllocaTy) << " made atomic";
+      ORE.emit(R);
     }
     // AtomicEndBB is created to be used as the insertion point for
     // __kmpc_end_reduce in atomic reduction block.

@@ -105,6 +105,7 @@ bb10:                                             ; preds = %bb6
 ; ALL-NEXT:  %{{[0-9]+}} = xor i32 %{{[0-9]+}}, %{{[0-9]+}}
 ; ALL-NEXT:  %{{[0-9]+}} = xor i32 %{{[0-9]+}}, -1
 ; ALL-NEXT:  store i32 %{{[0-9]+}}, i32* %"omp_test_$R"
+; FASTRED-NOT: __kmpc_atomic
 
 bb1:                                              ; preds = %bb13
   ret void
