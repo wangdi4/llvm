@@ -33,10 +33,8 @@ namespace intel {
   bool KernelSubGroupInfo::runOnFunction(Function &F) const {
     auto kimd = KernelInternalMetadataAPI(&F);
     bool HasSubGroups = containsSubGroups(&F);
-    if (HasSubGroups) {
-      kimd.KernelHasSubgroups.set(HasSubGroups);
-    }
-    return HasSubGroups;
+    kimd.KernelHasSubgroups.set(HasSubGroups);
+    return true;
   }
 
   bool KernelSubGroupInfo::containsSubGroups(Function *pFunc) const {

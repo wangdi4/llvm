@@ -42,7 +42,7 @@ void KernelJITProperties::Deserialize(IInputStream& ist, SerializationStatus* st
 KernelProperties::KernelProperties():
     m_hasBarrier(false),
     m_hasGlobalSync(false),
-    m_hasNativeSubgroups(false),
+    m_useNativeSubgroups(false),
     m_DAZ(false),
     m_optWGSize(0),
     m_totalImplSize(0),
@@ -76,7 +76,7 @@ void KernelProperties::Serialize(IOutputStream& ost, SerializationStatus* stats)
     Serializer::SerialPrimitive<bool>(&m_bIsBlock, ost);
     Serializer::SerialPrimitive<bool>(&m_hasBarrier, ost);
     Serializer::SerialPrimitive<bool>(&m_hasGlobalSync, ost);
-    Serializer::SerialPrimitive<bool>(&m_hasNativeSubgroups, ost);
+    Serializer::SerialPrimitive<bool>(&m_useNativeSubgroups, ost);
     Serializer::SerialPrimitive<bool>(&m_DAZ, ost);
     Serializer::SerialPrimitive<unsigned int>(&m_optWGSize, ost);
     Serializer::SerialPrimitive(&m_cpuId, ost);
@@ -138,7 +138,7 @@ void KernelProperties::Deserialize(IInputStream& ist, SerializationStatus* stats
     Serializer::DeserialPrimitive<bool>(&m_bIsBlock, ist);
     Serializer::DeserialPrimitive<bool>(&m_hasBarrier, ist);
     Serializer::DeserialPrimitive<bool>(&m_hasGlobalSync, ist);
-    Serializer::DeserialPrimitive<bool>(&m_hasNativeSubgroups, ist);
+    Serializer::DeserialPrimitive<bool>(&m_useNativeSubgroups, ist);
     Serializer::DeserialPrimitive<bool>(&m_DAZ, ist);
     Serializer::DeserialPrimitive<unsigned int>(&m_optWGSize, ist);
     Serializer::DeserialPrimitive(&m_cpuId, ist);
@@ -240,7 +240,7 @@ size_t KernelProperties::GetRequiredNumSubGroups() const
 
 size_t KernelProperties::GetMaxNumSubGroups(size_t const wgSizeUpperBound) const
 {
-    if (m_hasNativeSubgroups)
+    if (m_useNativeSubgroups)
         return wgSizeUpperBound / m_vectorizationWidth;
     // Return 1 for emulation case.
     return 1;
@@ -249,7 +249,7 @@ size_t KernelProperties::GetMaxNumSubGroups(size_t const wgSizeUpperBound) const
 size_t KernelProperties::GetNumberOfSubGroups(size_t size, const size_t* WGSizes) const
 {
     // Return 1 for emulation case.
-    if (!m_hasNativeSubgroups)
+    if (!m_useNativeSubgroups)
         return 1;
 
     assert((m_verctorizeOnDimention < size) && "Vect dim must be less that NDRange dim!");
@@ -268,7 +268,7 @@ size_t KernelProperties::GetNumberOfSubGroups(size_t size, const size_t* WGSizes
 
 size_t KernelProperties::GetMaxSubGroupSize(size_t size, const size_t* WGSizes) const
 {
-    if (m_hasNativeSubgroups)
+    if (m_useNativeSubgroups)
        return m_vectorizationWidth;
 
     // Return WGSizes[0]*WGSizes[1]*WGSizes[2] for emulation case.
@@ -363,7 +363,7 @@ void KernelProperties::GetLocalSizeForSubGroupCount(size_t const desiredSGCount,
     const size_t maxWorkGroupSize =
         GetMaxWorkGroupSize(wgSizeUpperBound, wgPrivateMemSizeUpperBound);
     bool successFill = true;
-    if (m_hasNativeSubgroups) {
+    if (m_useNativeSubgroups) {
         size_t wg_size = m_vectorizationWidth * desiredSGCount;
         if (wg_size <= maxWorkGroupSize) {
             pValue[0] = wg_size;
