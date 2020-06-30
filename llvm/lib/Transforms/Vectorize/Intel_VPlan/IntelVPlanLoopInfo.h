@@ -70,6 +70,9 @@ public:
   // the loop and has a use outside.
   bool isLiveOut(const VPInstruction *VPVal) const;
 
+  bool isLCSSAForm() const;
+  bool isRecursivelyLCSSAForm(const VPLoopInfo &LI) const;
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printRPOT(raw_ostream &OS, const VPLoopInfo *VPLI = nullptr,
                  unsigned Indent = 0,

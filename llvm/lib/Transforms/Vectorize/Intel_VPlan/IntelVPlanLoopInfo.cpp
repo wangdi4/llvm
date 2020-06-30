@@ -76,6 +76,50 @@ bool VPLoop::isLiveOut(const VPInstruction* VPInst) const {
   return false;
 }
 
+// Check that 'BB' doesn't have any uses outside of the 'L'
+//
+// Unlike LLVM's version of this we don't allow unreachable blocks, so DT check
+// isn't used here. Also, we have VPUsers that aren't VPInstruction, that
+// required some modifications as well.
+static bool isBlockInLCSSAForm(const VPLoop &L, const VPBasicBlock &BB) {
+  for (const VPInstruction &I : BB) {
+    // Tokens can't be used in PHI nodes and live-out tokens prevent loop
+    // optimizations, so for the purposes of considered LCSSA form, we
+    // can ignore them.
+    if (I.getType()->isTokenTy())
+      continue;
+
+    for (const VPUser *U : I.users()) {
+      const auto *UI = dyn_cast<VPInstruction>(U);
+      if (!UI)
+        return false;
+
+      const VPBasicBlock *UserBB = UI->getParent();
+      if (const auto *P = dyn_cast<VPPHINode>(UI))
+        UserBB = P->getIncomingBlock(&I);
+
+      // Check the current block, as a fast-path, before checking whether
+      // the use is anywhere in the loop.  Most values are used in the same
+      // block they are defined in.
+      if (UserBB != &BB && !L.contains(UserBB))
+        return false;
+    }
+  }
+  return true;
+}
+
+bool VPLoop::isLCSSAForm() const {
+  return all_of(this->blocks(), [this](const VPBasicBlock *BB) {
+    return isBlockInLCSSAForm(*this, *BB);
+  });
+}
+
+bool VPLoop::isRecursivelyLCSSAForm(const VPLoopInfo &LI) const {
+  return all_of(this->blocks(), [&LI](const VPBasicBlock *BB) {
+    return isBlockInLCSSAForm(*LI.getLoopFor(BB), *BB);
+  });
+}
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 void VPLoop::printRPOT(raw_ostream &OS, const VPLoopInfo *VPLI, unsigned Indent,
                        const VPlanDivergenceAnalysis *DA,

@@ -27,6 +27,7 @@
 #include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanHCFGBuilder.h"
 #include "IntelVPlanIdioms.h"
+#include "IntelVPlanLCSSA.h"
 #include "IntelVPlanLoopCFU.h"
 #include "IntelVPlanPredicator.h"
 #include "IntelVPlanUtils.h"
@@ -67,6 +68,10 @@ static cl::list<unsigned> VPlanCostModelPrintAnalysisForVF(
              "VF. For testing/debug purposes only."));
 
 static cl::opt<bool>
+    PrintAfterLCSSA("vplan-print-after-lcssa", cl::init(false), cl::Hidden,
+                    cl::desc("Print VPlan after LCSSA transformation."));
+
+static cl::opt<bool>
     PrintAfterLoopCFU("vplan-print-after-loop-cfu", cl::init(false), cl::Hidden,
                       cl::desc("Print VPlan after LoopCFU transformation."));
 
@@ -95,6 +100,7 @@ static cl::opt<bool, true> PrintSVAResultsOpt(
     "vplan-print-scalvec-results", cl::Hidden, cl::location(PrintSVAResults),
     cl::desc("Print VPlan with results of ScalVec analysis."));
 #else
+static constexpr bool PrintAfterLCSSA = false;
 static constexpr bool PrintAfterLoopCFU = false;
 static constexpr bool PrintAfterLinearization = false;
 static constexpr bool DotAfterLinearization = false;
@@ -482,8 +488,14 @@ void LoopVectorizationPlanner::predicate() {
     assert(std::distance(VPLI->begin(), VPLI->end()) == 1 &&
            "There should be single outer loop!");
     VPLoop *OuterLoop = *VPLI->begin();
-    // Search loops require multiple hacks. Skipping LoopCFU is one of them.
+    // Search loops require multiple hacks. Skipping LCSSA/LoopCFU is one of
+    // them.
     bool SearchLoopHack = !OuterLoop->getExitBlock();
+
+    if (!SearchLoopHack)
+      formLCSSA(*VPlan, true /* SkipTopLoop */);
+    VPLAN_DUMP(PrintAfterLCSSA, "LCSSA transformation", VPlan);
+
     if (!SearchLoopHack) {
       assert(!VPlan->getVPlanDA()->isDivergent(
                  *(OuterLoop)->getLoopLatch()->getCondBit()) &&
