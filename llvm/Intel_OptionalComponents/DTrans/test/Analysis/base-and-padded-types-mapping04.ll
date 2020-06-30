@@ -1,10 +1,10 @@
 ; REQUIRES: asserts
 
-; RUN: opt  < %s -whole-program-assume -dtransanalysis -dtrans-print-types -dtrans-merge-padded-structs=true -disable-output 2>&1 | FileCheck %s -check-prefix=CHECKUS
-; RUN: opt  < %s -whole-program-assume -dtransanalysis -dtrans-print-types -dtrans-merge-padded-structs=true -disable-output 2>&1 | FileCheck %s -check-prefix=CHECKGEP
+; RUN: opt  < %s -whole-program-assume -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s -check-prefix=CHECKUS
+; RUN: opt  < %s -whole-program-assume -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s -check-prefix=CHECKGEP
 
-; RUN: opt  < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -dtrans-merge-padded-structs=true -disable-output 2>&1 | FileCheck %s -check-prefix=CHECKUS
-; RUN: opt  < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -dtrans-merge-padded-structs=true -disable-output 2>&1 | FileCheck %s -check-prefix=CHECKGEP
+; RUN: opt  < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s -check-prefix=CHECKUS
+; RUN: opt  < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s -check-prefix=CHECKGEP
 
 ; This test verifies that unsafe pointer store and ambiguous GEP don't
 ; show up in the safety data since we are casting from a base type to a

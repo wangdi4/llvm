@@ -83,7 +83,7 @@ cl::opt<bool> dtrans::DTransOutOfBoundsOK("dtrans-outofboundsok",
 // This option enables treating both types as the same in DTrans. Any
 // safety information we find in one type will be added to the other type.
 static cl::opt<bool> DTransMergePaddedStructs("dtrans-merge-padded-structs",
-                                              cl::init(false),
+                                              cl::init(true),
                                               cl::ReallyHidden);
 
 bool dtrans::dtransIsCompositeType(Type *Ty) {
@@ -929,54 +929,6 @@ void StructInfo::unsetRelatedType() {
     LastField.clearPaddedField();
 
   CurrRelated->unsetRelatedType();
-}
-
-// Return true if the input offset can access incorrectly the padded field.
-// If FullBase is true then it means that the offset can be equal to the base,
-// else it should be smaller.
-bool StructInfo::offsetAccessesPaddingField(int64_t Offset,
-                                            const llvm::DataLayout &DL,
-                                            bool FullBase) {
-  if (Offset == 0)
-    return false;
-
-  if (!getRelatedType() || getNumFields() == 0)
-    return false;
-
-  if (!hasPaddedField())
-    return false;
-
-  int64_t LastField = getNumFields() - 1;
-  dtrans::FieldInfo &Field = getField(LastField);
-
-  int64_t StructSize = DL.getTypeStoreSize(getLLVMType());
-  Type *FieldType = Field.getLLVMType();
-  int64_t FieldSize = DL.getTypeStoreSize(FieldType);
-  int64_t BaseSize = StructSize - FieldSize;
-
-  // If FullBase is true then is OK for the offset to be equal as the base.
-  // For example:
-  //
-  //  %struct.test.a = type <{ i32, i32, [4 x i8] }>
-  //  %struct.test.a.base = type <{ i32, i32 }>
-  //
-  //  %p1 = bitcast %struct.test.a* %a1 to i8*
-  //  %p2 = bitcast %struct.test.a.base* %a2 to i8*
-  //  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %p1, i8* %p2, i64 8, i1 false)
-  //
-  // The call to memcpy only copies the base part, that is OK.
-  //
-  // If FullBase is false then it means that the offset can't reach the base
-  // size. For example:
-  //
-  // %agep = getelementptr %struct.test.a, %struct.test.a* %aptr, i64 8
-  //
-  // The GEP %agep returns the address of the padded field in  %struct.test.a.
-  // This is a wrong access.
-  if (FullBase && Offset == BaseSize)
-    return false;
-
-  return Offset >= BaseSize;
 }
 
 // Return true if the last field in the structure is used for padding.

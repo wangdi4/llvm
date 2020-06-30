@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -whole-program-assume -dtransanalysis -dtrans-merge-padded-structs=true -dtrans-print-types -disable-output 2>&1 | FileCheck %s
-; RUN: opt  < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -dtrans-merge-padded-structs=true -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 ; This test verifies that %struct.test.a and %struct.test.a.base aren't
 ; mapped together since there is a memcpy that access incorrectly the field
