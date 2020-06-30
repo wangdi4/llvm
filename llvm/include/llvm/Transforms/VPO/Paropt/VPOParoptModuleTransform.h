@@ -75,7 +75,8 @@ public:
 
   /// Perform paropt transformation on a module.
   bool doParoptTransforms(
-      std::function<vpo::WRegionInfo &(Function &F)> WRegionInfoGetter,
+      std::function<vpo::WRegionInfo &(Function &F, bool *Changed)>
+          WRegionInfoGetter,
       std::function<TargetLibraryInfo &(Function &F)> TLIGetter);
 
 private:
