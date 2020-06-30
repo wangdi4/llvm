@@ -413,8 +413,9 @@ void DTransModRefAnalyzer::initialize(Module &M) {
       dtrans::MismatchedArgUse | dtrans::BadCastingConditional |
       dtrans::BadCastingForRelatedTypes |
       dtrans::BadPtrManipulationForRelatedTypes |
-      dtrans::UnsafePointerStoreConditional |
-      dtrans::UnsafePointerStoreRelatedTypes;
+      dtrans::UnsafePointerStoreRelatedTypes |
+      dtrans::MemFuncNestedStructsPartialWrite |
+      dtrans::UnsafePointerStoreConditional;
 
   // List of additional safety conditions that are done to be conservative.
   // These could be relaxed in the future with additional analysis.
