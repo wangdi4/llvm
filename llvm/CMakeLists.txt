@@ -1652,14 +1652,14 @@ if (INTEL_CUSTOMIZATION)
 
     set(INTEL_OPENCL_DEPLOY_COMPONENTS_LIST
       # OpenCL components
-      ocl-common_clang ocl-builtins ocl-builtins-shared
-      ocl-config ocl-cl_logger ocl-OpenCL
+      ocl-common_clang ocl-common_clang_emu ocl-builtins ocl-builtins-shared
+      ocl-config ocl-cl_logger ocl-cl_logger_emu ocl-OpenCL
       ocl-svml ocl-gdb-plugin ocl-eyeq-builtins
-      ocl-clang_compiler ocl-clang_compiler32 ocl-clang_compiler64
-      ocl-intelocl ocl-intelocl32 ocl-intelocl64
-      ocl-cpu_device ocl-cpu_device32 ocl-cpu_device64
-      ocl-task_executor ocl-task_executor32 ocl-task_executor64
-      ocl-OclCpuBackEnd ocl-OclCpuBackEnd32 ocl-OclCpuBackEnd64
+      ocl-clang_compiler ocl-clang_compiler_emu ocl-clang_compiler32_emu ocl-clang_compiler32 ocl-clang_compiler64_emu ocl-clang_compiler64
+      ocl-intelocl ocl-intelocl_emu ocl-intelocl32_emu ocl-intelocl32 ocl-intelocl64_emu ocl-intelocl64
+      ocl-cpu_device ocl-cpu_device_emu ocl-cpu_device32_emu ocl-cpu_device32 ocl-cpu_device64_emu ocl-cpu_device64
+      ocl-task_executor ocl-task_executor_emu ocl-task_executor32_emu  ocl-task_executor32 ocl-task_executor64_emu  ocl-task_executor64
+      ocl-OclCpuBackEnd ocl-OclCpuBackEnd_emu ocl-OclCpuBackEnd32 ocl-OclCpuBackEnd32_emu ocl-OclCpuBackEnd64_emu ocl-OclCpuBackEnd64
       )
 
     if (WIN32)
