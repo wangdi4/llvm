@@ -5553,9 +5553,14 @@ bool VPOParoptTransform::genDestructorCode(WRegionNode *W) {
 //   | %v1 = load i32*, i32** %v.addr          ; (3)
 //   +-
 //   ... Replace uses of %v with %v1
+//
+//   If CastVAddrToAddrSpaceGeneric is true, then cast %v.addr to
+//   address space 4 (generic) before doing the store/load.
 Value *VPOParoptTransform::replaceWithStoreThenLoad(
     WRegionNode *W, Value *V, Instruction *InsertPtForStore,
-    bool InsertLoadInBeginningOfEntryBB) {
+    bool InsertLoadInBeginningOfEntryBB,
+    bool SelectAllocaInsertPtBasedOnParentWRegion,
+    bool CastToAddrSpaceGeneric) {
 
   // Find instructions in W that use V
   SmallVector<Instruction *, 8> UserInsts;
@@ -5564,12 +5569,25 @@ Value *VPOParoptTransform::replaceWithStoreThenLoad(
                                   !InsertLoadInBeginningOfEntryBB, &UserExprs);
 
   Instruction *AllocaInsertPt =
-      W->getEntryBBlock()->getParent()->getEntryBlock().getTerminator();
+      SelectAllocaInsertPtBasedOnParentWRegion
+          ? VPOParoptUtils::getInsertionPtForAllocas(W, F, true)
+          : W->getEntryBBlock()->getParent()->getEntryBlock().getTerminator();
+
   IRBuilder<> AllocaBuilder(AllocaInsertPt);
-  AllocaInst *VAddr = //                                  (1)
+  Value *VAddr = //                                       (1)
       AllocaBuilder.CreateAlloca(V->getType(), nullptr, V->getName() + ".addr");
 
   IRBuilder<> StoreBuilder(InsertPtForStore);
+  if (CastToAddrSpaceGeneric) {
+    Value *VAddrCasted = StoreBuilder.CreatePointerBitCastOrAddrSpaceCast(
+        VAddr, V->getType()->getPointerTo(vpo::ADDRESS_SPACE_GENERIC),
+        VAddr->getName() + ".ascast");
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Casted '";
+               VAddr->printAsOperand(dbgs()); dbgs() << "' to '";
+               VAddrCasted->printAsOperand(dbgs()); dbgs() << "'.\n";);
+    VAddr = VAddrCasted;
+  }
+
   StoreBuilder.CreateStore(V, VAddr); //                  (2)
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Stored '"; V->printAsOperand(dbgs());
@@ -6249,7 +6267,11 @@ bool VPOParoptTransform::captureAndAddCollectedNonPointerValuesToSharedClause(
     // Make the changes (2), (3), (4), (5)
     Value *CapturedValAddr = //                                         (2)
         replaceWithStoreThenLoad(W, ValToCapture, InsertStoreBefore,
-                                 true); // Insert (4) in beginning of NewEntryBB
+                                 true, // Insert (4) in beginning of NewEntryBB
+                                 true, // Insert alloca based on parent WRegions
+                                 isTargetSPIRV()); // Add addrspace cast to
+                                                   // the captured addr for
+                                                   // target spirv.
     if (!CapturedValAddr)
       continue;
 
