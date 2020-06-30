@@ -243,23 +243,15 @@ public:
   }
 
 private:
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   int getGSScalarCost(unsigned Opcode, Type *PtrTy, Type *DataTy,
-                      bool VariableMask, unsigned Alignment,
+                      bool VariableMask, Align Alignment,
                       unsigned AddressSpace);
   int getGSVectorCost(unsigned Opcode, Type *DataTy, unsigned IndexSize,
-                      unsigned Alignment, unsigned AddressSpace);
+                      Align Alignment, unsigned AddressSpace);
 #endif // INTEL_CUSTOMIZATION
   int getGSVectorCost(unsigned Opcode, Type *DataTy, const Value *Ptr,
-                      unsigned Alignment, unsigned AddressSpace);
-=======
-  int getGSScalarCost(unsigned Opcode, Type *DataTy, bool VariableMask,
                       Align Alignment, unsigned AddressSpace);
-  int getGSVectorCost(unsigned Opcode, Type *DataTy, const Value *Ptr,
-                      Align Alignment, unsigned AddressSpace);
-
->>>>>>> b66e33a689caec1b3fe468c3a637691b17979940
   /// @}
 };
 
