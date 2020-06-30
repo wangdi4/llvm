@@ -390,6 +390,7 @@ namespace {
       (void) llvm::createDataPerBarrierPass();
       (void) llvm::createDataPerValuePass();
       (void) llvm::createKernelBarrierPass(false, false);
+      (void) llvm::createBarrierInFunctionPass();
 
       // Optimize math calls
       (void) llvm::createMapIntrinToImlPass();

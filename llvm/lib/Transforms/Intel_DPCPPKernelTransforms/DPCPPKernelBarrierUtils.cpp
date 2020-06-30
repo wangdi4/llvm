@@ -32,6 +32,10 @@ void DPCPPKernelBarrierUtils::init(Module *M) {
 }
 
 void DPCPPKernelBarrierUtils::clean() {
+  LocalMemFenceValue = nullptr;
+  BarrierFunc = nullptr;
+  DummyBarrierFunc = nullptr;
+
   GetSpecialBufferFunc = nullptr;
   GetLocalSizeFunc = nullptr;
 
@@ -178,6 +182,8 @@ FuncVector &DPCPPKernelBarrierUtils::getAllKernelsWithBarrier() {
   // Get the kernels using the barrier for work group loops.
   SmallVector<Function *, 4> KernelsWithBarrier;
   for (auto Kernel : Kernels) {
+    // OCL pipeline treats absense of the attribute as if there's a barrier.
+    // In DPCPP path we require having this attrbiute on kernels.
     // Need to check if NoBarrierPath Value exists, it is not guaranteed that
     // KernelAnalysisPass is running in all scenarios.
     assert(Kernel->hasFnAttribute(NO_BARRIER_PATH_ATTRNAME) &&
@@ -219,6 +225,48 @@ FuncVector &DPCPPKernelBarrierUtils::getAllKernelsWithBarrier() {
   return KernelFunctions;
 }
 
+Instruction *DPCPPKernelBarrierUtils::createBarrier(Instruction *InsertBefore) {
+  if (!BarrierFunc) {
+    // Barrier function is not initialized yet,
+    // Check if there is a declaration in the module.
+    BarrierFunc = M->getFunction(BarrierName);
+  }
+  if (!BarrierFunc) {
+    // Module has no barrier declaration.
+    // Create one.
+    Type *Result = Type::getVoidTy(M->getContext());
+    std::vector<Type *> FuncTyArgs;
+    FuncTyArgs.push_back(IntegerType::get(M->getContext(), 32));
+    BarrierFunc = createFunctionDeclaration(BarrierName, Result, FuncTyArgs);
+    BarrierFunc->setAttributes(BarrierFunc->getAttributes().addAttribute(
+        BarrierFunc->getContext(), AttributeList::FunctionIndex,
+        Attribute::Convergent));
+  }
+  if (!LocalMemFenceValue) {
+    // LocalMemFenceValue is not initialized yet, create one.
+    Type *MemFenceType = BarrierFunc->getFunctionType()->getParamType(0);
+    LocalMemFenceValue = ConstantInt::get(MemFenceType, CLK_LOCAL_MEM_FENCE);
+  }
+  return CallInst::Create(BarrierFunc, LocalMemFenceValue, "", InsertBefore);
+}
+
+Instruction *
+DPCPPKernelBarrierUtils::createDummyBarrier(Instruction *InsertBefore) {
+  if (!DummyBarrierFunc) {
+    // Dummy Barrier function is not initialized yet,
+    // Check if there is a declaration in the module.
+    DummyBarrierFunc = M->getFunction(DummyBarrierName);
+  }
+  if (!DummyBarrierFunc) {
+    // Module has no Dummy barrier declaration, create one.
+    Type *Result = Type::getVoidTy(M->getContext());
+    std::vector<Type *> FuncTyArgs;
+    DummyBarrierFunc =
+        createFunctionDeclaration(DummyBarrierName, Result, FuncTyArgs);
+  }
+  return CallInst::Create(DummyBarrierFunc, "", InsertBefore);
+}
+
 FuncVector DPCPPKernelBarrierUtils::getAllKernelsAndVectorizedCounterparts(
     const SmallVectorImpl<Function *> &KernelList, Module *M) {
   FuncVector Result;
@@ -235,7 +283,7 @@ FuncVector DPCPPKernelBarrierUtils::getAllKernelsAndVectorizedCounterparts(
     }
   }
 
-  // rely on move ctor.
+  // Rely on move ctor.
   return Result;
 }
 

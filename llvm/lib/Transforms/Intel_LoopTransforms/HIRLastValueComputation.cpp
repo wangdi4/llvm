@@ -42,7 +42,7 @@ static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
                                  cl::desc("Disable " OPT_DESC " pass"));
 
 static cl::opt<unsigned> NumOperationsThreshold(
-    OPT_SWITCH "-num-operations-threshold", cl::init(5), cl::Hidden,
+    OPT_SWITCH "-num-operations-threshold", cl::init(4), cl::Hidden,
     cl::desc("Threshold for number of operations in upper bound above which "
              "code generation is not triggered."));
 
@@ -51,23 +51,6 @@ static cl::opt<unsigned>
                        cl::Hidden,
                        cl::desc("Minimum trip count of the multi exit loop "
                                 "which triggers code generation"));
-
-// Returns true if the number of arithmetic operations in \p UBCE is greater
-// than the threshold.
-static bool isUpperBoundComplicated(CanonExpr *UBCE) {
-  auto &BU = UBCE->getBlobUtils();
-  unsigned Num = 0;
-
-  for (auto Blob = UBCE->blob_begin(), E = UBCE->blob_end(); Blob != E;
-       ++Blob) {
-
-    // TODO:  Include other operations like additions between blob operands or
-    //      // C0 addition, IV multiplications and etc.
-    Num += BU.getNumOperations(Blob->Index, nullptr);
-  }
-
-  return Num > NumOperationsThreshold;
-}
 
 bool HIRLastValueComputation::isLegalAndProfitable(HLLoop *Lp, HLInst *HInst,
                                                    unsigned LoopLevel,
@@ -251,7 +234,12 @@ bool HIRLastValueComputation::doLastValueComputation(HLLoop *Lp) {
   bool IsNSW = Lp->isNSW();
   SmallVector<HLInst *, 64> CandidateInsts;
 
-  bool IsUpperBoundComplicated = isUpperBoundComplicated(UBCE);
+  unsigned NumOperations = UBCE->getNumOperations();
+  bool IsUpperBoundComplicated = false;
+
+  if (NumOperations > NumOperationsThreshold) {
+    IsUpperBoundComplicated = true;
+  }
 
   for (auto It = Lp->child_rbegin(), End = Lp->child_rend(); It != End; ++It) {
     auto HInst = dyn_cast<HLInst>(&*It);
@@ -270,8 +258,8 @@ bool HIRLastValueComputation::doLastValueComputation(HLLoop *Lp) {
 
   SmallVector<HLGoto *, 16> Gotos;
 
-  bool ShouldGenCode = !IsUpperBoundComplicated;
   bool IsMultiExit = Lp->getNumExits() > 1;
+  bool ShouldGenCode = !IsUpperBoundComplicated;
 
   if (IsMultiExit) {
     uint64_t TripCount = 0;

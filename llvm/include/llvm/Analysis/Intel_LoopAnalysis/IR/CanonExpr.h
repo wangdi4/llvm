@@ -531,6 +531,10 @@ public:
   /// Returns the number of non-zero IVs in the canon expr.
   unsigned numIVs() const;
 
+  /// Returns the number of operations, such as arithmetic operations, additions
+  /// between blob operands or C0 addition, IV multiplications and etc
+  unsigned getNumOperations() const;
+
   /// Returns true if this contains any Blob IV Coeffs.
   /// Examples: -M*i, N*j
   bool hasIVBlobCoeffs() const;

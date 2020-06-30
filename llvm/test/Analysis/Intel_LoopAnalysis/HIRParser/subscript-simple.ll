@@ -1,6 +1,6 @@
 ; REQUIRES: asserts
-; RUN: opt < %s -hir-details-refs -hir-ssa-deconstruction -hir-framework -analyze | FileCheck %s
-; RUN: opt < %s -hir-details-refs -passes="hir-ssa-deconstruction,print<hir>" 2>&1 | FileCheck %s
+; RUN: opt < %s -hir-details-dims -hir-ssa-deconstruction -hir-framework -analyze | FileCheck %s
+; RUN: opt < %s -hir-details-dims -passes="hir-ssa-deconstruction,print<hir>" 2>&1 | FileCheck %s
 
 ; RUN: opt < %s -hir-region-identification -debug-only=hir-region-identification 2>&1 | FileCheck %s --check-prefix=STATS
 

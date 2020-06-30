@@ -4654,6 +4654,7 @@ public:
                                   Value *PtrOperand) {
     LocalPointerInfo &ValLPI = LPA.getLocalPointerInfo(ValOperand);
     LocalPointerInfo &PtrLPI = LPA.getLocalPointerInfo(PtrOperand);
+    bool StoringInZeroElement = isStoringZeroElement(I);
 
     // If the value of interest aliases to a pointer to a type of interest,
     // check to  make sure the pointer operand is compatible.
@@ -4691,11 +4692,21 @@ public:
                                        dtrans::UnsafePointerStorePending);
             setValueTypeInfoSafetyData(PtrOperand,
                                        dtrans::UnsafePointerStorePending);
+          } else if (StoringInZeroElement) {
+            LLVM_DEBUG(dbgs() << "dtrans-safety: Unsafe pointer store -- "
+                              << "  Unmatch store to the zero element "
+                              << " of aliased value:\n");
+            setValueTypeInfoSafetyData(ValOperand,
+                dtrans::UnsafePointerStoreRelatedTypes);
+            setValueTypeInfoSafetyData(PtrOperand,
+                dtrans::UnsafePointerStoreRelatedTypes);
           } else {
             LLVM_DEBUG(dbgs() << "dtrans-safety: Unsafe pointer store -- "
                               << "  Unmatch store of aliased value:\n");
-            setValueTypeInfoSafetyData(ValOperand, dtrans::UnsafePointerStore);
-            setValueTypeInfoSafetyData(PtrOperand, dtrans::UnsafePointerStore);
+            setValueTypeInfoSafetyData(ValOperand,
+                                       dtrans::UnsafePointerStore);
+            setValueTypeInfoSafetyData(PtrOperand,
+                                       dtrans::UnsafePointerStore);
           }
           if (I != nullptr)
             LLVM_DEBUG(dbgs() << "  " << *I << "\n");
@@ -4711,19 +4722,41 @@ public:
       // or (3) the value is an i8 and the aliased pointer type has an i8 at
       // element zero, this is a bad store.
       auto *ValTy = ValOperand->getType();
-      if (!isa<ConstantPointerNull>(ValOperand) &&
+      bool isZeroOrNullVal = isa<ConstantPointerNull>(ValOperand);
+      if (!isZeroOrNullVal) {
+        // Another possible way to store null into a pointer is by assigning
+        // 0 to the address of the pointer. For example:
+        //
+        //   %1 = getelementptr inbounds %"class.outer", %"class.outer"* %VAR,
+        //        i64 0, i32 0
+        //   %2 = bitcast %"class.inner1"* %1 to i64*
+        //
+        //   store i64 0, i64* %2
+        if (auto *Const = dyn_cast<ConstantInt>(ValOperand))
+          isZeroOrNullVal = Const->isZero() || Const->isNullValue();
+      }
+
+      if (!isZeroOrNullVal &&
           (!I || !isPartialPtrStore(I)) &&
           !(ValTy->isIntegerTy(8) &&
             dtrans::isElementZeroAccess(PtrLPI.getDominantAggregateTy(),
                                         ValTy->getPointerTo()))) {
-        LLVM_DEBUG(dbgs() << "dtrans-safety: Unsafe pointer store -- "
-                          << "  Unknown store to aliased ptr:\n");
+        if (StoringInZeroElement) {
+          LLVM_DEBUG(dbgs() << "dtrans-safety: Unsafe pointer store -- "
+                            << "  Unknown store to the zero element of"
+                            << " aliased ptr:\n");
+          setValueTypeInfoSafetyData(PtrOperand,
+              dtrans::UnsafePointerStoreRelatedTypes);
+        } else {
+          LLVM_DEBUG(dbgs() << "dtrans-safety: Unsafe pointer store -- "
+                            << "  Unknown store to aliased ptr:\n");
+          setValueTypeInfoSafetyData(PtrOperand, dtrans::UnsafePointerStore);
+        }
         if (I != nullptr)
           LLVM_DEBUG(dbgs() << "  " << *I << "\n");
         else
           LLVM_DEBUG(dbgs()
                      << " " << *ValOperand << " -> " << *PtrOperand << " \n");
-        setValueTypeInfoSafetyData(PtrOperand, dtrans::UnsafePointerStore);
       }
     }
   }
@@ -7286,6 +7319,177 @@ private:
     return isLoadedValueUnused(&LI, LI.getPointerOperand(), UsedValues);
   }
 
+  // Return true if the BitCast operation is casting to from an
+  // outer structure to an *i64, and all the pointees in the
+  // local pointer information are inner structures with element
+  // 0, or the outer type itself.
+  // For example:
+  //
+  //   %"class.outer" = type { %"class.inner1" }
+  //   %"class.inner1" = type { %"class.inner2", %"class.inner2"}
+  //   %"class.inner2" = type { %class.TestClass*, %class.TestClass*}
+  //   %class.TestClass = type { i64, i64, i64}
+  //
+  //   %1 = getelementptr inbounds %"class.outer", %"class.outer"* %0,
+  //            i64 0, i32 0
+  //   %2 = bitcast %"class.inner1"* %1 to i64*
+  //   %3 = load i64, i64* %2
+  //
+  // In the above example, %2 is casting from %"class.inner1" to *i64.
+  // The local pointer information for %2 will look as follows:
+  //
+  //    LocalPointerInfo:
+  //      Aliased types:
+  //        %class.inner1*
+  //        i64*
+  //      Element pointees:
+  //        %class.inner2 @ 0
+  //        %class.outer @ 0
+  //      DomTy: %class.inner1*
+  //
+  // The pointees in the local pointer information are "%class.outer @ 0"
+  // and "%class.inner2 @ 0". The type for the first pointee is the
+  // same as the source type in the bitcast (%"class.inner1"), and the
+  // second pointee represents a zero element access(%"class.inner2").
+  // This means that the bitcast points to the zero element in the
+  // innermost structure.
+  bool isCastingToZeroElement(BitCastOperator *BC) {
+
+    if (!BC)
+      return false;
+
+    PointerType *SrcTy = dyn_cast<PointerType>(BC->getSrcTy());
+    Type *DestTy = BC->getDestTy();
+
+    // Make sure we are collecting the correct pointer sizes
+    if (!SrcTy || !SrcTy->getElementType()->isStructTy() ||
+        DestTy != PtrSizeIntPtrTy)
+      return false;
+
+    // Collect the local pointer information
+    LocalPointerInfo &LPI = LPA.getLocalPointerInfo(BC);
+    Type *LPIDominatType = LPI.getDominantAggregateTy();
+
+    if (!LPIDominatType || !LPI.pointsToSomeElement())
+      return false;
+
+    for (auto &PointeePair : LPI.getElementPointeeSet()) {
+      llvm::Type *ParentTy = PointeePair.first;
+
+      if (!dtrans::dtransIsCompositeType(ParentTy))
+        return false;
+
+      assert((!PointeePair.first->isStructTy() ||
+              PointeePair.second.getKind() !=
+                  LocalPointerInfo::PointeeLoc::PLK_Offset) &&
+             "Unexpected use of invalid element");
+
+      size_t ElementNum = PointeePair.second.getElementNum();
+      llvm::Type *FieldTy = dtrans::dtransCompositeGetTypeAtIndex(ParentTy,
+                                                                  ElementNum);
+
+      // If the field is the same as the source type, then is OK
+      if (FieldTy->getPointerTo() == SrcTy)
+        continue;
+
+      // If the element number is not 0, then return false
+      if (ElementNum != 0)
+        return false;
+
+      // Check that all pointees that have 0 as element number are zero
+      // element access of the source.
+      if (dtrans::isElementZeroAccess(SrcTy, FieldTy->getPointerTo()))
+        continue;
+
+      if (dtrans::isPtrToPtrToElementZeroAccess(SrcTy, FieldTy->getPointerTo()))
+        continue;
+    }
+    return true;
+  }
+
+  // Return true if the load instruction is loading a zero element.
+  // For example:
+  //
+  //   %"class.outer" = type { %"class.inner1" }
+  //   %"class.inner1" = type { %"class.inner2", %"class.inner2"}
+  //   %"class.inner2" = type { %class.TestClass*, %class.TestClass*}
+  //   %class.TestClass = type { i64, i64, i64}
+  //
+  //   %1 = getelementptr inbounds %"class.outer", %"class.outer"* %0,
+  //            i64 0, i32 0
+  //   %2 = bitcast %"class.inner1"* %1 to i64*
+  //   %3 = load i64, i64* %2
+  //
+  // In the above example, %3 is a load instruction that is loading the
+  // zero element from %"class.inner2". This function will collect the
+  // BitCast in %2 and will check if the pointees in the local pointer
+  // information points to the zero element in the inner structures.
+  bool isLoadingZeroElement(LoadInst *Load) {
+    if (!Load)
+      return false;
+
+    BitCastOperator *BC = dyn_cast<BitCastOperator>(Load->getOperand(0));
+    if (!BC)
+      return false;
+
+    return isCastingToZeroElement(BC);
+  }
+
+  // Return true if the store instruction is used for storing into the
+  // zero element. This case is looking for the following:
+  //
+  //   %"class.outer" = type { %"class.inner1" }
+  //   %"class.inner1" = type { %"class.inner2", %"class.inner2"}
+  //   %"class.inner2" = type { %class.TestClass*, %class.TestClass*}
+  //   %class.TestClass = type { i64, i64, i64}
+  //
+  //   %1 = getelementptr inbounds %"class.outer", %"class.outer"* %VAR,
+  //        i64 0, i32 0
+  //   %2 = bitcast %"class.inner1"* %1 to i64*
+  //
+  //   %3 = getelementptr inbounds %"class.outer", %"class.outer"* %VAR2,
+  //        i64 0, i32 0
+  //   %4 = bitcast %"class.inner1"* %3 to i64*
+  //   %5 = load i64, i64* %4, align 8
+  //
+  //   store i64 %5, i64* %2
+  //
+  // In the above example, both bitcast instructions (%2 and %4) have the
+  // same source and destination types. Also, both point to GEP instructions
+  // (%1 and %3 respectively) that access the same data type.
+  bool isStoringZeroElement(StoreInst *Store) {
+    if (!Store)
+      return false;
+
+    Value *ValueOperand = Store->getValueOperand();
+    Value *PtrOperand = Store->getPointerOperand();
+
+    BitCastOperator *BCPtr = dyn_cast<BitCastOperator>(PtrOperand);
+    if (!BCPtr)
+      return false;
+
+    // In case the value operand is 0 or null, it means that the data is being
+    // initialized or removed. For example:
+    //
+    //   %1 = getelementptr inbounds %"class.outer", %"class.outer"* %VAR,
+    //        i64 0, i32 0
+    //   %2 = bitcast %"class.inner1"* %1 to i64*
+    //
+    // store i64 0, i64* %2
+    if (auto *Const = dyn_cast<ConstantInt>(ValueOperand)) {
+
+      if (!Const->isZero() && !Const->isNullValue())
+        return false;
+
+      // If the Value operand is a 0 or null, then make sure that
+      // this value is being stored into a zero element
+      return isCastingToZeroElement(BCPtr);
+    }
+
+    // Else, check if we are loading and storing into the same type
+    return castUsedForStore(BCPtr);
+  }
+
   // The element access analysis for load and store instructions are nearly
   // identical, so we use this helper function to perform the task for both.
   // For both loads and stores the PtrInfo argument refers to the address that
@@ -7387,6 +7591,10 @@ private:
     if (PointeeSet.size() > 1 && PointeeSet.begin()->first->isStructTy())
       DTInfo.addMultiElemLoadStore(&I);
 
+    bool LoadingOrStoringZeroElement =
+        isLoadingZeroElement(dyn_cast<LoadInst>(&I)) ||
+        isStoringZeroElement(dyn_cast<StoreInst>(&I));
+
     // There will generally only be one ElementPointee in code that is safe for
     // dtrans to operate on, but I'm using a for-loop here to keep the
     // analysis as general as possible.
@@ -7451,20 +7659,37 @@ private:
                                            ValTy->getPointerTo()) &&
               !dtrans::isPtrToPtrToElementZeroAccess(FieldTy->getPointerTo(),
                                                      ValTy->getPointerTo())) ||
-             AggrTyPtrAsPtrSizedInt)) {
-          LLVM_DEBUG(dbgs() << "dtrans-safety: Mismatched element access:\n");
-          LLVM_DEBUG(dbgs() << "  " << I << "\n");
+            AggrTyPtrAsPtrSizedInt)) {
 
           auto *TI = DTInfo.getOrCreateTypeInfo(ParentTy);
-          if (dtrans::DTransOutOfBoundsOK) {
-            // Assuming out of bound access, set safety issue for the entire
-            // ParentTy.
-            setBaseTypeInfoSafetyData(ParentTy,
-                                      dtrans::MismatchedElementAccess);
+          if (LoadingOrStoringZeroElement) {
+            LLVM_DEBUG(dbgs() << "dtrans-safety: Mismatched element access"
+                              << " -- zero element access\n");
+            LLVM_DEBUG(dbgs() << "  " << I << "\n");
+            if (dtrans::DTransOutOfBoundsOK) {
+              // Assuming out of bound access, set safety issue for the entire
+              // ParentTy.
+              setBaseTypeInfoSafetyData(ParentTy,
+                  dtrans::MismatchedElementAccessRelatedTypes);
+            } else {
+              // Set safety issue to the ParentTy type only.
+              TI->setSafetyData(dtrans::MismatchedElementAccessRelatedTypes);
+              setBaseTypeInfoSafetyData(FieldTy,
+                  dtrans::MismatchedElementAccessRelatedTypes);
+            }
           } else {
-            // Set safety issue to the ParentTy type only.
-            TI->setSafetyData(dtrans::MismatchedElementAccess);
-            setBaseTypeInfoSafetyData(FieldTy, dtrans::MismatchedElementAccess);
+            LLVM_DEBUG(dbgs() << "dtrans-safety: Mismatched element access:\n");
+            LLVM_DEBUG(dbgs() << "  " << I << "\n");
+            if (dtrans::DTransOutOfBoundsOK) {
+              // Assuming out of bound access, set safety issue for the entire
+              // ParentTy.
+              setBaseTypeInfoSafetyData(ParentTy,
+                                        dtrans::MismatchedElementAccess);
+            } else {
+              // Set safety issue to the ParentTy type only.
+              TI->setSafetyData(dtrans::MismatchedElementAccess);
+              setBaseTypeInfoSafetyData(FieldTy, dtrans::MismatchedElementAccess);
+            }
           }
           if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(TI)) {
             TypeSize ValSize = DL.getTypeSizeInBits(ValTy);

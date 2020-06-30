@@ -108,6 +108,7 @@ VPlanPeelingCandidate::VPlanPeelingCandidate(VPInstruction *Memref,
 
 void VPlanPeelingAnalysis::collectMemrefs(VPlan &Plan) {
   collectCandidateMemrefs(Plan);
+  computeCongruentMemrefs();
 }
 
 std::unique_ptr<VPlanPeelingVariant>
@@ -236,8 +237,15 @@ VPlanPeelingAnalysis::selectBestDynamicPeelingVariant(int VF) {
       CandidateMemrefs,
       [this, VF](auto &Cand) -> std::pair<VPlanDynamicPeeling, int> {
         Align ReqAlign(MinAlign(0, Cand.accessAddress().Step));
-        int Profit = CM->getCost(Cand.memref(), VF, ReqAlign) -
-                     CM->getCost(Cand.memref(), VF, ReqAlign * VF);
+        int CostBasis = 0, CostAlign = 0;
+        CostBasis += CM->getCost(Cand.memref(), VF, ReqAlign);
+        CostAlign += CM->getCost(Cand.memref(), VF, ReqAlign * VF);
+        for (auto &Congr : CongruentMemrefs[Cand.memref()]) {
+          CostBasis += CM->getCost(Congr.first, VF, ReqAlign);
+          auto TgtAlign = std::min(ReqAlign * VF, Congr.second);
+          CostAlign += CM->getCost(Congr.first, VF, TgtAlign);
+        }
+        int Profit = CostBasis - CostAlign;
         VPlanDynamicPeeling Peeling(Cand.memref(), Cand.accessAddress(),
                                     ReqAlign * VF);
         return {std::move(Peeling), Profit};
@@ -281,4 +289,47 @@ void VPlanPeelingAnalysis::collectCandidateMemrefs(VPlan &Plan) {
 
       CandidateMemrefs.push_back({&VPInst, *Ind, std::move(KB)});
     }
+
+  sort(CandidateMemrefs, VPlanPeelingCandidate::ordByStep);
+}
+
+void VPlanPeelingAnalysis::computeCongruentMemrefs() {
+  assert(is_sorted(CandidateMemrefs, VPlanPeelingCandidate::ordByStep) &&
+         "CandidateMemrefs is not sorted");
+
+  // Initialize CongruentMemrefs with empty lists.
+  CongruentMemrefs.reserve(CandidateMemrefs.size());
+  for (auto &Cand : CandidateMemrefs)
+    CongruentMemrefs[Cand.memref()] = {};
+
+  // Group memrefs together by access step, and process each group separately.
+  auto StepBegin = CandidateMemrefs.cbegin();
+  while (StepBegin != CandidateMemrefs.cend()) {
+    auto Step = StepBegin->accessAddress().Step;
+    auto StepEnd =
+        std::upper_bound(StepBegin, CandidateMemrefs.cend(), *StepBegin,
+                         VPlanPeelingCandidate::ordByStep);
+
+    for (auto Cand = StepBegin; Cand != StepEnd; ++Cand) {
+      for (auto Prev = StepBegin; Prev != Cand; ++Prev) {
+        auto CandBase = Cand->accessAddress().InvariantBase;
+        auto PrevBase = Prev->accessAddress().InvariantBase;
+        auto Diff = VPSE->getMinusExpr(CandBase, PrevBase);
+        auto KB = VPVT->getKnownBits(Diff, nullptr);
+
+        // "Alignment" of the pointer difference determines how much alignment
+        // can be transferred from one memref to another. That is, as long as
+        // alignment of Mrf1 is not greater than A, alignment of Mrf2 is going
+        // to be equal to alignment of Mrf1. Though, if alignment of Mrf1 is
+        // greater than A, Mrf2 is going to be aligned by A only.
+        Align A(1 << KB.Zero.countTrailingOnes());
+        if (A > MinAlign(0, Step)) {
+          CongruentMemrefs[Cand->memref()].emplace_back(Prev->memref(), A);
+          CongruentMemrefs[Prev->memref()].emplace_back(Cand->memref(), A);
+        }
+      }
+    }
+
+    StepBegin = StepEnd;
+  }
 }

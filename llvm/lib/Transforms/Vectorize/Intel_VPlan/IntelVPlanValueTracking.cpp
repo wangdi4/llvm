@@ -24,7 +24,8 @@ using namespace llvm::vpo;
 
 KnownBits VPlanValueTrackingLLVM::getKnownBits(VPlanSCEV *Expr,
                                                VPInstruction *CtxI) {
-  auto *UnderCtxI = CtxI->isUnderlyingIRValid()
+  // FIXME: CtxI == NULL should probably mean the entry to the main loop.
+  auto *UnderCtxI = (CtxI && CtxI->isUnderlyingIRValid())
                         ? cast<Instruction>(CtxI->getUnderlyingValue())
                         : nullptr;
   return getKnownBitsImpl(VPSE->toSCEV(Expr), UnderCtxI);
