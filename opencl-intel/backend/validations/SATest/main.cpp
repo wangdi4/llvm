@@ -256,6 +256,12 @@ RandomDGSeed("seed",
                    llvm::cl::desc("Seed for random input data generator. Zero seed means generate new one"),
                    llvm::cl::init(time(NULL)));
 
+llvm::cl::opt<unsigned>
+ExpensiveMemOpts("enable-expensive-mem-opts",
+             llvm::cl::ValueOptional,
+             llvm::cl::desc("Enable expensive memory optimization. See cl.cfg for value explanation"),
+             llvm::cl::init(0));
+
 // Command line example:
 // SATest.exe -config=test.cfg
 // WARNING! To run OCL_CPU_DEVICE_BACKEND successfully built-in DLLs and RTLs is needed!

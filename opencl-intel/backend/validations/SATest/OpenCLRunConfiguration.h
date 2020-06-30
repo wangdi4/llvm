@@ -59,6 +59,7 @@ namespace Validation
         RC_BR_DUMP_HEURISTIC_IR,
         RC_BR_PERF_LOG,
         RC_BR_OBJECT_FILE,
+        RC_BR_EXPENSIVE_MEM_OPT,
         // Reference runner specific options
         RC_REF_USE_NEAT,
         RC_REF_USE_FMA_NEAT,
@@ -93,6 +94,7 @@ namespace Validation
         bool m_buildOnly;
         bool m_stopBeforeJIT;
         bool m_verbose;
+        uint32_t m_expensiveMemOpts;
         DeviceMode m_deviceMode;
         uint32_t m_defaultLocalWGSize;
         uint64_t m_RandomDataGeneratorSeed;

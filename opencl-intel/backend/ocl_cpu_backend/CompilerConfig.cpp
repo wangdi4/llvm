@@ -234,6 +234,7 @@ void CompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOpt
     m_dumpHeuristicIR = pBackendOptions->GetBooleanValue((int)CL_DEV_BACKEND_OPTION_DUMP_HEURISTIC_IR, m_dumpHeuristicIR);
     m_streamingAlways = pBackendOptions->GetBooleanValue(
         (int)CL_DEV_BACKEND_OPTION_STREAMING_ALWAYS, m_streamingAlways);
+    m_expensiveMemOpts = pBackendOptions->GetIntValue((int)CL_DEV_BACKEND_OPTION_EXPENSIVE_MEM_OPTS, m_expensiveMemOpts);
     m_targetDevice = static_cast<DeviceMode>(pBackendOptions->GetIntValue(
         (int)CL_DEV_BACKEND_OPTION_DEVICE, CPU_DEVICE));
 }

@@ -50,7 +50,8 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
             m_channelDepthEmulationMode(CHANNEL_DEPTH_MODE_STRICT),
             m_targetDevice(CPU_DEVICE),
             m_cpuMaxWGSize(CPU_MAX_WORK_GROUP_SIZE),
-            m_streamingAlways(false)
+            m_streamingAlways(false),
+            m_expensiveMemOpts(0)
         {}
 
         void InitFromCpuConfig(const CPUDeviceConfig& cpuConfig);
@@ -77,36 +78,24 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
             switch(optionId )
             {
                 case CL_DEV_BACKEND_OPTION_DEVICE:
-                {
                     return m_targetDevice;
-                }
                 case CL_DEV_BACKEND_OPTION_CPU_MAX_WG_SIZE:
-                {
                     return (int)m_cpuMaxWGSize;
-                }
                 case CL_DEV_BACKEND_OPTION_TRANSPOSE_SIZE:
-                {
                     // The transpoze size is applicable only then
                     // CL_CONFIG_USE_VECTORIZER is false.
                     return m_useVectorizer ? m_vectorizerMode
                                            : TRANSPOSE_SIZE_1;
-                }
                 case CL_DEV_BACKEND_OPTION_RT_LOOP_UNROLL_FACTOR:
-                {
                     return std::max(1, std::min(16, m_rtLoopUnrollFactor));
-                }
                 case CL_DEV_BACKEND_OPTION_FORCED_PRIVATE_MEMORY_SIZE:
-                {
                     return m_forcedPrivateMemorySize;
-                }
                 case CL_DEV_BACKEND_OPTION_CHANNEL_DEPTH_EMULATION_MODE:
-                {
                     return m_channelDepthEmulationMode;
-                }
                 case CL_DEV_BACKEND_OPTION_VECTORIZER_TYPE:
-                {
                     return m_vectorizerType;
-                }
+                case CL_DEV_BACKEND_OPTION_EXPENSIVE_MEM_OPTS:
+                    return m_expensiveMemOpts;
                 default:
                     return defaultValue;
             }
@@ -135,6 +124,7 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
         DeviceMode  m_targetDevice;
         size_t m_cpuMaxWGSize;
         bool m_streamingAlways;
+        unsigned m_expensiveMemOpts;
     };
 
     /**

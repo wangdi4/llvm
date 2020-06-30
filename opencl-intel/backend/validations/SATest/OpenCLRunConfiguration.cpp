@@ -110,6 +110,9 @@ RandomDGSeed;
 extern llvm::cl::opt<std::string>
 ObjectFile;
 
+extern llvm::cl::opt<unsigned>
+ExpensiveMemOpts;
+
 namespace Validation
 {
     BERunOptions::BERunOptions():
@@ -120,6 +123,7 @@ namespace Validation
         m_printBuildLog(::PrintBuildLog),
         m_runSingleWG(::RunSingleWG),
         m_buildOnly(::TestMode==BUILD),
+        m_expensiveMemOpts(::ExpensiveMemOpts),
         m_defaultLocalWGSize(::DefaultLocalWGSize),
         m_buildIterationsCount(::BuildIterations),
         m_executeIterationsCount(::ExecuteIterations),
@@ -193,6 +197,8 @@ namespace Validation
             return m_buildIterationsCount;
         case RC_COMMON_DEFAULT_LOCAL_WG_SIZE :
             return m_defaultLocalWGSize;
+        case RC_BR_EXPENSIVE_MEM_OPT:
+            return m_expensiveMemOpts;
         default:
             return defaultValue;
         }

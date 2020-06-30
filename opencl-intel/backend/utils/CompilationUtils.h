@@ -77,6 +77,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         int ChannelDepthEmulationMode = CHANNEL_DEPTH_MODE_STRICT);
   }
 
+  /// Expensive memory optimizations defined in cl.cfg
+  enum ExpensiveMemOpts : uint32_t {
+    OCLAA = 1,
+  };
+
   struct PipeKind {
     enum ScopeKind {
       WORK_ITEM,

@@ -415,12 +415,14 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
   }
 
   PM.add(llvm::createBasicAAWrapperPass());
-  PM.add(createOCLAliasAnalysisPass());
-  PM.add(createExternalAAWrapperPass(
-    [](Pass &P, Function &, AAResults &AAR) {
-      if (auto *OCLAA = P.getAnalysisIfAvailable<OCLAliasAnalysis>())
-        AAR.addAAResult(OCLAA->getOCLAAResult());
-    }));
+  if (pConfig->EnableOCLAA()) {
+    PM.add(createOCLAliasAnalysisPass());
+    PM.add(createExternalAAWrapperPass(
+      [](Pass &P, Function &, AAResults &AAR) {
+        if (auto *OCLAA = P.getAnalysisIfAvailable<OCLAliasAnalysis>())
+          AAR.addAAResult(OCLAA->getOCLAAResult());
+      }));
+  }
   if (dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_TARGERT_DATA)) {
     PM.add(createPrintIRPass(DUMP_IR_TARGERT_DATA, OPTION_IR_DUMPTYPE_AFTER,
                              pConfig->GetDumpIRDir()));
@@ -477,12 +479,14 @@ static void populatePassesPostFailCheck(
   PrintIRPass::DumpIRConfig dumpIRBeforeConfig(
       pConfig->GetIRDumpOptionsBefore());
 
-  PM.add(createOCLAliasAnalysisPass());
-  PM.add(createExternalAAWrapperPass(
-    [](Pass &P, Function &, AAResults &AAR) {
-      if (auto *OCLAA = P.getAnalysisIfAvailable<OCLAliasAnalysis>())
-        AAR.addAAResult(OCLAA->getOCLAAResult());
-    }));
+  if (pConfig->EnableOCLAA()) {
+    PM.add(createOCLAliasAnalysisPass());
+    PM.add(createExternalAAWrapperPass(
+      [](Pass &P, Function &, AAResults &AAR) {
+        if (auto *OCLAA = P.getAnalysisIfAvailable<OCLAliasAnalysis>())
+          AAR.addAAResult(OCLAA->getOCLAAResult());
+      }));
+  }
 
   PM.add(createBuiltinLibInfoPass(pRtlModuleList, ""));
   PM.add(createImplicitArgsAnalysisPass(&M->getContext()));
