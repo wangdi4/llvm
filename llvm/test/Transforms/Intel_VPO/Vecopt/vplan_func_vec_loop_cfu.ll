@@ -221,7 +221,6 @@ define void @test_rematerialized_live_out(i32 %vf) {
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_VEC:%.*]] = phi  [ i32 [[VP_LANE]], [[BB2]] ],  [ i32 [[VP_VEC_NEXT:%.*]], [[BB4:BB[0-9]+]] ]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 [[VP_TOPTEST_NOT]], [[BB2]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB4]] ]
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_VEC_LIVE_OUT_PREV:%.*]] = phi  [ i32 undef, [[BB2]] ],  [ i32 [[VP_VEC_LIVE_OUT_BLEND:%.*]], [[BB4]] ]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_EXIT_COND_LIVE_OUT_PREV:%.*]] = phi  [ i1 undef, [[BB2]] ],  [ i1 [[VP_EXIT_COND_LIVE_OUT_BLEND:%.*]], [[BB4]] ]
 ; CHECK-NEXT:      SUCCESSORS(2):[[BB5:BB[0-9]+]](i1 [[VP_LOOP_MASK]]), [[BB4]](!i1 [[VP_LOOP_MASK]])
 ; CHECK-NEXT:      PREDECESSORS(2): [[BB2]] [[BB4]]
 ; CHECK-EMPTY:
@@ -234,7 +233,6 @@ define void @test_rematerialized_live_out(i32 %vf) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]:
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_VEC_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i32 [[VP_VEC]] i32 [[VP_VEC_LIVE_OUT_PREV]]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_EXIT_COND_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i1 [[VP_EXIT_COND]] i1 [[VP_EXIT_COND_LIVE_OUT_PREV]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_EXIT_COND_NOT:%.*]] = not i1 [[VP_EXIT_COND]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_EXIT_COND_NOT]] i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP0:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
@@ -243,7 +241,7 @@ define void @test_rematerialized_live_out(i32 %vf) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB6]]:
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_VEC_USE:%.*]] = phi  [ i32 [[VP_VEC_LIVE_OUT_BLEND]], [[BB4]] ]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_EXIT_COND_USE:%.*]] = phi  [ i1 [[VP_EXIT_COND_LIVE_OUT_BLEND]], [[BB4]] ]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_EXIT_COND_1:%.*]] = icmp i32 [[VP_VEC_USE]] i32 42
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB1]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB4]]
 ; CHECK-EMPTY:

@@ -20,10 +20,18 @@
 
 #define DEBUG_TYPE "vplan-loop-cfu"
 
+static cl::opt<bool> EnableLiveOutsRematerialization(
+    "vplan-enable-liveout-remat", cl::init(true),
+    cl::desc("Enable live-outs rematerialization in inner loops to avoid extra "
+             "recurrence introduced by LoopCFU."));
+
 namespace llvm {
 namespace vpo {
 
 void VPlanLoopCFU::run(VPLoop *VPL) {
+  if (EnableLiveOutsRematerialization)
+    rematerializeLiveOuts(VPL);
+
   VPlanDivergenceAnalysis *VPDA = Plan.getVPlanDA();
   VPLoopInfo *VPLI = Plan.getVPLoopInfo();
 
@@ -206,6 +214,80 @@ void VPlanLoopCFU::run(VPLoop *VPL) {
   LLVM_DEBUG(
       dbgs() << "Subloop after inner loop control flow transformation\n");
   LLVM_DEBUG(VPL->printRPOT(dbgs(), Plan.getVPLoopInfo()));
+}
+
+static bool isRematerializable(const VPInstruction *Inst) {
+  switch (Inst->getOpcode()) {
+  default:
+    return false;
+  case Instruction::ICmp:
+  case Instruction::Add:
+  case Instruction::Sub:
+  case Instruction::GetElementPtr:
+  case Instruction::BitCast:
+    return true;
+  }
+}
+
+VPInstruction *VPlanLoopCFU::tryRematerializeLiveOut(VPLoop *VPL,
+                                                     VPInstruction *LiveOut) {
+  if (!isRematerializable(LiveOut))
+    return nullptr;
+
+  VPBasicBlock *Exit = VPL->getExitBlock();
+  SmallVector<std::pair<VPValue * /* OrigOperand */,
+                        VPValue * /* Rematerialization Op */>,
+              4>
+      LiveOutOps;
+
+  for (VPValue *Op : LiveOut->operands()) {
+    if (isa<VPConstant>(Op)) {
+      // TODO: Extend to anything dominating the loop.
+      LiveOutOps.emplace_back(Op, Op);
+      continue;
+    }
+    auto LCSSAIt = llvm::find_if(Op->users(), [Exit](const VPUser *U) {
+      auto *LCSSAPhi = dyn_cast<VPPHINode>(U);
+      return LCSSAPhi && LCSSAPhi->getParent() == Exit;
+    });
+    if (LCSSAIt == Op->users().end())
+      return nullptr;
+
+    LiveOutOps.emplace_back(Op, *LCSSAIt);
+  }
+
+  auto *Rematerialized = LiveOut->clone();
+  for (auto It : LiveOutOps)
+    Rematerialized->replaceUsesOfWith(It.first, It.second);
+
+  VPBuilder().setInsertPointFirstNonPhi(Exit).insert(Rematerialized);
+  LLVM_DEBUG(dbgs() << "Rematerialized " << *LiveOut << " in\n"
+                    << *LiveOut->getParent() << "\ninto " << *Rematerialized
+                    << "\n");
+  return Rematerialized;
+}
+
+void VPlanLoopCFU::rematerializeLiveOuts(VPLoop *VPL) {
+  if (!VPL->getParentLoop() && !VPL->isLCSSAForm())
+    return;
+
+  assert(VPL->isLCSSAForm() && "Loop isn't in LCSSA form!");
+  VPBasicBlock *Exit = VPL->getExitBlock();
+  assert(Exit && Exit->getSinglePredecessor() && "Loop not in canonical form!");
+  SmallVector<VPPHINode *, 4> Phis;
+  for (VPPHINode &LCSSAPhi : Exit->getVPPhis())
+    Phis.push_back(&LCSSAPhi);
+
+  for (VPPHINode *LCSSAPhi : Phis) {
+    auto *LiveOut = dyn_cast<VPInstruction>(LCSSAPhi->getIncomingValue(0u));
+    if (!LiveOut || !VPL->contains(LiveOut))
+      continue;
+
+    if (VPInstruction *Rematerialized = tryRematerializeLiveOut(VPL, LiveOut)) {
+      LCSSAPhi->replaceAllUsesWith(Rematerialized);
+      LCSSAPhi->getParent()->eraseInstruction(LCSSAPhi);
+    }
+  }
 }
 
 void VPlanLoopCFU::run() {

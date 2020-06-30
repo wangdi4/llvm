@@ -32,7 +32,6 @@ define dso_local void @foo(i64 %N, i64 *%a, i64 %mask_out_loop) local_unnamed_ad
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_IV:%.*]] = phi  [ i64 [[VP_IV_NEXT:%.*]], [[BB5:BB[0-9]+]] ],  [ i64 0, [[BB3]] ]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 [[VP_CMP216_NOT]], [[BB3]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB5]] ]
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_IV_LIVE_OUT_PREV:%.*]] = phi  [ i64 undef, [[BB3]] ],  [ i64 [[VP_IV_LIVE_OUT_BLEND:%.*]], [[BB5]] ]
-; CHECK-NEXT:       [DA: Div] i64 [[VP_IV_NEXT_LIVE_OUT_PREV:%.*]] = phi  [ i64 undef, [[BB3]] ],  [ i64 [[VP_IV_NEXT_LIVE_OUT_BLEND:%.*]], [[BB5]] ]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_SOME_CMP_LIVE_OUT_PREV:%.*]] = phi  [ i1 undef, [[BB3]] ],  [ i1 [[VP_SOME_CMP_LIVE_OUT_BLEND:%.*]], [[BB5]] ]
 ; CHECK-NEXT:      SUCCESSORS(2):[[BB6:BB[0-9]+]](i1 [[VP_LOOP_MASK]]), [[BB5]](!i1 [[VP_LOOP_MASK]])
 ; CHECK-NEXT:      PREDECESSORS(2): [[BB3]] [[BB5]]
@@ -48,7 +47,6 @@ define dso_local void @foo(i64 %N, i64 *%a, i64 %mask_out_loop) local_unnamed_ad
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB5]]:
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_IV_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i64 [[VP_IV]] i64 [[VP_IV_LIVE_OUT_PREV]]
-; CHECK-NEXT:       [DA: Div] i64 [[VP_IV_NEXT_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i64 [[VP_IV_NEXT]] i64 [[VP_IV_NEXT_LIVE_OUT_PREV]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_SOME_CMP_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i1 [[VP_SOME_CMP]] i1 [[VP_SOME_CMP_LIVE_OUT_PREV]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_EXITCOND_NOT:%.*]] = not i1 [[VP_EXITCOND]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_EXITCOND_NOT]] i1 [[VP_LOOP_MASK]]
@@ -58,8 +56,8 @@ define dso_local void @foo(i64 %N, i64 *%a, i64 %mask_out_loop) local_unnamed_ad
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB7]]:
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_PHI_USE:%.*]] = phi  [ i64 [[VP_IV_LIVE_OUT_BLEND]], [[BB5]] ]
-; CHECK-NEXT:       [DA: Div] i64 [[VP_PHI_UPDATE_USE:%.*]] = phi  [ i64 [[VP_IV_NEXT_LIVE_OUT_BLEND]], [[BB5]] ]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_NO_PHI_INST_USE:%.*]] = phi  [ i1 [[VP_SOME_CMP_LIVE_OUT_BLEND]], [[BB5]] ]
+; CHECK-NEXT:       [DA: Div] i64 [[VP_IV_NEXT_1:%.*]] = add i64 [[VP_PHI_USE]] i64 1
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB1]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
