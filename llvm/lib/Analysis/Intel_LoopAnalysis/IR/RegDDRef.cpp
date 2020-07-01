@@ -32,7 +32,7 @@ using namespace llvm::loopopt;
 
 static cl::opt<bool>
     PrintDimDetails("hir-details-dims", cl::ReallyHidden,
-                     cl::desc("Print details of RegDDRef dimensions"));
+                    cl::desc("Print details of RegDDRef dimensions"));
 
 #define DEBUG_TYPE "hir-regddref"
 
@@ -280,7 +280,7 @@ void RegDDRef::updateDefLevelInternal(unsigned NewLevel) {
 }
 
 void RegDDRef::printImpl(formatted_raw_ostream &OS, bool Detailed,
-                      bool DimDetails) const {
+                         bool DimDetails) const {
 #if !INTEL_PRODUCT_RELEASE
   const CanonExpr *CE;
   bool HasGEP = hasGEPInfo();
@@ -1185,7 +1185,7 @@ bool RegDDRef::replaceTempBlob(unsigned OldIndex, unsigned NewIndex,
 }
 
 bool RegDDRef::replaceTempBlobs(
-    SmallVectorImpl<std::pair<unsigned, unsigned>> &BlobMap,
+    const SmallVectorImpl<std::pair<unsigned, unsigned>> &BlobMap,
     bool AssumeLvalIfDetached) {
   bool Res = false;
 
@@ -1284,6 +1284,28 @@ void RegDDRef::makeConsistent(ArrayRef<const RegDDRef *> AuxRefs,
   assert(CanonExprUtils::isValidLinearDefLevel(NewLevel) &&
          "Invalid nesting level.");
 
+  // Refine Defined At Level, when DefLeve returned from
+  // findTempBlobLevel is NonLinearLevel.
+  auto RefineDefLevel = [](const RegDDRef *AuxRef, unsigned DefLevel,
+                           unsigned Index) {
+    const HLDDNode *AuxNode = AuxRef->getHLDDNode();
+    unsigned AuxNodeLevel = 0;
+
+    if (DefLevel == NonLinearLevel && AuxNode && AuxNode->isAttached() &&
+        AuxRef->isLval() && AuxRef->isSelfBlob()) {
+
+      assert(Index == AuxRef->getSingleCanonExpr()->getSingleBlobIndex());
+
+      AuxNodeLevel = AuxNode->getNodeLevel();
+
+      assert(AuxNodeLevel <= DefLevel);
+
+      return AuxNodeLevel;
+    }
+
+    return DefLevel;
+  };
+
   // Set def level for the new blobs.
   for (auto &BRef : NewBlobs) {
     unsigned DefLevel = 0;
@@ -1297,6 +1319,9 @@ void RegDDRef::makeConsistent(ArrayRef<const RegDDRef *> AuxRefs,
       assert(this != AuxRef && "Cannot use own ref to update internal blobs");
 
       if (AuxRef->findTempBlobLevel(Index, &DefLevel)) {
+
+        DefLevel = RefineDefLevel(AuxRef, DefLevel, Index);
+
         if (CanonExprUtils::hasNonLinearSemantics(DefLevel, NewLevel)) {
           BRef->setNonLinear();
         } else {
@@ -1319,6 +1344,9 @@ void RegDDRef::makeConsistent(ArrayRef<const RegDDRef *> AuxRefs,
 
     for (auto *AuxRef : AuxRefs) {
       if (AuxRef->findTempBlobLevel(Index, &DefLevel)) {
+
+        DefLevel = RefineDefLevel(AuxRef, DefLevel, Index);
+
         CanonExpr *CE = getSingleCanonExpr();
 
         if (CanonExprUtils::hasNonLinearSemantics(DefLevel, NewLevel)) {
