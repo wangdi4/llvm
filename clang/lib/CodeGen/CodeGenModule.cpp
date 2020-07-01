@@ -2147,14 +2147,24 @@ void CodeGenModule::SetTargetRegionFunctionAttributes(llvm::Function *Fn) {
 }
 
 std::string CodeGenModule::getUniqueItaniumABIMangledName(GlobalDecl GD) {
-  auto GetStableMangledName = [](StringRef MainFileName) {
+  auto *Decl = GD.getDecl();
+  auto &Context = Decl->getASTContext();
+#if INTEL_CUSTOMIZATION
+  bool UseStableFileID = Context.getLangOpts().OpenMPStableFileID;
+#else // INTEL_CUSTOMIZATION
+  bool UseStableFileID = false;
+#endif // INTEL_CUSTOMIZATION
+
+  auto GetStableMangledName = [UseStableFileID](StringRef MainFileName) {
     // Create an MD5 of the path and the filename
     llvm::MD5 Hash;
     llvm::MD5::MD5Result Result;
-    SmallString<256> CWD;
-    llvm::sys::fs::current_path(CWD);
-    Hash.update(CWD);
-    Hash.update("/");
+    if (!UseStableFileID) {
+      SmallString<256> CWD;
+      llvm::sys::fs::current_path(CWD);
+      Hash.update(CWD);
+      Hash.update("/");
+    }
     Hash.update(MainFileName);
     Hash.final(Result);
     SmallString<32> NameStr;
@@ -2163,8 +2173,6 @@ std::string CodeGenModule::getUniqueItaniumABIMangledName(GlobalDecl GD) {
     return std::string(NameStr);
   };
 
-  auto *Decl = GD.getDecl();
-  auto &Context = Decl->getASTContext();
   std::unique_ptr<MangleContext> MC{
       ItaniumMangleContext::create(Context, Context.getDiagnostics())};
   SmallString<256> Buffer;
