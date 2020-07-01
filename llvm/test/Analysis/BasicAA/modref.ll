@@ -1,10 +1,6 @@
-<<<<<<< HEAD
-; RUN: opt < %s -basicaa -gvn -dse -S | FileCheck %s
-; INTEL
-; RUN: opt -convert-to-subscript -S < %s | opt -basicaa -gvn -dse -S | FileCheck --check-prefix=CHECK-SUBS %s
-=======
 ; RUN: opt < %s -basic-aa -gvn -dse -S | FileCheck %s
->>>>>>> feeed16a5f8127dde6ee01b023f1dbb20d203857
+; INTEL
+; RUN: opt -convert-to-subscript -S < %s | opt -basic-aa -gvn -dse -S | FileCheck --check-prefix=CHECK-SUBS %s
 target datalayout = "E-p:64:64:64-a0:0:8-f32:32:32-f64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-v64:64:64-v128:128:128"
 
 declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture)

@@ -1,10 +1,6 @@
-<<<<<<< HEAD
-; RUN: opt < %s -basicaa -basicaa-recphi=1 -gvn -S | FileCheck %s
-; INTEL
-; RUN: opt -convert-to-subscript -S < %s | opt -basicaa -basicaa-recphi=1 -gvn -S | FileCheck %s
-=======
 ; RUN: opt < %s -basic-aa -basicaa-recphi=1 -gvn -S | FileCheck %s
->>>>>>> feeed16a5f8127dde6ee01b023f1dbb20d203857
+; INTEL
+; RUN: opt -convert-to-subscript -S < %s | opt -basic-aa -basicaa-recphi=1 -gvn -S | FileCheck %s
 ;
 ; Check that section->word_ofs doesn't get reloaded in every iteration of the
 ; for loop.
@@ -16,19 +12,19 @@
 ;   unsigned word_ofs;
 ;   const unsigned *data;
 ; } section_t;
-; 
-; 
+;
+;
 ; void test2(const section_t * restrict section, unsigned * restrict dst) {;
 ;   while (section->data != NULL) {
 ;     const unsigned *src = section->data;
 ;     for (unsigned i=0; i < section->num_words; ++i) {
 ;       dst[section->word_ofs + i] = src[i];
-;     }   
-; 
+;     }
+;
 ;     ++section;
 ;   }
 ; }
-; 
+;
 
 ; CHECK-LABEL: for.body:
 ; CHECK-NOT: load i32, i32* %word_ofs
@@ -78,4 +74,3 @@ for.end:                                          ; preds = %for.body, %for.cond
 while.end:                                        ; preds = %for.end, %entry
   ret void
 }
-
