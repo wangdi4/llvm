@@ -89,8 +89,13 @@ public:
       if (auto *StructInfo = dyn_cast<dtrans::StructInfo>(TI))
         analyzeStructureType(StructInfo);
 
-    for (auto &GV : M.globals())
+    for (auto &GV : M.globals()) {
       analyzeGlobalVariable(GV);
+
+      for (auto *U : GV.users())
+        if (auto *CE = dyn_cast<ConstantExpr>(U))
+          analyzeConstantExpr(CE);
+    }
   }
 
   // Analyze the structure to collect basic information, such as whether it is
@@ -338,6 +343,162 @@ public:
     }
   }
 
+  void visitGetElementPtrInst(GetElementPtrInst &I) {
+    analyzeGEPOperator(cast<GEPOperator>(&I));
+  }
+
+  // Check the GEP to ensure that the pointer operand is not ambiguous.
+  // Also, check for byte flattened GEPs that could not be resolved to a
+  // specific value. If the GEP is safe, check whether all the uses are for
+  // load/store instructions to determine whether the FieldInfo object needs to
+  // be marked as 'ComplexUse'
+  void analyzeGEPOperator(GEPOperator *GEP) {
+    Value *PtrOp = GEP->getPointerOperand();
+    ValueTypeInfo *PtrInfo = PTA.getValueTypeInfo(PtrOp);
+    if (!PtrInfo) {
+      DTInfo.setUnhandledPtrType(GEP);
+      return;
+    }
+
+    if (PtrInfo->getUnhandled() || PtrInfo->getDependsOnUnhandled()) {
+      DTInfo.setUnhandledPtrType(GEP);
+      setAllAliasedTypeSafetyData(PtrInfo, dtrans::UnhandledUse,
+                                  "PointerTypeAnalyzer could not resolve all "
+                                  "potential types for pointer",
+                                  GEP);
+      return;
+    }
+
+    // If the pointer type analyzer identified this GEP as performing what looks
+    // like a byte-flattened GEP, but it was unable to resolve the element
+    // indexed, then we need to flag the pointer as "Bad pointer manipulation"
+    ValueTypeInfo *GEPInfo = PTA.getValueTypeInfo(GEP);
+    assert(GEPInfo &&
+           "Pointer type analyzer should have info about all GEP pointers");
+    if (GEPInfo->getUnknownByteFlattenedGEP()) {
+      setAllAliasedTypeSafetyData(PtrInfo, dtrans::BadPtrManipulation,
+                                  "Byte flattened GEP could not be resolved",
+                                  GEP);
+      return;
+    }
+
+    if (!PtrInfo->canAliasToAggregatePointer())
+      return;
+
+    // The GEP is indexing an aggregate type, check that the type is
+    // unambiguous.
+    auto PtrDomTy = PTA.getDominantAggregateUsageType(*PtrInfo);
+    if (!PtrDomTy)
+      setAllAliasedTypeSafetyData(
+          PtrInfo, dtrans::AmbiguousGEP,
+          "Multiple potential types for GEP pointer operand", GEP);
+
+    // If there are multiple aggregate types, we need to check that
+    // the element can be safely resolved. Normally, multiple aggregate pointer
+    // types is an unsafe situation. However, due to the nature of nested types,
+    // a pointer to an aggregate is equivalent to a pointer to the zeroth
+    // element of the aggregate, and will still have a dominant type as the
+    // outer type of the nesting, so we need to deal with possibility there will
+    // be multiple aggregate type pointers to be sure the pointer is being used
+    // in a compatible way. Having a dominant type is not enough because we need
+    // to consider that the pointer is being "downcast" to be used as a derived
+    // type
+    if (PtrInfo->canAliasMultipleAggregatePointers()) {
+      llvm::Type *SrcType = GEP->getSourceElementType();
+      if (TM.isSimpleType(SrcType)) {
+        DTransType *ExpectedType = TM.getOrCreateSimpleType(SrcType);
+        // %pField0 = getelementptr %class.test02.base, %class.test02.base*
+        //                 %merge, i64 0, i32 0
+        // if %merge could be a derived type, it is an unsafe use.
+        if (hasIncompatibleAggregateDecl(ExpectedType, PtrOp)) {
+          setAllAliasedTypeSafetyData(PtrInfo, dtrans::AmbiguousGEP,
+                                      "Dominant type does not match expected "
+                                      "type for GEP pointer operand",
+                                      GEP);
+        }
+      }
+    }
+
+    // Next check the uses of the GEP for updating flags that need to be set on
+    // the FieldInfo object is a structure is being indexed.
+    //
+    // When a GEP points to some element of an aggregate, we need to consider
+    // the following cases:
+    // - The byte-offset corresponds to the start of a field.
+    //    In this case, we need to check how the GEP gets used because some
+    //    structure transformations can only process the GEP instruction
+    //    when the value is used to load or store the field value. For other
+    //    uses, the 'ComplexUse' property is set on the field to inhibit
+    //    transformations of the structure.
+    // - The byte-offset does not correspond to the start of a field.
+    //     In this case, it will generally be a 'Bad pointer manipulation'.
+    //     However, we allow a special case where the GEP is used for a
+    //     'memset' instruction, to allow the offset to correspond to padding
+    //     that may occur between fields. If the offset turns out to not be a
+    //     padding location, the 'memset' analyzer will flag the aggregate
+    //     with a safety violation.
+    if (GEPInfo->pointsToSomeElement()) {
+      // Check the uses of this GEP element. If it is used by anything other
+      // than casts, loads, and stores.
+      std::function<bool(Value *)> hasNonCastLoadStoreUses =
+          [&hasNonCastLoadStoreUses](Value *V) {
+            for (auto *U : V->users()) {
+              if (isa<LoadInst>(U) || isa<StoreInst>(U))
+                continue;
+              if (isa<CastInst>(U)) {
+                if (hasNonCastLoadStoreUses(U))
+                  return true;
+                continue;
+              }
+              // Anything else is the "other" use we were looking for.
+              DEBUG_WITH_TYPE_P(FNFilter, SAFETY_VERBOSE,
+                                dbgs()
+                                    << "dtrans-field-info: Complex use of GEP: "
+                                    << *U << "\n");
+              return true;
+            }
+            // If we get here, all users were load, store, or cast.
+            return false;
+          };
+
+      // Check if any of element pointees do not correspond to a element
+      // boundary.
+      auto HasNonFieldAddress = [](ValueTypeInfo *Info) {
+        return any_of(
+            Info->getElementPointeeSet(ValueTypeInfo::VAT_Use).begin(),
+            Info->getElementPointeeSet(ValueTypeInfo::VAT_Use).end(),
+            [](const ValueTypeInfo::TypeAndPointeeLocPair &PointeePair) {
+              return PointeePair.second.getKind() ==
+                     ValueTypeInfo::PointeeLoc::PLK_Offset;
+            });
+      };
+
+      if (HasNonFieldAddress(GEPInfo)) {
+        // The pointer type analyzer should only have set a non-field offset
+        // for the case of a GEP that is passed to a memset and the offset
+        // does not correspond to a field boundary.
+        assert(valueOnlyUsedForMemset(GEP) &&
+               "Non-field accesses expected to only occur for memset operand");
+      } else if (hasNonCastLoadStoreUses(GEP)) {
+        auto &Pointees = GEPInfo->getElementPointeeSet(ValueTypeInfo::VAT_Use);
+        for (auto &PointeePair : Pointees) {
+          DTransType *ParentTy = PointeePair.first;
+          if (ParentTy->isStructTy()) {
+            assert(PointeePair.second.getKind() !=
+                       ValueTypeInfo::PointeeLoc::PLK_Offset &&
+                   "Unexpected use of invalid element");
+
+            auto *ParentStInfo =
+                cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(ParentTy));
+            dtrans::FieldInfo &FI =
+                ParentStInfo->getField(PointeePair.second.getElementNum());
+            FI.setComplexUse(true);
+          }
+        }
+      }
+    }
+  }
+
   void visitSelectInst(SelectInst &Sel) { analyzeSelectOrPhi(&Sel); }
 
   void visitPHINode(PHINode &Phi) { analyzeSelectOrPhi(&Phi); }
@@ -375,6 +536,98 @@ private:
       BaseTy = BaseTy->getArrayElementType();
 
     return BaseTy;
+  }
+
+  // Constant expressions can be used to access global variables and fields
+  // contained within them. Make sure the accesses are safe.
+  void analyzeConstantExpr(ConstantExpr *CE) {
+    // Ignore bitcast operators because any problems should be detected when the
+    // result of the bitcast is used. The ValueTypeInfo object will contain the
+    // types of the source pointer and the type it gets used as. With opaque
+    // pointers, we don't expect to see bitcast operators, just uses of the
+    // pointer as the type that it would have been bitcast to.
+    if (!isa<BitCastOperator>(CE)) {
+      // TODO: Extend this to handle other constant expression types, as needed.
+      if (auto *GEPOp = dyn_cast<GEPOperator>(CE)) {
+        analyzeGEPOperator(GEPOp);
+      } else {
+        ValueTypeInfo *CEInfo = PTA.getValueTypeInfo(CE);
+        if (CEInfo)
+          setAllAliasedTypeSafetyData(
+              CEInfo, dtrans::UnhandledUse,
+              "Analysis of constant expression not implemented yet", CE);
+      }
+    }
+
+    for (auto *U : CE->users())
+      if (auto *UCE = dyn_cast<ConstantExpr>(U))
+        analyzeConstantExpr(UCE);
+  }
+
+  // Check whether any of the aliases that were collected for the declaration of
+  // 'V' are incompatible when used as pointers to an object of type
+  // 'ExpectedTy'. This is used when a object has a dominant aggregate type, but
+  // can alias multiple aggregate types. This can occur because of nested types,
+  // where the address of an element is shared with the container itself.
+  // For example:
+  //   %struct.inside = { i32 }
+  //   %struct.outside = { %struct.inside, i64 }
+  //   %inside = alloca %struct.inside
+  //   %t = getelementptr %struct.outside, p0 %inside, i64 0, i32 1
+  // A %struct.outside* value can be used to access either type. However, a
+  // %struct.inside* that has been cast to be used as an %struct.outside* should
+  // trigger a safety violation. This function is to check for such a case. In
+  // the above, the 'ExpectedTy' is a %struct.outside, but the pointer used in
+  // 'V' was originally defined as a %struct.inside. Returns 'true' to indicate
+  // the use is incompatible.
+  bool hasIncompatibleAggregateDecl(DTransType *ExpectedTy, Value *V) {
+    auto AreTypesCompatible = [this](DTransType *AliasTy,
+                                     DTransType *ExpectedTy) {
+      if (!AliasTy || !ExpectedTy)
+        return false;
+
+      if (ExpectedTy == AliasTy)
+        return true;
+
+      // Any pointer object may be safely used as a pointer sized int type.
+      if (AliasTy->isPointerTy() && ExpectedTy == getDTransPtrSizedIntType())
+        return true;
+
+      // Check if the 'Expected' type can be used for the element zero type of
+      // 'AliasTy'
+      if (PTA.isPointeeElementZeroAccess(AliasTy, ExpectedTy))
+        return true;
+
+      return false;
+    };
+
+    ValueTypeInfo *Info = PTA.getValueTypeInfo(V);
+    assert(Info &&
+           "Expected pointer type analyzer to collect info for pointer");
+
+    auto &AliasSet = Info->getPointerTypeAliasSet(ValueTypeInfo::VAT_Decl);
+    // If a declaration type is not available, then we cannot tell whether the
+    // type is compatible.
+    if (AliasSet.empty())
+      return true;
+
+    for (auto *ValAliasTy : AliasSet) {
+      if (!ValAliasTy->isPointerTy())
+        return true;
+
+      DTransType *BaseTy = ValAliasTy->getPointerElementType();
+      while (BaseTy->isPointerTy())
+        BaseTy = BaseTy->getPointerElementType();
+      if (!BaseTy->isAggregateType())
+        continue;
+
+      if (!AreTypesCompatible(ValAliasTy->getPointerElementType(),
+                              ExpectedTy)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   // Return true if 'Data' is a safety condition that should be cascaded
