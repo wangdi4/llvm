@@ -3561,6 +3561,65 @@ CallInst *VPOParoptUtils::genCall(StringRef FnName, Type *ReturnTy,
 
 // Create a variant version of BaseCall using  the same arguments.
 // The base and variant functions must have identical signatures.
+// If a use_device_ptr clause is present, the call arguments are changed to use
+// the updated value of the clause operand.
+//
+// In the following examples of pseudo-code for target variant dispatch
+// code-gen, this function emits (1), (2), (3) and (4).
+//
+// If there is no PTR_TO_PTR modifier, the incoming IR won't have a
+// load from the use_device_ptr operand, but we still need to generate
+// that load to get the updated value of the operand to be used in the
+// variant call.
+//
+// -------------------------------+--------------------------------------------
+//           Before               |      After
+// -------------------------------+--------------------------------------------
+//   "USE.DEVICE.PTR" (i32* %a)   |
+//                                |
+//                                | if (__tgt_is_device_available(...) {
+//                                |   ...
+//                                |   %a.cast = bitcast i32* %a to i8*
+//                                |   store i8* %a.cast, i8** <a_gep>
+//                                |   ...
+//                                |   __tgt_data_begin(...)
+//                                |   %a.gep.cast = bitcast i8** <a_gep>
+//                                |                 to i32**
+//                                |
+//                               (1)  %a.buffer = load i32*, i32** %a.gep.cast
+//   call @foo(i32* %a)          (2)  call @foo_gpu(i32* %a.buffer)
+//                                |
+//                                |   __tgt_data_end(...)
+//                                | } else {
+//                                |   call @foo(i32* %a)
+//                                | }
+//
+// -------------------------------+--------------------------------------------
+//           Before               |      After
+// -------------------------------+--------------------------------------------
+//   "USE.DEVICE.PTR:PTR_TO_PTR"  |
+//                   (i32** %a)   |
+//                                |
+//   %a.val = load i32*, i32** %a | %a.val = load i32*, i32** %a
+//                                |
+//                                | if (__tgt_is_device_available(...) {
+//                                |   %a.load = load i32*, i32** %a
+//                                |   ...
+//                                |   %a.cast = bitcast i32* %a.load to i8*
+//                                |   store i8* %a.cast, i8** <a_gep>
+//                                |   ...
+//                                |   __tgt_data_begin(...)
+//                                |   %a.gep.cast = bitcast i8** <a_gep>
+//                                |                 to i32**
+//                                |
+//                               (3)  %a.buffer = load i32*, i32** %a.gep.cast
+//   call @foo(i32* %a.val)      (4)  call @foo_gpu(i32* %a.buffer)
+//                                |
+//                                |   __tgt_data_end(...)
+//                                | } else {
+//                                |   call @foo(i32* %a.val)
+//                                | }
+//                                |
 CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
                                          StringRef VariantName,
                                          Value *InteropObj,
@@ -3598,67 +3657,76 @@ CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
       FnArgTypes.push_back(Int8PtrTy);
   }
   CallInst *VariantCall = genCall(M, VariantName, ReturnTy, FnArgs, FnArgTypes,
-                                  InsertPt, IsTail, IsVarArg);
+                                  InsertPt, IsTail, IsVarArg); // (2), (4)
 
   // Replace each VariantCall argument that is a load from a HostPtr listed
   // on the use_device_ptr clause with a load from the corresponding
   // TgtBufferAddr.
-  if (W) {
-    assert(isa<WRNTargetVariantNode>(W) && "Expected a Target Variant WRN");
-    UseDevicePtrClause &UDPtrClause = W->getUseDevicePtr();
-    if (!UDPtrClause.empty()) {
-      IRBuilder<> VCBuilder(VariantCall);
-      for (UseDevicePtrItem *Item : UDPtrClause.items()) {
-        Value *HostPtr = Item->getOrig();
-        Value *TgtBufferAddr = Item->getNew();
-        for (Value *Arg : FnArgs) {
-          LoadInst *Load = dyn_cast<LoadInst>(Arg);
+  if (!W)
+    return VariantCall;
 
-          if (!Load)
-            // Support cases like:
-            //   %5 = load %struct.S*, %struct.S** %a, align 8
-            //   %6 = bitcast %struct.S* %5 to i8*
-            //   call void @func_offload(i8* %6)
-            //
-            // Note that the host pointer's element type is %struct.S*,
-            // while the argument type is i8*.
-            Load = dyn_cast<LoadInst>(Arg->stripPointerCasts());
+  assert(isa<WRNTargetVariantNode>(W) && "Expected a Target Variant WRN");
+  UseDevicePtrClause &UDPtrClause = W->getUseDevicePtr();
+  if (UDPtrClause.empty())
+    return VariantCall;
 
-          if (!Load)
-            continue;
+  IRBuilder<> VCBuilder(VariantCall);
+  for (UseDevicePtrItem *Item : UDPtrClause.items()) {
+    Value *HostPtr = Item->getOrig();
+    Value *TgtBufferAddr = Item->getNew();
+    bool IsPointerToPointer = Item->getIsPointerToPointer();
 
-          if (Load->getPointerOperand() == HostPtr) {
-            StringRef OrigName = HostPtr->getName();
-            LoadInst *Buffer =
-                VCBuilder.CreateLoad(TgtBufferAddr, OrigName + ".buffer");
+    for (Value *Arg : FnArgs) {
+      if (!IsPointerToPointer && HostPtr != Arg &&
+          HostPtr != Arg->stripPointerCasts())
+        continue;
 
-            // HostPtr       type is:  SomeType**
-            // Arg           type is:  SomeType*
-            // TgtBufferAddr type is:  void**
-            // Buffer        type is:  void*
-            //
-            // To replace 'Arg' with 'Buffer' in the variant call,
-            // we must cast Buffer from void* to SomeType*
-            // Example (SomeType==float):
-            //    %buffer = load i8*, i8** %tgt.buffer
-            //    %buffer.cast = bitcast i8* %buffer23 to float*
-            //    call void @foo_gpu(..., float* %buffer.cast,... )
-            Type *HostPtrTy = HostPtr->getType(); // SomeType**
-            assert(HostPtrTy->isPointerTy() &&
-                   "HostPtrTy expected to be pointer type");
-            Type *HostPtrElemTy =
-              HostPtrTy->getPointerElementType(); // SomeType*
-            assert(HostPtrElemTy->isPointerTy() &&
-                   "HostPtrElemTy expected to be pointer type");
-            (void)HostPtrElemTy;
-            Value *BufferCast =
-              VCBuilder.CreateBitCast(Buffer, Arg->getType());
-            BufferCast->setName(OrigName + ".buffer.cast");
-            VariantCall->replaceUsesOfWith(Arg, BufferCast);
-            break;
-          }
-        }
+      if (IsPointerToPointer) {
+        LoadInst *Load = dyn_cast<LoadInst>(Arg);
+        if (!Load)
+          // Support cases like:
+          //   %5 = load %struct.S*, %struct.S** %a, align 8
+          //   %6 = bitcast %struct.S* %5 to i8*
+          //   call void @func_offload(i8* %6)
+          //
+          // Note that the host pointer's element type is %struct.S*,
+          // while the argument type is i8*.
+          Load = dyn_cast<LoadInst>(Arg->stripPointerCasts());
+
+        if (!Load)
+          continue;
+
+        if (Load->getPointerOperand() != HostPtr)
+          continue;
       }
+
+      StringRef OrigName = HostPtr->getName();
+      LoadInst *Buffer =
+          VCBuilder.CreateLoad(TgtBufferAddr, OrigName + ".buffer"); // (1), (3)
+
+      // HostPtr       type is:  SomeType** if ptr_to_ptr is present
+      //                         SomeType*  otherwise
+      // Arg           type is:  SomeType*
+      // TgtBufferAddr type is:  void**
+      // Buffer        type is:  void*
+      //
+      // To replace 'Arg' with 'Buffer' in the variant call,
+      // we must cast Buffer from void* to SomeType*
+      // Example (SomeType==float):
+      //    %buffer = load i8*, i8** %tgt.buffer
+      //    %buffer.cast = bitcast i8* %buffer23 to float*
+      //    call void @foo_gpu(..., float* %buffer.cast,... )
+      Type *HostPtrTy = HostPtr->getType();
+      assert(HostPtrTy->isPointerTy() &&
+             "HostPtrTy expected to be pointer type");
+      assert((!IsPointerToPointer ||
+              HostPtrTy->getPointerElementType()->isPointerTy()) &&
+             "HostPtr element type expected to be pointer type");
+      (void)HostPtrTy;
+      Value *BufferCast = VCBuilder.CreateBitCast(Buffer, Arg->getType());
+      BufferCast->setName(OrigName + ".buffer.cast");
+      VariantCall->replaceUsesOfWith(Arg, BufferCast);
+      break;
     }
   }
   return VariantCall;
