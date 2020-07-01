@@ -2101,6 +2101,28 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
     if (Value *V = lowerObjectSizeCall(II, DL, &TLI, /*MustSucceed=*/false))
       return replaceInstUsesWith(CI, V);
     return nullptr;
+#if INTEL_CUSTOMIZATION
+  case Intrinsic::experimental_vector_reduce_and:
+  case Intrinsic::experimental_vector_reduce_or:
+  case Intrinsic::experimental_vector_reduce_xor: {
+    // Pull sign/zero extend through vector reduce intrinsics to reduce
+    // the maximum vector size needed.
+    Value *X;
+    Value *Src = II->getArgOperand(0);
+    bool IsSExt = match(Src, m_SExt(m_Value(X)));
+    if (IsSExt || match(Src, m_ZExt(m_Value(X)))) {
+      Function *NewF =
+          Intrinsic::getDeclaration(II->getModule(), IID, X->getType());
+      CallInst *NewCall = Builder.CreateCall(NewF, X);
+      NewCall->takeName(II);
+      if (IsSExt)
+        return new SExtInst(NewCall, II->getType());
+      return new ZExtInst(NewCall, II->getType());
+    }
+
+    break;
+  }
+#endif
   case Intrinsic::bswap: {
     Value *IIOperand = II->getArgOperand(0);
     Value *X = nullptr;
