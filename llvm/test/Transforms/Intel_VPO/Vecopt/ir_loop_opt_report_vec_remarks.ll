@@ -97,13 +97,13 @@ exit:
 }
 
 ; Check metadata for remarks from vectorized IR
-; CHECK: [[FOO_LOOP_MD]] = distinct !{[[FOO_LOOP_MD]], [[FOO_OPTRPT:!.*]]}
+; CHECK: [[FOO_LOOP_MD]] = distinct !{[[FOO_LOOP_MD]], [[FOO_OPTRPT:![^,]+]]{{.*}}}
 ; CHECK: [[FOO_OPTRPT]] = distinct !{!"llvm.loop.optreport", [[FOO_OPTRPT_INTEL:!.*]]}
 ; CHECK-NEXT: [[FOO_OPTRPT_INTEL]] = distinct !{!"intel.loop.optreport", [[REMARKS:!.*]]}
 ; CHECK-NEXT: [[REMARKS]] = !{!"intel.optreport.remarks", [[R1:!.*]], [[R2:!.*]]}
 ; CHECK-NEXT: [[R1]] = !{!"intel.optreport.remark", !"LOOP WAS VECTORIZED"}
 ; CHECK-NEXT: [[R2]] = !{!"intel.optreport.remark", !"vectorization support: vector length %s", {{.*}}}
-; CHECK-NEXT: [[TEST_OUTER_LOOP_MD]] = distinct !{[[TEST_OUTER_LOOP_MD]], [[TEST_OUTER_OPTRPT:!.*]]}
+; CHECK: [[TEST_OUTER_LOOP_MD]] = distinct !{[[TEST_OUTER_LOOP_MD]], [[TEST_OUTER_OPTRPT:![^,]+]]{{.*}}}
 ; CHECK-NEXT: [[TEST_OUTER_OPTRPT]] = distinct !{!"llvm.loop.optreport", [[TEST_OUTER_OPTRPT_INTEL:!.*]]}
 ; CHECK-NEXT: [[TEST_OUTER_OPTRPT_INTEL]] = distinct !{!"intel.loop.optreport", [[REMARKS]]}
 

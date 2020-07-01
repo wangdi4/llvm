@@ -4154,7 +4154,7 @@ void VPOCodeGenHIR::widenNode(const VPInstruction *VPInst, RegDDRef *Mask,
   LLVM_DEBUG(dbgs() << "Vectorizing: ");
   LLVM_DEBUG(VPInst->dump());
 
-  if (auto Branch = dyn_cast<VPTerminator>(VPInst))
+  if (auto Branch = dyn_cast<VPBranchInst>(VPInst))
     if (const HLGoto *HGoto = Branch->getHLGoto()) {
       assert(isSearchLoop() && HGoto->isEarlyExit(getOrigLoop()) &&
              "Only early exit gotos expected!");

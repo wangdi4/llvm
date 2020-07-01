@@ -166,7 +166,7 @@ void VPlanLoopUnroller::run(VPInstUnrollPartTy *VPInstUnrollPart) {
       auto *ClonedBlock = cast<VPBasicBlock>(ValueMap[Block]);
 
       for (VPInstruction &Inst : *ClonedBlock) {
-        if (!isa<VPTerminator>(Inst))
+        if (!isa<VPBranchInst>(Inst))
           // Skip remapping operands for terminators because them are already
           // remapped by VPCloneUtils
           Mapper.remapInstruction(&Inst);

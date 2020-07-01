@@ -714,7 +714,7 @@ static VPInstruction *getLastVPI(VPBasicBlock *VPBB) {
   if (VPBB->empty())
     return nullptr;
   if (VPBB->size() == 1) {
-    assert(isa<VPTerminator>(VPBB->begin()));
+    assert(isa<VPBranchInst>(VPBB->begin()));
     return nullptr;
   }
   return &*std::prev(VPBB->terminator());
@@ -762,9 +762,9 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
   assert(!isa<HLLoop>(Node) && "HLLoop shouldn't be processed here!");
 
   if (isa<HLGoto>(Node)) {
-    // Create new terminator instruction
+    // Create new branch instruction
     Type *BaseTy = Type::getInt1Ty(*Plan->getLLVMContext());
-    VPTerminator *T = Builder.createTerminator(BaseTy, cast<HLGoto>(Node));
+    VPBranchInst *T = Builder.createBr(BaseTy, cast<HLGoto>(Node));
 
     // Remove unnecessary existing terminator
     VPBasicBlock *BB = Builder.getInsertBlock();

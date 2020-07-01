@@ -144,13 +144,15 @@ private:
   HLLoop *createExtractedLoop(HLLoop *Lp, RegDDRef *MaxRef, RegDDRef *MinRef,
                               HLInst *ExpensiveInst,
                               SmallVectorImpl<HLInst *> &InstsInExprTree,
-                              HLInst *&AllocaInst);
+                              HLInst *&AllocaInst,
+                              SmallVectorImpl<int64_t> &Offsets);
 
   RegDDRef *addDimensionForAllocaMemRef(const HLLoop *ExtractedLoop,
                                         const HLLoop *Lp,
                                         const RegDDRef *AllocaRef,
                                         const RegDDRef *MemRef,
-                                        uint64_t TypeSize);
+                                        uint64_t TypeSize,
+                                        SmallVectorImpl<int64_t> &Offsets);
 };
 } // namespace
 
@@ -588,20 +590,18 @@ static RegDDRef *getMemRef(SmallVectorImpl<HLInst *> &InstsInExprTree) {
   return nullptr;
 }
 
-// If MinRef is A[i1+2][i2][i3], we need to enlarge i1 arraysize by 2
-static void updateArraySize(DDGraph DDG, RegDDRef *MinRef,
-                            RegDDRef *&TripCountRef, unsigned LoopLevel) {
+// Record the constant in each dimension of MinRef, for example: the offset of
+// // A[i1+2][i2][i3] is {2, 0, 0}
+static void recordOffsets(RegDDRef *MinRef, unsigned LoopLevel,
+                          SmallVectorImpl<int64_t> &Offsets) {
   for (auto Iter = MinRef->canon_rbegin(), End = MinRef->canon_rend();
        Iter != End; ++Iter) {
     CanonExpr *CE = *Iter;
 
     if (CE->hasIV(LoopLevel)) {
-      int64_t Constant = CE->getConstant();
-
-      if (Constant > 0) {
-        TripCountRef->getSingleCanonExpr()->addConstant(Constant, true);
-        return;
-      }
+      int64_t Constant = CE->getConstant() >= 0 ? CE->getConstant() : 0;
+      Offsets.push_back(Constant);
+      return;
     }
   }
 
@@ -615,13 +615,14 @@ static void updateArraySize(DDGraph DDG, RegDDRef *MinRef,
 static HLInst *createAllocaInst(DDGraph DDG, RegDDRef *MinRef, RegDDRef *MaxRef,
                                 HLLoop *Lp, Type *DestTy,
                                 SmallVectorImpl<HLInst *> &ArraySizeInsts,
-                                SmallVectorImpl<RegDDRef *> &TripCountRefs) {
+                                SmallVectorImpl<RegDDRef *> &TripCountRefs,
+                                SmallVectorImpl<int64_t> &Offsets) {
   auto &HNU = Lp->getHLNodeUtils();
   unsigned LoopLevel = Lp->getNestingLevel();
   RegDDRef *TripCountRef = Lp->getTripCountDDRef();
 
   // Update the array size by the offset of iv
-  updateArraySize(DDG, MinRef, TripCountRef, LoopLevel);
+  recordOffsets(MinRef, LoopLevel, Offsets);
 
   TripCountRefs.push_back(TripCountRef);
 
@@ -630,7 +631,7 @@ static HLInst *createAllocaInst(DDGraph DDG, RegDDRef *MinRef, RegDDRef *MaxRef,
   while (Lp = Lp->getParentLoop()) {
     RegDDRef *ParentTripCountRef = Lp->getTripCountDDRef();
     LoopLevel = Lp->getNestingLevel();
-    updateArraySize(DDG, MinRef, ParentTripCountRef, LoopLevel);
+    recordOffsets(MinRef, LoopLevel, Offsets);
 
     // Create trip count multiplication inst, like %array_size =
     // zext.i32.i64(%ny)  *  sext.i32.i64(%nz);
@@ -641,6 +642,8 @@ static HLInst *createAllocaInst(DDGraph DDG, RegDDRef *MinRef, RegDDRef *MaxRef,
 
     TripCountRef = ArraySizeMulInst->getLvalDDRef()->clone();
   }
+
+  std::reverse(Offsets.begin(), Offsets.end());
 
   HLInst *AllocaInst = HNU.createAlloca(
       DestTy, ArraySizeMulInst->getLvalDDRef()->clone(), "TempArray");
@@ -675,7 +678,8 @@ static CanonExpr *getStrideCE(const HLLoop *Lp, uint64_t TypeSize,
 // expression tree
 RegDDRef *HIRStoreResultIntoTempArray::addDimensionForAllocaMemRef(
     const HLLoop *ExtractedLoop, const HLLoop *Lp, const RegDDRef *AllocaRef,
-    const RegDDRef *MemRef, uint64_t TypeSize) {
+    const RegDDRef *MemRef, uint64_t TypeSize,
+    SmallVectorImpl<int64_t> &Offsets) {
   unsigned LoopLevel = Lp->getNestingLevel();
   DDGraph DDG = DDA.getGraph(Lp->getOutermostParentLoop());
   RegDDRef *AllocaRefClone = AllocaRef->clone();
@@ -735,6 +739,8 @@ RegDDRef *HIRStoreResultIntoTempArray::addDimensionForAllocaMemRef(
       }
 
       CanonExpr *CloneCE = CE->clone();
+
+      CloneCE->addConstant(-Offsets[I - 1], true);
 
       CanonExpr *StrideCE = getStrideCE(ExtractedLoop, TypeSize, I);
       Type *DimTy = AllocaRef->getBaseType();
@@ -934,7 +940,8 @@ static void makeConsistent(RegDDRef *AllocaRef, RegDDRef *MemRef, HLLoop *Lp) {
 // loop
 HLLoop *HIRStoreResultIntoTempArray::createExtractedLoop(
     HLLoop *Lp, RegDDRef *MaxRef, RegDDRef *MinRef, HLInst *ExpensiveInst,
-    SmallVectorImpl<HLInst *> &InstsInExprTree, HLInst *&AllocaInst) {
+    SmallVectorImpl<HLInst *> &InstsInExprTree, HLInst *&AllocaInst,
+    SmallVectorImpl<int64_t> &Offsets) {
 
   HLLoop *OuterAnchorLp = Lp->getOutermostParentLoop();
 
@@ -964,7 +971,7 @@ HLLoop *HIRStoreResultIntoTempArray::createExtractedLoop(
   // Create Alloca inst, like %TempArray = alloca %array_size5
   AllocaInst = createAllocaInst(DDG, MinRef, MaxRef, NewLoop,
                                 ExpensiveInst->getLvalDDRef()->getDestType(),
-                                ArraySizeInsts, TripCountRefs);
+                                ArraySizeInsts, TripCountRefs, Offsets);
 
   HLLoop *NewOutermostLoop = NewLoop->getOutermostParentLoop();
 
@@ -1006,7 +1013,7 @@ HLLoop *HIRStoreResultIntoTempArray::createExtractedLoop(
   uint64_t TypeSize = ExpensiveInst->getLvalDDRef()->getDestTypeSizeInBytes();
 
   RegDDRef *AllocaRef = addDimensionForAllocaMemRef(
-      NewLoop, NewLoop, AllocaDDRef->clone(), MemRef, TypeSize);
+      NewLoop, NewLoop, AllocaDDRef->clone(), MemRef, TypeSize, Offsets);
 
   HLNodeUtils::insertAsLastChild(NewLoop, ExpensiveInst->clone());
 
@@ -1080,9 +1087,11 @@ bool HIRStoreResultIntoTempArray::doLoopCarriedScalarReplacement(
   std::sort(InstsInExprTree.begin(), InstsInExprTree.end(), LowerTopSortNum);
 
   HLInst *AllocaInst = nullptr;
+  SmallVector<int64_t, 4> Offsets;
 
-  HLLoop *ExtractedLoop = createExtractedLoop(
-      Lp, MaxRef, MinRef, ExpensiveInsts[0], InstsInExprTree, AllocaInst);
+  HLLoop *ExtractedLoop =
+      createExtractedLoop(Lp, MaxRef, MinRef, ExpensiveInsts[0],
+                          InstsInExprTree, AllocaInst, Offsets);
 
   // Create a temporary alloca to store the result
   RegDDRef *AllocaDDRef = DRU.createMemRef(
@@ -1105,7 +1114,7 @@ bool HIRStoreResultIntoTempArray::doLoopCarriedScalarReplacement(
     uint64_t TypeSize = ExpensiveInst->getLvalDDRef()->getDestTypeSizeInBytes();
 
     RegDDRef *AllocaRef = addDimensionForAllocaMemRef(
-        ExtractedLoop, Lp, AllocaDDRef->clone(), MemRef, TypeSize);
+        ExtractedLoop, Lp, AllocaDDRef->clone(), MemRef, TypeSize, Offsets);
 
     // Create a load inst to replace the expensive inst, like -
     // transfer from -

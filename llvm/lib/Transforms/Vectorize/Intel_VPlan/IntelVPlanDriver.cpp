@@ -192,6 +192,37 @@ static bool isSupportedRec(Loop *Lp) {
   return true;
 }
 
+// This function adds new SzAddMD metadata string to the loop. We use it set
+// llvm.loop.vectorize.enable and llvm.loop.isvectorized metadata attributes:
+//   llvm.loop.vectorize.enable - is added by the front-end (called without
+//   -fiopenmp option) or VPlan Vectorizer if pragma simd is specified the
+//   the loop.
+//   llvm.loop.isvectorized - is added by vectorizer for vectorized loops.
+static void setLoopMD(const Loop *const Lp, const char *const SzAddMD) {
+  if (!Lp)
+    return;
+  LLVMContext &Context = Lp->getHeader()->getContext();
+  MDNode *AddMD = MDNode::get(
+      Context,
+      {MDString::get(Context, SzAddMD),
+       ConstantAsMetadata::get(ConstantInt::get(Context, APInt(32, 1)))});
+  MDNode *LoopID = Lp->getLoopID();
+  MDNode *NewLoopID =
+      makePostTransformationMetadata(Context, LoopID, {SzAddMD}, {AddMD});
+  Lp->setLoopID(NewLoopID);
+}
+
+static void setHLLoopMD(HLLoop *const Lp, const char *const SzAddMD,
+                        LLVMContext &Context) {
+  if (!Lp)
+    return;
+  MDNode *AddMD = MDNode::get(
+      Context,
+      {MDString::get(Context, SzAddMD),
+       ConstantAsMetadata::get(ConstantInt::get(Context, APInt(32, 1)))});
+  Lp->addLoopMetadata({AddMD});
+}
+
 #if INTEL_CUSTOMIZATION
 template <>
 bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
@@ -212,6 +243,13 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   ScalarEvolution SE(Fn, *TLI, *AC, *DT, *LI);
   PredicatedScalarEvolution PSE(SE, *Lp);
   VPOVectorizationLegality LVL(Lp, PSE, &Fn);
+
+  // If region has SIMD directive mark then we will reuse community metadata on
+  // Loop so that WarnMissedTransforms pass will detect if this loop is not
+  // vectorized later
+  const bool isOmpSIMDLoop = WRLp && WRLp->isOmpSIMDLoop();
+  if (isOmpSIMDLoop)
+    setLoopMD(Lp, "llvm.loop.vectorize.enable");
 
   // Send explicit data from WRLoop to the Legality.
   // The decision about possible loop vectorization is based
@@ -352,6 +390,12 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   CandLoopsVectorized++;
   VPlanOptReportBuilder VPORBuilder(LORBuilder, LI);
   addOptReportRemarks<VPOCodeGen>(VPORBuilder, &VCodeGen);
+
+  // Mark source and vectorized loops with isvectorized directive so that
+  // WarnMissedTransforms pass will not complain that this loop is not
+  // vectorized
+  if (isOmpSIMDLoop)
+    setLoopMD(VCodeGen.getMainLoop(), "llvm.loop.isvectorized");
 
   // Emit kernel optimization remarks.
   if (isEmitKernelOptRemarks) {
@@ -1002,7 +1046,8 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-  if (WRLp->isOmpSIMDLoop() && !WRLp->isValidHIRSIMDRegion()) {
+  const bool isOmpSIMDLoop = WRLp->isOmpSIMDLoop();
+  if (isOmpSIMDLoop && !WRLp->isValidHIRSIMDRegion()) {
 //#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 //    assert(false && "VPlan: Invalid HIR SIMD region for given loop");
 //#else
@@ -1011,6 +1056,12 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
     return false;
 //#endif
   }
+
+  // If region has SIMD directive mark then mark source loop with SIMD directive
+  // so that WarnMissedTransforms pass will detect that this loop is not
+  // vectorized later
+  if (isOmpSIMDLoop)
+    setHLLoopMD(Lp, "llvm.loop.vectorize.enable", Fn.getContext());
 
   // Create a VPlanOptReportBuilder object, lifetime is a single loop that we
   // process for vectorization
@@ -1113,6 +1164,11 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
         ModifiedLoop = true;
         VPlanDriverImpl::addOptReportRemarks<VPOCodeGenHIR, loopopt::HLLoop>(
             VPORBuilder, &VCodeGen);
+        // Mark source and vectorized loops with isvectorized directive so that
+        // WarnMissedTransforms pass will not complain that this loop is not
+        // vectorized
+        if (isOmpSIMDLoop)
+          setHLLoopMD(Lp, "llvm.loop.isvectorized", Fn.getContext());
       }
     }
   }

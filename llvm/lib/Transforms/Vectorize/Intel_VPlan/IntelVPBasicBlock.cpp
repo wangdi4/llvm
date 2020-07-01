@@ -21,10 +21,11 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
+// TODO: remove this flag after updating all tests.
 bool PrintTerminatorInst = false;
 static cl::opt<bool, true> PrintTerminatorInstOpt(
     "vplan-print-terminator-inst", cl::location(PrintTerminatorInst),
-    cl::Hidden, cl::desc("Print VPTerminator instructions in VPlan dumps."));
+    cl::Hidden, cl::desc("Print terminator instructions in VPlan dumps."));
 
 // When a VPinstruction is added in a basic block list, the following method
 // updates the parent.
@@ -214,7 +215,7 @@ VPBasicBlock::VPBasicBlock(const Twine &Name, VPlan *Plan)
   setName(Name);
 
   Type *BaseTy = Type::getVoidTy(*Plan->getLLVMContext());
-  VPTerminator *Instr = new VPTerminator(BaseTy);
+  VPBranchInst *Instr = new VPBranchInst(BaseTy);
   insert(Instr, end());
 }
 
@@ -479,7 +480,7 @@ static bool isDeadPredicateInst(VPInstruction &Inst) {
     auto *BB = Inst.getParent();
     auto NextIt = ++Inst.getIterator();
     return NextIt == BB->terminator() &&
-           !cast<VPTerminator>(NextIt)->getHLGoto();
+           !cast<VPBranchInst>(NextIt)->getHLGoto();
   }
 
   if (Opcode != VPInstruction::Not && Opcode != Instruction::And)
@@ -566,12 +567,12 @@ void VPBasicBlock::print(raw_ostream &OS, unsigned Indent,
 
   // Print block body
   if (empty() || !PrintTerminatorInst && size() == 1 &&
-                     !cast<VPTerminator>(front()).getHLGoto()) {
+                     !cast<VPBranchInst>(front()).getHLGoto()) {
     OS << StrIndent << " <Empty Block>\n";
   } else {
     for (const VPInstruction &Inst : Instructions) {
-      if (!PrintTerminatorInst && isa<VPTerminator>(Inst) &&
-          !cast<VPTerminator>(Inst).getHLGoto())
+      if (!PrintTerminatorInst && isa<VPBranchInst>(Inst) &&
+          !cast<VPBranchInst>(Inst).getHLGoto())
         continue;
       OS << StrIndent << " ";
       Inst.dump(OS, DA);
@@ -785,10 +786,10 @@ VPBasicBlock *VPBlockUtils::splitEdge(VPBasicBlock *From, VPBasicBlock *To,
 }
 
 VPBasicBlock::iterator VPBasicBlock::terminator() {
-  assert(!empty() && "At least one VPTerminator block is expected.");
+  assert(!empty() && "At least one VPBranchInst block is expected.");
   iterator It = std::prev(end());
-  assert(isa<VPTerminator>(It) &&
-         "The last VPInstruction is expected to be VPTerminator instruction.");
+  assert(isa<VPBranchInst>(It) &&
+         "The last VPInstruction is expected to be VPBranchInst instruction.");
   return It;
 }
 
@@ -796,15 +797,15 @@ VPBasicBlock::const_iterator VPBasicBlock::terminator() const {
   return const_cast<VPBasicBlock *>(this)->terminator();
 }
 
-VPTerminator *VPBasicBlock::getTerminator() {
+VPBranchInst *VPBasicBlock::getTerminator() {
   auto It = terminator();
-  return cast<VPTerminator>(It);
+  return cast<VPBranchInst>(It);
 }
 
-const VPTerminator *VPBasicBlock::getTerminator() const {
+const VPBranchInst *VPBasicBlock::getTerminator() const {
   return const_cast<VPBasicBlock *>(this)->getTerminator();
 }
 
 VPBasicBlock *VPBasicBlock::getVPUserParent(VPUser *User) {
-  return cast<VPTerminator>(User)->getParent();
+  return cast<VPBranchInst>(User)->getParent();
 }

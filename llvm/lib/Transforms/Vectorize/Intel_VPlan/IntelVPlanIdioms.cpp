@@ -146,7 +146,7 @@ VPlanIdioms::isStrEqSearchLoop(const VPBasicBlock *Block,
   for (const VPInstruction &InstRef : *Block) {
     const auto Inst = cast<const VPInstruction>(&InstRef);
 
-    if (isa<const VPTerminator>(Inst) ||
+    if (isa<const VPBranchInst>(Inst) ||
         (Inst->HIR.isDecomposed() && Inst->isUnderlyingIRValid()))
       continue;
 
@@ -275,7 +275,7 @@ VPlanIdioms::isStructPtrEqSearchLoop(const VPBasicBlock *Block,
   for (const VPInstruction &InstRef : *Block) {
     const auto Inst = cast<const VPInstruction>(&InstRef);
 
-    if (isa<const VPTerminator>(Inst) ||
+    if (isa<const VPBranchInst>(Inst) ||
         (Inst->HIR.isDecomposed() && Inst->isUnderlyingIRValid()))
       continue;
 
@@ -449,7 +449,7 @@ bool VPlanIdioms::isSafeExitBlockForSearchLoop(const VPBasicBlock *Block) {
     if (VPInst.getOpcode() == VPInstruction::AllZeroCheck)
       continue;
 
-    if (isa<const VPTerminator>(VPInst) ||
+    if (isa<const VPBranchInst>(VPInst) ||
         (VPInst.HIR.isDecomposed() && VPInst.isUnderlyingIRValid()))
       continue;
 

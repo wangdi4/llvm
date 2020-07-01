@@ -280,6 +280,7 @@ class VPInstruction : public VPUser,
 #if INTEL_CUSTOMIZATION
   friend class HIRSpecifics;
   friend class VPBasicBlock;
+  friend class VPBranchInst;
   friend class VPBuilder;
   friend class VPBuilderHIR;
   friend class VPDecomposerHIR;
@@ -299,7 +300,6 @@ class VPInstruction : public VPUser,
   friend class VPValueMapper;
   friend class VPLoopEntityList;
   friend class VPValue;
-  friend class VPTerminator;
   // FIXME: This is only needed to support buggy mixed HIR codegen. Once we
   // retire it and use full VPValue-based codegen, underlying IR copying won't
   // be necessary.
@@ -1003,10 +1003,10 @@ private:
   }
 };
 
-/// Concrete class to represent terminator instruction in VPlan.
-class VPTerminator : public VPInstruction {
+/// Concrete class to represent branch instruction in VPlan.
+class VPBranchInst : public VPInstruction {
 public:
-  explicit VPTerminator(Type *BaseTy)
+  explicit VPBranchInst(Type *BaseTy)
     : VPInstruction(Instruction::Br, BaseTy, {}) {}
 
   const loopopt::HLGoto *getHLGoto() const {
@@ -1016,7 +1016,7 @@ public:
     return cast<loopopt::HLGoto>(Node);
   }
 
-  /// Return target block of unconditional VPTerminator. If VPTerminator was
+  /// Return target block of unconditional VPBranchInst. If VPBranchInst was
   /// created for HLGoto, return its external target block or nullptr otherwise.
   const BasicBlock *getTargetBlock() const {
     if (getHLGoto())
@@ -1036,20 +1036,20 @@ public:
     return isa<VPInstruction>(U) && classof(cast<VPInstruction>(U));
   }
 
-  virtual VPTerminator *cloneImpl() const final {
-    return new VPTerminator(getType());
+  virtual VPBranchInst *cloneImpl() const final {
+    return new VPBranchInst(getType());
   }
 
   /// Iterators and types to access Successors of terminator's
   /// parent VPBasicBlock.
   inline operand_iterator succ_begin() { return op_begin(); }
   inline operand_iterator succ_end() {
-    // CondBit is expected to be last operand of VPTerminator (if available)
+    // CondBit is expected to be last operand of VPBranchInst (if available)
     return getCondBit() ? std::prev(op_end()) : op_end();
   }
   inline const_operand_iterator succ_begin() const { return op_begin(); }
   inline const_operand_iterator succ_end() const {
-    return const_cast<VPTerminator *>(this)->succ_end();
+    return const_cast<VPBranchInst *>(this)->succ_end();
   }
 
   const_operand_range successors() const {

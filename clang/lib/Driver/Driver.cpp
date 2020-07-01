@@ -427,7 +427,8 @@ void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
       DAL.AddJoinedArg(0, Opts.getOption(Opt), OptArg);
     else
       DAL.AddFlagArg(0, Opts.getOption(Opt));
-    DAL.getLastArg(Opt)->claim();
+    if (Arg *A = DAL.getLastArg(Opt))
+      A->claim();
   };
   if (Args.hasArg(options::OPT__intel)) {
     // The Intel compiler defaults to -O2
