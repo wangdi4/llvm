@@ -71,6 +71,7 @@ set(SYCL_INCLUDE_DEPLOY_DIR ${CMAKE_INSTALL_PREFIX}/${SYCL_INCLUDE_DIR})
 
 if( INTEL_CUSTOMIZATION )
   set( ICD_LOADER_SRC_DIR ${LLVM_MAIN_SRC_DIR}/../external/opencl-icd-loader)
+  set( LLVMGenXIntrinsics_SOURCE_DIR ${LLVM_MAIN_SRC_DIR}/../external/vc-intrinsics)
 endif()
 
 if( OpenCL_INCLUDE_DIR AND OpenCL_LIBRARY )
