@@ -1018,12 +1018,8 @@ void Sema::ActOnPragmaFPContract(LangOptions::FPModeKind FPC) {
     CurFPFeatures.setAllowFPContractAcrossStatement();
     break;
   case LangOptions::FPM_Off:
-<<<<<<< HEAD
-    NewFPFeatures.setDisallowFPContract();
-    Context.disableFPContract(); // INTEL
-=======
     CurFPFeatures.setDisallowFPContract();
->>>>>>> defd43a5b393bb63a902042adf578081b03b171d
+    Context.disableFPContract(); // INTEL
     break;
   }
 }
