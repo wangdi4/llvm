@@ -368,6 +368,12 @@ declare void @llvm.directive.region.exit(token)
 ; CHECK:   store float %{{.+}}, float* [[AADDR]]
 ; CHECK: }
 
+; CHECK: define internal void [[OUTLINED_BAR1]](i32* nocapture readonly %tid, i32* nocapture readnone %bid, float* nocapture [[ABASE:%.+]], i64 %{{.+}}, i64 %{{.+}}) #{{[0-9]+}} {
+; CHECK: omp.inner.for.body{{.*}}:
+; CHECK:   [[AADDR:%.+]] = getelementptr inbounds float, float* [[ABASE]], i64 [[IV:%.+]]
+; CHECK:   store float %{{.+}}, float* [[AADDR]]
+; CHECK: }
+
 ; CHECK: define internal void [[OUTLINED_BAR2]](i32* nocapture readonly %tid, i32* nocapture readnone %bid, float* nocapture [[ABASE:%.+]], i64 %{{.+}}, i64 %{{.+}}) #{{[0-9]+}} {
 ; CHECK: omp.inner.for.body{{.*}}:
 ; CHECK:   [[AADDR:%.+]] = getelementptr inbounds float, float* [[ABASE]], i64 [[IV:%.+]]
@@ -375,8 +381,3 @@ declare void @llvm.directive.region.exit(token)
 ; CHECK:   store float %{{.+}}, float* [[AADDR]]
 ; CHECK: }
 
-; CHECK: define internal void [[OUTLINED_BAR1]](i32* nocapture readonly %tid, i32* nocapture readnone %bid, float* nocapture [[ABASE:%.+]], i64 %{{.+}}, i64 %{{.+}}) #{{[0-9]+}} {
-; CHECK: omp.inner.for.body{{.*}}:
-; CHECK:   [[AADDR:%.+]] = getelementptr inbounds float, float* [[ABASE]], i64 [[IV:%.+]]
-; CHECK:   store float %{{.+}}, float* [[AADDR]]
-; CHECK: }

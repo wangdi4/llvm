@@ -246,14 +246,14 @@ public:
   // parallel sections and work-sharing sections.
   static ParSectNode *buildParSectTree(Function *F,
                                        DominatorTree *DT = nullptr);
-  static void buildParSectTreeRecursive(BasicBlock *BB,
+  static void buildParSectTreeIterative(BasicBlock *BB,
                                         std::stack<ParSectNode *> &SectionStack,
                                         DominatorTree *DT = nullptr);
 
   static void printParSectTree(ParSectNode *Node);
 
   static void
-  gatherImplicitSectionRecursive(BasicBlock *BB,
+  gatherImplicitSectionIterative(BasicBlock *BB,
                                  std::stack<ParSectNode *> &ImpSectStack,
                                  DominatorTree *DT = nullptr);
 

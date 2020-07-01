@@ -47,6 +47,7 @@ public:
   T top();
   size_t size();
   bool empty();
+  T operator[](size_t i);
 
 private:
   std::vector<T> Stack_;
@@ -67,6 +68,11 @@ template <class T> void WRStack<T>::pop() {
 template <class T> T WRStack<T>::top() {
   assert(Stack_.size() > 0);
   return Stack_.at(Stack_.size() - 1);
+}
+
+template <class T> T WRStack<T>::operator[](size_t i) {
+  assert(Stack_.size() > 0 && i < Stack_.size());
+  return Stack_.at(i);
 }
 
 template <class T> size_t WRStack<T>::size() { return Stack_.size(); }
