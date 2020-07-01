@@ -48,7 +48,11 @@ using IdentifierLocPair = std::pair<IdentifierInfo *, SourceLocation>;
 /// of a pointer to one of these classes.
 enum { IdentifierInfoAlignment = 8 };
 
+<<<<<<< HEAD
 static constexpr int ObjCOrBuiltinIDBits = 15; // INTEL
+=======
+static constexpr int ObjCOrBuiltinIDBits = 15;
+>>>>>>> 10e7d7dec7468cf50b38dfe956a99d123f432bd8
 
 /// One of these records is kept for each identifier that
 /// is lexed.  This contains information about whether the token was \#define'd,
