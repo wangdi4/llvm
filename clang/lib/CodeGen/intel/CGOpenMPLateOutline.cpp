@@ -186,7 +186,7 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPCopyConstructor(const Expr *IPriv) {
                               VK_RValue);
     UnaryOperator *SRC = UnaryOperator::Create(
         C, &CastExpr, UO_Deref, ElemType, VK_LValue, OK_Ordinary,
-        SourceLocation(), /*CanOverflow=*/false, FPOptionsOverride());
+        SourceLocation(), /*CanOverflow=*/false, FPOptions(C.getLangOpts()));
 
     QualType CTy = ElemType;
     CTy.addConst();
