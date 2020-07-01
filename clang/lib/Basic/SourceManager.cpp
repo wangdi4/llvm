@@ -862,11 +862,8 @@ FileID SourceManager::getFileIDLocal(unsigned SLocOffset) const {
     --I;
     if (I->getOffset() <= SLocOffset) {
       FileID Res = FileID::get(int(I - LocalSLocEntryTable.begin()));
-
-      // If this isn't an expansion, remember it.  We have good locality across
-      // FileID lookups.
-      if (!I->isExpansion())
-        LastFileIDLookup = Res;
+      // Remember it.  We have good locality across FileID lookups.
+      LastFileIDLookup = Res;
       NumLinearScans += NumProbes+1;
       return Res;
     }
@@ -941,9 +938,7 @@ FileID SourceManager::getFileIDLoaded(unsigned SLocOffset) const {
     const SrcMgr::SLocEntry &E = getLoadedSLocEntry(I);
     if (E.getOffset() <= SLocOffset) {
       FileID Res = FileID::get(-int(I) - 2);
-
-      if (!E.isExpansion())
-        LastFileIDLookup = Res;
+      LastFileIDLookup = Res;
       NumLinearScans += NumProbes + 1;
       return Res;
     }
@@ -976,8 +971,7 @@ FileID SourceManager::getFileIDLoaded(unsigned SLocOffset) const {
 
     if (isOffsetInFileID(FileID::get(-int(MiddleIndex) - 2), SLocOffset)) {
       FileID Res = FileID::get(-int(MiddleIndex) - 2);
-      if (!E.isExpansion())
-        LastFileIDLookup = Res;
+      LastFileIDLookup = Res;
       NumBinaryProbes += NumProbes;
       return Res;
     }
