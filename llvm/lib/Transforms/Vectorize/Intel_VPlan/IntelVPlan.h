@@ -1020,8 +1020,8 @@ public:
   /// Return target block of unconditional VPBranchInst. If VPBranchInst was
   /// created for HLGoto, return its external target block or nullptr otherwise.
   const BasicBlock *getTargetBlock() const {
-    if (getHLGoto())
-      return getHLGoto()->getTargetBBlock();
+    if (const loopopt::HLGoto *Goto = getHLGoto())
+      return Goto->getTargetBBlock();
     // TODO: LLVM-IR implementation is needed.
     return nullptr;
   }
