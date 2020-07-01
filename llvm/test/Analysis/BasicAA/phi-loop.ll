@@ -1,6 +1,10 @@
+<<<<<<< HEAD
 ; RUN: opt < %s -basicaa -basicaa-recphi=1 -gvn -S | FileCheck %s
 ; INTEL
 ; RUN: opt -convert-to-subscript -S < %s | opt -basicaa -basicaa-recphi=1 -gvn -S | FileCheck %s
+=======
+; RUN: opt < %s -basic-aa -basicaa-recphi=1 -gvn -S | FileCheck %s
+>>>>>>> feeed16a5f8127dde6ee01b023f1dbb20d203857
 ;
 ; Check that section->word_ofs doesn't get reloaded in every iteration of the
 ; for loop.

@@ -2,11 +2,16 @@
 ; disambiguating some obvious cases.  If LICM is able to disambiguate the
 ; two pointers, then the load should be hoisted, and the store sunk.
 
+<<<<<<< HEAD
 ; RUN: opt < %s -basicaa -licm -enable-mssa-loop-dependency=false -S | FileCheck %s -check-prefixes=CHECK,AST
 ; RUN: opt < %s -basicaa -licm -enable-mssa-loop-dependency=true  -S | FileCheck %s -check-prefixes=CHECK,MSSA
 ; INTEL
 ; RUN: opt -convert-to-subscript -S < %s | opt -basicaa -licm -enable-mssa-loop-dependency=false -S | FileCheck %s -check-prefixes=CHECK,AST
 
+=======
+; RUN: opt < %s -basic-aa -licm -enable-mssa-loop-dependency=false -S | FileCheck %s -check-prefixes=CHECK,AST
+; RUN: opt < %s -basic-aa -licm -enable-mssa-loop-dependency=true  -S | FileCheck %s -check-prefixes=CHECK,MSSA
+>>>>>>> feeed16a5f8127dde6ee01b023f1dbb20d203857
 target datalayout = "E-p:64:64:64-a0:0:8-f32:32:32-f64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-v64:64:64-v128:128:128"
 
 @A = global i32 7               ; <i32*> [#uses=3]

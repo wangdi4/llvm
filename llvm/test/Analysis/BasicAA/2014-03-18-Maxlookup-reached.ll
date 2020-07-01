@@ -1,6 +1,10 @@
+<<<<<<< HEAD
 ; RUN: opt < %s -basicaa -gvn  -S | FileCheck %s
 ; INTEL
 ; RUN: opt -convert-to-subscript -S < %s | opt -basicaa -gvn  -S | FileCheck %s
+=======
+; RUN: opt < %s -basic-aa -gvn  -S | FileCheck %s
+>>>>>>> feeed16a5f8127dde6ee01b023f1dbb20d203857
 
 ; PR15967
 ; BasicAA claims no alias when there is (due to a problem when the MaxLookup

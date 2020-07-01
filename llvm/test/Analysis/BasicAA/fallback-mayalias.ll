@@ -1,6 +1,10 @@
+<<<<<<< HEAD
 ; RUN: opt -basicaa -aa-eval -print-all-alias-modref-info -disable-output < %s 2>&1 | FileCheck %s
 ; INTEL
 ; RUN: opt -convert-to-subscript -S < %s | opt -basicaa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
+=======
+; RUN: opt -basic-aa -aa-eval -print-all-alias-modref-info -disable-output < %s 2>&1 | FileCheck %s
+>>>>>>> feeed16a5f8127dde6ee01b023f1dbb20d203857
 
 ; Check that BasicAA falls back to MayAlias (instead of PartialAlias) when none
 ; of its little tricks are applicable.
