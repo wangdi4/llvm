@@ -734,48 +734,6 @@ CodeGenFunction::IntelPragmaInlineState::getPragmaInlineAttribute() {
   llvm_unreachable("unhandled attribute");
 }
 
-/// Handle #pragma ivdep when it contains an array clause.
-CodeGenFunction::IntelIVDepArrayHandler::IntelIVDepArrayHandler(
-    CodeGenFunction &CGF, ArrayRef<const Attr *> Attrs)
-    : CGF(CGF) {
-
-  llvm::LLVMContext &Ctx = CGF.getLLVMContext();
-  llvm::IntegerType *Int32Ty = llvm::Type::getInt32Ty(Ctx);
-  SmallVector<llvm::Value *, 4> BundleValues;
-  for (const auto *A : Attrs) {
-    if (const auto *LHAttr = dyn_cast<LoopHintAttr>(A)) {
-      if (const Expr *LE = LHAttr->getLoopExprValue()) {
-        assert(LE->isGLValue());
-        BundleValues.push_back(CGF.EmitLValue(LE).getPointer(CGF));
-        if (const Expr *E = LHAttr->getValue())
-          BundleValues.push_back(CGF.EmitScalarExpr(E));
-        else
-          BundleValues.push_back(llvm::ConstantInt::get(Int32Ty, -1));
-      }
-    }
-  }
-  if (!BundleValues.empty()) {
-    SmallVector<llvm::OperandBundleDef, 8> OpBundles{
-        llvm::OperandBundleDef("DIR.PRAGMA.IVDEP", ArrayRef<llvm::Value *>{}),
-        llvm::OperandBundleDef("QUAL.PRAGMA.ARRAY", BundleValues)};
-    CallEntry = CGF.Builder.CreateCall(
-        CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_entry), {},
-        OpBundles);
-  }
-}
-
-CodeGenFunction::IntelIVDepArrayHandler::~IntelIVDepArrayHandler() {
-  if (CallEntry) {
-    SmallVector<llvm::OperandBundleDef, 1> OpBundles{
-      llvm::OperandBundleDef("DIR.PRAGMA.END.IVDEP",
-                             ArrayRef<llvm::Value *>{})};
-
-    CGF.Builder.CreateCall(
-        CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_exit),
-        SmallVector<llvm::Value *, 1>{CallEntry}, OpBundles);
-  }
-}
-
 /// Handle #pragma loop_fuse
 CodeGenFunction::IntelFPGALoopFuseHandler::IntelFPGALoopFuseHandler(
     CodeGenFunction &CGF, ArrayRef<const Attr *> Attrs)
@@ -923,7 +881,6 @@ void CodeGenFunction::EmitAttributedStmt(const AttributedStmt &S) {
   SaveAndRestore<bool> save_nomerge(InNoMergeAttributedStmt, nomerge);
 #if INTEL_CUSTOMIZATION
   IntelPragmaInlineState PS(*this, S.getAttrs());
-  IntelIVDepArrayHandler IAH(*this, S.getAttrs());
   DistributePointHandler DPH(*this, S.getSubStmt(), S.getAttrs());
   IntelBlockLoopExprHandler IBLH(*this, S.getAttrs());
   IntelFPGALoopFuseHandler ILFH(*this, S.getAttrs());

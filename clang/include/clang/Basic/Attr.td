@@ -1694,6 +1694,24 @@ def SYCLIntelFPGAIVDep : Attr {
     static const char *getName() {
       return "ivdep";
     }
+    // INTEL_CUSTOMIZATION
+    std::string getDiagnosticName(const PrintingPolicy &Policy) const {
+      std::string ValueName;
+      llvm::raw_string_ostream OS(ValueName);
+      if (auto *E = getSafelenExpr()) {
+        OS << "(";
+        E->printPretty(OS, nullptr, Policy);
+        OS << ")";
+      } else if (auto *E = getArrayExpr()) {
+        OS << "(";
+        E->printPretty(OS, nullptr, Policy);
+        OS << ")";
+      }
+      if (hasScope())
+        return "[[intelfpga::ivdep" + OS.str() + "]]";
+      return "#pragma ivdep";
+    }
+    // end INTEL_CUSTOMIZATION
     bool isDependent() const {
       return (getSafelenExpr() &&
               getSafelenExpr()->isInstantiationDependent()) ||
