@@ -22,7 +22,6 @@
 #include "llvm/Analysis/CodeMetrics.h"
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/InstructionSimplify.h"
-#include "llvm/Analysis/Intel_AggInline.h"          // INTEL
 #include "llvm/Analysis/Intel_IPCloningAnalysis.h"  // INTEL
 #include "llvm/Analysis/Intel_PartialInlineAnalysis.h" // INTEL
 #include "llvm/Analysis/LoopInfo.h"
@@ -1343,6 +1342,10 @@ static bool preferInlineTileChoice(CallBase &CB) {
 
 static bool preferInlineForManyRecursiveCallsSplitting(CallBase &CB) {
   return CB.hasFnAttr("prefer-inline-mrc-split");
+}
+
+static bool preferInlineAggressive(CallBase &CB) {
+  return CB.hasFnAttr("prefer-inline-aggressive");
 }
 
 // Return 'true' if 'F' calls an Intel partial inlining inlined clone,
@@ -3156,6 +3159,10 @@ static int worthInliningUnderSpecialCondition(CallBase &CB,
     YesReasonVector.push_back(InlrManyRecursiveCallsSplitting);
     return -InlineConstants::VeryDeepInliningHeuristicBonus;
   }
+  if (preferInlineAggressive(CB)) {
+    YesReasonVector.push_back(InlrAggInline);
+    return -InlineConstants::VeryDeepInliningHeuristicBonus;
+  }
   return 0;
 }
 #endif // INTEL_CUSTOMIZATION
@@ -3265,7 +3272,7 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
 #if INTEL_CUSTOMIZATION
       InlineCostCallAnalyzer CA(*F, Call, IndirectCallParams, TTI,
                                 GetAssumptionCache, GetBFI, PSI, ORE, TLI, ILIC,
-                                AI, false);
+                                false);
 #endif // INTEL_CUSTOMIZATION
       if (CA.analyze(TTI).isSuccess()) { // INTEL
         // We were able to inline the indirect call! Subtract the cost from the
@@ -3574,13 +3581,6 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
             IsCallerRecursive, &QueuedCallers, YesReasonVector));
       }
     }
-
-    // Use InlineAggressiveInfo to expose uses of global ptrs
-    if (InlineForXmain && AI != nullptr &&
-        AI->isCallInstInAggInlList(CandidateCall)) {
-      addCost(-InlineConstants::AggressiveInlineCallBonus);
-      YesReasonVector.push_back(InlrAggInline);
-    }
 #endif // INTEL_CUSTOMIZATION
 
     // If this function uses the coldcc calling convention, prefer not to inline
@@ -3614,7 +3614,7 @@ public:
 #if INTEL_CUSTOMIZATION
       OptimizationRemarkEmitter *ORE = nullptr,
       TargetLibraryInfo *TLI = nullptr, InliningLoopInfoCache *ILIC = nullptr,
-      InlineAggressiveInfo *AI = nullptr, bool BoostIndirect = true,
+      bool BoostIndirect = true,
 #endif // INTEL_CUSTOMIZATION
       bool IgnoreThreshold = false)
       : CallAnalyzer(Callee, Call, TTI, GetAssumptionCache, GetBFI, PSI, ORE),
@@ -3624,7 +3624,7 @@ public:
         BoostIndirectCalls(BoostIndirect), IgnoreThreshold(IgnoreThreshold),
 #if INTEL_CUSTOMIZATION
         EarlyExitThreshold(INT_MAX), EarlyExitCost(INT_MAX), TLI(TLI),
-        ILIC(ILIC), AI(AI), SubtractedBonus(false), Writer(this) {
+        ILIC(ILIC), SubtractedBonus(false), Writer(this) {
   }
 
   // The cost and the threshold used for early exit during usual
@@ -3638,8 +3638,6 @@ public:
   TargetLibraryInfo* TLI;
   InliningLoopInfoCache* ILIC;
 
-  // Aggressive Analysis
-  InlineAggressiveInfo *AI;
   // Indicates that a single basic block bonus that was proposed for the
   // threshold has already been subtracted.
   bool SubtractedBonus;
@@ -5387,9 +5385,9 @@ InlineCost llvm::getInlineCost(
     function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
 #if INTEL_CUSTOMIZATION
     ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE,
-    InliningLoopInfoCache *ILIC, InlineAggressiveInfo *AI) {
+    InliningLoopInfoCache *ILIC) {
   return getInlineCost(Call, Call.getCalledFunction(), Params, CalleeTTI,
-                       GetAssumptionCache, GetTLI, GetBFI, PSI, ORE, ILIC, AI);
+                       GetAssumptionCache, GetTLI, GetBFI, PSI, ORE, ILIC);
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -5399,8 +5397,7 @@ Optional<int> llvm::getInliningCostEstimate(
     function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
 #if INTEL_CUSTOMIZATION
     ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE,
-    TargetLibraryInfo *TLI, InliningLoopInfoCache *ILIC,
-    InlineAggressiveInfo *AggI) {
+    TargetLibraryInfo *TLI, InliningLoopInfoCache *ILIC) {
 #endif // INTEL_CUSTOMIZATION
   const InlineParams Params = {/* DefaultThreshold*/ 0,
                                /*HintThreshold*/ {},
@@ -5415,7 +5412,7 @@ Optional<int> llvm::getInliningCostEstimate(
 
   InlineCostCallAnalyzer CA(*Call.getCalledFunction(), Call, Params, CalleeTTI,
                             GetAssumptionCache, GetBFI, PSI, ORE, TLI, // INTEL
-                            ILIC, AggI, true,                          // INTEL
+                            ILIC, true,                                // INTEL
                             /*IgnoreThreshold*/ true);
   auto R = CA.analyze(CalleeTTI); // INTEL
   if (!R.isSuccess())
@@ -5513,7 +5510,7 @@ InlineCost llvm::getInlineCost(
     function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
 #if INTEL_CUSTOMIZATION
     ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE,
-    InliningLoopInfoCache *ILIC, InlineAggressiveInfo *AI) {
+    InliningLoopInfoCache *ILIC) {
 #endif // INTEL_CUSTOMIZATION
 
   auto UserDecision =
@@ -5541,7 +5538,7 @@ InlineCost llvm::getInlineCost(
   auto TLI = GetTLI(*Callee);
   InlineCostCallAnalyzer CA(*Callee, Call, Params, CalleeTTI,
                             GetAssumptionCache, GetBFI, PSI, ORE, &TLI, ILIC,
-                            AI, true);
+                            true);
   InlineResult ShouldInline = CA.analyze(CalleeTTI);
   InlineReason Reason = ShouldInline.getIntelInlReason();
 #endif // INTEL_CUSTOMIZATION

@@ -65,6 +65,7 @@
 #include "llvm/Transforms/IPO/Utils/Intel_IPOUtils.h"
 
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/Intel_WP.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/BasicBlock.h"
@@ -2439,9 +2440,9 @@ INITIALIZE_PASS_BEGIN(IntelIPOPrefetchWrapperPass, "intel-ipoprefetch",
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
 INITIALIZE_PASS_END(IntelIPOPrefetchWrapperPass, "intel-ipoprefetch",
                     "Intel IPO Prefetch", false, false)
-
 namespace llvm {
 
 ModulePass *createIntelIPOPrefetchWrapperPass() {

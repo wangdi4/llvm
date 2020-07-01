@@ -53,7 +53,6 @@
 #include "llvm/Analysis/EHPersonalities.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/InstructionSimplify.h"
-#include "llvm/Analysis/Intel_AggInline.h"  // INTEL
 #include "llvm/Analysis/Intel_Andersens.h"  // INTEL
 #include "llvm/Analysis/Intel_WP.h"         // INTEL
 #include "llvm/Analysis/LazyBlockFrequencyInfo.h"
@@ -3997,7 +3996,6 @@ PreservedAnalyses InstCombinePass::run(Function &F,
   PA.preserve<BasicAA>();
   PA.preserve<GlobalsAA>();
   PA.preserve<AndersensAA>();               // INTEL
-  PA.preserve<InlineAggAnalysis>();         // INTEL
   PA.preserve<WholeProgramAnalysis>();      // INTEL
   return PA;
 }
@@ -4016,7 +4014,6 @@ void InstructionCombiningPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addPreserved<GlobalsAAWrapperPass>();
   AU.addPreserved<AndersensAAWrapperPass>();  // INTEL
   AU.addPreserved<WholeProgramWrapperPass>();    // INTEL
-  AU.addPreserved<InlineAggressiveWrapperPass>();    // INTEL
   AU.addRequired<ProfileSummaryInfoWrapperPass>();
   LazyBlockFrequencyInfoPass::getLazyBFIAnalysisUsage(AU);
 }

@@ -1,18 +1,21 @@
-//===------- Intel_AggInline.cpp - Aggressive Inline Analysis -*------===//
+//===--------------- Intel_AggInliner.cpp --------------------------------===//
 //
-// Copyright (C) 2016-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2020-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
 // whole or in part without explicit written authorization from the company.
 //
 //===----------------------------------------------------------------------===//
-// This file does Aggressive Inline Analysis to expose uses of global
-// pointers to malloc'ed memory. It helps data-transformations to easily
-// analyze all uses of global pointers in single routine.
+//
+// This implements a pass that creates a InlineAggressiveInfo object to find
+// callsites that should be marked with the 'prefer-inline-aggressive'
+// attribute. That attribute is then used in the inliner to inline those
+// callsites.
+//
 //===----------------------------------------------------------------------===//
-
-#include "llvm/Analysis/Intel_AggInline.h"
+#include "llvm/Transforms/IPO/Intel_AggInliner.h"
+#include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/IR/Constants.h"
@@ -23,9 +26,13 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/InitializePasses.h"
+#include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Transforms/IPO.h"
 
 using namespace llvm;
+
+#define DEBUG_TYPE "agginliner"
 
 // Maximum number of callsites marked by this analysis. If it exceeds
 // this threshold, this analysis is disabled.
@@ -58,47 +65,13 @@ static const unsigned MaxNumInlineCalls = 16;
 // Maximum number of instructions visited to track uses of any Global Variable
 static const unsigned MaxNumInstructionsVisited = 32;
 
-// Function is not allowed to inline if size of the function exceeds this limit.
+// Function is not allowed to inline if size of the function exceeds this
+// limit.
 static const unsigned MaxNumBBInlineLimit = 32;
 
 // Function is not considered as tiny function if size of the function exceeds
 // this limit.
 static const unsigned MaxNumBBTinyFuncLimit = 1;
-
-#define DEBUG_TYPE "inlineaggressiveanalysis"
-
-INITIALIZE_PASS_BEGIN(InlineAggressiveWrapperPass, "inlineaggressiveanalysis",
-                      "inline aggressive analysis", false, false)
-INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_END(InlineAggressiveWrapperPass, "inlineaggressiveanalysis",
-                    "inline aggressive analysis", false, false)
-
-char InlineAggressiveWrapperPass::ID = 0;
-
-ModulePass *llvm::createInlineAggressiveWrapperPassPass() {
-  return new InlineAggressiveWrapperPass();
-}
-
-InlineAggressiveWrapperPass::InlineAggressiveWrapperPass() : ModulePass(ID) {
-  initializeInlineAggressiveWrapperPassPass(*PassRegistry::getPassRegistry());
-}
-
-bool InlineAggressiveWrapperPass::doFinalization(Module &M) {
-  Result.reset();
-  return false;
-}
-
-bool InlineAggressiveWrapperPass::runOnModule(Module &M) {
-  auto &WPA = getAnalysis<WholeProgramWrapperPass>();
-  auto GetTLI = [this](const Function &F) -> const TargetLibraryInfo & {
-    return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
-  };
-
-  Result.reset(new InlineAggressiveInfo(
-      InlineAggressiveInfo::runImpl(M, WPA.getResult(), GetTLI)));
-  return false;
-}
 
 InlineAggressiveInfo::InlineAggressiveInfo(AggInlGetTLITy GetTLI)
     : GetTLI(GetTLI) {
@@ -109,14 +82,6 @@ InlineAggressiveInfo::InlineAggressiveInfo(InlineAggressiveInfo &&Arg)
     : AggInlCalls(std::move(Arg.AggInlCalls)) {}
 
 InlineAggressiveInfo::~InlineAggressiveInfo() {}
-
-// Returns true if Aggressive Inline occured.
-//
-bool InlineAggressiveInfo::isAggInlineOccured(void) {
-  if (AggInlCalls.size())
-    return true;
-  return false;
-}
 
 // Mark 'CS' as Inlined-Call by inserting 'CS' into AggInlCalls if
 // it is already not there.
@@ -228,7 +193,7 @@ bool InlineAggressiveInfo::propagateAggInlineInfo(Function *F) {
   // Disable Aggressive analysis if any callsite is marked as both NoInline
   // and aggressive-inlined-call.
   for (unsigned i = 0, e = AggInlCalls.size(); i != e; ++i) {
-    auto CB = cast<CallBase>(AggInlCalls[i]);
+    auto CB = AggInlCalls[i];
     if (CB->isNoInline())
       return false;
   }
@@ -876,34 +841,86 @@ bool InlineAggressiveInfo::analyzeSingleAccessFunctionGlobalVarHeuristic(
 }
 
 bool InlineAggressiveInfo::analyzeModule(Module &M) {
-  if (analyzeHugeMallocGlobalPointersHeuristic(M))
+  if (analyzeHugeMallocGlobalPointersHeuristic(M)) {
+    addInliningAttributes();
     return true;
-  if (analyzeSingleAccessFunctionGlobalVarHeuristic(M))
+  }
+  if (analyzeSingleAccessFunctionGlobalVarHeuristic(M)) {
+    addInliningAttributes();
     return true;
+  }
   return false;
 }
 
-// This analysis depends on WholeProgramAnalysis. Analysis info is not
-// modified by any other pass.
-//
-void InlineAggressiveWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.setPreservesAll();
-  AU.addRequired<WholeProgramWrapperPass>();
-  AU.addRequired<TargetLibraryInfoWrapperPass>();
+void InlineAggressiveInfo::addInliningAttributes() {
+  for (unsigned I = 0, E = AggInlCalls.size(); I != E; ++I) {
+    CallBase *CB = AggInlCalls[I];
+    CB->addAttribute(llvm::AttributeList::FunctionIndex,
+                     "prefer-inline-aggressive");
+  }
 }
 
-char InlineAggAnalysis::PassID;
+namespace {
 
-// Provide a definition for the static class member used to identify passes.
-AnalysisKey InlineAggAnalysis::Key;
+class AggInlinerLegacyPass : public ModulePass {
+  std::unique_ptr<InlineAggressiveInfo> Result;
 
-InlineAggressiveInfo InlineAggAnalysis::run(Module &M,
-                                            AnalysisManager<Module> &AM) {
+public:
+  static char ID; // Pass identification, replacement for typeid
+  AggInlinerLegacyPass(void) : ModulePass(ID) {
+    initializeAggInlinerLegacyPassPass(*PassRegistry::getPassRegistry());
+  }
 
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.setPreservesAll();
+    AU.addRequired<WholeProgramWrapperPass>();
+    AU.addRequired<TargetLibraryInfoWrapperPass>();
+  }
+
+  bool runOnModule(Module &M) override {
+    auto &WPA = getAnalysis<WholeProgramWrapperPass>();
+    auto GetTLI = [this](const Function &F) -> const TargetLibraryInfo & {
+      return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
+    };
+    if (skipModule(M))
+      return false;
+    Result.reset(new InlineAggressiveInfo(
+        InlineAggressiveInfo::runImpl(M, WPA.getResult(), GetTLI)));
+    return false;
+  }
+
+  bool doFinalization(Module &M) {
+    Result.reset();
+    return false;
+  }
+};
+
+} // namespace
+
+INITIALIZE_PASS_BEGIN(AggInlinerLegacyPass, "agginliner", "AggInliner", false,
+                      false)
+INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_END(AggInlinerLegacyPass, "agginliner", "AggInliner", false,
+                    false)
+
+char AggInlinerLegacyPass::ID = 0;
+
+ModulePass *llvm::createAggInlinerLegacyPass(void) {
+  return new AggInlinerLegacyPass();
+}
+
+AggInlinerPass::AggInlinerPass(void) {}
+
+char AggInlinerPass::PassID;
+
+PreservedAnalyses AggInlinerPass::run(Module &M, ModuleAnalysisManager &AM) {
+  std::unique_ptr<InlineAggressiveInfo> Result;
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   auto GetTLI = [&FAM](const Function &F) -> TargetLibraryInfo & {
     return FAM.getResult<TargetLibraryAnalysis>(*(const_cast<Function *>(&F)));
   };
-  return InlineAggressiveInfo::runImpl(M, AM.getResult<WholeProgramAnalysis>(M),
-                                       GetTLI);
+  Result.reset(new InlineAggressiveInfo(InlineAggressiveInfo::runImpl(
+      M, AM.getResult<WholeProgramAnalysis>(M), GetTLI)));
+  return PreservedAnalyses::all();
 }

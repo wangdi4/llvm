@@ -15,7 +15,6 @@
 
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
-#include "llvm/Analysis/Intel_AggInline.h"    // INTEL
 #include "llvm/Analysis/LoopInfo.h"           // INTEL
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/ADT/SmallSet.h"                // INTEL
@@ -446,8 +445,7 @@ getInlineCost(CallBase &Call, const InlineParams &Params,
               function_ref<BlockFrequencyInfo &(Function &)> GetBFI = nullptr,
               ProfileSummaryInfo *PSI = nullptr,
               OptimizationRemarkEmitter *ORE = nullptr,               // INTEL
-              InliningLoopInfoCache *ILIC = nullptr,                  // INTEL
-              InlineAggressiveInfo *AggI = nullptr);                  // INTEL
+              InliningLoopInfoCache *ILIC = nullptr);                 // INTEL
 
 /// Get an InlineCost with the callee explicitly specified.
 /// This allows you to calculate the cost of inlining a function via a
@@ -462,8 +460,7 @@ getInlineCost(CallBase &Call, Function *Callee, const InlineParams &Params,
               function_ref<BlockFrequencyInfo &(Function &)> GetBFI = nullptr,
               ProfileSummaryInfo *PSI = nullptr,
               OptimizationRemarkEmitter *ORE = nullptr,               // INTEL
-              InliningLoopInfoCache *ILIC = nullptr,                  // INTEL
-              InlineAggressiveInfo *AggI = nullptr);                  // INTEL
+              InliningLoopInfoCache *ILIC = nullptr);                 // INTEL
 
 /// Returns InlineResult::success() if the call site should be always inlined
 /// because of user directives, and the inlining is viable. Returns
@@ -490,8 +487,7 @@ Optional<int> getInliningCostEstimate(
     ProfileSummaryInfo *PSI = nullptr,
     OptimizationRemarkEmitter *ORE = nullptr,               // INTEL
     TargetLibraryInfo *TLI = nullptr,                       // INTEL
-    InliningLoopInfoCache *ILIC = nullptr,                  // INTEL
-    InlineAggressiveInfo *AggI = nullptr);                  // INTEL
+    InliningLoopInfoCache *ILIC = nullptr);                 // INTEL
 
 /// Minimal filter to detect invalid constructs for inlining.
 InlineResult isInlineViable(Function &Callee);

@@ -100,6 +100,7 @@
 #include "llvm/Transforms/IPO/InferFunctionAttrs.h"
 #include "llvm/Transforms/IPO/Inliner.h"
 #include "llvm/Transforms/IPO/Intel_AdvancedFastCall.h" // INTEL
+#include "llvm/Transforms/IPO/Intel_AggInliner.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_ArgNoAliasProp.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_ArgumentAlignment.h" // INTEL
 #include "llvm/Transforms/IPO/Intel_CallTreeCloning.h" // INTEL
@@ -1979,7 +1980,7 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
   // Require the InlineAggAnalysis for the module so we can query it within
   // the inliner.
   if (EnableInlineAggAnalysis) {
-    MPM.addPass(RequireAnalysisPass<InlineAggAnalysis, Module>());
+    MPM.addPass(AggInlinerPass());
   }
   // Note: historically, the PruneEH pass was run first to deduce nounwind and
   // generally clean up exception handling overhead. It isn't clear this is

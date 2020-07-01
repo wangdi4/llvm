@@ -22,7 +22,6 @@
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/ConstantFolding.h"
-#include "llvm/Analysis/Intel_AggInline.h"        // INTEL
 #include "llvm/Analysis/Intel_Andersens.h"        // INTEL
 #include "llvm/Analysis/Intel_WP.h"               // INTEL
 #include "llvm/Analysis/MemoryBuiltins.h"
@@ -3391,7 +3390,6 @@ PreservedAnalyses GlobalOptPass::run(Module &M, ModuleAnalysisManager &AM) {
     auto PA = PreservedAnalyses();        // INTEL
     PA.preserve<WholeProgramAnalysis>();  // INTEL
     PA.preserve<AndersensAA>();           // INTEL
-    PA.preserve<InlineAggAnalysis>();     // INTEL
 
     return PA;                            // INTEL
 }
@@ -3438,7 +3436,6 @@ struct GlobalOptLegacyPass : public ModulePass {
     AU.addUsedIfAvailable<WholeProgramWrapperPass>();      // INTEL
     AU.addPreserved<WholeProgramWrapperPass>();            // INTEL
     AU.addPreserved<AndersensAAWrapperPass>();             // INTEL
-    AU.addPreserved<InlineAggressiveWrapperPass>();        // INTEL
   }
 };
 

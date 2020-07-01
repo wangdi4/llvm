@@ -530,6 +530,8 @@ void initializeTransformFPGARegPass(PassRegistry &);
 void initializeQsortRecognizerLegacyPassPass(PassRegistry&);
 // Multiversioning and inline marking for tiled functions
 void initializeTileMVInlMarkerLegacyPassPass(PassRegistry&);
+// Mark callsites for aggressive inlining
+void initializeAggInlinerLegacyPassPass(PassRegistry&);
 // Converting annotation attribute to function attribute
 void initializeParseAnnotateAttributesLegacyPass(PassRegistry&);
 // HIR Passes

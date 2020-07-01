@@ -1,7 +1,6 @@
 #include "llvm/Transforms/IPO/SCCP.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/GlobalsModRef.h"    // INTEL
-#include "llvm/Analysis/Intel_AggInline.h"  // INTEL
 #include "llvm/Analysis/Intel_Andersens.h"  // INTEL
 #include "llvm/Analysis/Intel_WP.h"         // INTEL
 #include "llvm/Analysis/PostDominators.h"
@@ -34,7 +33,6 @@ PreservedAnalyses IPSCCPPass::run(Module &M, ModuleAnalysisManager &AM) {
   PA.preserve<WholeProgramAnalysis>();  // INTEL
   PA.preserve<GlobalsAA>();             // INTEL
   PA.preserve<AndersensAA>();           // INTEL
-  PA.preserve<InlineAggAnalysis>();     // INTEL
   return PA;
 }
 
@@ -82,7 +80,6 @@ public:
     AU.addPreserved<WholeProgramWrapperPass>();     // INTEL
     AU.addPreserved<GlobalsAAWrapperPass>();        // INTEL
     AU.addPreserved<AndersensAAWrapperPass>();      // INTEL
-    AU.addPreserved<InlineAggressiveWrapperPass>(); // INTEL
   }
 };
 

@@ -39,7 +39,6 @@
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/GlobalsModRef.h"
-#include "llvm/Analysis/Intel_AggInline.h"                  // INTEL
 #include "llvm/Analysis/Intel_Andersens.h"                  // INTEL
 #include "llvm/Analysis/Intel_WP.h"                         // INTEL
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"       // INTEL
@@ -4968,7 +4967,6 @@ PreservedAnalyses SROA::runImpl(Function &F, DominatorTree &RunDT,
   PreservedAnalyses PA;
   PA.preserveSet<CFGAnalyses>();
   PA.preserve<GlobalsAA>();
-  PA.preserve<InlineAggAnalysis>();    // INTEL
   PA.preserve<AndersensAA>();          // INTEL
   PA.preserve<WholeProgramAnalysis>(); // INTEL
   return PA;
@@ -5009,7 +5007,6 @@ public:
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addPreserved<GlobalsAAWrapperPass>();
     AU.addPreserved<AndersensAAWrapperPass>();    // INTEL
-    AU.addPreserved<InlineAggressiveWrapperPass>(); // INTEL
     AU.addPreserved<WholeProgramWrapperPass>();     // INTEL
     AU.setPreservesCFG();
   }
@@ -5065,7 +5062,6 @@ public:
     AU.addRequired<AssumptionCacheTracker>();
     AU.addPreserved<GlobalsAAWrapperPass>();
     AU.addPreserved<AndersensAAWrapperPass>();
-    AU.addPreserved<InlineAggressiveWrapperPass>();
     AU.addPreserved<WholeProgramWrapperPass>();
     AU.setPreservesCFG();
   }

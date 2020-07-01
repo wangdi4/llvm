@@ -12,7 +12,6 @@
 
 #include "llvm/Transforms/IPO/Intel_IPCloning.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/Analysis/Intel_AggInline.h"
 #include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Intel_IPCloningAnalysis.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -4655,7 +4654,6 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addPreserved<WholeProgramWrapperPass>();
     AU.addPreserved<AndersensAAWrapperPass>();
-    AU.addPreserved<InlineAggressiveWrapperPass>();
   }
 
   bool runOnModule(Module &M) override {
@@ -4694,6 +4692,5 @@ PreservedAnalyses IPCloningPass::run(Module &M, ModuleAnalysisManager &AM) {
   auto PA = PreservedAnalyses();
   PA.preserve<WholeProgramAnalysis>();
   PA.preserve<AndersensAA>();
-  PA.preserve<InlineAggAnalysis>();
   return PA;
 }
