@@ -54,6 +54,39 @@ class VPPHINode;
 class VPTerminator;
 struct TripCountInfo;
 
+// llvm::mapped_itrator has limited support of functions returning by value.
+// TODO: Replace VPSuccIterator with llvm::mapped_iterator, once it is fixed.
+template <typename ItTy, typename FuncTy,
+          typename FuncReturnTy =
+              decltype(std::declval<FuncTy>()(*std::declval<ItTy>()))>
+class VPSuccIterator
+    : public iterator_adaptor_base<
+          VPSuccIterator<ItTy, FuncTy>, ItTy,
+          typename std::iterator_traits<ItTy>::iterator_category,
+          typename std::remove_reference<FuncReturnTy>::type,
+          typename std::iterator_traits<ItTy>::difference_type,
+          typename std::iterator_traits<ItTy>::pointer,
+          typename std::remove_reference<FuncReturnTy>::type> {
+public:
+  VPSuccIterator(ItTy U, FuncTy F)
+      : VPSuccIterator::iterator_adaptor_base(std::move(U)), F(std::move(F)) {}
+  FuncReturnTy operator*() const { return F(*this->I); }
+
+private:
+  FuncTy F;
+};
+
+template <class ItTy, class FuncTy>
+inline VPSuccIterator<ItTy, FuncTy> createVPSuccIterator(ItTy I, FuncTy F) {
+  return VPSuccIterator<ItTy, FuncTy>(std::move(I), std::move(F));
+}
+
+template <class ContainerTy, class FuncTy>
+auto createVPSuccRange(ContainerTy &&C, FuncTy F) {
+  return make_range(createVPSuccIterator(C.begin(), F),
+                    createVPSuccIterator(C.end(), F));
+}
+
 /// VPBasicBlock represents a sequence of instructions that will appear
 /// consecutively in a basic block of the vectorized version.
 /// Like the IR BasicBlock a VPBasicBlock models its control-flow edges
@@ -89,6 +122,7 @@ private:
   // something similar to LLVM IR's loop metadata on the backedge branch
   // instruction, so it will be filled for the latches only.
   std::unique_ptr<TripCountInfo> TCInfo;
+
 public:
   /// Instruction iterators...
   using iterator = VPInstructionListTy::iterator;
@@ -136,22 +170,14 @@ public:
   VPBasicBlock *getSuccessor(unsigned idx) const;
 
   auto getSuccessors() const {
-    // llvm::mapped_itrator class has limited support of functions returning
-    // by value. Creating a closure here to be able to return reference value
-    // from the lambda.
-    // TODO: switch to a usual lambda when mapped_itrator class is fixed.
-    VPBasicBlock *BB;
-    auto F = [BB](VPValue *V) mutable -> VPBasicBlock *& {
-      return BB = cast<VPBasicBlock>(V);
-    };
     // std::function is required here to compile the code with MSVC.
-    return map_range(successors(),
-                     std::function<VPBasicBlock *&(VPValue *)>(F));
+    std::function<VPBasicBlock *(VPValue *)> F = [](VPValue *V) {
+      return cast<VPBasicBlock>(V);
+    };
+    return createVPSuccRange(successors(), F);
   }
 
-  auto getPredecessors() const {
-    return map_range(users(), getVPUserParent);
-  }
+  auto getPredecessors() const { return map_range(users(), getVPUserParent); }
 
 #if INTEL_CUSTOMIZATION
   size_t getNumSuccessors() const;
