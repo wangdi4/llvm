@@ -1804,6 +1804,59 @@ void VPOCodeGenHIR::propagateMetadata(RegDDRef *NewRef, const OVLSGroup *Group,
   }
 }
 
+void VPOCodeGenHIR::propagateDebugLocation(const VPInstruction *VPInst) {
+  auto SetDebugLoc = [](RegDDRef *Ref, DebugLoc DbgLoc) {
+    if (Ref->hasGEPInfo()) {
+      // TODO: This should change when VPValue-based CG starts supporting
+      // folding of memrefs i.e. %1 = A[i1] + B[i1].
+      assert(Ref->isAddressOf() &&
+             "Only address of memrefs are expected in WidenMap.");
+      Ref->setGepDebugLoc(DbgLoc);
+    } else if (Ref->getHLDDNode() == nullptr) {
+      // Standalone RegDDRefs are created only when VPInsts are mapped to folded
+      // CEs. Propagate debug location to the single CE attached to the Ref.
+      assert(Ref->isTerminalRef() && "Terminal ref expected.");
+      Ref->getSingleCanonExpr()->setDebugLoc(DbgLoc);
+    } else {
+      // All remaining Refs in the map are expected to be lval of generated
+      // HLInsts.
+      assert(Ref->isLval() && Ref->isTerminalRef() &&
+             "Terminal lval ref expected.");
+      auto *HInst = cast<HLInst>(Ref->getHLDDNode());
+      if (isa<LoadInst>(HInst->getLLVMInstruction())) {
+        // For a load instruction, set debug location on rval memref.
+        RegDDRef *RvalRef = HInst->getRvalDDRef();
+        assert(RvalRef->hasGEPInfo() &&
+               "Memref expected here for load HLInst.");
+        RvalRef->setMemDebugLoc(DbgLoc);
+      } else {
+        // For non-load instructions, DebugLoc should be set at HLInst level.
+        // Since the instruction is known to be newly created set the debug
+        // location directly on underlying dummy LLVMInst.
+        Instruction *LLVMInst =
+            const_cast<Instruction *>(HInst->getLLVMInstruction());
+        LLVMInst->setDebugLoc(DbgLoc);
+      }
+    }
+  };
+
+  DebugLoc DbgLoc = VPInst->getDebugLocation();
+
+  // Nothing to do if DbgLoc is not available.
+  if (!DbgLoc)
+    return;
+
+  // Set debug location for widened component of VPInstruction.
+  RegDDRef *VecRef = getWideRefForVPVal(VPInst);
+  if (VecRef)
+    SetDebugLoc(VecRef, DbgLoc);
+
+  // Set debug location for scalarized component of VPInstruction.
+  RegDDRef *ScalRef = getScalRefForVPVal(VPInst, 0 /*Lane*/);
+  if (ScalRef)
+    SetDebugLoc(ScalRef, DbgLoc);
+}
+
 RegDDRef *VPOCodeGenHIR::concatenateTwoVectors(RegDDRef *V1, RegDDRef *V2,
                                                RegDDRef *Mask) {
   VectorType *VecTy1 = dyn_cast<VectorType>(V1->getDestType());
@@ -3316,6 +3369,9 @@ void VPOCodeGenHIR::widenLoadStoreImpl(const VPInstruction *VPInst,
     }
     WInst = HLNodeUtilities.createStore(StoreVal, ".vec", MemRef);
     addInst(WInst, Mask);
+    // Stores are not added to widen/scalar maps. Explicitly set debug location
+    // on lval memref.
+    WInst->getLvalDDRef()->setMemDebugLoc(VPInst->getDebugLocation());
   }
 }
 

@@ -146,6 +146,20 @@ public:
   void propagateMetadata(RegDDRef *NewRef, const OVLSGroup *Group = nullptr,
                          const RegDDRef *OldRef = nullptr);
 
+  // Propagate debug location information from VPInstruction to the generated
+  // HIR constructs. This is a post processing approach i.e. we don't attach
+  // debug location while generating the construct, but immediately after the
+  // generation.
+  // TODO: Some known caveats of this approach -
+  // 1. If a single VPInst is lowered to multiple HIR constructs (like multiple
+  // HLInsts) then we attach debug location only to the last generated
+  // construct. For example - OptVLS : VPLoad becomes a load + shuffle. DbgLoc
+  // is set only for shuffle, not the load. This should be rare since VPlan IR
+  // is a decomposed version of incoming HIR.
+  // 2. Some potential loss of debug location for mixed CG approach (non-default
+  // today).
+  void propagateDebugLocation(const VPInstruction *VPInst);
+
   // Widen the given VPInstruction to a vector instruction using VF
   // as the vector length. The given Mask value overrides the
   // current mask value if non-null. Group is non-null if Inst is part of a

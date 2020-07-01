@@ -286,6 +286,9 @@ static void processIVRemoval(CanonExpr *CE, unsigned LoopLevel,
 VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
   LLVM_DEBUG(dbgs() << "  Decomposing CanonExpr: "; CE->dump(); dbgs() << "\n");
   VPValue *DecompDef = nullptr;
+  // Set debug locations for all newly created VPIs from decomposition of this
+  // CE.
+  ScopeDbgLoc DbgLoc(Builder, CE->getDebugLoc());
 
   // Return true if we want to force regular decomposition of given
   // canon expression.
@@ -472,6 +475,7 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
 
   // Final VPInstruction obtained on decomposing the MemOp
   VPValue *MemOpVPI;
+  ScopeDbgLoc GepDbgLoc(Builder, Ref->getGepDebugLoc());
 
   VPValue *DecompBaseCE = decomposeCanonExpr(Ref, Ref->getBaseCE());
 
@@ -575,6 +579,8 @@ VPValue *VPDecomposerHIR::decomposeMemoryOp(RegDDRef *Ref) {
   // VPInstruction
   if (Ref->isAddressOf())
     return MemOpVPI;
+
+  ScopeDbgLoc DbgLoc(Builder, Ref->getMemDebugLoc());
 
   if (Ref->isRval()) {
     // If memory reference is an RVal, then it corresponds to a load. Create a
@@ -761,10 +767,11 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
   assert(Node && "Expected Node to create a VPInstruction.");
   assert(!isa<HLLoop>(Node) && "HLLoop shouldn't be processed here!");
 
-  if (isa<HLGoto>(Node)) {
+  if (auto *Goto = dyn_cast<HLGoto>(Node)) {
     // Create new branch instruction
+    ScopeDbgLoc DbgLoc(Builder, Goto->getDebugLoc());
     Type *BaseTy = Type::getInt1Ty(*Plan->getLLVMContext());
-    VPBranchInst *T = Builder.createBr(BaseTy, cast<HLGoto>(Node));
+    VPBranchInst *T = Builder.createBr(BaseTy, Goto);
 
     // Remove unnecessary existing terminator
     VPBasicBlock *BB = Builder.getInsertBlock();
@@ -796,6 +803,9 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
     } else if (isa<CmpInst>(LLVMInst)) {
       assert(VPOperands.size() == 2 && "Expected 2 operands in CmpInst.");
       CmpInst::Predicate CmpPredicate = getPredicateFromHIR(HInst);
+      // NOTE: Decomposer::createCmpInst wrapper isn't used here because all the
+      // underlying metadata will be obtained by processing of the original
+      // HLInst which is a standalone Cmp operation.
       NewVPInst = Builder.createCmpInst(CmpPredicate, VPOperands[0],
                                         VPOperands[1], DDNode);
     } else if (isa<SelectInst>(LLVMInst)) {
@@ -816,10 +826,7 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
 
         // Decompose first 2 operands into a CmpInst used as predicate for
         // select
-        HLPredicate HLPred = HInst->getPredicate();
-        VPCmpInst *Pred = Builder.createCmpInst(HLPred.Kind, CmpLHS, CmpRHS);
-        if (CmpInst::isFPPredicate(HLPred.Kind))
-          Pred->setFastMathFlags(HLPred.FMF);
+        VPCmpInst *Pred = createCmpInst(HInst->getPredicate(), CmpLHS, CmpRHS);
         // Set underlying DDNode for the select VPInstruction since it may be
         // the master VPInstruction which will be the case if DDNode is
         // non-null.
@@ -884,6 +891,9 @@ VPDecomposerHIR::createVPInstruction(HLNode *Node,
   if (auto *HInst = dyn_cast<HLInst>(Node)) {
     const Instruction *LLVMInst = HInst->getLLVMInstruction();
     assert(LLVMInst && "Missing LLVM Instruction for HLInst.");
+
+    // Set debug location for VPInstruction generated for given HLInst.
+    ScopeDbgLoc DbgLoc(Builder, HInst->getDebugLoc());
 
     // Any LLVM instruction which semantically has a terminal lval/rval can
     // alternatively contain a memref operand in HIR. For example, an add
@@ -956,13 +966,12 @@ VPDecomposerHIR::createVPInstsForHLIf(HLIf *HIf,
   // predicates
   assert((HIf->getNumPredicates() * 2 == VPOperands.size()) &&
          "Incorrect number of operands for a HLIf");
+  ScopeDbgLoc DbgLoc(Builder, HIf->getDebugLoc());
 
   auto FirstPred = HIf->pred_begin();
   // Create a new VPCmpInst corresponding to the first predicate
   VPInstruction *CurVPInst =
-      Builder.createCmpInst(FirstPred->Kind, VPOperands[0], VPOperands[1]);
-  if (CmpInst::isFPPredicate(FirstPred->Kind))
-    CurVPInst->setFastMathFlags(FirstPred->FMF);
+      createCmpInst(*FirstPred, VPOperands[0], VPOperands[1]);
 
   LLVM_DEBUG(dbgs() << "VPDecomp: First Pred VPInst: "; CurVPInst->dump());
 
@@ -973,10 +982,8 @@ VPDecomposerHIR::createVPInstsForHLIf(HLIf *HIf,
     assert(OperandIt + 1 < VPOperands.size() &&
            "Out-of-range access on VPOperands.");
     // Create a new VPCmpInst for the current predicate
-    VPInstruction *NewVPInst = Builder.createCmpInst(
-        It->Kind, VPOperands[OperandIt], VPOperands[OperandIt + 1]);
-    if (CmpInst::isFPPredicate(It->Kind))
-      NewVPInst->setFastMathFlags(It->FMF);
+    VPInstruction *NewVPInst =
+        createCmpInst(*It, VPOperands[OperandIt], VPOperands[OperandIt + 1]);
 
     LLVM_DEBUG(dbgs() << "VPDecomp: NewVPInst: "; NewVPInst->dump());
     // Conjoin the new VPInst with current VPInst using implicit AND
@@ -1192,6 +1199,7 @@ VPValue *VPDecomposerHIR::createLoopIVNextAndBottomTest(HLLoop *HLp,
   assert(HLp->getStrideCanonExpr()->isOne() &&
          "Expected positive unit-stride HLLoop.");
   Builder.setInsertPoint(LpLatch);
+  ScopeDbgLoc DbgLocBottomTest(Builder, HLp->getCmpDebugLoc());
   VPConstant *One =
       Plan->getVPConstant(ConstantInt::getSigned(HLp->getIVType(), 1));
   auto *IVNext = cast<VPInstruction>(Builder.createAdd(IndVPPhi, One, HLp));
