@@ -1024,12 +1024,8 @@ void Sema::ActOnPragmaFPContract(SourceLocation Loc,
     NewFPFeatures.setAllowFPContractAcrossStatement();
     break;
   case LangOptions::FPM_Off:
-<<<<<<< HEAD
-    CurFPFeatures.setDisallowFPContract();
-    Context.disableFPContract(); // INTEL
-=======
     NewFPFeatures.setDisallowFPContract();
->>>>>>> 9518763d710bfbbf9315fa88972c55898be44a0e
+    Context.disableFPContract(); // INTEL
     break;
   }
   CurFPFeatures = NewFPFeatures.applyOverrides(getLangOpts());
