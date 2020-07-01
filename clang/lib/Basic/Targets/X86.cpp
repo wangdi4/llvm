@@ -512,6 +512,7 @@ SkylakeCommon:
     setFeatureEnabledImpl(Features, "bmi", true);
     setFeatureEnabledImpl(Features, "f16c", true);
     setFeatureEnabledImpl(Features, "xsaveopt", true);
+    setFeatureEnabledImpl(Features, "xsave", true);
     setFeatureEnabledImpl(Features, "movbe", true);
     LLVM_FALLTHROUGH;
   case CK_BTVER1:
@@ -611,6 +612,12 @@ SkylakeCommon:
       llvm::find(FeaturesVec, "-mmx") == FeaturesVec.end())
     Features["mmx"] = true;
 
+  // Enable xsave if avx is enabled and xsave is not explicitly disabled.
+  I = Features.find("avx");
+  if (I != Features.end() && I->getValue() &&
+      llvm::find(FeaturesVec, "-xsave") == FeaturesVec.end())
+    Features["xsave"] = true;
+
   return true;
 }
 
@@ -628,7 +635,6 @@ void X86TargetInfo::setSSELevel(llvm::StringMap<bool> &Features,
       LLVM_FALLTHROUGH;
     case AVX:
       Features["avx"] = true;
-      Features["xsave"] = true;
       LLVM_FALLTHROUGH;
     case SSE42:
       Features["sse4.2"] = true;
@@ -683,8 +689,7 @@ void X86TargetInfo::setSSELevel(llvm::StringMap<bool> &Features,
     LLVM_FALLTHROUGH;
   case AVX:
     Features["fma"] = Features["avx"] = Features["f16c"] = false;
-    Features["xsave"] = Features["xsaveopt"] = Features["vaes"] = false;
-    Features["vpclmulqdq"] = false;
+    Features["vaes"] = Features["vpclmulqdq"] = false;
     setXOPLevel(Features, FMA4, false);
     LLVM_FALLTHROUGH;
   case AVX2:
