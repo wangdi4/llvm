@@ -286,6 +286,8 @@ public:
 
     DTransI8Type = TM.getOrCreateAtomicType(LLVMI8Type);
     DTransI8PtrType = TM.getOrCreatePointerType(DTransI8Type);
+    DTransPtrSizedIntType = TM.getOrCreateAtomicType(LLVMPointerSizedIntType);
+    DTransPtrSizedIntPtrType = TM.getOrCreatePointerType(DTransPtrSizedIntType);
   }
 
   ~PtrTypeAnalyzerImpl();
@@ -323,9 +325,22 @@ public:
     return DTransI8PtrType;
   }
 
-  // If the type is used for a single aggregate type, return the type.
-  // Otherwise, return nullptr meaning either the value does not alias an
-  // aggregate type (i.e. canAliasToAggregatePointer() == false), or there is
+  dtrans::DTransType *getDTransPtrSizedIntType() const {
+    return DTransPtrSizedIntType;
+  }
+
+  dtrans::DTransType *getDTransPtrSizedIntPtrType() const {
+    return DTransPtrSizedIntPtrType;
+  }
+
+  // If the type is used for a single aggregate type, return the type, provided
+  // that any other pointer types are generic equivalents for the type, such as
+  // i8* or a pointer-sized integer pointer, or they are equivalent types that
+  // allow access to the element-zero  member. If the case, where there are
+  // multiple aggregate types,  which are related based on nesting of the types
+  // at the element-zero position, return the outermost aggregate type for the
+  // nesting. Otherwise, return nullptr meaning either the value does not alias
+  // an aggregate type (i.e. canAliasToAggregatePointer() == false), or there is
   // not a single dominant aggregate type.
   DTransType *getDominantAggregateUsageType(ValueTypeInfo &Info) const;
 
@@ -344,6 +359,12 @@ public:
   // 'SrcTy' pointer type, then it would be a valid element zero access.
   bool isElementZeroAccess(DTransType *SrcTy, DTransType *DestTy,
                            DTransType **AccessedTy = nullptr) const;
+
+  // Return 'true' if a pointer to 'DestPointeeTy' can be used to access element
+  // zero of 'SrcPointeeTy'. This is similar to 'isElementZeroAccess', except
+  // that it operates on the type the pointers point to.
+  bool isPointeeElementZeroAccess(DTransType *SrcTy, DTransType *DestTy,
+                                  DTransType **AccessedType = nullptr) const;
 
 private:
   DTransTypeManager &TM;
@@ -387,6 +408,14 @@ private:
 
   // Representation of the 'i8*' type in DTransType system
   dtrans::DTransPointerType *DTransI8PtrType;
+
+  // Representation of an integer type that is the same size as a pointer in the
+  // DTransType system.
+  dtrans::DTransType *DTransPtrSizedIntType;
+
+  // Representation of a pointer to an integer type that is the same size as a
+  // pointer in the DTransType system.
+  dtrans::DTransPointerType *DTransPtrSizedIntPtrType;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2886,8 +2915,13 @@ PtrTypeAnalyzerImpl::getDominantAggregateUsageType(ValueTypeInfo &Info) const {
     DTransType *BaseTy = AliasTy;
     while (BaseTy->isPointerTy())
       BaseTy = BaseTy->getPointerElementType();
+
+    // Generic pointer forms of 'i8' or pointer sized integers are safe aliases
+    // of an aggregate type.
     if (!BaseTy->isAggregateType())
+      if (BaseTy == getDTransI8Type() || BaseTy == getDTransPtrSizedIntType())
       continue;
+
     if (!DomTy) {
       DomTy = AliasTy;
       continue;
@@ -2996,89 +3030,6 @@ bool PtrTypeAnalyzerImpl::isPtrToCharArray(ValueTypeInfo &Info,
 bool PtrTypeAnalyzerImpl::isElementZeroAccess(DTransType *SrcTy,
                                               DTransType *DestTy,
                                               DTransType **AccessedTy) const {
-
-  std::function<bool(DTransType *, DTransType *, DTransType *, DTransType **)>
-      IsPointeeElementZeroAccess =
-          [this, &IsPointeeElementZeroAccess](
-              DTransType *SrcTy, DTransType *SrcPointeeTy,
-              DTransType *DestPointeeTy, DTransType **AccessedTy) -> bool {
-    auto *CompTy = dyn_cast<DTransCompositeType>(SrcPointeeTy);
-    if (!CompTy)
-      return false;
-
-    // This avoids problems with opaque structure types.
-    if (!CompTy->indexValid(0u))
-      return false;
-
-    DTransType *ElementZeroTy = nullptr;
-    if (auto *StTy = dyn_cast<DTransStructType>(CompTy))
-      ElementZeroTy = StTy->getFieldType(0);
-    else
-      ElementZeroTy = cast<DTransSequentialType>(CompTy)->getTypeAtIndex(0u);
-
-    if (!ElementZeroTy)
-      return false;
-
-    // If the element zero type matches the destination pointee type,
-    // this is an element zero access.
-    if (DestPointeeTy->compare(*ElementZeroTy)) {
-      if (AccessedTy)
-        *AccessedTy = SrcTy;
-      return true;
-    }
-
-    // Handle multiple levels of indirection with i8* destinations.
-    // If the element zero type is a pointer type and the destination pointee
-    // type is a corresponding i8* at the same level of indirection, this is an
-    // element zero access.
-    if (ElementZeroTy->isPointerTy()) {
-      auto *TempZeroTy = ElementZeroTy;
-      auto *TempDestTy = DestPointeeTy;
-      while (TempZeroTy->isPointerTy() && TempDestTy->isPointerTy()) {
-        TempZeroTy = TempZeroTy->getPointerElementType();
-        TempDestTy = TempDestTy->getPointerElementType();
-      }
-
-      if (TempDestTy == getDTransI8Type()) {
-        if (AccessedTy)
-          *AccessedTy = SrcTy;
-        return true;
-      }
-    }
-
-    // If element zero is an aggregate type, this cast might be accessing
-    // element zero of the nested type.
-    if (ElementZeroTy->isAggregateType())
-      return IsPointeeElementZeroAccess(SrcTy, ElementZeroTy, DestPointeeTy,
-                                        AccessedTy);
-
-    // If element zero is a pointer to an aggregate type this cast might
-    // be creating a pointer to element zero of the type pointed to.
-    // For instance, if we have the following types:
-    //
-    //   %A = type { %B*, ... }
-    //   %B = type { %C, ... }
-    //   %C = type { ... }
-    //
-    // The following IR would get the address of A->C.
-    //
-    //   %ppc = bitcast %A* %pa to %C**
-    //
-    if (ElementZeroTy->isPointerTy() &&
-        ElementZeroTy->getPointerElementType()->isAggregateType()) {
-      // In this case, tracking the accessed type is tricky because
-      // the check is off by a level of indirection. If it's a match
-      // we need to record it as element zero of SrcTy.
-      bool Match = isElementZeroAccess(ElementZeroTy, DestPointeeTy);
-      if (Match && AccessedTy)
-        *AccessedTy = SrcTy;
-      return Match;
-    }
-
-    // Otherwise, it must be a bad cast. The caller should handle that.
-    return false;
-  };
-
   if (AccessedTy)
     *AccessedTy = nullptr;
   if (!SrcTy || !DestTy)
@@ -3088,8 +3039,89 @@ bool PtrTypeAnalyzerImpl::isElementZeroAccess(DTransType *SrcTy,
 
   DTransType *SrcPointeeTy = SrcTy->getPointerElementType();
   DTransType *DestPointeeTy = DestTy->getPointerElementType();
-  return IsPointeeElementZeroAccess(SrcTy, SrcPointeeTy, DestPointeeTy,
-                                    AccessedTy);
+  return isPointeeElementZeroAccess(SrcPointeeTy, DestPointeeTy, AccessedTy);
+}
+
+bool PtrTypeAnalyzerImpl::isPointeeElementZeroAccess(
+    DTransType *SrcPointeeTy, DTransType *DestPointeeTy,
+    DTransType **AccessedTy) const {
+  if (AccessedTy)
+    *AccessedTy = nullptr;
+
+  auto *CompTy = dyn_cast<DTransCompositeType>(SrcPointeeTy);
+  if (!CompTy)
+    return false;
+
+  // This avoids problems with opaque structure types.
+  if (!CompTy->indexValid(0u))
+    return false;
+
+  DTransType *ElementZeroTy = nullptr;
+  if (auto *StTy = dyn_cast<DTransStructType>(CompTy))
+    ElementZeroTy = StTy->getFieldType(0);
+  else
+    ElementZeroTy = dyn_cast<DTransSequentialType>(CompTy)->getTypeAtIndex(0u);
+
+  if (!ElementZeroTy)
+    return false;
+
+  // If the element zero type matches the destination pointee type,
+  // this is an element zero access.
+  if (DestPointeeTy->compare(*ElementZeroTy)) {
+    if (AccessedTy)
+      *AccessedTy = SrcPointeeTy;
+    return true;
+  }
+
+  // Handle multiple levels of indirection with i8* destinations.
+  // If the element zero type is a pointer type and the destination pointee
+  // type is a corresponding i8* at the same level of indirection, this is an
+  // element zero access.
+  if (ElementZeroTy->isPointerTy() && DestPointeeTy->isPointerTy()) {
+    auto *TempZeroTy = ElementZeroTy;
+    auto *TempDestTy = DestPointeeTy;
+    while (TempZeroTy->isPointerTy() && TempDestTy->isPointerTy()) {
+      TempZeroTy = TempZeroTy->getPointerElementType();
+      TempDestTy = TempDestTy->getPointerElementType();
+    }
+
+    if (TempDestTy == getDTransI8Type()) {
+      if (AccessedTy)
+        *AccessedTy = SrcPointeeTy;
+      return true;
+    }
+  }
+
+  // If element zero is an aggregate type, this cast might be accessing
+  // element zero of the nested type.
+  if (ElementZeroTy->isAggregateType())
+    return isPointeeElementZeroAccess(ElementZeroTy, DestPointeeTy, AccessedTy);
+
+  // If element zero is a pointer to an aggregate type this cast might
+  // be creating a pointer to element zero of the type pointed to.
+  // For instance, if we have the following types:
+  //
+  //   %A = type { %B*, ... }
+  //   %B = type { %C, ... }
+  //   %C = type { ... }
+  //
+  // The following IR would get the address of A->C.
+  //
+  //   %ppc = bitcast %A* %pa to %C**
+  //
+  if (ElementZeroTy->isPointerTy() &&
+      ElementZeroTy->getPointerElementType()->isAggregateType()) {
+    // In this case, tracking the accessed type is tricky because
+    // the check is off by a level of indirection. If it's a match
+    // we need to record it as element zero of SrcTy.
+    bool Match = isElementZeroAccess(ElementZeroTy, DestPointeeTy);
+    if (Match && AccessedTy)
+      *AccessedTy = SrcPointeeTy;
+    return Match;
+  }
+
+  // Otherwise, it must be a bad cast. The caller should handle that.
+  return false;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -3133,6 +3165,16 @@ ValueTypeInfo *PtrTypeAnalyzer::getValueTypeInfo(const Value *V) const {
 ValueTypeInfo *PtrTypeAnalyzer::getValueTypeInfo(const User *U,
                                                  unsigned OpNum) const {
   return Impl->getValueTypeInfo(U, OpNum);
+}
+
+bool PtrTypeAnalyzer::isElementZeroAccess(DTransType *SrcTy,
+                                          DTransType *DestTy) const {
+  return Impl->isElementZeroAccess(SrcTy, DestTy);
+}
+
+bool PtrTypeAnalyzer::isPointeeElementZeroAccess(
+    DTransType *SrcPointeeTy, DTransType *DestPointeeTy) const {
+  return Impl->isPointeeElementZeroAccess(SrcPointeeTy, DestPointeeTy);
 }
 
 DTransType *

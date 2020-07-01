@@ -338,6 +338,33 @@ public:
     }
   }
 
+  void visitSelectInst(SelectInst &Sel) { analyzeSelectOrPhi(&Sel); }
+
+  void visitPHINode(PHINode &Phi) { analyzeSelectOrPhi(&Phi); }
+
+  // If the select or phi involves pointer types or element pointees, then
+  // the ValueTypeInfo for the instruction will hold the merge results of all
+  // the source operands. For type safety, if there are aggregate types
+  // involved, we need to be sure there is a unique dominant type when aggregate
+  // types are involved, otherwise it is an unsafe pointer merge.
+  void analyzeSelectOrPhi(Instruction *I) {
+    // If the select/phi instruction was not identified as a type of interest by
+    // the PtrTypeAnalyzer there will not be a ValueTypeInfo collected for it.
+    ValueTypeInfo *Info = PTA.getValueTypeInfo(I);
+    if (!Info || Info->empty())
+      return;
+
+    if (Info->getUnhandled() || Info->getDependsOnUnhandled())
+      DTInfo.setUnhandledPtrType(I);
+
+    if (!Info->canAliasToAggregatePointer())
+      return;
+
+    if (!PTA.getDominantAggregateUsageType(*Info))
+      setAllAliasedTypeSafetyData(Info, dtrans::UnsafePtrMerge,
+                                  "Merge of conflicting pointer types", I);
+  }
+
 private:
   // private methods
 
