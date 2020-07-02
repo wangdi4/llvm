@@ -1888,9 +1888,13 @@ pi_result piProgramGetBuildInfo(pi_program Program, pi_device Device,
     if (ParamValueSizeRet) {
       *ParamValueSizeRet = LogSize;
     }
+<<<<<<< HEAD
   } else {
     zePrint("piProgramGetBuildInfo: unsupported ParamName\n");
     return PI_INVALID_VALUE;
+=======
+    return PI_SUCCESS;
+>>>>>>> 0d0e6b7cd3d52009d843648ace07fe31ae1e30d1
   }
   return PI_SUCCESS;
 }
