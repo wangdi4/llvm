@@ -4232,15 +4232,6 @@ llvm::getArgumentAliasingToReturnedPointer(const CallBase *Call,
 
 bool llvm::isIntrinsicReturningPointerAliasingArgumentWithoutCapturing(
     const CallBase *Call, bool MustPreserveNullness) {
-<<<<<<< HEAD
-  return Call->getIntrinsicID() == Intrinsic::launder_invariant_group ||
-         Call->getIntrinsicID() == Intrinsic::strip_invariant_group ||
-         Call->getIntrinsicID() == Intrinsic::aarch64_irg ||
-         Call->getIntrinsicID() == Intrinsic::aarch64_tagp ||
-         (!MustPreserveNullness &&
-          Call->getIntrinsicID() == Intrinsic::ptrmask) || // INTEL
-         Call->getIntrinsicID() == Intrinsic::ssa_copy;    // INTEL
-=======
   switch (Call->getIntrinsicID()) {
   case Intrinsic::launder_invariant_group:
   case Intrinsic::strip_invariant_group:
@@ -4248,11 +4239,11 @@ bool llvm::isIntrinsicReturningPointerAliasingArgumentWithoutCapturing(
   case Intrinsic::aarch64_tagp:
     return true;
   case Intrinsic::ptrmask:
+  case Intrinsic::ssa_copy:  // INTEL
     return !MustPreserveNullness;
   default:
     return false;
   }
->>>>>>> 323cb26cef4a1766b660745c38238617c1f1cf33
 }
 
 /// \p PN defines a loop-variant pointer to an object.  Check if the
