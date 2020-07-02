@@ -1208,13 +1208,19 @@ pi_result piextDeviceGetNativeHandle(pi_device Device,
 }
 
 pi_result piextDeviceCreateWithNativeHandle(pi_native_handle NativeHandle,
+<<<<<<< HEAD
                                             pi_platform Platform, // INTEL
                                             pi_device *Device) {
 #if INTEL_CUSTOMIZATION
+=======
+                                            pi_platform Platform,
+                                            pi_device *Device) {
+>>>>>>> a51c3334b96efa9a3ffaaa77ed5628ab4c1dd07c
   assert(NativeHandle);
   assert(Device);
   assert(Platform);
 
+<<<<<<< HEAD
   // Create PI device from the given L0 device handle.
   auto ZeDevice = pi_cast<ze_device_handle_t>(NativeHandle);
   *Device = new _pi_device(ZeDevice, Platform);
@@ -1224,6 +1230,12 @@ pi_result piextDeviceCreateWithNativeHandle(pi_native_handle NativeHandle,
   die("piextDeviceCreateWithNativeHandle: not supported");
   return PI_SUCCESS;
 #endif // INTEL_CUSTOMIZATION
+=======
+  // Create PI device from the given L0 device handle.
+  auto ZeDevice = pi_cast<ze_device_handle_t>(NativeHandle);
+  *Device = new _pi_device(ZeDevice, Platform);
+  return (*Device)->initialize();
+>>>>>>> a51c3334b96efa9a3ffaaa77ed5628ab4c1dd07c
 }
 
 pi_result piContextCreate(const pi_context_properties *Properties,
@@ -1408,6 +1420,7 @@ pi_result piQueueFinish(pi_queue Queue) {
 
 pi_result piextQueueGetNativeHandle(pi_queue Queue,
                                     pi_native_handle *NativeHandle) {
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   assert(Queue);
   assert(NativeHandle);
@@ -1418,22 +1431,38 @@ pi_result piextQueueGetNativeHandle(pi_queue Queue,
 #else
   die("piextQueueGetNativeHandle: not supported");
 #endif // INTEL_CUSTOMIZATION
+=======
+  assert(Queue);
+  assert(NativeHandle);
+
+  auto ZeQueue = pi_cast<ze_command_queue_handle_t *>(NativeHandle);
+  // Extract the L0 queue handle from the given PI queue
+  *ZeQueue = Queue->ZeCommandQueue;
+>>>>>>> a51c3334b96efa9a3ffaaa77ed5628ab4c1dd07c
   return PI_SUCCESS;
 }
 
 pi_result piextQueueCreateWithNativeHandle(pi_native_handle NativeHandle,
+<<<<<<< HEAD
                                            pi_context Context, // INTEL
                                            pi_queue *Queue) {
 #if INTEL_CUSTOMIZATION
+=======
+                                           pi_context Context,
+                                           pi_queue *Queue) {
+>>>>>>> a51c3334b96efa9a3ffaaa77ed5628ab4c1dd07c
   assert(NativeHandle);
   assert(Context);
   assert(Queue);
 
   auto ZeQueue = pi_cast<ze_command_queue_handle_t>(NativeHandle);
   *Queue = new _pi_queue(ZeQueue, Context);
+<<<<<<< HEAD
 #else
   die("piextQueueCreateWithNativeHandle: not supported");
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> a51c3334b96efa9a3ffaaa77ed5628ab4c1dd07c
   return PI_SUCCESS;
 }
 
@@ -1930,23 +1959,34 @@ pi_result piProgramRelease(pi_program Program) {
 
 pi_result piextProgramGetNativeHandle(pi_program Program,
                                       pi_native_handle *NativeHandle) {
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
+=======
+>>>>>>> a51c3334b96efa9a3ffaaa77ed5628ab4c1dd07c
   assert(Program);
   assert(NativeHandle);
 
   auto ZeModule = pi_cast<ze_module_handle_t *>(NativeHandle);
   // Extract the L0 module handle from the given PI program
   *ZeModule = Program->ZeModule;
+<<<<<<< HEAD
 #else
   die("piextProgramGetNativeHandle: not supported");
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> a51c3334b96efa9a3ffaaa77ed5628ab4c1dd07c
   return PI_SUCCESS;
 }
 
 pi_result piextProgramCreateWithNativeHandle(pi_native_handle NativeHandle,
+<<<<<<< HEAD
                                              pi_context Context, // INTEL
                                              pi_program *Program) {
 #if INTEL_CUSTOMIZATION
+=======
+                                             pi_context Context,
+                                             pi_program *Program) {
+>>>>>>> a51c3334b96efa9a3ffaaa77ed5628ab4c1dd07c
   assert(NativeHandle);
   assert(Context);
   assert(Program);
@@ -1965,10 +2005,20 @@ pi_result piextProgramCreateWithNativeHandle(pi_native_handle NativeHandle,
   ZeModuleDesc.inputSize = 0;
   ZeModuleDesc.pInputModule = nullptr;
 
+<<<<<<< HEAD
   *Program = new _pi_program(ZeModule, ZeModuleDesc, Context);
 #else
   die("piextProgramCreateWithNativeHandle: not supported");
 #endif // INTEL_CUSTOMIZATION
+=======
+  try {
+    *Program = new _pi_program(ZeModule, ZeModuleDesc, Context);
+  } catch (const std::bad_alloc &) {
+    return PI_OUT_OF_HOST_MEMORY;
+  } catch (...) {
+    return PI_ERROR_UNKNOWN;
+  }
+>>>>>>> a51c3334b96efa9a3ffaaa77ed5628ab4c1dd07c
   return PI_SUCCESS;
 }
 

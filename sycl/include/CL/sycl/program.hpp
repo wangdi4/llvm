@@ -322,7 +322,10 @@ public:
 #endif // __SYCL_DEVICE_ONLY__
   }
 
+<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
+=======
+>>>>>>> a51c3334b96efa9a3ffaaa77ed5628ab4c1dd07c
   /// Gets the native handle of the SYCL platform.
   ///
   /// \return a native handle, the type of which defined by the backend.
@@ -331,10 +334,16 @@ public:
     return reinterpret_cast<typename interop<BackendName, program>::type>(
         getNative());
   }
+<<<<<<< HEAD
 /* end INTEL_CUSTOMIZATION */
 
 private:
   pi_native_handle getNative() const; // INTEL
+=======
+
+private:
+  pi_native_handle getNative() const;
+>>>>>>> a51c3334b96efa9a3ffaaa77ed5628ab4c1dd07c
   program(shared_ptr_class<detail::program_impl> impl);
 
   /// Template-free version of get_kernel.

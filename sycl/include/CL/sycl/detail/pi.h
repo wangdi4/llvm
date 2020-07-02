@@ -850,10 +850,15 @@ piextDeviceGetNativeHandle(pi_device device, pi_native_handle *nativeHandle);
 /// NOTE: The created PI object takes ownership of the native handle.
 ///
 /// \param nativeHandle is the native handle to create PI device from.
+/// \param platform is the platform of the device.
 /// \param device is the PI device created from the native handle.
 __SYCL_EXPORT pi_result piextDeviceCreateWithNativeHandle(
+<<<<<<< HEAD
     pi_native_handle nativeHandle, pi_platform platform, // INTEL
     pi_device *device);                                  // INTEL
+=======
+    pi_native_handle nativeHandle, pi_platform platform, pi_device *device);
+>>>>>>> a51c3334b96efa9a3ffaaa77ed5628ab4c1dd07c
 
 /// Selects the most appropriate device binary based on runtime information
 /// and the IR characteristics.
@@ -945,11 +950,19 @@ piextQueueGetNativeHandle(pi_queue queue, pi_native_handle *nativeHandle);
 /// NOTE: The created PI object takes ownership of the native handle.
 ///
 /// \param nativeHandle is the native handle to create PI queue from.
+<<<<<<< HEAD
 /// \param context is the PI context of the queue.             // INTEL
 /// \param queue is the PI queue created from the native handle.
 __SYCL_EXPORT pi_result piextQueueCreateWithNativeHandle(
     pi_native_handle nativeHandle, pi_context context, // INTEL
     pi_queue *queue);                                  // INTEL
+=======
+/// \param context is the PI context of the queue.
+/// \param queue is the PI queue created from the native handle.
+__SYCL_EXPORT pi_result piextQueueCreateWithNativeHandle(
+    pi_native_handle nativeHandle, pi_context context, pi_queue *queue);
+
+>>>>>>> a51c3334b96efa9a3ffaaa77ed5628ab4c1dd07c
 //
 // Memory
 //
@@ -1068,10 +1081,15 @@ piextProgramGetNativeHandle(pi_program program, pi_native_handle *nativeHandle);
 /// NOTE: The created PI object takes ownership of the native handle.
 ///
 /// \param nativeHandle is the native handle to create PI program from.
+/// \param context is the PI context of the program.
 /// \param program is the PI program created from the native handle.
 __SYCL_EXPORT pi_result piextProgramCreateWithNativeHandle(
+<<<<<<< HEAD
     pi_native_handle nativeHandle, pi_context context, // INTEL
     pi_program *program);                              // INTEL
+=======
+    pi_native_handle nativeHandle, pi_context context, pi_program *program);
+>>>>>>> a51c3334b96efa9a3ffaaa77ed5628ab4c1dd07c
 
 //
 // Kernel

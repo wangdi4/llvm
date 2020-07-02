@@ -40,12 +40,18 @@ device_impl::device_impl(pi_native_handle InteropDeviceHandle,
   if (Device == nullptr) {
     assert(InteropDeviceHandle);
     // Get PI device from the raw device handle.
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
+=======
+>>>>>>> a51c3334b96efa9a3ffaaa77ed5628ab4c1dd07c
     // NOTE: this is for OpenCL interop only (and should go away).
     // With SYCL-2020 BE generalization "make" functions are used instead.
     Plugin.call<PiApiKind::piextDeviceCreateWithNativeHandle>(
         InteropDeviceHandle, nullptr, &MDevice);
+<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> a51c3334b96efa9a3ffaaa77ed5628ab4c1dd07c
     InteroperabilityConstructor = true;
   }
 

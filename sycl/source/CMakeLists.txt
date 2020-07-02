@@ -114,6 +114,7 @@ set(SYCL_SOURCES
     "backend/level_zero.cpp"
 # end INTEL_CUSTOMIZATION
     "backend/opencl.cpp"
+    "backend/level_zero.cpp"
     "detail/accessor_impl.cpp"
     "detail/buffer_impl.cpp"
     "detail/builtins_common.cpp"

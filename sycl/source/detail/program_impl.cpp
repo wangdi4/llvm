@@ -110,10 +110,15 @@ program_impl::program_impl(ContextImplPtr Context,
     assert(InteropProgram &&
            "No InteropProgram/PiProgram defined with piextProgramFromNative");
     // Translate the raw program handle into PI program.
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     Plugin.call<PiApiKind::piextProgramCreateWithNativeHandle>(
         InteropProgram, MContext->getHandleRef(), &MProgram);
 #endif // INTEL_CUSTOMIZATION
+=======
+    Plugin.call<PiApiKind::piextProgramCreateWithNativeHandle>(
+        InteropProgram, MContext->getHandleRef(), &MProgram);
+>>>>>>> a51c3334b96efa9a3ffaaa77ed5628ab4c1dd07c
   } else
     Plugin.call<PiApiKind::piProgramRetain>(Program);
 
@@ -514,14 +519,20 @@ void program_impl::flush_spec_constants(const RTDeviceBinaryImage &Img,
   }
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
+=======
+>>>>>>> a51c3334b96efa9a3ffaaa77ed5628ab4c1dd07c
 pi_native_handle program_impl::getNative() const {
   const auto &Plugin = getPlugin();
   pi_native_handle Handle;
   Plugin.call<PiApiKind::piextProgramGetNativeHandle>(MProgram, &Handle);
   return Handle;
 }
+<<<<<<< HEAD
 #endif //INTEL_CUSTOMIZATION
+=======
+>>>>>>> a51c3334b96efa9a3ffaaa77ed5628ab4c1dd07c
 
 } // namespace detail
 } // namespace sycl

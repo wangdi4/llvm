@@ -183,7 +183,6 @@ pi_result piextPlatformCreateWithNativeHandle(pi_native_handle nativeHandle,
   return PI_SUCCESS;
 }
 
-// Example of a PI interface that does not map exactly to an OpenCL one.
 pi_result piDevicesGet(pi_platform platform, pi_device_type device_type,
                        pi_uint32 num_entries, pi_device *devices,
                        pi_uint32 *num_devices) {
@@ -273,8 +272,12 @@ pi_result piextDeviceSelectBinary(pi_device device, pi_device_binary *images,
 }
 
 pi_result piextDeviceCreateWithNativeHandle(pi_native_handle nativeHandle,
+<<<<<<< HEAD
                                             pi_platform platform, // unused // INTEL
                                             pi_device *piDevice) {
+=======
+                                            pi_platform, pi_device *piDevice) {
+>>>>>>> a51c3334b96efa9a3ffaaa77ed5628ab4c1dd07c
   assert(piDevice != nullptr);
   *piDevice = reinterpret_cast<pi_device>(nativeHandle);
   return PI_SUCCESS;
@@ -321,8 +324,12 @@ pi_result piQueueCreate(pi_context context, pi_device device,
 }
 
 pi_result piextQueueCreateWithNativeHandle(pi_native_handle nativeHandle,
+<<<<<<< HEAD
                                            pi_context context, // unused // INTEL
                                            pi_queue *piQueue) {
+=======
+                                           pi_context, pi_queue *piQueue) {
+>>>>>>> a51c3334b96efa9a3ffaaa77ed5628ab4c1dd07c
   assert(piQueue != nullptr);
   *piQueue = reinterpret_cast<pi_queue>(nativeHandle);
   return PI_SUCCESS;
@@ -407,7 +414,11 @@ pi_result piProgramCreate(pi_context context, const void *il, size_t length,
 }
 
 pi_result piextProgramCreateWithNativeHandle(pi_native_handle nativeHandle,
+<<<<<<< HEAD
                                              pi_context, // INTEL
+=======
+                                             pi_context,
+>>>>>>> a51c3334b96efa9a3ffaaa77ed5628ab4c1dd07c
                                              pi_program *piProgram) {
   assert(piProgram != nullptr);
   *piProgram = reinterpret_cast<pi_program>(nativeHandle);
