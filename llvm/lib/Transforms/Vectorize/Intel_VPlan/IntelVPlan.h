@@ -52,6 +52,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
 #include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
 #include "llvm/Analysis/Intel_VectorVariant.h"
+#include "llvm/Analysis/VectorUtils.h"
 #include "llvm/Support/FormattedStream.h"
 #endif // INTEL_CUSTOMIZATION
 
@@ -1711,6 +1712,7 @@ private:
     unsigned VF = 0;
     VectorVariant *MatchedVecVariant = nullptr;
     Optional<StringRef> VectorLibraryFn = None;
+    Intrinsic::ID VectorIntrinsic = Intrinsic::not_intrinsic;
     unsigned PumpFactor = 1;
     // Specifies if masked version of a vector variant should be used to
     // vectorize the unmasked call (using all-true mask).
@@ -1721,6 +1723,8 @@ private:
       std::string VecVariantName =
           MatchedVecVariant != nullptr ? MatchedVecVariant->toString() : "None";
       OS << "  VecVariant: " << VecVariantName << "\n";
+      OS << "  VecIntrinsic: " << Intrinsic::getName(VectorIntrinsic, {})
+         << "\n";
       OS << "  UseMaskForUnmasked: " << UseMaskedForUnmasked << "\n";
       OS << "  VecLibFn: " << VectorLibraryFn << "\n";
       OS << "  PumpFactor: " << PumpFactor << "\n";
@@ -1735,6 +1739,8 @@ private:
     LibraryFunc,
     // Vectorize call using matching SIMD vector variant.
     VectorVariant,
+    // Trivially vectorizable call using vector intrinsics.
+    TrivialVectorIntrinsic,
     // Specifies if call should be emulated with serialization i.e. appropriate
     // scalar call for each vector lane. Serialization is done today in VPlan
     // for indirect calls and non-vectorizable function calls (functions with no
@@ -1821,6 +1827,9 @@ public:
   /// Clear decision that was last computed for this call, and reset to initial
   /// state (Undef scenario) for new VF.
   void resetVecScenario(unsigned NewVF) {
+    // Record VF for which new vectorization scenario and properties will be
+    // recorded.
+    VecProperties.VF = NewVF;
     // DoNotWiden is used only for kernel uniform calls today i.e. the property
     // is not VF-dependent. Hence it need not be reset here.
     if (VecScenario == CallVecScenarios::DoNotWiden)
@@ -1829,11 +1838,9 @@ public:
     VecScenario = CallVecScenarios::Undefined;
     VecProperties.MatchedVecVariant = nullptr;
     VecProperties.VectorLibraryFn = None;
+    VecProperties.VectorIntrinsic = Intrinsic::not_intrinsic;
     VecProperties.PumpFactor = 1;
     VecProperties.UseMaskedForUnmasked = 0;
-    // Record VF for which new vectorization scenario and properties will be
-    // recorded.
-    VecProperties.VF = NewVF;
   }
 
   /// Setter functions for different possible states of VecScenario.
@@ -1872,6 +1879,13 @@ public:
     VecProperties.UseMaskedForUnmasked = UseMaskedForUnmasked;
     VecProperties.PumpFactor = PumpFactor;
   }
+  // Scenario 4 : Trivially vectorizable calls using intrinsics.
+  void setVectorizeWithIntrinsic(Intrinsic::ID VectorInrinID) {
+    assert(VecScenario == CallVecScenarios::Undefined &&
+           "Inconsistent scenario update.");
+    VecScenario = CallVecScenarios::TrivialVectorIntrinsic;
+    VecProperties.VectorIntrinsic = VectorInrinID;
+  }
 
   /// Get decision about how call will be handled by vectorizer.
   CallVecScenariosTy getVectorizationScenario() const { return VecScenario; }
@@ -1905,6 +1919,22 @@ public:
     }
     return VecProperties.PumpFactor;
   }
+  /// Getter for vector intrinsic.
+  Intrinsic::ID getVectorIntrinsic() const {
+    assert(VecScenario == CallVecScenarios::TrivialVectorIntrinsic &&
+           "Can't get VectorIntrinsic for mismatched scenario.");
+    return VecProperties.VectorIntrinsic;
+  }
+  std::string getVectorIntrinName() const {
+    Intrinsic::ID VecID = getVectorIntrinsic();
+    if (VecID == Intrinsic::not_intrinsic)
+      return Intrinsic::getName(VecID).str();
+
+    assert(!getType()->isVoidTy() && "Expected non-void function");
+    SmallVector<Type *, 1> TysForName;
+    TysForName.push_back(getWidenedType(getType(), getVFForScenario()));
+    return Intrinsic::getName(VecID, TysForName);
+  }
 
   /// Call argument list size.
   unsigned arg_size() const {
@@ -1932,6 +1962,9 @@ public:
       break;
     case CallVecScenarios::VectorVariant:
       OS << "VectorVariant";
+      break;
+    case CallVecScenarios::TrivialVectorIntrinsic:
+      OS << "TrivialVectorIntrinsic";
       break;
     case CallVecScenarios::Serialization:
       OS << "Serialize";

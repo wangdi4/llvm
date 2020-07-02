@@ -873,47 +873,51 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     if (isa<DbgInfoIntrinsic>(UnderlyingCI))
       return;
 
-    Function *F = VPCall->getCalledFunction();
+    // For all other calls vectorization scenario should be available for
+    // current VF.
+    assert(VPCall->getVFForScenario() == VF &&
+           "Cannot find call vectorization scenario for VF.");
 
-    if (!F) {
-      // Indirect calls.
+    switch (VPCall->getVectorizationScenario()) {
+    case VPCallInstruction::CallVecScenariosTy::DoNotWiden: {
+      // Currently only kernel convergent uniform calls are strictly marked to
+      // be not widened.
+      // TODO: this case must be handled via VPlan to VPlan bypass
+      // infrastructure.
+      processPredicatedKernelConvergentUniformCall(VPCall);
+      return;
+    }
+    case VPCallInstruction::CallVecScenariosTy::LibraryFunc: {
+      // Call that can be vectorized using vector library for current VF or
+      // pumped multi-way using a lower VF.
+      vectorizeLibraryCall(VPCall);
+      ++OptRptStats.VectorMathCalls;
+      return;
+    }
+    case VPCallInstruction::CallVecScenariosTy::TrivialVectorIntrinsic: {
+      // Call that can be vectorized trviailly using vector overload of
+      // intrinsics.
+      vectorizeTrivialIntrinsic(VPCall);
+      ++OptRptStats.VectorMathCalls;
+      return;
+    }
+    case VPCallInstruction::CallVecScenariosTy::VectorVariant: {
+      // Call that can be vectorized using SIMD vector-variants.
+      vectorizeVecVariant(VPCall);
+      ++OptRptStats.VectorVariantCalls;
+      return;
+    }
+    case VPCallInstruction::CallVecScenariosTy::Serialization: {
+      // Call cannot be vectorized for current context, emulate with
+      // serialization.
       serializeWithPredication(VPCall);
       ++OptRptStats.SerializedCalls;
       return;
     }
-
-    assert(F && "Unexpected null called function");
-    LLVM_DEBUG(dbgs() << "VPVALCG: Called Function: "; F->dump());
-    StringRef CalledFunc = F->getName();
-    bool IsMasked = MaskValue != nullptr;
-    unsigned PumpFactor = getPumpFactor(CalledFunc, IsMasked, VF, TLI);
-    if (VPCall->getVectorizationScenario() ==
-        VPCallInstruction::CallVecScenariosTy::DoNotWiden) {
-      // TODO: this case must be handled via VPlan to VPlan bypass
-      // infrastructure.
-      processPredicatedKernelConvergentUniformCall(VPCall);
-    } else if (TLI->isFunctionVectorizable(CalledFunc, VF, IsMasked) ||
-               PumpFactor > 1 ||
-               ((matchVectorVariant(UnderlyingCI, IsMasked, VF, TTI) ||
-                 (!IsMasked &&
-                  matchVectorVariant(UnderlyingCI, true, VF, TTI)))) ||
-               (isOpenCLReadChannel(CalledFunc) ||
-                isOpenCLWriteChannel(CalledFunc))) {
-      LLVM_DEBUG(dbgs() << "Function " << CalledFunc << " is pumped "
-                        << PumpFactor << "-way.\n");
-      assert(PumpFactor == 1 || !VPCall->isKernelCallOnce() &&
-                                    "VPVALCG: Pumped vectorization of a kernel "
-                                    "called-once function is not allowed.");
-      vectorizeCallInstruction(VPCall, PumpFactor);
-    } else {
-      LLVM_DEBUG(dbgs() << "Function " << CalledFunc << " is serialized\n");
-      assert(!VPCall->isKernelCallOnce() &&
-             "VPVALCG: Serialization of a kernel called-once function is not "
-             "allowed.");
-      ++OptRptStats.SerializedCalls;
-      serializeWithPredication(VPCall);
+    default:
+      llvm_unreachable(
+          "VPCallInstruction does not have a valid decision for VF.");
     }
-    return;
   }
 
   case VPInstruction::AllZeroCheck: {
@@ -1508,8 +1512,9 @@ void VPOCodeGen::vectorizeOpenCLSinCos(VPCallInstruction *VPCall,
 }
 
 void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
-                                   VectorVariant *VecVariant, unsigned PumpPart,
-                                   unsigned PumpFactor,
+                                   VectorVariant *VecVariant,
+                                   Intrinsic::ID VectorIntrinID,
+                                   unsigned PumpPart, unsigned PumpFactor,
                                    SmallVectorImpl<Value *> &VecArgs,
                                    SmallVectorImpl<Type *> &VecArgTys) {
   unsigned PumpedVF = VF / PumpFactor;
@@ -1529,7 +1534,8 @@ void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
     }
 
     if ((!VecVariant || Parms[OrigArgIdx].isVector()) &&
-        !isScalarArgument(FnName, OrigArgIdx)) {
+        !isScalarArgument(FnName, OrigArgIdx) &&
+        !hasVectorInstrinsicScalarOpd(VectorIntrinID, OrigArgIdx)) {
       // This is a vector call arg, so vectorize it.
       VPValue *Arg = VPCall->getOperand(OrigArgIdx);
 
@@ -1550,7 +1556,8 @@ void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
     // args, extract from lane 0. Linear args can use the value at lane 0
     // because this will be the starting value for which the stride will be
     // added. The same method applies to built-in functions for args that
-    // need to be treated as uniform.
+    // need to be treated as uniform (example trivial vector intrinsics with
+    // always scalar operands).
 
     // TODO: To support pumping for linear arguments of vector-variants, special
     // processing is needed to correctly update the linear argument for each
@@ -1584,8 +1591,11 @@ void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
     VecArgTys.push_back(VecArg->getType());
   }
 
-  // Process mask parameters for current part being pumped.
-  bool IsMasked = MaskValue != nullptr;
+  // Process mask parameters for current part being pumped. Masked intrinsics
+  // will not have explicit mask parameter. They are handled like other BinOp
+  // instructions i.e. execute on all lanes.
+  bool IsMasked =
+      MaskValue != nullptr && VectorIntrinID == Intrinsic::not_intrinsic;
   // NOTE: We can potentially cache the subvector extracted for MaskValue with a
   // map from {MaskValue, PumpPart, PumpFactor} to SubMaskValue. Since same mask
   // might be used for multiple calls, this would prevent dead code. However
@@ -2402,72 +2412,28 @@ void VPOCodeGen::generateStoreForSinCos(VPCallInstruction *VPCall,
   storeVectorValue(ExtractCosInst, VPCall->getOperand(2), Alignment);
 }
 
-void VPOCodeGen::vectorizeCallInstruction(VPCallInstruction *VPCall,
-                                          unsigned PumpFactor) {
-  CallInst *UnderlyingCI = dyn_cast<CallInst>(VPCall->getUnderlyingValue());
-  assert(UnderlyingCI &&
-         "VPVALCG: Need underlying CallInst for call-site attributes.");
+void VPOCodeGen::generateVectorCalls(VPCallInstruction *VPCall,
+                                     unsigned PumpFactor, bool IsMasked,
+                                     VectorVariant *MatchedVariant,
+                                     Intrinsic::ID VectorIntrinID,
+                                     SmallVectorImpl<Value *> &CallResults) {
   Function *CalledFunc = VPCall->getCalledFunction();
   assert(CalledFunc && "Unexpected null called function.");
-  bool IsMasked = MaskValue != nullptr;
 
-  // Don't attempt vector function matching for SVML or built-in functions.
-  std::unique_ptr<VectorVariant> MatchedVariant;
-
-  // OpenCL SinCos, would have a 'nullptr' MatchedVariant.
-  if (isOpenCLSinCos(CalledFunc->getName())) {
-    assert(PumpFactor == 1 &&
-           "Pumping feature is not supported for OpenCL sincos.");
-    vectorizeOpenCLSinCos(VPCall, IsMasked);
-    ++OptRptStats.VectorMathCalls;
-    return;
-  }
-
-  if (TLI->isFunctionVectorizable(CalledFunc->getName())) {
-    ++OptRptStats.VectorMathCalls;
-  } else {
-    // TODO: This will report OpenCL read/write as "vector function call", which
-    // isn't perfect but is closest to the available optimization remarks.
-    ++OptRptStats.VectorVariantCalls;
-
-    if (!isOpenCLReadChannel(CalledFunc->getName()) &&
-        !isOpenCLWriteChannel(CalledFunc->getName())) {
-      // TLI is not used to check for SIMD functions for two reasons:
-      // 1) A more sophisticated interface is needed to determine the most
-      //    appropriate match.
-      // 2) A SIMD function is not a library function.
-      // TODO: When matchVectorVariant is updated to search based on specific
-      // VF, use VF/PumpFactor to support pumping feature.
-      MatchedVariant = matchVectorVariant(UnderlyingCI, IsMasked, VF, TTI);
-      if (!MatchedVariant && !IsMasked) {
-        // If non-masked version isn't available, try running the masked version
-        // with all-ones mask.
-        MatchedVariant = matchVectorVariant(UnderlyingCI, true, VF, TTI);
-        IsMasked = true;
-      }
-      assert(MatchedVariant && "Unexpected null matched vector variant");
-      assert(PumpFactor == 1 && "Pumping feature is not supported for SIMD "
-                                "functions with vector variants.");
-      LLVM_DEBUG(dbgs() << "Matched Variant: " << MatchedVariant->encode()
-                        << "\n");
-    }
-  }
-
-  // Call results for each pumped part.
-  SmallVector<Value *, 4> CallResults;
-
+  LLVM_DEBUG(dbgs() << "Function " << CalledFunc->getName() << " is pumped "
+                    << PumpFactor << "-way.\n");
   for (unsigned PumpPart = 0; PumpPart < PumpFactor; ++PumpPart) {
     LLVM_DEBUG(dbgs() << "Pumping part " << PumpPart << "/" << PumpFactor
                       << "\n");
     SmallVector<Value *, 2> VecArgs;
     SmallVector<Type *, 2> VecArgTys;
 
-    vectorizeCallArgs(VPCall, MatchedVariant.get(), PumpPart, PumpFactor,
-                      VecArgs, VecArgTys);
+    vectorizeCallArgs(VPCall, MatchedVariant, VectorIntrinID, PumpPart,
+                      PumpFactor, VecArgs, VecArgTys);
 
-    Function *VectorF = getOrInsertVectorFunction(
-        CalledFunc, VF / PumpFactor, VecArgTys, TLI, Intrinsic::not_intrinsic,
-        MatchedVariant.get(), IsMasked);
+    Function *VectorF =
+        getOrInsertVectorFunction(CalledFunc, VF / PumpFactor, VecArgTys, TLI,
+                                  VectorIntrinID, MatchedVariant, IsMasked);
     assert(VectorF && "Can't create vector function.");
     CallInst *VecCall = Builder.CreateCall(VectorF, VecArgs);
     CallResults.push_back(VecCall);
@@ -2484,13 +2450,10 @@ void VPOCodeGen::vectorizeCallInstruction(VPCallInstruction *VPCall,
     // attributes are taken from call sites in MapIntrinToIml to refine
     // SVML calls for precision.
     // TODO: Call attributes are not represented in VPValue yet. Peek at
-    // underlying instruction.
+    // underlying instruction. Update: Not applicable anymore, should be
+    // refactored in a follow-up patch.
+    const CallInst *UnderlyingCI = VPCall->getUnderlyingCallInst();
     copyRequiredAttributes(UnderlyingCI, VecCall);
-
-    // Set calling convention for SVML function calls.
-    if (isSVMLFunction(TLI, CalledFunc->getName(), VectorF->getName())) {
-      VecCall->setCallingConv(CallingConv::SVML);
-    }
 
 #if 0
     // TODO: Need a VPValue based analysis for call arg memory references.
@@ -2517,71 +2480,110 @@ void VPOCodeGen::vectorizeCallInstruction(VPCallInstruction *VPCall,
 #endif
     }
   }
+}
 
-  if (PumpFactor > 1) {
-    // Combine the pumped call results to be used in original VF context.
-    assert(CallResults.size() >= 2 && isPowerOf2_32(CallResults.size()) &&
-           "Number of pumped vector calls to combine must be a power of 2 "
-           "(atleast 2^1)");
-    Type *ReturnType = CallResults[0]->getType();
-    if (ReturnType->isVectorTy()) {
-      VPWidenMap[VPCall] = joinVectors(CallResults, Builder, "combined");
-    } else if (ReturnType->isStructTy()) {
-      // If the return type is not a vector, then it must be a struct of vectors
-      // (returned by sincos function). Create a widened struct type by widening
-      // every element type.
-      // For example, if CallResults[0] is { <2 x float>, <2 x float> } and
-      // PumpFactor is 2, the combined type will be
-      // { <4 x float>, <4 x float> }.
-      StructType *ReturnStructType = cast<StructType>(ReturnType);
-      SmallVector<Type *, 2> ElementTypes;
-      for (unsigned I = 0; I < ReturnStructType->getStructNumElements(); I++) {
-        VectorType *ElementType =
-            cast<VectorType>(ReturnStructType->getStructElementType(I));
-        ElementTypes.push_back(VectorType::get(ElementType->getElementType(),
-                                               ElementType->getElementCount() *
-                                                   CallResults.size()));
-      }
-      StructType *CombinedReturnType =
-          StructType::get(ReturnType->getContext(), ElementTypes);
+Value *VPOCodeGen::getCombinedCallResults(ArrayRef<Value *> CallResults) {
+  if (CallResults.size() == 1)
+    return CallResults[0];
 
-      // Then combine the pumped call results: for each vector element of
-      // struct, extract the result from the return value of pumped calls,
-      // combine them and insert to the combined struct:
-      //
-      // ; extract and combine sin field of the return values
-      // %sin0 = extractvalue { <2 x float>, <2 x float> } %callResults0, 0
-      // %sin1 = extractvalue { <2 x float>, <2 x float> } %callResults1, 0
-      // %sin.combined = shufflevector <2 x float> %sin0, <2 x float> %sin1,
-      //                               <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-      // %result.tmp = insertvalue { <4 x float>, <4 x float> } undef,
-      //                           <4 x float> %sin.combined, 0
-      //
-      // ; extract and combine cos field of the return values
-      // %cos0 = extractvalue { <2 x float>, <2 x float> } %callResults0, 1
-      // %cos1 = extractvalue { <2 x float>, <2 x float> } %callResults1, 1
-      // %cos.combined = shufflevector <2 x float> %cos0, <2 x float> %cos1,
-      //                               <4 x i32> <i32 0, i32 1, i32 2, i32 3>
-      // %result = insertvalue { <4 x float>, <4 x float> } %result.tmp,
-      //                       <4 x float> %cos.combined, 1
-      Value *Combined = UndefValue::get(CombinedReturnType);
-      for (unsigned I = 0; I < CombinedReturnType->getNumElements(); I++) {
-        SmallVector<Value *, 4> Parts;
-        for (unsigned J = 0; J < CallResults.size(); J++)
-          Parts.push_back(
-              Builder.CreateExtractValue(CallResults[J], I, "extract.result"));
-
-        Value *CombinedVector = joinVectors(Parts, Builder, "combined");
-        Combined = Builder.CreateInsertValue(Combined, CombinedVector, I,
-                                             "insert.result");
-      }
-      VPWidenMap[VPCall] = Combined;
-    } else {
-      llvm_unreachable(
-          "Expect vector or struct of vector result from vector calls");
-    }
+  // Combine the pumped call results to be used in original VF context.
+  assert(CallResults.size() >= 2 && isPowerOf2_32(CallResults.size()) &&
+         "Number of pumped vector calls to combine must be a power of 2 "
+         "(atleast 2^1)");
+  Type *ReturnType = CallResults[0]->getType();
+  if (ReturnType->isVectorTy()) {
+    return joinVectors(CallResults, Builder, "combined");
   } else {
-    VPWidenMap[VPCall] = CallResults[0];
+    llvm_unreachable("Expect vector result from vector calls");
+  }
+}
+
+void VPOCodeGen::vectorizeLibraryCall(VPCallInstruction *VPCall) {
+  assert(VPCall->getVectorizationScenario() ==
+             VPCallInstruction::CallVecScenariosTy::LibraryFunc &&
+         "vectorizeLibraryCall called for mismatched scenario.");
+  Function *CalledFunc = VPCall->getCalledFunction();
+  assert(CalledFunc && "Unexpected null called function.");
+  unsigned PumpFactor = VPCall->getPumpFactor();
+  bool IsMasked = MaskValue != nullptr;
+
+  // Special handling for OpenCL SinCos.
+  if (isOpenCLSinCos(CalledFunc->getName())) {
+    assert(PumpFactor == 1 &&
+           "Pumping feature is not supported for OpenCL sincos.");
+    vectorizeOpenCLSinCos(VPCall, IsMasked);
+    return;
+  }
+
+  // Generate vector calls using vector library function.
+  SmallVector<Value *, 4> CallResults;
+  generateVectorCalls(
+      VPCall, PumpFactor, IsMasked, nullptr /*No vector variant*/,
+      Intrinsic::not_intrinsic /*No vector intrinsic*/, CallResults);
+
+  // Set calling convention for SVML function calls.
+  for (auto *Result : CallResults) {
+    CallInst *VecCall = cast<CallInst>(Result);
+    if (isSVMLFunction(TLI, CalledFunc->getName(),
+                       VecCall->getCalledFunction()->getName())) {
+      VecCall->setCallingConv(CallingConv::SVML);
+    }
+  }
+
+  // Post process generated vector calls.
+  Type *ReturnType = CallResults[0]->getType();
+  if (PumpFactor > 1 && ReturnType->isStructTy()) {
+    // If the return type is not a vector, then it must be a struct of vectors
+    // (returned by sincos function). Create a widened struct type by widening
+    // every element type.
+    // For example, if CallResults[0] is { <2 x float>, <2 x float> } and
+    // PumpFactor is 2, the combined type will be
+    // { <4 x float>, <4 x float> }.
+    StructType *ReturnStructType = cast<StructType>(ReturnType);
+    SmallVector<Type *, 2> ElementTypes;
+    for (unsigned I = 0; I < ReturnStructType->getStructNumElements(); I++) {
+      VectorType *ElementType =
+          cast<VectorType>(ReturnStructType->getStructElementType(I));
+      ElementTypes.push_back(
+          VectorType::get(ElementType->getElementType(),
+                          ElementType->getElementCount() * CallResults.size()));
+    }
+    StructType *CombinedReturnType =
+        StructType::get(ReturnType->getContext(), ElementTypes);
+
+    // Then combine the pumped call results: for each vector element of
+    // struct, extract the result from the return value of pumped calls,
+    // combine them and insert to the combined struct:
+    //
+    // ; extract and combine sin field of the return values
+    // %sin0 = extractvalue { <2 x float>, <2 x float> } %callResults0, 0
+    // %sin1 = extractvalue { <2 x float>, <2 x float> } %callResults1, 0
+    // %sin.combined = shufflevector <2 x float> %sin0, <2 x float> %sin1,
+    //                               <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+    // %result.tmp = insertvalue { <4 x float>, <4 x float> } undef,
+    //                           <4 x float> %sin.combined, 0
+    //
+    // ; extract and combine cos field of the return values
+    // %cos0 = extractvalue { <2 x float>, <2 x float> } %callResults0, 1
+    // %cos1 = extractvalue { <2 x float>, <2 x float> } %callResults1, 1
+    // %cos.combined = shufflevector <2 x float> %cos0, <2 x float> %cos1,
+    //                               <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+    // %result = insertvalue { <4 x float>, <4 x float> } %result.tmp,
+    //                       <4 x float> %cos.combined, 1
+    Value *Combined = UndefValue::get(CombinedReturnType);
+    for (unsigned I = 0; I < CombinedReturnType->getNumElements(); I++) {
+      SmallVector<Value *, 4> Parts;
+      for (unsigned J = 0; J < CallResults.size(); J++)
+        Parts.push_back(
+            Builder.CreateExtractValue(CallResults[J], I, "extract.result"));
+
+      Value *CombinedVector = joinVectors(Parts, Builder, "combined");
+      Combined = Builder.CreateInsertValue(Combined, CombinedVector, I,
+                                           "insert.result");
+    }
+    VPWidenMap[VPCall] = Combined;
+  } else {
+    VPWidenMap[VPCall] = getCombinedCallResults(CallResults);
   }
 
   // Handle results of SVML sincos function calls
@@ -2594,6 +2596,61 @@ void VPOCodeGen::vectorizeCallInstruction(VPCallInstruction *VPCall,
           ->getName()
           .startswith("__svml_sincos"))
     generateStoreForSinCos(VPCall, VPWidenMap[VPCall]);
+}
+
+void VPOCodeGen::vectorizeTrivialIntrinsic(VPCallInstruction *VPCall) {
+  assert(VPCall->getVectorizationScenario() ==
+             VPCallInstruction::CallVecScenariosTy::TrivialVectorIntrinsic &&
+         "vectorizeTrivialIntrinsic called for mismatched scenario.");
+  unsigned PumpFactor = VPCall->getPumpFactor();
+  assert(PumpFactor == 1 &&
+         "Pumping feature is not expected for trivial vector intrinsics.");
+  bool IsMasked = MaskValue != nullptr;
+  Intrinsic::ID VectorIntrinID = VPCall->getVectorIntrinsic();
+  assert(VectorIntrinID != Intrinsic::not_intrinsic &&
+         "Unexpected non-intrinsic call.");
+
+  // Generate vector call using vector intrinsic.
+  SmallVector<Value *, 4> CallResults;
+  generateVectorCalls(VPCall, PumpFactor, IsMasked,
+                      nullptr /*No vector variant*/, VectorIntrinID,
+                      CallResults);
+
+  // Post process generated vector calls.
+  VPWidenMap[VPCall] = getCombinedCallResults(CallResults);
+}
+
+void VPOCodeGen::vectorizeVecVariant(VPCallInstruction *VPCall) {
+  assert(VPCall->getVectorizationScenario() ==
+             VPCallInstruction::CallVecScenariosTy::VectorVariant &&
+         "vectorizeVecVariant called for mismatched scenario.");
+  unsigned PumpFactor = VPCall->getPumpFactor();
+  assert(PumpFactor == 1 && "Pumping feature is not supported for SIMD "
+                            "functions with vector variants.");
+  bool IsMasked = MaskValue != nullptr;
+  VectorVariant *MatchedVariant =
+      const_cast<VectorVariant *>(VPCall->getVectorVariant());
+  assert(MatchedVariant && "Unexpected null matched vector variant");
+
+  // TLI is not used to check for SIMD functions for two reasons:
+  // 1) A more sophisticated interface is needed to determine the most
+  //    appropriate match.
+  // 2) A SIMD function is not a library function.
+  if (VPCall->shouldUseMaskedVariantForUnmasked()) {
+    // If non-masked version isn't available, try running the masked version
+    // with all-ones mask.
+    IsMasked = true;
+  }
+  LLVM_DEBUG(dbgs() << "Matched Variant: " << MatchedVariant->encode() << "\n");
+
+  // Generate vector calls using matched vector variant.
+  SmallVector<Value *, 4> CallResults;
+  generateVectorCalls(VPCall, PumpFactor, IsMasked, MatchedVariant,
+                      Intrinsic::not_intrinsic /*No vector intrinsic*/,
+                      CallResults);
+
+  // Post process generated vector calls.
+  VPWidenMap[VPCall] = getCombinedCallResults(CallResults);
 }
 
 Value *VPOCodeGen::getVectorValue(VPValue *V) {

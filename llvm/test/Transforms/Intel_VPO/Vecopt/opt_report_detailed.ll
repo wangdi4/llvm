@@ -104,10 +104,9 @@ define void @test_sqrt(i32* nocapture %arr) local_unnamed_addr #1 {
 ; LLVM-NEXT:      Remark: LOOP WAS VECTORIZED
 ; LLVM-NEXT:      Remark: vectorization support: vector length 4
 ; LLVM-NEXT:      Remark: --- begin vector loop cost summary ---
-; LLVM-NEXT:      Remark: vectorized math library calls: 2
+; LLVM-NEXT:      Remark: vectorized math library calls: 3
 ; LLVM-NEXT:      Remark: vector function calls: 0
-; FIXME: Intrinsic isn't vectorized by our CG.
-; LLVM-NEXT:      Remark: serialized function calls: 1
+; LLVM-NEXT:      Remark: serialized function calls: 0
 ; LLVM-NEXT:      Remark: --- end vector loop cost summary ---
 ; LLVM-NEXT:  LOOP END
 ; LLVM-EMPTY:
