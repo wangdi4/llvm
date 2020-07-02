@@ -1656,6 +1656,15 @@ pi_result ExecCGCommand::SetKernelParamsAndLaunch(
       sampler *SamplerPtr = (sampler *)Arg.MPtr;
       RT::PiSampler Sampler = detail::getSyclObjImpl(*SamplerPtr)
                                   ->getOrCreateSampler(MQueue->get_context());
+#if INTEL_CUSTOMIZATION
+        if (Plugin.getBackend() == (backend::level0)) {
+          // TODO: This is a workaround and should be reworked when
+          // piextDeviceGetNativeHandle will be implemented.
+          Plugin.call<PiApiKind::piKernelSetArg>(Kernel, Arg.MIndex,
+                                                 sizeof(void *), Sampler);
+          break;
+        }
+#endif // INTEL_CUSTOMIZATION
       Plugin.call<PiApiKind::piKernelSetArg>(Kernel, Arg.MIndex,
                                              sizeof(cl_sampler), &Sampler);
       break;
@@ -1875,50 +1884,6 @@ cl_int ExecCGCommand::enqueueImp() {
              Context);
       Kernel = ExecKernel->MSyclKernel->getHandleRef();
 
-<<<<<<< HEAD
-    for (ArgDesc &Arg : ExecKernel->MArgs) {
-      switch (Arg.MType) {
-      case kernel_param_kind_t::kind_accessor: {
-        Requirement *Req = (Requirement *)(Arg.MPtr);
-        AllocaCommandBase *AllocaCmd = getAllocaForReq(Req);
-        RT::PiMem MemArg = (RT::PiMem)AllocaCmd->getMemAllocation();
-        if (Plugin.getBackend() == backend::opencl) {
-          Plugin.call<PiApiKind::piKernelSetArg>(Kernel, Arg.MIndex,
-                                                 sizeof(RT::PiMem), &MemArg);
-        } else {
-          Plugin.call<PiApiKind::piextKernelSetArgMemObj>(Kernel, Arg.MIndex,
-                                                          &MemArg);
-        }
-        break;
-      }
-      case kernel_param_kind_t::kind_std_layout: {
-        Plugin.call<PiApiKind::piKernelSetArg>(Kernel, Arg.MIndex, Arg.MSize,
-                                               Arg.MPtr);
-        break;
-      }
-      case kernel_param_kind_t::kind_sampler: {
-        sampler *SamplerPtr = (sampler *)Arg.MPtr;
-        RT::PiSampler Sampler =
-            detail::getSyclObjImpl(*SamplerPtr)->getOrCreateSampler(Context);
-#if INTEL_CUSTOMIZATION
-        if (Plugin.getBackend() == (backend::level0)) {
-          // TODO: This is a workaround and should be reworked when
-          // piextDeviceGetNativeHandle will be implemented.
-          Plugin.call<PiApiKind::piKernelSetArg>(Kernel, Arg.MIndex,
-                                                 sizeof(void *), Sampler);
-          break;
-        }
-#endif // INTEL_CUSTOMIZATION
-        Plugin.call<PiApiKind::piKernelSetArg>(Kernel, Arg.MIndex,
-                                               sizeof(cl_sampler), &Sampler);
-        break;
-      }
-      case kernel_param_kind_t::kind_pointer: {
-        Plugin.call<PiApiKind::piextKernelSetArgPointer>(Kernel, Arg.MIndex,
-                                                         Arg.MSize, Arg.MPtr);
-        break;
-      }
-=======
       auto SyclProg = detail::getSyclObjImpl(
           ExecKernel->MSyclKernel->get_info<info::kernel::program>());
       if (SyclProg->is_cacheable()) {
@@ -1929,7 +1894,6 @@ cl_int ExecCGCommand::enqueueImp() {
                 ExecKernel->MSyclKernel->get_info<info::kernel::context>(),
                 ExecKernel->MKernelName, SyclProg.get());
         assert(FoundKernel == Kernel);
->>>>>>> 95d3ec68239d1e2387e5180da2a91a893cfbdb84
       }
     } else {
       std::tie(Kernel, KernelMutex) =
