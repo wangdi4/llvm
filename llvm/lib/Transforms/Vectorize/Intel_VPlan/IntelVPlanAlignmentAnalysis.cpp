@@ -322,7 +322,7 @@ void VPlanPeelingAnalysis::computeCongruentMemrefs() {
         // alignment of Mrf1 is not greater than A, alignment of Mrf2 is going
         // to be equal to alignment of Mrf1. Though, if alignment of Mrf1 is
         // greater than A, Mrf2 is going to be aligned by A only.
-        Align A(1 << KB.Zero.countTrailingOnes());
+        Align A(1ULL << KB.Zero.countTrailingOnes());
         if (A > MinAlign(0, Step)) {
           CongruentMemrefs[Cand->memref()].emplace_back(Prev->memref(), A);
           CongruentMemrefs[Prev->memref()].emplace_back(Cand->memref(), A);
