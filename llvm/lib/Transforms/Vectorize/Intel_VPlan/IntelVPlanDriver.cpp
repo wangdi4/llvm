@@ -660,7 +660,7 @@ bool VPlanDriverImpl::processFunction(Function &Fn) {
   // We cannot rely on compiler driver not invoking vectorizer for
   // non-vector targets. Ensure vectorizer won't cause any issues for
   // such targets.
-  if (TTI->getRegisterBitWidth(true) == 0)
+  if (!TTI->getNumberOfRegisters(TTI->getRegisterClassForType(true)))
     return false;
 
   DL = &Fn.getParent()->getDataLayout();
