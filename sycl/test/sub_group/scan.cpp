@@ -1,3 +1,6 @@
+// UNSUPPORTED: debug
+// CMPLRLLVM-20714: disable test which causes timeout
+//
 // UNSUPPORTED: cuda
 // CUDA compilation and runtime do not yet support sub-groups.
 //
