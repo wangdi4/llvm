@@ -384,7 +384,7 @@ define void @foo() local_unnamed_addr #0 {
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP36]] = add nuw nsw i64 [[UNI_PHI10]], 4
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP37]] = add i64 [[UNI_PHI0]], 4
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP38:%.*]] = icmp eq i64 [[TMP37]], 1024
-; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   br i1 [[TMP38]], label [[FOR_END0:%.*]], label [[VECTOR_BODY0]]
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   br i1 [[TMP38]], label [[FOR_END0:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   ret void
 ;
 ; LLVM-CM-VF1-LABEL:  Printing analysis 'Cost Model Analysis' for function 'foo':
@@ -518,7 +518,7 @@ for.end:                                          ; preds = %for.body
 define void @test_casts() local_unnamed_addr #0 {
 ;
 ; VPLAN-CM-VF4-LABEL:  Cost Model for VPlan test_casts.for.body with VF = 4:
-; VPLAN-CM-VF4-NEXT:  Total Cost: 25
+; VPLAN-CM-VF4-NEXT:  Total Cost: 153
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
@@ -526,7 +526,7 @@ define void @test_casts() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-NEXT:    Cost Unknown for i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1
 ; VPLAN-CM-VF4-NEXT:    Cost Unknown for i64 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop for.body
 ; VPLAN-CM-VF4-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 1
-; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 25
+; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 153
 ; VPLAN-CM-VF4-NEXT:    Cost Unknown for i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB2]] ]
 ; VPLAN-CM-VF4-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ]
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for i32* [[VP_LD_I32_IDX:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.1 i64 0 i64 [[VP_INDVARS_IV]]
@@ -554,11 +554,13 @@ define void @test_casts() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for double [[VP_SITOFP:%.*]] = sitofp i32 [[VP_LD_I32]] to double
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for float [[VP_UITOFP:%.*]] = uitofp i8 [[VP_LD_I8]] to float
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for float [[VP_FPTRUNC:%.*]] = fptrunc double [[VP_LD_DOUBLE]] to float
-; VPLAN-CM-VF4-NEXT:    Cost Unknown for float [[VP_FSQRT:%.*]] = call float [[VP_FPTRUNC]] float (float)* @llvm.sqrt.f32 [Serial]
-; VPLAN-CM-VF4-NEXT:    Cost Unknown for float [[VP_FEXP:%.*]] = call float [[VP_FSQRT]] __svml_expf4 [x 1]
+; Though the calls for sqrt below are marked as [Serial] we do not serialize them as they are Trivially Vectorizable.
+; TODO: New Vectorization Scenario will be introduced for them.
+; VPLAN-CM-VF4-NEXT:    Cost 7 for float [[VP_FSQRT:%.*]] = call float [[VP_FPTRUNC]] float (float)* @llvm.sqrt.f32 [Serial]
+; VPLAN-CM-VF4-NEXT:    Cost 46 for float [[VP_FEXP:%.*]] = call float [[VP_FSQRT]] __svml_expf4 [x 1]
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for double [[VP_FPEXT:%.*]] = fpext float [[VP_LD_FLOAT]] to double
-; VPLAN-CM-VF4-NEXT:    Cost Unknown for double [[VP_DSQRT:%.*]] = call double [[VP_FPEXT]] double (double)* @llvm.sqrt.f64 [Serial]
-; VPLAN-CM-VF4-NEXT:    Cost Unknown for double [[VP_DEXP:%.*]] = call double [[VP_DSQRT]] __svml_exp4 [x 1]
+; VPLAN-CM-VF4-NEXT:    Cost 28 for double [[VP_DSQRT:%.*]] = call double [[VP_FPEXT]] double (double)* @llvm.sqrt.f64 [Serial]
+; VPLAN-CM-VF4-NEXT:    Cost 47 for double [[VP_DEXP:%.*]] = call double [[VP_DSQRT]] __svml_exp4 [x 1]
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for store i32 [[VP_ZEXT]] i32* [[VP_ST_I32_IDX_1]]
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for store i32 [[VP_SEXT]] i32* [[VP_ST_I32_IDX_2]]
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for store i8 [[VP_TRUNC]] i8* [[VP_ST_I8_IDX_1]]
@@ -576,7 +578,7 @@ define void @test_casts() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB4:BB[0-9]+]], total cost: 0
 ;
 ; VPLAN-CM-VF1-LABEL:  Cost Model for VPlan test_casts.for.body with VF = 1:
-; VPLAN-CM-VF1-NEXT:  Total Cost: 24
+; VPLAN-CM-VF1-NEXT:  Total Cost: 65
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
@@ -584,7 +586,7 @@ define void @test_casts() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1
 ; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop for.body
 ; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 1
-; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 24
+; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 65
 ; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB2]] ]
 ; VPLAN-CM-VF1-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ]
 ; VPLAN-CM-VF1-NEXT:    Cost 0 for i32* [[VP_LD_I32_IDX:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.1 i64 0 i64 [[VP_INDVARS_IV]]
@@ -612,11 +614,11 @@ define void @test_casts() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for double [[VP_SITOFP:%.*]] = sitofp i32 [[VP_LD_I32]] to double
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for float [[VP_UITOFP:%.*]] = uitofp i8 [[VP_LD_I8]] to float
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for float [[VP_FPTRUNC:%.*]] = fptrunc double [[VP_LD_DOUBLE]] to float
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for float [[VP_FSQRT:%.*]] = call float [[VP_FPTRUNC]] float (float)* @llvm.sqrt.f32
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for float [[VP_FEXP:%.*]] = call float [[VP_FSQRT]] float (float)* @llvm.exp.f32
+; VPLAN-CM-VF1-NEXT:    Cost 7 for float [[VP_FSQRT:%.*]] = call float [[VP_FPTRUNC]] float (float)* @llvm.sqrt.f32
+; VPLAN-CM-VF1-NEXT:    Cost 10 for float [[VP_FEXP:%.*]] = call float [[VP_FSQRT]] float (float)* @llvm.exp.f32
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for double [[VP_FPEXT:%.*]] = fpext float [[VP_LD_FLOAT]] to double
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for double [[VP_DSQRT:%.*]] = call double [[VP_FPEXT]] double (double)* @llvm.sqrt.f64
-; VPLAN-CM-VF1-NEXT:    Cost Unknown for double [[VP_DEXP:%.*]] = call double [[VP_DSQRT]] double (double)* @llvm.exp.f64
+; VPLAN-CM-VF1-NEXT:    Cost 14 for double [[VP_DSQRT:%.*]] = call double [[VP_FPEXT]] double (double)* @llvm.sqrt.f64
+; VPLAN-CM-VF1-NEXT:    Cost 10 for double [[VP_DEXP:%.*]] = call double [[VP_DSQRT]] double (double)* @llvm.exp.f64
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for store i32 [[VP_ZEXT]] i32* [[VP_ST_I32_IDX_1]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for store i32 [[VP_SEXT]] i32* [[VP_ST_I32_IDX_2]]
 ; VPLAN-CM-VF1-NEXT:    Cost 1 for store i8 [[VP_TRUNC]] i8* [[VP_ST_I8_IDX_1]]
@@ -634,13 +636,13 @@ define void @test_casts() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4:BB[0-9]+]], total cost: 0
 ;
 ; VPLAN-HIR-CM-VF4-LABEL:  HIR Cost Model for VPlan test_casts.54 with VF = 4:
-; VPLAN-HIR-CM-VF4-NEXT:  Total VPlan Cost: 24
-; VPLAN-HIR-CM-VF4-NEXT:  VPlan Base Cost before adjustments: 24
+; VPLAN-HIR-CM-VF4-NEXT:  Total VPlan Cost: 152
+; VPLAN-HIR-CM-VF4-NEXT:  VPlan Base Cost before adjustments: 152
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 24
+; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 152
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.1 i64 0 i64 [[VP0]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for i32 [[VP2:%.*]] = load i32* [[VP_SUBSCRIPT]]
@@ -655,11 +657,13 @@ define void @test_casts() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for double [[VP8:%.*]] = sitofp i32 [[VP2]] to double
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for float [[VP9:%.*]] = uitofp i8 [[VP3]] to float
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for float [[VP10:%.*]] = fptrunc double [[VP5]] to float
-; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for float [[VP_FSQRT:%.*]] = call float [[VP10]] float (float)* @llvm.sqrt.f32 [Serial]
-; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for float [[VP_FEXP:%.*]] = call float [[VP_FSQRT]] __svml_expf4 [x 1]
+; Though the calls for sqrt below are marked as [Serial] we do not serialize them as they are Trivially Vectorizable.
+; TODO: New Vectorization Scenario will be introduced for them.
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 7 for float [[VP_FSQRT:%.*]] = call float [[VP10]] float (float)* @llvm.sqrt.f32 [Serial]
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 46 for float [[VP_FEXP:%.*]] = call float [[VP_FSQRT]] __svml_expf4 [x 1]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for double [[VP11:%.*]] = fpext float [[VP4]] to double
-; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for double [[VP_DSQRT:%.*]] = call double [[VP11]] double (double)* @llvm.sqrt.f64 [Serial]
-; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for double [[VP_DEXP:%.*]] = call double [[VP_DSQRT]] __svml_exp4 [x 1]
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 28 for double [[VP_DSQRT:%.*]] = call double [[VP11]] double (double)* @llvm.sqrt.f64 [Serial]
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 47 for double [[VP_DEXP:%.*]] = call double [[VP_DSQRT]] __svml_exp4 [x 1]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for i32 [[VP12:%.*]] = zext i8 [[VP3]] to i32
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.2 i64 0 i64 [[VP0]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for store i32 [[VP12]] i32* [[VP_SUBSCRIPT_4]]
@@ -688,13 +692,13 @@ define void @test_casts() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB4:BB[0-9]+]], total cost: 0
 ;
 ; VPLAN-HIR-CM-VF1-LABEL:  HIR Cost Model for VPlan test_casts.54 with VF = 1:
-; VPLAN-HIR-CM-VF1-NEXT:  Total VPlan Cost: 23
-; VPLAN-HIR-CM-VF1-NEXT:  VPlan Base Cost before adjustments: 23
+; VPLAN-HIR-CM-VF1-NEXT:  Total VPlan Cost: 64
+; VPLAN-HIR-CM-VF1-NEXT:  VPlan Base Cost before adjustments: 64
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 23
+; VPLAN-HIR-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 64
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.1 i64 0 i64 [[VP0]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for i32 [[VP2:%.*]] = load i32* [[VP_SUBSCRIPT]]
@@ -709,11 +713,11 @@ define void @test_casts() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for double [[VP8:%.*]] = sitofp i32 [[VP2]] to double
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for float [[VP9:%.*]] = uitofp i8 [[VP3]] to float
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for float [[VP10:%.*]] = fptrunc double [[VP5]] to float
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for float [[VP_FSQRT:%.*]] = call float [[VP10]] float (float)* @llvm.sqrt.f32
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for float [[VP_FEXP:%.*]] = call float [[VP_FSQRT]] float (float)* @llvm.exp.f32
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 7 for float [[VP_FSQRT:%.*]] = call float [[VP10]] float (float)* @llvm.sqrt.f32
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 10 for float [[VP_FEXP:%.*]] = call float [[VP_FSQRT]] float (float)* @llvm.exp.f32
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for double [[VP11:%.*]] = fpext float [[VP4]] to double
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for double [[VP_DSQRT:%.*]] = call double [[VP11]] double (double)* @llvm.sqrt.f64
-; VPLAN-HIR-CM-VF1-NEXT:    Cost Unknown for double [[VP_DEXP:%.*]] = call double [[VP_DSQRT]] double (double)* @llvm.exp.f64
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 14 for double [[VP_DSQRT:%.*]] = call double [[VP11]] double (double)* @llvm.sqrt.f64
+; VPLAN-HIR-CM-VF1-NEXT:    Cost 10 for double [[VP_DEXP:%.*]] = call double [[VP_DSQRT]] double (double)* @llvm.exp.f64
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for i32 [[VP12:%.*]] = zext i8 [[VP3]] to i32
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 0 for i32* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds [1024 x i32]* @arr.i32.2 i64 0 i64 [[VP0]]
 ; VPLAN-HIR-CM-VF1-NEXT:    Cost 1 for store i32 [[VP12]] i32* [[VP_SUBSCRIPT_4]]
@@ -822,7 +826,7 @@ define void @test_casts() local_unnamed_addr #0 {
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP40]] = add nuw nsw i64 [[UNI_PHI10]], 4
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP41]] = add i64 [[UNI_PHI0]], 4
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP42:%.*]] = icmp eq i64 [[TMP41]], 1024
-; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   br i1 [[TMP42]], label [[FOR_END0:%.*]], label [[VECTOR_BODY0]]
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   br i1 [[TMP42]], label [[FOR_END0:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   ret void
 ;
 ; LLVM-CM-VF1-LABEL:  Printing analysis 'Cost Model Analysis' for function 'test_casts':
@@ -1095,7 +1099,7 @@ define void @test_non_pow2_casts() local_unnamed_addr #0 {
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP11]] = add nuw nsw i64 [[UNI_PHI10]], 4
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP12]] = add i64 [[UNI_PHI0]], 4
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP13:%.*]] = icmp eq i64 [[TMP12]], 1024
-; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   br i1 [[TMP13]], label [[FOR_END0:%.*]], label [[VECTOR_BODY0]]
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   br i1 [[TMP13]], label [[FOR_END0:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   ret void
 ;
 ; LLVM-CM-VF1-LABEL:  Printing analysis 'Cost Model Analysis' for function 'test_non_pow2_casts':
@@ -1494,7 +1498,7 @@ define void @test_cmp() local_unnamed_addr #0 {
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP37]] = add nuw nsw i64 [[UNI_PHI10]], 4
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP38]] = add i64 [[UNI_PHI0]], 4
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP39:%.*]] = icmp eq i64 [[TMP38]], 1024
-; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   br i1 [[TMP39]], label [[FOR_END0:%.*]], label [[VECTOR_BODY0]]
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   br i1 [[TMP39]], label [[FOR_END0:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   ret void
 ;
 ; LLVM-CM-VF1-LABEL:  Printing analysis 'Cost Model Analysis' for function 'test_cmp':
@@ -1851,7 +1855,7 @@ define void @test_select() local_unnamed_addr #0 {
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP16]] = add nuw nsw i64 [[UNI_PHI10]], 4
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP17]] = add i64 [[UNI_PHI0]], 4
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP18:%.*]] = icmp eq i64 [[TMP17]], 1024
-; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   br i1 [[TMP18]], label [[FOR_END0:%.*]], label [[VECTOR_BODY0]]
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   br i1 [[TMP18]], label [[FOR_END0:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   ret void
 ;
 ; LLVM-CM-VF1-LABEL:  Printing analysis 'Cost Model Analysis' for function 'test_select':
@@ -2076,7 +2080,7 @@ define void @test_total_cost_branch_probabilities(i1 %cond) local_unnamed_addr #
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP1]] = add nuw nsw i64 [[UNI_PHI10]], 4
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP2]] = add i64 [[UNI_PHI0]], 4
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP3:%.*]] = icmp eq i64 [[TMP2]], 1024
-; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   br i1 [[TMP3]], label [[FOR_END0:%.*]], label [[VECTOR_BODY0]]
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   br i1 [[TMP3]], label [[FOR_END0:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   ret void
 ;
 ; LLVM-CM-VF1-LABEL:  Printing analysis 'Cost Model Analysis' for function 'test_total_cost_branch_probabilities':
@@ -2250,7 +2254,7 @@ define void @test_revectorize() local_unnamed_addr #0 {
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP2]] = add nuw nsw <4 x i64> [[VEC_PHI0]], <i64 8, i64 8, i64 8, i64 8>
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP3]] = add i64 [[UNI_PHI0]], 4
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP4:%.*]] = icmp eq i64 [[TMP3]], 512
-; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   br i1 [[TMP4]], label [[FOR_END0:%.*]], label [[VECTOR_BODY0]]
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   br i1 [[TMP4]], label [[FOR_END0:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   ret void
 ;
 ; LLVM-CM-VF1-LABEL:  Printing analysis 'Cost Model Analysis' for function 'test_revectorize':
@@ -2410,7 +2414,7 @@ define void @test_revectorize_with_gathers_scatters() local_unnamed_addr #0 {
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP0]] = add nuw nsw <4 x i64> [[VEC_PHI0]], <i64 12, i64 12, i64 12, i64 12>
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP1]] = add i64 [[UNI_PHI0]], 4
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[TMP2:%.*]] = icmp eq i64 [[TMP1]], 340
-; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   br i1 [[TMP2]], label [[FOR_BODY0:%.*]], label [[VECTOR_BODY0]]
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   br i1 [[TMP2]], label [[FOR_BODY0:%.*]], label [[VECTOR_BODY0]], !llvm.loop !0
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[INDVARS_IV0:%.*]] = phi i64 [ [[INDVARS_IV_NEXT0:%.*]], [[FOR_BODY0]] ], [ 1020, [[VECTOR_BODY0]] ]
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[LD_IDX0:%.*]] = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.1, i64 0, i64 [[INDVARS_IV0]]
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   [[LD_CAST0:%.*]] = bitcast i32* [[LD_IDX0]] to <2 x i32>*
@@ -2420,7 +2424,7 @@ define void @test_revectorize_with_gathers_scatters() local_unnamed_addr #0 {
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   store <2 x i32> [[LD0]], <2 x i32>* [[ST_CAST0]], align 8
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[INDVARS_IV_NEXT0]] = add nuw nsw i64 [[INDVARS_IV0]], 3
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 1 for instruction:   [[EXITCOND0:%.*]] = icmp eq i64 [[INDVARS_IV_NEXT0]], 1024
-; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   br i1 [[EXITCOND0]], label [[FOR_END0:%.*]], label [[FOR_BODY0]]
+; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   br i1 [[EXITCOND0]], label [[FOR_END0:%.*]], label [[FOR_BODY0]], !llvm.loop !2
 ; LLVM-CM-VF4-NEXT:  Cost Model: Found an estimated cost of 0 for instruction:   ret void
 ;
 ; LLVM-CM-VF1-LABEL:  Printing analysis 'Cost Model Analysis' for function 'test_revectorize_with_gathers_scatters':

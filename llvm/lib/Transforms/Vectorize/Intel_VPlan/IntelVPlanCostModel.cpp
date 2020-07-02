@@ -18,7 +18,10 @@
 #include "IntelVPlanCallVecDecisions.h"
 #include "IntelVPlanUtils.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Analysis/VectorUtils.h"
+
+#include <numeric>
 
 #define DEBUG_TYPE "vplan-cost-model"
 
@@ -295,7 +298,6 @@ unsigned VPlanCostModel::getArithmeticInstructionCost(const unsigned Opcode,
 unsigned VPlanCostModel::getLoadStoreCost(const VPInstruction *VPInst) {
   Type *OpTy = getMemInstValueType(VPInst);
   assert(OpTy && "Can't get type of the load/store instruction!");
-  Type *OpScalTy = OpTy->getScalarType();
 
   unsigned Opcode = VPInst->getOpcode();
   unsigned Alignment = getMemInstAlignment(VPInst);
@@ -315,7 +317,7 @@ unsigned VPlanCostModel::getLoadStoreCost(const VPInstruction *VPInst) {
   // TODO:
   // ScalarCost * VF is Zero order approximation of scalarization for aggregate
   // types.  Yet to be tuned further.
-  if (VectorType::isValidElementType(OpScalTy)) {
+  if (isVectorizableTy(OpTy)) {
     Scale = 1;
     VecTy = getWidenedType(OpTy, VF);
   }
@@ -361,6 +363,80 @@ unsigned VPlanCostModel::getLoadStoreCost(const VPInstruction *VPInst) {
   return TTI->getGatherScatterOpCost(
     Opcode, VecTy, getLoadStoreIndexSize(VPInst),
     IsMasked, Alignment, AddrSpace);
+}
+
+unsigned VPlanCostModel::getInsertExtractElementsCost(
+  unsigned Opcode, Type *Ty, unsigned VF) {
+  assert((Opcode == Instruction::ExtractElement ||
+          Opcode == Instruction::InsertElement) &&
+         "Only Extract/InsertElement opcode is expected.");
+  unsigned Cost = 0;
+  Type *VecTy = getWidenedType(Ty, VF);
+  for(unsigned Idx = 0; Idx < VF; Idx++)
+    Cost += TTI->getVectorInstrCost(Opcode, VecTy, Idx);
+  return Cost;
+}
+
+unsigned VPlanCostModel::getIntrinsicInstrCost(
+  Intrinsic::ID ID, const CallBase &CB, unsigned VF,
+  VPCallInstruction::CallVecScenariosTy VS) {
+  // isTriviallyVectorizable(ID) is special cased in VPlan CG and
+  // do not listen to VS settings.  Special case them here until
+  // is fixed in CG and in VPlanCallVecDecisions::analyzeCall.
+  //
+  // Also special case VF == 1 as vectorization scenario may be not set.
+  //
+  // TODO:
+  // We are introducing 'TrivialVectorIntrinsic' scenario for such intrinsics.
+  // The code below has to be updated once the new scenario is available.
+  if (isTriviallyVectorizable(ID) || VF == 1)
+    VS = VPCallInstruction::CallVecScenariosTy::VectorVariant;
+
+  switch (VS) {
+    case VPCallInstruction::CallVecScenariosTy::Undefined:
+      // The calls that missed the analysis have Unknown cost.
+      return UnknownCost;
+    case VPCallInstruction::CallVecScenariosTy::DoNotWiden:
+      return
+        TTI->getIntrinsicInstrCost(IntrinsicCostAttributes(ID, CB, 1),
+                                   TTI::TCK_RecipThroughput);
+    case VPCallInstruction::CallVecScenariosTy::Serialization:
+      // For a serialized call, such as: float call @foo(double arg1, int arg2)
+      // calculate the cost of vectorized code that way:
+      // Cost of extracting VF double elements for arg1 +
+      // Cost of extracting VF int elements for arg2 +
+      // Cost of VF calls to scalar @foo +
+      // Cost of inserting VF float elements for the result of foo.
+      // TODO:
+      // Here we ignore the fact that when serialized code feeds another
+      // serialized code insert + extract in between can be optimized out.
+      return
+        // The sum of costs of 'devectorizing' all args of the call.
+        std::accumulate(CB.arg_begin(), CB.arg_end(), 0,
+          [=](unsigned Cost, const Use& Arg) {
+            Type *ArgTy = Arg.get()->getType();
+            // If Arg is not expected to be vectorized
+            // (isVectorizableTy(ArgTy) is false) then it contributes 0.
+            //
+            // TODO:
+            // In general there are can be call arguments that are not
+            // vectorized.  SVA should help here.
+            return Cost + (isVectorizableTy(ArgTy) ?
+              getInsertExtractElementsCost(Instruction::ExtractElement,
+                                           ArgTy, VF) : 0);
+          }) +
+        // The cost of VF calls to the scalar function.
+        VF * TTI->getIntrinsicInstrCost(IntrinsicCostAttributes(ID, CB, 1),
+                                        TTI::TCK_RecipThroughput) +
+        // The cost of 'vectorizing' function's result if any.
+        (isVectorizableTy(CB.getType()) && !CB.getType()->isVoidTy() ?
+         getInsertExtractElementsCost(
+           Instruction::InsertElement, CB.getType(), VF) : 0);
+    default:
+      break;
+  }
+  return TTI->getIntrinsicInstrCost(
+    IntrinsicCostAttributes(ID, CB, VF), TTI::TCK_RecipThroughput);
 }
 
 unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
@@ -531,6 +607,17 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
     // consider adding an overload accepting VPInstruction for TTI to be able to
     // analyze that.
     return TTI->getCastInstrCost(Opcode, VecDstTy, VecSrcTy);
+  }
+  case Instruction::Call: {
+    auto *VPCall = cast<VPCallInstruction>(VPInst);
+    auto *CI = VPCall->getUnderlyingCallInst();
+    Intrinsic::ID ID = getIntrinsicForCallSite(*CI, TLI);
+
+    if (ID == Intrinsic::not_intrinsic)
+      return UnknownCost;
+
+    return getIntrinsicInstrCost(ID, *CI, VF,
+                                 VPCall->getVectorizationScenario());
   }
   }
 }

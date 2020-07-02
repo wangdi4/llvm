@@ -123,6 +123,13 @@ protected:
   virtual unsigned getCost(const VPInstruction *VPInst);
   virtual unsigned getCost(const VPBasicBlock *VPBB);
   virtual unsigned getLoadStoreCost(const VPInstruction *VPInst);
+  // Calculates the sum of the cost of extracting VF elements of Ty type
+  // or the cost of inserting VF elements of Ty type into a vector.
+  unsigned getInsertExtractElementsCost(unsigned Opcode,
+                                        Type *Ty, unsigned VF);
+  virtual unsigned getIntrinsicInstrCost(
+    Intrinsic::ID ID, const CallBase &CB, unsigned VF,
+    VPCallInstruction::CallVecScenariosTy VS);
 
   // These utilities are private for the class instead of being defined as
   // static functions because they need access to underlying Inst/HIRData in
