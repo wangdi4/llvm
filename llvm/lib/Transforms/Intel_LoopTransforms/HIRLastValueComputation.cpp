@@ -234,12 +234,8 @@ bool HIRLastValueComputation::doLastValueComputation(HLLoop *Lp) {
   bool IsNSW = Lp->isNSW();
   SmallVector<HLInst *, 64> CandidateInsts;
 
-  unsigned NumOperations = UBCE->getNumOperations();
-  bool IsUpperBoundComplicated = false;
-
-  if (NumOperations > NumOperationsThreshold) {
-    IsUpperBoundComplicated = true;
-  }
+  bool IsUpperBoundComplicated =
+      UBCE->getNumOperations() > NumOperationsThreshold;
 
   for (auto It = Lp->child_rbegin(), End = Lp->child_rend(); It != End; ++It) {
     auto HInst = dyn_cast<HLInst>(&*It);
