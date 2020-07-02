@@ -342,6 +342,7 @@ SkylakeCommon:
     LLVM_FALLTHROUGH;
   case CK_Nehalem:
     setFeatureEnabledImpl(Features, "sse4.2", true);
+    setFeatureEnabledImpl(Features, "popcnt", true);
     LLVM_FALLTHROUGH;
   case CK_Penryn:
     setFeatureEnabledImpl(Features, "sse4.1", true);
@@ -429,6 +430,7 @@ SkylakeCommon:
     setFeatureEnabledImpl(Features, "rdrnd", true);
     setFeatureEnabledImpl(Features, "pclmul", true);
     setFeatureEnabledImpl(Features, "sse4.2", true);
+    setFeatureEnabledImpl(Features, "popcnt", true);
     setFeatureEnabledImpl(Features, "prfchw", true);
     LLVM_FALLTHROUGH;
   case CK_Bonnell:
@@ -459,6 +461,7 @@ SkylakeCommon:
     setFeatureEnabledImpl(Features, "rdseed", true);
     setFeatureEnabledImpl(Features, "adx", true);
     setFeatureEnabledImpl(Features, "lzcnt", true);
+    setFeatureEnabledImpl(Features, "popcnt", true);
     setFeatureEnabledImpl(Features, "bmi", true);
     setFeatureEnabledImpl(Features, "bmi2", true);
     setFeatureEnabledImpl(Features, "fma", true);
