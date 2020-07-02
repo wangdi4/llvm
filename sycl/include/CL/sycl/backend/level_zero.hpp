@@ -8,13 +8,8 @@
 
 #pragma once
 
-<<<<<<< HEAD
-//#include <ze_api.h> This should be included from user code
-#include <CL/sycl.hpp>
-=======
 #include <CL/sycl.hpp>
 #include <level_zero/ze_api.h>
->>>>>>> a51c3334b96efa9a3ffaaa77ed5628ab4c1dd07c
 
 __SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
@@ -44,11 +39,7 @@ struct interop<backend::level0, accessor<DataT, Dimensions, AccessMode,
 
 namespace level0 {
 
-<<<<<<< HEAD
-// Implementation of varios "make" functions resides in libsycl.so
-=======
 // Implementation of various "make" functions resides in libsycl.so
->>>>>>> a51c3334b96efa9a3ffaaa77ed5628ab4c1dd07c
 platform make_platform(pi_native_handle NativeHandle);
 device make_device(const platform &Platform, pi_native_handle NativeHandle);
 program make_program(const context &Context, pi_native_handle NativeHandle);
