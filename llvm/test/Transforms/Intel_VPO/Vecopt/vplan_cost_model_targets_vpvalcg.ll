@@ -89,7 +89,8 @@ define void @foo() local_unnamed_addr {
 ; VPLAN-CM-SSE2-NEXT:  Analyzing VPBasicBlock [[BB4:BB[0-9]+]], total cost: 0
 ;
 ; VPLAN-HIR-CM-AVX2-LABEL:  HIR Cost Model for VPlan foo.23 with VF = 8:
-; VPLAN-HIR-CM-AVX2-NEXT:  Total Cost: 8
+; VPLAN-HIR-CM-AVX2-NEXT:  Total VPlan Cost: 8
+; VPLAN-HIR-CM-AVX2-NEXT:  VPlan Base Cost before adjustments: 8
 ; VPLAN-HIR-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-AVX2-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
@@ -111,7 +112,8 @@ define void @foo() local_unnamed_addr {
 ; VPLAN-HIR-CM-AVX2-NEXT:  Analyzing VPBasicBlock [[BB4:BB[0-9]+]], total cost: 0
 ;
 ; VPLAN-HIR-CM-SSE2-LABEL:  HIR Cost Model for VPlan foo.23 with VF = 8:
-; VPLAN-HIR-CM-SSE2-NEXT:  Total Cost: 44
+; VPLAN-HIR-CM-SSE2-NEXT:  Total VPlan Cost: 44
+; VPLAN-HIR-CM-SSE2-NEXT:  VPlan Base Cost before adjustments: 44
 ; VPLAN-HIR-CM-SSE2-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-SSE2-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-SSE2-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
