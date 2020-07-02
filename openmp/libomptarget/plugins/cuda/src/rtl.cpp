@@ -95,7 +95,7 @@ bool checkResult(CUresult Err, const char *ErrMsg) {
   if (Err == CUDA_SUCCESS)
     return true;
 
-  DP(ErrMsg);
+  DP("%s", ErrMsg);
   CUDA_ERR_STRING(Err);
   return false;
 }
@@ -799,8 +799,8 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
         return OFFLOAD_SUCCESS;
 
       DP("Error returned from cuMemcpyPeerAsync. src_ptr = " DPxMOD
-         ", src_id =%" PRId32 ", dst_ptr = %" DPxMOD ", dst_id =%" PRId32 "\n",
-         SrcPtr, SrcDevId, DstPtr, DstDevId);
+         ", src_id =%" PRId32 ", dst_ptr = " DPxMOD ", dst_id =%" PRId32 "\n",
+         DPxPTR(SrcPtr), SrcDevId, DPxPTR(DstPtr), DstDevId);
       CUDA_ERR_STRING(Err);
     }
 
@@ -895,7 +895,7 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
           // loop.
           CudaBlocksPerGrid = LoopTripCount;
         }
-        DP("Using %d teams due to loop trip count %" PRIu64
+        DP("Using %d teams due to loop trip count %" PRIu32
            " and number of threads per block %d\n",
            CudaBlocksPerGrid, LoopTripCount, CudaThreadsPerBlock);
       } else {
