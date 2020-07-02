@@ -2226,20 +2226,16 @@ static bool BlockIsSimpleEnoughToThreadThrough(BasicBlock *BB) {
   for (Instruction &I : BB->instructionsWithoutDebug()) {
     if (Size > MaxSmallBlockSize)
       return false; // Don't clone large BB's.
-<<<<<<< HEAD
 
 #if INTEL_COLLAB
     if (IntrinsicUtils::isDirective(&I))
       return false;
 #endif // INTEL_COLLAB
 
-    ++Size;
-=======
     // We will delete Phis while threading, so Phis should not be accounted in
     // block's size
     if (!isa<PHINode>(I))
       ++Size;
->>>>>>> f01d9e6fc3e291a2faed8c9b7dcbabf760f32bd6
 
     // We can only support instructions that do not define values that are
     // live outside of the current basic block.
