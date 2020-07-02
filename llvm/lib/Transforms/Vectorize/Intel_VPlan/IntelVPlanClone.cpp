@@ -57,17 +57,6 @@ VPBasicBlock *VPCloneUtils::cloneBasicBlock(VPBasicBlock *Block,
   ClonedBlock->removeInstruction(ClonedBlock->getTerminator());
 
   ValueMap.insert({Block, ClonedBlock});
-  if (auto CondBit = Block->getCondBit()) {
-    VPValue *ClonedCondBit = CondBit;
-    if (auto CondBitInst = dyn_cast<VPInstruction>(CondBit)) {
-      ClonedCondBit = CondBitInst->clone();
-      // Parent of the cloned condition bit will be updated later by
-      // VPValueMapper.
-      cast<VPInstruction>(ClonedCondBit)->Parent = CondBitInst->getParent();
-    }
-    ClonedBlock->setCondBit(ClonedCondBit);
-    ValueMap.insert({CondBit, ClonedCondBit});
-  }
 
   return ClonedBlock;
 }
