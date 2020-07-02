@@ -25,25 +25,6 @@
 namespace tbb {
 namespace detail {
 inline namespace d0 {
-
-//! Exception for concurrent containers
-class bad_last_alloc : public std::bad_alloc {
-public:
-    const char* what() const noexcept(true) override;
-};
-
-//! Exception for user-initiated abort
-class user_abort : public std::exception {
-public:
-    const char* what() const noexcept(true) override;
-};
-
-//! Exception for missing wait on structured_task_group
-class missing_wait : public std::exception {
-public:
-    const char* what() const noexcept(true) override;
-};
-
 enum class exception_id {
     bad_alloc = 1,
     bad_last_alloc,
@@ -57,20 +38,37 @@ enum class exception_id {
     bad_tagged_msg_cast,
     last_entry
 };
+} // namespace d0
+
+namespace r1 {
+//! Exception for concurrent containers
+class bad_last_alloc : public std::bad_alloc {
+public:
+    const char* __TBB_EXPORTED_METHOD what() const noexcept(true) override;
+};
+
+//! Exception for user-initiated abort
+class user_abort : public std::exception {
+public:
+    const char* __TBB_EXPORTED_METHOD what() const noexcept(true) override;
+};
+
+//! Exception for missing wait on structured_task_group
+class missing_wait : public std::exception {
+public:
+    const char* __TBB_EXPORTED_METHOD what() const noexcept(true) override;
+};
 
 //! Gathers all throw operators in one place.
 /** Its purpose is to minimize code bloat that can be caused by throw operators
     scattered in multiple places, especially in templates. **/
 void __TBB_EXPORTED_FUNC throw_exception ( exception_id );
+} // namespace r1
 
-
-//! Forward declaration for scheduler entities
-bool gcc_rethrow_exception_broken();
-void fix_broken_rethrow();
-//! Forward declaration: throws std::runtime_error with what() returning error_code description prefixed with aux_info
-void handle_perror(int error_code, const char* aux_info);
-
+inline namespace d0 {
+using r1::throw_exception;
 } // namespace d0
+
 } // namespace detail
 } // namespace tbb
 

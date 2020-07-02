@@ -27,12 +27,14 @@
 
 namespace tbb {
 namespace detail {
-namespace d1 {
 
-// TODO: consider better names
+namespace r1 {
 void* __TBB_EXPORTED_FUNC allocate_memory(std::size_t size);
 void  __TBB_EXPORTED_FUNC deallocate_memory(void* p);
 bool  __TBB_EXPORTED_FUNC is_tbbmalloc_used();
+}
+
+namespace d1 {
 
 template<typename T>
 class tbb_allocator {
@@ -54,17 +56,17 @@ public:
 
     //! Allocate space for n objects.
     T* allocate(std::size_t n) {
-        return static_cast<T*>(allocate_memory(n * sizeof(value_type)));
+        return static_cast<T*>(r1::allocate_memory(n * sizeof(value_type)));
     }
 
     //! Free previously allocated block of memory.
     void deallocate(T* p, std::size_t) {
-        deallocate_memory(p);
+        r1::deallocate_memory(p);
     }
 
     //! Returns current allocator
     static malloc_type allocator_type() {
-        return is_tbbmalloc_used() ? standard : scalable;
+        return r1::is_tbbmalloc_used() ? standard : scalable;
     }
 
 #if TBB_ALLOCATOR_TRAITS_BROKEN

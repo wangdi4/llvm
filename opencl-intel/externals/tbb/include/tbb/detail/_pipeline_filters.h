@@ -27,14 +27,20 @@
 
 namespace tbb {
 namespace detail {
-namespace d1 {
 
-class filter_node;
-class input_buffer;
+namespace d1 {
+class base_filter;
+}
+
+namespace r1 {
+void __TBB_EXPORTED_FUNC set_end_of_input(d1::base_filter&);
 class pipeline;
 class stage_task;
+class input_buffer;
+}
 
-void __TBB_EXPORTED_FUNC parallel_pipeline_impl (task_group_context&, std::size_t, const filter_node&);
+namespace d1 {
+class filter_node;
 
 //! A stage in a pipeline.
 /** @ingroup algorithms */
@@ -64,7 +70,9 @@ protected:
     {}
 
     // signal end-of-input for concrete_filters
-    void __TBB_EXPORTED_METHOD set_end_of_input();
+    void set_end_of_input() {
+        r1::set_end_of_input(*this);
+    }
 
 public:
     //! True if filter is serial.
@@ -100,16 +108,17 @@ private:
 
     //! Buffer for incoming tokens, or nullptr if not required.
     /** The buffer is required if the filter is serial. */
-    input_buffer* my_input_buffer;
+    r1::input_buffer* my_input_buffer;
 
-    friend class stage_task;
-    friend class pipeline;
+    friend class r1::stage_task;
+    friend class r1::pipeline;
+    friend void r1::set_end_of_input(d1::base_filter&);
 
     //! Storage for filter mode and dynamically checked implementation version.
     const unsigned int my_filter_mode;
 
     //! Pointer to the pipeline.
-    pipeline* my_pipeline;
+    r1::pipeline* my_pipeline;
 };
 
 template<typename Body, typename InputType, typename OutputType >
@@ -126,13 +135,27 @@ public:
 };
 
 // Emulate std::is_trivially_copyable (false positives not allowed, false negatives suboptimal but safe).
-#if   __TBB_CPP11_TYPE_PROPERTIES_PRESENT
-template<typename T>
-using tbb_trivially_copyable = std::is_trivially_copyable<T>;
+#if __TBB_CPP11_TYPE_PROPERTIES_PRESENT
+template<typename T> using tbb_trivially_copyable = std::is_trivially_copyable<T>;
 #else
-template<typename T>
-using tbb_trivially_copyable = std::false_type;
-#endif // tbb_trivially_copyable
+template<typename T> struct tbb_trivially_copyable                      { enum { value = false }; };
+template<typename T> struct tbb_trivially_copyable <         T*       > { enum { value = true  }; };
+template<>           struct tbb_trivially_copyable <         bool     > { enum { value = true  }; };
+template<>           struct tbb_trivially_copyable <         char     > { enum { value = true  }; };
+template<>           struct tbb_trivially_copyable <  signed char     > { enum { value = true  }; };
+template<>           struct tbb_trivially_copyable <unsigned char     > { enum { value = true  }; };
+template<>           struct tbb_trivially_copyable <         short    > { enum { value = true  }; };
+template<>           struct tbb_trivially_copyable <unsigned short    > { enum { value = true  }; };
+template<>           struct tbb_trivially_copyable <         int      > { enum { value = true  }; };
+template<>           struct tbb_trivially_copyable <unsigned int      > { enum { value = true  }; };
+template<>           struct tbb_trivially_copyable <         long     > { enum { value = true  }; };
+template<>           struct tbb_trivially_copyable <unsigned long     > { enum { value = true  }; };
+template<>           struct tbb_trivially_copyable <         long long> { enum { value = true  }; };
+template<>           struct tbb_trivially_copyable <unsigned long long> { enum { value = true  }; };
+template<>           struct tbb_trivially_copyable <         float    > { enum { value = true  }; };
+template<>           struct tbb_trivially_copyable <         double   > { enum { value = true  }; };
+template<>           struct tbb_trivially_copyable <    long double   > { enum { value = true  }; };
+#endif // __TBB_CPP11_TYPE_PROPERTIES_PRESENT
 
 template<typename T>
 struct use_allocator {
@@ -149,14 +172,14 @@ struct token_helper<T, true> {
     using pointer = T*;
     using value_type = T;
     static pointer create_token(value_type && source) {
-        return new (allocate_memory(sizeof(T))) T(std::move(source));
+        return new (r1::allocate_memory(sizeof(T))) T(std::move(source));
     }
     static value_type & token(pointer & t) { return *t; }
     static void * cast_to_void_ptr(pointer ref) { return reinterpret_cast<void *>(ref); }
     static pointer cast_from_void_ptr(void * ref) { return reinterpret_cast<pointer>(ref); }
     static void destroy_token(pointer token) {
         token->~value_type();
-        deallocate_memory(token);
+        r1::deallocate_memory(token);
     }
 };
 
@@ -336,7 +359,7 @@ public:
         __TBB_ASSERT(ref_count>0,"ref_count underflow");
         if( ref_count.fetch_sub(1, std::memory_order_relaxed) == 1 ) {
             this->~filter_node();
-            deallocate_memory(this);
+            r1::deallocate_memory(this);
         }
     }
 
@@ -414,7 +437,7 @@ class filter_node_leaf: public filter_node {
     const unsigned int my_mode;
     const Body my_body;
     base_filter* create_filter() const override {
-        return new(allocate_memory(sizeof(concrete_filter<InputType, OutputType, Body>))) concrete_filter<InputType, OutputType, Body>(my_mode,my_body);
+        return new(r1::allocate_memory(sizeof(concrete_filter<InputType, OutputType, Body>))) concrete_filter<InputType, OutputType, Body>(my_mode,my_body);
     }
 public:
     filter_node_leaf( unsigned int m, const Body& b ) : my_mode(m), my_body(b) {}

@@ -124,18 +124,18 @@ struct feeder_item_task: public task {
         my_allocator(alloc)
     {}
 
-    void finalize(const execute_data& ed) {
-        my_feeder.my_wait_object.release_wait();
+    void finalize(const execution_data& ed) {
+        my_feeder.my_wait_context.release();
         my_allocator.delete_object(this, ed);
     }
 
-    task* execute(const execute_data& ed) override {
+    task* execute(execution_data& ed) override {
         parallel_for_each_operator_selector<Body, Item>::call(my_feeder.my_body, std::move(item), my_feeder);
         finalize(ed);
         return nullptr;
     }
 
-    task* cancel(const execute_data& ed) override {
+    task* cancel(execution_data& ed) override {
         finalize(ed);
         return nullptr;
     }
@@ -155,8 +155,8 @@ class feeder_impl : public feeder<Item> {
         small_object_allocator alloc;
         auto task = alloc.new_object<feeder_task>(item, *this, alloc);
 
-        my_wait_object.reserve_wait();
-        task::spawn(*task, my_execution_context);
+        my_wait_context.reserve();
+        spawn(*task, my_execution_context);
     }
 
     void internal_add_copy_impl(std::false_type, const Item&) {
@@ -172,16 +172,17 @@ class feeder_impl : public feeder<Item> {
         small_object_allocator alloc{};
         auto task = alloc.new_object<feeder_task>(std::move(item), *this, alloc);
 
-        my_wait_object.reserve_wait();
-        task::spawn(*task, my_execution_context);
+        my_wait_context.reserve();
+        spawn(*task, my_execution_context);
     }
 public:
     feeder_impl(task_group_context &context, const Body& body)
-      : my_body(body),
-        my_execution_context(context)
+      : my_wait_context(0)
+      , my_body(body)
+      , my_execution_context(context)
     {}
 
-    wait_object my_wait_object;
+    wait_context my_wait_context;
     const Body& my_body;
     task_group_context& my_execution_context;
 }; // class feeder_impl
@@ -192,28 +193,28 @@ template<typename Iterator, typename Body, typename Item>
 struct for_each_iteration_task: public task {
     using feeder_type = feeder_impl<Body, Item>;
 
-    for_each_iteration_task(Iterator input_item_ptr, feeder_type& feeder, wait_object& wait_object) :
-        item_ptr(input_item_ptr), my_feeder(feeder), parent_wait_object(wait_object)
+    for_each_iteration_task(Iterator input_item_ptr, feeder_type& feeder, wait_context& wait_context) :
+        item_ptr(input_item_ptr), my_feeder(feeder), parent_wait_context(wait_context)
     {}
 
     void finalize() {
-        parent_wait_object.release_wait();
+        parent_wait_context.release();
     }
 
-    task* execute(const execute_data&) override {
+    task* execute(execution_data&) override {
         parallel_for_each_operator_selector<Body, Item>::call(my_feeder.my_body, std::move(*item_ptr), my_feeder);
         finalize();
         return nullptr;
     }
 
-    task* cancel(const execute_data&) override {
+    task* cancel(execution_data&) override {
         finalize();
         return nullptr;
     }
 
     Iterator item_ptr;
     feeder_type& my_feeder;
-    wait_object& parent_wait_object;
+    wait_context& parent_wait_context;
 }; // class do_iteration_task_iter
 
 /** Split one block task to several(max_block_size) iteration tasks for input iterators
@@ -226,35 +227,35 @@ struct input_block_handling_task : public task {
     using iteration_task = for_each_iteration_task<Item*, Body, Item>;
 
     input_block_handling_task(feeder_type& feeder, small_object_allocator& alloc)
-        :my_size(0), my_feeder(feeder), my_allocator(alloc)
+        :my_size(0), my_wait_context(0), my_feeder(feeder), my_allocator(alloc)
     {
         auto* item_it = block_iteration_space.begin();
         for (auto* it = task_pool.begin(); it != task_pool.end(); ++it) {
-            new (it) iteration_task(item_it++, feeder, my_wait_object);
+            new (it) iteration_task(item_it++, feeder, my_wait_context);
         }
     }
 
-    void finalize(const execute_data& ed) {
-        my_feeder.my_wait_object.release_wait();
+    void finalize(const execution_data& ed) {
+        my_feeder.my_wait_context.release();
         my_allocator.delete_object(this, ed);
     }
 
-    task* execute(const execute_data& ed) override {
+    task* execute(execution_data& ed) override {
         __TBB_ASSERT( my_size > 0, "Negative size was passed to task");
         for (std::size_t counter = 1; counter < my_size; ++counter) {
-            my_wait_object.reserve_wait();
+            my_wait_context.reserve();
             spawn(*(task_pool.begin() + counter), my_feeder.my_execution_context);
         }
-        my_wait_object.reserve_wait();
+        my_wait_context.reserve();
         execute_and_wait(*task_pool.begin(), my_feeder.my_execution_context,
-                         my_wait_object,     my_feeder.my_execution_context);
+                         my_wait_context,     my_feeder.my_execution_context);
 
-        // deallocate current task after childs execution
+        // deallocate current task after children execution
         finalize(ed);
         return nullptr;
     }
 
-    task* cancel(const execute_data& ed) override {
+    task* cancel(execution_data& ed) override {
         finalize(ed);
         return nullptr;
     }
@@ -269,7 +270,7 @@ struct input_block_handling_task : public task {
     aligned_space<Item, max_block_size> block_iteration_space;
     aligned_space<iteration_task, max_block_size> task_pool;
     std::size_t my_size;
-    wait_object my_wait_object;
+    wait_context my_wait_context;
     feeder_type& my_feeder;
     small_object_allocator my_allocator;
 }; // class input_block_execution_task
@@ -284,36 +285,36 @@ struct forward_block_handling_task : public task {
     using iteration_task = for_each_iteration_task<Iterator, Body, Item>;
 
     forward_block_handling_task(Iterator first, std::size_t size, feeder_type& feeder, small_object_allocator& alloc)
-        : my_size(size), my_feeder(feeder), my_allocator(alloc)
+        : my_size(size), my_wait_context(0), my_feeder(feeder), my_allocator(alloc)
     {
         auto* task_it = task_pool.begin();
         for (std::size_t i = 0; i < size; i++) {
-            new (task_it++) iteration_task(first, feeder, my_wait_object);
+            new (task_it++) iteration_task(first, feeder, my_wait_context);
             ++first;
         }
     }
 
-    void finalize(const execute_data& ed) {
-        my_feeder.my_wait_object.release_wait();
+    void finalize(const execution_data& ed) {
+        my_feeder.my_wait_context.release();
         my_allocator.delete_object(this, ed);
     }
 
-    task* execute(const execute_data& ed) override {
+    task* execute(execution_data& ed) override {
         __TBB_ASSERT( my_size > 0, "Negative size was passed to task");
         for(std::size_t counter = 1; counter < my_size; ++counter) {
-            my_wait_object.reserve_wait();
+            my_wait_context.reserve();
             spawn(*(task_pool.begin() + counter), my_feeder.my_execution_context);
         }
-        my_wait_object.reserve_wait();
+        my_wait_context.reserve();
         execute_and_wait(*task_pool.begin(), my_feeder.my_execution_context,
-                         my_wait_object,    my_feeder.my_execution_context);
+                         my_wait_context,    my_feeder.my_execution_context);
 
-        // deallocate current task after childs execution
+        // deallocate current task after children execution
         finalize(ed);
         return nullptr;
     }
 
-    task* cancel(const execute_data& ed) override {
+    task* cancel(execution_data& ed) override {
         finalize(ed);
         return nullptr;
     }
@@ -326,7 +327,7 @@ struct forward_block_handling_task : public task {
 
     aligned_space<iteration_task, max_block_size> task_pool;
     std::size_t my_size;
-    wait_object my_wait_object;
+    wait_context my_wait_context;
     feeder_type& my_feeder;
     small_object_allocator my_allocator;
 }; // class forward_block_handling_task
@@ -385,18 +386,18 @@ public:
     for_each_root_task(Iterator first, Iterator last, feeder_type& feeder) :
         my_first(first), my_last(last), my_feeder(feeder)
     {
-        my_feeder.my_wait_object.reserve_wait();
+        my_feeder.my_wait_context.reserve();
     }
 private:
-    task* execute(const execute_data& ed) override {
+    task* execute(execution_data& ed) override {
         using block_handling_type = input_block_handling_task<Body, Item>;
 
         if (my_first == my_last) {
-            my_feeder.my_wait_object.release_wait();
+            my_feeder.my_wait_context.release();
             return nullptr;
         }
 
-        my_feeder.my_wait_object.reserve_wait();
+        my_feeder.my_wait_context.reserve();
         small_object_allocator alloc{};
         auto block_handling_task = alloc.new_object<block_handling_type>(ed, my_feeder, alloc);
 
@@ -407,13 +408,13 @@ private:
             ++block_handling_task->my_size;
         }
 
-        // Do not access this after spawn to aviod races
+        // Do not access this after spawn to avoid races
         spawn(*this, my_feeder.my_execution_context);
         return block_handling_task;
     }
 
-    task* cancel(const execute_data&) override {
-        my_feeder.my_wait_object.release_wait();
+    task* cancel(execution_data&) override {
+        my_feeder.my_wait_context.release();
         return nullptr;
     }
 }; // class for_each_root_task - most generic implementation
@@ -432,13 +433,13 @@ public:
     for_each_root_task(Iterator first, Iterator last, feeder_type& feeder) :
         my_first(first), my_last(last), my_feeder(feeder)
     {
-        my_feeder.my_wait_object.reserve_wait();
+        my_feeder.my_wait_context.reserve();
     }
 private:
-    task* execute(const execute_data& ed) override {
+    task* execute(execution_data& ed) override {
         using block_handling_type = forward_block_handling_task<Iterator, Body, Item>;
         if (my_first == my_last) {
-            my_feeder.my_wait_object.release_wait();
+            my_feeder.my_wait_context.release();
             return nullptr;
         }
 
@@ -448,17 +449,17 @@ private:
             ++block_size;
         }
 
-        my_feeder.my_wait_object.reserve_wait();
+        my_feeder.my_wait_context.reserve();
         small_object_allocator alloc{};
         auto block_handling_task = alloc.new_object<block_handling_type>(ed, first_block_element, block_size, my_feeder, alloc);
 
-        // Do not access this after spawn to aviod races
+        // Do not access this after spawn to avoid races
         spawn(*this, my_feeder.my_execution_context);
         return block_handling_task;
     }
 
-    task* cancel(const execute_data&) override {
-        my_feeder.my_wait_object.release_wait();
+    task* cancel(execution_data&) override {
+        my_feeder.my_wait_context.release();
         return nullptr;
     }
 }; // class for_each_root_task - forward iterator based specialization
@@ -478,22 +479,22 @@ public:
     for_each_root_task(Iterator first, Iterator last, feeder_type& feeder) :
         my_first(first), my_last(last), my_feeder(feeder)
     {
-        my_feeder.my_wait_object.reserve_wait();
+        my_feeder.my_wait_context.reserve();
     }
 private:
-    task* execute(const execute_data&) override {
+    task* execute(execution_data&) override {
         tbb::parallel_for(
             tbb::blocked_range<std::size_t>(0, std::distance(my_first, my_last)),
             parallel_for_body_wrapper<Iterator, Body, Item>(my_first, my_feeder)
             , my_feeder.my_execution_context
         );
 
-        my_feeder.my_wait_object.release_wait();
+        my_feeder.my_wait_context.release();
         return nullptr;
     }
 
-    task* cancel(const execute_data&) override {
-        my_feeder.my_wait_object.release_wait();
+    task* cancel(execution_data&) override {
+        my_feeder.my_wait_context.release();
         return nullptr;
     }
 }; // class for_each_root_task - random access iterator based specialization
@@ -522,11 +523,7 @@ void run_parallel_for_each( Iterator first, Iterator last, const Body& body, tas
 
         for_each_root_task<Iterator, Body, ItemType> root_task(first, last, feeder);
 
-        // REGION BEGIN
-        // fgt_begin_algorithm(tbb::internal::PARALLEL_FOR_EACH_TASK, (void*)&context);
-        task::execute_and_wait(root_task, context, feeder.my_wait_object, context);
-        // fgt_end_al
-        // END REGION
+        execute_and_wait(root_task, context, feeder.my_wait_context, context);
     }
 }
 

@@ -46,6 +46,7 @@
 #include "task_group.h" // task_group_context
 #include "task_arena.h"
 
+#include <algorithm>
 #include <atomic>
 #include <type_traits>
 
@@ -57,33 +58,53 @@
 
 namespace tbb {
 namespace detail {
-namespace d1 {
 
+namespace d1 {
 class auto_partitioner;
 class simple_partitioner;
 class static_partitioner;
 class affinity_partitioner;
-
 class affinity_partition_type;
+class affinity_partitioner_base;
 
-std::size_t __TBB_EXPORTED_FUNC get_initial_auto_partitioner_divisor();
+inline std::size_t get_initial_auto_partitioner_divisor() {
+    const std::size_t factor = 4;
+    return factor * max_concurrency();
+}
 
-//! Defines entry point for affinity partitioner into tbb run-time library.
+//! Defines entry point for affinity partitioner into oneTBB run-time library.
 class affinity_partitioner_base: no_copy {
     friend class affinity_partitioner;
     friend class affinity_partition_type;
     //! Array that remembers affinities of tree positions to affinity_id.
     /** NULL if my_size==0. */
-    affinity_id* my_array;
+    slot_id* my_array;
     //! Number of elements in my_array.
     std::size_t my_size;
     //! Zeros the fields.
-    affinity_partitioner_base() : my_array(NULL), my_size(0) {}
+    affinity_partitioner_base() : my_array(nullptr), my_size(0) {}
     //! Deallocates my_array.
-    ~affinity_partitioner_base() {resize(0);}
+    ~affinity_partitioner_base() { resize(0); }
     //! Resize my_array.
     /** Retains values if resulting size is the same. */
-    void __TBB_EXPORTED_METHOD resize( unsigned factor );
+    void resize(unsigned factor) {
+        // Check factor to avoid asking for number of workers while there might be no arena.
+        unsigned max_threads_in_arena = max_concurrency();
+        std::size_t new_size = factor ? factor * max_threads_in_arena : 0;
+        if (new_size != my_size) {
+            if (my_array) {
+                r1::cache_aligned_deallocate(my_array);
+                // Following two assignments must be done here for sake of exception safety.
+                my_array = nullptr;
+                my_size = 0;
+            }
+            if (new_size) {
+                my_array = static_cast<slot_id*>(r1::cache_aligned_allocate(new_size * sizeof(slot_id)));
+                std::fill_n(my_array, new_size, no_slot);
+                my_size = new_size;
+            }
+        }
+    }
 };
 
 template<typename Range, typename Body, typename Partitioner> struct start_for;
@@ -104,7 +125,7 @@ struct node {
 
 struct wait_node : node {
     wait_node() : node{ nullptr, 1 } {}
-    wait_object m_wait{1};
+    wait_context m_wait{1};
 };
 
 //! Join task node that contains shared flag for stealing feedback
@@ -122,12 +143,12 @@ struct tree_node : public node {
     template <typename Task>
     static void mark_task_stolen(Task &t) {
         std::atomic<bool> &flag = static_cast<tree_node*>(t.my_parent)->m_child_stolen;
-#if TBB_USE_THREADING_TOOLS
+#if TBB_USE_PROFILING_TOOLS
         // Threading tools respect lock prefix but report false-positive data-race via plain store
         flag.exchange(true);
 #else
         flag.store(true, std::memory_order_relaxed);
-#endif // TBB_USE_THREADING_TOOLS
+#endif // TBB_USE_PROFILING_TOOLS
     }
     template <typename Task>
     static bool is_peer_stolen(Task &t) {
@@ -137,7 +158,7 @@ struct tree_node : public node {
 
 // Context used to check cancellation state during reduction join process
 template<typename TreeNodeType>
-void fold_tree(node* n, const execute_data& ed) {
+void fold_tree(node* n, const execution_data& ed) {
     for (;;) {
         __TBB_ASSERT(n->m_ref_count.load(std::memory_order_relaxed) > 0, "The refcount must be positive.");
         if (--n->m_ref_count > 0) {
@@ -154,7 +175,7 @@ void fold_tree(node* n, const execute_data& ed) {
         n = parent;
     }
     // Finish parallel for execution when the root (last node) is reached
-    static_cast<wait_node*>(n)->m_wait.release_wait();
+    static_cast<wait_node*>(n)->m_wait.release();
 }
 
 //! Depth is a relative depth of recursive division inside a range pool. Relative depth allows
@@ -234,9 +255,9 @@ template <typename Partition>
 struct partition_type_base {
     typedef detail::split split_type;
     // decision makers
-    void note_affinity( task::affinity_id ) {}
+    void note_affinity( slot_id ) {}
     template <typename Task>
-    bool check_being_stolen(Task&, const execute_data&) { return false; } // part of old should_execute_range()
+    bool check_being_stolen(Task&, const execution_data&) { return false; } // part of old should_execute_range()
     template <typename Task>
     bool check_for_demand(Task& ) { return false; }
     bool is_divisible() { return true; } // part of old should_execute_range()
@@ -246,12 +267,12 @@ struct partition_type_base {
     Partition& self() { return *static_cast<Partition*>(this); } // CRTP helper
 
     template<typename StartType, typename Range>
-    void work_balance(StartType &start, Range &range, const execute_data&) {
+    void work_balance(StartType &start, Range &range, const execution_data&) {
         start.run_body( range ); // simple partitioner goes always here
     }
 
     template<typename StartType, typename Range>
-    void execute(StartType &start, Range &range, const execute_data& ed) {
+    void execute(StartType &start, Range &range, execution_data& ed) {
         // The algorithm in a few words ([]-denotes calls to decision methods of partitioner):
         // [If this task is stolen, adjust depth and divisions if necessary, set flag].
         // If range is divisible {
@@ -357,12 +378,16 @@ struct linear_affinity_mode : proportional_mode<Partition> {
         , my_head((src.my_head + src.my_divisor) % src.my_max_affinity), my_max_affinity(src.my_max_affinity) {}
     void spawn_task(task& t, task_group_context& ctx) {
         if (self().my_divisor) {
-            task::spawn_with_affinity(t, ctx, affinity_id(my_head) + 1);
+            spawn(t, ctx, slot_id(my_head));
         } else {
-            task::spawn(t, ctx);
+            spawn(t, ctx);
         }
     }
 };
+
+static bool is_stolen_task(const execution_data& ed) {
+    return execution_slot(ed) != original_slot(ed);
+}
 
 /*! Determine work-balance phase implementing splitting & stealing actions */
 template<class Mode>
@@ -387,10 +412,10 @@ struct dynamic_grainsize_mode : Mode {
         , my_delay(begin)
         , my_max_depth(p.my_max_depth) {}
     template <typename Task>
-    bool check_being_stolen(Task &t, const execute_data& ed) { // part of old should_execute_range()
+    bool check_being_stolen(Task &t, const execution_data& ed) { // part of old should_execute_range()
         if( !(self().my_divisor / Mode::my_partition::factor) ) { // if not from the top P tasks of binary tree
             self().my_divisor = 1; // TODO: replace by on-stack flag (partition_state's member)?
-            if( ed.is_stolen_task() && t.my_parent->m_ref_count >= 2 ) { // runs concurrently with the left task
+            if( is_stolen_task(ed) && t.my_parent->m_ref_count >= 2 ) { // runs concurrently with the left task
 #if __TBB_USE_OPTIONAL_RTTI
                 // RTTI is available, check whether the cast is valid
                 // TODO: TBB_REVAMP_TODO __TBB_ASSERT(dynamic_cast<tree_node*>(t.m_parent), 0);
@@ -412,7 +437,7 @@ struct dynamic_grainsize_mode : Mode {
         my_max_depth -= base;
     }
     template<typename StartType, typename Range>
-    void work_balance(StartType &start, Range &range, const execute_data& ed) {
+    void work_balance(StartType &start, Range &range, execution_data& ed) {
         if( !range.is_divisible() || !self().max_depth() ) {
             start.run_body( range ); // simple partitioner goes always here
         }
@@ -479,7 +504,7 @@ public:
         } else return false;
     }
     void spawn_task(task& t, task_group_context& ctx) {
-        task::spawn(t, ctx);
+        spawn(t, ctx);
     }
 };
 
@@ -489,14 +514,14 @@ public:
     simple_partition_type( const simple_partition_type&, split ) {}
     //! simplified algorithm
     template<typename StartType, typename Range>
-    void execute(StartType &start, Range &range, const execute_data& ed) {
+    void execute(StartType &start, Range &range, execution_data& ed) {
         split_type split_obj = split(); // start.offer_work accepts split_type as reference
         while( range.is_divisible() )
             start.offer_work( split_obj, ed );
         start.run_body( range );
     }
     void spawn_task(task& t, task_group_context& ctx) {
-        task::spawn(t, ctx);
+        spawn(t, ctx);
     }
 };
 
@@ -513,7 +538,7 @@ public:
 
 class affinity_partition_type : public dynamic_grainsize_mode<linear_affinity_mode<affinity_partition_type> > {
     static const unsigned factor_power = 4; // TODO: get a unified formula based on number of computing units
-    task::affinity_id* my_array;
+    slot_id* my_array;
 public:
     static const unsigned factor = 1 << factor_power; // number of slots in affinity array per task
     typedef detail::proportional_split split_type;
@@ -531,7 +556,7 @@ public:
     affinity_partition_type(affinity_partition_type& p, const proportional_split& split_obj)
         : dynamic_grainsize_mode<linear_affinity_mode<affinity_partition_type> >(p, split_obj)
         , my_array(p.my_array) {}
-    void note_affinity( task::affinity_id id ) {
+    void note_affinity(slot_id id) {
         if( my_divisor )
             my_array[my_head] = id;
     }
@@ -539,12 +564,12 @@ public:
         if (my_divisor) {
             if (!my_array[my_head]) {
                 // TODO: consider new ideas with my_array for both affinity and static partitioner's, then code reuse
-                task::spawn_with_affinity(t, ctx, affinity_id(my_head / factor + 1));
+                spawn(t, ctx, slot_id(my_head / factor));
             } else {
-                task::spawn_with_affinity(t, ctx, my_array[my_head]);
+                spawn(t, ctx, my_array[my_head]);
             }
         } else {
-            task::spawn(t, ctx);
+            spawn(t, ctx);
         }
     }
 };
@@ -568,7 +593,7 @@ private:
     // for parallel_scan only
     class partition_type {
     public:
-        bool should_execute_range(const execute_data& ) {return false;}
+        bool should_execute_range(const execution_data& ) {return false;}
         partition_type( const simple_partitioner& ) {}
         partition_type( const partition_type& ) {}
         partition_type( const partition_type&, split ) {}
@@ -598,8 +623,8 @@ private:
         size_t num_chunks;
         static const size_t VICTIM_CHUNKS = 4;
         public:
-        bool should_execute_range(const execute_data& ed) {
-            if( num_chunks<VICTIM_CHUNKS && ed.is_stolen_task() )
+        bool should_execute_range(const execution_data& ed) {
+            if( num_chunks<VICTIM_CHUNKS && is_stolen_task(ed) )
                 num_chunks = VICTIM_CHUNKS;
             return num_chunks==1;
         }

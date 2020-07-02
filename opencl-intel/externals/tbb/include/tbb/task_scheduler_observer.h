@@ -22,18 +22,31 @@
 
 namespace tbb {
 namespace detail {
-namespace d1 {
 
+namespace d1 {
+class task_scheduler_observer;
+}
+
+namespace r1 {
 class observer_proxy;
 class observer_list;
 
+//! Enable or disable observation
+/** For local observers the method can be used only when the current thread
+has the task scheduler initialized or is attached to an arena.
+Repeated calls with the same state are no-ops. **/
+void __TBB_EXPORTED_FUNC observe(d1::task_scheduler_observer&, bool state = true);
+}
+
+namespace d1 {
 class task_scheduler_observer {
-    friend class observer_proxy;
-    friend class observer_list;
+    friend class r1::observer_proxy;
+    friend class r1::observer_list;
+    friend void r1::observe(d1::task_scheduler_observer&, bool);
 
     //! Pointer to the proxy holding this observer.
     /** Observers are proxied by the scheduler to maintain persistent lists of them. **/
-    std::atomic<observer_proxy*> my_proxy{ nullptr };
+    std::atomic<r1::observer_proxy*> my_proxy{ nullptr };
 
     //! Counter preventing the observer from being destroyed while in use by the scheduler.
     /** Valid only when observation is on. **/
@@ -41,13 +54,6 @@ class task_scheduler_observer {
 
     //! Contains task_arena pointer
     task_arena* my_task_arena{ nullptr };
-
-    //! Enable or disable observation
-    /** For local observers the method can be used only when the current thread
-    has the task scheduler initialized or is attached to an arena.
-    Repeated calls with the same state are no-ops. **/
-    void __TBB_EXPORTED_METHOD internal_observe(bool state = true);
-
 public:
     //! Returns true if observation is enabled, false otherwise.
     bool is_observing() const { return my_proxy != nullptr; }
@@ -93,7 +99,7 @@ public:
         if( state && !my_proxy ) {
             __TBB_ASSERT( my_busy_count.load(std::memory_order_relaxed) == 0, "Inconsistent state of task_scheduler_observer instance");
         }
-        internal_observe(state);
+        r1::observe(*this, state);
     }
 };
 

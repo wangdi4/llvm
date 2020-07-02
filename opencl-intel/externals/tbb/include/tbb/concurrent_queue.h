@@ -54,7 +54,7 @@ public:
     explicit concurrent_queue(const allocator_type& a) :
         my_allocator(a), my_queue_representation(nullptr)
     {
-        my_queue_representation = static_cast<queue_representation_type*>(cache_aligned_allocate(sizeof(queue_representation_type)));
+        my_queue_representation = static_cast<queue_representation_type*>(r1::cache_aligned_allocate(sizeof(queue_representation_type)));
         queue_allocator_traits::construct(my_allocator, my_queue_representation, my_allocator);
 
         __TBB_ASSERT(is_aligned(my_queue_representation, max_nfs_size), "alignment error" );
@@ -109,7 +109,7 @@ public:
         clear();
         my_queue_representation->clear();
         queue_allocator_traits::destroy(my_allocator, my_queue_representation);
-        cache_aligned_deallocate(my_queue_representation);
+        r1::cache_aligned_deallocate(my_queue_representation);
     }
 
     // Enqueue an item at tail of queue.
@@ -237,40 +237,42 @@ private:
     FuncType &my_func;
 }; // class delegated_function
 
-class concurrent_bounded_queue_base {
-public:
-    static constexpr std::size_t slots_avail_tag = 0;
-    static constexpr std::size_t items_avail_tag = 1;
+// The concurrent monitor tags for concurrent_bounded_queue.
+static constexpr std::size_t cbq_slots_avail_tag = 0;
+static constexpr std::size_t cbq_items_avail_tag = 1;
+} // namespace d1
+
+
+namespace r1 {
+    class concurrent_monitor;
 
     std::uint8_t* __TBB_EXPORTED_FUNC allocate_bounded_queue_rep( std::size_t queue_rep_size );
-
     void __TBB_EXPORTED_FUNC deallocate_bounded_queue_rep( std::uint8_t* mem, std::size_t queue_rep_size );
+    void __TBB_EXPORTED_FUNC abort_bounded_queue_monitors( concurrent_monitor* monitors );
+    void __TBB_EXPORTED_FUNC notify_bounded_queue_monitor( concurrent_monitor* monitors, std::size_t monitor_tag
+                                                            , std::size_t ticket );
+    void __TBB_EXPORTED_FUNC wait_bounded_queue_monitor( concurrent_monitor* monitors, std::size_t monitor_tag,
+                                                            std::ptrdiff_t target, d1::delegate_base& predicate );
+} // namespace r1
 
-    template <typename FuncType>
-    void internal_wait(concurrent_monitor* monitors, std::size_t monitor_tag, std::ptrdiff_t target, FuncType pred) {
-        delegated_function<FuncType> func(pred);
-        internal_wait_impl(monitors, monitor_tag, target, func);
-    }
 
-    void __TBB_EXPORTED_FUNC bounded_queue_abort( concurrent_monitor* monitors );
-
-    void __TBB_EXPORTED_FUNC notify_concurrent_monitor( concurrent_monitor* monitors,
-                                                        std::size_t monitor_tag, std::size_t ticket );
-private:
-    void __TBB_EXPORTED_FUNC internal_wait_impl( concurrent_monitor* monitors, std::size_t monitor_tag,
-                                                 std::ptrdiff_t target, delegate_base& predicate );
-}; // class concurrent_bounded_queue_base
-
+namespace d1 {
 // A high-performance thread-safe blocking concurrent bounded queue.
 // Supports boundedness and blocking semantics.
 // Multiple threads may each push and pop concurrently.
 // Assignment construction is not allowed.
 template <typename T, typename Allocator = tbb::cache_aligned_allocator<T>>
-class concurrent_bounded_queue : concurrent_bounded_queue_base {
+class concurrent_bounded_queue {
     using allocator_traits_type = tbb::detail::allocator_traits<Allocator>;
     using queue_representation_type = concurrent_queue_rep<T, Allocator>;
     using queue_allocator_type = typename allocator_traits_type::template rebind_alloc<queue_representation_type>;
     using queue_allocator_traits = tbb::detail::allocator_traits<queue_allocator_type>;
+
+    template <typename FuncType>
+    void internal_wait(r1::concurrent_monitor* monitors, std::size_t monitor_tag, std::ptrdiff_t target, FuncType pred) {
+        delegated_function<FuncType> func(pred);
+        r1::wait_bounded_queue_monitor(monitors, monitor_tag, target, func);
+    }
 public:
     using size_type = std::ptrdiff_t;
     using value_type = T;
@@ -290,8 +292,9 @@ public:
     explicit concurrent_bounded_queue( const allocator_type& a ) :
         my_allocator(a), my_capacity(0), my_abort_counter(0), my_queue_representation(nullptr)
     {
-        my_queue_representation = reinterpret_cast<queue_representation_type*>(allocate_bounded_queue_rep(sizeof(queue_representation_type)));
-        my_monitors = reinterpret_cast<concurrent_monitor*>(my_queue_representation + 1);
+        my_queue_representation = reinterpret_cast<queue_representation_type*>(
+            r1::allocate_bounded_queue_rep(sizeof(queue_representation_type)));
+        my_monitors = reinterpret_cast<r1::concurrent_monitor*>(my_queue_representation + 1);
         queue_allocator_traits::construct(my_allocator, my_queue_representation, my_allocator);
         my_capacity = std::size_t(-1) / (queue_representation_type::item_size > 1 ? queue_representation_type::item_size : 2);
 
@@ -347,8 +350,8 @@ public:
         clear();
         my_queue_representation->clear();
         queue_allocator_traits::destroy(my_allocator, my_queue_representation);
-        deallocate_bounded_queue_rep(reinterpret_cast<std::uint8_t*>(my_queue_representation),
-                                     sizeof(queue_representation_type));
+        r1::deallocate_bounded_queue_rep(reinterpret_cast<std::uint8_t*>(my_queue_representation),
+                                         sizeof(queue_representation_type));
     }
 
     // Enqueue an item at tail of queue.
@@ -402,8 +405,8 @@ public:
     }
 
     void set_capacity( size_type new_capacity ) {
-        std::ptrdiff_t capacity = new_capacity < 0 ? infinite_capacity : new_capacity;
-        my_capacity = capacity;
+        std::ptrdiff_t c = new_capacity < 0 ? infinite_capacity : new_capacity;
+        my_capacity = c;
     }
 
     size_type capacity() const {
@@ -461,7 +464,7 @@ private:
             };
 
             try_call( [&] {
-                internal_wait(my_monitors, slots_avail_tag, target, pred);
+                internal_wait(my_monitors, cbq_slots_avail_tag, target, pred);
             }).on_exception( [&] {
                 my_queue_representation->choose(ticket).abort_push(ticket, *my_queue_representation);
             });
@@ -469,7 +472,7 @@ private:
         }
         __TBB_ASSERT((static_cast<std::ptrdiff_t>(my_queue_representation->head_counter.load(std::memory_order_relaxed)) > target), nullptr);
         my_queue_representation->choose(ticket).push(ticket, *my_queue_representation, std::forward<Args>(args)...);
-        notify_concurrent_monitor(my_monitors, items_avail_tag, ticket);
+        r1::notify_bounded_queue_monitor(my_monitors, cbq_items_avail_tag, ticket);
     }
 
     template <typename... Args>
@@ -485,7 +488,7 @@ private:
         } while (!my_queue_representation->tail_counter.compare_exchange_strong(ticket, ticket + 1));
 
         my_queue_representation->choose(ticket).push(ticket, *my_queue_representation, std::forward<Args>(args)...);
-        notify_concurrent_monitor(my_monitors, items_avail_tag, ticket);
+        r1::notify_bounded_queue_monitor(my_monitors, cbq_items_avail_tag, ticket);
         return true;
     }
 
@@ -506,7 +509,7 @@ private:
                 };
 
                 try_call( [&] {
-                    internal_wait(my_monitors, items_avail_tag, target, pred);
+                    internal_wait(my_monitors, cbq_items_avail_tag, target, pred);
                 }).on_exception( [&] {
                     my_queue_representation->head_counter--;
                 });
@@ -514,7 +517,7 @@ private:
             __TBB_ASSERT(static_cast<std::ptrdiff_t>(my_queue_representation->tail_counter.load(std::memory_order_relaxed)) > target, nullptr);
         } while (!my_queue_representation->choose(target).pop(dst, target, *my_queue_representation));
 
-        notify_concurrent_monitor(my_monitors, slots_avail_tag, target);
+        r1::notify_bounded_queue_monitor(my_monitors, cbq_slots_avail_tag, target);
         return true;
     }
 
@@ -532,13 +535,13 @@ private:
             } while (!my_queue_representation->head_counter.compare_exchange_strong(ticket, ticket + 1));
         } while (!my_queue_representation->choose(ticket).pop(dst, ticket, *my_queue_representation));
 
-        notify_concurrent_monitor(my_monitors, slots_avail_tag, ticket);
+        r1::notify_bounded_queue_monitor(my_monitors, cbq_slots_avail_tag, ticket);
         return true;
     }
 
     void internal_abort() {
         ++my_abort_counter;
-        bounded_queue_abort(my_monitors);
+        r1::abort_bounded_queue_monitors(my_monitors);
     }
 
     static void copy_construct_item(T* location, const void* src) {
@@ -559,7 +562,7 @@ private:
     std::atomic<unsigned> my_abort_counter;
     queue_representation_type* my_queue_representation;
 
-    concurrent_monitor* my_monitors;
+    r1::concurrent_monitor* my_monitors;
 }; // class concurrent_bounded_queue
 
 #if __TBB_CPP17_DEDUCTION_GUIDES_PRESENT
@@ -578,8 +581,8 @@ inline namespace v1 {
 
 using detail::d1::concurrent_queue;
 using detail::d1::concurrent_bounded_queue;
-using detail::user_abort;
-using detail::bad_last_alloc;
+using detail::r1::user_abort;
+using detail::r1::bad_last_alloc;
 
 } // inline namespace v1
 } // namespace tbb

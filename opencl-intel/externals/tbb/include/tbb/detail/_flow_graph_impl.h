@@ -136,10 +136,10 @@ public:
     graph& my_graph; // graph instance the task belongs to
     // TODO revamp: rename to my_priority
     node_priority_t priority;
-    void destruct_and_deallocate(const execute_data& ed);
+    void destruct_and_deallocate(const execution_data& ed);
 protected:
-    void finalize(const execute_data& ed);
-    task* cancel(const execute_data& ed) override;
+    void finalize(const execution_data& ed);
+    task* cancel(execution_data& ed) override;
 private:
     // To organize task_list
     graph_task* my_next{ nullptr };
@@ -161,7 +161,7 @@ class priority_task_selector : public task {
 public:
     priority_task_selector(graph_task_priority_queue_t& priority_queue, small_object_allocator& allocator)
         : my_priority_queue(priority_queue), my_allocator(allocator) {}
-    task* execute(const execute_data& ed) override {
+    task* execute(execution_data& ed) override {
         graph_task* t = nullptr;
         // TODO revamp: hold functors in priority queue instead of real tasks
         bool result = my_priority_queue.try_pop(t);
@@ -176,7 +176,7 @@ public:
         my_allocator.delete_object(this, ed);
         return t_next;
     }
-    task* cancel(const execute_data& ed) override {
+    task* cancel(execution_data& ed) override {
         my_allocator.delete_object(this, ed);
         return nullptr;
     }
@@ -254,10 +254,6 @@ public:
     /** Calls wait_for_all, then destroys the root task and context. */
     ~graph();
 
-#if TBB_PREVIEW_FLOW_GRAPH_TRACE
-    void set_name(const char *name);
-#endif
-
     //! Used to register that an external entity may still interact with the graph.
     /** The graph will not return from wait_for_all until a matching number of decrement_wait_count calls
     is made. */
@@ -279,7 +275,7 @@ public:
 #endif
                 my_task_arena->execute(
                     [this]() {
-                        task::wait(my_wait_object, *my_context);
+                        wait(my_wait_context, *my_context);
                     }
                 );
 #if __TBB_TASK_GROUP_CONTEXT
@@ -312,7 +308,7 @@ public:
 #endif
 
 #if __TBB_EXTRA_DEBUG
-    unsigned ref_count() const { return my_wait_object.reference_count(); }
+    unsigned ref_count() const { return my_wait_context.reference_count(); }
 #endif
 
 
@@ -348,7 +344,7 @@ public:
     void reset(reset_flags f = rf_reset_protocol);
 
 private:
-    wait_object my_wait_object;
+    wait_context my_wait_context;
 #if __TBB_TASK_GROUP_CONTEXT
     task_group_context *my_context;
 #endif
@@ -378,20 +374,20 @@ private:
 
 };  // class graph
 
-void graph_task::destruct_and_deallocate(const execute_data& ed) {
+inline void graph_task::destruct_and_deallocate(const execution_data& ed) {
     auto allocator = my_allocator;
     // TODO: investigate if direct call of derived destructor gives any benefits.
     this->~graph_task();
     allocator.deallocate(this, ed);
 }
 
-void graph_task::finalize(const execute_data& ed) {
+inline void graph_task::finalize(const execution_data& ed) {
     graph& g = my_graph;
     destruct_and_deallocate(ed);
     g.release_wait();
 }
 
-task* graph_task::cancel(const execute_data& ed) {
+inline task* graph_task::cancel(execution_data& ed) {
     finalize(ed);
     return nullptr;
 }
@@ -427,10 +423,6 @@ public:
     explicit graph_node(graph& g);
 
     virtual ~graph_node();
-
-#if TBB_PREVIEW_FLOW_GRAPH_TRACE
-    virtual void set_name(const char *name) = 0;
-#endif
 
 protected:
     // performs the reset on an individual node.

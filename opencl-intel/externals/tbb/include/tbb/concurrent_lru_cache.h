@@ -346,7 +346,7 @@ public:
     }
 };
 
-// TODO: if we have garantees that KeyToValFunctorT always have
+// TODO: if we have guarantees that KeyToValFunctorT always have
 //       ValT as a return type and KeyT as an argument type
 //       we can deduce template parameters of concurrent_lru_cache
 //       by pattern matching on KeyToValFunctorT

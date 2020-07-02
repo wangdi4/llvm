@@ -20,9 +20,9 @@
 /// Extend tbb::task_group with reserve/release_wait functions
 class task_group_with_reference : public tbb::task_group {
 public:
-  void reserve_wait() { m_wait_obj.reserve_wait(); }
-  void release_wait() { m_wait_obj.release_wait(); }
-  unsigned ref_count() const { return m_wait_obj.reference_count(); }
+  void reserve_wait() { m_wait_ctx.reserve(); }
+  void release_wait() { m_wait_ctx.release(); }
+  unsigned ref_count() const { return m_wait_ctx.reference_count(); }
 };
 
 #endif // #ifndef ENHANCEMENT_TASK_GROUP_WITH_REFERENCE_H

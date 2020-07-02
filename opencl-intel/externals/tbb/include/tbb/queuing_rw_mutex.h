@@ -27,6 +27,9 @@
 
 namespace tbb {
 namespace detail {
+namespace r1 {
+struct queuing_rw_mutex_impl;
+}
 namespace d1 {
 
 //! Queuing reader-writer mutex with local-only spinning.
@@ -34,13 +37,11 @@ namespace d1 {
     https://www.researchgate.net/publication/221083709_A_Fair_Fast_Scalable_Reader-Writer_Lock
     @ingroup synchronization */
 class queuing_rw_mutex {
+    friend r1::queuing_rw_mutex_impl;
 public:
     //! Construct unacquired mutex.
     queuing_rw_mutex() noexcept  {
         create_itt_sync(this, "tbb::queuing_rw_mutex", "");
-#if TBB_USE_PROFILING_TOOLS
-        internal_construct();
-#endif
     }
 
     //! Destructor asserts if the mutex is acquired, i.e. q_tail is non-NULL
@@ -56,6 +57,7 @@ public:
     /** It helps to avoid the common problem of forgetting to release lock.
         It also nicely provides the "node" for queuing locks. */
     class scoped_lock {
+        friend r1::queuing_rw_mutex_impl;
         //! Initialize fields to mean "no lock held".
         void initialize() {
             my_mutex = nullptr;
@@ -123,25 +125,7 @@ public:
 
         //! A tiny internal lock
         std::atomic<unsigned char> my_internal_lock;
-
-        //! Acquire the internal lock
-        void acquire_internal_lock();
-
-        //! Try to acquire the internal lock
-        /** Returns true if lock was successfully acquired. */
-        bool try_acquire_internal_lock();
-
-        //! Release the internal lock
-        void release_internal_lock();
-
-        //! Wait for internal lock to be released
-        void wait_for_release_of_internal_lock();
-
-        //! A helper function
-        void unblock_or_wait_on_internal_lock( uintptr_t );
     };
-
-    void __TBB_EXPORTED_METHOD internal_construct();
 
     // Mutex traits
     static constexpr bool is_rw_mutex = true;
@@ -152,14 +136,63 @@ private:
     //! The last competitor requesting the lock
     std::atomic<scoped_lock*> q_tail{nullptr};
 };
-
+#if TBB_USE_PROFILING_TOOLS
+inline void set_name(queuing_rw_mutex& obj, const char* name) {
+    itt_set_sync_name(&obj, name);
+}
+#if (_WIN32||_WIN64) && !__MINGW32__
+inline void set_name(queuing_rw_mutex& obj, const wchar_t* name) {
+    itt_set_sync_name(&obj, name);
+}
+#endif //WIN
+#else
+inline void set_name(queuing_rw_mutex&, const char*) {}
+#if (_WIN32||_WIN64) && !__MINGW32__
+inline void set_name(queuing_rw_mutex&, const wchar_t*) {}
+#endif //WIN
+#endif
 } // namespace d1
+
+namespace r1 {
+void acquire(d1::queuing_rw_mutex&, d1::queuing_rw_mutex::scoped_lock&, bool);
+bool try_acquire(d1::queuing_rw_mutex&, d1::queuing_rw_mutex::scoped_lock&, bool);
+void release(d1::queuing_rw_mutex::scoped_lock&);
+bool upgrade_to_writer(d1::queuing_rw_mutex::scoped_lock&);
+bool downgrade_to_reader(d1::queuing_rw_mutex::scoped_lock&);
+} // namespace r1
+
+namespace d1 {
+
+
+inline void queuing_rw_mutex::scoped_lock::acquire(queuing_rw_mutex& m,bool write) {
+    r1::acquire(m, *this, write);
+}
+
+inline bool queuing_rw_mutex::scoped_lock::try_acquire(queuing_rw_mutex& m, bool write) {
+    return r1::try_acquire(m, *this, write);
+}
+
+inline void queuing_rw_mutex::scoped_lock::release() {
+    r1::release(*this);
+}
+
+inline bool queuing_rw_mutex::scoped_lock::upgrade_to_writer() {
+    return r1::upgrade_to_writer(*this);
+}
+
+inline bool queuing_rw_mutex::scoped_lock::downgrade_to_reader() {
+    return r1::downgrade_to_reader(*this);
+}
+} // namespace d1
+
 } // namespace detail
 
 inline namespace v1 {
 using detail::d1::queuing_rw_mutex;
-__TBB_DEFINE_PROFILING_SET_NAME(queuing_rw_mutex)
 } // namespace v1
+namespace profiling {
+    using detail::d1::set_name;
+}
 } // namespace tbb
 
 #endif /* __TBB_queuing_rw_mutex_H */

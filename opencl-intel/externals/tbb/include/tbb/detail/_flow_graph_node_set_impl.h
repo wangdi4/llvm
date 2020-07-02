@@ -168,7 +168,7 @@ public:
 #else
     static auto get(NodeType& node) -> decltype(get_impl(node, has_input_ports_type<NodeType>()))
 #endif
-	{
+    {
         return get_impl(node, has_input_ports_type<NodeType>());
     }
 };
@@ -189,7 +189,7 @@ class predecessor_selector {
 #else
     static auto get_impl(NodeType& node, std::false_type) -> decltype(internal_get(node, has_output_ports_type<NodeType>()))
 #endif
-	{
+    {
         return internal_get(node, has_output_ports_type<NodeType>());
     }
 
@@ -203,7 +203,7 @@ public:
 #else
     static auto get(NodeType& node) -> decltype(get_impl(node, is_async_node<NodeType>()))
 #endif
-	{
+    {
         return get_impl(node, is_async_node<NodeType>());
     }
 };

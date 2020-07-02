@@ -26,8 +26,11 @@ namespace tbb {
 namespace detail {
 namespace d1 {
 
-#if TBB_USE_THREADING_TOOLS
-    #if TBB_PREVIEW_FLOW_GRAPH_TRACE
+template< typename T > class sender;
+template< typename T > class receiver;
+
+#if TBB_USE_PROFILING_TOOLS
+    #if __TBB_FLOW_TRACE_CODEPTR
         #if (_MSC_VER >= 1900)
             #define CODEPTR() (_ReturnAddress())
         #elif __TBB_GCC_VERSION >= 40800
@@ -37,7 +40,7 @@ namespace d1 {
         #endif
     #else
         #define CODEPTR() NULL
-    #endif /* TBB_PREVIEW_FLOW_GRAPH_TRACE */
+    #endif /* __TBB_FLOW_TRACE_CODEPTR */
 
 static inline void fgt_alias_port(void *node, void *p, bool visible) {
     if(visible)
@@ -49,7 +52,7 @@ static inline void fgt_alias_port(void *node, void *p, bool visible) {
 static inline void fgt_composite ( void* codeptr, void *node, void *graph ) {
     itt_make_task_group( ITT_DOMAIN_FLOW, node, FLOW_NODE, graph, FLOW_GRAPH, FLOW_COMPOSITE_NODE );
     suppress_unused_warning( codeptr );
-#if TBB_PREVIEW_FLOW_GRAPH_TRACE
+#if __TBB_FLOW_TRACE_CODEPTR
     if (codeptr != NULL) {
         register_node_addr(ITT_DOMAIN_FLOW, node, FLOW_NODE, CODE_ADDRESS, &codeptr);
     }
@@ -67,7 +70,7 @@ static inline void fgt_internal_alias_output_port( void *node, void *p, string_r
 }
 
 template<typename InputType>
-void alias_input_port(void *node, tbb::flow::receiver<InputType>* port, string_resource_index name_index) {
+void alias_input_port(void *node, receiver<InputType>* port, string_resource_index name_index) {
     // TODO: Make fgt_internal_alias_input_port a function template?
     fgt_internal_alias_input_port( node, port, name_index);
 }
@@ -75,7 +78,7 @@ void alias_input_port(void *node, tbb::flow::receiver<InputType>* port, string_r
 template < typename PortsTuple, int N >
 struct fgt_internal_input_alias_helper {
     static void alias_port( void *node, PortsTuple &ports ) {
-        alias_input_port( node, &(std::get<N-1>(ports)), static_cast<tbb::internal::string_resource_index>(FLOW_INPUT_PORT_0 + N - 1) );
+        alias_input_port( node, &(std::get<N-1>(ports)), static_cast<string_resource_index>(FLOW_INPUT_PORT_0 + N - 1) );
         fgt_internal_input_alias_helper<PortsTuple, N-1>::alias_port( node, ports );
     }
 };
@@ -86,7 +89,7 @@ struct fgt_internal_input_alias_helper<PortsTuple, 0> {
 };
 
 template<typename OutputType>
-void alias_output_port(void *node, tbb::flow::sender<OutputType>* port, string_resource_index name_index) {
+void alias_output_port(void *node, sender<OutputType>* port, string_resource_index name_index) {
     // TODO: Make fgt_internal_alias_output_port a function template?
     fgt_internal_alias_output_port( node, static_cast<void *>(port), name_index);
 }
@@ -94,7 +97,7 @@ void alias_output_port(void *node, tbb::flow::sender<OutputType>* port, string_r
 template < typename PortsTuple, int N >
 struct fgt_internal_output_alias_helper {
     static void alias_port( void *node, PortsTuple &ports ) {
-        alias_output_port( node, &(std::get<N-1>(ports)), static_cast<tbb::internal::string_resource_index>(FLOW_OUTPUT_PORT_0 + N - 1) );
+        alias_output_port( node, &(std::get<N-1>(ports)), static_cast<string_resource_index>(FLOW_OUTPUT_PORT_0 + N - 1) );
         fgt_internal_output_alias_helper<PortsTuple, N-1>::alias_port( node, ports );
     }
 };
@@ -112,7 +115,7 @@ static inline void fgt_internal_create_input_port( void *node, void *p, string_r
 static inline void fgt_internal_create_output_port( void* codeptr, void *node, void *p, string_resource_index name_index ) {
     itt_make_task_group(ITT_DOMAIN_FLOW, p, FLOW_OUTPUT_PORT, node, FLOW_NODE, name_index);
     suppress_unused_warning( codeptr );
-#if TBB_PREVIEW_FLOW_GRAPH_TRACE
+#if __TBB_FLOW_TRACE_CODEPTR
     if (codeptr != NULL) {
         register_node_addr(ITT_DOMAIN_FLOW, node, FLOW_NODE, CODE_ADDRESS, &codeptr);
     }
@@ -120,18 +123,15 @@ static inline void fgt_internal_create_output_port( void* codeptr, void *node, v
 }
 
 template<typename InputType>
-void register_input_port(void *node, tbb::flow::receiver<InputType>* port, string_resource_index name_index) {
+void register_input_port(void *node, receiver<InputType>* port, string_resource_index name_index) {
     // TODO: Make fgt_internal_create_input_port a function template?
-    // In C++03 dependent name lookup from the template definition context
-    // works only for function declarations with external linkage:
-    // http://www.open-std.org/JTC1/SC22/WG21/docs/cwg_defects.html#561
     fgt_internal_create_input_port(node, static_cast<void*>(port), name_index);
 }
 
 template < typename PortsTuple, int N >
 struct fgt_internal_input_helper {
     static void register_port( void *node, PortsTuple &ports ) {
-        register_input_port( node, &(std::get<N-1>(ports)), static_cast<tbb::internal::string_resource_index>(FLOW_INPUT_PORT_0 + N - 1) );
+        register_input_port( node, &(std::get<N-1>(ports)), static_cast<string_resource_index>(FLOW_INPUT_PORT_0 + N - 1) );
         fgt_internal_input_helper<PortsTuple, N-1>::register_port( node, ports );
     }
 };
@@ -144,7 +144,7 @@ struct fgt_internal_input_helper<PortsTuple, 1> {
 };
 
 template<typename OutputType>
-void register_output_port(void* codeptr, void *node, tbb::flow::sender<OutputType>* port, string_resource_index name_index) {
+void register_output_port(void* codeptr, void *node, sender<OutputType>* port, string_resource_index name_index) {
     // TODO: Make fgt_internal_create_output_port a function template?
     fgt_internal_create_output_port( codeptr, node, static_cast<void *>(port), name_index);
 }
@@ -152,7 +152,7 @@ void register_output_port(void* codeptr, void *node, tbb::flow::sender<OutputTyp
 template < typename PortsTuple, int N >
 struct fgt_internal_output_helper {
     static void register_port( void* codeptr, void *node, PortsTuple &ports ) {
-        register_output_port( codeptr, node, &(std::get<N-1>(ports)), static_cast<tbb::internal::string_resource_index>(FLOW_OUTPUT_PORT_0 + N - 1) );
+        register_output_port( codeptr, node, &(std::get<N-1>(ports)), static_cast<string_resource_index>(FLOW_OUTPUT_PORT_0 + N - 1) );
         fgt_internal_output_helper<PortsTuple, N-1>::register_port( codeptr, node, ports );
     }
 };
@@ -166,7 +166,7 @@ struct fgt_internal_output_helper<PortsTuple,1> {
 
 template< typename NodeType >
 void fgt_multioutput_node_desc( const NodeType *node, const char *desc ) {
-    void *addr =  (void *)( static_cast< tbb::flow::receiver< typename NodeType::input_type > * >(const_cast< NodeType *>(node)) );
+    void *addr =  (void *)( static_cast< receiver< typename NodeType::input_type > * >(const_cast< NodeType *>(node)) );
     itt_metadata_str_add( ITT_DOMAIN_FLOW, addr, FLOW_NODE, FLOW_OBJECT_NAME, desc );
 }
 
@@ -178,12 +178,13 @@ void fgt_multiinput_multioutput_node_desc( const NodeType *node, const char *des
 
 template< typename NodeType >
 static inline void fgt_node_desc( const NodeType *node, const char *desc ) {
-    void *addr =  (void *)( static_cast< tbb::flow::sender< typename NodeType::output_type > * >(const_cast< NodeType *>(node)) );
+    void *addr =  (void *)( static_cast< sender< typename NodeType::output_type > * >(const_cast< NodeType *>(node)) );
     itt_metadata_str_add( ITT_DOMAIN_FLOW, addr, FLOW_NODE, FLOW_OBJECT_NAME, desc );
 }
 
-static inline void fgt_graph_desc( void *g, const char *desc ) {
-    itt_metadata_str_add( ITT_DOMAIN_FLOW, g, FLOW_GRAPH, FLOW_OBJECT_NAME, desc );
+static inline void fgt_graph_desc( const void *g, const char *desc ) {
+    void *addr = const_cast< void *>(g);
+    itt_metadata_str_add( ITT_DOMAIN_FLOW, addr, FLOW_GRAPH, FLOW_OBJECT_NAME, desc );
 }
 
 static inline void fgt_body( void *node, void *body ) {
@@ -215,7 +216,7 @@ static inline void fgt_multiinput_node( void* codeptr, string_resource_index t, 
 static inline void fgt_multiinput_multioutput_node( void* codeptr, string_resource_index t, void *n, void *g ) {
     itt_make_task_group( ITT_DOMAIN_FLOW, n, FLOW_NODE, g, FLOW_GRAPH, t );
     suppress_unused_warning( codeptr );
-#if TBB_PREVIEW_FLOW_GRAPH_TRACE
+#if __TBB_FLOW_TRACE_CODEPTR
     if (codeptr != NULL) {
         register_node_addr(ITT_DOMAIN_FLOW, n, FLOW_NODE, CODE_ADDRESS, &codeptr);
     }
@@ -293,7 +294,7 @@ static inline void fgt_release_wait( void *graph ) {
     itt_region_end( ITT_DOMAIN_FLOW, graph, FLOW_GRAPH );
 }
 
-#else // TBB_USE_THREADING_TOOLS
+#else // TBB_USE_PROFILING_TOOLS
 
 #define CODEPTR() NULL
 
@@ -309,7 +310,7 @@ static inline void fgt_multioutput_node_desc( const NodeType * /*node*/, const c
 template< typename NodeType >
 static inline void fgt_node_desc( const NodeType * /*node*/, const char * /*desc*/ ) { }
 
-static inline void fgt_graph_desc( void * /*g*/, const char * /*desc*/ ) { }
+static inline void fgt_graph_desc( const void * /*g*/, const char * /*desc*/ ) { }
 
 static inline void fgt_body( void * /*node*/, void * /*body*/ ) { }
 
@@ -357,10 +358,10 @@ struct fgt_internal_output_alias_helper {
     static void alias_port( void * /*node*/, PortsTuple & /*ports*/ ) { }
 };
 
-#endif // TBB_USE_THREADING_TOOLS
+#endif // TBB_USE_PROFILING_TOOLS
 
 } // d1
 } // namespace detail
 } // namespace tbb
 
-#endif
+#endif // _FGT_GRAPH_TRACE_IMPL_H

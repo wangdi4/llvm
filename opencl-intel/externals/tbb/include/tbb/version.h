@@ -26,12 +26,12 @@
 // "Patch" version for custom releases
 #define TBB_VERSION_PATCH 0
 // Suffix string
-#define __TBB_VERSION_SUFFIX "-beta07"
+#define __TBB_VERSION_SUFFIX "-beta08"
 // Full official version string
 #define TBB_VERSION_STRING __TBB_STRING(TBB_VERSION_MAJOR) "." __TBB_STRING(TBB_VERSION_MINOR) __TBB_VERSION_SUFFIX
 
 // Full interface version
-#define TBB_INTERFACE_VERSION 12001
+#define TBB_INTERFACE_VERSION 12002
 // Major interface version
 #define TBB_INTERFACE_VERSION_MAJOR (TBB_INTERFACE_VERSION/1000)
 // Minor interface version
@@ -79,6 +79,7 @@
 #define TBB_VERSION_STRINGS_P(N) __TBB_VERSION_NUMBER(N) __TBB_INTERFACE_VERSION_NUMBER(N) __TBB_VERSION_USE_DEBUG(N) __TBB_VERSION_USE_ASSERT(N)
 
 #define TBB_VERSION_STRINGS TBB_VERSION_STRINGS_P(TBB)
+#define TBBMALLOC_VERSION_STRINGS TBB_VERSION_STRINGS_P(TBBmalloc)
 
 //! The function returns the version string for the Intel(R) oneAPI Threading Building Blocks (oneTBB)
 //! shared library being used.

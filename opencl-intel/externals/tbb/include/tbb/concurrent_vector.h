@@ -25,6 +25,7 @@
 #include "blocked_range.h"
 #include "cache_aligned_allocator.h"
 
+#include <algorithm>
 #include <utility> // std::move_if_noexcept
 
 namespace tbb {

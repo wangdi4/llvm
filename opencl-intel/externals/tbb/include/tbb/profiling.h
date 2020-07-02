@@ -20,10 +20,11 @@
 #include "detail/_config.h"
 #include <cstdint>
 
+#include <string>
+
 namespace tbb {
 namespace detail {
 inline namespace d0 {
-    enum byte : unsigned char {};
     // include list of index names
     #define TBB_STRING_RESOURCE(index_name,str) index_name,
     enum string_resource_index : std::uintptr_t {
@@ -56,99 +57,46 @@ inline namespace d0 {
 } // namespace detail
 } // namespace tbb
 
-// Check if the tools support is enabled
-#if (_WIN32||_WIN64||__linux__) && !__MINGW32__ && TBB_USE_PROFILING_TOOLS
-
+#include <atomic>
 #if _WIN32||_WIN64
 #include <stdlib.h>  /* mbstowcs_s */
 #endif
-
-namespace tbb {
-namespace detail {
-namespace d1 {
-
-#if _WIN32||_WIN64
-    void __TBB_EXPORTED_FUNC itt_set_sync_name( void *obj, const wchar_t* name );
-    inline std::size_t multibyte_to_widechar( wchar_t* wcs, const char* mbs, std::size_t bufsize) {
-#if _MSC_VER>=1400
-        std::size_t len;
-        mbstowcs_s( &len, wcs, bufsize, mbs, _TRUNCATE );
-        return len;   // mbstowcs_s counts null terminator
-#else
-        std::size_t len = mbstowcs( wcs, mbs, bufsize );
-        if(wcs && len!=size_t(-1) )
-            wcs[len<bufsize-1? len: bufsize-1] = wchar_t('\0');
-        return len+1; // mbstowcs does not count null terminator
-#endif
-    }
-#else
-    void __TBB_EXPORTED_FUNC itt_set_sync_name( void *obj, const char* name );
-#endif
-} // namespace d1
-} // namespace detail
-} // namespace tbb
-
-//! Macro __TBB_DEFINE_PROFILING_SET_NAME(T) defines "set_name" methods for sync objects of type T
-/** Should be used in the "tbb" namespace only.
-    Don't place semicolon after it to avoid compiler warnings. **/
-#if _WIN32||_WIN64
-    #define __TBB_DEFINE_PROFILING_SET_NAME(sync_object_type)                       \
-        namespace profiling {                                                       \
-            inline void set_name( sync_object_type& obj, const wchar_t* name ) {    \
-                tbb::detail::d1::itt_set_sync_name( &obj, name );                  \
-            }                                                                       \
-            inline void set_name( sync_object_type& obj, const char* name ) {       \
-                std::size_t len = tbb::detail::d1::multibyte_to_widechar(nullptr, name, 0);   \
-                wchar_t *wname = new wchar_t[len];                                  \
-                tbb::detail::d1::multibyte_to_widechar(wname, name, len);             \
-                set_name( obj, wname );                                             \
-                delete[] wname;                                                     \
-            }                                                                       \
-        }
-#else /* !WIN */
-    #define __TBB_DEFINE_PROFILING_SET_NAME(sync_object_type)                       \
-        namespace profiling {                                                       \
-            inline void set_name( sync_object_type& obj, const char* name ) {       \
-                tbb::detail::d1::itt_set_sync_name( &obj, name );                  \
-            }                                                                       \
-        }
-#endif /* !WIN */
-
-#else /* no tools support */
-
-#if _WIN32||_WIN64
-    #define __TBB_DEFINE_PROFILING_SET_NAME(sync_object_type)               \
-        namespace profiling {                                               \
-            inline void set_name( sync_object_type&, const wchar_t* ) {}    \
-            inline void set_name( sync_object_type&, const char* ) {}       \
-        }
-#else /* !WIN */
-    #define __TBB_DEFINE_PROFILING_SET_NAME(sync_object_type)               \
-        namespace profiling {                                               \
-            inline void set_name( sync_object_type&, const char* ) {}       \
-        }
-#endif /* !WIN */
-
-#endif /* no tools support */
-
-#include <atomic>
-
 // Need these to work regardless of tools support
 namespace tbb {
 namespace detail {
 namespace d1 {
-
     enum notify_type {prepare=0, cancel, acquired, releasing};
-
-    void __TBB_EXPORTED_FUNC call_itt_notify_impl(int t, void *ptr);
-    void __TBB_EXPORTED_FUNC create_itt_sync_impl(void *ptr, const tchar *objtype, const tchar *objname);
-
     enum itt_domain_enum { ITT_DOMAIN_FLOW=0, ITT_DOMAIN_MAIN=1, ITT_DOMAIN_ALGO=2, ITT_NUM_DOMAINS };
-    void __TBB_EXPORTED_FUNC itt_make_task_group_impl(itt_domain_enum domain, void* group, unsigned long long group_extra,
+} // namespace d1
+
+namespace r1 {
+    void __TBB_EXPORTED_FUNC call_itt_notify(int t, void* ptr);
+    void __TBB_EXPORTED_FUNC create_itt_sync(void* ptr, const tchar* objtype, const tchar* objname);
+    void __TBB_EXPORTED_FUNC itt_make_task_group(d1::itt_domain_enum domain, void* group, unsigned long long group_extra,
         void* parent, unsigned long long parent_extra, string_resource_index name_index);
-    void __TBB_EXPORTED_FUNC itt_task_begin_impl(itt_domain_enum domain, void* task, unsigned long long task_extra,
+    void __TBB_EXPORTED_FUNC itt_task_begin(d1::itt_domain_enum domain, void* task, unsigned long long task_extra,
         void* parent, unsigned long long parent_extra, string_resource_index name_index);
-    void __TBB_EXPORTED_FUNC itt_task_end_impl(itt_domain_enum domain);
+    void __TBB_EXPORTED_FUNC itt_task_end(d1::itt_domain_enum domain);
+    void __TBB_EXPORTED_FUNC itt_set_sync_name(void* obj, const tchar* name);
+    void __TBB_EXPORTED_FUNC itt_metadata_str_add(d1::itt_domain_enum domain, void* addr, unsigned long long addr_extra,
+        string_resource_index key, const char* value);
+    void __TBB_EXPORTED_FUNC itt_metadata_ptr_add(d1::itt_domain_enum domain, void* addr, unsigned long long addr_extra,
+        string_resource_index key, void* value);
+    void __TBB_EXPORTED_FUNC itt_relation_add(d1::itt_domain_enum domain, void* addr0, unsigned long long addr0_extra,
+        itt_relation relation, void* addr1, unsigned long long addr1_extra);
+    void __TBB_EXPORTED_FUNC itt_region_begin(d1::itt_domain_enum domain, void* region, unsigned long long region_extra,
+        void* parent, unsigned long long parent_extra, string_resource_index /* name_index */);
+    void __TBB_EXPORTED_FUNC itt_region_end(d1::itt_domain_enum domain, void* region, unsigned long long region_extra);
+} // namespace r1
+
+namespace d1 {
+#if TBB_USE_PROFILING_TOOLS && (_WIN32||_WIN64) && !__MINGW32__
+    inline std::size_t multibyte_to_widechar(wchar_t* wcs, const char* mbs, std::size_t bufsize) {
+        std::size_t len;
+        mbstowcs_s(&len, wcs, bufsize, mbs, _TRUNCATE);
+        return len;   // mbstowcs_s counts null terminator
+    }
+#endif
 
 #if TBB_USE_PROFILING_TOOLS
     inline void create_itt_sync(void *ptr, const char *objtype, const char *objname) {
@@ -159,34 +107,102 @@ namespace d1 {
         std::size_t len_name = multibyte_to_widechar(nullptr, objname, 0);
         wchar_t *name = new wchar_t[len_name];
         multibyte_to_widechar(name, objname, len_name);
-#else
+#else // WIN
         const char *type = objtype;
         const char *name = objname;
 #endif
-        create_itt_sync_impl(ptr, type, name);
+        r1::create_itt_sync(ptr, type, name);
 
 #if (_WIN32||_WIN64) && !__MINGW32__
         delete[] type;
         delete[] name;
-#endif
+#endif // WIN
     }
 
-    inline void call_itt_notify(notify_type t, void *ptr) {
-        call_itt_notify_impl((int)t, ptr);
+    inline void call_itt_notify(d1::notify_type t, void *ptr) {
+        r1::call_itt_notify((int)t, ptr);
     }
+
+#if (_WIN32||_WIN64) && !__MINGW32__
+    inline void itt_set_sync_name(void* obj, const wchar_t* name) {
+        r1::itt_set_sync_name(obj, name);
+    }
+    inline void itt_set_sync_name(void* obj, const char* name) {
+        std::size_t len_name = multibyte_to_widechar(nullptr, name, 0);
+        wchar_t *obj_name = new wchar_t[len_name];
+        multibyte_to_widechar(obj_name, name, len_name);
+        r1::itt_set_sync_name(obj, obj_name);
+        delete[] obj_name;
+    }
+#else
+    inline void itt_set_sync_name( void* obj, const char* name) {
+        r1::itt_set_sync_name(obj, name);
+    }
+#endif //WIN
 
     inline void itt_make_task_group(itt_domain_enum domain, void* group, unsigned long long group_extra,
         void* parent, unsigned long long parent_extra, string_resource_index name_index) {
-        itt_make_task_group_impl(domain, group, group_extra, parent, parent_extra, name_index);
+        r1::itt_make_task_group(domain, group, group_extra, parent, parent_extra, name_index);
+    }
+
+    inline void itt_metadata_str_add( itt_domain_enum domain, void *addr, unsigned long long addr_extra,
+                                        string_resource_index key, const char *value ) {
+        r1::itt_metadata_str_add( domain, addr, addr_extra, key, value );
+    }
+
+    inline void register_node_addr(itt_domain_enum domain, void *addr, unsigned long long addr_extra,
+        string_resource_index key, void *value) {
+        r1::itt_metadata_ptr_add(domain, addr, addr_extra, key, value);
+    }
+
+    inline void itt_relation_add( itt_domain_enum domain, void *addr0, unsigned long long addr0_extra,
+                                    itt_relation relation, void *addr1, unsigned long long addr1_extra ) {
+        r1::itt_relation_add( domain, addr0, addr0_extra, relation, addr1, addr1_extra );
+    }
+
+    inline void itt_task_begin( itt_domain_enum domain, void *task, unsigned long long task_extra,
+                                                    void *parent, unsigned long long parent_extra, string_resource_index name_index ) {
+        r1::itt_task_begin( domain, task, task_extra, parent, parent_extra, name_index );
+    }
+
+    inline void itt_task_end( itt_domain_enum domain ) {
+        r1::itt_task_end( domain );
+    }
+
+    inline void itt_region_begin( itt_domain_enum domain, void *region, unsigned long long region_extra,
+                                    void *parent, unsigned long long parent_extra, string_resource_index name_index ) {
+        r1::itt_region_begin( domain, region, region_extra, parent, parent_extra, name_index );
+    }
+
+    inline void itt_region_end( itt_domain_enum domain, void *region, unsigned long long region_extra  ) {
+        r1::itt_region_end( domain, region, region_extra );
     }
 #else
     inline void create_itt_sync(void* /*ptr*/, const char* /*objtype*/, const char* /*objname*/) {}
     inline void call_itt_notify(notify_type /*t*/, void* /*ptr*/) {}
-    inline void itt_make_task_group(itt_domain_enum /*domain*/, void* /*group*/, unsigned long long /*group_extra*/,
-        void* /*parent*/, unsigned long long /*parent_extra*/, string_resource_index /*name_index*/) {}
+
+    inline void itt_make_task_group( itt_domain_enum /*domain*/, void* /*group*/, unsigned long long /*group_extra*/,
+                                        void* /*parent*/, unsigned long long /*parent_extra*/, string_resource_index /*name_index*/ ) {}
+
+    inline void itt_metadata_str_add( itt_domain_enum /*domain*/, void* /*addr*/, unsigned long long /*addr_extra*/,
+                                        string_resource_index /*key*/, const char* /*value*/ ) {}
+
+    inline void register_node_addr( itt_domain_enum /*domain*/, void* /*addr*/, unsigned long long /*addr_extra*/, string_resource_index /*key*/, void* /*value*/ ) {}
+
+    inline void itt_relation_add( itt_domain_enum /*domain*/, void* /*addr0*/, unsigned long long /*addr0_extra*/,
+                                    itt_relation /*relation*/, void* /*addr1*/, unsigned long long /*addr1_extra*/ ) {}
+
+    inline void itt_task_begin( itt_domain_enum /*domain*/, void* /*task*/, unsigned long long /*task_extra*/,
+                                void* /*parent*/, unsigned long long /*parent_extra*/, string_resource_index /*name_index*/ ) {}
+
+    inline void itt_task_end( itt_domain_enum /*domain*/ ) {}
+
+    inline void itt_region_begin( itt_domain_enum /*domain*/, void* /*region*/, unsigned long long /*region_extra*/,
+                                    void* /*parent*/, unsigned long long /*parent_extra*/, string_resource_index /*name_index*/ ) {}
+
+    inline void itt_region_end( itt_domain_enum /*domain*/, void* /*region*/, unsigned long long /*region_extra*/ ) {}
 
 #endif // TBB_USE_PROFILING_TOOLS
-
 
     template <typename T>
     inline void store_with_release_itt(std::atomic<T>& dst, T src) {
@@ -201,6 +217,52 @@ namespace d1 {
     }
 } // namespace d1
 } // namespace detail
+
+namespace detail {
+namespace d1 {
+#if TBB_USE_PROFILING_TOOLS && !(TBB_USE_PROFILING_TOOLS == 2)
+class event {
+/** This class supports user event traces through itt.
+    Common use-case is tagging data flow graph tasks (data-id)
+    and visualization by Intel Advisor Flow Graph Analyzer (FGA)  **/
+//  TODO: Replace implementation by itt user event api.
+
+    const std::string my_name;
+
+    static void emit_trace(const std::string &input) {
+        itt_metadata_str_add( ITT_DOMAIN_FLOW, NULL, FLOW_NULL, USER_EVENT, ( "FGA::DATAID::" + input ).c_str() );
+    }
+
+public:
+    event(const std::string &input)
+              : my_name( input )
+    { }
+
+    void emit() {
+        emit_trace(my_name);
+    }
+
+    static void emit(const std::string &description) {
+        emit_trace(description);
+    }
+
+};
+#else // TBB_USE_PROFILING_TOOLS && !(TBB_USE_PROFILING_TOOLS == 2)
+// Using empty struct if user event tracing is disabled:
+struct event {
+    event(const std::string &) { }
+
+    void emit() { }
+
+    static void emit(const std::string &) { }
+};
+#endif // TBB_USE_PROFILING_TOOLS && !(TBB_USE_PROFILING_TOOLS == 2)
+} // namespace d1
+} // namespace detail
+
+namespace profiling {
+    using detail::d1::event;
+}
 } // namespace tbb
 
 

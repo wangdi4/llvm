@@ -111,9 +111,9 @@ public:
         return res;
     }
 
-    void set_next( size_type level, node_ptr next ) {
-        __TBB_ASSERT(next == nullptr || next->height() > level, "Broken internal structure");
-        get_atomic_next(level).store(next, std::memory_order_relaxed);
+    void set_next( size_type level, node_ptr n ) {
+        __TBB_ASSERT(n == nullptr || n->height() > level, "Broken internal structure");
+        get_atomic_next(level).store(n, std::memory_order_relaxed);
     }
 
     size_type height() const {
@@ -763,8 +763,8 @@ private:
     size_type internal_count( const K& key ) const {
         if (allow_multimapping) {
             // TODO: reimplement without double traversal
-            std::pair<const_iterator, const_iterator> range = equal_range(key);
-            return std::distance(range.first, range.second);
+            std::pair<const_iterator, const_iterator> r = equal_range(key);
+            return std::distance(r.first, r.second);
         }
         return size_type(contains(key) ? 1 : 0);
     }

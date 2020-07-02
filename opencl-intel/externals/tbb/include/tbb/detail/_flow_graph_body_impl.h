@@ -255,7 +255,7 @@ public:
     ) : graph_task(g, allocator, node_priority),
     my_node(n) {}
 
-    task* execute(const execute_data& ed) override {
+    task* execute(execution_data& ed) override {
         graph_task* next_task = my_node.forward_task();
         if (SUCCESSFULLY_ENQUEUED == next_task)
             next_task = nullptr;
@@ -279,7 +279,7 @@ public:
     ) : graph_task(g, allocator, node_priority),
         my_node(n), my_input(i) {}
 
-    task* execute(const execute_data& ed) override {
+    task* execute(execution_data& ed) override {
         graph_task* next_task = my_node.apply_body_bypass( my_input );
         if (SUCCESSFULLY_ENQUEUED == next_task)
             next_task = nullptr;
@@ -299,7 +299,7 @@ public:
     input_node_task_bypass( graph& g, small_object_allocator& allocator, NodeType &n )
         : graph_task(g, allocator), my_node(n) {}
 
-    task* execute(const execute_data& ed) override {
+    task* execute(execution_data& ed) override {
         graph_task* next_task = my_node.apply_body_bypass( );
         if (SUCCESSFULLY_ENQUEUED == next_task)
             next_task = nullptr;

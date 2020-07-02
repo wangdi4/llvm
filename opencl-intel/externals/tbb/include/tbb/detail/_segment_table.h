@@ -226,10 +226,6 @@ public:
         return end;
     }
 
-    size_type total_max_segments() const {
-        return pointers_per_long_table;
-    }
-
     void reserve( size_type n ) {
         if (n > allocator_traits_type::max_size(my_segment_table_allocator)) {
             throw_exception(exception_id::reservation_length_error);

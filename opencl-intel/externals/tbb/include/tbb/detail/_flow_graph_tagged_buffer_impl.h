@@ -153,7 +153,8 @@ private:
                 for( element_type *p = pa[i]; p; p = p_next) {
                     p_next = (element_type *)p->second;
                     // TODO revamp: make sure type casting is correct.
-                    ((value_type*)(p->first))->~value_type();
+                    void* ptr = (void*)(p->first);
+                    ((value_type*)ptr)->~value_type();
                 }
             }
             pointer_array_allocator_type().deallocate(pa, sz);

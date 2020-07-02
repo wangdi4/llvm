@@ -205,15 +205,20 @@ public:
         const padded_page* srcp = src.head_page.load(std::memory_order_relaxed);
         if( is_valid_page(srcp) ) {
             ticket_type g_index = head_counter.load(std::memory_order_relaxed);
+            size_type n_items  = (tail_counter.load(std::memory_order_relaxed) - head_counter.load(std::memory_order_relaxed))
+                / queue_rep_type::n_queue;
+            size_type index = modulo_power_of_two(head_counter.load(std::memory_order_relaxed) / queue_rep_type::n_queue, items_per_page);
+            size_type end_in_first_page = (index+n_items < items_per_page) ? (index + n_items) : items_per_page;
+
             try_call( [&] {
-                size_type n_items  = (tail_counter.load(std::memory_order_relaxed) - head_counter.load(std::memory_order_relaxed))
-                    / queue_rep_type::n_queue;
-                size_type index = modulo_power_of_two(head_counter.load(std::memory_order_relaxed) / queue_rep_type::n_queue, items_per_page);
-                size_type end_in_first_page = (index+n_items < items_per_page) ? (index + n_items) : items_per_page;
-
                 head_page.store(make_copy(base, srcp, index, end_in_first_page, g_index, construct_item), std::memory_order_relaxed);
-                padded_page* cur_page = head_page.load(std::memory_order_relaxed);
+            }).on_exception( [&] {
+                head_counter.store(0, std::memory_order_relaxed);
+                tail_counter.store(0, std::memory_order_relaxed);
+            });
+            padded_page* cur_page = head_page.load(std::memory_order_relaxed);
 
+            try_call( [&] {
                 if (srcp != src.tail_page.load(std::memory_order_relaxed)) {
                     for (srcp = srcp->next; srcp != src.tail_page.load(std::memory_order_relaxed); srcp=srcp->next ) {
                         cur_page->next = make_copy( base, srcp, 0, items_per_page, g_index, construct_item );
@@ -229,7 +234,8 @@ public:
                 }
                 tail_page.store(cur_page, std::memory_order_relaxed);
             }).on_exception( [&] {
-                invalidate_page(g_index);
+                padded_page* invalid_page = reinterpret_cast<padded_page*>(std::uintptr_t(1));
+                tail_page.store(invalid_page, std::memory_order_relaxed);
             });
         } else {
             head_page.store(nullptr, std::memory_order_relaxed);
@@ -252,7 +258,6 @@ public:
         }
         return new_page;
     }
-
 
     void invalidate_page( ticket_type k )  {
         // Append an invalid page at address 1 so that no more pushes are allowed.
@@ -282,8 +287,24 @@ public:
         tail_page.store(pg, std::memory_order_relaxed);
     }
 
-    void set_head_page( padded_page* pg ) {
-        head_page.store(pg, std::memory_order_relaxed);
+    void clear(queue_rep_type& base) {
+        padded_page* curr_page = head_page.load(std::memory_order_relaxed);
+        std::size_t index = head_counter.load(std::memory_order_relaxed);
+        page_allocator_type page_allocator(base.get_allocator());
+
+        while (curr_page) {
+            for (; index != items_per_page - 1; ++index) {
+                curr_page->operator[](index).~value_type();
+            }
+                padded_page* next_page = curr_page->next;
+                page_allocator_traits::destroy(page_allocator, curr_page);
+                page_allocator_traits::deallocate(page_allocator, curr_page, 1);
+                curr_page = next_page;
+        }
+
+        padded_page* invalid_page = reinterpret_cast<padded_page*>(std::uintptr_t(1));
+        head_page.store(invalid_page, std::memory_order_relaxed);
+        tail_page.store(invalid_page, std::memory_order_relaxed);
     }
 
 private:
@@ -423,9 +444,19 @@ public:
         n_invalid_entries.store(src.n_invalid_entries.load(std::memory_order_relaxed), std::memory_order_relaxed);
 
         // copy or move micro_queues
-        for (size_type i = 0; i < n_queue; ++i) {
-            array[i].assign(src.array[i], *this, construct_item);
-        }
+        size_type queue_idx = 0;
+        try_call( [&] {
+            for (; queue_idx < n_queue; ++queue_idx) {
+                array[queue_idx].assign(src.array[queue_idx], *this, construct_item);
+            }
+        }).on_exception( [&] {
+            for (size_type i = 0; i < queue_idx + 1; ++i) {
+                array[i].clear(*this);
+            }
+            head_counter.store(0, std::memory_order_relaxed);
+            tail_counter.store(0, std::memory_order_relaxed);
+            n_invalid_entries.store(0, std::memory_order_relaxed);
+        });
 
         __TBB_ASSERT(head_counter.load(std::memory_order_relaxed) == src.head_counter.load(std::memory_order_relaxed) &&
                      tail_counter.load(std::memory_order_relaxed) == src.tail_counter.load(std::memory_order_relaxed),
@@ -509,7 +540,7 @@ protected:
     }
 
     void advance() {
-        __TBB_ASSERT(my_item, "Attemt to increment iterator past end of the queue");
+        __TBB_ASSERT(my_item, "Attempt to increment iterator past end of the queue");
         std::size_t k = my_head_counter;
 #if TBB_USE_ASSERT
         Value* tmp;
@@ -524,6 +555,11 @@ protected:
         // Advance k
         my_head_counter = ++k;
         if (!get_item(my_item, k)) advance();
+    }
+
+    concurrent_queue_iterator_base& operator=( const concurrent_queue_iterator_base& other ) {
+        this->assign(other);
+        return *this;
     }
 
     bool get_item( Value*& item, std::size_t k ) {

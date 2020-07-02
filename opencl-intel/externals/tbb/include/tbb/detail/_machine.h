@@ -24,7 +24,6 @@
 #include <climits>
 #include <cstdint>
 #include <cstddef>
-#include <thread>
 
 #ifdef _MSC_VER
 #include <intrin.h>
@@ -33,10 +32,32 @@
 #if __TBB_x86_64 || __TBB_x86_32
 #include <immintrin.h> // _mm_pause
 #endif
+#if (_WIN32 || _WIN64)
+#include <float.h> // _control87
+#endif
+
+#if __TBB_GLIBCXX_THIS_THREAD_YIELD_BROKEN
+#include <sched.h> // sched_yield
+#else
+#include <thread> // std::this_thread::yield()
+#endif
 
 namespace tbb {
 namespace detail {
 inline namespace d0 {
+
+//--------------------------------------------------------------------------------------------------
+// Yield implementation
+//--------------------------------------------------------------------------------------------------
+
+#if __TBB_GLIBCXX_THIS_THREAD_YIELD_BROKEN
+static inline void yield() {
+    int err = sched_yield();
+    __TBB_ASSERT_EX(err == 0, "sched_yiled has failed");
+}
+#else
+using std::this_thread::yield;
+#endif
 
 //--------------------------------------------------------------------------------------------------
 // Pause implementation
@@ -49,7 +70,7 @@ static inline void machine_pause(int32_t delay) {
     while (delay-- > 0) { __asm__ __volatile__("yield" ::: "memory"); }
 #else /* Generic */
     (void)delay; // suppress without including _template_helpers.h
-    std::this_thread::yield();
+    yield();
 #endif
 }
 
@@ -265,9 +286,13 @@ struct cpu_ctl_env {
 
 namespace tbb {
 namespace detail {
-namespace d1 {
+
+namespace r1 {
 void* __TBB_EXPORTED_FUNC cache_aligned_allocate(std::size_t size);
-void  __TBB_EXPORTED_FUNC cache_aligned_deallocate(void* p);
+void __TBB_EXPORTED_FUNC cache_aligned_deallocate(void* p);
+} // namespace r1
+
+namespace d1 {
 
 class cpu_ctl_env {
     fenv_t *my_fenv_ptr;
@@ -275,7 +300,7 @@ public:
     cpu_ctl_env() : my_fenv_ptr(NULL) {}
     ~cpu_ctl_env() {
         if ( my_fenv_ptr )
-            cache_aligned_deallocate( (void*)my_fenv_ptr );
+            r1::cache_aligned_deallocate( (void*)my_fenv_ptr );
     }
     // It is possible not to copy memory but just to copy pointers but the following issues should be addressed:
     //   1. The arena lifetime and the context lifetime are independent;
@@ -289,7 +314,7 @@ public:
     cpu_ctl_env& operator=( const cpu_ctl_env &src ) {
         __TBB_ASSERT( src.my_fenv_ptr, NULL );
         if ( !my_fenv_ptr )
-            my_fenv_ptr = (fenv_t*)cache_aligned_allocate(sizeof(fenv_t));
+            my_fenv_ptr = (fenv_t*)r1::cache_aligned_allocate(sizeof(fenv_t));
         *my_fenv_ptr = *src.my_fenv_ptr;
         return *this;
     }
@@ -300,7 +325,7 @@ public:
     }
     void get_env () {
         if ( !my_fenv_ptr )
-            my_fenv_ptr = (fenv_t*)cache_aligned_allocate(sizeof(fenv_t));
+            my_fenv_ptr = (fenv_t*)r1::cache_aligned_allocate(sizeof(fenv_t));
         fegetenv( my_fenv_ptr );
     }
     const cpu_ctl_env& set_env () const {
@@ -310,7 +335,7 @@ public:
     }
 };
 
-} // inline namespace d0
+} // namespace d1
 } // namespace detail
 } // namespace tbb
 

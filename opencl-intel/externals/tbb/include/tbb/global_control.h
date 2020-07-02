@@ -25,6 +25,18 @@
 
 namespace tbb {
 namespace detail {
+
+namespace d1 {
+    class global_control;
+}
+
+namespace r1 {
+void __TBB_EXPORTED_FUNC create(d1::global_control&);
+void __TBB_EXPORTED_FUNC destroy(d1::global_control&);
+std::size_t __TBB_EXPORTED_FUNC global_control_active_value(int);
+struct global_control_impl;
+}
+
 namespace d1 {
 
 class global_control {
@@ -48,7 +60,7 @@ public:
 #endif
         if (my_param==max_allowed_parallelism)
             __TBB_ASSERT_RELEASE(my_value>0, "max_allowed_parallelism cannot be 0.");
-        internal_create();
+        r1::create(*this);
     }
 
     ~global_control() {
@@ -58,21 +70,19 @@ public:
         if (my_param==thread_stack_size)
             return;
 #endif
-        internal_destroy();
+        r1::destroy(*this);
     }
 
     static std::size_t active_value(parameter p) {
         __TBB_ASSERT(p < parameter_max, "Invalid parameter");
-        return active_value((int)p);
+        return r1::global_control_active_value((int)p);
     }
 private:
     std::size_t   my_value;
     global_control *my_next;
     parameter my_param;
 
-    void __TBB_EXPORTED_METHOD internal_create();
-    void __TBB_EXPORTED_METHOD internal_destroy();
-    static std::size_t __TBB_EXPORTED_FUNC active_value(int param);
+    friend struct r1::global_control_impl;
 };
 
 } // namespace d1

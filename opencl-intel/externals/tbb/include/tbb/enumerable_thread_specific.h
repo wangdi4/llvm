@@ -57,20 +57,35 @@ enum ets_key_usage_type {
 template <typename T, typename Allocator, ets_key_usage_type ETS_key_type>
 class enumerable_thread_specific;
 
-template <ets_key_usage_type ETS_key_type>
-struct ets_key_selector {
+template <std::size_t ThreadIDSize>
+struct internal_ets_key_selector {
     using key_type = std::thread::id;
     static key_type current_key() {
         return std::this_thread::get_id();
     }
 };
 
+// Intel Compiler on OSX cannot create atomics objects that instantiated from non-fundamental types
+#if __INTEL_COMPILER && __APPLE__
+template<>
+struct internal_ets_key_selector<sizeof(std::size_t)> {
+    using key_type = std::size_t;
+    static key_type current_key() {
+        auto id = std::this_thread::get_id();
+        return reinterpret_cast<key_type&>(id);
+    }
+};
+#endif
+
+template <ets_key_usage_type ETS_key_type>
+struct ets_key_selector : internal_ets_key_selector<sizeof(std::thread::id)> {};
+
 #if __TBB_RESUMABLE_TASKS
 template <>
 struct ets_key_selector<ets_suspend_aware> {
     using key_type = suspend_point;
     static key_type current_key() {
-        return internal_current_suspend_point();
+        return r1::current_suspend_point();
     }
 };
 #endif

@@ -1232,7 +1232,7 @@ protected:
                         // the wait takes really long, restart the operation
                         b.release();
                         __TBB_ASSERT( !op_insert || !return_value, "Can't acquire new item in locked bucket?" );
-                        std::this_thread::yield();
+                        yield();
                         m = this->my_mask.load(std::memory_order_acquire);
                         goto restart;
                     }

@@ -60,17 +60,17 @@ private:
     //! Where to put result of last subrange, or nullptr if not last subrange.
     Body* m_stuff_last;
 
-    wait_object& m_wait_object;
+    wait_context& m_wait_context;
     sum_node_type* m_parent = nullptr;
 public:
     small_object_allocator m_allocator;
-    final_sum( Body& body, wait_object& w_o, small_object_allocator& alloc ) :
-        m_body(body, split()), m_wait_object(w_o), m_allocator(alloc) {
+    final_sum( Body& body, wait_context& w_o, small_object_allocator& alloc ) :
+        m_body(body, split()), m_wait_context(w_o), m_allocator(alloc) {
         poison_pointer(m_stuff_last);
     }
 
     final_sum( final_sum& sum, small_object_allocator& alloc ) :
-        m_body(sum.m_body, split()), m_wait_object(sum.m_wait_object), m_allocator(alloc) {
+        m_body(sum.m_body, split()), m_wait_context(sum.m_wait_context), m_allocator(alloc) {
         poison_pointer(m_stuff_last);
     }
 
@@ -93,24 +93,24 @@ private:
             }
         }
         else
-            m_wait_object.release_wait();
+            m_wait_context.release();
         return nullptr;
     }
-    sum_node_type* finalize(const execute_data& ed){
+    sum_node_type* finalize(const execution_data& ed){
         sum_node_type* next_task = release_parent();
         m_allocator.delete_object<final_sum>(this, ed);
         return next_task;
     }
 
 public:
-    task* execute(const execute_data& ed) override {
+    task* execute(execution_data& ed) override {
         m_body( *m_range.begin(), final_scan_tag() );
         if( m_stuff_last )
             m_stuff_last->assign(m_body);
 
         return finalize(ed);
     }
-    task* cancel(const execute_data& ed) override {
+    task* cancel(execution_data& ed) override {
         return finalize(ed);
     }
     template<typename Tag>
@@ -126,7 +126,7 @@ public:
     void assign_to( Body& body ) {
         body.assign(m_body);
     }
-    void self_destroy(const execute_data& ed) {
+    void self_destroy(const execution_data& ed) {
         m_allocator.delete_object<final_sum>(this, ed);
     }
 };
@@ -147,19 +147,19 @@ private:
     sum_node *m_right;
     bool m_left_is_final;
     Range m_range;
-    wait_object& m_wait_object;
+    wait_context& m_wait_context;
     sum_node* m_parent;
     small_object_allocator m_allocator;
 public:
     std::atomic<unsigned int> ref_count{0};
-    sum_node( const Range range, bool left_is_final_, sum_node* parent, wait_object& w_o, small_object_allocator& alloc ) :
+    sum_node( const Range range, bool left_is_final_, sum_node* parent, wait_context& w_o, small_object_allocator& alloc ) :
         m_stuff_last(nullptr),
         m_left_sum(nullptr),
         m_left(nullptr),
         m_right(nullptr),
         m_left_is_final(left_is_final_),
         m_range(range),
-        m_wait_object(w_o),
+        m_wait_context(w_o),
         m_parent(parent),
         m_allocator(alloc)
     {
@@ -184,7 +184,7 @@ private:
             }
         }
         else
-            m_wait_object.release_wait();
+            m_wait_context.release();
         return nullptr;
     }
     task* create_child( const Range& range, final_sum_type& body, sum_node* child, final_sum_type* incoming, Body* stuff_last ) {
@@ -198,7 +198,7 @@ private:
         }
     }
 
-    sum_node* finalize(const execute_data& ed) {
+    sum_node* finalize(const execution_data& ed) {
         sum_node* next_task = release_parent();
         m_allocator.delete_object<sum_node>(this, ed);
         return next_task;
@@ -210,7 +210,7 @@ public:
         this->m_incoming = incoming;
         this->m_stuff_last = stuff_last;
     }
-    task* execute(const execute_data& ed) override {
+    task* execute(execution_data& ed) override {
         if( m_body ) {
             if( m_incoming )
                 m_left_sum->reverse_join( *m_incoming );
@@ -219,7 +219,7 @@ public:
             ref_count = (left_child != nullptr) + (right_child != nullptr);
             m_body = nullptr;
             if( left_child ) {
-                task::spawn(*right_child, *ed.context);
+                spawn(*right_child, *ed.context);
                 return left_child;
             } else {
                 return right_child;
@@ -228,10 +228,10 @@ public:
             return finalize(ed);
         }
     }
-    task* cancel(const execute_data& ed) override {
+    task* cancel(execution_data& ed) override {
         return finalize(ed);
     }
-    void self_destroy(const execute_data& ed) {
+    void self_destroy(const execution_data& ed) {
         m_allocator.delete_object<sum_node>(this, ed);
     }
     template<typename range,typename body,typename partitioner>
@@ -256,8 +256,8 @@ public:
     sum_node_type& m_result;
     std::atomic<unsigned int> ref_count{2};
     finish_scan*  m_parent;
-    wait_object& m_wait_object;
-    task* execute(const execute_data& ed) override {
+    wait_context& m_wait_context;
+    task* execute(execution_data& ed) override {
         __TBB_ASSERT( m_result.ref_count.load() == static_cast<unsigned int>((m_result.m_left!=nullptr)+(m_result.m_right!=nullptr)), nullptr );
         if( m_result.m_left )
             m_result.m_left_is_final = false;
@@ -275,17 +275,17 @@ public:
         }
         return finalize(ed);
     }
-    task* cancel(const execute_data& ed) override {
+    task* cancel(execution_data& ed) override {
         return finalize(ed);
     }
-    finish_scan(sum_node_type*& return_slot, final_sum_type** sum, sum_node_type& result_, finish_scan* parent, wait_object& w_o, small_object_allocator& alloc) :
+    finish_scan(sum_node_type*& return_slot, final_sum_type** sum, sum_node_type& result_, finish_scan* parent, wait_context& w_o, small_object_allocator& alloc) :
         m_sum_slot(sum),
         m_return_slot(return_slot),
         m_allocator(alloc),
         m_right_zombie(nullptr),
         m_result(result_),
         m_parent(parent),
-        m_wait_object(w_o)
+        m_wait_context(w_o)
     {
         __TBB_ASSERT( !m_return_slot, nullptr );
     }
@@ -299,10 +299,10 @@ private:
             }
         }
         else
-            m_wait_object.release_wait();
+            m_wait_context.release();
         return nullptr;
     }
-    finish_scan* finalize(const execute_data& ed) {
+    finish_scan* finalize(const execution_data& ed) {
         finish_scan* next_task = release_parent();
         m_allocator.delete_object<finish_scan>(this, ed);
         return next_task;
@@ -328,7 +328,7 @@ private:
 
     finish_pass1_type*  m_parent;
     small_object_allocator m_allocator;
-    wait_object& m_wait_object;
+    wait_context& m_wait_context;
 
     finish_pass1_type* release_parent() {
         if (m_parent) {
@@ -339,19 +339,19 @@ private:
             }
         }
         else
-            m_wait_object.release_wait();
+            m_wait_context.release();
         return nullptr;
     }
 
-    finish_pass1_type* finalize( const execute_data& ed ) {
+    finish_pass1_type* finalize( const execution_data& ed ) {
         finish_pass1_type* next_task = release_parent();
         m_allocator.delete_object<start_scan>(this, ed);
         return next_task;
     }
 
 public:
-    task* execute(const execute_data&) override;
-    task* cancel(const execute_data& ed) override {
+    task* execute( execution_data& ) override;
+    task* cancel( execution_data& ed ) override {
         return finalize(ed);
     }
     start_scan( sum_node_type*& return_slot, start_scan& parent, small_object_allocator& alloc ) :
@@ -364,13 +364,13 @@ public:
         m_is_right_child(true),
         m_parent(parent.m_parent),
         m_allocator(alloc),
-        m_wait_object(parent.m_wait_object)
+        m_wait_context(parent.m_wait_context)
     {
         __TBB_ASSERT( !m_return_slot, nullptr );
         parent.m_is_right_child = false;
     }
 
-    start_scan( sum_node_type*& return_slot, const Range& range, final_sum_type& body, const Partitioner& partitioner, wait_object& w_o, small_object_allocator& alloc ) :
+    start_scan( sum_node_type*& return_slot, const Range& range, final_sum_type& body, const Partitioner& partitioner, wait_context& w_o, small_object_allocator& alloc ) :
         m_return_slot(return_slot),
         m_range(range),
         m_body(body),
@@ -380,7 +380,7 @@ public:
         m_is_right_child(false),
         m_parent(nullptr),
         m_allocator(alloc),
-        m_wait_object(w_o)
+        m_wait_context(w_o)
     {
         __TBB_ASSERT( !m_return_slot, nullptr );
     }
@@ -391,19 +391,19 @@ public:
 
             using start_pass1_type = start_scan<Range,Body,Partitioner>;
             sum_node_type* root = nullptr;
-            wait_object m_wait_object{1};
+            wait_context w_ctx{1};
             small_object_allocator alloc{};
 
-            auto& temp_body = *alloc.new_object<final_sum_type>(body, m_wait_object, alloc);
+            auto& temp_body = *alloc.new_object<final_sum_type>(body, w_ctx, alloc);
             temp_body.reverse_join(body);
 
-            auto& pass1 = *alloc.new_object<start_pass1_type>(/*m_return_slot=*/root, range, temp_body, partitioner, m_wait_object, alloc);
+            auto& pass1 = *alloc.new_object<start_pass1_type>(/*m_return_slot=*/root, range, temp_body, partitioner, w_ctx, alloc);
 
-            task::execute_and_wait(pass1, context, m_wait_object, context);
+            execute_and_wait(pass1, context, w_ctx, context);
             if( root ) {
                 root->prepare_for_execution(temp_body, nullptr, &body);
-                m_wait_object.reserve_wait();
-                task::execute_and_wait(*root, context, m_wait_object, context);
+                w_ctx.reserve();
+                execute_and_wait(*root, context, w_ctx, context);
             } else {
                 temp_body.assign_to(body);
                 temp_body.finish_construction(nullptr, range, nullptr);
@@ -414,12 +414,12 @@ public:
 };
 
 template<typename Range, typename Body, typename Partitioner>
-task* start_scan<Range,Body,Partitioner>::execute( const execute_data& ed ) {
+task* start_scan<Range,Body,Partitioner>::execute( execution_data& ed ) {
     // Inspecting m_parent->result.left_sum would ordinarily be a race condition.
     // But we inspect it only if we are not a stolen task, in which case we
     // know that task assigning to m_parent->result.left_sum has completed.
     __TBB_ASSERT(!m_is_right_child || m_parent, "right child is never an orphan");
-    bool treat_as_stolen = m_is_right_child && (ed.is_stolen_task() || &m_body.get()!=m_parent->m_result.m_left_sum);
+    bool treat_as_stolen = m_is_right_child && (is_stolen(ed) || &m_body.get()!=m_parent->m_result.m_left_sum);
     if( treat_as_stolen ) {
         // Invocation is for right child that has been really stolen or needs to be virtually stolen
         small_object_allocator alloc{};
@@ -440,15 +440,15 @@ task* start_scan<Range,Body,Partitioner>::execute( const execute_data& ed ) {
         next_task = finalize(ed);
     } else {
         small_object_allocator alloc{};
-        auto result = alloc.new_object<sum_node_type>(m_range,/*m_left_is_final=*/m_is_final, m_parent? &m_parent->m_result: nullptr, m_wait_object, alloc);
+        auto result = alloc.new_object<sum_node_type>(m_range,/*m_left_is_final=*/m_is_final, m_parent? &m_parent->m_result: nullptr, m_wait_context, alloc);
 
-        auto new_parent = alloc.new_object<finish_pass1_type>(m_return_slot, m_sum_slot, *result, m_parent, m_wait_object, alloc);
+        auto new_parent = alloc.new_object<finish_pass1_type>(m_return_slot, m_sum_slot, *result, m_parent, m_wait_context, alloc);
         m_parent = new_parent;
 
         // Split off right child
         auto& right_child = *alloc.new_object<start_scan>(/*m_return_slot=*/result->m_right, *this, alloc);
 
-        task::spawn(right_child, *ed.context);
+        spawn(right_child, *ed.context);
 
         m_sum_slot = &result->m_left_sum;
         m_return_slot = result->m_left;
