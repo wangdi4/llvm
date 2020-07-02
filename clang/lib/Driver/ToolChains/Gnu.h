@@ -70,11 +70,10 @@ private:
                               const llvm::opt::ArgList &Args) const;
 };
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-class LLVM_LIBRARY_VISIBILITY SYCLLinker : public GnuTool {
+class LLVM_LIBRARY_VISIBILITY SYCLLinker : public Tool {
 public:
-  SYCLLinker(const ToolChain &TC) : GnuTool("GNU::SYCLLinker", "linker (spirv)", TC) {}
+  SYCLLinker(const ToolChain &TC) : Tool("GNU::SYCLLinker", "linker (spirv)", TC) {}
   bool hasIntegratedCPP() const override { return false; }
   bool isLinkJob() const override { return true; }
 
@@ -93,10 +92,7 @@ private:
 #endif // INTEL_CUSTOMIZATION
 
 
-class LLVM_LIBRARY_VISIBILITY StaticLibTool : public GnuTool {
-=======
 class LLVM_LIBRARY_VISIBILITY StaticLibTool : public Tool {
->>>>>>> 723f4a828167e8815b79aa4f7c57375268c85711
 public:
   StaticLibTool(const ToolChain &TC)
       : Tool("GNU::StaticLibTool", "static-lib-linker", TC) {}
