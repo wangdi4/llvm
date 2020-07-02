@@ -331,11 +331,17 @@ struct _pi_program : _pi_object {
 };
 
 struct _pi_kernel : _pi_object {
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   _pi_kernel(ze_kernel_handle_t Kernel, pi_program Program,
              const char *KernelName)
       : ZeKernel{Kernel}, Program{Program}, KernelName(KernelName) {}
 #endif // INTEL_CUSTOMIZATION
+=======
+  _pi_kernel(ze_kernel_handle_t Kernel, pi_program Program,
+             const char *KernelName)
+      : ZeKernel{Kernel}, Program{Program}, KernelName(KernelName) {}
+>>>>>>> b1b8510925d919c62cabefd3c3396a8300fd3051
 
   // L0 function handle.
   ze_kernel_handle_t ZeKernel;
@@ -343,12 +349,17 @@ struct _pi_kernel : _pi_object {
   // Keep the program of the kernel.
   pi_program Program;
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // TODO: remove when bug in the L0 runtime will be fixed.
   // See:
   // https://gitlab.devtools.intel.com/one-api/level_zero_gpu_driver/issues/72
   std::string KernelName;
 #endif // INTEL_CUSTOMIZATION
+=======
+  // TODO: remove when bug in the L0 runtime will be fixed.
+  std::string KernelName;
+>>>>>>> b1b8510925d919c62cabefd3c3396a8300fd3051
 };
 
 struct _pi_sampler : _pi_object {
