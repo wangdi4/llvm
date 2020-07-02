@@ -270,7 +270,7 @@ _ce_ucodecall(unsigned target) {
 #define _ce_virt_nuke_point() __asm__ __volatile__ ("virt_nuke_point")
 #define _ce_int_trap_point() __asm__ __volatile__ ("int_trap_point")
 
-static __inline__ void __DEFAULT_FN_ATTRS
+static __inline__ void __DEFAULT_FN_ATTRS __attribute__((noreturn))
 _ce_iceret(unsigned target) {
   __asm__ __volatile__ ("iceret %0" :: "a"(target));
 }
