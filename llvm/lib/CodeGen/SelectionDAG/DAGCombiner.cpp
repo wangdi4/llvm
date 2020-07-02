@@ -4886,7 +4886,7 @@ bool DAGCombiner::isLegalNarrowLdSt(LSBaseSDNode *LDST,
     const Align LDSTAlign = LDST->getAlign();
     const Align NarrowAlign = commonAlignment(LDSTAlign, ByteShAmt);
     if (!TLI.allowsMemoryAccess(*DAG.getContext(), DAG.getDataLayout(), MemVT,
-                                LDST->getAddressSpace(), NarrowAlign.value(),
+                                LDST->getAddressSpace(), NarrowAlign,
                                 LDST->getMemOperand()->getFlags()))
       return false;
   }
@@ -8503,7 +8503,7 @@ SDValue DAGCombiner::visitFunnelShift(SDNode *N) {
           SDLoc DL(RHS);
           uint64_t PtrOff =
               IsFSHL ? (((BitWidth - ShAmt) % BitWidth) / 8) : (ShAmt / 8);
-          unsigned NewAlign = MinAlign(RHS->getAlignment(), PtrOff);
+          Align NewAlign = commonAlignment(RHS->getAlign(), PtrOff);
           bool Fast = false;
           if (TLI.allowsMemoryAccess(*DAG.getContext(), DAG.getDataLayout(), VT,
                                      RHS->getAddressSpace(), NewAlign,
@@ -18357,6 +18357,9 @@ SDValue DAGCombiner::reduceBuildVecToShuffle(SDNode *N) {
         !isa<ConstantSDNode>(Op.getOperand(1)))
       return SDValue();
     SDValue ExtractedFromVec = Op.getOperand(0);
+
+    if (ExtractedFromVec.getValueType().isScalableVector())
+      return SDValue();
 
     const APInt &ExtractIdx = Op.getConstantOperandAPInt(1);
     if (ExtractIdx.uge(ExtractedFromVec.getValueType().getVectorNumElements()))
