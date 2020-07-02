@@ -314,12 +314,6 @@ struct _pi_program : _pi_object {
   // L0 module descriptor.
   ze_module_desc_t ZeModuleDesc;
 
-#if INTEL_CUSTOMIZATION
-  // L0 module specialization constants
-  std::mutex ZeSpecConstantsMutex;
-  std::unordered_map<uint32_t, uint64_t> ZeSpecConstants;
-#endif // INTEL_CUSTOMIZATION
-
   // L0 module handle.
   ze_module_handle_t ZeModule;
   // L0 module specialization constants
