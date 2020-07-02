@@ -306,10 +306,6 @@ struct _pi_event : _pi_object {
 };
 
 struct _pi_program : _pi_object {
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-=======
->>>>>>> dddac4a210138a2ccdd54f08cd736e62d937da01
   _pi_program(ze_module_handle_t Module, ze_module_desc_t ModuleDesc,
               pi_context Context)
       : ZeModuleDesc(ModuleDesc), ZeModule{Module},
@@ -317,20 +313,12 @@ struct _pi_program : _pi_object {
 
   // L0 module descriptor.
   ze_module_desc_t ZeModuleDesc;
-<<<<<<< HEAD
-#endif // INTEL_CUSTOMIZATION
 
-  // L0 module handle.
-  ze_module_handle_t ZeModule;
 #if INTEL_CUSTOMIZATION
   // L0 module specialization constants
   std::mutex ZeSpecConstantsMutex;
   std::unordered_map<uint32_t, uint64_t> ZeSpecConstants;
-
-  // L0 build log.
-  ze_module_build_log_handle_t ZeBuildLog;
 #endif // INTEL_CUSTOMIZATION
-=======
 
   // L0 module handle.
   ze_module_handle_t ZeModule;
@@ -338,7 +326,6 @@ struct _pi_program : _pi_object {
   // L0 build log.
   ze_module_build_log_handle_t ZeBuildLog;
 
->>>>>>> dddac4a210138a2ccdd54f08cd736e62d937da01
   // Keep the context of the program.
   pi_context Context;
 };
