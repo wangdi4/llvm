@@ -1,12 +1,8 @@
 ; RUN: opt -S -tbaa -gvn < %s | FileCheck -check-prefix=BASICAA %s
-<<<<<<< HEAD
-; RUN: opt -S -tbaa -disable-basicaa -gvn < %s | FileCheck %s
+; RUN: opt -S -tbaa -disable-basic-aa -gvn < %s | FileCheck %s
 ; INTEL
 ; RUN: opt -convert-to-subscript -S < %s | opt -S -tbaa -gvn | FileCheck -check-prefix=BASICAA %s
-; RUN: opt -convert-to-subscript -S < %s | opt -S -tbaa -disable-basicaa -gvn | FileCheck %s
-=======
-; RUN: opt -S -tbaa -disable-basic-aa -gvn < %s | FileCheck %s
->>>>>>> 4cd19a6e15120cb21c6178f38f5c09fd7123c391
+; RUN: opt -convert-to-subscript -S < %s | opt -S -tbaa -disable-basic-aa -gvn | FileCheck %s
 ; rdar://8875631, rdar://8875069
 
 ; BasicAA should notice that the store stores to the entire %u object,

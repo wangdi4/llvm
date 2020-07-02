@@ -1,4 +1,4 @@
-; RUN: opt < %s -anders-aa -aa-eval -disable-basicaa -print-all-alias-modref-info -whole-program-assume -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -anders-aa -aa-eval -disable-basic-aa -print-all-alias-modref-info -whole-program-assume -disable-output 2>&1 | FileCheck %s
 
 ; This tests the ModRef analysis for various forms of printf routines.
 
