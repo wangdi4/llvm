@@ -1305,8 +1305,8 @@ ExprResult Parser::ParseCastExpression(CastParseKind ParseKind,
     Res = ParseGenericSelectionExpression();
     break;
   case tok::kw___builtin_available:
-<<<<<<< HEAD
-    return ParseAvailabilityCheckExpr(Tok.getLocation());
+    Res = ParseAvailabilityCheckExpr(Tok.getLocation());
+    break;
 #if INTEL_CUSTOMIZATION
   case tok::kw___generic:
     // CQ381345: Parse Intel generic selection expression
@@ -1316,10 +1316,6 @@ ExprResult Parser::ParseCastExpression(CastParseKind ParseKind,
     }
     LLVM_FALLTHROUGH;
 #endif // INTEL_CUSTOMIZATION
-=======
-    Res = ParseAvailabilityCheckExpr(Tok.getLocation());
-    break;
->>>>>>> 4d1b7e9820ee9c87541619ce4dd41e92dc43cd9c
   case tok::kw___builtin_va_arg:
   case tok::kw___builtin_offsetof:
   case tok::kw___builtin_choose_expr:
