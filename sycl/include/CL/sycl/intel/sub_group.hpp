@@ -68,20 +68,6 @@ __SYCL_SG_GENERATE_BODY_2ARG(shuffle_up, SubgroupShuffleUpINTEL)
 
 #undef __SYCL_SG_GENERATE_BODY_2ARG
 
-// Selects 8, 16, 32, or 64-bit type depending on size of scalar type T.
-template <typename T>
-using SelectBlockT = select_cl_scalar_integral_unsigned_t<T>;
-
-template <typename T, access::address_space Space>
-using AcceptableForGlobalLoadStore =
-    bool_constant<!std::is_same<void, SelectBlockT<T>>::value &&
-                  Space == access::address_space::global_space>;
-
-template <typename T, access::address_space Space>
-using AcceptableForLocalLoadStore =
-    bool_constant<!std::is_same<void, SelectBlockT<T>>::value &&
-                  Space == access::address_space::local_space>;
-
 template <typename T, access::address_space Space>
 T load(const multi_ptr<T, Space> src) {
   using BlockT = SelectBlockT<T>;
