@@ -1943,6 +1943,7 @@ pi_result piProgramGetBuildInfo(pi_program Program, pi_device Device,
     if (ParamValueSizeRet) {
       *ParamValueSizeRet = LogSize;
     }
+    return PI_SUCCESS;
   }
 #endif // INTEL_CUSTOMIZATION
   zePrint("piProgramGetBuildInfo: unsupported ParamName\n");
