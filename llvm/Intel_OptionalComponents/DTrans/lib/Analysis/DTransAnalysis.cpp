@@ -8478,6 +8478,7 @@ private:
   // to be eliminated if they are never directly read.
   void analyzeMemcpyOrMemmove(IntrinsicInst &I,
                               dtrans::MemfuncCallInfo::MemfuncKind Kind) {
+
     LLVM_DEBUG(dbgs() << "dtrans: Analyzing memcpy/memmove call:\n  " << I
                       << "\n");
     assert(I.getNumArgOperands() >= 2);
@@ -9008,6 +9009,15 @@ private:
       }
       markStructFieldsWritten(ParentTI, RegionDesc.FirstField,
                               RegionDesc.LastField, I);
+    } else if (FieldNum == 0 && PrePadBytes == 0 &&
+        analyzePartialAccessNestedStructures(StructTy, SetSize)) {
+      LLVM_DEBUG(dbgs() << "dtrans-safety: Memfunc partial write "
+                        << "(nested structure) -- size covers a set of fields"
+                        << " in the inner structures:\n  " << I << "\n");
+
+      setBaseTypeInfoSafetyData(StructTy,
+                                dtrans::MemFuncNestedStructsPartialWrite);
+      return false;
     } else {
       // The size could not be matched to the fields of the structure.
       LLVM_DEBUG(dbgs() << "dtrans-safety: Bad memfunc size -- "
@@ -9019,6 +9029,53 @@ private:
     }
 
     return true;
+  }
+
+  // Return true if the input size (SetSize) partially accesses the inner
+  // structures in StructTy. For example:
+  //
+  //   %class.outer = type { %"class.inner1" }
+  //   %class.inner1 = type { %"class.inner2", %"class.inner2" }
+  //   %class.inner2 = type { %class.TestClass, i64, i64 }
+  //   %class.TestClass = type { i64, i64, i64 }
+  //
+  //   %tmp1 = bitcast %class.outer* %VAR1 to i8*
+  //   %tmp2 = bitcast %class.outer* %VAR2 to i8*
+  //
+  //   call void @llvm.memcpy(i8* nonnull align 8 dereferenceable(32) %tmp1,
+  //                          i8* nonnull align 8 dereferenceable(32) %tmp2,
+  //                          i64 32, i1 false)
+  //
+  // In the example above, the memcpy is just copying the first 32 bytes from
+  // %tmp2 to %tmp1. This means that it is copying the fields 0 and 1 from the
+  // %class.inner2, which can be reached by traversing the 0 element from
+  // %class.outer. This memcpy can be considered as a partial access.
+  bool analyzePartialAccessNestedStructures(StructType *StructTy,
+                                            Value *SetSize) {
+    if (!StructTy || !SetSize)
+      return false;
+
+    uint64_t InputSize = 0;
+    if (auto *Const = dyn_cast<ConstantInt>(SetSize))
+      InputSize = Const->getZExtValue();
+    else
+      return false;
+
+    if (InputSize == 0)
+      return false;
+
+    StructType *CurrStruct = StructTy;
+    while (CurrStruct) {
+      dtrans::MemfuncRegion RegionDesc;
+
+      if (analyzeStructFieldAccess(CurrStruct, 0 /* FieldNum */,
+                                   0 /* PrePadBytes */, InputSize, &RegionDesc))
+        return RegionDesc.PostPadBytes == 0;
+
+      CurrStruct = dyn_cast<StructType>(CurrStruct->getElementType(0));
+    }
+
+    return false;
   }
 
   // Wrapper function for analyzing structure field access which prepares

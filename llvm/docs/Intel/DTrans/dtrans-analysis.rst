@@ -430,6 +430,13 @@ UnsafePointerStoreRelatedTypes
 This safety data is used for special unsafe pointer store to the zero
 field of a structure but won't affect related types.
 
+MemFuncNestedStructsPartialWrite
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This safety data is used when a memory handling function (e.g. memcpy)
+modifies part of the nested structures, but it won't fully cover the
+field zero in the outer most structure.
+
 UnhandledUse
 ~~~~~~~~~~~~
 This is a catch-all flag that will be used to mark any usage pattern that we

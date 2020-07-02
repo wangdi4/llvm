@@ -485,6 +485,11 @@ const SafetyData MismatchedElementAccessRelatedTypes = 0x0000000002000000000;
 // field of a structure but won't affect related types.
 const SafetyData UnsafePointerStoreRelatedTypes = 0x0000000004000000000;
 
+// This safety data is used when a memory handling function (e.g. memcpy)
+// modifies part of the nested structures, but it won't fully cover the
+// field zero in the outer most structure.
+const SafetyData MemFuncNestedStructsPartialWrite = 0x0000000008000000000;
+
 /// This is a catch-all flag that will be used to mark any usage pattern
 /// that we don't specifically recognize. The use might actually be safe
 /// or unsafe, but we will conservatively assume it is unsafe.
@@ -505,7 +510,7 @@ const SafetyData SDDeleteField =
         BadCastingConditional | UnsafePointerStoreConditional | DopeVector |
         BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
         MismatchedElementAccessRelatedTypes |
-        UnsafePointerStoreRelatedTypes;
+        UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite;
 
 const SafetyData SDReorderFields =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
@@ -519,7 +524,7 @@ const SafetyData SDReorderFields =
         DopeVector | BadCastingForRelatedTypes |
         BadPtrManipulationForRelatedTypes |
         MismatchedElementAccessRelatedTypes |
-        UnsafePointerStoreRelatedTypes;
+        UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite;
 
 const SafetyData SDReorderFieldsDependent =
     BadPtrManipulation | GlobalInstance | HasInitializerList |
@@ -527,7 +532,7 @@ const SafetyData SDReorderFieldsDependent =
         BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse |
         WholeStructureReference | VolatileData | BadMemFuncSize |
         BadMemFuncManipulation | AmbiguousPointerTarget | DopeVector |
-        BadPtrManipulationForRelatedTypes;
+        BadPtrManipulationForRelatedTypes | MemFuncNestedStructsPartialWrite;
 
 //
 // Safety conditions for field single value analysis
@@ -551,7 +556,7 @@ const SafetyData SDSingleAllocFunctionNoFieldAddressTaken =
         AddressTaken | MismatchedArgUse |
         BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
         MismatchedElementAccessRelatedTypes |
-        UnsafePointerStoreRelatedTypes |
+        UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite |
         UnhandledUse;
 
 const SafetyData SDSingleAllocFunction =
@@ -566,7 +571,7 @@ const SafetyData SDElimROFieldAccess =
         DopeVector | BadCastingForRelatedTypes |
         BadPtrManipulationForRelatedTypes |
         MismatchedElementAccessRelatedTypes |
-        UnsafePointerStoreRelatedTypes;
+        UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite;
 
 //
 // Safety conditions for a structure to be considered for the AOS-to-SOA
@@ -583,7 +588,7 @@ const SafetyData SDAOSToSOA =
         BadCastingConditional | UnsafePointerStoreConditional | DopeVector |
         BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
         MismatchedElementAccessRelatedTypes |
-        UnsafePointerStoreRelatedTypes;
+        UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite;
 
 //
 // Safety conditions for a structure type that contains a pointer to a
@@ -617,7 +622,7 @@ const SafetyData SDAOSToSOADependentIndex32 =
         UnsafePointerStoreConditional | DopeVector |
         BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
         MismatchedElementAccessRelatedTypes |
-        UnsafePointerStoreRelatedTypes;
+        UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite;
 
 const SafetyData SDDynClone =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
@@ -631,7 +636,7 @@ const SafetyData SDDynClone =
         UnsafePointerStoreConditional | UnhandledUse | DopeVector |
         BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
         MismatchedElementAccessRelatedTypes |
-        UnsafePointerStoreRelatedTypes;
+        UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite;
 
 const SafetyData SDSOAToAOS =
     BadCasting | BadPtrManipulation |
@@ -645,7 +650,7 @@ const SafetyData SDSOAToAOS =
         DopeVector | BadCastingForRelatedTypes |
         BadPtrManipulationForRelatedTypes |
         MismatchedElementAccessRelatedTypes |
-        UnsafePointerStoreRelatedTypes;
+        UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite;
 
 const SafetyData SDMemInitTrimDown =
     BadCasting | BadPtrManipulation |
@@ -659,7 +664,7 @@ const SafetyData SDMemInitTrimDown =
         DopeVector | BadCastingForRelatedTypes |
         BadPtrManipulationForRelatedTypes |
         MismatchedElementAccessRelatedTypes |
-        UnsafePointerStoreRelatedTypes;
+        UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite;
 
 // Safety conditions for structures with padding
 const SafetyData SDPaddedStructures =
