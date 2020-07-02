@@ -3547,3 +3547,4 @@ _ZN2cl4sycl6level012make_programERKNS0_7contextEm
 _ZN2cl4sycl6level013make_platformEm
 _ZNK2cl4sycl7program9getNativeEv
 #end INTEL_CUSTOMIZATION
+_ZNK2cl4sycl8platform11get_backendEv

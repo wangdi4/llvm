@@ -3,7 +3,10 @@
 //
 //==----------------- get_backend.cpp ------------------------==//
 // This is a test of get_backend().
+<<<<<<< HEAD
 // Also prints handy info about the system.
+=======
+>>>>>>> 8f37094b35138d9edd8980f801fe8c2c4cce0ed6
 // Do not set SYCL_BE.  We do not want the preferred backend.
 //==----------------------------------------------------------==//
 
