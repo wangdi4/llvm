@@ -1,6 +1,10 @@
+<<<<<<< HEAD
 ; RUN: opt < %s -disable-basicaa -cfl-steens-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 ; INTEL
 ; RUN: opt < %s -convert-to-subscript -S | opt -disable-basicaa -cfl-steens-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
+=======
+; RUN: opt < %s -disable-basic-aa -cfl-steens-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
+>>>>>>> 4cd19a6e15120cb21c6178f38f5c09fd7123c391
 ; Derived from BasicAA/2010-09-15-GEP-SignedArithmetic.ll
 
 target datalayout = "e-p:32:32:32"
