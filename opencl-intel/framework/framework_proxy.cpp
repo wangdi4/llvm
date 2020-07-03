@@ -96,7 +96,7 @@ void FrameworkProxy::InitOCLEntryPoints()
     ICDDispatchTable.clReleaseContext = (cl_api_clReleaseContext)GET_ALIAS(clReleaseContext);
     ICDDispatchTable.clGetContextInfo = (cl_api_clGetContextInfo)GET_ALIAS(clGetContextInfo);
     ICDDispatchTable.clCreateCommandQueue = (cl_api_clCreateCommandQueue)GET_ALIAS(clCreateCommandQueue);
-	ICDDispatchTable.clCreateCommandQueueWithProperties = (cl_api_clCreateCommandQueueWithProperties)GET_ALIAS(clCreateCommandQueueWithProperties);
+    ICDDispatchTable.clCreateCommandQueueWithProperties = (cl_api_clCreateCommandQueueWithProperties)GET_ALIAS(clCreateCommandQueueWithProperties);
     ICDDispatchTable.clRetainCommandQueue = (cl_api_clRetainCommandQueue)GET_ALIAS(clRetainCommandQueue);
     ICDDispatchTable.clReleaseCommandQueue = (cl_api_clReleaseCommandQueue)GET_ALIAS(clReleaseCommandQueue);
     ICDDispatchTable.clGetCommandQueueInfo = (cl_api_clGetCommandQueueInfo)GET_ALIAS(clGetCommandQueueInfo);

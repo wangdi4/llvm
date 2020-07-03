@@ -59,6 +59,7 @@ bool clCreateKernelTest(openBcFunc pFunc);
 bool clExecutionTest();
 void clGetProgramBuildInfoTest();
 bool clCreateBufferTest();
+bool clCreateBufferWithPropertiesINTELTest();
 bool clCreateSubBufferTest();
 bool clEnqueueRWBuffer();
 bool clFastRelaxedMathModeTest();

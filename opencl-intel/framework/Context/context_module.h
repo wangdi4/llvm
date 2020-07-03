@@ -218,6 +218,15 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         cl_int GetPipeInfo(cl_mem pipe, cl_pipe_info paramName, size_t szParamValueSize, void *pParamValue, size_t* pszParamValueSizeRet);
 
+        /////////////////////////////////////////////////////////////////////
+        //  backport one OpenCL 3.0 function CreateBufferWithProperties
+        /////////////////////////////////////////////////////////////////////
+
+        virtual cl_mem CreateBufferWithPropertiesINTEL(cl_context clContext,const cl_mem_properties_intel* properties, cl_mem_flags clFlags,
+                                                       size_t szSize, void * pHostPtr, cl_int * pErrcodeRet);
+
+        cl_mem CreateBufferImpl(cl_context clContext, cl_mem_flags clFlags, size_t szSize, void * pHostPtr, cl_int * pErrcodeRet);
+
         ///////////////////////////////////////////////////////////////////////
         // IntelFPGA functions
         ///////////////////////////////////////////////////////////////////////

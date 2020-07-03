@@ -15,6 +15,7 @@
 #pragma once
 
 #include "CL/cl.h"
+#include "CL/cl_fpga_ext.h"
 #include "CL/cl_usm_ext.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
@@ -160,4 +161,5 @@ DECLARE_ALIAS(clEnqueueMemFillINTEL);
 DECLARE_ALIAS(clEnqueueMemcpyINTEL);
 DECLARE_ALIAS(clEnqueueMigrateMemINTEL);
 DECLARE_ALIAS(clEnqueueMemAdviseINTEL);
+DECLARE_ALIAS(clCreateBufferWithPropertiesINTEL);
 }}}
