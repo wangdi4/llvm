@@ -12397,6 +12397,7 @@ public:
 
   void CodeCompleteLambdaIntroducer(Scope *S, LambdaIntroducer &Intro,
                                     bool AfterAmpersand);
+  void CodeCompleteAfterFunctionEquals(Declarator &D);
 
   void CodeCompleteObjCAtDirective(Scope *S);
   void CodeCompleteObjCAtVisibility(Scope *S);

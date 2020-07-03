@@ -3634,7 +3634,7 @@ void VarArgsLoweringHelper::createVarArgAreaAndStoreRegisters(
       FuncInfo->setVarArgsGPOffset(NumIntRegs * 8);
       FuncInfo->setVarArgsFPOffset(ArgGPRs.size() * 8 + NumXMMRegs * 16);
       FuncInfo->setRegSaveFrameIndex(FrameInfo.CreateStackObject(
-          ArgGPRs.size() * 8 + ArgXMMs.size() * 16, 16, false));
+          ArgGPRs.size() * 8 + ArgXMMs.size() * 16, Align(16), false));
     }
 
     SmallVector<SDValue, 6>
@@ -3968,7 +3968,7 @@ SDValue X86TargetLowering::LowerFormalArguments(
       // same, so the size of funclets' (mostly empty) frames is dictated by
       // how far this slot is from the bottom (since they allocate just enough
       // space to accommodate holding this slot at the correct offset).
-      int PSPSymFI = MFI.CreateStackObject(8, 8, /*isSS=*/false);
+      int PSPSymFI = MFI.CreateStackObject(8, Align(8), /*isSS=*/false);
       EHInfo->PSPSymFrameIdx = PSPSymFI;
     }
   }
@@ -19932,7 +19932,8 @@ std::pair<SDValue, SDValue> X86TargetLowering::BuildFILD(
   if (useSSE) {
     MachineFunction &MF = DAG.getMachineFunction();
     unsigned SSFISize = DstVT.getStoreSize();
-    int SSFI = MF.getFrameInfo().CreateStackObject(SSFISize, SSFISize, false);
+    int SSFI =
+        MF.getFrameInfo().CreateStackObject(SSFISize, Align(SSFISize), false);
     auto PtrVT = getPointerTy(MF.getDataLayout());
     SDValue StackSlot = DAG.getFrameIndex(SSFI, PtrVT);
     Tys = DAG.getVTList(MVT::Other);
@@ -20508,7 +20509,8 @@ X86TargetLowering::FP_TO_INTHelper(SDValue Op, SelectionDAG &DAG,
   // stack slot.
   MachineFunction &MF = DAG.getMachineFunction();
   unsigned MemSize = DstTy.getStoreSize();
-  int SSFI = MF.getFrameInfo().CreateStackObject(MemSize, MemSize, false);
+  int SSFI =
+      MF.getFrameInfo().CreateStackObject(MemSize, Align(MemSize), false);
   SDValue StackSlot = DAG.getFrameIndex(SSFI, PtrVT);
 
   Chain = IsStrict ? Op.getOperand(0) : DAG.getEntryNode();
@@ -26969,8 +26971,7 @@ SDValue X86TargetLowering::LowerFLT_ROUNDS_(SDValue Op,
   SDLoc DL(Op);
 
   // Save FP Control Word to stack slot
-  int SSFI =
-      MF.getFrameInfo().CreateStackObject(2, 2, false);
+  int SSFI = MF.getFrameInfo().CreateStackObject(2, Align(2), false);
   SDValue StackSlot =
       DAG.getFrameIndex(SSFI, getPointerTy(DAG.getDataLayout()));
 
@@ -34107,7 +34108,8 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
   case X86::FP80_TO_INT64_IN_MEM: {
     // Change the floating point control register to use "round towards zero"
     // mode when truncating to an integer value.
-    int OrigCWFrameIdx = MF->getFrameInfo().CreateStackObject(2, 2, false);
+    int OrigCWFrameIdx =
+        MF->getFrameInfo().CreateStackObject(2, Align(2), false);
     addFrameReference(BuildMI(*BB, MI, DL,
                               TII->get(X86::FNSTCW16m)), OrigCWFrameIdx);
 
@@ -34128,7 +34130,8 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
       .addReg(NewCW, RegState::Kill, X86::sub_16bit);
 
     // Prepare memory for FLDCW.
-    int NewCWFrameIdx = MF->getFrameInfo().CreateStackObject(2, 2, false);
+    int NewCWFrameIdx =
+        MF->getFrameInfo().CreateStackObject(2, Align(2), false);
     addFrameReference(BuildMI(*BB, MI, DL, TII->get(X86::MOV16mr)),
                       NewCWFrameIdx)
       .addReg(NewCW16, RegState::Kill);
@@ -35182,11 +35185,12 @@ X86TargetLowering::targetShrinkDemandedConstant(SDValue Op,
     if (EltSize > ActiveBits && EltSize > 1 && isTypeLegal(VT) &&
         (Opcode == ISD::OR || Opcode == ISD::XOR) &&
         NeedsSignExtension(Op.getOperand(1), ActiveBits)) {
-      EVT BoolVT = EVT::getVectorVT(*TLO.DAG.getContext(), MVT::i1,
+      EVT ExtSVT = EVT::getIntegerVT(*TLO.DAG.getContext(), ActiveBits);
+      EVT ExtVT = EVT::getVectorVT(*TLO.DAG.getContext(), ExtSVT,
                                     VT.getVectorNumElements());
       SDValue NewC =
           TLO.DAG.getNode(ISD::SIGN_EXTEND_INREG, SDLoc(Op), VT,
-                          Op.getOperand(1), TLO.DAG.getValueType(BoolVT));
+                          Op.getOperand(1), TLO.DAG.getValueType(ExtVT));
       SDValue NewOp =
           TLO.DAG.getNode(Opcode, SDLoc(Op), VT, Op.getOperand(0), NewC);
       return TLO.CombineTo(Op, NewOp);
