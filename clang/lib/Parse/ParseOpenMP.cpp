@@ -2057,6 +2057,8 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
     Diag(Tok, diag::err_omp_unexpected_directive)
         << 1 << getOpenMPDirectiveName(DKind);
     break;
+  default:
+    break;
   }
   while (Tok.isNot(tok::annot_pragma_openmp_end))
     ConsumeAnyToken();
@@ -2509,6 +2511,7 @@ Parser::ParseOpenMPDeclarativeOrExecutableDirective(ParsedStmtContext StmtCtx) {
     SkipUntil(tok::annot_pragma_openmp_end);
     break;
   case OMPD_unknown:
+  default:
     Diag(Tok, diag::err_omp_unknown_directive);
     SkipUntil(tok::annot_pragma_openmp_end);
     break;
@@ -2870,6 +2873,8 @@ OMPClause *Parser::ParseOpenMPClause(OpenMPDirectiveKind DKind,
       Diag(Tok, diag::err_omp_unexpected_clause)
           << getOpenMPClauseName(CKind) << getOpenMPDirectiveName(DKind);
     SkipUntil(tok::comma, tok::annot_pragma_openmp_end, StopBeforeMatch);
+    break;
+  default:
     break;
   }
   return ErrorFound ? nullptr : Clause;
