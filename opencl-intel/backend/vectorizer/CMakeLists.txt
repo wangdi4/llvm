@@ -66,6 +66,7 @@ set(TARGET_INCLUDE_FILES
   LoopHandler/CLWGLoopBoundaries.h
   LoopHandler/CLWGLoopCreator.h
   LoopHandler/KernelAnalysis.h
+  LoopHandler/LoopPeeling.h
   LoopHandler/LoopStridedCodeMotion.h
   LoopHandler/LoopWIAnalysis.h
   OCLVecClone/OCLPrepareKernelForVecClone.h
@@ -104,6 +105,7 @@ set(TARGET_SOURCE_FILES
   LoopHandler/CLWGLoopBoundaries.cpp
   LoopHandler/CLWGLoopCreator.cpp
   LoopHandler/KernelAnalysis.cpp
+  LoopHandler/LoopPeeling.cpp
   LoopHandler/LoopStridedCodeMotion.cpp
   LoopHandler/LoopWIAnalysis.cpp
   OCLVecClone/OCLPrepareKernelForVecClone.cpp
