@@ -626,7 +626,6 @@ GenericValue ExecutionEngine::getConstantValue(const Constant *C) {
         }
       }
       break;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     case Type::ArrayTyID: {
         // if the whole array is 'undef'
@@ -641,9 +640,6 @@ GenericValue ExecutionEngine::getConstantValue(const Constant *C) {
       }
       break;
 #endif // INTEL_CUSTOMIZATION
-      case Type::FixedVectorTyID:
-=======
->>>>>>> 9b500e564a74f297567a791e77249c608ad39466
       case Type::ScalableVectorTyID:
         report_fatal_error(
             "Scalable vector support not yet implemented in ExecutionEngine");
