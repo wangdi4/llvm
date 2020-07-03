@@ -163,12 +163,13 @@ bool X86TargetInfo::initFeatureMap(
 #endif // INTEL_CUSTOMIZATION
 
   using namespace llvm::X86;
-  const enum CPUKind Kind = parseArchX86(CPU);
 
-  // Enable X87 for all X86 processors but Lakemont.
-  if (Kind != CK_Lakemont)
-    setFeatureEnabledImpl(Features, "x87", true);
+  SmallVector<StringRef, 16> CPUFeatures;
+  getFeaturesForCPU(CPU, CPUFeatures);
+  for (auto &F : CPUFeatures)
+    setFeatureEnabledImpl(Features, F, true);
 
+<<<<<<< HEAD
   // Enable cmpxchg8 for i586 and greater CPUs. Include generic for backwards
   // compatibility.
   if (Kind >= CK_i586 || Kind == CK_None)
@@ -598,6 +599,8 @@ SkylakeCommon:
     setFeatureEnabledImpl(Features, "mmx", true);
     break;
   }
+=======
+>>>>>>> 3537939cda86f0b5b06233eb99ddc9eb22935008
   if (!TargetInfo::initFeatureMap(Features, Diags, CPU, FeaturesVec))
     return false;
 
@@ -2460,7 +2463,7 @@ bool X86TargetInfo::validateCpuSupports(StringRef FeatureStr) const {
 
 static llvm::X86::ProcessorFeatures getFeature(StringRef Name) {
   return llvm::StringSwitch<llvm::X86::ProcessorFeatures>(Name)
-#define X86_FEATURE_COMPAT(ENUM, STR) .Case(STR, llvm::X86::ENUM)
+#define X86_FEATURE_COMPAT(ENUM, STR) .Case(STR, llvm::X86::FEATURE_##ENUM)
 #include "llvm/Support/X86TargetParser.def"
       ;
   // Note, this function should only be used after ensuring the value is
