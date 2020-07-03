@@ -199,11 +199,12 @@ def OMPC_Flush : Clause<"flush"> {
   let isImplicit = 1;
 }
 def OMPC_ThreadPrivate : Clause<"threadprivate"> {
-  // threadprivate or thread local
+  let alternativeName = "threadprivate or thread local";
   let isImplicit = 1;
 }
 def OMPC_Unknown : Clause<"unknown"> {
   let isImplicit = 1;
+  let isDefault = 1;
 }
 
 //===----------------------------------------------------------------------===//
@@ -554,6 +555,7 @@ def OMP_Scan : Directive<"scan"> {
 }
 def OMP_BeginDeclareVariant : Directive<"begin declare variant"> {}
 def OMP_EndDeclareVariant : Directive<"end declare variant"> {}
+<<<<<<< HEAD
 
 #if INTEL_COLLAB
 def OMP_target_variant_dispatch : Directive<"target variant dispatch"> {
@@ -590,3 +592,8 @@ def OMP_target_parallel_loop : Directive<"target parallel loop"> {
 }
 #endif // INTEL_COLLAB
 def OMP_Unknown : Directive<"unknown"> {}
+=======
+def OMP_Unknown : Directive<"unknown"> {
+  let isDefault = 1;
+}
+>>>>>>> 1a70077b5a64189d9c04d1a2d7ea6ff0e49744d6
