@@ -226,9 +226,11 @@ let Predicates = [HasSVE] in {
 
   defm ADD_ZPZZ  : sve_int_bin_pred_bhsd<AArch64add_p>;
 
-  defm ADD_ZPZZ  : sve_int_bin_pred_zx<int_aarch64_sve_add>;
-  defm SUB_ZPZZ  : sve_int_bin_pred_zx<int_aarch64_sve_sub>;
-  defm SUBR_ZPZZ : sve_int_bin_pred_zx<int_aarch64_sve_subr>;
+  let Predicates = [HasSVE, UseExperimentalZeroingPseudos] in {
+    defm ADD_ZPZZ  : sve_int_bin_pred_zeroing_bhsd<int_aarch64_sve_add>;
+    defm SUB_ZPZZ  : sve_int_bin_pred_zeroing_bhsd<int_aarch64_sve_sub>;
+    defm SUBR_ZPZZ : sve_int_bin_pred_zeroing_bhsd<int_aarch64_sve_subr>;
+  }
 
   defm ORR_ZPmZ : sve_int_bin_pred_log<0b000, "orr", int_aarch64_sve_orr>;
   defm EOR_ZPmZ : sve_int_bin_pred_log<0b001, "eor", int_aarch64_sve_eor>;
@@ -354,18 +356,20 @@ let Predicates = [HasSVE] in {
 
   defm FADD_ZPZZ   : sve_fp_bin_pred_hfd<AArch64fadd_p>;
 
-  defm FADD_ZPZZ   : sve_fp_2op_p_zds_zx<int_aarch64_sve_fadd>;
-  defm FSUB_ZPZZ   : sve_fp_2op_p_zds_zx<int_aarch64_sve_fsub>;
-  defm FMUL_ZPZZ   : sve_fp_2op_p_zds_zx<int_aarch64_sve_fmul>;
-  defm FSUBR_ZPZZ  : sve_fp_2op_p_zds_zx<int_aarch64_sve_fsubr>;
-  defm FMAXNM_ZPZZ : sve_fp_2op_p_zds_zx<int_aarch64_sve_fmaxnm>;
-  defm FMINNM_ZPZZ : sve_fp_2op_p_zds_zx<int_aarch64_sve_fminnm>;
-  defm FMAX_ZPZZ   : sve_fp_2op_p_zds_zx<int_aarch64_sve_fmax>;
-  defm FMIN_ZPZZ   : sve_fp_2op_p_zds_zx<int_aarch64_sve_fmin>;
-  defm FABD_ZPZZ   : sve_fp_2op_p_zds_zx<int_aarch64_sve_fabd>;
-  defm FMULX_ZPZZ  : sve_fp_2op_p_zds_zx<int_aarch64_sve_fmulx>;
-  defm FDIVR_ZPZZ  : sve_fp_2op_p_zds_zx<int_aarch64_sve_fdivr>;
-  defm FDIV_ZPZZ   : sve_fp_2op_p_zds_zx<int_aarch64_sve_fdiv>;
+  let Predicates = [HasSVE, UseExperimentalZeroingPseudos] in {
+    defm FADD_ZPZZ   : sve_fp_2op_p_zds_zeroing_hsd<int_aarch64_sve_fadd>;
+    defm FSUB_ZPZZ   : sve_fp_2op_p_zds_zeroing_hsd<int_aarch64_sve_fsub>;
+    defm FMUL_ZPZZ   : sve_fp_2op_p_zds_zeroing_hsd<int_aarch64_sve_fmul>;
+    defm FSUBR_ZPZZ  : sve_fp_2op_p_zds_zeroing_hsd<int_aarch64_sve_fsubr>;
+    defm FMAXNM_ZPZZ : sve_fp_2op_p_zds_zeroing_hsd<int_aarch64_sve_fmaxnm>;
+    defm FMINNM_ZPZZ : sve_fp_2op_p_zds_zeroing_hsd<int_aarch64_sve_fminnm>;
+    defm FMAX_ZPZZ   : sve_fp_2op_p_zds_zeroing_hsd<int_aarch64_sve_fmax>;
+    defm FMIN_ZPZZ   : sve_fp_2op_p_zds_zeroing_hsd<int_aarch64_sve_fmin>;
+    defm FABD_ZPZZ   : sve_fp_2op_p_zds_zeroing_hsd<int_aarch64_sve_fabd>;
+    defm FMULX_ZPZZ  : sve_fp_2op_p_zds_zeroing_hsd<int_aarch64_sve_fmulx>;
+    defm FDIVR_ZPZZ  : sve_fp_2op_p_zds_zeroing_hsd<int_aarch64_sve_fdivr>;
+    defm FDIV_ZPZZ   : sve_fp_2op_p_zds_zeroing_hsd<int_aarch64_sve_fdiv>;
+  }
 
   defm FADD_ZZZ    : sve_fp_3op_u_zd<0b000, "fadd",    fadd>;
   defm FSUB_ZZZ    : sve_fp_3op_u_zd<0b001, "fsub",    fsub>;
@@ -1260,10 +1264,12 @@ multiclass sve_prefetch<SDPatternOperator prefetch, ValueType PredTy, Instructio
   defm LSL_ZPmI  : sve_int_bin_pred_shift_imm_left< 0b0011, "lsl">;
   defm ASRD_ZPmI : sve_int_bin_pred_shift_imm_right<0b0100, "asrd", "ASRD_ZPZI", int_aarch64_sve_asrd>;
 
-  defm ASR_ZPZZ  : sve_int_bin_pred_zx<AArch64asr_m1>;
-  defm LSR_ZPZZ  : sve_int_bin_pred_zx<AArch64lsr_m1>;
-  defm LSL_ZPZZ  : sve_int_bin_pred_zx<AArch64lsl_m1>;
-  defm ASRD_ZPZI : sve_int_bin_pred_shift_0_right_zx<int_aarch64_sve_asrd>;
+  let Predicates = [HasSVE, UseExperimentalZeroingPseudos] in {
+    defm ASR_ZPZZ    : sve_int_bin_pred_zeroing_bhsd<AArch64asr_m1>;
+    defm LSR_ZPZZ    : sve_int_bin_pred_zeroing_bhsd<AArch64lsr_m1>;
+    defm LSL_ZPZZ    : sve_int_bin_pred_zeroing_bhsd<AArch64lsl_m1>;
+    defm ASRD_ZPZI   : sve_int_bin_pred_shift_imm_right_zeroing_bhsd<int_aarch64_sve_asrd>;
+  }
 
   defm ASR_ZPmZ  : sve_int_bin_pred_shift<0b000, "asr", "ASR_ZPZZ", AArch64asr_m1, "ASRR_ZPmZ", 1>;
   defm LSR_ZPmZ  : sve_int_bin_pred_shift<0b001, "lsr", "LSR_ZPZZ", AArch64lsr_m1, "LSRR_ZPmZ", 1>;
@@ -1693,8 +1699,14 @@ multiclass sve_prefetch<SDPatternOperator prefetch, ValueType PredTy, Instructio
 
   multiclass unpred_store<PatFrag Store, ValueType Ty, Instruction RegImmInst,
                           Instruction PTrue> {
-    def : Pat<(Store (Ty ZPR:$val), (am_sve_fi GPR64sp:$base, simm4s1:$offset)),
-              (RegImmInst ZPR:$val, (PTrue 31), GPR64sp:$base, simm4s1:$offset)>;
+    let AddedComplexity = 1 in {
+      def _imm : Pat<(Store (Ty ZPR:$val), (am_sve_indexed_s4 GPR64sp:$base, simm4s1:$offset)),
+                     (RegImmInst ZPR:$val, (PTrue 31), GPR64sp:$base, simm4s1:$offset)>;
+    }
+    let AddedComplexity = 2 in {
+      def _fi : Pat<(Store (Ty ZPR:$val), (am_sve_fi GPR64sp:$base, simm4s1:$offset)),
+                    (RegImmInst ZPR:$val, (PTrue 31), GPR64sp:$base, simm4s1:$offset)>;
+    }
 
     def : Pat<(Store (Ty ZPR:$val), GPR64:$base),
               (RegImmInst ZPR:$val, (PTrue 31), GPR64:$base, (i64 0))>;
@@ -1711,6 +1723,7 @@ multiclass sve_prefetch<SDPatternOperator prefetch, ValueType PredTy, Instructio
   defm : unpred_store<truncstorevi32, nxv2i64, ST1W_D_IMM, PTRUE_D>;
   defm : unpred_store<         store, nxv2i64,   ST1D_IMM, PTRUE_D>;
   defm : unpred_store<         store, nxv8f16,   ST1H_IMM, PTRUE_H>;
+  defm : unpred_store<         store, nxv8bf16,  ST1H_IMM, PTRUE_H>;
   defm : unpred_store<         store, nxv4f16, ST1H_S_IMM, PTRUE_S>;
   defm : unpred_store<         store, nxv2f16, ST1H_D_IMM, PTRUE_D>;
   defm : unpred_store<         store, nxv4f32,   ST1W_IMM, PTRUE_S>;
@@ -1756,6 +1769,7 @@ multiclass sve_prefetch<SDPatternOperator prefetch, ValueType PredTy, Instructio
   defm : unpred_load<sextloadvi32, nxv2i64, LD1SW_D_IMM, PTRUE_D>;
   defm : unpred_load<        load, nxv2i64,    LD1D_IMM, PTRUE_D>;
   defm : unpred_load<        load, nxv8f16,    LD1H_IMM, PTRUE_H>;
+  defm : unpred_load<        load, nxv8bf16,   LD1H_IMM, PTRUE_H>;
   defm : unpred_load<        load, nxv4f16,  LD1H_S_IMM, PTRUE_S>;
   defm : unpred_load<        load, nxv2f16,  LD1H_D_IMM, PTRUE_D>;
   defm : unpred_load<        load, nxv4f32,    LD1W_IMM, PTRUE_S>;
@@ -2280,6 +2294,14 @@ let Predicates = [HasSVE2] in {
   defm SRSHR_ZPmI  : sve_int_bin_pred_shift_imm_right<0b1100,  "srshr",  "SRSHR_ZPZI",  int_aarch64_sve_srshr>;
   defm URSHR_ZPmI  : sve_int_bin_pred_shift_imm_right<0b1101,  "urshr",  "URSHR_ZPZI",  int_aarch64_sve_urshr>;
   defm SQSHLU_ZPmI : sve2_int_bin_pred_shift_imm_left< 0b1111, "sqshlu", "SQSHLU_ZPZI", int_aarch64_sve_sqshlu>;
+
+  let Predicates = [HasSVE2, UseExperimentalZeroingPseudos] in {
+    defm SQSHL_ZPZI  : sve_int_bin_pred_shift_imm_left_zeroing_bhsd<null_frag>;
+    defm UQSHL_ZPZI  : sve_int_bin_pred_shift_imm_left_zeroing_bhsd<null_frag>;
+    defm SRSHR_ZPZI  : sve_int_bin_pred_shift_imm_right_zeroing_bhsd<int_aarch64_sve_srshr>;
+    defm URSHR_ZPZI  : sve_int_bin_pred_shift_imm_right_zeroing_bhsd<int_aarch64_sve_urshr>;
+    defm SQSHLU_ZPZI : sve_int_bin_pred_shift_imm_left_zeroing_bhsd<int_aarch64_sve_sqshlu>;
+  }
 
   // SVE2 integer add/subtract long
   defm SADDLB_ZZZ : sve2_wide_int_arith_long<0b00000, "saddlb", int_aarch64_sve_saddlb>;
