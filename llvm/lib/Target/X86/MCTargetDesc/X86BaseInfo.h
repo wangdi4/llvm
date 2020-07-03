@@ -623,31 +623,27 @@ namespace X86II {
     /// information.  In the intel manual these are represented as /0, /1, ...
     ///
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     /// MRMDestReg4VOp3 - This form is used for instructions that use the Mod/RM
     /// byte to specify a destination which in this case is register and operand
     /// 3 with VEX.VVVV and do not load from memory.
     ///
-    MRMDestReg4VOp3 = 19,
+    MRMDestReg4VOp3 = 17,
 
     /// MRMDestMem4VOp3 - This form is used for instructions that use the Mod/RM
     /// byte to specify a destination which in this case is memory and operand 3
     /// with VEX.VVVV.
     ///
-    MRMDestMem4VOp3 = 20,
+    MRMDestMem4VOp3 = 18,
 
     /// MRMDestMem4VOp2FSIB - sibmem encoding for dst memory.
     /// src1 mod/r, src2 vex.4v
-    MRMDestMem4VOp2FSIB = 21,
+    MRMDestMem4VOp2FSIB = 19,
 
     /// MRMSrcMem4VOp3FSIB - But force to use the SIB field.
-    MRMSrcMem4VOp3FSIB = 22,
+    MRMSrcMem4VOp3FSIB = 20,
 
-    /// MRMDestMem - But force to use the SIB field.
-    MRMDestMemFSIB = 23,
 #endif // INTEL_CUSTOMIZATION
-=======
     // Instructions operate on a register Reg/Opcode operand not the r/m field.
     MRMr0 = 21,
 
@@ -656,7 +652,6 @@ namespace X86II {
 
     /// MRMDestMem - But force to use the SIB field.
     MRMDestMemFSIB = 23,
->>>>>>> aded4f0cc070fcef6763c9a3c2ba764d652b692e
 
     /// MRMDestMem - This form is used for instructions that use the Mod/RM byte
     /// to specify a destination, which in this case is memory.
@@ -682,11 +677,6 @@ namespace X86II {
     /// byte to specify the operands and also encodes a condition code.
     ///
     MRMSrcMemCC    = 28,
-
-#if INTEL_CUSTOMIZATION
-    /// MRMSrcMem - But force to use the SIB field.
-    MRMSrcMemFSIB  = 29,
-#endif // INTEL_CUSTOMIZATION
 
     /// MRMXm - This form is used for instructions that use the Mod/RM byte
     /// to specify a memory source, but doesn't use the middle field. And has
@@ -727,11 +717,6 @@ namespace X86II {
     /// byte to specify the operands and also encodes a condition code
     ///
     MRMSrcRegCC    = 44,
-
-#if INTEL_CUSTOMIZATION
-    // Instructions operate on a register Reg/Opcode operand not the r/m field.
-    MRMr0 = 45,
-#endif // INTEL_CUSTOMIZATION
 
     /// MRMXCCr - This form is used for instructions that use the Mod/RM byte
     /// to specify a register source, but doesn't use the middle field. And has
@@ -1145,23 +1130,14 @@ namespace X86II {
     case X86II::PrefixByte:
       return -1;
     case X86II::MRMDestMem:
-<<<<<<< HEAD
+    case X86II::MRMDestMemFSIB:
 #if INTEL_CUSTOMIZATION
     case X86II::MRMDestMem4VOp2FSIB:
-    case X86II::MRMDestMemFSIB:
     case X86II::MRMDestMem4VOp3:
 #endif // INTEL_CUSTOMIZATION
       return 0;
     case X86II::MRMSrcMem:
-#if INTEL_CUSTOMIZATION
     case X86II::MRMSrcMemFSIB:
-#endif // INTEL_CUSTOMIZATION
-=======
-    case X86II::MRMDestMemFSIB:
-      return 0;
-    case X86II::MRMSrcMem:
-    case X86II::MRMSrcMemFSIB:
->>>>>>> aded4f0cc070fcef6763c9a3c2ba764d652b692e
       // Start from 1, skip any registers encoded in VEX_VVVV or I8IMM, or a
       // mask register.
       return 1 + HasVEX_4V + HasEVEX_K;
@@ -1187,7 +1163,6 @@ namespace X86II {
     case X86II::MRMr0:
     case X86II::MRMXr:
 #if INTEL_CUSTOMIZATION
-    case X86II::MRMr0:
     case X86II::MRMDestReg4VOp3:
 #endif // INTEL_CUSTOMIZATION
     case X86II::MRM0r: case X86II::MRM1r:

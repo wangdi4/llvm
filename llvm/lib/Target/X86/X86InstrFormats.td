@@ -28,23 +28,18 @@ def RawFrmImm8    : Format<7>;
 def RawFrmImm16   : Format<8>;
 def AddCCFrm      : Format<9>;
 def PrefixByte    : Format<10>;
-<<<<<<< HEAD
-def MRMDestReg4VOp3     : Format<19>; //INTEL
-def MRMDestMem4VOp3     : Format<20>; //INTEL
-def MRMDestMem4VOp2FSIB : Format<21>; //INTEL
-def MRMSrcMem4VOp3FSIB  : Format<22>; //INTEL
-def MRMDestMemFSIB      : Format<23>; //INTEL
-=======
+def MRMDestReg4VOp3     : Format<17>; //INTEL
+def MRMDestMem4VOp3     : Format<18>; //INTEL
+def MRMDestMem4VOp2FSIB : Format<19>; //INTEL
+def MRMSrcMem4VOp3FSIB  : Format<20>; //INTEL
 def MRMr0          : Format<21>;
 def MRMSrcMemFSIB  : Format<22>;
 def MRMDestMemFSIB : Format<23>;
->>>>>>> aded4f0cc070fcef6763c9a3c2ba764d652b692e
 def MRMDestMem     : Format<24>;
 def MRMSrcMem      : Format<25>;
 def MRMSrcMem4VOp3 : Format<26>;
 def MRMSrcMemOp4   : Format<27>;
 def MRMSrcMemCC    : Format<28>;
-def MRMSrcMemFSIB  : Format<29>; //INTEL
 def MRMXmCC: Format<30>;
 def MRMXm  : Format<31>;
 def MRM0m  : Format<32>;  def MRM1m  : Format<33>;  def MRM2m  : Format<34>;
@@ -55,7 +50,6 @@ def MRMSrcReg      : Format<41>;
 def MRMSrcReg4VOp3 : Format<42>;
 def MRMSrcRegOp4   : Format<43>;
 def MRMSrcRegCC    : Format<44>;
-def MRMr0  : Format<45>; //INTEL
 def MRMXrCC: Format<46>;
 def MRMXr  : Format<47>;
 def MRM0r  : Format<48>;  def MRM1r  : Format<49>;  def MRM2r  : Format<50>;

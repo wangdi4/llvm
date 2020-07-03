@@ -103,25 +103,18 @@ namespace X86Local {
     RawFrmImm16   = 8,
     AddCCFrm      = 9,
     PrefixByte    = 10,
-<<<<<<< HEAD
-    MRMDestReg4VOp3     = 19, // INTEL
-    MRMDestMem4VOp3     = 20, // INTEL
-    MRMDestMem4VOp2FSIB = 21, // INTEL
-    MRMSrcMem4VOp3FSIB  = 22, // INTEL
-    MRMDestMemFSIB      = 23, // INTEL
-=======
+    MRMDestReg4VOp3     = 17, // INTEL
+    MRMDestMem4VOp3     = 18, // INTEL
+    MRMDestMem4VOp2FSIB = 19, // INTEL
+    MRMSrcMem4VOp3FSIB  = 20, // INTEL
     MRMr0          = 21,
     MRMSrcMemFSIB  = 22,
     MRMDestMemFSIB = 23,
->>>>>>> aded4f0cc070fcef6763c9a3c2ba764d652b692e
     MRMDestMem     = 24,
     MRMSrcMem      = 25,
     MRMSrcMem4VOp3 = 26,
     MRMSrcMemOp4   = 27,
     MRMSrcMemCC    = 28,
-#if INTEL_CUSTOMIZATION
-    MRMSrcMemFSIB  = 29,
-#endif // INTEL_CUSTOMIZATION
     MRMXmCC = 30, MRMXm = 31,
     MRM0m = 32, MRM1m = 33, MRM2m = 34, MRM3m = 35,
     MRM4m = 36, MRM5m = 37, MRM6m = 38, MRM7m = 39,
@@ -130,9 +123,6 @@ namespace X86Local {
     MRMSrcReg4VOp3 = 42,
     MRMSrcRegOp4   = 43,
     MRMSrcRegCC    = 44,
-#if INTEL_CUSTOMIZATION
-    MRMr0 = 45,
-#endif // INTEL_CUSTOMIZATION
     MRMXrCC = 46, MRMXr = 47,
     MRM0r = 48, MRM1r = 49, MRM2r = 50, MRM3r = 51,
     MRM4r = 52, MRM5r = 53, MRM6r = 54, MRM7r = 55,

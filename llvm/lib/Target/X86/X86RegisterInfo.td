@@ -291,13 +291,7 @@ let SubRegIndices = [sub_ymm] in {
   }
 }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX
-// Tile "registers". These aren't really registers. Or are they?
-=======
 // Tile "registers".
->>>>>>> aded4f0cc070fcef6763c9a3c2ba764d652b692e
 def TMM0:  X86Reg<"tmm0",   0>;
 def TMM1:  X86Reg<"tmm1",   1>;
 def TMM2:  X86Reg<"tmm2",   2>;
@@ -306,7 +300,8 @@ def TMM4:  X86Reg<"tmm4",   4>;
 def TMM5:  X86Reg<"tmm5",   5>;
 def TMM6:  X86Reg<"tmm6",   6>;
 def TMM7:  X86Reg<"tmm7",   7>;
-<<<<<<< HEAD
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
 // FIXME Just align with ICC, tmm8-15 is not supported by HW.
 def TMM8:  X86Reg<"tmm8",   8>;
 def TMM9:  X86Reg<"tmm9",   9>;
@@ -335,8 +330,6 @@ def TMM30: X86Reg<"tmm30", 30>;
 def TMM31: X86Reg<"tmm31", 31>;
 #endif // INTEL_FEATURE_ISA_AMX
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> aded4f0cc070fcef6763c9a3c2ba764d652b692e
 
 // Mask Registers, used by AVX-512 instructions.
 def K0 : X86Reg<"k0", 0>, DwarfRegNum<[118,  93,  93]>;
@@ -731,7 +724,6 @@ def VK64WM  : RegisterClass<"X86", [v64i1], 64, (add VK32WM)> {let Size = 64;}
 // Bound registers
 def BNDR : RegisterClass<"X86", [v2i64], 128, (sequence "BND%u", 0, 3)>;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
 // Tiles
@@ -781,9 +773,7 @@ def Z16TUPLES : RegisterTuples<[sub_z0, sub_z1, sub_z2, sub_z3, sub_z4, sub_z5, 
 def ZMM16TUPLES : RegisterClass<"X86", [untyped], 512, (add Z16TUPLES)> {let Size = 8196;}
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION
-=======
 // Tiles
 let isAllocatable = 0 in
 def TILE : RegisterClass<"X86", [untyped], 0,
                          (sequence "TMM%u", 0, 7)> {let Size = 8192;}
->>>>>>> aded4f0cc070fcef6763c9a3c2ba764d652b692e

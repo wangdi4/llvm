@@ -3311,7 +3311,6 @@ include "X86InstrSVM.td"
 include "X86InstrTSX.td"
 include "X86InstrSGX.td"
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_KEYLOCKER
 include "Intel_X86InstrKL.td"
@@ -3326,10 +3325,8 @@ include "Intel_X86InstrAMX.td"
 include "Intel_X86InstrIceCode.td"
 #endif // INTEL_FEATURE_ICECODE
 #endif // INTEL_CUSTOMIZATION
-=======
 // AMX instructions
 include "X86InstrAMX.td"
->>>>>>> aded4f0cc070fcef6763c9a3c2ba764d652b692e
 
 // System instructions.
 include "X86InstrSystem.td"

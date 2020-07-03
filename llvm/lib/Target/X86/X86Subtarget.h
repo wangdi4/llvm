@@ -906,13 +906,7 @@ public:
   bool useRetpolineIndirectBranches() const {
     return UseRetpolineIndirectBranches;
   }
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX
-  bool hasAMXTILE() const { return HasAMXTILE; }
-  bool hasAMXBF16() const { return HasAMXBF16; }
-  bool hasAMXINT8() const { return HasAMXINT8; }
-#endif // INTEL_FEATURE_ISA_AMX
 #if INTEL_FEATURE_ISA_AMX_FUTURE
   bool hasAMXELEMENT() const { return HasAMXELEMENT; }
   bool hasAMXREDUCE() const { return HasAMXREDUCE; }
@@ -975,11 +969,9 @@ public:
   bool hasAVXCOMPRESS() const { return HasAVXCOMPRESS; }
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
 #endif // INTEL_CUSTOMIZATION
-=======
   bool hasAMXTILE() const { return HasAMXTILE; }
   bool hasAMXBF16() const { return HasAMXBF16; }
   bool hasAMXINT8() const { return HasAMXINT8; }
->>>>>>> aded4f0cc070fcef6763c9a3c2ba764d652b692e
   bool useRetpolineExternalThunk() const { return UseRetpolineExternalThunk; }
 
   // These are generic getters that OR together all of the thunk types

@@ -40,7 +40,6 @@ static const char *isInvalidMemoryInstr(const Instruction &Instr) {
   case X86II::MRMSrcReg4VOp3:
   case X86II::MRMSrcRegOp4:
   case X86II::MRMSrcRegCC:
-  case X86II::MRMr0: //INTEL
   case X86II::MRMXrCC:
   case X86II::MRMr0:
   case X86II::MRMXr:

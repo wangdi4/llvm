@@ -174,19 +174,9 @@ static InstrUID decode(OpcodeType type, InstructionContext insnContext,
     if (modFromModRM(modRM) == 0x3)
       return modRMTable[dec->instructionIDs + ((modRM & 0x38) >> 3) + 8];
     return modRMTable[dec->instructionIDs + ((modRM & 0x38) >> 3)];
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX
   case MODRM_SPLITREGM:
     assert(modFromModRM(modRM) == 0x3);
     return modRMTable[dec->instructionIDs+(modRM & 0x7)];
-#endif // INTEL_FEATURE_ISA_AMX
-#endif // INTEL_CUSTOMIZATION
-=======
-  case MODRM_SPLITREGM:
-    assert(modFromModRM(modRM) == 0x3);
-    return modRMTable[dec->instructionIDs+(modRM & 0x7)];
->>>>>>> aded4f0cc070fcef6763c9a3c2ba764d652b692e
   case MODRM_SPLITMISC:
     if (modFromModRM(modRM) == 0x3)
       return modRMTable[dec->instructionIDs + (modRM & 0x3f) + 8];
@@ -847,17 +837,14 @@ static int readModRM(struct InternalInstruction *insn) {
       return prefix##_YMM0 + index;                                            \
     case TYPE_XMM:                                                             \
       return prefix##_XMM0 + index;                                            \
-<<<<<<< HEAD
     TMM_TYPE(prefix)                                                           \
     TMM_TYPE_PAIR(prefix)                                                      \
     TMM_TYPE_QUAD(prefix)                                                      \
     ZMM16_TYPE_TUPLES(prefix)                                                  \
-=======
     case TYPE_TMM:                                                             \
       if (index > 7)                                                           \
         *valid = 0;                                                            \
       return prefix##_TMM0 + index;                                            \
->>>>>>> aded4f0cc070fcef6763c9a3c2ba764d652b692e
     case TYPE_VK:                                                              \
       index &= 0xf;                                                            \
       if (index > 7)                                                           \
@@ -2373,10 +2360,8 @@ static bool translateRM(MCInst &mcInst, const OperandSpecifier &operand,
   case TYPE_XMM:
   case TYPE_YMM:
   case TYPE_ZMM:
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
-  case TYPE_TMM:
   case TYPE_TMM_PAIR:
 #endif // INTEL_FEATURE_ISA_AMX
 #if INTEL_FEATURE_ISA_AMX_LNC
@@ -2386,9 +2371,7 @@ static bool translateRM(MCInst &mcInst, const OperandSpecifier &operand,
   case TYPE_TMM_QUAD:
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 #endif // INTEL_CUSTOMIZATION
-=======
   case TYPE_TMM:
->>>>>>> aded4f0cc070fcef6763c9a3c2ba764d652b692e
   case TYPE_VK_PAIR:
   case TYPE_VK:
   case TYPE_DEBUGREG:

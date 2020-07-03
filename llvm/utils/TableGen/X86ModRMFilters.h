@@ -108,11 +108,6 @@ public:
   }
 };
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX
-=======
->>>>>>> aded4f0cc070fcef6763c9a3c2ba764d652b692e
 /// ExtendedRMFilter - Extended opcodes are classified based on the value of the
 ///   mod field [bits 7-6] and the value of the nnn field [bits 2-0].
 class ExtendedRMFilter : public ModRMFilter {
@@ -136,12 +131,6 @@ public:
             ((modRM & 0x7) == NNN));
   }
 };
-<<<<<<< HEAD
-#endif // INTEL_FEATURE_ISA_AMX
-#endif // INTEL_CUSTOMIZATION
-
-=======
->>>>>>> aded4f0cc070fcef6763c9a3c2ba764d652b692e
 /// ExactFilter - The occasional extended opcode (such as VMCALL or MONITOR)
 ///   requires the ModR/M byte to have a specific value.
 class ExactFilter : public ModRMFilter {
