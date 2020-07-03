@@ -562,19 +562,21 @@ unsigned VPlanCostModelProprietary::getSpillFillCost(
     // N / 2 is too coarse for small N.  The approximation for small N is:
     // N = 1    ==>   RP = 1
     // N = 2    ==>   RP = 2
-    // N = 4    ==>   RP = 3
-    // N = 8    ==>   RP = 5
-    // N > 8    ==>   RP = N / 2
+    // N = 4    ==>   RP = 4
+    // N = 8    ==>   RP = 6
+    // N = 16   ==>   RP = 12
+    // N > 16   ==>   RP = N / 2
     auto TranslateVPInstRPToHWRP =
       [](unsigned VPInstRP) -> unsigned {
       switch (VPInstRP) {
         case 1:
         case 2:
-          return VPInstRP;
         case 4:
-          return 3;
+          return VPInstRP;
         case 8:
-          return 5;
+          return 6;
+        case 16:
+          return 12;
         default:
           return VPInstRP / 2;
       }
@@ -656,7 +658,6 @@ unsigned VPlanCostModelProprietary::getSpillFillCost(
   unsigned RegByteWidth = RegBitWidth / 8;
   Type *VecTy = getWidenedType(Type::getInt8Ty(*Plan->getLLVMContext()),
                                RegByteWidth);
-  assert(TTI->isTypeLegal(VecTy) && "Bad type has chosen.");
   unsigned StoreCost = TTI->getMemoryOpCost(
     Instruction::Store, VecTy, Align(RegByteWidth), AS);
   unsigned LoadCost = TTI->getMemoryOpCost(
