@@ -266,7 +266,6 @@ const MCSection *AsmPrinter::getCurrentSection() const {
 void AsmPrinter::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   MachineFunctionPass::getAnalysisUsage(AU);
-  AU.addRequired<MachineModuleInfoWrapperPass>();
   AU.addRequired<MachineOptimizationRemarkEmitterPass>();
   AU.addRequired<GCModuleInfo>();
 }
@@ -347,7 +346,7 @@ bool AsmPrinter::doInitialization(Module &M) {
 #endif  // INTEL_CUSTOMIZATION
 
   if (MAI->doesSupportDebugInformation()) {
-    bool EmitCodeView = MMI->getModule()->getCodeViewFlag();
+    bool EmitCodeView = M.getCodeViewFlag();
     if (EmitCodeView && TM.getTargetTriple().isOSWindows()) {
 #if INTEL_CUSTOMIZATION
       if (MMI->getModule()->getModuleFlag("Intel STI") != nullptr) {
@@ -362,7 +361,7 @@ bool AsmPrinter::doInitialization(Module &M) {
       }
 #endif // INTEL_CUSTOMIZATION
     }
-    if (!EmitCodeView || MMI->getModule()->getDwarfVersion()) {
+    if (!EmitCodeView || M.getDwarfVersion()) {
       DD = new DwarfDebug(this, &M);
       DD->beginModule();
       Handlers.emplace_back(std::unique_ptr<DwarfDebug>(DD), DbgTimerName,
@@ -425,8 +424,7 @@ bool AsmPrinter::doInitialization(Module &M) {
                           DWARFGroupDescription);
 
   // Emit tables for any value of cfguard flag (i.e. cfguard=1 or cfguard=2).
-  if (mdconst::extract_or_null<ConstantInt>(
-          MMI->getModule()->getModuleFlag("cfguard")))
+  if (mdconst::extract_or_null<ConstantInt>(M.getModuleFlag("cfguard")))
     Handlers.emplace_back(std::make_unique<WinCFGuard>(this), CFGuardName,
                           CFGuardDescription, DWARFGroupName,
                           DWARFGroupDescription);
@@ -1100,6 +1098,7 @@ void AsmPrinter::emitStackSizeSection(const MachineFunction &MF) {
   OutStreamer->PopSection();
 }
 
+<<<<<<< HEAD
 static bool needFuncLabelsForEHOrDebugInfo(const MachineFunction &MF,
                                            MachineModuleInfo *MMI) {
 
@@ -1114,6 +1113,11 @@ static bool needFuncLabelsForEHOrDebugInfo(const MachineFunction &MF,
 #endif // INTEL_CUSTOMIZATION
 
   if (!MF.getLandingPads().empty() || MF.hasEHFunclets() || MMI->hasDebugInfo())
+=======
+static bool needFuncLabelsForEHOrDebugInfo(const MachineFunction &MF) {
+  MachineModuleInfo &MMI = MF.getMMI();
+  if (!MF.getLandingPads().empty() || MF.hasEHFunclets() || MMI.hasDebugInfo())
+>>>>>>> 78c69a00a4cff786e0ef13c895d0db309d6b3f42
     return true;
 
   // We might emit an EH table that uses function begin and end labels even if
@@ -1321,7 +1325,7 @@ void AsmPrinter::emitFunctionBody() {
   // Emit target-specific gunk after the function body.
   emitFunctionBodyEnd();
 
-  if (needFuncLabelsForEHOrDebugInfo(*MF, MMI) ||
+  if (needFuncLabelsForEHOrDebugInfo(*MF) ||
       MAI->hasDotTypeDotSizeDirective()) {
     // Create a symbol for the end of function.
     CurrentFnEnd = createTempSymbol("func_end");
@@ -1849,7 +1853,7 @@ void AsmPrinter::SetupMachineFunction(MachineFunction &MF) {
   if (F.hasFnAttribute("patchable-function-entry") ||
       F.hasFnAttribute("function-instrument") ||
       F.hasFnAttribute("xray-instruction-threshold") ||
-      needFuncLabelsForEHOrDebugInfo(MF, MMI) || NeedsLocalForSize ||
+      needFuncLabelsForEHOrDebugInfo(MF) || NeedsLocalForSize ||
       MF.getTarget().Options.EmitStackSizeSection) {
     CurrentFnBegin = createTempSymbol("func_begin");
     if (NeedsLocalForSize)
