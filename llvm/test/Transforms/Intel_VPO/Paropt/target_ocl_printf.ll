@@ -25,7 +25,7 @@ target device_triples = "spir64"
 declare dso_local spir_func i32 @printf(i8 addrspace(4)*, ...) #2
 
 ; Paropt creates this prototype for OCL printf
-; CHECK: declare dso_local spir_func i32 @_Z18__spirv_ocl_printfPU3AS2ci(i8 addrspace(1)*, ...)
+; CHECK: declare dso_local spir_func i32 @_Z18__spirv_ocl_printfPU3AS2ci(i8 addrspace(2)*, ...)
 
 ; Function Attrs: noinline norecurse nounwind optnone uwtable
 define dso_local i32 @main() #0 {
@@ -55,7 +55,7 @@ DIR.OMP.TARGET.3:                                 ; preds = %DIR.OMP.TARGET.32
 ; CHECK-NOT: call {{.*}} (i8 addrspace(4)*, ...) @printf(i8 addrspace(4)* getelementptr
 
 ; Calling the OCL printf
-; CHECK: call {{.*}} (i8 addrspace(1)*, ...) @_Z18__spirv_ocl_printfPU3AS2ci(i8 addrspace(1)* getelementptr
+; CHECK: call {{.*}} (i8 addrspace(2)*, ...) @_Z18__spirv_ocl_printfPU3AS2ci(i8 addrspace(2)* getelementptr
 
   br label %DIR.OMP.END.TARGET.4.split
 

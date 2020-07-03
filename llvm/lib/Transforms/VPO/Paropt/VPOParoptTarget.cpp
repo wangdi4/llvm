@@ -166,38 +166,66 @@ void VPOParoptTransform::replacePrintfWithOCLBuiltin(Function *PrintfDecl,
       // First argument of the original printf() is of
       // ADDRESS_SPACE_GENERIC (=4) due to its addrspacecast:
       //
-      //   call i32 (i8 addrspace(4)*, ...) @printf(
-      //     i8 addrspace(4)* addrspacecast (
-      //       i8 addrspace(1)* getelementptr inbounds
-      //       ([25 x i8], [25 x i8] addrspace(1)* @.str, i64 0, i64 0)
-      //     to i8 addrspace(4)*)
-      //       , ...)
+      //   call spir_func i32 (i8 addrspace(4)*, ...) @printf(i8 addrspace(4)*
+      //       getelementptr inbounds ([25 x i8], [25 x i8] addrspace(4)*
+      //       addrspacecast ([25 x i8] addrspace(1)* @.str to [25 x i8]
+      //       addrspace(4)*), i64 0, i64 0), ...)
       //
-      // The OCL printf expects addrspace(1). So, we must cast it to
-      // addrspace(1):
+      // The OCL printf expects addrspace(2). So, we must generate constant
+      // string with addrspace(2) and relink to OCL printf:
       //
-      //   call i32 (i8 addrspace(1)*, ...) @_Z18__spirv_ocl_printfPU3AS2ci(
-      //     i8 addrspace(1)* addrspacecast (
-      //     i8 addrspace(4)* addrspacecast (
-      //       i8 addrspace(1)* getelementptr inbounds
-      //       ([25 x i8], [25 x i8] addrspace(1)* @.str, i64 0, i64 0)
-      //     to i8 addrspace(4)*)
-      //     to i8 addrspace(1)*)
+      //   @.str.as2 = private target_declare addrspace(2) constant [25 x i8]
+      //       c"..."
+      //
+      //   call i32 (i8 addrspace(2)*, ...) @_Z18__spirv_ocl_printfPU3AS2ci(
+      //       i8 addrspace(2)* getelementptr inbounds
+      //       ([25 x i8], [25 x i8] addrspace(2)* @.str.as2, i64 0, i64 0)
       //       , ...)
       Type* FirstParmTy = FnArgs[0]->getType();
       assert(isa<PointerType>(FirstParmTy) &&
              "First argument to printf should be a pointer.");
 
-      if (FirstParmTy->getPointerAddressSpace() == vpo::ADDRESS_SPACE_GENERIC) {
+      if (FirstParmTy->getPointerAddressSpace() !=
+          vpo::ADDRESS_SPACE_CONSTANT) {
         IRBuilder<> Builder(OldCall);
-        FnArgs[0] = Builder.CreateAddrSpaceCast(
-            FnArgs[0], FirstParmTy->getPointerElementType()->getPointerTo(
-                           vpo::ADDRESS_SPACE_GLOBAL));
-      } else
-        assert(
-            FirstParmTy->getPointerAddressSpace() ==
-                vpo::ADDRESS_SPACE_GLOBAL &&
-            "First argument to ocl_printf should have global address space.");
+
+        LLVM_DEBUG(dbgs() << "Original argument 0 of printf: " << *FnArgs[0]
+                          << "\n");
+        auto V = FnArgs[0];
+        assert(isa<ConstantExpr>(V) && "Only constant format string in argument"
+                                       " 0 is supported!\n");
+        SmallVector<Value *, 2> Indices;
+        // Skip the constant expressions
+        while (ConstantExpr *CE = dyn_cast<ConstantExpr>(V)) {
+          if (CE->getOpcode() == Instruction::GetElementPtr) {
+            assert(CE->getNumOperands() == 3 && "Number of operands in "
+                                                "GetElementPtr must be 3!\n");
+            Indices.push_back(CE->getOperand(1));
+            Indices.push_back(CE->getOperand(2));
+          }
+          V = CE->getOperand(0);
+        }
+        assert(Indices.size() == 2 && "Expected only 1 GetElementPtr in "
+                                      "constant expression!\n");
+
+        auto OldArg0 = dyn_cast<GlobalVariable>(V);
+        assert(OldArg0 != nullptr &&
+               "The format string in printf is not global variable.\n");
+        // Generate format string with addrspace(2)
+        GlobalVariable *NewArg0 = new GlobalVariable(
+            *(OldArg0->getParent()), OldArg0->getValueType(),
+            OldArg0->isConstant(), OldArg0->getLinkage(),
+            OldArg0->hasInitializer() ? OldArg0->getInitializer() : nullptr,
+            OldArg0->getName() + Twine(".as2"), OldArg0,
+            OldArg0->getThreadLocalMode(), vpo::ADDRESS_SPACE_CONSTANT);
+        NewArg0->setTargetDeclare(true);
+
+        // Relink the newly generated string to printf
+        FnArgs[0] = Builder.CreateInBoundsGEP(NewArg0, Indices,
+                                              NewArg0->getName() + ".gep");
+        LLVM_DEBUG(dbgs() << "New argument 0 of printf: " << *FnArgs[0]
+                          << "\n");
+      }
 
       // Create the new call based on OCLPrintfDecl and
       // insert it before the old call
