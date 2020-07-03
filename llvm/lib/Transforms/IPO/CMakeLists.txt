@@ -61,9 +61,13 @@ add_llvm_component_library(LLVMipo
 
   DEPENDS
   intrinsics_gen
+<<<<<<< HEAD
 # INTEL_COLLAB
   directives_gen
 # end INTEL_COLLAB
+=======
+  omp_gen
+>>>>>>> 3c72cafdf407a5a74d98a025071019533a54a1e1
   )
 
 # INTEL_CUSTOMIZATION
