@@ -591,7 +591,6 @@ MachineVerifier::visitMachineBasicBlockBefore(const MachineBasicBlock *MBB) {
     // it is an entry block or landing pad.
     for (const auto &LI : MBB->liveins()) {
       if (isAllocatable(LI.PhysReg) && !MBB->isEHPad() &&
-          !MBB->isInlineAsmBrDefaultTarget() &&
           MBB->getIterator() != MBB->getParent()->begin()) {
         report("MBB has allocatable live-in, but isn't entry or landing-pad.", MBB);
         report_context(LI.PhysReg);
@@ -737,7 +736,7 @@ MachineVerifier::visitMachineBasicBlockBefore(const MachineBasicBlock *MBB) {
         continue;
       // Also accept successors which are for exception-handling or might be
       // inlineasm_br targets.
-      if (SuccMBB->isEHPad() || MBB->isInlineAsmBrIndirectTarget(SuccMBB))
+      if (SuccMBB->isEHPad() || SuccMBB->isInlineAsmBrIndirectTarget())
         continue;
       report("MBB has unexpected successors which are not branch targets, "
              "fallthrough, EHPads, or inlineasm_br targets.",
