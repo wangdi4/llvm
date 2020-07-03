@@ -645,7 +645,6 @@ def OMP_Scan : Directive<"scan"> {
 }
 def OMP_BeginDeclareVariant : Directive<"begin declare variant"> {}
 def OMP_EndDeclareVariant : Directive<"end declare variant"> {}
-<<<<<<< HEAD
 
 #if INTEL_COLLAB
 def OMP_target_variant_dispatch : Directive<"target variant dispatch"> {
@@ -681,7 +680,6 @@ def OMP_target_parallel_loop : Directive<"target parallel loop"> {
       OMPC_DefaultMap, OMPC_IsDevicePtr];
 }
 #endif // INTEL_COLLAB
-=======
 def OMP_ParallelWorkshare : Directive<"parallel workshare"> {}
 def OMP_Workshare : Directive<"workshare"> {}
 def OMP_EndDo : Directive<"end do"> {}
@@ -689,7 +687,6 @@ def OMP_EndDoSimd : Directive<"end do simd"> {}
 def OMP_EndSections : Directive<"end sections"> {}
 def OMP_EndSingle : Directive<"end single"> {}
 def OMP_EndWorkshare : Directive<"end workshare"> {}
->>>>>>> 7f1e7767952233d1b6af1feef1371d127de5fa50
 def OMP_Unknown : Directive<"unknown"> {
   let isDefault = 1;
 }
