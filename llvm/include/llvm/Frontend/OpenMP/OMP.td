@@ -555,7 +555,6 @@ def OMP_Scan : Directive<"scan"> {
 }
 def OMP_BeginDeclareVariant : Directive<"begin declare variant"> {}
 def OMP_EndDeclareVariant : Directive<"end declare variant"> {}
-<<<<<<< HEAD
 
 #if INTEL_COLLAB
 def OMP_target_variant_dispatch : Directive<"target variant dispatch"> {
@@ -598,8 +597,6 @@ def OMP_EndDoSimd : Directive<"end do simd"> {}
 def OMP_EndSections : Directive<"end sections"> {}
 def OMP_EndSingle : Directive<"end single"> {}
 def OMP_EndWorkshare : Directive<"end workshare"> {}
-=======
->>>>>>> 5c37b2a5eee49df2545a6455eec64fb4b105df40
 def OMP_Unknown : Directive<"unknown"> {
   let isDefault = 1;
 }
