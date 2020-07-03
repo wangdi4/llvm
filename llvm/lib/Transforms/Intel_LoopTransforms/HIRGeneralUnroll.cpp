@@ -651,8 +651,9 @@ void ReuseAnalyzer::visit(const HLDDNode *Node) {
   if (LvalRef && LvalRef->isTerminalRef()) {
 
     LvalSymbase = LvalRef->getSymbase();
+    auto *HInst = cast<HLInst>(Node);
 
-    if (cast<HLInst>(Node)->isCopyInst()) {
+    if (HInst->isCopyInst()) {
       // Only consider reuse for copies which dominate the backedge path.
       if (RvalTempBlobSymbases.count(LvalSymbase) &&
           HLNodeUtils::dominates(Node, Loop->getLastChild())) {
@@ -660,6 +661,13 @@ void ReuseAnalyzer::visit(const HLDDNode *Node) {
       }
       // No more processing needed for copy instructions.
       return;
+    }
+
+    // Indirect calls are not well predicted. Unrolling might increase branch
+    // misprediction rates by cloning them so use this as a heuristic to reduce
+    // profitability.
+    if (HInst->isIndirectCallInst()) {
+      --Reuse;
     }
 
     HasTerminalLval = true;
