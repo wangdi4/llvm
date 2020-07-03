@@ -1098,9 +1098,8 @@ void AsmPrinter::emitStackSizeSection(const MachineFunction &MF) {
   OutStreamer->PopSection();
 }
 
-<<<<<<< HEAD
-static bool needFuncLabelsForEHOrDebugInfo(const MachineFunction &MF,
-                                           MachineModuleInfo *MMI) {
+static bool needFuncLabelsForEHOrDebugInfo(const MachineFunction &MF) {
+  MachineModuleInfo &MMI = MF.getMMI();
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
@@ -1112,12 +1111,7 @@ static bool needFuncLabelsForEHOrDebugInfo(const MachineFunction &MF,
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
 
-  if (!MF.getLandingPads().empty() || MF.hasEHFunclets() || MMI->hasDebugInfo())
-=======
-static bool needFuncLabelsForEHOrDebugInfo(const MachineFunction &MF) {
-  MachineModuleInfo &MMI = MF.getMMI();
   if (!MF.getLandingPads().empty() || MF.hasEHFunclets() || MMI.hasDebugInfo())
->>>>>>> 78c69a00a4cff786e0ef13c895d0db309d6b3f42
     return true;
 
   // We might emit an EH table that uses function begin and end labels even if
