@@ -631,6 +631,7 @@ int main(int argc, char **argv) {
   initializeFloat128ExpandPass(Registry);
   initializeIntel_OpenCLTransforms(Registry);
   initializeSYCLLowerWGScopeLegacyPassPass(Registry);
+  initializeSYCLLowerESIMDLegacyPassPass(Registry);
   initializeParseAnnotateAttributesLegacyPass(Registry);
 #if INTEL_INCLUDE_DTRANS
   initializeDTransPasses(Registry);
