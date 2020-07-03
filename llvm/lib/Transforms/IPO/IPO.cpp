@@ -68,7 +68,6 @@ void llvm::initializeIPO(PassRegistry &Registry) {
   initializeSampleProfileLoaderLegacyPassPass(Registry);
   initializeFunctionImportLegacyPassPass(Registry);
   initializeWholeProgramDevirtPass(Registry);
-  initializeInlineAggressiveWrapperPassPass(Registry);  // INTEL
   initializeIPCloningLegacyPassPass(Registry);          // INTEL
   initializeCallTreeCloningLegacyPassPass(Registry);    // INTEL
   initializeIntelAdvancedFastCallWrapperPassPass(Registry); // INTEL
@@ -77,6 +76,7 @@ void llvm::initializeIPO(PassRegistry &Registry) {
   initializeDopeVectorConstPropLegacyPassPass(Registry); // INTEL
   initializeIntelArgumentAlignmentLegacyPassPass(Registry); // INTEL
   initializeQsortRecognizerLegacyPassPass(Registry); // INTEL
+  initializeAggInlinerLegacyPassPass(Registry); // INTEL
   initializeIntelFoldWPIntrinsicLegacyPassPass(Registry); // INTEL
   initializeDeadArrayOpsEliminationLegacyPassPass(Registry); // INTEL
   initializeTileMVInlMarkerLegacyPassPass(Registry); // INTEL

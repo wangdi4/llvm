@@ -336,6 +336,10 @@ ModulePass *createDopeVectorConstPropLegacyPass(void);
 /// "is-qsort".
 ModulePass *createQsortRecognizerLegacyPass(void);
 
+/// \brief This pass will mark callsites that should be aggressively
+/// inlined with the "prefer-inline-aggressive" attribute.
+ModulePass *createAggInlinerLegacyPass(void);
+
 /// \brief This pass eliminates dead array element operations.
 ModulePass *createDeadArrayOpsEliminationLegacyPass(void);
 

@@ -21,7 +21,6 @@
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/InlineCost.h"
 #if INTEL_CUSTOMIZATION
-#include "llvm/Analysis/Intel_AggInline.h"
 #include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Intel_StdContainerAA.h"
 #include "llvm/Analysis/Intel_WP.h"
@@ -1622,7 +1621,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     // Indirect Call Conv
   }
   if (EnableInlineAggAnalysis) {
-    PM.add(createInlineAggressiveWrapperPassPass()); // Aggressive Inline
+    PM.add(createAggInlinerLegacyPass()); // Aggressive Inline
   }
 #endif // INTEL_CUSTOMIZATION
 

@@ -34,7 +34,6 @@
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/LazyCallGraph.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
-#include "llvm/Analysis/Intel_AggInline.h"             // INTEL
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -136,7 +135,6 @@ void LegacyInlinerBase::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<AssumptionCacheTracker>();
   AU.addRequired<ProfileSummaryInfoWrapperPass>();
   AU.addRequired<TargetLibraryInfoWrapperPass>();
-  AU.addUsedIfAvailable<InlineAggressiveWrapperPass>();     // INTEL
   getAAResultsAnalysisUsage(AU);
   CallGraphSCCPass::getAnalysisUsage(AU);
 }

@@ -17,6 +17,7 @@
 #define LLVM_TRANSFORMS_IPO_INTEL_INLINEREPORTCOMMON_H
 
 #include "llvm/Analysis/InlineCost.h"
+#include "llvm/IR/IntrinsicInst.h"
 
 namespace llvm {
 

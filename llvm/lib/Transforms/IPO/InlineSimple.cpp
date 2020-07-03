@@ -78,8 +78,6 @@ public:
     };
 
 #if INTEL_CUSTOMIZATION
-    auto *Agg = getAnalysisIfAvailable<InlineAggressiveWrapperPass>();
-    InlineAggressiveInfo *AggI = Agg ? &Agg->getResult() : nullptr;
     if (IntelInlineReportLevel & InlineReportOptions::RealCost)
       Params.ComputeFullInlineCost = true;
 #endif // INTEL_CUSTOMIZATION
@@ -87,7 +85,7 @@ public:
     return llvm::getInlineCost(CB, Params, TTI, GetAssumptionCache, GetTLI,
                                /*GetBFI=*/nullptr, PSI,
                                RemarksEnabled ? &ORE : nullptr, // INTEL
-                               ILIC, AggI);                     // INTEL
+                               ILIC);                           // INTEL
   }
 
   bool runOnSCC(CallGraphSCC &SCC) override;
@@ -112,7 +110,6 @@ INITIALIZE_PASS_DEPENDENCY(CallGraphWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ProfileSummaryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(InlineAggressiveWrapperPass)        // INTEL
 INITIALIZE_PASS_END(SimpleInliner, "inline", "Function Integration/Inlining",
                     false, false)
 
@@ -147,6 +144,5 @@ bool SimpleInliner::runOnSCC(CallGraphSCC &SCC) {
 
 void SimpleInliner::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<TargetTransformInfoWrapperPass>();
-  AU.addUsedIfAvailable<InlineAggressiveWrapperPass>();        // INTEL
   LegacyInlinerBase::getAnalysisUsage(AU);
 }

@@ -43,7 +43,6 @@
 #include "llvm/Analysis/CGSCCPassManager.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
-#include "llvm/Analysis/Intel_AggInline.h"      // INTEL
 #include "llvm/Analysis/Intel_Andersens.h"      // INTEL
 #include "llvm/Analysis/Intel_WP.h"             // INTEL
 #include "llvm/Analysis/LazyCallGraph.h"
@@ -1250,7 +1249,6 @@ PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
   PreservedAnalyses PA;
   PA.preserve<AndersensAA>();
   PA.preserve<WholeProgramAnalysis>();
-  PA.preserve<InlineAggAnalysis>();
   return PA;
 #endif // INTEL_CUSTOMIZATION
 }
@@ -1272,7 +1270,6 @@ struct ArgPromotion : public CallGraphSCCPass {
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addPreserved<AndersensAAWrapperPass>();      // INTEL
     AU.addPreserved<WholeProgramWrapperPass>();     // INTEL
-    AU.addPreserved<InlineAggressiveWrapperPass>(); // INTEL
     AU.addRequired<TargetTransformInfoWrapperPass>();
     getAAResultsAnalysisUsage(AU);
     CallGraphSCCPass::getAnalysisUsage(AU);

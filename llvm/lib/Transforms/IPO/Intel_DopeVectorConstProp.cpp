@@ -1,6 +1,6 @@
 //===------- Intel_DopeVectorConstProp.cpp --------------------------------===//
 //
-// Copyright (C) 2019-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -11,7 +11,6 @@
 #include "llvm/Transforms/IPO/Intel_DopeVectorConstProp.h"
 #include "llvm/Analysis/Intel_DopeVectorAnalysis.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/Analysis/Intel_AggInline.h"
 #include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IRBuilder.h"
@@ -385,7 +384,6 @@ public:
     AU.addRequired<WholeProgramWrapperPass>();
     AU.addPreserved<WholeProgramWrapperPass>();
     AU.addPreserved<AndersensAAWrapperPass>();
-    AU.addPreserved<InlineAggressiveWrapperPass>();
   }
 
   bool runOnModule(Module &M) override {
@@ -418,7 +416,6 @@ PreservedAnalyses DopeVectorConstPropPass::run(Module &M,
     return PreservedAnalyses::all();
   auto PA = PreservedAnalyses();
   PA.preserve<AndersensAA>();
-  PA.preserve<InlineAggAnalysis>();
   PA.preserve<WholeProgramAnalysis>();
   return PA;
 }

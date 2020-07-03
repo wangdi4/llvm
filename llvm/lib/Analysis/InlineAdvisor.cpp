@@ -14,7 +14,6 @@
 #include "llvm/Analysis/InlineAdvisor.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/InlineCost.h"
-#include "llvm/Analysis/Intel_AggInline.h" // INTEL
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -114,12 +113,6 @@ DefaultInlineAdvisor::getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
       FAM.getResult<ModuleAnalysisManagerFunctionProxy>(Caller)
           .getCachedResult<ProfileSummaryAnalysis>(
               *CB.getParent()->getParent()->getParent());
-#if INTEL_CUSTOMIZATION
-  InlineAggressiveInfo *AggI =
-      FAM.getResult<ModuleAnalysisManagerFunctionProxy>(Caller)
-          .getCachedResult<InlineAggAnalysis>(
-              *CB.getParent()->getParent()->getParent());
-#endif // INTEL_CUSTOMIZATION
 
   auto &ORE = FAM.getResult<OptimizationRemarkEmitterAnalysis>(Caller);
   auto GetAssumptionCache = [&](Function &F) -> AssumptionCache & {
@@ -144,7 +137,7 @@ DefaultInlineAdvisor::getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
 #endif // INTEL_CUSTOMIZATION
     return getInlineCost(CB, Params, CalleeTTI, GetAssumptionCache, GetTLI,
                          GetBFI, PSI, RemarksEnabled ? &ORE : nullptr, // INTEL
-                         ILIC, AggI);                                  // INTEL
+                         ILIC);                                        // INTEL
   };
   auto OIC = llvm::shouldInline(CB, GetInlineCost, ORE, Report, // INTEL
                                 Params.EnableDeferral.hasValue() &&

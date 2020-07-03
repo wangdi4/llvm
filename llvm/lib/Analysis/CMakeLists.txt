@@ -61,7 +61,6 @@ add_llvm_component_library(LLVMAnalysis
   InstructionPrecedenceTracking.cpp
   InstructionSimplify.cpp
 # INTEL_CUSTOMIZATION
-  Intel_AggInline.cpp
   Intel_Andersens.cpp
   Intel_ArrayUseAnalysis.cpp
   Intel_DopeVectorAnalysis.cpp
