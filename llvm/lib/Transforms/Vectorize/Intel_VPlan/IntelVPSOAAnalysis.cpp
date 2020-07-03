@@ -92,11 +92,12 @@ bool VPSOAAnalysis::isSOASupportedTy(Type *Ty) {
           (isScalarTy(cast<ArrayType>(PointeeTy)->getElementType())));
 }
 
-// Return true if \p UseInst is a safe bitcast instruction, i.e. it's a
-// pointer-to-pointer cast doesn't change the size of the pointed elements.
-bool VPSOAAnalysis::isPotentiallyUnsafeSafeBitCast(
-    const VPInstruction *UseInst) {
-  if (!UseInst || (UseInst->getOpcode() != Instruction::BitCast))
+// Return true if \p UseInst is a safe cast instruction, i.e. it's a
+// pointer-to-pointer cast that doesn't change the size of the pointed-to
+// elements.
+bool VPSOAAnalysis::isPotentiallyUnsafeCast(const VPInstruction *UseInst) {
+  if (!UseInst || (UseInst->getOpcode() != Instruction::BitCast &&
+                   UseInst->getOpcode() != Instruction::AddrSpaceCast))
     return false;
 
   // We expect to have only pointer-type operands.
@@ -263,7 +264,7 @@ bool VPSOAAnalysis::memoryEscapes(const VPAllocatePrivate *Alloca) {
       //               ...
       //          %bc2 = bitcast ...
       //          %l2 = load i8, i8* %bc2
-      if (isPotentiallyUnsafeSafeBitCast(UseInst) ||
+      if (isPotentiallyUnsafeCast(UseInst) ||
           hasPotentiallyUnsafeOperands(UseInst))
         PotentiallyUnsafeInsts.insert(UseInst);
     }

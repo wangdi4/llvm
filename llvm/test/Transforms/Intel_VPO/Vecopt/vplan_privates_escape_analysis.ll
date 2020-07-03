@@ -139,6 +139,37 @@ DIR.OMP.END.SIMD.3:                               ; preds = %DIR.OMP.END.SIMD.2
   ret void
 }
 
+; This test checks that we correctly identify SOA-unsafe variables on account of addressspacecast instructions.
+define void @test_unsafe_addrspacecast() {
+;CHECK: SOA profitability
+;CHECK-NEXT: SOAUnsafe = arr_e.priv
+;CHECK-NEXT: SOASafe = arr_ne.priv
+  %arr_e.priv = alloca [1024 x i32], align 4
+  %arr_ne.priv = alloca [1024 x i32], align 4
+  br label %simd.begin.region
+simd.begin.region:
+  %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"([1024 x i32]* %arr_e.priv, [1024 x i32]* %arr_ne.priv) ]
+  br label %simd.loop
+simd.loop:
+  %index = phi i64 [ 0, %simd.begin.region ], [ %indvar, %simd.loop.end ]
+  %uni.gep1 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr_e.priv, i64 0, i64 0
+  %uni.gep2 = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr_ne.priv, i64 0, i64 0
+  %Y = addrspacecast i32* %uni.gep1 to i64 addrspace(2)*
+  %Z = addrspacecast i32* %uni.gep2 to i64 addrspace(2)*
+  %ld = load i32, i32* %uni.gep1
+  %ld1 = load i64, i64 addrspace(2)* %Y
+  br label %simd.loop.end
+simd.loop.end:
+  %indvar = add nuw i64 %index, 1
+  %vl.cond = icmp ult i64 %indvar, 1024
+  br i1 %vl.cond, label %simd.end.region, label %simd.loop
+simd.end.region:
+  call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]
+  br label %for.end
+for.end:
+  ret void
+}
+
 ; Function Attrs: nounwind
 declare token @llvm.directive.region.entry()
 

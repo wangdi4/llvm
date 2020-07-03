@@ -93,8 +93,8 @@ private:
   /// Determine if the memory pointed to by the Alloca escapes.
   bool memoryEscapes(const VPAllocatePrivate *Alloca);
 
-  /// \return true if \p UseInst is a known safe bitcast instruction.
-  bool isPotentiallyUnsafeSafeBitCast(const VPInstruction *UseInst);
+  /// \return true if \p UseInst is a known unsafe cast instruction.
+  bool isPotentiallyUnsafeCast(const VPInstruction *UseInst);
 
   /// \ return true if \p UseInst has any potentially-unsafe operands.
   bool hasPotentiallyUnsafeOperands(const VPInstruction *UseInst);
