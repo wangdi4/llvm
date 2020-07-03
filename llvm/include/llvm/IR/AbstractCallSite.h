@@ -228,7 +228,10 @@ public:
   }
 };
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
+=======
+>>>>>>> cb8faaacb52c1c0f0b97379ac0e07a612c04c5ff
 /// Apply function Func to each CB's callback call site.
 template <typename UnaryFunction>
 void forEachCallbackCallSite(const CallBase &CB, UnaryFunction Func) {
@@ -240,7 +243,19 @@ void forEachCallbackCallSite(const CallBase &CB, UnaryFunction Func) {
     Func(ACS);
   }
 }
+<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
+=======
+
+/// Apply function Func to each CB's callback function.
+template <typename UnaryFunction>
+void forEachCallbackFunction(const CallBase &CB, UnaryFunction Func) {
+  forEachCallbackCallSite(CB, [&Func](AbstractCallSite &ACS) {
+    if (Function *Callback = ACS.getCalledFunction())
+      Func(Callback);
+  });
+}
+>>>>>>> cb8faaacb52c1c0f0b97379ac0e07a612c04c5ff
 
 } // end namespace llvm
 
