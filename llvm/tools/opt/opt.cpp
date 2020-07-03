@@ -631,6 +631,7 @@ int main(int argc, char **argv) {
   initializeFloat128ExpandPass(Registry);
   initializeIntel_OpenCLTransforms(Registry);
   initializeSYCLLowerWGScopeLegacyPassPass(Registry);
+<<<<<<< HEAD
   initializeParseAnnotateAttributesLegacyPass(Registry);
 #if INTEL_INCLUDE_DTRANS
   initializeDTransPasses(Registry);
@@ -642,6 +643,9 @@ int main(int argc, char **argv) {
   initializeVPOAnalysis(Registry);
   initializeVPOTransforms(Registry);
 #endif // INTEL_COLLAB
+=======
+  initializeSYCLLowerESIMDLegacyPassPass(Registry);
+>>>>>>> a115520a75b1dada964876850517e414bfacc285
 
 #ifdef BUILD_EXAMPLES
   initializeExampleIRTransforms(Registry);
