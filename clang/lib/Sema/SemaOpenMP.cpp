@@ -14694,7 +14694,6 @@ OMPClause *Sema::ActOnOpenMPVarListClause(
   case OMPC_destroy:
   case OMPC_detach:
   case OMPC_uses_allocators:
-<<<<<<< HEAD
 #if INTEL_COLLAB
   case OMPC_bind:
 #endif // INTEL_COLLAB
@@ -14704,9 +14703,7 @@ OMPClause *Sema::ActOnOpenMPVarListClause(
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
   default:
->>>>>>> 2ddba3082ca79080b14f372ebe4b5bdbc5f694ed
     llvm_unreachable("Clause is not allowed.");
   }
   return Res;

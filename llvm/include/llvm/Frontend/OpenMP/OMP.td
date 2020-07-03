@@ -645,7 +645,6 @@ def OMP_Scan : Directive<"scan"> {
 }
 def OMP_BeginDeclareVariant : Directive<"begin declare variant"> {}
 def OMP_EndDeclareVariant : Directive<"end declare variant"> {}
-<<<<<<< HEAD
 
 #if INTEL_COLLAB
 def OMP_target_variant_dispatch : Directive<"target variant dispatch"> {
@@ -681,8 +680,7 @@ def OMP_target_parallel_loop : Directive<"target parallel loop"> {
       OMPC_DefaultMap, OMPC_IsDevicePtr];
 }
 #endif // INTEL_COLLAB
-=======
->>>>>>> 2ddba3082ca79080b14f372ebe4b5bdbc5f694ed
+
 def OMP_ParallelWorkshare : Directive<"parallel workshare"> {}
 def OMP_Workshare : Directive<"workshare"> {}
 def OMP_EndDo : Directive<"end do"> {}
