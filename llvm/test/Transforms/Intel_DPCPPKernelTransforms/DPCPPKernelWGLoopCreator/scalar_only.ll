@@ -79,5 +79,5 @@ entry:
 
 declare dso_local i64 @__builtin_get_local_id(i64 %0)
 
-attributes #0 = { noinline optnone "sycl_kernel" }
+attributes #0 = { noinline optnone "dpcpp-no-barrier-path"="true" "sycl_kernel" }
 

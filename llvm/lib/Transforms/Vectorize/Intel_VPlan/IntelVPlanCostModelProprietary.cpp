@@ -645,9 +645,13 @@ unsigned VPlanCostModelProprietary::getSpillFillCost(
       NumberLiveValuesCur = TranslateVPInstRPToHWRP(
         InstCost * NumberLiveValuesCur);
 
-    LLVM_DEBUG(dbgs() << "RP " << NumberLiveValuesCur << " for ";
-               VPInst.print(dbgs());
-               dbgs() << "\nLive vals:";
+    LLVM_DEBUG(auto LVNs = make_second_range(LiveValues);
+               dbgs() << "RP = " << NumberLiveValuesCur << ", LV# = " <<
+               llvm::count_if(LVNs, [](int Elem) -> bool {
+                   return Elem != 0;
+                 }) << " for ";
+               VPInst.print(dbgs()); dbgs() << '\n';
+               dbgs() << "Live vals:";
                for (auto LiveValue : LiveValues)
                  if (LiveValue.second) {
                    dbgs() << ' ';
@@ -660,7 +664,7 @@ unsigned VPlanCostModelProprietary::getSpillFillCost(
 
   LLVM_DEBUG(dbgs() << "Max RP " << NumberLiveValuesMax <<
              ", Num free regs: " << FreeVecHWRegsNum <<
-             " for block " << VPBlock->getName() << '\n';);
+             " for block " << VPBlock->getName() << " (VF = " << VF << ")\n";);
 
   if (NumberLiveValuesMax <= FreeVecHWRegsNum)
     return 0;
