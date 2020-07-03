@@ -129,6 +129,11 @@ static constexpr FeatureBitset FeaturesKNL =
 static constexpr FeatureBitset FeaturesKNM =
     FeaturesKNL | FeatureAVX512VPOPCNTDQ;
 
+#if INTEL_CUSTOMIZATION
+static constexpr FeatureBitset FeaturesCommonAVX512 =
+   FeaturesBroadwell | FeatureAES | FeatureAVX512F | FeatureAVX512CD;
+#endif // INTEL_CUSTOMIZATION
+
 // Intel Skylake processors.
 static constexpr FeatureBitset FeaturesSkylakeClient =
     FeaturesBroadwell | FeatureAES | FeatureCLFLUSHOPT | FeatureXSAVEC |
@@ -156,8 +161,19 @@ static constexpr FeatureBitset FeaturesICLClient =
 static constexpr FeatureBitset FeaturesICLServer =
     FeaturesICLClient | FeaturePCONFIG | FeatureWBNOINVD;
 static constexpr FeatureBitset FeaturesTigerlake =
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_KEYLOCKER
+    FeatureKEYLOCKER |
+#endif // INTEL_FEATURE_ISA_KEYLOCKER
+#endif // INTEL_CUSTOMIZATION
     FeaturesICLClient | FeatureAVX512VP2INTERSECT | FeatureMOVDIR64B |
     FeatureMOVDIRI | FeatureSHSTK;
+
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_RKL
+static constexpr FeatureBitset FeaturesRocketlake = FeaturesICLClient;
+#endif // INTEL_FEATURE_CPU_RKL
+#endif // INTEL_CUSTOMIZATION
 
 // Intel Atom processors.
 // Bonnell has feature parity with Core2 and adds MOVBE.
@@ -173,6 +189,55 @@ static constexpr FeatureBitset FeaturesGoldmontPlus =
     FeaturesGoldmont | FeaturePTWRITE | FeatureRDPID | FeatureSGX;
 static constexpr FeatureBitset FeaturesTremont =
     FeaturesGoldmontPlus | FeatureCLWB | FeatureGFNI;
+
+#if INTEL_CUSTOMIZATION
+static constexpr FeatureBitset FeaturesAnonymousCPU1 =
+#if INTEL_FEATURE_ISA_AMX
+  FeatureAMX_TILE | FeatureAMX_INT8 | FeatureAMX_BF16 |
+#endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AVX_VNNI
+  FeatureAVXVNNI |
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#if INTEL_FEATURE_ISA_HRESET
+  FeatureHRESET |
+#endif // INTEL_FEATURE_ISA_HRESET
+#if INTEL_FEATURE_ISA_FP16
+  FeatureAVX512FP16 |
+#endif // INTEL_FEATURE_ISA_FP16
+#if INTEL_FEATURE_ISA_ULI
+  FeatureULI |
+#endif // INTEL_FEATURE_ISA_ULI
+  FeatureSSE2; // To avoid dangling OR.
+#if INTEL_FEATURE_CPU_SPR
+static constexpr FeatureBitset FeaturesSapphireRapids =
+  FeaturesICLServer | FeaturesAnonymousCPU1 | FeatureAVX512BF16 |
+  FeatureAVX512VP2INTERSECT | FeatureCLDEMOTE | FeatureENQCMD |
+  FeatureMOVDIR64B | FeatureMOVDIRI | FeaturePTWRITE | FeatureSERIALIZE |
+  FeatureSHSTK | FeatureTSXLDTRK | FeatureWAITPKG;
+#endif // INTEL_FEATURE_CPU_SPR
+
+static constexpr FeatureBitset FeaturesAnonymousCPU2 =
+#if INTEL_FEATURE_ISA_AVX_VNNI
+    FeatureAVXVNNI |
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#if INTEL_FEATURE_ISA_HRESET
+    FeatureHRESET |
+#endif // INTEL_FEATURE_ISA_HRESET
+#if INTEL_FEATURE_ISA_KEYLOCKER
+    FeatureKEYLOCKER |
+#endif // INTEL_FEATURE_ISA_KEYLOCKER
+    FeatureSSE2; // To avoid dangling OR.
+#if INTEL_FEATURE_CPU_ADL
+// TODO: set feature of RAO-INT when it's ready
+static constexpr FeatureBitset FeaturesAlderlake =
+    FeaturesTremont | FeaturesAnonymousCPU2 | FeatureADX | FeatureAVX |
+    FeatureAVX2 | FeatureBMI | FeatureBMI2 | FeatureCLDEMOTE |
+    FeatureMOVDIR64B | FeatureMOVDIRI | FeatureF16C | FeatureFMA |
+    FeatureINVPCID | FeatureLZCNT | FeaturePCONFIG | FeaturePKU |
+    FeatureSERIALIZE | FeatureSHSTK | FeatureVAES | FeatureVPCLMULQDQ |
+    FeatureWAITPKG;
+#endif // INTEL_FEATURE_CPU_ADL
+#endif // INTEL_CUSTOMIZATION
 
 // Geode Processor.
 static constexpr FeatureBitset FeaturesGeode =
@@ -266,20 +331,6 @@ static constexpr ProcInfo Processors[] = {
   { {"core2"}, CK_Core2, ~0U, FeaturesCore2 },
   { {"penryn"}, CK_Penryn, ~0U, FeaturesPenryn },
   // Atom processors
-<<<<<<< HEAD
-  { {"bonnell"}, CK_Bonnell, FEATURE_SSSE3, PROC_64_BIT },
-  { {"atom"}, CK_Bonnell, FEATURE_SSSE3, PROC_64_BIT },
-  { {"silvermont"}, CK_Silvermont, FEATURE_SSE4_2, PROC_64_BIT },
-  { {"slm"}, CK_Silvermont, FEATURE_SSE4_2, PROC_64_BIT },
-  { {"goldmont"}, CK_Goldmont, FEATURE_SSE4_2, PROC_64_BIT },
-  { {"goldmont-plus"}, CK_GoldmontPlus, FEATURE_SSE4_2, PROC_64_BIT },
-  { {"tremont"}, CK_Tremont, FEATURE_SSE4_2, PROC_64_BIT },
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_ADL
-  { {"alderlake"}, CK_Alderlake, ~0U, PROC_64_BIT },
-#endif // INTEL_FEATURE_CPU_ADL
-#endif // INTEL_CUSTOMIZATION
-=======
   { {"bonnell"}, CK_Bonnell, FEATURE_SSSE3, FeaturesBonnell },
   { {"atom"}, CK_Bonnell, FEATURE_SSSE3, FeaturesBonnell },
   { {"silvermont"}, CK_Silvermont, FEATURE_SSE4_2, FeaturesSilvermont },
@@ -287,7 +338,11 @@ static constexpr ProcInfo Processors[] = {
   { {"goldmont"}, CK_Goldmont, FEATURE_SSE4_2, FeaturesGoldmont },
   { {"goldmont-plus"}, CK_GoldmontPlus, FEATURE_SSE4_2, FeaturesGoldmontPlus },
   { {"tremont"}, CK_Tremont, FEATURE_SSE4_2, FeaturesTremont },
->>>>>>> 3537939cda86f0b5b06233eb99ddc9eb22935008
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_ADL
+  { {"alderlake"}, CK_Alderlake, ~0U, FeaturesAlderlake },
+#endif // INTEL_FEATURE_CPU_ADL
+#endif // INTEL_CUSTOMIZATION
   // Nehalem microarchitecture based processors.
   { {"nehalem"}, CK_Nehalem, FEATURE_SSE4_2, FeaturesNehalem },
   { {"corei7"}, CK_Nehalem, FEATURE_SSE4_2, FeaturesNehalem },
@@ -303,15 +358,11 @@ static constexpr ProcInfo Processors[] = {
   { {"haswell"}, CK_Haswell, FEATURE_AVX2, FeaturesHaswell },
   { {"core-avx2"}, CK_Haswell, FEATURE_AVX2, FeaturesHaswell },
   // Broadwell microarchitecture based processors.
-<<<<<<< HEAD
-  { {"broadwell"}, CK_Broadwell, FEATURE_AVX2, PROC_64_BIT },
+  { {"broadwell"}, CK_Broadwell, FEATURE_AVX2, FeaturesBroadwell },
 #if INTEL_CUSTOMIZATION
   // Intersection of SKX and KNL.
-  { {"common-avx512"}, CK_CommonAVX512, ~0U, PROC_64_BIT },
+  { {"common-avx512"}, CK_CommonAVX512, ~0U, FeaturesCommonAVX512 },
 #endif // INTEL_CUSTOMIZATION
-=======
-  { {"broadwell"}, CK_Broadwell, FEATURE_AVX2, FeaturesBroadwell },
->>>>>>> 3537939cda86f0b5b06233eb99ddc9eb22935008
   // Skylake client microarchitecture based processors.
   { {"skylake"}, CK_SkylakeClient, FEATURE_AVX2, FeaturesSkylakeClient },
   // Skylake server microarchitecture based processors.
@@ -328,23 +379,19 @@ static constexpr ProcInfo Processors[] = {
   // Icelake server microarchitecture based processors.
   { {"icelake-server"}, CK_IcelakeServer, FEATURE_AVX512VBMI2, FeaturesICLServer },
   // Tigerlake microarchitecture based processors.
-<<<<<<< HEAD
-  { {"tigerlake"}, CK_Tigerlake, FEATURE_AVX512VP2INTERSECT, PROC_64_BIT },
+  { {"tigerlake"}, CK_Tigerlake, FEATURE_AVX512VP2INTERSECT, FeaturesTigerlake },
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CPU_SPR
   // Sapphire Rapids microarchitecture based processors.
-  { {"sapphirerapids"}, CK_SapphireRapids, ~0U, PROC_64_BIT },
+  { {"sapphirerapids"}, CK_SapphireRapids, ~0U, FeaturesSapphireRapids },
 #endif // INTEL_FEATURE_CPU_SPR
 #endif // INTEL_CUSTOMIZATION
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CPU_RKL
   // Rocketlake microarchitecture based processors.
-  { {"rocketlake"}, CK_Rocketlake, ~0U, PROC_64_BIT },
+  { {"rocketlake"}, CK_Rocketlake, ~0U, FeaturesRocketlake },
 #endif // INTEL_FEATURE_CPU_RKL
 #endif // INTEL_CUSTOMIZATION
-=======
-  { {"tigerlake"}, CK_Tigerlake, FEATURE_AVX512VP2INTERSECT, FeaturesTigerlake },
->>>>>>> 3537939cda86f0b5b06233eb99ddc9eb22935008
   // Knights Landing processor.
   { {"knl"}, CK_KNL, FEATURE_AVX512F, FeaturesKNL },
   // Knights Mill processor.

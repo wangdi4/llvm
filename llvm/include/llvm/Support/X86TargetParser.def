@@ -235,5 +235,27 @@ X86_FEATURE       (XSAVE,           "xsave")
 X86_FEATURE       (XSAVEC,          "xsavec")
 X86_FEATURE       (XSAVEOPT,        "xsaveopt")
 X86_FEATURE       (XSAVES,          "xsaves")
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+X86_FEATURE       (AMX_TILE,        "amx-tile")
+X86_FEATURE       (AMX_INT8,        "amx-int8")
+X86_FEATURE       (AMX_BF16,        "amx-bf16")
+#endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_AVX_VNNI
+X86_FEATURE       (AVXVNNI,         "avxvnni")
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#if INTEL_FEATURE_ISA_HRESET
+X86_FEATURE       (HRESET,          "hreset")
+#endif // INTEL_FEATURE_ISA_HRESET
+#if INTEL_FEATURE_ISA_FP16
+X86_FEATURE       (AVX512FP16,      "avx512fp16")
+#endif // INTEL_FEATURE_ISA_FP16
+#if INTEL_FEATURE_ISA_KEYLOCKER
+X86_FEATURE       (KEYLOCKER,       "keylocker")
+#endif // INTEL_FEATURE_ISA_KEYLOCKER
+#if INTEL_FEATURE_ISA_ULI
+X86_FEATURE       (ULI,             "uli")
+#endif // INTEL_FEATURE_ISA_ULI
+#endif // INTEL_CUSTOMIZATION
 #undef X86_FEATURE_COMPAT
 #undef X86_FEATURE
