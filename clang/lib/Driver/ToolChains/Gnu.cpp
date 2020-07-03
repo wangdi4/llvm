@@ -409,7 +409,7 @@ static void addIPPLibs(ArgStringList &CmdArgs,
 static void addMKLLibs(ArgStringList &CmdArgs,
     const llvm::opt::ArgList &Args, const ToolChain &TC) {
   // default link type is dynamically link
-  bool linkStatic = false;
+  bool linkStatic = Args.hasArg(options::OPT_static);
 
   // Additions of libraries are currently not smart enough at an individual
   // basis to only add the 'switch' before the library.  We must put the link
@@ -949,11 +949,20 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       AddRunTimeLibs(ToolChain, D, CmdArgs, Args);
 
       if (Args.hasArg(options::OPT_fsycl)) {
+#if INTEL_CUSTOMIZATION
+        bool curStaticLinkState = isStaticLinkState(CmdArgs);
+        if (curStaticLinkState)
+          CmdArgs.push_back("-Bdynamic");
+#endif // INTEL_CUSTOMIZATION
         CmdArgs.push_back("-lsycl");
         // Use of -fintelfpga implies -lOpenCL.
         // FIXME: Adjust to use plugin interface when available.
         if (Args.hasArg(options::OPT_fintelfpga))
           CmdArgs.push_back("-lOpenCL");
+#if INTEL_CUSTOMIZATION
+        if (curStaticLinkState)
+          CmdArgs.push_back("-Bstatic");
+#endif // INTEL_CUSTOMIZATION
       }
 
       if (WantPthread && !isAndroid)

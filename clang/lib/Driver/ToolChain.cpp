@@ -1228,13 +1228,16 @@ void ToolChain::AddMKLLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
           Args.hasFlag(options::OPT_fopenmp, options::OPT_fopenmp_EQ,
                        options::OPT_fno_openmp, false))))
       return;
+    SmallVector<StringRef, 8> MKLLibs;
+    if (!getTriple().isWindowsMSVCEnvironment() &&
+        !Args.hasArg(options::OPT_static) && Args.hasArg(options::OPT_fsycl))
+      MKLLibs.push_back("mkl_sycl");
     auto addMKLExt = [](std::string LN, const llvm::Triple &Triple) {
       std::string LibName(LN);
       if (Triple.getArch() == llvm::Triple::x86_64)
-        LibName.append("_lp64");
+        LibName.append("_ilp64");
       return LibName;
     };
-    SmallVector<StringRef, 8> MKLLibs;
     MKLLibs.push_back(Args.MakeArgString(addMKLExt("mkl_intel", getTriple())));
     if (A->getValue() == StringRef("parallel")) {
       if (Args.hasArg(options::OPT_tbb, options::OPT__dpcpp))
