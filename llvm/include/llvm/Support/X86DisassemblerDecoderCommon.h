@@ -375,6 +375,7 @@ typedef uint16_t InstrUID;
   ENUM_ENTRY(MODRM_SPLITMISC)  \
   ENUM_ENTRY(MODRM_SPLITREG)  \
   ENUM_ENTRY(MODRM_SPLITREGM) \
+<<<<<<< HEAD
   ENUM_ENTRY(MODRM_FULL)
 #else // INTEL_FEATURE_ISA_AMX
 #define MODRMTYPES            \
@@ -382,6 +383,8 @@ typedef uint16_t InstrUID;
   ENUM_ENTRY(MODRM_SPLITRM)   \
   ENUM_ENTRY(MODRM_SPLITMISC) \
   ENUM_ENTRY(MODRM_SPLITREG)  \
+=======
+>>>>>>> aded4f0cc070fcef6763c9a3c2ba764d652b692e
   ENUM_ENTRY(MODRM_FULL)
 #endif // INTEL_FEATURE_ISA_AMX
 #endif // INTEL_CUSTOMIZATION
@@ -422,6 +425,7 @@ enum ModRMDecisionType {
   ENUM_ENTRY(ENCODING_RM_CD16,"R/M operand with CDisp scaling of 16")          \
   ENUM_ENTRY(ENCODING_RM_CD32,"R/M operand with CDisp scaling of 32")          \
   ENUM_ENTRY(ENCODING_RM_CD64,"R/M operand with CDisp scaling of 64")          \
+  ENUM_ENTRY(ENCODING_SIB,      "Force SIB operand in ModR/M byte.")           \
   ENUM_ENTRY(ENCODING_VSIB,     "VSIB operand in ModR/M byte.")                \
   ENUM_ENTRY(ENCODING_VSIB_CD2, "VSIB operand with CDisp scaling of 2")        \
   ENUM_ENTRY(ENCODING_VSIB_CD4, "VSIB operand with CDisp scaling of 4")        \
@@ -498,6 +502,7 @@ enum OperandEncoding {
   ENUM_ENTRY(TYPE_AVX512ICC,  "1-byte immediate operand for AVX512 icmp")      \
   ENUM_ENTRY(TYPE_UIMM8,      "1-byte unsigned immediate operand")             \
   ENUM_ENTRY(TYPE_M,          "Memory operand")                                \
+  ENUM_ENTRY(TYPE_MSIB,       "Memory operand force sib encoding")             \
   ENUM_ENTRY(TYPE_MVSIBX,     "Memory operand using XMM index")                \
   ENUM_ENTRY(TYPE_MVSIBY,     "Memory operand using YMM index")                \
   ENUM_ENTRY(TYPE_MVSIBZ,     "Memory operand using ZMM index")                \
@@ -512,9 +517,13 @@ enum OperandEncoding {
   ENUM_ENTRY(TYPE_VK,         "mask register")                                 \
   XTM_ENUM_ENTRY                                                               \
   ENUM_ENTRY(TYPE_VK_PAIR,    "mask register pair")                            \
+<<<<<<< HEAD
   XTP_ENUM_ENTRY                                                               \
   Z16T_ENUM_ENTRY                                                              \
   XTQ_ENUM_ENTRY                                                               \
+=======
+  ENUM_ENTRY(TYPE_TMM,        "tile")                                          \
+>>>>>>> aded4f0cc070fcef6763c9a3c2ba764d652b692e
   ENUM_ENTRY(TYPE_SEGMENTREG, "Segment register operand")                      \
   ENUM_ENTRY(TYPE_DEBUGREG,   "Debug register operand")                        \
   ENUM_ENTRY(TYPE_CONTROLREG, "Control register operand")                      \

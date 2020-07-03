@@ -331,6 +331,7 @@ def FeaturePTWRITE  : SubtargetFeature<"ptwrite", "HasPTWRITE", "true",
 // target-feature attribute.
 def FeatureDeprecatedMPX : SubtargetFeature<"mpx", "DeprecatedHasMPX", "false",
                                       "Deprecated. Support MPX instructions">;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
 def FeatureAMXTILE     : SubtargetFeature<"amx-tile", "HasAMXTILE", "true",
@@ -427,6 +428,16 @@ def FeatureAMXTILE2 : SubtargetFeature<"amx-tile2", "HasAMXTILE2", "true",
                                        [FeatureAMXTILE]>;
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
 #endif // INTEL_CUSTOMIZATION
+=======
+def FeatureAMXTILE     : SubtargetFeature<"amx-tile", "HasAMXTILE", "true",
+                                      "Support AMX-TILE instructions">;
+def FeatureAMXINT8     : SubtargetFeature<"amx-int8", "HasAMXINT8", "true",
+                                      "Support AMX-INT8 instructions",
+                                      [FeatureAMXTILE]>;
+def FeatureAMXBF16     : SubtargetFeature<"amx-bf16", "HasAMXBF16", "true",
+                                      "Support AMX-BF16 instructions",
+                                      [FeatureAMXTILE]>;
+>>>>>>> aded4f0cc070fcef6763c9a3c2ba764d652b692e
 def FeatureLEAForSP : SubtargetFeature<"lea-sp", "UseLeaForSP", "true",
                                      "Use LEA for adjusting the stack pointer">;
 def FeatureSlowDivide32 : SubtargetFeature<"idivl-to-divb",

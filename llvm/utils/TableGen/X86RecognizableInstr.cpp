@@ -389,10 +389,13 @@ void RecognizableInstr::adjustOperandEncoding(OperandEncoding &encoding) {
   // The scaling factor for AVX512 compressed displacement encoding is an
   // instruction attribute.  Adjust the ModRM encoding type to include the
   // scale for compressed displacement.
-  if ((encoding != ENCODING_RM && encoding != ENCODING_VSIB) ||CD8_Scale == 0)
+  if ((encoding != ENCODING_RM &&
+       encoding != ENCODING_VSIB &&
+       encoding != ENCODING_SIB) ||CD8_Scale == 0)
     return;
   encoding = (OperandEncoding)(encoding + Log2_32(CD8_Scale));
   assert(((encoding >= ENCODING_RM && encoding <= ENCODING_RM_CD64) ||
+          (encoding == ENCODING_SIB) ||
           (encoding >= ENCODING_VSIB && encoding <= ENCODING_VSIB_CD64)) &&
          "Invalid CDisp scaling");
 }
@@ -586,7 +589,11 @@ void RecognizableInstr::emitInstructionSpecifier() {
     break;
 #endif
   case X86Local::MRMDestMem:
+<<<<<<< HEAD
   case X86Local::MRMDestMemFSIB: // INTEL
+=======
+  case X86Local::MRMDestMemFSIB:
+>>>>>>> aded4f0cc070fcef6763c9a3c2ba764d652b692e
     // Operand 1 is a memory operand (possibly SIB-extended)
     // Operand 2 is a register operand in the Reg/Opcode field.
     // - In AVX, there is a register operand in the VEX.vvvv field here -
@@ -660,6 +667,7 @@ void RecognizableInstr::emitInstructionSpecifier() {
   case X86Local::MRMSrcMemFSIB:
 #endif // INTEL_CUSTOMIZATION
   case X86Local::MRMSrcMem:
+  case X86Local::MRMSrcMemFSIB:
     // Operand 1 is a register operand in the Reg/Opcode field.
     // Operand 2 is a memory operand (possibly SIB-extended)
     // - In AVX, there is a register operand in the VEX.vvvv field here -
@@ -718,6 +726,10 @@ void RecognizableInstr::emitInstructionSpecifier() {
            "Unexpected number of operands for MRMXrCC");
     HANDLE_OPERAND(rmRegister)
     HANDLE_OPERAND(opcodeModifier)
+    break;
+  case X86Local::MRMr0:
+    // Operand 1 is a register operand in the R/M field.
+    HANDLE_OPERAND(roRegister)
     break;
   case X86Local::MRMXr:
   case X86Local::MRM0r:
@@ -858,12 +870,17 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
     break;
   case X86Local::MRMDestMem4VOp2FSIB: // INTEL
   case X86Local::MRMDestMem:
+<<<<<<< HEAD
   case X86Local::MRMDestMemFSIB: // INTEL
   case X86Local::MRMDestMem4VOp3: // INTEL
 #if INTEL_CUSTOMIZATION
   case X86Local::MRMSrcMemFSIB:
 #endif // INTEL_CUSTOMIZATION
+=======
+  case X86Local::MRMDestMemFSIB:
+>>>>>>> aded4f0cc070fcef6763c9a3c2ba764d652b692e
   case X86Local::MRMSrcMem:
+  case X86Local::MRMSrcMemFSIB:
   case X86Local::MRMSrcMem4VOp3:
   case X86Local::MRMSrcMem4VOp3FSIB: // INTEL
   case X86Local::MRMSrcMemOp4:
@@ -890,6 +907,9 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
   case X86Local::MRM4X: case X86Local::MRM5X:
   case X86Local::MRM6X: case X86Local::MRM7X:
     filter = std::make_unique<ExtendedFilter>(true, Form - X86Local::MRM0X);
+    break;
+  case X86Local::MRMr0:
+    filter = std::make_unique<ExtendedRMFilter>(true, Form - X86Local::MRMr0);
     break;
   case X86Local::MRM0m: case X86Local::MRM1m:
   case X86Local::MRM2m: case X86Local::MRM3m:
@@ -1031,6 +1051,7 @@ OperandType RecognizableInstr::typeFromString(const std::string &s,
   TYPE("i64imm",              TYPE_IMM)
   TYPE("anymem",              TYPE_M)
   TYPE("opaquemem",           TYPE_M)
+  TYPE("sibmem",              TYPE_MSIB)
   TYPE("SEGMENT_REG",         TYPE_SEGMENTREG)
   TYPE("DEBUG_REG",           TYPE_DEBUGREG)
   TYPE("CONTROL_REG",         TYPE_CONTROLREG)
@@ -1089,6 +1110,7 @@ OperandType RecognizableInstr::typeFromString(const std::string &s,
   TYPE("vz256mem",            TYPE_MVSIBZ)
   TYPE("vz512mem",            TYPE_MVSIBZ)
   TYPE("BNDR",                TYPE_BNDR)
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
   TYPE("VTILE",               TYPE_TMM)
@@ -1102,6 +1124,9 @@ OperandType RecognizableInstr::typeFromString(const std::string &s,
   TYPE("VTILEQuad",           TYPE_TMM_QUAD)
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 #endif // INTEL_CUSTOMIZATION
+=======
+  TYPE("TILE",                TYPE_TMM)
+>>>>>>> aded4f0cc070fcef6763c9a3c2ba764d652b692e
   errs() << "Unhandled type string " << s << "\n";
   llvm_unreachable("Unhandled type string");
 }
@@ -1146,12 +1171,16 @@ RecognizableInstr::immediateEncodingFromString(const std::string &s,
   ENCODING("VR128X",          ENCODING_IB)
   ENCODING("VR256X",          ENCODING_IB)
   ENCODING("VR512",           ENCODING_IB)
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
   ENCODING("VTILE",           ENCODING_IB)
   ENCODING("VTILEX",          ENCODING_IB)
 #endif // INTEL_FEATURE_ISA_AMX
 #endif // INTEL_CUSTOMIZATION
+=======
+  ENCODING("TILE",            ENCODING_IB)
+>>>>>>> aded4f0cc070fcef6763c9a3c2ba764d652b692e
   errs() << "Unhandled immediate encoding " << s << "\n";
   llvm_unreachable("Unhandled immediate encoding");
 }
@@ -1195,6 +1224,7 @@ RecognizableInstr::rmRegisterEncodingFromString(const std::string &s,
   ENCODING("VK8PAIR",         ENCODING_RM)
   ENCODING("VK16PAIR",        ENCODING_RM)
   ENCODING("BNDR",            ENCODING_RM)
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
   ENCODING("VTILE",           ENCODING_RM)
@@ -1205,6 +1235,9 @@ RecognizableInstr::rmRegisterEncodingFromString(const std::string &s,
   ENCODING("ZMM16Tuples",     ENCODING_RM)
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION
+=======
+  ENCODING("TILE",            ENCODING_RM)
+>>>>>>> aded4f0cc070fcef6763c9a3c2ba764d652b692e
   errs() << "Unhandled R/M register encoding " << s << "\n";
   llvm_unreachable("Unhandled R/M register encoding");
 }
@@ -1256,6 +1289,7 @@ RecognizableInstr::roRegisterEncodingFromString(const std::string &s,
   ENCODING("VK32WM",          ENCODING_REG)
   ENCODING("VK64WM",          ENCODING_REG)
   ENCODING("BNDR",            ENCODING_REG)
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
   ENCODING("VTILE",           ENCODING_REG)
@@ -1269,6 +1303,9 @@ RecognizableInstr::roRegisterEncodingFromString(const std::string &s,
   ENCODING("VTILEQuad",       ENCODING_REG)
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 #endif // INTEL_CUSTOMIZATION
+=======
+  ENCODING("TILE",            ENCODING_REG)
+>>>>>>> aded4f0cc070fcef6763c9a3c2ba764d652b692e
   errs() << "Unhandled reg/opcode register encoding " << s << "\n";
   llvm_unreachable("Unhandled reg/opcode register encoding");
 }
@@ -1305,6 +1342,7 @@ RecognizableInstr::vvvvRegisterEncodingFromString(const std::string &s,
   ENCODING("VK4PAIR",         ENCODING_VVVV)
   ENCODING("VK8PAIR",         ENCODING_VVVV)
   ENCODING("VK16PAIR",        ENCODING_VVVV)
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
   ENCODING("VTILE",           ENCODING_VVVV)
@@ -1315,6 +1353,9 @@ RecognizableInstr::vvvvRegisterEncodingFromString(const std::string &s,
   ENCODING("ZMM16Tuples",     ENCODING_VVVV)
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION
+=======
+  ENCODING("TILE",            ENCODING_VVVV)
+>>>>>>> aded4f0cc070fcef6763c9a3c2ba764d652b692e
   errs() << "Unhandled VEX.vvvv register encoding " << s << "\n";
   llvm_unreachable("Unhandled VEX.vvvv register encoding");
 }
@@ -1365,6 +1406,7 @@ RecognizableInstr::memoryEncodingFromString(const std::string &s,
   ENCODING("lea64mem",        ENCODING_RM)
   ENCODING("anymem",          ENCODING_RM)
   ENCODING("opaquemem",       ENCODING_RM)
+  ENCODING("sibmem",          ENCODING_SIB)
   ENCODING("vx64mem",         ENCODING_VSIB)
   ENCODING("vx128mem",        ENCODING_VSIB)
   ENCODING("vx256mem",        ENCODING_VSIB)
