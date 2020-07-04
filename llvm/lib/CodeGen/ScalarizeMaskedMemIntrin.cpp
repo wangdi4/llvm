@@ -467,7 +467,7 @@ static void scalarizeMaskedGather(CallInst *CI, bool &ModifiedDT) {
   Instruction *InsertPt = CI;
   BasicBlock *IfBlock = CI->getParent();
   Builder.SetInsertPoint(InsertPt);
-  unsigned AlignVal = cast<ConstantInt>(Alignment)->getZExtValue();
+  MaybeAlign AlignVal = cast<ConstantInt>(Alignment)->getMaybeAlignValue();
 
   Builder.SetCurrentDebugLocation(CI->getDebugLoc());
 
@@ -480,9 +480,15 @@ static void scalarizeMaskedGather(CallInst *CI, bool &ModifiedDT) {
     for (unsigned Idx = 0; Idx < VectorWidth; ++Idx) {
       if (cast<Constant>(Mask)->getAggregateElement(Idx)->isNullValue())
         continue;
+<<<<<<< HEAD
       Value *Ptr = getScalarAddress(Ptrs, Idx, Builder); // INTEL
       LoadInst *Load = Builder.CreateAlignedLoad(
           EltTy, Ptr, MaybeAlign(AlignVal), "Load" + Twine(Idx));
+=======
+      Value *Ptr = Builder.CreateExtractElement(Ptrs, Idx, "Ptr" + Twine(Idx));
+      LoadInst *Load =
+          Builder.CreateAlignedLoad(EltTy, Ptr, AlignVal, "Load" + Twine(Idx));
+>>>>>>> 87e2751cf07cc570200d8d356d7f35fee2807779
       VResult =
           Builder.CreateInsertElement(VResult, Load, Idx, "Res" + Twine(Idx));
     }
@@ -531,8 +537,8 @@ static void scalarizeMaskedGather(CallInst *CI, bool &ModifiedDT) {
     Builder.SetInsertPoint(InsertPt);
 
     Value *Ptr = Builder.CreateExtractElement(Ptrs, Idx, "Ptr" + Twine(Idx));
-    LoadInst *Load = Builder.CreateAlignedLoad(EltTy, Ptr, MaybeAlign(AlignVal),
-                                               "Load" + Twine(Idx));
+    LoadInst *Load =
+        Builder.CreateAlignedLoad(EltTy, Ptr, AlignVal, "Load" + Twine(Idx));
     Value *NewVResult =
         Builder.CreateInsertElement(VResult, Load, Idx, "Res" + Twine(Idx));
 
@@ -602,7 +608,7 @@ static void scalarizeMaskedScatter(CallInst *CI, bool &ModifiedDT) {
   Builder.SetInsertPoint(InsertPt);
   Builder.SetCurrentDebugLocation(CI->getDebugLoc());
 
-  MaybeAlign AlignVal(cast<ConstantInt>(Alignment)->getZExtValue());
+  MaybeAlign AlignVal = cast<ConstantInt>(Alignment)->getMaybeAlignValue();
   unsigned VectorWidth = cast<VectorType>(Src->getType())->getNumElements();
 
   // Shorten the way if the mask is a vector of constants.
