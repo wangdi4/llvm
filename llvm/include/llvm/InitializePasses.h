@@ -105,6 +105,7 @@ void initializeAlignmentFromAssumptionsPass(PassRegistry&);
 void initializeAlwaysInlinerLegacyPassPass(PassRegistry&);
 void initializeAndersensAAWrapperPassPass(PassRegistry&); // INTEL
 void initializeAssumeSimplifyPassLegacyPassPass(PassRegistry &);
+void initializeAssumeBuilderPassLegacyPassPass(PassRegistry &);
 void initializeOpenMPOptLegacyPassPass(PassRegistry &);
 void initializeArgNoAliasPropPass(PassRegistry &); // INTEL
 void initializeArgPromotionPass(PassRegistry&);
