@@ -992,7 +992,7 @@ static Value *foldOperationIntoPhiValue(BinaryOperator *I, Value *InV,
   if (!ConstIsRHS)
     std::swap(Op0, Op1);
 
-  Value *RI = Builder.CreateBinOp(I->getOpcode(), Op0, Op1, "phitmp");
+  Value *RI = Builder.CreateBinOp(I->getOpcode(), Op0, Op1, "phi.bo");
   auto *FPInst = dyn_cast<Instruction>(RI);
   if (FPInst && isa<FPMathOperator>(FPInst))
     FPInst->copyFastMathFlags(I);
@@ -1097,7 +1097,7 @@ Instruction *InstCombiner::foldOpIntoPhi(Instruction &I, PHINode *PN) {
         // the select would be generated exactly once in the NonConstBB.
         Builder.SetInsertPoint(ThisBB->getTerminator());
         InV = Builder.CreateSelect(PN->getIncomingValue(i), TrueVInPred,
-                                   FalseVInPred, "phitmp");
+                                   FalseVInPred, "phi.sel");
       }
       NewPN->addIncoming(InV, ThisBB);
     }
@@ -1109,7 +1109,7 @@ Instruction *InstCombiner::foldOpIntoPhi(Instruction &I, PHINode *PN) {
         InV = ConstantExpr::getCompare(CI->getPredicate(), InC, C);
       else
         InV = Builder.CreateCmp(CI->getPredicate(), PN->getIncomingValue(i),
-                                C, "phitmp");
+                                C, "phi.cmp");
       NewPN->addIncoming(InV, PN->getIncomingBlock(i));
     }
   } else if (auto *BO = dyn_cast<BinaryOperator>(&I)) {
@@ -1127,7 +1127,7 @@ Instruction *InstCombiner::foldOpIntoPhi(Instruction &I, PHINode *PN) {
         InV = ConstantExpr::getCast(CI->getOpcode(), InC, RetTy);
       else
         InV = Builder.CreateCast(CI->getOpcode(), PN->getIncomingValue(i),
-                                 I.getType(), "phitmp");
+                                 I.getType(), "phi.cast");
       NewPN->addIncoming(InV, PN->getIncomingBlock(i));
     }
   }

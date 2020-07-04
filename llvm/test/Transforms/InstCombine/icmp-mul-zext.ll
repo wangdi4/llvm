@@ -19,10 +19,10 @@ define i32 @sterix(i32, i8, i64) {
 ; CHECK-NEXT:    [[AND:%.*]] = and i64 [[MUL3]], [[TMP2]]
 ; CHECK-NEXT:    [[CONV4:%.*]] = trunc i64 [[AND]] to i32
 ; CHECK-NEXT:    [[TOBOOL7:%.*]] = icmp eq i32 [[CONV4]], 0
-; CHECK-NEXT:    [[PHITMP:%.*]] = zext i1 [[TOBOOL7]] to i32
+; CHECK-NEXT:    [[PHI_CAST:%.*]] = zext i1 [[TOBOOL7]] to i32
 ; CHECK-NEXT:    br label [[LOR_END]]
 ; CHECK:       lor.end:
-; CHECK-NEXT:    [[TMP4:%.*]] = phi i32 [ 1, [[ENTRY:%.*]] ], [ [[PHITMP]], [[LOR_RHS]] ]
+; CHECK-NEXT:    [[TMP4:%.*]] = phi i32 [ 1, [[ENTRY:%.*]] ], [ [[PHI_CAST]], [[LOR_RHS]] ]
 ; CHECK-NEXT:    ret i32 [[TMP4]]
 ;
 entry:
@@ -119,4 +119,34 @@ ret1:
 
 ret2:
   ret i16 %trunc_unnecessary              ; crash visiting this use after corrupting iterator
+}
+
+; FIXME: This miscompiles because of broken pattern matching.
+
+define i1 @PR46561(i1 %a, i1 %x, i1 %y, i8 %z) {
+; CHECK-LABEL: @PR46561(
+; CHECK-NEXT:  entry:
+; CHECK-NEXT:    br i1 [[A:%.*]], label [[COND_TRUE:%.*]], label [[END:%.*]]
+; CHECK:       cond.true:
+; CHECK-NEXT:    br label [[END]]
+; CHECK:       end:
+; CHECK-NEXT:    [[P:%.*]] = phi i1 [ true, [[COND_TRUE]] ], [ false, [[ENTRY:%.*]] ]
+; CHECK-NEXT:    ret i1 [[P]]
+;
+entry:
+  br i1 %a, label %cond.true, label %end
+
+cond.true:
+  %tz = trunc i8 %z to i1
+  %zx = zext i1 %x to i32
+  %zy = zext i1 %y to i32
+  %zz = zext i1 %tz to i32
+  %mul = mul i32 %zx, %zy
+  %cond = xor i32 %mul, %zz
+  br label %end
+
+end:
+  %p = phi i32 [ %cond, %cond.true ], [ -1, %entry ]
+  %r = icmp eq i32 %p, 0
+  ret i1 %r
 }
