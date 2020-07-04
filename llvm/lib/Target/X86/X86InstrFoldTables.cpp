@@ -7116,7 +7116,6 @@ static const X86MemoryFoldTableEntry BroadcastFoldTable3[] = {
   { X86::VFNMSUB231PSZ128r,    X86::VFNMSUB231PSZ128mb,   TB_BCAST_SS },
   { X86::VFNMSUB231PSZ256r,    X86::VFNMSUB231PSZ256mb,   TB_BCAST_SS },
   { X86::VFNMSUB231PSZr,       X86::VFNMSUB231PSZmb,      TB_BCAST_SS },
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   { X86::VMAXCPDZ128rrkz,      X86::VMAXCPDZ128rmbkz,     TB_BCAST_SD },
   { X86::VMAXCPDZ256rrkz,      X86::VMAXCPDZ256rmbkz,     TB_BCAST_SD },
@@ -7243,6 +7242,14 @@ static const X86MemoryFoldTableEntry BroadcastFoldTable3[] = {
   { X86::VPSUBQZ128rrkz,       X86::VPSUBQZ128rmbkz,      TB_BCAST_Q },
   { X86::VPSUBQZ256rrkz,       X86::VPSUBQZ256rmbkz,      TB_BCAST_Q },
   { X86::VPSUBQZrrkz,          X86::VPSUBQZrmbkz,         TB_BCAST_Q },
+#endif // INTEL_CUSTOMIZATION
+  { X86::VPTERNLOGDZ128rri,    X86::VPTERNLOGDZ128rmbi,   TB_BCAST_D },
+  { X86::VPTERNLOGDZ256rri,    X86::VPTERNLOGDZ256rmbi,   TB_BCAST_D },
+  { X86::VPTERNLOGDZrri,       X86::VPTERNLOGDZrmbi,      TB_BCAST_D },
+  { X86::VPTERNLOGQZ128rri,    X86::VPTERNLOGQZ128rmbi,   TB_BCAST_Q },
+  { X86::VPTERNLOGQZ256rri,    X86::VPTERNLOGQZ256rmbi,   TB_BCAST_Q },
+  { X86::VPTERNLOGQZrri,       X86::VPTERNLOGQZrmbi,      TB_BCAST_Q },
+#if INTEL_CUSTOMIZATION
   { X86::VPTESTMDZ128rrk,      X86::VPTESTMDZ128rmbk,     TB_BCAST_D },
   { X86::VPTESTMDZ256rrk,      X86::VPTESTMDZ256rmbk,     TB_BCAST_D },
   { X86::VPTESTMDZrrk,         X86::VPTESTMDZrmbk,        TB_BCAST_D },
@@ -7268,14 +7275,6 @@ static const X86MemoryFoldTableEntry BroadcastFoldTable3[] = {
   { X86::VSUBPSZ256rrkz,       X86::VSUBPSZ256rmbkz,      TB_BCAST_SS },
   { X86::VSUBPSZrrkz,          X86::VSUBPSZrmbkz,         TB_BCAST_SS },
 #endif // INTEL_CUSTOMIZATION
-=======
-  { X86::VPTERNLOGDZ128rri,    X86::VPTERNLOGDZ128rmbi,   TB_BCAST_D },
-  { X86::VPTERNLOGDZ256rri,    X86::VPTERNLOGDZ256rmbi,   TB_BCAST_D },
-  { X86::VPTERNLOGDZrri,       X86::VPTERNLOGDZrmbi,      TB_BCAST_D },
-  { X86::VPTERNLOGQZ128rri,    X86::VPTERNLOGQZ128rmbi,   TB_BCAST_Q },
-  { X86::VPTERNLOGQZ256rri,    X86::VPTERNLOGQZ256rmbi,   TB_BCAST_Q },
-  { X86::VPTERNLOGQZrri,       X86::VPTERNLOGQZrmbi,      TB_BCAST_Q },
->>>>>>> 912cd8a37f4628f63c2aec71c772f8935f70d0a8
 };
 
 #if INTEL_CUSTOMIZATION
