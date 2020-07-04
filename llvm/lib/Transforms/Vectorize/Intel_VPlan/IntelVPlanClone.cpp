@@ -45,11 +45,8 @@ VPBasicBlock *VPCloneUtils::cloneBasicBlock(VPBasicBlock *Block,
     auto ClonedInst = Inst.clone();
     ClonedBlock->appendInstruction(ClonedInst);
     ValueMap.insert(std::make_pair(&Inst, ClonedInst));
-    if (DA) {
-      if (DA->isDivergent(Inst))
-        DA->markDivergent(*ClonedInst);
+    if (DA)
       DA->updateVectorShape(ClonedInst, DA->getVectorShape(&Inst));
-    }
   }
 
   // Remove unnecessary terminator added by VPBasicBlock constructor
