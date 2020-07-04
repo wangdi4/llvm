@@ -1661,13 +1661,10 @@ define i32 @test_chr_18(i32* %i, i32 %sum0) !prof !14 {
 ; CHECK-NEXT:    [[CMP4_NONCHR:%.*]] = icmp eq i32 [[A4_NONCHR]], 0
 ; CHECK-NEXT:    [[INC2_NONCHR:%.*]] = add i32 [[INC1]], 1
 ; CHECK-NEXT:    [[A1:%.*]] = and i32 [[LI]], 1
-<<<<<<< HEAD
-; CHECK-NEXT:    [[CMP1:%.*]] = icmp eq i32 [[A1]], 0
-; CHECK-NEXT:    [[SUM2_NONCHR:%.*]] = select i1 [[CMP1]], i32 [[SUM0]], i32 [[SUM1]]
-=======
 ; CHECK-NEXT:    [[CMP1_NOT:%.*]] = icmp eq i32 [[A1]], 0
-; CHECK-NEXT:    [[SUM2_NONCHR:%.*]] = select i1 [[CMP1_NOT]], i32 [[SUM0]], i32 [[SUM1]], !prof !16
->>>>>>> c3b8bd1eea5b74b6cd4a89f3c221bc2dfa891248
+; INTEL_CUSTOMIZATION
+; CHECK-NEXT:    [[SUM2_NONCHR:%.*]] = select i1 [[CMP1_NOT]], i32 [[SUM0]], i32 [[SUM1]]
+; end INTEL_CUSTOMIZATION
 ; CHECK-NEXT:    [[SUM3_NONCHR:%.*]] = add i32 [[SUM2_NONCHR]], 44
 ; CHECK-NEXT:    [[TMP2:%.*]] = select i1 [[CMP4_NONCHR]], i32 [[SUM1]], i32 [[SUM3_NONCHR]], !prof !16
 ; CHECK-NEXT:    br label [[BB2]]
