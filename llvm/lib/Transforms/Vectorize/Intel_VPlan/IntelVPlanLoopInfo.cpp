@@ -114,7 +114,7 @@ void VPLoop::setTripCountInfo(TripCountInfo TCInfo) {
   Latch->setTripCountInfo(std::make_unique<TripCountInfo>(TCInfo));
 }
 
-TripCountInfo VPLoop::getTripCountInfo() {
+TripCountInfo VPLoop::getTripCountInfo() const {
   VPBasicBlock *Latch = getLoopLatch();
   if (TripCountInfo *TCInfoPtr = Latch->getTripCountInfo())
     return *TCInfoPtr;

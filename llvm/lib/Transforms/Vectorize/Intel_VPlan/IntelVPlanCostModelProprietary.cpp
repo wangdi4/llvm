@@ -301,8 +301,18 @@ unsigned VPlanCostModelProprietary::getPsadwbPatternCost() {
 
   const VPLoop *TopLoop = *(Plan->getVPLoopInfo()->begin());
   for (const VPLoop *VPL : post_order(TopLoop)) {
-    assert(VPL->getLoopDepth() == 1 && "Innermost loop is expect.");
+    assert(VPL->getLoopDepth() == 1 && "Innermost loop only is expected.");
     if (VPL->getLoopDepth() != 1)
+      continue;
+
+    // If loop has known number of iterations and it is 8/16 we skip it here
+    // since vectorizing by VPlan leads to complete unroll and ISel can handle
+    // vectorized by VPlan code (i.e. recognize PSADBW).  Also if the loop has
+    // an outer loop of known trip count it also can be completely unrolled
+    // causing better performance comparing to PSADDBW in a loop.
+    TripCountInfo LoopTCI = VPL->getTripCountInfo();
+    if (!LoopTCI.IsEstimated &&
+        (LoopTCI.TripCount == 8 || LoopTCI.TripCount == 16))
       continue;
 
     VPBasicBlock *Block = VPL->getHeader();
