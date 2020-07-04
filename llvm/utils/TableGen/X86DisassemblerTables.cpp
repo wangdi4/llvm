@@ -647,7 +647,6 @@ static ModRMDecisionType getDecisionType(ModRMDecision &decision) {
   bool satisfiesOneEntry = true;
   bool satisfiesSplitRM = true;
   bool satisfiesSplitReg = true;
-  bool satisfiesSplitRegM = true;
   bool satisfiesSplitMisc = true;
 
   for (unsigned index = 0; index < 256; ++index) {
@@ -669,10 +668,6 @@ static ModRMDecisionType getDecisionType(ModRMDecision &decision) {
     if (((index & 0xc0) != 0xc0) &&
        (decision.instructionIDs[index] != decision.instructionIDs[index&0x38]))
       satisfiesSplitMisc = false;
-
-    if (((index & 0xc0) == 0xc0) &&
-       (decision.instructionIDs[index] != decision.instructionIDs[index&0xc7]))
-      satisfiesSplitRegM = false;
   }
 
   if (satisfiesOneEntry)
@@ -683,9 +678,6 @@ static ModRMDecisionType getDecisionType(ModRMDecision &decision) {
 
   if (satisfiesSplitReg && satisfiesSplitMisc)
     return MODRM_SPLITREG;
-
-  if (satisfiesSplitRegM)
-    return MODRM_SPLITREGM;
 
   if (satisfiesSplitMisc)
     return MODRM_SPLITMISC;
@@ -751,10 +743,6 @@ void DisassemblerTables::emitModRMDecision(raw_ostream &o1, raw_ostream &o2,
       for (unsigned index = 0xc0; index < 256; index += 8)
         ModRMDecision.push_back(decision.instructionIDs[index]);
       break;
-    case MODRM_SPLITREGM:
-      for (unsigned index = 0xc0; index < 256; index += 8)
-        ModRMDecision.push_back(decision.instructionIDs[index]);
-      break;
     case MODRM_SPLITMISC:
       for (unsigned index = 0; index < 64; index += 8)
         ModRMDecision.push_back(decision.instructionIDs[index]);
@@ -795,9 +783,6 @@ void DisassemblerTables::emitModRMDecision(raw_ostream &o1, raw_ostream &o2,
       break;
     case MODRM_SPLITREG:
       sEntryNumber += 16;
-      break;
-    case MODRM_SPLITREGM:
-      sEntryNumber += 8;
       break;
     case MODRM_SPLITMISC:
       sEntryNumber += 8 + 64;
