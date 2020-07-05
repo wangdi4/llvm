@@ -46,6 +46,11 @@ static cl::opt<unsigned> CMGatherScatterThreshold(
            "doubled to make it harder to choose in favor of "
            "loop with gathers/scatters."));
 
+static cl::opt<unsigned> CMGatherScatterPenaltyFactor(
+  "vplan-cm-gather-scatter-penalty-factor", cl::init(2), cl::Hidden,
+  cl::desc("The factor which G/S cost multiplies by if G/S accumulated cost "
+           "exceeds CMGatherScatterThreshold."));
+
 static cl::opt<unsigned> NumberOfSpillsPerExtraReg(
     "vplan-cost-model-number-of-spills-per-extra-reg", cl::init(2), cl::Hidden,
     cl::desc("The number of spills/fills generated on average for each HW "
@@ -766,7 +771,7 @@ unsigned VPlanCostModelProprietary::getCost() {
   // Double GatherScatter cost contribution in case Gathers/Scatters take too
   // much to make it harder to choose this VF.
   if (TTICost * CMGatherScatterThreshold < GatherScatterCost * 100)
-    Cost += GatherScatterCost;
+    Cost += CMGatherScatterPenaltyFactor * GatherScatterCost;
 
   Cost += getSpillFillCost();
 
@@ -942,7 +947,8 @@ void VPlanCostModelProprietary::print(
     OS << "VPlan Base Cost includes Total VPlan GS Cost: " <<
       GatherScatterCost << '\n';
   if (TTICost * CMGatherScatterThreshold < GatherScatterCost * 100)
-    OS << "Total VPlan GS Cost is bumped: +" << GatherScatterCost << '\n';
+    OS << "Total VPlan GS Cost is bumped: +" <<
+      CMGatherScatterPenaltyFactor * GatherScatterCost << '\n';
   if (CheckForSLPExtraCost())
     OS << "SLP breaking penalty cost: +" << (VF - 1) * TTICost << '\n';
   if (SpillFillCost)

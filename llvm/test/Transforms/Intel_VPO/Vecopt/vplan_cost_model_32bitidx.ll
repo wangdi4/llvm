@@ -12,10 +12,10 @@
 
 define void @test_fit_32bitindex_gather() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF8-LABEL:  HIR Cost Model for VPlan test_fit_32bitindex_gather.28 with VF = 8:
-; VPLAN-HIR-CM-VF8-NEXT:  Total VPlan Cost: 96
+; VPLAN-HIR-CM-VF8-NEXT:  Total VPlan Cost: 144
 ; VPLAN-HIR-CM-VF8-NEXT:  VPlan Base Cost before adjustments: 48
 ; VPLAN-HIR-CM-VF8-NEXT:  VPlan Base Cost includes Total VPlan GS Cost: 48
-; VPLAN-HIR-CM-VF8-NEXT:  Total VPlan GS Cost is bumped: +48
+; VPLAN-HIR-CM-VF8-NEXT:  Total VPlan GS Cost is bumped: +96
 ; VPLAN-HIR-CM-VF8-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF8-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost Unknown for i32 [[VP__IND_INIT:%.*]] = induction-init{add} i32 0 i32 1
