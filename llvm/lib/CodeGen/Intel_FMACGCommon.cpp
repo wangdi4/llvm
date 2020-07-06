@@ -977,47 +977,8 @@ FMAPerfDesc GlobalFMA::getExprPerfDesc(const FMAExpr &Expr) const {
 }
 
 FMAPerfDesc GlobalFMA::getDagPerfDesc(const FMADag &Dag) const {
-  unsigned NumAddSub = 0;
-  unsigned NumMul = 0;
-  unsigned NumFMA = 0;
-
-  unsigned NumNodes = Dag.getNumNodes();
-  for (unsigned NodeInd = 0; NodeInd < NumNodes; NodeInd++) {
-    bool AIsTerm, BIsTerm, CIsTerm;
-    unsigned A = Dag.getOperand(NodeInd, 0, &AIsTerm);
-    unsigned B = Dag.getOperand(NodeInd, 1, &BIsTerm);
-    unsigned C = Dag.getOperand(NodeInd, 2, &CIsTerm);
-
-    bool AIsZero = AIsTerm && A == FMADagCommon::TermZERO;
-    bool BIsZero = BIsTerm && B == FMADagCommon::TermZERO;
-    bool CIsZero = CIsTerm && C == FMADagCommon::TermZERO;
-
-    (void)AIsZero; (void)BIsZero;
-    assert((!AIsZero && !BIsZero) && "DAG has obvious inefficiencies.");
-
-    bool AIsOne = AIsTerm && A == FMADagCommon::TermONE;
-    bool BIsOne = BIsTerm && B == FMADagCommon::TermONE;
-
-    if (AIsOne || BIsOne) {
-      assert(!CIsZero && "DAG has obvious inefficiencies.");
-      NumAddSub++;
-      // -A - C node requires 2 operations at the code-generation phase:
-      //   T0 = A + C; T1 = 0 - T0;
-      // Count the additional subtract operation here.
-      if (Dag.getMulSign(NodeInd) && Dag.getAddSign(NodeInd))
-        NumAddSub++;
-    } else if (CIsZero) {
-      // A*B requires 1 MUL operation at the code-generation phase.
-      // -A*B requires 1 FMA operation: -A*B+0.
-      if (Dag.getMulSign(NodeInd))
-        NumFMA++;
-      else
-        NumMul++;
-    } else
-      NumFMA++;
-  }
   unsigned Latency = Dag.getLatency(MulLatency, AddSubLatency, FMALatency);
-  return FMAPerfDesc(Latency, NumAddSub, NumMul, NumFMA);
+  return FMAPerfDesc(Dag.getOpsDesc(), Latency);
 }
 
 bool GlobalFMA::isDagBetterThanInitialExpr(const FMADag &Dag,
