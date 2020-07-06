@@ -38,6 +38,7 @@ void ProgramConfig::InitFromCpuConfig(const CPUDeviceConfig& cpuConfig)
     m_serializeWorkGroups = (cpuConfig.GetNumTBBWorkers() == 1);
     m_cpuMaxWGSize = cpuConfig.GetCpuMaxWGSize();
     m_streamingAlways = cpuConfig.GetStreamingAlways();
+    m_expensiveMemOpts = cpuConfig.GetExpensiveMemOpts();
 }
 
 void ProgramDumpConfig::InitFromString(const char* options)
