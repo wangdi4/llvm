@@ -180,21 +180,6 @@ int ARMTTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src,
     return Cost;
   };
 
-  // Single to/from double precision conversions.
-  static const CostTblEntry NEONFltDblTbl[] = {
-    // Vector fptrunc/fpext conversions.
-    { ISD::FP_ROUND,   MVT::v2f64, 2 },
-    { ISD::FP_EXTEND,  MVT::v2f32, 2 },
-    { ISD::FP_EXTEND,  MVT::v4f32, 4 }
-  };
-
-  if (Src->isVectorTy() && ST->hasNEON() && (ISD == ISD::FP_ROUND ||
-                                          ISD == ISD::FP_EXTEND)) {
-    std::pair<int, MVT> LT = TLI->getTypeLegalizationCost(DL, Src);
-    if (const auto *Entry = CostTableLookup(NEONFltDblTbl, ISD, LT.second))
-      return AdjustCost(LT.first * Entry->Cost);
-  }
-
   EVT SrcTy = TLI->getValueType(DL, Src);
   EVT DstTy = TLI->getValueType(DL, Dst);
 
@@ -228,12 +213,39 @@ int ARMTTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src,
         {ISD::ZERO_EXTEND, MVT::v4i32, MVT::v4i8, 0},
         {ISD::SIGN_EXTEND, MVT::v8i16, MVT::v8i8, 0},
         {ISD::ZERO_EXTEND, MVT::v8i16, MVT::v8i8, 0},
+        // The following extend from a legal type to an illegal type, so need to
+        // split the load. This introduced an extra load operation, but the
+        // extend is still "free".
+        {ISD::SIGN_EXTEND, MVT::v8i32, MVT::v8i16, 1},
+        {ISD::ZERO_EXTEND, MVT::v8i32, MVT::v8i16, 1},
+        {ISD::SIGN_EXTEND, MVT::v16i32, MVT::v16i8, 3},
+        {ISD::ZERO_EXTEND, MVT::v16i32, MVT::v16i8, 3},
+        {ISD::SIGN_EXTEND, MVT::v16i16, MVT::v16i8, 1},
+        {ISD::ZERO_EXTEND, MVT::v16i16, MVT::v16i8, 1},
     };
     if (SrcTy.isVector() && ST->hasMVEIntegerOps()) {
       if (const auto *Entry =
               ConvertCostTableLookup(MVELoadConversionTbl, ISD,
                                      DstTy.getSimpleVT(), SrcTy.getSimpleVT()))
-        return AdjustCost(Entry->Cost);
+        return AdjustCost(Entry->Cost * ST->getMVEVectorCostFactor());
+    }
+  }
+
+  // The truncate of a store is free. This is the mirror of extends above.
+  if (I && I->hasOneUse() && isa<StoreInst>(*I->user_begin())) {
+    static const TypeConversionCostTblEntry MVELoadConversionTbl[] = {
+        {ISD::TRUNCATE, MVT::v4i32, MVT::v4i16, 0},
+        {ISD::TRUNCATE, MVT::v4i32, MVT::v4i8, 0},
+        {ISD::TRUNCATE, MVT::v8i16, MVT::v8i8, 0},
+        {ISD::TRUNCATE, MVT::v8i32, MVT::v8i16, 1},
+        {ISD::TRUNCATE, MVT::v16i32, MVT::v16i8, 3},
+        {ISD::TRUNCATE, MVT::v16i16, MVT::v16i8, 1},
+    };
+    if (SrcTy.isVector() && ST->hasMVEIntegerOps()) {
+      if (const auto *Entry =
+              ConvertCostTableLookup(MVELoadConversionTbl, ISD, SrcTy.getSimpleVT(),
+                                     DstTy.getSimpleVT()))
+        return AdjustCost(Entry->Cost * ST->getMVEVectorCostFactor());
     }
   }
 
@@ -262,6 +274,23 @@ int ARMTTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src,
                                              SrcTy.getSimpleVT())) {
       return AdjustCost(Entry->Cost);
     }
+  }
+
+  // Single to/from double precision conversions.
+  if (Src->isVectorTy() && ST->hasNEON() &&
+      ((ISD == ISD::FP_ROUND && SrcTy.getScalarType() == MVT::f64 &&
+        DstTy.getScalarType() == MVT::f32) ||
+       (ISD == ISD::FP_EXTEND && SrcTy.getScalarType() == MVT::f32 &&
+        DstTy.getScalarType() == MVT::f64))) {
+    static const CostTblEntry NEONFltDblTbl[] = {
+        // Vector fptrunc/fpext conversions.
+        {ISD::FP_ROUND, MVT::v2f64, 2},
+        {ISD::FP_EXTEND, MVT::v2f32, 2},
+        {ISD::FP_EXTEND, MVT::v4f32, 4}};
+
+    std::pair<int, MVT> LT = TLI->getTypeLegalizationCost(DL, Src);
+    if (const auto *Entry = CostTableLookup(NEONFltDblTbl, ISD, LT.second))
+      return AdjustCost(LT.first * Entry->Cost);
   }
 
   // Some arithmetic, load and store operations have specific instructions
@@ -441,6 +470,27 @@ int ARMTTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src,
                                                    ISD, DstTy.getSimpleVT(),
                                                    SrcTy.getSimpleVT()))
       return AdjustCost(Entry->Cost * ST->getMVEVectorCostFactor());
+  }
+
+  if (ISD == ISD::FP_ROUND || ISD == ISD::FP_EXTEND) {
+    // As general rule, fp converts that were not matched above are scalarized
+    // and cost 1 vcvt for each lane, so long as the instruction is available.
+    // If not it will become a series of function calls.
+    const int CallCost = getCallInstrCost(nullptr, Dst, {Src}, CostKind);
+    int Lanes = 1;
+    if (SrcTy.isFixedLengthVector())
+      Lanes = SrcTy.getVectorNumElements();
+    auto IsLegal = [this](EVT VT) {
+      EVT EltVT = VT.getScalarType();
+      return (EltVT == MVT::f32 && ST->hasVFP2Base()) ||
+             (EltVT == MVT::f64 && ST->hasFP64()) ||
+             (EltVT == MVT::f16 && ST->hasFullFP16());
+    };
+
+    if (IsLegal(SrcTy) && IsLegal(DstTy))
+      return Lanes;
+    else
+      return Lanes * CallCost;
   }
 
   // Scalar integer conversion costs.
@@ -892,23 +942,24 @@ int ARMTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src,
     return 1;
 
   // Type legalization can't handle structs
-  if (TLI->getValueType(DL, Src,  true) == MVT::Other)
+  if (TLI->getValueType(DL, Src, true) == MVT::Other)
     return BaseT::getMemoryOpCost(Opcode, Src, Alignment, AddressSpace,
                                   CostKind);
-
-  std::pair<int, MVT> LT = TLI->getTypeLegalizationCost(DL, Src);
 
   if (ST->hasNEON() && Src->isVectorTy() &&
       (Alignment && *Alignment != Align(16)) &&
       cast<VectorType>(Src)->getElementType()->isDoubleTy()) {
     // Unaligned loads/stores are extremely inefficient.
     // We need 4 uops for vst.1/vld.1 vs 1uop for vldr/vstr.
+    std::pair<int, MVT> LT = TLI->getTypeLegalizationCost(DL, Src);
     return LT.first * 4;
   }
+
   int BaseCost = ST->hasMVEIntegerOps() && Src->isVectorTy()
                      ? ST->getMVEVectorCostFactor()
                      : 1;
-  return BaseCost * LT.first;
+  return BaseCost * BaseT::getMemoryOpCost(Opcode, Src, Alignment, AddressSpace,
+                                           CostKind, I);
 }
 
 int ARMTTIImpl::getInterleavedMemoryOpCost(
