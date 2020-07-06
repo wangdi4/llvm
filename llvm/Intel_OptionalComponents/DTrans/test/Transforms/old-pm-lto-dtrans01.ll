@@ -7,7 +7,7 @@
 
 ; RUN: opt -disable-verify -debug-pass=Executions -whole-program-assume    \
 ; RUN:     -enable-dtrans-soatoaos -enable-dtrans-deletefield              \
-; RUN:     -enable-resolve-types                                           \
+; RUN:     -enable-resolve-types -enable-dtrans-const-arrays-metadata      \
 ; RUN:     -std-link-opts -disable-output  %s -enable-dtrans               \
 ; RUN:     2>&1 \
 ; RUN:     | FileCheck %s
@@ -33,6 +33,7 @@
 ; CHECK: Executing Pass 'DTrans dynamic cloning'
 ; CHECK-NOT: Executing Pass 'Data transformation analysis'
 ; CHECK: Executing Pass 'DTrans annotator cleaner'
+; CHECK: Executing Pass 'DTrans constant arrays metadata'
 
 declare void @bar() local_unnamed_addr
 
