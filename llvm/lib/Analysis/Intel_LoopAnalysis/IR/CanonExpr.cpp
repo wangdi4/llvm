@@ -1674,37 +1674,9 @@ bool CanonExpr::containsStandAloneBlob(unsigned BlobIndex,
 }
 
 unsigned CanonExpr::getNumOperations() const {
-  unsigned Count = 0;
-
-  // Add 1 operation between two blobs
-  unsigned NumBlobs = numBlobs();
-
-  if (NumBlobs > 1) {
-    Count += NumBlobs - 1;
-  }
-
-  unsigned NumIVs = numIVs();
-
-  // Add 1 operation between two iv blobs
-  if (NumIVs > 1) {
-    Count += NumIVs - 1;
-  }
-
   auto &BU = getBlobUtils();
-
-  for (auto Blob = blob_begin(), E = blob_end(); Blob != E; ++Blob) {
-    // Add 1 Operation if the blob has non-unit coeff, which refers to a
-    // multiplication operation of the blob
-    if (Blob->Coeff == 0) {
-      continue;
-    }
-
-    Count += BU.getNumOperations(Blob->Index, nullptr);
-
-    if (Blob->Coeff != 1) {
-      ++Count;
-    }
-  }
+  unsigned Count = 0;
+  bool IsFirstTerm = true;
 
   // Add 1 Operation if the iv has non-unit coeff, which refers to a
   // multiplication operation of the iv
@@ -1717,6 +1689,11 @@ unsigned CanonExpr::getNumOperations() const {
       continue;
     }
 
+    // Add 1 operation between two iv blobs
+    if (!IsFirstTerm) {
+      ++Count;
+    }
+
     if (Index != InvalidBlobIndex) {
       Count += BU.getNumOperations(Index, nullptr);
     }
@@ -1724,13 +1701,32 @@ unsigned CanonExpr::getNumOperations() const {
     if (Coeff != 1) {
       ++Count;
     }
+
+    IsFirstTerm = false;
   }
 
-  if (getSrcType() != getDestType()) {
+  for (auto Blob = blob_begin(), E = blob_end(); Blob != E; ++Blob) {
+    // Add 1 operation between two blobs
+    if (!IsFirstTerm) {
+      ++Count;
+    }
+
+    Count += BU.getNumOperations(Blob->Index, nullptr);
+
+    // Add 1 Operation if the blob has non-unit coeff, which refers to a
+    // multiplication operation of the blob
+    if (Blob->Coeff != 1) {
+      ++Count;
+    }
+
+    IsFirstTerm = false;
+  }
+
+  if (!IsFirstTerm && getConstant() != 0) {
     ++Count;
   }
 
-  if (getConstant() != 0) {
+  if (getSrcType() != getDestType()) {
     ++Count;
   }
 
