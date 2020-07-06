@@ -1,9 +1,5 @@
-<<<<<<< HEAD
 // UNSUPPORTED: intel_opencl && i686-pc-windows
-// RUN: %clang_cc1 -I %S/Inputs -fsycl -fsycl-is-device -triple spir64-unknown-unknown-sycldevice -fsycl-int-header=%t.h %s -fsyntax-only
-=======
 // RUN: %clang_cc1 -I %S/Inputs -fsycl -fsycl-is-device -triple spir64-unknown-unknown-sycldevice -fsycl-int-header=%t.h %s -emit-llvm
->>>>>>> 0b2de9ebd48e452409a175669bf327277abc0f8e
 // RUN: FileCheck -input-file=%t.h %s
 //
 // CHECK: #include <CL/sycl/detail/kernel_desc.hpp>
