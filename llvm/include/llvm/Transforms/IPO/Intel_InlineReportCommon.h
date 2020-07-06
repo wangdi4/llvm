@@ -42,9 +42,10 @@ typedef enum {
                  // Create metadata-based inline report
   CompositeReport = 256,
                  // Create composite inline report for an -flto compilation
-  DontSkipIntrin = 512
+  DontSkipIntrin = 512,
                  // Do create the inlining report info for the special
                  // intrinsic call sites
+  Language = 1024  // Print the source language C for C/C++ F for Fortran
 } InlineReportOptions;
 }
 
