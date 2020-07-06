@@ -68,7 +68,7 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-static cl::opt<bool> DisablePass{"disable-" OPT_SWITCH, cl::init(false),
+static cl::opt<bool> DisablePass{"disable-" OPT_SWITCH, cl::init(true),
                                  cl::Hidden,
                                  cl::desc("Disable " OPT_DESC " pass")};
 
