@@ -351,14 +351,19 @@ struct _pi_kernel : _pi_object {
 #endif // INTEL_CUSTOMIZATION
 };
 
-struct _pi_sampler : _pi_object {
-  _pi_sampler(ze_sampler_handle_t Sampler) : ZeSampler{Sampler} {}
+#if INTEL_CUSTOMIZATION
+struct _pi_sampler {
+  _pi_sampler(ze_sampler_handle_t Sampler) : ZeSampler{Sampler}, RefCount{1} {}
 
   // L0 sampler handle.
   // TODO: It is important that L0 handler is the first data member. Workaround
   // in SYCL RT (in ExecCGCommand::enqueueImp()) relies on this. This comment
   // should be removed when workaround in SYCL runtime will be removed.
   ze_sampler_handle_t ZeSampler;
+
+  // TODO: base PI sampler on _pi_object when the above limitation is removed.
+  std::atomic<pi_uint32> RefCount;
 };
+#endif // INTEL_CUSTOMIZATION
 
 #endif // PI_LEVEL0_HPP
