@@ -93,6 +93,56 @@ bool clCreateBufferTest()
 	PROV_RETURN_AND_ABANDON(true);
 }
 
+bool clCreateBufferWithPropertiesINTELTest()
+{
+        PROV_INIT;
+
+        printf("=============================================================\n");
+        printf("clCreateBufferWithPropertiesINTELTest\n");
+        printf("=============================================================\n");
+
+        cl_int iRet = 0;
+
+        cl_platform_id platform = 0;
+        bool bResult = true;
+
+        iRet = clGetPlatformIDs(1, &platform, NULL);
+        bResult &= Check("clGetPlatformIDs", CL_SUCCESS, iRet);
+
+        if (!bResult)
+        {
+                return bResult;
+        }
+
+        cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
+
+        cl_context context = PROV_OBJ( clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet) );
+        if (CL_SUCCESS != iRet)
+        {
+                printf("clCreateContextFromType = %s\n",ClErrTxt(iRet));
+            PROV_RETURN_AND_ABANDON(false);
+        }
+
+        // valid cl_mem_properties_intel: CL_MEM_CHANNEL_INTEL is the only supported type.
+        cl_mem_properties_intel valid_properties[] = {CL_MEM_CHANNEL_INTEL, 0x1234/*dummy value*/, 0};
+        cl_mem buffer1 = PROV_OBJ( clCreateBufferWithPropertiesINTEL(context, valid_properties, CL_MEM_READ_ONLY, 100, NULL, &iRet) );
+        EXPECT_EQ(oclErr(CL_SUCCESS),oclErr(iRet)) << "clCreateBufferWithPropertiesINTEL with properties"
+                                                      "(CL_MEM_CHANNEL_INTEL) should be OK.";
+
+        // invalid cl_mem_properties_intel value:
+        cl_mem_properties_intel invalid_properties[] = {CL_MEM_ALLOC_FLAGS_INTEL, 0x1234/*dummy value*/, 0};
+        cl_mem buffer2 = PROV_OBJ( clCreateBufferWithPropertiesINTEL(context, invalid_properties, CL_MEM_WRITE_ONLY, 100, NULL, &iRet) );
+        EXPECT_EQ(oclErr(CL_INVALID_PROPERTY),oclErr(iRet)) << "clCreateBufferWithPropertiesINTEL with invalid properties"
+                                                               "(CL_MEM_ALLOC_FLAGS_INTEL) should fail.";
+        printf("buffer2 = %p\n", (void*)buffer2);
+        // Release all
+        clReleaseMemObject(buffer1);
+        clReleaseContext(context);
+
+        PROV_RETURN_AND_ABANDON(true);
+}
+
+
 bool clCreateSubBufferTest()
 {
 	PROV_INIT;

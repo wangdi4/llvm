@@ -15,6 +15,8 @@
 #pragma once
 
 #include <CL/cl.h>
+/* cl_mem_properties_intel * is defined in this head file */
+#include <CL/cl_usm_ext.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -34,6 +36,9 @@ extern "C" {
 #define CL_KERNEL_ARG_HOST_ACCESSIBLE_PIPE_INTEL 0x4210
 #define CL_DEVICE_MAX_HOST_READ_PIPES_INTEL      0x4211
 #define CL_DEVICE_MAX_HOST_WRITE_PIPES_INTEL     0x4212
+
+/* cl_mem_properties_intel enum */
+#define CL_MEM_CHANNEL_INTEL                     0x4213
 
 #define CL_PIPE_FULL  -1111
 #define CL_PIPE_EMPTY -1112
@@ -102,6 +107,24 @@ typedef CL_API_ENTRY cl_int (CL_API_CALL * clGetProfileDataDeviceIntelFPGA_fn)(
     void *          param_value,
     size_t *        param_value_size_ret,
     cl_int *        errcode_ret) CL_EXT_SUFFIX__VERSION_1_0;
+
+
+extern CL_API_ENTRY cl_mem CL_API_CALL
+clCreateBufferWithPropertiesINTEL(
+    cl_context   context,
+    const cl_mem_properties_intel* properties,
+    cl_mem_flags flags,
+    size_t       size,
+    void *       host_ptr,
+    cl_int *     errcode_ret) CL_EXT_SUFFIX__VERSION_1_0;
+
+typedef CL_API_ENTRY cl_mem (CL_API_CALL * clCreateBufferWithPropertiesINTEL_fn)(
+    cl_context   context,
+    const cl_mem_properties_intel* properties,
+    cl_mem_flags flags,
+    size_t       size,
+    void *       host_ptr,
+    cl_int *     errcode_ret) CL_EXT_SUFFIX__VERSION_1_0;
 
 #ifdef __cplusplus
 }

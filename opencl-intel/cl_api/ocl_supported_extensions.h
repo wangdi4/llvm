@@ -56,6 +56,9 @@
 
 #define OCL_EXT_INTEL_UNIFIED_SHARED_MEMORY            "cl_intel_unified_shared_memory_preview"
 
+#define OCL_EXT_INTEL_CREATE_BUFFER_WITH_PROPERTIES    "cl_intel_create_buffer_with_properties"
+#define OCL_EXT_INTEL_MEM_CHANNEL_PROPERTY             "cl_intel_mem_channel_property"
+
 #define OCL_EXT_INTEL_VEC_LEN_HINT                     "cl_intel_vec_len_hint"
 
 #define OCL_EXT_ES_KHR_INT64                           "cles_khr_int64"

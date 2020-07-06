@@ -180,7 +180,8 @@ const char* CPUDeviceConfig::GetExtensions() const
             m_extensions += OCL_EXT_KHR_LOCAL_BASE_ATOMICS " ";
             m_extensions += OCL_EXT_KHR_LOCAL_EXTENDED_ATOMICS " ";
             m_extensions += OCL_EXT_KHR_BYTE_ADDRESSABLE_STORE " ";
-
+            m_extensions += OCL_EXT_INTEL_CREATE_BUFFER_WITH_PROPERTIES " ";
+            m_extensions += OCL_EXT_INTEL_MEM_CHANNEL_PROPERTY " ";
             return m_extensions.c_str();
         }
 

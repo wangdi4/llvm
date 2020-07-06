@@ -810,6 +810,29 @@ cl_mem CL_API_CALL clCreateBuffer(cl_context   context,
 }
 SET_ALIAS(clCreateBuffer);
 
+cl_mem CL_API_CALL clCreateBufferWithPropertiesINTEL(cl_context   context,
+                                                     const cl_mem_properties_intel * properties,
+                                                     cl_mem_flags flags,
+                                                     size_t       size,
+                                                     void *       host_ptr,
+                                                     cl_int *     errcode_ret)
+{
+    if (g_pUserLogger->IsApiLoggingEnabled())
+    {
+        START_LOG_API(clCreateBufferWithPropertiesINTEL);
+        apiLogger << "cl_context context" << context << "cl_mem_properties_intel" << properties << "cl_mem_flags flags" << flags << "size_t size" << size << "void * host_ptr" << host_ptr << "cl_int * errcode_ret" << errcode_ret;
+        OutputParamsValueProvider provider(apiLogger);
+        provider.AddParam("errcode_ret", errcode_ret, false, false);
+        CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_mem, CreateBufferWithPropertiesINTEL(context, properties, flags, size, host_ptr, errcode_ret));
+    }
+    else
+    {
+        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_mem, CreateBufferWithPropertiesINTEL(context, properties, flags, size, host_ptr, errcode_ret));
+    }
+}
+SET_ALIAS(clCreateBufferWithPropertiesINTEL);
+REGISTER_EXTENSION_FUNCTION(clCreateBufferWithPropertiesINTEL, clCreateBufferWithPropertiesINTEL);
+
 cl_mem CL_API_CALL clCreateSubBuffer(cl_mem buffer,
 				  cl_mem_flags				flags,
 				  cl_buffer_create_type     buffer_create_type,

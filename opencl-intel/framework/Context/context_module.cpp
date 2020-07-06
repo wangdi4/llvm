@@ -1683,7 +1683,66 @@ cl_mem ContextModule::CreateBuffer(cl_context clContext,
     LOG_DEBUG(TEXT("Enter CreateBuffer (clContext=%d, clFlags=%llu, szSize=%u, pHostPtr=%d, pErrcodeRet=%d)"),
         clContext, (unsigned long long) clFlags, szSize, pHostPtr, pErrcodeRet);
 
-    SharedPtr<Context> pContext = m_mapContexts.GetOCLObject((_cl_context_int*)clContext).DynamicCast<Context>();    
+    cl_mem bufHandle = CreateBufferImpl(clContext, clFlags, szSize, pHostPtr, pErrcodeRet);
+
+    if (bufHandle != CL_INVALID_HANDLE)
+    {
+        LOG_DEBUG(TEXT("CreateBuffer return handle %d"), bufHandle);
+    }
+    return bufHandle;
+}
+
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::CreateBufferWithPropertiesINTEL
+//////////////////////////////////////////////////////////////////////////
+cl_mem ContextModule::CreateBufferWithPropertiesINTEL(cl_context clContext,
+                                                      const cl_mem_properties_intel* properties,
+                                                      cl_mem_flags clFlags,
+                                                      size_t szSize,
+                                                      void * pHostPtr,
+                                                      cl_int * pErrcodeRet)
+{
+    LOG_DEBUG(TEXT("Enter CreateBufferWithPropertiesINTEL(clContext=%d, properties=%d, clFlags=%llu,"
+                   " szSize=%u, pHostPtr=%d, pErrcodeRet=%d)"),
+        clContext, properties, (unsigned long long) clFlags, szSize, pHostPtr, pErrcodeRet);
+
+    // check the properties.
+    // Currently only CL_MEM_CHANNEL_INTEL is supported.
+    if (properties)
+    {
+        for (int i = 0; properties[i] != 0; i += 2)
+        {
+            switch (properties[i])
+            {
+            case CL_MEM_CHANNEL_INTEL:
+                continue;
+            default:
+                {
+                    if (NULL != pErrcodeRet)
+                    {
+                        *pErrcodeRet = CL_INVALID_PROPERTY;
+                    }
+                    return CL_INVALID_HANDLE;
+                }
+            }
+        }
+    }
+    cl_mem bufHandle = CreateBufferImpl(clContext, clFlags, szSize, pHostPtr, pErrcodeRet);
+
+    if (bufHandle != CL_INVALID_HANDLE)
+    {
+        LOG_DEBUG(TEXT("CreateBufferWithPropertiesINTEL return handle %d"), bufHandle);
+    }
+    return bufHandle;
+}
+
+cl_mem ContextModule::CreateBufferImpl(cl_context clContext,
+                                       cl_mem_flags clFlags,
+                                       size_t szSize,
+                                       void * pHostPtr,
+                                       cl_int * pErrcodeRet)
+{
+    SharedPtr<Context> pContext = m_mapContexts.GetOCLObject((_cl_context_int*)clContext).DynamicCast<Context>();
     if (NULL == pContext)
     {
         LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d) = NULL , pContext = %d"), clContext, pContext.GetPtr())
@@ -1760,10 +1819,9 @@ cl_mem ContextModule::CreateBuffer(cl_context clContext,
         *pErrcodeRet = CL_SUCCESS;
     }
 
-    LOG_DEBUG(TEXT("CreateBuffer return handle %d"), pBuffer->GetHandle());
-
     return pBuffer->GetHandle();
 }
+
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::CreateSubBuffer
 //////////////////////////////////////////////////////////////////////////

@@ -206,6 +206,11 @@ TEST(FrameworkTestType, Test_clCreateBufferTest)
     EXPECT_TRUE(clCreateBufferTest());
 }
 
+TEST(FrameworkTestType, Test_clCreateBufferWithPropertiesINTELTest)
+{
+    EXPECT_TRUE(clCreateBufferWithPropertiesINTELTest());
+}
+
 TEST(FrameworkTestType, Test_clCreateSubBufferTest)
 {
     EXPECT_TRUE(clCreateSubBufferTest());
