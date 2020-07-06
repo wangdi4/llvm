@@ -8051,7 +8051,6 @@ bool LoopVectorizePass::processLoop(Loop *L) {
     Hints.setAlreadyVectorized();
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Create a new LoopID by propagating all metadata nodes of remainder loop
   // except optreport nodes
@@ -8061,10 +8060,7 @@ bool LoopVectorizePass::processLoop(Loop *L) {
   L->setLoopID(RemainderLoopWithoutOptReport);
 #endif
 
-  assert(!verifyFunction(*L->getHeader()->getParent()));
-=======
   assert(!verifyFunction(*L->getHeader()->getParent(), &dbgs()));
->>>>>>> cff57391575da6bcc6f31e196bd73fa928b3abcb
   return true;
 }
 
