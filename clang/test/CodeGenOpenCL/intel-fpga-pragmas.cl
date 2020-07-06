@@ -1,7 +1,7 @@
-//RUN: %clang_cc1 -triple spir64-unknown-unknown-intelfpga -O0 -cl-std=CL2.0 -emit-llvm -o - %s | FileCheck %s
-//RUN: %clang_cc1 -triple spir64-unknown-unknown-intelfpga -O0 -cl-std=CL1.2 -emit-llvm -o - %s | FileCheck %s
-//RUN: %clang_cc1 -triple x86_64-unknown-unknown-intelfpga -O0 -cl-std=CL2.0 -emit-llvm -o - %s | FileCheck %s
-//RUN: %clang_cc1 -triple x86_64-unknown-unknown-intelfpga -O0 -cl-std=CL1.2 -emit-llvm -o - %s | FileCheck %s
+//RUN: %clang_cc1 -triple spir64-unknown-unknown-intelfpga -O0 -cl-std=CL2.0 -emit-llvm -o - %s | FileCheck --check-prefixes=CHECK,SPIR %s
+//RUN: %clang_cc1 -triple spir64-unknown-unknown-intelfpga -O0 -cl-std=CL1.2 -emit-llvm -o - %s | FileCheck --check-prefixes=CHECK,BOTH %s
+//RUN: %clang_cc1 -triple x86_64-unknown-unknown-intelfpga -O0 -cl-std=CL2.0 -emit-llvm -o - %s | FileCheck --check-prefixes=CHECK,BOTH %s
+//RUN: %clang_cc1 -triple x86_64-unknown-unknown-intelfpga -O0 -cl-std=CL1.2 -emit-llvm -o - %s | FileCheck --check-prefixes=CHECK,BOTH %s
 
 // This test file is a copy of CodeGenIntelHLS/pragmas.cpp adopted for OpenCL C
 // Main changes:
@@ -84,53 +84,107 @@ void foo_ivdep(int select)
 
   int myArray[32];
 
-  //CHECK: [[IVD_TOK1:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.PRAGMA.IVDEP"(), "QUAL.PRAGMA.ARRAY"([32 x i32]* %myArray, i32 -1) ]
-  //CHECK: region.exit(token [[IVD_TOK1]]) [ "DIR.PRAGMA.END.IVDEP"() ]
+  //CHECK: load i32, i32* %i8, align 4
+  //CHECK: %idxprom = sext i32 %8 to i64
+  //CHECK: %arrayidx = getelementptr inbounds [32 x i32], [32 x i32]* %myArray, i64 0, i64 %idxprom, !llvm.index.group [[IVDEP3:![0-9]+]]
+  //CHECK: store i32 %call, i32* %arrayidx, align 4
+  //CHECK: br{{.*}}!llvm.loop [[IVDEP4:![0-9]+]]
   #pragma ivdep array(myArray)
   for (int i=0;i<32;++i) { myArray[i] = ibar(i); }
 
-  //CHECK: [[IVD_TOK2:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.PRAGMA.IVDEP"(), "QUAL.PRAGMA.ARRAY"([32 x i32]* %myArray, i32 8) ]
-  //CHECK: region.exit(token [[IVD_TOK2]]) [ "DIR.PRAGMA.END.IVDEP"() ]
+  //CHECK: load i32, i32* %i15, align 4
+  //CHECK: %idxprom20 = sext i32 %12 to i64
+  //CHECK: %arrayidx21 = getelementptr inbounds [32 x i32], [32 x i32]* %myArray, i64 0, i64 %idxprom20, !llvm.index.group [[IVDEP5:![0-9]+]]
+  //CHECK: store i32 %call19, i32* %arrayidx21, align 4
+  //CHECK: br{{.*}}!llvm.loop [[IVDEP6:![0-9]+]]
   #pragma ivdep safelen(8) array(myArray)
   for (int i=0;i<32;++i) { myArray[i] = ibar(i); }
 
-  //CHECK: [[IVD_TOK3:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.PRAGMA.IVDEP"(), "QUAL.PRAGMA.ARRAY"([32 x i32]* %myArray, i32 8) ]
-  //CHECK: br{{.*}}!llvm.loop [[IVDEP4:![0-9]+]]
-  //CHECK: region.exit(token [[IVD_TOK3]]) [ "DIR.PRAGMA.END.IVDEP"() ]
+  //CHECK: load i32, i32* %i25, align 4
+  //CHECK: %idxprom30 = sext i32 %16 to i64
+  //CHECK: %arrayidx31 = getelementptr inbounds [32 x i32], [32 x i32]* %myArray, i64 0, i64 %idxprom30, !llvm.index.group [[IVDEP7:![0-9]+]]
+  //CHECK: store i32 %call29, i32* %arrayidx31, align 4
+  //CHECK: br{{.*}}!llvm.loop [[IVDEP8:![0-9]+]]
   #pragma unroll 4
   #pragma ivdep safelen(8) array(myArray)
   for (int i=0;i<32;++i) { myArray[i] = ibar(i); }
 
-  //CHECK: [[IVD_TOK4:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.PRAGMA.IVDEP"(), "QUAL.PRAGMA.ARRAY"([32 x i32]* %myArray, i32 8) ]
-  //CHECK: br{{.*}}!llvm.loop [[IVDEP5:![0-9]+]]
-  //CHECK: region.exit(token [[IVD_TOK4]]) [ "DIR.PRAGMA.END.IVDEP"() ]
+  //CHECK: load i32, i32* %i35, align 4
+  //CHECK: %idxprom40 = sext i32 %20 to i64
+  //CHECK: %arrayidx41 = getelementptr inbounds [32 x i32], [32 x i32]* %myArray, i64 0, i64 %idxprom40, !llvm.index.group [[IVDEP9:![0-9]+]]
+  //CHECK: store i32 %call39, i32* %arrayidx41, align 4
+  //CHECK: br{{.*}}!llvm.loop [[IVDEP10:![0-9]+]]
   #pragma ivdep safelen(8) array(myArray)
   #pragma unroll 4
   for (int i=0;i<32;++i) { myArray[i] = ibar(i); }
 
-  //CHECK: [[SVA:%A[0-9]*]] = getelementptr inbounds %struct.SIVDep, %struct.SIVDep* %SV, i32 0, i32 0
-  //CHECK: [[IVD_TOK5:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.PRAGMA.IVDEP"(), "QUAL.PRAGMA.ARRAY"([32 x i32]* [[SVA]], i32 -1) ]
-  //CHECK: region.exit(token [[IVD_TOK5]]) [ "DIR.PRAGMA.END.IVDEP"() ]
+  //CHECK: getelementptr inbounds %struct.SIVDep, %struct.SIVDep* %SV, i32 0, i32 0
+  //CHECK: load i32, i32* %i45, align 4
+  //CHECK: %idxprom50 = sext i32 %24 to i64
+  //CHECK: %arrayidx51 = getelementptr inbounds [32 x i32], [32 x i32]* %A, i64 0, i64 %idxprom50, !llvm.index.group [[IVDEP11:![0-9]+]]
+  //CHECK: store i32 %call49, i32* %arrayidx51, align 4
+  //CHECK: br{{.*}}!llvm.loop [[IVDEP12:![0-9]+]]
   #pragma ivdep array(SV.A)
   for (int i=0;i<32;++i) { SV.A[i] = ibar(i); }
 
-  //CHECK: load{{.*}}Sv2p
-  //CHECK: [[LSV2P:%A[0-9]*]] = getelementptr{{.*}}%struct.SIVDep, %struct.SIVDep{{.*}}*
-  //CHECK: [[IVD_TOK6:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.PRAGMA.IVDEP"(), "QUAL.PRAGMA.ARRAY"([32 x i32]{{.*}}* [[LSV2P]], i32 -1) ]
-  //CHECK: region.exit(token [[IVD_TOK6]]) [ "DIR.PRAGMA.END.IVDEP"() ]
+  //SPIR: %28 = load %struct.SIVDep2 addrspace(4)*, %struct.SIVDep2 addrspace(4)** %Sv2p, align 8
+  //SPIR: %X = getelementptr inbounds %struct.SIVDep2, %struct.SIVDep2 addrspace(4)* %28, i32 0, i32 0
+  //SPIR: %arrayidx60 = getelementptr inbounds [8 x [16 x %struct.SIVDep]], [8 x [16 x %struct.SIVDep]] addrspace(4)* %X, i64 0, i64 2
+  //SPIR: %arrayidx61 = getelementptr inbounds [16 x %struct.SIVDep], [16 x %struct.SIVDep] addrspace(4)* %arrayidx60, i64 0, i64 3
+  //SPIR: %A62 = getelementptr inbounds %struct.SIVDep, %struct.SIVDep addrspace(4)* %arrayidx61, i32 0, i32 0
+  //SPIR: %29 = load i32, i32* %i55, align 4
+  //SIPR: %idxprom63 = sext i32 %29 to i64
+  //SPIR: %arrayidx64 = getelementptr inbounds [32 x i32], [32 x i32] addrspace(4)* %A62, i64 0, i64 %idxprom63
+  //SPIR: store i32 %call59, i32 addrspace(4)* %arrayidx64, align 4
+
+  //BOTH: load %struct.SIVDep2*, %struct.SIVDep2** %Sv2p, align 8
+  //BOTH: %X = getelementptr inbounds %struct.SIVDep2, %struct.SIVDep2* %28, i32 0, i32 0
+  //BOTH: %arrayidx60 = getelementptr inbounds [8 x [16 x %struct.SIVDep]], [8 x [16 x %struct.SIVDep]]* %X, i64 0, i64 2
+  //BOTH: %arrayidx61 = getelementptr inbounds [16 x %struct.SIVDep], [16 x %struct.SIVDep]* %arrayidx60, i64 0, i64 3
+  //BOTH: %A62 = getelementptr inbounds %struct.SIVDep, %struct.SIVDep* %arrayidx61, i32 0, i32 0
+  //BOTH: %29 = load i32, i32* %i55, align 4
+  //BOTH: %idxprom63 = sext i32 %29 to i64
+  //BOTH: %arrayidx64 = getelementptr inbounds [32 x i32], [32 x i32]* %A62, i64 0, i64 %idxprom63
+  //BOTH: store i32 %call59, i32* %arrayidx64, align 4
   #pragma ivdep array(Sv2p->X[2][3].A)
   for (int i=0;i<32;++i) { Sv2p->X[2][3].A[i] = ibar(i); }
 
   int myArray2[32];
+  //CHECK: getelementptr inbounds [32 x i32], [32 x i32]* %myArray, i64 0, i64 0
+  //CHECK: getelementptr inbounds [32 x i32], [32 x i32]* %myArray2, i64 0, i64 0
   int *ptr = select ? myArray : myArray2;
-  //CHECK: [[IVD_TOK7:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.PRAGMA.IVDEP"(), "QUAL.PRAGMA.ARRAY"(i32{{.*}}** %ptr{{.*}}, i32 -1) ]
-  //CHECK: region.exit(token [[IVD_TOK7]]) [ "DIR.PRAGMA.END.IVDEP"() ]
+
+  //SPIR: %34 = load i32 addrspace(4)*, i32 addrspace(4)** %ptr, align 8
+  //SPIR: %35 = load i32, i32* %i69, align 4
+  //SPIR: %idxprom74 = sext i32 %35 to i64
+  //SPIR: %ptridx = getelementptr inbounds i32, i32 addrspace(4)* %34, i64 %idxprom74, !llvm.index.group [[IVDEP13:![0-9]+]]
+  //SPIR: store i32 %call73, i32 addrspace(4)* %ptridx, align 4
+  //SPIR: br{{.*}}!llvm.loop [[IVDEP14:![0-9]+]]
+
+  //BOTH: load i32*, i32** %ptr, align 8
+  //BOTH: %35 = load i32, i32* %i69, align 4
+  //BOTH: %idxprom74 = sext i32 %35 to i64
+  //BOTH: %ptridx = getelementptr inbounds i32, i32* %34, i64 %idxprom74, !llvm.index.group [[IVDEP13:![0-9]+]]
+  //BOTH: store i32 %call73, i32* %ptridx, align 4
+  //BOTH: br{{.*}}!llvm.loop [[IVDEP14:![0-9]+]]
   #pragma ivdep array(ptr)
   for (int i=0;i<32;++i) { ptr[i] = ibar(i); }
 
   ptr = &myArray[16];
-  //CHECK: [[IVD_TOK8:%[0-9]+]] = call token{{.*}}region.entry() [ "DIR.PRAGMA.IVDEP"(), "QUAL.PRAGMA.ARRAY"(i32{{.*}}** %ptr{{.*}}, i32 -1) ]
-  //CHECK: region.exit(token [[IVD_TOK8]]) [ "DIR.PRAGMA.END.IVDEP"() ]
+
+  //SPIR: %39 = load i32 addrspace(4)*, i32 addrspace(4)** %ptr, align 8
+  //SPIR: %40 = load i32, i32* %i79, align 4
+  //SPIR: %idxprom84 = sext i32 %40 to i64
+  //SPIR: %ptridx85 = getelementptr inbounds i32, i32 addrspace(4)* %39, i64 %idxprom84, !llvm.index.group [[IVDEP15:![0-9]+]]
+  //SPIR: store i32 %call83, i32 addrspace(4)* %ptridx85, align 4
+  //SPIR: br{{.*}}!llvm.loop [[IVDEP16:![0-9]+]]
+
+  //BOTH: load i32*, i32** %ptr, align 8
+  //BOTH: %40 = load i32, i32* %i79, align 4
+  //BOTH: %idxprom84 = sext i32 %40 to i64
+  //BOTH: %ptridx85 = getelementptr inbounds i32, i32* %39, i64 %idxprom84, !llvm.index.group [[IVDEP15:![0-9]+]]
+  //BOTH: store i32 %call83, i32* %ptridx85, align 4
+  //BOTH: br{{.*}}!llvm.loop [[IVDEP16:![0-9]+]]
   #pragma ivdep array(ptr)
   for (int i=0;i<32;++i) { ptr[i] = ibar(i); }
 }
@@ -153,5 +207,25 @@ void foo_ivdep(int select)
 //CHECK: [[IVDEP1A]] = !{!"llvm.loop.ivdep.enable"}
 //CHECK: [[IVDEP2]] = distinct !{[[IVDEP2]], [[IVDEP2A:![0-9]+]]}
 //CHECK: [[IVDEP2A]] = !{!"llvm.loop.ivdep.safelen", i32 4}
-//CHECK: [[IVDEP4]] = distinct !{[[IVDEP4]], [[UNROLL2A]]}
-//CHECK: [[IVDEP5]] = distinct !{[[IVDEP5]], [[UNROLL2A]]}
+//CHECK: [[IVDEP3]] = distinct !{}
+//CHECK: [[IVDEP4]] = distinct !{[[IVDEP4]], [[IVDEP4A:![0-9]+]]}
+//CHECK: [[IVDEP4A]] = !{!"llvm.loop.parallel_access_indices", [[IVDEP3]]}
+//CHECK: [[IVDEP5]] = distinct !{}
+//CHECK: [[IVDEP6]] = distinct !{[[IVDEP6]], [[IVDEP6A:![0-9]+]]}
+//CHECK: [[IVDEP6A]] = !{!"llvm.loop.parallel_access_indices", [[IVDEP5]], i32 8}
+//CHECK: [[IVDEP7]] = distinct !{}
+//CHECK: [[IVDEP8]] = distinct !{[[IVDEP8]], [[IVDEP8A:![0-9]+]], [[UNROLL2A]]}
+//CHECK: [[IVDEP8A]] = !{!"llvm.loop.parallel_access_indices", [[IVDEP7]], i32 8}
+//CHECK: [[IVDEP9]] = distinct !{}
+//CHECK: [[IVDEP10]] = distinct !{[[IVDEP10]], [[IVDEP10A:![0-9]+]], [[UNROLL2A]]}
+//CHECK: [[IVDEP10A]] = !{!"llvm.loop.parallel_access_indices", [[IVDEP9]], i32 8}
+//CHECK: [[IVDEP11]] = distinct !{}
+//CHECK: [[IVDEP12]] = distinct !{[[IVDEP12]], [[IVDEP12A:![0-9]+]]}
+//CHECK: [[IVDEP12A]] = !{!"llvm.loop.parallel_access_indices", [[IVDEP11]]}
+//CHECK: [[IVDEP13]] = distinct !{}
+//CHECK: [[IVDEP14]] = distinct !{[[IVDEP14]], [[IVDEP14A:![0-9]+]]}
+//CHECK: [[IVDEP14A]] = !{!"llvm.loop.parallel_access_indices", [[IVDEP13]]}
+//CHECK: [[IVDEP15]] = distinct !{}
+//CHECK: [[IVDEP16]] = distinct !{[[IVDEP16]], [[IVDEP16A:![0-9]+]]}
+//CHECK: [[IVDEP16A]] = !{!"llvm.loop.parallel_access_indices", [[IVDEP15]]}
+

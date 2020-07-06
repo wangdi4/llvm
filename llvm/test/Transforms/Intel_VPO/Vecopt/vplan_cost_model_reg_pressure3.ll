@@ -17,9 +17,9 @@ target triple = "x86_64-unknown-linux-gnu"
 
 define dso_local void @foo() {
 ; CHECK-LABEL:  HIR Cost Model for VPlan foo.42 with VF = 8:
-; CHECK-NEXT:  Total VPlan Cost: 112
+; CHECK-NEXT:  Total VPlan Cost: 148
 ; CHECK-NEXT:  VPlan Base Cost before adjustments: 84
-; CHECK-NEXT:  Total VPlan spill/fill cost: +28
+; CHECK-NEXT:  Total VPlan spill/fill cost: +64
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
@@ -52,7 +52,7 @@ define dso_local void @foo() {
 ; CHECK-NEXT:    Cost 2 for i32 [[VP14:%.*]] = add i32 [[VP2]] i32 1
 ; CHECK-NEXT:    Cost 2 for i1 [[VP15:%.*]] = icmp i32 [[VP14]] i32 0
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB4:BB[0-9]+]], total cost: 20
-; CHECK-NEXT:  Block spill/fill standalone cost (not included into total cost): 28
+; CHECK-NEXT:  Block spill/fill approximate cost (not included into total cost): 28
 ; CHECK-NEXT:    Cost 0 for i1 [[VP16:%.*]] = block-predicate i1 [[VP15]]
 ; CHECK-NEXT:    Cost 2 for i32 [[VP17:%.*]] = add i32 [[VP2]] i32 [[VP3]]
 ; CHECK-NEXT:    Cost 2 for i32 [[VP18:%.*]] = add i32 [[VP17]] i32 [[VP4]]
@@ -93,7 +93,6 @@ for.body:                                         ; preds = %for.inc, %entry
   %load27 = load i32, i32* %arrayidx2, align 4
   %load28 = load i32, i32* %arrayidx2, align 4
   %load29 = load i32, i32* %arrayidx2, align 4
-
   %add = add nsw nuw i32 %load1, 1
   %tobool = icmp eq i32 %add, 0
   br i1 %tobool, label %for.inc, label %if.then
