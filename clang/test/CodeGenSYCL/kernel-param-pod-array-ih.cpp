@@ -1,5 +1,9 @@
 // RUN: %clang_cc1 -I %S/Inputs -fsycl -fsycl-is-device -triple spir64-unknown-unknown-sycldevice -fsycl-int-header=%t.h %s -fsyntax-only
 // RUN: FileCheck -input-file=%t.h %s
+<<<<<<< HEAD
+=======
+
+>>>>>>> 4bc9c97050e000187f96fc41c46383e4c6708ed5
 // This test checks the integration header generated for a kernel
 // with an argument that is a POD array.
 
