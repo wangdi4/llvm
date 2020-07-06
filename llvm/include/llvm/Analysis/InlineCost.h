@@ -48,11 +48,8 @@ const int IndirectCallThreshold = 100;
 const int CallPenalty = 25;
 const int LastCallToStaticBonus = 15000;
 const int SecondToLastCallToStaticBonus = 410; // INTEL
-const int AggressiveInlineCallBonus = 5000;    // INTEL
 const int BigBasicBlockPredCount = 90;         // INTEL
-const int InliningHeuristicBonus = 1000;       // INTEL
-const int DeepInliningHeuristicBonus = 10000;  // INTEL
-const int VeryDeepInliningHeuristicBonus = 2000000000;  // INTEL
+const int InliningHeuristicBonus = 2000000000; // INTEL
 const int ColdccPenalty = 2000;
 /// Do not inline functions which allocate this many bytes on the stack
 /// when the caller is recursive.
