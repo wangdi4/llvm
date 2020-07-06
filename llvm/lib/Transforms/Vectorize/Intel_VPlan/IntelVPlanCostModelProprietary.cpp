@@ -40,11 +40,16 @@ static cl::opt<unsigned> BoolInstsBailOut(
            "is higher than the threshold."));
 
 static cl::opt<unsigned> CMGatherScatterThreshold(
-  "vplan-cm-gather-scatter-threshold", cl::init(100), // is off currently
+  "vplan-cm-gather-scatter-threshold", cl::init(50),
   cl::desc("If gather/scatter cost is more than CMGatherScatterThreshold "
            "percent of whole loop price the price of gather/scatter is "
            "doubled to make it harder to choose in favor of "
            "loop with gathers/scatters."));
+
+static cl::opt<unsigned> CMGatherScatterPenaltyFactor(
+  "vplan-cm-gather-scatter-penalty-factor", cl::init(2), cl::Hidden,
+  cl::desc("The factor which G/S cost multiplies by if G/S accumulated cost "
+           "exceeds CMGatherScatterThreshold."));
 
 static cl::opt<unsigned> NumberOfSpillsPerExtraReg(
     "vplan-cost-model-number-of-spills-per-extra-reg", cl::init(2), cl::Hidden,
@@ -301,8 +306,18 @@ unsigned VPlanCostModelProprietary::getPsadwbPatternCost() {
 
   const VPLoop *TopLoop = *(Plan->getVPLoopInfo()->begin());
   for (const VPLoop *VPL : post_order(TopLoop)) {
-    assert(VPL->getLoopDepth() == 1 && "Innermost loop is expect.");
+    assert(VPL->getLoopDepth() == 1 && "Innermost loop only is expected.");
     if (VPL->getLoopDepth() != 1)
+      continue;
+
+    // If loop has known number of iterations and it is 8/16 we skip it here
+    // since vectorizing by VPlan leads to complete unroll and ISel can handle
+    // vectorized by VPlan code (i.e. recognize PSADBW).  Also if the loop has
+    // an outer loop of known trip count it also can be completely unrolled
+    // causing better performance comparing to PSADDBW in a loop.
+    TripCountInfo LoopTCI = VPL->getTripCountInfo();
+    if (!LoopTCI.IsEstimated &&
+        (LoopTCI.TripCount == 8 || LoopTCI.TripCount == 16))
       continue;
 
     VPBasicBlock *Block = VPL->getHeader();
@@ -562,19 +577,21 @@ unsigned VPlanCostModelProprietary::getSpillFillCost(
     // N / 2 is too coarse for small N.  The approximation for small N is:
     // N = 1    ==>   RP = 1
     // N = 2    ==>   RP = 2
-    // N = 4    ==>   RP = 3
-    // N = 8    ==>   RP = 5
-    // N > 8    ==>   RP = N / 2
+    // N = 4    ==>   RP = 4
+    // N = 8    ==>   RP = 6
+    // N = 16   ==>   RP = 12
+    // N > 16   ==>   RP = N / 2
     auto TranslateVPInstRPToHWRP =
       [](unsigned VPInstRP) -> unsigned {
       switch (VPInstRP) {
         case 1:
         case 2:
-          return VPInstRP;
         case 4:
-          return 3;
+          return VPInstRP;
         case 8:
-          return 5;
+          return 6;
+        case 16:
+          return 12;
         default:
           return VPInstRP / 2;
       }
@@ -656,7 +673,6 @@ unsigned VPlanCostModelProprietary::getSpillFillCost(
   unsigned RegByteWidth = RegBitWidth / 8;
   Type *VecTy = getWidenedType(Type::getInt8Ty(*Plan->getLLVMContext()),
                                RegByteWidth);
-  assert(TTI->isTypeLegal(VecTy) && "Bad type has chosen.");
   unsigned StoreCost = TTI->getMemoryOpCost(
     Instruction::Store, VecTy, Align(RegByteWidth), AS);
   unsigned LoadCost = TTI->getMemoryOpCost(
@@ -755,7 +771,7 @@ unsigned VPlanCostModelProprietary::getCost() {
   // Double GatherScatter cost contribution in case Gathers/Scatters take too
   // much to make it harder to choose this VF.
   if (TTICost * CMGatherScatterThreshold < GatherScatterCost * 100)
-    Cost += GatherScatterCost;
+    Cost += CMGatherScatterPenaltyFactor * GatherScatterCost;
 
   Cost += getSpillFillCost();
 
@@ -931,7 +947,8 @@ void VPlanCostModelProprietary::print(
     OS << "VPlan Base Cost includes Total VPlan GS Cost: " <<
       GatherScatterCost << '\n';
   if (TTICost * CMGatherScatterThreshold < GatherScatterCost * 100)
-    OS << "Total VPlan GS Cost is bumped: +" << GatherScatterCost << '\n';
+    OS << "Total VPlan GS Cost is bumped: +" <<
+      CMGatherScatterPenaltyFactor * GatherScatterCost << '\n';
   if (CheckForSLPExtraCost())
     OS << "SLP breaking penalty cost: +" << (VF - 1) * TTICost << '\n';
   if (SpillFillCost)

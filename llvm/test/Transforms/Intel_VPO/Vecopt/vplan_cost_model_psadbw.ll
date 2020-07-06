@@ -8,6 +8,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @a = dso_local local_unnamed_addr global [1024 x i8] zeroinitializer, align 64
 @b = dso_local local_unnamed_addr global [1024 x i8] zeroinitializer, align 64
 
+; basic case of psadbw pattern.  should not be vectorized.
 define dso_local i32 @_Z3foov(i32 %t) {
 ;
 ; CHECK-LABEL:  HIR Cost Model for VPlan _Z3foov.19 with VF = 1:
@@ -16,7 +17,7 @@ define dso_local i32 @_Z3foov(i32 %t) {
 ; CHECK-NEXT:  PSADBW pattern adjustment: -13
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
-; CHECK-NEXT:    Cost Unknown for i32 [[VP__RED_INIT:%.*]] = reduction-init i32 0 i32 [[S_0100:%.*]]
+; CHECK-NEXT:    Cost Unknown for i32 [[VP__RED_INIT:%.*]] = reduction-init i32 0 i32 [[S_0100:%.*]] ( PSADBW )
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 11
@@ -35,7 +36,7 @@ define dso_local i32 @_Z3foov(i32 %t) {
 ; CHECK-NEXT:    Cost 1 for i64 [[VP3]] = add i64 [[VP2]] i64 [[VP__IND_INIT_STEP]]
 ; CHECK-NEXT:    Cost 1 for i1 [[VP11:%.*]] = icmp i64 [[VP3]] i64 1023
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB3:BB[0-9]+]], total cost: 0
-; CHECK-NEXT:    Cost Unknown for i32 [[VP__RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP1]]
+; CHECK-NEXT:    Cost Unknown for i32 [[VP__RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP1]] ( PSADBW )
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB4:BB[0-9]+]], total cost: 0
 ;
@@ -66,6 +67,7 @@ for.body:                                         ; preds = %for.body, %entry
 }
 
 ; unrolled case with 64-bit acc.  Essential for eembc/denbench tests.
+; should not be vectorized.
 define dso_local i32 @_Z3goov() {
 ;
 ; CHECK-LABEL:  HIR Cost Model for VPlan _Z3goov.60 with VF = 1:
@@ -211,4 +213,61 @@ for.end:                                          ; preds = %for.body
   %add40.lcssa = phi i64 [ %add40, %for.body ]
   %conv42 = trunc i64 %add40.lcssa to i32
   ret i32 %conv42
+}
+
+; full unroll case: trip count is known and it is 8 or 16.
+; vectorization should not be blocked for such case.
+define dso_local i32 @_Z3toov(i32 %t) {
+; CHECK-LABEL:  HIR Cost Model for VPlan _Z3toov.19 with VF = 1:
+; CHECK-NEXT:  Total VPlan Cost: 11
+; CHECK-NEXT:  VPlan Base Cost before adjustments: 11
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
+; CHECK-NEXT:    Cost Unknown for i32 [[VP__RED_INIT:%.*]] = reduction-init i32 0 i32 [[S_0100:%.*]]
+; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
+; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 11
+; CHECK-NEXT:    Cost Unknown for i32 [[VP0:%.*]] = phi  [ i32 [[VP__RED_INIT]], [[BB1]] ],  [ i32 [[VP1:%.*]], [[BB2]] ]
+; CHECK-NEXT:    Cost Unknown for i64 [[VP2:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB2]] ]
+; CHECK-NEXT:    Cost 0 for i8* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1024 x i8]* @a i64 0 i64 [[VP2]]
+; CHECK-NEXT:    Cost 1 for i8 [[VP4:%.*]] = load i8* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:    Cost 0 for i8* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1024 x i8]* @b i64 0 i64 [[VP2]]
+; CHECK-NEXT:    Cost 1 for i8 [[VP5:%.*]] = load i8* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:    Cost 1 for i32 [[VP6:%.*]] = zext i8 [[VP4]] to i32
+; CHECK-NEXT:    Cost 1 for i32 [[VP7:%.*]] = zext i8 [[VP5]] to i32
+; CHECK-NEXT:    Cost 1 for i32 [[VP8:%.*]] = mul i32 [[VP7]] i32 -1
+; CHECK-NEXT:    Cost 1 for i32 [[VP9:%.*]] = add i32 [[VP6]] i32 [[VP8]]
+; CHECK-NEXT:    Cost 2 for i32 [[VP10:%.*]] = abs i32 [[VP9]]
+; CHECK-NEXT:    Cost 1 for i32 [[VP1]] = add i32 [[VP10]] i32 [[VP0]]
+; CHECK-NEXT:    Cost 1 for i64 [[VP3]] = add i64 [[VP2]] i64 [[VP__IND_INIT_STEP]]
+; CHECK-NEXT:    Cost 1 for i1 [[VP11:%.*]] = icmp i64 [[VP3]] i64 15
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB3:BB[0-9]+]], total cost: 0
+; CHECK-NEXT:    Cost Unknown for i32 [[VP__RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP1]]
+; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB4:BB[0-9]+]], total cost: 0
+;
+entry:
+  br label %for.body
+
+for.cond.cleanup:                                 ; preds = %for.body
+  %add.lcssa = phi i32 [ %add, %for.body ]
+  ret i32 %add.lcssa
+
+for.body:                                         ; preds = %for.body, %entry
+  %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
+  %s.010 = phi i32 [ %t, %entry ], [ %add, %for.body ]
+  %arrayidx = getelementptr inbounds [1024 x i8], [1024 x i8]* @a, i64 0, i64 %indvars.iv
+  %0 = load i8, i8* %arrayidx, align 1
+  %conv = zext i8 %0 to i32
+  %arrayidx2 = getelementptr inbounds [1024 x i8], [1024 x i8]* @b, i64 0, i64 %indvars.iv
+  %1 = load i8, i8* %arrayidx2, align 1
+  %conv3 = zext i8 %1 to i32
+  %sub = sub nsw i32 %conv, %conv3
+  %2 = icmp slt i32 %sub, 0
+  %neg = sub nsw i32 0, %sub
+  %3 = select i1 %2, i32 %neg, i32 %sub
+  %add = add nuw nsw i32 %3, %s.010
+  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
+  %exitcond = icmp eq i64 %indvars.iv.next, 16
+  br i1 %exitcond, label %for.cond.cleanup, label %for.body
 }

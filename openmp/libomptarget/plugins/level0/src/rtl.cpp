@@ -313,7 +313,8 @@ struct PrivateHandlesTy {
   RTLProfileTy *Profile = nullptr;
 };
 
-thread_local PrivateHandlesTy ThreadLocalHandles;
+/// Each thread should be able to handle multiple devices
+thread_local std::map<int32_t, PrivateHandlesTy> ThreadLocalHandles;
 
 /// Create a command list
 static ze_command_list_handle_t createCmdList(ze_device_handle_t device) {
@@ -583,37 +584,46 @@ public:
   }
 
   ze_command_list_handle_t getCmdList(int32_t DeviceId) {
-    if (!ThreadLocalHandles.CmdList) {
+    if (ThreadLocalHandles.count(DeviceId) == 0) {
+      ThreadLocalHandles.emplace(DeviceId, PrivateHandlesTy());
+    }
+    if (!ThreadLocalHandles[DeviceId].CmdList) {
       auto cmdList = createCmdList(Devices[DeviceId]);
       // Store it in the global list for clean up
       DataMutexes[DeviceId].lock();
       CmdLists[DeviceId].push_back(cmdList);
       DataMutexes[DeviceId].unlock();
-      ThreadLocalHandles.CmdList = cmdList;
+      ThreadLocalHandles[DeviceId].CmdList = cmdList;
     }
-    return ThreadLocalHandles.CmdList;
+    return ThreadLocalHandles[DeviceId].CmdList;
   }
 
   ze_command_queue_handle_t getCmdQueue(int32_t DeviceId) {
-    if (!ThreadLocalHandles.CmdQueue) {
+    if (ThreadLocalHandles.count(DeviceId) == 0) {
+      ThreadLocalHandles.emplace(DeviceId, PrivateHandlesTy());
+    }
+    if (!ThreadLocalHandles[DeviceId].CmdQueue) {
       auto cmdQueue = createCmdQueue(Devices[DeviceId]);
       // Store it in the global list for clean up
       DataMutexes[DeviceId].lock();
       CmdQueues[DeviceId].push_back(cmdQueue);
       DataMutexes[DeviceId].unlock();
-      ThreadLocalHandles.CmdQueue = cmdQueue;
+      ThreadLocalHandles[DeviceId].CmdQueue = cmdQueue;
     }
-    return ThreadLocalHandles.CmdQueue;
+    return ThreadLocalHandles[DeviceId].CmdQueue;
   }
 
   RTLProfileTy *getProfile(int32_t DeviceId) {
-    if (!ThreadLocalHandles.Profile && Flags.EnableProfile) {
-      ThreadLocalHandles.Profile = new RTLProfileTy();
+    if (ThreadLocalHandles.count(DeviceId) == 0) {
+      ThreadLocalHandles.emplace(DeviceId, PrivateHandlesTy());
+    }
+    if (!ThreadLocalHandles[DeviceId].Profile && Flags.EnableProfile) {
+      ThreadLocalHandles[DeviceId].Profile = new RTLProfileTy();
       DataMutexes[DeviceId].lock();
-      Profiles[DeviceId].push_back(ThreadLocalHandles.Profile);
+      Profiles[DeviceId].push_back(ThreadLocalHandles[DeviceId].Profile);
       DataMutexes[DeviceId].unlock();
     }
-    return ThreadLocalHandles.Profile;
+    return ThreadLocalHandles[DeviceId].Profile;
   }
 
   /// Loads the device version of the offload table for device \p DeviceId.

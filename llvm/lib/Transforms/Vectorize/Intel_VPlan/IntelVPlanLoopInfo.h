@@ -86,7 +86,7 @@ public:
 
   using TripCountTy = TripCountInfo::TripCountTy;
   void setTripCountInfo(TripCountInfo TCInfo);
-  TripCountInfo getTripCountInfo();
+  TripCountInfo getTripCountInfo() const;
   void setKnownTripCount(TripCountTy TripCount) {
     setTripCountInfo(TripCountInfo::getKnownTripCountInfo(TripCount));
   }

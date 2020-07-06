@@ -23,8 +23,8 @@
 ; for avx2 target.
 
 ; CHECK-VF16-SSE2: spill/fill cost
-; CHECK-VF8-SSE2-NOT: spill/fill cost
-; CHECK-VF16-AVX2-NOT: spill/fill cost
+; CHECK-VF8-SSE2: spill/fill cost
+; CHECK-VF16-AVX2: spill/fill cost
 ; CHECK-VF8-AVX2-NOT: spill/fill cost
 
 @arr.double.1 = common local_unnamed_addr global [1024 x double] zeroinitializer, align 16

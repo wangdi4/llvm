@@ -2324,9 +2324,10 @@ define void @test_revectorize_with_gathers_scatters() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4:BB[0-9]+]], total cost: 0
 ;
 ; VPLAN-HIR-CM-VF4-LABEL:  HIR Cost Model for VPlan test_revectorize_with_gathers_scatters.21 with VF = 4:
-; VPLAN-HIR-CM-VF4-NEXT:  Total VPlan Cost: 90
+; VPLAN-HIR-CM-VF4-NEXT:  Total VPlan Cost: 226
 ; VPLAN-HIR-CM-VF4-NEXT:  VPlan Base Cost before adjustments: 86
 ; VPLAN-HIR-CM-VF4-NEXT:  VPlan Base Cost includes Total VPlan GS Cost: 68
+; VPLAN-HIR-CM-VF4-NEXT:  Total VPlan GS Cost is bumped: +136
 ; VPLAN-HIR-CM-VF4-NEXT:  Total VPlan spill/fill cost: +4
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0

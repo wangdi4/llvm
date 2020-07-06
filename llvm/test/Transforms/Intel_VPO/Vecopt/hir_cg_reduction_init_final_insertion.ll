@@ -26,7 +26,7 @@
 ; <0>          END REGION
 
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -print-after=VPlanDriverHIR -disable-output < %s 2>&1 | FileCheck %s
 
 ; CHECK:          BEGIN REGION { modified }
 ; CHECK-NEXT:           + DO i1 = 0, 9, 1   <DO_LOOP>

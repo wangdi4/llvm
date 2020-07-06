@@ -1,5 +1,5 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -enable-vp-value-codegen-hir=0 -hir-post-vec-complete-unroll -print-after=VPlanDriverHIR -print-after=hir-post-vec-complete-unroll -disable-output 2>&1 < %s | FileCheck %s --check-prefixes=CHECK,UNR-CHECK
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -enable-vp-value-codegen-hir -hir-post-vec-complete-unroll -print-after=VPlanDriverHIR -print-after=hir-post-vec-complete-unroll -disable-output 2>&1 < %s | FileCheck %s --check-prefixes=VPCHECK,UNR-CHECK
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -enable-vp-value-codegen-hir=0 -hir-post-vec-complete-unroll -print-after=VPlanDriverHIR -print-after=hir-post-vec-complete-unroll -vplan-force-vf=16 -disable-output 2>&1 < %s | FileCheck %s --check-prefixes=CHECK,UNR-CHECK
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -enable-vp-value-codegen-hir -hir-post-vec-complete-unroll -print-after=VPlanDriverHIR -print-after=hir-post-vec-complete-unroll -vplan-force-vf=16 -disable-output 2>&1 < %s | FileCheck %s --check-prefixes=VPCHECK,UNR-CHECK
 
 ; Verify that we are able to completely unroll the i1 loop with vector abs() idiom after vectorizer unrolls the i2 loop.
 
