@@ -3049,7 +3049,8 @@ static void RenderSCPOptions(const ToolChain &TC, const ArgList &Args,
   if (!EffectiveTriple.isOSLinux())
     return;
 
-  if (!EffectiveTriple.isX86() && !EffectiveTriple.isSystemZ())
+  if (!EffectiveTriple.isX86() && !EffectiveTriple.isSystemZ() &&
+      !EffectiveTriple.isPPC64())
     return;
 
   if (Args.hasFlag(options::OPT_fstack_clash_protection,
@@ -4806,8 +4807,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   CmdArgs.push_back(FPKeepKindStr);
 
   if (!Args.hasFlag(options::OPT_fzero_initialized_in_bss,
-                    options::OPT_fno_zero_initialized_in_bss))
-    CmdArgs.push_back("-mno-zero-initialized-in-bss");
+                    options::OPT_fno_zero_initialized_in_bss, true))
+    CmdArgs.push_back("-fno-zero-initialized-in-bss");
 
   bool OFastEnabled = isOptimizationLevelFast(Args);
   // If -Ofast is the optimization level, then -fstrict-aliasing should be
