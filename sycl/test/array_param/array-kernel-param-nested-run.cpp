@@ -5,10 +5,6 @@
 // RUN: %CPU_RUN_PLACEHOLDER %t.out
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 // RUN: %ACC_RUN_PLACEHOLDER %t.out
-<<<<<<< HEAD
-=======
-// XFAIL: *
->>>>>>> 4bc9c97050e000187f96fc41c46383e4c6708ed5
 
 #include <CL/sycl.hpp>
 #include <iostream>
