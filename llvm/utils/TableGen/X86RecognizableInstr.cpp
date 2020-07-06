@@ -395,7 +395,7 @@ void RecognizableInstr::adjustOperandEncoding(OperandEncoding &encoding) {
     return;
   encoding = (OperandEncoding)(encoding + Log2_32(CD8_Scale));
   assert(((encoding >= ENCODING_RM && encoding <= ENCODING_RM_CD64) ||
-          (encoding == ENCODING_SIB) ||
+          (encoding >= ENCODING_SIB && encoding <= ENCODING_SIB_CD64) || // INTEL
           (encoding >= ENCODING_VSIB && encoding <= ENCODING_VSIB_CD64)) &&
          "Invalid CDisp scaling");
 }
@@ -875,13 +875,6 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
   case X86Local::MRM6r: case X86Local::MRM7r:
     filter = std::make_unique<ExtendedFilter>(true, Form - X86Local::MRM0r);
     break;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX
-  case X86Local::MRMr0:
-    filter = std::make_unique<ExtendedRMFilter>(true, Form - X86Local::MRMr0);
-    break;
-#endif // INTEL_FEATURE_ISA_AMX
-#endif // INTEL_CUSTOMIZATION
   case X86Local::MRM0X: case X86Local::MRM1X:
   case X86Local::MRM2X: case X86Local::MRM3X:
   case X86Local::MRM4X: case X86Local::MRM5X:
@@ -1090,20 +1083,19 @@ OperandType RecognizableInstr::typeFromString(const std::string &s,
   TYPE("vz256mem",            TYPE_MVSIBZ)
   TYPE("vz512mem",            TYPE_MVSIBZ)
   TYPE("BNDR",                TYPE_BNDR)
+  TYPE("TILE",                TYPE_TMM)
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
-  TYPE("VTILE",               TYPE_TMM)
-  TYPE("VTILEX",              TYPE_TMM)
-  TYPE("VTILEPair",           TYPE_TMM_PAIR)
+  TYPE("TILEX",               TYPE_TMM)
+  TYPE("TILEPair",            TYPE_TMM_PAIR)
 #endif // INTEL_FEATURE_ISA_AMX
 #if INTEL_FEATURE_ISA_AMX_LNC
   TYPE("ZMM16Tuples",         TYPE_ZMM16_TUPLES)
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
-  TYPE("VTILEQuad",           TYPE_TMM_QUAD)
+  TYPE("TILEQuad",            TYPE_TMM_QUAD)
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 #endif // INTEL_CUSTOMIZATION
-  TYPE("TILE",                TYPE_TMM)
   errs() << "Unhandled type string " << s << "\n";
   llvm_unreachable("Unhandled type string");
 }
@@ -1148,13 +1140,12 @@ RecognizableInstr::immediateEncodingFromString(const std::string &s,
   ENCODING("VR128X",          ENCODING_IB)
   ENCODING("VR256X",          ENCODING_IB)
   ENCODING("VR512",           ENCODING_IB)
+  ENCODING("TILE",            ENCODING_IB)
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
-  ENCODING("VTILE",           ENCODING_IB)
-  ENCODING("VTILEX",          ENCODING_IB)
+  ENCODING("TILEX",           ENCODING_IB)
 #endif // INTEL_FEATURE_ISA_AMX
 #endif // INTEL_CUSTOMIZATION
-  ENCODING("TILE",            ENCODING_IB)
   errs() << "Unhandled immediate encoding " << s << "\n";
   llvm_unreachable("Unhandled immediate encoding");
 }
@@ -1198,17 +1189,16 @@ RecognizableInstr::rmRegisterEncodingFromString(const std::string &s,
   ENCODING("VK8PAIR",         ENCODING_RM)
   ENCODING("VK16PAIR",        ENCODING_RM)
   ENCODING("BNDR",            ENCODING_RM)
+  ENCODING("TILE",            ENCODING_RM)
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
-  ENCODING("VTILE",           ENCODING_RM)
-  ENCODING("VTILEX",          ENCODING_RM)
-  ENCODING("VTILEPAIR",       ENCODING_RM)
+  ENCODING("TILEX",           ENCODING_RM)
+  ENCODING("TILEPAIR",        ENCODING_RM)
 #endif // INTEL_FEATURE_ISA_AMX
 #if INTEL_FEATURE_ISA_AMX_LNC
   ENCODING("ZMM16Tuples",     ENCODING_RM)
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION
-  ENCODING("TILE",            ENCODING_RM)
   errs() << "Unhandled R/M register encoding " << s << "\n";
   llvm_unreachable("Unhandled R/M register encoding");
 }
@@ -1260,20 +1250,19 @@ RecognizableInstr::roRegisterEncodingFromString(const std::string &s,
   ENCODING("VK32WM",          ENCODING_REG)
   ENCODING("VK64WM",          ENCODING_REG)
   ENCODING("BNDR",            ENCODING_REG)
+  ENCODING("TILE",            ENCODING_REG)
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
-  ENCODING("VTILE",           ENCODING_REG)
-  ENCODING("VTILEX",          ENCODING_REG)
-  ENCODING("VTILEPair",       ENCODING_REG)
+  ENCODING("TILEX",           ENCODING_REG)
+  ENCODING("TILEPair",        ENCODING_REG)
 #endif // INTEL_FEATURE_ISA_AMX
 #if INTEL_FEATURE_ISA_AMX_LNC
-  ENCODING("ZMM16Tuples",     ENCODING_REG)
+  ENCODING("ZMM16Tuples",      ENCODING_REG)
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
-  ENCODING("VTILEQuad",       ENCODING_REG)
+  ENCODING("TILEQuad",        ENCODING_REG)
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 #endif // INTEL_CUSTOMIZATION
-  ENCODING("TILE",            ENCODING_REG)
   errs() << "Unhandled reg/opcode register encoding " << s << "\n";
   llvm_unreachable("Unhandled reg/opcode register encoding");
 }
@@ -1310,17 +1299,17 @@ RecognizableInstr::vvvvRegisterEncodingFromString(const std::string &s,
   ENCODING("VK4PAIR",         ENCODING_VVVV)
   ENCODING("VK8PAIR",         ENCODING_VVVV)
   ENCODING("VK16PAIR",        ENCODING_VVVV)
+  ENCODING("TILE",            ENCODING_VVVV)
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
-  ENCODING("VTILE",           ENCODING_VVVV)
-  ENCODING("VTILEX",          ENCODING_VVVV)
-  ENCODING("VTILEPAIR",       ENCODING_VVVV)
+  ENCODING("TILE",            ENCODING_VVVV)
+  ENCODING("TILEX",           ENCODING_VVVV)
+  ENCODING("TILEPAIR",        ENCODING_VVVV)
 #endif // INTEL_FEATURE_ISA_AMX
 #if INTEL_FEATURE_ISA_AMX_LNC
   ENCODING("ZMM16Tuples",     ENCODING_VVVV)
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION
-  ENCODING("TILE",            ENCODING_VVVV)
   errs() << "Unhandled VEX.vvvv register encoding " << s << "\n";
   llvm_unreachable("Unhandled VEX.vvvv register encoding");
 }

@@ -770,7 +770,11 @@ static int readModRM(struct InternalInstruction *insn) {
     case TYPE_TMM_PAIR:                                                        \
       return prefix##_TMM0_TMM1 + (index / 2 );
 #else // INTEL_FEATURE_ISA_AMX
-#define TMM_TYPE(prefix)
+#define TMM_TYPE(prefix)                                                       \
+    case TYPE_TMM:                                                             \
+      if (index > 7)                                                           \
+        *valid = 0;                                                            \
+      return prefix##_TMM0 + index;
 #define TMM_TYPE_PAIR(prefix)
 #endif // INTEL_FEATURE_ISA_AMX
 
@@ -838,10 +842,6 @@ static int readModRM(struct InternalInstruction *insn) {
     TMM_TYPE_PAIR(prefix)                                                      \
     TMM_TYPE_QUAD(prefix)                                                      \
     ZMM16_TYPE_TUPLES(prefix)                                                  \
-    case TYPE_TMM:                                                             \
-      if (index > 7)                                                           \
-        *valid = 0;                                                            \
-      return prefix##_TMM0 + index;                                            \
     case TYPE_VK:                                                              \
       index &= 0xf;                                                            \
       if (index > 7)                                                           \
@@ -916,7 +916,7 @@ static int fixupReg(struct InternalInstruction *insn,
     if (!valid)
       return -1;
     break;
-  case ENCODING_SIB:
+  CASE_ENCODING_SIB: // INTEL
   CASE_ENCODING_RM:
     if (insn->eaBase >= insn->eaRegBase) {
       insn->eaBase = (EABase)fixupRMValue(
@@ -1681,7 +1681,7 @@ static int readOperands(struct InternalInstruction *insn) {
       if (Op.encoding != ENCODING_REG && insn->eaDisplacement == EA_DISP_8)
         insn->displacement *= 1 << (Op.encoding - ENCODING_VSIB);
       break;
-    case ENCODING_SIB:
+    CASE_ENCODING_SIB: // INTEL
       // Reject if SIB wasn't used.
       if (insn->eaBase != EA_BASE_sib && insn->eaBase != EA_BASE_sib64)
         return -1;
@@ -2436,7 +2436,7 @@ static bool translateOperand(MCInst &mcInst, const OperandSpecifier &operand,
     return false;
   case ENCODING_WRITEMASK:
     return translateMaskRegister(mcInst, insn.writemask);
-  case ENCODING_SIB:
+  CASE_ENCODING_SIB: // INTEL
   CASE_ENCODING_RM:
   CASE_ENCODING_VSIB:
     return translateRM(mcInst, operand, insn, Dis);

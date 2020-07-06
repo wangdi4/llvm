@@ -728,11 +728,12 @@ def BNDR : RegisterClass<"X86", [v2i64], 128, (sequence "BND%u", 0, 3)>;
 #if INTEL_FEATURE_ISA_AMX
 // Tiles
 let isAllocatable = 0 in
-def VTILE : RegisterClass<"X86", [untyped], 0,
-                          (sequence "TMM%u", 0, 15)> {let Size = 8192;}
+def TILE : RegisterClass<"X86", [untyped], 0,
+                         (sequence "TMM%u", 0, 15)> {let Size = 8192;}
+
 // Tiles
 let isAllocatable = 0 in
-def VTILEX : RegisterClass<"X86", [untyped], 0,
+def TILEX : RegisterClass<"X86", [untyped], 0,
                           (sequence "TMM%u", 0, 31)> {let Size = 8192;}
 
 // TMM register pairs
@@ -742,7 +743,7 @@ def TPAIRS : RegisterTuples<[sub_t0, sub_t1],
 
 // Need check alignment 3rd operand size=1024*2*8
 let isAllocatable = 0 in
-def VTILEPAIR : RegisterClass<"X86", [untyped], 0, (add TPAIRS)> {let Size = 16384;}
+def TILEPAIR : RegisterClass<"X86", [untyped], 0, (add TPAIRS)> {let Size = 16384;}
 
 // TMM register quad
 def TQUADS : RegisterTuples<[sub_t0, sub_t1, sub_t2, sub_t3],
@@ -753,9 +754,14 @@ def TQUADS : RegisterTuples<[sub_t0, sub_t1, sub_t2, sub_t3],
 
 // Need check alignment 3rd operand size=1024*4*8
 let isAllocatable = 0 in
-def VTILEQUAD : RegisterClass<"X86", [untyped], 0, (add TQUADS)> {let Size = 32768;}
-
+def TILEQUAD : RegisterClass<"X86", [untyped], 0, (add TQUADS)> {let Size = 32768;}
+#else // INTEL_FEATURE_ISA_AMX
+// Tiles
+let isAllocatable = 0 in
+def TILE : RegisterClass<"X86", [untyped], 0,
+                         (sequence "TMM%u", 0, 7)> {let Size = 8192;}
 #endif // INTEL_FEATURE_ISA_AMX
+
 #if INTEL_FEATURE_ISA_AMX_LNC
 // FIXME: Now we only support ZMM16-ZMM31 for ZMM16TUPLES, but the tile16move
 // can also choose ZMM0-ZMM15, so we should support ZMM0-ZMM15 too.
@@ -773,7 +779,3 @@ def Z16TUPLES : RegisterTuples<[sub_z0, sub_z1, sub_z2, sub_z3, sub_z4, sub_z5, 
 def ZMM16TUPLES : RegisterClass<"X86", [untyped], 512, (add Z16TUPLES)> {let Size = 8196;}
 #endif // INTEL_FEATURE_ISA_AMX_LNC
 #endif // INTEL_CUSTOMIZATION
-// Tiles
-let isAllocatable = 0 in
-def TILE : RegisterClass<"X86", [untyped], 0,
-                         (sequence "TMM%u", 0, 7)> {let Size = 8192;}

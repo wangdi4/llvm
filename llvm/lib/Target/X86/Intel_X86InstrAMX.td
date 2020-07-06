@@ -33,12 +33,12 @@ let Predicates = [HasAMXTILE, In64BitMode] in {
     def STTILECFG : I <0x49, MRM0m, (outs), (ins opaquemem:$src),
                        "sttilecfg\t$src",
                        [(int_x86_sttilecfg addr:$src)]>, VEX, T8PD;
-    def TILELOADD : I<0x4b, MRMSrcMemFSIB, (outs VTILE:$dst),
-                      (ins opaquemem:$src),
+    def TILELOADD : I<0x4b, MRMSrcMemFSIB, (outs TILE:$dst),
+                      (ins sibmem:$src),
                       "tileloadd\t{$src, $dst|$dst, $src}", []>,
                       VEX, T8XD;
-    def TILELOADDT1 : I<0x4b, MRMSrcMemFSIB, (outs VTILE:$dst),
-                        (ins opaquemem:$src),
+    def TILELOADDT1 : I<0x4b, MRMSrcMemFSIB, (outs TILE:$dst),
+                        (ins sibmem:$src),
                         "tileloaddt1\t{$src, $dst|$dst, $src}", []>,
                         VEX, T8PD;
     let Defs = [TMM0,TMM1,TMM2,TMM3,TMM4,TMM5,TMM6,TMM7,
@@ -48,20 +48,20 @@ let Predicates = [HasAMXTILE, In64BitMode] in {
     def TILERELEASE : I<0x49, MRM_C0, (outs), (ins),
                         "tilerelease", [(int_x86_tilerelease)]>, VEX, T8PS;
     def TILESTORED : I<0x4b, MRMDestMemFSIB, (outs),
-                       (ins opaquemem:$dst, VTILE:$src),
+                       (ins sibmem:$dst, TILE:$src),
                        "tilestored\t{$src, $dst|$dst, $src}", []>,
                        VEX, T8XS;
-    def TILEZERO : I<0x49, MRMr0, (outs VTILE:$dst), (ins),
+    def TILEZERO : I<0x49, MRMr0, (outs TILE:$dst), (ins),
                      "tilezero\t$dst", []>,
                      VEX, T8XD;
 
     let usesCustomInserter = 1 in {
       // Pseudo instructions, using immediates instead of tile registers.
       // To be translated to the actual instructions in X86ISelLowering.cpp
-      def PTILELOADD : PseudoI<(outs), (ins u8imm:$src1, opaquemem:$src2), []>;
+      def PTILELOADD : PseudoI<(outs), (ins u8imm:$src1, sibmem:$src2), []>;
       def PTILELOADDT1 : PseudoI<(outs), (ins u8imm:$src1,
-                                          opaquemem:$src2), []>;
-      def PTILESTORED : PseudoI<(outs), (ins i8mem:$dst, u8imm:$src), []>;
+                                          sibmem:$src2), []>;
+      def PTILESTORED : PseudoI<(outs), (ins sibmem:$dst, u8imm:$src), []>;
       def PTILEZERO : PseudoI<(outs), (ins u8imm:$src),
                               [(int_x86_tilezero imm:$src)]>;
     }
@@ -71,20 +71,20 @@ let Predicates = [HasAMXTILE, In64BitMode] in {
 let Predicates = [HasAMXINT8, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
     let Constraints = "$src1 = $dst" in {
-      def TDPBSSD : I<0x5e, MRMSrcReg4VOp3, (outs VTILE:$dst),
-                      (ins VTILE:$src1, VTILE:$src2, VTILE:$src3),
+      def TDPBSSD : I<0x5e, MRMSrcReg4VOp3, (outs TILE:$dst),
+                      (ins TILE:$src1, TILE:$src2, TILE:$src3),
                       "tdpbssd\t{$src3, $src2, $dst|$dst, $src2, $src3}", []>,
                       VEX_4V, T8XD;
-      def TDPBSUD : I<0x5e, MRMSrcReg4VOp3, (outs VTILE:$dst),
-                      (ins VTILE:$src1, VTILE:$src2, VTILE:$src3),
+      def TDPBSUD : I<0x5e, MRMSrcReg4VOp3, (outs TILE:$dst),
+                      (ins TILE:$src1, TILE:$src2, TILE:$src3),
                       "tdpbsud\t{$src3, $src2, $dst|$dst, $src2, $src3}", []>,
                       VEX_4V, T8XS;
-      def TDPBUSD : I<0x5e, MRMSrcReg4VOp3, (outs VTILE:$dst),
-                      (ins VTILE:$src1, VTILE:$src2, VTILE:$src3),
+      def TDPBUSD : I<0x5e, MRMSrcReg4VOp3, (outs TILE:$dst),
+                      (ins TILE:$src1, TILE:$src2, TILE:$src3),
                       "tdpbusd\t{$src3, $src2, $dst|$dst, $src2, $src3}", []>,
                       VEX_4V, T8PD;
-      def TDPBUUD : I<0x5e, MRMSrcReg4VOp3, (outs VTILE:$dst),
-                      (ins VTILE:$src1, VTILE:$src2, VTILE:$src3),
+      def TDPBUUD : I<0x5e, MRMSrcReg4VOp3, (outs TILE:$dst),
+                      (ins TILE:$src1, TILE:$src2, TILE:$src3),
                       "tdpbuud\t{$src3, $src2, $dst|$dst, $src2, $src3}", []>,
                       VEX_4V, T8PS;
     }
@@ -115,8 +115,8 @@ let Predicates = [HasAMXINT8, In64BitMode] in {
 let Predicates = [HasAMXBF16, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
     let Constraints = "$src1 = $dst" in
-    def TDPBF16PS : I<0x5c, MRMSrcReg4VOp3, (outs VTILE:$dst),
-                      (ins VTILE:$src1, VTILE:$src2, VTILE:$src3),
+    def TDPBF16PS : I<0x5c, MRMSrcReg4VOp3, (outs TILE:$dst),
+                      (ins TILE:$src1, TILE:$src2, TILE:$src3),
                       "tdpbf16ps\t{$src3, $src2, $dst|$dst, $src2, $src3}",
                       []>, VEX_4V, T8XS;
 
@@ -138,12 +138,12 @@ let Predicates = [HasAMXBF16, In64BitMode] in {
 multiclass m_tadds {
   let Predicates = [HasAMXELEMENT, In64BitMode] in {
     let SchedRW = [WriteSystem] in {
-      def rr : I<0xe0, MRMSrcReg, (outs VTILE:$dst),
-                 (ins VTILE:$src1, VTILE:$src2),
+      def rr : I<0xe0, MRMSrcReg, (outs TILE:$dst),
+                 (ins TILE:$src1, TILE:$src2),
                  "taddps\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                  []>, VEX_4V, T_MAP5PS;
-      def rm : I<0xe0, MRMSrcMem, (outs VTILE:$dst),
-                 (ins VTILE:$src1, i8mem:$src2),
+      def rm : I<0xe0, MRMSrcMem, (outs TILE:$dst),
+                 (ins TILE:$src1, i8mem:$src2),
                  "taddps\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                  []>, VEX_4V, T_MAP5PS;
     }
@@ -156,12 +156,12 @@ defm TADDPS : m_tadds;
 multiclass m_tandd {
   let Predicates = [HasAMXELEMENT, In64BitMode] in {
     let SchedRW = [WriteSystem] in {
-      def rr : I<0xe0, MRMSrcReg, (outs VTILE:$dst),
-                 (ins VTILE:$src1, VTILE:$src2),
+      def rr : I<0xe0, MRMSrcReg, (outs TILE:$dst),
+                 (ins TILE:$src1, TILE:$src2),
                  "tandd\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                  []>, VEX_4V, T_MAP5PD;
-      def rm : I<0xe0, MRMSrcMem, (outs VTILE:$dst),
-                 (ins VTILE:$src1, i8mem:$src2),
+      def rm : I<0xe0, MRMSrcMem, (outs TILE:$dst),
+                 (ins TILE:$src1, i8mem:$src2),
                  "tandd\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                  []>, VEX_4V, T_MAP5PD;
     }
@@ -174,12 +174,12 @@ defm TANDD : m_tandd;
 multiclass m_tandnd {
   let Predicates = [HasAMXELEMENT, In64BitMode] in {
     let SchedRW = [WriteSystem] in {
-      def rr : I<0xe0, MRMSrcReg, (outs VTILE:$dst),
-                 (ins VTILE:$src1, VTILE:$src2),
+      def rr : I<0xe0, MRMSrcReg, (outs TILE:$dst),
+                 (ins TILE:$src1, TILE:$src2),
                  "tandnd\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                  []>, VEX_4V, T_MAP5XD;
-      def rm : I<0xe0, MRMSrcMem, (outs VTILE:$dst),
-                 (ins VTILE:$src1, i8mem:$src2),
+      def rm : I<0xe0, MRMSrcMem, (outs TILE:$dst),
+                 (ins TILE:$src1, i8mem:$src2),
                  "tandnd\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                  []>, VEX_4V, T_MAP5XD;
     }
@@ -225,8 +225,8 @@ let Predicates = [HasAMXELEMENT, In64BitMode] in {
 let Predicates = [HasAMXFORMAT, In64BitMode],
     SchedRW = [WriteSystem] in {
   let Constraints = "$src1 = $dst" in {
-    def TBLENDVD : I<0xe6, MRMSrcReg, (outs VTILE:$dst),
-                     (ins VTILE:$src1, VTILE:$src2, VTILE:$src3),
+    def TBLENDVD : I<0xe6, MRMSrcReg, (outs TILE:$dst),
+                     (ins TILE:$src1, TILE:$src2, TILE:$src3),
                      "tblendvd\t{$src3, $src2, $dst|$dst, $src2, $src3}",
                      []>, VEX_4V, T_MAP5XD;
   }
@@ -246,12 +246,12 @@ let Predicates = [HasAMXFORMAT, In64BitMode],
 multiclass m_tcmpps {
   let Predicates = [HasAMXELEMENT, In64BitMode] in {
     let SchedRW = [WriteSystem] in {
-      def rr : Ii8<0x59, MRMSrcReg, (outs VTILE:$dst),
-                   (ins VTILE:$src1, VTILE:$src2, u8imm:$src3),
+      def rr : Ii8<0x59, MRMSrcReg, (outs TILE:$dst),
+                   (ins TILE:$src1, TILE:$src2, u8imm:$src3),
                    "tcmpps\t{$src3, $src2, $src1, $dst|$dst, $src1, $src2, $src3}",
                    []>, VEX_4V, TAXS;
-      def rm : Ii8<0x59, MRMSrcMem, (outs VTILE:$dst),
-                   (ins VTILE:$src1, i8mem:$src2, u8imm:$src3),
+      def rm : Ii8<0x59, MRMSrcMem, (outs TILE:$dst),
+                   (ins TILE:$src1, i8mem:$src2, u8imm:$src3),
                    "tcmpps\t{$src3, $src2, $src1, $dst|$dst, $src1, $src2, $src3}",
                    []>, VEX_4V, TAXS;
     }
@@ -278,12 +278,12 @@ let Predicates = [HasAMXELEMENT, In64BitMode] in {
 // TCOLADDBCASTPS TCOLADDPS
 let Predicates = [HasAMXREDUCE, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
-    def TCOLADDBCASTPS : I<0xe6, MRMSrcReg, (outs VTILE:$dst),
-                           (ins VTILE:$src),
+    def TCOLADDBCASTPS : I<0xe6, MRMSrcReg, (outs TILE:$dst),
+                           (ins TILE:$src),
                            "tcoladdbcastps\t{$src, $dst|$dst, $src}",
                            []>, VEX, T_MAP5PD;
     def TCOLADDPS : I<0xe6, MRMDestMem, (outs),
-                      (ins i8mem:$dst, VTILE:$src),
+                      (ins i8mem:$dst, TILE:$src),
                       "tcoladdps\t{$src, $dst|$dst, $src}",
                       []>, VEX, T_MAP5PS;
     let usesCustomInserter = 1 in {
@@ -299,32 +299,32 @@ let Predicates = [HasAMXREDUCE, In64BitMode] in {
 multiclass m_tcvt {
   let Predicates = [HasAMXELEMENT, In64BitMode] in {
     let SchedRW = [WriteSystem] in {
-      def B2PS : I<0xe1, MRMSrcReg, (outs VTILE:$dst),
-                   (ins VTILE:$src),
+      def B2PS : I<0xe1, MRMSrcReg, (outs TILE:$dst),
+                   (ins TILE:$src),
                    "tcvtb2ps\t{$src, $dst|$dst, $src}",
                    []>, VEX, T_MAP5PS;
-      def BF162PS : I<0xe1, MRMSrcReg, (outs VTILE:$dst),
-                      (ins VTILE:$src),
+      def BF162PS : I<0xe1, MRMSrcReg, (outs TILE:$dst),
+                      (ins TILE:$src),
                       "tcvtbf162ps\t{$src, $dst|$dst, $src}",
                       []>, VEX, T_MAP5XD;
-      def D2PS : I<0xe1, MRMSrcReg, (outs VTILE:$dst),
-                   (ins VTILE:$src),
+      def D2PS : I<0xe1, MRMSrcReg, (outs TILE:$dst),
+                   (ins TILE:$src),
                    "tcvtd2ps\t{$src, $dst|$dst, $src}",
                    []>, VEX, T_MAP5XS;
-      def PS2BF16 : I<0xe2, MRMSrcReg, (outs VTILE:$dst),
-                      (ins VTILE:$src),
+      def PS2BF16 : I<0xe2, MRMSrcReg, (outs TILE:$dst),
+                      (ins TILE:$src),
                       "tcvtps2bf16\t{$src, $dst|$dst, $src}",
                       []>, VEX, T_MAP5XD;
-      def PS2BS : I<0xe2, MRMSrcReg, (outs VTILE:$dst),
-                    (ins VTILE:$src),
+      def PS2BS : I<0xe2, MRMSrcReg, (outs TILE:$dst),
+                    (ins TILE:$src),
                     "tcvtps2bs\t{$src, $dst|$dst, $src}",
                     []>, VEX, T_MAP5PS;
-      def PS2UBS : I<0xe2, MRMSrcReg, (outs VTILE:$dst),
-                     (ins VTILE:$src),
+      def PS2UBS : I<0xe2, MRMSrcReg, (outs TILE:$dst),
+                     (ins TILE:$src),
                      "tcvtps2ubs\t{$src, $dst|$dst, $src}",
                      []>, VEX, T_MAP5PD;
-      def UB2PS : I<0xe1, MRMSrcReg, (outs VTILE:$dst),
-                    (ins VTILE:$src),
+      def UB2PS : I<0xe1, MRMSrcReg, (outs TILE:$dst),
+                    (ins TILE:$src),
                     "tcvtub2ps\t{$src, $dst|$dst, $src}",
                     []>, VEX, T_MAP5PD;
     }
@@ -358,36 +358,36 @@ let Predicates = [HasAMXELEMENT, In64BitMode] in {
 let Predicates = [HasAMXELEMENT, In64BitMode],
     SchedRW = [WriteSystem] in {
   let Constraints = "$src1 = $dst" in {
-    def TFMADDPSrr : I<0xe2, MRMSrcReg, (outs VTILE:$dst),
-                       (ins VTILE:$src1, VTILE:$src2, VTILE:$src3),
+    def TFMADDPSrr : I<0xe2, MRMSrcReg, (outs TILE:$dst),
+                       (ins TILE:$src1, TILE:$src2, TILE:$src3),
                        "tfmaddps\t{$src3, $src2, $dst|$dst, $src2, $src3}",
                        []>, VEX_4V, T_MAP5XS;
-    def TFMADDPSrm : I<0xe2, MRMSrcMem, (outs VTILE:$dst),
-                       (ins VTILE:$src1, VTILE:$src2, i8mem:$src3),
+    def TFMADDPSrm : I<0xe2, MRMSrcMem, (outs TILE:$dst),
+                       (ins TILE:$src1, TILE:$src2, i8mem:$src3),
                        "tfmaddps\t{$src3, $src2, $dst|$dst, $src2, $src3}",
                        []>, VEX_4V, T_MAP5XS;
-    def TFMSUBPSrr : I<0xe3, MRMSrcReg, (outs VTILE:$dst),
-                       (ins VTILE:$src1, VTILE:$src2, VTILE:$src3),
+    def TFMSUBPSrr : I<0xe3, MRMSrcReg, (outs TILE:$dst),
+                       (ins TILE:$src1, TILE:$src2, TILE:$src3),
                        "tfmsubps\t{$src3, $src2, $dst|$dst, $src2, $src3}",
                        []>, VEX_4V, T_MAP5PS;
-    def TFMSUBPSrm : I<0xe3, MRMSrcMem, (outs VTILE:$dst),
-                       (ins VTILE:$src1, VTILE:$src2, i8mem:$src3),
+    def TFMSUBPSrm : I<0xe3, MRMSrcMem, (outs TILE:$dst),
+                       (ins TILE:$src1, TILE:$src2, i8mem:$src3),
                        "tfmsubps\t{$src3, $src2, $dst|$dst, $src2, $src3}",
                        []>, VEX_4V, T_MAP5PS;
-    def TFNMADDPSrr : I<0xe3, MRMSrcReg, (outs VTILE:$dst),
-                       (ins VTILE:$src1, VTILE:$src2, VTILE:$src3),
+    def TFNMADDPSrr : I<0xe3, MRMSrcReg, (outs TILE:$dst),
+                       (ins TILE:$src1, TILE:$src2, TILE:$src3),
                        "tfnmaddps\t{$src3, $src2, $dst|$dst, $src2, $src3}",
                        []>, VEX_4V, T_MAP5PD;
-    def TFNMADDPSrm : I<0xe3, MRMSrcMem, (outs VTILE:$dst),
-                       (ins VTILE:$src1, VTILE:$src2, i8mem:$src3),
+    def TFNMADDPSrm : I<0xe3, MRMSrcMem, (outs TILE:$dst),
+                       (ins TILE:$src1, TILE:$src2, i8mem:$src3),
                        "tfnmaddps\t{$src3, $src2, $dst|$dst, $src2, $src3}",
                        []>, VEX_4V, T_MAP5PD;
-    def TFNMSUBPSrr : I<0xe3, MRMSrcReg, (outs VTILE:$dst),
-                       (ins VTILE:$src1, VTILE:$src2, VTILE:$src3),
+    def TFNMSUBPSrr : I<0xe3, MRMSrcReg, (outs TILE:$dst),
+                       (ins TILE:$src1, TILE:$src2, TILE:$src3),
                        "tfnmsubps\t{$src3, $src2, $dst|$dst, $src2, $src3}",
                        []>, VEX_4V, T_MAP5XD;
-    def TFNMSUBPSrm : I<0xe3, MRMSrcMem, (outs VTILE:$dst),
-                       (ins VTILE:$src1, VTILE:$src2, i8mem:$src3),
+    def TFNMSUBPSrm : I<0xe3, MRMSrcMem, (outs TILE:$dst),
+                       (ins TILE:$src1, TILE:$src2, i8mem:$src3),
                        "tfnmsubps\t{$src3, $src2, $dst|$dst, $src2, $src3}",
                        []>, VEX_4V, T_MAP5XD;
   }
@@ -435,20 +435,20 @@ let Predicates = [HasAMXELEMENT, In64BitMode],
 multiclass m_tinterleave {
   let Predicates = [HasAMXFORMAT, In64BitMode] in {
     let SchedRW = [WriteSystem] in {
-      def EB : I<0xe8, MRMSrcReg, (outs VTILE:$dst),
-                 (ins VTILE:$src1, VTILE:$src2),
+      def EB : I<0xe8, MRMSrcReg, (outs TILE:$dst),
+                 (ins TILE:$src1, TILE:$src2),
                  "tinterleaveeb\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                  []>, VEX_4V, T_MAP5XD;
-      def EW : I<0xe8, MRMSrcReg, (outs VTILE:$dst),
-                 (ins VTILE:$src1, VTILE:$src2),
+      def EW : I<0xe8, MRMSrcReg, (outs TILE:$dst),
+                 (ins TILE:$src1, TILE:$src2),
                  "tinterleaveew\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                  []>, VEX_4V, T_MAP5XS;
-      def OB : I<0xe8, MRMSrcReg, (outs VTILE:$dst),
-                 (ins VTILE:$src1, VTILE:$src2),
+      def OB : I<0xe8, MRMSrcReg, (outs TILE:$dst),
+                 (ins TILE:$src1, TILE:$src2),
                  "tinterleaveob\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                  []>, VEX_4V, T_MAP5PS;
-      def OW : I<0xe8, MRMSrcReg, (outs VTILE:$dst),
-                 (ins VTILE:$src1, VTILE:$src2),
+      def OW : I<0xe8, MRMSrcReg, (outs TILE:$dst),
+                 (ins TILE:$src1, TILE:$src2),
                  "tinterleaveow\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                  []>, VEX_4V, T_MAP5PD;
     }
@@ -482,28 +482,28 @@ let Predicates = [HasAMXFORMAT, In64BitMode] in {
 // TMAXPS TMINPS TMULPS check tmemrow
 let Predicates = [HasAMXELEMENT, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
-    def TMAXPSrr : I<0xe3, MRMSrcReg, (outs VTILE:$dst),
-                     (ins VTILE:$src1, VTILE:$src2),
+    def TMAXPSrr : I<0xe3, MRMSrcReg, (outs TILE:$dst),
+                     (ins TILE:$src1, TILE:$src2),
                      "tmaxps\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                      []>, VEX_4V, T_MAP5XS;
-    def TMAXPSrm : I<0xe3, MRMSrcMem, (outs VTILE:$dst),
-                     (ins VTILE:$src1, i8mem:$src2),
+    def TMAXPSrm : I<0xe3, MRMSrcMem, (outs TILE:$dst),
+                     (ins TILE:$src1, i8mem:$src2),
                      "tmaxps\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                      []>, VEX_4V, T_MAP5XS;
-    def TMINPSrr : I<0xe4, MRMSrcReg, (outs VTILE:$dst),
-                     (ins VTILE:$src1, VTILE:$src2),
+    def TMINPSrr : I<0xe4, MRMSrcReg, (outs TILE:$dst),
+                     (ins TILE:$src1, TILE:$src2),
                      "tminps\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                      []>, VEX_4V, T_MAP5PS;
-    def TMINPSrm : I<0xe4, MRMSrcMem, (outs VTILE:$dst),
-                     (ins VTILE:$src1, i8mem:$src2),
+    def TMINPSrm : I<0xe4, MRMSrcMem, (outs TILE:$dst),
+                     (ins TILE:$src1, i8mem:$src2),
                      "tminps\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                      []>, VEX_4V, T_MAP5PS;
-    def TMULPSrr : I<0xe4, MRMSrcReg, (outs VTILE:$dst),
-                     (ins VTILE:$src1, VTILE:$src2),
+    def TMULPSrr : I<0xe4, MRMSrcReg, (outs TILE:$dst),
+                     (ins TILE:$src1, TILE:$src2),
                      "tmulps\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                      []>, VEX_4V, T_MAP5PD;
-    def TMULPSrm : I<0xe4, MRMSrcMem, (outs VTILE:$dst),
-                     (ins VTILE:$src1, i8mem:$src2),
+    def TMULPSrm : I<0xe4, MRMSrcMem, (outs TILE:$dst),
+                     (ins TILE:$src1, i8mem:$src2),
                      "tmulps\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                      []>, VEX_4V, T_MAP5PD;
     let  usesCustomInserter = 1 in {
@@ -538,12 +538,12 @@ let Predicates = [HasAMXELEMENT, In64BitMode] in {
 // TNARROW[B,W]
 let Predicates = [HasAMXELEMENT, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
-    def TNARROWB : Ii8<0x58, MRMSrcReg, (outs VTILE:$dst),
-                       (ins VTILE:$src1, u8imm:$src2),
+    def TNARROWB : Ii8<0x58, MRMSrcReg, (outs TILE:$dst),
+                       (ins TILE:$src1, u8imm:$src2),
                        "tnarrowb\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                        []>, VEX, TAXS;
-    def TNARROWW : Ii8<0x59, MRMSrcReg, (outs VTILE:$dst),
-                       (ins VTILE:$src1, u8imm:$src2),
+    def TNARROWW : Ii8<0x59, MRMSrcReg, (outs TILE:$dst),
+                       (ins TILE:$src1, u8imm:$src2),
                        "tnarroww\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                        []>, VEX, TAPS;
     let  usesCustomInserter = 1 in {
@@ -562,12 +562,12 @@ let Predicates = [HasAMXELEMENT, In64BitMode] in {
 // TORD check tmemrow
 let Predicates = [HasAMXELEMENT, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
-    def TORDrr : I<0xe4, MRMSrcReg, (outs VTILE:$dst),
-                   (ins VTILE:$src1, VTILE:$src2),
+    def TORDrr : I<0xe4, MRMSrcReg, (outs TILE:$dst),
+                   (ins TILE:$src1, TILE:$src2),
                    "tord\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                    []>, VEX_4V, T_MAP5XD;
-    def TORDrm : I<0xe4, MRMSrcMem, (outs VTILE:$dst),
-                   (ins VTILE:$src1, i8mem:$src2),
+    def TORDrm : I<0xe4, MRMSrcMem, (outs TILE:$dst),
+                   (ins TILE:$src1, i8mem:$src2),
                    "tord\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                    []>, VEX_4V, T_MAP5XD;
     let  usesCustomInserter = 1 in {
@@ -586,28 +586,28 @@ let Predicates = [HasAMXELEMENT, In64BitMode] in {
 // TPERM[B,W,D] check tmemrow
 let Predicates = [HasAMXFORMAT, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
-    def TPERMBrr : I<0xe6, MRMSrcReg, (outs VTILE:$dst),
-                     (ins VTILE:$src1, VTILE:$src2),
+    def TPERMBrr : I<0xe6, MRMSrcReg, (outs TILE:$dst),
+                     (ins TILE:$src1, TILE:$src2),
                      "tpermb\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                      []>, VEX_4V, T_MAP5XS;
-    def TPERMBrm : I<0xe6, MRMSrcMem, (outs VTILE:$dst),
-                     (ins VTILE:$src1, i8mem:$src2),
+    def TPERMBrm : I<0xe6, MRMSrcMem, (outs TILE:$dst),
+                     (ins TILE:$src1, i8mem:$src2),
                      "tpermb\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                      []>, VEX_4V, T_MAP5XS;
-    def TPERMDrr : I<0xe7, MRMSrcReg, (outs VTILE:$dst),
-                     (ins VTILE:$src1, VTILE:$src2),
+    def TPERMDrr : I<0xe7, MRMSrcReg, (outs TILE:$dst),
+                     (ins TILE:$src1, TILE:$src2),
                      "tpermd\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                      []>, VEX_4V, T_MAP5PD;
-    def TPERMDrm : I<0xe7, MRMSrcMem, (outs VTILE:$dst),
-                     (ins VTILE:$src1, i8mem:$src2),
+    def TPERMDrm : I<0xe7, MRMSrcMem, (outs TILE:$dst),
+                     (ins TILE:$src1, i8mem:$src2),
                      "tpermd\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                      []>, VEX_4V, T_MAP5PD;
-    def TPERMWrr : I<0xe7, MRMSrcReg, (outs VTILE:$dst),
-                     (ins VTILE:$src1, VTILE:$src2),
+    def TPERMWrr : I<0xe7, MRMSrcReg, (outs TILE:$dst),
+                     (ins TILE:$src1, TILE:$src2),
                      "tpermw\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                      []>, VEX_4V, T_MAP5PS;
-    def TPERMWrm : I<0xe7, MRMSrcMem, (outs VTILE:$dst),
-                     (ins VTILE:$src1, i8mem:$src2),
+    def TPERMWrm : I<0xe7, MRMSrcMem, (outs TILE:$dst),
+                     (ins TILE:$src1, i8mem:$src2),
                      "tpermw\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                      []>, VEX_4V, T_MAP5PS;
     let  usesCustomInserter = 1 in {
@@ -642,20 +642,20 @@ let Predicates = [HasAMXFORMAT, In64BitMode] in {
 // TRCP14PS TREDUCEPS TSCALEFPS check tmemrow
 let Predicates = [HasAMXELEMENT, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
-    def TRCP14PS : I<0xe4, MRMSrcReg, (outs VTILE:$dst),
-                     (ins VTILE:$src1),
+    def TRCP14PS : I<0xe4, MRMSrcReg, (outs TILE:$dst),
+                     (ins TILE:$src1),
                      "trcp14ps\t{$src1, $dst|$dst, $src1}",
                      []>, VEX, T_MAP5XS;
-    def TREDUCEPS : Ii8<0x58, MRMSrcReg, (outs VTILE:$dst),
-                        (ins VTILE:$src1, u8imm:$src2),
+    def TREDUCEPS : Ii8<0x58, MRMSrcReg, (outs TILE:$dst),
+                        (ins TILE:$src1, u8imm:$src2),
                         "treduceps\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                         []>, VEX, TAPS;
-    def TSCALEFPSrr : I<0xe5, MRMSrcReg, (outs VTILE:$dst),
-                        (ins VTILE:$src1, VTILE:$src2),
+    def TSCALEFPSrr : I<0xe5, MRMSrcReg, (outs TILE:$dst),
+                        (ins TILE:$src1, TILE:$src2),
                         "tscalefps\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                         []>, VEX_4V, T_MAP5PS;
-    def TSCALEFPSrm : I<0xe5, MRMSrcMem, (outs VTILE:$dst),
-                        (ins VTILE:$src1, i8mem:$src2),
+    def TSCALEFPSrm : I<0xe5, MRMSrcMem, (outs TILE:$dst),
+                        (ins TILE:$src1, i8mem:$src2),
                         "tscalefps\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                         []>, VEX_4V, T_MAP5PS;
     let  usesCustomInserter = 1 in {
@@ -680,20 +680,20 @@ let Predicates = [HasAMXELEMENT, In64BitMode] in {
 // TSLLD check tmemrow
 let Predicates = [HasAMXELEMENT, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
-    def TSLLD : Ii8<0x58, MRMSrcReg, (outs VTILE:$dst),
-                    (ins VTILE:$src1, u8imm:$src2),
+    def TSLLD : Ii8<0x58, MRMSrcReg, (outs TILE:$dst),
+                    (ins TILE:$src1, u8imm:$src2),
                     "tslld\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                     []>, VEX, TAPD;
-    def TSRLD : Ii8<0x58, MRMSrcReg, (outs VTILE:$dst),
-                    (ins VTILE:$src1, u8imm:$src2),
+    def TSRLD : Ii8<0x58, MRMSrcReg, (outs TILE:$dst),
+                    (ins TILE:$src1, u8imm:$src2),
                     "tsrld\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                     []>, VEX, TAXD;
-    def TSRLVDrr : I<0xe5, MRMSrcReg, (outs VTILE:$dst),
-                     (ins VTILE:$src1, VTILE:$src2),
+    def TSRLVDrr : I<0xe5, MRMSrcReg, (outs TILE:$dst),
+                     (ins TILE:$src1, TILE:$src2),
                      "tsrlvd\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                      []>, VEX_4V, T_MAP5PD;
-    def TSRLVDrm : I<0xe5, MRMSrcMem, (outs VTILE:$dst),
-                     (ins VTILE:$src1, i8mem:$src2),
+    def TSRLVDrm : I<0xe5, MRMSrcMem, (outs TILE:$dst),
+                     (ins TILE:$src1, i8mem:$src2),
                      "tsrlvd\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                      []>, VEX_4V, T_MAP5PD;
     let usesCustomInserter = 1 in {
@@ -712,12 +712,12 @@ let Predicates = [HasAMXELEMENT, In64BitMode] in {
 // TSUBPS check tmemrow
 let Predicates = [HasAMXELEMENT, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
-    def TSUBPSrr : I<0xe5, MRMSrcReg, (outs VTILE:$dst),
-                     (ins VTILE:$src1, VTILE:$src2),
+    def TSUBPSrr : I<0xe5, MRMSrcReg, (outs TILE:$dst),
+                     (ins TILE:$src1, TILE:$src2),
                      "tsubps\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                      []>, VEX_4V, T_MAP5XD;
-    def TSUBPSrm : I<0xe5, MRMSrcMem, (outs VTILE:$dst),
-                     (ins VTILE:$src1, i8mem:$src2),
+    def TSUBPSrm : I<0xe5, MRMSrcMem, (outs TILE:$dst),
+                     (ins TILE:$src1, i8mem:$src2),
                      "tsubps\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                      []>, VEX_4V, T_MAP5XD;
     let usesCustomInserter = 1 in {
@@ -732,12 +732,12 @@ let Predicates = [HasAMXELEMENT, In64BitMode] in {
 // TWIDEN[B,W]
 let Predicates = [HasAMXFORMAT, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
-    def TWIDENB : Ii8<0x59, MRMSrcReg, (outs VTILE:$dst),
-                      (ins VTILE:$src1, u8imm:$src2),
+    def TWIDENB : Ii8<0x59, MRMSrcReg, (outs TILE:$dst),
+                      (ins TILE:$src1, u8imm:$src2),
                       "twidenb\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                       []>, VEX, TAPD;
-    def TWIDENW : Ii8<0x59, MRMSrcReg, (outs VTILE:$dst),
-                      (ins VTILE:$src1, u8imm:$src2),
+    def TWIDENW : Ii8<0x59, MRMSrcReg, (outs TILE:$dst),
+                      (ins TILE:$src1, u8imm:$src2),
                       "twidenw\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                       []>, VEX, TAXD;
     let usesCustomInserter = 1 in {
@@ -752,12 +752,12 @@ let Predicates = [HasAMXFORMAT, In64BitMode] in {
 // TXORD check tmemrow
 let Predicates = [HasAMXELEMENT, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
-    def TXORDrr : I<0xe5, MRMSrcReg, (outs VTILE:$dst),
-                    (ins VTILE:$src1, VTILE:$src2),
+    def TXORDrr : I<0xe5, MRMSrcReg, (outs TILE:$dst),
+                    (ins TILE:$src1, TILE:$src2),
                     "txord\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                     []>, VEX_4V, T_MAP5XS;
-    def TXORDrm : I<0xe5, MRMSrcMem, (outs VTILE:$dst),
-                    (ins VTILE:$src1, i8mem:$src2),
+    def TXORDrm : I<0xe5, MRMSrcMem, (outs TILE:$dst),
+                    (ins TILE:$src1, i8mem:$src2),
                     "txord\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                     []>, VEX_4V, T_MAP5XS;
     let usesCustomInserter = 1 in {
@@ -771,11 +771,11 @@ let Predicates = [HasAMXELEMENT, In64BitMode] in {
 
 let Predicates = [HasAMXAVX512, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
-    def TILE16MOVE : Ii8<0x5f, MRMSrcReg, (outs VTILEX:$dst),
+    def TILE16MOVE : Ii8<0x5f, MRMSrcReg, (outs TILEX:$dst),
                          (ins ZMM16Tuples:$src),
                          "tile16move\t{$src, $dst|$dst, $src}",
                          []>, T8PD, EVEX, EVEX_V512;
-    def TILE16MOVEPseudo : PseudoI<(outs VTILEX:$dst), (ins ZMM16TUPLES:$src),
+    def TILE16MOVEPseudo : PseudoI<(outs TILEX:$dst), (ins ZMM16TUPLES:$src),
                                    []>;
     let  usesCustomInserter = 1 in {
       def PTILE16MOVE : PseudoI<(outs), (ins u8imm:$dst, ZMM16TUPLES:$src0),
@@ -812,15 +812,15 @@ multiclass m_tilemovrowe {
   let Predicates = [HasAMXAVX512, In64BitMode] in {
     let SchedRW = [WriteSystem] in {
       def rri : Ii8<0x7, MRMSrcReg, (outs VR512:$dst),
-                    (ins VTILEX:$src1, u8imm:$src2),
+                    (ins TILEX:$src1, u8imm:$src2),
                     "tilemovrowe\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                     []>, TAPD, EVEX, EVEX_V512;
       def rre : I<0x4A, MRMSrcReg4VOp3, (outs VR512:$dst),
-                  (ins VTILEX:$src1, GR32:$src2),
+                  (ins TILEX:$src1, GR32:$src2),
                   "tilemovrowe\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                   []>, T8PD, EVEX_4V, EVEX_V512;
       def rrx: I<0x4A, MRMSrcReg4VOp3, (outs VR512:$dst),
-                 (ins VTILEX:$src1, VR128X:$src2),
+                 (ins TILEX:$src1, VR128X:$src2),
                  "tilemovrowe\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                  []>, T8PS, EVEX_4V, EVEX_V512;
     }
@@ -852,11 +852,11 @@ multiclass m_tcvtrowd2pse{
   let Predicates = [HasAMXAVX512, In64BitMode] in {
     let SchedRW = [WriteSystem] in {
       def rri : Ii8<0x7, MRMSrcReg, (outs VR512:$dst),
-                    (ins VTILEX:$src1, i32u8imm:$src2),
+                    (ins TILEX:$src1, i32u8imm:$src2),
                     "tcvtrowd2pse\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                     []>, TAXS, EVEX, EVEX_V512;
       def rre : I<0x4A, MRMSrcReg4VOp3, (outs VR512:$dst),
-                  (ins VTILEX:$src1, GR32:$src2),
+                  (ins TILEX:$src1, GR32:$src2),
                   "tcvtrowd2pse\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                   []>, T8XS, EVEX_4V, EVEX_V512;
     }
@@ -870,11 +870,11 @@ multiclass m_tcvtrowps2bf16e {
   let Predicates = [HasAMXAVX512, In64BitMode] in {
     let SchedRW = [WriteSystem] in {
       def rri : Ii8<0x7, MRMSrcReg, (outs VR512:$dst),
-                    (ins VTILEX:$src1, i32u8imm:$src2),
+                    (ins TILEX:$src1, i32u8imm:$src2),
                     "tcvtrowps2bf16e\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                     []>, TAXD, EVEX, EVEX_V512;
       def rre : I<0x6D, MRMSrcReg4VOp3, (outs VR512:$dst),
-                  (ins VTILEX:$src1, GR32:$src2),
+                  (ins TILEX:$src1, GR32:$src2),
                   "tcvtrowps2bf16e\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                   []>, T8XD, EVEX_4V, EVEX_V512;
     }
@@ -888,11 +888,11 @@ multiclass m_tcvtrowps2phe {
   let Predicates = [HasAMXAVX512, In64BitMode] in {
     let SchedRW = [WriteSystem] in {
       def rri : Ii8<0x7, MRMSrcReg, (outs VR512:$dst),
-                    (ins VTILEX:$src1, i32u8imm:$src2),
+                    (ins TILEX:$src1, i32u8imm:$src2),
                     "tcvtrowps2phe\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                     []>, TAPS, EVEX, EVEX_V512;
       def rre : I<0x6D, MRMSrcReg4VOp3, (outs VR512:$dst),
-                  (ins VTILEX:$src1, GR32:$src2),
+                  (ins TILEX:$src1, GR32:$src2),
                   "tcvtrowps2phe\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                   []>, T8PS, EVEX_4V, EVEX_V512;
     }
@@ -931,20 +931,20 @@ let Predicates = [HasAMXAVX512, In64BitMode] in {
 multiclass m_tgatherrow {
   let Predicates = [HasAMXMEMORY, In64BitMode] in {
     let SchedRW = [WriteSystem] in {
-      def D : I<0x6e, MRMSrcMemFSIB, (outs VTILE:$dst),
-                (ins i8mem:$src),
+      def D : I<0x6e, MRMSrcMemFSIB, (outs TILE:$dst),
+                (ins sibmem:$src),
                 "tgatherrowd\t{$src, $dst|$dst, $src}",
                 []>, VEX, T8XD;
-      def DT1 : I<0x6f, MRMSrcMemFSIB, (outs VTILE:$dst),
-                  (ins i8mem:$src),
+      def DT1 : I<0x6f, MRMSrcMemFSIB, (outs TILE:$dst),
+                  (ins sibmem:$src),
                   "tgatherrowdt1\t{$src, $dst|$dst, $src}",
                   []>, VEX, T8XD;
-      def Q : I<0x6e, MRMSrcMemFSIB, (outs VTILE:$dst),
-                (ins i8mem:$src),
+      def Q : I<0x6e, MRMSrcMemFSIB, (outs TILE:$dst),
+                (ins sibmem:$src),
                 "tgatherrowq\t{$src, $dst|$dst, $src}",
                 []>, VEX, VEX_W, T8XD;
-      def QT1 : I<0x6f, MRMSrcMemFSIB, (outs VTILE:$dst),
-                  (ins i8mem:$src),
+      def QT1 : I<0x6f, MRMSrcMemFSIB, (outs TILE:$dst),
+                  (ins sibmem:$src),
                   "tgatherrowqt1\t{$src, $dst|$dst, $src}",
                   []>, VEX, VEX_W, T8XD;
     }
@@ -967,26 +967,26 @@ let Predicates = [HasAMXMEMORY, In64BitMode],
 let Predicates = [HasAMXMEMORY, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
     def TSCATTERROWD : I<0x6e, MRMDestMemFSIB, (outs),
-                         (ins i8mem:$dst, VTILE:$src),
+                         (ins sibmem:$dst, TILE:$src),
                          "tscatterrowd\t{$src, $dst|$dst, $src}",
                          []>, VEX, T8XS;
     def TSCATTERROWDT1 : I<0x6f, MRMDestMemFSIB, (outs),
-                           (ins i8mem:$dst, VTILE:$src),
+                           (ins sibmem:$dst, TILE:$src),
                            "tscatterrowdt1\t{$src, $dst|$dst, $src}",
                            []>, VEX, T8XS;
     def TSCATTERROWQ : I<0x6e, MRMDestMemFSIB, (outs),
-                         (ins i8mem:$dst, VTILE:$src),
+                         (ins sibmem:$dst, TILE:$src),
                          "tscatterrowq\t{$src, $dst|$dst, $src}",
                          []>, VEX, VEX_W, T8XS;
     def TSCATTERROWQT1 : I<0x6f, MRMDestMemFSIB, (outs),
-                           (ins i8mem:$dst, VTILE:$src),
+                           (ins sibmem:$dst, TILE:$src),
                            "tscatterrowqt1\t{$src, $dst|$dst, $src}",
                            []>, VEX, VEX_W, T8XS;
     let usesCustomInserter = 1 in {
-      def PTSCATTERROWD : PseudoI<(outs), (ins i8mem:$dst, u8imm:$src), []>;
-      def PTSCATTERROWDT1 : PseudoI<(outs), (ins i8mem:$dst, u8imm:$src), []>;
-      def PTSCATTERROWQ : PseudoI<(outs), (ins i8mem:$dst, u8imm:$src), []>;
-      def PTSCATTERROWQT1 : PseudoI<(outs), (ins i8mem:$dst, u8imm:$src), []>;
+      def PTSCATTERROWD : PseudoI<(outs), (ins sibmem:$dst, u8imm:$src), []>;
+      def PTSCATTERROWDT1 : PseudoI<(outs), (ins sibmem:$dst, u8imm:$src), []>;
+      def PTSCATTERROWQ : PseudoI<(outs), (ins sibmem:$dst, u8imm:$src), []>;
+      def PTSCATTERROWQT1 : PseudoI<(outs), (ins sibmem:$dst, u8imm:$src), []>;
     }
   }
 } // HasAMXTILE, HasAMXMEMORY
@@ -994,66 +994,66 @@ let Predicates = [HasAMXMEMORY, In64BitMode] in {
 // AMX-TRANSPOSE
 let Predicates = [HasAMXTRANSPOSE, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
-    def T2RPNTLVW : I<0xe9, MRMSrcMem4VOp3FSIB, (outs VTILEPair:$dst),
-                      (ins i8mem:$src1, GR64:$src2),
+    def T2RPNTLVW : I<0xe9, MRMSrcMem4VOp3FSIB, (outs TILEPair:$dst),
+                      (ins sibmem:$src1, GR64:$src2),
                       "t2rpntlvw\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                       []>, VEX, T_MAP5PS;
 
-    def T2RPNTLVWT1 : I<0xe9, MRMSrcMem4VOp3FSIB, (outs VTILEPair:$dst),
-                        (ins i8mem:$src1, GR64:$src2),
+    def T2RPNTLVWT1 : I<0xe9, MRMSrcMem4VOp3FSIB, (outs TILEPair:$dst),
+                        (ins sibmem:$src1, GR64:$src2),
                         "t2rpntlvwt1\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                         []>, VEX, T_MAP5PD;
 
-    def T2RPNTLVWZ0 : I<0x6e, MRMSrcMemFSIB, (outs VTILEPair:$dst),
-                       (ins i8mem:$src),
+    def T2RPNTLVWZ0 : I<0x6e, MRMSrcMemFSIB, (outs TILEPair:$dst),
+                       (ins sibmem:$src),
                        "t2rpntlvwz0\t{$src, $dst|$dst, $src}",
                        []>, VEX, VEX_WIG, T8PS;
 
-    def T2RPNTLVWZ0T1 : I<0x6f, MRMSrcMemFSIB, (outs VTILEPair:$dst),
-                         (ins i8mem:$src),
+    def T2RPNTLVWZ0T1 : I<0x6f, MRMSrcMemFSIB, (outs TILEPair:$dst),
+                         (ins sibmem:$src),
                          "t2rpntlvwz0t1\t{$src, $dst|$dst, $src}",
                          []>, VEX, T8PS;
 
-    def T2RPNTLVWZ1 : I<0x6e, MRMSrcMemFSIB, (outs VTILEPair:$dst),
-                       (ins i8mem:$src),
+    def T2RPNTLVWZ1 : I<0x6e, MRMSrcMemFSIB, (outs TILEPair:$dst),
+                       (ins sibmem:$src),
                        "t2rpntlvwz1\t{$src, $dst|$dst, $src}",
                        []>, VEX, T8PD;
 
-    def T2RPNTLVWZ1T1 : I<0x6f, MRMSrcMemFSIB, (outs VTILEPair:$dst),
-                         (ins i8mem:$src),
+    def T2RPNTLVWZ1T1 : I<0x6f, MRMSrcMemFSIB, (outs TILEPair:$dst),
+                         (ins sibmem:$src),
                          "t2rpntlvwz1t1\t{$src, $dst|$dst, $src}",
                          []>, VEX, T8PD;
 
     let Constraints = "$src1 = $dst" in
-    def TTDPBF16PS : I<0x6c, MRMSrcReg4VOp3, (outs VTILE:$dst),
-                       (ins VTILE:$src1, VTILE:$src2, VTILE:$src3),
+    def TTDPBF16PS : I<0x6c, MRMSrcReg4VOp3, (outs TILE:$dst),
+                       (ins TILE:$src1, TILE:$src2, TILE:$src3),
                        "ttdpbf16ps\t{$src3, $src2, $dst|$dst, $src2, $src3}",
                        []>, VEX_4V, T8XS;
 
     let Constraints = "$src1 = $dst" in
-      def TTDPFP16PS : I<0x6c, MRMSrcReg4VOp3, (outs VTILE:$dst),
-                        (ins VTILE:$src1, VTILE:$src2, VTILE:$src3),
+      def TTDPFP16PS : I<0x6c, MRMSrcReg4VOp3, (outs TILE:$dst),
+                        (ins TILE:$src1, TILE:$src2, TILE:$src3),
                         "ttdpfp16ps\t{$src3, $src2, $src1|$src1, $src2, $src3}",
                         []>, VEX_4V, T8XD;
 
-    def TTRANSPOSED : I<0x5f, MRMSrcReg, (outs VTILE:$dst),
-                     (ins VTILE:$src),
+    def TTRANSPOSED : I<0x5f, MRMSrcReg, (outs TILE:$dst),
+                     (ins TILE:$src),
                      "ttransposed\t{$src, $dst|$dst, $src}",
                      []>, VEX, T8XS;
 
     let usesCustomInserter = 1 in {
       def PT2RPNTLVW : PseudoI<(outs), (ins u8imm:$dst,
-                               i8mem:$src1, GR64:$src2), []>;
+                               sibmem:$src1, GR64:$src2), []>;
       def PT2RPNTLVWT1 : PseudoI<(outs), (ins u8imm:$dst,
-                                 i8mem:$src1, GR64:$src2), []>;
+                                 sibmem:$src1, GR64:$src2), []>;
       def PT2RPNTLVWZ0 : PseudoI<(outs), (ins u8imm:$dst,
-                                 i8mem:$src1), []>;
+                                 sibmem:$src1), []>;
       def PT2RPNTLVWZ0T1 : PseudoI<(outs), (ins u8imm:$dst,
-                                   i8mem:$src1), []>;
+                                   sibmem:$src1), []>;
       def PT2RPNTLVWZ1 : PseudoI<(outs), (ins u8imm:$dst,
-                                 i8mem:$src1), []>;
+                                 sibmem:$src1), []>;
       def PT2RPNTLVWZ1T1 : PseudoI<(outs), (ins u8imm:$dst,
-                                   i8mem:$src1), []>;
+                                   sibmem:$src1), []>;
       def PTTDPBF16PS : PseudoI<(outs), (ins u8imm:$src1,
                                 u8imm:$src2, u8imm:$src3),
                                 [(int_x86_ttdpbf16ps timm:$src1,
@@ -1075,7 +1075,7 @@ let Predicates = [HasAMXTRANSPOSE, In64BitMode] in {
 // TBROADCASTROWD
 let Predicates = [HasAMXMEMORY2, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
-    def TBROADCASTROWD : I<0xe9, MRMSrcMem, (outs VTILE:$dst),
+    def TBROADCASTROWD : I<0xe9, MRMSrcMem, (outs TILE:$dst),
                            (ins i8mem:$src),
                            "tbroadcastrowd\t{$src, $dst|$dst, $src}",
                            []>, VEX, T_MAP5XD;
@@ -1090,31 +1090,31 @@ let Predicates = [HasAMXMEMORY2, In64BitMode] in {
 let Predicates = [HasAMXMEMORY2, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
     def TSTOREHD : I<0xeb, MRMDestMemFSIB, (outs),
-                     (ins i8mem:$dst, VTILE:$src),
+                     (ins sibmem:$dst, TILE:$src),
                      "tstorehd\t{$src, $dst|$dst, $src}",
                      []>, VEX, T_MAP5XS;
     def TSTOREHDT1 : I<0xec, MRMDestMemFSIB, (outs),
-                       (ins i8mem:$dst, VTILE:$src),
+                       (ins sibmem:$dst, TILE:$src),
                        "tstorehdt1\t{$src, $dst|$dst, $src}",
                        []>, VEX, T_MAP5PS;
     def TSTOREQD : I<0xec, MRMDestMemFSIB, (outs),
-                     (ins i8mem:$dst, VTILE:$src),
+                     (ins sibmem:$dst, TILE:$src),
                      "tstoreqd\t{$src, $dst|$dst, $src}",
                      []>, VEX, T_MAP5PD;
     def TSTOREQDT1 : I<0xec, MRMDestMemFSIB, (outs),
-                       (ins i8mem:$dst, VTILE:$src),
+                       (ins sibmem:$dst, TILE:$src),
                        "tstoreqdt1\t{$src, $dst|$dst, $src}",
                        []>, VEX, T_MAP5XD;
     def TSTOREROWD : I<0xec, MRMDestMemFSIB, (outs),
-                       (ins i8mem:$dst, VTILE:$src),
+                       (ins sibmem:$dst, TILE:$src),
                        "tstorerowd\t{$src, $dst|$dst, $src}",
                        []>, VEX, T_MAP5XS;
     let usesCustomInserter = 1 in {
-      def PTSTOREHD : PseudoI<(outs), (ins i8mem:$dst, u8imm:$src), []>;
-      def PTSTOREHDT1 : PseudoI<(outs), (ins i8mem:$dst, u8imm:$src), []>;
-      def PTSTOREQD : PseudoI<(outs), (ins i8mem:$dst, u8imm:$src), []>;
-      def PTSTOREQDT1 : PseudoI<(outs), (ins i8mem:$dst, u8imm:$src), []>;
-      def PTSTOREROWD : PseudoI<(outs), (ins i8mem:$dst, u8imm:$src2),
+      def PTSTOREHD : PseudoI<(outs), (ins sibmem:$dst, u8imm:$src), []>;
+      def PTSTOREHDT1 : PseudoI<(outs), (ins sibmem:$dst, u8imm:$src), []>;
+      def PTSTOREQD : PseudoI<(outs), (ins sibmem:$dst, u8imm:$src), []>;
+      def PTSTOREQDT1 : PseudoI<(outs), (ins sibmem:$dst, u8imm:$src), []>;
+      def PTSTOREROWD : PseudoI<(outs), (ins sibmem:$dst, u8imm:$src2),
                                 [(int_x86_tstorerowd addr:$dst, timm:$src2)]>;
     }
   }
@@ -1124,11 +1124,11 @@ let Predicates = [HasAMXMEMORY2, In64BitMode] in {
 let Predicates = [HasAMXMEMORY2, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
     def TSTORENTD : I<0xed, MRMDestMemFSIB, (outs),
-                      (ins i8mem:$dst, VTILE:$src),
+                      (ins sibmem:$dst, TILE:$src),
                       "tstorentd\t{$src, $dst|$dst, $src}",
                       []>, VEX, T_MAP5PS;
     let usesCustomInserter = 1 in {
-      def PTSTORENTD : PseudoI<(outs), (ins i8mem:$dst, u8imm:$src), []>;
+      def PTSTORENTD : PseudoI<(outs), (ins sibmem:$dst, u8imm:$src), []>;
     }
   }
 } // HasAMXTILE, HasAMXMEMORY2
@@ -1140,8 +1140,8 @@ let Predicates = [HasAMXMEMORY2, In64BitMode] in {
 let Predicates = [HasAMXBF16EVEX, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
     let Constraints = "$src1 = $dst" in
-    def TDPBF16PSE : I<0x5c, MRMSrcReg4VOp3, (outs VTILEX:$dst),
-                      (ins VTILEX:$src1, VTILEX:$src2, VTILEX:$src3),
+    def TDPBF16PSE : I<0x5c, MRMSrcReg4VOp3, (outs TILEX:$dst),
+                      (ins TILEX:$src1, TILEX:$src2, TILEX:$src3),
                       "tdpbf16pse\t{$src3, $src2, $dst|$dst, $src2, $src3}",
                       []>, EVEX_4V, T8XS;
     let usesCustomInserter = 1 in {
@@ -1162,11 +1162,11 @@ let Predicates = [HasAMXBF16EVEX, In64BitMode] in {
 let Predicates = [HasAMXELEMENTEVEX, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
     def TCVTD2PSE : I<0xe1, MRMDestMemFSIB, (outs),
-                     (ins opaquemem:$dst, VTILEX:$src),
+                     (ins sibmem:$dst, TILEX:$src),
                      "tcvtd2pse\t{$src, $dst|$dst, $src}",
                      []>, EVEX, T_MAP5XS;
     let usesCustomInserter = 1 in {
-      def PTCVTD2PSE : PseudoI<(outs), (ins opaquemem:$dst, u8imm:$src), []>;
+      def PTCVTD2PSE : PseudoI<(outs), (ins sibmem:$dst, u8imm:$src), []>;
     }
   }
 } // HasAMXTILE, HasAMXCONVERTEVEX
@@ -1177,47 +1177,47 @@ let Predicates = [HasAMXELEMENTEVEX, In64BitMode] in {
 let Predicates = [HasAMXCONVERT, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
     def TCVTD2PSmr : I<0x5f, MRMDestMemFSIB, (outs),
-                     (ins opaquemem:$dst, VTILE:$src),
+                     (ins sibmem:$dst, TILE:$src),
                      "tcvtd2ps\t{$src, $dst|$dst, $src}",
                      []>, VEX, T8XD;
     let usesCustomInserter = 1 in {
-      def PTCVTD2PSmr : PseudoI<(outs), (ins opaquemem:$dst, u8imm:$src), []>;
+      def PTCVTD2PSmr : PseudoI<(outs), (ins sibmem:$dst, u8imm:$src), []>;
     }
 
     def TCVT2PS2BF16mr : I<0x5d, MRMDestMem4VOp2FSIB, (outs),
-                         (ins opaquemem:$dst, VTILE:$src1, VTILE:$src2),
+                         (ins sibmem:$dst, TILE:$src1, TILE:$src2),
                          "tcvt2ps2bf16\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                          []>, VEX_4V, VEX_WIG, T8XS;
     let usesCustomInserter = 1 in {
       def PTCVT2PS2BF16mr : PseudoI<(outs),
-                                    (ins opaquemem:$dst,
+                                    (ins sibmem:$dst,
                                      u8imm:$src1, u8imm:$src2), []>;
     }
 
     def TCVT2PS2PHmr : I<0x5d, MRMDestMem4VOp2FSIB, (outs),
-                       (ins opaquemem:$dst, VTILE:$src1, VTILE:$src2),
+                       (ins sibmem:$dst, TILE:$src1, TILE:$src2),
                        "tcvt2ps2ph\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                        []>, VEX_4V, VEX_WIG, T8XD;
     let usesCustomInserter = 1 in {
       def PTCVT2PS2PHmr : PseudoI<(outs),
-                                  (ins opaquemem:$dst,
+                                  (ins sibmem:$dst,
                                    u8imm:$src1, u8imm:$src2), []>;
     }
 
     def TCVTPS2BF16mr : I<0x5d, MRMDestMemFSIB, (outs),
-                       (ins opaquemem:$dst, VTILE:$src),
+                       (ins sibmem:$dst, TILE:$src),
                        "tcvtps2bf16\t{$src, $dst|$dst, $src}",
                        []>, VEX, T8PD;
     let usesCustomInserter = 1 in {
-      def PTCVTPS2BF16mr : PseudoI<(outs), (ins opaquemem:$dst, u8imm:$src), []>;
+      def PTCVTPS2BF16mr : PseudoI<(outs), (ins sibmem:$dst, u8imm:$src), []>;
     }
 
     def TCVTPS2PHmr : I<0x5d, MRMDestMemFSIB, (outs),
-                      (ins opaquemem:$dst, VTILE:$src),
+                      (ins sibmem:$dst, TILE:$src),
                       "tcvtps2ph\t{$src, $dst|$dst, $src}",
                       []>, VEX, T8PS;
     let usesCustomInserter = 1 in {
-      def PTCVTPS2PHmr : PseudoI<(outs), (ins opaquemem:$dst, u8imm:$src), []>;
+      def PTCVTPS2PHmr : PseudoI<(outs), (ins sibmem:$dst, u8imm:$src), []>;
     }
   }
 }
@@ -1229,20 +1229,20 @@ let Predicates = [HasAMXCONVERT, In64BitMode] in {
 let Predicates = [HasAMXINT8EVEX, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
     let Constraints = "$src1 = $dst" in {
-      def TDPBSSDE : I<0x5e, MRMSrcReg4VOp3, (outs VTILEX:$dst),
-                      (ins VTILEX:$src1, VTILEX:$src2, VTILEX:$src3),
+      def TDPBSSDE : I<0x5e, MRMSrcReg4VOp3, (outs TILEX:$dst),
+                      (ins TILEX:$src1, TILEX:$src2, TILEX:$src3),
                       "tdpbssde\t{$src3, $src2, $dst|$dst, $src2, $src3}", []>,
                       EVEX_4V, T8XD;
-      def TDPBSUDE : I<0x5e, MRMSrcReg4VOp3, (outs VTILEX:$dst),
-                      (ins VTILEX:$src1, VTILEX:$src2, VTILEX:$src3),
+      def TDPBSUDE : I<0x5e, MRMSrcReg4VOp3, (outs TILEX:$dst),
+                      (ins TILEX:$src1, TILEX:$src2, TILEX:$src3),
                       "tdpbsude\t{$src3, $src2, $dst|$dst, $src2, $src3}", []>,
                       EVEX_4V, T8XS;
-      def TDPBUSDE : I<0x5e, MRMSrcReg4VOp3, (outs VTILEX:$dst),
-                      (ins VTILEX:$src1, VTILEX:$src2, VTILEX:$src3),
+      def TDPBUSDE : I<0x5e, MRMSrcReg4VOp3, (outs TILEX:$dst),
+                      (ins TILEX:$src1, TILEX:$src2, TILEX:$src3),
                       "tdpbusde\t{$src3, $src2, $dst|$dst, $src2, $src3}", []>,
                       EVEX_4V, T8PD;
-      def TDPBUUDE : I<0x5e, MRMSrcReg4VOp3, (outs VTILEX:$dst),
-                      (ins VTILEX:$src1, VTILEX:$src2, VTILEX:$src3),
+      def TDPBUUDE : I<0x5e, MRMSrcReg4VOp3, (outs TILEX:$dst),
+                      (ins TILEX:$src1, TILEX:$src2, TILEX:$src3),
                       "tdpbuude\t{$src3, $src2, $dst|$dst, $src2, $src3}", []>,
                       EVEX_4V, T8PS;
     }
@@ -1275,27 +1275,27 @@ let Predicates = [HasAMXINT8EVEX, In64BitMode] in {
 //AMX-TILE-EVEX
 let Predicates = [HasAMXTILEEVEX, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
-    def TILELOADDE : I<0x4b, MRMSrcMemFSIB, (outs VTILEX:$dst),
-                      (ins i8mem:$src),
+    def TILELOADDE : I<0x4b, MRMSrcMemFSIB, (outs TILEX:$dst),
+                      (ins sibmem:$src),
                       "tileloadde\t{$src, $dst|$dst, $src}", []>,
                       EVEX, T8XD;
-    def TILELOADDT1E : I<0x4b, MRMSrcMemFSIB, (outs VTILEX:$dst),
-                        (ins i8mem:$src),
+    def TILELOADDT1E : I<0x4b, MRMSrcMemFSIB, (outs TILEX:$dst),
+                        (ins sibmem:$src),
                         "tileloaddt1e\t{$src, $dst|$dst, $src}", []>,
                         EVEX, T8PD;
     def TILESTOREDE : I<0x4b, MRMDestMemFSIB, (outs),
-                       (ins i8mem:$dst, VTILEX:$src),
+                       (ins sibmem:$dst, TILEX:$src),
                        "tilestorede\t{$src, $dst|$dst, $src}", []>,
                        EVEX, T8XS;
-    def TILEZEROE : I<0x49, MRMr0, (outs VTILEX:$dst), (ins),
+    def TILEZEROE : I<0x49, MRMr0, (outs TILEX:$dst), (ins),
                      "tilezeroe\t$dst", []>,
                      EVEX, T8XD;
     let usesCustomInserter = 1 in {
       // Pseudo instructions, using immediates instead of tile registers.
       // To be translated to the actual instructions in X86ISelLowering.cpp
-      def PTILELOADDE : PseudoI<(outs), (ins u8imm:$src1, i8mem:$src2), []>;
-      def PTILELOADDT1E : PseudoI<(outs), (ins u8imm:$src1, i8mem:$src2), []>;
-      def PTILESTOREDE : PseudoI<(outs), (ins i8mem:$dst, u8imm:$src), []>;
+      def PTILELOADDE : PseudoI<(outs), (ins u8imm:$src1, sibmem:$src2), []>;
+      def PTILELOADDT1E : PseudoI<(outs), (ins u8imm:$src1, sibmem:$src2), []>;
+      def PTILESTOREDE : PseudoI<(outs), (ins sibmem:$dst, u8imm:$src), []>;
       def PTILEZEROE : PseudoI<(outs), (ins u8imm:$src),
                               [(int_x86_tilezeroe timm:$src)]>;
     }
@@ -1304,8 +1304,8 @@ let Predicates = [HasAMXTILEEVEX, In64BitMode] in {
 
 let Predicates = [HasAMXTILEEVEX, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
-    def TILEMOVE : I<0x4b, MRMSrcReg, (outs VTILEX:$dst),
-                     (ins VTILEX:$src),
+    def TILEMOVE : I<0x4b, MRMSrcReg, (outs TILEX:$dst),
+                     (ins TILEX:$src),
                      "tilemove\t{$src, $dst|$dst, $src}",
                      []>, T8XD, EVEX;
     let  usesCustomInserter = 1 in {
@@ -1322,40 +1322,40 @@ let Predicates = [HasAMXTILEEVEX, In64BitMode] in {
 // T2TRANSPOSEW T2TRANSPOSEWT1
 let Predicates = [HasAMXTRANSPOSE2, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
-    def T2TRANSPOSEW : I<0xe7, MRMSrcMem4VOp3FSIB, (outs VTILEPair:$dst),
-                         (ins i8mem:$src1, GR64:$src2),
+    def T2TRANSPOSEW : I<0xe7, MRMSrcMem4VOp3FSIB, (outs TILEPair:$dst),
+                         (ins sibmem:$src1, GR64:$src2),
                          "t2transposew\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                          []>, VEX, T_MAP5XD;
 
-    def T2TRANSPOSEWT1 : I<0xe7, MRMSrcMem4VOp3FSIB, (outs VTILEPair:$dst),
-                           (ins i8mem:$src1, GR64:$src2),
+    def T2TRANSPOSEWT1 : I<0xe7, MRMSrcMem4VOp3FSIB, (outs TILEPair:$dst),
+                           (ins sibmem:$src1, GR64:$src2),
                            "t2transposewt1\t{$src2, $src1, $dst|$dst, $src1, $src2}",
                            []>, VEX, T_MAP5XS;
 
   let Constraints = "$src1 = $dst" in {
-      def TTDPBSSD : I<0xfe, MRMSrcReg4VOp3, (outs VTILE:$dst),
-                           (ins VTILE:$src1, VTILE:$src2, VTILE:$src3),
+      def TTDPBSSD : I<0xfe, MRMSrcReg4VOp3, (outs TILE:$dst),
+                           (ins TILE:$src1, TILE:$src2, TILE:$src3),
                            "ttdpbssd\t{$src3, $src2, $dst|$dst, $src2, $src3}",
                            []>, VEX_4V, T_MAP5XD;
-      def TTDPBSUD : I<0xfe, MRMSrcReg4VOp3, (outs VTILE:$dst),
-                           (ins VTILE:$src1, VTILE:$src2, VTILE:$src3),
+      def TTDPBSUD : I<0xfe, MRMSrcReg4VOp3, (outs TILE:$dst),
+                           (ins TILE:$src1, TILE:$src2, TILE:$src3),
                            "ttdpbsud\t{$src3, $src2, $dst|$dst, $src2, $src3}",
                            []>, VEX_4V, T_MAP5XS;
-      def TTDPBUSD : I<0xfe, MRMSrcReg4VOp3, (outs VTILE:$dst),
-                           (ins VTILE:$src1, VTILE:$src2, VTILE:$src3),
+      def TTDPBUSD : I<0xfe, MRMSrcReg4VOp3, (outs TILE:$dst),
+                           (ins TILE:$src1, TILE:$src2, TILE:$src3),
                            "ttdpbusd\t{$src3, $src2, $dst|$dst, $src2, $src3}",
                            []>, VEX_4V, T_MAP5PD;
-      def TTDPBUUD : I<0xfe, MRMSrcReg4VOp3, (outs VTILE:$dst),
-                           (ins VTILE:$src1, VTILE:$src2, VTILE:$src3),
+      def TTDPBUUD : I<0xfe, MRMSrcReg4VOp3, (outs TILE:$dst),
+                           (ins TILE:$src1, TILE:$src2, TILE:$src3),
                            "ttdpbuud\t{$src3, $src2, $dst|$dst, $src2, $src3}",
                            []>, VEX_4V, T_MAP5PS;
   }
 
     let usesCustomInserter = 1 in {
       def PT2TRANSPOSEW : PseudoI<(outs), (ins u8imm:$dst,
-                                  i8mem:$src1, GR64:$src2), []>;
+                                  sibmem:$src1, GR64:$src2), []>;
       def PT2TRANSPOSEWT1 : PseudoI<(outs), (ins u8imm:$dst,
-                                    i8mem:$src1, GR64:$src2), []>;
+                                    sibmem:$src1, GR64:$src2), []>;
       def PTTDPBSSD       : PseudoI<(outs), (ins u8imm:$src1,
                                     u8imm:$src2, u8imm:$src3),
                                     [(int_x86_ttdpbssd timm:$src1,
@@ -1378,56 +1378,56 @@ let Predicates = [HasAMXTRANSPOSE2, In64BitMode] in {
 
 let Predicates = [HasAMXTRANSPOSE2, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
-    def T4RQNTLVBZ0   : I<0xee, MRMSrcMemFSIB, (outs VTILEQuad:$dst),
-                        (ins i8mem:$src),
+    def T4RQNTLVBZ0   : I<0xee, MRMSrcMemFSIB, (outs TILEQuad:$dst),
+                        (ins sibmem:$src),
                         "t4rqntlvbz0\t{$src, $dst|$dst, $src}",
                         []>, VEX, T_MAP5PS;
-    def T4RQNTLVBZ0T1 : I<0xef, MRMSrcMemFSIB, (outs VTILEQuad:$dst),
-                        (ins i8mem:$src),
+    def T4RQNTLVBZ0T1 : I<0xef, MRMSrcMemFSIB, (outs TILEQuad:$dst),
+                        (ins sibmem:$src),
                         "t4rqntlvbz0t1\t{$src, $dst|$dst, $src}",
                         []>, VEX, T_MAP5PS;
-    def T4RQNTLVBZ1   : I<0xee, MRMSrcMemFSIB, (outs VTILEQuad:$dst),
-                        (ins i8mem:$src),
+    def T4RQNTLVBZ1   : I<0xee, MRMSrcMemFSIB, (outs TILEQuad:$dst),
+                        (ins sibmem:$src),
                         "t4rqntlvbz1\t{$src, $dst|$dst, $src}",
                         []>, VEX, T_MAP5PD;
-    def T4RQNTLVBZ1T1 : I<0xef, MRMSrcMemFSIB, (outs VTILEQuad:$dst),
-                        (ins i8mem:$src),
+    def T4RQNTLVBZ1T1 : I<0xef, MRMSrcMemFSIB, (outs TILEQuad:$dst),
+                        (ins sibmem:$src),
                         "t4rqntlvbz1t1\t{$src, $dst|$dst, $src}",
                         []>, VEX, T_MAP5PD;
-    def T4RQNTLVBZ2   : I<0xee, MRMSrcMemFSIB, (outs VTILEQuad:$dst),
-                        (ins i8mem:$src),
+    def T4RQNTLVBZ2   : I<0xee, MRMSrcMemFSIB, (outs TILEQuad:$dst),
+                        (ins sibmem:$src),
                         "t4rqntlvbz2\t{$src, $dst|$dst, $src}",
                         []>, VEX, T_MAP5XD;
-    def T4RQNTLVBZ2T1 : I<0xef, MRMSrcMemFSIB, (outs VTILEQuad:$dst),
-                        (ins i8mem:$src),
+    def T4RQNTLVBZ2T1 : I<0xef, MRMSrcMemFSIB, (outs TILEQuad:$dst),
+                        (ins sibmem:$src),
                         "t4rqntlvbz2t1\t{$src, $dst|$dst, $src}",
                         []>, VEX, T_MAP5XD;
-    def T4RQNTLVBZ3   : I<0xee, MRMSrcMemFSIB, (outs VTILEQuad:$dst),
-                        (ins i8mem:$src),
+    def T4RQNTLVBZ3   : I<0xee, MRMSrcMemFSIB, (outs TILEQuad:$dst),
+                        (ins sibmem:$src),
                         "t4rqntlvbz3\t{$src, $dst|$dst, $src}",
                         []>, VEX, T_MAP5XS;
-    def T4RQNTLVBZ3T1 : I<0xef, MRMSrcMemFSIB, (outs VTILEQuad:$dst),
-                        (ins i8mem:$src),
+    def T4RQNTLVBZ3T1 : I<0xef, MRMSrcMemFSIB, (outs TILEQuad:$dst),
+                        (ins sibmem:$src),
                         "t4rqntlvbz3t1\t{$src, $dst|$dst, $src}",
                         []>, VEX, T_MAP5XS;
 
     let usesCustomInserter = 1 in {
       def PT4RQNTLVBZ0   : PseudoI<(outs), (ins u8imm:$dst,
-                                 i8mem:$src1), []>;
+                                 sibmem:$src1), []>;
       def PT4RQNTLVBZ0T1 : PseudoI<(outs), (ins u8imm:$dst,
-                                   i8mem:$src1), []>;
+                                   sibmem:$src1), []>;
       def PT4RQNTLVBZ1   : PseudoI<(outs), (ins u8imm:$dst,
-                                 i8mem:$src1), []>;
+                                 sibmem:$src1), []>;
       def PT4RQNTLVBZ1T1 : PseudoI<(outs), (ins u8imm:$dst,
-                                   i8mem:$src1), []>;
+                                   sibmem:$src1), []>;
       def PT4RQNTLVBZ2   : PseudoI<(outs), (ins u8imm:$dst,
-                                 i8mem:$src1), []>;
+                                 sibmem:$src1), []>;
       def PT4RQNTLVBZ2T1 : PseudoI<(outs), (ins u8imm:$dst,
-                                   i8mem:$src1), []>;
+                                   sibmem:$src1), []>;
       def PT4RQNTLVBZ3   : PseudoI<(outs), (ins u8imm:$dst,
-                                 i8mem:$src1), []>;
+                                 sibmem:$src1), []>;
       def PT4RQNTLVBZ3T1 : PseudoI<(outs), (ins u8imm:$dst,
-                                   i8mem:$src1), []>;
+                                   sibmem:$src1), []>;
     }
   }
 }
@@ -1440,8 +1440,8 @@ let Predicates = [HasAMXTRANSPOSE2, In64BitMode] in {
 let Predicates = [HasAMXFP16, In64BitMode] in {
   let SchedRW = [WriteSystem] in {
     let Constraints = "$src1 = $dst" in {
-      def TDPFP16PS : I<0x5c, MRMSrcReg4VOp3, (outs VTILE:$dst),
-                        (ins VTILE:$src1, VTILE:$src2, VTILE:$src3),
+      def TDPFP16PS : I<0x5c, MRMSrcReg4VOp3, (outs TILE:$dst),
+                        (ins TILE:$src1, TILE:$src2, TILE:$src3),
                         "tdpfp16ps\t{$src3, $src2, $src1|$src1, $src2, $src3}",
                         []>, VEX_4V, T8XD;
     }
@@ -1458,8 +1458,8 @@ let Predicates = [HasAMXFP16, In64BitMode] in {
 
 #if INTEL_FEATURE_ISA_AMX_TILE2
 let Predicates = [HasAMXTILE2, In64BitMode] in {
-    def TILEMOV : I<0x4b, MRMSrcReg, (outs VTILE:$dst),
-                    (ins VTILE:$src),
+    def TILEMOV : I<0x4b, MRMSrcReg, (outs TILE:$dst),
+                    (ins TILE:$src),
                     "tilemov\t{$src, $dst|$dst, $src}",
                     []>, VEX, T8XD;
 

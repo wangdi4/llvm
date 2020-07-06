@@ -399,6 +399,18 @@ enum ModRMDecisionType {
     case ENCODING_VSIB_CD32: \
     case ENCODING_VSIB_CD64
 
+#if INTEL_CUSTOMIZATION
+#define CASE_ENCODING_SIB   \
+    case ENCODING_SIB:      \
+    case ENCODING_SIB_CD2:  \
+    case ENCODING_SIB_CD4:  \
+    case ENCODING_SIB_CD8:  \
+    case ENCODING_SIB_CD16: \
+    case ENCODING_SIB_CD32: \
+    case ENCODING_SIB_CD64
+#endif // INTEL_CUSTOMIZATION
+
+#if INTEL_CUSTOMIZATION
 // Physical encodings of instruction operands.
 #define ENCODINGS                                                              \
   ENUM_ENTRY(ENCODING_NONE,   "")                                              \
@@ -411,6 +423,12 @@ enum ModRMDecisionType {
   ENUM_ENTRY(ENCODING_RM_CD32,"R/M operand with CDisp scaling of 32")          \
   ENUM_ENTRY(ENCODING_RM_CD64,"R/M operand with CDisp scaling of 64")          \
   ENUM_ENTRY(ENCODING_SIB,      "Force SIB operand in ModR/M byte.")           \
+  ENUM_ENTRY(ENCODING_SIB_CD2,  "Force SIB operand with CDisp scaling of 2")   \
+  ENUM_ENTRY(ENCODING_SIB_CD4,  "Force SIB operand with CDisp scaling of 4")   \
+  ENUM_ENTRY(ENCODING_SIB_CD8,  "Force SIB operand with CDisp scaling of 8")   \
+  ENUM_ENTRY(ENCODING_SIB_CD16, "Force SIB operand with CDisp scaling of 16")  \
+  ENUM_ENTRY(ENCODING_SIB_CD32, "Force SIB operand with CDisp scaling of 32")  \
+  ENUM_ENTRY(ENCODING_SIB_CD64, "Force SIB operand with CDisp scaling of 64")  \
   ENUM_ENTRY(ENCODING_VSIB,     "VSIB operand in ModR/M byte.")                \
   ENUM_ENTRY(ENCODING_VSIB_CD2, "VSIB operand with CDisp scaling of 2")        \
   ENUM_ENTRY(ENCODING_VSIB_CD4, "VSIB operand with CDisp scaling of 4")        \
@@ -442,6 +460,7 @@ enum ModRMDecisionType {
                               "in type")                                       \
   ENUM_ENTRY(ENCODING_SI,     "Source index; encoded in OpSize/Adsize prefix") \
   ENUM_ENTRY(ENCODING_DI,     "Destination index; encoded in prefixes")
+#endif // INTEL_CUSTOMIZATION
 
 #define ENUM_ENTRY(n, d) n,
 enum OperandEncoding {

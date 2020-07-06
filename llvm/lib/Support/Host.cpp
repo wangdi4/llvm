@@ -1441,14 +1441,6 @@ bool sys::getHostCPUFeatures(StringMap<bool> &Features) {
   const unsigned AMXBits = (1 << 17) | (1 << 18);
   bool HasAMXSave = HasXSave && ((EAX & AMXBits) == AMXBits);
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX
-  // AMX requires additional context to be saved by the OS.
-  const unsigned AMXBits = (1 << 17) | (1 << 18);
-  bool HasAMXSave = HasXSave && ((EAX & AMXBits) == AMXBits);
-#endif // INTEL_FEATURE_ISA_AMX
-#endif // INTEL_CUSTOMIZATION
-
   Features["avx"]   = HasAVXSave;
   Features["fma"]   = ((ECX >> 12) & 1) && HasAVXSave;
   // Only enable XSAVE if OS has enabled support for saving YMM state.

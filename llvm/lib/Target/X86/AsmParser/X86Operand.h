@@ -569,9 +569,9 @@ struct X86Operand final : public MCParsedAsmOperand {
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
-  bool isVTILEPair() const {
+  bool isTILEPair() const {
     return Kind == Register &&
-      X86MCRegisterClasses[X86::VTILERegClassID].contains(getReg());
+      X86MCRegisterClasses[X86::TILERegClassID].contains(getReg());
   }
 
   void addTILEPairOperands(MCInst &Inst, unsigned N) const {
@@ -614,9 +614,9 @@ struct X86Operand final : public MCParsedAsmOperand {
     Inst.addOperand(MCOperand::createReg(Reg));
   }
 
-  bool isVTILEQuad() const {
+  bool isTILEQuad() const {
     return Kind == Register &&
-      X86MCRegisterClasses[X86::VTILERegClassID].contains(getReg());
+      X86MCRegisterClasses[X86::TILERegClassID].contains(getReg());
   }
 
   void addTILEQuadOperands(MCInst &Inst, unsigned N) const {

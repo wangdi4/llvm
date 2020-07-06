@@ -399,8 +399,8 @@ void X86InstPrinterCommon::printVKPair(const MCInst *MI, unsigned OpNo,
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
-void X86InstPrinterCommon::printVTILEPair(const MCInst *MI, unsigned OpNo,
-                                       raw_ostream &OS) {
+void X86InstPrinterCommon::printTILEPair(const MCInst *MI, unsigned OpNo,
+                                         raw_ostream &OS) {
   switch (MI->getOperand(OpNo).getReg()) {
   case X86::TMM0_TMM1:
     printRegName(OS, X86::TMM0);
@@ -431,8 +431,8 @@ void X86InstPrinterCommon::printVTILEPair(const MCInst *MI, unsigned OpNo,
 }
 #endif // INTEL_FEATURE_ISA_AMX
 #if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
-void X86InstPrinterCommon::printVTILEQuad(const MCInst *MI, unsigned OpNo,
-                                       raw_ostream &OS) {
+void X86InstPrinterCommon::printTILEQuad(const MCInst *MI, unsigned OpNo,
+                                         raw_ostream &OS) {
   switch (MI->getOperand(OpNo).getReg()) {
   case X86::TMM0_TMM1_TMM2_TMM3:
     printRegName(OS, X86::TMM0);

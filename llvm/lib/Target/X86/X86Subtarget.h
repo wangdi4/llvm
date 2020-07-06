@@ -430,12 +430,6 @@ protected:
   bool HasHRESET = false;
 #endif // INTEL_FEATURE_ISA_HRESET
 
-#if INTEL_FEATURE_ISA_AMX
-  /// Processor has AMX support
-  bool HasAMXTILE = false;
-  bool HasAMXBF16 = false;
-  bool HasAMXINT8 = false;
-#endif // INTEL_FEATURE_ISA_AMX
 #if INTEL_FEATURE_ISA_AMX_FUTURE
   bool HasAMXELEMENT = false;
   bool HasAMXREDUCE = false;

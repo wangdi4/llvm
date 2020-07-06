@@ -849,11 +849,11 @@ def VK16Pair : RegisterOperand<VK16PAIR, "printVKPair"> {
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
 let RenderMethod = "addTILEPairOperands" in {
-  def VTILEPairAsmOperand : AsmOperandClass { let Name = "VTILEPair"; }
+  def TILEPairAsmOperand : AsmOperandClass { let Name = "TILEPair"; }
 }
 
-def VTILEPair : RegisterOperand<VTILEPAIR, "printVTILEPair"> {
-  let ParserMatchClass = VTILEPairAsmOperand;
+def TILEPair : RegisterOperand<TILEPAIR, "printTILEPair"> {
+  let ParserMatchClass = TILEPairAsmOperand;
 }
 
 #endif // INTEL_FEATURE_ISA_AMX
@@ -869,11 +869,11 @@ def ZMM16Tuples : RegisterOperand<VR512> {
 
 #if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 let RenderMethod = "addTILEQuadOperands" in {
-  def VTILEQuadAsmOperand : AsmOperandClass { let Name = "VTILEQuad"; }
+  def TILEQuadAsmOperand : AsmOperandClass { let Name = "TILEQuad"; }
 }
 
-def VTILEQuad : RegisterOperand<VTILEQUAD, "printVTILEQuad"> {
-  let ParserMatchClass = VTILEQuadAsmOperand;
+def TILEQuad : RegisterOperand<TILEQUAD, "printTILEQuad"> {
+  let ParserMatchClass = TILEQuadAsmOperand;
 }
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 #endif // INTEL_CUSTOMIZATION
@@ -1095,11 +1095,6 @@ def HasULI : Predicate<"Subtarget->hasULI()">;
 #if INTEL_FEATURE_ISA_HRESET
 def HasHRESET : Predicate<"Subtarget->hasHRESET()">;
 #endif // INTEL_FEATURE_ISA_HRESET
-#if INTEL_FEATURE_ISA_AMX
-def HasAMXTILE   : Predicate<"Subtarget->hasAMXTILE()">;
-def HasAMXBF16   : Predicate<"Subtarget->hasAMXBF16()">;
-def HasAMXINT8   : Predicate<"Subtarget->hasAMXINT8()">;
-#endif // INTEL_FEATURE_ISA_AMX
 #if INTEL_FEATURE_ISA_AMX_FUTURE
 def HasAMXELEMENT   : Predicate<"Subtarget->hasAMXELEMENT()">;
 def HasAMXREDUCE    : Predicate<"Subtarget->hasAMXREDUCE()">;
@@ -3315,9 +3310,6 @@ include "X86InstrSGX.td"
 #if INTEL_FEATURE_ISA_KEYLOCKER
 include "Intel_X86InstrKL.td"
 #endif // INTEL_FEATURE_ISA_KEYLOCKER
-#if INTEL_FEATURE_ISA_AMX
-include "Intel_X86InstrAMX.td"
-#endif // INTEL_FEATURE_ISA_AMX
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
@@ -3325,8 +3317,16 @@ include "Intel_X86InstrAMX.td"
 include "Intel_X86InstrIceCode.td"
 #endif // INTEL_FEATURE_ICECODE
 #endif // INTEL_CUSTOMIZATION
+
 // AMX instructions
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
+// FIXME merge with X86InstrAMX.td
+include "Intel_X86InstrAMX.td"
+#else // INTEL_FEATURE_ISA_AMX
 include "X86InstrAMX.td"
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
 
 // System instructions.
 include "X86InstrSystem.td"
