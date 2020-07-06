@@ -1,5 +1,5 @@
 // CQ#372058
-// RUN: %clang_cc1 -fcxx-exceptions -fexceptions -O0 -debug-info-kind=limited -emit-llvm %s -o - | FileCheck %s
+// RUN: %clang_cc1 -fcxx-exceptions -fexceptions -O0 -gno-column-info -debug-info-kind=limited -emit-llvm %s -o - | FileCheck %s
 
 int main() {
   int i;

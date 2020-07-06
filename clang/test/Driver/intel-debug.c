@@ -21,7 +21,6 @@
 // RUN:  | FileCheck -check-prefix=DEBUG_EMIT_COLUMN %s
 // RUN: %clang_cl /debug:emit-column -### -c %s 2>&1 \
 // RUN:  | FileCheck -check-prefix=DEBUG_EMIT_COLUMN %s
-// DEBUG_EMIT_COLUMN: "-dwarf-column-info"
 // DEBUG_EMIT_COLUMN: "-debug-info-kind=limited"
 
 // RUN: %clang -debug minimal -### -c %s 2>&1 \
