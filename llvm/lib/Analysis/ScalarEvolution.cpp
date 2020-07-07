@@ -2365,14 +2365,19 @@ CollectAddOperandsWithScales(DenseMap<const SCEV *, APInt> &M,
 #if INTEL_CUSTOMIZATION
 using OperandSubset = std::multiset<const SCEV*>;
 using OperandPartition = std::multiset<OperandSubset>;
+// Use std::set as the backing-set, DenseSet requires isEquals() implementation
+using OperandPartitionSet =
+    SetVector<OperandPartition, SmallVector<OperandPartition, 4>,
+              std::set<OperandPartition>>;
 
 // Enumerate all possible partitions into two multisets for the List in
 // question. Note that the List is an ordered collection, but the enumerated
 // collection is a set of multisets. E.g., {{1}, {2, 3}} and {{3, 2}, {1}} are
 // equivalent partitions, but {{1}, {2}} and {{1, 1}, {2}} are not equivalent.
-static std::set<OperandPartition> enumeratePartitionsOfSizeTwo(const ArrayRef<const SCEV*> List) {
+static OperandPartitionSet
+enumeratePartitionsOfSizeTwo(const ArrayRef<const SCEV *> List) {
   unsigned ListSize = List.size();
-  std::set<OperandPartition> Partitions;
+  OperandPartitionSet Partitions;
 
   for (unsigned LeftSetSize=1, MaxLeftSetSize=ListSize/2;
       LeftSetSize<=MaxLeftSetSize; LeftSetSize++){
