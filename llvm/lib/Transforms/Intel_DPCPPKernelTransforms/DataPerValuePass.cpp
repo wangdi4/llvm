@@ -239,7 +239,8 @@ DataPerValue::SpecialValueType DataPerValue::isSpecialValue(Value *V,
           BasicBlock *PrevBB =
               DPCPPKernelBarrierUtils::findBasicBlockOfUsageInst(I,
                                                                  InstUsage);
-          if (isCrossedByBarrier(PrevBB, BB)) {
+          if (BarrierUtils.isCrossedByBarrier(*SyncInstructions,
+                                              PrevBB, BB)) {
             // V does not depend on work item id but it is crossed by loop
             // barrier.
             return (IsNotGroupB1Type) ? SpecialValueTypeB2 : SpecialValueTypeB1;
@@ -265,44 +266,6 @@ DataPerValue::SpecialValueType DataPerValue::isSpecialValue(Value *V,
     }
   }
   return RetType;
-}
-
-bool DataPerValue::isCrossedByBarrier(BasicBlock *ValUsageBB,
-                                      BasicBlock *ValBB) {
-  if (ValUsageBB == ValBB) {
-    // This can happen when ValUsage is a PHINode.
-    return false;
-  }
-
-  BasicBlockSet Predecessors;
-  SmallVector<BasicBlock *, 8> BasicBlocksToHandle;
-
-  Predecessors.clear();
-  BasicBlocksToHandle.push_back(ValUsageBB);
-
-  while (!BasicBlocksToHandle.empty()) {
-    BasicBlock *BBToHandle = BasicBlocksToHandle.pop_back_val();
-    Instruction *FirstInst = &*(BBToHandle->begin());
-    if (SyncInstructions->count(FirstInst)) {
-      // Found a barrier.
-      return true;
-    }
-    for (auto *PredBB : predecessors(BBToHandle)) {
-      if (PredBB == ValBB) {
-        // Reached ValBB stop recursive at this direction!
-        continue;
-      }
-      if (Predecessors.count(PredBB)) {
-        // PredBB was already added to predecessors.
-        continue;
-      }
-      // This is a new predecessor add it to the predecessors container.
-      Predecessors.insert(PredBB);
-      // Also add it to the BasicBlocksToHandle to calculate its predecessors.
-      BasicBlocksToHandle.push_back(PredBB);
-    }
-  }
-  return false;
 }
 
 void DataPerValue::calculateOffsets(Function &F) {
@@ -403,11 +366,11 @@ void DataPerValue::calculateConnectedGraph(Module &M) {
     if (!DataPerBarrierAnalysis->hasSyncInstruction(F)) {
       // Function has no synchronize instruction: skip it!
       // CSSD100016517: workaround
-      // Functions with no barrier still need to have an entry
-      // However, it should be a unique entry.
-      assert(FunctionEntryMap.count(F) == 0 &&
-             "function with no barrier does not have a unique entry");
-      FunctionEntryMap[F] = CurrEntry++;
+      // Functions with no barrier still need to have an entry.
+      if (FunctionEntryMap.count(F))
+        fixEntryMap(FunctionEntryMap[F], CurrEntry++);
+      else
+        FunctionEntryMap[F] = CurrEntry++;
       continue;
     }
     if (FunctionEntryMap.count(F)) {

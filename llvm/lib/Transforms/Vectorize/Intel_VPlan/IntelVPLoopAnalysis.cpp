@@ -1246,6 +1246,40 @@ bool VPEntityImportDescr::isDuplicate(const VPlan *Plan,
   return LE && AllocaInst && LE->getMemoryDescriptor(AllocaInst);
 }
 
+static bool hasRealUserInLoop(VPValue *Val, const VPLoop *Loop) {
+  SmallVector<VPValue *, 4> WorkList;
+  for (auto *U : Val->users())
+    WorkList.push_back(U);
+  while (!WorkList.empty()) {
+    VPValue *Cur = WorkList.pop_back_val();
+    if (isa<VPExternalUse>(Cur))
+      continue;
+    auto I = cast<VPInstruction>(Cur);
+    if (!Loop->contains(I))
+      continue;
+    if (I->getOpcode() == Instruction::BitCast ||
+        I->getOpcode() == Instruction::AddrSpaceCast) {
+      for (auto *U : I->users())
+        WorkList.push_back(U);
+      continue;
+    }
+    if (auto *VPCall = dyn_cast<VPCallInstruction>(I)) {
+      Function *CalleeFunc = VPCall->getCalledFunction();
+      // For indirect calls we will have a null CalledFunc.
+      if (!CalleeFunc)
+        return true;
+      if (CalleeFunc->isIntrinsic())
+        if (CalleeFunc->getIntrinsicID() == Intrinsic::lifetime_start ||
+            CalleeFunc->getIntrinsicID() == Intrinsic::lifetime_end ||
+            CalleeFunc->getIntrinsicID() == Intrinsic::invariant_start ||
+            CalleeFunc->getIntrinsicID() == Intrinsic::invariant_end)
+          continue;
+    }
+    return true;
+  }
+  return false;
+}
+
 // We need to avoid type inconsistency. That inconsistency
 // arises from that omp directive contains pointer to the real variable
 // used in the clause. So we have a pointer type for Start but entity type
@@ -1254,7 +1288,7 @@ bool VPEntityImportDescr::isDuplicate(const VPlan *Plan,
 // generate a load.
 VPValue *VPEntityImportDescr::findMemoryUses(VPValue *Start,
                                              const VPLoop *Loop) {
-  Importing = Start->getNumUsers() != 0;
+  Importing = hasRealUserInLoop(Start, Loop);
   ValidMemOnly = true;
   if (Importing) {
     // Try to find either load or store. Not having them we can't proceed

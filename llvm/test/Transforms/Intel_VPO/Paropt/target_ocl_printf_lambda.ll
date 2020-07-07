@@ -54,7 +54,7 @@ entry:
   %call = call spir_func i32 (i8 addrspace(4)*, ...) @printf(i8 addrspace(4)* getelementptr inbounds ([9 x i8], [9 x i8] addrspace(4)* addrspacecast ([9 x i8] addrspace(1)* @.str to [9 x i8] addrspace(4)*), i64 0, i64 0)) #1
 ; Make sure that call to printf is replaced with ocl_printf
 ; CHECK-NOT: call {{.*}} (i8 addrspace(4)*, ...) @printf(i8 addrspace(4)* {{.*}})
-; CHECK: call {{.*}} (i8 addrspace(1)*, ...) @_Z18__spirv_ocl_printfPU3AS2ci(i8 addrspace(1)* {{.*}})
+; CHECK: call {{.*}} (i8 addrspace(2)*, ...) @_Z18__spirv_ocl_printfPU3AS2ci(i8 addrspace(2)* {{.*}})
 
   %2 = load i32, i32 addrspace(4)* %i.ascast, align 4
   call spir_func void @"_ZZ4mainENK3$_0clEi"(%"class._ZTSZ4mainE3$_0" addrspace(4)* %body.ascast, i32 %2) #1
@@ -72,7 +72,7 @@ declare void @llvm.directive.region.exit(token) #1
 declare dso_local spir_func i32 @printf(i8 addrspace(4)*, ...) #2
 ; Check that the declaration of orifinal printf is deleted, and declaration of ocl_printf is added.
 ; CHECK-NOT: declare dso_local spir_func i32 @printf(i8 addrspace(4)*, ...)
-; CHECK: declare dso_local spir_func i32 @_Z18__spirv_ocl_printfPU3AS2ci(i8 addrspace(1)*, ...)
+; CHECK: declare dso_local spir_func i32 @_Z18__spirv_ocl_printfPU3AS2ci(i8 addrspace(2)*, ...)
 
 ; Function Attrs: noinline nounwind optnone uwtable
 define internal spir_func void @"_ZZ4mainENK3$_0clEi"(%"class._ZTSZ4mainE3$_0" addrspace(4)* %this, i32 %i) #3 align 2 {
@@ -89,7 +89,7 @@ entry:
   %call = call spir_func i32 (i8 addrspace(4)*, ...) @printf(i8 addrspace(4)* getelementptr inbounds ([9 x i8], [9 x i8] addrspace(4)* addrspacecast ([9 x i8] addrspace(1)* @.str.1 to [9 x i8] addrspace(4)*), i64 0, i64 0), i32 %0)
 ; Make sure that call to printf is replaced with ocl_printf
 ; CHECK-NOT: call {{.*}} (i8 addrspace(4)*, ...) @printf(i8 addrspace(4)* {{.*}})
-; CHECK: call {{.*}} (i8 addrspace(1)*, ...) @_Z18__spirv_ocl_printfPU3AS2ci(i8 addrspace(1)* {{.*}})
+; CHECK: call {{.*}} (i8 addrspace(2)*, ...) @_Z18__spirv_ocl_printfPU3AS2ci(i8 addrspace(2)* {{.*}})
 
   ret void
 }

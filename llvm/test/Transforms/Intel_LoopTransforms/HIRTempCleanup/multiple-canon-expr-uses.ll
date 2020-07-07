@@ -18,7 +18,7 @@
 ; CHECK: |   {
 ; CHECK: |      %2 = (%rpp)[i1];
 ; CHECK: |
-; CHECK: |      + DO i64 i2 = 0, smin(%1, %ll.addr.034.out) + -1 * smin(1, %1, %ll.addr.034.out), 1   <DO_LOOP>
+; CHECK: |      + DO i64 i2 = 0, smin(%1, %ll.addr.034.out) + -1, 1   <DO_LOOP>
 ; CHECK: |      |   %3 = (%2)[i2];
 ; CHECK: |      |   %incdec.ptr5 = &((%lp.addr.036.out1)[i2 + 1]);
 ; CHECK: |      |   (%lp.addr.036.out1)[i2] = %3;
@@ -47,7 +47,7 @@
 ; CHECK-NOT: [[OLDLIVEINSYM]],
 ; CHECK: LiveOut symbases
 
-; CHECK: |      + DO i64 i2 = 0, smin(%1, %ll.addr.034) + -1 * smin(1, %1, %ll.addr.034), 1   <DO_LOOP>
+; CHECK: |      + DO i64 i2 = 0, smin(%1, %ll.addr.034) + -1, 1   <DO_LOOP>
 ; CHECK: |      |   %incdec.ptr5 = &((%lp.addr.036)[i2 + 1]);
 ; CHECK: |      |   (%lp.addr.036)[i2] = (%2)[i2];
 ; CHECK: |      + END LOOP

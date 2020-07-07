@@ -51,6 +51,7 @@ merge:
 ; CHECK-NEXT:   i64*{{ *$}}
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:   %struct.test01 @ 0
+; CHECK-NEXT: No Dominant Type
 
 ; CHECK-CUR:  %ptr2 = phi i64* [ %zf0, %zlabel ], [ %nzf1, %nzlabel ]
 ; CHECK-FUT:  %ptr2 = phi p0 [ %zf0, %zlabel ], [ %nzf1, %nzlabel ]
@@ -60,6 +61,7 @@ merge:
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:   %struct.test01 @ 0
 ; CHECK-NEXT:   %struct.test01 @ 1
+; CHECK-NEXT: No Dominant Type
 
 ; CHECK-CUR:  %ptr3 = phi i64* [ null, %zlabel ], [ %nzf0, %nzlabel ]
 ; CHECK-FUT:  %ptr3 = phi p0 [ null, %zlabel ], [ %nzf0, %nzlabel ]
@@ -68,6 +70,7 @@ merge:
 ; CHECK-NEXT:   i64*{{ *$}}
 ; CHECK-NEXT: Element pointees:
 ; CHECK-NEXT:   %struct.test01 @ 0
+; CHECK-NEXT: No Dominant Type
 
 
 ; Test phi with self-reference.
@@ -88,6 +91,7 @@ exit:
 ; CHECK-NEXT: Aliased types:
 ; CHECK-NEXT:    %struct.test02*{{ *$}}
 ; CHECK-NEXT: No element pointees.
+; CHECK-NEXT: DomTy: %struct.test02*
 
 
 ; Test phi with circular dependencies.
@@ -147,6 +151,7 @@ exit:
 ; CHECK-NEXT:   %struct.test03.b*{{ *$}}
 ; CHECK-NEXT:   %struct.test03.c*{{ *$}}
 ; CHECK-NEXT: No element pointees.
+; CHECK-NEXT: Ambiguous Dominant Type
 
 ; CHECK:  %a = phi i64 [ %d, %merge ], [ %c, %block_AorB ], [ %tmpA, %entry ]
 ; CHECK-NEXT: LocalPointerInfo:
@@ -155,6 +160,7 @@ exit:
 ; CHECK-NEXT:   %struct.test03.b*{{ *$}}
 ; CHECK-NEXT:   %struct.test03.c*{{ *$}}
 ; CHECK-NEXT: No element pointees.
+; CHECK-NEXT: Ambiguous Dominant Type
 
 ; CHECK:  %b = phi i64 [ %d, %merge ], [ %c, %block_AorB ], [ %tmpB, %block_BorC ]
 ; CHECK-NEXT: LocalPointerInfo:
@@ -163,6 +169,7 @@ exit:
 ; CHECK-NEXT:   %struct.test03.b*{{ *$}}
 ; CHECK-NEXT:   %struct.test03.c*{{ *$}}
 ; CHECK-NEXT: No element pointees.
+; CHECK-NEXT: Ambiguous Dominant Type
 
 ; CHECK:  %d = phi i64 [ %a, %merge_AorC ], [ %b, %merge_BorC ], [ %c, %block_C ]
 ; CHECK-NEXT: LocalPointerInfo:
@@ -171,6 +178,7 @@ exit:
 ; CHECK-NEXT:   %struct.test03.b*{{ *$}}
 ; CHECK-NEXT:   %struct.test03.c*{{ *$}}
 ; CHECK-NEXT: No element pointees.
+; CHECK-NEXT: Ambiguous Dominant Type
 
 
 !1 = !{i64 0, i32 0}  ; i64

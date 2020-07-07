@@ -8,19 +8,19 @@
 
 ; CHECK: BEGIN REGION { }
 ; CHECK: + DO i1 = 0, 5, 1   <DO_LOOP>
-; CHECK: |   %bf.set13 = -2 * trunc.i8.i2(%t7) * i1 + -1 * trunc.i8.i2(%t7)  ||  4 * (%bf.set13 /u 4);
+; CHECK: |   %bf.set13 = -2 * trunc.i8.i2(%t7) * i1 + -1 * trunc.i8.i2(%t7)  |  4 * (%bf.set13 /u 4);
 ; CHECK: + END LOOP
 ; CHECK: END REGION
 
 ; CHECK: Function: func
 
 ; CHECK: BEGIN REGION { modified }
-; CHECK: %bf.set13 = -1 * trunc.i8.i2(%t7)  ||  4 * (%bf.set13 /u 4);
-; CHECK: %bf.set13 = -3 * trunc.i8.i2(%t7)  ||  4 * (%bf.set13 /u 4);
-; CHECK: %bf.set13 = -5 * trunc.i8.i2(%t7)  ||  4 * (%bf.set13 /u 4);
-; CHECK: %bf.set13 = -7 * trunc.i8.i2(%t7)  ||  4 * (%bf.set13 /u 4);
-; CHECK: %bf.set13 = -1 * trunc.i8.i2(%t7)  ||  4 * (%bf.set13 /u 4);
-; CHECK: %bf.set13 = -3 * trunc.i8.i2(%t7)  ||  4 * (%bf.set13 /u 4);
+; CHECK: %bf.set13 = -1 * trunc.i8.i2(%t7)  |  4 * (%bf.set13 /u 4);
+; CHECK: %bf.set13 = -3 * trunc.i8.i2(%t7)  |  4 * (%bf.set13 /u 4);
+; CHECK: %bf.set13 = -5 * trunc.i8.i2(%t7)  |  4 * (%bf.set13 /u 4);
+; CHECK: %bf.set13 = -7 * trunc.i8.i2(%t7)  |  4 * (%bf.set13 /u 4);
+; CHECK: %bf.set13 = -1 * trunc.i8.i2(%t7)  |  4 * (%bf.set13 /u 4);
+; CHECK: %bf.set13 = -3 * trunc.i8.i2(%t7)  |  4 * (%bf.set13 /u 4);
 ; CHECK: END REGION
 
 define void @func(i8 %bf.set.lcssa16, i8 %t7) {

@@ -32,7 +32,6 @@
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 
 #include "llvm/Analysis/ScalarEvolution.h"
-#include "llvm/Analysis/ScalarEvolutionExpander.h"
 
 #include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
 #include "llvm/Analysis/Intel_OptReport/OptReportOptionsPass.h"
@@ -50,6 +49,7 @@
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
+#include "llvm/Transforms/Utils/ScalarEvolutionExpander.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HIRVisitor.h"
 // TODO audit includes
@@ -364,8 +364,8 @@ private:
 
 class HIRCodeGen {
 private:
-  ScalarEvolution &SE;
   HIRFramework &HIRF;
+  ScalarEvolution &SE;
   LoopOptReportBuilder &LORBuilder;
 
   // Clears HIR related metadata from instructions. Returns true if any
@@ -376,8 +376,8 @@ private:
   bool shouldGenCode(HLRegion *Reg, unsigned RegionIdx) const;
 
 public:
-  HIRCodeGen(ScalarEvolution &SE, HIRFramework &HIRF)
-      : SE(SE), HIRF(HIRF), LORBuilder(HIRF.getLORBuilder()) {}
+  HIRCodeGen(HIRFramework &HIRF)
+      : HIRF(HIRF), SE(HIRF.getScopedSE()), LORBuilder(HIRF.getLORBuilder()) {}
 
   bool run();
 
@@ -394,12 +394,9 @@ public:
   }
 
   bool runOnFunction(Function &F) override {
-    return HIRCodeGen(getAnalysis<ScalarEvolutionWrapperPass>().getSE(),
-                      getAnalysis<HIRFrameworkWrapperPass>().getHIR())
-        .run();
+    return HIRCodeGen(getAnalysis<HIRFrameworkWrapperPass>().getHIR()).run();
   }
   void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<ScalarEvolutionWrapperPass>();
     AU.addRequired<HIRFrameworkWrapperPass>();
 
     AU.addPreserved<GlobalsAAWrapperPass>();
@@ -416,16 +413,13 @@ FunctionPass *llvm::createHIRCodeGenWrapperPass() {
 char HIRCodeGenWrapperPass::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRCodeGenWrapperPass, "hir-cg", "HIR Code Generation",
                       false, false)
-INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
 INITIALIZE_PASS_END(HIRCodeGenWrapperPass, "hir-cg", "HIR Code Generation",
                     false, false)
 
 PreservedAnalyses HIRCodeGenPass::run(Function &F,
                                       FunctionAnalysisManager &AM) {
-  bool Transformed = HIRCodeGen(AM.getResult<ScalarEvolutionAnalysis>(F),
-                                AM.getResult<HIRFrameworkAnalysis>(F))
-                         .run();
+  bool Transformed = HIRCodeGen(AM.getResult<HIRFrameworkAnalysis>(F)).run();
 
   if (!Transformed) {
     return PreservedAnalyses::all();
@@ -1007,7 +1001,7 @@ Value *CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
 
       // We have a vector of pointers of BaseSrcType. We need to convert it to
       // vector of pointers of DestScType.
-      GEPVal = Builder.CreateBitCast(GEPVal, VectorType::get(DestScPtrTy, VL));
+      GEPVal = Builder.CreateBitCast(GEPVal, FixedVectorType::get(DestScPtrTy, VL));
     }
   } else if (BitCastDestTy) {
     // Base CE could have different src and dest types in which case we need a
@@ -1958,7 +1952,7 @@ Value *CGVisitor::visitInst(HLInst *HInst) {
         ElementType, Ops[1],
         "hir.alloca." + std::to_string(HInst->getNumber()));
 
-    NewAlloca->setAlignment(MaybeAlign(Alloca->getAlignment()));
+    NewAlloca->setAlignment(Alloca->getAlign());
     StoreVal = NewAlloca;
 
   } else if (isa<ExtractElementInst>(Inst)) {
@@ -1967,6 +1961,14 @@ Value *CGVisitor::visitInst(HLInst *HInst) {
   } else if (isa<InsertElementInst>(Inst)) {
     StoreVal =
         Builder.CreateInsertElement(Ops[1], Ops[2], Ops[3], Inst->getName());
+
+  } else if (isa<ExtractValueInst>(Inst)) {
+    StoreVal = Builder.CreateExtractValue(
+        Ops[1], HInst->getExtractValueIndices(), Inst->getName());
+
+  } else if (isa<InsertValueInst>(Inst)) {
+    StoreVal = Builder.CreateInsertValue(
+        Ops[1], Ops[2], HInst->getInsertValueIndices(), Inst->getName());
 
   } else if (isa<ShuffleVectorInst>(Inst)) {
     StoreVal =

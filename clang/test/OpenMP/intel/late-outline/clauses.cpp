@@ -230,8 +230,9 @@ void bar4(float c0, float *Anext, const int nx)
   //CHECK: region.entry() [ "DIR.OMP.TARGET"()
   //CHECK-SAME: "QUAL.OMP.FIRSTPRIVATE"(i32* [[J3]])
   //CHECK: region.entry() [ "DIR.OMP.PARALLEL.LOOP"()
-  //CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* [[J3]])
+  //CHECK-SAME: "QUAL.OMP.LASTPRIVATE"(i32* [[J3]])
   //CHECK: region.entry() [ "DIR.OMP.SIMD"()
+  //CHECK-SAME: "QUAL.OMP.LINEAR:IV"
   //CHECK: "DIR.OMP.END.SIMD"
   //CHECK: "DIR.OMP.END.PARALLEL.LOOP"
   //CHECK: "DIR.OMP.END.TARGET"
@@ -288,6 +289,257 @@ void bar6()
   //CHECK-SAME: "QUAL.OMP.MAP.FROM"(i32* @A_bar6, i32* @A_bar6, i64 4, i64 34)
   //CHECK: "DIR.OMP.END.TARGET.UPDATE"()
   #pragma omp target update from(A_bar6) to(B_bar6)
+}
+
+void call_bar7(float *);
+//CHECK-LABEL: bar7
+void bar7(float *A, int N, int S)
+{
+  //CHECK: [[I:%i.*]] = alloca i32,
+  int i;
+  //CHECK: [[ULL:%ull.*]] = alloca i64,
+  unsigned long long ull;
+  //CHECK: [[FP:%fp.*]] = alloca float*,
+  float *fp;
+
+  // step 1
+  //CHECK: "DIR.OMP.SIMD"
+  //CHECK-SAME: "QUAL.OMP.LINEAR:IV"(i32* [[I]], i32 1)
+  //CHECK: call void {{.*}}call_bar7
+  //CHECK: load i32, i32* %.omp.iv
+  //CHECK-NEXT: add nsw i32 {{.*}}1{{$}}
+  //CHECK-NEXT: store i32 {{.*}}%.omp.iv
+  //CHECK-NEXT: [[L1:%[0-9]+]] = load i32, i32* [[I]]
+  //CHECK-NEXT: [[ADD1:%add[0-9]*]] = add nsw i32 [[L1]], 1
+  //CHECK-NEXT: store i32 [[ADD1]], i32* [[I]]
+  #pragma omp simd
+  for (i=0;i<N;i++) { call_bar7(&A[i]); }
+  //CHECK: "DIR.OMP.END.SIMD"
+
+  // step -1
+  //CHECK: "DIR.OMP.SIMD"
+  //CHECK-SAME: "QUAL.OMP.LINEAR:IV"(i32* [[I]], i32 -1)
+  //CHECK: call void {{.*}}call_bar7
+  //CHECK: load i32, i32* %.omp.iv
+  //CHECK-NEXT: add nuw i32 {{.*}}1{{$}}
+  //CHECK-NEXT: store i32 {{.*}}%.omp.iv
+  //CHECK-NEXT: [[L1:%[0-9]+]] = load i32, i32* [[I]]
+  //CHECK-NEXT: [[SUB1:%sub[0-9]*]] = sub nsw i32 [[L1]], 1
+  //CHECK-NEXT: store i32 [[SUB1]], i32* [[I]]
+  #pragma omp simd
+  for (i=N;i>=0;i--) { call_bar7(&A[i]); }
+  //CHECK: "DIR.OMP.END.SIMD"
+
+  // step 4
+  //CHECK: "DIR.OMP.SIMD"
+  //CHECK-SAME: "QUAL.OMP.LINEAR:IV"(i32* [[I]], i32 4)
+  //CHECK: call void {{.*}}call_bar7
+  //CHECK: load i32, i32* %.omp.iv
+  //CHECK-NEXT: add nuw i32 {{.*}}1{{$}}
+  //CHECK-NEXT: store i32 {{.*}}%.omp.iv
+  //CHECK-NEXT: [[L1:%[0-9]+]] = load i32, i32* [[I]]
+  //CHECK-NEXT: [[ADD1:%add[0-9]*]] = add nsw i32 [[L1]], 4
+  //CHECK-NEXT: store i32 [[ADD1]], i32* [[I]]
+  #pragma omp simd
+  for (i=0;i<N;i+=4) { call_bar7(&A[i]); }
+  //CHECK: "DIR.OMP.END.SIMD"
+
+  // step -8
+  //CHECK: "DIR.OMP.SIMD"
+  //CHECK-SAME: "QUAL.OMP.LINEAR:IV"(i32* [[I]], i32 -8)
+  //CHECK: call void {{.*}}call_bar7
+  //CHECK: load i32, i32* %.omp.iv
+  //CHECK-NEXT: add nuw i32 {{.*}}1{{$}}
+  //CHECK-NEXT: store i32 {{.*}}%.omp.iv
+  //CHECK-NEXT: [[L1:%[0-9]+]] = load i32, i32* [[I]]
+  //CHECK-NEXT: [[SUB1:%sub[0-9]*]] = sub nsw i32 [[L1]], 8
+  //CHECK-NEXT: store i32 [[SUB1]], i32* [[I]]
+  #pragma omp simd
+  for (i=N;i>=0;i-=8) { call_bar7(&A[i]); }
+  //CHECK: "DIR.OMP.END.SIMD"
+
+  // another form: step -8
+  //CHECK: "DIR.OMP.SIMD"
+  //CHECK-SAME: "QUAL.OMP.LINEAR:IV"(i32* [[I]], i32 -8)
+  //CHECK: call void {{.*}}call_bar7
+  //CHECK: load i32, i32* %.omp.iv
+  //CHECK-NEXT: add nuw i32 {{.*}}1{{$}}
+  //CHECK-NEXT: store i32 {{.*}}%.omp.iv
+  //CHECK-NEXT: [[L1:%[0-9]+]] = load i32, i32* [[I]]
+  //CHECK-NEXT: [[SUB1:%sub[0-9]*]] = sub nsw i32 [[L1]], 8
+  //CHECK-NEXT: store i32 [[SUB1]], i32* [[I]]
+  #pragma omp simd
+  for (i=N;i>=0;i=i-8) { call_bar7(&A[i]); }
+  //CHECK: "DIR.OMP.END.SIMD"
+
+  //CHECK: [[LC:%[0-9]+]] = load i32, i32* %S.addr,
+  //CHECK-NEXT: store i32 [[LC]], i32* [[CAPS:%.capture_expr.[0-9]*]]
+
+  // non-constant step
+  //CHECK: icmp slt i32 0,
+  //CHECK: [[LC:%[0-9]+]] = load i32, i32* [[CAPS]],
+  //CHECK: "DIR.OMP.SIMD"
+  //CHECK-SAME: "QUAL.OMP.LINEAR:IV"(i32* [[I]], i32 [[LC]])
+  //CHECK: call void {{.*}}call_bar7
+  //CHECK: load i32, i32* %.omp.iv
+  //CHECK-NEXT: add nsw i32 {{.*}}1{{$}}
+  //CHECK-NEXT: store i32 {{.*}}%.omp.iv
+  //CHECK-NEXT: [[L1:%[0-9]+]] = load i32, i32* [[I]]
+  //CHECK-NEXT: [[L2:%[0-9]+]] = load i32, i32* [[CAPS]]
+  //CHECK-NEXT: [[ADD1:%add[0-9]*]] = add nsw i32 [[L1]], [[L2]]
+  //CHECK-NEXT: store i32 [[ADD1]], i32* [[I]]
+  #pragma omp simd
+  for (i=0;i<N;i+=S) { call_bar7(&A[i]); }
+  //CHECK: "DIR.OMP.END.SIMD"
+
+  // non-int
+  //CHECK: "DIR.OMP.SIMD"
+  //CHECK-SAME: "QUAL.OMP.LINEAR:IV"(i64* [[ULL]], i32 -8)
+  //CHECK: call void {{.*}}call_bar7
+  //CHECK: load i64, i64* %.omp.iv
+  //CHECK-NEXT: add nuw i64 {{.*}}1{{$}}
+  //CHECK-NEXT: store i64 {{.*}}%.omp.iv
+  //CHECK-NEXT: [[L1:%[0-9]+]] = load i64, i64* [[ULL]]
+  //CHECK-NEXT: [[SUB1:%sub[0-9]*]] = sub i64 [[L1]], 8
+  //CHECK-NEXT: store i64 [[SUB1]], i64* [[ULL]]
+  #pragma omp simd
+  for (ull=N;ull>=0;ull-=8) { call_bar7(&A[ull]); }
+  //CHECK: "DIR.OMP.END.SIMD"
+
+  //CHECK: "DIR.OMP.SIMD"
+  //CHECK-SAME: "QUAL.OMP.LINEAR:IV"(float** [[FP]], i32 4)
+  //CHECK: call void {{.*}}call_bar7
+  //CHECK: load i64, i64* %.omp.iv
+  //CHECK-NEXT: add nsw i64 {{.*}}1{{$}}
+  //CHECK-NEXT: store i64 {{.*}}%.omp.iv
+  //CHECK-NEXT: [[L1:%[0-9]+]] = load float*, float** [[FP]]
+  //CHECK-NEXT: [[ADD1:%add.ptr[0-9]*]] = getelementptr inbounds float, float* [[L1]], i64 4
+  //CHECK-NEXT: store float* [[ADD1]], float** [[FP]]
+  #pragma omp simd
+  for (fp=&A[2];fp<&A[14];fp+=4) { call_bar7(fp); }
+  //CHECK: "DIR.OMP.END.SIMD"
+
+  //CHECK: "DIR.OMP.DISTRIBUTE.PARLOOP"
+  //CHECK-SAME: "QUAL.OMP.LASTPRIVATE"(i32* [[I]])
+  //CHECK: "DIR.OMP.SIMD"
+  //CHECK-SAME: "QUAL.OMP.LINEAR:IV"(i32* [[I]], i32 4)
+  #pragma omp distribute parallel for simd
+  for (i=0;i<N;i+=4) { call_bar7(&A[i]); }
+  //CHECK: "DIR.OMP.END.SIMD"
+  //CHECK: "DIR.OMP.END.DISTRIBUTE.PARLOOP"
+}
+
+// Test there are no PRIVATE clauses on SIMD for the loop counter.
+#define LOOP for (int x = 0; x < 20; ++x) arr[x] = x;
+
+//CHECK-LABEL: bar8
+void bar8(int *arr)
+{
+  //CHECK: "DIR.OMP.SIMD"
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: QUAL.OMP.LINEAR:IV
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: "DIR.OMP.END.SIMD"
+  #pragma omp parallel for simd
+  LOOP
+
+  //CHECK: "DIR.OMP.SIMD"
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: QUAL.OMP.LINEAR:IV
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: "DIR.OMP.END.SIMD"
+  #pragma omp for simd
+  LOOP
+
+  //CHECK: "DIR.OMP.SIMD"
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: QUAL.OMP.LINEAR:IV
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: "DIR.OMP.END.SIMD"
+  #pragma omp taskloop simd
+  LOOP
+
+  //CHECK: "DIR.OMP.SIMD"
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: QUAL.OMP.LINEAR:IV
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: "DIR.OMP.END.SIMD"
+  #pragma omp distribute parallel for simd
+  LOOP
+
+  //CHECK: "DIR.OMP.SIMD"
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: QUAL.OMP.LINEAR:IV
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: "DIR.OMP.END.SIMD"
+  #pragma omp distribute simd
+  LOOP
+
+  //CHECK: "DIR.OMP.SIMD"
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: QUAL.OMP.LINEAR:IV
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: "DIR.OMP.END.SIMD"
+  #pragma omp target parallel for simd
+  LOOP
+
+  //CHECK: "DIR.OMP.SIMD"
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: QUAL.OMP.LINEAR:IV
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: "DIR.OMP.END.SIMD"
+  #pragma omp target simd
+  LOOP
+
+  //CHECK: "DIR.OMP.SIMD"
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: QUAL.OMP.LINEAR:IV
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: "DIR.OMP.END.SIMD"
+  #pragma omp target
+  #pragma omp teams distribute simd
+  LOOP
+
+  //CHECK: "DIR.OMP.SIMD"
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: QUAL.OMP.LINEAR:IV
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: "DIR.OMP.END.SIMD"
+  #pragma omp target
+  #pragma omp teams distribute parallel for simd
+  LOOP
+
+  //CHECK: "DIR.OMP.SIMD"
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: QUAL.OMP.LINEAR:IV
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: "DIR.OMP.END.SIMD"
+  #pragma omp target teams distribute parallel for simd
+  LOOP
+
+  //CHECK: "DIR.OMP.SIMD"
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: QUAL.OMP.LINEAR:IV
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: "DIR.OMP.END.SIMD"
+  #pragma omp target teams distribute simd
+  LOOP
+
+  //CHECK: "DIR.OMP.SIMD"
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: QUAL.OMP.LINEAR:IV
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: "DIR.OMP.END.SIMD"
+  #pragma omp master taskloop simd
+  LOOP
+
+  //CHECK: "DIR.OMP.SIMD"
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: QUAL.OMP.LINEAR:IV
+  //CHECK-NOT: QUAL.OMP.PRIVATE
+  //CHECK: "DIR.OMP.END.SIMD"
+  #pragma omp parallel master taskloop simd
+  LOOP
 }
 
 // end INTEL_COLLAB

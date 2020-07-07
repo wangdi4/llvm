@@ -43,33 +43,33 @@ typedef enum {
 #define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__, __target__("icecode-mode")))
 
 /* Functions for IceCode ISA */
-static __inline__ short __DEFAULT_FN_ATTRS
+static __inline__ unsigned short __DEFAULT_FN_ATTRS
 _ce_loadpphys16(void *mem) {
   return __builtin_ia32_icecode_loadpphys_16(mem);
 }
 
-static __inline__ int __DEFAULT_FN_ATTRS
+static __inline__ unsigned int __DEFAULT_FN_ATTRS
 _ce_loadpphys32(void *mem) {
   return __builtin_ia32_icecode_loadpphys_32(mem);
 }
 
-static __inline__ long long __DEFAULT_FN_ATTRS
+static __inline__ unsigned long long __DEFAULT_FN_ATTRS
 _ce_loadpphys64(void *mem) {
   return __builtin_ia32_icecode_loadpphys_64(mem);
 }
 
 static __inline__ void __DEFAULT_FN_ATTRS
-_ce_storepphys16(short reg, void *mem) {
+_ce_storepphys16(unsigned short reg, void *mem) {
   __builtin_ia32_icecode_storepphys_16(reg, mem);
 }
 
 static __inline__ void __DEFAULT_FN_ATTRS
-_ce_storepphys32(int reg, void *mem) {
+_ce_storepphys32(unsigned int reg, void *mem) {
   __builtin_ia32_icecode_storepphys_32(reg, mem);
 }
 
 static __inline__ void __DEFAULT_FN_ATTRS
-_ce_storepphys64(long long reg, void *mem) {
+_ce_storepphys64(unsigned long long reg, void *mem) {
   __builtin_ia32_icecode_storepphys_64(reg, mem);
 }
 
@@ -258,8 +258,9 @@ _ce_ucodecall(unsigned target) {
 #define _ce_cmodemov(_SRC1, _SRC2, _COND) \
   __builtin_ia32_icecode_cmodemov((_SRC1), (_SRC2), (_COND))
 
-#define _ce_sigeventjump(_SRC1, _SRC2, _IMM) \
-  __asm__ __volatile__ ("sigeventjump $" #_IMM ", %0, %1" :: "q"(_SRC1), "a"(_SRC2))
+#define _ce_sigeventjump(_RAX, _SRC1, _IMM) ({ \
+  long long rax = _RAX; \
+  __asm__ __volatile__ ("sigeventjump $" #_IMM ", %0" :: "q"(_SRC1), "a"(rax)); })
 
 #define _ce_sserialize() __asm__ __volatile__ ("sserialize")
 #define _ce_nop_set_sb() __asm__ __volatile__ ("nop_set_sb")
@@ -269,7 +270,7 @@ _ce_ucodecall(unsigned target) {
 #define _ce_virt_nuke_point() __asm__ __volatile__ ("virt_nuke_point")
 #define _ce_int_trap_point() __asm__ __volatile__ ("int_trap_point")
 
-static __inline__ void __DEFAULT_FN_ATTRS
+static __inline__ void __DEFAULT_FN_ATTRS __attribute__((noreturn))
 _ce_iceret(unsigned target) {
   __asm__ __volatile__ ("iceret %0" :: "a"(target));
 }

@@ -826,6 +826,19 @@ parseInstallNameToolOptions(ArrayRef<const char *> ArgsArr) {
   for (auto Arg : InputArgs.filtered(INSTALL_NAME_TOOL_add_rpath))
     Config.RPathToAdd.push_back(Arg->getValue());
 
+  for (auto Arg : InputArgs.filtered(INSTALL_NAME_TOOL_delete_rpath)) {
+    StringRef RPath = Arg->getValue();
+
+    // Cannot add and delete the same rpath at the same time.
+    if (is_contained(Config.RPathToAdd, RPath))
+      return createStringError(
+          errc::invalid_argument,
+          "cannot specify both -add_rpath %s and -delete_rpath %s",
+          RPath.str().c_str(), RPath.str().c_str());
+
+    Config.RPathsToRemove.insert(RPath);
+  }
+
   SmallVector<StringRef, 2> Positional;
   for (auto Arg : InputArgs.filtered(INSTALL_NAME_TOOL_UNKNOWN))
     return createStringError(errc::invalid_argument, "unknown argument '%s'",
@@ -912,6 +925,7 @@ parseStripOptions(ArrayRef<const char *> ArgsArr,
   if (auto Arg = InputArgs.getLastArg(STRIP_strip_all, STRIP_no_strip_all))
     Config.StripAll = Arg->getOption().getID() == STRIP_strip_all;
   Config.StripAllGNU = InputArgs.hasArg(STRIP_strip_all_gnu);
+  Config.StripSwiftSymbols = InputArgs.hasArg(STRIP_strip_swift_symbols);
   Config.OnlyKeepDebug = InputArgs.hasArg(STRIP_only_keep_debug);
   Config.KeepFileSymbols = InputArgs.hasArg(STRIP_keep_file_symbols);
 

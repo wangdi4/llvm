@@ -11,7 +11,7 @@
 ; CHECK: |   %1 = (%B)[i1];
 ; CHECK: |   %cmp3 = %0 < %1;
 ; CHECK: |   %tobool = %small.030.out != 0;
-; CHECK: |   %small.030 = %cmp3  ||  %tobool;
+; CHECK: |   %small.030 = %cmp3  |  %tobool;
 ; CHECK: |   if (%small.030 == 0)
 ; CHECK: |   {
 ; CHECK: |      (%B)[i1] = %0;

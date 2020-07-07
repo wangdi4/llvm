@@ -12,16 +12,16 @@
 
 ; Check parsing output for the loop verifying that the copy stmt after i2 loop is parsed properly using getSCEVAtScope() information.
 
-; CHECK:      + DO i1 = 0, %count + -1 * smin(1, %count), 1   <DO_LOOP>
+; CHECK:      + DO i1 = 0, %count + -1, 1   <DO_LOOP>
 ; CHECK-NEXT: |   %to.addr.130.out = &((%to.addr.130)[0]);
 ; CHECK-NEXT: |   if (%len > 0)
 ; CHECK-NEXT: |   {
-; CHECK-NEXT: |      + DO i2 = 0, %len + -1 * smin(1, %len), 1   <DO_LOOP>
+; CHECK-NEXT: |      + DO i2 = 0, %len + -1, 1   <DO_LOOP>
 ; CHECK-NEXT: |      |   %0 = (%from)[i2];
 ; CHECK-NEXT: |      |   (%to.addr.130.out)[i2] = %0;
 ; CHECK-NEXT: |      + END LOOP
 ; CHECK-NEXT: |
-; CHECK-NEXT: |      %to.addr.130 = &((%to.addr.130.out)[%len + -1 * smin(1, %len) + 1]);
+; CHECK-NEXT: |      %to.addr.130 = &((%to.addr.130.out)[%len]);
 ; CHECK-NEXT: |   }
 ; CHECK-NEXT: + END LOOP
 

@@ -21,7 +21,7 @@ define void @main() {
 ; CHECK-NEXT:     i32 [[VP_IV_NEXT]] = add i32 [[VP_IV]] i32 1
 ; CHECK-NEXT:     i1 [[VP_CMP1:%.*]] = icmp i32 [[VP_IV]] i32 [[VP_LANE]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[INTERMEDIATE_BB0:intermediate.bb[0-9]+]](i1 [[VP_CMP1]]), [[BB2:BB[0-9]+]](!i1 [[VP_CMP1]])
-; CHECK-NEXT:    PREDECESSORS(2): [[NEW_LOOP_LATCH0]] [[BB0]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB2]]:
 ; CHECK-NEXT:       i1 [[VP_BOTTOM_TEST:%.*]] = icmp i32 [[VP_IV_NEXT]] i32 128

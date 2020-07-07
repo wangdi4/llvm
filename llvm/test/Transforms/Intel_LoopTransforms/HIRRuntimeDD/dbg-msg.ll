@@ -18,7 +18,7 @@
 ; CHECK: BEGIN REGION { }
 ; CHECK:       %mv.test = &((%q)[zext.i32.i64(%n) + -1]) >=u &((%p)[0]);
 ; CHECK:       %mv.test1 = &((%p)[zext.i32.i64(%n) + -1]) >=u &((%q)[0]);
-; CHECK:       %mv.and = %mv.test  &&  %mv.test1;
+; CHECK:       %mv.and = %mv.test  &  %mv.test1;
 ; CHECK:       if (%mv.and == 0)
 ; CHECK:       {
 ; CHECK:          %call = @puts(&((@hir.str)[0][0]));

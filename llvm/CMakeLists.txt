@@ -83,6 +83,10 @@ set(LLVM_ENABLE_PROJECTS "" CACHE STRING
 if( LLVM_ENABLE_PROJECTS STREQUAL "all" )
   set( LLVM_ENABLE_PROJECTS ${LLVM_ALL_PROJECTS})
 endif()
+if ("flang" IN_LIST LLVM_ENABLE_PROJECTS AND NOT "mlir" IN_LIST LLVM_ENABLE_PROJECTS)
+  message(STATUS "Enabling MLIR as a dependency to flang")
+  list(APPEND LLVM_ENABLE_PROJECTS "mlir")
+endif()
 
 # LLVM_ENABLE_PROJECTS_USED is `ON` if the user has ever used the
 # `LLVM_ENABLE_PROJECTS` CMake cache variable.  This exists for
@@ -449,6 +453,10 @@ set(LLVM_ABI_BREAKING_CHECKS "WITH_ASSERTS" CACHE STRING
 
 option(LLVM_FORCE_USE_OLD_TOOLCHAIN
        "Set to ON to force using an old, unsupported host toolchain." OFF)
+
+set(LLVM_LOCAL_RPATH "" CACHE FILEPATH
+  "If set, an absolute path added as rpath on binaries that do not already contain an executable-relative rpath.")
+
 option(LLVM_TEMPORARILY_ALLOW_OLD_TOOLCHAIN
        "Set to ON to only warn when using a toolchain which is about to be deprecated, instead of emitting an error." OFF)
 option(LLVM_USE_INTEL_JITEVENTS
@@ -897,6 +905,11 @@ if(INTEL_CUSTOMIZATION)
       list(REMOVE_ITEM features_enabled_by_default
            "${LLVM_INTELFEATURE_PREFIX}_XISA")
 
+# INTEL_FEATURE_ISA_TDX
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_TDX)
+# end INTEL_FEATURE_ISA_TDX
+
 # INTEL_FEATURE_ISA_ULI
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_ULI)
@@ -952,10 +965,10 @@ if(INTEL_CUSTOMIZATION)
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_BF16_EVEX)
 # end INTEL_FEATURE_ISA_AMX_BF16_EVEX
 
-# INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+# INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
       list(APPEND features_enabled_by_default
-           ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_CONVERT_EVEX)
-# end INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_ELEMENT_EVEX)
+# end INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
 
 # INTEL_FEATURE_ISA_AMX_CONVERT
       list(APPEND features_enabled_by_default
@@ -992,25 +1005,45 @@ if(INTEL_CUSTOMIZATION)
            ${LLVM_INTELFEATURE_PREFIX}_ISA_KEYLOCKER)
 # end INTEL_FEATURE_ISA_KEYLOCKER
 
-# INTEL_FEATURE_CPU_GLC
+# INTEL_FEATURE_CPU_SPR
       list(APPEND features_enabled_by_default
-           ${LLVM_INTELFEATURE_PREFIX}_CPU_GLC)
-# end INTEL_FEATURE_CPU_GLC
+           ${LLVM_INTELFEATURE_PREFIX}_CPU_SPR)
+# end INTEL_FEATURE_CPU_SPR
+
+# INTEL_FEATURE_CPU_ADL
+list(APPEND features_enabled_by_default
+${LLVM_INTELFEATURE_PREFIX}_CPU_ADL)
+# end INTEL_FEATURE_CPU_ADL
+
+# INTEL_FEATURE_CPU_RKL
+list(APPEND features_enabled_by_default
+${LLVM_INTELFEATURE_PREFIX}_CPU_RKL)
+# end INTEL_FEATURE_CPU_RKL
 
 # INTEL_FEATURE_ISA_AVX_VNNI
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_VNNI)
 # end INTEL_FEATURE_ISA_AVX_VNNI
 
-# INTEL_FEATURE_ISA_AVX512_DOTPROD
+# INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
 list(APPEND features_enabled_by_default
-     ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_DOTPROD)
-# end INTEL_FEATURE_ISA_AVX512_DOTPROD
+     ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_DOTPROD_INT8)
+# end INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
 
-# INTEL_FEATURE_ISA_AVX_DOTPROD
+# INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
 list(APPEND features_enabled_by_default
-     ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_DOTPROD)
-# end INTEL_FEATURE_ISA_AVX_DOTPROD
+     ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_DOTPROD_PHPS)
+# end INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+
+# INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
+list(APPEND features_enabled_by_default
+     ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_DOTPROD_INT8)
+# end INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
+
+# INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
+list(APPEND features_enabled_by_default
+     ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_DOTPROD_PHPS)
+# end INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
 
 # INTEL_FEATURE_ISA_AVX512_CONVERT
     list(APPEND features_enabled_by_default
@@ -1031,6 +1064,11 @@ list(APPEND features_enabled_by_default
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_IFMA)
 # end INTEL_FEATURE_ISA_AVX_IFMA
+
+# INTEL_FEATURE_ISA_AVX_COMPRESS
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_COMPRESS)
+# end INTEL_FEATURE_ISA_AVX_COMPRESS
     endif()
 
     set(LLVM_INTEL_FEATURES "${features_enabled_by_default}"
@@ -1546,7 +1584,7 @@ if (INTEL_CUSTOMIZATION)
       # LLVM components
       clang lld llc llvm-link llvm-profdata llvm-spirv
       clang_rt.profile-x86_64 clang_rt.profile-i386 llvm-config
-      clang-resource-headers
+      clang-resource-headers llvm-cov
       # XDEV components
       xdev-dpcpp xdev-icx xdev-ifx xdev-fpp xdev-xfortcom xdev-fort-target-rtl
       xdev-compilervars xdev-il0-llvm-common-headers xdev-il0-llvm-common-lib
@@ -1561,23 +1599,28 @@ if (INTEL_CUSTOMIZATION)
 # end INTEL_FEATURE_CSA
 # end INTEL_CUSTOMIZATION
       # SYCL components
-      khronos-icd-loader opencl-aot
-    )
+      khronos-icd-loader opencl-aot aocl-ioc64
+      )
 
     if (WIN32)
       list(APPEND INTEL_DEPLOY_COMPONENTS_LIST
         # XDEV components
         xdev-xilib xdev-xilink
-      )
+        )
     else()
       list(APPEND INTEL_DEPLOY_COMPONENTS_LIST
         # LLVM components
-        llvm-ar llvm-ranlib LLVMgold
+        llvm-ar llvm-ranlib
         # XDEV components
         xdev-icpx
         # CXX components
         cxx cxxabi cxx-headers
-      )
+        )
+
+      # CMPLRLLVM-20054: icx-lto is a release name for LLVMgold plugin.
+      # Darwin uses libLTO.dylib (from tools/lto), so if/when we support
+      # Darwin, we will need to deploy it instead of icx-lto.
+      list(APPEND INTEL_DEPLOY_COMPONENTS_LIST icx-lto)
     endif()
 
     if (";${LLVM_INTEL_FEATURES};" MATCHES ";INTEL_INTERNAL_BUILD;")
@@ -1594,21 +1637,21 @@ if (INTEL_CUSTOMIZATION)
 
     set(INTEL_OPENCL_DEPLOY_COMPONENTS_LIST
       # OpenCL components
-      ocl-common_clang ocl-builtins ocl-builtins-shared
-      ocl-config ocl-cl_logger ocl-OpenCL
+      ocl-common_clang ocl-common_clang_emu ocl-builtins ocl-builtins-shared
+      ocl-config ocl-cl_logger ocl-cl_logger_emu ocl-OpenCL
       ocl-svml ocl-gdb-plugin ocl-eyeq-builtins
-      ocl-clang_compiler ocl-clang_compiler32 ocl-clang_compiler64
-      ocl-intelocl ocl-intelocl32 ocl-intelocl64
-      ocl-cpu_device ocl-cpu_device32 ocl-cpu_device64
-      ocl-task_executor ocl-task_executor32 ocl-task_executor64
-      ocl-OclCpuBackEnd ocl-OclCpuBackEnd32 ocl-OclCpuBackEnd64
-    )
+      ocl-clang_compiler ocl-clang_compiler_emu ocl-clang_compiler32_emu ocl-clang_compiler32 ocl-clang_compiler64_emu ocl-clang_compiler64
+      ocl-intelocl ocl-intelocl_emu ocl-intelocl32_emu ocl-intelocl32 ocl-intelocl64_emu ocl-intelocl64
+      ocl-cpu_device ocl-cpu_device_emu ocl-cpu_device32_emu ocl-cpu_device32 ocl-cpu_device64_emu ocl-cpu_device64
+      ocl-task_executor ocl-task_executor_emu ocl-task_executor32_emu  ocl-task_executor32 ocl-task_executor64_emu  ocl-task_executor64
+      ocl-OclCpuBackEnd ocl-OclCpuBackEnd_emu ocl-OclCpuBackEnd32 ocl-OclCpuBackEnd32_emu ocl-OclCpuBackEnd64_emu ocl-OclCpuBackEnd64
+      )
 
     if (WIN32)
       list(APPEND INTEL_OPENCL_DEPLOY_COMPONENTS_LIST
         # OpenCL components
         ocl-OclCpuDebugging9
-      )
+        )
     endif(WIN32)
 
     if (INTEL_OPENCL_STANDALONE_PRODUCT)
@@ -1619,7 +1662,7 @@ if (INTEL_CUSTOMIZATION)
 
     list(APPEND INTEL_DEPLOY_COMPONENTS_LIST
       ${INTEL_OPENCL_DEPLOY_COMPONENTS_LIST}
-    )
+      )
 
     # Add SYCL deploy components defined by SYCL project.
     list(APPEND INTEL_DEPLOY_COMPONENTS_LIST ${SYCL_DEPLOY_COMPONENTS})
@@ -1669,9 +1712,10 @@ if (INTEL_CUSTOMIZATION)
 
       set (manifest ${CMAKE_CURRENT_BINARY_DIR}/install_manifest_${comp}.txt)
       add_custom_command(OUTPUT ${manifest}
-                         COMMAND "${CMAKE_COMMAND}"
-                                 "-DCMAKE_INSTALL_COMPONENT=${comp}"
-                                 -P "${CMAKE_BINARY_DIR}/cmake_install.cmake"
+                         COMMAND ${CMAKE_COMMAND}
+                                 -DCMAKE_INSTALL_COMPONENT=${comp}
+                                 -DCMAKE_INSTALL_CONFIG_NAME=$<CONFIG>
+                                 -P ${CMAKE_BINARY_DIR}/cmake_install.cmake
                          # If ${comp} component does not exist, cmake
                          # will just open and immediately close the manifest
                          # file. This will not update the manifest file's ctime,
@@ -1707,8 +1751,9 @@ if (INTEL_CUSTOMIZATION)
     # no specific components was given so do full installation
     set (manifest ${CMAKE_CURRENT_BINARY_DIR}/install_manifest.txt)
     add_custom_command(OUTPUT ${manifest}
-                       COMMAND "${CMAKE_COMMAND}"
-                               -P "${CMAKE_BINARY_DIR}/cmake_install.cmake"
+                       COMMAND ${CMAKE_COMMAND}
+                               -DCMAKE_INSTALL_CONFIG_NAME=$<CONFIG>
+                               -P ${CMAKE_BINARY_DIR}/cmake_install.cmake
                        DEPENDS  __force_it
                        COMMENT "Performing deploy operation..."
                        USES_TERMINAL)

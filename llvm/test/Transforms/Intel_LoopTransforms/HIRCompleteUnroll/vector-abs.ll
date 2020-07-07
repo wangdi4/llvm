@@ -1,4 +1,5 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -hir-post-vec-complete-unroll -print-after=VPlanDriverHIR -print-after=hir-post-vec-complete-unroll 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -enable-vp-value-codegen-hir=0 -hir-post-vec-complete-unroll -print-after=VPlanDriverHIR -print-after=hir-post-vec-complete-unroll -vplan-force-vf=16 -disable-output 2>&1 < %s | FileCheck %s --check-prefixes=CHECK,UNR-CHECK
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -enable-vp-value-codegen-hir -hir-post-vec-complete-unroll -print-after=VPlanDriverHIR -print-after=hir-post-vec-complete-unroll -vplan-force-vf=16 -disable-output 2>&1 < %s | FileCheck %s --check-prefixes=VPCHECK,UNR-CHECK
 
 ; Verify that we are able to completely unroll the i1 loop with vector abs() idiom after vectorizer unrolls the i2 loop.
 
@@ -23,9 +24,19 @@
 ; CHECK: |   %red.var = %.vec4 + %red.var;
 ; CHECK: + END LOOP
 
-; CHECK: Function: x264_pixel_sad_16x16
+; Check that i2 loop is vectorized and completely unrolled after vectorization.
+; VPCHECK: + DO i1 = 0, 15, 1   <DO_LOOP>
+; VPCHECK: |   %.vec = (<16 x i8>*)(%0)[sext.i32.i64(%1) * i1];
+; VPCHECK: |   %.vec2 = (<16 x i8>*)(%2)[sext.i32.i64(%3) * i1];
+; VPCHECK: |   %.vec3 = %.vec2  *  -1;
+; VPCHECK: |   %.vec4 = %.vec  +  %.vec3;
+; VPCHECK: |   %.vec5 = (%.vec4 < 0) ? -1 * %.vec4 : %.vec4;
+; VPCHECK: |   %red.var = %.vec5  +  %red.var;
+; VPCHECK: + END LOOP
 
-; CHECK-NOT: DO i1
+; UNR-CHECK: Function: x264_pixel_sad_16x16
+
+; UNR-CHECK-NOT: DO i1
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

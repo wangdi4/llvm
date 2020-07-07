@@ -1,4 +1,4 @@
-//RUN: %clang_cc1 -fhls -emit-llvm -o - %s | FileCheck %s
+//RUN: %clang_cc1 -fhls -O0 -triple x86_64-unknown-linux-gnu -emit-llvm -o - %s | FileCheck %s
 
 #define SIZE 10
 unsigned char ucharVar[SIZE];
@@ -27,10 +27,10 @@ for (int i = 0; i < 10; ++i) {}
 // CHECK: define{{.*}}foo2
 void foo2()
 {
-//CHECK: [[TOK0:%[0-9]+]] = call token{{.*}}region.entry()
-//CHECK-SAME: [ "DIR.PRAGMA.IVDEP"(),
-//CHECK-SAME: "QUAL.PRAGMA.ARRAY"([10 x i8]* {{.*}}ucharVar{{.*}}, i32 -1) ]
-//CHECK: region.exit(token [[TOK0]]) [ "DIR.PRAGMA.END.IVDEP"() ]
+//CHECK: alloca i32, align 4
+//CHECK: store i32 0, i32* %i, align 4
+//CHECK: load i32, i32* %i, align 4
+//CHECK: br{{.*}}!llvm.loop [[MD6:![0-9]+]]
 #pragma ivdep array(ucharVar)
 for (int i = 0; i < 10; ++i) {}
 }
@@ -39,10 +39,10 @@ for (int i = 0; i < 10; ++i) {}
 // CHECK: define{{.*}}foo2a
 void foo2a()
 {
-//CHECK: [[TOK0:%[0-9]+]] = call token{{.*}}region.entry()
-//CHECK-SAME: [ "DIR.PRAGMA.IVDEP"(),
-//CHECK-SAME: "QUAL.PRAGMA.ARRAY"([10 x i8]* {{.*}}ucharVar{{.*}}, i32 4) ]
-//CHECK: region.exit(token [[TOK0]]) [ "DIR.PRAGMA.END.IVDEP"() ]
+//CHECK: alloca i32, align 4
+//CHECK: store i32 0, i32* %i, align 4
+//CHECK: load i32, i32* %i, align 4
+//CHECK: br{{.*}}!llvm.loop [[MD9:![0-9]+]]
 #pragma ivdep array(ucharVar) safelen(4)
 for (int i = 0; i < 10; ++i) {}
 }
@@ -51,11 +51,10 @@ for (int i = 0; i < 10; ++i) {}
 // CHECK: define{{.*}}foo3
 void foo3()
 {
-//CHECK: [[TOK0:%[0-9]+]] = call token{{.*}}region.entry()
-//CHECK-SAME: [ "DIR.PRAGMA.IVDEP"(),
-//CHECK-SAME: "QUAL.PRAGMA.ARRAY"([10 x %struct.A]* {{.*}}structVar
-//CHECK-SAME: , i32 8, [10 x i8]* {{.*}}ucharVar{{.*}}, i32 8) ]
-//CHECK: region.exit(token [[TOK0]]) [ "DIR.PRAGMA.END.IVDEP"() ]
+//CHECK: alloca i32, align 4
+//CHECK: store i32 0, i32* %i, align 4
+//CHECK: load i32, i32* %i, align 4
+//CHECK: br{{.*}}!llvm.loop [[MD12:![0-9]+]]
 #pragma ivdep array(structVar) safelen(8)
 #pragma ivdep array(ucharVar) safelen(8)
 for (int i = 0; i < 10; ++i) {}
@@ -65,11 +64,10 @@ for (int i = 0; i < 10; ++i) {}
 // CHECK: define{{.*}}foo4
 void foo4()
 {
-//CHECK: [[TOK0:%[0-9]+]] = call token{{.*}}region.entry()
-//CHECK-SAME: [ "DIR.PRAGMA.IVDEP"(),
-//CHECK-SAME: "QUAL.PRAGMA.ARRAY"([10 x %struct.A]* {{.*}}structVar
-//CHECK-SAME: , i32 8, [10 x i8]* {{.*}}ucharVar{{.*}}, i32 4) ]
-//CHECK: region.exit(token [[TOK0]]) [ "DIR.PRAGMA.END.IVDEP"() ]
+//CHECK: alloca i32, align 4
+//CHECK: store i32 0, i32* %i, align 4
+//CHECK: load i32, i32* %i, align 4
+//CHECK: br{{.*}}!llvm.loop [[MD16:![0-9]+]]
 #pragma ivdep array(structVar) safelen(8)
 #pragma ivdep array(ucharVar) safelen(4)
 for (int i = 0; i < 10; ++i) {}
@@ -79,11 +77,10 @@ for (int i = 0; i < 10; ++i) {}
 // CHECK: define{{.*}}foo5
 void foo5()
 {
-//CHECK: [[TOK0:%[0-9]+]] = call token{{.*}}region.entry()
-//CHECK-SAME: [ "DIR.PRAGMA.IVDEP"(),
-//CHECK-SAME: "QUAL.PRAGMA.ARRAY"([10 x %struct.A]* {{.*}}structVar
-//CHECK-SAME: , i32 8, [10 x i8]* {{.*}}ucharVar{{.*}}, i32 -1) ]
-//CHECK: region.exit(token [[TOK0]]) [ "DIR.PRAGMA.END.IVDEP"() ]
+//CHECK: alloca i32, align 4
+//CHECK: store i32 0, i32* %i, align 4
+//CHECK: load i32, i32* %i, align 4
+//CHECK: br{{.*}}!llvm.loop [[MD21:![0-9]+]]
 #pragma ivdep array(structVar) safelen(8)
 #pragma ivdep array(ucharVar)
 for (int i = 0; i < 10; ++i) {}
@@ -93,11 +90,10 @@ for (int i = 0; i < 10; ++i) {}
 // CHECK: define{{.*}}foo6
 void foo6()
 {
-//CHECK: [[TOK0:%[0-9]+]] = call token{{.*}}region.entry()
-//CHECK-SAME: [ "DIR.PRAGMA.IVDEP"(),
-//CHECK-SAME: "QUAL.PRAGMA.ARRAY"([10 x i8]* {{.*}}ucharVar{{.*}}, i32 4) ]
-//CHECK: br{{.*}}!llvm.loop [[MD6:![0-9]+]]
-//CHECK: region.exit(token [[TOK0]]) [ "DIR.PRAGMA.END.IVDEP"() ]
+//CHECK: alloca i32, align 4
+//CHECK: store i32 0, i32* %i, align 4
+//CHECK: load i32, i32* %i, align 4
+//CHECK: br{{.*}}!llvm.loop [[MD26:![0-9]+]]
 #pragma ivdep array(ucharVar) safelen(4)
 #pragma ivdep
 for (int i = 0; i < 10; ++i) {}
@@ -107,12 +103,10 @@ for (int i = 0; i < 10; ++i) {}
 // CHECK: define{{.*}}foo7
 void foo7()
 {
-//CHECK: [[TOK0:%[0-9]+]] = call token{{.*}}region.entry()
-//CHECK-SAME: [ "DIR.PRAGMA.IVDEP"(),
-//CHECK-SAME: "QUAL.PRAGMA.ARRAY"([10 x i8]* getelementptr
-//CHECK-SAME: structVar2{{.*}}, i32 0, i32 2), i32 8,
-//CHECK-SAME: [10 x i8]* {{.*}}ucharVar{{.*}}, i32 4) ]
-//CHECK: region.exit(token [[TOK0]]) [ "DIR.PRAGMA.END.IVDEP"() ]
+//CHECK: alloca i32, align 4
+//CHECK: store i32 0, i32* %i, align 4
+//CHECK: load i32, i32* %i, align 4
+//CHECK: br{{.*}}!llvm.loop [[MD27:![0-9]+]]
 #pragma ivdep array(structVar2.tmp) safelen(8)
 #pragma ivdep array(ucharVar) safelen(4)
 for (int i = 0; i < 10; ++i) {}
@@ -122,19 +116,84 @@ for (int i = 0; i < 10; ++i) {}
 // CHECK: define{{.*}}foo8
 void foo8()
 {
-//CHECK: [[TOK0:%[0-9]+]] = call token{{.*}}region.entry()
-//CHECK-SAME: [ "DIR.PRAGMA.IVDEP"(),
-//CHECK-SAME: "QUAL.PRAGMA.ARRAY"([10 x i8]* {{.*}}ucharVar{{.*}}, i32 8) ]
-//CHECK: br{{.*}}!llvm.loop [[MD7:![0-9]+]]
-//CHECK: region.exit(token [[TOK0]]) [ "DIR.PRAGMA.END.IVDEP"() ]
+//CHECK: alloca i32, align 4
+//CHECK: store i32 0, i32* %i, align 4
+//CHECK: load i32, i32* %i, align 4
+//CHECK: br{{.*}}!llvm.loop [[MD32:![0-9]+]]
 #pragma ivdep array(ucharVar) safelen(8)
 #pragma ivdep safelen(4)
 for (int i = 0; i < 10; ++i) {}
+}
+
+// An array with no safelen on while(1) loop
+// CHECK: define{{.*}}foo9
+void foo9(long* buffer1)
+{
+//CHECK: buffer1.addr = alloca i64*, align 8
+//CHECK: store i64* %buffer1, i64** %buffer1.addr, align 8
+//CHECK: br label %while.body, !llvm.loop [[MD35:![0-9]+]]
+#pragma ivdep array(buffer1)
+while (1) { }
+}
+
+// Pass template parameter on pragma ivdep safelen
+// CHECK: define{{.*}}do_stuff
+template<int LEN>
+int do_stuff(int N) {
+  int temp = 0;
+  //CHECK: %N.addr = alloca i32, align 4
+  //CHECK: %temp = alloca i32, align 4
+  //CHECK: alloca i32, align 4
+  //CHECK: store i32 %N, i32* %N.addr, align 4
+  //CHECK: store i32 0, i32* %temp, align 4
+  //CHECK: store i32 0, i32* %i, align 4
+  //CHECK: br{{.*}}!llvm.loop [[MD38:![0-9]+]]
+  #pragma ivdep safelen(LEN)
+  for (int i = 0; i < N; ++i) {
+    temp += i;
+  }
+  return temp;
+}
+
+int dut() {
+  return do_stuff<5>(10);
 }
 
 //CHECK: [[MD2]] = distinct !{[[MD2]], [[MD3:![0-9]+]]}
 //CHECK: [[MD3]] = !{!"llvm.loop.ivdep.enable"}
 //CHECK: [[MD4]] = distinct !{[[MD4]], [[MD5:![0-9]+]]}
 //CHECK: [[MD5]] = !{!"llvm.loop.ivdep.safelen", i32 4}
-//CHECK: [[MD6]] = distinct !{[[MD6]], [[MD3:![0-9]+]]}
-//CHECK: [[MD7]] = distinct !{[[MD7]], [[MD5]]}
+//CHECK: [[MD6]] = distinct !{[[MD6]], [[MD7:![0-9]+]]}
+//CHECK: [[MD7]] = !{!"llvm.loop.parallel_access_indices", [[MD8:![0-9]+]]}
+//CHECK: [[MD8]] = distinct !{}
+//CHECK: [[MD9]] = distinct !{[[MD9]], [[MD10:![0-9]+]]}
+//CHECK: [[MD10]] = !{!"llvm.loop.parallel_access_indices", [[MD11:![0-9]+]], i32 4}
+//CHECK: [[MD11]] = distinct !{}
+//CHECK: [[MD12]] = distinct !{[[MD12]], [[MD13:![0-9]+]]}
+//CHECK: [[MD13]] = !{!"llvm.loop.parallel_access_indices", [[MD14:![0-9]+]], [[MD15:![0-9]+]], i32 8}
+//CHECK: [[MD14]] = distinct !{}
+//CHECK: [[MD15]] = distinct !{}
+//CHECK: [[MD16]] = distinct !{[[MD16]], [[MD17:![0-9]+]], [[MD19:![0-9]+]]}
+//CHECK: [[MD17]] = !{!"llvm.loop.parallel_access_indices", [[MD18:![0-9]+]], i32 8}
+//CHECK: [[MD18]] = distinct !{}
+//CHECK: [[MD19]] = !{!"llvm.loop.parallel_access_indices", [[MD20:![0-9]+]], i32 4}
+//CHECK: [[MD20]] = distinct !{}
+//CHECK: [[MD21]] = distinct !{[[MD21]], [[MD22:![0-9]+]], [[MD24:![0-9]+]]}
+//CHECK: [[MD22]] = !{!"llvm.loop.parallel_access_indices", [[MD23:![0-9]+]], i32 8}
+//CHECK: [[MD23]] = distinct !{}
+//CHECK: [[MD24]] = !{!"llvm.loop.parallel_access_indices", [[MD25:![0-9]+]]}
+//CHECK: [[MD25]] = distinct !{}
+//CHECK: [[MD26]] = distinct !{[[MD26]], [[MD3]]}
+//CHECK: [[MD27]] = distinct !{[[MD27]], [[MD28:![0-9]+]], [[MD30:![0-9]+]]}
+//CHECK: [[MD28]] = !{!"llvm.loop.parallel_access_indices", [[MD29:![0-9]+]], i32 8}
+//CHECK: [[MD29]] = distinct !{}
+//CHECK: [[MD30]] = !{!"llvm.loop.parallel_access_indices", [[MD31:![0-9]+]], i32 4}
+//CHECK: [[MD31]] = distinct !{}
+//CHECK: [[MD32]] = distinct !{[[MD32]], [[MD5]], [[MD33:![0-9]+]]}
+//CHECK: [[MD33]] = !{!"llvm.loop.parallel_access_indices", [[MD34:![0-9]+]], i32 8}
+//CHECK: [[MD34]] = distinct !{}
+//CHECK: [[MD35]] = distinct !{[[MD35]], [[MD36:![0-9]+]]}
+//CHECK: [[MD36]] = !{!"llvm.loop.parallel_access_indices", [[MD37:![0-9]+]]}
+//CHECK: [[MD37]]  = distinct !{}
+//CHECK: [[MD38]] = distinct !{[[MD38]], [[MD39:![0-9]+]]}
+//CHECK: [[MD39]] = !{!"llvm.loop.ivdep.safelen", i32 5}

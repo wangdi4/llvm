@@ -34,7 +34,7 @@ define void @test_uniform_edge_to_divergent_block(i32* %a, i32 %b) local_unnamed
 ; CHECK-NEXT:    [[BB3]]:
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_BB1_VARYING_PHI_BB4:%.*]] = phi  [ i1 false, [[BB1]] ],  [ i1 [[VP_BB1_VARYING]], [[BB2]] ]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_BB1_VARYING_NOT_PHI_BB4:%.*]] = phi  [ i1 false, [[BB1]] ],  [ i1 [[VP_BB1_VARYING_NOT]], [[BB2]] ]
-; CHECK-NEXT:     [DA: Div] i1 [[VP0:%.*]] = or i1 [[VP_BB1_VARYING_NOT_PHI_BB4]] i1 [[VP_BB0_UNIFORM_NOT]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP0:%.*]] = or i1 [[VP_BB0_UNIFORM_NOT]] i1 [[VP_BB1_VARYING_NOT_PHI_BB4]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP0]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_BB2_ADD:%.*]] = add i32 [[VP_LD]] i32 2
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
@@ -145,7 +145,7 @@ define void @test_two_linearized_pathes_merge(i32* %a, i32 %b) local_unnamed_add
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB6]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB8]]:
-; CHECK-NEXT:       [DA: Div] i1 [[VP2:%.*]] = or i1 [[VP_BB8_BR_VP_BB3_VARYING_NOT]] i1 [[VP_BB1_VARYING_NOT]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP2:%.*]] = or i1 [[VP_BB1_VARYING_NOT]] i1 [[VP_BB8_BR_VP_BB3_VARYING_NOT]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP2]]
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_BB4_ADD:%.*]] = add i32 [[VP_LD]] i32 4
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB5]]
@@ -153,10 +153,10 @@ define void @test_two_linearized_pathes_merge(i32* %a, i32 %b) local_unnamed_add
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]:
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_BB2_VARYING_PHI_BB5:%.*]] = phi  [ i1 false, [[BB8]] ],  [ i1 [[VP_BB2_VARYING]], [[BB4]] ]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB1_VARYING_NOT_PHI_BB5:%.*]] = phi  [ i1 [[VP_BB1_VARYING_NOT]], [[BB8]] ],  [ i1 false, [[BB4]] ]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_BB8_BR_VP_BB3_VARYING_NOT_PHI_BB5:%.*]] = phi  [ i1 [[VP_BB8_BR_VP_BB3_VARYING_NOT]], [[BB8]] ],  [ i1 false, [[BB4]] ]
-; CHECK-NEXT:     [DA: Div] i1 [[VP4:%.*]] = or i1 [[VP_BB2_VARYING_PHI_BB5]] i1 [[VP_BB8_BR_VP_BB3_VARYING_NOT_PHI_BB5]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP5:%.*]] = or i1 [[VP_BB1_VARYING_NOT_PHI_BB5]] i1 [[VP4]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB1_VARYING_NOT_PHI_BB5:%.*]] = phi  [ i1 [[VP_BB1_VARYING_NOT]], [[BB8]] ],  [ i1 false, [[BB4]] ]
+; CHECK-NEXT:     [DA: Div] i1 [[VP4:%.*]] = or i1 [[VP_BB2_VARYING_PHI_BB5]] i1 [[VP_BB1_VARYING_NOT_PHI_BB5]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP5:%.*]] = or i1 [[VP_BB8_BR_VP_BB3_VARYING_NOT_PHI_BB5]] i1 [[VP4]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP6:%.*]] = block-predicate i1 [[VP5]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_BB5_ADD:%.*]] = add i32 [[VP_LD]] i32 5
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB9:BB[0-9]+]]
@@ -476,58 +476,47 @@ define dso_local void @test_divergent_loop_with_double_top_test(i32 %N, i32 *%a,
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]:
-; CHECK-NEXT:     [DA: Div] i32 [[VP_IV_LIVE_OUT_PREV:%.*]] = phi  [ i32 [[VP_IV_LIVE_OUT_BLEND:%.*]], [[BB5:BB[0-9]+]] ],  [ i32 undef, [[BB3]] ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_IV_LIVE_OUT_PREV:%.*]] = phi  [ i32 undef, [[BB3]] ],  [ i32 [[VP_IV_LIVE_OUT_BLEND:%.*]], [[BB5:BB[0-9]+]] ]
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_IV:%.*]] = phi  [ i32 [[VP_IV_NEXT:%.*]], [[BB5]] ],  [ i32 0, [[BB3]] ]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 [[VP_SECOND_TEST_NOT_1]], [[BB3]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB5]] ]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP2:%.*]] = block-predicate i1 [[VP_BB2_BR_VP_SECOND_TEST_NOT]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB6:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(2): [[BB5]] [[BB3]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB3]] [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]:
-; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP_BB2_BR_VP_SECOND_TEST_NOT]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB5_BR_VP_LOOP_MASK:%.*]] = and i1 [[VP_BB2_BR_VP_SECOND_TEST_NOT]] i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB7:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]:
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB7_BR_VP_LOOP_MASK:%.*]] = and i1 [[VP_BB2_BR_VP_SECOND_TEST_NOT]] i1 [[VP_LOOP_MASK]]
-; CHECK-NEXT:    SUCCESSORS(1):[[BB8:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB6]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB8]]:
-; CHECK-NEXT:     [DA: Div] i1 [[VP4:%.*]] = block-predicate i1 [[VP_BB7_BR_VP_LOOP_MASK]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP_BB5_BR_VP_LOOP_MASK]]
 ; CHECK-NEXT:     [DA: Uni] i32* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i32 [[VP_IV]]
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_LD:%.*]] = load i32* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_SOME_CMP:%.*]] = icmp i32 [[VP_LD]] i32 42
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_IV_NEXT]] = add i32 [[VP_IV]] i32 1
-; CHECK-NEXT:    SUCCESSORS(1):[[BB9:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB7]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB9]]:
-; CHECK-NEXT:     [DA: Div] i1 [[VP5:%.*]] = block-predicate i1 [[VP_BB2_BR_VP_SECOND_TEST_NOT]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_EXITCOND:%.*]] = icmp i32 [[VP_IV_NEXT]] i32 [[VP_LANE]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_EXITCOND_NOT:%.*]] = not i1 [[VP_EXITCOND]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_EXITCOND_NOT]] i1 [[VP_LOOP_MASK]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_IV_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i32 [[VP_IV]] i32 [[VP_IV_LIVE_OUT_PREV]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP6:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB5]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB8]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB6]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]:
-; CHECK-NEXT:     [DA: Div] i1 [[VP7:%.*]] = block-predicate i1 [[VP_BB2_BR_VP_SECOND_TEST_NOT]]
-; CHECK-NEXT:     Condition([[BB9]]): [DA: Uni] i1 [[VP6]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB10:BB[0-9]+]](i1 [[VP6]]), [[BB4]](!i1 [[VP6]])
-; CHECK-NEXT:    PREDECESSORS(1): [[BB9]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP4:%.*]] = block-predicate i1 [[VP_BB2_BR_VP_SECOND_TEST_NOT]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_EXITCOND_NOT:%.*]] = not i1 [[VP_EXITCOND]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_EXITCOND_NOT]] i1 [[VP_LOOP_MASK]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP5:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_IV_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i32 [[VP_IV]] i32 [[VP_IV_LIVE_OUT_PREV]]
+; CHECK-NEXT:    SUCCESSORS(2):[[BB8:BB[0-9]+]](i1 [[VP5]]), [[BB4]](!i1 [[VP5]])
+; CHECK-NEXT:    PREDECESSORS(1): [[BB7]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB10]]:
+; CHECK-NEXT:    [[BB8]]:
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI_USE:%.*]] = phi  [ i32 [[VP_IV_LIVE_OUT_BLEND]], [[BB5]] ]
-; CHECK-NEXT:     [DA: Div] i1 [[VP8:%.*]] = block-predicate i1 [[VP_BB2_BR_VP_SECOND_TEST_NOT]]
-; CHECK-NEXT:    SUCCESSORS(1):[[BB11:BB[0-9]+]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP6:%.*]] = block-predicate i1 [[VP_BB2_BR_VP_SECOND_TEST_NOT]]
+; CHECK-NEXT:    SUCCESSORS(1):[[BB9:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB11]]:
-; CHECK-NEXT:     [DA: Div] void [[VP9:%.*]] = ret
+; CHECK-NEXT:    [[BB9]]:
+; CHECK-NEXT:     [DA: Div] void [[VP7:%.*]] = ret
 ; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB10]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB8]]
 ;
 entry:
 ;       entry
@@ -864,7 +853,7 @@ define void @test_triple_pred_in_single_linearized_flow(i32* %a, i32 %b) local_u
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]:
-; CHECK-NEXT:     [DA: Div] i1 [[VP2:%.*]] = or i1 [[VP_BB3_BR_VP_BB1_VARYING]] i1 [[VP_BB0_VARYING_NOT]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP2:%.*]] = or i1 [[VP_BB0_VARYING_NOT]] i1 [[VP_BB3_BR_VP_BB1_VARYING]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP2]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_BB2_ADD:%.*]] = add i32 [[VP_LD]] i32 2
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB6:BB[0-9]+]]
@@ -1244,14 +1233,14 @@ define void @test_blend_splitting_for_early_path_join(i32* %a, i32 %b) local_unn
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB8]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB6]]:
-; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI_PHI_BB7:%.*]] = phi  [ i32 [[VP_PHI_BLEND_BB8]], [[BLEND_BB1]] ],  [ i32 [[VP_PHI_BLEND_BB6]], [[BLEND_BB0]] ]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB6_BR_VP_BB3_VARYING_NOT_PHI_BB7:%.*]] = phi  [ i1 false, [[BB7]] ],  [ i1 [[VP_BB6_BR_VP_BB3_VARYING_NOT]], [[BB4]] ]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_BB8_BR_VP_BB4_VARYING_NOT_PHI_BB7:%.*]] = phi  [ i1 [[VP_BB8_BR_VP_BB4_VARYING_NOT]], [[BB7]] ],  [ i1 false, [[BB4]] ]
-; CHECK-NEXT:     [DA: Div] i1 [[VP2:%.*]] = or i1 [[VP_BB8_BR_VP_BB4_VARYING_NOT_PHI_BB7]] i1 [[VP_BB6_BR_VP_BB3_VARYING_NOT_PHI_BB7]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI_PHI_BB7:%.*]] = phi  [ i32 [[VP_PHI_BLEND_BB6]], [[BLEND_BB0]] ],  [ i32 [[VP_PHI_BLEND_BB8]], [[BLEND_BB1]] ]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB8_BR_VP_BB4_VARYING_NOT_PHI_BB7:%.*]] = phi  [ i1 false, [[BLEND_BB0]] ],  [ i1 [[VP_BB8_BR_VP_BB4_VARYING_NOT]], [[BLEND_BB1]] ]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_BB6_BR_VP_BB3_VARYING_NOT_PHI_BB7:%.*]] = phi  [ i1 [[VP_BB6_BR_VP_BB3_VARYING_NOT]], [[BLEND_BB0]] ],  [ i1 false, [[BLEND_BB1]] ]
+; CHECK-NEXT:     [DA: Div] i1 [[VP2:%.*]] = or i1 [[VP_BB6_BR_VP_BB3_VARYING_NOT_PHI_BB7]] i1 [[VP_BB8_BR_VP_BB4_VARYING_NOT_PHI_BB7]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP3:%.*]] = block-predicate i1 [[VP2]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_BB5_ADD:%.*]] = add i32 [[VP_LD]] i32 5
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB9:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(2): [[BLEND_BB1]] [[BLEND_BB0]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BLEND_BB0]] [[BLEND_BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB9]]:
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI_BLEND_BB7:%.*]] = blend [ i32 [[VP_BB5_ADD]], i1 [[VP2]] ], [ i32 [[VP_PHI_PHI_BB7]], i1 [[VP2]] ]
@@ -1361,7 +1350,7 @@ define void @test_no_blend_in_uniform_control_flow(i32 %b) {
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_IV:%.*]] = phi  [ i32 0, [[BB0]] ],  [ i32 [[VP_IV_NEXT:%.*]], [[BB2:BB[0-9]+]] ]
 ; CHECK-NEXT:     Condition([[BB0]]): [DA: Uni] i1 [[VP_UNIFORM]] = icmp i32 [[B0]] i32 42
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB3:BB[0-9]+]](i1 [[VP_UNIFORM]]), [[BB2]](!i1 [[VP_UNIFORM]])
-; CHECK-NEXT:    PREDECESSORS(2): [[BB2]] [[BB0]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]:
 ; CHECK-NEXT:       <Empty Block>
@@ -1379,7 +1368,7 @@ define void @test_no_blend_in_uniform_control_flow(i32 %b) {
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_IV_NEXT]] = add i32 [[VP_IV]] i32 1
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_COND:%.*]] = icmp i32 [[VP_IV_NEXT]] i32 42
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB5:BB[0-9]+]](i1 [[VP_COND]]), [[BB1]](!i1 [[VP_COND]])
-; CHECK-NEXT:    PREDECESSORS(3): [[BB4]] [[BB3]] [[BB1]]
+; CHECK-NEXT:    PREDECESSORS(3): [[BB1]] [[BB3]] [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]:
 ; CHECK-NEXT:     [DA: Div] void [[VP0:%.*]] = ret

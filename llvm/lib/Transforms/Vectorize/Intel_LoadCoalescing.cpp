@@ -24,6 +24,7 @@
 #include "llvm/Transforms/Vectorize/Intel_LoadCoalescing.h"
 #include "Intel_VPlan/IntelVPlanUtils.h"
 #include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/LoopAccessAnalysis.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -98,7 +99,7 @@ bool MemInstGroup::isCoalescingLoadsProfitable(
          "The group should exclusively hold LoadInst's.");
   LoadInst *LI = cast<LoadInst>(getHead());
   VectorType *GroupTy =
-      VectorType::get(getScalarType(), getTotalScalarElements());
+      FixedVectorType::get(getScalarType(), getTotalScalarElements());
 
   size_t ShuffleCost = 0;
   size_t CoalescedLoadScalarOffset = 0;
@@ -122,16 +123,14 @@ bool MemInstGroup::isCoalescingLoadsProfitable(
           Instruction::ExtractElement, GroupTy, CoalescedLoadScalarOffset);
 
     CostBeforeCoalescing += TTI->getMemoryOpCost(
-        MemberI->getOpcode(), GroupMemType, MaybeAlign(MemberI->getAlignment()),
+        MemberI->getOpcode(), GroupMemType, MemberI->getAlign(),
         MemberI->getPointerAddressSpace());
 
     CoalescedLoadScalarOffset += getNumElementsSafe(GroupMemType);
   }
 
-  int GroupLoadCost =
-      TTI->getMemoryOpCost(LI->getOpcode(), GroupTy,
-                           MaybeAlign(LI->getAlignment()),
-                           LI->getPointerAddressSpace());
+  int GroupLoadCost = TTI->getMemoryOpCost(
+      LI->getOpcode(), GroupTy, LI->getAlign(), LI->getPointerAddressSpace());
   int CostAfterCoalescing = GroupLoadCost + ShuffleCost;
   int ProfitabilityThreshold = CostAfterCoalescing - CostBeforeCoalescing;
   bool IsProfitable =

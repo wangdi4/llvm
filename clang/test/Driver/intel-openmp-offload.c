@@ -174,3 +174,8 @@
 // FOFFLOAD_STATIC_LIB_SRC: 18: backend, {17}, assembler, (host-openmp)
 // FOFFLOAD_STATIC_LIB_SRC: 19: assembler, {18}, object, (host-openmp)
 // FOFFLOAD_STATIC_LIB_SRC: 20: linker, {0, 5, 19}, image, (host-openmp)
+
+/// check diagnostic when -fiopenmp isn't used
+// RUN: %clangxx -target x86_64-unknown-linux-gnu -fopenmp -fopenmp-targets=spir64 %s -### 2>&1 \
+// RUN:  | FileCheck %s -check-prefix=FOPENMP_ERROR
+// FOPENMP_ERROR: The use of '-fopenmp-targets=spir64' requires '-fiopenmp'

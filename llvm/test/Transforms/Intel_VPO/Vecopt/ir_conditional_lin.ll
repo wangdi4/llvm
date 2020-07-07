@@ -3,53 +3,59 @@
 ; Test for that induction which has updates under conditions is processed correctly
 ; (i.e. induction init/final are processed correctly).
 ; REQUIRES: asserts
-; RUN: opt -disable-output -VPlanDriver -vplan-force-vf=2 -vplan-entities-dump -vplan-print-after-vpentity-instrs < %s 2>&1 | FileCheck %s
+; RUN: opt -disable-output -VPlanDriver -vplan-force-vf=2 -vplan-entities-dump -vplan-print-after-vpentity-instrs -vplan-print-terminator-inst < %s 2>&1 | FileCheck %s
 ;
 define void @foo2(i64 %N) local_unnamed_addr #0 {
-; CHECK:  Induction list
+; CHECK-LABEL:  VPlan after insertion VPEntities instructions:
+; CHECK-NEXT:  Loop Entities of the loop with header [[BB0:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  Induction list
 ; CHECK-NEXT:   IntInduction(+) Start: i64 1 Step: i64 1 BinOp: i64 [[VP_INDVARS_IV_NEXT:%.*]] = add i64 [[VP_INDVARS_IV:%.*]] i64 1 need close form
 ; CHECK-NEXT:    Linked values: i64 [[VP_INDVARS_IV]], i64 [[VP_INDVARS_IV_NEXT]], i64 [[VP_INDVARS_IV_IND_INIT:%.*]], i64 [[VP0:%.*]], i64 [[VP_INDVARS_IV_IND_FINAL:%.*]],
 ; CHECK-EMPTY:
 ; CHECK-NEXT:   IntInduction(+) Start: i64 [[K_IV_B0:%.*]] Step: i64 1 BinOp: i64 [[VP_K_IV_NEXT:%.*]] = phi  [ i64 [[VP_K_IV_N1:%.*]], [[BB1:BB[0-9]+]] ],  [ i64 [[VP_K_IV_N2:%.*]], [[BB2:BB[0-9]+]] ] need close form
 ; CHECK-NEXT:    Linked values: i64 [[VP_K_IV:%.*]], i64 [[VP_K_IV_NEXT]], i64 [[VP_K_IV_IND_INIT:%.*]], i64 [[VP1:%.*]], i64 [[VP_K_IV_IND_FINAL:%.*]],
-; CHECK:        [[BB3:BB[0-9]+]]:
-; CHECK:        [[BB4:BB[0-9]+]]:
+; CHECK:         [[BB3:BB[0-9]+]]: # preds:
+; CHECK-NEXT:     br [[BB4:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB4]]: # preds: [[BB3]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT]] = induction-init{add} i64 1 i64 1
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:     i64 [[VP_K_IV_IND_INIT]] = induction-init{add} i64 [[K_IV_B0]] i64 1
 ; CHECK-NEXT:     i64 [[VP_K_IV_IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; CHECK:        [[BB0:BB[0-9]+]]:
-; CHECK-NEXT:     i64 [[VP_INDVARS_IV]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB4]] ],  [ i64 [[VP0]], [[BB5:BB[0-9]+]] ]
+; CHECK-NEXT:     br [[BB0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB0]]: # preds: [[BB4]], [[BB5:BB[0-9]+]]
+; CHECK-NEXT:     i64 [[VP_INDVARS_IV]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB4]] ],  [ i64 [[VP0]], [[BB5]] ]
 ; CHECK-NEXT:     i64 [[VP_K_IV]] = phi  [ i64 [[VP_K_IV_IND_INIT]], [[BB4]] ],  [ i64 [[VP1]], [[BB5]] ]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV]] i64 1
 ; CHECK-NEXT:     i1 [[VP_EE:%.*]] = icmp i64 [[VP_INDVARS_IV_NEXT]] i64 [[VP_K_IV]]
 ; CHECK-NEXT:     i64 [[VP0]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB1]](i1 [[VP_EE]]), [[BB2]](!i1 [[VP_EE]])
-; CHECK-NEXT:    PREDECESSORS(2): [[BB5]] [[BB4]]
+; CHECK-NEXT:     br i1 [[VP_EE]], [[BB1]], [[BB2]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB2]]:
+; CHECK-NEXT:      [[BB2]]: # preds: [[BB0]]
 ; CHECK-NEXT:       i64 [[VP_K_IV_N2]] = add i64 [[VP_K_IV]] i64 1
-; CHECK-NEXT:      SUCCESSORS(1):[[BB5]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB0]]
+; CHECK-NEXT:       br [[BB5]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB1]]:
+; CHECK-NEXT:      [[BB1]]: # preds: [[BB0]]
 ; CHECK-NEXT:       i64 [[VP_K_IV_N1]] = add i64 [[VP_K_IV]] i64 1
-; CHECK-NEXT:      SUCCESSORS(1):[[BB5]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB0]]
+; CHECK-NEXT:       br [[BB5]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB5]]:
+; CHECK-NEXT:    [[BB5]]: # preds: [[BB2]], [[BB1]]
 ; CHECK-NEXT:     i64 [[VP_K_IV_NEXT]] = phi  [ i64 [[VP_K_IV_N1]], [[BB1]] ],  [ i64 [[VP_K_IV_N2]], [[BB2]] ]
 ; CHECK-NEXT:     i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_INDVARS_IV_NEXT]] i64 [[N0:%.*]]
 ; CHECK-NEXT:     i64 [[VP1]] = add i64 [[VP_K_IV]] i64 [[VP_K_IV_IND_INIT_STEP]]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB6:BB[0-9]+]](i1 [[VP_EXITCOND]]), [[BB0]](!i1 [[VP_EXITCOND]])
-; CHECK-NEXT:    PREDECESSORS(2): [[BB2]] [[BB1]]
+; CHECK-NEXT:     br i1 [[VP_EXITCOND]], [[BB6:BB[0-9]+]], [[BB0]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB6]]:
+; CHECK-NEXT:    [[BB6]]: # preds: [[BB5]]
 ; CHECK-NEXT:     i64 [[VP_INDVARS_IV_IND_FINAL]] = induction-final{add} i64 1 i64 1
 ; CHECK-NEXT:     i64 [[VP_K_IV_IND_FINAL]] = induction-final{add} i64 [[K_IV_B0]] i64 1
-; CHECK-NEXT:    SUCCESSORS(1):[[BB7:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
-; CHECK:       External Uses:
+; CHECK-NEXT:     br [[BB7:BB[0-9]+]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB7]]: # preds: [[BB6]]
+; CHECK-NEXT:     br <External Block>
+; CHECK-EMPTY:
+; CHECK-NEXT:  External Uses:
 ; CHECK-NEXT:    [[LCSSA_K0:%.*]] = phi i64 [ [[K_IV_NEXT0:%.*]], [[LATCH0:%.*]] ]i64 [[VP_K_IV_IND_FINAL]] -> i64 [[K_IV_NEXT0]]
 ;
 entry:

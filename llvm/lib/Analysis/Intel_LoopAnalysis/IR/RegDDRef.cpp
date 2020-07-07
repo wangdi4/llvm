@@ -21,6 +21,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/FormattedStream.h"
 
 #if INTEL_INCLUDE_DTRANS
 #include "Intel_DTrans/Transforms/PaddedPointerPropagation.h"
@@ -30,7 +31,7 @@ using namespace llvm;
 using namespace llvm::loopopt;
 
 static cl::opt<bool>
-    PrintDetailsRefs("hir-details-refs", cl::ReallyHidden,
+    PrintDimDetails("hir-details-dims", cl::ReallyHidden,
                      cl::desc("Print details of RegDDRef dimensions"));
 
 #define DEBUG_TYPE "hir-regddref"
@@ -189,7 +190,7 @@ void RegDDRef::getAAMetadata(AAMDNodes &AANodes) const {
   AANodes.TBAA = getMetadata(LLVMContext::MD_tbaa);
 }
 
-void RegDDRef::setAAMetadata(AAMDNodes &AANodes) {
+void RegDDRef::setAAMetadata(const AAMDNodes &AANodes) {
   setMetadata(LLVMContext::MD_alias_scope, AANodes.Scope);
   setMetadata(LLVMContext::MD_noalias, AANodes.NoAlias);
   setMetadata(LLVMContext::MD_tbaa, AANodes.TBAA);
@@ -278,7 +279,8 @@ void RegDDRef::updateDefLevelInternal(unsigned NewLevel) {
   }
 }
 
-void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
+void RegDDRef::printImpl(formatted_raw_ostream &OS, bool Detailed,
+                      bool DimDetails) const {
 #if !INTEL_PRODUCT_RELEASE
   const CanonExpr *CE;
   bool HasGEP = hasGEPInfo();
@@ -322,7 +324,7 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
       // Print dimensions details [lb:idx:stride(type:numelements)]
 
       // Print LB
-      if (HasGEP && PrintDetailsRefs) {
+      if (HasGEP && DimDetails) {
         getDimensionLower(DimNum)->print(OS, Detailed);
         OS << ":";
       }
@@ -331,13 +333,13 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
       *I ? (*I)->print(OS, Detailed) : (void)(OS << *I);
 
       // Print stride
-      if (HasGEP && PrintDetailsRefs) {
+      if (HasGEP && DimDetails) {
         OS << ":";
         getDimensionStride(DimNum)->print(OS, Detailed);
       }
 
       // Print Type and Number of elements in dimensions
-      if (HasGEP && PrintDetailsRefs) {
+      if (HasGEP && DimDetails) {
         OS << "(";
         getDimensionType(DimNum)->print(OS, true, false);
         OS << ":" << getNumDimensionElements(DimNum) << ")";
@@ -370,6 +372,19 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
   DDRef::print(OS, Detailed);
 #endif // !INTEL_PRODUCT_RELEASE
 }
+
+void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
+#if !INTEL_PRODUCT_RELEASE
+  printImpl(OS, Detailed, PrintDimDetails);
+#endif
+}
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+void RegDDRef::dumpDims(bool Detailed) const {
+  formatted_raw_ostream OS(dbgs());
+  printImpl(OS, Detailed, true);
+}
+#endif
 
 Type *RegDDRef::getDimensionType(unsigned DimensionNum) const {
   assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");

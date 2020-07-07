@@ -876,6 +876,37 @@ cl_int TRACE_FN(clWaitForEvents)(
   return rc;
 }
 
+#if INTEL_CUSTOMIZATION
+typedef cl_int (CL_API_CALL *clGetKernelSuggestedLocalWorkSizeINTELTy)(
+    cl_command_queue,
+    cl_kernel,
+    cl_uint,
+    const size_t *,
+    const size_t *,
+    size_t *);
+
+cl_int TRACE_FN(clGetKernelSuggestedLocalWorkSizeINTEL)(
+    clGetKernelSuggestedLocalWorkSizeINTELTy funcptr,
+    cl_command_queue command_queue,
+    cl_kernel kernel,
+    cl_uint work_dim,
+    const size_t *global_work_offset,
+    const size_t *global_work_size,
+    size_t *suggested_local_work_size) {
+  auto rc = funcptr(command_queue, kernel, work_dim, global_work_offset,
+                    global_work_size, suggested_local_work_size);
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(command_queue);
+  TRACE_FN_ARG_PTR(kernel);
+  TRACE_FN_ARG_UINT(work_dim);
+  TRACE_FN_ARG_PTR(global_work_offset);
+  TRACE_FN_ARG_PTR(global_work_size);
+  TRACE_FN_ARG_PTR(suggested_local_work_size);
+  TRACE_FN_ARG_END();
+  return rc;
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// Calls without error check
 #define CALL_CL_SILENT(Rc, Fn, ...)                                            \
   do {                                                                         \

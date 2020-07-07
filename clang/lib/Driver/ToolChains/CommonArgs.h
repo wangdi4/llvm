@@ -45,12 +45,6 @@ void AddRunTimeLibs(const ToolChain &TC, const Driver &D,
                     llvm::opt::ArgStringList &CmdArgs,
                     const llvm::opt::ArgList &Args);
 
-void AddHIPLinkerScript(const ToolChain &TC, Compilation &C,
-                        const InputInfo &Output, const InputInfoList &Inputs,
-                        const llvm::opt::ArgList &Args,
-                        llvm::opt::ArgStringList &CmdArgs, const JobAction &JA,
-                        const Tool &T);
-
 const char *SplitDebugName(const llvm::opt::ArgList &Args,
                            const InputInfo &Input, const InputInfo &Output);
 
@@ -65,8 +59,7 @@ void addLTOOptions(const ToolChain &ToolChain, const llvm::opt::ArgList &Args,
 #if INTEL_CUSTOMIZATION
 void addIntelOptimizationArgs(const ToolChain &TC,
                               const llvm::opt::ArgList &Args,
-                              llvm::opt::ArgStringList &CmdArgs,
-                              const JobAction &JA);
+                              llvm::opt::ArgStringList &CmdArgs, bool IsLink);
 #endif // INTEL_CUSTOMIZATION
 
 std::tuple<llvm::Reloc::Model, unsigned, bool>
@@ -100,7 +93,10 @@ llvm::StringRef getLTOParallelism(const llvm::opt::ArgList &Args,
 
 bool areOptimizationsEnabled(const llvm::opt::ArgList &Args);
 
-bool isUseSeparateSections(const llvm::Triple &Triple);
+#if INTEL_CUSTOMIZATION
+bool isUseSeparateSections(const llvm::opt::ArgList &Args,
+                           const llvm::Triple &Triple);
+#endif // INTEL_CUSTOMIZATION
 
 /// \p EnvVar is split by system delimiter for environment variables.
 /// If \p ArgName is "-I", "-L", or an empty string, each entry from \p EnvVar
@@ -134,6 +130,8 @@ SmallString<128> getStatsFileName(const llvm::opt::ArgList &Args,
 void addMultilibFlag(bool Enabled, const char *const Flag,
                      Multilib::flags_list &Flags);
 
+void addX86AlignBranchArgs(const Driver &D, const llvm::opt::ArgList &Args,
+                           llvm::opt::ArgStringList &CmdArgs, bool IsLTO);
 } // end namespace tools
 } // end namespace driver
 } // end namespace clang

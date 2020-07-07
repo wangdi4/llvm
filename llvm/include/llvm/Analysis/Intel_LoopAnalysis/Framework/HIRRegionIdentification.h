@@ -25,6 +25,7 @@
 #include "llvm/Pass.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/IRRegion.h"
+#include "llvm/Analysis/ScalarEvolution.h"
 
 namespace llvm {
 
@@ -33,10 +34,10 @@ class Function;
 class Instruction;
 class PHINode;
 class Loop;
+class AssumptionCache;
 class LoopInfo;
 class DominatorTree;
 class PostDominatorTree;
-class ScalarEvolution;
 class GetElementPtrInst;
 class GEPOrSubsOperator;
 class SCEV;
@@ -84,6 +85,9 @@ private:
 
   /// Target library information for the target.
   TargetLibraryInfo &TLI;
+
+  /// Scoped Scalar Evolution analysis for the function.
+  std::unique_ptr<ScopedScalarEvolution> ScopedSE;
 
   unsigned OptLevel;
 
@@ -178,12 +182,15 @@ private:
 
 public:
   HIRRegionIdentification(Function &F, LoopInfo &LI, DominatorTree &DT,
-                          PostDominatorTree &PDT, ScalarEvolution &SE,
-                          TargetLibraryInfo &TLI, unsigned OptLevel);
+                          PostDominatorTree &PDT, AssumptionCache &AC,
+                          ScalarEvolution &SE, TargetLibraryInfo &TLI,
+                          unsigned OptLevel);
   HIRRegionIdentification(const HIRRegionIdentification &) = delete;
   HIRRegionIdentification(HIRRegionIdentification &&RI);
 
   void print(raw_ostream &OS) const;
+
+  ScopedScalarEvolution &getScopedSE() { return *ScopedSE; }
 
   /// IRRegion iterator methods
   iterator begin() { return IRRegions.begin(); }
@@ -206,9 +213,6 @@ public:
   static bool containsUnsupportedTy(const GEPOrSubsOperator *GEPOp,
                                     const Loop *Lp = nullptr);
 
-  /// Returns the outermost parent loop of \p Lp.
-  static const Loop *getOutermostParentLoop(const Loop *Lp);
-
   // NOTE: Following functions were moved here so they can be shared between
   // HIRParser and SSADeconstruction. Is there a better way?
 
@@ -219,10 +223,6 @@ public:
 
   /// Returns true if Phi occurs in the header of a loop.
   bool isHeaderPhi(const PHINode *Phi) const;
-
-  /// Returns IV definition PHINode of the loop.
-  const PHINode *findIVDefInHeader(const Loop &Lp,
-                                   const Instruction *Inst) const;
 
   /// Returns true if \p BB can be reached from any of the \p FromBBs before
   /// hitting any \p EndBBs and without going through any backedges.

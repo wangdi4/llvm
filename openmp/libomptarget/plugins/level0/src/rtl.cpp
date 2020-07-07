@@ -22,6 +22,12 @@
 #include <thread>
 #include <vector>
 #include <ze_api.h>
+#ifdef _WIN32
+#include <fcntl.h>
+#include <io.h>
+#else
+#include <unistd.h>
+#endif // !_WIN32
 #include "omptargetplugin.h"
 #include "omptarget-tools.h"
 #include "rtl-trace.h"
@@ -29,9 +35,11 @@
 /// Host runtime routines being used
 extern "C" {
 #ifdef _WIN32
+int __cdecl omp_get_max_teams(void);
 int __cdecl omp_get_thread_limit(void);
 double __cdecl omp_get_wtime(void);
 #else
+int omp_get_max_teams(void) __attribute__((weak));
 int omp_get_thread_limit(void) __attribute__((weak));
 double omp_get_wtime(void) __attribute__((weak));
 #endif
@@ -161,6 +169,7 @@ class PagePoolTy {
 
   std::vector<std::vector<ChunkedPageTy>> Buckets;
   int32_t DeviceId = 0;
+  int32_t TargetAllocKind = TARGET_ALLOC_SHARED;
   ze_driver_handle_t Driver = nullptr;
   ze_device_handle_t Device = nullptr;
 
@@ -178,11 +187,12 @@ public:
   /// Initialize a page pool for the given device.
   /// Multiple threads cannot call this simultaneously.
   void initialize(int32_t deviceId, ze_driver_handle_t driver,
-                  ze_device_handle_t device) {
+                  ze_device_handle_t device, int32_t allocKind) {
     Buckets.resize(MaxSize - MinSize + 1);
     DeviceId = deviceId;
     Driver = driver;
     Device = device;
+    TargetAllocKind = allocKind;
   }
 
   /// Return supported max size in bytes.
@@ -203,15 +213,8 @@ public:
       return mem;
     }
     // Bucket is empty or all pages in the bucket are full
-    ze_device_mem_alloc_desc_t allocDesc = {
-      ZE_DEVICE_MEM_ALLOC_DESC_VERSION_CURRENT,
-      ZE_DEVICE_MEM_ALLOC_FLAG_DEFAULT,
-      0 /* ordinal */
-    };
-    void *base = nullptr;
-    CALL_ZE_RET_NULL(zeDriverAllocDeviceMem, Driver, &allocDesc,
-                     LEVEL0_PAGE_SIZE, 0, Device, &base);
-    MEMSTAT_UPDATE(DeviceId, Driver, LEVEL0_PAGE_SIZE, base);
+    void *base = __tgt_rtl_data_alloc_explicit(
+        DeviceId, LEVEL0_PAGE_SIZE, TargetAllocKind);
     DP("New allocation from page pool: base = " DPxMOD ", size = %" PRIu32 "\n",
        DPxPTR(base), LEVEL0_PAGE_SIZE);
     Buckets[bucketId].emplace_back(1U << (bucketId + MinSize), base);
@@ -310,7 +313,8 @@ struct PrivateHandlesTy {
   RTLProfileTy *Profile = nullptr;
 };
 
-thread_local PrivateHandlesTy ThreadLocalHandles;
+/// Each thread should be able to handle multiple devices
+thread_local std::map<int32_t, PrivateHandlesTy> ThreadLocalHandles;
 
 /// Create a command list
 static ze_command_list_handle_t createCmdList(ze_device_handle_t device) {
@@ -350,17 +354,28 @@ static ze_fence_handle_t createFence(ze_command_queue_handle_t cmdQueue) {
 
 /// RTL flags
 struct RTLFlagsTy {
+  uint64_t DumpTargetImage : 1;
   uint64_t EnableProfile : 1;
   uint64_t EnableTargetGlobals : 1;
   uint64_t UseHostMemForUSM : 1;
   uint64_t UseMemoryPool : 1;
-  uint64_t Reserved : 60;
+  uint64_t UseDriverGroupSizes : 1;
+  uint64_t Reserved : 58;
   RTLFlagsTy() :
+      DumpTargetImage(0),
       EnableProfile(0),
       EnableTargetGlobals(0),
       UseHostMemForUSM(0),
       UseMemoryPool(0),
+      UseDriverGroupSizes(0),
       Reserved(0) {}
+};
+
+/// Kernel properties.
+struct KernelPropertiesTy {
+  uint32_t Width = 0;
+  uint32_t MaxThreadGroupSize = 0;
+  bool RequiresIndirectAccess = false;
 };
 
 /// Device information
@@ -392,6 +407,8 @@ public:
   std::vector<std::vector<ze_command_list_handle_t>> CmdLists;
   std::vector<std::vector<ze_command_queue_handle_t>> CmdQueues;
   std::vector<FuncOrGblEntryTy> FuncGblEntries;
+  std::vector<std::map<ze_kernel_handle_t, KernelPropertiesTy>>
+      KernelProperties;
   std::vector<std::vector<void *>> OwnedMemory; // Memory owned by the plugin
   std::vector<bool> Initialized;
   std::mutex *Mutexes;
@@ -405,7 +422,11 @@ public:
   int64_t RequiresFlags = OMP_REQ_UNDEFINED;
   uint32_t DataTransferLatency; // Emulated data transfer latency in us
   int32_t DeviceType;
-  uint32_t ThreadLimit; // Global thread limit
+  uint32_t ThreadLimit = 0; // Global thread limit
+  uint32_t NumTeams = 0; // Global max number of teams
+  int32_t TargetAllocKind = TARGET_ALLOC_SHARED;
+  uint32_t SubscriptionRate = 4;
+  uint32_t ForcedKernelWidth = 0;
 
   // Compilation options for IGC
   // OpenCL 2.0 builtins (like atomic_load_explicit and etc.) are used by
@@ -418,6 +439,8 @@ public:
 
   RTLDeviceInfoTy() {
     NumDevices = 0;
+    Mutexes = nullptr;
+    DataMutexes = nullptr;
     DataTransferLatency = 0;
     DeviceType = ZE_DEVICE_TYPE_GPU;
     readEnvironmentVars();
@@ -467,7 +490,24 @@ public:
 
     // Global thread limit
     int threadLimit = omp_get_thread_limit();
-    ThreadLimit = threadLimit > 0 ? threadLimit : 0;
+    DP("omp_get_thread_limit() returned %" PRId32 "\n", threadLimit);
+    // omp_get_thread_limit() would return INT_MAX by default.
+    // NOTE: Windows.h defines max() macro, so we have to guard
+    //       the call with parentheses.
+    ThreadLimit = (threadLimit > 0 &&
+        threadLimit != (std::numeric_limits<int32_t>::max)()) ?
+        threadLimit : 0;
+
+    // Global max number of teams.
+    int numTeams = omp_get_max_teams();
+    DP("omp_get_max_teams() returned %" PRId32 "\n", numTeams);
+    // omp_get_max_teams() would return INT_MAX by default.
+    // NOTE: Windows.h defines max() macro, so we have to guard
+    //       the call with parentheses.
+    NumTeams = (numTeams > 0 &&
+        numTeams != (std::numeric_limits<int32_t>::max)()) ?
+        numTeams : 0;
+
     // Compilation options for IGC
     if (char *env = readEnvVar("LIBOMPTARGET_LEVEL0_COMPILATION_OPTIONS"))
       CompilationOptions += env;
@@ -483,6 +523,10 @@ public:
       env = readEnvVar("LIBOMPTARGET_LEVEL0_MATCH_SINCOSPI");
       if (!env || (env[0] != 'F' && env[0] != 'f' && env[0] != '0')) {
         InternalCompilationOptions += " -cl-match-sincospi ";
+      }
+      env = readEnvVar("LIBOMPTARGET_LEVEL0_USE_DRIVER_GROUP_SIZES");
+      if (env && (env[0] == 'T' || env[0] == 't' || env[0] == '1')) {
+        Flags.UseDriverGroupSizes = 1;
       }
     }
 
@@ -511,40 +555,76 @@ public:
       if (env[0] == 'T' || env[0] == 't' || env[0] == '1')
         Flags.UseMemoryPool = 1;
     }
+
+    // Target image dump
+    if (char *env = readEnvVar("LIBOMPTARGET_DUMP_TARGET_IMAGE",
+                               "LIBOMPTARGET_SAVE_TEMPS")) {
+      if (env[0] == 'T' || env[0] == 't' || env[0] == '1')
+        Flags.DumpTargetImage = 1;
+    }
+
+    // Target allocation kind
+    if (char *env = readEnvVar("LIBOMPTARGET_LEVEL0_USE_DEVICE_MEM")) {
+      if (env[0] == 'T' || env[0] == 't' || env[0] == '1')
+        TargetAllocKind = TARGET_ALLOC_DEVICE;
+    }
+
+    // Subscription rate
+    if (char *env = readEnvVar("LIBOMPTARGET_LEVEL0_SUBSCRIPTION_RATE")) {
+      int32_t value = std::stoi(env);
+      if (value > 0 || value <= 0xFFFF)
+        SubscriptionRate = value;
+    }
+
+    // Forced kernel width
+    if (char *env = readEnvVar("LIBOMPTARGET_LEVEL0_KERNEL_WIDTH")) {
+      int32_t value = std::stoi(env);
+      if (value == 8 || value == 16 || value == 32)
+        ForcedKernelWidth = value;
+    }
   }
 
   ze_command_list_handle_t getCmdList(int32_t DeviceId) {
-    if (!ThreadLocalHandles.CmdList) {
+    if (ThreadLocalHandles.count(DeviceId) == 0) {
+      ThreadLocalHandles.emplace(DeviceId, PrivateHandlesTy());
+    }
+    if (!ThreadLocalHandles[DeviceId].CmdList) {
       auto cmdList = createCmdList(Devices[DeviceId]);
       // Store it in the global list for clean up
       DataMutexes[DeviceId].lock();
       CmdLists[DeviceId].push_back(cmdList);
       DataMutexes[DeviceId].unlock();
-      ThreadLocalHandles.CmdList = cmdList;
+      ThreadLocalHandles[DeviceId].CmdList = cmdList;
     }
-    return ThreadLocalHandles.CmdList;
+    return ThreadLocalHandles[DeviceId].CmdList;
   }
 
   ze_command_queue_handle_t getCmdQueue(int32_t DeviceId) {
-    if (!ThreadLocalHandles.CmdQueue) {
+    if (ThreadLocalHandles.count(DeviceId) == 0) {
+      ThreadLocalHandles.emplace(DeviceId, PrivateHandlesTy());
+    }
+    if (!ThreadLocalHandles[DeviceId].CmdQueue) {
       auto cmdQueue = createCmdQueue(Devices[DeviceId]);
       // Store it in the global list for clean up
       DataMutexes[DeviceId].lock();
       CmdQueues[DeviceId].push_back(cmdQueue);
       DataMutexes[DeviceId].unlock();
-      ThreadLocalHandles.CmdQueue = cmdQueue;
+      ThreadLocalHandles[DeviceId].CmdQueue = cmdQueue;
     }
-    return ThreadLocalHandles.CmdQueue;
+    return ThreadLocalHandles[DeviceId].CmdQueue;
   }
 
   RTLProfileTy *getProfile(int32_t DeviceId) {
-    if (!ThreadLocalHandles.Profile && Flags.EnableProfile) {
-      ThreadLocalHandles.Profile = new RTLProfileTy();
+    if (ThreadLocalHandles.count(DeviceId) == 0) {
+      ThreadLocalHandles.emplace(DeviceId, PrivateHandlesTy());
+    }
+    if (!ThreadLocalHandles[DeviceId].Profile && Flags.EnableProfile) {
+      ThreadLocalHandles[DeviceId].Profile = new RTLProfileTy();
       DataMutexes[DeviceId].lock();
-      Profiles[DeviceId].push_back(ThreadLocalHandles.Profile);
+      Profiles[DeviceId].push_back(ThreadLocalHandles[DeviceId].Profile);
       DataMutexes[DeviceId].unlock();
     }
-    return ThreadLocalHandles.Profile;
+    return ThreadLocalHandles[DeviceId].Profile;
   }
 
   /// Loads the device version of the offload table for device \p DeviceId.
@@ -736,6 +816,33 @@ static void closeRTL() {
   DP("Closed RTL successfully\n");
 }
 
+static int32_t copyData(int32_t DeviceId, void *Dest, void *Src, size_t Size,
+                        std::unique_lock<std::mutex> &copyLock) {
+  // Mtx == nullptr means we already own the lock.
+  if (DeviceInfo->TargetAllocKind == TARGET_ALLOC_SHARED) {
+    char *src = static_cast<char *>(Src);
+    std::copy(src, src + Size, static_cast<char *>(Dest));
+  } else {
+    auto cmdList = DeviceInfo->getCmdList(DeviceId);
+    auto cmdQueue = DeviceInfo->getCmdQueue(DeviceId);
+    bool ownsLock = false;
+    if (!copyLock.owns_lock()) {
+      copyLock.lock();
+      ownsLock = true;
+    }
+    CALL_ZE_RET_FAIL(
+        zeCommandListAppendMemoryCopy, cmdList, Dest, Src, Size, nullptr);
+    CALL_ZE_RET_FAIL(zeCommandListClose, cmdList);
+    CALL_ZE_RET_FAIL(
+        zeCommandQueueExecuteCommandLists, cmdQueue, 1, &cmdList, nullptr);
+    if (ownsLock)
+      copyLock.unlock();
+    CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT32_MAX);
+    CALL_ZE_RET_FAIL(zeCommandListReset, cmdList);
+  }
+  return OFFLOAD_SUCCESS;
+}
+
 /// Initialize module data
 static int32_t initModule(int32_t DeviceId) {
   // Prepare host data to copy
@@ -747,12 +854,6 @@ static int32_t initModule(int32_t DeviceId) {
 
   // Prepare device data location
   auto driver = DeviceInfo->Driver;
-  auto device = DeviceInfo->Devices[DeviceId];
-  ze_device_mem_alloc_desc_t allocDesc = {
-    ZE_DEVICE_MEM_ALLOC_DESC_VERSION_CURRENT,
-    ZE_DEVICE_MEM_ALLOC_FLAG_DEFAULT,
-    0 /* ordinal */
-  };
   void *deviceData = nullptr;
 
   std::unique_lock<std::mutex> kernelLock(DeviceInfo->Mutexes[DeviceId]);
@@ -760,11 +861,9 @@ static int32_t initModule(int32_t DeviceId) {
   if (DeviceInfo->Flags.UseMemoryPool)
     deviceData = DeviceInfo->PagePools[DeviceId].allocate(sizeof(hostData));
 
-  if (!deviceData) {
-    CALL_ZE_RET_FAIL(zeDriverAllocDeviceMem, driver, &allocDesc, sizeof(hostData),
-                     LEVEL0_ALIGNMENT, device, &deviceData);
-    MEMSTAT_UPDATE(DeviceId, driver, sizeof(hostData), deviceData);
-  }
+  if (!deviceData)
+    deviceData = __tgt_rtl_data_alloc_explicit(
+        DeviceId, sizeof(hostData), DeviceInfo->TargetAllocKind);
 
   // Prepare kernel to initialize data
   ze_kernel_desc_t kernelDesc = {
@@ -780,12 +879,15 @@ static int32_t initModule(int32_t DeviceId) {
   ze_group_count_t groupCounts = {1, 1, 1};
   CALL_ZE_RET_FAIL(zeKernelSetGroupSize, initModuleData, 1, 1, 1);
 
+  // Copy data
+  int32_t rc = copyData(DeviceId, deviceData, &hostData, sizeof(hostData),
+                        kernelLock);
+  if (rc != OFFLOAD_SUCCESS)
+    return OFFLOAD_FAIL;
+
   // Invoke the kernel
   auto cmdList = DeviceInfo->getCmdList(DeviceId);
   auto cmdQueue = DeviceInfo->getCmdQueue(DeviceId);
-  CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, cmdList, deviceData,
-                   &hostData, sizeof(hostData), nullptr);
-  CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, cmdList, nullptr, 0, nullptr);
   CALL_ZE_RET_FAIL(zeCommandListAppendLaunchKernel, cmdList, initModuleData,
                    &groupCounts, nullptr, 0, nullptr);
   CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, cmdList, nullptr, 0, nullptr);
@@ -801,6 +903,56 @@ static int32_t initModule(int32_t DeviceId) {
   }
 
   return OFFLOAD_SUCCESS;
+}
+
+static void dumpImageToFile(
+    const void *Image, size_t ImageSize, const char *Type) {
+#if INTEL_INTERNAL_BUILD
+  if (DebugLevel <= 0)
+    return;
+
+  if (!DeviceInfo->Flags.DumpTargetImage)
+    return;
+
+  char TmpFileName[] = "omptarget_spir64_image_XXXXXX";
+#if _WIN32
+  errno_t CErr = _mktemp_s(TmpFileName, sizeof(TmpFileName));
+  if (CErr) {
+    DPI("Error creating temporary file template name.\n");
+    return;
+  }
+  int TmpFileFd;
+  _sopen_s(&TmpFileFd, TmpFileName, _O_RDWR | _O_CREAT | _O_BINARY,
+           _SH_DENYNO, _S_IREAD | _S_IWRITE);
+#else  // !_WIN32
+  int TmpFileFd = mkstemp(TmpFileName);
+#endif  // !_WIN32
+  DPI("Dumping %s image of size %d from address " DPxMOD " to file %s\n",
+      Type, static_cast<int32_t>(ImageSize), DPxPTR(Image), TmpFileName);
+
+  if (TmpFileFd < 0) {
+    DPI("Error creating temporary file: %s\n", strerror(errno));
+    return;
+  }
+
+#if _WIN32
+  int WErr = _write(TmpFileFd, Image, ImageSize);
+#else  // !_WIN32
+  int WErr = write(TmpFileFd, Image, ImageSize);
+#endif  // !_WIN32
+  if (WErr < 0) {
+    DPI("Error writing temporary file %s: %s\n", TmpFileName, strerror(errno));
+  }
+
+#if _WIN32
+  int CloseErr = _close(TmpFileFd);
+#else  // !_WIN32
+  int CloseErr = close(TmpFileFd);
+#endif  // !_WIN32
+  if (CloseErr < 0) {
+    DPI("Error closing temporary file %s: %s\n", TmpFileName, strerror(errno));
+  }
+#endif  // INTEL_INTERNAL_BUILD
 }
 
 EXTERN
@@ -878,6 +1030,7 @@ int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo->CmdLists.resize(DeviceInfo->NumDevices);
   DeviceInfo->CmdQueues.resize(DeviceInfo->NumDevices);
   DeviceInfo->FuncGblEntries.resize(DeviceInfo->NumDevices);
+  DeviceInfo->KernelProperties.resize(DeviceInfo->NumDevices);
   DeviceInfo->OwnedMemory.resize(DeviceInfo->NumDevices);
   DeviceInfo->Initialized.resize(DeviceInfo->NumDevices);
   DeviceInfo->Mutexes = new std::mutex[DeviceInfo->NumDevices];
@@ -913,7 +1066,7 @@ int32_t __tgt_rtl_init_device(int32_t DeviceId) {
 
   if (DeviceInfo->Flags.UseMemoryPool)
     DeviceInfo->PagePools[DeviceId].initialize(DeviceId, DeviceInfo->Driver,
-                                               DeviceInfo->Devices[DeviceId]);
+        DeviceInfo->Devices[DeviceId], DeviceInfo->TargetAllocKind);
 
   DeviceInfo->Initialized[DeviceId] = true;
 
@@ -940,6 +1093,8 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
   DP("Module compilation options: %s\n", compilationOptions.c_str());
   compilationOptions += " " + DeviceInfo->InternalCompilationOptions;
   DPI("Final module compilation options: %s\n", compilationOptions.c_str());
+
+  dumpImageToFile(Image->ImageStart, imageSize, "OpenMP");
 
   ze_module_desc_t moduleDesc = {
     ZE_MODULE_DESC_VERSION_CURRENT,
@@ -1039,6 +1194,45 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t DeviceId,
     CALL_ZE_RET_NULL(zeKernelCreate, module, &kernelDesc, &kernels[i]);
     entries[i].addr = &kernels[i];
     entries[i].name = name;
+
+    if (DeviceInfo->ForcedKernelWidth > 0) {
+      DeviceInfo->KernelProperties[DeviceId][kernels[i]].Width =
+          DeviceInfo->ForcedKernelWidth;
+      continue;
+    }
+    // Retrieve kernel group size info.
+    // L0 does not have API for accessing kernel's sub group size, so it is
+    // decided from kernel property's "requiredGroupSize"; it returns values
+    // that appear to be sub group size in most cases, but can also return other
+    // values that do not belong to the supported sub group sizes.
+    auto &computeProperties = DeviceInfo->ComputeProperties[DeviceId];
+    auto &subGroupSizes = computeProperties.subGroupSizes;
+    auto numSubGroupSizes = computeProperties.numSubGroupSizes;
+    ze_kernel_properties_t kernelProperties;
+    uint32_t rc;
+    CALL_ZE(rc, zeKernelGetProperties, kernels[i], &kernelProperties);
+    uint32_t kernelWidth = subGroupSizes[numSubGroupSizes / 2]; // default
+    if (rc == ZE_RESULT_SUCCESS) {
+      auto requiredGroupSize = kernelProperties.requiredGroupSizeX;
+      for (uint32_t k = numSubGroupSizes - 1; k >= 0; k--) {
+        // Choose the greatest sub group size that divides the required group
+        // size evenly
+        if (requiredGroupSize > 0 &&
+            requiredGroupSize % subGroupSizes[k] == 0) {
+          kernelWidth = subGroupSizes[k];
+          break;
+        }
+      }
+    }
+    DeviceInfo->KernelProperties[DeviceId][kernels[i]].Width = kernelWidth;
+#if 0
+    // Enable this with 0.95.55 Level Zero.
+    DeviceInfo->KernelProperties[DeviceId][kernels[i]].MaxThreadGroupSize =
+        kernelProperties.maxSubgroupSize * kernelProperties.maxNumSubgroups;
+#else
+    DeviceInfo->KernelProperties[DeviceId][kernels[i]].MaxThreadGroupSize =
+        (std::numeric_limits<uint32_t>::max)();
+#endif
     // TODO: show kernel information
   }
 
@@ -1072,24 +1266,21 @@ static void *allocData(int32_t DeviceId, int64_t Size, void *HstPtr,
   offset = (offset >= 0) ? offset : 0;
   size += offset;
 
-  ze_device_mem_alloc_desc_t allocDesc = {
-    ZE_DEVICE_MEM_ALLOC_DESC_VERSION_CURRENT,
-    ZE_DEVICE_MEM_ALLOC_FLAG_DEFAULT,
-    0 /* ordinal */
-  };
   void *base = nullptr;
   void *mem = nullptr;
   if (DeviceInfo->Flags.UseMemoryPool &&
       (base = DeviceInfo->PagePools[DeviceId].allocate(size))) {
     mem = (void *)((intptr_t)base + offset);
-    DP("Allocated device memory " DPxMOD " (Base: " DPxMOD ", Size: %zu) "
+    DP("Allocated target memory " DPxMOD " (Base: " DPxMOD ", Size: %zu) "
        "from memory pool for host ptr " DPxMOD "\n",
        DPxPTR(mem), DPxPTR(base), size, DPxPTR(HstPtr));
     return mem;
   }
-  CALL_ZE_RET_NULL(zeDriverAllocDeviceMem, DeviceInfo->Driver, &allocDesc, size,
-                   LEVEL0_ALIGNMENT, DeviceInfo->Devices[DeviceId], &base);
-  MEMSTAT_UPDATE(DeviceId, DeviceInfo->Driver, Size, base);
+
+  // We use shared USM to avoid overheads coming from explicit data copy to
+  // device memory.
+  base = __tgt_rtl_data_alloc_explicit(
+      DeviceId, size, DeviceInfo->TargetAllocKind);
   mem = (void *)((intptr_t)base + offset);
 
   if (DebugLevel > 0) {
@@ -1098,7 +1289,7 @@ static void *allocData(int32_t DeviceId, int64_t Size, void *HstPtr,
     CALL_ZE_RET_NULL(zeDriverGetMemAddressRange, DeviceInfo->Driver, mem,
                      &actualBase, &actualSize);
     assert(base == actualBase && "Invalid memory address range!");
-    DP("Allocated device memory " DPxMOD " (Base: " DPxMOD
+    DP("Allocated target memory " DPxMOD " (Base: " DPxMOD
        ", Size: %zu) for host ptr " DPxMOD "\n", DPxPTR(mem), DPxPTR(actualBase),
        actualSize, DPxPTR(HstPtr));
   }
@@ -1124,10 +1315,7 @@ EXTERN void *__tgt_rtl_data_alloc_managed(int32_t DeviceId, int64_t Size) {
 }
 
 EXTERN int32_t __tgt_rtl_data_delete_managed(int32_t DeviceId, void *Ptr) {
-  auto &mutex = DeviceInfo->Mutexes[DeviceId];
-  CALL_ZE_RET_FAIL_MTX(zeDriverFreeMem, mutex, DeviceInfo->Driver, Ptr);
-  DP("Deleted a managed memory object " DPxMOD "\n", DPxPTR(Ptr));
-  return OFFLOAD_SUCCESS;
+  return __tgt_rtl_data_delete(DeviceId, Ptr);
 }
 
 EXTERN int32_t __tgt_rtl_is_managed_ptr(int32_t DeviceId, void *Ptr) {
@@ -1168,7 +1356,9 @@ EXTERN void *__tgt_rtl_data_alloc_explicit(
 
   switch (Kind) {
   case TARGET_ALLOC_DEVICE:
-    mem = allocData(DeviceId, Size, nullptr, nullptr, 0);
+    CALL_ZE_RET_NULL(zeDriverAllocDeviceMem, driver, &deviceDesc, Size,
+                     LEVEL0_ALIGNMENT, device, &mem);
+    DP("Allocated a device memory object " DPxMOD "\n", DPxPTR(mem));
     break;
   case TARGET_ALLOC_HOST:
     CALL_ZE_RET_NULL(zeDriverAllocHostMem, driver, &hostDesc, Size,
@@ -1183,6 +1373,8 @@ EXTERN void *__tgt_rtl_data_alloc_explicit(
   default:
     FATAL_ERROR("Invalid target data allocation kind");
   }
+
+  MEMSTAT_UPDATE(DeviceId, driver, Size, mem);
 
   return mem;
 }
@@ -1248,39 +1440,32 @@ static int32_t submitData(int32_t DeviceId, void *TgtPtr, void *HstPtr,
   // Add synthetic delay for experiments
   addDataTransferLatency();
 
-  std::unique_lock<std::mutex> copyLock(DeviceInfo->Mutexes[DeviceId]);
-
-  auto cmdList = DeviceInfo->getCmdList(DeviceId);
-  auto cmdQueue = DeviceInfo->getCmdQueue(DeviceId);
+  std::unique_lock<std::mutex> copyLock(DeviceInfo->Mutexes[DeviceId],
+                                        std::defer_lock);
 
   if (AsyncEvent) {
-    cmdList = createCmdList(DeviceInfo->Devices[DeviceId]);
+    copyLock.lock();
+    auto cmdList = createCmdList(DeviceInfo->Devices[DeviceId]);
+    auto cmdQueue = DeviceInfo->getCmdQueue(DeviceId);
     if (!cmdList) {
       DP("Error: Asynchronous data submit failed -- invalid command list\n");
       return OFFLOAD_FAIL;
     }
-    CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, cmdList, TgtPtr, HstPtr,
-                     Size, nullptr);
     auto fence = createFence(cmdQueue);
     if (!fence) {
       DP("Error: Asynchronous data submit failed -- invalid fence\n");
       return OFFLOAD_FAIL;
     }
+    CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, cmdList, TgtPtr, HstPtr,
+                     Size, nullptr);
     if (beginAsyncCommand(cmdList, cmdQueue,
         static_cast<AsyncEventTy *>(AsyncEvent), fence) == OFFLOAD_FAIL)
       return OFFLOAD_FAIL;
     DP("Asynchronous data submit started -- %" PRId64 " bytes (hst:"
        DPxMOD ") -> (tgt:" DPxMOD ")\n", Size, DPxPTR(HstPtr), DPxPTR(TgtPtr));
   } else {
-    CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, cmdList, TgtPtr, HstPtr,
-                     Size, nullptr);
-    CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, cmdList, nullptr, 0, nullptr);
-    CALL_ZE_RET_FAIL(zeCommandListClose, cmdList);
-    CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, cmdQueue, 1, &cmdList,
-                     nullptr);
-    copyLock.unlock();
-    CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT32_MAX);
-    CALL_ZE_RET_FAIL(zeCommandListReset, cmdList);
+    if (copyData(DeviceId, TgtPtr, HstPtr, Size, copyLock) != OFFLOAD_SUCCESS)
+      return OFFLOAD_FAIL;
     DP("Copied %" PRId64 " bytes (hst:" DPxMOD ") -> (tgt:" DPxMOD ")\n", Size,
        DPxPTR(HstPtr), DPxPTR(TgtPtr));
   }
@@ -1319,39 +1504,32 @@ static int32_t retrieveData(int32_t DeviceId, void *HstPtr, void *TgtPtr,
   // Add synthetic delay for experiments
   addDataTransferLatency();
 
-  std::unique_lock<std::mutex> copyLock(DeviceInfo->Mutexes[DeviceId]);
-
-  auto cmdList = DeviceInfo->getCmdList(DeviceId);
-  auto cmdQueue = DeviceInfo->getCmdQueue(DeviceId);
+  std::unique_lock<std::mutex> copyLock(DeviceInfo->Mutexes[DeviceId],
+                                        std::defer_lock);
 
   if (AsyncEvent) {
-    cmdList = createCmdList(DeviceInfo->Devices[DeviceId]);
+    copyLock.lock();
+    auto cmdList = createCmdList(DeviceInfo->Devices[DeviceId]);
+    auto cmdQueue = DeviceInfo->getCmdQueue(DeviceId);
     if (!cmdList) {
       DP("Error: Asynchronous data retrieve failed -- invalid command list\n");
       return OFFLOAD_FAIL;
     }
-    CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, cmdList, HstPtr, TgtPtr,
-                     Size, nullptr);
     auto fence = createFence(cmdQueue);
     if (!fence) {
       DP("Error: Asynchronous data retrieve failed -- invalid fence\n");
       return OFFLOAD_FAIL;
     }
+    CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, cmdList, HstPtr, TgtPtr,
+                     Size, nullptr);
     if (beginAsyncCommand(cmdList, cmdQueue,
         static_cast<AsyncEventTy *>(AsyncEvent), fence) == OFFLOAD_FAIL)
       return OFFLOAD_FAIL;
     DP("Asynchronous data retrieve started -- %" PRId64 " bytes (tgt:"
        DPxMOD ") -> (hst:" DPxMOD ")\n", Size, DPxPTR(TgtPtr), DPxPTR(HstPtr));
   } else {
-    CALL_ZE_RET_FAIL(zeCommandListAppendMemoryCopy, cmdList, HstPtr, TgtPtr,
-                     Size, nullptr);
-    CALL_ZE_RET_FAIL(zeCommandListAppendBarrier, cmdList, nullptr, 0, nullptr);
-    CALL_ZE_RET_FAIL(zeCommandListClose, cmdList);
-    CALL_ZE_RET_FAIL(zeCommandQueueExecuteCommandLists, cmdQueue, 1, &cmdList,
-                     nullptr);
-    copyLock.unlock();
-    CALL_ZE_RET_FAIL(zeCommandQueueSynchronize, cmdQueue, UINT32_MAX);
-    CALL_ZE_RET_FAIL(zeCommandListReset, cmdList);
+    if (copyData(DeviceId, HstPtr, TgtPtr, Size, copyLock) != OFFLOAD_SUCCESS)
+      return OFFLOAD_FAIL;
     DP("Copied %" PRId64 " bytes (tgt:" DPxMOD ") -> (hst:" DPxMOD ")\n", Size,
        DPxPTR(TgtPtr), DPxPTR(HstPtr));
   }
@@ -1402,80 +1580,234 @@ int32_t __tgt_rtl_data_delete(int32_t DeviceId, void *TgtPtr) {
   return OFFLOAD_SUCCESS;
 }
 
-static void decideGroupArguments(int32_t DeviceId, uint32_t NumTeams,
-                                 uint32_t ThreadLimit,
-                                 TgtNDRangeDescTy *LoopLevels,
-                                 uint32_t *Sizes,
-                                 ze_group_count_t &Dimensions) {
-  uint32_t maxGroupSize =
-      DeviceInfo->ComputeProperties[DeviceId].maxTotalGroupSize;
-  // maxGroupCountX does not suggest practically useful count (~4M)
-  //uint32_t maxGroupCount = DeviceInfo->ComputeProperties.maxGroupCountX;
-  uint32_t maxGroupCount = LEVEL0_MAX_GROUP_COUNT;
+static void decideLoopKernelGroupArguments(
+    int32_t DeviceId, uint32_t ThreadLimit, TgtNDRangeDescTy *LoopLevels,
+    ze_kernel_handle_t Kernel, uint32_t *GroupSizes,
+    ze_group_count_t &GroupCounts) {
 
-  // TODO: don't have group size suggestion from kernel
+  auto &computeProperties = DeviceInfo->ComputeProperties[DeviceId];
+  uint32_t maxGroupSize = computeProperties.maxTotalGroupSize;
+  uint32_t kernelWidth = DeviceInfo->KernelProperties[DeviceId][Kernel].Width;
+  DP("Assumed kernel SIMD width is %" PRIu32 "\n", kernelWidth);
 
-  if (ThreadLimit > 0 && ThreadLimit < maxGroupSize) {
-    maxGroupSize = ThreadLimit;
-    DP("Max group size is set to %" PRIu32 " (thread_limit clause)\n",
-       maxGroupSize);
-  }
-  if (DeviceInfo->ThreadLimit > 0 && DeviceInfo->ThreadLimit < maxGroupSize) {
-    // TODO: what if user wants to override this with thread_limit?
-    maxGroupSize = DeviceInfo->ThreadLimit;
-    DP("Max group size is set to %" PRIu32 " (OMP_THREAD_LIMIT)\n",
-       maxGroupSize);
-  }
-  if (NumTeams > 0 && NumTeams < maxGroupCount) {
-    maxGroupCount = NumTeams;
-    DP("Max group count is set to %" PRIu32
-       " (num_teams clause or no teams construct)\n",
-       maxGroupCount);
+  uint32_t kernelMaxThreadGroupSize =
+      DeviceInfo->KernelProperties[DeviceId][Kernel].MaxThreadGroupSize;
+  if (kernelMaxThreadGroupSize < maxGroupSize) {
+    maxGroupSize = kernelMaxThreadGroupSize;
+    DP("Capping maximum thread group size to %" PRIu32
+       " due to kernel constraints.\n", maxGroupSize);
   }
 
-  if (LoopLevels && ThreadLimit == 0 && maxGroupSize > LEVEL0_ND_GROUP_SIZE &&
-      (DeviceInfo->ThreadLimit == 0 ||
-       DeviceInfo->ThreadLimit == (std::numeric_limits<int32_t>::max)())) {
-    maxGroupSize = LEVEL0_ND_GROUP_SIZE;
-  }
+  bool maxGroupSizeForced = false;
 
-  Sizes[0] = maxGroupSize;
-  Sizes[1] = 1;
-  Sizes[2] = 1;
-  uint32_t dimensions[3] = {maxGroupCount, 1, 1};
+  if (ThreadLimit > 0) {
+    maxGroupSizeForced = true;
 
-  if (LoopLevels) {
-    assert(LoopLevels->NumLoops > 0 && LoopLevels->NumLoops <= 3 &&
-           "ND-range parallelization requested "
-           "with invalid number of dimensions.");
-    int32_t numLevels = LoopLevels->NumLoops;
-    int32_t distributeDim = LoopLevels->DistributeDim;
-    TgtLoopDescTy *level = LoopLevels->Levels;
-    for (int32_t i = 0; i < numLevels; i++) {
-      if (i < distributeDim) {
-        dimensions[i] = 1;
-        continue;
-      }
-
-      assert(level[i].Ub >= level[i].Lb && level[i].Stride > 0 &&
-             "Invalid loop description for ND-range partitioning");
-      DP("Level %" PRId32 ": Lb = %" PRId64 ", Ub = %" PRId64 ", Stride = %"
-         PRId64 "\n", i, level[i].Lb, level[i].Ub, level[i].Stride);
-      uint32_t trip =
-          (level[i].Ub - level[i].Lb + level[i].Stride) / level[i].Stride;
-      if (Sizes[i] >= trip)
-        Sizes[i] = trip;
-      dimensions[i] = (trip + Sizes[i] - 1) / Sizes[i];
+    if (ThreadLimit <= maxGroupSize) {
+      maxGroupSize = ThreadLimit;
+      DP("Max group size is set to %" PRIu32 " (thread_limit clause)\n",
+         maxGroupSize);
+    } else {
+      DP("thread_limit(%" PRIu32 ") exceeds current maximum %"
+         PRIu32 "\n", ThreadLimit, maxGroupSize);
     }
   }
 
-  Dimensions.groupCountX = dimensions[0];
-  Dimensions.groupCountY = dimensions[1];
-  Dimensions.groupCountZ = dimensions[2];
-  DP("Group sizes = {%" PRIu32 ", %" PRIu32 ", %" PRIu32 "}\n", Sizes[0],
-     Sizes[1], Sizes[2]);
-  DP("Group dimensions = {%" PRIu32 ", %" PRIu32 ", %" PRIu32 "}\n",
-     dimensions[0], dimensions[1], dimensions[2]);
+  if (DeviceInfo->ThreadLimit > 0) {
+    maxGroupSizeForced = true;
+
+    if (DeviceInfo->ThreadLimit <= maxGroupSize) {
+      maxGroupSize = DeviceInfo->ThreadLimit;
+      DP("Max group size is set to %" PRIu32 " (OMP_THREAD_LIMIT)\n",
+         maxGroupSize);
+    } else {
+      DP("OMP_THREAD_LIMIT(%" PRIu32 ") exceeds current maximum %"
+         PRIu32 "\n", DeviceInfo->ThreadLimit, maxGroupSize);
+    }
+  }
+
+  if (DeviceInfo->NumTeams > 0)
+    DP("OMP_NUM_TEAMS(%" PRIu32 ") is ignored\n", DeviceInfo->NumTeams);
+
+  uint32_t groupCounts[3] = {1, 1, 1};
+  uint32_t groupSizes[3] = {maxGroupSize, 1, 1};
+  TgtLoopDescTy *level = LoopLevels->Levels;
+  int32_t distributeDim = LoopLevels->DistributeDim;
+  assert(distributeDim >= 0 && distributeDim <= 2 &&
+         "Invalid distribute dimension.");
+  int32_t numLoopLevels = LoopLevels->NumLoops;
+  assert((numLoopLevels > 0 && numLoopLevels <= 3) &&
+         "Invalid loop nest description for ND partitioning");
+
+  // Compute global widths for X/Y/Z dimensions.
+  uint32_t tripCounts[3] = {1, 1, 1};
+
+  for (int32_t i = 0; i < numLoopLevels; i++) {
+    assert((level[i].Ub >= level[i].Lb && level[i].Stride > 0) &&
+           "Invalid loop nest description for ND partitioning");
+    DP("Level %" PRIu32 ": Lb = %" PRId64 ", Ub = %" PRId64 ", Stride = %"
+       PRId64 "\n", i, level[i].Lb, level[i].Ub, level[i].Stride);
+    tripCounts[i] =
+        (level[i].Ub - level[i].Lb + level[i].Stride) / level[i].Stride;
+  }
+
+  if (!maxGroupSizeForced) {
+    // Use zeKernelSuggestGroupSize to compute group sizes,
+    // or fallback to setting dimension 0 width to SIMDWidth.
+    // Note that in case of user-specified LWS groupSizes[0]
+    // is already set according to the specified value.
+    uint32_t globalSizes[3] = { tripCounts[0], tripCounts[1], tripCounts[2] };
+    if (distributeDim > 0) {
+      // There is a distribute dimension.
+      globalSizes[distributeDim - 1] *= globalSizes[distributeDim];
+      globalSizes[distributeDim] = 1;
+    }
+
+    ze_result_t rc = ZE_RESULT_ERROR_UNKNOWN;
+    uint32_t suggestedGroupSizes[3];
+    if (DeviceInfo->Flags.UseDriverGroupSizes)
+      CALL_ZE_RC(rc, zeKernelSuggestGroupSize,
+                 Kernel, globalSizes[0], globalSizes[1], globalSizes[2],
+                 &suggestedGroupSizes[0], &suggestedGroupSizes[1],
+                 &suggestedGroupSizes[2]);
+
+    if (rc == ZE_RESULT_SUCCESS) {
+      groupSizes[0] = suggestedGroupSizes[0];
+      groupSizes[1] = suggestedGroupSizes[1];
+      groupSizes[2] = suggestedGroupSizes[2];
+    } else if (maxGroupSize > kernelWidth) {
+      groupSizes[0] = kernelWidth;
+    }
+  }
+
+  for (int32_t i = 0; i < numLoopLevels; i++) {
+    if (i < distributeDim) {
+      groupCounts[i] = 1;
+      continue;
+    }
+    uint32_t trip = tripCounts[i];
+    if (groupSizes[i] >= trip)
+      groupSizes[i] = trip;
+    groupCounts[i] = (trip + groupSizes[i] - 1) / groupSizes[i];
+  }
+
+  GroupCounts.groupCountX = groupCounts[0];
+  GroupCounts.groupCountY = groupCounts[1];
+  GroupCounts.groupCountZ = groupCounts[2];
+  std::copy(groupSizes, groupSizes + 3, GroupSizes);
+}
+
+static void decideKernelGroupArguments(
+    int32_t DeviceId, uint32_t NumTeams, uint32_t ThreadLimit,
+    ze_kernel_handle_t Kernel, uint32_t *GroupSizes,
+    ze_group_count_t &GroupCounts) {
+
+  auto &computeProperties = DeviceInfo->ComputeProperties[DeviceId];
+  auto &deviceProperties = DeviceInfo->DeviceProperties[DeviceId];
+  uint32_t maxGroupSize = computeProperties.maxTotalGroupSize;
+  uint32_t numEUsPerSubslice = deviceProperties.numEUsPerSubslice;
+  uint32_t numSubslices = deviceProperties.numSlices *
+                          deviceProperties.numSubslicesPerSlice;
+  uint32_t numThreadsPerEU = deviceProperties.numThreadsPerEU;
+  bool maxGroupSizeForced = false;
+  bool maxGroupCountForced = false;
+
+  uint32_t kernelWidth = DeviceInfo->KernelProperties[DeviceId][Kernel].Width;
+  DP("Assumed kernel SIMD width is %" PRIu32 "\n", kernelWidth);
+
+  uint32_t kernelMaxThreadGroupSize =
+      DeviceInfo->KernelProperties[DeviceId][Kernel].MaxThreadGroupSize;
+  if (kernelMaxThreadGroupSize < maxGroupSize) {
+    maxGroupSize = kernelMaxThreadGroupSize;
+    DP("Capping maximum thread group size to %" PRIu32
+       " due to kernel constraints.\n", maxGroupSize);
+  }
+
+  if (ThreadLimit > 0) {
+    maxGroupSizeForced = true;
+
+    if (ThreadLimit <= maxGroupSize) {
+      maxGroupSize = ThreadLimit;
+      DP("Max group size is set to %" PRIu32 " (thread_limit clause)\n",
+         maxGroupSize);
+    } else {
+      DP("thread_limit(%" PRIu32 ") exceeds current maximum %"
+         PRIu32 "\n", ThreadLimit, maxGroupSize);
+    }
+  }
+
+  if (DeviceInfo->ThreadLimit > 0) {
+    maxGroupSizeForced = true;
+
+    if (DeviceInfo->ThreadLimit <= maxGroupSize) {
+      maxGroupSize = DeviceInfo->ThreadLimit;
+      DP("Max group size is set to %" PRIu32 " (OMP_THREAD_LIMIT)\n",
+         maxGroupSize);
+    } else {
+      DP("OMP_THREAD_LIMIT(%" PRIu32 ") exceeds current maximum %"
+         PRIu32 "\n", DeviceInfo->ThreadLimit, maxGroupSize);
+    }
+  }
+
+  uint32_t maxGroupCount = 0;
+
+  if (NumTeams > 0) {
+    maxGroupCount = NumTeams;
+    maxGroupCountForced = true;
+    DP("Max group count is set to %" PRIu32
+       " (num_teams clause or no teams construct)\n", maxGroupCount);
+  } else if (DeviceInfo->NumTeams > 0) {
+    // OMP_NUM_TEAMS only matters, if num_teams() clause is absent.
+    maxGroupCount = DeviceInfo->NumTeams;
+    maxGroupCountForced = true;
+    DP("Max group count is set to %" PRIu32 " (OMP_NUM_TEAMS)\n",
+       maxGroupCount);
+  }
+
+  if (maxGroupCountForced) {
+    // If number of teams is specified by the user, then use kernelWidth
+    // WIs per WG by default, so that it matches
+    // decideLoopKernelGroupArguments() behavior.
+    if (!maxGroupSizeForced) {
+      maxGroupSize = kernelWidth;
+    }
+  } else {
+    uint32_t numThreadsPerSubslice = numEUsPerSubslice * numThreadsPerEU;
+    maxGroupCount = numSubslices * numThreadsPerSubslice;
+    if (maxGroupSizeForced) {
+      // Set group size for the HW capacity
+      uint32_t numThreadsPerGroup =
+          (maxGroupSize + kernelWidth - 1) / kernelWidth;
+      uint32_t numGroupsPerSubslice =
+          (numThreadsPerSubslice + numThreadsPerGroup - 1) / numThreadsPerGroup;
+      maxGroupCount = numGroupsPerSubslice * numSubslices;
+    } else {
+      assert(!maxGroupSizeForced && !maxGroupCountForced);
+      assert((maxGroupSize <= kernelWidth ||
+             maxGroupSize % kernelWidth == 0) && "Invalid maxGroupSize");
+      // Maximize group size
+      while (maxGroupSize > kernelWidth) {
+        uint32_t numThreadsPerGroup = maxGroupSize / kernelWidth;
+        if (numThreadsPerSubslice % numThreadsPerGroup == 0) {
+          uint32_t numGroupsPerSubslice =
+              numThreadsPerSubslice / numThreadsPerGroup;
+          maxGroupCount = numGroupsPerSubslice * numSubslices;
+          break;
+        }
+        maxGroupSize -= kernelWidth;
+      }
+    }
+  }
+
+  uint32_t groupCounts[3] = {maxGroupCount, 1, 1};
+  uint32_t groupSizes[3] = {maxGroupSize, 1, 1};
+  if (!maxGroupCountForced)
+    groupCounts[0] *= DeviceInfo->SubscriptionRate;
+
+  GroupCounts.groupCountX = groupCounts[0];
+  GroupCounts.groupCountY = groupCounts[1];
+  GroupCounts.groupCountZ = groupCounts[2];
+  std::copy(groupSizes, groupSizes + 3, GroupSizes);
 }
 
 static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
@@ -1501,17 +1833,37 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
   for (int32_t i = 0; i < NumArgs; i++) {
     args[i] = (void *)((intptr_t)TgtArgs[i] + TgtOffsets[i]);
     CALL_ZE_RET_FAIL(zeKernelSetArgumentValue, kernel, i, sizeof(void *),
-                     &args[i]);
+                     args[i] == nullptr ? nullptr : &args[i]);
     DP("Kernel argument %" PRId32 " (value: " DPxMOD ") was set successfully\n",
        i, DPxPTR(args[i]));
   }
-  // TODO: implicit arguments -- zeKernelSetAttribute() ?
 
-  // Decide group sizes and dimensions
+  // Set attributes
+  bool indirectAccess =
+      DeviceInfo->KernelProperties[DeviceId][kernel].RequiresIndirectAccess;
+  if (indirectAccess) {
+    ze_kernel_attribute_t attribute =
+        DeviceInfo->TargetAllocKind == TARGET_ALLOC_SHARED
+        ? ZE_KERNEL_ATTR_INDIRECT_SHARED_ACCESS
+        : ZE_KERNEL_ATTR_INDIRECT_DEVICE_ACCESS;
+    CALL_ZE_RET_FAIL(zeKernelSetAttribute, kernel, attribute, sizeof(bool),
+                     &indirectAccess);
+  }
+
+  // Decide group sizes and counts
   uint32_t groupSizes[3];
   ze_group_count_t groupCounts;
-  decideGroupArguments(DeviceId, (uint32_t )NumTeams, (uint32_t)ThreadLimit,
-                       (TgtNDRangeDescTy *)LoopDesc, groupSizes, groupCounts);
+  if (LoopDesc) {
+    decideLoopKernelGroupArguments(DeviceId, (uint32_t)ThreadLimit,
+        (TgtNDRangeDescTy *)LoopDesc, kernel, groupSizes, groupCounts);
+  } else {
+    decideKernelGroupArguments(DeviceId, (uint32_t )NumTeams,
+        (uint32_t)ThreadLimit, kernel, groupSizes, groupCounts);
+  }
+  DP("Group sizes = {%" PRIu32 ", %" PRIu32 ", %" PRIu32 "}\n",
+     groupSizes[0], groupSizes[1], groupSizes[2]);
+  DP("Group counts = {%" PRIu32 ", %" PRIu32 ", %" PRIu32 "}\n",
+     groupCounts.groupCountX, groupCounts.groupCountY, groupCounts.groupCountZ);
 
   if (omptEnabled.enabled) {
     // Push current work size
@@ -1633,6 +1985,17 @@ int32_t __tgt_rtl_run_target_region_nowait(int32_t DeviceId, void *TgtEntryPtr,
                                            int32_t NumArgs, void *AsyncEvent) {
   return runTargetTeamRegion(DeviceId, TgtEntryPtr, TgtArgs, TgtOffsets,
                              NumArgs, 1, 0, nullptr, AsyncEvent);
+}
+
+EXTERN int32_t __tgt_rtl_manifest_data_for_region(
+    int32_t DeviceId, void *TgtEntryPtr, void **TgtPtrs, size_t NumPtrs) {
+  if (NumPtrs == 0)
+    return OFFLOAD_SUCCESS;
+  // We only have a binary switch.
+  ze_kernel_handle_t kernel = *static_cast<ze_kernel_handle_t *>(TgtEntryPtr);
+  std::unique_lock<std::mutex> dataLock(DeviceInfo->Mutexes[DeviceId]);
+  DeviceInfo->KernelProperties[DeviceId][kernel].RequiresIndirectAccess = true;
+  return OFFLOAD_SUCCESS;
 }
 
 EXTERN void *__tgt_rtl_create_offload_queue(int32_t DeviceId, bool IsAsync) {

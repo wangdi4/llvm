@@ -8,7 +8,7 @@
 ; CHECK: |
 ; CHECK: |   + DO i2 = 0, 0, 1   <DO_LOOP>
 ; CHECK: |   |   %3 = (@kh)[0][i1 + i2 + 8];
-; CHECK: |   |   %1 = %1  &&  %3 + 9;
+; CHECK: |   |   %1 = %1  &  %3 + 9;
 ; CHECK: |   |   (@kh)[0][i1 + 5] = %1;
 ; CHECK: |   + END LOOP
 ; CHECK: |

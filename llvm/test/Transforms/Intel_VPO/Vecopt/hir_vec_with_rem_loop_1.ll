@@ -7,19 +7,20 @@
 ;   int index;
 ; 
 ;   for (index = 0; index < 1023; index++)
-;     arr[index] += index;
+;     arr[index] = index;
 ; 
 ;   return 0;
 ; }
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -print-after=VPlanDriverHIR -S < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir=0 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir -disable-output < %s 2>&1 | FileCheck %s
 ;
 ; HIR Test.
 ; CHECK: DO i1 = 0, 1019, 4   <DO_LOOP>
-; CHECK: (<4 x i32>*)(@arr)[0][i1] = i1 + 
+; CHECK: (<4 x i32>*)(@arr)[0][i1] = i1
 ; CHECK: END LOOP
 ; CHECK: DO i1 = 1020, 1022, 1   <DO_LOOP>
-; CHECK: (@arr)[0][i1] = i1 + 
+; CHECK: (@arr)[0][i1] = i1
 ; CHECK: END LOOP
 ; source_filename = "rem2.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -37,8 +38,7 @@ for.body:                                         ; preds = %for.body, %entry
   %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr, i64 0, i64 %indvars.iv
   %0 = load i32, i32* %arrayidx, align 4, !tbaa !1
   %1 = trunc i64 %indvars.iv to i32
-  %add = add nsw i32 %0, %1
-  store i32 %add, i32* %arrayidx, align 4, !tbaa !1
+  store i32 %1, i32* %arrayidx, align 4, !tbaa !1
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1023
   br i1 %exitcond, label %for.end, label %for.body

@@ -1,8 +1,4 @@
-; Verify that we form the loop at O3 but not at O2 due to different if-nesting thresholds.
-
-; RUN: opt < %s -hir-ssa-deconstruction -xmain-opt-level=2 | opt -analyze -hir-framework -hir-framework-debug=parser -xmain-opt-level=2 | FileCheck %s --check-prefix=O2
-
-; O2-NOT: DO i1
+; Verify that we form the loop at O3.
 
 ; RUN: opt < %s -hir-ssa-deconstruction -xmain-opt-level=3 | opt -analyze -hir-framework -hir-framework-debug=parser -xmain-opt-level=3 | FileCheck %s --check-prefix=O3
 

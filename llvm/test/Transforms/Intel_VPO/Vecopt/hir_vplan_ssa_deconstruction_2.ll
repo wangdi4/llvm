@@ -47,7 +47,8 @@
 ;   END REGION
 
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-linearization-hir=false -vplan-force-vf=4 -print-after=VPlanDriverHIR -vplan-print-after-ssa-deconstruction -vplan-dump-external-defs-hir=0 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-linearization-hir=false -vplan-force-vf=4 -print-after=VPlanDriverHIR -vplan-print-after-ssa-deconstruction -vplan-dump-external-defs-hir=0 -disable-output -enable-vp-value-codegen-hir=0 < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,MIXED
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-linearization-hir=false -vplan-force-vf=4 -print-after=VPlanDriverHIR -vplan-print-after-ssa-deconstruction -vplan-dump-external-defs-hir=0 -disable-output -enable-vp-value-codegen-hir < %s 2>&1 | FileCheck %s --check-prefixes=CHECK,VPVAL
 
 define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; CHECK-LABEL:  VPlan after SSA deconstruction
@@ -67,7 +68,7 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; CHECK-NEXT:    [[BB2]]:
 ; CHECK-NEXT:     [DA: Div] float [[VP0:%.*]] = phi  [ float [[VP__RED_INIT]], [[BB1]] ],  [ float [[VP1:%.*]], [[BB3:BB[0-9]+]] ]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP2:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB3]] ]
-; CHECK-NEXT:     [DA: Div] float* [[VP4:%.*]] = getelementptr inbounds float* [[ARR0:%.*]] i64 [[VP2]]
+; CHECK-NEXT:     [DA: Div] float* [[VP4:%.*]] = subscript inbounds float* [[ARR0:%.*]] i64 [[VP2]]
 ; CHECK-NEXT:     [DA: Div] float [[VP5:%.*]] = load float* [[VP4]]
 ; CHECK-NEXT:     [DA: Div] float [[VP6:%.*]] =  hir-copy float [[VP5]] , OriginPhiId: -1
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP7:%.*]] = icmp i32 [[N10:%.*]] i32 0
@@ -78,7 +79,7 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]:
 ; CHECK-NEXT:       [DA: Div] float [[VP10:%.*]] = fadd float [[VP5]] float 0.000000e+00
-; CHECK-NEXT:       [DA: Div] float* [[VP11:%.*]] = getelementptr inbounds float* [[ARR0]] i64 [[VP2]]
+; CHECK-NEXT:       [DA: Div] float* [[VP11:%.*]] = subscript inbounds float* [[ARR0]] i64 [[VP2]]
 ; CHECK-NEXT:       [DA: Div] store float [[VP10]] float* [[VP11]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP12:%.*]] = fcmp float [[VP5]] float 0.000000e+00
 ; CHECK-NEXT:       [DA: Div] i1 [[VP__NOT:%.*]] = not i1 [[VP12]]
@@ -88,7 +89,7 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; CHECK-NEXT:      [[BB5]]:
 ; CHECK-NEXT:       [DA: Div] i1 [[VP13:%.*]] = block-predicate i1 [[VP__NOT]]
 ; CHECK-NEXT:       [DA: Div] float [[VP14:%.*]] = fadd float [[VP10]] float 2.000000e+00
-; CHECK-NEXT:       [DA: Div] float* [[VP15:%.*]] = getelementptr inbounds float* [[ARR0]] i64 [[VP2]]
+; CHECK-NEXT:       [DA: Div] float* [[VP15:%.*]] = subscript inbounds float* [[ARR0]] i64 [[VP2]]
 ; CHECK-NEXT:       [DA: Div] store float [[VP14]] float* [[VP15]]
 ; CHECK-NEXT:       [DA: Div] float [[VP16:%.*]] = hir-copy float [[VP14]] , OriginPhiId: -1
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB6:BB[0-9]+]]
@@ -97,7 +98,7 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; CHECK-NEXT:      [[BB6]]:
 ; CHECK-NEXT:       [DA: Div] i1 [[VP17:%.*]] = block-predicate i1 [[VP12]]
 ; CHECK-NEXT:       [DA: Div] float [[VP18:%.*]] = fadd float [[VP10]] float 1.000000e+00
-; CHECK-NEXT:       [DA: Div] float* [[VP19:%.*]] = getelementptr inbounds float* [[ARR0]] i64 [[VP2]]
+; CHECK-NEXT:       [DA: Div] float* [[VP19:%.*]] = subscript inbounds float* [[ARR0]] i64 [[VP2]]
 ; CHECK-NEXT:       [DA: Div] store float [[VP18]] float* [[VP19]]
 ; CHECK-NEXT:       [DA: Div] float [[VP20:%.*]] = hir-copy float [[VP18]] , OriginPhiId: -1
 ; CHECK-NEXT:      SUCCESSORS(1):[[BLEND_BB0:blend.bb[0-9]+]]
@@ -131,57 +132,104 @@ define void @foo(float* noalias nocapture %arr, i32 %n1) {
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB7]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  *** IR Dump After VPlan Vectorization Driver HIR ***
-; CHECK-NEXT:  Function: foo
-; CHECK-EMPTY:
-; CHECK-NEXT:  <0>          BEGIN REGION { modified }
-; CHECK-NEXT:  <37>                 [[RED_VAR0:%.*]] = 0.000000e+00
-; CHECK-NEXT:  <36>               + DO i1 = 0, 99, 4   <DO_LOOP> <novectorize>
-; CHECK-NEXT:  <63>               |   [[DOTVEC90:%.*]] = undef
-; CHECK-NEXT:  <59>               |   [[MERGE_PHI_IN_VEC0:%.*]] = undef
-; CHECK-NEXT:  <56>               |   [[DOTVEC70:%.*]] = undef
-; CHECK-NEXT:  <38>               |   [[BB2]].{{[0-9]+}}:
-; CHECK-NEXT:  <39>               |   [[LD_VEC0:%.*]] = (<4 x float>*)([[ARR0]])[i1]
-; CHECK-NEXT:  <40>               |   [[MERGE_PHI_IN_VEC0]] = [[LD_VEC0]]
-; CHECK-NEXT:  <41>               |   [[WIDE_CMP_0:%.*]] = [[N10]] != 0
-; CHECK-NEXT:  <42>               |   [[PHI_TEMP0:%.*]] = [[RED_VAR0]]
-; CHECK-NEXT:  <43>               |   [[PHI_TEMP30:%.*]] = [[MERGE_PHI_IN_VEC0]]
-; CHECK-NEXT:  <44>               |   [[UNIFCOND0:%.*]] = extractelement [[WIDE_CMP_0]],  0
-; CHECK-NEXT:  <45>               |   if ([[UNIFCOND0]] == 1)
-; CHECK-NEXT:  <45>               |   {
-; CHECK-NEXT:  <46>               |      goto [[BB4]].{{[0-9]+}}
-; CHECK-NEXT:  <45>               |   }
-; CHECK-NEXT:  <45>               |   else
-; CHECK-NEXT:  <45>               |   {
-; CHECK-NEXT:  <47>               |      goto [[BB3]].{{[0-9]+}}
-; CHECK-NEXT:  <45>               |   }
-; CHECK-NEXT:  <48>               |   [[BB4]].{{[0-9]+}}:
-; CHECK-NEXT:  <49>               |   [[DOTVEC0:%.*]] = [[LD_VEC0]]  +  0.000000e+00
-; CHECK-NEXT:  <50>               |   (<4 x float>*)([[ARR0]])[i1] = [[DOTVEC0]]
-; CHECK-NEXT:  <51>               |   [[WIDE_CMP_50:%.*]] = [[LD_VEC0]] == 0.000000e+00
-; CHECK-NEXT:  <52>               |   [[DOTVEC60:%.*]] = [[WIDE_CMP_50]]  ^  -1
-; CHECK-NEXT:  <53>               |   goto [[BB5]].{{[0-9]+}}
-; CHECK-NEXT:  <54>               |   [[BB5]].{{[0-9]+}}:
-; CHECK-NEXT:  <55>               |   [[DOTVEC70]] = [[DOTVEC0]]  +  2.000000e+00
-; CHECK-NEXT:  <57>               |   (<4 x float>*)([[ARR0]])[i1] = [[DOTVEC70]]
-; CHECK-NEXT:  <58>               |   [[MERGE_PHI_IN_VEC0]] = [[DOTVEC70]]
-; CHECK-NEXT:  <60>               |   goto [[BB6]].{{[0-9]+}}
-; CHECK-NEXT:  <61>               |   [[BB6]].{{[0-9]+}}:
-; CHECK-NEXT:  <62>               |   [[DOTVEC90]] = [[DOTVEC0]]  +  1.000000e+00
-; CHECK-NEXT:  <64>               |   (<4 x float>*)([[ARR0]])[i1] = [[DOTVEC90]]
-; CHECK-NEXT:  <65>               |   [[MERGE_PHI_IN_VEC0]] = [[DOTVEC90]]
-; CHECK-NEXT:  <66>               |   goto [[BLEND_BB0]].{{[0-9]+}}
-; CHECK-NEXT:  <67>               |   [[BLEND_BB0]].{{[0-9]+}}:
-; CHECK-NEXT:  <68>               |   [[PHI_TEMP0]] = [[RED_VAR0]]
-; CHECK-NEXT:  <69>               |   [[PHI_TEMP30]] = [[MERGE_PHI_IN_VEC0]]
-; CHECK-NEXT:  <70>               |   goto [[BB3]].{{[0-9]+}}
-; CHECK-NEXT:  <71>               |   [[BB3]].{{[0-9]+}}:
-; CHECK-NEXT:  <72>               |   [[RED_VAR0]] = [[PHI_TEMP30]]  +  [[RED_VAR0]]
-; CHECK-NEXT:  <36>               + END LOOP
-; CHECK-NEXT:  <73>                 [[RED_PHI0]] = @llvm.experimental.vector.reduce.v2.fadd.f32.v4f32([[RED_PHI0]],  [[RED_VAR0]])
-; CHECK-NEXT:  <0>          END REGION
+; MIXED-NEXT:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; MIXED-NEXT:  Function: foo
+; MIXED-EMPTY:
+; MIXED-NEXT:  <0>          BEGIN REGION { modified }
+; MIXED-NEXT:  <37>                 [[RED_VAR0:%.*]] = 0.000000e+00
+; MIXED-NEXT:  <36>               + DO i1 = 0, 99, 4   <DO_LOOP> <novectorize>
+; MIXED-NEXT:  <63>               |   [[DOTVEC90:%.*]] = undef
+; MIXED-NEXT:  <59>               |   [[MERGE_PHI_IN_VEC0:%.*]] = undef
+; MIXED-NEXT:  <56>               |   [[DOTVEC70:%.*]] = undef
+; MIXED-NEXT:  <38>               |   [[BB2]].{{[0-9]+}}:
+; MIXED-NEXT:  <39>               |   [[LD_VEC0:%.*]] = (<4 x float>*)([[ARR0]])[i1]
+; MIXED-NEXT:  <40>               |   [[MERGE_PHI_IN_VEC0]] = [[LD_VEC0]]
+; MIXED-NEXT:  <41>               |   [[WIDE_CMP_0:%.*]] = [[N10]] != 0
+; MIXED-NEXT:  <42>               |   [[PHI_TEMP0:%.*]] = [[RED_VAR0]]
+; MIXED-NEXT:  <43>               |   [[PHI_TEMP30:%.*]] = [[MERGE_PHI_IN_VEC0]]
+; MIXED-NEXT:  <44>               |   [[UNIFCOND0:%.*]] = extractelement [[WIDE_CMP_0]],  0
+; MIXED-NEXT:  <45>               |   if ([[UNIFCOND0]] == 1)
+; MIXED-NEXT:  <45>               |   {
+; MIXED-NEXT:  <46>               |      goto [[BB4]].{{[0-9]+}}
+; MIXED-NEXT:  <45>               |   }
+; MIXED-NEXT:  <45>               |   else
+; MIXED-NEXT:  <45>               |   {
+; MIXED-NEXT:  <47>               |      goto [[BB3]].{{[0-9]+}}
+; MIXED-NEXT:  <45>               |   }
+; MIXED-NEXT:  <48>               |   [[BB4]].{{[0-9]+}}:
+; MIXED-NEXT:  <49>               |   [[DOTVEC0:%.*]] = [[LD_VEC0]]  +  0.000000e+00
+; MIXED-NEXT:  <50>               |   (<4 x float>*)([[ARR0]])[i1] = [[DOTVEC0]]
+; MIXED-NEXT:  <51>               |   [[WIDE_CMP_50:%.*]] = [[LD_VEC0]] == 0.000000e+00
+; MIXED-NEXT:  <52>               |   [[DOTVEC60:%.*]] = [[WIDE_CMP_50]]  ^  -1
+; MIXED-NEXT:  <53>               |   goto [[BB5]].{{[0-9]+}}
+; MIXED-NEXT:  <54>               |   [[BB5]].{{[0-9]+}}:
+; MIXED-NEXT:  <55>               |   [[DOTVEC70]] = [[DOTVEC0]]  +  2.000000e+00; Mask = @{[[DOTVEC60]]}
+; MIXED-NEXT:  <57>               |   (<4 x float>*)([[ARR0]])[i1] = [[DOTVEC70]]; Mask = @{[[DOTVEC60]]}
+; MIXED-NEXT:  <58>               |   [[MERGE_PHI_IN_VEC0]] = [[DOTVEC70]]; Mask = @{[[DOTVEC60]]}
+; MIXED-NEXT:  <60>               |   goto [[BB6]].{{[0-9]+}}
+; MIXED-NEXT:  <61>               |   [[BB6]].{{[0-9]+}}:
+; MIXED-NEXT:  <62>               |   [[DOTVEC90]] = [[DOTVEC0]]  +  1.000000e+00; Mask = @{[[WIDE_CMP_50]]}
+; MIXED-NEXT:  <64>               |   (<4 x float>*)([[ARR0]])[i1] = [[DOTVEC90]]; Mask = @{[[WIDE_CMP_50]]}
+; MIXED-NEXT:  <65>               |   [[MERGE_PHI_IN_VEC0]] = [[DOTVEC90]]; Mask = @{[[WIDE_CMP_50]]}
+; MIXED-NEXT:  <66>               |   goto [[BLEND_BB0]].{{[0-9]+}}
+; MIXED-NEXT:  <67>               |   [[BLEND_BB0]].{{[0-9]+}}:
+; MIXED-NEXT:  <68>               |   [[PHI_TEMP0]] = [[RED_VAR0]]
+; MIXED-NEXT:  <69>               |   [[PHI_TEMP30]] = [[MERGE_PHI_IN_VEC0]]
+; MIXED-NEXT:  <70>               |   goto [[BB3]].{{[0-9]+}}
+; MIXED-NEXT:  <71>               |   [[BB3]].{{[0-9]+}}:
+; MIXED-NEXT:  <72>               |   [[RED_VAR0]] = [[PHI_TEMP30]]  +  [[PHI_TEMP0]]
+; MIXED-NEXT:  <36>               + END LOOP
+; MIXED-NEXT:  <73>                 [[RED_PHI0]] = @llvm.experimental.vector.reduce.v2.fadd.f32.v4f32([[RED_PHI0]],  [[RED_VAR0]])
+; MIXED-NEXT:  <0>          END REGION
 ;
-
+; VPVAL-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; VPVAL-NEXT:  Function: foo
+; VPVAL-EMPTY:
+; VPVAL-NEXT:  BEGIN REGION { modified }
+; VPVAL-NEXT:            %red.var = 0.000000e+00;
+; VPVAL-NEXT:          + DO i1 = 0, 99, 4   <DO_LOOP> <novectorize>
+; VPVAL-NEXT:          |   BB3.38:
+; VPVAL-NEXT:          |   %.vec = (<4 x float>*)(%arr)[i1];
+; VPVAL-NEXT:          |   %.copy = %.vec;
+; VPVAL-NEXT:          |   %.vec3 = %n1 != 0;
+; VPVAL-NEXT:          |   %phi.temp = %red.var;
+; VPVAL-NEXT:          |   %phi.temp5 = %.copy;
+; VPVAL-NEXT:          |   %unifcond = extractelement %.vec3,  0;
+; VPVAL-NEXT:          |   if (%unifcond == 1)
+; VPVAL-NEXT:          |   {
+; VPVAL-NEXT:          |      goto BB4.48;
+; VPVAL-NEXT:          |   }
+; VPVAL-NEXT:          |   else
+; VPVAL-NEXT:          |   {
+; VPVAL-NEXT:          |      goto BB7.69;
+; VPVAL-NEXT:          |   }
+; VPVAL-NEXT:          |   BB4.48:
+; VPVAL-NEXT:          |   %.vec7 = %.vec  +  0.000000e+00;
+; VPVAL-NEXT:          |   (<4 x float>*)(%arr)[i1] = %.vec7;
+; VPVAL-NEXT:          |   %.vec8 = %.vec == 0.000000e+00;
+; VPVAL-NEXT:          |   %.vec9 = %.vec8  ^  -1;
+; VPVAL-NEXT:          |   goto BB6.54;
+; VPVAL-NEXT:          |   BB6.54:
+; VPVAL-NEXT:          |   %.vec10 = %.vec7  +  2.000000e+00;
+; VPVAL-NEXT:          |   (<4 x float>*)(%arr)[i1] = %.vec10; Mask = @{%.vec9}
+; VPVAL-NEXT:          |   %.copy11 = %.vec10;
+; VPVAL-NEXT:          |   goto BB5.59;
+; VPVAL-NEXT:          |   BB5.59:
+; VPVAL-NEXT:          |   %.vec12 = %.vec7  +  1.000000e+00;
+; VPVAL-NEXT:          |   (<4 x float>*)(%arr)[i1] = %.vec12; Mask = @{%.vec8}
+; VPVAL-NEXT:          |   %.copy13 = %.vec12;
+; VPVAL-NEXT:          |   goto blend.bb10.64;
+; VPVAL-NEXT:          |   blend.bb10.64:
+; VPVAL-NEXT:          |   %select = (%.vec8 == <i1 true, i1 true, i1 true, i1 true>) ? %.copy13 : %.copy11;
+; VPVAL-NEXT:          |   %phi.temp = %red.var;
+; VPVAL-NEXT:          |   %phi.temp5 = %select;
+; VPVAL-NEXT:          |   goto BB7.69;
+; VPVAL-NEXT:          |   BB7.69:
+; VPVAL-NEXT:          |   %red.var = %phi.temp5  +  %phi.temp;
+; VPVAL-NEXT:          + END LOOP
+; VPVAL-NEXT:              %red.phi = @llvm.experimental.vector.reduce.v2.fadd.f32.v4f32(%red.phi,  %red.var);
+; VPVAL-NEXT:  END REGION
+;
 
 entry:
   %tobool = icmp eq i32 %n1, 0

@@ -34,6 +34,7 @@
 #include "llvm/IR/InstIterator.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Format.h"
+#include "llvm/Target/TargetMachine.h" // INTEL
 
 using namespace llvm;
 
@@ -112,32 +113,24 @@ public:
 
     /// Machine value type.
     MVT VT;
-
-    /// Opcode kind.
-    unsigned OpcodeKind : 4;
   };
 
 private:
-  /// Known AVX1/AVX2 opcodes.
-  static const FMAOpcodeDesc AVXOpcodes[];
+  /// Known FMA opcodes.
+  static const FMAOpcodeDesc VEXOpcodes[15][6];
+  static const FMAOpcodeDesc EVEXOpcodes[15][8];
 
-  /// Known AVX512 opcodes.
-  static const FMAOpcodeDesc AVX512Opcodes[];
-
-  /// Returns the reference to the table with opcode descriptors.
-  /// The size of the table is returned in the parameter \p OpcodesTabSize.
-  /// If the parameter \p LookForAVX512 is set to true, then the reference
-  /// to the table with AVX512 opcodes is returned. Otherwise, this method
-  /// returns a reference to the table with AVX1/AVX2 opcodes.
-  static const FMAOpcodeDesc *getOpcodesTab(bool LookForAVX512,
-                                            unsigned &OpcodesTabSize);
+  static const FMAOpcodeDesc *findByOpcode(unsigned Opcode,
+                                           FMAOpcodeKind OpcodeKind, bool EVEX);
+  static const FMAOpcodeDesc *findByVT(MVT VT, FMAOpcodeKind OpcodeKind,
+                                       bool EVEX);
 
 public:
-  /// This function returns true iff the given opcode \p Opcode should be
-  /// recognized by the FMA optimization. Also, if the opcode is recognized,
-  /// then machine value type associated with the opcode is returned in \p VT,
-  /// the opcode kind is returned in \p OpcodeKind, \p IsMem is set to true if
-  /// \p Opcode is a memory opcode.
+  /// This function returns true iff the given opcode \p Opcode and \p TSFlags
+  /// should be recognized by the FMA optimization. Also, if the opcode is
+  /// recognized, then machine value type associated with the opcode is returned
+  /// in \p VT, the opcode kind is returned in \p OpcodeKind, \p IsMem is set to
+  /// true if \p Opcode is a memory opcode.
   /// It is assumed here that all recognized opcodes can be represented as
   /// FMA operations having 3 operands: ((MulSign)(Op1 * Op2) + (AddSign)Op3),
   /// where the MulSign is the sign of the product of the first 2 operands
@@ -146,16 +139,15 @@ public:
   /// and each parameter is set to true iff the corresponding sign is negative.
   /// For example, SUB(a,b) can be represented as (+a*1.0 - c). In this case
   /// \p MulSign must be set to false, and AddSign must be set to true.
-  static bool recognizeOpcode(unsigned Opcode, bool LookForAVX512, MVT &VT,
-                              FMAOpcodeKind &OpcodeKind, bool &IsMem,
-                              bool &MulSign, bool &AddSign);
+  static bool recognizeInstr(const MachineInstr &MI, MVT &VT,
+                             FMAOpcodeKind &OpcodeKind, bool &IsMem);
 
   /// Returns the register form of the opcode of the given opcode kind
   /// \p OpcodeKind and machine value type \p VT. The parameter
   /// \p LookForAVX512 tells if the opcode should be searched among AVX512
   /// opcodes or AVX1/AVX2 opcodes.
-  static unsigned getOpcodeOfKind(bool LookForAVX512, FMAOpcodeKind OpcodeKind,
-                                  MVT VT);
+  static unsigned getOpcodeOfKind(const X86Subtarget *ST,
+                                  FMAOpcodeKind OpcodeKind, MVT VT);
 
   /// Returns an opcode of FMA213Opc opcode kind with the given signs of
   /// the product of 1st and 2nd FMA operands \p MulSign and the sign of
@@ -165,294 +157,429 @@ public:
       return AddSign ? FNMS213Opc : FNMA213Opc;
     return AddSign ? FMS213Opc : FMA213Opc;
   }
+
+  /// Returns the sign of the product of the 1st and 2nd  FMA operands for the
+  /// given opcode kind \p Kind.
+  static bool getMulSign(FMAOpcodeKind Kind) {
+    return Kind == FNMA213Opc || Kind == FNMA132Opc || Kind == FNMA231Opc ||
+           Kind == FNMS213Opc || Kind == FNMS132Opc || Kind == FNMS231Opc;
+  }
+
+  /// Returns the sign of the 3rd FMA operand for the given opcode kind
+  /// \p Kind.
+  static bool getAddSign(FMAOpcodeKind Kind) {
+    return Kind == FNMS213Opc || Kind == FNMS132Opc || Kind == FNMS231Opc ||
+           Kind == FMS213Opc  || Kind == FMS132Opc  || Kind == FMS231Opc ||
+           Kind == SUBOpc;
+  }
 };
 
-const FMAOpcodesInfo::FMAOpcodeDesc FMAOpcodesInfo::AVXOpcodes[] = {
-  // ADD
-  { X86::VADDSSrr,       X86::VADDSSrm,       MVT::f32,   ADDOpc },
-  { X86::VADDSDrr,       X86::VADDSDrm,       MVT::f64,   ADDOpc },
-  { X86::VADDPSrr,       X86::VADDPSrm,       MVT::v4f32, ADDOpc },
-  { X86::VADDPDrr,       X86::VADDPDrm,       MVT::v2f64, ADDOpc },
-  { X86::VADDPSYrr,      X86::VADDPSYrm,      MVT::v8f32, ADDOpc },
-  { X86::VADDPDYrr,      X86::VADDPDYrm,      MVT::v4f64, ADDOpc },
-  // SUB
-  { X86::VSUBSSrr,       X86::VSUBSSrm,       MVT::f32,   SUBOpc },
-  { X86::VSUBSDrr,       X86::VSUBSDrm,       MVT::f64,   SUBOpc },
-  { X86::VSUBPSrr,       X86::VSUBPSrm,       MVT::v4f32, SUBOpc },
-  { X86::VSUBPDrr,       X86::VSUBPDrm,       MVT::v2f64, SUBOpc },
-  { X86::VSUBPSYrr,      X86::VSUBPSYrm,      MVT::v8f32, SUBOpc },
-  { X86::VSUBPDYrr,      X86::VSUBPDYrm,      MVT::v4f64, SUBOpc },
-  // MUL
-  { X86::VMULSSrr,       X86::VMULSSrm,       MVT::f32,   MULOpc },
-  { X86::VMULSDrr,       X86::VMULSDrm,       MVT::f64,   MULOpc },
-  { X86::VMULPSrr,       X86::VMULPSrm,       MVT::v4f32, MULOpc },
-  { X86::VMULPDrr,       X86::VMULPDrm,       MVT::v2f64, MULOpc },
-  { X86::VMULPSYrr,      X86::VMULPSYrm,      MVT::v8f32, MULOpc },
-  { X86::VMULPDYrr,      X86::VMULPDYrm,      MVT::v4f64, MULOpc },
-  // FMA213
-  { X86::VFMADD213SSr,   X86::VFMADD213SSm,   MVT::f32,   FMA213Opc },
-  { X86::VFMADD213SDr,   X86::VFMADD213SDm,   MVT::f64,   FMA213Opc },
-  { X86::VFMADD213PSr,   X86::VFMADD213PSm,   MVT::v4f32, FMA213Opc },
-  { X86::VFMADD213PDr,   X86::VFMADD213PDm,   MVT::v2f64, FMA213Opc },
-  { X86::VFMADD213PSYr,  X86::VFMADD213PSYm,  MVT::v8f32, FMA213Opc },
-  { X86::VFMADD213PDYr,  X86::VFMADD213PDYm,  MVT::v4f64, FMA213Opc },
-  // FMS213
-  { X86::VFMSUB213SSr,   X86::VFMSUB213SSm,   MVT::f32,   FMS213Opc },
-  { X86::VFMSUB213SDr,   X86::VFMSUB213SDm,   MVT::f64,   FMS213Opc },
-  { X86::VFMSUB213PSr,   X86::VFMSUB213PSm,   MVT::v4f32, FMS213Opc },
-  { X86::VFMSUB213PDr,   X86::VFMSUB213PDm,   MVT::v2f64, FMS213Opc },
-  { X86::VFMSUB213PSYr,  X86::VFMSUB213PSYm,  MVT::v8f32, FMS213Opc },
-  { X86::VFMSUB213PDYr,  X86::VFMSUB213PDYm,  MVT::v4f64, FMS213Opc },
-  // FNMA213
-  { X86::VFNMADD213SSr,  X86::VFNMADD213SSm,  MVT::f32,   FNMA213Opc },
-  { X86::VFNMADD213SDr,  X86::VFNMADD213SDm,  MVT::f64,   FNMA213Opc },
-  { X86::VFNMADD213PSr,  X86::VFNMADD213PSm,  MVT::v4f32, FNMA213Opc },
-  { X86::VFNMADD213PDr,  X86::VFNMADD213PDm,  MVT::v2f64, FNMA213Opc },
-  { X86::VFNMADD213PSYr, X86::VFNMADD213PSYm, MVT::v8f32, FNMA213Opc },
-  { X86::VFNMADD213PDYr, X86::VFNMADD213PDYm, MVT::v4f64, FNMA213Opc },
-  // FNMS213
-  { X86::VFNMSUB213SSr,  X86::VFNMSUB213SSm,  MVT::f32,   FNMS213Opc },
-  { X86::VFNMSUB213SDr,  X86::VFNMSUB213SDm,  MVT::f64,   FNMS213Opc },
-  { X86::VFNMSUB213PSr,  X86::VFNMSUB213PSm,  MVT::v4f32, FNMS213Opc },
-  { X86::VFNMSUB213PDr,  X86::VFNMSUB213PDm,  MVT::v2f64, FNMS213Opc },
-  { X86::VFNMSUB213PSYr, X86::VFNMSUB213PSYm, MVT::v8f32, FNMS213Opc },
-  { X86::VFNMSUB213PDYr, X86::VFNMSUB213PDYm, MVT::v4f64, FNMS213Opc },
-  // FMA132
-  { X86::VFMADD132SSr,   X86::VFMADD132SSm,   MVT::f32,   FMA132Opc },
-  { X86::VFMADD132SDr,   X86::VFMADD132SDm,   MVT::f64,   FMA132Opc },
-  { X86::VFMADD132PSr,   X86::VFMADD132PSm,   MVT::v4f32, FMA132Opc },
-  { X86::VFMADD132PDr,   X86::VFMADD132PDm,   MVT::v2f64, FMA132Opc },
-  { X86::VFMADD132PSYr,  X86::VFMADD132PSYm,  MVT::v8f32, FMA132Opc },
-  { X86::VFMADD132PDYr,  X86::VFMADD132PDYm,  MVT::v4f64, FMA132Opc },
-  // FMS132
-  { X86::VFMSUB132SSr,   X86::VFMSUB132SSm,   MVT::f32,   FMS132Opc },
-  { X86::VFMSUB132SDr,   X86::VFMSUB132SDm,   MVT::f64,   FMS132Opc },
-  { X86::VFMSUB132PSr,   X86::VFMSUB132PSm,   MVT::v4f32, FMS132Opc },
-  { X86::VFMSUB132PDr,   X86::VFMSUB132PDm,   MVT::v2f64, FMS132Opc },
-  { X86::VFMSUB132PSYr,  X86::VFMSUB132PSYm,  MVT::v8f32, FMS132Opc },
-  { X86::VFMSUB132PDYr,  X86::VFMSUB132PDYm,  MVT::v4f64, FMS132Opc },
-  // FNMA132
-  { X86::VFNMADD132SSr,  X86::VFNMADD132SSm,  MVT::f32,   FNMA132Opc },
-  { X86::VFNMADD132SDr,  X86::VFNMADD132SDm,  MVT::f64,   FNMA132Opc },
-  { X86::VFNMADD132PSr,  X86::VFNMADD132PSm,  MVT::v4f32, FNMA132Opc },
-  { X86::VFNMADD132PDr,  X86::VFNMADD132PDm,  MVT::v2f64, FNMA132Opc },
-  { X86::VFNMADD132PSYr, X86::VFNMADD132PSYm, MVT::v8f32, FNMA132Opc },
-  { X86::VFNMADD132PDYr, X86::VFNMADD132PDYm, MVT::v4f64, FNMA132Opc },
-  // FNMS132
-  { X86::VFNMSUB132SSr,  X86::VFNMSUB132SSm,  MVT::f32,   FNMS132Opc },
-  { X86::VFNMSUB132SDr,  X86::VFNMSUB132SDm,  MVT::f64,   FNMS132Opc },
-  { X86::VFNMSUB132PSr,  X86::VFNMSUB132PSm,  MVT::v4f32, FNMS132Opc },
-  { X86::VFNMSUB132PDr,  X86::VFNMSUB132PDm,  MVT::v2f64, FNMS132Opc },
-  { X86::VFNMSUB132PSYr, X86::VFNMSUB132PSYm, MVT::v8f32, FNMS132Opc },
-  { X86::VFNMSUB132PDYr, X86::VFNMSUB132PDYm, MVT::v4f64, FNMS132Opc },
-  // FMA231
-  { X86::VFMADD231SSr,   X86::VFMADD231SSm,   MVT::f32,   FMA231Opc },
-  { X86::VFMADD231SDr,   X86::VFMADD231SDm,   MVT::f64,   FMA231Opc },
-  { X86::VFMADD231PSr,   X86::VFMADD231PSm,   MVT::v4f32, FMA231Opc },
-  { X86::VFMADD231PDr,   X86::VFMADD231PDm,   MVT::v2f64, FMA231Opc },
-  { X86::VFMADD231PSYr,  X86::VFMADD231PSYm,  MVT::v8f32, FMA231Opc },
-  { X86::VFMADD231PDYr,  X86::VFMADD231PDYm,  MVT::v4f64, FMA231Opc },
-  // FMS231
-  { X86::VFMSUB231SSr,   X86::VFMSUB231SSm,   MVT::f32,   FMS231Opc },
-  { X86::VFMSUB231SDr,   X86::VFMSUB231SDm,   MVT::f64,   FMS231Opc },
-  { X86::VFMSUB231PSr,   X86::VFMSUB231PSm,   MVT::v4f32, FMS231Opc },
-  { X86::VFMSUB231PDr,   X86::VFMSUB231PDm,   MVT::v2f64, FMS231Opc },
-  { X86::VFMSUB231PSYr,  X86::VFMSUB231PSYm,  MVT::v8f32, FMS231Opc },
-  { X86::VFMSUB231PDYr,  X86::VFMSUB231PDYm,  MVT::v4f64, FMS231Opc },
-  // FNMA231
-  { X86::VFNMADD231SSr,  X86::VFNMADD231SSm,  MVT::f32,   FNMA231Opc },
-  { X86::VFNMADD231SDr,  X86::VFNMADD231SDm,  MVT::f64,   FNMA231Opc },
-  { X86::VFNMADD231PSr,  X86::VFNMADD231PSm,  MVT::v4f32, FNMA231Opc },
-  { X86::VFNMADD231PDr,  X86::VFNMADD231PDm,  MVT::v2f64, FNMA231Opc },
-  { X86::VFNMADD231PSYr, X86::VFNMADD231PSYm, MVT::v8f32, FNMA231Opc },
-  { X86::VFNMADD231PDYr, X86::VFNMADD231PDYm, MVT::v4f64, FNMA231Opc },
-  // FNMS231
-  { X86::VFNMSUB231SSr,  X86::VFNMSUB231SSm,  MVT::f32,   FNMS231Opc },
-  { X86::VFNMSUB231SDr,  X86::VFNMSUB231SDm,  MVT::f64,   FNMS231Opc },
-  { X86::VFNMSUB231PSr,  X86::VFNMSUB231PSm,  MVT::v4f32, FNMS231Opc },
-  { X86::VFNMSUB231PDr,  X86::VFNMSUB231PDm,  MVT::v2f64, FNMS231Opc },
-  { X86::VFNMSUB231PSYr, X86::VFNMSUB231PSYm, MVT::v8f32, FNMS231Opc },
-  { X86::VFNMSUB231PDYr, X86::VFNMSUB231PDYm, MVT::v4f64, FNMS231Opc },
+const FMAOpcodesInfo::FMAOpcodeDesc FMAOpcodesInfo::VEXOpcodes[15][6] = {
+  { // ADD
+    { X86::VADDSSrr,       X86::VADDSSrm,       MVT::f32   },
+    { X86::VADDSDrr,       X86::VADDSDrm,       MVT::f64   },
+    { X86::VADDPSrr,       X86::VADDPSrm,       MVT::v4f32 },
+    { X86::VADDPDrr,       X86::VADDPDrm,       MVT::v2f64 },
+    { X86::VADDPSYrr,      X86::VADDPSYrm,      MVT::v8f32 },
+    { X86::VADDPDYrr,      X86::VADDPDYrm,      MVT::v4f64 },
+  },
+  { // SUB
+    { X86::VSUBSSrr,       X86::VSUBSSrm,       MVT::f32   },
+    { X86::VSUBSDrr,       X86::VSUBSDrm,       MVT::f64   },
+    { X86::VSUBPSrr,       X86::VSUBPSrm,       MVT::v4f32 },
+    { X86::VSUBPDrr,       X86::VSUBPDrm,       MVT::v2f64 },
+    { X86::VSUBPSYrr,      X86::VSUBPSYrm,      MVT::v8f32 },
+    { X86::VSUBPDYrr,      X86::VSUBPDYrm,      MVT::v4f64 },
+  },
+  { // MUL
+    { X86::VMULSSrr,       X86::VMULSSrm,       MVT::f32   },
+    { X86::VMULSDrr,       X86::VMULSDrm,       MVT::f64   },
+    { X86::VMULPSrr,       X86::VMULPSrm,       MVT::v4f32 },
+    { X86::VMULPDrr,       X86::VMULPDrm,       MVT::v2f64 },
+    { X86::VMULPSYrr,      X86::VMULPSYrm,      MVT::v8f32 },
+    { X86::VMULPDYrr,      X86::VMULPDYrm,      MVT::v4f64 },
+  },
+  { // FMA213
+    { X86::VFMADD213SSr,   X86::VFMADD213SSm,   MVT::f32   },
+    { X86::VFMADD213SDr,   X86::VFMADD213SDm,   MVT::f64   },
+    { X86::VFMADD213PSr,   X86::VFMADD213PSm,   MVT::v4f32 },
+    { X86::VFMADD213PDr,   X86::VFMADD213PDm,   MVT::v2f64 },
+    { X86::VFMADD213PSYr,  X86::VFMADD213PSYm,  MVT::v8f32 },
+    { X86::VFMADD213PDYr,  X86::VFMADD213PDYm,  MVT::v4f64 },
+  },
+  { // FMA132
+    { X86::VFMADD132SSr,   X86::VFMADD132SSm,   MVT::f32   },
+    { X86::VFMADD132SDr,   X86::VFMADD132SDm,   MVT::f64   },
+    { X86::VFMADD132PSr,   X86::VFMADD132PSm,   MVT::v4f32 },
+    { X86::VFMADD132PDr,   X86::VFMADD132PDm,   MVT::v2f64 },
+    { X86::VFMADD132PSYr,  X86::VFMADD132PSYm,  MVT::v8f32 },
+    { X86::VFMADD132PDYr,  X86::VFMADD132PDYm,  MVT::v4f64 },
+  },
+  { // FMA231
+    { X86::VFMADD231SSr,   X86::VFMADD231SSm,   MVT::f32   },
+    { X86::VFMADD231SDr,   X86::VFMADD231SDm,   MVT::f64   },
+    { X86::VFMADD231PSr,   X86::VFMADD231PSm,   MVT::v4f32 },
+    { X86::VFMADD231PDr,   X86::VFMADD231PDm,   MVT::v2f64 },
+    { X86::VFMADD231PSYr,  X86::VFMADD231PSYm,  MVT::v8f32 },
+    { X86::VFMADD231PDYr,  X86::VFMADD231PDYm,  MVT::v4f64 },
+  },
+  { // FMS213
+    { X86::VFMSUB213SSr,   X86::VFMSUB213SSm,   MVT::f32   },
+    { X86::VFMSUB213SDr,   X86::VFMSUB213SDm,   MVT::f64   },
+    { X86::VFMSUB213PSr,   X86::VFMSUB213PSm,   MVT::v4f32 },
+    { X86::VFMSUB213PDr,   X86::VFMSUB213PDm,   MVT::v2f64 },
+    { X86::VFMSUB213PSYr,  X86::VFMSUB213PSYm,  MVT::v8f32 },
+    { X86::VFMSUB213PDYr,  X86::VFMSUB213PDYm,  MVT::v4f64 },
+  },
+  { // FMS132
+    { X86::VFMSUB132SSr,   X86::VFMSUB132SSm,   MVT::f32   },
+    { X86::VFMSUB132SDr,   X86::VFMSUB132SDm,   MVT::f64   },
+    { X86::VFMSUB132PSr,   X86::VFMSUB132PSm,   MVT::v4f32 },
+    { X86::VFMSUB132PDr,   X86::VFMSUB132PDm,   MVT::v2f64 },
+    { X86::VFMSUB132PSYr,  X86::VFMSUB132PSYm,  MVT::v8f32 },
+    { X86::VFMSUB132PDYr,  X86::VFMSUB132PDYm,  MVT::v4f64 },
+  },
+  { // FMS231
+    { X86::VFMSUB231SSr,   X86::VFMSUB231SSm,   MVT::f32   },
+    { X86::VFMSUB231SDr,   X86::VFMSUB231SDm,   MVT::f64   },
+    { X86::VFMSUB231PSr,   X86::VFMSUB231PSm,   MVT::v4f32 },
+    { X86::VFMSUB231PDr,   X86::VFMSUB231PDm,   MVT::v2f64 },
+    { X86::VFMSUB231PSYr,  X86::VFMSUB231PSYm,  MVT::v8f32 },
+    { X86::VFMSUB231PDYr,  X86::VFMSUB231PDYm,  MVT::v4f64 },
+  },
+  { // FNMA213
+    { X86::VFNMADD213SSr,  X86::VFNMADD213SSm,  MVT::f32   },
+    { X86::VFNMADD213SDr,  X86::VFNMADD213SDm,  MVT::f64   },
+    { X86::VFNMADD213PSr,  X86::VFNMADD213PSm,  MVT::v4f32 },
+    { X86::VFNMADD213PDr,  X86::VFNMADD213PDm,  MVT::v2f64 },
+    { X86::VFNMADD213PSYr, X86::VFNMADD213PSYm, MVT::v8f32 },
+    { X86::VFNMADD213PDYr, X86::VFNMADD213PDYm, MVT::v4f64 },
+  },
+  { // FNMA132
+    { X86::VFNMADD132SSr,  X86::VFNMADD132SSm,  MVT::f32   },
+    { X86::VFNMADD132SDr,  X86::VFNMADD132SDm,  MVT::f64   },
+    { X86::VFNMADD132PSr,  X86::VFNMADD132PSm,  MVT::v4f32 },
+    { X86::VFNMADD132PDr,  X86::VFNMADD132PDm,  MVT::v2f64 },
+    { X86::VFNMADD132PSYr, X86::VFNMADD132PSYm, MVT::v8f32 },
+    { X86::VFNMADD132PDYr, X86::VFNMADD132PDYm, MVT::v4f64 },
+  },
+  { // FNMA231
+    { X86::VFNMADD231SSr,  X86::VFNMADD231SSm,  MVT::f32   },
+    { X86::VFNMADD231SDr,  X86::VFNMADD231SDm,  MVT::f64   },
+    { X86::VFNMADD231PSr,  X86::VFNMADD231PSm,  MVT::v4f32 },
+    { X86::VFNMADD231PDr,  X86::VFNMADD231PDm,  MVT::v2f64 },
+    { X86::VFNMADD231PSYr, X86::VFNMADD231PSYm, MVT::v8f32 },
+    { X86::VFNMADD231PDYr, X86::VFNMADD231PDYm, MVT::v4f64 },
+  },
+  { // FNMS213
+    { X86::VFNMSUB213SSr,  X86::VFNMSUB213SSm,  MVT::f32   },
+    { X86::VFNMSUB213SDr,  X86::VFNMSUB213SDm,  MVT::f64   },
+    { X86::VFNMSUB213PSr,  X86::VFNMSUB213PSm,  MVT::v4f32 },
+    { X86::VFNMSUB213PDr,  X86::VFNMSUB213PDm,  MVT::v2f64 },
+    { X86::VFNMSUB213PSYr, X86::VFNMSUB213PSYm, MVT::v8f32 },
+    { X86::VFNMSUB213PDYr, X86::VFNMSUB213PDYm, MVT::v4f64 },
+  },
+  { // FNMS132
+    { X86::VFNMSUB132SSr,  X86::VFNMSUB132SSm,  MVT::f32   },
+    { X86::VFNMSUB132SDr,  X86::VFNMSUB132SDm,  MVT::f64   },
+    { X86::VFNMSUB132PSr,  X86::VFNMSUB132PSm,  MVT::v4f32 },
+    { X86::VFNMSUB132PDr,  X86::VFNMSUB132PDm,  MVT::v2f64 },
+    { X86::VFNMSUB132PSYr, X86::VFNMSUB132PSYm, MVT::v8f32 },
+    { X86::VFNMSUB132PDYr, X86::VFNMSUB132PDYm, MVT::v4f64 },
+  },
+  { // FNMS231
+    { X86::VFNMSUB231SSr,  X86::VFNMSUB231SSm,  MVT::f32   },
+    { X86::VFNMSUB231SDr,  X86::VFNMSUB231SDm,  MVT::f64   },
+    { X86::VFNMSUB231PSr,  X86::VFNMSUB231PSm,  MVT::v4f32 },
+    { X86::VFNMSUB231PDr,  X86::VFNMSUB231PDm,  MVT::v2f64 },
+    { X86::VFNMSUB231PSYr, X86::VFNMSUB231PSYm, MVT::v8f32 },
+    { X86::VFNMSUB231PDYr, X86::VFNMSUB231PDYm, MVT::v4f64 },
+  }
 };
 
-const FMAOpcodesInfo::FMAOpcodeDesc FMAOpcodesInfo::AVX512Opcodes[] = {
-  // ADD
-  { X86::VADDSSZrr,         X86::VADDSSZrm,         MVT::f32,    ADDOpc },
-  { X86::VADDSDZrr,         X86::VADDSDZrm,         MVT::f64,    ADDOpc },
-  { X86::VADDPSZ128rr,      X86::VADDPSZ128rm,      MVT::v4f32,  ADDOpc },
-  { X86::VADDPDZ128rr,      X86::VADDPDZ128rm,      MVT::v2f64,  ADDOpc },
-  { X86::VADDPSZ256rr,      X86::VADDPSZ256rm,      MVT::v8f32,  ADDOpc },
-  { X86::VADDPDZ256rr,      X86::VADDPDZ256rm,      MVT::v4f64,  ADDOpc },
-  { X86::VADDPSZrr,         X86::VADDPSZrm,         MVT::v16f32, ADDOpc },
-  { X86::VADDPDZrr,         X86::VADDPDZrm,         MVT::v8f64,  ADDOpc },
-  // SUB
-  { X86::VSUBSSZrr,         X86::VSUBSSZrm,         MVT::f32,    SUBOpc },
-  { X86::VSUBSDZrr,         X86::VSUBSDZrm,         MVT::f64,    SUBOpc },
-  { X86::VSUBPSZ128rr,      X86::VSUBPSZ128rm,      MVT::v4f32,  SUBOpc },
-  { X86::VSUBPDZ128rr,      X86::VSUBPDZ128rm,      MVT::v2f64,  SUBOpc },
-  { X86::VSUBPSZ256rr,      X86::VSUBPSZ256rm,      MVT::v8f32,  SUBOpc },
-  { X86::VSUBPDZ256rr,      X86::VSUBPDZ256rm,      MVT::v4f64,  SUBOpc },
-  { X86::VSUBPSZrr,         X86::VSUBPSZrm,         MVT::v16f32, SUBOpc },
-  { X86::VSUBPDZrr,         X86::VSUBPDZrm,         MVT::v8f64,  SUBOpc },
-  // MUL
-  { X86::VMULSSZrr,         X86::VMULSSZrm,         MVT::f32,    MULOpc },
-  { X86::VMULSDZrr,         X86::VMULSDZrm,         MVT::f64,    MULOpc },
-  { X86::VMULPSZ128rr,      X86::VMULPSZ128rm,      MVT::v4f32,  MULOpc },
-  { X86::VMULPDZ128rr,      X86::VMULPDZ128rm,      MVT::v2f64,  MULOpc },
-  { X86::VMULPSZ256rr,      X86::VMULPSZ256rm,      MVT::v8f32,  MULOpc },
-  { X86::VMULPDZ256rr,      X86::VMULPDZ256rm,      MVT::v4f64,  MULOpc },
-  { X86::VMULPSZrr,         X86::VMULPSZrm,         MVT::v16f32, MULOpc },
-  { X86::VMULPDZrr,         X86::VMULPDZrm,         MVT::v8f64,  MULOpc },
-  // FMA213
-  { X86::VFMADD213SSZr,     X86::VFMADD213SSZm,     MVT::f32,    FMA213Opc },
-  { X86::VFMADD213SDZr,     X86::VFMADD213SDZm,     MVT::f64,    FMA213Opc },
-  { X86::VFMADD213PSZ128r,  X86::VFMADD213PSZ128m,  MVT::v4f32,  FMA213Opc },
-  { X86::VFMADD213PDZ128r,  X86::VFMADD213PDZ128m,  MVT::v2f64,  FMA213Opc },
-  { X86::VFMADD213PSZ256r,  X86::VFMADD213PSZ256m,  MVT::v8f32,  FMA213Opc },
-  { X86::VFMADD213PDZ256r,  X86::VFMADD213PDZ256m,  MVT::v4f64,  FMA213Opc },
-  { X86::VFMADD213PSZr,     X86::VFMADD213PSZm,     MVT::v16f32, FMA213Opc },
-  { X86::VFMADD213PDZr,     X86::VFMADD213PDZm,     MVT::v8f64,  FMA213Opc },
-  // FMS213
-  { X86::VFMSUB213SSZr,     X86::VFMSUB213SSZm,     MVT::f32,    FMS213Opc },
-  { X86::VFMSUB213SDZr,     X86::VFMSUB213SDZm,     MVT::f64,    FMS213Opc },
-  { X86::VFMSUB213PSZ128r,  X86::VFMSUB213PSZ128m,  MVT::v4f32,  FMS213Opc },
-  { X86::VFMSUB213PDZ128r,  X86::VFMSUB213PDZ128m,  MVT::v2f64,  FMS213Opc },
-  { X86::VFMSUB213PSZ256r,  X86::VFMSUB213PSZ256m,  MVT::v8f32,  FMS213Opc },
-  { X86::VFMSUB213PDZ256r,  X86::VFMSUB213PDZ256m,  MVT::v4f64,  FMS213Opc },
-  { X86::VFMSUB213PSZr,     X86::VFMSUB213PSZm,     MVT::v16f32, FMS213Opc },
-  { X86::VFMSUB213PDZr,     X86::VFMSUB213PDZm,     MVT::v8f64,  FMS213Opc },
-  // FNMA213
-  { X86::VFNMADD213SSZr,    X86::VFNMADD213SSZm,    MVT::f32,    FNMA213Opc },
-  { X86::VFNMADD213SDZr,    X86::VFNMADD213SDZm,    MVT::f64,    FNMA213Opc },
-  { X86::VFNMADD213PSZ128r, X86::VFNMADD213PSZ128m, MVT::v4f32,  FNMA213Opc },
-  { X86::VFNMADD213PDZ128r, X86::VFNMADD213PDZ128m, MVT::v2f64,  FNMA213Opc },
-  { X86::VFNMADD213PSZ256r, X86::VFNMADD213PSZ256m, MVT::v8f32,  FNMA213Opc },
-  { X86::VFNMADD213PDZ256r, X86::VFNMADD213PDZ256m, MVT::v4f64,  FNMA213Opc },
-  { X86::VFNMADD213PSZr,    X86::VFNMADD213PSZm,    MVT::v16f32, FNMA213Opc },
-  { X86::VFNMADD213PDZr,    X86::VFNMADD213PDZm,    MVT::v8f64,  FNMA213Opc },
-  // FNMS213
-  { X86::VFNMSUB213SSZr,    X86::VFNMSUB213SSZm,    MVT::f32,    FNMS213Opc },
-  { X86::VFNMSUB213SDZr,    X86::VFNMSUB213SDZm,    MVT::f64,    FNMS213Opc },
-  { X86::VFNMSUB213PSZ128r, X86::VFNMSUB213PSZ128m, MVT::v4f32,  FNMS213Opc },
-  { X86::VFNMSUB213PDZ128r, X86::VFNMSUB213PDZ128m, MVT::v2f64,  FNMS213Opc },
-  { X86::VFNMSUB213PSZ256r, X86::VFNMSUB213PSZ256m, MVT::v8f32,  FNMS213Opc },
-  { X86::VFNMSUB213PDZ256r, X86::VFNMSUB213PDZ256m, MVT::v4f64,  FNMS213Opc },
-  { X86::VFNMSUB213PSZr,    X86::VFNMSUB213PSZm,    MVT::v16f32, FNMS213Opc },
-  { X86::VFNMSUB213PDZr,    X86::VFNMSUB213PDZm,    MVT::v8f64,  FNMS213Opc },
-  // FMA132
-  { X86::VFMADD132SSZr,     X86::VFMADD132SSZm,     MVT::f32,    FMA132Opc },
-  { X86::VFMADD132SDZr,     X86::VFMADD132SDZm,     MVT::f64,    FMA132Opc },
-  { X86::VFMADD132PSZ128r,  X86::VFMADD132PSZ128m,  MVT::v4f32,  FMA132Opc },
-  { X86::VFMADD132PDZ128r,  X86::VFMADD132PDZ128m,  MVT::v2f64,  FMA132Opc },
-  { X86::VFMADD132PSZ256r,  X86::VFMADD132PSZ256m,  MVT::v8f32,  FMA132Opc },
-  { X86::VFMADD132PDZ256r,  X86::VFMADD132PDZ256m,  MVT::v4f64,  FMA132Opc },
-  { X86::VFMADD132PSZr,     X86::VFMADD132PSZm,     MVT::v16f32, FMA132Opc },
-  { X86::VFMADD132PDZr,     X86::VFMADD132PDZm,     MVT::v8f64,  FMA132Opc },
-  // FMS132
-  { X86::VFMSUB132SSZr,     X86::VFMSUB132SSZm,     MVT::f32,    FMS132Opc },
-  { X86::VFMSUB132SDZr,     X86::VFMSUB132SDZm,     MVT::f64,    FMS132Opc },
-  { X86::VFMSUB132PSZ128r,  X86::VFMSUB132PSZ128m,  MVT::v4f32,  FMS132Opc },
-  { X86::VFMSUB132PDZ128r,  X86::VFMSUB132PDZ128m,  MVT::v2f64,  FMS132Opc },
-  { X86::VFMSUB132PSZ256r,  X86::VFMSUB132PSZ256m,  MVT::v8f32,  FMS132Opc },
-  { X86::VFMSUB132PDZ256r,  X86::VFMSUB132PDZ256m,  MVT::v4f64,  FMS132Opc },
-  { X86::VFMSUB132PSZr,     X86::VFMSUB132PSZm,     MVT::v16f32, FMS132Opc },
-  { X86::VFMSUB132PDZr,     X86::VFMSUB132PDZm,     MVT::v8f64,  FMS132Opc },
-  // FNMA132
-  { X86::VFNMADD132SSZr,    X86::VFNMADD132SSZm,    MVT::f32,    FNMA132Opc },
-  { X86::VFNMADD132SDZr,    X86::VFNMADD132SDZm,    MVT::f64,    FNMA132Opc },
-  { X86::VFNMADD132PSZ128r, X86::VFNMADD132PSZ128m, MVT::v4f32,  FNMA132Opc },
-  { X86::VFNMADD132PDZ128r, X86::VFNMADD132PDZ128m, MVT::v2f64,  FNMA132Opc },
-  { X86::VFNMADD132PSZ256r, X86::VFNMADD132PSZ256m, MVT::v8f32,  FNMA132Opc },
-  { X86::VFNMADD132PDZ256r, X86::VFNMADD132PDZ256m, MVT::v4f64,  FNMA132Opc },
-  { X86::VFNMADD132PSZr,    X86::VFNMADD132PSZm,    MVT::v8f32,  FNMA132Opc },
-  { X86::VFNMADD132PDZr,    X86::VFNMADD132PDZm,    MVT::v4f64,  FNMA132Opc },
-  // FNMS132
-  { X86::VFNMSUB132SSZr,    X86::VFNMSUB132SSZm,    MVT::f32,    FNMS132Opc },
-  { X86::VFNMSUB132SDZr,    X86::VFNMSUB132SDZm,    MVT::f64,    FNMS132Opc },
-  { X86::VFNMSUB132PSZ128r, X86::VFNMSUB132PSZ128m, MVT::v4f32,  FNMS132Opc },
-  { X86::VFNMSUB132PDZ128r, X86::VFNMSUB132PDZ128m, MVT::v2f64,  FNMS132Opc },
-  { X86::VFNMSUB132PSZ256r, X86::VFNMSUB132PSZ256m, MVT::v8f32,  FNMS132Opc },
-  { X86::VFNMSUB132PDZ256r, X86::VFNMSUB132PDZ256m, MVT::v4f64,  FNMS132Opc },
-  { X86::VFNMSUB132PSZr,    X86::VFNMSUB132PSZm,    MVT::v16f32, FNMS132Opc },
-  { X86::VFNMSUB132PDZr,    X86::VFNMSUB132PDZm,    MVT::v8f64,  FNMS132Opc },
-  // FMA231
-  { X86::VFMADD231SSZr,     X86::VFMADD231SSZm,     MVT::f32,    FMA231Opc },
-  { X86::VFMADD231SDZr,     X86::VFMADD231SDZm,     MVT::f64,    FMA231Opc },
-  { X86::VFMADD231PSZ128r,  X86::VFMADD231PSZ128m,  MVT::v4f32,  FMA231Opc },
-  { X86::VFMADD231PDZ128r,  X86::VFMADD231PDZ128m,  MVT::v2f64,  FMA231Opc },
-  { X86::VFMADD231PSZ256r,  X86::VFMADD231PSZ256m,  MVT::v8f32,  FMA231Opc },
-  { X86::VFMADD231PDZ256r,  X86::VFMADD231PDZ256m,  MVT::v4f64,  FMA231Opc },
-  { X86::VFMADD231PSZr,     X86::VFMADD231PSZm,     MVT::v16f32, FMA231Opc },
-  { X86::VFMADD231PDZr,     X86::VFMADD231PDZm,     MVT::v8f64,  FMA231Opc },
-  // FMS231
-  { X86::VFMSUB231SSZr,     X86::VFMSUB231SSZm,     MVT::f32,    FMS231Opc },
-  { X86::VFMSUB231SDZr,     X86::VFMSUB231SDZm,     MVT::f64,    FMS231Opc },
-  { X86::VFMSUB231PSZ128r,  X86::VFMSUB231PSZ128m,  MVT::v4f32,  FMS231Opc },
-  { X86::VFMSUB231PDZ128r,  X86::VFMSUB231PDZ128m,  MVT::v2f64,  FMS231Opc },
-  { X86::VFMSUB231PSZ256r,  X86::VFMSUB231PSZ256m,  MVT::v8f32,  FMS231Opc },
-  { X86::VFMSUB231PDZ256r,  X86::VFMSUB231PDZ256m,  MVT::v4f64,  FMS231Opc },
-  { X86::VFMSUB231PSZr,     X86::VFMSUB231PSZm,     MVT::v16f32, FMS231Opc },
-  { X86::VFMSUB231PDZr,     X86::VFMSUB231PDZm,     MVT::v8f64,  FMS231Opc },
-  // FNMA231
-  { X86::VFNMADD231SSZr,    X86::VFNMADD231SSZm,    MVT::f32,    FNMA231Opc },
-  { X86::VFNMADD231SDZr,    X86::VFNMADD231SDZm,    MVT::f64,    FNMA231Opc },
-  { X86::VFNMADD231PSZ128r, X86::VFNMADD231PSZ128m, MVT::v4f32,  FNMA231Opc },
-  { X86::VFNMADD231PDZ128r, X86::VFNMADD231PDZ128m, MVT::v2f64,  FNMA231Opc },
-  { X86::VFNMADD231PSZ256r, X86::VFNMADD231PSZ256m, MVT::v8f32,  FNMA231Opc },
-  { X86::VFNMADD231PDZ256r, X86::VFNMADD231PDZ256m, MVT::v4f64,  FNMA231Opc },
-  { X86::VFNMADD231PSZr,    X86::VFNMADD231PSZm,    MVT::v16f32, FNMA231Opc },
-  { X86::VFNMADD231PDZr,    X86::VFNMADD231PDZm,    MVT::v8f64,  FNMA231Opc },
-  // FNMS231
-  { X86::VFNMSUB231SSZr,    X86::VFNMSUB231SSZm,    MVT::f32,    FNMS231Opc },
-  { X86::VFNMSUB231SDZr,    X86::VFNMSUB231SDZm,    MVT::f64,    FNMS231Opc },
-  { X86::VFNMSUB231PSZ128r, X86::VFNMSUB231PSZ128m, MVT::v4f32,  FNMS231Opc },
-  { X86::VFNMSUB231PDZ128r, X86::VFNMSUB231PDZ128m, MVT::v2f64,  FNMS231Opc },
-  { X86::VFNMSUB231PSZ256r, X86::VFNMSUB231PSZ256m, MVT::v8f32,  FNMS231Opc },
-  { X86::VFNMSUB231PDZ256r, X86::VFNMSUB231PDZ256m, MVT::v4f64,  FNMS231Opc },
-  { X86::VFNMSUB231PSZr,    X86::VFNMSUB231PSZm,    MVT::v16f32, FNMS231Opc },
-  { X86::VFNMSUB231PDZr,    X86::VFNMSUB231PDZm,    MVT::v8f64,  FNMS231Opc },
+const FMAOpcodesInfo::FMAOpcodeDesc FMAOpcodesInfo::EVEXOpcodes[15][8] = {
+  { // ADD
+    { X86::VADDSSZrr,         X86::VADDSSZrm,         MVT::f32    },
+    { X86::VADDSDZrr,         X86::VADDSDZrm,         MVT::f64    },
+    { X86::VADDPSZ128rr,      X86::VADDPSZ128rm,      MVT::v4f32  },
+    { X86::VADDPDZ128rr,      X86::VADDPDZ128rm,      MVT::v2f64  },
+    { X86::VADDPSZ256rr,      X86::VADDPSZ256rm,      MVT::v8f32  },
+    { X86::VADDPDZ256rr,      X86::VADDPDZ256rm,      MVT::v4f64  },
+    { X86::VADDPSZrr,         X86::VADDPSZrm,         MVT::v16f32 },
+    { X86::VADDPDZrr,         X86::VADDPDZrm,         MVT::v8f64  },
+  },
+  { // SUB
+    { X86::VSUBSSZrr,         X86::VSUBSSZrm,         MVT::f32    },
+    { X86::VSUBSDZrr,         X86::VSUBSDZrm,         MVT::f64    },
+    { X86::VSUBPSZ128rr,      X86::VSUBPSZ128rm,      MVT::v4f32  },
+    { X86::VSUBPDZ128rr,      X86::VSUBPDZ128rm,      MVT::v2f64  },
+    { X86::VSUBPSZ256rr,      X86::VSUBPSZ256rm,      MVT::v8f32  },
+    { X86::VSUBPDZ256rr,      X86::VSUBPDZ256rm,      MVT::v4f64  },
+    { X86::VSUBPSZrr,         X86::VSUBPSZrm,         MVT::v16f32 },
+    { X86::VSUBPDZrr,         X86::VSUBPDZrm,         MVT::v8f64  },
+  },
+  { // MUL
+    { X86::VMULSSZrr,         X86::VMULSSZrm,         MVT::f32    },
+    { X86::VMULSDZrr,         X86::VMULSDZrm,         MVT::f64    },
+    { X86::VMULPSZ128rr,      X86::VMULPSZ128rm,      MVT::v4f32  },
+    { X86::VMULPDZ128rr,      X86::VMULPDZ128rm,      MVT::v2f64  },
+    { X86::VMULPSZ256rr,      X86::VMULPSZ256rm,      MVT::v8f32  },
+    { X86::VMULPDZ256rr,      X86::VMULPDZ256rm,      MVT::v4f64  },
+    { X86::VMULPSZrr,         X86::VMULPSZrm,         MVT::v16f32 },
+    { X86::VMULPDZrr,         X86::VMULPDZrm,         MVT::v8f64  },
+  },
+  { // FMA213
+    { X86::VFMADD213SSZr,     X86::VFMADD213SSZm,     MVT::f32    },
+    { X86::VFMADD213SDZr,     X86::VFMADD213SDZm,     MVT::f64    },
+    { X86::VFMADD213PSZ128r,  X86::VFMADD213PSZ128m,  MVT::v4f32  },
+    { X86::VFMADD213PDZ128r,  X86::VFMADD213PDZ128m,  MVT::v2f64  },
+    { X86::VFMADD213PSZ256r,  X86::VFMADD213PSZ256m,  MVT::v8f32  },
+    { X86::VFMADD213PDZ256r,  X86::VFMADD213PDZ256m,  MVT::v4f64  },
+    { X86::VFMADD213PSZr,     X86::VFMADD213PSZm,     MVT::v16f32 },
+    { X86::VFMADD213PDZr,     X86::VFMADD213PDZm,     MVT::v8f64  },
+  },
+  { // FMA132
+    { X86::VFMADD132SSZr,     X86::VFMADD132SSZm,     MVT::f32    },
+    { X86::VFMADD132SDZr,     X86::VFMADD132SDZm,     MVT::f64    },
+    { X86::VFMADD132PSZ128r,  X86::VFMADD132PSZ128m,  MVT::v4f32  },
+    { X86::VFMADD132PDZ128r,  X86::VFMADD132PDZ128m,  MVT::v2f64  },
+    { X86::VFMADD132PSZ256r,  X86::VFMADD132PSZ256m,  MVT::v8f32  },
+    { X86::VFMADD132PDZ256r,  X86::VFMADD132PDZ256m,  MVT::v4f64  },
+    { X86::VFMADD132PSZr,     X86::VFMADD132PSZm,     MVT::v16f32 },
+    { X86::VFMADD132PDZr,     X86::VFMADD132PDZm,     MVT::v8f64  },
+  },
+  { // FMA231
+    { X86::VFMADD231SSZr,     X86::VFMADD231SSZm,     MVT::f32    },
+    { X86::VFMADD231SDZr,     X86::VFMADD231SDZm,     MVT::f64    },
+    { X86::VFMADD231PSZ128r,  X86::VFMADD231PSZ128m,  MVT::v4f32  },
+    { X86::VFMADD231PDZ128r,  X86::VFMADD231PDZ128m,  MVT::v2f64  },
+    { X86::VFMADD231PSZ256r,  X86::VFMADD231PSZ256m,  MVT::v8f32  },
+    { X86::VFMADD231PDZ256r,  X86::VFMADD231PDZ256m,  MVT::v4f64  },
+    { X86::VFMADD231PSZr,     X86::VFMADD231PSZm,     MVT::v16f32 },
+    { X86::VFMADD231PDZr,     X86::VFMADD231PDZm,     MVT::v8f64  },
+  },
+  { // FMS213
+    { X86::VFMSUB213SSZr,     X86::VFMSUB213SSZm,     MVT::f32    },
+    { X86::VFMSUB213SDZr,     X86::VFMSUB213SDZm,     MVT::f64    },
+    { X86::VFMSUB213PSZ128r,  X86::VFMSUB213PSZ128m,  MVT::v4f32  },
+    { X86::VFMSUB213PDZ128r,  X86::VFMSUB213PDZ128m,  MVT::v2f64  },
+    { X86::VFMSUB213PSZ256r,  X86::VFMSUB213PSZ256m,  MVT::v8f32  },
+    { X86::VFMSUB213PDZ256r,  X86::VFMSUB213PDZ256m,  MVT::v4f64  },
+    { X86::VFMSUB213PSZr,     X86::VFMSUB213PSZm,     MVT::v16f32 },
+    { X86::VFMSUB213PDZr,     X86::VFMSUB213PDZm,     MVT::v8f64  },
+  },
+  { // FMS132
+    { X86::VFMSUB132SSZr,     X86::VFMSUB132SSZm,     MVT::f32    },
+    { X86::VFMSUB132SDZr,     X86::VFMSUB132SDZm,     MVT::f64    },
+    { X86::VFMSUB132PSZ128r,  X86::VFMSUB132PSZ128m,  MVT::v4f32  },
+    { X86::VFMSUB132PDZ128r,  X86::VFMSUB132PDZ128m,  MVT::v2f64  },
+    { X86::VFMSUB132PSZ256r,  X86::VFMSUB132PSZ256m,  MVT::v8f32  },
+    { X86::VFMSUB132PDZ256r,  X86::VFMSUB132PDZ256m,  MVT::v4f64  },
+    { X86::VFMSUB132PSZr,     X86::VFMSUB132PSZm,     MVT::v16f32 },
+    { X86::VFMSUB132PDZr,     X86::VFMSUB132PDZm,     MVT::v8f64  },
+  },
+  { // FMS231
+    { X86::VFMSUB231SSZr,     X86::VFMSUB231SSZm,     MVT::f32    },
+    { X86::VFMSUB231SDZr,     X86::VFMSUB231SDZm,     MVT::f64    },
+    { X86::VFMSUB231PSZ128r,  X86::VFMSUB231PSZ128m,  MVT::v4f32  },
+    { X86::VFMSUB231PDZ128r,  X86::VFMSUB231PDZ128m,  MVT::v2f64  },
+    { X86::VFMSUB231PSZ256r,  X86::VFMSUB231PSZ256m,  MVT::v8f32  },
+    { X86::VFMSUB231PDZ256r,  X86::VFMSUB231PDZ256m,  MVT::v4f64  },
+    { X86::VFMSUB231PSZr,     X86::VFMSUB231PSZm,     MVT::v16f32 },
+    { X86::VFMSUB231PDZr,     X86::VFMSUB231PDZm,     MVT::v8f64  },
+  },
+  { // FNMA213
+    { X86::VFNMADD213SSZr,    X86::VFNMADD213SSZm,    MVT::f32    },
+    { X86::VFNMADD213SDZr,    X86::VFNMADD213SDZm,    MVT::f64    },
+    { X86::VFNMADD213PSZ128r, X86::VFNMADD213PSZ128m, MVT::v4f32  },
+    { X86::VFNMADD213PDZ128r, X86::VFNMADD213PDZ128m, MVT::v2f64  },
+    { X86::VFNMADD213PSZ256r, X86::VFNMADD213PSZ256m, MVT::v8f32  },
+    { X86::VFNMADD213PDZ256r, X86::VFNMADD213PDZ256m, MVT::v4f64  },
+    { X86::VFNMADD213PSZr,    X86::VFNMADD213PSZm,    MVT::v16f32 },
+    { X86::VFNMADD213PDZr,    X86::VFNMADD213PDZm,    MVT::v8f64  },
+  },
+  { // FNMA132
+    { X86::VFNMADD132SSZr,    X86::VFNMADD132SSZm,    MVT::f32    },
+    { X86::VFNMADD132SDZr,    X86::VFNMADD132SDZm,    MVT::f64    },
+    { X86::VFNMADD132PSZ128r, X86::VFNMADD132PSZ128m, MVT::v4f32  },
+    { X86::VFNMADD132PDZ128r, X86::VFNMADD132PDZ128m, MVT::v2f64  },
+    { X86::VFNMADD132PSZ256r, X86::VFNMADD132PSZ256m, MVT::v8f32  },
+    { X86::VFNMADD132PDZ256r, X86::VFNMADD132PDZ256m, MVT::v4f64  },
+    { X86::VFNMADD132PSZr,    X86::VFNMADD132PSZm,    MVT::v8f32  },
+    { X86::VFNMADD132PDZr,    X86::VFNMADD132PDZm,    MVT::v4f64  },
+  },
+  { // FNMA231
+    { X86::VFNMADD231SSZr,    X86::VFNMADD231SSZm,    MVT::f32    },
+    { X86::VFNMADD231SDZr,    X86::VFNMADD231SDZm,    MVT::f64    },
+    { X86::VFNMADD231PSZ128r, X86::VFNMADD231PSZ128m, MVT::v4f32  },
+    { X86::VFNMADD231PDZ128r, X86::VFNMADD231PDZ128m, MVT::v2f64  },
+    { X86::VFNMADD231PSZ256r, X86::VFNMADD231PSZ256m, MVT::v8f32  },
+    { X86::VFNMADD231PDZ256r, X86::VFNMADD231PDZ256m, MVT::v4f64  },
+    { X86::VFNMADD231PSZr,    X86::VFNMADD231PSZm,    MVT::v16f32 },
+    { X86::VFNMADD231PDZr,    X86::VFNMADD231PDZm,    MVT::v8f64  },
+  },
+  { // FNMS213
+    { X86::VFNMSUB213SSZr,    X86::VFNMSUB213SSZm,    MVT::f32    },
+    { X86::VFNMSUB213SDZr,    X86::VFNMSUB213SDZm,    MVT::f64    },
+    { X86::VFNMSUB213PSZ128r, X86::VFNMSUB213PSZ128m, MVT::v4f32  },
+    { X86::VFNMSUB213PDZ128r, X86::VFNMSUB213PDZ128m, MVT::v2f64  },
+    { X86::VFNMSUB213PSZ256r, X86::VFNMSUB213PSZ256m, MVT::v8f32  },
+    { X86::VFNMSUB213PDZ256r, X86::VFNMSUB213PDZ256m, MVT::v4f64  },
+    { X86::VFNMSUB213PSZr,    X86::VFNMSUB213PSZm,    MVT::v16f32 },
+    { X86::VFNMSUB213PDZr,    X86::VFNMSUB213PDZm,    MVT::v8f64  },
+  },
+  { // FNMS132
+    { X86::VFNMSUB132SSZr,    X86::VFNMSUB132SSZm,    MVT::f32    },
+    { X86::VFNMSUB132SDZr,    X86::VFNMSUB132SDZm,    MVT::f64    },
+    { X86::VFNMSUB132PSZ128r, X86::VFNMSUB132PSZ128m, MVT::v4f32  },
+    { X86::VFNMSUB132PDZ128r, X86::VFNMSUB132PDZ128m, MVT::v2f64  },
+    { X86::VFNMSUB132PSZ256r, X86::VFNMSUB132PSZ256m, MVT::v8f32  },
+    { X86::VFNMSUB132PDZ256r, X86::VFNMSUB132PDZ256m, MVT::v4f64  },
+    { X86::VFNMSUB132PSZr,    X86::VFNMSUB132PSZm,    MVT::v16f32 },
+    { X86::VFNMSUB132PDZr,    X86::VFNMSUB132PDZm,    MVT::v8f64  },
+  },
+  { // FNMS231
+    { X86::VFNMSUB231SSZr,    X86::VFNMSUB231SSZm,    MVT::f32    },
+    { X86::VFNMSUB231SDZr,    X86::VFNMSUB231SDZm,    MVT::f64    },
+    { X86::VFNMSUB231PSZ128r, X86::VFNMSUB231PSZ128m, MVT::v4f32  },
+    { X86::VFNMSUB231PDZ128r, X86::VFNMSUB231PDZ128m, MVT::v2f64  },
+    { X86::VFNMSUB231PSZ256r, X86::VFNMSUB231PSZ256m, MVT::v8f32  },
+    { X86::VFNMSUB231PDZ256r, X86::VFNMSUB231PDZ256m, MVT::v4f64  },
+    { X86::VFNMSUB231PSZr,    X86::VFNMSUB231PSZm,    MVT::v16f32 },
+    { X86::VFNMSUB231PDZr,    X86::VFNMSUB231PDZm,    MVT::v8f64  },
+  }
 };
 
 const FMAOpcodesInfo::FMAOpcodeDesc *
-FMAOpcodesInfo::getOpcodesTab(bool LookForAVX512, unsigned &OpcodesTabSize) {
-  const FMAOpcodeDesc *OpcodesTab;
-  if (!LookForAVX512) {
-    OpcodesTab = AVXOpcodes;
-    OpcodesTabSize = sizeof(AVXOpcodes) / sizeof(FMAOpcodeDesc);
-  } else {
-    OpcodesTab = AVX512Opcodes;
-    OpcodesTabSize = sizeof(AVX512Opcodes) / sizeof(FMAOpcodeDesc);
-  }
-  return OpcodesTab;
+FMAOpcodesInfo::findByOpcode(unsigned Opcode, FMAOpcodeKind OpcodeKind,
+                             bool EVEX) {
+  ArrayRef<FMAOpcodeDesc> Table = EVEX ? makeArrayRef(EVEXOpcodes[OpcodeKind])
+                                       : makeArrayRef(VEXOpcodes[OpcodeKind]);
+  auto I = llvm::find_if(Table, [Opcode](const FMAOpcodeDesc &OD) {
+    return OD.RegOpc == Opcode || OD.MemOpc == Opcode;
+  });
+  if (I != Table.end())
+    return &*I;
+
+  return nullptr;
 }
 
-bool FMAOpcodesInfo::recognizeOpcode(unsigned Opcode, bool LookForAVX512,
-                                     MVT &VT, FMAOpcodeKind &OpcodeKind,
-                                     bool &IsMem, bool &MulSign,
-                                     bool &AddSign) {
-  unsigned OpcodesTabSize;
-  const FMAOpcodeDesc *OpcodesTab =
-      getOpcodesTab(LookForAVX512, OpcodesTabSize);
-  for (unsigned I = 0; I < OpcodesTabSize; I++) {
-    const FMAOpcodeDesc *OD = &OpcodesTab[I];
-    if (Opcode == OD->RegOpc)
-      IsMem = false;
-    else if (Opcode == OD->MemOpc)
-      IsMem = true;
-    else
-      continue;
+const FMAOpcodesInfo::FMAOpcodeDesc *
+FMAOpcodesInfo::findByVT(MVT VT, FMAOpcodeKind OpcodeKind, bool EVEX) {
+  ArrayRef<FMAOpcodeDesc> Table = EVEX ? makeArrayRef(EVEXOpcodes[OpcodeKind])
+                                       : makeArrayRef(VEXOpcodes[OpcodeKind]);
+  auto I = llvm::find_if(Table,
+                         [VT](const FMAOpcodeDesc &OD) { return OD.VT == VT; });
+  if (I != Table.end())
+    return &*I;
+
+  return nullptr;
+}
+
+// FIXME: It would be great if we could do this directly from TSFlags.
+static bool isADDSUBMULIntrinsic(const MCInstrDesc &Desc) {
+  // Check if this uses one of the scalar prefixes.
+  if ((Desc.TSFlags & X86II::OpPrefixMask) != X86II::XD &&
+      (Desc.TSFlags & X86II::OpPrefixMask) != X86II::XS)
+    return false;
+
+  // Check the register class of the destination. If it's 128-bit register
+  // this is an intrinsic.
+  int16_t RegClassID = Desc.OpInfo[0].RegClass;
+  if (RegClassID == X86::VR128RegClassID ||
+      RegClassID == X86::VR128XRegClassID)
+    return true;
+
+  // Otherwise it should be a scalar register class.
+  assert((RegClassID == X86::FR32RegClassID ||
+          RegClassID == X86::FR32XRegClassID ||
+          RegClassID == X86::FR64RegClassID ||
+          RegClassID == X86::FR64XRegClassID) && "Unexpected regclass!");
+
+  return false;
+}
+
+bool FMAOpcodesInfo::recognizeInstr(const MachineInstr &MI,
+                                    MVT &VT, FMAOpcodeKind &OpcodeKind,
+                                    bool &IsMem) {
+  unsigned Opcode = MI.getOpcode();
+  uint64_t TSFlags = MI.getDesc().TSFlags;
+  uint8_t BaseOpcode = X86II::getBaseOpcodeFor(TSFlags);
+
+  // FP MUL/ADD/SUB have well defined encodings. They all lie on the two byte
+  // 0x0F two byte opcode map.
+  if (((TSFlags & X86II::EncodingMask) == X86II::VEX ||
+       (TSFlags & X86II::EncodingMask) == X86II::EVEX) &&
+      (TSFlags & X86II::EVEX_B) == 0 && (TSFlags & X86II::EVEX_K) == 0 &&
+      (TSFlags & X86II::OpMapMask) == X86II::TB &&
+      (BaseOpcode == 0x59/*MUL*/ || BaseOpcode == 0x58/*ADD*/ ||
+       BaseOpcode == 0x5c/*SUB*/) &&
+      !isADDSUBMULIntrinsic(MI.getDesc())) {
+    switch (BaseOpcode) {
+    default: llvm_unreachable("Unexpected opcode!");
+    case 0x59: OpcodeKind = MULOpc; break;
+    case 0x58: OpcodeKind = ADDOpc; break;
+    case 0x5c: OpcodeKind = SUBOpc; break;
+    }
+
+    bool EVEX = (TSFlags & X86II::EncodingMask) == X86II::EVEX;
+    const FMAOpcodeDesc *OD = findByOpcode(Opcode, OpcodeKind, EVEX);
+    assert(OD != nullptr && "Didn't find in table!");
+    IsMem = Opcode == OD->MemOpc;
     VT = OD->VT;
-    OpcodeKind = static_cast<FMAOpcodeKind>(OD->OpcodeKind);
+    return true;
+  }
 
-    bool IsFNMS = OpcodeKind == FNMS213Opc || OpcodeKind == FNMS132Opc ||
-                  OpcodeKind == FNMS231Opc;
-    bool IsFNMA = OpcodeKind == FNMA213Opc || OpcodeKind == FNMA132Opc ||
-                  OpcodeKind == FNMA231Opc;
-    bool IsFMS = OpcodeKind == FMS213Opc || OpcodeKind == FMS132Opc ||
-                 OpcodeKind == FMS231Opc;
-    MulSign = IsFNMS || IsFNMA;
-    AddSign = IsFNMS || IsFMS || OpcodeKind == SUBOpc;
+  // FMA3 can use X86InstrFMA3 to do initial classification. We still need to
+  // reject some cases.
+  // FIXME: Put more information into X86InstrFMA3Group?
+  const X86InstrFMA3Group *FMA3Group = getFMA3Group(Opcode, TSFlags);
+  if (FMA3Group && !FMA3Group->isIntrinsic() &&
+      (BaseOpcode & 0x8) == 0x8 && // Reject ADDSUB/SUBADD.
+#if INTEL_FEATURE_ISA_FP16
+      // FP16 instructions use a similar encoding on a different opcode map.
+      (TSFlags & X86II::OpMapMask) == X86II::T8 &&
+#endif // INTEL_FEATURE_ISA_FP16
+      (TSFlags & X86II::EVEX_B) == 0 && (TSFlags & X86II::EVEX_K) == 0) {
+    assert(((TSFlags & X86II::EncodingMask) == X86II::VEX ||
+            (TSFlags & X86II::EncodingMask) == X86II::EVEX) &&
+           "Unexpected encoding!");
+    assert((TSFlags & X86II::OpMapMask) == X86II::T8 &&
+           "Unexpected opcode map!");
+    assert((TSFlags & X86II::OpPrefixMask) == X86II::PD &&
+           "Unexpected prefix!");
+    assert(((BaseOpcode >= 0x98 && BaseOpcode <= 0x9F) ||
+            (BaseOpcode >= 0xA8 && BaseOpcode <= 0xAF) ||
+            (BaseOpcode >= 0xB8 && BaseOpcode <= 0xBF)) &&
+           "Unexpected opcode!");
+    // Form is determined by the first nibble
+    bool Form132 = Opcode == FMA3Group->get132Opcode();
+    bool Form213 = Opcode == FMA3Group->get213Opcode();
+    assert((Form132 || Form213 || Opcode == FMA3Group->get231Opcode()) &&
+           "Unexpected FMA form!");
 
+    // Operation is determined by bits 2:1
+    switch (BaseOpcode & 0x6) {
+    default: llvm_unreachable("Unexpected opcode!");
+    case 0x0:
+      OpcodeKind = Form132 ? FMA132Opc : Form213 ? FMA213Opc : FMA231Opc;
+      break;
+    case 0x2:
+      OpcodeKind = Form132 ? FMS132Opc : Form213 ? FMS213Opc : FMS231Opc;
+      break;
+    case 0x4:
+      OpcodeKind = Form132 ? FNMA132Opc : Form213 ? FNMA213Opc : FNMA231Opc;
+      break;
+    case 0x6:
+      OpcodeKind = Form132 ? FNMS132Opc : Form213 ? FNMS213Opc : FNMS231Opc;
+      break;
+    }
+
+    bool EVEX = (TSFlags & X86II::EncodingMask) == X86II::EVEX;
+    const FMAOpcodeDesc *OD = findByOpcode(Opcode, OpcodeKind, EVEX);
+    assert(OD != nullptr && "Didn't find in table!");
+    IsMem = Opcode == OD->MemOpc;
+    VT = OD->VT;
     return true;
   }
 
@@ -485,27 +612,26 @@ bool FMAOpcodesInfo::recognizeOpcode(unsigned Opcode, bool LookForAVX512,
   }
   IsMem = false;
   OpcodeKind = ZEROOpc;
-  MulSign = false;
-  AddSign = false;
 
   return true;
 }
 
-unsigned FMAOpcodesInfo::getOpcodeOfKind(
-    bool LookForAVX512, FMAOpcodeKind OpcodeKind, MVT VT) {
+unsigned FMAOpcodesInfo::getOpcodeOfKind(const X86Subtarget *ST,
+                                         FMAOpcodeKind OpcodeKind, MVT VT) {
   if (OpcodeKind == ZEROOpc) {
     assert((VT.getScalarType() == MVT::f32 || VT.getScalarType() == MVT::f64) &&
            "Only F32 and F64 ZERO vectors/scalars are supported.");
     switch (VT.getSizeInBits()) {
     case 32:
-      return LookForAVX512 ? X86::AVX512_FsFLD0SS : X86::FsFLD0SS;
+      return ST->hasAVX512() ? X86::AVX512_FsFLD0SS : X86::FsFLD0SS;
     case 64:
-      return LookForAVX512 ? X86::AVX512_FsFLD0SD : X86::FsFLD0SD;
+      return ST->hasAVX512() ? X86::AVX512_FsFLD0SD : X86::FsFLD0SD;
     case 128:
-      return LookForAVX512 ? X86::AVX512_128_SET0 : X86::V_SET0;
+      return ST->hasAVX512() ? X86::AVX512_128_SET0 : X86::V_SET0;
     case 256:
-      return LookForAVX512 ? X86::AVX512_256_SET0 : X86::AVX_SET0;
+      return ST->hasAVX512() ? X86::AVX512_256_SET0 : X86::AVX_SET0;
     case 512:
+      assert(ST->hasAVX512() && "Expected AVX512!");
       return X86::AVX512_512_SET0;
     default:
       break;
@@ -513,15 +639,11 @@ unsigned FMAOpcodesInfo::getOpcodeOfKind(
     llvm_unreachable("GlobalFMA: Cannot choose appropriate ZERO opcode.");
   }
 
-  unsigned OpcodesTabSize;
-  const FMAOpcodeDesc *OpcodesTab =
-      getOpcodesTab(LookForAVX512, OpcodesTabSize);
-  for (unsigned I = 0; I < OpcodesTabSize; I++) {
-    const FMAOpcodeDesc *OD = &OpcodesTab[I];
-    if (OD->OpcodeKind == OpcodeKind && OD->VT == VT)
-      return OD->RegOpc;
-  }
-  llvm_unreachable("Unsupported machine value type or opcode kind.");
+  bool EVEX = (VT.is128BitVector() || VT.is256BitVector()) ? ST->hasVLX()
+                                                           : ST->hasAVX512();
+  const FMAOpcodeDesc *OD = findByVT(VT, OpcodeKind, EVEX);
+  assert(OD != nullptr && "Didn't find in table!");
+  return OD->RegOpc;
 }
 
 /// This class does all the optimization work, it goes through the functions,
@@ -554,11 +676,6 @@ private:
 
   /// Machine register information.
   MachineRegisterInfo *MRI;
-
-  /// This field if set to true means that the target CPU has AVX512 feature,
-  /// and that the special AVX512 opcodes must be recognized in the input IR and
-  /// generated to the output IR.
-  bool HasAVX512;
 
   /// The bits that are used to define various FMA heuristics in the
   /// internal switch FMAControl/"-x86-global-fma-control".
@@ -757,10 +874,7 @@ public:
   /// The parameter \p MRI is passed to this method to make it possible
   /// to find virtual registers associated with FMARegisterTerms and
   /// having uses that are not recognized as FMAExpr operations.
-  /// The parameter \p LookForAVX512 specifies the target instruction set.
-  /// If it is set to true, then this method looks for AVX512 opcodes.
-  /// Otherwise, it looks for AVX1/AVX2 opcodes.
-  unsigned parseBasicBlock(MachineRegisterInfo *MRI, bool LookForAVX512);
+  unsigned parseBasicBlock(MachineRegisterInfo *MRI);
 
   /// Sets the <isKill> attribute to machine operands associated with the
   /// last uses of terms.
@@ -840,18 +954,14 @@ FMAMemoryTerm *X86FMABasicBlock::createMemoryTerm(MVT VT, MachineInstr *MI) {
   return Term.get();
 }
 
-unsigned X86FMABasicBlock::parseBasicBlock(MachineRegisterInfo *MRI,
-                                           bool LookForAVX512) {
+unsigned X86FMABasicBlock::parseBasicBlock(MachineRegisterInfo *MRI) {
   LLVM_DEBUG(FMADbg::dbgs() << "FMA-STEP1: FIND FMA OPERATIONS:\n");
 
   for (auto &MI : getMBB()) {
     MVT VT;
     FMAOpcodesInfo::FMAOpcodeKind OpcodeKind;
-    bool IsMem, MulSign, AddSign;
-
-    unsigned Opcode = MI.getOpcode();
-    if (!FMAOpcodesInfo::recognizeOpcode(Opcode, LookForAVX512, VT, OpcodeKind,
-                                         IsMem, MulSign, AddSign))
+    bool IsMem;
+    if (!FMAOpcodesInfo::recognizeInstr(MI, VT, OpcodeKind, IsMem))
       continue;
     // Sometimes the fast flags lost during the instruction lowering.
     // Sometimes non fast fp instruction is inlined, so there is mixed
@@ -863,6 +973,7 @@ unsigned X86FMABasicBlock::parseBasicBlock(MachineRegisterInfo *MRI,
     std::array<FMANode *, 3u> Ops;
     FMATerm *MemTerm = IsMem ? createMemoryTerm(VT, &MI) : nullptr;
     switch (OpcodeKind) {
+    default: llvm_unreachable("Unexpected opcode kind!");
     case FMAOpcodesInfo::MULOpc: // op1 * op2 + 0
       Ops[0] = createRegisterOrSpecialTerm(VT, MI.getOperand(1));
       Ops[1] =
@@ -903,7 +1014,8 @@ unsigned X86FMABasicBlock::parseBasicBlock(MachineRegisterInfo *MRI,
           IsMem ? MemTerm : createRegisterOrSpecialTerm(VT, MI.getOperand(3));
       Ops[2] = createRegisterOrSpecialTerm(VT, MI.getOperand(1));
       break;
-    default:
+    case FMAOpcodesInfo::ZEROOpc:
+      // Handled below.
       break;
     }
 
@@ -914,6 +1026,8 @@ unsigned X86FMABasicBlock::parseBasicBlock(MachineRegisterInfo *MRI,
       FMAImmediateTerm *ZeroTerm = createZeroTerm(VT);
       RegisterToZeroTerm[MI.getOperand(0).getReg()] = ZeroTerm;
     } else {
+      bool MulSign = FMAOpcodesInfo::getMulSign(OpcodeKind);
+      bool AddSign = FMAOpcodesInfo::getAddSign(OpcodeKind);
       // Create a new register term for the result of the FMA operation and
       // the FMAExpr node for this operation.
       FMARegisterTerm *ResTerm = createRegisterTerm(VT, MI.getOperand(0));
@@ -983,8 +1097,7 @@ bool X86GlobalFMA::runOnMachineFunction(MachineFunction &MFunc) {
   // have correct latency values for SKL-client and Broadwell without
   // using FMA internal switches. The latency must be already set/written
   // properly to the opcode information, just need to extract/use it properly.
-  HasAVX512 = ST->hasAVX512();
-  if ((HasAVX512 && !checkAnyOfFMAFeatures(FMAControlTargetFMAsMask)) ||
+  if ((ST->hasAVX512() && !checkAnyOfFMAFeatures(FMAControlTargetFMAsMask)) ||
       checkAllFMAFeatures(FMAControlSkylakeFMAs)) {
     AddSubLatency = 4;
     MulLatency = 4;
@@ -1014,7 +1127,7 @@ X86GlobalFMA::parseBasicBlock(MachineBasicBlock &MBB) {
   // and create internal FMA structures for them.
   // Exit if there are not enough optimizable expressions.
   auto FMABB = std::make_unique<X86FMABasicBlock>(MBB);
-  if (FMABB->parseBasicBlock(MRI, HasAVX512) < 2)
+  if (FMABB->parseBasicBlock(MRI) < 2)
     return nullptr;
   return FMABB;
 }
@@ -1051,7 +1164,7 @@ X86GlobalFMA::generateMachineOperandForFMATerm(FMATerm *Term,
   MachineBasicBlock *MBB = InsertPointMI->getParent();
   if (Term->isZero()) {
     unsigned ZeroOpcode =
-        FMAOpcodesInfo::getOpcodeOfKind(HasAVX512, FMAOpcodesInfo::ZEROOpc, VT);
+        FMAOpcodesInfo::getOpcodeOfKind(ST, FMAOpcodesInfo::ZEROOpc, VT);
     SmallVector<MachineOperand, 0> MOs;
     const DebugLoc &DL = InsertPointMI->getDebugLoc();
 
@@ -1201,17 +1314,16 @@ void X86GlobalFMA::generateOutputIR(FMAExpr &Expr, const FMADag &Dag) {
         }
       }
       Opcode = FMAOpcodesInfo::getOpcodeOfKind(
-          HasAVX512, AddSign ? FMAOpcodesInfo::SUBOpc : FMAOpcodesInfo::ADDOpc,
-          VT);
+          ST, AddSign ? FMAOpcodesInfo::SUBOpc : FMAOpcodesInfo::ADDOpc, VT);
     } else if (IsMul) {
       // Generate MUL(A,B).
       if (!Dag.getMulSign(NodeInd))
-        Opcode = FMAOpcodesInfo::getOpcodeOfKind(HasAVX512,
-                                                 FMAOpcodesInfo::MULOpc, VT);
+        Opcode =
+            FMAOpcodesInfo::getOpcodeOfKind(ST, FMAOpcodesInfo::MULOpc, VT);
       else {
         // Instead of (0 - MUL(A,B)) it is better to have FNMA(A,B,0).
-        Opcode = FMAOpcodesInfo::getOpcodeOfKind(
-            HasAVX512, FMAOpcodesInfo::FNMA213Opc, VT);
+        Opcode =
+            FMAOpcodesInfo::getOpcodeOfKind(ST, FMAOpcodesInfo::FNMA213Opc, VT);
         FMATerm *Term = FMABB->createZeroTerm(VT);
         MOs.push_back(generateMachineOperandForFMATerm(Term, MI));
         FMAOpnds.push_back(Term);
@@ -1220,7 +1332,7 @@ void X86GlobalFMA::generateOutputIR(FMAExpr &Expr, const FMADag &Dag) {
     } else {
       FMAOpcodesInfo::FMAOpcodeKind Kind = FMAOpcodesInfo::getFMA213OpcodeKind(
           Dag.getMulSign(NodeInd), Dag.getAddSign(NodeInd));
-      Opcode = FMAOpcodesInfo::getOpcodeOfKind(HasAVX512, Kind, VT);
+      Opcode = FMAOpcodesInfo::getOpcodeOfKind(ST, Kind, VT);
     }
 
     for (unsigned OpndInd = 0; OpndInd < MOs.size(); OpndInd++) {
@@ -1252,8 +1364,8 @@ void X86GlobalFMA::generateOutputIR(FMAExpr &Expr, const FMADag &Dag) {
 
     if (NegateResult) {
       // Currently, for the expression -R we generate SUB(0, R).
-      unsigned SubOpcode = FMAOpcodesInfo::getOpcodeOfKind(
-          HasAVX512, FMAOpcodesInfo::SUBOpc, VT);
+      unsigned SubOpcode =
+          FMAOpcodesInfo::getOpcodeOfKind(ST, FMAOpcodesInfo::SUBOpc, VT);
       FMAImmediateTerm *Term = FMABB->createZeroTerm(VT);
       MOs[0] = generateMachineOperandForFMATerm(Term, MI);
       MOs[1] = MachineOperand::CreateReg(NewMI->getOperand(0).getReg(), false);
@@ -1283,10 +1395,12 @@ X86GlobalFMA::selectBroadcastFromGPR(unsigned VecBitSize, unsigned ElemBitSize,
          "Unsupported element size in selectBroadcastFromGPR()");
   switch (VecBitSize) {
   case 128:
-    *RC = &X86::VR128RegClass;
+    assert(ST->hasVLX() && "Expected AVX512VL");
+    *RC = &X86::VR128XRegClass;
     return IsF32 ? X86::VPBROADCASTDrZ128rr : X86::VPBROADCASTQrZ128rr;
   case 256:
-    *RC = &X86::VR256RegClass;
+    assert(ST->hasVLX() && "Expected AVX512VL");
+    *RC = &X86::VR256XRegClass;
     return IsF32 ? X86::VPBROADCASTDrZ256rr : X86::VPBROADCASTQrZ256rr;
   case 512:
     *RC = &X86::VR512RegClass;
@@ -1299,13 +1413,14 @@ X86GlobalFMA::selectBroadcastFromGPR(unsigned VecBitSize, unsigned ElemBitSize,
 
 unsigned X86GlobalFMA::createConstOneFromImm(MVT VT,
                                              MachineInstr *InsertPointMI) {
+  assert(ST->is64Bit() && "32-bit should always use constant pool!");
   const DebugLoc &DbgLoc = InsertPointMI->getDebugLoc();
   MachineBasicBlock *MBB = InsertPointMI->getParent();
   unsigned Opc;
 
-  MVT ElementType = VT.isVector() ? VT.getVectorElementType() : VT;
+  MVT ElementType = VT.getScalarType();
   bool IsF32 = ElementType == MVT::f32;
-  bool F64viaGPReg32 = !IsF32 && !ST->is64Bit();
+  assert(IsF32 || ElementType == MVT::f64 && "Unexpected element type!");
   unsigned GPReg;
   unsigned R;
   uint64_t Imm;
@@ -1316,7 +1431,7 @@ unsigned X86GlobalFMA::createConstOneFromImm(MVT VT,
   // the upper 32-bits of fp64 1.0 are loaded to 32-bit GPR register. Such
   // solution would require additional shift left or permute operation
   // on the destination vector register.
-  if (IsF32 || F64viaGPReg32) {
+  if (IsF32) {
     GPReg = MRI->createVirtualRegister(&X86::GR32RegClass);
     Opc = X86::MOV32ri;
     Imm = IsF32 ? 0x3f800000 : 0x3ff00000;
@@ -1327,92 +1442,73 @@ unsigned X86GlobalFMA::createConstOneFromImm(MVT VT,
   }
   BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(Opc), GPReg).addImm(Imm);
 
+  // For scalars, use the instructions that use a scalar register class.
+  if (!VT.isVector()) {
+    const TargetRegisterClass *RC = ST->getTargetLowering()->getRegClassFor(VT);
+    R = MRI->createVirtualRegister(RC);
+    if (IsF32)
+      Opc = ST->hasAVX512() ? X86::VMOVDI2SSZrr : X86::VMOVDI2SSrr;
+    else
+      Opc = ST->hasAVX512() ? X86::VMOV64toSDZrr : X86::VMOV64toSDrr;
+    BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(Opc), R)
+        .addReg(GPReg, RegState::Kill);
+
+    return R;
+  }
+
   // Use a broadcast from GPR if such is available in the target ISA.
-  if (HasAVX512 && VTBitSize >= 128) {
+  if (ST->hasAVX512()) {
     bool UseVLX = ST->hasVLX() && VTBitSize <= 256;
     unsigned VecBitSize = UseVLX ? VTBitSize : 512;
-    unsigned ElemSize = IsF32 || F64viaGPReg32 ? 32 : 64;
+    unsigned ElemSize = IsF32 ? 32 : 64;
 
     const TargetRegisterClass *RC;
     Opc = selectBroadcastFromGPR(VecBitSize, ElemSize, &RC);
     unsigned VReg = MRI->createVirtualRegister(RC);
     BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(Opc), VReg)
         .addReg(GPReg, RegState::Kill);
-
-    // Shift left by 32-bits if it is FP64 1.0 value loaded to vector register
-    // from 32-bit GPR.
-    if (F64viaGPReg32) {
-      R = MRI->createVirtualRegister(RC);
-      if (!UseVLX)
-        Opc = X86::VPSLLQZri;
-      else if (VTBitSize == 256)
-        Opc = X86::VPSLLQZ256ri;
-      else
-        Opc = X86::VPSLLQZ128ri;
-      BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(Opc), R)
-          .addReg(VReg, RegState::Kill).addImm(32);
-    } else
-      R = VReg;
+    R = VReg;
 
     if (!UseVLX && VTBitSize <= 256) {
-      const X86RegisterInfo *TRI = ST->getRegisterInfo();
-      R = TRI->getSubReg(R, VTBitSize == 256 ? X86::sub_ymm : X86::sub_xmm);
+      const TargetRegisterClass *ExtractRC;
+      unsigned SubIdx;
+      if (VTBitSize == 256) {
+        ExtractRC = &X86::VR256RegClass;
+        SubIdx = X86::sub_ymm;
+      } else {
+        ExtractRC = &X86::VR128RegClass;
+        SubIdx = X86::sub_xmm;
+      }
+      unsigned ExtractReg = MRI->createVirtualRegister(ExtractRC);
+      BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(TargetOpcode::COPY),
+              ExtractReg)
+        .addReg(R, RegState::Kill, SubIdx);
+      R = ExtractReg;
     }
     return R;
   }
 
-  // Put GPReg to XMM.
+  // For vectors we need to insert into 128 bits and then broadcast.
   unsigned R128 = MRI->createVirtualRegister(&X86::VR128RegClass);
-  if (IsF32 || !ST->is64Bit()) {
-    Opc = HasAVX512 ? X86::VMOVDI2PDIZrr : X86::VMOVDI2PDIrr;
-    BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(Opc), R128)
-        .addReg(GPReg, RegState::Kill);
-  } else {
-    Opc = HasAVX512 ? X86::VMOVDI2PDIZrr : X86::VMOVDI2PDIrr;
-    BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(Opc), R128)
-        .addReg(GPReg, RegState::Kill);
-  }
-
-  // Fix the value in XMM if it is an F64 copied to XMM as 32-bit value.
-  if (!IsF32 && !ST->is64Bit()) {
-    R = MRI->createVirtualRegister(&X86::VR128RegClass);
-    // If the result is a vector, then copy the lowest 32-bit element
-    // R128[31:0] to R[63:31] and R[127:96]; copy 0 to other elements.
-    // Otherwise, swap 2 elements in R128: R128[31:0] and R128[63:32].
-    unsigned Imm8 = VTBitSize >= 128 ? 0x11 : 0xE1;
-    Opc = HasAVX512 ? X86::VPERMILPSZ128rr : X86::VPERMILPSrr;
-    BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(Opc), R)
-        .addReg(R128, RegState::Kill).addImm(Imm8);
-
-    // For scalar and 128-bit vector types the result is ready.
-    if (VT.getSizeInBits() <= 128)
-      return R;
-  }
+  if (IsF32)
+    Opc = ST->hasAVX512() ? X86::VMOVDI2PDIZrr : X86::VMOVDI2PDIrr;
+  else
+    Opc = ST->hasAVX512() ? X86::VMOV64toPQIZrr : X86::VMOV64toPQIrr;
+  BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(Opc), R128)
+      .addReg(GPReg, RegState::Kill);
 
   // Broadcast the lowest element of the XMM to the bigger vector register.
-  MachineInstrBuilder MIB;
-  switch (VT.getSizeInBits()) {
-  case 32:
-  case 64:
-    R = R128;
-    break;
-  case 128:
+  if (VT.getSizeInBits() == 128) {
     R = MRI->createVirtualRegister(&X86::VR128RegClass);
-    Opc = IsF32 ? X86::VBROADCASTSSrr : X86::VUNPCKLPDrr;
-    MIB = BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(Opc), R);
-    MIB.addReg(R128, RegState::Kill);
-    if (!IsF32)
-      MIB.addReg(R128);
-    break;
-  case 256:
+    Opc = IsF32 ? X86::VBROADCASTSSrr : X86::VMOVDDUPrr;
+  } else {
+    assert(VT.getSizeInBits() == 256 && "Unexpected size!");
     R = MRI->createVirtualRegister(&X86::VR256RegClass);
     Opc = IsF32 ? X86::VBROADCASTSSYrr : X86::VBROADCASTSDYrr;
-    BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(Opc), R)
-        .addReg(R128, RegState::Kill);
-    break;
-  default:
-    llvm_unreachable("Unsupported type for 1.0 const.");
   }
+
+  auto MIB = BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(Opc), R);
+  MIB.addReg(R128, RegState::Kill);
   return R;
 }
 
@@ -1421,47 +1517,48 @@ unsigned X86GlobalFMA::createConstOne(MVT VT, MachineInstr *InsertPointMI) {
   // code models. Use alternative approach for other code models.
   const TargetMachine &TM = MF->getTarget();
   CodeModel::Model CM = TM.getCodeModel();
-  if (CM != CodeModel::Small && CM != CodeModel::Large)
+  if (ST->is64Bit() && CM != CodeModel::Small && CM != CodeModel::Large)
     return createConstOneFromImm(VT, InsertPointMI);
 
   LLVMContext &Context = MF->getFunction().getContext();
-  bool HasVLX = ST->hasVLX();
 
   // Get opcode and type for the created const.
   unsigned Opc;
   Type *Ty;
   switch (VT.SimpleTy) {
   case MVT::f32:
-    Opc = HasAVX512 ? X86::VMOVSSZrm : X86::VMOVSSrm;
+    Opc = ST->hasAVX512() ? X86::VMOVSSZrm_alt : X86::VMOVSSrm_alt;
     Ty = Type::getFloatTy(Context);
     break;
   case MVT::f64:
-    Opc = HasAVX512 ? X86::VMOVSDZrm : X86::VMOVSDrm;
+    Opc = ST->hasAVX512() ? X86::VMOVSDZrm_alt : X86::VMOVSDrm_alt;
     Ty = Type::getDoubleTy(Context);
     break;
   case MVT::v4f32:
-    Opc = HasVLX ? X86::VMOVAPSZ128rm : X86::VMOVAPSrm;
-    Ty = VectorType::get(Type::getFloatTy(Context), 4);
+    Opc = ST->hasVLX() ? X86::VMOVAPSZ128rm : X86::VMOVAPSrm;
+    Ty = FixedVectorType::get(Type::getFloatTy(Context), 4);
     break;
   case MVT::v2f64:
-    Opc = HasVLX ? X86::VMOVAPDZ128rm : X86::VMOVAPDrm;
-    Ty = VectorType::get(Type::getDoubleTy(Context), 2);
+    Opc = ST->hasVLX() ? X86::VMOVAPDZ128rm : X86::VMOVAPDrm;
+    Ty = FixedVectorType::get(Type::getDoubleTy(Context), 2);
     break;
   case MVT::v8f32:
-    Opc = HasVLX ? X86::VMOVAPSZ256rm : X86::VMOVAPSYrm;
-    Ty = VectorType::get(Type::getFloatTy(Context), 8);
+    Opc = ST->hasVLX() ? X86::VMOVAPSZ256rm : X86::VMOVAPSYrm;
+    Ty = FixedVectorType::get(Type::getFloatTy(Context), 8);
     break;
   case MVT::v4f64:
-    Opc = HasVLX ? X86::VMOVAPDZ256rm : X86::VMOVAPDYrm;
-    Ty = VectorType::get(Type::getDoubleTy(Context), 4);
+    Opc = ST->hasVLX() ? X86::VMOVAPDZ256rm : X86::VMOVAPDYrm;
+    Ty = FixedVectorType::get(Type::getDoubleTy(Context), 4);
     break;
   case MVT::v16f32:
+    assert(ST->hasAVX512() && "Expected AVX512 enabled!");
     Opc = X86::VMOVAPSZrm;
-    Ty = VectorType::get(Type::getFloatTy(Context), 16);
+    Ty = FixedVectorType::get(Type::getFloatTy(Context), 16);
     break;
   case MVT::v8f64:
+    assert(ST->hasAVX512() && "Expected AVX512 enabled!");
     Opc = X86::VMOVAPDZrm;
-    Ty = VectorType::get(Type::getDoubleTy(Context), 8);
+    Ty = FixedVectorType::get(Type::getDoubleTy(Context), 8);
     break;
   default:
     llvm_unreachable("Unsupported type of 1.0 const.");
@@ -1485,21 +1582,21 @@ unsigned X86GlobalFMA::createConstOne(MVT VT, MachineInstr *InsertPointMI) {
     BaseReg = TII->getGlobalBaseReg(MF);
   } else if (ST->isPICStyleRIPRel() && CM == CodeModel::Small)
     BaseReg = X86::RIP;
-  else if (CM == CodeModel::Large)
+  else if (ST->is64Bit() && CM == CodeModel::Large)
     BaseReg = MRI->createVirtualRegister(&X86::GR64RegClass);
 
   // Create the load from the constant pool.
   MachineConstantPool *MCP = MF->getConstantPool();
-  unsigned Align = VT.getSizeInBits() / 8;
-  MaybeAlign Alignment(Align);
+  unsigned AlignVal = VT.getSizeInBits() / 8;
+  Align Alignment(AlignVal);
   Constant *FPOne = ConstantFP::get(Ty, 1.0);
-  unsigned CPI = MCP->getConstantPoolIndex(FPOne, Align);
+  unsigned CPI = MCP->getConstantPoolIndex(FPOne, Alignment);
   const TargetRegisterClass *RC = ST->getTargetLowering()->getRegClassFor(VT);
   unsigned ResultReg = MRI->createVirtualRegister(RC);
   MachineInstrBuilder MIB;
   const DebugLoc &DbgLoc = InsertPointMI->getDebugLoc();
   MachineBasicBlock *MBB = InsertPointMI->getParent();
-  if (CM == CodeModel::Large) {
+  if (ST->is64Bit() && CM == CodeModel::Large) {
     BuildMI(*MBB, InsertPointMI, DbgLoc, TII->get(X86::MOV64ri), BaseReg)
         .addConstantPoolIndex(CPI, 0, LoadFlags);
 
@@ -1512,8 +1609,8 @@ unsigned X86GlobalFMA::createConstOne(MVT VT, MachineInstr *InsertPointMI) {
   }
   MachineMemOperand *MMO = MF->getMachineMemOperand(
       MachinePointerInfo::getConstantPool(*MF),
-      MachineMemOperand::MOLoad | MachineMemOperand::MOInvariant, Align,
-      *Alignment);
+      MachineMemOperand::MOLoad | MachineMemOperand::MOInvariant, AlignVal,
+      Alignment);
   ArrayRef<MachineMemOperand *> ARMMOs(MMO);
   auto MMOs = extractLoadMMOs(ARMMOs, *MF);
   MIB.setMemRefs(MMOs);

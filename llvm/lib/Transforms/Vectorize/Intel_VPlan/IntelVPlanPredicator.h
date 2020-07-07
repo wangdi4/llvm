@@ -33,9 +33,6 @@ private:
   // VPLoopInfo for Plan's HCFG.
   VPLoopInfo *VPLI;
 
-  // VPlan builder used to generate VPInstructions for block predicates.
-  VPBuilder Builder;
-
   ReversePostOrderTraversal<VPBasicBlock *> RPOT;
 
   // Describe an edge/condition/predicate affecting given block predicate. Final
@@ -204,7 +201,7 @@ private:
 
   /// Generate and return the result of ORing all the predicate VPValues in \p
   /// Worklist. Uses the current insertion point of Builder member.
-  VPValue *genPredicateTree(std::list<VPValue *> &Worklist);
+  VPValue *genPredicateTree(std::list<VPValue *> &Worklist, VPBuilder &Builder);
 
   /// Lower predicate terms into VPInstructions. Note that some of the
   /// instructions that need not be predicated are under the block-predicate

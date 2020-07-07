@@ -69,6 +69,7 @@ def UnaryOperator : StmtNode<Expr>;
 def OffsetOfExpr : StmtNode<Expr>;
 def UnaryExprOrTypeTraitExpr : StmtNode<Expr>;
 def ArraySubscriptExpr : StmtNode<Expr>;
+def MatrixSubscriptExpr : StmtNode<Expr>;
 def OMPArraySectionExpr : StmtNode<Expr>;
 def OMPIteratorExpr : StmtNode<Expr>;
 def CallExpr : StmtNode<Expr>;
@@ -120,6 +121,7 @@ def CXXStaticCastExpr : StmtNode<CXXNamedCastExpr>;
 def CXXDynamicCastExpr : StmtNode<CXXNamedCastExpr>;
 def CXXReinterpretCastExpr : StmtNode<CXXNamedCastExpr>;
 def CXXConstCastExpr : StmtNode<CXXNamedCastExpr>;
+def CXXAddrspaceCastExpr : StmtNode<CXXNamedCastExpr>;
 def CXXFunctionalCastExpr : StmtNode<ExplicitCastExpr>;
 def CXXTypeidExpr : StmtNode<Expr>;
 def UserDefinedLiteral : StmtNode<CallExpr>;
@@ -251,6 +253,11 @@ def OMPCancellationPointDirective : StmtNode<OMPExecutableDirective>;
 def OMPCancelDirective : StmtNode<OMPExecutableDirective>;
 // INTEL_COLLAB
 def OMPTargetVariantDispatchDirective : StmtNode<OMPExecutableDirective>;
+def OMPGenericLoopDirective : StmtNode<OMPLoopDirective>;
+def OMPTeamsGenericLoopDirective : StmtNode<OMPLoopDirective>;
+def OMPTargetTeamsGenericLoopDirective : StmtNode<OMPLoopDirective>;
+def OMPParallelGenericLoopDirective : StmtNode<OMPLoopDirective>;
+def OMPTargetParallelGenericLoopDirective : StmtNode<OMPLoopDirective>;
 //end INTEL_COLLAB
 def OMPTaskLoopDirective : StmtNode<OMPLoopDirective>;
 def OMPTaskLoopSimdDirective : StmtNode<OMPLoopDirective>;

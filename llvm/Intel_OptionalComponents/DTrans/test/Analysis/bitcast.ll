@@ -1,3 +1,4 @@
+; REQUIRES: asserts
 ; RUN: opt  < %s -whole-program-assume -dtransanalysis -dtrans-print-types -dtrans-outofboundsok=true -disable-output 2>&1 | FileCheck %s
 ; RUN: opt  < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -dtrans-outofboundsok=true -disable-output 2>&1 | FileCheck %s
 
@@ -24,22 +25,22 @@ define void @test1() {
 %struct.test02.a = type { i32, i8 }
 %struct.test02.b = type { i32, i32 }
 @p.test2 = internal unnamed_addr global %struct.test02.a zeroinitializer
-define void @test2() {
+define %struct.test02.b* @test2() {
   %s = bitcast i8* getelementptr( %struct.test02.a, %struct.test02.a* @p.test2,
                                   i64 0, i32 1) to %struct.test02.b*
-  ret void
+  ret %struct.test02.b* %s
 }
 
 ; CHECK-LABEL: LLVMType: %struct.test02.a = type { i32, i8 }
-; CHECK: Safety data: Bad casting | Global instance
+; CHECK: Safety data: Bad casting | Field address taken | Global instance
 ; CHECK: LLVMType: %struct.test02.b = type { i32, i32 }
 ; CHECK: Safety data: Bad casting
 
 ; Cast of non-alloc pointer value
 %struct.test03 = type { i32, i32 }
-define void @test3() {
+define %struct.test03* @test3() {
   %s = bitcast i8* undef to %struct.test03*
-  ret void
+  ret %struct.test03* %s
 }
 
 ; CHECK-LABEL: LLVMType: %struct.test03 = type { i32, i32 }
@@ -63,9 +64,9 @@ define void @test4( %struct.test04.a** %ppa, %struct.test04.b* %pb ) {
 ; Direct casting to related type.
 %struct.test05.a = type { i32, i32 }
 %struct.test05.b = type { i32, i32, i32 }
-define void @test5( %struct.test05.a* %pa ) {
+define %struct.test05.b* @test5( %struct.test05.a* %pa ) {
   %pb = bitcast %struct.test05.a* %pa to %struct.test05.b*
-  ret void
+  ret %struct.test05.b* %pb
 }
 
 ; CHECK-LABEL: LLVMType: %struct.test05.a = type { i32, i32 }
@@ -76,9 +77,9 @@ define void @test5( %struct.test05.a* %pa ) {
 ; Pointer-to-pointer casting to related type.
 %struct.test06.a = type { i32, i32 }
 %struct.test06.b = type { i32, i32, i32 }
-define void @test6( %struct.test06.a** %ppa ) {
+define %struct.test06.b** @test6( %struct.test06.a** %ppa ) {
   %ppb = bitcast %struct.test06.a** %ppa to %struct.test06.b**
-  ret void
+  ret %struct.test06.b** %ppb
 }
 
 ; CHECK-LABEL: LLVMType: %struct.test06.a = type { i32, i32 }
@@ -88,9 +89,9 @@ define void @test6( %struct.test06.a** %ppa ) {
 
 ; Bad pointer-to-pointer casting.
 %struct.test07 = type { i32, i32 }
-define void @test7( %struct.test07** %pps ) {
+define %struct.test07* @test7( %struct.test07** %pps ) {
   %ps = bitcast %struct.test07** %pps to %struct.test07*
-  ret void
+  ret %struct.test07* %ps
 }
 
 ; CHECK-LABEL: LLVMType: %struct.test07 = type { i32, i32 }
@@ -115,15 +116,16 @@ define void @test8( %struct.test08.b* %pb ) {
 %struct.test09.c = type { i32, i32, i32, i32 }
 define void @test9( %struct.test09.b* %pb ) {
   %pb.c = bitcast %struct.test09.b* %pb to %struct.test09.c*
+  %gep = getelementptr %struct.test09.c, %struct.test09.c* %pb.c, i64 0, i32 0
   ret void
 }
 
 ; CHECK-LABEL: LLVMType: %struct.test09.a = type { i32, i32 }
-; CHECK: Safety data: Bad casting | Nested structure
+; CHECK: Safety data: Bad casting | Ambiguous GEP | Nested structure
 ; CHECK: LLVMType: %struct.test09.b = type { %struct.test09.a, i32, i32 }
-; CHECK: Safety data: Bad casting | Contains nested structure
+; CHECK: Safety data: Bad casting | Ambiguous GEP | Contains nested structure
 ; CHECK: LLVMType: %struct.test09.c = type { i32, i32, i32, i32 }
-; CHECK: Safety data: Bad casting
+; CHECK: Safety data: Bad casting | Ambiguous GEP
 
 ; Safe array element zero access through bitcast.
 %struct.test10 = type { i32, i32 }
@@ -139,9 +141,9 @@ define void @test10( [16 x %struct.test10]* %parr ) {
 ; Unsafe array element zero access through bitcast.
 %struct.test11.a = type { i32, i32 }
 %struct.test11.b = type { i32, i32, i32, i32 }
-define void @test11( [16 x %struct.test11.a]* %parr ) {
+define %struct.test11.b* @test11( [16 x %struct.test11.a]* %parr ) {
   %pb0 = bitcast [16 x %struct.test11.a]* %parr to %struct.test11.b*
-  ret void
+  ret %struct.test11.b* %pb0
 }
 
 ; CHECK-LABEL: LLVMType: %struct.test11.a = type { i32, i32 }
@@ -166,10 +168,10 @@ define void @test12() {
 %struct.test13.a = type { i32, i32 }
 %struct.test13.b = type { i32, i32, i32 }
 @p.test13 = internal unnamed_addr global %struct.test13.a zeroinitializer
-define void @test13() {
+define %struct.test13.b* @test13() {
   %t = bitcast %struct.test13.a* @p.test13 to i8*
   %t2 = bitcast i8* %t to %struct.test13.b*
-  ret void
+  ret %struct.test13.b* %t2
 }
 
 ; CHECK-LABEL: LLVMType: %struct.test13.a = type { i32, i32 }
@@ -191,10 +193,10 @@ define void @test14(%struct.test14* %p) {
 ; Bad cast of argument through an intermediate i8*
 %struct.test15.a = type { i32, i32 }
 %struct.test15.b = type { i32, i32, i32 }
-define void @test15(%struct.test15.a* %p) {
+define %struct.test15.b* @test15(%struct.test15.a* %p) {
   %t = bitcast %struct.test15.a* %p to i8*
   %t2 = bitcast i8* %t to %struct.test15.b*
-  ret void
+  ret %struct.test15.b* %t2
 }
 
 ; CHECK-LABEL: LLVMType: %struct.test15.a = type { i32, i32 }
@@ -204,11 +206,11 @@ define void @test15(%struct.test15.a* %p) {
 
 ; Cast of stack pointer through an intermediate i8*
 %struct.test16 = type { i32, i32 }
-define void @test16() {
+define %struct.test16* @test16() {
   %p = alloca %struct.test16
   %t = bitcast %struct.test16* %p to i8*
   %t2 = bitcast i8* %t to %struct.test16*
-  ret void
+  ret %struct.test16* %t2
 }
 
 ; CHECK-LABEL: LLVMType: %struct.test16 = type { i32, i32 }
@@ -217,15 +219,15 @@ define void @test16() {
 ; Bad cast of stack pointer through an intermediate i8*
 %struct.test17.a = type { i32, i32 }
 %struct.test17.b = type { i32, i32, i32 }
-define void @test17() {
+define %struct.test17.b* @test17() {
   %p = alloca %struct.test17.a
   %t = bitcast %struct.test17.a* %p to i8*
   %t2 = bitcast i8* %t to %struct.test17.b*
-  ret void
+  ret %struct.test17.b* %t2
 }
 
 ; CHECK-LABEL: LLVMType: %struct.test17.a = type { i32, i32 }
-; CHECK: Safety data: Bad casting | Local instance
+; CHECK: Safety data: Bad casting | Address taken | Local instance
 ; CHECK: LLVMType: %struct.test17.b = type { i32, i32, i32 }
 ; CHECK: Safety data: Bad casting
 
@@ -244,11 +246,11 @@ define void @test18(%struct.test18** %mem) {
 ; Bad cast of loaded pointer through an intermediate i8*
 %struct.test19.a = type { i32, i32 }
 %struct.test19.b = type { i32, i32, i32 }
-define void @test19(%struct.test19.a** %mem) {
+define %struct.test19.b* @test19(%struct.test19.a** %mem) {
   %p = load %struct.test19.a*, %struct.test19.a** %mem
   %t = bitcast %struct.test19.a* %p to i8*
   %t2 = bitcast i8* %t to %struct.test19.b*
-  ret void
+  ret %struct.test19.b* %t2
 }
 
 ; CHECK-LABEL: LLVMType: %struct.test19.a = type { i32, i32 }
@@ -273,11 +275,11 @@ define void @test20() {
 %struct.test21.a = type { i32, i32 }
 %struct.test21.b = type { i32, i32, i32 }
 declare %struct.test21.a* @test21Helper()
-define void @test21() {
+define %struct.test21.b* @test21() {
   %p = call %struct.test21.a* @test21Helper()
   %t = bitcast %struct.test21.a* %p to i8*
   %t2 = bitcast i8* %t to %struct.test21.b*
-  ret void
+  ret %struct.test21.b* %t2
 }
 
 ; CHECK-LABEL: LLVMType: %struct.test21.a = type { i32, i32 }
@@ -303,17 +305,17 @@ define void @test22(%struct.test22.b* %pb) {
 ; Bad cast of GEP-derived pointer through an intermediate i8*
 %struct.test23.a = type { i32, i32 }
 %struct.test23.b = type { i32, %struct.test23.a, i32 }
-define void @test23(%struct.test23.b* %pb) {
+define %struct.test23.b* @test23(%struct.test23.b* %pb) {
   %pa = getelementptr %struct.test23.b, %struct.test23.b* %pb, i64 0, i32 1
   %t = bitcast %struct.test23.a* %pa to i8*
   %t2 = bitcast i8* %t to %struct.test23.b*
-  ret void
+  ret %struct.test23.b* %t2
 }
 
 ; CHECK-LABEL: LLVMType: %struct.test23.a = type { i32, i32 }
-; CHECK: Safety data: Bad casting | Nested structure
+; CHECK: Safety data: Bad casting | Field address taken | Address taken | Nested structure
 ; CHECK: LLVMType: %struct.test23.b = type { i32, %struct.test23.a, i32 }
-; CHECK: Safety data: Bad casting | Contains nested structure
+; CHECK: Safety data: Bad casting | Field address taken | Contains nested structure
 
 ; Cast of inttoptr value through an intermediate i8*
 ; Note: inttoptr will typically be used when a pointer is loaded
@@ -334,11 +336,11 @@ define void @test24() {
 ; Bad cast of inttoptr value through an intermediate i8*
 %struct.test25.a = type { i32, i32 }
 %struct.test25.b = type { i32, i32, i32 }
-define void @test25() {
+define %struct.test25.b* @test25() {
   %p = inttoptr i64 undef to %struct.test25.a*
   %t = bitcast %struct.test25.a* %p to i8*
   %t2 = bitcast i8* %t to %struct.test25.b*
-  ret void
+  ret %struct.test25.b* %t2
 }
 
 ; CHECK-LABEL: LLVMType: %struct.test25.a = type { i32, i32 }
@@ -362,12 +364,12 @@ define void @test26(%struct.test26* %p1, %struct.test26* %p2) {
 ; Follow unsafe cast through select instruction
 %struct.test27.a = type { i32, i32 }
 %struct.test27.b = type { i32, i32, i32 }
-define void @test27(%struct.test27.a* %pa, %struct.test27.b* %pb) {
+define %struct.test27.a* @test27(%struct.test27.a* %pa, %struct.test27.b* %pb) {
   %t1 = bitcast %struct.test27.a* %pa to i8*
   %t2 = bitcast %struct.test27.b* %pb to i8*
   %t3 = select i1 undef, i8* %t1, i8* %t2
   %t4 = bitcast i8* %t3 to %struct.test27.a*
-  ret void
+  ret %struct.test27.a* %t4
 }
 
 ; CHECK-LABEL: LLVMType: %struct.test27.a = type { i32, i32 }
@@ -400,7 +402,7 @@ end:
 ; Follow unsafe cast through PHI node
 %struct.test29.a = type { i32, i32 }
 %struct.test29.b = type { i32, i32, i32 }
-define void @test29(%struct.test29.a* %pa, %struct.test29.b* %pb) {
+define %struct.test29.a* @test29(%struct.test29.a* %pa, %struct.test29.b* %pb) {
   br i1 undef, label %true, label %false
 
 true:
@@ -414,7 +416,7 @@ false:
 end:
   %t3 = phi i8* [%t1, %true], [%t2, %false]
   %t4 = bitcast i8* %t3 to %struct.test29.a*
-  ret void
+  ret %struct.test29.a* %t4
 }
 
 ; CHECK-LABEL: LLVMType: %struct.test29.a = type { i32, i32 }
@@ -449,7 +451,7 @@ end:
 ; Follow unsafe cast through PHI node with loop.
 %struct.test31.a = type { i32, i32 }
 %struct.test31.b = type { i32, i32, i32 }
-define void @test31(%struct.test31.a* %pa, %struct.test31.b* %pb) {
+define %struct.test31.a* @test31(%struct.test31.a* %pa, %struct.test31.b* %pb) {
 entry:
   %t1 = bitcast %struct.test31.a* %pa to i8*
   br label %loop
@@ -465,7 +467,7 @@ back:
 
 end:
   %t5 = bitcast i8* %t2 to %struct.test31.a*
-  ret void
+  ret %struct.test31.a* %t5
 }
 
 ; CHECK-LABEL: LLVMType: %struct.test31.a = type { i32, i32 }
@@ -485,10 +487,10 @@ define void @test32( %struct.test32* %p ) {
 
 ; Unsafe element zero access of an aliased value through bitcast.
 %struct.test33 = type { i32, i32 }
-define void @test33( %struct.test33* %p ) {
+define i64* @test33( %struct.test33* %p ) {
   %tmp = bitcast %struct.test33* %p to i8*
   %ps.a = bitcast i8* %tmp to i64*
-  ret void
+  ret i64* %ps.a
 }
 
 ; CHECK-LABEL: LLVMType: %struct.test33 = type { i32, i32 }
@@ -533,11 +535,11 @@ define void @test34() {
 ; if we decide to allow it in the future, something would need to be done
 ; to handle this case.
 %struct.test35 = type { i32, i32 }
-define void @test35(%struct.test35* %p, i32* %p2) {
+define %struct.test35* @test35(%struct.test35* %p, i32* %p2) {
   %p.a = getelementptr %struct.test35, %struct.test35* %p, i64 0, i32 0
   %p3 = select i1 undef, i32* %p.a, i32* %p2
   %p4 = bitcast i32* %p.a to %struct.test35*
-  ret void
+  ret %struct.test35* %p4
 }
 
 ; CHECK-LABEL: LLVMType: %struct.test35 = type { i32, i32 }
@@ -546,12 +548,12 @@ define void @test35(%struct.test35* %p, i32* %p2) {
 ; Test that an element zero pointer cannot be cast back to the original type
 ; after a merge with a pointer to another element.
 %struct.test36 = type { i32, i32 }
-define void @test36(%struct.test36* %p) {
+define %struct.test36* @test36(%struct.test36* %p) {
   %p.a = getelementptr %struct.test36, %struct.test36* %p, i64 0, i32 0
   %p.b = getelementptr %struct.test36, %struct.test36* %p, i64 0, i32 1
   %p2 = select i1 undef, i32* %p.a, i32* %p.b
   %p3 = bitcast i32* %p2 to %struct.test36*
-  ret void
+  ret %struct.test36* %p3
 }
 
 ; CHECK-LABEL: LLVMType: %struct.test36 = type { i32, i32 }
@@ -587,6 +589,7 @@ merge:
 
 exit_A:
   %badA = bitcast i8* %a to %struct.test37.a*
+  %gep = getelementptr %struct.test37.a, %struct.test37.a* %badA, i64 0, i32 0
   br label %exit
 
 exit_B:
@@ -597,9 +600,9 @@ exit:
 }
 
 ; CHECK-LABEL: LLVMType: %struct.test37.a = type { i32, i32 }
-; CHECK: Safety data: Bad casting | Unsafe pointer merge
+; CHECK: Safety data: Bad casting | Ambiguous GEP | Unsafe pointer merge
 ; CHECK: LLVMType: %struct.test37.b = type { i16, i16, i16, i16 }
-; CHECK: Safety data: Bad casting | Unsafe pointer merge
+; CHECK: Safety data: Bad casting | Ambiguous GEP | Unsafe pointer merge
 
 ; Test a cyclic analysis with a dependent bitcast.
 ; This was an attempt to cause a false positive with an element-zero bitcast

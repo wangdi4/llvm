@@ -32,17 +32,17 @@ define dso_local void @foo(i64 %n1, i64 %n2) {
 ; CHECK-DAG:   [[VP5:%.*]] = {@arr}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK:          i64 [[VP8:%.*]] = phi  [ i64 0, {{.*}} ],  [ i64 [[VP9:%.*]], {{.*}} ]
-; CHECK-NEXT:     i64* [[VP10:%.*]] = getelementptr inbounds [100 x [100 x i64]]* @arr i64 0 i64 [[VP0]] i64 [[VP8]]
+; CHECK-NEXT:     i64* [[VP10:%.*]] = subscript inbounds [100 x [100 x i64]]* @arr i64 0 i64 [[VP0]] i64 [[VP8]]
 ; CHECK-NEXT:     store i64 111 i64* [[VP10]]
 ; CHECK-NEXT:     i64 [[VP11:%.*]] = add i64 [[VP0]] i64 [[VP8]]
-; CHECK-NEXT:     float* [[VP12:%.*]] = getelementptr inbounds [100 x float]* @farr2 i64 0 i64 [[VP11]]
+; CHECK-NEXT:     float* [[VP12:%.*]] = subscript inbounds [100 x float]* @farr2 i64 0 i64 [[VP11]]
 ; CHECK-NEXT:     float [[VP13:%.*]] = load float* [[VP12]]
 ; CHECK-NEXT:     i64 [[VP14:%.*]] = add i64 [[VP1]] i64 [[VP8]]
-; CHECK-NEXT:     float* [[VP15:%.*]] = getelementptr inbounds [100 x float]* @farr i64 0 i64 [[VP14]]
+; CHECK-NEXT:     float* [[VP15:%.*]] = subscript inbounds [100 x float]* @farr i64 0 i64 [[VP14]]
 ; CHECK-NEXT:     float [[VP16:%.*]] = load float* [[VP15]]
 ; CHECK-NEXT:     float [[VP17:%.*]] = fadd float [[VP13]] float [[VP16]]
 ; CHECK-NEXT:     i64 [[VP18:%.*]] = add i64 [[VP1]] i64 [[VP8]]
-; CHECK-NEXT:     float* [[VP19:%.*]] = getelementptr inbounds [100 x float]* @farr i64 0 i64 [[VP18]]
+; CHECK-NEXT:     float* [[VP19:%.*]] = subscript inbounds [100 x float]* @farr i64 0 i64 [[VP18]]
 ; CHECK-NEXT:     store float [[VP17]] float* [[VP19]]
 ;
 entry:

@@ -148,7 +148,7 @@ void VPlanAllZeroBypass::insertBypassForRegion(
       VPBlockUtils::splitBlockEnd(LastBlockInBypassRegion, VPLI, DT, PDT);
   BypassEnd->setName(VPlanUtils::createUniqueName("all.zero.bypass.end"));
 
-  Builder.setInsertPoint(BypassBegin, BypassBegin->end());
+  Builder.setInsertPoint(BypassBegin);
   VPValue *AllZeroCheck = Builder.createAllZeroCheck(BlockPredicate,
                                                      "all.zero.check");
   auto *DA = Plan.getVPlanDA();
@@ -156,9 +156,9 @@ void VPlanAllZeroBypass::insertBypassForRegion(
   // No need to update dominator info because bypass regions are inserted from
   // the outermost region to innermost region. Any blocks inserted previously
   // will not affect the CFG of the current region.
-  VPBlockUtils::disconnectBlocks(BypassBegin, FirstBlockInBypassRegion);
-  VPBlockUtils::connectBlocks(BypassBegin, AllZeroCheck, BypassEnd,
-                              FirstBlockInBypassRegion);
+  BypassBegin->clearSuccessors();
+  BypassBegin->setTwoSuccessors(AllZeroCheck, BypassEnd,
+                                FirstBlockInBypassRegion);
 
   // Map of VPValues that are live-out of the bypass region and the
   // corresponding users to be updated after bypass insertion.
@@ -334,6 +334,7 @@ void VPlanAllZeroBypass::collectAllZeroBypassRegions(
                    // (i.e., regions are formed while maintaining proper SSA).
                    return (!isa<VPPHINode>(VPInst) &&
                            !isa<VPBlendInst>(VPInst) &&
+                           !isa<VPBranchInst>(VPInst) &&
                            !isStricterOrEqualPred(VPInst, CandidateBlockPred));
                  }))
         break;

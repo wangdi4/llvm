@@ -512,7 +512,7 @@ bool HIROptPredicate::processPUEdge(
   // Source of the flow edge is always an Inst.
   HLInst *Inst = cast<HLInst>(SrcRef->getHLDDNode());
 
-  if (!Edge->isForwardDep()) {
+  if (Edge->isBackwardDep()) {
     // VRef is updated from the previous loop iteration
 
     if (If->isThenChild(Inst)) {

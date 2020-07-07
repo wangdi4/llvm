@@ -205,6 +205,9 @@ Vectorizer Passes
 **Predication**
    Describes the Predication transformation: :doc:`Predication <Predication/index>`
 
+**ScalVec Analysis**
+   Describes the ScalVec analysis: :doc:`ScalVecAnalysis <ScalVecAnalysis/index>`
+
 **LoadCoalescing**
   Describes the approach to Load-Coalescing: :doc:`LoadCoalescing <LoadCoalescing>`
 
@@ -294,6 +297,18 @@ but for VF=16 and more this doesn’t hold.
   getGroups utility it is guaranteed to get the best shuffle sequence (so that 
   it is never necessary to try out different group sizes). (**Checkme**: confirm
   this last point).
+**SOAAnalysis**
+  Data-layout transformation for loop-private aggregates can greatly improve the
+  performance of vectorized code. This is primarily because some of the memory-
+  reference, which would otherwise be always strided memory accesses, can be
+  transformed into unit-stride memory accesses. Data-layout transformation in
+  VPlan is achieved through SOA-analysis. SOA-analysis consists of `Escape-analysis`,
+  which determines safety of data-layout transformations and `profitability-analysis`,
+  which determines the profitability of the data-layout transformation. Once these
+  analyses are done, the information about the resulting stride and divergence property
+  of memory references has to be propagated to subsequent passes which include the
+  codegen. The required changes to the Divergence Analysis algorithm are described in
+  :doc:`SOAShapes <SOAShapes>`.
 
 
 

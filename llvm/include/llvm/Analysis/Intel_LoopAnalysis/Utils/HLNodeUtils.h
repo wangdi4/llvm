@@ -233,6 +233,21 @@ private:
                                 const Twine &Name, RegDDRef *LvalRef,
                                 Type *DestTy, MDNode *FPMathTag);
 
+  /// Internal helper utility to copy FastMathFlags to the underlying LLVMInst
+  /// of given HLInst. If any of the incoming FastMathFlags are set then we
+  /// expect underlying LLVMInst to be a FPMathOperator.
+  void copyFMFForHLInst(HLInst *HInst, FastMathFlags FMF) {
+    // No flags to copy, return early.
+    if (FMF.none())
+      return;
+
+    Instruction *LLVMInst =
+        const_cast<Instruction *>(HInst->getLLVMInstruction());
+    assert(isa<FPMathOperator>(LLVMInst) &&
+           "Trying to set FMF on non-FPMathOperator.");
+    LLVMInst->copyFastMathFlags(FMF);
+  }
+
   /// Creates a binary instruction.
   HLInst *createBinaryHLInstImpl(unsigned OpCode, RegDDRef *OpRef1,
                                  RegDDRef *OpRef2, const Twine &Name,
@@ -711,7 +726,12 @@ public:
 
   /// Creates a new FNeg instruction.
   HLInst *createFNeg(RegDDRef *RvalRef, const Twine &Name = "fneg",
-                     RegDDRef *LvalRef = nullptr, MDNode *FPMathTag = nullptr);
+                     RegDDRef *LvalRef = nullptr, MDNode *FPMathTag = nullptr,
+                     FastMathFlags FMF = FastMathFlags());
+
+  /// Creates a new Freeze instruction.
+  HLInst *createFreeze(RegDDRef *RvalRef, const Twine &Name = "freeze",
+                       RegDDRef *LvalRef = nullptr);
 
   /// Creates a unary instruction with specified opcode. If OrigUnInst is not
   /// null, copy IR flags from OrigUnInst to the newly created instruction.
@@ -726,6 +746,28 @@ public:
                              RegDDRef *OpRef2, const Twine &Name = "",
                              RegDDRef *LvalRef = nullptr,
                              const BinaryOperator *OrigBinOp = nullptr);
+
+  /// Create a new BinaryOperator instruction which is also FPMathOperator(FAdd,
+  /// FSub, FMul, FDiv, FRem). FastMathFlags are copied over to the resulting
+  /// new instruction.
+  HLInst *createFPMathBinOp(unsigned OpCode, RegDDRef *OpRef1, RegDDRef *OpRef2,
+                            FastMathFlags FMF, const Twine &Name = "",
+                            RegDDRef *LvalRef = nullptr);
+
+  /// Create a new OverflowingBinaryOperator instruction. The NUW and NSW flags
+  /// are copied over to the resulting instruction.
+  HLInst *createOverflowingBinOp(unsigned OpCode, RegDDRef *OpRef1,
+                                 RegDDRef *OpRef2, bool HasNUW, bool HasNSW,
+                                 const Twine &Name = "",
+                                 RegDDRef *LvalRef = nullptr);
+
+  /// Create a new BinaryOperator instruction which is also
+  /// PossiblyExactOperator. The Exact flag is copied over to the resulting
+  /// instruction.
+  HLInst *createPossiblyExactBinOp(unsigned OpCode, RegDDRef *OpRef1,
+                                   RegDDRef *OpRef2, bool IsExact,
+                                   const Twine &Name = "",
+                                   RegDDRef *LvalRef = nullptr);
 
   /// Creates a new Cast instruction with specified opcode.
   HLInst *createCastHLInst(Type *DestTy, unsigned OpCode, RegDDRef *OpRef,
@@ -821,13 +863,15 @@ public:
 
   /// Creates a new Cmp instruction.
   HLInst *createCmp(const HLPredicate &Pred, RegDDRef *OpRef1, RegDDRef *OpRef2,
-                    const Twine &Name = "cmp", RegDDRef *LvalRef = nullptr);
+                    const Twine &Name = "cmp", RegDDRef *LvalRef = nullptr,
+                    FastMathFlags FMF = FastMathFlags());
 
   /// Creates a new Select instruction.
   HLInst *createSelect(const HLPredicate &Pred, RegDDRef *OpRef1,
                        RegDDRef *OpRef2, RegDDRef *OpRef3, RegDDRef *OpRef4,
                        const Twine &Name = "select",
-                       RegDDRef *LvalRef = nullptr);
+                       RegDDRef *LvalRef = nullptr,
+                       FastMathFlags FMF = FastMathFlags());
 
   /// Creates a select instruction representing a min operation:
   /// OpRef1 <(=) OpRef2 ? OpRef1 : OpRef2
@@ -849,7 +893,8 @@ public:
   HLInst *createCall(FunctionCallee F, ArrayRef<RegDDRef *> CallArgs,
                      const Twine &Name = "call", RegDDRef *LvalRef = nullptr,
                      ArrayRef<OperandBundleDef> Bundle = {},
-                     ArrayRef<RegDDRef *> BundleOps = {});
+                     ArrayRef<RegDDRef *> BundleOps = {},
+                     FastMathFlags FMF = FastMathFlags());
 
   /// Creates a new Prefetch intrinsic call.
   HLInst *createPrefetch(RegDDRef *AddressRef, RegDDRef *RW, RegDDRef *Locality,
@@ -896,6 +941,17 @@ public:
   HLInst *createExtractElementInst(RegDDRef *OpRef, RegDDRef *IdxRef,
                                    const Twine &Name = "extract",
                                    RegDDRef *LvalRef = nullptr);
+
+  /// Creates a new ExtractValue instruction
+  HLInst *createExtractValueInst(RegDDRef *OpRef, ArrayRef<unsigned> Idxs,
+                                 const Twine &Name = "extractvalue",
+                                 RegDDRef *LvalRef = nullptr);
+
+  /// Creates a new InsertValue instruction
+  HLInst *createInsertValueInst(RegDDRef *OpRef, RegDDRef *ValRef,
+                                ArrayRef<unsigned> Idxs,
+                                const Twine &Name = "insertvalue",
+                                RegDDRef *LvalRef = nullptr);
 
   /// Creates a clones sequence from Node1 to Node2, including both the nodes
   /// and all the nodes in between them. If Node2 is null or Node1 equals

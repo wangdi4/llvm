@@ -21,6 +21,7 @@ define i32 @main(i32 %argc, i8** %argv) {
   ; Introduce a bad bitcast.
   %local1_val = load %struct.test01*, %struct.test01** %local1
   %bad_cast = bitcast  %struct.test01* %local1_val to %struct.test01other*
+  %gep = getelementptr %struct.test01other, %struct.test01other* %bad_cast, i64 0, i32 0
 
   ret i32 0
 }

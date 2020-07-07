@@ -50,9 +50,6 @@ protected:
   // Hold phi node's that need to be fixed once the plain CFG has been built.
   SmallVector<PHINode *, 8> PhisToFix;
 
-  // Set predecessors of \p VPBB in the same order as they are in LLVM \p BB.
-  void setVPBBPredsFromBB(VPBasicBlock *VPBB, BasicBlock *BB);
-
   // Set operands to VPInstructions representing phi nodes from the input IR.
   // VPlan Phi nodes were created without operands in a previous step of the
   // H-CFG construction because those operands might not have been created in

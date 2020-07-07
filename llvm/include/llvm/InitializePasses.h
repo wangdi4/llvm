@@ -106,6 +106,7 @@ void initializeAlwaysInlinerLegacyPassPass(PassRegistry&);
 void initializeAndersensAAWrapperPassPass(PassRegistry&); // INTEL
 void initializeAssumeSimplifyPassLegacyPassPass(PassRegistry &);
 void initializeOpenMPOptLegacyPassPass(PassRegistry &);
+void initializeArgNoAliasPropPass(PassRegistry &); // INTEL
 void initializeArgPromotionPass(PassRegistry&);
 void initializeArrayUseWrapperPassPass(PassRegistry&); // INTEL
 void initializeAssumptionCacheTrackerPass(PassRegistry&);
@@ -125,6 +126,7 @@ void initializeBranchRelaxationPass(PassRegistry&);
 void initializeBreakCriticalEdgesPass(PassRegistry&);
 void initializeBreakFalseDepsPass(PassRegistry&);
 void initializeCanonicalizeAliasesLegacyPassPass(PassRegistry &);
+void initializeCanonicalizeFreezeInLoopsPass(PassRegistry &);
 void initializeCFGOnlyPrinterLegacyPassPass(PassRegistry&);
 void initializeCFGOnlyViewerLegacyPassPass(PassRegistry&);
 void initializeCFGPrinterLegacyPassPass(PassRegistry&);
@@ -224,6 +226,7 @@ void initializeIPCloningLegacyPassPass(PassRegistry&);             // INTEL
 void initializeCallTreeCloningLegacyPassPass(PassRegistry &);      // INTEL
 void initializeIVUsersWrapperPassPass(PassRegistry&);
 void initializeIfConverterPass(PassRegistry&);
+void initializeImmutableModuleSummaryIndexWrapperPassPass(PassRegistry&);
 void initializeImplicitNullChecksPass(PassRegistry&);
 void initializeIndVarSimplifyLegacyPassPass(PassRegistry&);
 void initializeIndirectBrExpandPassPass(PassRegistry&);
@@ -527,6 +530,8 @@ void initializeTransformFPGARegPass(PassRegistry &);
 void initializeQsortRecognizerLegacyPassPass(PassRegistry&);
 // Multiversioning and inline marking for tiled functions
 void initializeTileMVInlMarkerLegacyPassPass(PassRegistry&);
+// Mark callsites for aggressive inlining
+void initializeAggInlinerLegacyPassPass(PassRegistry&);
 // Converting annotation attribute to function attribute
 void initializeParseAnnotateAttributesLegacyPass(PassRegistry&);
 // HIR Passes
@@ -587,6 +592,9 @@ void initializeHIRUndoSinkingForPerfectLoopnestLegacyPassPass(PassRegistry&);
 void initializeHIRConditionalTempSinkingLegacyPassPass(PassRegistry&);
 void initializeHIRMemoryReductionSinkingLegacyPassPass(PassRegistry&);
 void initializeHIRRowWiseMVLegacyPassPass(PassRegistry &);
+void initializeHIRConditionalLoadStoreMotionLegacyPassPass(PassRegistry &);
+void initializeHIRStoreResultIntoTempArrayLegacyPassPass(PassRegistry&);
+void initializeHIRSumWindowReuseLegacyPassPass(PassRegistry &);
 // VPO Vectorizer Passes
 void initializeAVRGeneratePass(PassRegistry&);
 void initializeAVRGenerateHIRPass(PassRegistry&);
@@ -630,6 +638,8 @@ void initializeSplitBBonBarrierPass(PassRegistry&);
 void initializeWIRelatedValuePass(PassRegistry&);
 void initializeDataPerBarrierPass(PassRegistry&);
 void initializeDataPerValuePass(PassRegistry&);
+void initializeKernelBarrierPass(PassRegistry&);
+void initializeBarrierInFunctionPass(PassRegistry&);
 // Add/Sub reassociation pass
 void initializeAddSubReassociateLegacyPassPass(PassRegistry&);
 // Forced CMOV generation pass

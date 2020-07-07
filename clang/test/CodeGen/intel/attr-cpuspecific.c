@@ -52,8 +52,8 @@ void TwoVersions(void);
 // LINUX: define weak_odr void ()* @TwoVersions.resolver()
 // LINUX: call void @__intel_cpu_features_init_x()
 // LINUX: %[[FEAT_INIT:.+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
-// LINUX: %[[FEAT_JOIN:.+]] = and i64 %[[FEAT_INIT]], 30208235500
-// LINUX: %[[FEAT_CHECK:.+]] = icmp eq i64 %[[FEAT_JOIN]], 30208235500
+// LINUX: %[[FEAT_JOIN:.+]] = and i64 %[[FEAT_INIT]], 30477754348
+// LINUX: %[[FEAT_CHECK:.+]] = icmp eq i64 %[[FEAT_JOIN]], 30477754348
 // LINUX: br i1 %[[FEAT_CHECK]]
 // LINUX: ret void ()* @TwoVersions.Z
 // LINUX: ret void ()* @TwoVersions.S
@@ -63,8 +63,8 @@ void TwoVersions(void);
 // WINDOWS: define weak_odr dso_local void @TwoVersions() comdat
 // WINDOWS: call void @__intel_cpu_features_init_x()
 // WINDOWS: %[[FEAT_INIT:.+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
-// WINDOWS: %[[FEAT_JOIN:.+]] = and i64 %[[FEAT_INIT]], 30208235500
-// WINDOWS: %[[FEAT_CHECK:.+]] = icmp eq i64 %[[FEAT_JOIN]], 30208235500
+// WINDOWS: %[[FEAT_JOIN:.+]] = and i64 %[[FEAT_INIT]], 30477754348
+// WINDOWS: %[[FEAT_CHECK:.+]] = icmp eq i64 %[[FEAT_JOIN]], 30477754348
 // WINDOWS: br i1 %[[FEAT_CHECK]]
 // WINDOWS: call void @TwoVersions.Z()
 // WINDOWS-NEXT: ret void
@@ -281,6 +281,30 @@ int DispatchFirst(void) { return 1; }
 
 // WINDOWS: define dso_local i32 @DispatchFirst.B
 // WINDOWS: ret i32 1
+
+// Ensure we cna tell haswell/broadwell apart.
+ATTR(cpu_dispatch(generic, haswell, broadwell))
+int FullFeatures(void);
+// LINUX: define weak_odr i32 ()* @FullFeatures.resolver
+// LINUX: %[[FEAT_INIT:.+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
+// LINUX: %[[FEAT_JOIN:.+]] = and i64 %[[FEAT_INIT]], 278765548
+// LINUX: %[[FEAT_CHECK:.+]] = icmp eq i64 %[[FEAT_JOIN]], 278765548
+// LINUX: ret i32 ()* @FullFeatures.X
+// LINUX: %[[FEAT_INIT:.+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
+// LINUX: %[[FEAT_JOIN:.+]] = and i64 %[[FEAT_INIT]], 10330092
+// LINUX: %[[FEAT_CHECK:.+]] = icmp eq i64 %[[FEAT_JOIN]], 10330092
+// LINUX: ret i32 ()* @FullFeatures.V
+// LINUX: ret i32 ()* @FullFeatures.A
+// WINDOWS: define weak_odr dso_local i32 @FullFeatures() comdat
+// WINDOWS: %[[FEAT_INIT:.+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
+// WINDOWS: %[[FEAT_JOIN:.+]] = and i64 %[[FEAT_INIT]], 278765548
+// WINDOWS: %[[FEAT_CHECK:.+]] = icmp eq i64 %[[FEAT_JOIN]], 278765548
+// WINDOWS: musttail call i32 @FullFeatures.X
+// WINDOWS: %[[FEAT_INIT:.+]] = load i64, i64* getelementptr inbounds ([2 x i64], [2 x i64]* @__intel_cpu_feature_indicator_x, i64 0, i64 0), align 8
+// WINDOWS: %[[FEAT_JOIN:.+]] = and i64 %[[FEAT_INIT]], 10330092
+// WINDOWS: %[[FEAT_CHECK:.+]] = icmp eq i64 %[[FEAT_JOIN]], 10330092
+// WINDOWS: musttail call i32 @FullFeatures.V
+// WINDOWS: musttail call i32 @FullFeatures.A
 
 // CHECK: attributes #[[S]] = {{.*}}"target-features"="+avx,+cmov,+cx8,+f16c,+mmx,+popcnt,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave"
 // CHECK: attributes #[[K]] = {{.*}}"target-features"="+adx,+avx,+avx2,+avx512cd,+avx512er,+avx512f,+avx512pf,+bmi,+cmov,+cx8,+f16c,+fma,+lzcnt,+mmx,+movbe,+popcnt,+sse,+sse2,+sse3,+sse4.1,+sse4.2,+ssse3,+x87,+xsave"

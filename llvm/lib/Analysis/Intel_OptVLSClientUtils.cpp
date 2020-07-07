@@ -37,7 +37,7 @@ Type *OVLSTTICostModel::getVectorDataType(Type *ElemType,
   }
   if (NumElements == 1)
     return ElemType;
-  return VectorType::get(ElemType, NumElements);
+  return FixedVectorType::get(ElemType, NumElements);
 }
 
 uint64_t OVLSTTICostModel::getInstructionCost(const OVLSInstruction *I) const {
@@ -87,8 +87,8 @@ uint64_t OVLSTTICostModel::getInstructionCost(const OVLSInstruction *I) const {
       LoadCost =
           TTI.getMaskedMemoryOpCost(Instruction::Load, VecTy, Alignment, AS);
     else
-      LoadCost = TTI.getMemoryOpCost(Instruction::Load, VecTy,
-                                     MaybeAlign(Alignment), AS);
+      LoadCost = TTI.getMemoryOpCost(
+          Instruction::Load, VecTy, Alignment ? Align(Alignment) : Align(), AS);
     return AddrCost + LoadCost;
   }
 
@@ -136,7 +136,7 @@ OVLSConverter::genLLVMIR(IRBuilder<> &Builder,
       // Bitcast Addr to OLI's type
       OVLSType Ty = OInst->getType();
       unsigned TySize = Ty.getSize() / 8;
-      VectorType *VecTy = VectorType::get(ElemTy, Ty.getNumElements());
+      VectorType *VecTy = FixedVectorType::get(ElemTy, Ty.getNumElements());
       Type *BasePtrTy = VecTy->getPointerTo();
       Value *VecBasePtr = Builder.CreateBitCast(Addr, BasePtrTy);
 
@@ -229,7 +229,7 @@ OVLSConverter::genLLVMIR(IRBuilder<> &Builder,
       // Bitcast Addr to OStI's type
       OVLSType Ty = OInst->getType();
       unsigned TySize = Ty.getSize() / 8;
-      VectorType *VecTy = VectorType::get(ElemTy, Ty.getNumElements());
+      VectorType *VecTy = FixedVectorType::get(ElemTy, Ty.getNumElements());
       Type *BasePtrTy = VecTy->getPointerTo();
       Value *VecBasePtr = Builder.CreateBitCast(Addr, BasePtrTy);
 

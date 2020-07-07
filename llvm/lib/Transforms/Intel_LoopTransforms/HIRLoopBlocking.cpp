@@ -41,6 +41,7 @@
 
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/IR/Function.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
@@ -66,6 +67,8 @@
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
+
+#include "HIRStencilPattern.h"
 
 #define OPT_SWITCH "hir-loop-blocking"
 #define OPT_DESC "HIR Loop Blocking"
@@ -720,19 +723,21 @@ public:
   }
 };
 
-/// Checks if the innermost loop body has a certain stencil pattern.
-/// Checks
-///  - kinds of binary operations.
-///  - Per memref group (grouping is done by RefGrouper)
-///    + Get the median by compareMemRefAddress.
-///    + Check all other memrefs in the same group has
-///      a constant distance.
-///    + for a 3-D reference, upto 2 dimensions can have different
-///      from those of median ref.
+// Checks if the innermost loop body has a certain stencil pattern.
+// Checks
+//  - kinds of binary operations.
+//  - Per memref group (grouping is done by RefGrouper)
+//    + Get the median by compareMemRefAddress.
+//    + Check all other memrefs in the same group has
+//      a constant distance.
+//    + for a 3-D reference, upto 2 dimensions can have different
+//      from those of median ref.
 class StencilChecker {
+  typedef DDRefGrouping::RefGroupVecTy<RegDDRef *> RefGroupVecTy;
+  typedef DDRefGrouping::RefGroupTy<RegDDRef *> RefGroupTy;
+
 public:
-  StencilChecker(RefGrouper::RefGroupVecTy &Groups, const HLLoop *Innermost,
-                 StringRef Func)
+  StencilChecker(RefGroupVecTy &Groups, const HLLoop *Innermost, StringRef Func)
       : Groups(Groups), InnermostLoop(Innermost),
         MaxLevel(InnermostLoop->getNestingLevel()), MinLevel(MaxLevel + 1),
         Func(Func){};
@@ -795,54 +800,18 @@ private:
     return MaxLevel >= MinimumLevel;
   }
 
-  bool scanDiffsFromMedian(RefGrouper::RefGroupTy &Group,
-                           unsigned &MinimumLevel) {
+  bool scanDiffsFromMedian(RefGroupTy &Group, unsigned &MinimumLevel) {
 
-    std::nth_element(Group.begin(), Group.begin() + Group.size() / 2,
-                     Group.end(), DDRefUtils::compareMemRefAddress);
-    const RegDDRef *Median = Group[Group.size() / 2];
-    LLVM_DEBUG_DELINEAR(dbgs() << "Median :"; Median->dump(); dbgs() << " ";);
+    const RegDDRef *Median = stencilpattern::getMedianRef(Group);
+    LLVM_DEBUG_DIAG_DETAIL(dbgs() << "Median: "; Median->dump();
+                           dbgs() << "\n";);
+
     if (!getMinLevel(Median, MinimumLevel)) {
-      LLVM_DEBUG_DELINEAR(dbgs() << "Fail MinLevel\n");
+      LLVM_DEBUG_DIAG_DETAIL(dbgs() << "Fail MinLevel\n");
       return false;
     }
 
-    unsigned numCEs = Median->getNumDimensions();
-
-    for (auto *Ref : Group) {
-      if (Ref->getNumDimensions() != numCEs)
-        return false;
-
-      unsigned numNonZeroDist = 0;
-      for (auto DimNum :
-           make_range(Ref->dim_index_begin(), Ref->dim_index_end())) {
-        int64_t Dist = 0;
-        if (!CanonExprUtils::getConstDistance(Median->getDimensionIndex(DimNum),
-                                              Ref->getDimensionIndex(DimNum),
-                                              &Dist))
-          return false;
-
-        if (Dist != 0)
-          numNonZeroDist++;
-      }
-
-      // At leas one dimension has const dist of zero.
-      // TODO: This solves rhs_body, but might need more checks to be
-      //       conservative enough as stencil function
-      if (numNonZeroDist >= numCEs) {
-        LLVM_DEBUG_DELINEAR(
-            dbgs() << "Problem Ref:"; Ref->dump(); dbgs() << "\n";
-            dbgs() << "F 4: group size: " << Group.size() << "\n";
-            for (auto *Ref
-                 : Group) {
-              Ref->dump();
-              dbgs() << "\n";
-            });
-        return false;
-      }
-    }
-
-    return true;
+    return stencilpattern::isSymetricCenteredAt(Median, Group);
   }
 
   bool scanLoopBody() const {
@@ -873,8 +842,8 @@ private:
 
       if (isa<BinaryOperator>(Inst)) {
         if (!isStencilBinaryOperator(Inst->getOpcode())) {
-          LLVM_DEBUG_DELINEAR(dbgs()
-                              << "Opcode: " << Inst->getOpcode() << "\n");
+          LLVM_DEBUG_DIAG_DETAIL(dbgs()
+                                 << "Opcode: " << Inst->getOpcode() << "\n");
           return false;
         }
         StencilBinaryInstSeen = true;
@@ -893,7 +862,7 @@ private:
   }
 
 private:
-  RefGrouper::RefGroupVecTy &Groups;
+  RefGroupVecTy &Groups;
   const HLLoop *InnermostLoop;
   // All levels in [MinLevel, MaxLevel] appear (as IV) in every Group of
   // Groups.
@@ -1343,9 +1312,10 @@ HLLoop *tryKAndRWithFixedStripmineSizes(
 
 // Returns the outermost loop where blocking will be applied
 // in the range of [outermost, InnermostLoop]
-HLLoop *findLoopNestToBlock(HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
+HLLoop *findLoopNestToBlock(HIRFramework &HIRF, HIRDDAnalysis &DDA,
+                            HIRSafeReductionAnalysis &SRA,
                             HLLoop *InnermostLoop, bool Advanced,
-                            StringRef Func, LoopMapTy &LoopMap) {
+                            LoopMapTy &LoopMap) {
 
   // Get the highest outermost ancestor of given InnermostLoop
   // that can make a perfect loop nest.
@@ -1358,6 +1328,7 @@ HLLoop *findLoopNestToBlock(HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
   // now.
   // If it is still IsNearPerfect, sinking pass was not able to
   // enable a perfect loop nest. Just bail out.
+  StringRef Func = HIRF.getFunction().getName();
   if (IsNearPerfect) {
     printDiag(NO_PERFECTNEST, Func);
     return nullptr;
@@ -1389,8 +1360,12 @@ HLLoop *findLoopNestToBlock(HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
   MemRefGatherer::gatherRange(InnermostLoop->child_begin(),
                               InnermostLoop->child_end(), Refs);
 
+  llvm::Triple TargetTriple(HIRF.getModule().getTargetTriple());
+  bool Is32Bit = (TargetTriple.getArch() == llvm::Triple::x86);
+  // Avoid delinearized results when 32-bit to avoid performance drop.
+  // TODO: Extend blocking algorithm to work when num_dims >= loop_depth
   RefAnalyzer::RefAnalysisResult RefKind =
-      RefAnalyzer::analyzeRefs(Refs, Advanced);
+      RefAnalyzer::analyzeRefs(Refs, !Is32Bit);
 
   // If any Ref is a non-linear, give up here.
   if (RefAnalyzer::hasNonLinear(RefKind)) {
@@ -1666,8 +1641,7 @@ bool doLoopBlocking(HIRFramework &HIRF, HIRDDAnalysis &DDA,
 
     LoopMapTy LoopMap;
     HLLoop *OutermostLoop =
-        findLoopNestToBlock(DDA, SRA, InnermostLoop, Advanced,
-                            HIRF.getFunction().getName(), LoopMap);
+        findLoopNestToBlock(HIRF, DDA, SRA, InnermostLoop, Advanced, LoopMap);
 
     if (!OutermostLoop)
       continue;

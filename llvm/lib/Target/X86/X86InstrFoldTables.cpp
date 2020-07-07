@@ -1043,12 +1043,28 @@ static const X86MemoryFoldTableEntry MemoryFoldTable1[] = {
   { X86::VPHSUBBWrr,           X86::VPHSUBBWrm,           0 },
   { X86::VPHSUBDQrr,           X86::VPHSUBDQrm,           0 },
   { X86::VPHSUBWDrr,           X86::VPHSUBWDrm,           0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  { X86::VPLZCNTDYrr,          X86::VPLZCNTDYrm,          0 },
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   { X86::VPLZCNTDZ128rr,       X86::VPLZCNTDZ128rm,       0 },
   { X86::VPLZCNTDZ256rr,       X86::VPLZCNTDZ256rm,       0 },
   { X86::VPLZCNTDZrr,          X86::VPLZCNTDZrm,          0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  { X86::VPLZCNTDrr,           X86::VPLZCNTDrm,           0 },
+  { X86::VPLZCNTQYrr,          X86::VPLZCNTQYrm,          0 },
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   { X86::VPLZCNTQZ128rr,       X86::VPLZCNTQZ128rm,       0 },
   { X86::VPLZCNTQZ256rr,       X86::VPLZCNTQZ256rm,       0 },
   { X86::VPLZCNTQZrr,          X86::VPLZCNTQZrm,          0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  { X86::VPLZCNTQrr,           X86::VPLZCNTQrm,           0 },
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   { X86::VPMOVSXBDYrr,         X86::VPMOVSXBDYrm,         TB_NO_REVERSE },
   { X86::VPMOVSXBDZ128rr,      X86::VPMOVSXBDZ128rm,      TB_NO_REVERSE },
   { X86::VPMOVSXBDZ256rr,      X86::VPMOVSXBDZ256rm,      TB_NO_REVERSE },
@@ -1109,30 +1125,82 @@ static const X86MemoryFoldTableEntry MemoryFoldTable1[] = {
   { X86::VPMOVZXWQZ256rr,      X86::VPMOVZXWQZ256rm,      TB_NO_REVERSE },
   { X86::VPMOVZXWQZrr,         X86::VPMOVZXWQZrm,         0 },
   { X86::VPMOVZXWQrr,          X86::VPMOVZXWQrm,          TB_NO_REVERSE },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  { X86::VPOPCNTBYrr,          X86::VPOPCNTBYrm,          0 },
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   { X86::VPOPCNTBZ128rr,       X86::VPOPCNTBZ128rm,       0 },
   { X86::VPOPCNTBZ256rr,       X86::VPOPCNTBZ256rm,       0 },
   { X86::VPOPCNTBZrr,          X86::VPOPCNTBZrm,          0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  { X86::VPOPCNTBrr,           X86::VPOPCNTBrm,           0 },
+  { X86::VPOPCNTDYrr,          X86::VPOPCNTDYrm,          0 },
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   { X86::VPOPCNTDZ128rr,       X86::VPOPCNTDZ128rm,       0 },
   { X86::VPOPCNTDZ256rr,       X86::VPOPCNTDZ256rm,       0 },
   { X86::VPOPCNTDZrr,          X86::VPOPCNTDZrm,          0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  { X86::VPOPCNTDrr,           X86::VPOPCNTDrm,           0 },
+  { X86::VPOPCNTQYrr,          X86::VPOPCNTQYrm,          0 },
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   { X86::VPOPCNTQZ128rr,       X86::VPOPCNTQZ128rm,       0 },
   { X86::VPOPCNTQZ256rr,       X86::VPOPCNTQZ256rm,       0 },
   { X86::VPOPCNTQZrr,          X86::VPOPCNTQZrm,          0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  { X86::VPOPCNTQrr,           X86::VPOPCNTQrm,           0 },
+  { X86::VPOPCNTWYrr,          X86::VPOPCNTWYrm,          0 },
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   { X86::VPOPCNTWZ128rr,       X86::VPOPCNTWZ128rm,       0 },
   { X86::VPOPCNTWZ256rr,       X86::VPOPCNTWZ256rm,       0 },
   { X86::VPOPCNTWZrr,          X86::VPOPCNTWZrm,          0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  { X86::VPOPCNTWrr,           X86::VPOPCNTWrm,           0 },
+  { X86::VPROLDYri,            X86::VPROLDYmi,            0 },
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   { X86::VPROLDZ128ri,         X86::VPROLDZ128mi,         0 },
   { X86::VPROLDZ256ri,         X86::VPROLDZ256mi,         0 },
   { X86::VPROLDZri,            X86::VPROLDZmi,            0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  { X86::VPROLDri,             X86::VPROLDmi,             0 },
+  { X86::VPROLQYri,            X86::VPROLQYmi,            0 },
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   { X86::VPROLQZ128ri,         X86::VPROLQZ128mi,         0 },
   { X86::VPROLQZ256ri,         X86::VPROLQZ256mi,         0 },
   { X86::VPROLQZri,            X86::VPROLQZmi,            0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  { X86::VPROLQri,             X86::VPROLQmi,             0 },
+  { X86::VPRORDYri,            X86::VPRORDYmi,            0 },
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   { X86::VPRORDZ128ri,         X86::VPRORDZ128mi,         0 },
   { X86::VPRORDZ256ri,         X86::VPRORDZ256mi,         0 },
   { X86::VPRORDZri,            X86::VPRORDZmi,            0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  { X86::VPRORDri,             X86::VPRORDmi,             0 },
+  { X86::VPRORQYri,            X86::VPRORQYmi,            0 },
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   { X86::VPRORQZ128ri,         X86::VPRORQZ128mi,         0 },
   { X86::VPRORQZ256ri,         X86::VPRORQZ256mi,         0 },
   { X86::VPRORQZri,            X86::VPRORQZmi,            0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  { X86::VPRORQri,             X86::VPRORQmi,             0 },
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   { X86::VPROTBri,             X86::VPROTBmi,             0 },
   { X86::VPROTBrr,             X86::VPROTBmr,             0 },
   { X86::VPROTDri,             X86::VPROTDmi,             0 },
@@ -2806,24 +2874,56 @@ static const X86MemoryFoldTableEntry MemoryFoldTable2[] = {
   { X86::VPROLQZ128rikz,           X86::VPROLQZ128mikz,           0 },
   { X86::VPROLQZ256rikz,           X86::VPROLQZ256mikz,           0 },
   { X86::VPROLQZrikz,              X86::VPROLQZmikz,              0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  { X86::VPROLVDYrr,               X86::VPROLVDYrm,              0 },
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   { X86::VPROLVDZ128rr,            X86::VPROLVDZ128rm,            0 },
   { X86::VPROLVDZ256rr,            X86::VPROLVDZ256rm,            0 },
   { X86::VPROLVDZrr,               X86::VPROLVDZrm,               0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  { X86::VPROLVDrr,                X86::VPROLVDrm,                0 },
+  { X86::VPROLVQYrr,               X86::VPROLVQYrm,               0 },
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   { X86::VPROLVQZ128rr,            X86::VPROLVQZ128rm,            0 },
   { X86::VPROLVQZ256rr,            X86::VPROLVQZ256rm,            0 },
   { X86::VPROLVQZrr,               X86::VPROLVQZrm,               0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  { X86::VPROLVQrr,                X86::VPROLVQrm,                0 },
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   { X86::VPRORDZ128rikz,           X86::VPRORDZ128mikz,           0 },
   { X86::VPRORDZ256rikz,           X86::VPRORDZ256mikz,           0 },
   { X86::VPRORDZrikz,              X86::VPRORDZmikz,              0 },
   { X86::VPRORQZ128rikz,           X86::VPRORQZ128mikz,           0 },
   { X86::VPRORQZ256rikz,           X86::VPRORQZ256mikz,           0 },
   { X86::VPRORQZrikz,              X86::VPRORQZmikz,              0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  { X86::VPRORVDYrr,               X86::VPRORVDYrm,               0 },
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   { X86::VPRORVDZ128rr,            X86::VPRORVDZ128rm,            0 },
   { X86::VPRORVDZ256rr,            X86::VPRORVDZ256rm,            0 },
   { X86::VPRORVDZrr,               X86::VPRORVDZrm,               0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  { X86::VPRORVDrr,                X86::VPRORVDrm,                0 },
+  { X86::VPRORVQYrr,               X86::VPRORVQYrm,               0 },
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   { X86::VPRORVQZ128rr,            X86::VPRORVQZ128rm,            0 },
   { X86::VPRORVQZ256rr,            X86::VPRORVQZ256rm,            0 },
   { X86::VPRORVQZrr,               X86::VPRORVQZrm,               0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  { X86::VPRORVQrr,                X86::VPRORVQrm,                0 },
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   { X86::VPROTBrr,                 X86::VPROTBrm,                 0 },
   { X86::VPROTDrr,                 X86::VPROTDrm,                 0 },
   { X86::VPROTQrr,                 X86::VPROTQrm,                 0 },
@@ -2838,27 +2938,71 @@ static const X86MemoryFoldTableEntry MemoryFoldTable2[] = {
   { X86::VPSHAQrr,                 X86::VPSHAQrm,                 0 },
   { X86::VPSHAWrr,                 X86::VPSHAWrm,                 0 },
   { X86::VPSHLBrr,                 X86::VPSHLBrm,                 0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  { X86::VPSHLDDYrri,              X86::VPSHLDDYrmi,              0 },
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   { X86::VPSHLDDZ128rri,           X86::VPSHLDDZ128rmi,           0 },
   { X86::VPSHLDDZ256rri,           X86::VPSHLDDZ256rmi,           0 },
   { X86::VPSHLDDZrri,              X86::VPSHLDDZrmi,              0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  { X86::VPSHLDDrri,               X86::VPSHLDDrmi,               0 },
+  { X86::VPSHLDQYrri,              X86::VPSHLDQYrmi,              0 },
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   { X86::VPSHLDQZ128rri,           X86::VPSHLDQZ128rmi,           0 },
   { X86::VPSHLDQZ256rri,           X86::VPSHLDQZ256rmi,           0 },
   { X86::VPSHLDQZrri,              X86::VPSHLDQZrmi,              0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  { X86::VPSHLDQrri,               X86::VPSHLDQrmi,               0 },
+  { X86::VPSHLDWYrri,              X86::VPSHLDWYrmi,              0 },
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   { X86::VPSHLDWZ128rri,           X86::VPSHLDWZ128rmi,           0 },
   { X86::VPSHLDWZ256rri,           X86::VPSHLDWZ256rmi,           0 },
   { X86::VPSHLDWZrri,              X86::VPSHLDWZrmi,              0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  { X86::VPSHLDWrri,               X86::VPSHLDWrmi,               0 },
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   { X86::VPSHLDrr,                 X86::VPSHLDrm,                 0 },
   { X86::VPSHLQrr,                 X86::VPSHLQrm,                 0 },
   { X86::VPSHLWrr,                 X86::VPSHLWrm,                 0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  { X86::VPSHRDDYrri,              X86::VPSHRDDYrmi,              0 },
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   { X86::VPSHRDDZ128rri,           X86::VPSHRDDZ128rmi,           0 },
   { X86::VPSHRDDZ256rri,           X86::VPSHRDDZ256rmi,           0 },
   { X86::VPSHRDDZrri,              X86::VPSHRDDZrmi,              0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  { X86::VPSHRDDrri,               X86::VPSHRDDrmi,               0 },
+  { X86::VPSHRDQYrri,              X86::VPSHRDQYrmi,              0 },
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   { X86::VPSHRDQZ128rri,           X86::VPSHRDQZ128rmi,           0 },
   { X86::VPSHRDQZ256rri,           X86::VPSHRDQZ256rmi,           0 },
   { X86::VPSHRDQZrri,              X86::VPSHRDQZrmi,              0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  { X86::VPSHRDQrri,               X86::VPSHRDQrmi,               0 },
+  { X86::VPSHRDWYrri,              X86::VPSHRDWYrmi,              0 },
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   { X86::VPSHRDWZ128rri,           X86::VPSHRDWZ128rmi,           0 },
   { X86::VPSHRDWZ256rri,           X86::VPSHRDWZ256rmi,           0 },
   { X86::VPSHRDWZrri,              X86::VPSHRDWZrmi,              0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  { X86::VPSHRDWrri,               X86::VPSHRDWrmi,               0 },
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   { X86::VPSHUFBITQMBZ128rr,       X86::VPSHUFBITQMBZ128rm,       0 },
   { X86::VPSHUFBITQMBZ256rr,       X86::VPSHUFBITQMBZ256rm,       0 },
   { X86::VPSHUFBITQMBZrr,          X86::VPSHUFBITQMBZrm,          0 },
@@ -4441,44 +4585,44 @@ static const X86MemoryFoldTableEntry MemoryFoldTable3[] = {
   { X86::VPCONFLICTQZ256rrk,         X86::VPCONFLICTQZ256rmk,         0 },
   { X86::VPCONFLICTQZrrk,            X86::VPCONFLICTQZrmk,            0 },
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_DOTPROD
+#if INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
   { X86::VPDPBSSDSYrr,               X86::VPDPBSSDSYrm,               0 },
-#endif // INTEL_FEATURE_ISA_AVX_DOTPROD
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
   { X86::VPDPBSSDSZ128r,             X86::VPDPBSSDSZ128m,             0 },
   { X86::VPDPBSSDSZ256r,             X86::VPDPBSSDSZ256m,             0 },
   { X86::VPDPBSSDSZr,                X86::VPDPBSSDSZm,                0 },
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
-#if INTEL_FEATURE_ISA_AVX_DOTPROD
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
   { X86::VPDPBSSDSrr,                X86::VPDPBSSDSrm,                0 },
   { X86::VPDPBSSDYrr,                X86::VPDPBSSDYrm,                0 },
-#endif // INTEL_FEATURE_ISA_AVX_DOTPROD
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
   { X86::VPDPBSSDZ128r,              X86::VPDPBSSDZ128m,              0 },
   { X86::VPDPBSSDZ256r,              X86::VPDPBSSDZ256m,              0 },
   { X86::VPDPBSSDZr,                 X86::VPDPBSSDZm,                 0 },
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
-#if INTEL_FEATURE_ISA_AVX_DOTPROD
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
   { X86::VPDPBSSDrr,                 X86::VPDPBSSDrm,                 0 },
   { X86::VPDPBSUDSYrr,               X86::VPDPBSUDSYrm,               0 },
-#endif // INTEL_FEATURE_ISA_AVX_DOTPROD
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
   { X86::VPDPBSUDSZ128r,             X86::VPDPBSUDSZ128m,             0 },
   { X86::VPDPBSUDSZ256r,             X86::VPDPBSUDSZ256m,             0 },
   { X86::VPDPBSUDSZr,                X86::VPDPBSUDSZm,                0 },
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
-#if INTEL_FEATURE_ISA_AVX_DOTPROD
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
   { X86::VPDPBSUDSrr,                X86::VPDPBSUDSrm,                0 },
   { X86::VPDPBSUDYrr,                X86::VPDPBSUDYrm,                0 },
-#endif // INTEL_FEATURE_ISA_AVX_DOTPROD
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
   { X86::VPDPBSUDZ128r,              X86::VPDPBSUDZ128m,              0 },
   { X86::VPDPBSUDZ256r,              X86::VPDPBSUDZ256m,              0 },
   { X86::VPDPBSUDZr,                 X86::VPDPBSUDZm,                 0 },
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
-#if INTEL_FEATURE_ISA_AVX_DOTPROD
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
   { X86::VPDPBSUDrr,                 X86::VPDPBSUDrm,                 0 },
-#endif // INTEL_FEATURE_ISA_AVX_DOTPROD
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
 #if INTEL_FEATURE_ISA_AVX_VNNI
   { X86::VPDPBUSDSYrr,               X86::VPDPBUSDSYrm,               0 },
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
@@ -4499,26 +4643,26 @@ static const X86MemoryFoldTableEntry MemoryFoldTable3[] = {
 #if INTEL_FEATURE_ISA_AVX_VNNI
   { X86::VPDPBUSDrr,                 X86::VPDPBUSDrm,                 0 },
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
-#if INTEL_FEATURE_ISA_AVX_DOTPROD
+#if INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
   { X86::VPDPBUUDSYrr,               X86::VPDPBUUDSYrm,               0 },
-#endif // INTEL_FEATURE_ISA_AVX_DOTPROD
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
   { X86::VPDPBUUDSZ128r,             X86::VPDPBUUDSZ128m,             0 },
   { X86::VPDPBUUDSZ256r,             X86::VPDPBUUDSZ256m,             0 },
   { X86::VPDPBUUDSZr,                X86::VPDPBUUDSZm,                0 },
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
-#if INTEL_FEATURE_ISA_AVX_DOTPROD
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
   { X86::VPDPBUUDSrr,                X86::VPDPBUUDSrm,                0 },
   { X86::VPDPBUUDYrr,                X86::VPDPBUUDYrm,                0 },
-#endif // INTEL_FEATURE_ISA_AVX_DOTPROD
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
   { X86::VPDPBUUDZ128r,              X86::VPDPBUUDZ128m,              0 },
   { X86::VPDPBUUDZ256r,              X86::VPDPBUUDZ256m,              0 },
   { X86::VPDPBUUDZr,                 X86::VPDPBUUDZm,                 0 },
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
-#if INTEL_FEATURE_ISA_AVX_DOTPROD
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
   { X86::VPDPBUUDrr,                 X86::VPDPBUUDrm,                 0 },
-#endif // INTEL_FEATURE_ISA_AVX_DOTPROD
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
 #if INTEL_FEATURE_ISA_AVX_VNNI
   { X86::VPDPWSSDSYrr,               X86::VPDPWSSDSYrm,               0 },
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
@@ -4816,15 +4960,37 @@ static const X86MemoryFoldTableEntry MemoryFoldTable3[] = {
   { X86::VPSHLDQZ128rrikz,           X86::VPSHLDQZ128rmikz,           0 },
   { X86::VPSHLDQZ256rrikz,           X86::VPSHLDQZ256rmikz,           0 },
   { X86::VPSHLDQZrrikz,              X86::VPSHLDQZrmikz,              0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  { X86::VPSHLDVDYrr,                X86::VPSHLDVDYrm,                0 },
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   { X86::VPSHLDVDZ128r,              X86::VPSHLDVDZ128m,              0 },
   { X86::VPSHLDVDZ256r,              X86::VPSHLDVDZ256m,              0 },
   { X86::VPSHLDVDZr,                 X86::VPSHLDVDZm,                 0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  { X86::VPSHLDVDrr,                 X86::VPSHLDVDrm,                 0 },
+  { X86::VPSHLDVQYrr,                X86::VPSHLDVQYrm,                0 },
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   { X86::VPSHLDVQZ128r,              X86::VPSHLDVQZ128m,              0 },
   { X86::VPSHLDVQZ256r,              X86::VPSHLDVQZ256m,              0 },
   { X86::VPSHLDVQZr,                 X86::VPSHLDVQZm,                 0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  { X86::VPSHLDVQrr,                 X86::VPSHLDVQrm,                 0 },
+  { X86::VPSHLDVWYrr,                X86::VPSHLDVWYrm,                0 },
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   { X86::VPSHLDVWZ128r,              X86::VPSHLDVWZ128m,              0 },
   { X86::VPSHLDVWZ256r,              X86::VPSHLDVWZ256m,              0 },
   { X86::VPSHLDVWZr,                 X86::VPSHLDVWZm,                 0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  { X86::VPSHLDVWrr,                 X86::VPSHLDVWrm,                 0 },
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   { X86::VPSHLDWZ128rrikz,           X86::VPSHLDWZ128rmikz,           0 },
   { X86::VPSHLDWZ256rrikz,           X86::VPSHLDWZ256rmikz,           0 },
   { X86::VPSHLDWZrrikz,              X86::VPSHLDWZrmikz,              0 },
@@ -4834,15 +5000,37 @@ static const X86MemoryFoldTableEntry MemoryFoldTable3[] = {
   { X86::VPSHRDQZ128rrikz,           X86::VPSHRDQZ128rmikz,           0 },
   { X86::VPSHRDQZ256rrikz,           X86::VPSHRDQZ256rmikz,           0 },
   { X86::VPSHRDQZrrikz,              X86::VPSHRDQZrmikz,              0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  { X86::VPSHRDVDYrr,                X86::VPSHRDVDYrm,                0 },
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   { X86::VPSHRDVDZ128r,              X86::VPSHRDVDZ128m,              0 },
   { X86::VPSHRDVDZ256r,              X86::VPSHRDVDZ256m,              0 },
   { X86::VPSHRDVDZr,                 X86::VPSHRDVDZm,                 0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  { X86::VPSHRDVDrr,                 X86::VPSHRDVDrm,                 0 },
+  { X86::VPSHRDVQYrr,                X86::VPSHRDVQYrm,                0 },
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   { X86::VPSHRDVQZ128r,              X86::VPSHRDVQZ128m,              0 },
   { X86::VPSHRDVQZ256r,              X86::VPSHRDVQZ256m,              0 },
   { X86::VPSHRDVQZr,                 X86::VPSHRDVQZm,                 0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  { X86::VPSHRDVQrr,                 X86::VPSHRDVQrm,                 0 },
+  { X86::VPSHRDVWYrr,                X86::VPSHRDVWYrm,                0 },
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   { X86::VPSHRDVWZ128r,              X86::VPSHRDVWZ128m,              0 },
   { X86::VPSHRDVWZ256r,              X86::VPSHRDVWZ256m,              0 },
   { X86::VPSHRDVWZr,                 X86::VPSHRDVWZm,                 0 },
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  { X86::VPSHRDVWrr,                 X86::VPSHRDVWrm,                 0 },
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
   { X86::VPSHRDWZ128rrikz,           X86::VPSHRDWZ128rmikz,           0 },
   { X86::VPSHRDWZ256rrikz,           X86::VPSHRDWZ256rmikz,           0 },
   { X86::VPSHRDWZrrikz,              X86::VPSHRDWZrmikz,              0 },
@@ -6057,7 +6245,7 @@ static const X86MemoryFoldTableEntry MemoryFoldTable4[] = {
   { X86::VPAVGWZ256rrk,             X86::VPAVGWZ256rmk,             0 },
   { X86::VPAVGWZrrk,                X86::VPAVGWZrmk,                0 },
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
   { X86::VPDPBSSDSZ128rk,           X86::VPDPBSSDSZ128mk,           0 },
   { X86::VPDPBSSDSZ128rkz,          X86::VPDPBSSDSZ128mkz,          0 },
   { X86::VPDPBSSDSZ256rk,           X86::VPDPBSSDSZ256mk,           0 },
@@ -6082,7 +6270,7 @@ static const X86MemoryFoldTableEntry MemoryFoldTable4[] = {
   { X86::VPDPBSUDZ256rkz,           X86::VPDPBSUDZ256mkz,           0 },
   { X86::VPDPBSUDZrk,               X86::VPDPBSUDZmk,               0 },
   { X86::VPDPBSUDZrkz,              X86::VPDPBSUDZmkz,              0 },
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
 #endif // INTEL_CUSTOMIZATION
   { X86::VPDPBUSDSZ128rk,           X86::VPDPBUSDSZ128mk,           0 },
   { X86::VPDPBUSDSZ128rkz,          X86::VPDPBUSDSZ128mkz,          0 },
@@ -6097,7 +6285,7 @@ static const X86MemoryFoldTableEntry MemoryFoldTable4[] = {
   { X86::VPDPBUSDZrk,               X86::VPDPBUSDZmk,               0 },
   { X86::VPDPBUSDZrkz,              X86::VPDPBUSDZmkz,              0 },
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
   { X86::VPDPBUUDSZ128rk,           X86::VPDPBUUDSZ128mk,           0 },
   { X86::VPDPBUUDSZ128rkz,          X86::VPDPBUUDSZ128mkz,          0 },
   { X86::VPDPBUUDSZ256rk,           X86::VPDPBUUDSZ256mk,           0 },
@@ -6110,7 +6298,7 @@ static const X86MemoryFoldTableEntry MemoryFoldTable4[] = {
   { X86::VPDPBUUDZ256rkz,           X86::VPDPBUUDZ256mkz,           0 },
   { X86::VPDPBUUDZrk,               X86::VPDPBUUDZmk,               0 },
   { X86::VPDPBUUDZrkz,              X86::VPDPBUUDZmkz,              0 },
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
 #endif // INTEL_CUSTOMIZATION
   { X86::VPDPWSSDSZ128rk,           X86::VPDPWSSDSZ128mk,           0 },
   { X86::VPDPWSSDSZ128rkz,          X86::VPDPWSSDSZ128mkz,          0 },
@@ -6807,9 +6995,9 @@ static const X86MemoryFoldTableEntry BroadcastFoldTable3[] = {
   { X86::VADDPSZ128rrkz,       X86::VADDPSZ128rmbkz,      TB_BCAST_SS },
   { X86::VADDPSZ256rrkz,       X86::VADDPSZ256rmbkz,      TB_BCAST_SS },
   { X86::VADDPSZrrkz,          X86::VADDPSZrmbkz,         TB_BCAST_SS },
-  { X86::VCMPPDZ128rrik,       X86::VCMPPDZ128rmbik,      TB_BCAST_SS },
-  { X86::VCMPPDZ256rrik,       X86::VCMPPDZ256rmbik,      TB_BCAST_SS },
-  { X86::VCMPPDZrrik,          X86::VCMPPDZrmbik,         TB_BCAST_SS },
+  { X86::VCMPPDZ128rrik,       X86::VCMPPDZ128rmbik,      TB_BCAST_SD },
+  { X86::VCMPPDZ256rrik,       X86::VCMPPDZ256rmbik,      TB_BCAST_SD },
+  { X86::VCMPPDZrrik,          X86::VCMPPDZrmbik,         TB_BCAST_SD },
   { X86::VCMPPSZ128rrik,       X86::VCMPPSZ128rmbik,      TB_BCAST_SS },
   { X86::VCMPPSZ256rrik,       X86::VCMPPSZ256rmbik,      TB_BCAST_SS },
   { X86::VCMPPSZrrik,          X86::VCMPPSZrmbik,         TB_BCAST_SS },

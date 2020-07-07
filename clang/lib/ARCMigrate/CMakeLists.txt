@@ -4,6 +4,7 @@ set(LLVM_LINK_COMPONENTS
 
 # INTEL_CUSTOMIZATION
 if (MSVC)
+  set_source_files_properties(TransAutoreleasePool.cpp PROPERTIES COMPILE_FLAGS /bigobj)
   set_source_files_properties(Transforms.cpp PROPERTIES COMPILE_FLAGS /bigobj)
   set_source_files_properties(ObjCMT.cpp PROPERTIES COMPILE_FLAGS /bigobj)
 endif()

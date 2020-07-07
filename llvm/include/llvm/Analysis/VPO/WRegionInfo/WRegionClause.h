@@ -112,6 +112,7 @@ class Item
 
   private :
     VAR   OrigItem;  // original var
+    Type *OrigItemElemType; // original var type/ element type if PointerType
 #if INTEL_CUSTOMIZATION
     HVAR HOrigItem;       // original var for HIR
     bool IsF90DopeVector; // true for a F90 dope vector
@@ -137,6 +138,18 @@ class Item
     MDNode *AliasScope; // alias info (loads)  to help registerize private vars
     MDNode *NoAlias;    // alias info (stores) to help registerize private vars
     const ItemKind Kind; // Item kind for LLVM's RTTI
+    // Utility function.
+    // TODO: OPAQUEPOINTER: VTy Will be passed as a Item String by Front End
+    // after Opaque Pointers are introduced.
+    void setValueType(VAR &V, Type *&VTy) {
+      if (V)
+        VTy = isa<PointerType>(V->getType())
+                  ? V->getType()->getPointerElementType()
+                  : V->getType();
+      else
+        VTy = nullptr;
+      return;
+    }
 
   public:
     Item(VAR Orig, ItemKind K)
@@ -153,11 +166,16 @@ class Item
           ThunkBufferSize(nullptr), NewThunkBufferSize(nullptr),
           PrivateThunkIdx(-1), SharedThunkIdx(-1), ThunkBufferOffset(nullptr),
           AliasScope(nullptr), NoAlias(nullptr), Kind(K) {
+      setValueType(OrigItem, OrigItemElemType);
     }
     virtual ~Item() = default;
 
-    void setOrig(VAR V)           { OrigItem = V;       }
-    void setNew(VAR V)            { NewItem = V;        }
+    void setOrig(VAR V) {
+      OrigItem = V;
+      setValueType(OrigItem, OrigItemElemType);
+    }
+    void setOrigElemType(Type *VTy) { OrigItemElemType = VTy; }
+    void setNew(VAR V) { NewItem = V; }
     void setOrigGEP(VAR V)        { OrigGEP = V;        }
     void setIsByRef(bool Flag)    { IsByRef = Flag;     }
     void setIsNonPod(bool Flag)   { IsNonPod = Flag;    }
@@ -172,6 +190,7 @@ class Item
     void setNoAlias(MDNode *M)    { NoAlias = M;        }
 
     VAR getOrig()           const { return OrigItem;       }
+    Type *getOrigElemType() const { return OrigItemElemType; }
     VAR getNew()            const { return NewItem;        }
     VAR getOrigGEP()        const { return OrigGEP;        }
     bool getIsByRef()       const { return IsByRef;        }
@@ -487,13 +506,15 @@ private:
   // The following fields are populated during the actual transformation, and
   // not WRegionCollection, because they may need Insertion of Instructions.
   Value *Size;        ///< Size (`x: 5, yarrptr: 7`).
+  GlobalVariable *GVSize; ///< Global variable for variable sized array
+                          ///< [section] size used by fast reduction.
   Value *Offset;      ///< Starting offset (`x: 1, yarrptr: 22`).
   Type *ElementType;  ///< Type of one element (`x: i32, yarrptr: i32`).
   bool BaseIsPointer; ///< Is base a pointer (`x: false, yarrptr: true`).
 
 public:
   ArraySectionInfo()
-      : Size(nullptr), Offset(nullptr), ElementType(nullptr),
+      : Size(nullptr), GVSize(nullptr), Offset(nullptr), ElementType(nullptr),
         BaseIsPointer(false) {}
 
   void addDimension(const std::tuple<Value *, Value *, Value *> &Dim) {
@@ -513,6 +534,8 @@ public:
   void setElementType(Type *Ty) { ElementType = Ty; }
   bool getBaseIsPointer() const { return BaseIsPointer; }
   void setBaseIsPointer(bool IsPtr) { BaseIsPointer = IsPtr; }
+  GlobalVariable *getGVSize() const { return GVSize; }
+  void setGVSize(GlobalVariable *Sz) { GVSize = Sz; }
 
   void print(formatted_raw_ostream &OS, bool PrintType = true) const;
   void print(raw_ostream &OS, bool PrintType = true) const;
@@ -895,22 +918,10 @@ public:
     MapChain.push_back(Aggr);
   }
   ~MapItem() {
-    // If this map clause specifies an array section, we transform
-    // it into a map chain in
-    // VPOParoptTranform::genMapChainsForMapArraySections(), which
-    // dynamically allocates a single map chain element
-    // (see setMapChainForArraySection() below as well).
-    // We have to delete this map chain element here.
-    if (!getIsArraySection())
+    if (MapChain.empty())
       return;
 
-    if (MapChain.size() == 0)
-      return;
-
-    assert(MapChain.size() == 1 &&
-           "Map clause with an array section must contain "
-           "exactly one map chain.");
-    delete MapChain[0];
+    llvm::for_each(MapChain, deleter<MapAggrTy>);
   }
 
   const MapChainTy &getMapChain() const { return MapChain; }
@@ -1056,14 +1067,16 @@ class IsDevicePtrItem : public Item
 class UseDevicePtrItem : public Item
 {
   MapItem *InMap;
-
+  bool IsUseDeviceAddr; // true only if parsing a use_device_addr clause
 public:
-  UseDevicePtrItem(VAR Orig) : Item(Orig, IK_UseDevicePtr) {}
+  UseDevicePtrItem(VAR Orig)
+      : Item(Orig, IK_UseDevicePtr), InMap(nullptr), IsUseDeviceAddr(false) {}
   void setInMap(MapItem *MI) { InMap = MI; }
+  void setIsUseDeviceAddr(bool Flag) { IsUseDeviceAddr = Flag; }
   MapItem *getInMap() const { return InMap; }
+  bool getIsUseDeviceAddr() const { return IsUseDeviceAddr; }
   static bool classof(const Item *I) { return I->getKind() == IK_UseDevicePtr; }
 };
-
 
 //
 // These item classes for list-type clauses are not derived from the
@@ -1299,41 +1312,41 @@ typename std::vector<ClauseItem>::iterator Clause<ClauseItem>::findOrig(VAR V)
 //
 // typedef for list-type clause classes and associated iterator types
 //
-typedef Clause<SharedItem>       SharedClause;
-typedef Clause<PrivateItem>      PrivateClause;
-typedef Clause<FirstprivateItem> FirstprivateClause;
-typedef Clause<LastprivateItem>  LastprivateClause;
-typedef Clause<ReductionItem>    ReductionClause;
-typedef Clause<CopyinItem>       CopyinClause;
-typedef Clause<CopyprivateItem>  CopyprivateClause;
-typedef Clause<LinearItem>       LinearClause;
-typedef Clause<UniformItem>      UniformClause;
-typedef Clause<MapItem>          MapClause;
-typedef Clause<IsDevicePtrItem>  IsDevicePtrClause;
-typedef Clause<UseDevicePtrItem> UseDevicePtrClause;
-typedef Clause<DependItem>       DependClause;
-typedef Clause<DepSinkItem>      DepSinkClause;
-typedef Clause<DepSourceItem>    DepSourceClause;
-typedef Clause<AlignedItem>      AlignedClause;
-typedef Clause<FlushItem>        FlushSet;
+typedef Clause<SharedItem>        SharedClause;
+typedef Clause<PrivateItem>       PrivateClause;
+typedef Clause<FirstprivateItem>  FirstprivateClause;
+typedef Clause<LastprivateItem>   LastprivateClause;
+typedef Clause<ReductionItem>     ReductionClause;
+typedef Clause<CopyinItem>        CopyinClause;
+typedef Clause<CopyprivateItem>   CopyprivateClause;
+typedef Clause<LinearItem>        LinearClause;
+typedef Clause<UniformItem>       UniformClause;
+typedef Clause<MapItem>           MapClause;
+typedef Clause<IsDevicePtrItem>   IsDevicePtrClause;
+typedef Clause<UseDevicePtrItem>  UseDevicePtrClause;
+typedef Clause<DependItem>        DependClause;
+typedef Clause<DepSinkItem>       DepSinkClause;
+typedef Clause<DepSourceItem>     DepSourceClause;
+typedef Clause<AlignedItem>       AlignedClause;
+typedef Clause<FlushItem>         FlushSet;
 
-typedef std::vector<SharedItem>::iterator       SharedIter;
-typedef std::vector<PrivateItem>::iterator      PrivateIter;
-typedef std::vector<FirstprivateItem>::iterator FirstprivateIter;
-typedef std::vector<LastprivateItem>::iterator  LastprivateIter;
-typedef std::vector<ReductionItem>::iterator    ReductionIter;
-typedef std::vector<CopyinItem>::iterator       CopyinIter;
-typedef std::vector<CopyprivateItem>::iterator  CopyprivateIter;
-typedef std::vector<LinearItem>::iterator       LinearIter;
-typedef std::vector<UniformItem>::iterator      UniformIter;
-typedef std::vector<MapItem>::iterator          MapIter;
-typedef std::vector<IsDevicePtrItem>::iterator  IsDevicePtrter;
-typedef std::vector<UseDevicePtrItem>::iterator UseDevicePtrter;
-typedef std::vector<DependItem>::iterator       DependIter;
-typedef std::vector<DepSinkItem>::iterator      DepSinkIter;
-typedef std::vector<DepSourceItem>::iterator    DepSourceIter;
-typedef std::vector<AlignedItem>::iterator      AlignedIter;
-typedef std::vector<FlushItem>::iterator        FlushIter;
+typedef std::vector<SharedItem>::iterator        SharedIter;
+typedef std::vector<PrivateItem>::iterator       PrivateIter;
+typedef std::vector<FirstprivateItem>::iterator  FirstprivateIter;
+typedef std::vector<LastprivateItem>::iterator   LastprivateIter;
+typedef std::vector<ReductionItem>::iterator     ReductionIter;
+typedef std::vector<CopyinItem>::iterator        CopyinIter;
+typedef std::vector<CopyprivateItem>::iterator   CopyprivateIter;
+typedef std::vector<LinearItem>::iterator        LinearIter;
+typedef std::vector<UniformItem>::iterator       UniformIter;
+typedef std::vector<MapItem>::iterator           MapIter;
+typedef std::vector<IsDevicePtrItem>::iterator   IsDevicePtrIter;
+typedef std::vector<UseDevicePtrItem>::iterator  UseDevicePtrIter;
+typedef std::vector<DependItem>::iterator        DependIter;
+typedef std::vector<DepSinkItem>::iterator       DepSinkIter;
+typedef std::vector<DepSourceItem>::iterator     DepSourceIter;
+typedef std::vector<AlignedItem>::iterator       AlignedIter;
+typedef std::vector<FlushItem>::iterator         FlushIter;
 
 
 //

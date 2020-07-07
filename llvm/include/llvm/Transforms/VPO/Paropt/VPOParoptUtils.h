@@ -608,35 +608,66 @@ public:
                                      bool IsTargetSPIRV,
                                      const Twine &LockNameSuffix = "");
 
-  /// Generate a reduce block around Instructions \p BeginInst and \p
-  /// EndInst. The function emits calls to `__kmpc_reduce` \b before \p
-  /// BeginInst and `__kmpc_end_reduce` \b after \p EndInst.
+  /// Generate tree reduce block and atomic reduce block. The tree reduce block
+  /// is around Instructions \p BeginInst and \p EndInst. The function emits
+  /// calls to `__kmpc_reduce` \b before \p BeginInst and `__kmpc_end_reduce`
+  /// \b after \p EndInst.
+  /// The atomic reduce block is around Instructions \p AtomicBeginInst and \p
+  /// AtomicEndInst. atomic routine supported by runtime is generated if the
+  /// data type for reduction is supported by runtime.
   ///
   /// \code
-  /// +------< begin reduce >
-  /// |    BeginInst
-  /// |    ...
-  /// |    ...
-  /// |    EndInst
-  /// +------< end reduce >
+  /// EntryBB:
+  ///   %1 = call i32 @__kmpc_reduce(...)
+  ///   %to.tree.reduce = icmp eq i32 %1, 1
+  ///   br i1 %to.tree.reduce, label %tree.reduce, label %tree.reduce.exit
+  /// tree.reduce:
+  ///   BeginInst
+  ///   ...
+  ///   ...
+  ///   EndInst
+  ///   call void @__kmpc_end_reduce(...)
+  ///   br label %tree.reduce.exit
+  /// tree.reduce.exit:
+  ///   %2 = phi i1 [ false, %EntryBB ], [ true, %tree.reduce ]
+  ///   %3 = icmp eq i1, %2, false
+  ///   br i1 %3, label %AtomicEntryBB, label %atomic.reduce.exit
+  /// AtomicEntryBB:
+  ///   %to.atomic.reduce = icmp eq i32 %1, 2
+  ///   br i1, %to.atomic.reduce, label %atomic.reduce,
+  ///   label %atomic.reduce.exit
+  /// atomic.reduce:
+  ///   AtomicBeginInst
+  ///   ...
+  ///   ...
+  ///   AtomicEndInst
+  ///   call void @__kmpc_end_reduce(...)
+  ///   br label %atomic.reduce.exit
+  /// atomic.reduce.exit:
   /// \endcode
   ///
   /// \param BeginInst is the Instruction \b before which the call to
   /// `__kmpc_reduce` is inserted.
   /// \param EndInst is the Instruction \b after which the call to
   /// `__kmpc_end_reduce` is inserted.
+  /// \param AtomicBeginInst is the Instruction \b before which the call to
+  /// atomic routine is inserted.
+  /// \param AtomicEndInst is the Instruction \b after which the call to
+  /// atomic routine and `__kmpc_end_reduce` are inserted.
   /// \param IsTargetSPIRV is true, iff compilation is for SPIRV target.
   ///
   /// Note: Other Instructions, aside from the `__kmpc_reduce` and
   /// `__kmpc_end_reduce` calls, which are needed for the KMPC calls,
   /// are also inserted into the IR. \see genKmpcCallWithTid() for details.
   ///
-  /// \returns `true` if the calls to `__kmpc_reduce` and
-  /// `__kmpc_end_reduce` are successfully inserted, `false` otherwise.
+  /// \returns `true` if the calls to `__kmpc_reduce`, `__kmpc_end_reduce` and
+  /// atomic routines are successfully inserted, `false` otherwise.
   static bool genKmpcReduce(WRegionNode *W, StructType *IdentTy,
                             Constant *TidPtr, Value *RedVar, RDECL RedCallback,
                             Instruction *BeginInst, Instruction *EndInst,
-                            DominatorTree *DT, LoopInfo *LI, bool IsTargetSPIRV,
+                            Instruction *AtomicBeginInst,
+                            Instruction *AtomicEndInst, DominatorTree *DT,
+                            LoopInfo *LI, bool IsTargetSPIRV,
                             const StringRef LockNameSuffix);
 
   /// Generate a call to query if the current thread is master thread or a
@@ -795,6 +826,7 @@ public:
   /// \param IntrinsicName is the name of the function.
   /// \param ReturnTy is the return type of the function.
   /// \param Args arguments for the function call.
+  /// \param EnableAtomicReduce is to set flag bit for enabling atomic reduce.
   /// Note: The function inserts a LoadInst for getting Tid, into the IR
   /// (before the \p InsertPt), and inserts the function prototype for the
   /// KMPC intrinsic \p IntrinsicName into the module symbol table. But it
@@ -804,7 +836,24 @@ public:
   static CallInst *genKmpcCallWithTid(WRegionNode *W, StructType *IdentTy,
                                       Value *TidPtr, Instruction *InsertPt,
                                       StringRef IntrinsicName, Type *ReturnTy,
-                                      ArrayRef<Value *> Args);
+                                      ArrayRef<Value *> Args,
+                                      bool EnableAtomicReduce = false);
+
+  /// Inserts \p Call1 and \p Call2 at \p W's region boundary. If \p
+  /// InsideRegion is \b true, \p Call1 is inserted after \p W's entry
+  /// directive, and \p Call2 is inserted before \p W's exit directive.
+  /// Otherwise, \p Call1 is inserted before the entry directive, and \p Call2
+  /// is inserted after the exit directive. By default, \p InsideRegion is
+  /// false.
+  static void insertCallsAtRegionBoundary(WRegionNode *W, CallInst *Call1,
+                                          CallInst *Call2,
+                                          bool InsideRegion = false);
+
+  /// Returns a pair containing calls to `__kmpc_spmd_push_num_threads` and
+  /// `__kmpc_spmd_pop_num_threads`. If provided, \p NumThreads is used for the
+  /// push_num_threads call, otherwise, \b 1 is used by default.
+  static std::pair<CallInst *, CallInst *>
+  genKmpcSpmdPushPopNumThreadsCalls(Module *M, Value *NumThreads = nullptr);
 
   /// \name Utilities to emit calls to ctor, dtor, cctor, and copyassign.
   /// @{
@@ -873,9 +922,11 @@ public:
   /// \endcode
   /// The emitted code is inserted after the alloca NewV, which is the local
   /// dope vector corresponding to \p I, and OrigV is the original. If NewV is
-  /// a global variable, then the code is inserted before \p InsertPt.
+  /// a global variable or AllowOverrideInsertPt is false, then the code is
+  /// inserted before \p InsertPt.
   static void genF90DVInitCode(Item *I, Instruction *InsertPt,
-                               bool IsTargetSPIRV = false);
+                               bool IsTargetSPIRV = false,
+                               bool AllowOverrideInsertPt = true);
 
   /// Emits `_f90_dope_vector_init` calls to initialize dope vectors in task's
   /// privates thunk. This is done after the `__kmpc_task_alloc` call, but
@@ -1380,13 +1431,15 @@ public:
   /// \param IntrinsicName is the name of the function.
   /// \param ReturnTy is the return type of the function.
   /// \param Args arguments for the function call.
+  /// \param EnableAtomicReduce is to set flag bit for enabling atomic reduce.
   /// \param Insert indicates whether to insert the call at InsertPt
   ///
   /// \returns the generated CallInst.
   static CallInst *genKmpcCall(WRegionNode *W, StructType *IdentTy,
                                Instruction *InsertPt, StringRef IntrinsicName,
                                Type *ReturnTy, ArrayRef<Value *> Args,
-                               bool Insert = false);
+                               bool Insert = false,
+                               bool EnableAtomicReduce = false);
 
   /// Generate a CallInst for the given Function* \p Fn and its argument list.
   /// \p Fn must be already declared.
@@ -1508,6 +1561,15 @@ public:
 #endif  // NDEBUG
   /// @}
 
+  /// Find users of \p V in function \p F and put all users of \p V into \p
+  /// UserInsts, and add all ConstantExpr users of \p V in UserExprs.
+  static void findUsesInFunction(Function *F, Value *V,
+                                 SmallVectorImpl<Instruction *> *UserInsts,
+                                 SmallPtrSetImpl<ConstantExpr *> *UserExprs);
+
+  /// Replace users of \p Old with \p New value in the function \p F.
+  static void replaceUsesInFunction(Function *F, Value *Old, Value *New);
+
 private:
   /// \name Private constructor and destructor to disable instantiation.
   /// @{
@@ -1558,8 +1620,9 @@ private:
                                          LoopInfo *LI,
                                          bool IsTargetSPIRV);
 
-  /// Handles generation of a reduce block around \p BeginInst and \p
-  /// EndInst. The function needs a lock variable \p LockVar, which is
+  /// Handles generation of tree reduce block around \p BeginInst and \p
+  /// EndInst, atomic reduce block around \p AtomicBeginInst and \p
+  /// AtomicEndInst. The function needs a lock variable \p LockVar, which is
   /// generated by genKmpcCriticalLockVar().
   /// \p IsTargetSPIRV is true, iff compilation is for SPIRV target.
   ///
@@ -1568,12 +1631,12 @@ private:
   ///
   /// \returns `true` if the calls to `__kmpc_reduce` and
   /// `__kmpc_end_reduce` are successfully inserted, `false` otherwise.
-  static bool genKmpcReduceImpl(WRegionNode *W, StructType *IdentTy,
-                                Constant *TidPtr, Value *RedVar,
-                                RDECL RedCallback, Instruction *BeginInst,
-                                Instruction *EndInst, GlobalVariable *LockVar,
-                                DominatorTree *DT, LoopInfo *LI,
-                                bool IsTargetSPIRV);
+  static bool
+  genKmpcReduceImpl(WRegionNode *W, StructType *IdentTy, Constant *TidPtr,
+                    Value *RedVar, RDECL RedCallback, Instruction *BeginInst,
+                    Instruction *EndInst, Instruction *AtomicBeginInst,
+                    Instruction *AtomicEndInst, GlobalVariable *LockVar,
+                    DominatorTree *DT, LoopInfo *LI, bool IsTargetSPIRV);
 
   /// Generates lane-by-lane execution loop for code inside a critical
   /// section (guarded with __kmpc_critical/__kmpc_end_critical calls).
@@ -1604,7 +1667,6 @@ private:
                                                       Value *Tid,
                                                       Instruction *InsertPt,
                                                       bool IsTaskGroupStart);
-
   /// @}
 };
 

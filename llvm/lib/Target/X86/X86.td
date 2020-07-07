@@ -219,16 +219,30 @@ def FeatureFP16    : SubtargetFeature<"avx512fp16", "HasFP16", "true",
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_DOTPROD
-def FeatureAVXDOTPROD    : SubtargetFeature<"avxdotprod", "HasAVXDOTPROD", "true",
-                           "Enable AVX-DOTPROD",
-                           [FeatureAVX2]>;
-#endif // INTEL_FEATURE_ISA_AVX_DOTPROD
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD
-def FeatureDOTPROD    : SubtargetFeature<"avx512dotprod", "HasDOTPROD", "true",
-                           "Enable AVX512-DOTPROD",
-                           [FeatureAVXDOTPROD, FeatureFP16, FeatureAVX512]>;
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+#if INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
+def FeatureAVXDOTPRODINT8  : SubtargetFeature<"avxdotprodint8",
+                             "HasAVXDOTPRODINT8", "true",
+                             "Enable AVX-DOTPROD-INT8",
+                             [FeatureAVX2]>;
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
+def FeatureAVXDOTPRODPHPS  : SubtargetFeature<"avxdotprodphps",
+                             "HasAVXDOTPRODPHPS", "true",
+                             "Enable AVX-DOTPROD-PHPS",
+                             [FeatureAVX2]>;
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+def FeatureAVX512DOTPRODINT8 : SubtargetFeature<"avx512dotprodint8",
+                               "HasAVX512DOTPRODINT8", "true",
+                               "Enable AVX512-DOTPROD-INT8",
+                               [FeatureAVXDOTPRODINT8, FeatureAVX512]>;
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+def FeatureAVX512DOTPRODPHPS : SubtargetFeature<"avx512dotprodphps",
+                               "HasAVX512DOTPRODPHPS", "true",
+                               "Enable AVX512-DOTPROD-PHPS",
+                               [FeatureAVXDOTPRODPHPS, FeatureFP16, FeatureAVX512]>;
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
 #if INTEL_FEATURE_ISA_AVX_CONVERT
 def FeatureAVXCONVERT  : SubtargetFeature<"avxconvert", "HasAVXCONVERT", "true",
                            "Enable AVX-CONVERT",
@@ -239,6 +253,11 @@ def FeatureCONVERT    : SubtargetFeature<"avx512convert", "HasCONVERT", "true",
                            "Enable AVX512-CONVERT",
                            [FeatureAVXCONVERT, FeatureBF16, FeatureFP16, FeatureAVX512]>;
 #endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+def FeatureAVXCOMPRESS    : SubtargetFeature<"avxcompress", "HasAVXCOMPRESS", "true",
+                           "Enable AVX-COMPRESS",
+                           [FeatureAVX2]>;
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
 #endif // INTEL_CUSTOMIZATION
 
 def FeaturePCLMUL  : SubtargetFeature<"pclmul", "HasPCLMUL", "true",
@@ -364,12 +383,12 @@ def FeatureAMXBF16EVEX     : SubtargetFeature<"amx-bf16-evex", "HasAMXBF16EVEX",
 
 #endif // INTEL_FEATURE_ISA_AMX_BF16_EVEX
 
-#if INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
-def FeatureAMXCONVERTEVEX     : SubtargetFeature<"amx-convert-evex", "HasAMXCONVERTEVEX", "true",
-                                      "Support AMX amx-convert-evex instructions",
+#if INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
+def FeatureAMXELEMENTEVEX     : SubtargetFeature<"amx-element-evex", "HasAMXELEMENTEVEX", "true",
+                                      "Support AMX amx-element-evex instructions",
                                       [FeatureAMXTILE]>;
 
-#endif // INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+#endif // INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
 
 #if INTEL_FEATURE_ISA_AMX_CONVERT
 def FeatureAMXCONVERT         : SubtargetFeature<"amx-convert", "HasAMXCONVERT", "true",
@@ -924,9 +943,31 @@ def ProcessorFeatures {
     FeatureAMXINT8,
     FeatureAMXBF16,
 #endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_FEATURE_ISA_FP16
+    FeatureFP16,
+#endif // INTEL_FEATURE_ISA_FP16
+    FeatureBF16,
     FeatureSERIALIZE,
     FeaturePCONFIG,
     FeatureWBNOINVD,
+    FeatureCLDEMOTE,
+    FeatureWAITPKG,
+    FeaturePTWRITE,
+#if INTEL_FEATURE_ISA_ULI
+    FeatureULI,
+#endif // INTEL_FEATURE_ISA_ULI
+    FeatureTSXLDTRK,
+    FeatureENQCMD,
+#if INTEL_FEATURE_ISA_AVX_VNNI
+    FeatureAVXVNNI,
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+    FeatureSHSTK,
+    FeatureVP2INTERSECT,
+    FeatureMOVDIRI,
+    FeatureMOVDIR64B,
+#if INTEL_FEATURE_ISA_HRESET
+    FeatureHRESET,
+#endif // INTEL_FEATURE_ISA_HRESET
     FeatureHasFastGather
   ];
   // TODO: inherit from Willowcove instead of ICL.
@@ -1004,15 +1045,55 @@ def ProcessorFeatures {
     !listconcat(GLPInheritableFeatures, GLPSpecificFeatures);
 
   // Tremont
-  list<SubtargetFeature> TRMAdditionalFeatures = [FeatureCLDEMOTE,
-                                                  FeatureGFNI,
-                                                  FeatureMOVDIRI,
-                                                  FeatureMOVDIR64B,
-                                                  FeatureWAITPKG];
+  list<SubtargetFeature> TRMAdditionalFeatures = [FeatureCLWB,
+                                                  FeatureGFNI];
   list<SubtargetFeature> TRMSpecificFeatures = [FeatureUseGLMDivSqrtCosts];
+  list<SubtargetFeature> TRMInheritableFeatures =
+    !listconcat(GLPInheritableFeatures, TRMAdditionalFeatures);
   list<SubtargetFeature> TRMFeatures =
-    !listconcat(GLPInheritableFeatures, TRMAdditionalFeatures,
-                TRMSpecificFeatures);
+    !listconcat(TRMInheritableFeatures, TRMSpecificFeatures);
+
+#if INTEL_CUSTOMIZATION
+  // Alderlake
+  list<SubtargetFeature> IntelAnonymous2AdditionalFeatures =[
+    FeatureSERIALIZE,
+    FeaturePCONFIG,
+    FeatureWBNOINVD,
+    FeatureSHSTK,
+#if INTEL_FEATURE_ISA_KEYLOCKER
+    FeatureKeyLocker,
+#endif // INTEL_FEATURE_ISA_KEYLOCKER
+    FeatureINVPCID,
+    FeatureADX,
+    FeatureAVX,
+    FeatureAVX2,
+    FeatureAES,
+    FeatureVAES,
+    FeatureVPCLMULQDQ,
+    FeatureGFNI,
+    FeatureF16C,
+    FeatureBMI,
+    FeatureBMI2,
+    FeatureLZCNT,
+    // TODO: set feature of RAO-INT when it's ready
+#if INTEL_FEATURE_ISA_AVX_VNNI
+    FeatureAVXVNNI,
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+    FeaturePKU,
+    FeaturePCONFIG,
+#if INTEL_FEATURE_ISA_HRESET
+    FeatureHRESET,
+#endif // INTEL_FEATURE_ISA_HRESET
+    // Inherit Tremont
+    FeatureCLDEMOTE,
+    FeatureMOVDIRI,
+    FeatureMOVDIR64B,
+    FeatureWAITPKG
+  ];
+  // TODO: inherit from Snow Ridge when it's ready
+  list<SubtargetFeature> IntelAnonymous2Features =
+    !listconcat(GLPInheritableFeatures, IntelAnonymous2AdditionalFeatures);
+#endif // INTEL_CUSTOMIZATION
 
   // Knights Landing
   list<SubtargetFeature> KNLFeatures = [FeatureX87,
@@ -1344,6 +1425,12 @@ foreach P = ["silvermont", "slm"] in {
 def : ProcessorModel<"goldmont", SLMModel, ProcessorFeatures.GLMFeatures>;
 def : ProcessorModel<"goldmont-plus", SLMModel, ProcessorFeatures.GLPFeatures>;
 def : ProcessorModel<"tremont", SLMModel, ProcessorFeatures.TRMFeatures>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_ADL
+def : ProcessorModel<"alderlake", SLMModel,
+                     ProcessorFeatures.IntelAnonymous2Features>;
+#endif // INTEL_FEATURE_CPU_ADL
+#endif // INTEL_CUSTOMIZATION
 
 // "Arrandale" along with corei3 and corei5
 foreach P = ["nehalem", "corei7"] in {
@@ -1393,16 +1480,22 @@ def : ProcessorModel<"cannonlake", SkylakeServerModel,
                      ProcessorFeatures.CNLFeatures>;
 def : ProcessorModel<"icelake-client", SkylakeServerModel,
                      ProcessorFeatures.ICLFeatures>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_RKL
+def : ProcessorModel<"rocketlake", SkylakeServerModel,
+                     ProcessorFeatures.ICLFeatures>;
+#endif // INTEL_FEATURE_CPU_RKL
+#endif // INTEL_CUSTOMIZATION
 def : ProcessorModel<"icelake-server", SkylakeServerModel,
                      ProcessorFeatures.ICXFeatures>;
 def : ProcessorModel<"tigerlake", SkylakeServerModel,
                      ProcessorFeatures.TGLFeatures>;
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_GLC
-def : ProcessorModel<"goldencove", SkylakeServerModel,
+#if INTEL_FEATURE_CPU_SPR
+def : ProcessorModel<"sapphirerapids", SkylakeServerModel,
                      ProcessorFeatures.IntelAnonymous1Features>;
-#endif // INTEL_FEATURE_CPU_GLC
+#endif // INTEL_FEATURE_CPU_SPR
 #endif // INTEL_CUSTOMIZATION
 
 // AMD CPUs.

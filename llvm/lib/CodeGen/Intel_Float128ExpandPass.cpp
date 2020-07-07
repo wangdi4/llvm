@@ -127,11 +127,11 @@ static AllocaInst *CreateFP128AllocaInst(IRBuilder<> &Builder, BasicBlock *BB) {
   const DataLayout &DL = M->getDataLayout();
 
   Type *FP128Ty = Type::getFP128Ty(Ctx);
-  auto AllocaAlignment = MaybeAlign(DL.getPrefTypeAlignment(FP128Ty));
+  auto AllocaAlignment = DL.getPrefTypeAlign(FP128Ty);
   unsigned AllocaAS = DL.getAllocaAddrSpace();
   AllocaInst *AllocaRes =
       new AllocaInst(FP128Ty, AllocaAS, "", &F.getEntryBlock().front());
-  AllocaRes->setAlignment(MaybeAlign(AllocaAlignment));
+  AllocaRes->setAlignment(AllocaAlignment);
   return AllocaRes;
 }
 
@@ -187,7 +187,7 @@ static bool isUsedbyPHI(Value *Val) {
   return false;
 }
 
-// in our first traverse, if the oldphi is used by  a libcall,
+// In our first traverse, if the oldphi is used by a libcall,
 // then we will create newphi(without incomings) for it.
 bool Float128Expand::TransformFP128PHI(Instruction *I) {
   IRBuilder<> Builder(I->getParent()->getFirstNonPHI());
@@ -221,6 +221,33 @@ void Float128Expand::PostTransformFP128PHI() {
         Builder.CreateAlignedStore(OldPhi, AllocaForPhi,
                                    MaybeAlign(AllocaForPhi->getAlignment()));
         NewPhi->replaceAllUsesWith(AllocaForPhi);
+        // Update the Value2Ptr by Replacing NewPhi in Value2Ptr with
+        // AllocaForPhi
+        // Example#1:
+        //     bb1
+        //       \
+        //        \
+        //         bb2
+        //        phi1 = phi fp128 [...,bb1], [...,bb4]
+        //        phi2 = phi fp128 [...,bb1], [...,bb4]
+        //          /     \   \
+        //         /       \   \
+        //        |         |   |
+        //        bb3       |   |
+        //         \       /   /
+        //          \     /   /
+        //              bb4
+        //        phi3 = phi fp128 [phi1,bb3], [phi2, bb4]
+        // After we finish the first traverse, we may have Value2Ptr[phi1] =
+        // pphi1(fp128*). But when we do PostTransformFP128PHI, we may find that
+        // we can't set valid incoming value for pphi1, so AllocaForPhi1 will be
+        // created to replace pphi1's uses. We also update the Value2Ptr by
+        // replacing pphi1 with AllocaForPhi1, otherwise, pphi3 will falsely use
+        // pphi1 to set its incomings.
+        for (auto VPI : Value2Ptr) {
+          if (VPI.second == NewPhi)
+            Value2Ptr[VPI.first] = AllocaForPhi;
+        }
         NewPhi->eraseFromParent();
         break;
       }

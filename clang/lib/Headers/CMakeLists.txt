@@ -98,12 +98,12 @@ intel_add_file(INTEL_HEADERS
   Intel_amxbf16evexintrin.h
   )
 # end INTEL_FEATURE_ISA_AMX_BF16_EVEX
-# INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+# INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
 intel_add_file(INTEL_HEADERS
-  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_CONVERT_EVEX
-  Intel_amxconvertevexintrin.h
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_ELEMENT_EVEX
+  Intel_amxelementevexintrin.h
   )
-# end INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+# end INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
 # INTEL_FEATURE_ISA_AMX_INT8_EVEX
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AMX_INT8_EVEX
@@ -157,13 +157,20 @@ intel_add_file(INTEL_HEADERS
   Intel_Headers/avxvnni/avxvnniintrin.h
   )
 # end INTEL_FEATURE_ISA_AVX_VNNI
-# INTEL_FEATURE_ISA_AVX512_DOTPROD
+# INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
 intel_add_file(INTEL_HEADERS
-  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_DOTPROD
-  Intel_Headers/avx512dotprod/avx512dotprodintrin.h
-  Intel_Headers/avx512dotprod/avx512vldotprodintrin.h
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_DOTPROD_INT8
+  Intel_Headers/avx512dotprodint8/avx512dotprodint8intrin.h
+  Intel_Headers/avx512dotprodint8/avx512vldotprodint8intrin.h
   )
-# end INTEL_FEATURE_ISA_AVX512_DOTPROD
+# end INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+# INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_DOTPROD_PHPS
+  Intel_Headers/avx512dotprodphps/avx512dotprodphpsintrin.h
+  Intel_Headers/avx512dotprodphps/avx512vldotprodphpsintrin.h
+  )
+# end INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
 # INTEL_FEATURE_ISA_AVX512_CONVERT
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX512_CONVERT
@@ -177,12 +184,18 @@ intel_add_file(INTEL_HEADERS
   Intel_Headers/avxifma/avxifmaintrin.h
   )
 # end INTEL_FEATURE_ISA_AVX_IFMA
-# INTEL_FEATURE_ISA_AVX_DOTPROD
+# INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
 intel_add_file(INTEL_HEADERS
-  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_DOTPROD
-  Intel_Headers/avxdotprod/avxdotprodintrin.h
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_DOTPROD_INT8
+  Intel_Headers/avxdotprodint8/avxdotprodint8intrin.h
   )
-# end INTEL_FEATURE_ISA_AVX_DOTPROD
+# end INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
+# INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_DOTPROD_PHPS
+  Intel_Headers/avxdotprodphps/avxdotprodphpsintrin.h
+  )
+# end INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
 # INTEL_FEATURE_ISA_AVX_CONVERT
 intel_add_file(INTEL_HEADERS
   FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_CONVERT
@@ -195,6 +208,12 @@ intel_add_file(INTEL_HEADERS
   Intel_Headers/avxbf16/avxbf16intrin.h
   )
 # end INTEL_FEATURE_ISA_AVX_BF16
+# INTEL_FEATURE_ISA_AVX_COMPRESS
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_COMPRESS
+  Intel_Headers/avxcompress/avxcompressintrin.h
+  )
+# end INTEL_FEATURE_ISA_AVX_COMPRESS
 # end INTEL_CUSTOMIZATION
 
 set(files
@@ -244,7 +263,11 @@ set(files
   __clang_cuda_libdevice_declares.h
   __clang_cuda_math_forward_declares.h
   __clang_cuda_runtime_wrapper.h
+  __clang_hip_libdevice_declares.h
+  __clang_hip_math.h
+  __clang_hip_runtime_wrapper.h
   cetintrin.h
+  cet.h
   cldemoteintrin.h
   clzerointrin.h
   cpuid.h
@@ -415,6 +438,8 @@ clang_generate_header(-gen-arm-neon arm_neon.td arm_neon.h)
 clang_generate_header(-gen-arm-fp16 arm_fp16.td arm_fp16.h)
 # Generate arm_sve.h
 clang_generate_header(-gen-arm-sve-header arm_sve.td arm_sve.h)
+# Generate arm_bf16.h
+clang_generate_header(-gen-arm-bf16 arm_bf16.td arm_bf16.h)
 # Generate arm_mve.h
 clang_generate_header(-gen-arm-mve-header arm_mve.td arm_mve.h)
 # Generate arm_cde.h

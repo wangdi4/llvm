@@ -20,6 +20,8 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRRegionIdentification.h"
+
 namespace llvm {
 
 class Function;
@@ -39,7 +41,6 @@ class HLRegion;
 class HLLabel;
 class HLLoop;
 class HLIf;
-class HIRRegionIdentification;
 class HIRCreation;
 class HIRCleanup;
 class HLNodeUtils;
@@ -55,9 +56,10 @@ private:
   /// The function we are analyzing.
   Function *Func;
 
+  DominatorTree &DT;
   LoopInfo &LI;
-  ScalarEvolution &SE;
   HIRRegionIdentification &RI;
+  ScopedScalarEvolution &ScopedSE;
   HIRCreation &HIRCr;
   HIRCleanup &HIRC;
   HLNodeUtils &HNU;
@@ -94,6 +96,10 @@ private:
   /// Returns true if normalized loop IV has NSW semantics.
   bool hasNSWSemantics(const Loop *Lp, Type *IVType, const SCEV *BECount) const;
 
+  /// Returns IV definition PHINode of the loop.
+  const PHINode *findIVDefInHeader(const Loop &Lp,
+                                   const Instruction *Inst) const;
+
   /// Sets the IV type for HLoop.
   void setIVType(HLLoop *HLoop, const SCEV *BECount) const;
 
@@ -105,9 +111,6 @@ private:
   /// Sets the parent if node of the loop as its ztt.
   void setZtt(HLLoop *HLoop);
 
-  /// Returns the outermost parent loop of \p Lp contained in the HIR region.
-  const Loop *getOutermostHIRParentLoop(const Loop *Lp) const;
-
   /// Moves the loop exit goto after the loop if it is not removed as redundant
   /// by HIRCleanup pass.
   void processLoopExitGoto(HLIf *BottomTest, HLLabel *LoopLabel,
@@ -117,10 +120,10 @@ private:
   void formLoops();
 
 public:
-  HIRLoopFormation(LoopInfo &LI, ScalarEvolution &SE,
-                   HIRRegionIdentification &RI, HIRCreation &HIRCr,
-                   HIRCleanup &HIRC, HLNodeUtils &HNU)
-      : LI(LI), SE(SE), RI(RI), HIRCr(HIRCr), HIRC(HIRC), HNU(HNU) {}
+  HIRLoopFormation(DominatorTree &DT, LoopInfo &LI, HIRRegionIdentification &RI,
+                   HIRCreation &HIRCr, HIRCleanup &HIRC, HLNodeUtils &HNU)
+      : DT(DT), LI(LI), RI(RI), ScopedSE(RI.getScopedSE()), HIRCr(HIRCr),
+        HIRC(HIRC), HNU(HNU) {}
 
   void run();
 

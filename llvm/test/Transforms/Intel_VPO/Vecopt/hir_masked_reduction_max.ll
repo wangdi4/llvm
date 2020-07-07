@@ -53,7 +53,7 @@ define dso_local float @ifmax1(i32 %N) local_unnamed_addr #0 {
 ; CHECK-NEXT:    [[BB2]]:
 ; CHECK-NEXT:     float [[VP4:%.*]] = phi  [ float [[VP__RED_INIT]], [[BB1]] ],  [ float [[VP5:%.*]], [[BB3:BB[0-9]+]] ]
 ; CHECK-NEXT:     i64 [[VP6:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP7:%.*]], [[BB3]] ]
-; CHECK-NEXT:     float* [[VP8:%.*]] = getelementptr inbounds [1000 x float]* @B i64 0 i64 [[VP6]]
+; CHECK-NEXT:     float* [[VP8:%.*]] = subscript inbounds [1000 x float]* @B i64 0 i64 [[VP6]]
 ; CHECK-NEXT:     float [[VP9:%.*]] = load float* [[VP8]]
 ; CHECK-NEXT:     i1 [[VP10:%.*]] = fcmp float [[VP9]] float 0.000000e+00
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP10]]), [[BB3]](!i1 [[VP10]])
@@ -61,7 +61,7 @@ define dso_local float @ifmax1(i32 %N) local_unnamed_addr #0 {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]:
 ; CHECK-NEXT:       float [[VP11:%.*]] = phi  [ float [[VP4]], [[BB2]] ]
-; CHECK-NEXT:       float* [[VP12:%.*]] = getelementptr inbounds [1000 x float]* @C i64 0 i64 [[VP6]]
+; CHECK-NEXT:       float* [[VP12:%.*]] = subscript inbounds [1000 x float]* @C i64 0 i64 [[VP6]]
 ; CHECK-NEXT:       float [[VP13:%.*]] = load float* [[VP12]]
 ; CHECK-NEXT:       i1 [[VP14:%.*]] = fcmp float [[VP13]] float [[VP11]]
 ; CHECK-NEXT:       float [[VP15:%.*]] = select i1 [[VP14]] float [[VP13]] float [[VP11]]

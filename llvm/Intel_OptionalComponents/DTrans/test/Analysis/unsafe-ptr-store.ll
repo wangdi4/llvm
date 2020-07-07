@@ -1,3 +1,4 @@
+; REQUIRES: asserts
 ; RUN: opt < %s -whole-program-assume  -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 ; The test checks that 'unsafe pointer store' issue was not triggered by assigning an array valiable to the pointer structure feild if underlying types are compatible.

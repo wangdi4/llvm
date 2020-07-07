@@ -92,7 +92,8 @@ public:
 
   /// Returns true if the underlying instruction has a single rval.
   virtual bool hasRval() const override {
-    return (isa<StoreInst>(Inst) || isa<GetElementPtrInst>(Inst) ||
+    return (isa<StoreInst>(Inst) || isa<FreezeInst>(Inst) ||
+            isa<GetElementPtrInst>(Inst) ||
             (hasLval() && isa<UnaryInstruction>(Inst)) || isCopyInst());
   }
 
@@ -248,6 +249,18 @@ public:
   /// Returns CallInst pointer if this is a call instruction.
   const CallInst *getCallInst() const {
     return isCallInst() ? cast<CallInst>(Inst) : nullptr;
+  }
+
+  /// Returns an array of indices of ExtractValueInst.
+  ArrayRef<unsigned> getExtractValueIndices() const {
+    auto *EVI = dyn_cast<ExtractValueInst>(Inst);
+    return EVI ? EVI->getIndices() : None;
+  }
+
+  /// Returns an array of indices of InsertValueInst.
+  ArrayRef<unsigned> getInsertValueIndices() const {
+    auto *IVI = dyn_cast<InsertValueInst>(Inst);
+    return IVI ? IVI->getIndices() : None;
   }
 
   /// Returns true if \p Call only accesses inaccessible or arg memory.

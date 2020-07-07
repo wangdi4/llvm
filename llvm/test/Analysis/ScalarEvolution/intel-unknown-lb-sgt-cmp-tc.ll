@@ -1,10 +1,9 @@
 ; RUN: opt < %s -analyze -scalar-evolution | FileCheck %s
 
-; Verify that we are able to compute backedge taken count of the loop with
-; unknown lower bound and sgt backedge comparison type.
+; Verify that we are able to compute and simplify (no smax) backedge taken count
+; of the loop with unknown lower bound.
 
-; TODO: (%n smax %lb) should be simplified to %n due to loop entry guard/ztt.
-; CHECK: Loop %for.body: backedge-taken count is ((-1 * %lb) + (%n smax %lb))
+; CHECK: Loop %for.body: backedge-taken count is ((-1 * %lb) + %n)
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

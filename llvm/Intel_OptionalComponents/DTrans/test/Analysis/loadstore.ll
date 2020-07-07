@@ -1,3 +1,4 @@
+; REQUIRES: asserts
 ; RUN: opt < %s -whole-program-assume -internalize -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 ; This test verifies correct handling of load and store instructions by the

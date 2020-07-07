@@ -39,7 +39,6 @@ HIRSCCFormation HIRSCCFormationAnalysis::run(Function &F,
   // All the real work is done in the constructor for the HIRSCCFormation.
   return HIRSCCFormation(AM.getResult<LoopAnalysis>(F),
                          AM.getResult<DominatorTreeAnalysis>(F),
-                         AM.getResult<ScalarEvolutionAnalysis>(F),
                          AM.getResult<HIRRegionIdentificationAnalysis>(F));
 }
 
@@ -47,7 +46,6 @@ INITIALIZE_PASS_BEGIN(HIRSCCFormationWrapperPass, "hir-scc-formation",
                       "HIR SCC Formation", false, true)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRRegionIdentificationWrapperPass)
 INITIALIZE_PASS_END(HIRSCCFormationWrapperPass, "hir-scc-formation",
                     "HIR SCC Formation", false, true)
@@ -63,7 +61,6 @@ bool HIRSCCFormationWrapperPass::runOnFunction(Function &) {
   SCCF.reset(new HIRSCCFormation(
       getAnalysis<LoopInfoWrapperPass>().getLoopInfo(),
       getAnalysis<DominatorTreeWrapperPass>().getDomTree(),
-      getAnalysis<ScalarEvolutionWrapperPass>().getSE(),
       getAnalysis<HIRRegionIdentificationWrapperPass>().getRI()));
   return false;
 }
@@ -76,17 +73,16 @@ void HIRSCCFormationWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequiredTransitive<DominatorTreeWrapperPass>();
   AU.addRequiredTransitive<LoopInfoWrapperPass>();
-  AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
   AU.addRequiredTransitive<HIRRegionIdentificationWrapperPass>();
 }
 
 bool HIRSCCFormation::isConsideredLinear(const NodeTy *Node) const {
 
-  if (!SE.isSCEVable(Node->getType())) {
+  if (!ScopedSE.isSCEVable(Node->getType())) {
     return false;
   }
 
-  auto SC = SE.getSCEV(const_cast<NodeTy *>(Node));
+  auto SC = ScopedSE.getSCEV(const_cast<NodeTy *>(Node));
   auto AddRecSCEV = dyn_cast<SCEVAddRecExpr>(SC);
 
   if (!AddRecSCEV || !AddRecSCEV->isAffine()) {
@@ -144,7 +140,8 @@ bool HIRSCCFormation::isLoopLiveOut(const Instruction *Inst) const {
     // using opt, for example) we will see a liveout copy which is used outside
     // the loop instead of a direct liveout use. This check is to make sure we
     // form identical SCCs irrespective of when this is called.
-    if (SE.getHIRMetadata(UserInst, ScalarEvolution::HIRLiveKind::LiveOut)) {
+    if (ScopedSE.getHIRMetadata(UserInst,
+                                ScalarEvolution::HIRLiveKind::LiveOut)) {
       return isLoopLiveOut(UserInst);
     }
 
@@ -208,7 +205,7 @@ bool HIRSCCFormation::dependsOnSameBasicBlockPhi(const PHINode *Phi) const {
   }
 
   auto PhiBB = Phi->getParent();
-  bool IsSCEVable = SE.isSCEVable(Phi->getType());
+  bool IsSCEVable = ScopedSE.isSCEVable(Phi->getType());
 
   BasicBlockPhiFinder BBPF(Phi);
 
@@ -230,7 +227,7 @@ bool HIRSCCFormation::dependsOnSameBasicBlockPhi(const PHINode *Phi) const {
     }
 
     // Check SCEV form of operand.
-    auto SC = SE.getSCEV(const_cast<Instruction *>(InstOp));
+    auto SC = ScopedSE.getSCEV(const_cast<Instruction *>(InstOp));
     visitAll(SC, BBPF);
 
     if (BBPF.found()) {
@@ -293,7 +290,7 @@ bool HIRSCCFormation::isCandidateNode(const NodeTy *Node) const {
   // Phi SCCs do not have anything to do with calls.
   // issues.
   if (isa<CallInst>(Node) && !isa<SubscriptInst>(Node) &&
-      !SE.getHIRMetadata(Node, ScalarEvolution::HIRLiveKind::LiveOut)) {
+      !ScopedSE.getHIRMetadata(Node, ScalarEvolution::HIRLiveKind::LiveOut)) {
     return false;
   }
 
@@ -363,7 +360,7 @@ void HIRSCCFormation::removeIntermediateNodes(SCC &CurSCC) const {
   SmallVector<NodeTy *, 8> IntermediateNodes;
 
   Type *RootTy = CurSCC.getRoot()->getType();
-  bool IsSCEVable = SE.isSCEVable(RootTy);
+  bool IsSCEVable = ScopedSE.isSCEVable(RootTy);
 
   // Collect all the intermediate nodes of the SCC for removal afterwards.
   for (auto Node : CurSCC) {
@@ -378,7 +375,8 @@ void HIRSCCFormation::removeIntermediateNodes(SCC &CurSCC) const {
       IntermediateNodes.push_back(Node);
       continue;
 
-    } else if (SE.getHIRMetadata(Node, ScalarEvolution::HIRLiveKind::LiveOut)) {
+    } else if (ScopedSE.getHIRMetadata(Node,
+                                       ScalarEvolution::HIRLiveKind::LiveOut)) {
       // Liveout copies added by SSA deconstruction should be removed as
       // intermediate nodes.
       IntermediateNodes.push_back(Node);
@@ -719,7 +717,8 @@ bool HIRSCCFormation::hasLoopLiveoutUseInSCC(const Instruction *Inst,
     // using opt, for example) we will see a liveout copy which is used outside
     // the loop instead of a direct liveout use. This check is to make sure we
     // form identical SCCs irrespective of when this is called.
-    if (SE.getHIRMetadata(UserInst, ScalarEvolution::HIRLiveKind::LiveOut)) {
+    if (ScopedSE.getHIRMetadata(UserInst,
+                                ScalarEvolution::HIRLiveKind::LiveOut)) {
       return hasLoopLiveoutUseInSCC(UserInst, CurSCC);
     }
 
@@ -743,7 +742,7 @@ bool HIRSCCFormation::isValidSCCRootNode(const NodeTy *Root,
     return true;
   }
 
-  auto SC = SE.getSCEV(const_cast<NodeTy *>(Root));
+  auto SC = ScopedSE.getSCEV(const_cast<NodeTy *>(Root));
 
   auto AddRec = dyn_cast<SCEVAddRecExpr>(SC);
   // Suppress SCC formation for polynomial AddRecs. The issue is that
@@ -774,23 +773,23 @@ bool HIRSCCFormation::isValidSCCRootNode(const NodeTy *Root,
   // creating new temps like we do in HLNodeUtils::createTemp() during SSA
   // deconstruction?
 
-  auto UnsignedRange = SE.getUnsignedRange(SC);
+  auto UnsignedRange = ScopedSE.getUnsignedRange(SC);
 
   if (!UnsignedRange.isFullSet()) {
     for (auto *Node : CurSCC) {
-      if (Node != Root &&
-          (SE.getUnsignedRange(SE.getSCEV(Node)) != UnsignedRange)) {
+      if (Node != Root && (ScopedSE.getUnsignedRange(ScopedSE.getSCEV(Node)) !=
+                           UnsignedRange)) {
         return false;
       }
     }
   }
 
-  auto SignedRange = SE.getSignedRange(SC);
+  auto SignedRange = ScopedSE.getSignedRange(SC);
 
   if (!SignedRange.isFullSet()) {
     for (auto *Node : CurSCC) {
       if (Node != Root &&
-          (SE.getSignedRange(SE.getSCEV(Node)) != SignedRange)) {
+          (ScopedSE.getSignedRange(ScopedSE.getSCEV(Node)) != SignedRange)) {
         return false;
       }
     }
@@ -991,6 +990,8 @@ void HIRSCCFormation::runImpl() {
     }
 
     setRegion(RegIt);
+    ScopedSE.setScope(RegIt->getOutermostLoops());
+
     VisitedNodes.clear();
 
     auto Root = DT.getNode(RegIt->getEntryBBlock());
@@ -1026,9 +1027,8 @@ void HIRSCCFormation::runImpl() {
 }
 
 HIRSCCFormation::HIRSCCFormation(LoopInfo &LI, DominatorTree &DT,
-                                 ScalarEvolution &SE,
                                  HIRRegionIdentification &RI)
-    : LI(LI), DT(DT), SE(SE), RI(RI), GlobalNodeIndex(1) {
+    : LI(LI), DT(DT), RI(RI), ScopedSE(RI.getScopedSE()), GlobalNodeIndex(1) {
   // Initialize members to default values.
   RegionSCCBegin.resize(RI.getNumRegions(), std::make_pair(NO_SCC, NO_SCC));
   LastSCCRegIt = RI.end();
@@ -1037,7 +1037,7 @@ HIRSCCFormation::HIRSCCFormation(LoopInfo &LI, DominatorTree &DT,
 }
 
 HIRSCCFormation::HIRSCCFormation(HIRSCCFormation &&SCCF)
-    : LI(SCCF.LI), DT(SCCF.DT), SE(SCCF.SE), RI(SCCF.RI),
+    : LI(SCCF.LI), DT(SCCF.DT), RI(SCCF.RI), ScopedSE(SCCF.ScopedSE),
       RegionSCCs(std::move(SCCF.RegionSCCs)),
       RegionSCCBegin(std::move(SCCF.RegionSCCBegin)),
       VisitedNodes(std::move(SCCF.VisitedNodes)),

@@ -29,6 +29,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MathExtras.h"
+#include "llvm/Target/TargetMachine.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "instr-emitter"
@@ -418,9 +419,9 @@ void InstrEmitter::AddOperand(MachineInstrBuilder &MIB,
     unsigned Idx;
     MachineConstantPool *MCP = MF->getConstantPool();
     if (CP->isMachineConstantPoolEntry())
-      Idx = MCP->getConstantPoolIndex(CP->getMachineCPVal(), Alignment.value());
+      Idx = MCP->getConstantPoolIndex(CP->getMachineCPVal(), Alignment);
     else
-      Idx = MCP->getConstantPoolIndex(CP->getConstVal(), Alignment.value());
+      Idx = MCP->getConstantPoolIndex(CP->getConstVal(), Alignment);
     MIB.addConstantPoolIndex(Idx, Offset, CP->getTargetFlags());
   } else if (ExternalSymbolSDNode *ES = dyn_cast<ExternalSymbolSDNode>(Op)) {
     MIB.addExternalSymbol(ES->getSymbol(), ES->getTargetFlags());
@@ -1029,7 +1030,25 @@ EmitSpecialNode(SDNode *Node, bool IsClone, bool IsCloned,
             TII->get(Opc)).addSym(S);
     break;
   }
+#if INTEL_CUSTOMIZATION
+  case ISD::NOTIFY_LABEL: {
+    unsigned Opc = TargetOpcode::NOTIFY_LABEL;
+    MCSymbol *S = cast<LabelSDNode>(Node)->getLabel();
+    MachineInstrBuilder MIB =
+        BuildMI(*MBB, InsertPos, Node->getDebugLoc(), TII->get(Opc));
+    int8_t Idx = cast<ConstantSDNode>(Node->getOperand(1))->getSExtValue();
 
+    // Add intrinsic kind info (zc/nzc) into Operand0.
+    // Add a label to Operand1 to represent this intrinsic.
+    // Add the intrinsic's 2nd parameter into Operand2. We need to
+    // get its dwarf encoding later.
+    MIB.addImm(Idx); // 0: NOTIFY_ZC 1: NOTIFY_NZC
+    MIB.addSym(S);
+    AddOperand(MIB, Node->getOperand(2), 2, nullptr, VRBaseMap,
+               /*IsDebug=*/false, IsClone, IsCloned);
+    break;
+  }
+#endif // INTEL_CUSTOMIZATION
   case ISD::LIFETIME_START:
   case ISD::LIFETIME_END: {
     unsigned TarOp = (Node->getOpcode() == ISD::LIFETIME_START) ?

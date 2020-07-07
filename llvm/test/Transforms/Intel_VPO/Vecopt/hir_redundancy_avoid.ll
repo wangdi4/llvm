@@ -49,7 +49,13 @@
 ; HLInsts <45> thru <48> are redundant. The test checks that we do not emit these redundant statements.
 ;
 ; ModuleID = 'sad2.c'
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=16 -print-after=VPlanDriverHIR -S  < %s 2>&1 | FileCheck %s
+;
+; TODO - We need to eliminate redundant VPInstructions to be able to do
+; something similar here with VPValue base code generation. Testing only mixed
+; CG mode for now. We should also try and preserve idioms(abs in this case)
+; when possible. CMPLRLLVM-20305.
+;
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=16 -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir=0 -disable-output < %s 2>&1 | FileCheck %s
 ; CHECK: %[[WIDE_LOAD:.*]] = (<16 x i8>*)(%pix1){{.*}}
 ; CHECK: {{.*}} = zext.<16 x i8>.<16 x i32>(%[[WIDE_LOAD]]);
 ; CHECK-NOT: {{.*}} = zext.<16 x i8>.<16 x i32>(%[[WIDE_LOAD]]);

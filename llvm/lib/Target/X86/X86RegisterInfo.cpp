@@ -347,12 +347,22 @@ X86RegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
 #if INTEL_CUSTOMIZATION
   case CallingConv::SVML:
     if (!Is64Bit)
-      return CSR_32_SVML_SaveList;
+      return CSR_32_Intel_SVML_SaveList;
     if (IsWin64)
       return CSR_Win64_SVML_SaveList;
-    if (HasAVX512)
-      return CSR_Lin64_SVML_AVX512_SaveList;
     return CSR_Lin64_SVML_SaveList;
+  case CallingConv::SVML_AVX:
+    if (!Is64Bit)
+      return CSR_32_Intel_SVML_SaveList;
+    if (IsWin64)
+      return CSR_Win64_SVML_AVX_SaveList;
+    return CSR_Lin64_SVML_AVX_SaveList;
+  case CallingConv::SVML_AVX512:
+    if (!Is64Bit)
+      return CSR_32_Intel_SVML_AVX512_SaveList;
+    if (IsWin64)
+      return CSR_Win64_SVML_AVX512_SaveList;
+    return CSR_Lin64_SVML_AVX512_SaveList;
 #endif // INTEL_CUSTOMIZATION
   case CallingConv::X86_RegCall:
     if (Is64Bit) {
@@ -480,17 +490,22 @@ X86RegisterInfo::getCallPreservedMask(const MachineFunction &MF,
 #if INTEL_CUSTOMIZATION
   case CallingConv::SVML:
     if (!Is64Bit)
-      return CSR_32_SVML_RegMask;
+      return CSR_32_Intel_SVML_RegMask;
     if (IsWin64)
       return CSR_Win64_SVML_RegMask;
-    // Only use the AVX512 CSR list if there's a chance we're using ZMM
-    // registers. Otherwise we can assume we're using the older SSE/AVX SVML
-    // functions that preserve XMM/YMM 8-15.
-    // FIXME: This should be based off which function we're really calling.
-    // Perhaps by splitting the calling convention.
-    if (Subtarget.useAVX512Regs())
-      return CSR_Lin64_SVML_AVX512_RegMask;
     return CSR_Lin64_SVML_RegMask;
+  case CallingConv::SVML_AVX:
+    if (!Is64Bit)
+      return CSR_32_Intel_SVML_RegMask;
+    if (IsWin64)
+      return CSR_Win64_SVML_AVX_RegMask;
+    return CSR_Lin64_SVML_AVX_RegMask;
+  case CallingConv::SVML_AVX512:
+    if (!Is64Bit)
+      return CSR_32_Intel_SVML_AVX512_RegMask;
+    if (IsWin64)
+      return CSR_Win64_SVML_AVX512_RegMask;
+    return CSR_Lin64_SVML_AVX512_RegMask;
   case CallingConv::X86_AVX2_C:
     assert(Is64Bit);
     return CSR_64_AVX2_RegMask;
@@ -693,18 +708,22 @@ static bool CantUseSP(const MachineFrameInfo &MFI) {
 }
 
 bool X86RegisterInfo::hasBasePointer(const MachineFunction &MF) const {
-   const MachineFrameInfo &MFI = MF.getFrameInfo();
+  const X86MachineFunctionInfo *X86FI = MF.getInfo<X86MachineFunctionInfo>();
+  if (X86FI->hasPreallocatedCall())
+    return true;
 
-   if (!EnableBasePointer)
-     return false;
+  const MachineFrameInfo &MFI = MF.getFrameInfo();
 
-   // When we need stack realignment, we can't address the stack from the frame
-   // pointer.  When we have dynamic allocas or stack-adjusting inline asm, we
-   // can't address variables from the stack pointer.  MS inline asm can
-   // reference locals while also adjusting the stack pointer.  When we can't
-   // use both the SP and the FP, we need a separate base pointer register.
-   bool CantUseFP = needsStackRealignment(MF);
-   return CantUseFP && CantUseSP(MFI);
+  if (!EnableBasePointer)
+    return false;
+
+  // When we need stack realignment, we can't address the stack from the frame
+  // pointer.  When we have dynamic allocas or stack-adjusting inline asm, we
+  // can't address variables from the stack pointer.  MS inline asm can
+  // reference locals while also adjusting the stack pointer.  When we can't
+  // use both the SP and the FP, we need a separate base pointer register.
+  bool CantUseFP = needsStackRealignment(MF);
+  return CantUseFP && CantUseSP(MFI);
 }
 
 bool X86RegisterInfo::canRealignStack(const MachineFunction &MF) const {

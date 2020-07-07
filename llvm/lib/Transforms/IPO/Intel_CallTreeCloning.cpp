@@ -161,7 +161,7 @@ static cl::opt<unsigned>
 
 // Maximum number of direct callsites allowed for CallTreeClone
 static cl::opt<unsigned> CTCloningMaxDirectCallSiteCount(
-    PASS_NAME_STR "-max-direct-callsites", cl::init(5120), cl::ReallyHidden,
+    PASS_NAME_STR "-max-direct-callsites", cl::init(5704), cl::ReallyHidden,
     cl::desc("maximum allowed number of direct callsites in linked module"));
 
 // Allows to specify "seed" functions and their parameter sets profitable to
@@ -330,6 +330,16 @@ static cl::opt<bool>
     MVDetailedLog("multiversioning-detail-log", cl::init(false),
                   cl::ReallyHidden,
                   cl::desc("MultiVersioning (MV) detailed progress log"));
+
+// Flag to model an arbitrary number of user-defined calls
+static cl::opt<bool> ModelArbitraryNumUserCalls(
+    "ctcmv-model-user-calls", cl::init(false), cl::ReallyHidden,
+    cl::desc("Model an arbitrary number of user-defined calls"));
+
+// Flag contains an arbitrary number of user-defined calls modeled
+static cl::opt<unsigned> NumUserCallsModeled(
+    "ctcmv-num-user-calls-modeled", cl::init(0), cl::ReallyHidden,
+    cl::desc("Arbitrary number of user-defined calls modeled"));
 
 #define DBGX(n, x) LLVM_DEBUG(if (n <= CTCloningDbgLevel) { x; })
 
@@ -1954,13 +1964,19 @@ protected:
   bool checkThreshold(Module &M) {
     uint64_t NumCallInst = 0;
 
-    for (auto &F : M.functions())
-      for (BasicBlock &BB : F)
-        for (Instruction &I : BB)
-          // count direct calls only: support both CallInst and InvokeInst
-          if (CallBase *CB = dyn_cast<CallBase>(&I))
-            if (!CB->isIndirectCall())
-              ++NumCallInst;
+    if (ModelArbitraryNumUserCalls)
+      NumCallInst = NumUserCallsModeled;
+    else {
+      // count direct calls only on module level:
+      // support both CallInst and InvokeInst and skip any DBG intrinsic.
+      for (auto &F : M.functions())
+        for (BasicBlock &BB : F)
+          for (Instruction &I : BB)
+            if (!isa<DbgInfoIntrinsic>(&I))
+              if (CallBase *CB = dyn_cast<CallBase>(&I))
+                if (!CB->isIndirectCall())
+                  ++NumCallInst;
+    }
 
     LLVM_DEBUG(dbgs() << "NumCallInst:\t" << NumCallInst << "\n");
 
@@ -2508,7 +2524,10 @@ bool CallTreeCloningImpl::run(
   CloneRegistry Clones; // records all clones, needed for post processing (PP)
   bool CTCResult = findAndCloneCallSubtrees(Cgraph.get(), AlgSeeds, Clones);
   if (!CTCResult) {
-    LLVM_DEBUG(CTCTracer.dump(););
+    LLVM_DEBUG({
+      CTCTracer.setDetailMode(true);
+      CTCTracer.dump();
+    });
     return false;
   }
 
@@ -2618,11 +2637,13 @@ CallInst *specializeCallSite(CallInst *Call, Function *Clone,
   CallInst *NewCall = CallInst::Create(Clone, NewArgs, "", Call);
   NewCall->setCallingConv(Call->getCallingConv());
   NewCall->setAttributes(NewAttrs);
-  if (MDNode *MD = Call->getMetadata(LLVMContext::MD_dbg))
-    NewCall->setMetadata(LLVMContext::MD_dbg, MD);
+  for (auto Kind : {LLVMContext::MD_dbg, LLVMContext::MD_alias_scope,
+                    LLVMContext::MD_noalias})
+    if (MDNode *MD = Call->getMetadata(Kind))
+      NewCall->setMetadata(Kind, MD);
   Call->replaceAllUsesWith(NewCall);
   Call->dropAllReferences();
-  Call->removeFromParent();
+  Call->eraseFromParent();
   ++NumCTCClonedCalls;
 
   return NewCall;

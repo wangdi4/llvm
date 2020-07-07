@@ -93,6 +93,8 @@ public:
   static HLNode *DistToHNode(DistPPNode *DNode) { return DNode->getNode(); }
   PiBlockType getBlockType() { return BlockType; }
 
+  unsigned getTopSortNumber() { return (*nodes_begin())->getTopSortNum(); }
+
 private:
   void setPiBlockType(ArrayRef<DistPPNode *> SCCNodes);
   PiGraph *Graph;
@@ -168,8 +170,7 @@ class PiGraph : public HIRGraph<PiBlock, PiGraphEdge> {
 
 public:
   PiGraph(HLLoop *Loop, HIRDDAnalysis &DDA,
-          HIRSparseArrayReductionAnalysis &SARA,
-          bool AllowScalarExpansion,
+          HIRSparseArrayReductionAnalysis &SARA, bool AllowScalarExpansion,
           bool CreateControlNodes) {
 
     PPGraph = new DistPPGraph(Loop, DDA, SARA, AllowScalarExpansion,
@@ -182,7 +183,11 @@ public:
     // Simplify DistPPGraph into PiGraph
     createNodes();
     createEdges();
+
+    sortNodes();
   }
+
+  void sortNodes();
 
   void createNodes();
 

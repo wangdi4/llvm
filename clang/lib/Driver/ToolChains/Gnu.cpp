@@ -409,7 +409,7 @@ static void addIPPLibs(ArgStringList &CmdArgs,
 static void addMKLLibs(ArgStringList &CmdArgs,
     const llvm::opt::ArgList &Args, const ToolChain &TC) {
   // default link type is dynamically link
-  bool linkStatic = false;
+  bool linkStatic = Args.hasArg(options::OPT_static);
 
   // Additions of libraries are currently not smart enough at an individual
   // basis to only add the 'switch' before the library.  We must put the link
@@ -489,8 +489,8 @@ static void addPerfLibPaths(ArgStringList &CmdArgs,
 // Intel libraries are added in statically by default
 static void addIntelLib(const char* IntelLibName, ArgStringList &CmdArgs,
     const llvm::opt::ArgList &Args) {
-  // without --intel, do not pull in Intel libs
-  if (!Args.hasArg(options::OPT__intel))
+  // without --intel or --dpcpp, do not pull in Intel libs
+  if (!Args.hasArg(options::OPT__intel, options::OPT__dpcpp))
     return;
 
   // FIXME - Right now this is rather simplistic - just check to see if
@@ -507,6 +507,10 @@ static void addIntelLib(const char* IntelLibName, ArgStringList &CmdArgs,
                                      options::OPT_dynamic))
     isCurrentStateStatic = A->getOption().matches(options::OPT_static);
 
+  // -debug parallel implies -shared-intel, but allow it to be overridden by
+  // -static-intel below.
+  if (const Arg *A = Args.getLastArg(options::OPT_intel_debug_Group))
+    isSharedIntel = StringRef(A->getValue()) == "parallel";
   if (const Arg *A = Args.getLastArg(options::OPT_shared_intel,
                                      options::OPT_static_intel))
     isSharedIntel = A->getOption().matches(options::OPT_shared_intel);
@@ -574,6 +578,43 @@ void tools::gnutools::Linker::constructLLVMARCommand(
   llvm::sys::path::append(LLVMARPath, "llvm-ar");
   const char *Exec = C.getArgs().MakeArgString(LLVMARPath);
   C.addCommand(std::make_unique<Command>(JA, *this, Exec, CmdArgs, None));
+}
+
+void tools::gnutools::StaticLibTool::ConstructJob(
+    Compilation &C, const JobAction &JA, const InputInfo &Output,
+    const InputInfoList &Inputs, const ArgList &Args,
+    const char *LinkingOutput) const {
+  const Driver &D = getToolChain().getDriver();
+
+  // Silence warning for "clang -g foo.o -o foo"
+  Args.ClaimAllArgs(options::OPT_g_Group);
+  // and "clang -emit-llvm foo.o -o foo"
+  Args.ClaimAllArgs(options::OPT_emit_llvm);
+  // and for "clang -w foo.o -o foo". Other warning options are already
+  // handled somewhere else.
+  Args.ClaimAllArgs(options::OPT_w);
+  // Silence warnings when linking C code with a C++ '-stdlib' argument.
+  Args.ClaimAllArgs(options::OPT_stdlib_EQ);
+
+  // GNU ar tool command "ar <options> <output_file> <input_files>".
+  ArgStringList CmdArgs;
+  // Create and insert file members with a deterministic index.
+  CmdArgs.push_back("rcsD");
+  CmdArgs.push_back(Output.getFilename());
+  AddLinkerInputs(getToolChain(), Inputs, Args, CmdArgs, JA);
+
+  // Delete old output archive file if it already exists before generating a new
+  // archive file.
+  auto OutputFileName = Output.getFilename();
+  if (Output.isFilename() && llvm::sys::fs::exists(OutputFileName)) {
+    if (std::error_code EC = llvm::sys::fs::remove(OutputFileName)) {
+      D.Diag(diag::err_drv_unable_to_remove_file) << EC.message();
+      return;
+    }
+  }
+
+  const char *Exec = Args.MakeArgString(getToolChain().GetStaticLibToolPath());
+  C.addCommand(std::make_unique<Command>(JA, *this, Exec, CmdArgs, Inputs));
 }
 
 void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
@@ -690,10 +731,9 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back("-export-dynamic");
 
     if (!Args.hasArg(options::OPT_shared) && !IsStaticPIE) {
-      const std::string Loader =
-          D.DyldPrefix + ToolChain.getDynamicLinker(Args);
       CmdArgs.push_back("-dynamic-linker");
-      CmdArgs.push_back(Args.MakeArgString(Loader));
+      CmdArgs.push_back(Args.MakeArgString(Twine(D.DyldPrefix) +
+                                           ToolChain.getDynamicLinker(Args)));
     }
   }
 
@@ -753,7 +793,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   Args.AddAllArgs(CmdArgs, options::OPT_u);
 
 #if INTEL_CUSTOMIZATION
-  if (Args.hasArg(options::OPT__intel))
+  if (Args.hasArg(options::OPT__intel, options::OPT__dpcpp))
     addIntelLibPaths(CmdArgs, Args, ToolChain);
   addPerfLibPaths(CmdArgs, Args, ToolChain);
 #endif // INTEL_CUSTOMIZATION
@@ -763,7 +803,6 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     assert(!Inputs.empty() && "Must have at least one input.");
     addLTOOptions(ToolChain, Args, CmdArgs, Output, Inputs[0],
                   D.getLTOMode() == LTOK_Thin);
-    addIntelOptimizationArgs(ToolChain, Args, CmdArgs, JA); // INTEL
   }
 
   if (Args.hasArg(options::OPT_Z_Xlinker__no_demangle))
@@ -793,10 +832,12 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   } else
     AddLinkerInputs(ToolChain, Inputs, Args, CmdArgs, JA);
 
-  // The profile runtime also needs access to system libraries.
-  getToolChain().addProfileRTLibs(Args, CmdArgs);
-
 #if INTEL_CUSTOMIZATION
+  if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs) ||
+      !Args.hasArg(options::OPT__intel))
+    // The profile runtime also needs access to system libraries.
+    getToolChain().addProfileRTLibs(Args, CmdArgs);
+
   if (Args.hasArg(options::OPT_ipp_EQ))
     addIPPLibs(CmdArgs, Args, ToolChain);
   if (Args.hasArg(options::OPT_mkl_EQ))
@@ -806,10 +847,17 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   if (Args.hasArg(options::OPT_tbb, options::OPT_daal_EQ) ||
       (Args.hasArg(options::OPT_mkl_EQ) && Args.hasArg(options::OPT__dpcpp)))
     addTBBLibs(CmdArgs, Args, ToolChain);
-  if (Args.hasArg(options::OPT__intel) &&
-      !Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs)) {
-    addIntelLib("-lirc", CmdArgs, Args);
+  if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs)) {
     addIntelLib("-lsvml", CmdArgs, Args);
+    addIntelLib("-lirng", CmdArgs, Args);
+    if (const Arg *A = Args.getLastArg(options::OPT_intel_debug_Group))
+      if (StringRef(A->getValue()) == "parallel") {
+        addIntelLib("-lpdbx", CmdArgs, Args);
+        addIntelLib("-lpdbxinst", CmdArgs, Args);
+      }
+    if (Args.hasFlag(options::OPT_qopt_matmul, options::OPT_qno_opt_matmul,
+                     false))
+      addIntelLib("-lmatmul", CmdArgs, Args);
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -841,9 +889,17 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back("-limf");
     CmdArgs.push_back("-lm");
   }
-  // Add -ldl for -mkl
-  if (Args.hasArg(options::OPT_mkl_EQ))
-    CmdArgs.push_back("-ldl");
+  if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs)) {
+    // Add libirc to resolve any Intel and libimf references
+    if (Args.hasArg(options::OPT_shared_intel))
+      addIntelLib("-lintlc", CmdArgs, Args);
+    else
+      addIntelLib("-lirc", CmdArgs, Args);
+
+    // Add -ldl for -mkl
+    if (Args.hasArg(options::OPT_mkl_EQ))
+      CmdArgs.push_back("-ldl");
+  }
 #endif // INTEL_CUSTOMIZATION
 
   // Silence warnings when linking C code with a C++ '-stdlib' argument.
@@ -884,16 +940,29 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       if (ToolChain.GetCXXStdlibType(Args) == ToolChain::CST_Libcxx &&
           Args.hasArg(options::OPT__intel))
         WantPthread = true;
+      // -debug parallel implies pthread
+      if (const Arg *A = Args.getLastArg(options::OPT_intel_debug_Group))
+        if (StringRef(A->getValue()) == "parallel")
+          WantPthread = true;
 #endif // INTEL_CUSTOMIZATION
 
       AddRunTimeLibs(ToolChain, D, CmdArgs, Args);
 
       if (Args.hasArg(options::OPT_fsycl)) {
+#if INTEL_CUSTOMIZATION
+        bool curStaticLinkState = isStaticLinkState(CmdArgs);
+        if (curStaticLinkState)
+          CmdArgs.push_back("-Bdynamic");
+#endif // INTEL_CUSTOMIZATION
         CmdArgs.push_back("-lsycl");
         // Use of -fintelfpga implies -lOpenCL.
         // FIXME: Adjust to use plugin interface when available.
         if (Args.hasArg(options::OPT_fintelfpga))
           CmdArgs.push_back("-lOpenCL");
+#if INTEL_CUSTOMIZATION
+        if (curStaticLinkState)
+          CmdArgs.push_back("-Bstatic");
+#endif // INTEL_CUSTOMIZATION
       }
 
       if (WantPthread && !isAndroid)
@@ -920,6 +989,10 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         CmdArgs.push_back("-lsoftfp");
         CmdArgs.push_back("--no-as-needed");
       }
+#if INTEL_CUSTOMIZATION
+      if (Args.hasArg(options::OPT__intel))
+        addIntelLib("-lirc_s", CmdArgs, Args);
+#endif // INTEL_CUSTOMIZATION
     }
 
     if (!Args.hasArg(options::OPT_nostartfiles) && !IsIAMCU) {
@@ -949,9 +1022,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     }
   }
 
-  // Add HIP offloading linker script args if required.
-  AddHIPLinkerScript(getToolChain(), C, Output, Inputs, Args, CmdArgs, JA,
-                     *this);
+  Args.AddAllArgs(CmdArgs, options::OPT_T);
 
   const char *Exec = Args.MakeArgString(ToolChain.GetLinkerPath());
   C.addCommand(std::make_unique<Command>(JA, *this, Exec, CmdArgs, Inputs));
@@ -2170,6 +2241,33 @@ void Generic_GCC::GCCInstallationDetector::init(
                                        D.PrefixDirs.end());
 
   StringRef GCCToolchainDir = getGCCToolchainDir(Args, D.SysRoot);
+#if INTEL_CUSTOMIZATION
+  if (Args.hasArg(options::OPT__intel) &&
+      !Args.hasArg(options::OPT_gcc_toolchain)) {
+    // Check the location of where gcc is being picked up.  If it is not
+    // located in the expected /usr/bin, use '..' as the sysroot.  Only do
+    // this for --intel
+    StringRef GCCName("gcc");
+    if (D.CCCIsCXX())
+      GCCName = "g++";
+
+    if (llvm::ErrorOr<std::string> Gcc =
+            llvm::sys::findProgramByName(GCCName)) {
+      StringRef Exec(Gcc.get());
+      if (!Exec.startswith("/usr/bin")) {
+        SmallString<128> GccDir(Exec);
+        llvm::sys::path::remove_filename(GccDir);
+        llvm::sys::path::remove_filename(GccDir);
+        // One last check for bin/lib, if those exist assume that
+        // the location is valid and use it.
+        if (llvm::sys::fs::exists(Twine(GccDir) + "/lib") &&
+            llvm::sys::fs::exists(Twine(GccDir) + "/include") &&
+            llvm::sys::fs::exists(Twine(GccDir) + "/bin"))
+          GCCToolchainDir = Args.MakeArgString(GccDir);
+      }
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
   if (GCCToolchainDir != "") {
     if (GCCToolchainDir.back() == '/')
       GCCToolchainDir = GCCToolchainDir.drop_back(); // remove the /
@@ -2905,7 +3003,7 @@ bool Generic_GCC::GCCInstallationDetector::ScanGentooGccConfig(
 Generic_GCC::Generic_GCC(const Driver &D, const llvm::Triple &Triple,
                          const ArgList &Args)
     : ToolChain(D, Triple, Args), GCCInstallation(D),
-      CudaInstallation(D, Triple, Args) {
+      CudaInstallation(D, Triple, Args), RocmInstallation(D, Triple, Args) {
   getProgramPaths().push_back(getDriver().getInstalledDir());
   if (getDriver().getInstalledDir() != getDriver().Dir)
     getProgramPaths().push_back(getDriver().Dir);
@@ -3191,7 +3289,6 @@ static std::string DetectLibcxxIncludePath(llvm::vfs::FileSystem &vfs,
 void
 Generic_GCC::addLibCxxIncludePaths(const llvm::opt::ArgList &DriverArgs,
                                    llvm::opt::ArgStringList &CC1Args) const {
-  const std::string& SysRoot = getDriver().SysRoot;
   auto AddIncludePath = [&](std::string Path) {
     std::string IncludePath = DetectLibcxxIncludePath(getVFS(), Path);
     if (IncludePath.empty() || !getVFS().exists(IncludePath))
@@ -3207,6 +3304,7 @@ Generic_GCC::addLibCxxIncludePaths(const llvm::opt::ArgList &DriverArgs,
   // If this is a development, non-installed, clang, libcxx will
   // not be found at ../include/c++ but it likely to be found at
   // one of the following two locations:
+  std::string SysRoot = computeSysRoot();
   if (AddIncludePath(SysRoot + "/usr/local/include/c++"))
     return;
   if (AddIncludePath(SysRoot + "/usr/include/c++"))

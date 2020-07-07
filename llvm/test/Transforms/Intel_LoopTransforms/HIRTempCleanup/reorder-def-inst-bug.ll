@@ -9,7 +9,7 @@
 ; CHECK: + DO i1 = 0, 1431655765 * %.pr + -1, 1   <DO_LOOP>
 ; CHECK: |   %hir.de.ssa.copy1.out = %2;
 ; CHECK: |   %2 = %2  >>  7;
-; CHECK: |   %or = %2 + -1 * %hir.de.ssa.copy1.out  ||  7;
+; CHECK: |   %or = %2 + -1 * %hir.de.ssa.copy1.out  |  7;
 ; CHECK: |   (@a)[0] = %or;
 ; CHECK: |   %3 = (%0)[0];
 ; CHECK: |   %2 = %2  +  %3;

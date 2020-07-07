@@ -57,7 +57,8 @@ static cl::opt<bool> PreserveUniformCFG(
 // contains {P3, P4, P5, OR1}.
 // The process iterates until we have only one element in the Worklist (OR4).
 // The last element is the root predicate which is returned.
-VPValue *VPlanPredicator::genPredicateTree(std::list<VPValue *> &Worklist) {
+VPValue *VPlanPredicator::genPredicateTree(std::list<VPValue *> &Worklist,
+                                           VPBuilder &Builder) {
   if (Worklist.empty())
     return nullptr;
 
@@ -96,14 +97,10 @@ VPValue *VPlanPredicator::getOrCreateNot(VPValue *Cond) {
     return It->second;
 
   auto *Inst = dyn_cast<VPInstruction>(Cond);
-  VPBuilder::InsertPointGuard Guard(Builder);
-  if (Inst)
-    Builder.setInsertPoint(Inst->getParent(), ++Inst->getIterator());
-  else
-    Builder.setInsertPoint(Plan.getEntryBlock());
-
-  auto *Not = Builder.createNot(Cond, Cond->getName() + ".not");
-
+  auto *Not = (Inst ? VPBuilder().setInsertPoint(Inst->getParent(),
+                                                 ++Inst->getIterator())
+                    : VPBuilder().setInsertPoint(Plan.getEntryBlock()))
+                  .createNot(Cond, Cond->getName() + ".not");
   Plan.getVPlanDA()->updateDivergence(*Not);
 
   Cond2NotCond[Cond] = Not;
@@ -231,14 +228,14 @@ void VPlanPredicator::calculatePredicateTerms(VPBasicBlock *CurrBlock) {
                       << "}\n");
     Uniform &= Block2PredicateTermsAndUniformity[InfluenceBB].second;
     Uniform &= !Plan.getVPlanDA()->isDivergent(*Cond);
-    assert((Cond || CurrBlock == InfluenceBB->getSuccessors()[0]) &&
+    assert((Cond || CurrBlock == InfluenceBB->getSuccessor(0)) &&
            "Single predecessor on false edge?");
     // Cond == nullptr would just mean that PredBB's predicate should be used.
     // Still ok.
     PredicateTerm Term(
         InfluenceBB, Cond,
         !VPPostDomTree.dominates(CurrBlock,
-                                 InfluenceBB->getSuccessors()[0]) /* Negate */);
+                                 InfluenceBB->getSuccessor(0)) /* Negate */);
     Block2PredicateTermsAndUniformity[CurrBlock].first.push_back(Term);
     PredicateTerm2UseBlocks[Term].push_back(CurrBlock);
   }
@@ -267,15 +264,13 @@ VPlanPredicator::createDefiningValueForPredicateTerm(PredicateTerm Term) {
   if (!Val)
     return Predicate;
 
-  VPBuilder::InsertPointGuard Guard(Builder);
   // TODO: Don't do splitting once we start preserving uniform control flow
   // and the Block is uniform.
-  Builder.setInsertPoint(Block);
   // TODO: Once we start presrving uniform control flow, there will be no
   // need to create "and" for uniform predicate that is true on all incoming
   // edges.
-  Val = Builder.createAnd(Predicate, Val,
-                          Block->getName() + ".br." + Val->getName());
+  Val = VPBuilder().setInsertPoint(Block).createAnd(
+      Predicate, Val, Block->getName() + ".br." + Val->getName());
   Plan.getVPlanDA()->updateDivergence(*Val);
   if (!BlocksToSplit.count(Block))
     BlocksToSplit[Block] = cast<VPInstruction>(Val);
@@ -387,8 +382,8 @@ bool VPlanPredicator::shouldPreserveOutgoingEdges(VPBasicBlock *Block) {
 
     assert(Block->getNumSuccessors() == 2 &&
            "While and/or multi-exit loops aren't expected!");
-    assert(Block->getSuccessors()[0]->getNumPredecessors() +
-                   Block->getSuccessors()[1]->getNumPredecessors() ==
+    assert(Block->getSuccessor(0)->getNumPredecessors() +
+                   Block->getSuccessor(1)->getNumPredecessors() ==
                3 &&
            "Not in loop-simplified form?");
     assert(!Plan.getVPlanDA()->isDivergent(*Block->getCondBit()) &&
@@ -482,9 +477,8 @@ void VPlanPredicator::linearizeRegion() {
           }
           // TODO: This code should turn to just dropping the terminator and
           // creating a new one.
-          for (VPBasicBlock *Succ : Src->getSuccessors())
-            VPBlockUtils::disconnectBlocks(Src, Succ);
-          VPBlockUtils::connectBlocks(Src, TargetToKeep);
+          Src->clearSuccessors();
+          Src->appendSuccessor(TargetToKeep);
         };
 
     for (auto *Pred : RemainingDivergentEdges) {
@@ -669,7 +663,8 @@ void VPlanPredicator::transformPhisToBlends(VPBasicBlock *Block) {
       OrigPhiToMergeMap[OrigPhi] = MergePhi;
     }
 
-    for (VPBasicBlock *PredBB : BBForMerge->getPredecessors()) {
+    SmallVector<VPBasicBlock *, 8> Preds(BBForMerge->getPredecessors());
+    for (VPBasicBlock *PredBB : Preds) {
       // For each incoming edge, see what incoming values of the original phi
       // have to be blended over that edge.
       SmallVector<VPBasicBlock *, 4> BBToBlend;
@@ -684,6 +679,33 @@ void VPlanPredicator::transformPhisToBlends(VPBasicBlock *Block) {
           !(BBForMerge == Block && ForceFinalPhiToBlendTransform))
         continue;
 
+      // VPBlendInst requires its operands to be in sorted order.
+      sort(BBToBlend, [&](const VPBasicBlock *LHS, const VPBasicBlock *RHS) {
+        return !VPPostDomTree.dominates(LHS, RHS);
+      });
+
+      // Create the blends outside the actual CFG first. We need to do that to
+      // keep CFG intact as any modifictations might invalidate the information
+      // carried in the PHIs' incoming blocks.
+      MapVector<VPBlendInst *, VPPHINode *> BlendsMap;
+      for (VPPHINode *OrigPhi : Phis) {
+        auto *Blend = new VPBlendInst(OrigPhi->getType());
+        Blend->setName(OrigPhi->getName() + ".blend." + PredBB->getName());
+        // TODO: This is needed only because of HIR Mixed CG limitations.
+        Blend->copyUnderlyingFrom(*OrigPhi);
+
+        for (auto *IncomingBB : BBToBlend) {
+          Blend->addIncoming(OrigPhi->getIncomingValue(IncomingBB),
+                             IncomingBB->getPredicate(), &Plan);
+          OrigPhi->removeIncomingValue(IncomingBB);
+        }
+
+        VPPHINode *MergePhi = OrigPhiToMergeMap[OrigPhi];
+        BlendsMap[Blend] = MergePhi;
+      }
+
+      // Now determine actual insertion place for the blends created earlier and
+      // insert them.
       VPBuilder BlendBuilder;
       VPBasicBlock *BlendBB;
       if (BBForMerge == Block && ForceFinalPhiToBlendTransform) {
@@ -692,35 +714,18 @@ void VPlanPredicator::transformPhisToBlends(VPBasicBlock *Block) {
         // ForceFinalPhiToBlendTransform at the end of this routine.
         BlendBuilder.setInsertPointAfterBlends(Block);
       } else {
+        // This is the operation we wanted to delay as the split can rewrite
+        // dest block's phis.
         BlendBB = VPBlockUtils::splitEdge(
             PredBB, BBForMerge, VPlanUtils::createUniqueName("blend.bb"), VPLI,
             &VPDomTree, &VPPostDomTree);
         BlendBuilder.setInsertPoint(BlendBB);
       }
-
-      // VPBlendInst requires its operands to be in sorted order.
-      sort(BBToBlend, [&](const VPBasicBlock *LHS, const VPBasicBlock *RHS) {
-        return !VPPostDomTree.dominates(LHS, RHS);
-      });
-
-      for (VPPHINode *OrigPhi : Phis) {
-        auto *Blend = BlendBuilder.createBlendInstruction(
-            OrigPhi->getType(),
-            OrigPhi->getName() + ".blend." + PredBB->getName());
-        // TODO: This is needed only because of HIR Mixed CG limitations.
-        Blend->copyUnderlyingFrom(*OrigPhi);
-
-        for (auto *IncomingBB : BBToBlend) {
-          Blend->addIncoming(OrigPhi->getIncomingValue(IncomingBB),
-                             IncomingBB->getPredicate());
-          OrigPhi->removeIncomingValue(IncomingBB);
-        }
-
-        // MergePhi might be the same as OrigPhi, insert the incoming blend
-        // after removals are done.
-        VPPHINode *MergePhi = OrigPhiToMergeMap[OrigPhi];
-        MergePhi->addIncoming(Blend, BlendBB);
+      for (auto It : BlendsMap) {
+        BlendBuilder.insert(It.first);
+        It.second->addIncoming(It.first, BlendBB);
       }
+
     }
 
     // We've already removed the incoming values from original phis that are
@@ -797,7 +802,7 @@ void VPlanPredicator::fixupUniformInnerLoops() {
     LLVM_DEBUG(dbgs() << "Fixing up uniform loop with header "
                       << Header->getName() << "\n");
 
-    bool BackEdgeIsFalseSucc = Latch->getSuccessors()[1] == Header;
+    bool BackEdgeIsFalseSucc = Latch->getSuccessor(1) == Header;
     VPBuilder Builder;
     Builder.setInsertPoint(Latch);
     auto *NewAllZeroCheck = Builder.createAllZeroCheck(Predicate);
@@ -893,9 +898,8 @@ void VPlanPredicator::emitPredicates() {
 
       if (Predicate &&
           (!shouldPreserveUniformBranches() || DA->isDivergent(*Predicate))) {
-        VPBuilder::InsertPointGuard Guard(Builder);
-        Builder.setInsertPointAfterBlends(Block);
-        auto *BlockPredicateInst = Builder.createPred(Predicate);
+        auto *BlockPredicateInst =
+            VPBuilder().setInsertPointAfterBlends(Block).createPred(Predicate);
         Block->setBlockPredicate(BlockPredicateInst);
         Plan.getVPlanDA()->updateDivergence(*BlockPredicateInst);
       }
@@ -910,10 +914,10 @@ void VPlanPredicator::emitPredicates() {
       if (auto *Val = getOrCreateValueForPredicateTerm(Term, Block))
         IncomingConditions.push_back(Val);
 
-    VPBuilder::InsertPointGuard Guard(Builder);
+    VPBuilder Builder;
     Builder.setInsertPointAfterBlends(Block);
 
-    auto *Predicate = genPredicateTree(IncomingConditions);
+    auto *Predicate = genPredicateTree(IncomingConditions, Builder);
     Block2Predicate[Block] = Predicate;
     if (Predicate &&
         (!shouldPreserveUniformBranches() || DA->isDivergent(*Predicate))) {
@@ -953,7 +957,7 @@ void VPlanPredicator::predicate(void) {
   //   - The correct phi placement during phi-to-blend processing requires IDF
   //     algorithm as well and is another reason to separate the steps.
   // It does *NOT* update condBits as they're used later for predicates
-  // creation. We probably need to fix this for the explicit VPTerminators.
+  // creation. We probably need to fix this for the explicit VPBranchInsts.
   if (!SearchLoopHack)
     linearizeRegion();
 

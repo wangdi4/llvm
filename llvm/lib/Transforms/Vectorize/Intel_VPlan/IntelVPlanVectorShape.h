@@ -32,8 +32,11 @@ public:
     Seq      = 1, // Elements are consecutive
     Str      = 2, // Elements are in strides
     Rnd      = 3, // Unknown or non-consecutive order
-    Undef    = 4, // Undefined shape
-    NumDescs = 5
+    SOASeq   = 4, // Elements are consecutive under SOA-layout.
+    SOAStr   = 5, // Elements are in strides under SOA-layout.
+    SOARnd   = 6, // Unknown or non-consecutive stride under SOA-layout.
+    Undef    = 7, // Undefined shape
+    NumDescs = 8
   };
 
   // describes how the contents of a vector vary with the vectorized dimension
@@ -69,7 +72,8 @@ public:
   }
 
   bool isUnitStride() const {
-    return (Desc == VPShapeDescriptor::Seq);
+    return (Desc == VPShapeDescriptor::Seq ||
+            Desc == VPShapeDescriptor::SOASeq);
   }
 
   bool isStrided() const {
@@ -84,11 +88,25 @@ public:
   bool isAnyStrided() const { return isAnyStrided(Desc); }
 
   static bool isAnyStrided(VPShapeDescriptor Desc) {
-    return (Desc == VPShapeDescriptor::Seq || Desc == VPShapeDescriptor::Str);
+    return (Desc == VPShapeDescriptor::Seq || Desc == VPShapeDescriptor::Str ||
+            Desc == VPShapeDescriptor::SOASeq ||
+            Desc == VPShapeDescriptor::SOAStr);
   }
 
   bool isRandom() const {
     return (Desc == VPShapeDescriptor::Rnd);
+  }
+
+  bool isSOAUnitStride() const {
+    return (Desc == VPShapeDescriptor::SOASeq);
+  }
+
+  bool isSOAStrided() const {
+    return (Desc == VPShapeDescriptor::SOAStr);
+  }
+
+  bool isSOARandom() const {
+    return (Desc == VPShapeDescriptor::SOARnd);
   }
 
   bool isUndefined() const {
@@ -100,32 +118,10 @@ public:
     return new VPVectorShape(getShapeDescriptor(), getStride());
   }
 
-  VPShapeDescriptor getShapeDescriptor() const {
-    if (isUniform())
-      return VPShapeDescriptor::Uni;
-    if (isUnitStride())
-      return VPShapeDescriptor::Seq;
-    if (isStrided())
-      return VPShapeDescriptor::Str;
-    if (isRandom())
-      return VPShapeDescriptor::Rnd;
-    if (isUndefined())
-      return VPShapeDescriptor::Undef;
-    llvm_unreachable("Descriptor not supported");
-  }
+  VPShapeDescriptor getShapeDescriptor() const { return Desc; }
 
   StringRef getShapeDescriptorStr() const {
-    if (isUniform())
-      return "Uniform";
-    if (isUnitStride())
-      return "Unit Stride";
-    if (isStrided())
-      return "Strided";
-    if (isRandom())
-      return "Random";
-    if (isUndefined())
-      return "Undef";
-    llvm_unreachable("Descriptor not supported");
+    return getShapeDescriptorStr(Desc);
   }
 
   static StringRef getShapeDescriptorStr(VPShapeDescriptor Desc) {
@@ -138,6 +134,12 @@ public:
         return "Strided";
       case VPShapeDescriptor::Rnd:
         return "Random";
+      case VPShapeDescriptor::SOASeq:
+        return "SOA Unit Stride";
+      case VPShapeDescriptor::SOAStr:
+        return "SOA Strided";
+      case VPShapeDescriptor::SOARnd:
+        return "SOA Random";
       case VPShapeDescriptor::Undef:
         return "Undef";
       default:
@@ -156,9 +158,11 @@ public:
     OS << "[Shape: " << getShapeDescriptorStr();
     if (isAnyStrided()) {
       OS << ", Stride: ";
-      if (hasKnownStride())
+      if (hasKnownStride()) {
+        if (isSOAStrided())
+          OS << "VF x ";
         Stride->dump(OS);
-      else
+      } else
         OS << "?";
     }
     OS << ']';

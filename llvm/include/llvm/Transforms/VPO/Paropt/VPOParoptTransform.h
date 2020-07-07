@@ -353,12 +353,14 @@ private:
   /// Extract the type and size of local Alloca to be created to privatize
   /// \p OrigValue.
   /// \param [in] OrigValue Input Value
+  /// \param [in] OrigValueElemType Input Value's Element Type
   /// \param [out] ElementType Type of one element
   /// \param [out] NumElements Number of elements, in case \p OrigValue is
   /// an array, \b nullptr otherwise.
   /// \param [out] AddrSpace Address space of the input value object.
-  static void getItemInfoFromValue(Value *OrigValue, Type *&ElementType,
-                                   Value *&NumElements, unsigned &AddrSpace);
+  static void getItemInfoFromValue(Value *OrigValue, Type *OrigValueElemType,
+                                   Type *&ElementType, Value *&NumElements,
+                                   unsigned &AddrSpace);
 
   /// Extract the type and size of local Alloca to be created to privatize
   /// \p I.
@@ -369,13 +371,12 @@ private:
   static std::tuple<Type *, Value *, unsigned> getItemInfo(Item *I);
 
   /// Generate an optionally addrspacecast'ed pointer Value for the local copy
-  /// of \p OrigValue, with \p NameSuffix appended at the end of its name.
-  /// If new instructions need to be generated, they will be inserted
-  /// before \p InsertPt.
-  /// \p AllocaAddrSpace specifies address space in which the memory
-  /// for the privatized variable needs to be allocated. If it is
-  /// llvm::None, then the address space matches the default alloca's
-  /// address space, as specified by DataLayout. Note that some address
+  /// of \p OrigValue with \p OrigElemTy Element Type, with \p NameSuffix
+  /// appended at the end of its name. If new instructions need to be generated,
+  /// they will be inserted before \p InsertPt. \p AllocaAddrSpace specifies
+  /// address space in which the memory for the privatized variable needs to be
+  /// allocated. If it is llvm::None, then the address space matches the default
+  /// alloca's address space, as specified by DataLayout. Note that some address
   /// spaces may require allocating the private version of the variable
   /// as a GlobalVariable, not as an AllocaInst.
   /// If \p PreserveAddressSpace is true, then the generated Value
@@ -384,12 +385,11 @@ private:
   /// by \p AllocaAddrSpace.
   //  FIXME: get rid of PreserveAddressSpace, when PromoteMemToReg
   //         supports AddrSpaceCastInst.
-  Value *genPrivatizationAlloca(
-      Value *OrigValue,
-      Instruction *InsertPt,
-      const Twine &NameSuffix = "",
-      llvm::Optional<unsigned> AllocaAddrSpace = llvm::None,
-      bool PreserveAddressSpace = true) const;
+  Value *
+  genPrivatizationAlloca(Value *OrigValue, Type *OrigElemTy,
+                         Instruction *InsertPt, const Twine &NameSuffix = "",
+                         llvm::Optional<unsigned> AllocaAddrSpace = llvm::None,
+                         bool PreserveAddressSpace = true) const;
 
   /// Generate an optionally addrspacecast'ed pointer Value for the local copy
   /// of ClauseItem \I for various data-sharing clauses like private,
@@ -555,6 +555,14 @@ private:
   /// Generate the reduction code for reduction clause.
   bool genReductionCode(WRegionNode *W);
 
+  // Fast reduction mode: none, tree reduction and atomic.
+  // Used for return value of checkFastReduction.
+  enum FastReductionMode : int {
+    FastReductionNoneMode = 0,
+    FastReductionTreeOnlyMode = 1,
+    FastReductionAtomicMode = 2
+  };
+
   /// Check if it's array reduction (type of reduction variable is array).
   bool isArrayReduction(ReductionItem *I);
 
@@ -563,11 +571,35 @@ private:
   int checkFastReduction(WRegionNode *W);
 
   /// Generate the tree-like reduction callback routine
-  RDECL genFastReductionRoutine(WRegionNode *W, StructType *FastRedStructTy);
+  RDECL genFastRedCallback(WRegionNode *W, StructType *FastRedStructTy);
 
   /// Create struct type and variable for fast reduction.
-  std::pair<StructType *, Value *> createFastRedTyAndVar(WRegionNode *W,
-                                                         int FastReduction);
+  std::pair<StructType *, Value *> genFastRedTyAndVar(WRegionNode *W,
+                                                      int FastReduction);
+
+  /// Generate the code to copy local reduction variable to local variable for
+  /// fast reduction.
+  void genFastRedCopy(ReductionItem *RedI, Value *Dst, Value *Src,
+                      Instruction *InsertPt, DominatorTree *DT,
+                      bool NoNeedToOffsetOrDerefOldV = false);
+
+  /// Generate copy code for scalar type.
+  void genFastRedScalarCopy(Value *Dst, Value *Src, IRBuilder<> &Builder);
+
+  /// Generate copy code for aggregate type.
+  void genFastRedAggregateCopy(ReductionItem *RedI, Value *Src, Value *Dst,
+                               Instruction *InsertPt, DominatorTree *DT,
+                               bool NoNeedToOffsetOrDerefOldV = false);
+
+  /// Generate private reduction variable for fast reduction.
+  Value *genFastRedPrivateVariable(ReductionItem *RedI, unsigned ItemIndex,
+                                   Type *FastRedStructTy, Value *FastRedInst,
+                                   Instruction *InsertPt);
+
+  /// Generate reduce blocks for tree and atomic reduction.
+  void genFastReduceBB(WRegionNode *W, FastReductionMode Mode,
+                       StructType *FastRedStructTy, Value *FastRedVar,
+                       BasicBlock *EntryBB, BasicBlock *EndBB);
 
   /// For the given region \p W returns a BasicBlock, where
   /// new alloca instructions may be inserted.
@@ -897,6 +929,9 @@ private:
   void fixThreadedEntryFormalParmName(WRegionNode *W,
                                       Function *NFn);
 
+  /// Utility to find Alignment of the COPYIN Variable passed.
+  unsigned getAlignmentCopyIn(Value *V, const DataLayout DL);
+
   /// Generate the copy code for the copyin variables.
   void genTpvCopyIn(WRegionNode *W,
                     Function *NFn);
@@ -930,6 +965,54 @@ private:
 
   /// Reset the value of \p V in OpenMP clauses of \p W to be empty.
   void resetValueInOmpClauseGeneric(WRegionNode *W, Value *V);
+
+  /// \name Utilities to emit kmpc_spmd_push/pop_num_threads for offloading.
+  ///
+  /// Code generation like this is needed to support `omp_get_num_threads()`
+  /// in user code when hierarchical parallelism is used.
+  ///
+  /// \code
+  ///   #pragma omp target
+  ///   {
+  ///     __kmpc_spmd_push_num_threads(1);
+  ///       ...
+  ///       __kmpc_spmd_pop_num_threads();
+  ///       #pragma omp parallel
+  ///       {}
+  ///       __kmpc_spmd_push_num_threads(1)
+  ///       ...
+  ///     __kmpc_spmd_pop_num_threads();
+  ///   }
+  /// \endcode
+  ///
+  /// Note that these calls are emitted only if the current module
+  /// contains `omp_get_num_threads` function, to avoid performance impact
+  /// of these calls and the barriers associated with them.
+  ///
+  /// Emission of these calls can also be disabled using the command line flag:
+  ///   -vpo-paropt-simulate-get-num-threads-in-target=false
+  ///
+  /// @{
+  ///
+  /// Inserts calls to `__kmpc_spmd_pop_num_threads` and
+  /// `__kmpc_spmd_push_num_threads` around \p W. If \p InsideRegion is \b true,
+  /// the pop call is inserted after \p W's entry directive, and the push call
+  /// is inserted before \p W's exit directive. Otherwise, the pop call is
+  /// inserted before the entry directive, and push call is inserted after the
+  /// exit directive. By default, \p InsideRegion is false.
+  bool callPopPushNumThreadsAtRegionBoundary(WRegionNode *W,
+                                             bool InsideRegion = false);
+
+  /// Inserts calls to `__kmpc_spmd_push_num_threads` and
+  /// `__kmpc_spmd_pop_num_threads` around \p W. If \p InsideRegion is \b true,
+  /// the push call is inserted after \p W's entry directive, and the pop call
+  /// is inserted before \p W's exit directive. Otherwise, the push call is
+  /// inserted before the entry directive, and pop call is inserted after the
+  /// exit directive. By default, \p InsideRegion is false.
+  bool callPushPopNumThreadsAtRegionBoundary(WRegionNode *W,
+                                             bool InsideRegion = false);
+
+  /// @}
 
   /// Generate the code for the directive omp target
   bool genTargetOffloadingCode(WRegionNode *W);
@@ -1417,6 +1500,34 @@ private:
   static CallInst* isFenceCall(Instruction *I);
 
   /// Collect the live-in value for the phis at the loop header.
+  /// Collect the live-out set for the loop.
+  /// "LiveIn" Values are PHINode values with one incoming value from Loop
+  /// preheader and others from other basic blocks/Loop Latch.
+  /// A defined Value is considered "LiveOut" if it is used outside the loop or
+  /// it has loop-carried dependence. A variable has loop-carried dependence if
+  /// it is present in "LiveIn" set of the Loop.
+  /// LoopInductionVariables are not included in the sets,since they are handled
+  /// in a special way using threadID.
+  /// Eg:
+  /// LoopHeader:                             %preds=LoopPreheader, LoopLatch
+  ///  %phi0 = (0 LoopPreheader, %phi3 LoopLatch)
+  ///  %phi1 = (0 LoopPreheader, %add LoopLatch)
+  ///  %phi2 = (0 LoopPreheader, %phi4 LoopLatch)
+  /// ....
+  ///
+  /// LoopBody1:
+  ///  %add = phi1 + 1
+  /// ....
+  ///
+  /// LoopLatch:                                  %preds=LoopBody1, LoopBody2
+  ///  %phi3 = (1 LoopBody1, 1 LoopBody2) <<- PHI inserted in
+  ///                                         updateConstantLoopHeaderPhis()
+  ///  %phi4 = (%phi2 LoopBody2, 1 LoopBody1)
+  ///  ...
+  ///  br LoopHeader
+  ///
+  /// LiveIn : %phi3, %add, %phi4
+  /// LiveOut: %add, %phi3, %phi4
   void wrnUpdateSSAPreprocess(
       Loop *L,
       DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap,
@@ -1444,7 +1555,7 @@ private:
 
   /// Build the equivalence class for the value a, b if there exists some
   /// phi node e.g. a = phi(b).
-  void buildECs(Loop *L, PHINode *PN, EquivalenceClasses<Value *> &ECs);
+  void buildECs(Loop *L, Value *PN, EquivalenceClasses<Value *> &ECs);
 
   /// The utility to build the equivalence class for the value phi.
   void AnalyzePhisECs(Loop *L, Value *PV, Value *V,
@@ -1452,9 +1563,10 @@ private:
                       SmallPtrSet<PHINode *, 16> &PhiUsers);
 
   /// Collect the live-out values for a given loop.
-  void wrnCollectLiveOutVals(Loop &L,
-                             SmallSetVector<Instruction *, 8> &LiveOutVals,
-                             EquivalenceClasses<Value *> &ECs);
+  void wrnCollectLiveOutVals(
+      Loop &L, SmallSetVector<Instruction *, 8> &LiveOutVals,
+      DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap,
+      EquivalenceClasses<Value *> &ECs);
 
   /// The utility to update the liveout set from the given BB.
   void wrnUpdateLiveOutVals(Loop *L, BasicBlock *BB,
@@ -1560,6 +1672,14 @@ private:
 
   /// Replace the use of OldV within region W with the value NewV.
   void replaceUseWithinRegion(WRegionNode *W, Value *OldV, Value *NewV);
+
+  /// \returns \b true if current Module contains the function
+  /// `omp_get_num_threads`, \b false otherwise.
+  bool moduleHasOmpGetNumThreadsFunction();
+
+  /// \returns \b true if current function is marked with
+  /// `openmp-declare-target=true` attribute, \b false otherwise.
+  bool isFunctionOpenMPTargetDeclare();
 
   /// Return true if one of the region W's ancestor is OMP target
   /// construct or the function where W lies in has target declare attribute.

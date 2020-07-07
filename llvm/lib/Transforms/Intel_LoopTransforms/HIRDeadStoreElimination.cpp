@@ -513,7 +513,7 @@ bool HIRDeadStoreElimination::doSingleItemGroup(
 
   // Skip if there is either incoming or outgoing edges to|from the Ref.
   DDGraph DDG = HDDA.getGraph(&Region);
-  if (DDG.getNumIncomingFlowEdges(Ref) || DDG.getNumOutgoingEdges(Ref)) {
+  if (DDG.getTotalNumIncomingFlowEdges(Ref) || DDG.getNumOutgoingEdges(Ref)) {
     return false;
   }
 

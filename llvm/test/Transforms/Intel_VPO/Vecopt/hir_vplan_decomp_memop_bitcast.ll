@@ -19,15 +19,15 @@
 ; <12>      + END LOOP
 
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-simplify-cfg -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-print-after-simplify-cfg -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-simplify-cfg -vplan-dump-subscript-details -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-print-after-simplify-cfg -vplan-dump-subscript-details -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check decomposed VPInstructions
 ; CHECK: i64 [[I1:%vp.*]] = phi
-; CHECK-NEXT: i32* [[GEP1:%vp.*]] = getelementptr inbounds [1024 x i32]* @arr i64 0 i64 [[I1]]
-; CHECK-NEXT: float** [[GEP2:%vp.*]] = getelementptr inbounds [1024 x float*]* @ip i64 0 i64 [[I1]]
-; CHECK-NEXT: i32** [[BITCAST:%vp.*]] = bitcast float** [[GEP2]]
-; CHECK-NEXT: store i32* [[GEP1]] i32** [[BITCAST]]
+; CHECK-NEXT: i32* [[ADDR1:%vp.*]] = subscript inbounds [1024 x i32]* @arr {i64 0 : i64 0 : i64 4096 : [1024 x i32]*} {i64 0 : i64 [[I1]] : i64 4 : [1024 x i32]}
+; CHECK-NEXT: float** [[ADDR2:%vp.*]] = subscript inbounds [1024 x float*]* @ip {i64 0 : i64 0 : i64 8192 : [1024 x float*]*} {i64 0 : i64 [[I1]] : i64 8 : [1024 x float*]}
+; CHECK-NEXT: i32** [[BITCAST:%vp.*]] = bitcast float** [[ADDR2]]
+; CHECK-NEXT: store i32* [[ADDR1]] i32** [[BITCAST]]
 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

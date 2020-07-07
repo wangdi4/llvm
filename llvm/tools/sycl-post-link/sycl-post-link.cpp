@@ -22,6 +22,7 @@
 
 #include "SpecConstants.h"
 #include "llvm/ADT/SetVector.h"
+#include "llvm/ADT/Triple.h" // INTEL_CUSTOMIZATION
 #include "llvm/Bitcode/BitcodeWriterPass.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/InstIterator.h"

@@ -81,6 +81,13 @@ def _SLASH_d1PP : CLFlag<"d1PP">,
 def _SLASH_d1reportAllClassLayout : CLFlag<"d1reportAllClassLayout">,
   HelpText<"Dump record layout information">,
   Alias<Xclang>, AliasArgs<["-fdump-record-layouts"]>;
+#if INTEL_CUSTOMIZATION
+def _SLASH_debug_COL : CLJoined<"debug:">, Alias<debug_EQ>,
+  HelpText<"Enable debug information. Valid args: none, all, full, minimal">;
+def _SLASH_debug_EQ : CLJoined<"debug=">, Alias<debug_EQ>;
+def _SLASH_debug_Flag : CLFlag<"debug">, Alias<debug_EQ>, AliasArgs<["full"]>,
+  HelpText<"Enable debug information">;
+#endif // INTEL_CUSTOMIZATION
 def _SLASH_diagnostics_caret : CLFlag<"diagnostics:caret">,
   HelpText<"Enable caret and column diagnostics (default)">;
 def _SLASH_diagnostics_column : CLFlag<"diagnostics:column">,
@@ -126,8 +133,10 @@ def _SLASH_help : CLFlag<"help">, Alias<help>,
   HelpText<"Display available options">;
 def _SLASH_HELP : CLFlag<"HELP">, Alias<help>;
 #if INTEL_CUSTOMIZATION
-def _SLASH_HASH : CLFlag<"#">, Alias<_HASH_HASH_HASH>,
+def _SLASH_HASH : CLFlag<"#">, Alias<_HASH>,
   HelpText<"Print (but do not run) the commands to run for this compilation">;
+def _SLASH_HASH_x : CLFlag<"#x">, Alias<HASH_x>,
+  HelpText<"Show commands to run and use verbose output">;
 #endif // INTEL_CUSTOMIZATION
 def _SLASH_I : CLJoinedOrSeparate<"I">,
   HelpText<"Add directory to include search path">, MetaVarName<"<dir>">,
@@ -147,6 +156,7 @@ def : CLFlag<"O2">, Alias<_SLASH_O>, AliasArgs<["2"]>,
 #if INTEL_CUSTOMIZATION
 def _SLASH_Oa :CLFlag<"Oa">, Alias<fno_alias>,
   HelpText<"Enables 'noalias' attribute for all pointer-type arguments">;
+def _SLASH_Ofast : CLFlag<"Ofast">, Alias<Ofast>;
 #endif // INTEL_CUSTOMIZATION
 def : CLFlag<"Ob0">, Alias<_SLASH_O>, AliasArgs<["b0"]>,
   HelpText<"Disable function inlining">;
@@ -187,6 +197,14 @@ def _SLASH_Qbuiltin : CLFlag<"Qbuiltin">, Alias<fbuiltin>;
 def _SLASH_fp_EQ : CLJoined<"fp=">, Alias<ffp_model_EQ>,
   HelpText<"Controls the semantics of floating-point calculations.">;
 def _SLASH_fp_COL : CLJoined<"fp:">, Alias<ffp_model_EQ>;
+def _SLASH_ax : CLJoined<"Qax">, Alias<ax>;
+def _SLASH_Qcf_protection_EQ : CLJoined<"Qcf-protection=">, Alias<fcf_protection_EQ>,
+  HelpText<"Instrument control-flow architecture protection. Options: return, branch, full, none.">;
+def _SLASH_Qcf_protection : CLFlag<"Qcf-protection">,
+  Alias<fcf_protection_EQ>, AliasArgs<["full"]>,
+  HelpText<"Enable cf-protection in 'full' mode">;
+def : CLFlag<"Qcommon">, Alias<fcommon>, HelpText<"Place uninitialized global "
+  "variables in a common block">;
 def _SLASH_Qfp_speculation_EQ : CLJoined<"Qfp-speculation=">, Alias<ffp_exception_behavior_EQ>,
   HelpText<"Specifies the exception behavior of floating-point operations.">;
 def _SLASH_Qfp_speculation_COL : CLJoined<"Qfp-speculation:">, Alias<ffp_exception_behavior_EQ>;
@@ -200,21 +218,68 @@ def _SLASH_Qfnalign_ : CLFlag<"Qfnalign-">, Alias<fno_align_functions>,
   HelpText<"Aligns on a 2-byte boundary">;
 def _SLASH_Qansi_alias_ : CLFlag<"Qansi-alias-">, Alias<fno_strict_aliasing>,
   HelpText<"disable use of ANSI aliasing rules optimizations">;
+def : CLFlag<"Qfreestanding">, Alias<ffreestanding>,
+  HelpText<"Assert that the compilation takes place in a freestanding environment">;
+def _SLASH_Qinstrument_functions : CLFlag<"Qinstrument-functions">,
+  Alias<finstrument_functions>, HelpText<"Generate calls to instrument "
+  "function entry and exit">;
+def _SLASH_Qinstrument_functions_ : CLFlag<"Qinstrument-functions-">,
+  Alias<fno_instrument_functions>;
 def _SLASH_Qipo : CLFlag<"Qipo">, Alias<flto>,
   HelpText<"Enable LTO in 'full' mode">;
+def _SLASH_QdD : CLFlag<"QdD">, Alias<dD>,
+  HelpText<"Print macro definitions in -E mode in addition to normal output.">;
+def _SLASH_QdM : CLFlag<"QdM">, Alias<dM>,
+  HelpText<"Print macro definitions in -E mode instead of normal output.">;
 def _SLASH_Qipo_ : CLFlag<"Qipo-">, Alias<fno_lto>,
   HelpText<"Disable LTO mode (default)">;
+def _SLASH_Qkeep_static_consts : CLFlag<"Qkeep-static-consts">,
+  Alias<fkeep_static_consts>, HelpText<"Enable the ability to preserve "
+  "allocation of variables that are not referenced in the source">;
+def _SLASH_Qkeep_static_consts_ : CLFlag<"Qkeep-static-consts-">,
+  Alias<fno_keep_static_consts>, HelpText<"Disable the ability to preserve "
+  "allocation of variables that are not referenced in the source">;
 def _SLASH_Qnextgen : CLFlag<"Qnextgen">, Alias<_intel>;
 def _SLASH_Qno_builtin_ : CLJoined<"Qno-builtin-">, Alias<fno_builtin_>,
   HelpText<"Disable implicit builtin knowledge of a specific function">;
 def _SLASH_Qopenmp : CLFlagNoDpcpp<"Qopenmp">, Alias<fopenmp>,
   HelpText<"Parse OpenMP pragmas and generate parallel code.">;
+def _SLASH_QopenmpP : CLFlagNoDpcpp<"QopenmpP">, Alias<fopenmp>,
+  HelpText<"Parse OpenMP pragmas and generate parallel code.">;
 def _SLASH_Qopenmp_ : CLFlagNoDpcpp<"Qopenmp-">, Alias<fno_openmp>,
+  HelpText<"Disable OpenMP support">;
+def _SLASH_QopenmpP_ : CLFlagNoDpcpp<"QopenmpP-">, Alias<fno_openmp>,
   HelpText<"Disable OpenMP support">;
 def _SLASH_Qiopenmp : CLFlag<"Qiopenmp">, Alias<fiopenmp>;
 def _SLASH_Qopenmp_simd : CLFlagNoDpcpp<"Qopenmp-simd">, Alias<fopenmp_simd>,
   HelpText<"Emit OpenMP code only for SIMD-based constructs.">;
 def _SLASH_Qopenmp_simd_ : CLFlagNoDpcpp<"Qopenmp-simd-">, Alias<fno_openmp_simd>;
+def _SLASH_Qpc : CLJoined<"Qpc">, Alias<pc>, HelpText<"Initialize X87 "
+  "floating point precision to single, double or double extended.  Valid "
+  "values of 32, 64, and 80.">;
+def _SLASH_Qpc_COL : CLJoined<"Qpc:">, Alias<pc>;
+def _SLASH_Qpc_EQ : CLJoined<"Qpc=">, Alias<pc>;
+def _SLASH_Qoption_COMMA : CLCommaJoined<"Qoption,">, Alias<Qoption_COMMA>,
+  HelpText<" Qoption,<tool>,<args> to pass the comma separated arguments to the"
+           " <tool>; <tool> can be asm for assembler (or) link/ld for linker"
+           " (or) preprocessor for preprocessor (or) compiler for compiler">,
+  MetaVarName<"<arg>">;
+def _SLASH_QM : CLFlag<"QM">, Alias<M>, HelpText<"Like -MD, but also implies "
+  "-E and writes to stdout by default">;
+def _SLASH_QMM : CLFlag<"QMM">, Alias<MM>, HelpText<"Like -MMD, but also "
+  "implies -E and writes to stdout by default.">;
+def _SLASH_QMG : CLFlag<"QMG">, Alias<MG>, HelpText<"Add missing headers to "
+  "depfile.">;
+def _SLASH_QMT : CLJoinedOrSeparate<"QMT">, Alias<MT>, HelpText<"Specify name "
+  "of main file output in depfile.">;
+def _SLASH_QMQ : CLJoinedOrSeparate<"QMQ">, Alias<MQ>, HelpText<"Specify name "
+  "of main file output to quote in depfile.">;
+def _SLASH_QMD : CLFlag<"QMD">, Alias<MD>, HelpText<"Write a depfile "
+  "containing user and system headers.">;
+def _SLASH_QMMD : CLFlag<"QMMD">, Alias<MMD>, HelpText<"Write a depfile "
+  "containing user headers.">;
+def _SLASH_QMF : CLJoinedOrSeparate<"QMF">, Alias<MF>, HelpText<"Write depfile "
+  "output from -MMD, -MD, -MM, or -M to <file>">, MetaVarName<"<file>">;
 def _SLASH_Qiopenmp_simd : CLFlagNoDpcpp<"Qiopenmp-simd">, Alias<fiopenmp_simd>;
 def _SLASH_Qopenmp_targets_EQ : CLCommaJoinedNoDpcpp<"Qopenmp-targets=">,
   Alias<fopenmp_targets_EQ>;
@@ -226,13 +291,18 @@ def _SLASH_Qopenmp_version_EQ : CLJoinedNoDpcpp<"Qopenmp-version=">,
 def _SLASH_Qopenmp_version_COL : CLJoinedNoDpcpp<"Qopenmp-version:">,
   Alias<fopenmp_version_EQ>, HelpText<"Choose which OpenMP version to"
   " link with.">;
+def _SLASH_Qopenmp_threadprivate_EQ : CLJoinedNoDpcpp<"Qopenmp-threadprivate=">,
+  Alias<qopenmp_threadprivate_EQ>;
+def _SLASH_Qopenmp_threadprivate_COL : CLJoinedNoDpcpp<"Qopenmp-threadprivate:">,
+  HelpText<"Choose which threadprivate implementation to use: compat or legacy.">,
+  Alias<qopenmp_threadprivate_EQ>;
 def _SLASH_Qopt_jump_tables : CLFlag<"Qopt-jump-tables">,
   Alias<fjump_tables>, HelpText<"Control the generation of jump tables">;
 def _SLASH_Qopt_jump_tables_ : CLFlag<"Qopt-jump-tables-">,
   Alias<fno_jump_tables>, HelpText<"Do not use jump tables for lowering switches">;
-def _SLASH_Qopt_matmul :CLFlag<"Qopt-matmul">, Alias<qopt_matmul>,
+def _SLASH_Qopt_matmul : CLFlag<"Qopt-matmul">, Alias<qopt_matmul>,
   HelpText<"Enables compiler-generated Matrix Multiply (matmul) library call">;
-def _SLASH_Qopt_matmul_ :CLFlag<"Qopt-matmul-">, Alias<qno_opt_matmul>,
+def _SLASH_Qopt_matmul_ : CLFlag<"Qopt-matmul-">, Alias<qno_opt_matmul>,
   HelpText<"Disables compiler-generated Matrix Multiply (matmul) library call">;
 def _SLASH_Qopt_mem_layout_trans_EQ : CLJoined<"Qopt-mem-layout-trans=">,
   Alias<qopt_mem_layout_trans_EQ>;
@@ -244,6 +314,12 @@ def _SLASH_Qopt_mem_layout_trans_COL : CLJoined<"Qopt-mem-layout-trans:">,
 def _SLASH_Qopt_mem_layout_trans_ : CLFlag<"Qopt-mem-layout-trans-">,
   Alias<qopt_mem_layout_trans_EQ>, AliasArgs<["0"]>,
   HelpText<"Disable memory layout transformations">;
+def _SLASH_Qopt_multiple_gather_scatter_by_shuffles : CLFlag<"Qopt-multiple-gather-scatter-by-shuffles">,
+  Alias<qopt_multiple_gather_scatter_by_shuffles>,
+  HelpText<"Enables the optimization for multiple adjacent gather/scatter type vector memory references">;
+def _SLASH_Qopt_multiple_gather_scatter_by_shuffles_ : CLFlag<"Qopt-multiple-gather-scatter-by-shuffles-">,
+  Alias<qno_opt_multiple_gather_scatter_by_shuffles>,
+  HelpText<"Disables the optimization for multiple adjacent gather/scatter type vector memory references">;
 def : CLJoined<"Qopt-zmm-usage:">, Alias<qopt_zmm_usage_EQ>,
   HelpText<"Specifies the level of zmm registers usage, low or high">;
 def : CLJoined<"Qopt-zmm-usage=">, Alias<qopt_zmm_usage_EQ>;
@@ -251,6 +327,8 @@ def : CLJoined<"Qstd=">, Alias<std_EQ>;
 def : CLJoined<"Qstd:">, Alias<std_EQ>, HelpText<"Language standard to compile for">;
 def _SLASH_Qstrict_overflow : CLFlag<"Qstrict-overflow">,
   Alias<fstrict_overflow>;
+def _SLASH_Qsave_temps : CLFlag<"Qsave-temps">, Alias<save_temps_EQ>,
+  HelpText<"Save intermediate compilation results">, AliasArgs<["cwd"]>;
 def _SLASH_Qno_strict_overflow : CLFlag<"Qno-strict-overflow">,
   Alias<fno_strict_overflow>;
 def _SLASH_Qstrict_overflow_ : CLFlag<"Qstrict-overflow-">,
@@ -304,22 +382,34 @@ def _SLASH_Qlong_double_ : CLFlag<"Qlong-double-">;
 def _SLASH_QH : CLFlag<"QH">, Alias<H>, HelpText<"Show header includes and "
   "nesting depth">;
 def _SLASH_Qimf_arch_consistency_EQ : CLJoined<"Qimf-arch-consistency=">,
+  Alias<fimf_arch_consistency_EQ>;
+def _SLASH_Qimf_arch_consistency_COL : CLJoined<"Qimf-arch-consistency:">,
   Alias<fimf_arch_consistency_EQ>,HelpText<"Ensures that the math library "
   "functions produce consistent results across different implementations "
   "of the same architecture">;
 def _SLASH_Qimf_max_error_EQ : CLJoined<"Qimf-max-error=">,
+  Alias<fimf_max_error_EQ>;
+def _SLASH_Qimf_max_error_COL : CLJoined<"Qimf-max-error:">,
   Alias<fimf_max_error_EQ>,HelpText<"defines the maximum allowable relative "
   "error, measured in ulps, for math library function results">;
 def _SLASH_Qimf_absolute_error_EQ : CLJoined<"Qimf-absolute-error=">,
+  Alias<fimf_absolute_error_EQ>;
+def _SLASH_Qimf_absolute_error_COL : CLJoined<"Qimf-absolute-error:">,
   Alias<fimf_absolute_error_EQ>,HelpText<"Define the maximum allowable "
   "absolute error for math library function results">;
 def _SLASH_Qimf_accuracy_bits_EQ : CLJoined<"Qimf-accuracy-bits=">,
+  Alias<fimf_accuracy_bits_EQ>;
+def _SLASH_Qimf_accuracy_bits_COL : CLJoined<"Qimf-accuracy-bits:">,
   Alias<fimf_accuracy_bits_EQ>,HelpText<"Define the relative error, measured "
   "by the number of correct bits,for math library function results">;
 def _SLASH_Qimf_domain_exclusion_EQ : CLJoined<"Qimf-domain-exclusion=">,
+  Alias<fimf_domain_exclusion_EQ>;
+def _SLASH_Qimf_domain_exclusion_COL : CLJoined<"Qimf-domain-exclusion:">,
   Alias<fimf_domain_exclusion_EQ>,HelpText<"Indicates the input arguments "
   "domain on which math functions must provide correct results.">;
 def _SLASH_Qimf_precision_EQ : CLJoined<"Qimf-precision=">,
+  Alias<fimf_precision_EQ>;
+def _SLASH_Qimf_precision_COL : CLJoined<"Qimf-precision:">,
   Alias<fimf_precision_EQ>,HelpText<"Defines the accuracy (precision) "
   "for math library functions.">;
 def _SLASH_Qtemplate_depth_COL : CLJoined<"Qtemplate-depth:">,
@@ -442,6 +532,7 @@ def _SLASH_Zp_flag : CLFlag<"Zp">,
 def _SLASH_Zs : CLFlag<"Zs">, HelpText<"Syntax-check only">,
   Alias<fsyntax_only>;
 #if INTEL_CUSTOMIZATION
+def _SLASH_ZI : CLFlag<"ZI">, Alias<_SLASH_Z7>, HelpText<"Like /Z7">;
 def _SLASH_openmp_ : CLFlagNoDpcpp<"openmp-">,
   HelpText<"Disable OpenMP support">, Alias<fno_openmp>;
 def _SLASH_openmp : CLFlagNoDpcpp<"openmp">, HelpText<"Enable OpenMP support">,
@@ -463,6 +554,10 @@ def _SLASH_volatile_Group : OptionGroup<"</volatile group>">,
 def _SLASH_EH : CLJoined<"EH">, HelpText<"Set exception handling model">;
 def _SLASH_EP : CLFlag<"EP">,
   HelpText<"Disable linemarker output and preprocess to stdout">;
+#if INTEL_CUSTOMIZATION
+def _SLASH_F : CLJoinedOrSeparate<"F">, HelpText<"Set the stack reserve amount "
+  "specified to the linker">;
+#endif // INTEL_CUSTOMIZATION
 def _SLASH_FA : CLFlag<"FA">,
   HelpText<"Output assembly code file during compilation">;
 def _SLASH_Fa : CLJoined<"Fa">,
@@ -584,6 +679,9 @@ def _SLASH_permissive_ : CLIgnoredFlag<"permissive-">;
 def _SLASH_RTC : CLIgnoredJoined<"RTC">;
 def _SLASH_sdl : CLIgnoredFlag<"sdl">;
 def _SLASH_sdl_ : CLIgnoredFlag<"sdl-">;
+#if INTEL_CUSTOMIZATION
+def _SLASH_tune_COL : CLIgnoredJoined<"tune:">;
+#endif // INTEL_CUSTOMIZATION
 def _SLASH_utf8 : CLIgnoredFlag<"utf-8">,
   HelpText<"Set source and runtime encoding to UTF-8 (default)">;
 def _SLASH_w : CLIgnoredJoined<"w">;
@@ -614,7 +712,9 @@ def _SLASH_d2 : CLJoined<"d2">;
 def _SLASH_doc : CLJoined<"doc">;
 def _SLASH_FA_joined : CLJoined<"FA">;
 def _SLASH_favor : CLJoined<"favor">;
+#ifndef INTEL_CUSTOMIZATION
 def _SLASH_F : CLJoinedOrSeparate<"F">;
+#endif // INTEL_CUSTOMIZATION
 def _SLASH_Fm : CLJoined<"Fm">;
 def _SLASH_Fr : CLJoined<"Fr">;
 def _SLASH_FR : CLJoined<"FR">;
@@ -658,5 +758,7 @@ def _SLASH_Za : CLFlag<"Za">;
 def _SLASH_Zc : CLJoined<"Zc:">;
 def _SLASH_Ze : CLFlag<"Ze">;
 def _SLASH_Zg : CLFlag<"Zg">;
+#ifndef INTEL_CUSTOMIZATION
 def _SLASH_ZI : CLFlag<"ZI">;
+#endif // !INTEL_CUSTOMIZATION
 def _SLASH_ZW : CLJoined<"ZW">;

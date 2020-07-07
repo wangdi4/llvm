@@ -20,7 +20,7 @@ void foo(int m1, int n1, int m2, int **b, int n2 )
   }
 
   // CHECK: DIR.OMP.SIMD
-  // CHECK: QUAL.OMP.LASTPRIVATE{{.*}}i32* %j
+  // CHECK: QUAL.OMP.LINEAR:IV{{.*}}i32* %j
   // CHECK: DIR.OMP.END.SIMD
   #pragma omp simd
   for (j=m2+1;j>n2;j-=a[m2]) {
@@ -28,7 +28,7 @@ void foo(int m1, int n1, int m2, int **b, int n2 )
   }
 
   // CHECK: DIR.OMP.SIMD
-  // CHECK-NOT: QUAL.OMP.LASTPRIVATE{{.*}}i32* %j
+  // CHECK: QUAL.OMP.LINEAR:IV{{.*}}i32* %j
   // CHECK: DIR.OMP.END.SIMD
   #pragma omp simd
   for (unsigned j=m2+1;j>n2;j-=a[m2]) {
@@ -36,7 +36,7 @@ void foo(int m1, int n1, int m2, int **b, int n2 )
   }
 
   // CHECK: DIR.OMP.SIMD
-  // CHECK: QUAL.OMP.LASTPRIVATE{{.*}}i32* @jg
+  // CHECK: QUAL.OMP.LINEAR:IV{{.*}}i32* @jg
   // CHECK: DIR.OMP.END.SIMD
   #pragma omp simd
   for (jg=m2+1;jg>n2;jg-=a[m2]) {

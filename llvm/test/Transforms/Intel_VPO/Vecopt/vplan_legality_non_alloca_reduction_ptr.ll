@@ -37,7 +37,7 @@ define internal void @test_legality_non_alloca(i8** %arr) #3 {
 ; CHECK-NEXT:     i32 [[VP_INDVARS_IV_NEXT]] = add i32 [[VP_INDVARS_IV]] i32 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; CHECK-NEXT:     i1 [[VP_CMP:%.*]] = icmp i32 1024 i32 [[VP_INDVARS_IV_NEXT]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB3:BB[0-9]+]](i1 [[VP_CMP]]), [[BB0]](!i1 [[VP_CMP]])
-; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[BB2]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB2]] [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]:
 ; CHECK-NEXT:     i32 [[VP_ZII_RED_CAST_RED_FINAL]] = reduction-final{u_add} i32 [[VP_ADD4]]

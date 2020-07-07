@@ -74,20 +74,20 @@ TEST(KernelReleaseTest, GetKernelRelease) {
   // with the spec-conformant behaviour of host device with default_selector.
   try {
     device dev{default_selector{}};
-  } catch (const runtime_error &re) {
+  } catch (const runtime_error &) {
     std::cerr << "Not run: no device available." << std::endl;
     return;
   }
 #endif // INTEL_CUSTOMIZATION
-  unittest::PiMock Mock;
-  platform Plt = Mock.getPlatform();
+  platform Plt{default_selector()};
   if (Plt.is_host()) {
-    std::cerr << "The program/kernel methods are mostly no-op on the host "
+    std::cout << "The program/kernel methods are mostly no-op on the host "
                  "device, the test is not run."
               << std::endl;
     return;
   }
 
+  unittest::PiMock Mock{Plt};
   Mock.redefine<detail::PiApiKind::piclProgramCreateWithSource>(
       redefinedProgramCreateWithSource);
   Mock.redefine<detail::PiApiKind::piProgramBuild>(redefinedProgramBuild);

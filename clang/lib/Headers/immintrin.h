@@ -382,22 +382,47 @@
 #endif
 
 /* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ISA_AVX_DOTPROD */
+/* INTEL_FEATURE_ISA_AVX_DOTPROD_INT8 */
+#if defined(__AVXDOTPRODINT8_SUPPORTED__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVXDOTPRODINT8__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <avxdotprodint8/avxdotprodint8intrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_AVX_DOTPROD_INT8 */
+
+/* INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS */
 /*
  * FIXME: When _Float16 type is supported, this should be:
- * "if defined(__AVXDOTPROD_SUPPORTED__)
+ * "if defined(__AVXDOTPRODPHPS_SUPPORTED__)
  * "!(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||
- * defined(__AVX_DOTPROD__) || defined(__M_INTRINSIC_PROMOTE__)"
+ * defined(__AVX_DOTPRODPHPS__) || defined(__M_INTRINSIC_PROMOTE__)"
  *
  */
-#if defined(__AVXDOTPROD__) && defined(__AVX512FP16__)
-#include <avxdotprod/avxdotprodintrin.h>
+#if defined(__AVXDOTPRODPHPS__) && defined(__AVX512FP16__)
+#include <avxdotprodphps/avxdotprodphpsintrin.h>
 #endif
-/* end INTEL_FEATURE_ISA_AVX_DOTPROD */
+/* end INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS */
 /* end INTEL_CUSTOMIZATION */
 
 /* INTEL_CUSTOMIZATION */
-/* INTEL_FEATURE_ISA_AVX512_DOTPROD */
+/* INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8 */
+#if defined(__AVX512DOTPRODINT8_SUPPORTED__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+      defined(__AVX512DOTPRODINT8__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <avx512dotprodint8/avx512dotprodint8intrin.h>
+#endif
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    (defined(__AVX512VL__) && defined(__AVX512DOTPRODINT8__)) ||                      \
+    defined(__M_INTRINSIC_PROMOTE__)
+#include <avx512dotprodint8/avx512vldotprodint8intrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8 */
+/* end INTEL_CUSTOMIZATION */
+
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS */
 /*
  * FIXME: When _Float16 type is supported, this should be:
  * "if defined(__AVX512DOTPROD_SUPPORTED__)
@@ -405,13 +430,13 @@
  * defined(__AVX512_DOTPROD__) || defined(__M_INTRINSIC_PROMOTE__)"
  *
  */
-#if defined(__AVX512DOTPROD__)
-#include <avx512dotprod/avx512dotprodintrin.h>
+#if defined(__AVX512DOTPRODPHPS__)
+#include <avx512dotprodphps/avx512dotprodphpsintrin.h>
 #endif
-#if defined(__AVX512VL__) && defined(__AVX512DOTPROD__)
-#include <avx512dotprod/avx512vldotprodintrin.h>
+#if defined(__AVX512VL__) && defined(__AVX512DOTPRODPHPS__)
+#include <avx512dotprodphps/avx512vldotprodphpsintrin.h>
 #endif
-/* end INTEL_FEATURE_ISA_AVX512_DOTPROD */
+/* end INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS */
 /* end INTEL_CUSTOMIZATION */
 
 /* INTEL_CUSTOMIZATION */
@@ -445,6 +470,17 @@
 #include <avx512convert/avx512vlconvertintrin.h>
 #endif
 /* end INTEL_FEATURE_ISA_AVX512_CONVERT */
+/* end INTEL_CUSTOMIZATION */
+
+/* INTEL_CUSTOMIZATION */
+/* INTEL_FEATURE_ISA_AVX_COMPRESS */
+#if defined(__AVXCOMPRESS_SUPPORTED__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVXCOMPRESS__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <avxcompress/avxcompressintrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_AVX_COMPRESS */
 /* end INTEL_CUSTOMIZATION */
 
 /* INTEL_CUSTOMIZATION */
@@ -812,14 +848,14 @@ _storebe_i64(void * __P, long long __D) {
 #endif
 /* end INTEL_FEATURE_ISA_AMX_BF16_EVEX */
 
-/* INTEL_FEATURE_ISA_AMX_CONVERT_EVEX */
-#if defined(__AMX_CONVERTEVEX_SUPPORTED__)
+/* INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX */
+#if defined(__AMX_ELEMENTEVEX_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AMX_CONVERTEVEX__) || defined(__M_INTRINSIC_PROMOTE__)
-#include <Intel_amxconvertevexintrin.h>
+    defined(__AMX_ELEMENTEVEX__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <Intel_amxelementevexintrin.h>
 #endif
 #endif
-/* end INTEL_FEATURE_ISA_AMX_CONVERT_EVEX */
+/* end INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX */
 
 /* INTEL_FEATURE_ISA_AMX_INT8_EVEX */
 #if defined(__AMX_INT8EVEX_SUPPORTED__)

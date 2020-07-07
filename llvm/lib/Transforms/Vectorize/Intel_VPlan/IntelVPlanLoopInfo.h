@@ -28,6 +28,7 @@ class VPBasicBlock;
 class VPValue;
 class VPInstruction;
 class VPlanDivergenceAnalysis;
+class VPlanScalVecAnalysis;
 class VPLoop;
 
 struct TripCountInfo {
@@ -72,7 +73,8 @@ public:
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printRPOT(raw_ostream &OS, const VPLoopInfo *VPLI = nullptr,
                  unsigned Indent = 0,
-                 const VPlanDivergenceAnalysis *DA = nullptr) const;
+                 const VPlanDivergenceAnalysis *DA = nullptr,
+                 const VPlanScalVecAnalysis *SVA = nullptr) const;
 
   LLVM_DUMP_METHOD void dump() const { print(dbgs()); }
   LLVM_DUMP_METHOD void dumpVerbose() const {
@@ -86,7 +88,7 @@ public:
 
   using TripCountTy = TripCountInfo::TripCountTy;
   void setTripCountInfo(TripCountInfo TCInfo);
-  TripCountInfo getTripCountInfo();
+  TripCountInfo getTripCountInfo() const;
   void setKnownTripCount(TripCountTy TripCount) {
     setTripCountInfo(TripCountInfo::getKnownTripCountInfo(TripCount));
   }

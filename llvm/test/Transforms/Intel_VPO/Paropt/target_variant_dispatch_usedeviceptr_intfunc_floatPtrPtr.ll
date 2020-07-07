@@ -42,22 +42,33 @@
 ; BUFFPTR-DAG: [[CAST2:%[a-zA-Z._0-9]+]] = bitcast i8* %{{.*}} to float*
 ; BUFFPTR: call i32 @foo_gpu(float* [[CAST1]], float* [[CAST2]]
 ;
-; When -vpo-paropt-use-raw-dev-ptr=false which is default
-; See comment in target_variant_dispatch_usedeviceptr_intfunc.ll for the
-; expected IR. The main differences here are the extra bitcast and load instructions
-; in the variant.call BasicBlock:
-; variant.call:
+; When -vpo-paropt-use-raw-dev-ptr=true, tgt_target_data_begin/end are used to obtain
+; the device pointers for @a_cpu and %b_cpu, and the map-type for target data is
+; TGT_PARAM | TGT_RETURN_PARAM (96):
+
 ;  %a_cpu.cast = bitcast i8** %5 to float**
 ;  %b_cpu.cast = bitcast i8** %9 to float**
 ;  %a_cpu.buffer.cast = load float*, float** %a_cpu.cast, align 8
 ;  %b_cpu.buffer.cast = load float*, float** %b_cpu.cast, align 8
 ;  %variant = call i32 @foo_gpu(float* %a_cpu.buffer.cast, float* %b_cpu.buffer.cast, i32 77777)
+
+; RAWPTR: @.offload_maptypes = private unnamed_addr constant [2 x i64] [i64 96, i64 96]
 ; RAWPTR: variant.call:
-; RAWPTR-DAG: [[CAST1:%[a-zA-Z._0-9]+]] = bitcast i8** %{{.*}} to float**
-; RAWPTR-DAG: [[CAST2:%[a-zA-Z._0-9]+]] = bitcast i8** %{{.*}} to float**
-; RAWPTR-DAG: [[CASTLD1:%[a-zA-Z._0-9]+]] = load float*, float** [[CAST1]]
-; RAWPTR-DAG: [[CASTLD2:%[a-zA-Z._0-9]+]] = load float*, float** [[CAST2]]
-; RAWPTR: call i32 @foo_gpu(float* [[CASTLD1]], float* [[CASTLD2]]
+; RAWPTR: [[A_LOAD:%[^ ]+]] = load float*, float** @a_cpu, align 8
+; RAWPTR: [[B_LOAD:%[^ ]+]] = load float*, float** %b_cpu, align 8
+; RAWPTR: [[A_LOAD_CAST:%[^ ]+]] = bitcast float* [[A_LOAD]] to i8*
+; RAWPTR: [[A_GEP:%[^ ]+]] = getelementptr inbounds [2 x i8*], [2 x i8*]* %.offload_baseptrs, i32 0, i32 0
+; RAWPTR: store i8* [[A_LOAD_CAST]], i8** [[A_GEP]], align 8
+; RAWPTR: [[B_LOAD_CAST:%[^ ]+]] = bitcast float* [[B_LOAD]] to i8*
+; RAWPTR: [[B_GEP:%[^ ]+]] = getelementptr inbounds [2 x i8*], [2 x i8*]* %.offload_baseptrs, i32 0, i32 1
+; RAWPTR: store i8* [[B_LOAD_CAST]], i8** [[B_GEP]], align 8
+; RAWPTR: call void @__tgt_target_data_begin({{.*}})
+; RAWPTR: [[A_GEP_CAST:%[^ ]+]] = bitcast i8** [[A_GEP]] to float**
+; RAWPTR: [[B_GEP_CAST:%[^ ]+]] = bitcast i8** [[B_GEP]] to float**
+; RAWPTR: [[A_UPDATED:%[^ ]+]] = load float*, float** [[A_GEP_CAST]], align 8
+; RAWPTR: [[B_UPDATED:%[^ ]+]] = load float*, float** [[B_GEP_CAST]], align 8
+; RAWPTR: call i32 @foo_gpu(float* [[A_UPDATED]], float* [[B_UPDATED]], i32 77777)
+; RAWPTR: call void @__tgt_target_data_end({{.*}})
 
 source_filename = "target_variant_dispatch_usedeviceptr_intfunc_floatStar.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

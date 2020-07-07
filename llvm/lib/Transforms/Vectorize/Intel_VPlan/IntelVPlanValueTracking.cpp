@@ -24,7 +24,8 @@ using namespace llvm::vpo;
 
 KnownBits VPlanValueTrackingLLVM::getKnownBits(VPlanSCEV *Expr,
                                                VPInstruction *CtxI) {
-  auto *UnderCtxI = CtxI->isUnderlyingIRValid()
+  // FIXME: CtxI == NULL should probably mean the entry to the main loop.
+  auto *UnderCtxI = (CtxI && CtxI->isUnderlyingIRValid())
                         ? cast<Instruction>(CtxI->getUnderlyingValue())
                         : nullptr;
   return getKnownBitsImpl(VPSE->toSCEV(Expr), UnderCtxI);
@@ -56,6 +57,21 @@ KnownBits VPlanValueTrackingLLVM::getKnownBitsImpl(const SCEV *Scev,
       KB = KnownBits::computeForAddSub(true, NSW, KB, OpKB);
     }
 
+    return KB;
+  }
+
+  if (auto *ScevMul = dyn_cast<SCEVMulExpr>(Scev)) {
+    // There's no public KnownBits API to compute known bits for the result of
+    // multiplication. So, the only thing we do ourselves here is just computing
+    // the number of low zero bits.
+    int NZero = 0;
+    for (auto *Op : ScevMul->operands()) {
+      KnownBits OpKB = getKnownBitsImpl(Op, CtxI);
+      NZero += OpKB.Zero.countTrailingOnes();
+    }
+
+    KnownBits KB(BitWidth);
+    KB.Zero.setBits(0, NZero);
     return KB;
   }
 

@@ -250,7 +250,7 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
         AllowScalarExpansion(AllowScalarExpansion) {}
 
   void processOutgoingEdges(const DDRef *Ref, EdgeNodeMapTy &EdgeMap) {
-    DenseMap<HLNode *, DistPPNode *> &HLNodeToDistPPNode = DistG->getNodeMap();
+    auto &HLNodeToDistPPNode = DistG->getNodeMap();
 
     for (auto *Edge : LoopDDGraph.outgoing(Ref)) {
       HLDDNode *DstDDNode = Edge->getSink()->getHLDDNode();
@@ -353,7 +353,7 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
 
   void visit(HLDDNode *DDNode) {
     // src of edge is a node inside loop, which must have a dist node
-    DenseMap<HLNode *, DistPPNode *> &HLNodeToDistPPNode = DistG->getNodeMap();
+    auto &HLNodeToDistPPNode = DistG->getNodeMap();
     DistPPNode *SrcDistPPNode = HLNodeToDistPPNode[DDNode];
     assert(SrcDistPPNode && "Missing dist node");
 

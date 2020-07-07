@@ -61,7 +61,13 @@ std::string X86_MC::ParseX86Triple(const Triple &TT) {
 }
 
 unsigned X86_MC::getDwarfRegFlavour(const Triple &TT, bool isEH) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  if (TT.getArch() == Triple::x86_icecode || TT.getArch() == Triple::x86_64)
+#else // INTEL_FEATURE_ICECODE
   if (TT.getArch() == Triple::x86_64)
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
     return DWARFFlavour::X86_64;
 
   if (TT.isOSDarwin())
@@ -310,7 +316,14 @@ static MCInstrInfo *createX86MCInstrInfo() {
 }
 
 static MCRegisterInfo *createX86MCRegisterInfo(const Triple &TT) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  unsigned RA = (TT.getArch() == Triple::x86_icecode ||
+                 TT.getArch() == Triple::x86_64)
+#else // INTEL_FEATURE_ICECODE
   unsigned RA = (TT.getArch() == Triple::x86_64)
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
                     ? X86::RIP  // Should have dwarf #16.
                     : X86::EIP; // Should have dwarf #8.
 
@@ -324,7 +337,14 @@ static MCRegisterInfo *createX86MCRegisterInfo(const Triple &TT) {
 static MCAsmInfo *createX86MCAsmInfo(const MCRegisterInfo &MRI,
                                      const Triple &TheTriple,
                                      const MCTargetOptions &Options) {
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+  bool is64Bit = TheTriple.getArch() == Triple::x86_icecode ||
+                 TheTriple.getArch() == Triple::x86_64;
+#else // INTEL_FEATURE_ICECODE
   bool is64Bit = TheTriple.getArch() == Triple::x86_64;
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
 
   MCAsmInfo *MAI;
   if (TheTriple.isOSBinFormatMachO()) {
@@ -355,7 +375,7 @@ static MCAsmInfo *createX86MCAsmInfo(const MCRegisterInfo &MRI,
 
   // Initial state of the frame pointer is esp+stackGrowth.
   unsigned StackPtr = is64Bit ? X86::RSP : X86::ESP;
-  MCCFIInstruction Inst = MCCFIInstruction::createDefCfa(
+  MCCFIInstruction Inst = MCCFIInstruction::cfiDefCfa(
       nullptr, MRI.getDwarfRegNum(StackPtr, true), -stackGrowth);
   MAI->addInitialFrameState(Inst);
 
@@ -521,6 +541,11 @@ std::vector<std::pair<uint64_t, uint64_t>> X86MCInstrAnalysis::findPltEntries(
     case Triple::x86:
       return findX86PltEntries(PltSectionVA, PltContents, GotPltSectionVA);
     case Triple::x86_64:
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+    case Triple::x86_icecode:
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
       return findX86_64PltEntries(PltSectionVA, PltContents);
     default:
       return {};

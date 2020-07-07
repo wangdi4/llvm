@@ -1,6 +1,6 @@
+; REQUIRES: asserts
 ; RUN: opt < %s -whole-program-assume -dtransanalysis -debug-only=dtrans-lpa-results -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -passes='require<dtransanalysis>' -debug-only=dtrans-lpa-results -disable-output 2>&1 | FileCheck %s
-; REQUIRES: asserts
 
 ; This test uses IR from the cyclical.ll and cyclical-dbg.ll tests,
 ; but used to check that the dtrans-lpa-results trace output shows the
@@ -56,16 +56,21 @@
 ; CHECK:       Aliased types:
 ; CHECK:         %struct.test01.a*
 ; CHECK:       No element pointees.
+; CHECK:       DomTy: %struct.test01.a*
+
 ; CHECK:     Arg 1: %struct.test01.b* %b_in
 ; CHECK:     LocalPointerInfo:
 ; CHECK:       Aliased types:
 ; CHECK:         %struct.test01.b*
 ; CHECK:       No element pointees.
+; CHECK:       DomTy: %struct.test01.b*
+
 ; CHECK:     Arg 2: %struct.test01.c* %c_in
 ; CHECK:     LocalPointerInfo:
 ; CHECK:       Aliased types:
 ; CHECK:         %struct.test01.c*
 ; CHECK:       No element pointees.
+; CHECK:       DomTy: %struct.test01.c*
 define void @test01(%struct.test01.a* %a_in,
                     %struct.test01.b* %b_in,
                     %struct.test01.c* %c_in) {
@@ -79,6 +84,7 @@ entry:
 ; CHECK:        %struct.test01.a*
 ; CHECK:        i8*
 ; CHECK:      No element pointees.
+; CHECK:      DomTy: %struct.test01.a*
 
   %tmpB = bitcast %struct.test01.b* %b_in to i8*
 ; CHECK: %tmpB = bitcast %struct.test01.b* %b_in to i8*
@@ -87,6 +93,7 @@ entry:
 ; CHECK:        %struct.test01.b*
 ; CHECK:        i8*
 ; CHECK:      No element pointees.
+; CHECK:      DomTy: %struct.test01.b*
 
   %tmpC = bitcast %struct.test01.c* %c_in to i8*
 ; CHECK: %tmpC = bitcast %struct.test01.c* %c_in to i8*
@@ -95,6 +102,7 @@ entry:
 ; CHECK:        %struct.test01.c*
 ; CHECK:        i8*
 ; CHECK:      No element pointees.
+; CHECK:      DomTy: %struct.test01.c*
 
   br i1 undef, label %block_A, label %block_BorC
 
@@ -111,6 +119,7 @@ block_C:
 ; CHECK:        %struct.test01.c*
 ; CHECK:        i8*
 ; CHECK:      No element pointees.
+; CHECK:      Ambiguous Dominant Type
 
   br i1 undef, label %merge, label %block_AorB
 
@@ -127,6 +136,7 @@ block_A:
 ; CHECK:        %struct.test01.c*
 ; CHECK:        i8*
 ; CHECK:      No element pointees.
+; CHECK:      Ambiguous Dominant Type
 
   br i1 undef, label %merge_AorC, label %exit_A
 
@@ -143,6 +153,7 @@ block_B:
 ; CHECK:        %struct.test01.c*
 ; CHECK:        i8*
 ; CHECK:      No element pointees.
+; CHECK:      Ambiguous Dominant Type
 
   br i1 undef, label %merge_BorC, label %exit_B
 
@@ -159,6 +170,7 @@ merge:
 ; CHECK:        %struct.test01.c*
 ; CHECK:        i8*
 ; CHECK:      No element pointees.
+; CHECK:      Ambiguous Dominant Type
 
   br i1 undef, label %block_A, label %block_B
 
@@ -172,6 +184,7 @@ exit_A:
 ; CHECK:        %struct.test01.c*
 ; CHECK:        i8*
 ; CHECK:      No element pointees.
+; CHECK:      Ambiguous Dominant Type
 
   br label %exit
 
@@ -195,11 +208,14 @@ exit:
 ; CHECK:      Aliased types:
 ; CHECK:        %struct.test02.a*
 ; CHECK:      No element pointees.
+; CHECK:      DomTy: %struct.test02.a*
+
 ; CHECK:    Arg 1: %struct.test02.b* %pb
 ; CHECK:    LocalPointerInfo:
 ; CHECK:      Aliased types:
 ; CHECK:        %struct.test02.b*
 ; CHECK:      No element pointees.
+; CHECK:      DomTy: %struct.test02.b*
 define void @test02(%struct.test02.a* %pa, %struct.test02.b* %pb) {
 ; CHECK-LABEL: define void @test02
 entry:
@@ -210,6 +226,7 @@ entry:
 ; CHECK:        i32*
 ; CHECK:      Element pointees:
 ; CHECK:        %struct.test02.a @ 1
+; CHECK:      No Dominant Type
 
   %pb.y = getelementptr %struct.test02.b, %struct.test02.b* %pb, i64 0, i32 1
 ; CHECK: %pb.y = getelementptr %struct.test02.b, %struct.test02.b* %pb, i64 0, i32 1
@@ -218,6 +235,7 @@ entry:
 ; CHECK:        i32*
 ; CHECK:      Element pointees:
 ; CHECK:        %struct.test02.b @ 1
+; CHECK:      No Dominant Type
 
   br i1 undef, label %block_A, label %block_B
 
@@ -230,6 +248,7 @@ block_C:
 ; CHECK:      Element pointees:
 ; CHECK:        %struct.test02.a @ 1
 ; CHECK:        %struct.test02.b @ 1
+; CHECK:      No Dominant Type
 
   %elem0 = load i32, i32* %y
   br label %merge
@@ -243,6 +262,7 @@ block_A:
 ; CHECK:      Element pointees:
 ; CHECK:        %struct.test02.a @ 1
 ; CHECK:        %struct.test02.b @ 1
+; CHECK:      No Dominant Type
 
   br i1 undef, label %block_C, label %exit
 
@@ -255,6 +275,7 @@ block_B:
 ; CHECK:      Element pointees:
 ; CHECK:        %struct.test02.a @ 1
 ; CHECK:        %struct.test02.b @ 1
+; CHECK:      No Dominant Type
 
   br i1 undef, label %block_C, label %exit
 
@@ -282,6 +303,7 @@ define void @test03() {
 ; CHECK:        %struct.test03*
 ; CHECK:        i8*
 ; CHECK:      No element pointees.
+; CHECK:      DomTy: %struct.test03*
 
   %B1 = bitcast i8* %M to %struct.test03*
 ; CHECK: %B1 = bitcast i8* %M to %struct.test03*
@@ -290,6 +312,7 @@ define void @test03() {
 ; CHECK:        %struct.test03*
 ; CHECK:        i8*
 ; CHECK:      No element pointees.
+; CHECK:      DomTy: %struct.test03*
 
   %GEP = getelementptr inbounds i8, i8* %M, i64 8
 ; CHECK: %GEP = getelementptr inbounds i8, i8* %M, i64 8
@@ -299,6 +322,7 @@ define void @test03() {
 ; CHECK:        i8*
 ; CHECK:      Element pointees:
 ; CHECK:        %struct.test03 @ 1
+; CHECK:      DomTy: %struct.test03**
 
   %B2 = bitcast i8* %GEP to i8**
 ; CHECK: %B2 = bitcast i8* %GEP to i8**
@@ -309,6 +333,7 @@ define void @test03() {
 ; CHECK:        i8**
 ; CHECK:      Element pointees:
 ; CHECK:        %struct.test03 @ 1
+; CHECK:      DomTy: %struct.test03**
 
   store i8* %M, i8** %B2, align 16
   call void @free(i8* %M)

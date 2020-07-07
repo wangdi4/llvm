@@ -548,16 +548,27 @@ void ASTStmtWriter::VisitExpr(Expr *E) {
 
 void ASTStmtWriter::VisitConstantExpr(ConstantExpr *E) {
   VisitExpr(E);
-  Record.push_back(static_cast<uint64_t>(E->ConstantExprBits.ResultKind));
+  Record.push_back(E->ConstantExprBits.ResultKind);
+
+  Record.push_back(E->ConstantExprBits.APValueKind);
+  Record.push_back(E->ConstantExprBits.IsUnsigned);
+  Record.push_back(E->ConstantExprBits.BitWidth);
+  // HasCleanup not serialized since we can just query the APValue.
+  Record.push_back(E->ConstantExprBits.IsImmediateInvocation);
+
   switch (E->ConstantExprBits.ResultKind) {
+  case ConstantExpr::RSK_None:
+    break;
   case ConstantExpr::RSK_Int64:
     Record.push_back(E->Int64Result());
-    Record.push_back(E->ConstantExprBits.IsUnsigned |
-                     E->ConstantExprBits.BitWidth << 1);
     break;
   case ConstantExpr::RSK_APValue:
     Record.AddAPValue(E->APValueResult());
+    break;
+  default:
+    llvm_unreachable("unexpected ResultKind!");
   }
+
   Record.AddStmt(E->getSubExpr());
   Code = serialization::EXPR_CONSTANT;
 }
@@ -768,6 +779,15 @@ void ASTStmtWriter::VisitArraySubscriptExpr(ArraySubscriptExpr *E) {
   VisitExpr(E);
   Record.AddStmt(E->getLHS());
   Record.AddStmt(E->getRHS());
+  Record.AddSourceLocation(E->getRBracketLoc());
+  Code = serialization::EXPR_ARRAY_SUBSCRIPT;
+}
+
+void ASTStmtWriter::VisitMatrixSubscriptExpr(MatrixSubscriptExpr *E) {
+  VisitExpr(E);
+  Record.AddStmt(E->getBase());
+  Record.AddStmt(E->getRowIdx());
+  Record.AddStmt(E->getColumnIdx());
   Record.AddSourceLocation(E->getRBracketLoc());
   Code = serialization::EXPR_ARRAY_SUBSCRIPT;
 }
@@ -1580,12 +1600,12 @@ void ASTStmtWriter::VisitCXXTemporaryObjectExpr(CXXTemporaryObjectExpr *E) {
 
 void ASTStmtWriter::VisitLambdaExpr(LambdaExpr *E) {
   VisitExpr(E);
-  Record.push_back(E->NumCaptures);
+  Record.push_back(E->LambdaExprBits.NumCaptures);
   Record.AddSourceRange(E->IntroducerRange);
-  Record.push_back(E->CaptureDefault); // FIXME: stable encoding
+  Record.push_back(E->LambdaExprBits.CaptureDefault); // FIXME: stable encoding
   Record.AddSourceLocation(E->CaptureDefaultLoc);
-  Record.push_back(E->ExplicitParams);
-  Record.push_back(E->ExplicitResultType);
+  Record.push_back(E->LambdaExprBits.ExplicitParams);
+  Record.push_back(E->LambdaExprBits.ExplicitResultType);
   Record.AddSourceLocation(E->ClosingBrace);
 
   // Add capture initializers.
@@ -1594,6 +1614,8 @@ void ASTStmtWriter::VisitLambdaExpr(LambdaExpr *E) {
        C != CEnd; ++C) {
     Record.AddStmt(*C);
   }
+
+  Record.AddStmt(E->getBody());
 
   Code = serialization::EXPR_LAMBDA;
 }
@@ -1630,6 +1652,11 @@ void ASTStmtWriter::VisitCXXConstCastExpr(CXXConstCastExpr *E) {
   Code = serialization::EXPR_CXX_CONST_CAST;
 }
 
+void ASTStmtWriter::VisitCXXAddrspaceCastExpr(CXXAddrspaceCastExpr *E) {
+  VisitCXXNamedCastExpr(E);
+  Code = serialization::EXPR_CXX_ADDRSPACE_CAST;
+}
+
 void ASTStmtWriter::VisitCXXFunctionalCastExpr(CXXFunctionalCastExpr *E) {
   VisitExplicitCastExpr(E);
   Record.AddSourceLocation(E->getLParenLoc());
@@ -1641,6 +1668,7 @@ void ASTStmtWriter::VisitBuiltinBitCastExpr(BuiltinBitCastExpr *E) {
   VisitExplicitCastExpr(E);
   Record.AddSourceLocation(E->getBeginLoc());
   Record.AddSourceLocation(E->getEndLoc());
+  Code = serialization::EXPR_BUILTIN_BIT_CAST;
 }
 
 void ASTStmtWriter::VisitUserDefinedLiteral(UserDefinedLiteral *E) {
@@ -2146,6 +2174,8 @@ void ASTStmtWriter::VisitOMPLoopDirective(OMPLoopDirective *D) {
   Record.AddStmt(D->getCond());
 #if INTEL_COLLAB
   Record.AddStmt(D->getLateOutlineCond());
+  Record.AddStmt(D->getLateOutlineLinearCounterStep());
+  Record.AddStmt(D->getLateOutlineLinearCounterIncrement());
 #endif // INTEL_COLLAB
   Record.AddStmt(D->getInit());
   Record.AddStmt(D->getInc());
@@ -2257,12 +2287,41 @@ void ASTStmtWriter::VisitOMPSectionDirective(OMPSectionDirective *D) {
 }
 
 #if INTEL_COLLAB
+void ASTStmtWriter::VisitOMPGenericLoopDirective(OMPGenericLoopDirective *D) {
+  VisitOMPLoopDirective(D);
+  Code = serialization::STMT_OMP_GENERIC_LOOP_DIRECTIVE;
+}
+
+void ASTStmtWriter::VisitOMPTeamsGenericLoopDirective(
+    OMPTeamsGenericLoopDirective *D) {
+  VisitOMPLoopDirective(D);
+  Code = serialization::STMT_OMP_TEAMS_GENERIC_LOOP_DIRECTIVE;
+}
+
+void ASTStmtWriter::VisitOMPTargetTeamsGenericLoopDirective(
+    OMPTargetTeamsGenericLoopDirective *D) {
+  VisitOMPLoopDirective(D);
+  Code = serialization::STMT_OMP_TARGET_TEAMS_GENERIC_LOOP_DIRECTIVE;
+}
+
+void ASTStmtWriter::VisitOMPParallelGenericLoopDirective(
+    OMPParallelGenericLoopDirective *D) {
+  VisitOMPLoopDirective(D);
+  Code = serialization::STMT_OMP_PARALLEL_GENERIC_LOOP_DIRECTIVE;
+}
+
 void ASTStmtWriter::VisitOMPTargetVariantDispatchDirective(
     OMPTargetVariantDispatchDirective *D) {
   VisitStmt(D);
   Record.push_back(D->getNumClauses());
   VisitOMPExecutableDirective(D);
   Code = serialization::STMT_OMP_TARGET_VARIANT_DISPATCH_DIRECTIVE;
+}
+
+void ASTStmtWriter::VisitOMPTargetParallelGenericLoopDirective(
+    OMPTargetParallelGenericLoopDirective *D) {
+  VisitOMPLoopDirective(D);
+  Code = serialization::STMT_OMP_TARGET_PARALLEL_GENERIC_LOOP_DIRECTIVE;
 }
 #endif // INTEL_COLLAB
 

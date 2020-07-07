@@ -61,6 +61,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/Analysis/TargetTransformInfo.h" // INTEL
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
@@ -556,6 +557,7 @@ public:
     AU.addRequired<MachineLoopInfo>();
     AU.addRequired<ProfileSummaryInfoWrapperPass>();
     AU.addRequired<TargetPassConfig>();
+    AU.addRequired<TargetTransformInfoWrapperPass>(); // INTEL
     MachineFunctionPass::getAnalysisUsage(AU);
   }
 };
@@ -573,6 +575,7 @@ INITIALIZE_PASS_DEPENDENCY(MachineBlockFrequencyInfo)
 INITIALIZE_PASS_DEPENDENCY(MachinePostDominatorTree)
 INITIALIZE_PASS_DEPENDENCY(MachineLoopInfo)
 INITIALIZE_PASS_DEPENDENCY(ProfileSummaryInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass) // INTEL
 INITIALIZE_PASS_END(MachineBlockPlacement, DEBUG_TYPE,
                     "Branch Probability Basic Block Placement", false, false)
 
@@ -2703,6 +2706,20 @@ void MachineBlockPlacement::buildCFGChains() {
     assert(!BadFunc && "Detected problems with the block placement.");
   });
 
+  // Remember original layout ordering, so we can update terminators after
+  // reordering to point to the original layout successor.
+  SmallVector<MachineBasicBlock *, 4> OriginalLayoutSuccessors(
+      F->getNumBlockIDs());
+  {
+    MachineBasicBlock *LastMBB = nullptr;
+    for (auto &MBB : *F) {
+      if (LastMBB != nullptr)
+        OriginalLayoutSuccessors[LastMBB->getNumber()] = &MBB;
+      LastMBB = &MBB;
+    }
+    OriginalLayoutSuccessors[F->back().getNumber()] = nullptr;
+  }
+
   // Splice the blocks into place.
   MachineFunction::iterator InsertPos = F->begin();
   LLVM_DEBUG(dbgs() << "[MBP] Function: " << F->getName() << "\n");
@@ -2760,15 +2777,18 @@ void MachineBlockPlacement::buildCFGChains() {
     //     TBB = FBB = nullptr;
     //   }
     // }
-    if (!TII->analyzeBranch(*PrevBB, TBB, FBB, Cond))
-      PrevBB->updateTerminator();
+    if (!TII->analyzeBranch(*PrevBB, TBB, FBB, Cond)) {
+      PrevBB->updateTerminator(OriginalLayoutSuccessors[PrevBB->getNumber()]);
+    }
   }
 
   // Fixup the last block.
   Cond.clear();
   MachineBasicBlock *TBB = nullptr, *FBB = nullptr; // For analyzeBranch.
-  if (!TII->analyzeBranch(F->back(), TBB, FBB, Cond))
-    F->back().updateTerminator();
+  if (!TII->analyzeBranch(F->back(), TBB, FBB, Cond)) {
+    MachineBasicBlock *PrevBB = &F->back();
+    PrevBB->updateTerminator(OriginalLayoutSuccessors[PrevBB->getNumber()]);
+  }
 
   BlockWorkList.clear();
   EHPadWorkList.clear();
@@ -2802,7 +2822,6 @@ void MachineBlockPlacement::optimizeBranches() {
         DebugLoc dl; // FIXME: this is nowhere
         TII->removeBranch(*ChainBB);
         TII->insertBranch(*ChainBB, FBB, TBB, Cond, dl);
-        ChainBB->updateTerminator();
       }
     }
   }
@@ -3348,6 +3367,29 @@ bool MachineBlockPlacement::runOnMachineFunction(MachineFunction &MF) {
         MBI->setAlignment(Align(1ULL << AlignAllNonFallThruBlocks));
     }
   }
+#if INTEL_CUSTOMIZATION
+  else if (!MF.getFunction().hasOptSize() &&
+           MF.getTarget().getOptLevel() >= CodeGenOpt::Aggressive &&
+           MF.getSubtarget().hasDSB()) {
+    const TargetTransformInfo *TTI =
+        &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(MF.getFunction());
+    auto TTIAVX512 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX512;
+    if (TTI && TTI->isAdvancedOptEnabled(TTIAVX512)) {
+      // Align all of the blocks that have no fall-through predecessors to DSB
+      // window size for better DSB utilization. The block's predecessor has an
+      // unconditional branch which is the last uOp occupying a DSB way and the
+      // alignment optimization will map the block and its predecessor to
+      // different DSB sets and increase their probabilities to fit in DSB since
+      // we usually have more sets (e.g 32) than ways of each set (e.g 8).
+      for (auto MBI = std::next(MF.begin()), MBE = MF.end(); MBI != MBE;
+           ++MBI) {
+        auto LayoutPred = std::prev(MBI);
+        if (!LayoutPred->isSuccessor(&*MBI))
+          MBI->setAlignment(Align(MF.getSubtarget().getDSBWindowSize()));
+      }
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
   if (ViewBlockLayoutWithBFI != GVDT_None &&
       (ViewBlockFreqFuncName.empty() ||
        F->getFunction().getName().equals(ViewBlockFreqFuncName))) {

@@ -78,7 +78,8 @@ bool VPLoop::isLiveOut(const VPInstruction* VPInst) const {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 void VPLoop::printRPOT(raw_ostream &OS, const VPLoopInfo *VPLI, unsigned Indent,
-                       const VPlanDivergenceAnalysis *DA) const {
+                       const VPlanDivergenceAnalysis *DA,
+                       const VPlanScalVecAnalysis *SVA) const {
   ReversePostOrderTraversal<
       const VPLoop *, VPLoopBodyTraits,
       std::set<std::pair<const VPLoop *, const VPBasicBlock *>>>
@@ -103,7 +104,7 @@ void VPLoop::printRPOT(raw_ostream &OS, const VPLoopInfo *VPLI, unsigned Indent,
       BBIndent +=
           (this->getLoopDepth() - VPLI->getLoopFor(BB)->getLoopDepth()) * 2;
 
-    BB->print(OS, BBIndent, DA, NamePrefix);
+    BB->print(OS, BBIndent, DA, SVA, NamePrefix);
   }
   OS << "\n";
 }
@@ -114,7 +115,7 @@ void VPLoop::setTripCountInfo(TripCountInfo TCInfo) {
   Latch->setTripCountInfo(std::make_unique<TripCountInfo>(TCInfo));
 }
 
-TripCountInfo VPLoop::getTripCountInfo() {
+TripCountInfo VPLoop::getTripCountInfo() const {
   VPBasicBlock *Latch = getLoopLatch();
   if (TripCountInfo *TCInfoPtr = Latch->getTripCountInfo())
     return *TCInfoPtr;

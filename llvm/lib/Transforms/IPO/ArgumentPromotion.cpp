@@ -43,7 +43,6 @@
 #include "llvm/Analysis/CGSCCPassManager.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
-#include "llvm/Analysis/Intel_AggInline.h"      // INTEL
 #include "llvm/Analysis/Intel_Andersens.h"      // INTEL
 #include "llvm/Analysis/Intel_WP.h"             // INTEL
 #include "llvm/Analysis/LazyCallGraph.h"
@@ -410,10 +409,7 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
     NewCS->setAttributes(
         AttributeList::get(F->getContext(), CallPAL.getFnAttributes(),
                            CallPAL.getRetAttributes(), ArgAttrVec));
-    NewCS->setDebugLoc(CB.getDebugLoc());
-    uint64_t W;
-    if (CB.extractProfTotalWeight(W))
-      NewCS->setProfWeight(W);
+    NewCS->copyMetadata(CB, {LLVMContext::MD_prof, LLVMContext::MD_dbg});
 #if INTEL_CUSTOMIZATION
     MDNode *MD = CB.getMetadata(LLVMContext::MD_intel_profx);
     if (MD)
@@ -494,9 +490,10 @@ doPromotion(Function *F, SmallPtrSetImpl<Argument *> &ArgsToPromote,
 
       // Just add all the struct element types.
       Type *AgTy = cast<PointerType>(I->getType())->getElementType();
-      Value *TheAlloca =
-          new AllocaInst(AgTy, DL.getAllocaAddrSpace(), nullptr,
-                         MaybeAlign(I->getParamAlignment()), "", InsertPt);
+      Value *TheAlloca = new AllocaInst(
+          AgTy, DL.getAllocaAddrSpace(), nullptr,
+          I->getParamAlign().getValueOr(DL.getPrefTypeAlign(AgTy)), "",
+          InsertPt);
       StructType *STy = cast<StructType>(AgTy);
       Value *Idxs[2] = {ConstantInt::get(Type::getInt32Ty(F->getContext()), 0),
                         nullptr};
@@ -1252,7 +1249,6 @@ PreservedAnalyses ArgumentPromotionPass::run(LazyCallGraph::SCC &C,
   PreservedAnalyses PA;
   PA.preserve<AndersensAA>();
   PA.preserve<WholeProgramAnalysis>();
-  PA.preserve<InlineAggAnalysis>();
   return PA;
 #endif // INTEL_CUSTOMIZATION
 }
@@ -1274,7 +1270,6 @@ struct ArgPromotion : public CallGraphSCCPass {
     AU.addRequired<TargetLibraryInfoWrapperPass>();
     AU.addPreserved<AndersensAAWrapperPass>();      // INTEL
     AU.addPreserved<WholeProgramWrapperPass>();     // INTEL
-    AU.addPreserved<InlineAggressiveWrapperPass>(); // INTEL
     AU.addRequired<TargetTransformInfoWrapperPass>();
     getAAResultsAnalysisUsage(AU);
     CallGraphSCCPass::getAnalysisUsage(AU);

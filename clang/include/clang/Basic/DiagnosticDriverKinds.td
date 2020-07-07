@@ -58,7 +58,7 @@ def err_drv_no_cuda_libdevice : Error<
 
 def err_drv_no_rocm_installation : Error<
   "cannot find ROCm installation.  Provide its path via --rocm-path, or pass "
-  "-nogpulib.">;
+  "-nogpulib and -nogpuinc to build without ROCm device library and HIP includes.">;
 def err_drv_no_rocm_device_lib : Error<
   "cannot find device library for %0. Provide path to different ROCm installation "
   "via --rocm-path, or pass -nogpulib to build without linking default libraries.">;
@@ -265,6 +265,9 @@ def err_drv_omp_host_target_not_supported : Error<
   "The target '%0' is not a supported OpenMP host target.">;
 def err_drv_expecting_fopenmp_with_fopenmp_targets : Error<
   "The option -fopenmp-targets must be used in conjunction with a -fopenmp option compatible with offloading, please use -fopenmp=libomp or -fopenmp=libiomp5.">;
+#if INTEL_CUSTOMIZATION
+def err_drv_fopenmp_targets_requires_fiopenmp : Error<"The use of '-fopenmp-targets=spir64' requires '-fiopenmp'.">;
+#endif // INTEL_CUSTOMIZATION
 def err_drv_expecting_fsycl_with_sycl_opt : Error<
   "The option %0 must be used in conjunction with -fsycl to enable offloading.">;
 def err_drv_fsycl_with_c_type : Error<
@@ -293,6 +296,12 @@ def warn_ignored_gcc_optimization : Warning<"optimization flag '%0' is not suppo
   InGroup<IgnoredOptimizationArgument>;
 def warn_ignored_clang_option : Warning<"the flag '%0' has been deprecated and will be ignored">,
   InGroup<UnusedCommandLineArgument>;
+#if INTEL_CUSTOMIZATION
+def warn_invalid_num_qopt : Warning<"Invalid number(%0) of arguments for the -Qoption, option ignored">,
+  InGroup<UnusedCommandLineArgument>;
+def warn_invalid_tool : Warning<"Invalid tool(%0) for the -Qoption, option ignored">,
+  InGroup<UnusedCommandLineArgument>;
+#endif //INTEL_CUSTOMIZATION
 def warn_drv_unsupported_opt_for_target : Warning<
   "optimization flag '%0' is not supported for target '%1'">,
   InGroup<IgnoredOptimizationArgument>;
@@ -352,10 +361,12 @@ def warn_drv_disabling_vptr_no_rtti_default : Warning<
 def warn_drv_object_size_disabled_O0 : Warning<
   "the object size sanitizer has no effect at -O0, but is explicitly enabled: %0">,
   InGroup<InvalidCommandLineArgument>, DefaultWarnNoWerror;
-def err_invalid_branch_protection: Error <
-  "invalid branch protection option '%0' in '%1'">;
 def warn_drv_deprecated_option : Warning<
   "option '%0' is deprecated, use '%1' directly instead">, InGroup<Deprecated>;
+def err_invalid_branch_protection: Error <
+  "invalid branch protection option '%0' in '%1'">;
+def err_invalid_sls_hardening : Error<
+  "invalid sls hardening option '%0' in '%1'">;
 
 def note_drv_command_failed_diag_msg : Note<
   "diagnostic msg: %0">;
@@ -505,6 +516,12 @@ def warn_drv_darwin_sdk_invalid_settings : Warning<
 def err_drv_trivial_auto_var_init_zero_disabled : Error<
   "-ftrivial-auto-var-init=zero hasn't been enabled. Enable it at your own peril for benchmarking purpose only with "
   "-enable-trivial-auto-var-init-zero-knowing-it-will-be-removed-from-clang">;
+
+def err_drv_trivial_auto_var_init_stop_after_missing_dependency : Error<
+  "-ftrivial-auto-var-init-stop-after=* is used without -ftrivial-auto-var-init=zero or -ftrivial-auto-var-init=pattern.">;
+
+def err_drv_trivial_auto_var_init_stop_after_invalid_value : Error<
+  "-ftrivial-auto-var-init-stop-after=* only accepts positive integers.">;
 
 def warn_drv_msp430_hwmult_unsupported : Warning<"the given MCU does not "
   "support hardware multiply, but -mhwmult is set to %0.">,

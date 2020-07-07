@@ -244,6 +244,11 @@ HLInst *HLNodeUtils::createUnaryHLInstImpl(unsigned OpCode, RegDDRef *RvalRef,
     break;
   }
 
+  case Instruction::Freeze: {
+    InstVal = DummyIRBuilder->CreateFreeze(DummyVal, Name);
+    break;
+  }
+
   case Instruction::Trunc:
   case Instruction::ZExt:
   case Instruction::SExt:
@@ -498,9 +503,18 @@ HLInst *HLNodeUtils::createAddrSpaceCast(Type *DestTy, RegDDRef *RvalRef,
 }
 
 HLInst *HLNodeUtils::createFNeg(RegDDRef *RvalRef, const Twine &Name,
-                                RegDDRef *LvalRef, MDNode *FPMathTag) {
-  return createUnaryHLInstImpl(Instruction::FNeg, RvalRef, Name, LvalRef,
-                               nullptr, FPMathTag);
+                                RegDDRef *LvalRef, MDNode *FPMathTag,
+                                FastMathFlags FMF) {
+  HLInst *HInst = createUnaryHLInstImpl(Instruction::FNeg, RvalRef, Name,
+                                        LvalRef, nullptr, FPMathTag);
+  copyFMFForHLInst(HInst, FMF);
+  return HInst;
+}
+
+HLInst *HLNodeUtils::createFreeze(RegDDRef *RvalRef, const Twine &Name,
+                                  RegDDRef *LvalRef) {
+  return createUnaryHLInstImpl(Instruction::Freeze, RvalRef, Name, LvalRef,
+                               nullptr, nullptr);
 }
 
 HLInst *HLNodeUtils::createBinaryHLInstImpl(unsigned OpCode, RegDDRef *OpRef1,
@@ -753,6 +767,44 @@ HLInst *HLNodeUtils::createExtractElementInst(RegDDRef *OpRef, RegDDRef *IdxRef,
   return HInst;
 }
 
+HLInst *HLNodeUtils::createExtractValueInst(RegDDRef *OpRef,
+                                            ArrayRef<unsigned> Idxs,
+                                            const Twine &Name,
+                                            RegDDRef *LvalRef) {
+  auto UndefVal = UndefValue::get(OpRef->getDestType());
+  Value *InstVal = DummyIRBuilder->CreateExtractValue(UndefVal, Idxs, Name);
+  Instruction *Inst = cast<Instruction>(InstVal);
+  assert((!LvalRef || LvalRef->getDestType() == Inst->getType()) &&
+         "Incompatible type of LvalRef");
+
+  HLInst *HInst = createLvalHLInst(Inst, LvalRef);
+
+  HInst->setOperandDDRef(OpRef, 1);
+
+  return HInst;
+}
+
+HLInst *HLNodeUtils::createInsertValueInst(RegDDRef *OpRef, RegDDRef *ValRef,
+                                           ArrayRef<unsigned> Idxs,
+                                           const Twine &Name,
+                                           RegDDRef *LvalRef) {
+  auto UndefVal = UndefValue::get(OpRef->getDestType());
+  auto Val = UndefValue::get(ValRef->getDestType());
+
+  Value *InstVal =
+      DummyIRBuilder->CreateInsertValue(UndefVal, Val, Idxs, Name);
+  Instruction *Inst = cast<Instruction>(InstVal);
+  assert((!LvalRef || LvalRef->getDestType() == Inst->getType()) &&
+         "Incompatible type of LvalRef");
+
+  HLInst *HInst = createLvalHLInst(Inst, LvalRef);
+
+  HInst->setOperandDDRef(OpRef, 1);
+  HInst->setOperandDDRef(ValRef, 2);
+
+  return HInst;
+}
+
 HLInst *HLNodeUtils::createBinaryHLInst(unsigned OpCode, RegDDRef *OpRef1,
                                         RegDDRef *OpRef2, const Twine &Name,
                                         RegDDRef *LvalRef,
@@ -767,6 +819,37 @@ HLInst *HLNodeUtils::createBinaryHLInst(unsigned OpCode, RegDDRef *OpRef1,
     NewBinOp->copyIRFlags(OrigBinOp);
   }
 
+  return HInst;
+}
+
+HLInst *HLNodeUtils::createFPMathBinOp(unsigned OpCode, RegDDRef *OpRef1,
+                                       RegDDRef *OpRef2, FastMathFlags FMF,
+                                       const Twine &Name, RegDDRef *LvalRef) {
+  HLInst *HInst = createBinaryHLInstImpl(OpCode, OpRef1, OpRef2, Name, LvalRef,
+                                         false, false, nullptr);
+  copyFMFForHLInst(HInst, FMF);
+  return HInst;
+}
+
+HLInst *HLNodeUtils::createOverflowingBinOp(unsigned OpCode, RegDDRef *OpRef1,
+                                            RegDDRef *OpRef2, bool HasNUW,
+                                            bool HasNSW, const Twine &Name,
+                                            RegDDRef *LvalRef) {
+  HLInst *HInst = createBinaryHLInstImpl(OpCode, OpRef1, OpRef2, Name, LvalRef,
+                                         HasNUW, HasNSW, nullptr);
+  assert(isa<OverflowingBinaryOperator>(HInst->getLLVMInstruction()) &&
+         "OverflowingBinaryOperator instruction expected here");
+  return HInst;
+}
+
+HLInst *HLNodeUtils::createPossiblyExactBinOp(unsigned OpCode, RegDDRef *OpRef1,
+                                              RegDDRef *OpRef2, bool IsExact,
+                                              const Twine &Name,
+                                              RegDDRef *LvalRef) {
+  HLInst *HInst = createBinaryHLInstImpl(OpCode, OpRef1, OpRef2, Name, LvalRef,
+                                         IsExact, false, nullptr);
+  assert(isa<PossiblyExactOperator>(HInst->getLLVMInstruction()) &&
+         "PossiblyExactOperator instruction expected here");
   return HInst;
 }
 
@@ -901,7 +984,7 @@ HLInst *HLNodeUtils::createXor(RegDDRef *OpRef1, RegDDRef *OpRef2,
 
 HLInst *HLNodeUtils::createCmp(const HLPredicate &Pred, RegDDRef *OpRef1,
                                RegDDRef *OpRef2, const Twine &Name,
-                               RegDDRef *LvalRef) {
+                               RegDDRef *LvalRef, FastMathFlags FMF) {
   Value *InstVal;
   HLInst *HInst;
 
@@ -925,6 +1008,7 @@ HLInst *HLNodeUtils::createCmp(const HLPredicate &Pred, RegDDRef *OpRef1,
   }
 
   HInst = createLvalHLInst(cast<Instruction>(InstVal), LvalRef);
+  copyFMFForHLInst(HInst, FMF);
   HInst->setPredicate(Pred);
 
   HInst->setOperandDDRef(OpRef1, 1);
@@ -936,7 +1020,7 @@ HLInst *HLNodeUtils::createCmp(const HLPredicate &Pred, RegDDRef *OpRef1,
 HLInst *HLNodeUtils::createSelect(const HLPredicate &Pred, RegDDRef *OpRef1,
                                   RegDDRef *OpRef2, RegDDRef *OpRef3,
                                   RegDDRef *OpRef4, const Twine &Name,
-                                  RegDDRef *LvalRef) {
+                                  RegDDRef *LvalRef, FastMathFlags FMF) {
   Value *InstVal;
   HLInst *HInst;
 
@@ -952,6 +1036,7 @@ HLInst *HLNodeUtils::createSelect(const HLPredicate &Pred, RegDDRef *OpRef1,
   InstVal = DummyIRBuilder->CreateSelect(CmpVal, DummyVal, DummyVal, Name);
 
   HInst = createLvalHLInst(cast<Instruction>(InstVal), LvalRef);
+  copyFMFForHLInst(HInst, FMF);
   HInst->setPredicate(Pred);
 
   HInst->setOperandDDRef(OpRef1, 1);
@@ -1059,8 +1144,15 @@ HLInst *HLNodeUtils::createCall(FunctionCallee Func,
                                 ArrayRef<RegDDRef *> CallArgs,
                                 const Twine &Name, RegDDRef *LvalRef,
                                 ArrayRef<OperandBundleDef> Bundle,
-                                ArrayRef<RegDDRef *> BundelOps) {
-  return createCallImpl(Func, CallArgs, Name, LvalRef, Bundle, BundelOps).first;
+                                ArrayRef<RegDDRef *> BundelOps,
+                                FastMathFlags FMF) {
+  HLInst *HInst;
+  CallInst *Call;
+  std::tie(HInst, Call) =
+      createCallImpl(Func, CallArgs, Name, LvalRef, Bundle, BundelOps);
+  copyFMFForHLInst(HInst, FMF);
+
+  return HInst;
 }
 
 HLInst *HLNodeUtils::createStacksave(const DebugLoc &DLoc) {
@@ -2750,17 +2842,21 @@ bool HLNodeUtils::hasStructuredFlow(const HLNode *Parent, const HLNode *Node,
   // TODO: We probably need to enhance it to recurse into multi-exit loops.
   if (UpwardTraversal) {
     // We want to traverse the range [FirstNode, LastNode) in the backward
-    // direction. If Node is same as LastNode we skip it.
-    auto EndIt = (Node == LastNode) ? LastNode->getIterator()
-                                    : ++(LastNode->getIterator());
+    // direction. If Node is a parent node and same as LastNode we skip it so as
+    // so avoid traversing nodes outside range of interest.
+    auto EndIt = (Node == LastNode && Node->isParentNode())
+                     ? LastNode->getIterator()
+                     : ++(LastNode->getIterator());
 
     visitRange<true, false, false>(SFC, FirstNode->getIterator(), EndIt);
 
   } else {
     // We want to traverse the range (FirstNode, LastNode] in the forward
-    // direction. If Node is same as FirstNode we skip it.
-    auto BeginIt = (Node != FirstNode) ? FirstNode->getIterator()
-                                       : ++(FirstNode->getIterator());
+    // direction. If Node is a parent node and same as FirstNode we skip it so
+    // as so avoid traversing nodes outside range of interest.
+    auto BeginIt = (Node == FirstNode && Node->isParentNode())
+                       ? ++(FirstNode->getIterator())
+                       : FirstNode->getIterator();
 
     visitRange<true, false, true>(SFC, BeginIt, ++(LastNode->getIterator()));
   }
@@ -3487,13 +3583,15 @@ bool HLNodeUtils::getMinMaxValueImpl(const CanonExpr *CE,
           // The minimum value of lower bound of loops in HIR is 0.
           BoundVal = 0;
         }
-      } else if (!getMinMaxValueImpl(Lp->getUpperCanonExpr(), Lp, false,
+      } else if (Lp->isUnknown() ||
+                 !getMinMaxValueImpl(Lp->getUpperCanonExpr(), Lp, false,
                                      IsExact, BoundVal)) {
         return false;
       }
 
       // Conservatively return false if bound is too big.
-      if ((BoundVal < 0) || (BoundVal > UINT32_MAX)) {
+      // Honor the value if obtained using exact analysis.
+      if (!IsExact && ((BoundVal < 0) || (BoundVal > UINT32_MAX))) {
         return false;
       }
 

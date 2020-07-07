@@ -2,8 +2,8 @@
 ; Test to check correctness of decomposed HCFG when external definition of a
 ; DDRef is killed by an instruction inside the HLLoop being decomposed.
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-last-value-computation -VPlanDriverHIR -vplan-print-plain-cfg -vplan-dump-external-defs-hir=0 -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,vplan-driver-hir" -vplan-print-plain-cfg -vplan-dump-external-defs-hir=0 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -hir-temp-cleanup -hir-last-value-computation -VPlanDriverHIR -vplan-print-plain-cfg -vplan-dump-external-defs-hir=0 -disable-output -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,hir-last-value-computation,hir-vec-dir-insert,vplan-driver-hir,print<hir>" -vplan-print-plain-cfg -vplan-dump-external-defs-hir=0 -disable-output < %s 2>&1 | FileCheck %s
 
 ; Input HIR
 ; <0>     BEGIN REGION { }
@@ -29,6 +29,28 @@
 ; In the above HIR, node <15> kills the external definition of %add824 for its use in node <17>,
 ; hence the valid number of reaching definitions for %add824 in node <17> and <19> is just 1.
 
+; ******* NOTE *******
+; The loop is not a valid SIMD loop. %add824 is not a valid reduction. VPlan
+; snippet after linearization:
+; BB2:
+;   [DA: Div] i32 %vp28560 = reduction-init i32 0 i32 %add426
+;   [DA: Div] i64 %vp31776 = induction-init{add} i64 0 i64 1
+;   [DA: Uni] i64 %vp880 = induction-init-step{add} i64 1
+;  SUCCESSORS(1):BB3
+;  PREDECESSORS(1): BB1
+;
+; BB3:
+;   [DA: Div] i32 %vp24800 = phi  [ i32 %vp28560, BB2 ],  [ i32 %vp25152, BB3 ]
+;   [DA: Div] i32 %vp20032 = phi  [ i32 %add824, BB2 ],  [ i32 %vp25808, BB3 ]
+;   [DA: Div] i64 %vp15728 = phi  [ i64 %vp31776, BB2 ],  [ i64 %vp26208, BB3 ]
+;
+; As can be seen, %vp20032 is not an induction or a reduction. We silently
+; generate bad code but we recently started generating code for all
+; PHIs that are not inductions/reductions and we expect them to be
+; deconstructed. Until we decide how to handle such invalid SIMD loops, we
+; now bail out during code generation.
+; ******* NOTE *******
+
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -51,7 +73,7 @@ define dso_local i32 @_Z3foov() local_unnamed_addr {
 ; CHECK-NEXT:     i32 [[VP0:%.*]] = phi  [ i32 [[ADD4260:%.*]], [[BB1]] ],  [ i32 [[VP1:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     i32 [[VP2:%.*]] = phi  [ i32 [[ADD8240:%.*]], [[BB1]] ],  [ i32 [[VP3:%.*]], [[BB2]] ]
 ; CHECK-NEXT:     i64 [[VP4:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP5:%.*]], [[BB2]] ]
-; CHECK-NEXT:     i32* [[VP6:%.*]] = getelementptr inbounds [1024 x i32]* @a i64 0 i64 [[VP4]]
+; CHECK-NEXT:     i32* [[VP6:%.*]] = subscript inbounds [1024 x i32]* @a i64 0 i64 [[VP4]]
 ; CHECK-NEXT:     i32 [[VP7:%.*]] = load i32* [[VP6]]
 ; CHECK-NEXT:     i32 [[VP8:%.*]] = mul i32 [[VP7]] i32 2
 ; CHECK-NEXT:     i32 [[VP9:%.*]] = trunc i64 [[VP4]] to i32
@@ -75,6 +97,8 @@ define dso_local i32 @_Z3foov() local_unnamed_addr {
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
 ;
+; Check that the loop is not vectorized.
+; CHECK:  DO i1 = 0, 1023, 1   <DO_LOOP>
 omp.inner.for.body.lr.ph:
   %s2.red = alloca i32, align 4
   %s.red = alloca i32, align 4
@@ -125,4 +149,3 @@ attributes #1 = { nounwind }
 !5 = !{!"omnipotent char", !6, i64 0}
 !6 = !{!"Simple C++ TBAA"}
 !7 = !{!4, !4, i64 0}
-

@@ -42,7 +42,7 @@
 ; CHECK: |   |   %v_h.022 = %v_h.022  -  %v_orvvlzqhjnbsvm.023;
 ; CHECK: |   + END LOOP
 ; CHECK: |
-; CHECK: |   %v_oplf.024 = %v_oplf.024  &&  78;
+; CHECK: |   %v_oplf.024 = %v_oplf.024  &  78;
 ; CHECK: + END LOOP
 
 
@@ -85,7 +85,7 @@
 ; CHECK: |   |   %v_h.022 = %v_h.022  -  %v_orvvlzqhjnbsvm.023;
 ; CHECK: |   + END LOOP
 ; CHECK: |
-; CHECK: |   %v_oplf.024 = %v_oplf.024  &&  78;
+; CHECK: |   %v_oplf.024 = %v_oplf.024  &  78;
 ; CHECK: + END LOOP
 
 

@@ -23,7 +23,7 @@ define internal void @test01() {
   %x_addr = getelementptr %struct.test01, %struct.test01* %base, i64 0, i32 0
   store i32 20, i32* %x_addr
 ; CHECK:  [[GLOB_ADDR1:%[0-9]+]] = getelementptr %__SOA_struct.test01, %__SOA_struct.test01* @__soa_struct.test01, i64 0, i32 0
-; CHECK:  [[ARRAY_ADDR1:%[0-9]+]] = load i32*, i32** [[GLOB_ADDR1]], !invariant.load !0
+; CHECK:  [[ARRAY_ADDR1:%[0-9]+]] = load i32*, i32** [[GLOB_ADDR1]], align 8, !invariant.load !0
 ; CHECK:  [[ZELEM_ZDDR1:%[0-9]+]] = zext i32 %base to i64
 ; CHECK:  %x_addr = getelementptr i32, i32* [[ARRAY_ADDR1]], i64 [[ZELEM_ZDDR1]]
 ; CHECK:  store i32 20, i32* %x_addr
@@ -31,7 +31,7 @@ define internal void @test01() {
   %z_addr = getelementptr %struct.test01, %struct.test01* %base, i64 0, i32 1
   store i64 40, i64* %z_addr
 ; CHECK:  [[GLOB_ADDR2:%[0-9]+]] = getelementptr %__SOA_struct.test01, %__SOA_struct.test01* @__soa_struct.test01, i64 0, i32 1
-; CHECK:  [[ARRAY_ADDR2:%[0-9]+]] = load i64*, i64** [[GLOB_ADDR2]], !invariant.load !0
+; CHECK:  [[ARRAY_ADDR2:%[0-9]+]] = load i64*, i64** [[GLOB_ADDR2]], align 8, !invariant.load !0
 ; CHECK:  [[ZELEM_ZDDR2:%[0-9]+]] = zext i32 %base to i64
 ; CHECK:  %z_addr = getelementptr i64, i64* [[ARRAY_ADDR2]], i64 [[ZELEM_ZDDR2]]
 ; CHECK:  i64 40, i64* %z_addr
@@ -40,7 +40,7 @@ define internal void @test01() {
   %ptr_addr = getelementptr %struct.test01, %struct.test01* %base, i64 0, i32 2
   %ptr = load %struct.test01*, %struct.test01** %ptr_addr
 ; CHECK:  [[GLOB_ADDR3:%[0-9]+]] = getelementptr %__SOA_struct.test01, %__SOA_struct.test01* @__soa_struct.test01, i64 0, i32 2
-; CHECK:  [[ARRAY_ADDR3:%[0-9]+]] = load i32*, i32** [[GLOB_ADDR3]], !invariant.load !0
+; CHECK:  [[ARRAY_ADDR3:%[0-9]+]] = load i32*, i32** [[GLOB_ADDR3]], align 8, !invariant.load !0
 ; CHECK:  [[ZELEM_ZDDR3:%[0-9]+]] = zext i32 %base to i64
 ; CHECK:  %ptr_addr = getelementptr i32, i32* [[ARRAY_ADDR3]], i64 [[ZELEM_ZDDR3]]
 ; CHECK:  %ptr = load i32, i32* %ptr_addr

@@ -20,6 +20,7 @@
 #ifndef INTEL_DTRANS_ANALYSIS_DTRANSUTILS_H
 #define INTEL_DTRANS_ANALYSIS_DTRANSUTILS_H
 
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 
 namespace llvm {
@@ -27,8 +28,15 @@ class raw_ostream;
 class CallBase;
 class Function;
 class Type;
+class Value;
 
 namespace dtrans {
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+extern cl::opt<bool> DTransPrintAnalyzedTypes;
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+extern cl::opt<bool> DTransOutOfBoundsOK;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // This template function is to support dumping a collection of items in
@@ -71,6 +79,10 @@ Function *getCalledFunction(const CallBase &Call);
 // Helper function to check whether \p Ty is a pointer type, or contains a
 // reference to a pointer type.
 bool hasPointerType(llvm::Type *Ty);
+
+// Return 'true' if the value is only used as the destination pointer of memset
+// calls.
+bool valueOnlyUsedForMemset(llvm::Value *V);
 
 } // namespace dtrans
 } // namespace llvm

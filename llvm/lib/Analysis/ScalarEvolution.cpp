@@ -235,9 +235,10 @@ static cl::opt<bool> PrintLoopRangeBounds(
     "scalar-evolution-print-loop-range-bounds", cl::Hidden, cl::init(false),
     cl::desc("Print out the call getRangeBoundedByLoop in addition"));
 
-static cl::opt<bool> PrintHIRMode("scalar-evolution-print-hir-mode", cl::Hidden,
-                                  cl::init(false),
-                                  cl::desc("Print SCEV results in HIR mode"));
+static cl::opt<bool>
+    PrintScopedMode("scalar-evolution-print-scoped-mode", cl::Hidden,
+                    cl::init(false),
+                    cl::desc("Print SCEV results in scoped mode"));
 #endif //INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
@@ -3101,8 +3102,10 @@ const SCEV *ScalarEvolution::getMulExpr(SmallVectorImpl<const SCEV *> &Ops,
 
   Flags = StrengthenNoWrapFlags(this, scMulExpr, Ops, Flags);
 
-  // Limit recursion calls depth.
-  if (Depth > MaxArithDepth || hasHugeExpression(Ops))
+  // Limit recursion calls depth, but fold all-constant expressions.
+  // `Ops` is sorted, so it's enough to check just last one.
+  if ((Depth > MaxArithDepth || hasHugeExpression(Ops)) &&
+      !isa<SCEVConstant>(Ops.back()))
     return getOrCreateMulExpr(Ops, Flags);
 
   if (SCEV *S = std::get<0>(findExistingSCEVInCache(scMulExpr, Ops))) {
@@ -4028,7 +4031,8 @@ bool ScalarEvolution::containsAddRecurrence(const SCEV *S) {
   if (I != HasRecMap.end())
     return I->second;
 
-  bool FoundAddRec = SCEVExprContains(S, isa<SCEVAddRecExpr, const SCEV *>);
+  bool FoundAddRec =
+      SCEVExprContains(S, [](const SCEV *S) { return isa<SCEVAddRecExpr>(S); });
   HasRecMap.insert({S, FoundAddRec});
   return FoundAddRec;
 }
@@ -4089,7 +4093,6 @@ void ScalarEvolution::eraseValueFromMap(Value *V) {
     }
     ValueExprMap.erase(V);
   }
-  HIRValueExprMap.erase(V); // INTEL
 }
 
 /// Check whether value has nuw/nsw/exact set but SCEV does not.
@@ -4118,14 +4121,6 @@ const SCEV *ScalarEvolution::getSCEV(Value *V) {
   const SCEV *S = getExistingSCEV(V);
   if (S == nullptr) {
     S = createSCEV(V);
-#if INTEL_CUSTOMIZATION // HIR parsing 
-    if (HIRInfo.isValid()) {
-      // This SCEV was created especially for HIR so it should not be cached in
-      // the original cache (ValueExprMap).
-      HIRValueExprMap.insert(std::make_pair(V, S));
-      return S;
-    }
-#endif // INTEL_CUSTOMIZATION
     // During PHI resolution, it is possible to create two SCEVs for the same
     // V, so it is needed to double check whether V->S is inserted into
     // ValueExprMap before insert S->{V, 0} into ExprValueMap.
@@ -4155,26 +4150,9 @@ const SCEV *ScalarEvolution::getSCEV(Value *V) {
 const SCEV *ScalarEvolution::getExistingSCEV(Value *V) {
   assert(isSCEVable(V->getType()) && "Value is not SCEVable!");
 
-#if INTEL_CUSTOMIZATION // HIR parsing 
-  if (HIRInfo.isValid()) {
-    HIRValueExprMapType::iterator I = HIRValueExprMap.find_as(V);
-    if (I != HIRValueExprMap.end()) {
-      return I->second;
-    }
-  }
-#endif // INTEL_CUSTOMIZATION
   ValueExprMapType::iterator I = ValueExprMap.find_as(V);
   if (I != ValueExprMap.end()) {
     const SCEV *S = I->second;
-#if INTEL_CUSTOMIZATION // HIR parsing 
-    if (HIRInfo.isValid()) {
-      if (checkValidity(S) && isValidSCEVForHIR(S)) {
-        HIRValueExprMap.insert(std::make_pair(V, S));
-        return S;
-      }
-      return nullptr;
-    }
-#endif // INTEL_CUSTOMIZATION
     if (checkValidity(S))
       return S;
     eraseValueFromMap(V);
@@ -4183,95 +4161,9 @@ const SCEV *ScalarEvolution::getExistingSCEV(Value *V) {
   return nullptr;
 }
 
-#if INTEL_CUSTOMIZATION // HIR parsing
-
-ScalarEvolution::HIRInfoStruct::HIRInfoStruct(HIRInfoStruct &InitObj)
-    : IsValid(InitObj.IsValid), OutermostLoop(InitObj.OutermostLoop),
-      BTCLoop(InitObj.BTCLoop), Initializer(&InitObj) {
-  Initializer->reset();
-}
-
-ScalarEvolution::HIRInfoStruct::~HIRInfoStruct() {
-  // Restore initailizer object.
-  if (Initializer) {
-    Initializer->IsValid = IsValid;
-    Initializer->OutermostLoop = OutermostLoop;
-    Initializer->BTCLoop = BTCLoop;
-  }
-}
-
-/// Validates SCEV by checking whether it contains AddRecs for a loop whch is
-/// not contained in OutermostHIRLoop. If OutermostHIRLoop is null, presence
-/// of any AddRec invalidates the SCEV.
-///
-class HIRSCEVValidator {
-  bool &ValidSCEV;
-  const Loop *OutermostHIRLoop;
-
-public:
-  HIRSCEVValidator(bool &ValidSCEV, const Loop *OutermostHIRLoop)
-  : ValidSCEV(ValidSCEV), OutermostHIRLoop(OutermostHIRLoop) {
-    ValidSCEV = true;
-  }
-
-  bool follow(const SCEV *SC) {
-    if (auto AddRec = dyn_cast<SCEVAddRecExpr>(SC)) {
-      if (!OutermostHIRLoop) {
-        ValidSCEV = false;
-        return false;
-      }
-
-      auto Lp = AddRec->getLoop();
-
-      if (!OutermostHIRLoop->contains(Lp)) {
-        ValidSCEV = false;
-        return false;
-      }
-    }
-
-    return true;
-  }
-
-  bool isDone() const { return !ValidSCEV; }
-};
-
-bool ScalarEvolution::isValidSCEVForHIR(const SCEV *SC) const {
-  bool ValidSCEV;
-  HIRSCEVValidator Validator(ValidSCEV, HIRInfo.getOutermostLoop());
-  visitAll(SC, Validator);
-  return ValidSCEV;
-}
-
-const SCEV *ScalarEvolution::getSCEVForHIR(Value *Val,
-                                           const Loop *OutermostLoop) {
-  assert(isSCEVable(Val->getType()) && "Value is not SCEVable!");
-
-  HIRInfo.set(OutermostLoop);
-
-  auto SC = getSCEV(Val);
-
-  HIRInfo.reset();
-
-  return SC;
-}
-
-const SCEV *ScalarEvolution::getSCEVAtScopeForHIR(const SCEV *SC,
-                                                  const Loop *Lp,
-                                                  const Loop *OutermostLoop) {
-  HIRInfo.set(OutermostLoop);
-
-  SC = getSCEVAtScope(SC, Lp);
-
-  HIRInfo.reset();
-
-  return SC;
-}
-
-
-bool ScalarEvolution::isLoopZtt(const Loop *Lp, const Loop *OutermostLoop,
-                                const BranchInst *ZttInst, bool Inverse) {
-
-  HIRInfo.set(OutermostLoop);
+#if INTEL_CUSTOMIZATION
+bool ScalarEvolution::isLoopZtt(const Loop *Lp, const BranchInst *ZttInst,
+                                bool Inverse) {
 
   auto ZttCond = ZttInst->getCondition();
 
@@ -4322,51 +4214,40 @@ bool ScalarEvolution::isLoopZtt(const Loop *Lp, const Loop *OutermostLoop,
               isImpliedCond(ICmpInst::ICMP_SLT, LHS, RHS, ZttCond, Inverse));
     }
     else {
-      assert(isKnownNegative(Stride) && 
+      assert(isKnownNegative(Stride) &&
              "Stride it not known to be positive or negative!");
       return (isImpliedCond(ICmpInst::ICMP_UGT, LHS, RHS, ZttCond, Inverse) ||
               isImpliedCond(ICmpInst::ICMP_SGT, LHS, RHS, ZttCond, Inverse));
     }
   }
 
-  HIRInfo.reset();
-
   return false;
 }
 
-// This class is used to recreate original SCEV form of a value given the HIR
-// SCEV form. This is done by reparsing SCEVUnkowns in the incoming SCEV.
+// This class is used to recreate original SCEV form of a value given the scoped
+// SCEV form. This is done by re-parsing SCEVUnkowns in the incoming SCEV.
 class OriginalSCEVCreator : public SCEVRewriteVisitor<OriginalSCEVCreator> {
 public:
   static const SCEV *create(const SCEV *SC, ScalarEvolution &SE) {
     OriginalSCEVCreator Rewriter(SE);
     return Rewriter.visit(SC);
   }
- 
+
   OriginalSCEVCreator(ScalarEvolution &SE): SCEVRewriteVisitor(SE) {}
- 
+
   const SCEV *visitUnknown(const SCEVUnknown *UnknownSCEV) {
     return SE.getSCEV(UnknownSCEV->getValue());
   }
 
 };
 
-const SCEV *ScalarEvolution::getOriginalSCEV(const SCEV *SC) {
-  if (HIRInfo.isValid()) {
-    // Copy-construction temporarily disables HIR mode and restores it at the
-    // end of the scope.
-    // During copy construction, the constructed object stores a pointer to the
-    // initializer object and copies its fields. Initializer is then 'reset'.
-    // When the destructor of the copy constructed object is invoked, it looks
-    // for the initializer and restores its state. This is akin to RAII idiom.
-    HIRInfoStruct SavedHIRInfo(HIRInfo);
-
-    return OriginalSCEVCreator::create(SC, *this);
+const SCEV *ScalarEvolution::getNonScopedSCEV(const SCEV *SC) {
+  if (auto *ScopedSE = dyn_cast<ScopedScalarEvolution>(this)) {
+    return OriginalSCEVCreator::create(SC, ScopedSE->getOrigSE());
   }
 
   return SC;
 }
-
 #endif // INTEL_CUSTOMIZATION
 
 /// Return a SCEV corresponding to -V = -1*V
@@ -4626,22 +4507,9 @@ void ScalarEvolution::forgetSymbolicName(Instruction *PN, const SCEV *SymName) {
     if (!Visited.insert(I).second)
       continue;
 
-#if INTEL_CUSTOMIZATION // HIR parsing
-    HIRValueExprMapType::iterator HIt;
-    ValueExprMapType::iterator It;
-    bool Found = false;
-
-    if (HIRInfo.isValid()) {
-      HIt = HIRValueExprMap.find_as(static_cast<Value *>(I));
-      Found = (HIt != HIRValueExprMap.end());
-    } else {
-      It = ValueExprMap.find_as(static_cast<Value *>(I));
-      Found = (It != ValueExprMap.end());
-    }
-
-    if (Found) {
-      const SCEV *Old = HIRInfo.isValid()? HIt->second : It->second;
-#endif // INTEL_CUSTOMIZATION 
+    auto It = ValueExprMap.find_as(static_cast<Value *>(I));
+    if (It != ValueExprMap.end()) {
+      const SCEV *Old = It->second;
 
       // Short-circuit the def-use traversal if the symbolic name
       // ceases to appear in expressions.
@@ -4658,10 +4526,7 @@ void ScalarEvolution::forgetSymbolicName(Instruction *PN, const SCEV *SymName) {
       if (!isa<PHINode>(I) ||
           !isa<SCEVUnknown>(Old) ||
           (I != PN && Old == SymName)) {
-#if INTEL_CUSTOMIZATION // HIR parsing
-        HIRInfo.isValid() ? eraseValueFromMap(HIt->first) :
-                            eraseValueFromMap(It->first);
-#endif // INTEL_CUSTOMIZATION
+        eraseValueFromMap(It->first);
         forgetMemoizedResults(Old);
       }
     }
@@ -5437,10 +5302,7 @@ const SCEV *ScalarEvolution::createSimpleAffineAddRec(PHINode *PN,
   const SCEV *StartVal = getSCEV(StartValueV);
   const SCEV *PHISCEV = getAddRecExpr(StartVal, Accum, L, Flags);
 
-#if INTEL_CUSTOMIZATION // HIR parsing
-  HIRInfo.isValid() ? HIRValueExprMap[PN] = PHISCEV
-                    : ValueExprMap[SCEVCallbackVH(PN, this)] = PHISCEV;
-#endif // INTEL_CUSTOMIZATION
+  ValueExprMap[SCEVCallbackVH(PN, this)] = PHISCEV;
 
   // We can add Flags to the post-inc expression only if we
   // know that it is *undefined behavior* for BEValueV to
@@ -5457,13 +5319,22 @@ const SCEV *ScalarEvolution::createAddRecFromPHI(PHINode *PN) {
   if (!L || L->getHeader() != PN->getParent())
     return nullptr;
 
-#if INTEL_CUSTOMIZATION // HIR parsing
-  // Return unknown if phi is outside outermost loop.
-  if (HIRInfo.isValid() && (!HIRInfo.getOutermostLoop() || 
-                           !(HIRInfo.getOutermostLoop())->contains(L))) {
-    return getUnknown(PN);
+#if INTEL_CUSTOMIZATION
+  // Return unknown if phi is outside all outermost loops.
+  if (auto *ScopedSE = dyn_cast<ScopedScalarEvolution>(this)) {
+    bool IsAllowed = false;
+
+    for (auto *Lp : ScopedSE->getOutermostLoops()) {
+      if (Lp->contains(L)) {
+        IsAllowed = true;
+        break;
+      }
+    }
+
+    if (!IsAllowed)
+      return getUnknown(PN);
   }
-#endif // INTEL_CUSTOMIZATION 
+#endif // INTEL_CUSTOMIZATION
 
   // The loop may have multiple entrances or multiple exits; we can analyze
   // this phi as an addrec if it has a unique entry value and a unique
@@ -5488,15 +5359,8 @@ const SCEV *ScalarEvolution::createAddRecFromPHI(PHINode *PN) {
   if (!BEValueV || !StartValueV)
     return nullptr;
 
-#if INTEL_CUSTOMIZATION // HIR parsing
-  if (HIRInfo.isValid()) {
-    assert(HIRValueExprMap.find_as(PN) == HIRValueExprMap.end() &&
-           "PHI node already processed?");
-  } else {
-#endif // INTEL_CUSTOMIZATION
   assert(ValueExprMap.find_as(PN) == ValueExprMap.end() &&
          "PHI node already processed?");
-  } // INTEL
 
   // First, try to find AddRec expression without creating a fictituos symbolic
   // value for PN.
@@ -5505,13 +5369,7 @@ const SCEV *ScalarEvolution::createAddRecFromPHI(PHINode *PN) {
 
   // Handle PHI node value symbolically.
   const SCEV *SymbolicName = getUnknown(PN);
-#if INTEL_CUSTOMIZATION // HIR parsing
-  if (HIRInfo.isValid()) {
-    HIRValueExprMap.insert(std::make_pair(PN, SymbolicName));
-  } else {
-#endif // INTEL_CUSTOMIZATION
   ValueExprMap.insert({SCEVCallbackVH(PN, this), SymbolicName});
-  } // INTEL
 
   // Using this symbolic name for the PHI, analyze the value coming around
   // the back-edge.
@@ -5583,10 +5441,6 @@ const SCEV *ScalarEvolution::createAddRecFromPHI(PHINode *PN) {
         // to be symbolic.  We now need to go back and purge all of the
         // entries for the scalars that use the symbolic expression.
         forgetSymbolicName(PN, SymbolicName);
-#if INTEL_CUSTOMIZATION // HIR parsing 
-        HIRInfo.isValid() ? HIRValueExprMap[PN] = PHISCEV  
-                          : ValueExprMap[SCEVCallbackVH(PN, this)] = PHISCEV;
-#endif // INTEL_CUSTOMIZATION
         ValueExprMap[SCEVCallbackVH(PN, this)] = PHISCEV;
 
         // We can add Flags to the post-inc expression only if we
@@ -5619,13 +5473,42 @@ const SCEV *ScalarEvolution::createAddRecFromPHI(PHINode *PN) {
         // to be symbolic.  We now need to go back and purge all of the
         // entries for the scalars that use the symbolic expression.
         forgetSymbolicName(PN, SymbolicName);
-#if INTEL_CUSTOMIZATION // HIR parsing 
-        HIRInfo.isValid() ? HIRValueExprMap[PN] = Shifted  
-                          : ValueExprMap[SCEVCallbackVH(PN, this)] = Shifted;
-#endif // INTEL_CUSTOMIZATION
+        ValueExprMap[SCEVCallbackVH(PN, this)] = Shifted;
         return Shifted;
       }
     }
+#if INTEL_CUSTOMIZATION
+    // Handle special case when the backedge taken count is 1 and the loop
+    // header phi changes from one constant to another. For example, we want to
+    // create {0,+,1}<L> for %iv in the following loop-
+    //
+    // L:
+    //  %iv = phi i1 [ false, %entry ], [ true, %L ]
+    //  br i1 %iv, label %L, label %exit
+    if (isa<SCEVConstant>(BEValue) && isa<ConstantInt>(StartValueV)) {
+      auto *Backedge = getBackedgeTakenCount(L);
+
+      if (Backedge->isOne()) {
+        const SCEV *Start = getSCEV(StartValueV);
+        const SCEV *Stride = getMinusSCEV(BEValue, Start);
+
+        SCEV::NoWrapFlags Flags = SCEV::FlagAnyWrap;
+
+        // We can possibly set one of the two flags by doing more checks but
+        // this takes care of the most common cases.
+        if (isKnownNonNegative(Start) && isKnownNonNegative(Stride))
+          Flags = setFlags(Flags,
+                           (SCEV::NoWrapFlags)(SCEV::FlagNUW | SCEV::FlagNSW));
+
+        auto *AddRec = getAddRecExpr(Start, Stride, L, Flags);
+
+        forgetSymbolicName(PN, SymbolicName);
+        ValueExprMap[SCEVCallbackVH(PN, this)] = AddRec;
+
+        return AddRec;
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
   }
 
   // Remove the temporary PHI node SCEV that has been inserted while intending
@@ -5868,20 +5751,11 @@ const SCEV *ScalarEvolution::createNodeForIdenticalOperandsPHI(PHINode *PN) {
     PhiSimplificationCandidates.erase(PN);
 
     // Check whether we have a cached value of PN due to cycling and discard it.
-    HIRValueExprMapType::iterator HIt;
-    ValueExprMapType::iterator It;
-    bool Found = false;
+    ValueExprMapType::iterator It = ValueExprMap.find_as(PN);
 
-    if (HIRInfo.isValid()) {
-      HIt = HIRValueExprMap.find_as(PN);
-      Found = (HIt != HIRValueExprMap.end());
-    } else {
-      It = ValueExprMap.find_as(PN);
-      Found = (It != ValueExprMap.end());
-    }
+    if (It != ValueExprMap.end()) {
+      const SCEV *Old = It->second;
 
-    if (Found) {
-      const SCEV *Old = HIRInfo.isValid() ? HIt->second : It->second;
       forgetMemoizedResults(Old);
       eraseValueFromMap(PN);
       forgetSymbolicName(PN, Old);
@@ -6150,15 +6024,6 @@ ScalarEvolution::getRangeRef(const SCEV *S,
       SignHint == ScalarEvolution::HINT_RANGE_UNSIGNED
           ? ConstantRange::Unsigned : ConstantRange::Signed;
 
-#if INTEL_CUSTOMIZATION // HIR parsing
-  // Construct original non-HIR SCEV for analysis.
-  S = getOriginalSCEV(S);
-
-  // Disable HIR mode to make analysis more precise.
-  // Copy-construction is a hack to temporarily disable HIR mode and restore it
-  // at the end of the function.
-  HIRInfoStruct SavedHIRInfo(HIRInfo);
-#endif // INTEL_CUSTOMIZATION
   // See if we've computed this range already.
   DenseMap<const SCEV *, ConstantRange>::iterator I = Cache.find(S);
   if (I != Cache.end())
@@ -6171,6 +6036,16 @@ ScalarEvolution::getRangeRef(const SCEV *S,
   ConstantRange ConservativeResult(BitWidth, /*isFullSet=*/true);
   using OBO = OverflowingBinaryOperator;
 
+#if INTEL_CUSTOMIZATION
+  // If we are in 'scoped' mode, take the intersection of range info from
+  // regular and scoped mode as we don't know who can provide better range info.
+  auto *NonScopedSCEV = getNonScopedSCEV(S);
+  if (S != NonScopedSCEV)
+    ConservativeResult = ConservativeResult.intersectWith(
+        cast<ScopedScalarEvolution>(this)->getOrigSE().getRangeRef(
+            NonScopedSCEV, SignHint),
+        RangeType);
+#endif // INTEL_CUSTOMIZATION
   // If the value has known zeros, the maximum value will have those known zeros
   // as well.
   uint32_t TZ = GetMinTrailingZeros(S);
@@ -6763,9 +6638,10 @@ static bool isFortranLang(Function &F) {
 }
 
 bool ScalarEvolution::hasWrapSafeOperands(const BinaryOperator *BinOp) const {
-  // In HIR mode, we can assume unchanging IR and deduce nowrap by analyzing
-  // uses of BinOp's operands.
-  if (!HIRInfo.isValid())
+  // If we can assume immutable IR, deduce nowrap by analyzing uses of BinOp's
+  // operands.
+  auto *ScopedSE = dyn_cast<ScopedScalarEvolution>(this);
+  if (!ScopedSE || !ScopedSE->mayAssumeImmutableIR())
     return false;
 
   // Ugly temporary hack to skip C/C++ cases to avoid performance regressions.
@@ -6961,12 +6837,12 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
     // analysis depends on.
     if (!DT.isReachableFromEntry(I->getParent()))
       return getUnknown(UndefValue::get(V->getType()));
-
-    // INTEL - Suppress traceback for instructions indicating possible live
+#if INTEL_CUSTOMIZATION // HIR parsing
+    // Suppress traceback for instructions indicating possible live
     // range violation.
     if (getHIRMetadata(I, HIRLiveKind::LiveRange))
       return getUnknown(V);
-
+#endif // INTEL_CUSTOMIZATION
   } else if (ConstantInt *CI = dyn_cast<ConstantInt>(V))
     return getConstant(CI);
   else if (isa<ConstantPointerNull>(V))
@@ -7147,15 +7023,8 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
         if (GetMinTrailingZeros(LHS) >=
             (CIVal.getBitWidth() - CIVal.countLeadingZeros())) {
           // Build a plain add SCEV.
-          const SCEV *S = getAddExpr(LHS, getSCEV(CI));
-          // If the LHS of the add was an addrec and it has no-wrap flags,
-          // transfer the no-wrap flags, since an or won't introduce a wrap.
-          if (const SCEVAddRecExpr *NewAR = dyn_cast<SCEVAddRecExpr>(S)) {
-            const SCEVAddRecExpr *OldAR = cast<SCEVAddRecExpr>(LHS);
-            const_cast<SCEVAddRecExpr *>(NewAR)->setNoWrapFlags(
-                OldAR->getNoWrapFlags());
-          }
-          return S;
+          return getAddExpr(LHS, getSCEV(CI),
+                            (SCEV::NoWrapFlags)(SCEV::FlagNUW | SCEV::FlagNSW));
         }
       }
       break;
@@ -7211,15 +7080,19 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
         if (SA->getValue().uge(BitWidth))
           break;
 
-        // It is currently not resolved how to interpret NSW for left
-        // shift by BitWidth - 1, so we avoid applying flags in that
-        // case. Remove this check (or this comment) once the situation
-        // is resolved. See
-        // http://lists.llvm.org/pipermail/llvm-dev/2015-April/084195.html
-        // and http://reviews.llvm.org/D8890 .
+        // We can safely preserve the nuw flag in all cases. It's also safe to
+        // turn a nuw nsw shl into a nuw nsw mul. However, nsw in isolation
+        // requires special handling. It can be preserved as long as we're not
+        // left shifting by bitwidth - 1.
         auto Flags = SCEV::FlagAnyWrap;
-        if (BO->Op && SA->getValue().ult(BitWidth - 1))
-          Flags = getNoWrapFlagsFromUB(BO->Op);
+        if (BO->Op) {
+          auto MulFlags = getNoWrapFlagsFromUB(BO->Op);
+          if ((MulFlags & SCEV::FlagNSW) &&
+              ((MulFlags & SCEV::FlagNUW) || SA->getValue().ult(BitWidth - 1)))
+            Flags = (SCEV::NoWrapFlags)(Flags | SCEV::FlagNSW);
+          if (MulFlags & SCEV::FlagNUW)
+            Flags = (SCEV::NoWrapFlags)(Flags | SCEV::FlagNUW);
+        }
 
         Constant *X = ConstantInt::get(
             getContext(), APInt::getOneBitSet(BitWidth, SA->getZExtValue()));
@@ -7481,23 +7354,17 @@ const SCEV *ScalarEvolution::getBackedgeTakenCount(const Loop *L,
   case Exact:
     return getBackedgeTakenInfo(L).getExact(L, this);
   case ConstantMaximum:
+#if INTEL_CUSTOMIZATION // HIR parsing
+    // Regular scalar evolution is likely to have more precise info so use it
+    // instead.
+    if (auto *ScopedSE = dyn_cast<ScopedScalarEvolution>(this))
+      return ScopedSE->getOrigSE().getBackedgeTakenInfo(L).getMax(
+          &ScopedSE->getOrigSE());
+#endif // INTEL_CUSTOMIZATION
     return getBackedgeTakenInfo(L).getMax(this);
   };
   llvm_unreachable("Invalid ExitCountKind!");
 }
-
-#if INTEL_CUSTOMIZATION // HIR parsing
-const SCEV *ScalarEvolution::getBackedgeTakenCountForHIR(const Loop *Lp,
-                             const Loop *OutermostLoop) {
-  HIRInfo.set(OutermostLoop, Lp);
-
-  auto SC = getBackedgeTakenInfo(Lp).getExact(Lp, this);
-
-  HIRInfo.reset();
-
-  return SC;
-}
-#endif // INTEL_CUSTOMIZATION
 
 bool ScalarEvolution::isBackedgeTakenCountMaxOrZero(const Loop *L) {
   return getBackedgeTakenInfo(L).isMaxOrZero(this);
@@ -7532,6 +7399,17 @@ ScalarEvolution::getPredicatedBackedgeTakenInfo(const Loop *L) {
 
 const ScalarEvolution::BackedgeTakenInfo &
 ScalarEvolution::getBackedgeTakenInfo(const Loop *L) {
+#if INTEL_CUSTOMIZATION // HIR parsing
+  // We are querying backedge taken count of some other multi-exit loop.
+  // Since scoped backedge taken count of multi-exit loops cannot be used
+  // in other loops' context, we return a dummy entry.
+  ScopedScalarEvolution *ScopedSE = nullptr;
+  if (!L->getExitingBlock() &&
+      (ScopedSE = dyn_cast<ScopedScalarEvolution>(this)) &&
+      (ScopedSE->getBackedgeTakenCountLoop() != L)) {
+    return ScopedSE->getDummyBackedgeTakenCount(L);
+  }
+#endif // INTEL_CUSTOMIZATION
   // Initially insert an invalid entry for this loop. If the insertion
   // succeeds, proceed to actually compute a backedge-taken count and
   // update the value. The temporary CouldNotCompute value tells SCEV
@@ -7539,53 +7417,9 @@ ScalarEvolution::getBackedgeTakenInfo(const Loop *L) {
   // backedge-taken count, which could result in infinite recursion.
   std::pair<DenseMap<const Loop *, BackedgeTakenInfo>::iterator, bool> Pair =
       BackedgeTakenCounts.insert({L, BackedgeTakenInfo()});
+  if (!Pair.second)
+    return Pair.first->second;
 
-#if INTEL_CUSTOMIZATION // HIR parsing
-  bool RemoveDummyEntry = false;
-
-  if (!Pair.second) {
-    auto & BTI = Pair.first->second;
-
-    // Return original entry in non-HIR mode.
-    if (!HIRInfo.isValid())
-      return BTI;
-
-    auto SC = BTI.getExact(L, this);
-
-    // Ignore the original cache entry for this multi-exit loop as we want to
-    // compute the trip count using latch exit.
-    // The HIR backedge taken count of other multi-exit loops computed in HIR
-    // mode cannot be used in this loop's context but returning original cache
-    // entry computed in non-HIR mode is okay.
-    if ((L->getExitingBlock() || (HIRInfo.getBackedgeTakenCountLoop() != L)) &&
-        // If original cache entry is valid for HIR, return it.
-        ((SC == getCouldNotCompute()) || isValidSCEVForHIR(SC))) {
-      return BTI;
-
-    } else {
-
-      // We are querying backedge taken count of some other multi-exit loop.
-      // Since the HIR backedge taken count of multi-exit loops cannot be used
-      // in other loops' context, we return a dummy entry.
-      if (!L->getExitingBlock() && (HIRInfo.getBackedgeTakenCountLoop() != L))
-        return HIRDummyBackedgeTakenCounts[L] = BackedgeTakenInfo();
-
-      // Original entry is invalid, create an empty entry in HIR cache and
-      // reevaluate the trip count in HIR mode.
-      auto Pair = HIRBackedgeTakenCounts.insert(
-              std::make_pair(L, BackedgeTakenInfo()));
-
-      if (!Pair.second)
-        return Pair.first->second;
-    }
-  } else if (HIRInfo.isValid()) {
-    // We are in HIR mode and even the original backedge count of this loop
-    // hasn't been computed yet. The dummy entry added to BackedgeTakenCounts at
-    // the beginning of this function to compute HIR backedge count should be
-    // deleted.
-    RemoveDummyEntry = true;
-  }
-#endif // INTEL_CUSTOMIZATION
   // computeBackedgeTakenCount may allocate memory for its result. Inserting it
   // into the BackedgeTakenCounts map transfers ownership. Otherwise, the result
   // must be cleared in this scope.
@@ -7622,21 +7456,10 @@ ScalarEvolution::getBackedgeTakenInfo(const Loop *L) {
     while (!Worklist.empty()) {
       Instruction *I = Worklist.pop_back_val();
 
-#if INTEL_CUSTOMIZATION // HIR parsing
-      HIRValueExprMapType::iterator HIt;
-      ValueExprMapType::iterator It;
-      bool Found = false;
-
-      if (HIRInfo.isValid()) {
-        HIt = HIRValueExprMap.find_as(static_cast<Value *>(I));
-        Found = (HIt != HIRValueExprMap.end());
-      } else {
-        It =  ValueExprMap.find_as(static_cast<Value *>(I));
-        Found = (It != ValueExprMap.end());
-      }
-      if (Found) {
-        const SCEV *Old = HIRInfo.isValid() ? HIt->second : It->second;
-#endif // INTEL_CUSTOMIZATION
+      ValueExprMapType::iterator It =
+          ValueExprMap.find_as(static_cast<Value *>(I));
+      if (It != ValueExprMap.end()) {
+        const SCEV *Old = It->second;
 
         // SCEVUnknown for a PHI either means that it has an unrecognized
         // structure, or it's a PHI that's in the progress of being computed
@@ -7645,10 +7468,7 @@ ScalarEvolution::getBackedgeTakenInfo(const Loop *L) {
         // case, createNodeForPHI will perform the necessary updates on its
         // own when it gets to that point.
         if (!isa<PHINode>(I) || !isa<SCEVUnknown>(Old)) {
-#if INTEL_CUSTOMIZATION // HIR parsing
-          HIRInfo.isValid() ? eraseValueFromMap(HIt->first) :
-                              eraseValueFromMap(It->first);
-#endif // INTEL_CUSTOMIZATION
+          eraseValueFromMap(It->first);
           forgetMemoizedResults(Old);
         }
         if (PHINode *PN = dyn_cast<PHINode>(I))
@@ -7688,14 +7508,6 @@ ScalarEvolution::getBackedgeTakenInfo(const Loop *L) {
   // recusive call to getBackedgeTakenInfo (on a different
   // loop), which would invalidate the iterator computed
   // earlier.
-#if INTEL_CUSTOMIZATION // HIR parsing
-  if (HIRInfo.isValid()) {
-    if (RemoveDummyEntry) {
-      BackedgeTakenCounts.erase(L);
-    }
-    return HIRBackedgeTakenCounts[L] = std::move(Result);
-  }
-#endif // INTEL_CUSTOMIZATION
   return BackedgeTakenCounts.find(L)->second = std::move(Result);
 }
 
@@ -7719,6 +7531,13 @@ void ScalarEvolution::forgetAllLoops() {
   HasRecMap.clear();
   MinTrailingZerosCache.clear();
   PredicatedSCEVRewrites.clear();
+#if INTEL_CUSTOMIZATION
+  // If we are in scoped mode, we need to forget underlying regular
+  // ScalarEvolution results as well.
+  if (auto *ScopedSE = dyn_cast<ScopedScalarEvolution>(this)) {
+    ScopedSE->getOrigSE().forgetAllLoops();
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 
 void ScalarEvolution::forgetLoop(const Loop *L) {
@@ -7741,7 +7560,6 @@ void ScalarEvolution::forgetLoop(const Loop *L) {
     auto *CurrL = LoopWorklist.pop_back_val();
 
     RemoveLoopFromBackedgeMap(BackedgeTakenCounts, CurrL);
-    RemoveLoopFromBackedgeMap(HIRBackedgeTakenCounts, CurrL); // INTEL
     RemoveLoopFromBackedgeMap(PredicatedBackedgeTakenCounts, CurrL);
 
     // Drop information about predicated SCEV rewrites for this loop.
@@ -7769,13 +7587,6 @@ void ScalarEvolution::forgetLoop(const Loop *L) {
       if (!Visited.insert(I).second)
         continue;
 
-#if INTEL_CUSTOMIZATION // HIR parsing
-      // HIRValueExprMap is built on top of ValueExprMap so it needs to stay
-      // in sync with it. If we are clearing enteries from ValueExprMap, we
-      // need to clear them from HIRValueExprMap as well.
-      HIRValueExprMap.erase(static_cast<Value *>(I));
-#endif // INTEL_CUSTOMIZATION
-
       ValueExprMapType::iterator It =
           ValueExprMap.find_as(static_cast<Value *>(I));
       if (It != ValueExprMap.end()) {
@@ -7793,6 +7604,13 @@ void ScalarEvolution::forgetLoop(const Loop *L) {
     // ValuesAtScopes map.
     LoopWorklist.append(CurrL->begin(), CurrL->end());
   }
+#if INTEL_CUSTOMIZATION
+  // If we are in scoped mode, we need to forget underlying regular
+  // ScalarEvolution results as well.
+  if (auto *ScopedSE = dyn_cast<ScopedScalarEvolution>(this)) {
+    ScopedSE->getOrigSE().forgetLoop(L);
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 
 void ScalarEvolution::forgetTopmostLoop(const Loop *L) {
@@ -7817,12 +7635,6 @@ void ScalarEvolution::forgetValue(Value *V) {
 
     ValueExprMapType::iterator It =
       ValueExprMap.find_as(static_cast<Value *>(I));
-#if INTEL_CUSTOMIZATION // HIR parsing 
-      // HIRValueExprMap is built on top of ValueExprMap so it needs to stay
-      // in sync with it. If we are clearing enteries from ValueExprMap, we
-      // need to clear them from HIRValueExprMap as well.
-      HIRValueExprMap.erase(static_cast<Value *>(I));
-#endif // INTEL_CUSTOMIZATION
     if (It != ValueExprMap.end()) {
       eraseValueFromMap(It->first);
       forgetMemoizedResults(It->second);
@@ -7832,6 +7644,17 @@ void ScalarEvolution::forgetValue(Value *V) {
 
     PushDefUseChildren(I, Worklist);
   }
+#if INTEL_CUSTOMIZATION
+  // If we are in scoped mode, we need to forget underlying regular
+  // ScalarEvolution results as well.
+  if (auto *ScopedSE = dyn_cast<ScopedScalarEvolution>(this)) {
+    ScopedSE->getOrigSE().forgetValue(V);
+  }
+#endif // INTEL_CUSTOMIZATION
+}
+
+void ScalarEvolution::forgetLoopDispositions(const Loop *L) {
+  LoopDispositions.clear();
 }
 
 /// Get the exact loop backedge taken count considering all loop exits. A
@@ -8022,11 +7845,13 @@ ScalarEvolution::computeBackedgeTakenCount(const Loop *L,
   bool MustExitMaxOrZero = false;
 
 #if INTEL_CUSTOMIZATION // HIR parsing
-  // Multi-exit loops in HIR are treated as single-exit loops with early exits.
-  // This means that the trip count information is computed only off of loop
-  // backedge(latch). We can ignore all the other exits.
-  if ((ExitingBlocks.size() > 1) && HIRInfo.isValid() &&
-      (HIRInfo.getBackedgeTakenCountLoop() == L)) {
+  // Multi-exit loops in scoped mode are treated as single-exit loops with early
+  // exits. This means that the trip count information is computed only off of
+  // loop backedge(latch). We can ignore all the other exits.
+  ScopedScalarEvolution *ScopedSE = nullptr;
+  if ((ExitingBlocks.size() > 1) &&
+      (ScopedSE = dyn_cast<ScopedScalarEvolution>(this)) &&
+      (ScopedSE->getBackedgeTakenCountLoop() == L)) {
     // Check whether latch is an exiting block. If it is, remove all the other
     // exiting blocks. Latch may not be an exit if it is an unconditional
     // branch.
@@ -12036,7 +11861,7 @@ ScalarEvolution::howManyLessThans(const SCEV *LHS, const SCEV *RHS,
     return getCouldNotCompute();
 
   // INTEL - Use original SCEV to get precise wrap flags.
-  auto OrigIV = cast<SCEVAddRecExpr>(getOriginalSCEV(IV)); // INTEL
+  auto OrigIV = cast<SCEVAddRecExpr>(getNonScopedSCEV(IV)); // INTEL
   bool NoWrap = ControlsExit &&
                 OrigIV->getNoWrapFlags(                            // INTEL
                         IsSigned ? SCEV::FlagNSW : SCEV::FlagNUW); // INTEL
@@ -12102,6 +11927,11 @@ ScalarEvolution::howManyLessThans(const SCEV *LHS, const SCEV *RHS,
 
   ICmpInst::Predicate Cond = IsSigned ? ICmpInst::ICMP_SLT
                                       : ICmpInst::ICMP_ULT;
+#if INTEL_CUSTOMIZATION
+  // Used when stride is 1.
+  ICmpInst::Predicate AltCond =
+      IsSigned ? ICmpInst::ICMP_SLE : ICmpInst::ICMP_ULE;
+#endif // INTEL_CUSTOMIZATION
   const SCEV *Start = IV->getStart();
   const SCEV *End = RHS;
   // When the RHS is not invariant, we do not know the end bound of the loop and
@@ -12129,7 +11959,13 @@ ScalarEvolution::howManyLessThans(const SCEV *LHS, const SCEV *RHS,
   // result is as above, and if not max(End,Start) is Start so we get a backedge
   // count of zero.
   const SCEV *BECount;
-  if (isLoopEntryGuardedByCond(L, Cond, getMinusSCEV(Start, Stride), RHS))
+#if INTEL_CUSTOMIZATION
+  if (isLoopEntryGuardedByCond(L, Cond, getMinusSCEV(Start, Stride), RHS) ||
+      // getMinusSCEV(Start, Stride) in the call above may create add without
+      // any nowrap flags which makes the analysis conservative. We can try
+      // 'exact' match when stride is 1.
+      (Stride->isOne() && isLoopEntryGuardedByCond(L, AltCond, Start, RHS)))
+#endif // INTEL_CUSTOMIZATION
     BECount = BECountIfBackedgeTaken;
   else {
     End = IsSigned ? getSMaxExpr(RHS, Start) : getUMaxExpr(RHS, Start);
@@ -12182,7 +12018,7 @@ ScalarEvolution::howManyGreaterThans(const SCEV *LHS, const SCEV *RHS,
     return getCouldNotCompute();
 
   // INTEL - Use original SCEV to get precise wrap flags.
-  auto OrigIV = cast<SCEVAddRecExpr>(getOriginalSCEV(IV)); // INTEL
+  auto OrigIV = cast<SCEVAddRecExpr>(getNonScopedSCEV(IV)); // INTEL
   bool NoWrap = ControlsExit &&
                 OrigIV->getNoWrapFlags(                            // INTEL
                         IsSigned ? SCEV::FlagNSW : SCEV::FlagNUW); // INTEL
@@ -12203,9 +12039,20 @@ ScalarEvolution::howManyGreaterThans(const SCEV *LHS, const SCEV *RHS,
   ICmpInst::Predicate Cond = IsSigned ? ICmpInst::ICMP_SGT
                                       : ICmpInst::ICMP_UGT;
 
+#if INTEL_CUSTOMIZATION
+  // Used when stride is -1.
+  ICmpInst::Predicate AltCond =
+      IsSigned ? ICmpInst::ICMP_SGE : ICmpInst::ICMP_UGE;
+#endif // INTEL_CUSTOMIZATION
   const SCEV *Start = IV->getStart();
   const SCEV *End = RHS;
-  if (!isLoopEntryGuardedByCond(L, Cond, getAddExpr(Start, Stride), RHS))
+#if INTEL_CUSTOMIZATION
+  if (!isLoopEntryGuardedByCond(L, Cond, getAddExpr(Start, Stride), RHS) &&
+      // getAddExpr(Start, Stride) in the call above may create add without any
+      // nowrap flags which makes the analysis conservative. We can try 'exact'
+      // match when stride is 1.
+      !(Stride->isOne() && isLoopEntryGuardedByCond(L, AltCond, Start, RHS)))
+#endif // INTEL_CUSTOMIZATION
     End = IsSigned ? getSMinExpr(RHS, Start) : getUMinExpr(RHS, Start);
 
   const SCEV *BECount = computeBECount(getMinusSCEV(Start, End), Stride, false);
@@ -12544,8 +12391,9 @@ static bool findArrayDimensionsRec(ScalarEvolution &SE,
 // Returns true when one of the SCEVs of Terms contains a SCEVUnknown parameter.
 static inline bool containsParameters(SmallVectorImpl<const SCEV *> &Terms) {
   for (const SCEV *T : Terms)
-    if (SCEVExprContains(T, isa<SCEVUnknown, const SCEV *>))
+    if (SCEVExprContains(T, [](const SCEV *S) { return isa<SCEVUnknown>(S); }))
       return true;
+
   return false;
 }
 
@@ -12912,16 +12760,11 @@ ScalarEvolution::ScalarEvolution(ScalarEvolution &&Arg)
     : F(Arg.F), HasGuards(Arg.HasGuards), TLI(Arg.TLI), AC(Arg.AC), DT(Arg.DT),
       LI(Arg.LI), CouldNotCompute(std::move(Arg.CouldNotCompute)),
       ValueExprMap(std::move(Arg.ValueExprMap)),
-      HIRValueExprMap(std::move(Arg.HIRValueExprMap)), // INTEL
-      HIRLiveInID(Arg.HIRLiveInID), // INTEL
-      HIRLiveOutID(Arg.HIRLiveOutID), // INTEL
-      HIRLiveRangeID(Arg.HIRLiveRangeID), // INTEL
       PendingLoopPredicates(std::move(Arg.PendingLoopPredicates)),
       PendingPhiRanges(std::move(Arg.PendingPhiRanges)),
       PendingMerges(std::move(Arg.PendingMerges)),
       MinTrailingZerosCache(std::move(Arg.MinTrailingZerosCache)),
       BackedgeTakenCounts(std::move(Arg.BackedgeTakenCounts)),
-      HIRBackedgeTakenCounts(std::move(Arg.HIRBackedgeTakenCounts)), // INTEL
       PredicatedBackedgeTakenCounts(
           std::move(Arg.PredicatedBackedgeTakenCounts)),
       ConstantEvolutionLoopExitValue(
@@ -12953,8 +12796,6 @@ ScalarEvolution::~ScalarEvolution() {
 
   ExprValueMap.clear();
   ValueExprMap.clear();
-  HIRValueExprMap.clear(); // INTEL
-  HIRInfo.reset(); // INTEL
   HasRecMap.clear();
 
   // Free any extra memory created for ExitNotTakenInfo in the unlikely event
@@ -12964,10 +12805,6 @@ ScalarEvolution::~ScalarEvolution() {
   for (auto &BTCI : PredicatedBackedgeTakenCounts)
     BTCI.second.clear();
 
-#if INTEL_CUSTOMIZATION // HIR parsing
-  for (auto &BTCI : HIRBackedgeTakenCounts)
-    BTCI.second.clear();
-#endif // INTEL_CUSTOMIZATION
   assert(PendingLoopPredicates.empty() && "isImpliedCond garbage");
   assert(PendingPhiRanges.empty() && "getRangeRef garbage");
   assert(PendingMerges.empty() && "isImpliedViaMerge garbage");
@@ -13060,7 +12897,12 @@ void ScalarEvolution::print(raw_ostream &OS) const {
   // which technically conflicts with the const qualifier. This isn't
   // observable from outside the class though, so casting away the
   // const isn't dangerous.
-  ScalarEvolution &SE = *const_cast<ScalarEvolution *>(this);
+#if INTEL_CUSTOMIZATION
+  ScalarEvolution &NonConstSE = *const_cast<ScalarEvolution *>(this);
+  ScopedScalarEvolution ScopedSE(F, TLI, AC, DT, LI, true);
+
+  ScalarEvolution &SE = PrintScopedMode ? ScopedSE : NonConstSE;
+#endif // INTEL_CUSTOMIZATION
 
   if (ClassifyExpressions) {
     OS << "Classifying expressions for: ";
@@ -13069,8 +12911,15 @@ void ScalarEvolution::print(raw_ostream &OS) const {
     for (Instruction &I : instructions(F))
       if (isSCEVable(I.getType()) && !isa<CmpInst>(I)) {
 #if INTEL_CUSTOMIZATION
-        if (PrintHIRMode)
-          SE.HIRInfo.set(getOutermostLoop(LI.getLoopFor(I.getParent())));
+        if (PrintScopedMode) {
+          auto *OutermostLoop = getOutermostLoop(LI.getLoopFor(I.getParent()));
+
+          if (OutermostLoop) {
+            ScopedSE.setScope(OutermostLoop);
+          } else {
+            ScopedSE.setScope({});
+          }
+        }
 #endif // INTEL_CUSTOMIZATION
         OS << I << '\n';
         OS << "  -->  ";
@@ -13404,7 +13253,6 @@ ScalarEvolution::forgetMemoizedResults(const SCEV *S) {
       };
 
   RemoveSCEVFromBackedgeMap(BackedgeTakenCounts);
-  RemoveSCEVFromBackedgeMap(HIRBackedgeTakenCounts); // INTEL
   RemoveSCEVFromBackedgeMap(PredicatedBackedgeTakenCounts);
 }
 

@@ -63,6 +63,13 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind,
 #define OMP_DEFAULT_KIND(Enum, Name) .Case(Name, unsigned(Enum))
 #include "llvm/Frontend/OpenMP/OMPKinds.def"
         .Default(unsigned(llvm::omp::OMP_DEFAULT_unknown));
+#if INTEL_COLLAB
+  case OMPC_bind:
+    return llvm::StringSwitch<unsigned>(Str)
+#define OMP_BIND_KIND(Enum, Name) .Case(Name, unsigned(Enum))
+#include "llvm/Frontend/OpenMP/OMPKinds.def"
+        .Default(unsigned(llvm::omp::OMP_BIND_unknown));
+#endif // INTEL_COLLAB
   case OMPC_proc_bind:
     return llvm::StringSwitch<unsigned>(Str)
 #define OMP_PROC_BIND_KIND(Enum, Name, Value) .Case(Name, Value)
@@ -209,6 +216,7 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind,
   case OMPC_hint:
   case OMPC_uniform:
   case OMPC_use_device_ptr:
+  case OMPC_use_device_addr:
   case OMPC_is_device_ptr:
   case OMPC_unified_address:
   case OMPC_unified_shared_memory:
@@ -221,6 +229,7 @@ unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind,
   case OMPC_inclusive:
   case OMPC_exclusive:
   case OMPC_uses_allocators:
+  case OMPC_affinity:
     break;
   }
   llvm_unreachable("Invalid OpenMP simple clause kind");
@@ -237,6 +246,16 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
 #include "llvm/Frontend/OpenMP/OMPKinds.def"
     }
     llvm_unreachable("Invalid OpenMP 'default' clause type");
+#if INTEL_COLLAB
+  case OMPC_bind:
+    switch (llvm::omp::BindKind(Type)) {
+#define OMP_BIND_KIND(Enum, Name)                                              \
+  case Enum:                                                                   \
+    return Name;
+#include "llvm/Frontend/OpenMP/OMPKinds.def"
+    }
+    llvm_unreachable("Invalid OpenMP 'bind' clause type");
+#endif // INTEL_COLLAB
   case OMPC_proc_bind:
     switch (Type) {
 #define OMP_PROC_BIND_KIND(Enum, Name, Value)                                  \
@@ -471,6 +490,7 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
   case OMPC_hint:
   case OMPC_uniform:
   case OMPC_use_device_ptr:
+  case OMPC_use_device_addr:
   case OMPC_is_device_ptr:
   case OMPC_unified_address:
   case OMPC_unified_shared_memory:
@@ -483,6 +503,7 @@ const char *clang::getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind,
   case OMPC_inclusive:
   case OMPC_exclusive:
   case OMPC_uses_allocators:
+  case OMPC_affinity:
     break;
   }
   llvm_unreachable("Invalid OpenMP simple clause kind");
@@ -500,6 +521,13 @@ bool clang::isOpenMPLoopDirective(OpenMPDirectiveKind DKind) {
          DKind == OMPD_distribute_parallel_for_simd ||
          DKind == OMPD_distribute_simd ||
          DKind == OMPD_target_parallel_for_simd || DKind == OMPD_target_simd ||
+#if INTEL_COLLAB
+         DKind == OMPD_loop ||
+         DKind == OMPD_teams_loop ||
+         DKind == OMPD_target_teams_loop ||
+         DKind == OMPD_parallel_loop ||
+         DKind == OMPD_target_parallel_loop ||
+#endif // INTEL_COLLAB
          DKind == OMPD_teams_distribute ||
          DKind == OMPD_teams_distribute_simd ||
          DKind == OMPD_teams_distribute_parallel_for_simd ||
@@ -516,6 +544,14 @@ bool clang::isOpenMPWorksharingDirective(OpenMPDirectiveKind DKind) {
          DKind == OMPD_single || DKind == OMPD_parallel_for ||
          DKind == OMPD_parallel_for_simd || DKind == OMPD_parallel_sections ||
          DKind == OMPD_target_parallel_for ||
+#if INTEL_COLLAB
+         // To get the needed late-outlining loop expressions.
+         DKind == OMPD_loop ||
+         DKind == OMPD_teams_loop ||
+         DKind == OMPD_target_teams_loop ||
+         DKind == OMPD_parallel_loop ||
+         DKind == OMPD_target_parallel_loop ||
+#endif // INTEL_COLLAB
          DKind == OMPD_distribute_parallel_for ||
          DKind == OMPD_distribute_parallel_for_simd ||
          DKind == OMPD_target_parallel_for_simd ||
@@ -543,6 +579,9 @@ bool clang::isOpenMPParallelDirective(OpenMPDirectiveKind DKind) {
          DKind == OMPD_teams_distribute_parallel_for_simd ||
          DKind == OMPD_target_teams_distribute_parallel_for ||
          DKind == OMPD_target_teams_distribute_parallel_for_simd ||
+#if INTEL_COLLAB
+         DKind == OMPD_parallel_loop || DKind == OMPD_target_parallel_loop ||
+#endif // INTEL_COLLAB
          DKind == OMPD_parallel_master ||
          DKind == OMPD_parallel_master_taskloop ||
          DKind == OMPD_parallel_master_taskloop_simd;
@@ -553,6 +592,10 @@ bool clang::isOpenMPTargetExecutionDirective(OpenMPDirectiveKind DKind) {
          DKind == OMPD_target_parallel_for ||
          DKind == OMPD_target_parallel_for_simd || DKind == OMPD_target_simd ||
          DKind == OMPD_target_teams || DKind == OMPD_target_teams_distribute ||
+#if INTEL_COLLAB
+         DKind == OMPD_target_teams_loop ||
+         DKind == OMPD_target_parallel_loop ||
+#endif // INTEL_COLLAB
          DKind == OMPD_target_teams_distribute_parallel_for ||
          DKind == OMPD_target_teams_distribute_parallel_for_simd ||
          DKind == OMPD_target_teams_distribute_simd;
@@ -567,12 +610,18 @@ bool clang::isOpenMPNestingTeamsDirective(OpenMPDirectiveKind DKind) {
   return DKind == OMPD_teams || DKind == OMPD_teams_distribute ||
          DKind == OMPD_teams_distribute_simd ||
          DKind == OMPD_teams_distribute_parallel_for_simd ||
+#if INTEL_COLLAB
+         DKind == OMPD_teams_loop ||
+#endif // INTEL_COLLAB
          DKind == OMPD_teams_distribute_parallel_for;
 }
 
 bool clang::isOpenMPTeamsDirective(OpenMPDirectiveKind DKind) {
   return isOpenMPNestingTeamsDirective(DKind) ||
          DKind == OMPD_target_teams || DKind == OMPD_target_teams_distribute ||
+#if INTEL_COLLAB
+         DKind == OMPD_target_teams_loop ||
+#endif // INTEL_COLLAB
          DKind == OMPD_target_teams_distribute_parallel_for ||
          DKind == OMPD_target_teams_distribute_parallel_for_simd ||
          DKind == OMPD_target_teams_distribute_simd;
@@ -609,6 +658,14 @@ bool clang::isOpenMPDistributeDirective(OpenMPDirectiveKind Kind) {
          Kind == OMPD_target_teams_distribute_parallel_for_simd ||
          Kind == OMPD_target_teams_distribute_simd;
 }
+
+#if INTEL_COLLAB
+bool clang::isOpenMPGenericLoopDirective(OpenMPDirectiveKind Kind) {
+  return Kind == OMPD_loop || Kind == OMPD_teams_loop ||
+         Kind == OMPD_target_teams_loop || Kind == OMPD_parallel_loop ||
+         Kind == OMPD_target_parallel_loop;
+}
+#endif // INTEL_COLLAB
 
 bool clang::isOpenMPPrivate(OpenMPClauseKind Kind) {
   return Kind == OMPC_private || Kind == OMPC_firstprivate ||
@@ -701,6 +758,31 @@ void clang::getOpenMPCaptureRegions(
     CaptureRegions.push_back(OMPD_teams);
     CaptureRegions.push_back(OMPD_parallel);
     break;
+#if INTEL_COLLAB
+  case OMPD_loop:
+    CaptureRegions.push_back(OMPD_loop);
+    break;
+  case OMPD_teams_loop:
+    CaptureRegions.push_back(OMPD_teams);
+    CaptureRegions.push_back(OMPD_loop);
+    break;
+  case OMPD_target_teams_loop:
+    CaptureRegions.push_back(OMPD_task);
+    CaptureRegions.push_back(OMPD_target);
+    CaptureRegions.push_back(OMPD_teams);
+    CaptureRegions.push_back(OMPD_loop);
+    break;
+  case OMPD_parallel_loop:
+    CaptureRegions.push_back(OMPD_parallel);
+    CaptureRegions.push_back(OMPD_loop);
+    break;
+  case OMPD_target_parallel_loop:
+    CaptureRegions.push_back(OMPD_task);
+    CaptureRegions.push_back(OMPD_target);
+    CaptureRegions.push_back(OMPD_parallel);
+    CaptureRegions.push_back(OMPD_loop);
+    break;
+#endif // INTEL_COLLAB
   case OMPD_simd:
   case OMPD_for:
   case OMPD_for_simd:

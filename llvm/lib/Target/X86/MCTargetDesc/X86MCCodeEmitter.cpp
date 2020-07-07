@@ -914,6 +914,7 @@ void X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
   case X86II::PrefixByte:
     break;
 #if INTEL_CUSTOMIZATION
+  case X86II::MRMDestMem4VOp3:
   case X86II::MRMDestMem4VOp2FSIB: {
     //  MemAddr, src1(ModR/M), src2(VEX_4V)
     unsigned BaseRegEnc = getX86RegEncoding(MI, MemOperand + X86::AddrBaseReg);
@@ -1155,6 +1156,19 @@ void X86MCCodeEmitter::emitVEXOpcodePrefix(int MemOperand, const MCInst &MI,
     break;
   }
 #if INTEL_CUSTOMIZATION
+  case X86II::MRMDestReg4VOp3: {
+  // MRMDestReg4VOp3 instructions forms:
+  // dst(ModR/M), src1(ModR/M.reg), src2(VEX_4V)
+    unsigned RegEnc = getX86RegEncoding(MI, CurOp++);
+    VEX_B = ~(RegEnc >> 3) & 1;
+    VEX_X = ~(RegEnc >> 4) & 1;
+
+    RegEnc = getX86RegEncoding(MI, CurOp++);
+    VEX_R = ~(RegEnc >> 3) & 1;
+
+    VEX_4V = ~getX86RegEncoding(MI, CurOp++) & 0xf;
+    break;
+  }
   case X86II::MRMr0: {
     // MRMr0 instructions forms:
     //  11:rrr:000
@@ -1561,11 +1575,22 @@ void X86MCCodeEmitter::encodeInstruction(const MCInst &MI, raw_ostream &OS,
     break;
   }
 #if INTEL_CUSTOMIZATION
+  case X86II::MRMDestReg4VOp3: {
+    emitByte(BaseOpcode, OS);
+    unsigned SrcRegNum = CurOp + 1;
+    emitRegModRMByte(MI.getOperand(CurOp),
+                     getX86RegNum(MI.getOperand(SrcRegNum)), OS);
+    CurOp = SrcRegNum + 1;
+    ++CurOp;  // Skip 2nd src (which is encoded in VEX_VVVV)
+    break;
+  }
+  case X86II::MRMDestMem4VOp3:
   case X86II::MRMDestMem4VOp2FSIB: {
     emitByte(BaseOpcode, OS);
     unsigned SrcRegNum = CurOp + X86::AddrNumOperands;
     emitMemModRMByte(MI, CurOp, getX86RegNum(MI.getOperand(SrcRegNum)), TSFlags,
-                     HasREX, StartByte, OS, Fixups, STI, true);
+                     HasREX, StartByte, OS, Fixups, STI,
+                     Form == X86II::MRMDestMem4VOp2FSIB);
     CurOp = SrcRegNum + 2; // skip VEX_V4
     break;
   }
@@ -1775,6 +1800,18 @@ void X86MCCodeEmitter::encodeInstruction(const MCInst &MI, raw_ostream &OS,
                      (Form == X86II::MRMXm) ? 0 : Form - X86II::MRM0m, TSFlags,
                      HasREX, StartByte, OS, Fixups, STI);
     CurOp += X86::AddrNumOperands;
+    break;
+
+  case X86II::MRM0X:
+  case X86II::MRM1X:
+  case X86II::MRM2X:
+  case X86II::MRM3X:
+  case X86II::MRM4X:
+  case X86II::MRM5X:
+  case X86II::MRM6X:
+  case X86II::MRM7X:
+    emitByte(BaseOpcode, OS);
+    emitByte(0xC0 + ((Form - X86II::MRM0X) << 3), OS);
     break;
 
   case X86II::MRM_C0:

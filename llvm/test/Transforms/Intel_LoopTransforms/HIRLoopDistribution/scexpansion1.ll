@@ -46,11 +46,11 @@
 ; CHECK-NEXT: DO i1 = 0, 1, 1   <DO_LOOP>
 ; CHECK-NEXT:   %min = (-64 * i1 + 98 <= 63) ? -64 * i1 + 98 : 63;
 ; CHECK:       DO i2 = 0, %min, 1
+; CHECK:         %conv9 = sitofp.i32.double(64 * i1 + i2);
 ; CHECK:         (%.TempArray)[0][i2] = %conv9;
-; CHECK:         (@C1)[0][64 * i1 + i2] = 1.000000e+00;
 ; CHECK:       END LOOP
 ; CHECK:       DO i2 = 0, %min, 1
-; CHECK:         %sub59 = (%.TempArray1)[0][i2];
+; CHECK:         %conv9 = (%.TempArray)[0][i2];
 ;
 ;Module Before HIR; ModuleID = 'scexpansion1.c'
 source_filename = "scexpansion1.c"

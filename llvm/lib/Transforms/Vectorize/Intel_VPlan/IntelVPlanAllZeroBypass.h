@@ -47,7 +47,7 @@ private:
   VPBuilder Builder;
 
   using LiveOutUsersTy = SmallVector<VPUser *, 4>;
-  using LiveOutUsersMapTy = std::map<VPValue *, LiveOutUsersTy>;
+  using LiveOutUsersMapTy = MapVector<VPValue *, LiveOutUsersTy>;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Dumps live-out information for the region specified by

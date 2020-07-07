@@ -66,9 +66,7 @@
 // machine, then the unpacked k register may be split into two parts to do
 // select operation. In some cases, k registers may be unpacked and split many
 // times which may generate more instructions than when k registers weren't
-// unpacked. It is difficult to precisely predict which solution will generate
-// less instructions. From experience, unpacking k register has a greater
-// probability to generate more instructions.
+// unpacked.
 //
 // ISel may generate unpacking k instruction when this kind of instruction
 // exist: (Assuming the target machine supports avx512.)
@@ -77,19 +75,23 @@
 // <32 x float>, <32 x double>.
 // 3. This instruction is used for BitwiseLogicOp or SelectInst.
 //
-// This kind of instruction could be split into two parts before ISel so that
-// ISel won't generate unpack instruction. Currently, This pass would find such
-// kind of cmp instructions and split it transitively.
+// In some cases, splitting those instructions before ISel will expose more
+// opportunities to ISel to generate mask instruction, thereby reducing the
+// number of instructions generated. This pass will try to split such cmp/select
+// instructions and related instructions to expose the opportunities to ISel as
+// much as possible.
 //
 // Currently, the strategy of this pass is:
-// 1. Find such instruction we describe above.
+// 1. Determine which "and" instruction should be split. That is, splitting
+// those "and" instruction won't cause ISel to generate more instructions. This
+// will expose more opportunities to ISel.
 //
-// 2. Split this instruction transitively. That is, split its operands first,
-// then split this instruction. The new instructions will be insert before
-// original instructions. The original instruction will be erased after all
-// instructions are handled successfully by this pass. If there is an
-// instruction which isn't supported by this pass, the value of this instruction
-// will be split into two parts with shuffleVector instructions.
+// 2. Split those "and" instruction transitively. That is, split its operands
+// first, then split this instruction. The new instructions will be insert
+// before original instructions. The original instruction will be erased after
+// all instructions are handled successfully by this pass. If there is an
+// instruction which isn't supported or beneficial, the value of this
+// instruction will be split into two parts with shuffleVector instructions.
 //
 // 3. For those original instructions that will be erased, split its users
 // transitively. If there are some users can't be split, then generate a
@@ -100,13 +102,6 @@
 // 4. If all instructions are handled successfully, then erase the original
 // instructions which were split. Then update some original instruction's
 // operands if necessary. If not, erase all new instructions.
-//
-// 5. All instructions can only be split once. If original instruction is split
-// into new instructions, then new instructions can't be split even if it could
-// be split. This is a heuristic method, if vector condition value is split many
-// times, bitwise binary operation (and/or) may generate more instructions than
-// we saved from unpack and split k-reg.
-// TODO: Need a cost model.
 //
 // If the dependence graph of some instructions forms a cycle. (There is a
 // strong connected component.) This pass handles it in this way:
@@ -260,6 +255,44 @@ private:
   SmallVector<unsigned, 2> OperandList;
 };
 
+// Provide information on whether an instruction should be split.
+class SplitWizard {
+public:
+  SplitWizard() = default;
+
+  // Candidate is vector "and" instruction. It is the starting point to split.
+  bool isCandidate(const Instruction *I) const;
+
+  // This method collects candidates in Function and determins which candiadate
+  // is good.
+  void parseFunction(Function &F);
+
+  // Return true if instruction I is supported and it is beneficial to split it.
+  bool isSupportedAndBeneficial(const Instruction *I) const;
+
+  Instruction *getNextGoodCandidate();
+  void setTTI(const TargetTransformInfo *TTInfo) { TTI = TTInfo; }
+
+  // Collection of good candidates which should be split.
+  DenseSet<Instruction *> GoodCandidatesSet;
+
+  // Collection of bad candidates which shouldn't be split.
+  DenseSet<Instruction *> BadCandidatesSet;
+
+  // It is used to record all candidates encountered in the process of splitting
+  // a good candidate. It should be cleared before split next good candidate.
+  SmallSetVector<Instruction *, 8> CandidatesSplitPath;
+
+private:
+  // Return true if I is supported to be split.
+  bool isSupportedOp(const Instruction *I) const;
+
+  // Return true if I split this candidate is beneficial.
+  bool isSplitCandidateBeneficial(const Instruction *I) const;
+
+  const TargetTransformInfo *TTI = nullptr;
+};
+
 class X86SplitVectorValueType : public FunctionPass {
 public:
   static char ID;
@@ -330,6 +363,7 @@ private:
 
     auto &TM = TPC->getTM<X86TargetMachine>();
     ST = TM.getSubtargetImpl(F);
+    SW.setTTI(TTI);
     return true;
   }
 
@@ -344,12 +378,6 @@ private:
   // two parts. Idx indicates which part we should get.
   void setOperandOfSplitInst(Instruction *NI, Instruction *I, unsigned OpI,
                              unsigned Idx);
-
-  // Return true if I need to be split.
-  bool isCandidate(const Instruction *I) const;
-
-  // Return true if I is supported to be split by our pass.
-  bool isSupportedOp(const Instruction *I) const;
 
   // Map the original constant to new constant.
   DenseMap<Value *, SmallVector<Constant *, 2>> ConstantMap;
@@ -390,6 +418,7 @@ private:
   // instruction will be replaced by split instructions.
   std::queue<Instruction *> WorkList;
 
+  SplitWizard SW;
   const TargetLibraryInfo *TLI = nullptr;
   const TargetTransformInfo *TTI = nullptr;
   const X86Subtarget *ST = nullptr;
@@ -472,65 +501,119 @@ private:
 };
 } // end anonymous namespace
 
-#ifndef NDEBUG
-// Only for debuging.
-static raw_ostream &indentedDbgs(unsigned Depth) {
-  return dbgs().indent(Depth * 2);
-}
-#endif
+// Return true if I meet the following conditions:
+// a) It's And instruction and its type is vector type.
+// b) The number of elements of I is power of 2.
+bool SplitWizard::isCandidate(const Instruction *I) const {
+  if (I->getOpcode() != Instruction::And)
+    return false;
 
-void X86SplitVectorValueType::cleanUpCache(bool SplitSucc) {
+  VectorType *VTy = dyn_cast<VectorType>(I->getType());
+  if (!VTy || !isPowerOf2_64(VTy->getNumElements()))
+    return false;
 
-  // InstMap.key\OInstSet (Relative Complement) are instructions which is split
-  // with shufflevector. Some of split instructions of them (A) have been
-  // settled in previous iteration while others (B) are created in this
-  // iteration. A could be reused in later iteration. If SplitSucc, B could also
-  // be reused. Otherwise only A should be kept in InstMap.
-  // Calculate A + B.
-  for (auto *OI : OInstSet)
-    InstMap.erase(OI);
-
-  if (SplitSucc) {
-    assert(WorkList.empty() && "WorkList must be empty!");
-    assert(UnsvdPHIOpdMap.empty() && "UnsvdPHIOpdMap must be empty!");
-  } else {
-
-    // Calculate A. B is SplitWithSVInstSet.
-    for (auto *I : SplitWithSVInstSet)
-      InstMap.erase(I);
-
-    UnsvdPHIOpdMap.clear();
-    while (!WorkList.empty())
-      WorkList.pop();
-  }
-
-  ConstantMap.clear();
-  InstActions.clear();
-  NInstSet.clear();
-  OInstSet.clear();
-  SplitWithSVInstSet.clear();
+  return true;
 }
 
-void X86SplitVectorValueType::takeAllInstAction() {
-  for (auto &IA : InstActions)
-    IA.run();
-}
+bool SplitWizard::isSplitCandidateBeneficial(const Instruction *I) const {
+  assert(I->getOpcode() == Instruction::And && "Candidate must be And");
 
-void X86SplitVectorValueType::eraseInstSet(
-    const DenseSet<Instruction *> &InstSet) {
-  for (auto *I : InstSet) {
-    for (auto *U : I->users()) {
-      auto UI = cast<Instruction>(U);
-      assert(InstSet.count(UI) && "User must be also in InstSet!");
-      (void)UI;
+  for (Value *Op : I->operands()) {
+    // If CmpInst is only used by this "and" instructions, splitting of this
+    // "and" instruction will causes ISel to generate mask cmp. It's always
+    // beneficial to split this "and" instruction.
+    Value *CmpOp0;
+    CmpInst::Predicate Pred;
+    if (match(Op, m_OneUse(m_Cmp(Pred, m_Value(CmpOp0), m_Value()))) &&
+        TTI->getNumberOfParts(CmpOp0->getType()) > 1)
+      return true;
+
+    // Suppose C and M are Constant and they could be splatted and have same
+    // number of elements. For "and" instruction in this form:
+    // and(shufflevector(cmp(LHS, C), undef, M), B)
+    // If cmp and shufflevector have one user, this "and" is also a good
+    // candidate because SimpleInstCombiner will fold the corresponding split
+    // instructions to this form:
+    // --> and(cmp(shufflevector(LHS, undef, M), C), B)
+    // so that ISel could generate mask cmp instruction.
+    ArrayRef<int> M;
+    if (match(Op, m_OneUse(m_Shuffle(m_Cmp(), m_Undef(), m_Mask(M))))) {
+      ShuffleVectorInst *SV = cast<ShuffleVectorInst>(Op);
+      if (SV->changesLength())
+        return false;
+
+      CmpInst::Predicate Pred;
+      Value *LHS;
+      Constant *C;
+      CmpInst *Cmp = cast<CmpInst>(SV->getOperand(0));
+
+      // Check if Cmp is only used by ShuffleVector.
+      if (!match(Cmp, m_OneUse(m_Cmp(Pred, m_Value(LHS), m_Constant(C)))))
+        return false;
+
+      Constant *ScalarC = C->getSplatValue(false);
+      if (!is_splat(M) || !ScalarC)
+        return false;
+
+      return true;
     }
-    I->replaceAllUsesWith(UndefValue::get(I->getType()));
-    LLVM_DEBUG(dbgs() << "Erasing Instruction: " << *I << "\n");
-    I->eraseFromParent();
   }
+
+  Instruction *Op0, *Op1;
+  if (match(I, m_And(m_Instruction(Op0), m_Instruction(Op1)))) {
+    if (!GoodCandidatesSet.count(Op0) && !GoodCandidatesSet.count(Op1))
+      return false;
+
+    // If Op0 and Op1 are both good candidates, then split this "and" is
+    // beneficial.
+    Instruction *Opx = GoodCandidatesSet.count(Op0) ? Op1 : Op0;
+    if (GoodCandidatesSet.count(Opx))
+      return true;
+
+    // TODO: Add more pattern.
+  }
+
+  return false;
 }
 
-bool X86SplitVectorValueType::isSupportedOp(const Instruction *I) const {
+void SplitWizard::parseFunction(Function &F) {
+  // Step1: Collect all not bad candidates.
+  DenseSet<Instruction *> NeutralCandidatesSet;
+  for (auto &BB : F) {
+    for (auto &I : BB) {
+      if (isCandidate(&I) && !BadCandidatesSet.count(&I))
+        NeutralCandidatesSet.insert(&I);
+    }
+  }
+
+  // Step2: Try to find out good candidates.
+  bool Consumed;
+  do {
+    Consumed = false;
+    SmallVector<Instruction *, 8> GoodCandidates;
+    for (auto *I : NeutralCandidatesSet) {
+      if (!isSplitCandidateBeneficial(I))
+        continue;
+
+      GoodCandidates.push_back(I);
+      Consumed = true;
+    }
+
+    for (auto *I : GoodCandidates) {
+      NeutralCandidatesSet.erase(I);
+      GoodCandidatesSet.insert(I);
+    }
+  } while (Consumed);
+}
+
+Instruction *SplitWizard::getNextGoodCandidate() {
+  if (GoodCandidatesSet.empty())
+    return nullptr;
+
+  return *GoodCandidatesSet.begin();
+}
+
+bool SplitWizard::isSupportedOp(const Instruction *I) const {
   if (I->isBinaryOp())
     return true;
 
@@ -551,7 +634,7 @@ bool X86SplitVectorValueType::isSupportedOp(const Instruction *I) const {
   if (const ShuffleVectorInst *SV = dyn_cast<ShuffleVectorInst>(I)) {
     Value *Op0;
     ArrayRef<int> M;
-    if (!match(SV, m_ShuffleVector(m_Value(Op0), m_Undef(), m_Mask(M))))
+    if (!match(SV, m_Shuffle(m_Value(Op0), m_Undef(), m_Mask(M))))
       return false;
 
     if (SV->changesLength())
@@ -591,6 +674,88 @@ bool X86SplitVectorValueType::isSupportedOp(const Instruction *I) const {
   case Instruction::ICmp:
   case Instruction::PHI:
     return true;
+  }
+}
+
+bool SplitWizard::isSupportedAndBeneficial(const Instruction *I) const {
+  if (!isSupportedOp(I))
+    return false;
+
+  if (I->isBitwiseLogicOp()) {
+    if (GoodCandidatesSet.count(I))
+      return true;
+
+    return false;
+  }
+
+  return true;
+}
+
+#ifndef NDEBUG
+// Only for debuging.
+static raw_ostream &indentedDbgs(unsigned Depth) {
+  return dbgs().indent(Depth * 2);
+}
+#endif
+
+void X86SplitVectorValueType::cleanUpCache(bool SplitSucc) {
+  // InstMap.key\OInstSet (Relative Complement) are instructions which is split
+  // with shufflevector. Some of split instructions of them (A) have been
+  // settled in previous iteration while others (B) are created in this
+  // iteration. A could be reused in later iteration. If SplitSucc, B could also
+  // be reused. Otherwise only A should be kept in InstMap.
+  // Calculate A + B.
+  for (auto *OI : OInstSet)
+    InstMap.erase(OI);
+
+  if (SplitSucc) {
+    assert(WorkList.empty() && "WorkList must be empty!");
+    assert(UnsvdPHIOpdMap.empty() && "UnsvdPHIOpdMap must be empty!");
+
+    // Remove erased instructions from SettledNInstSet.
+    for (auto *I : OInstSet)
+      SettledNInstSet.erase(I);
+
+  } else {
+    // Calculate A. B is SplitWithSVInstSet.
+    for (auto *I : SplitWithSVInstSet)
+      InstMap.erase(I);
+
+    UnsvdPHIOpdMap.clear();
+    while (!WorkList.empty())
+      WorkList.pop();
+  }
+
+  // Some neutral candidates are split with shufflevector. If those candidates
+  // are reconsidered to be good candidates, they must be erased from InstMap so
+  // that splitInstChainBottomUp will split it.
+  for (auto *I : SW.GoodCandidatesSet)
+    InstMap.erase(I);
+
+  ConstantMap.clear();
+  InstActions.clear();
+  NInstSet.clear();
+  OInstSet.clear();
+  SplitWithSVInstSet.clear();
+  SW.CandidatesSplitPath.clear();
+}
+
+void X86SplitVectorValueType::takeAllInstAction() {
+  for (auto &IA : InstActions)
+    IA.run();
+}
+
+void X86SplitVectorValueType::eraseInstSet(
+    const DenseSet<Instruction *> &InstSet) {
+  for (auto *I : InstSet) {
+    for (auto *U : I->users()) {
+      auto UI = cast<Instruction>(U);
+      assert(InstSet.count(UI) && "User must be also in InstSet!");
+      (void)UI;
+    }
+    I->replaceAllUsesWith(UndefValue::get(I->getType()));
+    LLVM_DEBUG(dbgs() << "Erasing Instruction: " << *I << "\n");
+    I->eraseFromParent();
   }
 }
 
@@ -734,7 +899,7 @@ void X86SplitVectorValueType::setOperandOfSplitInst(Instruction *I,
     // Temporarily set new PHINode's operands which havn't been split into
     // undef. This step is very important or the new PHINode may cause
     // unnecessary bugs dues to its operand.
-    // FIXME: add a bug example.
+    // TODO: add a bug example.
     if (UnsvdPHIOpdMap.count(std::make_pair(I, Opd))) {
       VectorType *VTy = cast<VectorType>(I->getType());
       VectorType *HVTy = VTy->getHalfElementsVectorType(VTy);
@@ -979,13 +1144,17 @@ bool X86SplitVectorValueType::updateInstChain() {
 
       LLVM_DEBUG(indentedDbgs(1) << "User Instruction: " << *UI << "\n");
 
-      assert(!SettledNInstSet.count(I) &&
-             "Candidate must be split previously!");
+      if (SW.BadCandidatesSet.count(UI))
+        return false;
+
+      // Record candidate split path.
+      if (SW.isCandidate(UI))
+        SW.CandidatesSplitPath.insert(UI);
 
       // InstMap contains unsupported instructions split with shufflevector.
       // This check should be placed before InstMap check because those
       // unsupported instructions may be the user of split instructions.
-      if (!isSupportedOp(UI)) {
+      if (!SW.isSupportedAndBeneficial(UI)) {
         createShufVecInstToFuse(I, UI, 1);
         continue;
       }
@@ -1082,10 +1251,12 @@ bool X86SplitVectorValueType::splitInstChainBottomUp(Instruction *I,
     return false;
   }
 
-  // If candidate A is split, supppose all of split instructions form a set CA.
-  // If candidate B is split, supppose all of split instructions form a set CB.
-  // if split B is not in CA, then CA intersect B equals null set.
-  assert(!SettledNInstSet.count(I) && "Candidate must be split previously!");
+  if (SW.BadCandidatesSet.count(I))
+    return false;
+
+  // Record candidate split path.
+  if (SW.isCandidate(I))
+    SW.CandidatesSplitPath.insert(I);
 
   // Make sure not to split supported value.
   // e.g. %cmp0 = icmp sgt <16 x i64> %x0, %y0
@@ -1102,7 +1273,7 @@ bool X86SplitVectorValueType::splitInstChainBottomUp(Instruction *I,
     return false;
   }
 
-  if (!isSupportedOp(I)) {
+  if (!SW.isSupportedAndBeneficial(I)) {
     createShufVecInstToSplit(I, Depth);
     return true;
   }
@@ -1164,53 +1335,22 @@ bool X86SplitVectorValueType::splitValueChainBottomUp(Value *Val,
   return SplitSucc;
 }
 
-static bool
-recursivelyFindBitwiseOp(const Instruction *I,
-                         DenseSet<const Instruction *> &VisitedUserSet) {
-  if (VisitedUserSet.count(I))
+// Return true if I is a candidate and, operands of I are split and I is split
+// with shufflevector.
+static bool isMissedGoodCandidate(const Instruction *I,
+                                  DenseSet<Instruction *> &SplitWithSVInstSet) {
+  if (!match(I, m_And(m_Shuffle(m_Value(), m_Value()),
+                      m_Shuffle(m_Value(), m_Value()))))
     return false;
 
-  if (I->isBitwiseLogicOp() || isa<SelectInst>(I))
+  if (!cast<ShuffleVectorInst>(I->getOperand(0))->isConcat() ||
+      !cast<ShuffleVectorInst>(I->getOperand(1))->isConcat())
+    return false;
+
+  if (SplitWithSVInstSet.count(dyn_cast<Instruction>(I)))
     return true;
 
-  VisitedUserSet.insert(I);
-
-  for (auto *U : I->users()) {
-    if (const Instruction *UI = dyn_cast<Instruction>(U)) {
-      if (UI->getType() == I->getType() &&
-          recursivelyFindBitwiseOp(UI, VisitedUserSet))
-        return true;
-    }
-  }
-
   return false;
-}
-
-// Return true if I meets all of the following conditions.
-// a) I is cmp instruction.
-// b) The number of elements of I is power of 2.
-// c) All operands of I will be split in lowering step.
-// d) There is one user (direct or indirect) which is BitwiseLogicOp or
-// SelectInst. All of instructions from I to that user must has same type as I.
-// FIXME: Unpacking k-reg has better performance in mandelbrot with -O3.
-// FIXME: Candidate may be fold to other instruction in ISel. Split in such
-// situation is unnecessary and may degrade performance.
-bool X86SplitVectorValueType::isCandidate(const Instruction *I) const {
-  if (!isa<CmpInst>(I))
-    return false;
-
-  Type *Ty = I->getType();
-  if (!Ty->isVectorTy() ||
-      !isPowerOf2_64(cast<VectorType>(Ty)->getNumElements()))
-    return false;
-
-  if (TTI->getNumberOfParts(I->getOperand(0)->getType()) < 2)
-    return false;
-
-  DenseSet<const Instruction *> VisitedUserSet;
-
-  // Return true if I meet condition d).
-  return recursivelyFindBitwiseOp(I, VisitedUserSet);
 }
 
 bool X86SplitVectorValueType::runOnFunction(Function &F) {
@@ -1223,100 +1363,94 @@ bool X86SplitVectorValueType::runOnFunction(Function &F) {
   if (!ST->useAVX512Regs())
     return false;
 
-  bool Changed = false;
-
-  for (auto &BB : F) {
-    bool SplitSucc = false;
-    DenseSet<const Instruction *> BadCandidatesSet;
-
-    for (auto II = BB.getFirstNonPHI()->getIterator(); II != BB.end(); ++II) {
-      Instruction *I = &*II;
-
-      // Find instruction may cause K-reg repeatedly unpacked and split.
-      if (!isCandidate(I))
-        continue;
-
-      // Prevent an instruction from being split more than once.
-      if (SettledNInstSet.count(I)) {
-        LLVM_DEBUG(dbgs() << "This instruction has already been split: " << *I
-                          << "\n");
-        continue;
-      }
-
-      // Avoid try to split I if I can't be split compleletely in previous
-      // iteration.
-      if (BadCandidatesSet.count(I))
-        continue;
-
+  bool Consumed, Changed = false;
+  do {
+    Consumed = false;
+    SW.parseFunction(F);
+    while (Instruction *Candidate = SW.getNextGoodCandidate()) {
       // First split the operands of this instruction, then split this
       // instruction. All users of split instructions will be added to
       // WorkList and updateInstChain will split them transitively.
-      if (SplitSucc = splitInstChainBottomUp(I, 0))
+      bool SplitSucc;
+      if (SplitSucc = splitInstChainBottomUp(Candidate, 0))
         SplitSucc = updateInstChain();
 
       if (SplitSucc) {
         // Update original instructions.
         takeAllInstAction();
 
-        // Record new instructions to make sure an instruction can only be
-        // split once.
+        // Record new instructions.
         SettledNInstSet.insert(NInstSet.begin(), NInstSet.end());
+
+        for (auto *I : SW.CandidatesSplitPath) {
+          // Remove good candidates which have been split.
+          if (SW.GoodCandidatesSet.erase(I))
+            continue;
+
+          if (isMissedGoodCandidate(I, SplitWithSVInstSet))
+            SW.GoodCandidatesSet.insert(I);
+        }
+        LLVM_DEBUG(
+            dbgs() << "\nSplit BB successfully. Erasing old instructions: \n");
 
         // Erase old instructions.
         eraseInstSet(OInstSet);
-
-        // Rescan this BB to see if there are any left candidates.
-        II = BB.getFirstNonPHI()->getIterator();
-
-        LLVM_DEBUG(dbgs() << "\nIR Dump after split:\n" << F << "\n");
-
+        LLVM_DEBUG(dbgs() << "\n");
+        Consumed = true;
       } else {
+        // If split fail, add candidates in CandidatesSplitPath into
+        // BadCandidatesSet.
+        for (auto *I : SW.CandidatesSplitPath) {
+          SW.GoodCandidatesSet.erase(I);
+          SW.BadCandidatesSet.insert(I);
+        }
         LLVM_DEBUG(dbgs() << "\nSplit BB failed. Erasing split "
                           << "instructions: \n");
 
         // Erase new instructions.
         eraseInstSet(NInstSet);
-
-        // Add I to bad candidates.
-        BadCandidatesSet.insert(I);
-
         LLVM_DEBUG(dbgs() << "\n");
       }
 
       // Some cache need to be cleaned based on split status.
       cleanUpCache(SplitSucc);
       Changed |= SplitSucc;
+    } // End of inner while.
+
+    if (Consumed) {
+      SimpleInstCombinerWorkList SICWorkList;
+      for (Instruction *I : SettledNInstSet) {
+        SICWorkList.push(I);
+        SICWorkList.pushUsers(I);
+      }
+
+      // Instruction created by Builder will be inserted and added to
+      // SICWorkList automatically.
+      IRBuilder<ConstantFolder, IRBuilderCallbackInserter> Builder(
+          F.getContext(), ConstantFolder(),
+          IRBuilderCallbackInserter(
+              [&SICWorkList](Instruction *I) { SICWorkList.push(I); }));
+
+      // Try to optimize split instructions.
+      SimpleInstCombiner(SICWorkList, Builder, TLI, TTI).run();
+      LLVM_DEBUG(dbgs() << "\nIR Dump after split:\n" << F << "\n");
     }
-  }
 
-  if (Changed) {
-    SimpleInstCombinerWorkList SICWorkList;
-    for (Instruction *I : SettledNInstSet) {
-      SICWorkList.push(I);
-      SICWorkList.pushUsers(I);
-    }
+    // Some instructions are modified or erased by SimpleInstCombiner. It's
+    // better to clear InstMap, although this may introduce CSE.
+    SettledNInstSet.clear();
+    InstMap.clear();
+  } while (Consumed);
 
-    // Instruction created by Builder will be inserted and added to SICWorkList
-    // automatically.
-    IRBuilder<ConstantFolder, IRBuilderCallbackInserter> Builder(
-        F.getContext(), ConstantFolder(),
-        IRBuilderCallbackInserter(
-            [&SICWorkList](Instruction *I) { SICWorkList.push(I); }));
-
-    // Try to optimize split instructions.
-    SimpleInstCombiner(SICWorkList, Builder, TLI, TTI).run();
-  }
-
-  // Elements in these two containers are valid in function scope. They need
-  // to be cleanup for next function.
-  SettledNInstSet.clear();
-  InstMap.clear();
-
+  // It's safe to keep this set alive while processing a function since we know
+  // bad candidates can't be split and can't be erased.
+  SW.BadCandidatesSet.clear();
+  LLVM_DEBUG(if (Changed) { dbgs() << "--------- End ---------\n\n"; });
   return Changed;
 }
 
 Instruction *SimpleInstCombiner::replaceInstUsesWith(Instruction *I, Value *V) {
-  assert(I != V && "Do not replace users of I to I!");
+  assert(I != V && "Do not replace uses of I to I!");
   if (I->use_empty())
     return nullptr;
 
@@ -1373,9 +1507,12 @@ static Instruction *
 foldSplattedCmpShuffleVector(ShuffleVectorInst *SV,
                              SimpleInstCombiner::BuilderTy &Builder,
                              const TargetTransformInfo *TTI) {
-  Instruction *Cmp;
   ArrayRef<int> M;
-  if (!match(SV, m_ShuffleVector(m_Instruction(Cmp), m_Undef(), m_Mask(M))))
+  if (!match(SV, m_Shuffle(m_Cmp(), m_Undef(), m_Mask(M))))
+    return nullptr;
+
+  Instruction *UI = dyn_cast<Instruction>(*SV->user_begin());
+  if (!UI || UI->getOpcode() != Instruction::And)
     return nullptr;
 
   if (SV->changesLength())
@@ -1384,6 +1521,7 @@ foldSplattedCmpShuffleVector(ShuffleVectorInst *SV,
   CmpInst::Predicate Pred;
   Value *LHS;
   Constant *C;
+  CmpInst *Cmp = cast<CmpInst>(SV->getOperand(0));
 
   // Check if Cmp is only used by ShuffleVector.
   if (!match(Cmp, m_OneUse(m_Cmp(Pred, m_Value(LHS), m_Constant(C)))))
@@ -1422,7 +1560,7 @@ foldSplattedCmpShuffleVector(ShuffleVectorInst *SV,
 static bool isBridgeShuffleVector(const ShuffleVectorInst *SV) {
   Value *Op0;
   ArrayRef<int> M;
-  if (!match(SV, m_ShuffleVector(m_Value(Op0), m_Undef(), m_Mask(M))))
+  if (!match(SV, m_Shuffle(m_Value(Op0), m_Undef(), m_Mask(M))))
     return false;
 
   if (SV->changesLength())
@@ -1439,12 +1577,45 @@ static bool isBridgeShuffleVector(const ShuffleVectorInst *SV) {
   return false;
 }
 
+// Suppose A and B are concatenated by C = shufflevector(A, B, M1).
+// Then A or B is extract from C by D = shufflevector(C, Undef, M2).
+// D is equivalent to A or B. If SV has equivalent value, this function will
+// return it, otherwise return a nullptr.
+static Value *findSplitFusedShuffleVector(const ShuffleVectorInst *SV) {
+  ArrayRef<int> M;
+  Instruction *Op0;
+  if (!match(SV, m_Shuffle(m_Instruction(Op0), m_Undef(), m_Mask(M))))
+    return nullptr;
+
+  Value *PartL, *PartH;
+  if (!match(Op0, m_Shuffle(m_Value(PartL), m_Value(PartH))))
+    return nullptr;
+
+  if (!cast<ShuffleVectorInst>(Op0)->isConcat())
+    return nullptr;
+
+  unsigned Op0NumElmts = cast<VectorType>(Op0->getType())->getNumElements();
+  if ((M[0] != 0 && M[0] != static_cast<int>(Op0NumElmts / 2)) ||
+      Op0NumElmts != 2 * M.size())
+    return nullptr;
+
+  for (int i = 0, NumMaskElts = M.size(); i != NumMaskElts; i++) {
+    if (M[i] != M[0] + i)
+      return nullptr;
+  }
+
+  return M[0] == 0 ? PartL : PartH;
+}
+
 Instruction *SimpleInstCombiner::visitShuffleVectorInst(ShuffleVectorInst *SV) {
   if (Instruction *Res = foldSplattedCmpShuffleVector(SV, Builder, TTI))
     return Res;
 
   if (isBridgeShuffleVector(SV))
     return replaceInstUsesWith(SV, SV->getOperand(0));
+
+  if (Value *EqVal = findSplitFusedShuffleVector(SV))
+    return replaceInstUsesWith(SV, EqVal);
 
   return nullptr;
 }
@@ -1460,7 +1631,7 @@ static Instruction *
 foldFusedShuffleVectorExtractElement(ExtractElementInst *I) {
   Value *VectorOp;
   ConstantInt *IndexOp;
-  if (!match(I, m_ExtractElement(m_Value(VectorOp), m_ConstantInt(IndexOp))))
+  if (!match(I, m_ExtractElt(m_Value(VectorOp), m_ConstantInt(IndexOp))))
     return nullptr;
 
   unsigned NumElmts = cast<VectorType>(VectorOp->getType())->getNumElements();
@@ -1470,8 +1641,7 @@ foldFusedShuffleVectorExtractElement(ExtractElementInst *I) {
 
   Value *SVOp0, *SVOp1;
   ArrayRef<int> M;
-  if (!match(VectorOp,
-             m_ShuffleVector(m_Value(SVOp0), m_Value(SVOp1), m_Mask(M))))
+  if (!match(VectorOp, m_Shuffle(m_Value(SVOp0), m_Value(SVOp1), m_Mask(M))))
     return nullptr;
 
   ShuffleVectorInst *SV = cast<ShuffleVectorInst>(VectorOp);
@@ -1538,19 +1708,17 @@ void SimpleInstCombiner::run() {
       }
     }
   } // End of while
-
-  LLVM_DEBUG(dbgs() << "\n--------- End ---------\n\n");
 }
 
 char X86SplitVectorValueType::ID = 0;
 
-INITIALIZE_PASS_BEGIN(X86SplitVectorValueType, "x86-split-vector-value-type",
+INITIALIZE_PASS_BEGIN(X86SplitVectorValueType, DEBUG_TYPE,
                       "Split vector value type to prevent k-reg from being "
                       "unpacked and split repeatedly",
                       false, false)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
-INITIALIZE_PASS_END(X86SplitVectorValueType, "x86-split-vector-value-type",
+INITIALIZE_PASS_END(X86SplitVectorValueType, DEBUG_TYPE,
                     "Split vector value type to prevent k-reg from being "
                     "unpacked and split repeatedly",
                     false, false)

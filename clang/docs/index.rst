@@ -19,6 +19,7 @@ Intel-only Features and Customizations
    :maxdepth: 1
 
    Intel/ArbitraryPrecisionIntegers
+   Intel/SIMDFunctionPointers
    IntelCustomizations
 
 .. end INTEL_CUSTOMIZATION
@@ -90,6 +91,7 @@ Using Clang Tools
    ClangCheck
    ClangFormat
    ClangFormatStyleOptions
+   ClangFormattedStatus
 
 Design Documents
 ================

@@ -366,6 +366,18 @@ bool CanonExprUtils::canAdd(const CanonExpr *CE1, const CanonExpr *CE2,
     return false;
   }
 
+  // In non-RelaxedMode the canon expressions source and destination types need
+  // to match. The mergeable check already checks that the source types match
+  // for this case. Here we check that the dest types of CE1 and CE2 match CE1
+  // src type.
+  // TODO: This check needs to be moved to the checks in mergeable function. The
+  // check is being done here to limit its impact.
+  auto *SrcType = CE1->getSrcType();
+  if (!RelaxedMode &&
+      (CE1->getDestType() != SrcType || CE2->getDestType() != SrcType)) {
+    return false;
+  }
+
   return true;
 }
 

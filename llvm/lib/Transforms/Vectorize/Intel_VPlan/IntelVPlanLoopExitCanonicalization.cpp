@@ -281,13 +281,13 @@ void mergeLoopExits(VPLoop *VPL) {
   VPBasicBlock *LatchExitBlock = nullptr;
   // BackedgeCond checks whether the backedge is taken when the CondBit is
   // true or false.
-  bool BackedgeCond = (OrigLoopLatch->getSuccessors()[0] == LoopHeader);
+  bool BackedgeCond = OrigLoopLatch->getSuccessor(0) == LoopHeader;
   if (OrigLoopLatch->getNumSuccessors() > 1) {
     // For for-loops, we get the exit block of the latch.
     assert(OrigLoopLatch->getNumSuccessors() == 2 &&
            "The loop latch should have two successors!");
-    LatchExitBlock = BackedgeCond ? OrigLoopLatch->getSuccessors()[1]
-                                  : OrigLoopLatch->getSuccessors()[0];
+    LatchExitBlock = BackedgeCond ? OrigLoopLatch->getSuccessor(1)
+                                  : OrigLoopLatch->getSuccessor(0);
     ExitExitingBlocksMap[LatchExitBlock] = OrigLoopLatch;
   }
 
@@ -365,15 +365,14 @@ void mergeLoopExits(VPLoop *VPL) {
             VPlanUtils::createUniqueName("intermediate.bb"), Plan);
         VPL->addBasicBlockToLoop(IntermediateBB, *VPLInfo);
         IntermediateBB->insertBefore(ExitBlock);
-        VPBlockUtils::movePredecessor(LoopHeader, ExitBlock, IntermediateBB);
+        LoopHeader->replaceSuccessor(ExitBlock, IntermediateBB);
         IntermediateBB->appendSuccessor(NewLoopLatch);
-        NewLoopLatch->appendPredecessor(IntermediateBB);
         // Replace the exiting block with the new exiting block in the exit
         // block's phi node.
         if (hasVPPhiNode(ExitBlock) && allPredsInLoop(ExitBlock, VPL))
           updateBlocksPhiNode(ExitBlock, ExitingBlock, IntermediateBB);
       } else {
-        VPBlockUtils::movePredecessor(ExitingBlock, ExitBlock, NewLoopLatch);
+        ExitingBlock->replaceSuccessor(ExitBlock, NewLoopLatch);
         IntermediateBB = ExitingBlock;
       }
       ExitID++;
@@ -410,8 +409,7 @@ void mergeLoopExits(VPLoop *VPL) {
       if (VisitedBlocks.count(ExitBlock)) {
         VPBasicBlock *ExistingIntermediateBB =
             ExitBlockIntermediateBBMap[ExitBlock];
-        VPBlockUtils::movePredecessor(ExitingBlock, ExitBlock,
-                                      ExistingIntermediateBB);
+        ExitingBlock->replaceSuccessor(ExitBlock, ExistingIntermediateBB);
         if (hasVPPhiNode(ExitBlock))
           removeBlockFromVPPhiNode(ExitingBlock, ExitBlock);
         continue;
@@ -424,9 +422,8 @@ void mergeLoopExits(VPLoop *VPL) {
       // Remove ExitBlock from ExitingBlock's successors and add a new
       // intermediate block to its successors. ExitBlock's predecessor will be
       // updated after emitting cascaded if blocks.
-      VPBlockUtils::movePredecessor(ExitingBlock, ExitBlock, IntermediateBB);
+      ExitingBlock->replaceSuccessor(ExitBlock, IntermediateBB);
       IntermediateBB->appendSuccessor(NewLoopLatch);
-      NewLoopLatch->appendPredecessor(IntermediateBB);
 
       if (hasVPPhiNode(ExitBlock))
         if (allPredsInLoop(ExitBlock, VPL))
@@ -466,11 +463,9 @@ void mergeLoopExits(VPLoop *VPL) {
     CascadedIfBlocks.push_back(IfBlock);
     // Update the predecessors of the IfBlock.
     if (LatchExitBlock)
-      VPBlockUtils::movePredecessor(NewLoopLatch, LatchExitBlock, IfBlock);
-    else {
+      NewLoopLatch->replaceSuccessor(LatchExitBlock, IfBlock);
+    else
       NewLoopLatch->appendSuccessor(IfBlock);
-      IfBlock->appendPredecessor(NewLoopLatch);
-    }
 
     for (int i = 1, end = ExitBlockIDPairs.size(); i != end; ++i) {
       const auto &Pair = ExitBlockIDPairs[i];
@@ -492,10 +487,6 @@ void mergeLoopExits(VPLoop *VPL) {
       }
       // Update the successors of the IfBlock.
       IfBlock->setTwoSuccessors(CondBr, ExitBlock, NextIfBlock);
-      // Update the predecessor of the NextIfBlock.
-      NextIfBlock->appendPredecessor(IfBlock);
-      // Add IfBlock in ExitBlock's predecessors.
-      ExitBlock->appendPredecessor(IfBlock);
       // If all the predecessors of the exit block are in the loop, then the phi
       // node is moved in the if block. If not, then we replace the ExitingBlock
       // with the IfBlock in exit block's phi node.
@@ -508,7 +499,6 @@ void mergeLoopExits(VPLoop *VPL) {
   } else if (!LatchExitBlock && ExitBlocks.size() == 1) {
     VPBasicBlock *ExitBlock = ExitBlocks[0];
     NewLoopLatch->appendSuccessor(ExitBlock);
-    ExitBlock->appendPredecessor(NewLoopLatch);
   }
 
   // Now, we should assign the cascaded if block to the right loop nesting
@@ -520,12 +510,12 @@ void mergeLoopExits(VPLoop *VPL) {
   while (!CascadedIfBlocks.empty()) {
     // Start from the last cascaded if block because it has two exit blocks.
     VPBasicBlock *CurrentCascadedIfBlock = CascadedIfBlocks.pop_back_val();
-    assert(CurrentCascadedIfBlock->getSuccessors().size() == 2 &&
+    assert(CurrentCascadedIfBlock->getNumSuccessors() == 2 &&
            "Two successors are expected");
     VPLoop *Succ0Loop =
-        VPLInfo->getLoopFor(CurrentCascadedIfBlock->getSuccessors()[0]);
+        VPLInfo->getLoopFor(CurrentCascadedIfBlock->getSuccessor(0));
     VPLoop *Succ1Loop =
-        VPLInfo->getLoopFor(CurrentCascadedIfBlock->getSuccessors()[1]);
+        VPLInfo->getLoopFor(CurrentCascadedIfBlock->getSuccessor(1));
     // It's possible that successor blocks of CurrentCascadedIfBlock may fall
     // outside of any loopnest. If so, loop depth is set to 0.
     // The bigger the loop depth the deeper the loop is in the loop nest.
@@ -597,8 +587,8 @@ void singleExitWhileLoopCanonicalization(VPLoop *VPL) {
   VPBasicBlock *ExitingBlock = VPL->getExitingBlock();
   VPBasicBlock *ExitBlock = VPL->getExitBlock();
   assert(ExitBlock && "Exiting block should have an exit block!");
-  VPBlockUtils::movePredecessor(ExitingBlock, ExitBlock, NewLoopLatch);
-  VPBlockUtils::connectBlocks(NewLoopLatch, ExitBlock);
+  ExitingBlock->replaceSuccessor(ExitBlock, NewLoopLatch);
+  NewLoopLatch->appendSuccessor(ExitBlock);
   // Update the blocks of the phi node (if it exists) in the exit block.
   updateBlocksPhiNode(ExitBlock, ExitingBlock, NewLoopLatch);
 

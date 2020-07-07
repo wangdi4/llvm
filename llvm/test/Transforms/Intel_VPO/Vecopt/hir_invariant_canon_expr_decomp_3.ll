@@ -30,7 +30,7 @@ define dso_local void @foo(i64 %n1) local_unnamed_addr #0 {
 ; CHECK-DAG:   [[VP1:%.*]] = {@arr}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK:          i64 [[VP2:%.*]] = phi  [ i64 0, {{.*}} ],  [ i64 [[VP3:%.*]], {{.*}} ]
-; CHECK-NEXT:     i64* [[VP4:%.*]] = getelementptr inbounds [100 x i64]* @arr i64 0 i64 [[VP2]]
+; CHECK-NEXT:     i64* [[VP4:%.*]] = subscript inbounds [100 x i64]* @arr i64 0 i64 [[VP2]]
 ; CHECK-NEXT:     store i64 [[VP0]] i64* [[VP4]]
 ;
 entry:

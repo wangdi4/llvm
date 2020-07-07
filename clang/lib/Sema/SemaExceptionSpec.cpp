@@ -1007,10 +1007,8 @@ static CanThrowResult canSubStmtsThrow(Sema &Self, const Stmt *S) {
   return R;
 }
 
-/// Determine whether the callee of a particular function call can throw.
-/// E and D are both optional, but at least one of E and Loc must be specified.
-static CanThrowResult canCalleeThrow(Sema &S, const Expr *E, const Decl *D,
-                                     SourceLocation Loc = SourceLocation()) {
+CanThrowResult Sema::canCalleeThrow(Sema &S, const Expr *E, const Decl *D,
+                                    SourceLocation Loc) {
   // As an extension, we assume that __attribute__((nothrow)) functions don't
   // throw.
   if (D && isa<FunctionDecl>(D) && D->hasAttr<NoThrowAttr>())
@@ -1056,7 +1054,8 @@ static CanThrowResult canCalleeThrow(Sema &S, const Expr *E, const Decl *D,
   if (!FT)
     return CT_Can;
 
-  FT = S.ResolveExceptionSpec(Loc.isInvalid() ? E->getBeginLoc() : Loc, FT);
+  if (Loc.isValid() || (Loc.isInvalid() && E))
+    FT = S.ResolveExceptionSpec(Loc.isInvalid() ? E->getBeginLoc() : Loc, FT);
   if (!FT)
     return CT_Can;
 
@@ -1077,7 +1076,7 @@ static CanThrowResult canVarDeclThrow(Sema &Self, const VarDecl *VD) {
             VD->getType()->getBaseElementTypeUnsafe()->getAsCXXRecordDecl()) {
       if (auto *Dtor = RD->getDestructor()) {
         CT = mergeCanThrow(
-            CT, canCalleeThrow(Self, nullptr, Dtor, VD->getLocation()));
+            CT, Sema::canCalleeThrow(Self, nullptr, Dtor, VD->getLocation()));
       }
     }
   }
@@ -1297,6 +1296,7 @@ CanThrowResult Sema::canThrow(const Stmt *S) {
 
   case Expr::CompoundLiteralExprClass:
   case Expr::CXXConstCastExprClass:
+  case Expr::CXXAddrspaceCastExprClass:
   case Expr::CXXReinterpretCastExprClass:
   case Expr::BuiltinBitCastExprClass:
       // FIXME: Properly determine whether a variably-modified type can throw.
@@ -1306,6 +1306,7 @@ CanThrowResult Sema::canThrow(const Stmt *S) {
 
     // Some might be dependent for other reasons.
   case Expr::ArraySubscriptExprClass:
+  case Expr::MatrixSubscriptExprClass:
   case Expr::OMPArraySectionExprClass:
   case Expr::OMPArrayShapingExprClass:
   case Expr::OMPIteratorExprClass:
@@ -1482,6 +1483,11 @@ CanThrowResult Sema::canThrow(const Stmt *S) {
   case Stmt::OMPTargetTeamsDistributeSimdDirectiveClass:
   case Stmt::OMPTargetUpdateDirectiveClass:
 #if INTEL_COLLAB
+  case Stmt::OMPGenericLoopDirectiveClass:
+  case Stmt::OMPTeamsGenericLoopDirectiveClass:
+  case Stmt::OMPTargetTeamsGenericLoopDirectiveClass:
+  case Stmt::OMPParallelGenericLoopDirectiveClass:
+  case Stmt::OMPTargetParallelGenericLoopDirectiveClass:
   case Stmt::OMPTargetVariantDispatchDirectiveClass:
 #endif // INTEL_COLLAB
   case Stmt::OMPTaskDirectiveClass:

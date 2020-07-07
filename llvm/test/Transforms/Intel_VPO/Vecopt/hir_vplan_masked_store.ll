@@ -1,4 +1,5 @@
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg --S < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg --S -enable-vp-value-codegen-hir=0 < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg --S -enable-vp-value-codegen-hir < %s | FileCheck %s
 
 ; CMPLRLLVM-7224: WRN support in HIR for SIMD with OperandBundle representation
 ; Test case from the Jira:

@@ -12,7 +12,6 @@
 #include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/Optional.h"
-#include "llvm/ADT/Triple.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Module.h"
@@ -21,6 +20,7 @@
 
 namespace llvm {
 template <typename T> class ArrayRef;
+class Triple;
 
 /// Describes a possible vectorization of a function.
 /// Function 'VectorFnName' is equivalent to 'ScalarFnName' vectorized
@@ -163,6 +163,9 @@ public:
   bool isFunctionVectorizable(StringRef F, unsigned VF, bool IsMasked) const {
     return !getVectorizedFunction(F, VF, IsMasked).empty();
   }
+
+  /// True iff vector library is set to SVML.
+  bool isSVMLEnabled(void) const;
 #endif
 
   /// Return true if the function F has a vector equivalent with any
@@ -332,16 +335,20 @@ public:
                               bool IsMasked = false) const {
     return Impl->isFunctionVectorizable(F, VF, IsMasked);
   }
-#endif
 
-#if INTEL_CUSTOMIZATION
   /// \p IsMasked defaults to 'false'. This is to leave many of the current
   /// callsites which do not necessarily care about the availability of
   /// masked or unmasked version of a function, unchanged.
   bool isFunctionVectorizable(StringRef F, bool IsMasked = false) const {
     return Impl->isFunctionVectorizable(F, IsMasked);
   }
-#endif
+
+  /// True iff vector library is set to SVML.
+  bool isSVMLEnabled(void) const {
+    return Impl->isSVMLEnabled();
+  }
+#endif // INTEL_CUSTOMIZATION
+
   StringRef getVectorizedFunction(StringRef F, unsigned VF,
                                   bool Masked=false) const { // INTEL
     return Impl->getVectorizedFunction(F, VF, Masked); // INTEL
@@ -380,6 +387,7 @@ public:
     case LibFunc_log:          case LibFunc_logf:       case LibFunc_logl:
     case LibFunc_exp:          case LibFunc_expf:       case LibFunc_expl:
 #endif  // INTEL_CUSTOMIZATION
+    case LibFunc_memcpy:       case LibFunc_memset:     case LibFunc_memmove:
     case LibFunc_memcmp:       case LibFunc_bcmp:       case LibFunc_strcmp:
     case LibFunc_strcpy:       case LibFunc_stpcpy:     case LibFunc_strlen:
     case LibFunc_strnlen:      case LibFunc_memchr:     case LibFunc_mempcpy:

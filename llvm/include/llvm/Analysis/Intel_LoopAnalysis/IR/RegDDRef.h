@@ -229,24 +229,6 @@ private:
   void populateTempBlobImpl(SmallVectorImpl<unsigned> &Blobs,
                             bool GetIndices) const;
 
-  /// Returns the type associated with \p DimensionNum. For example, consider
-  /// this case-
-  /// %struct.S2 = type { float, [100 x %struct.S1] }
-  /// %struct.S1 = type { i32, i32 }
-  /// @obj2 = [50 x %struct.S2]
-  ///
-  /// %t = GEP @obj2, 0, i, 1, j, 1
-  /// store to %t
-  ///
-  /// This reference looks like this in HIR-
-  /// (@obj2)[0][i].1[j].1
-  ///
-  /// This reference has the following dimension types (from lower to higher)-
-  /// Dimension1 - [100 x %struct.S1]
-  /// Dimension2 - [50 x %struct.S2]
-  /// Dimension3 - [50 x %struct.S2]*
-  Type *getDimensionType(unsigned DimensionNum) const;
-
   /// Clarifies the result type associated with \p DimensionNum.
   /// Pointer Ty* may be substituted to Ty* or to an array [ x Ty].
   /// Arrays may be substituted to the same arrays only.
@@ -282,6 +264,9 @@ private:
   /// The GEP Inst is cached for reuse.
   GetElementPtrInst *getOrCreateLocationGEP() const;
 
+  void printImpl(formatted_raw_ostream &OS, bool Detailed, bool DimDetails)
+    const;
+
 public:
   /// Returns HLDDNode this DDRef is attached to.
   const HLDDNode *getHLDDNode() const override { return Node; };
@@ -291,6 +276,10 @@ public:
   /// Prints RegDDRef.
   virtual void print(formatted_raw_ostream &OS,
                      bool Detailed = false) const override;
+
+  /// Prints details of dimensions, matching with -hir-details-refs
+  /// Argument Detailed has the same meaning of Detailed in print.
+  void dumpDims(bool Detailed = false) const;
 
   /// Returns true if the DDRef has GEP Info.
   bool hasGEPInfo() const { return (GepInfo != nullptr); }
@@ -392,6 +381,24 @@ public:
   void setBitCastDestType(Type *DestTy) {
     getGEPInfo()->BitCastDestTy = DestTy;
   }
+
+  /// Returns the type associated with \p DimensionNum. For example, consider
+  /// this case-
+  /// %struct.S2 = type { float, [100 x %struct.S1] }
+  /// %struct.S1 = type { i32, i32 }
+  /// @obj2 = [50 x %struct.S2]
+  ///
+  /// %t = GEP @obj2, 0, i, 1, j, 1
+  /// store to %t
+  ///
+  /// This reference looks like this in HIR-
+  /// (@obj2)[0][i].1[j].1
+  ///
+  /// This reference has the following dimension types (from lower to higher)-
+  /// Dimension1 - [100 x %struct.S1]
+  /// Dimension2 - [50 x %struct.S2]
+  /// Dimension3 - [50 x %struct.S2]*
+  Type *getDimensionType(unsigned DimensionNum) const;
 
   /// Returns the element type of the dimension type associated with \p
   /// DimensionNum. For the example in description of getDimensionType() they
@@ -542,7 +549,7 @@ public:
 
   /// Extract and submit AA metadata
   void getAAMetadata(AAMDNodes &AANodes) const;
-  void setAAMetadata(AAMDNodes &AANodes);
+  void setAAMetadata(const AAMDNodes &AANodes);
 
   /// Returns the metadata of given kind attached to this ref, else
   /// returns null.
@@ -661,11 +668,11 @@ public:
   /// Dimension index iterator methods
   //    Iterates through dimension 1 to getNumDimensions(), inclusively.
   //     ex)
-  //        for (auto I : make_range(Ref->dim_index_begin(),
-  //        Ref->dim_index_end()))
+  //        for (auto I : make_range(Ref->dim_num_begin(),
+  //        Ref->dim_num_end()))
   //          CanonExpr *CE = Ref->getNumDimension(I);
-  IntegerRangeIterator dim_index_begin() { return IntegerRangeIterator(1); }
-  IntegerRangeIterator dim_index_end() {
+  IntegerRangeIterator dim_num_begin() const { return IntegerRangeIterator(1); }
+  IntegerRangeIterator dim_num_end() const {
     return IntegerRangeIterator(getNumDimensions() + 1);
   }
 
@@ -817,8 +824,8 @@ public:
   /// getNumDimensions()].
   int64_t getDimensionConstStride(unsigned DimensionNum) const;
 
-  /// Returns the stride associated with the \p DimensionNum. DimensionNum must
-  /// be within [1, getNumDimensions()].
+  /// Returns the stride in number of bytes associated with the \p DimensionNum.
+  /// DimensionNum must be within [1, getNumDimensions()].
   CanonExpr *getDimensionStride(unsigned DimensionNum) {
     assert(!isTerminalRef() && "Stride info not applicable for scalar refs!");
     assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");
@@ -873,14 +880,13 @@ public:
     return getDimensionType(DimensionNum)->isArrayTy();
   }
 
-  /// Returns the stride of this DDRef at specified loop level.
-  /// Returns null if DDRef might not be a regular strided access
-  /// (linear access with invariant stride at Level).
+  /// Returns the stride in number of bytes of this DDRef at specified loop
+  /// level. Returns null if DDRef might not be a regular strided access (linear
+  /// access with invariant stride at Level).
   CanonExpr *getStrideAtLevel(unsigned Level) const;
 
-  /// Populates constant stride of DDRef at \p Level in \p Stride, if is is not
-  /// null.
-  /// Returns false if the stride is not constant.
+  /// Populates constant stride in number of bytes of DDRef at \p Level in \p
+  /// Stride, if is is not null. Returns false if the stride is not constant.
   bool getConstStrideAtLevel(unsigned Level, int64_t *Stride) const;
 
   /// Returns true if ref has unit stride at \p Level, such as A[i1] or

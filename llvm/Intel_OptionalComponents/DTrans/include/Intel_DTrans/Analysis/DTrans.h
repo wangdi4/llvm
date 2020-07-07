@@ -21,12 +21,15 @@
 #define INTEL_DTRANS_ANALYSIS_DTRANS_H
 
 #include "Intel_DTrans/Analysis/DTransAllocAnalyzer.h"
+#include "Intel_DTrans/Analysis/DTransTypes.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/PointerIntPair.h"
+#include "llvm/ADT/PointerUnion.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Constant.h"
+#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instruction.h"
@@ -46,6 +49,38 @@ class raw_ostream;
 class DTransAnalysisInfo;
 
 namespace dtrans {
+
+// This class is used to represent a data type as either a llvm::Type or a
+// dtrans::DtransType to allow the TypeInfo class objects to work with either
+// the LocalPointerAnalyzer (by using llvm::Type objects) or the
+// DTransSafetyAnalyzer (by using dtrans::DtransType objects). This is to enable
+// the sharing of the existing TypeInfo classes while developing the DTrans
+// support for opaque pointers. When the compiler is transitioned to fully using
+// opaque pointers, and the LocalPointerAnalyzer is removed, this class can be
+// removed.
+class AbstractType {
+public:
+  AbstractType(llvm::Type* Ty) : Ty(Ty) {}
+  AbstractType(DTransType* Ty) : Ty(Ty) {}
+
+  // Get the corresponding type in the llvm::Type class hierarchy.
+  Type *getLLVMType() const {
+    return Ty.is<llvm::Type *>() ? Ty.get<llvm::Type *>()
+      : Ty.get<DTransType *>()->getLLVMType();
+  }
+
+  bool isDTransType() const {
+    return Ty.is<DTransType*>();
+  }
+
+  DTransType *getDTransType() const {
+    assert(isDTransType() && "Only valid when using DTransTypes");
+    return Ty.get<DTransType*>();
+  }
+
+private:
+  PointerUnion<llvm::Type*, DTransType*> Ty;
+};
 
 //Type used for DTrans transformation bitmask
 typedef uint32_t Transform;
@@ -71,13 +106,15 @@ enum SingleAllocFunctionKind { SAFK_Top, SAFK_Single, SAFK_Bottom };
 
 class FieldInfo {
 public:
-  FieldInfo(llvm::Type *Ty)
-      : LLVMType(Ty), Read(false), Written(false), UnusedValue(true),
+  FieldInfo(AbstractType Ty)
+      : Ty(Ty), Read(false), Written(false), UnusedValue(true),
         ComplexUse(false), AddressTaken(false), MismatchedElementAccess(false),
         SVKind(SVK_Complete), SVIAKind(SVK_Incomplete), SAFKind(SAFK_Top),
         SingleAllocFunction(nullptr), RWState(RWK_Top), Frequency(0) {}
 
-  llvm::Type *getLLVMType() const { return LLVMType; }
+  llvm::Type *getLLVMType() const { return Ty.getLLVMType(); }
+  DTransType *getDTransType() const { return Ty.getDTransType(); }
+  bool isDTransType() const { return Ty.isDTransType(); }
 
   bool isRead() const { return Read; }
   bool isWritten() const { return Written; }
@@ -201,6 +238,27 @@ public:
   bool isRWComputed() const { return RWState == RWK_Computed; }
   bool isRWBottom() const { return RWState == RWK_Bottom; }
 
+  // This enum is used for storing which information we have related to the
+  // padded fields:
+  // PFK_Clean : We know that there is no safety violation that could
+  //             compromise the field and it is never accessed
+  // PFK_Dirty : A safety violation happens, the field is accessed and/or
+  //             we don't have enough information to mark it clean
+  // PFK_NoPadding : The field is not used for padding.
+  enum PF_Kind { PFK_Clean, PFK_Dirty, PFK_NoPadding };
+
+  // Set the padded field as clean.
+  // NOTE: Once the field is dirty it can't be clean.
+  void setPaddedField() {
+    if (PaddedField != PFK_Dirty)
+      PaddedField = PFK_Clean;
+  }
+  // Set if the padded field is dirty
+  void invalidatePaddedField() { PaddedField = PFK_Dirty; }
+  void clearPaddedField() { PaddedField = PFK_NoPadding; }
+  bool isPaddedField() const { return PaddedField != PFK_NoPadding; }
+  bool isCleanPaddedField() const { return PaddedField == PFK_Clean; }
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const { print(dbgs()); }
 
@@ -211,7 +269,7 @@ public:
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
 private:
-  llvm::Type *LLVMType;
+  AbstractType Ty;
   bool Read;
   bool Written;
   bool UnusedValue;
@@ -243,6 +301,18 @@ private:
   // TODO: Frequency is not computed correctly for aggregate fields. Need
   // to compute more accurate Frequency for aggregate fields.
   uint64_t Frequency;
+
+  // Identify if the field is used for ABI padding. For example:
+  // %class.A.base = type <{ %"class.boost::array", [2 x i8],
+  //                         %"class.std::vector", i32 }>
+  // %class.A = type <{ %"class.boost::array", [2 x i8],
+  //                         %"class.std::vector", i32, [4 x i8] }>
+  //
+  // The structure type %class.A.base is the same as %class.A, except for
+  // the last entry of structure %class.A. This entry at the end ([4 x i8])
+  // is used for the application binary interface (ABI) and it will
+  // be identified as the PaddedField.
+  PF_Kind PaddedField = PFK_NoPadding;
 };
 
 /// DTrans optimization safety conditions for a structure type.
@@ -391,7 +461,33 @@ const SafetyData UnsafePointerStorePending = 0x0000000000100000000;
 const SafetyData UnsafePointerStoreConditional = 0x0000000000200000000;
 
 /// The structure was identified as a dope vector type.
-const SafetyData DopeVector = 0x0000000000800000000;
+const SafetyData DopeVector = 0x0000000000400000000;
+
+// The following safety violations are for related types. These types are
+// structures that have two types in the IR, where one type represents the
+// base form and the other type has the same fields with an extra field at
+// the end used for padding.
+
+// This safety data is used for special bad casting cases that won't affect
+// related types.
+const SafetyData BadCastingForRelatedTypes = 0x0000000000800000000;
+
+// This safety data is used to check if a bad pointer manipulation won't
+// affect the related types.
+const SafetyData BadPtrManipulationForRelatedTypes = 0x0000000001000000000;
+
+// This safety data is used for a special mismatched element access to
+// the zero field of a structure but won't affect the related types.
+const SafetyData MismatchedElementAccessRelatedTypes = 0x0000000002000000000;
+
+// This safety data is used for special unsafe pointer store to the zero
+// field of a structure but won't affect related types.
+const SafetyData UnsafePointerStoreRelatedTypes = 0x0000000004000000000;
+
+// This safety data is used when a memory handling function (e.g. memcpy)
+// modifies part of the nested structures, but it won't fully cover the
+// field zero in the outer most structure.
+const SafetyData MemFuncNestedStructsPartialWrite = 0x0000000008000000000;
 
 /// This is a catch-all flag that will be used to mark any usage pattern
 /// that we don't specifically recognize. The use might actually be safe
@@ -410,7 +506,10 @@ const SafetyData SDDeleteField =
         BadMemFuncManipulation | AmbiguousPointerTarget | UnsafePtrMerge |
         AddressTaken | NoFieldsInStruct | SystemObject | MismatchedArgUse |
         HasVTable | HasFnPtr | HasZeroSizedArray | HasFnPtr |
-        BadCastingConditional | UnsafePointerStoreConditional | DopeVector;
+        BadCastingConditional | UnsafePointerStoreConditional | DopeVector |
+        BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
+        MismatchedElementAccessRelatedTypes |
+        UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite;
 
 const SafetyData SDReorderFields =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
@@ -421,14 +520,18 @@ const SafetyData SDReorderFields =
         AddressTaken | NoFieldsInStruct | NestedStruct | ContainsNestedStruct |
         SystemObject | MismatchedArgUse | LocalInstance | HasCppHandling |
         BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse |
-        DopeVector;
+        DopeVector | BadCastingForRelatedTypes |
+        BadPtrManipulationForRelatedTypes |
+        MismatchedElementAccessRelatedTypes |
+        UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite;
 
 const SafetyData SDReorderFieldsDependent =
     BadPtrManipulation | GlobalInstance | HasInitializerList |
         MemFuncPartialWrite | NoFieldsInStruct | LocalInstance |
         BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse |
         WholeStructureReference | VolatileData | BadMemFuncSize |
-        BadMemFuncManipulation | AmbiguousPointerTarget | DopeVector;
+        BadMemFuncManipulation | AmbiguousPointerTarget | DopeVector |
+        BadPtrManipulationForRelatedTypes | MemFuncNestedStructsPartialWrite;
 
 //
 // Safety conditions for field single value analysis
@@ -436,7 +539,11 @@ const SafetyData SDReorderFieldsDependent =
 const SafetyData SDFieldSingleValueNoFieldAddressTaken =
     BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
         MismatchedElementAccess | UnsafePointerStore | AmbiguousPointerTarget |
-        UnsafePtrMerge | AddressTaken | MismatchedArgUse | UnhandledUse;
+        UnsafePtrMerge | AddressTaken | MismatchedArgUse |
+        BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
+        MismatchedElementAccessRelatedTypes |
+        UnsafePointerStoreRelatedTypes |
+        UnhandledUse;
 
 const SafetyData SDFieldSingleValue =
     SDFieldSingleValueNoFieldAddressTaken | FieldAddressTaken;
@@ -445,7 +552,11 @@ const SafetyData SDSingleAllocFunctionNoFieldAddressTaken =
     BadCasting | BadPtrManipulation | AmbiguousGEP | VolatileData |
         MismatchedElementAccess | UnsafePointerStore | BadMemFuncSize |
         BadMemFuncManipulation | AmbiguousPointerTarget | UnsafePtrMerge |
-        AddressTaken | MismatchedArgUse | UnhandledUse;
+        AddressTaken | MismatchedArgUse |
+        BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
+        MismatchedElementAccessRelatedTypes |
+        UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite |
+        UnhandledUse;
 
 const SafetyData SDSingleAllocFunction =
     SDSingleAllocFunctionNoFieldAddressTaken | FieldAddressTaken;
@@ -456,7 +567,10 @@ const SafetyData SDElimROFieldAccess =
         BadMemFuncSize | BadMemFuncManipulation | AmbiguousPointerTarget |
         HasInitializerList | UnsafePtrMerge | AddressTaken | MismatchedArgUse |
         BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse |
-        DopeVector;
+        DopeVector | BadCastingForRelatedTypes |
+        BadPtrManipulationForRelatedTypes |
+        MismatchedElementAccessRelatedTypes |
+        UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite;
 
 //
 // Safety conditions for a structure to be considered for the AOS-to-SOA
@@ -470,7 +584,10 @@ const SafetyData SDAOSToSOA =
         NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
         LocalInstance | MismatchedArgUse | GlobalArray | HasVTable | HasFnPtr |
         HasCppHandling | HasZeroSizedArray |
-        BadCastingConditional | UnsafePointerStoreConditional | DopeVector;
+        BadCastingConditional | UnsafePointerStoreConditional | DopeVector |
+        BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
+        MismatchedElementAccessRelatedTypes |
+        UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite;
 
 //
 // Safety conditions for a structure type that contains a pointer to a
@@ -482,7 +599,10 @@ const SafetyData SDAOSToSOADependent =
         UnsafePtrMerge | AmbiguousPointerTarget | AddressTaken |
         NoFieldsInStruct | NestedStruct | ContainsNestedStruct | SystemObject |
         MismatchedArgUse | GlobalArray | HasVTable | HasCppHandling |
-        BadCastingConditional | UnsafePointerStoreConditional | DopeVector;
+        BadCastingConditional | UnsafePointerStoreConditional | DopeVector |
+        BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
+        MismatchedElementAccessRelatedTypes |
+        UnsafePointerStoreRelatedTypes;
 
 //
 // Safety conditions for a structure type that contains a pointer to a
@@ -498,7 +618,10 @@ const SafetyData SDAOSToSOADependentIndex32 =
         AddressTaken | NoFieldsInStruct | NestedStruct | ContainsNestedStruct |
         SystemObject | MismatchedArgUse | GlobalArray | HasVTable |
         HasCppHandling | HasZeroSizedArray | BadCastingConditional |
-        UnsafePointerStoreConditional | DopeVector;
+        UnsafePointerStoreConditional | DopeVector |
+        BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
+        MismatchedElementAccessRelatedTypes |
+        UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite;
 
 const SafetyData SDDynClone =
     BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
@@ -509,7 +632,10 @@ const SafetyData SDDynClone =
         AddressTaken | NoFieldsInStruct | NestedStruct | ContainsNestedStruct |
         SystemObject | LocalInstance | MismatchedArgUse | GlobalArray |
         HasVTable | HasFnPtr | HasZeroSizedArray | BadCastingConditional |
-        UnsafePointerStoreConditional | UnhandledUse | DopeVector;
+        UnsafePointerStoreConditional | UnhandledUse | DopeVector |
+        BadCastingForRelatedTypes | BadPtrManipulationForRelatedTypes |
+        MismatchedElementAccessRelatedTypes |
+        UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite;
 
 const SafetyData SDSOAToAOS =
     BadCasting | BadPtrManipulation |
@@ -520,7 +646,10 @@ const SafetyData SDSOAToAOS =
         NoFieldsInStruct | SystemObject | LocalInstance | MismatchedArgUse |
         GlobalArray | HasFnPtr | HasZeroSizedArray |
         BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse |
-        DopeVector;
+        DopeVector | BadCastingForRelatedTypes |
+        BadPtrManipulationForRelatedTypes |
+        MismatchedElementAccessRelatedTypes |
+        UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite;
 
 const SafetyData SDMemInitTrimDown =
     BadCasting | BadPtrManipulation |
@@ -531,7 +660,18 @@ const SafetyData SDMemInitTrimDown =
         NoFieldsInStruct | SystemObject | LocalInstance | MismatchedArgUse |
         GlobalArray | HasFnPtr | HasZeroSizedArray |
         BadCastingConditional | UnsafePointerStoreConditional | UnhandledUse |
-        DopeVector;
+        DopeVector | BadCastingForRelatedTypes |
+        BadPtrManipulationForRelatedTypes |
+        MismatchedElementAccessRelatedTypes |
+        UnsafePointerStoreRelatedTypes | MemFuncNestedStructsPartialWrite;
+
+// Safety conditions for structures with padding
+const SafetyData SDPaddedStructures =
+    BadCasting | BadAllocSizeArg | BadPtrManipulation | AmbiguousGEP |
+        VolatileData | MismatchedElementAccess |
+        UnsafePointerStore | UnsafePtrMerge | BadMemFuncSize |
+        BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
+        MismatchedArgUse | UnhandledUse;
 
 //
 // TODO: Update the list each time we add a new safety conditions check for a
@@ -571,11 +711,13 @@ public:
 
 protected:
   // This class should only be instantiated through its subclasses.
-  TypeInfo(TypeInfoKind Kind, llvm::Type *Ty)
-      : LLVMTy(Ty), SafetyInfo(0), TIK(Kind), CRTypeKind(CRT_Unknown) {}
+  TypeInfo(TypeInfoKind Kind, AbstractType Ty)
+      : Ty(Ty), SafetyInfo(0), TIK(Kind), CRTypeKind(CRT_Unknown) {}
 
 public:
-  llvm::Type *getLLVMType() const { return LLVMTy; }
+  llvm::Type *getLLVMType() const { return Ty.getLLVMType(); }
+  DTransType *getDTransType() const { return Ty.getDTransType(); }
+  bool isDTransType() const { return Ty.isDTransType(); }
 
   bool testSafetyData(SafetyData Conditions) const {
     // If any unhandled uses have been seen, assume all conditions are set.
@@ -583,9 +725,14 @@ public:
       return true;
     return (SafetyInfo & Conditions);
   }
+
   void setSafetyData(SafetyData Conditions);
+
   void resetSafetyData(SafetyData Conditions) { SafetyInfo &= ~Conditions; }
+
   void clearSafetyData() { SafetyInfo = 0; }
+
+  void mergeSafetyDataWithRelatedType();
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void printSafetyData(raw_ostream &OS) const;
@@ -601,7 +748,7 @@ public:
   }
 
 private:
-  llvm::Type *LLVMTy;
+  AbstractType Ty;
   SafetyData SafetyInfo;
 
   // ID to support type inquiry through isa, cast, and dyn_cast
@@ -612,7 +759,7 @@ private:
 
 class NonAggregateTypeInfo : public TypeInfo {
 public:
-  NonAggregateTypeInfo(llvm::Type *Ty)
+  NonAggregateTypeInfo(AbstractType Ty)
       : TypeInfo(TypeInfo::NonAggregateInfo, Ty) {}
 
   /// Method to support type inquiry through isa, cast, and dyn_cast:
@@ -623,7 +770,7 @@ public:
 
 class PointerInfo : public TypeInfo {
 public:
-  PointerInfo(llvm::Type *Ty) : TypeInfo(TypeInfo::PtrInfo, Ty) {}
+  PointerInfo(AbstractType Ty) : TypeInfo(TypeInfo::PtrInfo, Ty) {}
 
   /// Method to support type inquiry through isa, cast, and dyn_cast:
   static inline bool classof(const TypeInfo *TI) {
@@ -633,10 +780,10 @@ public:
 
 class StructInfo : public TypeInfo {
 public:
-  StructInfo(llvm::Type *Ty, ArrayRef<llvm::Type *> FieldTypes, bool IgnoreFlag)
-      : TypeInfo(TypeInfo::StructInfo, Ty), IsIgnoredFor(IgnoreFlag),
+  StructInfo(AbstractType Ty, ArrayRef<AbstractType> FieldTypes)
+      : TypeInfo(TypeInfo::StructInfo, Ty), TotalFrequency(0), IsIgnoredFor(0),
         SubGraph() {
-    for (llvm::Type *FieldTy : FieldTypes)
+    for (AbstractType FieldTy : FieldTypes)
       Fields.push_back(FieldInfo(FieldTy));
   }
 
@@ -705,17 +852,66 @@ public:
   }
   const CallSubGraph &getCallSubGraph() const { return SubGraph; }
 
+  // Return the related type stored in the StructInfo
+  dtrans::StructInfo* getRelatedType() const { return RelatedType; }
+
+  void setRelatedType(dtrans::StructInfo *RelType) {
+    assert (!RelatedType && "Only one related type could be set");
+    RelatedType = RelType;
+  }
+
+  // Remove the related type and restore the safety conditions.
+  void unsetRelatedType();
+
+  // Return true if the input offset accesses the padded field.
+  bool offsetAccessesPaddingField(int64_t Offset, const llvm::DataLayout &DL,
+                                  bool FullBase = true);
+
+  // Return true if the last field in the structure is used for padding.
+  bool hasPaddedField();
+
 private:
   SmallVector<FieldInfo, 16> Fields;
   // Total Frequency of all fields in struct.
   uint64_t TotalFrequency;
   dtrans::Transform IsIgnoredFor;
   CallSubGraph SubGraph;
+
+  // The related type is used to map a base type to a padded type.
+  // For example, consider the following classes:
+  //
+  // class A {
+  //   int a;
+  //   int b;
+  //   int c;
+  // }
+  //
+  // class B : public A {
+  //   int d;
+  // }
+  //
+  // Also consider that if there is an instantiation of A and B, then we will
+  // see something like this in the IR:
+  //
+  // %class.A = type <{i32, i32, i32, [ 4 x i8 ]}>
+  // %class.A.base = type <{i32, i32, i32}>
+  // %class.B = type {%class.A.base, i32}
+  //
+  // The IR creates two forms of class A. The ".base" form is used for the
+  // structure hierarchy, and the padded form (non ".base") is used across
+  // the whole IR (bitcasting, GEPs, etc.). The padding is added by the CFE
+  // and is used by the application binary interface (ABI). When we find
+  // this relationship then we set the padded type as the RelatedType for
+  // the ".base" class, and vice-versa. From the example above:
+  //
+  //   RelatedType for %class.A = %class.A.base
+  //   RelatedType for %class.A.base = %class.A
+  dtrans::StructInfo *RelatedType = nullptr;
 };
 
 class ArrayInfo : public TypeInfo {
 public:
-  ArrayInfo(llvm::Type *Ty, dtrans::TypeInfo *DTransElemTy, size_t Size)
+  ArrayInfo(AbstractType Ty, dtrans::TypeInfo *DTransElemTy, size_t Size)
       : TypeInfo(TypeInfo::ArrayInfo, Ty), DTransElemTy(DTransElemTy),
         NumElements(Size) {}
 
@@ -774,6 +970,7 @@ struct MemfuncRegion {
 // for more than a single function argument.
 class CallInfoElementTypes {
 public:
+  // TODO: Change to use AbstractType
   typedef SmallVector<llvm::Type *, 2> TypeAliasSet;
   typedef SmallVectorImpl<llvm::Type *> &TypeAliasSetRef;
 
@@ -1134,6 +1331,20 @@ llvm::Type *dtransCompositeGetTypeAtIndex(llvm::Type *Ty, unsigned Idx);
 llvm::Type* getTypeForZeroElementLoaded(LoadInst *Load,
                                         llvm::Type **Pointee);
 
+// Return true if the BitCast instruction is used for loading the 0 element
+// in a structure
+bool isBitCastLoadingZeroElement(BitCastInst *BC);
+
+// Return true if the input type Type1 is the same as Type2 except for
+// the last element (or vice versa). This last element is used by the ABI.
+bool isPaddedStruct(llvm::Type *Type1, llvm::Type *Type2);
+
+// Given a type, find the related type from the input Module M.
+llvm::Type* collectRelatedType(llvm::Type *InTy, Module &M);
+
+StringRef getTypeBaseName(StringRef TyName);
+llvm::StructType *getContainedStructTy(llvm::Type *Ty);
+void collectAllStructTypes(Module &M, SetVector<llvm::StructType *> &SeenTypes);
 } // namespace dtrans
 
 } // namespace llvm

@@ -117,10 +117,8 @@ enum class device : cl_device_info {
   partition_affinity_domains = CL_DEVICE_PARTITION_AFFINITY_DOMAIN,
   partition_type_affinity_domain = CL_DEVICE_PARTITION_TYPE,
   reference_count = CL_DEVICE_REFERENCE_COUNT,
-/* INTEL_CUSTOMIZATION */
-  il_version = 
-     CL_DEVICE_IL_VERSION_KHR, // Same as CL_DEVICE_IL_VERSION for >=OpenCL 2.1
-/* end INTEL_CUSTOMIZATION */
+  il_version =
+      CL_DEVICE_IL_VERSION_KHR, // Same as CL_DEVICE_IL_VERSION for >=OpenCL 2.1
   max_num_sub_groups = CL_DEVICE_MAX_NUM_SUB_GROUPS,
   sub_group_independent_forward_progress =
       CL_DEVICE_SUB_GROUP_INDEPENDENT_FORWARD_PROGRESS,
@@ -147,10 +145,10 @@ enum class device_type : pi_uint64 {
 };
 
 enum class partition_property : cl_device_partition_property {
+  no_partition = 0,
   partition_equally = CL_DEVICE_PARTITION_EQUALLY,
   partition_by_counts = CL_DEVICE_PARTITION_BY_COUNTS,
-  partition_by_affinity_domain = CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN,
-  no_partition
+  partition_by_affinity_domain = CL_DEVICE_PARTITION_BY_AFFINITY_DOMAIN
 };
 
 enum class partition_affinity_domain : cl_device_affinity_domain {
@@ -189,11 +187,6 @@ enum class queue : cl_command_queue_info {
   device = CL_QUEUE_DEVICE,
   reference_count = CL_QUEUE_REFERENCE_COUNT
 };
-enum class ordered_queue : cl_command_queue_info {
-  context = CL_QUEUE_CONTEXT,
-  device = CL_QUEUE_DEVICE,
-  reference_count = CL_QUEUE_REFERENCE_COUNT
-};
 
 // A.5 Kernel information desctiptors
 enum class kernel : cl_kernel_info {
@@ -215,9 +208,7 @@ enum class kernel_work_group : cl_kernel_work_group_info {
 };
 
 enum class kernel_sub_group : cl_kernel_sub_group_info {
-  max_sub_group_size_for_ndrange = CL_KERNEL_MAX_SUB_GROUP_SIZE_FOR_NDRANGE,
-  sub_group_count_for_ndrange = CL_KERNEL_SUB_GROUP_COUNT_FOR_NDRANGE,
-  local_size_for_sub_group_count = CL_KERNEL_LOCAL_SIZE_FOR_SUB_GROUP_COUNT,
+  max_sub_group_size = CL_KERNEL_MAX_SUB_GROUP_SIZE_FOR_NDRANGE,
   max_num_sub_groups = CL_KERNEL_MAX_NUM_SUB_GROUPS,
   compile_num_sub_groups = CL_KERNEL_COMPILE_NUM_SUB_GROUPS,
   compile_sub_group_size = CL_KERNEL_COMPILE_SUB_GROUP_SIZE_INTEL

@@ -692,12 +692,16 @@ void TileMVInlMarker::makeTileChoices(Function *Root, Function *SubRoot) {
     Function *Callee = CB->getCalledFunction();
     if (!Callee || Callee->isDeclaration())
       continue;
-    if (Callee != SubRoot &&
-        (hasUniqueTileSubscriptArg(*Callee) ||
-         std::distance(Callee->arg_begin(), Callee->arg_end()) >=
-                 TileCandidateArgMin &&
-             IPOUtils::isLeafFunction(*Callee))) {
+    if (Callee == SubRoot)
+      continue;
+    if (hasUniqueTileSubscriptArg(*Callee)) {
       TileChoices.insert(Callee);
+      continue;
+    }
+    unsigned dist = Callee->arg_size();
+    if (dist >= TileCandidateArgMin && IPOUtils::isLeafFunction(*Callee)) {
+      TileChoices.insert(Callee);
+      continue;
     }
   }
   if (SubRoot)

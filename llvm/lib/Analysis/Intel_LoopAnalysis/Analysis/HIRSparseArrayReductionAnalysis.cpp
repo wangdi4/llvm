@@ -167,7 +167,7 @@ HIRSparseArrayReductionAnalysis::HIRSparseArrayReductionAnalysis(
   }
 }
 
-void printAChain(formatted_raw_ostream &OS, unsigned Indented,
+void printSafeRedChain(formatted_raw_ostream &OS, unsigned Indented,
                  const loopopt::SparseArrayReductionChain &SRC) {
   for (auto *Inst : SRC) {
     Inst->print(OS, Indented, false);
@@ -323,13 +323,13 @@ bool HIRSparseArrayReductionAnalysis::findLoadInstWithinNHops(
       }
 
       // If there are incoming edges to memref, bail out
-      if (DDG.getNumIncomingFlowEdges(RRef) != 0) {
+      if (DDG.getTotalNumIncomingFlowEdges(RRef) != 0) {
         return false;
       }
     }
 
     // STEP 2: Check number of incoming flow edges
-    unsigned NumIncomingFlowEdges = DDG.getNumIncomingFlowEdges(RRef);
+    unsigned NumIncomingFlowEdges = DDG.getTotalNumIncomingFlowEdges(RRef);
     LLVM_DEBUG(dbgs() << "Number of incoming edge to the rval operand: "
                       << NumIncomingFlowEdges << "\n");
 
@@ -438,7 +438,7 @@ bool HIRSparseArrayReductionAnalysis::isReductionStmt(const HLInst *Inst,
     }
 
     // There should be only one incoming flow edge to rval operand %14.
-    if (DDG.getNumIncomingFlowEdges(RRef) != 1) {
+    if (DDG.getTotalNumIncomingFlowEdges(RRef) != 1) {
       continue;
     }
 
@@ -486,7 +486,7 @@ bool HIRSparseArrayReductionAnalysis::isLegallyValid(
   }
 
   // There should be only one incoming flow edge to rval operand %add46.
-  if (DDG.getNumIncomingFlowEdges(ReductionTempRef) != 1) {
+  if (DDG.getTotalNumIncomingFlowEdges(ReductionTempRef) != 1) {
     return false;
   }
 
@@ -503,7 +503,7 @@ bool HIRSparseArrayReductionAnalysis::isLegallyValid(
   }
 
   // There should be only one incoming flow edge to this blob.
-  if (DDG.getNumIncomingFlowEdges(NonLinearBRRef) != 1) {
+  if (DDG.getTotalNumIncomingFlowEdges(NonLinearBRRef) != 1) {
     return false;
   }
 
@@ -685,7 +685,7 @@ void HIRSparseArrayReductionAnalysis::validateAndCreateSparseArrayReduction(
                                      StoreRef->getSymbase(), ReductionOpCode);
     LLVM_DEBUG(dbgs() << "Sparse Array Reduction Chain:\n");
     LLVM_DEBUG(formatted_raw_ostream FOS(dbgs());
-               printAChain(FOS, 1, ReductionInsts));
+               printSafeRedChain(FOS, 1, ReductionInsts));
     LLVM_DEBUG(dbgs() << "\n");
   }
 }
@@ -733,7 +733,7 @@ void HIRSparseArrayReductionAnalysis::print(
   }
 
   for (auto &SARI : *SARCL) {
-    printAChain(OS, Depth, SARI.Chain);
+    printSafeRedChain(OS, Depth, SARI.Chain);
   }
 }
 

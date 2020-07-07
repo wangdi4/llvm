@@ -33,6 +33,13 @@ using DeviceImplPtr = shared_ptr_class<detail::device_impl>;
 /// Sets max number of queues supported by FPGA RT.
 const size_t MaxNumQueues = 256;
 
+//// Possible CUDA context types supported by PI CUDA backend
+/// TODO: Implement this as a property once there is an extension document
+enum class cuda_context_type : char { primary, custom };
+
+/// Default context type created for CUDA backend
+constexpr cuda_context_type DefaultContextType = cuda_context_type::custom;
+
 enum QueueOrder { Ordered, OOO };
 
 class queue_impl {
@@ -50,7 +57,8 @@ public:
              const property_list &PropList)
       : queue_impl(Device,
                    detail::getSyclObjImpl(context(
-                       createSyclObjFromImpl<device>(Device), {}, true)),
+                       createSyclObjFromImpl<device>(Device), {},
+                       (DefaultContextType == cuda_context_type::primary))),
                    AsyncHandler, Order, PropList){};
 
   /// Constructs a SYCL queue with an async_handler and property_list provided
@@ -336,10 +344,12 @@ public:
   /// Provides additional information to the underlying runtime about how
   /// different allocations are used.
   ///
+  /// \param Impl is a shared_ptr to this queue.
   /// \param Ptr is a USM pointer to the allocation.
   /// \param Length is a number of bytes in the allocation.
   /// \param Advice is a device-defined advice for the specified allocation.
-  event mem_advise(const void *Ptr, size_t Length, pi_mem_advice Advice);
+  event mem_advise(shared_ptr_class<queue_impl> Impl, const void *Ptr,
+                   size_t Length, pi_mem_advice Advice);
 
   /// Puts exception to the list of asynchronous ecxeptions.
   ///

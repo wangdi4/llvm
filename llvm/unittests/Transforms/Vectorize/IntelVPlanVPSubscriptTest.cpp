@@ -55,18 +55,21 @@ TEST_F(VPlanVPSubscriptTest, TestVPSubscript) {
   VPConstant *Lower2 = Plan->getVPConstant(ConstantInt::get(Ty32, 2));
   VPConstant *Stride2 = Plan->getVPConstant(ConstantInt::get(Ty32, 3));
   VPValue *Idx2 = Plan->getVPExternalDef(&*F->getEntryBlock().begin());
+  Type *BaseTy = Base->getType();
 
   // Create a new single-dimension VPSubscriptInst.
-  Builder.createSubscriptInst(0, Lower1, Stride1, Base, Idx1);
+  Builder.createSubscriptInst(BaseTy, 0, Lower1, Stride1, Base, Idx1);
 
   // Create a new multi-dimension VPSubscriptInst.
-  Builder.createSubscriptInst(2, {Lower2, Lower1}, {Stride2, Stride1}, Base,
-                              {Idx2, Idx1});
+  Builder.createSubscriptInst(BaseTy, 2, {Lower2, Lower1}, {Stride2, Stride1},
+                              Base, {Idx2, Idx1});
 
-  // Create a new multi-dimension VPSubscriptInst with struct offsets.
+  // Create a new multi-dimension VPSubscriptInst with struct offsets and
+  // dimension type information.
   Builder.createSubscriptInst(
-      2, {Lower2, Lower1}, {Stride2, Stride1}, Base, {Idx2, Idx1},
-      {{1 /*Dimension*/, {1, 0}}, {0 /*Dimension*/, {0}}});
+      BaseTy, 2, {Lower2, Lower1}, {Stride2, Stride1}, Base, {Idx2, Idx1},
+      {{1 /*Dimension*/, {1, 0}}, {0 /*Dimension*/, {0}}},
+      {{1 /*Dimension*/, BaseTy}, {0 /*Dimension*/, BaseTy}});
 
   // Verify loops after adding subscript VPInstruction.
   VPlanVerifier Verifier(*Plan->getDataLayout());

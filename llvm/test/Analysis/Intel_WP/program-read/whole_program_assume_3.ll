@@ -4,7 +4,7 @@
 ; a linking failure due to undefined reference to __dso_handle.
 
 ; RUN: llvm-as %s -o %t.bc
-; RUN: not %gold -shared -plugin %llvmshlibdir/LLVMgold%shlibext \
+; RUN: not %gold -shared -plugin %llvmshlibdir/icx-lto%shlibext \
 ; RUN:    -plugin-opt=O3 \
 ; RUN:    -plugin-opt=-whole-program-assume \
 ; RUN:    -plugin-opt=-print-after-all  \

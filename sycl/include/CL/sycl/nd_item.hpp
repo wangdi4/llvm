@@ -31,6 +31,11 @@ namespace sycl {
 namespace detail {
 class Builder;
 }
+
+/// Identifies an instance of the function object executing at each point in an
+/// nd_range.
+///
+/// \ingroup sycl_api
 template <int dimensions = 1> class nd_item {
 public:
   nd_item() = delete;
@@ -120,6 +125,7 @@ public:
 #if !DPCPP_HOST_DEVICE_SERIAL
     cl::sycl::detail::NDRangeBarrier(accessSpace);
 #else
+    (void)accessSpace;
 /* end INTEL_CUSTOMIZATION */
     std::cerr << "Barrier is not supported on host device.\n";
     abort();
@@ -136,6 +142,7 @@ public:
                                         accessMode == access::mode::read_write,
                                     access::fence_space>::type accessSpace =
                 access::fence_space::global_and_local) const {
+    (void)accessSpace;
     Group.mem_fence();
   }
 

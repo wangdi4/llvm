@@ -17,6 +17,7 @@
 #define LLVM_TRANSFORMS_IPO_INTEL_INLINEREPORTCOMMON_H
 
 #include "llvm/Analysis/InlineCost.h"
+#include "llvm/IR/IntrinsicInst.h"
 
 namespace llvm {
 
@@ -140,6 +141,8 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtCost, "Callee has callsites with array struct args"},
     // InlrPreferTileChoice
     {InlPrtCost, "Callsite inlined to enable tiling"},
+    // InlrManyRecursiveCallsSplitting
+    {InlPrtCost, "Callsite inlined for many recursive calls splitting"},
     // InlrProfitable,
     {InlPrtCost, "Inlining is profitable"},
     // InlrLast,
@@ -170,6 +173,8 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtCost, "Callee has block address"},
     // NinlrCallsLocalEscape,
     {InlPrtCost, "Callee calls localescape"},
+    // NinlrCallsBranchFunnel,
+    {InlPrtCost, "Callee calls branch funnel"},
     // NinlrNeverInline,
     {InlPrtSimple, "Callee is never inline"},
     // NinlrIntrinsic,

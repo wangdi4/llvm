@@ -1,7 +1,7 @@
-; RUN: opt -vpo-paropt-prepare -vpo-paropt-use-device-ptr-is-default-by-ref=false -vpo-paropt-use-interop=false -S < %s | FileCheck %s -check-prefix=BUFFPTR
-; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -vpo-paropt-use-device-ptr-is-default-by-ref=false -vpo-paropt-use-interop=false -S | FileCheck %s -check-prefix=BUFFPTR
-; RUN: opt -vpo-paropt-prepare -vpo-paropt-use-device-ptr-is-default-by-ref=false -vpo-paropt-use-raw-dev-ptr=true -vpo-paropt-use-interop=false -S < %s | FileCheck %s -check-prefix=RAWPTR
-; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -vpo-paropt-use-device-ptr-is-default-by-ref=false -vpo-paropt-use-raw-dev-ptr=true -vpo-paropt-use-interop=false -S | FileCheck %s -check-prefix=RAWPTR
+; RUN: opt -vpo-paropt-prepare -vpo-paropt-use-interop=false -S < %s | FileCheck %s -check-prefix=BUFFPTR
+; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -vpo-paropt-use-interop=false -S | FileCheck %s -check-prefix=BUFFPTR
+; RUN: opt -vpo-paropt-prepare -vpo-paropt-use-raw-dev-ptr=true -vpo-paropt-use-interop=false -S < %s | FileCheck %s -check-prefix=RAWPTR
+; RUN: opt < %s -passes='function(vpo-paropt-prepare)' -vpo-paropt-use-raw-dev-ptr=true -vpo-paropt-use-interop=false -S | FileCheck %s -check-prefix=RAWPTR
 ; Test for TARGET VARIANT DISPATCH construct with a USE_DEVICE_PTR clause
 ;
 ; This test has hand-modified version of the test
@@ -28,13 +28,33 @@
 ; instead of creating a load from them (like in
 ; target_variant_dispatch_usedeviceptr_intfunc_floatStarStar.ll).
 ; BUFFPTR-DAG:[[BCAST:[^ ]+]] = bitcast float* %b_cpu to i8*
-; BUFFPTR: %b_cpu.buffer = call i8* @__tgt_create_buffer(i64 -1, i8* [[BCAST]])
-; BUFFPTR: %a_cpu.buffer = call i8* @__tgt_create_buffer(i64 -1, i8* bitcast (float* @a_cpu to i8*))
-;
-; Check that @a_cpu and %b_cpu used directly
-; RAWPTR:store i8* bitcast (float* @a_cpu to i8*), i8**
-; RAWPTR:[[BCAST:[^ ]+]] = bitcast float* %b_cpu to i8*
-; RAWPTR:store i8* [[BCAST]], i8**
+; BUFFPTR: [[B_TGT:%[^ ]+]] = call i8* @__tgt_create_buffer(i64 -1, i8* [[BCAST]])
+; BUFFPTR: store i8* [[B_TGT]], i8** [[B_TGT_ADDR:%[^ ]+]], align 8
+; BUFFPTR: [[A_TGT:%[^ ]+]] = call i8* @__tgt_create_buffer(i64 -1, i8* bitcast (float* @a_cpu to i8*))
+; BUFFPTR: store i8* [[A_TGT]], i8** [[A_TGT_ADDR:%[^ ]+]], align 8
+; BUFFPTR: variant.call:
+; BUFFPTR: [[A_TGT_ADDR_LOAD:%[^ ]+]] = load i8*, i8** [[A_TGT_ADDR]], align 8
+; BUFFPTR: [[A_TGT_CAST:%[^ ]+]] = bitcast i8* [[A_TGT_ADDR_LOAD]] to float*
+; BUFFPTR: [[B_TGT_ADDR_LOAD:%[^ ]+]] = load i8*, i8** [[B_TGT_ADDR]], align 8
+; BUFFPTR: [[B_TGT_CAST:%[^ ]+]] = bitcast i8* [[B_TGT_ADDR_LOAD]] to float*
+; BUFFPTR: call i32 @foo_gpu(float* [[A_TGT_CAST]], float* [[B_TGT_CAST]], i32 77777)
+
+
+; If -vpo-paropt-use-raw-dev-ptr is true, check that the device pointers for @a_cpu and %b_cpu,
+; are obtained using a tgt_target_data_begin call. The map-type should be TGT_PARAM | TGT_RETURN_PARAM (96).
+; RAWPTR: @.offload_maptypes = private unnamed_addr constant [2 x i64] [i64 96, i64 96]
+; RAWPTR: [[A_GEP:%[^ ]+]] = getelementptr inbounds [2 x i8*], [2 x i8*]* %.offload_baseptrs, i32 0, i32 0
+; RAWPTR: store i8* bitcast (float* @a_cpu to i8*), i8** %0, align 8
+; RAWPTR: [[B_CAST:%[^ ]+]] = bitcast float* %b_cpu to i8*
+; RAWPTR: [[B_GEP:%[^ ]+]] = getelementptr inbounds [2 x i8*], [2 x i8*]* %.offload_baseptrs, i32 0, i32 1
+; RAWPTR: store i8* [[B_CAST]], i8** [[B_GEP]], align 8
+; RAWPTR: call void @__tgt_target_data_begin({{.*}})
+; RAWPTR: [[A_GEP_CAST:%[^ ]+]] = bitcast i8** [[A_GEP]] to float**
+; RAWPTR: [[B_GEP_CAST:%[^ ]+]] = bitcast i8** [[B_GEP]] to float**
+; RAWPTR: [[A_UPDATED:%[^ ]+]] = load float*, float** [[A_GEP_CAST]], align 8
+; RAWPTR: [[B_UPDATED:%[^ ]+]] = load float*, float** [[B_GEP_CAST]], align 8
+; RAWPTR: call i32 @foo_gpu(float* [[A_UPDATED]], float* [[B_UPDATED]], i32 77777)
+; RAWPTR: call void @__tgt_target_data_end({{.*}})
 
 source_filename = "target_variant_dispatch_usedeviceptr_intfunc_floatStar.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

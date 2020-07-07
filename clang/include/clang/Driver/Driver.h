@@ -293,6 +293,14 @@ private:
   bool getCrashDiagnosticFile(StringRef ReproCrashFilename,
                               SmallString<128> &CrashDiagDir);
 
+#if INTEL_CUSTOMIZATION
+  /// Add any Intel specific arguments that are either set by default or
+  /// implied from other options.
+  void addIntelArgs(llvm::opt::DerivedArgList &DAL,
+                    const llvm::opt::InputArgList &Args,
+                    const llvm::opt::OptTable &Opts) const;
+#endif // INTEL_CUSTOMIZATION
+
 public:
 
   /// Takes the path to a binary that's either in bin/ or lib/ and returns
@@ -303,6 +311,10 @@ public:
   Driver(StringRef ClangExecutable, StringRef TargetTriple,
          DiagnosticsEngine &Diags,
          IntrusiveRefCntPtr<llvm::vfs::FileSystem> VFS = nullptr);
+
+#if INTEL_CUSTOMIZATION
+  void setDriverName(const std::string &Name) { this->Name = Name; }
+#endif // INTEL_CUSTOMIZATION
 
   /// @name Accessors
   /// @{
@@ -462,6 +474,10 @@ public:
 #if INTEL_CUSTOMIZATION
   /// \param Args - arguments used to control help information
   void PrintHelp(const llvm::opt::ArgList &Args) const;
+
+  /// Intel Print formating.
+  unsigned IntelPrintOptions : 1;
+
 #endif // INTEL_CUSTOMIZATION
 
   /// PrintSYCLToolHelp - Print help text from offline compiler tools.
@@ -561,6 +577,9 @@ public:
   /// ShouldUseFlangCompiler - Should the flang compiler be used to
   /// handle this action.
   bool ShouldUseFlangCompiler(const JobAction &JA) const;
+
+  /// ShouldEmitStaticLibrary - Should the linker emit a static library.
+  bool ShouldEmitStaticLibrary(const llvm::opt::ArgList &Args) const;
 
   /// Returns true if we are performing any kind of LTO.
   bool isUsingLTO() const { return LTOMode != LTOK_None; }

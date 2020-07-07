@@ -64,7 +64,7 @@ class HIRSSADeconstruction {
 public:
   HIRSSADeconstruction() : ModifiedIR(false), NamingCounter(0) {}
 
-  bool run(Function &F, DominatorTree &DT, LoopInfo &LI, ScalarEvolution &SE,
+  bool run(Function &F, DominatorTree &DT, LoopInfo &LI,
            HIRRegionIdentification &RI, HIRSCCFormation &SCCF);
 
 private:
@@ -160,8 +160,8 @@ private:
 private:
   DominatorTree *DT;
   LoopInfo *LI;
-  ScalarEvolution *SE;
   HIRRegionIdentification *RI;
+  ScopedScalarEvolution *ScopedSE;
   HIRSCCFormation *SCCF;
 
   bool ModifiedIR;
@@ -178,7 +178,6 @@ PreservedAnalyses HIRSSADeconstructionPass::run(Function &F,
   HIRSSADeconstruction HSSAD;
   bool Modified = HSSAD.run(F, AM.getResult<DominatorTreeAnalysis>(F),
                             AM.getResult<LoopAnalysis>(F),
-                            AM.getResult<ScalarEvolutionAnalysis>(F),
                             AM.getResult<HIRRegionIdentificationAnalysis>(F),
                             AM.getResult<HIRSCCFormationAnalysis>(F));
 
@@ -221,8 +220,7 @@ public:
 
     HIRSSADeconstruction HSSAD;
     return HSSAD.run(F, getAnalysis<DominatorTreeWrapperPass>().getDomTree(),
-                     getAnalysis<LoopInfoWrapperPass>().getLoopInfo(),
-                     getAnalysis<ScalarEvolutionWrapperPass>().getSE(), RI,
+                     getAnalysis<LoopInfoWrapperPass>().getLoopInfo(), RI,
                      getAnalysis<HIRSCCFormationWrapperPass>().getSCCF());
   }
 
@@ -272,7 +270,7 @@ void HIRSSADeconstruction::attachMetadata(
     Node = MDNode::get(Inst->getContext(), Args);
   }
 
-  Inst->setMetadata(SE->getHIRMDKindID(Kind), Node);
+  Inst->setMetadata(ScopedSE->getHIRMDKindID(Kind), Node);
 }
 
 Instruction *HIRSSADeconstruction::createCopy(Value *Val, StringRef Name,
@@ -290,11 +288,11 @@ Instruction *HIRSSADeconstruction::createCopy(Value *Val, StringRef Name,
 
 bool HIRSSADeconstruction::isIVUpdateLiveInCopy(Instruction *Inst) const {
 
-  if (!isa<CallInst>(Inst) || !SE->isSCEVable(Inst->getType())) {
+  if (!isa<CallInst>(Inst) || !ScopedSE->isSCEVable(Inst->getType())) {
     return false;
   }
 
-  if (!SE->getHIRMetadata(Inst, ScalarEvolution::HIRLiveKind::LiveIn)) {
+  if (!ScopedSE->getHIRMetadata(Inst, ScalarEvolution::HIRLiveKind::LiveIn)) {
     return false;
   }
 
@@ -306,7 +304,7 @@ bool HIRSSADeconstruction::isIVUpdateLiveInCopy(Instruction *Inst) const {
     return false;
   }
 
-  return isa<SCEVAddRecExpr>(SE->getSCEV(Inst));
+  return isa<SCEVAddRecExpr>(ScopedSE->getSCEV(Inst));
 }
 
 void HIRSSADeconstruction::insertLiveInCopy(Value *Val, BasicBlock *BB,
@@ -437,10 +435,10 @@ bool HIRSSADeconstruction::liveoutCopyRequired(
     const PHINode *StandAlonePhi) const {
 
   const Value *PhiVal = StandAlonePhi;
-  bool SCEVablePhi = SE->isSCEVable(PhiVal->getType());
+  bool SCEVablePhi = ScopedSE->isSCEVable(PhiVal->getType());
 
   const SCEV *PhiSCEV =
-      SCEVablePhi ? SE->getUnknown(const_cast<Value *>(PhiVal)) : nullptr;
+      SCEVablePhi ? ScopedSE->getUnknown(const_cast<Value *>(PhiVal)) : nullptr;
 
   // If the 'user' phi occurs before definition phi the copies are inserted
   // in the correct order (on the assumption that we traverse the bblock
@@ -472,9 +470,9 @@ bool HIRSSADeconstruction::liveoutCopyRequired(
       }
 
       // Check usage in SCEV.
-      if (SCEVablePhi && SE->isSCEVable(UserPhiOp->getType())) {
-        auto SC = SE->getSCEV(UserPhiOp);
-        if (SE->hasOperand(SC, PhiSCEV)) {
+      if (SCEVablePhi && ScopedSE->isSCEVable(UserPhiOp->getType())) {
+        auto SC = ScopedSE->getSCEV(UserPhiOp);
+        if (ScopedSE->hasOperand(SC, PhiSCEV)) {
           return true;
         }
       }
@@ -507,7 +505,8 @@ bool HIRSSADeconstruction::hasNonSCEVableUses(Instruction **Inst,
 
     auto Phi = dyn_cast<PHINode>(CurInst);
 
-    if (!Phi || (SE->isSCEVable(Phi->getType()) && RI->isHeaderPhi(Phi))) {
+    if (!Phi ||
+        (ScopedSE->isSCEVable(Phi->getType()) && RI->isHeaderPhi(Phi))) {
       return false;
     }
 
@@ -522,7 +521,7 @@ bool HIRSSADeconstruction::hasNonSCEVableUses(Instruction **Inst,
   // If the instruction itself is non-SCEVable return true.
   // Note that we are only checking for commonly occuring non-scevable
   // instructions.
-  if (!SE->isSCEVable(CurInst->getType()) || isa<LoadInst>(CurInst) ||
+  if (!ScopedSE->isSCEVable(CurInst->getType()) || isa<LoadInst>(CurInst) ||
       (isa<CallInst>(CurInst) && !isa<SubscriptInst>(CurInst))) {
     return true;
   }
@@ -593,12 +592,15 @@ void HIRSSADeconstruction::processLiveouts(Instruction *Inst,
     if (!CopyRequired) {
       Lp = LI->getLoopFor(ParentBB);
 
+      ScopedSE->setBackedgeTakenCountLoop(Lp);
       // We give up on non-linear phis inside unknown loops because in some
       // cases the use can be in the bottom test of the loop and can cause live
       // range violation.
       IgnoreUsesInsideLoop =
           IgnoreUsesInsideLoop ||
-          !isa<SCEVCouldNotCompute>(SE->getBackedgeTakenCount(Lp));
+          !isa<SCEVCouldNotCompute>(ScopedSE->getBackedgeTakenCount(Lp));
+
+      ScopedSE->resetBackedgeTakenCountLoop();
     }
   }
 
@@ -660,7 +662,7 @@ void HIRSSADeconstruction::processLiveouts(Instruction *Inst,
     Us.set(CopyInst);
 
     // Invalidate cached SCEV of the user, if any.
-    SE->forgetValue(UserInst);
+    ScopedSE->forgetValue(UserInst);
   }
 }
 
@@ -857,7 +859,7 @@ void HIRSSADeconstruction::deconstructPhi(PHINode *Phi) {
     bool LiveinCopyInserted = false;
     bool NonPhiFound = false;
     bool ProcessNonPhiLiveouts = false;
-    bool IsSCEVable = SE->isSCEVable(Phi->getType());
+    bool IsSCEVable = ScopedSE->isSCEVable(Phi->getType());
 
     constructName(PhiSCC->getRoot(), Name);
 
@@ -880,7 +882,7 @@ void HIRSSADeconstruction::deconstructPhi(PHINode *Phi) {
           // Attach live range type metadata to suppress SCEV traceback.
           attachMetadata(SCCPhiInst, "", ScalarEvolution::HIRLiveKind::LiveRange);
           // Tell SCEV to reparse the instruction.
-          SE->forgetValue(SCCPhiInst);
+          ScopedSE->forgetValue(SCCPhiInst);
         }
 
       } else {
@@ -898,7 +900,7 @@ void HIRSSADeconstruction::deconstructPhi(PHINode *Phi) {
           // Attach live range type metadata to suppress SCEV traceback.
           attachMetadata(SCCInst, "", ScalarEvolution::HIRLiveKind::LiveRange);
           // Tell SCEV to reparse the instruction.
-          SE->forgetValue(SCCInst);
+          ScopedSE->forgetValue(SCCInst);
         }
       }
     }
@@ -1044,7 +1046,7 @@ void HIRSSADeconstruction::processNonLoopRegionLiveouts() const {
             attachMetadata(LiveoutPhi, "",
                            ScalarEvolution::HIRLiveKind::LiveRange);
 
-            invalidateSCEVableInsts(*SE, &Inst);
+            invalidateSCEVableInsts(*ScopedSE, &Inst);
           }
 
           // Replace liveout use by single operand phi.
@@ -1162,6 +1164,8 @@ void HIRSSADeconstruction::deconstructSSAForRegions() {
     // Set current region
     CurRegIt = RegIt;
 
+    ScopedSE->setScope(RegIt->getOutermostLoops());
+
     processNonLoopRegionBlocks();
 
     // Traverse region basic blocks.
@@ -1190,12 +1194,12 @@ void HIRSSADeconstruction::deconstructSSAForRegions() {
 }
 
 bool HIRSSADeconstruction::run(Function &F, DominatorTree &DT, LoopInfo &LI,
-                               ScalarEvolution &SE, HIRRegionIdentification &RI,
+                               HIRRegionIdentification &RI,
                                HIRSCCFormation &SCCF) {
   this->DT = &DT;
   this->LI = &LI;
-  this->SE = &SE;
   this->RI = &RI;
+  this->ScopedSE = &RI.getScopedSE();
   this->SCCF = &SCCF;
 
 #if INTEL_PRODUCT_RELEASE

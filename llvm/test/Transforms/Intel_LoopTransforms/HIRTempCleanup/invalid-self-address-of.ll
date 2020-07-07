@@ -1,5 +1,5 @@
-; RUN: opt < %s -xmain-opt-level=3 -hir-details-refs -hir-ssa-deconstruction -hir-temp-cleanup -print-before=hir-temp-cleanup -print-after=hir-temp-cleanup 2>&1 | FileCheck %s
-; RUN: opt < %s -xmain-opt-level=3 -hir-details-refs -passes="hir-ssa-deconstruction,print<hir-framework>,hir-temp-cleanup,print<hir-framework>" 2>&1 | FileCheck %s
+; RUN: opt < %s -xmain-opt-level=3 -hir-details-dims -hir-ssa-deconstruction -hir-temp-cleanup -print-before=hir-temp-cleanup -print-after=hir-temp-cleanup 2>&1 | FileCheck %s
+; RUN: opt < %s -xmain-opt-level=3 -hir-details-dims -passes="hir-ssa-deconstruction,print<hir-framework>,hir-temp-cleanup,print<hir-framework>" 2>&1 | FileCheck %s
 
 ; Verify that we do not consider &((%ptr)[0] as a self-address-of ref because of
 ; non-zero lower and unintentionally try to substitute %lb into it.

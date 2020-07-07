@@ -1,6 +1,6 @@
 //===- DTransOptUtils.h - Common utility functions for DTrans transforms -===//
 //
-// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -95,11 +95,6 @@ bool findValueMultipleOfSizeInst(
 // Returns 'true' if function, \p F, represents the program's main entry
 // routine.
 bool isMainFunction(Function &F);
-
-StringRef getTypeBaseName(StringRef TyName);
-llvm::StructType *getContainedStructTy(llvm::Type *Ty);
-void collectAllStructTypes(Module &M, SetVector<llvm::StructType *> &SeenTypes);
-
 } // namespace dtrans
 } // namespace llvm
 

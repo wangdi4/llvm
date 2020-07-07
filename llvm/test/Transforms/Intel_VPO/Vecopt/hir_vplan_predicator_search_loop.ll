@@ -34,7 +34,7 @@ define dso_local i32 @_Z3fooiPKaPaa(i32 %n, i8* nocapture readonly %a, i8* nocap
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]:
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP3:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP4:%.*]], [[BB3:BB[0-9]+]] ]
-; CHECK-NEXT:     [DA: Uni] i8* [[VP5:%.*]] = getelementptr inbounds i8* [[A0:%.*]] i64 [[VP3]]
+; CHECK-NEXT:     [DA: Uni] i8* [[VP5:%.*]] = subscript inbounds i8* [[A0:%.*]] i64 [[VP3]]
 ; CHECK-NEXT:     [DA: Uni] i8 [[VP6:%.*]] = load i8* [[VP5]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP7:%.*]] = icmp i8 [[VP6]] i8 [[VAL0:%.*]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP__NOT:%.*]] = not i1 [[VP7]]

@@ -186,6 +186,15 @@ FunctionPass *createHIRMemoryReductionSinkingPass();
 
 /// Create pass that performs row-wise multiversioning.
 FunctionPass *createHIRRowWiseMVPass();
+
+/// Create pass that performs conditional load/store motion.
+FunctionPass *createHIRConditionalLoadStoreMotionPass();
+
+/// Create pass that stores result into a temp array.
+FunctionPass *createHIRStoreResultIntoTempArrayPass();
+
+/// Create pass that performs sum window reuse.
+FunctionPass *createHIRSumWindowReusePass();
 } // namespace llvm
 
 #endif

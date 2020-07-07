@@ -51,10 +51,14 @@ class MapIntrinToImlImpl {
   /// transformed using this IRBuilder.
   IRBuilder<> Builder;
 
-  /// \brief For a given instruction \p I and function name \p FuncName, try to
-  /// find an equivalent math library function to replace it with.
-  const char* findX86Variant(Instruction *I, StringRef FuncName,
-                             unsigned LogicalVL, unsigned TargetVL);
+  /// Try to find an SVML function for scalar function \p ScalarFuncName, with
+  /// VL of \p TargetVL and IMF attributes attached to \p I. Returns the name
+  /// of the SVML function. If there is no SVML function that satisfies the
+  /// requirement, empty is returned. If \p Masked is true, a masked variant is
+  /// returned.
+  StringRef findX86SVMLVariantForScalarFunction(StringRef ScalarFuncName,
+                                                unsigned TargetVL, bool Masked,
+                                                Instruction *I);
 
   /// \brief Add an IMF attribute to the attribute list.
   void addAttributeToList(ImfAttr **List, ImfAttr **Tail, ImfAttr *Attr);
@@ -95,7 +99,8 @@ class MapIntrinToImlImpl {
   /// \brief Performs type legalization on parameter arguments and inserts the
   /// legally typed svml function declaration.
   FunctionType *legalizeFunctionTypes(FunctionType *FT, ArrayRef<Value *> Args,
-                                      unsigned TargetVL, StringRef FuncName);
+                                      unsigned LogicalVL, unsigned TargetVL,
+                                      StringRef FuncName);
 
   /// \brief Splits \p NumRet number of call instructions to the math function
   /// and inserts them into \p SplitCalls. \p Args are the arguments used for
@@ -121,17 +126,20 @@ class MapIntrinToImlImpl {
   /// returns true.
   bool isLessThanFullVector(Type *ValType, Type *LegalType);
 
-  /// \brief Returns the largest vector type represented in the call
-  /// signature.
-  VectorType *getCallType(CallInst *CI);
+  /// Returns the largest vector type represented in the function signature.
+  VectorType *getVectorTypeForSVMLFunction(FunctionType *FT);
 
-  /// \brief Returns the scalar function name from the widened name of the
-  /// vector call.
-  StringRef getScalarFunctionName(StringRef FuncName, unsigned LogicalVL);
+  /// Extract information of an SVML function using it's function name and VL of
+  /// its return type. Returns the scalar function name for the SVML function.
+  /// The number of components is returned with out parameter \p LogicalVL (for
+  /// complex functions, \p LogicalVL is half of \p ReturnVL, otherwise they are
+  /// identical). If the SVML function is masked, out parameter \p Masked will
+  /// be set to true.
+  StringRef getSVMLFunctionProperties(StringRef FuncName, unsigned ReturnVL,
+                                      unsigned &LogicalVL, bool &Masked);
 
-  /// \brief Generate \p LogicalVL calls to the scalar library version of the
-  /// function.
-  void scalarizeVectorCall(CallInst *CI, StringRef LibFuncName,
+  /// Generate \p LogicalVL calls to the scalar function \p ScalarFuncName.
+  void scalarizeVectorCall(CallInst *CI, StringRef ScalarFuncName,
                            unsigned LogicalVL, Type *ElemType);
 
   /// Legalize and convert some vector integer divisions in a function to SVML
@@ -144,7 +152,13 @@ class MapIntrinToImlImpl {
   /// a non-AVX512 one, or widening a non-AVX512 SVML call to AVX512
   void legalizeAVX512MaskArgs(CallInst *CI, SmallVectorImpl<Value *> &Args,
                               Value *MaskValue, unsigned LogicalVL,
-                              unsigned TargetVL, unsigned ScalarBitWidth);
+                              unsigned TargetVL, unsigned ComponentBitWidth);
+
+  // Create a call instruction to SVML function \p Callee with arguments
+  // specified in \p Args. Set an appropriate calling convention and return the
+  // newly created instruction.
+  CallInst *createSVMLCall(FunctionCallee Callee, ArrayRef<Value *> Args,
+                           const Twine &Name);
 
 public:
   // Use TTI to provide information on the legal vector register size for the

@@ -224,6 +224,7 @@ TargetTransformInfo::UnrollingPreferences llvm::gatherUnrollingPreferences(
   UP.UnrollAndJam = false;
   UP.PeelProfiledIterations = true;
   UP.UnrollAndJamInnerLoopThreshold = 60;
+  UP.MaxIterationsCountToAnalyze = UnrollMaxIterationsCountToAnalyze;
 
   // Override with any target specific settings
   TTI.getUnrollingPreferences(L, SE, UP);
@@ -265,6 +266,8 @@ TargetTransformInfo::UnrollingPreferences llvm::gatherUnrollingPreferences(
     UP.AllowLoopNestsPeeling = UnrollAllowLoopNestsPeeling;
   if (UnrollUnrollRemainder.getNumOccurrences() > 0)
     UP.UnrollRemainder = UnrollUnrollRemainder;
+  if (UnrollMaxIterationsCountToAnalyze.getNumOccurrences() > 0)
+    UP.MaxIterationsCountToAnalyze = UnrollMaxIterationsCountToAnalyze;
 
   // Apply user values provided by argument
   if (UserThreshold.hasValue()) {
@@ -354,11 +357,12 @@ struct EstimatedUnrollCost {
 static Optional<EstimatedUnrollCost> analyzeLoopUnrollCost(
     const Loop *L, unsigned TripCount, DominatorTree &DT, ScalarEvolution &SE,
     const SmallPtrSetImpl<const Value *> &EphValues,
-    const TargetTransformInfo &TTI, unsigned MaxUnrolledLoopSize) {
+    const TargetTransformInfo &TTI, unsigned MaxUnrolledLoopSize,
+    unsigned MaxIterationsCountToAnalyze) {
   // We want to be able to scale offsets by the trip count and add more offsets
   // to them without checking for overflows, and we already don't want to
   // analyze *massive* trip counts, so we force the max to be reasonably small.
-  assert(UnrollMaxIterationsCountToAnalyze <
+  assert(MaxIterationsCountToAnalyze <
              (unsigned)(std::numeric_limits<int>::max() / 2) &&
          "The unroll iterations max is too large!");
 
@@ -368,8 +372,7 @@ static Optional<EstimatedUnrollCost> analyzeLoopUnrollCost(
     return None;
 
   // Don't simulate loops with a big or unknown tripcount
-  if (!UnrollMaxIterationsCountToAnalyze || !TripCount ||
-      TripCount > UnrollMaxIterationsCountToAnalyze)
+  if (!TripCount || TripCount > MaxIterationsCountToAnalyze)
     return None;
 
   SmallSetVector<BasicBlock *, 16> BBWorklist;
@@ -846,7 +849,8 @@ bool llvm::computeUnrollCount(
       // To check that, run additional analysis on the loop.
       if (Optional<EstimatedUnrollCost> Cost = analyzeLoopUnrollCost(
               L, FullUnrollTripCount, DT, SE, EphValues, TTI,
-              UP.Threshold * UP.MaxPercentThresholdBoost / 100)) {
+              UP.Threshold * UP.MaxPercentThresholdBoost / 100,
+              UP.MaxIterationsCountToAnalyze)) {
         unsigned Boost =
             getFullUnrollBoostingFactor(*Cost, UP.MaxPercentThresholdBoost);
         if (Cost->UnrolledCost < UP.Threshold * Boost / 100) {
@@ -1330,8 +1334,7 @@ PreservedAnalyses LoopFullUnrollPass::run(Loop &L, LoopAnalysisManager &AM,
   OptimizationRemarkEmitter ORE(L.getHeader()->getParent());
 
 #if INTEL_CUSTOMIZATION
-  const auto &FAM =
-      AM.getResult<FunctionAnalysisManagerLoopProxy>(L, AR).getManager();
+  const auto &FAM = AM.getResult<FunctionAnalysisManagerLoopProxy>(L, AR);
   Function *F = L.getHeader()->getParent();
 
   auto *ORO = FAM.getCachedResult<OptReportOptionsAnalysis>(*F);
@@ -1436,10 +1439,9 @@ PreservedAnalyses LoopUnrollPass::run(Function &F,
   if (auto *LAMProxy = AM.getCachedResult<LoopAnalysisManagerFunctionProxy>(F))
     LAM = &LAMProxy->getManager();
 
-  const ModuleAnalysisManager &MAM =
-      AM.getResult<ModuleAnalysisManagerFunctionProxy>(F).getManager();
+  auto &MAMProxy = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F);
   ProfileSummaryInfo *PSI =
-      MAM.getCachedResult<ProfileSummaryAnalysis>(*F.getParent());
+      MAMProxy.getCachedResult<ProfileSummaryAnalysis>(*F.getParent());
   auto *BFI = (PSI && PSI->hasProfileSummary()) ?
       &AM.getResult<BlockFrequencyAnalysis>(F) : nullptr;
 

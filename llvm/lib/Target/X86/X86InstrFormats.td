@@ -28,31 +28,36 @@ def RawFrmImm8    : Format<7>;
 def RawFrmImm16   : Format<8>;
 def AddCCFrm      : Format<9>;
 def PrefixByte    : Format<10>;
-def MRMDestMem4VOp2FSIB : Format<29>; //INTEL
-def MRMSrcMem4VOp3FSIB  : Format<30>; //INTEL
-def MRMDestMemFSIB      : Format<31>; //INTEL
-def MRMDestMem     : Format<32>;
-def MRMSrcMem      : Format<33>;
-def MRMSrcMem4VOp3 : Format<34>;
-def MRMSrcMemOp4   : Format<35>;
-def MRMSrcMemCC    : Format<36>;
-def MRMSrcMemFSIB  : Format<37>; //INTEL
-def MRMXmCC: Format<38>;
-def MRMXm  : Format<39>;
-def MRM0m  : Format<40>;  def MRM1m  : Format<41>;  def MRM2m  : Format<42>;
-def MRM3m  : Format<43>;  def MRM4m  : Format<44>;  def MRM5m  : Format<45>;
-def MRM6m  : Format<46>;  def MRM7m  : Format<47>;
-def MRMDestReg     : Format<48>;
-def MRMSrcReg      : Format<49>;
-def MRMSrcReg4VOp3 : Format<50>;
-def MRMSrcRegOp4   : Format<51>;
-def MRMSrcRegCC    : Format<52>;
-def MRMr0  : Format<53>; //INTEL
-def MRMXrCC: Format<54>;
-def MRMXr  : Format<55>;
-def MRM0r  : Format<56>;  def MRM1r  : Format<57>;  def MRM2r  : Format<58>;
-def MRM3r  : Format<59>;  def MRM4r  : Format<60>;  def MRM5r  : Format<61>;
-def MRM6r  : Format<62>;  def MRM7r  : Format<63>;
+def MRMDestReg4VOp3     : Format<19>; //INTEL
+def MRMDestMem4VOp3     : Format<20>; //INTEL
+def MRMDestMem4VOp2FSIB : Format<21>; //INTEL
+def MRMSrcMem4VOp3FSIB  : Format<22>; //INTEL
+def MRMDestMemFSIB      : Format<23>; //INTEL
+def MRMDestMem     : Format<24>;
+def MRMSrcMem      : Format<25>;
+def MRMSrcMem4VOp3 : Format<26>;
+def MRMSrcMemOp4   : Format<27>;
+def MRMSrcMemCC    : Format<28>;
+def MRMSrcMemFSIB  : Format<29>; //INTEL
+def MRMXmCC: Format<30>;
+def MRMXm  : Format<31>;
+def MRM0m  : Format<32>;  def MRM1m  : Format<33>;  def MRM2m  : Format<34>;
+def MRM3m  : Format<35>;  def MRM4m  : Format<36>;  def MRM5m  : Format<37>;
+def MRM6m  : Format<38>;  def MRM7m  : Format<39>;
+def MRMDestReg     : Format<40>;
+def MRMSrcReg      : Format<41>;
+def MRMSrcReg4VOp3 : Format<42>;
+def MRMSrcRegOp4   : Format<43>;
+def MRMSrcRegCC    : Format<44>;
+def MRMr0  : Format<45>; //INTEL
+def MRMXrCC: Format<46>;
+def MRMXr  : Format<47>;
+def MRM0r  : Format<48>;  def MRM1r  : Format<49>;  def MRM2r  : Format<50>;
+def MRM3r  : Format<51>;  def MRM4r  : Format<52>;  def MRM5r  : Format<53>;
+def MRM6r  : Format<54>;  def MRM7r  : Format<55>;
+def MRM0X  : Format<56>;  def MRM1X  : Format<57>;  def MRM2X  : Format<58>;
+def MRM3X  : Format<59>;  def MRM4X  : Format<60>;  def MRM5X  : Format<61>;
+def MRM6X  : Format<62>;  def MRM7X  : Format<63>;
 def MRM_C0 : Format<64>;  def MRM_C1 : Format<65>;  def MRM_C2 : Format<66>;
 def MRM_C3 : Format<67>;  def MRM_C4 : Format<68>;  def MRM_C5 : Format<69>;
 def MRM_C6 : Format<70>;  def MRM_C7 : Format<71>;  def MRM_C8 : Format<72>;
@@ -294,6 +299,11 @@ class NotMemoryFoldable { bit isMemoryFoldable = 0; }
 // Prevent EVEX->VEX conversion from considering this instruction.
 class NotEVEX2VEXConvertible { bit notEVEX2VEXConvertible = 1; }
 
+#if INTEL_CUSTOMIZATION
+// Force the instruction to use VEX encoding.
+class ExplicitVEXPrefix { bit ExplicitVEXPrefix = 1; }
+#endif // INTEL_CUSTOMIZATION
+
 class X86Inst<bits<8> opcod, Format f, ImmType i, dag outs, dag ins,
               string AsmStr, Domain d = GenericDomain>
   : Instruction {
@@ -380,6 +390,7 @@ class X86Inst<bits<8> opcod, Format f, ImmType i, dag outs, dag ins,
 
   bit isMemoryFoldable = 1;     // Is it allowed to memory fold/unfold this instruction?
   bit notEVEX2VEXConvertible = 0; // Prevent EVEX->VEX conversion.
+  bit ExplicitVEXPrefix = 0; // Force the instruction to use VEX encoding.   // INTEL
 
   // TSFlags layout should be kept in sync with X86BaseInfo.h.
   let TSFlags{6-0}   = FormBits;
@@ -409,6 +420,8 @@ class X86Inst<bits<8> opcod, Format f, ImmType i, dag outs, dag ins,
   let TSFlags{52-46} = CD8_Scale;
   let TSFlags{53}    = hasEVEX_RC;
   let TSFlags{54}    = hasNoTrackPrefix;
+  // Force the instruction to use VEX encoding.
+  let TSFlags{55}    = ExplicitVEXPrefix;  // INTEL
 #endif // INTEL_CUSTOMIZATION
 }
 

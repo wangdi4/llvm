@@ -145,7 +145,9 @@ enum Kind {
   kw_x86_thiscallcc,
   kw_x86_vectorcallcc,
   kw_x86_regcallcc,
-  kw_svml_cc,       // INTEL
+  kw_svml_cc,        // INTEL
+  kw_svml_avx_cc,    // INTEL
+  kw_svml_avx512_cc, // INTEL
   kw_arm_apcscc,
   kw_arm_aapcscc,
   kw_arm_aapcs_vfpcc,
@@ -214,12 +216,14 @@ enum Kind {
   kw_alwaysinline_recursive, // INTEL
   kw_norecurse,
   kw_nonlazybind,
+  kw_nomerge,
   kw_nonnull,
   kw_noredzone,
   kw_noreturn,
   kw_nosync,
   kw_nocf_check,
   kw_nounwind,
+  kw_null_pointer_is_valid,
   kw_optforfuzzing,
   kw_optnone,
   kw_optsize,
@@ -382,6 +386,7 @@ enum Kind {
   kw_name,
   kw_summaries,
   kw_flags,
+  kw_blockcount,
   kw_linkage,
   kw_notEligibleToImport,
   kw_live,
@@ -398,6 +403,8 @@ enum Kind {
   kw_alwaysInline,
   kw_calls,
   kw_callee,
+  kw_params,
+  kw_param,
   kw_hotness,
   kw_unknown,
   kw_hot,

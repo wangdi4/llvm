@@ -378,6 +378,14 @@ void SymbolTable::reportUnresolvable() {
       if (imp && isa<Defined>(imp))
         continue;
     }
+#if INTEL_CUSTOMIZATION
+    // If LTO is enabled then skip SVML intrinsics, these will
+    // be emitted by CodeGen.
+    if (!BitcodeFile::instances.empty() &&
+        ((config->machine == I386 && name.startswith("___svml_")) ||
+        ((config->machine != I386 && name.startswith("__svml_")))))
+      continue;
+#endif // INTEL_CUSTOMIZATION
     if (name.contains("_PchSym_"))
       continue;
     if (config->mingw && impSymbol(name))
@@ -438,7 +446,7 @@ void SymbolTable::resolveRemainingUndefines() {
     if (name.contains("_PchSym_"))
       continue;
 
-    if (config->mingw && handleMinGWAutomaticImport(sym, name))
+    if (config->autoImport && handleMinGWAutomaticImport(sym, name))
       continue;
 
     // Remaining undefined symbols are not fatal if /force is specified.

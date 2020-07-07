@@ -1,5 +1,6 @@
+; REQUIRES: asserts
 ; RUN: opt -whole-program-assume -internalize -dtransanalysis -dtrans-print-types -dtrans-outofboundsok=true -disable-output %s 2>&1 | FileCheck %s
-; RUN: opt -wholeprogramanalysis -whole-program-assume -passes='internalize,require<dtransanalysis>' -dtrans-print-types -dtrans-outofboundsok=true -disable-output %s 2>&1 | FileCheck %s
+; RUN: opt -passes='internalize,require<dtransanalysis>,require<wholeprogram>' -whole-program-assume -dtrans-print-types -dtrans-outofboundsok=true -disable-output %s 2>&1 | FileCheck %s
 
 ; This test verifies that constantexpr bitcasts involving global variables
 ; are properly analyzed.

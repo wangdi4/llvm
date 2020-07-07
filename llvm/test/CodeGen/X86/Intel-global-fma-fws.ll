@@ -32,9 +32,9 @@ define dso_local void @_Z4funcv() #0 {
 ; CHECK-LABEL: _Z4funcv:
 ; CHECK:       %bb.0: # %entry
 ; CHECK:       vfmadd213sd {{.*#+}}
-; CHECK-NEXT:  vmovsd  %xmm{{.*}}, .Ldst1$local(%rip)
+; CHECK-NEXT:  vmovsd  %xmm{{.*}}, dst1(%rip)
 ; CHECK-NEXT:  vfmsub213sd {{.*#+}}
-; CHECK-NEXT:  vmovsd  %xmm{{.*}}, .Ldst2$local(%rip)
+; CHECK-NEXT:  vmovsd  %xmm{{.*}}, dst2(%rip)
 ; CHECK-NEXT:  retq
 entry:
   %0 = load double, double* @gl_a, align 8

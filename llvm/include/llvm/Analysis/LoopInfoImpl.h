@@ -17,7 +17,6 @@
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SetVector.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Dominators.h"
 
@@ -376,6 +375,7 @@ void LoopBase<BlockT, LoopT>::verifyLoopNest(
 template <class BlockT, class LoopT>
 void LoopBase<BlockT, LoopT>::print(raw_ostream &OS, unsigned Depth,
                                     bool Verbose) const {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   OS.indent(Depth * 2);
   if (static_cast<const LoopT *>(this)->isAnnotatedParallel())
     OS << "Parallel ";
@@ -404,6 +404,7 @@ void LoopBase<BlockT, LoopT>::print(raw_ostream &OS, unsigned Depth,
 
   for (iterator I = begin(), E = end(); I != E; ++I)
     (*I)->print(OS, Depth + 2);
+#endif  // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 }
 
 //===----------------------------------------------------------------------===//

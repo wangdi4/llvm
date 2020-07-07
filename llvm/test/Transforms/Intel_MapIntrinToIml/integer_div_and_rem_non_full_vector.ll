@@ -10,7 +10,7 @@ define <4 x i8> @test_s8div4(<4 x i8> %A, <4 x i8> %B) #0 {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[SHUFFLE_DUP:%.*]] = shufflevector <4 x i8> [[A:%.*]], <4 x i8> undef, <64 x i32> <i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3>
 ; CHECK-NEXT:    [[SHUFFLE_DUP1:%.*]] = shufflevector <4 x i8> [[B:%.*]], <4 x i8> undef, <64 x i32> <i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3>
-; CHECK-NEXT:    [[VCALL:%.*]] = call svml_cc <64 x i8> @__svml_i8div64(<64 x i8> [[SHUFFLE_DUP]], <64 x i8> [[SHUFFLE_DUP1]])
+; CHECK-NEXT:    [[VCALL:%.*]] = call svml_cc_avx512 <64 x i8> @__svml_i8div64(<64 x i8> [[SHUFFLE_DUP]], <64 x i8> [[SHUFFLE_DUP1]])
 ; CHECK-NEXT:    [[SHUFFLE_PART:%.*]] = shufflevector <64 x i8> [[VCALL]], <64 x i8> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK-NEXT:    ret <4 x i8> [[SHUFFLE_PART]]
 ;
@@ -24,7 +24,7 @@ define <4 x i16> @test_s16div4(<4 x i16> %A, <4 x i16> %B) #0 {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[SHUFFLE_DUP:%.*]] = shufflevector <4 x i16> [[A:%.*]], <4 x i16> undef, <32 x i32> <i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3>
 ; CHECK-NEXT:    [[SHUFFLE_DUP1:%.*]] = shufflevector <4 x i16> [[B:%.*]], <4 x i16> undef, <32 x i32> <i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3>
-; CHECK-NEXT:    [[VCALL:%.*]] = call svml_cc <32 x i16> @__svml_i16div32(<32 x i16> [[SHUFFLE_DUP]], <32 x i16> [[SHUFFLE_DUP1]])
+; CHECK-NEXT:    [[VCALL:%.*]] = call svml_cc_avx512 <32 x i16> @__svml_i16div32(<32 x i16> [[SHUFFLE_DUP]], <32 x i16> [[SHUFFLE_DUP1]])
 ; CHECK-NEXT:    [[SHUFFLE_PART:%.*]] = shufflevector <32 x i16> [[VCALL]], <32 x i16> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK-NEXT:    ret <4 x i16> [[SHUFFLE_PART]]
 ;
@@ -38,7 +38,7 @@ define <4 x i32> @test_s32div4(<4 x i32> %A, <4 x i32> %B) #0 {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[SHUFFLE_DUP:%.*]] = shufflevector <4 x i32> [[A:%.*]], <4 x i32> undef, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3>
 ; CHECK-NEXT:    [[SHUFFLE_DUP1:%.*]] = shufflevector <4 x i32> [[B:%.*]], <4 x i32> undef, <16 x i32> <i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3>
-; CHECK-NEXT:    [[VCALL:%.*]] = call svml_cc <16 x i32> @__svml_idiv16(<16 x i32> [[SHUFFLE_DUP]], <16 x i32> [[SHUFFLE_DUP1]])
+; CHECK-NEXT:    [[VCALL:%.*]] = call svml_cc_avx512 <16 x i32> @__svml_idiv16(<16 x i32> [[SHUFFLE_DUP]], <16 x i32> [[SHUFFLE_DUP1]])
 ; CHECK-NEXT:    [[SHUFFLE_PART:%.*]] = shufflevector <16 x i32> [[VCALL]], <16 x i32> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK-NEXT:    ret <4 x i32> [[SHUFFLE_PART]]
 ;
@@ -52,7 +52,7 @@ define <4 x i64> @test_s64div4(<4 x i64> %A, <4 x i64> %B) #0 {
 ; CHECK-NEXT:  entry:
 ; CHECK-NEXT:    [[SHUFFLE_DUP:%.*]] = shufflevector <4 x i64> [[A:%.*]], <4 x i64> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3>
 ; CHECK-NEXT:    [[SHUFFLE_DUP1:%.*]] = shufflevector <4 x i64> [[B:%.*]], <4 x i64> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3>
-; CHECK-NEXT:    [[VCALL:%.*]] = call svml_cc <8 x i64> @__svml_i64div8(<8 x i64> [[SHUFFLE_DUP]], <8 x i64> [[SHUFFLE_DUP1]])
+; CHECK-NEXT:    [[VCALL:%.*]] = call svml_cc_avx512 <8 x i64> @__svml_i64div8(<8 x i64> [[SHUFFLE_DUP]], <8 x i64> [[SHUFFLE_DUP1]])
 ; CHECK-NEXT:    [[SHUFFLE_PART:%.*]] = shufflevector <8 x i64> [[VCALL]], <8 x i64> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
 ; CHECK-NEXT:    ret <4 x i64> [[SHUFFLE_PART]]
 ;

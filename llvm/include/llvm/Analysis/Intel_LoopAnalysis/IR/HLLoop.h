@@ -1200,6 +1200,24 @@ public:
   /// and leaves the original loop unchanged.
   HLLoop *peelFirstIteration(bool UpdateMainLoop = true);
 
+  // Initializes unconditional liveout only (not livein) temps with undef before
+  // the loop like this-
+  //
+  // t = undef << undef initialization
+  // DO
+  //   t = A[i];
+  // END DO
+  //    = t  << use of t in postexit
+  //
+  // This is needed because when we create peel/main/remainder loop setup with
+  // ZTTs for loops as CFG analysis alone is not able to tell that at least one
+  // of the loops will definitely execute and hence dominates the temp uses.
+  // This results in the creation of extra phis for these temps in the outer
+  // loop headers. This affects privatization analysis of outer SIMD loops which
+  // are handled after loopopt but it can cause other issues like increasing
+  // register pressure.
+  void undefInitializeUnconditionalLiveoutTemps();
+
   /// Peels the current loop to align memory accesses to the memref \p
   /// PeelArrayRef. Alignment is determined based on \p VF being used for the
   /// main vector loop, and this in-turn determines the number of iterations to

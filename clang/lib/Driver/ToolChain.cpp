@@ -233,9 +233,12 @@ ToolChain::getTargetAndModeFromProgramName(StringRef PN) {
 StringRef ToolChain::getDefaultUniversalArchName() const {
   // In universal driver terms, the arch name accepted by -arch isn't exactly
   // the same as the ones that appear in the triple. Roughly speaking, this is
-  // an inverse of the darwin::getArchTypeForDarwinArchName() function, but the
-  // only interesting special case is powerpc.
+  // an inverse of the darwin::getArchTypeForDarwinArchName() function.
   switch (Triple.getArch()) {
+  case llvm::Triple::aarch64:
+    return "arm64";
+  case llvm::Triple::aarch64_32:
+    return "arm64_32";
   case llvm::Triple::ppc:
     return "ppc";
   case llvm::Triple::ppc64:
@@ -279,6 +282,10 @@ Tool *ToolChain::buildBackendCompiler() const {
   llvm_unreachable("Backend Compilation is not supported by this toolchain");
 }
 
+Tool *ToolChain::buildStaticLibTool() const {
+  llvm_unreachable("Creating static lib is not supported by this toolchain");
+}
+
 Tool *ToolChain::getAssemble() const {
   if (!Assemble)
     Assemble.reset(buildAssembler());
@@ -295,6 +302,12 @@ Tool *ToolChain::getLink() const {
   if (!Link)
     Link.reset(buildLinker());
   return Link.get();
+}
+
+Tool *ToolChain::getStaticLibTool() const {
+  if (!StaticLibTool)
+    StaticLibTool.reset(buildStaticLibTool());
+  return StaticLibTool.get();
 }
 
 Tool *ToolChain::getIfsMerge() const {
@@ -361,6 +374,9 @@ Tool *ToolChain::getTool(Action::ActionClass AC) const {
 
   case Action::LinkJobClass:
     return getLink();
+
+  case Action::StaticLibJobClass:
+    return getStaticLibTool();
 
   case Action::InputClass:
   case Action::BindArchClass:
@@ -623,6 +639,11 @@ std::string ToolChain::GetLinkerPath() const {
   return GetProgramPath(getDefaultLinker());
 }
 
+std::string ToolChain::GetStaticLibToolPath() const {
+  // TODO: Add support for static lib archiving on Windows
+  return GetProgramPath("llvm-ar");
+}
+
 types::ID ToolChain::LookupTypeForExtension(StringRef Ext) const {
   types::ID id = types::lookupTypeForExtension(Ext);
 
@@ -806,6 +827,10 @@ std::string ToolChain::ComputeLLVMTriple(const ArgList &Args,
 std::string ToolChain::ComputeEffectiveClangTriple(const ArgList &Args,
                                                    types::ID InputType) const {
   return ComputeLLVMTriple(Args, InputType);
+}
+
+std::string ToolChain::computeSysRoot() const {
+  return D.SysRoot;
 }
 
 void ToolChain::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
@@ -1203,13 +1228,16 @@ void ToolChain::AddMKLLibArgs(const ArgList &Args, ArgStringList &CmdArgs,
           Args.hasFlag(options::OPT_fopenmp, options::OPT_fopenmp_EQ,
                        options::OPT_fno_openmp, false))))
       return;
+    SmallVector<StringRef, 8> MKLLibs;
+    if (!getTriple().isWindowsMSVCEnvironment() &&
+        !Args.hasArg(options::OPT_static) && Args.hasArg(options::OPT_fsycl))
+      MKLLibs.push_back("mkl_sycl");
     auto addMKLExt = [](std::string LN, const llvm::Triple &Triple) {
       std::string LibName(LN);
       if (Triple.getArch() == llvm::Triple::x86_64)
-        LibName.append("_lp64");
+        LibName.append("_ilp64");
       return LibName;
     };
-    SmallVector<StringRef, 8> MKLLibs;
     MKLLibs.push_back(Args.MakeArgString(addMKLExt("mkl_intel", getTriple())));
     if (A->getValue() == StringRef("parallel")) {
       if (Args.hasArg(options::OPT_tbb, options::OPT__dpcpp))
@@ -1311,21 +1339,21 @@ SanitizerMask ToolChain::getSupportedSanitizers() const {
   if (getTriple().getArch() == llvm::Triple::x86 ||
       getTriple().getArch() == llvm::Triple::x86_64 ||
       getTriple().getArch() == llvm::Triple::arm ||
-      getTriple().getArch() == llvm::Triple::aarch64 ||
       getTriple().getArch() == llvm::Triple::wasm32 ||
-      getTriple().getArch() == llvm::Triple::wasm64)
+      getTriple().getArch() == llvm::Triple::wasm64 || getTriple().isAArch64())
     Res |= SanitizerKind::CFIICall;
-  if (getTriple().getArch() == llvm::Triple::x86_64 ||
-      getTriple().getArch() == llvm::Triple::aarch64)
+  if (getTriple().getArch() == llvm::Triple::x86_64 || getTriple().isAArch64())
     Res |= SanitizerKind::ShadowCallStack;
-  if (getTriple().getArch() == llvm::Triple::aarch64 ||
-      getTriple().getArch() == llvm::Triple::aarch64_be)
+  if (getTriple().isAArch64())
     Res |= SanitizerKind::MemTag;
   return Res;
 }
 
 void ToolChain::AddCudaIncludeArgs(const ArgList &DriverArgs,
                                    ArgStringList &CC1Args) const {}
+
+void ToolChain::AddHIPIncludeArgs(const ArgList &DriverArgs,
+                                  ArgStringList &CC1Args) const {}
 
 void ToolChain::AddIAMCUIncludeArgs(const ArgList &DriverArgs,
                                     ArgStringList &CC1Args) const {}
@@ -1410,7 +1438,12 @@ llvm::opt::DerivedArgList *ToolChain::TranslateOffloadTargetArgs(
     }
 
     // Exclude -fsycl
-    if (A->getOption().matches(options::OPT_fsycl)) {
+#if INTEL_CUSTOMIZATION
+    // Keep -fsycl around for OpenMP offload, we use it for SYCL/OpenMP
+    // interoperability.
+    if (A->getOption().matches(options::OPT_fsycl) &&
+        DeviceOffloadKind != Action::OFK_OpenMP) {
+#endif // INTEL_CUSTOMIZATION
       Modified = true;
       continue;
     }

@@ -15,7 +15,7 @@
 ;  return sum;
 ;}
 
-; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -hir-cg -print-after=VPlanDriverHIR 2>&1 < %s -S | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -hir-cg -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir=0 2>&1 < %s -S | FileCheck %s
 
 ; Check HIR
 ; CHECK: DO i2 = 0, 4 * {{%.*}} + -1, 4   <DO_LOOP> <nounroll>
@@ -28,7 +28,7 @@
 
 ; Check LLVM-IR
 ; CHECK: [[VecCast:%.*]] = bitcast i32* {{%.*}} to <4 x i32>*
-; CHECK-NEXT: [[ALoad:%.*]] = load <4 x i32>, <4 x i32>* [[VecCast]], align 4 
+; CHECK-NEXT: [[ALoad:%.*]] = load <4 x i32>, <4 x i32>* [[VecCast]], align 4
 ; CHECK-NEXT: store <4 x i32> [[ALoad]], <4 x i32>* {{%.*}}
 ; CHECK-NEXT: [[L0:%.*]] = load i32*, i32** [[ArrB:%.*]]
 ; CHECK-NEXT: store i32 0, i32* [[L0]], align 4

@@ -46,7 +46,7 @@ define dso_local void @foo(i32* noalias nocapture %a, i32* noalias nocapture %b,
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]:
 ; CHECK-NEXT:     [DA: Div] i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB3:BB[0-9]+]] ]
-; CHECK-NEXT:     [DA: Div] i32* [[VP2:%.*]] = getelementptr inbounds i32* [[B0:%.*]] i64 [[VP0]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP2:%.*]] = subscript inbounds i32* [[B0:%.*]] i64 [[VP0]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP3:%.*]] = load i32* [[VP2]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP4:%.*]] = icmp i32 [[VP3]] i32 0
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
@@ -54,7 +54,7 @@ define dso_local void @foo(i32* noalias nocapture %a, i32* noalias nocapture %b,
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]:
 ; CHECK-NEXT:     [DA: Div] i1 [[VP5:%.*]] = block-predicate i1 [[VP4]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP6:%.*]] = getelementptr inbounds i32* [[A0:%.*]] i64 [[VP0]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP6:%.*]] = subscript inbounds i32* [[A0:%.*]] i64 [[VP0]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP7:%.*]] = load i32* [[VP6]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP8:%.*]] = icmp i32 [[VP7]] i32 0
 ; CHECK-NEXT:     [DA: Div] i1 [[VP__NOT:%.*]] = not i1 [[VP8]]
@@ -70,7 +70,7 @@ define dso_local void @foo(i32* noalias nocapture %a, i32* noalias nocapture %b,
 ; CHECK-NEXT:    [[BB6]]:
 ; CHECK-NEXT:     [DA: Div] i1 [[VP9:%.*]] = block-predicate i1 [[VP_BB4_BR_VP__NOT]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP10:%.*]] = add i32 [[VP7]] i32 5
-; CHECK-NEXT:     [DA: Div] i32* [[VP11:%.*]] = getelementptr inbounds i32* [[A0]] i64 [[VP0]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP11:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP0]]
 ; CHECK-NEXT:     [DA: Div] store i32 [[VP10]] i32* [[VP11]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB7:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
@@ -78,19 +78,19 @@ define dso_local void @foo(i32* noalias nocapture %a, i32* noalias nocapture %b,
 ; CHECK-NEXT:    [[BB7]]:
 ; CHECK-NEXT:     [DA: Div] i1 [[VP12:%.*]] = block-predicate i1 [[VP_BB4_BR_]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP13:%.*]] = mul i32 [[VP3]] i32 5
-; CHECK-NEXT:     [DA: Div] i32* [[VP14:%.*]] = getelementptr inbounds i32* [[B0]] i64 [[VP0]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP14:%.*]] = subscript inbounds i32* [[B0]] i64 [[VP0]]
 ; CHECK-NEXT:     [DA: Div] store i32 [[VP13]] i32* [[VP14]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB8:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB6]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB8]]:
 ; CHECK-NEXT:     [DA: Div] i1 [[VP15:%.*]] = block-predicate i1 [[VP4]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP16:%.*]] = getelementptr inbounds i32* [[C0:%.*]] i64 [[VP0]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP16:%.*]] = subscript inbounds i32* [[C0:%.*]] i64 [[VP0]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP17:%.*]] = load i32* [[VP16]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP18:%.*]] = mul i32 [[VP17]] i32 [[N0:%.*]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP19:%.*]] = getelementptr inbounds i32* [[C0]] i64 [[VP0]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP19:%.*]] = subscript inbounds i32* [[C0]] i64 [[VP0]]
 ; CHECK-NEXT:     [DA: Div] store i32 [[VP18]] i32* [[VP19]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP20:%.*]] = getelementptr inbounds i32* [[A0]] i64 [[VP0]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP20:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP0]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP21:%.*]] = load i32* [[VP20]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP22:%.*]] = mul i32 [[VP17]] i32 [[N0]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP23:%.*]] = icmp i32 [[VP22]] i32 0
@@ -108,7 +108,7 @@ define dso_local void @foo(i32* noalias nocapture %a, i32* noalias nocapture %b,
 ; CHECK-NEXT:     [DA: Div] i1 [[VP24:%.*]] = block-predicate i1 [[VP_BB7_BR_VP__NOT]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP25:%.*]] = mul i32 [[VP21]] i32 [[N0]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP26:%.*]] = mul i32 [[VP17]] i32 [[VP25]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP27:%.*]] = getelementptr inbounds i32* [[B0]] i64 [[VP0]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP27:%.*]] = subscript inbounds i32* [[B0]] i64 [[VP0]]
 ; CHECK-NEXT:     [DA: Div] store i32 [[VP26]] i32* [[VP27]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB11:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB9]]
@@ -118,7 +118,7 @@ define dso_local void @foo(i32* noalias nocapture %a, i32* noalias nocapture %b,
 ; CHECK-NEXT:     [DA: Div] i32 [[VP29:%.*]] = mul i32 [[VP17]] i32 [[N0]]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP30:%.*]] = mul i32 [[VP21]] i32 -1
 ; CHECK-NEXT:     [DA: Div] i32 [[VP31:%.*]] = add i32 [[VP29]] i32 [[VP30]]
-; CHECK-NEXT:     [DA: Div] i32* [[VP32:%.*]] = getelementptr inbounds i32* [[A0]] i64 [[VP0]]
+; CHECK-NEXT:     [DA: Div] i32* [[VP32:%.*]] = subscript inbounds i32* [[A0]] i64 [[VP0]]
 ; CHECK-NEXT:     [DA: Div] store i32 [[VP31]] i32* [[VP32]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB3]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB10]]

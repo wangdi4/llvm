@@ -105,16 +105,19 @@ public:
   /// which is a value of a pointer type, except isOMPItemGlobalVAR().
   static bool isOMPItemLocalVAR(const Value *V);
 
-  /// Returns the pointer type of a local variable referenced
+  /// Returns the pointer's element type of a local variable referenced
   /// in an OpenMP clause. The second return value is the number of
   /// elements of the underlying element type in the object referenced
   /// by the clause. It is isOneValue() for scalars, and something else
   /// for VLAs. Note that array allocations with known size will
   /// have their size represented in the type itself in most cases.
   /// isOMPItemLocalVAR() is asserted for \p V.
-  static std::tuple<PointerType *, Value *>
-      getOMPItemLocalVARPointerTypeAndNumElem(
-      Value *V);
+  /// \p VElemTy is the ElementType for V's Pointer Type.
+  /// This is the default returned when the Value is not a local variable/
+  /// alloca Inst. The Argument is passed to make the API compatible with
+  /// opaque pointers.
+  static std::tuple<Type *, Value *>
+  getOMPItemLocalVARPointerTypeAndNumElem(Value *V, Type *VElemTy);
 };
 
 } // end llvm namespace

@@ -2079,7 +2079,7 @@ static Instruction *canonicalizeScalarSelectOfVecs(
 
   // We can replace a single-use extract with constant index.
   Value *Cond = Sel.getCondition();
-  if (!match(Cond, m_OneUse(m_ExtractElement(m_Value(), m_ConstantInt()))))
+  if (!match(Cond, m_OneUse(m_ExtractElt(m_Value(), m_ConstantInt()))))
     return nullptr;
 
   // select (extelt V, Index), T, F --> select (splat V, Index), T, F
@@ -2457,6 +2457,112 @@ static Instruction *foldSelectToCopysign(SelectInst &Sel,
   Instruction *CopySign = IntrinsicInst::Create(F, { MagArg, X });
   CopySign->setFastMathFlags(Sel.getFastMathFlags());
   return CopySign;
+}
+
+Instruction *InstCombiner::foldVectorSelect(SelectInst &Sel) {
+  auto *VecTy = dyn_cast<FixedVectorType>(Sel.getType());
+  if (!VecTy)
+    return nullptr;
+
+  unsigned NumElts = VecTy->getNumElements();
+  APInt UndefElts(NumElts, 0);
+  APInt AllOnesEltMask(APInt::getAllOnesValue(NumElts));
+  if (Value *V = SimplifyDemandedVectorElts(&Sel, AllOnesEltMask, UndefElts)) {
+    if (V != &Sel)
+      return replaceInstUsesWith(Sel, V);
+    return &Sel;
+  }
+
+  // A select of a "select shuffle" with a common operand can be rearranged
+  // to select followed by "select shuffle". Because of poison, this only works
+  // in the case of a shuffle with no undefined mask elements.
+  Value *Cond = Sel.getCondition();
+  Value *TVal = Sel.getTrueValue();
+  Value *FVal = Sel.getFalseValue();
+  Value *X, *Y;
+  ArrayRef<int> Mask;
+  if (match(TVal, m_OneUse(m_Shuffle(m_Value(X), m_Value(Y), m_Mask(Mask)))) &&
+      !is_contained(Mask, UndefMaskElem) &&
+      cast<ShuffleVectorInst>(TVal)->isSelect()) {
+    if (X == FVal) {
+      // select Cond, (shuf_sel X, Y), X --> shuf_sel X, (select Cond, Y, X)
+      Value *NewSel = Builder.CreateSelect(Cond, Y, X, "sel", &Sel);
+      return new ShuffleVectorInst(X, NewSel, Mask);
+    }
+    if (Y == FVal) {
+      // select Cond, (shuf_sel X, Y), Y --> shuf_sel (select Cond, X, Y), Y
+      Value *NewSel = Builder.CreateSelect(Cond, X, Y, "sel", &Sel);
+      return new ShuffleVectorInst(NewSel, Y, Mask);
+    }
+  }
+  if (match(FVal, m_OneUse(m_Shuffle(m_Value(X), m_Value(Y), m_Mask(Mask)))) &&
+      !is_contained(Mask, UndefMaskElem) &&
+      cast<ShuffleVectorInst>(FVal)->isSelect()) {
+    if (X == TVal) {
+      // select Cond, X, (shuf_sel X, Y) --> shuf_sel X, (select Cond, X, Y)
+      Value *NewSel = Builder.CreateSelect(Cond, X, Y, "sel", &Sel);
+      return new ShuffleVectorInst(X, NewSel, Mask);
+    }
+    if (Y == TVal) {
+      // select Cond, Y, (shuf_sel X, Y) --> shuf_sel (select Cond, Y, X), Y
+      Value *NewSel = Builder.CreateSelect(Cond, Y, X, "sel", &Sel);
+      return new ShuffleVectorInst(NewSel, Y, Mask);
+    }
+  }
+
+  return nullptr;
+}
+
+static Instruction *foldSelectToPhi(SelectInst &Sel, const DominatorTree &DT,
+                                    InstCombiner::BuilderTy &Builder) {
+  // Find the block's immediate dominator that ends with a conditional branch
+  // that matches select's condition (maybe inverted).
+  BasicBlock *BB = Sel.getParent();
+  auto *IDomNode = DT[BB]->getIDom();
+  if (!IDomNode)
+    return nullptr;
+  BasicBlock *IDom = IDomNode->getBlock();
+
+  Value *Cond = Sel.getCondition();
+  Value *IfTrue, *IfFalse;
+  BasicBlock *TrueSucc, *FalseSucc;
+  if (match(IDom->getTerminator(),
+            m_Br(m_Specific(Cond), m_BasicBlock(TrueSucc),
+                 m_BasicBlock(FalseSucc)))) {
+    IfTrue = Sel.getTrueValue();
+    IfFalse = Sel.getFalseValue();
+  } else if (match(IDom->getTerminator(),
+                   m_Br(m_Not(m_Specific(Cond)), m_BasicBlock(TrueSucc),
+                        m_BasicBlock(FalseSucc)))) {
+    IfTrue = Sel.getFalseValue();
+    IfFalse = Sel.getTrueValue();
+  } else
+    return nullptr;
+
+  BasicBlockEdge TrueEdge(IDom, TrueSucc);
+  BasicBlockEdge FalseEdge(IDom, FalseSucc);
+  DenseMap<BasicBlock *, Value *> Inputs;
+  for (auto *Pred : predecessors(BB)) {
+    // Check implication.
+    BasicBlockEdge Incoming(Pred, BB);
+    if (DT.dominates(TrueEdge, Incoming))
+      Inputs[Pred] = IfTrue;
+    else if (DT.dominates(FalseEdge, Incoming))
+      Inputs[Pred] = IfFalse;
+    else
+      return nullptr;
+    // Check availability.
+    if (auto *Insn = dyn_cast<Instruction>(Inputs[Pred]))
+      if (!DT.dominates(Insn, Pred->getTerminator()))
+        return nullptr;
+  }
+
+  Builder.SetInsertPoint(&*BB->begin());
+  auto *PN = Builder.CreatePHI(Sel.getType(), Inputs.size());
+  for (auto *Pred : predecessors(BB))
+    PN->addIncoming(Inputs[Pred], Pred);
+  PN->takeName(&Sel);
+  return PN;
 }
 
 Instruction *InstCombiner::visitSelectInst(SelectInst &SI) {
@@ -2924,16 +3030,8 @@ Instruction *InstCombiner::visitSelectInst(SelectInst &SI) {
     return &SI;
   }
 
-  if (VectorType *VecTy = dyn_cast<VectorType>(SelType)) {
-    unsigned VWidth = VecTy->getNumElements();
-    APInt UndefElts(VWidth, 0);
-    APInt AllOnesEltMask(APInt::getAllOnesValue(VWidth));
-    if (Value *V = SimplifyDemandedVectorElts(&SI, AllOnesEltMask, UndefElts)) {
-      if (V != &SI)
-        return replaceInstUsesWith(SI, V);
-      return &SI;
-    }
-  }
+  if (Instruction *I = foldVectorSelect(SI))
+    return I;
 
   // If we can compute the condition, there's no need for a select.
   // Like the above fold, we are attempting to reduce compile-time cost by
@@ -2964,6 +3062,9 @@ Instruction *InstCombiner::visitSelectInst(SelectInst &SI) {
 
   if (Instruction *Copysign = foldSelectToCopysign(SI, Builder))
     return Copysign;
+
+  if (Instruction *PN = foldSelectToPhi(SI, DT, Builder))
+    return replaceInstUsesWith(SI, PN);
 
   return nullptr;
 }

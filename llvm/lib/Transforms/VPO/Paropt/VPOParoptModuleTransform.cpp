@@ -337,7 +337,7 @@ static bool replaceMathFnWithOCLBuiltin(Function &F) {
 // Create the corresponding decl for OCL printf called from offload kernels:
 //
 //   declare dso_local spir_func i32
-//     @_Z18__spirv_ocl_printfPU3AS2ci(i8 addrspace(1)*, ...)
+//     @_Z18__spirv_ocl_printfPU3AS2ci(i8 addrspace(2)*, ...)
 //
 // Save the former in \b PrintfDecl and the latter in \b OCLPrintfDecl
 // in the \b VPOParoptModuleTransform class.
@@ -346,7 +346,7 @@ void VPOParoptModuleTransform::createOCLPrintfDecl(Function *F) {
 
   // Create FunctionType for OCLPrintfDecl
   Type *ReturnTy = Type::getInt32Ty(C);
-  Type *Int8PtrTy = Type::getInt8PtrTy(C, ADDRESS_SPACE_GLOBAL /*=1*/);
+  Type *Int8PtrTy = Type::getInt8PtrTy(C, ADDRESS_SPACE_CONSTANT /*=2*/);
   FunctionType *FnTy = FunctionType::get(ReturnTy, {Int8PtrTy},
                                          /* varargs= */ true);
 
@@ -694,6 +694,8 @@ void VPOParoptModuleTransform::processUsesOfGlobals(
       Builder.CreateStore(&*(F->arg_begin()), TidPtr);
       User->replaceUsesOfWith(PtrHolder, TidPtr);
     } else {
+      Type *I32Ty = Type::getInt32Ty(C);
+      Align I32Align = F->getParent()->getDataLayout().getABITypeAlign(I32Ty);
       BasicBlock *EntryBB = &F->getEntryBlock();
       Instruction *Tid = nullptr;
       AllocaInst *TidPtr = nullptr;
@@ -701,17 +703,17 @@ void VPOParoptModuleTransform::processUsesOfGlobals(
         Tid = VPOParoptUtils::findKmpcGlobalThreadNumCall(EntryBB);
       if (!Tid) {
         IRBuilder<> Builder(EntryBB->getFirstNonPHI());
-        TidPtr = Builder.CreateAlloca(Type::getInt32Ty(C));
+        TidPtr = Builder.CreateAlloca(I32Ty);
         if (IsTid) {
           Tid = VPOParoptUtils::genKmpcGlobalThreadNumCall(F, TidPtr, nullptr);
           Tid->insertBefore(EntryBB->getFirstNonPHI());
         }
         StoreInst *SI = nullptr;
         if (IsTid)
-          SI = new StoreInst(Tid, TidPtr);
+          SI = new StoreInst(Tid, TidPtr, false /*volatile*/, I32Align);
         else
-          SI = new StoreInst(
-              ConstantInt::get(Type::getInt32Ty(C), 0), TidPtr);
+          SI = new StoreInst(ConstantInt::get(I32Ty, 0), TidPtr,
+                             false /*volatile*/, I32Align);
         SI->insertAfter(TidPtr);
       } else {
         for (auto IB = Tid->user_begin(), IE = Tid->user_end(); IB != IE;
@@ -730,8 +732,8 @@ void VPOParoptModuleTransform::processUsesOfGlobals(
 
       if (TidPtr == nullptr) {
         IRBuilder<> Builder(EntryBB->getFirstNonPHI());
-        TidPtr = Builder.CreateAlloca(Type::getInt32Ty(C));
-        StoreInst *SI = new StoreInst(Tid, TidPtr);
+        TidPtr = Builder.CreateAlloca(I32Ty);
+        StoreInst *SI = new StoreInst(Tid, TidPtr, false, I32Align);
         SI->insertAfter(Tid);
       }
       User->replaceUsesOfWith(PtrHolder, TidPtr);

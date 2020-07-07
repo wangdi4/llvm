@@ -25,7 +25,7 @@ define dso_local void @header_use(i64 %N, i64 *%a, i64 %mask_out_loop) local_unn
 ; CHECK-NEXT:     i64 [[VP_LD:%.*]] = load i64* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     i1 [[VP_CMP:%.*]] = icmp i64 [[N0:%.*]] i64 42
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2:BB[0-9]+]](i1 [[VP_CMP]]), [[BB3:BB[0-9]+]](!i1 [[VP_CMP]])
-; CHECK-NEXT:    PREDECESSORS(2): [[NEW_LOOP_LATCH0]] [[BB0]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]:
 ; CHECK-NEXT:       <Empty Block>
@@ -125,7 +125,7 @@ define dso_local void @side_exit_use(i64 %N, i64 *%a, i64 %mask_out_loop) local_
 ; CHECK-NEXT:     i64 [[VP_LD:%.*]] = load i64* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     i1 [[VP_CMP:%.*]] = icmp i64 [[N0:%.*]] i64 42
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2:BB[0-9]+]](i1 [[VP_CMP]]), [[BB3:BB[0-9]+]](!i1 [[VP_CMP]])
-; CHECK-NEXT:    PREDECESSORS(2): [[NEW_LOOP_LATCH0]] [[BB0]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]:
 ; CHECK-NEXT:       <Empty Block>
@@ -224,7 +224,7 @@ define dso_local void @exit_use(i64 %N, i64 *%a, i64 %mask_out_loop) local_unnam
 ; CHECK-NEXT:     i64 [[VP_LD:%.*]] = load i64* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     i1 [[VP_CMP:%.*]] = icmp i64 [[N0:%.*]] i64 42
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2:BB[0-9]+]](i1 [[VP_CMP]]), [[BB3:BB[0-9]+]](!i1 [[VP_CMP]])
-; CHECK-NEXT:    PREDECESSORS(2): [[NEW_LOOP_LATCH0]] [[BB0]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]:
 ; CHECK-NEXT:       <Empty Block>
@@ -325,7 +325,7 @@ define dso_local void @no_ssa_breakage(i64 %N, i64 *%a, i64 %mask_out_loop) loca
 ; CHECK-NEXT:     i64 [[VP_LD:%.*]] = load i64* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     i1 [[VP_CMP:%.*]] = icmp i64 [[N0:%.*]] i64 42
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2:BB[0-9]+]](i1 [[VP_CMP]]), [[BB3:BB[0-9]+]](!i1 [[VP_CMP]])
-; CHECK-NEXT:    PREDECESSORS(2): [[NEW_LOOP_LATCH0]] [[BB0]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB3]]:
 ; CHECK-NEXT:       <Empty Block>

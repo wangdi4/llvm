@@ -28,36 +28,24 @@ define dso_local void @foo(i64 %N, i64 *%a) local_unnamed_addr {
 ; CHECK-NEXT:      [[BB3]]:
 ; CHECK-NEXT:       [DA: Uni] i64 [[VP_IV:%.*]] = phi  [ i64 [[VP_IV_NEXT:%.*]], [[BB4:BB[0-9]+]] ],  [ i64 0, [[BB2]] ]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 [[VP_UNIFORM_TOP_TEST_NOT]], [[BB2]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB4]] ]
-; CHECK-NEXT:      SUCCESSORS(1):[[BB5:BB[0-9]+]]
-; CHECK-NEXT:      PREDECESSORS(2): [[BB4]] [[BB2]]
+; CHECK-NEXT:      SUCCESSORS(2):[[BB5:BB[0-9]+]](i1 [[VP_LOOP_MASK]]), [[BB4]](!i1 [[VP_LOOP_MASK]])
+; CHECK-NEXT:      PREDECESSORS(2): [[BB2]] [[BB4]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB5]]:
-; CHECK-NEXT:       <Empty Block>
-; CHECK-NEXT:       Condition([[BB3]]): [DA: Div] i1 [[VP_LOOP_MASK]] = phi  [ i1 [[VP_UNIFORM_TOP_TEST_NOT]], [[BB2]] ],  [ i1 [[VP_LOOP_MASK_NEXT]], [[BB4]] ]
-; CHECK-NEXT:      SUCCESSORS(2):[[BB6:BB[0-9]+]](i1 [[VP_LOOP_MASK]]), [[BB7:BB[0-9]+]](!i1 [[VP_LOOP_MASK]])
-; CHECK-NEXT:      PREDECESSORS(1): [[BB3]]
-; CHECK-EMPTY:
-; CHECK-NEXT:        [[BB6]]:
+; CHECK-NEXT:        [[BB5]]:
 ; CHECK-NEXT:         [DA: Uni] i64* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64* [[A0:%.*]] i64 [[VP_IV]]
 ; CHECK-NEXT:         [DA: Uni] i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 1
-; CHECK-NEXT:        SUCCESSORS(1):[[BB7]]
-; CHECK-NEXT:        PREDECESSORS(1): [[BB5]]
+; CHECK-NEXT:         [DA: Div] i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_IV_NEXT]] i32 [[VP_LANE]]
+; CHECK-NEXT:        SUCCESSORS(1):[[BB4]]
+; CHECK-NEXT:        PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB7]]:
-; CHECK-NEXT:       [DA: Div] i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_IV_NEXT]] i32 [[VP_LANE]]
+; CHECK-NEXT:      [[BB4]]:
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_EXITCOND_NOT:%.*]] = not i1 [[VP_EXITCOND]]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_EXITCOND_NOT]] i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:       [DA: Uni] i1 [[VP0:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
-; CHECK-NEXT:      SUCCESSORS(1):[[BB4]]
-; CHECK-NEXT:      PREDECESSORS(2): [[BB6]] [[BB5]]
+; CHECK-NEXT:      SUCCESSORS(2):[[BB6:BB[0-9]+]](i1 [[VP0]]), [[BB3]](!i1 [[VP0]])
+; CHECK-NEXT:      PREDECESSORS(2): [[BB5]] [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB4]]:
-; CHECK-NEXT:       <Empty Block>
-; CHECK-NEXT:       Condition([[BB7]]): [DA: Uni] i1 [[VP0]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
-; CHECK-NEXT:      SUCCESSORS(2):[[BB8:BB[0-9]+]](i1 [[VP0]]), [[BB3]](!i1 [[VP0]])
-; CHECK-NEXT:      PREDECESSORS(1): [[BB7]]
-; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB8]]:
+; CHECK-NEXT:      [[BB6]]:
 ; CHECK-NEXT:       <Empty Block>
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB1]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB4]]
@@ -65,7 +53,7 @@ define dso_local void @foo(i64 %N, i64 *%a) local_unnamed_addr {
 ; CHECK-NEXT:    [[BB1]]:
 ; CHECK-NEXT:     [DA: Div] void [[VP1:%.*]] = ret
 ; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(2): [[BB8]] [[BB0]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[BB6]]
 ;
 entry:
   %lane = call i64 @llvm.vplan.laneid()

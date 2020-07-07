@@ -44,7 +44,7 @@ public:
     Dist = Distance;
     IndexId = IdxId;
     IndexType = IdxType;
-    DataType = VectorType::get(ElemType, NumElements);
+    DataType = FixedVectorType::get(ElemType, NumElements);
     ConstVStride = false;
     VecStride = 0;
   }
@@ -60,7 +60,7 @@ public:
     ConstVStride = CVStride;
     VecStride = 0;
     VsId = VectorStrideId;
-    DataType = VectorType::get(ElemType, NumElements);
+    DataType = FixedVectorType::get(ElemType, NumElements);
   }
   // Constructor for Strided Accesses with constant strides.
   ClientMemref(char MemrefId, int Distance, Type *ElemType,
@@ -74,7 +74,7 @@ public:
     ConstVStride = CVStride;
     VecStride = VStride;
     VsId = '\0';
-    DataType = VectorType::get(ElemType, NumElements);
+    DataType = FixedVectorType::get(ElemType, NumElements);
   }
 
   static bool classof(const OVLSMemref *Mrf) {

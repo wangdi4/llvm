@@ -94,7 +94,9 @@ private:
   LoopInfo   *LI = nullptr;
   Loop       *Lp = nullptr;
   SmallVector<Value *, 2> NormIV; // normalized IV's created by FE
+  SmallVector<Type *, 2> NormIVElemTy; // normalized IV's ElementTypes
   SmallVector<Value *, 2> NormUB; // normalized UB's
+  SmallVector<Type *, 2> NormUBElemTy; // normalized UB's ElementTypes
 
   /// Basic blocks with the zero-trip test for all loops in a loop nest.
   DenseMap<unsigned, BasicBlock *> ZTTBB;
@@ -125,8 +127,14 @@ public:
   WRNLoopInfo(LoopInfo *L) : LI(L) {}
   void setLoopInfo(LoopInfo *L) { LI = L; }
   void setLoop(Loop *L) { Lp = L; }
-  void addNormIV(Value *IV) { NormIV.push_back(IV); }
-  void addNormUB(Value *UB) { NormUB.push_back(UB); }
+  void addNormIV(Value *IV, Type *IVElemTy) {
+    NormIV.push_back(IV);
+    NormIVElemTy.push_back(IVElemTy);
+  }
+  void addNormUB(Value *UB, Type *UBElemTy) {
+    NormUB.push_back(UB);
+    NormUBElemTy.push_back(UBElemTy);
+  }
 
   /// Set basic block \p BB as a zero-trip test block for the loop nest's
   /// loop with the given index \p Idx.
@@ -155,7 +163,9 @@ public:
     return CurLoop;
   }
   Value *getNormIV(unsigned I=0) const;
+  Type *getNormIVElemTy(unsigned I = 0) const;
   Value *getNormUB(unsigned I=0) const;
+  Type *getNormUBElemTy(unsigned I = 0) const;
   ArrayRef<Value *> getNormUBs() const { return NormUB; }
   unsigned getNormIVSize() const { return NormIV.size(); }
   unsigned getNormUBSize() const { return NormUB.size(); }
@@ -194,6 +204,28 @@ public:
   }
   uint8_t getNDRangeStartDim() const {
     return NDRangeStartDim;
+  }
+  // If the LoopInfo completely contained F before outlining, remove F's
+  // blocks from the LoopInfo.
+  // Remove any resulting empty Loops.
+  void removeBlocksInFn(Function *F) {
+    // If the entry block is contained in LI, the entire function is
+    // contained.
+    // But we must use the original entry before outlining, not the new
+    // outlined entry. This entry is a single-entry block following the new
+    // entry.
+    BasicBlock *OrigEntry = &(F->getEntryBlock());
+    if (auto *SingleSucc = OrigEntry->getSingleSuccessor())
+      if (SingleSucc->hasNPredecessors(1))
+        OrigEntry = SingleSucc;
+    if (LI && F && LI->getLoopDepth(OrigEntry)) {
+      for (BasicBlock &BB : *F)
+        LI->removeBlock(&BB);
+      // If F had a loop, it will be empty after block removal. Remove it.
+      for (Loop *L : LI->getLoopsInPreorder())
+        if (L->getNumBlocks() == 0)
+          LI->erase(L);
+    }
   }
 
   void print(formatted_raw_ostream &OS, unsigned Depth,
@@ -287,7 +319,7 @@ public:
 
 /// WRN for
 /// \code
-///   #pragma omp parallel loop
+///   #pragma omp parallel for
 /// \endcode
 class WRNParallelLoopNode : public WRegionNode {
 private:
@@ -305,6 +337,7 @@ private:
   ScheduleClause Schedule;
   int Collapse;
   int Ordered;
+  WRNLoopOrderKind LoopOrder;
   WRNLoopInfo WRNLI;
   SmallVector<Value *, 2> OrderedTripCounts;
   SmallVector<Instruction *, 2> CancellationPoints;
@@ -337,6 +370,8 @@ protected:
   void setProcBind(WRNProcBindKind P) { ProcBind = P; }
   void setCollapse(int N) { Collapse = N; }
   void setOrdered(int N) { Ordered = N; }
+  void setLoopOrder(WRNLoopOrderKind LO) { LoopOrder = LO; }
+
 #if INTEL_CUSTOMIZATION
   void setEntryHLNode(loopopt::HLNode *E) { EntryHLNode = E; }
   void setExitHLNode(loopopt::HLNode *X) { ExitHLNode = X; }
@@ -369,6 +404,7 @@ public:
   WRNProcBindKind getProcBind() const { return ProcBind; }
   int getCollapse() const { return Collapse; }
   int getOrdered() const { return Ordered; }
+  WRNLoopOrderKind getLoopOrder() const { return LoopOrder; }
   void addOrderedTripCount(Value *TC) { OrderedTripCounts.push_back(TC); }
   const SmallVectorImpl<Value *> &getOrderedTripCounts() const {
     return OrderedTripCounts;
@@ -594,6 +630,7 @@ private:
   ScheduleClause DistSchedule;
   int Collapse;
   int Ordered;
+  WRNLoopOrderKind LoopOrder;
   WRNLoopInfo WRNLI;
 
 public:
@@ -606,6 +643,7 @@ protected:
   void setProcBind(WRNProcBindKind P) { ProcBind = P; }
   void setCollapse(int N) { Collapse = N; }
   void setOrdered(int N) { Ordered = N; }
+  void setLoopOrder(WRNLoopOrderKind LO) { LoopOrder = LO; }
 
 public:
   DEFINE_GETTER(SharedClause,       getShared, Shared)
@@ -625,6 +663,7 @@ public:
   WRNProcBindKind getProcBind() const { return ProcBind; }
   int getCollapse() const { return Collapse; }
   int getOrdered() const { return Ordered; }
+  WRNLoopOrderKind getLoopOrder() const { return LoopOrder; }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const;
@@ -648,6 +687,8 @@ private:
   IsDevicePtrClause IsDevicePtr;
   EXPR IfExpr;
   EXPR Device;
+  EXPR SubDeviceBase;
+  EXPR SubDeviceLength;
   AllocaInst *ParLoopNdInfoAlloca;    // supports kernel loop parallelization
   bool Nowait;
   WRNDefaultmapBehavior Defaultmap[WRNDefaultmapCategorySize] =
@@ -664,6 +705,8 @@ public:
 protected:
   void setIf(EXPR E) { IfExpr = E; }
   void setDevice(EXPR E) { Device = E; }
+  void setSubDeviceBase(EXPR E) { SubDeviceBase = E; }
+  void setSubDeviceLength(EXPR E) { SubDeviceLength = E; }
   void setNowait(bool Flag) { Nowait = Flag; }
   void setDefaultmap(WRNDefaultmapCategory C, WRNDefaultmapBehavior B) {
     Defaultmap[C] = B;
@@ -688,6 +731,8 @@ public:
   AllocaInst *getParLoopNdInfoAlloca() const { return ParLoopNdInfoAlloca; }
   EXPR getIf() const { return IfExpr; }
   EXPR getDevice() const { return Device; }
+  EXPR getSubDeviceBase() const { return SubDeviceBase; }
+  EXPR getSubDeviceLength() const { return SubDeviceLength; }
   bool getNowait() const { return Nowait; }
   WRNDefaultmapBehavior getDefaultmap(WRNDefaultmapCategory C) const {
     return Defaultmap[C];
@@ -748,6 +793,8 @@ private:
   UseDevicePtrClause UseDevicePtr;
   EXPR IfExpr;
   EXPR Device;
+  EXPR SubDeviceBase;
+  EXPR SubDeviceLength;
 
 public:
   WRNTargetDataNode(BasicBlock *BB);
@@ -755,6 +802,8 @@ public:
 protected:
   void setIf(EXPR E) { IfExpr = E; }
   void setDevice(EXPR E) { Device = E; }
+  void setSubDeviceBase(EXPR E) { SubDeviceBase = E; }
+  void setSubDeviceLength(EXPR E) { SubDeviceLength = E; }
 
 public:
   DEFINE_GETTER(MapClause,          getMap,          Map)
@@ -762,6 +811,8 @@ public:
 
   EXPR getIf() const { return IfExpr; }
   EXPR getDevice() const { return Device; }
+  EXPR getSubDeviceBase() const { return SubDeviceBase; }
+  EXPR getSubDeviceLength() const { return SubDeviceLength; }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              unsigned Verbosity=1) const;
@@ -782,6 +833,8 @@ private:
   DependClause Depend;
   EXPR IfExpr;
   EXPR Device;
+  EXPR SubDeviceBase;
+  EXPR SubDeviceLength;
   bool Nowait;
 
 public:
@@ -790,6 +843,8 @@ public:
 protected:
   void setIf(EXPR E) { IfExpr = E; }
   void setDevice(EXPR E) { Device = E; }
+  void setSubDeviceBase(EXPR E) { SubDeviceBase = E; }
+  void setSubDeviceLength(EXPR E) { SubDeviceLength = E; }
   void setNowait(bool Flag) { Nowait = Flag; }
 
 public:
@@ -798,6 +853,8 @@ public:
 
   EXPR getIf() const { return IfExpr; }
   EXPR getDevice() const { return Device; }
+  EXPR getSubDeviceBase() const { return SubDeviceBase; }
+  EXPR getSubDeviceLength() const { return SubDeviceLength; }
   bool getNowait() const { return Nowait; }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
@@ -819,6 +876,8 @@ private:
   DependClause Depend;
   EXPR IfExpr;
   EXPR Device;
+  EXPR SubDeviceBase;
+  EXPR SubDeviceLength;
   bool Nowait;
 
 public:
@@ -827,6 +886,8 @@ public:
 protected:
   void setIf(EXPR E) { IfExpr = E; }
   void setDevice(EXPR E) { Device = E; }
+  void setSubDeviceBase(EXPR E) { SubDeviceBase = E; }
+  void setSubDeviceLength(EXPR E) { SubDeviceLength = E; }
   void setNowait(bool Flag) { Nowait = Flag; }
 
 public:
@@ -835,6 +896,8 @@ public:
 
   EXPR getIf() const { return IfExpr; }
   EXPR getDevice() const { return Device; }
+  EXPR getSubDeviceBase() const { return SubDeviceBase; }
+  EXPR getSubDeviceLength() const { return SubDeviceLength; }
   bool getNowait() const { return Nowait; }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
@@ -856,6 +919,8 @@ private:
   DependClause Depend;
   EXPR IfExpr;
   EXPR Device;
+  EXPR SubDeviceBase;
+  EXPR SubDeviceLength;
   bool Nowait;
 
 public:
@@ -864,6 +929,8 @@ public:
 protected:
   void setIf(EXPR E) { IfExpr = E; }
   void setDevice(EXPR E) { Device = E; }
+  void setSubDeviceBase(EXPR E) { SubDeviceBase = E; }
+  void setSubDeviceLength(EXPR E) { SubDeviceLength = E; }
   void setNowait(bool Flag) { Nowait = Flag; }
 
 public:
@@ -872,6 +939,8 @@ public:
 
   EXPR getIf() const { return IfExpr; }
   EXPR getDevice() const { return Device; }
+  EXPR getSubDeviceBase() const { return SubDeviceBase; }
+  EXPR getSubDeviceLength() const { return SubDeviceLength; }
   bool getNowait() const { return Nowait; }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
@@ -892,6 +961,8 @@ private:
   MapClause Map;
   UseDevicePtrClause UseDevicePtr;
   EXPR Device;
+  EXPR SubDeviceBase;
+  EXPR SubDeviceLength;
   bool Nowait;
 
 public:
@@ -899,12 +970,16 @@ public:
 
 protected:
   void setDevice(EXPR E) { Device = E; }
+  void setSubDeviceBase(EXPR E) { SubDeviceBase = E; }
+  void setSubDeviceLength(EXPR E) { SubDeviceLength = E; }
   void setNowait(bool Flag) { Nowait = Flag; }
 
 public:
   DEFINE_GETTER(MapClause,          getMap,          Map)
   DEFINE_GETTER(UseDevicePtrClause, getUseDevicePtr, UseDevicePtr)
   EXPR getDevice() const { return Device; }
+  EXPR getSubDeviceBase() const { return SubDeviceBase; }
+  EXPR getSubDeviceLength() const { return SubDeviceLength; }
   bool getNowait() const { return Nowait; }
 
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
@@ -1097,6 +1172,7 @@ private:
   int Simdlen;
   int Safelen;
   int Collapse;
+  WRNLoopOrderKind LoopOrder;
   WRNLoopInfo WRNLI;
 #if INTEL_CUSTOMIZATION
   bool IsAutoVec;
@@ -1119,6 +1195,8 @@ public:
   void setSimdlen(int N) { Simdlen = N; }
   void setSafelen(int N) { Safelen = N; }
   void setCollapse(int N) { Collapse = N; }
+  void setLoopOrder(WRNLoopOrderKind LO) { LoopOrder = LO; }
+
 #if INTEL_CUSTOMIZATION
   void setIsAutoVec(bool Flag) { IsAutoVec = Flag; }
   void setHasVectorAlways(bool Flag) { HasVectorAlways = Flag; }
@@ -1138,6 +1216,8 @@ public:
   int getSimdlen() const { return Simdlen; }
   int getSafelen() const { return Safelen; }
   int getCollapse() const { return Collapse; }
+  WRNLoopOrderKind getLoopOrder() const { return LoopOrder; }
+
 #if INTEL_CUSTOMIZATION
   bool getIsAutoVec() const { return IsAutoVec; }
   bool getHasVectorAlways() const { return HasVectorAlways; }
@@ -1186,6 +1266,7 @@ private:
   ScheduleClause Schedule;
   int Collapse;
   int Ordered;
+  WRNLoopOrderKind LoopOrder;
   bool Nowait;
   WRNLoopInfo WRNLI;
   SmallVector<Value *, 2> OrderedTripCounts;
@@ -1203,6 +1284,7 @@ public:
 protected:
   void setCollapse(int N) { Collapse = N; }
   void setOrdered(int N) { Ordered = N; }
+  void setLoopOrder(WRNLoopOrderKind LO) { LoopOrder = LO; }
   void setNowait(bool Flag) { Nowait = Flag; }
 
 public:
@@ -1221,7 +1303,9 @@ public:
 
   int getCollapse() const { return Collapse; }
   int getOrdered() const { return Ordered; }
+  WRNLoopOrderKind getLoopOrder() const { return LoopOrder; }
   bool getNowait() const { return Nowait; }
+
   void addOrderedTripCount(Value *TC) { OrderedTripCounts.push_back(TC); }
   const SmallVectorImpl<Value *> &getOrderedTripCounts() const {
     return OrderedTripCounts;
@@ -1721,7 +1805,7 @@ extern void printExtraForParallel(WRegionNode const *W,
 
 /// \brief Print the fields common to some WRNs for which getIsOmpLoop()==true.
 /// Possible constructs are: WRNParallelLoop, WRNDistributeParLoop, WRNWksLoop
-/// The fields to print are: Collapse, Ordered, Nowait
+/// The fields to print are: Collapse, Ordered, Order, Nowait
 extern void printExtraForOmpLoop(WRegionNode const *W,
                                   formatted_raw_ostream &OS, int Depth,
                                   unsigned Verbosity=1);

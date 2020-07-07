@@ -509,6 +509,9 @@ void VPlanVerifier::verifySpecificInstruction(
   case Instruction::PHI:
     verifyPHINode(cast<VPPHINode>(VPInst));
     break;
+  case VPInstruction::Abs:
+    verifyAbsInst(VPInst);
+    break;
   default:
     // TODO: There are more LLVM instructions than the ones that we handle here.
     // E.g., 'br' or 'call'. Once we have VPlan support for all, we can
@@ -587,7 +590,10 @@ void VPlanVerifier::verifyGEPInstruction(const VPGEPInstruction *GEP) const {
 }
 
 // Verify operands and type consistency of the given VPSubscriptInst
-// instruction.
+// instruction. Verification is not done for result type since VPSubscriptInst
+// can represent combined multi-dimensional access (unlike
+// llvm.intel.subscript), in which case resulting type would not match base
+// pointer type.
 void VPlanVerifier::verifySubscriptInst(
     const VPSubscriptInst *Subscript) const {
   VPValue *Ptr = Subscript->getPointerOperand();
@@ -597,12 +603,6 @@ void VPlanVerifier::verifySubscriptInst(
   assert(PtrTy->isPtrOrPtrVectorTy() &&
          "SubscriptInst base ptr is not pointer type.");
   (void)PtrTy;
-
-  Type *ResTy = Subscript->getType();
-  assert((ResTy->isPtrOrPtrVectorTy() &&
-          ResTy->getScalarType() == PtrTy->getScalarType()) &&
-         "SubscriptInst result type inconsistent with base pointer type.");
-  (void)ResTy;
 
   assert(Subscript->getNumOperands() == 3 * NumDims + 1 &&
          "SubscriptInst has invalid number of operands.");
@@ -625,6 +625,23 @@ void VPlanVerifier::verifySubscriptInst(
     (void)IntArgs;
     (void)Rank;
   }
+}
+
+void VPlanVerifier::verifyAbsInst(const VPInstruction *I) const {
+  assert(I->getOpcode() == VPInstruction::Abs);
+
+  // Abs instruction has one operand.
+  assert(I->getNumOperands() == 1 && "Abs instruction should have 1 operand");
+
+  // Operand and instruction types should match.
+  Type *OpTy = I->getOperand(0)->getType();
+  Type *InstTy = I->getType();
+  assert(OpTy == InstTy && "Unexpected operand/inst type mismatch");
+
+  assert(OpTy->isIntOrIntVectorTy() && "Abs only operates on integers");
+
+  (void)OpTy;
+  (void)InstTy;
 }
 
 // Verify information of \p Inst nested in \p Block.

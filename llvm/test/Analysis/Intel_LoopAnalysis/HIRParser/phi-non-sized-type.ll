@@ -1,5 +1,5 @@
-; RUN: opt < %s -hir-ssa-deconstruction -analyze -hir-framework -hir-details-refs | FileCheck %s
-; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir>" -hir-details-refs 2>&1 -disable-output | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -analyze -hir-framework -hir-details-dims | FileCheck %s
+; RUN: opt < %s -passes="hir-ssa-deconstruction,print<hir>" -hir-details-dims 2>&1 -disable-output | FileCheck %s
 
 ; Check that phi based RegDDRef of opaque type is formed corectly with a zero stride.
 

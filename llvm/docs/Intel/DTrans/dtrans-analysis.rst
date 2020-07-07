@@ -226,11 +226,19 @@ function.
 
 GlobalPtr
 ~~~~~~~~~
-This indicates that a global variable was found that is a pointer to the type.
+This indicates that a global variable was found that is a pointer (or a pointer
+to a pointer) to the type.
 
 GlobalInstance
 ~~~~~~~~~~~~~~
-This indicates that a global variable was found that is an instance of the type.
+This indicates that a global variable was found that results in the
+construction of an instance of the type. This can be due to a direct
+instantiation of the type, or some combination of the instantiation
+for an array of the type, or the type being contained within another
+structure type that has a global instantiation. However, if the contained
+elements are pointers to types, the instantiation will not cause those types
+to be marked with this safety flag because they are not being directly
+instantiated.
 
 GlobalArray
 ~~~~~~~~~~~
@@ -314,11 +322,18 @@ The type was identified as a known system structure type.
 
 LocalPtr
 ~~~~~~~~~
-This indicates that a local variable was found that is a pointer to the type.
+This indicates that a local variable was found that is a pointer (or pointer
+to pointer) to the type.
 
 LocalInstance
 ~~~~~~~~~~~~~~
 This indicates that a local variable was found that is an instance of the type.
+This can be due to a direct stack allocation of the type, or some combination
+of a stack allocation for an array of the type, or the type being contained
+within another structure type that has a stack allocation. However, if the
+contained elements are pointers to types, a stack allocation will not cause
+those types to be marked with this safety flag because they are not being
+directly allocated.
 
 MismatchedArgUse
 ~~~~~~~~~~~~~~~~
@@ -388,6 +403,39 @@ Analyzer below.) `Bad Casting Analyzer`_
 DopeVector
 ~~~~~~~~~~
 The type was identified as a dope vector.
+
+BadCastingForRelatedTypes
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This safety data is used for special bad casting cases that won't affect
+related types. These types are structures that have two types in the IR,
+where one type represents the base form and the other type has the same
+fields with an extra field at the end used for padding.
+
+BadPtrManipulationForRelatedTypes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This safety data is used to check if bad pointer manipulation won't affect
+the related types.
+
+MismatchedElementAccessRelatedTypes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This safety data is used for a special mismatched element access to
+the zero field of a structure but won't affect the related types.
+
+UnsafePointerStoreRelatedTypes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This safety data is used for special unsafe pointer store to the zero
+field of a structure but won't affect related types.
+
+MemFuncNestedStructsPartialWrite
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This safety data is used when a memory handling function (e.g. memcpy)
+modifies part of the nested structures, but it won't fully cover the
+field zero in the outer most structure.
 
 UnhandledUse
 ~~~~~~~~~~~~

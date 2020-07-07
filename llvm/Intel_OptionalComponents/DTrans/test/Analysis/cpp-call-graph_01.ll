@@ -1,3 +1,4 @@
+; REQUIRES: asserts
 ; RUN: opt -S < %s -whole-program-assume -dtransanalysis -disable-output -dtrans-print-types
 ; RUN: opt -S < %s -whole-program-assume -passes='require<dtransanalysis>' -disable-output -dtrans-print-types
 

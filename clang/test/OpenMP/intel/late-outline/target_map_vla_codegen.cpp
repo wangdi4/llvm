@@ -89,7 +89,7 @@ int vla_test4() {
   auto aaa = 10;
   int C[array_size][aaa];
   // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
-  // CHECK-SAME: "QUAL.OMP.MAP.FROM"(i32* %vla, i32* %arrayidx2, i64 4, i64 34)
+  // CHECK-SAME: "QUAL.OMP.MAP.FROM"(i32* %vla, i32* %ptridx, i64 4, i64 34)
   // CHECK: region.exit(token [[T]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target map(from: C[1][1])
   for (int i = 0; i < array_size; ++i)

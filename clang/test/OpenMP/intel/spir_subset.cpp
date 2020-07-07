@@ -227,6 +227,21 @@ void foo1()
   #pragma omp target simd
   for (i=0;i<16;++i) {}
 
+  //ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //ALL-SAME:"DIR.OMP.DISTRIBUTE"
+  //ALL: region.exit(token [[T0]]) [ "DIR.OMP.END.DISTRIBUTE"
+  #pragma omp distribute
+  for (i=0;i<16;++i) {}
+
+  //ALL: [[T0:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //ALL-SAME:"DIR.OMP.DISTRIBUTE"
+  //ALL: [[T1:%[0-9]+]] = call token @llvm.directive.region.entry()
+  //ALL-SAME:"DIR.OMP.SIMD"
+  //ALL: region.exit(token [[T1]]) [ "DIR.OMP.END.SIMD"
+  //ALL: region.exit(token [[T0]]) [ "DIR.OMP.END.DISTRIBUTE"
+  #pragma omp distribute simd
+  for (i=0;i<16;++i) {}
+
   #pragma omp sections
   {
     #pragma omp section

@@ -265,8 +265,8 @@ static int map_file() {
   fseek(output_file, 0L, SEEK_END);
   file_size = ftell(output_file);
 
-  /* A size of 0 is invalid to `mmap'. Return a fail here, but don't issue an
-   * error message because it should "just work" for the user. */
+  /* A size of 0 means the file has been created just now (possibly by another
+   * process in lock-after-open race condition). No need to mmap. */
   if (file_size == 0)
     return -1;
 
@@ -349,27 +349,24 @@ static void unmap_file() {
  * started at a time.
  */
 COMPILER_RT_VISIBILITY
-void llvm_gcda_start_file(const char *orig_filename, const char version[4],
+void llvm_gcda_start_file(const char *orig_filename, uint32_t version,
                           uint32_t checksum) {
   const char *mode = "r+b";
   filename = mangle_filename(orig_filename);
 
   /* Try just opening the file. */
-  new_file = 0;
   fd = open(filename, O_RDWR | O_BINARY);
 
   if (fd == -1) {
     /* Try creating the file. */
     fd = open(filename, O_RDWR | O_CREAT | O_EXCL | O_BINARY, 0644);
     if (fd != -1) {
-      new_file = 1;
       mode = "w+b";
     } else {
       /* Try creating the directories first then opening the file. */
       __llvm_profile_recursive_mkdir(filename);
       fd = open(filename, O_RDWR | O_CREAT | O_EXCL | O_BINARY, 0644);
       if (fd != -1) {
-        new_file = 1;
         mode = "w+b";
       } else {
         /* Another process may have created the file just now.
@@ -394,39 +391,30 @@ void llvm_gcda_start_file(const char *orig_filename, const char version[4],
   output_file = fdopen(fd, mode);
 
   /* Initialize the write buffer. */
+  new_file = 0;
   write_buffer = NULL;
   cur_buffer_size = 0;
   cur_pos = 0;
 
-  if (new_file) {
+  if (map_file() == -1) {
+    /* The file has been created just now (file_size == 0) or mmap failed
+     * unexpectedly. In the latter case, try to recover by clobbering. */
+    new_file = 1;
+    write_buffer = NULL;
     resize_write_buffer(WRITE_BUFFER_SIZE);
     memset(write_buffer, 0, WRITE_BUFFER_SIZE);
-  } else {
-    if (map_file() == -1) {
-      /* mmap failed, try to recover by clobbering */
-      new_file = 1;
-      write_buffer = NULL;
-      cur_buffer_size = 0;
-      resize_write_buffer(WRITE_BUFFER_SIZE);
-      memset(write_buffer, 0, WRITE_BUFFER_SIZE);
-    }
   }
 
   /* gcda file, version, stamp checksum. */
-#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-  gcov_version = version[3] >= 'A'
-                     ? (version[3] - 'A') * 100 + (version[2] - '0') * 10 +
-                           version[1] - '0'
-                     : (version[3] - '0') * 10 + version[1] - '0';
-#else
-  gcov_version = version[0] >= 'A'
-                     ? (version[0] - 'A') * 100 + (version[1] - '0') * 10 +
-                           version[2] - '0'
-                     : (version[0] - '0') * 10 + version[2] - '0';
-#endif
-
+  {
+    uint8_t c3 = version >> 24;
+    uint8_t c2 = (version >> 16) & 255;
+    uint8_t c1 = (version >> 8) & 255;
+    gcov_version = c3 >= 'A' ? (c3 - 'A') * 100 + (c2 - '0') * 10 + c1 - '0'
+                             : (c3 - '0') * 10 + c1 - '0';
+  }
   write_32bit_value(GCOV_DATA_MAGIC);
-  write_bytes(version, 4);
+  write_32bit_value(version);
   write_32bit_value(checksum);
 
 #ifdef DEBUG_GCDAPROFILING
@@ -557,10 +545,15 @@ void llvm_gcda_summary_info() {
     }
 
     val = read_32bit_value(); /* length */
-    read_32bit_value();
-    if (gcov_version < 90)
+    uint32_t prev_runs;
+    if (gcov_version < 90) {
       read_32bit_value();
-    uint32_t prev_runs = read_32bit_value();
+      read_32bit_value();
+      prev_runs = read_32bit_value();
+    } else {
+      prev_runs = read_32bit_value();
+      read_32bit_value();
+    }
     for (uint32_t i = gcov_version < 90 ? 3 : 2; i < val; ++i)
       read_32bit_value();
     /* Add previous run count to new counter, if not already counted before. */

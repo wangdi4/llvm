@@ -20,10 +20,10 @@
 define void @powi_f64(i32 %n, double* noalias nocapture readonly %y, double* noalias nocapture %x, i32 %P, double %key) local_unnamed_addr #2 {
 ; CHECK-LABEL:  VPlan after importing plain CFG
 ; CHECK:          i64 [[VP2:%.*]] = phi  [ i64 0, [[BB1:BB[0-9]+]] ],  [ i64 [[VP3:%.*]], [[BB3:BB[0-9]+]] ]
-; CHECK-NEXT:     double* [[VP4:%.*]] = getelementptr inbounds double* [[Y0:%.*]] i64 [[VP2]]
+; CHECK-NEXT:     double* [[VP4:%.*]] = subscript inbounds double* [[Y0:%.*]] i64 [[VP2]]
 ; CHECK-NEXT:     double [[VP5:%.*]] = load double* [[VP4]]
 ; CHECK-NEXT:     double [[VP6:%.*]] = call double [[VP5]] double (double)* @llvm.exp.f64
-; CHECK-NEXT:     double* [[VP7:%.*]] = getelementptr inbounds double* [[X0:%.*]] i64 [[VP2]]
+; CHECK-NEXT:     double* [[VP7:%.*]] = subscript inbounds double* [[X0:%.*]] i64 [[VP2]]
 ; CHECK-NEXT:     store double [[VP6]] double* [[VP7]]
 ; CHECK-NEXT:     i64 [[VP3]] = add i64 [[VP2]] i64 1
 ; CHECK-NEXT:     i1 [[VP8:%.*]] = icmp i64 [[VP3]] i64 [[VP1:%vp.*]]

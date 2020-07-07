@@ -132,12 +132,28 @@ class OpenMPLateOutliner {
     }
   };
 
+  enum ImplicitClauseKind {
+    ICK_private,
+    ICK_firstprivate,
+    ICK_lastprivate,
+    ICK_shared,
+    ICK_linear,
+    ICK_linear_private,
+    ICK_linear_lastprivate,
+    ICK_normalized_iv,
+    ICK_normalized_ub,
+    // A firstprivate specified with an implicit OMPFirstprivateClause.
+    ICK_specified_firstprivate,
+    ICK_unknown
+  };
+
   class ClauseEmissionHelper final {
     llvm::IRBuilderBase::InsertPoint SavedIP;
     OpenMPLateOutliner &O;
     OpenMPClauseKind CK;
     ClauseStringBuilder CSB;
     bool EmitClause;
+    ImplicitClauseKind ImplicitClause = ICK_unknown;
 
   public:
     ClauseEmissionHelper(OpenMPLateOutliner &O, OpenMPClauseKind CK,
@@ -152,9 +168,10 @@ class OpenMPLateOutliner {
       if (O.insertPointChangeNeeded())
         O.CGF.Builder.restoreIP(SavedIP);
       if (EmitClause)
-        O.emitClause(CK);
+        O.emitClause(CK, ImplicitClause);
     }
     ClauseStringBuilder &getBuilder() { return CSB; }
+    void setImplicitClause(ImplicitClauseKind ICK) {ImplicitClause = ICK; }
   };
   const OMPExecutableDirective &Directive;
   OpenMPDirectiveKind CurrentDirectiveKind;
@@ -170,11 +187,12 @@ class OpenMPLateOutliner {
 
   void addFenceCalls(bool IsBegin);
   void getApplicableDirectives(OpenMPClauseKind CK,
+                               ImplicitClauseKind ICK,
                                SmallVector<DirectiveIntrinsicSet *, 4> &Dirs);
   void startDirectiveIntrinsicSet(StringRef B, StringRef E,
                                   OpenMPDirectiveKind K);
   void emitDirective(DirectiveIntrinsicSet &D, StringRef Name);
-  void emitClause(OpenMPClauseKind CK);
+  void emitClause(OpenMPClauseKind CK, ImplicitClauseKind ICK = ICK_unknown);
   void emitOMPSharedClause(const OMPSharedClause *Cl);
   void emitOMPPrivateClause(const OMPPrivateClause *Cl);
   void emitOMPLastprivateClause(const OMPLastprivateClause *Cl);
@@ -239,6 +257,7 @@ class OpenMPLateOutliner {
   void emitOMPAllocateClause(const OMPAllocateClause *);
   void emitOMPNontemporalClause(const OMPNontemporalClause *);
   void emitOMPTileClause(const OMPTileClause *);
+  void emitOMPBindClause(const OMPBindClause *);
   void emitOMPOrderClause(const OMPOrderClause *);
   void emitOMPAcqRelClause(const OMPAcqRelClause *);
   void emitOMPAcquireClause(const OMPAcquireClause *);
@@ -250,14 +269,17 @@ class OpenMPLateOutliner {
   void emitOMPInclusiveClause(const OMPInclusiveClause *);
   void emitOMPExclusiveClause(const OMPExclusiveClause *);
   void emitOMPUsesAllocatorsClause(const OMPUsesAllocatorsClause *);
+  void emitOMPAffinityClause(const OMPAffinityClause *);
+  void emitOMPUseDeviceAddrClause(const OMPUseDeviceAddrClause *);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   void emitOMPDataflowClause(const OMPDataflowClause *);
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
 
-  llvm::Value *emitOpenMPDefaultConstructor(const Expr *IPriv);
-  llvm::Value *emitOpenMPDestructor(QualType Ty);
+  llvm::Value *emitOpenMPDefaultConstructor(const Expr *IPriv,
+                                            bool IsUDR = false);
+  llvm::Value *emitOpenMPDestructor(QualType Ty, bool IsUDR = false);
   llvm::Value *emitOpenMPCopyConstructor(const Expr *IPriv);
   llvm::Value *emitOpenMPCopyAssign(QualType Ty, const Expr *SrcExpr,
                                     const Expr *DstExpr, const Expr *AssignOp);
@@ -271,17 +293,6 @@ class OpenMPLateOutliner {
 
   bool needsVLAExprEmission();
 
-  enum ImplicitClauseKind {
-    ICK_private,
-    ICK_firstprivate,
-    ICK_lastprivate,
-    ICK_shared,
-    ICK_normalized_iv,
-    ICK_normalized_ub,
-    // A firstprivate specified with an implicit OMPFirstprivateClause.
-    ICK_specified_firstprivate,
-    ICK_unknown
-  };
   void HandleImplicitVar(const Expr *E, ImplicitClauseKind ICK);
   llvm::MapVector<const VarDecl *, ImplicitClauseKind> ImplicitMap;
 
@@ -332,7 +343,8 @@ public:
                      OpenMPDirectiveKind Kind);
   ~OpenMPLateOutliner();
   bool isImplicitLastPrivate(const VarDecl *VD) {
-   return isImplicit(VD) && ImplicitMap[VD] == ICK_lastprivate;
+   return isImplicit(VD) && (ImplicitMap[VD] == ICK_lastprivate ||
+                             ImplicitMap[VD] == ICK_linear_lastprivate);
   }
   void privatizeMappedPointers(CodeGenFunction::OMPPrivateScope &PrivateScope) {
     for (auto MT : MapTemps) {
@@ -383,6 +395,7 @@ public:
   void emitOMPCancelDirective(OpenMPDirectiveKind Kind);
   void emitOMPCancellationPointDirective(OpenMPDirectiveKind Kind);
   void emitOMPTargetVariantDispatchDirective();
+  void emitOMPGenericLoopDirective();
   void emitVLAExpressions() {
     if (needsVLAExprEmission())
       CGF.VLASizeMapHandler->EmitVLASizeExpressions();

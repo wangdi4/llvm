@@ -51,7 +51,9 @@ else()
   set(Z3_LINK_FILES "")
 endif()
 
-add_llvm_component_library(LLVMSupport
+# INTEL_CUSTOMIZATION
+set (SUPPORT_SOURCES
+# end INTEL_CUSTOMIZATION
   AArch64TargetParser.cpp
   ABIBreak.cpp
   ARMTargetParser.cpp
@@ -147,6 +149,7 @@ add_llvm_component_library(LLVMSupport
   StringMap.cpp
   StringSaver.cpp
   StringRef.cpp
+  SuffixTree.cpp
   SymbolRemappingReader.cpp
   SystemUtils.cpp
   TarWriter.cpp
@@ -163,6 +166,7 @@ add_llvm_component_library(LLVMSupport
   VersionTuple.cpp
   VirtualFileSystem.cpp
   WithColor.cpp
+  X86TargetParser.cpp
   YAMLParser.cpp
   YAMLTraits.cpp
   raw_os_ostream.cpp
@@ -201,7 +205,17 @@ add_llvm_component_library(LLVMSupport
   LINK_LIBS ${system_libs} ${delayload_flags} ${Z3_LINK_FILES}
   )
 
+# INTEL_CUSTOMIZATION
+add_llvm_component_library(LLVMSupport ${SUPPORT_SOURCES})
 set_property(TARGET LLVMSupport PROPERTY LLVM_SYSTEM_LIBS "${system_libs}")
+
+if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
+  add_llvm_component_library(LLVMSupport_stdcpp ${SUPPORT_SOURCES}
+                             STDLIB stdc++)
+  set_property(TARGET LLVMSupport_stdcpp
+               PROPERTY LLVM_SYSTEM_LIBS "${system_libs}")
+endif()
+#end INTEL_CUSTOMIZATION
 
 if(LLVM_WITH_Z3)
   target_include_directories(LLVMSupport SYSTEM

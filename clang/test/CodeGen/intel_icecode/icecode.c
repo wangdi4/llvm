@@ -1,5 +1,5 @@
 // REQUIRES: intel_feature_icecode
-// RUN: %clang_cc1 %s -ffreestanding -triple=x86_icecode-unknown-unknown -emit-llvm -o - -Wall -Werror -pedantic | FileCheck %s
+// RUN: %clang_cc1 %s -ffreestanding -triple=x86_icecode-unknown-unknown -emit-llvm -o - -Wall -Werror -pedantic -Wno-gnu | FileCheck %s
 
 #include <immintrin.h>
 
@@ -91,7 +91,6 @@ void test_icecode() {
 // CHECK: call void asm sideeffect "release_excl_acc"
 // CHECK: call void asm sideeffect "virt_nuke_point"
 // CHECK: call void asm sideeffect "int_trap_point"
-// CHECK: call void asm sideeffect "iceret
 // CHECK: call void asm sideeffect "iceret_indirect
 // CHECK: call void @llvm.x86.icecode.set.tracker(i32 0)
 // CHECK: call i32 asm sideeffect "portin24", "={ax},{dx},~{dirflag},~{fpsr},~{flags}"(i64 %{{.*}})
@@ -116,7 +115,7 @@ void test_icecode() {
   _ce_nr_read(0);
   _ce_ucodecall(reg);
   _ce_cmodemov(data64, data64, 0);
-  _ce_sigeventjump(data32, data32, 0);
+  _ce_sigeventjump(data64, data32, 0);
   _ce_sserialize();
   _ce_nop_set_sb();
   _ce_nop_read_sb();
@@ -124,9 +123,14 @@ void test_icecode() {
   _ce_release_excl_acc();
   _ce_virt_nuke_point();
   _ce_int_trap_point();
-  _ce_iceret(reg);
   _ce_iceret_indirect(reg, reg);
   _ce_set_tracker(0);
   _ce_portin24(data64);
   _ce_portout24(data64, data32);
+}
+
+void test_ce_iceret(unsigned reg) {
+// CHECK: call void asm sideeffect "iceret
+// CHECK-NEXT: unreachable
+  _ce_iceret(reg);
 }

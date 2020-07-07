@@ -26,7 +26,7 @@
 
 ; CHECK: i64 [[IVPhi:%.*]] = phi  [ i64 0, {{BB.*}} ],  [ i64 {{%.*}}, {{BB.*}} ]
 ; CHECK: i32 [[Phi:%.*]] = phi  [ i32 [[IfT1:%.*]], [[ThenBB:BB.*]] ],  [ i32 [[ElseT1:%.*]], [[ElseBB:BB.*]] ]
-; CHECK-NEXT: i32* [[GEP:%vp.*]] = getelementptr inbounds i32* %b i64 [[IVPhi]]
+; CHECK-NEXT: i32* [[GEP:%vp.*]] = subscript inbounds i32* %b i64 [[IVPhi]]
 ; CHECK-NEXT: store i32 [[Phi]] i32* [[GEP]]
 ; CHECK-NOT: {{%.*}} = phi
 

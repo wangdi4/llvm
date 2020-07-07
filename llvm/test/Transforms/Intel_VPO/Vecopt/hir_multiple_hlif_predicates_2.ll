@@ -33,9 +33,9 @@
 ; CHECK: DO i1 = 0, 1023, 4   <DO_LOOP>
 ; CHECK: [[WideCmp1:%.*]] = %n1 != 0;
 ; CHECK-NEXT: [[WideCmp2:%.*]] = i1 + <i64 0, i64 1, i64 2, i64 3> <u 512;
-; CHECK-NEXT: [[WideAnd1:%.*]] = [[WideCmp1]]  &&  [[WideCmp2]];
+; CHECK-NEXT: [[WideAnd1:%.*]] = [[WideCmp1]]  &  [[WideCmp2]];
 ; CHECK-NEXT: [[WideCmp3:%.*]] = {{%.*}} > 0.000000e+00;
-; CHECK-NEXT: [[WideAnd2:%.*]] = [[WideAnd1]]  &&  [[WideCmp3]];
+; CHECK-NEXT: [[WideAnd2:%.*]] = [[WideAnd1]]  &  [[WideCmp3]];
 ; CHECK: Mask = @{[[WideAnd2]]}
 
 

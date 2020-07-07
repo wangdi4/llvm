@@ -242,15 +242,22 @@ namespace CallingConv {
     WASM_EmscriptenInvoke = 99,
 
 #if INTEL_CUSTOMIZATION
-    /// \brief SVML for intel compiler
+    /// Calling convention for SVML functions. Callee-saved registers are
+    /// different for 128-bit, 256-bit and 512-bit SVML functions. We use
+    /// different calling conventions for them.
+    /// When creating SVML calls, the 128-bit calling convention is used since
+    /// it's the most conservative one. MapIntrinToIml will choose the optimal
+    /// convention during legalization.
     SVML = 100,
+    SVML_AVX = 101,
+    SVML_AVX512 = 102,
     /// \brief Calling convention for functions only touch AVX2 vector registers
-    X86_AVX2_C = 101,
+    X86_AVX2_C = 103,
     /// Intel_OCL_BI_AVX - Calling conventions for Intel OpenCL AVX built-ins
-    Intel_OCL_BI_AVX = 102,
+    Intel_OCL_BI_AVX = 104,
     /// Intel_OCL_BI_AVX512 - Calling conventions for Intel OpenCL AVX512
     /// built-ins
-    Intel_OCL_BI_AVX512 = 103,
+    Intel_OCL_BI_AVX512 = 105,
 #endif  // INTEL_CUSTOMIZATION
 
     /// The highest possible calling convention ID. Must be some 2^k - 1.

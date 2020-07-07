@@ -240,8 +240,14 @@ function(add_link_opts target_name)
         set_property(TARGET ${target_name} APPEND_STRING PROPERTY
                      LINK_FLAGS " -Wl,-dead_strip")
       elseif(${CMAKE_SYSTEM_NAME} MATCHES "SunOS")
-        set_property(TARGET ${target_name} APPEND_STRING PROPERTY
-                     LINK_FLAGS " -Wl,-z -Wl,discard-unused=sections")
+        # Support for ld -z discard-unused=sections was only added in
+        # Solaris 11.4.
+        include(CheckLinkerFlag)
+        check_linker_flag("-Wl,-z,discard-unused=sections" LINKER_SUPPORTS_Z_DISCARD_UNUSED)
+        if (LINKER_SUPPORTS_Z_DISCARD_UNUSED)
+          set_property(TARGET ${target_name} APPEND_STRING PROPERTY
+                       LINK_FLAGS " -Wl,-z,discard-unused=sections")
+        endif()
       elseif(NOT WIN32 AND NOT LLVM_LINKER_IS_GOLD AND
              NOT ${CMAKE_SYSTEM_NAME} MATCHES "OpenBSD|AIX")
         # Object files are compiled with -ffunction-data-sections.
@@ -370,6 +376,10 @@ function(set_windows_version_resource_properties name resource_file)
                PROPERTY COMPILE_FLAGS /nologo)
   set_property(SOURCE ${resource_file}
                PROPERTY COMPILE_DEFINITIONS
+# INTEL_CUSTOMIZATION
+               "RC_COMPANY_NAME=\"Intel Corporation\""
+               "RC_COPYRIGHT=\"Copyright (C) 2019-2020 Intel Corporation\""
+# end INTEL_CUSTOMIZATION
                "RC_VERSION_FIELD_1=${ARG_VERSION_MAJOR}"
                "RC_VERSION_FIELD_2=${ARG_VERSION_MINOR}"
                "RC_VERSION_FIELD_3=${ARG_VERSION_PATCHLEVEL}"
@@ -418,7 +428,9 @@ endfunction(set_windows_version_resource_properties)
 function(llvm_add_library name)
   cmake_parse_arguments(ARG
     "MODULE;SHARED;STATIC;OBJECT;DISABLE_LLVM_LINK_LLVM_DYLIB;SONAME;NO_INSTALL_RPATH;COMPONENT_LIB;CUSTOM_WIN_VER"
-    "OUTPUT_NAME;PLUGIN_TOOL;ENTITLEMENTS;BUNDLE_PATH"
+# INTEL_CUSTOMIZATION
+    "OUTPUT_NAME;PLUGIN_TOOL;ENTITLEMENTS;BUNDLE_PATH;STDLIB"
+# end INTEL_CUSTOMIZATION
     "ADDITIONAL_HEADERS;DEPENDS;LINK_COMPONENTS;LINK_LIBS;OBJLIBS"
     ${ARGN})
   list(APPEND LLVM_COMMON_DEPENDS ${ARG_DEPENDS})
@@ -485,7 +497,12 @@ function(llvm_add_library name)
         "PUBLIC;PRIVATE"
         ${ARG_LINK_LIBS})
       foreach(link_lib ${LINK_LIBS_ARG_PUBLIC})
-        if(TARGET ${link_lib})
+        if(LLVM_PTHREAD_LIB)
+          # Can't specify a dependence on -lpthread
+          if(NOT ${link_lib} STREQUAL ${LLVM_PTHREAD_LIB})
+            add_dependencies(${obj_name} ${link_lib})
+          endif()
+        else()
           add_dependencies(${obj_name} ${link_lib})
         endif()
       endforeach()
@@ -638,6 +655,20 @@ function(llvm_add_library name)
       ${lib_deps}
       ${llvm_libs}
       )
+
+  # INTEL_CUSTOMIZATION
+  #if it forced - override with provided value
+  if (ARG_STDLIB)
+    check_cxx_compiler_flag("-stdlib=lib${ARG_STDLIB}"
+                            CXX_COMPILER_SUPPORTS_STDLIB)
+    if (CXX_COMPILER_SUPPORTS_STDLIB)
+      set_property(TARGET ${name} APPEND_STRING PROPERTY
+                   COMPILE_FLAGS " -stdlib=lib${ARG_STDLIB}")
+      set_property(TARGET ${name} APPEND_STRING PROPERTY
+                   LINK_FLAGS " -l${ARG_STDLIB}")
+    endif()
+  endif()
+  # end INTEL_CUSTOMIZATION
 
   if(LLVM_COMMON_DEPENDS)
     add_dependencies(${name} ${LLVM_COMMON_DEPENDS})
@@ -822,6 +853,10 @@ macro(add_llvm_executable name)
 
   if(NOT ARG_NO_INSTALL_RPATH)
     llvm_setup_rpath(${name})
+  elseif (LLVM_LOCAL_RPATH)
+    set_target_properties(${name} PROPERTIES
+                          BUILD_WITH_INSTALL_RPATH On
+                          INSTALL_RPATH "${LLVM_LOCAL_RPATH}")
   endif()
 
   if(DEFINED windows_resource_file)
@@ -1408,14 +1443,27 @@ function(add_unittest test_suite test_name)
 
   set(LLVM_REQUIRES_RTTI OFF)
 
-  list(APPEND LLVM_LINK_COMPONENTS Support) # gtest needs it for raw_ostream
-  add_llvm_executable(${test_name} IGNORE_EXTERNALIZE_DEBUGINFO NO_INSTALL_RPATH ${ARGN})
-  set(outdir ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR})
-  set_output_directory(${test_name} BINARY_DIR ${outdir} LIBRARY_DIR ${outdir})
-  # libpthreads overrides some standard library symbols, so main
-  # executable must be linked with it in order to provide consistent
-  # API for all shared libaries loaded by this executable.
-  target_link_libraries(${test_name} PRIVATE gtest_main gtest ${LLVM_PTHREAD_LIB})
+  # INTEL_CUSTOMIZATION
+  string(FIND "${test_suite}" "SYCL" IS_SYCL_TEST)
+  if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX AND UNIX AND NOT (${IS_SYCL_TEST} STREQUAL "-1"))
+    list(APPEND LLVM_LINK_COMPONENTS Support_stdcpp) # gtest needs it for raw_ostream
+    add_llvm_executable(${test_name} IGNORE_EXTERNALIZE_DEBUGINFO NO_INSTALL_RPATH ${ARGN})
+    set(outdir ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR})
+    set_output_directory(${test_name} BINARY_DIR ${outdir} LIBRARY_DIR ${outdir})
+    target_link_libraries(${test_name} PRIVATE gtest_main_stdcpp gtest_stdcpp stdc++ ${LLVM_PTHREAD_LIB})
+    set_property(TARGET ${test_name} APPEND_STRING PROPERTY
+                 COMPILE_FLAGS " -stdlib=libstdc++")
+  else()
+    list(APPEND LLVM_LINK_COMPONENTS Support) # gtest needs it for raw_ostream
+    add_llvm_executable(${test_name} IGNORE_EXTERNALIZE_DEBUGINFO NO_INSTALL_RPATH ${ARGN})
+    set(outdir ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR})
+    set_output_directory(${test_name} BINARY_DIR ${outdir} LIBRARY_DIR ${outdir})
+    # libpthreads overrides some standard library symbols, so main
+    # executable must be linked with it in order to provide consistent
+    # API for all shared libaries loaded by this executable.
+    target_link_libraries(${test_name} PRIVATE gtest_main gtest ${LLVM_PTHREAD_LIB})
+  endif()
+  # end INTEL_CUSTOMIZATION
 
   add_dependencies(${test_suite} ${test_name})
   get_target_property(test_suite_folder ${test_suite} FOLDER)
@@ -2091,34 +2139,27 @@ function(find_first_existing_vc_file path out_var)
   if(NOT EXISTS "${path}")
     return()
   endif()
-  if(EXISTS "${path}/.svn")
-    set(svn_files
-      "${path}/.svn/wc.db"   # SVN 1.7
-      "${path}/.svn/entries" # SVN 1.6
-    )
-    foreach(file IN LISTS svn_files)
-      if(EXISTS "${file}")
-        set(${out_var} "${file}" PARENT_SCOPE)
-        return()
-      endif()
-    endforeach()
-  else()
-    find_package(Git)
-    if(GIT_FOUND)
-      execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --git-dir
-        WORKING_DIRECTORY ${path}
-        RESULT_VARIABLE git_result
-        OUTPUT_VARIABLE git_output
-        ERROR_QUIET)
-      if(git_result EQUAL 0)
-        string(STRIP "${git_output}" git_output)
-        get_filename_component(git_dir ${git_output} ABSOLUTE BASE_DIR ${path})
-        # Some branchless cases (e.g. 'repo') may not yet have .git/logs/HEAD
-        if (NOT EXISTS "${git_dir}/logs/HEAD")
-          file(WRITE "${git_dir}/logs/HEAD" "")
+  find_package(Git)
+  if(GIT_FOUND)
+    execute_process(COMMAND ${GIT_EXECUTABLE} rev-parse --git-dir
+      WORKING_DIRECTORY ${path}
+      RESULT_VARIABLE git_result
+      OUTPUT_VARIABLE git_output
+      ERROR_QUIET)
+    if(git_result EQUAL 0)
+      string(STRIP "${git_output}" git_output)
+      get_filename_component(git_dir ${git_output} ABSOLUTE BASE_DIR ${path})
+      # Some branchless cases (e.g. 'repo') may not yet have .git/logs/HEAD
+      if (NOT EXISTS "${git_dir}/logs/HEAD")
+        execute_process(COMMAND ${CMAKE_COMMAND} -E touch HEAD
+          WORKING_DIRECTORY "${git_dir}/logs"
+          RESULT_VARIABLE touch_head_result
+          ERROR_QUIET)
+        if (NOT touch_head_result EQUAL 0)
+          return()
         endif()
-        set(${out_var} "${git_dir}/logs/HEAD" PARENT_SCOPE)
       endif()
+      set(${out_var} "${git_dir}/logs/HEAD" PARENT_SCOPE)
     endif()
   endif()
 endfunction()

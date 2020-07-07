@@ -1,5 +1,5 @@
-; RUN: opt -hir-ssa-deconstruction -hir-framework -analyze < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -xmain-opt-level=3 -hir-ssa-deconstruction -hir-framework -analyze < %s 2>&1 | FileCheck %s
+; RUN: opt -xmain-opt-level=3 -passes="hir-ssa-deconstruction,print<hir>" -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check that loopnest with 7 *ifs* will be recognized.
 

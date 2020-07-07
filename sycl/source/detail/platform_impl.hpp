@@ -72,14 +72,6 @@ public:
   /// \return true if this SYCL platform is a host platform.
   bool is_host() const { return MHostPlatform; };
 
-  bool is_cuda() const {
-    const string_class CUDA_PLATFORM_STRING = "NVIDIA CUDA";
-    const string_class PlatformName =
-        get_platform_info<string_class, info::platform::name>::get(MPlatform,
-                                                                   getPlugin());
-    return PlatformName == CUDA_PLATFORM_STRING;
-  }
-
   /// \return an instance of OpenCL cl_platform_id.
   cl_platform_id get() const {
     if (is_host())
@@ -113,6 +105,9 @@ public:
   /// \return a vector of all available SYCL platforms.
   static vector_class<platform> get_platforms();
 
+  // \return the Backend associated with this platform.
+  backend get_backend() const noexcept { return getPlugin().getBackend(); }
+
   // \return the Plugin associated with this platform.
   const plugin &getPlugin() const {
     assert(!MHostPlatform && "Plugin is not available for Host.");
@@ -126,8 +121,11 @@ public:
     assert(!MHostPlatform && "Plugin is not available for Host");
     MPlugin = std::move(PluginPtr);
   }
-  // Returns the native plugin handle.    // INTEL
-  pi_native_handle getNative() const;     // INTEL
+
+  /// Gets the native handle of the SYCL platform.
+  ///
+  /// \return a native handle.
+  pi_native_handle getNative() const;
 
 private:
   bool MHostPlatform = false;

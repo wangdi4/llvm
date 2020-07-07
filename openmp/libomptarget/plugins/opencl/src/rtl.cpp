@@ -60,7 +60,6 @@ int DebugLevel = 0;
 #define CL_MEM_TYPE_SHARED_INTEL        0x4199
 
 #define CL_MEM_ALLOC_FLAGS_INTEL        0x4195
-#define CL_MEM_ALLOC_DEFAULT_INTEL      0
 
 #define CL_KERNEL_EXEC_INFO_INDIRECT_DEVICE_ACCESS_INTEL    0x4201
 #define CL_KERNEL_EXEC_INFO_USM_PTRS_INTEL                  0x4203
@@ -106,9 +105,11 @@ extern "C" {
 // FIXME: we should actually include omp.h instead of declaring
 //        these ourselves.
 #if _WIN32
+int __cdecl omp_get_max_teams(void);
 int __cdecl omp_get_thread_limit(void);
 double __cdecl omp_get_wtime(void);
 #else   // !_WIN32
+int omp_get_max_teams(void) __attribute__((weak));
 int omp_get_thread_limit(void) __attribute__((weak));
 double omp_get_wtime(void) __attribute__((weak));
 #endif  // !_WIN32
@@ -119,7 +120,6 @@ double omp_get_wtime(void) __attribute__((weak));
 
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 #define OFFLOADSECTIONNAME "omp_offloading_entries"
-#define DEVICE_RTL_NAME "libomptarget-opencl.spv"
 
 //#pragma OPENCL EXTENSION cl_khr_spir : enable
 
@@ -229,6 +229,7 @@ struct ExtensionsTy {
   ExtensionStatusTy HostMemAllocINTELPointer = ExtensionStatusUnknown;
   ExtensionStatusTy SharedMemAllocINTELPointer = ExtensionStatusUnknown;
   ExtensionStatusTy MemFreeINTELPointer = ExtensionStatusUnknown;
+  ExtensionStatusTy SuggestedGroupSize = ExtensionStatusUnknown;
 #endif  // INTEL_CUSTOMIZATION
 
   // Libdevice extensions that may be supported by device runtime.
@@ -313,22 +314,28 @@ struct ProgramData {
 
 /// RTL flags
 struct RTLFlagsTy {
-  uint64_t LinkDeviceRTL : 1;
   uint64_t CollectDataTransferLatency : 1;
   uint64_t EnableProfile : 1;
   uint64_t UseInteropQueueInorderAsync : 1;
   uint64_t UseInteropQueueInorderSharedSync : 1;
   uint64_t UseHostMemForUSM : 1;
+  uint64_t UseDriverGroupSizes : 1;
   // Add new flags here
   uint64_t Reserved : 58;
   RTLFlagsTy() :
-      LinkDeviceRTL(0),
       CollectDataTransferLatency(0),
       EnableProfile(0),
       UseInteropQueueInorderAsync(0),
       UseInteropQueueInorderSharedSync(0),
       UseHostMemForUSM(0),
+      UseDriverGroupSizes(0),
       Reserved(0) {}
+};
+
+/// Kernel properties.
+struct KernelPropertiesTy {
+  size_t Width = 0;
+  size_t MaxThreadGroupSize = 0;
 };
 
 /// Class containing all the device information.
@@ -362,6 +369,8 @@ public:
   std::vector<cl_command_queue> Queues;
   std::vector<cl_command_queue> QueuesOOO; // out-of-order queues
   std::vector<FuncOrGblEntryTy> FuncGblEntries;
+  std::vector<std::map<cl_kernel, KernelPropertiesTy>>
+      KernelProperties;
   std::vector<std::map<void *, BufferInfoTy> > Buffers;
   std::vector<std::map<cl_kernel, std::set<void *> > > ImplicitArgs;
   std::vector<ProfileDataTy> Profiles;
@@ -403,18 +412,18 @@ public:
   clMemFreeINTELTy clMemFreeINTELFn = nullptr;
   clGetDeviceGlobalVariablePointerINTELTy
       clGetDeviceGlobalVariablePointerINTELFn = nullptr;
+  clGetKernelSuggestedLocalWorkSizeINTELTy
+      clGetKernelSuggestedLocalWorkSizeINTELFn = nullptr;
 #endif  // INTEL_CUSTOMIZATION
 
   // Limit for the number of WIs in a WG.
-  int32_t OMPThreadLimit = -1;
-#if INTEL_CUSTOMIZATION
-  // Default subscription rate is heuristically set to 4.
-  // It only matters for the default ND-range parallelization,
-  // i.e. when the global size is unknown on the host.
+  uint32_t ThreadLimit = 0;
+  // Limit for the number of WGs.
+  uint32_t NumTeams = 0;
+
   // This is a factor applied to the number of WGs computed
   // for the execution, based on the HW characteristics.
-  size_t SubscriptionRate = 4;
-#endif  // INTEL_CUSTOMIZATION
+  size_t SubscriptionRate = 1;
 
   RTLDeviceInfoTy() : numDevices(0), DataTransferLatency(0),
       DataTransferMethod(DATA_TRANSFER_METHOD_CLMEM) {
@@ -425,18 +434,24 @@ public:
     // set misc. flags
 
     // Get global OMP_THREAD_LIMIT for SPMD parallelization.
-    OMPThreadLimit = omp_get_thread_limit();
-    DP("omp_get_thread_limit() returned %d\n", OMPThreadLimit);
+    int threadLimit = omp_get_thread_limit();
+    DP("omp_get_thread_limit() returned %" PRId32 "\n", threadLimit);
+    // omp_get_thread_limit() would return INT_MAX by default.
+    // NOTE: Windows.h defines max() macro, so we have to guard
+    //       the call with parentheses.
+    ThreadLimit = (threadLimit > 0 &&
+        threadLimit != (std::numeric_limits<int32_t>::max)()) ?
+        threadLimit : 0;
 
-#if INTEL_CUSTOMIZATION
-    if (env = readEnvVar("LIBOMPTARGET_OPENCL_SUBSCRIPTION_RATE")) {
-      int32_t value = std::stoi(env);
-
-      // Set some reasonable limits.
-      if (value > 0 || value <= 0xFFFF)
-        SubscriptionRate = value;
-    }
-#endif  // INTEL_CUSTOMIZATION
+    // Global max number of teams.
+    int numTeams = omp_get_max_teams();
+    DP("omp_get_max_teams() returned %" PRId32 "\n", numTeams);
+    // omp_get_max_teams() would return INT_MAX by default.
+    // NOTE: Windows.h defines max() macro, so we have to guard
+    //       the call with parentheses.
+    NumTeams = (numTeams > 0 &&
+        numTeams != (std::numeric_limits<int32_t>::max)()) ?
+        numTeams : 0;
 
     // Read LIBOMPTARGET_DATA_TRANSFER_LATENCY (experimental input)
     if (env = readEnvVar("LIBOMPTARGET_DATA_TRANSFER_LATENCY")) {
@@ -479,11 +494,21 @@ public:
     DP("Target device type is set to %s\n",
        (DeviceType == CL_DEVICE_TYPE_CPU) ? "CPU" : "GPU");
 
-    // Read LIBOMPTARGET_OPENCL_LINK_DEVICE_RTL
-    if (env = readEnvVar("LIBOMPTARGET_OPENCL_LINK_DEVICE_RTL",
-                         "LIBOMPTARGET_LINK_OPENCL_DEVICE_RTL")) {
-      if (std::stoi(env) != 0)
-        Flags.LinkDeviceRTL = 1;
+#if INTEL_CUSTOMIZATION
+    if (DeviceType == CL_DEVICE_TYPE_GPU) {
+      // Default subscription rate is heuristically set to 4 for GPU.
+      // It only matters for the default ND-range parallelization,
+      // i.e. when the global size is unknown on the host.
+      SubscriptionRate = 4;
+    }
+#endif  // INTEL_CUSTOMIZATION
+
+    if (env = readEnvVar("LIBOMPTARGET_OPENCL_SUBSCRIPTION_RATE")) {
+      int32_t value = std::stoi(env);
+
+      // Set some reasonable limits.
+      if (value > 0 || value <= 0xFFFF)
+        SubscriptionRate = value;
     }
 
     // Read LIBOMPTARGET_PROFILE
@@ -530,14 +555,17 @@ public:
     // OpenCL CPU compiler complains about unsupported option.
     // Intel Graphics compilers that do not support that option
     // silently ignore it.
-    if (DeviceType == CL_DEVICE_TYPE_GPU &&
-        (!(env = readEnvVar("LIBOMPTARGET_OPENCL_TARGET_GLOBALS")) ||
-         (env[0] != 'F' && env[0] != 'f' && env[0] != '0')))
-      InternalLinkingOptions += " -cl-take-global-address ";
-    if (DeviceType == CL_DEVICE_TYPE_GPU &&
-        (!(env = readEnvVar("LIBOMPTARGET_OPENCL_MATCH_SINCOSPI")) ||
-         (env[0] != 'F' && env[0] != 'f' && env[0] != '0')))
-      InternalLinkingOptions += " -cl-match-sincospi ";
+    if (DeviceType == CL_DEVICE_TYPE_GPU) {
+      if (!(env = readEnvVar("LIBOMPTARGET_OPENCL_TARGET_GLOBALS")) ||
+          (env[0] != 'F' && env[0] != 'f' && env[0] != '0'))
+        InternalLinkingOptions += " -cl-take-global-address ";
+      if (!(env = readEnvVar("LIBOMPTARGET_OPENCL_MATCH_SINCOSPI")) ||
+          (env[0] != 'F' && env[0] != 'f' && env[0] != '0'))
+        InternalLinkingOptions += " -cl-match-sincospi ";
+      if (env = readEnvVar("LIBOMPTARGET_OPENCL_USE_DRIVER_GROUP_SIZES"))
+        if (env[0] == 'T' || env[0] == 't' || env[0] == '1')
+        Flags.UseDriverGroupSizes = 1;
+    }
 #endif  // INTEL_CUSTOMIZATION
 
     // Read LIBOMPTARGET_USM_HOST_MEM
@@ -1094,6 +1122,13 @@ int32_t ExtensionsTy::getExtensionsInfoForDevice(int32_t DeviceNum) {
     SharedMemAllocINTELPointer = ExtensionStatusEnabled;
     MemFreeINTELPointer = ExtensionStatusEnabled;
   }
+
+  if (SuggestedGroupSize == ExtensionStatusUnknown)
+    // FIXME: use the right extension name.
+    if (Extensions.find("") != std::string::npos) {
+      SuggestedGroupSize = ExtensionStatusEnabled;
+      DPI("Extension clGetKernelSuggestedLocalWorkSizeINTEL enabled.\n");
+    }
 #endif  // INTEL_CUSTOMIZATION
 
   std::for_each(LibdeviceExtensions.begin(), LibdeviceExtensions.end(),
@@ -1143,7 +1178,7 @@ int32_t __tgt_rtl_number_of_devices() {
     CALL_CL(rc, clGetPlatformInfo, id, CL_PLATFORM_VERSION, buf_size,
             buf.data(), nullptr);
     // clCreateProgramWithIL() requires OpenCL 2.1.
-    if (rc != CL_SUCCESS || strncmp("OpenCL 2.1", buf.data(), 8)) {
+    if (rc != CL_SUCCESS || std::stof(std::string(buf.data() + 6)) <= 2.0) {
       continue;
     }
     cl_uint numDevices = 0;
@@ -1170,6 +1205,7 @@ int32_t __tgt_rtl_number_of_devices() {
   DeviceInfo->Queues.resize(DeviceInfo->numDevices);
   DeviceInfo->QueuesOOO.resize(DeviceInfo->numDevices);
   DeviceInfo->FuncGblEntries.resize(DeviceInfo->numDevices);
+  DeviceInfo->KernelProperties.resize(DeviceInfo->numDevices);
   DeviceInfo->Buffers.resize(DeviceInfo->numDevices);
   DeviceInfo->ImplicitArgs.resize(DeviceInfo->numDevices);
   DeviceInfo->Profiles.resize(DeviceInfo->numDevices);
@@ -1379,7 +1415,7 @@ static void debugPrintBuildLog(cl_program program, cl_device_id did) {
   std::vector<char> buffer(len);
   CALL_CL_RET_VOID(clGetProgramBuildInfo, program, did, CL_PROGRAM_BUILD_LOG,
                    len, buffer.data(), nullptr);
-  DPI("%s\n", buffer.data());
+  DP("%s\n", buffer.data());
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -1478,15 +1514,6 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   }
   programs.push_back(program);
 
-  // Link OpenCL deviceRTL, if needed.
-  if (DeviceInfo->Flags.LinkDeviceRTL) {
-    cl_program program =
-        createProgramFromFile(DEVICE_RTL_NAME, device_id, compilation_options);
-    if (program)
-      programs.push_back(program);
-  } else
-    DP("Skipped device RTL: %s\n", DEVICE_RTL_NAME);
-
   // Link libdevice fallback implementations, if needed.
   auto &libdevice_extensions =
       DeviceInfo->Extensions[device_id].LibdeviceExtensions;
@@ -1568,6 +1595,20 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
           "to declare target variables will not work properly.\n");
     }
   }
+
+  if (!DeviceInfo->clGetKernelSuggestedLocalWorkSizeINTELFn &&
+      DeviceInfo->Extensions[device_id].SuggestedGroupSize ==
+      ExtensionStatusEnabled) {
+    void *fn = nullptr;
+    CALL_CL_RV(fn, clGetExtensionFunctionAddressForPlatform, platformID,
+               "clGetKernelSuggestedLocalWorkSizeINTEL");
+    DeviceInfo->clGetKernelSuggestedLocalWorkSizeINTELFn =
+        reinterpret_cast<clGetKernelSuggestedLocalWorkSizeINTELTy>(fn);
+
+    if (!DeviceInfo->clGetKernelSuggestedLocalWorkSizeINTELFn &&
+        DeviceInfo->Flags.UseDriverGroupSizes)
+      DPI("Warning: clGetKernelSuggestedLocalWorkSizeINTEL API is nullptr.\n");
+  }
 #endif  // INTEL_CUSTOMIZATION
 
   ProfileIntervalTy EntriesTimer("Offload entries init", device_id);
@@ -1625,6 +1666,24 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
     }
     entries[i].addr = &kernels[i];
     entries[i].name = name;
+
+    // Retrieve kernel group size info.
+    size_t kernel_simd_width = 1;
+    CALL_CL_RET_NULL(clGetKernelWorkGroupInfo, kernels[i],
+                     DeviceInfo->deviceIDs[device_id],
+                     CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE,
+                     sizeof(size_t), &kernel_simd_width, nullptr);
+    DeviceInfo->KernelProperties[device_id][kernels[i]].Width =
+        kernel_simd_width;
+
+    size_t kernel_wg_size = 1;
+    CALL_CL_RET_NULL(clGetKernelWorkGroupInfo, kernels[i],
+                     DeviceInfo->deviceIDs[device_id],
+                     CL_KERNEL_WORK_GROUP_SIZE,
+                     sizeof(size_t), &kernel_wg_size, nullptr);
+    DeviceInfo->KernelProperties[device_id][kernels[i]].MaxThreadGroupSize =
+        kernel_wg_size;
+
     if (DebugLevel > 0) {
       // Show kernel information
       std::vector<char> buf;
@@ -1905,9 +1964,6 @@ void *tgt_rtl_data_alloc_template(int32_t device_id, int64_t size,
 #if INTEL_CUSTOMIZATION
 EXTERN void *__tgt_rtl_data_alloc_explicit(
     int32_t device_id, int64_t size, int32_t kind) {
-  cl_mem_properties_intel properties[] = {
-    CL_MEM_ALLOC_FLAGS_INTEL, CL_MEM_ALLOC_DEFAULT_INTEL, 0
-  };
   auto device = DeviceInfo->deviceIDs[device_id];
   auto context = DeviceInfo->CTX[device_id];
   cl_int rc;
@@ -1924,7 +1980,7 @@ EXTERN void *__tgt_rtl_data_alloc_explicit(
       return nullptr;
     }
     CALL_CL_EXT_RVRC(mem, clHostMemAllocINTEL,
-                     DeviceInfo->clHostMemAllocINTELFn, rc, context, properties,
+                     DeviceInfo->clHostMemAllocINTELFn, rc, context, nullptr,
                      size, 0);
     if (mem) {
       std::unique_lock<std::mutex> dataLock(mutex);
@@ -1939,7 +1995,7 @@ EXTERN void *__tgt_rtl_data_alloc_explicit(
     }
     CALL_CL_EXT_RVRC(mem, clSharedMemAllocINTEL,
                      DeviceInfo->clSharedMemAllocINTELFn, rc, context, device,
-                     properties, size, 0);
+                     nullptr, size, 0);
     if (mem) {
       std::unique_lock<std::mutex> dataLock(mutex);
       DeviceInfo->ManagedData[device_id].emplace(std::make_pair(mem, size));
@@ -2211,26 +2267,271 @@ int32_t __tgt_rtl_data_delete(int32_t device_id, void *tgt_ptr) {
   return OFFLOAD_SUCCESS;
 }
 
+static void decideLoopKernelGroupArguments(
+    int32_t DeviceId, int32_t ThreadLimit, TgtNDRangeDescTy *LoopLevels,
+    cl_kernel Kernel, size_t *GroupSizes, size_t *GroupCounts) {
+
+  size_t maxGroupSize = DeviceInfo->maxWorkGroupSize[DeviceId];
+  size_t kernelWidth = DeviceInfo->KernelProperties[DeviceId][Kernel].Width;
+  DP("Assumed kernel SIMD width is %zu\n", kernelWidth);
+
+  size_t kernelMaxThreadGroupSize =
+      DeviceInfo->KernelProperties[DeviceId][Kernel].MaxThreadGroupSize;
+  if (kernelMaxThreadGroupSize < maxGroupSize) {
+    maxGroupSize = kernelMaxThreadGroupSize;
+    DP("Capping maximum thread group size to %zu due to kernel constraints.\n",
+       maxGroupSize);
+  }
+
+  bool maxGroupSizeForced = false;
+
+  if (ThreadLimit > 0) {
+    maxGroupSizeForced = true;
+
+    if ((uint32_t)ThreadLimit <= maxGroupSize) {
+      maxGroupSize = ThreadLimit;
+      DP("Max group size is set to %zu (thread_limit clause)\n",
+         maxGroupSize);
+    } else {
+      DP("thread_limit(%" PRIu32 ") exceeds current maximum %zu\n",
+         ThreadLimit, maxGroupSize);
+    }
+  }
+
+  if (DeviceInfo->ThreadLimit > 0) {
+    maxGroupSizeForced = true;
+
+    if (DeviceInfo->ThreadLimit <= maxGroupSize) {
+      maxGroupSize = DeviceInfo->ThreadLimit;
+      DP("Max group size is set to %zu (OMP_THREAD_LIMIT)\n",
+         maxGroupSize);
+    } else {
+      DP("OMP_THREAD_LIMIT(%" PRIu32 ") exceeds current maximum %zu\n",
+         DeviceInfo->ThreadLimit, maxGroupSize);
+    }
+  }
+
+  if (DeviceInfo->NumTeams > 0)
+    DP("OMP_NUM_TEAMS(%" PRIu32 ") is ignored\n", DeviceInfo->NumTeams);
+
+  GroupCounts[0] = GroupCounts[1] = GroupCounts[2] = 1;
+  size_t groupSizes[3] = {maxGroupSize, 1, 1};
+  TgtLoopDescTy *level = LoopLevels->Levels;
+  int32_t distributeDim = LoopLevels->DistributeDim;
+  assert(distributeDim >= 0 && distributeDim <= 2 &&
+         "Invalid distribute dimension.");
+  int32_t numLoopLevels = LoopLevels->NumLoops;
+  assert((numLoopLevels > 0 && numLoopLevels <= 3) &&
+         "Invalid loop nest description for ND partitioning");
+
+  // Compute global widths for X/Y/Z dimensions.
+  size_t tripCounts[3] = {1, 1, 1};
+
+  for (int32_t i = 0; i < numLoopLevels; i++) {
+    assert((level[i].Ub >= level[i].Lb && level[i].Stride > 0) &&
+           "Invalid loop nest description for ND partitioning");
+    DP("Level %" PRIu32 ": Lb = %" PRId64 ", Ub = %" PRId64 ", Stride = %"
+       PRId64 "\n", i, level[i].Lb, level[i].Ub, level[i].Stride);
+    tripCounts[i] =
+        (level[i].Ub - level[i].Lb + level[i].Stride) / level[i].Stride;
+  }
+
+  if (!maxGroupSizeForced) {
+    // Use clGetKernelSuggestedLocalWorkSizeINTEL to compute group sizes,
+    // or fallback to setting dimension 0 width to SIMDWidth.
+    // Note that in case of user-specified LWS groupSizes[0]
+    // is already set according to the specified value.
+    size_t globalSizes[3] = { tripCounts[0], tripCounts[1], tripCounts[2] };
+    if (distributeDim > 0) {
+      // There is a distribute dimension.
+      globalSizes[distributeDim - 1] *= globalSizes[distributeDim];
+      globalSizes[distributeDim] = 1;
+    }
+
+    cl_int rc = CL_DEVICE_NOT_FOUND;
+    size_t suggestedGroupSizes[3] = {1, 1, 1};
+#if INTEL_CUSTOMIZATION
+    if (DeviceInfo->Flags.UseDriverGroupSizes &&
+        DeviceInfo->clGetKernelSuggestedLocalWorkSizeINTELFn) {
+      CALL_CL_EXT(rc, clGetKernelSuggestedLocalWorkSizeINTEL,
+                  DeviceInfo->clGetKernelSuggestedLocalWorkSizeINTELFn,
+                  DeviceInfo->Queues[DeviceId], Kernel,
+                  3, nullptr, globalSizes, suggestedGroupSizes);
+    }
+#endif // INTEL_CUSTOMIZATION
+    if (rc == CL_SUCCESS) {
+      groupSizes[0] = suggestedGroupSizes[0];
+      groupSizes[1] = suggestedGroupSizes[1];
+      groupSizes[2] = suggestedGroupSizes[2];
+    } else if (maxGroupSize > kernelWidth) {
+      groupSizes[0] = kernelWidth;
+    }
+  }
+
+  for (int32_t i = 0; i < numLoopLevels; i++) {
+    if (i < distributeDim) {
+      GroupCounts[i] = 1;
+      continue;
+    }
+    size_t trip = tripCounts[i];
+    if (groupSizes[i] >= trip)
+      groupSizes[i] = trip;
+    GroupCounts[i] = (trip + groupSizes[i] - 1) / groupSizes[i];
+  }
+  std::copy(groupSizes, groupSizes + 3, GroupSizes);
+}
+
+static void decideKernelGroupArguments(
+    int32_t DeviceId, int32_t NumTeams, int32_t ThreadLimit,
+    cl_kernel Kernel, size_t *GroupSizes, size_t *GroupCounts) {
+
+  size_t maxGroupSize = DeviceInfo->maxWorkGroupSize[DeviceId];
+  bool maxGroupSizeForced = false;
+  bool maxGroupCountForced = false;
+
+  size_t kernelWidth = DeviceInfo->KernelProperties[DeviceId][Kernel].Width;
+  DP("Assumed kernel SIMD width is %zu\n", kernelWidth);
+
+  size_t kernelMaxThreadGroupSize =
+      DeviceInfo->KernelProperties[DeviceId][Kernel].MaxThreadGroupSize;
+  if (kernelMaxThreadGroupSize < maxGroupSize) {
+    maxGroupSize = kernelMaxThreadGroupSize;
+    DP("Capping maximum thread group size to %zu due to kernel constraints.\n",
+       maxGroupSize);
+  }
+
+  if (ThreadLimit > 0) {
+    maxGroupSizeForced = true;
+
+    if ((uint32_t)ThreadLimit <= maxGroupSize) {
+      maxGroupSize = ThreadLimit;
+      DP("Max group size is set to %zu (thread_limit clause)\n",
+         maxGroupSize);
+    } else {
+      DP("thread_limit(%" PRIu32 ") exceeds current maximum %zu\n",
+         ThreadLimit, maxGroupSize);
+    }
+  }
+
+  if (DeviceInfo->ThreadLimit > 0) {
+    maxGroupSizeForced = true;
+
+    if (DeviceInfo->ThreadLimit <= maxGroupSize) {
+      maxGroupSize = DeviceInfo->ThreadLimit;
+      DP("Max group size is set to %zu (OMP_THREAD_LIMIT)\n",
+         maxGroupSize);
+    } else {
+      DP("OMP_THREAD_LIMIT(%" PRIu32 ") exceeds current maximum %zu\n",
+         DeviceInfo->ThreadLimit, maxGroupSize);
+    }
+  }
+
+  size_t maxGroupCount = 0;
+
+  if (NumTeams > 0) {
+    maxGroupCount = NumTeams;
+    maxGroupCountForced = true;
+    DP("Max group count is set to %zu "
+       "(num_teams clause or no teams construct)\n", maxGroupCount);
+  } else if (DeviceInfo->NumTeams > 0) {
+    // OMP_NUM_TEAMS only matters, if num_teams() clause is absent.
+    maxGroupCount = DeviceInfo->NumTeams;
+    maxGroupCountForced = true;
+    DP("Max group count is set to %zu (OMP_NUM_TEAMS)\n",
+       maxGroupCount);
+  }
+
+  if (maxGroupCountForced) {
+    // If number of teams is specified by the user, then use kernelWidth
+    // WIs per WG by default, so that it matches
+    // decideLoopKernelGroupArguments() behavior.
+    if (!maxGroupSizeForced) {
+      maxGroupSize = kernelWidth;
+    }
+  } else {
+    maxGroupCount = DeviceInfo->maxExecutionUnits[DeviceId];
+#if INTEL_CUSTOMIZATION
+    if (DeviceInfo->DeviceType == CL_DEVICE_TYPE_GPU) {
+      // We are currently handling only GEN9/GEN9.5 here.
+      // TODO: we need to find a way to compute the number of sub slices
+      //       and number of EUs per sub slice for the particular device.
+      size_t numSubslices = 9;
+      size_t numEUsPerSubslice= 8;
+      size_t numThreadsPerEU = 7;
+      size_t numEUs = DeviceInfo->maxExecutionUnits[DeviceId];
+
+      // Each EU has 7 threads. A work group is partitioned into EU threads,
+      // and then scheduled onto a sub slice. A sub slice must have all the
+      // resources available to start a work group, otherwise it will wait
+      // for resources. This means that uneven partitioning may result
+      // in waiting work groups, and also unused EUs.
+      // See slides 25-27 here:
+      //   https://software.intel.com/sites/default/files/      \
+      //   Faster-Better-Pixels-on-the-Go-and-in-the-Cloud-     \
+      //   with-OpenCL-on-Intel-Architecture.pdf
+      if (numEUs >= 72) {
+        // Default best Halo (GT4) configuration.
+      } else if (numEUs >= 48) {
+        // GT3
+        numSubslices = 6;
+      } else if (numEUs >= 24) {
+        // GT2
+        numSubslices = 3;
+      } else if (numEUs >= 18) {
+        // GT1.5
+        numSubslices = 3;
+        numEUsPerSubslice = 6;
+      } else {
+        // GT1
+        numSubslices = 2;
+        numEUsPerSubslice = 6;
+      }
+
+      size_t numThreadsPerSubslice = numEUsPerSubslice * numThreadsPerEU;
+      maxGroupCount = numSubslices * numThreadsPerSubslice;
+      if (maxGroupSizeForced) {
+        // Set group size for the HW capacity
+        size_t numThreadsPerGroup =
+            (maxGroupSize + kernelWidth - 1) / kernelWidth;
+        size_t numGroupsPerSubslice =
+            (numThreadsPerSubslice + numThreadsPerGroup - 1) /
+            numThreadsPerGroup;
+        maxGroupCount = numGroupsPerSubslice * numSubslices;
+      } else {
+        assert(!maxGroupSizeForced && !maxGroupCountForced);
+        assert((maxGroupSize <= kernelWidth ||
+                maxGroupSize % kernelWidth == 0) && "Invalid maxGroupSize");
+        // Maximize group size
+        while (maxGroupSize > kernelWidth) {
+          size_t numThreadsPerGroup = maxGroupSize / kernelWidth;
+          if (numThreadsPerSubslice % numThreadsPerGroup == 0) {
+            size_t numGroupsPerSubslice =
+                numThreadsPerSubslice / numThreadsPerGroup;
+            maxGroupCount = numGroupsPerSubslice * numSubslices;
+            break;
+          }
+          maxGroupSize -= kernelWidth;
+        }
+      }
+    }
+#endif  // INTEL_CUSTOMIZATION
+  }
+
+  GroupSizes[0] = maxGroupSize;
+  GroupSizes[1] = GroupSizes[2] = 1;
+
+  GroupCounts[0] = maxGroupCount;
+  GroupCounts[1] = GroupCounts[2] = 1;
+  if (!maxGroupCountForced)
+    GroupCounts[0] *= DeviceInfo->SubscriptionRate;
+}
+
 static inline int32_t run_target_team_nd_region(
     int32_t device_id, void *tgt_entry_ptr, void **tgt_args,
     ptrdiff_t *tgt_offsets, int32_t num_args, int32_t num_teams,
     int32_t thread_limit, void *loop_desc, void *async_event) {
 
   cl_kernel *kernel = static_cast<cl_kernel *>(tgt_entry_ptr);
-
-  // compute local/global work size
-
-  // TODO: this looks valid only for ATS
-  // TODO: do whatever changes for ATS later once we have access to the device.
-  // size_t simd_len = 16;
-  // size_t local_work_size_max = 64 * simd_len;
-
-  // For portability, we also need to set max local_work_size.
-  size_t local_work_size_max = DeviceInfo->maxWorkGroupSize[device_id];
-  DP("Maximum work-group size on the device is %zu.\n", local_work_size_max);
-  size_t num_execution_units_max = DeviceInfo->maxExecutionUnits[device_id];
-  DP("Number of execution units on the device is %zu.\n",
-     num_execution_units_max);
 
 #if INTEL_INTERNAL_BUILD
   // TODO: kernels using to much SLM may limit the number of
@@ -2246,262 +2547,26 @@ static inline int32_t run_target_team_nd_region(
   DP("Kernel local mem size: %zu\n", kernel_local_mem_size);
 #endif // INTEL_INTERNAL_BUILD
 
-  size_t kernel_simd_width = 1;
-  CALL_CL_RET_FAIL(clGetKernelWorkGroupInfo, *kernel,
-                   DeviceInfo->deviceIDs[device_id],
-                   CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE, sizeof(size_t),
-                   &kernel_simd_width, nullptr);
-  DP("Preferred work-group size multiple: %zu\n", kernel_simd_width);
-
-  // Account for kernel-specific maximum work group size.
-  size_t kernel_wg_size = 1;
-
-  CALL_CL_RET_FAIL(clGetKernelWorkGroupInfo, *kernel,
-                   DeviceInfo->deviceIDs[device_id], CL_KERNEL_WORK_GROUP_SIZE,
-                   sizeof(size_t), &kernel_wg_size, nullptr);
-  if (kernel_wg_size < local_work_size_max) {
-    local_work_size_max = kernel_wg_size;
-    DP("Capping maximum work-group size to %zu due to kernel constraints.\n",
-       local_work_size_max);
-  }
-
-  bool local_size_forced_by_user = false;
-
-  if (thread_limit > 0 &&
-      (size_t)thread_limit <= local_work_size_max) {
-    local_work_size_max = (size_t)thread_limit;
-    local_size_forced_by_user = true;
-    DP("Setting maximum work-group size to %zu (due to thread_limit clause).\n",
-       local_work_size_max);
-  }
-
-  if (DeviceInfo->OMPThreadLimit > 0 &&
-      (size_t)DeviceInfo->OMPThreadLimit <= local_work_size_max) {
-    local_work_size_max = (size_t)DeviceInfo->OMPThreadLimit;
-    local_size_forced_by_user = true;
-    DP("Setting maximum work-group size to %zu (due to OMP_THREAD_LIMIT).\n",
-       local_work_size_max);
-  }
-
-#if INTEL_CUSTOMIZATION
-  bool num_teams_forced_by_user = false;
-
-  // We are currently handling only GEN9/GEN9.5 here.
-  // TODO: we need to find a way to compute the number of sub slices
-  //       and number of EUs per sub slice for the particular device.
-  size_t number_of_subslices = 9;
-  size_t eus_per_ss = 8;
-  size_t threads_per_eu = 7;
-
-
-  // Each EU has 7 threads. A work group is partitioned into EU threads,
-  // and then scheduled onto a sub slice. A sub slice must have all the
-  // resources available to start a work group, otherwise it will wait
-  // for resources. This means that uneven partitioning may result
-  // in waiting work groups, and also unused EUs.
-  // See slides 25-27 here:
-  //   https://software.intel.com/sites/default/files/\
-  //   Faster-Better-Pixels-on-the-Go-and-in-the-Cloud-\
-  //   with-OpenCL-on-Intel-Architecture.pdf
-  if (num_execution_units_max >= 72) {
-    // Default best Halo (GT4) configuration.
-  } else if (num_execution_units_max >= 48) {
-    // GT3
-    number_of_subslices = 6;
-  } else if (num_execution_units_max >= 24) {
-    // GT2
-    number_of_subslices = 3;
-  } else if (num_execution_units_max >= 18) {
-    // GT1.5
-    number_of_subslices = 3;
-    eus_per_ss = 6;
+  // Decide group sizes and counts
+  size_t local_work_size[3] = {1, 1, 1};
+  size_t num_work_groups[3] = {1, 1, 1};
+  if (loop_desc) {
+    decideLoopKernelGroupArguments(device_id, thread_limit,
+                                   (TgtNDRangeDescTy *)loop_desc, *kernel,
+                                   local_work_size, num_work_groups);
   } else {
-    // GT1
-    number_of_subslices = 2;
-    eus_per_ss = 6;
-  }
-
-  size_t num_work_groups_max =
-      number_of_subslices * eus_per_ss * threads_per_eu;
-
-  // For open-source keep the previous default, i.e. maximum number
-  // of work groups is equal to the number of execution units.
-#else  // INTEL_CUSTOMIZATION
-  size_t num_work_groups_max = num_execution_units_max;
-#endif // INTEL_CUSTOMIZATION
-
-  if (num_teams > 0) {
-    num_work_groups_max = (size_t)num_teams;
-#if INTEL_CUSTOMIZATION
-    num_teams_forced_by_user = true;
-#endif  // INTEL_CUSTOMIZATION
-    DP("Setting maximum number of work groups to %zu "
-       "(due to num_teams clause).\n", num_work_groups_max);
-  }
-
-  int64_t *loop_levels = loop_desc ? (int64_t *)loop_desc : nullptr;
-
-#if INTEL_CUSTOMIZATION
-  // With specific ND-range parallelization we use 8/16/32 WIs per WG.
-  // Each WG can be run by one EU thread, so all work groups evenly
-  // fit the sub slices.
-  if (!loop_levels &&
-      // If user specifies both number of work groups and the local size,
-      // the we must honor that.
-      (!local_size_forced_by_user || !num_teams_forced_by_user)) {
-    // For default ND-range parallelization, i.e. when we do not know
-    // the number of iterations, we want to create work groups with
-    // maximum local size and also make sure that we can start all
-    // work groups at once. We want to maximize the local size
-    // to reduce the number of work groups run on the same sub slice
-    // simultaneously, because this number is limited by the amount
-    // of local memory used by the kernel, and the number of barriers,
-    // which is currently unknown.
-
-    size_t threads_per_ss = eus_per_ss * threads_per_eu;
-
-    if (num_teams_forced_by_user) {
-      if (num_work_groups_max >= number_of_subslices * threads_per_ss) {
-        // If the requested number of teams is bigger than the number
-        // of work groups that the HW can run simultaneously, then
-        // just use the kernel's SIMD width for the local size.
-        // This means every EU thread will run one work group,
-        // but some work groups may be waiting for vacant threads.
-        local_work_size_max = kernel_simd_width;
-      } else {
-        // Try to maximize the local size, but still fit all work groups
-        // into the sub slices at once.
-        assert((local_work_size_max <= kernel_simd_width ||
-                (local_work_size_max % kernel_simd_width) == 0) &&
-               "invalid local_work_size_max.");
-
-        while (local_work_size_max > kernel_simd_width) {
-          size_t threads_per_wg = local_work_size_max / kernel_simd_width;
-          size_t wgs_per_ss = threads_per_ss / threads_per_wg;
-          size_t number_of_simultaneous_wgs = wgs_per_ss * number_of_subslices;
-          if (number_of_simultaneous_wgs >= num_work_groups_max)
-            break;
-
-          local_work_size_max -= kernel_simd_width;
-        }
-        // The minimum value for local_work_size_max is kernel_simd_width
-        // after this loop, which means one work group is run by one
-        // EU thread.
-      }
-    } else if (local_size_forced_by_user) {
-      // Local size is fixed by the user, so we need to compute
-      // the maximum number of simultaneously running work groups,
-      // which will be used later to set the global size.
-      size_t threads_per_wg =
-          (local_work_size_max + kernel_simd_width - 1) / kernel_simd_width;
-      size_t wgs_per_ss = threads_per_ss / threads_per_wg;
-      num_work_groups_max = wgs_per_ss * number_of_subslices;
-    } else {
-      assert(!local_size_forced_by_user && !num_teams_forced_by_user &&
-             "mismatched conditions.");
-      // Make sure we use all sub slices without loss of any EU thread,
-      // maximize the work group size, and also fit all work groups
-      // at once.
-      //
-      // Even use of sub slices means:
-      //   (eus_per_ss * threads_per_eu) % (local_size / SIMDWidth) == 0
-      assert((local_work_size_max <= kernel_simd_width ||
-              (local_work_size_max % kernel_simd_width) == 0) &&
-             "invalid local_work_size_max.");
-
-      while (local_work_size_max > kernel_simd_width) {
-        size_t threads_per_wg = local_work_size_max / kernel_simd_width;
-        if ((threads_per_ss % threads_per_wg) == 0) {
-          size_t wgs_per_ss = threads_per_ss / threads_per_wg;
-          size_t max_wg_num = wgs_per_ss * number_of_subslices;
-          num_work_groups_max = max_wg_num;
-          break;
-        }
-
-        local_work_size_max -= kernel_simd_width;
-      }
-    }
-  }
-#endif  // INTEL_CUSTOMIZATION
-
-  size_t optimal_work_size = local_work_size_max;
-
-  if (loop_levels && !local_size_forced_by_user &&
-      optimal_work_size > kernel_simd_width)
-    // Default to 8/16/32 WIs per WG for ND-range paritioning depending
-    // on the SIMD width the kernel was compiled for.
-    // This size seems to provide the best results for steam and nbody
-    // benchmarks. Users may use more WIs/WG by using thread_limit clause
-    // and OMP_THREAD_LIMIT, but the number may not exceed OpenCL limits.
-    optimal_work_size = kernel_simd_width;
-
-  // TODO: we may want to reshape local work if necessary.
-  size_t local_work_size[3] = { 1, 1, 1 };
-  size_t num_work_groups[3] = { 1, 1, 1 };
-  int32_t work_dim = 1;
-
-  if (loop_levels) {
-    // ND-range dimension 0 is the fastest changing one.
-    // It corresponds to the innermost OpenMP loop in a loop nest.
-    work_dim = ((TgtNDRangeDescTy *)loop_levels)->NumLoops;
-    assert(work_dim > 0 && work_dim <= 3 &&
-           "ND-range parallelization requested "
-           "with invalid number of dimensions.");
-    if (work_dim == 1)
-      // Keep the current local_size default for 1D cases.
-      local_work_size[0] = optimal_work_size;
-    else
-      // TODO: we should take into account the global size,
-      //       e.g. if the 1st dimension is small, e.g. 8, it may make
-      //       sense to use (8, 2, 1) instead of (8, 1, 1),
-      //       assuming that optimal_work_size is 16.
-      local_work_size[0] = optimal_work_size;
-  }
-  else {
-    local_work_size[0] = optimal_work_size;
-    num_work_groups[0] = num_work_groups_max;
-#if INTEL_CUSTOMIZATION
-    if (!num_teams_forced_by_user)
-      num_work_groups[0] *= DeviceInfo->SubscriptionRate;
-#endif  // INTEL_CUSTOMIZATION
-  }
-
-  // Compute num_work_groups using the loop descriptor.
-  if (loop_levels) {
-    assert(num_teams <= 0 &&
-           "ND-range parallelization requested with num_teams.");
-    TgtLoopDescTy *level = ((TgtNDRangeDescTy *)loop_levels)->Levels;
-    int32_t DistributeDim = ((TgtNDRangeDescTy *)loop_levels)->DistributeDim;
-
-    for (int32_t i = 0; i < work_dim; ++i) {
-      if (i < DistributeDim) {
-        num_work_groups[i] = 1;
-        continue;
-      }
-
-      assert(level[i].Ub >= level[i].Lb && level[i].Stride > 0);
-      DP("NDrange[dim=%d]: (lb=%" PRId64 ", ub=%" PRId64
-         ", stride=%" PRId64 ")\n",
-         i, level[i].Lb, level[i].Ub, level[i].Stride);
-      size_t trip =
-          (level[i].Ub - level[i].Lb + level[i].Stride) / level[i].Stride;
-      if (local_work_size[i] >= trip)
-        local_work_size[i] = trip;
-
-      num_work_groups[i] = (trip + local_work_size[i] - 1) / local_work_size[i];
-    }
+    decideKernelGroupArguments(device_id, num_teams, thread_limit,
+                               *kernel, local_work_size, num_work_groups);
   }
 
   size_t global_work_size[3];
   for (int32_t i = 0; i < 3; ++i)
     global_work_size[i] = local_work_size[i] * num_work_groups[i];
 
-  DP("THREAD_LIMIT = %d, NUM_TEAMS = %d\n", thread_limit, num_teams);
   DP("Global work size = (%zu, %zu, %zu)\n", global_work_size[0],
      global_work_size[1], global_work_size[2]);
   DP("Local work size = (%zu, %zu, %zu)\n", local_work_size[0],
      local_work_size[1], local_work_size[2]);
-  DP("Work dimension = %d\n", work_dim);
 
   // Protect thread-unsafe OpenCL API calls
   DeviceInfo->Mutexes[device_id].lock();
@@ -2625,7 +2690,7 @@ static inline int32_t run_target_team_nd_region(
 
   cl_event event;
   CALL_CL_RET_FAIL(clEnqueueNDRangeKernel, DeviceInfo->Queues[device_id],
-                   *kernel, (cl_uint)work_dim, nullptr, global_work_size,
+                   *kernel, 3, nullptr, global_work_size,
                    local_work_size, 0, nullptr, &event);
 
   DeviceInfo->Mutexes[device_id].unlock();

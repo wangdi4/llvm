@@ -1,3 +1,4 @@
+; REQUIRES: asserts
 ; RUN: opt  < %s -whole-program-assume -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 ; Test that a field assigned from two different alloc functions yields a

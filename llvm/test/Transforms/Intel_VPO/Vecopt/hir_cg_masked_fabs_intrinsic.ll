@@ -17,16 +17,17 @@
 ; <23>          @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ; <0>     END REGION
 
-; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -hir-cg -print-after=VPlanDriverHIR -mtriple=x86_64-unknown-unknown -mattr=+avx512f -enable-intel-advanced-opts < %s 2>&1 | FileCheck %s --check-prefix=VEC
+; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -hir-cg -print-after=VPlanDriverHIR -mtriple=x86_64-unknown-unknown -mattr=+avx512f -enable-vp-value-codegen-hir=0 -enable-intel-advanced-opts < %s 2>&1 | FileCheck %s --check-prefix=VEC
+; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -hir-cg -print-after=VPlanDriverHIR -mtriple=x86_64-unknown-unknown -mattr=+avx512f -enable-vp-value-codegen-hir -enable-intel-advanced-opts < %s 2>&1 | FileCheck %s --check-prefix=VEC
 ; RUN: opt -S -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -hir-cg -print-after=VPlanDriverHIR -mtriple=x86_64-unknown-unknown -mattr=+avx2 -enable-intel-advanced-opts < %s 2>&1 | FileCheck %s --check-prefix=NOVEC
 
 ; Check that loop is vectorized if compiled for AVX512 target.
 ; VEC:            + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>
 ; VEC-NEXT:       |   %llvm.fabs.v4f64 = undef
 ; VEC-NEXT:       |   %.vec = (<4 x double>*)(%y)[i1];
-; VEC-NEXT:       |   %wide.cmp. = %.vec == %key;
-; VEC-NEXT:       |   %llvm.fabs.v4f64 = @llvm.fabs.v4f64(%.vec); Mask = @{%wide.cmp.}
-; VEC-NEXT:       |   (<4 x double>*)(%x)[i1] = %llvm.fabs.v4f64; Mask = @{%wide.cmp.}
+; VEC-NEXT:       |   [[CMP:%.*]] = %.vec == %key;
+; VEC-NEXT:       |   %llvm.fabs.v4f64 = @llvm.fabs.v4f64(%.vec); Mask = @{[[CMP]]}
+; VEC-NEXT:       |   (<4 x double>*)(%x)[i1] = %llvm.fabs.v4f64; Mask = @{[[CMP]]}
 ; VEC-NEXT:       + END LOOP
 
 ; Check generated LLVM call after HIR-CG

@@ -410,7 +410,7 @@ public:
   /// \param Req is the requirement to be updated.
   /// \return an event which indicates when these nodes are completed
   /// and host accessor is ready for use.
-  EventImplPtr addHostAccessor(Requirement *Req, const bool Destructor = false);
+  EventImplPtr addHostAccessor(Requirement *Req);
 
   /// Unblocks operations with the memory object.
   ///
@@ -429,6 +429,13 @@ public:
 protected:
   Scheduler();
   static Scheduler instance;
+
+  /// Provides exclusive access to std::shared_timed_mutex object with deadlock
+  /// avoidance
+  ///
+  /// \param Lock is an instance of std::unique_lock<std::shared_timed_mutex>
+  /// class
+  void lockSharedTimedMutex(std::unique_lock<std::shared_timed_mutex> &Lock);
 
   static void enqueueLeavesOfReqUnlocked(const Requirement *const Req);
 
@@ -465,7 +472,7 @@ protected:
     /// Enqueues a command to create a host accessor.
     ///
     /// \param Req points to memory being accessed.
-    Command *addHostAccessor(Requirement *Req, const bool destructor = false);
+    Command *addHostAccessor(Requirement *Req);
 
     /// [Provisional] Optimizes the whole graph.
     void optimize();
@@ -687,6 +694,8 @@ protected:
   void waitForRecordToFinish(MemObjRecord *Record);
 
   GraphBuilder MGraphBuilder;
+  // TODO: after switching to C++17, change std::shared_timed_mutex to
+  // std::shared_mutex
   std::shared_timed_mutex MGraphLock;
 
   QueueImplPtr DefaultHostQueue;

@@ -95,6 +95,17 @@ private:
     return Iter->second;
   }
 
+  // Returns neighbor edge between NodeA and NodeB as it may be stored in the
+  // heap.
+  static std::pair<unsigned, unsigned> makeNeighborEdge(unsigned NodeA,
+                                                        unsigned NodeB) {
+    if (NodeB < NodeA) {
+      return {NodeB, NodeA};
+    }
+
+    return {NodeA, NodeB};
+  }
+
 public:
   bool empty() const {
     if (PQ.empty()) {
@@ -121,9 +132,7 @@ public:
 
   // O(log(n))
   void push(unsigned Src, unsigned Dst, unsigned Weight) {
-    if (tryGetEntity(Src, Dst) || tryGetEntity(Dst, Src)) {
-      return;
-    }
+    assert(!tryGetEntity(Src, Dst) && "Edge already exist");
 
     Container.emplace_back(Src, Dst, Weight);
 
@@ -157,7 +166,10 @@ public:
   }
 
   // O(1).
-  void remove(unsigned Src, unsigned Dst) {
+  template <bool IsNeighbor> void remove(unsigned Src, unsigned Dst) {
+    if (IsNeighbor) {
+      std::tie(Src, Dst) = makeNeighborEdge(Src, Dst);
+    }
     auto *Entry = tryGetEntity(Src, Dst);
     if (!Entry) {
       return;
@@ -168,24 +180,45 @@ public:
   }
 
   // O(log(n))
-  void reheapEdge(unsigned Src, unsigned Dst, unsigned NewWeight) {
+  template <bool IsNeighbor, bool IsNewNeighbor>
+  void reheapEdge(unsigned Src, unsigned Dst, int NewWeight) {
+    unsigned NodeA = Src;
+    unsigned NodeB = Dst;
+
+    if (IsNeighbor) {
+      std::tie(NodeA, NodeB) = makeNeighborEdge(Src, Dst);
+    }
+
+    if (!tryGetEntity(Src, Dst)) {
+      // Edge may be already handled and removed from the heap.
+      return;
+    }
+
+    remove<false>(NodeA, NodeB);
+
+    if (IsNewNeighbor) {
+      std::tie(Src, Dst) = makeNeighborEdge(Src, Dst);
+    }
+
+    push(Src, Dst, NewWeight);
+  }
+
+  // O(1)
+  template <bool IsNeighbor, bool IsNewNeighbor>
+  void replaceEdge(unsigned Src, unsigned Dst, unsigned NewSrc,
+                   unsigned NewDst) {
+    if (IsNeighbor) {
+      std::tie(Src, Dst) = makeNeighborEdge(Src, Dst);
+    }
+
     auto *Entity = tryGetEntity(Src, Dst);
     if (!Entity) {
       // Edge may be already handled and removed from the heap.
       return;
     }
 
-    remove(Src, Dst);
-    push(Src, Dst, NewWeight);
-  }
-
-  // O(1)
-  void replaceEdge(unsigned Src, unsigned Dst, unsigned NewSrc,
-                   unsigned NewDst) {
-    auto *Entity = tryGetEntity(Src, Dst);
-    if (!Entity) {
-      // Edge may be already handled and removed from the heap.
-      return;
+    if (IsNewNeighbor) {
+      std::tie(NewSrc, NewDst) = makeNeighborEdge(NewSrc, NewDst);
     }
 
     Entity->Src = NewSrc;
@@ -469,13 +502,24 @@ void FuseGraph::initPathInfo(FuseEdgeHeap &Heap) {
 
     // Process neighbors.
     for (unsigned NodeW : Neighbors[NodeV]) {
+      unsigned Src = NodeV;
+      unsigned Dst = NodeW;
+
       if (PathFromV.count(NodeW)) {
-        // Convert to a directed edge if there is a directed path.
+        // Convert to a directed edge if there is a directed path. Edge
+        // already in a heap.
         eraseNeighborEdgeInternal(NodeV, NodeW);
         addDirectedEdgeInternal(NodeV, NodeW);
+        continue;
       }
 
-      Heap.push(NodeV, NodeW, getFuseEdge(NodeV, NodeW).Weight);
+      if (Dst < Src) {
+        // Skip reversed neighbor edges as their forward counterparts are
+        // already added to a heap.
+        continue;;
+      }
+
+      Heap.push(Src, Dst, getFuseEdge(Src, Dst).Weight);
     }
   }
 
@@ -601,8 +645,8 @@ void FuseGraph::updateSuccessors(FuseEdgeHeap &Heap, unsigned NodeV,
       auto &Edge = getFuseEdge(NodeV, NodeY);
       Edge.merge(getFuseEdge(NodeX, NodeY));
 
-      Heap.reheapEdge(NodeV, NodeY, Edge.Weight);
-      Heap.remove(NodeX, NodeY);
+      Heap.reheapEdge<false, false>(NodeV, NodeY, Edge.Weight);
+      Heap.remove<false>(NodeX, NodeY);
     } else if (Neighbors[NodeV].count(NodeY)) {
       // Already a neighbor of NodeV, need to replace by a directed edge.
       addDirectedEdgeInternal(NodeV, NodeY);
@@ -611,9 +655,8 @@ void FuseGraph::updateSuccessors(FuseEdgeHeap &Heap, unsigned NodeV,
       Edge.merge(getFuseEdge(NodeX, NodeY));
       Edge.IsUndirected = false;
 
-      Heap.reheapEdge(NodeV, NodeY, Edge.Weight);
-      Heap.remove(NodeX, NodeY);
-      Heap.remove(NodeY, NodeX);
+      Heap.reheapEdge<true, false>(NodeV, NodeY, Edge.Weight);
+      Heap.remove<false>(NodeX, NodeY);
 
       eraseNeighborEdgeInternal(NodeV, NodeY);
     } else {
@@ -621,7 +664,7 @@ void FuseGraph::updateSuccessors(FuseEdgeHeap &Heap, unsigned NodeV,
       addDirectedEdgeInternal(NodeV, NodeY);
 
       getOrCreateFuseEdge(NodeV, NodeY) = getFuseEdge(NodeX, NodeY);
-      Heap.replaceEdge(NodeX, NodeY, NodeV, NodeY);
+      Heap.replaceEdge<false, false>(NodeX, NodeY, NodeV, NodeY);
     }
 
     // Remove the node currently being merged from the predecessors of NodeY.
@@ -646,8 +689,8 @@ void FuseGraph::updatePredecessors(FuseEdgeHeap &Heap, unsigned NodeV,
       auto &Edge = getFuseEdge(NodeY, NodeV);
       Edge.merge(getFuseEdge(NodeY, NodeX));
 
-      Heap.reheapEdge(NodeY, NodeV, Edge.Weight);
-      Heap.remove(NodeY, NodeX);
+      Heap.reheapEdge<false, false>(NodeY, NodeV, Edge.Weight);
+      Heap.remove<false>(NodeY, NodeX);
     } else if (Neighbors[NodeV].count(NodeY)) {
       // Already a neighbor of NodeV, need to replace by a directed edge.
       addDirectedEdgeInternal(NodeY, NodeV);
@@ -656,9 +699,8 @@ void FuseGraph::updatePredecessors(FuseEdgeHeap &Heap, unsigned NodeV,
       Edge.merge(getFuseEdge(NodeY, NodeX));
       Edge.IsUndirected = false;
 
-      Heap.reheapEdge(NodeY, NodeV, Edge.Weight);
-      Heap.remove(NodeY, NodeX);
-      Heap.remove(NodeX, NodeY);
+      Heap.reheapEdge<true, false>(NodeY, NodeV, Edge.Weight);
+      Heap.remove<false>(NodeY, NodeX);
 
       eraseNeighborEdgeInternal(NodeV, NodeY);
     } else {
@@ -666,7 +708,7 @@ void FuseGraph::updatePredecessors(FuseEdgeHeap &Heap, unsigned NodeV,
       addDirectedEdgeInternal(NodeY, NodeV);
 
       getOrCreateFuseEdge(NodeY, NodeV) = getFuseEdge(NodeY, NodeX);
-      Heap.replaceEdge(NodeY, NodeX, NodeY, NodeV);
+      Heap.replaceEdge<false, false>(NodeY, NodeX, NodeY, NodeV);
     }
 
     // Remove the node currently being merged from the successors of NodeY.
@@ -693,12 +735,12 @@ void FuseGraph::updateNeighbors(FuseEdgeHeap &Heap, unsigned NodeV,
         auto &Edge = getFuseEdge(NodeV, NodeY);
         Edge.merge(getFuseEdge(NodeX, NodeY));
 
-        Heap.reheapEdge(NodeV, NodeY, Edge.Weight);
-        Heap.remove(NodeX, NodeY);
+        Heap.reheapEdge<false, false>(NodeV, NodeY, Edge.Weight);
+        Heap.remove<true>(NodeX, NodeY);
       } else {
         // No direct edge, create one.
         getOrCreateFuseEdge(NodeV, NodeY) = getFuseEdge(NodeX, NodeY);
-        Heap.replaceEdge(NodeX, NodeY, NodeV, NodeY);
+        Heap.replaceEdge<true, false>(NodeX, NodeY, NodeV, NodeY);
 
         addDirectedEdgeInternal(NodeV, NodeY);
       }
@@ -710,12 +752,12 @@ void FuseGraph::updateNeighbors(FuseEdgeHeap &Heap, unsigned NodeV,
         auto &Edge = getFuseEdge(NodeY, NodeV);
         Edge.merge(getFuseEdge(NodeY, NodeX));
 
-        Heap.reheapEdge(NodeY, NodeV, Edge.Weight);
-        Heap.remove(NodeX, NodeY);
+        Heap.reheapEdge<false, false>(NodeY, NodeV, Edge.Weight);
+        Heap.remove<true>(NodeX, NodeY);
       } else {
         // No direct edge, create one.
         getOrCreateFuseEdge(NodeY, NodeV) = getFuseEdge(NodeY, NodeX);
-        Heap.replaceEdge(NodeX, NodeY, NodeY, NodeV);
+        Heap.replaceEdge<true, false>(NodeX, NodeY, NodeY, NodeV);
 
         addDirectedEdgeInternal(NodeY, NodeV);
       }
@@ -725,16 +767,15 @@ void FuseGraph::updateNeighbors(FuseEdgeHeap &Heap, unsigned NodeV,
       FuseEdge &Edge = getFuseEdge(NodeV, NodeY);
       Edge.merge(getFuseEdge(NodeX, NodeY));
 
-      Heap.reheapEdge(NodeV, NodeY, Edge.Weight);
-      Heap.remove(NodeX, NodeY);
-      Heap.remove(NodeY, NodeX);
+      Heap.reheapEdge<true, true>(NodeV, NodeY, Edge.Weight);
+      Heap.remove<true>(NodeX, NodeY);
     } else {
       // No existing relationship, make Y a neighbor of V.
 
       addNeighborEdgeInternal(NodeV, NodeY);
 
       getOrCreateFuseEdge(NodeV, NodeY) = getFuseEdge(NodeX, NodeY);
-      Heap.replaceEdge(NodeX, NodeY, NodeV, NodeY);
+      Heap.replaceEdge<true, true>(NodeX, NodeY, NodeV, NodeY);
     }
 
     // Remove Y-X neighbor relationship.
@@ -981,7 +1022,7 @@ void FuseGraph::constructDirectedEdges(
     for (DDRef *Ref : Refs) {
       // Collect Directed Dependency Edges
       for (const DDEdge *DDEdge : DDG.outgoing(Ref)) {
-        if (!DDEdge->isForwardDep()) {
+        if (DDEdge->isBackwardDep()) {
           continue;
         }
 
@@ -1339,6 +1380,11 @@ void FuseGraph::topologicalSort(
 
     while (!WorkList.empty()) {
       unsigned CurNodeIdx = WorkList.back();
+      if (Visited[CurNodeIdx]) {
+        WorkList.pop_back();
+        continue;
+      }
+
       bool UnvisitedPredecessors = false;
 
       auto PredNodes = Predecessors.find(CurNodeIdx);

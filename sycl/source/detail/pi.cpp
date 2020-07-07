@@ -37,24 +37,85 @@ __SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
 namespace detail {
 #ifdef XPTI_ENABLE_INSTRUMENTATION
-// Stream name being used for traces generated from the SYCL runtime
-constexpr const char *PICALL_STREAM_NAME = "sycl.pi";
 // Global (to the SYCL runtime) graph handle that all command groups are a
 // child of
-///< Event to be used by graph related activities
+/// Event to be used by graph related activities
 xpti_td *GSYCLGraphEvent = nullptr;
-///< Event to be used by PI layer related activities
+/// Event to be used by PI layer related activities
 xpti_td *GPICallEvent = nullptr;
-///< Constansts being used as placeholder until one is able to reliably get the
-///< version of the SYCL runtime
+/// Constants being used as placeholder until one is able to reliably get the
+/// version of the SYCL runtime
 constexpr uint32_t GMajVer = 1;
 constexpr uint32_t GMinVer = 0;
 constexpr const char *GVerStr = "sycl 1.0";
-#endif
+#endif // XPTI_ENABLE_INSTRUMENTATION
 
 namespace pi {
 
+static void initializePlugins(vector_class<plugin> *Plugins);
+
 bool XPTIInitDone = false;
+
+// Implementation of the SYCL PI API call tracing methods that use XPTI
+// framework to emit these traces that will be used by tools.
+uint64_t emitFunctionBeginTrace(const char *FName) {
+  uint64_t CorrelationID = 0;
+#ifdef XPTI_ENABLE_INSTRUMENTATION
+  // The function_begin and function_end trace point types are defined to
+  // trace library API calls and they are currently enabled here for support
+  // tools that need the API scope. The methods emitFunctionBeginTrace() and
+  // emitFunctionEndTrace() can be extended to also trace the arguments of the
+  // PI API call using a trace point type the extends the predefined trace
+  // point types.
+  //
+  // You can use the sample collector in llvm/xptifw/samples/syclpi_collector
+  // to print the API traces and also extend them to support  arguments that
+  // may be traced later.
+  //
+  /// Example Usage:
+  /// \code{cpp}
+  /// // Two diagnostic trace types defined for function begin and function end
+  /// // with different semantics than the one in the default trace type list.
+  /// typedef enum {
+  ///   diagnostic_func_begin = XPTI_TRACE_POINT_BEGIN(0),
+  ///   diagnostic_func_end = XPTI_TRACE_POINT_END(0),
+  /// }syclpi_extension_t;
+  /// ...
+  /// uint16_t pi_func_begin =
+  ///     xptiRegisterUserDefinedTracePoint("sycl.pi", func_begin);
+  /// uint16_t pi_func_end =
+  ///     xptiRegisterUserDefinedTracePoint("sycl.pi", func_end);
+  /// ...
+  /// // Setup argument data for the function being traced
+  /// ...
+  /// xptiNotifySubscribers(stream_id, pi_func_begin, parent, event, instance,
+  ///                       (void *)argument_data);
+  /// \endcode
+  if (xptiTraceEnabled()) {
+    uint8_t StreamID = xptiRegisterStream(SYCL_PICALL_STREAM_NAME);
+    CorrelationID = xptiGetUniqueId();
+    xptiNotifySubscribers(
+        StreamID, (uint16_t)xpti::trace_point_type_t::function_begin,
+        GPICallEvent, nullptr, CorrelationID, static_cast<const void *>(FName));
+  }
+#endif // XPTI_ENABLE_INSTRUMENTATION
+  return CorrelationID;
+}
+
+void emitFunctionEndTrace(uint64_t CorrelationID, const char *FName) {
+#ifdef XPTI_ENABLE_INSTRUMENTATION
+  if (xptiTraceEnabled()) {
+    // CorrelationID is the unique ID that ties together a function_begin and
+    // function_end pair of trace calls. The splitting of a scoped_notify into
+    // two function calls incurs an additional overhead as the StreamID must
+    // be looked up twice.
+    uint8_t StreamID = xptiRegisterStream(SYCL_PICALL_STREAM_NAME);
+    xptiNotifySubscribers(
+        StreamID, (uint16_t)xpti::trace_point_type_t::function_end,
+        GPICallEvent, nullptr, CorrelationID, static_cast<const void *>(FName));
+  }
+#endif // XPTI_ENABLE_INSTRUMENTATION
+}
 
 void contextSetExtendedDeleter(const cl::sycl::context &context,
                                pi_context_extended_deleter func,
@@ -153,16 +214,11 @@ bool findPlugins(vector_class<std::pair<std::string, backend>> &PluginNames) {
   // search is done for libpi_opencl.so/pi_opencl.dll file in LD_LIBRARY_PATH
   // env only.
   //
-  PluginNames.push_back(std::make_pair<std::string, backend>(OPENCL_PLUGIN_NAME,
-                                                             backend::opencl));
+  PluginNames.emplace_back(OPENCL_PLUGIN_NAME, backend::opencl);
+  PluginNames.emplace_back(LEVEL0_PLUGIN_NAME, backend::level0);
 #if INTEL_CUSTOMIZATION
-  PluginNames.push_back(std::make_pair<std::string, backend>(LEVEL0_PLUGIN_NAME,
-                                                             backend::level0));
-#if 0
-  // Disabling use of CUDA plugin.
-  PluginNames.push_back(
-      std::make_pair<std::string, backend>(CUDA_PLUGIN_NAME, backend::cuda));
-#endif
+  // Deliberatly disable CUDA plugin per CMPLRLLVM-16249.
+  // PluginNames.emplace_back(CUDA_PLUGIN_NAME, backend::cuda);
 #endif // INTEL_CUSTOMIZATION
   return true;
 }
@@ -203,13 +259,23 @@ bool trace(TraceLevel Level) {
 }
 
 // Initializes all available Plugins.
-vector_class<plugin> initialize() {
-  static bool PluginsInitDone = false;
-  static vector_class<plugin> Plugins;
-  if (PluginsInitDone) {
-    return Plugins;
-  }
+const vector_class<plugin> &initialize() {
+  static std::once_flag PluginsInitDone;
+  static vector_class<plugin> *Plugins = nullptr;
 
+  std::call_once(PluginsInitDone, []() {
+    // The memory for "Plugins" is intentionally leaked because the application
+    // may call into the SYCL runtime from a global destructor, and such a call
+    // could eventually call down to initialize().  Therefore, there is no safe
+    // time when "Plugins" could be deleted.
+    Plugins = new vector_class<plugin>;
+    initializePlugins(Plugins);
+  });
+
+  return *Plugins;
+}
+
+static void initializePlugins(vector_class<plugin> *Plugins) {
   vector_class<std::pair<std::string, backend>> PluginNames;
   findPlugins(PluginNames);
 
@@ -217,7 +283,9 @@ vector_class<plugin> initialize() {
     std::cerr << "SYCL_PI_TRACE[all]: "
               << "No Plugins Found." << std::endl;
 
-  PiPlugin PluginInformation;
+  PiPlugin PluginInformation{_PI_H_VERSION_STRING, _PI_H_VERSION_STRING,
+                             nullptr};
+
   for (unsigned int I = 0; I < PluginNames.size(); I++) {
     void *Library = loadPlugin(PluginNames[I].first);
 
@@ -264,18 +332,17 @@ vector_class<plugin> initialize() {
           std::make_shared<plugin>(PluginInformation, backend::level0);
     }
 #endif // INTEL_CUSTOMIZATION
-    Plugins.emplace_back(plugin(PluginInformation, PluginNames[I].second));
+    Plugins->emplace_back(plugin(PluginInformation, PluginNames[I].second));
     if (trace(TraceLevel::PI_TRACE_BASIC))
       std::cerr << "SYCL_PI_TRACE[basic]: "
                 << "Plugin found and successfully loaded: "
                 << PluginNames[I].first << std::endl;
   }
-  PluginsInitDone = true;
 
 #if INTEL_CUSTOMIZATION
 #ifdef XPTI_ENABLE_INSTRUMENTATION
   if (!(xptiTraceEnabled() && !XPTIInitDone))
-    return Plugins;
+    return;
   // Not sure this is the best place to initialize the framework; SYCL runtime
   // team needs to advise on the right place, until then we piggy-back on the
   // initialization of the PI layer.
@@ -308,6 +375,8 @@ vector_class<plugin> initialize() {
                           GSYCLGraphEvent, GraphInstanceNo, nullptr);
   }
 
+  // Let subscribers know a new stream is being initialized
+  xptiInitialize(SYCL_PICALL_STREAM_NAME, GMajVer, GMinVer, GVerStr);
   xpti::payload_t PIPayload("Plugin Interface Layer");
   uint64_t PiInstanceNo;
   GPICallEvent =
@@ -315,9 +384,26 @@ vector_class<plugin> initialize() {
                     xpti_at::active, &PiInstanceNo);
 #endif
 #endif // INTEL_CUSTOMIZATION
-
-  return Plugins;
 }
+
+// Get the plugin serving given backend.
+template <backend BE> const plugin &getPlugin() {
+  static const plugin *Plugin = nullptr;
+  if (Plugin)
+    return *Plugin;
+
+  const vector_class<plugin> &Plugins = pi::initialize();
+  for (const auto &P : Plugins)
+    if (P.getBackend() == BE) {
+      Plugin = &P;
+      return *Plugin;
+    }
+
+  throw runtime_error("pi::getPlugin couldn't find plugin",
+                      PI_INVALID_OPERATION);
+}
+
+template const plugin &getPlugin<backend::opencl>();
 
 // Report error and no return (keeps compiler from printing warnings).
 // TODO: Probably change that to throw a catchable exception,

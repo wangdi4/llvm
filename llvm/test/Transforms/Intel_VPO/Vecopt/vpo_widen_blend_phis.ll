@@ -170,7 +170,7 @@ for.end:
 ; CHECK:   [[AND2:%.*]] = and <2 x i1> [[CMP3]], [[VEC_PHI4]]
 ; CHECK:   [[VEC_PHI49:%.*]] = shufflevector <2 x i1> [[VEC_PHI4]], <2 x i1> undef, <8 x i32> <i32 0, i32 0, i32 0, i32 0, i32 1, i32 1, i32 1, i32 1>
 ; CHECK:   [[WIDE_SELECT1:%.*]] = select <8 x i1> [[VEC_PHI49]], <8 x float> [[SHUF1]], <8 x float> [[VEC_PHI1]]
-; CHECK:   br i1 {{.*}}, label %[[VPlannedBB1]], label %[[VPlannedBB2:.*]]
+; CHECK:   br i1 {{.*}}, label %[[VPlannedBB2:.*]], label %[[VPlannedBB1]]
 
 ; CHECK: [[VPlannedBB2]]:
 ; CHECK:   [[VEC_PHI:%.*]] = phi <8 x float> [ [[WIDE_SELECT1]], %[[PRED_CALL_CONTINUE2]] ]

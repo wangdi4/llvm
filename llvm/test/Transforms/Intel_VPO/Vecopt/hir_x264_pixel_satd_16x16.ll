@@ -21,39 +21,39 @@ define hidden i32 @x264_pixel_satd_16x16(i8* nocapture readonly, i32, i8* nocapt
 ; CHECK-LABEL:  VPlan after importing plain CFG
 ; CHECK-LABEL:  VPlan after importing plain CFG
 ; CHECK:          i64 [[VP7:%.*]] = phi  [ i64 0, {{.*}} ],  [ i64 [[VP8:%.*]], {{.*}} ]
-; CHECK:          i32* [[VP75:%.*]] = getelementptr inbounds [8 x i32]* [[ALLOCA300:%.*]] i64 0 i64 [[VP7]]
+; CHECK:          i32* [[VP75:%.*]] = subscript inbounds [8 x i32]* [[ALLOCA300:%.*]] i64 0 i64 [[VP7]]
 ; CHECK-NEXT:     i32 [[VP76:%.*]] = load i32* [[VP75]]
 ; CHECK-NEXT:     i32 [[VP77:%.*]] = add i32 {{.*}} i32 {{.*}}
 ; CHECK-NEXT:     i32 [[VP78:%.*]] = add i32 {{.*}} i32 {{.*}}
 ; CHECK-NEXT:     i32 [[VP79:%.*]] = add i32 [[VP78]] i32 [[VP76]]
-; CHECK-NEXT:     i32* [[VP80:%.*]] = getelementptr inbounds [8 x i32]* [[ALLOCA300]] i64 0 i64 [[VP7]]
+; CHECK-NEXT:     i32* [[VP80:%.*]] = subscript inbounds [8 x i32]* [[ALLOCA300]] i64 0 i64 [[VP7]]
 ; CHECK-NEXT:     i32 [[VP81:%.*]] = add i32 [[VP77]] i32 [[VP79]]
 ; CHECK-NEXT:     store i32 [[VP81]] i32* [[VP80]]
 
-; CHECK:          i32* [[VP148:%.*]] = getelementptr inbounds [8 x i32]* [[ALLOCA310:%.*]] i64 0 i64 [[VP7]]
+; CHECK:          i32* [[VP148:%.*]] = subscript inbounds [8 x i32]* [[ALLOCA310:%.*]] i64 0 i64 [[VP7]]
 ; CHECK-NEXT:     i32 [[VP149:%.*]] = load i32* [[VP148]]
 ; CHECK-NEXT:     i32 [[VP150:%.*]] = add i32 {{.*}} i32 {{.*}}
 ; CHECK-NEXT:     i32 [[VP151:%.*]] = add i32 {{.*}} i32 {{.*}}
 ; CHECK-NEXT:     i32 [[VP152:%.*]] = add i32 [[VP151]] i32 [[VP149]]
-; CHECK-NEXT:     i32* [[VP153:%.*]] = getelementptr inbounds [8 x i32]* [[ALLOCA310]] i64 0 i64 [[VP7]]
+; CHECK-NEXT:     i32* [[VP153:%.*]] = subscript inbounds [8 x i32]* [[ALLOCA310]] i64 0 i64 [[VP7]]
 ; CHECK-NEXT:     i32 [[VP154:%.*]] = add i32 [[VP150]] i32 [[VP152]]
 ; CHECK-NEXT:     store i32 [[VP154]] i32* [[VP153]]
 
-; CHECK:          i32* [[VP221:%.*]] = getelementptr inbounds [8 x i32]* [[ALLOCA320:%.*]] i64 0 i64 [[VP7]]
+; CHECK:          i32* [[VP221:%.*]] = subscript inbounds [8 x i32]* [[ALLOCA320:%.*]] i64 0 i64 [[VP7]]
 ; CHECK-NEXT:     i32 [[VP222:%.*]] = load i32* [[VP221]]
 ; CHECK-NEXT:     i32 [[VP223:%.*]] = add i32 {{.*}} i32 {{.*}}
 ; CHECK-NEXT:     i32 [[VP224:%.*]] = add i32 {{.*}} i32 {{.*}}
 ; CHECK-NEXT:     i32 [[VP225:%.*]] = add i32 [[VP224]] i32 [[VP222]]
-; CHECK-NEXT:     i32* [[VP226:%.*]] = getelementptr inbounds [8 x i32]* [[ALLOCA320]] i64 0 i64 [[VP7]]
+; CHECK-NEXT:     i32* [[VP226:%.*]] = subscript inbounds [8 x i32]* [[ALLOCA320]] i64 0 i64 [[VP7]]
 ; CHECK-NEXT:     i32 [[VP227:%.*]] = add i32 [[VP223]] i32 [[VP225]]
 ; CHECK-NEXT:     store i32 [[VP227]] i32* [[VP226]]
 
-; CHECK:          i32* [[VP292:%.*]] = getelementptr inbounds [8 x i32]* [[ALLOCA330:.*]] i64 0 i64 [[VP7]]
+; CHECK:          i32* [[VP292:%.*]] = subscript inbounds [8 x i32]* [[ALLOCA330:.*]] i64 0 i64 [[VP7]]
 ; CHECK-NEXT:     i32 [[VP293:%.*]] = load i32* [[VP292]]
 ; CHECK-NEXT:     i32 [[VP294:%.*]] = add i32 {{.*}} i32 {{.*}}
 ; CHECK-NEXT:     i32 [[VP295:%.*]] = add i32 {{.*}} i32 {{.*}}
 ; CHECK-NEXT:     i32 [[VP296:%.*]] = add i32 [[VP295]] i32 [[VP293]]
-; CHECK-NEXT:     i32* [[VP297:%.*]] = getelementptr inbounds [8 x i32]* [[ALLOCA330]] i64 0 i64 [[VP7]]
+; CHECK-NEXT:     i32* [[VP297:%.*]] = subscript inbounds [8 x i32]* [[ALLOCA330]] i64 0 i64 [[VP7]]
 ; CHECK-NEXT:     i32 [[VP298:%.*]] = add i32 [[VP294]] i32 [[VP296]]
 ; CHECK-NEXT:     store i32 [[VP298]] i32* [[VP297]]
 ; CHECK-NEXT:     i64 [[VP8]] = add i64 [[VP7]] i64 1

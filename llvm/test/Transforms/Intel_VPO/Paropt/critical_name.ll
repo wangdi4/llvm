@@ -13,9 +13,9 @@
 
 target triple = "unknown-unknown-unknown"
 
-; DEFAULT: @[[LOCK:.gomp_critical_user_my_name.var]] = common global [8 x i32] zeroinitializer
-; WIN32: @[[LOCK:"_\$vcomp\$critsect\$my_name.var"]] = common global [8 x i32] zeroinitializer
-; WIN64: @[[LOCK:"\$vcomp\$critsect\$my_name.var"]] = common global [8 x i32] zeroinitializer
+; DEFAULT: @[[LOCK:.gomp_critical_user_my_name.AS0.var]] = common global [8 x i32] zeroinitializer
+; WIN32: @[[LOCK:"_\$vcomp\$critsect\$my_name.AS0.var"]] = common global [8 x i32] zeroinitializer
+; WIN64: @[[LOCK:"\$vcomp\$critsect\$my_name.AS0.var"]] = common global [8 x i32] zeroinitializer
 
 ;-----------------------------------------------------------------------------
 ; Test critical section generation with name as a regular string.

@@ -23,6 +23,7 @@ add_llvm_component_library(LLVMVectorize
   Intel_VPlan/IntelVPlanAlignmentAnalysis.cpp
   Intel_VPlan/IntelVPlanAllZeroBypass.cpp
   Intel_VPlan/IntelVPlanCFGBuilder.cpp
+  Intel_VPlan/IntelVPlanCallVecDecisions.cpp
   Intel_VPlan/IntelVPlanClone.cpp
   Intel_VPlan/IntelVPlanCostModel.cpp
   Intel_VPlan/IntelVPlanCostModelProprietary.cpp
@@ -38,6 +39,7 @@ add_llvm_component_library(LLVMVectorize
   Intel_VPlan/IntelVPlanPragmaOmpOrderedSimdExtract.cpp
   Intel_VPlan/IntelVPlanPredicator.cpp
   Intel_VPlan/IntelVPlanScalarEvolution.cpp
+  Intel_VPlan/IntelVPlanScalVecAnalysis.cpp
   Intel_VPlan/IntelVPlanSSADeconstruction.cpp
   Intel_VPlan/IntelVPlanSyncDependenceAnalysis.cpp
   Intel_VPlan/IntelVPlanValueTracking.cpp

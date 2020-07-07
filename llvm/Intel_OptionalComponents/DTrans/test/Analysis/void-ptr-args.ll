@@ -1,3 +1,4 @@
+; REQUIRES: asserts
 ; RUN: opt -whole-program-assume  -dtransanalysis -dtrans-print-types -disable-output %s 2>&1 | FileCheck %s
 
 ; This test verifies that we are correctly analyzing calls to functions with
@@ -18,6 +19,7 @@
 %struct.test01 = type { i32, i32 }
 define void @use_test01(i8* %p) {
   %p2 = bitcast i8* %p to %struct.test01*
+  %gep = getelementptr %struct.test01, %struct.test01* %p2, i64 0, i32 0
   ret void
 }
 define void @test01() {
@@ -92,6 +94,8 @@ define void @test03() {
 define void @use_test04ab(i8* %p) {
   %p1 = bitcast i8* %p to %struct.test04.a*
   %p2 = bitcast i8* %p to %struct.test04.b*
+  %gep1 = getelementptr %struct.test04.a, %struct.test04.a* %p1, i64 0, i32 0
+  %gep2 = getelementptr %struct.test04.b, %struct.test04.b* %p2, i64 0, i32 0
   ret void
 }
 define void @test04() {
@@ -103,9 +107,9 @@ define void @test04() {
 }
 
 ; CHECK-LABEL: LLVMType: %struct.test04.a = type { i32, i32 }
-; CHECK: Safety data: Bad casting | Mismatched argument use
+; CHECK: Safety data: Bad casting | Ambiguous GEP | Mismatched argument use
 ; CHECK: LLVMType: %struct.test04.b = type { i16, i16, i32 }
-; CHECK: Safety data: Bad casting | Mismatched argument use
+; CHECK: Safety data: Bad casting | Ambiguous GEP | Mismatched argument use
 
 
 ; Test the safe case where the argument is passed through an intermediate
@@ -230,11 +234,13 @@ define void @use_test09b(i8* %p) {
 }
 define void @passthru09a(i8* %p) {
   %tmp = bitcast i8* %p to %struct.test09.a*
+  %gep = getelementptr %struct.test09.a, %struct.test09.a* %tmp, i64 0, i32 0
   call void @use_test09b(i8* %p)
   ret void
 }
 define void @passthru09b(i8* %p) {
   %tmp2 = bitcast i8* %p to %struct.test09.b*
+  %gep2 = getelementptr %struct.test09.b, %struct.test09.b* %tmp2, i64 0, i32 0
   call void @use_test09b(i8* %p)
   ret void
 }
@@ -249,9 +255,9 @@ define void @test09() {
 }
 
 ; CHECK-LABEL: LLVMType: %struct.test09.a = type { i32, i32 }
-; CHECK: Safety data: Bad casting | Mismatched argument use
+; CHECK: Safety data: Bad casting | Ambiguous GEP | Mismatched argument use
 ; CHECK: LLVMType: %struct.test09.b = type { i16, i16, i32 }
-; CHECK: Safety data: Bad casting | Mismatched argument use
+; CHECK: Safety data: Bad casting | Ambiguous GEP | Mismatched argument use
 
 
 ; Test a safe case where the argument identity is conditionally established in
@@ -274,11 +280,13 @@ entry:
 
 callA:
   %tmpA = bitcast i8* %p to %struct.test10.a*
+  %gep = getelementptr %struct.test10.a, %struct.test10.a* %tmpA, i64 0, i32 0
   call void @use_test10a(i8* %p)
   br label %exit
 
 callB:
   %tmpB = bitcast i8* %p to %struct.test10.b*
+  %gep2 = getelementptr %struct.test10.b, %struct.test10.b* %tmpB, i64 0, i32 0
   call void @use_test10b(i8* %p)
   br label %exit
 
@@ -296,9 +304,9 @@ define void @test10() {
 ; control flow analysis than we are currently doing. Until this is needed
 ; we'll just conservatively treat it as unsafe.
 ; CHECK-LABEL: LLVMType: %struct.test10.a = type { i32, i32 }
-; CHECK: Safety data: Bad casting | Mismatched argument use
+; CHECK: Safety data: Bad casting | Ambiguous GEP | Mismatched argument use
 ; CHECK: LLVMType: %struct.test10.b = type { i16, i16, i32 }
-; CHECK: Safety data: Bad casting | Mismatched argument use
+; CHECK: Safety data: Bad casting | Ambiguous GEP | Mismatched argument use
 
 
 ; Test an unsafe case where the argument identity is conditionally established
@@ -321,11 +329,13 @@ entry:
 
 callA:
   %tmpA = bitcast i8* %p to %struct.test11.a*
+  %gep1 = getelementptr %struct.test11.a, %struct.test11.a* %tmpA, i64 0, i32 0
   call void @use_test11b(i8* %p)
   br label %exit
 
 callB:
   %tmpB = bitcast i8* %p to %struct.test11.b*
+  %gep2 = getelementptr %struct.test11.b, %struct.test11.b* %tmpB, i64 0, i32 0
   call void @use_test11a(i8* %p)
   br label %exit
 
@@ -340,9 +350,9 @@ define void @test11() {
 }
 
 ; CHECK-LABEL: LLVMType: %struct.test11.a = type { i32, i32 }
-; CHECK: Safety data: Bad casting | Mismatched argument use
+; CHECK: Safety data: Bad casting | Ambiguous GEP | Mismatched argument use
 ; CHECK: LLVMType: %struct.test11.b = type { i16, i16, i32 }
-; CHECK: Safety data: Bad casting | Mismatched argument use
+; CHECK: Safety data: Bad casting | Ambiguous GEP | Mismatched argument use
 
 
 ; Test the case where the argument is passed through an intermediate

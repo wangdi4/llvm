@@ -31,6 +31,61 @@ using namespace dtrans;
 
 #define DEBUG_TYPE "dtransanalysis"
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+cl::opt<bool> dtrans::DTransPrintAnalyzedTypes("dtrans-print-types",
+                                               cl::ReallyHidden);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+//
+// An option that indicates that a pointer to a struct could access
+// somewhere beyond the boundaries of that struct:
+//
+// For example:
+//
+// %struct.A = type { i32, i32 }
+// %struct.B = type { i16, i16, i16, i16 }
+// %struct.C = type { %struct.A, %struct.B }
+//
+// define void @foo(%struct.A* nocapture) local_unnamed_addr #0 {
+//   %2 = getelementptr inbounds %struct.A, %struct.A* %0, i64 1, i32 1
+//   store i32 -1, i32* %2, align 4, !tbaa !2
+//   ret void
+// }
+//
+// define void @bar(%struct.C* nocapture) local_unnamed_addr #0 {
+//   %2 = getelementptr inbounds %struct.C, %struct.C* %0, i64 0, i32 0
+//   tail call void @foo(%struct.A* %2)
+//   ret void
+// }
+//
+// Here the getelementptr in @foo is accessing beyond the end of the inner
+// %struct.A within %struct.C.
+//
+// With respect to dtransanalysis, having -dtrans-outofboundsok=true will
+// cause safety checks to be propagated from outer structs to inner structs.
+// So, in the above example, if -dtrans-outofboundsok=false, 'Field address
+// taken' will be true only for %structC. But if -dtrans-outofboundsok=true,
+// it will also be true for %struct.A and %struct.B.
+//
+cl::opt<bool> dtrans::DTransOutOfBoundsOK("dtrans-outofboundsok",
+                                          cl::init(true), cl::ReallyHidden);
+
+// Enable merging padded structures with base structures. For example,
+// consider that there is a class A which will be a base class for other
+// derived classes and there is an instantiation of A. Then we might see
+// the following structure types in the IR:
+//
+// %class.A.base = type <{ %"class.boost::array", [2 x i8],
+//                         %"class.std::vector", i32 }>
+// %class.A = type <{ %"class.boost::array", [2 x i8],
+//                         %"class.std::vector", i32, [4 x i8] }>
+//
+// This option enables treating both types as the same in DTrans. Any
+// safety information we find in one type will be added to the other type.
+static cl::opt<bool> DTransMergePaddedStructs("dtrans-merge-padded-structs",
+                                              cl::init(false),
+                                              cl::ReallyHidden);
+
 bool dtrans::dtransIsCompositeType(Type *Ty) {
   if (isa<StructType>(Ty) || isa<ArrayType>(Ty) || isa<VectorType>(Ty))
     return true;
@@ -229,7 +284,8 @@ bool dtrans::isElementZeroAccess(llvm::Type *SrcTy, llvm::Type *DestTy,
     auto *ElementZeroTy = dtransCompositeGetTypeAtIndex(SrcPointeeTy, 0u);
     // If the element zero type matches the destination pointee type,
     // this is an element zero access.
-    if (DestPointeeTy == ElementZeroTy) {
+    if (DestPointeeTy == ElementZeroTy ||
+        isPaddedStruct(DestPointeeTy, ElementZeroTy)) {
       if (AccessedTy)
         *AccessedTy = SrcTy;
       return true;
@@ -466,6 +522,16 @@ const char *dtrans::getSafetyDataName(const SafetyData &SafetyInfo) {
     return "Unsafe pointer store (conditional)";
   if (SafetyInfo & dtrans::DopeVector)
     return "Dope vector";
+  if (SafetyInfo & dtrans::BadCastingForRelatedTypes)
+    return "Bad casting (related types)";
+  if (SafetyInfo & dtrans::BadPtrManipulationForRelatedTypes)
+    return "Bad pointer manipulation (related types)";
+  if (SafetyInfo & dtrans::MismatchedElementAccessRelatedTypes)
+    return "Mismatched element access (related types)";
+  if (SafetyInfo & dtrans::UnsafePointerStoreRelatedTypes)
+    return "Unsafe pointer store (related types)";
+  if (SafetyInfo & dtrans::MemFuncNestedStructsPartialWrite)
+    return "Memfunc partial write (nested structure)";
   if (SafetyInfo & dtrans::UnhandledUse)
     return "Unhandled use";
 
@@ -495,7 +561,11 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
       dtrans::BadCastingPending | dtrans::BadCastingConditional |
       dtrans::UnsafePointerStorePending |
       dtrans::UnsafePointerStoreConditional | dtrans::DopeVector |
-      dtrans::UnhandledUse;
+      dtrans::BadCastingForRelatedTypes |
+      dtrans::BadPtrManipulationForRelatedTypes |
+      dtrans::MismatchedElementAccessRelatedTypes |
+      dtrans::UnsafePointerStoreRelatedTypes |
+      dtrans::MemFuncNestedStructsPartialWrite | dtrans::UnhandledUse;
   // This assert is intended to catch non-unique safety condition values.
   // It needs to be kept synchronized with the statement above.
   static_assert(
@@ -517,7 +587,11 @@ static void printSafetyInfo(const SafetyData &SafetyInfo,
            dtrans::BadCastingPending ^ dtrans::BadCastingConditional ^
            dtrans::UnsafePointerStorePending ^
            dtrans::UnsafePointerStoreConditional ^ dtrans::DopeVector ^
-           dtrans::UnhandledUse),
+           dtrans::BadCastingForRelatedTypes ^
+           dtrans::BadPtrManipulationForRelatedTypes ^
+           dtrans::MismatchedElementAccessRelatedTypes ^
+           dtrans::UnsafePointerStoreRelatedTypes ^
+           dtrans::MemFuncNestedStructsPartialWrite ^ dtrans::UnhandledUse),
       "Duplicate value used in dtrans safety conditions");
 
   // Go through the issues in the order of LSB to MSB, and print the names of
@@ -566,6 +640,18 @@ void dtrans::StructInfo::print(
   if (Annotator)
     (*Annotator)(OS, this);
 
+  if (auto *RelatedInfo =
+          dyn_cast_or_null<dtrans::StructInfo>(getRelatedType())) {
+    llvm::StructType *RelatedType =
+        cast<llvm::StructType>(RelatedInfo->getLLVMType());
+    if (S->getName().endswith(".base"))
+      OS << "  Related padded structure: ";
+    else
+      OS << "  Related base structure: ";
+
+    OS << RelatedType->getName() << "\n";
+  }
+
   OS << "  Number of fields: " << getNumFields() << "\n";
   unsigned Number = 0;
   for (auto &Field : getFields()) {
@@ -592,6 +678,8 @@ void dtrans::ArrayInfo::print(raw_ostream &OS) const {
   }
   OS << "  Number of elements: " << getNumElements() << "\n";
   OS << "  Element LLVM Type: " << *getElementLLVMType() << "\n";
+  if (DTransElemTy->isDTransType())
+    OS << "  Element DTrans Type: " << *DTransElemTy->getDTransType() << "\n";
   printSafetyData(OS);
   OS << "\n";
 }
@@ -618,6 +706,9 @@ void dtrans::FieldInfo::print(raw_ostream &OS,
 
   if (isMismatchedElementAccess())
     OS << " MismatchedElementAccess";
+
+  if (isPaddedField())
+    OS << (isCleanPaddedField() ? "" : " Dirty") << " PaddedField";
 
   OS << "\n";
   OS << "    Frequency: " << getFrequency();
@@ -689,8 +780,19 @@ void dtrans::FieldInfo::print(raw_ostream &OS,
 
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
+void dtrans::TypeInfo::mergeSafetyDataWithRelatedType() {
+  dtrans::StructInfo *CurrStrInfo = dyn_cast<dtrans::StructInfo>(this);
+  if (!CurrStrInfo)
+    return;
+
+  dtrans::StructInfo *RelatedInfo = CurrStrInfo->getRelatedType();
+  if (RelatedInfo)
+    RelatedInfo->setSafetyData(SafetyInfo);
+}
+
 void dtrans::TypeInfo::setSafetyData(SafetyData Conditions) {
   SafetyInfo |= Conditions;
+
   LLVM_DEBUG(dbgs() << "dtrans-safety-detail: " << *getLLVMType() << " :: ");
   LLVM_DEBUG(printSafetyInfo(Conditions, dbgs()));
 }
@@ -808,6 +910,84 @@ void dtrans::StructInfo::CallSubGraph::insertFunction(Function *F,
     return;
   }
   // else do nothing
+}
+
+// This is a helper function used to break the relationship between
+// a base and a padded structure.
+void StructInfo::unsetRelatedType() {
+  if (!RelatedType)
+    return;
+
+  // Clear the related type
+  StructInfo *CurrRelated = RelatedType;
+  RelatedType = nullptr;
+
+  // Clear the padded field
+  size_t NumFields = getNumFields();
+  FieldInfo &LastField = getField(NumFields - 1);
+  if (LastField.isPaddedField())
+    LastField.clearPaddedField();
+
+  CurrRelated->unsetRelatedType();
+}
+
+// Return true if the input offset can access incorrectly the padded field.
+// If FullBase is true then it means that the offset can be equal to the base,
+// else it should be smaller.
+bool StructInfo::offsetAccessesPaddingField(int64_t Offset,
+                                            const llvm::DataLayout &DL,
+                                            bool FullBase) {
+  if (Offset == 0)
+    return false;
+
+  if (!getRelatedType() || getNumFields() == 0)
+    return false;
+
+  if (!hasPaddedField())
+    return false;
+
+  int64_t LastField = getNumFields() - 1;
+  dtrans::FieldInfo &Field = getField(LastField);
+
+  int64_t StructSize = DL.getTypeStoreSize(getLLVMType());
+  Type *FieldType = Field.getLLVMType();
+  int64_t FieldSize = DL.getTypeStoreSize(FieldType);
+  int64_t BaseSize = StructSize - FieldSize;
+
+  // If FullBase is true then is OK for the offset to be equal as the base.
+  // For example:
+  //
+  //  %struct.test.a = type <{ i32, i32, [4 x i8] }>
+  //  %struct.test.a.base = type <{ i32, i32 }>
+  //
+  //  %p1 = bitcast %struct.test.a* %a1 to i8*
+  //  %p2 = bitcast %struct.test.a.base* %a2 to i8*
+  //  call void @llvm.memcpy.p0i8.p0i8.i64(i8* %p1, i8* %p2, i64 8, i1 false)
+  //
+  // The call to memcpy only copies the base part, that is OK.
+  //
+  // If FullBase is false then it means that the offset can't reach the base
+  // size. For example:
+  //
+  // %agep = getelementptr %struct.test.a, %struct.test.a* %aptr, i64 8
+  //
+  // The GEP %agep returns the address of the padded field in  %struct.test.a.
+  // This is a wrong access.
+  if (FullBase && Offset == BaseSize)
+    return false;
+
+  return Offset >= BaseSize;
+}
+
+// Return true if the last field in the structure is used for padding.
+bool StructInfo::hasPaddedField() {
+  if (!getRelatedType())
+    return false;
+
+  int64_t LastField = getNumFields() - 1;
+  dtrans::FieldInfo &Field = getField(LastField);
+
+  return Field.isPaddedField();
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -1011,6 +1191,116 @@ bool dtrans::hasZeroSizedArrayAsLastField(llvm::Type *Ty) {
 // Check that function only throws an exception.
 bool dtrans::isDummyFuncWithUnreachable(const CallBase *Call,
                                         const TargetLibraryInfo &TLI) {
+
+  // Returns true if "BB" just calls _CxxThrowException function (Windows EH).
+  // It allows store instructions that save data to std::bad_alloc object.
+  //
+  // entry:
+  // %3 = alloca %"bad_alloc", align 8
+  // %4 = getelementptr %"bad_alloc", %"bad_alloc"* %3, i64 0, i32 0, i32 1
+  // %5 = bitcast i8* %4 to i64*
+  // store i64 0, i64* %5, align 8
+  // %6 = getelementptr %"bad_alloc", %"bad_alloc"* %3, i64 0, i32 0, i32 1
+  // store i8* some_const, i8** %6
+  // %7 = getelementptr %"bad_alloc", %"bad_alloc"* %3, i64 0, i32 0, i32 0
+  // store i32 some_const, i32 (...)*** %7
+  // %8 = bitcast %"bad_alloc"* %3 to i8*
+  // call void @_CxxThrowException(i8* nonnull %8, ...)
+  // unreachable
+  //
+  auto DummyAllocBBWithCxxThrowException = [&](BasicBlock &BB) {
+    auto CI =
+        dyn_cast<CallInst>(BB.getTerminator()->getPrevNonDebugInstruction());
+    if (!CI)
+      return false;
+    auto *Func = dtrans::getCalledFunction(*CI);
+    if (!Func)
+      return false;
+    LibFunc LFunc;
+    if (!TLI.getLibFunc(*Func, LFunc) || !TLI.has(LFunc) ||
+        LFunc != LibFunc_msvc_std_CxxThrowException)
+      return false;
+
+    // Get std::bad_alloc object pointer from _CxxThrowException call.
+    Value *EhArg = CI->getArgOperand(0);
+    if (auto BC = dyn_cast<BitCastInst>(EhArg))
+      EhArg = BC->getOperand(0);
+    auto AI = dyn_cast<AllocaInst>(EhArg);
+    if (!AI)
+      return false;
+    // Makes sure BB doesn't have any instruction that has side effects
+    // except stores to std::bad_alloc object.
+    for (auto &I : BB) {
+      if (&I == CI)
+        continue;
+      if (auto SI = dyn_cast<StoreInst>(&I)) {
+        if (!isa<Constant>(SI->getValueOperand()))
+          return false;
+        Value *PtrOp = SI->getPointerOperand();
+        if (auto BC = dyn_cast<BitCastInst>(PtrOp))
+          PtrOp = BC->getOperand(0);
+        auto GEPI = dyn_cast<GetElementPtrInst>(PtrOp);
+        if (!GEPI || GEPI->getPointerOperand() != AI)
+          return false;
+        continue;
+      }
+      if (I.mayReadOrWriteMemory())
+        return false;
+    }
+    return true;
+  };
+
+  // Returns true if "BB" just calls _cxa_throw function (Linux EH).
+  //
+  // entry:
+  //  %3 = tail call i8* @__cxa_allocate_exception(i64 8)
+  //  %4 = bitcast i8* %3 to %"bad_alloc"*
+  //  %5 = getelementptr %"bad_alloc", %"bad_alloc"* %4, i64 0, i32 0, i32 0
+  //  store i32 some_const, i32 (...)*** %5, align 8, !tbaa !14619
+  //  call void @__cxa_throw() #62
+  //  unreachable
+  //
+  auto DummyAllocBBWithCxaThrow = [&](BasicBlock &BB) {
+    // In dummy function we expect to see only those instructions which throw
+    // bad_alloc exception.
+    bool CallExAllocFound = false, StoreFound = false, BitCastFound = false;
+    bool GEPFound = true, CallExThrowFound = false;
+    for (auto &I : BB) {
+      if (isa<BitCastInst>(&I))
+        BitCastFound = true;
+      if (isa<GetElementPtrInst>(&I))
+        GEPFound = true;
+      auto *Call = dyn_cast<CallInst>(&I);
+      if (Call) {
+        // Skip debug intrinsics
+        if (isa<DbgInfoIntrinsic>(&I))
+          continue;
+        auto *Func = dtrans::getCalledFunction(*Call);
+        if (!Func)
+          return false;
+
+        LibFunc LFunc;
+        if (!TLI.getLibFunc(*Func, LFunc) || !TLI.has(LFunc))
+          return false;
+
+        if (LFunc == LibFunc_cxa_allocate_exception)
+          CallExAllocFound = true;
+        else if (LFunc == LibFunc_cxa_throw)
+          CallExThrowFound = true;
+        else
+          return false;
+      }
+      if (isa<StoreInst>(&I)) {
+        if (!StoreFound && CallExAllocFound)
+          StoreFound = true;
+        else
+          return false;
+      }
+    }
+    return CallExAllocFound && StoreFound && BitCastFound && GEPFound &&
+           CallExThrowFound;
+  };
+
   auto *F = dtrans::getCalledFunction(*Call);
   if (!F)
     return false;
@@ -1019,45 +1309,14 @@ bool dtrans::isDummyFuncWithUnreachable(const CallBase *Call,
   auto &BB = F->getEntryBlock();
   if (!isa<UnreachableInst>(BB.getTerminator()))
     return false;
+  // Makes sure arguments of "F" are not used.
+  for (Argument &Arg : F->args())
+    if (!Arg.use_empty())
+      return false;
 
-  // In dummy function we expect to see only those instructions which throw
-  // bad_alloc exception.
-  bool CallExAllocFound = false, StoreFound = false, BitCastFound = false;
-  bool GEPFound = true, CallExThrowFound = false;
-  for (auto &I : BB) {
-    if (isa<BitCastInst>(&I))
-      BitCastFound = true;
-    if (isa<GetElementPtrInst>(&I))
-      GEPFound = true;
-    auto *Call = dyn_cast<CallInst>(&I);
-    if (Call) {
-      // Skip debug intrinsics
-      if (isa<DbgInfoIntrinsic>(&I))
-        continue;
-      auto *Func = dtrans::getCalledFunction(*Call);
-      if (!Func)
-        return false;
-
-      LibFunc LFunc;
-      if (!TLI.getLibFunc(*Func, LFunc) || !TLI.has(LFunc))
-        return false;
-
-      if (LFunc == LibFunc_cxa_allocate_exception)
-        CallExAllocFound = true;
-      else if (LFunc == LibFunc_cxa_throw)
-        CallExThrowFound = true;
-      else
-        return false;
-    }
-    if (isa<StoreInst>(&I)) {
-      if (!StoreFound && CallExAllocFound)
-        StoreFound = true;
-      else
-        return false;
-    }
-  }
-  return CallExAllocFound && StoreFound && BitCastFound && GEPFound &&
-         CallExThrowFound;
+  if (!DummyAllocBBWithCxaThrow(BB) && !DummyAllocBBWithCxxThrowException(BB))
+    return false;
+  return true;
 }
 
 bool dtrans::isDummyFuncWithThisAndIntArgs(const CallBase *Call,
@@ -1146,13 +1405,13 @@ bool dtrans::hasPointerType(llvm::Type *Ty) {
 // in %class.inner (%class.TestClass*). This function will return the pointer
 // type that is being loaded. Also, it will store the structure that
 // encapsulates the loaded pointer in the parameter Pointee.
-llvm::Type* dtrans::getTypeForZeroElementLoaded(LoadInst *Load,
+llvm::Type *dtrans::getTypeForZeroElementLoaded(LoadInst *Load,
                                                 llvm::Type **Pointee) {
 
   // If the input type is a Structure, then return the casted form, else check
   // if it is a Pointer type. If so, then check if the pointer's element is a
   // a structure and return it. Else, return nullptr.
-  auto GetStructFromPtr = [](Type *PtrTy) -> StructType* {
+  auto GetStructFromPtr = [](Type *PtrTy) -> StructType * {
     if (!PtrTy)
       return nullptr;
 
@@ -1174,8 +1433,7 @@ llvm::Type* dtrans::getTypeForZeroElementLoaded(LoadInst *Load,
   if (!BCSrc)
     return nullptr;
 
-  PointerType *OperandTy =
-      dyn_cast<PointerType>(Load->getPointerOperandType());
+  PointerType *OperandTy = dyn_cast<PointerType>(Load->getPointerOperandType());
   // Make sure that we are loading from a pointer to an integer type
   if (!OperandTy || !OperandTy->getPointerElementType()->isIntegerTy())
     return nullptr;
@@ -1235,8 +1493,7 @@ llvm::Type* dtrans::getTypeForZeroElementLoaded(LoadInst *Load,
 
     // Else, there is more to catch, check the zero element
     SourceType = cast<Type>(CurrStruct);
-  }
-  else if (isa<Argument>(Src))
+  } else if (isa<Argument>(Src))
     SourceType = Src->getType();
   else
     return nullptr;
@@ -1249,8 +1506,7 @@ llvm::Type* dtrans::getTypeForZeroElementLoaded(LoadInst *Load,
     Type *Element = CurrTy->getElementType(0);
     if (Element->isStructTy()) {
       CurrTy = cast<StructType>(Element);
-    }
-    else if (GetStructFromPtr(Element)) {
+    } else if (GetStructFromPtr(Element)) {
       *Pointee = cast<Type>(CurrTy);
       return Element;
     } else {
@@ -1260,4 +1516,289 @@ llvm::Type* dtrans::getTypeForZeroElementLoaded(LoadInst *Load,
   }
 
   return nullptr;
+}
+
+// Helper function to identify if the BitCast instruction will be used for
+// loading the 0 element in a structure.
+bool dtrans::isBitCastLoadingZeroElement(BitCastInst *BC) {
+  if (!BC)
+    return false;
+
+  for (User *U : BC->users()) {
+    if (auto *Load = dyn_cast<LoadInst>(U)) {
+      // Check if the load represents the zero element of a structure.
+      Type *Pointee = nullptr;
+      Type *LoadedType = dtrans::getTypeForZeroElementLoaded(Load, &Pointee);
+      if (LoadedType && Pointee)
+        // Store the structure that is being accessed at 0
+        return true;
+    }
+  }
+  return false;
+}
+
+// Return true if the input type Type1 is the same as Type2 except for
+// the last element (or vice versa). For example, consider that there is
+// a class A which will be a base class for other derived classes and
+// there is an instantiation of A. Then we will see something like the
+// following in the IR:
+//
+// %class.A.base = type <{ %"class.boost::array", [2 x i8],
+//                         %"class.std::vector", i32 }>
+// %class.A = type <{ %"class.boost::array", [2 x i8],
+//                         %"class.std::vector", i32, [4 x i8] }>
+//
+// The structure type %class.A.base is the same as %class.A, except for the last
+// entry of structure %class.A. This entry at the end ([4 x i8]) is used for
+// the application binary interface (ABI).
+bool dtrans::isPaddedStruct(llvm::Type *Type1, llvm::Type *Type2) {
+
+  if (!DTransMergePaddedStructs)
+    return false;
+
+  if (!Type1 || !Type2)
+    return false;
+
+  if (!Type1->isStructTy() || !Type2->isStructTy())
+    return false;
+
+  unsigned Type1Size = cast<StructType>(Type1)->getNumElements();
+  unsigned Type2Size = cast<StructType>(Type2)->getNumElements();
+  unsigned PaddedSize = 0;
+  unsigned BaseSize = 0;
+
+  if (Type1Size == 0 || Type2Size == 0)
+    return false;
+
+  StructType *BaseType = nullptr;
+  StructType *PaddedType = nullptr;
+
+  // Find the possible base and the padded types
+  if (Type1Size - Type2Size == 1) {
+    PaddedType = cast<StructType>(Type1);
+    PaddedSize = Type1Size;
+
+    BaseType = cast<StructType>(Type2);
+    BaseSize = Type2Size;
+  } else if (Type2Size - Type1Size == 1) {
+    BaseType = cast<StructType>(Type1);
+    BaseSize = Type1Size;
+
+    PaddedType = cast<StructType>(Type2);
+    PaddedSize = Type1Size;
+  } else {
+    return false;
+  }
+
+  if (PaddedType->isLiteral() || BaseType->isLiteral())
+    return false;
+
+  ArrayType *PaddedEntry =
+      dyn_cast<ArrayType>(PaddedType->getElementType(PaddedSize - 1));
+
+  // Check if the current structure is a candidate for padded structure
+  if (!PaddedEntry || !PaddedEntry->getElementType()->isIntegerTy(8))
+    return false;
+
+  StringRef PaddedName = PaddedType->getName();
+  StringRef BaseName = BaseType->getName();
+
+  if (!BaseName.endswith(".base"))
+    return false;
+
+  // FIXME: There could be cases where the base name doesn't match.
+  // For example:
+  //
+  //   %class.A = type opaque
+  //   %class.A.1 = type <{ i32 (...)**, i32, i8, [3 x i8] }>
+  //   %class.A.base = type <{ i32 (...)**, float, i8 }>
+  //   %class.A.base.2 = type <{ i32 (...)**, i32, i8 }>
+  //
+  // This issue happens when templates are involved in the source code.
+  if (BaseName.compare(PaddedName.str() + ".base") != 0)
+    return false;
+
+  // All the elements must match except the last one;
+
+  bool AllElementsMatch = true;
+  for (unsigned Element = 0; Element < BaseSize; Element++) {
+    if (PaddedType->getElementType(Element) !=
+        BaseType->getElementType(Element)) {
+      AllElementsMatch = false;
+      break;
+    }
+  }
+
+  return AllElementsMatch;
+}
+
+// Given a type, find the related type from the input Module M. For example,
+// assume that InTy is a base type:
+//
+// %class.A.base = type <{ %"class.boost::array", [2 x i8],
+//                         %"class.std::vector", i32 }>
+//
+// This function will find the padded form from the input module:
+//
+// %class.A = type <{ %"class.boost::array", [2 x i8],
+//                         %"class.std::vector", i32, [4 x i8] }>
+//
+// It also works the other way around, given a padded structure InTy it will
+// find the base form.
+llvm::Type *dtrans::collectRelatedType(llvm::Type *InTy, Module &M) {
+
+  if (!DTransMergePaddedStructs)
+    return nullptr;
+
+  StructType *CurrStruct = dyn_cast_or_null<StructType>(InTy);
+
+  if (!CurrStruct)
+    return nullptr;
+
+  if (CurrStruct->isLiteral())
+    return nullptr;
+
+  StringRef StructName = CurrStruct->getName();
+  llvm::Type *RelatedType = nullptr;
+  std::string StrRelatedName;
+
+  // Generate the type's name that we need to find in the module.
+
+  // Input type is a base type (%class.A.base), generate the
+  // padded type name (%class.A)
+  if (StructName.endswith(".base"))
+    StrRelatedName = StructName.drop_back(5).str();
+
+  // Input type is a padded type (%class.A), generate the base
+  // type name (%class.A)
+  else
+    StrRelatedName = StructName.str() + ".base";
+
+  // FIXME: There could be cases, where the base name doesn't match.
+  // For example:
+  //
+  //   %class.A = type opaque
+  //   %class.A.1 = type <{ i32 (...)**, i32, i8, [3 x i8] }>
+  //   %class.A.base = type <{ i32 (...)**, float, i8 }>
+  //   %class.A.base.2 = type <{ i32 (...)**, i32, i8 }>
+  //
+  // This issue happens when templates are involved in the source code.
+  RelatedType = M.getTypeByName(StrRelatedName);
+  if (!RelatedType)
+    return nullptr;
+
+  if (!dtrans::isPaddedStruct(InTy, RelatedType))
+    return nullptr;
+
+  return RelatedType;
+}
+
+// Check to see if the specified name ends with a suffix consisting of a '.'
+// and one or more digits. If it does, return the name without the suffix.
+// If not, return the name as is.
+//
+// We're looking for types that have the same name except for an appended
+// suffix, like this:
+//
+//   %struct.A = type {...}
+//   %struct.A.123 = type {...}
+//   %struct.A.456 = type {...}
+//   %struct.A.2.789 = type {...}
+//
+// However, we don't want to attempt to match types like this:
+//
+//   %struct.CO = type {...}
+//   %struct.CO2 = type {...}
+//
+// So we start by trimming trailing numbers, then look for and trim a
+// single '.', and repeat this as long as we trimmed something and found
+// a trailing '.'.
+StringRef dtrans::getTypeBaseName(StringRef TyName) {
+  StringRef RefName = TyName;
+  StringRef BaseName = TyName.rtrim("0123456789");
+  while (RefName.size() != BaseName.size()) {
+    if (!BaseName.endswith("."))
+      return RefName;
+    RefName = BaseName.drop_back(1);
+    BaseName = RefName.rtrim("0123456789");
+  }
+  return RefName;
+}
+
+// If \p Ty refers to a structure type (potentially with some level of
+// indirection or array usage), return the StructureType, otherwise nullptr.
+llvm::StructType *dtrans::getContainedStructTy(llvm::Type *Ty) {
+  auto *BaseTy = Ty;
+  while (BaseTy->isPointerTy() || BaseTy->isArrayTy() || BaseTy->isVectorTy()) {
+    if (BaseTy->isPointerTy())
+      BaseTy = BaseTy->getPointerElementType();
+    else if (BaseTy->isArrayTy())
+      BaseTy = cast<ArrayType>(BaseTy)->getElementType();
+    else
+      BaseTy = cast<VectorType>(BaseTy)->getElementType();
+  }
+  return dyn_cast<StructType>(BaseTy);
+}
+
+// Collect all the named structure types that are reachable in the IR into \p
+// SeenTypes
+//
+// The method Module::getIdentifiedStructTypes() may not return some
+// structures that are nested inside of other types. This function will
+// include those.
+void dtrans::collectAllStructTypes(Module &M,
+                                   SetVector<llvm::StructType *> &SeenTypes) {
+  std::function<void(StructType *)> findMissedNestedTypes =
+      [&](StructType *Ty) {
+        for (Type *ElemTy : Ty->elements()) {
+          // Look past pointer, array, and vector wrappers.
+          // If the element is a structure, add it to the SeenTypes set.
+          // If it wasn't already there, check for nested types.
+          if (StructType *ElemStTy = getContainedStructTy(ElemTy))
+            if (SeenTypes.insert(ElemStTy))
+              findMissedNestedTypes(ElemStTy);
+        }
+        if (!Ty->hasName())
+          return;
+        StringRef TyName = Ty->getName();
+        StringRef BaseName = getTypeBaseName(TyName);
+        // If the type name didn't have a suffix, TyName and BaseName will be
+        // the same. Checking the size is sufficient.
+        if (TyName.size() == BaseName.size())
+          return;
+        // Add the base type now. This might be the only way it is found.
+        StructType *BaseTy = M.getTypeByName(BaseName);
+        if (!BaseTy || !SeenTypes.insert(BaseTy))
+          return;
+        findMissedNestedTypes(BaseTy);
+      };
+
+  // Sometimes previous optimizations will have left types that are not
+  // used in a way that allows Module::getIndentifiedStructTypes() to find
+  // them. This can confuse our mapping algorithm, so here we check for
+  // missing types and add them to the set we're looking at. In order to
+  // consistently choose the same target type for equivalent types and
+  // compatible types, a SetVector is used for collecting the available types.
+  for (StructType *Ty : M.getIdentifiedStructTypes()) {
+    // If we've seen this type already, skip it.
+    if (!SeenTypes.insert(Ty))
+      continue;
+    findMissedNestedTypes(Ty);
+  }
+}
+
+// Return 'true' if the value is only used as the destination pointer of memset
+// calls.
+bool dtrans::valueOnlyUsedForMemset(Value *V) {
+  if (V->users().empty())
+    return false;
+
+  for (auto *U : V->users()) {
+    if (auto *MC = dyn_cast<MemSetInst>(U))
+      if (MC->getDest() == V)
+        continue;
+    return false;
+  }
+
+  return true;
 }

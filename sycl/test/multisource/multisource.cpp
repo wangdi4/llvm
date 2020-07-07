@@ -25,6 +25,9 @@
 // RUN: %GPU_RUN_PLACEHOLDER %t.fat
 // RUN: %ACC_RUN_PLACEHOLDER %t.fat
 
+// CMPLRLLVM-20331: disable test which causes timeout
+// UNSUPPORTED: linux
+
 #include <CL/sycl.hpp>
 
 #include <iostream>

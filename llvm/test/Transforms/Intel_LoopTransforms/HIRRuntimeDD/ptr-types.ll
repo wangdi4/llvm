@@ -14,7 +14,7 @@
 ; CHECK: %mv.upper.base = &((i32*)(%b)[sext.i32.i64((-1 + %N))]);
 ; CHECK: %mv.test = &((%mv.upper.base)[1]) >=u &((%a)[0]);
 ; CHECK: %mv.test1 = &((%a)[sext.i32.i64((-1 + %N))]) >=u &((i32*)(%b)[0]);
-; CHECK: %mv.and = %mv.test  &&  %mv.test1;
+; CHECK: %mv.and = %mv.test  &  %mv.test1;
 ; CHECK: if (%mv.and == 0)
 
 ; ModuleID = 'ptr-types.ll'

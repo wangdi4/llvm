@@ -1325,7 +1325,14 @@ struct PragmaLoopHintInfo {
   Token PragmaName;
   Token Option;
   ArrayRef<Token> Toks;
-  ArrayRef<Token> ArrayToks; // INTEL
+#if INTEL_CUSTOMIZATION
+  ArrayRef<Token> ArrayToks;
+  PragmaLoopHintInfo() { Option.startToken(); }
+  PragmaLoopHintInfo(const Token &PragmaTok) {
+    PragmaName = PragmaTok;
+    Option.startToken();
+  }
+#endif // INTEL_CUSTOMIZATION
 };
 } // end anonymous namespace
 
@@ -3044,7 +3051,7 @@ void PragmaCommentHandler::HandlePragma(Preprocessor &PP,
     return;
   }
 
-  // Verify that this is one of the 5 whitelisted options.
+  // Verify that this is one of the 5 explicitly listed options.
   IdentifierInfo *II = Tok.getIdentifierInfo();
   PragmaMSCommentKind Kind =
     llvm::StringSwitch<PragmaMSCommentKind>(II->getName())
@@ -3085,7 +3092,7 @@ void PragmaCommentHandler::HandlePragma(Preprocessor &PP,
   // FIXME: If the kind is "compiler" warn if the string is present (it is
   // ignored).
   // The MSDN docs say that "lib" and "linker" require a string and have a short
-  // whitelist of linker options they support, but in practice MSVC doesn't
+  // list of linker options they support, but in practice MSVC doesn't
   // issue a diagnostic.  Therefore neither does clang.
 
   if (Tok.isNot(tok::r_paren)) {
@@ -3418,7 +3425,7 @@ void PragmaLoopHintHandler::HandlePragma(Preprocessor &PP,
     Token LoopHintTok;
     LoopHintTok.startToken();
     LoopHintTok.setKind(tok::annot_pragma_loop_hint);
-    LoopHintTok.setLocation(PragmaName.getLocation());
+    LoopHintTok.setLocation(Introducer.Loc);
     LoopHintTok.setAnnotationEndLoc(PragmaName.getLocation());
     LoopHintTok.setAnnotationValue(static_cast<void *>(Info));
     TokenList.push_back(LoopHintTok);
@@ -3505,7 +3512,7 @@ void PragmaUnrollHintHandler::HandlePragma(Preprocessor &PP,
   auto TokenArray = std::make_unique<Token[]>(1);
   TokenArray[0].startToken();
   TokenArray[0].setKind(tok::annot_pragma_loop_hint);
-  TokenArray[0].setLocation(PragmaName.getLocation());
+  TokenArray[0].setLocation(Introducer.Loc);
   TokenArray[0].setAnnotationEndLoc(PragmaName.getLocation());
   TokenArray[0].setAnnotationValue(static_cast<void *>(Info));
   PP.EnterTokenStream(std::move(TokenArray), 1,
@@ -3526,11 +3533,9 @@ void PragmaLoopCoalesceHandler::HandlePragma(Preprocessor &PP,
                                              Token &Tok) {
   Token PragmaName = Tok;
   PP.Lex(Tok);
-  auto *Info = new (PP.getPreprocessorAllocator()) PragmaLoopHintInfo;
-  if (Tok.is(tok::eod)) {
-    Info->PragmaName = PragmaName;
-    Info->Option.startToken();
-  } else {
+  auto *Info =
+      new (PP.getPreprocessorAllocator()) PragmaLoopHintInfo(PragmaName);
+  if (Tok.isNot(tok::eod)) {
     // #pragma loop_coalesce (N)
     // Read '(' if it exists.
     bool ValueInParens = Tok.is(tok::l_paren);
@@ -3854,12 +3859,9 @@ void PragmaIVDepHandler::HandlePragma(Preprocessor &PP,
   bool HasBack = false;
   Token PragmaName = Tok;
   PP.Lex(Tok);
-  auto *Info = new (PP.getPreprocessorAllocator()) PragmaLoopHintInfo;
-  Info->PragmaName = PragmaName;
-  if (Tok.is(tok::eod)) {
-    Info->PragmaName = PragmaName;
-    Info->Option.startToken();
-  } else {
+  auto *Info =
+      new (PP.getPreprocessorAllocator()) PragmaLoopHintInfo(PragmaName);
+  if (Tok.isNot(tok::eod)) {
     bool isHLSCompat =
         (PP.getLangOpts().HLS ||
          (PP.getLangOpts().OpenCL &&
@@ -4035,10 +4037,8 @@ void PragmaHLSNoArgHandler::HandlePragma(Preprocessor &PP,
   }
 
   // Generate the hint token.
-  PragmaLoopHintInfo *Info = new (PP.getPreprocessorAllocator())
-                                 PragmaLoopHintInfo;
-  Info->PragmaName = PragmaName;
-  Info->Option.startToken();
+  PragmaLoopHintInfo *Info =
+      new (PP.getPreprocessorAllocator()) PragmaLoopHintInfo(PragmaName);
   auto TokenArray = std::make_unique<Token[]>(1);
   TokenArray[0].startToken();
   TokenArray[0].setKind(tok::annot_pragma_loop_hint);
@@ -4062,10 +4062,8 @@ void PragmaDistributePointHandler::HandlePragma(Preprocessor &PP,
   }
 
   // Generate the hint token.
-  PragmaLoopHintInfo *Info = new (PP.getPreprocessorAllocator())
-                                 PragmaLoopHintInfo;
-  Info->PragmaName = PragmaName;
-  Info->Option.startToken();
+  PragmaLoopHintInfo *Info =
+      new (PP.getPreprocessorAllocator()) PragmaLoopHintInfo(PragmaName);
   auto TokenArray = std::make_unique<Token[]>(1);
   TokenArray[0].startToken();
   TokenArray[0].setKind(tok::annot_pragma_loop_hint);
@@ -4090,9 +4088,7 @@ void PragmaNoFusionHandler::HandlePragma(Preprocessor &PP,
 
   // Generate the hint token.
   PragmaLoopHintInfo *Info =
-      new (PP.getPreprocessorAllocator()) PragmaLoopHintInfo;
-  Info->PragmaName = PragmaName;
-  Info->Option.startToken();
+      new (PP.getPreprocessorAllocator()) PragmaLoopHintInfo(PragmaName);
   auto TokenArray = std::make_unique<Token[]>(1);
   TokenArray[0].startToken();
   TokenArray[0].setKind(tok::annot_pragma_loop_hint);
@@ -4117,9 +4113,7 @@ void PragmaFusionHandler::HandlePragma(Preprocessor &PP,
 
   // Generate the hint token.
   PragmaLoopHintInfo *Info =
-      new (PP.getPreprocessorAllocator()) PragmaLoopHintInfo;
-  Info->PragmaName = PragmaName;
-  Info->Option.startToken();
+      new (PP.getPreprocessorAllocator()) PragmaLoopHintInfo(PragmaName);
   auto TokenArray = std::make_unique<Token[]>(1);
   TokenArray[0].startToken();
   TokenArray[0].setKind(tok::annot_pragma_loop_hint);
@@ -4142,8 +4136,7 @@ void PragmaLoopCountHandler::HandlePragma(Preprocessor &PP,
   Tok.startToken();
   Tok.setKind(tok::annot_pragma_loop_count);
   PragmaLoopHintInfo *Info =
-          new (PP.getPreprocessorAllocator()) PragmaLoopHintInfo;
-  Info->PragmaName = PragmaName;
+      new (PP.getPreprocessorAllocator()) PragmaLoopHintInfo(PragmaName);
   Info->Option = Tok;
   Tok.setAnnotationValue(static_cast<void *>(Info));
   Tok.setLocation(Introducer.Loc);
@@ -4309,9 +4302,7 @@ void PragmaNoVectorHandler::HandlePragma(Preprocessor &PP,
 
   // Generate the hint token.
   PragmaLoopHintInfo *Info =
-      new (PP.getPreprocessorAllocator()) PragmaLoopHintInfo;
-  Info->PragmaName = PragmaName;
-  Info->Option.startToken();
+      new (PP.getPreprocessorAllocator()) PragmaLoopHintInfo(PragmaName);
   auto TokenArray = std::make_unique<Token[]>(1);
   TokenArray[0].startToken();
   TokenArray[0].setKind(tok::annot_pragma_loop_hint);
@@ -4348,8 +4339,8 @@ void PragmaVectorHandler::HandlePragma(Preprocessor &PP,
           << /*MissingOption=*/false << OptionInfo;
       return;
     }
-    auto *Info = new (PP.getPreprocessorAllocator()) PragmaLoopHintInfo;
-    Info->PragmaName = PragmaName;
+    auto *Info =
+        new (PP.getPreprocessorAllocator()) PragmaLoopHintInfo(PragmaName);
     Info->Option = Option;
     PP.Lex(Tok);
     // Generate the loop hint token.

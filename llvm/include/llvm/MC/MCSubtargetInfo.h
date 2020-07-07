@@ -274,6 +274,17 @@ public:
                                         unsigned NumStridedMemAccesses,
                                         unsigned NumPrefetches,
                                         bool HasCall) const;
+#if INTEL_CUSTOMIZATION
+  /// Return True if support DSB
+  virtual bool hasDSB() const {
+    return false;
+  }
+
+  /// Return the DSB window size
+  virtual unsigned getDSBWindowSize() const {
+    return 0;
+  }
+#endif // INTEL_CUSTOMIZATION
 };
 
 } // end namespace llvm

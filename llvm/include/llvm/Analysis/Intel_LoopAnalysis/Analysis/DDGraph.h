@@ -86,6 +86,9 @@ public:
   // Returns true if the edge is a Forward dependence
   bool isForwardDep() const;
 
+  // Returns true if the edge is a Backward dependence
+  bool isBackwardDep() const { return !isForwardDep(); }
+
   // Returns true if the edge prevents parallelization of Loop at Level
   // Note that this function only performs a quick check. It doesn't
   // perform the same level of analysis as ParVec analysis.
@@ -96,7 +99,7 @@ public:
   // Note that this function only performs a quick check. It doesn't
   // perform the same level of analysis as ParVec analysis.
   bool preventsVectorization(unsigned Level) const {
-    return preventsParallelization(Level) && !isForwardDep() &&
+    return preventsParallelization(Level) && isBackwardDep() &&
            (getSrc() != getSink());
   }
 
@@ -247,9 +250,15 @@ public:
 
   // Returns the total number of incoming flow edges associated with this Ref
   // It includes the edges attached to blobs (if any) too
-  unsigned getNumIncomingFlowEdges(const DDRef *Ref) const;
+  unsigned getTotalNumIncomingFlowEdges(const DDRef *Ref) const;
 
-  // Returns the total number of outgoing edges associated with this Ref
+  // Returns the number of incoming flow edges associated with this Ref
+  // It excludes the edges attached to blobs
+  unsigned getNumIncomingEdges(const DDRef *Ref) const {
+    return std::distance(incoming_edges_begin(Ref), incoming_edges_end(Ref));
+  }
+
+  // Returns the number of outgoing edges associated with this Ref
   unsigned getNumOutgoingEdges(const DDRef *Ref) const {
     return std::distance(outgoing_edges_begin(Ref), outgoing_edges_end(Ref));
   };

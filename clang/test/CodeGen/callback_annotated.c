@@ -36,7 +36,7 @@ static void *VoidPtr2VoidPtr(void *payload) {
 
 static int ThreeInt2Int(int a, int b, int c) {
   // RUN2:   define internal i32 @ThreeInt2Int(i32 %a, i32 %b, i32 %c)
-  // RUN2:     %mul = shl i32 %a, 2 ;INTEL
+  // RUN2:     %mul = shl nsw i32 %a, 2 ;INTEL
   // RUN2:     %add = add nsw i32 %mul, %c
   // RUN2:     ret i32 %add
 

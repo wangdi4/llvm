@@ -1,3 +1,4 @@
+; REQUIRES: asserts
 ; RUN: opt < %s -disable-output -whole-program-assume -dtransanalysis -dtrans-print-types 2>&1 | FileCheck %s
 ; RUN: opt < %s -disable-output -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types 2>&1 | FileCheck %s
 
@@ -29,7 +30,7 @@ define dso_local i32 @test01() {
 ; argument of the ptr annotation to the result.
 %struct.test02a = type { i32, i32 }
 %struct.test02b = type { i32 }
-define dso_local i32 @test02() {
+define dso_local %struct.test02b* @test02() {
   %ptr = alloca %struct.test02a
   %ptr_i8 = bitcast %struct.test02a* %ptr to i8*
   %annot = call i8* @llvm.ptr.annotation.p0i8(i8* %ptr_i8,
@@ -40,7 +41,7 @@ define dso_local i32 @test02() {
   ; have acquired the type information carried by %ptr_i8.
   %annot_st = bitcast i8* %annot to %struct.test02b*
 
-  ret i32 0
+  ret %struct.test02b* %annot_st
 }
 ; CHECK-LABEL: LLVMType: %struct.test02a = type { i32, i32 }
 ; CHECK: Safety data:

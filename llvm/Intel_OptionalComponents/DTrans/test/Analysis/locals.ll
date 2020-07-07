@@ -1,3 +1,4 @@
+; REQUIRES: asserts
 ; RUN: opt < %s -whole-program-assume  -dtransanalysis -dtrans-print-types -disable-output 2>&1 | FileCheck %s
 
 ; This test verifies correct identification of types used in alloca
@@ -7,7 +8,7 @@
 ;       no unintended safety conditions lurking beyond the text we check.
 
 define void @test() {
-  %t1 = alloca %struct.test01
+  %t1 = alloca %struct.test01, align 8
 
 ; CHECK: LLVMType: %struct.test01 = type { i32, i32 }
 ; CHECK: Safety data: Local instance{{$}}
@@ -17,14 +18,14 @@ define void @test() {
 ; CHECK: LLVMType: %struct.test02 = type { i32, i32 }
 ; CHECK: Safety data: Local pointer{{$}}
 
-  %t3.a = alloca %struct.test03
+  %t3.a = alloca %struct.test03, align 8
   %t3.b = alloca %struct.test03*
 
 ; CHECK: LLVMType: %struct.test03 = type { i32, i32 }
 ; CHECK: Safety data: Local pointer | Local instance{{$}}
 
   ; This allocates stack space for four instances of the structure.
-  %t4 = alloca %struct.test04, i32 4
+  %t4 = alloca %struct.test04, i32 4, align 32
 
 ; CHECK: LLVMType: %struct.test04 = type { i32, i32 }
 ; CHECK: Safety data: Local instance{{$}}
@@ -36,7 +37,7 @@ define void @test() {
 ; CHECK: Safety data: Local pointer{{$}}
 
   ; This allocates a fixed array of instances of the structure.
-  %t6 = alloca [16 x %struct.test06]
+  %t6 = alloca [16 x %struct.test06], align 128
 
 ; CHECK: LLVMType: %struct.test06 = type { i32, i32 }
 ; CHECK: Safety data: Local instance{{$}}
@@ -54,7 +55,7 @@ define void @test() {
 ; CHECK: Safety data: Local pointer{{$}}
 
   ; This allocates a fixed array of instances of the structure.
-  %t9 = alloca [16 x [16 x %struct.test09]]
+  %t9 = alloca [16 x [16 x %struct.test09]], align 2048
 
 ; CHECK: LLVMType: %struct.test09 = type { i32, i32 }
 ; CHECK: Safety data: Local instance{{$}}

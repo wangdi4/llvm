@@ -675,3 +675,74 @@ define <8 x i16> @test_int_x86_avx512fp16_mask_cvttph2uw_128_load(<8 x half>* %a
   %res = call <8 x i16> @llvm.x86.avx512fp16.mask.vcvttph2uw.128(<8 x half> %val, <8 x i16> %arg1, i8 %mask)
   ret <8 x i16> %res
 }
+
+define <4 x half> @test_u16tofp4(<4 x i16> %arg0) {
+; CHECK-LABEL: test_u16tofp4:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vcvtuw2ph %xmm0, %xmm0
+; CHECK-NEXT:    retq
+  %res = uitofp <4 x i16> %arg0 to <4 x half>
+  ret <4 x half> %res
+}
+
+define <2 x half> @test_s16tofp2(<2 x i16> %arg0) {
+; CHECK-LABEL: test_s16tofp2:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vcvtw2ph %xmm0, %xmm0
+; CHECK-NEXT:    retq
+  %res = sitofp <2 x i16> %arg0 to <2 x half>
+  ret <2 x half> %res
+}
+
+define <4 x half> @test_u8tofp4(<4 x i8> %arg0) {
+; CHECK-LABEL: test_u8tofp4:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpmovzxbw {{.*#+}} xmm0 = xmm0[0],zero,xmm0[1],zero,xmm0[2],zero,xmm0[3],zero,xmm0[4],zero,xmm0[5],zero,xmm0[6],zero,xmm0[7],zero
+; CHECK-NEXT:    vcvtuw2ph %xmm0, %xmm0
+; CHECK-NEXT:    retq
+  %res = uitofp <4 x i8> %arg0 to <4 x half>
+  ret <4 x half> %res
+}
+
+define <2 x half> @test_s8tofp2(<2 x i8> %arg0) {
+; CHECK-LABEL: test_s8tofp2:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpmovsxbw %xmm0, %xmm0
+; CHECK-NEXT:    vcvtw2ph %xmm0, %xmm0
+; CHECK-NEXT:    retq
+  %res = sitofp <2 x i8> %arg0 to <2 x half>
+  ret <2 x half> %res
+}
+
+define <2 x half> @test_u1tofp2(<2 x i1> %arg0) {
+; CHECK-LABEL: test_u1tofp2:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpshufd {{.*#+}} xmm0 = xmm0[0,2,2,3]
+; CHECK-NEXT:    vpshuflw {{.*#+}} xmm0 = xmm0[0,2,2,3,4,5,6,7]
+; CHECK-NEXT:    vpand {{.*}}(%rip), %xmm0, %xmm0
+; CHECK-NEXT:    vcvtuw2ph %xmm0, %xmm0
+; CHECK-NEXT:    retq
+  %res = uitofp <2 x i1> %arg0 to <2 x half>
+  ret <2 x half> %res
+}
+
+define <4 x half> @test_s17tofp4(<4 x i17> %arg0) {
+; CHECK-LABEL: test_s17tofp4:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpslld $15, %xmm0, %xmm0
+; CHECK-NEXT:    vpsrad $15, %xmm0, %xmm0
+; CHECK-NEXT:    vcvtdq2ph %xmm0, %xmm0
+; CHECK-NEXT:    retq
+  %res = sitofp <4 x i17> %arg0 to <4 x half>
+  ret <4 x half> %res
+}
+
+define <2 x half> @test_u33tofp2(<2 x i33> %arg0) {
+; CHECK-LABEL: test_u33tofp2:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vandps {{.*}}(%rip), %xmm0, %xmm0
+; CHECK-NEXT:    vcvtuqq2ph %xmm0, %xmm0
+; CHECK-NEXT:    retq
+  %res = uitofp <2 x i33> %arg0 to <2 x half>
+  ret <2 x half> %res
+}

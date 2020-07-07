@@ -47,12 +47,12 @@ define dso_local void @foo(i32 %n) local_unnamed_addr {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]:
 ; CHECK-NEXT:     i64 [[VP4:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP5:%.*]], [[BB2]] ]
-; CHECK-NEXT:     i32* [[VP6:%.*]] = getelementptr inbounds [1600 x i32]* @a i64 0 i64 [[VP4]]
+; CHECK-NEXT:     i32* [[VP6:%.*]] = subscript inbounds [1600 x i32]* @a i64 0 i64 [[VP4]]
 ; CHECK-NEXT:     i32 [[VP7:%.*]] = load i32* [[VP6]]
-; CHECK-NEXT:     i32* [[VP8:%.*]] = getelementptr inbounds [1600 x i32]* @b i64 0 i64 [[VP4]]
+; CHECK-NEXT:     i32* [[VP8:%.*]] = subscript inbounds [1600 x i32]* @b i64 0 i64 [[VP4]]
 ; CHECK-NEXT:     i32 [[VP9:%.*]] = load i32* [[VP8]]
 ; CHECK-NEXT:     i32 [[VP10:%.*]] = add i32 [[VP7]] i32 [[VP9]]
-; CHECK-NEXT:     i32* [[VP11:%.*]] = getelementptr inbounds [1600 x i32]* @c i64 0 i64 [[VP4]]
+; CHECK-NEXT:     i32* [[VP11:%.*]] = subscript inbounds [1600 x i32]* @c i64 0 i64 [[VP4]]
 ; CHECK-NEXT:     store i32 [[VP10]] i32* [[VP11]]
 ; CHECK-NEXT:     i64 [[VP5]] = add i64 [[VP4]] i64 1
 ; CHECK-NEXT:     i1 [[VP12:%.*]] = icmp i64 [[VP5]] i64 [[VP2]]

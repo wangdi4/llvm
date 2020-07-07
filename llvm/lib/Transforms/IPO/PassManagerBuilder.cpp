@@ -21,7 +21,6 @@
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/InlineCost.h"
 #if INTEL_CUSTOMIZATION
-#include "llvm/Analysis/Intel_AggInline.h"
 #include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Intel_StdContainerAA.h"
 #include "llvm/Analysis/Intel_WP.h"
@@ -322,6 +321,10 @@ static cl::opt<bool>
   EnableDPCPPKernelTransforms("enable-dpcpp-kernel-transforms",
   cl::init(false), cl::Hidden, cl::ZeroOrMore,
   cl::desc("Enable extra passes for DPCPP WGLoopCreator/Barrier approach."));
+
+static cl::opt<bool> EnableArgNoAliasProp(
+    "enable-arg-noalias-prop", cl::init(true), cl::Hidden, cl::ZeroOrMore,
+    cl::desc("Enable noalias propagation for function arguments."));
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool>
@@ -332,8 +335,8 @@ static cl::opt<bool>
     EnablePerformThinLTO("perform-thinlto", cl::init(false), cl::Hidden,
                          cl::desc("Enable performing ThinLTO."));
 
-cl::opt<bool> EnableHotColdSplit("hot-cold-split", cl::init(false), cl::Hidden,
-    cl::desc("Enable hot-cold splitting pass"));
+cl::opt<bool> EnableHotColdSplit("hot-cold-split", cl::init(false),
+    cl::ZeroOrMore, cl::desc("Enable hot-cold splitting pass"));
 
 static cl::opt<bool> UseLoopVersioningLICM(
     "enable-loop-versioning-licm", cl::init(false), cl::Hidden,
@@ -349,7 +352,7 @@ static cl::opt<int> PreInlineThreshold(
              "(default = 75)"));
 
 static cl::opt<bool> EnableGVNHoist(
-    "enable-gvn-hoist", cl::init(false), cl::Hidden,
+    "enable-gvn-hoist", cl::init(false), cl::ZeroOrMore,
     cl::desc("Enable the GVN hoisting pass (default = off)"));
 
 static cl::opt<bool>
@@ -363,7 +366,7 @@ static cl::opt<bool> EnableSimpleLoopUnswitch(
              "cleanup passes integrated into the loop pass manager pipeline."));
 
 static cl::opt<bool> EnableGVNSink(
-    "enable-gvn-sink", cl::init(false), cl::Hidden,
+    "enable-gvn-sink", cl::init(false), cl::ZeroOrMore,
     cl::desc("Enable the GVN sinking pass (default = off)"));
 
 // This option is used in simplifying testing SampleFDO optimizations for
@@ -1035,6 +1038,10 @@ void PassManagerBuilder::populateModulePassManager(
   // functions which represent outlined OpenMP parallel loops where possible.
   if (RunVPOParopt && OptLevel > 2)
     MPM.add(createIPSCCPPass());
+
+  // Propagate noalias attribute to function arguments.
+  if (EnableArgNoAliasProp && OptLevel > 2)
+    MPM.add(createArgNoAliasPropPass());
 #endif // INTEL_CUSTOMIZATION
 
   // FIXME: This is a HACK! The inliner pass above implicitly creates a CGSCC
@@ -1201,8 +1208,6 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createLoopVectorizePass(!LoopsInterleaved, !LoopVectorize));
   }
 #endif // INTEL_CUSTOMIZATION
-  MPM.add(createVectorCombinePass());
-  MPM.add(createEarlyCSEPass());
 
   // Eliminate loads by forwarding stores from the previous iteration to loads
   // of the current iteration.
@@ -1226,6 +1231,7 @@ void PassManagerBuilder::populateModulePassManager(
     // common computations, hoist loop-invariant aspects out of any outer loop,
     // and unswitch the runtime checks if possible. Once hoisted, we may have
     // dead (or speculatable) control flows or more combining opportunities.
+    MPM.add(createEarlyCSEPass());
     MPM.add(createCorrelatedValuePropagationPass());
     addInstructionCombiningPass(MPM);  // INTEL
     MPM.add(createLICMPass(LicmMssaOptCap, LicmMssaNoAccForPromotionCap));
@@ -1255,6 +1261,10 @@ void PassManagerBuilder::populateModulePassManager(
     }
   }
   } // INTEL
+
+  // Enhance/cleanup vector code.
+  MPM.add(createVectorCombinePass());
+  MPM.add(createEarlyCSEPass()); // INTEL
 
   addExtensionsToPM(EP_Peephole, MPM);
   addInstructionCombiningPass(MPM);
@@ -1611,7 +1621,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
     // Indirect Call Conv
   }
   if (EnableInlineAggAnalysis) {
-    PM.add(createInlineAggressiveWrapperPassPass()); // Aggressive Inline
+    PM.add(createAggInlinerLegacyPass()); // Aggressive Inline
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -1710,6 +1720,11 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 
   // Infer attributes on declarations, call sites, arguments, etc.
   PM.add(createPostOrderFunctionAttrsLegacyPass()); // Add nocapture.
+#if INTEL_CUSTOMIZATION
+  // Propagate noalias attribute to function arguments.
+  if (EnableArgNoAliasProp && OptLevel > 2)
+    PM.add(createArgNoAliasPropPass());
+#endif // INTEL_CUSTOMIZATION
   // Run a few AA driven optimizations here and now, to cleanup the code.
   PM.add(createGlobalsAAWrapperPass()); // IP alias analysis.
 
@@ -1764,7 +1779,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // Now that we've optimized loops (in particular loop induction variables),
   // we may have exposed more scalar opportunities. Run parts of the scalar
   // optimizer again at this point.
-  PM.add(createVectorCombinePass());
 #if INTEL_CUSTOMIZATION
   // Initial cleanup
   addInstructionCombiningPass(PM);
@@ -1778,9 +1792,8 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createBitTrackingDCEPass());
 
   // More scalar chains could be vectorized due to more alias information
-  if (SLPVectorize) {
+  if (SLPVectorize) { // INTEL
     PM.add(createSLPVectorizerPass()); // Vectorize parallel scalar chains.
-    PM.add(createVectorCombinePass()); // Clean up partial vectorization.
 #if INTEL_CUSTOMIZATION
     if (EnableLoadCoalescing)
       PM.add(createLoadCoalescingPass());
@@ -1788,7 +1801,9 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
       // SLP creates opportunities for SROA.
       PM.add(createSROAPass());
 #endif // INTEL_CUSTOMIZATION
-  }
+  } // INTEL
+
+  PM.add(createVectorCombinePass()); // Clean up partial vectorization.
 
   // After vectorization, assume intrinsics may tell us more about pointer
   // alignments.
@@ -2066,10 +2081,14 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
 
         PM.add(createHIRConditionalTempSinkingPass());
         PM.add(createHIROptPredicatePass(OptLevel == 3, true));
+        if (OptLevel > 2) {
+          PM.add(createHIRStoreResultIntoTempArrayPass());
+        }
         PM.add(createHIRAosToSoaPass());
         PM.add(createHIRRuntimeDDPass());
         PM.add(createHIRMVForConstUBPass());
         PM.add(createHIRRowWiseMVPass());
+        PM.add(createHIRSumWindowReusePass());
       }
 
       PM.add(createHIRSinkingForPerfectLoopnestPass());
@@ -2088,6 +2107,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM,
     }
 
     if (RunLoopOpts == LoopOptMode::Full) {
+      PM.add(createHIRConditionalLoadStoreMotionPass());
       PM.add(createHIRLMMPass());
       if (SizeLevel == 0)
         PM.add(createHIRMemoryReductionSinkingPass());

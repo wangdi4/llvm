@@ -37,12 +37,12 @@
 ;              |   %y.0.lcssa = 0.000000e+00;
 ;              |   %x.0.lcssa = 1.000000e+00;
 ;              |
-; CHECK:       |      %x.043 = 1.000000e+00;
 ; CHECK:       |      %y.040 = 0.000000e+00;
+; CHECK:       |      %x.043 = 1.000000e+00;
 ; CHECK:       |   + DO i2 = 0, %n + -2, 1   <DO_LOOP>
+; CHECK:       |   |   %y.040 = %y.040  +  (%p)[i2];
 ; CHECK:       |   |   %add11 = (%p)[i2]  +  1.000000e+00;
 ; CHECK:       |   |   %x.043 = %x.043  +  %add11;
-; CHECK:       |   |   %y.040 = %y.040  +  (%p)[i2];
 ; CHECK:       |   + END LOOP
 ; CHECK:       |
 ; CHECK:       |
@@ -50,8 +50,8 @@
 ; CHECK:       |   |   %add11 = (%p)[i2 + %n + -1]  +  1.000000e+00;
 ; CHECK:       |   |   %x.043 = %x.043  +  %add11;
 ; CHECK:       |   + END LOOP
-; CHECK:       |      %x.0.lcssa = %x.043;
 ; CHECK:       |      %y.0.lcssa = %y.040;
+; CHECK:       |      %x.0.lcssa = %x.043;
 ;              |
 ;              |   %add16 = %y.0.lcssa  +  %x.0.lcssa;
 ;              |   %add17 = %r.046  +  %add16;

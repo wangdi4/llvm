@@ -68,7 +68,7 @@ define i32 @main() local_unnamed_addr #0 {
 ; CHECK-NEXT:     i64 [[VP5:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP6:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     i64 [[VP7:%.*]] = mul i64 -1 i64 [[VP5]]
 ; CHECK-NEXT:     i64 [[VP8:%.*]] = add i64 [[VP7]] i64 8
-; CHECK-NEXT:     i32* [[VP9:%.*]] = getelementptr inbounds [9 x i32]* @a i64 0 i64 [[VP8]]
+; CHECK-NEXT:     i32* [[VP9:%.*]] = subscript inbounds [9 x i32]* @a i64 0 i64 [[VP8]]
 ; CHECK-NEXT:     i32 [[VP10:%.*]] = load i32* [[VP9]]
 ; CHECK-NEXT:     i32 [[VP11:%.*]] = zext i16 [[VP1]] to i32
 ; CHECK-NEXT:     i32 [[VP12:%.*]] = hir-copy i32 [[VP11]] , OriginPhiId: -1

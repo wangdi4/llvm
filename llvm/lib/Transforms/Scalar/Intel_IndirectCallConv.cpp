@@ -566,7 +566,7 @@ bool IndirectCallConvLegacyPass::runOnFunction(Function &F) {
 
 PreservedAnalyses IndirectCallConvPass::run(Function &F,
                                             FunctionAnalysisManager &AM) {
-  auto &MAM = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F).getManager();
+  auto &MAM = AM.getResult<ModuleAnalysisManagerFunctionProxy>(F);
   auto *AnderPointsTo = (UseAndersen || IndCallConvForceAndersen)
                             ? MAM.getCachedResult<AndersensAA>(*F.getParent())
                             : nullptr;

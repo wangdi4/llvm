@@ -9,7 +9,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 %dv = type { float*, i64, i64, i64, i64, i64, [1 x { i64, i64, i64 }] }
 
-define void @foo_(%dv* noalias dereferenceable(72) nocapture readonly %A, i32* noalias nocapture readonly %N) {
+define void @foo_(%dv* noalias dereferenceable(72) nocapture readonly align 8 %A, i32* noalias nocapture readonly %N) {
 ; CHECK: entry:
 entry:
   %A.0 = getelementptr inbounds %dv, %dv* %A, i64 0, i32 0

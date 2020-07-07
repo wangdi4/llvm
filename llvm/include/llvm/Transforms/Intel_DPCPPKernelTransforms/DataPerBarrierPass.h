@@ -23,7 +23,7 @@ namespace llvm {
 class DataPerBarrier : public ModulePass {
 public:
   typedef struct {
-    InstVector RelatedBarriers;
+    InstSet RelatedBarriers;
     bool HasFiberRelated;
   } BarrierRelated;
   typedef struct {
@@ -88,6 +88,12 @@ public:
   SyncType getSyncType(Instruction *I) {
     assert(DataPerBarrierMap.count(I) && "instruction has no sync data!");
     return DataPerBarrierMap[I].Type;
+  }
+
+  /// Check if predecessors of given basic block is available.
+  /// Return true if available, false otherwise.
+  bool hasPredecessors(BasicBlock *pBB) {
+    return PredecessorMap.count(pBB);
   }
 
   /// Return predecessors of a given basic block.

@@ -14,8 +14,8 @@ entry:
 define dso_local void @foo(i32* nocapture %p, i32* nocapture %q) {
 entry:
   call void @bar(i32* %p, i32* %q), !intel.args.alias.scope !0
-; CHECK:   [[PTR:%ptr.*]] = load i32, i32* %q, !alias.scope !0, !noalias !4
-; CHECK:   store i32 [[PTR]], i32* %p, !alias.scope !4, !noalias !0
+; CHECK:   [[PTR:%ptr.*]] = load i32, i32* %q, align 4, !alias.scope !0, !noalias !4
+; CHECK:   store i32 [[PTR]], i32* %p, align 4, !alias.scope !4, !noalias !0
   ret void
 }
 

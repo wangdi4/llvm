@@ -1,3 +1,4 @@
+; REQUIRES: asserts
 ; CMPLRLLVM-8956: This verifies that compiler (Dtrans) shouldn't
 ; fail when handling bitcast instructions involving vector types
 ; in foo and bar. Makes sure Bad casting is set for %struct.C.
@@ -32,8 +33,8 @@ define dso_local void @bar() {
  ret void
 }
 
-define dso_local void @baz(%struct.C* %p0) {
+define dso_local <8 x i32>* @baz(%struct.C* %p0) {
  %p3 = bitcast %struct.C* %p0 to <8 x i32>*
- ret void
+ ret <8 x i32>* %p3
 }
 declare i8* @malloc(i64)

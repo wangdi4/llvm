@@ -90,34 +90,11 @@ public:
     return BranchInst;
   }
 
-  /// In the HIR-path we restrict creation of a VPGEPInstruction by making sure
-  /// that GEP instructions can be created via the builder only with the base
-  /// pointer operand. The index operands must be added subsequently by the
-  /// client. This is needed to track the information about a given index
-  /// operand being a trailing struct offset or not.
-
-  /// Construct a GEP VPInstruction with type \p BaseTy and base pointer \p Ptr.
-  VPInstruction *createGEP(Type *BaseTy, VPValue *Ptr) {
-    VPInstruction *NewVPInst = new VPGEPInstruction(BaseTy, Ptr, {});
-    if (BB)
-      BB->insert(NewVPInst, InsertPt);
-    return NewVPInst;
-  }
-
-  /// Construct an inbounds GEP VPInstruction with type \p BaseTy and base
-  /// pointer \p Ptr.
-  VPInstruction *createInBoundsGEP(Type *BaseTy, VPValue *Ptr) {
-    VPInstruction *NewVPInst = createGEP(BaseTy, Ptr);
-    cast<VPGEPInstruction>(NewVPInst)->setIsInBounds(true);
-    return NewVPInst;
-  }
-
   // Construct VPHIRCopyInst instruction with given VPValue \p CopyFrom.
   VPHIRCopyInst *createHIRCopy(VPValue *CopyFrom,
                                loopopt::HLDDNode *DDNode = nullptr) {
     VPHIRCopyInst *CopyInst = new VPHIRCopyInst(CopyFrom);
-    if (BB)
-      BB->insert(CopyInst, InsertPt);
+    insert(CopyInst);
     if (DDNode)
       CopyInst->HIR.setUnderlyingNode(DDNode);
     return CopyInst;
@@ -126,19 +103,26 @@ public:
   // Build a VPCallInstruction for the HIR instruction \p HInst using callee \p
   // CalledValue and list of argument operands \p ArgList.
   VPInstruction *createCall(VPValue *CalledValue, ArrayRef<VPValue *> ArgList,
-                            loopopt::HLInst *HInst) {
+                            loopopt::HLInst *HInst,
+                            loopopt::HLDDNode *DDNode = nullptr) {
     assert(HInst && "Cannot create VPCallInstruction without underlying IR.");
     assert(HInst->isCallInst() &&
            "Underlying HLInst is not a call instruction.");
     auto *Call = HInst->getCallInst();
     VPCallInstruction *NewVPCall =
         new VPCallInstruction(CalledValue, ArgList, Call);
-    NewVPCall->HIR.setUnderlyingNode(HInst);
-    NewVPCall->HIR.setValid();
     NewVPCall->setName(HInst->getLLVMInstruction()->getName());
-    if (BB)
-      BB->insert(NewVPCall, InsertPt);
+    insert(NewVPCall);
+    if (DDNode)
+      NewVPCall->HIR.setUnderlyingNode(DDNode);
     return NewVPCall;
+  }
+
+  VPInstruction *createAbs(VPValue *Operand, loopopt::HLDDNode *DDNode) {
+    VPInstruction *AbsInst = cast<VPInstruction>(VPBuilder::createAbs(Operand));
+    if (DDNode)
+      AbsInst->HIR.setUnderlyingNode(DDNode);
+    return AbsInst;
   }
 };
 

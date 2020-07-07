@@ -152,14 +152,12 @@ void tools::AddLinkerInputs(const ToolChain &TC, const InputInfoList &Inputs,
     addDirectoryList(Args, CmdArgs, "-L", "LIBRARY_PATH");
 
   for (const auto &II : Inputs) {
-    // If the current tool chain refers to an OpenMP or HIP offloading host, we
-    // should ignore inputs that refer to OpenMP or HIP offloading devices -
+    // If the current tool chain refers to an OpenMP offloading host, we
+    // should ignore inputs that refer to OpenMP offloading devices -
     // they will be embedded according to a proper linker script.
     if (auto *IA = II.getAction())
       if ((JA.isHostOffloading(Action::OFK_OpenMP) &&
-           IA->isDeviceOffloading(Action::OFK_OpenMP)) ||
-          (JA.isHostOffloading(Action::OFK_HIP) &&
-           IA->isDeviceOffloading(Action::OFK_HIP)))
+           IA->isDeviceOffloading(Action::OFK_OpenMP)))
         continue;
 
     if (!TC.HasNativeLLVMSupport() && types::isLLVMIR(II.getType()))
@@ -302,15 +300,19 @@ std::string tools::getCPUName(const ArgList &Args, const llvm::Triple &T,
     std::string TargetCPUName = ppc::getPPCTargetCPU(Args);
     // LLVM may default to generating code for the native CPU,
     // but, like gcc, we default to a more generic option for
-    // each architecture. (except on Darwin)
-    if (TargetCPUName.empty() && !T.isOSDarwin()) {
-      if (T.getArch() == llvm::Triple::ppc64)
-        TargetCPUName = "ppc64";
-      else if (T.getArch() == llvm::Triple::ppc64le)
-        TargetCPUName = "ppc64le";
-      else
-        TargetCPUName = "ppc";
-    }
+    // each architecture. (except on AIX)
+    if (!TargetCPUName.empty())
+      return TargetCPUName;
+
+    if (T.isOSAIX())
+      TargetCPUName = "pwr4";
+    else if (T.getArch() == llvm::Triple::ppc64le)
+      TargetCPUName = "ppc64le";
+    else if (T.getArch() == llvm::Triple::ppc64)
+      TargetCPUName = "ppc64";
+    else
+      TargetCPUName = "ppc";
+
     return TargetCPUName;
   }
 
@@ -369,7 +371,13 @@ llvm::StringRef tools::getLTOParallelism(const ArgList &Args, const Driver &D) {
 }
 
 // CloudABI uses -ffunction-sections and -fdata-sections by default.
-bool tools::isUseSeparateSections(const llvm::Triple &Triple) {
+#if INTEL_CUSTOMIZATION
+bool tools::isUseSeparateSections(const ArgList &Args,
+                                  const llvm::Triple &Triple) {
+  // -ffunction-sections not enabled by default for Intel.
+  if (Args.hasArg(options::OPT__intel))
+    return false;
+#endif // INTEL_CUSTOMIZATION
   return Triple.getOS() == llvm::Triple::CloudABI;
 }
 
@@ -377,6 +385,7 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
                           ArgStringList &CmdArgs, const InputInfo &Output,
                           const InputInfo &Input, bool IsThinLTO) {
   const char *Linker = Args.MakeArgString(ToolChain.GetLinkerPath());
+  const Driver &D = ToolChain.getDriver();
   if (llvm::sys::path::filename(Linker) != "ld.lld" &&
       llvm::sys::path::stem(Linker) != "ld.lld") {
     // Tell the linker to load the plugin. This has to come before
@@ -392,11 +401,14 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
     const char *Suffix = ".so";
 #endif
 
+#if INTEL_CUSTOMIZATION
+    const char * PluginName = "LLVMgold";
+    if (Args.hasArg(options::OPT__intel))
+      PluginName = "icx-lto";
     SmallString<1024> Plugin;
     llvm::sys::path::native(Twine(ToolChain.getDriver().Dir) +
-                                "/../lib" CLANG_LIBDIR_SUFFIX "/LLVMgold" +
-                                Suffix,
-                            Plugin);
+        "/../lib" CLANG_LIBDIR_SUFFIX "/" + PluginName + Suffix, Plugin);
+#endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back(Args.MakeArgString(Plugin));
   }
 
@@ -409,13 +421,19 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
     CmdArgs.push_back(Args.MakeArgString(Twine("-plugin-opt=mcpu=") + CPU));
 
   if (Arg *A = Args.getLastArg(options::OPT_O_Group)) {
+    // The optimization level matches
+    // CompilerInvocation.cpp:getOptimizationLevel().
     StringRef OOpt;
     if (A->getOption().matches(options::OPT_O4) ||
         A->getOption().matches(options::OPT_Ofast))
       OOpt = "3";
-    else if (A->getOption().matches(options::OPT_O))
+    else if (A->getOption().matches(options::OPT_O)) {
       OOpt = A->getValue();
-    else if (A->getOption().matches(options::OPT_O0))
+      if (OOpt == "g")
+        OOpt = "1";
+      else if (OOpt == "s" || OOpt == "z")
+        OOpt = "2";
+    } else if (A->getOption().matches(options::OPT_O0))
       OOpt = "0";
     if (!OOpt.empty())
       CmdArgs.push_back(Args.MakeArgString(Twine("-plugin-opt=O") + OOpt));
@@ -430,7 +448,7 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
   if (IsThinLTO)
     CmdArgs.push_back("-plugin-opt=thinlto");
 
-  StringRef Parallelism = getLTOParallelism(Args, ToolChain.getDriver());
+  StringRef Parallelism = getLTOParallelism(Args, D);
   if (!Parallelism.empty())
     CmdArgs.push_back(
         Args.MakeArgString("-plugin-opt=jobs=" + Twine(Parallelism)));
@@ -447,7 +465,7 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
   }
 
   bool UseSeparateSections =
-      isUseSeparateSections(ToolChain.getEffectiveTriple());
+      isUseSeparateSections(Args, ToolChain.getEffectiveTriple()); // INTEL
 
   if (Args.hasFlag(options::OPT_ffunction_sections,
                    options::OPT_fno_function_sections, UseSeparateSections)) {
@@ -462,7 +480,7 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
   if (Arg *A = getLastProfileSampleUseArg(Args)) {
     StringRef FName = A->getValue();
     if (!llvm::sys::fs::exists(FName))
-      ToolChain.getDriver().Diag(diag::err_drv_no_such_file) << FName;
+      D.Diag(diag::err_drv_no_such_file) << FName;
     else
       CmdArgs.push_back(
           Args.MakeArgString(Twine("-plugin-opt=sample-profile=") + FName));
@@ -505,27 +523,20 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
   }
 
   // Setup statistics file output.
-  SmallString<128> StatsFile =
-      getStatsFileName(Args, Output, Input, ToolChain.getDriver());
+  SmallString<128> StatsFile = getStatsFileName(Args, Output, Input, D);
   if (!StatsFile.empty())
     CmdArgs.push_back(
         Args.MakeArgString(Twine("-plugin-opt=stats-file=") + StatsFile));
+
+  addX86AlignBranchArgs(D, Args, CmdArgs, /*IsLTO=*/true);
+
 #if INTEL_CUSTOMIZATION
   if (Args.hasArg(options::OPT__intel)) {
-    CmdArgs.push_back("-plugin-opt=-intel-libirc-allowed");
     if (Arg * A = Args.getLastArg(options::OPT_fveclib))
-      Args.MakeArgString(Twine("-plugin-opt=-vector-library=") + A->getValue());
+      CmdArgs.push_back(Args.MakeArgString(
+          Twine("-plugin-opt=-vector-library=") + A->getValue()));
   }
-  if (Arg *A =
-          Args.getLastArg(options::OPT_funroll_loops,
-                          options::OPT_fno_unroll_loops, options::OPT_unroll)) {
-    if (A->getOption().matches(options::OPT_unroll)) {
-      StringRef Value(A->getValue());
-      if (!Value.empty())
-        CmdArgs.push_back(Args.MakeArgString(
-            Twine("-plugin-opt=-hir-general-unroll-max-factor=") + Value));
-    }
-  }
+  addIntelOptimizationArgs(ToolChain, Args, CmdArgs, true);
   // All -mllvm flags as provided by the user will be passed through.
   for (const StringRef &AV : Args.getAllArgValues(options::OPT_mllvm))
     CmdArgs.push_back(Args.MakeArgString(Twine("-plugin-opt=") + AV));
@@ -536,8 +547,7 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
 void tools::addIntelOptimizationArgs(const ToolChain &TC,
                                      const llvm::opt::ArgList &Args,
                                      llvm::opt::ArgStringList &CmdArgs,
-                                     const JobAction &JA) {
-  bool IsLink = isa<LinkJobAction>(JA);
+                                     bool IsLink) {
   bool IsMSVC = TC.getTriple().isKnownWindowsMSVCEnvironment();
 
   auto addllvmOption = [&](const char *Opt) {
@@ -549,22 +559,23 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
       CmdArgs.push_back(Opt);
     }
   };
+  StringRef MLTVal;
   if (const Arg *A = Args.getLastArg(options::OPT_qopt_mem_layout_trans_EQ)) {
-    StringRef Val(A->getValue());
-    if (Val == "1" || Val == "2" || Val == "3" || Val == "4") {
+    MLTVal = A->getValue();
+    if (MLTVal == "1" || MLTVal == "2" || MLTVal == "3" || MLTVal == "4") {
       addllvmOption("-enable-dtrans");
       addllvmOption("-enable-npm-dtrans");
       addllvmOption(
-          Args.MakeArgString(Twine("-dtrans-mem-layout-level=") + Val));
+          Args.MakeArgString(Twine("-dtrans-mem-layout-level=") + MLTVal));
       addllvmOption("-dtrans-outofboundsok=false");
       addllvmOption("-dtrans-usecrulecompat=true");
       addllvmOption("-dtrans-inline-heuristics=true");
       addllvmOption("-dtrans-partial-inline=true");
       addllvmOption("-irmover-type-merging=false");
       addllvmOption("-spill-freq-boost=true");
-    } else if (Val != "0")
+    } else if (MLTVal != "0")
       TC.getDriver().Diag(diag::err_drv_invalid_argument_to_option)
-          << Val << A->getOption().getName();
+          << MLTVal << A->getOption().getName();
   }
   if (Arg *A =
           Args.getLastArg(options::OPT_funroll_loops,
@@ -578,9 +589,66 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
           if (ValInt > 0)
             addllvmOption(Args.MakeArgString(
                 Twine("-hir-general-unroll-max-factor=") + Value));
-          else
-            TC.getDriver().Diag(diag::err_drv_invalid_argument_to_option)
-                << Value << A->getOption().getName();
+      }
+    }
+  }
+  if (Args.hasFlag(options::OPT_qno_opt_matmul, options::OPT__intel,
+                   options::OPT_qopt_matmul, false))
+    addllvmOption("-disable-hir-generate-mkl-call");
+
+  if (Arg *A = Args.getLastArg(
+          options::OPT_qopt_multiple_gather_scatter_by_shuffles,
+          options::OPT_qno_opt_multiple_gather_scatter_by_shuffles)) {
+    if (A->getOption().matches(
+            options::OPT_qopt_multiple_gather_scatter_by_shuffles))
+      addllvmOption("-vplan-vls-level=always");
+    if (A->getOption().matches(
+            options::OPT_qno_opt_multiple_gather_scatter_by_shuffles))
+      addllvmOption("-vplan-vls-level=never");
+  }
+
+ // Handle --intel defaults
+  if (Args.hasArg(options::OPT__intel)) {
+    if (!Args.hasArg(options::OPT_ffreestanding))
+      addllvmOption("-intel-libirc-allowed");
+    bool AddLoopOpt = true;
+    for (const StringRef &AV : Args.getAllArgValues(options::OPT_mllvm))
+      if (AV.startswith("-loopopt=") || AV.equals("-loopopt"))
+        AddLoopOpt = false;
+    if (AddLoopOpt) {
+      // Add loopopt default values.  Full loopopt is enabled when -x is
+      // provided otherwise, we enable lightweight loopopt dependent on various
+      // options.  Only add if -loopopt wasn't added via other means.
+      bool FullLoopOpt = false;
+      if (const Arg *A =
+              Args.getLastArgNoClaim(options::OPT_march_EQ, options::OPT_x))
+        if (A->getOption().matches(options::OPT_x) &&
+            x86::isValidIntelCPU(A->getValue(), TC.getTriple()))
+          // -x wins, so full loopopt is enabled
+          // FIXME: Only keying off of -x addition to set loopopt.  This should
+          // only be done when we are setting P4 w/SSE3 or higher
+          FullLoopOpt = true;
+      // Handle /arch /Qx as well.
+      if (const Arg *A = Args.getLastArgNoClaim(options::OPT__SLASH_arch,
+                                                options::OPT__SLASH_Qx))
+        if (A->getOption().matches(options::OPT__SLASH_Qx) &&
+            x86::isValidIntelCPU(A->getValue(), TC.getTriple()))
+          FullLoopOpt = true;
+      if (FullLoopOpt)
+        addllvmOption("-loopopt");
+      else {
+        int MLTInt = 0;
+        MLTVal.getAsInteger(0, MLTInt);
+        bool OfastSet = false;
+        if (const Arg *A = Args.getLastArg(options::OPT_O_Group))
+          OfastSet = A->getOption().matches(options::OPT_Ofast);
+        if (MLTInt >= 4 && Args.hasArg(options::OPT_flto) && OfastSet)
+          addllvmOption("-loopopt=1");
+        else {
+          addllvmOption("-loopopt=0");
+          if (!TC.getTriple().isSPIR())
+            addllvmOption("-enable-lv");
+        }
       }
     }
   }
@@ -867,7 +935,7 @@ bool tools::addSanitizerRuntimes(const ToolChain &TC, const ArgList &Args,
     CmdArgs.push_back("--export-dynamic");
 
   if (SanArgs.hasCrossDsoCfi() && !AddExportDynamic)
-    CmdArgs.push_back("-export-dynamic-symbol=__cfi_check");
+    CmdArgs.push_back("--export-dynamic-symbol=__cfi_check");
 
   return !StaticRuntimes.empty() || !NonWholeStaticRuntimes.empty();
 }
@@ -1327,7 +1395,14 @@ static void AddUnwindLibrary(const ToolChain &TC, const Driver &D,
   case ToolChain::UNW_CompilerRT:
     if (LGT == LibGccType::StaticLibGcc)
       CmdArgs.push_back("-l:libunwind.a");
-    else
+    else if (TC.getTriple().isOSCygMing()) {
+      if (LGT == LibGccType::SharedLibGcc)
+        CmdArgs.push_back("-l:libunwind.dll.a");
+      else
+        // Let the linker choose between libunwind.dll.a and libunwind.a
+        // depending on what's available, and depending on the -static flag
+        CmdArgs.push_back("-lunwind");
+    } else
       CmdArgs.push_back("-l:libunwind.so");
     break;
   }
@@ -1379,115 +1454,6 @@ void tools::AddRunTimeLibs(const ToolChain &TC, const Driver &D,
   }
 }
 
-/// Add HIP linker script arguments at the end of the argument list so that
-/// the fat binary is built by embedding the device images into the host. The
-/// linker script also defines a symbol required by the code generation so that
-/// the image can be retrieved at runtime. This should be used only in tool
-/// chains that support linker scripts.
-void tools::AddHIPLinkerScript(const ToolChain &TC, Compilation &C,
-                               const InputInfo &Output,
-                               const InputInfoList &Inputs, const ArgList &Args,
-                               ArgStringList &CmdArgs, const JobAction &JA,
-                               const Tool &T) {
-
-  // If this is not a HIP host toolchain, we don't need to do anything.
-  if (!JA.isHostOffloading(Action::OFK_HIP))
-    return;
-
-  InputInfoList DeviceInputs;
-  for (const auto &II : Inputs) {
-    const Action *A = II.getAction();
-    // Is this a device linking action?
-    if (A && isa<LinkJobAction>(A) && A->isDeviceOffloading(Action::OFK_HIP)) {
-      DeviceInputs.push_back(II);
-    }
-  }
-
-  if (DeviceInputs.empty())
-    return;
-
-  // Create temporary linker script. Keep it if save-temps is enabled.
-  const char *LKS;
-  std::string Name =
-      std::string(llvm::sys::path::filename(Output.getFilename()));
-  if (C.getDriver().isSaveTempsEnabled()) {
-    LKS = C.getArgs().MakeArgString(Name + ".lk");
-  } else {
-    auto TmpName = C.getDriver().GetTemporaryPath(Name, "lk");
-    LKS = C.addTempFile(C.getArgs().MakeArgString(TmpName));
-  }
-
-  // Add linker script option to the command.
-  CmdArgs.push_back("-T");
-  CmdArgs.push_back(LKS);
-
-  // Create a buffer to write the contents of the linker script.
-  std::string LksBuffer;
-  llvm::raw_string_ostream LksStream(LksBuffer);
-
-  // Get the HIP offload tool chain.
-  auto *HIPTC = static_cast<const toolchains::HIPToolChain *>(
-      C.getSingleOffloadToolChain<Action::OFK_HIP>());
-  assert(HIPTC->getTriple().getArch() == llvm::Triple::amdgcn &&
-         "Wrong platform");
-  (void)HIPTC;
-
-  const char *BundleFile;
-  if (C.getDriver().isSaveTempsEnabled()) {
-    BundleFile = C.getArgs().MakeArgString(Name + ".hipfb");
-  } else {
-    auto TmpName = C.getDriver().GetTemporaryPath(Name, "hipfb");
-    BundleFile = C.addTempFile(C.getArgs().MakeArgString(TmpName));
-  }
-  AMDGCN::constructHIPFatbinCommand(C, JA, BundleFile, DeviceInputs, Args, T);
-
-  // Add commands to embed target binaries. We ensure that each section and
-  // image is 16-byte aligned. This is not mandatory, but increases the
-  // likelihood of data to be aligned with a cache block in several main host
-  // machines.
-  LksStream << "/*\n";
-  LksStream << "       HIP Offload Linker Script\n";
-  LksStream << " *** Automatically generated by Clang ***\n";
-  LksStream << "*/\n";
-  LksStream << "TARGET(binary)\n";
-  LksStream << "INPUT(" << BundleFile << ")\n";
-  LksStream << "SECTIONS\n";
-  LksStream << "{\n";
-  LksStream << "  .hip_fatbin :\n";
-  LksStream << "  ALIGN(0x10)\n";
-  LksStream << "  {\n";
-  LksStream << "    PROVIDE_HIDDEN(__hip_fatbin = .);\n";
-  LksStream << "    " << BundleFile << "\n";
-  LksStream << "  }\n";
-  LksStream << "  /DISCARD/ :\n";
-  LksStream << "  {\n";
-  LksStream << "    * ( __CLANG_OFFLOAD_BUNDLE__* )\n";
-  LksStream << "  }\n";
-  LksStream << "}\n";
-  LksStream << "INSERT BEFORE .data\n";
-  LksStream.flush();
-
-  // Dump the contents of the linker script if the user requested that. We
-  // support this option to enable testing of behavior with -###.
-  if (C.getArgs().hasArg(options::OPT_fhip_dump_offload_linker_script))
-    llvm::errs() << LksBuffer;
-
-  // If this is a dry run, do not create the linker script file.
-  if (C.getArgs().hasArg(options::OPT__HASH_HASH_HASH))
-    return;
-
-  // Open script file and write the contents.
-  std::error_code EC;
-  llvm::raw_fd_ostream Lksf(LKS, EC, llvm::sys::fs::OF_None);
-
-  if (EC) {
-    C.getDriver().Diag(clang::diag::err_unable_to_make_temp) << EC.message();
-    return;
-  }
-
-  Lksf << LksBuffer;
-}
-
 SmallString<128> tools::getStatsFileName(const llvm::opt::ArgList &Args,
                                          const InputInfo &Output,
                                          const InputInfo &Input,
@@ -1515,4 +1481,54 @@ SmallString<128> tools::getStatsFileName(const llvm::opt::ArgList &Args,
 void tools::addMultilibFlag(bool Enabled, const char *const Flag,
                             Multilib::flags_list &Flags) {
   Flags.push_back(std::string(Enabled ? "+" : "-") + Flag);
+}
+
+void tools::addX86AlignBranchArgs(const Driver &D, const ArgList &Args,
+                                  ArgStringList &CmdArgs, bool IsLTO) {
+  auto addArg = [&, IsLTO](const Twine &Arg) {
+    if (IsLTO) {
+      CmdArgs.push_back(Args.MakeArgString("-plugin-opt=" + Arg));
+    } else {
+      CmdArgs.push_back("-mllvm");
+      CmdArgs.push_back(Args.MakeArgString(Arg));
+    }
+  };
+
+  if (Args.hasArg(options::OPT_mbranches_within_32B_boundaries)) {
+    addArg(Twine("-x86-branches-within-32B-boundaries"));
+  }
+  if (const Arg *A = Args.getLastArg(options::OPT_malign_branch_boundary_EQ)) {
+    StringRef Value = A->getValue();
+    unsigned Boundary;
+    if (Value.getAsInteger(10, Boundary) || Boundary < 16 ||
+        !llvm::isPowerOf2_64(Boundary)) {
+      D.Diag(diag::err_drv_invalid_argument_to_option)
+          << Value << A->getOption().getName();
+    } else {
+      addArg("-x86-align-branch-boundary=" + Twine(Boundary));
+    }
+  }
+  if (const Arg *A = Args.getLastArg(options::OPT_malign_branch_EQ)) {
+    std::string AlignBranch;
+    for (StringRef T : A->getValues()) {
+      if (T != "fused" && T != "jcc" && T != "jmp" && T != "call" &&
+          T != "ret" && T != "indirect")
+        D.Diag(diag::err_drv_invalid_malign_branch_EQ)
+            << T << "fused, jcc, jmp, call, ret, indirect";
+      if (!AlignBranch.empty())
+        AlignBranch += '+';
+      AlignBranch += T;
+    }
+    addArg("-x86-align-branch=" + Twine(AlignBranch));
+  }
+  if (const Arg *A = Args.getLastArg(options::OPT_mpad_max_prefix_size_EQ)) {
+    StringRef Value = A->getValue();
+    unsigned PrefixSize;
+    if (Value.getAsInteger(10, PrefixSize)) {
+      D.Diag(diag::err_drv_invalid_argument_to_option)
+          << Value << A->getOption().getName();
+    } else {
+      addArg("-x86-pad-max-prefix-size=" + Twine(PrefixSize));
+    }
+  }
 }

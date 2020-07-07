@@ -104,7 +104,7 @@ struct IV_S {
 void ivdep1(IV_S* sp)
 {
   int i;
-  //CHECK: LoopHintAttr{{.*}}IVDepHLS LoopExpr
+  //CHECK: SYCLIntelFPGAIVDepAttr{{.*}}
   //CHECK-NEXT: NULL
   //CHECK-NEXT: MemberExpr{{.*}}arr1
   //CHECK: DeclRefExpr{{.*}}'sp' 'IV_S *'
@@ -112,11 +112,11 @@ void ivdep1(IV_S* sp)
   for (int i=0;i<32;++i) {}
 }
 
-//CHECK: FunctionDecl{{.*}}tivdep 'void (IV_S *)'
-//CHECK: LoopHintAttr{{.*}}IVDepHLS LoopExpr
+//CHECK: FunctionDecl{{.*}}tivdep 'void (T *)'
+//CHECK: SYCLIntelFPGAIVDepAttr{{.*}}
 //CHECK-NEXT: NULL
 //CHECK-NEXT: MemberExpr{{.*}}arr1
-//CHECK: DeclRefExpr{{.*}}'tsp' 'IV_S *'
+//CHECK: DeclRefExpr{{.*}}'tsp' 'T *'
 template <typename T>
 void tivdep(T* tsp)
 {
@@ -126,7 +126,7 @@ void tivdep(T* tsp)
 }
 
 //CHECK: FunctionDecl{{.*}}t2ivdep 'void (int)'
-//CHECK: LoopHintAttr{{.*}}IVDepHLS LoopExpr
+//CHECK: SYCLIntelFPGAIVDepAttr{{.*}}
 //CHECK-NEXT: NULL
 //CHECK-NEXT: MemberExpr{{.*}}arr1
 //CHECK: DeclRefExpr{{.*}}'lsp' 'IV_S *'
@@ -142,35 +142,35 @@ void foo_ivdep()
 {
   int myArray[40];
   //CHECK: AttributedStmt
-  //CHECK-NEXT: LoopHintAttr{{.*}}IVDepHLS{{.*}}Enable
+  //CHECK-NEXT: SYCLIntelFPGAIVDepAttr{{.*}}0
   #pragma ivdep
   for (int i=0;i<32;++i) {}
 
   //CHECK: AttributedStmt
-  //CHECK-NEXT: LoopHintAttr{{.*}}IVDepHLS Numeric
+  //CHECK-NEXT: SYCLIntelFPGAIVDepAttr{{.*}}
   //CHECK-NEXT: IntegerLiteral{{.*}}4
   #pragma ivdep safelen(4)
   for (int i=0;i<32;++i) {}
 
   //CHECK: AttributedStmt
-  //CHECK-NEXT: LoopHintAttr{{.*}}IVDepHLS LoopExpr
+  //CHECK-NEXT: SYCLIntelFPGAIVDepAttr{{.*}}
   //CHECK-NEXT: NULL
   //CHECK-NEXT: DeclRefExpr{{.*}}myArray
   #pragma ivdep array(myArray)
   for (int i=0;i<32;++i) {}
 
   //CHECK: AttributedStmt
-  //CHECK-NEXT: LoopHintAttr{{.*}}IVDepHLS Full
+  //CHECK-NEXT: SYCLIntelFPGAIVDepAttr{{.*}}
   //CHECK-NEXT: IntegerLiteral{{.*}}4
   //CHECK-NEXT: DeclRefExpr{{.*}}myArray
   #pragma ivdep safelen(4) array(myArray)
   for (int i=0;i<32;++i) {}
 
   //CHECK: AttributedStmt
-  //CHECK-NEXT: LoopHintAttr{{.*}}IVDepHLS Full
+  //CHECK-NEXT: SYCLIntelFPGAIVDepAttr{{.*}}
   //CHECK-NEXT: IntegerLiteral{{.*}}4
   //CHECK-NEXT: DeclRefExpr{{.*}}myArray
-  //CHECK-NEXT: LoopHintAttr{{.*}}IVDepHLS LoopExpr
+  //CHECK-NEXT: SYCLIntelFPGAIVDepAttr{{.*}}
   //CHECK-NEXT: NULL
   //CHECK-NEXT: DeclRefExpr{{.*}}dArray
   double dArray[42];
@@ -187,8 +187,8 @@ void foo_ivdep()
   #pragma ivdep safelen(8) array(myArray)
   for (int i=0;i<32;++i) {}
 
-  #pragma ivdep
-  #pragma ivdep // expected-error {{duplicate directives}}
+  #pragma ivdep // expected-note {{previous attribute is here}}
+  #pragma ivdep // expected-warning {{ignoring redundant Intel FPGA loop attribute 'ivdep': safelen INF >= safelen INF}}
   for (int i=0;i<32;++i) {}
 
   //expected-warning@+1{{'safelen' cannot appear multiple times}}
@@ -216,24 +216,24 @@ void foo_ivdep()
   // smaller one is redundant and should trigger a warning. No "safelen"
   // is equivalent to safelen(infinity).
 
-  #pragma ivdep safelen(4) // expected-warning {{redundant directive}}
-  #pragma ivdep safelen(8) // expected-note {{overriding ivdep pragma is specified here}}
+  #pragma ivdep safelen(4) // expected-warning {{ignoring redundant Intel FPGA loop attribute 'ivdep': safelen 8 >= safelen 4}}
+  #pragma ivdep safelen(8) // expected-note {{previous attribute is here}}
   for (int i=0;i<32;++i) {}
 
-  #pragma ivdep safelen(4) // expected-note {{overriding ivdep pragma is specified here}}
-  #pragma ivdep safelen(2) // expected-warning {{redundant directive}}
+  #pragma ivdep safelen(4) // expected-note {{previous attribute is here}}
+  #pragma ivdep safelen(2) // expected-warning {{ignoring redundant Intel FPGA loop attribute 'ivdep': safelen 4 >= safelen 2}}
   for (int i=0;i<32;++i) {}
 
-  #pragma ivdep safelen(4)
-  #pragma ivdep safelen(4) // expected-error {{duplicate directive}}
+  #pragma ivdep safelen(4) // expected-note {{previous attribute is here}}
+  #pragma ivdep safelen(4) // expected-warning {{ignoring redundant Intel FPGA loop attribute 'ivdep': safelen 4 >= safelen 4}}
   for (int i=0;i<32;++i) {}
 
-  #pragma ivdep safelen(8) // expected-warning {{redundant directive}}
-  #pragma ivdep            // expected-note {{overriding ivdep pragma is specified here}}
+  #pragma ivdep safelen(8) // expected-warning {{ignoring redundant Intel FPGA loop attribute 'ivdep': safelen INF >= safelen 8}}
+  #pragma ivdep            // expected-note {{previous attribute is here}}
   for (int i=0;i<32;++i) {}
 
-  #pragma ivdep // expected-note {{overriding ivdep pragma is specified here}}
-  #pragma ivdep safelen(8) // expected-warning {{redundant directive}}
+  #pragma ivdep // expected-note {{previous attribute is here}}
+  #pragma ivdep safelen(8) // expected-warning {{ignoring redundant Intel FPGA loop attribute 'ivdep': safelen INF >= safelen 8}}
   for (int i=0;i<32;++i) {}
 
   // 2. Partially overlapping pragmas:
@@ -243,38 +243,38 @@ void foo_ivdep()
   // Thus if m <= n, the "array" pragma is redundant and should trigger a
   // warning.
 
-  //expected-warning@+3 {{redundant directive}}
-  //expected-note@+1 {{overriding ivdep pragma is specified here}}
+  //expected-warning@+3 {{ignoring redundant Intel FPGA loop attribute 'ivdep': safelen INF >= safelen 4}}
+  //expected-note@+1 {{previous attribute is here}}
   #pragma ivdep
   #pragma ivdep array(myArray) safelen(4)
   for (int i=0;i<32;++i) {}
 
-  //expected-warning@+2 {{redundant directive}}
-  //expected-note@+2 {{overriding ivdep pragma is specified here}}
+  //expected-warning@+2 {{ignoring redundant Intel FPGA loop attribute 'ivdep': safelen INF >= safelen 4}}
+  //expected-note@+2 {{previous attribute is here}}
   #pragma ivdep array(myArray) safelen(4)
   #pragma ivdep
   for (int i=0;i<32;++i) {}
 
-  //expected-warning@+3 {{redundant directive}}
-  //expected-note@+1 {{overriding ivdep pragma is specified here}}
+  //expected-warning@+3 {{ignoring redundant Intel FPGA loop attribute 'ivdep': safelen 8 >= safelen 4}}
+  //expected-note@+1 {{previous attribute is here}}
   #pragma ivdep safelen(8)
   #pragma ivdep array(myArray) safelen(4)
   for (int i=0;i<32;++i) {}
 
-  //expected-warning@+2 {{redundant directive}}
-  //expected-note@+2 {{overriding ivdep pragma is specified here}}
+  //expected-warning@+2 {{ignoring redundant Intel FPGA loop attribute 'ivdep': safelen 8 >= safelen 4}}
+  //expected-note@+2 {{previous attribute is here}}
   #pragma ivdep array(myArray) safelen(4)
   #pragma ivdep safelen(8)
   for (int i=0;i<32;++i) {}
 
-  //expected-warning@+2 {{redundant directive}}
-  //expected-note@+2 {{overriding ivdep pragma is specified here}}
+  //expected-warning@+2 {{ignoring redundant Intel FPGA loop attribute 'ivdep': safelen 8 >= safelen 8}}
+  //expected-note@+2 {{previous attribute is here}}
   #pragma ivdep array(myArray) safelen(8)
   #pragma ivdep safelen(8)
   for (int i=0;i<32;++i) {}
 
-  //expected-warning@+3 {{redundant directive}}
-  //expected-note@+1 {{overriding ivdep pragma is specified here}}
+  //expected-warning@+3 {{ignoring redundant Intel FPGA loop attribute 'ivdep': safelen 8 >= safelen 8}}
+  //expected-note@+1 {{previous attribute is here}}
   #pragma ivdep safelen(8)
   #pragma ivdep array(myArray) safelen(8)
   for (int i=0;i<32;++i) {}
@@ -288,31 +288,31 @@ void foo_ivdep()
   for (int i=0;i<32;++i) {}
 
   int myArray2[24];
-  //expected-warning@+1 {{redundant directive}}
+  //expected-warning@+1 {{ignoring redundant Intel FPGA loop attribute 'ivdep': safelen 8 >= safelen 4}}
   #pragma ivdep array(myArray) safelen(4)
   #pragma ivdep array(myArray2) safelen(16)  // this one not redundant
   #pragma ivdep safelen(8)
-  //expected-note@-1 {{overriding ivdep pragma is specified here}}
+  //expected-note@-1 {{previous attribute is here}}
   for (int i=0;i<32;++i) {}
 
-  //expected-warning@+3 {{redundant directive}}
-  //expected-note@+1 {{overriding ivdep pragma is specified here}}
+  //expected-warning@+3 {{ignoring redundant Intel FPGA loop attribute 'ivdep': safelen INF >= safelen INF}}
+  //expected-note@+1 {{previous attribute is here}}
   #pragma ivdep
   #pragma ivdep array(myArray)
   for (int i=0;i<32;++i) {}
 
-  //expected-warning@+2 {{redundant directive}}
-  //expected-note@+2 {{overriding ivdep pragma is specified here}}
+  //expected-warning@+2 {{ignoring redundant Intel FPGA loop attribute 'ivdep': safelen INF >= safelen INF}}
+  //expected-note@+2 {{previous attribute is here}}
   #pragma ivdep array(myArray)
   #pragma ivdep
   for (int i=0;i<32;++i) {}
 
-  //expected-warning@+6{{redundant directive}}
-  //expected-note@+6 {{overriding ivdep pragma is specified here}}
-  //expected-warning@+6 {{redundant directive}}
-  //expected-note@+4 {{overriding ivdep pragma is specified here}}
-  //expected-warning@+5 {{redundant directive}}
-  //expected-note@+2 {{overriding ivdep pragma is specified here}}
+  //expected-warning@+6{{ignoring redundant Intel FPGA loop attribute 'ivdep': safelen INF >= safelen INF}}
+  //expected-note@+6 {{previous attribute is here}}
+  //expected-warning@+6 {{ignoring redundant Intel FPGA loop attribute 'ivdep': safelen INF >= safelen 8}}
+  //expected-note@+4 {{previous attribute is here}}
+  //expected-warning@+5 {{ignoring redundant Intel FPGA loop attribute 'ivdep': safelen INF >= safelen 16}}
+  //expected-note@+2 {{previous attribute is here}}
   #pragma ivdep array(myArray)
   #pragma ivdep
   #pragma ivdep safelen(8)
@@ -585,4 +585,43 @@ int main()
   nontypeargument<100>();
   nontypeargument2<0>();
   nontypeargument1<-1>(); //expected-note {{requested here}}
+}
+
+//CHECK: FunctionDecl{{.*}}do_stuff
+template<int LEN>
+int do_stuff(int N) {
+  int temp = 0;
+  // CHECK: AttributedStmt
+  // CHECK-NEXT: SYCLIntelFPGAIVDepAttr {{.*}}
+  // CHECK-NEXT: NULL
+  // CHECK-NEXT: DeclRefExpr{{.*}}NonTypeTemplateParm{{.*}} 'LEN' 'int'
+  // CHECK: FunctionDecl{{.*}} do_stuff
+  // CHECK-NEXT: TemplateArgument integral 5
+  // CHECK: AttributedStmt
+  // CHECK-NEXT: SYCLIntelFPGAIVDepAttr{{.*}} 5
+  // CHECK-NEXT: SubstNonTypeTemplateParmExpr{{.*}} 'int'
+  // CHECK-NEXT: IntegerLiteral{{.*}}5
+  #pragma ivdep safelen(LEN)
+  for (int i = 0; i < N; ++i) {
+    temp += i;
+  }
+  return temp;
+}
+
+int dut() {
+  return do_stuff<5>(10);
+}
+
+//CHECK: FunctionDecl{{.*}}test 'void (long *)'
+void test(long* buffer1)
+{
+  //CHECK: AttributedStmt
+  //CHECK-NEXT: SYCLIntelFPGAIVDepAttr{{.*}}
+  //CHECK-NEXT: NULL
+  //CHECK-NEXT: DeclRefExpr{{.*}}'buffer1' 'long *'
+  //CHECK-NEXT: WhileStmt
+  //CHECK-NEXT: ImplicitCastExpr{{.*}}'bool' <IntegralToBoolean>
+  //CHECK_NEXT: IntegerLiteral{{.*}} 1
+  #pragma ivdep array(buffer1)
+  while (1) { }
 }

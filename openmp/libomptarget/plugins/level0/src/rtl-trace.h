@@ -444,6 +444,21 @@ TRACE_FN_DEF(zeKernelSetArgumentValue)(
   return rc;
 }
 
+TRACE_FN_DEF(zeKernelSetAttribute)(
+    ze_kernel_handle_t hKernel,
+    ze_kernel_attribute_t attr,
+    uint32_t size,
+    const void *pValue) {
+  auto rc = zeKernelSetAttribute(hKernel, attr, size, pValue);
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(hKernel);
+  TRACE_FN_ARG(attr, "%" PRId32);
+  TRACE_FN_ARG(size, "%" PRIu32);
+  TRACE_FN_ARG_PTR(pValue);
+  TRACE_FN_ARG_END();
+  return rc;
+}
+
 TRACE_FN_DEF(zeKernelSetGroupSize)(
     ze_kernel_handle_t hKernel,
     uint32_t groupSizeX,
@@ -514,6 +529,25 @@ TRACE_FN_DEF(zeModuleGetGlobalPointer)(
   TRACE_FN_ARG_PTR(hModule);
   TRACE_FN_ARG_PTR(pGlobalName);
   TRACE_FN_ARG_PTR(pptr);
+  TRACE_FN_ARG_END();
+  return rc;
+}
+
+TRACE_FN_DEF(zeKernelSuggestGroupSize)(
+    ze_kernel_handle_t hKernel,
+    uint32_t globalSizeX, uint32_t globalSizeY, uint32_t globalSizeZ,
+    uint32_t *groupSizeX, uint32_t *groupSizeY, uint32_t *groupSizeZ) {
+  auto rc = zeKernelSuggestGroupSize(hKernel,
+                                     globalSizeX, globalSizeY, globalSizeZ,
+                                     groupSizeX, groupSizeY, groupSizeZ);
+  TRACE_FN_ARG_BEGIN();
+  TRACE_FN_ARG_PTR(hKernel);
+  TRACE_FN_ARG(globalSizeX, "%" PRIu32);
+  TRACE_FN_ARG(globalSizeY, "%" PRIu32);
+  TRACE_FN_ARG(globalSizeZ, "%" PRIu32);
+  TRACE_FN_ARG_PTR(groupSizeX);
+  TRACE_FN_ARG_PTR(groupSizeY);
+  TRACE_FN_ARG_PTR(groupSizeZ);
   TRACE_FN_ARG_END();
   return rc;
 }

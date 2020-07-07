@@ -1,3 +1,4 @@
+; REQUIRES: asserts
 ; RUN: opt  < %s -whole-program-assume -dtransanalysis -dtrans-print-types -dtrans-outofboundsok=false -disable-output 2>&1 | FileCheck %s
 ; RUN: opt  < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -dtrans-outofboundsok=false -disable-output 2>&1 | FileCheck %s
 
@@ -23,10 +24,10 @@ entry:
 %struct.S5 = type { i32, i32, %struct.S4 }
 %struct.S6 = type { i32, i32, %struct.S5 }
 
-define dso_local void @foo_2(%struct.S6* nocapture %s6) {
+define dso_local i32** @foo_2(%struct.S6* nocapture %s6) {
   %ptr1 = getelementptr inbounds %struct.S6, %struct.S6* %s6, i64 0, i32 2
   %tmp = bitcast %struct.S5* %ptr1 to i32**
-  ret void
+  ret i32** %tmp
 }
 
 ; CHECK-LABEL: LLVMType: %struct.S4 = type { i32, float }
@@ -44,10 +45,10 @@ define dso_local void @foo_2(%struct.S6* nocapture %s6) {
 %struct.S8 = type { i32, i32 }
 @p.foo_3 = internal unnamed_addr global %struct.S7 zeroinitializer
 
-define void @foo_3() {
+define %struct.S8* @foo_3() {
   %s = bitcast i8* getelementptr( %struct.S7, %struct.S7* @p.foo_3,
                                   i64 0, i32 1) to %struct.S8*
-  ret void
+  ret %struct.S8* %s
 }
 
 ; CHECK-LABEL: LLVMType: %struct.S7 = type { i32, i8 }
@@ -62,10 +63,10 @@ define void @foo_3() {
 ; Check that Bad Casting is flagged for %struct.SA, because it is the
 ; target of a bitcast, and %struct.S9, because it is nested inside %struct.SA.
 
-define dso_local void @foo_4() {
+define dso_local %struct.SA* @foo_4() {
   %s = bitcast i8* getelementptr( %struct.S7, %struct.S7* @p.foo_4,
                                   i64 0, i32 1) to %struct.SA*
-  ret void
+  ret %struct.SA* %s
 }
 
 ; CHECK-LABEL: LLVMType: %struct.S9 = type { i32, float }
@@ -82,10 +83,10 @@ define dso_local void @foo_4() {
 %struct.SD = type { float, i32 }
 @p.foo_5 = internal unnamed_addr global %struct.SC zeroinitializer
 
-define dso_local void @foo_5() {
+define dso_local %struct.SD* @foo_5() {
   %s = bitcast %struct.SB* getelementptr( %struct.SC, %struct.SC* @p.foo_5,
                                   i64 0, i32 1) to %struct.SD*
-  ret void
+  ret %struct.SD* %s
 }
 
 ; CHECK-LABEL: LLVMType: %struct.SB = type { i32, float }

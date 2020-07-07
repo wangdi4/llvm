@@ -1,0 +1,42 @@
+// REQUIRES: intel_feature_isa_avx_dotprod_phps
+// RUN: llvm-mc -triple=x86_64-unknown-unknown -mattr=+avxdotprodphps --show-encoding < %s  | FileCheck %s
+
+// CHECK: vdpphps %ymm14, %ymm13, %ymm12
+// CHECK: encoding: [0xc4,0x42,0x14,0x52,0xe6]
+     vdpphps %ymm14, %ymm13, %ymm12
+
+// CHECK: vdpphps %xmm14, %xmm13, %xmm12
+// CHECK: encoding: [0xc4,0x42,0x10,0x52,0xe6]
+     vdpphps %xmm14, %xmm13, %xmm12
+
+// CHECK: vdpphps  268435456(%rbp,%r14,8), %ymm13, %ymm12
+// CHECK: encoding: [0xc4,0x22,0x14,0x52,0xa4,0xf5,0x00,0x00,0x00,0x10]
+     vdpphps  268435456(%rbp,%r14,8), %ymm13, %ymm12
+
+// CHECK: vdpphps  291(%r8,%rax,4), %ymm13, %ymm12
+// CHECK: encoding: [0xc4,0x42,0x14,0x52,0xa4,0x80,0x23,0x01,0x00,0x00]
+     vdpphps  291(%r8,%rax,4), %ymm13, %ymm12
+
+// CHECK: vdpphps  (%rip), %ymm13, %ymm12
+// CHECK: encoding: [0xc4,0x62,0x14,0x52,0x25,0x00,0x00,0x00,0x00]
+     vdpphps  (%rip), %ymm13, %ymm12
+
+// CHECK: vdpphps  -1024(,%rbp,2), %ymm13, %ymm12
+// CHECK: encoding: [0xc4,0x62,0x14,0x52,0x24,0x6d,0x00,0xfc,0xff,0xff]
+     vdpphps  -1024(,%rbp,2), %ymm13, %ymm12
+
+// CHECK: vdpphps  268435456(%rbp,%r14,8), %xmm13, %xmm12
+// CHECK: encoding: [0xc4,0x22,0x10,0x52,0xa4,0xf5,0x00,0x00,0x00,0x10]
+     vdpphps  268435456(%rbp,%r14,8), %xmm13, %xmm12
+
+// CHECK: vdpphps  291(%r8,%rax,4), %xmm13, %xmm12
+// CHECK: encoding: [0xc4,0x42,0x10,0x52,0xa4,0x80,0x23,0x01,0x00,0x00]
+     vdpphps  291(%r8,%rax,4), %xmm13, %xmm12
+
+// CHECK: vdpphps  (%rip), %xmm13, %xmm12
+// CHECK: encoding: [0xc4,0x62,0x10,0x52,0x25,0x00,0x00,0x00,0x00]
+     vdpphps  (%rip), %xmm13, %xmm12
+
+// CHECK: vdpphps  -512(,%rbp,2), %xmm13, %xmm12
+// CHECK: encoding: [0xc4,0x62,0x10,0x52,0x24,0x6d,0x00,0xfe,0xff,0xff]
+     vdpphps  -512(,%rbp,2), %xmm13, %xmm12

@@ -21,7 +21,7 @@ void foo()
 
   //CHECK: OMPSimdDirective
   //CHECK: AttributedStmt
-  //CHECK-NEXT: LoopHintAttr{{.*}}IVDepHLSIntel Enable
+  //CHECK-NEXT: SYCLIntelFPGAIVDepAttr{{.*}} 0
   #pragma omp simd simdlen(16)
   #pragma ivdep
   for (int i=0;i<32;++i) {}

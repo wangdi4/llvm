@@ -3,8 +3,9 @@
 ; RUN: opt -VPlanDriver -vplan-enable-soa -vplan-dump-da -vplan-dump-soa-info \
 ; RUN: -disable-output -disable-vplan-codegen %s 2>&1 | FileCheck %s
 
-; TODO: Enbale the test for HIR codegen path CMPLRLLVM-10967.
-
+; TODO: Enable the test for HIR codegen path CMPLRLLVM-10967.
+; see cmplrllvm-20281, VPInductionInit case
+; XFAIL: *
 ; REQUIRES:asserts
 
 ;; Source-code for testing the profitability-analysis.
@@ -96,10 +97,10 @@ define dso_local i32 @getElement(i32 %n) {
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_INDVARS_IV_NEXT43]] = add i64 [[VP_INDVARS_IV42]] i64 [[VP_INDVARS_IV42_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
-
 ; CHECK:       SOASafe = arr.priv Profitable = 1
 ; CHECK-NEXT:  SOASafe = i.lpriv Profitable = 1
 ;
+
 omp.inner.for.body.lr.ph:
   %0 = load i32, i32* getelementptr inbounds ([1024 x i32], [1024 x i32]* @arr, i64 0, i64 0), align 16
   %arr.priv = alloca [1024 x i32], align 4
@@ -192,13 +193,13 @@ define dso_local void @getElement2(i32 %n) {
 ; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_IV1_NEXT]] = add i64 [[VP_IV1]] i64 [[VP_IV1_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
-
 ; CHECK:       SOASafe = arr1.priv Profitable = 0
 ; CHECK-NEXT:  SOASafe = arr2.priv Profitable = 1
 ; CHECK-NEXT:  SOASafe = arr3.priv Profitable = 0
 ; CHECK-NEXT:  SOASafe = arr4.priv Profitable = 0
 ; CHECK-NEXT:  SOASafe = arr5.priv Profitable = 0
 ;
+
 omp.inner.for.body.lr.ph:
   %0 = load i32, i32* getelementptr inbounds ([1024 x i32], [1024 x i32]* @arr, i64 0, i64 0), align 16
   %arr1.priv = alloca [1024 x i32], align 4
@@ -258,21 +259,31 @@ define void @test_pointer_induction_escape() {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB0]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB2:BB[0-9]+]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB1]] ]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] i32* [[VP_ARRAYIDX_CURRENT:%.*]] = phi  [ i32* [[VP_ARRAYIDX:%.*]], [[BB2]] ],  [ i32* [[VP_ARRAYIDX_NEXT:%.*]], [[BB1]] ]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] i32* [[VP_ARRAYIDX_CURRENT1:%.*]] = phi  [ i32* [[VP_ARRAYIDX1:%.*]], [[BB2]] ],  [ i32* [[VP_ARRAYIDX_NEXT1:%.*]], [[BB1]] ]
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_IV1:%.*]] = phi  [ i64 [[VP_IV1_IND_INIT:%.*]], [[BB2]] ],  [ i64 [[VP_IV1_NEXT:%.*]], [[BB1]] ]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32* [[VP_ARRAYIDX_CURRENT:%.*]] = phi  [ i32* [[VP_ARRAYIDX_CURRENT_IND_INIT:%.*]], [[BB2]] ],  [ i32* [[VP0:%.*]], [[BB1]] ]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32* [[VP_ARRAYIDX_CURRENT1:%.*]] = phi  [ i32* [[VP_ARRAYIDX_CURRENT1_IND_INIT:%.*]], [[BB2]] ],  [ i32* [[VP1:%.*]], [[BB1]] ]
 ; CHECK-NEXT:  Divergent: [Shape: Random] i32 [[VP_LD:%.*]] = load i32* [[VP_ARRAYIDX_CURRENT1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB1]]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] i32 addrspace(4)* [[VP_AS_CAST2:%.*]] = addrspacecast i32* [[VP_ARRAYIDX_CURRENT]]
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] i64 [[VP_PTR2INT2:%.*]] = ptrtoint i32 addrspace(4)* [[VP_AS_CAST2]] to i64
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] i32* [[VP_ARRAYIDX_NEXT]] = getelementptr inbounds i32* [[VP_ARRAYIDX_CURRENT]] i64 1
-; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4096] i32* [[VP_ARRAYIDX_NEXT1]] = getelementptr inbounds i32* [[VP_ARRAYIDX_CURRENT1]] i64 1
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32 addrspace(4)* [[VP_AS_CAST2:%.*]] = addrspacecast i32* [[VP_ARRAYIDX_CURRENT]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i64 [[VP_PTR2INT2:%.*]] = ptrtoint i32 addrspace(4)* [[VP_AS_CAST2]] to i64
+; CHECK-NEXT:  Divergent: [Shape: Random] i1 [[VP_ICMP:%.*]] = icmp i64 [[VP_PTR2INT2]] i64 [[PTR2INT10:%.*]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32* [[VP_ARRAYIDX_NEXT:%.*]] = getelementptr inbounds i32* [[VP_ARRAYIDX_CURRENT]] i64 1
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32* [[VP_ARRAYIDX_NEXT1:%.*]] = getelementptr inbounds i32* [[VP_ARRAYIDX_CURRENT1]] i64 1
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i64 1] i64 [[VP_IV1_NEXT]] = add i64 [[VP_IV1]] i64 [[VP_IV1_IND_INIT_STEP:%.*]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32* [[VP0]] = getelementptr inbounds i32* [[VP_ARRAYIDX_CURRENT]] i64 [[VP_ARRAYIDX_CURRENT_IND_INIT_STEP:%.*]]
+; CHECK-NEXT:  Divergent: [Shape: Strided, Stride: i64 4] i32* [[VP1]] = getelementptr inbounds i32* [[VP_ARRAYIDX_CURRENT1]] i64 [[VP_ARRAYIDX_CURRENT1_IND_INIT_STEP:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
-
+; CHECK-EMPTY:
+; CHECK-NEXT:  Basic Block: [[BB3:BB[0-9]+]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_IV1_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32* [[VP_ARRAYIDX_CURRENT_IND_FINAL:%.*]] = induction-final{getelementptr} i32* [[ARRAYIDX0:%.*]] i64 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32* [[VP_ARRAYIDX_CURRENT1_IND_FINAL:%.*]] = induction-final{getelementptr} i32* [[ARRAYIDX10:%.*]] i64 1
 ; CHECK:       SOAUnsafe = arr_e.priv
 ; CHECK-NEXT:  SOASafe = arr_ne.priv Profitable = 0
 ;
+
   %arr_e.priv = alloca [1024 x i32], align 4
   %arr_ne.priv = alloca [1024 x i32], align 4
   %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* %arr_e.priv, i64 0, i64 0
@@ -285,6 +296,7 @@ simd.begin.region:
   %entry.region = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.PRIVATE"([1024 x i32]* %arr_e.priv, [1024 x i32]* %arr_ne.priv) ]
   br label %simd.loop
 simd.loop:
+  %iv1 = phi i64 [ 0, %simd.begin.region ], [ %iv1.next, %simd.loop.end]
   %arrayidx.current = phi i32* [ %arrayidx, %simd.begin.region], [%arrayidx.next, %simd.loop.end]
   %arrayidx.current1 = phi i32* [ %arrayidx1, %simd.begin.region], [%arrayidx.next1, %simd.loop.end]
   %ld = load i32, i32* %arrayidx.current1
@@ -295,7 +307,9 @@ simd.loop.end:
   %icmp = icmp ult i64 %ptr2int2, %ptr2int1
   %arrayidx.next = getelementptr inbounds i32, i32* %arrayidx.current, i64 1
   %arrayidx.next1 = getelementptr inbounds i32, i32* %arrayidx.current1, i64 1
-  br i1 %icmp, label %simd.end.region, label %simd.loop
+  %iv1.next = add nuw nsw i64 %iv1, 1
+  %cmp = icmp ult i64 %iv1.next, 1024
+  br i1 %cmp, label %simd.end.region, label %simd.loop
 
 simd.end.region:
   call void @llvm.directive.region.exit(token %entry.region) [ "DIR.OMP.END.SIMD"() ]

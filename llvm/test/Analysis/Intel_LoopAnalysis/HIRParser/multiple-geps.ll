@@ -1,5 +1,5 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser -hir-details-refs | FileCheck %s
-; RUN: opt < %s -convert-to-subscript -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser -hir-details-refs | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser -hir-details-dims | FileCheck %s
+; RUN: opt < %s -convert-to-subscript -hir-ssa-deconstruction | opt -analyze -hir-framework -hir-framework-debug=parser -hir-details-dims | FileCheck %s
 
 ; Check parsing output for the loop verifying that the load and store whose address is formed using multiple geps is parsed correctly.
 

@@ -41,6 +41,7 @@
 
 #include "IntelVPlanDivergenceAnalysis.h"
 #include "IntelVPLoopAnalysis.h"
+#include "IntelVPSOAAnalysis.h"
 #include "IntelVPlan.h"
 #include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanLoopInfo.h"
@@ -75,11 +76,14 @@ static cl::opt<bool>
 
 extern cl::opt<bool> EnableVPValueCodegen;
 
-#define Uni VPVectorShape::Uni
-#define Seq VPVectorShape::Seq
-#define Str VPVectorShape::Str
-#define Rnd VPVectorShape::Rnd
-#define Undef VPVectorShape::Undef
+#define Uni    VPVectorShape::Uni
+#define Seq    VPVectorShape::Seq
+#define Str    VPVectorShape::Str
+#define Rnd    VPVectorShape::Rnd
+#define SOASeq VPVectorShape::SOASeq
+#define SOAStr VPVectorShape::SOAStr
+#define SOARnd VPVectorShape::SOARnd
+#define Undef  VPVectorShape::Undef
 
 const VPVectorShape::VPShapeDescriptor
 AddConversion[VPVectorShape::NumDescs][VPVectorShape::NumDescs] = {
@@ -113,12 +117,15 @@ MulConversion[VPVectorShape::NumDescs][VPVectorShape::NumDescs] = {
 
 const VPVectorShape::VPShapeDescriptor
 GepConversion[VPVectorShape::NumDescs][VPVectorShape::NumDescs] = {
-  /* ptr\index   Uni,   Seq,   Str,   Rnd,   Undef */
-  /* Uni   */   {Uni,   Str,   Str,   Rnd,   Undef},
-  /* Seq   */   {Str,   Rnd,   Rnd,   Rnd,   Undef},
-  /* Str   */   {Str,   Rnd,   Rnd,   Rnd,   Undef},
-  /* Rnd   */   {Rnd,   Rnd,   Rnd,   Rnd,   Undef},
-  /* Undef */   {Undef, Undef, Undef, Undef, Undef}
+  /* ptr\index      Uni,      Seq,      Str,      Rnd,      Undef */
+  /* Uni      */   {Uni,      Str,      Str,      Rnd,      Undef},
+  /* Seq      */   {Str,      Rnd,      Rnd,      Rnd,      Undef},
+  /* Str      */   {Str,      Rnd,      Rnd,      Rnd,      Undef},
+  /* Rnd      */   {Rnd,      Rnd,      Rnd,      Rnd,      Undef},
+  /* SOASeq   */   {SOASeq,   SOAStr,   SOARnd,   SOARnd,   Undef},
+  /* SOAStr   */   {SOAStr,   SOAStr,   SOARnd,   SOARnd,   Undef},
+  /* SOARnd   */   {SOARnd,   SOARnd,   SOARnd,   SOARnd,   Undef},
+  /* Undef    */   {Undef,    Undef,    Undef,    Undef,    Undef}
 };
 
 const VPVectorShape::VPShapeDescriptor
@@ -137,6 +144,9 @@ SelectConversion[VPVectorShape::NumDescs][VPVectorShape::NumDescs] = {
 #undef Seq
 #undef Str
 #undef Rnd
+#undef SOASeq
+#undef SOAStr
+#undef SOARnd
 #undef Undef
 
 static void assertOperandsDefined(const VPInstruction &I,
@@ -168,7 +178,12 @@ unsigned VPlanDivergenceAnalysis::getTypeSizeInBytes(Type *Ty) const {
 }
 
 bool VPlanDivergenceAnalysis::isUnitStridePtr(const VPValue *Ptr) const {
+  bool IsNegOneStride;
+  return isUnitStridePtr(Ptr, IsNegOneStride);
+}
 
+bool VPlanDivergenceAnalysis::isUnitStridePtr(const VPValue *Ptr,
+                                              bool &IsNegOneStride) const {
   assert(isa<PointerType>(Ptr->getType()) &&
          "Expect argument of isUnitStridePtr to be of PointerType.");
   // Compute the pointee-size in bytes.
@@ -177,10 +192,18 @@ bool VPlanDivergenceAnalysis::isUnitStridePtr(const VPValue *Ptr) const {
 
   auto VectorShape = getVectorShape(Ptr);
 
-  // Compare that the absolute value of stride is equal to the pointee-size
-  // in bytes.
-  return VectorShape.isStrided() && VectorShape.hasKnownStride() &&
-         std::abs(VectorShape.getStrideVal()) == PtrNumBytes;
+  // Compare stride value and pointee-size in bytes to appropriately set
+  // IsNegOneStride and return true for unit stride case.
+  if (VectorShape.isStrided() && VectorShape.hasKnownStride()) {
+    auto StrideVal = VectorShape.getStrideVal();
+    if (std::abs(StrideVal) == PtrNumBytes) {
+      IsNegOneStride = StrideVal < 0;
+      return true;
+    }
+  }
+
+  IsNegOneStride = false;
+  return false;
 }
 
 #if INTEL_CUSTOMIZATION
@@ -531,12 +554,13 @@ void VPlanDivergenceAnalysis::computeImpl() {
     if ((isAlwaysUniform(I)) && !getVectorShape(&I).isUndefined())
       continue;
 
-    bool IsPhiNode = (I.getOpcode() == Instruction::PHI);
+    bool IsPhiOrTerminatorNode = I.getOpcode() == Instruction::PHI ||
+                                 I.getOpcode() == Instruction::Br;
     bool ShapeUpdated = false;
     VPVectorShape NewShape;
-    if (IsPhiNode) {
-      // Some operands might be undefined for header phis. That is fine, the phi
-      // will be re-visited during backpropagation.
+    if (IsPhiOrTerminatorNode) {
+      // Some operands might be undefined for header phis or terminators. That
+      // is fine, the phi will be re-visited during backpropagation.
       NewShape = computeVectorShape(&I);
       ShapeUpdated |= updateVectorShape(&I, NewShape);
     } else {
@@ -655,12 +679,31 @@ VPVectorShape VPlanDivergenceAnalysis::getRandomVectorShape() {
 }
 
 VPVectorShape
-VPlanDivergenceAnalysis::getSequentialVectorShape(uint64_t Stride) {
+VPlanDivergenceAnalysis::getSequentialVectorShape(int64_t Stride) {
   return {VPVectorShape::Seq, getConstantInt(Stride)};
 }
 
-VPVectorShape VPlanDivergenceAnalysis::getStridedVectorShape(uint64_t Stride) {
+VPVectorShape VPlanDivergenceAnalysis::getStridedVectorShape(int64_t Stride) {
   return {VPVectorShape::Str, getConstantInt(Stride)};
+}
+
+/// Return true if the given variable has SOA Shape.
+bool VPlanDivergenceAnalysis::isSOAShape(const VPValue *Val) const {
+  assert(Val && "Expected a non-null value.");
+  auto Shape = getVectorShape(Val).getShapeDescriptor();
+  return Shape == VPVectorShape::SOASeq || Shape == VPVectorShape::SOAStr ||
+         Shape == VPVectorShape::SOARnd;
+}
+
+// Returns a SOASequential vector shape with the given stride.
+VPVectorShape
+VPlanDivergenceAnalysis::getSOASequentialVectorShape(int64_t Stride) {
+  return {VPVectorShape::SOASeq, getConstantInt(Stride)};
+}
+
+// Returns a SOARandom vector shape with the given stride.
+VPVectorShape VPlanDivergenceAnalysis::getSOARandomVectorShape() {
+  return {VPVectorShape::SOARnd};
 }
 
 // Verify the shape of each instruction in give Block \p VPBB.
@@ -697,6 +740,8 @@ void VPlanDivergenceAnalysis::print(raw_ostream &OS, const VPLoop *VPLp) {
   for (VPBasicBlock *VPBB : RPOT) {
     OS << "Basic Block: " << VPBB->getName() << "\n";
     for (auto &VPInst : *VPBB) {
+      if (!PrintTerminatorInst && isa<VPBranchInst>(VPInst))
+        continue;
       if (isDivergent(VPInst))
         OS << "Divergent: ";
       else
@@ -718,7 +763,7 @@ VPConstant* VPlanDivergenceAnalysis::getConstantInt(int64_t Val) {
   return VPCInt;
 }
 
-bool VPlanDivergenceAnalysis::getConstantIntVal(VPValue *V, uint64_t &IntVal) {
+bool VPlanDivergenceAnalysis::getConstantIntVal(VPValue *V, int64_t &IntVal) {
   if (V && isa<VPConstant>(V)) {
     Constant *C = cast<Constant>(V->getUnderlyingValue());
     if (ConstantInt *CInt = dyn_cast<ConstantInt>(C)) {
@@ -766,13 +811,13 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForBinaryInst(
       // A constant integer multiplied by a known stride results in another
       // known stride that has been scaled.
       VPValue *NewStride = nullptr;
-      uint64_t Op1IntVal;
-      uint64_t Op0StrideIntVal;
+      int64_t Op1IntVal;
+      int64_t Op0StrideIntVal;
       bool Op1IsInt = getConstantIntVal(Op1, Op1IntVal);
       bool Shape0StrideIsInt = getConstantIntVal(Shape0.getStride(),
                                                  Op0StrideIntVal);
       if (Op1IsInt && Shape0StrideIsInt) {
-        uint64_t NewStrideVal = Op1IntVal * Op0StrideIntVal;
+        int64_t NewStrideVal = Op1IntVal * Op0StrideIntVal;
         ConstantInt *NewStrideInt = ConstantInt::get(Type::getInt64Ty(C),
                                                      NewStrideVal);
         NewStride = Plan->getVPConstant(NewStrideInt);
@@ -792,8 +837,8 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForBinaryInst(
     case Instruction::Add:
     case Instruction::FAdd: {
       VPValue *NewStride = nullptr;
-      uint64_t Op0StrideIntVal;
-      uint64_t Op1StrideIntVal;
+      int64_t Op0StrideIntVal;
+      int64_t Op1StrideIntVal;
       bool Op0StrideIsInt = getConstantIntVal(Shape0.getStride(),
                                               Op0StrideIntVal);
       bool Op1StrideIsInt = getConstantIntVal(Shape1.getStride(),
@@ -810,8 +855,8 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForBinaryInst(
     case Instruction::Sub:
     case Instruction::FSub: {
       VPValue *NewStride = nullptr;
-      uint64_t Op0StrideIntVal;
-      uint64_t Op1StrideIntVal;
+      int64_t Op0StrideIntVal;
+      int64_t Op1StrideIntVal;
       bool Op0StrideIsInt =
           getConstantIntVal(Shape0.getStride(), Op0StrideIntVal);
       bool Op1StrideIsInt =
@@ -899,10 +944,80 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForCastInst(
 }
 
 VPVectorShape
-VPlanDivergenceAnalysis::computeVectorShapeForGepInst(const VPInstruction *I) {
+VPlanDivergenceAnalysis::computeVectorShapeForSOAGepInst(const VPInstruction *I) {
+  const auto &VPBB = *I->getParent();
+  VPValue *PtrOp = I->getOperand(0);
+  VPVectorShape PtrShape = getObservedShape(VPBB, *PtrOp);
+
+  unsigned NumOperands = I->getNumOperands();
+  // If any of the gep indices, except the last, are not uniform, then return
+  // random shape.
+  for (unsigned i = 1; i < NumOperands - 1; i++) {
+    const VPValue *Op = I->getOperand(i);
+    VPVectorShape OpShape = getVectorShape(Op);
+    if (!OpShape.isUniform())
+      return getSOARandomVectorShape();
+  }
+
+  const VPValue *LastIdx = I->getOperand(NumOperands - 1);
+  VPVectorShape IdxShape = getObservedShape(VPBB, *LastIdx);
+
+  VPConstant *NewStride = nullptr;
+
+  VPVectorShape::VPShapeDescriptor PtrShapeDesc =
+      PtrShape.getShapeDescriptor();
+
+  VPVectorShape::VPShapeDescriptor IdxShapeDesc =
+      IdxShape.getShapeDescriptor();
+
+  VPVectorShape::VPShapeDescriptor NewDesc =
+      GepConversion[PtrShapeDesc][IdxShapeDesc];
+
+  // If shape is not random, then a new stride (in bytes) can be calculated for
+  // the gep. Gep stride is always in bytes.
+  if (NewDesc != VPVectorShape::SOARnd) {
+    Type *PointedToTy = cast<PointerType>(I->getType())->getElementType();
+    uint64_t PointedToTySize = getTypeSizeInBytes(PointedToTy);
+    // For known strides:
+    // 1) Uniform gep on an array-private should result in strided-access with
+    //   stride = PointedToTySize.
+    // 2) Unit-Stride gep's result in strided access with stride = VF *
+    // PointedToTySize. Since we do not know the value of VF, the stride is unknown.
+    if (PtrShape.hasKnownStride() && IdxShape.hasKnownStride()) {
+      VPValue *IdxStride = IdxShape.getStride();
+
+      uint64_t IdxStrideVal =
+          cast<ConstantInt>(IdxStride->getUnderlyingValue())->getSExtValue();
+
+      if (IdxStrideVal == 0)
+        NewStride = getConstantInt(PointedToTySize);
+      else {
+        // TODO: Set up symbolic stride and express it as multiple of
+        // VF (CMPLRLLVM-19061).
+        if (PtrShape.isSOAUnitStride())
+          NewStride = getConstantInt(IdxStrideVal * PointedToTySize);
+        else if (PtrShape.isSOAStrided())
+          // Can be refined further and the correct stride set.
+          NewStride = nullptr;
+        NewDesc = VPVectorShape::SOAStr;
+      }
+    }
+  }
+  return {NewDesc, NewStride};
+}
+
+
+VPVectorShape
+VPlanDivergenceAnalysis::computeVectorShapeForMemAddrInst(const VPInstruction *I) {
 
   const auto &VPBB = *I->getParent();
   VPValue *PtrOp = I->getOperand(0);
+
+  // If this is a GEP on SOA variable, invoke the SOA-specific GEP-Shape
+  // computation function.
+  if (isSOAShape(PtrOp))
+    return computeVectorShapeForSOAGepInst(I);
+
   VPVectorShape PtrShape = getObservedShape(VPBB, *PtrOp);
   unsigned NumOperands = I->getNumOperands();
 
@@ -917,6 +1032,16 @@ VPlanDivergenceAnalysis::computeVectorShapeForGepInst(const VPInstruction *I) {
 
   const VPValue *LastIdx = I->getOperand(NumOperands - 1);
   VPVectorShape IdxShape = getObservedShape(VPBB, *LastIdx);
+
+  // Special processing for subscript instructions which could have struct
+  // offsets in 0th dimension.
+  if (auto *Subscript = dyn_cast<VPSubscriptInst>(I)) {
+    ArrayRef<unsigned> ZeroDimOffsets = Subscript->getStructOffsets(0);
+    if (!ZeroDimOffsets.empty() && !IdxShape.isUniform())
+      // 0-th dimension index is divergent and we have struct offsets, do not
+      // proceed.
+      return getRandomVectorShape();
+  }
 
   VPConstant *NewStride = nullptr;
 
@@ -1065,7 +1190,7 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForSelectInst(
     VPVectorShape Shape2 = getObservedShape(VPBB, *Op2);
     VPVectorShape::VPShapeDescriptor Shape1Desc = Shape1.getShapeDescriptor();
     VPVectorShape::VPShapeDescriptor Shape2Desc = Shape2.getShapeDescriptor();
-    uint64_t MaskConstIntVal;
+    int64_t MaskConstIntVal;
     bool MaskIsConstInt = getConstantIntVal(Mask, MaskConstIntVal);
     if (isa<VPConstant>(Mask) && MaskIsConstInt) {
       if (MaskConstIntVal)
@@ -1135,8 +1260,16 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForAllocatePrivateInst(
   // Allocate-private is of a pointer type. Get the pointee size and set a
   // tentative shape.
   Type *PointeeTy = cast<PointerType>(AI->getType())->getPointerElementType();
+
+  // Check for SOA-layout.
+  if (AI->isSOALayout() && isa<ArrayType>(PointeeTy)) {
+    uint64_t StrideVal =
+        getTypeSizeInBytes(cast<ArrayType>(PointeeTy)->getElementType());
+    return getSOASequentialVectorShape(StrideVal);
+  }
+
   // We set the stride in terms of bytes.
-  uint64_t Stride = getTypeSizeInBytes(PointeeTy);
+  int64_t Stride = getTypeSizeInBytes(PointeeTy);
   updateVectorShape(AI, getStridedVectorShape(Stride));
 
   return getVectorShape(AI);
@@ -1173,6 +1306,8 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForInductionInit(
     StepInt = StepConst->getZExtValue();
 
   if (StepInt == 1 || StepInt == -1)
+    // Step could be of i32 type. That is why we do not use
+    // getSequentialVectorShape().
     return VPVectorShape{VPVectorShape::Seq, const_cast<VPValue *>(Step)};
 
   return getStridedVectorShape(StepInt);
@@ -1198,8 +1333,9 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     NewShape = computeVectorShapeForBinaryInst(I);
   else if (Instruction::isCast(Opcode))
     NewShape = computeVectorShapeForCastInst(I);
-  else if (Opcode == Instruction::GetElementPtr)
-    NewShape = computeVectorShapeForGepInst(I);
+  else if (Opcode == Instruction::GetElementPtr ||
+           Opcode == VPInstruction::Subscript)
+    NewShape = computeVectorShapeForMemAddrInst(I);
   else if (Opcode == Instruction::Load)
     NewShape = computeVectorShapeForLoadInst(I);
   else if (Opcode == Instruction::Store)
@@ -1213,14 +1349,18 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
     NewShape = computeVectorShapeForSelectInst(I);
   else if (Opcode == Instruction::Call)
     NewShape = computeVectorShapeForCallInst(I);
-  else if (Opcode == Instruction::Br)
-    NewShape = (I->getNumOperands() == 0)
-                   ? getUniformVectorShape()
-                   : getObservedShape(ParentBB, *I->getOperand(0));
-  else if (Instruction::isUnaryOp(Opcode))
+  else if (Opcode == Instruction::Br) {
+    VPValue *CondBit = cast<VPBranchInst>(I)->getCondBit();
+    NewShape = !CondBit ? getUniformVectorShape()
+                        : getObservedShape(ParentBB, *CondBit);
+  } else if (Instruction::isUnaryOp(Opcode))
     NewShape = computeVectorShapeForUnaryInst(I);
   else if (Opcode == VPInstruction::Not || Opcode == VPInstruction::Pred)
     NewShape = getObservedShape(ParentBB, *(I->getOperand(0)));
+  else if (Opcode == VPInstruction::Abs)
+    // Shape computation of abs instruction is same as unary instruction for
+    // now. Revisit in future if this needs to change.
+    NewShape = computeVectorShapeForUnaryInst(I);
   else if (Opcode == VPInstruction::AllZeroCheck)
     NewShape = getUniformVectorShape();
   else if (Opcode == VPInstruction::InductionInit)
@@ -1255,6 +1395,37 @@ VPlanDivergenceAnalysis::computeVectorShape(const VPInstruction *I) {
 
   return NewShape;
 }
+
+void VPlanDivergenceAnalysis::improveStrideUsingIR() {
+  for (const VPBasicBlock &VPBB : *Plan) {
+    for (auto &VPInst : VPBB) {
+      // We are only attempting to improve the stride information of load/store
+      // pointer operand.
+      const VPValue *PtrOp = getLoadStorePointerOperand(&VPInst);
+      if (!PtrOp)
+        continue;
+
+      // Nothing further to do if pointer shape is already marked not random.
+      if (!getVectorShape(PtrOp).isRandom())
+        continue;
+
+      // HIR allows instructions like t1 = a[i] + b[i]. We can reliably
+      // determine the underlying memory reference only for master instructions.
+      // For stores, it is the LVAL ref. For loads, it is the RVAL ref.
+      if (!VPInst.HIR.isMaster())
+        continue;
+
+      const loopopt::HLNode *HNode = VPInst.HIR.getUnderlyingNode();
+      assert(HNode && "Unexpected null underlying node for master");
+
+      int64_t Stride;
+      if (getStrideUsingHIR(*HNode, Stride)) {
+        LLVM_DEBUG(dbgs() << "Improved stride information for: " << VPInst);
+        updateVectorShape(PtrOp, getStridedVectorShape(Stride));
+      }
+    }
+  }
+}
 #endif // INTEL_CUSTOMIZATION
 
 void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
@@ -1269,10 +1440,9 @@ void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
   DT = &VPDomTree;
   PDT = &VPPostDomTree;
   IsLCSSAForm = IsLCSSA;
-  SDA = new SyncDependenceAnalysis(CandidateLoop ? CandidateLoop->getHeader()
-                                                 : P->getEntryBlock(),
-                                   VPDomTree, VPPostDomTree, *VPLInfo);
-
+  SDA = std::make_unique<SyncDependenceAnalysis>(
+      CandidateLoop ? CandidateLoop->getHeader() : P->getEntryBlock(),
+      VPDomTree, VPPostDomTree, *VPLInfo);
   // Push everything to the worklist.
   ReversePostOrderTraversal<VPBasicBlock *> RPOT(Plan->getEntryBlock());
   for (auto *BB : RPOT) {
@@ -1303,6 +1473,7 @@ void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
   if (VPlanVerifyDA)
     verifyVectorShapes();
 
+  improveStrideUsingIR();
 #endif // INTEL_CUSTOMIZATION
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -1311,6 +1482,45 @@ void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 }
 
+// Recomputes the shapes of all the instructions in the \p Seeds set and
+// triggers the recomputation of all dependent instructions.
+// This function assumes that all the required information like VPlan,
+// Dominator/Post-Dominator tree, etc. are unchanged from the previous
+// invocation of the \p compute method.
+void VPlanDivergenceAnalysis::recomputeShapes(
+    SmallPtrSetImpl<VPInstruction *> &Seeds) {
+
+  if (Seeds.empty())
+    return;
+
+  // Clear the Worklist.
+  clearWorklist();
+
+  // Compute the shapes of the VPAllocatePrivate seed-instructions and push
+  // their users to the Worklist.
+  for (auto *Priv : Seeds) {
+    auto Shape = computeVectorShape(Priv);
+    updateVectorShape(Priv, Shape);
+    pushUsers(*Priv);
+  }
+
+  // Compute the shapes of instructions.
+  computeImpl();
+
+#if INTEL_CUSTOMIZATION
+
+  // We verify the shapes of the instructions 'always' in the debug-build and if
+  // the command-line switch is enabled.
+  if (VPlanVerifyDA)
+    verifyVectorShapes();
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  if (DumpDA)
+    print(dbgs(), RegionLoop);
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+}
+
+#endif // INTEL_CUSTOMIZATION
 // Note: community version contains a LoopDivergencePrinter class that creates
 // a SyncDependenceAnalysis object and a LoopDivergenceAnalysis object. The
 // constructor for the LoopDivergenceAnalysis object then calls compute() to

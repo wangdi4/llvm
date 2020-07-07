@@ -370,7 +370,6 @@ void foo(float *&lr, T *&tr) {
 // CHECK: [[T:%t]] = alloca i32*
 // CHECK: [[L:%[0-9]+]] = load double*, double** @g,
 // CHECK: [[TV1:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
-// CHECK-SAME: "QUAL.OMP.IS_DEVICE_PTR"(double** @g)
 // CHECK-SAME: "QUAL.OMP.DEFAULTMAP.NONE:POINTER"()
 // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(double* [[L]], double* [[L]], i64 8, i64 288)
 // CHECK: region.exit(token [[TV1]]) [ "DIR.OMP.END.TARGET"() ]
@@ -380,7 +379,6 @@ void foo(float *&lr, T *&tr) {
   }
 // CHECK: [[L3:%[0-9]+]] = load float*, float** [[LL]]
 // CHECK: [[TV2:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
-// CHECK-SAME: "QUAL.OMP.IS_DEVICE_PTR"(float** [[LL]])
 // CHECK-SAME: "QUAL.OMP.DEFAULTMAP.NONE:POINTER"()
 // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(float* [[L3]], float* [[L3]], i64 8, i64 288)
 // CHECK: region.exit(token [[TV2]]) [ "DIR.OMP.END.TARGET"() ]
@@ -390,7 +388,6 @@ void foo(float *&lr, T *&tr) {
   }
 // CHECK: [[L6:%[0-9]+]] = load i32*, i32** [[T]]
 // CHECK: [[TV3:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
-// CHECK-SAME: "QUAL.OMP.IS_DEVICE_PTR"(i32** [[T]])
 // CHECK-SAME: "QUAL.OMP.DEFAULTMAP.NONE:POINTER"()
 // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32* [[L6]], i32* [[L6]], i64 8, i64 288)
 // CHECK: region.exit(token [[TV3]]) [ "DIR.OMP.END.TARGET"() ]
@@ -399,36 +396,29 @@ void foo(float *&lr, T *&tr) {
     ++t;
   }
 // CHECK: [[L9:%[0-9]+]] = load float**, float*** [[LR]]
-// CHECK: [[L10:%[0-9]+]] = load float**, float*** [[LR]]
 // CHECK: [[TV4:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
-// CHECK-SAME: "QUAL.OMP.IS_DEVICE_PTR"(float** [[L9]])
 // CHECK-SAME: "QUAL.OMP.DEFAULTMAP.NONE:POINTER"()
-// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(float** [[L10]], float** [[L10]], i64 8, i64 288)
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(float** [[L9]], float** [[L9]], i64 8, i64 288)
 // CHECK: region.exit(token [[TV4]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target is_device_ptr(lr) defaultmap(none:pointer)
   {
     ++lr;
   }
 
-// CHECK: [[L14:%[0-9]+]] = load i32**, i32*** %tr.addr
-// CHECK: [[L15:%[0-9]+]] = load i32**, i32*** %tr.addr
+// CHECK: [[L13:%[0-9]+]] = load i32**, i32*** %tr.addr
 // CHECK: [[TV5:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
-// CHECK-SAME: "QUAL.OMP.IS_DEVICE_PTR"(i32** [[L14]])
 // CHECK-SAME: "QUAL.OMP.DEFAULTMAP.NONE:POINTER"()
-// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32** [[L15]], i32** [[L15]], i64 8, i64 288)
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32** [[L13]], i32** [[L13]], i64 8, i64 288)
 // CHECK: region.exit(token [[TV5]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target is_device_ptr(tr) defaultmap(none:pointer)
   {
     ++tr;
   }
 
-// CHECK: [[L19:%[0-9]+]] = load i32**, i32*** %tr.addr
-// CHECK: [[L20:%[0-9]+]] = load float**, float*** [[LR]]
-// CHECK: [[L21:%[0-9]+]] = load i32**, i32*** %tr.addr
+// CHECK: [[L17:%[0-9]+]] = load i32**, i32*** %tr.addr
 // CHECK: [[TV6:%[0-9]+]] = call token{{.*}}region.entry{{.*}}DIR.OMP.TARGET
-// CHECK-SAME: "QUAL.OMP.IS_DEVICE_PTR"(i32** [[L19]], float** [[L20]])
 // CHECK-SAME: "QUAL.OMP.DEFAULTMAP.NONE:POINTER"()
-// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32** [[L21]], i32** [[L21]], i64 8, i64 288)
+// CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(i32** [[L17]], i32** [[L17]], i64 8, i64 288)
 // CHECK: region.exit(token [[TV6]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target is_device_ptr(tr,lr) defaultmap(none:pointer)
   {

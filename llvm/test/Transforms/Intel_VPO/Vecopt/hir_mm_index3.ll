@@ -30,7 +30,7 @@
 ; CHECK-NEXT:     i32 [[VP1]] = phi  [ i32 [[VP__RED_INIT]], [[BB2]] ],  [ i32 [[VP0]], [[BB0]] ]
 ; CHECK-NEXT:     i32 [[VP5]] = phi  [ i32 [[VP__IND_INIT]], [[BB2]] ],  [ i32 [[VP4]], [[BB0]] ]
 ; CHECK-NEXT:     i64 [[VP7:%.*]] = sext i32 [[VP5]] to i64
-; CHECK-NEXT:     i32* [[VP8:%.*]] = getelementptr inbounds i32* [[ORDERING0:%.*]] i64 [[VP7]]
+; CHECK-NEXT:     i32* [[VP8:%.*]] = subscript inbounds i32* [[ORDERING0:%.*]] i64 [[VP7]]
 ; CHECK-NEXT:     i32 [[VP9:%.*]] = load i32* [[VP8]]
 ; CHECK-NEXT:     i1 [[VP10:%.*]] = icmp i32 [[VP9]] i32 [[VP1]]
 ; CHECK-NEXT:     i32 [[VP2]] = select i1 [[VP10]] i32 [[VP5]] i32 [[VP3]]

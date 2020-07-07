@@ -16,7 +16,7 @@
 
 ; CHECK: %mv.test = &((%q)[%UB3]) >=u &((%p)[0][0][0]);
 ; CHECK: %mv.test3 = &((%p)[%UB1][%UB2 + 1][%UB3]) >=u &((%q)[0]);
-; CHECK: %mv.and = %mv.test  &&  %mv.test3;
+; CHECK: %mv.and = %mv.test  &  %mv.test3;
 
 ; CHECK: if
 ; CHECK-DAG: %d2 > 1

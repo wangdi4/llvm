@@ -2,26 +2,20 @@
 
 ; RUN: opt -VPlanDriver -vplan-force-vf=4 -intel-loop-optreport=low -intel-ir-optreport-emitter %s 2>&1 < %s -S | FileCheck %s -check-prefix=OPTREPORT --strict-whitespace
 
-; Check output from opt-report emitter
-; OPTREPORT: LOOP BEGIN
-; OPTREPORT-NEXT:    Remark: LOOP WAS VECTORIZED
-; OPTREPORT-NEXT:    Remark: vectorization support: vector length {{.*}}
-; OPTREPORT-NEXT: LOOP END
-
 ; RUN: opt -VPlanDriver -vplan-force-vf=4 -intel-loop-optreport=low %s 2>&1 < %s -S | FileCheck %s
-
-; Check metadata for remarks from vectorized IR
-; CHECK: [[M1:!.*]] = distinct !{!"llvm.loop.optreport", [[M2:!.*]]}
-; CHECK-NEXT: [[M2]] = distinct !{!"intel.loop.optreport", [[M3:!.*]]}
-; CHECK-NEXT: [[M3]] = !{!"intel.optreport.remarks", [[M4:!.*]], [[M5:!.*]]}
-; CHECK-NEXT: [[M4]] = !{!"intel.optreport.remark", !"LOOP WAS VECTORIZED"}
-; CHECK-NEXT: [[M5]] = !{!"intel.optreport.remark", !"vectorization support: vector length %s", {{.*}}}
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
 define void @foo(i32* nocapture %arr) local_unnamed_addr {
+; OPTREPORT: LOOP BEGIN
+; OPTREPORT-NEXT:    Remark: LOOP WAS VECTORIZED
+; OPTREPORT-NEXT:    Remark: vectorization support: vector length {{.*}}
+; OPTREPORT-NEXT: LOOP END
+
+; CHECK-LABEL: define void @foo(
+; CHECK: !llvm.loop [[FOO_LOOP_MD:!.*]]
 entry:
   %i2 = alloca i32, align 4
   %0 = bitcast i32* %i2 to i8*
@@ -54,6 +48,65 @@ DIR.QUAL.LIST.END.2:                              ; preds = %omp.loop.exit
   call void @llvm.lifetime.end(i64 4, i8* nonnull %0) #3
   ret void
 }
+
+define void @test_outer([1024 x [1024 x i64]]* %a) local_unnamed_addr {
+; OPTREPORT-LABEL:Global loop optimization report for : test_outer
+; OPTREPORT-EMPTY:
+; OPTREPORT-NEXT: LOOP BEGIN
+; OPTREPORT-NEXT:     Remark: LOOP WAS VECTORIZED
+; OPTREPORT-NEXT:     Remark: vectorization support: vector length 4
+; OPTREPORT-EMPTY:
+; OPTREPORT-NEXT:     LOOP BEGIN
+; OPTREPORT-NEXT:     LOOP END
+; OPTREPORT-NEXT: LOOP END
+; OPTREPORT-EMPTY:
+; OPTREPORT-NEXT: LOOP BEGIN
+; OPTREPORT-EMPTY:
+; OPTREPORT-NEXT:     LOOP BEGIN
+; OPTREPORT-NEXT:     LOOP END
+; OPTREPORT-NEXT: LOOP END
+; OPTREPORT-NEXT: =================================================================
+
+; CHECK-LABEL: define void @test_outer(
+; CHECK: !llvm.loop [[TEST_OUTER_LOOP_MD:!.*]]
+entry:
+  %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
+  br label %outer.loop
+
+outer.loop:
+  %outer.induction.phi = phi i64 [ 0, %entry ], [ %outer.induction, %outer.loop.latch ]
+  br label %inner.loop
+
+inner.loop:
+  %inner.induction.phi = phi i64 [ 0, %outer.loop ], [ %inner.induction, %inner.loop ]
+  %inner.induction = add nuw nsw i64 %inner.induction.phi, 1
+  %exitcond = icmp eq i64 %inner.induction, 1024
+  br i1 %exitcond, label %inner.exit, label %inner.loop
+
+inner.exit:
+  br label %outer.loop.latch
+
+outer.loop.latch:
+  %outer.induction = add nuw nsw i64 %outer.induction.phi, 1
+  %exitcond26 = icmp eq i64 %outer.induction, 1024
+  br i1 %exitcond26, label %exit, label %outer.loop
+
+exit:
+  call void @llvm.directive.region.exit(token %tok) [ "DIR.OMP.END.SIMD"() ]
+  ret void
+}
+
+; Check metadata for remarks from vectorized IR
+; CHECK: [[FOO_LOOP_MD]] = distinct !{[[FOO_LOOP_MD]], [[FOO_OPTRPT:![^,]+]]{{.*}}}
+; CHECK: [[FOO_OPTRPT]] = distinct !{!"llvm.loop.optreport", [[FOO_OPTRPT_INTEL:!.*]]}
+; CHECK-NEXT: [[FOO_OPTRPT_INTEL]] = distinct !{!"intel.loop.optreport", [[REMARKS:!.*]]}
+; CHECK-NEXT: [[REMARKS]] = !{!"intel.optreport.remarks", [[R1:!.*]], [[R2:!.*]]}
+; CHECK-NEXT: [[R1]] = !{!"intel.optreport.remark", !"LOOP WAS VECTORIZED"}
+; CHECK-NEXT: [[R2]] = !{!"intel.optreport.remark", !"vectorization support: vector length %s", {{.*}}}
+; CHECK: [[TEST_OUTER_LOOP_MD]] = distinct !{[[TEST_OUTER_LOOP_MD]], [[TEST_OUTER_OPTRPT:![^,]+]]{{.*}}}
+; CHECK-NEXT: [[TEST_OUTER_OPTRPT]] = distinct !{!"llvm.loop.optreport", [[TEST_OUTER_OPTRPT_INTEL:!.*]]}
+; CHECK-NEXT: [[TEST_OUTER_OPTRPT_INTEL]] = distinct !{!"intel.loop.optreport", [[REMARKS]]}
+
 
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.lifetime.start(i64, i8* nocapture) #1

@@ -105,7 +105,8 @@ APInt HIRLoopFormation::getAddRecRefinedSignedMax(
     return MaxVal;
   }
 
-  auto ConstStride = dyn_cast<SCEVConstant>(AddRec->getStepRecurrence(SE));
+  auto ConstStride =
+      dyn_cast<SCEVConstant>(AddRec->getStepRecurrence(ScopedSE));
 
   if (!ConstStride) {
     return MaxVal;
@@ -125,14 +126,13 @@ APInt HIRLoopFormation::getAddRecRefinedSignedMax(
 
 bool HIRLoopFormation::isNonNegativeNSWIV(const Loop *Lp,
                                           const PHINode *IVPhi) const {
-  auto SC = SE.getSCEVForHIR(const_cast<PHINode *>(IVPhi),
-                             getOutermostHIRParentLoop(Lp));
+  auto SC = ScopedSE.getSCEV(const_cast<PHINode *>(IVPhi));
 
   if (!isa<SCEVAddRecExpr>(SC)) {
     return false;
   }
 
-  auto Range = SE.getSignedRange(SC);
+  auto Range = ScopedSE.getSignedRange(SC);
 
   if (!Range.getSignedMin().isNonNegative()) {
     return false;
@@ -167,7 +167,8 @@ bool HIRLoopFormation::hasNSWSemantics(const Loop *Lp, Type *IVType,
   assert(IVType->isIntegerTy() && "Integer IV type expected!");
 
   // Loop has NSW if backedge taken count is in signed range.
-  if (!isa<SCEVCouldNotCompute>(BECount) && SE.isKnownNonNegative(BECount)) {
+  if (!isa<SCEVCouldNotCompute>(BECount) &&
+      ScopedSE.isKnownNonNegative(BECount)) {
     return true;
   }
 
@@ -201,6 +202,42 @@ bool HIRLoopFormation::hasNSWSemantics(const Loop *Lp, Type *IVType,
   return false;
 }
 
+const PHINode *
+HIRLoopFormation::findIVDefInHeader(const Loop &Lp,
+                                    const Instruction *Inst) const {
+
+  // Is this a phi node in the loop header?
+  if (Inst->getParent() == Lp.getHeader()) {
+    if (auto Phi = dyn_cast<PHINode>(Inst)) {
+      return Phi;
+    }
+  }
+
+  for (auto I = Inst->op_begin(), E = Inst->op_end(); I != E; ++I) {
+    if (auto OpInst = dyn_cast<Instruction>(I)) {
+
+      // Instruction lies outside the loop.
+      if (!Lp.contains(LI.getLoopFor(OpInst->getParent()))) {
+        continue;
+      }
+
+      // Skip backedges.
+      // This can happen for outer unknown loops.
+      if (DT.dominates(Inst, OpInst)) {
+        continue;
+      }
+
+      auto IVNode = findIVDefInHeader(Lp, OpInst);
+
+      if (IVNode) {
+        return IVNode;
+      }
+    }
+  }
+
+  return nullptr;
+}
+
 void HIRLoopFormation::setIVType(HLLoop *HLoop, const SCEV *BECount) const {
   Value *Cond;
   auto Lp = HLoop->getLLVMLoop();
@@ -221,13 +258,21 @@ void HIRLoopFormation::setIVType(HLLoop *HLoop, const SCEV *BECount) const {
   assert(isa<Instruction>(Cond) &&
          "Loop exit condition is not an instruction!");
 
-  auto *IVNode = RI.findIVDefInHeader(*Lp, cast<Instruction>(Cond));
+  auto *IVNode = findIVDefInHeader(*Lp, cast<Instruction>(Cond));
 
   auto *IVType = IVNode ? IVNode->getType() : nullptr;
 
   // If the IVType is not an integer, assign it an integer type which is able to
   // represent the address space.
-  if (!IVType || !IVType->isIntegerTy()) {
+  if (!IVType || !IVType->isIntegerTy() ||
+      // Due to a quirk of SSA, it is possible for the loop trip count to be
+      // oustide the range of IV with i1 type so we use pointer sized IV
+      // instead. The trip count of this loop is 2-
+      //
+      // for.i:
+      //   %i.08.i = phi i1 [ true, %entry ], [ false, %for.i ]
+      //   br i1 %i.08.i, label %for.i, label %exit
+      (IVType->getPrimitiveSizeInBits() == 1)) {
     IVType = Type::getIntNTy(
         Func->getContext(),
         Func->getParent()->getDataLayout().getPointerSizeInBits());
@@ -341,8 +386,7 @@ void HIRLoopFormation::setZtt(HLLoop *HLoop) {
   auto IfBB = HIRCr.getSrcBBlock(IfParent);
   auto IfBrInst = cast<BranchInst>(IfBB->getTerminator());
 
-  if (!SE.isLoopZtt(Lp, getOutermostHIRParentLoop(Lp), IfBrInst,
-                    PredicateInversion)) {
+  if (!ScopedSE.isLoopZtt(Lp, IfBrInst, PredicateInversion)) {
     return;
   }
 
@@ -358,19 +402,6 @@ void HIRLoopFormation::setZtt(HLLoop *HLoop) {
   if (PredicateInversion) {
     InvertedZttLoops.insert(HLoop);
   }
-}
-
-const Loop *HIRLoopFormation::getOutermostHIRParentLoop(const Loop *Lp) const {
-  const Loop *ParLp, *TmpLp;
-
-  ParLp = Lp;
-
-  while ((TmpLp = ParLp->getParentLoop()) &&
-         CurRegion->containsBBlock(TmpLp->getHeader())) {
-    ParLp = TmpLp;
-  }
-
-  return ParLp;
 }
 
 static void setProfileData(HLIf *BottomTest, HLLabel *LoopLabel,
@@ -483,14 +514,15 @@ void HIRLoopFormation::formLoops() {
       // lexical traversal of regions so we shouldn't be consuming extra compile
       // time by unnecessarily switching between regions.
       PrevRegion = CurRegion;
-      SE.clearHIRCache();
+      ScopedSE.setScope(CurRegion->getIRRegion().getOutermostLoops());
     }
 
     // Found a loop
     Loop *Lp = LI.getLoopFor(HeaderBB);
 
-    auto BECount =
-        SE.getBackedgeTakenCountForHIR(Lp, getOutermostHIRParentLoop(Lp));
+    ScopedSE.setBackedgeTakenCountLoop(Lp);
+    auto BECount = ScopedSE.getBackedgeTakenCount(Lp);
+    ScopedSE.resetBackedgeTakenCountLoop();
 
     bool IsUnknownLoop = isa<SCEVCouldNotCompute>(BECount);
     bool IsConstTripLoop = isa<SCEVConstant>(BECount);

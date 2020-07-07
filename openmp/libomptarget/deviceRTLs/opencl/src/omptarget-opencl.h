@@ -357,8 +357,11 @@ EXTERN short __kmpc_parallel_level(ident_t *loc, uint gtid);
 /// Push num_threads for the next parallel region
 EXTERN void __kmpc_push_num_threads(ident_t *loc, int tid, int num_threads);
 
-/// Pop num_threads
-EXTERN void __kmpc_pop_num_threads(ident_t *loc, int tid);
+/// Push num_threads for the next parallel region in SPMD kernel
+EXTERN void __kmpc_spmd_push_num_threads(int num_threads);
+
+/// Pop num_threads in SPMD kernel
+EXTERN void __kmpc_spmd_pop_num_threads(void);
 
 /// Push simd_limit for the next region
 EXTERN void __kmpc_push_simd_limit(ident_t *loc, int tid, int simd_limit);

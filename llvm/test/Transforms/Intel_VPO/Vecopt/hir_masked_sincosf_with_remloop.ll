@@ -1,69 +1,201 @@
-; LLVM IR generated from testcase below using: icx -S -emit-llvm -Qoption,c,-fveclib=SVML -openmp -restrict -ffast-math -O2
-; CMPLRLLVM-19433: Re-enable this test after sincos is supported in HIR CodeGen
-; XFAIL: *
+; LLVM IR generated from testcase below using: icx -S -emit-llvm -Qoption,c,-fveclib=SVML -restrict -ffast-math -O3
 ;
-;void foo(float* restrict input, float* restrict b, float* restrict vsin, float* restrict vcos) {
-;  int i;
-;  for (i = 0; i < N; i++) {
-;    if (b[i] > 3)
-;      sincosf(input[i], &vsin[i], &vcos[i]);
+;void unit_strided(float * restrict sinA, float * restrict cosA,
+;                 float * restrict sinB, float * restrict cosB, int N) {
+;  for (int i = 0; i < N; ++i) {
+;    sincosf(i, sinA + i, cosA + i);
+;    if (!(i & 1)) {
+;      sincosf(i, sinB + i, cosB + i);
+;    }
 ;  }
 ;}
 ;
-; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -print-after=VPlanDriverHIR -S -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
+;void non_unit_strided(float * restrict sinA, float * restrict cosA,
+;                 float * restrict sinB, float * restrict cosB, int N) {
+;  for (int i = 0; i < N; ++i) {
+;    sincosf(i, sinA + 2 * i, cosA + 2 * i);
+;    if (!(i & 1)) {
+;      sincosf(i, sinB + 2 * i, cosB + 2 * i);
+;    }
+;  }
+;}
+;
+; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR -S -vplan-force-vf=4 -enable-vp-value-codegen-hir=0 < %s 2>&1 | FileCheck -D#VL=4 --check-prefixes=CHECK,CHECK-128 %s
+; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR -S -vplan-force-vf=4 -enable-vp-value-codegen-hir < %s 2>&1 | FileCheck -D#VL=4 --check-prefixes=CHECK,CHECK-128 %s
+; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR -S -vplan-force-vf=16 -enable-vp-value-codegen-hir=0 < %s 2>&1 | FileCheck -D#VL=16 --check-prefixes=CHECK,CHECK-512 %s
+; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR -S -vplan-force-vf=16 -enable-vp-value-codegen-hir < %s 2>&1 | FileCheck -D#VL=16 --check-prefixes=CHECK,CHECK-512 %s
 
-; FIXME: Enable VPValue-based HIR CG after CMPLRLLVM-11184 is fixed.
-; RUN : opt -vector-library=SVML -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -print-after=VPlanDriverHIR -S -vplan-force-vf=4 -enable-vp-value-codegen-hir < %s 2>&1 | FileCheck %s
+; Check to see that the main vector loop was vectorized with svml and
+; remainder loop broadcasts the call arguments and uses svml to match the main
+; vector loop.
 
-; Check to see that the main vector loop was vectorized with svml
-; CHECK: call svml_cc void @__svml_sincosf4_mask
+; CHECK-LABEL: Function: unit_strided
+; CHECK:      if (0 <u [[#VL]] * %tgu)
+; CHECK-NEXT: {
+; CHECK-NEXT:    + DO i1 = 0, [[#VL]] * %tgu + -1, [[#VL]]   <DO_LOOP>  <MAX_TC_EST = {{.*}}> <nounroll> <novectorize>
+; CHECK-NEXT:    |   [[SRC_UNIT:%.*]] = sitofp.<[[#VL]] x i32>.<[[#VL]] x float>(i1 + <i64 0, i64 1, i64 2, i64 3
+; CHECK-NEXT:    |   [[RET_UNIT:%.*]] = @__svml_sincosf[[#VL]]([[SRC_UNIT]]);
+; CHECK-NEXT:    |   %sincos.sin = extractvalue [[RET_UNIT]], 0;
+; CHECK-NEXT:    |   %sincos.cos = extractvalue [[RET_UNIT]], 1;
+; CHECK-NEXT:    |   (<[[#VL]] x float>*)(%sinA)[i1] = %sincos.sin;
+; CHECK-NEXT:    |   (<[[#VL]] x float>*)(%cosA)[i1] = %sincos.cos;
+; CHECK-128:     |   [[MASK_EXT_UNIT:%.*]] = sext.<[[#VL]] x i1>.<[[#VL]] x i32>([[MASK_UNIT:%.*]]);
+; CHECK-128:     |   [[RET_MASK_UNIT:%.*]] = @__svml_sincosf4_mask([[SRC_UNIT]], [[MASK_EXT_UNIT]]);
+; CHECK-512:     |   [[RET_MASK_UNIT:%.*]] = @__svml_sincosf16_mask(undef, [[MASK_UNIT:%.*]], [[SRC_UNIT]]);
+; CHECK-NEXT:    |   [[SIN_MASK_UNIT:%.*]] = extractvalue [[RET_MASK_UNIT]], 0;
+; CHECK-NEXT:    |   [[COS_MASK_UNIT:%.*]] = extractvalue [[RET_MASK_UNIT]], 1;
+; CHECK-NEXT:    |   (<[[#VL]] x float>*)(%sinB)[i1] = [[SIN_MASK_UNIT]]; Mask = @{[[MASK_UNIT]]}
+; CHECK-NEXT:    |   (<[[#VL]] x float>*)(%cosB)[i1] = [[COS_MASK_UNIT]]; Mask = @{[[MASK_UNIT]]}
+; CHECK-NEXT:    + END LOOP
+; CHECK-NEXT: }
 
-; Check that the stride of vector ref argument of svml call is evaluated as 4 elements.
-; CHECK-SAME: <4 x float*> "stride"="4"
+; CHECK:      + DO i1 = [[#VL]] * %tgu, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = [[#VL-1]]> <nounroll> <novectorize> <max_trip_count = [[#VL-1]]>
+; CHECK-NEXT: |   %conv = sitofp.i32.float(i1);
+; CHECK-NEXT: |   %copy = %conv;
+; CHECK-NEXT: |   [[RET_REM_UNIT:%.*]] = @__svml_sincosf[[#VL]](%copy);
+; CHECK-NEXT: |   [[SIN_REM_UNIT:%.*]] = extractvalue [[RET_REM_UNIT]], 0;
+; CHECK-NEXT: |   [[COS_REM_UNIT:%.*]] = extractvalue [[RET_REM_UNIT]], 1;
+; CHECK-NEXT: |   [[SIN_SCALAR_REM_UNIT:%.*]] = extractelement [[SIN_REM_UNIT]],  0;
+; CHECK-NEXT: |   (%sinA)[i1] = [[SIN_SCALAR_REM_UNIT]];
+; CHECK-NEXT: |   [[COS_SCALAR_REM_UNIT:%.*]] = extractelement [[COS_REM_UNIT]],  0;
+; CHECK-NEXT: |   (%cosA)[i1] = [[COS_SCALAR_REM_UNIT]];
+; CHECK-NEXT: |   if (-1 * i1 == 0)
+; CHECK-NEXT: |   {
+; CHECK-NEXT: |      [[COPY_REM_MASK_UNIT:%.*]] = %conv;
+; CHECK-NEXT: |      [[RET_REM_MASK_UNIT:%.*]] = @__svml_sincosf[[#VL]]([[COPY_REM_MASK_UNIT]]);
+; CHECK-NEXT: |      [[SIN_REM_MASK_UNIT:%.*]] = extractvalue [[RET_REM_MASK_UNIT]], 0;
+; CHECK-NEXT: |      [[COS_REM_MASK_UNIT:%.*]] = extractvalue [[RET_REM_MASK_UNIT]], 1;
+; CHECK-NEXT: |      [[SIN_SCALAR_REM_MASK_UNIT:%.*]] = extractelement [[SIN_REM_MASK_UNIT]],  0;
+; CHECK-NEXT: |      (%sinB)[i1] = [[SIN_SCALAR_REM_MASK_UNIT]];
+; CHECK-NEXT: |      [[COS_SCALAR_REM_MASK_UNIT:%.*]] = extractelement [[COS_REM_MASK_UNIT]],  0;
+; CHECK-NEXT: |      (%cosB)[i1] = [[COS_SCALAR_REM_MASK_UNIT]];
+; CHECK-NEXT: |   }
+; CHECK-NEXT: + END LOOP
 
-; Check to see that the remainder loop broadcasts the call arguments and uses svml to match the main vector loop.
-; CHECK-LABEL: {{then.[0-9]+}}:
-; CHECK: load float
-; CHECK: insertelement <4 x float>
-; CHECK-NEXT: shufflevector <4 x float>
-; CHECK-NEXT: load float
-; CHECK-NEXT: insertelement <4 x float*>
-; CHECK-NEXT: shufflevector <4 x float*>
-; CHECK-NEXT: load float*
-; CHECK-NEXT: insertelement <4 x float*>
-; CHECK-NEXT: shufflevector <4 x float*>
-; CHECK-NEXT: call svml_cc void @__svml_sincosf4
+; Check to see that non-unit-strided destinations of sincos are vectorized to scatters
+; CHECK-LABEL: Function: non_unit_strided
+; CHECK:      if (0 <u [[#VL]] * %tgu)
+; CHECK-NEXT: {
+; CHECK-NEXT:    + DO i1 = 0, [[#VL]] * %tgu + -1, [[#VL]]   <DO_LOOP>  <MAX_TC_EST = {{.*}}> <nounroll> <novectorize>
+; CHECK-NEXT:    |   [[SRC_NONUNIT:%.*]] = sitofp.<[[#VL]] x i32>.<[[#VL]] x float>(i1 + <i64 0, i64 1, i64 2, i64 3
+; CHECK:         |   [[RET_NONUNIT:%.*]] = @__svml_sincosf[[#VL]]([[SRC_NONUNIT]]);
+; CHECK-NEXT:    |   %sincos.sin = extractvalue [[RET_NONUNIT]], 0;
+; CHECK-NEXT:    |   %sincos.cos = extractvalue [[RET_NONUNIT]], 1;
+; CHECK-NEXT:    |   (<[[#VL]] x float>*)(%sinA)[2 * i1 + <i64 0, i64 2, i64 4, i64 6{{.*}}] = %sincos.sin;
+; CHECK-NEXT:    |   (<[[#VL]] x float>*)(%cosA)[2 * i1 + <i64 0, i64 2, i64 4, i64 6{{.*}}] = %sincos.cos;
+; CHECK-128:     |   [[MASK_EXT_NONUNIT:%.*]] = sext.<[[#VL]] x i1>.<[[#VL]] x i32>([[MASK_NONUNIT:%.*]]);
+; CHECK-128:     |   [[RET_MASK_NONUNIT:%.*]] = @__svml_sincosf4_mask([[SRC_NONUNIT]], [[MASK_EXT_NONUNIT]]);
+; CHECK-512:     |   [[RET_MASK_NONUNIT:%.*]] = @__svml_sincosf16_mask(undef, [[MASK_NONUNIT:%.*]], [[SRC_NONUNIT]]);
+; CHECK-NEXT:    |   [[SIN_MASK_NONUNIT:%.*]] = extractvalue [[RET_MASK_NONUNIT]], 0;
+; CHECK-NEXT:    |   [[COS_MASK_NONUNIT:%.*]] = extractvalue [[RET_MASK_NONUNIT]], 1;
+; CHECK-NEXT:    |   (<[[#VL]] x float>*)(%sinB)[2 * i1 + <i64 0, i64 2, i64 4, i64 6{{.*}}] = [[SIN_MASK_NONUNIT]]; Mask = @{[[MASK_NONUNIT]]}
+; CHECK-NEXT:    |   (<[[#VL]] x float>*)(%cosB)[2 * i1 + <i64 0, i64 2, i64 4, i64 6{{.*}}] = [[COS_MASK_NONUNIT]]; Mask = @{[[MASK_NONUNIT]]}
+; CHECK-NEXT:    + END LOOP
+; CHECK-NEXT: }
+
+; CHECK:      + DO i1 = [[#VL]] * %tgu, zext.i32.i64(%N) + -1, 1   <DO_LOOP>  <MAX_TC_EST = [[#VL-1]]> <nounroll> <novectorize> <max_trip_count = [[#VL-1]]>
+; CHECK-NEXT: |   %conv = sitofp.i32.float(i1);
+; CHECK-NEXT: |   %copy = %conv;
+; CHECK-NEXT: |   [[RET_REM_NONUNIT:%.*]] = @__svml_sincosf[[#VL]](%copy);
+; CHECK-NEXT: |   [[SIN_REM_NONUNIT:%.*]] = extractvalue [[RET_REM_NONUNIT]], 0;
+; CHECK-NEXT: |   [[COS_REM_NONUNIT:%.*]] = extractvalue [[RET_REM_NONUNIT]], 1;
+; CHECK-NEXT: |   [[SIN_SCALAR_REM_NONUNIT:%.*]] = extractelement [[SIN_REM_NONUNIT]],  0;
+; CHECK-NEXT: |   (%sinA)[2 * i1] = [[SIN_SCALAR_REM_NONUNIT]];
+; CHECK-NEXT: |   [[COS_SCALAR_REM_NONUNIT:%.*]] = extractelement [[COS_REM_NONUNIT]],  0;
+; CHECK-NEXT: |   (%cosA)[2 * i1] = [[COS_SCALAR_REM_NONUNIT]];
+; CHECK-NEXT: |   if (-1 * i1 == 0)
+; CHECK-NEXT: |   {
+; CHECK-NEXT: |      [[COPY_REM_MASK_NONUNIT:%.*]] = %conv;
+; CHECK-NEXT: |      [[RET_REM_MASK_NONUNIT:%.*]] = @__svml_sincosf[[#VL]]([[COPY_REM_MASK_NONUNIT]]);
+; CHECK-NEXT: |      [[SIN_REM_MASK_NONUNIT:%.*]] = extractvalue [[RET_REM_MASK_NONUNIT]], 0;
+; CHECK-NEXT: |      [[COS_REM_MASK_NONUNIT:%.*]] = extractvalue [[RET_REM_MASK_NONUNIT]], 1;
+; CHECK-NEXT: |      [[SIN_SCALAR_REM_MASK_NONUNIT:%.*]] = extractelement [[SIN_REM_MASK_NONUNIT]],  0;
+; CHECK-NEXT: |      (%sinB)[2 * i1] = [[SIN_SCALAR_REM_MASK_NONUNIT]];
+; CHECK-NEXT: |      [[COS_SCALAR_REM_MASK_NONUNIT:%.*]] = extractelement [[COS_REM_MASK_NONUNIT]],  0;
+; CHECK-NEXT: |      (%cosB)[2 * i1] = [[COS_SCALAR_REM_MASK_NONUNIT]];
+; CHECK-NEXT: |   }
+; CHECK-NEXT: + END LOOP
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; Function Attrs: nounwind uwtable
-define void @foo(float* noalias nocapture readonly %input, float* noalias nocapture readonly %b, float* noalias %vsin, float* noalias %vcos) local_unnamed_addr #0 {
+; Function Attrs: nofree nounwind uwtable
+define void @unit_strided(float* noalias %sinA, float* noalias %cosA, float* noalias %sinB, float* noalias %cosB, i32 %N) local_unnamed_addr #0 {
 entry:
+  %cmp17 = icmp sgt i32 %N, 0
+  br i1 %cmp17, label %for.body.preheader, label %for.cond.cleanup
+
+for.body.preheader:                               ; preds = %entry
+  %wide.trip.count19 = zext i32 %N to i64
   br label %for.body
 
-for.body:                                         ; preds = %for.inc, %entry
-  %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.inc ]
-  %arrayidx = getelementptr inbounds float, float* %b, i64 %indvars.iv
-  %0 = load float, float* %arrayidx, align 4, !tbaa !1
-  %cmp1 = fcmp fast ogt float %0, 3.000000e+00
-  br i1 %cmp1, label %if.then, label %for.inc
+for.cond.cleanup.loopexit:                        ; preds = %for.inc
+  br label %for.cond.cleanup
+
+for.cond.cleanup:                                 ; preds = %for.cond.cleanup.loopexit, %entry
+  ret void
+
+for.body:                                         ; preds = %for.inc, %for.body.preheader
+  %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.inc ]
+  %0 = trunc i64 %indvars.iv to i32
+  %conv = sitofp i32 %0 to float
+  %add.ptr = getelementptr inbounds float, float* %sinA, i64 %indvars.iv
+  %add.ptr2 = getelementptr inbounds float, float* %cosA, i64 %indvars.iv
+  tail call void @sincosf(float %conv, float* %add.ptr, float* %add.ptr2) #3
+  %and = and i32 %0, 1
+  %tobool = icmp eq i32 %and, 0
+  br i1 %tobool, label %if.then, label %for.inc
 
 if.then:                                          ; preds = %for.body
-  %arrayidx3 = getelementptr inbounds float, float* %input, i64 %indvars.iv
-  %1 = load float, float* %arrayidx3, align 4, !tbaa !1
-  %arrayidx5 = getelementptr inbounds float, float* %vsin, i64 %indvars.iv
-  %arrayidx7 = getelementptr inbounds float, float* %vcos, i64 %indvars.iv
-  tail call void @sincosf(float %1, float* %arrayidx5, float* %arrayidx7) #3
+  %add.ptr5 = getelementptr inbounds float, float* %sinB, i64 %indvars.iv
+  %add.ptr7 = getelementptr inbounds float, float* %cosB, i64 %indvars.iv
+  tail call void @sincosf(float %conv, float* %add.ptr5, float* %add.ptr7) #3
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body, %if.then
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %exitcond = icmp eq i64 %indvars.iv.next, 131
-  br i1 %exitcond, label %for.end, label %for.body
+  %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count19
+  br i1 %exitcond, label %for.cond.cleanup.loopexit, label %for.body
+}
 
-for.end:                                          ; preds = %for.inc
+; Function Attrs: nofree nounwind uwtable
+define void @non_unit_strided(float* noalias %sinA, float* noalias %cosA, float* noalias %sinB, float* noalias %cosB, i32 %N) local_unnamed_addr #0 {
+entry:
+  %cmp17 = icmp sgt i32 %N, 0
+  br i1 %cmp17, label %for.body.preheader, label %for.cond.cleanup
+
+for.body.preheader:                               ; preds = %entry
+  %wide.trip.count23 = zext i32 %N to i64
+  br label %for.body
+
+for.cond.cleanup.loopexit:                        ; preds = %for.inc
+  br label %for.cond.cleanup
+
+for.cond.cleanup:                                 ; preds = %for.cond.cleanup.loopexit, %entry
   ret void
+
+for.body:                                         ; preds = %for.inc, %for.body.preheader
+  %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.inc ]
+  %0 = trunc i64 %indvars.iv to i32
+  %conv = sitofp i32 %0 to float
+  %1 = shl nuw nsw i64 %indvars.iv, 1
+  %add.ptr = getelementptr inbounds float, float* %sinA, i64 %1
+  %add.ptr3 = getelementptr inbounds float, float* %cosA, i64 %1
+  tail call void @sincosf(float %conv, float* %add.ptr, float* %add.ptr3) #3
+  %and = and i32 %0, 1
+  %tobool = icmp eq i32 %and, 0
+  br i1 %tobool, label %if.then, label %for.inc
+
+if.then:                                          ; preds = %for.body
+  %add.ptr7 = getelementptr inbounds float, float* %sinB, i64 %1
+  %add.ptr10 = getelementptr inbounds float, float* %cosB, i64 %1
+  tail call void @sincosf(float %conv, float* %add.ptr7, float* %add.ptr10) #3
+  br label %for.inc
+
+for.inc:                                          ; preds = %for.body, %if.then
+  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
+  %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count23
+  br i1 %exitcond, label %for.cond.cleanup.loopexit, label %for.body
 }
 
 ; Function Attrs: nounwind

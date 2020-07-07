@@ -2,7 +2,7 @@
 
 ; Check parsing output for the loop verifying that the inverted ztt is recognized successfully.
 
-; CHECK: + DO i1 = 0, %num_rows + -1 * smin(1, %num_rows), 1   <DO_LOOP>
+; CHECK: + DO i1 = 0, %num_rows + -1, 1   <DO_LOOP>
 ; CHECK: |   %8 = (%input_buf)[0];
 ; CHECK: |   %9 = (%8)[i1 + %input_row];
 ; CHECK: |   %10 = (%input_buf)[1];

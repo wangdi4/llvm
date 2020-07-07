@@ -20,17 +20,18 @@
 // RUN:  -emit-llvm %s -o - | FileCheck %s -check-prefix CHECK64
 //
 // RUN: %clang_cc1 -verify -triple x86_64-unknown-linux-gnu \
-// RUN:  -mlong-double-128 \
-// RUN:  -fopenmp -fopenmp-late-outline -fopenmp-targets=spir64 \
+// RUN:  -mlong-double-128 -DHASFP128 \
+// RUN:  -fopenmp -fopenmp-late-outline -fopenmp-targets=x86_64-pc-linux-gnu \
 // RUN:  -emit-llvm %s -o - | FileCheck %s -check-prefix CHECK128
 
 // RUN: %clang_cc1 -triple x86_64-unknown-linux-gnu \
-// RUN:  -mlong-double-128 \
-// RUN:  -fopenmp -fopenmp-late-outline -fopenmp-targets=spir64 \
+// RUN:  -mlong-double-128 -DHASFP128 \
+// RUN:  -fopenmp -fopenmp-late-outline -fopenmp-targets=x86_64-pc-linux-gnu \
 // RUN:  -emit-llvm-bc %s -o %t-host.bc
 
-// RUN: %clang_cc1 -verify -triple spir64 -aux-triple x86_64-unknown-linux-gnu \
-// RUN:  -mlong-double-128 \
+// RUN: %clang_cc1 -verify -triple x86_64-pc-linux-gnu \
+// RUN:   -aux-triple x86_64-unknown-linux-gnu \
+// RUN:  -mlong-double-128 -DHASFP128 \
 // RUN:  -fopenmp -fopenmp-late-outline -fopenmp-targets=spir64 \
 // RUN:  -fopenmp-is-device -fopenmp-host-ir-file-path %t-host.bc \
 // RUN:  -emit-llvm %s -o - | FileCheck %s -check-prefix CHECK128
@@ -53,6 +54,7 @@ int foo() {
   return (int)host_val;
 }
 
+#ifdef HASFP128
 //CHECK128-LABEL: bar
 int bar() {
   //CHECK128: [[HOST_VAL:%host_val.*]] = alloca fp128,
@@ -67,5 +69,6 @@ int bar() {
   }
   return (int)host_val;
 }
+#endif // HASFP128
 
 // end INTEL_COLLAB

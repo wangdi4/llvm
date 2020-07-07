@@ -36,6 +36,7 @@ entry:
   %0 = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.REDUCTION.ADD"(<4 x float>* %sum), "QUAL.OMP.FIRSTPRIVATE"(i32* %.omp.lb), "QUAL.OMP.NORMALIZED.IV"(i32* %.omp.iv), "QUAL.OMP.NORMALIZED.UB"(i32* %.omp.ub), "QUAL.OMP.PRIVATE"(i32* %i), "QUAL.OMP.SHARED"(<4 x float>** %vals.addr) ]
 
 ; CHECK-NOT: "QUAL.OMP.REDUCTION.ADD"
+; CHECK-NOT: __kmpc_atomic
 ; CHECK: %sum.red = alloca <4 x float>, align 16
 ; CHECK: store <4 x float> zeroinitializer, <4 x float>* %sum.red, align 16
 ; CHECK: %[[LOCAL_VAL:[^,]+]] = load <4 x float>, <4 x float>* %[[LOCAL:[^,]+]], align 16

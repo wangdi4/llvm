@@ -21,6 +21,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringSet.h"
 #include "llvm/Analysis/Intel_WP.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/ValueMap.h"
@@ -93,7 +94,8 @@ public:
       std::function<const TargetLibraryInfo &(const Function &)> GetTLI,
       WholeProgramInfo &WPInfo,
       function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
-      DTransImmutableInfo &DTImmutInfo);
+      DTransImmutableInfo &DTImmutInfo,
+      std::function<DominatorTree &(Function &)> GetDomTree);
   /// Parse command line option and create an internal map of
   /// <transform> -> <list_of_type_names>.
   void parseIgnoreList();
@@ -275,6 +277,10 @@ public:
                                  unsigned &ArgumentIndex,
                                  unsigned &StructIndex) const;
 
+  /// Handle invalidation events in the new pass manager.
+  bool invalidate(Module &M, const PreservedAnalyses &PA,
+                  ModuleAnalysisManager::Invalidator &Inv);
+
 private:
   void addCallInfo(llvm::Instruction *I, dtrans::CallInfo *Info);
   void destructCallInfo(dtrans::CallInfo *Info);
@@ -289,8 +295,12 @@ private:
   // Return true if we should run DTransAnalysis.
   bool shouldComputeDTransAnalysis(void) const;
 
+  // Build a map that relates types with ABI padding to base types
+  void buildRelatedTypesMap(Module &M);
+
   DenseMap<dtrans::Transform, StringSet<>> IgnoreTypeMap;
   DenseMap<llvm::Type *, dtrans::TypeInfo *> TypeInfoMap;
+  DenseMap<llvm::Type *, llvm::Type *> RelatedTypesMap;
 
   // A mapping from function calls that special information is collected for
   // (malloc, free, memset, etc) to the information stored about those calls.

@@ -56,6 +56,12 @@ public:
 
 private:
   const SCEV *getSCEVForVPValue(const VPValue *Val) const;
+
+  VPlanScalarEvolutionLLVM &getVPSE() const {
+    // FIXME: Get VPSE from VLSA once VLSA is moved into VPlan object as well.
+    return *static_cast<VPlanScalarEvolutionLLVM *>(
+        Inst->getParent()->getParent()->getVPSE());
+  }
 };
 
 } // namespace vpo

@@ -1845,8 +1845,9 @@ CallInst *VPOParoptUtils::genKmpcStaticFini(WRegionNode *W,
                                       Type::getInt32Ty(C) };
   SmallVector<Value *, 2> FnArgs { Loc, Tid };
 
-  return genCall("__kmpc_for_static_fini", Type::getVoidTy(C),
-                 FnArgs, FnArgTypes, InsertPt);
+  CallInst *CI = genCall("__kmpc_for_static_fini", Type::getVoidTy(C), FnArgs,
+                         FnArgTypes, InsertPt);
+  return CI;
 }
 
 // This function generates a call to notify the runtime system that the
@@ -2265,9 +2266,15 @@ VPOParoptUtils::genKmpcLocfromDebugLoc(Function *F, Instruction *AI,
   ConstantInt *ValueFlags = ConstantInt::get(Type::getInt32Ty(C), Flags);
   // Get a pointer to the global variable containing loc string.
   Constant *Zeros[] = {ValueZero, ValueZero};
+  // TODO: OPAQUEPOINTER: Use opaque pointer compliant APIs when added.
+  // GlobalVariable will eventually contain the ElementType information
+  // somewhere else, eg: in GlobalValue
+  Type *Ty = cast<PointerType>(LocStringVar->getType()->getScalarType())
+                 ->getElementType();
   Constant *LocStringPtr =
-      ConstantExpr::getGetElementPtr(nullptr, LocStringVar, Zeros);
+      ConstantExpr::getGetElementPtr(Ty, LocStringVar, Zeros);
   if (VPOAnalysisUtils::isTargetSPIRV(F->getParent()))
+    // TODO: OPAQUEPOINTER: PointerBitcast will not be needed.
     LocStringPtr = ConstantExpr::getPointerBitCastOrAddrSpaceCast(
         LocStringPtr, Type::getInt8PtrTy(C, vpo::ADDRESS_SPACE_GENERIC));
 
@@ -2668,7 +2675,7 @@ CallInst *VPOParoptUtils::genKmpcBarrierImpl(
   // Create the arg for Tid
   Type *I32Ty = Type::getInt32Ty(C);
   LoadInst *LoadTid = new LoadInst(I32Ty, Tid, "my.tid", InsertPt);
-  LoadTid->setAlignment(MaybeAlign(4));
+  LoadTid->setAlignment(Align(4));
 
   // Create the argument list
   SmallVector<Value *, 3> FnArgs = {Loc, LoadTid};
@@ -2731,52 +2738,99 @@ bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
                                 DT, LI, IsTargetSPIRV, LockNameSuffix);
 }
 
-// Generates reduce block around Instructions `begin` and `end`.
+// Generates tree reduce block around Instructions `BeginInst` and `EndInst` and
+// atomic reduce block around Instructions `AtomicBeginInst` and
+// `AtomicEndInst`.
 // Here is an example of fast reduction for the scalar type.
-// omp.loop.exit.split:                              ; preds =
-// %tree.reduce.exit, %DIR.OMP.PARALLEL.LOOP.3
-//   br label %DIR.OMP.END.PARALLEL.LOOP.4
+// Source code:
+//   int main(void)
+//   {
+//     int i, sum = 0;
+//     #pragma omp parallel for reduction(+:sum)
+//     for (i=0; i<10; i++) {
+//       sum+=i;
+//     }
+//     return 0;
+//   }
+//
+// Generated IR:
+// omp.loop.exit.split:                              ; preds = %omp.loop.exit
+//   br label %DIR.OMP.END.PARALLEL.LOOP.48
 // ...
-// loop.region.exit.split:                           ; preds = %loop.region.exit
-//   %my.tid13 = load i32, i32* %tid, align 4
-//   %5 = call i32 @__kmpc_reduce(%struct.ident_t* @.kmpc_loc.0.0.4,
-//   i32 %my.tid13, i32 1, i32 4, %struct.fast_red_t* %fast_red_struct,
-//   void (%struct.fast_red_t*, %struct.fast_red_t*)* @main_tree_reduce_4,
-//   [8 x i32]* @.gomp_critical_user_.fast_reduction.var)
-//   %tobool = icmp eq i32 %5, 1
-//   br i1 %tobool, label %tree.reduce, label %tree.reduce.exit
+// loop.region.exit.split:                           ; preds =
+// %loop.region.exit.split14
+//   %7 = bitcast %struct.fast_red_t* %fast_red_struct to i8*            ; (1)
+//   %my.tid16 = load i32, i32* %tid, align 4
+//   %8 = call i32 @__kmpc_reduce(%struct.ident_t* @.kmpc_loc.0.0.6,
+//   i32 %my.tid16, i32 1, i32 4, i8* %7, void (i8*, i8*)* @main_tree_reduce_2,
+//   [8 x i32]* @.gomp_critical_user_.fast_reduction.AS0.var)            ; (2)
+//   %to.tree.reduce = icmp eq i32 %8, 1                                 ; (3)
+//   br i1 %to.tree.reduce, label %tree.reduce, label %tree.reduce.exit  ; (4)
+// ...
 //
 // tree.reduce:                                      ; preds =
-// %loop.region.exit.split
+// %loop.region.exit.split                                               ; (5)
 //   br label %loop.region.exit.split.split
 //
-// tree.reduce.exit:                                  ; preds =
-// %loop.region.exit.split, %loop.region.exit.split.split.split
-//   %6 = phi i1 [ false, %loop.region.exit.split ], [ true,
-//   %loop.region.exit.split.split.split ]
-//   br label %omp.loop.exit.split
+// tree.reduce.exit:                                 ; preds =
+// %loop.region.exit.split, %loop.region.exit.split.split.split          ; (6)
+//   %9 = phi i1 [ false, %loop.region.exit.split ], [ true,
+//   %loop.region.exit.split.split.split ]                               ; (7)
+//   %10 = icmp eq i1 %9, false                                          ; (8)
+//   br i1 %10, label %loop.region.exit.split.split.split.split, label
+//   %atomic.reduce.exit                                                 ; (9)
 //
 // loop.region.exit.split.split:                     ; preds = %tree.reduce
-//   %7 = load i32, i32* %sum.fast_red, align 4
-//   %8 = load i32, i32* %sum, align 4
-//   %9 = add i32 %8, %7
-//   store i32 %9, i32* %sum, align 4
+//   %11 = load i32, i32* %sum.fast_red, align 4
+//   %12 = load i32, i32* %sum, align 4
+//   %13 = add i32 %12, %11
+//   store i32 %13, i32* %sum, align 4
 //   br label %loop.region.exit.split.split.split
+//
+// loop.region.exit.split.split.split.split:         ; preds = %tree.reduce.exit
+//   %to.atomic.reduce = icmp eq i32 %8, 2                               ; (10)
+//   br i1 %to.atomic.reduce, label %atomic.reduce, label
+//   %atomic.reduce.exit                                                 ; (11)
+//
+// atomic.reduce.exit:                               ; preds =
+// %tree.reduce.exit, %loop.region.exit.split.split.split.split,
+// %loop.region.exit.split.split.split.split.split.split                 ; (12)
+//   br label %omp.inner.for.end
 //
 // loop.region.exit.split.split.split:               ; preds =
 // %loop.region.exit.split.split
-//   %my.tid14 = load i32, i32* %tid, align 4
-//   call void @__kmpc_end_reduce(%struct.ident_t* @.kmpc_loc.0.0.6,
-//   i32 %my.tid14, [8 x i32]* @.gomp_critical_user_.fast_reduction.var)
+//   %my.tid17 = load i32, i32* %tid, align 4
+//   call void @__kmpc_end_reduce(%struct.ident_t* @.kmpc_loc.0.0.8, i32
+//   %my.tid17, [8 x i32]* @.gomp_critical_user_.fast_reduction.AS0.var) ; (13)
 //   br label %tree.reduce.exit
 //
-// DIR.OMP.END.PARALLEL.LOOP.4:                      ; preds =
+// atomic.reduce:                                    ; preds =
+// %loop.region.exit.split.split.split.split                             ; (14)
+//   br label %loop.region.exit.split.split.split.split.split
+//
+// loop.region.exit.split.split.split.split.split:   ; preds =
+// %atomic.reduce
+//   %14 = load i32, i32* %sum.fast_red, align 4
+//   %my.tid15 = load i32, i32* %tid, align 4
+//   call void @__kmpc_atomic_fixed4_add(%struct.ident_t* @.kmpc_loc.0.0.4, i32
+//   %my.tid15, i32* %sum, i32 %14)
+//   br label %loop.region.exit.split.split.split.split.split.split
+//
+// loop.region.exit.split.split.split.split.split.split: ; preds =
+// %loop.region.exit.split.split.split.split.split
+//   %my.tid20 = load i32, i32* %tid, align 4
+//   call void @__kmpc_end_reduce(%struct.ident_t* @.kmpc_loc.0.0.10, i32
+//   %my.tid20, [8 x i32]* @.gomp_critical_user_.fast_reduction.AS0.var) ; (15)
+//   br label %atomic.reduce.exit
+//
+// DIR.OMP.END.PARALLEL.LOOP.48:                     ; preds =
 // %omp.loop.exit.split
-//   br label %DIR.OMP.END.PARALLEL.LOOP.5.exitStub
+//  br label %DIR.OMP.END.PARALLEL.LOOP.4.exitStub
 //
 bool VPOParoptUtils::genKmpcReduceImpl(
     WRegionNode *W, StructType *IdentTy, Constant *TidPtr, Value *RedVar,
     RDECL RedCallback, Instruction *BeginInst, Instruction *EndInst,
+    Instruction *AtomicBeginInst, Instruction *AtomicEndInst,
     GlobalVariable *LockVar, DominatorTree *DT, LoopInfo *LI,
     bool IsTargetSPIRV) {
 
@@ -2803,7 +2857,8 @@ bool VPOParoptUtils::genKmpcReduceImpl(
   CallInst *BeginReduce = nullptr;
   SmallVector<Value *, 5> BeginArgs;
 
-  Value *RedVarI8 = Builder.CreateBitCast(RedVar, Builder.getInt8PtrTy());
+  Value *RedVarI8 =
+      Builder.CreateBitCast(RedVar, Builder.getInt8PtrTy()); // (1)
 
   // add num of reductions, reduction variable, and size of reduction variable
   ReductionClause &RedClause = W->getRed();
@@ -2817,8 +2872,11 @@ bool VPOParoptUtils::genKmpcReduceImpl(
   BeginArgs.push_back(RedCallback);
   BeginArgs.push_back(LockVar);
 
+  bool EnableAtomicReduce = false;
+  if (AtomicBeginInst != nullptr && AtomicEndInst != nullptr)
+    EnableAtomicReduce = true;
   BeginReduce = genKmpcCallWithTid(W, IdentTy, TidPtr, BeginInst, BeginName,
-                                   RetTy, BeginArgs);
+                                   RetTy, BeginArgs, EnableAtomicReduce); // (2)
   assert(BeginReduce != nullptr && "Could not call __kmp_reduce");
 
   if (BeginReduce == nullptr)
@@ -2832,7 +2890,7 @@ bool VPOParoptUtils::genKmpcReduceImpl(
   auto *EndRetTy = Builder.getVoidTy();
   Value *EndArg = LockVar;
   EndReduce = genKmpcCallWithTid(W, IdentTy, TidPtr, EndInst, EndName, EndRetTy,
-                                 {EndArg});
+                                 {EndArg}); // (13)
 
   assert(EndReduce != nullptr && "Could not call __kmpc_end_reduce");
 
@@ -2846,26 +2904,77 @@ bool VPOParoptUtils::genKmpcReduceImpl(
     EndReduce->insertAfter(EndInst);
 
   ConstantInt *ValueOne = Builder.getInt32(1);
-  auto IsTrue = Builder.CreateICmpEQ(BeginReduce, ValueOne, "to.tree.reduce");
+  auto IsTrue =
+      Builder.CreateICmpEQ(BeginReduce, ValueOne, "to.tree.reduce"); // (3)
   auto EntryBB = Builder.GetInsertBlock();
-  auto ContBB = SplitBlock(EntryBB, BeginInst, DT, LI);
+  auto ContBB = SplitBlock(EntryBB, BeginInst, DT, LI); // (5)
   ContBB->setName("tree.reduce");
 
   Instruction *SplitPt = GeneralUtils::nextUniqueInstruction(EndReduce);
-  // TODO: add atomic reduce function call in ElseBB
-  auto ElseBB = SplitBlock(SplitPt->getParent(), SplitPt, DT, LI);
+  auto ElseBB = SplitBlock(SplitPt->getParent(), SplitPt, DT, LI); // (6)
   ElseBB->setName("tree.reduce.exit");
 
   EntryBB->getTerminator()->eraseFromParent();
   Builder.SetInsertPoint(EntryBB);
-  Builder.CreateCondBr(IsTrue, ContBB, ElseBB);
+  Builder.CreateCondBr(IsTrue, ContBB, ElseBB); // (4)
 
-  Builder.SetInsertPoint(ElseBB->getTerminator());
-  PHINode *PN = Builder.CreatePHI(Builder.getInt1Ty(), 2, "");
-  auto PhiEntryBBVal = Builder.getFalse();
-  PN->addIncoming(PhiEntryBBVal, EntryBB);
-  auto PhiElseBBVal = Builder.getTrue();
-  PN->addIncoming(PhiElseBBVal, EndReduce->getParent());
+  if (AtomicBeginInst != nullptr) {
+    assert(AtomicEndInst != nullptr &&
+           "begin and end instructions for atomic "
+           "reduce block must be not null at same time");
+    Builder.SetInsertPoint(ElseBB->getTerminator());
+    PHINode *PN = Builder.CreatePHI(Builder.getInt1Ty(), 2, ""); // (7)
+    auto PhiEntryBBVal = Builder.getFalse();
+    PN->addIncoming(PhiEntryBBVal, EntryBB);
+    auto PhiElseBBVal = Builder.getTrue();
+    PN->addIncoming(PhiElseBBVal, EndReduce->getParent());
+    auto IsFalse = Builder.CreateICmpEQ(PN, Builder.getFalse(), ""); // (8)
+
+    Instruction *AtomicEndReduce = AtomicEndInst;
+    if (!Nowait) {
+      AtomicEndReduce = genKmpcCallWithTid(W, IdentTy, TidPtr, AtomicEndInst,
+                                           EndName, EndRetTy, {EndArg}); // (15)
+      assert(AtomicEndReduce != nullptr &&
+             "Could not call __kmpc_end_reduce after atomic statements.");
+      if (AtomicEndReduce == nullptr)
+        return false;
+      if (AtomicEndInst->isTerminator())
+        AtomicEndReduce->insertBefore(AtomicEndInst);
+      else
+        AtomicEndReduce->insertAfter(AtomicEndInst);
+    }
+
+    Builder.SetInsertPoint(AtomicBeginInst);
+    ConstantInt *ValueTwo = Builder.getInt32(2);
+    auto IsAtomicTrue =
+        Builder.CreateICmpEQ(BeginReduce, ValueTwo, "to.atomic.reduce"); // (10)
+    auto AtomicEntryBB = Builder.GetInsertBlock();
+    auto AtomicContBB =
+        SplitBlock(AtomicEntryBB, AtomicBeginInst, DT, LI); // (14)
+    AtomicContBB->setName("atomic.reduce");
+
+    BasicBlock *AtomicElseBB = nullptr;
+    if (AtomicEndReduce->isTerminator()) {
+      assert((AtomicEndReduce == AtomicEndInst) && "Something wrong.");
+      assert(Nowait && "Nowait should be true");
+
+      // no __kmpc_end_reduce function call
+      AtomicElseBB = AtomicEndReduce->getParent();
+    } else {
+      SplitPt = GeneralUtils::nextUniqueInstruction(AtomicEndReduce);
+      AtomicElseBB =
+          SplitBlock(AtomicEndInst->getParent(), SplitPt, DT, LI); // (12)
+      AtomicElseBB->setName("atomic.reduce.exit");
+    }
+
+    AtomicEntryBB->getTerminator()->eraseFromParent();
+    Builder.SetInsertPoint(AtomicEntryBB);
+    Builder.CreateCondBr(IsAtomicTrue, AtomicContBB, AtomicElseBB); // (11)
+
+    Builder.SetInsertPoint(ElseBB->getTerminator());
+    Builder.CreateCondBr(IsFalse, AtomicEntryBB, AtomicElseBB); // (9)
+    ElseBB->getTerminator()->eraseFromParent();
+  }
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Fast Reduce Block generated.\n");
   return true;
@@ -2873,13 +2982,15 @@ bool VPOParoptUtils::genKmpcReduceImpl(
 
 // Generates a reduce block around Instructions `BeginInst` and `Endinst`,
 // by emitting calls to `__kmpc_reduce` before `BeginInst`, and
-// `__kmpc_end_reduce` after `EndInst`.
-bool VPOParoptUtils::genKmpcReduce(WRegionNode *W, StructType *IdentTy,
-                                   Constant *TidPtr, Value *RedVar,
-                                   RDECL RedCallback, Instruction *BeginInst,
-                                   Instruction *EndInst, DominatorTree *DT,
-                                   LoopInfo *LI, bool IsTargetSPIRV,
-                                   const StringRef LockNameSuffix) {
+// `__kmpc_end_reduce` after `EndInst`; and generates atomic reduce block around
+// Instructions `AtomicBeginInst` and `AtomicEndinst`, by emitting calls to
+// atomic update routine and use it to replace reduction update instruction, and
+// `__kmpc_end_reduce` after `AtomicEndInst`.
+bool VPOParoptUtils::genKmpcReduce(
+    WRegionNode *W, StructType *IdentTy, Constant *TidPtr, Value *RedVar,
+    RDECL RedCallback, Instruction *BeginInst, Instruction *EndInst,
+    Instruction *AtomicBeginInst, Instruction *AtomicEndInst, DominatorTree *DT,
+    LoopInfo *LI, bool IsTargetSPIRV, const StringRef LockNameSuffix) {
   assert(W != nullptr && "WRegionNode is null.");
   assert(IdentTy != nullptr && "IdentTy is null.");
   assert(TidPtr != nullptr && "TidPtr is null.");
@@ -2892,13 +3003,15 @@ bool VPOParoptUtils::genKmpcReduce(WRegionNode *W, StructType *IdentTy,
   assert(Lock != nullptr && "Could not create reduce block lock variable.");
 
   return genKmpcReduceImpl(W, IdentTy, TidPtr, RedVar, RedCallback, BeginInst,
-                           EndInst, Lock, DT, LI, IsTargetSPIRV);
+                           EndInst, AtomicBeginInst, AtomicEndInst, Lock, DT,
+                           LI, IsTargetSPIRV);
 }
 
 // Generates a KMPC call to IntrinsicName with Tid obtained using TidPtr.
 CallInst *VPOParoptUtils::genKmpcCallWithTid(
     WRegionNode *W, StructType *IdentTy, Value *TidPtr, Instruction *InsertPt,
-    StringRef IntrinsicName, Type *ReturnTy, ArrayRef<Value *> Args) {
+    StringRef IntrinsicName, Type *ReturnTy, ArrayRef<Value *> Args,
+    bool EnableAtomicReduce) {
   assert(W != nullptr && "WRegionNode is null.");
   assert(IdentTy != nullptr && "IdentTy is null.");
   assert(InsertPt != nullptr && "InsertPt is null.");
@@ -2912,7 +3025,7 @@ CallInst *VPOParoptUtils::genKmpcCallWithTid(
   // we need a valid Tid, which we can load from memory using TidPtr.
   Type *I32Ty = Type::getInt32Ty(InsertPt->getModule()->getContext());
   LoadInst *LoadTid = new LoadInst(I32Ty, TidPtr, "my.tid", InsertPt);
-  LoadTid->setAlignment(MaybeAlign(4));
+  LoadTid->setAlignment(Align(4));
 
   // Now bundle all the function arguments together.
   SmallVector<Value*, 3> FnArgs = {LoadTid};
@@ -2922,7 +3035,8 @@ CallInst *VPOParoptUtils::genKmpcCallWithTid(
 
   // And then try to generate the KMPC call.
   return VPOParoptUtils::genKmpcCall(W, IdentTy, InsertPt, IntrinsicName,
-                                     ReturnTy, FnArgs);
+                                     ReturnTy, FnArgs, false,
+                                     EnableAtomicReduce);
 }
 
 // This function generates a call as follows.
@@ -2967,7 +3081,7 @@ CallInst *VPOParoptUtils::genKmpcTaskgroupOrEndTaskgroupCall(
   Type *I32Ty = Type::getInt32Ty(C);
 
   LoadInst *LoadTid = new LoadInst(I32Ty, Tid, "my.tid", InsertPt);
-  LoadTid->setAlignment(MaybeAlign(4));
+  LoadTid->setAlignment(Align(4));
 
   // Now bundle all the function arguments together.
   SmallVector<Value *, 3> FnArgs = {LoadTid};
@@ -3012,7 +3126,7 @@ CallInst *VPOParoptUtils::genKmpcMasterOrEndMasterCall(
   }
 
   LoadInst *LoadTid = new LoadInst(I32Ty, Tid, "my.tid", InsertPt);
-  LoadTid->setAlignment(MaybeAlign(4));
+  LoadTid->setAlignment(Align(4));
 
   // Now bundle all the function arguments together.
   SmallVector<Value *, 3> FnArgs = {LoadTid};
@@ -3050,7 +3164,7 @@ CallInst *VPOParoptUtils::genKmpcSingleOrEndSingleCall(WRegionNode *W,
   }
 
   LoadInst *LoadTid = new LoadInst(I32Ty, Tid, "my.tid", InsertPt);
-  LoadTid->setAlignment(MaybeAlign(4));
+  LoadTid->setAlignment(Align(4));
 
   // Now bundle all the function arguments together.
   SmallVector<Value *, 3> FnArgs = {LoadTid};
@@ -3085,7 +3199,7 @@ CallInst *VPOParoptUtils::genKmpcOrderedOrEndOrderedCall(WRegionNode *W,
     FnName = "__kmpc_end_ordered";
 
   LoadInst *LoadTid = new LoadInst(I32Ty, Tid, "my.tid", InsertPt);
-  LoadTid->setAlignment(MaybeAlign(4));
+  LoadTid->setAlignment(Align(4));
 
   // Now bundle all the function arguments together.
   SmallVector<Value *, 3> FnArgs = {LoadTid};
@@ -3144,8 +3258,8 @@ CallInst *VPOParoptUtils::genDoacrossWaitOrPostCall(
         Builder.CreateSExtOrBitCast(DepVecValue, Int64Ty, "conv"); // (2) (5)
 
     // Get a pointer to where DepVecValue should go.
-    Value *PtrForLoopI =
-        Builder.CreateInBoundsGEP(DepVec, {Builder.getInt64(I)});  // (3) (6)
+    Value *PtrForLoopI = Builder.CreateInBoundsGEP(
+        DepVec->getAllocatedType(), DepVec, {Builder.getInt64(I)}); // (3) (6)
     Builder.CreateStore(DepVecValueCast, PtrForLoopI);             // (4) (7)
   }
 
@@ -3322,7 +3436,8 @@ CallInst *VPOParoptUtils::genKmpcFlush(WRegionNode *W, StructType *IdentTy,
 CallInst *VPOParoptUtils::genKmpcCall(WRegionNode *W, StructType *IdentTy,
                                       Instruction *InsertPt,
                                       StringRef IntrinsicName, Type *ReturnTy,
-                                      ArrayRef<Value *> Args, bool Insert) {
+                                      ArrayRef<Value *> Args, bool Insert,
+                                      bool EnableAtomicReduce) {
   assert(W != nullptr && "WRegionNode is null.");
   assert(IdentTy != nullptr && "IdentTy is null.");
   assert(InsertPt != nullptr && "InsertPt is null.");
@@ -3336,6 +3451,8 @@ CallInst *VPOParoptUtils::genKmpcCall(WRegionNode *W, StructType *IdentTy,
   Module *M = F->getParent();
 
   int Flags = KMP_IDENT_KMPC;
+  if (EnableAtomicReduce)
+    Flags |= KMP_IDENT_ATOMIC_REDUCE;
 
   // Before emitting the KMPC call, we need the Loc information.
   GlobalVariable *Loc =
@@ -3371,6 +3488,8 @@ CallInst *VPOParoptUtils::genCall(Function *Fn, ArrayRef<Value *> FnArgs,
   // Note: if InsertPt!=nullptr, Call is emitted into the IR as well.
   assert(Call != nullptr && "Failed to generate Function Call");
 
+  if (InsertPt != nullptr)
+    Call->setDebugLoc(InsertPt->getDebugLoc());
   Call->setCallingConv(CallingConv::C);
   Call->setTailCall(IsTail);
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Function call: " << *Call << "\n");
@@ -3442,6 +3561,65 @@ CallInst *VPOParoptUtils::genCall(StringRef FnName, Type *ReturnTy,
 
 // Create a variant version of BaseCall using  the same arguments.
 // The base and variant functions must have identical signatures.
+// If a use_device_ptr clause is present, the call arguments are changed to use
+// the updated value of the clause operand.
+//
+// In the following examples of pseudo-code for target variant dispatch
+// code-gen, this function emits (1), (2), (3) and (4).
+//
+// If there is no PTR_TO_PTR modifier, the incoming IR won't have a
+// load from the use_device_ptr operand, but we still need to generate
+// that load to get the updated value of the operand to be used in the
+// variant call.
+//
+// -------------------------------+--------------------------------------------
+//           Before               |      After
+// -------------------------------+--------------------------------------------
+//   "USE.DEVICE.PTR" (i32* %a)   |
+//                                |
+//                                | if (__tgt_is_device_available(...) {
+//                                |   ...
+//                                |   %a.cast = bitcast i32* %a to i8*
+//                                |   store i8* %a.cast, i8** <a_gep>
+//                                |   ...
+//                                |   __tgt_data_begin(...)
+//                                |   %a.gep.cast = bitcast i8** <a_gep>
+//                                |                 to i32**
+//                                |
+//                               (1)  %a.buffer = load i32*, i32** %a.gep.cast
+//   call @foo(i32* %a)          (2)  call @foo_gpu(i32* %a.buffer)
+//                                |
+//                                |   __tgt_data_end(...)
+//                                | } else {
+//                                |   call @foo(i32* %a)
+//                                | }
+//
+// -------------------------------+--------------------------------------------
+//           Before               |      After
+// -------------------------------+--------------------------------------------
+//   "USE.DEVICE.PTR:PTR_TO_PTR"  |
+//                   (i32** %a)   |
+//                                |
+//   %a.val = load i32*, i32** %a | %a.val = load i32*, i32** %a
+//                                |
+//                                | if (__tgt_is_device_available(...) {
+//                                |   %a.load = load i32*, i32** %a
+//                                |   ...
+//                                |   %a.cast = bitcast i32* %a.load to i8*
+//                                |   store i8* %a.cast, i8** <a_gep>
+//                                |   ...
+//                                |   __tgt_data_begin(...)
+//                                |   %a.gep.cast = bitcast i8** <a_gep>
+//                                |                 to i32**
+//                                |
+//                               (3)  %a.buffer = load i32*, i32** %a.gep.cast
+//   call @foo(i32* %a.val)      (4)  call @foo_gpu(i32* %a.buffer)
+//                                |
+//                                |   __tgt_data_end(...)
+//                                | } else {
+//                                |   call @foo(i32* %a.val)
+//                                | }
+//                                |
 CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
                                          StringRef VariantName,
                                          Value *InteropObj,
@@ -3479,67 +3657,76 @@ CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
       FnArgTypes.push_back(Int8PtrTy);
   }
   CallInst *VariantCall = genCall(M, VariantName, ReturnTy, FnArgs, FnArgTypes,
-                                  InsertPt, IsTail, IsVarArg);
+                                  InsertPt, IsTail, IsVarArg); // (2), (4)
 
   // Replace each VariantCall argument that is a load from a HostPtr listed
   // on the use_device_ptr clause with a load from the corresponding
   // TgtBufferAddr.
-  if (W) {
-    assert(isa<WRNTargetVariantNode>(W) && "Expected a Target Variant WRN");
-    UseDevicePtrClause &UDPtrClause = W->getUseDevicePtr();
-    if (!UDPtrClause.empty()) {
-      IRBuilder<> VCBuilder(VariantCall);
-      for (UseDevicePtrItem *Item : UDPtrClause.items()) {
-        Value *HostPtr = Item->getOrig();
-        Value *TgtBufferAddr = Item->getNew();
-        for (Value *Arg : FnArgs) {
-          LoadInst *Load = dyn_cast<LoadInst>(Arg);
+  if (!W)
+    return VariantCall;
 
-          if (!Load)
-            // Support cases like:
-            //   %5 = load %struct.S*, %struct.S** %a, align 8
-            //   %6 = bitcast %struct.S* %5 to i8*
-            //   call void @func_offload(i8* %6)
-            //
-            // Note that the host pointer's element type is %struct.S*,
-            // while the argument type is i8*.
-            Load = dyn_cast<LoadInst>(Arg->stripPointerCasts());
+  assert(isa<WRNTargetVariantNode>(W) && "Expected a Target Variant WRN");
+  UseDevicePtrClause &UDPtrClause = W->getUseDevicePtr();
+  if (UDPtrClause.empty())
+    return VariantCall;
 
-          if (!Load)
-            continue;
+  IRBuilder<> VCBuilder(VariantCall);
+  for (UseDevicePtrItem *Item : UDPtrClause.items()) {
+    Value *HostPtr = Item->getOrig();
+    Value *TgtBufferAddr = Item->getNew();
+    bool IsPointerToPointer = Item->getIsPointerToPointer();
 
-          if (Load->getPointerOperand() == HostPtr) {
-            StringRef OrigName = HostPtr->getName();
-            LoadInst *Buffer =
-                VCBuilder.CreateLoad(TgtBufferAddr, OrigName + ".buffer");
+    for (Value *Arg : FnArgs) {
+      if (!IsPointerToPointer && HostPtr != Arg &&
+          HostPtr != Arg->stripPointerCasts())
+        continue;
 
-            // HostPtr       type is:  SomeType**
-            // Arg           type is:  SomeType*
-            // TgtBufferAddr type is:  void**
-            // Buffer        type is:  void*
-            //
-            // To replace 'Arg' with 'Buffer' in the variant call,
-            // we must cast Buffer from void* to SomeType*
-            // Example (SomeType==float):
-            //    %buffer = load i8*, i8** %tgt.buffer
-            //    %buffer.cast = bitcast i8* %buffer23 to float*
-            //    call void @foo_gpu(..., float* %buffer.cast,... )
-            Type *HostPtrTy = HostPtr->getType(); // SomeType**
-            assert(HostPtrTy->isPointerTy() &&
-                   "HostPtrTy expected to be pointer type");
-            Type *HostPtrElemTy =
-              HostPtrTy->getPointerElementType(); // SomeType*
-            assert(HostPtrElemTy->isPointerTy() &&
-                   "HostPtrElemTy expected to be pointer type");
-            (void)HostPtrElemTy;
-            Value *BufferCast =
-              VCBuilder.CreateBitCast(Buffer, Arg->getType());
-            BufferCast->setName(OrigName + ".buffer.cast");
-            VariantCall->replaceUsesOfWith(Arg, BufferCast);
-            break;
-          }
-        }
+      if (IsPointerToPointer) {
+        LoadInst *Load = dyn_cast<LoadInst>(Arg);
+        if (!Load)
+          // Support cases like:
+          //   %5 = load %struct.S*, %struct.S** %a, align 8
+          //   %6 = bitcast %struct.S* %5 to i8*
+          //   call void @func_offload(i8* %6)
+          //
+          // Note that the host pointer's element type is %struct.S*,
+          // while the argument type is i8*.
+          Load = dyn_cast<LoadInst>(Arg->stripPointerCasts());
+
+        if (!Load)
+          continue;
+
+        if (Load->getPointerOperand() != HostPtr)
+          continue;
       }
+
+      StringRef OrigName = HostPtr->getName();
+      LoadInst *Buffer =
+          VCBuilder.CreateLoad(TgtBufferAddr, OrigName + ".buffer"); // (1), (3)
+
+      // HostPtr       type is:  SomeType** if ptr_to_ptr is present
+      //                         SomeType*  otherwise
+      // Arg           type is:  SomeType*
+      // TgtBufferAddr type is:  void**
+      // Buffer        type is:  void*
+      //
+      // To replace 'Arg' with 'Buffer' in the variant call,
+      // we must cast Buffer from void* to SomeType*
+      // Example (SomeType==float):
+      //    %buffer = load i8*, i8** %tgt.buffer
+      //    %buffer.cast = bitcast i8* %buffer23 to float*
+      //    call void @foo_gpu(..., float* %buffer.cast,... )
+      Type *HostPtrTy = HostPtr->getType();
+      assert(HostPtrTy->isPointerTy() &&
+             "HostPtrTy expected to be pointer type");
+      assert((!IsPointerToPointer ||
+              HostPtrTy->getPointerElementType()->isPointerTy()) &&
+             "HostPtr element type expected to be pointer type");
+      (void)HostPtrTy;
+      Value *BufferCast = VCBuilder.CreateBitCast(Buffer, Arg->getType());
+      BufferCast->setName(OrigName + ".buffer.cast");
+      VariantCall->replaceUsesOfWith(Arg, BufferCast);
+      break;
     }
   }
   return VariantCall;
@@ -3602,11 +3789,30 @@ GlobalVariable *VPOParoptUtils::genKmpcCriticalLockVar(
     WRegionNode *W, const Twine &LockNameSuffix, bool IsTargetSPIRV) {
 
   assert(W && "WRegionNode is null.");
+  unsigned AddressSpace = vpo::ADDRESS_SPACE_PRIVATE;
+
+  if (IsTargetSPIRV) {
+    AddressSpace = vpo::ADDRESS_SPACE_GLOBAL;
+#if INTEL_CUSTOMIZATION
+#if 0
+    // FIXME: re-enable this.
+    //        WG-local global variables require initialization
+    //        for each WG. We have to check if we can find the parent
+    //        target (or teams) region and insert the initialization there.
+    //        Experimental enabling of this code did not seem to affect
+    //        specACCEL performance at all.
+    if (isa<WRNDistributeParLoopNode>(W) ||
+        isa<WRNParallelLoopNode>(W))
+      AddressSpace = vpo::ADDRESS_SPACE_LOCAL;
+#endif
+#endif  // INTEL_CUSTOMIZATION
+  }
 
   // We first get the lock name prefix for the lock var based on the target.
   SmallString<64> LockName = getKmpcCriticalLockNamePrefix(W);
   LockName += LockNameSuffix.str();
-  LockName += ".var";
+
+  LockName += ".AS" + std::to_string(AddressSpace) + ".var";
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Lock name:" << LockName << "\n");
 
@@ -3638,9 +3844,7 @@ GlobalVariable *VPOParoptUtils::genKmpcCriticalLockVar(
       new GlobalVariable(*M, LockVarTy, false, GlobalValue::CommonLinkage,
                          ConstantAggregateZero::get(LockVarTy), LockName,
                          nullptr, GlobalValue::ThreadLocalMode::NotThreadLocal,
-                         IsTargetSPIRV ?
-                             vpo::ADDRESS_SPACE_GLOBAL :
-                             vpo::ADDRESS_SPACE_PRIVATE);
+                         AddressSpace);
 
   assert(GV && "Unable to generate Kmpc critical lock var.");
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Lock var generated: " << *GV << "\n");
@@ -3715,8 +3919,14 @@ bool VPOParoptUtils::genKmpcCriticalSectionImpl(WRegionNode *W,
   else
     EndCritical->insertAfter(EndInst);
 
-  if (IsTargetSPIRV)
-    genCriticalLoopForSPIR(BeginInst, EndCritical, DT, LI);
+  if (IsTargetSPIRV) {
+    if (!isa<WRNTeamsNode>(W))
+      // Critical loop must not be generated for teams region,
+      // since it will result in redundant execution and incorrect
+      // result. Only the master thread must execute the critical
+      // section (the master thread guards will be generated later).
+      genCriticalLoopForSPIR(BeginInst, EndCritical, DT, LI);
+  }
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Critical Section generated.\n");
   return true;
@@ -4026,6 +4236,56 @@ CallInst *VPOParoptUtils::genKmpcCancelOrCancellationPointCall(
   return CancelCall;
 }
 
+void VPOParoptUtils::insertCallsAtRegionBoundary(WRegionNode *W,
+                                                 CallInst *Call1,
+                                                 CallInst *Call2,
+                                                 bool InsideRegion) {
+  assert(W && "WRegionNode is null.");
+  assert(Call1 && "Call1 is null.");
+  assert(Call2 && "Call2 is null.");
+
+  Instruction *EntryDir = W->getEntryDirective();
+  Instruction *ExitDir = W->getExitDirective();
+  assert(EntryDir && ExitDir && "Null Entry/Exit directive.");
+
+  if (InsideRegion) {
+    Call1->insertAfter(EntryDir);
+    Call2->insertBefore(ExitDir);
+  } else {
+    Call1->insertBefore(EntryDir);
+    Call2->insertAfter(ExitDir);
+  }
+}
+
+std::pair<CallInst *, CallInst *>
+VPOParoptUtils::genKmpcSpmdPushPopNumThreadsCalls(Module *M,
+                                                  Value *NumThreads) {
+  assert(M && "Module is null.");
+
+  LLVMContext &C = M->getContext();
+  auto *VoidTy = Type::getVoidTy(C);
+  auto *RetTy = VoidTy;
+
+  if (!NumThreads)
+    NumThreads = ConstantInt::get(Type::getInt32Ty(C), 1);
+
+  CallInst *PushCall =
+      genCall(M, "__kmpc_spmd_push_num_threads", RetTy, {NumThreads});
+  assert(PushCall && "Could not emit __kmpc_spmd_push_num_threads");
+
+  CallInst *PopCall = genCall(M, "__kmpc_spmd_pop_num_threads", RetTy, {});
+  assert(PopCall && "Could not emit __kmpc_spmd_pop_num_threads");
+
+  PushCall->getCalledFunction()->setConvergent();
+  setFuncCallingConv(PushCall, true);
+  PopCall->getCalledFunction()->setConvergent();
+  setFuncCallingConv(PopCall, true);
+
+  LLVM_DEBUG(dbgs() << __FUNCTION__
+                    << ": Push/Pop num_threads calls generated.\n");
+  return {PushCall, PopCall};
+}
+
 void VPOParoptUtils::genConstructorCall(Function *Ctor, Value *V,
                                         IRBuilder<> &Builder) {
   if (Ctor == nullptr)
@@ -4204,7 +4464,6 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
   // with result type i32*:
   //   %1 = getelementptr inbounds ([10 x i32], [10 x i32]* %0, i32 0, i32 0)
   bool MimicArrayAllocation = false;
-
   if (auto *CI = dyn_cast_or_null<ConstantInt>(NumElements)) {
     // TODO: use ConstantFoldInstruction to discover more constant values.
     uint64_t Size = CI->getZExtValue();
@@ -4219,7 +4478,7 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
       AllocaAddrSpace ?
           AllocaAddrSpace.getValue() : DL.getAllocaAddrSpace(),
       NumElements, VarName);
-  AI->setAlignment(OrigAlignment);
+  AI->setAlignment(OrigAlignment.getValueOr(DL.getPrefTypeAlign(ElementType)));
 
   if (IsTargetSPIRV && AI->isArrayAllocation()) {
     LLVM_DEBUG(dbgs() <<
@@ -4610,12 +4869,13 @@ Value *VPOParoptUtils::genArrayLength(Value *AI, Value *BaseAddr,
 
   Type *AllocaTy;
   Value *NumElements;
+
+  Type *AIElemType = cast<PointerType>(AI->getType())->getElementType();
   std::tie(AllocaTy, NumElements) =
-      GeneralUtils::getOMPItemLocalVARPointerTypeAndNumElem(AI);
+      GeneralUtils::getOMPItemLocalVARPointerTypeAndNumElem(AI, AIElemType);
   assert(AllocaTy && "genArrayLength: item type cannot be deduced.");
 
   // TODO: NumElements??
-  AllocaTy = cast<PointerType>(AllocaTy)->getElementType();
   Type *ScalarTy = AllocaTy->getScalarType();
   ArrayType *ArrTy = dyn_cast<ArrayType>(ScalarTy);
   assert(ArrTy && "Expect array type. ");
@@ -4668,8 +4928,12 @@ Value *VPOParoptUtils::genAddrSpaceCast(Value *Ptr, Instruction *InsertPt,
                                         unsigned AddrSpace) {
   PointerType *PtType = cast<PointerType>(Ptr->getType());
   IRBuilder<> Builder(InsertPt);
-  return Builder.CreatePointerBitCastOrAddrSpaceCast(
+  // TODO: OPAQUEPOINTER: Use the appropriate API for getting PointerType to a
+  // specific AddressSpace. The API currently needs the Element Type as well.
+  Value *RetVal = Builder.CreatePointerBitCastOrAddrSpaceCast(
       Ptr, PtType->getElementType()->getPointerTo(AddrSpace));
+
+  return RetVal;
 }
 
 #if 0
@@ -4768,6 +5032,21 @@ Function *VPOParoptUtils::genOutlineFunction(const WRegionNode &W,
 
   auto *CallSite = cast<CallInst>(NewFunction->user_back());
 
+  // Remove the extracted blocks from the LoopInfo of enclosing regions. The
+  // Loops and Blocks in the extracted function are no longer valid
+  // outside of that function.
+  // Some regions (WRNDistribute, etc.) carry the LoopInfo of the child region
+  // and should be ignored.
+  LoopInfo *ThisLI =
+      W.getIsOmpLoop() ? W.getWRNLoopInfo().getLoopInfo() : nullptr;
+  WRegionNode *ParentW = W.getParent();
+  while (ParentW) {
+    if (ParentW->getIsOmpLoop() &&
+        ParentW->getWRNLoopInfo().getLoopInfo() != ThisLI) {
+      ParentW->getWRNLoopInfo().removeBlocksInFn(NewFunction);
+    }
+    ParentW = ParentW->getParent();
+  }
 #if 0
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Call to Outlined Function:\n"
                     << *CallSite << "\n\n");
@@ -5013,4 +5292,56 @@ void VPOParoptUtils::verifyFunctionForParopt(
   }
 }
 #endif // NDEBUG
+
+// Find users of V in the function F. Populates UserInsts and UserExprs with the
+// users if they're not null.
+void VPOParoptUtils::findUsesInFunction(
+    Function *F, Value *V, SmallVectorImpl<Instruction *> *UserInsts,
+    SmallPtrSetImpl<ConstantExpr *> *UserExprs) {
+  assert(UserInsts != nullptr && "UserInsts must not be nullptr.");
+  assert(UserExprs != nullptr && "UserExprs must not be nullptr.");
+
+  for (User *U : V->users()) {
+    if (Instruction *I = dyn_cast<Instruction>(U)) {
+      // If the user I in Function F, push it into UserInsts
+      if (I->getFunction() == F)
+        UserInsts->push_back(I);
+    } else if (ConstantExpr *CE = dyn_cast<ConstantExpr>(U)) {
+      // The user of global may not be an instruction but a ConstantExpr.
+      UserExprs->insert(CE);
+      // Recursively call findUsesInFunction to find all Instructions in \p F
+      // that use the ConstantExpr and add such Instructions to \p *Users.
+      VPOParoptUtils::findUsesInFunction(F, CE, UserInsts, UserExprs);
+    }
+  }
+
+  return;
+}
+
+// Replace users of Old with New value in function F
+void VPOParoptUtils::replaceUsesInFunction(Function *F, Value *Old,
+                                           Value *New) {
+  LLVM_DEBUG(dbgs() << __FUNCTION__ << ": replace ";
+             Old->printAsOperand(dbgs()); dbgs() << " with ";
+             New->printAsOperand(dbgs()); dbgs() << "\n");
+
+  SmallVector<Instruction *, 8> UserInsts;
+  SmallPtrSet<ConstantExpr *, 8> UserExprs;
+
+  findUsesInFunction(F, Old, &UserInsts, &UserExprs);
+  while (!UserInsts.empty()) {
+    Instruction *UI = UserInsts.pop_back_val();
+    UI->replaceUsesOfWith(Old, New);
+
+    if (UserExprs.empty())
+      continue;
+
+    // if Old is a ConstantExpr, its uses could be in ConstantExpr
+    SmallVector<Instruction *, 2> NewInstArr;
+    GeneralUtils::breakExpressions(UI, &NewInstArr, &UserExprs);
+    for (Instruction *NewInst : NewInstArr)
+      UserInsts.push_back(NewInst);
+  }
+}
+
 #endif // INTEL_COLLAB

@@ -69,6 +69,11 @@ static cl::opt<uint32_t> FixedSIMDWidth(
     "vpo-paropt-fixed-simd-width", cl::Hidden, cl::init(0),
     cl::desc("Fixed SIMD width for all target regions in the module."));
 
+static cl::opt<bool> SimulateGetNumThreadsInTarget(
+    "vpo-paropt-simulate-get-num-threads-in-target", cl::Hidden, cl::init(true),
+    cl::desc("Simulate support for omp_get_num_threads in OpenMP target "
+             "region. (This may have performance impact)."));
+
 // Reset the value in the Map clause to be empty.
 //
 // Do not reset base pointers (including the item's getOrig() pointer),
@@ -161,38 +166,66 @@ void VPOParoptTransform::replacePrintfWithOCLBuiltin(Function *PrintfDecl,
       // First argument of the original printf() is of
       // ADDRESS_SPACE_GENERIC (=4) due to its addrspacecast:
       //
-      //   call i32 (i8 addrspace(4)*, ...) @printf(
-      //     i8 addrspace(4)* addrspacecast (
-      //       i8 addrspace(1)* getelementptr inbounds
-      //       ([25 x i8], [25 x i8] addrspace(1)* @.str, i64 0, i64 0)
-      //     to i8 addrspace(4)*)
-      //       , ...)
+      //   call spir_func i32 (i8 addrspace(4)*, ...) @printf(i8 addrspace(4)*
+      //       getelementptr inbounds ([25 x i8], [25 x i8] addrspace(4)*
+      //       addrspacecast ([25 x i8] addrspace(1)* @.str to [25 x i8]
+      //       addrspace(4)*), i64 0, i64 0), ...)
       //
-      // The OCL printf expects addrspace(1). So, we must cast it to
-      // addrspace(1):
+      // The OCL printf expects addrspace(2). So, we must generate constant
+      // string with addrspace(2) and relink to OCL printf:
       //
-      //   call i32 (i8 addrspace(1)*, ...) @_Z18__spirv_ocl_printfPU3AS2ci(
-      //     i8 addrspace(1)* addrspacecast (
-      //     i8 addrspace(4)* addrspacecast (
-      //       i8 addrspace(1)* getelementptr inbounds
-      //       ([25 x i8], [25 x i8] addrspace(1)* @.str, i64 0, i64 0)
-      //     to i8 addrspace(4)*)
-      //     to i8 addrspace(1)*)
+      //   @.str.as2 = private target_declare addrspace(2) constant [25 x i8]
+      //       c"..."
+      //
+      //   call i32 (i8 addrspace(2)*, ...) @_Z18__spirv_ocl_printfPU3AS2ci(
+      //       i8 addrspace(2)* getelementptr inbounds
+      //       ([25 x i8], [25 x i8] addrspace(2)* @.str.as2, i64 0, i64 0)
       //       , ...)
       Type* FirstParmTy = FnArgs[0]->getType();
       assert(isa<PointerType>(FirstParmTy) &&
              "First argument to printf should be a pointer.");
 
-      if (FirstParmTy->getPointerAddressSpace() == vpo::ADDRESS_SPACE_GENERIC) {
+      if (FirstParmTy->getPointerAddressSpace() !=
+          vpo::ADDRESS_SPACE_CONSTANT) {
         IRBuilder<> Builder(OldCall);
-        FnArgs[0] = Builder.CreateAddrSpaceCast(
-            FnArgs[0], FirstParmTy->getPointerElementType()->getPointerTo(
-                           vpo::ADDRESS_SPACE_GLOBAL));
-      } else
-        assert(
-            FirstParmTy->getPointerAddressSpace() ==
-                vpo::ADDRESS_SPACE_GLOBAL &&
-            "First argument to ocl_printf should have global address space.");
+
+        LLVM_DEBUG(dbgs() << "Original argument 0 of printf: " << *FnArgs[0]
+                          << "\n");
+        auto V = FnArgs[0];
+        assert(isa<ConstantExpr>(V) && "Only constant format string in argument"
+                                       " 0 is supported!\n");
+        SmallVector<Value *, 2> Indices;
+        // Skip the constant expressions
+        while (ConstantExpr *CE = dyn_cast<ConstantExpr>(V)) {
+          if (CE->getOpcode() == Instruction::GetElementPtr) {
+            assert(CE->getNumOperands() == 3 && "Number of operands in "
+                                                "GetElementPtr must be 3!\n");
+            Indices.push_back(CE->getOperand(1));
+            Indices.push_back(CE->getOperand(2));
+          }
+          V = CE->getOperand(0);
+        }
+        assert(Indices.size() == 2 && "Expected only 1 GetElementPtr in "
+                                      "constant expression!\n");
+
+        auto OldArg0 = dyn_cast<GlobalVariable>(V);
+        assert(OldArg0 != nullptr &&
+               "The format string in printf is not global variable.\n");
+        // Generate format string with addrspace(2)
+        GlobalVariable *NewArg0 = new GlobalVariable(
+            *(OldArg0->getParent()), OldArg0->getValueType(),
+            OldArg0->isConstant(), OldArg0->getLinkage(),
+            OldArg0->hasInitializer() ? OldArg0->getInitializer() : nullptr,
+            OldArg0->getName() + Twine(".as2"), OldArg0,
+            OldArg0->getThreadLocalMode(), vpo::ADDRESS_SPACE_CONSTANT);
+        NewArg0->setTargetDeclare(true);
+
+        // Relink the newly generated string to printf
+        FnArgs[0] = Builder.CreateInBoundsGEP(NewArg0, Indices,
+                                              NewArg0->getName() + ".gep");
+        LLVM_DEBUG(dbgs() << "New argument 0 of printf: " << *FnArgs[0]
+                          << "\n");
+      }
 
       // Create the new call based on OCLPrintfDecl and
       // insert it before the old call
@@ -238,7 +271,7 @@ Function *VPOParoptTransform::finalizeKernelFunction(WRegionNode *W,
 
   Type *RetTy = FnTy->getReturnType();
   FunctionType *NFnTy = FunctionType::get(RetTy, ParamsTy, false);
-  Function *NFn = Function::Create(NFnTy, GlobalValue::ExternalLinkage);
+  Function *NFn = Function::Create(NFnTy, GlobalValue::WeakAnyLinkage);
   NFn->copyAttributesFrom(Fn);
   NFn->setCallingConv(CallingConv::SPIR_KERNEL);
   NFn->addFnAttr("target.declare", "true");
@@ -353,6 +386,46 @@ static Instruction *getExitInstruction(Instruction *DirectiveBegin,
   return nullptr;
 }
 
+/// If the given \p CallI is a __kmpc_critical call,
+/// then this function will return its pairing __kmpc_end_critical call,
+/// otherwise, it will return nullptr.
+/// The function assumes that there are no early exits from the critical
+/// region, which is a valid assumption for SPIR targets (where we can
+/// only support well-formed critical regions).
+static CallInst *getCriticalEndCall(CallInst *CallI) {
+  auto CalledF = CallI->getCalledOperand()->stripPointerCasts();
+
+  if (!CalledF || !CalledF->hasName() ||
+      CalledF->getName() != "__kmpc_critical")
+    return nullptr;
+
+  SmallVector<BasicBlock *, 32> WorkStack{CallI->getParent()};
+  SmallPtrSet<BasicBlock *, 32> Visited;
+  while (!WorkStack.empty()) {
+    BasicBlock *BB = WorkStack.pop_back_val();
+
+    for (auto &I : *BB)
+      if (auto *EndCallI = dyn_cast<CallInst>(&I)) {
+        auto CalledF = EndCallI->getCalledOperand()->stripPointerCasts();
+
+        if (CalledF && CalledF->hasName() &&
+            CalledF->getName() == "__kmpc_end_critical")
+          return EndCallI;
+      }
+
+    Visited.insert(BB);
+    assert(BB->getTerminator()->getNumSuccessors() > 0 &&
+           "Block inside critical section has zero successors.");
+    // Place the successors into the work stack.
+    for (auto *SBB : successors(BB))
+      if (Visited.count(SBB) == 0)
+        WorkStack.push_back(SBB);
+  }
+
+  llvm_unreachable("OpenMP critical region is malformed.");
+  return nullptr;
+}
+
 /// This function ignores special instructions with side effect.
 /// Returns true if the call instruction is a special call.
 /// Returns true if the store address is an alloca instruction,
@@ -368,7 +441,7 @@ static bool ignoreSpecialOperands(const Instruction *I) {
       "_f90_dope_vector_init", "_f90_firstprivate_copy",
       "_f90_dope_vector_size", "_f90_lastprivate_copy",
 #endif // INTEL_CUSTOMIZATION
-      "__kmpc_critical",     "__kmpc_end_critical", "omp_get_thread_num"};
+      "omp_get_thread_num"};
 
   if (auto CallI = dyn_cast<CallInst>(I)) {
     // Unprototyped function calls may result in a call of a bitcasted
@@ -416,6 +489,7 @@ void VPOParoptTransform::guardSideEffectStatements(
   SmallVector<BasicBlock *, 10> ParBBVector, TargetBBSet;
   SmallVector<Instruction *, 10> EntryDirectivesToDelete;
   SmallVector<Instruction *, 10> ExitDirectivesToDelete;
+  SmallVector<std::pair<CallInst *, CallInst *>, 10> OmpCriticalCalls;
 
   auto InsertWorkGroupBarrier = [](Instruction *InsertPt) {
     LLVMContext &C = InsertPt->getContext();
@@ -493,11 +567,33 @@ void VPOParoptTransform::guardSideEffectStatements(
 
       GeneralUtils::collectBBSet(TargetDirectiveBegin->getParent(),
           TargetDirectiveExit->getParent(), TargetBBSet);
-    }
+    } else if (auto *CallI = dyn_cast<CallInst>(&*I))
+      if (auto *EndCallI = getCriticalEndCall(CallI))
+        // Collect critical regions. If a side-effect instruction
+        // inside a critical region must be guarded (e.g. the critical
+        // region is inside a teams region), then there must be no
+        // barrier at the merge point.
+        //
+        // FIXME: this is not really needed, because we guard the
+        //        lock acqure/release calls with the master thread checks
+        //        as well. For some reason specACCEL/552 hangs with
+        //        the barrier calls.
+        OmpCriticalCalls.push_back({CallI, EndCallI});
   }
 
   SmallPtrSet<BasicBlock *, 10> ParBBSet(ParBBVector.begin(),
                                          ParBBVector.end());
+  SmallPtrSet<BasicBlock *, 10> CriticalBBSet;
+  SmallPtrSet<Instruction *, 10> SideEffectsInCritical;
+
+  for (auto &CriticalPair : OmpCriticalCalls) {
+    SmallVector<BasicBlock *, 32> BBSet;
+    GeneralUtils::collectBBSet(CriticalPair.first->getParent(),
+                               CriticalPair.second->getParent(),
+                               BBSet);
+    CriticalBBSet.insert(BBSet.begin(), BBSet.end());
+  }
+
   // Iterate over all instructions and add the side effect instructions
   // to the set "SideEffectInstructions".
 
@@ -530,6 +626,8 @@ void VPOParoptTransform::guardSideEffectStatements(
         LLVM_DEBUG(dbgs() << "\nInstruction has side effect::" << I
                           << "\nBasicBlock: " << I.getParent());
         SideEffectInstructions.push_back(&I);
+        if (CriticalBBSet.find(BB) != CriticalBBSet.end())
+          SideEffectsInCritical.insert(&I);
       }
     }
   }
@@ -624,10 +722,10 @@ void VPOParoptTransform::guardSideEffectStatements(
     //  store i32 %c.new, i32* %val.priv, align 4  // Replaced %c with %c.new
     //
     Value *TeamLocalVal = nullptr;
-    MaybeAlign Alignment =
-        StartI->getType()->isPointerTy()
-            ? StartI->getPointerAlignment(StartI->getModule()->getDataLayout())
-            : llvm::None;
+    auto &DL = StartI->getModule()->getDataLayout();
+    MaybeAlign Alignment = llvm::None;
+    if(StartI->getType()->isPointerTy())
+      Alignment = StartI->getPointerAlignment(DL);
     if (StartIHasUses)
       TeamLocalVal = VPOParoptUtils::genPrivatizationAlloca( //           (1)
           StartI->getType(), nullptr, Alignment, TargetDirectiveBegin,
@@ -648,11 +746,15 @@ void VPOParoptTransform::guardSideEffectStatements(
     Instruction *BarrierInsertPt = ElseBB->getFirstNonPHI();
 
     if (StartIHasUses) { //                                               (3)
-      StoreInst *StoreGuardedInstValue = new StoreInst(StartI, TeamLocalVal);
+      Type *StartITy = StartI->getType();
+      Align StartIAlign = DL.getABITypeAlign(StartITy);
+      StoreInst *StoreGuardedInstValue =
+          new StoreInst(StartI, TeamLocalVal, false /*volatile*/, StartIAlign);
       StoreGuardedInstValue->insertAfter(StartI);
 
-      LoadInst *LoadSavedValue = new LoadInst(StartI->getType(), TeamLocalVal,
-                                              StartI->getName() + ".new"); //(5)
+      LoadInst *LoadSavedValue = //                                       (5)
+          new LoadInst(StartITy, TeamLocalVal, StartI->getName() + ".new",
+                       false /*volatile*/, StartIAlign);
       LoadSavedValue->insertBefore(BarrierInsertPt);
       BarrierInsertPt = LoadSavedValue;
 
@@ -661,7 +763,8 @@ void VPOParoptTransform::guardSideEffectStatements(
     }
 
     // Insert group barrier at the merge point.
-    InsertWorkGroupBarrier(BarrierInsertPt); //                           (4)
+    if (SideEffectsInCritical.count(StartI) == 0)
+      InsertWorkGroupBarrier(BarrierInsertPt); //                         (4)
     I = std::next(I);
   }
 
@@ -705,6 +808,45 @@ void VPOParoptTransform::guardSideEffectStatements(
   KernelEntryDir->replaceAllUsesWith(NewEntryDir);
   KernelEntryDir->eraseFromParent();
   W->setEntryDirective(NewEntryDir);
+}
+
+bool VPOParoptTransform::callPopPushNumThreadsAtRegionBoundary(
+    WRegionNode *W, bool InsideRegion) {
+
+  if (!SimulateGetNumThreadsInTarget || !moduleHasOmpGetNumThreadsFunction())
+    return false;
+
+  assert(W && "WRegionNode is null.");
+
+  Instruction *EntryDir = W->getEntryDirective();
+  assert(EntryDir && "Null Entry directive.");
+
+  CallInst *PushCall, *PopCall;
+  std::tie(PushCall, PopCall) =
+      VPOParoptUtils::genKmpcSpmdPushPopNumThreadsCalls(EntryDir->getModule());
+
+  VPOParoptUtils::insertCallsAtRegionBoundary(W, PopCall, PushCall,
+                                              InsideRegion);
+  return true;
+}
+
+bool VPOParoptTransform::callPushPopNumThreadsAtRegionBoundary(
+    WRegionNode *W, bool InsideRegion) {
+  assert(W && "WRegionNode is null.");
+
+  if (!SimulateGetNumThreadsInTarget || !moduleHasOmpGetNumThreadsFunction())
+    return false;
+
+  Instruction *EntryDir = W->getEntryDirective();
+  assert(EntryDir && "Null Entry directive.");
+
+  CallInst *PushCall, *PopCall;
+  std::tie(PushCall, PopCall) =
+      VPOParoptUtils::genKmpcSpmdPushPopNumThreadsCalls(EntryDir->getModule());
+
+  VPOParoptUtils::insertCallsAtRegionBoundary(W, PushCall, PopCall,
+                                              InsideRegion);
+  return true;
 }
 
 // Generate the code for the directive omp target
@@ -1007,6 +1149,7 @@ void VPOParoptTransform::genTgtInformationForPtrs(
         if (MapType) {
           // MemberOf flag is in the 16 MSBs of the 64 bit MapType.
           uint64_t MemberOfFlag = MapType >> 48;
+          uint64_t NewMapType = MapType;
 
           if (MemberOfFlag && MemberOfFlag != MapTypeIndexForBaseOfChain) {
             // We need to set MemberOf to the index of the base of the chain,
@@ -1014,13 +1157,26 @@ void VPOParoptTransform::genTgtInformationForPtrs(
             assert(MapTypeIndexForBaseOfChain < (1 << 16) &&
                    "Too many maps. MemberOf flag exceeding 16 bits.");
             uint64_t Mask = (~(0ull)) >> 16;
-            uint64_t NewMapType = MapType & Mask;
+            NewMapType = NewMapType & Mask;
             NewMapType = NewMapType | (MapTypeIndexForBaseOfChain << 48);
             LLVM_DEBUG(dbgs()
                        << __FUNCTION__ << ": Updated MemberOf Flag from '"
                        << MemberOfFlag << "' to '" << MapTypeIndexForBaseOfChain
-                       << "'; MapType from '" << MapType << "' to '"
-                       << NewMapType << "'\n");
+                       << "'.\n");
+          }
+
+          // For operands in a map chain, as well as use_device_ptr clause, we
+          // need to add TGT_MAP_RETURN_PARAM to the map-type of the base of
+          // the chain (if not already present).
+          if (I == 0 && MapI->getInUseDevicePtr()) {
+            NewMapType = NewMapType | TGT_MAP_RETURN_PARAM;
+            LLVM_DEBUG(dbgs() << __FUNCTION__
+                              << ": Added TGT_MAP_RETURN_PARAM flag.\n");
+          }
+
+          if (MapType != NewMapType) {
+            LLVM_DEBUG(dbgs() << __FUNCTION__ << ": MapType changed from '"
+                              << MapType << "' to '" << NewMapType << "'.\n");
             MapType = NewMapType;
           }
           MapTypes.push_back(MapType);
@@ -1064,26 +1220,22 @@ void VPOParoptTransform::genTgtInformationForPtrs(
     for (IsDevicePtrItem *IsDevicePtrI : IDevicePtrClause.items()) {
       if (IsDevicePtrI->getOrig() != V)
         continue;
-      Type *T = V->getType()->getPointerElementType();
-      ConstSizes.push_back(ConstantInt::get(Type::getInt64Ty(C),
-                                            DL.getTypeAllocSize(T)));
+      Type *T = V->getType();
+      ConstSizes.push_back(
+          ConstantInt::get(Type::getInt64Ty(C), DL.getTypeAllocSize(T)));
       // Example:
       //   int *p;
       //   #pragma omp target is_device_ptr(p)
       //
-      // is_device_ptr clause will refer to (i32 **%p), where
-      // %p is defined as:
-      //   %p = alloca i32 *
+      // The IR will look like:
+      //   %p = load i32* i32** @p
+      //   ...IS_DEVICE_PTR(i32* %p) PRIVATE(i32** @p)
+      //   store i32* %p, i32** @p
       //
-      // We have to map 'p' as MAP_TO, so that device allocates
-      // a memory to hold the pointer value, and the pointer value
-      // is supposed to be a valid device pointer.
-      MapTypes.push_back(TGT_MAP_TARGET_PARAM | TGT_MAP_TO);
-      // TODO: we may get rid of the double pointer for is_device_ptr()
-      //       representation the same way as for firstprivate() clause.
-      //       See setIsPointer() call in VPOParoptTransform.cpp.
-      //       When we do this, we need to use the following mapping:
-      //         TGT_MAP_TARGET_PARAM | TGT_MAP_LITERAL
+      // We have to map 'p' as MAP_TYPE_LITERAL so that we pass the value
+      // of the pointer as is to the target construct without mapping/
+      // allocating memory.
+      MapTypes.push_back(TGT_MAP_TARGET_PARAM | TGT_MAP_LITERAL);
     }
   }
   if (isa<WRNTargetNode>(W) && W->getParLoopNdInfoAlloca() == V) {
@@ -1393,8 +1545,14 @@ bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W,
     InsertPt = EntryBB->getTerminator();
   }
   IRBuilder<> LoadBuilder(InsertPt);
+  Value *MapSize = LoadBuilder.getInt64(0);
+  uint64_t MapType = TGT_MAP_TARGET_PARAM | TGT_MAP_RETURN_PARAM;
   MapClause &MapC = W->getMap();
   for (UseDevicePtrItem *UDPI : UDPC.items()) {
+    // There's already a map clause present for the use_device_ptr clause item.
+    if (UDPI->getInMap())
+      continue;
+
     Value *UDP = UDPI->getOrig();
     Value *MappedVal =
         UDPI->getIsPointerToPointer()
@@ -1402,9 +1560,11 @@ bool VPOParoptTransform::addMapForUseDevicePtr(WRegionNode *W,
                   cast<PointerType>(UDP->getType())->getPointerElementType(),
                   UDP, UDP->getName() + ".load")
             : UDP;
-    MapC.add(MappedVal);
+    MapAggrTy *MapAggr = new MapAggrTy(MappedVal, MappedVal, MapSize, MapType);
+    MapItem *MapI = new MapItem(MapAggr);
+    MapI->setOrig(MappedVal);
+    MapC.add(MapI);
 
-    MapItem *MapI = MapC.back();
     MapI->setInUseDevicePtr(UDPI);
     UDPI->setInMap(MapI);
 
@@ -1484,6 +1644,7 @@ void VPOParoptTransform::useUpdatedUseDevicePtrsInTgtDataRegion(
     assert(BasePtrGEP && "No GEP found for base-ptr of Map item's orig.");
 
     Value *OrigV = UDPI->getOrig();
+    Type *OrigElemTy = UDPI->getOrigElemType();
 
     Value *GepCast = Builder.CreateBitOrPointerCast(
         BasePtrGEP, MapI->getOrig()->getType()->getPointerTo(),
@@ -1493,7 +1654,8 @@ void VPOParoptTransform::useUpdatedUseDevicePtrsInTgtDataRegion(
         Builder.CreateLoad(GepCast, OrigV->getName() + ".updated.val"); //  (4)
     Value *NewV = nullptr;
     if (UDPI->getIsPointerToPointer()) {
-      NewV = genPrivatizationAlloca(OrigV, AllocaInsertPt, ".new"); //      (2)
+      NewV = genPrivatizationAlloca(OrigV, OrigElemTy, AllocaInsertPt,
+                                    ".new");                        //      (2)
       Builder.CreateStore(UpdatedUDPVal, NewV);                     //      (5)
     } else
       NewV = UpdatedUDPVal;
@@ -1597,23 +1759,24 @@ void VPOParoptTransform::genOffloadArraysInitForClause(
     if (ForceMapping)
       BPVal = MapI->getOrig();
     Match = true;
+    Instruction *BasePtrGEP = nullptr;
     if (MapI->getIsMapChain()) {
       MapChainTy const &MapChain = MapI->getMapChain();
       for (unsigned I = 0; I < MapChain.size(); ++I) {
         MapAggrTy *Aggr = MapChain[I];
         genOffloadArraysInitUtil(
             Builder, Aggr->getBasePtr(), Aggr->getSectionPtr(), Aggr->getSize(),
-            Info, ConstSizes, Cnt, hasRuntimeEvaluationCaptureSize);
+            Info, ConstSizes, Cnt, hasRuntimeEvaluationCaptureSize,
+            I == 0 ? &BasePtrGEP : nullptr);
       }
     } else {
       assert(!MapI->getIsArraySection() &&
              "Map with an array section must have a map chain.");
-      Instruction *BasePtrGEP = nullptr;
       genOffloadArraysInitUtil(Builder, BPVal, BPVal, nullptr, Info, ConstSizes,
                                Cnt, hasRuntimeEvaluationCaptureSize,
                                &BasePtrGEP);
-      MapI->setBasePtrGEPForOrig(BasePtrGEP);
     }
+    MapI->setBasePtrGEPForOrig(BasePtrGEP);
   }
 
   LLVM_DEBUG(
@@ -2085,6 +2248,15 @@ bool VPOParoptTransform::deviceTriplesHasSPIRV() {
   return false;
 }
 
+bool VPOParoptTransform::moduleHasOmpGetNumThreadsFunction() {
+  return F->getParent()->getFunction("omp_get_num_threads");
+}
+
+bool VPOParoptTransform::isFunctionOpenMPTargetDeclare() {
+  return (F->getAttributes().hasAttribute(AttributeList::FunctionIndex,
+                                          "openmp-target-declare"));
+}
+
 // Return true if one of the region W's ancestor is OMP target
 // construct or the function where W lies in has target declare attribute.
 bool VPOParoptTransform::hasParentTarget(WRegionNode *W) {
@@ -2314,11 +2486,14 @@ StringRef getVariantName(CallInst *BaseCall, StringRef &MatchConstruct,
 //
 //      struct AsyncObjTy { // struct size = 8+8+4+4 = 24 on 64bit arch
 //        void* UDPtrs;     // pointer to a UseDevicePtrsTy struct
+//                          // unused when UseRawDevicePtr is set
 //        void* task_entry; // unused
 //        int   part_id;    // unused
 //        int   num_ptrs;   // number of use_device_ptr pointers
+//                          // unused when UseRawDevicePtr is set
 //      };
 //
+// TODO : Remove struct UseDevicePtrsTy when UseRawDevicePtr is default
 // where the UseDevicePtrsTy is a struct to hold void* pointers corresponding
 // to the target buffers created for each pointer. For example, for the
 // clause use_device_ptr(a,b,c,d), the structure will look like this:
@@ -2370,7 +2545,7 @@ static Value *createAsyncObj(WRegionNode *W, Value *DeviceNum,
   StructType *UseDevicePtrsTy = nullptr;
   int UseDevicePtrsTySize = 0;
   UseDevicePtrClause &UDPtrClause = W->getUseDevicePtr();
-  int NumberOfPointers = UDPtrClause.size();
+  int NumberOfPointers = UseRawDevicePtr ? 0 : UDPtrClause.size();
   if (NumberOfPointers > 0) {
     SmallVector<Type *, 4> StructFields; // {i8*, i8*, i8*, etc.}
     for (int I = 0; I < NumberOfPointers; I++)
@@ -2392,6 +2567,7 @@ static Value *createAsyncObj(WRegionNode *W, Value *DeviceNum,
   //                        i32 16,     // "proxy" flag 0x10
   //                        i64 24,     // sizeof(AsyncObjTy) = 8+8+4+4 = 24
   //                        i64 32,     // sizeof(UseDevicePtrsTy) = 4*8 = 32
+  //                                    // 0 for UseRawDevicePtr
   //                        i8* null)   // unused
 
   CallInst *AsyncObj = VPOParoptUtils::genKmpcTaskAllocForAsyncObj(
@@ -2661,8 +2837,8 @@ createTargetVariantDispatchHostPtrs(WRegionNode *W, Instruction *InsertPt,
     Instruction *NextInsertBefore = nullptr;
     Value *HostPtr = nullptr;
     if (Item->getIsPointerToPointer()) {
-      Type *LoadTy = cast<PointerType>(Orig->getType())->getElementType();
-      HostPtr = Builder.CreateLoad(LoadTy, Orig, "hostPtr");
+      Type *OrigElemType = Item->getOrigElemType();
+      HostPtr = Builder.CreateLoad(OrigElemType, Orig, "hostPtr");
       NextInsertBefore = cast<Instruction>(HostPtr);
     } else
       HostPtr = Orig;
@@ -2855,11 +3031,14 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   // base function call. All other instructions in the region are ignored.
 
   CallInst *BaseCall = nullptr;
-  for (auto *BB : make_range(W->bbset_begin()+1, W->bbset_end()-1))
+  for (auto *BB : make_range(W->bbset_begin()+1, W->bbset_end()-1)) {
     for (Instruction &I : *BB) {
       if ((BaseCall = dyn_cast<CallInst>(&I)) != nullptr)
         break;
     }
+    if (BaseCall)
+      break;
+  }
 
   assert(BaseCall && "Base call not found in Target Variant Dispatch");
   if (!BaseCall)

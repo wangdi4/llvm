@@ -70,6 +70,16 @@ protected:
   static SymbolListTy getSortedStubs(DenseMap<MCSymbol*, StubValueTy>&);
 };
 
+#if INTEL_CUSTOMIZATION
+/// Notify(zc) label annotations.
+struct NotifyEntry {
+  MCSymbol *IP;
+  MCSymbol *ProbeEnd; // ProbeStart = IP
+  StringRef Annotation;
+  unsigned ExprDwarfReg;
+};
+
+#endif // INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 /// This class contains meta information specific to a module.  Queries can be
 /// made by different debugging and exception handling schemes and reformated
@@ -136,6 +146,8 @@ class MachineModuleInfo {
   /// emit .note.GNU-no-split-stack section when it also contains split-stack
   /// functions.
   bool HasNosplitStack;
+
+  std::vector<NotifyEntry> NotifyAnnotations; // INTEL
 
   /// Maps IR Functions to their corresponding MachineFunctions.
   DenseMap<const Function*, std::unique_ptr<MachineFunction>> MachineFunctions;
@@ -220,6 +232,25 @@ public:
   void setHasNosplitStack(bool b) {
     HasNosplitStack = b;
   }
+#if INTEL_CUSTOMIZATION
+  /// Record notify annotations associated with a particular label.
+  void addNotifyAnnotation(NotifyEntry Entry) {
+    NotifyAnnotations.push_back(Entry);
+  }
+
+  const std::vector<NotifyEntry> &getNotifyAnnotations() const {
+    return NotifyAnnotations;
+  }
+
+  NotifyEntry *getNotifyEntry(MCSymbol *IP) {
+    auto I = llvm::find_if(NotifyAnnotations, [&](NotifyEntry &E) {
+      return E.IP == IP;
+    });
+    assert(I != NotifyAnnotations.end() &&
+          "Should not find illegal IP Annotations.");
+    return &*I;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   /// Return the symbol to be used for the specified basic block when its
   /// address is taken.  This cannot be its normal LBB label because the block

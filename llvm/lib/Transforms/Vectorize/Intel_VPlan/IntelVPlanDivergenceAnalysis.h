@@ -17,6 +17,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLAN_DIVERGENCE_ANALYSIS_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLAN_DIVERGENCE_ANALYSIS_H
 
+#include "IntelVPlanSyncDependenceAnalysis.h"
 #include "IntelVPlanVectorShape.h"
 #include "llvm/ADT/DenseSet.h"
 #include <queue>
@@ -28,7 +29,6 @@ class VPValue;
 class VPInstruction;
 class VPLoop;
 class VPLoopInfo;
-class SyncDependenceAnalysis;
 #if INTEL_CUSTOMIZATION
 class VPVectorShape;
 class VPPHINode;
@@ -62,6 +62,13 @@ public:
                VPDominatorTree &DT, VPPostDominatorTree &PDT,
                bool IsLCSSA = true);
 
+  /// Recomputes the shapes of all the instructions in the \p Seeds set and
+  /// triggers the recomputation of all dependent instructions.
+  /// This function assumes that all the required information like VPlan,
+  /// Dominator/Post-Dominator tree, etc. are unchanged from the previous
+  /// invocation of the \p compute method.
+  void recomputeShapes(SmallPtrSetImpl<VPInstruction *> &Seeds);
+
   /// Mark \p DivVal as a value that is always divergent.
   void markDivergent(const VPValue &DivVal);
 
@@ -88,8 +95,12 @@ public:
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
 
-  /// Return \p true if the given pointer is unit-stride.
+  /// Return \p true if the given pointer is unit-strided(1 or -1).
   bool isUnitStridePtr(const VPValue *Ptr) const;
+
+  /// Return \p true if the given pointer is unit-strided(1 or -1).
+  /// \p IsNegOneStride is set to true if stride is -1 and false otherwise.
+  bool isUnitStridePtr(const VPValue *VPPtr, bool &IsNegOneStride) const;
 
   void updateDivergence(const VPValue &Val) {
     assert(isa<VPInstruction>(&Val) &&
@@ -108,6 +119,13 @@ private:
 
   /// Pop the instruction from the Worklist.
   const VPInstruction *popFromWorklist();
+
+  // Clear the Worklist.
+  void clearWorklist() {
+    std::queue<const VPInstruction*> EmptyWL;
+    std::swap(Worklist, EmptyWL);
+    OnWorklist.clear();
+  }
 
   /// Whether \p BB is part of the region.
   bool inRegion(const VPBasicBlock &BB) const;
@@ -226,8 +244,11 @@ private:
   /// Computes vector shapes for cast instructions, sitofp, sext, ptrtoint, etc.
   VPVectorShape computeVectorShapeForCastInst(const VPInstruction *I);
 
-  /// Computes vector shapes for gep instructions.
-  VPVectorShape computeVectorShapeForGepInst(const VPInstruction *I);
+  /// Computes vector shapes for memory address computation instructions
+  /// (includes GEP and VPSubscript).
+  VPVectorShape computeVectorShapeForMemAddrInst(const VPInstruction *I);
+
+  VPVectorShape computeVectorShapeForSOAGepInst(const VPInstruction *I);
 
   /// Computes vector shapes for phi nodes.
   VPVectorShape computeVectorShapeForPhiNode(const VPPHINode *Phi);
@@ -264,13 +285,22 @@ private:
   VPVectorShape getRandomVectorShape();
 
   /// Returns a sequential vector shape with the given stride.
-  VPVectorShape getSequentialVectorShape(uint64_t Stride);
+  VPVectorShape getSequentialVectorShape(int64_t Stride);
 
   /// Returns a strided vector shape with the given stride.
-  VPVectorShape getStridedVectorShape(uint64_t Stride);
+  VPVectorShape getStridedVectorShape(int64_t Stride);
+
+  /// Return true if the given variable has VectorShape.
+  bool isSOAShape(const VPValue *Val) const;
+
+  /// Returns a SOASequential vector shape with the given stride.
+  VPVectorShape getSOASequentialVectorShape(int64_t Stride);
+
+  /// Returns a SOARandom vector shape with the given stride.
+  VPVectorShape getSOARandomVectorShape();
 
   /// Returns in integer value in \p IntVal if \p V is an integer VPConstant.
-  bool getConstantIntVal(VPValue *V, uint64_t &IntVal);
+  bool getConstantIntVal(VPValue *V, int64_t &IntVal);
 
   /// Returns a VPConstant of \p Val.
   VPConstant* getConstantInt(int64_t Val);
@@ -282,6 +312,10 @@ private:
 
   /// Verify the shape of each instruction in give Block \p VPBB.
   void verifyBasicBlock(const VPBasicBlock *VPBB);
+
+  /// Improve stride information where possible by using information provided
+  /// by underlying IR.
+  void improveStrideUsingIR();
 
   VPlan *Plan;
 
@@ -301,7 +335,7 @@ private:
   DenseSet<const VPLoop *> DivergentLoops;
 
   // The SDA links divergent branches to divergent control-flow joins.
-  SyncDependenceAnalysis *SDA;
+  std::unique_ptr<SyncDependenceAnalysis> SDA;
 
   // Use simplified code path for LCSSA form.
   bool IsLCSSAForm;

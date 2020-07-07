@@ -18,15 +18,14 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLAN_SYNC_DEPENDENCE_ANALYSIS_H
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_VPLAN_SYNC_DEPENDENCE_ANALYSIS_H
 
-#include "IntelVPlan.h"
-#include "IntelVPlanLoopInfo.h"
-#include "llvm/ADT/DenseMap.h"
+#include "IntelVPBasicBlock.h"
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/SmallPtrSet.h"
 
 namespace llvm {
 namespace vpo {
 
+class VPLoopInfo;
 using ConstBlockSet = SmallPtrSet<const VPBasicBlock *, 4>;
 
 /// Relates points of divergent control to join points in reducible CFGs.

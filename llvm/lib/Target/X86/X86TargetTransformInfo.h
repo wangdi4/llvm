@@ -164,17 +164,10 @@ public:
 
   unsigned getAtomicMemIntrinsicMaxElementSize() const;
 
-  int getIntrinsicInstrCost(
-    Intrinsic::ID IID, Type *RetTy, ArrayRef<Type *> Tys,
-    FastMathFlags FMF, unsigned ScalarizationCostPassed = UINT_MAX,
-    TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
-    const Instruction *I = nullptr);
-
-  int getIntrinsicInstrCost(Intrinsic::ID IID, Type *RetTy,
-                            ArrayRef<Value *> Args, FastMathFlags FMF,
-                            unsigned VF = 1,
-                            TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
-                            const Instruction *I = nullptr);
+  int getTypeBasedIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
+                                     TTI::TargetCostKind CostKind);
+  int getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
+                            TTI::TargetCostKind CostKind);
 
   int getArithmeticReductionCost(unsigned Opcode, VectorType *Ty,
                                  bool IsPairwiseForm,
@@ -209,8 +202,7 @@ public:
 
   int getIntImmCost(const APInt &Imm, Type *Ty, TTI::TargetCostKind CostKind);
 
-  unsigned getUserCost(const User *U, ArrayRef<const Value *> Operands,
-                       TTI::TargetCostKind);
+  unsigned getCFInstrCost(unsigned Opcode, TTI::TargetCostKind CostKind);
 
   int getIntImmCostInst(unsigned Opcode, unsigned Idx, const APInt &Imm, Type *Ty,
                         TTI::TargetCostKind CostKind);
@@ -244,6 +236,15 @@ public:
   TTI::MemCmpExpansionOptions enableMemCmpExpansion(bool OptSize,
                                                     bool IsZeroCmp) const;
   bool enableInterleavedAccessVectorization();
+
+  /// Allow vectorizers to form reduction intrinsics in IR. The IR is expanded
+  /// into shuffles and vector math/logic by the backend
+  /// (see TTI::shouldExpandReduction)
+  bool useReductionIntrinsic(unsigned Opcode, Type *Ty,
+                             TTI::ReductionFlags Flags) const {
+    return true;
+  }
+
 private:
 #if INTEL_CUSTOMIZATION
   int getGSScalarCost(unsigned Opcode, Type *PtrTy, Type *DataTy,

@@ -376,9 +376,9 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 
 #if INTEL_CUSTOMIZATION
   // Add other Intel specific libraries (libirc, svml, libdecimal)
-  if (!Args.hasArg(options::OPT_nostdlib) && Args.hasArg(options::OPT__intel) &&
-      !C.getDriver().IsCLMode()) {
-    CmdArgs.push_back("-defaultlib:libirc");
+  if (!Args.hasArg(options::OPT_nostdlib) && !C.getDriver().IsCLMode() &&
+      Args.hasArg(options::OPT__intel, options::OPT__dpcpp)) {
+    CmdArgs.push_back("-defaultlib:libircmt");
     CmdArgs.push_back("-defaultlib:svml_dispmt");
     CmdArgs.push_back("-defaultlib:libdecimal");
   }
@@ -404,6 +404,14 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     getToolChain().AddDAALLibPath(Args, CmdArgs, "-libpath:");
     if (!C.getDriver().IsCLMode())
       getToolChain().AddDAALLibArgs(Args, CmdArgs, "-defaultlib:");
+  }
+  if (Arg *A = Args.getLastArgNoClaim(options::OPT__SLASH_F)) {
+    StringRef Value(A->getValue());
+    unsigned SSize;
+    if (!Value.getAsInteger(10, SSize)) {
+      CmdArgs.push_back(Args.MakeArgString(Twine("-stack:") + Value));
+      A->claim();
+    }
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -627,12 +635,11 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         CmdArgs.push_back(Args.MakeArgString(Twine("-opt:lldlto=") + OOpt));
     }
     // Add any Intel defaults.
-    if (Args.hasArg(options::OPT__intel)) {
-      CmdArgs.push_back("-mllvm:-intel-libirc-allowed");
+    if (Args.hasArg(options::OPT__intel))
       if (Arg * A = Args.getLastArg(options::OPT_fveclib))
-        Args.MakeArgString(Twine("-mllvm:-vector-library=") + A->getValue());
-    }
-    addIntelOptimizationArgs(TC, Args, CmdArgs, JA);
+        CmdArgs.push_back(Args.MakeArgString(Twine("-mllvm:-vector-library=") +
+                                             A->getValue()));
+    addIntelOptimizationArgs(TC, Args, CmdArgs, true);
     // Using lld-link and -flto, we need to add any additional -mllvm options
     // and implied options.
     for (const StringRef &AV : Args.getAllArgValues(options::OPT_mllvm))
@@ -870,7 +877,8 @@ std::unique_ptr<Command> visualstudio::Compiler::GetCommand(
 
 MSVCToolChain::MSVCToolChain(const Driver &D, const llvm::Triple &Triple,
                              const ArgList &Args)
-    : ToolChain(D, Triple, Args), CudaInstallation(D, Triple, Args) {
+    : ToolChain(D, Triple, Args), CudaInstallation(D, Triple, Args),
+      RocmInstallation(D, Triple, Args) {
   getProgramPaths().push_back(getDriver().getInstalledDir());
   if (getDriver().getInstalledDir() != getDriver().Dir)
     getProgramPaths().push_back(getDriver().Dir);
@@ -926,6 +934,11 @@ bool MSVCToolChain::isPICDefaultForced() const {
 void MSVCToolChain::AddCudaIncludeArgs(const ArgList &DriverArgs,
                                        ArgStringList &CC1Args) const {
   CudaInstallation.AddCudaIncludeArgs(DriverArgs, CC1Args);
+}
+
+void MSVCToolChain::AddHIPIncludeArgs(const ArgList &DriverArgs,
+                                      ArgStringList &CC1Args) const {
+  RocmInstallation.AddHIPIncludeArgs(DriverArgs, CC1Args);
 }
 
 void MSVCToolChain::printVerboseInfo(raw_ostream &OS) const {

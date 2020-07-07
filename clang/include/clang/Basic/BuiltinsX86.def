@@ -652,6 +652,96 @@ TARGET_BUILTIN(__builtin_ia32_maskstored256, "vV8i*V8iV8i", "nV:256:", "avx2")
 TARGET_BUILTIN(__builtin_ia32_maskstoreq256, "vV4Oi*V4OiV4Oi", "nV:256:", "avx2")
 TARGET_BUILTIN(__builtin_ia32_maskstored, "vV4i*V4iV4i", "nV:128:", "avx2")
 TARGET_BUILTIN(__builtin_ia32_maskstoreq, "vV2Oi*V2OiV2Oi", "nV:128:", "avx2")
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+TARGET_BUILTIN(__builtin_ia32_maskloadb256, "V32cV32cC*V32c", "nV:256:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_maskloadw256, "V16sV16sC*V16s", "nV:256:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_maskloadb, "V16cV16cC*V16c", "nV:128:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_maskloadw, "V8sV8sC*V8s", "nV:128:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_maskstoreb256, "vV32c*V32cV32c", "nV:256:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_maskstorew256, "vV16s*V16sV16s", "nV:256:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_maskstoreb, "vV16c*V16cV16c", "nV:128:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_maskstorew, "vV8s*V8sV8s", "nV:128:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_vpcompressb_store_128, "vV16c*V16cV16c", "nV:128:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_vpcompressb_store_256, "vV32c*V32cV32c", "nV:256:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_vpcompressw_store_128, "vV8s*V8sV8s", "nV:128:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_vpcompressw_store_256, "vV16s*V16sV16s", "nV:256:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_vpcompressd_store_128, "vV4i*V4iV4i", "nV:128:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_vpcompressd_store_256, "vV8i*V8iV8i", "nV:256:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_vpcompressq_store_128, "vV2Oi*V2OiV2Oi", "nV:128:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_vpcompressq_store_256, "vV4Oi*V4OiV4Oi", "nV:256:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_vpcompressb_128, "V16cV16cV16c", "nV:128:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_vpcompressb_256, "V32cV32cV32c", "nV:256:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_vpcompressw_128, "V8sV8sV8s", "nV:128:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_vpcompressw_256, "V16sV16sV16s", "nV:256:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_vpcompressd_128, "V4iV4iV4i", "nV:128:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_vpcompressd_256, "V8iV8iV8i", "nV:256:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_vpcompressq_128, "V2OiV2OiV2Oi", "nV:128:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_vpcompressq_256, "V4OiV4OiV4Oi", "nV:256:", "avxcompress")
+
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vplzcntd_128, "V4iV4i", "ncV:128:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vplzcntd_256, "V8iV8i", "ncV:256:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vplzcntq_128, "V2OiV2Oi", "ncV:128:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vplzcntq_256, "V4OiV4Oi", "ncV:256:", "avxcompress")
+
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vpopcntd_128, "V4iV4i", "ncV:128:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vpopcntq_128, "V2OiV2Oi", "ncV:128:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vpopcntd_256, "V8iV8i", "ncV:256:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vpopcntq_256, "V4OiV4Oi", "ncV:256:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vpopcntb_128, "V16cV16c", "ncV:128:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vpopcntw_128, "V8sV8s", "ncV:128:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vpopcntb_256, "V32cV32c", "ncV:256:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vpopcntw_256, "V16sV16s", "ncV:256:", "avxcompress")
+
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vpshldd128, "V4iV4iV4iIi", "ncV:128:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vpshldd256, "V8iV8iV8iIi", "ncV:256:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vpshldq128, "V2OiV2OiV2OiIi", "ncV:128:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vpshldq256, "V4OiV4OiV4OiIi", "ncV:256:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vpshldw128, "V8sV8sV8sIi", "ncV:128:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vpshldw256, "V16sV16sV16sIi", "ncV:256:", "avxcompress")
+
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vpshldvd128, "V4iV4iV4iV4i", "ncV:128:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vpshldvd256, "V8iV8iV8iV8i", "ncV:256:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vpshldvq128, "V2OiV2OiV2OiV2Oi", "ncV:128:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vpshldvq256, "V4OiV4OiV4OiV4Oi", "ncV:256:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vpshldvw128, "V8sV8sV8sV8s", "ncV:128:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vpshldvw256, "V16sV16sV16sV16s", "ncV:256:", "avxcompress")
+
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vpshrdvd128, "V4iV4iV4iV4i", "ncV:128:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vpshrdvd256, "V8iV8iV8iV8i", "ncV:256:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vpshrdvq128, "V2OiV2OiV2OiV2Oi", "ncV:128:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vpshrdvq256, "V4OiV4OiV4OiV4Oi", "ncV:256:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vpshrdvw128, "V8sV8sV8sV8s", "ncV:128:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vpshrdvw256, "V16sV16sV16sV16s", "ncV:256:", "avxcompress")
+
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vpshrdd128, "V4iV4iV4iIi", "ncV:128:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vpshrdd256, "V8iV8iV8iIi", "ncV:256:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vpshrdq128, "V2OiV2OiV2OiIi", "ncV:128:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vpshrdq256, "V4OiV4OiV4OiIi", "ncV:256:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vpshrdw128, "V8sV8sV8sIi", "ncV:128:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vpshrdw256, "V16sV16sV16sIi", "ncV:256:", "avxcompress")
+
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vprold128, "V4iV4iIi", "ncV:128:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vprold256, "V8iV8iIi", "ncV:256:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vprolq128, "V2OiV2OiIi", "ncV:128:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vprolq256, "V4OiV4OiIi", "ncV:256:", "avxcompress")
+
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vprolvd128, "V4iV4iV4i", "ncV:128:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vprolvd256, "V8iV8iV8i", "ncV:256:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vprolvq128, "V2OiV2OiV2Oi", "ncV:128:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vprolvq256, "V4OiV4OiV4Oi", "ncV:256:", "avxcompress")
+
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vprord128, "V4iV4iIi", "ncV:128:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vprord256, "V8iV8iIi", "ncV:256:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vprorq128, "V2OiV2OiIi", "ncV:128:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vprorq256, "V4OiV4OiIi", "ncV:256:", "avxcompress")
+
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vprorvd128, "V4iV4iV4i", "ncV:128:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vprorvd256, "V8iV8iV8i", "ncV:256:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vprorvq128, "V2OiV2OiV2Oi", "ncV:128:", "avxcompress")
+TARGET_BUILTIN(__builtin_ia32_avxcompress_vprorvq256, "V4OiV4OiV4Oi", "ncV:256:", "avxcompress")
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#endif // INTEL_CUSTOMIZATION
 TARGET_BUILTIN(__builtin_ia32_psllv8si, "V8iV8iV8i", "ncV:256:", "avx2")
 TARGET_BUILTIN(__builtin_ia32_psllv4si, "V4iV4iV4i", "ncV:128:", "avx2")
 TARGET_BUILTIN(__builtin_ia32_psllv4di, "V4OiV4OiV4Oi", "ncV:256:", "avx2")
@@ -2226,45 +2316,49 @@ BUILTIN(__builtin_csa_local_cache, "vi", "n")
 #endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD
-TARGET_BUILTIN(__builtin_ia32_vdpphps128_mask, "V4fV4fV4fV4fUc", "ncV:128:", "avx512dotprod,avx512vl")
-TARGET_BUILTIN(__builtin_ia32_vdpphps256_mask, "V8fV8fV8fV8fUc", "ncV:256:", "avx512dotprod,avx512vl")
-TARGET_BUILTIN(__builtin_ia32_vdpphps512_mask, "V16fV16fV16fV16fUsIi", "ncV:512:", "avx512dotprod")
-TARGET_BUILTIN(__builtin_ia32_vdpphps128_maskz, "V4fV4fV4fV4fUc", "ncV:128:", "avx512dotprod,avx512vl")
-TARGET_BUILTIN(__builtin_ia32_vdpphps256_maskz, "V8fV8fV8fV8fUc", "ncV:256:", "avx512dotprod,avx512vl")
-TARGET_BUILTIN(__builtin_ia32_vdpphps512_maskz, "V16fV16fV16fV16fUsIi", "ncV:512:", "avx512dotprod")
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+TARGET_BUILTIN(__builtin_ia32_vdpphps128_mask, "V4fV4fV4fV4fUc", "ncV:128:", "avx512dotprodphps,avx512vl")
+TARGET_BUILTIN(__builtin_ia32_vdpphps256_mask, "V8fV8fV8fV8fUc", "ncV:256:", "avx512dotprodphps,avx512vl")
+TARGET_BUILTIN(__builtin_ia32_vdpphps512_mask, "V16fV16fV16fV16fUsIi", "ncV:512:", "avx512dotprodphps")
+TARGET_BUILTIN(__builtin_ia32_vdpphps128_maskz, "V4fV4fV4fV4fUc", "ncV:128:", "avx512dotprodphps,avx512vl")
+TARGET_BUILTIN(__builtin_ia32_vdpphps256_maskz, "V8fV8fV8fV8fUc", "ncV:256:", "avx512dotprodphps,avx512vl")
+TARGET_BUILTIN(__builtin_ia32_vdpphps512_maskz, "V16fV16fV16fV16fUsIi", "ncV:512:", "avx512dotprodphps")
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
 
-TARGET_BUILTIN(__builtin_ia32_vpdpbssd512, "V16iV16iV16iV16i", "ncV:512:", "avx512dotprod")
-TARGET_BUILTIN(__builtin_ia32_vpdpbssds512, "V16iV16iV16iV16i", "ncV:512:", "avx512dotprod")
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+TARGET_BUILTIN(__builtin_ia32_vpdpbssd512, "V16iV16iV16iV16i", "ncV:512:", "avx512dotprodint8")
+TARGET_BUILTIN(__builtin_ia32_vpdpbssds512, "V16iV16iV16iV16i", "ncV:512:", "avx512dotprodint8")
 
-TARGET_BUILTIN(__builtin_ia32_vpdpbsud512, "V16iV16iV16iV16i", "ncV:512:", "avx512dotprod")
-TARGET_BUILTIN(__builtin_ia32_vpdpbsuds512, "V16iV16iV16iV16i", "ncV:512:", "avx512dotprod")
+TARGET_BUILTIN(__builtin_ia32_vpdpbsud512, "V16iV16iV16iV16i", "ncV:512:", "avx512dotprodint8")
+TARGET_BUILTIN(__builtin_ia32_vpdpbsuds512, "V16iV16iV16iV16i", "ncV:512:", "avx512dotprodint8")
 
-TARGET_BUILTIN(__builtin_ia32_vpdpbuud512, "V16iV16iV16iV16i", "ncV:512:", "avx512dotprod")
-TARGET_BUILTIN(__builtin_ia32_vpdpbuuds512, "V16iV16iV16iV16i", "ncV:512:", "avx512dotprod")
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
+TARGET_BUILTIN(__builtin_ia32_vpdpbuud512, "V16iV16iV16iV16i", "ncV:512:", "avx512dotprodint8")
+TARGET_BUILTIN(__builtin_ia32_vpdpbuuds512, "V16iV16iV16iV16i", "ncV:512:", "avx512dotprodint8")
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
 #endif // INTEL_CTOMIZATION
 
 #if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AVX_DOTPROD
-TARGET_BUILTIN(__builtin_ia32_vdpphps128, "V4fV4fV4fV4f", "ncV:128:", "avxdotprod")
-TARGET_BUILTIN(__builtin_ia32_vdpphps256, "V8fV8fV8fV8f", "ncV:256:", "avxdotprod")
+#if INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
+TARGET_BUILTIN(__builtin_ia32_vdpphps128, "V4fV4fV4fV4f", "ncV:128:", "avxdotprodphps")
+TARGET_BUILTIN(__builtin_ia32_vdpphps256, "V8fV8fV8fV8f", "ncV:256:", "avxdotprodphps")
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
 
-TARGET_BUILTIN(__builtin_ia32_vpdpbssd128, "V4iV4iV4iV4i", "ncV:128:", "avxdotprod")
-TARGET_BUILTIN(__builtin_ia32_vpdpbssd256, "V8iV8iV8iV8i", "ncV:256:", "avxdotprod")
-TARGET_BUILTIN(__builtin_ia32_vpdpbssds128, "V4iV4iV4iV4i", "ncV:128:", "avxdotprod")
-TARGET_BUILTIN(__builtin_ia32_vpdpbssds256, "V8iV8iV8iV8i", "ncV:256:", "avxdotprod")
+#if INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
+TARGET_BUILTIN(__builtin_ia32_vpdpbssd128, "V4iV4iV4iV4i", "ncV:128:", "avxdotprodint8")
+TARGET_BUILTIN(__builtin_ia32_vpdpbssd256, "V8iV8iV8iV8i", "ncV:256:", "avxdotprodint8")
+TARGET_BUILTIN(__builtin_ia32_vpdpbssds128, "V4iV4iV4iV4i", "ncV:128:", "avxdotprodint8")
+TARGET_BUILTIN(__builtin_ia32_vpdpbssds256, "V8iV8iV8iV8i", "ncV:256:", "avxdotprodint8")
 
-TARGET_BUILTIN(__builtin_ia32_vpdpbsud128, "V4iV4iV4iV4i", "ncV:128:", "avxdotprod")
-TARGET_BUILTIN(__builtin_ia32_vpdpbsud256, "V8iV8iV8iV8i", "ncV:256:", "avxdotprod")
-TARGET_BUILTIN(__builtin_ia32_vpdpbsuds128, "V4iV4iV4iV4i", "ncV:128:", "avxdotprod")
-TARGET_BUILTIN(__builtin_ia32_vpdpbsuds256, "V8iV8iV8iV8i", "ncV:256:", "avxdotprod")
+TARGET_BUILTIN(__builtin_ia32_vpdpbsud128, "V4iV4iV4iV4i", "ncV:128:", "avxdotprodint8")
+TARGET_BUILTIN(__builtin_ia32_vpdpbsud256, "V8iV8iV8iV8i", "ncV:256:", "avxdotprodint8")
+TARGET_BUILTIN(__builtin_ia32_vpdpbsuds128, "V4iV4iV4iV4i", "ncV:128:", "avxdotprodint8")
+TARGET_BUILTIN(__builtin_ia32_vpdpbsuds256, "V8iV8iV8iV8i", "ncV:256:", "avxdotprodint8")
 
-TARGET_BUILTIN(__builtin_ia32_vpdpbuud128, "V4iV4iV4iV4i", "ncV:128:", "avxdotprod")
-TARGET_BUILTIN(__builtin_ia32_vpdpbuud256, "V8iV8iV8iV8i", "ncV:256:", "avxdotprod")
-TARGET_BUILTIN(__builtin_ia32_vpdpbuuds128, "V4iV4iV4iV4i", "ncV:128:", "avxdotprod")
-TARGET_BUILTIN(__builtin_ia32_vpdpbuuds256, "V8iV8iV8iV8i", "ncV:256:", "avxdotprod")
-#endif // INTEL_FEATURE_ISA_AVX_DOTPROD
+TARGET_BUILTIN(__builtin_ia32_vpdpbuud128, "V4iV4iV4iV4i", "ncV:128:", "avxdotprodint8")
+TARGET_BUILTIN(__builtin_ia32_vpdpbuud256, "V8iV8iV8iV8i", "ncV:256:", "avxdotprodint8")
+TARGET_BUILTIN(__builtin_ia32_vpdpbuuds128, "V4iV4iV4iV4i", "ncV:128:", "avxdotprodint8")
+TARGET_BUILTIN(__builtin_ia32_vpdpbuuds256, "V8iV8iV8iV8i", "ncV:256:", "avxdotprodint8")
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
 #endif // INTEL_CTOMIZATION
 
 #if INTEL_CUSTOMIZATION

@@ -32,47 +32,34 @@ define dso_local void @foo(i64 %N, i64* nocapture readonly %lb, i64* nocapture r
 ; CHECK-NEXT:      [[BB3]]:
 ; CHECK-NEXT:       [DA: Div] i64 [[VP_IV:%.*]] = phi  [ i64 [[VP_IV_NEXT:%.*]], [[BB4:BB[0-9]+]] ],  [ i64 [[VP0]], [[BB1]] ]
 ; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 [[VP_TOPTEST]], [[BB1]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB4]] ]
-; CHECK-NEXT:      SUCCESSORS(1):[[BB5:BB[0-9]+]]
-; CHECK-NEXT:      PREDECESSORS(2): [[BB4]] [[BB1]]
+; CHECK-NEXT:      SUCCESSORS(2):[[BB5:BB[0-9]+]](i1 [[VP_LOOP_MASK]]), [[BB4]](!i1 [[VP_LOOP_MASK]])
+; CHECK-NEXT:      PREDECESSORS(2): [[BB1]] [[BB4]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB5]]:
-; CHECK-NEXT:       <Empty Block>
-; CHECK-NEXT:       Condition([[BB3]]): [DA: Div] i1 [[VP_LOOP_MASK]] = phi  [ i1 [[VP_TOPTEST]], [[BB1]] ],  [ i1 [[VP_LOOP_MASK_NEXT]], [[BB4]] ]
-; CHECK-NEXT:      SUCCESSORS(2):[[BB6:BB[0-9]+]](i1 [[VP_LOOP_MASK]]), [[BB7:BB[0-9]+]](!i1 [[VP_LOOP_MASK]])
-; CHECK-NEXT:      PREDECESSORS(1): [[BB3]]
-; CHECK-EMPTY:
-; CHECK-NEXT:        [[BB6]]:
+; CHECK-NEXT:        [[BB5]]:
 ; CHECK-NEXT:         [DA: Div] i64 [[VP_SHL:%.*]] = shl i64 [[VP_IV]] i64 3
 ; CHECK-NEXT:         [DA: Div] i64* [[VP_ARRAYIDX6:%.*]] = getelementptr inbounds [100 x [100 x i64]]* @A i64 0 i64 [[VP_IV]] i32 [[VP_LANE]]
 ; CHECK-NEXT:         [DA: Div] store i64 [[VP_SHL]] i64* [[VP_ARRAYIDX6]]
 ; CHECK-NEXT:         [DA: Div] i64 [[VP_IV_NEXT]] = add i64 [[VP_IV]] i64 1
 ; CHECK-NEXT:         [DA: Div] i64 [[VP2:%.*]] = load i64* [[VP_ARRAYIDX2]]
-; CHECK-NEXT:        SUCCESSORS(1):[[BB7]]
-; CHECK-NEXT:        PREDECESSORS(1): [[BB5]]
-; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB7]]:
-; CHECK-NEXT:       [DA: Div] i1 [[VP_EXITCOND:%.*]] = icmp i64 [[VP_IV_NEXT]] i64 [[VP2]]
-; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_EXITCOND]] i1 [[VP_LOOP_MASK]]
-; CHECK-NEXT:       [DA: Uni] i1 [[VP3:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
-; CHECK-NEXT:       [DA: Uni] i1 [[VP4:%.*]] = not i1 [[VP3]]
-; CHECK-NEXT:      SUCCESSORS(1):[[BB4]]
-; CHECK-NEXT:      PREDECESSORS(2): [[BB6]] [[BB5]]
+; CHECK-NEXT:         [DA: Div] i1 [[VP_CONTINUE_COND:%.*]] = icmp i64 [[VP_IV_NEXT]] i64 [[VP2]]
+; CHECK-NEXT:        SUCCESSORS(1):[[BB4]]
+; CHECK-NEXT:        PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[BB4]]:
-; CHECK-NEXT:       <Empty Block>
-; CHECK-NEXT:       Condition([[BB7]]): [DA: Uni] i1 [[VP4]] = not i1 [[VP3]]
-; CHECK-NEXT:      SUCCESSORS(2):[[BB3]](i1 [[VP4]]), [[BB8:BB[0-9]+]](!i1 [[VP4]])
-; CHECK-NEXT:      PREDECESSORS(1): [[BB7]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_CONTINUE_COND]] i1 [[VP_LOOP_MASK]]
+; CHECK-NEXT:       [DA: Uni] i1 [[VP3:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
+; CHECK-NEXT:      SUCCESSORS(2):[[BB6:BB[0-9]+]](i1 [[VP3]]), [[BB3]](!i1 [[VP3]])
+; CHECK-NEXT:      PREDECESSORS(2): [[BB5]] [[BB3]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB8]]:
+; CHECK-NEXT:      [[BB6]]:
 ; CHECK-NEXT:       <Empty Block>
 ; CHECK-NEXT:      SUCCESSORS(1):[[BB2]]
 ; CHECK-NEXT:      PREDECESSORS(1): [[BB4]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]:
-; CHECK-NEXT:     [DA: Div] void [[VP5:%.*]] = ret
+; CHECK-NEXT:     [DA: Div] void [[VP4:%.*]] = ret
 ; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(2): [[BB8]] [[BB0]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[BB6]]
 ;
 entry:
   %lane = call i64 @llvm.vplan.laneid()
@@ -93,8 +80,8 @@ header:
   store i64 %shl, i64* %arrayidx6, align 8
   %iv.next = add nsw i64 %iv, 1
   %2 = load i64, i64* %arrayidx2, align 8
-  %exitcond = icmp slt i64 %iv.next, %2
-  br i1 %exitcond, label %header, label %loop.exit
+  %continue.cond = icmp slt i64 %iv.next, %2
+  br i1 %continue.cond, label %header, label %loop.exit
 
 loop.exit:
   br label %exit

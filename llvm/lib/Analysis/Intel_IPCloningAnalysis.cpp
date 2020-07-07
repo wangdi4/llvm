@@ -12,7 +12,6 @@
 
 #include "llvm/Transforms/IPO/Intel_IPCloning.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/Analysis/Intel_AggInline.h"
 #include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Intel_IPCloningAnalysis.h"
 #include "llvm/Analysis/LoopInfo.h"

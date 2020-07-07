@@ -34,6 +34,7 @@ static const char *isInvalidMemoryInstr(const Instruction &Instr) {
   case X86II::RawFrm:
   case X86II::AddCCFrm:
   case X86II::PrefixByte:
+  case X86II::MRMDestReg4VOp3: // INTEL
   case X86II::MRMDestReg:
   case X86II::MRMSrcReg:
   case X86II::MRMSrcReg4VOp3:
@@ -50,6 +51,14 @@ static const char *isInvalidMemoryInstr(const Instruction &Instr) {
   case X86II::MRM5r:
   case X86II::MRM6r:
   case X86II::MRM7r:
+  case X86II::MRM0X:
+  case X86II::MRM1X:
+  case X86II::MRM2X:
+  case X86II::MRM3X:
+  case X86II::MRM4X:
+  case X86II::MRM5X:
+  case X86II::MRM6X:
+  case X86II::MRM7X:
   case X86II::MRM_C0:
   case X86II::MRM_C1:
   case X86II::MRM_C2:

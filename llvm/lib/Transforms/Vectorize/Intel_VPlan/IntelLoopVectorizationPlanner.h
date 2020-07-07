@@ -49,6 +49,9 @@ class WRNVecLoopNode;
 class VPlanHCFGBuilder;
 class VPlanCostModel;
 
+extern bool PrintSVAResults;
+extern bool PrintAfterCallVecDecisions;
+
 /// LoopVectorizationPlanner - builds and optimizes the Vectorization Plans
 /// which record the decisions how to vectorize the given loop.
 /// In particular, represent the control-flow of the vectorized version,
@@ -58,14 +61,13 @@ class LoopVectorizationPlanner {
 public:
 #if INTEL_CUSTOMIZATION
   LoopVectorizationPlanner(WRNVecLoopNode *WRL, Loop *Lp, LoopInfo *LI,
-                           VPlanScalarEvolution *VPSE,
                            const TargetLibraryInfo *TLI,
                            const TargetTransformInfo *TTI, const DataLayout *DL,
                            class DominatorTree *DT,
                            VPOVectorizationLegality *Legal,
                            VPlanVLSAnalysis *VLSA)
       : WRLp(WRL), TLI(TLI), TTI(TTI), DL(DL), Legal(Legal), TheLoop(Lp),
-        LI(LI), VPSE(VPSE), DT(DT), VLSA(VLSA) {}
+        LI(LI), DT(DT), VLSA(VLSA) {}
 #endif // INTEL_CUSTOMIZATION
 
   virtual ~LoopVectorizationPlanner() {}
@@ -99,9 +101,10 @@ public:
 #endif
   static void EnterExplicitData(WRNVecLoopNode *WRLp, VPOVectorizationLegality &Legal);
 
-  /// Post VPlan FrontEnd legality pass to verify validity of initial VPlan that
-  /// was contructed.
-  bool isVPlanLegalToProcess(const VPlan &Plan);
+  /// Post VPlan FrontEnd pass to verify that we can process the VPlan that
+  /// was constructed. There are some limitations in CG, CM, and other parts of
+  /// VPlan vectorizer on which we better gracefully bail out than assert.
+  bool canProcessVPlan(const VPlan &Plan);
 
   /// Select the best plan and dispose all other VPlans.
   /// \Returns the selected vectorization factor.
@@ -134,6 +137,10 @@ public:
   VPlan *getScalarVPlan(void) const { return getVPlanForVF(1); }
 
   bool hasVPlanForVF(const unsigned VF) const { return VPlans.count(VF) != 0; }
+
+  auto getAllVPlans() const {
+    return make_range(VPlans.begin(), VPlans.end());
+  }
 
 protected:
   /// Build an initial VPlan according to the information gathered by Legal
@@ -199,9 +206,6 @@ private:
 
   /// Loop Info analysis.
   LoopInfo *LI;
-
-  /// VPlan Scalar Evolution Analysis.
-  VPlanScalarEvolution *VPSE;
 
   /// The dominators tree.
   class DominatorTree *DT;

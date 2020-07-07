@@ -73,6 +73,9 @@ private:
   // empty for function level region.
   RegionBBlocksTy NonLoopBBlocks;
 
+  // Vector or outermost loops in the region.
+  SmallVector<const Loop *, 8> OutermostLps;
+
   // Map of symbase to their initial values which need to be materialized into
   // a store during HIRCG.
   LiveInMapTy LiveInMap;
@@ -93,6 +96,7 @@ private:
 public:
   IRRegion(BasicBlock *Entry, BasicBlock *Exit, const RegionBBlocksTy &BBlocks,
            const RegionBBlocksTy &NonLoopBBlocks,
+           ArrayRef<const Loop *> OutermostLoops,
            bool IsMaterializationCandidate = false,
            bool IsFunctionLevel = false);
 
@@ -132,7 +136,10 @@ public:
 
   bool hasNonLoopBBlocks() const { return !NonLoopBBlocks.empty(); }
 
-  // Returns true if region was formed for loop materialization.
+  /// Returns list of outermost loops of the region.
+  ArrayRef<const Loop *> getOutermostLoops() const { return OutermostLps; }
+
+  /// Returns true if region was formed for loop materialization.
   bool isLoopMaterializationCandidate() const {
     return IsLoopMaterializationCandidate;
   }

@@ -37,6 +37,7 @@
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
+#include "llvm/Analysis/InlineAdvisor.h"
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
@@ -908,9 +909,8 @@ bool SampleProfileLoader::inlineCallInstruction(CallBase &CB) {
   // see if it is legal to inline the callsite.
 #if INTEL_CUSTOMIZATION
   InliningLoopInfoCache *ILIC = new InliningLoopInfoCache();
-  InlineCost Cost =
-      getInlineCost(CB, Params, GetTTI(*CalledFunction), GetAC, None, GetTLI,
-                    ILIC, nullptr, nullptr, nullptr);
+  InlineCost Cost = getInlineCost(CB, Params, GetTTI(*CalledFunction), GetAC,
+                                  GetTLI, nullptr, nullptr, nullptr, ILIC);
   delete ILIC;
 #endif // INTEL_CUSTOMIZATION
 
@@ -919,12 +919,11 @@ bool SampleProfileLoader::inlineCallInstruction(CallBase &CB) {
               << "incompatible inlining");
     return false;
   }
-  InlineFunctionInfo IFI(nullptr, &GetAC);
+  InlineFunctionInfo IFI(nullptr, GetAC);
   if (InlineFunction(CB, IFI).isSuccess()) {
     // The call to InlineFunction erases I, so we can't pass it here.
-    ORE->emit(OptimizationRemark(CSINLINE_DEBUG, "InlineSuccess", DLoc, BB)
-              << "inlined callee '" << ore::NV("Callee", CalledFunction)
-              << "' into '" << ore::NV("Caller", BB->getParent()) << "'");
+    emitInlinedInto(*ORE, DLoc, BB, *CalledFunction, *BB->getParent(), Cost,
+                    true, CSINLINE_DEBUG);
     return true;
   }
   return false;
@@ -941,8 +940,8 @@ bool SampleProfileLoader::shouldInlineColdCallee(CallBase &CallInst) {
 #if INTEL_CUSTOMIZATION
   InliningLoopInfoCache *ILIC = new InliningLoopInfoCache();
   InlineCost Cost =
-      getInlineCost(CallInst, getInlineParams(), GetTTI(*Callee), GetAC, None,
-                    GetTLI, ILIC, nullptr, nullptr, nullptr);
+      getInlineCost(CallInst, getInlineParams(), GetTTI(*Callee), GetAC, GetTLI,
+                    nullptr, nullptr, nullptr, ILIC);
   delete ILIC;
 #endif // INTEL_CUSTOMIZATION
 
@@ -1053,6 +1052,7 @@ bool SampleProfileLoader::inlineHotFunctions(
           if (R != SymbolMap.end() && R->getValue() &&
               !R->getValue()->isDeclaration() &&
               R->getValue()->getSubprogram() &&
+              R->getValue()->hasFnAttribute("use-sample-profile") &&
               isLegalToPromote(*I, R->getValue(), &Reason)) {
             uint64_t C = FS->getEntrySamples();
             auto &DI =
@@ -1796,7 +1796,7 @@ SampleProfileLoader::buildFunctionOrder(Module &M, CallGraph *CG) {
 
   if (!ProfileTopDownLoad || CG == nullptr) {
     for (Function &F : M)
-      if (!F.isDeclaration())
+      if (!F.isDeclaration() && F.hasFnAttribute("use-sample-profile"))
         FunctionOrderList.push_back(&F);
     return FunctionOrderList;
   }
@@ -1806,7 +1806,7 @@ SampleProfileLoader::buildFunctionOrder(Module &M, CallGraph *CG) {
   while (!CGI.isAtEnd()) {
     for (CallGraphNode *node : *CGI) {
       auto F = node->getFunction();
-      if (F && !F->isDeclaration())
+      if (F && !F->isDeclaration() && F->hasFnAttribute("use-sample-profile"))
         FunctionOrderList.push_back(F);
     }
     ++CGI;
@@ -1854,15 +1854,16 @@ ModulePass *llvm::createSampleProfileLoaderPass(StringRef Name) {
 
 bool SampleProfileLoader::runOnModule(Module &M, ModuleAnalysisManager *AM,
                                       ProfileSummaryInfo *_PSI, CallGraph *CG) {
-  GUIDToFuncNameMapper Mapper(M, *Reader, GUIDToFuncNameMap);
   if (!ProfileIsValid)
     return false;
+  GUIDToFuncNameMapper Mapper(M, *Reader, GUIDToFuncNameMap);
 
   PSI = _PSI;
-  if (M.getProfileSummary(/* IsCS */ false) == nullptr)
+  if (M.getProfileSummary(/* IsCS */ false) == nullptr) {
     M.setProfileSummary(Reader->getSummary().getMD(M.getContext()),
                         ProfileSummary::PSK_Sample);
-
+    PSI->refresh();
+  }
   // Compute the total number of samples collected in this profile.
   for (const auto &I : Reader->getProfiles())
     TotalCollectedSamples += I.second.getTotalSamples();

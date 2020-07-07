@@ -91,6 +91,15 @@ RegDDRef *DDRefUtils::createConstDDRef(Type *Ty, int64_t Val) {
 }
 
 RegDDRef *DDRefUtils::createConstDDRef(Value *Val) {
+  auto *CI = dyn_cast<ConstantInt>(Val);
+
+  // If we are dealing with a constant int that fits in 64 bits, avoid creating
+  // a blob for the constant value. The interface which takes the constant value
+  // stores it in the Const field of the canon expression.
+  if (CI && CI->getBitWidth() <= 64) {
+    return createConstDDRef(Val->getType(), CI->getSExtValue());
+  }
+
   RegDDRef *NewRegDD = createRegDDRef(ConstantSymbase);
   // Create a linear self-blob constant canon expr.
   auto CE = getCanonExprUtils().createConstStandAloneBlobCanonExpr(Val);

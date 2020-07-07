@@ -41,11 +41,11 @@ add_llvm_component_library(LLVMAnalysis
   IndirectCallPromotionAnalysis.cpp
   InlineCost.cpp
   InlineAdvisor.cpp
+  InlineFeaturesAnalysis.cpp
   InstCount.cpp
   InstructionPrecedenceTracking.cpp
   InstructionSimplify.cpp
 # INTEL_CUSTOMIZATION
-  Intel_AggInline.cpp
   Intel_Andersens.cpp
   Intel_ArrayUseAnalysis.cpp
   Intel_DopeVectorAnalysis.cpp
@@ -111,8 +111,8 @@ add_llvm_component_library(LLVMAnalysis
   RegionPrinter.cpp
   ScalarEvolution.cpp
   ScalarEvolutionAliasAnalysis.cpp
-  ScalarEvolutionExpander.cpp
   ScalarEvolutionNormalization.cpp
+  StackLifetime.cpp
   StackSafetyAnalysis.cpp
   SyncDependenceAnalysis.cpp
   SyntheticCountsUtils.cpp

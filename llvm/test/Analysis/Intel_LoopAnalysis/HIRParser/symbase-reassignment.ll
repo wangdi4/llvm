@@ -2,7 +2,7 @@
 
 ; Verify that rval use of %and and %sub are assigned a generic symbase.
 
-; CHECK: |   %and = i1  &&  7;
+; CHECK: |   %and = i1  &  7;
 ; CHECK-NEXT: |   <LVAL-REG> LINEAR zext.i3.i32(i1) {sb:[[AND_LVAL_SYM:[0-9]+]]}
 ; CHECK-NEXT: |   <RVAL-REG> LINEAR trunc.i64.i32(i1) {sb:[[GEN_RVAL_SYM:[0-9]+]]}
 

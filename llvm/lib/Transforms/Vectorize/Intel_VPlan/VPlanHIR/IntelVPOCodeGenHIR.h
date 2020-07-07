@@ -19,6 +19,7 @@
 #include "../IntelVPlanIdioms.h"
 #include "../IntelVPlanLoopUnroller.h"
 #include "../IntelVPlanValue.h"
+#include "../IntelVPlanOptrpt.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HIRVisitor.h"
@@ -113,10 +114,15 @@ public:
   HLLoop *getOrigLoop() const { return OrigLoop; }
   HLLoop *getMainLoop() const { return MainLoop; }
   unsigned getVF() const { return VF; };
-  VPlanVLSAnalysis *getVLS() { return VLSA; }
-  const VPlan *getPlan() { return Plan; }
+  VPlanVLSAnalysis *getVLS() const { return VLSA; }
+  const VPlan *getPlan() const { return Plan; }
   bool getNeedRemainderLoop() const { return NeedRemainderLoop; }
   HLLoop *getRemainderLoop() const { return OrigLoop; }
+
+  OptReportStatsTracker &getOptReportStatsTracker() { return OptRptStats; }
+
+  void setForceMixedCG(bool MixedCG) { ForceMixedCG = MixedCG; }
+  bool getForceMixedCG() const { return ForceMixedCG; }
 
   // Return true if Ref is a reduction
   bool isReductionRef(const RegDDRef *Ref, unsigned &Opcode);
@@ -140,6 +146,20 @@ public:
   void propagateMetadata(RegDDRef *NewRef, const OVLSGroup *Group = nullptr,
                          const RegDDRef *OldRef = nullptr);
 
+  // Propagate debug location information from VPInstruction to the generated
+  // HIR constructs. This is a post processing approach i.e. we don't attach
+  // debug location while generating the construct, but immediately after the
+  // generation.
+  // TODO: Some known caveats of this approach -
+  // 1. If a single VPInst is lowered to multiple HIR constructs (like multiple
+  // HLInsts) then we attach debug location only to the last generated
+  // construct. For example - OptVLS : VPLoad becomes a load + shuffle. DbgLoc
+  // is set only for shuffle, not the load. This should be rare since VPlan IR
+  // is a decomposed version of incoming HIR.
+  // 2. Some potential loss of debug location for mixed CG approach (non-default
+  // today).
+  void propagateDebugLocation(const VPInstruction *VPInst);
+
   // Widen the given VPInstruction to a vector instruction using VF
   // as the vector length. The given Mask value overrides the
   // current mask value if non-null. Group is non-null if Inst is part of a
@@ -156,6 +176,13 @@ public:
   void addMaskToSVMLCall(Function *OrigF, SmallVectorImpl<RegDDRef *> &VecArgs,
                          SmallVectorImpl<Type *> &VecArgTys,
                          RegDDRef *MaskValue);
+
+  /// Generate instructions to extract two results of a widened sincos call
+  /// \p WideInst, and store them to locations designated in the original call
+  /// \p HInst. Instructions may be generated for both vector loop body and
+  /// remainder loop, \p IsRemainderLoop is used to distinguish these scenarios.
+  void generateStoreForSinCos(const HLInst *HInst, HLInst *WideInst,
+                              RegDDRef *Mask, bool IsRemainderLoop);
 
   // Given the function being called and the widened operands, generate and
   // return the widened call. The call arguments are returned in CallRegs
@@ -220,6 +247,8 @@ public:
   //     store <8 x i32> %interleaved.vec, Pic[2*i]
   HLInst *createInterleavedStore(RegDDRef **StoreVals, const RegDDRef *StoreRef,
                                  int64_t InterleaveFactor, RegDDRef *Mask);
+
+  HLInst *createReverseVector(RegDDRef *ValRef);
 
   HLInst *handleLiveOutLinearInEarlyExit(HLInst *Inst, RegDDRef *Mask,
                                          bool MaskIsNonZero);
@@ -403,17 +432,21 @@ public:
   // main induction variable.
   RegDDRef *generateLoopInductionRef(Type *RefDestTy);
 
-  // Return true if the given VPPtr has a stride of 1.
-  bool isUnitStridePtr(const VPValue *VPPtr) const {
-    assert(isa<PointerType>(VPPtr->getType()) && "Expected pointer value");
-    return Plan->getVPlanDA()->isUnitStridePtr(VPPtr) &&
-           Plan->getVPlanDA()->getVectorShape(VPPtr).getStrideVal() > 0;
+  // Return true if the given VPPtr has a stride of 1 or -1. IsNegOneStride is
+  // set to true if stride is -1 and false otherwise.
+  bool isUnitStridePtr(const VPValue *VPPtr, bool &IsNegOneStride) const {
+    return Plan->getVPlanDA()->isUnitStridePtr(VPPtr, IsNegOneStride);
   }
 
   // Given the pointer operand of a load/store instruction, setup and return the
   // memory ref to use in generating the load/store HLInst. ScalSymbase
-  // specifies the symbase to set for the returned ref.
-  RegDDRef *getMemoryRef(const VPValue *VPPtr, unsigned ScalSymbase);
+  // specifies the symbase to set for the returned ref. AANodes specify alias
+  // analysis metadata to set for the returned ref. Lane0Value specifies if
+  // we need memory ref corresponding to just vector lane 0. This is used to
+  // handle uniform memory accesses. If VPPtr is unit strided(stride of 1/-1),
+  // the ref returned is properly adjusted to enable wide load/store.
+  RegDDRef *getMemoryRef(const VPValue *VPPtr, unsigned ScalSymbase,
+                         const AAMDNodes &AANodes, bool Lane0Value = false);
 
   bool isSearchLoop() const {
     return VPlanIdioms::isAnySearchLoop(SearchLoopType);
@@ -521,6 +554,10 @@ private:
   // Is a remainder loop needed?
   bool NeedRemainderLoop;
 
+  // Force mixed code generation - used when we see cases such as search loops,
+  // live out privates, and Fortran subscript arrays
+  bool ForceMixedCG = false;
+
   // Loop trip count if constant. Set to zero for non-constant trip count loops.
   uint64_t TripCount;
 
@@ -532,6 +569,7 @@ private:
   unsigned UF;
 
   LoopOptReportBuilder &LORBuilder;
+  OptReportStatsTracker OptRptStats;
 
   // Map of DDRef symbase and widened ref
   DenseMap<unsigned, RegDDRef *> WidenMap;
@@ -581,14 +619,14 @@ private:
 
   SmallVector<HLDDNode *, 8> InsertRegionsStack;
 
-  // Map of VPValues and their corresponding HIR reduction variable used inside
-  // the generated vector loop.
+  // Set of VPInsts involved in a reduction - used to avoid folding of
+  // operations.
+  SmallPtrSet<const VPInstruction *, 4> ReductionVPInsts;
+
+  // Map of VPValues(reduction PHI and its operands) and their corresponding HIR
+  // reduction variable(RegDDRef) used inside the generated vector loop.
   DenseMap<const VPValue *, RegDDRef *> ReductionRefs;
-  // Collection of start values of reduction entities that are done in-memory.
-  SmallPtrSet<VPExternalDef *, 4> InMemoryReductionDescriptors;
-  // Map of VPValues and their corresponding HIR induction variable used inside
-  // the generated vector loop.
-  DenseMap<const VPValue *, RegDDRef *> InductionRefs;
+
   // Collection of VPInstructions inside the loop that correspond to main loop
   // IV. This is expected to contain the PHI and incrementing add
   // instruction(s).
@@ -661,11 +699,24 @@ private:
     RedFinalInsertPoint = Save;
   }
 
-  /// Analyzes the memory references of \p OrigCall to determine stride. The
-  /// resulting stride information is attached to the arguments of \p WideCall
-  /// in the form of attributes.
-  void analyzeCallArgMemoryReferences(const HLInst *OrigCall, HLInst *WideCall,
-                                      SmallVectorImpl<RegDDRef *> &Args);
+  /// Return true if the opcode is one for which we want to generate a scalar
+  /// HLInst. Temporary solution until such decision is driven by the results
+  /// of SVA analysis.
+  bool isOpcodeForScalarInst(unsigned Opcode) {
+    switch (Opcode) {
+    case Instruction::Add:
+    case Instruction::BitCast:
+    case Instruction::Mul:
+    case Instruction::GetElementPtr:
+    case VPInstruction::Subscript:
+    case Instruction::SExt:
+    case Instruction::Trunc:;
+    case Instruction::ZExt:
+      return true;
+    default:
+      return false;
+    }
+  }
 
   // Given reduction operator identity value, insert vector reduction operand
   // initialization to a vector of length VF identity values. Return the
@@ -698,6 +749,26 @@ private:
                      int64_t InterleaveFactor, int64_t InterleaveIndex,
                      const HLInst *GrpStartInst, const VPInstruction *VPInst);
 
+  // Helper utility to get result type corresponding to \p RefTy based on \p
+  // Widen.
+  Type *getResultRefTy(Type *RefTy, unsigned VF, bool Widen) {
+    return Widen ? FixedVectorType::get(RefTy, VF) : RefTy;
+  }
+
+  // Helper utility to make \p Ref consistent and map it to \p VPInst based on
+  // \p Widen.
+  void makeConsistentAndAddToMap(RegDDRef *Ref, const VPInstruction *VPInst,
+                                 SmallVectorImpl<const RegDDRef *> &AuxRefs,
+                                 bool Widen) {
+    // Use AuxRefs if it is not empty to make Ref consistent
+    if (!AuxRefs.empty())
+      Ref->makeConsistent(AuxRefs, OrigLoop->getNestingLevel());
+    if (Widen)
+      addVPValueWideRefMapping(VPInst, Ref);
+    else
+      addVPValueScalRefMapping(VPInst, Ref, 0);
+  }
+
   // Implementation of generating needed HIR constructs for the given
   // VPInstruction. We generate new RegDDRefs or HLInsts that correspond to
   // the given VPInstruction. Widen parameter is used to specify if we are
@@ -720,8 +791,26 @@ private:
   // Implementation of VPPhi widening.
   void widenPhiImpl(const VPPHINode *VPPhi, RegDDRef *Mask);
 
+  // Generate instructions to compare Value against zero. Value's type is
+  // expected to be a vector of i1. InstMask specifies the mask to add
+  // for the generated instructions. The compare predicate is ICMP_EQ if Equal
+  // is true and ICMP_NE otherwise.
+  RegDDRef *generateCompareToZero(RegDDRef *Value, RegDDRef *InstMask,
+                                  bool Equal);
+
+  // Implementation of load where the pointer operand being loaded from is
+  // uniform. VPInst is the load instruction and Mask specifies the load Mask. A
+  // scalar load is done using the pointer operand and the value is
+  // broadcast to generate the vector value. If Mask is non-null, the load
+  // is done conditionally only if Mask is non-zero.
+  void widenUniformLoadImpl(const VPInstruction *VPInst, RegDDRef *Mask);
+
   // Implementation of load/store widening.
   void widenLoadStoreImpl(const VPInstruction *VPInst, RegDDRef *Mask);
+
+  // Implementation of codegen for subscript instruction.
+  void generateHIRForSubscript(const VPSubscriptInst *VPSubscript,
+                               RegDDRef *Mask, bool Widen);
 
   // Implementation of widening of VPLoopEntity specific instructions. Some
   // notes on opcodes supported so far -
@@ -783,12 +872,55 @@ private:
   // from the wide reference and return the result of the extract.
   RegDDRef *getOrCreateScalarRef(const VPValue *VPVal);
 
+  // Wrapper utility method to obtain RegDDRef corresponding to given VPValue
+  // based on the Widen boolean.
+  RegDDRef *getOrCreateRefForVPVal(const VPValue *VPVal, bool Widen) {
+    return Widen ? widenRef(VPVal, getVF()) : getOrCreateScalarRef(VPVal);
+  }
+
   // For Generate PaddedCounter < 250 and insert it into the vector of runtime
   // checks if this is a search loop which needs the check.
   // Nothing is added if padding transformation is not required for this loop.
   void addPaddingRuntimeCheck(
       SmallVectorImpl<std::tuple<HLPredicate, RegDDRef *, RegDDRef *>>
           &RTChecks);
+
+  // If VPInst has a corresponding reduction ref, create a copy instruction
+  // copying RValRef to the same with given Mask and return LvalRef of the copy
+  // instruction. Return RValRef otherwise.
+  RegDDRef *createCopyForRednRef(const VPInstruction *VPInst, RegDDRef *RvalRef,
+                                 RegDDRef *Mask) {
+    auto Itr = ReductionRefs.find(VPInst);
+    if (Itr == ReductionRefs.end())
+      return RvalRef;
+    auto *RedRef = Itr->second;
+    HLInst *CopyInst =
+        HLNodeUtilities.createCopyInst(RvalRef, "redval.copy", RedRef->clone());
+    addInst(CopyInst, Mask);
+    return CopyInst->getLvalDDRef();
+  }
+
+  // Internal helper utility to get operator overflow flags (nuw/nsw) for a
+  // VPInstruction and the reduction ref if it participates in reduction
+  // sequence.
+  void getOverflowFlagsAndRednRef(const VPInstruction *VPInst, bool &HasNUW,
+                                  bool &HasNSW, RegDDRef *&RedRef) {
+    // Overflow flags should be preserved only for instructions that don't
+    // participate in reduction sequence.
+    bool PreserveOverflowFlags = ReductionVPInsts.count(VPInst) == 0;
+    HasNUW = PreserveOverflowFlags && VPInst->hasNoUnsignedWrap();
+    HasNSW = PreserveOverflowFlags && VPInst->hasNoSignedWrap();
+
+    // If binop instruction corresponds to a reduction, then we need to write
+    // the result back to the corresponding reduction variable. Overflow flags
+    // should not be preserved for this instruction.
+    RedRef = nullptr;
+    if (ReductionRefs.count(VPInst)) {
+      assert(!PreserveOverflowFlags &&
+             "Overflow flags cannot be preserved for reduction instruction.");
+      RedRef = ReductionRefs[VPInst];
+    }
+  }
 
   // The small loop trip count and body thresholds used to determine where it
   // is appropriate for complete unrolling. May eventually need to be moved to

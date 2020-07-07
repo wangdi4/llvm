@@ -1736,10 +1736,10 @@ define void @splat4_v8f32_load_store(<8 x float>* %s, <32 x float>* %d) {
 ; AVX512-NEXT:    vmovupd (%rdi), %ymm0 ;INTEL
 ; AVX512-NEXT:    vpermilps {{.*#+}} ymm1 = ymm0[0,0,1,1,4,4,5,5] ;INTEL
 ; AVX512-NEXT:    vmovddup {{.*#+}} ymm2 = ymm1[0,0,2,2] ;INTEL
-; AVX512-NEXT:    vpermilpd {{.*#+}} ymm3 = ymm1[1,1,3,3] ;INTEL
+; AVX512-NEXT:    vpermilpd {{.*#+}} xmm3 = xmm1[1,1] ;INTEL
 ; AVX512-NEXT:    vpermilps {{.*#+}} ymm0 = ymm0[2,2,3,3,6,6,7,7] ;INTEL
 ; AVX512-NEXT:    vmovddup {{.*#+}} ymm4 = ymm0[0,0,2,2] ;INTEL
-; AVX512-NEXT:    vpermilpd {{.*#+}} ymm5 = ymm0[1,1,3,3] ;INTEL
+; AVX512-NEXT:    vpermilpd {{.*#+}} xmm5 = xmm0[1,1] ;INTEL
 ; AVX512-NEXT:    vinsertf128 $1, %xmm5, %ymm4, %ymm4 ;INTEL
 ; AVX512-NEXT:    vinsertf128 $1, %xmm3, %ymm2, %ymm2 ;INTEL
 ; AVX512-NEXT:    vinsertf64x4 $1, %ymm4, %zmm2, %zmm2 ;INTEL
@@ -1797,16 +1797,18 @@ define void @splat4_v8i32_load_store(<8 x i32>* %s, <32 x i32>* %d) {
 ; AVX512-LABEL: splat4_v8i32_load_store:
 ; AVX512:       # %bb.0:
 ; AVX512-NEXT:    vmovups (%rdi), %ymm0 ;INTEL
-; AVX512-NEXT:    vpermilps {{.*#+}} ymm1 = ymm0[0,0,0,0,4,4,4,4] ;INTEL
-; AVX512-NEXT:    vpermilps {{.*#+}} ymm2 = ymm0[1,1,1,1,5,5,5,5] ;INTEL
-; AVX512-NEXT:    vpermilps {{.*#+}} ymm3 = ymm0[2,2,2,2,6,6,6,6] ;INTEL
-; AVX512-NEXT:    vpermilps {{.*#+}} ymm4 = ymm0[3,3,3,3,7,7,7,7] ;INTEL
-; AVX512-NEXT:    vinsertf128 $1, %xmm4, %ymm3, %ymm3 ;INTEL
-; AVX512-NEXT:    vinsertf128 $1, %xmm2, %ymm1, %ymm1 ;INTEL
-; AVX512-NEXT:    vinsertf64x4 $1, %ymm3, %zmm1, %zmm1 ;INTEL
-; AVX512-NEXT:    vmovups %zmm1, (%rsi) ;INTEL
-; AVX512-NEXT:    vmovaps {{.*#+}} zmm1 = [4,4,4,4,5,5,5,5,6,6,6,6,7,7,7,7] ;INTEL
-; AVX512-NEXT:    vpermps %zmm0, %zmm1, %zmm0 ;INTEL
+; AVX512-NEXT:    vpermilps {{.*#+}} ymm1 = ymm0[0,0,1,1,4,4,5,5] ;INTEL
+; AVX512-NEXT:    vmovddup {{.*#+}} xmm2 = xmm1[0,0] ;INTEL
+; AVX512-NEXT:    vpermilps {{.*#+}} xmm3 = xmm1[2,3,2,3] ;INTEL
+; AVX512-NEXT:    vpermilps {{.*#+}} ymm0 = ymm0[2,2,3,3,6,6,7,7] ;INTEL
+; AVX512-NEXT:    vmovddup {{.*#+}} xmm4 = xmm0[0,0] ;INTEL
+; AVX512-NEXT:    vpermilps {{.*#+}} xmm5 = xmm0[2,3,2,3] ;INTEL
+; AVX512-NEXT:    vinsertf128 $1, %xmm5, %ymm4, %ymm4 ;INTEL
+; AVX512-NEXT:    vinsertf128 $1, %xmm3, %ymm2, %ymm2 ;INTEL
+; AVX512-NEXT:    vinsertf64x4 $1, %ymm4, %zmm2, %zmm2 ;INTEL
+; AVX512-NEXT:    vmovups %zmm2, (%rsi) ;INTEL
+; AVX512-NEXT:    vinsertf64x4 $1, %ymm0, %zmm1, %zmm0 ;INTEL
+; AVX512-NEXT:    vpermpd {{.*#+}} zmm0 = zmm0[2,2,3,3,6,6,7,7] ;INTEL
 ; AVX512-NEXT:    vmovups %zmm0, 64(%rsi) ;INTEL
 ; AVX512-NEXT:    vzeroupper ;INTEL
 ; AVX512-NEXT:    retq

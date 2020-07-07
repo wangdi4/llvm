@@ -9,13 +9,12 @@
 ;       |
 ;       |      %t.13 = %t.05.out;
 ;       |   + DO i2 = 0, %s + -1, 1   <DO_MULTI_EXIT_LOOP>  <MAX_TC_EST = 2147483647>
-;       |   |   %t.13.out = %t.13;
-;       |   |   %add = %t.13.out  +  i2;
+;       |   |   %add = %t.13  +  i2;
 ;       |   |   if (%n < 5)
 ;       |   |   {
 ;       |   |      goto if.then;
 ;       |   |   }
-;       |   |   %t.13 = i2 + %t.13.out;
+;       |   |   %t.13 = %add;
 ;       |   + END LOOP
 ;       |      %t.05 = %add; (*)
 ;       |
@@ -30,8 +29,7 @@
 ; CHECK:    |   if (0 < %s)
 ; CHECK:    |   {
 ; CHECK:    |      %t.13 = %t.05.out;
-; CHECK:    |      %t.13.out = %t.13;
-; CHECK:    |      %add = %t.13.out  +  0;
+; CHECK:    |      %add = %t.13  +  0;
 ; CHECK:    |      goto if.then;
 ; CHECK-NOT:       %t.05 = %add;
 ; CHECK:    |   }

@@ -11,11 +11,11 @@
 //
 // Helper classes for iterating a integer range:
 // Currently designed in a narrow scope to support following two cases.
-//  1. RegDDRef's dimensions: dim_index_begin()/dim_index_end()
+//  1. RegDDRef's dimensions: dim_num_begin()/dim_num_end()
 //             to iterate through 1 to getNumDimensions() inclusively.
 //     ex)
-//        for (auto I : make_range(Ref->dim_index_begin(),
-//        Ref->dim_index_end()))
+//        for (auto I : make_range(Ref->dim_num_begin(),
+//        Ref->dim_num_end()))
 //          CanonExpr *CE = Ref->getNumDimension(I);
 //
 //  2. All possible loop levels, which is [1, MaxLoopNestLevel]. Refer to

@@ -8,28 +8,29 @@
 
 #include "wrapper.h"
 
+#ifdef __SPIR__
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #include <stdio.h>
-
-#pragma omp declare target
 // FIXME: teach clang to understand opencl_constant attribute during
 //        OpenMP offload compilation, and get rid of this specialization code.
 #ifndef __STDC_FORMAT_MACROS
 #define __STDC_FORMAT_MACROS
-#endif
-
 #include <inttypes.h>
-static const char assert_fmt[] =
-    "%s:%" PRId32 ": %s: global id: [%" PRIu64 ",%" PRIu64 ",%" PRIu64 "], "
-    "local id: [%" PRIu64 ",%" PRIu64 ",%" PRIu64 "] "
-    "Assertion `%s` failed.\n";
+
+#pragma omp declare target
+#endif
 
 DEVICE_EXTERN_C void __devicelib_assert_fail(const char *expr, const char *file,
                                              int32_t line, const char *func,
                                              uint64_t gid0, uint64_t gid1,
                                              uint64_t gid2, uint64_t lid0,
                                              uint64_t lid1, uint64_t lid2) {
+  static const char assert_fmt[] =
+      "%s:%" PRId32 ": %s: global id: [%" PRIu64 ",%" PRIu64 ",%" PRIu64 "], "
+      "local id: [%" PRIu64 ",%" PRIu64 ",%" PRIu64 "] "
+      "Assertion `%s` failed.\n";
+
   // intX_t types are used instead of `int' and `long' because the format string
   // is defined in terms of *device* types (OpenCL types): %d matches a 32 bit
   // integer, %lu matches a 64 bit unsigned integer. Host `int' and
@@ -92,3 +93,4 @@ DEVICE_EXTERN_C void __devicelib_assert_fail(const char *expr, const char *file,
   // *die = 0xdead;
 }
 #endif // INTEL_COLLAB
+#endif // __SPIR__

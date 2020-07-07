@@ -247,7 +247,7 @@ Function* VecCloneImpl::CloneFunction(Function &F, VectorVariant &V)
 
   // Expand return type to vector.
   if (!ReturnType->isVoidTy())
-    ReturnType = VectorType::get(ReturnType, V.getVlen());
+    ReturnType = FixedVectorType::get(ReturnType, V.getVlen());
 
   std::vector<VectorKind> ParmKinds = V.getParameters();
   SmallVector<Type*, 4> ParmTypes;
@@ -256,7 +256,7 @@ Function* VecCloneImpl::CloneFunction(Function &F, VectorVariant &V)
   std::vector<VectorKind>::iterator VKIt = ParmKinds.begin();
   for (; ParmIt != ParmEnd; ++ParmIt, ++VKIt) {
     if (VKIt->isVector())
-      ParmTypes.push_back(VectorType::get((*ParmIt)->getScalarType(),
+      ParmTypes.push_back(FixedVectorType::get((*ParmIt)->getScalarType(),
                                           V.getVlen()));
     else
       ParmTypes.push_back(*ParmIt);
@@ -265,7 +265,7 @@ Function* VecCloneImpl::CloneFunction(Function &F, VectorVariant &V)
   if (V.isMasked()) {
     Type *MaskScalarTy = (Usei1MaskForSimdFunctions) ?
       Type::getInt1Ty(F.getContext()) : CharacteristicType;
-    Type *MaskVecTy = VectorType::get(MaskScalarTy, V.getVlen());
+    Type *MaskVecTy = FixedVectorType::get(MaskScalarTy, V.getVlen());
     ParmTypes.push_back(MaskVecTy);
   }
 
@@ -618,8 +618,8 @@ VecCloneImpl::expandVectorParameters(Function *Clone, VectorVariant &V,
 
     const DataLayout &DL = Clone->getParent()->getDataLayout();
     AllocaInst *VecAlloca =
-      new AllocaInst(VecType, DL.getAllocaAddrSpace(),
-                     "vec." + Arg->getName());
+        new AllocaInst(VecType, DL.getAllocaAddrSpace(), nullptr,
+                       DL.getPrefTypeAlign(VecType), "vec." + Arg->getName());
     insertInstruction(VecAlloca, EntryBlock);
     PointerType *ElemTypePtr =
         PointerType::get(VecType->getElementType(),
@@ -666,7 +666,8 @@ VecCloneImpl::expandVectorParameters(Function *Clone, VectorVariant &V,
       // vector bitcast so that we can later update any users of the
       // parameter.
       Value *ArgValue = cast<Value>(Arg);
-      StoreInst *Store = new StoreInst(ArgValue, VecAlloca);
+      StoreInst *Store = new StoreInst(ArgValue, VecAlloca, false /*volatile*/,
+                                       DL.getABITypeAlign(ArgValue->getType()));
       StoresToInsert.push_back(Store);
       PRef->VectorParm = ArgValue;
     }
@@ -699,8 +700,9 @@ Instruction *VecCloneImpl::createExpandedReturn(Function *Clone,
   VectorType *AllocaType = cast<VectorType>(Clone->getReturnType());
 
   const DataLayout &DL = Clone->getParent()->getDataLayout();
-  AllocaInst *VecAlloca = new AllocaInst(AllocaType, DL.getAllocaAddrSpace(),
-                                         "vec.retval");
+  AllocaInst *VecAlloca =
+      new AllocaInst(AllocaType, DL.getAllocaAddrSpace(), nullptr,
+                     DL.getPrefTypeAlign(AllocaType), "vec.retval");
   insertInstruction(VecAlloca, EntryBlock);
   PointerType *ElemTypePtr =
       PointerType::get(ReturnType->getElementType(),
@@ -830,7 +832,10 @@ Instruction *VecCloneImpl::expandReturn(Function *Clone, BasicBlock *EntryBlock,
     VecGep->insertAfter(InsertPt);
 
     // Store the constant or temp to the appropriate lane in the return vector.
-    StoreInst *VecStore = new StoreInst(ValToStore, VecGep);
+    StoreInst *VecStore =
+        new StoreInst(ValToStore, VecGep, false /*volatile*/,
+                      Clone->getParent()->getDataLayout().getABITypeAlign(
+                          ValToStore->getType()));
     VecStore->insertAfter(VecGep);
 
   } else {
@@ -917,7 +922,10 @@ Instruction *VecCloneImpl::expandVectorParametersAndReturn(
     // the EntryBlock instructions are grouped by alloca, followed by store,
     // followed by bitcast for readability reasons.
 
-    StoreInst *MaskStore = new StoreInst(&*MaskParm, MaskVector);
+    StoreInst *MaskStore =
+        new StoreInst(&*MaskParm, MaskVector, false /*volatile*/,
+                      Clone->getParent()->getDataLayout().getABITypeAlign(
+                          (*MaskParm).getType()));
     insertInstruction(MaskStore, EntryBlock);
   }
 
@@ -1047,9 +1055,10 @@ void VecCloneImpl::updateScalarMemRefsWithVector(
               // using it. This effectively loads the particular element from
               // the vector parameter.
               Type *LoadTy = VecGep->getResultElementType();
-              LoadInst *ParmElemLoad =
-                new LoadInst(LoadTy, VecGep,
-                             "vec." + Parm->getName() + ".elem");
+              LoadInst *ParmElemLoad = new LoadInst(
+                  LoadTy, VecGep, "vec." + Parm->getName() + ".elem",
+                  false /*volatile*/,
+                  Clone->getParent()->getDataLayout().getABITypeAlign(LoadTy));
               ParmElemLoad->insertAfter(VecGep);
               User->setOperand(I, ParmElemLoad);
             }

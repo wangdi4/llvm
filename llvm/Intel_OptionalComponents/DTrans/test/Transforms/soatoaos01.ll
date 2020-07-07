@@ -196,14 +196,14 @@ entry:
 
 declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1)
 
-define void @_ZN4Arr1IPfEC2Ev(%struct.Arr1* nocapture %this) align 2 {
+define void @_ZN4Arr1IPfEC2Ev(%struct.Arr1* nocapture align 8 dereferenceable(32) %this) align 2 {
 entry:
   %0 = bitcast %struct.Arr1* %this to %struct.Arr.2*
   call void @_ZN3ArrIPfEC2EiP3Mem(%struct.Arr.2* %0, i32 1, %struct.Mem* null)
   ret void
 }
 
-define void @_ZN3ArrIPiE3setEiS0_(%struct.Arr* nocapture readonly %this, i32 %i, i32* %val) align 2 {
+define void @_ZN3ArrIPiE3setEiS0_(%struct.Arr* nocapture readonly align 8 dereferenceable(32) %this, i32 %i, i32* %val) align 2 {
 entry:
   %base = getelementptr inbounds %struct.Arr, %struct.Arr* %this, i32 0, i32 3
   %0 = load i32**, i32*** %base, align 8
@@ -213,7 +213,7 @@ entry:
   ret void
 }
 
-define i8* @_ZN3ArrIPvE3getEi(%struct.Arr.0* nocapture readonly %this, i32 %i) align 2 {
+define i8* @_ZN3ArrIPvE3getEi(%struct.Arr.0* nocapture readonly align 8 dereferenceable(32) %this, i32 %i) align 2 {
 entry:
   %base = getelementptr inbounds %struct.Arr.0, %struct.Arr.0* %this, i32 0, i32 3
   %0 = load i8**, i8*** %base, align 8

@@ -100,17 +100,8 @@
 /// loop exit and the loop header (_after_ SSA construction).
 ///
 //===----------------------------------------------------------------------===//
-#include "IntelVPlanDominatorTree.h"
 #include "IntelVPlanSyncDependenceAnalysis.h"
-#include "llvm/ADT/PostOrderIterator.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/Analysis/PostDominators.h"
-#include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/CFG.h"
-#include "llvm/IR/Dominators.h"
-#include "llvm/IR/Function.h"
-
-#include <stack>
+#include "IntelVPlanDominatorTree.h"
 #include <unordered_set>
 
 #define DEBUG_TYPE "vplan-sync-dependence"
@@ -289,9 +280,10 @@ struct DivergencePropagator {
   // Source of code divergence with the community is with how NodeSuccessors
   // is passed into this function. The community uses an iterable range of
   // successors (succ_const_range), while we just use a SmallVector.
+  template<typename SuccessorsRangeType>
   std::unique_ptr<ConstBlockSet>
   computeJoinPoints(const VPBasicBlock &RootBlock,
-                    const SmallVectorImpl<VPBasicBlock *> &NodeSuccessors,
+                    SuccessorsRangeType NodeSuccessors,
                     const VPLoop *ParentLoop) {
 
     assert(JoinBlocks &&

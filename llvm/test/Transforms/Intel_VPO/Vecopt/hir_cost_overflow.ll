@@ -6,7 +6,7 @@
 ;
 ; Check for vectorized HIR loop
 
-; CHECK: Cost of Scalar VPlan: 5000000000
+; CHECK: Cost of Scalar VPlan: 7000000000
 
 ; Generated from the following example using 
 ; clang -O1 -S -emit-llvm

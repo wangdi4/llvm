@@ -201,6 +201,9 @@ bool VPOUtils::isPointerCastOrZeroOffsetGEP(Value *V) {
 ///
 /// \endcode
 ///
+/// TODO: OPAQUEPOINTER: After the type information is removed with opaque
+/// pointers, bitcast instructions will be removed. It will make the possible
+/// input IRs simpler. The code below needs to be revised appropriately.
 // Lit tests for some of the above cases are:
 // A: target_map_global_array.ll,rename_and_restore_nested.ll
 // B: target_map_gep_fence2.ll

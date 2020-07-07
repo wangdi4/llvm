@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "CGDebugInfo.h"
+#include "CGOpenMPRuntime.h"
 #include "CodeGenFunction.h"
 #include "CodeGenModule.h"
 #include "TargetInfo.h"
@@ -26,6 +27,7 @@
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/MDBuilder.h"
+#include "llvm/Support/SaveAndRestore.h"
 
 using namespace clang;
 using namespace CodeGen;
@@ -93,6 +95,8 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
         S->getStmtClass() == Stmt::OMPTargetTeamsDirectiveClass ||
         S->getStmtClass() == Stmt::OMPTargetTeamsDistributeDirectiveClass ||
         S->getStmtClass() == Stmt::OMPTargetTeamsDistributeSimdDirectiveClass ||
+        S->getStmtClass() == Stmt::OMPTargetTeamsGenericLoopDirectiveClass ||
+        S->getStmtClass() == Stmt::OMPTargetParallelGenericLoopDirectiveClass ||
         S->getStmtClass() ==
             Stmt::OMPTargetTeamsDistributeParallelForDirectiveClass ||
         S->getStmtClass() ==
@@ -106,7 +110,8 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
         S->getStmtClass() ==
             Stmt::OMPTeamsDistributeParallelForDirectiveClass ||
         S->getStmtClass() ==
-            Stmt::OMPTeamsDistributeParallelForSimdDirectiveClass) {
+            Stmt::OMPTeamsDistributeParallelForSimdDirectiveClass ||
+        S->getStmtClass() == Stmt::OMPTeamsGenericLoopDirectiveClass) {
       auto *Dir = dyn_cast<OMPExecutableDirective>(S);
       return EmitLateOutlineOMPDirective(*Dir, llvm::omp::OMPD_teams);
     }
@@ -120,6 +125,7 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
     if (S->getStmtClass() == Stmt::OMPParallelMasterTaskLoopDirectiveClass ||
         S->getStmtClass() ==
             Stmt::OMPParallelMasterTaskLoopSimdDirectiveClass ||
+        S->getStmtClass() == Stmt::OMPParallelGenericLoopDirectiveClass ||
         S->getStmtClass() == Stmt::OMPParallelMasterDirectiveClass) {
       auto *Dir = dyn_cast<OMPExecutableDirective>(S);
       return EmitLateOutlineOMPDirective(*Dir, llvm::omp::OMPD_parallel);
@@ -311,7 +317,7 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
     EmitOMPDepobjDirective(cast<OMPDepobjDirective>(*S));
     break;
   case Stmt::OMPScanDirectiveClass:
-    llvm_unreachable("Scan directive not supported yet.");
+    EmitOMPScanDirective(cast<OMPScanDirective>(*S));
     break;
   case Stmt::OMPOrderedDirectiveClass:
     EmitOMPOrderedDirective(cast<OMPOrderedDirective>(*S));
@@ -428,6 +434,16 @@ void CodeGenFunction::EmitStmt(const Stmt *S, ArrayRef<const Attr *> Attrs) {
 #if INTEL_COLLAB
   case Stmt::OMPTargetVariantDispatchDirectiveClass:
     llvm_unreachable("target variant dispatch not supported with FE outlining");
+  case Stmt::OMPGenericLoopDirectiveClass:
+    llvm_unreachable("loop not supported with FE outlining");
+  case Stmt::OMPTeamsGenericLoopDirectiveClass:
+    llvm_unreachable("teams loop not supported with FE outlining");
+  case Stmt::OMPTargetTeamsGenericLoopDirectiveClass:
+    llvm_unreachable("target teams loop not supported with FE outlining");
+  case Stmt::OMPParallelGenericLoopDirectiveClass:
+    llvm_unreachable("parallel loop not supported with FE outlining");
+  case Stmt::OMPTargetParallelGenericLoopDirectiveClass:
+    llvm_unreachable("target parallel loop not supported with FE outlining");
 #endif // INTEL_COLLAB
   }
 }
@@ -718,48 +734,6 @@ CodeGenFunction::IntelPragmaInlineState::getPragmaInlineAttribute() {
   llvm_unreachable("unhandled attribute");
 }
 
-/// Handle #pragma ivdep when it contains an array clause.
-CodeGenFunction::IntelIVDepArrayHandler::IntelIVDepArrayHandler(
-    CodeGenFunction &CGF, ArrayRef<const Attr *> Attrs)
-    : CGF(CGF) {
-
-  llvm::LLVMContext &Ctx = CGF.getLLVMContext();
-  llvm::IntegerType *Int32Ty = llvm::Type::getInt32Ty(Ctx);
-  SmallVector<llvm::Value *, 4> BundleValues;
-  for (const auto *A : Attrs) {
-    if (const auto *LHAttr = dyn_cast<LoopHintAttr>(A)) {
-      if (const Expr *LE = LHAttr->getLoopExprValue()) {
-        assert(LE->isGLValue());
-        BundleValues.push_back(CGF.EmitLValue(LE).getPointer(CGF));
-        if (const Expr *E = LHAttr->getValue())
-          BundleValues.push_back(CGF.EmitScalarExpr(E));
-        else
-          BundleValues.push_back(llvm::ConstantInt::get(Int32Ty, -1));
-      }
-    }
-  }
-  if (!BundleValues.empty()) {
-    SmallVector<llvm::OperandBundleDef, 8> OpBundles{
-        llvm::OperandBundleDef("DIR.PRAGMA.IVDEP", ArrayRef<llvm::Value *>{}),
-        llvm::OperandBundleDef("QUAL.PRAGMA.ARRAY", BundleValues)};
-    CallEntry = CGF.Builder.CreateCall(
-        CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_entry), {},
-        OpBundles);
-  }
-}
-
-CodeGenFunction::IntelIVDepArrayHandler::~IntelIVDepArrayHandler() {
-  if (CallEntry) {
-    SmallVector<llvm::OperandBundleDef, 1> OpBundles{
-      llvm::OperandBundleDef("DIR.PRAGMA.END.IVDEP",
-                             ArrayRef<llvm::Value *>{})};
-
-    CGF.Builder.CreateCall(
-        CGF.CGM.getIntrinsic(llvm::Intrinsic::directive_region_exit),
-        SmallVector<llvm::Value *, 1>{CallEntry}, OpBundles);
-  }
-}
-
 /// Handle #pragma loop_fuse
 CodeGenFunction::IntelFPGALoopFuseHandler::IntelFPGALoopFuseHandler(
     CodeGenFunction &CGF, ArrayRef<const Attr *> Attrs)
@@ -898,9 +872,15 @@ CodeGenFunction::IntelBlockLoopExprHandler::~IntelBlockLoopExprHandler() {
 #endif // INTEL_CUSTOMIZATION
 
 void CodeGenFunction::EmitAttributedStmt(const AttributedStmt &S) {
+  bool nomerge = false;
+  for (const auto *A : S.getAttrs())
+    if (A->getKind() == attr::NoMerge) {
+      nomerge = true;
+      break;
+    }
+  SaveAndRestore<bool> save_nomerge(InNoMergeAttributedStmt, nomerge);
 #if INTEL_CUSTOMIZATION
   IntelPragmaInlineState PS(*this, S.getAttrs());
-  IntelIVDepArrayHandler IAH(*this, S.getAttrs());
   DistributePointHandler DPH(*this, S.getSubStmt(), S.getAttrs());
   IntelBlockLoopExprHandler IBLH(*this, S.getAttrs());
   IntelFPGALoopFuseHandler ILFH(*this, S.getAttrs());
@@ -1358,7 +1338,6 @@ void CodeGenFunction::EmitReturnOfRValue(RValue RV, QualType Ty) {
   EmitBranchThroughCleanup(ReturnBlock);
 }
 
-
 #if INTEL_CUSTOMIZATION
 // Checks the expression is the candidate of the fakeload intrinsic
 bool CodeGenFunction::IsFakeLoadCand(const Expr *RV) {
@@ -1382,8 +1361,20 @@ llvm::Value *CodeGenFunction::EmitFakeLoadForRetPtr(const Expr *RV) {
   }
   return Des.getPointer(*this);
 }
-
 #endif // INTEL_CUSTOMIZATION
+
+namespace {
+// RAII struct used to save and restore a return statment's result expression.
+struct SaveRetExprRAII {
+  SaveRetExprRAII(const Expr *RetExpr, CodeGenFunction &CGF)
+      : OldRetExpr(CGF.RetExpr), CGF(CGF) {
+    CGF.RetExpr = RetExpr;
+  }
+  ~SaveRetExprRAII() { CGF.RetExpr = OldRetExpr; }
+  const Expr *OldRetExpr;
+  CodeGenFunction &CGF;
+};
+} // namespace
 
 /// EmitReturnStmt - Note that due to GCC extensions, this can have an operand
 /// if the function returns void, or may be missing one if the function returns
@@ -1410,20 +1401,28 @@ void CodeGenFunction::EmitReturnStmt(const ReturnStmt &S) {
   // Emit the result value, even if unused, to evaluate the side effects.
   const Expr *RV = S.getRetValue();
 
-  // Treat block literals in a return expression as if they appeared
-  // in their own scope.  This permits a small, easily-implemented
-  // exception to our over-conservative rules about not jumping to
-  // statements following block literals with non-trivial cleanups.
-  RunCleanupsScope cleanupScope(*this);
-  if (const FullExpr *fe = dyn_cast_or_null<FullExpr>(RV)) {
-    enterFullExpression(fe);
-    RV = fe->getSubExpr();
-  }
+  // Record the result expression of the return statement. The recorded
+  // expression is used to determine whether a block capture's lifetime should
+  // end at the end of the full expression as opposed to the end of the scope
+  // enclosing the block expression.
+  //
+  // This permits a small, easily-implemented exception to our over-conservative
+  // rules about not jumping to statements following block literals with
+  // non-trivial cleanups.
+  SaveRetExprRAII SaveRetExpr(RV, *this);
 
+  RunCleanupsScope cleanupScope(*this);
+  if (const auto *EWC = dyn_cast_or_null<ExprWithCleanups>(RV))
+    RV = EWC->getSubExpr();
   // FIXME: Clean this up by using an LValue for ReturnTemp,
   // EmitStoreThroughLValue, and EmitAnyExpr.
-  if (getLangOpts().ElideConstructors &&
-      S.getNRVOCandidate() && S.getNRVOCandidate()->isNRVOVariable()) {
+  // Check if the NRVO candidate was not globalized in OpenMP mode.
+  if (getLangOpts().ElideConstructors && S.getNRVOCandidate() &&
+      S.getNRVOCandidate()->isNRVOVariable() &&
+      (!getLangOpts().OpenMP ||
+       !CGM.getOpenMPRuntime()
+            .getAddressOfLocalVariable(*this, S.getNRVOCandidate())
+            .isValid())) {
     // Apply the named return value optimization for this return statement,
     // which means doing nothing: the appropriate result has already been
     // constructed into the NRVO variable.

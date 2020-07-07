@@ -27,12 +27,13 @@
 __SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
 namespace detail {
-// We define a sycl stream name and this will
-// be used by the instrumentation framework
+// We define a sycl stream name and this will be used by the instrumentation
+// framework
 constexpr const char *SYCL_STREAM_NAME = "sycl";
-// Data structure that captures the user code
-// location information using the builtin capabilities
-// of the compiler
+// Stream name being used for traces generated from the SYCL plugin layer
+constexpr const char *SYCL_PICALL_STREAM_NAME = "sycl.pi";
+// Data structure that captures the user code location information using the
+// builtin capabilities of the compiler
 struct code_location {
 #ifdef _MSC_VER
   // Since MSVC does not support the required builtins, we
@@ -308,6 +309,11 @@ using KernelSetId = size_t;
 constexpr KernelSetId SpvFileKSId = 0;
 constexpr KernelSetId LastKSId = SpvFileKSId;
 
+template <typename T> struct InlineVariableHelper {
+  static constexpr T value{};
+};
+
+template <typename T> constexpr T InlineVariableHelper<T>::value;
 } // namespace detail
 } // namespace sycl
 } // __SYCL_INLINE_NAMESPACE(cl)

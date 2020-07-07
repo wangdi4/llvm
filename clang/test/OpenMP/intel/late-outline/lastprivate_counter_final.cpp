@@ -81,8 +81,8 @@ void foo3() {
   //CHECK: DIR.OMP.END.PARALLEL.LOOP
 
   //CHECK: DIR.OMP.PARALLEL.LOOP
-  //CHECK-NOT: "QUAL.OMP.LASTPRIVATE"(i32* [[K]])
-  //CHECK-NOT: "QUAL.OMP.LASTPRIVATE"(i32* [[L]])
+  //CHECK: "QUAL.OMP.PRIVATE"(i32* [[K]])
+  //CHECK: "QUAL.OMP.PRIVATE"(i32* [[L]])
   #pragma omp parallel for simd collapse(2)
   for (int k = 0; k < 33; ++k)
     for (int l = 0; l < 55; ++l) bar(k+l);

@@ -610,8 +610,15 @@ bool VPOParoptTransform::genTaskLoopInitCode(
   IRBuilder<> Builder(InsertBefore);
   Value *Zero = Builder.getInt32(0);
 
-  AllocaInst *DummyTaskTWithPrivates = Builder.CreateAlloca(
+  Instruction *DummyTaskTWithPrivates = Builder.CreateAlloca(
       KmpTaskTTWithPrivatesTy, nullptr, "taskt.withprivates");
+
+  if (isTargetSPIRV()) {
+    // Pointers passed to the target function must be in generic space.
+    DummyTaskTWithPrivates = cast<Instruction>(Builder.CreateAddrSpaceCast(
+        DummyTaskTWithPrivates,
+        KmpTaskTTWithPrivatesTy->getPointerTo(vpo::ADDRESS_SPACE_GENERIC)));
+  }
 
   Builder.SetInsertPoint(W->getEntryBBlock()->getTerminator());
   Value *BaseTaskTGep =
@@ -1052,6 +1059,18 @@ void VPOParoptTransform::genFprivInitForTask(WRegionNode *W,
 
     Value *OrigV = FprivI->getOrig();
     StringRef NamePrefix = OrigV->getName();
+
+    // CodeExtractor may have moved the firstprivate value's definition into
+    // the extractee, if it was totally unused in the parent.
+    if ((isa<Instruction>(OrigV) && cast<Instruction>(OrigV)->getFunction() !=
+                                        InsertBefore->getFunction()) ||
+        (isa<Argument>(OrigV) &&
+         cast<Argument>(OrigV)->getParent() != InsertBefore->getFunction())) {
+      LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Skipping firstprivate init for '";
+                 OrigV->printAsOperand(dbgs());
+                 dbgs() << "' as it's no longer in the current function.\n");
+      continue;
+    }
 
     if (FprivI->getIsVla()) {
       Type *Int8PtrTy = Builder.getInt8PtrTy();
@@ -1774,8 +1793,13 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
                                           TaskAllocCI, ElseTerm);
       MTFnArgs.clear();
       MTFnArgs.push_back(ElseBuilder.CreateLoad(TidPtrHolder));
-      MTFnArgs.push_back(ElseBuilder.CreateBitCast(
-          TaskAllocCI, PointerType::getUnqual(KmpTaskTTWithPrivatesTy)));
+      if (isTargetSPIRV())
+        MTFnArgs.push_back(ElseBuilder.CreateAddrSpaceCast(
+            TaskAllocCI, PointerType::get(KmpTaskTTWithPrivatesTy,
+                                          vpo::ADDRESS_SPACE_GENERIC)));
+      else
+        MTFnArgs.push_back(ElseBuilder.CreateBitCast(
+            TaskAllocCI, PointerType::getUnqual(KmpTaskTTWithPrivatesTy)));
       CallInst *SeqCI = CallInst::Create(MTFn->getFunctionType(), MTFn,
                                          MTFnArgs, "", ElseTerm);
       SeqCI->setCallingConv(NewCall->getCallingConv());

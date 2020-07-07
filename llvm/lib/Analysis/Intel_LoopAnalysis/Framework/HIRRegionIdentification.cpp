@@ -27,6 +27,7 @@
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/IntrinsicInst.h"
 
+#include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRRegionIdentification.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/CanonExpr.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
@@ -72,6 +73,25 @@ static cl::opt<unsigned> LoopMaterializationBBSize(
     cl::desc("Threshold for number of instructions allowed in the basic block "
              "which may be a loop materialization candidate"));
 
+static cl::opt<unsigned> HugeLoopSize("hir-huge-loop-size", cl::init(42),
+                                      cl::Hidden,
+                                      cl::desc("Threshold for huge loop size"));
+static cl::opt<unsigned>
+    MaxInstThresholdOption("hir-region-inst-threshold", cl::init(0), cl::Hidden,
+                           cl::desc("Threshold for maximum number of "
+                                    "instructions allowed in a HIR region"));
+
+static cl::opt<unsigned> MaxIfNestThresholdOption(
+    "hir-region-if-nest-threshold", cl::init(0), cl::Hidden,
+    cl::desc(
+        "Threshold for maximum number of nested ifs allowed in a HIR region"));
+
+static cl::opt<bool>
+    PrintCostModelStats("hir-region-print-cost-model-stats", cl::init(false),
+                        cl::Hidden,
+                        cl::desc("Print statistics used by the cost model to "
+                                 "decide whether to build HIR region"));
+
 STATISTIC(RegionCount, "Number of regions created");
 
 AnalysisKey HIRRegionIdentificationAnalysis::Key;
@@ -83,6 +103,7 @@ HIRRegionIdentificationAnalysis::run(Function &F, FunctionAnalysisManager &AM) {
   return HIRRegionIdentification(
       F, AM.getResult<LoopAnalysis>(F), AM.getResult<DominatorTreeAnalysis>(F),
       AM.getResult<PostDominatorTreeAnalysis>(F),
+      AM.getResult<AssumptionAnalysis>(F),
       AM.getResult<ScalarEvolutionAnalysis>(F),
       AM.getResult<TargetLibraryAnalysis>(F),
       AM.getResult<XmainOptLevelAnalysis>(F).getOptLevel());
@@ -93,6 +114,7 @@ INITIALIZE_PASS_BEGIN(HIRRegionIdentificationWrapperPass,
                       false, true)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
@@ -114,6 +136,7 @@ bool HIRRegionIdentificationWrapperPass::runOnFunction(Function &F) {
       F, getAnalysis<LoopInfoWrapperPass>().getLoopInfo(),
       getAnalysis<DominatorTreeWrapperPass>().getDomTree(),
       getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree(),
+      getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F),
       getAnalysis<ScalarEvolutionWrapperPass>().getSE(),
       getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F),
       getAnalysis<XmainOptLevelWrapperPass>().getOptLevel()));
@@ -126,6 +149,7 @@ void HIRRegionIdentificationWrapperPass::getAnalysisUsage(
   AU.setPreservesAll();
   AU.addRequiredTransitive<DominatorTreeWrapperPass>();
   AU.addRequiredTransitive<PostDominatorTreeWrapperPass>();
+  AU.addRequiredTransitive<AssumptionCacheTracker>();
   AU.addRequiredTransitive<LoopInfoWrapperPass>();
   AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
   AU.addRequiredTransitive<TargetLibraryInfoWrapperPass>();
@@ -588,41 +612,12 @@ bool HIRRegionIdentification::containsUnsupportedTy(const Instruction *Inst,
   return false;
 }
 
-const PHINode *
-HIRRegionIdentification::findIVDefInHeader(const Loop &Lp,
-                                           const Instruction *Inst) const {
-
-  // Is this a phi node in the loop header?
-  if (Inst->getParent() == Lp.getHeader()) {
-    if (auto Phi = dyn_cast<PHINode>(Inst)) {
-      return Phi;
-    }
-  }
-
-  for (auto I = Inst->op_begin(), E = Inst->op_end(); I != E; ++I) {
-    if (auto OpInst = dyn_cast<Instruction>(I)) {
-
-      // Instruction lies outside the loop.
-      if (!Lp.contains(LI.getLoopFor(OpInst->getParent()))) {
-        continue;
-      }
-
-      // Skip backedges.
-      // This can happen for outer unknown loops.
-      if (DT.dominates(Inst, OpInst)) {
-        continue;
-      }
-
-      auto IVNode = findIVDefInHeader(Lp, OpInst);
-
-      if (IVNode) {
-        return IVNode;
-      }
-    }
-  }
-
-  return nullptr;
-}
+const unsigned O2MaxInstThreshold = 200;
+const unsigned O3MaxInstThreshold = 400;
+const unsigned MaxIfThreshold = 7;
+const unsigned O2MaxIfNestThreshold = 3;
+const unsigned O3MaxIfNestThreshold = 7;
+const unsigned SmallTripThreshold = 16;
 
 class HIRRegionIdentification::CostModelAnalyzer
     : public InstVisitor<CostModelAnalyzer, bool> {
@@ -640,12 +635,8 @@ class HIRRegionIdentification::CostModelAnalyzer
   unsigned UnstructuredJumpCount; // Approximates goto/label counts in HIR.
   unsigned IfCount;               // Approximates number of ifs in HIR.
 
-  // TODO: use different values for O2/O3.
-  const unsigned MaxInstThreshold = 200;
-  const unsigned MaxIfThreshold = 7;
-  const unsigned O2MaxIfNestThreshold = 2;
-  const unsigned O3MaxIfNestThreshold = 6;
-  const unsigned SmallTripThreshold = 16;
+  unsigned MaxInstThreshold;
+  unsigned MaxIfNestThreshold;
 
 public:
   CostModelAnalyzer(const HIRRegionIdentification &RI, const Loop &Lp,
@@ -673,6 +664,19 @@ HIRRegionIdentification::CostModelAnalyzer::CostModelAnalyzer(
       OptLevel(RI.OptLevel), InstCount(0), UnstructuredJumpCount(0),
       IfCount(0) {
 
+  if (MaxInstThresholdOption.getNumOccurrences() != 0) {
+    MaxInstThreshold = MaxInstThresholdOption;
+  } else {
+    MaxInstThreshold = (OptLevel > 2) ? O3MaxInstThreshold : O2MaxInstThreshold;
+  }
+
+  if (MaxIfNestThresholdOption.getNumOccurrences() != 0) {
+    MaxIfNestThreshold = MaxIfNestThresholdOption;
+  } else {
+    MaxIfNestThreshold =
+        (OptLevel > 2) ? O3MaxIfNestThreshold : O2MaxIfNestThreshold;
+  }
+
   HeaderDomNode = RI.DT.getNode(Lp.getHeader());
 
   auto ConstBECount = dyn_cast<SCEVConstant>(BECount);
@@ -686,6 +690,10 @@ HIRRegionIdentification::CostModelAnalyzer::CostModelAnalyzer(
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void HIRRegionIdentification::CostModelAnalyzer::printStats() const {
+  if (!PrintCostModelStats) {
+    return;
+  }
+
   dbgs() << "Loop instruction count: " << InstCount << "\n";
   dbgs() << "Loop goto count: " << UnstructuredJumpCount << "\n";
   dbgs() << "Loop if count: " << IfCount << "\n";
@@ -901,20 +909,8 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
     DomNode = DomNode->getIDom();
   }
 
-  // Increase thresholds for small trip innermost loops so that we can unroll
-  // them.
-  bool UseO3Thresholds = (OptLevel > 2) || (IsInnermostLoop && IsSmallTripLoop);
-
-  unsigned IfNestThreshold =
-      (UseO3Thresholds ? O3MaxIfNestThreshold : O2MaxIfNestThreshold);
-
-  if (UseO3Thresholds && IsInnermostLoop) {
-    // Allow 1 more If nesting for O3 innermost loops.
-    ++IfNestThreshold;
-  }
-
   // Add 1 to include reaching header node.
-  if ((IfNestCount + 1) > IfNestThreshold) {
+  if ((IfNestCount + 1) > MaxIfNestThreshold) {
     printOptReportRemark(
         &Lp, "Loop throttled due to presence of too many nested ifs.");
     return false;
@@ -1185,6 +1181,35 @@ static bool containsInvariantSwitchInInnermostLoop(const Loop *Lp,
   return containsInvariantSwitchInInnermostLoop(Lp, InnermostLp, PDT);
 }
 
+// Do not throttle huge countable loop.
+static bool isHugeOutermostLoop(const Loop *Lp, const SCEV *BECount) {
+  // Only consider countable loop.
+  if (BECount && isa<SCEVCouldNotCompute>(BECount))
+    return false;
+
+  // Only single exit outermost loop.
+  if (!Lp->getExitingBlock() || Lp->getParentLoop())
+    return false;
+
+  return std::distance(Lp->begin(), Lp->end()) >= HugeLoopSize;
+}
+
+// Do not throttle parent loop of the unknown loop if his parent loop is the
+// outermost huge loop.
+static bool hasHugeOutermostParentLoop(const Loop *Lp, const SCEV *BECount) {
+  if (BECount && !isa<SCEVCouldNotCompute>(BECount))
+    return false;
+
+  if (!Lp->getExitingBlock() || Lp->getLoopDepth() > 2 || !Lp->empty())
+    return false;
+
+  Loop *PLp = Lp->getParentLoop();
+  if (!PLp || !isHugeOutermostLoop(PLp, nullptr))
+    return false;
+
+  return Lp == *PLp->rbegin();
+}
+
 bool HIRRegionIdentification::shouldThrottleLoop(
     const Loop &Lp, const SCEV *BECount, bool &ThrottleParentLoop) const {
 
@@ -1200,6 +1225,12 @@ bool HIRRegionIdentification::shouldThrottleLoop(
     if (containsInvariantSwitchInInnermostLoop(&Lp, BECount, PDT)) {
       return false;
     }
+
+    if (hasHugeOutermostParentLoop(&Lp, BECount))
+      return false;
+
+    if (isHugeOutermostLoop(&Lp, BECount))
+      return false;
   }
 
   CostModelAnalyzer CMA(*this, Lp, BECount, ThrottleParentLoop);
@@ -1508,14 +1539,6 @@ bool HIRRegionIdentification::isGenerable(const BasicBlock *BB,
       return false;
     }
 
-    // TODO: think about HIR representation for
-    // InsertValueInst/ExtractValueInst.
-    if (isa<InsertValueInst>(Inst) || isa<ExtractValueInst>(Inst)) {
-      printOptReportRemark(
-          Lp, "InsertValueInst/ExtractValueInst currently not supported.");
-      return false;
-    }
-
     // TODO: Need to add support of auxiliary (non-operand) data.
     if (isa<ShuffleVectorInst>(Inst)) {
       printOptReportRemark(Lp, "ShuffleVectorInst currently not supported.");
@@ -1565,7 +1588,7 @@ bool HIRRegionIdentification::areBBlocksGenerable(const Loop &Lp) const {
   return true;
 }
 
-const Loop *HIRRegionIdentification::getOutermostParentLoop(const Loop *Lp) {
+static const Loop *getOutermostParentLoop(const Loop *Lp) {
   const Loop *ParLp, *TmpLp;
 
   ParLp = Lp;
@@ -1638,12 +1661,9 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
     return false;
   }
 
-  // Use the outermost LLVM loop to evaluate the trip count as we do not know
-  // the outermost HIR parent loop. This is okay for the initial analysis. If
-  // we are not able to compute trip count of the loop after suppressing some
-  // parent loops, the loop will be handled as an unknown loop.
-  auto BECount =
-      SE.getBackedgeTakenCountForHIR(&Lp, getOutermostParentLoop(&Lp));
+  ScopedSE->setBackedgeTakenCountLoop(&Lp);
+  auto BECount = ScopedSE->getBackedgeTakenCount(&Lp);
+  ScopedSE->resetBackedgeTakenCountLoop();
 
   auto ConstBECount = dyn_cast<SCEVConstant>(BECount);
 
@@ -1655,24 +1675,9 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
     return false;
   }
 
-  // Check whether the loop contains irreducible CFG before calling
-  // findIVDefInHeader() otherwise it may loop infinitely.
   // We skip the bblock check for function region mode as it is done at the
   // function level by the caller.
   if (!IsFunctionRegionMode && !areBBlocksGenerable(Lp)) {
-    return false;
-  }
-
-  auto *IVNode = findIVDefInHeader(Lp, LatchCmpInst);
-
-  if (IVNode && (IVNode->getType()->getPrimitiveSizeInBits() == 1)) {
-    // The following loop with i1 type IV has a trip count of 2 which is
-    // outside its range. This is a quirk of SSA. CG will generate an infinite
-    // loop for this case if we let it through.
-    // for.i:
-    // %i.08.i = phi i1 [ true, %entry ], [ false, %for.i ]
-    // br i1 %i.08.i, label %for.i, label %exit
-    printOptReportRemark(&Lp, "i1 type IV currently not handled.");
     return false;
   }
 
@@ -1720,7 +1725,7 @@ void HIRRegionIdentification::createRegion(
 
   IRRegions.emplace_back(EntryBB,
                          ExitBB ? ExitBB : Loops.back()->getLoopLatch(),
-                         BBlocks, NonLoopBBlocks);
+                         BBlocks, NonLoopBBlocks, Loops);
 
   // Keep track of all bblocks part of regular regions.
   AllLoopBasedRegionsBBlocks.insert(BBlocks.begin(), BBlocks.end());
@@ -1750,9 +1755,16 @@ bool HIRRegionIdentification::isGenerableLoopnest(
 
   bool ThrottleParentLoop = false;
   // Check whether Lp is generable.
-  if (Generable &&
-      !isSelfGenerable(Lp, ++LoopnestDepth, false, ThrottleParentLoop)) {
-    Generable = false;
+  if (Generable) {
+    // Use the outermost LLVM loop to evaluate the trip count as we do not know
+    // the outermost HIR parent loop. This is okay for the initial analysis. If
+    // we are not able to compute trip count of the loop after suppressing some
+    // parent loops, the loop will be handled as an unknown loop.
+    ScopedSE->setScope({getOutermostParentLoop(&Lp)});
+
+    if (!isSelfGenerable(Lp, ++LoopnestDepth, false, ThrottleParentLoop)) {
+      Generable = false;
+    }
   }
 
   if (Generable) {
@@ -2128,7 +2140,7 @@ void HIRRegionIdentification::formRegionsForLoopMaterialization(
     BBs.push_back(&BB);
     NonLoopBBs.push_back(&BB);
 
-    IRRegion TempRegion(&BB, &BB, BBs, NonLoopBBs, true);
+    IRRegion TempRegion(&BB, &BB, BBs, NonLoopBBs, {}, true);
 
     // SmallVector does not have emplace().
     IRRegions.insert(InsertPos, std::move(TempRegion));
@@ -2180,7 +2192,7 @@ void HIRRegionIdentification::createFunctionLevelRegion(Function &Func) {
 
   IRRegion::RegionBBlocksTy NonLoopBBlocks;
   IRRegions.emplace_back(&Func.getEntryBlock(), nullptr, BBlocks,
-                         NonLoopBBlocks, false, true);
+                         NonLoopBBlocks, LI.getTopLevelLoops(), false, true);
 
   RegionCount++;
 }
@@ -2212,6 +2224,8 @@ bool HIRRegionIdentification::canFormFunctionLevelRegion(Function &Func) {
   }
 
   SmallVector<Loop *, 16> AllLoops = LI.getLoopsInPreorder();
+
+  ScopedSE->setScope(LI.getTopLevelLoops());
 
   bool ThrottleParentLoop;
   for (auto Lp : AllLoops) {
@@ -2311,7 +2325,7 @@ bool HIRRegionIdentification::isLoopConcatenationCandidate() const {
 
   // Check backedge taken count.
   for (auto Lp : LI) {
-    auto BECount = SE.getBackedgeTakenCountForHIR(Lp, Lp);
+    auto BECount = SE.getBackedgeTakenCount(Lp);
     auto ConstBECount = dyn_cast<SCEVConstant>(BECount);
 
     if (!ConstBECount || (ConstBECount->getValue()->getSExtValue() != 3)) {
@@ -2332,8 +2346,11 @@ bool HIRRegionIdentification::isLoopConcatenationCandidate() const {
 
 HIRRegionIdentification::HIRRegionIdentification(
     Function &F, LoopInfo &LI, DominatorTree &DT, PostDominatorTree &PDT,
-    ScalarEvolution &SE, TargetLibraryInfo &TLI, unsigned OptLevel)
-    : LI(LI), DT(DT), PDT(PDT), SE(SE), TLI(TLI), OptLevel(OptLevel) {
+    AssumptionCache &AC, ScalarEvolution &SE, TargetLibraryInfo &TLI,
+    unsigned OptLevel)
+    : LI(LI), DT(DT), PDT(PDT), SE(SE), TLI(TLI),
+      ScopedSE(new ScopedScalarEvolution(F, TLI, AC, DT, LI, true)),
+      OptLevel(OptLevel) {
   runImpl(F);
 }
 
@@ -2354,7 +2371,8 @@ void HIRRegionIdentification::runImpl(Function &F) {
 
 HIRRegionIdentification::HIRRegionIdentification(HIRRegionIdentification &&RI)
     : IRRegions(std::move(RI.IRRegions)), LI(RI.LI), DT(RI.DT), PDT(RI.PDT),
-      SE(RI.SE), TLI(RI.TLI), OptLevel(RI.OptLevel) {}
+      SE(RI.SE), TLI(RI.TLI), ScopedSE(std::move(RI.ScopedSE)),
+      OptLevel(RI.OptLevel) {}
 
 void HIRRegionIdentification::print(raw_ostream &OS) const {
 

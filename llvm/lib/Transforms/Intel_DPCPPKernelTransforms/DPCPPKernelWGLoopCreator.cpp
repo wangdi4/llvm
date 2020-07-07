@@ -15,6 +15,7 @@
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/MathExtras.h"
+#include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelBarrierUtils.h"
 #include "llvm/Transforms/Intel_DPCPPKernelTransforms/DPCPPKernelCompilationUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
@@ -80,7 +81,20 @@ bool DPCPPKernelWGLoopCreatorLegacyPass::processModule(Module &M) {
   }
 
   for (auto *F : WorkList) {
-    // TODO: bail out here for Barrier cases.
+    // No need to check if NoBarrierPath Value exists, it is guaranteed that
+    // KernelAnalysisPass ran before WGLoopCreator pass.
+    assert(F->hasFnAttribute(NO_BARRIER_PATH_ATTRNAME) &&
+           "DPCPPKernelWGLoopCreator: Expect " NO_BARRIER_PATH_ATTRNAME
+           " attribute!");
+    StringRef Value =
+        F->getFnAttribute(NO_BARRIER_PATH_ATTRNAME).getValueAsString();
+    assert((Value == "true" || Value == "false") &&
+           "DPCPPKernelWGLoopCreator: unexpected " NO_BARRIER_PATH_ATTRNAME
+           " value!");
+    // Kernel that should be handled in barrier path, skip it.
+    if (Value == "false")
+      continue;
+
     unsigned int VectWidth = 0;
     Function *VectKernel = nullptr;
     // Set the vectorized function

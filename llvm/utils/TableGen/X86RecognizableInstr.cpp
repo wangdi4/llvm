@@ -563,10 +563,23 @@ void RecognizableInstr::emitInstructionSpecifier() {
     HANDLE_OPTIONAL(immediate)
     break;
 #if INTEL_CUSTOMIZATION
+  case X86Local::MRMDestReg4VOp3:
+    // Operand 1 is a register operand in the R/M field.
+    // Operand 2 is a register operand in the Reg/Opcode field.
+    // Operand 3 is a register operand in VEX.vvvv field.
+    assert(numPhysicalOperands == 3 &&
+           "Unexpected number of operands for MRMDestReg4VOp3");
+    HANDLE_OPERAND(rmRegister)
+    HANDLE_OPERAND(roRegister)
+    HANDLE_OPERAND(vvvvRegister)
+    break;
+  case X86Local::MRMDestMem4VOp3:
   case X86Local::MRMDestMem4VOp2FSIB:
-    // Operand 1 is a sibmem operand
+    // Operand 1 is a sibmem/memory operand
     // Operand 2 is a mod/r
     // Operand 3 is VEX.vvvv
+    assert(numPhysicalOperands == 3 &&
+           "Unexpected number of operands for MRMDestMem4VOp3/MRMDestMem4VOp2FSIB");
     HANDLE_OPERAND(memory)
     HANDLE_OPERAND(roRegister)
     HANDLE_OPERAND(vvvvRegister)
@@ -773,6 +786,14 @@ void RecognizableInstr::emitInstructionSpecifier() {
     HANDLE_OPERAND(immediate)
     HANDLE_OPERAND(immediate)
     break;
+  case X86Local::MRM0X:
+  case X86Local::MRM1X:
+  case X86Local::MRM2X:
+  case X86Local::MRM3X:
+  case X86Local::MRM4X:
+  case X86Local::MRM5X:
+  case X86Local::MRM6X:
+  case X86Local::MRM7X:
 #define MAP(from, to) case X86Local::MRM_##from:
   X86_INSTR_MRM_MAPPING
 #undef MAP
@@ -826,6 +847,7 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
     filter = std::make_unique<DumbFilter>();
     break;
   case X86Local::MRMDestReg:
+  case X86Local::MRMDestReg4VOp3:  // INTEL
   case X86Local::MRMSrcReg:
   case X86Local::MRMSrcReg4VOp3:
   case X86Local::MRMSrcRegOp4:
@@ -837,6 +859,7 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
   case X86Local::MRMDestMem4VOp2FSIB: // INTEL
   case X86Local::MRMDestMem:
   case X86Local::MRMDestMemFSIB: // INTEL
+  case X86Local::MRMDestMem4VOp3: // INTEL
 #if INTEL_CUSTOMIZATION
   case X86Local::MRMSrcMemFSIB:
 #endif // INTEL_CUSTOMIZATION
@@ -862,6 +885,12 @@ void RecognizableInstr::emitDecodePath(DisassemblerTables &tables) const {
     break;
 #endif // INTEL_FEATURE_ISA_AMX
 #endif // INTEL_CUSTOMIZATION
+  case X86Local::MRM0X: case X86Local::MRM1X:
+  case X86Local::MRM2X: case X86Local::MRM3X:
+  case X86Local::MRM4X: case X86Local::MRM5X:
+  case X86Local::MRM6X: case X86Local::MRM7X:
+    filter = std::make_unique<ExtendedFilter>(true, Form - X86Local::MRM0X);
+    break;
   case X86Local::MRM0m: case X86Local::MRM1m:
   case X86Local::MRM2m: case X86Local::MRM3m:
   case X86Local::MRM4m: case X86Local::MRM5m:

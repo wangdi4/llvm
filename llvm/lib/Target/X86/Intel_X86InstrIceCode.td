@@ -150,9 +150,9 @@ let Predicates = [InIceCodeMode] in {
                        "nr_read\t{$src, $dst|$dst, $src}",
                        [(set GR32:$dst, (int_x86_icecode_nr_read (i32 timm:$src)))]>;
 
-    let Uses = [EAX] in
+    let Uses = [RAX] in
       def SIGEVENTJUMP : Ii32<0x81, MRM2r, (outs), (ins GR32:$src1, i32imm:$src2),
-                              "sigeventjump\t{$src2, $src1, %eax|eax, $src1, $src2}", []>;
+                              "sigeventjump\t{$src2, $src1|$src1, $src2}", []>;
 
     def SETTRACKER : Ii8<0x6a, RawFrm, (outs), (ins i32u8imm:$src),
                          "settracker\t$src",

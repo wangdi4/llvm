@@ -47,7 +47,9 @@ static bool checkInstructionInLoop(const VPValue *V, const VPLoop &Loop) {
          Loop.contains(cast<VPInstruction>(V)->getParent());
 }
 
-void VPSOAAnalysis::doSOAAnalysis() {
+// Public interface for SOA-analysis for all loop-privates. \p SOAVars is the
+// output argument that return the variables marked for SOA-layout.
+void VPSOAAnalysis::doSOAAnalysis(SmallPtrSetImpl<VPInstruction *> &SOAVars) {
   if (!EnableSOAAnalysis)
     return;
   assert(Plan.getVPlanDA() && "Expect DA to be run and the DA object be set "
@@ -61,8 +63,10 @@ void VPSOAAnalysis::doSOAAnalysis() {
     if (VPAllocatePrivate *AllocaPriv = dyn_cast<VPAllocatePrivate>(&VInst))
       if (!memoryEscapes(AllocaPriv)) {
         AllocaPriv->setSOASafe();
-        if (isSOAProfitable(AllocaPriv))
+        if (isSOAProfitable(AllocaPriv)) {
           AllocaPriv->setSOAProfitable();
+          SOAVars.insert(AllocaPriv);
+        }
       }
   }
 
@@ -88,11 +92,12 @@ bool VPSOAAnalysis::isSOASupportedTy(Type *Ty) {
           (isScalarTy(cast<ArrayType>(PointeeTy)->getElementType())));
 }
 
-// Return true if \p UseInst is a safe bitcast instruction, i.e. it's a
-// pointer-to-pointer cast doesn't change the size of the pointed elements.
-bool VPSOAAnalysis::isPotentiallyUnsafeSafeBitCast(
-    const VPInstruction *UseInst) {
-  if (!UseInst || (UseInst->getOpcode() != Instruction::BitCast))
+// Return true if \p UseInst is a safe cast instruction, i.e. it's a
+// pointer-to-pointer cast that doesn't change the size of the pointed-to
+// elements.
+bool VPSOAAnalysis::isPotentiallyUnsafeCast(const VPInstruction *UseInst) {
+  if (!UseInst || (UseInst->getOpcode() != Instruction::BitCast &&
+                   UseInst->getOpcode() != Instruction::AddrSpaceCast))
     return false;
 
   // We expect to have only pointer-type operands.
@@ -112,11 +117,13 @@ bool VPSOAAnalysis::isPotentiallyUnsafeSafeBitCast(
 // private-pointer to and does not change the data-layout.
 bool VPSOAAnalysis::isSafePointerEscapeFunction(const VPInstruction *UseInst) {
 
+  auto *VPCall = dyn_cast<VPCallInstruction>(UseInst);
+
   // If this is not a call-instruction, return false.
-  if (UseInst->getOpcode() != Instruction::Call)
+  if (!VPCall)
     return false;
 
-  Function *CalleeFunc = getCalledFunction(UseInst);
+  Function *CalleeFunc = VPCall->getCalledFunction();
   // For indirect calls we will have a null CalledFunc.
   if (!CalleeFunc)
     return false;
@@ -257,7 +264,7 @@ bool VPSOAAnalysis::memoryEscapes(const VPAllocatePrivate *Alloca) {
       //               ...
       //          %bc2 = bitcast ...
       //          %l2 = load i8, i8* %bc2
-      if (isPotentiallyUnsafeSafeBitCast(UseInst) ||
+      if (isPotentiallyUnsafeCast(UseInst) ||
           hasPotentiallyUnsafeOperands(UseInst))
         PotentiallyUnsafeInsts.insert(UseInst);
     }
@@ -412,6 +419,7 @@ void VPSOAAnalysis::dump(raw_ostream &OS) const {
 
   VPBasicBlock *Preheader = Loop.getLoopPreheader();
   // TODO: Dump profitability information along with safety information.
+  OS << "SOA profitability:\n";
   for (VPInstruction &VPInst : *Preheader) {
     if (VPAllocatePrivate *VPAllocaPriv =
             dyn_cast<VPAllocatePrivate>(&VPInst)) {

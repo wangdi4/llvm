@@ -13,6 +13,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Analysis/GlobalsModRef.h" // INTEL_CUSTOMIZATION
+#include "llvm/Analysis/MemorySSA.h" // INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Vectorize/IntelVPlanDriver.h"
 #include "IntelVPlanAllZeroBypass.h"
 #include "IntelLoopVectorizationLegality.h"
@@ -190,6 +192,37 @@ static bool isSupportedRec(Loop *Lp) {
   return true;
 }
 
+// This function adds new SzAddMD metadata string to the loop. We use it set
+// llvm.loop.vectorize.enable and llvm.loop.isvectorized metadata attributes:
+//   llvm.loop.vectorize.enable - is added by the front-end (called without
+//   -fiopenmp option) or VPlan Vectorizer if pragma simd is specified the
+//   the loop.
+//   llvm.loop.isvectorized - is added by vectorizer for vectorized loops.
+static void setLoopMD(const Loop *const Lp, const char *const SzAddMD) {
+  if (!Lp)
+    return;
+  LLVMContext &Context = Lp->getHeader()->getContext();
+  MDNode *AddMD = MDNode::get(
+      Context,
+      {MDString::get(Context, SzAddMD),
+       ConstantAsMetadata::get(ConstantInt::get(Context, APInt(32, 1)))});
+  MDNode *LoopID = Lp->getLoopID();
+  MDNode *NewLoopID =
+      makePostTransformationMetadata(Context, LoopID, {SzAddMD}, {AddMD});
+  Lp->setLoopID(NewLoopID);
+}
+
+static void setHLLoopMD(HLLoop *const Lp, const char *const SzAddMD,
+                        LLVMContext &Context) {
+  if (!Lp)
+    return;
+  MDNode *AddMD = MDNode::get(
+      Context,
+      {MDString::get(Context, SzAddMD),
+       ConstantAsMetadata::get(ConstantInt::get(Context, APInt(32, 1)))});
+  Lp->addLoopMetadata({AddMD});
+}
+
 #if INTEL_CUSTOMIZATION
 template <>
 bool VPlanDriverImpl::processLoop<llvm::Loop>(Loop *Lp, Function &Fn,
@@ -211,6 +244,13 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   PredicatedScalarEvolution PSE(SE, *Lp);
   VPOVectorizationLegality LVL(Lp, PSE, &Fn);
 
+  // If region has SIMD directive mark then we will reuse community metadata on
+  // Loop so that WarnMissedTransforms pass will detect if this loop is not
+  // vectorized later
+  const bool isOmpSIMDLoop = WRLp && WRLp->isOmpSIMDLoop();
+  if (isOmpSIMDLoop)
+    setLoopMD(Lp, "llvm.loop.vectorize.enable");
+
   // Send explicit data from WRLoop to the Legality.
   // The decision about possible loop vectorization is based
   // on this data.
@@ -230,20 +270,23 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
       return false;
   }
 
-  // Create a VPlanOptReportBuilder object, lifetime is a single loop that we
-  // process for vectorization
-  VPlanOptReportBuilder VPORBuilder(LORBuilder, LI);
-
   BasicBlock *Header = Lp->getHeader();
-  VPlanScalarEvolutionLLVM VPSE(SE, Lp);
-  VPlanVLSAnalysis VLSA(Lp, Header->getContext(), *DL, &VPSE, TTI);
-  LoopVectorizationPlanner LVP(WRLp, Lp, LI, &VPSE, TLI, TTI, DL, DT, &LVL,
-                               &VLSA);
+  VPlanVLSAnalysis VLSA(Lp, Header->getContext(), *DL, TTI);
+  LoopVectorizationPlanner LVP(WRLp, Lp, LI, TLI, TTI, DL, DT, &LVL, &VLSA);
 
 #if INTEL_CUSTOMIZATION
   if (!LVP.buildInitialVPlans(&Fn.getContext(), DL)) {
     LLVM_DEBUG(dbgs() << "VD: Not vectorizing: No VPlans constructed.\n");
     return false;
+  }
+  for (auto &Pair : LVP.getAllVPlans()) {
+    auto &Plan = *Pair.second;
+    if (!Plan.getVPSE())
+      Plan.setVPSE(std::make_unique<VPlanScalarEvolutionLLVM>(SE, Lp));
+    if (!Plan.getVPVT()) {
+      auto &VPSE = *static_cast<VPlanScalarEvolutionLLVM *>(Plan.getVPSE());
+      Plan.setVPVT(std::make_unique<VPlanValueTrackingLLVM>(VPSE, *DL, AC, DT));
+    }
   }
 #else
   LVP.buildInitialVPlans();
@@ -276,7 +319,7 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
              Plan->setName(PlanName); dbgs() << *Plan);
 
   VPLAN_DUMP(VPlanPrintInit,
-             "initial VPlan for VF=" + std::to_string(VF) + "\n", Plan);
+             "initial VPlan for VF=" + std::to_string(VF), Plan);
 
   // All-zero bypass is added after best plan selection because cost model
   // tuning is not yet implemented and we don't want to prevent vectorization.
@@ -306,7 +349,7 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
       VPBasicBlock *Latch = Lp->getLoopLatch();
       assert(Latch && "Latch should not be a null pointer.");
       VPBasicBlock *Header = Lp->getHeader();
-      bool BackedgeOnTrue = Latch->getSuccessors()[0] == Header;
+      bool BackedgeOnTrue = Latch->getSuccessor(0) == Header;
       auto &Context = Fn.getContext();
       auto *Cond = BackedgeOnTrue ? ConstantInt::getFalse(Context)
                                   : ConstantInt::getTrue(Context);
@@ -322,7 +365,8 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
   if (VF == 1) {
     // Emit opt report remark if a VPlan candidate SIMD loop was not vectorized.
     // TODO: Emit reason for bailing out.
-    VPORBuilder.addRemark(Lp, OptReportVerbosity::Medium, 15436, "");
+    VPlanOptReportBuilder(LORBuilder, LI)
+        .addRemark(Lp, OptReportVerbosity::Medium, 15436, "");
     return false;
   }
 
@@ -344,7 +388,14 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
     VPOUtils::stripDirectives(WRLp);
 
   CandLoopsVectorized++;
+  VPlanOptReportBuilder VPORBuilder(LORBuilder, LI);
   addOptReportRemarks<VPOCodeGen>(VPORBuilder, &VCodeGen);
+
+  // Mark source and vectorized loops with isvectorized directive so that
+  // WarnMissedTransforms pass will not complain that this loop is not
+  // vectorized
+  if (isOmpSIMDLoop)
+    setLoopMD(VCodeGen.getMainLoop(), "llvm.loop.isvectorized");
 
   // Emit kernel optimization remarks.
   if (isEmitKernelOptRemarks) {
@@ -377,10 +428,6 @@ bool VPlanDriverImpl::processLoop(Loop *Lp, Function &Fn,
     OptimizationRemarkEmitter &ORE = WR->getORE();
     ORE.emit(R);
   }
-
-  DT->recalculate(Fn);
-  LI->releaseMemory();
-  LI->analyze(*DT);
 
   return true;
 }
@@ -613,7 +660,7 @@ bool VPlanDriverImpl::processFunction(Function &Fn) {
   // We cannot rely on compiler driver not invoking vectorizer for
   // non-vector targets. Ensure vectorizer won't cause any issues for
   // such targets.
-  if (TTI->getRegisterBitWidth(true) == 0)
+  if (!TTI->getNumberOfRegisters(TTI->getRegisterClassForType(true)))
     return false;
 
   DL = &Fn.getParent()->getDataLayout();
@@ -669,6 +716,8 @@ void VPlanDriverImpl::addOptReportRemarks(VPlanOptReportBuilder &VPORBuilder,
   // Add remark about VF
   VPORBuilder.addRemark(MainLoop, OptReportVerbosity::Low, 15305,
                         Twine(VCodeGen->getVF()).str());
+
+  VCodeGen->getOptReportStatsTracker().emitRemarks(VPORBuilder, MainLoop);
 
   // If remainder loop was generated for MainLoop, report that it is currently
   // not vectorized
@@ -992,12 +1041,13 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   if (PrintHIRBeforeVPlan) {
-    dbgs() << "Candidate HLLoop before VPlan:\n";
+    dbgs() << "Candidate HLLoop before VPlan (" << Fn.getName() << "):\n";
     HLoop->dump();
   }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
-  if (WRLp->isOmpSIMDLoop() && !WRLp->isValidHIRSIMDRegion()) {
+  const bool isOmpSIMDLoop = WRLp->isOmpSIMDLoop();
+  if (isOmpSIMDLoop && !WRLp->isValidHIRSIMDRegion()) {
 //#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 //    assert(false && "VPlan: Invalid HIR SIMD region for given loop");
 //#else
@@ -1006,6 +1056,12 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
     return false;
 //#endif
   }
+
+  // If region has SIMD directive mark then mark source loop with SIMD directive
+  // so that WarnMissedTransforms pass will detect that this loop is not
+  // vectorized later
+  if (isOmpSIMDLoop)
+    setHLLoopMD(Lp, "llvm.loop.vectorize.enable", Fn.getContext());
 
   // Create a VPlanOptReportBuilder object, lifetime is a single loop that we
   // process for vectorization
@@ -1061,7 +1117,7 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
   LLVM_DEBUG(dbgs() << "VD:\n" << *Plan);
 
   VPLAN_DUMP(VPlanPrintInit,
-             "initial VPlan for VF=" + std::to_string(VF) + "\n", Plan);
+             "initial VPlan for VF=" + std::to_string(VF), Plan);
 
   // All-zero bypass is added after best plan selection because cost model
   // tuning is not yet implemented and we don't want to prevent vectorization.
@@ -1108,6 +1164,11 @@ bool VPlanDriverHIRImpl::processLoop(HLLoop *Lp, Function &Fn,
         ModifiedLoop = true;
         VPlanDriverImpl::addOptReportRemarks<VPOCodeGenHIR, loopopt::HLLoop>(
             VPORBuilder, &VCodeGen);
+        // Mark source and vectorized loops with isvectorized directive so that
+        // WarnMissedTransforms pass will not complain that this loop is not
+        // vectorized
+        if (isOmpSIMDLoop)
+          setHLLoopMD(Lp, "llvm.loop.isvectorized", Fn.getContext());
       }
     }
   }

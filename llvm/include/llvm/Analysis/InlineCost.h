@@ -15,7 +15,6 @@
 
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
-#include "llvm/Analysis/Intel_AggInline.h"    // INTEL
 #include "llvm/Analysis/LoopInfo.h"           // INTEL
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/ADT/SmallSet.h"                // INTEL
@@ -31,7 +30,6 @@ class Function;
 class ProfileSummaryInfo;
 class TargetTransformInfo;
 class TargetLibraryInfo;
-
 
 namespace InlineConstants {
 // Various thresholds used by inline cost analysis.
@@ -50,11 +48,8 @@ const int IndirectCallThreshold = 100;
 const int CallPenalty = 25;
 const int LastCallToStaticBonus = 15000;
 const int SecondToLastCallToStaticBonus = 410; // INTEL
-const int AggressiveInlineCallBonus = 5000;    // INTEL
 const int BigBasicBlockPredCount = 90;         // INTEL
-const int InliningHeuristicBonus = 1000;       // INTEL
-const int DeepInliningHeuristicBonus = 10000;  // INTEL
-const int VeryDeepInliningHeuristicBonus = 2000000000;  // INTEL
+const int InliningHeuristicBonus = 2000000000; // INTEL
 const int ColdccPenalty = 2000;
 /// Do not inline functions which allocate this many bytes on the stack
 /// when the caller is recursive.
@@ -63,7 +58,6 @@ const unsigned BasicBlockSuccRatio = 210; // INTEL
 } // namespace InlineConstants
 
 #if INTEL_CUSTOMIZATION
-
 
 /// \brief A cache to save loop related info during inlining of an SCC.
 ///
@@ -134,6 +128,7 @@ typedef enum {
    InlrPassedDummyArgs,
    InlrArrayStructArgs,
    InlrPreferTileChoice,
+   InlrManyRecursiveCallsSplitting,
    InlrProfitable,
    InlrLast, // Just a marker placed after the last inlining reason
    NinlrFirst, // Just a marker placed before the first non-inlining reason
@@ -149,6 +144,7 @@ typedef enum {
    NinlrIndirectBranch,
    NinlrBlockAddress,
    NinlrCallsLocalEscape,
+   NinlrCallsBranchFunnel,
    NinlrNeverInline,
    NinlrIntrinsic,
    NinlrOuterInlining,
@@ -320,10 +316,17 @@ public:
 /// describes a reason.
 class InlineResult {
   const char *Message = nullptr;
+  InlineReportTypes::InlineReason IntelInlReason =    // INTEL
+      InlineReportTypes::InlineReason::NinlrNoReason; // INTEL
   InlineResult(const char *Message = nullptr) : Message(Message) {}
 
 public:
-  static InlineResult success() { return {}; }
+#if INTEL_CUSTOMIZATION
+  static InlineResult success() {
+    InlineResult IR;
+    return IR.setIntelInlReason(InlineReportTypes::InlineReason::InlrNoReason);
+  }
+#endif // INTEL_CUSTOMIZATION
   static InlineResult failure(const char *Reason) {
     return InlineResult(Reason);
   }
@@ -333,6 +336,13 @@ public:
            "getFailureReason should only be called in failure cases");
     return Message;
   }
+#if INTEL_CUSTOMIZATION
+  InlineReportTypes::InlineReason getIntelInlReason() { return IntelInlReason; }
+  InlineResult &setIntelInlReason(InlineReportTypes::InlineReason IR) {
+    IntelInlReason = IR;
+    return *this;
+  }
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// Thresholds to tune inline cost analysis. The inline cost analysis decides
@@ -378,6 +388,9 @@ struct InlineParams {
 
   /// Compute inline cost even when the cost has exceeded the threshold.
   Optional<bool> ComputeFullInlineCost;
+
+  /// Indicate whether we should allow inline deferral.
+  Optional<bool> EnableDeferral = true;
 };
 
 /// Generate the parameters to tune the inline cost analysis based only on the
@@ -421,13 +434,15 @@ int getCallsiteCost(CallBase &Call, const DataLayout &DL);
 ///
 /// Also note that calling this function *dynamically* computes the cost of
 /// inlining the callsite. It is an expensive, heavyweight call.
-InlineCost getInlineCost(
-    CallBase &Call, const InlineParams &Params, TargetTransformInfo &CalleeTTI,
-    std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
-    Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
-    function_ref<const TargetLibraryInfo &(Function &)> GetTLI,
-    InliningLoopInfoCache *ILIC, InlineAggressiveInfo *AggI,   // INTEL
-    ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE = nullptr);
+InlineCost
+getInlineCost(CallBase &Call, const InlineParams &Params,
+              TargetTransformInfo &CalleeTTI,
+              function_ref<AssumptionCache &(Function &)> GetAssumptionCache,
+              function_ref<const TargetLibraryInfo &(Function &)> GetTLI,
+              function_ref<BlockFrequencyInfo &(Function &)> GetBFI = nullptr,
+              ProfileSummaryInfo *PSI = nullptr,
+              OptimizationRemarkEmitter *ORE = nullptr,               // INTEL
+              InliningLoopInfoCache *ILIC = nullptr);                 // INTEL
 
 /// Get an InlineCost with the callee explicitly specified.
 /// This allows you to calculate the cost of inlining a function via a
@@ -437,26 +452,20 @@ InlineCost getInlineCost(
 InlineCost
 getInlineCost(CallBase &Call, Function *Callee, const InlineParams &Params,
               TargetTransformInfo &CalleeTTI,
-              std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
-              Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
+              function_ref<AssumptionCache &(Function &)> GetAssumptionCache,
               function_ref<const TargetLibraryInfo &(Function &)> GetTLI,
-              InliningLoopInfoCache *ILIC,           // INTEL
-              InlineAggressiveInfo *AggI,            // INTEL
-              ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE);
+              function_ref<BlockFrequencyInfo &(Function &)> GetBFI = nullptr,
+              ProfileSummaryInfo *PSI = nullptr,
+              OptimizationRemarkEmitter *ORE = nullptr,               // INTEL
+              InliningLoopInfoCache *ILIC = nullptr);                 // INTEL
 
-#if INTEL_CUSTOMIZATION
-/// Returns a pair of InlineResult and InlineReason for a given call site.
-#endif // INTEL_CUSTOMIZATION
 /// Returns InlineResult::success() if the call site should be always inlined
 /// because of user directives, and the inlining is viable. Returns
 /// InlineResult::failure() if the inlining may never happen because of user
 /// directives or incompatibilities detectable without needing callee traversal.
 /// Otherwise returns None, meaning that inlining should be decided based on
 /// other criteria (e.g. cost modeling).
-#if INTEL_CUSTOMIZATION
-Optional<std::pair<InlineResult, InlineReportTypes::InlineReason>>
-getAttributeBasedInliningDecision(
-#endif // INTEL_CUSTOMIZATION
+Optional<InlineResult> getAttributeBasedInliningDecision(
     CallBase &Call, Function *Callee, TargetTransformInfo &CalleeTTI,
     function_ref<const TargetLibraryInfo &(Function &)> GetTLI);
 
@@ -470,16 +479,15 @@ getAttributeBasedInliningDecision(
 /// - an integer, representing the cost.
 Optional<int> getInliningCostEstimate(
     CallBase &Call, TargetTransformInfo &CalleeTTI,
-    std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
-    Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
-#if INTEL_CUSTOMIZATION
-    TargetLibraryInfo *TLI, InliningLoopInfoCache *ILIC,
-    InlineAggressiveInfo *AggI,
-#endif // INTEL_CUSTOMIZATION
-    ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE);
+    function_ref<AssumptionCache &(Function &)> GetAssumptionCache,
+    function_ref<BlockFrequencyInfo &(Function &)> GetBFI = nullptr,
+    ProfileSummaryInfo *PSI = nullptr,
+    OptimizationRemarkEmitter *ORE = nullptr,               // INTEL
+    TargetLibraryInfo *TLI = nullptr,                       // INTEL
+    InliningLoopInfoCache *ILIC = nullptr);                 // INTEL
 
 /// Minimal filter to detect invalid constructs for inlining.
-InlineResult isInlineViable(Function &Callee,                         // INTEL
-                            InlineReportTypes::InlineReason& Reason); // INTEL
+InlineResult isInlineViable(Function &Callee);
 } // namespace llvm
+
 #endif

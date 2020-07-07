@@ -16,6 +16,11 @@
 #include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLInst.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/RegDDRef.h"
+#endif // INTEL_CUSTOMIZATION
 #include <iterator>
 
 namespace llvm {
@@ -94,12 +99,10 @@ inline bool isMemoryDependency(const Instruction *SrcI,
   return RAW || WAR;
 }
 
-/// Helper function to identify Types that are supported by VPlan for
-/// vectorization. AggregateType like structs and arrays are excluded from this
-/// list.
-// TODO: Allow AggregateType when all VPlan components are aware on how to
-// handle them. Example JIRA CMPLRLLVM-19870.
-inline bool isVPlanSupportedTy(Type *Ty) {
+/// Helper function to identify Types that are valid for vectorization.
+/// AggregateType like structs and arrays cannot be represented in vectors, such
+/// operations are expected to be serialized in vector loops.
+inline bool isVectorizableTy(Type *Ty) {
   if (auto *VecTy = dyn_cast<VectorType>(Ty))
     return VecTy->getElementType()->isSingleValueType();
 
@@ -135,12 +138,14 @@ inline Type *getLoadStoreType(const VPInstruction *VPI) {
 }
 
 /// Helper function to return pointer operand for a VPInstruction representing
-/// load, store or GEP.
-inline VPValue *getPointerOperand(VPInstruction *VPI) {
+/// load, store, GEP or subscript.
+inline VPValue *getPointerOperand(const VPInstruction *VPI) {
   if (auto *Ptr = getLoadStorePointerOperand(VPI))
     return Ptr;
   if (auto *Gep = dyn_cast<VPGEPInstruction>(VPI))
-    return Gep->getOperand(0);
+    return Gep->getPointerOperand();
+  if (auto *Subscript = dyn_cast<VPSubscriptInst>(VPI))
+    return Subscript->getPointerOperand();
   return nullptr;
 }
 
@@ -175,23 +180,40 @@ inline unsigned getLoadStoreAlignment(VPInstruction *VPInst, Loop *L) {
   return DL.getPrefTypeAlignment(PtrType);
 }
 
-/////////// VPValue version of common LLVM CallInst utilities ///////////
+#if INTEL_CUSTOMIZATION
+// Obtain stride information using loopopt interfaces. HNode is expected to
+// specify the underlying node for a load/store VPInstruction. We return false
+// if this is not the case. Function returns true if the memory reference
+// corresponding to pointer operand of load/store VPInst has known stride. The
+// stride value is returned in Stride. Function returns false for unknown
+// stride.
+inline bool getStrideUsingHIR(const loopopt::HLNode &HNode, int64_t &Stride) {
+  const loopopt::HLInst *HInst = dyn_cast<loopopt::HLInst>(&HNode);
+  if (!HInst)
+    return false;
 
-/// Get the called Function for given VPInstruction representing a call.
-inline Function *getCalledFunction(const VPInstruction *Call) {
-  assert(Call->getOpcode() == Instruction::Call &&
-         "getCalledFunction called on non-call VPInstruction,");
-  // The called function will always be the last operand.
-  VPValue *FuncOp = Call->getOperand(Call->getNumOperands() - 1);
-  auto *Func = dyn_cast<VPConstant>(FuncOp);
-  if (!Func)
-    // Indirect function call (function pointers).
-    return nullptr;
+  const loopopt::RegDDRef *MemRef =
+      HInst->getLLVMInstruction()->getOpcode() == Instruction::Load
+          ? HInst->getRvalDDRef()
+          : HInst->getLvalDDRef();
 
-  assert(isa<Function>(Func->getConstant()) &&
-         "Underlying value for function operand is not Function.");
-  return cast<Function>(Func->getConstant());
+  // Memref is expected to be non-null and a memory reference. If this is not
+  // the case, return false. We assert in debug mode.
+  if (!MemRef || !MemRef->isMemRef()) {
+    assert(false && "Unexpected null or non-memory ref");
+    return false;
+  }
+
+  const loopopt::HLLoop *HLoop = HInst->getParentLoop();
+  // The code here assumes inner loop vectorization. TODO: Once we start
+  // supporting outer loop vectorization, this interface will need to be changed
+  // to also take the HLLoop being vectorized.
+  assert(HLoop && HLoop->isInnermost() &&
+         "Outerloop vectorization is not supported.");
+
+  return MemRef->getConstStrideAtLevel(HLoop->getNestingLevel(), &Stride);
 }
+#endif // INTEL_CUSTOMIZATION
 
 // Add a new depth-first iterator (sese_df_iterator) for traversing the blocks
 // of SESE region.

@@ -9,18 +9,18 @@
 ; safety condition individually.
 %struct.test01 = type { i32, i64, i32 }
 %struct.other01 = type { i32, i32, i32, i32 }
-define void @test01() {
+define %struct.other01* @test01() {
   %p = call i8* @malloc(i64 16)
   %p_test = bitcast i8* %p to %struct.test01*
 
   ; Introduce a bad bitcast.
   %p_test_A = getelementptr %struct.test01, %struct.test01* %p_test, i64 0, i32 0
   %p_other = bitcast i32* %p_test_A to %struct.other01*
-  ret void
+  ret %struct.other01* %p_other
 }
 
 define i32 @main(i32 %argc, i8** %argv) {
-  call void @test01()
+  %res = call %struct.other01* @test01()
   ret i32 0
 }
 

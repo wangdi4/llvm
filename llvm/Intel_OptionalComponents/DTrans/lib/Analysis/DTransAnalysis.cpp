@@ -81,9 +81,6 @@ using namespace llvm::PatternMatch;
 static cl::opt<bool> DTransPrintAllocations("dtrans-print-allocations",
                                             cl::ReallyHidden);
 
-static cl::opt<bool> DTransPrintAnalyzedTypes("dtrans-print-types",
-                                              cl::ReallyHidden);
-
 static cl::opt<bool>
     DTransPrintImmutableAnalyzedTypes("dtrans-print-immutable-types",
                                       cl::ReallyHidden);
@@ -129,40 +126,6 @@ static cl::opt<bool> DTransIdentifyUnusedValues("dtrans-identify-unused-values",
                                                 cl::ReallyHidden);
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-//
-// An option that indicates that a pointer to a struct could access
-// somewhere beyond the boundaries of that struct:
-//
-// For example:
-//
-// %struct.A = type { i32, i32 }
-// %struct.B = type { i16, i16, i16, i16 }
-// %struct.C = type { %struct.A, %struct.B }
-//
-// define void @foo(%struct.A* nocapture) local_unnamed_addr #0 {
-//   %2 = getelementptr inbounds %struct.A, %struct.A* %0, i64 1, i32 1
-//   store i32 -1, i32* %2, align 4, !tbaa !2
-//   ret void
-// }
-//
-// define void @bar(%struct.C* nocapture) local_unnamed_addr #0 {
-//   %2 = getelementptr inbounds %struct.C, %struct.C* %0, i64 0, i32 0
-//   tail call void @foo(%struct.A* %2)
-//   ret void
-// }
-//
-// Here the getelementptr in @foo is accessing beyond the end of the inner
-// %struct.A within %struct.C.
-//
-// With respect to dtransanalysis, having -dtrans-outofboundsok=true will
-// cause safety checks to be propagated from outer structs to inner structs.
-// So, in the above example, if -dtrans-outofboundsok=false, 'Field address
-// taken' will be true only for %structC. But if -dtrans-outofboundsok=true,
-// it will also be true for %struct.A and %struct.B.
-//
-static cl::opt<bool> DTransOutOfBoundsOK("dtrans-outofboundsok", cl::init(true),
-                                         cl::ReallyHidden);
-
 // Use the C language compatibility rule to determine if two aggregate types
 // are compatible. This is used by the analysis of AddressTaken safety checks.
 // If the actual argument of a call is a pointer to an aggregate with type T,
@@ -173,6 +136,13 @@ static cl::opt<bool> DTransOutOfBoundsOK("dtrans-outofboundsok", cl::init(true),
 //
 static cl::opt<bool> DTransUseCRuleCompat("dtrans-usecrulecompat",
                                           cl::init(false), cl::ReallyHidden);
+
+// Enable merging padded structures with base structures even if the
+// safety checks didn't pass. This option is for testing purposes and
+// must remain turned off.
+static cl::opt<bool> DTransTestPaddedStructs("dtrans-test-padded-structs",
+                                              cl::init(false),
+                                              cl::ReallyHidden);
 
 using GetTLIFnType = std::function<const TargetLibraryInfo &(const Function &)>;
 
@@ -1567,7 +1537,7 @@ private:
       // If the last argument is not constant and out-of-bound flag is false
       // then it is safe to have non-constant array access. Use 0 index for
       // Pointee set.
-      if (!DTransOutOfBoundsOK)
+      if (!dtrans::DTransOutOfBoundsOK)
         Info.addElementPointee(IndexedTy, 0);
     }
 
@@ -3674,9 +3644,10 @@ public:
                     const DataLayout &DL, GetTLIFnType GetTLI,
                     dtrans::DTransAllocAnalyzer &DTAA,
                     DTransBadCastingAnalyzer &DTBCA,
-                    function_ref<BlockFrequencyInfo &(Function &)> &GetBFI)
+                    function_ref<BlockFrequencyInfo &(Function &)> &GetBFI,
+                    std::function<DominatorTree &(Function &)> GetDomTree)
       : DTInfo(Info), DL(DL), GetTLI(GetTLI), LPA(DL, GetTLI, DTAA), DTAA(DTAA),
-        DTBCA(DTBCA), GetBFI(GetBFI), BFI(nullptr) {
+        DTBCA(DTBCA), GetBFI(GetBFI), BFI(nullptr), GetDomTree(GetDomTree) {
     // Save pointers to some commonly referenced types.
     Int8PtrTy = llvm::Type::getInt8PtrTy(Context);
     PtrSizeIntTy = llvm::Type::getIntNTy(Context, DL.getPointerSizeInBits());
@@ -4109,6 +4080,18 @@ public:
   void visitCallArgument(CallBase *Call, Function *F, bool HasICMatch,
                          Value *Arg, unsigned ArgNo) {
 
+    // Return true if the formal argument will be dead in Function F
+    auto IsDeadArgument = [F, ArgNo](bool IsFnLocal) {
+      if (!F || !IsFnLocal)
+        return false;
+
+      if (F->isVarArg() || F->arg_size() <= ArgNo)
+        return false;
+
+      Value *FormalArg = F->getArg(ArgNo);
+      return FormalArg->user_empty();
+    };
+
     if (F && F->hasName()) {
       if (F->hasDLLExportStorageClass()) {
         LLVM_DEBUG(dbgs() << "dtrans-safety: System object: "
@@ -4239,6 +4222,15 @@ public:
             ParentStInfo->getField(0).setAddressTaken();
           continue;
         }
+
+        // If there is no use for the argument inside the function then we
+        // don't need to worry because it will be deleted later. There is no
+        // need to mark it as Address taken.
+        // NOTE: Perhaps other safety checks inside visitCallArgument could
+        // be relaxed in the same way.
+        if (IsDeadArgument(IsFnLocal))
+          continue;
+
         LLVM_DEBUG(dbgs() << "dtrans-safety: Address taken -- "
                           << "pointer to aggregate passed as argument:\n"
                           << "  " << *Call << "\n  " << *Arg << "\n");
@@ -4426,8 +4418,8 @@ public:
     llvm::Type *DestTy = I->getDestTy();
     llvm::Value *SrcVal = I->getOperand(0);
 
-    // If the BitCast is used as a dead argument then is safe to skip it
-    if (isBitCastUsedAsDeadArgument(I))
+    // If the BitCast is dead then is safe to skip it
+    if (isBitCastDead(I))
       return;
 
     // If the source operand is not a value of interest, we only need to
@@ -4623,7 +4615,7 @@ public:
                                  ? DL.getTypeSizeInBits(
                                    ParentStInfo->getField(0).getLLVMType())
                                  : TypeSize(0, false);
-            if (DTransOutOfBoundsOK || LoadSize > FieldSize) {
+            if (dtrans::DTransOutOfBoundsOK || LoadSize > FieldSize) {
               for (auto &FI : ParentStInfo->getFields())
                 FI.setMismatchedElementAccess();
             } else if (ParentStInfo->getNumFields() != 0) {
@@ -4662,6 +4654,7 @@ public:
                                   Value *PtrOperand) {
     LocalPointerInfo &ValLPI = LPA.getLocalPointerInfo(ValOperand);
     LocalPointerInfo &PtrLPI = LPA.getLocalPointerInfo(PtrOperand);
+    bool StoringInZeroElement = isStoringZeroElement(I);
 
     // If the value of interest aliases to a pointer to a type of interest,
     // check to  make sure the pointer operand is compatible.
@@ -4699,11 +4692,21 @@ public:
                                        dtrans::UnsafePointerStorePending);
             setValueTypeInfoSafetyData(PtrOperand,
                                        dtrans::UnsafePointerStorePending);
+          } else if (StoringInZeroElement) {
+            LLVM_DEBUG(dbgs() << "dtrans-safety: Unsafe pointer store -- "
+                              << "  Unmatch store to the zero element "
+                              << " of aliased value:\n");
+            setValueTypeInfoSafetyData(ValOperand,
+                dtrans::UnsafePointerStoreRelatedTypes);
+            setValueTypeInfoSafetyData(PtrOperand,
+                dtrans::UnsafePointerStoreRelatedTypes);
           } else {
             LLVM_DEBUG(dbgs() << "dtrans-safety: Unsafe pointer store -- "
                               << "  Unmatch store of aliased value:\n");
-            setValueTypeInfoSafetyData(ValOperand, dtrans::UnsafePointerStore);
-            setValueTypeInfoSafetyData(PtrOperand, dtrans::UnsafePointerStore);
+            setValueTypeInfoSafetyData(ValOperand,
+                                       dtrans::UnsafePointerStore);
+            setValueTypeInfoSafetyData(PtrOperand,
+                                       dtrans::UnsafePointerStore);
           }
           if (I != nullptr)
             LLVM_DEBUG(dbgs() << "  " << *I << "\n");
@@ -4719,19 +4722,41 @@ public:
       // or (3) the value is an i8 and the aliased pointer type has an i8 at
       // element zero, this is a bad store.
       auto *ValTy = ValOperand->getType();
-      if (!isa<ConstantPointerNull>(ValOperand) &&
+      bool isZeroOrNullVal = isa<ConstantPointerNull>(ValOperand);
+      if (!isZeroOrNullVal) {
+        // Another possible way to store null into a pointer is by assigning
+        // 0 to the address of the pointer. For example:
+        //
+        //   %1 = getelementptr inbounds %"class.outer", %"class.outer"* %VAR,
+        //        i64 0, i32 0
+        //   %2 = bitcast %"class.inner1"* %1 to i64*
+        //
+        //   store i64 0, i64* %2
+        if (auto *Const = dyn_cast<ConstantInt>(ValOperand))
+          isZeroOrNullVal = Const->isZero() || Const->isNullValue();
+      }
+
+      if (!isZeroOrNullVal &&
           (!I || !isPartialPtrStore(I)) &&
           !(ValTy->isIntegerTy(8) &&
             dtrans::isElementZeroAccess(PtrLPI.getDominantAggregateTy(),
                                         ValTy->getPointerTo()))) {
-        LLVM_DEBUG(dbgs() << "dtrans-safety: Unsafe pointer store -- "
-                          << "  Unknown store to aliased ptr:\n");
+        if (StoringInZeroElement) {
+          LLVM_DEBUG(dbgs() << "dtrans-safety: Unsafe pointer store -- "
+                            << "  Unknown store to the zero element of"
+                            << " aliased ptr:\n");
+          setValueTypeInfoSafetyData(PtrOperand,
+              dtrans::UnsafePointerStoreRelatedTypes);
+        } else {
+          LLVM_DEBUG(dbgs() << "dtrans-safety: Unsafe pointer store -- "
+                            << "  Unknown store to aliased ptr:\n");
+          setValueTypeInfoSafetyData(PtrOperand, dtrans::UnsafePointerStore);
+        }
         if (I != nullptr)
           LLVM_DEBUG(dbgs() << "  " << *I << "\n");
         else
           LLVM_DEBUG(dbgs()
                      << " " << *ValOperand << " -> " << *PtrOperand << " \n");
-        setValueTypeInfoSafetyData(PtrOperand, dtrans::UnsafePointerStore);
       }
     }
   }
@@ -4924,6 +4949,10 @@ public:
   }
 
   void visitGetElementPtrOperator(GEPOperator *I) {
+
+    // Don't visit if the instruction is in a dead basic block
+    if (ignoreBrokenInstruction(dyn_cast<Instruction>(I)))
+      return;
 
     // Check if the address produced by the GEP operator is only consumed by
     // memset calls.
@@ -5175,8 +5204,67 @@ public:
   // TODO: Need to extend the analysis for IntToPtr instruction for more
   // accurate safety checks.
   void visitIntToPtrInst(IntToPtrInst &I) {
+
+    // Return true if the IntToPtr instruction represents a load. For
+    // example:
+    //
+    // %"class.std::vector.12" = type { %"struct.std::_Vector_base.13" }
+    // %"struct.std::_Vector_base.13" =
+    //     type { %"struct.std::_Vector_base<TestClass,
+    //     std::allocator<TestClass>>::_Vector_impl.67" }
+    // %"struct.std::_Vector_base<TestClass,
+    //     std::allocator<TestClass>>::_Vector_impl.67" =
+    //     type { %class.TestClass*, %class.TestClass*, %class.TestClass* }
+    // %class.TestClass = type {i64, i64, i64}
+    //
+    // %tmp = getelementptr inbounds %"class.std::vector.12",
+    //                      %"class.std::vector.12"* %arg, i64 0, i32 0
+    // %tmp2 = bitcast %"struct.std::_Vector_base.13"* %tmp to i64*
+    // %tmp3 = load i64, i64* %tmp2
+    // %tmp4 = inttoptr i64 %tmp3 to %class.TestClass*
+    //
+    // In the example above there is a GEP (%tmp) that goes through a BitCast
+    // (%tmp2) and then is loading the innermost structure (%tmp3 and %tmp4).
+    // This function will validate that %classTestClass* is an inner structure
+    // of %"struct.std::_Vector_base.13".
+    auto IsLoadingInnermostStructure = [&I, this]() -> bool {
+
+      LoadInst *Load = dyn_cast<LoadInst>(I.getOperand(0));
+      if (!Load)
+        return false;
+
+      BitCastInst *BC = dyn_cast<BitCastInst>(Load->getPointerOperand());
+      if (!BC || !BC->hasOneUse())
+        return false;
+
+      // Check that the destination pointer in the int-to-pointer instruction
+      // is the same size as the load and the source pointer in the BitCast
+      llvm::Type *LoadTy = I.getSrcTy();
+      llvm::Type *DestTy = I.getDestTy();
+      llvm::Type *BCSourceTy = BC->getSrcTy();
+
+      uint64_t DestSize = DL.getTypeSizeInBits(DestTy).getFixedSize();
+      uint64_t LoadSize = DL.getTypeSizeInBits(LoadTy).getFixedSize();
+      uint64_t BCSourceSize = DL.getTypeSizeInBits(BCSourceTy).getFixedSize();
+
+      if (DestSize != LoadSize || LoadSize != BCSourceSize ||
+          DestSize != BCSourceSize)
+        return false;
+
+      // Now make sure that the destination for the IntToPointer is a pointee
+      // of the BitCast instruction
+      return isBitCastUsedToAccessAnInnerStructure(cast<BitCastOperator>(BC),
+                                                   DestTy);
+    };
+
     if (!isValueOfInterest(&I))
       return;
+
+    // It is OK if the IntToPtr instruction is used to represent a load to a
+    // field in a structure
+    if (IsLoadingInnermostStructure())
+      return;
+
     LLVM_DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
                       << "Integer to ptr to aggregate cast:\n"
                       << "  " << I << "\n");
@@ -5547,7 +5635,7 @@ public:
     // but in lit tests a type with few uses and no safety issues might not
     // be added to the type info map.
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    if (DTransPrintAnalyzedTypes)
+    if (dtrans::DTransPrintAnalyzedTypes)
       for (auto &Arg : F.args())
         if (DTInfo.isTypeOfInterest(Arg.getType()))
           (void)DTInfo.getOrCreateTypeInfo(Arg.getType());
@@ -5965,6 +6053,8 @@ public:
           OS << "\n;        CE: " << *CE << "\n";
           auto &LPI = LPA.getLocalPointerInfo(CE);
           LPI.print(OS, 10, ";");
+          OS << ";            ";
+          printDomTy(OS, LPI);
 
           // There may be constant expressions nested within this CE that should
           // be reported.
@@ -5987,7 +6077,19 @@ public:
         if (V->getType()->isPointerTy() || LPI.canAliasToAggregatePointer()) {
           OS << "\n";
           LPI.print(OS, 4, ";");
+          OS << ";      ";
+          printDomTy(OS, LPI);
         }
+      }
+
+      void printDomTy(formatted_raw_ostream &OS, LocalPointerInfo &LPI) {
+        auto *DomTy = LPI.getDominantAggregateTy();
+        if (DomTy)
+          OS << "DomTy: " << *DomTy << "\n";
+        else if (LPI.canAliasToAggregatePointer())
+          OS << "Ambiguous Dominant Type\n";
+        else
+          OS << "No Dominant Type\n";
       }
     };
 
@@ -6010,6 +6112,9 @@ private:
   function_ref<BlockFrequencyInfo &(Function &)> &GetBFI;
   // Set this in visitFunction before visiting instructions in the function.
   BlockFrequencyInfo *BFI;
+
+  // Collect the dominator tree
+  std::function<DominatorTree &(Function &)> GetDomTree;
 
   // A collection for safety data that needs to be set which may also require
   // cascading to pointer types that are reachable from a type. These are
@@ -6042,6 +6147,34 @@ private:
   llvm::Type *Int8PtrTy;
   llvm::Type *PtrSizeIntTy;
   llvm::Type *PtrSizeIntPtrTy;
+
+  // Helper function to identify if an instruction is in broken SSA
+  // form but it is allowed to ignore it. Return true if the instruction
+  // is in broken SSA form and is in a dead block.
+  bool ignoreBrokenInstruction(Instruction *I) {
+    if (!I)
+      return false;
+
+    Value *ValInst = cast<Value>(I);
+    bool CheckTree = false;
+
+    for (Value *OperandI : I->operands()) {
+      // Broken SSA form found
+      if (OperandI == ValInst) {
+        CheckTree = true;
+        break;
+      }
+    }
+
+    if (!CheckTree)
+      return false;
+
+    BasicBlock *BB = I->getParent();
+    Function *F = I->getFunction();
+    DominatorTree &DT = GetDomTree(*F);
+    // Check if the basic block is a dead block
+    return !DT.isReachableFromEntry(BB);
+  }
 
   // Return true if the dominant Type of all Users of the input Value
   // are the same as the input Type, else return false.
@@ -6546,7 +6679,8 @@ private:
     }
   }
 
-  // Return true if the input BitCast is only used as a dead argument. Else,
+  // Return true if the input BitCast doesn't have any user or if its only
+  // use is a dead argument. Else,
   // return false. For example:
   //
   // define void @bar(%struct.test01b* %p2) {
@@ -6563,12 +6697,12 @@ private:
   // %struct.test01b* and it is only used as an argument in the callsite for
   // @bar. The formal argument of %p2 in @bar doesn't have any user, therefore
   // it will be a dead argument. This is safe to cast.
-  bool isBitCastUsedAsDeadArgument(BitCastOperator *BC) {
+  bool isBitCastDead(BitCastOperator *BC) {
     if (!BC)
       return false;
 
     if (BC->user_empty())
-      return false;
+      return true;
 
     for (User *User : BC->users()) {
       CallBase *CI = dyn_cast<CallBase>(User);
@@ -6594,6 +6728,296 @@ private:
     return true;
   }
 
+  // Return true if the BitCast is used to access a field in a nested
+  // structure. For example:
+  //
+  // %"class.outer" = type { %"class.inner" }
+  // %"class.inner" = type { %"class.inner2" }
+  // %"class.inner2" = type { %class.TestClass*, %class.TestClass* }
+  // %class.TestClass = type { i64, i64, i64 }
+  //
+  // Consider the following BitCast and Load instructions, where %tmp
+  // is a GEP or an Argument with type %"class.outer":
+  //
+  // %tmp2 = bitcast %"class.outer"* %tmp to i64*
+  // %tmp3 = load i64, i64* %tmp2
+  // %tmp4 = inttoptr i64 %tmp3 to %class.TestClass*
+  //
+  // The example above shows that the casting in %tmp2 will be used
+  // for loading the innermost structure (%class.TestClass). This could be
+  // collected by calling the local pointers information related to %tmp2
+  // and check if there is a pointee with the same type as the destination.
+  bool isBitCastUsedToAccessAnInnerStructure(BitCastOperator *BC,
+                                             llvm::Type *DestinationType) {
+    if (!BC || !DestinationType)
+      return false;
+
+    // Given a PointerType, traverse through the element types until
+    // it reaches to the actual type that is not a poiner. For example:
+    //
+    //   Input  -> %"class.outer"**
+    //   Output -> %"class.outer"
+    auto GetPtrElementType = [](PointerType *PtrTy) -> Type* {
+      if (!PtrTy)
+        return nullptr;
+
+      Type *CurrType = cast<Type>(PtrTy);
+      while (CurrType && CurrType->isPointerTy()) {
+        auto CurrPtr = cast<PointerType>(CurrType);
+        CurrType = CurrPtr->getElementType();
+      }
+
+      return CurrType;
+    };
+
+    // Return true if SrcTy is a nested structure, and traversing the
+    // 0 element it reaches to DstTy. This is a simplified version
+    // of dtrans::isElementZeroAccess since the Type stored in
+    // the pointees of interest is a StructType.
+    auto IsFieldZeroAccess = [](Type *SrcTy, Type *DstTy) -> bool {
+      if (!SrcTy || !DstTy)
+        return false;
+
+      if (!SrcTy->isStructTy())
+        return false;
+
+      Type *CurrType = SrcTy;
+      while (CurrType) {
+        if (CurrType == DstTy)
+          return true;
+
+        if (auto *StructTy = dyn_cast<StructType>(CurrType))
+          CurrType = StructTy->getElementType(0);
+        else
+          break;
+      }
+      return false;
+    };
+
+    PointerType *BCSourceTy = dyn_cast<PointerType>(BC->getSrcTy());
+    PointerType *BCDestTy = dyn_cast<PointerType>(BC->getDestTy());
+    if (!BCSourceTy || !BCDestTy)
+      return false;
+
+    // If source is not a pointer to a structure or destination is not
+    // a pointer to an integer then return
+    if (!GetPtrElementType(BCSourceTy)->isStructTy() ||
+        !BCDestTy->getElementType()->isIntegerTy())
+      return false;
+
+    uint64_t BCDestSize = DL.getTypeSizeInBits(BCDestTy).getFixedSize();
+    uint64_t BCSourceSize = DL.getTypeSizeInBits(BCSourceTy).getFixedSize();
+    uint64_t DestinationSize =
+        DL.getTypeSizeInBits(DestinationType).getFixedSize();
+
+    // Make sure that the size of the pointers match
+    if (BCSourceSize != BCDestSize || BCSourceSize != DestinationSize ||
+        BCDestSize != DestinationSize)
+      return false;
+
+    LocalPointerInfo &LPI = LPA.getLocalPointerInfo(BC);
+    if (!LPI.pointsToSomeElement())
+      return false;
+
+    // If the BitCast is used to access fields in a structure then the
+    // LocalPointerInfo will provide the information of which fields could be
+    // accessed. For example mentioned before, the bitcast and load
+    // instructions are loading the inner structures. This means that there
+    // will be one pointee with the following information:
+    //
+    //   Parent type: %"class.inner2"
+    //   Field number: 0
+    //
+    // This basically says that the BitCast will be used to access field 0 in
+    // %"class.inner2", which is type %class.TestClass* (DestinationType)
+    for (auto &PointeePair : LPI.getElementPointeeSet()) {
+
+      if (PointeePair.second.getKind() !=
+          LocalPointerInfo::PointeeLoc::PLK_Field)
+        return false;
+
+      llvm::Type *ParentTy = PointeePair.first;
+      size_t ElementNum = PointeePair.second.getElementNum();
+
+      // Check that the pointee is a structure
+      llvm::StructType *ParentStruct = dyn_cast<StructType>(ParentTy);
+      if (!ParentStruct)
+        return false;
+
+      // NOTE: The pointee should not necessarily need to be element 0.
+      // Consider the following example:
+      //
+      // %"class.std::vector.12" = type { %"struct.std::_Vector_base.13" }
+      // %"struct.std::_Vector_base.13" =
+      //     type { %"struct.std::_Vector_base<TestClass,
+      //     std::allocator<TestClass>>::_Vector_impl.67" }
+      // %"struct.std::_Vector_base<TestClass,
+      //     std::allocator<TestClass>>::_Vector_impl.67" =
+      //     type { %class.TestClass*, %class.TestClass*, %class.TestClass* }
+      // %class.TestClass = type {i64, i64, i64}
+      //
+      // %tmp = getelementptr inbounds %"class.std::vector.12",
+      //             %"class.std::vector.12"* %arg, i64 0, i32 0, i32 0, i32 1
+      // %tmp2 = bitcast %class.TestClass** %tmp to i64*
+      // %tmp3 = load i64, i64* %tmp2
+      // %tmp4 = inttoptr i64 %tmp3 to %class.TestClass*
+      //
+      // In the example above the local pointer info for the BitCast in %tmp2
+      // will produce the following pointee information:
+      //
+      //   Parent type:  %"struct.std::_Vector_base<TestClass,
+      //                  std::allocator<TestClass>>::_Vector_impl.67" =
+      //                      type { %class.TestClass*, %class.TestClass*,
+      //                      %class.TestClass* }
+      //   Field number: 1
+      //
+      // This BitCast is OK too.
+      if (ElementNum >= ParentStruct->getNumElements())
+        return false;
+
+      // Check if the type of the field matches with the destination
+      llvm::Type *FieldTy = ParentStruct->getElementType(ElementNum);
+      if (DestinationType == FieldTy)
+        continue;
+
+      // If not, then check if it is possible to reach the destination by
+      // traversing the 0 elements in the parent structure
+      if (IsFieldZeroAccess(FieldTy, DestinationType))
+        continue;
+
+      // The destination doesn't match any information related to the pointee
+      return false;
+    }
+
+    // The pointees in the BitCast matches the destination
+    return true;
+  }
+
+  // Return true if the Bitcast is used for store. This case is looking
+  // for the following:
+  //
+  // %1 = getelementptr inbounds %struct.test, %struct.test* %VAR,
+  //      i64 0, i32 1
+  // %2 = bitcast %"inner.struct"* %1 to i64*
+  //
+  // %3 = getelementptr inbounds %struct.test, %struct.test* %VAR2,
+  //      i64 0, i32 1
+  // %4 = bitcast %"inner.struct"* %3 to i64*
+  // %5 = load i64, i64* %4, align 8
+  //
+  // store i64 %5, i64* %2
+  //
+  // In the above example, both bitcast instructions (%2 and %4) have the
+  // same source and destination types. Also, both point to GEP instructions
+  // (%1 and %3 respectively) that access the same data type.
+  bool castUsedForStore(BitCastOperator *I) {
+
+    // Return true if the size of the source matches with the size of
+    // the destination.
+    auto IsValidSize = [this](Type *SrcTy, Type *DestTy) {
+
+      if (!SrcTy || !DestTy)
+        return false;
+
+      if (!SrcTy->isPointerTy() || !DestTy->isPointerTy())
+        return false;
+
+      if (DestTy != PtrSizeIntPtrTy)
+        return false;
+
+      llvm::PointerType *SrcPtr = cast<PointerType>(SrcTy);
+
+      // Check if the source is a pointer to a structure. This checks for the
+      // the following example:
+      //
+      // %tmp = getelementptr inbounds %struct.test, %struct.test* %VAR,
+      //       i64 0, i32 1
+      // %tmp2 = bitcast %"inner.struct"* %tmp to i64*
+      //
+      // In this case we are looking if the casting goes from a pointer to a
+      // structure to i64*.
+      if (SrcPtr->getElementType()->isStructTy())
+        return true;
+
+      // Else, check if the source is an i8 pointer. We want to also cover
+      // the case when the casting is done to a "new" allocated space.
+      // For example:
+      //
+      // %tmp = invoke noalias nonnull dereferenceable(8512)
+      //        i8* @_Znwm(i64 8512)
+      //
+      // %tmp2 = getelementptr inbounds i8, i8* %tmp, i64 8440
+      // %tmp3 = bitcast i8* %tmp2 to i64*
+      //
+      // In this case, the casting is being done to a new allocated space and
+      // its type is i8*.
+      return (SrcPtr->getElementType()->isIntegerTy(8));
+    };
+
+    BitCastInst *BC = dyn_cast_or_null<BitCastInst>(I);
+    if (!BC)
+      return false;
+
+    if (!BC->hasOneUse())
+      return false;
+
+    StoreInst *Store = dyn_cast<StoreInst>(BC->user_back());
+    if (!Store)
+      return false;
+
+    LoadInst *StoredValue = dyn_cast<LoadInst>(Store->getValueOperand());
+    if (!StoredValue)
+      return false;
+
+    BitCastInst *BCLoaded = dyn_cast<BitCastInst>(StoredValue->getOperand(0));
+    if (!BCLoaded)
+      return false;
+
+    llvm::Type *BCDestTy = BC->getDestTy();
+    llvm::Type *BCLoadedDestTy = BCLoaded->getDestTy();
+
+    if (BCDestTy != BCLoadedDestTy)
+      return false;
+
+    if (!IsValidSize(BC->getSrcTy(), BC->getDestTy()) ||
+        !IsValidSize(BCLoaded->getSrcTy(), BCLoaded->getDestTy()))
+      return false;
+
+
+    // In the previous example, we could get away with comparing the bitcats
+    // and the GEP instructions, but it doesn't cover other the possible cases.
+    // For example:
+    //
+    // %tmp = invoke noalias nonnull dereferenceable(8512) i8* @_Znwm(i64 8512)
+    //
+    // %tmp2 = getelementptr inbounds i8, i8* %tmp, i64 8440
+    // %tmp3 = bitcast i8* %tmp2 to i64*
+    //
+    // %tmp4 = getelementptr inbounds %class.test, %class.test* %VAR,
+    //         i64 0, i32 1
+    // %tmp5 = bitcast %"class.inner"* %tmp4 to i64*
+    // %tmp6 = load i64, i64* %tmp5
+    // store i64 %tmp6, i64* %tmp3
+    //
+    // In the above case, assuming that the size of %class.test is 8512 and
+    // %"class.inner" is nested in %class.test, there is no GEP, just storing
+    // in a "new". For this case is better to collect the local pointers'
+    // information and make sure the dominant aggregate types match.
+    LocalPointerInfo &LPIStoredValue = LPA.getLocalPointerInfo(BCLoaded);
+    LocalPointerInfo &LPIPointer = LPA.getLocalPointerInfo(BC);
+
+    if (!LPIPointer.pointsToSomeElement() ||
+        !LPIStoredValue.pointsToSomeElement())
+      return false;
+
+    if (!LPIPointer.getDominantAggregateTy() ||
+        !LPIStoredValue.getDominantAggregateTy())
+      return false;
+
+    return LPIPointer.getDominantAggregateTy() ==
+        LPIStoredValue.getDominantAggregateTy();
+  }
+
   // Verify that a bitcast from \p SrcTy to \p DestTy would be safe. The
   // caller has analyzed the bitcast instruction to determine that these
   // types need to be considered. These may not be the actual types used
@@ -6615,7 +7039,9 @@ private:
     // safe cast.
     if (dtrans::isElementZeroAccess(SrcTy, DestTy) ||
         dtrans::isPtrToPtrToElementZeroAccess(SrcTy, DestTy) ||
-        dtrans::isVTableAccess(SrcTy, DestTy))
+        dtrans::isVTableAccess(SrcTy, DestTy) ||
+        (isa<BitCastInst>(I) &&
+        dtrans::isBitCastLoadingZeroElement(dyn_cast<BitCastInst>(I))))
       return;
 
     // If element zero is an i8* and we're casting the source value as a
@@ -6649,6 +7075,21 @@ private:
       return;
     }
 
+    // Check if the bitcast is used for moving data from a source to a
+    // destination with the same type.
+    if (castUsedForStore(I)) {
+      LLVM_DEBUG(dbgs() << "dtrans-safety: Bad casting (related types) -- "
+                      << "unsafe cast of aliased pointer:\n"
+                      << "  " << *I << "\n");
+      if (dtrans::DTransOutOfBoundsOK)
+        setValueTypeInfoSafetyData(I->getOperand(0),
+                                  dtrans::BadCastingForRelatedTypes);
+      else
+        (void)setValueTypeInfoSafetyDataBase(I->getOperand(0),
+            dtrans::BadCastingForRelatedTypes);
+      return;
+    }
+
     // Otherwise, it's not safe.
     LLVM_DEBUG(dbgs() << "dtrans-safety: Bad casting -- "
                       << "unsafe cast of aliased pointer:\n"
@@ -6658,14 +7099,14 @@ private:
              << "unsafe cast of aliased pointer:\n"
              << "  " << *I << "\n";
     });
-    if (DTransOutOfBoundsOK)
+    if (dtrans::DTransOutOfBoundsOK)
       setValueTypeInfoSafetyData(I->getOperand(0), dtrans::BadCasting);
     else
       (void)setValueTypeInfoSafetyDataBase(I->getOperand(0),
                                            dtrans::BadCasting);
 
     if (DTInfo.isTypeOfInterest(DestTy)) {
-      if (DTransOutOfBoundsOK)
+      if (dtrans::DTransOutOfBoundsOK)
         setValueTypeInfoSafetyData(I, dtrans::BadCasting);
       else
         (void)setValueTypeInfoSafetyDataBase(I, dtrans::BadCasting);
@@ -6878,6 +7319,177 @@ private:
     return isLoadedValueUnused(&LI, LI.getPointerOperand(), UsedValues);
   }
 
+  // Return true if the BitCast operation is casting to from an
+  // outer structure to an *i64, and all the pointees in the
+  // local pointer information are inner structures with element
+  // 0, or the outer type itself.
+  // For example:
+  //
+  //   %"class.outer" = type { %"class.inner1" }
+  //   %"class.inner1" = type { %"class.inner2", %"class.inner2"}
+  //   %"class.inner2" = type { %class.TestClass*, %class.TestClass*}
+  //   %class.TestClass = type { i64, i64, i64}
+  //
+  //   %1 = getelementptr inbounds %"class.outer", %"class.outer"* %0,
+  //            i64 0, i32 0
+  //   %2 = bitcast %"class.inner1"* %1 to i64*
+  //   %3 = load i64, i64* %2
+  //
+  // In the above example, %2 is casting from %"class.inner1" to *i64.
+  // The local pointer information for %2 will look as follows:
+  //
+  //    LocalPointerInfo:
+  //      Aliased types:
+  //        %class.inner1*
+  //        i64*
+  //      Element pointees:
+  //        %class.inner2 @ 0
+  //        %class.outer @ 0
+  //      DomTy: %class.inner1*
+  //
+  // The pointees in the local pointer information are "%class.outer @ 0"
+  // and "%class.inner2 @ 0". The type for the first pointee is the
+  // same as the source type in the bitcast (%"class.inner1"), and the
+  // second pointee represents a zero element access(%"class.inner2").
+  // This means that the bitcast points to the zero element in the
+  // innermost structure.
+  bool isCastingToZeroElement(BitCastOperator *BC) {
+
+    if (!BC)
+      return false;
+
+    PointerType *SrcTy = dyn_cast<PointerType>(BC->getSrcTy());
+    Type *DestTy = BC->getDestTy();
+
+    // Make sure we are collecting the correct pointer sizes
+    if (!SrcTy || !SrcTy->getElementType()->isStructTy() ||
+        DestTy != PtrSizeIntPtrTy)
+      return false;
+
+    // Collect the local pointer information
+    LocalPointerInfo &LPI = LPA.getLocalPointerInfo(BC);
+    Type *LPIDominatType = LPI.getDominantAggregateTy();
+
+    if (!LPIDominatType || !LPI.pointsToSomeElement())
+      return false;
+
+    for (auto &PointeePair : LPI.getElementPointeeSet()) {
+      llvm::Type *ParentTy = PointeePair.first;
+
+      if (!dtrans::dtransIsCompositeType(ParentTy))
+        return false;
+
+      assert((!PointeePair.first->isStructTy() ||
+              PointeePair.second.getKind() !=
+                  LocalPointerInfo::PointeeLoc::PLK_Offset) &&
+             "Unexpected use of invalid element");
+
+      size_t ElementNum = PointeePair.second.getElementNum();
+      llvm::Type *FieldTy = dtrans::dtransCompositeGetTypeAtIndex(ParentTy,
+                                                                  ElementNum);
+
+      // If the field is the same as the source type, then is OK
+      if (FieldTy->getPointerTo() == SrcTy)
+        continue;
+
+      // If the element number is not 0, then return false
+      if (ElementNum != 0)
+        return false;
+
+      // Check that all pointees that have 0 as element number are zero
+      // element access of the source.
+      if (dtrans::isElementZeroAccess(SrcTy, FieldTy->getPointerTo()))
+        continue;
+
+      if (dtrans::isPtrToPtrToElementZeroAccess(SrcTy, FieldTy->getPointerTo()))
+        continue;
+    }
+    return true;
+  }
+
+  // Return true if the load instruction is loading a zero element.
+  // For example:
+  //
+  //   %"class.outer" = type { %"class.inner1" }
+  //   %"class.inner1" = type { %"class.inner2", %"class.inner2"}
+  //   %"class.inner2" = type { %class.TestClass*, %class.TestClass*}
+  //   %class.TestClass = type { i64, i64, i64}
+  //
+  //   %1 = getelementptr inbounds %"class.outer", %"class.outer"* %0,
+  //            i64 0, i32 0
+  //   %2 = bitcast %"class.inner1"* %1 to i64*
+  //   %3 = load i64, i64* %2
+  //
+  // In the above example, %3 is a load instruction that is loading the
+  // zero element from %"class.inner2". This function will collect the
+  // BitCast in %2 and will check if the pointees in the local pointer
+  // information points to the zero element in the inner structures.
+  bool isLoadingZeroElement(LoadInst *Load) {
+    if (!Load)
+      return false;
+
+    BitCastOperator *BC = dyn_cast<BitCastOperator>(Load->getOperand(0));
+    if (!BC)
+      return false;
+
+    return isCastingToZeroElement(BC);
+  }
+
+  // Return true if the store instruction is used for storing into the
+  // zero element. This case is looking for the following:
+  //
+  //   %"class.outer" = type { %"class.inner1" }
+  //   %"class.inner1" = type { %"class.inner2", %"class.inner2"}
+  //   %"class.inner2" = type { %class.TestClass*, %class.TestClass*}
+  //   %class.TestClass = type { i64, i64, i64}
+  //
+  //   %1 = getelementptr inbounds %"class.outer", %"class.outer"* %VAR,
+  //        i64 0, i32 0
+  //   %2 = bitcast %"class.inner1"* %1 to i64*
+  //
+  //   %3 = getelementptr inbounds %"class.outer", %"class.outer"* %VAR2,
+  //        i64 0, i32 0
+  //   %4 = bitcast %"class.inner1"* %3 to i64*
+  //   %5 = load i64, i64* %4, align 8
+  //
+  //   store i64 %5, i64* %2
+  //
+  // In the above example, both bitcast instructions (%2 and %4) have the
+  // same source and destination types. Also, both point to GEP instructions
+  // (%1 and %3 respectively) that access the same data type.
+  bool isStoringZeroElement(StoreInst *Store) {
+    if (!Store)
+      return false;
+
+    Value *ValueOperand = Store->getValueOperand();
+    Value *PtrOperand = Store->getPointerOperand();
+
+    BitCastOperator *BCPtr = dyn_cast<BitCastOperator>(PtrOperand);
+    if (!BCPtr)
+      return false;
+
+    // In case the value operand is 0 or null, it means that the data is being
+    // initialized or removed. For example:
+    //
+    //   %1 = getelementptr inbounds %"class.outer", %"class.outer"* %VAR,
+    //        i64 0, i32 0
+    //   %2 = bitcast %"class.inner1"* %1 to i64*
+    //
+    // store i64 0, i64* %2
+    if (auto *Const = dyn_cast<ConstantInt>(ValueOperand)) {
+
+      if (!Const->isZero() && !Const->isNullValue())
+        return false;
+
+      // If the Value operand is a 0 or null, then make sure that
+      // this value is being stored into a zero element
+      return isCastingToZeroElement(BCPtr);
+    }
+
+    // Else, check if we are loading and storing into the same type
+    return castUsedForStore(BCPtr);
+  }
+
   // The element access analysis for load and store instructions are nearly
   // identical, so we use this helper function to perform the task for both.
   // For both loads and stores the PtrInfo argument refers to the address that
@@ -6979,6 +7591,10 @@ private:
     if (PointeeSet.size() > 1 && PointeeSet.begin()->first->isStructTy())
       DTInfo.addMultiElemLoadStore(&I);
 
+    bool LoadingOrStoringZeroElement =
+        isLoadingZeroElement(dyn_cast<LoadInst>(&I)) ||
+        isStoringZeroElement(dyn_cast<StoreInst>(&I));
+
     // There will generally only be one ElementPointee in code that is safe for
     // dtrans to operate on, but I'm using a for-loop here to keep the
     // analysis as general as possible.
@@ -7043,26 +7659,43 @@ private:
                                            ValTy->getPointerTo()) &&
               !dtrans::isPtrToPtrToElementZeroAccess(FieldTy->getPointerTo(),
                                                      ValTy->getPointerTo())) ||
-             AggrTyPtrAsPtrSizedInt)) {
-          LLVM_DEBUG(dbgs() << "dtrans-safety: Mismatched element access:\n");
-          LLVM_DEBUG(dbgs() << "  " << I << "\n");
+            AggrTyPtrAsPtrSizedInt)) {
 
           auto *TI = DTInfo.getOrCreateTypeInfo(ParentTy);
-          if (DTransOutOfBoundsOK) {
-            // Assuming out of bound access, set safety issue for the entire
-            // ParentTy.
-            setBaseTypeInfoSafetyData(ParentTy,
-                                      dtrans::MismatchedElementAccess);
+          if (LoadingOrStoringZeroElement) {
+            LLVM_DEBUG(dbgs() << "dtrans-safety: Mismatched element access"
+                              << " -- zero element access\n");
+            LLVM_DEBUG(dbgs() << "  " << I << "\n");
+            if (dtrans::DTransOutOfBoundsOK) {
+              // Assuming out of bound access, set safety issue for the entire
+              // ParentTy.
+              setBaseTypeInfoSafetyData(ParentTy,
+                  dtrans::MismatchedElementAccessRelatedTypes);
+            } else {
+              // Set safety issue to the ParentTy type only.
+              TI->setSafetyData(dtrans::MismatchedElementAccessRelatedTypes);
+              setBaseTypeInfoSafetyData(FieldTy,
+                  dtrans::MismatchedElementAccessRelatedTypes);
+            }
           } else {
-            // Set safety issue to the ParentTy type only.
-            TI->setSafetyData(dtrans::MismatchedElementAccess);
-            setBaseTypeInfoSafetyData(FieldTy, dtrans::MismatchedElementAccess);
+            LLVM_DEBUG(dbgs() << "dtrans-safety: Mismatched element access:\n");
+            LLVM_DEBUG(dbgs() << "  " << I << "\n");
+            if (dtrans::DTransOutOfBoundsOK) {
+              // Assuming out of bound access, set safety issue for the entire
+              // ParentTy.
+              setBaseTypeInfoSafetyData(ParentTy,
+                                        dtrans::MismatchedElementAccess);
+            } else {
+              // Set safety issue to the ParentTy type only.
+              TI->setSafetyData(dtrans::MismatchedElementAccess);
+              setBaseTypeInfoSafetyData(FieldTy, dtrans::MismatchedElementAccess);
+            }
           }
           if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(TI)) {
             TypeSize ValSize = DL.getTypeSizeInBits(ValTy);
             TypeSize FieldSize = DL.getTypeSizeInBits(
                 ParentStInfo->getField(ElementNum).getLLVMType());
-            if (DTransOutOfBoundsOK || ValSize > FieldSize) {
+            if (dtrans::DTransOutOfBoundsOK || ValSize > FieldSize) {
               for (auto &FI : ParentStInfo->getFields())
                 FI.setMismatchedElementAccess();
             } else {
@@ -7265,6 +7898,128 @@ private:
     // Otherwise, the merge is safe.
   }
 
+  // Return true if the input size for a memory allocation is multiple
+  // of the size's type. Else return false.
+  bool isSizeMultipleOfAllocationType(CallBase *Call) {
+    if (!Call)
+      return false;
+
+    // Return true if the allocation size is a subtraction whose result
+    // is a multiple of the type's size. For example:
+    //
+    //   %class.OuterClass = type {%class.TestClass, %"class.std::vector.12"}
+    //   %"class.std::vector.12" = type { %"struct.std::_Vector_base.13" }
+    //   %"struct.std::_Vector_base.13" =
+    //       type { %"struct.std::_Vector_base<OuterClass,
+    //       std::allocator<OuterClass>>::_Vector_impl" }
+    //   %"struct.std::_Vector_base<OuterClass,
+    //       std::allocator<OuterClass>>::_Vector_impl" =
+    //       type { %class.OuterClass*, %class.OuterClass*, %class.OuterClass* }
+    //   %class.TestClass = type {i64, i64, i64}
+    //
+    //   %tmp = getelementptr inbounds %class.OuterClass,
+    //          %class.OuterClass* %arg1, i64 0, i32 1
+    //   %tmp1 = bitcast %"class.std::vector.12"* %tmp to i64*
+    //   %tmp2 = load i64, i64* %tmp1
+    //
+    //   %tmp3 = getelementptr inbounds %class.OuterClass,
+    //           %class.OuterClass* %arg1, i64 0, i32 1
+    //   %tmp4 = getelementptr inbounds %"class.std::vector.12",
+    //           %"class.std::vector.12"* %tmp3, i64 0, i32 0
+    //   %tmp5 = getelementptr inbounds %"struct.std::_Vector_base.13",
+    //           %"struct.std::_Vector_base.13"* %tmp4, i64 0, i32 0
+    //   %tmp6 = getelementptr inbounds %"struct.std::_Vector_base<OuterClass,
+    //           std::allocator<OuterClass>>::_Vector_impl",
+    //           %"struct.std::_Vector_base<OuterClass,
+    //           std::allocator<OuterClass>>::_Vector_impl"* %tmp5, i64 0, i32 1
+    //   %tmp7 = bitcast %class.OuterClass** %tmp6 to i64*
+    //   %tmp8 = load i64, i64* %tmp7
+    //
+    //   %tmp9 = sub i64 %tmp8, %tmp2
+    //   %tmp10 = sdiv exact i64 %tmp9, 48
+    //   %tmp11 = icmp eq i64 %tmp10, 0
+    //   br i1 %tmp11, label %bbcheck, label %bbcont
+    //
+    //  bbcheck:
+    //   %tmp12 = icmp ugt i64 %tmp10, 2167145685351216
+    //   br i1 %tmp12, label %bbnew, label %unreachable
+    //
+    //  bbnew:
+    //   %tmp13 = invoke noalias nonnull i8* @_Znwm(i64 %tmp9)
+    //            to label %bb2 unwind label %lpad
+    //
+    //  bb2:
+    //   %tmp14 = bitcast i8* %tmp13 to %class.OuterClass*
+    //
+    // The allocation site in %tmp13 uses %tmp9 as the allocation size, which is
+    // a subtraction. The operands of %tmp9 are %tmp8 and %tmp2. The local
+    // pointer information for both instructions has the same dominant
+    // aggregate type (%class.OuterClass*). Also, the local pointer information
+    // for %tmp13 has the same dominant aggregate type. This subtraction is
+    // guarded with a division by the exact size of this dominant aggregate
+    // type (%tmp10). This means that the input size in %tmp13 is a multiple of
+    // the type that is being allocated.
+    auto CheckSubtraction = [this, Call](BinaryOperator *Sub) -> bool {
+      if (!Sub)
+        return false;
+
+      if(Sub->getOpcode() != Instruction::Sub)
+        return false;
+
+      if (!isValueOfInterest(Sub->getOperand(0)) &&
+          !isValueOfInterest(Sub->getOperand(1)))
+        return false;
+
+      LocalPointerInfo &LeftLPI = LPA.getLocalPointerInfo(Sub->getOperand(0));
+      LocalPointerInfo &RightLPI = LPA.getLocalPointerInfo(Sub->getOperand(1));
+
+      // If we have a pointer to an element in the subtraction then don't
+      // continue.
+      if (LeftLPI.pointsToSomeElement() || RightLPI.pointsToSomeElement())
+        return false;
+
+      Type *LeftDomType = LeftLPI.getDominantAggregateTy();
+      Type *RightDomType = RightLPI.getDominantAggregateTy();
+      if (!LeftDomType || !LeftDomType->isPointerTy() ||
+          !RightDomType || !RightDomType->isPointerTy() ||
+          LeftDomType != RightDomType)
+        return false;
+
+      LocalPointerInfo &CallLPI = LPA.getLocalPointerInfo(Call);
+      Type *CallDomType = CallLPI.getDominantAggregateTy();
+      if (!CallDomType || CallDomType != LeftDomType)
+        return false;
+
+      llvm::Type *ElementTy = LeftDomType->getPointerElementType();
+      if (ElementTy->isPointerTy())
+        return false;
+
+      uint64_t ElementSize = DL.getTypeAllocSize(ElementTy);
+      return subUsedForAllocation(Sub, ElementSize);
+    };
+
+    Value *CallSize = nullptr;
+
+    // This catches the case when the function for memory allocation
+    // uses one argument
+    if (Call->arg_size() == 1)
+      CallSize = Call->getArgOperand(0);
+
+    if (!CallSize)
+      return false;
+
+    // NOTE: For now we are going to catch a subtraction, but there are
+    // other possible ways to get a multiple of the size. Also, the
+    // "bad pointer manipulation (related type)" safety check will be set
+    // when the subtract instruction is evaluated. This is needed to prevent
+    // transformations that adjust the allocation size when "bad alloc size"
+    // isn't set and the operation is not a multiplication.
+    if (auto *BC = dyn_cast<BinaryOperator>(CallSize))
+      return CheckSubtraction(BC);
+
+    return false;
+  }
+
   /// Given a call instruction that has been determined to be an allocation
   /// of the specified aggregate type, check the size arguments to verify
   /// that the allocation is a multiple of the type size.
@@ -7320,6 +8075,11 @@ private:
     uint64_t Res;
     if (!dtrans::isValueConstant(AllocSizeVal, &Res) &&
         traceNonConstantValue(Ty, AllocSizeVal, ElementSize))
+      return;
+
+    // Check if the allocation size is not constant, but we can prove that the
+    // variable is a multiple of the type's size
+    if (isSizeMultipleOfAllocationType(Call))
       return;
 
     // Otherwise, we must assume the size arguments are not acceptable.
@@ -7718,6 +8478,7 @@ private:
   // to be eliminated if they are never directly read.
   void analyzeMemcpyOrMemmove(IntrinsicInst &I,
                               dtrans::MemfuncCallInfo::MemfuncKind Kind) {
+
     LLVM_DEBUG(dbgs() << "dtrans: Analyzing memcpy/memmove call:\n  " << I
                       << "\n");
     assert(I.getNumArgOperands() >= 2);
@@ -8248,6 +9009,15 @@ private:
       }
       markStructFieldsWritten(ParentTI, RegionDesc.FirstField,
                               RegionDesc.LastField, I);
+    } else if (FieldNum == 0 && PrePadBytes == 0 &&
+        analyzePartialAccessNestedStructures(StructTy, SetSize)) {
+      LLVM_DEBUG(dbgs() << "dtrans-safety: Memfunc partial write "
+                        << "(nested structure) -- size covers a set of fields"
+                        << " in the inner structures:\n  " << I << "\n");
+
+      setBaseTypeInfoSafetyData(StructTy,
+                                dtrans::MemFuncNestedStructsPartialWrite);
+      return false;
     } else {
       // The size could not be matched to the fields of the structure.
       LLVM_DEBUG(dbgs() << "dtrans-safety: Bad memfunc size -- "
@@ -8259,6 +9029,53 @@ private:
     }
 
     return true;
+  }
+
+  // Return true if the input size (SetSize) partially accesses the inner
+  // structures in StructTy. For example:
+  //
+  //   %class.outer = type { %"class.inner1" }
+  //   %class.inner1 = type { %"class.inner2", %"class.inner2" }
+  //   %class.inner2 = type { %class.TestClass, i64, i64 }
+  //   %class.TestClass = type { i64, i64, i64 }
+  //
+  //   %tmp1 = bitcast %class.outer* %VAR1 to i8*
+  //   %tmp2 = bitcast %class.outer* %VAR2 to i8*
+  //
+  //   call void @llvm.memcpy(i8* nonnull align 8 dereferenceable(32) %tmp1,
+  //                          i8* nonnull align 8 dereferenceable(32) %tmp2,
+  //                          i64 32, i1 false)
+  //
+  // In the example above, the memcpy is just copying the first 32 bytes from
+  // %tmp2 to %tmp1. This means that it is copying the fields 0 and 1 from the
+  // %class.inner2, which can be reached by traversing the 0 element from
+  // %class.outer. This memcpy can be considered as a partial access.
+  bool analyzePartialAccessNestedStructures(StructType *StructTy,
+                                            Value *SetSize) {
+    if (!StructTy || !SetSize)
+      return false;
+
+    uint64_t InputSize = 0;
+    if (auto *Const = dyn_cast<ConstantInt>(SetSize))
+      InputSize = Const->getZExtValue();
+    else
+      return false;
+
+    if (InputSize == 0)
+      return false;
+
+    StructType *CurrStruct = StructTy;
+    while (CurrStruct) {
+      dtrans::MemfuncRegion RegionDesc;
+
+      if (analyzeStructFieldAccess(CurrStruct, 0 /* FieldNum */,
+                                   0 /* PrePadBytes */, InputSize, &RegionDesc))
+        return RegionDesc.PostPadBytes == 0;
+
+      CurrStruct = dyn_cast<StructType>(CurrStruct->getElementType(0));
+    }
+
+    return false;
   }
 
   // Wrapper function for analyzing structure field access which prepares
@@ -8563,7 +9380,16 @@ private:
       llvm::Type *ElementTy = DomTy->getPointerElementType();
       if (!ElementTy->isPointerTy()) {
         uint64_t ElementSize = DL.getTypeAllocSize(ElementTy);
-        if (hasNonDivBySizeUses(&I, ElementSize)) {
+        if (subUsedForAllocation(&I, ElementSize)) {
+          LLVM_DEBUG(dbgs() << "dtrans-safety: Bad pointer manipulation "
+                            << "(related types) -- "
+                            << "Pointer subtraction result used to allocate "
+                            << "a new space:\n"
+                            << "  " << I << "\n");
+          setAllAliasedTypeSafetyData(LHSLPI,
+              dtrans::BadPtrManipulationForRelatedTypes);
+        }
+        else if (hasNonDivBySizeUses(&I, ElementSize)) {
           LLVM_DEBUG(dbgs() << "dtrans-safety: Bad pointer manipulation -- "
                             << "Pointer subtract result has non-div use:\n"
                             << "  " << I << "\n");
@@ -8580,17 +9406,228 @@ private:
     }
   }
 
+  // Return true if the binary operator is a division between the input
+  // Value and the input Size. The parameter IsExact is used to store if
+  // the operation is marked as "exact".
+  bool isValidDivision(BinaryOperator *BinOp, Value *V,
+                       uint64_t Size, bool *IsExact) {
+    *IsExact = false;
+    if (!BinOp || !V)
+      return false;
+
+    if (BinOp->getOpcode() != Instruction::SDiv &&
+        BinOp->getOpcode() != Instruction::UDiv)
+      return false;
+
+    if (BinOp->getOperand(0) != V)
+      return false;
+
+    if (auto *Inst = dyn_cast<Instruction>(BinOp))
+      *IsExact = Inst->isExact();
+
+    return dtrans::isValueMultipleOfSize(BinOp->getOperand(1), Size);
+  }
+
+  // Return true if the input Call is a call to "new" and the type of the
+  // values used to compute the size matches with the result type of "new".
+  bool isValidCallToNew(CallBase *Call, Value *V) {
+
+    // Return the dominant aggregate type for the input Value
+    auto CollectDominantAggregateType = [this](Value *V) -> Type * {
+      // If V is a binary operator then the dominant aggregate type
+      // of the operands must match
+      if (auto *BinOp = dyn_cast<BinaryOperator>(V)) {
+
+        LoadInst *LoadA = dyn_cast<LoadInst>(BinOp->getOperand(0));
+        LoadInst *LoadB = dyn_cast<LoadInst>(BinOp->getOperand(1));
+        if (!LoadA || !LoadB)
+          return nullptr;
+
+        LocalPointerInfo &LPILoadA = LPA.getLocalPointerInfo(LoadA);
+        LocalPointerInfo &LPILoadB = LPA.getLocalPointerInfo(LoadB);
+
+        Type *LoadADominantType = LPILoadA.getDominantAggregateTy();
+        Type *LoadBDominantType = LPILoadB.getDominantAggregateTy();
+
+        if (!LoadADominantType || !LoadBDominantType)
+          return nullptr;
+
+        if (LoadADominantType != LoadBDominantType)
+          return nullptr;
+
+        return LoadADominantType;
+      }
+
+      return nullptr;
+    };
+
+    if (!Call || !V || Call->isIndirectCall())
+      return false;
+
+    Value *Arg  = nullptr;
+    Function *CalledFunction = Call->getCalledFunction();
+    LibFunc TheLibFunc;
+    const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
+    if (TLI.getLibFunc(CalledFunction->getName(), TheLibFunc) &&
+        TLI.has(TheLibFunc)) {
+
+      // NOTE: We might want to add other forms of "new" and "alloc"
+      switch (TheLibFunc) {
+        case LibFunc_Znwm:
+          Arg = Call->getArgOperand(0);
+          break;
+        default:
+          return false;
+      }
+    }
+
+    if (!Arg || Arg != V)
+      return false;
+
+    // Now we are going to check that the types for the allocated space
+    // matches the types used for the subtraction
+    LocalPointerInfo &LPICall = LPA.getLocalPointerInfo(Call);
+    Type *CallDominantType = LPICall.getDominantAggregateTy();
+    if (!CallDominantType)
+      return false;
+
+    Type *ValueDominantAggregateType = CollectDominantAggregateType(V);
+    if (!ValueDominantAggregateType)
+      return false;
+
+    return ValueDominantAggregateType == CallDominantType;
+  }
+
+  // Return true if the input Value is used to allocate a memory space,
+  // and we know that the allocated size is a multiple of the input Size.
+  // For example:
+  //
+  //   %class.OuterClass = type {%class.TestClass, %"class.std::vector.12"}
+  //   %"class.std::vector.12" = type { %"struct.std::_Vector_base.13" }
+  //   %"struct.std::_Vector_base.13" =
+  //       type { %"struct.std::_Vector_base<OuterClass,
+  //       std::allocator<OuterClass>>::_Vector_impl" }
+  //   %"struct.std::_Vector_base<OuterClass,
+  //       std::allocator<OuterClass>>::_Vector_impl" =
+  //       type { %class.OuterClass*, %class.OuterClass*, %class.OuterClass* }
+  //   %class.TestClass = type {i64, i64, i64}
+  //
+  //   %tmp = getelementptr inbounds %class.OuterClass,
+  //          %class.OuterClass* %arg1, i64 0, i32 1
+  //   %tmp1 = bitcast %"class.std::vector.12"* %tmp to i64*
+  //   %tmp2 = load i64, i64* %tmp1
+  //
+  //   %tmp3 = getelementptr inbounds %class.OuterClass,
+  //           %class.OuterClass* %arg1, i64 0, i32 1
+  //   %tmp4 = getelementptr inbounds %"class.std::vector.12",
+  //           %"class.std::vector.12"* %tmp3, i64 0, i32 0
+  //   %tmp5 = getelementptr inbounds %"struct.std::_Vector_base.13",
+  //           %"struct.std::_Vector_base.13"* %tmp4, i64 0, i32 0
+  //   %tmp6 = getelementptr inbounds %"struct.std::_Vector_base<OuterClass,
+  //           std::allocator<OuterClass>>::_Vector_impl",
+  //           %"struct.std::_Vector_base<OuterClass,
+  //           std::allocator<OuterClass>>::_Vector_impl"* %tmp5, i64 0, i32 1
+  //   %tmp7 = bitcast %class.OuterClass** %tmp6 to i64*
+  //   %tmp8 = load i64, i64* %tmp7
+  //
+  //   %tmp9 = sub i64 %tmp8, %tmp2
+  //   %tmp10 = sdiv exact i64 %tmp9, 48
+  //   %tmp11 = icmp eq i64 %tmp10, 0
+  //   br i1 %tmp11, label %bbcheck, label %bbcont
+  //
+  //  bbcheck:
+  //   %tmp12 = icmp ugt i64 %tmp10, 2167145685351216
+  //   br i1 %tmp12, label %bbnew, label %unreachable
+  //
+  //  bbnew:
+  //   %tmp13 = invoke noalias nonnull i8* @_Znwm(i64 %tmp9)
+  //            to label %bb2 unwind label %lpad
+  //
+  //  bb2:
+  //   %tmp14 = bitcast i8* %tmp13 to %class.OuterClass*
+  //
+  // In this example, the subtraction in %tmp9 is used as an argument for the
+  // call to "new" (@_Znwm) in %tmp13. From the division in %tmp10 we know that
+  // the result of the subtraction is a multiple of %class.OuterClass size.
+  // Also, using the local pointer information for the operands of the
+  // subtraction (%tmp8 and %tmp2), we can compare with the result type
+  // of the "new" (%tmp13). This is how we can ensure that the size of
+  // the new allocated space is matches with the destination of bitcast.
+  bool subUsedForAllocation(Value *V, uint64_t Size) {
+    if (!V)
+      return false;
+
+    bool DivisionFound = false;
+    bool AllocSiteFound = false;
+    for (User *U : V->users()) {
+      // Find the division
+      if (auto *BinOp = dyn_cast<BinaryOperator>(U)) {
+        if (!DivisionFound) {
+          bool IsExact = false;
+          if (isValidDivision(BinOp, V, Size, &IsExact) && IsExact) {
+
+            // Check that the division is guarded
+            bool ZeroFound = false;
+            bool PositiveFound = false;
+            for (User * DivU : BinOp->users()) {
+              // Check if it is comparing against positive numbers.
+              // These instructions can be used to ensure limits.
+              if (auto *ICmp = dyn_cast<ICmpInst>(DivU)) {
+                ConstantInt *Const = nullptr;
+                if (BinOp == ICmp->getOperand(0))
+                  Const = dyn_cast<ConstantInt>(ICmp->getOperand(1));
+                else
+                  Const = dyn_cast<ConstantInt>(ICmp->getOperand(0));
+
+                if (!Const)
+                  return false;
+
+                if (Const->isZero())
+                  ZeroFound = true;
+                else if (!Const->isNegative())
+                  PositiveFound = true;
+                else
+                  return false;
+              }
+            }
+            DivisionFound = ZeroFound && PositiveFound;
+          } else {
+            return false;
+          }
+        } else {
+          return false;
+        }
+      }
+
+      // Check the callsite for "new"
+      else if (auto *Call = dyn_cast<CallBase>(U)) {
+        if (!AllocSiteFound) {
+          if (isValidCallToNew(Call, V))
+            AllocSiteFound = true;
+          else
+            return false;
+        } else {
+          return false;
+        }
+      }
+
+      // Else, the input Value is used for something we don't know.
+      else {
+        return false;
+      }
+    }
+
+    // Return if the division was found and the call to new was found.
+    return DivisionFound && AllocSiteFound;
+  }
+
   bool hasNonDivBySizeUses(Value *V, uint64_t Size) {
     for (auto *U : V->users()) {
       if (auto *BinOp = dyn_cast<BinaryOperator>(U)) {
-        if (BinOp->getOpcode() != Instruction::SDiv &&
-            BinOp->getOpcode() != Instruction::UDiv)
-          return true;
-        if (BinOp->getOperand(0) != V)
-          return true;
-        if (!dtrans::isValueMultipleOfSize(BinOp->getOperand(1), Size))
-          return true;
-        continue;
+        bool IsExact = false;
+        if (isValidDivision(BinOp, V, Size, &IsExact))
+          continue;
+        return true;
       }
       LLVM_DEBUG(dbgs() << "Non-div use found for pointer sub: " << *U << "\n");
       return true;
@@ -8736,7 +9773,7 @@ private:
   // the bounds of a structure. This is strictly not allowed in C/C++, but
   // is allowed under the definition of LLVM IR.
   bool isCascadingSafetyCondition(dtrans::SafetyData Data) {
-    if (DTransOutOfBoundsOK)
+    if (dtrans::DTransOutOfBoundsOK)
       return true;
     switch (Data) {
     // We can add additional cases here to reduce the conservative behavior
@@ -8763,6 +9800,7 @@ private:
     case dtrans::BadCasting:
     case dtrans::BadCastingPending:
     case dtrans::BadMemFuncManipulation:
+    case dtrans::BadCastingForRelatedTypes:
     case dtrans::SystemObject:
     case dtrans::UnsafePtrMerge:
     case dtrans::UnhandledUse:
@@ -8785,7 +9823,7 @@ private:
       // possible to access elements of pointed-to objects, as well, in methods
       // that DTrans would not be able to analyze.
     case dtrans::FieldAddressTaken:
-      return DTransOutOfBoundsOK;
+      return dtrans::DTransOutOfBoundsOK;
 
     default:
       return false;
@@ -8991,6 +10029,7 @@ DTransAnalysisInfo::getOrCreateTypeInfoForArray(llvm::Type *Ty,
 }
 
 dtrans::TypeInfo *DTransAnalysisInfo::getOrCreateTypeInfo(llvm::Type *Ty) {
+
   // If we already have this type in our map, just return it.
   auto TI = getTypeInfo(Ty);
   if (TI)
@@ -9013,13 +10052,13 @@ dtrans::TypeInfo *DTransAnalysisInfo::getOrCreateTypeInfo(llvm::Type *Ty) {
         new dtrans::ArrayInfo(Ty, ElementInfo, Ty->getArrayNumElements());
   } else if (Ty->isStructTy()) {
     llvm::StructType *STy = cast<StructType>(Ty);
-    SmallVector<llvm::Type *, 16> FieldTypes;
+    SmallVector<dtrans::AbstractType, 16> FieldTypes;
     for (llvm::Type *FieldTy : STy->elements()) {
       FieldTypes.push_back(FieldTy);
       // Create a DTrans type for the field, in case it is an aggregate.
       (void)getOrCreateTypeInfo(FieldTy);
     }
-    DTransTy = new dtrans::StructInfo(Ty, FieldTypes, 0);
+    DTransTy = new dtrans::StructInfo(Ty, FieldTypes);
   } else {
     assert(!Ty->isAggregateType() &&
            "DTransAnalysisInfo::getOrCreateTypeInfo unexpected aggregate type");
@@ -9027,6 +10066,29 @@ dtrans::TypeInfo *DTransAnalysisInfo::getOrCreateTypeInfo(llvm::Type *Ty) {
   }
 
   TypeInfoMap[Ty] = DTransTy;
+  auto RelatedTypeIT = RelatedTypesMap.find(Ty);
+
+  // Set the related type
+  if (RelatedTypeIT != RelatedTypesMap.end()) {
+    llvm::Type *RelatedType = RelatedTypesMap[Ty];
+    dtrans::StructInfo *CurrInfo =  cast<dtrans::StructInfo>(DTransTy);
+    dtrans::StructInfo *RelatedInfo = nullptr;
+    auto TypeInfoIT = TypeInfoMap.find(RelatedType);
+    if (TypeInfoIT != TypeInfoMap.end())
+      RelatedInfo = cast<dtrans::StructInfo>(TypeInfoMap[RelatedType]);
+    else
+      RelatedInfo = cast<dtrans::StructInfo>(
+        getOrCreateTypeInfo(RelatedTypesMap[Ty]));
+
+    CurrInfo->setRelatedType(RelatedInfo);
+
+    // If Ty is the padded type, then set the last field as
+    // padded field.
+    int64_t CurrNumFields = CurrInfo->getNumFields();
+    int64_t RelatedNumFields = RelatedInfo->getNumFields();
+    if ((CurrNumFields - RelatedNumFields) == 1)
+      CurrInfo->getField(CurrNumFields - 1).setPaddedField();
+  }
   return DTransTy;
 }
 
@@ -9226,6 +10288,7 @@ INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(BlockFrequencyInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(WholeProgramWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(DTransImmutableAnalysisWrapper)
+INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_END(DTransAnalysisWrapper, "dtransanalysis",
                     "Data transformation analysis", false, true)
 
@@ -9295,10 +10358,14 @@ bool DTransAnalysisWrapper::runOnModule(Module &M) {
 
   auto &DTImmutInfo = getAnalysis<DTransImmutableAnalysisWrapper>().getResult();
 
+  auto GetDomTree = [this](Function &F) -> DominatorTree & {
+    return this->getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
+  };
+
   Invalidated = false;
   return Result.analyzeModule(
       M, GetTLI, getAnalysis<WholeProgramWrapperPass>().getResult(), GetBFI,
-      DTImmutInfo);
+      DTImmutInfo, GetDomTree);
 }
 
 DTransAnalysisInfo::DTransAnalysisInfo()
@@ -9535,7 +10602,7 @@ bool DTransAnalysisInfo::useDTransAnalysis(void) const {
 }
 
 bool DTransAnalysisInfo::getDTransOutOfBoundsOK() {
-  return DTransOutOfBoundsOK;
+  return dtrans::DTransOutOfBoundsOK;
 }
 
 bool DTransAnalysisInfo::requiresBadCastValidation(
@@ -9551,10 +10618,33 @@ bool DTransAnalysisInfo::requiresBadCastValidation(
   return !Func.empty();
 }
 
+// Build the related types map. This map will store the relationship between
+// a padded structure and a base structure.
+void DTransAnalysisInfo::buildRelatedTypesMap(Module &M) {
+
+  SetVector<llvm::StructType *> TypesCollected;
+  dtrans::collectAllStructTypes(M, TypesCollected);
+
+  for (StructType *STy : TypesCollected) {
+    llvm::Type *Ty = cast<llvm::Type>(STy);
+
+    if (RelatedTypesMap.count(Ty) > 0)
+      continue;
+
+    llvm::Type *RelatedType = dtrans::collectRelatedType(Ty, M);
+    if (!RelatedType)
+      continue;
+
+    RelatedTypesMap[RelatedType] = Ty;
+    RelatedTypesMap[Ty] = RelatedType;
+  }
+}
+
 bool DTransAnalysisInfo::analyzeModule(
     Module &M, GetTLIFnType GetTLI, WholeProgramInfo &WPInfo,
     function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
-    DTransImmutableInfo &DTImmutInfo) {
+    DTransImmutableInfo &DTImmutInfo,
+    std::function<DominatorTree &(Function &)> GetDomTree) {
   LLVM_DEBUG(dbgs() << "Running DTransAnalysisInfo::analyzeModule\n");
   if (!WPInfo.isWholeProgramSafe()) {
     LLVM_DEBUG(dbgs() << "dtrans: Whole Program not safe ... "
@@ -9563,6 +10653,7 @@ bool DTransAnalysisInfo::analyzeModule(
   }
 
   setCallGraphStats(M);
+  buildRelatedTypesMap(M);
 
   if (!shouldComputeDTransAnalysis())
     return false;
@@ -9571,7 +10662,7 @@ bool DTransAnalysisInfo::analyzeModule(
   DTAA.populateAllocDeallocTable(M);
 
   DTransInstVisitor Visitor(M.getContext(), *this, M.getDataLayout(), GetTLI,
-                            DTAA, DTBCA, GetBFI);
+                            DTAA, DTBCA, GetBFI, GetDomTree);
   parseIgnoreList();
 
   DTBCA.analyzeBeforeVisit();
@@ -9594,6 +10685,71 @@ bool DTransAnalysisInfo::analyzeModule(
     }
   }
   setMaxTotalFrequency(MaxTFrequency);
+
+  // Go through the multiple StructInfo and check if there is a safety
+  // violation that makes the padded field dirty. Also, this is the moment
+  // where we are going to merge the safety violations.
+  // NOTE: A dirty padded field means that we don't have enough information
+  // to make sure if the field is not being modified.
+  //
+  // TODO: This is the point where we are going to decide if a pending
+  // safety violation can be removed or not.
+  for (auto *TI : type_info_entries()) {
+    if (auto *STInfo = dyn_cast<dtrans::StructInfo>(TI)) {
+
+      // Return true if the input StructInfo has a padded field and
+      // we found any safety violation for that field.
+      auto HasInvalidPaddedField = [](dtrans::StructInfo *StrInfo) {
+        if (!StrInfo)
+          return true;
+
+        if (!StrInfo->hasPaddedField())
+          return false;
+
+        size_t NumFields = StrInfo->getNumFields();
+        auto &PaddedField = StrInfo->getField(NumFields - 1);
+
+        // TODO: We might want to add other potential failures here like
+        // "isSingleValue" or "isMultipleValue". Another possible solution
+        // will be to use "isValueUnused".
+        if (PaddedField.isRead() || PaddedField.isWritten() ||
+            PaddedField.hasComplexUse() || PaddedField.isAddressTaken() ||
+            PaddedField.isMismatchedElementAccess())
+          return true;
+
+        return false;
+      };
+
+      dtrans::StructInfo *RelatedTypeInfo = STInfo->getRelatedType();
+      if (!RelatedTypeInfo)
+        continue;
+
+      // If the safety test fails then mark the padded field as dirty.
+      // Also, check if the padded field has any safety violation that
+      // could break the relationship.
+      bool BadSafetyData =
+          STInfo->testSafetyData(dtrans::SDPaddedStructures) ||
+          RelatedTypeInfo->testSafetyData(dtrans::SDPaddedStructures) ||
+          HasInvalidPaddedField(STInfo);
+
+      if (BadSafetyData) {
+        size_t NumFields = STInfo->getNumFields();
+        auto &Field = STInfo->getField(NumFields - 1);
+        if (Field.isPaddedField())
+          Field.invalidatePaddedField();
+      }
+
+      // DTransTestPaddedStructs is used for testing purposes.
+      if (!BadSafetyData || DTransTestPaddedStructs) {
+        STInfo->mergeSafetyDataWithRelatedType();
+        RelatedTypeInfo->mergeSafetyDataWithRelatedType();
+      } else {
+        // If the safety data fails then break the relationship between
+        // padded and base.
+        STInfo->unsetRelatedType();
+      }
+    }
+  }
 
   // Invalidate the fields for which the corresponding types do not pass
   // the SafetyData checks.
@@ -9643,7 +10799,7 @@ bool DTransAnalysisInfo::analyzeModule(
   DTransAnalysisRan = true;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  if (DTransPrintAnalyzedTypes) {
+  if (dtrans::DTransPrintAnalyzedTypes) {
     // Prints the list of transformations for which the safety data will be
     // ignored on the structure 'SI' based on the command line option.
     auto &IgnoreTypeMap = this->IgnoreTypeMap;
@@ -9859,12 +11015,19 @@ void DTransAnalysisWrapper::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<BlockFrequencyInfoWrapperPass>();
   AU.addRequired<WholeProgramWrapperPass>();
   AU.addRequired<DTransImmutableAnalysisWrapper>();
+  AU.addRequired<DominatorTreeWrapperPass>();
 }
 
 char DTransAnalysis::PassID;
 
 // Provide a definition for the static class member used to identify passes.
 AnalysisKey DTransAnalysis::Key;
+
+bool DTransAnalysisInfo::invalidate(Module &M, const PreservedAnalyses &PA,
+                                ModuleAnalysisManager::Invalidator &Inv) {
+  auto PAC = PA.getChecker<DTransAnalysis>();
+  return !PAC.preservedWhenStateless();
+}
 
 DTransAnalysisInfo DTransAnalysis::run(Module &M, AnalysisManager<Module> &AM) {
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
@@ -9877,7 +11040,11 @@ DTransAnalysisInfo DTransAnalysis::run(Module &M, AnalysisManager<Module> &AM) {
   auto &WPInfo = AM.getResult<WholeProgramAnalysis>(M);
   auto &DTImmutInfo = AM.getResult<DTransImmutableAnalysis>(M);
 
+  auto GetDomTree = [&FAM](Function &F) -> DominatorTree & {
+    return FAM.getResult<DominatorTreeAnalysis>(F);
+  };
+
   DTransAnalysisInfo DTResult;
-  DTResult.analyzeModule(M, GetTLI, WPInfo, GetBFI, DTImmutInfo);
+  DTResult.analyzeModule(M, GetTLI, WPInfo, GetBFI, DTImmutInfo, GetDomTree);
   return DTResult;
 }

@@ -37,6 +37,7 @@ if.end6:                                          ; preds = %if.else, %if.then3
   %ptr = phi i8* [ %call_if, %if.then3 ], [ %call_else, %if.else ]
   %tmp = getelementptr inbounds %struct.lzma_allocator, %struct.lzma_allocator* %allocator, i64 0, i32 2
   %ptr2 = bitcast i8** %tmp to %struct.str*
+  %gep = getelementptr %struct.str, %struct.str* %ptr2, i64 0, i32 0
   ret i8* %ptr
 }
 

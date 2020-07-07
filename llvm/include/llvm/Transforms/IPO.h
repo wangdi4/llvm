@@ -336,12 +336,20 @@ ModulePass *createDopeVectorConstPropLegacyPass(void);
 /// "is-qsort".
 ModulePass *createQsortRecognizerLegacyPass(void);
 
+/// \brief This pass will mark callsites that should be aggressively
+/// inlined with the "prefer-inline-aggressive" attribute.
+ModulePass *createAggInlinerLegacyPass(void);
+
 /// \brief This pass eliminates dead array element operations.
 ModulePass *createDeadArrayOpsEliminationLegacyPass(void);
 
 /// \brief This pass multiversions for tiling and marks tiled functions for
 /// inlining.
 ModulePass *createTileMVInlMarkerLegacyPass(void);
+
+/// This pass adds noalias attribute to function arguments where it is safe
+/// to do so.
+ModulePass *createArgNoAliasPropPass(void);
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//

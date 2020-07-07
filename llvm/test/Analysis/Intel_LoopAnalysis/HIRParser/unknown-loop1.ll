@@ -8,7 +8,7 @@
 ; CHECK: |   %next_node.0261.out = &((%next_node.0261)[0]);
 ; CHECK: |   %hir.de.ssa.copy0.out = %0;
 ; CHECK: |   %shl47 = 1  <<  trunc.i64.i5(%hir.de.ssa.copy0.out);
-; CHECK: |   %and49 = %in3  &&  %shl47;
+; CHECK: |   %and49 = %in3  &  %shl47;
 ; CHECK: |   %2 = (%and49 == 0) ? &((%next_node.0261.out)[0].2) : &((%next_node.0261.out)[0].3);
 ; CHECK: |   %3 = (%2)[0];
 ; CHECK: |   %4 = (%3)[0].1;

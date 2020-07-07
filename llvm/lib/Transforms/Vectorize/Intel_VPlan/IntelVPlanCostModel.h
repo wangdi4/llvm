@@ -62,9 +62,11 @@ class VPlanCostModel {
 public:
 #if INTEL_CUSTOMIZATION
   VPlanCostModel(const VPlan *Plan, const unsigned VF,
-                 const TargetTransformInfo *TTI, const DataLayout *DL,
+                 const TargetTransformInfo *TTI,
+                 const TargetLibraryInfo *TLI,
+                 const DataLayout *DL,
                  VPlanVLSAnalysis *VLSA)
-      : Plan(Plan), VF(VF), TTI(TTI), DL(DL), VLSA(VLSA) {
+    : Plan(Plan), VF(VF), TTI(TTI), TLI(TLI), DL(DL), VLSA(VLSA) {
     if (VLSA)
       // FIXME: Really ugly to get LLVMContext from VLSA, which may not
       // even exist, but so far there's no other simple way to pass it here.
@@ -74,13 +76,12 @@ public:
   }
 #else
   VPlanCostModel(const VPlan *Plan, const unsigned VF,
-                 const TargetTransformInfo *TTI, const DataLayout *DL)
-      : Plan(Plan), VF(VF), TTI(TTI), DL(DL) {}
+                 const TargetTransformInfo *TTI,
+                 const TargetLibraryInfo *TLI,
+                 const DataLayout *DL)
+    : Plan(Plan), VF(VF), TTI(TTI), TLI(TLI), DL(DL) {}
 #endif // INTEL_CUSTOMIZATION
-  virtual unsigned getCost(const VPInstruction *VPInst);
-  virtual unsigned getCost(const VPBasicBlock *VPBB);
   virtual unsigned getCost();
-  virtual unsigned getLoadStoreCost(const VPInstruction *VPInst);
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS, const std::string &Header);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
@@ -92,6 +93,7 @@ protected:
   const VPlan *Plan;
   unsigned VF;
   const TargetTransformInfo *TTI;
+  const TargetLibraryInfo *TLI;
   const DataLayout *DL;
 #if INTEL_CUSTOMIZATION
   VPlanVLSAnalysis *VLSA;
@@ -110,6 +112,25 @@ protected:
     raw_ostream &OS, const VPBasicBlock *VPBlock);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
+  // Consolidates the code that gets the cost of one operand or two operands
+  // arithmetics instructions.  For one operand case Op2 is expected to be
+  // null.  Op1 is never expected to be null.
+  virtual unsigned getArithmeticInstructionCost(const unsigned Opcode,
+                                                const VPValue *Op1,
+                                                const VPValue *Op2,
+                                                const Type *ScalarTy,
+                                                const unsigned VF);
+  virtual unsigned getCost(const VPInstruction *VPInst);
+  virtual unsigned getCost(const VPBasicBlock *VPBB);
+  virtual unsigned getLoadStoreCost(const VPInstruction *VPInst);
+  // Calculates the sum of the cost of extracting VF elements of Ty type
+  // or the cost of inserting VF elements of Ty type into a vector.
+  unsigned getInsertExtractElementsCost(unsigned Opcode,
+                                        Type *Ty, unsigned VF);
+  virtual unsigned getIntrinsicInstrCost(
+    Intrinsic::ID ID, const CallBase &CB, unsigned VF,
+    VPCallInstruction::CallVecScenariosTy VS);
+
   // These utilities are private for the class instead of being defined as
   // static functions because they need access to underlying Inst/HIRData in
   // VPInstruction via the friends relation between VPlanCostModel and
@@ -118,7 +139,6 @@ protected:
   // Also, they won't be necessary if we had VPType for each VPValue.
   static Type *getMemInstValueType(const VPInstruction *VPInst);
   static unsigned getMemInstAddressSpace(const VPInstruction *VPInst);
-  static Type *getVectorizedType(const Type *BaseTy, unsigned VF);
   static Value *getGEP(const VPInstruction *VPInst);
 
   /// \Returns the alignment of the load/store \p VPInst.
@@ -129,7 +149,10 @@ protected:
   unsigned getMemInstAlignment(const VPInstruction *VPInst) const;
 
   /// \Returns True iff \p VPInst is Unit Strided load or store.
-  virtual bool isUnitStrideLoadStore(const VPInstruction *VPInst) const;
+  /// When load/store is strided NegativeStride is set to true if the stride is
+  /// negative (-1 in number of elements) or to false otherwise.
+  virtual bool isUnitStrideLoadStore(
+    const VPInstruction *VPInst, bool &NegativeStride) const;
 
   // The utility checks whether the Cost Model can assume that 32-bit indexes
   // will be used instead of 64-bit indexes for gather/scatter HW instructions.

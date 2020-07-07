@@ -26,13 +26,13 @@
 ; <18>     + END LOOP
 
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-simplify-cfg -disable-output < %s 2>&1 | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-print-after-simplify-cfg -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-print-after-simplify-cfg -vplan-dump-subscript-details -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir" -vplan-print-after-simplify-cfg -vplan-dump-subscript-details -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check decomposed VPInstructions
 ; CHECK: i64 [[I1:%vp.*]] = phi
-; CHECK: i32* [[GEP1:%vp.*]] = getelementptr inbounds %struct.ST* @st1 i64 0 i32 2 i32 1 i64 5 i64 [[I1]]
-; CHECK-NEXT: store i32 {{%vp.*}} i32* [[GEP1]]
+; CHECK: i32* [[ADDR1:%vp.*]] = subscript inbounds %struct.ST* @st1 {i64 0 : i64 0 : i64 824 : %struct.ST* (2 1 )} {i64 0 : i64 5 : i64 80 : [10 x [20 x i32]]} {i64 0 : i64 [[I1]] : i64 4 : [20 x i32]}
+; CHECK-NEXT: store i32 {{%vp.*}} i32* [[ADDR1]]
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

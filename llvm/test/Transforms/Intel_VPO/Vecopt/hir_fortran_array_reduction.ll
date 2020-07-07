@@ -1,7 +1,6 @@
 ; Check HIR vectorizer support for handling Fortran array accesses participating in reductions.
 
-; Unsupported case
-; Incoming HIR
+; Incoming HIR for Case 1
 ;    %entry.region = @llvm.directive.region.entry(); [ DIR.VPO.AUTO.VEC() ]
 ;
 ;    + DO i2 = 0, zext.i32.i64((1 + %"interp_$N_fetch4")) + -1, 1   <DO_LOOP>
@@ -10,13 +9,7 @@
 ;
 ;    @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=2 -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s --check-prefix=UNSUPPORTED
-
-; Check that loop was not vectorized.
-; UNSUPPORTED-NOT: <2 x
-
-; Supported case
-; Incoming HIR
+; Incoming HIR for Case 2
 ;    %entry.region = @llvm.directive.region.entry(); [ DIR.VPO.AUTO.VEC() ]
 ;
 ;    + DO i2 = 0, zext.i32.i64((1 + %"interp_$N_fetch4")) + -1, 1   <DO_LOOP>
@@ -26,13 +19,16 @@
 ;
 ;    @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=2 -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s --check-prefix=SUPPORTED
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=2 -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir=0 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=2 -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=2 -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir=0 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=2 -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir -disable-output < %s 2>&1 | FileCheck %s
 
 ; Check that loop was vectorized.
-; SUPPORTED:      + DO i2 = 0, 2 * %tgu + -1, 2   <DO_LOOP> <nounroll> <novectorize>
-; SUPPORTED:      |   %.vec = (<2 x double>*)(%"interp_$ARR")[i2 + <i64 0, i64 1>][i1];
-; SUPPORTED:      |   %red.var = %red.var  +  %.vec;
-; SUPPORTED:      + END LOOP
+; CHECK:      + DO i2 = 0, 2 * %tgu + -1, 2   <DO_LOOP> <nounroll> <novectorize>
+; CHECK:      |   %.vec = (<2 x double>*)(%"interp_$ARR")[i2 + <i64 0, i64 1>][i1];
+; CHECK:      |   %red.var = %red.var  +  %.vec;
+; CHECK:      + END LOOP
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

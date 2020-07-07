@@ -11,7 +11,8 @@
 ;
 ; Test to check that we preserve tbaa metadata.
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -hir-cg -S -print-after=VPlanDriverHIR  < %s 2>&1  | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -hir-cg -S -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir=0 < %s 2>&1  | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -hir-cg -S -print-after=VPlanDriverHIR -enable-vp-value-codegen-hir=1 < %s 2>&1  | FileCheck %s
 ; CHECK: DO i1 = 0, 1023, 4
 ; CHECK:  %[[ARRIDX:.*]] = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr2, i64 0, i64 %1
 ; CHECK:  %[[BITCAST:.*]] = bitcast i32* %[[ARRIDX]] to <4 x i32>*

@@ -1,5 +1,8 @@
 ; RUN: lli -jit-kind=orc-lazy -compile-threads=2 -thread-entry hello %s | FileCheck %s
 ; REQUIRES: thread_support
+; INTEL_CUSTOMIZATION
+; UNSUPPORTED: intel_use_sanitizers
+; end INTEL_CUSTOMIZATION
 ;
 ; CHECK: Hello
 

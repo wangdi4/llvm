@@ -37,7 +37,7 @@
 ; CHECK: |   @_Z4swapRjS_(&((@a1_sur)[0][2 * i1 + 2]),  &((@g_b)[0]));
 ; CHECK: |   %9 = (@g_b)[0];
 ; CHECK: |   %10 = (@a1_sur)[0][i1 + 1];
-; CHECK: |   %or47 = %10  ||  %9;
+; CHECK: |   %or47 = %10  |  %9;
 ; CHECK: |   (@a1_sur)[0][i1 + 1] = %or47;
 ; CHECK: |   %1 = %9;
 ; CHECK: |   %indvars.iv167 = i1 + 2;

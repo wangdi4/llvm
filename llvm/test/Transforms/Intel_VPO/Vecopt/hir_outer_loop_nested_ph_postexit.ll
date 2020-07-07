@@ -73,11 +73,11 @@ define dso_local i64 @_Z3foollPlPA101_fb(i64 %n, i64 %m, i64* nocapture %ub, [10
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]:
 ; CHECK-NEXT:     i64 [[VP14:%.*]] = phi  [ i64 0, [[BB4]] ],  [ i64 [[VP15:%.*]], [[BB5]] ]
-; CHECK-NEXT:     float* [[VP16:%.*]] = getelementptr inbounds [101 x float]* [[A0:%.*]] i64 [[VP8]] i64 [[VP14]]
+; CHECK-NEXT:     float* [[VP16:%.*]] = subscript inbounds [101 x float]* [[A0:%.*]] i64 [[VP8]] i64 [[VP14]]
 ; CHECK-NEXT:     store float [[VP13]] float* [[VP16]]
 ; CHECK-NEXT:     i64 [[VP17:%.*]] = mul i64 3 i64 [[VP14]]
 ; CHECK-NEXT:     i64 [[VP18:%.*]] = add i64 [[VP10]] i64 [[VP17]]
-; CHECK-NEXT:     i64* [[VP19:%.*]] = getelementptr inbounds i64* [[UB0:%.*]] i64 [[VP14]]
+; CHECK-NEXT:     i64* [[VP19:%.*]] = subscript inbounds i64* [[UB0:%.*]] i64 [[VP14]]
 ; CHECK-NEXT:     store i64 [[VP18]] i64* [[VP19]]
 ; CHECK-NEXT:     i64 [[VP20:%.*]] = mul i64 2 i64 [[VP14]]
 ; CHECK-NEXT:     i64 [[VP21:%.*]] = add i64 [[VP10]] i64 [[VP20]]

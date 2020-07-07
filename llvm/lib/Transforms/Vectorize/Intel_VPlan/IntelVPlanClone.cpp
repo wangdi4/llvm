@@ -45,25 +45,15 @@ VPBasicBlock *VPCloneUtils::cloneBasicBlock(VPBasicBlock *Block,
     auto ClonedInst = Inst.clone();
     ClonedBlock->appendInstruction(ClonedInst);
     ValueMap.insert(std::make_pair(&Inst, ClonedInst));
-    if (DA) {
-      if (DA->isDivergent(Inst))
-        DA->markDivergent(*ClonedInst);
+    if (DA)
       DA->updateVectorShape(ClonedInst, DA->getVectorShape(&Inst));
-    }
   }
 
+  // Remove unnecessary terminator added by VPBasicBlock constructor
+  // FIXME: this is a temporary workaround which should be removed
+  ClonedBlock->removeInstruction(ClonedBlock->getTerminator());
+
   ValueMap.insert({Block, ClonedBlock});
-  if (auto CondBit = Block->getCondBit()) {
-    VPValue *ClonedCondBit = CondBit;
-    if (auto CondBitInst = dyn_cast<VPInstruction>(CondBit)) {
-      ClonedCondBit = CondBitInst->clone();
-      // Parent of the cloned condition bit will be updated later by
-      // VPValueMapper.
-      cast<VPInstruction>(ClonedCondBit)->Parent = CondBitInst->getParent();
-    }
-    ClonedBlock->setCondBit(ClonedCondBit);
-    ValueMap.insert({CondBit, ClonedCondBit});
-  }
 
   return ClonedBlock;
 }
@@ -93,7 +83,6 @@ VPBasicBlock *VPCloneUtils::cloneBlocksRange(VPBasicBlock *Begin,
     for (VPBasicBlock *OrigSucc : BB->getSuccessors()) {
       auto *CloneSucc = cast<VPBasicBlock>(ValueMap[OrigSucc]);
       Clone->appendSuccessor(CloneSucc);
-      CloneSucc->appendPredecessor(Clone);
     }
   }
 

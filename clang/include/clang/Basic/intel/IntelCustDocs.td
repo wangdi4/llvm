@@ -1224,17 +1224,17 @@ AST:
 
 .. code-block:: text
 
-  AttributedStmt 0xe315d38 <<invalid sloc>, line:4:31>
-  |-LoopHintAttr 0xe315d10 <line:3:11> Implicit ivdep IVDepHLS Enable
+  AttributedStmt 0x10977398 <line:3:13, line:4:33>
+    | |-SYCLIntelFPGAIVDepAttr 0x10977358 <line:3:13> 0
 
-  AttributedStmt 0xe315f88 <<invalid sloc>, line:6:31>
-  |-LoopHintAttr 0xe315f60 <line:5:11, col:27> Implicit ivdep IVDepHLS Numeric
+  AttributedStmt 0x11dee5f8 <line:5:13, line:6:33>
+    | |-SYCLIntelFPGAIVDepAttr 0x11dee5b8 <line:5:13, col:29> 4
 
-  AttributedStmt 0xe3161e0 <<invalid sloc>, line:8:31>
-  |-LoopHintAttr 0xe3161b8 <line:7:11, col:27> Implicit ivdep IVDepHLS LoopExpr
+  AttributedStmt 0x11dee840 <line:7:13, line:8:33>
+    | |-SYCLIntelFPGAIVDepAttr 0x11dee800 <line:7:13, col:29> 0
 
-  AttributedStmt 0xe316458 <<invalid sloc>, line:10:31>
-  |-LoopHintAttr 0xe316430 <line:9:11, col:28> Implicit ivdep IVDepHLS Full
+  AttributedStmt 0x11deeac0 <line:9:13, line:10:33>
+      |-SYCLIntelFPGAIVDepAttr 0x11deea80 <line:9:13, col:30> 4
 
 IR:
 
@@ -1244,20 +1244,26 @@ IR:
 
 .. code-block:: llvm
 
+  %Arr = alloca [16 x i32], align 16
+
   br label %for.cond, !llvm.loop !2
 
   br label %for.cond2, !llvm.loop !4
 
-  %4 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.IVDEP"(), "QUAL.PRAGMA.ARRAY"([16 x i32]* %Arr, i32 -1) ]
-  call void @llvm.directive.region.exit(token %4) [ "DIR.PRAGMA.END.IVDEP"() ]
+  br label %for.cond9, !llvm.loop !6
 
-  %7 = call token @llvm.directive.region.entry() [ "DIR.PRAGMA.IVDEP"(), "QUAL.PRAGMA.ARRAY"([16 x i32]* %Arr, i32 4) ]
-  call void @llvm.directive.region.exit(token %7) [ "DIR.PRAGMA.END.IVDEP"() ]
+  br label %for.cond16, !llvm.loop !9
 
   !2 = distinct !{!2, !3}
   !3 = !{!"llvm.loop.ivdep.enable"}
   !4 = distinct !{!4, !5}
   !5 = !{!"llvm.loop.ivdep.safelen", i32 4}
+  !6 = distinct !{!6, !7}
+  !7 = !{!"llvm.loop.parallel_access_indices", !8}
+  !8 = distinct !{}
+  !9 = distinct !{!9, !10}
+  !10 = !{!"llvm.loop.parallel_access_indices", !11, i32 4}
+  !11 = distinct !{}
 
   }];
   let UserContent = [{
@@ -3090,7 +3096,7 @@ will cause this promotion to happen automatically.
 def CpuDispatchUseLibIrcDocs : Documentation {
   let Category = DocCatIntelCompat;
   let Option = "IntelCompat";
-  let RegressionTest = "CodeGen/intel/cpu-dispatch.c";
+  let RegressionTest = "CodeGen/intel/attr-cpudispatch.c";
   let Owner = "ekeane1";
   let Content = [{
 Typically, the cpu-dispatch functionality uses libgcc's (or compiler-rt's)

@@ -348,6 +348,10 @@ public:
                                                 {WRNERROR("DEFAULTMAP");      }
   virtual void setDevice(EXPR E)                {WRNERROR(QUAL_OMP_DEVICE);   }
   virtual EXPR getDevice()                const {WRNERROR(QUAL_OMP_DEVICE);   }
+  virtual void setSubDeviceBase(EXPR E)      {WRNERROR(QUAL_OMP_SUBDEVICE);   }
+  virtual void setSubDeviceLength(EXPR E)    {WRNERROR(QUAL_OMP_SUBDEVICE);   }
+  virtual EXPR getSubDeviceBase()      const {WRNERROR(QUAL_OMP_SUBDEVICE);   }
+  virtual EXPR getSubDeviceLength()    const {WRNERROR(QUAL_OMP_SUBDEVICE);   }
   virtual void setFinal(EXPR E)                 {WRNERROR(QUAL_OMP_FINAL);    }
   virtual EXPR getFinal()                 const {WRNERROR(QUAL_OMP_FINAL);    }
   virtual void setGrainsize(EXPR E)             {WRNERROR(QUAL_OMP_GRAINSIZE);}
@@ -866,6 +870,19 @@ extern void printBB(StringRef Title, BasicBlock *BB, formatted_raw_ostream &OS,
 ///  * print *Val regardless of Verbosity
 extern void printVal(StringRef Title, Value *Val, formatted_raw_ostream &OS,
                      int Indent, unsigned Verbosity=1);
+
+/// Auxiliary function to print a range of Values in a WRN dump.
+///
+/// If Verbosity == 0 and both Val1 and Val2 are null:
+///  * exit without printing anything
+///
+/// Else
+///  * print:"Title(Val1:Val2)"
+///   where Val1 and Val2 will be printed as UNSPECIFIED if equal to null
+
+extern void printValRange(StringRef Title, Value *Val1 , Value *Val2,
+                          formatted_raw_ostream &OS, int Indent,
+                          unsigned Verbosity=1);
 
 /// Auxiliary function to print an ArrayRef of Values in a WRN dump.
 ///

@@ -24,8 +24,8 @@
 ; CHECK:            + DO i1 = 0, 4 * %tgu + -1, 4   <DO_LOOP>  <MAX_TC_EST = 1073741823> <nounroll> <novectorize>
 ; CHECK-NEXT:       |   %.copy = %red.var;
 ; CHECK-NEXT:       |   %.vec = (<4 x i32>*)(%A)[i1];
-; CHECK-NEXT:       |   %red.var = %.copy  +  i1 + <i64 0, i64 1, i64 2, i64 3>;
-; CHECK-NEXT:       |   %red.var = %red.var  +  %.vec;
+; CHECK-NEXT:       |   %.vec1 = %.copy  +  i1 + <i32 0, i32 1, i32 2, i32 3>;
+; CHECK-NEXT:       |   %red.var = %.vec1  +  %.vec;
 ; CHECK-NEXT:       + END LOOP
 
 ; CHECK:            %a.010 = @llvm.experimental.vector.reduce.add.v4i32(%red.var);

@@ -35,7 +35,7 @@
 ; CHECK:        + DO i1 = 0, 35, 1   <DO_LOOP>
 ; CHECK:        |   %2 = (@a1_diwssz)[0][3 * i1];
 ; CHECK:        |   (@a1_lpa)[0][-2 * i1 + 129] = 0;
-; CHECK:        |   %and = i1 + %2  &&  %0 + 1;
+; CHECK:        |   %and = i1 + %2  &  %0 + 1;
 ; CHECK:        |   (@a1_diwssz)[0][3 * i1] = %and;
 ; CHECK:        + END LOOP
 ; CHECK:  END REGION
@@ -47,7 +47,7 @@
 ; CHECK:        + DO i1 = 0, 35, 1   <DO_LOOP>
 ; CHECK:        |   %2 = (@a1_diwssz)[0][-3 * i1 + 105];
 ; CHECK:        |   (@a1_lpa)[0][2 * i1 + 59] = 0;
-; CHECK:        |   %and = -1 * i1 + %2 + 35  &&  %0 + 1;
+; CHECK:        |   %and = -1 * i1 + %2 + 35  &  %0 + 1;
 ; CHECK:        |   (@a1_diwssz)[0][-3 * i1 + 105] = %and;
 ; CHECK:        + END LOOP
 ; CHECK:  END REGION

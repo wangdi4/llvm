@@ -4,6 +4,9 @@
 // RUN: %GPU_RUN_PLACEHOLDER %t.out
 // RUN: %ACC_RUN_PLACEHOLDER %t.out
 
+// CMPLRLLVM-20331: disable test which causes timeout
+// UNSUPPORTED: linux
+
 //==---------- vector_operators.cpp - SYCL vec<> operators test ------------==//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.

@@ -110,6 +110,9 @@ public:
   /// Return true if this argument has the inalloca attribute.
   bool hasInAllocaAttr() const;
 
+  /// Return true if this argument has the preallocated attribute.
+  bool hasPreallocatedAttr() const;
+
   /// Return true if this argument has the zext attribute.
   bool hasZExtAttr() const;
 
@@ -128,6 +131,11 @@ public:
 
   /// Check if an argument has a given attribute.
   bool hasAttribute(Attribute::AttrKind Kind) const;
+
+#if INTEL_CUSTOMIZATION
+  /// Check if an argument has a given attribute.
+  bool hasAttribute(StringRef Kind) const;
+#endif // INTEL_CUSTOMIZATION
 
   Attribute getAttribute(Attribute::AttrKind Kind) const;
 

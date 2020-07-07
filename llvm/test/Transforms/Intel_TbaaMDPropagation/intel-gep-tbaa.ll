@@ -11,7 +11,7 @@ define i32 @test_merge(%struct.Outer* %o) {
 ; CHECK-NEXT:    [[INNER2:%.*]] = getelementptr inbounds [[STRUCT_OUTER:%.*]], %struct.Outer* [[O:%.*]], i32 0, i32 1, !intel-tbaa !0
 ; CHECK-NEXT:    [[INNER2_ARRAY:%.*]] = getelementptr inbounds [[STRUCT_INNER:%.*]], %struct.Inner* [[INNER2]], i32 0, i32 0, !intel-tbaa !7
 ; CHECK-NEXT:    [[INNER2_ARRAY_ELEM:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[INNER2_ARRAY]], i32 0, i32 7, !intel-tbaa !8
-; CHECK-NEXT:    [[LD:%.*]] = load i32, i32* [[INNER2_ARRAY_ELEM]], !tbaa !9
+; CHECK-NEXT:    [[LD:%.*]] = load i32, i32* [[INNER2_ARRAY_ELEM]], align 4, !tbaa !9
 ; CHECK-NEXT:    ret i32 [[LD]]
 ;
   %inner2 = getelementptr inbounds %struct.Outer, %struct.Outer* %o, i32 0, i32 1, !intel-tbaa !7
@@ -28,7 +28,7 @@ define i32 @test_no_merge(%struct.Outer* %o) {
 ; CHECK-NEXT:    [[INNER1:%.*]] = getelementptr inbounds [[STRUCT_OUTER:%.*]], %struct.Outer* [[O:%.*]], i32 0, i32 0, !intel-tbaa !10
 ; CHECK-NEXT:    [[INNER1_ARRAY:%.*]] = getelementptr inbounds [[STRUCT_INNER:%.*]], %struct.Inner* [[INNER1]], i32 0, i32 0
 ; CHECK-NEXT:    [[INNER1_ARRAY_ELEM:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[INNER1_ARRAY]], i32 0, i32 7, !intel-tbaa !8
-; CHECK-NEXT:    [[LD:%.*]] = load i32, i32* [[INNER1_ARRAY_ELEM]], !tbaa !8
+; CHECK-NEXT:    [[LD:%.*]] = load i32, i32* [[INNER1_ARRAY_ELEM]], align 4, !tbaa !8
 ; CHECK-NEXT:    ret i32 [[LD]]
 ;
   %inner1 = getelementptr inbounds %struct.Outer, %struct.Outer* %o, i32 0, i32 0, !intel-tbaa !6
@@ -45,7 +45,7 @@ define i32 @test_no_propagation(%struct.Outer* %o) {
 ; CHECK-NEXT:    [[INNER1:%.*]] = getelementptr inbounds [[STRUCT_OUTER:%.*]], %struct.Outer* [[O:%.*]], i32 0, i32 0, !intel-tbaa !10
 ; CHECK-NEXT:    [[INNER1_ARRAY:%.*]] = getelementptr inbounds [[STRUCT_INNER:%.*]], %struct.Inner* [[INNER1]], i32 0, i32 0, !intel-tbaa !7
 ; CHECK-NEXT:    [[INNER1_ARRAY_ELEM:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[INNER1_ARRAY]], i32 0, i32 7, !intel-tbaa !8
-; CHECK-NEXT:    [[LD:%.*]] = load i32, i32* [[INNER1_ARRAY_ELEM]]
+; CHECK-NEXT:    [[LD:%.*]] = load i32, i32* [[INNER1_ARRAY_ELEM]], align 4
 ; CHECK-NEXT:    ret i32 [[LD]]
 ;
   %inner1 = getelementptr inbounds %struct.Outer, %struct.Outer* %o, i32 0, i32 0, !intel-tbaa !6
@@ -76,7 +76,7 @@ define i32 @test_less_precise(%struct.Inner* %inner) {
 ; CHECK-LABEL: define i32 @test_less_precise(%struct.Inner* %inner) {
 ; CHECK-NEXT:    [[INNER_ARRAY:%.*]] = getelementptr inbounds [[STRUCT_INNER:%.*]], %struct.Inner* [[INNER:%.*]], i32 0, i32 0, !intel-tbaa !7
 ; CHECK-NEXT:    [[INNER_ARRAY_ELEM:%.*]] = getelementptr inbounds [10 x i32], [10 x i32]* [[INNER_ARRAY]], i32 0, i32 7, !intel-tbaa !8
-; CHECK-NEXT:    [[LD:%.*]] = load i32, i32* [[INNER_ARRAY_ELEM]], !intel-tbaa !9
+; CHECK-NEXT:    [[LD:%.*]] = load i32, i32* [[INNER_ARRAY_ELEM]], align 4, !intel-tbaa !9
 ; CHECK-NEXT:    ret i32 [[LD]]
 ;
   %inner.array = getelementptr inbounds %struct.Inner, %struct.Inner* %inner, i32 0, i32 0, !intel-tbaa !8

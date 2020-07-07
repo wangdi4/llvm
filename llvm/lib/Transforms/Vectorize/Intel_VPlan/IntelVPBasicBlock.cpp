@@ -21,6 +21,12 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
+// TODO: remove this flag after updating all tests.
+bool PrintTerminatorInst = false;
+static cl::opt<bool, true> PrintTerminatorInstOpt(
+    "vplan-print-terminator-inst", cl::location(PrintTerminatorInst),
+    cl::Hidden, cl::desc("Print terminator instructions in VPlan dumps."));
+
 // When a VPinstruction is added in a basic block list, the following method
 // updates the parent.
 void ilist_traits<VPInstruction>::addNodeToList(VPInstruction *VPInst) {
@@ -62,104 +68,24 @@ void ilist_traits<VPInstruction>::deleteNode(VPInstruction *VPInst) {
 
 void VPBlockUtils::insertBlockBefore(VPBasicBlock *NewBB,
                                      VPBasicBlock *BlockPtr) {
-  insertBlockBefore(NewBB, BlockPtr, BlockPtr->getPredecessors());
-}
+  for (auto Pred : BlockPtr->getPredecessors())
+    Pred->replaceSuccessor(BlockPtr, NewBB);
 
-void VPBlockUtils::insertBlockBefore(VPBasicBlock *NewBB,
-                                     VPBasicBlock *BlockPtr,
-                                     SmallVectorImpl<VPBasicBlock *> &Preds) {
-  movePredecessors(BlockPtr, NewBB, Preds);
   NewBB->insertBefore(BlockPtr);
-  connectBlocks(NewBB, BlockPtr);
+  NewBB->appendSuccessor(BlockPtr);
 }
 
 void VPBlockUtils::insertBlockAfter(VPBasicBlock *NewBB,
                                     VPBasicBlock *BlockPtr) {
-  moveSuccessors(BlockPtr, NewBB);
   NewBB->insertAfter(BlockPtr);
-  connectBlocks(BlockPtr, NewBB);
-}
-
-void VPBlockUtils::connectBlocks(VPBasicBlock *From, VPBasicBlock *To) {
-  assert((From->getParent() == To->getParent()) &&
-         "Can't connect two block with different parents");
-  assert(From->getNumSuccessors() < 2 &&
-         "Blocks can't have more than two successors.");
-  From->appendSuccessor(To);
-  To->appendPredecessor(From);
-}
-
-void VPBlockUtils::connectBlocks(VPBasicBlock *From, VPValue *ConditionV,
-                                 VPBasicBlock *IfTrue, VPBasicBlock *IfFalse) {
-  From->setTwoSuccessors(ConditionV, IfTrue, IfFalse);
-  IfTrue->appendPredecessor(From);
-  IfFalse->appendPredecessor(From);
-}
-
-void VPBlockUtils::disconnectBlocks(VPBasicBlock *From, VPBasicBlock *To) {
-  assert(To && "Successor to disconnect is null.");
-  From->removeSuccessor(To);
-  To->removePredecessor(From);
-}
-
-void VPBlockUtils::replaceBlockSuccessor(VPBasicBlock *BB,
-                                         VPBasicBlock *OldSuccessor,
-                                         VPBasicBlock *NewSuccessor) {
-  // Replace successor
-  // TODO: Add VPBasicBlock::replaceSuccessor. Let's not modify VPlan.h too
-  // much by now
-  auto &Successors = BB->getSuccessors();
-  auto SuccIt = std::find(Successors.begin(), Successors.end(), OldSuccessor);
-  assert(SuccIt != Successors.end() && "Successor not found");
-  SuccIt = Successors.erase(SuccIt);
-  Successors.insert(SuccIt, NewSuccessor);
-}
-
-void VPBlockUtils::replaceBlockPredecessor(VPBasicBlock *BB,
-                                           VPBasicBlock *OldPredecessor,
-                                           VPBasicBlock *NewPredecessor) {
-  // Replace predecessor
-  // TODO: Add VPBasicBlock::replacePredecessor. Let's not modify VPlan.h too
-  // much by now
-  auto &Predecessors = BB->getPredecessors();
-  auto PredIt =
-      std::find(Predecessors.begin(), Predecessors.end(), OldPredecessor);
-  assert(PredIt != Predecessors.end() && "Predecessor not found");
-  PredIt = Predecessors.erase(PredIt);
-  Predecessors.insert(PredIt, NewPredecessor);
-}
-
-void VPBlockUtils::movePredecessor(VPBasicBlock *Pred, VPBasicBlock *From,
-                                   VPBasicBlock *To) {
-  replaceBlockSuccessor(Pred, From /*OldSuccessor*/, To /*NewSuccessor*/);
-  To->appendPredecessor(Pred);
-  From->removePredecessor(Pred);
-}
-
-void VPBlockUtils::movePredecessors(
-    VPBasicBlock *From, VPBasicBlock *To,
-    SmallVectorImpl<VPBasicBlock *> &Predecessors) {
-  for (auto &Pred : Predecessors) {
-    replaceBlockSuccessor(Pred, From, To);
-    To->appendPredecessor(Pred);
-    From->removePredecessor(Pred);
-  }
-}
-
-void VPBlockUtils::movePredecessors(VPBasicBlock *From, VPBasicBlock *To) {
-  movePredecessors(From, To, From->getPredecessors());
+  moveSuccessors(BlockPtr, NewBB);
+  BlockPtr->appendSuccessor(NewBB);
 }
 
 void VPBlockUtils::moveSuccessors(VPBasicBlock *From, VPBasicBlock *To) {
-  auto &Successors = From->getSuccessors();
-
-  for (auto &Succ : Successors) {
-    replaceBlockPredecessor(Succ, From, To);
+  for (auto Succ : From->getSuccessors())
     To->appendSuccessor(Succ);
-  }
-
-  // Remove successors from From
-  Successors.clear();
+  From->clearSuccessors();
 }
 
 bool VPBlockUtils::isBackEdge(const VPBasicBlock *FromBB,
@@ -222,11 +148,8 @@ VPBasicBlock *VPBlockUtils::splitBlock(VPBasicBlock *BB,
     } else {
       // NewBB has multiple successors. NewBB's ipostdom is the nearest
       // common post-dominator of both successors.
-
-      // TODO: getSuccessor(0)
-      auto &Successors = NewBB->getSuccessors();
-      VPBasicBlock *Succ1 = *Successors.begin();
-      VPBasicBlock *Succ2 = *std::next(Successors.begin());
+      VPBasicBlock *Succ1 = NewBB->getSuccessor(0);
+      VPBasicBlock *Succ2 = NewBB->getSuccessor(1);
 
       NewBBPDT = PostDomTree->addNewBlock(
           NewBB, PostDomTree->findNearestCommonDominator(Succ1, Succ2));
@@ -263,9 +186,7 @@ VPBasicBlock *VPBlockUtils::splitBlockBegin(VPBasicBlock *BB,
 VPBasicBlock *VPBlockUtils::splitBlockEnd(VPBasicBlock *BB, VPLoopInfo *VPLInfo,
                                           VPDominatorTree *DomTree,
                                           VPPostDominatorTree *PostDomTree) {
-  // TODO: Once terminators are implemented, we should split before the
-  // terminator, not before the end iterator.
-  return splitBlock(BB, BB->end(), VPLInfo, DomTree, PostDomTree);
+  return splitBlock(BB, BB->terminator(), VPLInfo, DomTree, PostDomTree);
 }
 
 VPBasicBlock *VPBlockUtils::splitBlockAtPredicate(
@@ -292,31 +213,38 @@ VPBasicBlock::VPBasicBlock(const Twine &Name, VPlan *Plan)
       // so do NOT set parent.
       Parent(nullptr) {
   setName(Name);
+
+  Type *BaseTy = Type::getVoidTy(*Plan->getLLVMContext());
+  VPBranchInst *Instr = new VPBranchInst(BaseTy);
+  insert(Instr, end());
 }
 
 void VPBasicBlock::appendSuccessor(VPBasicBlock *Successor) {
-  assert(Successor && "Cannot add nullptr successor!");
-  Successors.push_back(Successor);
-}
-
-void VPBasicBlock::appendPredecessor(VPBasicBlock *Predecessor) {
-  assert(Predecessor && "Cannot add nullptr predecessor!");
-  Predecessors.push_back(Predecessor);
-}
-
-void VPBasicBlock::removePredecessor(VPBasicBlock *Predecessor) {
-  auto Pos = std::find(Predecessors.begin(), Predecessors.end(), Predecessor);
-  assert(Pos && "Predecessor does not exist");
-  Predecessors.erase(Pos);
+  assert(getNumSuccessors() < 2 &&
+         "Blocks can't have more than two successors.");
+  getTerminator()->appendSuccessor(Successor);
 }
 
 void VPBasicBlock::removeSuccessor(VPBasicBlock *Successor) {
-  auto Pos = std::find(Successors.begin(), Successors.end(), Successor);
-  assert(Pos && "Successor does not exist");
-  Successors.erase(Pos);
+  assert(Successor && "Successor to remove is null.");
+  getTerminator()->removeSuccessor(Successor);
+}
+
+void VPBasicBlock::replaceSuccessor(VPBasicBlock *OldSuccessor,
+                                    VPBasicBlock *NewSuccessor) {
+  getTerminator()->replaceSuccessor(OldSuccessor, NewSuccessor);
+}
+
+VPBasicBlock * VPBasicBlock::getSuccessor(unsigned idx) const {
+  return getTerminator()->getSuccessor(idx);
+}
+
+VPBasicBlock *VPBasicBlock::getSinglePredecessor() const {
+  return getNumPredecessors() == 1 ? *getPredecessors().begin() : nullptr;
 }
 
 const VPBasicBlock *VPBasicBlock::getUniquePredecessor() const {
+  auto Predecessors = getPredecessors();
   auto PI = Predecessors.begin();
   auto E = Predecessors.end();
   if (PI == E)
@@ -332,33 +260,51 @@ const VPBasicBlock *VPBasicBlock::getUniquePredecessor() const {
   return PredBB;
 }
 
+VPUser::const_operand_range VPBasicBlock::successors() const {
+  return getTerminator()->successors();
+}
+
+size_t VPBasicBlock::getNumSuccessors() const {
+  return getTerminator()->getNumSuccessors();
+}
+
+VPBasicBlock *VPBasicBlock::getSingleSuccessor() const {
+  return getTerminator()->getSingleSuccessor();
+}
+
 void VPBasicBlock::setOneSuccessor(VPBasicBlock *Successor) {
-  assert(Successors.empty() && "Setting one successor when others exist.");
-  appendSuccessor(Successor);
+  getTerminator()->setOneSuccessor(Successor);
 }
 
 void VPBasicBlock::setTwoSuccessors(VPValue *ConditionV, VPBasicBlock *IfTrue,
                                     VPBasicBlock *IfFalse) {
-  assert(Successors.empty() && "Setting two successors when others exist.");
-  setCondBit(ConditionV);
-  appendSuccessor(IfTrue);
-  appendSuccessor(IfFalse);
+  getTerminator()->setTwoSuccessors(ConditionV, IfTrue, IfFalse);
 }
 
-void VPBasicBlock::setPredecessors(ArrayRef<VPBasicBlock *> NewPreds) {
-  assert(Predecessors.empty() && "Block predecessors already set.");
-  for (auto *Pred : NewPreds)
-    appendPredecessor(Pred);
+void VPBasicBlock::clearSuccessors() {
+  getTerminator()->clearSuccessors();
+}
+
+VPValue *VPBasicBlock::getCondBit() {
+  return getTerminator()->getCondBit();
+}
+
+const VPValue *VPBasicBlock::getCondBit() const {
+  return getTerminator()->getCondBit();
+}
+
+void VPBasicBlock::setCondBit(VPValue *CB) {
+  getTerminator()->setCondBit(CB);
 }
 
 void VPBasicBlock::insertBefore(VPBasicBlock *InsertPos) {
   VPlan *CurPlan = InsertPos->getParent();
-   CurPlan->insertBefore(this, InsertPos);
+  CurPlan->insertBefore(this, InsertPos);
 }
 
 void VPBasicBlock::insertAfter(VPBasicBlock *InsertPos) {
   VPlan *CurPlan = InsertPos->getParent();
-   CurPlan->insertAfter(this, InsertPos);
+  CurPlan->insertAfter(this, InsertPos);
 }
 
 VPValue *VPBasicBlock::getPredicate() {
@@ -389,7 +335,7 @@ void VPBasicBlock::insert(VPInstruction *Instruction, iterator InsertPt) {
 }
 
 void VPBasicBlock::appendInstruction(VPInstruction *Instruction) {
-  insert(Instruction, end());
+  insert(Instruction, terminator());
 }
 
 void VPBasicBlock::addInstructionAfter(VPInstruction *Instruction,
@@ -404,7 +350,7 @@ void VPBasicBlock::addInstructionAfter(VPInstruction *Instruction,
 void VPBasicBlock::addInstruction(VPInstruction *Instruction,
                                   VPInstruction *Before) {
   if (!Before) {
-    Instructions.insert(Instructions.end(), Instruction);
+    Instructions.insert(terminator(), Instruction);
   } else {
     assert(Before->Parent == this &&
            "Insertion before point not in this basic block.");
@@ -532,7 +478,9 @@ static bool isDeadPredicateInst(VPInstruction &Inst) {
   unsigned Opcode = Inst.getOpcode();
   if (Opcode == VPInstruction::Pred) {
     auto *BB = Inst.getParent();
-    return ++(Inst.getIterator()) == BB->end();
+    auto NextIt = ++Inst.getIterator();
+    return NextIt == BB->terminator() &&
+           !cast<VPBranchInst>(NextIt)->getHLGoto();
   }
 
   if (Opcode != VPInstruction::Not && Opcode != Instruction::And)
@@ -541,7 +489,13 @@ static bool isDeadPredicateInst(VPInstruction &Inst) {
   if (Inst.getNumUsers() != 1)
     return false;
 
-  return isDeadPredicateInst(*cast<VPInstruction>(*Inst.user_begin()));
+  auto *InstUser = *Inst.user_begin();
+
+  if (!isa<VPInstruction>(InstUser))
+    // Instruction has a single non-instruction user.
+    return false;
+
+  return isDeadPredicateInst(*cast<VPInstruction>(InstUser));
 }
 
 void VPBasicBlock::executeHIR(VPOCodeGenHIR *CG) {
@@ -597,17 +551,32 @@ VPBasicBlock::getNonPredicateInstructions() const {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPBasicBlock::print(raw_ostream &OS, unsigned Indent,
                          const VPlanDivergenceAnalysis *DA,
+                         const VPlanScalVecAnalysis *SVA,
                          const Twine &NamePrefix) const {
   std::string StrIndent = std::string(2 * Indent, ' ');
-  OS << StrIndent << NamePrefix << getName() << ":\n";
+  OS << StrIndent << NamePrefix << getName() << ":";
+  if (PrintTerminatorInst) {
+    OS << " # preds: ";
+    auto Predecessors = getPredecessors();
+    for (auto It = Predecessors.begin(); It != Predecessors.end(); It++) {
+      if (It != Predecessors.begin())
+        OS << ", ";
+      OS << (*It)->getName();
+    }
+  }
+  OS << "\n";
 
   // Print block body
-  if (empty()) {
+  if (empty() || !PrintTerminatorInst && size() == 1 &&
+                     !cast<VPBranchInst>(front()).getHLGoto()) {
     OS << StrIndent << " <Empty Block>\n";
   } else {
-    for (const VPInstruction &Inst : *this) {
+    for (const VPInstruction &Inst : Instructions) {
+      if (!PrintTerminatorInst && isa<VPBranchInst>(Inst) &&
+          !cast<VPBranchInst>(Inst).getHLGoto())
+        continue;
       OS << StrIndent << " ";
-      Inst.dump(OS, DA);
+      Inst.dump(OS, DA, SVA);
     }
   }
   const VPValue *CB = getCondBit();
@@ -620,7 +589,7 @@ void VPBasicBlock::print(raw_ostream &OS, unsigned Indent,
           OS << CBI->getParent()->getName();
         }
         OS << "): ";
-        CBI->dump(OS, DA);
+        CBI->dump(OS, DA, SVA);
       }
     } else {
       // We fall here if VPInstruction has no operands or Value is
@@ -630,38 +599,40 @@ void VPBasicBlock::print(raw_ostream &OS, unsigned Indent,
       OS << "\n";
     }
   }
-  auto &Successors = getSuccessors();
-  if (Successors.empty())
-    OS << StrIndent << "no SUCCESSORS";
-  else {
-    OS << StrIndent << "SUCCESSORS(" << Successors.size() << "):";
-    if (Successors.size() == 1) {
-      OS << Successors.front()->getName();
-    } else if (Successors.size() == 2) {
-      if (CB) {
-        OS << Successors.front()->getName() << "(";
-        CB->printAsOperand(OS);
-        OS << "), " << Successors.back()->getName() << "(!";
-        CB->printAsOperand(OS);
-        OS << ")";
+  if (!PrintTerminatorInst) {
+    if (getNumSuccessors() == 0)
+      OS << StrIndent << "no SUCCESSORS";
+    else {
+      OS << StrIndent << "SUCCESSORS(" << getNumSuccessors() << "):";
+      if (getNumSuccessors() == 1) {
+        OS << getSuccessor(0)->getName();
+      } else if (getNumSuccessors() == 2) {
+        if (CB) {
+          OS << getSuccessor(0)->getName() << "(";
+          CB->printAsOperand(OS);
+          OS << "), " << getSuccessor(1)->getName() << "(!";
+          CB->printAsOperand(OS);
+          OS << ")";
+        } else {
+          OS << getSuccessor(0)->getName() << "(<undef>), ";
+          OS << getSuccessor(1)->getName() << "(!<undef>)";
+        }
       } else {
-        OS << Successors.front()->getName() << "(<undef>), "
-           << Successors.back()->getName() << "(!<undef>)";
+        llvm_unreachable("More than 2 successors in basic block are not supported!");
       }
-    } else {
-      assert("More than 2 successors in basic block are not supported!");
     }
+    OS << "\n";
+    auto Predecessors = getPredecessors();
+    if (Predecessors.empty()) {
+      OS << StrIndent << "no PREDECESSORS";
+    } else {
+      OS << StrIndent << "PREDECESSORS(" << getNumPredecessors() << "):";
+      for (auto BB : Predecessors)
+        OS << " " << BB->getName();
+    }
+    OS << "\n";
   }
   OS << "\n";
-  auto &Predecessors = getPredecessors();
-  if (Predecessors.empty()) {
-    OS << StrIndent << "no PREDECESSORS";
-  } else {
-    OS << StrIndent << "PREDECESSORS(" << Predecessors.size() << "):";
-    for (auto BB : Predecessors)
-      OS << " " << BB->getName();
-  }
-  OS << "\n\n";
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
@@ -684,17 +655,12 @@ VPBasicBlock::createEmptyBasicBlock(VPTransformState::CFGState &CFG)
   LLVM_DEBUG(dbgs() << "LV: created " << NewBB->getName() << '\n');
 
 #if INTEL_CUSTOMIZATION
-  // Hook up the new basic block to its predecessors. New predecessors that
-  // result from creating new BranchInsts are prepended instead of appended to
-  // the predecessor list. In order to preserve original CFG and original
-  // predecessors order, we have to process them in reverse order.
-  for (VPBasicBlock *PredVPBB : reverse(getPredecessors())) {
-    auto &PredVPSuccessors = PredVPBB->getSuccessors();
-
+  // Hook up the new basic block to its predecessors.
+  for (VPBasicBlock *PredVPBB : getPredecessors()) {
     // In order to keep the hookup code simple, we delay fixing up blocks
     // with two successors to the end of code generation when all blocks
     // have been visited.
-    if (PredVPSuccessors.size() == 2) {
+    if (PredVPBB->getNumSuccessors() == 2) {
       CFG.VPBBsToFix.push_back(PredVPBB);
       continue;
     }
@@ -712,7 +678,7 @@ VPBasicBlock::createEmptyBasicBlock(VPTransformState::CFGState &CFG)
 #else
   // Hook up the new basic block to its predecessors.
   for (VPBasicBlock *PredVPBB : getPredecessors()) {
-    auto &PredVPSuccessors = PredVPBB->getSuccessors();
+    auto PredVPSuccessors = PredVPBB->getSuccessors();
     BasicBlock *PredBB = CFG.VPBB2IRBB[PredVPBB];
     assert(PredBB && "Predecessor basic-block not found building successor.");
     auto *PredBBTerminator = PredBB->getTerminator();
@@ -750,7 +716,8 @@ VPBasicBlock *VPBasicBlock::splitBlock(iterator I, const Twine &NewBBName) {
   while (I != End && (isa<VPPHINode>(*I) || isa<VPBlendInst>(*I)))
     ++I;
 
-  NewBB->Instructions.splice(NewBB->end(), Instructions, I, end());
+  NewBB->Instructions.splice(NewBB->terminator(), Instructions, I,
+                             terminator());
 
   // Once instructions have been moved, determine which block has a
   // block-predicate instruction now.
@@ -760,7 +727,7 @@ VPBasicBlock *VPBasicBlock::splitBlock(iterator I, const Twine &NewBBName) {
     BlockPredicate->getParent()->setBlockPredicate(BlockPredicate);
 
   // Update incoming block of VPPHINodes in successors, if any
-  for (auto &Successor : NewBB->getSuccessors()) {
+  for (auto Successor : NewBB->getSuccessors()) {
     // Iterate over all VPPHINodes in Successor. Successor can be a region so
     // we should take its entry.
     for (VPPHINode &VPN : Successor->getVPPhis()) {
@@ -777,6 +744,7 @@ VPBasicBlock *VPBasicBlock::splitBlock(iterator I, const Twine &NewBBName) {
 
   return NewBB;
 }
+
 VPBasicBlock *VPBlockUtils::splitEdge(VPBasicBlock *From, VPBasicBlock *To,
                                       const Twine &Name, VPLoopInfo *VPLInfo,
                                       VPDominatorTree *DomTree,
@@ -785,10 +753,20 @@ VPBasicBlock *VPBlockUtils::splitEdge(VPBasicBlock *From, VPBasicBlock *To,
          "From and To do not form an edge!");
   auto *NewBB = new VPBasicBlock(Name, From->getParent());
   NewBB->insertAfter(From);
-  VPBlockUtils::replaceBlockSuccessor(From, To, NewBB);
-  VPBlockUtils::replaceBlockPredecessor(To, From, NewBB);
-  NewBB->appendPredecessor(From);
+  From->replaceSuccessor(To, NewBB);
   NewBB->appendSuccessor(To);
+
+  for (VPPHINode &VPN : To->getVPPhis()) {
+    // Transform the VPBBUsers vector of the PHI node by replacing any
+    // occurrence of BB with NewBB
+    llvm::transform(VPN.blocks(), VPN.block_begin(),
+                    [From, NewBB](VPBasicBlock *A) -> VPBasicBlock * {
+                      if (A == From)
+                        return NewBB;
+                      return A;
+                    });
+  }
+
   // FIXME: VPLInfo update.
   if (VPLInfo) {
     auto *FromLoop = VPLInfo->getLoopFor(From);
@@ -806,4 +784,29 @@ VPBasicBlock *VPBlockUtils::splitEdge(VPBasicBlock *From, VPBasicBlock *To,
   if (PostDomTree)
     PostDomTree->recalculate(*From->getParent());
   return NewBB;
+}
+
+VPBasicBlock::iterator VPBasicBlock::terminator() {
+  assert(!empty() && "At least one VPBranchInst block is expected.");
+  iterator It = std::prev(end());
+  assert(isa<VPBranchInst>(It) &&
+         "The last VPInstruction is expected to be VPBranchInst instruction.");
+  return It;
+}
+
+VPBasicBlock::const_iterator VPBasicBlock::terminator() const {
+  return const_cast<VPBasicBlock *>(this)->terminator();
+}
+
+VPBranchInst *VPBasicBlock::getTerminator() {
+  auto It = terminator();
+  return cast<VPBranchInst>(It);
+}
+
+const VPBranchInst *VPBasicBlock::getTerminator() const {
+  return const_cast<VPBasicBlock *>(this)->getTerminator();
+}
+
+VPBasicBlock *VPBasicBlock::getVPUserParent(VPUser *User) {
+  return cast<VPBranchInst>(User)->getParent();
 }

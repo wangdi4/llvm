@@ -20,7 +20,7 @@ define void @main() {
 ; CHECK-NEXT:     i32 [[VP_IV_NEXT]] = add i32 [[VP_IV]] i32 1
 ; CHECK-NEXT:     i1 [[VP_CMP1:%.*]] = icmp i32 [[VP_IV]] i32 [[VP_LANE]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB2:BB[0-9]+]](i1 [[VP_CMP1]]), [[INTERMEDIATE_BB0:intermediate.bb[0-9]+]](!i1 [[VP_CMP1]])
-; CHECK-NEXT:    PREDECESSORS(2): [[NEW_LOOP_LATCH0]] [[BB0]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[NEW_LOOP_LATCH0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:      [[INTERMEDIATE_BB0]]:
 ; CHECK-NEXT:       <Empty Block>
@@ -66,7 +66,7 @@ define void @main() {
 ; CHECK-NEXT:    [[BB6]]:
 ; CHECK-NEXT:     void [[VP1:%.*]] = ret
 ; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(2): [[BB4]] [[BB5]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB5]] [[BB4]]
 ;
 entry:
   %lane = call i32 @llvm.vplan.laneid()

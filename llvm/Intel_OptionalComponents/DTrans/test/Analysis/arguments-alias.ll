@@ -1,3 +1,4 @@
+; REQUIRES: asserts
 ; This test is to verify that DTrans Analysis can analyze a function call
 ; made via a GlobalAlias definition.
 

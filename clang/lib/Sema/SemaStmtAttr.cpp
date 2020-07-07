@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "clang/AST/EvaluatedExprVisitor.h"
 #include "clang/Sema/SemaInternal.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/Basic/SourceManager.h"
@@ -196,8 +197,8 @@ static IVDepExprResult HandleFPGAIVDepAttrExpr(Sema &S, Expr *E,
     return IVDepExprResult::SafeLen;
   }
 
-  if (isa<DeclRefExpr>(E)) {
-    if (!cast<DeclRefExpr>(E)->getType()->isArrayType()) {
+  if (isa<DeclRefExpr>(E) || isa<MemberExpr>(E)) {
+    if (!E->getType()->isArrayType() && !E->getType()->isPointerType()) {
       S.Diag(E->getExprLoc(), diag::err_ivdep_declrefexpr_arg);
       return IVDepExprResult::Invalid;
     }
@@ -297,7 +298,7 @@ CheckRedundantSYCLIntelFPGAIVDepAttrs(Sema &S, ArrayRef<const Attr *> Attrs) {
     if (!A->getArrayExpr())
       continue;
 
-    const VarDecl *ArrayDecl = A->getArrayDecl();
+    const ValueDecl *ArrayDecl = A->getArrayDecl();
     auto Other = llvm::find_if(SortedAttrs,
                                [ArrayDecl](const SYCLIntelFPGAIVDepAttr *A) {
                                  return ArrayDecl == A->getArrayDecl();
@@ -325,6 +326,18 @@ static Attr *handleIntelFPGAIVDepAttr(Sema &S, const ParsedAttr &A) {
       A, NumArgs >= 1 ? A.getArgAsExpr(0) : nullptr,
       NumArgs == 2 ? A.getArgAsExpr(1) : nullptr);
 }
+
+#if INTEL_CUSTOMIZATION
+static Attr *handleHLSIVDepAttr(Sema &S, const ParsedAttr &A) {
+  Expr* ValueExpr = A.getArgAsExpr(3);
+  Expr *ArrayExpr = A.getArgAsExpr(4);
+
+  if (ValueExpr == nullptr)
+    std::swap(ValueExpr, ArrayExpr);
+
+  return S.BuildSYCLIntelFPGAIVDepAttr(A, ValueExpr, ArrayExpr);
+}
+#endif // INTEL_CUSTOMIZATION
 
 static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
                                 SourceRange) {
@@ -445,6 +458,14 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
   } else if (PragmaName == "max_interleaving") {
     SetHints(LoopHintAttr::MaxInterleaving, LoopHintAttr::Numeric);
   } else if (PragmaName == "ivdep") {
+    bool HLSCompat =
+          S.getLangOpts().HLS ||
+          (S.getLangOpts().OpenCL &&
+           S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment());
+    bool IntelCompat = S.getLangOpts().IntelCompat;
+    if (HLSCompat) {
+      return handleHLSIVDepAttr(S, A);
+    } /* if */
     if (ValueExpr && ArrayExpr) {
       SetHints(LoopHintAttr::IVDepHLS, LoopHintAttr::Full);
     } else if (ValueExpr) {
@@ -456,11 +477,6 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
     } else if (OptionLoc->Ident && OptionLoc->Ident->getName() == "back") {
       SetHints(LoopHintAttr::IVDepBack, LoopHintAttr::Enable);
     } else {
-      bool HLSCompat =
-          S.getLangOpts().HLS ||
-          (S.getLangOpts().OpenCL &&
-           S.Context.getTargetInfo().getTriple().isINTELFPGAEnvironment());
-      bool IntelCompat = S.getLangOpts().IntelCompat;
       if (HLSCompat && IntelCompat)
         SetHints(LoopHintAttr::IVDepHLSIntel, LoopHintAttr::Enable);
       else if (HLSCompat)
@@ -803,140 +819,45 @@ bool Sema::CheckIntelBlockLoopAttribute(const IntelBlockLoopAttr *BL) {
   }
   return true;
 }
-
-// A class to compare two #pragma ivdep safelen values in
-// an anonymous namespace.
-namespace {
-  class IVDepCompare {
-    llvm::APSInt SafeLen;
-    bool IsMaxSafeLen = false;
-  public:
-    IVDepCompare(Sema &S, const LoopHintAttr* LH) {
-      if (LH->getState() == LoopHintAttr::Enable ||
-          LH->getState() == LoopHintAttr::LoopExpr)
-        IsMaxSafeLen = true;
-      else
-        SafeLen = LH->getValue()->EvaluateKnownConstInt(S.Context);
-    }
-    bool isMaxSafeLen() { return IsMaxSafeLen; }
-    bool operator==(const IVDepCompare &C) {
-      return IsMaxSafeLen == C.IsMaxSafeLen && SafeLen == C.SafeLen;
-    }
-    bool operator>(const IVDepCompare& C) {
-       if (IsMaxSafeLen && !C.IsMaxSafeLen) return true;
-       if (C.IsMaxSafeLen) return false;
-       return SafeLen > C.SafeLen;
-    }
-    bool operator>=(const IVDepCompare& C) { return *this == C || *this > C; }
-  };
-} // end anonymous namespace
-
-static void
-CheckForRedundantIVDepAttributes(Sema &S,
-                                 const SmallVectorImpl<const Attr *> &Attrs) {
-
-  const LoopHintAttr* OverridingAttr = nullptr;
-
-  for (const auto *I : Attrs) {
-    const LoopHintAttr *LH = dyn_cast<LoopHintAttr>(I);
-    if (!LH || (LH->getOption() != LoopHintAttr::IVDepHLS &&
-        LH->getOption() != LoopHintAttr::IVDepHLSIntel))
-      continue;
-
-    // Only Enable [#pragma ivdep] and Numeric [#pragma ivdep safelen(a)]
-    // pragma can modify the OverridingAttr.
-    if (LH->getState() != LoopHintAttr::Enable &&
-        LH->getState() != LoopHintAttr::Numeric)
-      continue;
-
-    // The first OverridingAttr is found.
-    if (!OverridingAttr) {
-      OverridingAttr = LH;
-      continue;
-    }
-
-    // Enable [#pragma ivdep] overrides any Numeric
-    // [#pragma ivdep safelen(a)] pragma.
-    if (LH->getState() == LoopHintAttr::Enable) {
-      if (OverridingAttr->getState() == LoopHintAttr::Numeric)
-        OverridingAttr = LH;
-      continue;
-    }
-
-    assert(LH->getState() == LoopHintAttr::Numeric && "expecting Numeric");
-
-    // The larger safelen value of #pragma ivdep overrides the smaller one
-    // for two Numerics safelen values.
-    IVDepCompare SL(S, LH);
-    IVDepCompare OverridingSafeLen(S, OverridingAttr);
-    if (SL > OverridingSafeLen)
-      OverridingAttr = LH;
-  }
-
-  // If there is an overriding attribute, go through again,
-  // and give diagnostics.
-  if (OverridingAttr) {
-    PrintingPolicy Policy(S.Context.getLangOpts());
-    const auto &DiagnoseRedundant = [&](const LoopHintAttr *Attr) {
-      S.Diag(Attr->getRange().getBegin(), diag::warn_redundant_ivdep_pragma)
-          << Attr->getDiagnosticName(Policy);
-      S.Diag(OverridingAttr->getRange().getBegin(),
-             diag::note_overriding_ivdep_pragma_is_specified_here)
-          << OverridingAttr->getDiagnosticName(Policy);
-    };
-
-    IVDepCompare OverridingSafeLen(S, OverridingAttr);
-
-    for (const auto *I : Attrs) {
-      const LoopHintAttr *LH = dyn_cast<LoopHintAttr>(I);
-      if (!LH || (LH->getOption() != LoopHintAttr::IVDepHLS &&
-          LH->getOption() != LoopHintAttr::IVDepHLSIntel) ||
-          LH == OverridingAttr)
-        continue;
-
-      IVDepCompare SL(S, LH);
-      switch (LH->getState()) {
-        // Give diagnostic based on OverridingSafeLen and the safelen
-        // associated with LH.
-      case LoopHintAttr::Numeric:
-        // Give redundant diagnostic for the smaller safelen value of
-        // #pragma ivdep safelen (a) for two Numerics.
-        // Duplicate when LH matches the overridingAttr.
-        if (OverridingSafeLen > SL) {
-          DiagnoseRedundant(LH);
-        } else {
-          S.Diag(LH->getRange().getBegin(), diag::err_pragma_loop_compatibility)
-              << /*Duplicate=*/true
-              << OverridingAttr->getDiagnosticName(Policy)
-              << LH->getDiagnosticName(Policy);
-        }
-        break;
-      case LoopHintAttr::Full:
-        // An [ivdep] or [ivdep safelen(a)] pragma exists greater than the
-        // safelen associated with LH.
-        if (OverridingSafeLen >= SL) {
-          DiagnoseRedundant(LH);
-        }
-        break;
-      case LoopHintAttr::LoopExpr:
-        // An Enable [#pragma ivdep] pragma exists that overrides
-        // all LoopExpr [#pragma ivdep array(Arr)] pragmas.
-        if (OverridingSafeLen.isMaxSafeLen())
-          DiagnoseRedundant(LH);
-        break;
-      case LoopHintAttr::Enable:
-        // Duplicate directives for #pragma ivdep is
-        // diagnosed elsewhere.
-        break;
-      case LoopHintAttr::Disable:
-      case LoopHintAttr::AssumeSafety:
-        llvm_unreachable("unexpected loop pragma state");
-      }
-    }
-  }
-}
-
 #endif // INTEL_CUSTOMIZATION
+
+namespace {
+class CallExprFinder : public ConstEvaluatedExprVisitor<CallExprFinder> {
+  bool FoundCallExpr = false;
+
+public:
+  typedef ConstEvaluatedExprVisitor<CallExprFinder> Inherited;
+
+  CallExprFinder(Sema &S, const Stmt *St) : Inherited(S.Context) { Visit(St); }
+
+  bool foundCallExpr() { return FoundCallExpr; }
+
+  void VisitCallExpr(const CallExpr *E) { FoundCallExpr = true; }
+
+  void Visit(const Stmt *St) {
+    if (!St)
+      return;
+    ConstEvaluatedExprVisitor<CallExprFinder>::Visit(St);
+  }
+};
+} // namespace
+
+static Attr *handleNoMergeAttr(Sema &S, Stmt *St, const ParsedAttr &A,
+                               SourceRange Range) {
+  NoMergeAttr NMA(S.Context, A);
+  if (S.CheckAttrNoArgs(A))
+    return nullptr;
+
+  CallExprFinder CEF(S, St);
+
+  if (!CEF.foundCallExpr()) {
+    S.Diag(St->getBeginLoc(), diag::warn_nomerge_attribute_ignored_in_stmt)
+        << NMA.getSpelling();
+    return nullptr;
+  }
+
+  return ::new (S.Context) NoMergeAttr(S.Context, A);
+}
 
 static void
 CheckForIncompatibleAttributes(Sema &S,
@@ -1396,6 +1317,32 @@ void CheckForIncompatibleUnrollHintAttributes(
   }
 }
 
+#if INTEL_CUSTOMIZATION
+// Emit incompatible error for diasable_loop_pipelining and #pragma ivdep
+void CheckForIncompatibleHLSIVDepAttributes(
+    Sema &S, const SmallVectorImpl<const Attr *> &Attrs, SourceRange Range) {
+  const SYCLIntelFPGAIVDepAttr *PragmaIVDep = nullptr;
+  const LoopHintAttr *PragmaDisable = nullptr;
+
+  for (const auto *I : Attrs) {
+    if (auto *LH = dyn_cast<const SYCLIntelFPGAIVDepAttr>(I))
+      PragmaIVDep = LH;
+    if (auto *LH = dyn_cast<LoopHintAttr>(I)) {
+      LoopHintAttr::OptionType Opt = LH->getOption();
+      if (Opt == LoopHintAttr::DisableLoopPipelining)
+        PragmaDisable = LH;
+    }
+    if (PragmaDisable && PragmaIVDep) {
+      PrintingPolicy Policy(S.Context.getLangOpts());
+      SourceLocation OptionLoc = I->getRange().getBegin();
+      S.Diag(OptionLoc, diag::err_pragma_loop_compatibility)
+          << /*Duplicate=*/false << PragmaDisable->getDiagnosticName(Policy)
+          << PragmaIVDep->getDiagnosticName(Policy);
+    }
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
 static bool CheckLoopUnrollAttrExpr(Sema &S, Expr *E,
                                     const AttributeCommonInfo &A,
                                     unsigned *UnrollFactor = nullptr) {
@@ -1501,6 +1448,8 @@ static Attr *ProcessStmtAttribute(Sema &S, Stmt *St, const ParsedAttr &A,
     return handleLoopUnrollHint(S, St, A, Range);
   case ParsedAttr::AT_Suppress:
     return handleSuppressAttr(S, St, A, Range);
+  case ParsedAttr::AT_NoMerge:
+    return handleNoMergeAttr(S, St, A, Range);
   default:
     // if we're here, then we parsed a known attribute, but didn't recognize
     // it as a statement attribute => it is declaration attribute
@@ -1524,9 +1473,8 @@ StmtResult Sema::ProcessStmtAttributes(Stmt *S,
   CheckForIncompatibleAttributes(*this, Attrs);
   CheckForIncompatibleSYCLLoopAttributes(*this, Attrs, Range);
   CheckForIncompatibleUnrollHintAttributes(*this, Attrs, Range);
-
 #if INTEL_CUSTOMIZATION
-  CheckForRedundantIVDepAttributes(*this, Attrs);
+  CheckForIncompatibleHLSIVDepAttributes(*this, Attrs, Range);
 #endif // INTEL_CUSTOMIZATION
 
   if (Attrs.empty())

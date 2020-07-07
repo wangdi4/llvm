@@ -442,7 +442,7 @@ void HIRTransformUtils::processRemainderLoop(HLLoop *OrigLoop,
 HLLoop *HIRTransformUtils::setupPeelMainAndRemainderLoops(
     HLLoop *OrigLoop, unsigned UnrollOrVecFactor, bool &NeedRemainderLoop,
     LoopOptReportBuilder &LORBuilder, OptimizationType OptTy, HLLoop **PeelLoop,
-    bool PeelFirstIteration, const RegDDRef *PeelArrayRef,
+    const RegDDRef *PeelArrayRef,
     SmallVectorImpl<std::tuple<HLPredicate, RegDDRef *, RegDDRef *>>
         *RuntimeChecks) {
 
@@ -450,22 +450,7 @@ HLLoop *HIRTransformUtils::setupPeelMainAndRemainderLoops(
   uint64_t FalseVal = 0;
   bool ProfExists = OrigLoop->extractProfileData(TrueVal, FalseVal);
 
-  assert(!(PeelFirstIteration && PeelArrayRef) &&
-         "First iteration peeling idiom cannot have PeelArrayRef set.");
-
-  if (PeelFirstIteration) {
-    // Peel first iteration of the loop. Ztt, preheader and postexit are
-    // extracted as part of the peeling utility.
-    LLVM_DEBUG(dbgs() << "Peeling first iteration of the loop!\n");
-    HLLoop *PeelLp = OrigLoop->peelFirstIteration(
-        false /*OrigLoop will also executed peeled its.*/);
-    if (ProfExists && TrueVal > 0) {
-      TrueVal -= 1;
-      PeelLp->setProfileData(1, TrueVal);
-    }
-    if (PeelLoop)
-      *PeelLoop = PeelLp;
-  } else if (PeelArrayRef) {
+  if (PeelArrayRef) {
     // Generic peeling of the loop to align acceses to the memref PeelArrayRef
     LLVM_DEBUG(dbgs() << "Generating peel loop!\n");
     HLLoop *PeelLp =
@@ -504,6 +489,11 @@ HLLoop *HIRTransformUtils::setupPeelMainAndRemainderLoops(
   uint64_t NewTripCount = 0;
   NeedRemainderLoop = isRemainderLoopNeeded(
       OrigLoop, UnrollOrVecFactor, &NewTripCount, &NewTCRef, RuntimeCheck);
+
+  // Initialize liveout temp before the main non-const trip count loop if there
+  // is no peel loop.
+  if (NewTripCount == 0 && !PeelArrayRef)
+    OrigLoop->undefInitializeUnconditionalLiveoutTemps();
 
   // Create the main loop.
   // Profile data is calculated internally in createUnrollOrVecLoop

@@ -42,7 +42,7 @@ entry:
   store i32 9, i32 addrspace(4)* %.omp.ub.ascast, align 4
   %1 = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.NORMALIZED.IV"(i32 addrspace(4)* %.omp.iv.ascast), "QUAL.OMP.NORMALIZED.UB"(i32 addrspace(4)* %.omp.ub.ascast), "QUAL.OMP.LINEAR:IV"(i32 addrspace(4)* %i.ascast, i32 1) ]
 ; Check for the private copy of $i.ascast for the SIMD construct
-; CHECK: define dso_local spir_kernel void @__omp_offloading{{.*}}
+; CHECK: define weak dso_local spir_kernel void @__omp_offloading{{.*}}
 ; CHECK: %i.ascast.linear.iv = alloca i32
 
   store i32 0, i32 addrspace(4)* %.omp.iv.ascast, align 4

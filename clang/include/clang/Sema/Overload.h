@@ -521,7 +521,6 @@ class Sema;
       UserDefinedConversion,
       AmbiguousConversion,
       EllipsisConversion,
-      PermissiveConversion, // INTEL
       BadConversion
     };
 
@@ -575,7 +574,6 @@ class Sema;
           StdInitializerListElement(Other.StdInitializerListElement) {
       switch (ConversionKind) {
       case Uninitialized: break;
-      case PermissiveConversion: // INTEL
       case StandardConversion: Standard = Other.Standard; break;
       case UserDefinedConversion: UserDefined = Other.UserDefined; break;
       case AmbiguousConversion: Ambiguous.copyFrom(Other.Ambiguous); break;
@@ -619,13 +617,8 @@ class Sema;
       case EllipsisConversion:
         return 2;
 
-#if INTEL_CUSTOMIZATION
-      case PermissiveConversion:
-        return 3;
-
       case BadConversion:
-        return 4;
-#endif // INTEL_CUSTOMIZATION
+        return 3;
       }
 
       llvm_unreachable("Invalid ImplicitConversionSequence::Kind!");
@@ -637,9 +630,6 @@ class Sema;
     bool isAmbiguous() const { return getKind() == AmbiguousConversion; }
     bool isUserDefined() const { return getKind() == UserDefinedConversion; }
     bool isFailure() const { return isBad() || isAmbiguous(); }
-#if INTEL_CUSTOMIZATION
-    bool isPermissive() const { return getKind() == PermissiveConversion; }
-#endif // INTEL_CUSTOMIZATION
 
     /// Determines whether this conversion sequence has been
     /// initialized.  Most operations should never need to query
@@ -669,7 +659,6 @@ class Sema;
       ConversionKind = AmbiguousConversion;
       Ambiguous.construct();
     }
-    void setPermissive() { setKind(PermissiveConversion); } // INTEL
 
     void setAsIdentityConversion(QualType T) {
       setStandard();

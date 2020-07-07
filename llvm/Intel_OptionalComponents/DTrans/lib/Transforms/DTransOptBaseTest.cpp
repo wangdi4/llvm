@@ -1,6 +1,6 @@
 //===---DTransOptBaseTest.cpp - Test pass for DTransOptBase functionality--===//
 //
-// Copyright (C) 2018-2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2018-2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -90,6 +90,22 @@ public:
                       TypeRemapper) {}
 
   virtual bool prepareTypes(Module &M) override {
+
+    auto isTypeRelatedToAnotherType = [&M](Type *InType) {
+      // If the structure is a base or a padded structure and it has a
+      // related type then prevent the remapping.
+      // TODO: We can expand the type remapping for the base and padded
+      // structures in the future by applying the same transformation to
+      // both structures.
+      llvm::Type *PaddedOrBaseType = dtrans::collectRelatedType(InType, M);
+      if (PaddedOrBaseType) {
+        LLVM_DEBUG(dbgs() << "DTRANS-OPTBASETEST: Type " << *InType
+                          << " mapped to " << *PaddedOrBaseType << "\n");
+        return true;
+      }
+      return false;
+    };
+
     SmallVector<StringRef, 4> SubStrings;
     SplitString(DTransOptBaseTestTypeList, SubStrings, ",");
 
@@ -97,6 +113,10 @@ public:
     for (auto &Name : SubStrings) {
       Type *Ty = M.getTypeByName(Name);
       if (Ty) {
+
+        if (isTypeRelatedToAnotherType(Ty))
+          continue;
+
         if (auto *StructTy = dyn_cast<StructType>(Ty)) {
           LLVM_DEBUG(dbgs()
                      << "DTRANS-OPTBASETEST: Type marked for conversion: "

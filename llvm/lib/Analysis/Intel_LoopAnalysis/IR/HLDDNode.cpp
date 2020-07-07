@@ -133,7 +133,8 @@ void HLDDNode::addFakeLvalDDRef(RegDDRef *Ref) {
   if (hasFakeRvalDDRefs()) {
     // Push the first fake rval ref to the back and move Ref in its place
     // essentially swapping them out.
-    RegDDRefs.push_back(*rval_fake_ddref_begin());
+    auto *FirstFakeRef = *rval_fake_ddref_begin();
+    RegDDRefs.push_back(FirstFakeRef);
     *rval_fake_ddref_begin() = Ref;
   } else {
     RegDDRefs.push_back(Ref);

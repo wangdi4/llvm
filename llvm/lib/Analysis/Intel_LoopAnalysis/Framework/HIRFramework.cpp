@@ -25,7 +25,6 @@
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/PostDominators.h"
-#include "llvm/Analysis/ScalarEvolution.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HIRVerifier.h"
 
@@ -99,7 +98,7 @@ HIRFramework HIRFrameworkAnalysis::run(Function &F,
   return HIRFramework(
       F, AM.getResult<DominatorTreeAnalysis>(F),
       AM.getResult<PostDominatorTreeAnalysis>(F), AM.getResult<LoopAnalysis>(F),
-      AM.getResult<ScalarEvolutionAnalysis>(F), AM.getResult<AAManager>(F),
+      AM.getResult<AAManager>(F),
       AM.getResult<HIRRegionIdentificationAnalysis>(F),
       AM.getResult<HIRSCCFormationAnalysis>(F),
       AM.getResult<OptReportOptionsAnalysis>(F).getVerbosity(),
@@ -120,7 +119,6 @@ INITIALIZE_PASS_BEGIN(HIRFrameworkWrapperPass, "hir-framework", "HIR Framework",
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 
 INITIALIZE_PASS_DEPENDENCY(HIRSCCFormationWrapperPass)
@@ -146,7 +144,6 @@ void HIRFrameworkWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<DominatorTreeWrapperPass>();
   AU.addRequiredTransitive<PostDominatorTreeWrapperPass>();
   AU.addRequiredTransitive<LoopInfoWrapperPass>();
-  AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
   AU.addRequiredTransitive<AAResultsWrapperPass>();
 
   AU.addRequiredTransitive<HIRRegionIdentificationWrapperPass>();
@@ -161,7 +158,6 @@ bool HIRFrameworkWrapperPass::runOnFunction(Function &F) {
       F, getAnalysis<DominatorTreeWrapperPass>().getDomTree(),
       getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree(),
       getAnalysis<LoopInfoWrapperPass>().getLoopInfo(),
-      getAnalysis<ScalarEvolutionWrapperPass>().getSE(),
       getAnalysis<AAResultsWrapperPass>().getAAResults(),
       getAnalysis<HIRRegionIdentificationWrapperPass>().getRI(),
       getAnalysis<HIRSCCFormationWrapperPass>().getSCCF(),
@@ -228,11 +224,14 @@ void HIRFramework::processDeferredZtts() {
       continue;
     }
 
-    // Ztt is being moved from (LoopLevel-1) to LoopLevel so we will need to
-    // update level of non-linear blobs.
+    HIRLoopFormation::setRecognizedZtt(Lp, Ztt, false);
+
+    // If ztt was successfuly recognized, it moved from (LoopLevel-1) to
+    // LoopLevel so we will need to update level of non-linear blobs.
     unsigned LoopLevel = Lp->getNestingLevel();
 
-    for (auto *ZttRef : make_range(Ztt->ddref_begin(), Ztt->ddref_end())) {
+    for (auto *ZttRef :
+         make_range(Lp->ztt_ddref_begin(), Lp->ztt_ddref_end())) {
 
       if (ZttRef->isSelfBlob()) {
         if (ZttRef->isNonLinear()) {
@@ -253,8 +252,6 @@ void HIRFramework::processDeferredZtts() {
         }
       }
     }
-
-    HIRLoopFormation::setRecognizedZtt(Lp, Ztt, false);
   }
 }
 
@@ -320,12 +317,11 @@ void HIRFramework::runImpl() {
 }
 
 HIRFramework::HIRFramework(Function &F, DominatorTree &DT,
-                           PostDominatorTree &PDT, LoopInfo &LI,
-                           ScalarEvolution &SE, AAResults &AA,
+                           PostDominatorTree &PDT, LoopInfo &LI, AAResults &AA,
                            HIRRegionIdentification &RI, HIRSCCFormation &SCCF,
                            OptReportVerbosity::Level VerbosityLevel,
                            HIRAnalysisProvider AnalysisProvider)
-    : Func(F), DT(DT), PDT(PDT), LI(LI), SE(SE), AA(AA), RI(RI), SCCF(SCCF),
+    : Func(F), DT(DT), PDT(PDT), LI(LI), AA(AA), RI(RI), SCCF(SCCF),
       AnalysisProvider(AnalysisProvider), MaxSymbase(0) {
   HNU.reset(new HLNodeUtils(*this));
   HNU->reset(F);
@@ -335,19 +331,19 @@ HIRFramework::HIRFramework(Function &F, DominatorTree &DT,
   PhaseCreation.reset(new HIRCreation(DT, PDT, LI, RI, *HNU));
   PhaseCleanup.reset(new HIRCleanup(LI, *PhaseCreation, *HNU));
   PhaseLoopFormation.reset(
-      new HIRLoopFormation(LI, SE, RI, *PhaseCreation, *PhaseCleanup, *HNU));
+      new HIRLoopFormation(DT, LI, RI, *PhaseCreation, *PhaseCleanup, *HNU));
   PhaseScalarSA.reset(new HIRScalarSymbaseAssignment(
-      LI, SE, RI, SCCF, *PhaseLoopFormation, *HNU));
-  PhaseParser.reset(new HIRParser(DT, LI, SE, RI, *this, *PhaseCreation,
+      LI, RI.getScopedSE(), RI, SCCF, *PhaseLoopFormation, *HNU));
+  PhaseParser.reset(new HIRParser(DT, LI, RI, *this, *PhaseCreation,
                                   *PhaseLoopFormation, *PhaseScalarSA, *HNU));
 
   runImpl();
 }
 
 HIRFramework::HIRFramework(HIRFramework &&Arg)
-    : Func(Arg.Func), DT(Arg.DT), PDT(Arg.PDT), LI(Arg.LI), SE(Arg.SE),
-      AA(Arg.AA), RI(Arg.RI), SCCF(Arg.SCCF),
-      LORBuilder(std::move(Arg.LORBuilder)), HNU(std::move(Arg.HNU)),
+    : Func(Arg.Func), DT(Arg.DT), PDT(Arg.PDT), LI(Arg.LI), AA(Arg.AA),
+      RI(Arg.RI), SCCF(Arg.SCCF), LORBuilder(std::move(Arg.LORBuilder)),
+      HNU(std::move(Arg.HNU)),
       AnalysisProvider(std::move(Arg.AnalysisProvider)),
       Regions(std::move(Arg.Regions)),
       PhaseCreation(std::move(Arg.PhaseCreation)),

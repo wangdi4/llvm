@@ -1,5 +1,17 @@
 /// Test behaviors for -x and /Qx options
 
+// RUN: %clang -### -c -xSSE -m32 %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XSSE,ADV_OPT %s
+// RUN: %clang_cl -### -c /QxSSE -m32 %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XSSE,ADV_OPT %s
+// XSSE: "-target-cpu" "pentium3"
+
+// RUN: %clang -### -c -xA -m32 %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XA,ADV_OPT %s
+// RUN: %clang_cl -### -c /QxA -m32 %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XA,ADV_OPT %s
+// XA: "-target-cpu" "pentium"
+
 // RUN: %clang -### -c -xSSE2 -m32 %s 2>&1 \
 // RUN:  | FileCheck -check-prefixes=XSSE2,ADV_OPT %s
 // RUN: %clang_cl -### -c /QxSSE2 -m32 %s 2>&1 \
@@ -177,6 +189,25 @@
 // RUN: %clang_cl -### -c /QxCASCADELAKE %s 2>&1 \
 // RUN:  | FileCheck -check-prefixes=XCASCADELAKE,ADV_OPT %s
 // XCASCADELAKE: "-target-cpu" "cascadelake"
+
+// RUN: %clang -### -c -xTIGERLAKE %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XTIGERLAKE,ADV_OPT %s
+// RUN: %clang_cl -### -c /QxTIGERLAKE %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XTIGERLAKE,ADV_OPT %s
+// XTIGERLAKE: "-target-cpu" "tigerlake"
+
+// RUN: %clang -### -c -xSAPPHIRERAPIDS %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XSAPPHIRERAPIDS,ADV_OPT %s
+// RUN: %clang_cl -### -c /QxSAPPHIRERAPIDS %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XSAPPHIRERAPIDS,ADV_OPT %s
+// XSAPPHIRERAPIDS: "-target-cpu" "sapphirerapids"
+
+// RUN: %clang -### -c -xHOST %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XHOST,ADV_OPT %s
+// RUN: %clang_cl -### -c /QxHOST %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XHOST,ADV_OPT %s
+// XHOST: "-target-cpu"
+// XHOST-NOT: "HOST"
 
 // Unknown argument, pass it through
 // RUN: %clang -### -c -xdummy %s 2>&1 \

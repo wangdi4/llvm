@@ -17,7 +17,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ;  return i_sum;
 ;}
 
-; RUN: opt -S -enable-nested-blob-vec -enable-blob-coeff-vec -vplan-disable-verification -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
+; RUN: opt -S -enable-nested-blob-vec -enable-blob-coeff-vec -vplan-disable-verification -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -print-after=VPlanDriverHIR -vplan-force-vf=4 < %s 2>&1 | FileCheck %s
 
 ; CHECK: BEGIN REGION { modified }
 ; CHECK-NEXT: %red.var = 0;

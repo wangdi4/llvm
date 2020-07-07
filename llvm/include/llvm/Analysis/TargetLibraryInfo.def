@@ -160,24 +160,51 @@ TLI_DEFINE_STRING_INTERNAL("FindClose")
 /// HANDLE FindFirstFileA(LPCSTR lpFileName, LPWIN32_FIND_DATAA lpFindFileData);
 TLI_DEFINE_ENUM_INTERNAL(FindFirstFileA)
 TLI_DEFINE_STRING_INTERNAL("FindFirstFileA")
+/// HANDLE FindFirstFileW(LPCSTR lpFileName, LPWIN32_FIND_DATAA lpFindFileData);
+TLI_DEFINE_ENUM_INTERNAL(FindFirstFileW)
+TLI_DEFINE_STRING_INTERNAL("FindFirstFileW")
 /// BOOL FindNextFileA(HANDLE hFindFile, LPWIN32_FIND_DATAA lpFindFileData);
 TLI_DEFINE_ENUM_INTERNAL(FindNextFileA)
 TLI_DEFINE_STRING_INTERNAL("FindNextFileA")
+/// BOOL FindNextFileW(HANDLE hFindFile, LPWIN32_FIND_DATAA lpFindFileData);
+TLI_DEFINE_ENUM_INTERNAL(FindNextFileW)
+TLI_DEFINE_STRING_INTERNAL("FindNextFileW")
+/// HRSRC FindResourceA(HMODULE hModule, LPCSTR lpName, LPCSTR lpType);
+TLI_DEFINE_ENUM_INTERNAL(FindResourceA)
+TLI_DEFINE_STRING_INTERNAL("FindResourceA")
+/// BOOL FreeResource(HGLOBAL hResData)
+TLI_DEFINE_ENUM_INTERNAL(FreeResource)
+TLI_DEFINE_STRING_INTERNAL("FreeResource")
+/// HANDLE GetCurrentProcess();
+TLI_DEFINE_ENUM_INTERNAL(GetCurrentProcess)
+TLI_DEFINE_STRING_INTERNAL("GetCurrentProcess")
 /// DWORD GetCurrentThreadId();
 TLI_DEFINE_ENUM_INTERNAL(GetCurrentThreadId)
 TLI_DEFINE_STRING_INTERNAL("GetCurrentThreadId")
 /// DWORD GetFullPathNameA(LPCSTR lpFileName, DWORD  nBufferLength, LPSTR  lpBuffer, LPSTR  *lpFilePart);
 TLI_DEFINE_ENUM_INTERNAL(GetFullPathNameA)
 TLI_DEFINE_STRING_INTERNAL("GetFullPathNameA")
+/// DWORD GetModuleFileNameA(HMODULE hModule, LPSTR lpFilename, DWORD nSize);
+TLI_DEFINE_ENUM_INTERNAL(GetModuleFileNameA)
+TLI_DEFINE_STRING_INTERNAL("GetModuleFileNameA")
 /// HMODULE GetModuleHandleA(LPCSTR lpModuleName);
 TLI_DEFINE_ENUM_INTERNAL(GetModuleHandleA)
 TLI_DEFINE_STRING_INTERNAL("GetModuleHandleA")
 /// FARPROC GetProcAddress(HMODULE hModule, LPCSTR  lpProcName);
 TLI_DEFINE_ENUM_INTERNAL(GetProcAddress)
 TLI_DEFINE_STRING_INTERNAL("GetProcAddress")
+/// BOOL GetProcessTimes(HANDLE hProcess, LPFILETIME lpCreationTime, LPFILETIME lpExitTime, LPFILETIME lpKernelTime, LPFILETIME lpUserTime);
+TLI_DEFINE_ENUM_INTERNAL(GetProcessTimes)
+TLI_DEFINE_STRING_INTERNAL("GetProcessTimes")
 /// DWORD GetShortPathNameW(LPCWSTR lpszLongPath, LPWSTR lpszShortPath, DWORD cchBuffer);
 TLI_DEFINE_ENUM_INTERNAL(GetShortPathNameW)
 TLI_DEFINE_STRING_INTERNAL("GetShortPathNameW")
+/// void GetSystemTime(LPSYSTEMTIME lpSystemTime);
+TLI_DEFINE_ENUM_INTERNAL(GetSystemTime)
+TLI_DEFINE_STRING_INTERNAL("GetSystemTime")
+/// NOT_BUILD_WINDOWS_DEPRECATE BOOL GetVersionExA(LPOSVERSIONINFOA lpVersionInformation);
+TLI_DEFINE_ENUM_INTERNAL(GetVersionExA)
+TLI_DEFINE_STRING_INTERNAL("GetVersionExA")
 /// void GlobalMemoryStatus(LPMEMORYSTATUS lpBuffer);
 TLI_DEFINE_ENUM_INTERNAL(GlobalMemoryStatus)
 TLI_DEFINE_STRING_INTERNAL("GlobalMemoryStatus")
@@ -187,15 +214,30 @@ TLI_DEFINE_STRING_INTERNAL("InitializeCriticalSectionAndSpinCount")
 /// void LeaveCriticalSection(LPCRITICAL_SECTION lpCriticalSection);
 TLI_DEFINE_ENUM_INTERNAL(LeaveCriticalSection)
 TLI_DEFINE_STRING_INTERNAL("LeaveCriticalSection")
+/// HGLOBAL LoadResource(HMODULE hModule, HRSRC hResInfo);
+TLI_DEFINE_ENUM_INTERNAL(LoadResource)
+TLI_DEFINE_STRING_INTERNAL("LoadResource")
+/// LPVOID LockResource(HGLOBAL hResData)
+TLI_DEFINE_ENUM_INTERNAL(LockResource)
+TLI_DEFINE_STRING_INTERNAL("LockResource")
 /// int MultiByteToWideChar(UINT CodePage, DWORD dwFlags, _In_NLS_string_(cbMultiByte)LPCCH lpMultiByteStr, int cbMultiByte, LPWSTR lpWideCharStr, int cchWideChar);
 TLI_DEFINE_ENUM_INTERNAL(MultiByteToWideChar)
 TLI_DEFINE_STRING_INTERNAL("MultiByteToWideChar")
 /// BOOL QueryPerformanceCounter(LARGE_INTEGER *lpPerformanceCount);
 TLI_DEFINE_ENUM_INTERNAL(QueryPerformanceCounter)
 TLI_DEFINE_STRING_INTERNAL("QueryPerformanceCounter")
+/// DWORD SizeofResource(HMODULE hModule, HRSRC hResInfo)
+TLI_DEFINE_ENUM_INTERNAL(SizeofResource)
+TLI_DEFINE_STRING_INTERNAL("SizeofResource")
 /// void Sleep(DWORD dwMilliseconds)
 TLI_DEFINE_ENUM_INTERNAL(Sleep)
 TLI_DEFINE_STRING_INTERNAL("Sleep")
+/// BOOL SystemTimeToFileTime(const SYSTEMTIME *lpSystemTime, LPFILETIME lpFileTime);
+TLI_DEFINE_ENUM_INTERNAL(SystemTimeToFileTime)
+TLI_DEFINE_STRING_INTERNAL("SystemTimeToFileTime")
+/// int WideCharToMultiByte(UINT CodePage, DWORD dwFlags, _In_NLS_string_(cchWideChar)LPCWCH lpWideCharStr, int cchWideChar, LPSTR lpMultiByteStr, int cbMultiByte, LPCCH lpDefaultChar, LPBOOL lpUsedDefaultChar);
+TLI_DEFINE_ENUM_INTERNAL(WideCharToMultiByte)
+TLI_DEFINE_STRING_INTERNAL("WideCharToMultiByte")
 /// extern "C" void __stdcall _CxxThrowException(void* pExceptionObject, _ThrowInfo* pThrowInfo);
 TLI_DEFINE_ENUM_INTERNAL(msvc_std_CxxThrowException)
 TLI_DEFINE_STRING_INTERNAL("_CxxThrowException")
@@ -663,9 +705,15 @@ TLI_DEFINE_STRING_INTERNAL("_ZdaPvSt11align_val_tRKSt9nothrow_t")
 /// void operator delete[](void*, unsigned int);
 TLI_DEFINE_ENUM_INTERNAL(ZdaPvj)
 TLI_DEFINE_STRING_INTERNAL("_ZdaPvj")
+/// void operator delete[](void*, unsigned int, align_val_t);
+TLI_DEFINE_ENUM_INTERNAL(ZdaPvjSt11align_val_t)
+TLI_DEFINE_STRING_INTERNAL("_ZdaPvjSt11align_val_t")
 /// void operator delete[](void*, unsigned long);
 TLI_DEFINE_ENUM_INTERNAL(ZdaPvm)
 TLI_DEFINE_STRING_INTERNAL("_ZdaPvm")
+/// void operator delete[](void*, unsigned long, align_val_t);
+TLI_DEFINE_ENUM_INTERNAL(ZdaPvmSt11align_val_t)
+TLI_DEFINE_STRING_INTERNAL("_ZdaPvmSt11align_val_t")
 /// void operator delete(void*);
 TLI_DEFINE_ENUM_INTERNAL(ZdlPv)
 TLI_DEFINE_STRING_INTERNAL("_ZdlPv")
@@ -681,9 +729,15 @@ TLI_DEFINE_STRING_INTERNAL("_ZdlPvSt11align_val_tRKSt9nothrow_t")
 /// void operator delete(void*, unsigned int);
 TLI_DEFINE_ENUM_INTERNAL(ZdlPvj)
 TLI_DEFINE_STRING_INTERNAL("_ZdlPvj")
+/// void operator delete(void*, unsigned int, align_val_t)
+TLI_DEFINE_ENUM_INTERNAL(ZdlPvjSt11align_val_t)
+TLI_DEFINE_STRING_INTERNAL("_ZdlPvjSt11align_val_t")
 /// void operator delete(void*, unsigned long);
 TLI_DEFINE_ENUM_INTERNAL(ZdlPvm)
 TLI_DEFINE_STRING_INTERNAL("_ZdlPvm")
+/// void operator delete(void*, unsigned long, align_val_t)
+TLI_DEFINE_ENUM_INTERNAL(ZdlPvmSt11align_val_t)
+TLI_DEFINE_STRING_INTERNAL("_ZdlPvmSt11align_val_t")
 /// void *new[](unsigned int);
 TLI_DEFINE_ENUM_INTERNAL(Znaj)
 TLI_DEFINE_STRING_INTERNAL("_Znaj")
@@ -2769,6 +2823,15 @@ TLI_DEFINE_STRING_INTERNAL("rmdir")
 /// double round(double x);
 TLI_DEFINE_ENUM_INTERNAL(round)
 TLI_DEFINE_STRING_INTERNAL("round")
+/// double roundeven(double x);
+TLI_DEFINE_ENUM_INTERNAL(roundeven)
+TLI_DEFINE_STRING_INTERNAL("roundeven")
+/// float roundevenf(float x);
+TLI_DEFINE_ENUM_INTERNAL(roundevenf)
+TLI_DEFINE_STRING_INTERNAL("roundevenf")
+/// long double roundevenl(long double x);
+TLI_DEFINE_ENUM_INTERNAL(roundevenl)
+TLI_DEFINE_STRING_INTERNAL("roundevenl")
 /// float roundf(float x);
 TLI_DEFINE_ENUM_INTERNAL(roundf)
 TLI_DEFINE_STRING_INTERNAL("roundf")

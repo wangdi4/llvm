@@ -13,6 +13,10 @@
 #include <CL/sycl/stl.hpp>
 #include <detail/device_impl.hpp>
 #include <detail/force_device.hpp>
+#ifdef INTEL_CUSTOMIZATION
+#include <detail/config.hpp>
+#endif // INTEL_CUSTOMIZATION
+
 // 4.6.1 Device selection class
 
 __SYCL_INLINE_NAMESPACE(cl) {
@@ -30,32 +34,36 @@ static bool isDeviceOfPreferredSyclBe(const device &Device) {
 
 device device_selector::select_device() const {
   vector_class<device> devices = device::get_devices();
-  int score = -1;
+  int score = REJECT_DEVICE_SCORE;
   const device *res = nullptr;
+
   for (const auto &dev : devices) {
     int dev_score = (*this)(dev);
+
     if (detail::pi::trace(detail::pi::TraceLevel::PI_TRACE_ALL)) {
       string_class PlatformVersion = dev.get_info<info::device::platform>()
                                          .get_info<info::platform::version>();
       string_class DeviceName = dev.get_info<info::device::name>();
       std::cout << "SYCL_PI_TRACE[all]: "
-                << "select_device(): -> score = " << score << std::endl
+                << "select_device(): -> score = " << score
+                << ((score < 0) ? "(REJECTED)" : " ") << std::endl
                 << "SYCL_PI_TRACE[all]: "
                 << "  platform: " << PlatformVersion << std::endl
                 << "SYCL_PI_TRACE[all]: "
                 << "  device: " << DeviceName << std::endl;
     }
 
+    // A negative score means that a device must not be selected.
+    if (dev_score < 0)
+      continue;
+
     // SYCL spec says: "If more than one device receives the high score then
     // one of those tied devices will be returned, but which of the devices
     // from the tied set is to be returned is not defined". Here we give a
     // preference to the device of the preferred BE.
     //
-    if (score < dev_score ||
-#if INTEL_CUSTOMIZATION
-        (score == dev_score && dev_score != -1 &&
-         isDeviceOfPreferredSyclBe(dev))) {
-#endif // INTEL_CUSTOMIZATION
+    if ((score < dev_score) ||
+        (score == dev_score && isDeviceOfPreferredSyclBe(dev))) {
       res = &dev;
       score = dev_score;
     }
@@ -85,9 +93,13 @@ device device_selector::select_device() const {
 #endif // INTEL_CUSTOMIZATION
 }
 
+/// Devices of different kinds are prioritized in the following order:
+/// 1. GPU
+/// 2. CPU
+/// 3. Host
 int default_selector::operator()(const device &dev) const {
 
-  int Score = -1;
+  int Score = REJECT_DEVICE_SCORE;
 
   // Give preference to device of SYCL BE.
   if (isDeviceOfPreferredSyclBe(dev))
@@ -103,16 +115,18 @@ int default_selector::operator()(const device &dev) const {
   if (dev.is_cpu())
     Score += 300;
 
-#ifndef INTEL_CUSTOMIZATION
-  if (dev.is_host())
-    Score += 100;
+#ifdef INTEL_CUSTOMIZATION
+  if (detail::SYCLConfig<detail::SYCL_ENABLE_HOST_DEVICE>::get())
 #endif // INTEL_CUSTOMIZATION
+    if (dev.is_host())
+      Score += 100;
 
   return Score;
 }
 
 int gpu_selector::operator()(const device &dev) const {
-  int Score = -1;
+  int Score = REJECT_DEVICE_SCORE;
+
   if (dev.is_gpu()) {
     Score = 1000;
     // Give preference to device of SYCL BE.
@@ -123,7 +137,7 @@ int gpu_selector::operator()(const device &dev) const {
 }
 
 int cpu_selector::operator()(const device &dev) const {
-  int Score = -1;
+  int Score = REJECT_DEVICE_SCORE;
   if (dev.is_cpu()) {
     Score = 1000;
     // Give preference to device of SYCL BE.
@@ -134,7 +148,7 @@ int cpu_selector::operator()(const device &dev) const {
 }
 
 int accelerator_selector::operator()(const device &dev) const {
-  int Score = -1;
+  int Score = REJECT_DEVICE_SCORE;
   if (dev.is_accelerator()) {
     Score = 1000;
     // Give preference to device of SYCL BE.
@@ -145,8 +159,16 @@ int accelerator_selector::operator()(const device &dev) const {
 }
 
 int host_selector::operator()(const device &dev) const {
-  int Score = -1;
-  if (dev.is_host()) {
+  int Score = REJECT_DEVICE_SCORE;
+#ifdef INTEL_CUSTOMIZATION
+  bool ShouldSelect =
+      detail::SYCLConfig<detail::SYCL_ENABLE_HOST_DEVICE>::get() ||
+              detail::get_forced_type() == info::device_type::host
+          ? dev.is_host()
+          : dev.is_cpu();
+  if (ShouldSelect)
+#endif // INTEL_CUSTOMIZATION
+  {
     Score = 1000;
     // Give preference to device of SYCL BE.
     if (isDeviceOfPreferredSyclBe(dev))

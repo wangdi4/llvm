@@ -5,8 +5,8 @@
 
 ; REQUIRES: asserts
 
-; RUN: opt < %s -inlineaggressiveanalysis -debug-only=inlineaggressiveanalysis -whole-program-assume -disable-output  2>&1 | FileCheck %s
-; RUN: opt < %s -passes='require<inlineaggressive>' -debug-only=inlineaggressiveanalysis -whole-program-assume -disable-output  2>&1 | FileCheck %s
+; RUN: opt < %s -agginliner -debug-only=agginliner -whole-program-assume -disable-output  2>&1 | FileCheck %s
+; RUN: opt < %s -passes='module(agginliner)' -debug-only=agginliner -whole-program-assume -disable-output  2>&1 | FileCheck %s
 
 ; CHECK: Started AggInl SingleAccessFunctionGlobalVar Analysis
 ; CHECK-NOT:  GV selected as candidate: grad

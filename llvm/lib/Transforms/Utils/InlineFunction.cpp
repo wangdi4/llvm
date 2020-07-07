@@ -119,9 +119,8 @@ namespace llvm {
 InlineResult InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
                             AAResults *CalleeAAR, bool InsertLifetime,
                             Function *ForwardVarArgsTo) {
-  InlineReason Reason = NinlrNoReason;
-  return InlineFunction(CB, IFI, nullptr, nullptr, &Reason, CalleeAAR,
-                        InsertLifetime, ForwardVarArgsTo);
+  return InlineFunction(CB, IFI, nullptr, nullptr, CalleeAAR, InsertLifetime,
+                        ForwardVarArgsTo);
 }
 
 } // end namespace llvm
@@ -956,6 +955,42 @@ static void CloneAliasScopeMetadata(CallBase &CB, ValueToValueMapTy &VMap) {
   }
 }
 
+#if INTEL_CUSTOMIZATION
+/// Populates \p PtrNoAliasLoads vector with pointer values, loaded from
+/// "ptrnoalias" \p Arg where the call site \p CB is located.
+static void
+AddPtrNoAliasLoads(CallBase &CB, const Argument &Arg,
+                   SmallVectorImpl<const Value *> &PtrNoAliasLoads) {
+  if (Arg.use_empty() ||
+      (!Arg.hasAttribute("ptrnoalias") &&
+       !CB.getParamAttr(Arg.getArgNo(), "ptrnoalias").isStringAttribute())) {
+    return;
+  }
+
+  SmallVector<const User *, 8> Worklist;
+  SmallPtrSet<const User *, 16> Visited;
+  Worklist.append(Arg.user_begin(), Arg.user_end());
+
+  while (!Worklist.empty()) {
+    auto *User = Worklist.pop_back_val();
+    if (Visited.count(User)) {
+      continue;
+    }
+    Visited.insert(User);
+
+    const LoadInst *Load = dyn_cast<LoadInst>(User);
+    if (Load && Load->getType()->isPointerTy()) {
+      PtrNoAliasLoads.push_back(Load);
+      continue;
+    }
+
+    if (isa<GEPOrSubsOperator>(User)) {
+      Worklist.append(User->user_begin(), User->user_end());
+    }
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// If the inlined function has noalias arguments,
 /// then add new alias scopes for each noalias argument, tag the mapped noalias
 /// parameters with noalias metadata specifying the new scope, and tag all
@@ -966,11 +1001,14 @@ static void AddAliasScopeMetadata(CallBase &CB, ValueToValueMapTy &VMap,
     return;
 
   const Function *CalledFunc = CB.getCalledFunction();
-  SmallVector<const Argument *, 4> NoAliasArgs;
+  SmallVector<const Value *, 4> NoAliasArgs; // INTEL
 
-  for (const Argument &Arg : CalledFunc->args())
+  for (const Argument &Arg : CalledFunc->args()) { // INTEL
     if (CB.paramHasAttr(Arg.getArgNo(), Attribute::NoAlias) && !Arg.use_empty())
       NoAliasArgs.push_back(&Arg);
+
+    AddPtrNoAliasLoads(CB, Arg, NoAliasArgs); // INTEL
+  } // INTEL
 
 #if INTEL_CUSTOMIZATION
   MDNode *ArgAliasScopeList = CB.getMetadata("intel.args.alias.scope");
@@ -990,14 +1028,14 @@ static void AddAliasScopeMetadata(CallBase &CB, ValueToValueMapTy &VMap,
   // become part of that alias scope, accesses using pointers not based on that
   // argument are tagged as noalias with that scope.
 
-  DenseMap<const Argument *, MDNode *> NewScopes;
+  DenseMap<const Value *, MDNode *> NewScopes; // INTEL
   MDBuilder MDB(CalledFunc->getContext());
 
   // Create a new scope domain for this function.
   MDNode *NewDomain =
     MDB.createAnonymousAliasScopeDomain(CalledFunc->getName());
   for (unsigned i = 0, e = NoAliasArgs.size(); i != e; ++i) {
-    const Argument *A = NoAliasArgs[i];
+    const Value *A = NoAliasArgs[i]; // INTEL
 
     std::string Name = std::string(CalledFunc->getName());
     if (A->hasName()) {
@@ -1131,8 +1169,8 @@ static void AddAliasScopeMetadata(CallBase &CB, ValueToValueMapTy &VMap,
         // If this is anything other than a noalias argument, then we cannot
         // completely describe the aliasing properties using alias.scope
         // metadata (and, thus, won't add any).
-        if (const Argument *A = dyn_cast<Argument>(V)) {
-          if (NewScopes.count(A) == 0) // INTEL
+        if (isa<Argument>(V) || isa<LoadInst>(V)) { // INTEL
+          if (NewScopes.count(V) == 0) // INTEL
             UsesAliasingPtr = true;
         } else {
           UsesAliasingPtr = true;
@@ -1160,7 +1198,7 @@ static void AddAliasScopeMetadata(CallBase &CB, ValueToValueMapTy &VMap,
       // An arbitrary function that might load pointers could see captured
       // noalias arguments via other noalias arguments or globals, and so we
       // must always check for prior capture.
-      for (const Argument *A : NoAliasArgs) {
+      for (const Value *A : NoAliasArgs) { // INTEL
         if (!ObjSet.count(A) && (!CanDeriveViaCapture ||
                                  // It might be tempting to skip the
                                  // PointerMayBeCapturedBefore check if
@@ -1195,7 +1233,7 @@ static void AddAliasScopeMetadata(CallBase &CB, ValueToValueMapTy &VMap,
         CanAddScopes = IsArgMemOnlyCall;
 
       if (CanAddScopes)
-        for (const Argument *A : NoAliasArgs) {
+        for (const Value *A : NoAliasArgs) { // INTEL
           if (ObjSet.count(A))
             Scopes.push_back(NewScopes[A]);
         }
@@ -1306,7 +1344,7 @@ static void AddAlignmentAssumptions(CallBase &CB, InlineFunctionInfo &IFI) {
   if (!PreserveAlignmentAssumptions || !IFI.GetAssumptionCache)
     return;
 
-  AssumptionCache *AC = &(*IFI.GetAssumptionCache)(*CB.getCaller());
+  AssumptionCache *AC = &IFI.GetAssumptionCache(*CB.getCaller());
   auto &DL = CB.getCaller()->getParent()->getDataLayout();
 
   // To avoid inserting redundant assumptions, we should check for assumptions
@@ -1494,7 +1532,7 @@ static Value *HandleByValArgument(Value *Arg, Instruction *TheCall,
       return Arg;
 
     AssumptionCache *AC =
-        IFI.GetAssumptionCache ? &(*IFI.GetAssumptionCache)(*Caller) : nullptr;
+        IFI.GetAssumptionCache ? &IFI.GetAssumptionCache(*Caller) : nullptr;
 
     // If the pointer is already known to be sufficiently aligned, or if we can
     // round it up to a larger alignment, then we don't need a temporary.
@@ -1976,7 +2014,6 @@ bool isTargetSPIRV(Function *F) {
 llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
                                         InlineReport *IR,     // INTEL
                                         InlineReportBuilder *MDIR, // INTEL
-                                        InlineReason *Reason, // INTEL
                                         AAResults *CalleeAAR,
                                         bool InsertLifetime,
                                         Function *ForwardVarArgsTo) {
@@ -1995,24 +2032,20 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
       CalledFunc->isDeclaration() || // call!
      (!ForwardVarArgsTo && CalledFunc->isVarArg())) {
     // call, or call to a vararg function
-    if (!CalledFunc) {
+    if (!CalledFunc)
       // Can't inline indirect call!
-      *Reason = NinlrIndirect;
-      return InlineResult::failure("external or indirect");
-    }
-    if (CalledFunc->isDeclaration()) {
+      return InlineResult::failure("external or indirect")
+          .setIntelInlReason(NinlrIndirect);
+
+    if (CalledFunc->isDeclaration())
       // Can't inline external function!
-      *Reason = NinlrExtern;
-      return InlineResult::failure("external or indirect");
-    }
+      return InlineResult::failure("external or indirect")
+          .setIntelInlReason(NinlrExtern);
     assert(!ForwardVarArgsTo && CalledFunc->isVarArg());
 
-    if (!TestVaArgPackAndLen(*CalledFunc)) {
+    if (!TestVaArgPackAndLen(*CalledFunc))
       // Can't inline certain varargs calls
-      *Reason = NinlrVarargs;
-      return InlineResult::failure("varargs");
-
-    }
+      return InlineResult::failure("varargs").setIntelInlReason(NinlrVarargs);
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -2028,8 +2061,8 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
       if (Tag == LLVMContext::OB_funclet)
         continue;
 
-      *Reason = NinlrOpBundles; // INTEL
-      return InlineResult::failure("unsupported operand bundle");
+      return InlineResult::failure("unsupported operand bundle") // INTEL
+          .setIntelInlReason(NinlrOpBundles);                    // INTEL
     }
   }
 
@@ -2047,10 +2080,9 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
   if (CalledFunc->hasGC()) {
     if (!Caller->hasGC())
       Caller->setGC(CalledFunc->getGC());
-    else if (CalledFunc->getGC() != Caller->getGC()) {  // INTEL
-      *Reason = NinlrMismatchedGC; // INTEL
-      return InlineResult::failure("incompatible GC");
-    } // INTEL
+    else if (CalledFunc->getGC() != Caller->getGC())
+      return InlineResult::failure("incompatible GC") // INTEL
+          .setIntelInlReason(NinlrMismatchedGC);      // INTEL
   }
 
   // Get the personality function from the callee if it contains a landing pad.
@@ -2073,10 +2105,9 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
     // inlining. Otherwise, we can't inline.
     // TODO: This isn't 100% true. Some personality functions are proper
     //       supersets of others and can be used in place of the other.
-    else if (CalledPersonality != CallerPersonality) { // INTEL
-      *Reason = NinlrMismatchedPersonality; // INTEL
-      return InlineResult::failure("incompatible personality");
-    } // INTEL
+    else if (CalledPersonality != CallerPersonality)
+      return InlineResult::failure("incompatible personality") // INTEL
+          .setIntelInlReason(NinlrMismatchedPersonality);      // INTEL
   }
 
   // We need to figure out which funclet the callsite was in so that we may
@@ -2100,20 +2131,19 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
             // Ok, the call site is within a cleanuppad.  Let's check the callee
             // for catchpads.
             for (const BasicBlock &CalledBB : *CalledFunc) {
-              if (isa<CatchSwitchInst>(CalledBB.getFirstNonPHI())) { // INTEL
-                *Reason = NinlrMSVCEH; // INTEL
-                return InlineResult::failure("catch in cleanup funclet");
-              } // INTEL
+              if (isa<CatchSwitchInst>(CalledBB.getFirstNonPHI()))
+                return InlineResult::failure(          // INTEL
+                           "catch in cleanup funclet") // INTEL
+                    .setIntelInlReason(NinlrMSVCEH);   // INTEL
             }
           }
         } else if (isAsynchronousEHPersonality(Personality)) {
           // SEH is even less tolerant, there may not be any sort of exceptional
           // funclet in the callee.
           for (const BasicBlock &CalledBB : *CalledFunc) {
-            if (CalledBB.isEHPad()) { // INTEL
-              *Reason = NinlrSEH; // INTEL
-              return InlineResult::failure("SEH in cleanup funclet");
-            } // INTEL
+            if (CalledBB.isEHPad())
+              return InlineResult::failure("SEH in cleanup funclet") // INTEL
+                  .setIntelInlReason(NinlrSEH);                      // INTEL
           }
         }
       }
@@ -2179,7 +2209,7 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
     AddAlignmentAssumptions(CB, IFI);
 
     AssumptionCache *AC =
-        IFI.GetAssumptionCache ? &(*IFI.GetAssumptionCache)(*Caller) : nullptr;
+        IFI.GetAssumptionCache ? &IFI.GetAssumptionCache(*Caller) : nullptr;
 
     /// Preserve all attributes on of the call and its parameters.
     salvageKnowledge(&CB, AC);
@@ -2294,11 +2324,10 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
     if (IFI.GetAssumptionCache)
       for (BasicBlock &NewBlock :
            make_range(FirstNewBlock->getIterator(), Caller->end()))
-        for (Instruction &I : NewBlock) {
+        for (Instruction &I : NewBlock)
           if (auto *II = dyn_cast<IntrinsicInst>(&I))
             if (II->getIntrinsicID() == Intrinsic::assume)
-              (*IFI.GetAssumptionCache)(*Caller).registerAssumption(II);
-        }
+              IFI.GetAssumptionCache(*Caller).registerAssumption(II);
 
     HandleVaArgPackAndLen(CB, FirstNewBlock, IR, MDIR); // INTEL
   }
@@ -2736,6 +2765,7 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
                                  FirstNewBlock->begin(), FirstNewBlock->end());
     // Remove the cloned basic block.
     Caller->getBasicBlockList().pop_back();
+
     // If the call site was an invoke instruction, add a branch to the normal
     // destination.
     if (InvokeInst *II = dyn_cast<InvokeInst>(&CB)) {
@@ -2759,7 +2789,6 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
     Returns[0]->eraseFromParent();
 
     // We are now done with the inlining.
-    *Reason = InlrNoReason; // INTEL
     return InlineResult::success();
   }
 
@@ -2914,7 +2943,7 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
   // block other optimizations.
   if (PHI) {
     AssumptionCache *AC =
-        IFI.GetAssumptionCache ? &(*IFI.GetAssumptionCache)(*Caller) : nullptr;
+        IFI.GetAssumptionCache ? &IFI.GetAssumptionCache(*Caller) : nullptr;
     auto &DL = Caller->getParent()->getDataLayout();
     if (Value *V = SimplifyInstruction(PHI, {DL, nullptr, nullptr, AC})) {
       PHI->replaceAllUsesWith(V);
@@ -2922,7 +2951,5 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
     }
   }
 
-  *Reason = InlrNoReason; // INTEL
   return InlineResult::success();
 }
-

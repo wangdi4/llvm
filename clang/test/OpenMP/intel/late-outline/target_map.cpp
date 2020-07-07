@@ -189,10 +189,10 @@ double foo_three(double *x) {
   // CHECK: [[L16:%[0-9]+]] = load double*, double** %x.addr
   // CHECK: [[T:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.TARGET
   // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(double* [[SFOO]]
-  // CHECK-NEXT: store double* [[L15]], double** %x.map.ptr.tmp6, align 8
+  // CHECK-NEXT: store double* [[L15]], double** %x.map.ptr.tmp5, align 8
   // CHECK: [[L:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.PARALLEL.LOOP
-  // CHECK-SAME: "QUAL.OMP.SHARED"(double** %x.map.ptr.tmp6)
-  // CHECK: load double*, double** %x.map.ptr.tmp6, align 8
+  // CHECK-SAME: "QUAL.OMP.SHARED"(double** %x.map.ptr.tmp5)
+  // CHECK: load double*, double** %x.map.ptr.tmp5, align 8
   // CHECK: region.exit(token [[L]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
   // CHECK: region.exit(token [[T]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target parallel for lastprivate(s_foo) map(to: x[:100])
@@ -206,11 +206,11 @@ double foo_three(double *x) {
   // CHECK-NOT: "QUAL.OMP.FIRSTPRIVATE"(double* [[SPFOO]]
   // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(double** [[SPFOO]]
   // CHECK-NOT: "QUAL.OMP.FIRSTPRIVATE"(double* [[SPFOO]]
-  // CHECK-SAME: "QUAL.OMP.PRIVATE"(double** %x.map.ptr.tmp26),
-  // CHECK-NEXT: store double* [[L30]], double** %x.map.ptr.tmp26, align 8
+  // CHECK-SAME: "QUAL.OMP.PRIVATE"(double** %x.map.ptr.tmp25),
+  // CHECK-NEXT: store double* [[L30]], double** %x.map.ptr.tmp25, align 8
   // CHECK: [[L:%[0-9]+]] = {{.*}}region.entry{{.*}}DIR.OMP.PARALLEL.LOOP
-  // CHECK-SAME: "QUAL.OMP.SHARED"(double** %x.map.ptr.tmp26)
-  // CHECK: load double*, double** %x.map.ptr.tmp26, align 8
+  // CHECK-SAME: "QUAL.OMP.SHARED"(double** %x.map.ptr.tmp25)
+  // CHECK: load double*, double** %x.map.ptr.tmp25, align 8
   // CHECK: region.exit(token [[L]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
   // CHECK: region.exit(token [[T]]) [ "DIR.OMP.END.TARGET"() ]
   #pragma omp target parallel for linear(sp_foo) map(to: x[:100])

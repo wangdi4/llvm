@@ -10,7 +10,8 @@
 #define LLVM_CLANG_LIB_DRIVER_TOOLCHAINS_GNU_H
 
 #include "Cuda.h"
-#include "SYCL.h"
+#include "SYCL.h" // INTEL_CUSTOMIZATION
+#include "ROCm.h"
 #include "clang/Driver/Tool.h"
 #include "clang/Driver/ToolChain.h"
 #include <set>
@@ -100,6 +101,20 @@ private:
 };
 #endif // INTEL_CUSTOMIZATION
 
+
+class LLVM_LIBRARY_VISIBILITY StaticLibTool : public GnuTool {
+public:
+  StaticLibTool(const ToolChain &TC)
+      : GnuTool("GNU::StaticLibTool", "static-lib-linker", TC) {}
+
+  bool hasIntegratedCPP() const override { return false; }
+  bool isLinkJob() const override { return true; }
+
+  void ConstructJob(Compilation &C, const JobAction &JA,
+                    const InputInfo &Output, const InputInfoList &Inputs,
+                    const llvm::opt::ArgList &TCArgs,
+                    const char *LinkingOutput) const override;
+};
 } // end namespace gnutools
 
 /// gcc - Generic GCC tool implementations.
@@ -307,6 +322,7 @@ public:
 protected:
   GCCInstallationDetector GCCInstallation;
   CudaInstallationDetector CudaInstallation;
+  RocmInstallationDetector RocmInstallation;
 
 public:
   Generic_GCC(const Driver &D, const llvm::Triple &Triple,

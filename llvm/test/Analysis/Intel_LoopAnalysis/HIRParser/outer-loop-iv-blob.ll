@@ -16,7 +16,7 @@
 ; CHECK: |      |   %13 = zext.i32.i64(i2 + -1);
 ; CHECK: |      |   %inc.lcssa80 = -1 * i1 + 80;
 ; CHECK: |      |
-; CHECK: |      |   + DO i3 = 0, %13, 1   <DO_LOOP>
+; CHECK: |      |   + DO i3 = 0, zext.i32.i64((-1 + (-1 * trunc.i64.i32(%indvars.iv96)) + %indvars.iv92)), 1   <DO_LOOP>
 ; CHECK: |      |   |   (%qu)[0][-1 * i1 + i3 + 81] = -1 * i1 + i2 + 80;
 ; CHECK: |      |   |   %16 = (%qu)[0][-1 * i1 + i3 + 80];
 ; CHECK: |      |   |   %17 = (%qu)[0][-1 * i1 + i3 + 79];
@@ -25,10 +25,12 @@
 ; CHECK: |      |      %inc.lcssa80 = -1 * i1 + %13 + 81;
 ; CHECK: |      |
 ; CHECK: |      |   %indvars.iv.next93 = -1 * i1 + i2 + 80  +  1;
+; CHECK: |      |   %indvars.iv92 = -1 * i1 + i2 + 81;
 ; CHECK: |      + END LOOP
 ; CHECK: |         (%j8)[0] = %inc.lcssa80;
 ; CHECK: |         (%ka)[0] = %indvars.iv.next93;
 ; CHECK: |   }
+; CHECK: |   %indvars.iv96 = -1 * i1 + 79;
 ; CHECK: + END LOOP
 
 

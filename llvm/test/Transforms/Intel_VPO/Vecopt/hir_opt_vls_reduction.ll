@@ -17,7 +17,7 @@
 ;      @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ;   END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -enable-vplan-vls-cg -hir-cg -disable-output -print-after=VPlanDriverHIR  < %s 2>&1  | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=4 -enable-vplan-vls-cg -hir-cg -enable-vp-value-codegen-hir=0 -disable-output -print-after=VPlanDriverHIR  < %s 2>&1  | FileCheck %s
 
 ; CHECK:            %red.var = 0;
 ; CHECK-NEXT:       %red.var = insertelement %red.var,  %sum.022,  0;
@@ -27,8 +27,8 @@
 ; CHECK-NEXT:       |   %vls.shuf = shufflevector %.vls.load,  undef,  <i32 1, i32 4, i32 7, i32 10>;
 ; CHECK-NEXT:       |   %vls.shuf1 = shufflevector %.vls.load,  undef,  <i32 2, i32 5, i32 8, i32 11>;
 ; CHECK-NEXT:       |   %vls.shuf2 = shufflevector %.vls.load,  undef,  <i32 0, i32 3, i32 6, i32 9>;
-; CHECK-NEXT:       |   %red.var = %vls.shuf + %vls.shuf1  +  %.copy;
-; CHECK-NEXT:       |   %red.var = %red.var  +  %vls.shuf2;
+; CHECK-NEXT:       |   %.vec = %vls.shuf + %vls.shuf1  +  %.copy;
+; CHECK-NEXT:       |   %red.var = %.vec  +  %vls.shuf2;
 ; CHECK-NEXT:       + END LOOP
 ; CHECK:            %sum.022 = @llvm.experimental.vector.reduce.add.v4i32(%red.var);
 

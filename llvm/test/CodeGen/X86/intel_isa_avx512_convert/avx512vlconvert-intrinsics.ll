@@ -8,7 +8,7 @@ declare <8 x half> @llvm.x86.avx512.mask.vcvt2ps2ph.128(<4 x float>, <4 x float>
 define <8 x half>@test_int_x86_avx512_vcvt2ps2ph_128(<4 x float> %x0, <4 x float> %x1) {
 ; CHECK-LABEL: test_int_x86_avx512_vcvt2ps2ph_128:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vcvt2ps2ph %xmm1, %xmm0, %xmm0 # encoding: [0xc4,0xe2,0x79,0x67,0xc1]
+; CHECK-NEXT:    vcvt2ps2ph %xmm1, %xmm0, %xmm0 # EVEX TO VEX Compression encoding: [0xc4,0xe2,0x79,0x67,0xc1]
 ; CHECK-NEXT:    ret{{[l|q]}} # encoding: [0xc3]
   %res = call <8 x half> @llvm.x86.avx512.mask.vcvt2ps2ph.128(<4 x float> %x0, <4 x float> %x1, <8 x half> undef, i8 -1)
   ret <8 x half> %res
@@ -53,7 +53,7 @@ declare <16 x half> @llvm.x86.avx512.mask.vcvt2ps2ph.256(<8 x float>, <8 x float
 define <16 x half>@test_int_x86_avx512_vcvt2ps2ph_256(<8 x float> %x0, <8 x float> %x1) {
 ; CHECK-LABEL: test_int_x86_avx512_vcvt2ps2ph_256:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vcvt2ps2ph %ymm1, %ymm0, %ymm0 # encoding: [0xc4,0xe2,0x7d,0x67,0xc1]
+; CHECK-NEXT:    vcvt2ps2ph %ymm1, %ymm0, %ymm0 # EVEX TO VEX Compression encoding: [0xc4,0xe2,0x7d,0x67,0xc1]
 ; CHECK-NEXT:    ret{{[l|q]}} # encoding: [0xc3]
   %res = call <16 x half> @llvm.x86.avx512.mask.vcvt2ps2ph.256(<8 x float> %x0, <8 x float> %x1, <16 x half> undef, i16 -1)
   ret <16 x half> %res
@@ -98,7 +98,7 @@ declare <8 x half> @llvm.x86.avx512.mask.vcvtbf162ph.128(<8 x i16>,  <8 x half>,
 define <8 x half>@test_int_x86_avx512_vcvtbf162ph_128(<8 x i16> %x0) {
 ; CHECK-LABEL: test_int_x86_avx512_vcvtbf162ph_128:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vcvtbf162ph %xmm0, %xmm0 # encoding: [0xc4,0xe2,0x7a,0x67,0xc0]
+; CHECK-NEXT:    vcvtbf162ph %xmm0, %xmm0 # EVEX TO VEX Compression encoding: [0xc4,0xe2,0x7a,0x67,0xc0]
 ; CHECK-NEXT:    ret{{[l|q]}} # encoding: [0xc3]
   %res = call <8 x half> @llvm.x86.avx512.mask.vcvtbf162ph.128(<8 x i16> %x0, <8 x half> undef, i8 -1)
   ret <8 x half> %res
@@ -143,7 +143,7 @@ declare <16 x half> @llvm.x86.avx512.mask.vcvtbf162ph.256(<16 x i16>,  <16 x hal
 define <16 x half>@test_int_x86_avx512_vcvtbf162ph_256(<16 x i16> %x0) {
 ; CHECK-LABEL: test_int_x86_avx512_vcvtbf162ph_256:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vcvtbf162ph %ymm0, %ymm0 # encoding: [0xc4,0xe2,0x7e,0x67,0xc0]
+; CHECK-NEXT:    vcvtbf162ph %ymm0, %ymm0 # EVEX TO VEX Compression encoding: [0xc4,0xe2,0x7e,0x67,0xc0]
 ; CHECK-NEXT:    ret{{[l|q]}} # encoding: [0xc3]
   %res = call <16 x half> @llvm.x86.avx512.mask.vcvtbf162ph.256(<16 x i16> %x0, <16 x half> undef, i16 -1)
   ret <16 x half> %res
@@ -188,7 +188,7 @@ declare <8 x i16> @llvm.x86.avx512.mask.vcvtneph2bf16.128(<8 x half>, <8 x i16>,
 define <8 x i16>@test_int_x86_avx512_vcvtneph2bf16_128(<8 x half> %x0) {
 ; CHECK-LABEL: test_int_x86_avx512_vcvtneph2bf16_128:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vcvtneph2bf16 %xmm0, %xmm0 # encoding: [0xc4,0xe2,0x7b,0x67,0xc0]
+; CHECK-NEXT:    vcvtneph2bf16 %xmm0, %xmm0 # EVEX TO VEX Compression encoding: [0xc4,0xe2,0x7b,0x67,0xc0]
 ; CHECK-NEXT:    ret{{[l|q]}} # encoding: [0xc3]
   %res = call <8 x i16> @llvm.x86.avx512.mask.vcvtneph2bf16.128(<8 x half> %x0, <8 x i16> undef, i8 -1)
   ret <8 x i16> %res
@@ -233,7 +233,7 @@ declare <16 x i16> @llvm.x86.avx512.mask.vcvtneph2bf16.256(<16 x half>, <16 x i1
 define <16 x i16>@test_int_x86_avx512_vcvtneph2bf16_256(<16 x half> %x0) {
 ; CHECK-LABEL: test_int_x86_avx512_vcvtneph2bf16_256:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    vcvtneph2bf16 %ymm0, %ymm0 # encoding: [0xc4,0xe2,0x7f,0x67,0xc0]
+; CHECK-NEXT:    vcvtneph2bf16 %ymm0, %ymm0 # EVEX TO VEX Compression encoding: [0xc4,0xe2,0x7f,0x67,0xc0]
 ; CHECK-NEXT:    ret{{[l|q]}} # encoding: [0xc3]
   %res = call <16 x i16> @llvm.x86.avx512.mask.vcvtneph2bf16.256(<16 x half> %x0, <16 x i16> undef, i16 -1)
   ret <16 x i16> %res

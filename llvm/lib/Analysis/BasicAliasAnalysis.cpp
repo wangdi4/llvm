@@ -167,6 +167,7 @@ static bool isEscapeArgDereference(const Value *V) {
 static bool isNonEscapingLocalObject(
     const Value *V,
     unsigned PtrCaptureMaxUses, // INTEL
+    const DataLayout &DL,       // INTEL
     SmallDenseMap<const Value *, bool, 8> *IsCapturedCache = nullptr) {
   SmallDenseMap<const Value *, bool, 8>::iterator CacheIt;
   if (IsCapturedCache) {
@@ -232,6 +233,48 @@ static bool isEscapeSource(const Value *V) {
 
   return false;
 }
+
+#ifdef INTEL_CUSTOMIZATION
+static bool isNonEscapingPtrNoAliasLoad(const Value *V, const DataLayout &DL,
+                                        const Value **BasePtr) {
+  auto *LI = dyn_cast<LoadInst>(V);
+  if (!LI) {
+    return false;
+  }
+
+  auto *V1 = LI->getPointerOperand()->stripPointerCastsAndInvariantGroups();
+  V1 = GetUnderlyingObject(V1, DL, MaxLookupSearchDepth);
+
+  auto *A = dyn_cast<Argument>(V1);
+  if (!A) {
+    return false;
+  }
+
+  bool Ret = A->hasAttribute("ptrnoalias") &&
+             !PointerMayBeCaptured(V1, false, /*StoreCaptures=*/true) &&
+             !PointerMayBeCaptured(V, false, /*StoreCaptures=*/true);
+
+  *BasePtr = Ret ? V1 : nullptr;
+  return Ret;
+}
+
+static bool checkPtrNoAlias(const Value *V1, const Value *V2,
+                            const DataLayout &DL) {
+  const Value *V1BasePtr;
+  const Value *V2BasePtr;
+
+  bool V1PtrNoAlias = isNonEscapingPtrNoAliasLoad(V1, DL, &V1BasePtr);
+  bool V2PtrNoAlias = isNonEscapingPtrNoAliasLoad(V2, DL, &V2BasePtr);
+
+  // Check if they based on the same value, they may alias.
+  if (V1PtrNoAlias && V2PtrNoAlias && V1BasePtr == V2BasePtr) {
+    return false;
+  }
+
+  return V1PtrNoAlias && isEscapeSource(V2) ||
+         V2PtrNoAlias && isEscapeSource(V1);
+}
+#endif // INTEL_CUSTOMIZATION
 
 /// Returns the size of the object specified by V or UnknownSize if unknown.
 static uint64_t getObjectSize(const Value *V, const DataLayout &DL,
@@ -623,7 +666,13 @@ bool BasicAAResult::DecomposeGEPExpression(const Value *V,
 
     const GEPOperator *GEPOp = dyn_cast<GEPOperator>(Op);
     if (!GEPOp) {
-      if (const auto *Call = dyn_cast<CallBase>(V)) {
+      if (const auto *PHI = dyn_cast<PHINode>(V)) {
+        // Look through single-arg phi nodes created by LCSSA.
+        if (PHI->getNumIncomingValues() == 1) {
+          V = PHI->getIncomingValue(0);
+          continue;
+        }
+      } else if (const auto *Call = dyn_cast<CallBase>(V)) {
         // CaptureTracking can know about special capturing properties of some
         // intrinsics like launder.invariant.group, that can't be expressed with
         // the attributes, but have properties like returning aliasing pointer.
@@ -660,19 +709,6 @@ bool BasicAAResult::DecomposeGEPExpression(const Value *V,
         continue;
       }
 #endif // INTEL_CUSTOMIZATION
-
-      // If it's not a GEP, hand it off to SimplifyInstruction to see if it
-      // can come up with something. This matches what GetUnderlyingObject does.
-      if (const Instruction *I = dyn_cast<Instruction>(V))
-        // TODO: Get a DominatorTree and AssumptionCache and use them here
-        // (these are both now available in this function, but this should be
-        // updated when GetUnderlyingObject is updated). TLI should be
-        // provided also.
-        if (const Value *Simplified =
-                SimplifyInstruction(const_cast<Instruction *>(I), DL)) {
-          V = Simplified;
-          continue;
-        }
 
       Decomposed.Base = V;
       return false;
@@ -1058,8 +1094,8 @@ ModRefInfo BasicAAResult::getModRefInfo(const CallBase *Call,
   // then the call can not mod/ref the pointer unless the call takes the pointer
   // as an argument, and itself doesn't capture it.
   if (!isa<Constant>(Object) && Call != Object &&
-      isNonEscapingLocalObject(Object, PtrCaptureMaxUses, // INTEL
-                               &AAQI.IsCapturedCache)) {  // INTEL
+      isNonEscapingLocalObject(Object, PtrCaptureMaxUses,     // INTEL
+                               DL, &AAQI.IsCapturedCache)) {  // INTEL
 
     // Optimistically assume that call doesn't touch Object and check this
     // assumption in the following loop.
@@ -2184,13 +2220,19 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
     // location if that memory location doesn't escape. Or it may pass a
     // nocapture value to other functions as long as they don't capture it.
     if (isEscapeSource(O1) &&
-        isNonEscapingLocalObject(O2, PtrCaptureMaxUses,  // INTEL
-                                 &AAQI.IsCapturedCache)) // INTEL
+        isNonEscapingLocalObject(O2, PtrCaptureMaxUses,      // INTEL
+                                 DL, &AAQI.IsCapturedCache)) // INTEL
       return NoAlias;
     if (isEscapeSource(O2) &&
-        isNonEscapingLocalObject(O1, PtrCaptureMaxUses,  // INTEL
-                                 &AAQI.IsCapturedCache)) // INTEL
+        isNonEscapingLocalObject(O1, PtrCaptureMaxUses,      // INTEL
+                                 DL, &AAQI.IsCapturedCache)) // INTEL
       return NoAlias;
+
+#if INTEL_CUSTOMIZATION
+    if (checkPtrNoAlias(O1, O2, DL)) {
+      return NoAlias;
+    }
+#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
     //

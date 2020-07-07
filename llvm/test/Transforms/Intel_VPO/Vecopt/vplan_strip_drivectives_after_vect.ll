@@ -10,8 +10,8 @@
 ; RUN: opt -S < %s -VPlanDriver -vplan-force-vf=8 | FileCheck %s
 ; RUN: opt -S < %s -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR \
 ; RUN:        -hir-cg  -vplan-force-vf=8 -VPODirectiveCleanup | FileCheck %s
-; RUN: opt -S < %s -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR \
-; RUN:        -hir-cg  -vplan-force-vf=8 -passes="vpo-directive-cleanup" | FileCheck %s
+; RUN: opt -S < %s  -vplan-force-vf=8 \
+; RUN:        -passes="hir-ssa-deconstruction,hir-vec-dir-insert,vplan-driver-hir,hir-cg,vpo-directive-cleanup" | FileCheck %s
 
 @arr.i32.1 = common local_unnamed_addr global [1024 x i32] zeroinitializer, align 16
 @arr.i32.2 = common local_unnamed_addr global [1024 x i32] zeroinitializer, align 16

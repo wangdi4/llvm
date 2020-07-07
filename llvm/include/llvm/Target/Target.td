@@ -1061,6 +1061,15 @@ def ANNOTATION_LABEL : StandardPseudoInstruction {
   let hasSideEffects = 0;
   let isNotDuplicable = 1;
 }
+// INTEL_CUSTOMIZATION
+def NOTIFY_LABEL : StandardPseudoInstruction {
+  let OutOperandList = (outs);
+  let InOperandList = (ins i8imm:$src0, ptr_rc:$src1, ptr_rc:$src2);
+  let AsmString = "";
+  let hasCtrlDep = 1;
+  let hasSideEffects = 0;
+}
+// end INTEL_CUSTOMIZATION
 def KILL : StandardPseudoInstruction {
   let OutOperandList = (outs);
   let InOperandList = (ins variable_ops);
@@ -1179,6 +1188,18 @@ def LOAD_STACK_GUARD : StandardPseudoInstruction {
   bit isReMaterializable = 1;
   let hasSideEffects = 0;
   bit isPseudo = 1;
+}
+def PREALLOCATED_SETUP : StandardPseudoInstruction {
+  let OutOperandList = (outs);
+  let InOperandList = (ins i32imm:$a);
+  let usesCustomInserter = 1;
+  let hasSideEffects = 1;
+}
+def PREALLOCATED_ARG : StandardPseudoInstruction {
+  let OutOperandList = (outs ptr_rc:$loc);
+  let InOperandList = (ins i32imm:$a, i32imm:$b);
+  let usesCustomInserter = 1;
+  let hasSideEffects = 1;
 }
 def LOCAL_ESCAPE : StandardPseudoInstruction {
   // This instruction is really just a label. It has to be part of the chain so

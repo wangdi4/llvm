@@ -62,6 +62,19 @@ Instruction::Instruction(Type *ty, unsigned it, Use *Ops, unsigned NumOps,
 
 Instruction::~Instruction() {
   assert(!Parent && "Instruction still linked in the program!");
+
+  // Replace any extant metadata uses of this instruction with undef to
+  // preserve debug info accuracy. Some alternatives include:
+  // - Treat Instruction like any other Value, and point its extant metadata
+  //   uses to an empty ValueAsMetadata node. This makes extant dbg.value uses
+  //   trivially dead (i.e. fair game for deletion in many passes), leading to
+  //   stale dbg.values being in effect for too long.
+  // - Call salvageDebugInfoOrMarkUndef. Not needed to make instruction removal
+  //   correct. OTOH results in wasted work in some common cases (e.g. when all
+  //   instructions in a BasicBlock are deleted).
+  if (isUsedByMetadata())
+    ValueAsMetadata::handleRAUW(this, UndefValue::get(getType()));
+
   if (hasMetadataHashEntry())
     clearMetadataHashEntries();
 }
@@ -220,6 +233,11 @@ void Instruction::setHasNoSignedZeros(bool B) {
 void Instruction::setHasAllowReciprocal(bool B) {
   assert(isa<FPMathOperator>(this) && "setting fast-math flag on invalid op");
   cast<FPMathOperator>(this)->setHasAllowReciprocal(B);
+}
+
+void Instruction::setHasAllowContract(bool B) {
+  assert(isa<FPMathOperator>(this) && "setting fast-math flag on invalid op");
+  cast<FPMathOperator>(this)->setHasAllowContract(B);
 }
 
 void Instruction::setHasApproxFunc(bool B) {
@@ -775,6 +793,15 @@ static MDNode *eraseLoopOptReport(MDNode *LoopID, LLVMContext &Context) {
   NewLoopID->replaceOperandWith(0, NewLoopID);
   return NewLoopID;
 }
+
+// Returns a copy of MD with operands(0) => operands(maxOps).
+static MDNode *cloneMDNodeWithMaxOps(MDNode *MD, unsigned maxOps) {
+  SmallVector<Metadata *, 2> ops;
+  for (unsigned i = 0; i <= maxOps; i++)
+    ops.push_back(MD->getOperand(i));
+  return MDNode::get(MD->getContext(), ops);
+}
+
 #endif // INTEL_CUSTOMIZATION
 void Instruction::copyMetadata(const Instruction &SrcInst,
                                ArrayRef<unsigned> WL) {
@@ -803,8 +830,21 @@ void Instruction::copyMetadata(const Instruction &SrcInst,
         setMetadata(MD.first, NewMD);
         continue;
       }
+
+      // 20563: If we are attaching !prof branch_weights to a call, use
+      // only the 1st edge operand.
+      MDNode *MDN = MD.second;
+      if (MD.first == LLVMContext::MD_prof) {
+        assert(MDN->getNumOperands() >= 2 && MDN->getOperand(0) &&
+               isa<MDString>(MDN->getOperand(0)) && "Invalid !prof annotation");
+        StringRef ProfName = (cast<MDString>(MDN->getOperand(0)))->getString();
+        if (ProfName.equals("branch_weights"))
+          if (getOpcode() == Instruction::Call)
+            MDN = cloneMDNodeWithMaxOps(MDN, 1);
+      }
+
       if (MD.second != MDIR)
-        setMetadata(MD.first, MD.second);
+        setMetadata(MD.first, MDN);
     }
 #endif // INTEL_CUSTOMIZATION
   }
@@ -828,13 +868,4 @@ Instruction *Instruction::clone() const {
   New->SubclassOptionalData = SubclassOptionalData;
   New->copyMetadata(*this);
   return New;
-}
-
-void Instruction::setProfWeight(uint64_t W) {
-  assert(isa<CallBase>(this) &&
-         "Can only set weights for call like instructions");
-  SmallVector<uint32_t, 1> Weights;
-  Weights.push_back(W);
-  MDBuilder MDB(getContext());
-  setMetadata(LLVMContext::MD_prof, MDB.createBranchWeights(Weights));
 }

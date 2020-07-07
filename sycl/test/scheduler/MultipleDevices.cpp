@@ -1,5 +1,5 @@
 // RUN: %clangxx -fsycl -fsycl-targets=%sycl_triple -I %sycl_source_dir %s -o %t.out
-// RUN: %t.out
+// RUN: env SYCL_ENABLE_HOST_DEVICE=ON %t.out
 
 //===- MultipleDevices.cpp - Test checking multi-device execution --------===//
 //

@@ -420,9 +420,10 @@ Checkin criteria for pulldown is basically the same as for any other change and
 the final decision is done by the xmain gatekeeper. The main exception is the
 process of addressing performance regressions. Unlike regular checkin requests
 we do allow the pulldown to decrease performance and do not require the
-coordinators to analyze such regression prior to promotion. Instead a JIRA
-against "LLVM Performance Analysis" component should be submitted listing the
-performance drops from the Alloy testing. Depending on the current
+coordinators to analyze such regression prior to promotion. Instead a JIRA against
+project "Compiler Performance Tracking" (CMPLRPTA) setting component to
+"LLVM Performance Analysis" and assignee to "Automatic" should be submitted listing
+the performance drops from the Alloy testing. Depending on the current
 organizational goals it might be preferred to split the regressions into two
 parts - important ones and those that have lower priority.
 
@@ -430,6 +431,8 @@ However, as the scope and effect of work for the pulldown coordinator might
 differ from the usual patches he/she works on, here is a brief reference to
 judge the quality of the chosen ``xmain-cand`` regarding its stability (as
 opposite to generated code performance):
+
+.. _xmain-pulldown-with-lit-failures:
 
 * Any build/LIT-tests failure is a blocking issue.
 

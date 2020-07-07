@@ -654,22 +654,21 @@ void HIRUnrollAndJam::Analyzer::visit(HLLoop *Lp) {
   // Throttle unroll of outer loop whose inner loop's bounds varies within the
   // outer loop, as they cannot be fused.
   if (Lp->getParentLoop()) {
-    for (auto RefIt = Lp->ddref_begin(), E = Lp->ddref_end(); RefIt != E;
-         ++RefIt) {
+    for (auto *Ref : make_range(Lp->ddref_begin(), Lp->ddref_end())) {
 
-      auto CE = (*RefIt)->getSingleCanonExpr();
-
-      if (unsigned DefLevel = CE->getDefinedAtLevel()) {
+      if (unsigned DefLevel = Ref->getDefinedAtLevel()) {
         LLVM_DEBUG(
             dbgs() << "Skipping unroll & jam for loopnest as it is illegal!\n");
         HUAJ.throttleRecursively(Lp->getParentLoopAtLevel(DefLevel));
       }
 
-      for (auto IV = CE->iv_begin(), IVE = CE->iv_end(); IV != IVE; ++IV) {
-        if (CE->getIVConstCoeff(IV) != 0) {
-          LLVM_DEBUG(dbgs()
-                     << "Skipping unroll & jam for loop as it is illegal!\n");
-          HUAJ.throttle(Lp->getParentLoopAtLevel(CE->getLevel(IV)));
+      for (auto *CE : make_range(Ref->canon_begin(), Ref->canon_end())) {
+        for (auto IV = CE->iv_begin(), IVE = CE->iv_end(); IV != IVE; ++IV) {
+          if (CE->getIVConstCoeff(IV) != 0) {
+            LLVM_DEBUG(dbgs()
+                       << "Skipping unroll & jam for loop as it is illegal!\n");
+            HUAJ.throttle(Lp->getParentLoopAtLevel(CE->getLevel(IV)));
+          }
         }
       }
     }

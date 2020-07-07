@@ -478,7 +478,7 @@ MCSymbol *MCStreamer::emitCFILabel() {
 void MCStreamer::emitCFIDefCfa(int64_t Register, int64_t Offset) {
   MCSymbol *Label = emitCFILabel();
   MCCFIInstruction Instruction =
-    MCCFIInstruction::createDefCfa(Label, Register, Offset);
+      MCCFIInstruction::cfiDefCfa(Label, Register, Offset);
   MCDwarfFrameInfo *CurFrame = getCurrentDwarfFrameInfo();
   if (!CurFrame)
     return;
@@ -489,7 +489,7 @@ void MCStreamer::emitCFIDefCfa(int64_t Register, int64_t Offset) {
 void MCStreamer::emitCFIDefCfaOffset(int64_t Offset) {
   MCSymbol *Label = emitCFILabel();
   MCCFIInstruction Instruction =
-    MCCFIInstruction::createDefCfaOffset(Label, Offset);
+      MCCFIInstruction::cfiDefCfaOffset(Label, Offset);
   MCDwarfFrameInfo *CurFrame = getCurrentDwarfFrameInfo();
   if (!CurFrame)
     return;
@@ -1080,6 +1080,14 @@ void MCStreamer::emitXCOFFLocalCommonSymbol(MCSymbol *LabelSym, uint64_t Size,
                                             unsigned ByteAlign) {
   llvm_unreachable("this directive only supported on XCOFF targets");
 }
+
+void MCStreamer::emitXCOFFSymbolLinkageWithVisibility(MCSymbol *Symbol,
+                                                      MCSymbolAttr Linkage,
+                                                      MCSymbolAttr Visibility) {
+  llvm_unreachable("emitXCOFFSymbolLinkageWithVisibility is only supported on "
+                   "XCOFF targets");
+}
+
 void MCStreamer::emitELFSize(MCSymbol *Symbol, const MCExpr *Value) {}
 void MCStreamer::emitELFSymverDirective(StringRef AliasName,
                                         const MCSymbol *Aliasee) {}

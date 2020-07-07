@@ -1,7 +1,7 @@
+; REQUIRES: asserts
 ; RUN: opt < %s -whole-program-assume  -dtransanalysis -debug-only=dtransanalysis,dtrans-lpa,dtrans-lpa-verbose -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume  -passes='require<dtransanalysis>' -debug-only=dtransanalysis,dtrans-lpa,dtrans-lpa-verbose -disable-output 2>&1 | FileCheck %s
 
-; REQUIRES: asserts
 
 ; test01 has a cyclic dependency between PHI nodes
 ;
@@ -83,6 +83,7 @@ merge:
 
 exit_A:
   %badA = bitcast i8* %a to %struct.test01.a*
+  %gep = getelementptr %struct.test01.a, %struct.test01.a* %badA, i64 0, i32 0
   br label %exit
 
 exit_B:
@@ -454,7 +455,7 @@ define void @test04(%struct.test04*** %ARG) {
 ; In test05, a PHI node with a self-dependency must be analyzed.
 
 %struct.test05 = type { i32, i32 }
-define void @test05() {
+define %struct.test05* @test05() {
 BB1:
   br label %BB2
 
@@ -464,7 +465,7 @@ BB2:
 
 BB3:
   %bad = bitcast i8* %P1 to %struct.test05*
-  ret void
+  ret %struct.test05* %bad
 }
 
 ; CHECK: analyzeValue   %P1 = phi
@@ -485,7 +486,7 @@ BB3:
 ; block.
 
 %struct.test06 = type { i32, i32 }
-define void @test06() {
+define %struct.test06* @test06() {
 BB1:
   br label %BB2
 
@@ -497,7 +498,7 @@ BB2:
 
 BB3:
   %bad = bitcast i8* %P1 to %struct.test06*
-  ret void
+  ret %struct.test06* %bad
 }
 
 ; CHECK: analyzeValue   %P1 = phi

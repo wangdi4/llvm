@@ -141,6 +141,12 @@ if(TARGET LLVMgold)
   set(LLVM_TEST_DEPENDS ${LLVM_TEST_DEPENDS} LLVMgold)
 endif()
 
+if(INTEL_CUSTOMIZATION)
+  if(TARGET icx-lto)
+    set(LLVM_TEST_DEPENDS ${LLVM_TEST_DEPENDS} icx-lto)
+  endif()
+endif(INTEL_CUSTOMIZATION)
+
 if(TARGET llvm-go)
   set(LLVM_TEST_DEPENDS ${LLVM_TEST_DEPENDS} llvm-go)
 endif()
@@ -151,13 +157,17 @@ endif()
 
 if(LLVM_BUILD_EXAMPLES)
   list(APPEND LLVM_TEST_DEPENDS
-    Bye
     Kaleidoscope-Ch3
     Kaleidoscope-Ch4
     Kaleidoscope-Ch5
     Kaleidoscope-Ch6
     Kaleidoscope-Ch7
     )
+  if (NOT WIN32)
+    list(APPEND LLVM_TEST_DEPENDS
+      Bye
+      )
+  endif()
 endif()
 
 if(TARGET ocaml_llvm)
@@ -205,8 +215,7 @@ add_lit_testsuites(LLVM ${CMAKE_CURRENT_SOURCE_DIR}
   DEPENDS ${LLVM_TEST_DEPENDS}
   )
 
-# Setup a legacy alias for 'check-llvm'. This will likely change to be an
-# alias for 'check-all' at some point in the future.
+# Setup an alias for 'check-all'.
 add_custom_target(check)
-add_dependencies(check check-llvm)
+add_dependencies(check check-all)
 set_target_properties(check PROPERTIES FOLDER "Tests")

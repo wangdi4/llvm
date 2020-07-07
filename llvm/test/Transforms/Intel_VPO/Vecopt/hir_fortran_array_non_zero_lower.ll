@@ -1,4 +1,4 @@
-; Check that vectorizer temporarily bails out for array accesses with non-zero lower.
+; Check that vectorizer handles array accesses with non-zero lower.
 
 ;   %entry.region = @llvm.directive.region.entry(); [ DIR.VPO.AUTO.VEC() ]
 ;
@@ -9,10 +9,19 @@
 ;
 ;   @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=2 -print-after=VPlanDriverHIR < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=2 -print-after=VPlanDriverHIR -hir-details-dims -enable-vp-value-codegen-hir=0 -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-force-vf=2 -print-after=VPlanDriverHIR -hir-details-dims -enable-vp-value-codegen-hir -disable-output < %s 2>&1 | FileCheck %s
 
-; Check that loop was not vectorized.
-; CHECK-NOT: <2 x
+; Check that memref and loop was vectorized.
+; CHECK:          BEGIN REGION { modified }
+; CHECK-NEXT:           %red.var = 0.000000e+00;
+; CHECK-NEXT:           %.vec = (<2 x double>*)(@mod1_mp_weight_)[0:0:4112([1 x [257 x [2 x double]]]*:0)][1:%"foo_$NG_fetch":4112([1 x [257 x [2 x double]]]:1)][0:<i64 0, i64 1> + 1:16([257 x [2 x double]]:257)][0:0:8([2 x double]:2)];
+; CHECK-NEXT:           %red.var = %.vec  +  %red.var;
+; CHECK-NEXT:           %.vec = (<2 x double>*)(@mod1_mp_weight_)[0:0:4112([1 x [257 x [2 x double]]]*:0)][1:%"foo_$NG_fetch":4112([1 x [257 x [2 x double]]]:1)][0:<i64 0, i64 1> + 3:16([257 x [2 x double]]:257)][0:0:8([2 x double]:2)];
+; CHECK-NEXT:           %red.var = %.vec  +  %red.var;
+; CHECK-NEXT:           %add10 = @llvm.experimental.vector.reduce.v2.fadd.f64.v2f64(%add10,  %red.var);
+; CHECK-NEXT:     END REGION
+
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

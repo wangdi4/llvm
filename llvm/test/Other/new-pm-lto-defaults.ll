@@ -111,9 +111,15 @@
 ; CHECK-O2-NEXT: Running pass: RequireAnalysisPass<{{.*}}AndersensAA                  ;INTEL
 ; CHECK-O2-NEXT: Running analysis: AndersensAA                                        ;INTEL
 ; CHECK-O2-NEXT: Running pass: ModuleToFunctionPassAdaptor<{{.*}}IndirectCallConvPass ;INTEL
-; CHECK-O2-NEXT: Running pass: RequireAnalysisPass<{{.*}}InlineAggAnalysis            ;INTEL
-; CHECK-O2-NEXT: Running analysis: InlineAggAnalysis                                  ;INTEL
-; CHECK-O2-NEXT: Running pass: ModuleToPostOrderCGSCCPassAdaptor<{{.*}}InlinerPass>
+; CHECK-O2-NEXT: Running pass: AggInlinerPass ;INTEL
+; CHECK-O2-NEXT: Running pass: ModuleInlinerWrapperPass
+; CHECK-O2-NEXT: Running analysis: InlineAdvisorAnalysis
+; CHECK-O2-NEXT: Starting llvm::Module pass manager run.
+; CHECK-O2-NEXT: Running pass: ModuleToPostOrderCGSCCPassAdaptor<{{.*}}PassManager{{.*}}>
+; CHECK-O2-NEXT: Starting CGSCC pass manager run.
+; CHECK-O2-NEXT: Running pass: InlinerPass
+; CHECK-O2-NEXT: Finished CGSCC pass manager run.
+; CHECK-O2-NEXT: Finished llvm::Module pass manager run.
 ; INTEL_CUSTOMIZATION
 ; CHECK-O2-NEXT: Running pass: GlobalOptPass
 ; CHECK-O2-NEXT: Running pass: IntelIPOPrefetchPass

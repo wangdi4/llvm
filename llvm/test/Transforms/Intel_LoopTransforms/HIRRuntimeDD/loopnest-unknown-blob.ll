@@ -16,7 +16,7 @@
 ; CHECK: Function
 ; CHECK: %mv.test = &((%b)[zext.i32.i64(%n) + -1]) >=u &((%a)[-1 * smin(0, sext.i32.i64(%k)) + (zext.i32.i64(%n) * smin(0, sext.i32.i64(%k)))]);
 ; CHECK: %mv.test2 = &((%a)[zext.i32.i64(%n) + -1 * smax(0, sext.i32.i64(%k)) + (zext.i32.i64(%n) * smax(0, sext.i32.i64(%k))) + -1]) >=u &((%b)[0]);
-; CHECK: %mv.and = %mv.test  &&  %mv.test2;
+; CHECK: %mv.and = %mv.test  &  %mv.test2;
 ; CHECK: if (%mv.and == 0)
 
 ;Module Before HIR; ModuleID = 'loopnest-unknown-blob.c'

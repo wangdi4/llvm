@@ -25,11 +25,11 @@ define void @foo(i64 %n1, i64 %n2) {
 ; CHECK-DAG:     [[VP2:%.*]] = {(%n1 * %n2)}
 ; CHECK-NEXT:  External Defs End:
 ; CHECK:          i64 [[VP3:%.*]] = phi  [ i64 0, {{.*}} ],  [ i64 [[VP4:%.*]], {{.*}} ]
-; CHECK-NEXT:     i64* [[VP5:%.*]] = getelementptr inbounds [100 x i64]* @arr i64 0 i64 [[VP3]]
+; CHECK-NEXT:     i64* [[VP5:%.*]] = subscript inbounds [100 x i64]* @arr i64 0 i64 [[VP3]]
 ; CHECK-NEXT:     i64 [[VP6:%.*]] = load i64* [[VP5]]
 ; CHECK-NEXT:     i64 [[VP7:%.*]] = add i64 [[VP6]] i64 [[VP2]]
 ; CHECK-NEXT:     i64 [[VP8:%.*]] = add i64 [[VP6]] i64 [[VP2]]
-; CHECK-NEXT:     i64* [[VP9:%.*]] = getelementptr inbounds [100 x i64]* @arr2 i64 0 i64 [[VP8]]
+; CHECK-NEXT:     i64* [[VP9:%.*]] = subscript inbounds [100 x i64]* @arr2 i64 0 i64 [[VP8]]
 ; CHECK-NEXT:     store i64 [[VP7]] i64* [[VP9]]
 ;
 entry:

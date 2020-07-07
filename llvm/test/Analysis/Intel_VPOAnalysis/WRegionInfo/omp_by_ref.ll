@@ -1,5 +1,5 @@
-; RUN: opt -vpo-wrncollection -analyze -vpo-paropt-use-device-ptr-is-default-by-ref=false < %s | FileCheck %s
-; RUN: opt -passes='function(print<vpo-wrncollection>)' -disable-output -vpo-paropt-use-device-ptr-is-default-by-ref=false 2>&1 < %s | FileCheck %s
+; RUN: opt -vpo-wrncollection -analyze < %s | FileCheck %s
+; RUN: opt -passes='function(print<vpo-wrncollection>)' -disable-output 2>&1 < %s | FileCheck %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

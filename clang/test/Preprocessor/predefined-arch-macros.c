@@ -1871,15 +1871,16 @@
 // RUN:     -target i386-unknown-linux \
 // RUN:   | FileCheck %s -check-prefix=CHECK_TRM_M32
 // CHECK_TRM_M32: #define __AES__ 1
-// CHECK_TRM_M32: #define __CLDEMOTE__ 1
+// CHECK_TRM_M32-NOT: #define __CLDEMOTE__ 1
 // CHECK_TRM_M32: #define __CLFLUSHOPT__ 1
+// CHECK_TRM_M32: #define __CLWB__ 1
 // CHECK_TRM_M32: #define __FSGSBASE__ 1
 // CHECK_TRM_M32: #define __FXSR__ 1
 // CHECK_TRM_M32: #define __GFNI__ 1
 // CHECK_TRM_M32: #define __MMX__ 1
 // CHECK_TRM_M32: #define __MOVBE__ 1
-// CHECK_TRM_M32: #define __MOVDIR64B__ 1
-// CHECK_TRM_M32: #define __MOVDIRI__ 1
+// CHECK_TRM_M32-NOT: #define __MOVDIR64B__ 1
+// CHECK_TRM_M32-NOT: #define __MOVDIRI__ 1
 // CHECK_TRM_M32: #define __PCLMUL__ 1
 // CHECK_TRM_M32: #define __POPCNT__ 1
 // CHECK_TRM_M32: #define __PRFCHW__ 1
@@ -1896,7 +1897,7 @@
 // CHECK_TRM_M32: #define __SSE_MATH__ 1
 // CHECK_TRM_M32: #define __SSE__ 1
 // CHECK_TRM_M32: #define __SSSE3__ 1
-// CHECK_TRM_M32: #define __WAITPKG__ 1
+// CHECK_TRM_M32-NOT: #define __WAITPKG__ 1
 // CHECK_TRM_M32: #define __XSAVEC__ 1
 // CHECK_TRM_M32: #define __XSAVEOPT__ 1
 // CHECK_TRM_M32: #define __XSAVES__ 1
@@ -1912,15 +1913,16 @@
 // RUN:     -target i386-unknown-linux \
 // RUN:   | FileCheck %s -check-prefix=CHECK_TRM_M64
 // CHECK_TRM_M64: #define __AES__ 1
-// CHECK_TRM_M64: #define __CLDEMOTE__ 1
+// CHECK_TRM_M64-NOT: #define __CLDEMOTE__ 1
 // CHECK_TRM_M64: #define __CLFLUSHOPT__ 1
+// CHECK_TRM_M64: #define __CLWB__ 1
 // CHECK_TRM_M64: #define __FSGSBASE__ 1
 // CHECK_TRM_M64: #define __FXSR__ 1
 // CHECK_TRM_M64: #define __GFNI__ 1
 // CHECK_TRM_M64: #define __MMX__ 1
 // CHECK_TRM_M64: #define __MOVBE__ 1
-// CHECK_TRM_M64: #define __MOVDIR64B__ 1
-// CHECK_TRM_M64: #define __MOVDIRI__ 1
+// CHECK_TRM_M64-NOT: #define __MOVDIR64B__ 1
+// CHECK_TRM_M64-NOT: #define __MOVDIRI__ 1
 // CHECK_TRM_M64: #define __PCLMUL__ 1
 // CHECK_TRM_M64: #define __POPCNT__ 1
 // CHECK_TRM_M64: #define __PRFCHW__ 1
@@ -1936,7 +1938,7 @@
 // CHECK_TRM_M64: #define __SSE4_2__ 1
 // CHECK_TRM_M64: #define __SSE__ 1
 // CHECK_TRM_M64: #define __SSSE3__ 1
-// CHECK_TRM_M64: #define __WAITPKG__ 1
+// CHECK_TRM_M64-NOT: #define __WAITPKG__ 1
 // CHECK_TRM_M64: #define __XSAVEC__ 1
 // CHECK_TRM_M64: #define __XSAVEOPT__ 1
 // CHECK_TRM_M64: #define __XSAVES__ 1

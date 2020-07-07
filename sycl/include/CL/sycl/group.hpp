@@ -59,6 +59,7 @@ public:
     // in the group:
     Val.reset(new T[G.get_local_range().size()]);
 #endif // __SYCL_DEVICE_ONLY__
+    (void)G;
   }
 
   // Access the instance for the current work-item
@@ -69,6 +70,7 @@ public:
     size_t Ind = Id.get_physical_local().get_linear_id();
     return Val.get()[Ind];
 #else
+    (void)Id;
     return Val;
 #endif // __SYCL_DEVICE_ONLY__
   }
@@ -85,6 +87,10 @@ private:
 #endif // #ifdef __SYCL_DEVICE_ONLY__
 };
 
+/// Encapsulates all functionality required to represent a particular work-group
+/// within a parallel execution.
+///
+/// \ingroup sycl_api
 template <int Dimensions = 1> class group {
 public:
 #ifndef __DISABLE_SYCL_INTEL_GROUP_ALGORITHMS__

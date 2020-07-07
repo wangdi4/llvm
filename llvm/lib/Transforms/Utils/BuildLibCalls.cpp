@@ -1613,9 +1613,20 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_FindFirstFileA:
+  case LibFunc_FindFirstFileW:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_FindNextFileA:
+  case LibFunc_FindNextFileW:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_FindResourceA:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_FreeResource:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_GetCurrentProcess:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_GetCurrentThreadId:
@@ -1624,13 +1635,25 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_GetFullPathNameA:
     Changed |= setDoesNotThrow(F);
     return Changed;
+  case LibFunc_GetModuleFileNameA:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
   case LibFunc_GetModuleHandleA:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_GetProcAddress:
     Changed |= setDoesNotThrow(F);
     return Changed;
+  case LibFunc_GetProcessTimes:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
   case LibFunc_GetShortPathNameW:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_GetSystemTime:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_GetVersionExA:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_GlobalMemoryStatus:
@@ -1718,6 +1741,12 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
   case LibFunc_link:
     Changed |= setDoesNotThrow(F);
     return Changed;
+  case LibFunc_LoadResource:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_LockResource:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
   case LibFunc_local_stdio_printf_options:
     Changed |= setDoesNotThrow(F);
     return Changed;
@@ -1760,6 +1789,7 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_MultiByteToWideChar:
+  case LibFunc_WideCharToMultiByte:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_munmap:
@@ -1968,6 +1998,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     Changed |= setOnlyReadsMemory(F);
     Changed |= setDoesNotThrow(F);
     return Changed;
+  case LibFunc_SizeofResource:
+    Changed |= setDoesNotThrow(F);
+    return Changed;
   case LibFunc_Sleep:
   case LibFunc_under_sleep:
   case LibFunc_sleep:
@@ -2022,6 +2055,9 @@ bool llvm::inferLibFuncAttributes(Function &F, const TargetLibraryInfo &TLI) {
     return Changed;
   case LibFunc_sysconf:
     Changed |= setOnlyReadsMemory(F);
+    Changed |= setDoesNotThrow(F);
+    return Changed;
+  case LibFunc_SystemTimeToFileTime:
     Changed |= setDoesNotThrow(F);
     return Changed;
   case LibFunc_time:

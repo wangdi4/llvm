@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 #pragma once
 
+#include <CL/sycl/detail/common.hpp>
 #include <CL/sycl/detail/defines.hpp>
 
 __SYCL_INLINE_NAMESPACE(cl) {
@@ -44,10 +45,48 @@ enum class address_space : int {
   private_space = 0,
   global_space,
   constant_space,
-  local_space
+  local_space,
+  global_device_space,
+  global_host_space
 };
 
-}  // namespace access
+} // namespace access
+
+using access::target;
+using access_mode = access::mode;
+
+template <access_mode mode> struct mode_tag_t {
+  explicit mode_tag_t() = default;
+};
+
+template <access_mode mode, target trgt> struct mode_target_tag_t {
+  explicit mode_target_tag_t() = default;
+};
+
+#if __cplusplus > 201402L
+
+inline constexpr mode_tag_t<access_mode::read> read_only{};
+inline constexpr mode_tag_t<access_mode::read_write> read_write{};
+inline constexpr mode_tag_t<access_mode::write> write_only{};
+inline constexpr mode_target_tag_t<access_mode::read, target::constant_buffer>
+    read_constant{};
+
+#else
+
+namespace {
+
+constexpr const auto &read_only =
+    sycl::detail::InlineVariableHelper<mode_tag_t<access_mode::read>>::value;
+constexpr const auto &read_write = sycl::detail::InlineVariableHelper<
+    mode_tag_t<access_mode::read_write>>::value;
+constexpr const auto &write_only =
+    sycl::detail::InlineVariableHelper<mode_tag_t<access_mode::write>>::value;
+constexpr const auto &read_constant = sycl::detail::InlineVariableHelper<
+    mode_target_tag_t<access_mode::read, target::constant_buffer>>::value;
+
+} // namespace
+
+#endif
 
 namespace detail {
 
@@ -66,11 +105,15 @@ constexpr bool modeWritesNewData(access::mode m) {
 
 #ifdef __SYCL_DEVICE_ONLY__
 #define __OPENCL_GLOBAL_AS__ __attribute__((opencl_global))
+#define __OPENCL_GLOBAL_DEVICE_AS__ __attribute__((opencl_global_device))
+#define __OPENCL_GLOBAL_HOST_AS__ __attribute__((opencl_global_host))
 #define __OPENCL_LOCAL_AS__ __attribute__((opencl_local))
 #define __OPENCL_CONSTANT_AS__ __attribute__((opencl_constant))
 #define __OPENCL_PRIVATE_AS__ __attribute__((opencl_private))
 #else
 #define __OPENCL_GLOBAL_AS__
+#define __OPENCL_GLOBAL_DEVICE_AS__
+#define __OPENCL_GLOBAL_HOST_AS__
 #define __OPENCL_LOCAL_AS__
 #define __OPENCL_CONSTANT_AS__
 #define __OPENCL_PRIVATE_AS__
@@ -105,6 +148,16 @@ struct PtrValueType<ElementType, access::address_space::global_space> {
 };
 
 template <typename ElementType>
+struct PtrValueType<ElementType, access::address_space::global_device_space> {
+  using type = __OPENCL_GLOBAL_DEVICE_AS__ ElementType;
+};
+
+template <typename ElementType>
+struct PtrValueType<ElementType, access::address_space::global_host_space> {
+  using type = __OPENCL_GLOBAL_HOST_AS__ ElementType;
+};
+
+template <typename ElementType>
 struct PtrValueType<ElementType, access::address_space::constant_space> {
   // Current implementation of address spaces handling leads to possibility
   // of emitting incorrect (in terms of OpenCL) address space casts from
@@ -134,6 +187,14 @@ struct remove_AS<__OPENCL_GLOBAL_AS__ T> {
   typedef T type;
 };
 
+template <class T> struct remove_AS<__OPENCL_GLOBAL_DEVICE_AS__ T> {
+  typedef T type;
+};
+
+template <class T> struct remove_AS<__OPENCL_GLOBAL_HOST_AS__ T> {
+  typedef T type;
+};
+
 template <class T>
 struct remove_AS<__OPENCL_PRIVATE_AS__ T> {
   typedef T type;
@@ -151,6 +212,8 @@ struct remove_AS<__OPENCL_CONSTANT_AS__ T> {
 #endif
 
 #undef __OPENCL_GLOBAL_AS__
+#undef __OPENCL_GLOBAL_DEVICE_AS__
+#undef __OPENCL_GLOBAL_HOST_AS__
 #undef __OPENCL_LOCAL_AS__
 #undef __OPENCL_CONSTANT_AS__
 #undef __OPENCL_PRIVATE_AS__

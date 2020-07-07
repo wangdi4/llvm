@@ -27,7 +27,7 @@ define void @test1() {
 ; If alloca is used not in SIMD region, it won't be promoted
 define void @test2() {
 ; CHECK-LABEL: @test2(
-; CHECK-NEXT:    [[S:%.*]] = alloca [[STRUCT_S:%.*]]
+; CHECK-NEXT:    [[S:%.*]] = alloca [[STRUCT_S:%[^ ,]+]]
 ; CHECK-NEXT:    [[TMP:%.*]] = bitcast %struct.S* [[S]] to i8*
 ; CHECK-NEXT:    [[XPOS:%.*]] = getelementptr inbounds [[STRUCT_S]], %struct.S* [[S]], i64 0, i32 0
 ; CHECK-NEXT:    [[YPOS:%.*]] = getelementptr inbounds [[STRUCT_S]], %struct.S* [[S]], i64 0, i32 1
@@ -55,7 +55,7 @@ define void @test2() {
 ; If alloca is used in SIMD region but not for private variable, it won't be promoted
 define void @test3() {
 ; CHECK-LABEL: @test3(
-; CHECK-NEXT:    [[S:%.*]] = alloca [[STRUCT_S:%.*]]
+; CHECK-NEXT:    [[S:%.*]] = alloca [[STRUCT_S:%[^ ,]+]]
 ; CHECK-NEXT:    [[TMP:%.*]] = bitcast %struct.S* [[S]] to i8*
 ; CHECK-NEXT:    [[XPOS:%.*]] = getelementptr inbounds [[STRUCT_S]], %struct.S* [[S]], i64 0, i32 0
 ; CHECK-NEXT:    [[YPOS:%.*]] = getelementptr inbounds [[STRUCT_S]], %struct.S* [[S]], i64 0, i32 1

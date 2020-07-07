@@ -1,5 +1,5 @@
-; RUN: opt < %s -S -ip-cloning 2>&1 | FileCheck %s
-; RUN: opt < %s -S -passes='module(ip-cloning)' 2>&1 | FileCheck %s
+; RUN: opt < %s -S -ip-cloning -ip-manyreccalls-splitting=false 2>&1 | FileCheck %s
+; RUN: opt < %s -S -passes='module(ip-cloning)' -ip-manyreccalls-splitting=false 2>&1 | FileCheck %s
 
 ; Check that foo is not selected for cloning as a "many recursive calls"
 ; cloning candidate, because it does not call itself enough times.

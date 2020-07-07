@@ -70,8 +70,12 @@ EXTERN int omp_get_thread_num(void) {
 
 EXTERN int omp_get_num_threads(void) {
   if (GLOBAL.assume_simple_spmd_mode) {
-    kmp_local_state_t *local_state = __kmp_get_local_state();
-    return OP_MIN(__kmp_get_local_size(), local_state->spmd_num_threads, 0);
+    // We are using team data for the cases that are not supposed to use team
+    // data. Target regions that use too many teams and push different
+    // num_threads each may produce incorrect results.
+    int spmd_num_threads =
+        LOCALS[__kmp_get_group_id() % KMP_MAX_NUM_GROUPS].spmd_num_threads;
+    return OP_MIN(__kmp_get_local_size(), spmd_num_threads, 0);
   }
 
   return __kmp_get_num_omp_threads(__kmp_is_spmd_mode());

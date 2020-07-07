@@ -107,14 +107,16 @@ bool VPlanIdioms::isSafeLatchBlockForSearchLoop(const VPBasicBlock *Block) {
 
   SmallVector<const VPInstruction *, 1> Insts(
       map_range(*Block, [](const VPInstruction &Inst) { return &Inst; }));
-  if (Insts.size() != 1)
+  if (Insts.size() != 2)
     return false;
   if (Insts[0]->getOpcode() != Instruction::And)
+    return false;
+  if (Insts[1]->getOpcode() != Instruction::Br)
     return false;
 
   SmallVector<const VPInstruction *, 4> PredInsts(
       map_range(*SinglePred, [](const VPInstruction &Inst) { return &Inst; }));
-  if (PredInsts.size() != 4)
+  if (PredInsts.size() != 5)
     return false;
   if (PredInsts[0]->getOpcode() != VPInstruction::Pred)
     return false;
@@ -123,6 +125,8 @@ bool VPlanIdioms::isSafeLatchBlockForSearchLoop(const VPBasicBlock *Block) {
   if (PredInsts[2]->getOpcode() != Instruction::ICmp)
     return false;
   if (PredInsts[3]->getOpcode() != VPInstruction::Not)
+    return false;
+  if (PredInsts[4]->getOpcode() != Instruction::Br)
     return false;
 
   return true;

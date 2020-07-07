@@ -1436,8 +1436,7 @@ bool CanonExpr::convertToStandAloneBlob() {
     BlobTy CurBlob = getBlobUtils().getBlob(BIt->Index);
 
     if (BIt->Coeff != 1) {
-      auto CoeffBlob =
-          getBlobUtils().createBlob(BIt->Coeff, getSrcType());
+      auto CoeffBlob = getBlobUtils().createBlob(BIt->Coeff, getSrcType());
       CurBlob = getBlobUtils().createMulBlob(CoeffBlob, CurBlob, false);
     }
 
@@ -1450,8 +1449,7 @@ bool CanonExpr::convertToStandAloneBlob() {
 
   // Add constant part.
   if (!MergedBlob || getConstant() != 0) {
-    auto ConstBlob =
-        getBlobUtils().createBlob(getConstant(), getSrcType());
+    auto ConstBlob = getBlobUtils().createBlob(getConstant(), getSrcType());
     if (MergedBlob) {
       MergedBlob = getBlobUtils().createAddBlob(MergedBlob, ConstBlob, false);
     } else {
@@ -1463,8 +1461,7 @@ bool CanonExpr::convertToStandAloneBlob() {
 
   // Create division for the denominator.
   if (getDenominator() != 1) {
-    auto DenomBlob =
-        getBlobUtils().createBlob(getDenominator(), getSrcType());
+    auto DenomBlob = getBlobUtils().createBlob(getDenominator(), getSrcType());
     MergedBlob = getBlobUtils().createUDivBlob(MergedBlob, DenomBlob, false);
   }
 
@@ -1674,4 +1671,68 @@ bool CanonExpr::containsStandAloneBlob(unsigned BlobIndex,
   }
 
   return Found;
+}
+
+unsigned CanonExpr::getNumOperations() const {
+  auto &BU = getBlobUtils();
+  unsigned Count = 0;
+  bool IsFirstTerm = true;
+
+  // Add 1 Operation if the iv has non-unit coeff, which refers to a
+  // multiplication operation of the iv
+  for (auto IV = iv_begin(), E = iv_end(); IV != E; ++IV) {
+    unsigned Index = InvalidBlobIndex;
+    int64_t Coeff = 0;
+    getIVCoeff(IV, &Index, &Coeff);
+
+    if (Coeff == 0) {
+      continue;
+    }
+
+    // Add 1 operation between two iv blobs
+    if (!IsFirstTerm) {
+      ++Count;
+    }
+
+    if (Index != InvalidBlobIndex) {
+      Count += BU.getNumOperations(Index, nullptr);
+    }
+
+    if (Coeff != 1) {
+      ++Count;
+    }
+
+    IsFirstTerm = false;
+  }
+
+  for (auto Blob = blob_begin(), E = blob_end(); Blob != E; ++Blob) {
+    // Add 1 operation between two blobs
+    if (!IsFirstTerm) {
+      ++Count;
+    }
+
+    Count += BU.getNumOperations(Blob->Index, nullptr);
+
+    // Add 1 Operation if the blob has non-unit coeff, which refers to a
+    // multiplication operation of the blob
+    if (Blob->Coeff != 1) {
+      ++Count;
+    }
+
+    IsFirstTerm = false;
+  }
+
+  if (!IsFirstTerm && getConstant() != 0) {
+    ++Count;
+  }
+
+  if (getSrcType() != getDestType()) {
+    ++Count;
+  }
+
+  if (getDenominator() != 1) {
+    ++Count;
+  }
+
+  return Count;
 }

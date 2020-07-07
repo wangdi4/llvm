@@ -15,12 +15,14 @@
 #include "IntelVPlanScalarEvolution.h"
 
 #include <llvm/IR/DataLayout.h>
+#include <llvm/Support/KnownBits.h>
 
 namespace llvm {
 namespace vpo {
 
 class VPlan;
 class VPInstruction;
+class VPlanValueTracking;
 
 /// Supported peeling kinds.
 enum VPlanPeelingKind { VPPK_StaticPeeling, VPPK_DynamicPeeling };
@@ -102,12 +104,71 @@ private:
   int Multiplier;
 };
 
+/// Cost model for estimating cost of a memory references with different
+/// alignments.
+class VPlanPeelingCostModel {
+public:
+  VPlanPeelingCostModel() {}
+  VPlanPeelingCostModel(const VPlanPeelingCostModel &) = delete;
+  VPlanPeelingCostModel &operator=(const VPlanPeelingCostModel &) = delete;
+  virtual ~VPlanPeelingCostModel() {}
+
+  /// Compute cost of unit stride memory access \p Mrf with the given
+  /// \p Alignment and \p VF.
+  virtual int getCost(VPInstruction *Mrf, int VF, Align Alignment) = 0;
+};
+
+/// A simple dummy implementation of VPlanPeelingCostModel interface. It uses a
+/// reasonable but very simple heuristic. In future, it is expected to be
+/// replaced with a more precise TTI-based cost model.
+class VPlanPeelingCostModelSimple final : public VPlanPeelingCostModel {
+public:
+  VPlanPeelingCostModelSimple(const DataLayout &DL) : DL(&DL) {}
+
+  int getCost(VPInstruction *Mrf, int VF, Align Alignment) override;
+
+private:
+  const DataLayout *DL;
+};
+
+/// Memref that is a candidate for peeling. VPlanPeelingCandidate object cannot
+/// be created for non-unit stride accesses or for accesses known to be
+/// misaligned (asserts in the constructor).
+class VPlanPeelingCandidate final {
+public:
+  VPlanPeelingCandidate(VPInstruction *Memref,
+                        VPConstStepInduction AccessAddress,
+                        KnownBits InvariantBaseKnownBits);
+
+  VPInstruction *memref() const { return Memref; }
+  const VPConstStepInduction &accessAddress() const { return AccessAddress; }
+  const KnownBits &invariantBaseKnownBits() const {
+    return InvariantBaseKnownBits;
+  }
+
+  static bool ordByStep(const VPlanPeelingCandidate &L,
+                        const VPlanPeelingCandidate &R) {
+    return L.accessAddress().Step < R.accessAddress().Step;
+  }
+
+private:
+  /// Load or Store instruction.
+  VPInstruction *Memref;
+
+  /// Access address.
+  VPConstStepInduction AccessAddress;
+
+  /// KnownBits for AccessAddress.InvariantBase.
+  KnownBits InvariantBaseKnownBits;
+};
+
 /// Peeling Analysis finds the best peeling variant according to the given cost
 /// model.
 class VPlanPeelingAnalysis final {
 public:
-  VPlanPeelingAnalysis(VPlanScalarEvolution &VPSE, const DataLayout &DL)
-      : VPSE(&VPSE), DL(&DL) {}
+  VPlanPeelingAnalysis(VPlanPeelingCostModel &CM, VPlanScalarEvolution &VPSE,
+                       VPlanValueTracking &VPVT, const DataLayout &DL)
+      : CM(&CM), VPSE(&VPSE), VPVT(&VPVT), DL(&DL) {}
   VPlanPeelingAnalysis(const VPlanPeelingAnalysis &) = delete;
   VPlanPeelingAnalysis &operator=(const VPlanPeelingAnalysis &) = delete;
   VPlanPeelingAnalysis(VPlanPeelingAnalysis &&) = default;
@@ -120,11 +181,37 @@ public:
   /// Find the most profitable peeling variant for a particular \p VF.
   std::unique_ptr<VPlanPeelingVariant> selectBestPeelingVariant(int VF);
 
+  /// Returns best static peeling variant and its profit. The algorithm for
+  /// selecting best peeling variant always succeeds. In the worst case
+  /// {StaticPeeling(0), 0} is returned.
+  std::pair<VPlanStaticPeeling, int> selectBestStaticPeelingVariant(int VF);
+
+  /// Returns best dynamic peeling variant and its profit. None is returned when
+  /// there's no analyzable memrefs in the loop.
+  Optional<std::pair<VPlanDynamicPeeling, int>>
+  selectBestDynamicPeelingVariant(int VF);
+
 private:
+  void collectCandidateMemrefs(VPlan &Plan);
+  void computeCongruentMemrefs();
+
+private:
+  VPlanPeelingCostModel *CM;
   VPlanScalarEvolution *VPSE;
+  VPlanValueTracking *VPVT;
   const DataLayout *DL;
-  VPInstruction *Memref = nullptr;
-  VPConstStepInduction AccessAddress = {nullptr, 0};
+
+  /// List of all memrefs that are candidates for peeling sorted by step of
+  /// access address.
+  std::vector<VPlanPeelingCandidate> CandidateMemrefs;
+
+  /// Table that describes relations between alignment of different memrefs. It
+  /// maps every memref Mrf from CandidateMemrefs to a possibly empty list of
+  /// pairs [(MrfX, AlignX)], where AlignX is the maximum alignment that can be
+  /// propagated from Mrf to MrfX. Notice that for the sake of efficiency, the
+  /// map doesn't contain non-interesting cases with AlignX ≤ RequiredAlignment.
+  DenseMap<VPInstruction *, std::vector<std::pair<VPInstruction *, Align>>>
+      CongruentMemrefs;
 };
 
 } // namespace vpo

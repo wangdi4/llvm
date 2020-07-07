@@ -17,6 +17,7 @@
 #define LLVM_TRANSFORMS_VECTORIZE_INTEL_VPLAN_INTELVPOCODEGEN_H
 
 #include "IntelVPlan.h"
+#include "IntelVPlanOptrpt.h"
 
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SmallSet.h"
@@ -114,17 +115,13 @@ public:
   /// MaskValue setter
   void setMaskValue(Value *MV) { MaskValue = MV; }
 
-  /// Helper wrapper to find the best smid function variant for a given \p Call.
-  /// \p Masked parameter tells whether we need a masked version or not.
-  std::unique_ptr<VectorVariant> matchVectorVariant(const CallInst *Call,
-                                                    bool Masked);
-
-  /// Vectorize call arguments, or for simd functions scalarize if the arg
-  /// is linear or uniform. If the call is being pumped by \p PumpFactor times,
-  /// then the appropriate sub-vector is extracted for given \p PumpPart.
-  void vectorizeCallArgs(VPInstruction *VPCall, VectorVariant *VecVariant,
-                         unsigned PumpPart, unsigned PumpFactor,
-                         SmallVectorImpl<Value *> &VecArgs,
+  /// Vectorize call arguments, or for simd functions and trivial vector
+  /// intrinsics scalarize if the arg is linear/uniform/always scalar. If the
+  /// call is being pumped by \p PumpFactor times, then the appropriate
+  /// sub-vector is extracted for given \p PumpPart.
+  void vectorizeCallArgs(VPCallInstruction *VPCall, VectorVariant *VecVariant,
+                         Intrinsic::ID VectorIntrinID, unsigned PumpPart,
+                         unsigned PumpFactor, SmallVectorImpl<Value *> &VecArgs,
                          SmallVectorImpl<Type *> &VecArgTys);
 
   // Return true if the argument at position /p Idx for function /p FnName is
@@ -141,11 +138,9 @@ public:
     VPEntities = Entities;
   }
 
-private:
-  /// Find the best simd function variant.
-  std::unique_ptr<VectorVariant>
-  matchVectorVariantImpl(StringRef VecVariantStringValue, bool Masked);
+  OptReportStatsTracker &getOptReportStatsTracker() { return OptRptStats; }
 
+private:
   /// Return true if instruction \p V needs scalar code generated, i.e. is
   /// used in scalar context after vectorization.
   bool needScalarCode(VPInstruction *V);
@@ -290,9 +285,6 @@ private:
   /// Return true if \p FnName is the name of an OpenCL scalar select and \p Idx
   /// is the position of the mask argument.
   bool isOpenCLSelectMask(StringRef FnName, unsigned Idx);
-
-  /// Return true if \p VPInst call site has a \p AttrName attribute
-  bool callHasAttribute(VPInstruction *VPInst, StringRef AttrName) const;
 
   /// Return the right vector mask for a OpenCL vector select build-in.
   Value *getOpenCLSelectVectorMask(VPValue *ScalarMask);
@@ -449,6 +441,8 @@ private:
   // BasicBlock mapping.
   struct VPTransformState *State = nullptr;
 
+  OptReportStatsTracker OptRptStats;
+
   // Get alignment for load/store VPInstruction using underlying
   // llvm::Instruction.
   Align getOriginalLoadStoreAlignment(const VPInstruction *VPInst);
@@ -475,7 +469,7 @@ private:
                                 bool EmitIntrinsic = false);
 
   // Generate a wide (un)masked load for a given consecutive stride load.
-  Value *vectorizeUnitStrideLoad(VPInstruction *VPInst, int StrideVal,
+  Value *vectorizeUnitStrideLoad(VPInstruction *VPInst, bool IsNegOneStride,
                                  bool IsPvtPtr);
 
   // Widen the given store instruction. EmitIntrinsic needs to be set to true
@@ -486,7 +480,7 @@ private:
                                  bool EmitIntrinsic = false);
 
   // Generate a wide (un)masked store for a given consecutive stride store.
-  void vectorizeUnitStrideStore(VPInstruction *VPInst, int StrideVal,
+  void vectorizeUnitStrideStore(VPInstruction *VPInst, bool IsNegOneStride,
                                 bool IsPvtPtr);
 
   // Widen a BitCast/AddrSpaceCast instructions
@@ -511,10 +505,6 @@ private:
   // vector. Functionality is same as VectorUtils::getSplatValue.
   const VPValue *getOrigSplatVPValue(const VPValue *V);
 
-  // Determine if scalar function \p FnName should be vectorized by pumping
-  // feature. If yes, then the factor to pump by is returned, 1 otherwise.
-  unsigned getPumpFactor(StringRef FnName, bool IsMasked);
-
   /// Adjust arguments passed to SVML functions to handle masks. \p
   /// CallMaskValue defines the mask being applied to the current SVML call
   /// instruction that is processed.
@@ -524,13 +514,26 @@ private:
 
   /// Generate instructions to extract two results of a sincos call, and store
   /// them to locations designated in the original call.
-  void generateStoreForSinCos(VPInstruction *VPCall, Value *CallResult);
+  void generateStoreForSinCos(VPCallInstruction *VPCall, Value *CallResult);
 
-  // Widen call instruction parameters and return. If given \p VPCall cannot be
-  // widened for current VF, but can be pumped with lower VF, then vectorize the
-  // call by breaking down the operands and pumping it \p PumpFactor times.
-  // Pumped call results are subsequently combined back to current VF context.
-  // For example -
+  // Helper utility to generate vector call(s) for given \p VPCall, using vector
+  // library function, matched SIMD vector variant or vector intrinsics. The
+  // generated call(s) are returned via \p CallResults.
+  void generateVectorCalls(VPCallInstruction *VPCall, unsigned PumpFactor,
+                           bool IsMasked, VectorVariant *MatchedVariant,
+                           Intrinsic::ID VectorIntrinID,
+                           SmallVectorImpl<Value *> &CallResults);
+
+  // Helper utility to combine pumped call results into a single vector for
+  // current VF context. If pumping is not done then the single element of \p
+  // CallResults is trivially returned.
+  Value *getCombinedCallResults(ArrayRef<Value *> CallResults);
+
+  // Widen call instruction using vector library function. If given \p VPCall
+  // cannot be widened for current VF, but can be pumped with lower VF, then
+  // vectorize the call by breaking down the operands and pumping it multiple
+  // times. Pumped call results are subsequently combined back to current VF
+  // context. For example -
   // %1 = call float @sinf(float %0)
   //
   // for a VF=128, this call will be pumped 2-way as below -
@@ -539,7 +542,14 @@ private:
   // %shuffle2 = shufflevector %0.vec, undef, <64, 65, ... 127>
   // %pump2 = call <64 x float> @__svml_sinf64(%shuffle2)
   // %combine = shufflevector %pump1, %pump2, <0, 1, ... 127>
-  void vectorizeCallInstruction(VPInstruction *VPCall, unsigned PumpFactor);
+  void vectorizeLibraryCall(VPCallInstruction *VPCall);
+
+  // Widen call instruction using vector intrinsic.
+  void vectorizeTrivialIntrinsic(VPCallInstruction *VPCall);
+
+  // Widen call instruction using a matched SIMD vector variant.
+  // TODO: Add support for pumping.
+  void vectorizeVecVariant(VPCallInstruction *VPCall);
 
   // Widen Select instruction.
   void vectorizeSelectInstruction(VPInstruction *VPInst);
@@ -550,7 +560,7 @@ private:
 
   // Vectorize the call to OpenCL SinCos function with the vector-variant from
   // SVML
-  void vectorizeOpenCLSinCos(VPInstruction *VPCall, bool IsMasked);
+  void vectorizeOpenCLSinCos(VPCallInstruction *VPCall, bool IsMasked);
 
   /// Store instructions that should be predicated, as a pair
   ///   <StoreInst, Predicate>
@@ -558,6 +568,13 @@ private:
 
   /// Hold names of scalar select builtins
   SmallSet<std::string, 20> ScalarSelectSet;
+
+  /// Helper internal method to determine if given VPValue \p V is a
+  /// vectorizable load/store. A load/store is not vectorizable if it's not
+  /// simple or if it operates on non-vectorizable types.
+  // TODO : Move this to VPlanUtils when volatile/atomic property is represented
+  // in VPInstruction.
+  bool isVectorizableLoadStore(const VPValue *V);
 
   /// This function returns the widened GEP instruction for a pointer. In the
   /// generated code, the returned GEP is itself used as an operand of a

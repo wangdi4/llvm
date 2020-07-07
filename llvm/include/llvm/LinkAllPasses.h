@@ -374,6 +374,9 @@ namespace {
       (void) llvm::createHIRConditionalTempSinkingPass();
       (void) llvm::createHIRMemoryReductionSinkingPass();
       (void)llvm::createHIRRowWiseMVPass();
+      (void)llvm::createHIRConditionalLoadStoreMotionPass();
+      (void) llvm::createHIRStoreResultIntoTempArrayPass();
+      (void)llvm::createHIRSumWindowReusePass();
 
       // DPCPP Kernel Transformations
       (void) llvm::createDPCPPKernelVecClonePass();
@@ -386,6 +389,8 @@ namespace {
       (void) llvm::createWIRelatedValuePass();
       (void) llvm::createDataPerBarrierPass();
       (void) llvm::createDataPerValuePass();
+      (void) llvm::createKernelBarrierPass(false, false);
+      (void) llvm::createBarrierInFunctionPass();
 
       // Optimize math calls
       (void) llvm::createMapIntrinToImlPass();

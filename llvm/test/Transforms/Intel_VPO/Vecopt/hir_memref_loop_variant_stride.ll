@@ -12,12 +12,18 @@
 ;           @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ;     END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR -vplan-force-vf=2 -hir-details-refs -disable-output < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR -vplan-force-vf=2 -hir-details-dims -enable-vp-value-codegen-hir=0 -disable-output < %s 2>&1 | FileCheck %s --check-prefix=MIXED-CG
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR -vplan-force-vf=2 -hir-details-dims -enable-vp-value-codegen-hir -disable-output < %s 2>&1 | FileCheck %s --check-prefix=VPVAL-CG
+;
+; MIXED-CG:           + DO i1 = 0, 1023, 2   <DO_LOOP> <novectorize>
+; MIXED-CG-NEXT:      |   %s.vec = (<2 x i64>*)(%q)[0:0:8(i64*:0)];
+; MIXED-CG-NEXT:      |   (<2 x float>*)(%p)[0:i1 + <i64 0, i64 1>:%s.vec(float*:0)] = 5.000000e+02;
+; MIXED-CG-NEXT:      + END LOOP
 
-; CHECK:           + DO i1 = 0, 1023, 2   <DO_LOOP> <novectorize>
-; CHECK-NEXT:      |   %s.vec = (<2 x i64>*)(%q)[0:0:8(i64*:0)];
-; CHECK-NEXT:      |   (<2 x float>*)(%p)[0:i1 + <i64 0, i64 1>:%s.vec(float*:0)] = 5.000000e+02;
-; CHECK-NEXT:      + END LOOP
+; VPVAL-CG:           + DO i1 = 0, 1023, 2   <DO_LOOP> <novectorize>
+; VPVAL-CG-NEXT:      |   %.unifload = (%q)[0:0:8(i64*:0)];
+; VPVAL-CG-NEXT:      |   (<2 x float>*)(%p)[0:i1:%.unifload(float*:0)] = 5.000000e+02;
+; VPVAL-CG-NEXT:      + END LOOP
 
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"

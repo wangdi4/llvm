@@ -59,7 +59,6 @@
 #include "llvm/Transforms/Utils/SSAUpdater.h"
 
 #include "llvm/Analysis/ScalarEvolution.h"
-#include "llvm/Analysis/ScalarEvolutionExpander.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
 #include "llvm/Analysis/VPO/WRegionInfo/WRegion.h"
@@ -70,6 +69,7 @@
 #include "llvm/Transforms/Utils/IntrinsicUtils.h"
 #include "llvm/Transforms/Utils/LoopRotationUtils.h"
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
+#include "llvm/Transforms/Utils/ScalarEvolutionExpander.h"
 
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
@@ -109,6 +109,10 @@ static cl::opt<bool> AvoidStridedProcessing(
 static cl::opt<bool> UseFastReduction("vpo-paropt-fast-reduction", cl::Hidden,
                                       cl::init(true),
                                       cl::desc("Enable fast reduction."));
+static cl::opt<bool> UseFastRedAtomic("vpo-paropt-fast-reduction-atomic",
+                                      cl::Hidden, cl::init(true),
+                                      cl::desc("Allow to use atomic reduction "
+                                               "within fast reduction."));
 static cl::opt<uint32_t> FastReductionCtrl("vpo-paropt-fast-reduction-ctrl",
                                            cl::Hidden, cl::init(0x3),
                                            cl::desc("Control option for fast "
@@ -882,10 +886,10 @@ Loop *VPOParoptTransform::genDispatchLoopForTeamDistribute(
   IncUB->insertBefore(TermInst);
 
   StoreInst *NewIncLB = new StoreInst(IncLB, TeamLowerBnd, false, TermInst);
-  NewIncLB->setAlignment(MaybeAlign(4));
+  NewIncLB->setAlignment(Align(4));
 
   StoreInst *NewIncUB = new StoreInst(IncUB, TeamUpperBnd, false, TermInst);
-  NewIncUB->setAlignment(MaybeAlign(4));
+  NewIncUB->setAlignment(Align(4));
 
   TermInst->setSuccessor(0, TeamDispHeaderBB);
 
@@ -1138,6 +1142,9 @@ bool VPOParoptTransform::renameAndReplaceLibatomicCallsForSPIRV(Function *F) {
     Type *I64Ty = Builder.getInt64Ty();
     Type *I1Ty = Builder.getInt1Ty();
 
+    // TODO: OPAQUEPOINTER: Use of Opaque Pointer compliant APIs when created.
+    // The AddrSpaceCast maybe needed. PointerCasts will be removed when
+    // opaque pointers are used.
     auto castArgumentToAddressSpaceGeneric = [&Builder, &PtrTy,
                                               &CI](unsigned Idx) {
       CI->setArgOperand(Idx, Builder.CreatePointerBitCastOrAddrSpaceCast(
@@ -1149,6 +1156,8 @@ bool VPOParoptTransform::renameAndReplaceLibatomicCallsForSPIRV(Function *F) {
           Idx, Builder.CreateIntCast(CI->getArgOperand(Idx), I64Ty, false));
     };
 
+    // TODO: OPAQUEPOINTER:Use of Opaque Pointer compliant APIs when created.
+    // Currently, Function Creation relies on FunctionTy-PointerTy.
     FunctionCallee NewFC;
     if (FName == "__atomic_load") {
       NewFC = M->getOrInsertFunction("__kmpc_atomic_load", Attributes, VoidTy,
@@ -1212,7 +1221,8 @@ void VPOParoptTransform::addBranchToEndDirective(WRegionNode *W) {
       AllocaBuilder.getInt1Ty(), nullptr, "end.dir.temp"); //           (1)
 
   IRBuilder<> Builder(InsertPt);
-  Value *GlobLoad = Builder.CreateLoad(TempAddr, true, "temp.load"); // (3)
+  Value *GlobLoad = Builder.CreateLoad(AllocaBuilder.getInt1Ty(), TempAddr,
+                                       true, "temp.load"); // (3)
   Value *CmpInst =
       Builder.CreateICmpNE(GlobLoad, Builder.getInt1(0), "cmp"); //     (4)
 
@@ -1317,6 +1327,7 @@ bool VPOParoptTransform::paroptTransforms() {
       switch (W->getWRegionKindID()) {
       case WRegionNode::WRNTeams:
       case WRegionNode::WRNParallel:
+        RoutineChanged |= privatizeSharedItems(W);
         if (!isTargetSPIRV())
           improveAliasForOutlinedFunc(W);
         break;
@@ -1418,6 +1429,8 @@ bool VPOParoptTransform::paroptTransforms() {
         debugPrintHeader(W, Mode);
         if (Mode & ParPrepare) {
           Changed |= canonicalizeGlobalVariableReferences(W);
+          if (isTargetSPIRV() && isa<WRNParallelNode>(W) && hasParentTarget(W))
+            Changed |= callPopPushNumThreadsAtRegionBoundary(W);
           Changed |= renameOperandsUsingStoreThenLoad(W);
           Changed |= propagateCancellationPointsToIR(W);
         }
@@ -1450,6 +1463,10 @@ bool VPOParoptTransform::paroptTransforms() {
           } else {
             if (isa<WRNTeamsNode>(W))
               Changed |= genPrivatizationCode(W);
+            // TODO: enabling firstprivatization requires more optimizations
+            //       to avoid performance tanking.
+            // Changed |= genFirstPrivatizationCode(W);
+            Changed |= genReductionCode(W);
 
             // The directive gets removed, when processing the target region,
             // do not remove it here, since guardSideEffects needs the
@@ -1472,6 +1489,8 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= regularizeOMPLoop(W);
           Changed |= canonicalizeGlobalVariableReferences(W);
           Changed |= renameOperandsUsingStoreThenLoad(W);
+          if (isTargetSPIRV() && hasParentTarget(W))
+            Changed |= callPopPushNumThreadsAtRegionBoundary(W);
           Changed |= propagateCancellationPointsToIR(W);
           Changed |= fixupKnownNDRange(W);
         }
@@ -1652,6 +1671,9 @@ bool VPOParoptTransform::paroptTransforms() {
           if (hasOffloadCompilation())
             F->setLinkage(GlobalValue::LinkageTypes::ExternalLinkage);
           Changed |= canonicalizeGlobalVariableReferences(W);
+          if (isTargetSPIRV() && !hasParentTarget(W) &&
+              !isFunctionOpenMPTargetDeclare())
+            Changed |= callPushPopNumThreadsAtRegionBoundary(W, true);
           Changed |= renameOperandsUsingStoreThenLoad(W);
         } else if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed |= constructNDRangeInfo(W);
@@ -2486,9 +2508,8 @@ bool VPOParoptTransform::genReductionScalarFini(
     // This method may insert a new call before the store instruction (Tmp0)
     // and erase the store instruction, but in any case it does not invalidate
     // the IRBuilder.
-    Instruction *AtomicCall =
-        VPOParoptAtomics::handleAtomicUpdateInBlock(W, Tmp0->getParent(),
-                                                    nullptr, nullptr, true);
+    Instruction *AtomicCall = VPOParoptAtomics::handleAtomicUpdateInBlock(
+        W, Tmp0->getParent(), nullptr, nullptr, true);
 
     if (AtomicCall) {
       OptimizationRemark R(DEBUG_TYPE, "ReductionAtomic", AtomicCall);
@@ -2509,23 +2530,29 @@ bool VPOParoptTransform::genReductionScalarFini(
     //
     // Insert new instruction(s) after the definition of the private
     // reduction value.
-    auto *TempRedLoad = Rhs2->clone();
-    TempRedLoad->insertAfter(Rhs2);
-    TempRedLoad->takeName(Rhs2);
-    auto *HRed = VPOParoptUtils::genSPIRVHorizontalReduction(
-        RedI, ScalarTy, TempRedLoad, spirv::Scope::Subgroup);
+    if (!isa<WRNTeamsNode>(W)) {
+      // Only the master thread must execute the reduction update
+      // code in teams region. Executing the horizontal reduction
+      // will result in redundant reduction operations producing
+      // incorrect result.
+      auto *TempRedLoad = Rhs2->clone();
+      TempRedLoad->insertAfter(Rhs2);
+      TempRedLoad->takeName(Rhs2);
+      auto *HRed = VPOParoptUtils::genSPIRVHorizontalReduction(
+          RedI, ScalarTy, TempRedLoad, spirv::Scope::Subgroup);
 
-    if (HRed)
-      Rhs2->replaceAllUsesWith(HRed);
-    else
-      LLVM_DEBUG(dbgs() << __FUNCTION__ <<
-                 ": SPIRV horizontal reduction is not available "
-                 "for critical section reduction: " << RedI->getOpName() <<
-                 " with type " << *ScalarTy << "\n");
+      if (HRed)
+        Rhs2->replaceAllUsesWith(HRed);
+      else
+        LLVM_DEBUG(dbgs() << __FUNCTION__ <<
+                   ": SPIRV horizontal reduction is not available "
+                   "for critical section reduction: " << RedI->getOpName() <<
+                   " with type " << *ScalarTy << "\n");
+    }
 
     OptimizationRemarkMissed R(DEBUG_TYPE, "ReductionAtomic", Tmp0);
-    R << ore::NV("Kind", RedI->getOpName()) << " reduction update of type " <<
-        ore::NV("Type", ScalarTy) << " cannot be done using atomic API";
+    R << ore::NV("Kind", RedI->getOpName()) << " reduction update of type "
+      << ore::NV("Type", ScalarTy) << " cannot be done using atomic API";
     ORE.emit(R);
   }
 
@@ -2567,16 +2594,9 @@ bool VPOParoptTransform::genReductionFini(WRegionNode *W, ReductionItem *RedI,
                                           Value *OldV, Instruction *InsertPt,
                                           DominatorTree *DT,
                                           bool NoNeedToOffsetOrDerefOldV) {
-  Value *NewAI = RedI->getNew();
-  // NewAI is either AllocaInst or an AddrSpaceCastInst of AllocaInst.
-  assert(GeneralUtils::isOMPItemLocalVAR(NewAI) &&
-         "genReductionFini: Expect isOMPItemLocalVAR().");
   Type *AllocaTy;
   Value *NumElements;
-  std::tie(AllocaTy, NumElements) =
-      GeneralUtils::getOMPItemLocalVARPointerTypeAndNumElem(NewAI);
-  assert(AllocaTy && "genReductionFini: item type cannot be deduced.");
-  AllocaTy = cast<PointerType>(AllocaTy)->getElementType();
+  std::tie(AllocaTy, NumElements, std::ignore) = getItemInfo(RedI);
 
   // TODO: for a VLA AllocaTy will be just a scalar type, and NumElements
   //       will specify the array size. Right now, VLA reductions are
@@ -2585,6 +2605,7 @@ bool VPOParoptTransform::genReductionFini(WRegionNode *W, ReductionItem *RedI,
   //       with array sections (which would have an explicit number of elements
   //       specified).
 
+  Value *NewV = RedI->getNew();
   IRBuilder<> Builder(InsertPt);
   // For by-refs, do a pointer dereference to reach the actual operand.
   if (RedI->getIsByRef() && !NoNeedToOffsetOrDerefOldV)
@@ -2592,16 +2613,16 @@ bool VPOParoptTransform::genReductionFini(WRegionNode *W, ReductionItem *RedI,
 
 #if INTEL_CUSTOMIZATION
   if (RedI->getIsF90DopeVector())
-    return genRedAggregateInitOrFini(W, RedI, NewAI, OldV, InsertPt, false, DT,
+    return genRedAggregateInitOrFini(W, RedI, NewV, OldV, InsertPt, false, DT,
                                      NoNeedToOffsetOrDerefOldV);
 
 #endif // INTEL_CUSTOMIZATION
   if (RedI->getIsArraySection() || AllocaTy->isArrayTy())
-    return genRedAggregateInitOrFini(W, RedI, NewAI, OldV, InsertPt, false, DT,
+    return genRedAggregateInitOrFini(W, RedI, NewV, OldV, InsertPt, false, DT,
                                      NoNeedToOffsetOrDerefOldV);
 
   if (RedI->getType() == ReductionItem::WRNReductionUdr)
-    return genReductionUdrFini(RedI, OldV, NewAI, Builder);
+    return genReductionUdrFini(RedI, OldV, NewV, Builder);
 
   assert((VPOUtils::canBeRegisterized(AllocaTy,
                                       InsertPt->getModule()->getDataLayout()) ||
@@ -2609,7 +2630,7 @@ bool VPOParoptTransform::genReductionFini(WRegionNode *W, ReductionItem *RedI,
          "genReductionFini: Expect incoming scalar/complex type.");
   Type *ScalarTy = AllocaTy->getScalarType();
 
-  return genReductionScalarFini(W, RedI, OldV, NewAI, ScalarTy, Builder, DT);
+  return genReductionScalarFini(W, RedI, OldV, NewV, ScalarTy, Builder, DT);
 }
 
 // Generate the reduction initialization/update for array.
@@ -3226,8 +3247,10 @@ void VPOParoptTransform::genConditionalLPCode(
   Instruction *IfHighestChunkIsModifiedByThreadThen = SplitBlockAndInsertIfThen(
       IsLocalGreaterThanGlobal, IfThreadWroteSomethingThen, false, nullptr, DT,
       LI); //                                                         (60)
-  StoreInst *MaxStore = new StoreInst(FinalLocalMaxIndex, MaxGlobalIndex);
-  MaxStore->insertBefore(IfHighestChunkIsModifiedByThreadThen); //    (61)
+  StoreInst *MaxStore =
+      new StoreInst(FinalLocalMaxIndex, MaxGlobalIndex, false,
+                    IfHighestChunkIsModifiedByThreadThen); //         (61)
+  (void)MaxStore;
 
   // TODO: This critical section should be switched with either atomic-max
   // reduction, or atomic operation
@@ -3289,16 +3312,9 @@ void VPOParoptTransform::genReductionInit(WRegionNode *W,
                                           ReductionItem *RedI,
                                           Instruction *InsertPt,
                                           DominatorTree *DT) {
-  Value *AI = RedI->getNew();
-  // AI is either AllocaInst or an AddrSpaceCastInst of AllocaInst.
-  assert(GeneralUtils::isOMPItemLocalVAR(AI) &&
-         "genReductionInit: Expect isOMPItemLocalVAR().");
   Type *AllocaTy;
   Value *NumElements;
-  std::tie(AllocaTy, NumElements) =
-      GeneralUtils::getOMPItemLocalVARPointerTypeAndNumElem(AI);
-  assert(AllocaTy && "genReductionInit: item type cannot be deduced.");
-  AllocaTy = cast<PointerType>(AllocaTy)->getElementType();
+  std::tie(AllocaTy, NumElements, std::ignore) = getItemInfo(RedI);
 
   // TODO: for a VLA AllocaTy will be just a scalar type, and NumElements
   //       will specify the array size. Right now, VLA reductions are
@@ -3309,6 +3325,7 @@ void VPOParoptTransform::genReductionInit(WRegionNode *W,
   bool IsUDR = (RedI->getType() == ReductionItem::WRNReductionUdr);
   bool NeedSrc = IsUDR && (RedI->getInitializer() != nullptr);
   Value *OldV = RedI->getOrig();
+  Value *NewV = RedI->getNew();
   if (NeedSrc) {
     IRBuilder<> Builder(InsertPt);
     // For by-refs, do a pointer dereference to reach the actual operand.
@@ -3318,20 +3335,20 @@ void VPOParoptTransform::genReductionInit(WRegionNode *W,
 
 #if INTEL_CUSTOMIZATION
   if (RedI->getIsF90DopeVector()) {
-    genRedAggregateInitOrFini(W, RedI, AI, NeedSrc ? OldV : nullptr, InsertPt,
+    genRedAggregateInitOrFini(W, RedI, NewV, NeedSrc ? OldV : nullptr, InsertPt,
                               true, DT, true);
     return;
   }
 
 #endif // INTEL_CUSTOMIZATION
   if (RedI->getIsArraySection() || AllocaTy->isArrayTy()) {
-    genRedAggregateInitOrFini(W, RedI, AI, NeedSrc ? OldV : nullptr, InsertPt,
+    genRedAggregateInitOrFini(W, RedI, NewV, NeedSrc ? OldV : nullptr, InsertPt,
                               true, DT, true);
     return;
   }
   IRBuilder<> Builder(InsertPt);
   if (IsUDR) {
-    genReductionUdrInit(RedI, RedI->getOrig(), AI, AllocaTy, Builder);
+    genReductionUdrInit(RedI, RedI->getOrig(), NewV, AllocaTy, Builder);
     return;
   }
 
@@ -3340,7 +3357,7 @@ void VPOParoptTransform::genReductionInit(WRegionNode *W,
           RedI->getIsComplex()) &&
          "genReductionInit: Expect incoming scalar/complex type.");
   Value *V = genReductionScalarInit(RedI, AllocaTy);
-  Builder.CreateStore(V, AI);
+  Builder.CreateStore(V, NewV);
 }
 
 // Prepare the empty basic block for the array reduction initialization.
@@ -3398,62 +3415,155 @@ bool VPOParoptTransform::isArrayReduction(ReductionItem *I) {
   return false;
 }
 
-// Determine if we want to generate fast reduction code.
+// Determine if we want to generate fast reduction code and which method will
+// be generated (tree reduction only or tree + atomic reduction).
 int VPOParoptTransform::checkFastReduction(WRegionNode *W) {
   if (!UseFastReduction)
-    return 0;
+    return FastReductionNoneMode;
 
   // TODO: add offloading support for fast reduction. Now only support CPU.
   if (isTargetSPIRV())
-    return 0;
+    return FastReductionNoneMode;
 
-  ReductionClause &RedClause = W->getRed();
-  for (ReductionItem *RedI : RedClause.items()) {
-    // Disable fast reduction for array now. It will be supported later.
-    if (isArrayReduction(RedI))
-      return 0;
+  bool IsAtomic = UseFastRedAtomic;
+  if (IsAtomic) {
+    ReductionClause &RedClause = W->getRed();
+    for (ReductionItem *RedI : RedClause.items()) {
+      // array section and UDR cannot use atomic
+      if (isArrayReduction(RedI) ||
+          (RedI->getType() == ReductionItem::WRNReductionUdr)) {
+        IsAtomic = false;
+        break;
+      } else {
+        // FIXME: enable atomic mode for and, or, max, min, eqv, neqv
+        ReductionItem::WRNReductionKind RedKind = RedI->getType();
+        if (RedKind == ReductionItem::WRNReductionAnd ||
+            RedKind == ReductionItem::WRNReductionOr ||
+            RedKind == ReductionItem::WRNReductionMax ||
+            RedKind == ReductionItem::WRNReductionMin
+#if INTEL_CUSTOMIZATION
+            || RedKind == ReductionItem::WRNReductionEqv ||
+            RedKind == ReductionItem::WRNReductionNeqv
+#endif // INTEL_CUSTOMIZATION
+        ) {
+          IsAtomic = false;
+          break;
+        }
+        // if type of reduction variable is not supported, atomic cannot be used
+        Type *AllocaTy;
+        std::tie(AllocaTy, std::ignore, std::ignore) = getItemInfo(RedI);
+        if (!(AllocaTy->isIntegerTy() || AllocaTy->isFloatTy() ||
+              AllocaTy->isDoubleTy())) {
+          IsAtomic = false;
+          break;
+        }
+      }
+    }
   }
 
-  return 1;
+  FastReductionMode Mode =
+      (IsAtomic ? FastReductionAtomicMode : FastReductionTreeOnlyMode);
+  LLVM_DEBUG(dbgs() << "Fast reduction is "
+                    << ((Mode == FastReductionNoneMode)
+                            ? "disabled"
+                            : ((Mode == FastReductionTreeOnlyMode)
+                                   ? "enabled (tree-like only)"
+                                   : "enabled (tree-like and atomic)"))
+                    << ".\n");
+
+  return Mode;
 }
 
 // Generate fast reduction callback routine.
-// Here is example with C source code and IR.
+// Here is example for scalar type.
 // C source code:
+// void foo() {
 //   int i, sum = 0;
 //   #pragma omp parallel for reduction(+:sum)
 //   for (i=0; i<10; i++) {
 //     sum+=i;
 //   }
-//
-// IR:
-// define internal void @main_tree_reduce_4(i8* %dst, i8* %src) {
-// entry:
-//   %0 = bitcast i8* %dst to %struct.fast_red_t*
-//   %1 = bitcast i8* %src to %struct.fast_red_t*
-//   %sum.gep = getelementptr inbounds %struct.fast_red_t, %struct.fast_red_t*
-//   %0, i32 0, i32 0
-//   %sum.fast_red.gep = getelementptr inbounds %struct.fast_red_t,
-//   %struct.fast_red_t* %1, i32 0, i32 0
-//   %2 = load i32, i32* %sum.fast_red.gep, align 4
-//   %3 = load i32, i32* %sum.gep, align 4
-//   %4 = add i32 %3, %2
-//   store i32 %4, i32* %sum.gep, align 4
-//   ret void
 // }
 //
-RDECL VPOParoptTransform::genFastReductionRoutine(WRegionNode *W,
-                                                  StructType *FastRedStructTy) {
+// IR:
+// define internal void @foo_tree_reduce_4(i8* %dst, i8* %src) {            (1)
+// entry:                                                                   (2)
+//   %dst.cast = bitcast i8* %dst to %struct.fast_red_t*                    (3)
+//   %src.cast = bitcast i8* %src to %struct.fast_red_t*                    (4)
+//   %dst.sum = getelementptr inbounds %struct.fast_red_t,
+//   %struct.fast_red_t* %dst.cast, i32 0, i32 0                            (5)
+//   %src.sum = getelementptr inbounds %struct.fast_red_t,
+//   %struct.fast_red_t* %src.cast, i32 0, i32 0                            (6)
+//   %0 = load i32, i32* %src.sum, align 4                                 (14)
+//   %1 = load i32, i32* %dst.sum, align 4                                 (15)
+//   %2 = add i32 %1, %0                                                   (16)
+//   store i32 %2, i32* %dst.sum, align 4                                  (17)
+//   ret void                                                              (23)
+// }
+//
+//
+// Another example for array section.
+// C source code:
+// void foo() {
+//   int i, sum[100] = {0};
+// #pragma omp parallel for reduction(+:sum[0:10])
+//   for (i=0; i<10; i++) {
+//     sum[i]+=i;
+//   }
+// }
+//
+// define internal void @foo_tree_reduce_4(i8* %dst, i8* %src) {            (1)
+// entry:                                                                   (2)
+//   %dst.cast = bitcast i8* %dst to %struct.fast_red_t*                    (3)
+//   %src.cast = bitcast i8* %src to %struct.fast_red_t*                    (4)
+//   %dst.sum = getelementptr inbounds %struct.fast_red_t,
+//   %struct.fast_red_t* %dst.cast, i32 0, i32 0                            (5)
+//   %src.sum = getelementptr inbounds %struct.fast_red_t,
+//   %struct.fast_red_t* %src.cast, i32 0, i32 0                            (6)
+//   %dst.sum.gep = getelementptr inbounds [10 x i32],
+//   [10 x i32]* %dst.sum, i32 0, i32 0                                     (7)
+//   %src.sum.gep = getelementptr inbounds [10 x i32],
+//   [10 x i32]* %src.sum, i32 0, i32 0                                     (8)
+//   %0 = getelementptr i32, i32* %dst.sum.gep, i64 10                      (9)
+//   %red.update.isempty = icmp eq i32* %dst.sum.gep, %0                   (10)
+//   br i1 %red.update.isempty, label %red.update.done,
+//   label %red.update.body
+//
+// red.update.body:
+//                                   ; preds = %red.update.body, %entry    (11)
+//   %red.cpy.dest.ptr = phi i32* [ %dst.sum.gep, %entry ],
+//   [ %red.cpy.dest.inc, %red.update.body ]                               (12)
+//   %red.cpy.src.ptr = phi i32* [ %src.sum.gep, %entry ],
+//   [ %red.cpy.src.inc, %red.update.body ]                                (13)
+//   %1 = load i32, i32* %red.cpy.src.ptr, align 4                         (14)
+//   %2 = load i32, i32* %red.cpy.dest.ptr, align 4                        (15)
+//   %3 = add i32 %2, %1                                                   (16)
+//   store i32 %3, i32* %red.cpy.dest.ptr, align 4                         (17)
+//   %red.cpy.dest.inc = getelementptr i32, i32* %red.cpy.dest.ptr, i32 1  (18)
+//   %red.cpy.src.inc = getelementptr i32, i32* %red.cpy.src.ptr, i32 1    (19)
+//   %red.cpy.done = icmp eq i32* %red.cpy.dest.inc, %0                    (20)
+//   br i1 %red.cpy.done, label %red.update.done, label %red.update.body   (21)
+//
+// red.update.done:
+// ; preds = %red.update.body, %entry                                      (22)
+//   ret void                                                              (23)
+// }
+//
+RDECL VPOParoptTransform::genFastRedCallback(WRegionNode *W,
+                                             StructType *FastRedStructTy) {
   LLVMContext &C = F->getContext();
   Module *M = F->getParent();
 
   Type *FastRedParams[] = {Type::getInt8PtrTy(C), Type::getInt8PtrTy(C)};
   FunctionType *FastRedFnTy =
       FunctionType::get(Type::getVoidTy(C), FastRedParams, false);
+  // Create callback function for tree reduce
   Function *FnFastRed = Function::Create(
       FastRedFnTy, GlobalValue::InternalLinkage,
-      F->getName() + "_tree_reduce_" + Twine(W->getNumber()), M);
+      F->getName() + "_tree_reduce_" + Twine(W->getNumber()), M); //         (1)
   FnFastRed->setCallingConv(CallingConv::C);
+  // If the reduction is in target region, add target.declare attribute for the
+  // callback function
   if (hasParentTarget(W))
     FnFastRed->addFnAttr("target.declare", "true");
 
@@ -3464,45 +3574,98 @@ RDECL VPOParoptTransform::genFastReductionRoutine(WRegionNode *W,
   Value *SrcArg = &*Arg;
   SrcArg->setName("src");
 
-  BasicBlock *EntryBB = BasicBlock::Create(C, "entry", FnFastRed);
+  BasicBlock *EntryBB =
+      BasicBlock::Create(C, "entry", FnFastRed); //         (2)
   DominatorTree DT;
   DT.recalculate(*FnFastRed);
 
   IRBuilder<> Builder(EntryBB);
-  ReturnInst *RetInst = Builder.CreateRetVoid();
+  ReturnInst *RetInst =
+      Builder.CreateRetVoid(); //                          (23)
 
   ReductionClause &RedClause = W->getRed();
   assert(!RedClause.empty() && "Empty reduction clauses");
 
   int ItemIndex = 0;
   for (ReductionItem *RedI : RedClause.items()) {
+    Value *Orig = RedI->getOrig();
     Builder.SetInsertPoint(RetInst);
+    // Cast i8* to struct.fast_red_t type
     Value *DstVec =
-        Builder.CreateBitCast(DstArg, PointerType::getUnqual(FastRedStructTy));
+        Builder.CreateBitCast(DstArg, PointerType::getUnqual(FastRedStructTy),
+                              DstArg->getName() + Twine(".cast")); //        (3)
     Value *SrcVec =
-        Builder.CreateBitCast(SrcArg, PointerType::getUnqual(FastRedStructTy));
+        Builder.CreateBitCast(SrcArg, PointerType::getUnqual(FastRedStructTy),
+                              SrcArg->getName() + Twine(".cast")); //        (4)
 
+    // Get reduction variable from struct.fast_red_t structure
     Value *ValueIndex[2] = {Builder.getInt32(0), Builder.getInt32(ItemIndex++)};
-    Value *DstGEP =
-        Builder.CreateInBoundsGEP(FastRedStructTy, DstVec, ValueIndex,
-                                  RedI->getOrig()->getName() + ".gep");
-    Value *SrcGEP =
-        Builder.CreateInBoundsGEP(FastRedStructTy, SrcVec, ValueIndex,
-                                  RedI->getOrig()->getName() + ".fast_red.gep");
-    genReductionFini(W, RedI, DstGEP, &*Builder.GetInsertPoint(), &DT, true);
+    Value *DstGEP = Builder.CreateInBoundsGEP(
+        FastRedStructTy, DstVec, ValueIndex,
+        DstArg->getName() + Twine(".") + Orig->getName()); //                (5)
+    Value *SrcGEP = Builder.CreateInBoundsGEP(
+        FastRedStructTy, SrcVec, ValueIndex,
+        SrcArg->getName() + Twine(".") + Orig->getName()); //                (6)
 
-    // replace New with SrcGEP in this function
-    SmallVector<Instruction *, 8> OldUses;
-    Value *NewRedInst = RedI->getNew();
-    for (auto IB = NewRedInst->user_begin(), IE = NewRedInst->user_end();
-         IB != IE; ++IB) {
-      if (Instruction *User = dyn_cast<Instruction>(*IB))
-        if (User->getParent()->getParent() == FnFastRed)
-          OldUses.push_back(User);
+    Value *NumElements = nullptr;
+    std::tie(std::ignore, NumElements, std::ignore) = getItemInfo(RedI);
+
+    if (dyn_cast_or_null<ConstantInt>(NumElements)) {
+      // Here we generated same types of variables as in genPrivatizationAlloca
+      // for New (local reduction variable), which creates an addtional GEP with
+      // result type i32* if original type is array section with constant size
+      // ([10 x i32]).
+      Value *ValueZeros[2] = {Builder.getInt32(0), Builder.getInt32(0)};
+      DstGEP = Builder.CreateInBoundsGEP(
+          FastRedStructTy->getElementType(ItemIndex - 1), DstGEP, ValueZeros,
+          DstArg->getName() + Twine(".") + Orig->getName() +
+              Twine(".gep")); // (7)
+      SrcGEP = Builder.CreateInBoundsGEP(
+          FastRedStructTy->getElementType(ItemIndex - 1), SrcGEP, ValueZeros,
+          SrcArg->getName() + Twine(".") + Orig->getName() +
+              Twine(".gep")); // (8)
+    } else if (NumElements != nullptr) {
+      // Create a LOAD with result type i32* if original type is array section
+      // with variable length/size (i32 a[0:n]).
+      DstGEP = Builder.CreateLoad(DstGEP, DstGEP->getName() + ".load");
+      SrcGEP = Builder.CreateLoad(SrcGEP, SrcGEP->getName() + ".load");
     }
-    while (!OldUses.empty()) {
-      Instruction *UI = OldUses.pop_back_val();
-      UI->replaceUsesOfWith(NewRedInst, SrcGEP);
+
+    // For array section with non-constant size, the size is global variable
+    // (thread private) and have to be loaded
+    Value *NewSize = nullptr;
+    if (RedI->getIsArraySection()) {
+      if (GlobalVariable *GV = RedI->getArraySectionInfo().getGVSize()) {
+        NewSize = Builder.CreateLoad(GV, GV->getName() + ".load");
+      }
+    }
+
+#if INTEL_CUSTOMIZATION
+    if (RedI->getIsF90DopeVector()) {
+      VPOParoptUtils::genF90DVInitCode(RedI, &*Builder.GetInsertPoint(),
+                                       isTargetSPIRV(), false);
+    }
+#endif // INTEL_CUSTOMIZATION
+
+    // Generate reduction fini code with DstGEP
+    genReductionFini(W, RedI, DstGEP, &*Builder.GetInsertPoint(), &DT,
+                     true); // (9~22)
+
+#if INTEL_CUSTOMIZATION
+    if (RedI->getIsF90DopeVector()) {
+      // The uses of Orig are generated in genF90DVInitCode function above (if
+      // reduction is for F90 dope vector), so we have to replace the uses of
+      // Orig with DstGEP in the callback function
+      VPOParoptUtils::replaceUsesInFunction(FnFastRed, Orig, DstGEP);
+    }
+#endif // INTEL_CUSTOMIZATION
+
+    // Replace New generated by fini code with SrcGEP
+    VPOParoptUtils::replaceUsesInFunction(FnFastRed, RedI->getNew(), SrcGEP);
+    if (NewSize != nullptr) {
+      // Replace size with NewSize loaded above
+      VPOParoptUtils::replaceUsesInFunction(
+          FnFastRed, RedI->getArraySectionInfo().getSize(), NewSize);
     }
   }
 
@@ -3513,11 +3676,11 @@ RDECL VPOParoptTransform::genFastReductionRoutine(WRegionNode *W,
 
 // Create struct type and variable for fast reduction
 std::pair<StructType *, Value *>
-VPOParoptTransform::createFastRedTyAndVar(WRegionNode *W, int FastReduction) {
+VPOParoptTransform::genFastRedTyAndVar(WRegionNode *W, int FastRedMode) {
   StructType *FastRedStructTy = nullptr;
   Value *FastRedInst = nullptr;
 
-  if (!FastReduction)
+  if (FastRedMode == FastReductionNoneMode)
     return std::make_pair(nullptr, nullptr);
 
   // Create structure type for fast reduction
@@ -3525,27 +3688,353 @@ VPOParoptTransform::createFastRedTyAndVar(WRegionNode *W, int FastReduction) {
   MaybeAlign MaxAlignment(4);
 
   ReductionClause &RedClause = W->getRed();
+  Instruction *InsertPt = VPOParoptUtils::getInsertionPtForAllocas(W, F, false);
+  IRBuilder<> Builder(InsertPt);
   for (ReductionItem *RedI : RedClause.items()) {
-    MaybeAlign OrigAlignment =
+    Align OrigAlignment =
         RedI->getOrig()->getPointerAlignment(F->getParent()->getDataLayout());
-    MaxAlignment = std::max(OrigAlignment, MaxAlignment);
+    MaxAlignment = max(OrigAlignment, MaxAlignment);
+
+    computeArraySectionTypeOffsetSize(*RedI, InsertPt);
+
+    if (RedI->getIsArraySection()) {
+      ArraySectionInfo *ArrSecInfo = &RedI->getArraySectionInfo();
+      Value *ArrSecSize = ArrSecInfo->getSize();
+      if (dyn_cast<ConstantInt>(ArrSecSize) == nullptr) {
+        // If the array section size is not constant, A global (thread private)
+        // is created to save size, which will be used in reduce callback
+        // function.
+        GlobalVariable *GVArrSecSize = new GlobalVariable(
+            *(InsertPt->getModule()), ArrSecSize->getType(), false,
+            GlobalValue::CommonLinkage,
+            Builder.getIntN(ArrSecSize->getType()->getIntegerBitWidth(), 0),
+            Twine("arrsec.size"), nullptr,
+            GlobalVariable::ThreadLocalMode::GeneralDynamicTLSModel);
+        Builder.CreateStore(ArrSecSize, GVArrSecSize);
+        ArrSecInfo->setGVSize(GVArrSecSize);
+      }
+    }
 
     Type *ElementType = nullptr;
-    std::tie(ElementType, std::ignore, std::ignore) = getItemInfo(RedI);
+    Value *NumElements = nullptr;
+    std::tie(ElementType, NumElements, std::ignore) = getItemInfo(RedI);
+    if (auto *CI = dyn_cast_or_null<ConstantInt>(NumElements)) {
+      uint64_t Size = CI->getZExtValue();
+      assert(Size > 0 && "Invalid size for new alloca.");
+      ElementType = ArrayType::get(ElementType, Size);
+    } else if (NumElements != nullptr) {
+      // For array section with variable length (non-constant size), pointer to
+      // its element type is added into struct.fast_red_t structure, instead of
+      // array.
+      const DataLayout &DL = InsertPt->getModule()->getDataLayout();
+      ElementType = PointerType::get(ElementType, DL.getAllocaAddrSpace());
+    }
     StructArgTys.push_back(ElementType);
   }
   LLVMContext &C = F->getContext();
-  // packed structure is needed, so that we can get actual size of this
+  // Packed structure is needed, so that we can get actual size of this
   // structure, instead of the larger size including padding.
   FastRedStructTy =
       StructType::create(C, StructArgTys, "struct.fast_red_t", true);
 
   FastRedInst = VPOParoptUtils::genPrivatizationAlloca(
-      FastRedStructTy, nullptr, MaybeAlign(MaxAlignment),
-      VPOParoptUtils::getInsertionPtForAllocas(W, F, false), isTargetSPIRV(),
-      "fast_red_struct", llvm::None, llvm::None);
+      FastRedStructTy, nullptr, MaybeAlign(MaxAlignment), InsertPt,
+      isTargetSPIRV(), "fast_red_struct", llvm::None, llvm::None);
+
+  unsigned Index = 0;
+  for (ReductionItem *RedI : RedClause.items()) {
+    if (FastRedStructTy->getElementType(Index)->isPointerTy()) {
+      // For array section with variable length, private alloca is created and
+      // stored into the pointer in struct.fast_red_t structure
+      Value *ValueZero = Builder.getInt32(0);
+      Value *ValueIndex = Builder.getInt32(Index);
+      Value *ValueIndices[2] = {ValueZero, ValueIndex};
+      Value *RecInst =
+          Builder.CreateInBoundsGEP(FastRedStructTy, FastRedInst, ValueIndices,
+                                    RedI->getOrig()->getName() + ".fast_red");
+      Value *NewFastRedInst =
+          genPrivatizationAlloca(RedI, InsertPt, ".fast_red.alloca");
+      Builder.CreateStore(NewFastRedInst, RecInst);
+    }
+    Index++;
+  }
+
+  LLVM_DEBUG(dbgs() << __FUNCTION__
+                    << ": Create alloca for fast reduction structure:: "
+                    << *FastRedInst << ", type=" << *FastRedStructTy << "\n");
 
   return std::make_pair(FastRedStructTy, FastRedInst);
+}
+
+// Generate copy code for aggregate type from local reduction variable
+// (%sum.red.gep) to record variable for fast reduction (%sum.fast_red.gep).
+//
+// %sum.fast_red.gep.minus.offset = getelementptr i32,
+// i32* %sum.fast_red.gep, i64 0                                            (1)
+// %sum.fast_red.gep.minus.offset16 = bitcast i32*
+// %sum.fast_red.gep.minus.offset to [100 x i32]*                           (2)
+// %sum.fast_red.gep.minus.offset16.cast = bitcast [100 x i32]*
+// %sum.fast_red.gep.minus.offset16 to i32*                                 (3)
+// %sum.fast_red.gep.minus.offset16.cast.plus.offset = getelementptr i32,
+// i32* %sum.fast_red.gep.minus.offset16.cast, i64 0                        (4)
+// %7 = getelementptr i32, i32*
+// %sum.fast_red.gep.minus.offset16.cast.plus.offset, i64 10                (5)
+// %fastred.update.isempty = icmp eq i32*
+// %sum.fast_red.gep.minus.offset16.cast.plus.offset, %7                    (6)
+// br i1 %fastred.update.isempty, label %fastred.update.done,
+// label %fastred.update.body                                               (7)
+//
+// fastred.update.done:
+//                               ; preds = %fastred.update.body,
+//                               %loop.region.exit                          (8)
+//   br label %loop.region.exit.split15
+//
+// fastred.update.body:
+//                               ; preds = %fastred.update.body,
+//                               %loop.region.exit                          (9)
+//   %fastred.cpy.dest.ptr = phi i32* [
+//   %sum.fast_red.gep.minus.offset16.cast.plus.offset,
+//   %loop.region.exit ], [ %fastred.cpy.dest.inc, %fastred.update.body ]  (10)
+//   %fastred.cpy.src.ptr = phi i32* [ %sum.red.gep, %loop.region.exit ],
+//   [ %fastred.cpy.src.inc, %fastred.update.body ]                        (11)
+//   %8 = load i32, i32* %fastred.cpy.src.ptr, align 4                     (12)
+//   store i32 %8, i32* %fastred.cpy.dest.ptr, align 4                     (13)
+//   %fastred.cpy.dest.inc = getelementptr i32, i32* %fastred.cpy.dest.ptr,
+//   i32 1                                                                 (14)
+//   %fastred.cpy.src.inc = getelementptr i32, i32* %fastred.cpy.src.ptr,
+//   i32 1                                                                 (15)
+//   %fastred.cpy.done = icmp eq i32* %fastred.cpy.dest.inc, %7            (16)
+//   br i1 %fastred.cpy.done, label %fastred.update.done,
+//   label %fastred.update.body                                            (17)
+//
+void VPOParoptTransform::genFastRedAggregateCopy(
+    ReductionItem *RedI, Value *Src, Value *Dst, Instruction *InsertPt,
+    DominatorTree *DT, bool NoNeedToOffsetOrDerefOldV) {
+  IRBuilder<> Builder(InsertPt);
+  auto EntryBB = Builder.GetInsertBlock();
+
+  Type *DestElementTy = nullptr;
+  Value *DestBegin = nullptr;
+  Value *SrcBegin = nullptr;
+  Value *NumElements = nullptr;
+
+  // Generate source and destination information for reduction with aggregate
+  // type
+  genAggrReductionSrcDstInfo(*RedI, Src, Dst, InsertPt, Builder, NumElements,
+                             SrcBegin, DestBegin, DestElementTy,
+                             NoNeedToOffsetOrDerefOldV);
+
+  assert(DestBegin && "Null destination address for fast reduction copy.");
+  assert(DestElementTy && "Null element type for fast reduction copy.");
+  assert(NumElements && "Null number of elements for fast reduction copy.");
+  assert(SrcBegin && "Null source address for fast reduction copy.");
+
+  // Create copy loop to update variable for fast reduction
+  auto DestEnd = Builder.CreateGEP(DestBegin, NumElements); //             (5)
+  auto IsEmpty =
+      Builder.CreateICmpEQ(DestBegin, DestEnd, "fastred.update.isempty"); // (6)
+
+  auto BodyBB = SplitBlock(EntryBB, InsertPt, DT, LI);
+  BodyBB->setName("fastred.update.body"); //                                (9)
+
+  auto DoneBB = SplitBlock(BodyBB, BodyBB->getTerminator(), DT, LI);
+  DoneBB->setName("fastred.update.done"); //                                (8)
+
+  EntryBB->getTerminator()->eraseFromParent();
+  Builder.SetInsertPoint(EntryBB);
+  Builder.CreateCondBr(IsEmpty, DoneBB, BodyBB); //                         (7)
+
+  Builder.SetInsertPoint(BodyBB);
+  BodyBB->getTerminator()->eraseFromParent();
+  PHINode *DestElementPHI = Builder.CreatePHI(DestBegin->getType(), 2,
+                                              "fastred.cpy.dest.ptr"); // (10)
+  DestElementPHI->addIncoming(DestBegin, EntryBB);
+
+  PHINode *SrcElementPHI = nullptr;
+  if (SrcBegin != nullptr) {
+    SrcElementPHI = Builder.CreatePHI(SrcBegin->getType(), 2,
+                                      "fastred.cpy.src.ptr"); // (11)
+    SrcElementPHI->addIncoming(SrcBegin, EntryBB);
+  }
+
+  genFastRedScalarCopy(DestElementPHI, SrcElementPHI, Builder); //       (12~13)
+
+  auto DestElementNext = Builder.CreateConstGEP1_32(
+      DestElementPHI, 1, "fastred.cpy.dest.inc"); // (14)
+  Value *SrcElementNext = nullptr;
+  if (SrcElementPHI != nullptr)
+    SrcElementNext = Builder.CreateConstGEP1_32(SrcElementPHI, 1,
+                                                "fastred.cpy.src.inc"); // (15)
+
+  auto Done = Builder.CreateICmpEQ(DestElementNext, DestEnd,
+                                   "fastred.cpy.done"); // (16)
+
+  Builder.CreateCondBr(Done, DoneBB,
+                       BodyBB); //                             (17)
+  DestElementPHI->addIncoming(DestElementNext, Builder.GetInsertBlock());
+  if (SrcElementPHI != nullptr)
+    SrcElementPHI->addIncoming(SrcElementNext, Builder.GetInsertBlock());
+
+  if (DT) {
+    DT->changeImmediateDominator(BodyBB, EntryBB);
+    DT->changeImmediateDominator(DoneBB, EntryBB);
+  }
+}
+
+/// Generate copy code for scalar type (only used by fast reduction).
+void VPOParoptTransform::genFastRedScalarCopy(Value *Dst, Value *Src,
+                                              IRBuilder<> &Builder) {
+  Value *V = Builder.CreateLoad(Src);
+  Builder.CreateStore(V, Dst);
+}
+
+/// Generate the code to copy local reduction variable to local variable for
+/// fast reduction.
+void VPOParoptTransform::genFastRedCopy(ReductionItem *RedI, Value *Dst,
+                                        Value *Src, Instruction *InsertPt,
+                                        DominatorTree *DT,
+                                        bool NoNeedToOffsetOrDerefOldV) {
+  // Src is either AllocaInst or an AddrSpaceCastInst of AllocaInst.
+  assert(GeneralUtils::isOMPItemLocalVAR(Src) &&
+         "genFastRedCopy: Expect isOMPItemLocalVAR().");
+  Type *AllocaTy;
+  Value *NumElements;
+  // TODO: OPAQUEPOINTER: Replace the use of getElemenType() with the
+  // approproiate logic.
+  std::tie(AllocaTy, NumElements) =
+      GeneralUtils::getOMPItemLocalVARPointerTypeAndNumElem(
+          Src, cast<PointerType>(Src->getType())->getElementType());
+  assert(AllocaTy && "genFastRedCopy: item type cannot be deduced.");
+
+  IRBuilder<> Builder(InsertPt);
+  // For by-refs, do a pointer dereference to reach the actual operand.
+  if (RedI->getIsByRef() && !NoNeedToOffsetOrDerefOldV)
+    Dst = Builder.CreateLoad(Dst);
+
+#if INTEL_CUSTOMIZATION
+  if (RedI->getIsF90DopeVector()) {
+    genFastRedAggregateCopy(RedI, Src, Dst, InsertPt, DT,
+                            NoNeedToOffsetOrDerefOldV);
+    return;
+  }
+
+#endif // INTEL_CUSTOMIZATION
+  // TODO: Is this possible to be true? AllocaTy as per the previous code was
+  // always PointerTy.
+  if (RedI->getIsArraySection() || AllocaTy->isArrayTy()) {
+    genFastRedAggregateCopy(RedI, Src, Dst, InsertPt, DT,
+                            NoNeedToOffsetOrDerefOldV);
+    return;
+  }
+
+  genFastRedScalarCopy(Dst, Src, Builder);
+}
+
+/// Generate private reduction variable for fast reduction.
+Value *VPOParoptTransform::genFastRedPrivateVariable(ReductionItem *RedI,
+                                                     unsigned ItemIndex,
+                                                     Type *FastRedStructTy,
+                                                     Value *FastRedInst,
+                                                     Instruction *InsertPt) {
+  IRBuilder<> Builder(InsertPt);
+  Value *ValueZero = Builder.getInt32(0);
+  Value *ValueIndex = Builder.getInt32(ItemIndex);
+
+  // Get private reduction variable from struct.fast_red_t structure
+  Value *ValueIndices[2] = {ValueZero, ValueIndex};
+  Value *RecInst =
+      Builder.CreateInBoundsGEP(FastRedStructTy, FastRedInst, ValueIndices,
+                                RedI->getOrig()->getName() + ".fast_red");
+
+  Value *NumElements = nullptr;
+  std::tie(std::ignore, NumElements, std::ignore) = getItemInfo(RedI);
+
+  // For array section with constant size N, the private reduction variable type
+  // got from structure above is [ N x ElementType ]*, and an additional GEP is
+  // created to get ElementType* type as expected, which is same as allocating
+  // private in genPrivatizationAlloca.
+  // For array section with variable size V, the private reduction variable type
+  // got from structure above is ElementType**, and a LOAD is created to get
+  // ElementType* type as expected.
+  if (dyn_cast_or_null<ConstantInt>(NumElements))
+    RecInst = Builder.CreateInBoundsGEP(RecInst, {ValueZero, ValueZero},
+                                        RecInst->getName() + Twine(".gep"));
+  else if (NumElements != nullptr)
+    RecInst = Builder.CreateLoad(RecInst, RecInst->getName() + ".load");
+
+  return RecInst;
+}
+
+/// Generate reduce blocks for tree and atomic reduction. The basic blocks are
+/// organized as below:
+/// EntryBB:
+///   ...
+///   br BeginBB
+/// BeginBB:
+///   BeginInst
+///   ...
+///   EndInst
+///   br EndBB
+/// EndBB:
+///   ...
+///   br AtomicUpdateEntryBB
+/// AtomicUpdateEntryBB:
+///   ...
+///   br AtomicBeginBB
+/// AtomicBeginBB:
+///   AtomicBeginInst
+///   ...
+///   AtomicEndInst
+///   br AtomicEndBB
+/// AtomicEndBB:
+///   ...
+///
+void VPOParoptTransform::genFastReduceBB(WRegionNode *W,
+                                         FastReductionMode FastRedMode,
+                                         StructType *FastRedStructTy,
+                                         Value *FastRedVar, BasicBlock *EntryBB,
+                                         BasicBlock *EndBB) {
+  BasicBlock *AtomicUpdateEntryBB = nullptr, *AtomicEndBB = nullptr;
+  if (FastRedMode == FastReductionAtomicMode) {
+    ReductionClause &RedClause = W->getRed();
+    // Create a basic block as the successor of tree reduce block
+    AtomicUpdateEntryBB = createEmptyPrivFiniBB(W, !isTargetSPIRV());
+    for (ReductionItem *RedI : RedClause.items()) {
+      BasicBlock *AtomicBeginBB = createEmptyPrivFiniBB(W, !isTargetSPIRV());
+      // Generate reduction fini code to update reduction variable
+      genReductionFini(W, RedI, RedI->getOrig(), AtomicBeginBB->getTerminator(),
+                       DT);
+      // This method may insert a new call to atomic update routine before the
+      // last store instruction and erase the store instruction.
+      Instruction *AtomicCall = VPOParoptAtomics::handleAtomicUpdateInBlock(
+          W, AtomicBeginBB, IdentTy, TidPtrHolder, isTargetSPIRV());
+      assert(AtomicCall != nullptr &&
+             "No atomic call is generated for fast reduction.");
+
+      Type *AllocaTy;
+      std::tie(AllocaTy, std::ignore, std::ignore) = getItemInfo(RedI);
+
+      OptimizationRemark R(DEBUG_TYPE, "FastReductionAtomic", AtomicCall);
+      R << ore::NV("Kind", RedI->getOpName()) << " reduction update of type "
+        << ore::NV("Type", AllocaTy) << " made atomic";
+      ORE.emit(R);
+    }
+    // AtomicEndBB is created to be used as the insertion point for
+    // __kmpc_end_reduce in atomic reduction block.
+    AtomicEndBB = createEmptyPrivFiniBB(W, !isTargetSPIRV());
+  }
+
+  // Generate fast reduction callback and function calls of __kmpc_reduce
+  // and __kmpc_end_reduce
+  RDECL FastRedCallback = genFastRedCallback(W, FastRedStructTy);
+  VPOParoptUtils::genKmpcReduce(
+      W, IdentTy, TidPtrHolder, FastRedVar, FastRedCallback,
+      dyn_cast<Instruction>(EntryBB->begin()), EndBB->getTerminator(),
+      (AtomicUpdateEntryBB != nullptr)
+          ? dyn_cast<Instruction>(AtomicUpdateEntryBB->begin())
+          : nullptr,
+      (AtomicEndBB != nullptr) ? AtomicEndBB->getTerminator() : nullptr, DT, LI,
+      isTargetSPIRV(), ".fast_reduction");
 }
 
 // Generate the reduction code for reduction clause.
@@ -3559,10 +4048,9 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
 
   ReductionClause &RedClause = W->getRed();
   if (!RedClause.empty()) {
-    int FastReduction = checkFastReduction(W);
-    LLVM_DEBUG(dbgs() << "Fast reduction is "
-                      << ((FastReduction == 1) ? "enabled" : "disabled")
-                      << ".\n");
+    // Check if fast reduction is enabled and which mode should be used:
+    // tree-like reduction only and tree-like + atomic reduction.
+    FastReductionMode FastRedMode = (FastReductionMode)checkFastReduction(W);
 
     W->populateBBSet();
 
@@ -3577,8 +4065,8 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
 
     StructType *FastRedStructTy = nullptr;
     Value *FastRedInst = nullptr;
-    std::tie(FastRedStructTy, FastRedInst) =
-        createFastRedTyAndVar(W, FastReduction);
+    // Generate struct type and related variable for fast reduction.
+    std::tie(FastRedStructTy, FastRedInst) = genFastRedTyAndVar(W, FastRedMode);
 
     int ItemIndex = 0;
     for (ReductionItem *RedI : RedClause.items()) {
@@ -3590,24 +4078,33 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
              "genReductionCode: Unexpected reduction variable");
 */
 
-      Instruction *InsertPt = &EntryBB->front();
+      // For SPIRV target, if an alloca is created with non-constant size, the
+      // insertion point returned from getInsertionPtForAllocas() may appear
+      // above the size's defintion point. getInsertPtForAllocas cannot handle
+      // this case since we do not outline some regions for SPIRV target.
+      Instruction *InsertPt =
+          (FastRedMode == FastReductionNoneMode)
+              ? &EntryBB->front()
+              : VPOParoptUtils::getInsertionPtForAllocas(W, F, false);
 
-      computeArraySectionTypeOffsetSize(*RedI, InsertPt);
+      // For fast reduction, the function is called in genFastRedTyAndVar so
+      // it's only needed to call here if fast reduction is disabled
+      if (FastRedMode == FastReductionNoneMode)
+        computeArraySectionTypeOffsetSize(*RedI, InsertPt);
 
       bool UseRecForScalar = ((FastReductionCtrl & 0x1) == 0);
       bool UseRecForArray = ((FastReductionCtrl & 0x2) == 0);
       bool UseRec = ((!isArrayReduction(RedI) && UseRecForScalar) ||
                      (isArrayReduction(RedI) && UseRecForArray));
-      if (FastReduction && UseRec) {
-        // Get local variable from structure and set it as NewRedInst
-        Value *ValueIndex[2] = {
-            ConstantInt::get(Type::getInt32Ty(F->getContext()), 0),
-            ConstantInt::get(Type::getInt32Ty(F->getContext()), ItemIndex++)};
-        NewRedInst = GetElementPtrInst::CreateInBounds(
-            FastRedStructTy, FastRedInst, ValueIndex,
-            Orig->getName() + ".fast_red", InsertPt);
-      } else
-        NewRedInst = genPrivatizationAlloca(RedI, InsertPt, ".red");
+      if ((FastRedMode != FastReductionNoneMode) && UseRec) {
+        // Get private reduction variable from structure and set to NewRedInst
+        NewRedInst = genFastRedPrivateVariable(
+            RedI, ItemIndex++, FastRedStructTy, FastRedInst, InsertPt);
+      } else {
+        auto AllocaAddrSpace = getPrivatizationAllocaAddrSpace(W, RedI);
+        NewRedInst =
+            genPrivatizationAlloca(RedI, InsertPt, ".red", AllocaAddrSpace);
+      }
 
       RedI->setNew(NewRedInst);
 
@@ -3621,21 +4118,22 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
       RedInitEntryBB = createEmptyPrivInitBB(W);
       genReductionInit(W, RedI, RedInitEntryBB->getTerminator(), DT);
 
-      if (FastReduction && !UseRec) {
-        IRBuilder<> Builder(dyn_cast<Instruction>(
-            RedUpdateEntryBB->getSinglePredecessor()->begin()));
-        // Get local variable from structure and set it as NewRedInst
-        Value *ValueIndex[2] = {
-            ConstantInt::get(Type::getInt32Ty(F->getContext()), 0),
-            ConstantInt::get(Type::getInt32Ty(F->getContext()), ItemIndex++)};
-        Value *RecInst =
-            Builder.CreateInBoundsGEP(FastRedStructTy, FastRedInst, ValueIndex,
-                                      Orig->getName() + ".fast_red");
-        assert((RecInst->getType() == RedI->getNew()->getType()) &&
-               "Inconsistent type between local and fast reduction vars");
-        Value *V = Builder.CreateLoad(RedI->getNew());
-        Builder.CreateStore(V, RecInst);
+      if ((FastRedMode != FastReductionNoneMode) && !UseRec) {
+        BasicBlock *RecInitEntryBB = createEmptyPrivInitBB(W);
+        // Generate private variable (RecInst) used by fast reduction callback
+        Value *RecInst = genFastRedPrivateVariable(
+            RedI, ItemIndex++, FastRedStructTy, FastRedInst,
+            RecInitEntryBB->getTerminator());
+        BasicBlock *PrevBB = RedUpdateEntryBB->getSinglePredecessor();
+        SplitBlock(PrevBB, cast<Instruction>(PrevBB->begin()), DT, LI);
+
+        // And copy private reduction variable (NewRedInst) to private variable
+        // (RecInst)
         RedI->setNew(RecInst);
+        Value *ReplacementVal =
+            getClauseItemReplacementValue(RedI, PrevBB->getTerminator());
+        genFastRedCopy(RedI, ReplacementVal, NewRedInst,
+                       PrevBB->getTerminator(), DT);
       }
 
       BasicBlock *BeginBB = createEmptyPrivFiniBB(W, !isTargetSPIRV());
@@ -3658,7 +4156,8 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
 
     if (NeedsKmpcCritical) {
       // Wrap the reduction fini code inside a critical region.
-      // EndBB is created to be used as the insertion point for end_critical().
+      // EndBB is created to be used as the insertion point for
+      // end_critical()/end_reduce().
       //
       // This insertion point cannot be W->getExitBBlock()->begin() because
       // we don't want the END DIRECTIVE of the construct to be inside the
@@ -3670,13 +4169,10 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
       // the critical section is trying to guard.
       BasicBlock *EndBB = createEmptyPrivFiniBB(W, !isTargetSPIRV());
 
-      if (FastReduction) {
-        RDECL FastRedCallback = genFastReductionRoutine(W, FastRedStructTy);
-        VPOParoptUtils::genKmpcReduce(
-            W, IdentTy, TidPtrHolder, FastRedInst, FastRedCallback,
-            dyn_cast<Instruction>(RedUpdateEntryBB->begin()),
-            EndBB->getTerminator(), DT, LI, isTargetSPIRV(), ".fast_reduction");
-      } else
+      if (FastRedMode != FastReductionNoneMode)
+        genFastReduceBB(W, FastRedMode, FastRedStructTy, FastRedInst,
+                        RedUpdateEntryBB, EndBB);
+      else
         VPOParoptUtils::genKmpcCriticalSection(
             W, IdentTy, TidPtrHolder,
             dyn_cast<Instruction>(RedUpdateEntryBB->begin()),
@@ -3968,6 +4464,7 @@ void VPOParoptTransform::computeArraySectionTypeOffsetSize(
 
     Value *SizeXLB = Builder.CreateMul(ArraySizeTillDimVal, DimLB);
     ArrSecOff = Builder.CreateAdd(SizeXLB, ArrSecOff, "offset");
+
     ArrSecSize = Builder.CreateMul(ArrSecSize, SectionDimSize, "size");
 
     if (I == 0 && BaseIsPointer)
@@ -4018,6 +4515,7 @@ VPOParoptTransform::getClauseItemReplacementValue(const Item *ClauseI,
     IRBuilder<> Builder(InsertPt);
     AllocaInst *ByRefAddr = Builder.CreateAlloca(
         ReplacementVal->getType(), nullptr, ReplacementVal->getName() + ".ref");
+
     Builder.CreateStore(ReplacementVal, ByRefAddr);
     ReplacementVal = ByRefAddr;
   }
@@ -4095,6 +4593,7 @@ Value *VPOParoptTransform::getArrSecReductionItemReplacementValue(
 // Extract the type and size of local Alloca to be created to privatize
 // OrigValue.
 void VPOParoptTransform::getItemInfoFromValue(Value *OrigValue,
+                                              Type *OrigValueElemType,
                                               Type *&ElementType,    // out
                                               Value *&NumElements,   // out
                                               unsigned &AddrSpace) { // out
@@ -4105,7 +4604,7 @@ void VPOParoptTransform::getItemInfoFromValue(Value *OrigValue,
   NumElements = nullptr;
 
   if (GeneralUtils::isOMPItemGlobalVAR(OrigValue)) {
-    ElementType = cast<PointerType>(OrigValue->getType())->getElementType();
+    ElementType = OrigValueElemType;
     AddrSpace = cast<PointerType>(OrigValue->getType())->getAddressSpace();
     return;
   }
@@ -4114,14 +4613,14 @@ void VPOParoptTransform::getItemInfoFromValue(Value *OrigValue,
          "getItemInfoFromValue: Expect isOMPItemLocalVAR().");
 
   std::tie(ElementType, NumElements) =
-      GeneralUtils::getOMPItemLocalVARPointerTypeAndNumElem(OrigValue);
+      GeneralUtils::getOMPItemLocalVARPointerTypeAndNumElem(OrigValue,
+                                                            OrigValueElemType);
   assert(ElementType && "getItemInfoFromValue: item type cannot be deduced.");
 
   if (auto *ConstNumElements = dyn_cast<Constant>(NumElements))
     if (ConstNumElements->isOneValue())
       NumElements = nullptr;
 
-  ElementType = cast<PointerType>(ElementType)->getElementType();
   // The final addresspace is inherited from the clause's item.
   AddrSpace = cast<PointerType>(OrigValue->getType())->getAddressSpace();
 }
@@ -4134,6 +4633,7 @@ std::tuple<Type *, Value *, unsigned> VPOParoptTransform::getItemInfo(Item *I) {
   assert(I && "Null Clause Item.");
 
   Value *Orig = I->getOrig();
+  Type *OrigElemTy = I->getOrigElemType();
   assert(Orig && "Null original Value in clause item.");
 
   auto getItemInfoIfArraySection = [I, &ElementType, &NumElements,
@@ -4153,7 +4653,7 @@ std::tuple<Type *, Value *, unsigned> VPOParoptTransform::getItemInfo(Item *I) {
   };
 
   if (!getItemInfoIfArraySection()) {
-    getItemInfoFromValue(Orig, ElementType, NumElements, AddrSpace);
+    getItemInfoFromValue(Orig, OrigElemTy, ElementType, NumElements, AddrSpace);
     assert(ElementType && "Failed to find element type for reduction operand.");
 
     if (I->getIsByRef()) {
@@ -4176,8 +4676,8 @@ std::tuple<Type *, Value *, unsigned> VPOParoptTransform::getItemInfo(Item *I) {
 
 // Generate a private variable version for the local copy of OrigValue.
 Value *VPOParoptTransform::genPrivatizationAlloca(
-    Value *OrigValue, Instruction *InsertPt, const Twine &NameSuffix,
-    llvm::Optional<unsigned> AllocaAddrSpace,
+    Value *OrigValue, Type *OrigElemTy, Instruction *InsertPt,
+    const Twine &NameSuffix, llvm::Optional<unsigned> AllocaAddrSpace,
     bool PreserveAddressSpace) const {
 
   assert(OrigValue && "genPrivatizationAlloca: Null input value.");
@@ -4188,7 +4688,8 @@ Value *VPOParoptTransform::genPrivatizationAlloca(
   MaybeAlign OrigAlignment =
       OrigValue->getPointerAlignment(InsertPt->getModule()->getDataLayout());
 
-  getItemInfoFromValue(OrigValue, ElementType, NumElements, AddrSpace);
+  getItemInfoFromValue(OrigValue, OrigElemTy, ElementType, NumElements,
+                       AddrSpace);
   auto *NewVal = VPOParoptUtils::genPrivatizationAlloca(
       ElementType, NumElements, OrigAlignment, InsertPt,
       isTargetSPIRV(), OrigValue->getName() + NameSuffix, AllocaAddrSpace,
@@ -5077,7 +5578,7 @@ Value *VPOParoptTransform::replaceWithStoreThenLoad(
                                      ? EntryBB->getFirstNonPHI()
                                      : EntryBB->getTerminator();
   IRBuilder<> BuilderInner(InsertPtForLoad);
-  LoadInst *VRenamed = BuilderInner.CreateLoad(VAddr); // (3)
+  LoadInst *VRenamed = BuilderInner.CreateLoad(V->getType(), VAddr); // (3)
   if (!InsertLoadInBeginningOfEntryBB)
     // InstCombine may transform:
     //   %1 = load float*, float** %.addr
@@ -5381,9 +5882,9 @@ bool VPOParoptTransform::sinkSIMDDirectives(WRegionNode *W) {
     assert(!FindDirectiveCall(LoopExitBB) &&
            "Loop exit block already contains directives.");
 #endif  // NDEBUG
-    LoopExitBB->getInstList().splice(LoopExitBB->begin(), ExitBB->getInstList(),
-                                     ExitDir->getIterator(),
-                                     ++(ExitDir->getIterator()));
+    LoopExitBB->getInstList().splice(
+        LoopExitBB->getFirstInsertionPt(), ExitBB->getInstList(),
+        ExitDir->getIterator(), ++(ExitDir->getIterator()));
     Changed = true;
   }
 
@@ -6042,6 +6543,10 @@ void VPOParoptTransform::wrnUpdateSSAPreprocessForOuterLoop(
 }
 
 // Collect the live-in values for the given loop.
+// "LiveIn" Values are PHINode values with one incoming value from Loop
+// preheader and others from other basic blocks/Loop Latch.
+// LoopInductionVariables are not included in the set, since they are handled in
+// a special way using threadID.
 void VPOParoptTransform::wrnCollectLiveInVals(
     Loop &L,
     DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap,
@@ -6049,7 +6554,7 @@ void VPOParoptTransform::wrnCollectLiveInVals(
   BasicBlock *PreheaderBB = L.getLoopPreheader();
   assert(PreheaderBB && "wrnUpdateSSAPreprocess: Loop preheader not found");
   BasicBlock *BB = L.getHeader();
-
+  Instruction *InductionV = WRegionUtils::getOmpCanonicalInductionVariable(&L);
   for (Instruction &I : *BB) {
     if (!isa<PHINode>(I))
       break;
@@ -6071,8 +6576,10 @@ void VPOParoptTransform::wrnCollectLiveInVals(
         BasicBlock *InBB = PN->getIncomingBlock(I);
         if (InBB != PreheaderBB) {
           Value *V = PN->getIncomingValue(I);
-          ValueToLiveinMap[V] = {IV, PreheaderBB};
-          ECs.unionSets(Leader, V);
+          if ((PN != InductionV) && (V != InductionV)) {
+            ValueToLiveinMap[V] = {IV, PreheaderBB};
+            ECs.unionSets(Leader, V);
+          }
         }
       }
     }
@@ -6096,19 +6603,28 @@ void VPOParoptTransform::AnalyzePhisECs(Loop *L, Value *PV, Value *V,
 
 // Build the equivalence class for the value a, b if there exists some phi node
 // e.g. a = phi(b).
-void VPOParoptTransform::buildECs(Loop *L, PHINode *PN,
+void VPOParoptTransform::buildECs(Loop *L, Value *V,
                                   EquivalenceClasses<Value *> &ECs) {
-  SmallPtrSet<PHINode *, 16> PhiUsers;
-  Value *Leader = ECs.getOrInsertLeaderValue(PN);
-  unsigned NumPHIValues = PN->getNumIncomingValues();
-  unsigned II;
-  for (II = 0; II < NumPHIValues; II++)
-    AnalyzePhisECs(L, Leader, PN->getIncomingValue(II), ECs, PhiUsers);
+  if (!isa<PHINode>(V))
+    ECs.getOrInsertLeaderValue(V);
+  else {
+    PHINode *PN = dyn_cast<PHINode>(V);
+    SmallPtrSet<PHINode *, 16> PhiUsers;
+    Value *Leader = ECs.getOrInsertLeaderValue(PN);
+    unsigned NumPHIValues = PN->getNumIncomingValues();
+    unsigned II;
+    for (II = 0; II < NumPHIValues; II++)
+      AnalyzePhisECs(L, Leader, PN->getIncomingValue(II), ECs, PhiUsers);
+  }
 }
 
 // Collect the live-out value in the loop.
+// A defined Value is considered "LiveOut" if it is used outside the loop or
+// it has loop-carried dependence. A variable has loop-carried dependence if it
+// is present in "LiveIn" set of the Loop (except Induction Variables.)
 void VPOParoptTransform::wrnCollectLiveOutVals(
     Loop &L, SmallSetVector<Instruction *, 8> &LiveOutVals,
+    DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap,
     EquivalenceClasses<Value *> &ECs) {
   for (Loop::block_iterator II = L.block_begin(), E = L.block_end(); II != E;
        ++II) {
@@ -6122,36 +6638,12 @@ void VPOParoptTransform::wrnCollectLiveOutVals(
         if (const PHINode *P = dyn_cast<PHINode>(UI))
           UserBB = P->getIncomingBlock(U);
 
-        if (!L.contains(UserBB)) {
+        if (!L.contains(UserBB) ||
+            (ValueToLiveinMap.find((&I)) != ValueToLiveinMap.end())) {
           LiveOutVals.insert(&I);
-          if (isa<PHINode>(I))
-            buildECs(&L, cast<PHINode>(&I), ECs);
+          buildECs(&L, &I, ECs);
         }
       }
-    }
-  }
-  // Any variable except the loop index which has loop carried dependence
-  // has to be added into the live-out list.
-
-  for (Instruction &I : *L.getLoopLatch()) {
-    if (!isa<PHINode>(I))
-      break;
-    if (WRegionUtils::getOmpCanonicalInductionVariable(&L) == &I)
-      continue;
-    // If any use occurs in the loop header, the loop carried dependence
-    // exists.
-    bool Match = false;
-    for (const Use &U : I.uses()) {
-      const Instruction *UI = cast<Instruction>(U.getUser());
-      const BasicBlock *UserBB = UI->getParent();
-      if (UserBB == L.getHeader()) {
-        Match = true;
-        break;
-      }
-    }
-    if (Match) {
-      LiveOutVals.insert(&I);
-      buildECs(&L, dyn_cast<PHINode>(&I), ECs);
     }
   }
 }
@@ -6237,6 +6729,7 @@ void updateConstantLoopHeaderPhis(Loop *L) {
 }
 
 // Collect the live-in value for the phis at the loop header.
+// Collect the live-out set for the Loop.
 void VPOParoptTransform::wrnUpdateSSAPreprocess(
     Loop *L,
     DenseMap<Value *, std::pair<Value *, BasicBlock *>> &ValueToLiveinMap,
@@ -6244,7 +6737,7 @@ void VPOParoptTransform::wrnUpdateSSAPreprocess(
     EquivalenceClasses<Value *> &ECs) {
 
   wrnCollectLiveInVals(*L, ValueToLiveinMap, ECs);
-  wrnCollectLiveOutVals(*L, LiveOutVals, ECs);
+  wrnCollectLiveOutVals(*L, LiveOutVals, ValueToLiveinMap, ECs);
 }
 
 // Update the SSA form after the basic block LoopExitBB's successor
@@ -6443,22 +6936,22 @@ bool VPOParoptTransform::genLoopSchedulingCode(
   // The required variables are LowerBnd, UpperBnd, Stride and UpperD.
   // The last one is only need for distribute loop.
   IsLastVal = REBuilder.CreateAlloca(Int32Ty, nullptr, "is.last");
-  IsLastVal->setAlignment(MaybeAlign(4));
+  IsLastVal->setAlignment(Align(4));
   // Initialize %is.last with zero.
   REBuilder.CreateAlignedStore(REBuilder.getInt32(0), IsLastVal, Align(4));
 
   AllocaInst *LowerBnd = REBuilder.CreateAlloca(IndValTy, nullptr, "lower.bnd");
-  LowerBnd->setAlignment(MaybeAlign(4));
+  LowerBnd->setAlignment(Align(4));
 
   AllocaInst *UpperBnd = REBuilder.CreateAlloca(IndValTy, nullptr, "upper.bnd");
-  UpperBnd->setAlignment(MaybeAlign(4));
+  UpperBnd->setAlignment(Align(4));
 
   AllocaInst *Stride = REBuilder.CreateAlloca(IndValTy, nullptr, "stride");
-  Stride->setAlignment(MaybeAlign(4));
+  Stride->setAlignment(Align(4));
 
   // UpperD is for distribute loop
   AllocaInst *UpperD = REBuilder.CreateAlloca(IndValTy, nullptr, "upperD");
-  UpperD->setAlignment(MaybeAlign(4));
+  UpperD->setAlignment(Align(4));
 
   // Get Schedule chunk information from W-Region node
   ConstantInt *SchedType = REBuilder.getInt32(SchedKind);
@@ -6557,21 +7050,21 @@ bool VPOParoptTransform::genLoopSchedulingCode(
     // Create variables for the team distribution initialization.
     // Insert alloca instructions in the region's entry block.
     TeamIsLast = REBuilder.CreateAlloca(Int32Ty, nullptr, "team.is.last");
-    TeamIsLast->setAlignment(MaybeAlign(4));
+    TeamIsLast->setAlignment(Align(4));
     // Initialize %team.is.last with zero.
     REBuilder.CreateAlignedStore(REBuilder.getInt32(0), TeamIsLast, Align(4));
 
     TeamLowerBnd = REBuilder.CreateAlloca(IndValTy, nullptr, "team.lower.bnd");
-    TeamLowerBnd->setAlignment(MaybeAlign(4));
+    TeamLowerBnd->setAlignment(Align(4));
 
     TeamUpperBnd = REBuilder.CreateAlloca(IndValTy, nullptr, "team.upper.bnd");
-    TeamUpperBnd->setAlignment(MaybeAlign(4));
+    TeamUpperBnd->setAlignment(Align(4));
 
     TeamStride = REBuilder.CreateAlloca(IndValTy, nullptr, "team.stride");
-    TeamStride->setAlignment(MaybeAlign(4));
+    TeamStride->setAlignment(Align(4));
 
     TeamUpperD = REBuilder.CreateAlloca(IndValTy, nullptr, "team.upperD");
-    TeamUpperD->setAlignment(MaybeAlign(4));
+    TeamUpperD->setAlignment(Align(4));
 
     // Initialize arguments for team distribution init call.
     // Insert store instructions and the call in the loop pre-header block.
@@ -7136,7 +7629,7 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
   if (NumThreads || NumTeams) {
     Type *I32Ty = Type::getInt32Ty(F->getParent()->getContext());
     LoadInst *Tid = new LoadInst(I32Ty, TidPtrHolder, "my.tid", ForkCI);
-    Tid->setAlignment(MaybeAlign(4));
+    Tid->setAlignment(Align(4));
     if (W->getIsTeams())
       VPOParoptUtils::genKmpcPushNumTeams(W, IdentTy, Tid, NumTeams,
                                           NumThreads, ForkCI);
@@ -7304,6 +7797,65 @@ void VPOParoptTransform::fixThreadedEntryFormalParmName(WRegionNode *W,
   }
 }
 
+// Utility to find Alignment of the COPYIN Variable passed.
+// Default is 1.
+unsigned VPOParoptTransform::getAlignmentCopyIn(Value *V, const DataLayout DL) {
+  // Eg:
+  // 1. Global Variable is passed.
+  // C Code: int nder; ...
+  //         #pragma omp parallel copyin(nder)
+  // IR:
+  // @nder = dso_local thread_private global i32 0, align 4
+  // "QUAL.OMP.COPYIN"(i32* @nder)
+  // Alignment : 4
+  //
+  // 2. Bitcast to get the pointer.
+  // Fortran Code:
+  //          INTEGER NDER,BBB
+  //          COMMON/DERPAR/NDER,BBB  ...
+  //          !$OMP PARALLEL copyin(NDER)
+  // IR:
+  // @derpar_ = common thread_private unnamed_addr global [8 x i8]
+  //     zeroinitializer, align 32
+  // "QUAL.OMP.COPYIN"(i32* bitcast ([8 x i8]* @derpar_ to i32*))
+  // Alignment : 32
+  //
+  // 3. Bitcast with getelementpointer.
+  // Fortran Code:
+  //          CHARACTER X
+  //          INTEGER NDER,BBB
+  //          COMMON/DERPAR/X,NDER,BBB  ...
+  //          !$OMP PARALLEL copyin(NDER)
+  // IR:
+  // @derpar_ = common thread_private unnamed_addr global [9 x i8]
+  //     zeroinitializer, align 32
+  // "QUAL.OMP.COPYIN"(i32* bitcast (i8* getelementptr inbounds
+  //     ([9 x i8], [9 x i8]* @derpar_, i32 0, i64 1) to i32*))
+  // Alignment : 1, BaseAlignment:32, Offset:1
+  //
+  GlobalVariable *GVPtr;
+  if (GVPtr = dyn_cast<GlobalVariable>(V))
+    return GVPtr->getAlignment();
+
+  if (auto *BC = dyn_cast<BitCastOperator>(V)) {
+    Value *BCOperand = BC->getOperand(0);
+    if (GVPtr = dyn_cast<GlobalVariable>(BCOperand))
+      return GVPtr->getAlignment();
+    if (auto *GEP = dyn_cast<GEPOperator>(BCOperand)) {
+      auto *BasePointer = GEP->getPointerOperand()->stripPointerCasts();
+      if (GVPtr = dyn_cast<GlobalVariable>(BasePointer)) {
+        unsigned BaseAlignment = GVPtr->getAlignment();
+        APInt ConstOffset(64, 0);
+        GEP->accumulateConstantOffset(DL, ConstOffset);
+        unsigned Offset = ConstOffset.getZExtValue();
+        return ((Offset == 0) ? BaseAlignment
+                              : greatestCommonDivisor(BaseAlignment, Offset));
+      }
+    }
+  }
+  return 1;
+}
+
 // Emit the code for copyin variable. One example is as follows.
 //   %0 = ptrtoint i32* %tpv_a to i64
 //   %1 = icmp ne i64 %0, ptrtoint (i32* @a to i64)
@@ -7363,12 +7915,11 @@ void VPOParoptTransform::genTpvCopyIn(WRegionNode *W,
         // Emit a barrier after copyin code for threadprivate variable.
         VPOParoptUtils::genKmpcBarrier(W, FirstArgOfOutlineFunc,
            CopyinEndBB->getTerminator(), IdentTy, true);
-
       }
-      VPOUtils::genMemcpy(
-          C->getOrig(), &*NewArgI, NDL,
-          dyn_cast<GlobalVariable>(C->getOrig())->getAlignment(),
-          Term->getParent());
+
+      VPOUtils::genMemcpy(C->getOrig(), &*NewArgI, NDL,
+                          getAlignmentCopyIn(C->getOrig(), NDL),
+                          Term->getParent());
 
       ++NewArgI;
     }
@@ -8086,6 +8637,7 @@ bool VPOParoptTransform::propagateCancellationPointsToIR(WRegionNode *W) {
   Function *F = EntryBB->getParent();
   LLVMContext &C = F->getContext();
   Type *I32Type = Type::getInt32Ty(C);
+  Align I32Align = F->getParent()->getDataLayout().getABITypeAlign(I32Type);
 
   BasicBlock &FunctionEntry = F->getEntryBlock();
   IRBuilder<> AllocaBuilder(FunctionEntry.getFirstNonPHI());
@@ -8094,7 +8646,8 @@ bool VPOParoptTransform::propagateCancellationPointsToIR(WRegionNode *W) {
     AllocaInst *CPAlloca =
         AllocaBuilder.CreateAlloca(I32Type, nullptr, "cp");          // (1)
 
-    StoreInst *CPStore = new StoreInst(CancellationPoint, CPAlloca); // (4)
+    StoreInst *CPStore =
+        new StoreInst(CancellationPoint, CPAlloca, false, I32Align); // (4)
     CPStore->insertAfter(CancellationPoint);
     CancellationPointAllocas.push_back(CPAlloca);
   }
@@ -8438,7 +8991,7 @@ bool VPOParoptTransform::genCancellationBranchingCode(WRegionNode *W) {
 
       Type *I32Ty = Type::getInt32Ty(InsertPt->getModule()->getContext());
       LoadInst *LoadTid = new LoadInst(I32Ty, TidPtrHolder, "my.tid", InsertPt);
-      LoadTid->setAlignment(MaybeAlign(4));
+      LoadTid->setAlignment(Align(4));
       VPOParoptUtils::genKmpcStaticFini(W, IdentTy, LoadTid, InsertPt);
 
       CancelExitBB = CancelExitBBWithStaticFini;
@@ -9257,7 +9810,7 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
   auto *OutermostLoop = W->getWRNLoopInfo().getLoop(0);
 
   // First, find the Loop's lower bound pointer definition.
-  SmallVector<Value *, 3> LBPtrDefs;
+  SmallVector<std::pair<Value *, Type *>, 3> LBPtrDefs;
 
   for (unsigned Idx = 0; Idx < NumLoops; ++Idx) {
     // Assumptions:
@@ -9321,10 +9874,11 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
     LLVM_DEBUG(dbgs() << __FUNCTION__ << ": IV assignment value: " <<
                *LoadFromLB << "\n");
 
-    LBPtrDefs.push_back(LoadFromLB->getPointerOperand());
+    LBPtrDefs.push_back(std::make_pair<Value *, Type *>(
+        LoadFromLB->getPointerOperand(), LoadFromLB->getType()));
 
-    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": LB pointer definition: " <<
-               *LBPtrDefs.back() << "\n");
+    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": LB pointer definition: "
+                      << *(LBPtrDefs.back().first) << "\n");
   }
 
   // Second, compute the collapsed iteration space before the region.
@@ -9663,14 +10217,11 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
     Value *UpdateVal = ThenBuilder.CreateSDiv(NewBndVal, Dimensions[Idx]);
     // Store the value into LB and UB, so that the original loop runs
     // exactly one iteration.
-    PointerType *StorePtrTy = cast<PointerType>(LBPtrDefs[Idx]->getType());
     Value *StoreVal =
-        ThenBuilder.CreateZExtOrTrunc(UpdateVal, StorePtrTy->getElementType());
-    ThenBuilder.CreateStore(StoreVal, LBPtrDefs[Idx]);
-    StorePtrTy =
-        cast<PointerType>(W->getWRNLoopInfo().getNormUB(Idx)->getType());
-    StoreVal =
-        ThenBuilder.CreateZExtOrTrunc(UpdateVal, StorePtrTy->getElementType());
+        ThenBuilder.CreateZExtOrTrunc(UpdateVal, LBPtrDefs[Idx].second);
+    ThenBuilder.CreateStore(StoreVal, LBPtrDefs[Idx].first);
+    Type *StorePtrElemTy = (W->getWRNLoopInfo().getNormUBElemTy(Idx));
+    StoreVal = ThenBuilder.CreateZExtOrTrunc(UpdateVal, StorePtrElemTy);
     ThenBuilder.CreateStore(StoreVal, W->getWRNLoopInfo().getNormUB(Idx));
     NewBndVal = ThenBuilder.CreateSRem(NewBndVal, Dimensions[Idx]);
 
@@ -9684,11 +10235,8 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
     // only for the outermost IV, since other IVs initializations
     // are dominated by this block.
     if (Idx == 0) {
-      StorePtrTy =
-          cast<PointerType>(W->getWRNLoopInfo().getNormIV(0)->getType());
-      StoreVal =
-          ThenBuilder.CreateZExtOrTrunc(UpdateVal,
-                                        StorePtrTy->getElementType());
+      StorePtrElemTy = (W->getWRNLoopInfo().getNormIVElemTy(0));
+      StoreVal = ThenBuilder.CreateZExtOrTrunc(UpdateVal, StorePtrElemTy);
       ThenBuilder.CreateStore(StoreVal, W->getWRNLoopInfo().getNormIV(0));
     }
   }

@@ -25,46 +25,33 @@ define dso_local void @foo(i32* nocapture %a, i32 %m, i32* nocapture readonly %u
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_REC:%.*]] = phi  [ i32 [[VP_REC_NEXT:%.*]], [[BB2:BB[0-9]+]] ],  [ i32 [[VP__PRE]], [[BB0]] ]
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP_IV:%.*]] = phi  [ i32 [[VP_IV_NEXT:%.*]], [[BB2]] ],  [ i32 0, [[BB0]] ]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 true, [[BB0]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB2]] ]
-; CHECK-NEXT:    SUCCESSORS(1):[[BB3:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(2): [[BB2]] [[BB0]]
+; CHECK-NEXT:    SUCCESSORS(2):[[BB3:BB[0-9]+]](i1 [[VP_LOOP_MASK]]), [[BB2]](!i1 [[VP_LOOP_MASK]])
+; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[BB2]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:     Condition([[BB1]]): [DA: Div] i1 [[VP_LOOP_MASK]] = phi  [ i1 true, [[BB0]] ],  [ i1 [[VP_LOOP_MASK_NEXT]], [[BB2]] ]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP_LOOP_MASK]]), [[BB5:BB[0-9]+]](!i1 [[VP_LOOP_MASK]])
-; CHECK-NEXT:    PREDECESSORS(1): [[BB1]]
-; CHECK-EMPTY:
-; CHECK-NEXT:      [[BB4]]:
+; CHECK-NEXT:      [[BB3]]:
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_MUL:%.*]] = mul i32 [[VP_REC]] i32 [[VP_IV]]
 ; CHECK-NEXT:       [DA: Div] store i32 [[VP_MUL]] i32* [[VP_ARRAYIDX2]]
 ; CHECK-NEXT:       [DA: Uni] i32 [[VP_IV_NEXT]] = add i32 [[VP_IV]] i32 1
 ; CHECK-NEXT:       [DA: Div] i32 [[VP_REC_NEXT]] = load i32* [[VP_ARRAYIDX]]
-; CHECK-NEXT:      SUCCESSORS(1):[[BB5]]
-; CHECK-NEXT:      PREDECESSORS(1): [[BB3]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB5]]:
-; CHECK-NEXT:     [DA: Div] i1 [[VP_EXITCOND:%.*]] = icmp i32 [[VP_REC]] i32 0
-; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_EXITCOND]] i1 [[VP_LOOP_MASK]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP0:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP1:%.*]] = not i1 [[VP0]]
-; CHECK-NEXT:    SUCCESSORS(1):[[BB2]]
-; CHECK-NEXT:    PREDECESSORS(2): [[BB4]] [[BB3]]
+; CHECK-NEXT:       [DA: Div] i1 [[VP_CONTINUE_COND:%.*]] = icmp i32 [[VP_REC]] i32 0
+; CHECK-NEXT:      SUCCESSORS(1):[[BB2]]
+; CHECK-NEXT:      PREDECESSORS(1): [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:     Condition([[BB5]]): [DA: Uni] i1 [[VP1]] = not i1 [[VP0]]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB1]](i1 [[VP1]]), [[BB6:BB[0-9]+]](!i1 [[VP1]])
-; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_CONTINUE_COND]] i1 [[VP_LOOP_MASK]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP0:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
+; CHECK-NEXT:    SUCCESSORS(2):[[BB4:BB[0-9]+]](i1 [[VP0]]), [[BB1]](!i1 [[VP0]])
+; CHECK-NEXT:    PREDECESSORS(2): [[BB3]] [[BB1]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB6]]:
+; CHECK-NEXT:    [[BB4]]:
 ; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB7:BB[0-9]+]]
+; CHECK-NEXT:    SUCCESSORS(1):[[BB5:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB7]]:
-; CHECK-NEXT:     [DA: Div] void [[VP2:%.*]] = ret
+; CHECK-NEXT:    [[BB5]]:
+; CHECK-NEXT:     [DA: Div] void [[VP1:%.*]] = ret
 ; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB6]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB4]]
 ;
 entry:
   %lane = call i64 @llvm.vplan.laneid()
@@ -80,8 +67,8 @@ header:
   store i32 %mul, i32* %arrayidx2, align 4
   %iv.next = add nuw nsw i32 %iv, 1
   %rec.next = load i32, i32* %arrayidx, align 4
-  %exitcond = icmp sgt i32 %rec, 0
-  br i1 %exitcond, label %header, label %loop.exit
+  %continue.cond = icmp sgt i32 %rec, 0
+  br i1 %continue.cond, label %header, label %loop.exit
 
 loop.exit:
   br label %exit

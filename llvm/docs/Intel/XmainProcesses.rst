@@ -1284,33 +1284,192 @@ includes both LIT changes and ``tc`` test changes.
 Code Reviews
 ============
 
-Our code review policy requires that every piece of code in xmain is thoroughly
+Our code review policy requires that every piece of code is thoroughly
 understood and accepted by more than one person. Code reviews ensure
 consistently high code quality and maintainability, increase understanding of
 the code base among more developers, and provide a mechanism for fostering best
 coding practices across our development teams.
 
 Code reviews should be seen as more than just a final check for coding errors.
-Code reviews present an opportunity for developers to learn from one another and
-help one another improve their code as it is committed. Having a second person
-read through your code and attempt to understand it helps identify pieces that
-are confusing, inefficient, or incorrect. Code reviews are a critical mechanism
-for ensuring that the code we commit to xmain is of the highest quality.
+Code reviews present an opportunity for developers to learn from one another
+and help one another improve their code as it is committed. Having a second
+person read through a submitted patch and attempt to understand it helps
+identify pieces that are confusing, inefficient, or incorrect. Code reviews are
+a critical mechanism for ensuring that the code we commit is of the highest
+quality.
 
-Code Review Tool
-----------------
+Code Review Tools
+-----------------
 
 `Gerrit <https://git-amr-2.devtools.intel.com/gerrit>`_ is the official code
 review tool for xmain development. All xmain code reviews should be done
 through gerrit.
 
-Choosing code reviewers
+The `Github project <https://github.com/intel/llvm>`_ has native integrated
+github code review tool.
+
+.. note:: Changes are made in one or more commits, and grouped together as Pull
+          Request (PR) with code reivews done on the PR as a whole.
+
+.. note:: Do not use force-push when updating PR, instead add a new commit
+          within the PR to address review comments. Force push erases review
+          history and kills incremental reviews.
+
+.. _review-code-of-conduct:
+
+Code Review Code Of Conduct
+---------------------------
+
+#. Code Reviews have same priority as normal engineering work.
+#. When a new code review is assigned to you, you must come to a stopping point
+   in your current development work and address the review.
+#. Reviewers should provide feedback or notify on an ETA within 1 working day,
+   though ideally within a few hours. Reviewers must be clear on what changes
+   are required vs. changes which are nice to have for the future submissions.
+   "Nit:" prefix can be used to indicate comment not mandatory to address.
+#. Addressed comments on github must be explicitly
+   `marked <https://help.github.com/en/github/collaborating-with-issues-and-pull-requests/commenting-on-a-pull-request#resolving-conversations>`_
+   as "Resolved" by author as soon as comment is addressed. Reviewers can
+   request do not mark comment is resolved until they verify changes on their
+   side. To bring particular reviewer attention on changes made review can be
+   `re-requested <https://github.blog/changelog/2019-02-21-re-request-review-on-a-pull-request/>`_
+   by author. For gerrit addressed comments must be marked as "Done" by author.
+   This is required to avoid confusion about comments status (resolved vs.
+   unresolved yet).
+#. Reviews should be done with the goal of correctness, maintainability, and
+   extensibility for future development, however they should be limited to the
+   scope of the review. Changes such as formatting, naming issues, or
+   refactoring in surrounding code should be handled in a separate NFC patch
+   (like in LLVM).
+#. Patch authors need to make sure that the design is clearly specified in the
+   commit message and in-tree documentation. Design concerns must be raised
+   first and addressed first.
+#. In the event that design discussions or reviews in general are not obviously
+   fruitful, author and reviewer(s) are required to have an off-line 1:1
+   discussion (or discussion with relevant architects). First sync is expected
+   within 1 working day, preferably within a few hours if timezone and personal
+   schedules allow. Management should be notified if there is schedule impact.
+#. Guideline for each change set is <300 LOC. Reasonable exceptions (generated
+   files or code patterns) should be agreed with reviewers. See more details at
+   :ref:`Big Features Code Review <big-feature>`.
+#. Specific projects/teams may have additional set of extended rules or
+   exceptions to the process. See
+   :ref:`Additional Policies or Exceptions <additional-policies>`
+
+.. _additional-policies:
+
+Additional Policies or Exceptions
+---------------------------------
+
+- Compiler Architect has to be informed and be able to review:
+
+  - All optimizations invented while analyzing SPEC codes
+  - Compiler changes unintentionally improving any SPEC test >5%
+
+.. _big-feature:
+
+Big features Code Review
 ------------------------
 
-Each change set should be reviewed by at least two developers. The code author
+Big features/patches usually cause confusion in reviewers/process. Some
+features may require months of work and many cross-component changes, they may
+also require collaboration between many contributors.
+
+To avoid surprises late (at final code review) all code reviewers should be
+involved from the very early design stages. Prior to implementation of big
+features, design should be reviewed and approved by architecture workgroup
+consisting of code/component owners. All important decisions should be
+well-documented.
+
+For implementation it is strongly recommended to create collaborative feature
+branch. All code reviewers who's going to review and accept final solution must
+be added to code reviews of all incremental changes made. They should stay
+aware about implementation progress and new decisions made and they are
+expected to contribute through code reviews.
+
+:ref:`Code Review Code of Conduct <review-code-of-conduct>` is applicable, but there
+are some exceptions to facilitate faster progress forward in development
+branch:
+
+- Post-commit reviews are acceptable and recommended if no feedback from
+  reviewers within a working day. It's still recommended to ping reviewer for
+  patches where input is required. This input can be addressed later.
+- Comments made can be addressed in the next patches. The only requirement is
+  to mark all correspoinding areas with appropriate TODO markers in current
+  patch under review. As an option TODO document can be created per specific
+  feature to group and track list of issues detected as a single document.
+- Reviewers comments should be focussed on overall design, concept proof
+  points, functionality, correctness and implementation direction. Comments
+  regarding refactoring, renaming, optimizations, documentation, corner cases
+  are acceptable and very welcome, however addressing them can be postponed
+  until latest stages.
+
+Before final feature submission to upstream it may be required to rework the
+whole patches sequence in the branch squashing unnecessary differences between
+patches and rearranging patches sequence in the best order for final feature
+code review and acceptance. Large patches should be split either:
+
+- to smaller sub features formed as separate change sets, or
+- to change sets to separate components which can be independently committed.
+
+Upstream plan should be developed in close collaboration between reviewers and
+authors of the changes. It is expected that at the point of upstream reviewers
+are well aware about feature design, implementation status and reviewed already
+many individual chunks of code while feature was under development in
+development branch. There are few areas which require preliminary agreements
+on upstream process:
+
+- *Upstream schedule.* Upstream is a shared goal between authors and reviewers,
+  which is aligned with organization business comittments. For large features
+  ensure that you allocate sufficient time (likely weeks) in your schedule for
+  proper review.
+- *Feature dependencies.* Upstream is usually an expensive process because
+  feature authors have to address review comments, reflect changes made back to
+  development branch to keep feature functional in the branch and take into
+  account all other changes made in the upstream by others. Team should be
+  notified on the feature landing plan in advance so that code affected is not
+  modified between chunks of the feature upstream.
+- *Feature testing plan.* Some tests may require set of patches to be committed
+  first before they can pass. It is acceptable to add such tests which the
+  latest change of the set.
+- *Feature dead code.* With good justification in place it might be acceptable
+  to commit some of the changes as an effectively dead code which is going to
+  be activated only when the remaining parts are committed. Ideally these
+  changes should be guarded in the code.
+- *Post-upstream TODO list.* During upstream process there is a high chance
+  that new issues are going to be detected in the feature itself or surrounding
+  code. Unless new feature degrades prior functionality the preference should
+  be to address these items after feature is upstreamed. Authors of the feature
+  are responsible to address all these issues found after upstream is complete,
+  unless other owners are clearly identified.
+
+Automatic assignment of code reviewers (github only)
+----------------------------------------------------
+
+Github has CODEOWNERS feature to assign code reviewers automatically based on
+changes made. Code owners own code of specific component. Component are split
+by project directory structure. Per each component there are at least two code
+owners. List of components’ code owners is defined `here
+<https://github.com/intel/llvm/blob/sycl/.github/CODEOWNERS>`_. Code owners are
+assigned automatically as code reviewers for PR submitted. Code owners are
+encouraged to assign additional code reviewers.
+
+At least one code owner per component must approve PR. If PR has changes done
+for multiple components all affected component code owners must approve PR.  If
+no response from code owner (no reaction within 1 working day, code owner on
+vacation, etc.) and single ping doesn't help, review is escalated to management
+to resolve resources/schedule issues. Commit author is responsible for
+escalation.
+
+.. note:: TODO: CODEOWNERS for xmain
+
+Choosing code reviewers manually
+--------------------------------
+
+Each change set should be reviewed by at least one developer. The code author
 should designate a primary reviewer, who is responsible for thoroughly
 understanding the change set and providing design-level feedback and guidance.
-In addition, a secondary reviewer should be chosen. The secondary reviewer
+In addition, a secondary reviewer is recommended. The secondary reviewer
 is not required to be familiar with the particular code area being modified but
 should provide general feedback on the change set, focusing on clarity,
 complexity, common coding errors, data structure choice, etc.
@@ -1326,18 +1485,12 @@ previously familiar. Selecting a reviewer from another team can extend their
 knowledge base while providing a fresh perspective for your changes.
 
 If you are unsure who should review your changes, the advice of the LLVM
-community documented `here <../Phabricator.html>`_ works just as well for
-xmain. That is,
+community documented `here <../Phabricator.html>`__ works just as well. That is,
 
 - Use ``git blame`` and the commit log to find names of people who have recently
   modified the same area of code that you are modifying.
 - If you've discussed the change with others, they are good candidates to be
   your reviewers.
-
-.. note:: We do not currently have an xmain equivalent of CODE_OWNERS.txt, but
-          we are working on creating one. In case this document is out of date,
-          check the root llvm directory for intel_code_owners.map or something
-          similar.
 
 Expectations of change sets
 ---------------------------
@@ -1394,27 +1547,34 @@ Expectations of change sets
 
 Expectations of code reviewers
 ------------------------------
+
 - It is the job of the primary code reviewer to **thoroughly** understand the
   code changes under review. This reviewer must understand both the high level
-  design and the low level details. Every change in xmain must be given a
-  detailed line-by-line code review. A cursory reading of the code is not an
-  adequate code review.
+  design and the low level details. Every change must be given a detailed
+  line-by-line code review. A cursory reading of the code is not an adequate
+  code review.
+
+- Design discussions are encouraged to take place as soon as possible, and
+  discussed with the code/component owners (or in Architecture Workgroups) with
+  any new information that arises from these discussions. However, reviewers
+  and committers alike should be aware that without substantial new
+  information, design decisions previously made within appropriate Architecture
+  Workgroups are considered binding. Please do not use reviews as a place to
+  re-litigate these decisions.
 
 - Secondary reviewers should inspect the code carefully with a focus on
   clarity and correctness.
 
 - Code reviewers and code authors are equally responsible for the quality of
-  code that gets committed to xmain.
+  code that gets committed.
 
-- Reviews should be timely. At this time, we do not have a specific rule for
-  how long a review should take. But remember that the code review is usually
-  on the critical path for getting code committed. So make code reviews a
-  priority! The appropriate time for a review depends on the scope of the
-  changes. Reviewers should attempt to respond within a day for very small
-  change sets (less than 50 lines of code). If a reviewer cannot begin a review
-  in a timely manner, the author of the changes should be notified. For very
-  large change sets the code author and the primary reviewer should have a
-  discussion to form a review plan.
+- Reviews should be timely. Remember that the code review is usually on the
+  critical path for getting code committed. So make code reviews a priority!
+  The appropriate time for a review depends on the scope of the changes.
+  Reviewers should respond within a day. If a reviewer cannot begin a review in
+  a timely manner, the author of the changes should be notified. For very large
+  change sets the code author and the primary reviewer should have a discussion
+  to form a review plan.
 
 - Reviewers should offer positive and constructive feedback. As a reviewer
   you are collaborating with the author to ensure high quality code. Give the
@@ -1447,7 +1607,7 @@ Expectations of code reviewers
 
 - Defer to the code author on issues that are purely matters of personal
   preference. By all means make suggestions, but give the author the final say.
-
+  Be clear if specific comment is something "nice to have".
 
 Expectations of code authors
 ----------------------------
@@ -1485,7 +1645,8 @@ Expectations of code authors
 - Explain why you have done things as you did but avoid being defensive.
   Trust that the reviewers are trying to be helpful and are not attacking your
   code or questioning your abilities. There will be times when the reviewers
-  simply do not understand what you have done. Be patient with your explanations.
+  simply do not understand what you have done. Be patient with your
+  explanations.
 
 - Document your response. In many cases it will be useful for code authors and
   reviewers to talk offline to discuss a change set. This is a good practice,
@@ -1537,23 +1698,59 @@ impact.
 
 If the developer and gatekeeper agree that a new failure has low impact, the
 gatekeeper may approve the checkin in spite of the failure, provided that the
-developer first submit a CQ. This commonly occurs when the failure is caused
+developer first submit a JIRA. This commonly occurs when the failure is caused
 by an error in the failing test itself.
 
-For new LIT failures, in addition to submitting a CQ, you must mark the test as
-an expected failure by adding a line like this.
+New LIT failures are :ref:`allowed <xmain-pulldown-with-lit-failures>`
+only for pulldowns to ``xmain``.
+For new LIT failures, in addition to submitting a JIRA, you must mark the test
+as an expected failure by adding a line like this.
 
 ::
 
-  ; INTEL - This test is marked XFAIL due to cq415116,cq415117. Once those
-  ; problems are fixed, we can restore this test to the community version.
+  ; INTEL_CUSTOMIZATION - This test is marked XFAIL due to CMPLRLLVM-777.
+  ; Once those problems are fixed, we can restore this test
+  ; to the community version.
   ; XFAIL: *
-  ; END INTEL
+  ; END INTEL_CUSTOMIZATION
 
+There always has to be an unresolved JIRA tracking the task of re-enabling
+the test back, so that we are able to keep our test coverage as close
+to the community as possible.
+
+.. _xmain-lit-notification:
+
+Expectations Regarding Unrelated LIT Failures
+---------------------------------------------
+
+It is possible that a LIT breakage sneaks into trunk unnoticed, e.g.
+two interfering commits got clean testing results, when tested separately,
+but break a LIT test together. In this case the LIT failure may appear
+in testing results of an unrelated commit(s).
+
+Developer(s) that get an unrelated LIT failure in their testing
+should immediately notify ``xmain gatekeeper`` about the fail
+and follow their instructions. If there are no other fails
+in the testing, developers that use `Gerrit <https://git-amr-2.devtools.intel.com/gerrit>`_
+for their reviews may force `Verified+1` and add ``xmain gatekeeper``
+code reviewer.
+Developers that do not use ``Gerrit`` should send a `mail
+<mailto:icl.xmain.gatekeeper@intel.com?subject=Important!%20New%20LIT%20fail%20in%20xmain>`_
+with an attached ``fail.log`` (if the fail happened during alloy run) or
+with a description of the fail in the local LIT testing (please provide
+OS version, build variant and builtype information).
+
+The notification must be sent as described above, so that all
+``xmain gatekeepers`` recieve it. At the same time a developer may
+use other channels to communicate with an acting ``xmain gatekeeper``
+regarding the fail (e.g. to query whether this is a known problem
+or/and JIRA was already created).
+
+The process for dealing with the current LIT failures in ``xmain``
+for ``xmain gatekeeper`` is defined :doc:`here <XmainCurrentLITFailures>`.
 
 Expectations Regarding Performance Regressions
 ----------------------------------------------
-
 All performance regressions need to be justified before the gatekeeper will
 approve a checkin request. Unanalyzed regressions are often allowed if they
 are small and are accompanied by offsetting improvements in other tests.
@@ -1570,3 +1767,21 @@ Expectations Regarding Compile Time Regressions
 All compile time regressions need to be approved by the architecture team
 prior to checkin. In general, compile time regressions will require
 improvements in generated code performance to justify the cost.
+
+Expectations Regarding Flaky Tests
+----------------------------------
+
+Timely disabling of flaky tests helps reduce developers' wasted time
+(e.g. spent on figuring out whether the fail is caused by one's changes),
+and also save machine resources (e.g. developers restart testing several
+times to get rid of the flaky test fails). Thus, every developer
+is required to report flaky tests ASAP. This is related to both
+stability and performance flaky fails.
+
+Developers should follow the process of submitting a JIRA described
+`here <https://wiki.ith.intel.com/display/ITSCompilersDevOps/Flaky+tests>`__,
+so that JIRA can be used as a data base for figuring out whether the fails
+in the developer's testing are known flaky fails or not.
+
+**TBD** Integrate creation of JIRA for flaky test fails with :doc:`AlloyGerrit <XmainAlloyGerrit>`
+to save developers' time for filling JIRA fields (`CMPLRTOOLS-20224 <https://jira.devtools.intel.com/browse/CMPLRTOOLS-20224>`_).

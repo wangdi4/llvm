@@ -117,7 +117,7 @@ public:
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     if (DumpAfterDA)
-      Plan->dump(outs(), true);
+      Plan->dump(outs());
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
     VPlanLoopCFU LoopCFU(*Plan);
@@ -125,7 +125,7 @@ public:
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     if (DumpAfterLoopCFU)
-      Plan->dump(outs(), true);
+      Plan->dump(outs());
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
     VPlanPredicator Predicator(*Plan.get());
@@ -133,7 +133,7 @@ public:
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     if (DumpAfterPredicator)
-      Plan->dump(outs(), true);
+      Plan->dump(outs());
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
     if (EnableFuncVecAllZeroBypass) {

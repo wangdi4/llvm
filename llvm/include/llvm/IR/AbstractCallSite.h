@@ -229,9 +229,9 @@ public:
 };
 
 #if INTEL_CUSTOMIZATION
-/// Apply function Func to each Call's callback call site.
+/// Apply function Func to each CB's callback call site.
 template <typename UnaryFunction>
-void for_each_callback_callsite(const CallBase &CB, UnaryFunction Func) {
+void forEachCallbackCallSite(const CallBase &CB, UnaryFunction Func) {
   SmallVector<const Use *, 4u> CallbackUses;
   AbstractCallSite::getCallbackUses(CB, CallbackUses);
   for (const Use *U : CallbackUses) {

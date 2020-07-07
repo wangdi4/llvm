@@ -32,21 +32,22 @@ entry:
 
 for.body:
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
+  %idx = mul i64 %indvars.iv, %indvars.iv
 
-  %ld.i32.idx = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.1, i64 0, i64 %indvars.iv
+  %ld.i32.idx = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.1, i64 0, i64 %idx
   %ld.i32 = load i32, i32* %ld.i32.idx
 
-  %ld.i32.idx.2 = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.2, i64 0, i64 %indvars.iv
+  %ld.i32.idx.2 = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.2, i64 0, i64 %idx
   %ld.i32.2 = load i32, i32* %ld.i32.idx.2
 
-  %ld.i32.idx.3 = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.3, i64 0, i64 %indvars.iv
+  %ld.i32.idx.3 = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.3, i64 0, i64 %idx
   %ld.i32.3 = load i32, i32* %ld.i32.idx.3
 
   %div.1 = sdiv i32 %ld.i32, %ld.i32.2
   %div.2 = sdiv i32 %div.1, %ld.i32.3
 
 
-  %st.i32.idx = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.4, i64 0, i64 %indvars.iv
+  %st.i32.idx = getelementptr inbounds [1024 x i32], [1024 x i32]* @arr.i32.4, i64 0, i64 %idx
   store i32 %div.2, i32* %st.i32.idx
 
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1

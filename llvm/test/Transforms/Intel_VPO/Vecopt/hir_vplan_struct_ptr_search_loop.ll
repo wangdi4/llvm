@@ -26,7 +26,7 @@
 ; After VPlan
 ; CG-CHECK:          BEGIN REGION { modified }
 ; CG-CHECK-NEXT:           %arr.base.cast = ptrtoint.%struct2**.i64(&((%t4)[0]));
-; CG-CHECK-NEXT:           %alignment = %arr.base.cast  &&  31;
+; CG-CHECK-NEXT:           %alignment = %arr.base.cast  &  31;
 ; CG-CHECK-NEXT:           %peel.factor = 32  -  %alignment;
 ; CG-CHECK-NEXT:           %peel.factor1 = %peel.factor  >>  3;
 ; CG-CHECK-NEXT:           %peel.factor1 = (4 * %t10 <=u %peel.factor1) ? 4 * %t10 : %peel.factor1;

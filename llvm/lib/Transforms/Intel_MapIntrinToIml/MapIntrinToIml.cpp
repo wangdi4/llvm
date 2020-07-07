@@ -25,6 +25,7 @@
 // ===--------------------------------------------------------------------=== //
 
 #include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -120,18 +121,18 @@ bool MapIntrinToImlImpl::isValidIMFAttribute(std::string AttrName) {
 }
 
 unsigned MapIntrinToImlImpl::calculateNumReturns(TargetTransformInfo *TTI,
-                                                 unsigned TypeBitWidth,
+                                                 unsigned ComponentBitWidth,
                                                  unsigned LogicalVL,
                                                  unsigned *TargetVL) {
   unsigned VectorBitWidth = TTI->getRegisterBitWidth(true);
-  *TargetVL = VectorBitWidth / TypeBitWidth;
+  *TargetVL = VectorBitWidth / ComponentBitWidth;
   unsigned NumRet = LogicalVL / *TargetVL;
 
   // If the logical vector width is smaller than the target vector width,
   // then we have less than full vector. Thus, just set NumRet = 1.
   NumRet = NumRet == 0 ? 1 : NumRet;
 
-  LLVM_DEBUG(dbgs() << "Type Bit Width: " << TypeBitWidth << "\n");
+  LLVM_DEBUG(dbgs() << "Component Bit Width: " << ComponentBitWidth << "\n");
   LLVM_DEBUG(dbgs() << "Legalizing VL: " << LogicalVL << "\n");
   LLVM_DEBUG(dbgs() << "Vector Bit Width: " << VectorBitWidth << "\n");
   LLVM_DEBUG(dbgs() << "Legal Target VL: " << *TargetVL << "\n");
@@ -227,13 +228,16 @@ void MapIntrinToImlImpl::createImfAttributeList(Instruction *I,
 }
 
 // Legalize a single type T to TargetVL. There are two cases to handle:
-// 1) T is a vector type: Returns a new vector type with length set to TargetVL.
+// 1) T is a vector type: Returns a new vector type with TargetVL components.
 // 2) T is a structure type with vector fields (appeared in arguments and return
 //    value of TwoRets functions): Returns a new structure type with each field
 //    legalized.
-static Type *legalizeArgumentOrReturnType(Type *T, unsigned TargetVL) {
-  if (T->isVectorTy())
-    return VectorType::get(cast<VectorType>(T)->getElementType(), TargetVL);
+static Type *legalizeArgumentOrReturnType(Type *T, unsigned LogicalVL,
+                                          unsigned TargetVL) {
+  if (VectorType *VecTy = dyn_cast<VectorType>(T)) {
+    return VectorType::get(VecTy->getElementType(),
+                           (VecTy->getElementCount() / LogicalVL) * TargetVL);
+  }
 
   assert(T->isStructTy() &&
          "Expect vector or struct type in SVML function type legalization");
@@ -242,26 +246,30 @@ static Type *legalizeArgumentOrReturnType(Type *T, unsigned TargetVL) {
     Type *StructElementTy = T->getStructElementType(I);
     assert(StructElementTy->isVectorTy() &&
            "Expect all elements in struct to be vectors");
-    NewStructElementTypes.push_back(VectorType::get(
-        cast<VectorType>(StructElementTy)->getElementType(), TargetVL));
+    VectorType *VecTy = cast<VectorType>(StructElementTy);
+    NewStructElementTypes.push_back(
+        VectorType::get(VecTy->getElementType(),
+                        (VecTy->getElementCount() / LogicalVL) * TargetVL));
   }
 
   return StructType::get(T->getContext(), NewStructElementTypes);
 }
 
-FunctionType *MapIntrinToImlImpl::legalizeFunctionTypes(
-    FunctionType *FT, ArrayRef<Value *> Args, unsigned TargetVL,
-    StringRef FuncName) {
+FunctionType *MapIntrinToImlImpl::legalizeFunctionTypes(FunctionType *FT,
+                                                        ArrayRef<Value *> Args,
+                                                        unsigned LogicalVL,
+                                                        unsigned TargetVL,
+                                                        StringRef FuncName) {
   // Perform type legalization for arguments and return type respectively.
 
   // New type legalized argument types.
   SmallVector<Type *, 8> NewArgTypes;
   for (unsigned I = 0; I < Args.size(); I++)
     NewArgTypes.push_back(
-        legalizeArgumentOrReturnType(Args[I]->getType(), TargetVL));
+        legalizeArgumentOrReturnType(Args[I]->getType(), LogicalVL, TargetVL));
 
   Type *ReturnType =
-      legalizeArgumentOrReturnType(FT->getReturnType(), TargetVL);
+      legalizeArgumentOrReturnType(FT->getReturnType(), LogicalVL, TargetVL);
 
   FunctionType *LegalFT = FunctionType::get(ReturnType, NewArgTypes, false);
   return LegalFT;
@@ -380,8 +388,7 @@ void MapIntrinToImlImpl::splitMathLibCalls(
       NewArgs.push_back(LegalArg);
     }
 
-    CallInst *NewCI = Builder.CreateCall(Func, NewArgs, "vcall");
-    NewCI->setCallingConv(CallingConv::SVML);
+    CallInst *NewCI = createSVMLCall(Func, NewArgs, "vcall");
     SplitCalls.push_back(NewCI);
   }
 }
@@ -583,7 +590,7 @@ Value *MapIntrinToImlImpl::extractLowerPart(Value *V, unsigned ExtractingVL,
 
   assert(T->isStructTy() &&
          "SVML functions only returns vector or struct");
-  Type *ExtractedType = legalizeArgumentOrReturnType(T, ExtractingVL);
+  Type *ExtractedType = legalizeArgumentOrReturnType(T, SourceVL, ExtractingVL);
 
   // For functions that return structures, individual fields are extracted
   // respectively:
@@ -645,9 +652,8 @@ Value *MapIntrinToImlImpl::extractLowerPart(Value *V, unsigned ExtractingVL,
 // of elements returned is the number of elements indicated by the 1st argument
 // since it is 2x the size of the return. Case 2 will work as is.
 
-VectorType *MapIntrinToImlImpl::getCallType(CallInst *CI) {
-  FunctionType *CallFT = CI->getFunctionType();
-  Type *CallRetType = CallFT->getReturnType();
+VectorType *MapIntrinToImlImpl::getVectorTypeForSVMLFunction(FunctionType *FT) {
+  Type *CallRetType = FT->getReturnType();
   auto *RetStructTy = dyn_cast_or_null<StructType>(CallRetType);
   // For structure return types, return the first structure element as
   // a vector type.
@@ -658,7 +664,7 @@ VectorType *MapIntrinToImlImpl::getCallType(CallInst *CI) {
 }
 
 void MapIntrinToImlImpl::scalarizeVectorCall(CallInst *CI,
-                                             StringRef LibFuncName,
+                                             StringRef ScalarFuncName,
                                              unsigned LogicalVL,
                                              Type *ElemType) {
   SmallVector<Type *, 4> FTArgTypes;
@@ -678,13 +684,12 @@ void MapIntrinToImlImpl::scalarizeVectorCall(CallInst *CI,
     }
   }
 
-  StringRef ScalarLibFuncName = getScalarFunctionName(LibFuncName, LogicalVL);
-
-  LLVM_DEBUG(dbgs() << "Scalarizing call to '" << LibFuncName << "' with '"
-                    << ScalarLibFuncName << "'");
+  LLVM_DEBUG(dbgs() << "Scalarizing call to '"
+                    << CI->getCalledFunction()->getName() << "' with '"
+                    << ScalarFuncName << "'");
 
   FunctionType *FT = FunctionType::get(RetType, FTArgTypes, false);
-  FunctionCallee FCache = M->getOrInsertFunction(ScalarLibFuncName, FT);
+  FunctionCallee FCache = M->getOrInsertFunction(ScalarFuncName, FT);
   SmallVector<Value *, 4> CallResults;
 
   for (unsigned I = 0; I < LogicalVL; ++I) {
@@ -733,10 +738,8 @@ void MapIntrinToImlImpl::scalarizeVectorCall(CallInst *CI,
   }
 }
 
-const char *MapIntrinToImlImpl::findX86Variant(Instruction *I,
-                                               StringRef FuncName,
-                                               unsigned LogicalVL,
-                                               unsigned TargetVL) {
+StringRef MapIntrinToImlImpl::findX86SVMLVariantForScalarFunction(
+    StringRef ScalarFuncName, unsigned TargetVL, bool Masked, Instruction *I) {
 
   StringRef DataType;
   std::string TargetVLString = std::to_string(TargetVL);
@@ -748,16 +751,13 @@ const char *MapIntrinToImlImpl::findX86Variant(Instruction *I,
   // the lookup is based on the legal target vector length. This is important
   // to remember since the input function (FuncName) could be a logical vector
   // that is larger.
-  StringRef ScalarFuncName = getScalarFunctionName(FuncName, LogicalVL);
   std::string TargetVLStr = APInt(32, TargetVL).toString(10, false);
   std::string TempFuncName = "__svml_" + ScalarFuncName.str() + TargetVLStr;
-  if (FuncName.find("mask") != StringRef::npos) {
+  if (Masked)
     TempFuncName += "_mask";
-  }
   char *ParentFuncName = new char[TempFuncName.size() + 1];
   std::strcpy(ParentFuncName, TempFuncName.c_str());
 
-  LLVM_DEBUG(dbgs() << "Input Function: " << FuncName << "\n");
   LLVM_DEBUG(dbgs() << "Legal Function: " << TempFuncName << "\n");
 
   ImfAttr *AttrList = nullptr;
@@ -777,15 +777,40 @@ const char *MapIntrinToImlImpl::findX86Variant(Instruction *I,
   return VariantFuncName;
 }
 
-StringRef MapIntrinToImlImpl::getScalarFunctionName(StringRef FuncName,
-                                                    unsigned LogicalVL) {
+StringRef MapIntrinToImlImpl::getSVMLFunctionProperties(StringRef FuncName,
+                                                        unsigned ReturnVL,
+                                                        unsigned &LogicalVL,
+                                                        bool &Masked) {
 
+  assert(!Masked && "Expect Masked to be false");
   // Incoming FuncName is something like '__svml_sinf4'. Removing the '__svml_'
   // prefix and logical vl from the end yields the scalar lib name.
   StringRef Prefix = "__svml_";
-  StringRef LogicalVLStr = APInt(32, LogicalVL).toString(10, false);
-  StringRef TempName = FuncName.rtrim("_mask");
-  StringRef ScalarFuncName = TempName.substr(Prefix.size());
+  StringRef ScalarFuncName = FuncName.substr(Prefix.size());
+  if (ScalarFuncName.endswith("_mask")) {
+    Masked = true;
+    ScalarFuncName = ScalarFuncName.rtrim("_mask");
+  }
+
+  std::string ReturnVLStr = APInt(32, ReturnVL).toString(10, false);
+  LogicalVL = ReturnVL;
+  StringRef LogicalVLStr = ReturnVLStr;
+
+  // If the SVML function name ends with half of VL of it's return type, then
+  // it's a complex function.
+  if (ReturnVL >= 2) {
+    std::string HalfReturnVLStr = std::to_string(ReturnVL / 2);
+    assert(ScalarFuncName.endswith(ReturnVLStr) ^
+               ScalarFuncName.endswith(HalfReturnVLStr) &&
+           "Can't identify whether an SVML function is a complex function");
+    if (ScalarFuncName.endswith(HalfReturnVLStr)) {
+      assert(ScalarFuncName[0] == 'c' &&
+             "SVML functions operating on complex numbers must have names "
+             "starting with 'c'");
+      LogicalVL = ReturnVL / 2;
+      LogicalVLStr = HalfReturnVLStr;
+    }
+  }
   ScalarFuncName = ScalarFuncName.drop_back(LogicalVLStr.size());
 
   return ScalarFuncName;
@@ -820,10 +845,8 @@ static std::string getSVMLIDivOrRemFuncName(Instruction::BinaryOps Opcode,
           Opcode == Instruction::SDiv || Opcode == Instruction::SRem) &&
          "Opcode must be udiv/urem/sdiv/srem");
 
-  std::string Result = "__svml_";
-
-  Result +=
-      (Opcode == Instruction::UDiv || Opcode == Instruction::URem) ? 'u' : 'i';
+  std::string Result =
+      (Opcode == Instruction::UDiv || Opcode == Instruction::URem) ? "u" : "i";
 
   if (ScalarSize != 32)
     Result += std::to_string(ScalarSize);
@@ -832,7 +855,6 @@ static std::string getSVMLIDivOrRemFuncName(Instruction::BinaryOps Opcode,
                 ? "div"
                 : "rem";
 
-  Result += std::to_string(Ty->getNumElements());
   return Result;
 }
 
@@ -871,14 +893,14 @@ bool MapIntrinToImlImpl::replaceVectorIDivAndRemWithSVMLCall(
           calculateNumReturns(TTI, ScalarBitWidth, LogicalVL, &TargetVL);
 
       VectorType *LegalVecTy =
-          VectorType::get(VecTy->getScalarType(), TargetVL);
+          FixedVectorType::get(VecTy->getScalarType(), TargetVL);
       // Find an appropriate SVML function to call. If there is none, this
       // instruction will not be optimized to SVML.
       std::string FuncName = getSVMLIDivOrRemFuncName(
-          BinOp->getOpcode(), cast<VectorType>(VecTy));
-      const char *VariantFuncName =
-          findX86Variant(&I, FuncName, LogicalVL, TargetVL);
-      if (!VariantFuncName)
+          BinOp->getOpcode(), cast<VectorType>(LegalVecTy));
+      StringRef VariantFuncName =
+          findX86SVMLVariantForScalarFunction(FuncName, TargetVL, false, &I);
+      if (VariantFuncName.empty())
         continue;
 
       FunctionCallee Func = M->getOrInsertFunction(VariantFuncName, LegalVecTy,
@@ -908,8 +930,7 @@ bool MapIntrinToImlImpl::replaceVectorIDivAndRemWithSVMLCall(
         SmallVector<Value *, 2> NewArgs;
         generateNewArgsFromPartialVectors(Args, NewArgTypes, TargetVL, NewArgs);
 
-        CallInst *NewCI = Builder.CreateCall(Func, NewArgs, "vcall");
-        NewCI->setCallingConv(CallingConv::SVML);
+        CallInst *NewCI = createSVMLCall(Func, NewArgs, "vcall");
         Result = NewCI;
 
         bool LessThanFullVector = isLessThanFullVector(VecTy, LegalVecTy);
@@ -938,16 +959,16 @@ bool MapIntrinToImlImpl::replaceVectorIDivAndRemWithSVMLCall(
 
 void MapIntrinToImlImpl::legalizeAVX512MaskArgs(
     CallInst *CI, SmallVectorImpl<Value *> &Args, Value *MaskValue,
-    unsigned LogicalVL, unsigned TargetVL, unsigned ScalarBitWidth) {
+    unsigned LogicalVL, unsigned TargetVL, unsigned ComponentBitWidth) {
   if (TargetVL < LogicalVL) {
-    assert(LogicalVL * ScalarBitWidth >= 512 &&
+    assert(LogicalVL * ComponentBitWidth >= 512 &&
            "Expecting source to be more than 512-bit wide");
     // If we are splitting a call to masked 512-bit SVML function, create
     // a new mask parameter and get rid of the source parameter which is
     // absent in non-512bit SVML functions.
     IntegerType *NewMaskElementType =
-        IntegerType::getIntNTy(CI->getContext(), ScalarBitWidth);
-    VectorType *NewMaskType = VectorType::get(NewMaskElementType, LogicalVL);
+        IntegerType::getIntNTy(CI->getContext(), ComponentBitWidth);
+    VectorType *NewMaskType = FixedVectorType::get(NewMaskElementType, LogicalVL);
 
     Constant *Zeros = ConstantAggregateZero::get(NewMaskType);
     Constant *Ones =
@@ -959,14 +980,14 @@ void MapIntrinToImlImpl::legalizeAVX512MaskArgs(
     assert(Args.size() > 2 && "Too few arguments in SVML call");
     assert(Args[0]->getType() == CI->getType() && "Invalid source argument");
     assert(Args[1]->getType() ==
-               VectorType::get(IntegerType::getInt1Ty(CI->getContext()),
+               FixedVectorType::get(IntegerType::getInt1Ty(CI->getContext()),
                                LogicalVL) &&
            "Invalid mask argument");
 
     Args.erase(Args.begin(), Args.begin() + 2);
     Args.push_back(NewMask);
   } else if (TargetVL > LogicalVL) {
-    assert(TargetVL * ScalarBitWidth == 512 &&
+    assert(TargetVL * ComponentBitWidth == 512 &&
            "Expecting target to be 512-bit wide");
     // On the other hand if we are widening a masked non-512-bit SVML
     // function call to 512-bit, convert and reposition the mask
@@ -982,8 +1003,8 @@ void MapIntrinToImlImpl::legalizeAVX512MaskArgs(
 
     assert(Args.size() >= 2 && "Too few arguments in SVML call");
     assert(Args.back()->getType() ==
-               VectorType::get(
-                   IntegerType::getIntNTy(CI->getContext(), ScalarBitWidth),
+               FixedVectorType::get(
+                   IntegerType::getIntNTy(CI->getContext(), ComponentBitWidth),
                    LogicalVL) &&
            "Invalid mask argument");
 
@@ -991,6 +1012,31 @@ void MapIntrinToImlImpl::legalizeAVX512MaskArgs(
     Args.insert(Args.begin(), NewMask);
     Args.insert(Args.begin(), Source);
   }
+}
+
+CallInst *MapIntrinToImlImpl::createSVMLCall(FunctionCallee Callee,
+                                             ArrayRef<Value *> Args,
+                                             const Twine &Name) {
+  CallInst *NewCI = Builder.CreateCall(Callee, Args, Name);
+
+  // Set calling convention according to the VL of the call.
+  unsigned BitWidth = getVectorTypeForSVMLFunction(Callee.getFunctionType())
+                          ->getPrimitiveSizeInBits();
+  assert(isPowerOf2_32(BitWidth) && BitWidth <= 512 && "Invalid vector width");
+  switch (BitWidth) {
+  case 256:
+    NewCI->setCallingConv(CallingConv::SVML_AVX);
+    break;
+  case 512:
+    NewCI->setCallingConv(CallingConv::SVML_AVX512);
+    break;
+  // All smaller VLs use the 128-bit calling convention
+  default:
+    NewCI->setCallingConv(CallingConv::SVML);
+    break;
+  }
+
+  return NewCI;
 }
 
 bool MapIntrinToIml::runOnFunction(Function &F) {
@@ -1049,9 +1095,8 @@ bool MapIntrinToImlImpl::runImpl() {
   // OpenCL CPU RT uses an alternative version of SVML and is incompatible
   // with the interface we're assuming, so vector idiv transformation is
   // disabled when generating code for OpenCL.
-  // FIXME: The "acosf" is a hack to proxy for SVML being enabled.
   bool isOCL = M->getNamedMetadata("opencl.ocl.version") != nullptr;
-  if (!isOCL && TLI->isFunctionVectorizable("acosf", 2, false))
+  if (!isOCL && TLI->isSVMLEnabled()) // INTEL_CUSTOMIZATION
     Dirty |= replaceVectorIDivAndRemWithSVMLCall(TTI, *Func);
 
   // Begin searching for calls that are candidates for legalization and/or
@@ -1065,7 +1110,8 @@ bool MapIntrinToImlImpl::runImpl() {
     CallInst *CI = dyn_cast<CallInst>(&*Inst);
     if (CI && CI->getCalledFunction()) {
       StringRef FuncName = CI->getCalledFunction()->getName();
-      if (FuncName.startswith("__svml") && getCallType(CI))
+      if (FuncName.startswith("__svml") &&
+          getVectorTypeForSVMLFunction(CI->getFunctionType()))
         InstToTranslate.insert(CI);
       else if (is_libm_function(FuncName.str().c_str()))
         ScalarCallsToTranslate.insert(CI);
@@ -1081,32 +1127,39 @@ bool MapIntrinToImlImpl::runImpl() {
     Builder.SetInsertPoint(CI);
 
     StringRef FuncName = CI->getCalledFunction()->getName();
-    unsigned ScalarBitWidth = 0;
 
     // The function call is only inserted into the candidates map
     // (InstToTranslate) when it is known the return/arguments are explicitly
-    // vector typed. Thus, here it is known that getCallType(CI) will return
-    // a vector type.
-    VectorType *VecCallType = getCallType(CI);
+    // vector typed. Thus, here it is known that
+    // getVectorTypeForSVMLFunction(FunctionType) will return a vector type.
+    VectorType *VecCallType =
+        getVectorTypeForSVMLFunction(CI->getFunctionType());
 
-    unsigned LogicalVL = VecCallType->getNumElements();
     Type *ElemType = VecCallType->getElementType();
+    unsigned ReturnVL = VecCallType->getNumElements();
+    unsigned LogicalVL = 0;
+    bool Masked = false;
+    StringRef ScalarFuncName =
+        getSVMLFunctionProperties(FuncName, ReturnVL, LogicalVL, Masked);
 
     // Need to go through DataLayout in cases where we have pointer types to
     // get the correct pointer bit size.
-    ScalarBitWidth = DL.getTypeSizeInBits(ElemType);
+    unsigned ScalarBitWidth = DL.getTypeSizeInBits(ElemType);
+    unsigned ComponentBitWidth = (ReturnVL / LogicalVL) * ScalarBitWidth;
 
     // Get the number of library calls that will be required, indicated by
     // NumRet. NumRet is determined by getting the vector type info from the
-    // call signature. See notes in getCallType() for more information.
+    // call signature. See notes in getVectorTypeForSVMLFunction() for more
+    // information.
     unsigned TargetVL = 0;
     unsigned NumRet =
-        calculateNumReturns(TTI, ScalarBitWidth, LogicalVL, &TargetVL);
+        calculateNumReturns(TTI, ComponentBitWidth, LogicalVL, &TargetVL);
 
-    const char *VariantFuncName = nullptr;
+    StringRef VariantFuncName;
 
     if (X86Target) {
-      VariantFuncName = findX86Variant(CI, FuncName, LogicalVL, TargetVL);
+      VariantFuncName = findX86SVMLVariantForScalarFunction(
+          ScalarFuncName, TargetVL, Masked, CI);
     }
 
     // An alternate math library function was found for the original call, so
@@ -1115,10 +1168,8 @@ bool MapIntrinToImlImpl::runImpl() {
     // 1) an appropriate math library function is not found through querying
     //    the function selection interface.
     // 2) the pass is running in stress testing mode.
-    if (VariantFuncName && !RunSvmlStressMode) {
-      StringRef VariantFuncNameRef = StringRef(VariantFuncName);
-      LLVM_DEBUG(dbgs() << "Function Variant: " << VariantFuncNameRef
-                        << "\n\n");
+    if (!VariantFuncName.empty() && !RunSvmlStressMode) {
+      LLVM_DEBUG(dbgs() << "Function Variant: " << VariantFuncName << "\n\n");
 
       // Original arguments to the vector call.
       SmallVector<Value *, 8> Args(CI->arg_begin(), CI->arg_end());
@@ -1126,25 +1177,24 @@ bool MapIntrinToImlImpl::runImpl() {
       // Masked SVML functions with 512-bit VL differs from other functions
       // in position and type of mask argument, they also have a source
       // argument. Such calls require special treatment when splitting.
-      bool CallIsAVX512 = (LogicalVL * ScalarBitWidth) >= 512;
-      bool NewCallIsAVX512 = (TargetVL * ScalarBitWidth) == 512;
+      bool CallIsAVX512 = (LogicalVL * ComponentBitWidth) >= 512;
+      bool NewCallIsAVX512 = (TargetVL * ComponentBitWidth) == 512;
       Value *SourceArg = nullptr;
       Value *MaskArg = nullptr;
-      bool HasMask = FuncName.find("mask") != StringRef::npos;
-      if (HasMask) {
+      if (Masked) {
         SourceArg = CallIsAVX512 ? Args[0] : nullptr;
         MaskArg = CallIsAVX512 ? Args[1] : Args.back();
         if (CallIsAVX512 ^ NewCallIsAVX512)
           legalizeAVX512MaskArgs(CI, Args, MaskArg, LogicalVL, TargetVL,
-                                 ScalarBitWidth);
+                                 ComponentBitWidth);
       }
 
       // FT will point to the legal FunctionType based on target register
       // size requirements. This FunctionType is used to create the call
       // to the svml function.
       FunctionType *FT = legalizeFunctionTypes(CI->getFunctionType(), Args,
-                                               TargetVL, FuncName);
-      FunctionCallee FCache = M->getOrInsertFunction(VariantFuncNameRef, FT);
+                                               LogicalVL, TargetVL, FuncName);
+      FunctionCallee FCache = M->getOrInsertFunction(VariantFuncName, FT);
 
       // SplitCalls contains the instructions that are the results of math
       // library calls. This could be the call instructions themselves, or
@@ -1216,8 +1266,7 @@ bool MapIntrinToImlImpl::runImpl() {
         SmallVector<Value *, 8> NewArgs;
         generateNewArgsFromPartialVectors(Args, FT->params(), TargetVL, NewArgs);
 
-        CallInst *NewCI = Builder.CreateCall(FCache, NewArgs, "vcall");
-        NewCI->setCallingConv(CallingConv::SVML);
+        CallInst *NewCI = createSVMLCall(FCache, NewArgs, "vcall");
         Value *CallResult = NewCI;
 
         bool LessThanFullVector = isLessThanFullVector(
@@ -1244,7 +1293,7 @@ bool MapIntrinToImlImpl::runImpl() {
       // scalarize the vector math call. Also scalarize when running in stress
       // test mode. Since the LLVM IR is modified, set Dirty to true.
 
-      scalarizeVectorCall(CI, FuncName, LogicalVL, ElemType);
+      scalarizeVectorCall(CI, ScalarFuncName, LogicalVL, ElemType);
       InstToRemove.push_back(CI);
       Dirty = true; // LLVM-IR has been changed because the original vector call
                     // was replaced with scalar calls.

@@ -1617,6 +1617,12 @@ public:
     return Ty ? Ty : getArgOperand(ArgNo)->getType()->getPointerElementType();
   }
 
+  /// Extract the preallocated type for a call or parameter.
+  Type *getParamPreallocatedType(unsigned ArgNo) const {
+    Type *Ty = Attrs.getParamPreallocatedType(ArgNo);
+    return Ty ? Ty : getArgOperand(ArgNo)->getType()->getPointerElementType();
+  }
+
   /// Extract the number of dereferenceable bytes for a call or
   /// parameter (0=unknown).
   uint64_t getDereferenceableBytes(unsigned i) const {
@@ -1727,6 +1733,9 @@ public:
   void setCannotDuplicate() {
     addAttribute(AttributeList::FunctionIndex, Attribute::NoDuplicate);
   }
+
+  /// Determine if the call cannot be tail merged.
+  bool cannotMerge() const { return hasFnAttr(Attribute::NoMerge); }
 
   /// Determine if the invoke is convergent
   bool isConvergent() const { return hasFnAttr(Attribute::Convergent); }
@@ -2141,7 +2150,7 @@ private:
   bool hasFnAttrOnCalledFunction(StringRef Kind) const;
 
   template <typename AttrKind> bool hasFnAttrImpl(AttrKind Kind) const {
-    if (Attrs.hasAttribute(AttributeList::FunctionIndex, Kind))
+    if (Attrs.hasFnAttribute(Kind))
       return true;
 
     // Operand bundles override attributes on the called function, but don't

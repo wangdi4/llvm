@@ -101,12 +101,14 @@ config.substitutions.append( ('%opencl_libs_dir',  config.opencl_libs_dir) )
 # INTEL_CUSTOMIZATION
 # Ask llvm-config about assertions.
 llvm_config.feature_config([('--assertion-mode', {'ON': 'asserts'})])
+llvm_config.feature_config([('--build-mode', {'Debug': 'debug'})])
 # end INTEL_CUSTOMIZATION
 llvm_config.add_tool_substitutions(['llvm-spirv'], [config.sycl_tools_dir])
 
 # TODO: Change default to PI_LEVEL0
 backend=lit_config.params.get('SYCL_BE', "PI_OPENCL")
-lit_config.note("Backend: {BACKEND}".format(BACKEND=backend))
+lit_config.note("Backend (SYCL_BE): {}".format(backend))
+config.substitutions.append( ('%sycl_be', backend) )
 
 get_device_count_by_type_path = os.path.join(config.llvm_tools_dir, "get_device_count_by_type")
 
@@ -116,10 +118,11 @@ def getDeviceCount(device_type):
     # then return 0 to prohibit using all devices except HOST.
     host_only = os.getenv('SYCL_LIT_USE_HOST_ONLY', 'true').lower()
     if host_only != '0' and host_only != 'false' and host_only != 'no':
-        return [0, False]
+        return [0, False, False]
 # end INTEL_CUSTOMIZATION
 
     is_cuda = False;
+    is_level0 = False;
     process = subprocess.Popen([get_device_count_by_type_path, device_type, backend],
         stdout=subprocess.PIPE)
     (output, err) = process.communicate()
@@ -128,7 +131,7 @@ def getDeviceCount(device_type):
     if exit_code != 0:
         lit_config.error("getDeviceCount {TYPE} {BACKEND}: Non-zero exit code {CODE}".format(
             TYPE=device_type, BACKEND=backend, CODE=exit_code))
-        return [0,False]
+        return [0,False,False]
 
     result = output.decode().replace('\n', '').split(':', 1)
     try:
@@ -139,15 +142,17 @@ def getDeviceCount(device_type):
             TYPE=device_type, BACKEND=backend, OUT=result[0]))
 
     # if we have found gpu and there is additional information, let's check
-    # whether this is CUDA device or not
+    # whether this is CUDA device or Level Zero device or none of these.
     if device_type == "gpu" and value > 0 and len(result[1]):
         if re.match(r".*cuda", result[1]):
             is_cuda = True;
+        if re.match(r".*level zero", result[1]):
+            is_level0 = True;
 
     if err:
         lit_config.warning("getDeviceCount {TYPE} {BACKEND} stderr:{ERR}".format(
             TYPE=device_type, BACKEND=backend, ERR=err))
-    return [value,is_cuda]
+    return [value,is_cuda,is_level0]
 
 # Every SYCL implementation provides a host implementation.
 config.available_features.add('host')
@@ -187,7 +192,8 @@ gpu_check_substitute = ""
 gpu_check_on_linux_substitute = ""
 
 cuda = False
-[gpu_count, cuda] = getDeviceCount("gpu")
+level0 = False
+[gpu_count, cuda, level0] = getDeviceCount("gpu")
 
 if gpu_count > 0:
     found_at_least_one_device = True
@@ -197,6 +203,8 @@ if gpu_count > 0:
     config.available_features.add('gpu')
     if cuda:
        config.available_features.add('cuda')
+    elif level0:
+       config.available_features.add('level0')
 
     if platform.system() == "Linux":
         gpu_run_on_linux_substitute = "env SYCL_DEVICE_TYPE=GPU SYCL_BE={SYCL_BE} ".format(SYCL_BE=backend)
@@ -222,8 +230,8 @@ else:
 config.substitutions.append( ('%ACC_RUN_PLACEHOLDER',  acc_run_substitute) )
 config.substitutions.append( ('%ACC_CHECK_PLACEHOLDER',  acc_check_substitute) )
 
-# PI API either supports OpenCL or CUDA.
-if not cuda and found_at_least_one_device:
+# LIT testing either supports OpenCL or CUDA or Level Zero.
+if not cuda and not level0 and found_at_least_one_device:
     config.available_features.add('opencl')
 
 if cuda:

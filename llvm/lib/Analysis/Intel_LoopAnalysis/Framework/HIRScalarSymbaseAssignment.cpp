@@ -294,11 +294,17 @@ void HIRScalarSymbaseAssignment::handleLoopExitLiveoutPhi(
     auto *PredLp = LI.getLoopFor(Phi->getIncomingBlock(I));
 
     if (PredLp && (PredLp != DefLp)) {
-      auto *PredLoop = LF.findHLLoop(PredLp);
-      assert(PredLoop && "Could not find predecessor bblock's HLLoop!");
       assert((!DefLp || DefLp->contains(PredLp)) &&
              "Incoming IR is not in LCSSA form!");
-      PredLoop->addLiveOutTemp(Symbase);
+      auto *PredLoop = LF.findHLLoop(PredLp);
+      auto *DefLoop = LF.findHLLoop(DefLp);
+
+      assert(PredLoop && "Could not find predecessor bblock's HLLoop!");
+
+      do {
+        PredLoop->addLiveOutTemp(Symbase);
+        PredLoop = PredLoop->getParentLoop();
+      } while (PredLoop != DefLoop);
     }
   }
 }

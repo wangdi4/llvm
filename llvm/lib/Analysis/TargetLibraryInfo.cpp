@@ -799,18 +799,32 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_EnterCriticalSection);
     TLI.setUnavailable(LibFunc_FindClose);
     TLI.setUnavailable(LibFunc_FindFirstFileA);
+    TLI.setUnavailable(LibFunc_FindFirstFileW);
     TLI.setUnavailable(LibFunc_FindNextFileA);
+    TLI.setUnavailable(LibFunc_FindNextFileW);
+    TLI.setUnavailable(LibFunc_FindResourceA);
+    TLI.setUnavailable(LibFunc_FreeResource);
+    TLI.setUnavailable(LibFunc_GetCurrentProcess);
     TLI.setUnavailable(LibFunc_GetCurrentThreadId);
     TLI.setUnavailable(LibFunc_GetFullPathNameA);
+    TLI.setUnavailable(LibFunc_GetModuleFileNameA);
     TLI.setUnavailable(LibFunc_GetModuleHandleA);
     TLI.setUnavailable(LibFunc_GetProcAddress);
+    TLI.setUnavailable(LibFunc_GetProcessTimes);
     TLI.setUnavailable(LibFunc_GetShortPathNameW);
+    TLI.setUnavailable(LibFunc_GetSystemTime);
+    TLI.setUnavailable(LibFunc_GetVersionExA);
     TLI.setUnavailable(LibFunc_GlobalMemoryStatus);
     TLI.setUnavailable(LibFunc_InitializeCriticalSectionAndSpinCount);
     TLI.setUnavailable(LibFunc_LeaveCriticalSection);
+    TLI.setUnavailable(LibFunc_LoadResource);
+    TLI.setUnavailable(LibFunc_LockResource);
     TLI.setUnavailable(LibFunc_MultiByteToWideChar);
     TLI.setUnavailable(LibFunc_QueryPerformanceCounter);
+    TLI.setUnavailable(LibFunc_SizeofResource);
     TLI.setUnavailable(LibFunc_Sleep);
+    TLI.setUnavailable(LibFunc_SystemTimeToFileTime);
+    TLI.setUnavailable(LibFunc_WideCharToMultiByte);
     TLI.setUnavailable(LibFunc_islower);
     TLI.setUnavailable(LibFunc_isprint);
     TLI.setUnavailable(LibFunc_isxdigit);
@@ -1622,6 +1636,14 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
   case LibFunc_ZdlPvSt11align_val_tRKSt9nothrow_t:
   // void operator delete[](void*, align_val_t, nothrow)
   case LibFunc_ZdaPvSt11align_val_tRKSt9nothrow_t:
+  // void operator delete(void*, unsigned int, align_val_t)
+  case LibFunc_ZdlPvjSt11align_val_t:
+  // void operator delete(void*, unsigned long, align_val_t)
+  case LibFunc_ZdlPvmSt11align_val_t:
+  // void operator delete[](void*, unsigned int, align_val_t);
+  case LibFunc_ZdaPvjSt11align_val_t:
+  // void operator delete[](void*, unsigned long, align_val_t);
+  case LibFunc_ZdaPvmSt11align_val_t:
     return (NumParams == 3 && FTy.getParamType(0)->isPointerTy());
 
   case LibFunc_memset_pattern16:
@@ -1747,6 +1769,9 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
   case LibFunc_round:
   case LibFunc_roundf:
   case LibFunc_roundl:
+  case LibFunc_roundeven:
+  case LibFunc_roundevenf:
+  case LibFunc_roundevenl:
   case LibFunc_sin:
   case LibFunc_sind:  // INTEL
   case LibFunc_sindf: // INTEL
@@ -2040,10 +2065,33 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(0)->isPointerTy() &&
             FTy.getParamType(1)->isPointerTy());
 
+  case LibFunc_FindFirstFileW:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy());
+
   case LibFunc_FindNextFileA:
     return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isPointerTy() &&
             FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_FindNextFileW:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_FindResourceA:
+    return (NumParams == 3 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isPointerTy());
+
+  case LibFunc_FreeResource:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_GetCurrentProcess:
+    return (NumParams == 0 && FTy.getReturnType()->isPointerTy());
 
   case LibFunc_GetCurrentThreadId:
     return (NumParams == 0 && FTy.getReturnType()->isIntegerTy());
@@ -2055,6 +2103,12 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(2)->isPointerTy() &&
             FTy.getParamType(3)->isPointerTy());
 
+  case LibFunc_GetModuleFileNameA:
+    return (NumParams == 3 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isIntegerTy());
+
   case LibFunc_GetModuleHandleA:
     return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
             FTy.getParamType(0)->isPointerTy());
@@ -2064,11 +2118,27 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(0)->isPointerTy() &&
             FTy.getParamType(1)->isPointerTy());
 
+  case LibFunc_GetProcessTimes:
+    return (NumParams == 5 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy() &&
+            FTy.getParamType(2)->isPointerTy() &&
+            FTy.getParamType(3)->isPointerTy() &&
+            FTy.getParamType(4)->isPointerTy());
+
   case LibFunc_GetShortPathNameW:
     return (NumParams == 3 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isPointerTy() &&
             FTy.getParamType(1)->isPointerTy() &&
             FTy.getParamType(2)->isIntegerTy());
+
+  case LibFunc_GetSystemTime:
+    return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_GetVersionExA:
+    return (NumParams == 1 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy());
 
   case LibFunc_GlobalMemoryStatus:
     return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
@@ -2317,6 +2387,16 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
   case LibFunc_LeaveCriticalSection:
     return (NumParams == 1 && FTy.getReturnType()->isVoidTy() &&
             FTy.getParamType(0)->isPointerTy());
+
+  case LibFunc_LoadResource:
+    return (NumParams == 2 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy());
+
+  case LibFunc_LockResource:
+    return (NumParams == 1 && FTy.getReturnType()->isPointerTy() &&
+            FTy.getParamType(0)->isPointerTy());
+
   case LibFunc_lxstat:
     return (NumParams == 3 && FTy.getReturnType()->isIntegerTy() &&
             FTy.getParamType(0)->isIntegerTy() &&
@@ -2353,6 +2433,11 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(0)->isPointerTy() &&
             FTy.getParamType(1)->isIntegerTy());
 
+  case LibFunc_SizeofResource:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy());
+
   case LibFunc_std_exception_copy:
     return (NumParams == 2 && FTy.getReturnType()->isVoidTy() &&
             FTy.getParamType(0)->isPointerTy() &&
@@ -2368,6 +2453,11 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(1)->isIntegerTy() &&
             FTy.getParamType(2)->isPointerTy() &&
             FTy.getParamType(3)->isIntegerTy());
+
+  case LibFunc_SystemTimeToFileTime:
+    return (NumParams == 2 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isPointerTy() &&
+            FTy.getParamType(1)->isPointerTy());
 
   case LibFunc_dunder_CxxFrameHandler3:
     return (NumParams == 0 && FTy.getReturnType()->isIntegerTy());
@@ -4212,6 +4302,16 @@ case LibFunc_under_commit:
             FTy.getParamType(1)->isPointerTy() &&
             FTy.getParamType(2)->isIntegerTy());
 
+  case LibFunc_WideCharToMultiByte:
+    return (NumParams == 8 && FTy.getReturnType()->isIntegerTy() &&
+            FTy.getParamType(0)->isIntegerTy() &&
+            FTy.getParamType(1)->isIntegerTy() &&
+            FTy.getParamType(2)->isPointerTy() &&
+            FTy.getParamType(3)->isIntegerTy() &&
+            FTy.getParamType(4)->isPointerTy() &&
+            FTy.getParamType(5)->isIntegerTy() &&
+            FTy.getParamType(6)->isPointerTy() &&
+            FTy.getParamType(7)->isPointerTy());
 #endif // INTEL_CUSTOMIZATION
   }
 
@@ -4307,6 +4407,12 @@ void TargetLibraryInfoImpl::addVectorizableFunctionsFromVecLib(
     break;
   }
 }
+
+#if INTEL_CUSTOMIZATION
+bool TargetLibraryInfoImpl::isSVMLEnabled() const {
+  return ClVectorLibrary == SVML;
+}
+#endif // INTEL_CUSTOMIZATION
 
 bool TargetLibraryInfoImpl::isFunctionVectorizable(StringRef funcName,
                                        /* INTEL */ bool IsMasked) const {

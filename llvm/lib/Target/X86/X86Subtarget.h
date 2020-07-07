@@ -455,9 +455,9 @@ protected:
 #if INTEL_FEATURE_ISA_AMX_BF16_EVEX
   bool HasAMXBF16EVEX = false;
 #endif // INTEL_FEATURE_ISA_AMX_BF16_EVEX
-#if INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
-  bool HasAMXCONVERTEVEX = false;
-#endif // INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+#if INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
+  bool HasAMXELEMENTEVEX = false;
+#endif // INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
 #if INTEL_FEATURE_ISA_AMX_CONVERT
   bool HasAMXCONVERT = false;
 #endif // INTEL_FEATURE_ISA_AMX_CONVERT
@@ -491,6 +491,23 @@ protected:
 #if INTEL_FEATURE_ISA_AVX_DOTPROD
   bool HasAVXDOTPROD = false;
 #endif // INTEL_FEATURE_ISA_AVX_DOTPROD
+
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  bool HasAVXCOMPRESS = false;
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+  bool HasAVX512DOTPRODINT8 = false;
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
+  bool HasAVXDOTPRODINT8 = false;
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+  bool HasAVX512DOTPRODPHPS = false;
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+#if INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
+  bool HasAVXDOTPRODPHPS = false;
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
 #endif // INTEL_CUSTOMIZATION
   /// Processor supports SERIALIZE instruction
   bool HasSERIALIZE = false;
@@ -854,6 +871,9 @@ public:
   bool threewayBranchProfitable() const { return ThreewayBranchProfitable; }
 #if INTEL_CUSTOMIZATION
   bool hasDSB() const { return HasDSB; }
+  // In SKL, DSB window size is 64B. It is implemented as 2 DSBs of 32B each
+  // (even and odd) that run in parallel every lookup
+  unsigned getDSBWindowSize() const { return 32; }
 #endif // INTEL_CUSTOMIZATION
   bool hasINVPCID() const { return HasINVPCID; }
   bool hasENQCMD() const { return HasENQCMD; }
@@ -899,9 +919,9 @@ public:
 #if INTEL_FEATURE_ISA_AMX_BF16_EVEX
   bool hasAMXBF16EVEX() const { return HasAMXBF16EVEX; }
 #endif // INTEL_FEATURE_ISA_AMX_BF16_EVEX
-#if INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
-  bool hasAMXCONVERTEVEX() const { return HasAMXCONVERTEVEX; }
-#endif // INTEL_FEATURE_ISA_AMX_CONVERT_EVEX
+#if INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
+  bool hasAMXELEMENTEVEX() const { return HasAMXELEMENTEVEX; }
+#endif // INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
 #if INTEL_FEATURE_ISA_AMX_CONVERT
   bool hasAMXCONVERT() const { return HasAMXCONVERT; }
 #endif // INTEL_FEATURE_ISA_AMX_CONVERT
@@ -920,18 +940,27 @@ public:
 #if INTEL_FEATURE_ISA_AVX_VNNI
   bool hasAVXVNNI() const { return HasAVXVNNI; }
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
-#if INTEL_FEATURE_ISA_AVX512_DOTPROD
-  bool hasDOTPROD() const { return HasDOTPROD; }
-#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD
-#if INTEL_FEATURE_ISA_AVX_DOTPROD
-  bool hasAVXDOTPROD() const { return HasAVXDOTPROD; }
-#endif // INTEL_FEATURE_ISA_AVX_DOTPROD
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+  bool hasAVX512DOTPRODINT8() const { return HasAVX512DOTPRODINT8; }
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
+  bool hasAVXDOTPRODINT8() const { return HasAVXDOTPRODINT8; }
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+  bool hasAVX512DOTPRODPHPS() const { return HasAVX512DOTPRODPHPS; }
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+#if INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
+  bool hasAVXDOTPRODPHPS() const { return HasAVXDOTPRODPHPS; }
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
 #if INTEL_FEATURE_ISA_AVX512_CONVERT
   bool hasCONVERT() const { return HasCONVERT; }
 #endif // INTEL_FEATURE_ISA_AVX512_CONVERT
 #if INTEL_FEATURE_ISA_AVX_CONVERT
   bool hasAVXCONVERT() const { return HasAVXCONVERT; }
 #endif // INTEL_FEATURE_ISA_AVX_CONVERT
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+  bool hasAVXCOMPRESS() const { return HasAVXCOMPRESS; }
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
 #endif // INTEL_CUSTOMIZATION
   bool useRetpolineExternalThunk() const { return UseRetpolineExternalThunk; }
 
@@ -1046,7 +1075,7 @@ public:
     return PICStyle == PICStyles::Style::StubPIC;
   }
 
-  bool isPositionIndependent() const { return TM.isPositionIndependent(); }
+  bool isPositionIndependent() const;
 
   bool isCallingConvWin64(CallingConv::ID CC) const {
     switch (CC) {

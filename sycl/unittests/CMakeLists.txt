@@ -40,13 +40,21 @@ function(add_sycl_unittest test_dirname link_variant)
 
     get_target_property(SYCL_LINK_LIBS ${sycl_so_target} LINK_LIBRARIES)
   endif()
-  
+
+  # INTEL_CUSTOMIZATION
+  if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
+    set(TESTING_SUPPORT_LIB LLVMTestingSupport_stdcpp)
+  else()
+    set(TESTING_SUPPORT_LIB LLVMTestingSupport)
+  endif()
+
   target_link_libraries(${test_dirname}
     PRIVATE
-      LLVMTestingSupport
+      ${TESTING_SUPPORT_LIB}
       OpenCL-Headers
       ${SYCL_LINK_LIBS}
     )
+  # end INTEL_CUSTOMIZATION
   target_include_directories(${test_dirname} PRIVATE SYSTEM
       ${sycl_inc_dir}
       ${SYCL_SOURCE_DIR}/source/
@@ -64,5 +72,6 @@ endfunction()
 add_subdirectory(misc)
 add_subdirectory(pi)
 add_subdirectory(program)
+add_subdirectory(queue)
 add_subdirectory(scheduler)
 add_subdirectory(thread_safety)

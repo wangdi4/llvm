@@ -1,4 +1,5 @@
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR -vplan-force-vf=8 < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR -hir-details -vplan-force-vf=8 -disable-output -enable-vp-value-codegen-hir=0 < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR -hir-details -vplan-force-vf=8 -disable-output -enable-vp-value-codegen-hir < %s 2>&1 | FileCheck %s
 
 ; Verify that vectorizer generates a scatter for this loop due to possible wraparound.
 
@@ -6,15 +7,21 @@
 ;  |   (%A)[zext.i3.i64(i1)] = i1;
 ;  + END LOOP
 
-; CHECK: + DO i1 = 0, 8 * %tgu + -1, 8   <DO_LOOP>  <MAX_TC_EST = 536870911>
+; CHECK: + DO i32 i1 = 0, 8 * %tgu + -1, 8   <DO_LOOP>  <MAX_TC_EST = 536870911>
 ; CHECK: |   (<8 x i32>*)(%A)[i1 + <i3 0, i3 1, i3 2, i3 3, i3 -4, i3 -3, i3 -2, i3 -1>] = i1 + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>;
+; CHECK: |   <LVAL-REG> {al:4}(<8 x i32>*)(LINEAR i32* %A)[LINEAR zext.<8 x i3>.<8 x i64>(i1 + <i3 0, i3 1, i3 2, i3 3, i3 -4, i3 -3, i3 -2, i3 -1>)]
 ; CHECK: + END LOOP
 
 
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR -vplan-force-vf=8 -hir-ignore-wraparound < %s 2>&1 | FileCheck %s --check-prefix=IGNORE-WRAP
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR -hir-details -vplan-force-vf=8 -hir-ignore-wraparound -disable-output -enable-vp-value-codegen-hir=0 < %s 2>&1 | FileCheck %s --check-prefix=IGNORE-WRAP
+; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR -hir-details -vplan-force-vf=8 -hir-ignore-wraparound -disable-output -enable-vp-value-codegen-hir < %s 2>&1 | FileCheck %s --check-prefix=IGNORE-WRAP
 
 ; Verify that -hir-ignore-wraparound  works as expected.
-; IGNORE-WRAP: (<8 x i32>*)(%A)[i1]
+; IGNORE-WRAP: + DO i32 i1 = 0, 8 * %tgu + -1, 8   <DO_LOOP>  <MAX_TC_EST = 536870911>
+; IGNORE-WRAP: |   (<8 x i32>*)(%A)[i1] = i1 + <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>;
+; IGNORE-WRAP: |   <LVAL-REG> {al:4}(<8 x i32>*)(LINEAR i32* %A)[LINEAR zext.i3.i64(i1)]
+; IGNORE-WRAP: + END LOOP
+
 
 
 ;Module Before HIR; ModuleID = 'wrap1.c'
@@ -59,4 +66,3 @@ attributes #0 = { norecurse nounwind uwtable "correctly-rounded-divide-sqrt-fp-m
 !3 = !{!"int", !4, i64 0}
 !4 = !{!"omnipotent char", !5, i64 0}
 !5 = !{!"Simple C/C++ TBAA"}
-

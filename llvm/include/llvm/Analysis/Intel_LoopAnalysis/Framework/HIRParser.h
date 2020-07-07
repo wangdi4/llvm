@@ -99,8 +99,8 @@ class HIRParser {
 
   DominatorTree &DT;
   LoopInfo &LI;
-  ScalarEvolution &SE;
-  const HIRRegionIdentification &RI;
+  HIRRegionIdentification &RI;
+  ScopedScalarEvolution &ScopedSE;
   std::reference_wrapper<HIRFramework> HIRF;
   HIRCreation &HIRC;
   HIRLoopFormation &LF;
@@ -112,9 +112,6 @@ class HIRParser {
 
   /// CurRegion - The region we are operating on.
   HLRegion *CurRegion;
-
-  /// CurOutermostLoop - The outermost loop of the loopnest CurNode belongs to.
-  const Loop *CurOutermostLoop;
 
   /// CurLevel - The loop level we are operating on.
   unsigned CurLevel;
@@ -226,9 +223,6 @@ class HIRParser {
   /// Returns true if this instruction is essential (e.g. load/store) and cannot
   /// be eliminated.
   bool isEssential(const Instruction *Inst) const;
-
-  /// Wrapper over ScalarEvolution's getSCEVForHIR().
-  const SCEV *getSCEV(Value *Val) const;
 
   /// Returns the integer constant contained in ConstSCEV.
   int64_t getSCEVConstantValue(const SCEVConstant *ConstSCEV) const;
@@ -722,14 +716,13 @@ class HIRParser {
                                  SmallVectorImpl<BlobTy> &DimSizes);
 
 public:
-  HIRParser(DominatorTree &DT, LoopInfo &LI, ScalarEvolution &SE,
-            HIRRegionIdentification &RI, HIRFramework &HIRF, HIRCreation &HIRC,
-            HIRLoopFormation &LF, HIRScalarSymbaseAssignment &ScalarSA,
-            HLNodeUtils &HNU)
-      : DDRU(*this), DT(DT), LI(LI), SE(SE), RI(RI), HIRF(HIRF), HIRC(HIRC),
-        LF(LF), ScalarSA(ScalarSA), HNU(HNU), CurNode(nullptr),
-        CurRegion(nullptr), CurOutermostLoop(nullptr), CurLevel(0),
-        IsReady(false), ParsingScalarLval(false) {
+  HIRParser(DominatorTree &DT, LoopInfo &LI, HIRRegionIdentification &RI,
+            HIRFramework &HIRF, HIRCreation &HIRC, HIRLoopFormation &LF,
+            HIRScalarSymbaseAssignment &ScalarSA, HLNodeUtils &HNU)
+      : DDRU(*this), DT(DT), LI(LI), RI(RI), ScopedSE(RI.getScopedSE()),
+        HIRF(HIRF), HIRC(HIRC), LF(LF), ScalarSA(ScalarSA), HNU(HNU),
+        CurNode(nullptr), CurRegion(nullptr), CurLevel(0), IsReady(false),
+        ParsingScalarLval(false) {
     // Connect contained DDRefUtils to HLNodeUtils object.
     HNU.DDRU = &DDRU;
   };

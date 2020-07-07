@@ -20,7 +20,7 @@ void vla_test(int k, int nz)
   //CHECK: [[AI0:%arrayidx.*]] = getelementptr inbounds i32, i32* [[VLA]], i64 [[L4]]
   //CHECK: [[L5:%[0-9]+]] = load i32, i32* [[KADDR]], align 4
   //CHECK: [[IP:%idxprom.*]] = sext i32 [[L5]] to i64
-  //CHECK: [[AI1:%arrayidx.*]] = getelementptr inbounds i32, i32* [[AI0]], i64 [[IP]]
+  //CHECK: [[AI1:%ptridx.*]] = getelementptr inbounds i32, i32* [[AI0]], i64 [[IP]]
   //CHECK: store i32 73, i32* [[AI1]], align 4
   rhsX[3][k] = 73;
 
@@ -34,7 +34,7 @@ void vla_test(int k, int nz)
   //CHECK: [[AI0:%arrayidx.*]] = getelementptr inbounds i32, i32* [[VLA]], i64 [[L3]]
   //CHECK: [[L5:%[0-9]+]] = load i32, i32* [[KADDR]], align 4
   //CHECK: [[IP:%idxprom.*]] = sext i32 [[L5]] to i64
-  //CHECK: [[AI1:%arrayidx.*]] = getelementptr inbounds i32, i32* [[AI0]], i64 [[IP]]
+  //CHECK: [[AI1:%ptridx.*]] = getelementptr inbounds i32, i32* [[AI0]], i64 [[IP]]
   //CHECK: store i32 70, i32* [[AI1]], align 4
     rhsX[0][k] = 70;
   }
@@ -49,7 +49,7 @@ void vla_test(int k, int nz)
   //CHECK: [[AI0:%arrayidx.*]] = getelementptr inbounds i32, i32* [[VLA]], i64 [[L3]]
   //CHECK: [[L5:%[0-9]+]] = load i32, i32* [[KADDR]], align 4
   //CHECK: [[IP:%idxprom.*]] = sext i32 [[L5]] to i64
-  //CHECK: [[AI1:%arrayidx.*]] = getelementptr inbounds i32, i32* [[AI0]], i64 [[IP]]
+  //CHECK: [[AI1:%ptridx.*]] = getelementptr inbounds i32, i32* [[AI0]], i64 [[IP]]
   //CHECK: store i32 71, i32* [[AI1]], align 4
     rhsX[1][k] = 71;
   }
@@ -59,7 +59,7 @@ void vla_test(int k, int nz)
   //CHECK: [[AI0:%arrayidx.*]] = getelementptr inbounds i32, i32* [[VLA]], i64 [[L4]]
   //CHECK: [[L5:%[0-9]+]] = load i32, i32* [[KADDR]], align 4
   //CHECK: [[IP:%idxprom.*]] = sext i32 [[L5]] to i64
-  //CHECK: [[AI1:%arrayidx.*]] = getelementptr inbounds i32, i32* [[AI0]], i64 [[IP]]
+  //CHECK: [[AI1:%ptridx.*]] = getelementptr inbounds i32, i32* [[AI0]], i64 [[IP]]
   //CHECK: store i32 72, i32* [[AI1]], align 4
   rhsX[2][k] = 72;
 }

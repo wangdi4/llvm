@@ -141,7 +141,9 @@ Driver::Driver(StringRef ClangExecutable, StringRef TargetTriple,
       CCLogDiagnostics(false), CCGenDiagnostics(false),
       TargetTriple(TargetTriple), CCCGenericGCCName(""), Saver(Alloc),
       CheckInputsExist(true), GenReproducer(false),
-      SuppressMissingInputWarning(false) {
+#if INTEL_CUSTOMIZATION
+      SuppressMissingInputWarning(false), IntelPrintOptions(false) {
+#endif // INTEL_CUSTOMIZATION
   // Provide a sane fallback if no VFS is specified.
   if (!this->VFS)
     this->VFS = llvm::vfs::getRealFileSystem();
@@ -414,6 +416,77 @@ static void addIntelDeviceLibs(const ToolChain &TC, Driver::InputList &Inputs,
     }
   }
 }
+
+// Add any Intel specific options to the command line which are implied or
+// are the default.
+void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
+                                 const llvm::opt::OptTable &Opts) const {
+  auto addClaim = [&](const OptSpecifier &Opt, StringRef OptArg="") {
+    if (!OptArg.empty())
+      DAL.AddJoinedArg(0, Opts.getOption(Opt), OptArg);
+    else
+      DAL.AddFlagArg(0, Opts.getOption(Opt));
+    if (Arg *A = DAL.getLastArg(Opt))
+      A->claim();
+  };
+  if (Args.hasArg(options::OPT__intel)) {
+    // The Intel compiler defaults to -O2
+    if (!Args.hasArg(options::OPT_O_Group, options::OPT__SLASH_O))
+      addClaim(IsCLMode() ? options::OPT__SLASH_O : options::OPT_O, "2");
+    // For LTO on Windows, use -fuse-ld=lld when Qipo is used.
+    if (Args.hasArg(options::OPT_flto) &&
+        !Args.hasArg(options::OPT_fuse_ld_EQ)) {
+      Arg *A = Args.getLastArg(options::OPT_flto);
+      StringRef Opt(A->getAsString(Args));
+      // TODO - improve determination of last phase
+      if (Opt.contains("Qipo") && !Args.hasArg(options::OPT_c, options::OPT_S))
+        addClaim(options::OPT_fuse_ld_EQ, "lld");
+    }
+    // -Wno-c++11-narrowing is default for Windows
+    if (IsCLMode() && !Args.hasArg(options::OPT_Wcxx11_narrowing,
+                                   options::OPT_Wno_cxx11_narrowing))
+      addClaim(options::OPT_Wno_cxx11_narrowing);
+  }
+  // Make SVML the default for dpcpp and --intel.
+  // FIXME: This is temporary, as moving forward --intel should be the
+  // default for dpcpp compilations.  We cannot do this right now due to a
+  // problem with testing (use of dpcpp on Windows, causing link problems with
+  // Intel specific libs)
+  if (Args.hasArg(options::OPT__intel, options::OPT__dpcpp))
+    // -fveclib=SVML default.
+    if (!Args.hasArg(options::OPT_fveclib))
+      addClaim(options::OPT_fveclib, "SVML");
+
+  // Any -debug options will be 'replaced' with -g equivalents to simplify
+  // logic later in the driver.
+  if (Arg *A = Args.getLastArg(options::OPT_intel_debug_Group,
+                               options::OPT_g_Group)) {
+    if (A->getOption().matches(options::OPT_intel_debug_Group)) {
+      StringRef Value(A->getValue());
+      if (Value != "none")
+        addClaim(options::OPT_g_Flag);
+      if (Value == "full" || Value == "all" || Value == "extended" ||
+          Value == "parallel")
+        ; // Do nothing, we already enabled debug above
+      else if (Value == "minimal")
+        addClaim(options::OPT_gline_tables_only);
+      else if (Value == "emit-column")
+        addClaim(options::OPT_gcolumn_info);
+      else if (Value != "none")
+        Diag(diag::err_drv_unsupported_option_argument)
+            << A->getOption().getName() << A->getValue();
+    }
+  }
+
+  if (Arg *VA = Args.getLastArg(options::OPT_HASH_x, options::OPT__HASH,
+                           options::OPT_v, options::OPT__HASH_HASH_HASH)) {
+    if (VA->getOption().matches(options::OPT_HASH_x))
+      DAL.AddFlagArg(VA, Opts.getOption(options::OPT_v));
+    else if (VA->getOption().matches(options::OPT__HASH))
+      DAL.AddFlagArg(VA, Opts.getOption(options::OPT__HASH_HASH_HASH));
+  }
+
+}
 #endif // INTEL_CUSTOMIZATION
 
 DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
@@ -482,6 +555,36 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
       }
 #endif //INTEL_CUSTOMIZATION
     }
+#if INTEL_CUSTOMIZATION
+    // Expected valid 'tools': assembly,compiler,preprocessor and linker for now
+    // TODO - for adding other 'tools'
+    if (A->getOption().matches(options::OPT_Qoption_COMMA)) {
+      if (A->getNumValues() < 2) {
+        Diag(clang::diag::warn_invalid_num_qopt) << A->getNumValues();
+      } else {
+        StringRef ToolName = A->getValue(0);
+        Option ToolOpt =
+            llvm::StringSwitch<Option>(ToolName.str())
+                .Cases("preprocessor","cpp","p", Opts.getOption(options::OPT_Wp_COMMA))
+                .Cases("asm","assembler","a", Opts.getOption(options::OPT_Wa_COMMA))
+                .Cases("link","ld","l", Opts.getOption(options::OPT_Wl_COMMA))
+                .Cases("compiler","c","clang", Opts.getOption(options::OPT_Xclang))
+                .Default(Opts.getOption(options::Unsupported));
+
+        if (ToolOpt.getID() == options::Unsupported)
+          Diag(clang::diag::warn_invalid_tool) << A->getValue(0);
+        else {
+          for (unsigned i = 1; i < A->getNumValues(); i++) {
+            if (ToolOpt.getID() == options::OPT_Xclang)
+              DAL->AddSeparateArg(A, ToolOpt, A->getValue(i));
+            else
+              DAL->AddJoinedArg(A, ToolOpt, A->getValue(i));
+          }
+        }
+      }
+    }
+#endif // INTEL_CUSTOMIZATION
+
 
     // Pick up inputs via the -- option.
     if (A->getOption().matches(options::OPT__DASH_DASH)) {
@@ -498,9 +601,8 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
   if (Args.hasFlag(options::OPT_miamcu, options::OPT_mno_iamcu, false))
     DAL->AddFlagArg(0, Opts.getOption(options::OPT_static));
 
-  // Use of -fintelfpga implies -g and -MMD
+  // Use of -fintelfpga implies -g
   if (Args.hasArg(options::OPT_fintelfpga)) {
-    DAL->AddFlagArg(0, Opts.getOption(options::OPT_MMD));
     // if any -gN option is provided, use that.
     if (Arg *A = Args.getLastArg(options::OPT_gN_Group))
       DAL->append(A);
@@ -519,25 +621,7 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
   }
 #endif
 
-#if INTEL_CUSTOMIZATION
-  if (Args.hasArg(options::OPT__intel)) {
-    // The Intel compiler defaults to -O2
-    if (!Args.hasArg(options::OPT_O_Group))
-      DAL->AddJoinedArg(0, Opts.getOption(options::OPT_O), "2");
-    // -fveclib=SVML default.
-    if (!Args.hasArg(options::OPT_fveclib))
-      DAL->AddJoinedArg(0, Opts.getOption(options::OPT_fveclib), "SVML");
-    // For LTO on Windows, use -fuse-ld=lld when Qipo is used.
-    if (Args.hasArg(options::OPT_flto) &&
-        !Args.hasArg(options::OPT_fuse_ld_EQ)) {
-      Arg *A = Args.getLastArg(options::OPT_flto);
-      StringRef Opt(A->getAsString(Args));
-      // TODO - improve determination of last phase
-      if (Opt.contains("Qipo") && !Args.hasArg(options::OPT_c, options::OPT_S))
-        DAL->AddJoinedArg(0, Opts.getOption(options::OPT_fuse_ld_EQ), "lld");
-    }
-  }
-#endif // INTEL_CUSTOMIZATION
+  addIntelArgs(*DAL, Args, Opts);
 
   return DAL;
 }
@@ -1138,8 +1222,12 @@ bool Driver::loadConfigFile() {
     std::vector<std::string> ConfigFiles =
         CLOptions->getAllArgValues(options::OPT_config);
     if (ConfigFiles.size() > 1) {
-      Diag(diag::err_drv_duplicate_config);
-      return true;
+      if (!std::all_of(
+              ConfigFiles.begin(), ConfigFiles.end(),
+              [ConfigFiles](std::string s) { return s == ConfigFiles[0]; })) {
+        Diag(diag::err_drv_duplicate_config);
+        return true;
+      }
     }
 
     if (!ConfigFiles.empty()) {
@@ -1344,6 +1432,15 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
   // Silence driver warnings if requested
   Diags.setIgnoreAllWarnings(Args.hasArg(options::OPT_w));
 
+#if INTEL_CUSTOMIZATION
+  if (Arg *VA = Args.getLastArg(options::OPT_HASH_x, options::OPT__HASH,
+                           options::OPT_v, options::OPT__HASH_HASH_HASH)) {
+    if (VA->getOption().matches(options::OPT_HASH_x) ||
+                 VA->getOption().matches(options::OPT__HASH))
+      IntelPrintOptions = 1;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // -no-canonical-prefixes is used very early in main.
   Args.ClaimAllArgs(options::OPT_no_canonical_prefixes);
 
@@ -1483,7 +1580,7 @@ static void printArgList(raw_ostream &OS, const llvm::opt::ArgList &Args) {
   for (auto I = ASL.begin(), E = ASL.end(); I != E; ++I) {
     if (I != ASL.begin())
       OS << ' ';
-    Command::printArg(OS, *I, true);
+    llvm::sys::printArg(OS, *I, true);
   }
   OS << '\n';
 }
@@ -2210,6 +2307,11 @@ bool Driver::HandleImmediateArgs(const Compilation &C) {
     return false;
   }
 
+  if (C.getArgs().hasArg(options::OPT_print_targets)) {
+    llvm::TargetRegistry::printRegisteredTargetsForVersion(llvm::outs());
+    return false;
+  }
+
   return true;
 }
 
@@ -2672,7 +2774,11 @@ void Driver::BuildInputs(const ToolChain &TC, DerivedArgList &Args,
         llvm::sys::path::append(LibName, IsMSVC ? "daal_sycl.lib"
                                                 : "libdaal_sycl.a");
       }
-      if (!LibName.empty()) {
+      // Only add the static lib if used with -static or is Windows.
+      // DAAL is also only available in static form.
+      if ((Args.hasArg(options::OPT_static) ||
+           A->getOption().matches(options::OPT_daal_EQ) || IsMSVC) &&
+          !LibName.empty()) {
         // Add the library as an offload static library and also add as a lib
         // direct on the command line.
         Args.AddJoinedArg(A,
@@ -2783,12 +2889,10 @@ static SmallVector<const char *, 16> getLinkerArgs(Compilation &C,
         continue;
       }
     }
-    if (A->getOption().hasFlag(options::LinkerInput)) {
-      // Do not add any libraries that are not fully named static libs
-      if (A->getOption().matches(options::OPT_l) ||
-          A->getOption().matches(options::OPT_reserved_lib_Group) ||
-          A->getOption().hasFlag(options::NoArgumentUnused))
-        continue;
+    if (A->getOption().matches(options::OPT_Wl_COMMA) ||
+        A->getOption().matches(options::OPT_Xlinker)) {
+      // Parse through additional linker arguments that are meant to go
+      // directly to the linker.
       std::string PrevArg;
       for (const std::string &Value : A->getValues()) {
         auto addKnownValues = [&](const StringRef &V) {
@@ -2954,8 +3058,11 @@ class OffloadingActionBuilder final {
     /// Append top level actions specific for certain link situations.
     virtual void appendTopLevelLinkAction(ActionList &AL) {}
 
-    /// Append linker actions generated by the builder.
-    virtual void appendLinkActions(ActionList &AL) {}
+    /// Append linker device actions generated by the builder.
+    virtual void appendLinkDeviceActions(ActionList &AL) {}
+
+    /// Append linker host action generated by the builder.
+    virtual Action* appendLinkHostActions(ActionList &AL) { return nullptr; }
 
     /// Append linker actions generated by the builder.
     virtual void appendLinkDependences(OffloadAction::DeviceDependences &DA) {}
@@ -3339,9 +3446,7 @@ class OffloadingActionBuilder final {
       // backend and assemble phases to output LLVM IR. Except for generating
       // non-relocatable device coee, where we generate fat binary for device
       // code and pass to host in Backend phase.
-      if (CudaDeviceActions.empty() ||
-          (CurPhase == phases::Backend && Relocatable) ||
-          CurPhase == phases::Assemble)
+      if (CudaDeviceActions.empty())
         return ABRT_Success;
 
       assert(((CurPhase == phases::Link && Relocatable) ||
@@ -3358,10 +3463,15 @@ class OffloadingActionBuilder final {
         // a fat binary containing all the code objects for different GPU's.
         // The fat binary is then an input to the host action.
         for (unsigned I = 0, E = GpuArchList.size(); I != E; ++I) {
+          auto BackendAction = C.getDriver().ConstructPhaseAction(
+              C, Args, phases::Backend, CudaDeviceActions[I],
+              AssociatedOffloadKind);
+          auto AssembleAction = C.getDriver().ConstructPhaseAction(
+              C, Args, phases::Assemble, BackendAction, AssociatedOffloadKind);
           // Create a link action to link device IR with device library
           // and generate ISA.
           ActionList AL;
-          AL.push_back(CudaDeviceActions[I]);
+          AL.push_back(AssembleAction);
           CudaDeviceActions[I] =
               C.MakeAction<LinkJobAction>(AL, types::TY_Image);
 
@@ -3423,17 +3533,45 @@ class OffloadingActionBuilder final {
                                                            : ABRT_Success;
     }
 
-    void appendLinkDependences(OffloadAction::DeviceDependences &DA) override {
+    void appendLinkDeviceActions(ActionList &AL) override {
+      if (DeviceLinkerInputs.size() == 0)
+        return;
+
+      assert(DeviceLinkerInputs.size() == GpuArchList.size() &&
+             "Linker inputs and GPU arch list sizes do not match.");
+
       // Append a new link action for each device.
       unsigned I = 0;
       for (auto &LI : DeviceLinkerInputs) {
+        // Each entry in DeviceLinkerInputs corresponds to a GPU arch.
         auto *DeviceLinkAction =
             C.MakeAction<LinkJobAction>(LI, types::TY_Image);
-        DA.add(*DeviceLinkAction, *ToolChains[0],
-               CudaArchToString(GpuArchList[I]), AssociatedOffloadKind);
+        // Linking all inputs for the current GPU arch.
+        // LI contains all the inputs for the linker.
+        OffloadAction::DeviceDependences DeviceLinkDeps;
+        DeviceLinkDeps.add(*DeviceLinkAction, *ToolChains[0],
+            CudaArchToString(GpuArchList[I]), AssociatedOffloadKind);
+        AL.push_back(C.MakeAction<OffloadAction>(DeviceLinkDeps,
+            DeviceLinkAction->getType()));
         ++I;
       }
+      DeviceLinkerInputs.clear();
+
+      // Create a host object from all the device images by embedding them
+      // in a fat binary.
+      OffloadAction::DeviceDependences DDeps;
+      auto *TopDeviceLinkAction =
+          C.MakeAction<LinkJobAction>(AL, types::TY_Object);
+      DDeps.add(*TopDeviceLinkAction, *ToolChains[0],
+          nullptr, AssociatedOffloadKind);
+
+      // Offload the host object to the host linker.
+      AL.push_back(C.MakeAction<OffloadAction>(DDeps, TopDeviceLinkAction->getType()));
     }
+
+    Action* appendLinkHostActions(ActionList &AL) override { return AL.back(); }
+
+    void appendLinkDependences(OffloadAction::DeviceDependences &DA) override {}
   };
 
   /// OpenMP action builder. The host bitcode is passed to the device frontend
@@ -3573,7 +3711,7 @@ class OffloadingActionBuilder final {
       OpenMPDeviceActions.clear();
     }
 
-    void appendLinkActions(ActionList &AL) override {
+    void appendLinkDeviceActions(ActionList &AL) override {
       assert(ToolChains.size() == DeviceLinkerInputs.size() &&
              "Toolchains and linker inputs sizes do not match.");
 
@@ -3598,6 +3736,14 @@ class OffloadingActionBuilder final {
         ++TC;
       }
       DeviceLinkerInputs.clear();
+    }
+
+    Action* appendLinkHostActions(ActionList &AL) override {
+      // Create wrapper bitcode from the result of device link actions and compile
+      // it to an object which will be added to the host link command.
+      auto *BC = C.MakeAction<OffloadWrapperJobAction>(AL, types::TY_LLVM_BC);
+      auto *ASM = C.MakeAction<BackendJobAction>(BC, types::TY_PP_Asm);
+      return C.MakeAction<AssembleJobAction>(ASM, types::TY_Object);
     }
 
     void appendLinkDependences(OffloadAction::DeviceDependences &DA) override {}
@@ -3746,12 +3892,21 @@ class OffloadingActionBuilder final {
           for (auto SDA : SYCLDeviceActions)
             SYCLLinkBinaryList.push_back(SDA);
           if (WrapDeviceOnlyBinary) {
-            auto *DeviceLinkAction =
-              C.MakeAction<LinkJobAction>(SYCLLinkBinaryList, types::TY_Image);
-            // Wrap the binary when -fsycl-link is given
-            SYCLLinkBinary =
-                C.MakeAction<OffloadWrapperJobAction>(DeviceLinkAction,
-                                                      types::TY_Object);
+            // -fsycl-link behavior does the following to the unbundled device
+            // binaries:
+            //   1) Link them together using llvm-link
+            //   2) Pass the linked binary through sycl-post-link
+            //   3) Translate final .bc file to .spv
+            //   4) Wrap the binary with the offload wrapper which can be used
+            //      by any compilation link step.
+            auto *DeviceLinkAction = C.MakeAction<LinkJobAction>(
+                SYCLLinkBinaryList, types::TY_Image);
+            auto *PostLinkAction = C.MakeAction<SYCLPostLinkJobAction>(
+                DeviceLinkAction, types::TY_LLVM_BC);
+            auto *TranslateAction = C.MakeAction<SPIRVTranslatorJobAction>(
+                PostLinkAction, types::TY_Image);
+            SYCLLinkBinary = C.MakeAction<OffloadWrapperJobAction>(
+                TranslateAction, types::TY_Object);
           } else {
             auto *Link = C.MakeAction<LinkJobAction>(SYCLLinkBinaryList,
                                                          types::TY_Image);
@@ -4596,23 +4751,29 @@ public:
     return false;
   }
 
-  Action* makeHostLinkAction() {
+#if INTEL_CUSTOMIZATION
+  void makeHostLinkAction(ActionList &LinkerInputs) {
+#endif // INTEL_CUSTOMIZATION
     // Build a list of device linking actions.
     ActionList DeviceAL;
     for (DeviceActionBuilder *SB : SpecializedBuilders) {
       if (!SB->isValid())
         continue;
-      SB->appendLinkActions(DeviceAL);
+      SB->appendLinkDeviceActions(DeviceAL);
     }
 
     if (DeviceAL.empty())
-      return nullptr;
+      return;  // INTEL
 
-    // Create wrapper bitcode from the result of device link actions and compile
-    // it to an object which will be added to the host link command.
-    auto *BC = C.MakeAction<OffloadWrapperJobAction>(DeviceAL, types::TY_LLVM_BC);
-    auto *ASM = C.MakeAction<BackendJobAction>(BC, types::TY_PP_Asm);
-    return C.MakeAction<AssembleJobAction>(ASM, types::TY_Object);
+    // Let builders add host linking actions.
+    for (DeviceActionBuilder *SB : SpecializedBuilders) {
+      if (!SB->isValid())
+        continue;
+#if INTEL_CUSTOMIZATION
+      if (Action *HA = SB->appendLinkHostActions(DeviceAL))
+        LinkerInputs.push_back(HA);
+#endif // INTEL_CUSTOMIZATION
+    }
   }
 
   /// Processes the host linker action. This currently consists of replacing it
@@ -4701,8 +4862,7 @@ void Driver::handleArguments(Compilation &C, DerivedArgList &Args,
     types::ID InputType = I.first;
     const Arg *InputArg = I.second;
 
-    PL.clear();
-    types::getCompilationPhases(InputType, PL);
+    auto PL = types::getCompilationPhases(InputType);
     LastPLSize = PL.size();
 
     // If the first step comes after the final phase we are doing as part of
@@ -4747,11 +4907,9 @@ void Driver::handleArguments(Compilation &C, DerivedArgList &Args,
       // Add a separate precompile phase for the compile phase.
       if (FinalPhase >= phases::Compile) {
         const types::ID HeaderType = lookupHeaderTypeForSourceType(InputType);
-        llvm::SmallVector<phases::ID, phases::MaxNumberOfPhases> PCHPL;
-        types::getCompilationPhases(HeaderType, PCHPL);
         // Build the pipeline for the pch file.
         Action *ClangClPch = C.MakeAction<InputAction>(*InputArg, HeaderType);
-        for (phases::ID Phase : PCHPL)
+        for (phases::ID Phase : types::getCompilationPhases(HeaderType))
           ClangClPch = ConstructPhaseAction(C, Args, Phase, ClangClPch);
         assert(ClangClPch);
         Actions.push_back(ClangClPch);
@@ -4840,13 +4998,11 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
     types::ID InputType = I.first;
     const Arg *InputArg = I.second;
 
-    PL.clear();
-    types::getCompilationPhases(*this, Args, InputType, PL);
+    PL = types::getCompilationPhases(*this, Args, InputType);
     if (PL.empty())
       continue;
 
-    llvm::SmallVector<phases::ID, phases::MaxNumberOfPhases> FullPL;
-    types::getCompilationPhases(InputType, FullPL);
+    auto FullPL = types::getCompilationPhases(InputType);
 
     // Build the pipeline for this file.
     Action *Current = C.MakeAction<InputAction>(*InputArg, InputType);
@@ -4949,7 +5105,7 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
       }
       UnbundlerInputs.push_back(LI);
     }
-    const Arg *LastArg;
+    const Arg *LastArg = nullptr;
     auto addUnbundlerInput = [&](types::ID T, const StringRef &A) {
       const llvm::opt::OptTable &Opts = getOpts();
       Arg *InputArg = MakeInputArg(Args, Opts, C.getArgs().MakeArgString(A));
@@ -5052,12 +5208,19 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
 
   // Add a link action if necessary.
   if (!LinkerInputs.empty()) {
-    if (Action *Wrapper = OffloadBuilder.makeHostLinkAction())
-      LinkerInputs.push_back(Wrapper);
+#if INTEL_CUSTOMIZATION
+    OffloadBuilder.makeHostLinkAction(LinkerInputs);
+#endif // INTEL_CUSTOMIZATION
     types::ID LinkType(types::TY_Image);
     if (Args.hasArg(options::OPT_fsycl_link_EQ))
       LinkType = types::TY_Archive;
-    Action *LA = C.MakeAction<LinkJobAction>(LinkerInputs, LinkType);
+    Action *LA;
+    // Check if this Linker Job should emit a static library.
+    if (ShouldEmitStaticLibrary(Args)) {
+      LA = C.MakeAction<StaticLibJobAction>(LinkerInputs, LinkType);
+    } else {
+      LA = C.MakeAction<LinkJobAction>(LinkerInputs, LinkType);
+    }
     LA = OffloadBuilder.processHostLinkAction(LA);
     Actions.push_back(LA);
   }
@@ -5068,15 +5231,9 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
         C.MakeAction<IfsMergeJobAction>(MergerInputs, types::TY_Image));
 
   if (Args.hasArg(options::OPT_emit_interface_stubs)) {
-    llvm::SmallVector<phases::ID, phases::MaxNumberOfPhases> PhaseList;
-    if (Args.hasArg(options::OPT_c)) {
-      llvm::SmallVector<phases::ID, phases::MaxNumberOfPhases> CompilePhaseList;
-      types::getCompilationPhases(types::TY_IFS_CPP, CompilePhaseList);
-      llvm::copy_if(CompilePhaseList, std::back_inserter(PhaseList),
-                    [&](phases::ID Phase) { return Phase <= phases::Compile; });
-    } else {
-      types::getCompilationPhases(types::TY_IFS_CPP, PhaseList);
-    }
+    auto PhaseList = types::getCompilationPhases(
+        types::TY_IFS_CPP,
+        Args.hasArg(options::OPT_c) ? phases::Compile : phases::LastPhase);
 
     ActionList MergerInputs;
 
@@ -5238,7 +5395,10 @@ Action *Driver::ConstructPhaseAction(
           Args.hasArg(options::OPT_S) ? types::TY_LTO_IR : types::TY_LTO_BC;
       return C.MakeAction<BackendJobAction>(Input, Output);
     }
-    if (Args.hasArg(options::OPT_emit_llvm)) {
+    if (Args.hasArg(options::OPT_emit_llvm) ||
+        (TargetDeviceOffloadKind == Action::OFK_HIP &&
+         Args.hasFlag(options::OPT_fgpu_rdc, options::OPT_fno_gpu_rdc,
+                      false))) {
       types::ID Output =
           Args.hasArg(options::OPT_S) ? types::TY_LLVM_IR : types::TY_LLVM_BC;
       return C.MakeAction<BackendJobAction>(Input, Output);
@@ -6281,8 +6441,19 @@ const char *Driver::GetNamedOutputPath(Compilation &C, const JobAction &JA,
     // When using both -save-temps and -emit-llvm, use a ".tmp.bc" suffix for
     // the unoptimized bitcode so that it does not get overwritten by the ".bc"
     // optimized bitcode output.
-    if (!AtTopLevel && C.getArgs().hasArg(options::OPT_emit_llvm) &&
-        JA.getType() == types::TY_LLVM_BC)
+    auto IsHIPRDCInCompilePhase = [](const JobAction &JA,
+                                     const llvm::opt::DerivedArgList &Args) {
+      // The relocatable compilation in HIP implies -emit-llvm. Similarly, use a
+      // ".tmp.bc" suffix for the unoptimized bitcode (generated in the compile
+      // phase.)
+      return isa<CompileJobAction>(JA) &&
+             JA.getOffloadingDeviceKind() == Action::OFK_HIP &&
+             Args.hasFlag(options::OPT_fgpu_rdc, options::OPT_fno_gpu_rdc,
+                          false);
+    };
+    if (!AtTopLevel && JA.getType() == types::TY_LLVM_BC &&
+        (C.getArgs().hasArg(options::OPT_emit_llvm) ||
+         IsHIPRDCInCompilePhase(JA, C.getArgs())))
       Suffixed += ".tmp";
     Suffixed += '.';
     Suffixed += Suffix;
@@ -6757,6 +6928,13 @@ bool Driver::ShouldUseFlangCompiler(const JobAction &JA) const {
     return false;
 
   return true;
+}
+
+bool Driver::ShouldEmitStaticLibrary(const ArgList &Args) const {
+  // Only emit static library if the flag is set explicitly.
+  if (Args.hasArg(options::OPT_emit_static_lib))
+    return true;
+  return false;
 }
 
 /// GetReleaseVersion - Parse (([0-9]+)(.([0-9]+)(.([0-9]+)?))?)? and return the

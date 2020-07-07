@@ -1,0 +1,14 @@
+// REQUIRES: intel_feature_isa_tdx
+// RUN: llvm-mc --disassemble %s -triple=x86_64 | FileCheck %s
+
+#CHECK: seamcall
+0x66 0x0f 0x01 0xcf
+
+#CHECK: seamret
+0x0f 0x01 0xcd
+
+#CHECK: seamops
+0x0f 0x01 0xce
+
+#CHECK: tdcall
+0x0f 0x01 0xcc

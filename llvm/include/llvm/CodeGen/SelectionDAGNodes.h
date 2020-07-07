@@ -2104,7 +2104,8 @@ public:
 
   static bool classof(const SDNode *N) {
     return N->getOpcode() == ISD::EH_LABEL ||
-           N->getOpcode() == ISD::ANNOTATION_LABEL;
+           N->getOpcode() == ISD::ANNOTATION_LABEL || // INTEL
+           N->getOpcode() == ISD::NOTIFY_LABEL;       // INTEL
   }
 };
 
@@ -2523,6 +2524,22 @@ public:
 
   static bool classof(const SDNode *N) {
     return N->isMachineOpcode();
+  }
+};
+
+/// An SDNode that records if a register contains a value that is guaranteed to
+/// be aligned accordingly.
+class AssertAlignSDNode : public SDNode {
+  Align Alignment;
+
+public:
+  AssertAlignSDNode(unsigned Order, const DebugLoc &DL, EVT VT, Align A)
+      : SDNode(ISD::AssertAlign, Order, DL, getSDVTList(VT)), Alignment(A) {}
+
+  Align getAlign() const { return Alignment; }
+
+  static bool classof(const SDNode *N) {
+    return N->getOpcode() == ISD::AssertAlign;
   }
 };
 

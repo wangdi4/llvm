@@ -385,10 +385,8 @@ VPBasicBlock *PlainCFGBuilderHIR::getOrCreateVPBB(HLNode *HNode) {
 /// Predecessors.
 void PlainCFGBuilderHIR::connectVPBBtoPreds(VPBasicBlock *VPBB) {
 
-  for (VPBasicBlock *Pred : Predecessors) {
+  for (VPBasicBlock *Pred : Predecessors)
     Pred->appendSuccessor(VPBB);
-    VPBB->appendPredecessor(Pred);
-  }
 
   Predecessors.clear();
 }
@@ -478,7 +476,7 @@ void PlainCFGBuilderHIR::visit(HLLoop *HLp) {
   // Header and set Latch condition bit.
   VPValue *LatchCondBit =
       Decomposer.createLoopIVNextAndBottomTest(HLp, Preheader, Latch);
-  VPBlockUtils::connectBlocks(Latch, Header);
+  Latch->appendSuccessor(Header);
   Latch->setCondBit(LatchCondBit);
 
   // - Loop Exits -
@@ -616,7 +614,7 @@ void PlainCFGBuilderHIR::visit(HLGoto *HGoto) {
   }
 
   // Connect to HLGoto's VPBB to HLLabel's VPBB.
-  VPBlockUtils::connectBlocks(ActiveVPBB, LabelVPBB);
+  ActiveVPBB->appendSuccessor(LabelVPBB);
 
   // Force the creation of a new VPBasicBlock for the next HLNode.
   ActiveVPBB = nullptr;

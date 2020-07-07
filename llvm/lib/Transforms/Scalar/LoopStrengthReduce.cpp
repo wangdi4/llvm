@@ -65,6 +65,7 @@
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/iterator_range.h"
+#include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/IVUsers.h"
 #include "llvm/Analysis/LoopAnalysisManager.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -72,7 +73,6 @@
 #include "llvm/Analysis/MemorySSA.h"
 #include "llvm/Analysis/MemorySSAUpdater.h"
 #include "llvm/Analysis/ScalarEvolution.h"
-#include "llvm/Analysis/ScalarEvolutionExpander.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/ScalarEvolutionNormalization.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -111,6 +111,7 @@
 #include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
+#include "llvm/Transforms/Utils/ScalarEvolutionExpander.h"
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
@@ -179,6 +180,14 @@ static cl::opt<bool> StressIVChain(
 #else
 static bool StressIVChain = false;
 #endif
+
+#if INTEL_CUSTOMIZATION
+// LSR on abnormal deep loop can significantly increase register pressure.
+static cl::opt<unsigned> LSRLoopDepthLimit(
+  "lsr-loop-depth-limit", cl::Hidden,
+  cl::init(57),
+  cl::desc("LSR loop depth limit"));
+#endif // INTEL_CUSTOMIZATION
 
 namespace {
 
@@ -896,17 +905,37 @@ static MemAccessTy getAccessType(const TargetTransformInfo &TTI,
   return AccessTy;
 }
 
+using PhiSCEVCacheT = DenseMap<PHINode *, const SCEV *>; // INTEL
+
 /// Return true if this AddRec is already a phi in its loop.
-static bool isExistingPhi(const SCEVAddRecExpr *AR, ScalarEvolution &SE) {
+#if INTEL_CUSTOMIZATION
+static bool isExistingPhi(const SCEVAddRecExpr *AR, ScalarEvolution &SE,
+                          PhiSCEVCacheT *PhiSCEVCache = nullptr) {
   for (PHINode &PN : AR->getLoop()->getHeader()->phis()) {
-    if (SE.isSCEVable(PN.getType()) &&
-        (SE.getEffectiveSCEVType(PN.getType()) ==
-         SE.getEffectiveSCEVType(AR->getType())) &&
-        SE.getSCEV(&PN) == AR)
-      return true;
+    if (SE.isSCEVable(PN.getType())) {
+      const SCEV *PhiSCEV = [&]() {
+        if (PhiSCEVCache) {
+          // retrieve SCEV expression for this phi node from cache.
+          auto Iter = PhiSCEVCache->find(&PN);
+          if (Iter != PhiSCEVCache->end()) {
+            return Iter->second;
+          } else {
+            const SCEV *PhiSCEV = SE.getSCEV(&PN);
+            PhiSCEVCache->insert(std::make_pair(&PN, PhiSCEV));
+            return PhiSCEV;
+          }
+        }
+        return SE.getSCEV(&PN);
+      }();
+      if ((SE.getEffectiveSCEVType(PN.getType()) ==
+           SE.getEffectiveSCEVType(AR->getType())) &&
+          PhiSCEV == AR)
+        return true;
+    }
   }
   return false;
 }
+#endif // INTEL_CUSTOMIZATION
 
 /// Check if expanding this expression is likely to incur significant cost. This
 /// is tricky because SCEV doesn't track which expressions are actually computed
@@ -1009,11 +1038,15 @@ class Cost {
   ScalarEvolution *SE = nullptr;
   const TargetTransformInfo *TTI = nullptr;
   TargetTransformInfo::LSRCost C;
+  PhiSCEVCacheT *PhiSCEVCache = nullptr; // INTEL
 
 public:
   Cost() = delete;
-  Cost(const Loop *L, ScalarEvolution &SE, const TargetTransformInfo &TTI) :
-    L(L), SE(&SE), TTI(&TTI) {
+#if INTEL_CUSTOMIZATION
+  Cost(const Loop *L, ScalarEvolution &SE, const TargetTransformInfo &TTI,
+       PhiSCEVCacheT *PhiSCEVCache = nullptr)
+      : L(L), SE(&SE), TTI(&TTI), PhiSCEVCache(PhiSCEVCache) {
+#endif // INTEL_CUSTOMIZATION
     C.Insns = 0;
     C.NumRegs = 0;
     C.AddRecCost = 0;
@@ -1231,7 +1264,8 @@ void Cost::RateRegister(const Formula &F, const SCEV *Reg,
     // for now LSR only handles innermost loops).
     if (AR->getLoop() != L) {
       // If the AddRec exists, consider it's register free and leave it alone.
-      if (isExistingPhi(AR, *SE))
+      if (isExistingPhi(AR, *SE, PhiSCEVCache) && // INTEL
+          !TTI->shouldFavorPostInc())             // INTEL
         return;
 
       // It is bad to allow LSR for current loop to add induction variables
@@ -2008,6 +2042,7 @@ class LSRInstance {
   void NarrowSearchSpaceByCollapsingUnrolledCode();
   void NarrowSearchSpaceByRefilteringUndesirableDedicatedRegisters();
   void NarrowSearchSpaceByFilterFormulaWithSameScaledReg();
+  void NarrowSearchSpaceByFilterPostInc();
   void NarrowSearchSpaceByDeletingCostlyFormulas();
   void NarrowSearchSpaceByPickingWinnerRegs();
   void NarrowSearchSpaceUsingHeuristics();
@@ -2820,9 +2855,10 @@ bool IVChain::isProfitableIncrement(const SCEV *OperExpr,
 /// increments can be computed in fewer registers when chained.
 ///
 /// TODO: Consider IVInc free if it's already used in another chains.
-static bool
-isProfitableChain(IVChain &Chain, SmallPtrSetImpl<Instruction*> &Users,
-                  ScalarEvolution &SE) {
+static bool isProfitableChain(IVChain &Chain,
+                              SmallPtrSetImpl<Instruction *> &Users,
+                              ScalarEvolution &SE,
+                              const TargetTransformInfo &TTI) {
   if (StressIVChain)
     return true;
 
@@ -2851,7 +2887,14 @@ isProfitableChain(IVChain &Chain, SmallPtrSetImpl<Instruction*> &Users,
   unsigned NumConstIncrements = 0;
   unsigned NumVarIncrements = 0;
   unsigned NumReusedIncrements = 0;
+
+  if (TTI.isProfitableLSRChainElement(Chain.Incs[0].UserInst))
+    return true;
+
   for (const IVInc &Inc : Chain) {
+    if (TTI.isProfitableLSRChainElement(Inc.UserInst))
+      return true;
+
     if (Inc.IncExpr->isZero())
       continue;
 
@@ -3082,7 +3125,7 @@ void LSRInstance::CollectChains() {
   for (unsigned UsersIdx = 0, NChains = IVChainVec.size();
        UsersIdx < NChains; ++UsersIdx) {
     if (!isProfitableChain(IVChainVec[UsersIdx],
-                           ChainUsersVec[UsersIdx].FarUsers, SE))
+                           ChainUsersVec[UsersIdx].FarUsers, SE, TTI))
       continue;
     // Preserve the chain at UsesIdx.
     if (ChainIdx != UsersIdx)
@@ -4308,6 +4351,13 @@ void LSRInstance::FilterOutUndesirableDedicatedRegisters() {
   using BestFormulaeTy =
       DenseMap<SmallVector<const SCEV *, 4>, size_t, UniquifierDenseMapInfo>;
 
+#if INTEL_CUSTOMIZATION
+  // A cache of SCEV expressions for phi nodes in outer loop.
+  // This cache is needed to improve compile time for scenarios with
+  // large number of uses, formulas and phi nodes in outer loop.
+  PhiSCEVCacheT PhiSCEVCache;
+#endif // INTEL_CUSTOMIZATION
+
   BestFormulaeTy BestFormulae;
 
   for (size_t LUIdx = 0, NumUses = Uses.size(); LUIdx != NumUses; ++LUIdx) {
@@ -4327,7 +4377,7 @@ void LSRInstance::FilterOutUndesirableDedicatedRegisters() {
       // avoids the need to recompute this information across formulae using the
       // same bad AddRec. Passing LoserRegs is also essential unless we remove
       // the corresponding bad register from the Regs set.
-      Cost CostF(L, SE, TTI);
+      Cost CostF(L, SE, TTI, &PhiSCEVCache); // INTEL
       Regs.clear();
       CostF.RateFormula(F, Regs, VisitedRegs, LU, &LoserRegs);
       if (CostF.isLoser()) {
@@ -4661,6 +4711,54 @@ void LSRInstance::NarrowSearchSpaceByFilterFormulaWithSameScaledReg() {
   });
 }
 
+/// If we are over the complexity limit, filter out any post-inc prefering
+/// variables to only post-inc values.
+void LSRInstance::NarrowSearchSpaceByFilterPostInc() {
+  if (!TTI.shouldFavorPostInc())
+    return;
+  if (EstimateSearchSpaceComplexity() < ComplexityLimit)
+    return;
+
+  LLVM_DEBUG(dbgs() << "The search space is too complex.\n"
+                       "Narrowing the search space by choosing the lowest "
+                       "register Formula for PostInc Uses.\n");
+
+  for (size_t LUIdx = 0, NumUses = Uses.size(); LUIdx != NumUses; ++LUIdx) {
+    LSRUse &LU = Uses[LUIdx];
+
+    if (LU.Kind != LSRUse::Address)
+      continue;
+    if (!TTI.isIndexedLoadLegal(TTI.MIM_PostInc, LU.AccessTy.getType()) &&
+        !TTI.isIndexedStoreLegal(TTI.MIM_PostInc, LU.AccessTy.getType()))
+      continue;
+
+    size_t MinRegs = std::numeric_limits<size_t>::max();
+    for (const Formula &F : LU.Formulae)
+      MinRegs = std::min(F.getNumRegs(), MinRegs);
+
+    bool Any = false;
+    for (size_t FIdx = 0, NumForms = LU.Formulae.size(); FIdx != NumForms;
+         ++FIdx) {
+      Formula &F = LU.Formulae[FIdx];
+      if (F.getNumRegs() > MinRegs) {
+        LLVM_DEBUG(dbgs() << "  Filtering out formula "; F.print(dbgs());
+                   dbgs() << "\n");
+        LU.DeleteFormula(F);
+        --FIdx;
+        --NumForms;
+        Any = true;
+      }
+    }
+    if (Any)
+      LU.RecomputeRegs(LUIdx, RegUses);
+
+    if (EstimateSearchSpaceComplexity() < ComplexityLimit)
+      break;
+  }
+
+  LLVM_DEBUG(dbgs() << "After pre-selection:\n"; print_uses(dbgs()));
+}
+
 /// The function delete formulas with high registers number expectation.
 /// Assuming we don't know the value of each formula (already delete
 /// all inefficient), generate probability of not selecting for each
@@ -4871,6 +4969,7 @@ void LSRInstance::NarrowSearchSpaceUsingHeuristics() {
   NarrowSearchSpaceByRefilteringUndesirableDedicatedRegisters();
   if (FilterSameScaledReg)
     NarrowSearchSpaceByFilterFormulaWithSameScaledReg();
+  NarrowSearchSpaceByFilterPostInc();
   if (LSRExpNarrow)
     NarrowSearchSpaceByDeletingCostlyFormulas();
   else
@@ -5559,6 +5658,14 @@ LSRInstance::LSRInstance(Loop *L, IVUsers &IU, ScalarEvolution &SE,
     LLVM_DEBUG(dbgs() << "LSR skipping outer loop " << *L << "\n");
     return;
   }
+
+#if INTEL_CUSTOMIZATION
+  // JIRA: CMPLRLLVM-19856
+  if(L->getLoopDepth() >= LSRLoopDepthLimit) {
+    LLVM_DEBUG(dbgs() << "LSR skipping abnormal deep loop " << *L << "\n");
+    return;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Start collecting data and preparing for the solver.
   CollectChains();
