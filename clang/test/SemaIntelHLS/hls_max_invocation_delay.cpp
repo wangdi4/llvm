@@ -4,6 +4,7 @@ __attribute__((hls_max_invocation_delay(123))) void foo1() {}
 // CHECK: FunctionDecl{{.*}}foo1
 // CHECK: MaxInvocationDelayAttr
 // CHECK-NEXT: ConstantExpr
+// CHECK-NEXT: value: Int 123
 // CHECK-NEXT: IntegerLiteral{{.*}}123{{$}}
 
 __attribute__((hls_max_invocation_delay(123)))
@@ -12,6 +13,7 @@ foo2() {}
 // CHECK: FunctionDecl{{.*}}foo2
 // CHECK: MaxInvocationDelayAttr
 // CHECK-NEXT: ConstantExpr
+// CHECK-NEXT: value: Int 123
 // CHECK-NEXT: IntegerLiteral{{.*}}123{{$}}
 // CHECK: ComponentAttr
 
@@ -22,12 +24,14 @@ foo3() {}
 // CHECK: ComponentAttr
 // CHECK: MaxInvocationDelayAttr
 // CHECK-NEXT: ConstantExpr
+// CHECK-NEXT: value: Int 123
 // CHECK-NEXT: IntegerLiteral{{.*}}123{{$}}
 
 __attribute__((hls_max_invocation_delay(0))) void foo4() {}
 // CHECK: FunctionDecl{{.*}}foo4
 // CHECK: MaxInvocationDelayAttr
 // CHECK-NEXT: ConstantExpr
+// CHECK-NEXT: value: Int 0
 // CHECK-NEXT: IntegerLiteral{{.*}}0{{$}}
 
 template <int tvalue>
@@ -42,6 +46,7 @@ void call() {
   // CHECK-NEXT: TemplateArgument integral 8
   // CHECK: HLSMaxInvocationDelayAttr
   // CHECK-NEXT: ConstantExpr
+  // CHECK-NEXT: value: Int 8
   // CHECK-NEXT: SubstNonTypeTemplateParmExpr
   // CHECK-NEXT: NonTypeTemplateParmDecl
   // CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}

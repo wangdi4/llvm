@@ -89,6 +89,7 @@ void foo() {
 //CHECK: VarDecl{{.*}}var_one
 //CHECK: MaxReplicatesAttr
 //CHECK-NEXT: ConstantExpr
+//CHECK-NEXT: value: Int 2
 //CHECK-NEXT: SubstNonTypeTemplateParmExpr
 //CHECK-NEXT: NonTypeTemplateParmDecl
 //CHECK_NEXT: IntegerLiteral{{.*}}2{{$}}
@@ -97,11 +98,13 @@ void foo() {
 //CHECK: MemoryAttr{{.*}}Implicit
 //CHECK: BankWidthAttr
 //CHECK-NEXT: ConstantExpr
+//CHECK-NEXT: value: Int 4
 //CHECK-NEXT: SubstNonTypeTemplateParmExpr
 //CHECK-NEXT: NonTypeTemplateParmDecl
 //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
 //CHECK: NumBanksAttr
 //CHECK-NEXT: ConstantExpr
+//CHECK-NEXT: value: Int 8
 //CHECK-NEXT: SubstNonTypeTemplateParmExpr
 //CHECK-NEXT: NonTypeTemplateParmDecl
 //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
@@ -110,11 +113,13 @@ void foo() {
 //CHECK: MemoryAttr{{.*}}Implicit
 //CHECK: BankWidthAttr
 //CHECK-NEXT: ConstantExpr
+//CHECK-NEXT: value: Int 4
 //CHECK-NEXT: SubstNonTypeTemplateParmExpr
 //CHECK-NEXT: NonTypeTemplateParmDecl
 //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
 //CHECK: NumBanksAttr
 //CHECK-NEXT: ConstantExpr
+//CHECK-NEXT: value: Int 8
 //CHECK-NEXT: SubstNonTypeTemplateParmExpr
 //CHECK-NEXT: NonTypeTemplateParmDecl
 //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
@@ -129,6 +134,7 @@ void foo() {
 //CHECK: SimpleDualPortAttr
 //CHECK: MaxReplicatesAttr
 //CHECK-NEXT: ConstantExpr
+//CHECK-NEXT: value: Int 2
 //CHECK-NEXT: SubstNonTypeTemplateParmExpr
 //CHECK-NEXT: NonTypeTemplateParmDecl
 //CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
@@ -164,6 +170,7 @@ void call() {
 //CHECK-NEXT: MemoryAttr
 //CHECK-NEXT: MaxReplicatesAttr
 //CHECK-NEXT: ConstantExpr
+//CHECK-NEXT: value: Int 2
 //CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
 //CHECK: FieldDecl {{.*}} f4
 //CHECK-NEXT: MemoryAttr
@@ -172,6 +179,7 @@ void call() {
 //CHECK-NEXT: MemoryAttr
 //CHECK-NEXT: MaxReplicatesAttr
 //CHECK-NEXT: ConstantExpr
+//CHECK-NEXT: value: Int 2
 //CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
 //CHECK-NEXT: SimpleDualPortAttr
 
@@ -212,11 +220,13 @@ struct foo_five {
 //CHECK: MemoryAttr
 //CHECK: MaxReplicatesAttr
 //CHECK-NEXT: ConstantExpr
+//CHECK-NEXT: value: Int 2
 //CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
 //CHECK: FieldDecl{{.*}} f2
 //CHECK-NEXT: MemoryAttr
 //CHECK_NEXT: MaxReplicatesAttr
 //CHECK: ConstantExpr
+//CHECK-NEXT: value: Int 2
 //CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
 //CHECK: FieldDecl{{.*}} f3
 //CHECK-NEXT: MemoryAttr

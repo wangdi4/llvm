@@ -34,6 +34,7 @@ void foo2(slave_arg __attribute__((numbanks(4))) int *i_par1)
 // CHECK-NEXT: SlaveMemoryArgumentAttr
 // CHECK: NumBanks{{.*}}
 // CHECK-NEXT: ConstantExpr
+// CHECK-NEXT: value: Int 4
 // CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
 // CHECK: ComponentAttr
 
@@ -46,6 +47,7 @@ void foo3(slave_arg __attribute__((bankwidth(4))) int *i_par1)
 // CHECK-NEXT: SlaveMemoryArgumentAttr
 // CHECK: BankWidthAttr
 // CHECK-NEXT: ConstantExpr
+// CHECK-NEXT: value: Int 4
 // CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
 // CHECK: ComponentAttr
 
@@ -87,10 +89,13 @@ void foo7(slave_arg __attribute__((bank_bits(1,2,3))) int *i_par1)
 // CHECK-NEXT: SlaveMemoryArgumentAttr
 // CHECK: BankBitsAttr
 // CHECK-NEXT: ConstantExpr
+// CHECK-NEXT: value: Int 1
 // CHECK-NEXT: IntegerLiteral{{.*}}1{{$}}
 // CHECK-NEXT: ConstantExpr
+// CHECK-NEXT: value: Int 2
 // CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
 // CHECK-NEXT: ConstantExpr
+// CHECK-NEXT: value: Int 3
 // CHECK-NEXT: IntegerLiteral{{.*}}3{{$}}
 // CHECK: ComponentAttr
 
