@@ -264,11 +264,8 @@ static pi_result mapError(ze_result_t ZeResult) {
       {ZE_RESULT_ERROR_INVALID_GROUP_SIZE_DIMENSION,
        PI_INVALID_WORK_GROUP_SIZE},
       {ZE_RESULT_ERROR_MODULE_BUILD_FAILURE, PI_BUILD_PROGRAM_FAILURE}};
-<<<<<<< HEAD
-=======
 
 
->>>>>>> a63fc574d8d6fb8284a528ef3a364a24abb9180c
   auto It = ErrorMapping.find(ZeResult);
   if (It == ErrorMapping.end()) {
     return PI_ERROR_UNKNOWN;
