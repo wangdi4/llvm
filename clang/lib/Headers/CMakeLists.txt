@@ -220,6 +220,7 @@ set(files
   adxintrin.h
   altivec.h
   ammintrin.h
+  amxintrin.h
   arm_acle.h
   arm_cmse.h
   armintr.h

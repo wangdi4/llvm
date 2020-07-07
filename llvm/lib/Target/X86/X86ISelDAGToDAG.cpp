@@ -4503,8 +4503,11 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
 
       break;
     }
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
+=======
+>>>>>>> 939d8309dbd4ee6cf6e9ef3e8ea26df008b006b4
     case Intrinsic::x86_tileloadd64:
     case Intrinsic::x86_tileloaddt164:
     case Intrinsic::x86_tilestored64: {
@@ -4537,6 +4540,7 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
       ReplaceNode(Node, CNode);
       return;
     }
+<<<<<<< HEAD
 #endif // INTEL_FEATURE_ISA_AMX
 #if INTEL_FEATURE_ISA_AMX_FUTURE
     case Intrinsic::x86_tscatterrowd:
@@ -4831,6 +4835,8 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
     }
 #endif // INTEL_FEATURE_ISA_AMX_CONVERT
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 939d8309dbd4ee6cf6e9ef3e8ea26df008b006b4
     }
     break;
   }

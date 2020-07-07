@@ -5350,6 +5350,7 @@ let TargetPrefix = "x86" in {
   def int_x86_xresldtrk : GCCBuiltin<"__builtin_ia32_xresldtrk">,
               Intrinsic<[], [], []>;
 }
+<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_KEYLOCKER
@@ -6179,6 +6180,8 @@ let TargetPrefix = "x86" in {
 #endif // INTEL_FEATURE_ISA_FP16
 
 #if INTEL_FEATURE_ISA_AMX
+=======
+>>>>>>> 939d8309dbd4ee6cf6e9ef3e8ea26df008b006b4
 //===----------------------------------------------------------------------===//
 // AMX - Intel AMX extensions
 
@@ -6208,6 +6211,7 @@ let TargetPrefix = "x86" in {
   def int_x86_tdpbf16ps : GCCBuiltin<"__builtin_ia32_tdpbf16ps">,
               Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], []>;
 }
+<<<<<<< HEAD
 #endif // INTEL_FEATURE_ISA_AMX
 
 #if INTEL_FEATURE_ICECODE
@@ -6824,3 +6828,5 @@ let TargetPrefix = "x86" in {
 }
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 939d8309dbd4ee6cf6e9ef3e8ea26df008b006b4

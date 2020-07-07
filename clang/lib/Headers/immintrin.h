@@ -833,6 +833,7 @@ _storebe_i64(void * __P, long long __D) {
 /* INTEL_FEATURE_ISA_AMX_MEMORY2 */
 #if defined(__AMX_MEMORY2_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+<<<<<<< HEAD
     defined(__AMX_MEMORY2__) || defined(__M_INTRINSIC_PROMOTE__)
 #include <Intel_amxmemory2intrin.h>
 #endif
@@ -916,6 +917,14 @@ _storebe_i64(void * __P, long long __D) {
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
     defined(__AVX512VP2INTERSECT__) || defined(__M_INTRINSIC_PROMOTE__)
 /* end INTEL_CUSTOMIZATION */
+=======
+    defined(__AMXTILE__) || defined(__AMXINT8__) || defined(__AMXBF16__)
+#include <amxintrin.h>
+#endif
+
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVX512VP2INTERSECT__)
+>>>>>>> 939d8309dbd4ee6cf6e9ef3e8ea26df008b006b4
 #include <avx512vp2intersectintrin.h>
 #endif
 

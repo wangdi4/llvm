@@ -117,6 +117,7 @@ TARGET_BUILTIN(__builtin_ia32_vcvttsh2usi64, "UOiV8gIi", "ncV:128:", "avx512fp16
 #endif // INTEL_CUSTOMIZATION
 TARGET_BUILTIN(__builtin_ia32_directstore_u64, "vULi*ULi", "n", "movdiri")
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_ULI
 // ULI
@@ -127,6 +128,8 @@ TARGET_BUILTIN(__builtin_ia32_senduipi, "vUWi", "n", "uli")
 #endif // INTEL_FEATURE_ISA_ULI
 
 #if INTEL_FEATURE_ISA_AMX
+=======
+>>>>>>> 939d8309dbd4ee6cf6e9ef3e8ea26df008b006b4
 // AMX
 TARGET_BUILTIN(__builtin_ia32_tile_loadconfig, "vvC*", "n", "amx-tile")
 TARGET_BUILTIN(__builtin_ia32_tile_storeconfig, "vvC*", "n", "amx-tile")
@@ -142,6 +145,7 @@ TARGET_BUILTIN(__builtin_ia32_tdpbsud, "vIUcIUcIUc", "n", "amx-int8")
 TARGET_BUILTIN(__builtin_ia32_tdpbusd, "vIUcIUcIUc", "n", "amx-int8")
 TARGET_BUILTIN(__builtin_ia32_tdpbuud, "vIUcIUcIUc", "n", "amx-int8")
 TARGET_BUILTIN(__builtin_ia32_tdpbf16ps, "vIUcIUcIUc", "n", "amx-bf16")
+<<<<<<< HEAD
 #endif // INTEL_FEATURE_ISA_AMX
 
 #if INTEL_FEATURE_ISA_AMX_FUTURE
@@ -377,6 +381,8 @@ LANGBUILTIN(read_pipe, "i.", "tn", OCLC1X_LANG)
 LANGBUILTIN(write_pipe, "i.", "tn", OCLC1X_LANG)
 #undef LANGBUILTIN
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 939d8309dbd4ee6cf6e9ef3e8ea26df008b006b4
 TARGET_BUILTIN(__builtin_ia32_ptwrite64, "vUOi", "n", "ptwrite")
 
 #undef BUILTIN

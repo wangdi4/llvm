@@ -85,6 +85,7 @@ static const char *const GCCRegNames[] = {
     "cr0",   "cr2",   "cr3",   "cr4",   "cr8",
     "dr0",   "dr1",   "dr2",   "dr3",   "dr6",     "dr7",
     "bnd0",  "bnd1",  "bnd2",  "bnd3",
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
     "tmm0",  "tmm1",  "tmm2",  "tmm3",  "tmm4",    "tmm5",  "tmm6",  "tmm7",
@@ -92,6 +93,9 @@ static const char *const GCCRegNames[] = {
     "tmm8",  "tmm9",  "tmm10", "tmm11", "tmm12",   "tmm13", "tmm14", "tmm15",
 #endif // INTEL_FEATURE_ISA_AMX
 #endif // INTEL_CUSTOMIZATION
+=======
+    "tmm0",  "tmm1",  "tmm2",  "tmm3",  "tmm4",    "tmm5",  "tmm6",  "tmm7",
+>>>>>>> 939d8309dbd4ee6cf6e9ef3e8ea26df008b006b4
 };
 
 const TargetInfo::AddlRegName AddlRegNames[] = {
@@ -573,6 +577,7 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
   } else if (Name == "xsaveopt" || Name == "xsavec" || Name == "xsaves") {
     if (Enabled)
       Features["xsave"] = true;
+<<<<<<< HEAD
   }
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
@@ -701,6 +706,12 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
   }
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
 #endif // INTEL_CUSTOMIZATION
+=======
+  } else if (Name == "amx-tile" && !Enabled) {
+    Features["amx-bf16"] = Features["amx-int8"] = false;
+  } else if ((Name == "amx-bf16" || Name == "amx-int8") && Enabled)
+    Features["amx-tile"] = true;
+>>>>>>> 939d8309dbd4ee6cf6e9ef3e8ea26df008b006b4
 }
 
 /// handleTargetFeatures - Perform initialization based on the user
@@ -848,6 +859,7 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasINVPCID = true;
     } else if (Feature == "+enqcmd") {
       HasENQCMD = true;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_ULI
     } else if (Feature == "+uli") {
@@ -858,12 +870,15 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasHRESET = true;
 #endif // INTEL_FEATURE_ISA_HRESET
 #if INTEL_FEATURE_ISA_AMX
+=======
+>>>>>>> 939d8309dbd4ee6cf6e9ef3e8ea26df008b006b4
     } else if (Feature == "+amx-bf16") {
       HasAMXBF16 = true;
     } else if (Feature == "+amx-int8") {
       HasAMXINT8 = true;
     } else if (Feature == "+amx-tile") {
       HasAMXTILE = true;
+<<<<<<< HEAD
 #endif // INTEL_FEATURE_ISA_AMX
 #if INTEL_FEATURE_ISA_AMX_FUTURE
     } else if (Feature == "+amx-reduce") {
@@ -958,6 +973,8 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasAVXCOMPRESS = true;
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 939d8309dbd4ee6cf6e9ef3e8ea26df008b006b4
     } else if (Feature == "+serialize") {
       HasSERIALIZE = true;
     } else if (Feature == "+tsxldtrk") {
@@ -1402,6 +1419,7 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__INVPCID__");
   if (HasENQCMD)
     Builder.defineMacro("__ENQCMD__");
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_ULI
   if (HasULI)
@@ -1414,12 +1432,15 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   Builder.defineMacro("__HRESET_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_HRESET
 #if INTEL_FEATURE_ISA_AMX
+=======
+>>>>>>> 939d8309dbd4ee6cf6e9ef3e8ea26df008b006b4
   if (HasAMXTILE)
     Builder.defineMacro("__AMXTILE__");
   if (HasAMXINT8)
     Builder.defineMacro("__AMXINT8__");
   if (HasAMXBF16)
     Builder.defineMacro("__AMXBF16__");
+<<<<<<< HEAD
   Builder.defineMacro("__AMX_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_AMX
 #if INTEL_FEATURE_ISA_AMX_MEMORY2
@@ -1547,6 +1568,8 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   if (!Opts.OpenMPIsDevice) {
 #endif  // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 939d8309dbd4ee6cf6e9ef3e8ea26df008b006b4
   if (HasSERIALIZE)
     Builder.defineMacro("__SERIALIZE__");
   if (HasTSXLDTRK)
@@ -1654,6 +1677,7 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("3dnowa", true)
       .Case("adx", true)
       .Case("aes", true)
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
       .Case("amx-bf16", true)
@@ -1698,6 +1722,11 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("amx-tile2", true)
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
 #endif // INTEL_CUSTOMIZATION
+=======
+      .Case("amx-bf16", true)
+      .Case("amx-int8", true)
+      .Case("amx-tile", true)
+>>>>>>> 939d8309dbd4ee6cf6e9ef3e8ea26df008b006b4
       .Case("avx", true)
       .Case("avx2", true)
       .Case("avx512f", true)
@@ -1836,6 +1865,7 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
   return llvm::StringSwitch<bool>(Feature)
       .Case("adx", HasADX)
       .Case("aes", HasAES)
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
       .Case("amx-bf16", HasAMXBF16)
@@ -1889,6 +1919,11 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("avxbf16", HasAVXBF16)
 #endif // INTEL_FEATURE_ISA_AVX_BF16
 #endif // INTEL_CUSTOMIZATION
+=======
+      .Case("amx-bf16", HasAMXBF16)
+      .Case("amx-int8", HasAMXINT8)
+      .Case("amx-tile", HasAMXTILE)
+>>>>>>> 939d8309dbd4ee6cf6e9ef3e8ea26df008b006b4
       .Case("avx", SSELevel >= AVX)
       .Case("avx2", SSELevel >= AVX2)
       .Case("avx512f", SSELevel >= AVX512F)
