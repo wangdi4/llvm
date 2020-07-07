@@ -195,22 +195,15 @@
 #define bit_TSXLDTRK      0x00010000
 #define bit_PCONFIG       0x00040000
 #define bit_IBT           0x00100000
-<<<<<<< HEAD
 /* INTEL_CUSTOMIZATION */
 /* INTEL_FEATURE_ISA_FP16 */
 #define bit_AVX512FP16    0x00800000
 /* end INTEL_FEATURE_ISA_FP16 */
-/* INTEL_FEATURE_ISA_AMX */
-#define bit_AMXBF16       0x00400000
-#define bit_AMXTILE       0x01000000
-#define bit_AMXINT8       0x02000000
-/* end INTEL_FEATURE_ISA_AMX */
 /* end INTEL_CUSTOMIZATION */
-=======
+
 #define bit_AMXBF16       0x00400000
 #define bit_AMXTILE       0x01000000
 #define bit_AMXINT8       0x02000000
->>>>>>> 939d8309dbd4ee6cf6e9ef3e8ea26df008b006b4
 
 /* Features in %eax for leaf 7 sub-leaf 1 */
 #define bit_AVX512BF16    0x00000020

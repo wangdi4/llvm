@@ -89,11 +89,7 @@
 #include "llvm/Support/SaveAndRestore.h"
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
-<<<<<<< HEAD
-#include <bitset> // INTEL
-=======
 #include <bitset>
->>>>>>> 939d8309dbd4ee6cf6e9ef3e8ea26df008b006b4
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -4001,7 +3997,6 @@ bool Sema::CheckX86BuiltinGatherScatterScale(unsigned BuiltinID,
          << Arg->getSourceRange();
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
 bool Sema::CheckX86BuiltinTileArgumentsRange(CallExpr *TheCall,
@@ -4009,57 +4004,30 @@ bool Sema::CheckX86BuiltinTileArgumentsRange(CallExpr *TheCall,
                                     int Low, int High) {
   for (int ArgNum : ArgNums) {
     if (SemaBuiltinConstantArgRange(TheCall, ArgNum, Low, High))
-=======
-enum { TileRegLow = 0, TileRegHigh = 7 };
-
-bool Sema::CheckX86BuiltinTileArgumentsRange(CallExpr *TheCall,
-                                    ArrayRef<int> ArgNums) {
-  for (int ArgNum : ArgNums) {
-    if (SemaBuiltinConstantArgRange(TheCall, ArgNum, TileRegLow, TileRegHigh))
->>>>>>> 939d8309dbd4ee6cf6e9ef3e8ea26df008b006b4
       return true;
   }
   return false;
 }
 
-<<<<<<< HEAD
 bool Sema::CheckX86BuiltinTileArgumentsRange(CallExpr *TheCall, int ArgNum,
                                              int Low, int High) {
   return SemaBuiltinConstantArgRange(TheCall, ArgNum, Low, High);
-=======
-bool Sema::CheckX86BuiltinTileArgumentsRange(CallExpr *TheCall, int ArgNum) {
-  return SemaBuiltinConstantArgRange(TheCall, ArgNum, TileRegLow, TileRegHigh);
->>>>>>> 939d8309dbd4ee6cf6e9ef3e8ea26df008b006b4
 }
 
 bool Sema::CheckX86BuiltinTileDuplicate(CallExpr *TheCall,
                                         ArrayRef<int> ArgNums) {
-<<<<<<< HEAD
   // Because the max number of tile register is 32, so here we use each bit
   // to represent the usage of them in bitset<32>.
   std::bitset<32> ArgValues;
-=======
-  // Because the max number of tile register is TileRegHigh + 1, so here we use
-  // each bit to represent the usage of them in bitset.
-  std::bitset<TileRegHigh + 1> ArgValues;
->>>>>>> 939d8309dbd4ee6cf6e9ef3e8ea26df008b006b4
   for (int ArgNum : ArgNums) {
     llvm::APSInt Arg;
     SemaBuiltinConstantArg(TheCall, ArgNum, Arg);
     int ArgExtValue = Arg.getExtValue();
-<<<<<<< HEAD
     assert((ArgExtValue >= 0 || ArgExtValue < 32) &&
            "Incorrect tile register num.");
     if (ArgValues.test(ArgExtValue))
       return Diag(TheCall->getBeginLoc(),
                   diag::err_x86_builtin_tmul_arg_duplicate)
-=======
-    assert((ArgExtValue >= TileRegLow || ArgExtValue <= TileRegHigh) &&
-           "Incorrect tile register num.");
-    if (ArgValues.test(ArgExtValue))
-      return Diag(TheCall->getBeginLoc(),
-                  diag::err_x86_builtin_tile_arg_duplicate)
->>>>>>> 939d8309dbd4ee6cf6e9ef3e8ea26df008b006b4
              << TheCall->getArg(ArgNum)->getSourceRange();
     ArgValues.set(ArgExtValue);
   }
@@ -4067,16 +4035,53 @@ bool Sema::CheckX86BuiltinTileDuplicate(CallExpr *TheCall,
 }
 
 bool Sema::CheckX86BuiltinTileRangeAndDuplicate(CallExpr *TheCall,
-<<<<<<< HEAD
                                                 ArrayRef<int> ArgNums, int Low,
                                                 int High) {
   return CheckX86BuiltinTileArgumentsRange(TheCall, ArgNums, Low, High) ||
-=======
-                                                ArrayRef<int> ArgNums) {
-  return CheckX86BuiltinTileArgumentsRange(TheCall, ArgNums) ||
->>>>>>> 939d8309dbd4ee6cf6e9ef3e8ea26df008b006b4
          CheckX86BuiltinTileDuplicate(TheCall, ArgNums);
 }
+#else // INTEL_FEATURE_ISA_AMX
+enum { TileRegLow = 0, TileRegHigh = 7 };
+
+bool Sema::CheckX86BuiltinTileArgumentsRange(CallExpr *TheCall,
+                                    ArrayRef<int> ArgNums) {
+  for (int ArgNum : ArgNums) {
+    if (SemaBuiltinConstantArgRange(TheCall, ArgNum, TileRegLow, TileRegHigh))
+      return true;
+  }
+  return false;
+}
+
+bool Sema::CheckX86BuiltinTileArgumentsRange(CallExpr *TheCall, int ArgNum) {
+  return SemaBuiltinConstantArgRange(TheCall, ArgNum, TileRegLow, TileRegHigh);
+}
+
+bool Sema::CheckX86BuiltinTileDuplicate(CallExpr *TheCall,
+                                        ArrayRef<int> ArgNums) {
+  // Because the max number of tile register is TileRegHigh + 1, so here we use
+  // each bit to represent the usage of them in bitset.
+  std::bitset<TileRegHigh + 1> ArgValues;
+  for (int ArgNum : ArgNums) {
+    llvm::APSInt Arg;
+    SemaBuiltinConstantArg(TheCall, ArgNum, Arg);
+    int ArgExtValue = Arg.getExtValue();
+    assert((ArgExtValue >= TileRegLow || ArgExtValue <= TileRegHigh) &&
+           "Incorrect tile register num.");
+    if (ArgValues.test(ArgExtValue))
+      return Diag(TheCall->getBeginLoc(),
+                  diag::err_x86_builtin_tile_arg_duplicate)
+             << TheCall->getArg(ArgNum)->getSourceRange();
+    ArgValues.set(ArgExtValue);
+  }
+  return false;
+}
+
+bool Sema::CheckX86BuiltinTileRangeAndDuplicate(CallExpr *TheCall,
+                                                ArrayRef<int> ArgNums) {
+  return CheckX86BuiltinTileArgumentsRange(TheCall, ArgNums) ||
+         CheckX86BuiltinTileDuplicate(TheCall, ArgNums);
+}
+#endif // INTEL_FEATURE_ISA_AMX
 
 bool Sema::CheckX86BuiltinTileArguments(unsigned BuiltinID, CallExpr *TheCall) {
   switch (BuiltinID) {
@@ -4093,8 +4098,6 @@ bool Sema::CheckX86BuiltinTileArguments(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_tdpbuud:
   case X86::BI__builtin_ia32_tdpbf16ps:
     return CheckX86BuiltinTileRangeAndDuplicate(TheCall, {0, 1, 2});
-<<<<<<< HEAD
-#endif // INTEL_FEATURE_ISA_AMX
 #if INTEL_FEATURE_ISA_AMX_FUTURE
   case X86::BI__builtin_ia32_tcoladdps:
     return CheckX86BuiltinTileArgumentsRange(TheCall, 1);
@@ -4268,16 +4271,10 @@ bool Sema::CheckX86BuiltinTileArguments(unsigned BuiltinID, CallExpr *TheCall) {
   case X86::BI__builtin_ia32_tilemov:
     return CheckX86BuiltinTileArgumentsRange(TheCall, {0, 1});
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
-#if INTEL_FEATURE_ISA_AMX
   }
 }
-#endif // INTEL_FEATURE_ISA_AMX
 #endif // INTEL_CUSTOMIZATION
 
-=======
-  }
-}
->>>>>>> 939d8309dbd4ee6cf6e9ef3e8ea26df008b006b4
 static bool isX86_32Builtin(unsigned BuiltinID) {
   // These builtins only work on x86-32 targets.
   switch (BuiltinID) {
@@ -4311,14 +4308,9 @@ bool Sema::CheckX86BuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
   if (CheckX86BuiltinGatherScatterScale(BuiltinID, TheCall))
     return true;
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX
   // If the intrinsic has a tile arguments, make sure they are valid.
   if (CheckX86BuiltinTileArguments(BuiltinID, TheCall))
     return true;
-#endif // INTEL_FEATURE_ISA_AMX
-#endif // INTEL_CUSTOMIZATION
 
 #if INTEL_CUSTOMIZATION
   if (BuiltinID == X86::BIget_compute_id)
@@ -4330,11 +4322,6 @@ bool Sema::CheckX86BuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
     return false;
   }
 #endif // INTEL_CUSTOMIZATION
-=======
-  // If the intrinsic has a tile arguments, make sure they are valid.
-  if (CheckX86BuiltinTileArguments(BuiltinID, TheCall))
-    return true;
->>>>>>> 939d8309dbd4ee6cf6e9ef3e8ea26df008b006b4
 
   // For intrinsics which take an immediate value as part of the instruction,
   // range check them here.

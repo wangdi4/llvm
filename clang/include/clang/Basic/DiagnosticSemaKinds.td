@@ -9435,17 +9435,8 @@ def err_x86_builtin_invalid_rounding : Error<
   "invalid rounding argument">;
 def err_x86_builtin_invalid_scale : Error<
   "scale argument must be 1, 2, 4, or 8">;
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX
-def err_x86_builtin_tmul_arg_duplicate : Error<
-  "tmul arguments must refer to different tiles">;
-#endif // INTEL_FEATURE_ISA_AMX
-#endif // INTEL_CUSTOMIZATION
-=======
 def err_x86_builtin_tile_arg_duplicate : Error<
   "tile arguments must refer to different tiles">;
->>>>>>> 939d8309dbd4ee6cf6e9ef3e8ea26df008b006b4
 
 def err_builtin_target_unsupported : Error<
   "builtin is not supported on this target">;

@@ -34042,7 +34042,6 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
   const TargetInstrInfo *TII = Subtarget.getInstrInfo();
   DebugLoc DL = MI.getDebugLoc();
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
   auto TMMImmToTMMReg = [](unsigned Imm) {
@@ -34053,7 +34052,13 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     assert (Imm < 16 && "Illegal tmm pair index.");
     return X86::TMM0_TMM1 + Imm / 2;
   };
+#else // INTEL_FEATURE_ISA_AMX
+  auto TMMImmToTMMReg = [](unsigned Imm) {
+    assert (Imm < 8 && "Illegal tmm index");
+    return X86::TMM0 + Imm;
+  };
 #endif // INTEL_FEATURE_ISA_AMX
+
 #if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
  auto TMMImmToTMMQuad = [](unsigned Imm) {
     assert (Imm < 16 && "Illegal tmm quad index.");
@@ -34062,12 +34067,6 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 #endif // INTEL_CUSTOMIZATION
 
-=======
-  auto TMMImmToTMMReg = [](unsigned Imm) {
-    assert (Imm < 8 && "Illegal tmm index");
-    return X86::TMM0 + Imm;
-  };
->>>>>>> 939d8309dbd4ee6cf6e9ef3e8ea26df008b006b4
   switch (MI.getOpcode()) {
   default: llvm_unreachable("Unexpected instr type to insert");
   case X86::TLS_addr32:
@@ -34350,11 +34349,6 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     MI.eraseFromParent();
     return BB;
   }
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX
-=======
->>>>>>> 939d8309dbd4ee6cf6e9ef3e8ea26df008b006b4
   case X86::PTDPBSSD:
   case X86::PTDPBSUD:
   case X86::PTDPBUSD:
@@ -34382,13 +34376,7 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
   case X86::PTILEZERO: {
     const DebugLoc &DL = MI.getDebugLoc();
     unsigned Imm = MI.getOperand(0).getImm();
-<<<<<<< HEAD
-
     BuildMI(*BB, MI, DL, TII->get(X86::TILEZERO), TMMImmToTMMReg(Imm));
-
-=======
-    BuildMI(*BB, MI, DL, TII->get(X86::TILEZERO), TMMImmToTMMReg(Imm));
->>>>>>> 939d8309dbd4ee6cf6e9ef3e8ea26df008b006b4
     MI.eraseFromParent(); // The pseudo is gone now.
     return BB;
   }
@@ -34422,8 +34410,7 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     MI.eraseFromParent(); // The pseudo is gone now.
     return BB;
   }
-<<<<<<< HEAD
-#endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX_FUTURE
   case X86::PTADDPS:
   case X86::PTANDND:
@@ -35208,8 +35195,6 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
   }
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 939d8309dbd4ee6cf6e9ef3e8ea26df008b006b4
   }
 }
 
