@@ -216,7 +216,10 @@ bool findPlugins(vector_class<std::pair<std::string, backend>> &PluginNames) {
   //
   PluginNames.emplace_back(OPENCL_PLUGIN_NAME, backend::opencl);
   PluginNames.emplace_back(LEVEL0_PLUGIN_NAME, backend::level0);
-  PluginNames.emplace_back(CUDA_PLUGIN_NAME, backend::cuda);
+#if INTEL_CUSTOMIZATION
+  // Deliberatly disable CUDA plugin per CMPLRLLVM-16249.
+  // PluginNames.emplace_back(CUDA_PLUGIN_NAME, backend::cuda);
+#endif // INTEL_CUSTOMIZATION
   return true;
 }
 
