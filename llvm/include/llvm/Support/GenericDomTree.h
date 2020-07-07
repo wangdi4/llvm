@@ -283,11 +283,27 @@ protected:
   DominatorTreeBase(const DominatorTreeBase &) = delete;
   DominatorTreeBase &operator=(const DominatorTreeBase &) = delete;
 
-  /// getRoots - Return the root blocks of the current CFG.  This may include
-  /// multiple blocks if we are computing post dominators.  For forward
-  /// dominators, this will always be a single block (the entry node).
+  /// Iteration over roots.
   ///
-  const SmallVectorImpl<NodeT *> &getRoots() const { return Roots; }
+  /// This may include multiple blocks if we are computing post dominators.
+  /// For forward dominators, this will always be a single block (the entry
+  /// block).
+  using root_iterator = typename SmallVectorImpl<NodeT *>::iterator;
+  using const_root_iterator = typename SmallVectorImpl<NodeT *>::const_iterator;
+
+  root_iterator root_begin() { return Roots.begin(); }
+  const_root_iterator root_begin() const { return Roots.begin(); }
+  root_iterator root_end() { return Roots.end(); }
+  const_root_iterator root_end() const { return Roots.end(); }
+
+  size_t root_size() const { return Roots.size(); }
+
+  iterator_range<root_iterator> roots() {
+    return make_range(root_begin(), root_end());
+  }
+  iterator_range<const_root_iterator> roots() const {
+    return make_range(root_begin(), root_end());
+  }
 
   /// isPostDominator - Returns true if analysis based of postdoms
   ///
@@ -324,8 +340,6 @@ protected:
 
     return false;
   }
-
-  void releaseMemory() { reset(); }
 
   /// getNode - return the (Post)DominatorTree node for the specified basic
   /// block.  This is the same as using operator[] on this class.  The result
@@ -576,8 +590,7 @@ protected:
     DomTreeNodeBase<NodeT> *IDomNode = getNode(DomBB);
     assert(IDomNode && "Not immediate dominator specified for block!");
     DFSInfoValid = false;
-    return (DomTreeNodes[BB] = IDomNode->addChild(
-                std::make_unique<DomTreeNodeBase<NodeT>>(BB, IDomNode))).get();
+    return createChild(BB, IDomNode);
   }
 
   /// Add a new node to the forward dominator tree and make it a new root.
@@ -590,8 +603,7 @@ protected:
     assert(!this->isPostDominator() &&
            "Cannot change root of post-dominator tree");
     DFSInfoValid = false;
-    DomTreeNodeBase<NodeT> *NewNode = (DomTreeNodes[BB] =
-      std::make_unique<DomTreeNodeBase<NodeT>>(BB, nullptr)).get();
+    DomTreeNodeBase<NodeT> *NewNode = createNode(BB);
     if (Roots.empty()) {
       addRoot(BB);
     } else {
@@ -760,9 +772,6 @@ public:
     return DomTreeBuilder::Verify(*this, VL);
   }
 
-protected:
-  void addRoot(NodeT *BB) { this->Roots.push_back(BB); }
-
   void reset() {
     DomTreeNodes.clear();
     Roots.clear();
@@ -770,6 +779,21 @@ protected:
     Parent = nullptr;
     DFSInfoValid = false;
     SlowQueries = 0;
+  }
+
+protected:
+  void addRoot(NodeT *BB) { this->Roots.push_back(BB); }
+
+  DomTreeNodeBase<NodeT> *createChild(NodeT *BB, DomTreeNodeBase<NodeT> *IDom) {
+    return (DomTreeNodes[BB] = IDom->addChild(
+                std::make_unique<DomTreeNodeBase<NodeT>>(BB, IDom)))
+        .get();
+  }
+
+  DomTreeNodeBase<NodeT> *createNode(NodeT *BB) {
+    return (DomTreeNodes[BB] =
+                std::make_unique<DomTreeNodeBase<NodeT>>(BB, nullptr))
+        .get();
   }
 
   // NewBB is split and now it has one successor. Update dominator tree to
