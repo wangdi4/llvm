@@ -234,6 +234,7 @@ public:
   bool canHaveCancellationPoints() const; ///< Constructs that can be cancelled
   bool canHaveCollapse() const;
   bool canHaveNowait() const;
+  bool canHaveAllocate() const;
   /// @}
 
   /// Returns `true` if the construct needs to be outlined into a separate
@@ -256,6 +257,7 @@ public:
   // list-type clauses (getters only; no setters)
 
   virtual AlignedClause &getAligned()        {WRNERROR(QUAL_OMP_ALIGNED);     }
+  virtual AllocateClause &getAllocate()      {WRNERROR(QUAL_OMP_ALLOCATE);    }
   virtual CopyinClause &getCopyin()          {WRNERROR(QUAL_OMP_COPYIN);      }
   virtual CopyprivateClause &getCpriv()      {WRNERROR(QUAL_OMP_COPYPRIVATE); }
   virtual DependClause &getDepend()          {WRNERROR("DEPEND");             }
@@ -289,6 +291,8 @@ public:
 
   virtual const AlignedClause &getAligned() const
                                            {WRNERROR(QUAL_OMP_ALIGNED);     }
+  virtual const AllocateClause &getAllocate() const
+                                           {WRNERROR(QUAL_OMP_ALLOCATE);    }
   virtual const CopyinClause &getCopyin() const
                                            {WRNERROR(QUAL_OMP_COPYIN);      }
   virtual const CopyprivateClause &getCpriv() const

@@ -4723,10 +4723,16 @@ Value *VPOParoptTransform::genPrivatizationAlloca(
   std::tie(ElementType, NumElements, AddrSpace) = getItemInfo(I);
   assert(ElementType && "Could not find Type of local element.");
 
+  // If the list item being privatized also appears in an allocate clause,
+  // then pass the AllocItem to VPOParoptUtils::genPrivatizationAlloca()
+  // so omp_alloc() is called to allocate the private memory.
+  AllocateItem *AllocItem = WRegionUtils::getAllocateItem(I);
+
   auto *NewVal = VPOParoptUtils::genPrivatizationAlloca(
-      ElementType, NumElements, OrigAlignment, InsertPt,
-      isTargetSPIRV(), Orig->getName() + NameSuffix, AllocaAddrSpace,
-      !PreserveAddressSpace ? llvm::None : llvm::Optional<unsigned>(AddrSpace));
+      ElementType, NumElements, OrigAlignment, InsertPt, isTargetSPIRV(),
+      Orig->getName() + NameSuffix, AllocaAddrSpace,
+      !PreserveAddressSpace ? llvm::None : llvm::Optional<unsigned>(AddrSpace),
+      AllocItem);
   assert(NewVal && "Failed to create local copy.");
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": New Alloca for operand '";

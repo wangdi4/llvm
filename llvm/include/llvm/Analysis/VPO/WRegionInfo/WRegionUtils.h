@@ -266,8 +266,10 @@ public:
   /// it cannot find the loop index.
   static bool getLoopIndexPosInPredicate(Value *LoopIndex,
                                          Instruction *CondInst, bool &IsLeft);
-  static FirstprivateItem *wrnSeenAsFirstPrivate(WRegionNode *W, Value *V);
-  static LastprivateItem *wrnSeenAsLastPrivate(WRegionNode *W, Value *V);
+  static PrivateItem *wrnSeenAsPrivate(WRegionNode *W, Value *V);
+  static FirstprivateItem *wrnSeenAsFirstprivate(WRegionNode *W, Value *V);
+  static LastprivateItem *wrnSeenAsLastprivate(WRegionNode *W, Value *V);
+  static ReductionItem *wrnSeenAsReduction(WRegionNode *W, Value *V);
   static MapItem *wrnSeenAsMap(WRegionNode *W, Value *V);
 
   /// \brief The utility checks whether the given value is used
@@ -368,6 +370,11 @@ public:
   /// pointers as shared, which causes them to be passed in to the outlined
   /// function by reference.
   static void collectNonPointerValuesToBeUsedInOutlinedRegion(WRegionNode *W);
+
+  /// If \p Item is from clause whose getOrig() is also in an allocate clause,
+  /// then return the AllocateItem associated with \p Item.
+  /// Otherwise, return null.
+  static AllocateItem *getAllocateItem(Item *I);
 };
 
 } // End VPO Namespace
