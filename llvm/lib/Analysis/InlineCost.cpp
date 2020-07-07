@@ -1213,7 +1213,7 @@ static bool preferNotToInlineForSwitchComputations(CallBase &CB,
     // by the switch statements targets.
     unsigned Count = 0;
     auto DT = ILIC.getDT(Caller);
-    for (auto &DTN : DT->getNode(EntryBlock)->getChildren()) {
+    for (auto &DTN : DT->getNode(EntryBlock)->children()) {
       auto BB = DTN->getBlock();
       if (BB->getUniquePredecessor() == EntryBlock)
         continue;
