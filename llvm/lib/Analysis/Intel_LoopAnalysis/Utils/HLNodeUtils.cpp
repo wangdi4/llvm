@@ -3590,7 +3590,8 @@ bool HLNodeUtils::getMinMaxValueImpl(const CanonExpr *CE,
       }
 
       // Conservatively return false if bound is too big.
-      if ((BoundVal < 0) || (BoundVal > UINT32_MAX)) {
+      // Honor the value if obtained using exact analysis.
+      if (!IsExact && ((BoundVal < 0) || (BoundVal > UINT32_MAX))) {
         return false;
       }
 

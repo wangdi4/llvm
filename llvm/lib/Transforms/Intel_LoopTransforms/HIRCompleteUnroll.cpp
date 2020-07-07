@@ -2831,6 +2831,11 @@ HIRCompleteUnroll::computeAvgTripCount(const HLLoop *Loop) {
     return std::make_pair(-1, DepLevel);
   }
 
+  // Negative upper implies a big trip count for loops with unsigned IVs.
+  if ((MinUpper < 0) && !Loop->isNSW()) {
+    return std::make_pair(-1, DepLevel);
+  }
+
   // MinUpper can evaluate to a negative value. For purposes of calculating
   // average trip count for profitability analysis, we take the absolute
   // value.
@@ -2842,6 +2847,10 @@ HIRCompleteUnroll::computeAvgTripCount(const HLLoop *Loop) {
 
   // Loop never executes.
   if (MaxUpper < 0) {
+    // Negative upper implies a big trip count for loops with unsigned IVs.
+    if (!Loop->isNSW()) {
+      return std::make_pair(-1, DepLevel);
+    }
     AvgTripCnt = 0;
   } else {
     AvgTripCnt = ((MinUpper + MaxUpper) / 2) + 1;
