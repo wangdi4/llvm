@@ -174,61 +174,109 @@ static void updateAndMoveTID(Instruction *TIDCallInstr, PHINode *Phi,
 
 // Find all paths with shl/op.../ashr pattern by DFS, where op can be
 // arbitrary number of add/sub/mul with constant values.
+//
+// Algorithm:
+// For all Shl instructions of TIDCall, we traverse all its subtrees using
+// DFS to find the pattern paths. If a subtree contains a unsupported node
+// (e.g., any instructions other than shl/add/sub/mul/ashr), then we abandon
+// the whole subtree even if it contains some shl/op.../ashr pattern.
+// For example, given IR as follows,
+//
+//  %tid = call get_global_id()
+//  %shl = shl i64 %tid, 32
+//
+//  %add = add i64 %shl, (1<<32)
+//  %call = call @dummy(i64 %add)
+//  %shr = ashr exact i64 %add, 32
+//
+//  %sub = sub i64 %shl, (1<<32)
+//  %shr2 = ashr exact i64 %sub.shl, 32
+//
+// we can obtain its corresponding def-use tree,
+//
+//          %tid
+//            |
+//          %shl
+//         /    \
+//      %add    %sub
+//      /   \     \
+//   %call  %shr  %shr2
+//
+// The right subtree of %shl (%shl - %sub - %shr2) is returned to eliminate
+// shl and ashr, while the left subtree is kept as-is even it contains a
+// shl/add/ashr pattern (%shl - %add - %shr). Because if we eliminate the
+// shl and shift back the constant addend in %add, %call will receive a wrong
+// parameter.
+//
+// TODO:
+// 1) If a shl is followed by a mul, then they can be combined by InstConmbine
+//    pass, and a path may start with mul. We need to detect and handle this
+//    pattern. E.g.,
+//      %shl = shl i64 %gid, 32
+//      %mul = mul i64 %shl, 2
+//    can be combined to
+//      %mul = mul i64 %gid, (2<<32)
+// 2) A path may also terminates with an icmp instruction, then there will be
+//    no ashr. We need also detect these patterns. E.g.,
+//      %shr = ashr exact i64 %add, 32
+//      %cmp = icmp eq i64 %shr, 1
+//    can be combined to
+//      %cmp = icmp eq i64 %add, (1<<32)
+// 3) If a path starts with mul as in 1) and terminates with icmp as in 2),
+//    then there will be no shl and ashr, and we may not handle such case.
 static void findAllShlAShrPaths(
     Instruction *TIDCallInst, unsigned TruncatedToBitSize, DefUseTree &Paths) {
-  User *U = static_cast<User *>(TIDCallInst);
-  // I don't know why it's designed as such, but df_iterator will increase
-  // itself by 1 after calling skipChildren(), so we cannot use ++It in the
-  // for-clause (which makes the code really ugly).
-  for (auto It = ++df_begin(U), End = df_end(U); It != End;) {
-    Instruction *I = cast<Instruction>(*It);
-
-    // The first node in the path is TIDCallInst, and the second node should be
-    // Shl instruction.
-    if (It.getPathLength() == 2) {
-      if (I->getOpcode() != Instruction::Shl) {
-        It.skipChildren();
-        continue;
-      }
-
-      ConstantInt *ShlBitSize = dyn_cast<ConstantInt>(I->getOperand(1));
-      if (!ShlBitSize || ShlBitSize->getZExtValue() != TruncatedToBitSize) {
-        It.skipChildren();
-        continue;
-      }
-
-      ++It;
+  for (User *ShlU : TIDCallInst->users()) {
+    Instruction *Shl = dyn_cast<Instruction>(ShlU);
+    if (!Shl || Shl->getOpcode() != Instruction::Shl)
       continue;
-    }
 
-    switch (I->getOpcode()) {
-    case Instruction::Add:
-    case Instruction::Sub:
-    case Instruction::Mul:
-      if (!isa<ConstantInt>(I->getOperand(0)) &&
-          !isa<ConstantInt>(I->getOperand(1))) {
-        It.skipChildren();
-        continue;
-      }
-      break;
-    case Instruction::AShr: {
-      ConstantInt *AShrByVal = dyn_cast<ConstantInt>(I->getOperand(1));
-      if (AShrByVal && AShrByVal->getZExtValue() == TruncatedToBitSize) {
-        Instruction *LastI = TIDCallInst;
-        for (unsigned i = 1, len = It.getPathLength(); i < len; i++) {
-          Instruction *CurrI = cast<Instruction>(It.getPath(i));
-          Paths[LastI].insert(CurrI);
-          LastI = CurrI;
+    for (User *U : Shl->users()) {
+      DefUseTree CurrPaths;
+      // I don't know why it's designed as such, but df_iterator will increase
+      // itself by 1 after calling skipChildren(), so we cannot use ++It in the
+      // for-clause (which makes the code really ugly).
+      for (auto It = df_begin(U), End = df_end(U); It != End;) {
+        Instruction *I = cast<Instruction>(*It);
+        switch (I->getOpcode()) {
+        case Instruction::Add:
+        case Instruction::Sub:
+        case Instruction::Mul:
+          if (!isa<ConstantInt>(I->getOperand(0)) &&
+              !isa<ConstantInt>(I->getOperand(1)))
+            // add/sub/mul has no constant operands, thus abandon this subtree.
+            goto Continue;
+          break;
+        case Instruction::AShr: {
+          ConstantInt *AShrByVal = dyn_cast<ConstantInt>(I->getOperand(1));
+          if (AShrByVal && AShrByVal->getZExtValue() == TruncatedToBitSize) {
+            Instruction *LastI = Shl;
+            // Add the path starting from shl and ending with ashr to CurrPaths
+            for (unsigned i = 0, len = It.getPathLength(); i < len; i++) {
+              Instruction *CurrI = cast<Instruction>(It.getPath(i));
+              CurrPaths[LastI].insert(CurrI);
+              LastI = CurrI;
+            }
+            It.skipChildren();
+            continue;
+          }
+          // The 2nd oprand of Shl isn't expected, thus abandon this subtree.
+          goto Continue;
         }
+        default:
+          // If we encounter any other instructions, abandon this subtree.
+          goto Continue;
+        }
+        ++It;
       }
-      break;
+
+      // Merge the current paths into the result.
+      Paths[TIDCallInst].insert(Shl);
+      for (auto &KV : CurrPaths)
+        Paths[KV.first].insert(KV.second.begin(), KV.second.end());
+Continue:
+      ;
     }
-    default:
-      // If we encounter any other instructions, stop travsering this path.
-      It.skipChildren();
-      continue;
-    }
-    ++It;
   }
 }
 
@@ -256,14 +304,11 @@ static void optimizedUpdateAndMoveTID(Instruction *TIDCallInst, PHINode *Phi,
   // Replace all uses of TID with AddSExt, except truncating sequences that go
   // back to same size as Add. NOTE: This will also exclude TIDTrunc since Add
   // and Phi are of same type.
-  TIDCallInst->replaceUsesWithIf(AddSExt, [Add, &ShlAShrPathHeaders](Use &U) {
+  TIDCallInst->replaceUsesWithIf(AddSExt, [Add](Use &U) {
     User *Usr = U.getUser();
-    if (auto *UsrTruncInst = dyn_cast<TruncInst>(Usr)) {
+    if (auto *UsrTruncInst = dyn_cast<TruncInst>(Usr))
       if (UsrTruncInst->getDestTy() == Add->getType())
         return false;
-    }
-    if (ShlAShrPathHeaders.count(cast<Instruction>(Usr)))
-      return false;
     return true;
   });
 
@@ -295,13 +340,23 @@ static void optimizedUpdateAndMoveTID(Instruction *TIDCallInst, PHINode *Phi,
       WorkList.push_back(ShlUser);
       do {
         Instruction *I = WorkList.pop_back_val();
+        unsigned OpCode = I->getOpcode();
         // Eliminate AShr by replacing it with its 0-th operand.
-        if (I->getOpcode() == Instruction::AShr) {
+        if (OpCode == Instruction::AShr) {
           ReplacePairs.emplace_back(I, cast<Instruction>(I->getOperand(0)));
           continue;
         }
 
-        // Shift back all constant values in add/sub/mul instructions.
+        auto &Users = ShlAShrPaths[I];
+        WorkList.append(Users.begin(), Users.end());
+
+        // When id < 2^32,
+        //   ((id << 32) * c) >> 32 == id * c,
+        // so, we do nothing for mul instructions.
+        if (OpCode == Instruction::Mul)
+          continue;
+
+        // Shift back all constant values in add/sub instructions.
         unsigned OpPos = 0;
         ConstantInt *Val = dyn_cast<ConstantInt>(I->getOperand(0));
         if (!Val) {
@@ -311,9 +366,6 @@ static void optimizedUpdateAndMoveTID(Instruction *TIDCallInst, PHINode *Phi,
         ConstantInt *NewVal =
             ConstantInt::get(Val->getType(), Val->getSExtValue() >> AddTypeSize);
         I->setOperand(OpPos, NewVal);
-
-        auto &Users = ShlAShrPaths[I];
-        WorkList.append(Users.begin(), Users.end());
       } while (!WorkList.empty());
     }
     if (Shl->getNumUses() == 0)
