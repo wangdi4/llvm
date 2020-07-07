@@ -1,6 +1,9 @@
 # Lowering of SYCL ESIMD kernels depends on vc-intrinsics
 # NOTE: could have been added earlier from llvm/projects
 if (NOT TARGET LLVMGenXIntrinsics)
+if( INTEL_CUSTOMIZATION )
+  set( LLVMGenXIntrinsics_SOURCE_DIR ${LLVM_MAIN_SRC_DIR}/../external/vc-intrinsics)
+endif()
   if (NOT DEFINED LLVMGenXIntrinsics_SOURCE_DIR)
     message(STATUS "vc-intrinsics are missing. Will try to download them from github.com")
 
