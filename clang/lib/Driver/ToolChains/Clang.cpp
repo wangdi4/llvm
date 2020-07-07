@@ -6519,10 +6519,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   }
 #if INTEL_COLLAB
   // fixup -paropt value
-  if (Args.hasArg(options::OPT_fiopenmp)) {
+  if (Args.hasArg(options::OPT_fiopenmp, options::OPT_fiopenmp_simd)) {
     int paroptVal = IsOpenMPDevice ? 0x20 : 0x0;
     bool paroptSeen = false;
-    StringRef paropt = "31";
+    StringRef paropt = Args.hasArg(options::OPT_fiopenmp) ? "31" : "11";
 
     for (const Arg *A : Args.filtered(options::OPT_mllvm)) {
       StringRef Str(A->getValue(0));
