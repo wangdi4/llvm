@@ -124,6 +124,8 @@ public:
 
   void emitStartOfAsmFile(Module &M) override;
 
+  void emitNotifyTable(Module &M); // INTEL
+
   void emitEndOfAsmFile(Module &M) override;
 
   void emitInstruction(const MachineInstr *MI) override;

@@ -787,12 +787,191 @@ void X86AsmPrinter::emitEndOfAsmFile(Module &M) {
       OutStreamer->emitSymbolAttribute(S, MCSA_Global);
       return;
     }
+    emitNotifyTable(M); // INTEL
     emitStackMaps(SM);
   } else if (TT.isOSBinFormatELF()) {
+    emitNotifyTable(M); // INTEL
     emitStackMaps(SM);
     FM.serializeToFaultMapSection();
   }
 }
+#if INTEL_CUSTOMIZATION
+void X86AsmPrinter::emitNotifyTable(Module &M) {
+  std::vector<NotifyEntry> NotifyAnnotations = MMI->getNotifyAnnotations();
+  if (NotifyAnnotations.empty())
+    return;
+
+  // When we create PIE or .so library on linux
+  // we should emit PC-relative relocations against anchors.
+  // This keeps table to be read only and avoids related issues
+  // with tools reading this information.
+  // Optimization report annotations are considered a debug data
+  // so segment is not loaded at run time.
+  bool EmitTabV0102 = false;
+
+  // __notify_intrinsic or __notify_zc_intrinsic will generate information
+  // (e,g data race) for "Low Overhead Tool Annotations". These information
+  // will be saved into a .itt_notify_tab section (.itt_not for windows).
+  MCSection *Notify = nullptr;
+  const Triple &TT = TM.getTargetTriple();
+  if (TT.isOSBinFormatELF()) {
+    EmitTabV0102 = isPositionIndependent();
+    Notify = MMI->getContext().getELFSection(
+             ".itt_notify_tab", ELF::SHT_PROGBITS, ELF::SHF_ALLOC);
+  } else if (TT.isOSBinFormatCOFF()) {
+    Notify = MMI->getContext().getCOFFSection(".itt_not",
+             COFF::IMAGE_SCN_CNT_INITIALIZED_DATA | COFF::IMAGE_SCN_MEM_READ,
+             SectionKind::getData());
+  } else
+    llvm_unreachable("Unsupported OS Binary Format for NOTIFY TOOLs!");
+
+  if (!Notify)
+    return;
+
+  //  Fill in notify table section with data:
+  //   Section structure:
+  //   --------------- Beginning of notify table ---------------------
+  //   ZcaHeaderT: Notify table header.
+  //      char      Magic[ITT_TABLE_IDENT_SIZE]; // ".itt_notify_tab"
+  //      uint16_t  version;        // VersionMajor:1 VersionMinor:1/2
+  //      uint16_t  HeaderSize;     // byte size of this header structure
+  //                                // !!! only in 1.2 version
+  //      uint16_t  EntryCount;     // number of entries in the table
+  //                                // !!! uint32_t in 1.2 version
+  //      uint32_t  Strings;        // string table offset
+  //      uint32_t  StringsLen;     // byte size of string table
+  //      uint32_t  Expr;           // expression table offset
+  //      uint32_t  ExprLen;        // byte size of expression table
+  //      uint64_t  Flags;          // various flags bit set
+  //                    TBD Flags=? // !!! only in 1.2 version
+  //
+  //      Offsets are in bytes from the beginning of the section.
+  //   ------------------------------------
+  //  ZcaEntryT: Array of table entries.
+  //  Each entry has the following structure:
+  //
+  //      uint64_t    IP;                // notify anchor PC address.
+  //      uint32_t    ProbeSpace;        // length of nop-instructions
+  //        sequence followed anchor address. Usually that is size of
+  //        jmp instruction and can be used by tools for instrumentation
+  //        purpose. This field is not emitted if all entries in the table
+  //        have zero size probe region. Presence of this field is indicated
+  //        by NT_have_probe_region flag in the header.
+  //      uint32_t    Annotation; // offset of annotation string relative
+  //                              // to the beginning of the string table
+  //      uint32_t    Expr;       // offset of dwarf expression relative
+  //                              // the beginning of the expression table.
+  //                          TBD?// 1st byte contain the size of the expr.
+  //   ------------------------------------
+  //   Annotation string table
+  //     String table is a sequence of null-terminated strings followed
+  //     each other. Two different table entries may refer to the same
+  //     string in the table.
+  //   ------------------------------------
+  //   DWARF location expression table
+  //     Expression is block of form DW_FORM_block1 - a 1 byte length
+  //     followed by 0 to 255 information bytes.
+  //   ------------------------------------
+  //   Probe tools how to find the data in sting table:
+  //   (For e.g Annotation string, same with expr)
+  //   S1: Get the ZcaHeaderT address.
+  //   S2: Get the ZcaHeaderT.Strings.
+  //   S3: Get the ZcaEntryT.Annotation.
+  //   S4: Offset = &ZcaHeaderT + ZcaHeaderT.Strings + ZcaEntryT.Annotation
+  //   S5: Read the Annotation string from Offset.
+  //
+  //   ------------------ End of notify table ---------------------
+
+  // 1.1 version of notify table does not have capability to indicate
+  // what relocation type is used for anchor_address field.
+  // Thus if we need PC-relative relocations emit version to 1.2.
+  // Calculation of anchor address thus is different:
+  // it is a sum of address of .itt_notify_tab table and a value
+  // of anchor address structure field for a corresponding anchor.
+  int16_t Version = EmitTabV0102 ? 0x0102 : 0x0101;
+
+  OutStreamer->SwitchSection(Notify);
+
+  MCSymbol *NotifyStart = MMI->getContext().getOrCreateSymbol("itt_notify_tab");
+  MCSymbol *EntriesStart = MMI->getContext().createTempSymbol("notify_entries");
+  MCSymbol *StringsStart = MMI->getContext().createTempSymbol("notify_strings");
+  MCSymbol *ExprsStart = MMI->getContext().createTempSymbol("notify_exprs");
+  MCSymbol *NotifyEnd =
+      MMI->getContext().createTempSymbol("itt_notify_tab_end");
+
+  // Emit itt_notify_tab header
+  OutStreamer->emitLabel(NotifyStart);
+  OutStreamer->emitBytes(".itt_notify_tab"); // magic[magic_sz]
+  OutStreamer->emitIntValue(0, 1);           // '\0'
+  OutStreamer->emitIntValue(Version, 2);     // version
+  if (EmitTabV0102) {
+    emitLabelDifference(EntriesStart, NotifyStart, 2);      // Header size
+    OutStreamer->emitIntValue(NotifyAnnotations.size(), 4); // Entry count v1.2
+  } else
+    OutStreamer->emitIntValue(NotifyAnnotations.size(), 2); // Entry count v1.1
+  emitLabelDifference(StringsStart, NotifyStart, 4); // Offset of strings
+  emitLabelDifference(ExprsStart, StringsStart, 4);  // Size of strings
+  emitLabelDifference(ExprsStart, NotifyStart, 4);   // Offset of exprs
+  emitLabelDifference(NotifyEnd, ExprsStart, 4);     // Size of exprs
+  if (EmitTabV0102) {
+    const uint64_t AnchorsPCRelFlag = 0x01L;  // veriosn 1.2
+
+    // Determining of non-zero probe region size is based on instruction
+    // counter which does not actually work for assembler emission.
+    // In such a case we assume "it can be non-zero" and thus
+    // emit it unconditionally.
+    const uint64_t ProbeRegionNZFlag = 0x02L;
+    // 0x04L; Not involved. For non-itt-table. Maybe extend it on the future.
+    int64_t Flags = AnchorsPCRelFlag;
+    Flags |= ProbeRegionNZFlag;
+
+    if (TM.getTargetTriple().isArch32Bit()) {
+      const uint64_t AnchorAddress32 = 0x08L;
+      Flags |= AnchorAddress32;          // Only use low 32 bit of Entry.IP
+    }
+    OutStreamer->emitIntValue(Flags, 8); // Header flags
+  }
+
+  // Emit entries table
+  // Entry: {unint64 ip, unint32 probespace, unint32 annotation, uint32 expr}
+  emitAlignment(Align(4));
+  OutStreamer->emitLabel(EntriesStart);
+  uint32_t StringOffset = 0;
+  uint32_t ExprOffset = 0;
+  for (auto Entry : NotifyAnnotations) {
+    if (EmitTabV0102)
+      emitLabelDifference(Entry.IP, NotifyStart, 8);  // Notify Position
+    else
+      OutStreamer->emitSymbolValue(Entry.IP, 8);      // TBD align 4?
+    emitLabelDifference(Entry.ProbeEnd, Entry.IP, 4); // Probespace
+    OutStreamer->emitIntValue(StringOffset, 4);       // Offset in strings
+
+    OutStreamer->emitIntValue(ExprOffset, 4);    // Offset in exprs
+    StringOffset += Entry.Annotation.size() + 1; // +1 for '\0'
+
+    // +1: The first byte in ExprDwarfReg is the length of dwarf expr.
+    ExprOffset += (Entry.ExprDwarfReg & 0xff) + 1;
+  }
+
+  // Emit the strings data
+  OutStreamer->emitLabel(StringsStart);
+  for (auto Entry : NotifyAnnotations) {
+    OutStreamer->emitBytes(Entry.Annotation);
+    OutStreamer->emitIntValue(0, 1); //'\0'
+  }
+
+  // Emit the exprs data
+  OutStreamer->emitLabel(ExprsStart);
+  for (auto Entry : NotifyAnnotations) {
+    uint32_t ExprSize = (Entry.ExprDwarfReg & 0xff) + 1;
+    OutStreamer->emitIntValue(Entry.ExprDwarfReg, ExprSize);
+  }
+
+  OutStreamer->emitLabel(NotifyEnd);
+
+  OutStreamer->endSection(Notify);
+}
+#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 // Target Registry Stuff

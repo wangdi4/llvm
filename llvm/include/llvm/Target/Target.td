@@ -1061,6 +1061,15 @@ def ANNOTATION_LABEL : StandardPseudoInstruction {
   let hasSideEffects = 0;
   let isNotDuplicable = 1;
 }
+// INTEL_CUSTOMIZATION
+def NOTIFY_LABEL : StandardPseudoInstruction {
+  let OutOperandList = (outs);
+  let InOperandList = (ins i8imm:$src0, ptr_rc:$src1, ptr_rc:$src2);
+  let AsmString = "";
+  let hasCtrlDep = 1;
+  let hasSideEffects = 0;
+}
+// end INTEL_CUSTOMIZATION
 def KILL : StandardPseudoInstruction {
   let OutOperandList = (outs);
   let InOperandList = (ins variable_ops);

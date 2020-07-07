@@ -1121,6 +1121,110 @@ static bool needFuncLabelsForEHOrDebugInfo(const MachineFunction &MF) {
       classifyEHPersonality(MF.getFunction().getPersonalityFn()));
 }
 
+#if INTEL_CUSTOMIZATION
+static void emitNotifyAnnotation(AsmPrinter *Asm,
+                                 MachineInstr &MI,
+                                 MachineBasicBlock &MBB,
+                                 MachineFunction *MF,
+                                 MachineModuleInfo *MMI) {
+  // Operand0: 0-->NOTIFY_ZC, 1-->NOTIFY_NZC, 2-->NOTIFY ProbeEnd
+  const unsigned int IdxNotifyZC = 0;
+  const unsigned int IdxNotifyNZC = 1;
+  const unsigned int IdxProbeEnd = 2;
+
+  // Emit a ProbeEnd label if this is a ProbeEnd MI.
+  if (MI.getOperand(0).getImm() == IdxProbeEnd) {
+    MCSymbol *ProbeEnd = MI.getOperand(1).getMCSymbol();
+    Asm->OutStreamer->emitLabel(ProbeEnd);
+    return;
+  }
+
+  // Emit the notify intrinsic information.
+  MCSymbol *IP = MI.getOperand(1).getMCSymbol();
+  Asm->OutStreamer->emitLabel(IP);
+
+  NotifyEntry *Entry = MMI->getNotifyEntry(IP);
+  std::string AnnoStr(Entry->Annotation.str());
+
+  auto TII = MF->getSubtarget().getInstrInfo();
+  std::string Inst("__notify_intrinsic");
+  if (MI.getOperand(0).getImm() == IdxNotifyZC) {
+    Inst = "__notify_zc_intrinsic";
+    auto I = MachineBasicBlock::instr_iterator(&MI);
+    ++I;
+    MachineInstrBuilder MIB =
+        BuildMI(MBB, I, MBB.findDebugLoc(I),
+                TII->get(TargetOpcode::NOTIFY_LABEL));
+    MIB.addImm(2);
+    MIB.addSym(Entry->ProbeEnd);
+  }
+
+  // __notify_*_intrinsic (const char* str, const volatile void* expr)
+  // Get the dwarf encoding of register which corresponding to expr.
+  MCRegister RegNum = MI.getOperand(2).getReg();
+  unsigned DwarfReg =
+      MF->getSubtarget().getRegisterInfo()->getDwarfRegNum(RegNum, false);
+  std::string DwarfRegStr("dwarf::DW_OP_reg");
+  Entry->ExprDwarfReg = dwarf::DW_OP_reg0 + DwarfReg;
+
+  if (DwarfReg >= 32) {
+    DwarfRegStr = "dwarf::DW_OP_regx";
+    Entry->ExprDwarfReg = dwarf::DW_OP_regx + DwarfReg;
+  }
+
+  // The expr need to contain the length of it at 1st byte, so "<< 8" here.
+  // TBD, The dwarf size of register which corresponding to expr is always 1?
+  Entry->ExprDwarfReg = (Entry->ExprDwarfReg << 8) + 0x01;
+
+  std::string RegNumStr = APInt(32, DwarfReg).toString(10, false);
+  std::string SS = Inst + "(" + AnnoStr + ", " + DwarfRegStr + RegNumStr + ")";
+  Asm->OutStreamer->emitRawComment(SS);
+
+  // __notify_intrinsic (NZC: Not Zero Cost) need to calculate probesize
+  if (MI.getOperand(0).getImm() == IdxNotifyNZC) {
+    unsigned int Num = 0;
+    unsigned int InstSizeEstm = 0;
+
+    auto I = MachineBasicBlock::instr_iterator(&MI);
+    ++I;
+    bool IsNextNZC = I != MBB.end() &&
+                     I->getOpcode() == TargetOpcode::NOTIFY_LABEL &&
+                     I->getOperand(0).getImm() == IdxNotifyNZC;
+
+    do {
+      assert(Num < MBB.size() && "MI is in the MBB, loop count overflow");
+
+      // Find the end of probe and create the probe end 'label'
+      if (I == MBB.end() || I->getOpcode() == TargetOpcode::NOTIFY_LABEL ||
+          I->isCall() || I->isReturn() || I->isBranch()) {
+        MachineInstrBuilder MIB =
+            BuildMI(MBB, I, MBB.findDebugLoc(I),
+                    TII->get(TargetOpcode::NOTIFY_LABEL));
+        MIB.addImm(2);
+        MIB.addSym(Entry->ProbeEnd);
+        break;
+      }
+
+      // TBD Use instructions' num to approximately and conservatively
+      // estimate the instructions size now.
+      if (!MI.isMetaInstruction())
+        InstSizeEstm++;
+
+      ++I;
+      ++Num;
+    } while(I != MBB.end());
+
+    // TBD refine here, here should make sure there 6 bytes minimum
+    // probespace. (5 bytes if IA-32). We don't know the instruction size
+    // before we do encoding. So we use the number of instructions' operands
+    // approximately estimate the current probe size.
+    const unsigned int ProbesMinSpace = 6;
+    if (!IsNextNZC && InstSizeEstm < ProbesMinSpace)
+      Asm->emitNops(ProbesMinSpace - InstSizeEstm);
+  }
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// EmitFunctionBody - This method emits the body and trailer for a
 /// function.
 void AsmPrinter::emitFunctionBody() {
@@ -1214,6 +1318,12 @@ void AsmPrinter::emitFunctionBody() {
       case TargetOpcode::KILL:
         if (isVerbose()) emitKill(&MI, *this);
         break;
+#if INTEL_CUSTOMIZATION
+      case TargetOpcode::NOTIFY_LABEL: {
+        emitNotifyAnnotation(this, MI, MBB, MF, MMI);
+        break;
+      }
+#endif // INTEL_CUSTOMIZATION
       default:
         emitInstruction(&MI);
         break;

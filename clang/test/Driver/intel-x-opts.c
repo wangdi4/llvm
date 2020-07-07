@@ -1,5 +1,17 @@
 /// Test behaviors for -x and /Qx options
 
+// RUN: %clang -### -c -xSSE -m32 %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XSSE,ADV_OPT %s
+// RUN: %clang_cl -### -c /QxSSE -m32 %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XSSE,ADV_OPT %s
+// XSSE: "-target-cpu" "pentium3"
+
+// RUN: %clang -### -c -xA -m32 %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XA,ADV_OPT %s
+// RUN: %clang_cl -### -c /QxA -m32 %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=XA,ADV_OPT %s
+// XA: "-target-cpu" "pentium"
+
 // RUN: %clang -### -c -xSSE2 -m32 %s 2>&1 \
 // RUN:  | FileCheck -check-prefixes=XSSE2,ADV_OPT %s
 // RUN: %clang_cl -### -c /QxSSE2 -m32 %s 2>&1 \

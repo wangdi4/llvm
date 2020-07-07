@@ -1853,6 +1853,27 @@ SDValue SelectionDAG::getLabelNode(unsigned Opcode, const SDLoc &dl,
   InsertNode(N);
   return SDValue(N, 0);
 }
+#if INTEL_CUSTOMIZATION
+SDValue SelectionDAG::getLabelNode(unsigned Opcode, const SDLoc &dl,
+                                   SDValue Root, SDValue Src0, SDValue Src1,
+                                   MCSymbol *Label) {
+  FoldingSetNodeID ID;
+  SDValue Ops[] = { Root, Src0, Src1};
+  AddNodeIDNode(ID, Opcode, getVTList(MVT::Other), Ops);
+  ID.AddPointer(Label);
+  void *IP = nullptr;
+  if (SDNode *E = FindNodeOrInsertPos(ID, IP))
+    return SDValue(E, 0);
+
+  auto *N =
+      newSDNode<LabelSDNode>(Opcode, dl.getIROrder(), dl.getDebugLoc(), Label);
+  createOperands(N, Ops);
+
+  CSEMap.InsertNode(N, IP);
+  InsertNode(N);
+  return SDValue(N, 0);
+}
+#endif // INTEL_CUSTOMIZATION
 
 SDValue SelectionDAG::getBlockAddress(const BlockAddress *BA, EVT VT,
                                       int64_t Offset, bool isTarget,

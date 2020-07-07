@@ -47,6 +47,7 @@ static bool doesNotGeneratecode(const MachineInstr &MI) {
   case TargetOpcode::KILL:
   case TargetOpcode::CFI_INSTRUCTION:
   case TargetOpcode::EH_LABEL:
+  case TargetOpcode::NOTIFY_LABEL: // INTEL
   case TargetOpcode::GC_LABEL:
   case TargetOpcode::DBG_VALUE:
   case TargetOpcode::DBG_LABEL:

@@ -2106,7 +2106,8 @@ public:
 
   static bool classof(const SDNode *N) {
     return N->getOpcode() == ISD::EH_LABEL ||
-           N->getOpcode() == ISD::ANNOTATION_LABEL;
+           N->getOpcode() == ISD::ANNOTATION_LABEL || // INTEL
+           N->getOpcode() == ISD::NOTIFY_LABEL;       // INTEL
   }
 };
 

@@ -708,6 +708,8 @@ public:
   SDValue getEHLabel(const SDLoc &dl, SDValue Root, MCSymbol *Label);
   SDValue getLabelNode(unsigned Opcode, const SDLoc &dl, SDValue Root,
                        MCSymbol *Label);
+  SDValue getLabelNode(unsigned Opcode, const SDLoc &dl, SDValue Root, // INTEL
+                       SDValue Src0, SDValue Src1, MCSymbol *Label);   // INTEL
   SDValue getBlockAddress(const BlockAddress *BA, EVT VT, int64_t Offset = 0,
                           bool isTarget = false, unsigned TargetFlags = 0);
   SDValue getTargetBlockAddress(const BlockAddress *BA, EVT VT,

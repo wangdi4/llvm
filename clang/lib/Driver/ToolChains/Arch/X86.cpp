@@ -21,10 +21,13 @@ using namespace clang;
 using namespace llvm::opt;
 
 #if INTEL_CUSTOMIZATION
-const char *getCPUForIntel(StringRef Arch, const llvm::Triple &Triple) {
+const char *getCPUForIntel(StringRef Arch, const llvm::Triple &Triple,
+                           bool IsArchOpt = false) {
   const char *CPU = nullptr;
-  if (Triple.getArch() == llvm::Triple::x86) { // 32-bit-only
+  if (Triple.getArch() == llvm::Triple::x86 && !IsArchOpt) { // 32-bit-only
     CPU = llvm::StringSwitch<const char *>(Arch)
+              .Case("A", "pentium")
+              .CaseLower("sse", "pentium3")
               .CaseLower("sse2", "pentium4")
               .Default(nullptr);
   }
@@ -34,7 +37,7 @@ const char *getCPUForIntel(StringRef Arch, const llvm::Triple &Triple) {
               .CaseLower("ssse3", "core2")
               .CaseLower("sse4.1", "penryn")
               .CaseLower("sse4.2", "corei7")
-              .CasesLower("avx", "sandybridge", "corei7-avx")
+              .CaseLower("sandybridge", "corei7-avx")
               .CasesLower("core-avx2", "core_avx2", "haswell", "core-avx2")
               .CasesLower("core-avx-i", "core_avx_i", "ivybridge", "core-avx-i")
               .CasesLower("atom-ssse3", "atom_ssse3", "atom")
@@ -62,10 +65,17 @@ const char *getCPUForIntel(StringRef Arch, const llvm::Triple &Triple) {
               .CaseLower("host", llvm::sys::getHostCPUName().data())
               .Default(nullptr);
   }
+  // We check for valid /arch and /Qx values, so overlap values are covered
+  // here.
+  if (CPU == nullptr && !IsArchOpt) {
+    CPU = llvm::StringSwitch<const char *>(Arch)
+              .CaseLower("avx", "corei7-avx")
+              .Default(nullptr);
+  }
   if (!CPU) {
     // No match found.  Instead of erroring out with a bad language type, we
     // will pass the arg to the compiler to validate.
-    if (!types::lookupTypeForTypeSpecifier(Arch.data()))
+    if (!IsArchOpt && !types::lookupTypeForTypeSpecifier(Arch.data()))
       CPU = Arch.data();
   }
   return CPU;
@@ -138,6 +148,11 @@ const char *x86::getX86TargetCPU(const ArgList &Args,
                 .Case("AVX512", "skylake-avx512")
                 .Default(nullptr);
     }
+#if INTEL_CUSTOMIZATION
+    // Handle 'other' /arch variations that are allowed for icx/Intel
+    if (CPU == nullptr)
+      CPU = getCPUForIntel(Arch, Triple, true);
+#endif // INTEL_CUSTOMIZATION
     if (CPU) {
       A->claim();
       return CPU;
