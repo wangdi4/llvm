@@ -2783,7 +2783,11 @@ void Driver::BuildInputs(const ToolChain &TC, DerivedArgList &Args,
         llvm::sys::path::append(LibName, IsMSVC ? "daal_sycl.lib"
                                                 : "libdaal_sycl.a");
       }
-      if (!LibName.empty()) {
+      // Only add the static lib if used with -static or is Windows.
+      // DAAL is also only available in static form.
+      if ((Args.hasArg(options::OPT_static) ||
+           A->getOption().matches(options::OPT_daal_EQ) || IsMSVC) &&
+          !LibName.empty()) {
         // Add the library as an offload static library and also add as a lib
         // direct on the command line.
         Args.AddJoinedArg(A,

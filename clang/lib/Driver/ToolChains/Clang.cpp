@@ -8310,6 +8310,14 @@ void PartialLink::ConstructJob(Compilation &C, const JobAction &JA,
   LinkArgs.push_back(Output.getFilename());
 
   const ToolChain *HTC = C.getSingleOffloadToolChain<Action::OFK_Host>();
+#if INTEL_CUSTOMIZATION
+  // Add elf target
+  LinkArgs.push_back("-m");
+  if (HTC->getTriple().getArch() == llvm::Triple::x86_64)
+    LinkArgs.push_back("elf_x86_64");
+  else
+    LinkArgs.push_back("elf_i386");
+#endif // INTEL_CUSTOMIZATION
   // Add crt objects
   LinkArgs.push_back(TCArgs.MakeArgString(HTC->GetFilePath("crt1.o")));
   LinkArgs.push_back(TCArgs.MakeArgString(HTC->GetFilePath("crti.o")));
