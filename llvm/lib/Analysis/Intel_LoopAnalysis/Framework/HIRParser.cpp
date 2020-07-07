@@ -3542,11 +3542,11 @@ bool HIRParser::GEPChain::isCompatible(const ArrayInfo &NextArr) const {
   unsigned MaxCommonRank = std::min(NextArr.getMaxRank(), CurArr.getMaxRank());
   unsigned MinCommonRank = std::max(NextArr.getMinRank(), CurArr.getMinRank());
   for (auto Rank = MinCommonRank; Rank <= MaxCommonRank; ++Rank) {
-    auto *S1 = CurArr.getDim(Rank).getStride();
-    auto *S2 = NextArr.getDim(Rank).getStride();
+    auto &R1 = CurArr.getDim(Rank);
+    auto &R2 = NextArr.getDim(Rank);
 
     // Skip gaps in current array info.
-    if (!S1) {
+    if (!R1.getStride()) {
       // Example chain for (%p)[a+x][b][c+y]:
       //   %0 = gep [10 x [10 x i8]]* %p, a, b, c
       //   %1 = subs %0, r:2, 100, x
@@ -3557,9 +3557,14 @@ bool HIRParser::GEPChain::isCompatible(const ArrayInfo &NextArr) const {
       continue;
     }
 
-    assert(S2 && "Unexpected stride gaps in NextArr");
+    assert(R2.getStride() && "Unexpected stride gaps in NextArr");
 
-    if (S1 != S2) {
+    // May always merge new index if current is zero.
+    if (R1.isZero()) {
+      continue;
+    }
+
+    if (R1.getStride() != R2.getStride()) {
       return false;
     }
   }

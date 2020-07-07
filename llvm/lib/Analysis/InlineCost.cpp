@@ -3102,7 +3102,7 @@ static int worthInliningUnderSpecialCondition(CallBase &CB,
     return 0;
   if (isProfInstrumentHotCallSite(CB, PSI, PrepareForLTO)) {
     YesReasonVector.push_back(InlrHotProfile);
-    return -InlineConstants::DeepInliningHeuristicBonus;
+    return -InlineConstants::InliningHeuristicBonus;
   }
   if (isDoubleCallSite(F)) {
     // If there are two calls of the function, the cost of inlining it may
@@ -3120,8 +3120,7 @@ static int worthInliningUnderSpecialCondition(CallBase &CB,
   }
   if (worthInliningForFusion(CB, &TLI, CalleeTTI, ILIC, PrepareForLTO)) {
     YesReasonVector.push_back(InlrForFusion);
-    return PrepareForLTO ? -InlineConstants::InliningHeuristicBonus
-                         : -InlineConstants::VeryDeepInliningHeuristicBonus;
+    return -InlineConstants::InliningHeuristicBonus;
   }
   if (worthInliningForDeeplyNestedIfs(CB, ILIC, IsCallerRecursive,
     PrepareForLTO)) {
@@ -3143,35 +3142,35 @@ static int worthInliningUnderSpecialCondition(CallBase &CB,
   }
   if (worthInliningForRecProgressionClone(F)) {
     YesReasonVector.push_back(InlrRecProClone);
-    return -InlineConstants::VeryDeepInliningHeuristicBonus;
+    return -InlineConstants::InliningHeuristicBonus;
   }
   if (preferPartialInlineHasExtractedRecursiveCall(*F, PrepareForLTO)) {
     YesReasonVector.push_back(InlrHasExtractedRecursiveCall);
-    return -InlineConstants::DeepInliningHeuristicBonus;
+    return -InlineConstants::InliningHeuristicBonus;
   }
   if (preferPartialInlineInlinedClone(F)) {
     YesReasonVector.push_back(InlrPreferPartialInline);
-    return -InlineConstants::DeepInliningHeuristicBonus;
+    return -InlineConstants::InliningHeuristicBonus;
   }
   if (worthInliningCallSitePassedDummyArgs(CB, PrepareForLTO)) {
     YesReasonVector.push_back(InlrPassedDummyArgs);
-    return -InlineConstants::DeepInliningHeuristicBonus;
+    return -InlineConstants::InliningHeuristicBonus;
   }
   if (worthInliningForArrayStructArgs(CB, PrepareForLTO)) {
     YesReasonVector.push_back(InlrArrayStructArgs);
-    return -InlineConstants::DeepInliningHeuristicBonus;
+    return -InlineConstants::InliningHeuristicBonus;
   }
   if (preferInlineTileChoice(CB)) {
     YesReasonVector.push_back(InlrPreferTileChoice);
-    return -InlineConstants::VeryDeepInliningHeuristicBonus;
+    return -InlineConstants::InliningHeuristicBonus;
   }
   if (preferInlineForManyRecursiveCallsSplitting(CB)) {
     YesReasonVector.push_back(InlrManyRecursiveCallsSplitting);
-    return -InlineConstants::VeryDeepInliningHeuristicBonus;
+    return -InlineConstants::InliningHeuristicBonus;
   }
   if (preferInlineAggressive(CB)) {
     YesReasonVector.push_back(InlrAggInline);
-    return -InlineConstants::VeryDeepInliningHeuristicBonus;
+    return -InlineConstants::InliningHeuristicBonus;
   }
   return 0;
 }
