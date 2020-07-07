@@ -5142,6 +5142,20 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
     if (!UnbundlerInputs.empty()) {
       Action *PartialLink =
           C.MakeAction<PartialLinkJobAction>(UnbundlerInputs, types::TY_Object);
+#if INTEL_CUSTOMIZATION
+      if (!LastArg) {
+        // If the Action is of OffloadAction type, use the HostAction of the
+        // specific Offload Action to set LastArg
+        if (auto *OA = dyn_cast<OffloadAction>(UnbundlerInputs.back()))
+          LastArg =
+              &(dyn_cast<InputAction>(OA->getHostDependence())->getInputArg());
+        else if (auto *IA = dyn_cast<InputAction>(UnbundlerInputs.back()))
+          // else set the LastArg based on Last InputAction
+          LastArg = &(IA->getInputArg());
+
+        assert(LastArg!=nullptr);
+      }
+#endif // INTEL_CUSTOMIZATION
       Action *Current = C.MakeAction<InputAction>(*LastArg, types::TY_Object);
       ActionList AL;
       AL.push_back(PartialLink);
