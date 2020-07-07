@@ -1683,14 +1683,16 @@ void CodeGenModule::GenOpenCLArgMetadata(llvm::Function *Fn,
   Fn->setMetadata("kernel_arg_type_qual",
                   llvm::MDNode::get(VMContext, argTypeQuals));
 #if INTEL_CUSTOMIZATION
-  Fn->setMetadata("kernel_arg_host_accessible",
-                  llvm::MDNode::get(VMContext, argHostAccessible));
-  Fn->setMetadata("kernel_arg_pipe_depth",
-                  llvm::MDNode::get(VMContext, argPipeDepthAttr));
-  Fn->setMetadata("kernel_arg_pipe_io",
-                  llvm::MDNode::get(VMContext, argPipeIOAttr));
-  Fn->setMetadata("kernel_arg_buffer_location",
-                  llvm::MDNode::get(VMContext, argBufferLocationAttr));
+  if (!LangOpts.SYCLIsDevice) {
+    Fn->setMetadata("kernel_arg_host_accessible",
+                    llvm::MDNode::get(VMContext, argHostAccessible));
+    Fn->setMetadata("kernel_arg_pipe_depth",
+                    llvm::MDNode::get(VMContext, argPipeDepthAttr));
+    Fn->setMetadata("kernel_arg_pipe_io",
+                    llvm::MDNode::get(VMContext, argPipeIOAttr));
+    Fn->setMetadata("kernel_arg_buffer_location",
+                    llvm::MDNode::get(VMContext, argBufferLocationAttr));
+  }
 #endif // INTEL_CUSTOMIZATION
   if (getCodeGenOpts().EmitOpenCLArgMetadata)
     Fn->setMetadata("kernel_arg_name",
