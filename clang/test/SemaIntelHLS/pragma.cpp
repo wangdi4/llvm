@@ -600,6 +600,7 @@ int do_stuff(int N) {
   // CHECK: AttributedStmt
   // CHECK-NEXT: SYCLIntelFPGAIVDepAttr{{.*}} 5
   // CHECK-NEXT: SubstNonTypeTemplateParmExpr{{.*}} 'int'
+  // CHECK-NEXT: NonTypeTemplateParmDecl{{.*}} referenced 'int' depth 0 index 0 LEN
   // CHECK-NEXT: IntegerLiteral{{.*}}5
   #pragma ivdep safelen(LEN)
   for (int i = 0; i < N; ++i) {
