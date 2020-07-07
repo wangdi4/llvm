@@ -957,17 +957,13 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 
       AddRunTimeLibs(ToolChain, D, CmdArgs, Args);
 
-<<<<<<< HEAD
       if (Args.hasArg(options::OPT_fsycl) &&
           !Args.hasArg(options::OPT_nolibsycl)) {
-=======
-      if (Args.hasArg(options::OPT_fsycl)) {
 #if INTEL_CUSTOMIZATION
         bool curStaticLinkState = isStaticLinkState(CmdArgs);
         if (curStaticLinkState)
           CmdArgs.push_back("-Bdynamic");
 #endif // INTEL_CUSTOMIZATION
->>>>>>> 598db431d4ec79ac08cdb092729e9d8346e5047e
         CmdArgs.push_back("-lsycl");
         // Use of -fintelfpga implies -lOpenCL.
         // FIXME: Adjust to use plugin interface when available.
