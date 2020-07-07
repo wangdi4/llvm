@@ -173,7 +173,7 @@ private:
 
   /// Declaration of OCL's printf() created for OpenCL offload kernel code:
   ///   declare dso_local spir_func i32
-  ///     @_Z18__spirv_ocl_printfPU3AS2ci(i8 addrspace(1)*, ...)
+  ///     @_Z18__spirv_ocl_printfPU3AS2ci(i8 addrspace(2)*, ...)
   Function *OCLPrintfDecl;
   Function *getOCLPrintfDecl() { return OCLPrintfDecl; }
 

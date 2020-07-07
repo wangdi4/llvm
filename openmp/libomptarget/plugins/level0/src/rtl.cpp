@@ -375,6 +375,7 @@ struct RTLFlagsTy {
 struct KernelPropertiesTy {
   uint32_t Width = 0;
   uint32_t MaxThreadGroupSize = 0;
+  bool RequiresIndirectAccess = false;
 };
 
 /// Device information
@@ -1836,7 +1837,18 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
     DP("Kernel argument %" PRId32 " (value: " DPxMOD ") was set successfully\n",
        i, DPxPTR(args[i]));
   }
-  // TODO: implicit arguments -- zeKernelSetAttribute() ?
+
+  // Set attributes
+  bool indirectAccess =
+      DeviceInfo->KernelProperties[DeviceId][kernel].RequiresIndirectAccess;
+  if (indirectAccess) {
+    ze_kernel_attribute_t attribute =
+        DeviceInfo->TargetAllocKind == TARGET_ALLOC_SHARED
+        ? ZE_KERNEL_ATTR_INDIRECT_SHARED_ACCESS
+        : ZE_KERNEL_ATTR_INDIRECT_DEVICE_ACCESS;
+    CALL_ZE_RET_FAIL(zeKernelSetAttribute, kernel, attribute, sizeof(bool),
+                     &indirectAccess);
+  }
 
   // Decide group sizes and counts
   uint32_t groupSizes[3];
@@ -1973,6 +1985,17 @@ int32_t __tgt_rtl_run_target_region_nowait(int32_t DeviceId, void *TgtEntryPtr,
                                            int32_t NumArgs, void *AsyncEvent) {
   return runTargetTeamRegion(DeviceId, TgtEntryPtr, TgtArgs, TgtOffsets,
                              NumArgs, 1, 0, nullptr, AsyncEvent);
+}
+
+EXTERN int32_t __tgt_rtl_manifest_data_for_region(
+    int32_t DeviceId, void *TgtEntryPtr, void **TgtPtrs, size_t NumPtrs) {
+  if (NumPtrs == 0)
+    return OFFLOAD_SUCCESS;
+  // We only have a binary switch.
+  ze_kernel_handle_t kernel = *static_cast<ze_kernel_handle_t *>(TgtEntryPtr);
+  std::unique_lock<std::mutex> dataLock(DeviceInfo->Mutexes[DeviceId]);
+  DeviceInfo->KernelProperties[DeviceId][kernel].RequiresIndirectAccess = true;
+  return OFFLOAD_SUCCESS;
 }
 
 EXTERN void *__tgt_rtl_create_offload_queue(int32_t DeviceId, bool IsAsync) {

@@ -337,7 +337,7 @@ static bool replaceMathFnWithOCLBuiltin(Function &F) {
 // Create the corresponding decl for OCL printf called from offload kernels:
 //
 //   declare dso_local spir_func i32
-//     @_Z18__spirv_ocl_printfPU3AS2ci(i8 addrspace(1)*, ...)
+//     @_Z18__spirv_ocl_printfPU3AS2ci(i8 addrspace(2)*, ...)
 //
 // Save the former in \b PrintfDecl and the latter in \b OCLPrintfDecl
 // in the \b VPOParoptModuleTransform class.
@@ -346,7 +346,7 @@ void VPOParoptModuleTransform::createOCLPrintfDecl(Function *F) {
 
   // Create FunctionType for OCLPrintfDecl
   Type *ReturnTy = Type::getInt32Ty(C);
-  Type *Int8PtrTy = Type::getInt8PtrTy(C, ADDRESS_SPACE_GLOBAL /*=1*/);
+  Type *Int8PtrTy = Type::getInt8PtrTy(C, ADDRESS_SPACE_CONSTANT /*=2*/);
   FunctionType *FnTy = FunctionType::get(ReturnTy, {Int8PtrTy},
                                          /* varargs= */ true);
 
