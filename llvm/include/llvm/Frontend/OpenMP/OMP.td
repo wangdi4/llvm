@@ -796,6 +796,7 @@ def OMP_DistributeParallelForSimd : Directive<"distribute parallel for simd"> {
     VersionedClause<OMPC_FirstPrivate>,
     VersionedClause<OMPC_LastPrivate>,
     VersionedClause<OMPC_Collapse>,
+    VersionedClause<OMPC_tile>, // INTEL
     VersionedClause<OMPC_DistSchedule>,
     VersionedClause<OMPC_If>,
     VersionedClause<OMPC_NumThreads>,
