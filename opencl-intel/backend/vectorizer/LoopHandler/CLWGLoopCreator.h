@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2020 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -31,11 +31,14 @@ namespace intel {
 //-----------------------------------------------------------------------------
 // this pass takes opencl kernel and creates WGLoop around it according to
 // the early exit function created by the EarlyExitKernel.
-// Incase the vector kernel exits it inlines it into the scalar kernel and
+// In case the vector kernel exists it inlines it into the scalar kernel and
 // create WG loops around the vector kernel and remainder loops around the
 // scalar kernel. WG loops are created with canonical induction variable
 // (satrts in 0 and incremented by 1) as it allows loop optimizations after
 // (e.g. stream samplers).
+// In case masked vector kernel exists, scalar kernel is replaced with masked
+// vector code.
+// In case peeling is enabled, a peeling loop is created before vector loop.
 //
 // for example on the following kernel
 //
@@ -60,8 +63,24 @@ namespace intel {
 //   size_t dim1_size = ee[4];
 //   size_t dim2_init_gid = ee[5];
 //   size_t dim2_size = ee[6];
-//   size_t dim0_vector_size = dim0_size - dim0_size %packet_width
-//   size_t dim0_scalar_size = dim0_size %packet_width
+//   size_t dim0_peel_size = computePeelCount();
+//   size_t dim0_vector_scalar_size = dim0_size - dim0_peel_size;
+//   size_t dim0_vector_size = dim0_vector_scalar_size -
+//       dim0_vector_scalar_size %packet_width;
+//   size_t dim0_scalar_size = dim0_vector_scalar_size %packet_width;
+//   if (dim0_peel_size != 0) {
+//      size_t dim2_ind_var = 0;
+//      do{
+//          size_t dim1_ind_var = 0;
+//          do{
+//              size_t dim0_ind_var = 0;
+//              do{
+//                  scalar code
+//                  tid += 1
+//              }while (++dim0_ind_var != dim0_peel_size);
+//          }while (++dim1_ind_var != dim1_size);
+//      }while (++dim2_ind_var != dim2_size);
+//   }
 //   if (dim0_vector_size != 0) {
 //      size_t dim2_ind_var = 0;
 //      do{
@@ -70,6 +89,7 @@ namespace intel {
 //              size_t dim0_ind_var = 0;
 //              do{
 //                  vector code
+//                  tid += packet_width
 //              }while (++dim0_ind_var != dim0_vector_size);
 //          }while (++dim1_ind_var != dim1_size);
 //      }while (++dim2_ind_var != dim2_size);
@@ -82,7 +102,7 @@ namespace intel {
 //              size_t dim0_ind_var = 0;
 //              do{
 //                  scalar code
-//                  tid += packet_width
+//                  tid += 1
 //              }while (++dim0_ind_var != dim0_scalar_size);
 //          }while (++dim1_ind_var != dim1_size);
 //      }while (++dim2_ind_var != dim2_size);
@@ -121,16 +141,19 @@ private:
 
   ///@brief struct that contains dimesion 0 loop attributes.
   struct loopBoundaries {
+    Value *m_peelLoopSize;    // num peel loop interations
     Value *m_vectorLoopSize;  // num vector loop iterations.
     Value *m_scalarLoopSize;  // num scalar loop iterations.
+    Value *m_maxPeel;         // max peeling global id
     Value *m_maxVector;       // max vector global id
 
     ///@brief C'tor.
-    loopBoundaries (Value *vectorLoopSize, Value *scalarLoopSize,
-                    Value *maxVector) :
+    loopBoundaries (Value *peelingLoopSize, Value *vectorLoopSize,
+                Value *scalarLoopSize, Value *maxPeel, Value *maxVector) :
+                m_peelLoopSize(peelingLoopSize),
                 m_vectorLoopSize(vectorLoopSize),
                 m_scalarLoopSize(scalarLoopSize),
-                m_maxVector(maxVector) {}
+                m_maxPeel(maxPeel), m_maxVector(maxVector) {}
   };
 
   ///@brief computes the sizes of scalar and vector loops of the zero
@@ -195,8 +218,17 @@ private:
   ///@retruns a struct with entry and exit block of the WG loop region.
   loopRegion createVectorAndRemainderLoops();
 
-  ///@brief create WG loops over vector kernel.
+  ///@brief create WG loops over vector kernel and remainder loop over masked
+  ///       vector kernel.
   loopRegion createVectorAndMaskedRemainderLoops();
+
+  ///@brief create peel loop over scalar or masked vector kernel, vector loop
+  ///       over vector kernel, and remainder loop over scalar or masked vector
+  ///       kernel.
+  ///@param Dim0Boundaries - loop boundaries.
+  ///@returns Created loop region.
+  loopRegion createPeelAndVectorAndRemainderLoops(
+      loopBoundaries & Dim0Boundaries);
 
   ///@brief replace the get***tid calls with incremented phi in loop head.
   ///@param TIDs - array of get***id to replace.
@@ -256,6 +288,9 @@ private:
   ///@brief scalar kernel entry.
   BasicBlock *m_scalarEntry;
 
+  ///@brief vector kernel entry after inlining.
+  BasicBlock *m_vectorEntry;
+
   ///@brief vectorized inner loop func.
   Function *m_vectorFunc;
 
@@ -268,11 +303,13 @@ private:
   ///@brief runtime services.
   const OpenclRuntime* m_rtServices;
 
-  ///@brief index i contains vector with scalar kernel get_global_id(i) calls.
-  IVecVec m_gidCallsSc;
+  ///@brief index i contains vector with get_global_id(i) calls in scalar or
+  ///       masked vector kernel.
+  IVecVec m_gidCalls;
 
-  ///@brief index i contains vector with scalar kernel get_local_id(i) calls.
-  IVecVec m_lidCallsSc;
+  ///@brief index i contains vector with get_local_id(i) calls in scalar or
+  ///       masked vector kernel.
+  IVecVec m_lidCalls;
 
   ///@brief index i contains vector with vector kernel get_global_id(i) calls.
   IVecVec m_gidCallsVec;
@@ -280,25 +317,14 @@ private:
   ///@brief index i contains vector with vector kernel get_local_id(i) calls.
   IVecVec m_lidCallsVec;
 
-  ///@brief index i contains vector with masked vector kernel
-  //get_global_id(i) calls.
-  IVecVec m_gidCallsMaskedVec;
-
-  ///@brief index i contains vector with masked vector kernel
-  //get_local_id(i) calls.
-  IVecVec m_lidCallsMaskedVec;
-
   ///@brief index i contains the base global id for dimension i.
   IVec m_baseGids;
 
-  ///@brief scalar kernel return.
-  ReturnInst *m_scalarRet;
+  ///@brief remainder scalar or masked vector kernel return.
+  ReturnInst *m_remainderRet;
 
   ///@brief vector kernel return.
   ReturnInst *m_vectorRet;
-
-  ///@brief vector kernel return.
-  ReturnInst *m_maskVectorRet;
 
   ///@brief global_id lower bounds per dimension.
   VVec m_initGIDs;
@@ -311,6 +337,9 @@ private:
 
   ///@brief the dimension by which we vectorize (usually 0).
   unsigned int m_vectorizedDim;
+
+  ///@breif whether current function has subgroup path.
+  bool m_hasSubGroupPath;
 };// CLWGLoopCreator
 } //namespace
 

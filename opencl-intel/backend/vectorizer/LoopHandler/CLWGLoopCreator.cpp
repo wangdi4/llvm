@@ -1,6 +1,6 @@
 // INTEL CONFIDENTIAL
 //
-// Copyright 2012-2018 Intel Corporation.
+// Copyright 2012-2020 Intel Corporation.
 //
 // This software and the related documents are Intel copyrighted materials, and
 // your use of them is governed by the express license under which they were
@@ -13,24 +13,24 @@
 // License.
 
 #include "CLWGLoopCreator.h"
-#include "LoopUtils/LoopUtils.h"
 #include "CLWGBoundDecoder.h"
-#include "OCLPassSupport.h"
-#include "InitializePasses.h"
-#include "MetadataAPI.h"
 #include "CompilationUtils.h"
+#include "InitializePasses.h"
+#include "LoopPeeling.h"
+#include "LoopUtils/LoopUtils.h"
+#include "MetadataAPI.h"
+#include "OCLPassSupport.h"
 #include "OclTune.h"
+#include "VectorizerUtils.h"
 
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DebugInfoMetadata.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/DebugInfo.h"
-#include "llvm/IR/DIBuilder.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 #include <sstream>
-#include <set>
 
 static unsigned MAX_OCL_NUM_DIM = 3;
 
@@ -48,10 +48,10 @@ CLWGLoopCreator::CLWGLoopCreator() :
     ModulePass(ID), m_indTy(nullptr), m_constZero(nullptr), m_constOne(nullptr),
     m_constPacket(nullptr), m_maskFn(nullptr), m_F(nullptr), m_M(nullptr),
     m_context(nullptr), m_newEntry(nullptr), m_vectorMaskEntry(nullptr),
-    m_scalarEntry(nullptr), m_vectorFunc(nullptr), m_packetWidth(0),
-    m_numDim(0), m_rtServices(nullptr), m_scalarRet(nullptr),
-    m_vectorRet(nullptr), m_maskVectorRet(nullptr), m_EECall(nullptr),
-    m_vectorizedDim(0)
+    m_scalarEntry(nullptr), m_vectorEntry(nullptr), m_vectorFunc(nullptr),
+    m_packetWidth(0), m_numDim(0), m_rtServices(nullptr),
+    m_remainderRet(nullptr), m_vectorRet(nullptr), m_EECall(nullptr),
+    m_vectorizedDim(0), m_hasSubGroupPath(false)
 {
   initializeCLWGLoopCreatorPass(*PassRegistry::getPassRegistry());
 }
@@ -134,7 +134,7 @@ bool CLWGLoopCreator::runOnFunction(Function& F, Function *vectorFunc,
   }
 
   auto skimd = KernelInternalMetadataAPI(&F);
-  bool SubGroupPath = skimd.KernelHasSubgroups.get();
+  m_hasSubGroupPath = skimd.KernelHasSubgroups.get();
 
   // Update member fields with the current kernel.
   m_F = &F;
@@ -155,12 +155,11 @@ bool CLWGLoopCreator::runOnFunction(Function& F, Function *vectorFunc,
   // need to be executed.
   loopRegion WGLoopRegion;
   BasicBlock *newRet = nullptr;
-  if (SubGroupPath && m_numDim &&
+  if (m_hasSubGroupPath && m_numDim &&
       skimd.VectorizedMaskedKernel.hasValue()) {
     m_maskFn = skimd.VectorizedMaskedKernel.get();
     skimd.VectorizedMaskedKernel.set(nullptr);
-    m_maskVectorRet = getFunctionData(m_maskFn, m_gidCallsMaskedVec,
-                                      m_lidCallsMaskedVec);
+    m_remainderRet = getFunctionData(m_maskFn, m_gidCalls, m_lidCalls);
 
     m_vectorMaskEntry = &m_maskFn->getEntryBlock();
     m_vectorMaskEntry->setName("masked_kernel_entry");
@@ -178,7 +177,7 @@ bool CLWGLoopCreator::runOnFunction(Function& F, Function *vectorFunc,
     newRet = BasicBlock::Create(*m_context, "", m_maskFn);
   } else {
     // Collect get**id and return instructions from the kernels.
-    m_scalarRet = getFunctionData(m_F, m_gidCallsSc, m_lidCallsSc);
+    m_remainderRet = getFunctionData(m_F, m_gidCalls, m_lidCalls);
 
     // Mark scalar kernel entry and create new entry block for boundaries
     // calculation.
@@ -194,8 +193,9 @@ bool CLWGLoopCreator::runOnFunction(Function& F, Function *vectorFunc,
 
     WGLoopRegion = m_vectorFunc && m_numDim ?
       createVectorAndRemainderLoops() :
-      AddWGLoops(m_scalarEntry, false, m_scalarRet, m_gidCallsSc, m_lidCallsSc,
+      AddWGLoops(m_scalarEntry, false, m_remainderRet, m_gidCalls, m_lidCalls,
                   m_initGIDs, m_loopSizes);
+
     newRet = BasicBlock::Create(*m_context, "", m_F);
   }
   assert(WGLoopRegion.m_preHeader && WGLoopRegion.m_exit &&
@@ -236,24 +236,29 @@ loopRegion CLWGLoopCreator::createVectorAndRemainderLoops() {
   m_vectorRet = getFunctionData(m_vectorFunc, m_gidCallsVec, m_lidCallsVec);
 
   // Inline the vector kernel into the scalar kernel.
-  BasicBlock *vecEntry = inlineVectorFunction(m_scalarEntry);
+  m_vectorEntry = inlineVectorFunction(m_scalarEntry);
 
   // Obtain boundaries for the vector loops and scalar remainder loops.
   loopBoundaries dim0Boundaries =
     getVectorLoopBoundaries(m_initGIDs[m_vectorizedDim], m_loopSizes[m_vectorizedDim]);
+
+  // If peeling size exists, create peeling loop as well.
+  if (dim0Boundaries.m_peelLoopSize)
+    return createPeelAndVectorAndRemainderLoops(dim0Boundaries);
+
   VVec initGIDs = m_initGIDs; // hard copy.
   VVec loopSizes = m_loopSizes; // hard copy.
 
   // Create vector loops.
   loopSizes[m_vectorizedDim] = dim0Boundaries.m_vectorLoopSize;
-  loopRegion vectorBlocks = AddWGLoops(vecEntry, true, m_vectorRet,
+  loopRegion vectorBlocks = AddWGLoops(m_vectorEntry, true, m_vectorRet,
                             m_gidCallsVec, m_lidCallsVec, initGIDs, loopSizes);
 
   // Create scalar loops.
   initGIDs[m_vectorizedDim] = dim0Boundaries.m_maxVector;
   loopSizes[m_vectorizedDim] = dim0Boundaries.m_scalarLoopSize;
-  loopRegion scalarBlocks = AddWGLoops(m_scalarEntry, false, m_scalarRet,
-                            m_gidCallsSc, m_lidCallsSc, initGIDs, loopSizes);
+  loopRegion scalarBlocks = AddWGLoops(m_scalarEntry, false, m_remainderRet,
+                            m_gidCalls, m_lidCalls, initGIDs, loopSizes);
 
   // Create blocks to jump over the loops.
   BasicBlock *loopsEntry =
@@ -287,27 +292,32 @@ loopRegion CLWGLoopCreator::createVectorAndMaskedRemainderLoops() {
   m_vectorRet = getFunctionData(m_vectorFunc, m_gidCallsVec, m_lidCallsVec);
 
   // Inline the vector kernel into the masked kernel.
-  BasicBlock *vecEntry = inlineVectorFunction(m_vectorMaskEntry);
+  m_vectorEntry = inlineVectorFunction(m_vectorMaskEntry);
 
   // Obtain boundaries for the vector loops and scalar loops.
   loopBoundaries dim0Boundaries =
      getVectorLoopBoundaries(m_initGIDs[m_vectorizedDim],
                              m_loopSizes[m_vectorizedDim]);
+
+  // If peeling size exists, create masked peeling loop as well.
+  if (dim0Boundaries.m_peelLoopSize)
+    return createPeelAndVectorAndRemainderLoops(dim0Boundaries);
+
   VVec initGIDs = m_initGIDs; // hard copy.
   VVec loopSizes = m_loopSizes; // hard copy.
 
   // Create vector loops.
   loopSizes[m_vectorizedDim] = dim0Boundaries.m_vectorLoopSize;
-  loopRegion vectorBlocks = AddWGLoops(vecEntry, true, m_vectorRet,
+  loopRegion vectorBlocks = AddWGLoops(m_vectorEntry, true, m_vectorRet,
      m_gidCallsVec, m_lidCallsVec, initGIDs, loopSizes);
 
   // Create masked vector loops.
   initGIDs[m_vectorizedDim] = dim0Boundaries.m_maxVector;
   loopSizes[m_vectorizedDim] = m_constOne;
   loopRegion vectorMaskBlocks = AddWGLoops(m_vectorMaskEntry, true,
-                                           m_maskVectorRet,
-                                           m_gidCallsMaskedVec,
-                                           m_lidCallsMaskedVec,
+                                           m_remainderRet,
+                                           m_gidCalls,
+                                           m_lidCalls,
                                            initGIDs, loopSizes);
 
   // Create blocks to jump over the loops.
@@ -344,6 +354,136 @@ loopRegion CLWGLoopCreator::createVectorAndMaskedRemainderLoops() {
   BranchInst::Create(retBlock, vectorMaskBlocks.m_exit);
 
   return loopRegion(loopsEntry, retBlock);
+}
+
+// If peeling is enabled and vector kernel exists, we create 3 loops:
+//   1. peel loop which is a wrapper of the remainder loop.
+//   2. vector loop.
+//   3. remainder loop (scalar or masked vector).
+//
+// We create the following code:
+//
+// max_peel =
+// max_vector =
+// PeelEntry:
+//   if (peelLoopSize != 0)
+//     br RemainderLoop
+// VectorEntry:
+//   if (vectorLoopSize != 0)
+//     vector loops
+// RemainderEntry:
+//   if (scalarLoopSize == 0)
+//     br ret
+// RemainderLoop:
+//   isPeelLoop = phi [true, PeelEntry], [false, RemainderEntry]
+//   loopSize = phi [peelLoopSize, PeelEntry], [scalarLoopSize, RemainderEntry]
+//   if (masked)
+//     compute mask from loopSize
+//     loopSize = 1
+//   scalar or masked vector loops
+// RemainderLoopEnd:
+//   if (isPeelLoop)
+//     br VectorEntry
+// ret
+loopRegion CLWGLoopCreator::createPeelAndVectorAndRemainderLoops(
+    loopBoundaries &Dim0Boundaries) {
+  bool IsMasked = m_maskFn != nullptr;
+  Function *F = IsMasked ? m_maskFn : m_F;
+  BasicBlock *RemainderEntry = IsMasked ? m_vectorMaskEntry : m_scalarEntry;
+
+  VVec InitGIDs = m_initGIDs;   // hard copy.
+  VVec LoopSizes = m_loopSizes; // hard copy.
+
+  // Create peeling loop region.
+  loopRegion PeelBlocks;
+  PeelBlocks.m_exit =
+      BasicBlock::Create(*m_context, "peel_exit", F, m_vectorEntry);
+  PeelBlocks.m_preHeader =
+      BasicBlock::Create(*m_context, "peel_pre_head", F, PeelBlocks.m_exit);
+
+  // Skip the remainder loops if(scalarLoopSize == 0).
+  BasicBlock *RemainderPreEntry =
+      BasicBlock::Create(*m_context, "remainder_pre_entry", F, RemainderEntry);
+  BasicBlock *RemainderIf =
+      BasicBlock::Create(*m_context, "remainder_if", F, RemainderPreEntry);
+  Instruction *RemainderCmp =
+      new ICmpInst(*RemainderIf, CmpInst::ICMP_NE,
+                   Dim0Boundaries.m_scalarLoopSize, m_constZero, "");
+  BasicBlock *RetBlock = BasicBlock::Create(*m_context, "ret", F);
+  BranchInst::Create(RemainderPreEntry, RetBlock, RemainderCmp, RemainderIf);
+
+  // Create vector loops.
+  InitGIDs[m_vectorizedDim] = Dim0Boundaries.m_maxPeel;
+  LoopSizes[m_vectorizedDim] = Dim0Boundaries.m_vectorLoopSize;
+  loopRegion VectorBlocks =
+      AddWGLoops(m_vectorEntry, true, m_vectorRet, m_gidCallsVec, m_lidCallsVec,
+                 InitGIDs, LoopSizes);
+
+  // Create peel/remainder loops.
+  Type *I1Ty = Type::getInt1Ty(*m_context);
+  PHINode *IsPeelLoop =
+      PHINode::Create(I1Ty, 2, "is.peel.loop", RemainderPreEntry);
+  IsPeelLoop->addIncoming(ConstantInt::get(I1Ty, 0), RemainderIf);
+  IsPeelLoop->addIncoming(ConstantInt::get(I1Ty, 1), PeelBlocks.m_preHeader);
+
+  Value *PeelInitGID = m_initGIDs[m_vectorizedDim];
+  PHINode *RemainderInitGID = PHINode::Create(
+      PeelInitGID->getType(), 2, "scalar.init.gid", RemainderPreEntry);
+  RemainderInitGID->addIncoming(Dim0Boundaries.m_maxVector, RemainderIf);
+  RemainderInitGID->addIncoming(PeelInitGID, PeelBlocks.m_preHeader);
+  InitGIDs[m_vectorizedDim] = RemainderInitGID;
+
+  PHINode *ScalarLoopSize =
+      PHINode::Create(Dim0Boundaries.m_scalarLoopSize->getType(), 2,
+                      "scalar.loop.size", RemainderPreEntry);
+  ScalarLoopSize->addIncoming(Dim0Boundaries.m_scalarLoopSize, RemainderIf);
+  ScalarLoopSize->addIncoming(Dim0Boundaries.m_peelLoopSize,
+                              PeelBlocks.m_preHeader);
+
+  if (IsMasked) {
+    // Generate mask.
+    auto Mask = LoopUtils::generateRemainderMask(m_packetWidth, ScalarLoopSize,
+                                                 RemainderPreEntry);
+    auto MaskArg = F->arg_end() - 1;
+    MaskArg->replaceAllUsesWith(Mask);
+
+    LoopSizes[m_vectorizedDim] = m_constOne;
+  } else
+    LoopSizes[m_vectorizedDim] = ScalarLoopSize;
+
+  loopRegion RemainderBlocks =
+      AddWGLoops(RemainderEntry, IsMasked, m_remainderRet, m_gidCalls,
+                 m_lidCalls, InitGIDs, LoopSizes);
+
+  // Create blocks to jump over the loops.
+  BasicBlock *PeelIf =
+      BasicBlock::Create(*m_context, "peel_if", F, PeelBlocks.m_preHeader);
+  BasicBlock *VecIf =
+      BasicBlock::Create(*m_context, "vect_if", F, VectorBlocks.m_preHeader);
+
+  // Execute the peel loops if(peelLoopSize != 0).
+  Instruction *PeelCmp =
+      new ICmpInst(*PeelIf, CmpInst::ICMP_NE, Dim0Boundaries.m_peelLoopSize,
+                   m_constZero, "");
+  BranchInst::Create(PeelBlocks.m_preHeader, VecIf, PeelCmp, PeelIf);
+  BranchInst::Create(RemainderPreEntry, PeelBlocks.m_preHeader);
+  BranchInst::Create(VecIf, PeelBlocks.m_exit);
+
+  // Execute the vector loops if(vectorLoopSize != 0).
+  Instruction *VectCmp =
+      new ICmpInst(*VecIf, CmpInst::ICMP_NE, Dim0Boundaries.m_vectorLoopSize,
+                   m_constZero, "");
+  BranchInst::Create(VectorBlocks.m_preHeader, RemainderIf, VectCmp, VecIf);
+  BranchInst::Create(RemainderIf, VectorBlocks.m_exit);
+
+  // Execute the remainder loops if(scalarLoopSize != 0).
+  BranchInst::Create(RemainderBlocks.m_preHeader, RemainderPreEntry);
+
+  // Jump to peel exit if current loop is peel loop.
+  BranchInst::Create(PeelBlocks.m_exit, RetBlock, IsPeelLoop,
+                     RemainderBlocks.m_exit);
+
+  return loopRegion(PeelIf, RetBlock);
 }
 
 CallInst *CLWGLoopCreator::createEECall(Function* Fn) {
@@ -482,7 +622,7 @@ CLWGLoopCreator::AddWGLoops(BasicBlock *kernelEntry, bool isVector,
     unsigned resolvedDim = resolveDimension(dim);
     compute_dimStr(resolvedDim, isVector);
     Value *incBy = resolvedDim == m_vectorizedDim ? dim0IncBy : m_constOne;
-    //Create the loop.
+    // Create the loop.
     loopRegion blocks = LoopUtils::createLoop(head, latch, m_constZero, m_constOne,
                                    loopSizes[resolvedDim], m_dimStr, *m_context);
 
@@ -493,8 +633,11 @@ CLWGLoopCreator::AddWGLoops(BasicBlock *kernelEntry, bool isVector,
                          latch);
     }
     if (LIDs[resolvedDim].size()) {
+      BasicBlock *InsertAtEnd = m_newEntry;
+      if (auto *PN = dyn_cast<PHINode>(initGID))
+        InsertAtEnd = PN->getParent();
       BinaryOperator *initLID = BinaryOperator::Create(Instruction::Sub, initGID,
-          obtainBaseGID(resolvedDim), m_dimStr+"sub_lid", m_newEntry);
+          obtainBaseGID(resolvedDim), m_dimStr+"sub_lid", InsertAtEnd);
       initLID->setHasNoSignedWrap();
       initLID->setHasNoUnsignedWrap();
       replaceTIDsWithPHI(LIDs[resolvedDim], initLID, incBy, head, blocks.m_preHeader,
@@ -603,26 +746,45 @@ BasicBlock *CLWGLoopCreator::inlineVectorFunction(BasicBlock *BB) {
 CLWGLoopCreator::loopBoundaries
 CLWGLoopCreator::getVectorLoopBoundaries(Value *initVal, Value *dimSize) {
   // computes constant log packetWidth
-  assert( m_packetWidth && ((m_packetWidth & (m_packetWidth-1)) == 0) &&
-      "packet width is not power of 2");
-  unsigned logPacket = 0;
-  for ( unsigned i=1; i < m_packetWidth; i*=2) ++logPacket;
-  Constant *logPacketConst = ConstantInt::get(m_indTy, logPacket);
+  assert(m_packetWidth && ((m_packetWidth & (m_packetWidth - 1)) == 0) &&
+         "packet width is not power of 2");
+  unsigned logPacket = Log2_32(m_packetWidth);
+  Constant *logPacketVal = ConstantInt::get(m_indTy, logPacket);
+
+  // If subgroup call exists, don't create peeling loop because spec requires:
+  // "All sub-groups must be the same size, while the last subgroup in any
+  //  work-group (i.e. the subgroup with the maximum index) could be the same or
+  //  smaller size".
+  Value *peelLoopSize = m_hasSubGroupPath
+                            ? nullptr
+                            : LoopDynamicPeeling::computePeelCount(
+                                  *m_newEntry, *m_vectorEntry, m_initGIDs);
+  Value *vectorScalarSize =
+      peelLoopSize
+          ? BinaryOperator::Create(Instruction::Sub, dimSize, peelLoopSize,
+                                   "vector.scalar.size", m_newEntry)
+          : dimSize;
 
   // vector loops size can be derived by shifting size with log packet bits.
-  Value *vectorLoopSize = BinaryOperator::Create(Instruction::AShr, dimSize,
-                                     logPacketConst, "vector.size", m_newEntry);
-  Value *numVectorWI = BinaryOperator::Create(Instruction::Shl, vectorLoopSize,
-                      logPacketConst, "num.vector.wi", m_newEntry);
+  Value *vectorLoopSize =
+      BinaryOperator::Create(Instruction::AShr, vectorScalarSize, logPacketVal,
+                             "vector.size", m_newEntry);
+  Value *numVectorWI =
+      BinaryOperator::Create(Instruction::Shl, vectorLoopSize, logPacketVal,
+                             "num.vector.wi", m_newEntry);
+  Value *maxPeel =
+      peelLoopSize ? BinaryOperator::Create(Instruction::Add, peelLoopSize,
+                                            initVal, "max.peel.gid", m_newEntry)
+                   : nullptr;
   Value *maxVector = BinaryOperator::Create(Instruction::Add, numVectorWI,
-                                        initVal, "max.vector.gid", m_newEntry);
-  Value *scalarLoopSize = BinaryOperator::Create(Instruction::Sub, dimSize,
-                                    numVectorWI, "scalar.size", m_newEntry);
-  return loopBoundaries(vectorLoopSize, scalarLoopSize, maxVector);
+                                            peelLoopSize ? maxPeel : initVal,
+                                            "max.vector.gid", m_newEntry);
+  Value *scalarLoopSize =
+      BinaryOperator::Create(Instruction::Sub, vectorScalarSize, numVectorWI,
+                             "scalar.size", m_newEntry);
+  return loopBoundaries(peelLoopSize, vectorLoopSize, scalarLoopSize, maxPeel,
+                        maxVector);
 }
-
-
-
 
 }// namespace intel
 
