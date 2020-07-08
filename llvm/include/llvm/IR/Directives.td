@@ -285,6 +285,7 @@ def "QUAL.OMP.BIND.TEAMS" : Clause;
 def "QUAL.OMP.BIND.PARALLEL" : Clause;
 def "QUAL.OMP.BIND.THREAD" : Clause;
 def "QUAL.OMP.ORDER.CONCURRENT" : Clause;
+def "QUAL.OMP.ALLOCATE" : Clause;
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
 // Support Intel extension for CSA.

@@ -600,15 +600,25 @@ CmpInst::Predicate WRegionUtils::getOmpPredicate(Loop* L, bool& IsLeft) {
   return CondInst->getPredicate();
 }
 
-FirstprivateItem *WRegionUtils::wrnSeenAsFirstPrivate(WRegionNode *W,
+PrivateItem *WRegionUtils::wrnSeenAsPrivate(WRegionNode *W, Value *V) {
+  PrivateClause &PrivClause = W->getPriv();
+  return PrivClause.findOrig(V);
+}
+
+FirstprivateItem *WRegionUtils::wrnSeenAsFirstprivate(WRegionNode *W,
                                                       Value *V) {
   FirstprivateClause &FprivClause = W->getFpriv();
   return FprivClause.findOrig(V);
 }
 
-LastprivateItem *WRegionUtils::wrnSeenAsLastPrivate(WRegionNode *W, Value *V) {
+LastprivateItem *WRegionUtils::wrnSeenAsLastprivate(WRegionNode *W, Value *V) {
   LastprivateClause &LprivClause = W->getLpriv();
   return LprivClause.findOrig(V);
+}
+
+ReductionItem *WRegionUtils::wrnSeenAsReduction(WRegionNode *W, Value *V) {
+  ReductionClause &RedClause = W->getRed();
+  return RedClause.findOrig(V);
 }
 
 MapItem *WRegionUtils::wrnSeenAsMap(WRegionNode *W, Value *V) {
@@ -979,6 +989,18 @@ void WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(
         }
         dbgs() << "'\n";
       });
+}
+
+AllocateItem *WRegionUtils::getAllocateItem(Item *I) {
+  if (auto *PrivI = dyn_cast<PrivateItem>(I))
+    return PrivI->getInAllocate();
+  else if (auto *FprivI = dyn_cast<FirstprivateItem>(I))
+    return FprivI->getInAllocate();
+  else if (auto *LprivI = dyn_cast<LastprivateItem>(I))
+    return LprivI->getInAllocate();
+  else if (auto *RedI = dyn_cast<ReductionItem>(I))
+    return RedI->getInAllocate();
+  return nullptr;
 }
 
 #endif // INTEL_COLLAB
