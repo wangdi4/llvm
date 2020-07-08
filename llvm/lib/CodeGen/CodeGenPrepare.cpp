@@ -2840,8 +2840,9 @@ public:
   TypePromotionTransaction(SetOfInstrs &RemovedInsts)
       : RemovedInsts(RemovedInsts) {}
 
-  /// Advocate every changes made in that transaction.
-  void commit();
+  /// Advocate every changes made in that transaction. Return true if any change
+  /// happen.
+  bool commit();
 
   /// Undo all the changes made after the given point.
   void rollback(ConstRestorationPt Point);
@@ -2947,11 +2948,13 @@ TypePromotionTransaction::getRestorationPoint() const {
   return !Actions.empty() ? Actions.back().get() : nullptr;
 }
 
-void TypePromotionTransaction::commit() {
+bool TypePromotionTransaction::commit() {
   for (CommitPt It = Actions.begin(), EndIt = Actions.end(); It != EndIt;
        ++It)
     (*It)->commit();
+  bool Modified = !Actions.empty();
   Actions.clear();
+  return Modified;
 }
 
 void TypePromotionTransaction::rollback(
@@ -4371,15 +4374,20 @@ bool AddressingModeMatcher::matchOperationAddr(User *AddrInst, unsigned Opcode,
           cast<ConstantInt>(AddrInst->getOperand(i))->getZExtValue();
         ConstantOffset += SL->getElementOffset(Idx);
       } else {
-        uint64_t TypeSize = DL.getTypeAllocSize(GTI.getIndexedType());
-        if (ConstantInt *CI = dyn_cast<ConstantInt>(AddrInst->getOperand(i))) {
-          const APInt &CVal = CI->getValue();
-          if (CVal.getMinSignedBits() <= 64) {
-            ConstantOffset += CVal.getSExtValue() * TypeSize;
-            continue;
+        TypeSize TS = DL.getTypeAllocSize(GTI.getIndexedType());
+        if (TS.isNonZero()) {
+          // The optimisations below currently only work for fixed offsets.
+          if (TS.isScalable())
+            return false;
+          int64_t TypeSize = TS.getFixedSize();
+          if (ConstantInt *CI =
+                  dyn_cast<ConstantInt>(AddrInst->getOperand(i))) {
+            const APInt &CVal = CI->getValue();
+            if (CVal.getMinSignedBits() <= 64) {
+              ConstantOffset += CVal.getSExtValue() * TypeSize;
+              continue;
+            }
           }
-        }
-        if (TypeSize) {  // Scales of zero don't do anything.
           // We only allow one variable index at the moment.
           if (VariableOperand != -1)
             return false;
@@ -4977,7 +4985,7 @@ bool CodeGenPrepare::optimizeMemoryInst(Instruction *MemoryInst, Value *Addr,
     TPT.rollback(LastKnownGood);
     return false;
   }
-  TPT.commit();
+  bool Modified = TPT.commit();
 
   // Get the combined AddrMode (or the only AddrMode, if we only had one).
   ExtAddrMode AddrMode = AddrModes.getAddrMode();
@@ -4991,7 +4999,7 @@ bool CodeGenPrepare::optimizeMemoryInst(Instruction *MemoryInst, Value *Addr,
                   })) {
     LLVM_DEBUG(dbgs() << "CGP: Found      local addrmode: " << AddrMode
                       << "\n");
-    return false;
+    return Modified;
   }
 
   // Insert this computation right after this user.  Since our caller is
@@ -5032,7 +5040,7 @@ bool CodeGenPrepare::optimizeMemoryInst(Instruction *MemoryInst, Value *Addr,
       // We can't add more than one pointer together, nor can we scale a
       // pointer (both of which seem meaningless).
       if (ResultPtr || AddrMode.Scale != 1)
-        return false;
+        return Modified;
 
       ResultPtr = AddrMode.ScaledReg;
       AddrMode.Scale = 0;
@@ -5049,12 +5057,12 @@ bool CodeGenPrepare::optimizeMemoryInst(Instruction *MemoryInst, Value *Addr,
       Type *ScaledRegTy = AddrMode.ScaledReg->getType();
       if (cast<IntegerType>(IntPtrTy)->getBitWidth() >
           cast<IntegerType>(ScaledRegTy)->getBitWidth())
-        return false;
+        return Modified;
     }
 
     if (AddrMode.BaseGV) {
       if (ResultPtr)
-        return false;
+        return Modified;
 
       ResultPtr = AddrMode.BaseGV;
     }
@@ -5078,7 +5086,7 @@ bool CodeGenPrepare::optimizeMemoryInst(Instruction *MemoryInst, Value *Addr,
         !AddrMode.BaseReg && !AddrMode.Scale && !AddrMode.BaseOffs) {
       SunkAddr = Constant::getNullValue(Addr->getType());
     } else if (!ResultPtr) {
-      return false;
+      return Modified;
     } else {
       Type *I8PtrTy =
           Builder.getInt8PtrTy(Addr->getType()->getPointerAddressSpace());
@@ -5163,7 +5171,7 @@ bool CodeGenPrepare::optimizeMemoryInst(Instruction *MemoryInst, Value *Addr,
         (ScalePtrTy && DL->isNonIntegralPointerType(ScalePtrTy)) ||
         (AddrMode.BaseGV &&
          DL->isNonIntegralPointerType(AddrMode.BaseGV->getType())))
-      return false;
+      return Modified;
 
     LLVM_DEBUG(dbgs() << "CGP: SINKING nonlocal addrmode: " << AddrMode
                       << " for " << *MemoryInst << "\n");
@@ -5203,7 +5211,7 @@ bool CodeGenPrepare::optimizeMemoryInst(Instruction *MemoryInst, Value *Addr,
         Instruction *I = dyn_cast_or_null<Instruction>(Result);
         if (I && (Result != AddrMode.BaseReg))
           I->eraseFromParent();
-        return false;
+        return Modified;
       }
       if (AddrMode.Scale != 1)
         V = Builder.CreateMul(V, ConstantInt::get(IntPtrTy, AddrMode.Scale),
