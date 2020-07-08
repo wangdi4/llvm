@@ -621,8 +621,8 @@ private:
   public:
     StackNode(ScopedHTType &AvailableValues, LoadHTType &AvailableLoads,
               InvariantHTType &AvailableInvariants, CallHTType &AvailableCalls,
-              unsigned cg, DomTreeNode *n, DomTreeNode::iterator child,
-              DomTreeNode::iterator end)
+              unsigned cg, DomTreeNode *n, DomTreeNode::const_iterator child,
+              DomTreeNode::const_iterator end)
         : CurrentGeneration(cg), ChildGeneration(cg), Node(n), ChildIter(child),
           EndIter(end),
           Scopes(AvailableValues, AvailableLoads, AvailableInvariants,
@@ -636,7 +636,7 @@ private:
     unsigned childGeneration() { return ChildGeneration; }
     void childGeneration(unsigned generation) { ChildGeneration = generation; }
     DomTreeNode *node() { return Node; }
-    DomTreeNode::iterator childIter() { return ChildIter; }
+    DomTreeNode::const_iterator childIter() { return ChildIter; }
 
     DomTreeNode *nextChild() {
       DomTreeNode *child = *ChildIter;
@@ -644,7 +644,7 @@ private:
       return child;
     }
 
-    DomTreeNode::iterator end() { return EndIter; }
+    DomTreeNode::const_iterator end() { return EndIter; }
     bool isProcessed() { return Processed; }
     void process() { Processed = true; }
 
@@ -652,8 +652,8 @@ private:
     unsigned CurrentGeneration;
     unsigned ChildGeneration;
     DomTreeNode *Node;
-    DomTreeNode::iterator ChildIter;
-    DomTreeNode::iterator EndIter;
+    DomTreeNode::const_iterator ChildIter;
+    DomTreeNode::const_iterator EndIter;
     NodeScope Scopes;
     bool Processed = false;
   };
