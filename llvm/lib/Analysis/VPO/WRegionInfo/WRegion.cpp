@@ -141,6 +141,7 @@ WRNParallelLoopNode::WRNParallelLoopNode(BasicBlock *BB, LoopInfo *Li)
   setProcBind(WRNProcBindAbsent);
   setCollapse(0);
   setOrdered(-1);
+  setLoopOrder(WRNLoopOrderAbsent);
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
   setNumWorkers(0);
@@ -165,6 +166,7 @@ WRNParallelLoopNode::WRNParallelLoopNode(loopopt::HLNode *EntryHLN)
   setProcBind(WRNProcBindAbsent);
   setCollapse(0);
   setOrdered(-1);
+  setLoopOrder(WRNLoopOrderAbsent);
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
@@ -294,6 +296,7 @@ WRNDistributeParLoopNode::WRNDistributeParLoopNode(BasicBlock *BB, LoopInfo *Li)
   setProcBind(WRNProcBindAbsent);
   setCollapse(0);
   setOrdered(-1);
+  setLoopOrder(WRNLoopOrderAbsent);
 
   LLVM_DEBUG(dbgs() << "\nCreated WRNDistributeParLoopNode<" << getNumber()
                     << ">\n");
@@ -525,6 +528,7 @@ WRNVecLoopNode::WRNVecLoopNode(BasicBlock *BB, LoopInfo *Li)
   setSimdlen(0);
   setSafelen(0);
   setCollapse(0);
+  setLoopOrder(WRNLoopOrderAbsent);
 #if INTEL_CUSTOMIZATION
   setIsAutoVec(isAutoVec);
   setHasVectorAlways(false);
@@ -542,6 +546,7 @@ WRNVecLoopNode::WRNVecLoopNode(loopopt::HLNode *EntryHLN, const bool isAutoVec)
   setSimdlen(0);
   setSafelen(0);
   setCollapse(0);
+  setLoopOrder(WRNLoopOrderAbsent);
   setIsAutoVec(isAutoVec);
   setHasVectorAlways(false);
 
@@ -617,6 +622,7 @@ WRNWksLoopNode::WRNWksLoopNode(BasicBlock *BB, LoopInfo *Li)
   setCollapse(0);
   setOrdered(-1);
   setNowait(false);
+  setLoopOrder(WRNLoopOrderAbsent);
 
   LLVM_DEBUG(dbgs() << "\nCreated WRNWksLoopNode<" << getNumber() << ">\n");
 }
