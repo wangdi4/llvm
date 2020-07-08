@@ -134,28 +134,28 @@ _ce_storeseg_gs(void *mem) {
 }
 
 static __inline__ void __DEFAULT_FN_ATTRS
-_ce_gtranslaterd_epc(void *mem, long long __info[4]) {
+_ce_gtranslaterd_epc(void *mem, unsigned long long __info[4]) {
   __asm__ __volatile__ ("gtranslaterd_epc %a4" : "=a"(__info[0]), "=b"(__info[1]),
                                                  "=c"(__info[2]), "=d"(__info[3])
                                                : "r"(mem));
 }
 
 static __inline__ void __DEFAULT_FN_ATTRS
-_ce_gtranslatewr_epc(void *mem, long long __info[4]) {
+_ce_gtranslatewr_epc(void *mem, unsigned long long __info[4]) {
   __asm__ __volatile__ ("gtranslatewr_epc %a4" : "=a"(__info[0]), "=b"(__info[1]),
                                                  "=c"(__info[2]), "=d"(__info[3])
                                                : "r"(mem));
 }
 
 static __inline__ void __DEFAULT_FN_ATTRS
-_ce_gtranslaterd_noepc(void *mem, long long __info[4]) {
+_ce_gtranslaterd_noepc(void *mem, unsigned long long __info[4]) {
   __asm__ __volatile__ ("gtranslaterd_noepc %a4" : "=a"(__info[0]), "=b"(__info[1]),
                                                    "=c"(__info[2]), "=d"(__info[3])
                                                  : "r"(mem));
 }
 
 static __inline__ void __DEFAULT_FN_ATTRS
-_ce_gtranslatewr_noepc(void *mem, long long __info[4]) {
+_ce_gtranslatewr_noepc(void *mem, unsigned long long __info[4]) {
   __asm__ __volatile__ ("gtranslatewr_noepc %a4" : "=a"(__info[0]), "=b"(__info[1]),
                                                    "=c"(__info[2]), "=d"(__info[3])
                                                  : "r"(mem));
@@ -259,8 +259,8 @@ _ce_ucodecall(unsigned target) {
   __builtin_ia32_icecode_cmodemov((_SRC1), (_SRC2), (_COND))
 
 #define _ce_sigeventjump(_RAX, _SRC1, _IMM) ({ \
-  long long rax = _RAX; \
-  __asm__ __volatile__ ("sigeventjump $" #_IMM ", %0" :: "q"(_SRC1), "a"(rax)); })
+  unsigned long long rax = _RAX; \
+  __asm__ __volatile__ ("sigeventjump %0, %1" :: "i"(_IMM), "q"(_SRC1), "a"(rax)); })
 
 #define _ce_sserialize() __asm__ __volatile__ ("sserialize")
 #define _ce_nop_set_sb() __asm__ __volatile__ ("nop_set_sb")
