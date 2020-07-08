@@ -96,9 +96,18 @@ std::string getClangFullCPPVersion() {
 #ifdef CLANG_VENDOR
   OS << CLANG_VENDOR;
 #endif
+<<<<<<< HEAD
   OS << "Clang " CLANG_VERSION_STRING " " << getClangFullRepositoryVersion();
   return OS.str();
 }
+=======
+  OS << ToolName << " version " CLANG_VERSION_STRING;
+
+  std::string repo = getClangFullRepositoryVersion();
+  if (!repo.empty()) {
+    OS << " " << repo;
+  }
+>>>>>>> bbea4d5e6b82a683dccaa8f4916e2a44f5dd3490
 
 #if INTEL_CUSTOMIZATION
 std::string getICXVersionString() {
@@ -143,11 +152,21 @@ std::string getXMainFullCPPVersion() {
 #ifdef CLANG_VENDOR
   OS << CLANG_VENDOR;
 #endif
+<<<<<<< HEAD
 #ifdef GNU_VERSION_STRING
   OS << "Intel(R) Clang Based C++, gcc " << GNU_VERSION_STRING << " mode";
 #else
   OS << "Intel(R) Clang Based C++, clang " << CLANG_VERSION_STRING;
 #endif // GNU_VERSION_STRING
+=======
+  OS << "Clang " CLANG_VERSION_STRING;
+
+  std::string repo = getClangFullRepositoryVersion();
+  if (!repo.empty()) {
+    OS << " " << repo;
+  }
+
+>>>>>>> bbea4d5e6b82a683dccaa8f4916e2a44f5dd3490
   return OS.str();
 }
 #endif // INTEL_CUSTOMIZATION
