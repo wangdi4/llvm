@@ -453,6 +453,7 @@ static bool isKnownZFlag(StringRef s) {
          s == "rela" || s == "relro" || s == "retpolineplt" ||
          s == "rodynamic" || s == "shstk" || s == "text" || s == "undefs" ||
          s == "wxneeded" || s.startswith("common-page-size=") ||
+         s.startswith("dead-reloc-in-nonalloc=") ||
          s.startswith("max-page-size=") || s.startswith("stack-size=") ||
          s.startswith("start-stop-visibility=");
 }
@@ -1086,11 +1087,34 @@ static void readConfigs(opt::InputArgList &args) {
   config->zText = getZFlag(args, "text", "notext", true);
   config->zWxneeded = hasZOption(args, "wxneeded");
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Handle -plugin-opt=fintel-advanced-optim
   if (args.hasArg(OPT_plugin_opt_intel_advanced_optim))
     config->intelAdvancedOptim = true;
 #endif // INTEL_CUSTOMIZATION
+=======
+  for (opt::Arg *arg : args.filtered(OPT_z)) {
+    std::pair<StringRef, StringRef> option =
+        StringRef(arg->getValue()).split('=');
+    if (option.first != "dead-reloc-in-nonalloc")
+      continue;
+    constexpr StringRef errPrefix = "-z dead-reloc-in-nonalloc=: ";
+    std::pair<StringRef, StringRef> kv = option.second.split('=');
+    if (kv.first.empty() || kv.second.empty()) {
+      error(errPrefix + "expected <section_glob>=<value>");
+      continue;
+    }
+    uint64_t v;
+    if (!to_integer(kv.second, v))
+      error(errPrefix + "expected a non-negative integer, but got '" +
+            kv.second + "'");
+    else if (Expected<GlobPattern> pat = GlobPattern::create(kv.first))
+      config->deadRelocInNonAlloc.emplace_back(std::move(*pat), v);
+    else
+      error(errPrefix + toString(pat.takeError()));
+  }
+>>>>>>> 4ce56b8122219f7b79d75d33184e3ec890a6e222
 
   // Parse LTO options.
   if (auto *arg = args.getLastArg(OPT_plugin_opt_mcpu_eq))
