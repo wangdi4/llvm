@@ -323,10 +323,15 @@ static void initializePlugins(vector_class<plugin> *Plugins) {
                PluginNames[I].first.find("cuda") != std::string::npos)
       // Use the CUDA plugin as the GlobalPlugin
       GlobalPlugin = std::make_shared<plugin>(PluginInformation, backend::cuda);
+<<<<<<< HEAD
 #endif
     } else if (InteropBE == backend::level0 &&
                PluginNames[I].first.find(LEVEL0_PLUGIN_NAME) !=
                    std::string::npos) {
+=======
+    } else if (InteropBE == backend::level0 &&
+               PluginNames[I].first.find("level0") != std::string::npos) {
+>>>>>>> 11ef88c95d38a8ecd882da5f420f1637148680d7
       // Use the LEVEL0 plugin as the GlobalPlugin
       GlobalPlugin =
           std::make_shared<plugin>(PluginInformation, backend::level0);

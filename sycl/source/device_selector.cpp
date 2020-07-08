@@ -23,13 +23,17 @@ __SYCL_INLINE_NAMESPACE(cl) {
 namespace sycl {
 
 // Utility function to check if device is of the preferred backend.
-// Currently preference is given to the opencl backend.
+// Currently preference is given to the level0 backend.
 static bool isDeviceOfPreferredSyclBe(const device &Device) {
   if (Device.is_host())
     return false;
 
   return detail::getSyclObjImpl(Device)->getPlugin().getBackend() ==
+<<<<<<< HEAD
          backend::level0; // INTEL
+=======
+         backend::level0;
+>>>>>>> 11ef88c95d38a8ecd882da5f420f1637148680d7
 }
 
 device device_selector::select_device() const {
