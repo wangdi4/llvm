@@ -4027,7 +4027,7 @@ bool Sema::CheckX86BuiltinTileDuplicate(CallExpr *TheCall,
            "Incorrect tile register num.");
     if (ArgValues.test(ArgExtValue))
       return Diag(TheCall->getBeginLoc(),
-                  diag::err_x86_builtin_tmul_arg_duplicate)
+                  diag::err_x86_builtin_tile_arg_duplicate)
              << TheCall->getArg(ArgNum)->getSourceRange();
     ArgValues.set(ArgExtValue);
   }

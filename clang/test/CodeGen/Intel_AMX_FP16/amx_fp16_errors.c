@@ -7,7 +7,7 @@
 
 // FP16
 void test_tile_dpfp16ps() {
-  _tile_dpfp16ps(1, 1, 3); // expected-error {{tmul arguments must refer to different tiles}}
-  _tile_dpfp16ps(1, 2, 1); // expected-error {{tmul arguments must refer to different tiles}}
-  _tile_dpfp16ps(1, 2, 2); // expected-error {{tmul arguments must refer to different tiles}}
+  _tile_dpfp16ps(1, 1, 3); // expected-error {{tile arguments must refer to different tiles}}
+  _tile_dpfp16ps(1, 2, 1); // expected-error {{tile arguments must refer to different tiles}}
+  _tile_dpfp16ps(1, 2, 2); // expected-error {{tile arguments must refer to different tiles}}
 }
