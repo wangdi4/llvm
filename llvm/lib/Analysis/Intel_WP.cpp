@@ -10,15 +10,15 @@
 // This file does whole-program-analysis using TargetLibraryInfo.
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Analysis/Intel_WP.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Analysis/CallGraph.h"
-#include "llvm/Analysis/Intel_WP.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
@@ -28,34 +28,39 @@ using namespace llvm;
 using namespace llvm::llvm_intel_wp_analysis;
 
 #define DEBUG_TYPE "whole-program-analysis"
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+#define USING_DEBUG_MODE 1
+#endif // NDEBUG || LLVM_ENABLE_DUMP
 
 namespace llvm {
 namespace llvm_intel_wp_analysis {
 // If it is true, compiler assumes that source files in the current
 // compilation have entire program.
 bool AssumeWholeProgram = false;
-} // llvm_intel_wp_analysis
-} // llvm
+} // namespace llvm_intel_wp_analysis
+} // namespace llvm
 
 static cl::opt<bool, true>
-    AssumeWholeProgramOpt("whole-program-assume",
-                          cl::ReallyHidden, cl::location(AssumeWholeProgram));
+    AssumeWholeProgramOpt("whole-program-assume", cl::ReallyHidden,
+                          cl::location(AssumeWholeProgram));
 
 // Flag to print the libfuncs found by whole program analysis.
 static cl::opt<bool> WholeProgramTraceLibFuncs("whole-program-trace-libfuncs",
-                                       cl::init(false), cl::ReallyHidden);
+                                               cl::init(false),
+                                               cl::ReallyHidden);
 
 // Flag for printing the symbols that weren't internalized in the module
-static cl::opt<bool> WholeProgramTraceVisibility(
-    "whole-program-trace-visibility", cl::init(false), cl::ReallyHidden);
+static cl::opt<bool>
+    WholeProgramTraceVisibility("whole-program-trace-visibility",
+                                cl::init(false), cl::ReallyHidden);
 
 // Flag for printing the symbols resolution found by the linker
-static cl::opt<bool> WholeProgramReadTrace(
-    "whole-program-read-trace", cl::init(false), cl::ReallyHidden);
+static cl::opt<bool> WholeProgramReadTrace("whole-program-read-trace",
+                                           cl::init(false), cl::ReallyHidden);
 
 // Flag asserts that whole program will be detected.
-static cl::opt<bool> WholeProgramAssert("whole-program-assert",
-                                        cl::init(false), cl::ReallyHidden);
+static cl::opt<bool> WholeProgramAssert("whole-program-assert", cl::init(false),
+                                        cl::ReallyHidden);
 
 // If it is true, compiler assumes that whole program has been read (linker can
 // reach all symbols).
@@ -64,11 +69,13 @@ static cl::opt<bool> AssumeWholeProgramRead("whole-program-assume-read",
 
 // The compiler will assume that all symbols have hidden visibility if turned on
 static cl::opt<bool> AssumeWholeProgramHidden("whole-program-assume-hidden",
-                                            cl::init(false), cl::ReallyHidden);
+                                              cl::init(false),
+                                              cl::ReallyHidden);
 
 // If it is true, compiler assumes that program is linked as executable.
-static cl::opt<bool> AssumeWholeProgramExecutable(
-    "whole-program-assume-executable", cl::init(false), cl::ReallyHidden);
+static cl::opt<bool>
+    AssumeWholeProgramExecutable("whole-program-assume-executable",
+                                 cl::init(false), cl::ReallyHidden);
 
 // Flag to get whole program advanced optimization computation trace.
 static cl::opt<bool>
@@ -76,11 +83,11 @@ static cl::opt<bool>
                                 cl::init(false), cl::ReallyHidden);
 
 INITIALIZE_PASS_BEGIN(WholeProgramWrapperPass, "wholeprogramanalysis",
-                "Whole program analysis", false, false)
+                      "Whole program analysis", false, false)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_END(WholeProgramWrapperPass, "wholeprogramanalysis",
-                "Whole program analysis", false, false)
+                    "Whole program analysis", false, false)
 
 char WholeProgramWrapperPass::ID = 0;
 
@@ -102,8 +109,7 @@ bool WholeProgramWrapperPass::runOnModule(Module &M) {
     return this->getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
   };
 
-  CallGraphWrapperPass *CGPass =
-      getAnalysisIfAvailable<CallGraphWrapperPass>();
+  CallGraphWrapperPass *CGPass = getAnalysisIfAvailable<CallGraphWrapperPass>();
   CallGraph *CG = CGPass ? &CGPass->getCallGraph() : nullptr;
 
   auto GetTLI = [this](Function &F) -> TargetLibraryInfo & {
@@ -111,15 +117,33 @@ bool WholeProgramWrapperPass::runOnModule(Module &M) {
   };
 
   Result.reset(new WholeProgramInfo(
-               WholeProgramInfo::analyzeModule(M, GetTLI, GTTI,
-               CG)));
+      WholeProgramInfo::analyzeModule(M, GetTLI, GTTI, CG)));
 
   return false;
 }
 
 WholeProgramInfo::WholeProgramInfo() {
+  // WholeProgramSafe: WholeProgramRead && WholeProgramSeen &&
+  //                   LinkingForExecutable
   WholeProgramSafe = false;
+
+  // WholeProgramSeen: All functions with definition (IR) where internalized,
+  //                   those who weren't internalized or are declaration must
+  //                   be LibFuncs or intrinsic functions. Also, main must
+  //                   be found.
   WholeProgramSeen = false;
+
+  // WholeProgramHidden: This is part of WholeProgramSeen, it basically means
+  //                     that all functions with definition (IR) where
+  //                     internalized and those who weren't internalized must
+  //                     be identified as LibFuncs. This is is useful when
+  //                     debugging transformations that require internalization,
+  //                     for example: devirtualization.
+  WholeProgramHidden = true;
+
+  // Another important term:
+  // WholeProgramRead: All symbols were resolved by the linker.
+
   auto EE = TargetTransformInfo::AdvancedOptLevel::AO_TargetNumLevels;
   unsigned E = static_cast<unsigned>(EE);
   for (unsigned I = 0; I < E; ++I)
@@ -128,7 +152,7 @@ WholeProgramInfo::WholeProgramInfo() {
 
 WholeProgramInfo::~WholeProgramInfo() {}
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+#ifdef USING_DEBUG_MODE
 // Function to print the trace for whole program. Types of traces:
 //
 //   Simple: just print the missing aliases, missing libfuncs and functions
@@ -154,116 +178,110 @@ WholeProgramInfo::~WholeProgramInfo() {}
 //         -mllvm -whole-program-trace-libfuncs
 //         -mllvm -whole-program-trace-visibility
 //         -mllvm -whole-program-read-trace
+//
+// TODO: These opt variables need to be converted to debug-only style.
 void WholeProgramInfo::printWholeProgramTrace() {
 
-    auto PrintAliases = [this](void) {
-      dbgs() << "  ALIASES UNRESOLVED: " << AliasesNotFound.size() << "\n";
-      for (auto GA : AliasesNotFound)
-        dbgs() << "    " << GA->getName() << "\n";
-    };
+  auto PrintAliases = [this](void) {
+    dbgs() << "  ALIASES UNRESOLVED: " << AliasesNotFound.size() << "\n";
+    for (auto GA : AliasesNotFound)
+      dbgs() << "    " << GA->getName() << "\n";
+  };
 
-    auto PrintLibFuncsFound = [this](void) {
-      dbgs() << "  LIBFUNCS FOUND: " << LibFuncsFound.size() << "\n";
-      for (auto LibFunc : LibFuncsFound)
-        dbgs() << "    " << LibFunc->getName() << "\n";
-    };
+  auto PrintLibFuncsFound = [this](void) {
+    dbgs() << "  LIBFUNCS FOUND: " << LibFuncsFound.size() << "\n";
+    for (auto LibFunc : LibFuncsFound)
+      dbgs() << "    " << LibFunc->getName() << "\n";
+  };
 
-    auto PrintLibFuncsNotFound = [this](void) {
-      dbgs() << "  LIBFUNCS NOT FOUND: " << LibFuncsNotFound.size() << "\n";
-      for (auto LibFunc : LibFuncsNotFound)
-        dbgs() << "    " << LibFunc->getName() << "\n";
-    };
+  auto PrintLibFuncsNotFound = [this](void) {
+    dbgs() << "  LIBFUNCS NOT FOUND: " << LibFuncsNotFound.size() << "\n";
+    for (auto LibFunc : LibFuncsNotFound)
+      dbgs() << "    " << LibFunc->getName() << "\n";
+  };
 
-    auto PrintVisibility = [this](void) {
-      dbgs() << "  VISIBLE OUTSIDE LTO: " << VisibleFunctions.size() << "\n";
-      for (auto VisibleFunc : VisibleFunctions)
-        dbgs() << "    " << VisibleFunc->getName() << "\n";
-    };
+  auto PrintVisibility = [this](void) {
+    dbgs() << "  VISIBLE OUTSIDE LTO: " << VisibleFunctions.size() << "\n";
+    for (auto VisibleFunc : VisibleFunctions)
+      dbgs() << "    " << VisibleFunc->getName() << "\n";
+  };
 
-    auto PrintWPResult = [this](void) {
-      dbgs() << "  WHOLE PROGRAM RESULT: \n";
-      dbgs() << "    MAIN DEFINITION: "
-             << (MainDefSeen ? " " : " NOT ")
-             << "DETECTED \n";
+  auto PrintWPResult = [this](void) {
+    dbgs() << "  WHOLE PROGRAM RESULT: \n";
+    dbgs() << "    MAIN DEFINITION: " << (MainDefSeen ? " " : " NOT ")
+           << "DETECTED \n";
 
-      if (!AssumeWholeProgram) {
-        dbgs() << "    LINKING AN EXECUTABLE: "
-               << (isLinkedAsExecutable() ? " " : " NOT ")
-               << "DETECTED\n";
-        dbgs() << "    WHOLE PROGRAM READ: "
-               << (isWholeProgramRead() ? " " : " NOT ")
-               << "DETECTED \n";
-        dbgs() << "    WHOLE PROGRAM SEEN: "
-               << (isWholeProgramSeen() ? " " : " NOT ")
-               << "DETECTED \n";
-      }
-      else {
-        dbgs() << "    WHOLE PROGRAM ASSUME IS ENABLED\n";
-      }
-      dbgs() << "    WHOLE PROGRAM SAFE: "
-             << (WholeProgramSafe ? " " : " NOT ")
-             << "DETECTED\n";
-    };
-
-    bool Simple = !WholeProgramTraceLibFuncs &&
-                  !WholeProgramTraceVisibility &&
-                  !WholeProgramReadTrace;
-
-    bool Full = (WholeProgramTraceLibFuncs && WholeProgramTraceVisibility &&
-                 WholeProgramReadTrace);
-
-    dbgs() << "\nWHOLE-PROGRAM-ANALYSIS: ";
-
-    // Just the missing libfuncs or those functions that are external
-    if (Simple)
-      dbgs() << "SIMPLE ANALYSIS";
-
-    // Print all
-    else if (Full)
-      dbgs() << "FULL ANALYSIS";
-
-    // Print the libfuncs found and not found
-    else if (WholeProgramTraceLibFuncs)
-      dbgs() << "LIBRARY FUNCTIONS TRACE";
-
-    // Print the functions that weren't internalized
-    else if (WholeProgramTraceVisibility)
-      dbgs() << "EXTERNAL FUNCTIONS TRACE";
-
-    else if (WholeProgramReadTrace)
-      dbgs() << "WHOLE PROGRAM READ TRACE";
-
-    dbgs() << "\n\n";
-
-    if (Simple || Full) {
-      dbgs() << "  UNRESOLVED CALLSITES: " << UnresolvedCallsCount << "\n";
+    if (!AssumeWholeProgram) {
+      dbgs() << "    LINKING AN EXECUTABLE: "
+             << (isLinkedAsExecutable() ? " " : " NOT ") << "DETECTED\n";
+      dbgs() << "    WHOLE PROGRAM READ: "
+             << (isWholeProgramRead() ? " " : " NOT ") << "DETECTED \n";
+      dbgs() << "    WHOLE PROGRAM SEEN: "
+             << (isWholeProgramSeen() ? " " : " NOT ") << "DETECTED \n";
+    } else {
+      dbgs() << "    WHOLE PROGRAM ASSUME IS ENABLED\n";
     }
+    dbgs() << "    WHOLE PROGRAM SAFE: " << (WholeProgramSafe ? " " : " NOT ")
+           << "DETECTED\n";
+  };
 
-    if (Simple || Full)
-      PrintAliases();
+  bool Simple = !WholeProgramTraceLibFuncs && !WholeProgramTraceVisibility &&
+                !WholeProgramReadTrace;
 
-    if (Full || WholeProgramTraceLibFuncs) {
-      dbgs() << "  TOTAL LIBFUNCS: "
-             << LibFuncsNotFound.size() + LibFuncsFound.size() << "\n";
-      PrintLibFuncsFound();
-    }
+  bool Full = (WholeProgramTraceLibFuncs && WholeProgramTraceVisibility &&
+               WholeProgramReadTrace);
 
-    if (Simple || Full || WholeProgramTraceLibFuncs)
-      PrintLibFuncsNotFound();
+  dbgs() << "\nWHOLE-PROGRAM-ANALYSIS: ";
 
-    if (Simple || Full || WholeProgramTraceVisibility)
-      PrintVisibility();
+  // Just the missing libfuncs or those functions that are external
+  if (Simple)
+    dbgs() << "SIMPLE ANALYSIS";
 
-    if (Full || WholeProgramReadTrace)
-      WPUtils.PrintSymbolsResolution();
+  // Print all
+  else if (Full)
+    dbgs() << "FULL ANALYSIS";
 
-    PrintWPResult();
+  // Print the libfuncs found and not found
+  else if (WholeProgramTraceLibFuncs)
+    dbgs() << "LIBRARY FUNCTIONS TRACE";
+
+  // Print the functions that weren't internalized
+  else if (WholeProgramTraceVisibility)
+    dbgs() << "EXTERNAL FUNCTIONS TRACE";
+
+  else if (WholeProgramReadTrace)
+    dbgs() << "WHOLE PROGRAM READ TRACE";
+
+  dbgs() << "\n\n";
+
+  if (Simple || Full) {
+    dbgs() << "  UNRESOLVED CALLSITES: " << UnresolvedCallsCount << "\n";
+  }
+
+  if (Simple || Full)
+    PrintAliases();
+
+  if (Full || WholeProgramTraceLibFuncs) {
+    dbgs() << "  TOTAL LIBFUNCS: "
+           << LibFuncsNotFound.size() + LibFuncsFound.size() << "\n";
+    PrintLibFuncsFound();
+  }
+
+  if (Simple || Full || WholeProgramTraceLibFuncs)
+    PrintLibFuncsNotFound();
+
+  if (Simple || Full || WholeProgramTraceVisibility)
+    PrintVisibility();
+
+  if (Full || WholeProgramReadTrace)
+    WPUtils.PrintSymbolsResolution();
+
+  PrintWPResult();
 }
-#endif // NDEBUG || LLVM_ENABLE_DUMP
+#endif // USING_DEBUG_MODE
 
 WholeProgramInfo WholeProgramInfo::analyzeModule(
-    Module &M,
-    std::function<const TargetLibraryInfo &(Function &)> GetTLI,
+    Module &M, std::function<const TargetLibraryInfo &(Function &)> GetTLI,
     function_ref<TargetTransformInfo &(Function &)> GTTI, CallGraph *CG) {
 
   WholeProgramInfo Result;
@@ -283,174 +301,121 @@ void WholeProgramWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<TargetTransformInfoWrapperPass>();
 }
 
-// This function takes Value that is an operand to call or invoke instruction
-// and checks if it can be resolved as a known function.
-bool WholeProgramInfo::resolveCalledValue(
-    std::function<const TargetLibraryInfo &(Function &)> GetTLI,
-    const Value *Arg, const Function *Caller) {
+// Collect the following globals from the Module M and store them in the
+// SetVector LLVMSpecialGlobalVars:
+//
+//   llvm.used:          Treat the symbol as if it needs to be retained in the
+//                       module, even if it appears it could be removed.
+//   llvm.compiler.used: Same as llvm.used but the compiler shouldn't touch the
+//                         function
+//   llvm.global_ctors:  Everything executed before main
+//   llvm.global_dtors:  Everything executed after main
+//
+// These globals are arrays that contain Functions needed by the whole program
+// analysis but we can't reach them from main.
+static void collectLLVMSpecialGlobalVars(
+    Module &M, SetVector<const GlobalVariable *> &LLVMSpecialGlobalVars) {
 
-  assert(Arg && "Whole-Program-Analysis: invalid call argument");
-  // Remove any potential cast before doing anything with the value.
-  Arg = Arg->stripPointerCasts();
+  auto CollectGlobal = [&M, &LLVMSpecialGlobalVars](StringRef GlobName) {
+    if (const GlobalVariable *Glob = M.getGlobalVariable(GlobName))
+      LLVMSpecialGlobalVars.insert(Glob);
+  };
 
-  // If the value is a function try to resolve it.
-  if (const Function *Callee = dyn_cast<Function>(Arg)) {
-    if (Callee->isIntrinsic() || !Callee->isDeclaration()) {
-      LLVM_DEBUG({
-        if (WholeProgramTraceLibFuncs && Callee->isIntrinsic())
-          LibFuncsFound.insert(Callee);
-      });
+  CollectGlobal("llvm.used");
+  CollectGlobal("llvm.compiler.used");
+  CollectGlobal("llvm.global_ctors");
+  CollectGlobal("llvm.global_dtors");
+}
+
+// Return true if traversing the users, recursively, of the input value V we
+// can reach a function stored in FuncsCollected or a global variable stored in
+// LLVMSpecialGlobalVars. In simple words, we are going to check if the
+// functions in FuncsCollected or if the global variables in
+// LLVMSpecialGlobalVars will use the Value V indirectly.
+//
+// The set ValueChecked is for storing data that has been checked already to
+// prevent infinite loops.
+static bool
+hasMeaningfulUse(const Value *V, SetVector<const Function *> &FuncsCollected,
+                  SetVector<const Value *> &ValueChecked,
+                  SetVector<const GlobalVariable *> &LLVMSpecialGlobalVars) {
+  if (!V)
+    return false;
+
+  if (V->user_empty())
+    return false;
+
+  if (!ValueChecked.insert(V))
+    return false;
+
+  for (const User *U : V->users()) {
+
+    const Value *Val = cast<const Value>(U);
+    if (ValueChecked.count(Val) > 0)
+      continue;
+
+    // If there is an instruction then collect the function and check it
+    if (auto *Inst = dyn_cast<const Instruction>(U)) {
+      const Function *F = Inst->getFunction();
+      if (FuncsCollected.count(F) > 0)
+        return true;
+
+      const Value *FuncVal = cast<const Value>(F);
+      if (hasMeaningfulUse(FuncVal, FuncsCollected, ValueChecked,
+                            LLVMSpecialGlobalVars))
+        return true;
+
+      continue;
+    } else if (auto *Glob = dyn_cast<const GlobalVariable>(U)) {
+      // Check if the User is one of the special global variables
+      if (LLVMSpecialGlobalVars.count(Glob) > 0)
+        return true;
+    }
+
+    if (hasMeaningfulUse(Val, FuncsCollected, ValueChecked,
+                          LLVMSpecialGlobalVars))
       return true;
-    }
-
-    const TargetLibraryInfo &TLI = GetTLI(*const_cast<Function*>(Callee));
-
-    LibFunc TheLibFunc;
-    if (!TLI.getLibFunc(Callee->getName(), TheLibFunc) ||
-        !TLI.has(TheLibFunc)) {
-
-      LLVM_DEBUG({
-        LibFuncsNotFound.insert(Callee);
-        ++UnresolvedCallsCount;
-      });
-      return false;
-    }
-
-    //
-    // If the Caller is not Fortran, but the Callee is Fortran, do not
-    // recognize this as a call to a libFunc. In other words, a libFunc
-    // that is marked as Fortran (like those from the Fortran runtime
-    // library) can only be recognized as a Fortran libFunc if it is called
-    // by a Caller that was compiled by the Fortran front end.
-    //
-    // This mimics the behavior of the IL0 compiler, where only the Fortran
-    // front end could recognize calls to the Fortran runtime library as
-    // intrinsics.
-    //
-    if (Callee->isFortran() && !Caller->isFortran()) {
-      LLVM_DEBUG({
-        LibFuncsNotFound.insert(Callee);
-        ++UnresolvedCallsCount;
-      });
-      return false;
-    }
-
-    LLVM_DEBUG({
-      if (WholeProgramTraceLibFuncs)
-        LibFuncsFound.insert(Callee);
-    });
-    return true;
   }
 
-  // Callees which are result of instructions like load cannot be resolved at
-  // compile time, ignore them. If the whole program is read we can assume that
-  // indirect calls will invoke one of the analyzed functions.
-  return true;
+  return false;
 }
 
-// This function returns true if all calls in "F" can be resolved using
-// "TLI" info. Otherwise, it returns false and sets "unresolved_funcs_count"
-// to number of unresolved calls in "F".
-bool WholeProgramInfo::resolveCallsInRoutine(
-    std::function<const TargetLibraryInfo &(Function &)> GetTLI,
-    Function *F) {
-
-  bool Resolved = true;
-  for (auto &II : instructions(F)) {
-    // Skip if it is not a call inst
-    if (!isa<CallInst>(&II) && !isa<InvokeInst>(&II)) {
-      continue;
-    }
-
-    CallBase *CS = dyn_cast<CallBase>(&II);
-    Resolved &= resolveCalledValue(GetTLI, CS->getCalledOperand(), F);
-
-    LLVM_DEBUG({
-      // If we are printing the trace for whole program analysis then
-      // we need to traverse the whole module.
-      continue;
-    });
-
-    if (!Resolved)
-      return false;
-  }
-  return Resolved;
-}
-
-bool WholeProgramInfo::resolveAllLibFunctions(
-    Module &M,
+// Return true if the input function is one of the following:
+//
+//   * is main (or one of its form)
+//   * is not external (internalized symbol and is not main)
+//   * is a library function
+//   * is a linker added symbol (will be treated as libfunc)
+//   * is an intrinsic
+//   * is a branch funnel
+//
+// Else, return false.
+bool WholeProgramInfo::isValidFunction(
+    const Function *F,
     std::function<const TargetLibraryInfo &(Function &)> GetTLI) {
 
-  bool Resolved = true;
-  MainDefSeen = false;
-
-  LLVM_DEBUG({
-    UnresolvedCallsCount = 0;
-  });
-
-  // Walk through all functions to find unresolved calls.
-  LibFunc TheLibFunc;
-  for (Function &F : M) {
-    if (!F.isDeclaration() && WPUtils.isMainEntryPoint(F.getName()))
-      MainDefSeen = true;
-
-    // First check if the current function has local linkage (IR),
-    // it is a LibFunc or an intrinsic
-    if (!AssumeWholeProgram && F.isDeclaration() && !F.hasLocalLinkage()) {
-
-      const TargetLibraryInfo &TLI = GetTLI(F);
-
-      bool LibFuncFound = F.isIntrinsic() ||
-                          (TLI.getLibFunc(F.getName(), TheLibFunc) &&
-                           TLI.has(TheLibFunc));
-      // Check if the current function is a LibFunc or an intrinsic
-      if (!LibFuncFound) {
-        LLVM_DEBUG({
-          LibFuncsNotFound.insert(&F);
-        });
-        Resolved &= false;
-      }
-      // We can skip because there is no IR
-      continue;
+#ifdef USING_DEBUG_MODE
+  // Store the input function in the corresponding SetVector for
+  // debugging purposes:
+  //
+  //   * LibFuncsFound: the function was found in the Target Library
+  //                    Analysis (LibFunc), is a known LLVM intrinsic
+  //                    function or is a branch funnel
+  //   * LibFuncsNotFound: a declaration that wasn't resolved
+  //   * VisibleFunctions: a function with IR that wasn't internalized and
+  //                       isn't a LibFunc
+  auto UpdateWPDebugResults = [this, F](bool Result) {
+    if (Result) {
+      LibFuncsFound.insert(F);
+    } else {
+      if (F->isDeclaration())
+        LibFuncsNotFound.insert(F);
+      else
+        VisibleFunctions.insert(F);
+      UnresolvedCallsCount++;
     }
-
-    Resolved &= resolveCallsInRoutine(GetTLI, &F);
-  }
-
-  // Walk through all aliases to find unresolved aliases.
-  for (auto &GA : M.aliases()) {
-    if (GA.hasLocalLinkage())
-      continue;
-    LLVM_DEBUG({
-      AliasesNotFound.insert(&GA);
-    });
-    Resolved &= false;
-  }
-
-  // Check for Resolved if WholeProgramAssert is true.
-  // NOTE: This is not an actual c assert, this is just an early exit.
-  // The assert function calls abort and produces some messages that could
-  // be misleading. Instead, we are going to use report_fatal_error.
-  if (WholeProgramAssert && !Resolved) {
-    errs() << "Whole-Program-Analysis: Did not detect whole program\n";
-    errs().flush();
-    exit(1);
-  }
-
-  Resolved &= MainDefSeen;
-
-  return Resolved;
-}
-
-// Compute if all functions in the module M that have at least one User are
-// internal with the exception of libfuncs, main and functions added by the
-// linker. The visibility is used to secure that all the functions are inside
-// the module.
-//
-void WholeProgramInfo::computeFunctionsVisibility(
-    Module &M,
-    std::function<const TargetLibraryInfo &(Function &)> GetTLI){
-  LibFunc TheLibFunc;
+  };
+#endif // USING_DEBUG_MODE
 
   // Branch funnel functions are wrappers to the branch funnel intrinsics.
   // These are created during devirtualization. The purpose of the branch
@@ -474,21 +439,20 @@ void WholeProgramInfo::computeFunctionsVisibility(
   // Also, if devirtualization ran then it means that we achieved whole
   // program already and all the functions are internal to the module during
   // LTO.
-  auto IsBranchFunnelFunc = [](Function &F) {
-
+  auto IsBranchFunnelFunc = [F]() {
     // If there is no IR then there is nothing to check
-    if (F.isDeclaration())
+    if (F->isDeclaration())
       return false;
 
     // Return type will always be void
-    if (!F.getReturnType()->isVoidTy())
+    if (!F->getReturnType()->isVoidTy())
       return false;
 
     // Only one basic block
-    if (F.size() != 1)
+    if (F->size() != 1)
       return false;
 
-    BasicBlock &BB = F.front();
+    const BasicBlock &BB = F->front();
 
     // Branch funnels contains only 2 instructions:
     //   call to intrinsic
@@ -496,8 +460,8 @@ void WholeProgramInfo::computeFunctionsVisibility(
     if (BB.size() != 2)
       return false;
 
-    CallBase *FunnelCall = dyn_cast<CallBase>(&(BB.front()));
-    ReturnInst *Ret = dyn_cast<ReturnInst>(&(BB.back()));
+    const CallBase *FunnelCall = dyn_cast<CallBase>(&(BB.front()));
+    const ReturnInst *Ret = dyn_cast<ReturnInst>(&(BB.back()));
 
     if (!FunnelCall || !Ret)
       return false;
@@ -506,7 +470,7 @@ void WholeProgramInfo::computeFunctionsVisibility(
     if (!Ret->getType()->isVoidTy())
       return false;
 
-    Function *Func = FunnelCall->getCalledFunction();
+    const Function *Func = FunnelCall->getCalledFunction();
 
     if (!Func || !Func->isIntrinsic())
       return false;
@@ -518,65 +482,287 @@ void WholeProgramInfo::computeFunctionsVisibility(
     return false;
   };
 
-  for (Function &F : M) {
+  // The only symbols that should be external are main, library functions
+  // (LibFuncs) or special symbols added by the linker.
+  if (F->hasLocalLinkage())
+    return true;
 
-    if (!F.hasLocalLinkage()) {
+  StringRef SymbolName = F->getName();
+  if (WPUtils.isLinkerAddedSymbol(SymbolName))
+    return true;
 
-      // If there isn't any user then it means that the function is
-      // not needed.
-      if (F.user_empty())
-        continue;
+  if (WPUtils.isMainEntryPoint(SymbolName))
+    return true;
 
-      StringRef SymbolName = F.getName();
+  bool FuncResolved = false;
+  LibFunc TheLibFunc;
+  const TargetLibraryInfo &TLI = GetTLI(*const_cast<Function *>(F));
+  if ((TLI.getLibFunc(F->getName(), TheLibFunc) && TLI.has(TheLibFunc)) ||
+      F->isIntrinsic() || IsBranchFunnelFunc())
+    FuncResolved = true;
+  else if (!F->isDeclaration())
+    WholeProgramHidden = false;
 
-      bool IsLinkerAddedSymbol = WPUtils.isLinkerAddedSymbol(SymbolName);
+#ifdef USING_DEBUG_MODE
+  UpdateWPDebugResults(FuncResolved);
+#endif // USING_DEBUG_MODE
 
-      bool IsMain = WPUtils.isMainEntryPoint(SymbolName);
+  // Function F is a function that needs to be resolved
+  return FuncResolved;
+}
 
-      const TargetLibraryInfo &TLI = GetTLI(F);
+// Walk the instructions in Function F and store the callees in CallsitesFuncs.
+// The TargetLibraryInfo GetTLI is used to check if the called functions are
+// LibFuncs or not.
+bool WholeProgramInfo::collectAndResolveCallSites(
+    const Function *F, std::queue<const Function *> &CallsitesFuncs,
+    std::function<const TargetLibraryInfo &(Function &)> GetTLI) {
 
-      bool IsLibFunc = F.isIntrinsic() ||
-                       (TLI.getLibFunc(F.getName(), TheLibFunc) &&
-                        TLI.has(TheLibFunc)) || IsBranchFunnelFunc(F);
+  // Return true if the input Callee is a valid function for whole program,
+  // else return false.
+  auto CheckCallee = [this, F, GetTLI](const Function *Callee) -> bool {
+    bool FuncResolved = isValidFunction(Callee, GetTLI);
 
-      // A whole program hidden symbol will be one or more of the following:
-      //   * is main (or one of it's form)
-      //   * is not external (internalized symbol and is not main)
-      //   * is a library function
-      //   * is a linker added symbol (will be treated as libfunc)
-      bool IsWPHiddenSymbol = IsLinkerAddedSymbol || IsLibFunc || IsMain;
+    //
+    // If the Caller is not Fortran, but the Callee is Fortran, do not
+    // recognize this as a call to a libFunc. In other words, a libFunc
+    // that is marked as Fortran (like those from the Fortran runtime
+    // library) can only be recognized as a Fortran libFunc if it is called
+    // by a Caller that was compiled by the Fortran front end.
+    //
+    // This mimics the behavior of the IL0 compiler, where only the Fortran
+    // front end could recognize calls to the Fortran runtime library as
+    // intrinsics.
+    //
+    if (FuncResolved && Callee->isFortran() && !F->isFortran()) {
+#ifdef USING_DEBUG_MODE
+      LibFuncsFound.remove(Callee);
 
-      // The only symbols that should be external are main, library functions
-      // (LibFuncs) or special symbols added by the linker.
-      if (!IsWPHiddenSymbol)
-        VisibleFunctions.insert(&F);
+      if (Callee->isDeclaration())
+        LibFuncsNotFound.insert(Callee);
+      else
+        VisibleFunctions.insert(Callee);
+
+      ++UnresolvedCallsCount;
+#endif // USING_DEBUG_MODE
+      return false;
+    }
+
+    return FuncResolved;
+  };
+
+  bool AllCallSitesResolved = true;
+
+  for (auto &II : instructions(F)) {
+    const CallBase *CS = dyn_cast<CallBase>(&II);
+    if (!CS)
+      continue;
+
+    const Value *Arg = CS->getCalledOperand()->stripPointerCasts();
+
+    if (const Function *Callee = dyn_cast<const Function>(Arg)) {
+      if (!Callee->isDeclaration())
+        CallsitesFuncs.push(Callee);
+
+      AllCallSitesResolved &= CheckCallee(Callee);
+
+#ifndef USING_DEBUG_MODE
+      // If we are not debugging then we can return early
+      if (!AllCallSitesResolved)
+        return false;
+#endif // USING_DEBUG_MODE
     }
   }
+
+  return AllCallSitesResolved;
+}
+
+// Return true if all Functions in the Module M were resolved, else return
+// false. We recognize a function as "resolved" if it has one of the
+// following properties:
+//
+//   * is main (or one of its form)
+//   * is not external (internalized symbol and is not main)
+//   * is a library function
+//   * is a linker added symbol (will be treated as libfunc)
+//   * is an intrinsic
+//   * is a branch funnel
+//
+// Else return false.
+bool WholeProgramInfo::analyzeAndResolveFunctions(
+    Module &M, std::function<const TargetLibraryInfo &(Function &)> GetTLI) {
+
+  // Given a Function F, return true if it can be resolved. Also collect
+  // the called functions and check if they can be resolved too. These called
+  // functions will be stored in FuncsCollected. Else return false.
+  auto AnalyzeFunction =
+      [this, GetTLI](const Function *F,
+                     SetVector<const Function *> &FuncsCollected) -> bool {
+    bool AllResolved = true;
+    if (!isValidFunction(F, GetTLI)) {
+      AllResolved = false;
+#ifndef USING_DEBUG_MODE
+      return false;
+#endif // USING_DEBUG_MODE
+    }
+
+    std::queue<const Function *> CallsitesFuncs;
+    CallsitesFuncs.push(F);
+
+    while (!CallsitesFuncs.empty()) {
+      const Function *CurrFunc = CallsitesFuncs.front();
+      CallsitesFuncs.pop();
+
+      if (!FuncsCollected.insert(CurrFunc))
+        continue;
+
+      if (CurrFunc->isDeclaration())
+        continue;
+
+      AllResolved &=
+          collectAndResolveCallSites(CurrFunc, CallsitesFuncs, GetTLI);
+#ifndef USING_DEBUG_MODE
+      // If we are not debugging then we can return early
+      if (!AllResolved)
+        return false;
+#endif // USING_DEBUG_MODE
+    }
+    return AllResolved;
+  };
+
+  bool Resolved = true;
+  MainDefSeen = false;
+#ifdef USING_DEBUG_MODE
+  UnresolvedCallsCount = 0;
+#endif // USING_DEBUG_MODE
+
+  SetVector<const Function *> AddressTakenFuncs;
+  const Function *MainFunc = getMainFunction(M);
+
+  // If main wasn't found then there is no need to keep checking.
+  if (MainFunc)
+    MainDefSeen = true;
+  else
+    return false;
+
+  // Find the special global variables
+  collectLLVMSpecialGlobalVars(M, LLVMSpecialGlobalVars);
+
+  // Collect all the functions that can be reached by walking main
+  Resolved &= AnalyzeFunction(MainFunc, FuncsCollected);
+
+#ifndef USING_DEBUG_MODE
+  // Return early if we are not debugging
+  if (!Resolved)
+    return false;
+#endif // USING_DEBUG_MODE
+
+  // Find all address taken functions that we missed when main was checked
+  // (indirect calls).
+  for (auto &F : M)
+    if (F.hasAddressTaken() && !F.user_empty() && FuncsCollected.count(&F) == 0)
+      AddressTakenFuncs.insert(&F);
+
+  // Check which address taken functions can reach any function in
+  // FuncsCollected or the global variables in LLVMSpecialGlobalVars by
+  // traversing the users.
+  bool KeepWalking = true;
+  while (KeepWalking) {
+    unsigned OldSize = FuncsCollected.size();
+    for (auto *ATFunc : AddressTakenFuncs) {
+      if (FuncsCollected.count(ATFunc) > 0)
+        continue;
+
+      SetVector<const Value *> DataChecked;
+      if (hasMeaningfulUse(ATFunc, FuncsCollected, DataChecked,
+                            LLVMSpecialGlobalVars)) {
+
+        Resolved &= AnalyzeFunction(ATFunc, FuncsCollected);
+#ifndef USING_DEBUG_MODE
+        // Return early if we are not debugging
+        if (!Resolved)
+          return false;
+#endif // USING_DEBUG_MODE
+      }
+    }
+    KeepWalking = OldSize != FuncsCollected.size();
+  }
+
+  // Check for Resolved if WholeProgramAssert is true.
+  // NOTE: This is not an actual c assert, this is just an early exit.
+  // The assert function calls abort and produces some messages that could
+  // be misleading. Instead, we are going to use report_fatal_error.
+  if (WholeProgramAssert && !Resolved) {
+    errs() << "Whole-Program-Analysis: Did not detect whole program\n";
+    errs().flush();
+    exit(1);
+  }
+
+  return Resolved;
+}
+
+// Return true if all the aliases in the Module were resolved. An alias is
+// "resolved" if it has the following properties:
+//
+//   * has local linkange
+//   * aliasees that are functions must be identified as "resolved"
+//   * aliasees that are aliases must be resolved
+//
+// Else, return false.
+bool WholeProgramInfo::analyzeAndResolveAliases(
+    Module &M, std::function<const TargetLibraryInfo &(Function &F)> GetTLI) {
+
+  // Walk through all aliases to find unresolved aliases.
+  bool AllAliasesResolved = true;
+  for (auto &GA : M.aliases()) {
+    if (GA.hasLocalLinkage())
+      continue;
+
+    SetVector<const Value *> DataChecked;
+    // Skip those aliases that won't be used in the program
+    if (!hasMeaningfulUse(&GA, FuncsCollected, DataChecked,
+                           LLVMSpecialGlobalVars))
+      continue;
+
+    // TODO: The function that analyzes the alias GA needs to be implemented.
+    // This is the function that will walk the alias and check if the aliasees
+    // are resolved. We might need to check all aliases, even if they have
+    // local linkage. Possible case: an alias with local linkage aliasing
+    // an alias with non-local linkage.
+#ifdef USING_DEBUG_MODE
+    // Store the unresolved aliases if we are debugging
+    AliasesNotFound.insert(&GA);
+    AllAliasesResolved = false;
+#else
+    // Return early if we aren't debugging
+    return false;
+#endif // USING_DEBUG_MODE
+  }
+
+  return AllAliasesResolved;
 }
 
 // Detect whole program using intrinsic table.
 //
 void WholeProgramInfo::wholeProgramAllExternsAreIntrins(
-    Module &M,
-    std::function<const TargetLibraryInfo &(Function &)> GetTLI) {
+    Module &M, std::function<const TargetLibraryInfo &(Function &)> GetTLI) {
 
-  // Compute if all functions are internal
-  computeFunctionsVisibility(M, GetTLI);
-  bool AllResolved = resolveAllLibFunctions(M, GetTLI);
+  bool AllResolved = analyzeAndResolveFunctions(M, GetTLI);
+  AllResolved &= analyzeAndResolveAliases(M, GetTLI);
 
   if (AllResolved)
     WholeProgramSeen = true;
 
-  WholeProgramSafe = isWholeProgramSeen() && isWholeProgramRead()
-                     && isLinkedAsExecutable();
+  WholeProgramSafe =
+      isWholeProgramSeen() && isWholeProgramRead() && isLinkedAsExecutable();
 
-  LLVM_DEBUG( printWholeProgramTrace(); );
+  LLVM_DEBUG(printWholeProgramTrace(););
 }
 
 // Compute and store the value of isAdvancedOptEnabled(AO) for all
 // possible values of the argument AO.
-void WholeProgramInfo::computeIsAdvancedOptEnabled(Module &M,
-                       function_ref<TargetTransformInfo &(Function &)> GTTI) {
+void WholeProgramInfo::computeIsAdvancedOptEnabled(
+    Module &M, function_ref<TargetTransformInfo &(Function &)> GTTI) {
   for (Function &F : M) {
     if (F.isDeclaration())
       continue;
@@ -627,13 +813,13 @@ bool WholeProgramInfo::isWholeProgramSeen(void) {
   return (WholeProgramSeen && isWholeProgramHidden()) || AssumeWholeProgram;
 }
 
-// Return true if all symbols are inside the LTO unit except
+// Return true if all functions with IR are inside the LTO unit except
 // main, runtime library calls and library functions (LibFuncs).
 bool WholeProgramInfo::isWholeProgramHidden(void) {
   if (AssumeWholeProgramHidden)
     return true;
 
-  return VisibleFunctions.empty() || AssumeWholeProgram;
+  return WholeProgramHidden || AssumeWholeProgram;
 }
 
 // Return true if the linker finds that all symbols were resolved or
@@ -650,7 +836,7 @@ bool WholeProgramInfo::isLinkedAsExecutable() {
 
 // Return the Function* that points to "main" or any of its forms,
 // else return nullptr
-Function* WholeProgramInfo::getMainFunction(Module &M) {
+Function *WholeProgramInfo::getMainFunction(Module &M) {
 
   Function *Main = nullptr;
 
@@ -670,7 +856,7 @@ char WholeProgramAnalysis::PassID;
 AnalysisKey WholeProgramAnalysis::Key;
 
 WholeProgramInfo WholeProgramAnalysis::run(Module &M,
-                                AnalysisManager<Module> &AM) {
+                                           AnalysisManager<Module> &AM) {
   auto &FAM = AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
   std::function<TargetTransformInfo &(Function &)> GTTI =
       [&FAM](Function &F) -> TargetTransformInfo & {
@@ -681,6 +867,6 @@ WholeProgramInfo WholeProgramAnalysis::run(Module &M,
     return FAM.getResult<TargetLibraryAnalysis>(F);
   };
 
-  return WholeProgramInfo::analyzeModule(M, GetTLI, GTTI,
-                                  AM.getCachedResult<CallGraphAnalysis>(M));
+  return WholeProgramInfo::analyzeModule(
+      M, GetTLI, GTTI, AM.getCachedResult<CallGraphAnalysis>(M));
 }
