@@ -199,6 +199,7 @@ bool X86TargetInfo::initFeatureMap(
   return true;
 }
 
+<<<<<<< HEAD
 void X86TargetInfo::setSSELevel(llvm::StringMap<bool> &Features,
                                 X86SSEEnum Level, bool Enabled) {
   if (Enabled) {
@@ -390,6 +391,8 @@ void X86TargetInfo::setXOPLevel(llvm::StringMap<bool> &Features, XOPEnum Level,
   }
 }
 
+=======
+>>>>>>> 16f3d698f2afbbea43e0c3df81df6f2a640ce806
 void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
                                           StringRef Name, bool Enabled) {
   if (Name == "sse4") {
@@ -405,6 +408,7 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
 
   Features[Name] = Enabled;
 
+<<<<<<< HEAD
   if (Name == "mmx") {
     setMMXLevel(Features, MMX, Enabled);
   } else if (Name == "sse") {
@@ -697,6 +701,12 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
   }
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
 #endif // INTEL_CUSTOMIZATION
+=======
+  SmallVector<StringRef, 8> ImpliedFeatures;
+  llvm::X86::getImpliedFeatures(Name, Enabled, ImpliedFeatures);
+  for (const auto &F : ImpliedFeatures)
+    Features[F] = Enabled;
+>>>>>>> 16f3d698f2afbbea43e0c3df81df6f2a640ce806
 }
 
 /// handleTargetFeatures - Perform initialization based on the user
