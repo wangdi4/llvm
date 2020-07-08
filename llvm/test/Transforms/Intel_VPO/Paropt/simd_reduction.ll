@@ -12,15 +12,17 @@
 ;     ++l;
 ; }
 
-; CRITICAL: call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(),{{.*}}"QUAL.OMP.REDUCTION.ADD"(i32* %[[RPRIV:[^,]+]]){{.*}} ]
-; CRITICAL: br i1 %{{[^,]+}}, label %[[PHB:[^,]+]], label %[[REXIT:[^,]+]]
+; CRITICAL: [[ZTT:%.+]] = icmp sle i32 0, %{{.+}}
+; CRITICAL: br i1 [[ZTT]], label %[[PHB:[^,]+]], label %[[REXIT:[^,]+]]
 ; CRITICAL: [[PHB]]:
+; CRITICAL: [[TOK:%.+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(),{{.*}}"QUAL.OMP.REDUCTION.ADD"(i32* %[[RPRIV:[^,]+]]){{.*}} ]
 ; CRITICAL: br label %[[LOOPBODY:[^,]+]]
 ; CRITICAL: [[LOOPBODY]]:
 ; CRITICAL: load {{.*}}i32* %[[RPRIV]]
 ; CRITICAL: store {{.*}}i32* %[[RPRIV]]
 ; CRITICAL: br i1 %{{[^,]+}}, label %[[LOOPBODY]], label %[[LEXIT:[^,]+]]
 ; CRITICAL: [[LEXIT]]:
+; CRITICAL: call void @llvm.directive.region.exit(token [[TOK]]) [ "DIR.OMP.END.SIMD"() ]
 ; CRITICAL: br label %[[LEXIT_SPLIT:[^,]+]]
 ; CRITICAL: [[LEXIT_SPLIT]]:
 ; CRITICAL: br label %[[LEXIT_SPLIT_SPLIT:[^,]+]]
@@ -31,17 +33,18 @@
 ; CRITICAL: store i32 %[[ADD]], i32* %l
 ; CRITICAL: br label %[[REXIT]]
 ; CRITICAL: [[REXIT]]:
-; CRITICAL: call void @llvm.directive.region.exit(token %{{.*}}) [ "DIR.OMP.END.SIMD"() ]
 
-; FASTRED: call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(),{{.*}}"QUAL.OMP.REDUCTION.ADD"(i32* %[[RPRIV:[^,]+]]){{.*}} ]
-; FASTRED: br i1 %{{[^,]+}}, label %[[PHB:[^,]+]], label %[[REXIT:[^,]+]]
+; FASTRED: [[ZTT:%.+]] = icmp sle i32 0, %{{.+}}
+; FASTRED: br i1 [[ZTT]], label %[[PHB:[^,]+]], label %[[REXIT:[^,]+]]
 ; FASTRED: [[PHB]]:
+; FASTRED: [[TOK:%.+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(),{{.*}}"QUAL.OMP.REDUCTION.ADD"(i32* %[[RPRIV:[^,]+]]){{.*}} ]
 ; FASTRED: br label %[[LOOPBODY:[^,]+]]
 ; FASTRED: [[LOOPBODY]]:
 ; FASTRED: load {{.*}}i32* %[[RPRIV]]
 ; FASTRED: store {{.*}}i32* %[[RPRIV]]
 ; FASTRED: br i1 %{{[^,]+}}, label %[[LOOPBODY]], label %[[LEXIT:[^,]+]]
 ; FASTRED: [[LEXIT]]:
+; FASTRED: call void @llvm.directive.region.exit(token [[TOK]]) [ "DIR.OMP.END.SIMD"() ]
 ; FASTRED: %[[R:.+]] = load i32, i32* %[[RPRIV]]
 ; FASTRED: store i32 %[[R]], i32* %[[FRPRIV:.+]]
 ; FASTRED: br label %[[LEXIT_SPLIT:[^,]+]]
@@ -54,7 +57,6 @@
 ; FASTRED: store i32 %[[ADD]], i32* %l
 ; FASTRED: br label %[[REXIT]]
 ; FASTRED: [[REXIT]]:
-; FASTRED: call void @llvm.directive.region.exit(token %{{.*}}) [ "DIR.OMP.END.SIMD"() ]
 
 ; ModuleID = 'simd.cpp'
 source_filename = "simd.cpp"

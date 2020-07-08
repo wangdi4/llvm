@@ -381,6 +381,14 @@ unsigned VPlanCostModel::getInsertExtractElementsCost(
 unsigned VPlanCostModel::getIntrinsicInstrCost(
   Intrinsic::ID ID, const CallBase &CB, unsigned VF,
   VPCallInstruction::CallVecScenariosTy VS) {
+
+  // Intrinsics which have 0 cost are not lowered to actual code during ASM CG.
+  // They are meant for intermediate analysis/transforms and will be deleted
+  // before CG. Do not account the cost of serializing them.
+  if (TTI->getIntrinsicInstrCost(IntrinsicCostAttributes(ID, CB, 1),
+                                 TTI::TCK_RecipThroughput) == 0)
+    return 0;
+
   // isTriviallyVectorizable(ID) is special cased in VPlan CG and
   // do not listen to VS settings.  Special case them here until
   // is fixed in CG and in VPlanCallVecDecisions::analyzeCall.

@@ -1814,6 +1814,7 @@ bool VPOParoptTransform::paroptTransforms() {
             Changed |= genLinearCodeForVecLoop(W, LoopExitBB);
             Changed |= genLastPrivatizationCode(W, LoopExitBB);
             Changed |= genReductionCode(W);
+            Changed |= sinkSIMDDirectives(W);
           }
           // keep SIMD directives; will be processed by the Vectorizer
           RemoveDirectives = false;
@@ -4724,10 +4725,16 @@ Value *VPOParoptTransform::genPrivatizationAlloca(
   std::tie(ElementType, NumElements, AddrSpace) = getItemInfo(I);
   assert(ElementType && "Could not find Type of local element.");
 
+  // If the list item being privatized also appears in an allocate clause,
+  // then pass the AllocItem to VPOParoptUtils::genPrivatizationAlloca()
+  // so omp_alloc() is called to allocate the private memory.
+  AllocateItem *AllocItem = WRegionUtils::getAllocateItem(I);
+
   auto *NewVal = VPOParoptUtils::genPrivatizationAlloca(
-      ElementType, NumElements, OrigAlignment, InsertPt,
-      isTargetSPIRV(), Orig->getName() + NameSuffix, AllocaAddrSpace,
-      !PreserveAddressSpace ? llvm::None : llvm::Optional<unsigned>(AddrSpace));
+      ElementType, NumElements, OrigAlignment, InsertPt, isTargetSPIRV(),
+      Orig->getName() + NameSuffix, AllocaAddrSpace,
+      !PreserveAddressSpace ? llvm::None : llvm::Optional<unsigned>(AddrSpace),
+      AllocItem);
   assert(NewVal && "Failed to create local copy.");
 
   LLVM_DEBUG(dbgs() << __FUNCTION__ << ": New Alloca for operand '";
@@ -5802,7 +5809,9 @@ Value *VPOParoptTransform::genRegionPrivateValue(
 bool VPOParoptTransform::sinkSIMDDirectives(WRegionNode *W) {
   // Check if there is a child SIMD region associated with
   // this region's loop.
-  WRNVecLoopNode *SimdNode = WRegionUtils::getEnclosedSimdForSameLoop(W);
+  WRNVecLoopNode *SimdNode = isa<WRNVecLoopNode>(W)
+                                 ? cast<WRNVecLoopNode>(W)
+                                 : WRegionUtils::getEnclosedSimdForSameLoop(W);
 
   if (!SimdNode)
     return false;

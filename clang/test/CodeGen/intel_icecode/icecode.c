@@ -3,6 +3,8 @@
 
 #include <immintrin.h>
 
+#define MY_CONSTANT_VAL 35
+
 extern void* mem;
 
 void test_xucode() {
@@ -83,7 +85,7 @@ void test_icecode() {
 // CHECK: call i32 @llvm.x86.icecode.nr.read(i32 0)
 // CHECK: call void @llvm.x86.icecode.ucodecall(i32 %{{.*}})
 // CHECK: call i64 @llvm.x86.icecode.cmodemov(i64 %{{.*}}, i64 %{{.*}}, i32 0)
-// CHECK: call void asm sideeffect "sigeventjump $$0,
+// CHECK: call void asm sideeffect "sigeventjump $0,
 // CHECK: call void asm sideeffect "sserialize"
 // CHECK: call void asm sideeffect "nop_set_sb"
 // CHECK: call void asm sideeffect "nop_read_sb"
@@ -115,7 +117,7 @@ void test_icecode() {
   _ce_nr_read(0);
   _ce_ucodecall(reg);
   _ce_cmodemov(data64, data64, 0);
-  _ce_sigeventjump(data64, data32, 0);
+  _ce_sigeventjump(data64, data32, MY_CONSTANT_VAL);
   _ce_sserialize();
   _ce_nop_set_sb();
   _ce_nop_read_sb();

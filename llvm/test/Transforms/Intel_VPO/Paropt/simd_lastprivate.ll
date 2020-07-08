@@ -12,9 +12,10 @@
 ;   }
 ; }
 
-; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(),{{.*}}"QUAL.OMP.LASTPRIVATE"(i32* %[[LPRIV:[^,]+]]){{.*}} ]
-; CHECK: br i1 %{{[^,]+}}, label %[[PHB:[^,]+]], label %[[REXIT:[^,]+]]
+; CHECK: [[ZTT:%.+]] = icmp sle i32 0, %{{.+}}
+; CHECK: br i1 [[ZTT]], label %[[PHB:[^,]+]], label %[[REXIT:[^,]+]]
 ; CHECK: [[PHB]]:
+; CHECK: [[TOK:%.+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(),{{.*}}"QUAL.OMP.LASTPRIVATE"(i32* %[[LPRIV:[^,]+]]){{.*}} ]
 ; CHECK: br label %[[LOOPBODY:[^,]+]]
 ; CHECK: [[LOOPBODY]]:
 ; CHECK: store {{.*}}i32* %[[LPRIV]]
@@ -22,11 +23,11 @@
 ; CHECK: store {{.*}}i32* %[[LPRIV]]
 ; CHECK: br i1 %{{[^,]+}}, label %[[LOOPBODY]], label %[[LEXIT:[^,]+]]
 ; CHECK: [[LEXIT]]:
+; CHECK: call void @llvm.directive.region.exit(token [[TOK]]) [ "DIR.OMP.END.SIMD"() ]
 ; CHECK: %[[V:.+]] = load i32, i32* %[[LPRIV]]
 ; CHECK: store i32 %[[V]], i32* %l
 ; CHECK: br label %[[REXIT]]
 ; CHECK: [[REXIT]]:
-; CHECK: call void @llvm.directive.region.exit(token %{{.*}}) [ "DIR.OMP.END.SIMD"() ]
 
 ; ModuleID = 'simd_lastprivate.c'
 source_filename = "simd_lastprivate.c"

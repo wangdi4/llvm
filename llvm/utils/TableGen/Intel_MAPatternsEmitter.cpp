@@ -172,11 +172,14 @@ class FMAExprSPTG : public FMAExprSPCommon {
 
     // Returns true iff the DAG associated with this sum of products is similar
     // or better than the DAG associated with the given sum of products \p SP.
-    // The first DAG is similar or better than the second if the first has
-    // the same of smaller number of operations AND has the same or smaller
-    // depth. If one DAG has smaller number of operations but has bigger
-    // depth than another, then the first is not better (and not worse) than
-    // another.
+    // The first DAG is similar or better than the second if they meet one of
+    // the following conditions.
+    // 1. The first has smaller depth AND the same or smaller number of
+    //    operations.
+    // 2. The first has smaller number of operations AND the same or smaller
+    //    depth.
+    // 3. The first has the same number of operations and depth AND the first
+    //    has smaller or the same number of FMAs.
     // Usually this function is called to compare DAGs associated with SPs
     // having the same shape or even identical SPs, but that does not add
     // any constraints to this method and it potentially can be asked to
@@ -198,8 +201,24 @@ bool FMAExprSPTG::isSimilarOrMoreGeneralCaseThan(const FMAExprSPTG &SP) const {
 }
 
 bool FMAExprSPTG::hasSimilarOrBetterDagThan(const FMAExprSPTG &SP) const {
-  return (Dag->getDepth() <= SP.Dag->getDepth() &&
-          Dag->getNumNodes() <= SP.Dag->getNumNodes());
+  unsigned LHSDepth = Dag->getDepth();
+  unsigned RHSDepth = SP.Dag->getDepth();
+  unsigned LHSNumOps = Dag->getNumNodes();
+  unsigned RHSNumOps = SP.Dag->getNumNodes();
+
+  // Clearly NOT better because of the latency/depth or throughput.
+  if (LHSDepth > RHSDepth || LHSNumOps > RHSNumOps)
+    return false;
+
+  // Clearly better at least in one component (latency or throughput).
+  if (LHSDepth < RHSDepth || LHSNumOps < RHSNumOps)
+    return true;
+
+  // Same depth and number of operations. Now all depends on the number of heavy
+  // (FMA) operations.
+  FMAOpsDesc LHSDesc = Dag->getOpsDesc();
+  FMAOpsDesc RHSDesc = SP.Dag->getOpsDesc();
+  return LHSDesc.getNumFMA() <= RHSDesc.getNumFMA();
 }
 
 bool FMADagTG::isNodeUsed(unsigned NodeInd) const {
@@ -693,7 +712,16 @@ static bool cmpSPsAfterFiltering(const FMAExprSPTG *A, const FMAExprSPTG *B) {
   if (Cmp > 0)
     return false;
 
-  // 4. Compare the numbers of terms in SPs.
+  // 4. Compare the number of FMAs (the DAG with less FMAs goes first).
+  FMAOpsDesc DescA = A->Dag->getOpsDesc();
+  FMAOpsDesc DescB = B->Dag->getOpsDesc();
+  Cmp = DescA.getNumFMA() - DescB.getNumFMA();
+  if (Cmp < 0)
+    return true;
+  if (Cmp > 0)
+    return false;
+
+  // 5. Compare the numbers of terms in SPs.
   // The SP with bigger number of terms goes first.
   Cmp = A->getNumUniqueTerms() - B->getNumUniqueTerms();
   if (Cmp > 0)

@@ -884,12 +884,15 @@ public:
   /// then the generated Value will be immediately addrspacecast'ed
   /// and the generated AddrSpaceCastInst or AddrSpaceCast constant
   /// expression will be returned as a result.
+  /// If \p AllocItem is present, then the private memory will be
+  /// allocated by calling omp_alloc().
   static Value *
   genPrivatizationAlloca(Type *ElementType, Value *NumElements,
                          MaybeAlign OrigAlignment, Instruction *InsertPt,
                          bool IsTargetSPIRV, const Twine &VarName = "",
                          llvm::Optional<unsigned> AllocaAddrSpace = llvm::None,
-                         llvm::Optional<unsigned> ValueAddrSpace = llvm::None);
+                         llvm::Optional<unsigned> ValueAddrSpace = llvm::None,
+                         AllocateItem *AllocItem = nullptr);
 
   /// Return true if address spaces \p AS1 and \p AS2 are compatible
   /// for the current compilation target. Address spaces are compatible,
@@ -1349,6 +1352,20 @@ public:
   ///   int omp_get_num_devices()
   /// \endcode
   static CallInst *genOmpGetNumDevices(Instruction *InsertPt);
+
+
+  /// Generate a call to
+  /// \code
+  ///   omp_allocator_handle_t omp_get_default_allocator()
+  /// \endcode
+  static CallInst *genOmpGetDefaultAllocator(Instruction *InsertPt);
+
+  /// Generate a call to
+  /// \code
+  ///   void* omp_alloc(size_t Size, omp_allocator_handle_t Handle)
+  /// \endcode
+  static CallInst *genOmpAlloc(Value *Size, Value *Handle,
+                               Instruction *InsertPt);
 
   /// Generate a call to `__kmpc_task_reduction_get_th_data`. Prototype:
   /// \code

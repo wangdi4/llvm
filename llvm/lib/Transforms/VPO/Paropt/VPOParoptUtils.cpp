@@ -1103,6 +1103,50 @@ CallInst *VPOParoptUtils::genOmpGetNumDevices(Instruction *InsertPt) {
   return Call;
 }
 
+// Generate a call to
+//   omp_allocator_handle_t omp_get_default_allocator()
+CallInst *VPOParoptUtils::genOmpGetDefaultAllocator(Instruction *InsertPt) {
+  BasicBlock *B = InsertPt->getParent();
+  Function *F = B->getParent();
+  Module *M = F->getParent();
+
+  // return type omp_allocator_handle_t is IntPtr
+  Type *IntPtrTy = GeneralUtils::getSizeTTy(F);
+
+  CallInst *Call =
+      genEmptyCall(M, "omp_get_default_allocator", IntPtrTy, InsertPt);
+  Call->setName("default_allocator");
+  return Call;
+}
+
+// Generate a call to
+//   void* omp_alloc(size_t Size, omp_allocator_handle_t Handle)
+// where omp_allocator_handle_t is uintptr_t, so the call is one of these:
+//   %call = call i8* @omp_alloc(i64 Size, i64 Handle) // in P64 arch
+//   %call = call i8* @omp_alloc(i32 Size, i32 Handle) // in P32 arch
+//
+// If the input 'Handle' is null, then use omp_get_default_allocator()
+// as the second parameter of omp_alloc().
+CallInst *VPOParoptUtils::genOmpAlloc(Value *Size, Value *Handle,
+                                      Instruction *InsertPt) {
+  IRBuilder<> Builder(InsertPt);
+  BasicBlock *B = InsertPt->getParent();
+  Function *F = B->getParent();
+
+  // size_t and omp_allocator_handle_t are both IntPtr
+  Type *IntPtrTy = GeneralUtils::getSizeTTy(F);
+  PointerType *Int8PtrTy = Builder.getInt8PtrTy();
+
+  auto *SizeCast = Builder.CreateZExtOrBitCast(Size, IntPtrTy);
+  if (Handle)
+    Handle = Builder.CreateZExtOrBitCast(Handle, IntPtrTy);
+  else
+    Handle = genOmpGetDefaultAllocator(InsertPt);
+  CallInst *Call = genCall("omp_alloc", Int8PtrTy, {SizeCast, Handle},
+                           {IntPtrTy, IntPtrTy}, InsertPt);
+  return Call;
+}
+
 // This function generates a call as follows.
 //    void @__kmpc_omp_task_begin_if0(
 //          { i32, i32, i32, i32, i8* }* /* &loc */,
@@ -4395,7 +4439,7 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
     Type *ElementType, Value *NumElements, MaybeAlign OrigAlignment,
     Instruction *InsertPt, bool IsTargetSPIRV, const Twine &VarName,
     llvm::Optional<unsigned> AllocaAddrSpace,
-    llvm::Optional<unsigned> ValueAddrSpace) {
+    llvm::Optional<unsigned> ValueAddrSpace, AllocateItem *AllocItem) {
   assert(ElementType && "Null element type.");
   assert(InsertPt && "Null insertion anchor.");
 
@@ -4452,6 +4496,33 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
         Builder, GV, ElementType->getPointerTo(ValueAddrSpace.getValue()));
   }
 
+
+  uint64_t ConstNumElements = 0;
+  if (auto *CI = dyn_cast_or_null<ConstantInt>(NumElements)) {
+    // TODO: use ConstantFoldInstruction to discover more constant values.
+    ConstNumElements = CI->getZExtValue();
+    assert(ConstNumElements > 0 && "Invalid size for new alloca.");
+  }
+
+  // If AllocItem is not null, then call omp_alloc(Size, AllocHandle) to
+  // allocate memory according to the allocate clause.
+  // This clause is currently not supported for spir64 target compilation.
+  if (!IsTargetSPIRV && AllocItem) {
+    Value *AllocHandle = AllocItem->getAllocator();
+    Value *ElementSize = Builder.getIntN(DL.getPointerSizeInBits(),
+                                         DL.getTypeSizeInBits(ElementType) / 8);
+    Value *TotalSize = ElementSize;
+    if (NumElements != nullptr && ConstNumElements != 1)
+      // If the above condition is true then the number of elements may be >1
+      // so we compute TotalSize = NumElements * ElementSize.
+      TotalSize = Builder.CreateMul(NumElements, ElementSize);
+
+    CallInst *AllocCall = genOmpAlloc(TotalSize, AllocHandle, InsertPt);
+    Value *AllocCast = Builder.CreateBitCast(AllocCall, ElementType->getPointerTo());
+    AllocCast->setName(VarName);
+    return AllocCast;
+  }
+
   // Some targets do not support array allocas, so we have to
   // generate new alloca instruction of an array type to overcome that.
   // For example, if the requested privatization allocation is
@@ -4464,11 +4535,10 @@ Value *VPOParoptUtils::genPrivatizationAlloca(
   // with result type i32*:
   //   %1 = getelementptr inbounds ([10 x i32], [10 x i32]* %0, i32 0, i32 0)
   bool MimicArrayAllocation = false;
-  if (auto *CI = dyn_cast_or_null<ConstantInt>(NumElements)) {
-    // TODO: use ConstantFoldInstruction to discover more constant values.
-    uint64_t Size = CI->getZExtValue();
-    assert(Size > 0 && "Invalid size for new alloca.");
-    ElementType = ArrayType::get(ElementType, Size);
+
+  if (ConstNumElements > 0) {
+    // NumElements is a constant
+    ElementType = ArrayType::get(ElementType, ConstNumElements);
     NumElements = nullptr;
     MimicArrayAllocation = true;
   }

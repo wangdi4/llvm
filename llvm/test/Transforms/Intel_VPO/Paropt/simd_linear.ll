@@ -10,15 +10,17 @@
 ;     ++l;
 ; }
 
-; CHECK: call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(),{{.*}}"QUAL.OMP.LINEAR"(i32* %[[LPRIV:[^,]+]], i32 1){{.*}} ]
+; CHECK: [[TOK:%.+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(),{{.*}}"QUAL.OMP.LINEAR"(i32* %[[LPRIV:[^,]+]], i32 1){{.*}} ]
 ; CHECK: br label %[[LOOPBODY:[^,]+]]
 ; CHECK: [[LOOPBODY]]:
+; CHECK: br i1 %{{[^,]+}}, label %[[LOOPBODY]], label %[[LEXIT:[^,]+]]
+; CHECK: [[LEXIT]]:
+; CHECK: call void @llvm.directive.region.exit(token [[TOK]]) [ "DIR.OMP.END.SIMD"() ]
 ; CHECK: %[[V:.+]] = load i32, i32* %[[LPRIV]]
 ; CHECK_NEXT: %[[INC:.+]] = add nsw i32 %2, 1
 ; CHECK_NEXT: store i32 %[[INC]], i32* %[[LPRIV]]
 ; CHECK: br label %[[REXIT:[^,]+]]
 ; CHECK: [[REXIT]]:
-; CHECK: call void @llvm.directive.region.exit(token %{{.*}}) [ "DIR.OMP.END.SIMD"() ]
 
 ; ModuleID = 'simd.cpp'
 source_filename = "simd.cpp"

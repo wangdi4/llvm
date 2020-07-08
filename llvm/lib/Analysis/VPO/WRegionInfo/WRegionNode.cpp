@@ -118,7 +118,7 @@ void WRegionNode::finalize(Instruction *ExitDir, DominatorTree *DT) {
       Value *Orig = FprivI->getOrig();
       if (hasLastprivate) {
         LastprivateItem *LprivI =
-                              WRegionUtils::wrnSeenAsLastPrivate(this, Orig);
+                              WRegionUtils::wrnSeenAsLastprivate(this, Orig);
         if (LprivI != nullptr) {
            // Orig appears in both firstprivate and lastprivate clauses
            FprivI->setInLastprivate(LprivI);
@@ -164,6 +164,71 @@ void WRegionNode::finalize(Instruction *ExitDir, DominatorTree *DT) {
                         << ") in both UseDevicePtr and Map\n");
     }
   }
+
+  // Update the InAllocate fields of [first|last]private and reduction
+  bool hasAllocate = (canHaveAllocate() && !getAllocate().empty());
+  if (hasAllocate) {
+    bool hasPrivate = (canHavePrivate() && !getPriv().empty());
+    bool hasFirstprivate = (canHaveFirstprivate() && !getFpriv().empty());
+    // hasLastprivate is already computed
+    bool hasReduction = (canHaveReduction() && !getRed().empty());
+    for (AllocateItem *AllocI : getAllocate().items()) {
+      Value *Orig = AllocI->getOrig();
+
+      if (hasPrivate) {
+        PrivateItem *PrivI = WRegionUtils::wrnSeenAsPrivate(this, Orig);
+        if (PrivI) {
+          PrivI->setInAllocate(AllocI);
+          LLVM_DEBUG(dbgs() << "Found (" << *Orig
+                            << ") in both Allocate and Private\n");
+          continue;
+        }
+      }
+
+      if (hasFirstprivate) {
+        FirstprivateItem *FprivI =
+            WRegionUtils::wrnSeenAsFirstprivate(this, Orig);
+        if (FprivI) {
+          FprivI->setInAllocate(AllocI);
+          LastprivateItem *LprivI = nullptr;
+          if (hasLastprivate) {
+            // Update lastprivate clause if Orig also appears in it
+            LprivI = FprivI->getInLastprivate();
+            if (LprivI)
+              LprivI->setInAllocate(AllocI);
+          }
+          if (LprivI)
+            LLVM_DEBUG(dbgs() << "Found (" << *Orig
+                              << ") in both Allocate and Firstprivate\n");
+          else
+            LLVM_DEBUG(dbgs()
+                       << "Found (" << *Orig
+                       << ") in Allocate, Firstprivate, and Lastprivate\n");
+          continue;
+        }
+      }
+
+      if (hasLastprivate) {
+        LastprivateItem *LprivI =
+            WRegionUtils::wrnSeenAsLastprivate(this, Orig);
+        if (LprivI) {
+          LprivI->setInAllocate(AllocI);
+          LLVM_DEBUG(dbgs() << "Found (" << *Orig
+                            << ") in both Allocate and Lastprivate\n");
+          continue;
+        }
+      }
+
+      if (hasReduction) {
+        ReductionItem *RedI = WRegionUtils::wrnSeenAsReduction(this, Orig);
+        if (RedI) {
+          RedI->setInAllocate(AllocI);
+          LLVM_DEBUG(dbgs() << "Found (" << *Orig
+                            << ") in both Allocate and Reduction\n");
+        }
+      }
+    } // for (AllocateItem *AllocI : getAllocate().items())
+  }   // if (hastAllocate)
 
   if (getIsOmpLoop()) {
     LoopInfo *LI = getWRNLoopInfo().getLoopInfo();
@@ -384,6 +449,9 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
 
   if (canHaveReduction())
     PrintedSomething |= getRed().print(OS, Depth, Verbosity);
+
+  if (canHaveAllocate())
+    PrintedSomething |= getAllocate().print(OS, Depth, Verbosity);
 
   if (canHaveCopyin())
     PrintedSomething |= getCopyin().print(OS, Depth, Verbosity);
@@ -746,6 +814,7 @@ template <typename ClauseTy>
 void WRegionNode::extractQualOpndList(const Use *Args, unsigned NumArgs,
                                       int ClauseID, ClauseTy &C) {
   C.setClauseID(ClauseID);
+
   for (unsigned I = 0; I < NumArgs; ++I) {
     Value *V = Args[I];
     C.add(V);
@@ -1350,11 +1419,37 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     break;
   }
   case QUAL_OMP_ALIGNED: {
-    extractQualOpndList<AlignedClause>(Args, NumArgs, ClauseID, getAligned());
+    // IR: "QUAL.OMP.ALIGNED"(TYPE1** %ptr1, TYPE2** %ptr2, ..., i32 8)
+    assert(NumArgs >= 2 && "Expected at least 2 arguments for ALIGNED clause");
+    Value *AlignVal = Args[NumArgs - 1];
+    assert(isa<ConstantInt>(AlignVal) &&
+           "Alignment in an ALIGNED clause must be constant.");
+    ConstantInt *CI = cast<ConstantInt>(AlignVal);
+    int Alignment = CI->getZExtValue();
+    AlignedClause &C = getAligned();
+    for (unsigned I = 0; I < NumArgs - 1; ++I) {
+      Value *V = Args[I];
+      C.add(V);
+      C.back()->setAlign(Alignment);
+    }
     break;
   }
   case QUAL_OMP_FLUSH: {
     extractQualOpndList<FlushSet>(Args, NumArgs, ClauseID, getFlush());
+    break;
+  }
+  case QUAL_OMP_ALLOCATE: {
+    // IR:    "QUAL.OMP.ALLOCATE"(TYPE* %p, i64 %handle)
+    //    or  "QUAL.OMP.ALLOCATE"(TYPE* %p)
+    assert((NumArgs == 1 || NumArgs == 2) &&
+           "Expected 1 or 2 arguments for ALLOCATED clause");
+    Value *Var = Args[0];
+    Value *AllocatorHandle = nullptr;
+    if (NumArgs==2)
+      AllocatorHandle = Args[1];
+    AllocateClause &C = getAllocate();
+    C.add(Var);
+    C.back()->setAllocator(AllocatorHandle);
     break;
   }
   case QUAL_OMP_SCHEDULE_AUTO: {
@@ -1808,6 +1903,28 @@ bool WRegionNode::canHaveCollapse() const {
     return true;
   }
 
+  return false;
+}
+
+bool WRegionNode::canHaveAllocate() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNParallel:
+  case WRNParallelLoop:
+  case WRNParallelSections:
+  case WRNParallelWorkshare:
+  case WRNTeams:
+  case WRNDistributeParLoop:
+  case WRNTarget:
+  case WRNTask:
+  case WRNTaskgroup:
+  case WRNTaskloop:
+  case WRNWksLoop:
+  case WRNSections:
+  case WRNDistribute:
+  case WRNSingle:
+    return true;
+  }
   return false;
 }
 

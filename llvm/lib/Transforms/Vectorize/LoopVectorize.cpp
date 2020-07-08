@@ -3309,9 +3309,10 @@ unsigned LoopVectorizationCostModel::getVectorCallCost(CallInst *CI,
 #if INTEL_CUSTOMIZATION
   // If the callee is glibc sincos, just scalarize.
   LibFunc LibF;
-  TLI->getLibFunc(*CI, LibF);
-  if (LibF == LibFunc_sincos || LibF == LibFunc_sincosf)
-    return Cost;
+  if (TLI->getLibFunc(*CI, LibF)) {
+    if (LibF == LibFunc_sincos || LibF == LibFunc_sincosf)
+      return Cost;
+  }
 #endif // INTEL_CUSTOMIZATION
   VFShape Shape = VFShape::get(*CI, {VF, false}, false /*HasGlobalPred*/);
   Function *VecFunc = VFDatabase(*CI).getVectorizedFunction(Shape);
