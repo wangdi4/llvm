@@ -5593,9 +5593,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                    options::OPT_fno_openmp, false) &&
 #endif // INTEL_COLLAB
       (JA.isDeviceOffloading(Action::OFK_None) ||
-#if INTEL_CUSTOMIZATION
-       JA.isDeviceOffloading(Action::OFK_SYCL) ||
-#endif // INTEL_CUSTOMIZATION
        JA.isDeviceOffloading(Action::OFK_OpenMP))) {
     switch (D.getOpenMPRuntime(Args)) {
     case Driver::OMPRT_OMP:
