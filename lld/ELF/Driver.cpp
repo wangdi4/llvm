@@ -1087,13 +1087,11 @@ static void readConfigs(opt::InputArgList &args) {
   config->zText = getZFlag(args, "text", "notext", true);
   config->zWxneeded = hasZOption(args, "wxneeded");
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Handle -plugin-opt=fintel-advanced-optim
   if (args.hasArg(OPT_plugin_opt_intel_advanced_optim))
     config->intelAdvancedOptim = true;
 #endif // INTEL_CUSTOMIZATION
-=======
   for (opt::Arg *arg : args.filtered(OPT_z)) {
     std::pair<StringRef, StringRef> option =
         StringRef(arg->getValue()).split('=');
@@ -1114,7 +1112,6 @@ static void readConfigs(opt::InputArgList &args) {
     else
       error(errPrefix + toString(pat.takeError()));
   }
->>>>>>> 4ce56b8122219f7b79d75d33184e3ec890a6e222
 
   // Parse LTO options.
   if (auto *arg = args.getLastArg(OPT_plugin_opt_mcpu_eq))
