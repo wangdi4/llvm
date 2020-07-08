@@ -7386,7 +7386,9 @@ bool SystemZABIInfo::isFPArgumentType(QualType Ty) const {
 }
 
 QualType SystemZABIInfo::GetSingleElementType(QualType Ty) const {
-  if (const RecordType *RT = Ty->getAsStructureType()) {
+  const RecordType *RT = Ty->getAs<RecordType>();
+
+  if (RT && RT->isStructureOrClassType()) {
     const RecordDecl *RD = RT->getDecl();
     QualType Found;
 

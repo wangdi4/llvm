@@ -3989,12 +3989,13 @@ SDValue X86TargetLowering::LowerMemOpCallTo(SDValue Chain, SDValue StackPtr,
                                             SDValue Arg, const SDLoc &dl,
                                             SelectionDAG &DAG,
                                             const CCValAssign &VA,
-                                            ISD::ArgFlagsTy Flags) const {
+                                            ISD::ArgFlagsTy Flags,
+                                            bool isByVal) const {
   unsigned LocMemOffset = VA.getLocMemOffset();
   SDValue PtrOff = DAG.getIntPtrConstant(LocMemOffset, dl);
   PtrOff = DAG.getNode(ISD::ADD, dl, getPointerTy(DAG.getDataLayout()),
                        StackPtr, PtrOff);
-  if (Flags.isByVal())
+  if (isByVal)
     return CreateCopyOfByValArgument(Arg, PtrOff, Chain, Flags, DAG, dl);
 
   return DAG.getStore(
@@ -4306,7 +4307,7 @@ X86TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
         StackPtr = DAG.getCopyFromReg(Chain, dl, RegInfo->getStackRegister(),
                                       getPointerTy(DAG.getDataLayout()));
       MemOpChains.push_back(LowerMemOpCallTo(Chain, StackPtr, Arg,
-                                             dl, DAG, VA, Flags));
+                                             dl, DAG, VA, Flags, isByVal));
     }
   }
 
@@ -8250,10 +8251,11 @@ static SDValue LowerBuildVectorv16i8(SDValue Op, unsigned NonZeros,
         Elt = NextElt;
     }
 
-    // If our first insertion is not the first index then insert into zero
-    // vector to break any register dependency else use SCALAR_TO_VECTOR.
+    // If our first insertion is not the first index or zeros are needed, then
+    // insert into zero vector. Otherwise, use SCALAR_TO_VECTOR (leaves high
+    // elements undefined).
     if (!V) {
-      if (i != 0)
+      if (i != 0 || NumZero)
         V = getZeroVector(MVT::v8i16, Subtarget, DAG, dl);
       else {
         V = DAG.getNode(ISD::SCALAR_TO_VECTOR, dl, MVT::v4i32, Elt);
@@ -40864,7 +40866,7 @@ static SDValue combineExtractWithShuffle(SDNode *N, SelectionDAG &DAG,
     auto *MemIntr = cast<MemIntrinsicSDNode>(SrcBC);
     unsigned SrcBCWidth = SrcBC.getScalarValueSizeInBits();
     if (MemIntr->getMemoryVT().getSizeInBits() == SrcBCWidth &&
-        VT.getSizeInBits() == SrcBCWidth) {
+        VT.getSizeInBits() == SrcBCWidth && SrcEltBits == SrcBCWidth) {
       SDValue Load = DAG.getLoad(VT, dl, MemIntr->getChain(),
                                  MemIntr->getBasePtr(),
                                  MemIntr->getPointerInfo(),
