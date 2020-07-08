@@ -1670,7 +1670,6 @@ pi_result ExecCGCommand::SetKernelParamsAndLaunch(
       sampler *SamplerPtr = (sampler *)Arg.MPtr;
       RT::PiSampler Sampler = detail::getSyclObjImpl(*SamplerPtr)
                                   ->getOrCreateSampler(MQueue->get_context());
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       if (Plugin.getBackend() == (backend::level0)) {
         // TODO: This is a workaround and should be reworked when
@@ -1680,12 +1679,8 @@ pi_result ExecCGCommand::SetKernelParamsAndLaunch(
         break;
       }
 #endif // INTEL_CUSTOMIZATION
-      Plugin.call<PiApiKind::piKernelSetArg>(Kernel, Arg.MIndex,
-                                             sizeof(cl_sampler), &Sampler);
-=======
       Plugin.call<PiApiKind::piextKernelSetArgSampler>(Kernel, Arg.MIndex,
                                                        &Sampler);
->>>>>>> 1e7185a3b8aca12f8bca54f8f3563698e41a2646
       break;
     }
     case kernel_param_kind_t::kind_pointer: {
