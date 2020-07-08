@@ -29,11 +29,7 @@ static bool isDeviceOfPreferredSyclBe(const device &Device) {
     return false;
 
   return detail::getSyclObjImpl(Device)->getPlugin().getBackend() ==
-<<<<<<< HEAD
-         backend::level0; // INTEL
-=======
          backend::level0;
->>>>>>> 11ef88c95d38a8ecd882da5f420f1637148680d7
 }
 
 device device_selector::select_device() const {
