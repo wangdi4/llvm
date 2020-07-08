@@ -297,6 +297,8 @@ class SharedItem : public Item
     static bool classof(const Item *I) { return I->getKind() == IK_Shared; }
 };
 
+class AllocateItem; // forward declaration
+
 //
 //   PrivateItem: OMP PRIVATE clause item
 //   (cf PAROPT_OMP_PRIVATE_NODE)
@@ -304,14 +306,17 @@ class SharedItem : public Item
 class PrivateItem : public Item
 {
   private:
+    AllocateItem *InAllocate; // AllocateItem with the same opnd
     RDECL Constructor;
     RDECL Destructor;
 
   public:
     PrivateItem(VAR Orig)
-        : Item(Orig, IK_Private), Constructor(nullptr), Destructor(nullptr) {}
-    PrivateItem(const Use *Args) :
-      Item(nullptr, IK_Private), Constructor(nullptr), Destructor(nullptr) {
+        : Item(Orig, IK_Private), InAllocate(nullptr), Constructor(nullptr),
+          Destructor(nullptr) {}
+    PrivateItem(const Use *Args)
+        : Item(nullptr, IK_Private), InAllocate(nullptr), Constructor(nullptr),
+          Destructor(nullptr) {
       // PRIVATE nonPOD Args are: var, ctor, dtor
       Value *V = cast<Value>(Args[0]);
       setOrig(V);
@@ -320,8 +325,10 @@ class PrivateItem : public Item
       V = cast<Value>(Args[2]);
       Destructor = cast<Function>(V);
     }
+    void setInAllocate(AllocateItem *AI) { InAllocate = AI; }
     void setConstructor(RDECL Ctor) { Constructor = Ctor; }
     void setDestructor(RDECL Dtor)  { Destructor  = Dtor; }
+    AllocateItem *getInAllocate() const { return InAllocate; }
     RDECL getConstructor() const { return Constructor; }
     RDECL getDestructor()  const { return Destructor;  }
 
@@ -352,6 +359,7 @@ class FirstprivateItem : public Item
   private:
     LastprivateItem *InLastprivate; // LastprivateItem with the same opnd
     MapItem *InMap;                 // MapItem with the same opnd
+    AllocateItem *InAllocate;       // AllocateItem with the same opnd
     RDECL CopyConstructor;
     RDECL Destructor;
 
@@ -370,10 +378,11 @@ class FirstprivateItem : public Item
   public:
     FirstprivateItem(VAR Orig)
         : Item(Orig, IK_Firstprivate), InLastprivate(nullptr), InMap(nullptr),
-          CopyConstructor(nullptr), Destructor(nullptr) {}
+          InAllocate(nullptr), CopyConstructor(nullptr), Destructor(nullptr) {}
     FirstprivateItem(const Use *Args)
         : Item(nullptr, IK_Firstprivate), InLastprivate(nullptr),
-          InMap(nullptr), CopyConstructor(nullptr), Destructor(nullptr) {
+          InMap(nullptr), InAllocate(nullptr), CopyConstructor(nullptr),
+          Destructor(nullptr) {
       // FIRSTPRIVATE nonPOD Args are: var, cctor, dtor
       Value *V = cast<Value>(Args[0]);
       setOrig(V);
@@ -384,10 +393,12 @@ class FirstprivateItem : public Item
     }
     void setInLastprivate(LastprivateItem *LI) { InLastprivate = LI; }
     void setInMap(MapItem *MI) { InMap = MI; }
+    void setInAllocate(AllocateItem *AI) { InAllocate = AI; }
     void setCopyConstructor(RDECL Cctor) { CopyConstructor = Cctor; }
     void setDestructor(RDECL Dtor)       { Destructor  = Dtor;      }
     LastprivateItem *getInLastprivate() const { return InLastprivate; }
     MapItem *getInMap() const { return InMap; }
+    AllocateItem *getInAllocate() const { return InAllocate; }
     RDECL getCopyConstructor() const { return CopyConstructor; }
     RDECL getDestructor()      const { return Destructor;      }
     void setIsPointer(bool Val) { IsPointer = Val; }
@@ -420,18 +431,20 @@ class LastprivateItem : public Item
   private:
     bool IsConditional;               // conditional lastprivate
     FirstprivateItem *InFirstprivate; // FirstprivateItem with the same opnd
+    AllocateItem *InAllocate;         // AllocateItem with the same opnd
     RDECL Constructor;
     RDECL CopyAssign;
     RDECL Destructor;
 
   public:
     LastprivateItem(VAR Orig)
-        : Item(Orig, IK_Lastprivate), IsConditional(false), InFirstprivate(nullptr),
-          Constructor(nullptr), CopyAssign(nullptr), Destructor(nullptr) {}
+        : Item(Orig, IK_Lastprivate), IsConditional(false),
+          InFirstprivate(nullptr), InAllocate(nullptr), Constructor(nullptr),
+          CopyAssign(nullptr), Destructor(nullptr) {}
     LastprivateItem(const Use *Args)
         : Item(nullptr, IK_Lastprivate), IsConditional(false),
-          InFirstprivate(nullptr), Constructor(nullptr), CopyAssign(nullptr),
-          Destructor(nullptr) {
+          InFirstprivate(nullptr), InAllocate(nullptr), Constructor(nullptr),
+          CopyAssign(nullptr), Destructor(nullptr) {
       // LASTPRIVATE nonPOD Args are: var, ctor, copy-assign, dtor
       Value *V = cast<Value>(Args[0]);
       setOrig(V);
@@ -452,11 +465,13 @@ class LastprivateItem : public Item
     }
     void setIsConditional(bool B) { IsConditional = B; }
     void setInFirstprivate(FirstprivateItem *FI) { InFirstprivate = FI; }
+    void setInAllocate(AllocateItem *AI) { InAllocate = AI; }
     void setConstructor(RDECL Ctor) { Constructor = Ctor; }
     void setCopyAssign(RDECL Cpy) { CopyAssign = Cpy;         }
     void setDestructor(RDECL Dtor) { Destructor  = Dtor; }
     bool getIsConditional() const { return IsConditional; }
     FirstprivateItem *getInFirstprivate() const { return InFirstprivate; }
+    AllocateItem *getInAllocate() const { return InAllocate; }
     RDECL getConstructor() const { return Constructor; }
     RDECL getCopyAssign() const { return CopyAssign; }
     RDECL getDestructor() const { return Destructor; }
@@ -582,12 +597,13 @@ public:
     RDECL Constructor;
     RDECL Destructor;
     ArraySectionInfo ArrSecInfo;
+    AllocateItem *InAllocate; // AllocateItem with the same opnd
 
   public:
     ReductionItem(VAR Orig, WRNReductionKind Op = WRNReductionError)
         : Item(Orig, IK_Reduction), Ty(Op), IsUnsigned(false), IsComplex(false),
           IsInReduction(false), Combiner(nullptr), Initializer(nullptr),
-          Constructor(nullptr), Destructor(nullptr) {}
+          Constructor(nullptr), Destructor(nullptr), InAllocate(nullptr) {}
     static WRNReductionKind getKindFromClauseId(int Id) {
       switch(Id) {
         case QUAL_OMP_REDUCTION_ADD:
@@ -683,6 +699,8 @@ public:
     void setInitializer(RDECL Init)   { Initializer = Init;  }
     void setConstructor(RDECL Ctor)   { Constructor = Ctor;  }
     void setDestructor(RDECL Dtor)    { Destructor = Dtor;   }
+    void setInAllocate(AllocateItem *AI) { InAllocate = AI;  }
+
     WRNReductionKind getType() const { return Ty;            }
     bool getIsUnsigned()       const { return IsUnsigned;    }
     bool getIsComplex()        const { return IsComplex;     }
@@ -691,6 +709,7 @@ public:
     RDECL getInitializer()     const { return Initializer;   }
     RDECL getConstructor()     const { return Constructor;   }
     RDECL getDestructor()      const { return Destructor;    }
+    AllocateItem *getInAllocate() const { return InAllocate; }
 
     ArraySectionInfo &getArraySectionInfo() { return ArrSecInfo; }
     const ArraySectionInfo &getArraySectionInfo() const { return ArrSecInfo; }
@@ -1087,6 +1106,7 @@ public:
 //   DepSourceItem (for the depend(source) clause in ordered constructs)
 //   AlignedItem   (for the aligned clause in simd constructs)
 //   FlushItem     (for the flush clause)
+//   AllocateItem  (for the allocate clause)
 //
 // Clang collapses the 'n' loops for 'ordered(n)'. So VPO always
 // receives a single EXPR for depend(sink:sink_expr), which is already in
@@ -1203,6 +1223,31 @@ class FlushItem
     void print(formatted_raw_ostream &OS, bool PrintType=true) const {
       OS << "(" ;
       getOrig()->printAsOperand(OS, PrintType);
+      OS << ") ";
+    }
+};
+
+class AllocateItem
+{
+  private:
+    VAR   Var;
+    Value *Allocator; // intptr value for the Allocator handle (enum or pointer)
+
+  public:
+    AllocateItem(VAR V = nullptr) : Var(V), Allocator(nullptr) {}
+    void setOrig(VAR V) { Var = V; }
+    void setAllocator(Value *A) { Allocator = A; }
+    VAR getOrig() const { return Var; }
+    Value *getAllocator() const { return Allocator; }
+
+    void print(formatted_raw_ostream &OS, bool PrintType = true) const {
+      OS << "(";
+      getOrig()->printAsOperand(OS, PrintType);
+      OS << ", ";
+      if (getAllocator())
+        getAllocator()->printAsOperand(OS, PrintType);
+      else
+        OS << "NULL";
       OS << ") ";
     }
 };
@@ -1329,6 +1374,7 @@ typedef Clause<DepSinkItem>       DepSinkClause;
 typedef Clause<DepSourceItem>     DepSourceClause;
 typedef Clause<AlignedItem>       AlignedClause;
 typedef Clause<FlushItem>         FlushSet;
+typedef Clause<AllocateItem>      AllocateClause;
 
 typedef std::vector<SharedItem>::iterator        SharedIter;
 typedef std::vector<PrivateItem>::iterator       PrivateIter;
@@ -1347,6 +1393,7 @@ typedef std::vector<DepSinkItem>::iterator       DepSinkIter;
 typedef std::vector<DepSourceItem>::iterator     DepSourceIter;
 typedef std::vector<AlignedItem>::iterator       AlignedIter;
 typedef std::vector<FlushItem>::iterator         FlushIter;
+typedef std::vector<AllocateItem>::iterator      AllocateIter;
 
 
 //

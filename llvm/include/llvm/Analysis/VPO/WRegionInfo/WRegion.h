@@ -242,6 +242,7 @@ private:
   PrivateClause Priv;
   FirstprivateClause Fpriv;
   ReductionClause Reduction;
+  AllocateClause Alloc;
   CopyinClause Copyin;
   EXPR IfExpr;
   EXPR NumThreads;
@@ -275,11 +276,12 @@ protected:
 #endif //INTEL_CUSTOMIZATION
 
 public:
-  DEFINE_GETTER(SharedClause,       getShared, Shared)
-  DEFINE_GETTER(PrivateClause,      getPriv,   Priv)
-  DEFINE_GETTER(FirstprivateClause, getFpriv,  Fpriv)
-  DEFINE_GETTER(ReductionClause,    getRed,    Reduction)
-  DEFINE_GETTER(CopyinClause,       getCopyin, Copyin)
+  DEFINE_GETTER(SharedClause,       getShared,   Shared)
+  DEFINE_GETTER(PrivateClause,      getPriv,     Priv)
+  DEFINE_GETTER(FirstprivateClause, getFpriv,    Fpriv)
+  DEFINE_GETTER(ReductionClause,    getRed,      Reduction)
+  DEFINE_GETTER(AllocateClause,     getAllocate, Alloc)
+  DEFINE_GETTER(CopyinClause,       getCopyin,   Copyin)
 
   EXPR getIf() const { return IfExpr; }
   EXPR getNumThreads() const { return NumThreads; }
@@ -328,6 +330,7 @@ private:
   FirstprivateClause Fpriv;
   LastprivateClause Lpriv;
   ReductionClause Reduction;
+  AllocateClause Alloc;
   LinearClause Linear;
   CopyinClause Copyin;
   EXPR IfExpr;
@@ -383,13 +386,14 @@ protected:
 #endif //INTEL_CUSTOMIZATION
 
 public:
-  DEFINE_GETTER(SharedClause,       getShared, Shared)
-  DEFINE_GETTER(PrivateClause,      getPriv,   Priv)
-  DEFINE_GETTER(FirstprivateClause, getFpriv,  Fpriv)
-  DEFINE_GETTER(LastprivateClause,  getLpriv,  Lpriv)
-  DEFINE_GETTER(ReductionClause,    getRed,    Reduction)
-  DEFINE_GETTER(LinearClause,       getLinear, Linear)
-  DEFINE_GETTER(CopyinClause,       getCopyin, Copyin)
+  DEFINE_GETTER(SharedClause,       getShared,   Shared)
+  DEFINE_GETTER(PrivateClause,      getPriv,     Priv)
+  DEFINE_GETTER(FirstprivateClause, getFpriv,    Fpriv)
+  DEFINE_GETTER(LastprivateClause,  getLpriv,    Lpriv)
+  DEFINE_GETTER(ReductionClause,    getRed,      Reduction)
+  DEFINE_GETTER(AllocateClause,     getAllocate, Alloc)
+  DEFINE_GETTER(LinearClause,       getLinear,   Linear)
+  DEFINE_GETTER(CopyinClause,       getCopyin,   Copyin)
   DEFINE_GETTER(ScheduleClause,     getSchedule, Schedule)
   DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
 #if INTEL_CUSTOMIZATION
@@ -458,6 +462,7 @@ private:
   FirstprivateClause Fpriv;
   LastprivateClause Lpriv;
   ReductionClause Reduction;
+  AllocateClause Alloc;
   CopyinClause Copyin;
   EXPR IfExpr;
   EXPR NumThreads;
@@ -480,12 +485,13 @@ protected:
   void setProcBind(WRNProcBindKind P) { ProcBind = P; }
 
 public:
-  DEFINE_GETTER(SharedClause,       getShared, Shared)
-  DEFINE_GETTER(PrivateClause,      getPriv,   Priv)
-  DEFINE_GETTER(FirstprivateClause, getFpriv,  Fpriv)
-  DEFINE_GETTER(LastprivateClause,  getLpriv,  Lpriv)
-  DEFINE_GETTER(ReductionClause,    getRed,    Reduction)
-  DEFINE_GETTER(CopyinClause,       getCopyin, Copyin)
+  DEFINE_GETTER(SharedClause,       getShared,   Shared)
+  DEFINE_GETTER(PrivateClause,      getPriv,     Priv)
+  DEFINE_GETTER(FirstprivateClause, getFpriv,    Fpriv)
+  DEFINE_GETTER(LastprivateClause,  getLpriv,    Lpriv)
+  DEFINE_GETTER(ReductionClause,    getRed,      Reduction)
+  DEFINE_GETTER(AllocateClause,     getAllocate, Alloc)
+  DEFINE_GETTER(CopyinClause,       getCopyin,   Copyin)
   DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
 
   EXPR getIf() const { return IfExpr; }
@@ -528,6 +534,7 @@ private:
   PrivateClause Priv;
   FirstprivateClause Fpriv;
   ReductionClause Reduction;
+  AllocateClause Alloc;
   CopyinClause Copyin;
   ScheduleClause Schedule;
   EXPR IfExpr;
@@ -546,11 +553,12 @@ protected:
   void setProcBind(WRNProcBindKind P) { ProcBind = P; }
 
 public:
-  DEFINE_GETTER(SharedClause,       getShared, Shared)
-  DEFINE_GETTER(PrivateClause,      getPriv,   Priv)
-  DEFINE_GETTER(FirstprivateClause, getFpriv,  Fpriv)
-  DEFINE_GETTER(ReductionClause,    getRed,    Reduction)
-  DEFINE_GETTER(CopyinClause,       getCopyin, Copyin)
+  DEFINE_GETTER(SharedClause,       getShared,   Shared)
+  DEFINE_GETTER(PrivateClause,      getPriv,     Priv)
+  DEFINE_GETTER(FirstprivateClause, getFpriv,    Fpriv)
+  DEFINE_GETTER(ReductionClause,    getRed,      Reduction)
+  DEFINE_GETTER(AllocateClause,     getAllocate, Alloc)
+  DEFINE_GETTER(CopyinClause,       getCopyin,   Copyin)
   DEFINE_GETTER(ScheduleClause,     getSchedule, Schedule)
   DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
 
@@ -578,6 +586,7 @@ private:
   PrivateClause Priv;
   FirstprivateClause Fpriv;
   ReductionClause Reduction;
+  AllocateClause Alloc;
   EXPR ThreadLimit;
   EXPR NumTeams;
   WRNDefaultKind Default;
@@ -591,10 +600,11 @@ protected:
   void setDefault(WRNDefaultKind D) { Default = D; }
 
 public:
-  DEFINE_GETTER(SharedClause,       getShared, Shared)
-  DEFINE_GETTER(PrivateClause,      getPriv,   Priv)
-  DEFINE_GETTER(FirstprivateClause, getFpriv,  Fpriv)
-  DEFINE_GETTER(ReductionClause,    getRed,    Reduction)
+  DEFINE_GETTER(SharedClause,       getShared,   Shared)
+  DEFINE_GETTER(PrivateClause,      getPriv,     Priv)
+  DEFINE_GETTER(FirstprivateClause, getFpriv,    Fpriv)
+  DEFINE_GETTER(ReductionClause,    getRed,      Reduction)
+  DEFINE_GETTER(AllocateClause,     getAllocate, Alloc)
 
   EXPR getThreadLimit() const { return ThreadLimit; }
   EXPR getNumTeams() const { return NumTeams; }
@@ -620,6 +630,7 @@ private:
   FirstprivateClause Fpriv;
   LastprivateClause Lpriv;
   ReductionClause Reduction;
+  AllocateClause Alloc;
   LinearClause Linear;
   CopyinClause Copyin;
   EXPR IfExpr;
@@ -646,16 +657,17 @@ protected:
   void setLoopOrder(WRNLoopOrderKind LO) { LoopOrder = LO; }
 
 public:
-  DEFINE_GETTER(SharedClause,       getShared, Shared)
-  DEFINE_GETTER(PrivateClause,      getPriv,   Priv)
-  DEFINE_GETTER(FirstprivateClause, getFpriv,  Fpriv)
-  DEFINE_GETTER(LastprivateClause,  getLpriv,  Lpriv)
-  DEFINE_GETTER(ReductionClause,    getRed,    Reduction)
-  DEFINE_GETTER(LinearClause,       getLinear, Linear)
-  DEFINE_GETTER(CopyinClause,       getCopyin, Copyin)
-  DEFINE_GETTER(ScheduleClause,     getSchedule, Schedule)
+  DEFINE_GETTER(SharedClause,       getShared,       Shared)
+  DEFINE_GETTER(PrivateClause,      getPriv,         Priv)
+  DEFINE_GETTER(FirstprivateClause, getFpriv,        Fpriv)
+  DEFINE_GETTER(LastprivateClause,  getLpriv,        Lpriv)
+  DEFINE_GETTER(ReductionClause,    getRed,          Reduction)
+  DEFINE_GETTER(AllocateClause,     getAllocate,     Alloc)
+  DEFINE_GETTER(LinearClause,       getLinear,       Linear)
+  DEFINE_GETTER(CopyinClause,       getCopyin,       Copyin)
+  DEFINE_GETTER(ScheduleClause,     getSchedule,     Schedule)
   DEFINE_GETTER(ScheduleClause,     getDistSchedule, DistSchedule)
-  DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
+  DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo,  WRNLI)
 
   EXPR getIf() const { return IfExpr; }
   EXPR getNumThreads() const { return NumThreads; }
@@ -683,6 +695,7 @@ private:
   PrivateClause Priv;
   FirstprivateClause Fpriv;
   MapClause Map;
+  AllocateClause Alloc;
   DependClause Depend;
   IsDevicePtrClause IsDevicePtr;
   EXPR IfExpr;
@@ -722,6 +735,7 @@ public:
   DEFINE_GETTER(PrivateClause,      getPriv,        Priv)
   DEFINE_GETTER(FirstprivateClause, getFpriv,       Fpriv)
   DEFINE_GETTER(MapClause,          getMap,         Map)
+  DEFINE_GETTER(AllocateClause,     getAllocate,    Alloc)
   DEFINE_GETTER(DependClause,       getDepend,      Depend)
   DEFINE_GETTER(IsDevicePtrClause,  getIsDevicePtr, IsDevicePtr)
 
@@ -1015,6 +1029,7 @@ private:
   PrivateClause Priv;
   FirstprivateClause Fpriv;
   ReductionClause InReduction;
+  AllocateClause Alloc;
   DependClause Depend;
   EXPR Final;
   EXPR IfExpr;
@@ -1041,11 +1056,12 @@ protected:
   void setTaskFlag(unsigned F) { TaskFlag = F; }
 
 public:
-  DEFINE_GETTER(SharedClause,       getShared, Shared)
-  DEFINE_GETTER(PrivateClause,      getPriv,   Priv)
-  DEFINE_GETTER(FirstprivateClause, getFpriv,  Fpriv)
-  DEFINE_GETTER(ReductionClause,    getInRed,  InReduction)
-  DEFINE_GETTER(DependClause,       getDepend, Depend)
+  DEFINE_GETTER(SharedClause,       getShared,   Shared)
+  DEFINE_GETTER(PrivateClause,      getPriv,     Priv)
+  DEFINE_GETTER(FirstprivateClause, getFpriv,    Fpriv)
+  DEFINE_GETTER(ReductionClause,    getInRed,    InReduction)
+  DEFINE_GETTER(AllocateClause,     getAllocate, Alloc)
+  DEFINE_GETTER(DependClause,       getDepend,   Depend)
 
   EXPR getFinal() const { return Final; }
   EXPR getIf() const { return IfExpr; }
@@ -1098,6 +1114,7 @@ private:
   //   SharedClause Shared;
   //   PrivateClause Priv;
   //   FirstprivateClause Fpriv;
+  //   AllocateClause Alloc;
   //   DependClause Depend;
   //   EXPR Final;
   //   EXPR IfExpr;
@@ -1137,10 +1154,11 @@ public:
   bool getNogroup() const { return Nogroup; }
 
   // Defined in parent class WRNTaskNode
-  //   DEFINE_GETTER(SharedClause,       getShared, Shared)
-  //   DEFINE_GETTER(PrivateClause,      getPriv,   Priv)
-  //   DEFINE_GETTER(FirstprivateClause, getFpriv,  Fpriv)
-  //   DEFINE_GETTER(DependClause,       getDepend, Depend)
+  //   DEFINE_GETTER(SharedClause,       getShared,   Shared)
+  //   DEFINE_GETTER(PrivateClause,      getPriv,     Priv)
+  //   DEFINE_GETTER(FirstprivateClause, getFpriv,    Fpriv)
+  //   DEFINE_GETTER(AllocateClause,     getAllocate, Alloc)
+  //   DEFINE_GETTER(DependClause,       getDepend,   Depend)
   //   EXPR getFinal() const { return Final; }
   //   EXPR getIf() const { return IfExpr; }
   //   EXPR getPriority() const { return Priority; }
@@ -1262,6 +1280,7 @@ private:
   FirstprivateClause Fpriv;
   LastprivateClause Lpriv;
   ReductionClause Reduction;
+  AllocateClause Alloc;
   LinearClause Linear;
   ScheduleClause Schedule;
   int Collapse;
@@ -1292,6 +1311,7 @@ public:
   DEFINE_GETTER(FirstprivateClause, getFpriv,    Fpriv)
   DEFINE_GETTER(LastprivateClause,  getLpriv,    Lpriv)
   DEFINE_GETTER(ReductionClause,    getRed,      Reduction)
+  DEFINE_GETTER(AllocateClause,     getAllocate, Alloc)
   DEFINE_GETTER(LinearClause,       getLinear,   Linear)
   DEFINE_GETTER(ScheduleClause,     getSchedule, Schedule)
   DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
@@ -1340,6 +1360,7 @@ private:
   FirstprivateClause Fpriv;
   LastprivateClause Lpriv;
   ReductionClause Reduction;
+  AllocateClause Alloc;
   ScheduleClause Schedule;
   bool Nowait;
   WRNLoopInfo WRNLI;
@@ -1357,6 +1378,7 @@ public:
   DEFINE_GETTER(FirstprivateClause, getFpriv,  Fpriv)
   DEFINE_GETTER(LastprivateClause,  getLpriv,  Lpriv)
   DEFINE_GETTER(ReductionClause,    getRed,    Reduction)
+  DEFINE_GETTER(AllocateClause,     getAllocate, Alloc)
   DEFINE_GETTER(ScheduleClause,     getSchedule, Schedule)
   DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo, WRNLI)
 
@@ -1436,6 +1458,7 @@ private:
   PrivateClause Priv;
   FirstprivateClause Fpriv;
   LastprivateClause Lpriv;
+  AllocateClause Alloc;
   ScheduleClause DistSchedule;
   int Collapse;
   WRNLoopInfo WRNLI;
@@ -1450,6 +1473,7 @@ public:
   DEFINE_GETTER(PrivateClause,      getPriv,         Priv)
   DEFINE_GETTER(FirstprivateClause, getFpriv,        Fpriv)
   DEFINE_GETTER(LastprivateClause,  getLpriv,        Lpriv)
+  DEFINE_GETTER(AllocateClause,     getAllocate,     Alloc)
   DEFINE_GETTER(ScheduleClause,     getDistSchedule, DistSchedule)
   DEFINE_GETTER(WRNLoopInfo,        getWRNLoopInfo,  WRNLI)
 
@@ -1637,6 +1661,7 @@ class WRNSingleNode : public WRegionNode {
 private:
   PrivateClause Priv;
   FirstprivateClause Fpriv;
+  AllocateClause Alloc;
   CopyprivateClause Cpriv;
   bool Nowait;
 
@@ -1647,9 +1672,10 @@ protected:
   void setNowait(bool Flag) { Nowait = Flag; }
 
 public:
-  DEFINE_GETTER(PrivateClause,      getPriv,  Priv)
-  DEFINE_GETTER(FirstprivateClause, getFpriv, Fpriv)
-  DEFINE_GETTER(CopyprivateClause,  getCpriv, Cpriv)
+  DEFINE_GETTER(PrivateClause,      getPriv,     Priv)
+  DEFINE_GETTER(FirstprivateClause, getFpriv,    Fpriv)
+  DEFINE_GETTER(AllocateClause,     getAllocate, Alloc)
+  DEFINE_GETTER(CopyprivateClause,  getCpriv,    Cpriv)
 
   bool getNowait() const { return Nowait; }
 
@@ -1698,10 +1724,12 @@ public:
 class WRNTaskgroupNode : public WRegionNode {
 private:
   ReductionClause Reduction;  // for the task_reduction clause
+  AllocateClause Alloc;
 
 public:
   WRNTaskgroupNode(BasicBlock *BB);
-  DEFINE_GETTER(ReductionClause,    getRed,    Reduction)
+  DEFINE_GETTER(ReductionClause,    getRed,      Reduction)
+  DEFINE_GETTER(AllocateClause,     getAllocate, Alloc)
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
