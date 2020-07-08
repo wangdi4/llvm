@@ -70,44 +70,28 @@ public:
 /// This class describes the performance metrics of some expression tree.
 /// In particular, it keeps information about the number of various operations
 /// and latency of the expression tree.
-class FMAPerfDesc final {
+class FMAPerfDesc final : public FMAOpsDesc {
 private:
   /// Latency of the expression tree.
   unsigned Latency;
 
-  /// The number of ADD and SUB operations.
-  unsigned NumAddSub;
-
-  /// The number of MUL operations.
-  unsigned NumMul;
-
-  /// The number of FMA operations.
-  unsigned NumFMA;
-
 public:
   /// Default constructor.
-  FMAPerfDesc() : Latency(0), NumAddSub(0), NumMul(0), NumFMA(0) {}
+  FMAPerfDesc() : Latency(0) {}
 
   /// Constructor that fully initializes the object.
   FMAPerfDesc(unsigned Latency, unsigned NumAddSub, unsigned NumMul,
               unsigned NumFMA)
-      : Latency(Latency), NumAddSub(NumAddSub), NumMul(NumMul), NumFMA(NumFMA) {
-  }
+      : FMAOpsDesc(NumAddSub, NumMul, NumFMA), Latency(Latency) {}
+
+  FMAPerfDesc(const FMAOpsDesc &Desc, unsigned Latency)
+      : FMAOpsDesc(Desc), Latency(Latency) {}
+
+  FMAPerfDesc(const FMAOpsDesc &&Desc, unsigned Latency)
+      : FMAOpsDesc(std::move(Desc)), Latency(Latency) {}
 
   /// Returns the latency of the expression tree.
   unsigned getLatency() const { return Latency; }
-
-  /// Returns the number of ADD and SUB operations in the expression tree.
-  unsigned getNumAddSub() const { return NumAddSub; }
-
-  /// Returns the number of MUL operations in the expression tree.
-  unsigned getNumMul() const { return NumMul; }
-
-  /// Returns the number of FMA operations in the expression tree.
-  unsigned getNumFMA() const { return NumFMA; }
-
-  /// Returns the number of all operations in the expression tree.
-  unsigned getNumOperations() const { return NumAddSub + NumMul + NumFMA; }
 
   /// Returns true if 'this' performance metrics seem better than \p OtherDesc.
   /// The parameters \p TuneForLatency and \p TuneForThroughput specify
