@@ -186,8 +186,22 @@ public:
     return ElementPointees[Kind];
   }
 
-  // Indicates that an element in the alias set is an aggregate type.
-  bool canAliasToAggregatePointer() const { return AliasesToAggregatePointer; }
+  // Indicates that an element in the alias set directly points to an aggregate
+  // type.
+  bool canAliasToDirectAggregatePointer() const {
+    return DirectAggregatePointerAliasCount != 0;
+  }
+
+  // Indicates that an element in the alias set is an aggregate type at some
+  // level of indirection.
+  bool canAliasToAggregatePointer() const {
+    return AggregatePointerAliasCount != 0;
+  }
+
+  // Indicates there is more than one aggregate type in the alias set.
+  bool canAliasMultipleAggregatePointers() const {
+    return AggregatePointerAliasCount > 1;
+  }
 
   // Indicates the Value is used as an element within an aggregate type.
   bool pointsToSomeElement() const { return !ElementPointees[VAT_Use].empty(); }
@@ -214,7 +228,7 @@ public:
   bool isCompletelyAnalyzed() const;
   static const char *LPIStateToString(LPIState S);
 
-  bool empty() {
+  bool empty() const {
     // Only check the 'VAT_Use' set, since this is a superset of the 'VAT_Decl'
     // set.
     return PointerTypeAliases[VAT_Use].empty() &&
@@ -248,9 +262,13 @@ private:
   PointerTypeAliasSet PointerTypeAliases[2];
   ElementPointeeSet ElementPointees[2];
 
-  // Indicates that at least one of the types within the PointerTypeAliases set
-  // is an aggregate type.
-  bool AliasesToAggregatePointer = false;
+  // Number of elements in the PointerTypeAlias usage type set that are pointers
+  // to an aggregate type without additional levels of indirection.
+  unsigned DirectAggregatePointerAliasCount = 0;
+
+  // Number of elements in the PointerTypeAlias usage type set that are pointers
+  // to an aggregate type (at any level of indirection).
+  unsigned AggregatePointerAliasCount = 0;
 
   // An instruction that declared this value was not supported by the analysis,
   // which means the type recovery information may be incomplete.

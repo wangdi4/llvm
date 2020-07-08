@@ -53,8 +53,8 @@ static cl::list<std::string> DTransPTAFilterPrintFuncs(
 // When 'true', print the IR intermixed with comments indicating the types
 // resolved by the pointer type analyzer.
 static cl::opt<bool> PrintPTAResults(
-  "dtrans-print-pta-results", cl::ReallyHidden,
-  cl::desc("Print IR with pointer type analyzer results as comments"));
+    "dtrans-print-pta-results", cl::ReallyHidden,
+    cl::desc("Print IR with pointer type analyzer results as comments"));
 
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
@@ -245,7 +245,7 @@ public:
 
     // Report the information about the value produced by the instruction.
     bool ExpectPointerInfo =
-      isTypeOfInterest(V->getType()) || isa<PtrToIntInst>(V);
+        isTypeOfInterest(V->getType()) || isa<PtrToIntInst>(V);
 
     // The value is being produced by an instruction, so can use
     // getValueTypeInfo, without checking if it is 'null'/'undef' here.
@@ -1322,9 +1322,16 @@ private:
     // treat the BitCast result as just being an alias of the original variable.
     //
     // First set the information on the BitCast as being the same as the
-    // information of the source operand.
+    // information of the source operand. Propagate the original values from
+    // the 'VAT_Decl' set, as well, in order to track the type the pointer was
+    // originally declared as. This is a special case where we don't try to
+    // keep the 'VAT_Decl' type list to match what the LLVM IR type would be.
+    // e.g. %y = bitcast %struct.foo* %x to %struct.bar*. We will continue
+    // tracking %y as if it were declared as %struct.foo*. This is necessary to
+    // help identify the original type to know whether a use of the pointer is
+    // going to be safe for that type.
     ValueTypeInfo *SrcInfo = PTA.getOrCreateValueTypeInfo(BC->getOperand(0));
-    propagate(SrcInfo, ResultInfo, /*Decl=*/false, /*Use=*/true,
+    propagate(SrcInfo, ResultInfo, /*Decl=*/true, /*Use=*/true,
               DerefType::DT_SameType);
     if (!SrcInfo->isCompletelyAnalyzed())
       ResultInfo->setPartiallyAnalyzed();
@@ -1335,14 +1342,6 @@ private:
     // Next, perform look-ahead at the uses of the BitCast result, to infer the
     // target type.
     inferTypeFromUse(BC, ResultInfo);
-
-    // The infer call only fills in the usage types. For the bitcast, also add
-    // those types for the declaration type because otherwise we don't have a
-    // declared type for the bitcast result.
-    auto It = ValueToInferredTypes.find(BC);
-    if (It != ValueToInferredTypes.end())
-      for (auto Ty : It->second)
-        ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl, Ty);
   }
 
   // For a call that results in a pointer type, we want to update the
@@ -1377,8 +1376,16 @@ private:
     // getPointerElementType() so cannot be used yet.
     const TargetLibraryInfo &TLI = GetTLI(*Call->getFunction());
     auto AllocKind = dtrans::getAllocFnKind(Call, TLI);
-    if (AllocKind != dtrans::AK_NotAlloc)
+    if (AllocKind != dtrans::AK_NotAlloc) {
       inferTypeFromUse(Call, ResultInfo);
+
+      // Track the VAT_Decl type of the allocation as the type the
+      // object gets used as.
+      auto It = ValueToInferredTypes.find(Call);
+      if (It != ValueToInferredTypes.end())
+        for (auto Ty : It->second)
+          ResultInfo->addTypeAlias(ValueTypeInfo::VAT_Decl, Ty);
+    }
 
     // Set the usage type for the call arguments.
     unsigned NumArg = Call->arg_size();
@@ -1803,6 +1810,21 @@ private:
       ResultInfo->setDependsOnUnhandled();
 
     llvm::Type *SrcTy = GEP.getSourceElementType();
+
+    // When opaque pointers are used, the known type of pointer may not
+    // match the indexed type, so add that type as one of the 'usage' types
+    // now. This is done for simple types, such as:
+    //   %100 = getelementptr %testB, p0 %known.as.testA, i32 4
+    // TODO: For non-simple source element types, we may need more metadata to
+    // indicate the type that is being indexed to detect when the type is
+    // different than expected.
+    if (!GEP.getPointerOperandType()->isVectorTy() && TM.isSimpleType(SrcTy)) {
+      DTransType *DTransSrcTy = TM.getOrCreateSimpleType(SrcTy);
+      assert(DTransSrcTy && "Expected simple type");
+      PointerInfo->addTypeAlias(ValueTypeInfo::VAT_Use,
+                                TM.getOrCreatePointerType(DTransSrcTy));
+    }
+
     if (GEP.getNumIndices() > 1) {
       // Mark the pointer operand with the type used for indexing.
       //
@@ -2035,9 +2057,9 @@ private:
 
     if (!AllValid) {
       DEBUG_WITH_TYPE_P(
-        FNFilter, VERBOSE_TRACE,
-        dbgs() << "Byte-flattened indices did not match aliased structure: "
-        << GEP << "\n");
+          FNFilter, VERBOSE_TRACE,
+          dbgs() << "Byte-flattened indices did not match aliased structure: "
+                 << GEP << "\n");
       ResultInfo->setUnknownByteFlattenedGEP();
       return false;
     }
@@ -2573,8 +2595,12 @@ bool ValueTypeInfo::addTypeAlias(ValueAnalysisType Kind,
     while (Base->isVectorTy())
       Base = Base->getVectorElementType();
 
-    if (Base->isAggregateType())
-      AliasesToAggregatePointer = true;
+    if (Kind == VAT_Use) {
+      if (Ty->isPointerTy() && Ty->getPointerElementType()->isAggregateType())
+        ++DirectAggregatePointerAliasCount;
+      if (Base->isAggregateType())
+        ++AggregatePointerAliasCount;
+    }
 
     if (Kind == VAT_Decl)
       addTypeAlias(VAT_Use, Ty);
@@ -2920,7 +2946,7 @@ PtrTypeAnalyzerImpl::getDominantAggregateUsageType(ValueTypeInfo &Info) const {
     // of an aggregate type.
     if (!BaseTy->isAggregateType())
       if (BaseTy == getDTransI8Type() || BaseTy == getDTransPtrSizedIntType())
-      continue;
+        continue;
 
     if (!DomTy) {
       DomTy = AliasTy;
