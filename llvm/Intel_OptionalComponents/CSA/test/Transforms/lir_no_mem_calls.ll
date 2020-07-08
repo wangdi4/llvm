@@ -1,4 +1,4 @@
-; RUN: opt -basicaa -loop-idiom -lir-disable-mem-calls -S %s | FileCheck %s
+; RUN: opt -basic-aa -loop-idiom -lir-disable-mem-calls -S %s | FileCheck %s
 ;
 ; This test checks that loop idiom recognition pass does not convert loops
 ; to memcpy/memset calls when -lir-disable-mem-calls is specified.

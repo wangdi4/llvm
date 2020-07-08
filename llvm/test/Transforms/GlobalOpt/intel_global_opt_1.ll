@@ -1,4 +1,4 @@
-; RUN: opt < %s  -anders-aa -domtree -loops -loop-simplify -lcssa -basicaa -aa -nonltoglobalopt  -S | FileCheck %s
+; RUN: opt < %s  -anders-aa -domtree -loops -loop-simplify -lcssa -basic-aa -aa -nonltoglobalopt  -S | FileCheck %s
 ; RUN: opt < %s  -passes="require<anders-aa>,function(require<aa>,nonltoglobalopt)" -aa-pipeline=anders-aa -S | FileCheck %s
 ; The compiler should replace the global variable @p with the local
 ; variable %p thus the store to @p can be eliminated.

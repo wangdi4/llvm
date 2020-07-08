@@ -1,4 +1,4 @@
-; RUN: opt -basicaa -tbaa -gvn -S < %s | FileCheck %s
+; RUN: opt -basic-aa -tbaa -gvn -S < %s | FileCheck %s
 
 ; GVN should be able to eliminate the load out of the loop
 ; by using both BasicAA and TBAA information.
