@@ -1,9 +1,5 @@
-<<<<<<< HEAD
 // UNSUPPORTED: intel_opencl && i686-pc-windows
-// RUN: %clang -S -I %S/Inputs -fsycl-device-only -Xclang -ast-dump %s | FileCheck %s
-=======
 // RUN: %clang_cc1 -S -I %S/Inputs -fsycl -fsycl-is-device -triple spir64 -ast-dump %s | FileCheck %s
->>>>>>> 9f4212465204294b7e3936d2bd991e3e040f20db
 
 #include <sycl.hpp>
 
