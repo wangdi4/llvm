@@ -1814,6 +1814,7 @@ bool VPOParoptTransform::paroptTransforms() {
             Changed |= genLinearCodeForVecLoop(W, LoopExitBB);
             Changed |= genLastPrivatizationCode(W, LoopExitBB);
             Changed |= genReductionCode(W);
+            Changed |= sinkSIMDDirectives(W);
           }
           // keep SIMD directives; will be processed by the Vectorizer
           RemoveDirectives = false;
@@ -5808,7 +5809,9 @@ Value *VPOParoptTransform::genRegionPrivateValue(
 bool VPOParoptTransform::sinkSIMDDirectives(WRegionNode *W) {
   // Check if there is a child SIMD region associated with
   // this region's loop.
-  WRNVecLoopNode *SimdNode = WRegionUtils::getEnclosedSimdForSameLoop(W);
+  WRNVecLoopNode *SimdNode = isa<WRNVecLoopNode>(W)
+                                 ? cast<WRNVecLoopNode>(W)
+                                 : WRegionUtils::getEnclosedSimdForSameLoop(W);
 
   if (!SimdNode)
     return false;
