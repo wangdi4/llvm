@@ -1411,9 +1411,8 @@ define void @test_not_of_phi() {
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]:
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_COND_BLEND_BB1:%.*]] = blend [ i1 [[VP_VARYING]], i1 true ]
-; FIXME: This breaks the requirement for phis to be grouped at the top of BB.
+; CHECK-NEXT:     [DA: Div] i32 [[VP_SOME_BLEND_BB1:%.*]] = blend [ i32 0, i1 true ]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_COND_NOT:%.*]] = not i1 [[VP_COND_BLEND_BB1]]
-; CHECK-NEXT:     [DA: Uni] i32 [[VP_SOME:%.*]] = phi  [ i32 0, [[BB0]] ]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
 ; CHECK-EMPTY:
