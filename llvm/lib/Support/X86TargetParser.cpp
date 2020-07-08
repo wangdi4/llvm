@@ -592,6 +592,96 @@ static constexpr FeatureBitset ImpliedFeaturesAMX_TILE = {};
 static constexpr FeatureBitset ImpliedFeaturesAMX_BF16 = FeatureAMX_TILE;
 static constexpr FeatureBitset ImpliedFeaturesAMX_INT8 = FeatureAMX_TILE;
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_ULI
+static constexpr FeatureBitset ImpliedFeaturesULI = {};
+#endif // INTEL_FEATURE_ISA_ULI
+#if INTEL_FEATURE_ISA_HRESET
+static constexpr FeatureBitset ImpliedFeaturesHRESET = {};
+#endif // INTEL_FEATURE_ISA_HRESET
+#if INTEL_FEATURE_ISA_KEYLOCKER
+static constexpr FeatureBitset ImpliedFeaturesKEYLOCKER = FeatureSSE2;
+#endif // INTEL_FEATURE_ISA_KEYLOCKER
+#if INTEL_FEATURE_ISA_AVX_VNNI
+static constexpr FeatureBitset ImpliedFeaturesAVXVNNI = FeatureAVX2;
+#endif // INTEL_FEATURE_ISA_AVX_VNNI
+#if INTEL_FEATURE_ISA_AVX_IFMA
+static constexpr FeatureBitset ImpliedFeaturesAVXIFMA = FeatureAVX2;
+#endif // INTEL_FEATURE_ISA_AVX_IFMA
+#if INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
+static constexpr FeatureBitset ImpliedFeaturesAVXDOTPRODINT8 = FeatureAVX2;
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
+static constexpr FeatureBitset ImpliedFeaturesAVXDOTPRODPHPS = FeatureAVX2;
+#endif // INTEL_FEATURE_ISA_AVX_DOTPROD_PHPS
+#if INTEL_FEATURE_ISA_AVX_CONVERT
+static constexpr FeatureBitset ImpliedFeaturesAVXCONVERT = FeatureAVX2;
+#endif // INTEL_FEATURE_ISA_AVX_CONVERT
+#if INTEL_FEATURE_ISA_AVX_BF16
+static constexpr FeatureBitset ImpliedFeaturesAVXBF16 = FeatureAVX2;
+#endif // INTEL_FEATURE_ISA_AVX_BF16
+#if INTEL_FEATURE_ISA_AVX_COMPRESS
+static constexpr FeatureBitset ImpliedFeaturesAVXCOMPRESS = FeatureAVX2;
+#endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#if INTEL_FEATURE_ISA_FP16
+static constexpr FeatureBitset ImpliedFeaturesAVX512FP16 = FeatureAVX512F |
+    FeatureAVX512BW | FeatureAVX512DQ | FeatureAVX512VL;
+#endif // INTEL_FEATURE_ISA_FP16
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+static constexpr FeatureBitset ImpliedFeaturesAVX512DOTPRODINT8 = FeatureAVX512F |
+    FeatureAVXDOTPRODINT8;
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_INT8
+#if INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+static constexpr FeatureBitset ImpliedFeaturesAVX512DOTPRODPHPS = FeatureAVX512F |
+    FeatureAVX512FP16 | FeatureAVX512BW | FeatureAVX512DQ | FeatureAVX512VL |
+    FeatureAVXDOTPRODPHPS;
+#endif // INTEL_FEATURE_ISA_AVX512_DOTPROD_PHPS
+#if INTEL_FEATURE_ISA_AVX512_CONVERT
+static constexpr FeatureBitset ImpliedFeaturesAVX512CONVERT = FeatureAVX512F |
+    FeatureAVX512FP16 | FeatureAVX512BW | FeatureAVX512DQ | FeatureAVX512VL |
+    FeatureAVXCONVERT | FeatureAVX512BF16;
+#endif // INTEL_FEATURE_ISA_AVX512_CONVERT
+#if INTEL_FEATURE_ISA_AMX_FP16
+static constexpr FeatureBitset ImpliedFeaturesAMX_FP16 = FeatureAMX_TILE |
+    FeatureAVX512FP16;
+#endif // INTEL_FEATURE_ISA_AMX_FP16
+#if INTEL_FEATURE_ISA_AMX_FUTURE
+static constexpr FeatureBitset ImpliedFeaturesAMX_REDUCE = FeatureAMX_TILE;
+static constexpr FeatureBitset ImpliedFeaturesAMX_MEMORY = FeatureAMX_TILE;
+static constexpr FeatureBitset ImpliedFeaturesAMX_FORMAT = FeatureAMX_TILE;
+static constexpr FeatureBitset ImpliedFeaturesAMX_ELEMENT = FeatureAMX_TILE;
+#endif // INTEL_FEATURE_ISA_AMX_FUTURE
+#if INTEL_FEATURE_ISA_AMX_LNC
+static constexpr FeatureBitset ImpliedFeaturesAMX_TRANSPOSE = FeatureAMX_TILE;
+static constexpr FeatureBitset ImpliedFeaturesAMX_AVX512 = FeatureAMX_TILE |
+    FeatureAVX512F;
+#endif // INTEL_FEATURE_ISA_AMX_LNC
+#if INTEL_FEATURE_ISA_AMX_MEMORY2
+static constexpr FeatureBitset ImpliedFeaturesAMX_MEMORY2 = FeatureAMX_TILE;
+#endif // INTEL_FEATURE_ISA_AMX_MEMORY2
+#if INTEL_FEATURE_ISA_AMX_BF16_EVEX
+static constexpr FeatureBitset ImpliedFeaturesAMX_BF16_EVEX = FeatureAMX_TILE;
+#endif // INTEL_FEATURE_ISA_AMX_BF16_EVEX
+#if INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
+static constexpr FeatureBitset ImpliedFeaturesAMX_ELEMENT_EVEX = FeatureAMX_TILE;
+#endif // INTEL_FEATURE_ISA_AMX_ELEMENT_EVEX
+#if INTEL_FEATURE_ISA_AMX_INT8_EVEX
+static constexpr FeatureBitset ImpliedFeaturesAMX_INT8_EVEX = FeatureAMX_TILE;
+#endif // INTEL_FEATURE_ISA_AMX_INT8_EVEX
+#if INTEL_FEATURE_ISA_AMX_TILE_EVEX
+static constexpr FeatureBitset ImpliedFeaturesAMX_TILE_EVEX = FeatureAMX_TILE;
+#endif // INTEL_FEATURE_ISA_AMX_TILE_EVEX
+#if INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+static constexpr FeatureBitset ImpliedFeaturesAMX_TRANSPOSE2 = FeatureAMX_TILE;
+#endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
+#if INTEL_FEATURE_ISA_AMX_CONVERT
+static constexpr FeatureBitset ImpliedFeaturesAMX_CONVERT = FeatureAMX_TILE;
+#endif // INTEL_FEATURE_ISA_AMX_CONVERT
+#if INTEL_FEATURE_ISA_AMX_TILE2
+static constexpr FeatureBitset ImpliedFeaturesAMX_TILE2 = FeatureAMX_TILE;
+#endif // INTEL_FEATURE_ISA_AMX_TILE2
+#endif // INTEL_CUSTOMIZATION
+
 static constexpr FeatureInfo FeatureInfos[X86::CPU_FEATURE_MAX] = {
 #define X86_FEATURE(ENUM, STR) {{STR}, ImpliedFeatures##ENUM},
 #include "llvm/Support/X86TargetParser.def"
