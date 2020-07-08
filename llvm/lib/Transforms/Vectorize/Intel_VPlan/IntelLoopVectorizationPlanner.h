@@ -49,6 +49,9 @@ class WRNVecLoopNode;
 class VPlanHCFGBuilder;
 class VPlanCostModel;
 
+extern bool PrintSVAResults;
+extern bool PrintAfterCallVecDecisions;
+
 /// LoopVectorizationPlanner - builds and optimizes the Vectorization Plans
 /// which record the decisions how to vectorize the given loop.
 /// In particular, represent the control-flow of the vectorized version,

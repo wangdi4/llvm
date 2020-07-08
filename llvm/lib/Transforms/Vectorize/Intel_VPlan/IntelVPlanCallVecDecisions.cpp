@@ -19,10 +19,6 @@ using namespace llvm::vpo;
 
 void VPlanCallVecDecisions::run(unsigned VF, const TargetLibraryInfo *TLI,
                                 const TargetTransformInfo *TTI) {
-  // Analysis would be trivial for VF=1 since all calls should just be scalar.
-  if (VF == 1)
-    return;
-
   LLVM_DEBUG(dbgs() << "Running CallVecDecisions for VF=" << VF << "\n");
   for (VPBasicBlock &VPBB : Plan) {
     for (VPInstruction &Inst : VPBB) {
@@ -37,15 +33,19 @@ void VPlanCallVecDecisions::analyzeCall(VPCallInstruction *VPCall, unsigned VF,
                                         const TargetTransformInfo *TTI) {
   const CallInst *UnderlyingCI = VPCall->getUnderlyingCallInst();
 
+  // Reset decisions that were taken for any previous VF as they will be
+  // overwritten for currently analyzed VF.
+  VPCall->resetVecScenario(VF);
+
+  // Analysis would be trivial for VF=1 since all calls should just be scalar.
+  if (VF == 1)
+    return;
+
   // 1. Ignored calls (do we need a new field in VecProperties for this?)
   if (isa<DbgInfoIntrinsic>(UnderlyingCI))
     return;
 
   Function *F = VPCall->getCalledFunction();
-
-  // Reset decisions that were taken for any previous VF as they will be
-  // overwritten for currently analyzed VF.
-  VPCall->resetVecScenario(VF);
 
   // 2. Call was already marked to be strictly not widended (for example, kernel
   // convergent uniform calls).

@@ -73,8 +73,6 @@ bool HIRLastValueComputation::isLegalAndProfitable(HLLoop *Lp, HLInst *HInst,
     return false;
   }
 
-  bool HasIV = false;
-
   for (auto I = HInst->rval_op_ddref_begin(), End = HInst->rval_op_ddref_end();
        I != End; I++) {
     auto *OpRef = *I;
@@ -105,12 +103,7 @@ bool HIRLastValueComputation::isLegalAndProfitable(HLLoop *Lp, HLInst *HInst,
       if (!DDRefUtils::canReplaceIVByCanonExpr(OpRef, LoopLevel, UBCE, IsNSW)) {
         return false;
       }
-      HasIV = true;
     }
-  }
-
-  if (!HasIV) {
-    return false;
   }
 
   DDGraph DDG = HDDA.getGraph(Lp);
@@ -255,7 +248,8 @@ bool HIRLastValueComputation::doLastValueComputation(HLLoop *Lp) {
   SmallVector<HLGoto *, 16> Gotos;
 
   bool IsMultiExit = Lp->getNumExits() > 1;
-  bool ShouldGenCode = !IsUpperBoundComplicated;
+  bool ShouldGenCode = !IsUpperBoundComplicated ||
+                       (CandidateInsts.size() == Lp->getNumChildren());
 
   if (IsMultiExit) {
     uint64_t TripCount = 0;

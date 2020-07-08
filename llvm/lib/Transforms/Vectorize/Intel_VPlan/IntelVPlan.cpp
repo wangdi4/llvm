@@ -74,6 +74,12 @@ static cl::opt<bool> VPlanDumpSubscriptDetails(
     cl::desc("Print details for subscript instructions like lower, stride and "
              "struct offsets."));
 
+static cl::opt<bool>
+    EnableScalVecAnalysis("vplan-enable-scalvec-analysis", cl::init(true),
+                          cl::Hidden,
+                          cl::desc("Enable analysis to compute scalar/vector "
+                                   "nature of instructions in VPlan."));
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 raw_ostream &llvm::vpo::operator<<(raw_ostream &OS, const VPValue &V) {
   if (const VPInstruction *I = dyn_cast<VPInstruction>(&V))
@@ -311,10 +317,12 @@ bool VPInstruction::mayHaveSideEffects() const {
       Instruction::isBitwiseLogicOp(Opcode) ||
       Instruction::isBinaryOp(Opcode) || Instruction::isUnaryOp(Opcode) ||
       Opcode == Instruction::Select || Opcode == Instruction::GetElementPtr ||
-      Opcode == Instruction::PHI || Opcode == Instruction::ICmp ||
-      Opcode == Instruction::FCmp || Opcode == VPInstruction::Not ||
-      Opcode == VPInstruction::Abs || Opcode == VPInstruction::AllZeroCheck ||
-      Opcode == VPInstruction::InductionInit)
+      Opcode == VPInstruction::Subscript || Opcode == Instruction::PHI ||
+      Opcode == Instruction::ICmp || Opcode == Instruction::FCmp ||
+      Opcode == VPInstruction::Not || Opcode == VPInstruction::Abs ||
+      Opcode == VPInstruction::AllZeroCheck ||
+      Opcode == VPInstruction::InductionInit || Opcode == Instruction::Br ||
+      Opcode == VPInstruction::HIRCopy)
     return false;
 
   return true;
@@ -379,9 +387,9 @@ void VPInstruction::print(raw_ostream &O, const Twine &Indent) const {
 }
 
 #if INTEL_CUSTOMIZATION
-void VPInstruction::dump(raw_ostream &O,
-                         const VPlanDivergenceAnalysis *DA) const {
-  print(O, DA);
+void VPInstruction::dump(raw_ostream &O, const VPlanDivergenceAnalysis *DA,
+                         const VPlanScalVecAnalysis *SVA) const {
+  print(O, DA, SVA);
   O << "\n";
   if (VPlanDumpDetails) {
     // TODO: How to get Indent here?
@@ -397,15 +405,30 @@ void VPInstruction::dump(raw_ostream &O,
 }
 #endif /* INTEL_CUSTOMIZATION */
 
-void VPInstruction::print(raw_ostream &O,
-                          const VPlanDivergenceAnalysis *DA) const {
+void VPInstruction::print(raw_ostream &O, const VPlanDivergenceAnalysis *DA,
+                          const VPlanScalVecAnalysis *SVA) const {
 #if INTEL_CUSTOMIZATION
+  if (DA || SVA)
+    O << "[";
+  // Print DA information.
   if (DA) {
+    O << "DA: ";
     if (DA->isDivergent(*this))
-      O << "[DA: Div] ";
+      O << "Div";
     else
-      O << "[DA: Uni] ";
+      O << "Uni";
   }
+  // Print SVA information
+  if (SVA) {
+    // Demarker if DA info was already printed.
+    if (DA)
+      O << ", ";
+
+    O << "SVA: ";
+    SVA->printSVAKindForInst(O, this);
+  }
+  if (DA || SVA)
+    O << "] ";
 
   if (getOpcode() != Instruction::Store && !isa<VPBranchInst>(this)) {
     printAsOperand(O);
@@ -426,10 +449,10 @@ void VPInstruction::print(raw_ostream &O,
 #if INTEL_CUSTOMIZATION
   case Instruction::Br:
     cast<VPBranchInst>(this)->print(O);
-    return;
+    break;
   case VPInstruction::Blend: {
     cast<VPBlendInst>(this)->print(O);
-    return;
+    break;
   }
   case Instruction::Call: {
     cast<VPCallInstruction>(this)->print(O);
@@ -527,7 +550,8 @@ void VPInstruction::print(raw_ostream &O,
         O << "}";
       }
     }
-  } else if (isa<VPCallInstruction>(this)) {
+  } else if (isa<VPBranchInst>(this) || isa<VPBlendInst>(this) ||
+             isa<VPCallInstruction>(this)) {
     // Nothing to print, operands are already printed for these instructions.
   } else {
     if (getOpcode() == VPInstruction::AllocatePrivate) {
@@ -565,6 +589,17 @@ void VPInstruction::print(raw_ostream &O,
       break;
     }
   }
+
+  // Print list of operand SVA bits.
+  if (SVA) {
+    O << " (SVAOpBits ";
+    for (unsigned OpIdx = 0; OpIdx < getNumOperands(); ++OpIdx) {
+      O << OpIdx << "->";
+      SVA->printSVAKindForOperand(O, this, OpIdx);
+      O << " ";
+    }
+    O << ")";
+  }
 #endif // INTEL_CUSTOMIZATION
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
@@ -586,6 +621,13 @@ void VPlan::computePDT(void) {
 }
 
 #endif // INTEL_CUSTOMIZATION
+
+void VPlan::runSVA(unsigned VF, const TargetLibraryInfo *TLI) {
+  if (!EnableScalVecAnalysis)
+    return;
+  VPlanSVA = std::make_unique<VPlanScalVecAnalysis>();
+  VPlanSVA->compute(this, VF, TLI);
+}
 
 // Generate the code inside the body of the vectorized loop. Assumes a single
 // LoopVectorBody basic block was created for this; introduces additional
@@ -804,15 +846,14 @@ const Twine VPlanPrinter::getOrCreateName(const VPBasicBlock *BB) {
   return "VPB" + Twine(getOrCreateBID(BB));
 }
 
-void VPlan::print(raw_ostream &OS, unsigned Indent, bool DumpDA) const {
+void VPlan::print(raw_ostream &OS, unsigned Indent) const {
   ReversePostOrderTraversal<const VPBasicBlock *> RPOT(getEntryBlock());
   SetVector<const VPBasicBlock *> Printed;
   SetVector<const VPBasicBlock *> SuccList;
   SuccList.insert(getEntryBlock());
   std::string StrIndent = std::string(2, ' ');
   for (const VPBasicBlock *VPBB : RPOT) {
-    VPBB->print(OS, Indent + SuccList.size() - 1,
-                DumpDA ? getVPlanDA() : nullptr);
+    VPBB->print(OS, Indent + SuccList.size() - 1, getVPlanDA(), getVPlanSVA());
     Printed.insert(VPBB);
     SuccList.remove(VPBB);
     for (auto *Succ : VPBB->getSuccessors())
@@ -822,7 +863,7 @@ void VPlan::print(raw_ostream &OS, unsigned Indent, bool DumpDA) const {
   }
 }
 
-void VPlan::dump(raw_ostream &OS, bool DumpDA) const {
+void VPlan::dump(raw_ostream &OS) const {
   formatted_raw_ostream FOS(OS);
   if (!getName().empty())
     FOS << "VPlan IR for: " << getName() << "\n";
@@ -839,7 +880,7 @@ void VPlan::dump(raw_ostream &OS, bool DumpDA) const {
     E->dump(FOS, EIter->first->getHeader());
   }
 
-  print(FOS, 1, DumpDA);
+  print(FOS, 1);
 
   if (!VPExternalUses.empty()) {
     FOS << "External Uses:\n";
@@ -850,7 +891,7 @@ void VPlan::dump(raw_ostream &OS, bool DumpDA) const {
   }
 }
 
-void VPlan::dump() const { dump(dbgs(), true); }
+void VPlan::dump() const { dump(dbgs()); }
 
 void VPlanPrinter::dump() {
 #if INTEL_CUSTOMIZATION

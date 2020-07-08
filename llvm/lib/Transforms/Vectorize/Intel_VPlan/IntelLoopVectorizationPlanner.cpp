@@ -34,6 +34,7 @@
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
+#include "llvm/Support/CommandLine.h"
 
 #define DEBUG_TYPE "LoopVectorizationPlanner"
 
@@ -85,16 +86,22 @@ static cl::opt<bool> DotAfterAllZeroBypass(
     "vplan-dot-after-all-zero-bypass", cl::init(false), cl::Hidden,
     cl::desc("Print VPlan digraph after all zero bypass insertion."));
 
-static cl::opt<bool> PrintAfterCallVecDecisions(
-    "vplan-print-after-call-vec-decisions", cl::init(false), cl::Hidden,
+static cl::opt<bool, true> PrintAfterCallVecDecisionsOpt(
+    "vplan-print-after-call-vec-decisions", cl::Hidden,
+    cl::location(PrintAfterCallVecDecisions),
     cl::desc("Print VPlan after analyzing calls for vectorization decisions."));
+
+static cl::opt<bool, true> PrintSVAResultsOpt(
+    "vplan-print-scalvec-results", cl::Hidden, cl::location(PrintSVAResults),
+    cl::desc("Print VPlan with results of ScalVec analysis."));
 #else
 static constexpr bool PrintAfterLoopCFU = false;
 static constexpr bool PrintAfterLinearization = false;
 static constexpr bool DotAfterLinearization = false;
 static constexpr bool PrintAfterAllZeroBypass = false;
 static constexpr bool DotAfterAllZeroBypass = false;
-static constexpr bool PrintAfterCallVecDecisions = false;
+static constexpr bool PrintAfterCallVecDecisionsOpt = false;
+static constexpr bool PrintSVAResultsOpt = false;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 namespace {
@@ -143,6 +150,13 @@ static int VPlanOrderNumber = 0;
 
 using namespace llvm;
 using namespace llvm::vpo;
+
+namespace llvm {
+namespace vpo {
+bool PrintSVAResults = false;
+bool PrintAfterCallVecDecisions = false;
+} // namespace vpo
+} // namespace llvm
 
 static unsigned getForcedVF(const WRNVecLoopNode *WRLp) {
   auto ForcedLoopVFIter = llvm::find_if(ForceLoopVF, [](const ForceVFTy &Pair) {
@@ -263,6 +277,8 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
 
     if (EnableSOAAnalysis)
       Plan->getVPlanDA()->recomputeShapes(SOAVars);
+
+    // TODO: Insert initial run of SVA here for any new users before CM & CG.
 
     for (unsigned TmpVF = StartRangeVF; TmpVF < EndRangeVF; TmpVF *= 2)
       VPlans[TmpVF] = Plan;
@@ -736,6 +752,10 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
   std::string Label("CallVecDecisions analysis for VF=" +
                     std::to_string(BestVF));
   VPLAN_DUMP(PrintAfterCallVecDecisions, Label, Plan);
+
+  // Compute SVA results for final VPlan which will be used by CG.
+  Plan->runSVA(BestVF, TLI);
+  VPLAN_DUMP(PrintSVAResults, "ScalVec analysis", Plan);
 
   VPTransformState State(BestVF, BestUF, LI, DT, ILV->getBuilder(), ILV,
                          CallbackILV, Plan->getVPLoopInfo());

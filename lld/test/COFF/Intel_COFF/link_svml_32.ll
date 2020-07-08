@@ -1,12 +1,8 @@
-; INTEL_CUSTOMIZATION
-; Temporarily disable the test (CMPLRTST-9844)
-; UNSUPPORTED: linux
-; REQUIRES: linux
-; end INTEL_CUSTOMIZATION
-; REQUIRES: x86
+; REQUIRES: x86, system-windows
 ; RUN: llvm-as -o %T/link_svml.bc %s
-; RUN: lld-link /out:%T/link_svml.exe /entry:main %T/link_svml.bc /subsystem:console \
-; RUN:     2>&1 | FileCheck -allow-empty %s
+; RUN: lld-link /out:%T/link_svml.exe /entry:main %T/link_svml.bc /subsystem:console > %t_out 2>&1
+; RUN: cat %t_out | FileCheck -allow-empty %s
+; RUN: rm %t_out
 
 ; This test case checks that lld-link links correctly the svml libraries. It
 ; has declared several svml functions and the linker should ignore them before
@@ -15,6 +11,11 @@
 ; resolution after LTO and will be able to find the definition for the svml
 ; function. This is the same test case as link_svml_01.ll but for 32bits
 ; compiler.
+
+; This test case handles the 32 bit version of lld-link. The linker will add
+; an extra leading underscore in front of the symbols name since it uses the
+; same naming rules as MS when handling 32 bit objects. This test case looks
+; for the symbol ___svml_ with 3 leading underscores.
 
 ; Check that there is no undefined svml symbols
 ; CHECK-NOT: lld-link: error: undefined symbol: ___svml_

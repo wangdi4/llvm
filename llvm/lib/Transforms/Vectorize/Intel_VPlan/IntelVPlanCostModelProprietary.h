@@ -72,6 +72,11 @@ private:
                                                 const Type *ScalarTy,
                                                 const unsigned VF) final;
 
+  // Overrides base CM method to specify SVML intrinsics cost.
+  virtual unsigned getIntrinsicInstrCost(
+    Intrinsic::ID ID, const CallBase &CB, unsigned VF,
+    VPCallInstruction::CallVecScenariosTy VS) final;
+
   // *SLP* and related utilities below is temporal solution to workaround
   // the problem of blocking SLP vectorizer by VPlan vectorization.
   // Eventually SLP is expected to become a part of VPlan and/or share

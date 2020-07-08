@@ -26,6 +26,7 @@
 #define DEBUG_TYPE "vplan-cost-model"
 
 using namespace loopopt;
+
 /// A helper function that returns the alignment of load or store instruction.
 static unsigned getMemInstAlignment(const Value *I) {
   assert((isa<LoadInst>(I) || isa<StoreInst>(I)) &&
@@ -638,6 +639,10 @@ unsigned VPlanCostModel::getCost() {
   // CallVecDecisions analysis invocation.
   VPlanCallVecDecisions CallVecDecisions(*const_cast<VPlan *>(Plan));
   CallVecDecisions.run(VF, TLI, TTI);
+
+  // Compute SVA results for current VPlan in order to compute cost accurately
+  // in CM.
+  const_cast<VPlan *>(Plan)->runSVA(VF, TLI);
 
   unsigned Cost = 0;
   for (auto *Block : depth_first(Plan->getEntryBlock()))

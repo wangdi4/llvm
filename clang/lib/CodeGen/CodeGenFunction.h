@@ -1740,6 +1740,7 @@ public:
     CodeGenFunction &CGF;
     llvm::BasicBlock *TerminateHandler;
     llvm::BasicBlock *TerminateLandingPad;
+    llvm::BasicBlock *UnreachableBlock;
     llvm::Value *ExceptionSlot = nullptr;
     llvm::Value *EHSelectorSlot = nullptr;
 
@@ -1747,9 +1748,11 @@ public:
     TerminateHandlerRAII(CodeGenFunction &CGF)
         : CGF(CGF), TerminateHandler(CGF.TerminateHandler),
           TerminateLandingPad(CGF.TerminateLandingPad),
+          UnreachableBlock(CGF.UnreachableBlock),
           ExceptionSlot(CGF.ExceptionSlot), EHSelectorSlot(CGF.EHSelectorSlot) {
       CGF.TerminateHandler = nullptr;
       CGF.TerminateLandingPad = nullptr;
+      CGF.UnreachableBlock = nullptr;
       CGF.ExceptionSlot = nullptr;
       CGF.EHSelectorSlot = nullptr;
     }
@@ -1766,8 +1769,15 @@ public:
         else
           delete CGF.TerminateLandingPad;
       }
+      if (CGF.UnreachableBlock) {
+        if (!CGF.UnreachableBlock->use_empty())
+          CGF.CurFn->getBasicBlockList().push_back(CGF.UnreachableBlock);
+        else
+          delete CGF.UnreachableBlock;
+      }
       CGF.TerminateHandler = TerminateHandler;
       CGF.TerminateLandingPad = TerminateLandingPad;
+      CGF.UnreachableBlock = UnreachableBlock;
       CGF.ExceptionSlot = ExceptionSlot;
       CGF.EHSelectorSlot = EHSelectorSlot;
     }

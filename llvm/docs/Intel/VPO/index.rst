@@ -205,6 +205,9 @@ Vectorizer Passes
 **Predication**
    Describes the Predication transformation: :doc:`Predication <Predication/index>`
 
+**ScalVec Analysis**
+   Describes the ScalVec analysis: :doc:`ScalVecAnalysis <ScalVecAnalysis/index>`
+
 **LoadCoalescing**
   Describes the approach to Load-Coalescing: :doc:`LoadCoalescing <LoadCoalescing>`
 

@@ -107,15 +107,16 @@ HIRSafeReductionAnalysis::HIRSafeReductionAnalysis(HIRFramework &HIRF,
     : HIRAnalysis(HIRF), DDA(DDA) {}
 
 namespace {
-void printAChain(formatted_raw_ostream &OS, unsigned Indented,
-                 const loopopt::SafeRedChain &SRC) {
+void printSafeRedChain(formatted_raw_ostream &OS, unsigned Indented,
+                       const loopopt::SafeRedChain &SRC) {
   for (auto Inst : SRC) {
     Inst->print(OS, Indented, false);
   }
 }
+
 } // namespace
 
-//  Identify Safe Reduction chain for a loop
+//  Identify Safe Reduction chain for a loop.
 //  "Safe" implies Reduction recurrence can be ignored for both
 //  parallelization and vectorization.
 //  Handles temps only. For memory reference, some preprocessing
@@ -183,18 +184,22 @@ namespace {
 // e.g. s = q - a[i]
 //      q = s + b[i] ==> q = q + (b[i] - a[i]) is a safe reduction.
 bool isValidMixOfOpcodes(unsigned OpCode1, unsigned OpCode2) {
-  if (OpCode1 == OpCode2)
+  if (OpCode1 == OpCode2) {
     return true;
+  }
 
   if (OpCode1 == Instruction::FAdd && OpCode2 == Instruction::FSub ||
       OpCode1 == Instruction::FSub && OpCode2 == Instruction::FAdd ||
       OpCode1 == Instruction::Add && OpCode2 == Instruction::Sub ||
-      OpCode1 == Instruction::Sub && OpCode2 == Instruction::Add)
+      OpCode1 == Instruction::Sub && OpCode2 == Instruction::Add) {
     return true;
+  }
 
   return false;
 }
+
 } // namespace
+
 // Safe reduction chain could be
 // a.  t1 = t2 +
 //     t3 = t1 +
@@ -232,7 +237,7 @@ bool HIRSafeReductionAnalysis::isValidSR(const RegDDRef *LRef,
       continue;
     }
     assert(Edge->isFlow() && "Outgoing edges from lval has to be either an "
-                                "OUTPUT or a FLOW edge.");
+                             "OUTPUT or a FLOW edge.");
     FlowEdgeFound = true;
 
     *SinkDDRef = Edge->getSink();
@@ -403,7 +408,7 @@ void HIRSafeReductionAnalysis::identifySafeReductionChain(const HLLoop *Loop,
             }
             setSafeRedChainList(RedInsts, Loop, FirstRvalSB, ReductionOpCode);
             LLVM_DEBUG(formatted_raw_ostream FOS(dbgs());
-                       printAChain(FOS, 1, RedInsts));
+                       printSafeRedChain(FOS, 1, RedInsts));
             break;
           }
 
@@ -439,7 +444,7 @@ bool HIRSafeReductionAnalysis::findFirstRedStmt(
   //  Look for incoming flow edge (<) into S1.
   //  S3 needs to be a reduction stmt
   //
-  //  The code below loops thru the RHS ddref, and checks if  there is only
+  //  The code below loops thru the RHS ddref, and checks if there is only
   //  1 incoming edge from stmts below. So stmt like this (integer)
   //  s1 =  (n * 4 +  s0) + tx
   //  The ddref encountered is only tx.
@@ -544,11 +549,14 @@ bool HIRSafeReductionAnalysis::findFirstRedStmt(
   return false;
 }
 
-static bool anyUnsafeAlgebraInChain(SafeRedChain &RedInsts) {
+static bool hasUnsafeAlgebraInChain(SafeRedChain &RedInsts, const HLLoop *Lp) {
+  assert(Lp && "Expect a valid HLLoop * Lp");
   bool IsFP = RedInsts[0]->getLvalDDRef()->getDestType()->isFPOrFPVectorTy();
   if (!IsFP) {
     return false;
   }
+
+  const HLNode *FirstChild = Lp->getFirstChild();
 
   for (auto *Inst : RedInsts) {
     auto *FPInst = dyn_cast<FPMathOperator>(Inst->getLLVMInstruction());
@@ -558,14 +566,28 @@ static bool anyUnsafeAlgebraInChain(SafeRedChain &RedInsts) {
       continue;
     }
 
-    // Return unsafe to vectorize if we are dealing with a Floating
-    // point reduction and fast flag is off.
-    if (!FPInst->isFast()) {
-      LLVM_DEBUG(dbgs() << "\tis unsafe to vectorize/parallelize "
-                           "(FP reduction with fast flag off)\n");
-      return true;
+    bool IsOnDomPath = HLNodeUtils::postDominates(Inst, FirstChild);
+
+    // Return whether it is safe/unsafe to vectorize if we are dealing with a
+    // Floating point reduction.
+
+    // For any SafeRedInst on partial path, Fast is enforced. Otherwise, can
+    // relax it to reassoc only.
+    if (!IsOnDomPath) {
+      if (!FPInst->isFast()) {
+        LLVM_DEBUG(dbgs() << "\tis unsafe to vectorize/parallelize "
+                             "(FP reduction with fast flag off)\n");
+        return true;
+      }
+    } else {
+      if (!FPInst->hasAllowReassoc()) {
+        LLVM_DEBUG(dbgs() << "\tis unsafe to vectorize/parallelize "
+                             "(FP reduction with reassoc flag off)\n");
+        return true;
+      }
     }
   }
+
   return false;
 }
 
@@ -576,7 +598,7 @@ void HIRSafeReductionAnalysis::setSafeRedChainList(SafeRedChain &RedInsts,
 
   SafeRedInfoList &SRCL = SafeReductionMap[Loop];
   SRCL.emplace_back(RedInsts, RedSymbase, RedOpCode,
-                    anyUnsafeAlgebraInChain(RedInsts));
+                    hasUnsafeAlgebraInChain(RedInsts, Loop));
   unsigned SRIIndex = SRCL.size() - 1;
 
   // We should use []operator instead of insert() to overwrite the previous
@@ -589,7 +611,8 @@ void HIRSafeReductionAnalysis::setSafeRedChainList(SafeRedChain &RedInsts,
 }
 
 bool HIRSafeReductionAnalysis::isSafeReduction(const HLInst *Inst,
-                                               bool *IsSingleStmt) const {
+                                               bool *IsSingleStmt,
+                                               bool *HasUnsafeAlgebra) const {
 
   const SafeRedInfo *SRI = getSafeRedInfo(Inst);
   if (!SRI) {
@@ -598,6 +621,10 @@ bool HIRSafeReductionAnalysis::isSafeReduction(const HLInst *Inst,
 
   if (IsSingleStmt) {
     *IsSingleStmt = (SRI->Chain.size() == 1 ? true : false);
+  }
+
+  if (HasUnsafeAlgebra) {
+    *HasUnsafeAlgebra = SRI->hasUnsafeAlgebra();
   }
 
   return true;
@@ -618,12 +645,12 @@ void HIRSafeReductionAnalysis::printAnalysis(raw_ostream &OS) const {
 
     Loop->printHeader(FOS, Depth - 1, false);
 
-    auto &SRCL = NonConstSRA->SafeReductionMap[Loop];
+    SafeRedInfoList &SRCL = NonConstSRA->SafeReductionMap[Loop];
     if (SRCL.empty()) {
       FOS << "No Safe Reduction\n";
     } else {
       for (auto &SRI : SRCL) {
-        printAChain(FOS, Depth, SRI.Chain);
+        printSafeRedChain(FOS, Depth, SRI.Chain);
       }
     }
 
@@ -644,7 +671,7 @@ void HIRSafeReductionAnalysis::print(formatted_raw_ostream &OS,
 
   for (auto &SRI : *SRCL) {
     Loop->indent(OS, Depth);
-    printAChain(OS, Depth, SRI.Chain);
+    printSafeRedChain(OS, Depth, SRI.Chain);
   }
 }
 

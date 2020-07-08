@@ -1125,6 +1125,13 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
       break;
     }
   }
+#if INTEL_COLLAB
+  if (LangOpts.OpenMPLateOutline)
+    if (LangOpts.OpenMPIsDevice)
+      Builder.defineMacro("__INTEL_TARGET_OPENMP");
+    else
+      Builder.defineMacro("__INTEL_HOST_OPENMP");
+#endif // INTEL_COLLAB
   // CUDA device path compilaton
   if (LangOpts.CUDAIsDevice && !LangOpts.HIP) {
     // The CUDA_ARCH value is set for the GPU target specified in the NVPTX

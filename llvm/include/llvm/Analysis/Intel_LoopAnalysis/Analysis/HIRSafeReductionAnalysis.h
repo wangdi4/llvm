@@ -47,6 +47,8 @@ struct SafeRedInfo {
               bool HasUnsafeAlgebra)
       : Chain(RedInsts), Symbase(Symbase), OpCode(RedOpCode),
         HasUnsafeAlgebra(HasUnsafeAlgebra) {}
+
+  bool hasUnsafeAlgebra(void) const { return HasUnsafeAlgebra; }
 };
 
 typedef SmallVector<SafeRedInfo, 4> SafeRedInfoList;
@@ -60,7 +62,7 @@ class HIRSafeReductionAnalysis : public HIRAnalysis {
   SmallDenseMap<const HLLoop *, SafeRedInfoList, 16> SafeReductionMap;
   // From Inst, Look up  Index to Reduction Info (Chain, Symbase and Opcode).
   // There is no need to go through Loop,
-  // because there are no many safe reductions in a function.
+  // because there are not many safe reductions in a function.
   SmallDenseMap<const HLInst *, unsigned, 16> SafeReductionInstMap;
 
   bool findFirstRedStmt(const HLLoop *Loop, const HLInst *Inst,
@@ -97,7 +99,8 @@ public:
 
   // Is Inst part of a Safe Reduction. Indicate of Single Stmt when
   // argument supplied
-  bool isSafeReduction(const HLInst *Inst, bool *IsSingleStmt = nullptr) const;
+  bool isSafeReduction(const HLInst *Inst, bool *IsSingleStmt = nullptr,
+                       bool *HasUnsafeAlgebra = nullptr) const;
 
   // Get Safe Reduction Info of a Loop (Chain, Symbase and Opcode). Returns null
   // if the instruction is not part of a reduction
