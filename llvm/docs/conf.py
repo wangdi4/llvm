@@ -28,18 +28,6 @@ from datetime import date
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = ['sphinx.ext.intersphinx', 'sphinx.ext.todo']
 
-<<<<<<< HEAD
-import sphinx
-if sphinx.version_info >= (3, 0):
-  # This requires 0.5 or later.
-# INTEL_CUSTOMIZATION
-  extensions.extend(['recommonmark', 'sphinx.ext.mathjax', 'sphinx.ext.graphviz'])
-# // INTEL_CUSTOMIZATION
-else:
-  source_parsers = {'.md': 'recommonmark.parser.CommonMarkParser'}
-
-=======
->>>>>>> 446e3df25483312c8a7dfb3c53eef0de0e13074a
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
@@ -58,7 +46,9 @@ else:
   import sphinx
   if sphinx.version_info >= (3, 0):
     # This requires 0.5 or later.
-    extensions.append('recommonmark')
+# INTEL_CUSTOMIZATION
+    extensions.extend(['recommonmark', 'sphinx.ext.mathjax', 'sphinx.ext.graphviz'])
+# // INTEL_CUSTOMIZATION
   else:
     source_parsers = {'.md': 'recommonmark.parser.CommonMarkParser'}
   source_suffix['.md'] = 'markdown'
