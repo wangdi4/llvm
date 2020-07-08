@@ -13,9 +13,10 @@ define internal void @test01(%class.test01.derived* %pDerived) !dtrans_type !4 {
   %pField.as.pDerived = bitcast %class.test01.base** %pField to %class.test01.derived**
   %pDerived2 = load %class.test01.derived*, %class.test01.derived** %pField.as.pDerived
 
-  ; %pDerived2 will have both the base type and the derived type associated with it.
-  ; For the purpose of the merge it is safe, because both operands have the same
-  ; dominant type.
+  ; %pDerived2 will have both the base type and the derived type associated with
+  ; it. For the purpose of the merge it is safe, because both operands have the
+  ; same dominant type, so there will not be an 'Unsafe pointer merge'. However,
+  ; the load will have triggered safety violations.
   %merge = select i1 undef, %class.test01.derived* %pDerived, %class.test01.derived* %pDerived2
   call void @test01helper(%class.test01.derived* %merge)
   ret void
@@ -27,11 +28,11 @@ define internal void @test01helper(%class.test01.derived* %pDerived) !dtrans_typ
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: Name: class.test01.base
-; CHECK: Safety data: Nested structure
+; CHECK: Safety data: Bad casting | Mismatched element access | Nested structure{{ *$}}
 
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: Name: class.test01.derived
-; CHECK: Safety data: Contains nested structure
+; CHECK: Safety data: Bad casting | Contains nested structure{{ *$}}
 
 
 !1 = !{i32 0, i32 0}  ; i32

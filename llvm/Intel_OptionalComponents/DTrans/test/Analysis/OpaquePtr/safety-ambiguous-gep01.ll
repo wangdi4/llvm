@@ -17,11 +17,11 @@ define void @test01(%struct.test01a** %ppStruct.a) !dtrans_type !3 {
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: Name: struct.test01a
-; CHECK: Safety data: Ambiguous GEP{{ *$}}
+; CHECK: Safety data: Bad casting | Ambiguous GEP{{ *$}}
 
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: Name: struct.test01b
-; CHECK: Safety data: Ambiguous GEP{{ *$}}
+; CHECK: Safety data: Bad casting | Ambiguous GEP{{ *$}}
 
 
 ; Merging pointers of two different structures together, and then using
