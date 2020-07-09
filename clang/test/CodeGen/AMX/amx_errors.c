@@ -1,4 +1,6 @@
 // RUN: %clang_cc1 %s -ffreestanding -triple=x86_64-unknown-unknown -target-feature +amx-tile -target-feature +amx-int8 -target-feature +amx-bf16 -emit-llvm -fsyntax-only -verify
+// INTEL: Enable test for every configuration with CMPLRLLVM-21156 fix.
+// REQUIRES: intel_feature_isa_amx
 
 #include <immintrin.h>
 
