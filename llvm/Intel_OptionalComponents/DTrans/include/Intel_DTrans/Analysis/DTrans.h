@@ -864,10 +864,6 @@ public:
   // Remove the related type and restore the safety conditions.
   void unsetRelatedType();
 
-  // Return true if the input offset accesses the padded field.
-  bool offsetAccessesPaddingField(int64_t Offset, const llvm::DataLayout &DL,
-                                  bool FullBase = true);
-
   // Return true if the last field in the structure is used for padding.
   bool hasPaddedField();
 

@@ -1489,11 +1489,20 @@ private:
   /// use of `%v` in `%0` is also replaced with `%v1`. Otherwise, by default,
   /// `v1` is inserted at the end of EntryBB.
   ///
+  /// If \p SelectAllocaInsertPtBasedOnParentWRegion is \b true, then the
+  /// insertion point for `%v.addr` is determined based on whether a parent
+  /// WRegion would eventually be outlined, otherwise, the end of the Function's
+  /// entry block is used.
+  ///
+  /// If \p CastToAddrSpaceGeneric is \b true, then `%v.addr` is casted to
+  /// address space generic (4) before doing the store/load.
+  ///
   /// \returns the pointer where \p V is stored (`%v.addr` above).
-  static Value *
-  replaceWithStoreThenLoad(WRegionNode *W, Value *V,
-                           Instruction *InsertPtForStore,
-                           bool InsertLoadInBeginningOfEntryBB = false);
+  Value *replaceWithStoreThenLoad(
+      WRegionNode *W, Value *V, Instruction *InsertPtForStore,
+      bool InsertLoadInBeginningOfEntryBB = false,
+      bool SelectAllocaInsertPtBasedOnParentWRegion = false,
+      bool CastToAddrSpaceGeneric = false);
 
   /// If \p I is a call to @llvm.launder.invariant.group, then return
   /// the CallInst*. Otherwise, return nullptr.

@@ -926,6 +926,10 @@ void WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(
   };
 
   auto collectSizeIfVLA = [&](Value *V) {
+    // Skip AddrSpaceCastInsts in hope to reach the underlying value.
+    while (auto *ASCI = dyn_cast<AddrSpaceCastInst>(V))
+      V = ASCI->getPointerOperand();
+
     if (AllocaInst *AI = dyn_cast<AllocaInst>(V))
       if (AI->isArrayAllocation())
         collectIfNonPointerNonConstant(AI->getArraySize());
