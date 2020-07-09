@@ -5155,6 +5155,7 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
         auto *TA = dyn_cast<Action>(UnbundlerInputs.back());
         assert(TA->getKind() == Action::InputClass ||
                TA->getKind() == Action::OffloadClass);
+        (void)TA;
 
         // If the Action is of OffloadAction type, use the HostAction of the
         // specific Offload Action to set LastArg
