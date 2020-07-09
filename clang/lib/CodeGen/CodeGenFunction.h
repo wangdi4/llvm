@@ -1768,6 +1768,27 @@ public:
     }
     ~LocalVarsDeclGuard() { CGF.LocalDeclMap.swap(LocalDeclMap); }
   };
+  /// Class to manage the BuiltinID for the current builtin expression during
+  /// processing in EmitBuiltinExpr.
+  class CurrentBuiltinIDRAII {
+    CodeGenFunction &CGF;
+    unsigned SavedBuiltinID;
+  public:
+    CurrentBuiltinIDRAII(CodeGenFunction &CGF, unsigned BuiltinID)
+        : CGF(CGF), SavedBuiltinID(CGF.CurrentBuiltinID) {
+      CGF.CurrentBuiltinID = BuiltinID;
+    }
+    ~CurrentBuiltinIDRAII() {
+      CGF.CurrentBuiltinID = SavedBuiltinID;
+    }
+  };
+private:
+  unsigned CurrentBuiltinID = /*NotBuiltin*/0;
+public:
+  unsigned getCurrentBuiltinID() {
+    assert(CurrentBuiltinID != /*NotBuiltin*/0);
+    return CurrentBuiltinID;
+  }
 #endif  // INTEL_CUSTOMIZATION
 #if INTEL_COLLAB
   // Expressions saved in the VLASizeMap cannot be reused inside regions

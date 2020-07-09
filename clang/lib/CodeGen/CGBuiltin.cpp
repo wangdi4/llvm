@@ -369,6 +369,21 @@ static Value *EmitISOVolatileStore(CodeGenFunction &CGF, const CallExpr *E) {
   return Store;
 }
 
+#if INTEL_CUSTOMIZATION
+static llvm::CallInst *createFPBuiltinCallWithAttrs(CodeGenFunction &CGF,
+                                                    llvm::Function *F,
+                                                    ArrayRef<Value *> Args) {
+  llvm::CallInst *CI = CGF.Builder.CreateCall(F, Args);
+  unsigned BuiltinID = CGF.getCurrentBuiltinID();
+  StringRef Name = CGF.CGM.getContext().BuiltinInfo.getName(BuiltinID);
+  Name.consume_front("__builtin_");
+  llvm::AttributeList AttrList;
+  CGF.CGM.ConstructSVMLCallAttributes(Name, AttrList);
+  CI->setAttributes(AttrList);
+  return CI;
+}
+#endif // INTEL_CUSTOMIZATION
+
 // Emit a simple mangled intrinsic that has 1 argument and a return type
 // matching the argument type. Depending on mode, this may be a constrained
 // floating-point intrinsic.
@@ -382,7 +397,7 @@ static Value *emitUnaryMaybeConstrainedFPBuiltin(CodeGenFunction &CGF,
     return CGF.Builder.CreateConstrainedFPCall(F, { Src0 });
   } else {
     Function *F = CGF.CGM.getIntrinsic(IntrinsicID, Src0->getType());
-    return CGF.Builder.CreateCall(F, Src0);
+    return createFPBuiltinCallWithAttrs(CGF, F, {Src0}); // INTEL
   }
 }
 
@@ -399,7 +414,7 @@ static Value *emitBinaryMaybeConstrainedFPBuiltin(CodeGenFunction &CGF,
     return CGF.Builder.CreateConstrainedFPCall(F, { Src0, Src1 });
   } else {
     Function *F = CGF.CGM.getIntrinsic(IntrinsicID, Src0->getType());
-    return CGF.Builder.CreateCall(F, { Src0, Src1 });
+    return createFPBuiltinCallWithAttrs(CGF, F, {Src0, Src1}); // INTEL
   }
 }
 
@@ -417,7 +432,7 @@ static Value *emitTernaryMaybeConstrainedFPBuiltin(CodeGenFunction &CGF,
     return CGF.Builder.CreateConstrainedFPCall(F, { Src0, Src1, Src2 });
   } else {
     Function *F = CGF.CGM.getIntrinsic(IntrinsicID, Src0->getType());
-    return CGF.Builder.CreateCall(F, { Src0, Src1, Src2 });
+    return createFPBuiltinCallWithAttrs(CGF, F, {Src0, Src1, Src2}); // INTEL
   }
 }
 
@@ -1990,6 +2005,8 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
       return RValue::get(llvm::ConstantFP::get(getLLVMContext(),
                                                Result.Val.getFloat()));
   }
+
+  CurrentBuiltinIDRAII CB(*this, BuiltinID); // INTEL
 
   // There are LLVM math intrinsics/instructions corresponding to math library
   // functions except the LLVM op will never set errno while the math library
