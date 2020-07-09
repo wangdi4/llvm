@@ -1,7 +1,7 @@
 ; REQUIRES: asserts
 
-; RUN: opt  < %s -whole-program-assume -dtransanalysis -dtrans-print-types -dtrans-merge-padded-structs=true -dtrans-test-padded-structs=true -disable-output 2>&1 | FileCheck %s
-; RUN: opt  < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -dtrans-merge-padded-structs=true -dtrans-test-padded-structs=true -disable-output 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -dtransanalysis -dtrans-print-types -dtrans-test-padded-structs=true -disable-output 2>&1 | FileCheck %s
+; RUN: opt  < %s -whole-program-assume -passes='require<dtransanalysis>' -dtrans-print-types -dtrans-test-padded-structs=true -disable-output 2>&1 | FileCheck %s
 
 ; This test verifies that the base and padded types, %struct.test.a.base and
 ; %struct.test.a respectively, are marked as Address taken. The goal of this

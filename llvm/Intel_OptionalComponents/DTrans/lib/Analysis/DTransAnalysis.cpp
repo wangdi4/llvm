@@ -10689,11 +10689,9 @@ bool DTransAnalysisInfo::analyzeModule(
   // Go through the multiple StructInfo and check if there is a safety
   // violation that makes the padded field dirty. Also, this is the moment
   // where we are going to merge the safety violations.
+  //
   // NOTE: A dirty padded field means that we don't have enough information
   // to make sure if the field is not being modified.
-  //
-  // TODO: This is the point where we are going to decide if a pending
-  // safety violation can be removed or not.
   for (auto *TI : type_info_entries()) {
     if (auto *STInfo = dyn_cast<dtrans::StructInfo>(TI)) {
 
@@ -10709,12 +10707,13 @@ bool DTransAnalysisInfo::analyzeModule(
         size_t NumFields = StrInfo->getNumFields();
         auto &PaddedField = StrInfo->getField(NumFields - 1);
 
-        // TODO: We might want to add other potential failures here like
-        // "isSingleValue" or "isMultipleValue". Another possible solution
-        // will be to use "isValueUnused".
+        // NOTE: We don't check whether isValueUnused() is set since we don't
+        // want to trigger any transformation that depends on it (e.g.
+        // delete fields).
         if (PaddedField.isRead() || PaddedField.isWritten() ||
             PaddedField.hasComplexUse() || PaddedField.isAddressTaken() ||
-            PaddedField.isMismatchedElementAccess())
+            PaddedField.isMismatchedElementAccess() ||
+            !PaddedField.isNoValue() || !PaddedField.isTopAllocFunction())
           return true;
 
         return false;
@@ -10743,6 +10742,10 @@ bool DTransAnalysisInfo::analyzeModule(
       if (!BadSafetyData || DTransTestPaddedStructs) {
         STInfo->mergeSafetyDataWithRelatedType();
         RelatedTypeInfo->mergeSafetyDataWithRelatedType();
+
+        // NOTE: We might want to merge the fields info. For now, the
+        // information related to the base and padded structures can be
+        // collected by referring the related type.
       } else {
         // If the safety data fails then break the relationship between
         // padded and base.
@@ -10760,6 +10763,12 @@ bool DTransAnalysisInfo::analyzeModule(
       bool SD_FSV = testSafetyData(TI, dtrans::DT_FieldSingleValue);
       bool SD_FSAF = testSafetyData(TI, dtrans::DT_FieldSingleAllocFunction);
       for (unsigned I = 0, E = StInfo->getNumFields(); I != E; ++I) {
+
+        // If we proved that the field is a clean padded field, then don't
+        // set it as isBottomAllocFunction(). We know that it won't be used.
+        if (StInfo->getField(I).isCleanPaddedField())
+          continue;
+
         // Mark the field as 'incomplete' if safety conditions are not met.
         // In case of DTransOutOfBoundsOK == false we change to 'incomplete'
         // only those fields that are marked as address taken (if any).
@@ -10784,7 +10793,12 @@ bool DTransAnalysisInfo::analyzeModule(
   // BottomAllocFunction for now.
   for (auto *TI : type_info_entries()) {
     if (auto *StInfo = dyn_cast<dtrans::StructInfo>(TI))
-      for (unsigned I = 0, E = StInfo->getNumFields(); I != E; ++I)
+      for (unsigned I = 0, E = StInfo->getNumFields(); I != E; ++I) {
+        // If we proved that the field is a clean padded field, then don't
+        // set it as isBottomAllocFunction(). We know that it won't be used.
+        if (StInfo->getField(I).isCleanPaddedField())
+          continue;
+
         if (StInfo->getField(I).getLLVMType()->isAggregateType()) {
           StInfo->getField(I).setMultipleValue();
           DEBUG_WITH_TYPE(DTRANS_FSAF, {
@@ -10794,6 +10808,7 @@ bool DTransAnalysisInfo::analyzeModule(
           });
           StInfo->getField(I).setBottomAllocFunction();
         }
+      }
   }
 
   DTransAnalysisRan = true;
