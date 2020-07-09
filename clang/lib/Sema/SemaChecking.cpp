@@ -4040,6 +4040,7 @@ bool Sema::CheckX86BuiltinTileRangeAndDuplicate(CallExpr *TheCall,
   return CheckX86BuiltinTileArgumentsRange(TheCall, ArgNums, Low, High) ||
          CheckX86BuiltinTileDuplicate(TheCall, ArgNums);
 }
+
 #else // INTEL_FEATURE_ISA_AMX
 enum { TileRegLow = 0, TileRegHigh = 7 };
 
