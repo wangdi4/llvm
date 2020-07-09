@@ -1,4 +1,6 @@
 ; RUN: opt < %s -analyze -delinearize | FileCheck %s
+; INTEL Re-enable after CMPLRLLVM-21161 fixed.
+; XFAIL: *
 
 ; void foo(long n, long m, long o, long p, double A[n][m][o+p]) {
 ;

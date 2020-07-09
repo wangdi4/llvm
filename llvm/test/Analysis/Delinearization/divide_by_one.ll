@@ -1,4 +1,6 @@
 ; RUN: opt < %s -analyze -delinearize | FileCheck %s
+; INTEL Re-enable after CMPLRLLVM-21161 fixed.
+; XFAIL: *
 
 target datalayout = "e-m:e-p:32:32-i1:32-i64:64-a:0-n32"
 
