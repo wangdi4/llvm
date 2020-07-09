@@ -1338,13 +1338,8 @@ public:
   virtual bool isLoweredToCall(const Function *F) = 0;
   virtual void getUnrollingPreferences(Loop *L, ScalarEvolution &,
                                        UnrollingPreferences &UP) = 0;
-<<<<<<< HEAD
   virtual unsigned                                            // INTEL
   getLoopRotationDefaultThreshold(bool OptForSize) const = 0; // INTEL
-  virtual void getPeelingPreferences(Loop *L, ScalarEvolution &SE,
-                                     PeelingPreferences &PP) = 0;
-=======
->>>>>>> 6965af43e6b83fda2c32663f55b1568ffe6d67f9
   virtual bool isHardwareLoopProfitable(Loop *L, ScalarEvolution &SE,
                                         AssumptionCache &AC,
                                         TargetLibraryInfo *LibInfo,
@@ -1640,16 +1635,9 @@ public:
                                UnrollingPreferences &UP) override {
     return Impl.getUnrollingPreferences(L, SE, UP);
   }
-<<<<<<< HEAD
   unsigned getLoopRotationDefaultThreshold(bool OptForSize) const override {
     return Impl.getLoopRotationDefaultThreshold(OptForSize);
   }
-  void getPeelingPreferences(Loop *L, ScalarEvolution &SE,
-                             PeelingPreferences &PP) override {
-    return Impl.getPeelingPreferences(L, SE, PP);
-  }
-=======
->>>>>>> 6965af43e6b83fda2c32663f55b1568ffe6d67f9
   bool isHardwareLoopProfitable(Loop *L, ScalarEvolution &SE,
                                 AssumptionCache &AC, TargetLibraryInfo *LibInfo,
                                 HardwareLoopInfo &HWLoopInfo) override {
