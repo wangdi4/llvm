@@ -540,9 +540,12 @@ public:
   bool hasIVBlobCoeffs() const;
   /// Returns the number of blobs IV Coeffs.
   unsigned numIVBlobCoeffs() const;
-  /// Returns true if this contains any blobs.
+  /// Returns true if this contains any blob terms.
+  ///
+  /// This CanonExpr may still involve blobs even if this returns false in the
+  /// form of blob IV coefficients. Use \ref hasIVBlobCoeffs to check for those.
   bool hasBlob() const { return !BlobCoeffs.empty(); }
-  /// Returns the number of blobs in the canon expr.
+  /// Returns the number of blob terms in the canon expr.
   unsigned numBlobs() const { return BlobCoeffs.size(); }
 
   /// Returns the level of IV associated with this iterator.
