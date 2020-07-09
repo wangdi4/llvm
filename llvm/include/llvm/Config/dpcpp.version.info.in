@@ -1,0 +1,22 @@
+#if INTEL_CUSTOMIZATION
+//==--- dpcpp.version.info.in - Set dpcpp product information--*- C++ -*---==//
+//
+// Copyright (C) 2019-2020 Intel Corporation. All rights reserved.
+//
+// The information and source code contained herein is the exclusive property
+// of Intel Corporation and may not be disclosed, examined or reproduced in
+// whole or in part without explicit written authorization from the company.
+//
+// ===--------------------------------------------------------------------=== //
+
+#cmakedefine DPCPP_VERSION_QUALITY "@DPCPP_VERSION_QUALITY@"
+#cmakedefine DPCPP_VERSION_MAJOR @DPCPP_VERSION_MAJOR@
+#cmakedefine DPCPP_VERSION_MINOR @DPCPP_VERSION_MINOR@
+#cmakedefine DPCPP_PRODUCT_VERSION "@DPCPP_PRODUCT_VERSION@"
+#cmakedefine DPCPP_PRODUCT_FULL_VERSION "@DPCPP_PRODUCT_FULL_VERSION@"
+#cmakedefine DPCPP_PRODUCT_NAME "@DPCPP_PRODUCT_NAME@"
+
+std::string getDPCPPVersionString() {
+  return "@DPCPP_PRODUCT_FULL_VERSION@";
+}
+#endif // INTEL_CUSTOMIZATION
