@@ -63,4 +63,5 @@ void llvm::initializeIntel_LoopTransforms(PassRegistry &Registry) {
   initializeHIRConditionalLoadStoreMotionLegacyPassPass(Registry);
   initializeHIRStoreResultIntoTempArrayLegacyPassPass(Registry);
   initializeHIRSumWindowReuseLegacyPassPass(Registry);
+  initializeHIRNonZeroSinkingForPerfectLoopnestLegacyPassPass(Registry);
 }
