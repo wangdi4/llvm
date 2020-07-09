@@ -5151,16 +5151,12 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
     if (!UnbundlerInputs.empty() && !PL.empty()) {
       Action *PartialLink =
           C.MakeAction<PartialLinkJobAction>(UnbundlerInputs, types::TY_Object);
-<<<<<<< HEAD
       if (!LastArg) {
         auto *TA = dyn_cast<Action>(UnbundlerInputs.back());
         assert(TA->getKind() == Action::InputClass ||
                TA->getKind() == Action::OffloadClass);
+        (void)TA; // INTEL
 
-=======
-#if INTEL_CUSTOMIZATION
-      if (!LastArg) {
->>>>>>> 02b7bb223c78ff78d42f583e6ce65e5e70ae6a12
         // If the Action is of OffloadAction type, use the HostAction of the
         // specific Offload Action to set LastArg
         if (auto *OA = dyn_cast<OffloadAction>(UnbundlerInputs.back()))
@@ -5169,14 +5165,9 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
         else if (auto *IA = dyn_cast<InputAction>(UnbundlerInputs.back()))
           // else set the LastArg based on Last InputAction
           LastArg = &(IA->getInputArg());
-<<<<<<< HEAD
-      }
-=======
 
-        assert(LastArg!=nullptr);
+        assert(LastArg != nullptr); // INTEL
       }
-#endif // INTEL_CUSTOMIZATION
->>>>>>> 02b7bb223c78ff78d42f583e6ce65e5e70ae6a12
       Action *Current = C.MakeAction<InputAction>(*LastArg, types::TY_Object);
       ActionList AL;
       AL.push_back(PartialLink);
