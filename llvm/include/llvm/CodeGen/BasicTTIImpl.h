@@ -451,11 +451,10 @@ public:
     UP.BEInsns = 2;
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   unsigned getLoopRotationDefaultThreshold(bool OptForSize) const { return 16; }
 #endif // INTEL_CUSTOMIZATION
-=======
+
   void getPeelingPreferences(Loop *L, ScalarEvolution &SE,
                              TTI::PeelingPreferences &PP) {
     PP.PeelCount = 0;
@@ -464,7 +463,6 @@ public:
     PP.PeelProfiledIterations = true;
   }
 
->>>>>>> 0369dc98f958a1ca2ec05f1897f091129bb16e8a
   bool isHardwareLoopProfitable(Loop *L, ScalarEvolution &SE,
                                 AssumptionCache &AC,
                                 TargetLibraryInfo *LibInfo,

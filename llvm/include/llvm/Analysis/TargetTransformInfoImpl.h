@@ -150,13 +150,11 @@ public:
   void getUnrollingPreferences(Loop *, ScalarEvolution &,
                                TTI::UnrollingPreferences &) {}
 
-<<<<<<< HEAD
   unsigned getLoopRotationDefaultThreshold(bool OptForSize) const { return 16; }
-=======
+
   void getPeelingPreferences(Loop *, ScalarEvolution &,
                              TTI::PeelingPreferences &) {}
 
->>>>>>> 0369dc98f958a1ca2ec05f1897f091129bb16e8a
   bool isLegalAddImmediate(int64_t Imm) { return false; }
 
   bool isLegalICmpImmediate(int64_t Imm) { return false; }
