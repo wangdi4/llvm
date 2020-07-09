@@ -2298,6 +2298,7 @@ TARGET_HEADER_BUILTIN(__readgsword,  "UsUNi", "nh", "intrin.h", ALL_MS_LANGUAGES
 TARGET_HEADER_BUILTIN(__readgsdword, "UNiUNi", "nh", "intrin.h", ALL_MS_LANGUAGES, "")
 TARGET_HEADER_BUILTIN(__readgsqword, "ULLiUNi", "nh", "intrin.h", ALL_MS_LANGUAGES, "")
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
 // CSA-target-specific, but must be visible to host compilation,
@@ -2389,6 +2390,17 @@ TARGET_BUILTIN(__builtin_ia32_vcvtneph2bf16_128, "V8sV8g", "ncV:128:", "avxconve
 TARGET_BUILTIN(__builtin_ia32_vcvtneph2bf16_256, "V16sV16g", "ncV:256:", "avxconvert")
 #endif // INTEL_FEATURE_ISA_AVX_CONVERT
 #endif // INTEL_CUSTOMIZATION
+=======
+TARGET_HEADER_BUILTIN(_InterlockedAnd64,         "WiWiD*Wi", "nh", "intrin.h", ALL_MS_LANGUAGES, "")
+TARGET_HEADER_BUILTIN(_InterlockedDecrement64,   "WiWiD*",   "nh", "intrin.h", ALL_MS_LANGUAGES, "")
+TARGET_HEADER_BUILTIN(_InterlockedExchange64,    "WiWiD*Wi", "nh", "intrin.h", ALL_MS_LANGUAGES, "")
+TARGET_HEADER_BUILTIN(_InterlockedExchangeAdd64, "WiWiD*Wi", "nh", "intrin.h", ALL_MS_LANGUAGES, "")
+TARGET_HEADER_BUILTIN(_InterlockedExchangeSub64, "WiWiD*Wi", "nh", "intrin.h", ALL_MS_LANGUAGES, "")
+TARGET_HEADER_BUILTIN(_InterlockedIncrement64,   "WiWiD*",   "nh", "intrin.h", ALL_MS_LANGUAGES, "")
+TARGET_HEADER_BUILTIN(_InterlockedOr64,          "WiWiD*Wi", "nh", "intrin.h", ALL_MS_LANGUAGES, "")
+TARGET_HEADER_BUILTIN(_InterlockedXor64,         "WiWiD*Wi", "nh", "intrin.h", ALL_MS_LANGUAGES, "")
+
+>>>>>>> 82206e7fb49d9593d946599b107e8a8ad29a7d22
 #undef BUILTIN
 #undef TARGET_BUILTIN
 #undef TARGET_HEADER_BUILTIN
