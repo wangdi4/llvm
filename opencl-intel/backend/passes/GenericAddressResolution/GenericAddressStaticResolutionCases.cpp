@@ -279,9 +279,10 @@ namespace intel {
       case Instruction::AtomicCmpXchg : {
         AtomicCmpXchgInst *pCmpXchg = cast<AtomicCmpXchgInst>(pInstr);
         AtomicCmpXchgInst *pNewCmpXchg = new AtomicCmpXchgInst(
-                                          pNewValue, pCmpXchg->getCompareOperand(), pCmpXchg->getNewValOperand(),
-                                          pCmpXchg->getSuccessOrdering(), pCmpXchg->getFailureOrdering(),
-                                          pCmpXchg->getSyncScopeID(), pCmpXchg);
+            pNewValue, pCmpXchg->getCompareOperand(),
+            pCmpXchg->getNewValOperand(), pCmpXchg->getAlign(),
+            pCmpXchg->getSuccessOrdering(), pCmpXchg->getFailureOrdering(),
+            pCmpXchg->getSyncScopeID(), pCmpXchg);
         pNewCmpXchg->setVolatile(pCmpXchg->isVolatile());
         pNewInstr = pNewCmpXchg;
         break;
@@ -289,9 +290,9 @@ namespace intel {
       case Instruction::AtomicRMW : {
         AtomicRMWInst *pAtomicRMW = cast<AtomicRMWInst>(pInstr);
         AtomicRMWInst *pNewAtomicRMW = new AtomicRMWInst(
-                                        pAtomicRMW->getOperation(), pNewValue,
-                                        pAtomicRMW->getValOperand(),pAtomicRMW->getOrdering(),
-                                        pAtomicRMW->getSyncScopeID(), pAtomicRMW);
+            pAtomicRMW->getOperation(), pNewValue, pAtomicRMW->getValOperand(),
+            pAtomicRMW->getAlign(), pAtomicRMW->getOrdering(),
+            pAtomicRMW->getSyncScopeID(), pAtomicRMW);
         pNewAtomicRMW->setVolatile(pAtomicRMW->isVolatile());
         pNewInstr = pNewAtomicRMW;
         break;
