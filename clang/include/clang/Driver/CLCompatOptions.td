@@ -322,6 +322,11 @@ def _SLASH_Qopt_multiple_gather_scatter_by_shuffles : CLFlag<"Qopt-multiple-gath
 def _SLASH_Qopt_multiple_gather_scatter_by_shuffles_ : CLFlag<"Qopt-multiple-gather-scatter-by-shuffles-">,
   Alias<qno_opt_multiple_gather_scatter_by_shuffles>,
   HelpText<"Disables the optimization for multiple adjacent gather/scatter type vector memory references">;
+def _SLASH_Qopt_report_EQ : CLJoined<"Qopt-report=">, Alias<qopt_report_EQ>;
+def _SLASH_Qopt_report : CLFlag<"Qopt-report">, Alias<qopt_report_EQ>,
+  AliasArgs<["2"]>;
+def _SLASH_Qopt_report_COL : CLJoined<"Qopt-report:">, Alias<qopt_report_EQ>,
+  HelpText<"Generate an optimization report, min, med or max.">;
 def : CLJoined<"Qopt-zmm-usage:">, Alias<qopt_zmm_usage_EQ>,
   HelpText<"Specifies the level of zmm registers usage, low or high">;
 def : CLJoined<"Qopt-zmm-usage=">, Alias<qopt_zmm_usage_EQ>;

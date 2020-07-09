@@ -3768,6 +3768,10 @@ def qopt_multiple_gather_scatter_by_shuffles : Flag<["-"], "qopt-multiple-gather
 def qno_opt_multiple_gather_scatter_by_shuffles : Flag<["-"], "qno-opt-multiple-gather-scatter-by-shuffles">,
   Flags<[DriverOption]>,
   HelpText<"Disables the optimization for multiple adjacent gather/scatter type vector memory references">;
+def qopt_report_EQ : Joined<["-"], "qopt-report=">, Values<"min,med,max">,
+  HelpText<"Generate an optimization report, min, med or max.">;
+def qopt_report : Flag<["-"], "qopt-report">, Alias<qopt_report_EQ>,
+  AliasArgs<["2"]>;
 def qopt_zmm_usage_EQ : Joined<["-"], "qopt-zmm-usage=">, Values<"low,high">,
   HelpText<"Specifies the level of zmm registers usage, low or high">;
 #endif // INTEL_CUSTOMIZATION
