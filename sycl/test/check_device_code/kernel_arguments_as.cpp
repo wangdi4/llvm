@@ -4,12 +4,8 @@
 // Check the address space of the pointer in accessor class.
 //
 // CHECK: %struct{{.*}}AccWrapper = type { %"class{{.*}}cl::sycl::accessor" }
-<<<<<<< HEAD
 // CHECK: %"class{{.*}}cl::sycl::accessor" = type { %"class{{.*}}AccessorImplDevice", %[[UNION:.*]] }
-// CHECK: %[[UNION]] = type { i32 addrspace(1)* }
-=======
-// CHECK-NEXT: %"class{{.*}}cl::sycl::accessor" = type { %"class{{.*}}AccessorImplDevice", i32 addrspace(5)* }
->>>>>>> aae13a26039f82a00090acd37402658e219ad82b
+// CHECK: %[[UNION]] = type { i32 addrspace(5)* }
 // CHECK: %struct{{.*}}AccWrapper = type { %"class{{.*}}cl::sycl::accessor" }
 // CHECK-NEXT: %"class{{.*}}cl::sycl::accessor" = type { %"class{{.*}}LocalAccessorBaseDevice", i32 addrspace(3)* }
 //
