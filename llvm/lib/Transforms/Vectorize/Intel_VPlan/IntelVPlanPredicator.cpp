@@ -79,10 +79,6 @@ VPValue *VPlanPredicator::genPredicateTree(std::list<VPValue *> &Worklist,
     Worklist.push_back(Or);
   }
 
-#if !INTEL_CUSTOMIZATION // This assertion is not needed
-  assert(Worklist.size() == 1 && "Expected 1 item in worklist");
-#endif // INTEL_CUSTOMIZATION
-
   // The root is the last node in the worklist.
   VPValue *Root = Worklist.front();
 
