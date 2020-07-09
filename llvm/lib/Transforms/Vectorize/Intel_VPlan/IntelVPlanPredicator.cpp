@@ -266,11 +266,6 @@ VPlanPredicator::createDefiningValueForPredicateTerm(PredicateTerm Term) {
   if (!Val)
     return Predicate;
 
-  // TODO: Don't do splitting once we start preserving uniform control flow
-  // and the Block is uniform.
-  // TODO: Once we start presrving uniform control flow, there will be no
-  // need to create "and" for uniform predicate that is true on all incoming
-  // edges.
   Val = VPBuilder().setInsertPoint(Block).createAnd(
       Predicate, Val, Block->getName() + ".br." + Val->getName());
   Plan.getVPlanDA()->updateDivergence(*Val);
@@ -350,7 +345,9 @@ VPlanPredicator::getOrCreateValueForPredicateTerm(PredicateTerm Term,
       Phi = cast<VPPHINode>(ExistingLiveInIt->second);
     } else {
       // First visit, create the phi, set all incoming values to false as
-      // default.
+      // default because that's the value coming into the block from the region
+      // entry. Any edge carrying "true" value will appear as the result of this
+      // worklist processing.
       Phi = new VPPHINode(LiveIn->getType());
       Phi->setName(Val->getName() + ".phi." + BB->getName());
       BB->addInstructionAfter(Phi, nullptr /*be the first*/);
@@ -428,7 +425,15 @@ void VPlanPredicator::linearizeRegion() {
   for (auto *Block : RPOT)
     BlockIndexInRPOT[Block] = CurrBlockRPOTIndex++;
 
-  // Region entry handled during outer region processing.
+  // Keep track of the edges that were removed during linearization process.
+  // Once we meet any divergent condition that is going to be linearized we keep
+  // a single outgoing edge (to the CurrBlock, see below) and remove another
+  // one. Keep track of the removed ones to properly process another successor
+  // later on.
+  DenseMap<VPBasicBlock * /* Dst */, SmallVector<VPBasicBlock * /* Src */, 4>>
+      RemovedDivergentEdgesMap;
+
+  // VPlan entry block is assumed to be unmasked.
   auto It = ++RPOT.begin();
   auto End = RPOT.end();
 
@@ -471,7 +476,8 @@ void VPlanPredicator::linearizeRegion() {
     }
 
     auto DropDivergentEdgesFromAndLinkWith =
-        [this](VPBasicBlock *Src, VPBasicBlock *TargetToKeep) {
+        [&RemovedDivergentEdgesMap](VPBasicBlock *Src,
+                                    VPBasicBlock *TargetToKeep) {
           for (VPBasicBlock *Succ : Src->getSuccessors()) {
             if (Succ == TargetToKeep)
               continue;

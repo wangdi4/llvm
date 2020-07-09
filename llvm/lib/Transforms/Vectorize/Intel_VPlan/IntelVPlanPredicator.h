@@ -105,9 +105,6 @@ private:
   // predicate in a separate map.
   DenseMap<VPBasicBlock *, VPValue *> Block2Predicate;
 
-  DenseMap<VPBasicBlock * /* Dst */, SmallVector<VPBasicBlock * /* Src */, 4>>
-      RemovedDivergentEdgesMap;
-
   // Blocks where phis should be turned into blends as a result of
   // linearization. The transformation is delayed to after-linearization as it
   // might be needed to create extra blends and/or phis on the way through
