@@ -246,6 +246,13 @@ def disable_O0_optnone : Flag<["-"], "disable-O0-optnone">,
   HelpText<"Disable adding the optnone attribute to functions at O0">;
 def disable_red_zone : Flag<["-"], "disable-red-zone">,
   HelpText<"Do not emit code that uses the red zone.">;
+// if INTEL_CUSTOMIZATION
+// TODO: Delete this customization once the option use removed from all drivers.
+// -dwarf-column-info option was deleted in
+// b0b5162 [Driver] Pass -gno-column-info instead of -dwarf-column-info
+def dwarf_column_info : Flag<["-"], "dwarf-column-info">,
+  HelpText<"Dummy option. Do not use.">;
+// endif INTEL_CUSTOMIZATION
 def dwarf_ext_refs : Flag<["-"], "dwarf-ext-refs">,
   HelpText<"Generate debug info with external references to clang modules"
            " or precompiled headers">;
