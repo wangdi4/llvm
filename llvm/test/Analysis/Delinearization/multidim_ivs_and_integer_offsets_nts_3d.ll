@@ -1,3 +1,4 @@
+; UNSUPPORTED: linux, windows
 ; RUN: opt < %s -analyze -delinearize | FileCheck %s
 
 ; void foo(long n, long m, long o, long p, double A[n][m][o+p]) {
