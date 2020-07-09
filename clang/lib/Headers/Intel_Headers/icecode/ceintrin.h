@@ -44,33 +44,33 @@ typedef enum {
 
 /* Functions for IceCode ISA */
 static __inline__ unsigned short __DEFAULT_FN_ATTRS
-_ce_loadpphys16(void *mem) {
-  return __builtin_ia32_icecode_loadpphys_16(mem);
+_ce_loadpphys16(unsigned long long addr) {
+  return __builtin_ia32_icecode_loadpphys_16(addr);
 }
 
 static __inline__ unsigned int __DEFAULT_FN_ATTRS
-_ce_loadpphys32(void *mem) {
-  return __builtin_ia32_icecode_loadpphys_32(mem);
+_ce_loadpphys32(unsigned long long addr) {
+  return __builtin_ia32_icecode_loadpphys_32(addr);
 }
 
 static __inline__ unsigned long long __DEFAULT_FN_ATTRS
-_ce_loadpphys64(void *mem) {
-  return __builtin_ia32_icecode_loadpphys_64(mem);
+_ce_loadpphys64(unsigned long long addr) {
+  return __builtin_ia32_icecode_loadpphys_64(addr);
 }
 
 static __inline__ void __DEFAULT_FN_ATTRS
-_ce_storepphys16(unsigned short reg, void *mem) {
-  __builtin_ia32_icecode_storepphys_16(reg, mem);
+_ce_storepphys16(unsigned short reg, unsigned long long addr) {
+  __builtin_ia32_icecode_storepphys_16(reg, addr);
 }
 
 static __inline__ void __DEFAULT_FN_ATTRS
-_ce_storepphys32(unsigned int reg, void *mem) {
-  __builtin_ia32_icecode_storepphys_32(reg, mem);
+_ce_storepphys32(unsigned int reg, unsigned long long addr) {
+  __builtin_ia32_icecode_storepphys_32(reg, addr);
 }
 
 static __inline__ void __DEFAULT_FN_ATTRS
-_ce_storepphys64(unsigned long long reg, void *mem) {
-  __builtin_ia32_icecode_storepphys_64(reg, mem);
+_ce_storepphys64(unsigned long long reg, unsigned long long addr) {
+  __builtin_ia32_icecode_storepphys_64(reg, addr);
 }
 
 static __inline__ void __DEFAULT_FN_ATTRS
@@ -204,48 +204,48 @@ _ce_fscp_read64(unsigned fscp) {
 }
 
 static __inline__ unsigned char __DEFAULT_FN_ATTRS
-_ce_portin8(void *port) {
+_ce_portin8(unsigned long long port) {
   return __builtin_ia32_icecode_portin_8(port);
 }
 
 static __inline__ unsigned short __DEFAULT_FN_ATTRS
-_ce_portin16(void *port) {
+_ce_portin16(unsigned long long port) {
   return __builtin_ia32_icecode_portin_16(port);
 }
 
 static __inline__ unsigned int __DEFAULT_FN_ATTRS
-_ce_portin32(void *port) {
+_ce_portin32(unsigned long long port) {
   return __builtin_ia32_icecode_portin_32(port);
 }
 
 static __inline__ unsigned long long __DEFAULT_FN_ATTRS
-_ce_portin64(void *port) {
+_ce_portin64(unsigned long long port) {
   return __builtin_ia32_icecode_portin_64(port);
 }
 
 static __inline__ void __DEFAULT_FN_ATTRS
-_ce_portout8(unsigned char value, void *port) {
+_ce_portout8(unsigned char value, unsigned long long port) {
   __builtin_ia32_icecode_portout_8(value, port);
 }
 
 static __inline__ void __DEFAULT_FN_ATTRS
-_ce_portout16(unsigned short value, void *port) {
+_ce_portout16(unsigned short value, unsigned long long port) {
   __builtin_ia32_icecode_portout_16(value, port);
 }
 
 static __inline__ void __DEFAULT_FN_ATTRS
-_ce_portout32(unsigned int value, void *port) {
+_ce_portout32(unsigned int value, unsigned long long port) {
   __builtin_ia32_icecode_portout_32(value, port);
 }
 
 static __inline__ void __DEFAULT_FN_ATTRS
-_ce_portout64(unsigned long long value, void *port) {
+_ce_portout64(unsigned long long value, unsigned long long port) {
   __builtin_ia32_icecode_portout_64(value, port);
 }
 
 static __inline__ void __DEFAULT_FN_ATTRS
-_ce_sta_special(void *mem) {
-  __builtin_ia32_icecode_sta_special(mem);
+_ce_sta_special(unsigned long long addr) {
+  __builtin_ia32_icecode_sta_special(addr);
 }
 
 #define _ce_nr_read(ireg) __builtin_ia32_icecode_nr_read(ireg)

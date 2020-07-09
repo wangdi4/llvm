@@ -8,12 +8,12 @@
 extern void* mem;
 
 void test_xucode() {
-// CHECK: call i16 @llvm.x86.icecode.loadpphys.16(i8* %{{.*}})
-// CHECK: call i32 @llvm.x86.icecode.loadpphys.32(i8* %{{.*}})
-// CHECK: call i64 @llvm.x86.icecode.loadpphys.64(i8* %{{.*}})
-// CHECK: call void @llvm.x86.icecode.storepphys.16(i16 %{{.*}}, i8* %{{.*}})
-// CHECK: call void @llvm.x86.icecode.storepphys.32(i32 %{{.*}}, i8* %{{.*}})
-// CHECK: call void @llvm.x86.icecode.storepphys.64(i64 %{{.*}}, i8* %{{.*}})
+// CHECK: call i16 @llvm.x86.icecode.loadpphys.16(i64 %{{.*}})
+// CHECK: call i32 @llvm.x86.icecode.loadpphys.32(i64 %{{.*}})
+// CHECK: call i64 @llvm.x86.icecode.loadpphys.64(i64 %{{.*}})
+// CHECK: call void @llvm.x86.icecode.storepphys.16(i16 %{{.*}}, i64 %{{.*}})
+// CHECK: call void @llvm.x86.icecode.storepphys.32(i32 %{{.*}}, i64 %{{.*}})
+// CHECK: call void @llvm.x86.icecode.storepphys.64(i64 %{{.*}}, i64 %{{.*}})
 // CHECK: call void @llvm.x86.icecode.loadseg(i8* %{{.*}}, i32 1)
 // CHECK: call void @llvm.x86.icecode.loadseg(i8* %{{.*}}, i32 2)
 // CHECK: call void @llvm.x86.icecode.loadseg(i8* %{{.*}}, i32 3)
@@ -31,15 +31,15 @@ void test_xucode() {
 // CHECK: call { i64, i64, i64, i64 } asm sideeffect "gtranslaterd_noepc
 // CHECK: call { i64, i64, i64, i64 } asm sideeffect "gtranslatewr_noepc
 // CHECK: call void asm sideeffect "bcast_seg_state"
-  short reg16;
-  int reg32;
-  long long reg64, info[4];
-  reg16 = _ce_loadpphys16(mem);
-  reg32 = _ce_loadpphys32(mem);
-  reg64 = _ce_loadpphys64(mem);
-  _ce_storepphys16(reg16, mem);
-  _ce_storepphys32(reg32, mem);
-  _ce_storepphys64(reg64, mem);
+  unsigned short reg16;
+  unsigned int reg32;
+  unsigned long long reg64 = 0, info[4];
+  reg16 = _ce_loadpphys16(reg64);
+  reg32 = _ce_loadpphys32(reg64);
+  reg64 = _ce_loadpphys64(reg64);
+  _ce_storepphys16(reg16, reg64);
+  _ce_storepphys32(reg32, reg64);
+  _ce_storepphys64(reg64, reg64);
   _ce_loadseg_cs(mem);
   _ce_loadseg_ds(mem);
   _ce_loadseg_ss(mem);
@@ -73,15 +73,15 @@ void test_icecode() {
 // CHECK: call i64 @llvm.x86.icecode.creg.read.64(i32 %{{.*}})
 // CHECK: call i32 @llvm.x86.icecode.fscp.read.32(i32 %{{.*}})
 // CHECK: call i64 @llvm.x86.icecode.fscp.read.64(i32 %{{.*}})
-// CHECK: call i8 @llvm.x86.icecode.portin.8(i8* %{{.*}})
-// CHECK: call i16 @llvm.x86.icecode.portin.16(i8* %{{.*}})
-// CHECK: call i32 @llvm.x86.icecode.portin.32(i8* %{{.*}})
-// CHECK: call i64 @llvm.x86.icecode.portin.64(i8* %{{.*}})
-// CHECK: call void @llvm.x86.icecode.portout.8(i8 %{{.*}}, i8* %{{.*}})
-// CHECK: call void @llvm.x86.icecode.portout.16(i16 %{{.*}}, i8* %{{.*}})
-// CHECK: call void @llvm.x86.icecode.portout.32(i32 %{{.*}}, i8* %{{.*}})
-// CHECK: call void @llvm.x86.icecode.portout.64(i64 %{{.*}}, i8* %{{.*}})
-// CHECK: call void @llvm.x86.icecode.sta.special(i8* %{{.*}})
+// CHECK: call i8 @llvm.x86.icecode.portin.8(i64 %{{.*}})
+// CHECK: call i16 @llvm.x86.icecode.portin.16(i64 %{{.*}})
+// CHECK: call i32 @llvm.x86.icecode.portin.32(i64 %{{.*}})
+// CHECK: call i64 @llvm.x86.icecode.portin.64(i64 %{{.*}})
+// CHECK: call void @llvm.x86.icecode.portout.8(i8 %{{.*}}, i64 %{{.*}})
+// CHECK: call void @llvm.x86.icecode.portout.16(i16 %{{.*}}, i64 %{{.*}})
+// CHECK: call void @llvm.x86.icecode.portout.32(i32 %{{.*}}, i64 %{{.*}})
+// CHECK: call void @llvm.x86.icecode.portout.64(i64 %{{.*}}, i64 %{{.*}})
+// CHECK: call void @llvm.x86.icecode.sta.special(i64 %{{.*}})
 // CHECK: call i32 @llvm.x86.icecode.nr.read(i32 0)
 // CHECK: call void @llvm.x86.icecode.ucodecall(i32 %{{.*}})
 // CHECK: call i64 @llvm.x86.icecode.cmodemov(i64 %{{.*}}, i64 %{{.*}}, i32 0)
@@ -105,15 +105,15 @@ void test_icecode() {
   _ce_creg_read64(reg);
   _ce_fscp_read32(reg);
   _ce_fscp_read64(reg);
-  _ce_portin8(mem);
-  _ce_portin16(mem);
-  _ce_portin32(mem);
-  _ce_portin64(mem);
-  _ce_portout8(data8, mem);
-  _ce_portout16(data16, mem);
-  _ce_portout32(data32, mem);
-  _ce_portout64(data64, mem);
-  _ce_sta_special(mem);
+  _ce_portin8(data64);
+  _ce_portin16(data64);
+  _ce_portin32(data64);
+  _ce_portin64(data64);
+  _ce_portout8(data8, data64);
+  _ce_portout16(data16, data64);
+  _ce_portout32(data32, data64);
+  _ce_portout64(data64, data64);
+  _ce_sta_special(data64);
   _ce_nr_read(0);
   _ce_ucodecall(reg);
   _ce_cmodemov(data64, data64, 0);

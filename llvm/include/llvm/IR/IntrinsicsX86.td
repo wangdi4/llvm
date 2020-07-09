@@ -6215,17 +6215,17 @@ let TargetPrefix = "x86" in {
 // IceCode
 let TargetPrefix = "x86" in {
   def int_x86_icecode_loadpphys_16 : GCCBuiltin<"__builtin_ia32_icecode_loadpphys_16">,
-              Intrinsic<[ llvm_i16_ty ], [ llvm_ptr_ty ], []>;
+              Intrinsic<[ llvm_i16_ty ], [ llvm_i64_ty ], []>;
   def int_x86_icecode_loadpphys_32 : GCCBuiltin<"__builtin_ia32_icecode_loadpphys_32">,
-              Intrinsic<[ llvm_i32_ty ], [ llvm_ptr_ty ], []>;
+              Intrinsic<[ llvm_i32_ty ], [ llvm_i64_ty ], []>;
   def int_x86_icecode_loadpphys_64 : GCCBuiltin<"__builtin_ia32_icecode_loadpphys_64">,
-              Intrinsic<[ llvm_i64_ty ], [ llvm_ptr_ty ], []>;
+              Intrinsic<[ llvm_i64_ty ], [ llvm_i64_ty ], []>;
   def int_x86_icecode_storepphys_16 : GCCBuiltin<"__builtin_ia32_icecode_storepphys_16">,
-              Intrinsic<[], [ llvm_i16_ty, llvm_ptr_ty ], []>;
+              Intrinsic<[], [ llvm_i16_ty, llvm_i64_ty ], []>;
   def int_x86_icecode_storepphys_32 : GCCBuiltin<"__builtin_ia32_icecode_storepphys_32">,
-              Intrinsic<[], [ llvm_i32_ty, llvm_ptr_ty ], []>;
+              Intrinsic<[], [ llvm_i32_ty, llvm_i64_ty ], []>;
   def int_x86_icecode_storepphys_64 : GCCBuiltin<"__builtin_ia32_icecode_storepphys_64">,
-              Intrinsic<[], [ llvm_i64_ty, llvm_ptr_ty ], []>;
+              Intrinsic<[], [ llvm_i64_ty, llvm_i64_ty ], []>;
   def int_x86_icecode_loadseg : GCCBuiltin<"__builtin_ia32_icecode_loadseg">,
               Intrinsic<[], [ llvm_ptr_ty, llvm_i32_ty ], [ ImmArg<ArgIndex<1>> ]>;
   def int_x86_icecode_storeseg : GCCBuiltin<"__builtin_ia32_icecode_storeseg">,
@@ -6249,25 +6249,25 @@ let TargetPrefix = "x86" in {
               Intrinsic<[ llvm_i64_ty ], [ llvm_i32_ty ], []>;
 
   def int_x86_icecode_portin_8 : GCCBuiltin<"__builtin_ia32_icecode_portin_8">,
-              Intrinsic<[ llvm_i8_ty ], [ llvm_ptr_ty ], []>;
+              Intrinsic<[ llvm_i8_ty ], [ llvm_i64_ty ], []>;
   def int_x86_icecode_portin_16 : GCCBuiltin<"__builtin_ia32_icecode_portin_16">,
-              Intrinsic<[ llvm_i16_ty ], [ llvm_ptr_ty ], []>;
+              Intrinsic<[ llvm_i16_ty ], [ llvm_i64_ty ], []>;
   def int_x86_icecode_portin_32 : GCCBuiltin<"__builtin_ia32_icecode_portin_32">,
-              Intrinsic<[ llvm_i32_ty ], [ llvm_ptr_ty ], []>;
+              Intrinsic<[ llvm_i32_ty ], [ llvm_i64_ty ], []>;
   def int_x86_icecode_portin_64 : GCCBuiltin<"__builtin_ia32_icecode_portin_64">,
-              Intrinsic<[ llvm_i64_ty ], [ llvm_ptr_ty ], []>;
+              Intrinsic<[ llvm_i64_ty ], [ llvm_i64_ty ], []>;
 
   def int_x86_icecode_portout_8 : GCCBuiltin<"__builtin_ia32_icecode_portout_8">,
-              Intrinsic<[], [ llvm_i8_ty, llvm_ptr_ty ], []>;
+              Intrinsic<[], [ llvm_i8_ty, llvm_i64_ty ], []>;
   def int_x86_icecode_portout_16 : GCCBuiltin<"__builtin_ia32_icecode_portout_16">,
-              Intrinsic<[], [ llvm_i16_ty, llvm_ptr_ty ], []>;
+              Intrinsic<[], [ llvm_i16_ty, llvm_i64_ty ], []>;
   def int_x86_icecode_portout_32 : GCCBuiltin<"__builtin_ia32_icecode_portout_32">,
-              Intrinsic<[], [ llvm_i32_ty, llvm_ptr_ty ], []>;
+              Intrinsic<[], [ llvm_i32_ty, llvm_i64_ty ], []>;
   def int_x86_icecode_portout_64 : GCCBuiltin<"__builtin_ia32_icecode_portout_64">,
-              Intrinsic<[], [ llvm_i64_ty, llvm_ptr_ty ], []>;
+              Intrinsic<[], [ llvm_i64_ty, llvm_i64_ty ], []>;
 
   def int_x86_icecode_sta_special : GCCBuiltin<"__builtin_ia32_icecode_sta_special">,
-              Intrinsic<[], [ llvm_ptr_ty ], []>;
+              Intrinsic<[], [ llvm_i64_ty ], []>;
   def int_x86_icecode_nr_read : GCCBuiltin<"__builtin_ia32_icecode_nr_read">,
               Intrinsic<[ llvm_i32_ty ], [ llvm_i32_ty ], [ ImmArg<ArgIndex<0>> ]>;
   def int_x86_icecode_ucodecall : GCCBuiltin<"__builtin_ia32_icecode_ucodecall">,
