@@ -176,8 +176,20 @@ MemoryManager::allocateBufferObject(ContextImplPtr TargetContext, void *UserPtr,
 
   RT::PiMem NewMem = nullptr;
   const detail::plugin &Plugin = TargetContext->getPlugin();
-  Plugin.call<PiApiKind::piMemBufferCreate>(
-      TargetContext->getHandleRef(), CreationFlags, Size, UserPtr, &NewMem);
+
+  if (PropsList.has_property<sycl::property::buffer::mem_channel>()) {
+    auto Prop = PropsList.get_property<sycl::property::buffer::mem_channel>();
+    cl_mem_properties_intel properties[] = {CL_MEM_CHANNEL_INTEL,
+                                            Prop.get_channel(), 0};
+
+    Plugin.call<PiApiKind::piMemBufferCreate>(TargetContext->getHandleRef(),
+                                              CreationFlags, Size, UserPtr,
+                                              &NewMem, properties);
+  } else {
+    Plugin.call<PiApiKind::piMemBufferCreate>(TargetContext->getHandleRef(),
+                                              CreationFlags, Size, UserPtr,
+                                              &NewMem, nullptr);
+  }
   return NewMem;
 }
 
