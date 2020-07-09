@@ -72,9 +72,9 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
-; CHECK-NEXT:  i32 [[VP__RED_FINAL]] -> [[VP19:%.*]] = {%acc.019}
+; CHECK-NEXT:  Id: 0   i32 [[VP__RED_FINAL]] -> [[VP19:%.*]] = {%acc.019}
 ; CHECK-EMPTY:
-; CHECK-NEXT:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
 ; CHECK-NEXT:  Function: _Z3fooPii
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  <0>          BEGIN REGION { modified }
