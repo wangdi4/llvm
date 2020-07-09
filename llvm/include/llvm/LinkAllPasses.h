@@ -380,6 +380,7 @@ namespace {
       (void)llvm::createHIRConditionalLoadStoreMotionPass();
       (void) llvm::createHIRStoreResultIntoTempArrayPass();
       (void)llvm::createHIRSumWindowReusePass();
+      (void) llvm::createHIRNonZeroSinkingForPerfectLoopnestPass();
 
       // DPCPP Kernel Transformations
       (void) llvm::createDPCPPKernelVecClonePass();

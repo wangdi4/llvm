@@ -1401,4 +1401,55 @@ exit:
   ret void
 }
 
+define void @test_not_of_phi() {
+; CHECK-LABEL:  VPlan IR for: test_not_of_phi
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
+; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = icmp i32 [[VP_LANE]] i32 3
+; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
+; CHECK-NEXT:    no PREDECESSORS
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB1]]:
+; CHECK-NEXT:     [DA: Div] i1 [[VP_COND_BLEND_BB1:%.*]] = blend [ i1 [[VP_VARYING]], i1 true ]
+; FIXME: This breaks the requirement for phis to be grouped at the top of BB.
+; CHECK-NEXT:     [DA: Div] i1 [[VP_COND_NOT:%.*]] = not i1 [[VP_COND_BLEND_BB1]]
+; CHECK-NEXT:     [DA: Uni] i32 [[VP_SOME:%.*]] = phi  [ i32 0, [[BB0]] ]
+; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB2]]:
+; CHECK-NEXT:     [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_COND_NOT]]
+; CHECK-NEXT:    SUCCESSORS(1):[[BB3:BB[0-9]+]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB1]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB3]]:
+; CHECK-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_COND_BLEND_BB1]]
+; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB4]]:
+; CHECK-NEXT:     [DA: Div] void [[VP2:%.*]] = ret
+; CHECK-NEXT:    no SUCCESSORS
+; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
+;
+entry:
+  %lane = call i32 @llvm.vplan.laneid()
+  %varying = icmp eq i32 %lane,  3
+  br label %bb0
+
+bb0:
+  %cond = phi i1 [ %varying, %entry ]
+  %some = phi i32 [ 0, %entry ]
+  br i1 %cond, label %bb1, label %bb2
+
+bb1:
+  br label %exit
+
+bb2:
+  br label %exit
+
+exit:
+  ret void
+}
+
 declare i32 @llvm.vplan.laneid()
