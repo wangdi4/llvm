@@ -38,12 +38,17 @@ std::string llvm::getLinkageStr(Function *F) {
   return LinkageChar;
 }
 
+std::string llvm::getLanguageStr(Function *F) {
+  std::string LanguageChar = F->isFortran() ? "F" : "C";
+  return LanguageChar;
+}
+
 //
 // Constructor for function inlining report metadata and object.
 // Ex.:
 // !21 = distinct !{!"intel.function.inlining.report", !"name: a", !22,
 //       !"name: test1.c", !"isDead: 0", !"isDeclaration: 0", !"linkage: A",
-//       !"isSuppressPrint: 0"}
+//       !"language: F", !"isSuppressPrint: 0"}
 // !22 = distinct !{!"intel.callsites.inlining.report"}
 FunctionInliningReport::FunctionInliningReport(LLVMContext *C,
                                                std::string FuncName,
@@ -51,7 +56,8 @@ FunctionInliningReport::FunctionInliningReport(LLVMContext *C,
                                                std::string ModuleName,
                                                bool IsDead, bool IsDeclaration,
                                                bool isSuppressPrint,
-                                               std::string LinkageStr) {
+                                               std::string LinkageStr,
+                                               std::string LanguageStr) {
   // Create inlining report metadata list for call sites inside function.
   SmallVector<Metadata *, 100> Ops;
   if (CSs && CSs->size()) {
@@ -88,7 +94,11 @@ FunctionInliningReport::FunctionInliningReport(LLVMContext *C,
   LinkageStr.insert(0, "linkage: ");
   auto LinkageMD = MDNode::get(*C, llvm::MDString::get(*C, LinkageStr));
   Ops.push_back(LinkageMD);
-  // Op 7: isSuppressPrint
+  // Op 7: language string
+  LanguageStr.insert(0, "language: ");
+  auto LanguageMD = MDNode::get(*C, llvm::MDString::get(*C, LanguageStr));
+  Ops.push_back(LanguageMD);
+  // Op 8: isSuppressPrint
   std::string IsSuppressPrintStr = "isSuppressPrint: ";
   if (isSuppressPrint) {
     LLVM_DEBUG(dbgs() << "isSuppressPrint is ON\n";);
@@ -391,6 +401,11 @@ void InlineReportBuilder::beginFunction(Function *F) {
   LinkageStr.append(llvm::getLinkageStr(F));
   auto LinkageMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, LinkageStr));
   FIR->replaceOperandWith(FMDIR_LinkageStr, LinkageMD);
+  // Op 8: language string
+  std::string LanguageStr = "language: ";
+  LanguageStr.append(llvm::getLanguageStr(F));
+  auto LanguageMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, LanguageStr));
+  FIR->replaceOperandWith(FMDIR_LanguageStr, LanguageMD);
   return;
 }
 
@@ -618,6 +633,11 @@ void InlineReportBuilder::replaceFunctionWithFunction(Function *OldFunction,
   LinkageStr.append(llvm::getLinkageStr(NewFunction));
   auto LinkageMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, LinkageStr));
   OldFIR->replaceOperandWith(FMDIR_LinkageStr, LinkageMD);
+  // Op 8: language string
+  std::string LanguageStr = "language: ";
+  LanguageStr.append(llvm::getLanguageStr(NewFunction));
+  auto LanguageMD = MDNode::get(Ctx, llvm::MDString::get(Ctx, LanguageStr));
+  OldFIR->replaceOperandWith(FMDIR_LanguageStr, LanguageMD);
   NewFunction->setMetadata(FunctionTag, OldFIR);
   addCallback(NewFunction, OldFIR);
 }

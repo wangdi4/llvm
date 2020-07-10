@@ -158,7 +158,7 @@ class InlineReportFunction {
 public:
   explicit InlineReportFunction(const Function *F, bool SuppressPrint = false)
       : IsDead(false), IsCurrent(false), IsDeclaration(false),
-        LinkageChar(' '), SuppressPrint(SuppressPrint) {};
+        LinkageChar(' '), LanguageChar(' '), SuppressPrint(SuppressPrint) {};
   ~InlineReportFunction(void);
   InlineReportFunction(const InlineReportFunction &) = delete;
   void operator=(const InlineReportFunction &) = delete;
@@ -190,14 +190,21 @@ public:
 
   void setIsDeclaration(bool Declaration) { IsDeclaration = Declaration; }
 
-  /// brief Get a single character indicating the linkage type
+  /// \brief Get a single character indicating the linkage type
   char getLinkageChar(void) { return LinkageChar; }
 
-  /// brief Get and set SuppressPrint
+  /// \brief Get a single character indicating the language
+  char getLanguageChar(void) { return LanguageChar; }
+
+  /// \brief Get and set SuppressPrint
   bool getSuppressPrint(void) const { return SuppressPrint; }
   void setSuppressPrint(bool V) { SuppressPrint = V; }
 
-  /// brief Set a single character indicating the linkage type
+  /// \brief Set a single character indicating the linkage type
+  /// L: Local
+  /// O: One definition rule (ODR)
+  /// X: External
+  /// A: Other
   void setLinkageChar(Function *F) {
     LinkageChar =
         (F->hasLocalLinkage()
@@ -205,6 +212,13 @@ public:
          : (F->hasLinkOnceODRLinkage()
             ? 'O'
             : (F->hasAvailableExternallyLinkage() ? 'X' : 'A')));
+  }
+
+  /// \brief Set a single character indicating the language type
+  /// F: Fortran
+  /// C: C/C++
+  void setLanguageChar(Function *F) {
+    LanguageChar = F->isFortran() ? 'F' : 'C';
   }
 
   std::string &getName() { return Name; }
@@ -218,6 +232,7 @@ private:
   bool IsCurrent;
   bool IsDeclaration;
   char LinkageChar;
+  char LanguageChar;
   std::string Name;
   InlineReportCallSiteVector CallSites;
   bool SuppressPrint; // suppress inline-report print

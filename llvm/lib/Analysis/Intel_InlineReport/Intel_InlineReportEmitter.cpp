@@ -53,9 +53,14 @@ private:
   unsigned OptLevel;      // Opt Level at which Module was compiled
   unsigned SizeLevel;     // Opt For Size Level at which Module was compiled
   bool PrepareForLTO;     // True in the LTO "Compile Step"
+  std::set<StringRef>            // Names of dead Fortran Functions, used
+     DeadFortranFunctionNames;   // to provide language char.
 
   // Print the linkage character for the Function with name 'CalleeName'.
   void printFunctionLinkageChar(StringRef CalleeName);
+
+  // Print the language character for the Function with name 'CalleeName'.
+  void printFunctionLanguageChar(StringRef CalleeName);
 
   // Print the name of the callee, module name, line, and column for the
   // callee. 'MD' is the metadata tuple with callee name, module name, line,
@@ -86,6 +91,11 @@ private:
   // spaces to indent the info before printing.
   void printCallSiteInlineReports(Metadata *MD, unsigned IndentCount);
 
+  // Using the metadata inline report 'MIR', find the names of the dead
+  // Fortran Functions, in case we need to print the language char for all
+  // Functions.
+  void findDeadFortranFunctionNames(NamedMDNode *MIR);
+
   // Print the inline report info for a Function. 'Node' is a metadata tuple
   // including the info.
   void printFunctionInlineReportFromMetadata(MDNode *Node);
@@ -103,10 +113,24 @@ void IREmitterInfo::printFunctionLinkageChar(StringRef CalleeName) {
   llvm::errs() << "L ";
 }
 
+void IREmitterInfo::printFunctionLanguageChar(StringRef CalleeName) {
+  if (!(Level & InlineReportOptions::Language))
+    return;
+  if (Function *F = M.getFunction(CalleeName)) {
+    llvm::errs() << llvm::getLanguageStr(F) << ' ';
+    return;
+  }
+  // If we can't find a function in the module, then it is dead.
+  // Use the DeadFortranFunctionNames set to find its language.
+  bool IsFortran = DeadFortranFunctionNames.count(CalleeName);
+  llvm::errs() << (IsFortran ? "F" : "C") << ' ';
+}
+
 void IREmitterInfo::printCalleeNameModuleLineCol(MDTuple *MD) {
   CallSiteInliningReport CSIR(MD);
   StringRef CalleeName = CSIR.getName();
   printFunctionLinkageChar(CalleeName);
+  printFunctionLanguageChar(CalleeName);
   llvm::errs() << CalleeName;
   unsigned LineNum = 0, ColNum = 0;
   CSIR.getLineAndCol(&LineNum, &ColNum);
@@ -263,6 +287,28 @@ void IREmitterInfo::printCallSiteInlineReports(Metadata *MD,
   }
 }
 
+void IREmitterInfo::findDeadFortranFunctionNames(NamedMDNode *MIR) {
+  if (!(Level & InlineReportOptions::Language))
+    return;
+  for (unsigned I = 0, E = MIR->getNumOperands(); I < E; ++I) {
+    MDNode *Node = MIR->getOperand(I);
+    MDTuple *FuncReport = cast<MDTuple>(Node);
+    if (!FuncReport)
+      continue;
+    int64_t IsDead = 0;
+    getOpVal(FuncReport->getOperand(FMDIR_IsDead), "isDead: ", &IsDead);
+    if (!IsDead)
+      continue;
+    StringRef LangStr = getOpStr(FuncReport->getOperand(FMDIR_LanguageStr),
+                                 "language: ");
+    bool IsFortran = LangStr == "F";
+    if (!IsFortran)
+      continue;
+    StringRef SR = getOpStr(FuncReport->getOperand(FMDIR_FuncName), "name: ");
+    DeadFortranFunctionNames.insert(SR);
+  }
+}
+
 void IREmitterInfo::printFunctionInlineReportFromMetadata(MDNode *Node) {
   assert(isa<MDTuple>(Node) && "Bad format of function inlining report");
   MDTuple *FuncReport = cast<MDTuple>(Node);
@@ -292,6 +338,11 @@ void IREmitterInfo::printFunctionInlineReportFromMetadata(MDNode *Node) {
                                "linkage: ")
                    << ' ';
     }
+    if (Level & InlineReportOptions::Language)
+      // Language letter
+      llvm::errs() << getOpStr(FuncReport->getOperand(FMDIR_LanguageStr),
+                               "language: ")
+                   << ' ';
     // Function name
     llvm::errs() << getOpStr(FuncReport->getOperand(FMDIR_FuncName), "name: ");
     // Module name
@@ -327,6 +378,21 @@ void IREmitterInfo::printFunctionInlineReportFromMetadata(MDNode *Node) {
                                "linkage: ")
                    << ' ';
   }
+  // Update language last time before printing.
+  if (Function *F = M.getFunction(Name)) {
+    std::string Language = llvm::getLanguageStr(F);
+    std::string LanguageStr = "language: " + Language;
+    auto LanguageMD = MDNode::get(
+        M.getContext(), llvm::MDString::get(M.getContext(), LanguageStr));
+    FuncReport->replaceOperandWith(FMDIR_LanguageStr, LanguageMD);
+    if (Level & InlineReportOptions::Language)
+      llvm::errs() << Language << ' ';
+  } else {
+    if (Level & InlineReportOptions::Language)
+      llvm::errs() << getOpStr(FuncReport->getOperand(FMDIR_LanguageStr),
+                               "language: ")
+                   << ' ';
+  }
 
   llvm::errs() << Name << '\n';
   printCallSiteInlineReports(FuncReport->getOperand(FMDIR_CSs), 1);
@@ -350,6 +416,7 @@ bool IREmitterInfo::runImpl() {
     return false;
   }
 
+  findDeadFortranFunctionNames(ModuleInlineReport);
   for (unsigned I = 0, E = ModuleInlineReport->getNumOperands(); I < E; ++I) {
     MDNode *Node = ModuleInlineReport->getOperand(I);
     printFunctionInlineReportFromMetadata(Node);
