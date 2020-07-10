@@ -11,14 +11,18 @@ configure_lit_site_cfg(
   ${CMAKE_CURRENT_BINARY_DIR}/lit.site.cfg
 )
 
+get_property(OCL_BUILTIN_LIBS GLOBAL PROPERTY OCL_BUILTIN_LIBS)
 list(APPEND BE_TEST_DEPS
   oclopt
-  # count not
-  # llvm-as llvm-dis FileCheck
+  llvm-as
+  FileCheck
+  OclCpuBackEnd${BUILD_PLATFORM}
+  clang_compiler${BUILD_PLATFORM}
+  ${OCL_BUILTIN_LIBS}
 )
 
 if (BACKEND_BUILD_VERIFICATION_LIB)
-  list(APPEND BE_TEST_DEPS SATest)
+  list(APPEND BE_TEST_DEPS SATest ValidationTests)
   add_subdirectory(recorder)
 endif (BACKEND_BUILD_VERIFICATION_LIB)
 

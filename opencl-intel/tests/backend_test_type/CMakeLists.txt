@@ -1,36 +1,4 @@
-set( INCLUDE_HEADERS_PATH ${CCLANG_USER_INCLUDE_DIRS})
-
-if (BUILD_X64)
-set (
-  SPIR_OPT
-  -triple spir64-unknown-unknown -cl-kernel-arg-info -D __x86_64__
-)
-set ( NAME_POSTFIX _64 )
-else (BUILD_X64)
-set (
-  SPIR_OPT
-  -triple spir-unknown-unknown -cl-kernel-arg-info -D __i386__
-)
-set ( NAME_POSTFIX _32 )
-endif(BUILD_X64)
-
 set(TARGET_NAME backend_test_type)
-
-# function to compile cl to bc.
-function( compile INPUT_FILE OUTPUT_FILE_NAME)
-
-  add_custom_command( TARGET ${TARGET_NAME}
-    COMMAND ${CLANG} -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
-    -I ${INCLUDE_HEADERS_PATH} -emit-llvm-bc ${SPIR_OPT}
-    -include opencl-c.h -disable-llvm-passes -disable-intel-proprietary-opts
-    -o ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_FILE_NAME}
-    MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
-    DEPENDS ${INCLUDE_HEADERS_PATH}/opencl-c.h ${CLANG}
-    COMMENT "Generate spir binary files for ${TARGET_NAME}: ${OUTPUT_FILE_NAME}"
-    VERBATIM
-  )
-
-endfunction( compile )
 
 # Set output directory of plugin targets, using `$<0:>` to avoid multi-
 # configuration generators (VS, Xcode) appending a per-configuration 
@@ -56,6 +24,23 @@ include_directories(
 
 set( CMAKE_CXX_FLAGS_DEBUG "-DOCL_DEV_BACKEND_PLUGINS ${CMAKE_CXX_FLAGS_DEBUG}")
 
+# compile cl files to bc
+if (BUILD_X64)
+  set(NAME_POSTFIX _64)
+else (BUILD_X64)
+  set(NAME_POSTFIX _32)
+endif(BUILD_X64)
+set(NOKERNELS_OUTPUT_NAME bitcodeNoKernels${NAME_POSTFIX}.bc)
+set(WITHKERNELS_OUTPUT_NAME bitcodeWithKernels${NAME_POSTFIX}.bc)
+compile_bitcode(Bitcode/cltestNoKernels.cl ${NOKERNELS_OUTPUT_NAME}
+  EXTRA_CLANG_FLAGS -cl-kernel-arg-info)
+compile_bitcode(Bitcode/cltestWithKernels.cl ${WITHKERNELS_OUTPUT_NAME}
+  EXTRA_CLANG_FLAGS -cl-kernel-arg-info)
+
+set(TEST_BC_FILES ${TARGET_NAME}_test_files)
+add_custom_target(${TEST_BC_FILES}
+  DEPENDS ${NOKERNELS_OUTPUT_NAME} ${WITHKERNELS_OUTPUT_NAME})
+
 add_ocl_unittest( ${TARGET_NAME}
   SOURCE_FILES
     BackendWrapper.cpp
@@ -65,7 +50,6 @@ add_ocl_unittest( ${TARGET_NAME}
     PluginsTest.cpp
     KernelSubGroupInfoTest.cpp
     CompilationUtilsTest.cpp
-
   LINK_LIBRARIES
     OclBackendUtils
     OclPluginManager
@@ -81,8 +65,8 @@ add_ocl_unittest_artifacts(
     Bitcode/reqd_num_sub_groups_32.bc
     Bitcode/reqd_num_sub_groups_64.bc)
 
-# compile cl files to bc
-set ( NOKERNELS_OUTPUT_NAME bitcodeNoKernels${NAME_POSTFIX}.bc )
-compile( Bitcode/cltestNoKernels.cl ${NOKERNELS_OUTPUT_NAME} )
-set ( WITHKERNELS_OUTPUT_NAME bitcodeWithKernels${NAME_POSTFIX}.bc )
-compile( Bitcode/cltestWithKernels.cl ${WITHKERNELS_OUTPUT_NAME} )
+add_dependencies(${TARGET_NAME}
+  OclCpuBackEnd${BUILD_PLATFORM}
+  OCLSamplePlugin${BUILD_PLATFORM}
+  ${OCL_RT_TEST_DEPS}
+  ${TEST_BC_FILES})

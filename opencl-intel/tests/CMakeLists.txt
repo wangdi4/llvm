@@ -28,6 +28,51 @@ if (NOT OPENCL_INTREE_BUILD)
   include(${LLVM_PATH}/lib/cmake/llvm/AddLLVM.cmake)
 endif()
 
+# Compile .cl to .bc
+macro(compile_bitcode SOURCE OUTPUT)
+  cmake_parse_arguments("ARG" "BUILD_INV" "" "EXTRA_CLANG_FLAGS" ${ARGN})
+  if ((BUILD_X64 AND (NOT ARG_BUILD_INV)) OR ((NOT BUILD_X64) AND ARG_BUILD_INV))
+    set(SPIR_OPTIONS -triple spir64-unknown-unknown -D__x86_64__)
+  else ()
+    set(SPIR_OPTIONS -triple spir-unknown-unknown -D__i386__)
+  endif()
+  add_custom_command(OUTPUT ${OUTPUT}
+    COMMAND ${CLANG} -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${SOURCE}
+    -I${CCLANG_USER_INCLUDE_DIRS} -emit-llvm-bc ${SPIR_OPTIONS}
+    -disable-llvm-passes -disable-intel-proprietary-opts
+    -include opencl-c.h ${ARG_EXTRA_CLANG_FLAGS}
+    -o ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT}
+    MAIN_DEPENDENCY
+      ${CMAKE_CURRENT_SOURCE_DIR}/${SOURCE}
+    DEPENDS
+      ${CCLANG_USER_INCLUDE_DIRS}/opencl-c.h
+      ${CLANG}
+    COMMENT "Generate LLVM bitcode file ${OUTPUT}"
+    VERBATIM)
+endmacro(compile_bitcode)
+
+# Compile .cl to SPIR-V
+macro(compile_spv SOURCE OUTPUT)
+  cmake_parse_arguments("ARG" "BUILD_INV" "BC_OUTPUT_FILE" "EXTRA_CLANG_FLAGS" ${ARGN})
+  if (NOT ARG_BC_OUTPUT_FILE)
+    string(REGEX REPLACE ".cl$" ".bc" BC_OUTPUT_FILE ${SOURCE})
+  else()
+    set(BC_OUTPUT_FILE ${ARG_BC_OUTPUT_FILE})
+  endif()
+  if (ARG_BUILD_INV)
+    set(BUILD_INV BUILD_INV)
+  endif()
+  compile_bitcode(${SOURCE} ${BC_OUTPUT_FILE}
+    EXTRA_CLANG_FLAGS ${ARG_EXTRA_CLANG_FLAGS}
+    ${BUILD_INV})
+  add_custom_command(OUTPUT ${OUTPUT}
+    COMMAND ${SPIRV_CONVERTER} -o ${OUTPUT} ${CMAKE_CURRENT_BINARY_DIR}/${BC_OUTPUT_FILE}
+    DEPENDS ${SPIRV_CONVERTER} ${BC_OUTPUT_FILE}
+    COMMENT "Generate spirv binary file ${OUTPUT}"
+    VERBATIM)
+endmacro(compile_test_spv)
+
+
 # It is used by lit.cfg to find lit.site.cfg when user launches LIT tests from a
 # certain sub-directory instead of launching 'check-ocl-runtime' target
 set(RT_TEST_PARAMS
@@ -38,6 +83,10 @@ set(RT_TEST_PARAMS
 set(RT_TEST_ARGS ${LLVM_LIT_ARGS} CACHE STRING "Options for LIT test")
 
 set(RT_TESTS_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+
+
+get_property(OCL_BUILTIN_LIBS GLOBAL PROPERTY OCL_BUILTIN_LIBS)
+set(OCL_RT_TEST_DEPS ${OCL_BUILTIN_LIBS})
 
 # We need to pass some cmake variables into lit .cfg scripts
 configure_lit_site_cfg(
@@ -88,14 +137,10 @@ if (NOT ${ADDR} STREQUAL "32")
   list(APPEND RUNTIME_UNITTESTS fpga_test_type )
 endif (NOT ${ADDR} STREQUAL "32")
 
-list(APPEND RT_TEST_DEPS
-  ${RUNTIME_UNITTESTS}
-)
-
 add_lit_testsuite(check-ocl-runtime "Running the OpenCL Runtime unittests"
   ${CMAKE_CURRENT_BINARY_DIR}
   PARAMS ${RT_TEST_PARAMS}
-  DEPENDS ${RT_TEST_DEPS}
+  DEPENDS ${RUNTIME_UNITTESTS} ${OCL_RT_TEST_DEPS}
   ARGS ${RT_TEST_ARGS}
 )
 
