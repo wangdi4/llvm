@@ -604,9 +604,6 @@ struct DevirtModule {
   MDNode *DevirtCallMDNode = nullptr;
 #endif // INTEL_INCLUDE_DTRANS
 
-  // Store the functions that might have an exception handling pad
-  SetVector<Function *> EHFuncsVector;
-
   // True if whole program safe is achieved, else false
   bool IsWholeProgramSafe : 1;
 
@@ -1983,14 +1980,6 @@ bool DevirtModule::tryMultiVersionDevirt(
   if (TargetsForSlot.size() > WPDevirtMaxBranchTargets)
     return false;
 
-  // Do not apply multiversioning on functions with exception handling.
-  // Leave these functions for the branch funnel.
-  for (auto &&Target : TargetsForSlot) {
-    Function *Fn = Target.Fn;
-    if (EHFuncsVector.count(Fn) > 0)
-      return false;
-  }
-
   IRBuilder<> Builder(M.getContext());
 
   // Generate the stamp _CallSlotI_
@@ -2956,17 +2945,6 @@ bool DevirtModule::run() {
 #if INTEL_CUSTOMIZATION
   unsigned int CallSlotI = 0;
 
-  // Collect the functions that have exception handling pad
-  for (Function &Fn : M) {
-    if (Fn.hasFnAttribute(Attribute::NoUnwind))
-      continue;
-    if (Fn.hasMetadata() &&
-        Fn.getMetadata("_Intel.Devirt.Target") != nullptr)
-      continue;
-    for (BasicBlock &BB : Fn)
-      if (BB.getTerminator()->isEHPad())
-        EHFuncsVector.insert(&Fn);
-  }
 #if INTEL_INCLUDE_DTRANS
   DevirtCallMDNode = MDNode::get(
       M.getContext(), MDString::get(M.getContext(), "_Intel.Devirt.Call"));
