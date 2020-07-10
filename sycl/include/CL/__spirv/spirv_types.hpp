@@ -85,10 +85,15 @@ struct ConstantPipeStorage {
   int32_t _Capacity;
 };
 
+<<<<<<< HEAD
 // INTEL_COLLAB
 // Arbitrary precision integer type
 template <int Bits> using ap_int = _ExtInt(Bits);
 // end INTEL_COLLAB
+=======
+// Arbitrary precision integer type
+template <int Bits> using ap_int = _ExtInt(Bits);
+>>>>>>> 62be91320fbada6222973b403c1ba2a33c038f6d
 #endif // __SYCL_DEVICE_ONLY__
 
 // This class does not have definition, it is only predeclared here.
