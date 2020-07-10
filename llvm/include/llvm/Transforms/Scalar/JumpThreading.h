@@ -210,6 +210,7 @@ public:
 
   bool ProcessBranchOnPHI(PHINode *PN);
   bool ProcessBranchOnXOR(BinaryOperator *BO);
+  bool ProcessBranchOnOr(BasicBlock *BB); // INTEL
   bool ProcessImpliedCondition(BasicBlock *BB);
 
   bool SimplifyPartiallyRedundantLoad(LoadInst *LI);
