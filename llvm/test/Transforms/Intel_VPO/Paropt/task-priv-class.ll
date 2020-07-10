@@ -2,15 +2,15 @@
 ; have their constructors and destructors called.
 
 ; RUN: opt < %s -vpo-paropt  -S | FileCheck %s
+; CHECK: define{{.*}}DIR.OMP.TASK.
+; CHECK: call{{.*}}def_con{{.*}}class.c
+; CHECK: OMP.END.TASK.
+; CHECK: call{{.*}}omp.destr{{.*}}class.c
+
 ; CHECK: define{{.*}}TASKLOOP{{.*}}split
 ; CHECK: call{{.*}}def_con{{.*}}class.c
 ; CHECK: for.body:
 ; CHECK: for.end
-; CHECK: call{{.*}}omp.destr{{.*}}class.c
-
-; CHECK: define{{.*}}DIR.OMP.TASK.
-; CHECK: call{{.*}}def_con{{.*}}class.c
-; CHECK: OMP.END.TASK.
 ; CHECK: call{{.*}}omp.destr{{.*}}class.c
 
 ; class c {

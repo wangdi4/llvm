@@ -1435,6 +1435,12 @@ bool JumpThreadingPass::ProcessBlock(BasicBlock *BB) {
       CondInst->getParent() == BB && isa<BranchInst>(BB->getTerminator()))
     return ProcessBranchOnXOR(cast<BinaryOperator>(CondInst));
 
+#if INTEL_CUSTOMIZATION
+  // If this is an otherwise-unfoldable branch on a OR, see if we can simplify.
+  if (ProcessBranchOnOr(BB))
+    return true;
+#endif // INTEL_CUSTOMIZATION
+
   // Search for a stronger dominating condition that can be used to simplify a
   // conditional branch leaving BB.
   if (ProcessImpliedCondition(BB))
@@ -1442,6 +1448,120 @@ bool JumpThreadingPass::ProcessBlock(BasicBlock *BB) {
 
   return false;
 }
+
+#if INTEL_CUSTOMIZATION
+/// ProcessBranchOnOr - Check if We have an otherwise unthreadable conditional
+/// branch on a OR instruction in the current block. See if there are any
+/// simplifications we can do based on inputs to the phi node.
+///
+//  Currently, it handles cases like the below example. This will not make
+//  any changes to BB but propagates first operand values of %p1 and %p2
+//  PHINodes to their uses in BB_FALSE.
+/// BB:
+///  %p1 = phi i8* [bitcast (void (i8*)* @"Func" to i8*), %b1 ], [ null, %b0 ]
+///  %p2 = phi i8* [ %0, %b1 ], [ null, %b0 ]
+///  %1 = cleanuppad within none []
+///  %cond1 = icmp eq i8* %p2, null
+///  %cond2 = icmp eq i8* %p1, null
+///  %or.cond = or i1 %cond1, %cond2
+///  br i1 %or.cond, label %BB_TRUE, label %BB_FALSE
+///
+/// BB_FALSE:
+///  %fptr = bitcast i8* %p1 to void (i8*)*
+///  call void %fptr(i8* %p2)
+///
+/// Into:
+//
+/// BB:
+//    (No changes to BB)
+//
+/// BB_FALSE:
+///  %fptr = bitcast i8* bitcast (void (i8*)* @"Func" to i8*) to void (i8*)*
+///  call void %fptr(i8* %0)
+//
+bool JumpThreadingPass::ProcessBranchOnOr(BasicBlock *BB) {
+
+  // Returns true if "IC" is a comparison between PHINode and a constant,
+  // which is equal to one of input operands of the PHINode. Also checks
+  // other input operand of PHINode dominates "FalseBB". If it returns true,
+  // *RepPN is updated with PHINode and *RepFVal is updated with the other
+  // input operand of the PHINode.
+  //
+  // Ex:
+  //  %p2 = phi i8* [ %0, %b1 ], [ Constant1, %b0 ]
+  //  %cond1 = icmp eq i8* %p2, Constant1
+  //
+  //
+  auto FindImpliedPHIValue = [this](ICmpInst *IC, BasicBlock *FalseBB,
+                                    PHINode **RepPN, Value **RepFVal) {
+    Value *CmpOp0 = IC->getOperand(0);
+    Value *CmpOp1 = IC->getOperand(1);
+    CmpInst::Predicate Pred = IC->getPredicate();
+    if (Pred != CmpInst::ICMP_EQ)
+      return false;
+    PHINode *PN = dyn_cast<PHINode>(CmpOp0);
+    if (!PN)
+      return false;
+    if (!isa<Constant>(CmpOp1))
+      return false;
+    if (PN->getNumIncomingValues() != 2)
+      return false;
+    Value *PNOp0 = PN->getIncomingValue(0);
+    Value *PNOp1 = PN->getIncomingValue(1);
+    Value *FVal = nullptr;
+    if (isa<Constant>(PNOp0) && PNOp0 == CmpOp1)
+      FVal = PNOp1;
+    else if (isa<Constant>(PNOp1) && PNOp1 == CmpOp1)
+      FVal = PNOp0;
+    if (!FVal)
+      return false;
+    // No need to check Dominator information for constants and arguments.
+    if (auto FI = dyn_cast<Instruction>(FVal)) {
+      DominatorTree &DT = DTU->getDomTree();
+      BasicBlock *BB1 = FI->getParent();
+      if (!DT.dominates(BB1, FalseBB))
+        return false;
+    }
+    *RepPN = PN;
+    *RepFVal = FVal;
+    return true;
+  };
+
+  auto *BI = dyn_cast<BranchInst>(BB->getTerminator());
+  if (!BI || !BI->isConditional())
+    return false;
+  BasicBlock *FalseBB = BI->getSuccessor(1);
+  // FalseBB must have exactly one predecessor.
+  if (!FalseBB->getSinglePredecessor())
+    return false;
+
+  Value *CondI = BI->getCondition();
+  BinaryOperator *BinOp = dyn_cast<BinaryOperator>(CondI);
+  if (!BinOp || BinOp->getOpcode() != Instruction::Or)
+    return false;
+  auto LCmp = dyn_cast<ICmpInst>(BinOp->getOperand(0));
+  auto RCmp = dyn_cast<ICmpInst>(BinOp->getOperand(1));
+  if (!LCmp || !RCmp)
+    return false;
+  PHINode *LPN;
+  PHINode *RPN;
+  Value *LVal;
+  Value *RVal;
+  if (!FindImpliedPHIValue(LCmp, FalseBB, &LPN, &LVal) ||
+      !FindImpliedPHIValue(RCmp, FalseBB, &RPN, &RVal))
+    return false;
+
+  DominatorTree &DT = DTU->getDomTree();
+  unsigned Count;
+  // Replace uses of LPN with LVal in BasicBlocks that are dominated by FalseBB.
+  Count = replaceDominatedUsesWith(LPN, LVal, DT, BasicBlockEdge(BB, FalseBB));
+  // Replace uses of RPN with RVal in BasicBlocks that are dominated by FalseBB.
+  Count += replaceDominatedUsesWith(RPN, RVal, DT, BasicBlockEdge(BB, FalseBB));
+
+  // Return false if there is no change.
+  return Count != 0;
+}
+#endif // INTEL_CUSTOMIZATION
 
 bool JumpThreadingPass::ProcessImpliedCondition(BasicBlock *BB) {
   auto *BI = dyn_cast<BranchInst>(BB->getTerminator());

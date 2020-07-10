@@ -245,7 +245,7 @@ ParSectNode *VPOUtils::buildParSectTree(Function *F, DominatorTree *DT)
   ImpRoot->ExitBB  = nullptr;
   ImpSectStack.push(ImpRoot);
 
-  gatherImplicitSectionRecursive(&F->getEntryBlock(), ImpSectStack, DT);
+  gatherImplicitSectionIterative(&F->getEntryBlock(), ImpSectStack, DT);
 
 #ifdef DEBUG
   printParSectTree(ImpRoot);
@@ -261,7 +261,7 @@ ParSectNode *VPOUtils::buildParSectTree(Function *F, DominatorTree *DT)
 
   SectStack.push(Root);
 
-  buildParSectTreeRecursive(&F->getEntryBlock(), SectStack, DT);
+  buildParSectTreeIterative(&F->getEntryBlock(), SectStack, DT);
 
   return Root;
 }
@@ -269,147 +269,152 @@ ParSectNode *VPOUtils::buildParSectTree(Function *F, DominatorTree *DT)
 
 // Pre-order traversal on Dominator Tree with the use of a stack
 // to build Section Tree.
-void VPOUtils::gatherImplicitSectionRecursive(
-  BasicBlock* BB,
-  std::stack<ParSectNode *> &ImpSectStack,
-  DominatorTree *DT
-)
-{
-  auto DomNode = DT->getNode(BB);
-  ParSectNode *Node = nullptr;
+void VPOUtils::gatherImplicitSectionIterative(
+    BasicBlock *BasicBlk, std::stack<ParSectNode *> &ImpSectStack,
+    DominatorTree *DT) {
+  std::stack<BasicBlock *> Worklist;
+  Worklist.push(BasicBlk);
 
-  for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
+  while (!Worklist.empty()) {
 
-    if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(I)) {
-      int DirID = VPOAnalysisUtils::getDirectiveID(II);
-      if (DirID == DIR_OMP_SECTIONS ||
-          DirID == DIR_OMP_PARALLEL_SECTIONS) {
+    BasicBlock *BB = Worklist.top();
+    Worklist.pop();
+    auto DomNode = DT->getNode(BB);
 
-        BasicBlock *SuccBB = BB->getUniqueSuccessor();
-        BasicBlock::iterator SI = SuccBB->begin();
-        bool IsDirSection = false;
+    ParSectNode *Node = nullptr;
+    for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
 
-        if (SI->isTerminator()) {
-          SuccBB = SuccBB->getUniqueSuccessor();
-          SI = SuccBB->begin();
-        }
+      if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(I)) {
+        int DirID = VPOAnalysisUtils::getDirectiveID(II);
+        if (DirID == DIR_OMP_SECTIONS || DirID == DIR_OMP_PARALLEL_SECTIONS) {
 
-        if (IntrinsicInst *IntrinI = dyn_cast<IntrinsicInst>(SI)) {
-          int SuccDirID = VPOAnalysisUtils::getDirectiveID(IntrinI);
-          if (SuccDirID == DIR_OMP_SECTION) {
-            IsDirSection = true;
+          BasicBlock *SuccBB = BB->getUniqueSuccessor();
+          BasicBlock::iterator SI = SuccBB->begin();
+          bool IsDirSection = false;
+
+          if (SI->isTerminator()) {
+            SuccBB = SuccBB->getUniqueSuccessor();
+            SI = SuccBB->begin();
           }
-        }
 
-        if (!IsDirSection) {
-           Node = new ParSectNode();
-           Node->EntryBB = BB;
-           Node->ExitBB  = nullptr;
-           Node->DirBeginID = DirID;
-
-           ParSectNode *Parent = ImpSectStack.top();
-           Parent->Children.push_back(Node);
-           ImpSectStack.push(Node);
-        }
-      }
-
-      if (DirID == DIR_OMP_SECTION ||
-          (DirID == DIR_OMP_END_SECTIONS ||
-           DirID == DIR_OMP_END_PARALLEL_SECTIONS)) {
-
-        Node = ImpSectStack.top();
-        if (Node && Node->ExitBB == nullptr &&
-            (Node->DirBeginID == DIR_OMP_SECTIONS ||
-             Node->DirBeginID == DIR_OMP_PARALLEL_SECTIONS)) {
-
-          bool IsMatchedImpEnd = false;
-
-          if (DirID == DIR_OMP_SECTION) {
-            IsMatchedImpEnd = true;
-          }
-          else {
-            BasicBlock *PredBB = BB->getUniquePredecessor();
-            assert(PredBB && "No predecessor BB found.");
-            BasicBlock::iterator EI = PredBB->begin();
-
-            if (EI->isTerminator()) {
-              PredBB = PredBB->getUniquePredecessor();
-              assert(PredBB && "No predecessor BB found.");
-              EI = PredBB->begin();
+          if (IntrinsicInst *IntrinI = dyn_cast<IntrinsicInst>(SI)) {
+            int SuccDirID = VPOAnalysisUtils::getDirectiveID(IntrinI);
+            if (SuccDirID == DIR_OMP_SECTION) {
+              IsDirSection = true;
             }
+          }
 
-            if (IntrinsicInst *IntrinI = dyn_cast<IntrinsicInst>(EI)) {
-              int PredDirID = VPOAnalysisUtils::getDirectiveID(IntrinI);
-              if (PredDirID != DIR_OMP_END_SECTION) {
+          if (!IsDirSection) {
+            Node = new ParSectNode();
+            Node->EntryBB = BB;
+            Node->ExitBB = nullptr;
+            Node->DirBeginID = DirID;
+
+            ParSectNode *Parent = ImpSectStack.top();
+            Parent->Children.push_back(Node);
+            ImpSectStack.push(Node);
+          }
+        }
+
+        if (DirID == DIR_OMP_SECTION ||
+            (DirID == DIR_OMP_END_SECTIONS ||
+             DirID == DIR_OMP_END_PARALLEL_SECTIONS)) {
+
+          Node = ImpSectStack.top();
+          if (Node && Node->ExitBB == nullptr &&
+              (Node->DirBeginID == DIR_OMP_SECTIONS ||
+               Node->DirBeginID == DIR_OMP_PARALLEL_SECTIONS)) {
+
+            bool IsMatchedImpEnd = false;
+
+            if (DirID == DIR_OMP_SECTION) {
+              IsMatchedImpEnd = true;
+            } else {
+              BasicBlock *PredBB = BB->getUniquePredecessor();
+              assert(PredBB && "No predecessor BB found.");
+              BasicBlock::iterator EI = PredBB->begin();
+
+              if (EI->isTerminator()) {
+                PredBB = PredBB->getUniquePredecessor();
+                assert(PredBB && "No predecessor BB found.");
+                EI = PredBB->begin();
+              }
+
+              if (IntrinsicInst *IntrinI = dyn_cast<IntrinsicInst>(EI)) {
+                int PredDirID = VPOAnalysisUtils::getDirectiveID(IntrinI);
+                if (PredDirID != DIR_OMP_END_SECTION) {
+                  IsMatchedImpEnd = true;
+                }
+              } else {
                 IsMatchedImpEnd = true;
               }
             }
-            else {
-              IsMatchedImpEnd = true;
-            }
-          }
 
-          if (IsMatchedImpEnd) {
-            Node->ExitBB = BB;
-            ImpSectStack.pop();
+            if (IsMatchedImpEnd) {
+              Node->ExitBB = BB;
+              ImpSectStack.pop();
+            }
           }
         }
       }
     }
-  }
 
-  /// Walk over dominator children.
-  for (auto D = DomNode->begin(), E = DomNode->end(); D != E; ++D) {
-    auto DomChildBB = (*D)->getBlock();
-    gatherImplicitSectionRecursive(DomChildBB, ImpSectStack, DT);
+    /// Add dominator children to worklist in reverse order to maintain preorder
+    /// traversal
+    for (auto D = DomNode->end() - 1, E = DomNode->begin() - 1; D != E; --D) {
+      auto DomChildBB = (*D)->getBlock();
+      Worklist.push(DomChildBB);
+    }
   }
 }
 
-
 // Pre-order traversal on Dominator Tree with the use of a stack
 // to build Section Tree.
-void VPOUtils::buildParSectTreeRecursive(
-  BasicBlock* BB,
-  std::stack<ParSectNode *> &SectStack,
-  DominatorTree *DT
-)
-{
-  auto DomNode = DT->getNode(BB);
-  ParSectNode *Node = nullptr;
+void VPOUtils::buildParSectTreeIterative(BasicBlock *BasicBlk,
+                                         std::stack<ParSectNode *> &SectStack,
+                                         DominatorTree *DT) {
 
-  for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
+  std::stack<BasicBlock *> Worklist;
+  Worklist.push(BasicBlk);
 
-    if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(I)) {
-      int DirID = VPOAnalysisUtils::getDirectiveID(II);
-      if (DirID == DIR_OMP_SECTION ||
-          DirID == DIR_OMP_SECTIONS ||
-          DirID == DIR_OMP_PARALLEL_SECTIONS) {
+  while (!Worklist.empty()) {
+    BasicBlock *BB = Worklist.top();
+    Worklist.pop();
+    auto DomNode = DT->getNode(BB);
+    ParSectNode *Node = nullptr;
 
-        Node = new ParSectNode();
-        Node->EntryBB = BB;
-        Node->DirBeginID = DirID;
+    for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
 
-        ParSectNode *Parent = SectStack.top();
-        Parent->Children.push_back(Node);
-        SectStack.push(Node);
-      }
+      if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(I)) {
+        int DirID = VPOAnalysisUtils::getDirectiveID(II);
+        if (DirID == DIR_OMP_SECTION || DirID == DIR_OMP_SECTIONS ||
+            DirID == DIR_OMP_PARALLEL_SECTIONS) {
 
-      if (DirID == DIR_OMP_END_SECTION ||
-          DirID == DIR_OMP_END_SECTIONS ||
-          DirID == DIR_OMP_END_PARALLEL_SECTIONS) {
+          Node = new ParSectNode();
+          Node->EntryBB = BB;
+          Node->DirBeginID = DirID;
 
-        Node = SectStack.top();
-        Node->ExitBB = BB;
+          ParSectNode *Parent = SectStack.top();
+          Parent->Children.push_back(Node);
+          SectStack.push(Node);
+        }
 
-        SectStack.pop();
+        if (DirID == DIR_OMP_END_SECTION || DirID == DIR_OMP_END_SECTIONS ||
+            DirID == DIR_OMP_END_PARALLEL_SECTIONS) {
+
+          Node = SectStack.top();
+          Node->ExitBB = BB;
+
+          SectStack.pop();
+        }
       }
     }
-  }
 
-  /// Walk over dominator children.
-  for (auto D = DomNode->begin(), E = DomNode->end(); D != E; ++D) {
-    auto DomChildBB = (*D)->getBlock();
-    buildParSectTreeRecursive(DomChildBB, SectStack, DT);
+    /// Walk over dominator children.
+    for (auto D = DomNode->end() - 1, E = DomNode->begin() - 1; D != E; --D) {
+      auto DomChildBB = (*D)->getBlock();
+      Worklist.push(DomChildBB);
+    }
   }
 }
 

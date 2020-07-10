@@ -180,10 +180,10 @@ attributes #2 = { nounwind }
 !10 = !{!"int", !4, i64 0}
 !11 = !{!8, !8, i64 0}
 
-; CHECK: NoAlias:   %tmp29 = load double*, double** %tmp1, align 8,{{.+}} <->   store double %add21, double* %arrayidx23, align 8
-; CHECK: NoAlias:   %tmp31 = load double*, double** %tmp2, align 8,{{.+}} <->   store double %add21, double* %arrayidx23, align 8
-; CHECK: NoAlias:   %tmp33 = load double*, double** %glob.addr, align 8,{{.+}} <->   store double %add21, double* %arrayidx23, align 8
+; CHECK-DAG: NoAlias:   %tmp29 = load double*, double** %tmp1, align 8,{{.+}} <->   store double %add21, double* %arrayidx23, align 8
+; CHECK-DAG: NoAlias:   %tmp31 = load double*, double** %tmp2, align 8,{{.+}} <->   store double %add21, double* %arrayidx23, align 8
+; CHECK-DAG: NoAlias:   %tmp33 = load double*, double** %glob.addr, align 8,{{.+}} <->   store double %add21, double* %arrayidx23, align 8
 
-; CHECK: NoAlias:   %tmp17 = load double*, double** %tmp1, align 8,{{.+}} <->   store double %add6, double* %arrayidx7, align 8
-; CHECK: NoAlias:   %tmp19 = load double*, double** %tmp2, align 8,{{.+}} <->   store double %add6, double* %arrayidx7, align 8
-; CHECK: NoAlias:   %tmp21 = load double*, double** %glob.addr, align 8,{{.+}} <->   store double %add6, double* %arrayidx7, align 8
+; CHECK-DAG: NoAlias:   %tmp17 = load double*, double** %tmp1, align 8,{{.+}} <->   store double %add6, double* %arrayidx7, align 8
+; CHECK-DAG: NoAlias:   %tmp19 = load double*, double** %tmp2, align 8,{{.+}} <->   store double %add6, double* %arrayidx7, align 8
+; CHECK-DAG: NoAlias:   %tmp21 = load double*, double** %glob.addr, align 8,{{.+}} <->   store double %add6, double* %arrayidx7, align 8

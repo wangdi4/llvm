@@ -1,16 +1,21 @@
 ; REQUIRES: asserts
-; Test that checks if whole program not seen was identified correctly and the output
-; is printed correctly when whole-program-trace-symbols is used in combination
-; with whole-program-trace.
+
+; Test that checks if whole program not seen was identified correctly. The test case
+; is composed of a Base class, a Derived class and a Derived2 class. The function foo
+; is declared as virtual in Base and the definition should be in Derived and Derived2.
+; The definition in Derived class was internalized and but the definition in Derived2
+; wasn't internalized because it can have an external reference (@llvm.used). This case
+; should produce whole program not seen. The goal of this test is to catch an indirect
+; call that has some use in the program.
 
 ; RUN: llvm-as < %s >%t1
-; RUN: llvm-lto -exported-symbol=main -debug-only=whole-program-analysis -whole-program-trace-visibility -o %t2 %t1 2>&1 | FileCheck %s
+; RUN: llvm-lto -exported-symbol=main -debug-only=whole-program-analysis -o %t2 %t1 2>&1 | FileCheck %s
 
-; CHECK:     WHOLE-PROGRAM-ANALYSIS: EXTERNAL FUNCTIONS TRACE
+; CHECK:     WHOLE-PROGRAM-ANALYSIS: SIMPLE ANALYSIS
 ; CHECK:      VISIBLE OUTSIDE LTO: 1
 ; CHECK-NEXT:   _ZN8Derived23fooEv
 ; CHECK:  WHOLE PROGRAM RESULT:
-; CHECK:    WHOLE PROGRAM READ:  NOT DETECTED
+; CHECK:    WHOLE PROGRAM SEEN:  NOT DETECTED
 
 ; Create the Base, Derived and Derived2 classes
 %class.Base = type { i32 (...)** }
@@ -68,9 +73,13 @@ entry:
   ret i1 true
 }
 
-; Declare Derived2::foo();
+; Create Derived2::foo();
+define weak_odr zeroext i1 @_ZN8Derived23fooEv(%class.Derived2* %this) #0 {
+entry:
+  ret i1 true
+}
 
-declare dso_local zeroext i1 @_ZN8Derived23fooEv(%class.Derived2*) #0
+@llvm.used = appending global [1 x i8*] [i8* bitcast (i1 (%class.Derived2*)* @_ZN8Derived23fooEv to i8*)]
 
 attributes #0 = { noinline }
 

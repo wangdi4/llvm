@@ -1,16 +1,18 @@
 ; REQUIRES: asserts
 ; Test that checks if whole program not seen was identified correctly. The test case
-; is composed by a Base class, a Derived class and a Derived2 class. The function foo
+; is composed of a Base class, a Derived class and a Derived2 class. The function foo
 ; is declared as virtual in Base and the definition should be in Derived and Derived2.
 ; Since the definition is seen only in Derived class and not in Derived2 , then it
-; should be whole program not seen.
+; should be whole program not seen. The goal of this test is to catch an indirect
+; call that has some use in the program.
 
 ; RUN: llvm-as < %s >%t1
 ; RUN: llvm-lto -exported-symbol=main -debug-only=whole-program-analysis -o %t2 %t1 2>&1 | FileCheck %s
 
 ; CHECK:  WHOLE-PROGRAM-ANALYSIS: SIMPLE ANALYSIS
-; CHECK:    UNRESOLVED CALLSITES: 0
-; CHECK:    VISIBLE OUTSIDE LTO: 1
+; CHECK:    UNRESOLVED CALLSITES: 1
+; CHECK:    LIBFUNCS NOT FOUND: 1
+; CHECK:    _ZN8Derived23fooEv
 ; CHECK:  WHOLE PROGRAM RESULT:
 ; CHECK:    WHOLE PROGRAM SEEN:  NOT DETECTED
 

@@ -35,8 +35,6 @@
 ; CHECK-O-NEXT: Running pass: RequireAnalysisPass<{{.*}}WholeProgramAnalysis
 ; CHECK-O-NEXT: Running analysis: WholeProgramAnalysis
 ; CHECK-O-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}Function
-; CHECK-O-NEXT: Running analysis: TargetLibraryAnalysis
-; CHECK-O-NEXT: Running analysis: PassInstrumentationAnalysis
 ; CHECK-O-NEXT: Running analysis: TargetIRAnalysis
 ; CHECK-O-NEXT: Running analysis: PassInstrumentationAnalysis
 ; CHECK-O-NEXT: Running pass: IntelFoldWPIntrinsicPass
@@ -45,11 +43,12 @@
 ; CHECK-O-NEXT: Running pass: ForceFunctionAttrsPass
 ; CHECK-O-NEXT: Running pass: InferFunctionAttrsPass
 ; INTEL_CUSTOMIZATION
+; CHECK-O-NEXT: Running analysis: TargetLibraryAnalysis
 ; The TargetLibraryAnalysis is required by the Intel WholeProgramAnalysis.
 ; It will run during O1. The following CHECK won't be executed.
 ; CHECK-O-NEXT-: Running analysis: InnerAnalysisManagerProxy<{{.*}}Module
 ; CHECK-O-NEXT-: Running analysis: TargetLibraryAnalysis
-; CHECK-O-NEXT-: Running analysis: PassInstrumentationAnalysis
+; CHECK-O-NEXT: Running analysis: PassInstrumentationAnalysis
 ; end INTEL_CUSTOMIZATION
 ; CHECK-O1-NEXT: Running pass: ModuleToPostOrderCGSCCPassAdaptor<{{.*}}PostOrderFunctionAttrsPass>
 ; CHECK-O2-NEXT: Running pass: ModuleToFunctionPassAdaptor<{{.*}}PassManager{{.*}}>
