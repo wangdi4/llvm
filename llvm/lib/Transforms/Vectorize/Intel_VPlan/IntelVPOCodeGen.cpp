@@ -3247,10 +3247,21 @@ void VPOCodeGen::vectorizeReductionFinal(VPReductionFinal *RedFinal) {
     llvm_unreachable("unsupported reduction");
     break;
   }
-  if (Acc)
+  // Utility to set FastMathFlags for generated instructions.
+  auto SetFastMathFlags = [RedFinal](Value *V) {
+    if (isa<FPMathOperator>(V) && RedFinal->hasFastMathFlags())
+      cast<Instruction>(V)->setFastMathFlags(RedFinal->getFastMathFlags());
+  };
+  // Set FMF for generated vector reduce intrinsic.
+  SetFastMathFlags(Ret);
+
+  if (Acc) {
     Ret = Builder.CreateBinOp(
         static_cast<Instruction::BinaryOps>(RedFinal->getBinOpcode()), Acc, Ret,
         "final.red");
+    SetFastMathFlags(Ret);
+  }
+
   VPScalarMap[RedFinal][0] = Ret;
 
   const VPLoopEntity *Entity = VPEntities->getReduction(RedFinal);

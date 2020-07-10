@@ -1362,10 +1362,20 @@ HLLoop *findLoopNestToBlock(HIRFramework &HIRF, HIRDDAnalysis &DDA,
 
   llvm::Triple TargetTriple(HIRF.getModule().getTargetTriple());
   bool Is32Bit = (TargetTriple.getArch() == llvm::Triple::x86);
+  bool IsLikelySmall = false;
+  if (!Refs.empty()) {
+    IsLikelySmall = Refs.front()->getDestType()->isIntegerTy() &&
+                    Refs.front()->getSrcType()->isIntegerTy();
+  }
   // Avoid delinearized results when 32-bit to avoid performance drop.
   // TODO: Extend blocking algorithm to work when num_dims >= loop_depth
+  // We want to avoid blocking for integer input, thus enabling
+  // delinearization. IsLikelySmall is for avoiding blocking in
+  // coremark-pro/core. BitWidth was either 16 or 32.
+  // Quite a special casing, but without exact information about
+  // tripcount, we need a hack.
   RefAnalyzer::RefAnalysisResult RefKind =
-      RefAnalyzer::analyzeRefs(Refs, !Is32Bit);
+      RefAnalyzer::analyzeRefs(Refs, !Is32Bit || IsLikelySmall);
 
   // If any Ref is a non-linear, give up here.
   if (RefAnalyzer::hasNonLinear(RefKind)) {

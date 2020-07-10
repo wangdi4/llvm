@@ -679,6 +679,11 @@ void VPLoopEntityList::insertReductionVPInstructions(VPBuilder &Builder,
             Reduction->isSigned(), Name + ".red.final");
       }
       RedFinalMap[Reduction] = std::make_pair(Final, Exit);
+
+      // Attach FastMathFlags to reduction-final.
+      FastMathFlags FMF = Reduction->getFastMathFlags();
+      if (FMF.any())
+        Final->setFastMathFlags(FMF);
     }
     processFinalValue(*Reduction, AI, Builder, *Final, Ty, Exit);
   }
@@ -1094,9 +1099,22 @@ void ReductionDescr::passToVPlan(VPlan *Plan, const VPLoop *Loop) {
   VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(Loop);
   VPReduction *VPRed = nullptr;
 
+  // FastMathFlags for this reduction maybe attached to Exit or any of the
+  // LinkedVPValues.
+  FastMathFlags RedFMF;
+  if (Exit && Exit->hasFastMathFlags())
+    RedFMF = Exit->getFastMathFlags();
+  else {
+    for (auto *V : LinkedVPVals) {
+      if (auto *VPI = dyn_cast<VPInstruction>(V))
+        if (VPI->hasFastMathFlags())
+          RedFMF = VPI->getFastMathFlags();
+    }
+  }
+
   if (LinkPhi == nullptr)
-    VPRed = LE->addReduction(StartPhi, Start, Exit, K, FastMathFlags::getFast(),
-                             MK, RT, Signed, AllocaInst, ValidMemOnly);
+    VPRed = LE->addReduction(StartPhi, Start, Exit, K, RedFMF, MK, RT, Signed,
+                             AllocaInst, ValidMemOnly);
   else {
     const VPReduction *Parent = LE->getReduction(LinkPhi);
     assert(Parent && "nullptr is unexpected");

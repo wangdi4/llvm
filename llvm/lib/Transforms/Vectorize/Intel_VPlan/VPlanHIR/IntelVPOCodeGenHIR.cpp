@@ -1585,9 +1585,11 @@ static HLInst *buildReductionTail(HLContainerTy &InstContainer,
 /// 2. FP add reduction for VF=4 will generate -
 ///    declare float @llvm.experimental.vector.reduce.fadd.f32.f32.v4f32(float,
 ///                                                                 <4 x float>)
-static HLInst *createVectorReduce(Intrinsic::ID VecRedIntrin, RegDDRef *VecRef,
-                                  RegDDRef *&Acc, RegDDRef *RednDescriptor,
+static HLInst *createVectorReduce(const VPReductionFinal *RedFinal,
+                                  RegDDRef *VecRef, RegDDRef *&Acc,
+                                  RegDDRef *RednDescriptor,
                                   HLNodeUtils &HLNodeUtilities) {
+  Intrinsic::ID VecRedIntrin = RedFinal->getVectorReduceIntrinsic();
   assert(isa<VectorType>(VecRef->getDestType()) &&
          "Ref to reduce is not a vector.");
 
@@ -1640,8 +1642,13 @@ static HLInst *createVectorReduce(Intrinsic::ID VecRedIntrin, RegDDRef *VecRef,
       &HLNodeUtilities.getModule(), VecRedIntrin, Tys);
   LLVM_DEBUG(dbgs() << "Vector reduce func: "; VecReduceFunc->dump());
 
+  FastMathFlags FMF = RedFinal->hasFastMathFlags()
+                          ? RedFinal->getFastMathFlags()
+                          : FastMathFlags();
+
   return HLNodeUtilities.createCall(VecReduceFunc, Ops, "vec.reduce",
-                                    RednDescriptor);
+                                    RednDescriptor, {} /*Bundle*/,
+                                    {} /*BundleOps*/, FMF);
 }
 
 HLInst *VPOCodeGenHIR::widenPred(const HLIf *HIf,
@@ -3121,9 +3128,9 @@ void VPOCodeGenHIR::generateMinMaxIndex(const VPReductionFinal *RedFinal,
   RedTail.push_back(*IndexBlend);
 
   RegDDRef *Acc = nullptr;
-  HLInst *IdxReduceCall = createVectorReduce(
-      RedFinal->getVectorReduceIntrinsic(), IndexBlend->getLvalDDRef()->clone(),
-      Acc, RednVariable, HLNodeUtilities);
+  HLInst *IdxReduceCall =
+      createVectorReduce(RedFinal, IndexBlend->getLvalDDRef()->clone(), Acc,
+                         RednVariable, HLNodeUtilities);
   RedTail.push_back(*IdxReduceCall);
   WInst = IdxReduceCall;
 }
@@ -3182,7 +3189,6 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     HLContainerTy RedTail;
 
     RegDDRef *VecRef = widenRef(RedFinal->getReducingOperand(), getVF());
-    auto Intrin = RedFinal->getVectorReduceIntrinsic();
     Type *ElType = RedFinal->getReducingOperand()->getType();
     if (isa<VectorType>(ElType)) {
       // Incoming vector types is not supported for HIR
@@ -3215,7 +3221,7 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
 
       // 1. Generate vector reduce intrinsic call
       HLInst *VecReduceCall = createVectorReduce(
-          Intrin, VecRef, Acc, RednDescriptor, HLNodeUtilities);
+          RedFinal, VecRef, Acc, RednDescriptor, HLNodeUtilities);
       WInst = VecReduceCall;
       RedTail.push_back(*VecReduceCall);
 
@@ -3224,9 +3230,16 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
       // : Acc will always be null for min/max reductions, createVectorReduce
       // asserts on that.
       if (Acc) {
-        HLInst *ScalarLastVal = HLNodeUtilities.createBinaryHLInst(
-            RedFinal->getBinOpcode(), Acc->clone(),
-            VecReduceCall->getLvalDDRef()->clone(), "red.result", Acc);
+        HLInst *ScalarLastVal;
+        if (RedFinal->hasFastMathFlags())
+          ScalarLastVal = HLNodeUtilities.createFPMathBinOp(
+              RedFinal->getBinOpcode(), Acc->clone(),
+              VecReduceCall->getLvalDDRef()->clone(),
+              RedFinal->getFastMathFlags(), "red.result", Acc);
+        else
+          ScalarLastVal = HLNodeUtilities.createBinaryHLInst(
+              RedFinal->getBinOpcode(), Acc->clone(),
+              VecReduceCall->getLvalDDRef()->clone(), "red.result", Acc);
         WInst = ScalarLastVal;
         RedTail.push_back(*ScalarLastVal);
       }
