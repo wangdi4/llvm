@@ -5347,7 +5347,7 @@ bool CodeGenPrepare::optimizeGatherScatterInst(Instruction *MemoryInst,
   if (!RewriteGEP && Ops.size() == 2)
     return false;
 
-  unsigned NumElts = cast<VectorType>(Ptr->getType())->getNumElements();
+  unsigned NumElts = cast<FixedVectorType>(Ptr->getType())->getNumElements();
 
   IRBuilder<> Builder(MemoryInst);
 
@@ -6646,7 +6646,7 @@ bool CodeGenPrepare::optimizeShuffleVectorInst(ShuffleVectorInst *SVI) {
   if (!NewType)
     return false;
 
-  VectorType *SVIVecType = cast<VectorType>(SVI->getType());
+  auto *SVIVecType = cast<FixedVectorType>(SVI->getType());
   assert(!NewType->isVectorTy() && "Expected a scalar type!");
   assert(NewType->getScalarSizeInBits() == SVIVecType->getScalarSizeInBits() &&
          "Expected a type of the same size!");

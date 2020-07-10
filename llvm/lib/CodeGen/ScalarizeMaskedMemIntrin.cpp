@@ -85,7 +85,7 @@ static bool isConstantIntVector(Value *Mask) {
   if (!C)
     return false;
 
-  unsigned NumElts = cast<VectorType>(Mask->getType())->getNumElements();
+  unsigned NumElts = cast<FixedVectorType>(Mask->getType())->getNumElements();
   for (unsigned i = 0; i != NumElts; ++i) {
     Constant *CElt = C->getAggregateElement(i);
     if (!CElt || !isa<ConstantInt>(CElt))
@@ -134,7 +134,7 @@ static void scalarizeMaskedLoad(CallInst *CI, bool &ModifiedDT) {
   Value *Src0 = CI->getArgOperand(3);
 
   const Align AlignVal = cast<ConstantInt>(Alignment)->getAlignValue();
-  VectorType *VecType = cast<VectorType>(CI->getType());
+  VectorType *VecType = cast<FixedVectorType>(CI->getType());
 
   Type *EltTy = VecType->getElementType();
 
@@ -160,7 +160,7 @@ static void scalarizeMaskedLoad(CallInst *CI, bool &ModifiedDT) {
   Type *NewPtrType =
       EltTy->getPointerTo(Ptr->getType()->getPointerAddressSpace());
   Value *FirstEltPtr = Builder.CreateBitCast(Ptr, NewPtrType);
-  unsigned VectorWidth = VecType->getNumElements();
+  unsigned VectorWidth = cast<FixedVectorType>(VecType)->getNumElements();
 
   // The result vector
   Value *VResult = Src0;
@@ -273,7 +273,7 @@ static void scalarizeMaskedStore(CallInst *CI, bool &ModifiedDT) {
   Value *Mask = CI->getArgOperand(3);
 
   const Align AlignVal = cast<ConstantInt>(Alignment)->getAlignValue();
-  VectorType *VecType = cast<VectorType>(Src->getType());
+  auto *VecType = cast<VectorType>(Src->getType());
 
   Type *EltTy = VecType->getElementType();
 
@@ -297,7 +297,7 @@ static void scalarizeMaskedStore(CallInst *CI, bool &ModifiedDT) {
   Type *NewPtrType =
       EltTy->getPointerTo(Ptr->getType()->getPointerAddressSpace());
   Value *FirstEltPtr = Builder.CreateBitCast(Ptr, NewPtrType);
-  unsigned VectorWidth = VecType->getNumElements();
+  unsigned VectorWidth = cast<FixedVectorType>(VecType)->getNumElements();
 
   if (isConstantIntVector(Mask)) {
     for (unsigned Idx = 0; Idx < VectorWidth; ++Idx) {
@@ -460,7 +460,7 @@ static void scalarizeMaskedGather(CallInst *CI, bool &ModifiedDT) {
   Value *Mask = CI->getArgOperand(2);
   Value *Src0 = CI->getArgOperand(3);
 
-  VectorType *VecType = cast<VectorType>(CI->getType());
+  auto *VecType = cast<FixedVectorType>(CI->getType());
   Type *EltTy = VecType->getElementType();
 
   IRBuilder<> Builder(CI->getContext());
@@ -589,8 +589,8 @@ static void scalarizeMaskedScatter(CallInst *CI, bool &ModifiedDT) {
   Value *Alignment = CI->getArgOperand(2);
   Value *Mask = CI->getArgOperand(3);
 
-  assert(isa<VectorType>(Src->getType()) &&
-         "Unexpected data type in masked scatter intrinsic");
+  auto *SrcFVTy = cast<FixedVectorType>(Src->getType());
+
   assert(
       isa<VectorType>(Ptrs->getType()) &&
       isa<PointerType>(cast<VectorType>(Ptrs->getType())->getElementType()) &&
@@ -603,7 +603,7 @@ static void scalarizeMaskedScatter(CallInst *CI, bool &ModifiedDT) {
   Builder.SetCurrentDebugLocation(CI->getDebugLoc());
 
   MaybeAlign AlignVal = cast<ConstantInt>(Alignment)->getMaybeAlignValue();
-  unsigned VectorWidth = cast<VectorType>(Src->getType())->getNumElements();
+  unsigned VectorWidth = SrcFVTy->getNumElements();
 
   // Shorten the way if the mask is a vector of constants.
   if (isConstantIntVector(Mask)) {
@@ -679,7 +679,7 @@ static void scalarizeMaskedExpandLoad(CallInst *CI, bool &ModifiedDT) {
   Value *Mask = CI->getArgOperand(1);
   Value *PassThru = CI->getArgOperand(2);
 
-  VectorType *VecType = cast<VectorType>(CI->getType());
+  auto *VecType = cast<FixedVectorType>(CI->getType());
 
   Type *EltTy = VecType->getElementType();
 
@@ -792,7 +792,7 @@ static void scalarizeMaskedCompressStore(CallInst *CI, bool &ModifiedDT) {
   Value *Ptr = CI->getArgOperand(1);
   Value *Mask = CI->getArgOperand(2);
 
-  VectorType *VecType = cast<VectorType>(Src->getType());
+  auto *VecType = cast<FixedVectorType>(Src->getType());
 
   IRBuilder<> Builder(CI->getContext());
   Instruction *InsertPt = CI;
