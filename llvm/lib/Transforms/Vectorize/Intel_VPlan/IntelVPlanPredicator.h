@@ -105,40 +105,6 @@ private:
   // predicate in a separate map.
   DenseMap<VPBasicBlock *, VPValue *> Block2Predicate;
 
-  DenseMap<VPBasicBlock * /* Dst */, SmallVector<VPBasicBlock * /* Src */, 4>>
-      RemovedDivergentEdgesMap;
-
-  // The struct corresponding to the blend consists of an incoming value,
-  // incoming block, and the RPOT Idx calculated during linearization. This
-  // index will be used to sort the operands of the blend.
-  struct BlendTuple {
-    VPValue *IncomingValue;
-    VPBasicBlock *IncomingBlock;
-    int IncomingBlockRPOTIdx;
-
-    BlendTuple(VPValue *Val, VPBasicBlock *Block, int Idx) :
-        IncomingValue(Val), IncomingBlock(Block), IncomingBlockRPOTIdx(Idx) {}
-
-    VPValue *getIncomingValue() const { return IncomingValue; }
-    VPBasicBlock *getIncomingBlock() const { return IncomingBlock; }
-    int getIncomingBlockRPOTIdx() const { return IncomingBlockRPOTIdx; }
-  };
-  using BlendTupleVectorTy = SmallVector<BlendTuple, 2>;
-  using Blend2BlendTupleVectorMapTy =
-      DenseMap<VPBlendInst *, BlendTupleVectorTy>;
-
-  // Map of blend instruction to its corresponding vector of
-  // { incoming value, incoming block, RPOT idx } tuple. This map will be used
-  // to fill in the correct block-predicate value in the blend when it becomes
-  // available.
-  Blend2BlendTupleVectorMapTy Blend2BlendTupleVectorMap;
-
-  // Add an std::tuple<Val, BB, RPOT idx> for \p Blend.
-  void addBlendTuple(VPBlendInst *Blend, VPValue *Val, VPBasicBlock *BB,
-                     int RPOTIdx) {
-    Blend2BlendTupleVectorMap[Blend].emplace_back(Val, BB, RPOTIdx);
-  }
-
   // Blocks where phis should be turned into blends as a result of
   // linearization. The transformation is delayed to after-linearization as it
   // might be needed to create extra blends and/or phis on the way through
@@ -227,28 +193,9 @@ private:
   // bypass infrastructure is implemented.
   void fixupUniformInnerLoops();
 
-  /// Transforms phi to an explicit blend instruction and replaces all phi
-  /// users with the new blend instruction. After this function executes, the
-  /// blend instruction is not "complete" in that it does not yet contain the
-  /// incoming values and block-predicates. Once the block-predicates are
-  /// available after linearization, then they are added as operands to the
-  /// blend.
-  void turnPhisToBlends(VPBasicBlock *Block,
-                        DenseMap<const VPBasicBlock *, int> &BlockIndexInRPOT);
-
-  /// Sorts the incoming value/block-predicate operands of Blend instructions
-  /// in RPOT order to ensure correct select generation in codegen.
-  void sortIncomingBlocksForBlend(BlendTupleVectorTy &UnsortedIncomingBlocks,
-                                  BlendTupleVectorTy &SortedIncomingBlocks);
-
   bool shouldPreserveUniformBranches() const;
 
   bool shouldPreserveOutgoingEdges(VPBasicBlock *Block);
-
-  /// Updates maps used to generate block-predicate instructions to use
-  /// the blend instruction that replaced the phi.
-  void replacePhiPredicateTermWithBlend(VPPHINode *Phi,
-                                        VPBlendInst *Blend);
 
 public:
   VPlanPredicator(VPlan &Plan);
