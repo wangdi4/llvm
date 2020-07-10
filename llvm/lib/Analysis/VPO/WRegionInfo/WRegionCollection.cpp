@@ -150,60 +150,92 @@ bool WRegionCollection::isCandidateLoop(Loop &Lp) {
 /// allows buildWRGraph() to build nested OMP constructs correctly,
 /// visiting all the inner constructs' directives before processing the END
 /// directive of an enclosing outer construct.
-void topSortBasicBlocks(
-  BasicBlock *BB,
-  WRStack<BasicBlock *> &BBStack,
-  SmallPtrSetImpl<BasicBlock *> &Visited,
-  bool DoVerifyBB
-)
-{
+void topSortBasicBlocks(BasicBlock *BasicBlk, WRStack<BasicBlock *> &BBStack,
+                        bool DoVerifyBB) {
   // LLVM_DEBUG(dbgs() << "\n=== topSortBasicBlocks visiting this BB: " << *BB);
 
-  // Skip visited nodes.
-  if (Visited.count(BB))
-    return;
+  WRStack<BasicBlock *> Worklist;
+  WRStack<BasicBlock *> RevBBStack;
+  SmallPtrSet<BasicBlock *, 32> Visited;
+  SmallPtrSet<BasicBlock *, 32> EndBBSet;
 
-  // Verify that the directives in BB, if any, follow design rules
-  if (DoVerifyBB) {
-    bool PassedVerify = VPOAnalysisUtils::verifyBB(*BB, true);
-    assert(PassedVerify && "Malformed directives in BBlock");
-    (void) PassedVerify;
+  Worklist.push(BasicBlk);
+
+  while (!Worklist.empty()) {
+
+    BasicBlock *BB = Worklist.top();
+    Worklist.pop();
+
+    // When EndBB is reached in worklist, it means that all Successor
+    // BBs of Begin directive have reached EndBB.
+    // EndBB can therefore be pushed into the Stack.
+    if (EndBBSet.count(BB)) {
+      RevBBStack.push(BB);
+      EndBBSet.erase(BB);
+      // Push Successors into the Worklist.
+      for (succ_iterator I = succ_begin(BB), E = succ_end(BB); I != E; ++I) {
+        // Avoid adding End basic block visited nodes.
+        if (EndBBSet.count(*I))
+          continue;
+        Worklist.push(*I);
+      }
+      continue;
+    }
+
+    // Skip visited nodes
+    if (Visited.count(BB))
+      continue;
+
+    // Verify that the directives in BB, if any, follow design rules
+    if (DoVerifyBB) {
+      bool PassedVerify = VPOAnalysisUtils::verifyBB(*BB, true);
+      assert(PassedVerify && "Malformed directives in BBlock");
+      (void)PassedVerify;
+    }
+
+    // Mark BB as "visited".
+    Visited.insert(BB);
+
+    // We are only interested in BBs that start with OMP directives. Paying the
+    // cost now to look at BB's first instruction allows us to save memory by
+    // only pushing BBs with such directives onto BBStack. It will also save
+    // compile time later in buildWRGraph, which no longer has to look at all
+    // the BBs in the CFG. For typical OpenMP programs where the percentage of
+    // BBs with OMP directives is small, this should result in net savings of
+    // compile time.
+    Instruction *FirstInstr = BB->getFirstNonPHI();
+    bool IsOmpDir = VPOAnalysisUtils::isOpenMPDirective(FirstInstr);
+    if (IsOmpDir) {
+      BasicBlock *EndBB = nullptr;
+      // FirstInstr MUST be a BEGIN directive
+      EndBB = VPOAnalysisUtils::getEndRegionDirBB(FirstInstr);
+      assert(EndBB && "topSortBasicBlocks: End Directive not found");
+
+      RevBBStack.push(BB);
+
+      Visited.insert(EndBB);
+      EndBBSet.insert(EndBB);
+      Worklist.push(EndBB);
+    }
+
+    // Visit all the successors of BB
+    for (succ_iterator I = succ_begin(BB), E = succ_end(BB); I != E; ++I) {
+      // To avoid addition of EndBB into the worklist again.
+      // If added multiple times, it will break the algorithm.
+      if (EndBBSet.count(*I))
+        continue;
+      Worklist.push(*I);
+    }
+  }
+  while (!RevBBStack.empty()) {
+    BBStack.push(RevBBStack.top());
+    RevBBStack.pop();
   }
 
-  // Mark BB as "visited".
-  Visited.insert(BB);
-
-  //
-  Instruction *FirstInstr = BB->getFirstNonPHI();
-  BasicBlock *EndBB = nullptr;
-  bool IsOmpDir = VPOAnalysisUtils::isOpenMPDirective(FirstInstr);
-  if (IsOmpDir) {
-    // FirstInstr must be a BEGIN directive
-    EndBB= VPOAnalysisUtils::getEndRegionDirBB(FirstInstr);
-    assert(EndBB && "topSortBasicBlocks: End Directive not found");
-    BBStack.push(EndBB);
-    Visited.insert(EndBB);
-  }
-
-  // Visit all the successors first
-  for (succ_iterator I = succ_begin(BB), E = succ_end(BB); I != E; ++I)
-    topSortBasicBlocks(*I, BBStack, Visited, DoVerifyBB);
-
-  // We are only interested in BBs that start with OMP directives. Paying the
-  // cost now to look at BB's first instruction allows us to save memory by
-  // only pushing BBs with such directives onto BBStack. It will also save
-  // compile time later in buildWRGraph, which no longer has to look at all
-  // the BBs in the CFG. For typical OpenMP programs where the percentage of
-  // BBs with OMP directives is small, this should result in net savings of
-  // compile time.
-  if (IsOmpDir) {
-    // LLVM_DEBUG(dbgs() << "\n=== topSortBasicBlocks pushed this BB: " << *BB);
-    BBStack.push(BB);
-
-    // Visit all successors of EndBB
-    for (succ_iterator I = succ_begin(EndBB), E = succ_end(EndBB); I!=E; ++I)
-      topSortBasicBlocks(*I, BBStack, Visited, DoVerifyBB);
-  }
+  LLVM_DEBUG(dbgs() << "\n=== topSortBasicBlocks BBStack: \n");
+  for (size_t i = 0; i < BBStack.size(); i++)
+    LLVM_DEBUG(dbgs() << "at i:" << i << "  BB is " << BBStack[i] << "\n");
+  LLVM_DEBUG(dbgs() << "\n=== topSortBasicBlocks BBStack end. \n");
 }
 
 void WRegionCollection::buildWRGraphImpl(Function &F) {
@@ -214,13 +246,12 @@ void WRegionCollection::buildWRGraphImpl(Function &F) {
   // and put them in BBStack
   BasicBlock *RootBB = &F.getEntryBlock();
   WRStack<BasicBlock *> BBStack;
-  SmallPtrSet<BasicBlock *, 32> Visited;
 
   LLVM_DEBUG(dbgs() << "\nENTER buildWRGraph {\n");
 
   // Having the last argument==true turns on the verifier by default.
   // TODO: guard it under a flag (or debug mode) when VPO is more stable.
-  topSortBasicBlocks(RootBB, BBStack, Visited, true);
+  topSortBasicBlocks(RootBB, BBStack, true);
 
   // Then, visit the BBs in sorted order (by popping BBStack) to build WRNs
   while (!BBStack.empty()) {
