@@ -1,4 +1,3 @@
-; UNSUPPORTED: linux, windows
 ; RUN: opt < %s -analyze -delinearize | FileCheck %s
 
 ; void foo(long n, long m, long o, long p, double A[n][m][o+p]) {
@@ -13,7 +12,7 @@
 ; CHECK: Base offset: %A
 ; CHECK: ArrayDecl[UnknownSize][%m][(%o + %p)] with elements of 8 bytes.
 ; INTEL - SCEV improvements prove stronger NoWrap flags
-; CHECK: ArrayRef[{3,+,1}<nuw><%for.cond4.preheader.lr.ph.us>][{-4,+,1}<nw><%for.body6.lr.ph.us.us>][{7,+,1}<nuw><%for.body6.us.us>]
+; CHECK: ArrayRef[{3,+,1}<nuw><%for.cond4.preheader.lr.ph.us>][{-4,+,1}<nsw><%for.body6.lr.ph.us.us>][{7,+,1}<nuw><%for.body6.us.us>]
 
 define void @foo(i64 %n, i64 %m, i64 %o, i64 %p, double* nocapture %A) nounwind uwtable {
 entry:
