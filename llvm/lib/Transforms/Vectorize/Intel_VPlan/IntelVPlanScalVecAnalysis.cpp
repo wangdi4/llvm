@@ -29,6 +29,8 @@ using namespace llvm::vpo;
 static bool isLoopHeaderPHI(VPlan *Plan, const VPPHINode *Phi) {
   auto *PhiBlock = Phi->getParent();
   auto *Lp = Plan->getVPLoopInfo()->getLoopFor(PhiBlock);
+  if (!Lp)
+    return false;
   return Lp->getHeader() == PhiBlock;
 }
 
