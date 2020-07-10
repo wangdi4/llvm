@@ -2543,7 +2543,7 @@ public:
     // information.
     if (ExtraVersionPrinters != nullptr) {
       outs() << '\n';
-      for (auto I : *ExtraVersionPrinters)
+      for (const auto &I : *ExtraVersionPrinters)
         I(outs());
     }
 
