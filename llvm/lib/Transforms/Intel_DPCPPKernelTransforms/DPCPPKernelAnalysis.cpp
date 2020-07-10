@@ -89,9 +89,13 @@ void DPCPPKernelAnalysis::fillKernelCallers() {
     DPCPPKernelLoopUtils::fillFuncUsersSet(KernelRootSet, KernelUsers);
     // The kernel has user functions meaning it is called by another kernel.
     // Since there is no barrier in it's start it will be executed
-    // multiple time (because of the WG loop of the calling kernel)
+    // multiple time (because of the WG loop of the calling kernel).
     if (KernelUsers.size()) {
-      UnsupportedFuncs.insert(Kernel);
+      // TODO: Explore CallGraph fully to detect a case with
+      // a kernel calling a functions calling a kernel.
+      for (Function *F : KernelUsers)
+        if (F->hasFnAttribute("sycl_kernel"))
+          llvm_unreachable("Having a kernel calling a kernel is not supported!");
     }
   }
 
