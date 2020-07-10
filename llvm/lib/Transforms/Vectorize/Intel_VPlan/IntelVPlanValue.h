@@ -137,6 +137,8 @@ public:
     VPExternalUseSC,
     VPPrivateMemorySC,
     VPBasicBlockSC,
+    VPLiveInValueSC,
+    VPLiveOutValueSC,
   };
 
   VPValue(Type *BaseTy, Value *UV = nullptr)
@@ -721,6 +723,95 @@ public:
   static inline bool classof(const VPValue *V) {
     return V->getVPValueID() == VPMetadataAsValueSC;
   }
+};
+
+/// VPLiveInValue is a wrapper for the loop entities incoming values in VPlan.
+/// VPLiveInValue replaces the original incoming value in init/final
+/// instructions of the loop entities after CFG building. The main purpose of
+/// VPLiveInValue is to protect the original incoming value from unintended
+/// access.
+/// The VPLiveInValue has a MergeId which is its unique index and is used to
+/// link it to the original incoming value. The MergeId is not changed during
+/// cloning so it can be used identically in different VPlans.
+/// The VPLiveInValue-s are created during VPlan construction, after CFG
+/// is updated with VPEntity instructions.
+/// For example:
+/// Before VPLiveInValue creation:
+///  %red_init = reduction-init{+} %extdef
+///
+/// After VPLiveInValue creation:
+///  %red_init = reduction-init{+} %live-in1
+///
+class VPLiveInValue : public VPValue {
+public:
+  VPLiveInValue(unsigned Id, Type* Ty)
+      : VPValue(VPValue::VPLiveInValueSC, Ty), MergeId(Id) {}
+
+  VPLiveInValue(const VPLiveInValue& LI)
+      : VPLiveInValue(LI.getMergeId(), LI.getType()) {}
+
+  unsigned getMergeId() const { return MergeId; }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPValue *V) {
+    return V->getVPValueID() == VPValue::VPLiveInValueSC;
+  }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void print(raw_ostream &OS) const override {
+    OS << "live-in" << getMergeId() << "\n";
+  }
+
+  void printAsOperand(raw_ostream &OS) const {
+    getType()->print(OS);
+    OS << " live-in" << getMergeId();
+  }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+private:
+  unsigned MergeId;
+};
+
+/// VPLiveOutValue is a wrapper for the uses of loop entities outgoing values
+/// in VPlan. Those uses are encoded by VPExternalUse.
+/// The main purpose of VPLiveOutValue is to provide ability to clone VPlan w/o
+/// adding additional operands in VPExternalUse. The VPLiveOutValue becomes a
+/// use of liveout instead of VPExternalUse.
+/// The VPLiveOutValue contains a link to the VPExternalUse. The linking is done
+/// through MergeId which is assigned at creation.
+/// The MergeId is not changed during cloning so the live outs of different
+/// VPlans can be easily linked with the same external use.
+/// The VPLiveOutValue-s are created during VPlan construction, after CFG is
+/// updated with VPEntity instructions, and are kept in VPlan.
+///
+class VPLiveOutValue : public VPUser {
+public:
+  VPLiveOutValue(unsigned Id, VPValue *Operand)
+      : VPUser(VPValue::VPLiveOutValueSC, {Operand}, Operand->getType()), MergeId(Id) {}
+
+  VPLiveOutValue(const VPLiveOutValue& LI)
+      : VPLiveOutValue(LI.getMergeId(), LI.getOperand(0)) {}
+
+  unsigned getMergeId() const { return MergeId; }
+
+  // Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPValue *V) {
+    return V->getVPValueID() == VPValue::VPLiveOutValueSC;
+  }
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void print(raw_ostream &OS) const override {
+    OS << "live-out" << getMergeId() << "\n";
+  }
+
+  void printAsOperand(raw_ostream &OS) const {
+    getType()->print(OS);
+    OS << " live-out" << getMergeId();
+  }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
+
+private:
+  unsigned MergeId;
 };
 
 } // namespace vpo

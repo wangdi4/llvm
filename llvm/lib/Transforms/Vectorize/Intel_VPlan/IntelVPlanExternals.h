@@ -89,6 +89,9 @@ class VPExternalValues {
   DenseMap<MetadataAsValue *, std::unique_ptr<VPMetadataAsValue>>
       VPMetadataAsValues;
 
+  // Holds the original incoming values.
+  SmallVector<VPValue*, 16> OriginalIncomingValues;
+
 public:
   VPExternalValues(LLVMContext *Ctx, const DataLayout *L) : DL(L), Context(Ctx) {}
   VPExternalValues(const VPExternalValues &X) = delete;
@@ -226,6 +229,25 @@ public:
   VPMetadataAsValue *getVPMetadataAsValue(Metadata *MD) {
     // TODO: implement this method when needed.
     llvm_unreachable("Not implemented yet!");
+  }
+
+  VPValue *getOriginalIncomingValue(int MergeId) const {
+    return OriginalIncomingValues[MergeId];
+  }
+
+  void addOriginalIncomingValue(VPValue *V) {
+    OriginalIncomingValues.push_back(V);
+  }
+
+  void setOriginalIncomingValue(VPValue *V, int MergeId) {
+    assert(OriginalIncomingValues[MergeId] == nullptr &&
+           "Inconsistent OriginalIncomingValue");
+    OriginalIncomingValues[MergeId] = V;
+  }
+
+  void allocateOriginalIncomingValues(int Count) {
+    assert(OriginalIncomingValues.size() == 0 && "The list is not empty");
+    OriginalIncomingValues.resize(Count, nullptr);
   }
 
   // Verify that VPConstants are unique in the pool and that the map keys are

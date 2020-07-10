@@ -57,7 +57,7 @@ void TripCountInfo::calculateEstimatedTripCount() {
 }
 
 bool VPLoop::isDefOutside(const VPValue *VPVal) const {
-  if (isa<VPExternalDef>(VPVal))
+  if (isa<VPExternalDef>(VPVal) || isa<VPLiveInValue>(VPVal))
     return true;
   if (auto *VPInst = dyn_cast<VPInstruction>(VPVal))
     return !contains(VPInst);
@@ -68,7 +68,7 @@ bool VPLoop::isLiveOut(const VPInstruction* VPInst) const {
   if (!contains(VPInst))
     return false;
   for (const VPUser *U : VPInst->users()) {
-    if (isa<VPExternalUse>(U))
+    if (isa<VPExternalUse>(U) || isa<VPLiveOutValue>(U))
       return true;
     if (!contains(cast<VPInstruction>(U)))
       return true;

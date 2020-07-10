@@ -2534,6 +2534,12 @@ private:
   // Holds the instructions that need to be deleted by VPlan's destructor.
   SmallVector<std::unique_ptr<VPInstruction>, 2> UnlinkedVPInsns;
 
+  /// Holds the VPLiveInValues.
+  SmallVector<std::unique_ptr<VPLiveInValue>, 16> LiveInValues;
+
+  /// Holds the VPLiveOutValues.
+  SmallVector<std::unique_ptr<VPLiveOutValue>, 16> LiveOutValues;
+
 public:
   VPlan(VPExternalValues &E);
 
@@ -2594,6 +2600,24 @@ public:
   }
 
   const DataLayout *getDataLayout() const { return Externals.getDataLayout(); }
+
+  const VPLiveInValue *getLiveInValue(unsigned MergeId) const {
+    return LiveInValues[MergeId].get();
+  }
+
+  auto liveInValues() {
+    return map_range(LiveInValues, [](std::unique_ptr<VPLiveInValue> &V) {
+      return V.get();});
+  }
+
+  const VPLiveOutValue *getLiveOutValue(unsigned MergeId) const {
+    return LiveOutValues[MergeId].get();
+  }
+
+  auto liveOutValues() {
+    return map_range(LiveOutValues, [](std::unique_ptr<VPLiveOutValue> &V) {
+      return V.get();});
+  }
 
   /// Return an existing or newly created LoopEntities for the loop \p L.
   VPLoopEntityList *getOrCreateLoopEntities(const VPLoop *L) {
@@ -2779,6 +2803,40 @@ public:
   std::unique_ptr<VPlan> clone(VPAnalysesFactory &VPAF, bool RecalculateDA);
 
 private:
+  void addLiveInValue(VPLiveInValue *V) {
+    assert(V->getMergeId() == LiveInValues.size() &&
+           "Inconsistent livein index");
+    LiveInValues.emplace_back(V);
+  }
+
+  void setLiveInValue(VPLiveInValue *V, unsigned MergeId) {
+    assert((V->getMergeId() == MergeId && !LiveInValues[MergeId]) &&
+           "Inconsistent livein index");
+    LiveInValues[MergeId].reset(V);
+  }
+
+  void allocateLiveInValues(int Count) {
+    assert(LiveInValues.size() == 0 && "The list is not empty");
+    LiveInValues.resize(Count);
+  }
+
+  void addLiveOutValue(VPLiveOutValue *V) {
+    assert(V->getMergeId() == LiveOutValues.size() &&
+           "Inconsistent liveout index");
+    LiveOutValues.emplace_back(V);
+  }
+
+  void setLiveOutValue(VPLiveOutValue *V, unsigned MergeId) {
+    assert((V->getMergeId() == MergeId && !LiveOutValues[MergeId]) &&
+           "Inconsistent liveout index");
+    LiveOutValues[MergeId].reset(V);
+  }
+
+  void allocateLiveOutValues(int Count) {
+    assert(LiveOutValues.size() == 0 && "The list is not empty");
+    LiveOutValues.resize(Count);
+  }
+
   /// Add to the given dominator tree the header block and every new basic block
   /// that was created between it and the latch block, inclusive.
   static void updateDominatorTree(class DominatorTree *DT,
