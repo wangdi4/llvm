@@ -1557,6 +1557,8 @@ static Attribute::AttrKind getAttrFromCode(uint64_t Code) {
     return Attribute::SanitizeMemTag;
   case bitc::ATTR_KIND_PREALLOCATED:
     return Attribute::Preallocated;
+  case bitc::ATTR_KIND_NOUNDEF:
+    return Attribute::NoUndef;
   }
 }
 
