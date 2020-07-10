@@ -327,7 +327,6 @@ void TargetTransformInfo::getUnrollingPreferences(
   return TTIImpl->getUnrollingPreferences(L, SE, UP);
 }
 
-<<<<<<< HEAD
 unsigned
 TargetTransformInfo::getLoopRotationDefaultThreshold(bool OptForSize) const {
   return TTIImpl->getLoopRotationDefaultThreshold(OptForSize);
@@ -339,13 +338,6 @@ bool TargetTransformInfo::needsStructuredCFG() const {
 }
 #endif
 
-void TargetTransformInfo::getPeelingPreferences(Loop *L, ScalarEvolution &SE,
-                                                PeelingPreferences &PP) const {
-  return TTIImpl->getPeelingPreferences(L, SE, PP);
-}
-
-=======
->>>>>>> 0b39d2d75275b80994dac06b7ad05031cbd09393
 bool TargetTransformInfo::isLegalAddImmediate(int64_t Imm) const {
   return TTIImpl->isLegalAddImmediate(Imm);
 }
