@@ -1,3 +1,4 @@
+; UNSUPPORTED: linux, windows
 ; RUN: opt < %s -analyze -delinearize | FileCheck %s
 ; INTEL Re-enable after CMPLRLLVM-21161 fixed.
 ; XFAIL: *
