@@ -672,13 +672,9 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
       continue; // Success.
     case 'i':
     case 'I':
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       if (!isLong && !isLongLong && !isFloat && !isFloat128) {
 #endif  // INTEL_CUSTOMIZATION
-=======
-      if (LangOpts.MicrosoftExt) {
->>>>>>> 3cca818efabbccdde36b06609cf75ee7caa8e012
         if (isLong || isLongLong || MicrosoftInteger)
           break;
 
