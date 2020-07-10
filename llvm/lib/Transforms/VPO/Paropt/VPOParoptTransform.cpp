@@ -1137,7 +1137,7 @@ bool VPOParoptTransform::renameAndReplaceLibatomicCallsForSPIRV(Function *F) {
     IRBuilder<> Builder(CI);
 
     Type *PtrTy =
-        PointerType::get(Builder.getInt8Ty(), 4 /*ADDRESS_SPACE_GENERIC*/);
+        PointerType::get(Builder.getInt8Ty(), vpo::ADDRESS_SPACE_GENERIC);
     Type *VoidTy = Builder.getVoidTy();
     Type *I32Ty = Builder.getInt32Ty();
     Type *I64Ty = Builder.getInt64Ty();

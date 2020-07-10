@@ -43,9 +43,6 @@ using namespace llvm::vpo::intrinsics;
 cl::opt<bool> Enable64BitOpenCLAtomics(
   "vpo-paropt-enable-64bit-opencl-atomics", cl::Hidden, cl::init(false),
   cl::desc("Enables usage of 64-bit atomic OpenCL RTL API."));
-cl::opt<bool> Enable16BitOpenCLAtomics(
-  "vpo-paropt-enable-16bit-opencl-atomics", cl::Hidden, cl::init(false),
-  cl::desc("Enables usage of 16-bit atomic OpenCL RTL API."));
 
 // Main driver for handling a WRNAtomicNode.
 bool VPOParoptAtomics::handleAtomic(WRNAtomicNode *AtomicNode,
@@ -86,23 +83,15 @@ bool VPOParoptAtomics::handleAtomic(WRNAtomicNode *AtomicNode,
     }
   }
 
-  if (!handled) {
-    assert(!IsTargetSPIRV &&
-           "Handling of AtomicNode failed, but Critical Section is not yet "
-           "supported for GPU offloading.\n");
+  if (!handled)
     handled =
         VPOParoptUtils::genKmpcCriticalSection(AtomicNode, IdentTy, TidPtr,
                                                DT, LI, IsTargetSPIRV);
-  }
   assert(handled == true && "Handling of AtomicNode failed.\n");
 
-  if (handled) {
-    AtomicNode->resetBBSet(); // Invalidate BBSet if transformed
-    LLVM_DEBUG(dbgs() << __FUNCTION__
-                      << ": Handling of AtomicNode successful.\n");
-  }
-  else
-    LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Handling of AtomicNode failed.\n");
+  AtomicNode->resetBBSet(); // Invalidate BBSet if transformed
+  LLVM_DEBUG(dbgs() << __FUNCTION__
+                    << ": Handling of AtomicNode successful.\n");
 
   return handled;
 }
@@ -1213,13 +1202,9 @@ const std::string VPOParoptAtomics::getAtomicUCIntrinsicName(
 
   unsigned OpCode = Operation.getOpcode();
 
-  if (IsTargetSPIRV)
-    if ((!Enable64BitOpenCLAtomics &&
-         (AtomicOpndType->getScalarSizeInBits() > 32 ||
-          ValueOpndType->getScalarSizeInBits() > 32)) ||
-        (!Enable16BitOpenCLAtomics &&
-         (AtomicOpndType->getScalarSizeInBits() == 16 ||
-          ValueOpndType->getScalarSizeInBits() == 16))) {
+  if (IsTargetSPIRV && (!Enable64BitOpenCLAtomics &&
+                        (AtomicOpndType->getScalarSizeInBits() > 32 ||
+                         ValueOpndType->getScalarSizeInBits() > 32))) {
     // If 64-bit OpenCL atomics are not supported,
     // then we have to use critical section.
     LLVM_DEBUG(dbgs() << __FUNCTION__ << ": Intrinsic not found for "
@@ -1229,10 +1214,18 @@ const std::string VPOParoptAtomics::getAtomicUCIntrinsicName(
   }
 
   const bool AtomicUpdate = (AtomicKind == WRNAtomicUpdate);
-  auto &MapToUse = AtomicUpdate ? (Reversed ? ReversedOpToUpdateIntrinsicMap
-                                            : OpToUpdateIntrinsicMap)
-                                : (Reversed ? ReversedOpToCaptureIntrinsicMap
-                                            : OpToCaptureIntrinsicMap);
+  // No reversed atomic intrinsics for spir64 target.
+  if (IsTargetSPIRV && Reversed)
+    return std::string();
+  // Select map table for atomic intrinsics
+  auto &MapToUse =
+      (IsTargetSPIRV
+           ? (AtomicUpdate ? OpToUpdateIntrinsicForTgtMap
+                           : OpToCaptureIntrinsicForTgtMap)
+           : (AtomicUpdate ? (Reversed ? ReversedOpToUpdateIntrinsicMap
+                                       : OpToUpdateIntrinsicMap)
+                           : (Reversed ? ReversedOpToCaptureIntrinsicMap
+                                       : OpToCaptureIntrinsicMap)));
 
   // We need the operand types and the operation's op code to do a map lookup.
   const IntrinsicOperandTy AtomicOpndTy = {
@@ -1576,6 +1569,44 @@ const std::map<VPOParoptAtomics::AtomicOperationTy, const std::string>
 };
 
 const std::map<VPOParoptAtomics::AtomicOperationTy, const std::string>
+    VPOParoptAtomics::OpToUpdateIntrinsicForTgtMap = {
+        // I32 = I32 op I32
+        {{Instruction::Add, {I32, I32}}, "__kmpc_atomic_fixed4_add"},
+        {{Instruction::Sub, {I32, I32}}, "__kmpc_atomic_fixed4_sub"},
+        {{Instruction::Mul, {I32, I32}}, "__kmpc_atomic_fixed4_mul"},
+        {{Instruction::SDiv, {I32, I32}}, "__kmpc_atomic_fixed4_div"},
+        {{Instruction::UDiv, {I32, I32}}, "__kmpc_atomic_fixed4u_div"},
+        {{Instruction::And, {I32, I32}}, "__kmpc_atomic_fixed4_andb"},
+        {{Instruction::Or, {I32, I32}}, "__kmpc_atomic_fixed4_orb"},
+        {{Instruction::Xor, {I32, I32}}, "__kmpc_atomic_fixed4_xor"},
+        {{Instruction::Shl, {I32, I32}}, "__kmpc_atomic_fixed4_shl"},
+        {{Instruction::AShr, {I32, I32}}, "__kmpc_atomic_fixed4_shr"},
+        {{Instruction::LShr, {I32, I32}}, "__kmpc_atomic_fixed4u_shr"},
+        // I64 = I64 op I64
+        {{Instruction::Add, {I64, I64}}, "__kmpc_atomic_fixed8_add"},
+        {{Instruction::Sub, {I64, I64}}, "__kmpc_atomic_fixed8_sub"},
+        {{Instruction::Mul, {I64, I64}}, "__kmpc_atomic_fixed8_mul"},
+        {{Instruction::SDiv, {I64, I64}}, "__kmpc_atomic_fixed8_div"},
+        {{Instruction::UDiv, {I64, I64}}, "__kmpc_atomic_fixed8u_div"},
+        {{Instruction::And, {I64, I64}}, "__kmpc_atomic_fixed8_andb"},
+        {{Instruction::Or, {I64, I64}}, "__kmpc_atomic_fixed8_orb"},
+        {{Instruction::Xor, {I64, I64}}, "__kmpc_atomic_fixed8_xor"},
+        {{Instruction::Shl, {I64, I64}}, "__kmpc_atomic_fixed8_shl"},
+        {{Instruction::AShr, {I64, I64}}, "__kmpc_atomic_fixed8_shr"},
+        {{Instruction::LShr, {I64, I64}}, "__kmpc_atomic_fixed8u_shr"},
+        // F32 = F32 op F32
+        {{Instruction::FAdd, {F32, F32}}, "__kmpc_atomic_float4_add"},
+        {{Instruction::FSub, {F32, F32}}, "__kmpc_atomic_float4_sub"},
+        {{Instruction::FMul, {F32, F32}}, "__kmpc_atomic_float4_mul"},
+        {{Instruction::FDiv, {F32, F32}}, "__kmpc_atomic_float4_div"},
+        // F64 = F64 op F64
+        {{Instruction::FAdd, {F64, F64}}, "__kmpc_atomic_float8_add"},
+        {{Instruction::FSub, {F64, F64}}, "__kmpc_atomic_float8_sub"},
+        {{Instruction::FMul, {F64, F64}}, "__kmpc_atomic_float8_mul"},
+        {{Instruction::FDiv, {F64, F64}}, "__kmpc_atomic_float8_div"},
+};
+
+const std::map<VPOParoptAtomics::AtomicOperationTy, const std::string>
     VPOParoptAtomics::ReversedOpToUpdateIntrinsicMap = {
         // I8 = I8 op I8
         {{Instruction::Sub, {I8, I8}}, "__kmpc_atomic_fixed1_sub_rev"},
@@ -1741,6 +1772,39 @@ const std::map<VPOParoptAtomics::AtomicOperationTy, const std::string>
          "__kmpc_atomic_float16_mul_a16_cpt"},
         {{Instruction::FDiv, {F128, F128}},
          "__kmpc_atomic_float16_div_a16_cpt"}};
+
+const std::map<VPOParoptAtomics::AtomicOperationTy, const std::string>
+    VPOParoptAtomics::OpToCaptureIntrinsicForTgtMap = {
+        // I32 = I32 op I32
+        {{Instruction::Add, {I32, I32}}, "__kmpc_atomic_fixed4_add_cpt"},
+        {{Instruction::Sub, {I32, I32}}, "__kmpc_atomic_fixed4_sub_cpt"},
+        {{Instruction::Mul, {I32, I32}}, "__kmpc_atomic_fixed4_mul_cpt"},
+        {{Instruction::SDiv, {I32, I32}}, "__kmpc_atomic_fixed4_div_cpt"},
+        {{Instruction::UDiv, {I32, I32}}, "__kmpc_atomic_fixed4u_div_cpt"},
+        {{Instruction::And, {I32, I32}}, "__kmpc_atomic_fixed4_andb_cpt"},
+        {{Instruction::Or, {I32, I32}}, "__kmpc_atomic_fixed4_orb_cpt"},
+        {{Instruction::Xor, {I32, I32}}, "__kmpc_atomic_fixed4_xor_cpt"},
+        {{Instruction::Shl, {I32, I32}}, "__kmpc_atomic_fixed4_shl_cpt"},
+        {{Instruction::AShr, {I32, I32}}, "__kmpc_atomic_fixed4_shr_cpt"},
+        {{Instruction::LShr, {I32, I32}}, "__kmpc_atomic_fixed4u_shr_cpt"},
+        // I64 = I64 op I64
+        {{Instruction::Add, {I64, I64}}, "__kmpc_atomic_fixed8_add_cpt"},
+        {{Instruction::Sub, {I64, I64}}, "__kmpc_atomic_fixed8_sub_cpt"},
+        {{Instruction::Mul, {I64, I64}}, "__kmpc_atomic_fixed8_mul_cpt"},
+        {{Instruction::SDiv, {I64, I64}}, "__kmpc_atomic_fixed8_div_cpt"},
+        {{Instruction::UDiv, {I64, I64}}, "__kmpc_atomic_fixed8u_div_cpt"},
+        {{Instruction::And, {I64, I64}}, "__kmpc_atomic_fixed8_andb_cpt"},
+        {{Instruction::Or, {I64, I64}}, "__kmpc_atomic_fixed8_orb_cpt"},
+        {{Instruction::Xor, {I64, I64}}, "__kmpc_atomic_fixed8_xor_cpt"},
+        {{Instruction::Shl, {I64, I64}}, "__kmpc_atomic_fixed8_shl_cpt"},
+        {{Instruction::AShr, {I64, I64}}, "__kmpc_atomic_fixed8_shr_cpt"},
+        {{Instruction::LShr, {I64, I64}}, "__kmpc_atomic_fixed8u_shr_cpt"},
+        // F32 = F32 op F32
+        {{Instruction::FAdd, {F32, F32}}, "__kmpc_atomic_float4_add_cpt"},
+        {{Instruction::FSub, {F32, F32}}, "__kmpc_atomic_float4_sub_cpt"},
+        {{Instruction::FMul, {F32, F32}}, "__kmpc_atomic_float4_mul_cpt"},
+        {{Instruction::FDiv, {F32, F32}}, "__kmpc_atomic_float4_div_cpt"},
+};
 
 const std::map<VPOParoptAtomics::AtomicOperationTy, const std::string>
     VPOParoptAtomics::ReversedOpToCaptureIntrinsicMap = {
