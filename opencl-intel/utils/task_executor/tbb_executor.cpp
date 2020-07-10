@@ -360,15 +360,18 @@ int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger,
 void TBBTaskExecutor::InitTBBNuma()
 {
 #if __TBB_NUMA_SUPPORT
-    m_tbbNumaNodes = tbb::info::numa_nodes();
-    int nodesCount = (int)m_tbbNumaNodes.size();
     std::string envCPUPlaces;
     cl_err_code err = Intel::OpenCL::Utils::GetEnvVar(envCPUPlaces,
                                                       "DPCPP_CPU_PLACES");
-    // Only use TBB NUMA support if env is "numa_domains" and there are at least
-    // two NUMA nodes.
-    m_tbbNumaEnabled = CL_SUCCEEDED(err) && ("numa_domains" == envCPUPlaces) &&
-                       (nodesCount > 1);
+    if (CL_SUCCEEDED(err) && ("numa_domains" == envCPUPlaces)) {
+      // Only call tbb::info::numa_nodes if env is set, otherwise there is perf
+      // regression (CMPLRLLVM-20763) since this call take 45ms on 2-socket CLX.
+      m_tbbNumaNodes = tbb::info::numa_nodes();
+      int nodesCount = (int)m_tbbNumaNodes.size();
+      // Only use TBB NUMA support if env is "numa_domains" and there are at least
+      // two NUMA nodes.
+      m_tbbNumaEnabled = nodesCount > 1;
+    }
 #endif
 }
 
