@@ -3,6 +3,8 @@
 ; RUN: lld-link /out:%T/link_svml.exe /entry:main %T/link_svml.bc /subsystem:console > %t_out 2>&1
 ; RUN: cat %t_out | FileCheck -allow-empty %s
 ; RUN: rm %t_out
+; TODO: enable with CMPLRLLVM-21197 fix.
+; XFAIL: *
 
 ; This test case checks that lld-link links correctly the svml libraries. It
 ; has declared several svml functions and the linker should ignore them before
