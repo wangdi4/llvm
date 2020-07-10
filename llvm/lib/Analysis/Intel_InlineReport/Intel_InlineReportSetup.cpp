@@ -47,6 +47,8 @@ using namespace MDInliningReport;
 ///   64: Print both early exit and real inlining costs
 ///  128: Create metadata-based inline report
 ///  256: Create composite inline report for an -flto compilation.
+///  512: Create the inlining report info for the special intrinsic call sites
+/// 1024: Print the source language: 'C' for C/C++ and 'F' for Fortran
 ///
 cl::opt<unsigned>
 IntelInlineReportLevel("inline-report", cl::Hidden, cl::init(0),

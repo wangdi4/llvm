@@ -35,6 +35,8 @@ using namespace InlineReportTypes;
 
 std::string getLinkageStr(Function *F);
 
+std::string getLanguageStr(Function *F);
+
 // Inlining report metadata tags and constants.
 namespace MDInliningReport {
 
@@ -65,6 +67,7 @@ enum FuncField {
   FMDIR_IsDead,
   FMDIR_IsDeclaration,
   FMDIR_LinkageStr,
+  FMDIR_LanguageStr,
   FMDIR_SuppressPrintReport,
   FMDIR_Last,
 };
@@ -280,7 +283,7 @@ public:
   FunctionInliningReport(LLVMContext *C, std::string FuncName,
                          std::vector<MDTuple *> *CSs, std::string ModuleName,
                          bool IsDead, bool isDeclaration, bool isSuppressPrint,
-                         std::string LinkageChar);
+                         std::string LinkageChar, std::string LanguageChar);
 
   FunctionInliningReport(Function *F, std::vector<MDTuple *> *CSs, bool IsDead)
       : FunctionInliningReport(&(F->getParent()->getContext()),
@@ -289,7 +292,8 @@ public:
                                IsDead, F->isDeclaration(),
                                F->getMetadata(
                                    IPOUtils::getSuppressInlineReportStringRef()),
-                               std::string(getLinkageStr(F))) {}
+                               std::string(getLinkageStr(F)),
+                               std::string(getLanguageStr(F))) {}
 
   static bool isFunctionInliningReportMetadata(const Metadata *R);
 };
