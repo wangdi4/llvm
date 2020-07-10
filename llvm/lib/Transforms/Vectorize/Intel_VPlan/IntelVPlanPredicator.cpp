@@ -96,11 +96,17 @@ VPValue *VPlanPredicator::getOrCreateNot(VPValue *Cond) {
   if (It != Cond2NotCond.end())
     return It->second;
 
-  auto *Inst = dyn_cast<VPInstruction>(Cond);
-  auto *Not = (Inst ? VPBuilder().setInsertPoint(Inst->getParent(),
-                                                 ++Inst->getIterator())
-                    : VPBuilder().setInsertPoint(Plan.getEntryBlock()))
-                  .createNot(Cond, Cond->getName() + ".not");
+  VPBuilder Builder;
+  if (auto *Inst = dyn_cast<VPInstruction>(Cond))
+    if (isa<VPPHINode>(Inst))
+      Builder.setInsertPointFirstNonPhi(Inst->getParent());
+    else
+      Builder.setInsertPoint(Inst->getParent(), ++Inst->getIterator());
+  else
+    Builder.setInsertPointFirstNonPhi(Plan.getEntryBlock());
+
+  auto *Not = Builder.createNot(Cond, Cond->getName() + ".not");
+
   Plan.getVPlanDA()->updateDivergence(*Not);
 
   Cond2NotCond[Cond] = Not;
