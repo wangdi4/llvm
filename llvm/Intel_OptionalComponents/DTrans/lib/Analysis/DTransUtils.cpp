@@ -1144,12 +1144,35 @@ bool dtrans::hasZeroSizedArrayAsLastField(llvm::Type *Ty) {
 bool dtrans::isDummyFuncWithUnreachable(const CallBase *Call,
                                         const TargetLibraryInfo &TLI) {
 
+  // Returns true if "PtrOp" is accessing memory allocated by "AllocI".
+  // Ex:
+  // %AllocI = alloca %"bad_alloc", align 8
+  // %4 = getelementptr %"bad_alloc", %"bad_alloc"* %AllocI, i64 0, i32 0
+  // %5 = getelementptr inbounds %"exception", %"exception"* %4, i64 0, i32 1
+  // %6 = bitcast %__std_exception_data* %5 to i8*
+  // %7 = getelementptr inbounds i8, i8* %6, i64 8
+  // %PtrOp = bitcast i8* %7 to i64*
+  // store i64 0, i64* %PtrOp
+  std::function<bool(Value *, AllocaInst *)> IsPtrOpReferencesAllocaMem;
+  IsPtrOpReferencesAllocaMem =
+      [&IsPtrOpReferencesAllocaMem](Value *PtrOp, AllocaInst *AllocI) {
+        if (PtrOp == AllocI)
+          return true;
+        Value *Op = PtrOp;
+        if (auto BC = dyn_cast<BitCastInst>(Op))
+          Op = BC->getOperand(0);
+        if (auto GEPI = dyn_cast<GetElementPtrInst>(Op))
+          return IsPtrOpReferencesAllocaMem(GEPI->getPointerOperand(), AllocI);
+        return false;
+      };
+
   // Returns true if "BB" just calls _CxxThrowException function (Windows EH).
   // It allows store instructions that save data to std::bad_alloc object.
   //
   // entry:
   // %3 = alloca %"bad_alloc", align 8
-  // %4 = getelementptr %"bad_alloc", %"bad_alloc"* %3, i64 0, i32 0, i32 1
+  // %g1 = getelementptr %"bad_alloc", %"bad_alloc"* %3, i64 0, i32 0
+  // %4 = getelementptr %"exception", %"exception"* %g1, i64 0, i32 1
   // %5 = bitcast i8* %4 to i64*
   // store i64 0, i64* %5, align 8
   // %6 = getelementptr %"bad_alloc", %"bad_alloc"* %3, i64 0, i32 0, i32 1
@@ -1188,11 +1211,7 @@ bool dtrans::isDummyFuncWithUnreachable(const CallBase *Call,
       if (auto SI = dyn_cast<StoreInst>(&I)) {
         if (!isa<Constant>(SI->getValueOperand()))
           return false;
-        Value *PtrOp = SI->getPointerOperand();
-        if (auto BC = dyn_cast<BitCastInst>(PtrOp))
-          PtrOp = BC->getOperand(0);
-        auto GEPI = dyn_cast<GetElementPtrInst>(PtrOp);
-        if (!GEPI || GEPI->getPointerOperand() != AI)
+        if (!IsPtrOpReferencesAllocaMem(SI->getPointerOperand(), AI))
           return false;
         continue;
       }
