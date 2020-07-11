@@ -428,13 +428,9 @@ PassManagerBuilder::PassManagerBuilder() {
     PrepareForThinLTO = EnablePrepareForThinLTO;
     PerformThinLTO = EnablePerformThinLTO;
     DivergentTarget = false;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     DisableIntelProprietaryOpts = false;
 #endif // INTEL_CUSTOMIZATION
-    CallGraphProfile = true;
-=======
->>>>>>> 978a2e46542d01eff374a7e5aac70786935755a7
 }
 
 PassManagerBuilder::~PassManagerBuilder() {
