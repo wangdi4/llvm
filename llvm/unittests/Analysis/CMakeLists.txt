@@ -32,7 +32,6 @@ add_llvm_unittest(AnalysisTests
   LoopNestTest.cpp
   MemoryBuiltinsTest.cpp
   MemorySSATest.cpp
-  OrderedInstructionsTest.cpp
   PhiValuesTest.cpp
   ProfileSummaryInfoTest.cpp
   ScalarEvolutionTest.cpp
