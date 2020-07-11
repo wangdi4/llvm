@@ -20,11 +20,8 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/DemandedBits.h"
 #include "llvm/Analysis/GlobalsModRef.h"
-<<<<<<< HEAD
 #include "llvm/Analysis/Intel_Andersens.h"  // INTEL
-=======
 #include "llvm/IR/IRBuilder.h"
->>>>>>> 7bf168390fd05460b1c0df3fa570758c6be718fd
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
