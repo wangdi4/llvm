@@ -447,10 +447,6 @@ static cl::opt<bool>
 #endif // INTEL_INCLUDE_DTRANS
 #endif // INTEL_CUSTOMIZATION
 
-static cl::opt<bool> EnableCallGraphProfile(
-    "enable-npm-call-graph-profile", cl::init(true), cl::Hidden,
-    cl::desc("Enable call graph profile pass for the new PM (default = on)"));
-
 /// Flag to enable inline deferral during PGO.
 static cl::opt<bool>
     EnablePGOInlineDeferral("enable-npm-pgo-inline-deferral", cl::init(true),
@@ -466,7 +462,7 @@ PipelineTuningOptions::PipelineTuningOptions() {
   Coroutines = false;
   LicmMssaOptCap = SetLicmMssaOptCap;
   LicmMssaNoAccForPromotionCap = SetLicmMssaNoAccForPromotionCap;
-  CallGraphProfile = EnableCallGraphProfile;
+  CallGraphProfile = true;
 }
 
 extern cl::opt<bool> EnableHotColdSplit;
