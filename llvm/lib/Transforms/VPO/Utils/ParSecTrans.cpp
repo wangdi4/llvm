@@ -361,7 +361,9 @@ void VPOUtils::gatherImplicitSectionIterative(
 
     /// Add dominator children to worklist in reverse order to maintain preorder
     /// traversal
-    for (auto D = DomNode->end() - 1, E = DomNode->begin() - 1; D != E; --D) {
+    for (auto D = llvm::make_reverse_iterator(DomNode->end()),
+              E = llvm::make_reverse_iterator(DomNode->begin());
+         D != E; ++D) {
       auto DomChildBB = (*D)->getBlock();
       Worklist.push(DomChildBB);
     }
@@ -411,7 +413,9 @@ void VPOUtils::buildParSectTreeIterative(BasicBlock *BasicBlk,
     }
 
     /// Walk over dominator children.
-    for (auto D = DomNode->end() - 1, E = DomNode->begin() - 1; D != E; --D) {
+    for (auto D = llvm::make_reverse_iterator(DomNode->end()),
+              E = llvm::make_reverse_iterator(DomNode->begin());
+         D != E; ++D) {
       auto DomChildBB = (*D)->getBlock();
       Worklist.push(DomChildBB);
     }
