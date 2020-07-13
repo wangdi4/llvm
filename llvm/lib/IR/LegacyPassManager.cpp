@@ -425,8 +425,10 @@ char FunctionPassManagerImpl::ID = 0;
 bool FunctionPassManagerImpl::doInitialization(Module &M) {
   bool Changed = false;
 
+#if !INTEL_PRODUCT_RELEASE
   dumpArguments();
   dumpPasses();
+#endif // !INTEL_PRODUCT_RELEASE
 
   for (ImmutablePass *ImPass : getImmutablePasses())
     Changed |= ImPass->doInitialization(M);
@@ -641,8 +643,10 @@ char PassManagerImpl::ID = 0;
 bool PassManagerImpl::run(Module &M) {
   bool Changed = false;
 
+#if !INTEL_PRODUCT_RELEASE
   dumpArguments();
   dumpPasses();
+#endif // !INTEL_PRODUCT_RELEASE
 
   for (ImmutablePass *ImPass : getImmutablePasses())
     Changed |= ImPass->doInitialization(M);
@@ -1527,43 +1531,8 @@ bool FunctionPassManager::doInitialization() {
 bool FunctionPassManager::doFinalization() {
   return FPM->doFinalization(*M);
 }
-<<<<<<< HEAD
-
-//===----------------------------------------------------------------------===//
-// FunctionPassManagerImpl implementation
-//
-bool FunctionPassManagerImpl::doInitialization(Module &M) {
-  bool Changed = false;
-
-#if !INTEL_PRODUCT_RELEASE
-  dumpArguments();
-  dumpPasses();
-#endif // !INTEL_PRODUCT_RELEASE
-
-  for (ImmutablePass *ImPass : getImmutablePasses())
-    Changed |= ImPass->doInitialization(M);
-
-  for (unsigned Index = 0; Index < getNumContainedManagers(); ++Index)
-    Changed |= getContainedManager(Index)->doInitialization(M);
-
-  return Changed;
-}
-
-bool FunctionPassManagerImpl::doFinalization(Module &M) {
-  bool Changed = false;
-
-  for (int Index = getNumContainedManagers() - 1; Index >= 0; --Index)
-    Changed |= getContainedManager(Index)->doFinalization(M);
-
-  for (ImmutablePass *ImPass : getImmutablePasses())
-    Changed |= ImPass->doFinalization(M);
-
-  return Changed;
-}
-=======
 } // namespace legacy
 } // namespace llvm
->>>>>>> 21b4cc1db9f4eb6d6956802257e3a80f86045c67
 
 /// cleanup - After running all passes, clean up pass manager cache.
 void FPPassManager::cleanup() {
@@ -1835,39 +1804,8 @@ std::tuple<Pass *, bool> MPPassManager::getOnTheFlyPass(Pass *MP, AnalysisID PI,
                          Changed);
 }
 
-<<<<<<< HEAD
-//===----------------------------------------------------------------------===//
-// PassManagerImpl implementation
-
-//
-/// run - Execute all of the passes scheduled for execution.  Keep track of
-/// whether any of the passes modifies the module, and if so, return true.
-bool PassManagerImpl::run(Module &M) {
-  bool Changed = false;
-
-#if !INTEL_PRODUCT_RELEASE
-  dumpArguments();
-  dumpPasses();
-#endif // !INTEL_PRODUCT_RELEASE
-
-  for (ImmutablePass *ImPass : getImmutablePasses())
-    Changed |= ImPass->doInitialization(M);
-
-  initializeAllAnalysisInfo();
-  for (unsigned Index = 0; Index < getNumContainedManagers(); ++Index) {
-    Changed |= getContainedManager(Index)->runOnModule(M);
-    M.getContext().yield();
-  }
-
-  for (ImmutablePass *ImPass : getImmutablePasses())
-    Changed |= ImPass->doFinalization(M);
-
-  return Changed;
-}
-=======
 namespace llvm {
 namespace legacy {
->>>>>>> 21b4cc1db9f4eb6d6956802257e3a80f86045c67
 
 //===----------------------------------------------------------------------===//
 // PassManager implementation
