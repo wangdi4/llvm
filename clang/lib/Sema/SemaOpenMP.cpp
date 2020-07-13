@@ -4257,8 +4257,20 @@ static DeclRefExpr *buildCapture(Sema &S, ValueDecl *D, Expr *CaptureExpr,
 static ExprResult buildCapture(Sema &S, Expr *CaptureExpr, DeclRefExpr *&Ref) {
   CaptureExpr = S.DefaultLvalueConversion(CaptureExpr).get();
   if (!Ref) {
+#if INTEL_COLLAB
+    static unsigned int NumCaptures = 0;
+    SmallString<24> CaptureStr(".capture_expr.");
+    if (S.getLangOpts().OpenMPLateOutline) {
+      CaptureStr += std::to_string(NumCaptures);
+      ++NumCaptures;
+    }
+#endif // INTEL_COLLAB
     OMPCapturedExprDecl *CD = buildCaptureDecl(
+#if INTEL_COLLAB
+        S, &S.getASTContext().Idents.get(CaptureStr), CaptureExpr,
+#else // INTEL_COLLAB
         S, &S.getASTContext().Idents.get(".capture_expr."), CaptureExpr,
+#endif // INTEL_COLLAB
         /*WithInit=*/true, /*AsExpression=*/true);
     Ref = buildDeclRefExpr(S, CD, CD->getType().getNonReferenceType(),
                            CaptureExpr->getExprLoc());
