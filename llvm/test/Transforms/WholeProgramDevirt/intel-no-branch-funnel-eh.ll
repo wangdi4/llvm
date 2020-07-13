@@ -1,24 +1,18 @@
-; This test checks that devirtualization with multiversioning won't be applied
-; in functions that contain exception handling. It should generate the
-; branch funnel intrinsic.
+; This test checks that devirtualization with multiversioning will be applied
+; for target functions that contain exception handling.
 
 ; RUN: opt -S -wholeprogramdevirt -whole-program-visibility -wholeprogramdevirt-multiversion=true %s | FileCheck %s
+; RUN: opt -S -passes=wholeprogramdevirt -whole-program-visibility -wholeprogramdevirt-multiversion=true %s | FileCheck %s
 
-; Check that the virtual call in %result was substituted with a call to
-; the branch funnel
+; Check that the intrinsic for branch funnel wasn't created
+; CHECK-NOT: declare void @llvm.icall.branch.funnel(...)
+
+; Check that the virtual call %fptr_casted in @test1 is multiversioned into
+; vfn_1 and vfn_2 calls. vfn_1 has exception handling code.
 ; CHECK: define i32 @test1(i8* %obj)
-; CHECK: %2 = call i32 bitcast (void (i8*, ...)* @__typeid_type_id1_0_branch_funnel to i32 (i8*, i8*, i32)*)(i8* nest %1, i8* %obj, i32 1)
+; CHECK-DAG: call i32 @vfn_1(i8* %obj, i32 1)
+; CHECK-DAG: call i32 @vfn_2(i8* %obj, i32 1)
 
-
-; Check that the wrapper for the branch funnel was created
-; CHECK: define hidden void @__typeid_type_id1_0_branch_funnel(i8* nest %0, ...
-
-; Check that the branch funnel call was created with with the virtual calls vfn_1
-; and vfn_2
-; CHECK: musttail call void (...) @llvm.icall.branch.funnel(i8* %0, i8* bitcast ([1 x i8*]* @vt_1 to i8*), i32 (i8*, i32)* @vfn_1, i8* bitcast ([1 x i8*]* @vt_2 to i8*), i32 (i8*, i32)* @vfn_2, ...)
-
-; Check that the intrinsic for branch funnel was created
-; CHECK: declare void @llvm.icall.branch.funnel(...)
 
 target datalayout = "e-p:64:64"
 target triple = "x86_64-unknown-linux-gnu"
