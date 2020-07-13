@@ -1179,15 +1179,9 @@ static LoopUnrollResult tryToUnrollLoop(
   LoopUnrollResult UnrollResult = UnrollLoop(
       L,
       {UP.Count, TripCount, UP.Force, UP.Runtime, UP.AllowExpensiveTripCount,
-<<<<<<< HEAD
-       UseUpperBound, MaxOrZero, TripMultiple, UP.PeelCount, UP.UnrollRemainder,
+       UseUpperBound, MaxOrZero, TripMultiple, PP.PeelCount, UP.UnrollRemainder,
        ForgetAllSCEV}, LI, &SE, &DT, &AC,                      // INTEL
        LORBuilder, &TTI, &ORE, PreserveLCSSA, &RemainderLoop); // INTEL
-=======
-       UseUpperBound, MaxOrZero, TripMultiple, PP.PeelCount, UP.UnrollRemainder,
-       ForgetAllSCEV},
-      LI, &SE, &DT, &AC, &TTI, &ORE, PreserveLCSSA, &RemainderLoop);
->>>>>>> e541e1b757237172c247904b670c9894d6b3759d
   if (UnrollResult == LoopUnrollResult::Unmodified)
     return LoopUnrollResult::Unmodified;
 
