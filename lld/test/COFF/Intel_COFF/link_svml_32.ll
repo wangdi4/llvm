@@ -1,3 +1,6 @@
+; Temporarily disable the test (CMPLRLLVM-21197)
+; UNSUPPORTED: linux, windows
+
 ; REQUIRES: x86, system-windows
 ; RUN: llvm-as -o %T/link_svml.bc %s
 ; RUN: lld-link /out:%T/link_svml.exe /entry:main %T/link_svml.bc /subsystem:console > %t_out 2>&1
