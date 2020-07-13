@@ -1149,7 +1149,10 @@ public:
 
 protected:
   virtual VPBranchInst *cloneImpl() const final {
-    return new VPBranchInst(getType());
+    VPBranchInst *Cloned = new VPBranchInst(getType());
+    for (unsigned i = 0; i < getNumOperands(); i++)
+      Cloned->addOperand(getOperand(i));
+    return Cloned;
   }
 };
 

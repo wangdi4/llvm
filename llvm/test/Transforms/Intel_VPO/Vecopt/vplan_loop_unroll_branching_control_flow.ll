@@ -13,7 +13,7 @@
 ; }
 
 define dso_local void @divergent_control_flow(i32* nocapture %a, i32* nocapture %b, i32 %n) local_unnamed_addr #0 {
-; VPLAN-LABEL:  VPlan after loop unrolling
+; VPLAN-LABEL:  VPlan after loop unrolling:
 ; VPLAN-NEXT:    [[BB0:BB[0-9]+]]:
 ; VPLAN-NEXT:     <Empty Block>
 ; VPLAN-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -54,7 +54,7 @@ define dso_local void @divergent_control_flow(i32* nocapture %a, i32* nocapture 
 ; VPLAN-NEXT:    PREDECESSORS(1): [[BB4]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    [[BB6]]:
-; VPLAN-NEXT:     [DA: Div] i32 [[VP_PHI:%.*]] = blend [ i32 42, i1 [[VP_TOBOOL_NOT]] ], [ i32 0, i1 [[VP_TOBOOL]] ]
+; VPLAN-NEXT:     [DA: Div] i32 [[VP_PHI_BLEND_BB3:%.*]] = blend [ i32 42, i1 [[VP_TOBOOL_NOT]] ], [ i32 0, i1 [[VP_TOBOOL]] ]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT_1:%.*]] = add i64 [[VP_INDVARS_IV]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; VPLAN-NEXT:     [DA: Uni] i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]]
 ; VPLAN-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
@@ -85,7 +85,7 @@ define dso_local void @divergent_control_flow(i32* nocapture %a, i32* nocapture 
 ; VPLAN-NEXT:    PREDECESSORS(1): cloned.[[BB8]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    cloned.[[BB10]]:
-; VPLAN-NEXT:     [DA: Div] i32 [[VP_PHI_1:%.*]] = blend [ i32 42, i1 [[VP8]] ], [ i32 0, i1 [[VP_TOBOOL_1]] ]
+; VPLAN-NEXT:     [DA: Div] i32 [[VP_PHI:%.*]] = blend [ i32 42, i1 [[VP8]] ], [ i32 0, i1 [[VP_TOBOOL_1]] ]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT_2:%.*]] = add i64 [[VP_INDVARS_IV_NEXT_1]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; VPLAN-NEXT:     [DA: Uni] i64 [[VP12:%.*]] = add i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VF]]
 ; VPLAN-NEXT:     [DA: Uni] i1 [[VP13:%.*]] = icmp i64 [[VP12]] i64 [[VP_VECTOR_TRIP_COUNT]]
@@ -116,7 +116,7 @@ define dso_local void @divergent_control_flow(i32* nocapture %a, i32* nocapture 
 ; VPLAN-NEXT:    PREDECESSORS(1): cloned.[[BB12]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    cloned.[[BB3]]:
-; VPLAN-NEXT:     [DA: Div] i32 [[VP_PHI_2:%.*]] = blend [ i32 42, i1 [[VP16]] ], [ i32 0, i1 [[VP_TOBOOL_2]] ]
+; VPLAN-NEXT:     [DA: Div] i32 [[VP_PHI_1:%.*]] = blend [ i32 42, i1 [[VP16]] ], [ i32 0, i1 [[VP_TOBOOL_2]] ]
 ; VPLAN-NEXT:     [DA: Div] i64 [[VP_INDVARS_IV_NEXT]] = add i64 [[VP_INDVARS_IV_NEXT_2]] i64 [[VP_INDVARS_IV_IND_INIT_STEP]]
 ; VPLAN-NEXT:     [DA: Uni] i64 [[VP0]] = add i64 [[VP12]] i64 [[VP_VF]]
 ; VPLAN-NEXT:     [DA: Uni] i1 [[VP20:%.*]] = icmp i64 [[VP0]] i64 [[VP_VECTOR_TRIP_COUNT]]
@@ -304,7 +304,7 @@ omp.precond.end:                                  ; preds = %DIR.OMP.END.SIMD.3,
 }
 
 define dso_local void @uniform_control_flow(i32* nocapture %a, i32* nocapture %b, i32 %n) local_unnamed_addr #0 {
-; VPLAN-LABEL:  VPlan after loop unrolling
+; VPLAN-LABEL:  VPlan after loop unrolling:
 ; VPLAN-NEXT:    [[BB0:BB[0-9]+]]:
 ; VPLAN-NEXT:     <Empty Block>
 ; VPLAN-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -375,7 +375,7 @@ define dso_local void @uniform_control_flow(i32* nocapture %a, i32* nocapture %b
 ; VPLAN-NEXT:     [DA: Uni] i64 [[VP7:%.*]] = add i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VF]]
 ; VPLAN-NEXT:     [DA: Uni] i1 [[VP8:%.*]] = icmp i64 [[VP7]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-NEXT:    SUCCESSORS(1):cloned.[[BB11:BB[0-9]+]]
-; VPLAN-NEXT:    PREDECESSORS(2): cloned.[[BB8]] cloned.[[BB9]]
+; VPLAN-NEXT:    PREDECESSORS(2): cloned.[[BB9]] cloned.[[BB8]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    cloned.[[BB11]]:
 ; VPLAN-NEXT:     [DA: Div] i32* [[VP_ARRAYIDX_2:%.*]] = getelementptr inbounds i32* [[A0]] i64 [[VP_INDVARS_IV_NEXT_2]]
@@ -403,7 +403,7 @@ define dso_local void @uniform_control_flow(i32* nocapture %a, i32* nocapture %b
 ; VPLAN-NEXT:     [DA: Uni] i64 [[VP0]] = add i64 [[VP7]] i64 [[VP_VF]]
 ; VPLAN-NEXT:     [DA: Uni] i1 [[VP12:%.*]] = icmp i64 [[VP0]] i64 [[VP_VECTOR_TRIP_COUNT]]
 ; VPLAN-NEXT:    SUCCESSORS(2):[[BB14:BB[0-9]+]](i1 [[VP12]]), [[BB2]](!i1 [[VP12]])
-; VPLAN-NEXT:    PREDECESSORS(2): cloned.[[BB12]] cloned.[[BB13]]
+; VPLAN-NEXT:    PREDECESSORS(2): cloned.[[BB13]] cloned.[[BB12]]
 ; VPLAN-EMPTY:
 ; VPLAN-NEXT:    [[BB14]]:
 ; VPLAN-NEXT:     [DA: Uni] i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
@@ -516,7 +516,7 @@ define dso_local void @uniform_control_flow(i32* nocapture %a, i32* nocapture %b
 ; CG-NEXT:    [[TMP27]] = add nuw nsw i64 [[TMP17]], 4
 ; CG-NEXT:    [[TMP28]] = add i64 [[TMP18]], 4
 ; CG-NEXT:    [[TMP29:%.*]] = icmp eq i64 [[TMP28]], [[N_VEC0]]
-; CG-NEXT:    br i1 [[TMP29]], label [[VPLANNEDBB230:%.*]], label [[VECTOR_BODY0]]
+; CG-NEXT:    br i1 [[TMP29]], label [[VPLANNEDBB23:%.*]], label [[VECTOR_BODY0]]
 ; CG-EMPTY:
 ; CG-NEXT:  VPlannedBB23:
 ; CG-NEXT:    [[TMP30:%.*]] = mul i64 1, [[N_VEC0]]

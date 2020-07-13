@@ -162,29 +162,13 @@ void VPlanLoopUnroller::run(VPInstUnrollPartTy *VPInstUnrollPart) {
 
     // Remap operands.
     VPValueMapper Mapper(ValueMap);
-    for (VPBasicBlock *Block : VPL->blocks()) {
-      auto *ClonedBlock = cast<VPBasicBlock>(ValueMap[Block]);
+    auto UnrollerPart = [VPInstUnrollPart, Part](VPInstruction &Inst) {
+      if (VPInstUnrollPart)
+        VPInstUnrollPart->insert(std::make_pair(&Inst, Part + 1));
+    };
 
-      for (VPInstruction &Inst : *ClonedBlock) {
-        if (!isa<VPBranchInst>(Inst))
-          // Skip remapping operands for terminators because them are already
-          // remapped by VPCloneUtils
-          Mapper.remapInstruction(&Inst);
-
-        // Save unrolled part number for the instruction if needed.
-        if (VPInstUnrollPart)
-          VPInstUnrollPart->insert(std::make_pair(&Inst, Part + 1));
-      }
-
-      // Fix cond bit.
-      if (VPValue *CondBit = Block->getCondBit())
-        ClonedBlock->setCondBit(ValueMap[CondBit]);
-
-      // Fix cond predicate.
-      if (VPInstruction *BlockPredicate = Block->getBlockPredicate())
-        ClonedBlock->setBlockPredicate(
-            cast<VPInstruction>(ValueMap[BlockPredicate]));
-    }
+    for (VPBasicBlock *Block : VPL->blocks())
+      Mapper.remapOperands(Block, UnrollerPart);
 
     // Insert cloned blocks into the loop.
     ClonedLatch->clearSuccessors();
