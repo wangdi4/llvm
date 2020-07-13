@@ -2084,7 +2084,11 @@ define <32 x i8> @constant_funnnel_v32i8(<32 x i8> %x, <32 x i8> %y) nounwind {
 ; AVX512VL-NEXT:    vpsrlw $8, %ymm2, %ymm2
 ; AVX512VL-NEXT:    vpackuswb %ymm3, %ymm2, %ymm2
 ; AVX512VL-NEXT:    vpor %ymm2, %ymm0, %ymm0
+<<<<<<< HEAD
 ; AVX512VL-NEXT:    vpternlogq $228, {{.*}}(%rip){1to4}, %ymm1, %ymm0 ;INTEL
+=======
+; AVX512VL-NEXT:    vpternlogq $228, {{.*}}(%rip){1to4}, %ymm1, %ymm0
+>>>>>>> 122a45fbac059be0fb88b2b909191d7a93ce9c09
 ; AVX512VL-NEXT:    retq
 ;
 ; AVX512BW-LABEL: constant_funnnel_v32i8:
