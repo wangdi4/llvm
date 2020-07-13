@@ -36,6 +36,11 @@ static cl::opt<bool>
                          cl::init(false), cl::Hidden,
                          cl::desc("print reduction operation"));
 
+static cl::opt<bool>
+    PrintUnsafeAlgebra("hir-safe-reduction-analysis-print-unsafe-algebra",
+                       cl::init(false), cl::Hidden,
+                       cl::desc("print safe reduction unsafe algebra"));
+
 void HLInst::initialize() {
   /// This call is to get around calling virtual functions in the constructor.
   unsigned NumOp = getNumOperandsInternal();
@@ -340,6 +345,11 @@ void HLInst::printReductionInfo(formatted_raw_ostream &OS) const {
     if (PrintSafeReductionOp) {
       OS << " Red Op: " << (SRA->getSafeRedInfo(this))->OpCode;
     }
+
+    if (PrintUnsafeAlgebra) {
+      StringRef Msg = HasUnsafeAlgebra ? " Yes" : " No";
+      OS << " <Has Unsafe Algebra-" << Msg << ">";
+    }
   }
 
   HIRSparseArrayReductionAnalysis *SARA =
@@ -350,10 +360,6 @@ void HLInst::printReductionInfo(formatted_raw_ostream &OS) const {
   if (SARA && SARA->isSparseArrayReduction(this)) {
     OS << " <Sparse Array Reduction>";
   }
-
-  // Unsafe Algebra:
-  StringRef Msg = HasUnsafeAlgebra ? " Yes" : " No";
-  OS << " <Has Unsafe Algebra-" << Msg << ">";
 }
 
 RegDDRef *HLInst::getLvalDDRef() {

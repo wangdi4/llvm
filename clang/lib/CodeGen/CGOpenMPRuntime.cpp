@@ -1413,8 +1413,16 @@ Address CGOpenMPRuntime::getOrCreateDefaultLocation(unsigned Flags) {
       // https://github.com/llvm/llvm-project/blob/master/openmp/runtime/src/kmp_str.cpp
       DefaultOpenMPPSource =
           CGM.GetAddrOfConstantCString(";unknown;unknown;0;0;;").getPointer();
+#if INTEL_COLLAB
+      auto *PtrTy = cast<llvm::PointerType>(DefaultOpenMPPSource->getType());
+      llvm::Type *DestTy = llvm::PointerType::get(
+          CGM.Int8PtrTy->getElementType(), PtrTy->getPointerAddressSpace());
+      DefaultOpenMPPSource =
+          llvm::ConstantExpr::getBitCast(DefaultOpenMPPSource, DestTy);
+#else // INTEL_COLLAB
       DefaultOpenMPPSource =
           llvm::ConstantExpr::getBitCast(DefaultOpenMPPSource, CGM.Int8PtrTy);
+#endif // INTEL_COLLAB
     }
 
     llvm::Constant *Data[] = {
