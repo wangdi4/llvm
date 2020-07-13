@@ -2510,7 +2510,10 @@ RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level,
 
   // We pass underCast as 'true' as we don't want to hide the topmost cast for
   // upper.
-  if (!parseRecursive(BETC, CE, Level, true, true, true)) {
+  // Sometimes the upper may be parsed as non-linear if some of the invariant
+  // computation was not hoisted out of the loop and parsed as a blob instead.
+  // We should make the loop unknown in that case.
+  if (!parseRecursive(BETC, CE, Level, true, true, true) || CE->isNonLinear()) {
     getCanonExprUtils().destroy(CE);
     return nullptr;
   }
