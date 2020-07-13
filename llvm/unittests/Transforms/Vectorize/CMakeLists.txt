@@ -9,6 +9,7 @@ add_llvm_unittest(VectorizeTests
 # INTEL_CUSTOMIZATION
   IntelVPlanAlignmentAnalysisTest.cpp
   IntelVPlanCheckNodeParent.cpp
+  IntelVPlanClonePlanTest.cpp
   IntelVPlanValueTrackingTest.cpp
   IntelVPlanVPSubscriptTest.cpp
 # end INTEL_CUSTOMIZATION
