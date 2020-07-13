@@ -419,71 +419,6 @@ public:
 void FunctionPassManagerImpl::anchor() {}
 
 char FunctionPassManagerImpl::ID = 0;
-<<<<<<< HEAD
-
-//===----------------------------------------------------------------------===//
-// FunctionPassManagerImpl implementation
-//
-bool FunctionPassManagerImpl::doInitialization(Module &M) {
-  bool Changed = false;
-
-#if !INTEL_PRODUCT_RELEASE
-  dumpArguments();
-  dumpPasses();
-#endif // !INTEL_PRODUCT_RELEASE
-
-  for (ImmutablePass *ImPass : getImmutablePasses())
-    Changed |= ImPass->doInitialization(M);
-
-  for (unsigned Index = 0; Index < getNumContainedManagers(); ++Index)
-    Changed |= getContainedManager(Index)->doInitialization(M);
-
-  return Changed;
-}
-
-bool FunctionPassManagerImpl::doFinalization(Module &M) {
-  bool Changed = false;
-
-  for (int Index = getNumContainedManagers() - 1; Index >= 0; --Index)
-    Changed |= getContainedManager(Index)->doFinalization(M);
-
-  for (ImmutablePass *ImPass : getImmutablePasses())
-    Changed |= ImPass->doFinalization(M);
-
-  return Changed;
-}
-
-void FunctionPassManagerImpl::releaseMemoryOnTheFly() {
-  if (!wasRun)
-    return;
-  for (unsigned Index = 0; Index < getNumContainedManagers(); ++Index) {
-    FPPassManager *FPPM = getContainedManager(Index);
-    for (unsigned Index = 0; Index < FPPM->getNumContainedPasses(); ++Index) {
-      FPPM->getContainedPass(Index)->releaseMemory();
-    }
-  }
-  wasRun = false;
-}
-
-// Execute all the passes managed by this top level manager.
-// Return true if any function is modified by a pass.
-bool FunctionPassManagerImpl::run(Function &F) {
-  bool Changed = false;
-
-  initializeAllAnalysisInfo();
-  for (unsigned Index = 0; Index < getNumContainedManagers(); ++Index) {
-    Changed |= getContainedManager(Index)->runOnFunction(F);
-    F.getContext().yield();
-  }
-
-  for (unsigned Index = 0; Index < getNumContainedManagers(); ++Index)
-    getContainedManager(Index)->cleanup();
-
-  wasRun = true;
-  return Changed;
-}
-=======
->>>>>>> fdb7856d54a1f81bab0ac0c8a4e984620589e699
 } // namespace legacy
 } // namespace llvm
 
@@ -637,38 +572,6 @@ public:
 void PassManagerImpl::anchor() {}
 
 char PassManagerImpl::ID = 0;
-<<<<<<< HEAD
-
-//===----------------------------------------------------------------------===//
-// PassManagerImpl implementation
-
-//
-/// run - Execute all of the passes scheduled for execution.  Keep track of
-/// whether any of the passes modifies the module, and if so, return true.
-bool PassManagerImpl::run(Module &M) {
-  bool Changed = false;
-
-#if !INTEL_PRODUCT_RELEASE
-  dumpArguments();
-  dumpPasses();
-#endif // !INTEL_PRODUCT_RELEASE
-
-  for (ImmutablePass *ImPass : getImmutablePasses())
-    Changed |= ImPass->doInitialization(M);
-
-  initializeAllAnalysisInfo();
-  for (unsigned Index = 0; Index < getNumContainedManagers(); ++Index) {
-    Changed |= getContainedManager(Index)->runOnModule(M);
-    M.getContext().yield();
-  }
-
-  for (ImmutablePass *ImPass : getImmutablePasses())
-    Changed |= ImPass->doFinalization(M);
-
-  return Changed;
-}
-=======
->>>>>>> fdb7856d54a1f81bab0ac0c8a4e984620589e699
 } // namespace legacy
 } // namespace llvm
 
@@ -1542,8 +1445,10 @@ bool FunctionPassManager::doFinalization() {
 bool FunctionPassManagerImpl::doInitialization(Module &M) {
   bool Changed = false;
 
+#if !INTEL_PRODUCT_RELEASE
   dumpArguments();
   dumpPasses();
+#endif // !INTEL_PRODUCT_RELEASE
 
   for (ImmutablePass *ImPass : getImmutablePasses())
     Changed |= ImPass->doInitialization(M);
@@ -1874,8 +1779,10 @@ std::tuple<Pass *, bool> MPPassManager::getOnTheFlyPass(Pass *MP, AnalysisID PI,
 bool PassManagerImpl::run(Module &M) {
   bool Changed = false;
 
+#if !INTEL_PRODUCT_RELEASE
   dumpArguments();
   dumpPasses();
+#endif // !INTEL_PRODUCT_RELEASE
 
   for (ImmutablePass *ImPass : getImmutablePasses())
     Changed |= ImPass->doInitialization(M);
