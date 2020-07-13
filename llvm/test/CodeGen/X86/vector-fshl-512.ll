@@ -1184,11 +1184,7 @@ define <64 x i8> @constant_funnnel_v64i8(<64 x i8> %x, <64 x i8> %y) nounwind {
 ; AVX512F-NEXT:    vpackuswb %ymm5, %ymm1, %ymm1
 ; AVX512F-NEXT:    vinserti64x4 $1, %ymm3, %zmm1, %zmm1
 ; AVX512F-NEXT:    vporq %zmm1, %zmm2, %zmm1
-<<<<<<< HEAD
-; AVX512F-NEXT:    vpternlogq $216, {{.*}}(%rip){1to8}, %zmm1, %zmm0 ;INTEL
-=======
 ; AVX512F-NEXT:    vpternlogq $216, {{.*}}(%rip){1to8}, %zmm1, %zmm0
->>>>>>> 122a45fbac059be0fb88b2b909191d7a93ce9c09
 ; AVX512F-NEXT:    retq
 ;
 ; AVX512VL-LABEL: constant_funnnel_v64i8:
@@ -1239,11 +1235,7 @@ define <64 x i8> @constant_funnnel_v64i8(<64 x i8> %x, <64 x i8> %y) nounwind {
 ; AVX512VL-NEXT:    vpackuswb %ymm5, %ymm1, %ymm1
 ; AVX512VL-NEXT:    vinserti64x4 $1, %ymm3, %zmm1, %zmm1
 ; AVX512VL-NEXT:    vporq %zmm1, %zmm2, %zmm1
-<<<<<<< HEAD
-; AVX512VL-NEXT:    vpternlogq $216, {{.*}}(%rip){1to8}, %zmm1, %zmm0 ;INTEL
-=======
 ; AVX512VL-NEXT:    vpternlogq $216, {{.*}}(%rip){1to8}, %zmm1, %zmm0
->>>>>>> 122a45fbac059be0fb88b2b909191d7a93ce9c09
 ; AVX512VL-NEXT:    retq
 ;
 ; AVX512BW-LABEL: constant_funnnel_v64i8:
