@@ -456,7 +456,9 @@ bool VPOParoptModuleTransform::doParoptTransforms(
     std::function<TargetLibraryInfo &(Function &F)> TLIGetter) {
 
   bool Changed = false;
-  bool IsTargetSPIRV = VPOAnalysisUtils::isTargetSPIRV(&M) && !DisableOffload;
+  bool IsTargetSPIRV = VPOAnalysisUtils::isTargetSPIRV(&M);
+  assert((!DisableOffload || !IsTargetSPIRV) &&
+         "Compilation for SPIR-V target without -fopenmp-targets?");
 
   processDeviceTriples();
 
@@ -553,7 +555,7 @@ bool VPOParoptModuleTransform::doParoptTransforms(
 #if INTEL_CUSTOMIZATION
         ORVerbosity,
 #endif // INTEL_CUSTOMIZATION
-        WI.getORE(), OptLevel, SwitchToOffload, DisableOffload);
+        WI.getORE(), OptLevel, DisableOffload);
     Changed = Changed | VP.paroptTransforms();
 
     LLVM_DEBUG(dbgs() << "\n}=== VPOParoptPass after ParoptTransformer\n");

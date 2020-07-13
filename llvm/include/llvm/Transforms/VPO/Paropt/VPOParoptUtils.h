@@ -1587,6 +1587,10 @@ public:
   /// Replace users of \p Old with \p New value in the function \p F.
   static void replaceUsesInFunction(Function *F, Value *Old, Value *New);
 
+  /// Returns true, if this is a target compilation invocation
+  /// forced by dedicated compiler option.
+  static bool isForcedTargetCompilation();
+
 private:
   /// \name Private constructor and destructor to disable instantiation.
   /// @{

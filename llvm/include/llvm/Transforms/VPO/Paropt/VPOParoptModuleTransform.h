@@ -29,6 +29,7 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
 #include "llvm/Transforms/VPO/Paropt/VPOParopt.h"
+#include "llvm/Transforms/VPO/Paropt/VPOParoptUtils.h"
 
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Intel_OptReport/LoopOptReportBuilder.h"
@@ -56,13 +57,12 @@ class VPOParoptModuleTransform {
 public:
   /// ParoptModuleTransform object constructor
   VPOParoptModuleTransform(Module &M, int Mode, unsigned OptLevel = 2,
-                           bool SwitchToOffload = false,
                            bool DisableOffload = false)
       : M(M), C(M.getContext()), Mode(Mode),
 #if INTEL_CUSTOMIZATION
         ORVerbosity(OptReportVerbosity::Low),
 #endif  // INTEL_CUSTOMIZATION
-        OptLevel(OptLevel), SwitchToOffload(SwitchToOffload),
+        OptLevel(OptLevel),
         DisableOffload(DisableOffload), TgtOffloadEntryTy(nullptr),
         TgDeviceImageTy(nullptr), TgBinaryDescriptorTy(nullptr),
         DsoHandle(nullptr), PrintfDecl(nullptr), OCLPrintfDecl(nullptr) {}
@@ -107,9 +107,6 @@ private:
 
   /// Optimization level.
   unsigned OptLevel;
-
-  /// Offload compilation mode.
-  bool SwitchToOffload;
 
   /// Ignore TARGET constructs
   bool DisableOffload;
@@ -292,7 +289,7 @@ private:
 
   /// Return true if the program is compiled at the offload mode.
   bool hasOffloadCompilation() const {
-    return ((Mode & OmpOffload) || SwitchToOffload);
+    return ((Mode & OmpOffload) || VPOParoptUtils::isForcedTargetCompilation());
   }
 
   /// Remove routines and global variables which has no target declare

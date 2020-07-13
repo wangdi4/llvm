@@ -9758,7 +9758,7 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
 
   if (!CanHoistCombinedUBBeforeTarget &&
       VPOParoptUtils::getSPIRExecutionScheme() == spirv::ImplicitSIMDSPMDES &&
-      VPOAnalysisUtils::isTargetSPIRV(F->getParent())) {
+      isTargetSPIRV()) {
     // Emit opt-report only during SPIR compilation.
     OptimizationRemarkMissed R("openmp", "Target", W->getEntryDirective());
     R << "Consider using OpenMP combined construct "
@@ -9808,7 +9808,7 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
            VPOParoptUtils::getSPIRExecutionScheme() ==
            spirv::ImplicitSIMDSPMDES) {
     // Do not collapse the loop nest for SPIR target.
-    if (VPOAnalysisUtils::isTargetSPIRV(F->getParent())) {
+    if (isTargetSPIRV()) {
       if (W->getCollapse() == 0)
         LLVM_DEBUG(dbgs() <<
                    "ND-range parallelization will be applied for loop.\n");
@@ -10369,8 +10369,7 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
     // At the same time, inside the parallel regions we only really read
     // from the new LB/UB variables, so they perfectly fit for WILOCAL
     // markup for target and teams.
-    bool MarkLBUBWILocal =
-        VPOAnalysisUtils::isTargetSPIRV(F->getParent()) &&
+    bool MarkLBUBWILocal = isTargetSPIRV() &&
         (isa<WRNTeamsNode>(P) || isa<WRNTargetNode>(P));
 #endif  // INTEL_CUSTOMIZATION
     StringRef FPString;
