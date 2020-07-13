@@ -786,6 +786,17 @@ let Types = [v1u8, v1u16, v1u32, v1u64], NeedWidenTypes = 0 in {
     def intel_sub_group_block_write_us#len#_img_rw_vect_info :VectInfo<[], !cast<OclBuiltin>("intel_sub_group_block_write_us"#len#"_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_write_us"#len#"_4_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_write_us"#len#"_8_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_write_us"#len#"_16_img_rw")>;
   }
 }
+
+// Mapping for uchar16 block read/write
+let Types = [v1u8], NeedWidenTypes=0 in {
+    def intel_sub_group_block_read_us16_vect_info :VectInfo<[], !cast<OclBuiltin>("intel_sub_group_block_read_us16"), !cast<OclBuiltin>("intel_sub_group_block_read_us16_4"), !cast<OclBuiltin>("intel_sub_group_block_read_us16_8"), !cast<OclBuiltin>("intel_sub_group_block_read_us16_16")>;
+    def intel_sub_group_block_write_us16_vect_info :VectInfo<[], !cast<OclBuiltin>("intel_sub_group_block_write_us16"), !cast<OclBuiltin>("intel_sub_group_block_write_us16_4"), !cast<OclBuiltin>("intel_sub_group_block_write_us16_8"), !cast<OclBuiltin>("intel_sub_group_block_write_us16_16")>;
+    def intel_sub_group_block_read_us16_img_vect_info :VectInfo<[], !cast<OclBuiltin>("intel_sub_group_block_read_us16_img"), !cast<OclBuiltin>("intel_sub_group_block_read_us16_4_img"), !cast<OclBuiltin>("intel_sub_group_block_read_us16_8_img"), !cast<OclBuiltin>("intel_sub_group_block_read_us16_16_img")>;
+    def intel_sub_group_block_write_us16_img_vect_info :VectInfo<[], !cast<OclBuiltin>("intel_sub_group_block_write_us16_img"), !cast<OclBuiltin>("intel_sub_group_block_write_us16_4_img"), !cast<OclBuiltin>("intel_sub_group_block_write_us16_8_img"), !cast<OclBuiltin>("intel_sub_group_block_write_us16_16_img")>;
+    def intel_sub_group_block_read_us16_img_rw_vect_info :VectInfo<[], !cast<OclBuiltin>("intel_sub_group_block_read_us16_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_read_us16_4_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_read_us16_8_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_read_us16_16_img_rw")>;
+    def intel_sub_group_block_write_us16_img_rw_vect_info :VectInfo<[], !cast<OclBuiltin>("intel_sub_group_block_write_us16_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_write_us16_4_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_write_us16_8_img_rw"), !cast<OclBuiltin>("intel_sub_group_block_write_us16_16_img_rw")>;
+}
+
 let Types = [v1i32] in {
 def intel_sub_group_ballot_vect_info : VectInfo<[], intel_sub_group_ballot, intel_sub_group_ballot_vf4, intel_sub_group_ballot_vf8, intel_sub_group_ballot_vf16>;
 }
