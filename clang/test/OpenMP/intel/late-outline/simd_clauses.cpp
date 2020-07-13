@@ -24,13 +24,17 @@ void foo()
   int *y,*z,*x, *q;
   double simple;
 
+  // CHECK: [[LY:%[0-9]+]] = load i32*, i32** [[Y_ADDR]], align 8
+  // CHECK: [[LZ:%[0-9]+]] = load i32*, i32** [[Z_ADDR]], align 8
+  // CHECK: [[LX:%[0-9]+]] = load i32*, i32** [[X_ADDR]], align 8
+  // CHECK: [[LQ:%[0-9]+]] = load i32*, i32** [[Q_ADDR]], align 8
   // CHECK: region.entry() [ "DIR.OMP.SIMD"()
   // CHECK-SAME: "QUAL.OMP.SAFELEN"(i32 4)
   // CHECK-SAME: "QUAL.OMP.SIMDLEN"(i32 4)
   // CHECK-SAME: "QUAL.OMP.COLLAPSE"(i32 2)
-  // CHECK-SAME: "QUAL.OMP.ALIGNED"(i32** [[Y_ADDR]], i32** [[Z_ADDR]], i32 8)
-  // CHECK-SAME: "QUAL.OMP.ALIGNED"(i32** [[X_ADDR]], i32 4)
-  // CHECK-SAME: "QUAL.OMP.ALIGNED"(i32** [[Q_ADDR]], i32 0)
+  // CHECK-SAME: "QUAL.OMP.ALIGNED"(i32* [[LY]], i32* [[LZ]], i32 8)
+  // CHECK-SAME: "QUAL.OMP.ALIGNED"(i32* [[LX]], i32 4)
+  // CHECK-SAME: "QUAL.OMP.ALIGNED"(i32* [[LQ]], i32 0)
   // CHECK-SAME: "QUAL.OMP.LASTPRIVATE"(double* [[SIMPLE_ADDR]])
   // CHECK-SAME: "QUAL.OMP.LASTPRIVATE:NONPOD"(%struct.A* @obj,
   // CHECK-SAME: %struct.A* (%struct.A*)* @_ZTS1A.omp.def_constr,

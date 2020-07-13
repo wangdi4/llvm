@@ -1278,7 +1278,10 @@ void OpenMPLateOutliner::emitOMPAlignedClause(const OMPAlignedClause *Cl) {
   addArg("QUAL.OMP.ALIGNED");
   for (auto *E : Cl->varlists()) {
     E = E->IgnoreParenImpCasts();
-    addArg(E);
+    if (E->getType()->isPointerType())
+      addArg(CGF.EmitScalarExpr(E));
+    else
+      addArg(E);
   }
   addArg(Cl->getAlignment() ? CGF.EmitScalarExpr(Cl->getAlignment())
                             : CGF.Builder.getInt32(0));
