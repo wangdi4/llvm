@@ -171,10 +171,8 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     // operands as Vector.
     auto SetSVAKindForArgOperands = [this](const VPCallInstruction *VPCall,
                                            const SVAKind Kind) {
-      for (auto *ArgOp : VPCall->arg_operands()) {
-        unsigned ArgOpIdx = VPCall->getOperandIndex(ArgOp);
-        setSVAKindForOperand(VPCall, ArgOpIdx, Kind);
-      }
+      for (unsigned ArgIdx = 0; ArgIdx < VPCall->arg_size(); ++ArgIdx)
+        setSVAKindForOperand(VPCall, ArgIdx, Kind);
     };
 
     const VPCallInstruction *VPCall = cast<VPCallInstruction>(Inst);
