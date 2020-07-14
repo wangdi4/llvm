@@ -220,15 +220,11 @@ def OMP_ThreadPrivate : Directive<"threadprivate"> {}
 def OMP_Parallel : Directive<"parallel"> {
   let allowedClauses = [
     VersionedClause<OMPC_Default>,
-<<<<<<< HEAD
-    VersionedClause<OMPC_ProcBind>,
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CSA
     VersionedClause<OMPC_dataflow>,
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 6e42a417bacbfd5a1f58b0ccb7c9b34ff9e54523
     VersionedClause<OMPC_Private>,
     VersionedClause<OMPC_FirstPrivate>,
     VersionedClause<OMPC_Shared>,
@@ -1511,7 +1507,6 @@ def OMP_Scan : Directive<"scan"> {
 }
 def OMP_BeginDeclareVariant : Directive<"begin declare variant"> {}
 def OMP_EndDeclareVariant : Directive<"end declare variant"> {}
-<<<<<<< HEAD
 
 #if INTEL_COLLAB
 def OMP_target_variant_dispatch : Directive<"target variant dispatch"> {
@@ -1615,8 +1610,6 @@ def OMP_target_parallel_loop : Directive<"target parallel loop"> {
 }
 #endif // INTEL_COLLAB
 
-def OMP_ParallelWorkshare : Directive<"parallel workshare"> {}
-=======
 def OMP_ParallelWorkshare : Directive<"parallel workshare"> {
   let allowedClauses = [
     VersionedClause<OMPC_Allocate>,
@@ -1633,7 +1626,6 @@ def OMP_ParallelWorkshare : Directive<"parallel workshare"> {
     VersionedClause<OMPC_ProcBind>
   ];
 }
->>>>>>> 6e42a417bacbfd5a1f58b0ccb7c9b34ff9e54523
 def OMP_Workshare : Directive<"workshare"> {}
 def OMP_EndDo : Directive<"end do"> {}
 def OMP_EndDoSimd : Directive<"end do simd"> {}
