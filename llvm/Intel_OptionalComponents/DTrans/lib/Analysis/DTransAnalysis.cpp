@@ -7266,47 +7266,6 @@ private:
            DTAA.isMallocPostDom(Call);
   }
 
-  static bool isLoadedValueUnused(Value *V, Value *LoadAddr,
-                                  SmallPtrSetImpl<Value *> &UsedValues) {
-    for (auto U : V->users()) {
-      // If we've seen this user before, assume its path is OK.
-      if (!UsedValues.insert(U).second)
-        continue;
-
-      // If the user is a call or invoke, the value escapes.
-      // If needed this can be extended for pure functions.
-      if (isa<CallBase>(U))
-        return false;
-
-      // If the value is used by a terminator, it's used.
-      if (cast<Instruction>(U)->isTerminator())
-        return false;
-
-      // If the user is a store, check the target address.
-      if (auto *SI = dyn_cast<StoreInst>(U)) {
-        // If it is volatile or it doesn't match the load address, the value is
-        // used.
-        if (SI->isVolatile() || SI->getPointerOperand() != LoadAddr)
-          return false;
-
-        continue;
-      }
-
-      // If load is volatile, the value is used.
-      if (auto *LI = dyn_cast<LoadInst>(U)) {
-        if (LI->isVolatile())
-          return false;
-      }
-
-      // Follow the users of any other user
-      if (!isLoadedValueUnused(U, LoadAddr, UsedValues))
-        return false;
-    }
-
-    // If the value has no users, this path is unused.
-    return true;
-  }
-
   // Returns true if the loaded value is stored to the same address from which
   // it was loaded and does not escape.
   bool identifyUnusedValue(LoadInst &LI) {
@@ -7315,8 +7274,7 @@ private:
       return false;
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-    SmallPtrSet<Value *, 4> UsedValues;
-    return isLoadedValueUnused(&LI, LI.getPointerOperand(), UsedValues);
+    return dtrans::isLoadedValueUnused(&LI, LI.getPointerOperand());
   }
 
   // Return true if the BitCast operation is casting to from an

@@ -49,6 +49,11 @@ static cl::list<std::string> DTransSAFilterPrintFuncs(
 static llvm::dtrans::debug::DebugFilter FNFilter;
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
+// Helper method to check whether 'Ty' is a pointer to a pointer.
+static bool isPtrToPtr(const DTransType *Ty) {
+  return Ty->isPointerTy() && Ty->getPointerElementType()->isPointerTy();
+}
+
 // This class is responsible for analyzing the LLVM IR using information
 // collected by the PtrTypeAnalyzer class to mark the DTrans safety bits on the
 // TypeInfo objects managed by the DTransSafetyInfo class. This will also
@@ -524,6 +529,542 @@ public:
     if (!PTA.getDominantAggregateUsageType(*Info))
       setAllAliasedTypeSafetyData(Info, dtrans::UnsafePtrMerge,
                                   "Merge of conflicting pointer types", I);
+  }
+
+  // Check whether the type the value loaded gets used as is compatible with the
+  // type that is expected to be loaded. The type expected to be loaded may be
+  // based on the type that the pointer operand was identified to be by the
+  // pointer type analyzer, or the type of a field member within an aggregate
+  // type. When an incompatibility is detected this will set the 'Mismatched
+  // element access' and/or 'Bad casting' safety checks. Even though there may
+  // not be actual 'bitcast' instructions with opaque pointers, we will use the
+  // 'Bad casting' safety bit to indicate that a type is used as if it were cast
+  // to a different type.
+  void visitLoadInst(LoadInst &I) {
+    Value *Ptr = I.getPointerOperand();
+    ValueTypeInfo *PtrInfo = PTA.getValueTypeInfo(Ptr);
+    ValueTypeInfo *ValInfo = PTA.getValueTypeInfo(&I);
+
+    if (!PtrInfo) {
+      DTInfo.setUnhandledPtrType(&I);
+      setAllAliasedTypeSafetyData(
+          PtrInfo, dtrans::UnhandledUse,
+          "PointerTypeAnalyzer failed to collect type for load", &I);
+
+      if (ValInfo)
+        setAllAliasedTypeSafetyData(
+            ValInfo, dtrans::UnhandledUse,
+            "PointerTypeAnalyzer could not analyze load pointer operand", &I);
+      return;
+    }
+
+    if (PtrInfo->pointsToSomeElement()) {
+      analyzeElementLoadOrStore(I, *PtrInfo, ValInfo);
+      return;
+    }
+
+    // If the load is not an element pointee and does not involve any aggregate
+    // types for the value loaded or pointer operand, then there is nothing left
+    // to do.
+    if (!PtrInfo->canAliasToAggregatePointer() &&
+        (!ValInfo || !ValInfo->canAliasToAggregatePointer()))
+      return;
+
+    if (I.isVolatile())
+      for (auto *AliasTy :
+           PtrInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use))
+        if (!isPtrToPtr(AliasTy))
+          setBaseTypeInfoSafetyData(AliasTy, dtrans::VolatileData,
+                                    "volatile load", &I);
+
+    // Start of the checks to determine whether load is a mismatched access to
+    // the first element of the structure, or a load of a type that is not
+    // compatible with the pointer type. First, get the type being loaded. It
+    // may be a pointer, an aggregate type, vector, or a scalar type. It may
+    // be unknown due to a pointer being used as multiple types.
+    DTransType *ValTy = getLoadStoreValueType(I);
+    if (!ValTy) {
+      setAllAliasedTypeSafetyData(PtrInfo, dtrans::BadCasting,
+                                  "Cannot resolve type of value loaded", &I);
+      if (ValInfo)
+        setAllAliasedTypeSafetyData(ValInfo, dtrans::BadCasting,
+                                    "Cannot resolve type of value loaded", &I);
+      return;
+    }
+
+    bool IsWholeStructureRead = false;
+    bool IsMismatched = false;
+    std::string BadcastReason;
+    DTransType *PtrDomTy = PTA.getDominantAggregateUsageType(*PtrInfo);
+    assert((!PtrDomTy || PtrDomTy->isPointerTy()) &&
+           "Unexpected dominant type");
+
+    if (PtrInfo->canAliasToDirectAggregatePointer()) {
+      // The only things that are valid to directly alias a load from the
+      // aggregate pointer are:
+      //   - A whole structure load
+      //   - An element zero load of an aggregate type
+      if (ValTy->isStructTy()) {
+        setBaseTypeInfoSafetyData(ValTy, dtrans::WholeStructureReference,
+                                  "load of structure type", &I);
+        IsWholeStructureRead = true;
+      } else if (!PtrDomTy || !PTA.isPointeeElementZeroAccess(
+                                  PtrDomTy->getPointerElementType(), ValTy)) {
+        IsMismatched = true;
+        BadcastReason = "Pointer to aggregate not used as element zero load";
+      }
+    } else if (PtrInfo->canAliasToAggregatePointer() &&
+               ValInfo->canAliasToAggregatePointer()) {
+      // The pointer operand must be multiple levels of indirection, so the
+      // value loaded needs to be a pointer that is compatible with the pointer
+      // type. Check that the dominant types are related as pointer/pointee
+      // pairs.
+      // - There must be a dominant type for the pointer operand
+      // - The pointer and pointee dominant types need to be properly
+      //   related to allow a pointer type to be loaded from the
+      //   pointer-to-pointer.
+      if (!PtrDomTy) {
+        IsMismatched = true;
+        BadcastReason = "Dominant type of pointer not resolved";
+      } else if (PtrDomTy->getPointerElementType() != ValTy ||
+                 (PtrInfo->canAliasMultipleAggregatePointers() &&
+                  hasIncompatibleAggregateDecl(PtrDomTy, Ptr))) {
+        IsMismatched = true;
+        BadcastReason =
+            "Dominant types for value and pointer are not compatible";
+      }
+    } else {
+      // If we reach here, the pointer has multiple levels of indirection to
+      // an aggregate type, but the value loaded did not involve an aggregate
+      // type.
+      IsMismatched = true;
+      BadcastReason =
+          "Load of non-aggregate from pointer-to-pointer of aggregate";
+    }
+
+    if (IsMismatched) {
+      setAllAliasedTypeSafetyData(PtrInfo, dtrans::BadCasting,
+                                  BadcastReason.c_str(), &I);
+      if (ValInfo)
+        setAllAliasedTypeSafetyData(ValInfo, dtrans::BadCasting,
+                                    BadcastReason.c_str(), &I);
+
+      TypeSize ValSize = DL.getTypeSizeInBits(I.getType());
+      for (auto *PtrAliasTy :
+           PtrInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use)) {
+
+        // Don't set a mismatch on any of the aliases that are
+        // pointer-to-pointer because those are not potential zero-element
+        // accesses.
+        if (isPtrToPtr(PtrAliasTy))
+          continue;
+
+        setFieldMismatchedElementAccess(PtrAliasTy, ValSize, ValTy,
+                                        /*FieldNum=*/0, I);
+      }
+    } else if (!isPtrToPtr(PtrDomTy)) {
+      // Treat this as an element zero access if the pointer operand alias info
+      // is not for a pointer-to-pointer access.
+      if (auto *StructTy =
+              dyn_cast<DTransStructType>(PtrDomTy->getPointerElementType())) {
+        dtrans::StructInfo *SI =
+            cast<StructInfo>(DTInfo.getOrCreateTypeInfo(StructTy));
+        if (SI->getNumFields() != 0) {
+          collectReadInfo(I, SI, /*FieldNum=*/0, !IsWholeStructureRead);
+
+          if (IsWholeStructureRead) {
+            // Note: For whole structure reference, DTrans does not fill in all the
+            // field info details for each field, such as frequency or single value
+            // because we do not have any transforms that can handle them.
+            for (auto &FI : SI->getFields()) {
+              FI.setRead(I);
+              FI.setValueUnused(false);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // The element access analysis for load and store instructions are nearly
+  // identical, so we use this helper function to perform the task for both.
+  void analyzeElementLoadOrStore(Instruction &I, ValueTypeInfo &PtrInfo,
+                                 ValueTypeInfo *ValInfo) {
+    bool IsLoad = isa<LoadInst>(&I);
+    Value *PtrOp = IsLoad ? cast<LoadInst>(&I)->getPointerOperand()
+                          : cast<StoreInst>(&I)->getPointerOperand();
+    Value *ValOp = IsLoad ? &I : cast<StoreInst>(I).getValueOperand();
+    llvm::Type *ValTy = ValOp->getType();
+    bool IsVolatile = IsLoad ? cast<LoadInst>(&I)->isVolatile()
+                             : cast<StoreInst>(&I)->isVolatile();
+
+    for (auto &PointeePair :
+         PtrInfo.getElementPointeeSet(ValueTypeInfo::VAT_Use)) {
+      DTransType *ParentTy = PointeePair.first;
+      assert((ParentTy->isStructTy() || ParentTy->isArrayTy()) &&
+             "Expect pointee pair only for structure/array types");
+
+      if (IsVolatile)
+        setBaseTypeInfoSafetyData(ParentTy, dtrans::VolatileData,
+                                  "Marked as volatile", &I);
+
+      if (PointeePair.second.getKind() !=
+          ValueTypeInfo::PointeeLoc::PLK_Field) {
+        // A GEP that indexes a location that is not a field boundary should
+        // only be allowed for access to the padding bytes for a memfunc
+        // intrinsic, and not a load/store instruction.
+        setBaseTypeInfoSafetyData(ParentTy, dtrans::UnhandledUse,
+                                  "load/store from non-field boundary", &I);
+        continue;
+      }
+
+      // Identify the field type or array member type being accessed
+      DTransType *IndexedType = nullptr;
+      size_t ElementNum = PointeePair.second.getElementNum();
+      if (auto *StTy = dyn_cast<DTransStructType>(ParentTy))
+        IndexedType = StTy->getFieldType(ElementNum);
+      else if (auto *ArTy = dyn_cast<DTransArrayType>(ParentTy))
+        IndexedType = ArTy->getArrayElementType();
+
+      if (!IndexedType) {
+        // If the IndexedType was not resolved, then there either a problem
+        // with setting the field types in the structure when reading the
+        // metadata, or the element was a byte offset that does not correspond
+        // to a field boundary.
+        setBaseTypeInfoSafetyData(ParentTy, dtrans::UnhandledUse,
+                                  "type recovery problem for load/store", &I);
+        continue;
+      }
+
+      // Check for the whole structure being loaded/stored with the single
+      // instruction.
+      bool IsWholeStructure = false;
+      if (IndexedType->isStructTy() && IndexedType->getLLVMType() == ValTy) {
+        setBaseTypeInfoSafetyData(IndexedType, dtrans::WholeStructureReference,
+                                  "load/store of structure type", &I);
+        IsWholeStructure = true;
+
+        // Note: For whole structure reference, DTrans does not fill in all the
+        // field info details for each field, such as frequency or single value
+        // because we do not have any transforms that can handle them.
+        StructInfo *IndexedStTI =
+            cast<StructInfo>(DTInfo.getOrCreateTypeInfo(IndexedType));
+        for (auto &FI : IndexedStTI->getFields())
+          if (IsLoad) {
+            FI.setRead(I);
+            FI.setValueUnused(false);
+          } else {
+            FI.setWritten(I);
+          }
+      }
+
+      if (auto *StTy = dyn_cast<DTransStructType>(ParentTy)) {
+        auto *ParentStInfo =
+            cast<dtrans::StructInfo>(DTInfo.getOrCreateTypeInfo(StTy));
+        // Update the read/write info for structure FieldInfo objects. If it is
+        // a whole structure reference, don't descend into the nested elements,
+        // otherwise walk the nested types to find the actual field being
+        // accessed..
+        if (IsLoad)
+          collectReadInfo(I, ParentStInfo, ElementNum, !IsWholeStructure);
+        else
+          collectWriteInfo(I, ParentStInfo, ElementNum, ValOp,
+                           !IsWholeStructure);
+      }
+
+      // Check if the types for the value loaded or value operand of the store
+      // are compatible with the type of the indexed element. If they are not,
+      // this could also indicate a bad casting operation is taking place if
+      // - a pointer is used when one wasn't expected
+      // - a pointer was expected, but the value was not used as a pointer,
+      //   except in the case that a pointer-sized int is used
+      // - a pointer was used, but not with the expected type
+      bool TypesCompatible = true;
+      bool BadCasting = false;
+
+      DTransType *ValTy = getLoadStoreValueType(*ValOp);
+      if (!ValTy) {
+        TypesCompatible = false;
+        BadCasting = true;
+      }
+      // Check whether the value being loaded or stored is compatible with
+      // expected type for the indexed element.
+      else if (!isElementLoadStoreTypeCompatible(IndexedType, ValTy)) {
+        TypesCompatible = false;
+        // If the expected type was a pointer or the used type was a pointer,
+        // then mark it as bad casting.
+        BadCasting = (IndexedType->isPointerTy() &&
+                      ValTy != getDTransPtrSizedIntPtrType()) ||
+                     ValTy->isPointerTy();
+      }
+      // Check whether the value is compatible with the pointer operand
+      else if (!areLoadStoreTypesCompatible(IndexedType, ValInfo, PtrOp)) {
+        TypesCompatible = false;
+        BadCasting = true;
+      }
+
+      // With opaque pointers, we will not see explicit pointer bitcasts
+      // occurring, but the effect here is the same as is a bitcast had
+      // occurred, so we need to set the BadCasting safety bit for
+      // compatibility with the old LocalPointerAnalysis method, and because
+      // that safety bit has different semantics regarding propagation than
+      // the MismatchedElementAccess safety, which are necessary to get all
+      // the necessary structures marked.
+      if (BadCasting) {
+        setBaseTypeInfoSafetyData(
+            ParentTy, dtrans::BadCasting,
+            "Incompatible pointer type for field load/store", &I);
+        if (ValInfo)
+          for (auto *ValAliasTy :
+               ValInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use))
+            setBaseTypeInfoSafetyData(
+                ValAliasTy, dtrans::BadCasting,
+                "Incompatible pointer type for field load/store", &I);
+      }
+
+      if (!TypesCompatible) {
+        if (!IsLoad) {
+          // When the types don't match, and one or both of the types are
+          // pointers to aggregate types, that triggers the Unsafe Pointer
+          // Store bit on all the aggregate types the object is used as, and the
+          // type of the element indexed.
+          bool PtrToAggregateFound = false;
+          if (IndexedType->isPointerTy() &&
+              IndexedType->getPointerElementType()->isAggregateType())
+            PtrToAggregateFound = true;
+
+          if (ValInfo) {
+            for (auto *ValAliasTy :
+                 ValInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use)) {
+              if (PtrToAggregateFound ||
+                  (ValAliasTy->isPointerTy() &&
+                   ValAliasTy->getPointerElementType()->isAggregateType())) {
+                setBaseTypeInfoSafetyData(
+                    ValAliasTy, dtrans::UnsafePointerStore,
+                    "Incompatible type for field load/store", &I);
+                PtrToAggregateFound = true;
+              }
+            }
+          }
+
+          if (PtrToAggregateFound)
+            setBaseTypeInfoSafetyData(IndexedType, dtrans::UnsafePointerStore,
+                                      "Incompatible type for field load/store",
+                                      &I);
+        }
+
+        // Finally, mark the structure as having a mismatched element access.
+        TypeSize ValSize = DL.getTypeSizeInBits(ValOp->getType());
+        setFieldMismatchedElementAccess(ParentTy, ValSize, IndexedType,
+                                        ElementNum, I);
+      }
+    }
+  }
+
+  // This helper is to get the type of object that is being used for a 'load' or
+  // 'store' instruction. For a 'load', 'V' is the LoadInst. For a 'store', 'V'
+  // is the value operand of the StoreInst. Returns 'nullptr' if an unambiguous
+  // type cannot be determined.
+  DTransType *getLoadStoreValueType(Value &V) const {
+    // The pointer type analyzer only collects types for Values that are
+    // potentially pointers. For simple scalar types, it will not have the type,
+    // so just take the type from the IR to handle cases such as:
+    //   %y = load i32, p0 %x
+    ValueTypeInfo *Info = PTA.getValueTypeInfo(&V);
+    if (!Info || Info->empty()) {
+      if (TM.isSimpleType(V.getType()))
+        return TM.getOrCreateSimpleType(V.getType());
+      return nullptr;
+    }
+
+    // If there are aggregate types, try to find the dominant one.
+    if (Info->canAliasToAggregatePointer())
+      return PTA.getDominantAggregateUsageType(*Info);
+
+    // If there are no aggregate types, try to find the best match from pointers
+    // to scalar type. By best match, this means that if a type is aliased by a
+    // generic form (i8* or pointer sized int pointer), ignore those in
+    // preference to a non-generic form.
+    //   For examples, given the following sets of possibilities:
+    //   1)  { i8*, i32* }       -> return i32*
+    //   2)  { double*, i64* }   -> return double*
+    //   3)  { float*, double* } -> return nullptr
+    DTransType *DomTy = nullptr;
+    for (auto *AliasTy : Info->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use)) {
+      if (DomTy)
+        if (AliasTy != getDTransI8PtrType() &&
+            AliasTy != getDTransPtrSizedIntPtrType())
+          return nullptr;
+
+      DomTy = AliasTy;
+    }
+
+    return DomTy;
+  }
+
+  // Return 'true' if a value used as 'UsageType' is compatible with
+  // 'ExpectedType'. To be compatible, one of the following conditions must be
+  // met:
+  // - The 'UsageType' and 'ExpectedTypes' are the same.
+  // - An expected pointer type can be used as an pointer sized int type.
+  // - The usage type matches the element zero of the expected type.
+  bool isElementLoadStoreTypeCompatible(DTransType *ExpectedType,
+                                        DTransType *UsageType) {
+    if (!ExpectedType || !UsageType)
+      return false;
+
+    if (ExpectedType == UsageType)
+      return true;
+
+    if (ExpectedType->isPointerTy() && UsageType == getDTransPtrSizedIntType())
+      return true;
+
+    // Allow an access to the element zero type, such as:
+    //   %struct.A = type { %struct.B }
+    //   %struct.B = type{ i32, i32, i32 }
+    // The 'expected type' of a load from %struct.A* would be %struct.B, but
+    // because this is a nested structure, a value used as an 'i32' would be
+    // valid.
+    if (PTA.isPointeeElementZeroAccess(ExpectedType, UsageType))
+      return true;
+
+    return false;
+  }
+
+  bool areLoadStoreTypesCompatible(DTransType *ExpectedType,
+                                   ValueTypeInfo *ValInfo, Value *PtrOp) {
+    if (!ValInfo)
+      return false;
+
+    if (!ValInfo->canAliasToAggregatePointer()) {
+      auto &Aliases = ValInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use);
+      for (auto *Alias : Aliases)
+        if (!isElementLoadStoreTypeCompatible(ExpectedType, Alias))
+          return false;
+
+      return true;
+    }
+
+    // The Value Type Info indicates the Value is used as an aggregate type.
+    // Check that there is a type compatible with the expected type.
+    auto DomTy = PTA.getDominantAggregateUsageType(*ValInfo);
+    if (!DomTy)
+      return false;
+
+    if (ValInfo->canAliasMultipleAggregatePointers() &&
+        hasIncompatibleAggregateDecl(ExpectedType, PtrOp))
+      return false;
+
+    if (!isElementLoadStoreTypeCompatible(ExpectedType, DomTy))
+      return false;
+
+    return true;
+  }
+
+  void setFieldMismatchedElementAccess(DTransType *ParentTy,
+                                       TypeSize AccessSize,
+                                       DTransType *AccessTy,
+                                       unsigned int ElementNum,
+                                       Instruction &I) {
+    auto *TI = DTInfo.getOrCreateTypeInfo(ParentTy);
+
+    if (DTransOutOfBoundsOK) {
+      // Assuming out of bound access, set safety issue for the entire
+      // ParentTy.
+      setBaseTypeInfoSafetyData(ParentTy, dtrans::MismatchedElementAccess,
+                                "Incompatible type for field load/store", &I);
+    } else {
+      // Set safety issue to AccessTy only, because out of bounds accesses are
+      // known to not occur based on the DTransOutOfBoundsOK definition.
+      TI->setSafetyData(dtrans::MismatchedElementAccess);
+      if (AccessTy)
+        setBaseTypeInfoSafetyData(AccessTy, dtrans::MismatchedElementAccess,
+                                  "Incompatible type for field load/store", &I);
+    }
+
+    if (auto *ParentStInfo = dyn_cast<dtrans::StructInfo>(TI)) {
+      TypeSize FieldSize = DL.getTypeSizeInBits(
+          ParentStInfo->getField(ElementNum).getLLVMType());
+      if (DTransOutOfBoundsOK || AccessSize > FieldSize) {
+        for (auto &FI : ParentStInfo->getFields())
+          FI.setMismatchedElementAccess();
+      } else {
+        dtrans::FieldInfo &FI = ParentStInfo->getField(ElementNum);
+        FI.setMismatchedElementAccess();
+      }
+    }
+  }
+
+  void collectReadInfo(Instruction &I, dtrans::StructInfo *StInfo,
+                       size_t FieldNum, bool DescendIntoNested) {
+    if (DescendIntoNested) {
+      dtrans::FieldInfo &FI = getDeepestNestedField(StInfo, FieldNum);
+      FI.setRead(I);
+      if (!dtrans::isLoadedValueUnused(&I,
+                                       cast<LoadInst>(&I)->getPointerOperand()))
+        FI.setValueUnused(false);
+    } else {
+      dtrans::FieldInfo &FI = StInfo->getField(FieldNum);
+      FI.setRead(I);
+      FI.setValueUnused(false);
+    }
+    // TODO: set other attributes like usage frequency, etc.
+  }
+
+  void collectWriteInfo(Instruction &I, dtrans::StructInfo *StInfo,
+                        size_t FieldNum, Value *WriteVal,
+                        bool DescendIntoNested) {
+    dtrans::FieldInfo &FI = getDeepestNestedField(StInfo, FieldNum);
+    FI.setWritten(I);
+
+    // TODO: Update field usage frequency, field single value, field single
+    // allocation functions fields
+  }
+
+  // When the pointer type analyzer detects an inner element of a nested type
+  // being loaded via a pointer to the container type, it records the container
+  // type as the element pointee. In these cases the type nest needs to be
+  // traversed to mark the actual field as being 'read' or 'written'. This
+  // function walks the structure to return the field accessed.
+  dtrans::FieldInfo &getDeepestNestedField(dtrans::StructInfo *StInfo,
+                                           size_t FieldNum) {
+    auto IsArrayOfStructs = [](DTransArrayType *ArTy) {
+      DTransType *BaseTy = ArTy;
+      while (BaseTy->isArrayTy())
+        BaseTy = BaseTy->getArrayElementType();
+
+      return BaseTy->isStructTy();
+    };
+
+    DTransType *ElemTy = StInfo->getField(FieldNum).getDTransType();
+    while (ElemTy->isAggregateType()) {
+      if (auto *StElemTy = dyn_cast<DTransStructType>(ElemTy)) {
+        if (StElemTy->getNumFields() == 0)
+        break;
+
+        // For a nested structure, the field to be examined will be the first
+        // element because that field will have the same address as the
+        // structure itself.
+        //   %struct.A = { i32, %struct.B }
+        //   %struct.B = { i32, i64 }
+        // The address of Field 1 of %struct.A is also the address of the 'i32'
+        // within %struct.B
+        FieldNum = 0;
+        StInfo = cast<StructInfo>(DTInfo.getOrCreateTypeInfo(StElemTy));
+        ElemTy = StInfo->getField(FieldNum).getDTransType();
+      } else if (auto *ArElemTy = dyn_cast<DTransArrayType>(ElemTy)) {
+        // Handle the case of the element being an array of nested structures.
+        if (IsArrayOfStructs(ArElemTy)) {
+          auto *ArInfo = cast<ArrayInfo>(DTInfo.getOrCreateTypeInfo(ElemTy));
+          ElemTy = ArInfo->getElementDTransType();
+          while (ElemTy->isArrayTy())
+            ElemTy = ElemTy->getArrayElementType();
+        }
+      }
+    }
+
+    FieldInfo &FI = StInfo->getField(FieldNum);
+    return FI;
   }
 
 private:

@@ -914,6 +914,9 @@ public:
 
   TypeInfo *getElementDTransInfo() const { return DTransElemTy; }
   llvm::Type *getElementLLVMType() const { return DTransElemTy->getLLVMType(); }
+  dtrans::DTransType *getElementDTransType() const {
+    return DTransElemTy->getDTransType();
+  }
   size_t getNumElements() const { return NumElements; }
 
   /// Method to support type inquiry through isa, cast, and dyn_cast:
