@@ -5175,7 +5175,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   Args.AddLastArg(CmdArgs, options::OPT_finstrument_functions_after_inlining,
                   options::OPT_finstrument_function_entry_bare);
 
-<<<<<<< HEAD
   if ((Args.hasFlag(options::OPT_finstrument_functions,
                     options::OPT_fno_instrument_functions, false)) &&
       (!Args.hasArg(options::OPT_finstrument_functions_after_inlining,
@@ -5183,16 +5182,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     Args.AddLastArg(CmdArgs, options::OPT_finstrument_functions);
 #endif // INTEL_CUSTOMIZATION
 
-  // NVPTX doesn't support PGO or coverage. There's no runtime support for
-  // sampling, overhead of call arc collection is way too high and there's no
-  // way to collect the output.
-  if (!Triple.isNVPTX())
-=======
   // NVPTX/AMDGCN doesn't support PGO or coverage. There's no runtime support
   // for sampling, overhead of call arc collection is way too high and there's
   // no way to collect the output.
   if (!Triple.isNVPTX() && !Triple.isAMDGCN())
->>>>>>> 6925c694c8c13642b21a08bfd7f73dc38359bb1e
     addPGOAndCoverageFlags(TC, C, D, Output, Args, CmdArgs);
 
   Args.AddLastArg(CmdArgs, options::OPT_fclang_abi_compat_EQ);
