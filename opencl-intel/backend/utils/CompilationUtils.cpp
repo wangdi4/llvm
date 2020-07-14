@@ -1014,10 +1014,9 @@ std::string CompilationUtils::mangledSGBarrier(BARRIER_TYPE sgBarrierType) {
   }
   return "";
 }
-
-std::string CompilationUtils::mangledGetSubGroupLID() {
+std::string CompilationUtils::mangledGetMaxSubGroupSize() {
   return optionalMangleWithParam<reflection::PRIMITIVE_VOID>(
-      NAME_GET_SUB_GROUP_LOCAL_ID.c_str());
+    NAME_GET_MAX_SUB_GROUP_SIZE.c_str());
 }
 
 std::string CompilationUtils::mangledNumSubGroups() {
