@@ -4101,7 +4101,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   }
 
   const llvm::Triple *AuxTriple =
-      (IsSYCL || IsCuda) ? TC.getAuxTriple() : nullptr;
+      (IsSYCL || IsCuda || IsHIP) ? TC.getAuxTriple() : nullptr;
   bool IsWindowsMSVC = RawTriple.isWindowsMSVCEnvironment();
   bool IsIAMCU = RawTriple.isOSIAMCU();
   bool IsSYCLDevice = (RawTriple.getEnvironment() == llvm::Triple::SYCLDevice);
@@ -5175,6 +5175,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   Args.AddLastArg(CmdArgs, options::OPT_finstrument_functions_after_inlining,
                   options::OPT_finstrument_function_entry_bare);
 
+<<<<<<< HEAD
   if ((Args.hasFlag(options::OPT_finstrument_functions,
                     options::OPT_fno_instrument_functions, false)) &&
       (!Args.hasArg(options::OPT_finstrument_functions_after_inlining,
@@ -5186,6 +5187,12 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   // sampling, overhead of call arc collection is way too high and there's no
   // way to collect the output.
   if (!Triple.isNVPTX())
+=======
+  // NVPTX/AMDGCN doesn't support PGO or coverage. There's no runtime support
+  // for sampling, overhead of call arc collection is way too high and there's
+  // no way to collect the output.
+  if (!Triple.isNVPTX() && !Triple.isAMDGCN())
+>>>>>>> 6925c694c8c13642b21a08bfd7f73dc38359bb1e
     addPGOAndCoverageFlags(TC, C, D, Output, Args, CmdArgs);
 
   Args.AddLastArg(CmdArgs, options::OPT_fclang_abi_compat_EQ);
@@ -5321,6 +5328,11 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
     Args.AddLastArg(CmdArgs, options::OPT_ftrigraphs,
                     options::OPT_fno_trigraphs);
+
+    // HIP headers has minimum C++ standard requirements. Therefore set the
+    // default language standard.
+    if (IsHIP)
+      CmdArgs.push_back(IsWindowsMSVC ? "-std=c++14" : "-std=c++11");
   }
 
   // GCC's behavior for -Wwrite-strings is a bit strange:
@@ -5790,8 +5802,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   // Forward -sycl-std option to -cc1
   Args.AddLastArg(CmdArgs, options::OPT_sycl_std_EQ);
 
-  if (Args.hasFlag(options::OPT_fhip_new_launch_api,
-                   options::OPT_fno_hip_new_launch_api, false))
+  if (IsHIP && Args.hasFlag(options::OPT_fhip_new_launch_api,
+                            options::OPT_fno_hip_new_launch_api, true))
     CmdArgs.push_back("-fhip-new-launch-api");
 
   if (Arg *A = Args.getLastArg(options::OPT_fcf_protection_EQ)) {
