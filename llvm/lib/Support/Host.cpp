@@ -836,107 +836,10 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       // Don't both with Type/Subtype here, they aren't used by the caller.
       // They're used above to keep the code in sync with compiler-rt.
       // TODO detect tigerlake host from model
-      if (testFeature(X86::FEATURE_AVX512VP2INTERSECT)) {
-<<<<<<< HEAD
-        *Type = X86::INTEL_COREI7;
-        *Subtype = X86::INTEL_COREI7_TIGERLAKE;
-        break;
-      }
-
-      if (testFeature(X86::FEATURE_AVX512VBMI2)) {
-        *Type = X86::INTEL_COREI7;
-        *Subtype = X86::INTEL_COREI7_ICELAKE_CLIENT;
-        break;
-      }
-
-      if (testFeature(X86::FEATURE_AVX512VBMI)) {
-        *Type = X86::INTEL_COREI7;
-        *Subtype = X86::INTEL_COREI7_CANNONLAKE;
-        break;
-      }
-
-      if (testFeature(X86::FEATURE_AVX512BF16)) {
-        *Type = X86::INTEL_COREI7;
-        *Subtype = X86::INTEL_COREI7_COOPERLAKE;
-        break;
-      }
-
-      if (testFeature(X86::FEATURE_AVX512VNNI)) {
-        *Type = X86::INTEL_COREI7;
-        *Subtype = X86::INTEL_COREI7_CASCADELAKE;
-        break;
-      }
-
-      if (testFeature(X86::FEATURE_AVX512VL)) {
-        *Type = X86::INTEL_COREI7;
-        *Subtype = X86::INTEL_COREI7_SKYLAKE_AVX512;
-        break;
-      }
-
-      if (testFeature(X86::FEATURE_AVX512ER)) {
-        *Type = X86::INTEL_KNL; // knl
-        break;
-      }
-
-      if (testFeature(X86::FEATURE_CLFLUSHOPT)) {
-        if (testFeature(X86::FEATURE_SHA)) {
-          *Type = X86::INTEL_GOLDMONT;
-        } else {
-          *Type = X86::INTEL_COREI7;
-          *Subtype = X86::INTEL_COREI7_SKYLAKE;
-        }
-        break;
-      }
-      if (testFeature(X86::FEATURE_ADX)) {
-        *Type = X86::INTEL_COREI7;
-        *Subtype = X86::INTEL_COREI7_BROADWELL;
-        break;
-      }
 #if INTEL_CUSTOMIZATION
       //TODO: detect tgl host
 #endif // INTEL_CUSTOMIZATION
-      if (testFeature(X86::FEATURE_AVX2)) {
-        *Type = X86::INTEL_COREI7;
-        *Subtype = X86::INTEL_COREI7_HASWELL;
-        break;
-      }
-      if (testFeature(X86::FEATURE_AVX)) {
-        *Type = X86::INTEL_COREI7;
-        *Subtype = X86::INTEL_COREI7_SANDYBRIDGE;
-        break;
-      }
-      if (testFeature(X86::FEATURE_SSE4_2)) {
-        if (testFeature(X86::FEATURE_MOVBE)) {
-          *Type = X86::INTEL_SILVERMONT;
-        } else {
-          *Type = X86::INTEL_COREI7;
-          *Subtype = X86::INTEL_COREI7_NEHALEM;
-        }
-        break;
-      }
-      if (testFeature(X86::FEATURE_SSE4_1)) {
-        *Type = X86::INTEL_CORE2; // "penryn"
-        *Subtype = X86::INTEL_CORE2_45;
-        break;
-      }
-      if (testFeature(X86::FEATURE_SSSE3)) {
-        if (testFeature(X86::FEATURE_MOVBE)) {
-          *Type = X86::INTEL_BONNELL; // "bonnell"
-        } else {
-          *Type = X86::INTEL_CORE2; // "core2"
-          *Subtype = X86::INTEL_CORE2_65;
-        }
-        break;
-      }
-      if (testFeature(X86::FEATURE_64BIT)) {
-        *Type = X86::INTEL_CORE2; // "core2"
-        *Subtype = X86::INTEL_CORE2_65;
-        break;
-      }
-      if (testFeature(X86::FEATURE_SSE3)) {
-        *Type = X86::INTEL_CORE_DUO;
-        break;
-=======
+      if (testFeature(X86::FEATURE_AVX512VP2INTERSECT)) {
         CPU = "tigerlake";
       } else if (testFeature(X86::FEATURE_AVX512VBMI2)) {
         CPU = "icelake-client";
@@ -985,7 +888,6 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
         CPU = "pentium2";
       } else {
         CPU = "pentiumpro";
->>>>>>> ea84dc9500df383b4fe07199134033f358411e59
       }
       break;
     }
