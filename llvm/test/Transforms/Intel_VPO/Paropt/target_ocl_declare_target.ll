@@ -1,5 +1,5 @@
-; RUN: opt < %s -prepare-switch-to-offload=true -switch-to-offload=true -vpo-paropt-prepare -vpo-paropt -S | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-paropt-prepare),vpo-paropt' -prepare-switch-to-offload=true -switch-to-offload=true -S | FileCheck %s
+; RUN: opt < %s  -switch-to-offload -vpo-paropt-prepare -vpo-paropt -S | FileCheck %s
+; RUN: opt < %s -passes='function(vpo-paropt-prepare),vpo-paropt'  -switch-to-offload -S | FileCheck %s
 
 ; Original code:
 ; #pragma omp declare target

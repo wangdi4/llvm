@@ -11,8 +11,25 @@
 ///
 /// \file
 /// This file implements optimization pass that transforms OpenMP clauses
-/// to minimize shared data accesses across threads.
+/// to optimize shared data accesses across threads.
 ///
+/// The data sharing optimization is supposed to modify OpenMP clauses
+/// for some items to optimize the amount of accesses to shared memory.
+/// For example,
+///   #pragma omp parallel for shared(c)
+///   for (int i = 0; i < 100; ++i)
+///     a[i] = i * c;
+///
+/// The scalar 'c' will be shared by default, so multiple threads will access
+/// the same shared memory. It may also be hard for the optimizer to prove
+/// that it is legal to hoist 'c' load from the loop. We can make 'c'
+/// firstprivate, which will make the code easier to optimize and reduce
+/// number of times 'c' is read within the loop. Such an optimization
+/// is safe, if we can prove that a pointer to 'c' cannot be passed
+/// into the region in any other form (e.g. via capturing it in another
+/// variable).
+///
+/// This is just one example of things we can do in this optimization.
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
@@ -34,7 +51,18 @@ using namespace llvm::vpo;
 // Boolean control to enable/disable the optimization.
 static cl::opt<bool> EnableDataSharingOpt(
     "vpo-paropt-opt-data-sharing", cl::Hidden, cl::init(true),
-    cl::desc("Optimize OpenMP clauses to reduce shared data access"));
+    cl::desc("Optimize OpenMP clauses to optimize shared data access"));
+
+// Boolean control for optimizing PRIVATE/FIRSTPRIVATE clauses.
+static cl::opt<bool> EnableDataSharingOptForPrivate(
+    "vpo-paropt-opt-data-sharing-for-private", cl::Hidden, cl::init(true),
+    cl::desc("Optimize PRIVATE/FIRSTPRIVATE OpenMP clauses."));
+
+// Boolean control for optimizing REDUCTION clauses.
+// Ignored for non-SPIR-V targets.
+static cl::opt<bool> EnableDataSharingOptForReduction(
+    "vpo-paropt-opt-data-sharing-for-reduction", cl::Hidden, cl::init(true),
+    cl::desc("Optimize REDUCTION OpenMP clauses."));
 
 // Integer control to limit the number of optimized items
 // for each function.
@@ -69,6 +97,9 @@ static bool optimizeDataSharing(
     Function &F, WRegionInfo &WI, OptimizationRemarkEmitter &ORE) {
   bool Changed = false;
 
+  if (!EnableDataSharingOpt)
+    return Changed;
+
   // Walk the W-Region Graph top-down, and create W-Region List
   WI.buildWRGraph();
 
@@ -88,9 +119,10 @@ static bool optimizeDataSharing(
 #if INTEL_CUSTOMIZATION
                         OptReportVerbosity::None,
 #endif  // INTEL_CUSTOMIZATION
-                        ORE, 2, false, false);
+                        ORE, 2, false);
 
-  Changed |= VP.optimizeDataSharing();
+  Changed |= VP.optimizeDataSharingForPrivateItems();
+  Changed |= VP.optimizeDataSharingForReductionItems();
 
   return Changed;
 }
@@ -135,25 +167,7 @@ PreservedAnalyses VPOParoptOptimizeDataSharingPass::run(
   return PA;
 }
 
-// The data sharing optimization is supposed to modify OpenMP clauses
-// for some items to reduce the amount of accesses to shared memory.
-// For example,
-//   #pragma omp parallel for shared(c)
-//   for (int i = 0; i < 100; ++i)
-//     a[i] = i * c;
-//
-// The scalar 'c' will be shared by default, so multiple threads will access
-// the same shared memory. It may also be hard for the optimizer to prove
-// that it is legal to hoist 'c' load from the loop. We can make 'c'
-// firstprivate, which will make the code easier to optimize and reduce
-// number of times 'c' is read within the loop. Such an optimization
-// is safe, if we can prove that a pointer to 'c' cannot be passed
-// into the region in any other form (e.g. via capturing it in another
-// variable).
-//
-// This is just one example of things we can do in this optimization.
-// Currently, the implementation is only able to optimize address space
-// of variables for SPIR-V targets.
+// Optimize address space for PRIVATE/FIRSTPRIVATE variables for SPIR-V targets.
 //
 // Example:
 //   int *a;
@@ -176,10 +190,10 @@ PreservedAnalyses VPOParoptOptimizeDataSharingPass::run(
 // it adds "WILOCAL" modifier for the PRIVATE/FIRSTPRIVATE clause
 // specifying this item. VPOParoptTransform will use the modifier
 // to choose the optimal address space for the item.
-bool VPOParoptTransform::optimizeDataSharing() {
+bool VPOParoptTransform::optimizeDataSharingForPrivateItems() {
   bool Changed = false;
 
-  if (!EnableDataSharingOpt)
+  if (!EnableDataSharingOptForPrivate)
     return Changed;
 
   bool NeedTID, NeedBID;
@@ -443,5 +457,38 @@ bool VPOParoptTransform::optimizeDataSharing() {
   }
 
   Changed = (NumOptimizedItems > 0);
+  return Changed;
+}
+
+// Optimize REDUCTION clauses on TEAMS regions for SPIR-V targets.
+//
+// Example:
+//   float sum = 0.0f;
+//   #pragma omp target teams map(to: data) reduction(+: sum)
+//   #pragma omp distribute parallel for reduction(+: sum)
+//   for (int i = 0; i < 100; ++i) {
+//     sum += data[i];
+//   }
+//
+// If all reads/writes from/to the reduction variable on the TEAMS region
+// are done within regions enclosed into the TEAMS region, and all such
+// regions (or their ancestors also enclosed into the TEAMS region)
+// have the same variable in their reduction clauses, then we can make
+// the variables SHARED for the TEAMS region. This means that the descendant
+// regions (if any) will access the original reduction item during
+// the reduction updates.
+//
+// In general, reducing into a team-local storage, and then reducing
+// to the global storage should be better, since each team accesses
+// the global storage only once. But implementing this for SPIR-V
+// target requires a barrier after the enclosed region, and this
+// results in up to 3x slowdowns (CMPLRLLVM-20537).
+bool VPOParoptTransform::optimizeDataSharingForReductionItems() {
+  bool Changed = false;
+
+  if (!EnableDataSharingOptForReduction || !isTargetSPIRV())
+    return Changed;
+
+  // TODO: implement.
   return Changed;
 }

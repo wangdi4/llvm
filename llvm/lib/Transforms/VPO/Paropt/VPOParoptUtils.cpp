@@ -89,6 +89,12 @@ static cl::opt<uint32_t> ParallelSourceInfoMode(
     cl::desc("Control source location info in OpenMP code.  0 = none; "
              "1 (default) = function + line; 2 = path + function + line."));
 
+// Enable target compilation mode expliclty, e.g. for LIT tests.
+// This option is currently not used by any driver.
+static cl::opt<bool> SwitchToOffload(
+    "switch-to-offload", cl::Hidden, cl::init(false),
+    cl::desc("switch to offload mode (default = false)"));
+
 static const unsigned StackAdjustedAlignment = 16;
 
 // If module M has a StructType of name Name, and element types ElementTypes,
@@ -5414,4 +5420,9 @@ void VPOParoptUtils::replaceUsesInFunction(Function *F, Value *Old,
   }
 }
 
+// Returns true, if this is a target compilation invocation
+// forced by dedicated compiler option.
+bool VPOParoptUtils::isForcedTargetCompilation() {
+  return SwitchToOffload;
+}
 #endif // INTEL_COLLAB

@@ -173,6 +173,8 @@ static cl::opt<unsigned> RunVPOOpt("vpoopt", cl::init(InvokeParoptAfterInliner),
 // transformations, where <mode> is a bit vector (see enum VPOParoptMode
 // for a description of the bits.) For example, paropt=0x7 enables
 // "ParPrepare" (0x1), "ParTrans" (0x2), and "OmpPar" (0x4).
+// TODO: this does not seem to work with the new pass manager,
+//       so we need to fix it soon.
 static cl::opt<unsigned> RunVPOParopt("paropt",
   cl::init(0x00000000), cl::Hidden,
   cl::desc("Run VPO Paropt Pass"));

@@ -100,7 +100,7 @@ public:
                      OptReportVerbosity::Level ORVerbosity,
 #endif  // INTEL_CUSTOMIZATION
                      OptimizationRemarkEmitter &ORE,
-                     unsigned OptLevel = 2, bool SwitchToOffload = false,
+                     unsigned OptLevel = 2,
                      bool DisableOffload = false)
       : MT(MT), F(F), WI(WI), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC),
         TLI(TLI), AA(AA), Mode(Mode),
@@ -108,7 +108,7 @@ public:
 #if INTEL_CUSTOMIZATION
         ORVerbosity(ORVerbosity),
 #endif  // INTEL_CUSTOMIZATION
-        ORE(ORE), OptLevel(OptLevel), SwitchToOffload(SwitchToOffload),
+        ORE(ORE), OptLevel(OptLevel),
         DisableOffload(DisableOffload),
         IdentTy(nullptr), TidPtrHolder(nullptr), BidPtrHolder(nullptr),
         KmpcMicroTaskTy(nullptr), KmpRoutineEntryPtrTy(nullptr),
@@ -156,8 +156,9 @@ public:
   bool isModeOmpSimt() { return Mode & vpo::OmpSimt; }
 
 #if INTEL_CUSTOMIZATION
-  /// Top level interface for data sharing optimization.
-  bool optimizeDataSharing();
+  /// Interfaces for data sharing optimization.
+  bool optimizeDataSharingForPrivateItems();
+  bool optimizeDataSharingForReductionItems();
 #endif  // INTEL_CUSTOMIZATION
 
 private:
@@ -210,9 +211,6 @@ private:
 
   /// Optimization level.
   unsigned OptLevel;
-
-  /// Offload compilation mode.
-  bool SwitchToOffload;
 
   /// Ignore TARGET construct
   bool DisableOffload;
@@ -298,9 +296,7 @@ private:
 
   /// Returns true if we are compiling for SPIRV target.
   bool isTargetSPIRV() const {
-    return
-        VPOAnalysisUtils::isTargetSPIRV(F->getParent()) &&
-        hasOffloadCompilation();
+    return VPOAnalysisUtils::isTargetSPIRV(F->getParent());
   }
 
   /// Use the WRNVisitor class (in WRegionUtils.h) to walk the
@@ -1096,7 +1092,7 @@ private:
 
   /// Return true if the program is compiled at the offload mode.
   bool hasOffloadCompilation() const {
-    return ((Mode & OmpOffload) || SwitchToOffload);
+    return ((Mode & OmpOffload) || VPOParoptUtils::isForcedTargetCompilation());
   }
 
   /// Finds the alloc stack variables where the tid stores.

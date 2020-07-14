@@ -57,10 +57,6 @@ static cl::opt<bool> VerifyIRBeforeParopt(
     cl::desc("Enable IR verification before Paropt."));
 #endif  // NDEBUG
 
-static cl::opt<bool> PrepareSwitchToOffload(
-    "prepare-switch-to-offload", cl::Hidden, cl::init(false),
-    cl::desc("switch to offload mode (default = false)"));
-
 static cl::opt<bool> PrepareDisableOffload(
   "vpo-paropt-prepare-disable-offload", cl::Hidden, cl::init(false),
   cl::desc("Ignore OpenMP TARGET construct in VPO Paropt Prepare."));
@@ -178,7 +174,7 @@ bool VPOParoptPreparePass::runImpl(Function &F, WRegionInfo &WI,
 #if INTEL_CUSTOMIZATION
                         ORVerbosity,
 #endif  // INTEL_CUSTOMIZATION
-                        ORE, 2, PrepareSwitchToOffload, PrepareDisableOffload);
+                        ORE, 2, PrepareDisableOffload);
   Changed = Changed | VP.paroptTransforms();
 
   LLVM_DEBUG(
