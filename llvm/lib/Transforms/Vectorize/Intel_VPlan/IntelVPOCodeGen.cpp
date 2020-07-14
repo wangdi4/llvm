@@ -1794,9 +1794,11 @@ Value *VPOCodeGen::getOrCreateWideLoadForGroup(OVLSGroup *Group) {
         SingleAccessVecType ? SingleAccessVecType->getNumElements() : 1;
     Value *LoadMask = replicateVectorElts(MaskValue, OriginalVL * Group->size(),
                                           Builder, "groupLoadMask");
+    OptRptStats.MaskedVLSLoads += Group->size();
     GroupLoad = Builder.CreateMaskedLoad(GroupPtr, Alignment, LoadMask, nullptr,
                                          "groupLoad");
   } else {
+    OptRptStats.UnmaskedVLSLoads += Group->size();
     GroupLoad =
         Builder.CreateAlignedLoad(GroupType, GroupPtr, Alignment, "groupLoad");
   }
@@ -1873,10 +1875,13 @@ Value *VPOCodeGen::vectorizeUnitStrideLoad(VPInstruction *VPInst,
     if (IsNegOneStride)
       RepMaskValue = reverseVector(RepMaskValue, OriginalVL);
 
+    ++OptRptStats.MaskedUnalignedUnitStrideLoads;
     WideLoad = Builder.CreateMaskedLoad(VecPtr, Alignment, RepMaskValue,
                                         nullptr, "wide.masked.load");
-  } else
+  } else {
+    ++OptRptStats.UnmaskedUnalignedUnitStrideLoads;
     WideLoad = Builder.CreateAlignedLoad(VecPtr, Alignment, "wide.load");
+  }
 
   if (auto *DynPeeling =
           dyn_cast_or_null<VPlanDynamicPeeling>(PreferredPeeling))
@@ -1960,6 +1965,7 @@ void VPOCodeGen::vectorizeLoadInstruction(VPInstruction *VPInst,
                                          "replicatedMaskElts.");
     Value *GatherAddress = getWidenedAddressForScatterGather(Ptr);
     Align Alignment = getAlignmentForGatherScatter(VPInst);
+    ++(RepMaskValue ? OptRptStats.MaskedGathers : OptRptStats.UnmaskedGathers);
     NewLI = Builder.CreateMaskedGather(GatherAddress, Alignment, RepMaskValue,
                                        nullptr, "wide.masked.gather");
   }
@@ -2050,9 +2056,11 @@ void VPOCodeGen::vectorizeInterleavedStore(VPInstruction *VPStoreArg,
   if (MaskValue) {
     Value *StoreMask = replicateVectorElts(
         MaskValue, OriginalVL * Group->size(), Builder, "groupStoreMask");
+    OptRptStats.MaskedVLSStores += Group->size();
     GroupStore =
         Builder.CreateMaskedStore(StoredValue, GroupPtr, Alignment, StoreMask);
   } else {
+    OptRptStats.UnmaskedVLSStores += Group->size();
     GroupStore = Builder.CreateAlignedStore(StoredValue, GroupPtr, Alignment);
   }
 
@@ -2087,10 +2095,13 @@ void VPOCodeGen::vectorizeUnitStrideStore(VPInstruction *VPInst,
     if (IsNegOneStride)
       RepMaskValue = reverseVector(RepMaskValue, OriginalVL);
 
+    ++OptRptStats.MaskedUnalignedUnitStrideStores;
     Store =
         Builder.CreateMaskedStore(VecDataOp, VecPtr, Alignment, RepMaskValue);
-  } else
+  } else {
+    ++OptRptStats.UnmaskedUnalignedUnitStrideStores;
     Store = Builder.CreateAlignedStore(VecDataOp, VecPtr, Alignment);
+  }
 
   if (auto *DynPeeling =
           dyn_cast_or_null<VPlanDynamicPeeling>(PreferredPeeling))
@@ -2184,6 +2195,7 @@ void VPOCodeGen::vectorizeStoreInstruction(VPInstruction *VPInst,
     RepMaskValue = replicateVectorElts(MaskValue, OriginalVL, Builder,
                                        "replicatedMaskElts.");
   Align Alignment = getAlignmentForGatherScatter(VPInst);
+  ++(RepMaskValue ? OptRptStats.MaskedScatters : OptRptStats.UnmaskedScatters);
   Builder.CreateMaskedScatter(VecDataOp, ScatterPtr, Alignment, RepMaskValue);
 }
 
