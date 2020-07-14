@@ -22,11 +22,7 @@
 
 #include "SpecConstants.h"
 #include "llvm/ADT/SetVector.h"
-<<<<<<< HEAD
-#include "llvm/ADT/Triple.h" // INTEL_CUSTOMIZATION
-=======
 #include "llvm/ADT/Triple.h"
->>>>>>> 9a8864c72328c15d44b22075d12b04a270e6087a
 #include "llvm/Bitcode/BitcodeWriterPass.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/InstIterator.h"
@@ -128,7 +124,6 @@ static cl::opt<SpecConstMode> SpecConstLower{
                    "set spec constants to C++ defaults")),
     cl::cat(PostLinkCat)};
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 static cl::opt<std::string> OmpOffloadEntriesSymbol(
     "ompoffload-link-entries", cl::ValueOptional,
@@ -148,7 +143,7 @@ static cl::opt<bool>
                                   "in the offload table static."),
                          cl::cat(PostLinkCat));
 #endif // INTEL_COLLAB
-=======
+
 struct ImagePropSaveInfo {
   bool NeedDeviceLibReqMask;
   bool DoSpecConst;
@@ -285,7 +280,6 @@ static std::unordered_map<std::string, DeviceLibExt> DeviceLibFuncMap = {
     {"__devicelib_ctan", DeviceLibExt::cl_intel_devicelib_complex_fp64},
     {"__devicelib_ctanh", DeviceLibExt::cl_intel_devicelib_complex_fp64},
 };
->>>>>>> 9a8864c72328c15d44b22075d12b04a270e6087a
 
 static void error(const Twine &Msg) {
   errs() << "sycl-post-link: " << Msg << '\n';
