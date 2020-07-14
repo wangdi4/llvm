@@ -47388,6 +47388,66 @@ static SDValue foldXor1SetCC(SDNode *N, SelectionDAG &DAG) {
   return getSETCC(NewCC, LHS->getOperand(1), DL, DAG);
 }
 
+#if INTEL_CUSTOMIZATION
+// Look for (Y ^ ((X ^ Y) & M)) (equivalent to M ? X : Y) and turn it  into
+// VPTERNLOG.
+static SDValue combineBitSelectXor(SDNode *N, SelectionDAG &DAG,
+                                   const X86Subtarget &Subtarget) {
+  assert(N->getOpcode() == ISD::XOR && "Unexpected Opcode");
+
+  MVT VT = N->getSimpleValueType(0);
+  if (!VT.isVector() || (VT.getScalarSizeInBits() % 8) != 0)
+    return SDValue();
+
+  // Make sure VPTERNLOG is legal
+  if (!(Subtarget.hasAVX512() && VT.is512BitVector()) && !Subtarget.hasVLX())
+    return SDValue();
+
+  SDValue X, Y, M;
+  auto matchAndXor =[&X, &Y, &M](SDValue And, unsigned XorIdx, SDValue Other) {
+    // NOTE: we allow the And node to have multiple uses as there maybe two
+    // xors using that node to do an opposite bitselect.
+    // peekThroughOneUseBitcasts here will ensure the operand of the bitcast
+    // is only used by the bitcast.
+    // We need to peek through bitcasts here in case the AND was converted to
+    // a shuffle and then lowered back to an AND of a different type.
+    And = peekThroughOneUseBitcasts(And);
+    if (And.getOpcode() != ISD::AND)
+      return false;
+    SDValue Xor = And.getOperand(XorIdx);
+    if (!Xor.hasOneUse())
+      return false;
+    Xor = peekThroughOneUseBitcasts(Xor);
+    if (Xor.getOpcode() != ISD::XOR)
+      return false;
+    SDValue Xor0 = Xor.getOperand(0);
+    SDValue Xor1 = Xor.getOperand(1);
+    if (ISD::isBuildVectorAllOnes(Xor1.getNode()))
+      return false;
+    if (Other == Xor0)
+      std::swap(Xor0, Xor1);
+    else if (Other != Xor1)
+      return false;
+    X = Xor0;
+    Y = Xor1;
+    M = And.getOperand(XorIdx ? 0 : 1);
+    return true;
+  };
+
+  SDValue N0 = N->getOperand(0);
+  SDValue N1 = N->getOperand(1);
+
+  if (!matchAndXor(N0, 0, N1) && !matchAndXor(N0, 1, N1) &&
+      !matchAndXor(N1, 0, N0) && !matchAndXor(N1, 1, N0))
+    return SDValue();
+
+  SDLoc dl(N);
+  SDValue Imm = DAG.getTargetConstant(0xCA, dl, MVT::i8);
+  return DAG.getNode(X86ISD::VPTERNLOG, dl, VT, DAG.getBitcast(VT, M),
+                     DAG.getBitcast(VT, X), DAG.getBitcast(VT, Y), Imm);
+}
+#endif // INTEL_CUSTOMIZATION
+
 static SDValue combineXor(SDNode *N, SelectionDAG &DAG,
                           TargetLowering::DAGCombinerInfo &DCI,
                           const X86Subtarget &Subtarget) {
@@ -47417,6 +47477,11 @@ static SDValue combineXor(SDNode *N, SelectionDAG &DAG,
 
   if (SDValue FPLogic = convertIntLogicToFPLogic(N, DAG, Subtarget))
     return FPLogic;
+
+#if INTEL_CUSTOMIZATION
+  if (SDValue V = combineBitSelectXor(N, DAG, Subtarget))
+    return V;
+#endif
 
   return combineFneg(N, DAG, DCI, Subtarget);
 }
