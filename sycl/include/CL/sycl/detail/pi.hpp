@@ -323,6 +323,7 @@ public:
     ConstIterator begin() const { return ConstIterator(Begin); }
     ConstIterator end() const { return ConstIterator(End); }
     friend class DeviceBinaryImage;
+    bool isAvailable() const { return !(Begin == nullptr); }
 
   private:
     PropertyRange() : Begin(nullptr), End(nullptr) {}
@@ -371,6 +372,7 @@ public:
   /// name of the property is the specializaion constant symbolic ID and the
   /// value is 32-bit unsigned integer ID.
   const PropertyRange &getSpecConstants() const { return SpecConstIDMap; }
+  const PropertyRange &getDeviceLibReqMask() const { return DeviceLibReqMask; }
   virtual ~DeviceBinaryImage() {}
 
 protected:
@@ -380,6 +382,7 @@ protected:
   pi_device_binary Bin;
   pi::PiDeviceBinaryType Format = PI_DEVICE_BINARY_TYPE_NONE;
   DeviceBinaryImage::PropertyRange SpecConstIDMap;
+  DeviceBinaryImage::PropertyRange DeviceLibReqMask;
 };
 
 /// Tries to determine the device binary image foramat. Returns

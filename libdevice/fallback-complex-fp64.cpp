@@ -12,12 +12,18 @@
 #ifdef __SPIR__
 #include <cmath>
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
 #if OMP_LIBDEVICE
 #pragma omp declare target
 #endif  // OMP_LIBDEVICE
 #endif  // INTEL_COLLAB
 
+=======
+// To support fallback device libraries on-demand loading, please update the
+// DeviceLibFuncMap in llvm/tools/sycl-post-link/sycl-post-link.cpp if you add
+// or remove any item in this file.
+>>>>>>> 9a8864c72328c15d44b22075d12b04a270e6087a
 DEVICE_EXTERN_C
 double __devicelib_creal(double __complex__ z) { return __real__(z); }
 
