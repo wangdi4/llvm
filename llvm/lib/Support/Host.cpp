@@ -697,8 +697,7 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
     // Rocketlake:
     case 0xa7:
     case 0xa8:
-      *Type = X86::INTEL_COREI7; // "rocketlake"
-      *Subtype = X86::INTEL_COREI7_ROCKETLAKE;
+      CPU = "rocketlake";
       break;
 #endif // INTEL_FEATURE_CPU_RKL
 #endif // INTEL_CUSTOMIZATION
@@ -745,9 +744,8 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
 #if INTEL_FEATURE_CPU_SPR
     // Sapphire Rapids:
     case 0x8f:
-      *Type = X86::INTEL_COREI7;
-      *Subtype = X86::INTEL_COREI7_SAPPHIRERAPIDS; // "sapphirerapids"
-    break;
+      CPU = "sapphirerapids";
+      break;
 #endif // INTEL_FEATURE_CPU_SPR
 #endif // INTEL_CUSTOMIZATION
 
@@ -787,8 +785,7 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
 #if INTEL_FEATURE_CPU_ADL
     case 0x97:
     case 0x9a:
-      *Type = X86::INTEL_COREI7;
-      *Subtype = X86::INTEL_COREI7_ALDERLAKE;
+      CPU = "alderlake";
       break;
 #endif // INTEL_FEATURE_CPU_ADL
 #endif // INTEL_CUSTOMIZATION
@@ -807,9 +804,6 @@ getIntelProcessorTypeAndSubtype(unsigned Family, unsigned Model,
       // Don't both with Type/Subtype here, they aren't used by the caller.
       // They're used above to keep the code in sync with compiler-rt.
       // TODO detect tigerlake host from model
-#if INTEL_CUSTOMIZATION
-      //TODO: detect tgl host
-#endif // INTEL_CUSTOMIZATION
       if (testFeature(X86::FEATURE_AVX512VP2INTERSECT)) {
         CPU = "tigerlake";
       } else if (testFeature(X86::FEATURE_AVX512VBMI2)) {
