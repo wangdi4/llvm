@@ -20,18 +20,15 @@ X86_VENDOR(VENDOR_AMD,   "amd")
 #undef X86_VENDOR
 
 // This macro is used for cpu types present in compiler-rt/libgcc.
-#ifndef X86_CPU_TYPE_COMPAT
-#define X86_CPU_TYPE_COMPAT(ARCHNAME, ENUM, STR) X86_CPU_TYPE(ARCHNAME, ENUM)
-#endif
-
 #ifndef X86_CPU_TYPE
-#define X86_CPU_TYPE(ARCHNAME, ENUM)
+#define X86_CPU_TYPE(ENUM, STR)
 #endif
 
-#ifndef X86_CPU_TYPE_COMPAT_ALIAS
-#define X86_CPU_TYPE_COMPAT_ALIAS(ENUM, STR)
+#ifndef X86_CPU_TYPE_ALIAS
+#define X86_CPU_TYPE_ALIAS(ENUM, STR)
 #endif
 
+<<<<<<< HEAD
 // The first part of this list must match what is implemented in libgcc and
 // compilert-rt. Clang uses this to know how to implement __builtin_cpu_is.
 X86_CPU_TYPE_COMPAT("bonnell",       INTEL_BONNELL,       "bonnell")
@@ -51,26 +48,40 @@ X86_CPU_TYPE_COMPAT("tremont",       INTEL_TREMONT,       "tremont")
 #if INTEL_CUSTOMIZATION
 X86_CPU_TYPE       ("common-avx512", INTEL_COMMON_AVX512)
 #endif // INTEL_CUSTOMIZATION
+=======
+// This list must match what is implemented in libgcc and compilert-rt. Clang
+// uses this to know how to implement __builtin_cpu_is.
+X86_CPU_TYPE(INTEL_BONNELL,       "bonnell")
+X86_CPU_TYPE(INTEL_CORE2,         "core2")
+X86_CPU_TYPE(INTEL_COREI7,        "corei7")
+X86_CPU_TYPE(AMDFAM10H,           "amdfam10h")
+X86_CPU_TYPE(AMDFAM15H,           "amdfam15h")
+X86_CPU_TYPE(INTEL_SILVERMONT,    "silvermont")
+X86_CPU_TYPE(INTEL_KNL,           "knl")
+X86_CPU_TYPE(AMD_BTVER1,          "btver1")
+X86_CPU_TYPE(AMD_BTVER2,          "btver2")
+X86_CPU_TYPE(AMDFAM17H,           "amdfam17h")
+X86_CPU_TYPE(INTEL_KNM,           "knm")
+X86_CPU_TYPE(INTEL_GOLDMONT,      "goldmont")
+X86_CPU_TYPE(INTEL_GOLDMONT_PLUS, "goldmont-plus")
+X86_CPU_TYPE(INTEL_TREMONT,       "tremont")
+>>>>>>> b4dbb37f32e554e4d6f118d9ddd87717721ea664
 
 // Alternate names supported by __builtin_cpu_is and target multiversioning.
-X86_CPU_TYPE_COMPAT_ALIAS(INTEL_BONNELL,    "atom")
-X86_CPU_TYPE_COMPAT_ALIAS(AMDFAM10H,        "amdfam10")
-X86_CPU_TYPE_COMPAT_ALIAS(AMDFAM15H,        "amdfam15")
-X86_CPU_TYPE_COMPAT_ALIAS(INTEL_SILVERMONT, "slm")
+X86_CPU_TYPE_ALIAS(INTEL_BONNELL,    "atom")
+X86_CPU_TYPE_ALIAS(AMDFAM10H,        "amdfam10")
+X86_CPU_TYPE_ALIAS(AMDFAM15H,        "amdfam15")
+X86_CPU_TYPE_ALIAS(INTEL_SILVERMONT, "slm")
 
-#undef X86_CPU_TYPE_COMPAT_ALIAS
-#undef X86_CPU_TYPE_COMPAT
+#undef X86_CPU_TYPE_ALIAS
 #undef X86_CPU_TYPE
 
 // This macro is used for cpu subtypes present in compiler-rt/libgcc.
-#ifndef X86_CPU_SUBTYPE_COMPAT
-#define X86_CPU_SUBTYPE_COMPAT(ARCHNAME, ENUM, STR) X86_CPU_SUBTYPE(ARCHNAME, ENUM)
-#endif
-
 #ifndef X86_CPU_SUBTYPE
-#define X86_CPU_SUBTYPE(ARCHNAME, ENUM)
+#define X86_CPU_SUBTYPE(ENUM, STR)
 #endif
 
+<<<<<<< HEAD
 // The first part of this list must match what is implemented in libgcc and
 // compilert-rt. Clang uses this to know how to implement __builtin_cpu_is.
 X86_CPU_SUBTYPE_COMPAT("nehalem",        INTEL_COREI7_NEHALEM,        "nehalem")
@@ -112,6 +123,33 @@ X86_CPU_SUBTYPE       ("rocketlake",     INTEL_COREI7_ROCKETLAKE)
 #endif // INTEL_FEATURE_CPU_RKL
 #endif // INTEL_CUSTOMIZATION
 #undef X86_CPU_SUBTYPE_COMPAT
+=======
+// This list must match what is implemented in libgcc and compilert-rt. Clang
+// uses this to know how to implement __builtin_cpu_is.
+X86_CPU_SUBTYPE(INTEL_COREI7_NEHALEM,        "nehalem")
+X86_CPU_SUBTYPE(INTEL_COREI7_WESTMERE,       "westmere")
+X86_CPU_SUBTYPE(INTEL_COREI7_SANDYBRIDGE,    "sandybridge")
+X86_CPU_SUBTYPE(AMDFAM10H_BARCELONA,         "barcelona")
+X86_CPU_SUBTYPE(AMDFAM10H_SHANGHAI,          "shanghai")
+X86_CPU_SUBTYPE(AMDFAM10H_ISTANBUL,          "istanbul")
+X86_CPU_SUBTYPE(AMDFAM15H_BDVER1,            "bdver1")
+X86_CPU_SUBTYPE(AMDFAM15H_BDVER2,            "bdver2")
+X86_CPU_SUBTYPE(AMDFAM15H_BDVER3,            "bdver3")
+X86_CPU_SUBTYPE(AMDFAM15H_BDVER4,            "bdver4")
+X86_CPU_SUBTYPE(AMDFAM17H_ZNVER1,            "znver1")
+X86_CPU_SUBTYPE(INTEL_COREI7_IVYBRIDGE,      "ivybridge")
+X86_CPU_SUBTYPE(INTEL_COREI7_HASWELL,        "haswell")
+X86_CPU_SUBTYPE(INTEL_COREI7_BROADWELL,      "broadwell")
+X86_CPU_SUBTYPE(INTEL_COREI7_SKYLAKE,        "skylake")
+X86_CPU_SUBTYPE(INTEL_COREI7_SKYLAKE_AVX512, "skylake-avx512")
+X86_CPU_SUBTYPE(INTEL_COREI7_CANNONLAKE,     "cannonlake")
+X86_CPU_SUBTYPE(INTEL_COREI7_ICELAKE_CLIENT, "icelake-client")
+X86_CPU_SUBTYPE(INTEL_COREI7_ICELAKE_SERVER, "icelake-server")
+X86_CPU_SUBTYPE(AMDFAM17H_ZNVER2,            "znver2")
+X86_CPU_SUBTYPE(INTEL_COREI7_CASCADELAKE,    "cascadelake")
+X86_CPU_SUBTYPE(INTEL_COREI7_TIGERLAKE,      "tigerlake")
+X86_CPU_SUBTYPE(INTEL_COREI7_COOPERLAKE,     "cooperlake")
+>>>>>>> b4dbb37f32e554e4d6f118d9ddd87717721ea664
 #undef X86_CPU_SUBTYPE
 
 
