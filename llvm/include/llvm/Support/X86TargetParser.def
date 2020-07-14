@@ -48,6 +48,7 @@ X86_CPU_TYPE_COMPAT("knm",           INTEL_KNM,           "knm")
 X86_CPU_TYPE_COMPAT("goldmont",      INTEL_GOLDMONT,      "goldmont")
 X86_CPU_TYPE_COMPAT("goldmont-plus", INTEL_GOLDMONT_PLUS, "goldmont-plus")
 X86_CPU_TYPE_COMPAT("tremont",       INTEL_TREMONT,       "tremont")
+<<<<<<< HEAD
 // Entries below this are not in libgcc/compiler-rt.
 X86_CPU_TYPE       ("i386",          INTEL_i386)
 X86_CPU_TYPE       ("i486",          INTEL_i486)
@@ -70,6 +71,8 @@ X86_CPU_TYPE       ("k8-sse3",       AMD_K8SSE3)
 #if INTEL_CUSTOMIZATION
 X86_CPU_TYPE       ("common-avx512", INTEL_COMMON_AVX512)
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> ea84dc9500df383b4fe07199134033f358411e59
 
 // Alternate names supported by __builtin_cpu_is and target multiversioning.
 X86_CPU_TYPE_COMPAT_ALIAS(INTEL_BONNELL,    "atom")
@@ -115,6 +118,7 @@ X86_CPU_SUBTYPE_COMPAT("znver2",         AMDFAM17H_ZNVER2,            "znver2")
 X86_CPU_SUBTYPE_COMPAT("cascadelake",    INTEL_COREI7_CASCADELAKE,    "cascadelake")
 X86_CPU_SUBTYPE_COMPAT("tigerlake",      INTEL_COREI7_TIGERLAKE,      "tigerlake")
 X86_CPU_SUBTYPE_COMPAT("cooperlake",     INTEL_COREI7_COOPERLAKE,     "cooperlake")
+<<<<<<< HEAD
 // Entries below this are not in libgcc/compiler-rt.
 X86_CPU_SUBTYPE       ("core2",          INTEL_CORE2_65)
 X86_CPU_SUBTYPE       ("penryn",         INTEL_CORE2_45)
@@ -137,6 +141,8 @@ X86_CPU_SUBTYPE       ("sapphirerapids", INTEL_COREI7_SAPPHIRERAPIDS)
 X86_CPU_SUBTYPE       ("rocketlake",     INTEL_COREI7_ROCKETLAKE)
 #endif // INTEL_FEATURE_CPU_RKL
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> ea84dc9500df383b4fe07199134033f358411e59
 #undef X86_CPU_SUBTYPE_COMPAT
 #undef X86_CPU_SUBTYPE
 
