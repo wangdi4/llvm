@@ -192,6 +192,7 @@ const char *x86::getX86TargetCPU(const ArgList &Args,
 
   switch (Triple.getOS()) {
   case llvm::Triple::FreeBSD:
+    return "i686";
   case llvm::Triple::NetBSD:
   case llvm::Triple::OpenBSD:
     return "i486";
