@@ -438,7 +438,7 @@ public:
 // constants will be represented with two different VPConstants.
 class VPConstant : public VPValue {
   // VPlan is currently the context where we hold the pool of VPConstants.
-  friend class VPlan;
+  friend class VPExternalValues;
 
 protected:
   VPConstant(Constant *Const)
@@ -485,7 +485,7 @@ public:
 /// VPConstantInt is subset of VPConstant representing Integer constants only.
 class VPConstantInt : public VPConstant {
   // VPlan is currently the context where we hold the pool of VPConstants.
-  friend class VPlan;
+  friend class VPExternalValues;
 
 protected:
   VPConstantInt(ConstantInt *ConstInt) : VPConstant(ConstInt) {}
@@ -531,7 +531,7 @@ public:
 /// that only once instance of each external definition is created.
 class VPExternalDef : public VPValue, public FoldingSetNode {
   // VPlan is currently the context where the pool of VPExternalDefs is held.
-  friend class VPlan;
+  friend class VPExternalValues;
   friend class VPOCodeGenHIR;
   friend class VPOCodeGen;
 
@@ -609,7 +609,7 @@ public:
 /// Concrete class for an external use.
 class VPExternalUse : public VPUser, public FoldingSetNode {
 private:
-  friend class VPlan;
+  friend class VPExternalValues;
   friend class VPOCodeGen;
 
   // Hold the DDRef or IV information related to this external use.
@@ -695,7 +695,7 @@ private:
 class VPMetadataAsValue : public VPValue {
   // VPlan is currently the context where we hold the pool of
   // VPMetadataAsValues.
-  friend class VPlan;
+  friend class VPExternalValues;
 
 protected:
   VPMetadataAsValue(MetadataAsValue *MDAsValue)
