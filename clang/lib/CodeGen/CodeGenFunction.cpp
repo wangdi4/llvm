@@ -377,6 +377,13 @@ void CodeGenFunction::FinishFunction(SourceLocation EndLoc) {
                        "__cyg_profile_func_exit");
   }
 
+#if INTEL_COLLAB
+  // If we are finishing a function during device compilation add the
+  // appropriate attribute. This picks up compiler-generated routines that
+  // do not use the usual AST-based processing.
+  CGM.SetTargetRegionFunctionAttributes(CurFn);
+#endif // INTEL_COLLAB
+
   // Emit debug descriptor for function end.
   if (CGDebugInfo *DI = getDebugInfo())
     DI->EmitFunctionEnd(Builder, CurFn);
