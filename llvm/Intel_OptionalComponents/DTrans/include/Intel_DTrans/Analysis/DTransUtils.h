@@ -84,6 +84,15 @@ bool hasPointerType(llvm::Type *Ty);
 // calls.
 bool valueOnlyUsedForMemset(llvm::Value *V);
 
+// Return 'true' if the value loaded, 'V',  is only stored to the same address
+// from which it was loaded, 'LoadAddr' and does not escape through a function
+// call. For example:
+//   struct.x = struct.x + 1;
+// In this case, the load of 'struct.x' is only used to store a new value into
+// the memory location it was loaded from.
+bool isLoadedValueUnused(Value *V, Value *LoadAddr);
+
+
 } // namespace dtrans
 } // namespace llvm
 

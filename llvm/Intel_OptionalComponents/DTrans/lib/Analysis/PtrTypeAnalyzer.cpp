@@ -2337,6 +2337,26 @@ private:
         };
 
     llvm::Type *ValTy = LI->getType();
+
+#if 0
+    // TODO: This commented out code will be needed when opaque pointers are
+    // enabled.  This code cannot be enabled until the method 'isOpaque' is
+    // available on llvm::PointerType objects. When a pointer type is loaded,
+    // it's possible the pointer will be used as a different type than expected,
+    // therefore we need to infer the type based on the usage. For example:
+    //   %struct.T1 = { i64** }
+    //   %pField = getelementptr %struct.T1, p0 %pStruct, i64 0, i32 0
+    //   %vP2P = load p0, p0 %pField
+    //   %vP   = load p0, p0 %vP2P
+    //   %v    = load i32, p0 %vP
+    //
+    // %pField would be expected to be i64***, but then %vP2P gets used as if it
+    // were a i32** type. This code cannot be enabled until the method
+    // 'isOpaque' is available on llvm::PointerType objects.
+    if (ValTy->isPointerTy() && cast<llvm::PointerType>(ValTy)->isOpaque())
+      inferTypeFromUse(LI, ResultInfo);
+#endif
+
     bool ExpectPtrType = hasPointerType(ValTy);
     ValueTypeInfo *PointerInfo = PTA.getOrCreateValueTypeInfo(LI, 0);
     bool LoadingAggregateType = ValTy->isAggregateType();

@@ -1773,3 +1773,49 @@ bool dtrans::valueOnlyUsedForMemset(Value *V) {
 
   return true;
 }
+
+bool dtrans::isLoadedValueUnused(Value *V, Value *LoadAddr) {
+  std::function<bool(Value *, Value *, SmallPtrSetImpl<Value *> &)> IsUnused =
+      [&IsUnused](Value *V, Value *LoadAddr,
+                  SmallPtrSetImpl<Value *> &UsedValues) -> bool {
+    for (auto U : V->users()) {
+      // If we've seen this user before, assume its path is OK.
+      if (!UsedValues.insert(U).second)
+        continue;
+
+      // If the user is a call or invoke, the value escapes.
+      // If needed this can be extended for pure functions.
+      if (isa<CallBase>(U))
+        return false;
+
+      // If the value is used by a terminator, it's used.
+      if (cast<Instruction>(U)->isTerminator())
+        return false;
+
+      // If the user is a store, check the target address.
+      if (auto *SI = dyn_cast<StoreInst>(U)) {
+        // If it is volatile or it doesn't match the load address, the value is
+        // used.
+        if (SI->isVolatile() || SI->getPointerOperand() != LoadAddr)
+          return false;
+
+        continue;
+      }
+
+      // If load is volatile, the value is used.
+      if (auto *LI = dyn_cast<LoadInst>(U))
+        if (LI->isVolatile())
+          return false;
+
+      // Follow the users of any other user
+      if (!IsUnused(U, LoadAddr, UsedValues))
+        return false;
+    }
+
+    // If the value has no users, this path is unused.
+    return true;
+  };
+
+  SmallPtrSet<Value *, 4> UsedValues;
+  return IsUnused(V, LoadAddr, UsedValues);
+}
