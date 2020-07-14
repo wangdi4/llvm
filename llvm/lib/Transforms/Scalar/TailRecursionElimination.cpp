@@ -83,11 +83,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-<<<<<<< HEAD
 #include "llvm/Transforms/Utils/Intel_CloneUtils.h"  // INTEL
-#include "llvm/Transforms/Utils/Local.h"
-=======
->>>>>>> 0a01fc96e24b7c7de2141a2ea07593500ea34732
 using namespace llvm;
 
 #define DEBUG_TYPE "tailcallelim"
