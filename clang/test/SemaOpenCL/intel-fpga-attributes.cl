@@ -35,3 +35,8 @@ __kernel void k7(__global __attribute__((buffer_location(0))) int *a ) { // expe
 
 __kernel void k8(__attribute__((buffer_location("DDR"))) int a ) { // expected-warning{{''buffer_location'' only applies to pointer types; type here is Builtin}}
 }
+__kernel void k9(__global __attribute__((buffer_location("DDR"))) int a[] ) {
+}
+
+__kernel void k10(__global __attribute__((buffer_location("DDR"))) int a[5] ) {
+}

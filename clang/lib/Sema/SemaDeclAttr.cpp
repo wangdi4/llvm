@@ -3328,7 +3328,7 @@ static void handleOpenCLLocalMemSizeAttr(Sema & S, Decl * D,
   }
 
   ParmVarDecl *PVD = cast<ParmVarDecl>(D);
-  const QualType QT = PVD->getOriginalType();
+  const QualType QT = PVD->getType();
   const Type *TypePtr = QT.getTypePtr();
   if (!TypePtr->isPointerType()) {
     S.Diag(Attr.getLoc(), diag::warn_type_attribute_wrong_type)
@@ -3625,7 +3625,7 @@ static void handleOpenCLBufferLocationAttr(Sema & S, Decl * D,
   }
 
   ParmVarDecl *PVD = cast<ParmVarDecl>(D);
-  const QualType QT = PVD->getOriginalType();
+  const QualType QT = PVD->getType();
   const Type *TypePtr = QT.getTypePtr();
   if (!TypePtr->isPointerType()) {
     S.Diag(Attr.getLoc(), diag::warn_type_attribute_wrong_type)
