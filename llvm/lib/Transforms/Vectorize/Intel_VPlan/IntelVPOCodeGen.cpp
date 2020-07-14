@@ -518,8 +518,10 @@ bool VPOCodeGen::isScalarArgument(StringRef FnName, unsigned Idx) {
 }
 
 void VPOCodeGen::addMaskToSVMLCall(Function *OrigF, Value *CallMaskValue,
+                                   AttributeList OrigAttrs,
                                    SmallVectorImpl<Value *> &VecArgs,
-                                   SmallVectorImpl<Type *> &VecArgTys) {
+                                   SmallVectorImpl<Type *> &VecArgTys,
+                                   SmallVectorImpl<AttributeSet> &VecArgAttrs) {
   assert(CallMaskValue && "Expected mask to be present");
   VectorType *VecTy = cast<VectorType>(VecArgTys[0]);
   assert(VecTy->getNumElements() ==
@@ -537,6 +539,7 @@ void VPOCodeGen::addMaskToSVMLCall(Function *OrigF, Value *CallMaskValue,
     Value *MaskValueExt = Builder.CreateSExt(CallMaskValue, MaskTyExt);
     VecArgTys.push_back(MaskTyExt);
     VecArgs.push_back(MaskValueExt);
+    VecArgAttrs.push_back(AttributeSet());
   } else {
     // Compared with 128-bit and 256-bit calls, 512-bit masked calls need extra
     // pass-through source parameters. We don't care about masked-out lanes, so
@@ -546,6 +549,7 @@ void VPOCodeGen::addMaskToSVMLCall(Function *OrigF, Value *CallMaskValue,
     //            <16 x float>)
     SmallVector<Type *, 1> NewArgTys;
     SmallVector<Value *, 1> NewArgs;
+    SmallVector<AttributeSet, 1> NewArgAttrs;
 
     Type *SourceTy = VecTy;
     StringRef FnName = OrigF->getName();
@@ -556,15 +560,19 @@ void VPOCodeGen::addMaskToSVMLCall(Function *OrigF, Value *CallMaskValue,
 
     NewArgTys.push_back(SourceTy);
     NewArgs.push_back(Undef);
+    NewArgAttrs.push_back(AttributeSet());
 
     NewArgTys.push_back(CallMaskValue->getType());
     NewArgs.push_back(CallMaskValue);
+    NewArgAttrs.push_back(AttributeSet());
 
     NewArgTys.append(VecArgTys.begin(), VecArgTys.end());
     NewArgs.append(VecArgs.begin(), VecArgs.end());
+    NewArgAttrs.append(VecArgAttrs.begin(), VecArgAttrs.end());
 
     VecArgTys = std::move(NewArgTys);
     VecArgs = std::move(NewArgs);
+    VecArgAttrs = std::move(NewArgAttrs);
   }
 }
 
@@ -1516,7 +1524,8 @@ void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
                                    Intrinsic::ID VectorIntrinID,
                                    unsigned PumpPart, unsigned PumpFactor,
                                    SmallVectorImpl<Value *> &VecArgs,
-                                   SmallVectorImpl<Type *> &VecArgTys) {
+                                   SmallVectorImpl<Type *> &VecArgTys,
+                                   SmallVectorImpl<AttributeSet> &VecArgAttrs) {
   unsigned PumpedVF = VF / PumpFactor;
   std::vector<VectorKind> Parms;
   if (VecVariant) {
@@ -1574,6 +1583,8 @@ void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
     return ScalarArg;
   };
 
+  AttributeList Attrs = VPCall->getOrigCallAttrs();
+
   unsigned NumArgOperands = VPCall->arg_size();
 
   // glibc scalar sincos function has 2 pointer out parameters, but SVML sincos
@@ -1589,6 +1600,7 @@ void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
     Value *VecArg = ProcessCallArg(OrigArgIdx);
     VecArgs.push_back(VecArg);
     VecArgTys.push_back(VecArg->getType());
+    VecArgAttrs.push_back(Attrs.getParamAttributes(OrigArgIdx));
   }
 
   // Process mask parameters for current part being pumped. Masked intrinsics
@@ -1607,7 +1619,8 @@ void VPOCodeGen::vectorizeCallArgs(VPCallInstruction *VPCall,
   StringRef VecFnName = TLI->getVectorizedFunction(FnName, PumpedVF, IsMasked);
   if (IsMasked && !VecFnName.empty() &&
       isSVMLFunction(TLI, FnName, VecFnName)) {
-    addMaskToSVMLCall(F, PumpPartMaskValue, VecArgs, VecArgTys);
+    addMaskToSVMLCall(F, PumpPartMaskValue, Attrs, VecArgs, VecArgTys,
+                      VecArgAttrs);
     return;
   }
   if (!VecVariant || !VecVariant->isMasked())
@@ -2427,9 +2440,10 @@ void VPOCodeGen::generateVectorCalls(VPCallInstruction *VPCall,
                       << "\n");
     SmallVector<Value *, 2> VecArgs;
     SmallVector<Type *, 2> VecArgTys;
+    SmallVector<AttributeSet, 2> VecArgAttrs;
 
     vectorizeCallArgs(VPCall, MatchedVariant, VectorIntrinID, PumpPart,
-                      PumpFactor, VecArgs, VecArgTys);
+                      PumpFactor, VecArgs, VecArgTys, VecArgAttrs);
 
     Function *VectorF =
         getOrInsertVectorFunction(CalledFunc, VF / PumpFactor, VecArgTys, TLI,
@@ -2453,7 +2467,7 @@ void VPOCodeGen::generateVectorCalls(VPCallInstruction *VPCall,
     // underlying instruction. Update: Not applicable anymore, should be
     // refactored in a follow-up patch.
     const CallInst *UnderlyingCI = VPCall->getUnderlyingCallInst();
-    copyRequiredAttributes(UnderlyingCI, VecCall);
+    copyRequiredAttributes(UnderlyingCI, VecCall, VecArgAttrs);
 
 #if 0
     // TODO: Need a VPValue based analysis for call arg memory references.
