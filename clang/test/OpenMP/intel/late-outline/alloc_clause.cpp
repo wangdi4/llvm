@@ -1,10 +1,13 @@
 // INTEL_COLLAB
 // RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN:  -triple x86_64-unknown-linux-gnu %s | FileCheck %s
+//
+// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN:  -x c -triple x86_64-unknown-linux-gnu %s | FileCheck %s
 
 // Verify allocate clause is emitted properly when late outlining.
 
-enum omp_allocator_handle_t {
+typedef enum omp_allocator_handle_t {
   omp_null_allocator = 0,
   omp_default_mem_alloc = 1,
   omp_large_cap_mem_alloc = 2,
@@ -15,7 +18,7 @@ enum omp_allocator_handle_t {
   omp_pteam_mem_alloc = 7,
   omp_thread_mem_alloc = 8,
   KMP_ALLOCATOR_MAX_HANDLE = __UINTPTR_MAX__
-};
+} omp_allocator_handle_t;
 
 int main() {
   int i;
@@ -29,7 +32,7 @@ int main() {
 #pragma omp parallel allocate(v1) firstprivate(v1, v2)
   { v1 = v2; }
 
-  // CHECK: DIR.OMP.LOOP
+  // CHECK: "DIR.OMP.LOOP"()
   // CHECK-SAME: "QUAL.OMP.ALLOCATE"(i32* %v1, i64 5)
   // CHECK-SAME: "QUAL.OMP.ALLOCATE"(i32* %v2, i64 5)
   // CHECK: DIR.OMP.END.LOOP
@@ -39,22 +42,18 @@ int main() {
 
   // CHECK: store i64 2, i64* %MyAlloc
   // CHECK-NEXT:[[L1:%[0-9]+]] = load i64, i64* %MyAlloc
-  // CHECK-NEXT:[[L2:%[0-9]+]] = load i64, i64* %MyAlloc
-  // CHECK-NEXT:[[L3:%[0-9]+]] = load i64, i64* %MyAlloc
   // CHECK: DIR.OMP.SINGLE
   // CHECK-SAME: "QUAL.OMP.ALLOCATE"(i32* %v1, i64 [[L1]])
-  // CHECK-SAME: "QUAL.OMP.ALLOCATE"(i32* %v2, i64 [[L2]])
-  // CHECK-SAME: "QUAL.OMP.ALLOCATE"(i32* %v3, i64 [[L3]])
+  // CHECK-SAME: "QUAL.OMP.ALLOCATE"(i32* %v2, i64 [[L1]])
+  // CHECK-SAME: "QUAL.OMP.ALLOCATE"(i32* %v3, i64 [[L1]])
   // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* %v1)
   // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* %v2)
   // CHECK-SAME: "QUAL.OMP.PRIVATE"(i32* %v3)
   // CHECK: DIR.OMP.END.SINGLE
-  omp_allocator_handle_t MyAlloc(omp_large_cap_mem_alloc);
+  omp_allocator_handle_t MyAlloc = omp_large_cap_mem_alloc;
 #pragma omp single allocate(MyAlloc: v1, v2, v3) private(v1, v2, v3)
   { v1 -= (v2 + v3); }
+
   return 0;
 }
 // end INTEL_COLLAB
-//
-
-
