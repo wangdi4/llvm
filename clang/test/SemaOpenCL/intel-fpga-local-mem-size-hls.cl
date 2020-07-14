@@ -6,3 +6,13 @@ __kernel void foo(__local __attribute__((local_mem_size(32))) int *ip) {}
 // CHECK-NEXT: ParmVarDecl{{.*}}ip
 // CHECK-NEXT: OpenCLLocalMemSizeAttr
 
+__kernel void foo2(__local __attribute__((local_mem_size(32))) int ip[]) {}
+// CHECK: FunctionDecl{{.*}}foo2
+// CHECK-NEXT: ParmVarDecl{{.*}}ip
+// CHECK-NEXT: OpenCLLocalMemSizeAttr
+
+__kernel void foo3(__local __attribute__((local_mem_size(32))) int ip[5]) {}
+// CHECK: FunctionDecl{{.*}}foo3
+// CHECK-NEXT: ParmVarDecl{{.*}}ip
+// CHECK-NEXT: OpenCLLocalMemSizeAttr
+

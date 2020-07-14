@@ -1,5 +1,5 @@
-; RUN: opt < %s -prepare-switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -S | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -prepare-switch-to-offload  -S | FileCheck %s
+; RUN: opt < %s  -vpo-cfg-restructuring -vpo-paropt-prepare -S | FileCheck %s
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)'   -S | FileCheck %s
 
 ; Original code:
 ; int foo() {

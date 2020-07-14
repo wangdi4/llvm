@@ -111,7 +111,7 @@ private:
     for (auto *WRN : *WRGraph)
       delete WRN;
 
-    delete WRGraph;
+    delete (WRContainerTy *)WRGraph;
     WRGraph = nullptr;
   }
 

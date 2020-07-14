@@ -1,5 +1,5 @@
-; RUN: opt -prepare-switch-to-offload -vpo-cfg-restructuring -vpo-paropt-prepare -S < %s | FileCheck %s
-; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -prepare-switch-to-offload -S | FileCheck %s
+; RUN: opt  -vpo-cfg-restructuring -vpo-paropt-prepare -S < %s | FileCheck %s
+; RUN: opt < %s -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)'  -S | FileCheck %s
 
 ; GPU-offload test for Atomic with short type. The test is created by compiling
 ; the C test below with:  icx -O0 -fiopenmp -fopenmp-targets=spir64

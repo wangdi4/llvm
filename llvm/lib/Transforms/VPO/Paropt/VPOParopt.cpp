@@ -42,10 +42,6 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
-static cl::opt<bool> SwitchToOffload(
-    "switch-to-offload", cl::Hidden, cl::init(false),
-    cl::desc("switch to offload mode (default = false)"));
-
 static cl::opt<bool> DisableOffload(
   "vpo-paropt-disable-offload", cl::Hidden, cl::init(false),
   cl::desc("Ignore OpenMP TARGET construct in VPO Paropt."));
@@ -146,8 +142,7 @@ bool VPOParoptPass::runImpl(
      DisableOffload = true;
 
   // AUTOPAR | OPENMP | SIMD | OFFLOAD
-  VPOParoptModuleTransform VP(M, Mode, OptLevel, SwitchToOffload,
-                              DisableOffload);
+  VPOParoptModuleTransform VP(M, Mode, OptLevel, DisableOffload);
   bool Changed = VP.doParoptTransforms(WRegionInfoGetter, TLIGetter);
 
   LLVM_DEBUG(dbgs() << "\n====== End VPO ParoptPass ======\n\n");
