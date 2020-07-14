@@ -1028,19 +1028,11 @@ public:
   // function walks the structure to return the field accessed.
   dtrans::FieldInfo &getDeepestNestedField(dtrans::StructInfo *StInfo,
                                            size_t FieldNum) {
-    auto IsArrayOfStructs = [](DTransArrayType *ArTy) {
-      DTransType *BaseTy = ArTy;
-      while (BaseTy->isArrayTy())
-        BaseTy = BaseTy->getArrayElementType();
-
-      return BaseTy->isStructTy();
-    };
-
     DTransType *ElemTy = StInfo->getField(FieldNum).getDTransType();
     while (ElemTy->isAggregateType()) {
       if (auto *StElemTy = dyn_cast<DTransStructType>(ElemTy)) {
         if (StElemTy->getNumFields() == 0)
-        break;
+          break;
 
         // For a nested structure, the field to be examined will be the first
         // element because that field will have the same address as the
@@ -1053,13 +1045,18 @@ public:
         StInfo = cast<StructInfo>(DTInfo.getOrCreateTypeInfo(StElemTy));
         ElemTy = StInfo->getField(FieldNum).getDTransType();
       } else if (auto *ArElemTy = dyn_cast<DTransArrayType>(ElemTy)) {
-        // Handle the case of the element being an array of nested structures.
-        if (IsArrayOfStructs(ArElemTy)) {
-          auto *ArInfo = cast<ArrayInfo>(DTInfo.getOrCreateTypeInfo(ElemTy));
-          ElemTy = ArInfo->getElementDTransType();
-          while (ElemTy->isArrayTy())
-            ElemTy = ElemTy->getArrayElementType();
-        }
+        // Handle the case of the element being an array of nested structures by
+        // finding the structure type. If it's not an array of structures, then
+        // the access is to the first element of the array, and there is no need
+        // to continue deeper into the nesting.
+        // Examples:
+        //   [4 x %struct.A] - iterate over element that starts %struct.A
+        //   [4 x i32] - cannot continue iterating
+        DTransType *MemberTy = getArrayUnitType(ArElemTy);
+        if (MemberTy->isStructTy())
+          ElemTy = MemberTy;
+        else
+          break;
       }
     }
 
