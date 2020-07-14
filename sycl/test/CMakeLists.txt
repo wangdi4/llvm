@@ -49,12 +49,8 @@ add_lit_testsuite(check-sycl-deploy "Running the SYCL regression tests"
   DEPENDS ${SYCL_DEPLOY_TEST_DEPS}
   EXCLUDE_FROM_CHECK_ALL
   )
-<<<<<<< HEAD
 
-set_target_properties(check-sycl PROPERTIES FOLDER "SYCL tests")
-=======
 set_target_properties(check-sycl-deploy PROPERTIES FOLDER "SYCL tests")
->>>>>>> 32729fc98225b36ace60a5eb31af010cad4e81ed
 
 add_lit_testsuites(SYCL ${CMAKE_CURRENT_SOURCE_DIR}
   DEPENDS ${SYCL_TEST_DEPS}
