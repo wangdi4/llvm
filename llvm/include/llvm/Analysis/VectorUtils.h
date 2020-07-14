@@ -539,8 +539,16 @@ template <typename CastInstTy> Value *getPtrThruCast(Value *Ptr);
 
 /// We need to preserve call-site attributes, except the ones "consumed" by the
 /// vectorizer itself (like vector-variants). Copy ones that should be preserved
-/// from \p OrigCall to \p VecCall.
+/// from \p OrigCall to \p VecCall. All attributes in the parameters of the
+/// \p OrigCall is copied one by one to \p VecCall.
 void copyRequiredAttributes(const CallInst *OrigCall, CallInst *VecCall);
+
+/// Copy attributes of function and return value from \p OrigCall to \p VecCall
+/// (except the ones "consumed" by the vectorizer itself (like
+/// vector-variants)). Set attributes of parameters in \p VecCall to
+/// \p AttrArgs.
+void copyRequiredAttributes(const CallInst *OrigCall, CallInst *VecCall,
+                            ArrayRef<AttributeSet> AttrArgs);
 
 // Common utilities to manipulate vectors
 

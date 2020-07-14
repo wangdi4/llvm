@@ -20,10 +20,10 @@
 ;  }
 ;}
 ;
-; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR -S -vplan-force-vf=4 -enable-vp-value-codegen-hir=0 < %s 2>&1 | FileCheck -D#VL=4 --check-prefixes=CHECK,CHECK-128 %s
-; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR -S -vplan-force-vf=4 -enable-vp-value-codegen-hir < %s 2>&1 | FileCheck -D#VL=4 --check-prefixes=CHECK,CHECK-128 %s
-; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR -S -vplan-force-vf=16 -enable-vp-value-codegen-hir=0 < %s 2>&1 | FileCheck -D#VL=16 --check-prefixes=CHECK,CHECK-512 %s
-; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -print-after=VPlanDriverHIR -S -vplan-force-vf=16 -enable-vp-value-codegen-hir < %s 2>&1 | FileCheck -D#VL=16 --check-prefixes=CHECK,CHECK-512 %s
+; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -verify -print-after=VPlanDriverHIR -S -vplan-force-vf=4 -enable-vp-value-codegen-hir=0 < %s 2>&1 | FileCheck -D#VL=4 --check-prefixes=CHECK,CHECK-128 %s
+; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -verify -print-after=VPlanDriverHIR -S -vplan-force-vf=4 -enable-vp-value-codegen-hir < %s 2>&1 | FileCheck -D#VL=4 --check-prefixes=CHECK,CHECK-128 %s
+; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -verify -print-after=VPlanDriverHIR -S -vplan-force-vf=16 -enable-vp-value-codegen-hir=0 < %s 2>&1 | FileCheck -D#VL=16 --check-prefixes=CHECK,CHECK-512 %s
+; RUN: opt -vector-library=SVML -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -verify -print-after=VPlanDriverHIR -S -vplan-force-vf=16 -enable-vp-value-codegen-hir < %s 2>&1 | FileCheck -D#VL=16 --check-prefixes=CHECK,CHECK-512 %s
 
 ; Check to see that the main vector loop was vectorized with svml and
 ; remainder loop broadcasts the call arguments and uses svml to match the main
@@ -181,7 +181,7 @@ for.body:                                         ; preds = %for.inc, %for.body.
   %1 = shl nuw nsw i64 %indvars.iv, 1
   %add.ptr = getelementptr inbounds float, float* %sinA, i64 %1
   %add.ptr3 = getelementptr inbounds float, float* %cosA, i64 %1
-  tail call void @sincosf(float %conv, float* %add.ptr, float* %add.ptr3) #3
+  tail call void @sincosf(float %conv, float* nonnull %add.ptr, float* nonnull %add.ptr3) #3
   %and = and i32 %0, 1
   %tobool = icmp eq i32 %and, 0
   br i1 %tobool, label %if.then, label %for.inc
@@ -189,7 +189,7 @@ for.body:                                         ; preds = %for.inc, %for.body.
 if.then:                                          ; preds = %for.body
   %add.ptr7 = getelementptr inbounds float, float* %sinB, i64 %1
   %add.ptr10 = getelementptr inbounds float, float* %cosB, i64 %1
-  tail call void @sincosf(float %conv, float* %add.ptr7, float* %add.ptr10) #3
+  tail call void @sincosf(float %conv, float* nonnull %add.ptr7, float* nonnull %add.ptr10) #3
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body, %if.then

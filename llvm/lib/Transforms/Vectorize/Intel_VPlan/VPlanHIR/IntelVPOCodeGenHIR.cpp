@@ -1129,6 +1129,7 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
 
     SmallVector<RegDDRef *, 1> CallArgs;
     SmallVector<Type *, 1> ArgTys;
+    SmallVector<AttributeSet, 1> ArgAttrs;
 
     // Glibc sincos function uses pointers as out parameters. They need to be
     // discarded since SVML sincos functions don't have them.
@@ -1138,7 +1139,8 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
 
     // For each call argument, insert a scalar load of the element,
     // broadcast it to a vector.
-    for (auto It = HInst->rval_op_ddref_begin(); It != ItEnd; ++It) {
+    unsigned ArgNum = 0;
+    for (auto It = HInst->rval_op_ddref_begin(); It != ItEnd; ++It, ++ArgNum) {
       // TODO: it is assumed that call arguments need to become vector.
       // In the future, some vectorizable calls may contain scalar
       // arguments. Additional checking is needed for these cases.
@@ -1189,6 +1191,7 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
       // and call instruction can be generated.
       CallArgs.push_back(WideRef);
       ArgTys.push_back(VecDestTy);
+      ArgAttrs.push_back(Call->getAttributes().getParamAttributes(ArgNum));
     }
 
     // Using the newly created vector call arguments, generate the vector
@@ -1205,13 +1208,13 @@ void VPOCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
         {} /*BundleOps*/, FMF);
     HLNodeUtils::insertBefore(HInst, WideCall);
 
-    Instruction *Inst =
-        const_cast<Instruction *>(WideCall->getLLVMInstruction());
-
     // Make sure we don't lose attributes at the call site. E.g., IMF
     // attributes are taken from call sites in MapIntrinToIml to refine
     // SVML calls for precision.
-    cast<CallInst>(Inst)->setAttributes(Call->getAttributes());
+    copyRequiredAttributes(Call,
+                           cast<CallInst>(const_cast<Instruction *>(
+                               WideCall->getLLVMInstruction())),
+                           ArgAttrs);
 
     // Set calling conventions for SVML function calls
     if (isSVMLFunction(TLI, FnName, VectorF->getName())) {
@@ -2319,10 +2322,10 @@ HLInst *VPOCodeGenHIR::widenNonMaskedUniformStore(const HLInst *INode) {
   return WideInst;
 }
 
-void VPOCodeGenHIR::addMaskToSVMLCall(Function *OrigF,
-                                      SmallVectorImpl<RegDDRef *> &VecArgs,
-                                      SmallVectorImpl<Type *> &VecArgTys,
-                                      RegDDRef *MaskValue) {
+void VPOCodeGenHIR::addMaskToSVMLCall(
+    Function *OrigF, AttributeList OrigAttrs,
+    SmallVectorImpl<RegDDRef *> &VecArgs, SmallVectorImpl<Type *> &VecArgTys,
+    SmallVectorImpl<AttributeSet> &VecArgAttrs, RegDDRef *MaskValue) {
   assert(MaskValue && "Expected mask to be present");
   VectorType *VecTy = cast<VectorType>(VecArgTys[0]);
 
@@ -2339,6 +2342,7 @@ void VPOCodeGenHIR::addMaskToSVMLCall(Function *OrigF,
     addInst(MaskValueExt, nullptr);
     VecArgTys.push_back(MaskTyExt);
     VecArgs.push_back(MaskValueExt->getLvalDDRef()->clone());
+    VecArgAttrs.push_back(AttributeSet());
   } else {
     // Compared with 128-bit and 256-bit calls, 512-bit masked calls need extra
     // pass-through source parameters. We don't care about masked-out lanes, so
@@ -2348,6 +2352,7 @@ void VPOCodeGenHIR::addMaskToSVMLCall(Function *OrigF,
     //            <16 x float>, <16 x i1>, <16 x float>)
     SmallVector<Type *, 1> NewArgTys;
     SmallVector<RegDDRef *, 1> NewArgs;
+    SmallVector<AttributeSet, 1> NewArgAttrs;
 
     Type *SourceTy = VecTy;
     StringRef FnName = OrigF->getName();
@@ -2358,17 +2363,21 @@ void VPOCodeGenHIR::addMaskToSVMLCall(Function *OrigF,
 
     NewArgTys.push_back(SourceTy);
     NewArgs.push_back(UndefDDRef);
+    NewArgAttrs.push_back(AttributeSet());
 
     CanonExpr *CE = MaskValue->getSingleCanonExpr();
     NewArgTys.push_back(CE->getDestType());
     NewArgs.push_back(MaskValue->clone());
+    NewArgAttrs.push_back(AttributeSet());
 
     NewArgTys.append(VecArgTys.begin(), VecArgTys.end());
+    NewArgAttrs.append(VecArgAttrs.begin(), VecArgAttrs.end());
     for (RegDDRef *Arg : VecArgs)
       NewArgs.push_back(Arg->clone());
 
     VecArgTys = std::move(NewArgTys);
     VecArgs = std::move(NewArgs);
+    VecArgAttrs = std::move(NewArgAttrs);
   }
 }
 
@@ -2471,10 +2480,14 @@ HLInst *VPOCodeGenHIR::widenCall(const HLInst *INode,
   if (FnName == "sincos" || FnName == "sincosf")
     ArgIgnored = 2;
 
+  AttributeList Attrs = Call->getAttributes();
+
   SmallVector<Type *, 1> ArgTys;
+  SmallVector<AttributeSet, 1> ArgAttrs;
   for (unsigned i = ArgOffset; i < WideOps.size() - ArgIgnored; i++) {
     CallArgs.push_back(WideOps[i]);
     ArgTys.push_back(WideOps[i]->getDestType());
+    ArgAttrs.push_back(Attrs.getParamAttributes(i - ArgOffset));
   }
 
   if (ID != Intrinsic::not_intrinsic) {
@@ -2508,11 +2521,12 @@ HLInst *VPOCodeGenHIR::widenCall(const HLInst *INode,
     // the normal case for AVX512.
     if (!VecFuncName.empty() &&
         isSVMLFunction(TLI, Fn->getName(), VecFuncName)) {
-      addMaskToSVMLCall(Fn, CallArgs, ArgTys, Mask);
+      addMaskToSVMLCall(Fn, Attrs, CallArgs, ArgTys, ArgAttrs, Mask);
     } else {
       auto CE = Mask->getSingleCanonExpr();
       ArgTys.push_back(CE->getDestType());
       CallArgs.push_back(Mask->clone());
+      ArgAttrs.push_back(AttributeSet());
     }
   }
 
@@ -2527,16 +2541,17 @@ HLInst *VPOCodeGenHIR::widenCall(const HLInst *INode,
   auto *WideInst = HLNodeUtilities.createCall(
       VectorF, CallArgs, VectorF->getName(), WideLval, {} /*Bundle*/,
       {} /*BundleOps*/, FMF);
-  Instruction *Inst = const_cast<Instruction *>(WideInst->getLLVMInstruction());
+  CallInst *VecCall =
+      cast<CallInst>(const_cast<Instruction *>(WideInst->getLLVMInstruction()));
 
   // Make sure we don't lose attributes at the call site. E.g., IMF
   // attributes are taken from call sites in MapIntrinToIml to refine
   // SVML calls for precision.
-  cast<CallInst>(Inst)->setAttributes(Call->getAttributes());
+  copyRequiredAttributes(Call, VecCall, ArgAttrs);
 
   // Set calling conventions for SVML function calls
   if (isSVMLFunction(TLI, FnName, VectorF->getName())) {
-    cast<CallInst>(Inst)->setCallingConv(CallingConv::SVML);
+    VecCall->setCallingConv(CallingConv::SVML);
   }
 
   return WideInst;
