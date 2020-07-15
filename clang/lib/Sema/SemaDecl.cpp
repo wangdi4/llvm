@@ -8035,21 +8035,17 @@ void Sema::CheckVariableDeclarationType(VarDecl *NewVD) {
     // FIXME: Adding local AS in C++ for OpenCL might make sense.
     if (NewVD->isFileVarDecl() || NewVD->isStaticLocal() ||
         NewVD->hasExternalStorage()) {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       bool IsChannel = Context.getBaseElementType(T)->isChannelType();
       bool IsPipe = Context.getBaseElementType(T)->isPipeType();
-      if (!T->isSamplerT() && !IsChannel &&
+      if (!T->isSamplerT() &&
+          !T->isDependentType() && !IsChannel &&
           // Pipes (used in program scope) have a better diagnostic
           // elsewhere. This diagnostic is misleading, since address space
           // cannot be set for a pipe anyway.
           !(IsPipe &&
             Context.getTargetInfo().getTriple().isINTELFPGAEnvironment()) &&
 #endif // INTEL_CUSTOMIZATION
-=======
-      if (!T->isSamplerT() &&
-          !T->isDependentType() &&
->>>>>>> 6050c156ab4f13a3c54ca6ec297a72ece95966d7
           !(T.getAddressSpace() == LangAS::opencl_constant ||
             (T.getAddressSpace() == LangAS::opencl_global &&
              (getLangOpts().OpenCLVersion == 200 ||
