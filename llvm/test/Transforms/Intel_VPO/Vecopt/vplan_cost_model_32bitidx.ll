@@ -18,7 +18,7 @@ define void @test_fit_32bitindex_gather() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF8-NEXT:  Total VPlan GS Cost is bumped: +96
 ; VPLAN-HIR-CM-VF8-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF8-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
-; VPLAN-HIR-CM-VF8-NEXT:    Cost Unknown for i32 [[VP__IND_INIT:%.*]] = induction-init{add} i32 0 i32 1
+; VPLAN-HIR-CM-VF8-NEXT:    Cost Unknown for i32 [[VP__IND_INIT:%.*]] = induction-init{add} i32 live-in0 i32 1
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost Unknown for i32 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i32 1
 ; VPLAN-HIR-CM-VF8-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 66
 ; VPLAN-HIR-CM-VF8-NEXT:  total cost includes GS Cost: 48
@@ -58,7 +58,7 @@ define void @test_fit_32bitindex_gather() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 1 for i32 [[VP1]] = add i32 [[VP0]] i32 [[VP__IND_INIT_STEP]]
 ; VPLAN-HIR-CM-VF8-NEXT:    Cost 1 for i1 [[VP22:%.*]] = icmp i32 [[VP1]] i32 340
 ; VPLAN-HIR-CM-VF8-NEXT:  Analyzing VPBasicBlock [[BB3:BB[0-9]+]], total cost: 0
-; VPLAN-HIR-CM-VF8-NEXT:    Cost Unknown for i32 [[VP__IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
+; VPLAN-HIR-CM-VF8-NEXT:    Cost Unknown for i32 [[VP__IND_FINAL:%.*]] = induction-final{add} i32 live-in0 i32 1
 ; VPLAN-HIR-CM-VF8-NEXT:  Analyzing VPBasicBlock [[BB4:BB[0-9]+]], total cost: 0
 ;
 entry:

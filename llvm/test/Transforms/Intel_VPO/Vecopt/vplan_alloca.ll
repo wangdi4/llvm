@@ -12,7 +12,7 @@
 
 define dso_local void @func(i32 %n) local_unnamed_addr {
 ; LLVM-LABEL:  VPlan after predication and linearization
-; LLVM:     [DA: Div] i64 [[VP_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
+; LLVM:     [DA: Div] i64 [[VP_IV_IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; LLVM:     [DA: Div] i64 [[VP_IV:%.*]] = phi  [ i64 [[VP_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ],  [ i64 [[VP_IV_IND_INIT]], [[BB1:BB[0-9]+]] ]
 ; LLVM:     [DA: Div] [256 x i8]* [[VP_A_VAR:%.*]] = alloca i64 [[VP_IV]]
 ;

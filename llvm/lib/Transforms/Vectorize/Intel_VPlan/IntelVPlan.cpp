@@ -792,6 +792,8 @@ void VPlan::dump(raw_ostream &OS) const {
   if (DumpExternalDefsHIR)
     Externals.dumpExternalDefs(FOS);
 
+  printLiveIns(FOS);
+
   for (auto EIter = LoopEntities.begin(), End = LoopEntities.end();
        EIter != End; ++EIter) {
     VPLoopEntityList *E = EIter->second.get();
@@ -800,8 +802,22 @@ void VPlan::dump(raw_ostream &OS) const {
 
   print(FOS, 1);
 
-  Externals.dumpExternalUses(FOS);
+  Externals.dumpExternalUses(FOS, LiveOutValues.size() ? this : nullptr);
 }
+
+void VPlan::printLiveIns(raw_ostream &OS) const {
+  if (!LiveInValues.size())
+    return;
+  OS << "Live-in values:\n";
+  for (auto LI : liveInValues()) {
+    if (!LI)
+      continue;
+    OS << "ID: " << LI->getMergeId() << " Value: ";
+    Externals.getOriginalIncomingValue(LI->getMergeId())->printAsOperand(OS);
+    OS << "\n";
+  }
+}
+
 
 void VPlan::dump() const { dump(dbgs()); }
 

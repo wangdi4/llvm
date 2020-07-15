@@ -10,42 +10,44 @@ define dso_local void @_Z3fooPii(float* nocapture %a, i32 %n) local_unnamed_addr
 ; CHECK-NEXT:  External Defs Start:
 ; CHECK-DAG:     [[VP0:%.*]] = {%a}
 ; CHECK-NEXT:  External Defs End:
+; CHECK-NEXT:  Live-in values:
+; CHECK-NEXT:  ID: 0 Value: i64 0
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]:
-; CHECK-NEXT:     [DA: Div] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
+; CHECK-NEXT:     [DA: Div] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in0 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]:
 ; CHECK-NEXT:     [DA: Div] i64 [[VP1:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP2:%.*]], cloned.[[BB3:BB[0-9]+]] ]
-; CHECK-NEXT:     [DA: Div] float* [[VP3:%.*]] = subscript inbounds float* [[A0:%.*]] i64 [[VP1]]
-; CHECK-NEXT:     [DA: Div] float [[VP4:%.*]] = load float* [[VP3]]
-; CHECK-NEXT:     [DA: Div] float [[VP_INC:%.*]] = call float [[VP4]] float (float)* @sinf
-; CHECK-NEXT:     [DA: Div] float* [[VP5:%.*]] = subscript inbounds float* [[A0]] i64 [[VP1]]
-; CHECK-NEXT:     [DA: Div] store float [[VP_INC]] float* [[VP5]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP6:%.*]] = add i64 [[VP1]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Div] i1 [[VP7:%.*]] = icmp i64 [[VP6]] i64 79
+; CHECK-NEXT:     [DA: Div] float* [[VP_SUBSCRIPT:%.*]] = subscript inbounds float* [[A0:%.*]] i64 [[VP1]]
+; CHECK-NEXT:     [DA: Div] float [[VP3:%.*]] = load float* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:     [DA: Div] float [[VP_INC:%.*]] = call float [[VP3]] float (float)* @sinf
+; CHECK-NEXT:     [DA: Div] float* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds float* [[A0]] i64 [[VP1]]
+; CHECK-NEXT:     [DA: Div] store float [[VP_INC]] float* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP4:%.*]] = add i64 [[VP1]] i64 [[VP__IND_INIT_STEP]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP5:%.*]] = icmp i64 [[VP4]] i64 79
 ; CHECK-NEXT:    SUCCESSORS(1):cloned.[[BB3]]
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] cloned.[[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    cloned.[[BB3]]:
-; CHECK-NEXT:     [DA: Div] float* [[VP8:%.*]] = subscript inbounds float* [[A0]] i64 [[VP6]]
-; CHECK-NEXT:     [DA: Div] float [[VP9:%.*]] = load float* [[VP8]]
-; CHECK-NEXT:     [DA: Div] float [[VP10:%.*]] = call float [[VP9]] float (float)* @sinf
-; CHECK-NEXT:     [DA: Div] float* [[VP11:%.*]] = subscript inbounds float* [[A0]] i64 [[VP6]]
-; CHECK-NEXT:     [DA: Div] store float [[VP10]] float* [[VP11]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP2]] = add i64 [[VP6]] i64 [[VP__IND_INIT_STEP]]
-; CHECK-NEXT:     [DA: Uni] i1 [[VP12:%.*]] = icmp i64 [[VP2]] i64 79
-; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP12]]), [[BB4:BB[0-9]+]](!i1 [[VP12]])
+; CHECK-NEXT:     [DA: Div] float* [[VP6:%.*]] = subscript inbounds float* [[A0]] i64 [[VP4]]
+; CHECK-NEXT:     [DA: Div] float [[VP7:%.*]] = load float* [[VP6]]
+; CHECK-NEXT:     [DA: Div] float [[VP8:%.*]] = call float [[VP7]] float (float)* @sinf
+; CHECK-NEXT:     [DA: Div] float* [[VP9:%.*]] = subscript inbounds float* [[A0]] i64 [[VP4]]
+; CHECK-NEXT:     [DA: Div] store float [[VP8]] float* [[VP9]]
+; CHECK-NEXT:     [DA: Div] i64 [[VP2]] = add i64 [[VP4]] i64 [[VP__IND_INIT_STEP]]
+; CHECK-NEXT:     [DA: Uni] i1 [[VP10:%.*]] = icmp i64 [[VP2]] i64 79
+; CHECK-NEXT:    SUCCESSORS(2):[[BB2]](i1 [[VP10]]), [[BB4:BB[0-9]+]](!i1 [[VP10]])
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]:
-; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB5:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): cloned.[[BB3]]
 ; CHECK-EMPTY:
@@ -53,6 +55,9 @@ define dso_local void @_Z3fooPii(float* nocapture %a, i32 %n) local_unnamed_addr
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB4]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  External Uses:
+; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP__IND_FINAL]]
 
 ; CHECK:          BEGIN REGION { modified }
 ; CHECK-NEXT:           + DO i1 = 0, 79, 8   <DO_LOOP> <novectorize>

@@ -198,18 +198,21 @@ static bool isDeconstructedPhi(const VPPHINode *VPPhi) {
 // Utility to check if given VPInstruction has no external uses.
 static bool hasNoExternalUsers(const VPInstruction *VPI) {
   return llvm::none_of(VPI->users(),
-                       [](VPUser *U) { return isa<VPExternalUse>(U); });
+                       [](VPUser *U) { return isa<VPLiveOutValue>(U); });
 }
 
 // Utility to find the single VPExternalUse that uses the given VPInstruction.
-static VPExternalUse *getSingleExternalUse(const VPInstruction *VPI) {
-  auto Pred = [](VPUser *U) { return isa<VPExternalUse>(U); };
+static const VPExternalUse *getSingleExternalUse(const VPInstruction *VPI,
+                                                 const VPlan *Plan) {
+  auto Pred = [](VPUser *U) { return isa<VPLiveOutValue>(U); };
   auto It = llvm::find_if(VPI->users(), Pred);
   assert(
       (It != VPI->user_end() && std::none_of(It + 1, VPI->user_end(), Pred)) &&
       "VPInst has zero or more than one VPExternalUse");
   // VPInst has single external user.
-  return cast<VPExternalUse>(*It);
+  const VPExternalUse *EUse = Plan->getExternals().getVPExternalUse(
+      cast<const VPLiveOutValue>(*It)->getMergeId());
+  return EUse;
 }
 
 // This class implements code generation for a nested blob.
@@ -3253,7 +3256,7 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     // used anywhere.
     RegDDRef *RednDescriptor = nullptr;
     if (!hasNoExternalUsers(RedFinal)) {
-      VPExternalUse *ExtUse = getSingleExternalUse(RedFinal);
+      const VPExternalUse *ExtUse = getSingleExternalUse(RedFinal, Plan);
       RednDescriptor = getUniformScalarRef(ExtUse);
     }
 

@@ -12,6 +12,8 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define dso_local void @foo() local_unnamed_addr #0 {
 ; CALLVECDEC-LABEL:  VPlan after CallVecDecisions analysis for VF=4:
+; CALLVECDEC-NEXT:  Live-in values:
+; CALLVECDEC-NEXT:  ID: 0 Value: i64 0
 ; CALLVECDEC-NEXT:    [[BB0:BB[0-9]+]]:
 ; CALLVECDEC-NEXT:     <Empty Block>
 ; CALLVECDEC-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -75,8 +77,13 @@ define dso_local void @foo() local_unnamed_addr #0 {
 ; CALLVECDEC-NEXT:     <Empty Block>
 ; CALLVECDEC-NEXT:    no SUCCESSORS
 ; CALLVECDEC-NEXT:    PREDECESSORS(1): [[BB5]]
+; CALLVECDEC-EMPTY:
+; CALLVECDEC-NEXT:  External Uses:
+; CALLVECDEC-NEXT:  Id: 0   no underlying for i64 [[VP_INDVARS_IV_IND_FINAL]]
 ;
 ; SVA-LABEL:  VPlan after ScalVec analysis:
+; SVA-NEXT:  Live-in values:
+; SVA-NEXT:  ID: 0 Value: i64 0
 ; SVA-NEXT:    [[BB0:BB[0-9]+]]:
 ; SVA-NEXT:     <Empty Block>
 ; SVA-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -140,6 +147,9 @@ define dso_local void @foo() local_unnamed_addr #0 {
 ; SVA-NEXT:     <Empty Block>
 ; SVA-NEXT:    no SUCCESSORS
 ; SVA-NEXT:    PREDECESSORS(1): [[BB5]]
+; SVA-EMPTY:
+; SVA-NEXT:  External Uses:
+; SVA-NEXT:  Id: 0   no underlying for i64 [[VP_INDVARS_IV_IND_FINAL]]
 ;
 omp.inner.for.body.lr.ph:
   br label %DIR.OMP.SIMD.1
@@ -203,6 +213,8 @@ DIR.OMP.END.SIMD.2:                               ; preds = %DIR.OMP.END.SIMD.4
 ; Function Attrs: nounwind uwtable
 define dso_local void @foo_pumping(float* nocapture %A, float* nocapture %B, i32 %N) {
 ; CALLVECDEC-LABEL:  VPlan after CallVecDecisions analysis for VF=128:
+; CALLVECDEC-NEXT:  Live-in values:
+; CALLVECDEC-NEXT:  ID: 0 Value: i32 0
 ; CALLVECDEC-NEXT:    [[BB0:BB[0-9]+]]:
 ; CALLVECDEC-NEXT:     <Empty Block>
 ; CALLVECDEC-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -240,8 +252,13 @@ define dso_local void @foo_pumping(float* nocapture %A, float* nocapture %B, i32
 ; CALLVECDEC-NEXT:     <Empty Block>
 ; CALLVECDEC-NEXT:    no SUCCESSORS
 ; CALLVECDEC-NEXT:    PREDECESSORS(1): [[BB3]]
+; CALLVECDEC-EMPTY:
+; CALLVECDEC-NEXT:  External Uses:
+; CALLVECDEC-NEXT:  Id: 0   no underlying for i32 [[VP__OMP_IV_LOCAL_014_IND_FINAL]]
 ;
 ; SVA-LABEL:  VPlan after ScalVec analysis:
+; SVA-NEXT:  Live-in values:
+; SVA-NEXT:  ID: 0 Value: i32 0
 ; SVA-NEXT:    [[BB0:BB[0-9]+]]:
 ; SVA-NEXT:     <Empty Block>
 ; SVA-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -279,6 +296,9 @@ define dso_local void @foo_pumping(float* nocapture %A, float* nocapture %B, i32
 ; SVA-NEXT:     <Empty Block>
 ; SVA-NEXT:    no SUCCESSORS
 ; SVA-NEXT:    PREDECESSORS(1): [[BB3]]
+; SVA-EMPTY:
+; SVA-NEXT:  External Uses:
+; SVA-NEXT:  Id: 0   no underlying for i32 [[VP__OMP_IV_LOCAL_014_IND_FINAL]]
 ;
 entry:
   %cmp = icmp sgt i32 %N, 0

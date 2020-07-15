@@ -56,6 +56,11 @@ bool LoopVectorizationPlannerHIR::executeBestPlan(VPOCodeGenHIR *CG, unsigned UF
   if (!VecLoopsInit)
     return false;
 
+  // Temporary, until CFG merge is implemented. Replace VPLiveInValue-s by
+  // original incoming values.
+  VPLiveInOutCreator LICreator(*Plan);
+  LICreator.restoreLiveIns();
+
   // Run CallVecDecisions analysis for final VPlan which will be used by CG.
   VPlanCallVecDecisions CallVecDecisions(*Plan);
   CallVecDecisions.run(BestVF, TLI, TTI);

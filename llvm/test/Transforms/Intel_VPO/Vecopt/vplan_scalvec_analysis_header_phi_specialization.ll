@@ -8,6 +8,8 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define dso_local void @divergentInnerLoopIV(i32* nocapture %a, i64* nocapture %b, i64* nocapture %c) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
+; CHECK-NEXT:  Live-in values:
+; CHECK-NEXT:  ID: 0 Value: i64 0
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -69,6 +71,9 @@ define dso_local void @divergentInnerLoopIV(i32* nocapture %a, i64* nocapture %b
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB7]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  External Uses:
+; CHECK-NEXT:  Id: 0   no underlying for i64 [[VP_INDVARS_IV_IND_FINAL]]
 ;
 entry:
   br label %DIR.OMP.SIMD.1
@@ -108,7 +113,9 @@ DIR.OMP.END.SIMD.3:
 ; forward propagation.
 define dso_local void @backPropUniformInst(i64* nocapture %a, i64 %b) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after ScalVec analysis:
-; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
+; CHECK-NEXT:   Live-in values:
+; CHECK-NEXT:   ID: 0 Value: i64 0
+; CHECK-NEXT:   [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS

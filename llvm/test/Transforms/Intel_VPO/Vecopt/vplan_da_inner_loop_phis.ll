@@ -42,7 +42,7 @@ define void @kernel_init_gpu_incoming(i64 %ptr1, i64 %ptr2) {
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp i32 [[VP_VECTOR_LOOP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB7:BB[0-9]+]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_INDEX_IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_INDEX_IND_FINAL:%.*]] = induction-final{add} i32 live-in0 i32 1
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB8:BB[0-9]+]]
 ;
@@ -139,7 +139,7 @@ define void @kernel_init_gpu_closed_inner_loop(i64 %ptr1, i64 %ptr2) {
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp i32 [[VP_VECTOR_LOOP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB7:BB[0-9]+]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_INDEX_IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_INDEX_IND_FINAL:%.*]] = induction-final{add} i32 live-in0 i32 1
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB8:BB[0-9]+]]
 ;

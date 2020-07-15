@@ -22,8 +22,8 @@ define dso_local void @foo(i32* nocapture %p) {
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2:BB[0-9]+]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP__OMP_IV_0_IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i32* [[VP_P_ADDR_06_IND_FINAL:%.*]] = induction-final{getelementptr} i32* [[P0:%.*]] i64 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP__OMP_IV_0_IND_FINAL:%.*]] = induction-final{add} i32 live-in0 i32 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32* [[VP_P_ADDR_06_IND_FINAL:%.*]] = induction-final{getelementptr} i32* live-in1 i64 1
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB3:BB[0-9]+]]
 ;
@@ -76,10 +76,10 @@ define dso_local void @foo2(i32* %p1, i32* %p2, i32* %p3, i32* %p4) {
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2:BB[0-9]+]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_IV_IND_FINAL:%.*]] = induction-final{add} i32 0 i32 3
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i32* [[VP_P1_ADDR_IND_FINAL:%.*]] = induction-final{getelementptr} i32* [[P10:%.*]] i64 2
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i32* [[VP_P2_ADDR_IND_FINAL:%.*]] = induction-final{getelementptr} i32* [[P20:%.*]] i64 2
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i32* [[VP_P4_ADDR_IND_FINAL:%.*]] = induction-final{getelementptr} i32* [[P40:%.*]] i64 -4
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_IV_IND_FINAL:%.*]] = induction-final{add} i32 live-in0 i32 3
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32* [[VP_P1_ADDR_IND_FINAL:%.*]] = induction-final{getelementptr} i32* live-in1 i64 2
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32* [[VP_P2_ADDR_IND_FINAL:%.*]] = induction-final{getelementptr} i32* live-in2 i64 2
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32* [[VP_P4_ADDR_IND_FINAL:%.*]] = induction-final{getelementptr} i32* live-in3 i64 -4
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB3:BB[0-9]+]]
 ;

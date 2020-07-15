@@ -33,10 +33,10 @@ define void @foo(i32* nocapture %ary, i32 %x, i32 %y) {
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB2:BB[0-9]+]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_STRIDED_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 4
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_UNIT_STRIDE_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_UNIT_NEG_STRIDE_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 -1
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VAR_STRIDE_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 [[VAR_STEP0:%.*]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_STRIDED_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in0 i64 4
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_UNIT_STRIDE_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in1 i64 1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_UNIT_NEG_STRIDE_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in2 i64 -1
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i64 [[VP_VAR_STRIDE_IV_IND_FINAL:%.*]] = induction-final{add} i64 live-in3 i64 [[VAR_STEP0:%.*]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB3:BB[0-9]+]]
 ;

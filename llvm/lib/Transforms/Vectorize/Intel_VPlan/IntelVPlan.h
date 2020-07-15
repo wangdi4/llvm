@@ -2163,6 +2163,17 @@ public:
 
   Instruction::BinaryOps getBinOpcode() const { return BinOpcode; }
 
+  /// Return true if start value is used in induction last value calculation.
+  bool usesStartValue() const { return getNumOperands() == 2;}
+
+  // Replaces start value with the \p newVal
+  void replaceStartValue(VPValue *NewVal) {
+    assert(NewVal && "Unexpected null start value");
+    assert(NewVal->getType() == getStartValueOperand()->getType() &&
+           "Inconsistent operand type");
+    setOperand(0, NewVal);
+  }
+
 protected:
   // Clones VPInductionFinal.
   virtual VPInductionFinal *cloneImpl() const final {
@@ -2173,17 +2184,6 @@ protected:
                                   getBinOpcode());
     else
       llvm_unreachable("Too many operands.");
-  }
-
-  /// Return true if start value is used in induction finitialization.
-  bool usesStartValue() const { return getNumOperands() == 2;}
-
-  // Replaces start value with the \p newVal
-  void replaceStartValue(VPValue *NewVal) {
-    assert(NewVal && "Unexpected null start value");
-    assert(NewVal->getType() == getStartValueOperand()->getType() &&
-           "Inconsistent operand type");
-    setOperand(0, NewVal);
   }
 
 private:
@@ -2532,6 +2532,7 @@ private:
 /// output IR instructions to generate, and their cost.
 class VPlan {
   friend class VPlanPrinter;
+  friend class VPLiveInOutCreator;
 
 public:
   using VPBasicBlockListTy = ilist<VPBasicBlock, ilist_sentinel_tracking<true>>;
@@ -2658,6 +2659,11 @@ public:
     return map_range(LiveInValues, [](std::unique_ptr<VPLiveInValue> &V) {
       return V.get();});
   }
+  auto liveInValues() const {
+    return map_range(LiveInValues, [](const std::unique_ptr<VPLiveInValue> &V) {
+      return V.get();});
+  }
+
 
   const VPLiveOutValue *getLiveOutValue(unsigned MergeId) const {
     return LiveOutValues[MergeId].get();
@@ -2667,6 +2673,12 @@ public:
     return map_range(LiveOutValues, [](std::unique_ptr<VPLiveOutValue> &V) {
       return V.get();});
   }
+
+  auto liveOutValues() const {
+    return map_range(LiveOutValues, [](const std::unique_ptr<VPLiveOutValue> &V) {
+      return V.get();});
+  }
+
 
   /// Return an existing or newly created LoopEntities for the loop \p L.
   VPLoopEntityList *getOrCreateLoopEntities(const VPLoop *L) {
@@ -2891,6 +2903,9 @@ private:
   static void updateDominatorTree(class DominatorTree *DT,
                                   BasicBlock *LoopPreHeaderBB,
                                   BasicBlock *LoopLatchBB);
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void printLiveIns(raw_ostream &OS) const;
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
 };
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

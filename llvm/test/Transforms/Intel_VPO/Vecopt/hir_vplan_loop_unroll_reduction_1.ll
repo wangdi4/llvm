@@ -19,14 +19,17 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; CHECK-DAG:     [[VP1:%.*]] = {sext.i32.i64(%n) + -1}
 ; CHECK-DAG:     [[VP2:%.*]] = {%a}
 ; CHECK-NEXT:  External Defs End:
+; CHECK-NEXT:  Live-in values:
+; CHECK-NEXT:  ID: 0 Value: i32 [[ACC_0190:%.*]]
+; CHECK-NEXT:  ID: 1 Value: i64 0
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]:
-; CHECK-NEXT:     [DA: Div] i32 [[VP__RED_INIT:%.*]] = reduction-init i32 0 i32 [[ACC_0190:%.*]]
-; CHECK-NEXT:     [DA: Div] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
+; CHECK-NEXT:     [DA: Div] i32 [[VP__RED_INIT:%.*]] = reduction-init i32 0 i32 live-in0
+; CHECK-NEXT:     [DA: Div] i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 live-in1 i64 1
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
@@ -62,7 +65,7 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]:
 ; CHECK-NEXT:     [DA: Uni] i32 [[VP__RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP4]]
-; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
+; CHECK-NEXT:     [DA: Uni] i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 live-in1 i64 1
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB6:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): cloned.[[BB3]]
 ; CHECK-EMPTY:
@@ -74,7 +77,9 @@ define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unname
 ; CHECK-NEXT:  External Uses:
 ; CHECK-NEXT:  Id: 0   i32 [[VP__RED_FINAL]] -> [[VP19:%.*]] = {%acc.019}
 ; CHECK-EMPTY:
-; CHECK-LABEL:  *** IR Dump After VPlan Vectorization Driver HIR ***
+; CHECK-NEXT:  Id: 1   no underlying for i64 [[VP__IND_FINAL]]
+; CHECK-EMPTY:
+; CHECK-NEXT:  *** IR Dump After VPlan Vectorization Driver HIR ***
 ; CHECK-NEXT:  Function: _Z3fooPii
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  <0>          BEGIN REGION { modified }

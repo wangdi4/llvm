@@ -99,6 +99,11 @@ static cl::opt<bool, true> PrintAfterCallVecDecisionsOpt(
 static cl::opt<bool, true> PrintSVAResultsOpt(
     "vplan-print-scalvec-results", cl::Hidden, cl::location(PrintSVAResults),
     cl::desc("Print VPlan with results of ScalVec analysis."));
+
+static cl::opt<bool> PrintAfterLiveInOutList(
+    "vplan-print-after-live-inout-list", cl::init(false), cl::Hidden,
+    cl::desc("Print VPlan after live in/out lists creation."));
+
 #else
 static constexpr bool PrintAfterLCSSA = false;
 static constexpr bool PrintAfterLoopCFU = false;
@@ -108,6 +113,7 @@ static constexpr bool PrintAfterAllZeroBypass = false;
 static constexpr bool DotAfterAllZeroBypass = false;
 static constexpr bool PrintAfterCallVecDecisionsOpt = false;
 static constexpr bool PrintSVAResultsOpt = false;
+static constexpr bool PrintAfterLiveInOutList = false;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
 namespace {
@@ -267,6 +273,7 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
           dbgs() << "LVP: VPlan is not legal to process, bailing out.\n");
       return 0;
     }
+    createLiveInOutLists(*Plan.get());
 
     auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
     Plan->setVPlanDA(std::move(VPDA));
@@ -301,6 +308,12 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
     VPlans[1] = VPlans[MinVF];
 
   return i;
+}
+
+void LoopVectorizationPlanner::createLiveInOutLists(VPlan &Plan) {
+  VPLiveInOutCreator LICreator(Plan);
+  LICreator.createInOutValues();
+  VPLAN_DUMP(PrintAfterLiveInOutList, "Live-in/out lists creation", Plan);
 }
 
 void LoopVectorizationPlanner::selectBestPeelingVariants() {
@@ -760,6 +773,12 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
   // Run CallVecDecisions analysis for final VPlan which will be used by CG.
   VPlan *Plan = getVPlanForVF(BestVF);
   assert(Plan && "No VPlan found for BestVF.");
+
+  // Temporary, until CFG merge is implemented. Replace VPLiveInValue-s by
+  // original incoming values.
+  VPLiveInOutCreator LICreator(*Plan);
+  LICreator.restoreLiveIns();
+
   VPlanCallVecDecisions CallVecDecisions(*Plan);
   CallVecDecisions.run(BestVF, TLI, TTI);
   std::string Label("CallVecDecisions analysis for VF=" +

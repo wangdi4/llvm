@@ -635,24 +635,49 @@ public:
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void print(raw_ostream &OS) const override {
+    print(OS, nullptr);
+  }
+  void print(raw_ostream &OS, VPValue* Operand) const {
     OS << "Id: " << getMergeId() << "   ";
     if (getUnderlyingValue()) {
       cast<Instruction>(getUnderlyingValue())->print(OS);
-      for (unsigned I = 0, E = getNumOperands(); I < E; ++I) {
-        getOperand(I)->printAsOperand(OS);
+      if (getNumOperands())
+        for (unsigned I = 0, E = getNumOperands(); I < E; ++I) {
+          OS << " ";
+          getOperand(I)->printAsOperand(OS);
+          OS << " -> ";
+          getUnderlyingOperand(I)->printAsOperand(OS);
+          OS << ";\n";
+        }
+      else {
+        assert(Operand && "Expected non-null operand");
+        OS << " ";
+        Operand->printAsOperand(OS);
         OS << " -> ";
-        getUnderlyingOperand(I)->printAsOperand(OS);
+        getUnderlyingOperand(0)->printAsOperand(OS);
         OS << ";\n";
       }
     } else if (HIROperand) {
-      for (unsigned I = 0, E = getNumOperands(); I < E; ++I) {
-        getOperand(I)->printAsOperand(OS);
-        OS << " ->";
-        HIROperand->printDetail(OS);
+      if (getNumOperands())
+        for (unsigned I = 0, E = getNumOperands(); I < E; ++I) {
+          if (I)
+            OS << ", ";
+          getOperand(I)->printAsOperand(OS);
+        }
+      else {
+        assert(Operand && "Expected non-null operand");
+        Operand->printAsOperand(OS);
       }
+      OS << " ->";
+      HIROperand->printDetail(OS);
     } else {
       OS << "no underlying for ";
-      getOperand(0)->printAsOperand(OS);
+      if (getNumOperands())
+        getOperand(0)->printAsOperand(OS);
+      else {
+        assert(Operand && "Expected non-null operand");
+        Operand->printAsOperand(OS);
+      }
       OS << "\n";
     }
   }
@@ -660,7 +685,8 @@ public:
   void printAsOperand(raw_ostream &OS) const {
     getType()->print(OS);
     OS << " ext-use" << getMergeId() << "(";
-    getOperand(0)->printAsOperand(OS);
+    if (getNumOperands() > 0)
+      getOperand(0)->printAsOperand(OS);
     OS << ")";
   }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
