@@ -205,43 +205,15 @@ set (SUPPORT_SOURCES
   LINK_LIBS ${system_libs} ${delayload_flags} ${Z3_LINK_FILES}
   )
 
-<<<<<<< HEAD
-set(llvm_system_libs ${system_libs})
-
-if(LLVM_ENABLE_ZLIB)
-  string(TOUPPER ${CMAKE_BUILD_TYPE} build_type)
-  get_property(zlib_library TARGET ZLIB::ZLIB PROPERTY LOCATION_${build_type})
-  if(NOT zlib_library)
-    get_property(zlib_library TARGET ZLIB::ZLIB PROPERTY LOCATION)
-  endif()
-  get_filename_component(zlib_library ${zlib_library} NAME)
-  if(CMAKE_STATIC_LIBRARY_PREFIX AND zlib_library MATCHES "^${CMAKE_STATIC_LIBRARY_PREFIX}.*")
-    STRING(REGEX REPLACE "^${CMAKE_STATIC_LIBRARY_PREFIX}" "" zlib_library ${zlib_library})
-  endif()
-  if(CMAKE_STATIC_LIBRARY_SUFFIX AND zlib_library MATCHES ".*${CMAKE_STATIC_LIBRARY_SUFFIX}$")
-    STRING(REGEX REPLACE "${CMAKE_STATIC_LIBRARY_SUFFIX}$" "" zlib_library ${zlib_library})
-  endif()
-  if(CMAKE_SHARED_LIBRARY_PREFIX AND zlib_library MATCHES "^${CMAKE_SHARED_LIBRARY_PREFIX}.*")
-    STRING(REGEX REPLACE "^${CMAKE_SHARED_LIBRARY_PREFIX}" "" zlib_library ${zlib_library})
-  endif()
-  if(CMAKE_SHARED_LIBRARY_SUFFIX AND zlib_library MATCHES ".*${CMAKE_SHARED_LIBRARY_SUFFIX}$")
-    STRING(REGEX REPLACE "${CMAKE_SHARED_LIBRARY_SUFFIX}$" "" zlib_library ${zlib_library})
-  endif()
-  set(llvm_system_libs ${llvm_system_libs} "${zlib_library}")
-endif()
-
 # INTEL_CUSTOMIZATION
 add_llvm_component_library(LLVMSupport ${SUPPORT_SOURCES})
-set_property(TARGET LLVMSupport PROPERTY LLVM_SYSTEM_LIBS "${llvm_system_libs}")
-=======
 set_property(TARGET LLVMSupport PROPERTY LLVM_SYSTEM_LIBS "${system_libs}")
->>>>>>> bcd27d9d73f74f291fbd8b0fd1182e69a327be88
 
 if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
   add_llvm_component_library(LLVMSupport_stdcpp ${SUPPORT_SOURCES}
                              STDLIB stdc++)
   set_property(TARGET LLVMSupport_stdcpp
-               PROPERTY LLVM_SYSTEM_LIBS "${llvm_system_libs}")
+               PROPERTY LLVM_SYSTEM_LIBS "${system_libs}")
 endif()
 #end INTEL_CUSTOMIZATION
 
