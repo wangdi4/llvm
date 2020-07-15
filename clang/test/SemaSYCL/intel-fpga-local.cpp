@@ -33,11 +33,7 @@ void check_ast()
   //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
   //CHECK: IntelFPGABankWidthAttr
   //CHECK-NEXT: ConstantExpr
-<<<<<<< HEAD
-  //CHECK-NEXT: value: Int 4
-=======
   //CHECK-NEXT: value:{{.*}}4
->>>>>>> 85839f87202e26c6428b1f072f456a04cb160ebd
   //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
   [[intelfpga::bankwidth(4)]] unsigned int bankwidth[32];
 
@@ -45,11 +41,7 @@ void check_ast()
   //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
   //CHECK: IntelFPGANumBanksAttr
   //CHECK-NEXT: ConstantExpr
-<<<<<<< HEAD
-  //CHECK-NEXT: value: Int 8
-=======
   //CHECK-NEXT: value:{{.*}}8
->>>>>>> 85839f87202e26c6428b1f072f456a04cb160ebd
   //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
   [[intelfpga::numbanks(8)]] unsigned int numbanks[32];
 
@@ -57,11 +49,7 @@ void check_ast()
   //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
   //CHECK: IntelFPGAPrivateCopiesAttr
   //CHECK-NEXT: ConstantExpr
-<<<<<<< HEAD
-  //CHECK-NEXT: value: Int 8
-=======
   //CHECK-NEXT: value:{{.*}}8
->>>>>>> 85839f87202e26c6428b1f072f456a04cb160ebd
   //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
   [[intelfpga::private_copies(8)]] unsigned int private_copies[64];
 
@@ -83,18 +71,6 @@ void check_ast()
   //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
   //CHECK: IntelFPGABankBitsAttr
   //CHECK-NEXT: ConstantExpr
-<<<<<<< HEAD
-  //CHECK-NEXT: value: Int 2
-  //CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
-  //CHECK-NEXT: ConstantExpr
-  //CHECK-NEXT: value: Int 3
-  //CHECK-NEXT: IntegerLiteral{{.*}}3{{$}}
-  //CHECK-NEXT: ConstantExpr
-  //CHECK-NEXT: value: Int 4
-  //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
-  //CHECK-NEXT: ConstantExpr
-  //CHECK-NEXT: value: Int 5
-=======
   //CHECK-NEXT: value:{{.*}}2
   //CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
   //CHECK-NEXT: ConstantExpr
@@ -105,7 +81,6 @@ void check_ast()
   //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: value:{{.*}}5
->>>>>>> 85839f87202e26c6428b1f072f456a04cb160ebd
   //CHECK-NEXT: IntegerLiteral{{.*}}5{{$}}
   [[intelfpga::bank_bits(2,3,4,5)]]
   unsigned int bankbits[64];
@@ -116,16 +91,6 @@ void check_ast()
   //CHECK-NEXT: IntelFPGAMemoryAttr{{.*}}Implicit
   //CHECK-NEXT: IntelFPGABankBitsAttr
   //CHECK-NEXT: ConstantExpr
-<<<<<<< HEAD
-  //CHECK-NEXT: value: Int 2
-  //CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
-  //CHECK-NEXT: ConstantExpr
-  //CHECK-NEXT: value: Int 3
-  //CHECK-NEXT: IntegerLiteral{{.*}}3{{$}}
-  //CHECK-NEXT: IntelFPGABankWidthAttr
-  //CHECK-NEXT: ConstantExpr
-  //CHECK-NEXT: value: Int 16
-=======
   //CHECK-NEXT: value:{{.*}}2
   //CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
   //CHECK-NEXT: ConstantExpr
@@ -134,7 +99,6 @@ void check_ast()
   //CHECK-NEXT: IntelFPGABankWidthAttr
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: value:{{.*}}16
->>>>>>> 85839f87202e26c6428b1f072f456a04cb160ebd
   //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
   [[intelfpga::bank_bits(2,3), intelfpga::bankwidth(16)]]
   unsigned int bank_bits_width[64];
@@ -149,11 +113,7 @@ void check_ast()
   //CHECK: VarDecl{{.*}}max_replicates
   //CHECK: IntelFPGAMaxReplicatesAttr
   //CHECK: ConstantExpr
-<<<<<<< HEAD
-  //CHECK-NEXT: value: Int 2
-=======
   //CHECK-NEXT: value:{{.*}}2
->>>>>>> 85839f87202e26c6428b1f072f456a04cb160ebd
   //CHECK: IntegerLiteral{{.*}}2{{$}}
   [[intelfpga::max_replicates(2)]]
   unsigned int max_replicates[64];
@@ -168,11 +128,7 @@ void check_ast()
   //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
   //CHECK: IntelFPGAForcePow2DepthAttr
   //CHECK: ConstantExpr
-<<<<<<< HEAD
-  //CHECK-NEXT: value: Int 0
-=======
   //CHECK-NEXT: value:{{.*}}0
->>>>>>> 85839f87202e26c6428b1f072f456a04cb160ebd
   //CHECK: IntegerLiteral{{.*}}0{{$}}
   [[intelfpga::force_pow2_depth(0)]] unsigned int arr_force_p2d_0[64];
 
@@ -180,11 +136,7 @@ void check_ast()
   //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
   //CHECK: IntelFPGAForcePow2DepthAttr
   //CHECK: ConstantExpr
-<<<<<<< HEAD
-  //CHECK-NEXT: value: Int 1
-=======
   //CHECK-NEXT: value:{{.*}}1
->>>>>>> 85839f87202e26c6428b1f072f456a04cb160ebd
   //CHECK: IntegerLiteral{{.*}}1{{$}}
   [[intelfpga::force_pow2_depth(1)]] unsigned int arr_force_p2d_1[64];
 
@@ -353,19 +305,11 @@ void diagnostics()
   //CHECK: VarDecl{{.*}}bw_bw
   //CHECK: IntelFPGABankWidthAttr
   //CHECK-NEXT: ConstantExpr
-<<<<<<< HEAD
-  //CHECK-NEXT: value: Int 8
-  //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
-  //CHECK: IntelFPGABankWidthAttr
-  //CHECK-NEXT: ConstantExpr
-  //CHECK-NEXT: value: Int 16
-=======
   //CHECK-NEXT: value:{{.*}}8
   //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
   //CHECK: IntelFPGABankWidthAttr
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: value:{{.*}}16
->>>>>>> 85839f87202e26c6428b1f072f456a04cb160ebd
   //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
   //expected-warning@+2{{attribute 'bankwidth' is already applied}}
   [[intelfpga::bankwidth(8)]]
@@ -405,19 +349,11 @@ void diagnostics()
   //CHECK: VarDecl{{.*}}pc_pc
   //CHECK: IntelFPGAPrivateCopiesAttr
   //CHECK-NEXT: ConstantExpr
-<<<<<<< HEAD
-  //CHECK-NEXT: value: Int 8
-  //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
-  //CHECK: IntelFPGAPrivateCopiesAttr
-  //CHECK-NEXT: ConstantExpr
-  //CHECK-NEXT: value: Int 16
-=======
   //CHECK-NEXT: value:{{.*}}8
   //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
   //CHECK: IntelFPGAPrivateCopiesAttr
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: value:{{.*}}16
->>>>>>> 85839f87202e26c6428b1f072f456a04cb160ebd
   //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
   //expected-warning@+2{{is already applied}}
   [[intelfpga::private_copies(8)]]
@@ -448,19 +384,11 @@ void diagnostics()
   //CHECK: VarDecl{{.*}}nb_nb
   //CHECK: IntelFPGANumBanksAttr
   //CHECK-NEXT: ConstantExpr
-<<<<<<< HEAD
-  //CHECK-NEXT: value: Int 8
-  //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
-  //CHECK: IntelFPGANumBanksAttr
-  //CHECK-NEXT: ConstantExpr
-  //CHECK-NEXT: value: Int 16
-=======
   //CHECK-NEXT: value:{{.*}}8
   //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
   //CHECK: IntelFPGANumBanksAttr
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: value:{{.*}}16
->>>>>>> 85839f87202e26c6428b1f072f456a04cb160ebd
   //CHECK-NEXT: IntegerLiteral{{.*}}16{{$}}
   //expected-warning@+2{{attribute 'numbanks' is already applied}}
   [[intelfpga::numbanks(8)]]
@@ -531,19 +459,6 @@ void diagnostics()
   //CHECK: VarDecl{{.*}}bb_bb
   //CHECK: IntelFPGABankBitsAttr
   //CHECK-NEXT: ConstantExpr
-<<<<<<< HEAD
-  //CHECK-NEXT: value: Int 42
-  //CHECK-NEXT: IntegerLiteral{{.*}}42{{$}}
-  //CHECK-NEXT: ConstantExpr
-  //CHECK-NEXT: value: Int 43
-  //CHECK-NEXT: IntegerLiteral{{.*}}43{{$}}
-  //CHECK: IntelFPGABankBitsAttr
-  //CHECK-NEXT: ConstantExpr
-  //CHECK-NEXT: value: Int 1
-  //CHECK-NEXT: IntegerLiteral{{.*}}1{{$}}
-  //CHECK-NEXT: ConstantExpr
-  //CHECK-NEXT: value: Int 2
-=======
   //CHECK-NEXT: value:{{.*}}42
   //CHECK-NEXT: IntegerLiteral{{.*}}42{{$}}
   //CHECK-NEXT: ConstantExpr
@@ -555,7 +470,6 @@ void diagnostics()
   //CHECK-NEXT: IntegerLiteral{{.*}}1{{$}}
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: value:{{.*}}2
->>>>>>> 85839f87202e26c6428b1f072f456a04cb160ebd
   //CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
   //expected-warning@+2{{attribute 'bank_bits' is already applied}}
   [[intelfpga::bank_bits(42,43)]]
@@ -597,19 +511,11 @@ void diagnostics()
   //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
   //CHECK: IntelFPGAForcePow2DepthAttr
   //CHECK-NEXT: ConstantExpr
-<<<<<<< HEAD
-  //CHECK-NEXT: value: Int 1
-  //CHECK-NEXT: IntegerLiteral{{.*}}1{{$}}
-  //CHECK: IntelFPGAForcePow2DepthAttr
-  //CHECK-NEXT: ConstantExpr
-  //CHECK-NEXT: value: Int 0
-=======
   //CHECK-NEXT: value:{{.*}}1
   //CHECK-NEXT: IntegerLiteral{{.*}}1{{$}}
   //CHECK: IntelFPGAForcePow2DepthAttr
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: value:{{.*}}0
->>>>>>> 85839f87202e26c6428b1f072f456a04cb160ebd
   //CHECK-NEXT: IntegerLiteral{{.*}}0{{$}}
   //expected-warning@+1{{attribute 'force_pow2_depth' is already applied}}
   [[intelfpga::force_pow2_depth(1), intelfpga::force_pow2_depth(0)]] unsigned int force_p2d_dup[64];
@@ -712,11 +618,7 @@ struct foo {
   //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
   //CHECK: IntelFPGABankWidthAttr
   //CHECK-NEXT: ConstantExpr
-<<<<<<< HEAD
-  //CHECK-NEXT: value: Int 4
-=======
   //CHECK-NEXT: value:{{.*}}4
->>>>>>> 85839f87202e26c6428b1f072f456a04cb160ebd
   //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
   [[intelfpga::bankwidth(4)]] unsigned int bankwidth[64];
 
@@ -724,11 +626,7 @@ struct foo {
   //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
   //CHECK: IntelFPGANumBanksAttr
   //CHECK-NEXT: ConstantExpr
-<<<<<<< HEAD
-  //CHECK-NEXT: value: Int 8
-=======
   //CHECK-NEXT: value:{{.*}}8
->>>>>>> 85839f87202e26c6428b1f072f456a04cb160ebd
   //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
   [[intelfpga::numbanks(8)]] unsigned int numbanks[64];
 
@@ -736,11 +634,7 @@ struct foo {
   //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
   //CHECK: IntelFPGAPrivateCopiesAttr
   //CHECK-NEXT: ConstantExpr
-<<<<<<< HEAD
-  //CHECK-NEXT: value: Int 4
-=======
   //CHECK-NEXT: value:{{.*}}4
->>>>>>> 85839f87202e26c6428b1f072f456a04cb160ebd
   //CHECK-NEXT: IntegerLiteral{{.*}}4{{$}}
   [[intelfpga::private_copies(4)]] unsigned int private_copies[64];
 
@@ -758,17 +652,10 @@ struct foo {
   //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
   //CHECK: IntelFPGABankBitsAttr
   //CHECK-NEXT: ConstantExpr
-<<<<<<< HEAD
-  //CHECK-NEXT: value: Int 2
-  //CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
-  //CHECK-NEXT: ConstantExpr
-  //CHECK-NEXT: value: Int 3
-=======
   //CHECK-NEXT: value:{{.*}}2
   //CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: value:{{.*}}3
->>>>>>> 85839f87202e26c6428b1f072f456a04cb160ebd
   //CHECK-NEXT: IntegerLiteral{{.*}}3{{$}}
   [[intelfpga::bank_bits(2,3)]] unsigned int bankbits[64];
 
@@ -776,11 +663,7 @@ struct foo {
   //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
   //CHECK: IntelFPGAForcePow2DepthAttr
   //CHECK-NEXT: ConstantExpr
-<<<<<<< HEAD
-  //CHECK-NEXT: value: Int 1
-=======
   //CHECK-NEXT: value:{{.*}}1
->>>>>>> 85839f87202e26c6428b1f072f456a04cb160ebd
   //CHECK-NEXT: IntegerLiteral{{.*}}1{{$}}
   [[intelfpga::force_pow2_depth(1)]] unsigned int force_p2d_field[64];
 };
@@ -792,11 +675,7 @@ void check_template_parameters() {
   //CHECK-NEXT: IntelFPGAMemoryAttr{{.*}}Implicit
   //CHECK-NEXT: IntelFPGANumBanksAttr
   //CHECK-NEXT: ConstantExpr
-<<<<<<< HEAD
-  //CHECK-NEXT: value: Int 8
-=======
   //CHECK-NEXT: value:{{.*}}8
->>>>>>> 85839f87202e26c6428b1f072f456a04cb160ebd
   //CHECK-NEXT: SubstNonTypeTemplateParmExpr
   //CHECK-NEXT: NonTypeTemplateParmDecl
   //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
@@ -806,11 +685,7 @@ void check_template_parameters() {
   //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
   //CHECK: IntelFPGAPrivateCopiesAttr
   //CHECK-NEXT: ConstantExpr
-<<<<<<< HEAD
-  //CHECK-NEXT: value: Int 8
-=======
   //CHECK-NEXT: value:{{.*}}8
->>>>>>> 85839f87202e26c6428b1f072f456a04cb160ebd
   //CHECK-NEXT: SubstNonTypeTemplateParmExpr
   //CHECK-NEXT: NonTypeTemplateParmDecl
   //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
@@ -822,28 +697,16 @@ void check_template_parameters() {
   //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
   //CHECK-NEXT: IntelFPGABankBitsAttr
   //CHECK-NEXT: ConstantExpr
-<<<<<<< HEAD
-  //CHECK-NEXT: value: Int 2
-=======
   //CHECK-NEXT: value:{{.*}}2
->>>>>>> 85839f87202e26c6428b1f072f456a04cb160ebd
   //CHECK-NEXT: SubstNonTypeTemplateParmExpr
   //CHECK-NEXT: NonTypeTemplateParmDecl
   //CHECK-NEXT: IntegerLiteral{{.*}}2{{$}}
   //CHECK-NEXT: ConstantExpr
-<<<<<<< HEAD
-  //CHECK-NEXT: value: Int 3
-  //CHECK-NEXT: IntegerLiteral{{.*}}3{{$}}
-  //CHECK: IntelFPGABankWidthAttr
-  //CHECK-NEXT: ConstantExpr
-  //CHECK-NEXT: value: Int 8
-=======
   //CHECK-NEXT: value:{{.*}}3
   //CHECK-NEXT: IntegerLiteral{{.*}}3{{$}}
   //CHECK: IntelFPGABankWidthAttr
   //CHECK-NEXT: ConstantExpr
   //CHECK-NEXT: value:{{.*}}8
->>>>>>> 85839f87202e26c6428b1f072f456a04cb160ebd
   //CHECK-NEXT: SubstNonTypeTemplateParmExpr
   //CHECK-NEXT: NonTypeTemplateParmDecl
   //CHECK-NEXT: IntegerLiteral{{.*}}8{{$}}
@@ -853,11 +716,7 @@ void check_template_parameters() {
   //CHECK: VarDecl{{.*}}max_replicates
   //CHECK: IntelFPGAMaxReplicatesAttr
   //CHECK: ConstantExpr
-<<<<<<< HEAD
-  //CHECK-NEXT: value: Int 2
-=======
   //CHECK-NEXT: value:{{.*}}2
->>>>>>> 85839f87202e26c6428b1f072f456a04cb160ebd
   //CHECK-NEXT: SubstNonTypeTemplateParmExpr
   //CHECK-NEXT: NonTypeTemplateParmDecl
   //CHECK: IntegerLiteral{{.*}}2{{$}}
@@ -897,21 +756,13 @@ void check_template_parameters() {
   //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
   //CHECK: IntelFPGAForcePow2DepthAttr
   //CHECK-NEXT: ConstantExpr
-<<<<<<< HEAD
-  //CHECK-NEXT: value: Int 1
-=======
   //CHECK-NEXT: value:{{.*}}1
->>>>>>> 85839f87202e26c6428b1f072f456a04cb160ebd
   //CHECK-NEXT: SubstNonTypeTemplateParmExpr
   //CHECK-NEXT: NonTypeTemplateParmDecl
   //CHECK-NEXT: IntegerLiteral{{.*}}1{{$}}
   //CHECK: IntelFPGAForcePow2DepthAttr
   //CHECK: ConstantExpr
-<<<<<<< HEAD
-  //CHECK-NEXT: value: Int 0
-=======
   //CHECK-NEXT: value:{{.*}}0
->>>>>>> 85839f87202e26c6428b1f072f456a04cb160ebd
   //CHECK-NEXT: IntegerLiteral{{.*}}0{{$}}
   //expected-warning@+1{{attribute 'force_pow2_depth' is already applied}}
   [[intelfpga::force_pow2_depth(E), intelfpga::force_pow2_depth(0)]] unsigned int force_p2d_dup[64];
@@ -923,11 +774,7 @@ struct templ_st {
   //CHECK: IntelFPGAMemoryAttr{{.*}}Implicit
   //CHECK: IntelFPGAForcePow2DepthAttr
   //CHECK: ConstantExpr
-<<<<<<< HEAD
-  //CHECK-NEXT: value: Int 0
-=======
   //CHECK-NEXT: value:{{.*}}0
->>>>>>> 85839f87202e26c6428b1f072f456a04cb160ebd
   //CHECK-NEXT: SubstNonTypeTemplateParmExpr
   //CHECK-NEXT: NonTypeTemplateParmDecl
   //CHECK-NEXT: IntegerLiteral{{.*}}0{{$}}
