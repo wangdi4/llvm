@@ -116,6 +116,19 @@ RegDDRef *DDRefUtils::createNullDDRef(Type *Ty) {
   return createConstDDRef(Constant::getNullValue(Ty));
 }
 
+RegDDRef *DDRefUtils::createConstOneDDRef(Type *Ty) {
+  if (Ty->isIntegerTy()) {
+    return createConstDDRef(Ty, 1);
+  }
+
+  if (Ty->isFloatingPointTy()) {
+    return createConstDDRef(ConstantFP::get(Ty, 1.0));
+  }
+
+  llvm_unreachable("Unknown One DDRef type!");
+  return nullptr;
+}
+
 RegDDRef *DDRefUtils::createUndefDDRef(Type *Ty) {
   Value *UndefVal = UndefValue::get(Ty);
 
@@ -377,7 +390,6 @@ bool DDRefUtils::areEqual(const DDRef *Ref1, const DDRef *Ref2,
     }
 
     return areEqualImpl(RRef1, RRef2, RelaxedMode);
-
   }
 
   llvm_unreachable("Unknown DDRef kind!");

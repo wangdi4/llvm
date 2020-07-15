@@ -323,6 +323,20 @@ public:
   /// Run HIRDeadStoreElimination Pass on a HLRegion
   static bool doDeadStoreElimination(HLRegion &Region, HIRDDAnalysis &HDDA,
                                      HIRLoopStatistics &HLS);
+
+  /// Utility to substitute identity matrix uses. Example:
+  ///
+  /// do i=1,5
+  ///   do j=1,5
+  ///     B(j,i) = t1 - 0.5* dt * B(j,i) * A(j,i)
+  ///   enddo
+  /// enddo
+  ///
+  /// Assuming A(j,i) is the identity ref, then we can substitute 1 or 0
+  /// depending on i and j values. Loop should be unrolled, so indices will be
+  /// constant.
+  static bool doIdentityMatrixSubstitution(HLLoop *Loop,
+                                           const RegDDRef *IdentityRef);
 };
 
 } // End namespace loopopt

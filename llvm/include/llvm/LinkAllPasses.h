@@ -376,11 +376,12 @@ namespace {
       (void) llvm::createHIRUndoSinkingForPerfectLoopnestPass();
       (void) llvm::createHIRConditionalTempSinkingPass();
       (void) llvm::createHIRMemoryReductionSinkingPass();
-      (void)llvm::createHIRRowWiseMVPass();
-      (void)llvm::createHIRConditionalLoadStoreMotionPass();
+      (void) llvm::createHIRRowWiseMVPass();
+      (void) llvm::createHIRConditionalLoadStoreMotionPass();
       (void) llvm::createHIRStoreResultIntoTempArrayPass();
       (void)llvm::createHIRSumWindowReusePass();
       (void) llvm::createHIRNonZeroSinkingForPerfectLoopnestPass();
+      (void) llvm::createHIRIdentityMatrixSubstitutionPass();
 
       // DPCPP Kernel Transformations
       (void) llvm::createDPCPPKernelVecClonePass();

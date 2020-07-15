@@ -198,6 +198,10 @@ FunctionPass *createHIRSumWindowReusePass();
 
 /// Create pass that implements non-zero sinking for perfect loopnest.
 FunctionPass *createHIRNonZeroSinkingForPerfectLoopnestPass();
+
+/// Create pass that substitutes identity matrix.
+FunctionPass *createHIRIdentityMatrixSubstitutionPass();
+
 } // namespace llvm
 
 #endif
