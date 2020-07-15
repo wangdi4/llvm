@@ -1184,6 +1184,7 @@ private:
   ReductionClause Reduction;
   LinearClause Linear;
   AlignedClause Aligned;
+  NontemporalClause Nontemporal;
   UniformClause Uniform; // The simd construct does not take a uniform clause,
                           // so we won't get this from the front-end, but this
                           // list can/will be populated by the vector backend
@@ -1228,6 +1229,7 @@ public:
   DEFINE_GETTER(ReductionClause,   getRed,     Reduction)
   DEFINE_GETTER(LinearClause,      getLinear,  Linear)
   DEFINE_GETTER(AlignedClause,     getAligned, Aligned)
+  DEFINE_GETTER(NontemporalClause, getNontemporal, Nontemporal)
   DEFINE_GETTER(UniformClause,     getUniform, Uniform)
   DEFINE_GETTER(WRNLoopInfo,       getWRNLoopInfo, WRNLI)
 

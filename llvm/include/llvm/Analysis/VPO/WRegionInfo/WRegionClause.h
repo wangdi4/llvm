@@ -1107,6 +1107,7 @@ public:
 //   AlignedItem   (for the aligned clause in simd constructs)
 //   FlushItem     (for the flush clause)
 //   AllocateItem  (for the allocate clause)
+//   NontemporalItem (for the nontemporal clause in simd constructs)
 //
 // Clang collapses the 'n' loops for 'ordered(n)'. So VPO always
 // receives a single EXPR for depend(sink:sink_expr), which is already in
@@ -1207,6 +1208,22 @@ class AlignedItem
       OS << "(";
       getOrig()->printAsOperand(OS, PrintType);
       OS << ", " << getAlign() << ") ";
+    }
+};
+
+class NontemporalItem
+{
+  private:
+    VAR Base; // pointer or base of array
+
+  public:
+    NontemporalItem(VAR V=nullptr) : Base(V) {}
+    VAR getOrig() const { return Base; }
+
+    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+      OS << "(";
+      getOrig()->printAsOperand(OS, PrintType);
+      OS << ") ";
     }
 };
 
@@ -1373,6 +1390,7 @@ typedef Clause<DependItem>        DependClause;
 typedef Clause<DepSinkItem>       DepSinkClause;
 typedef Clause<DepSourceItem>     DepSourceClause;
 typedef Clause<AlignedItem>       AlignedClause;
+typedef Clause<NontemporalItem>   NontemporalClause;
 typedef Clause<FlushItem>         FlushSet;
 typedef Clause<AllocateItem>      AllocateClause;
 
@@ -1392,6 +1410,7 @@ typedef std::vector<DependItem>::iterator        DependIter;
 typedef std::vector<DepSinkItem>::iterator       DepSinkIter;
 typedef std::vector<DepSourceItem>::iterator     DepSourceIter;
 typedef std::vector<AlignedItem>::iterator       AlignedIter;
+typedef std::vector<NontemporalItem>::iterator   NontemporalIter;
 typedef std::vector<FlushItem>::iterator         FlushIter;
 typedef std::vector<AllocateItem>::iterator      AllocateIter;
 

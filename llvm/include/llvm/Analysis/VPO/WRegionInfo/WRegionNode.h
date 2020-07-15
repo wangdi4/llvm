@@ -230,6 +230,7 @@ public:
   bool canHaveDepend() const;
   bool canHaveDepSrcSink() const;
   bool canHaveAligned() const;
+  bool canHaveNontemporal() const;
   bool canHaveFlush() const;
   bool canHaveCancellationPoints() const; ///< Constructs that can be cancelled
   bool canHaveCollapse() const;
@@ -257,6 +258,7 @@ public:
   // list-type clauses (getters only; no setters)
 
   virtual AlignedClause &getAligned()        {WRNERROR(QUAL_OMP_ALIGNED);     }
+  virtual NontemporalClause &getNontemporal() {WRNERROR(QUAL_OMP_NONTEMPORAL); }
   virtual AllocateClause &getAllocate()      {WRNERROR(QUAL_OMP_ALLOCATE);    }
   virtual CopyinClause &getCopyin()          {WRNERROR(QUAL_OMP_COPYIN);      }
   virtual CopyprivateClause &getCpriv()      {WRNERROR(QUAL_OMP_COPYPRIVATE); }
@@ -291,6 +293,8 @@ public:
 
   virtual const AlignedClause &getAligned() const
                                            {WRNERROR(QUAL_OMP_ALIGNED);     }
+  virtual const NontemporalClause &getNontemporal() const
+                                           {WRNERROR(QUAL_OMP_NONTEMPORAL); }
   virtual const AllocateClause &getAllocate() const
                                            {WRNERROR(QUAL_OMP_ALLOCATE);    }
   virtual const CopyinClause &getCopyin() const
