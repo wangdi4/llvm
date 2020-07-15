@@ -1673,6 +1673,33 @@ bool CanonExpr::containsStandAloneBlob(unsigned BlobIndex,
   return Found;
 }
 
+bool CanonExpr::isLinearAtLevel(unsigned Level) const {
+  assert(CanonExprUtils::isValidLinearDefLevel(Level) &&
+         "Cannot compute linearity without a valid loop level");
+
+  return DefinedAtLevel < Level;
+}
+
+bool CanonExpr::isInvariantAtLevel(unsigned Level, bool IgnoreInnerIVs) const {
+  assert(CanonExprUtils::isValidLoopLevel(Level) &&
+         "Cannot compute invariance without a valid loop level");
+
+  if (isNonLinear() || DefinedAtLevel >= Level) {
+    return false;
+  }
+
+  if (IgnoreInnerIVs) {
+    return !hasIV(Level);
+  }
+
+  for (unsigned I = Level; I <= MaxLoopNestLevel; I++) {
+    if (hasIV(I)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 unsigned CanonExpr::getNumOperations() const {
   auto &BU = getBlobUtils();
   unsigned Count = 0;

@@ -307,26 +307,11 @@ public:
 
   /// Returns true if this is linear at some levels (greater than
   /// DefinedAtLevel) in the current loopnest.
-  bool isLinearAtLevel(unsigned Level) const { return DefinedAtLevel < Level; }
+  bool isLinearAtLevel(unsigned Level) const;
 
   /// Returns true if the canon expr is invariant at \p Level.
   /// If \p IgnoreInnerIVs is set to true, inner loop IVs are ignored.
-  bool isInvariantAtLevel(unsigned Level, bool IgnoreInnerIVs = false) const {
-    if (isNonLinear() || DefinedAtLevel >= Level) {
-      return false;
-    }
-
-    if (IgnoreInnerIVs) {
-      return !hasIV(Level);
-    }
-
-    for (unsigned I = Level; I <= MaxLoopNestLevel; I++) {
-      if (hasIV(I)) {
-        return false;
-      }
-    }
-    return true;
-  }
+  bool isInvariantAtLevel(unsigned Level, bool IgnoreInnerIVs = false) const;
 
   /// IV iterator methods
   iv_iterator iv_begin() { return IVCoeffs.begin(); }
