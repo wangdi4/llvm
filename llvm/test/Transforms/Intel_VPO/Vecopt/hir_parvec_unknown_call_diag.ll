@@ -11,7 +11,7 @@ declare {i32, i1} @llvm.uadd.with.overflow.i32(i32 %a, i32 %b)
 define void @doit() local_unnamed_addr #0 {
 ; Ensure that correct diagnostic is emitted for a call that prevents vectorization.
 
-; CHECK: was not vectorized: implied FP exception model prevents usage of SVML library needed for truncation or integer divide/remainder.
+; CHECK: was not vectorized: function call to %s cannot be vectorized
 entry:
   br label %for.body
 
