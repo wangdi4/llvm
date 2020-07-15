@@ -776,6 +776,11 @@ public:
     return isTerminalRef() && getSingleCanonExpr()->isZero();
   }
 
+  /// Return true if the DDRef represents a constant 1.
+  bool isOne() const {
+    return isTerminalRef() && getSingleCanonExpr()->isOne();
+  }
+
   /// Returns true if this DDRef contains undefined canon expressions.
   bool containsUndef() const override;
 
