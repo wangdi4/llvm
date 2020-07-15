@@ -67,8 +67,6 @@ OclBuiltinImpl intel_sub_group_ballot_avx512fvf4 = OclBuiltinImpl<intel_sub_grou
 //
 
 // any/all begin
-// VF 16 begin
-
 OclBuiltinImpl sub_group_all_avx512fiu32 = OclBuiltinImpl<sub_group_all_vec, [ v16i32 ], 0,
   [{
     __mmask16 mask = _mm512_cmp_epi32_mask($Arg1VarName, _mm512_setzero_epi32(), _MM_CMPINT_NE);
@@ -85,49 +83,6 @@ OclBuiltinImpl sub_group_any_avx512fiu32 = OclBuiltinImpl<sub_group_any_vec, [ v
     return res != 0;
   }]>;
 
-// VF 16 end
-// VF 8 begin
-
-OclBuiltinImpl sub_group_all_avx512fiu32_vf8 = OclBuiltinImpl<sub_group_all_vec, [ v8i32 ], 0,
-  [{
-    __mmask8 mask = _mm256_cmp_epi32_mask($Arg1VarName, _mm256_setzero_ps(), _MM_CMPINT_NE);
-    __mmask8 test = _mm256_mask_cmp_epi32_mask(mask, $Arg0VarName, _mm256_setzero_ps(), _MM_CMPINT_NE);
-    unsigned short res = _kxnor_mask8(mask, test);
-    return res == 255;
-  }]>;
-
-OclBuiltinImpl sub_group_any_avx512fiu32_vf8 = OclBuiltinImpl<sub_group_any_vec, [ v8i32 ], 0,
-  [{
-    __mmask8 mask = _mm256_cmp_epi32_mask($Arg1VarName, _mm256_setzero_ps(), _MM_CMPINT_NE);
-    __mmask8 test = _mm256_mask_cmp_epi32_mask(mask, $Arg0VarName, _mm256_setzero_ps(), _MM_CMPINT_EQ);
-    unsigned short res = _kxor_mask8(mask, test);
-    return res != 255;
-  }]>;
-
-// VF 8 end
-// VF 4 begin
-
-OclBuiltinImpl sub_group_all_avx512fiu32_vf4 = OclBuiltinImpl<sub_group_all_vec, [ v4i32 ], 0,
-  [{
-    uint8 temp_mask;
-    temp_mask.hi = 0;
-    temp_mask.lo = $Arg1VarName;
-    int8 temp_pred;
-    temp_pred.lo = $Arg0VarName;
-    return sub_group_all(temp_pred, temp_mask).lo;
-  }]>;
-
-OclBuiltinImpl sub_group_any_avx512fiu32_vf4 = OclBuiltinImpl<sub_group_any_vec, [ v4i32 ], 0,
-  [{
-    uint8 temp_mask;
-    temp_mask.hi = 0;
-    temp_mask.lo = $Arg1VarName;
-    int8 temp_pred;
-    temp_pred.lo = $Arg0VarName;
-    return sub_group_any(temp_pred, temp_mask).lo;
-  }]>;
-
-// VF 4 end
 // any/all end
 
 // non_uniform reduce [and|or|xor]
