@@ -515,6 +515,11 @@ void HIRLoopLocality::initTripCountByLevel(
     uint64_t TripCnt = 0;
 
     if (Loop->isConstTripLoop(&TripCnt)) {
+      // In some cases, the loop reports an absurdly high trip count that causes
+      // the math here to overflow. Clamp the trip count to a high value--it
+      // should satisfy any threshold analysis anyways.
+      TripCnt = std::min(TripCnt, (uint64_t)1 << 32);
+
       TripCountByLevel[Loop->getNestingLevel() - 1] = TripCnt;
     } else if ((TripCnt = Loop->getMaxTripCountEstimate())) {
       // Clamp max trip count to SymbolicConstTC if based on estimate.
