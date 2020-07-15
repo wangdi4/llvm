@@ -51,6 +51,31 @@ private:
                    const TargetLibraryInfo *TLI,
                    const TargetTransformInfo *TTI);
 
+  /// Describes the caller side argument to callee side parameter matching
+  /// score for simd functions. Scoring is based on the performance implications
+  /// of the matching. E.g., uniform pointer arg -> vector parameter would
+  /// result in gather/scatter, uniform -> vector would result in broadcast,
+  /// etc.
+  // Scalar2VectorScore represents either a uniform or linear match with
+  // vector.
+  static constexpr unsigned Scalar2VectorScore = 2;
+  static constexpr unsigned Uniform2UniformScore = 3;
+  static constexpr unsigned UniformPtr2UniformPtrScore = 4;
+  static constexpr unsigned Vector2VectorScore = 4;
+  static constexpr unsigned Linear2LinearScore = 4;
+
+  /// Match arguments of VPCall to vector variant parameters. Return score
+  /// based on how well the parameters matched.
+  bool matchAndScoreVariantParameters(const VPCallInstruction *VPCall,
+                                      VectorVariant &Variant,
+                                      int &Score,
+                                      int &MaxArg);
+
+  /// Find the best simd function variant.
+  std::unique_ptr<VectorVariant>
+  matchVectorVariant(const VPCallInstruction *VPCall, bool Masked,
+                     unsigned VF, const TargetTransformInfo *TTI);
+
   VPlan &Plan;
 };
 

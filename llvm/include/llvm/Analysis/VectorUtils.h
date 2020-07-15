@@ -479,18 +479,6 @@ inline VectorType *getWidenedType(Type *Ty, unsigned VF) {
 void getFunctionsToVectorize(
   Module &M, std::map<Function*, std::vector<StringRef> > &FuncVars);
 
-/// Find the best simd function variant.
-std::unique_ptr<VectorVariant>
-matchVectorVariantImpl(StringRef VecVariantStringValue, bool Masked,
-                       unsigned VF, const TargetTransformInfo *TTI);
-
-/// Helper wrapper to find the best simd function variant for a given \p Call.
-/// \p Masked parameter tells whether we need a masked version or not.
-/// TODO: Wrapper still needed?
-std::unique_ptr<VectorVariant>
-matchVectorVariant(const CallInst *Call, bool Masked, unsigned VF,
-                   const TargetTransformInfo *TTI);
-
 /// \brief Widens the call to function \p OrigF  using a vector length of \p VL
 /// and inserts the appropriate function declaration if not already created.
 /// This function will insert functions for library calls, intrinsics, and simd

@@ -433,5 +433,5 @@ loop.exit:
 declare token @llvm.directive.region.entry()
 declare void @llvm.directive.region.exit(token)
 
-attributes #0 = { nounwind "vector-variants"="_ZGVbN4v_vec_func" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87,+avx,+avx2" }
+attributes #0 = { nounwind "vector-variants"="_ZGVbN4l_vec_func" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87,+avx,+avx2" }
 attributes #1 = { nounwind "target-features"="+fxsr,+mmx,+sse,+sse2,+x87,+avx,+avx2" }
