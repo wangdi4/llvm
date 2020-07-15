@@ -88,7 +88,7 @@ extern "C" LLVM_BACKEND_API
 void *_ihc_pthread_create(void *(*func)(void *), void *arg) {
   // Note that CreateThread takes a pointer to the function arguments,
   // while pthreads takes the argument
-  HANDLE _thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)func, &arg,
+  HANDLE _thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)func, arg,
                                 DETACHED_PROCESS, NULL);
   return _thread;
 }
@@ -101,8 +101,7 @@ int _ihc_pthread_join(void *_thread) {
     return 0;
   }
   return GetLastError();
-
-} 
+}
 
 extern "C" LLVM_BACKEND_API
 int _ihc_pthread_detach(void *_thread) {
@@ -117,3 +116,25 @@ int _ihc_pthread_detach(void *_thread) {
   return GetLastError();
 }
 
+/* Fast-emulator uses GNU mangling scheme regardless of the actual OS it's on,
+ therefore we need following adapters to translate GNU mangled functions to
+ functions can be recognized by MSVC */
+extern "C" LLVM_BACKEND_API
+void *_Znwy(unsigned long long size) {
+  return ::operator new(size);
+}
+
+extern "C" LLVM_BACKEND_API
+void _ZdlPvy(void* ptr, unsigned long long size) {
+  return ::operator delete(ptr, size);
+}
+
+extern "C" LLVM_BACKEND_API
+void _ZSt14_Xlength_errorPKc(char const* str) {
+  return std::_Xlength_error(str);
+}
+
+extern "C" LLVM_BACKEND_API
+void _ZdlPv(void* ptr) {
+  return ::operator delete(ptr);
+}

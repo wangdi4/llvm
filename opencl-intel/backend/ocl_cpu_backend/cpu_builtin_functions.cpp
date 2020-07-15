@@ -124,6 +124,13 @@ extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void *_ihc_pthread_create(
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int _ihc_pthread_join(void *handle) LLVM_BACKEND_NOINLINE_POST;
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int _ihc_pthread_detach(void *handle) LLVM_BACKEND_NOINLINE_POST;
 
+#ifdef _WIN32
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void *_Znwy(unsigned long long) LLVM_BACKEND_NOINLINE_POST;
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void _ZdlPvy(void*, unsigned long long) LLVM_BACKEND_NOINLINE_POST;
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void _ZSt14_Xlength_errorPKc(char const*) LLVM_BACKEND_NOINLINE_POST;
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void _ZdlPv(void*) LLVM_BACKEND_NOINLINE_POST;
+#endif
+
 // OpenCL20. Extended execution
 class IDeviceCommandManager;
 class IBlockToKernelMapper;
@@ -195,6 +202,12 @@ llvm::Error RegisterCPUBIFunctions(llvm::orc::LLJIT *LLJIT)
     REGISTER_BI_FUNCTION("_ihc_pthread_create", _ihc_pthread_create)
     REGISTER_BI_FUNCTION("_ihc_pthread_join", _ihc_pthread_join)
     REGISTER_BI_FUNCTION("_ihc_pthread_detach", _ihc_pthread_detach)
+#ifdef _WIN32
+    REGISTER_BI_FUNCTION("_Znwy", _Znwy)
+    REGISTER_BI_FUNCTION("_ZdlPvy", _ZdlPvy)
+    REGISTER_BI_FUNCTION("_ZSt14_Xlength_errorPKc", _ZSt14_Xlength_errorPKc)
+    REGISTER_BI_FUNCTION("_ZdlPv", _ZdlPv)
+#endif
 
     return llvm::Error::success();
 }
