@@ -889,7 +889,14 @@ public:
   /// The term 'c' got totally removed here.
   /// Terms compact will rename the term 'd' with 'c':
   ///     After compactTerms(): +ab+c.
-  void compactTerms(FMAExprSP &SP);
+  /// Returns the terms that were used by this expression before
+  /// the terms compact operation. The returned terms may be used
+  /// by the caller to restore used terms and cancel the compaction.
+  SmallSetVector<FMATerm *, 16u> compactTerms(FMAExprSP &SP);
+
+  void restoreUsedTerms(SmallSetVector<FMATerm *, 16u> &UsedTermsBackup) {
+    UsedTerms = UsedTermsBackup;
+  }
 
   /// Generates and returns a sum of products for 'this' FMA expression.
   std::unique_ptr<FMAExprSP> generateSP() const;
@@ -1062,18 +1069,11 @@ protected:
   bool optParsedBasicBlock(FMABasicBlock &FMABB);
 
   /// Returns FMADag for the given expression \p Expr.
-  /// The parameter \p DoCompactTerms specifies if it is Ok to do terms
-  /// compaction and removal of the optimizable terms from 'UsedTerms' if such
-  /// terms happen to be unused in the returned DAG.
-  /// For example: the term b can be eliminated from expression (a+b)-(b-c).
-  /// DAG for such expression would be: (a+c). It is safe to compact terms
-  /// only when the DAG is computed for the expression for the last time.
-  /// The parameter may be set to true when the terms compaction is needed for
-  /// more efficient and robust pattern matching. It also may be set to
-  /// false when the returned DAG is not finalized yet and removing terms
-  /// may cause problems.
+  /// The parameter \p CanChangeExpr specifies if it is Ok to modify the given
+  /// FMA expression, for examply by doing terms compaction, which modifies
+  /// the used terms in \p Expr.
   std::unique_ptr<FMADag> getDagForExpression(FMAExpr &Expr,
-                                              bool DoCompactTerms) const;
+                                              bool CanChangeExpr) const;
 
   /// Returns FMADag for the result of fusing \p Expr and \p FWSExpr.
   /// \p FWSExpr must be an expression defining the term used by \p Expr.

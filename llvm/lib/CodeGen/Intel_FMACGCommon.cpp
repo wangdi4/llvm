@@ -1,6 +1,6 @@
 //===- Intel_FMACGCommon.cpp - Fused Multiply Add optimization ------------===//
 //
-// Copyright (C) 2019 Intel Corporation. All rights reserved.
+// Copyright (C) 2020 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -594,7 +594,8 @@ std::unique_ptr<FMAExprSP> FMAExpr::generateSP() const {
 //     After : +ab+d
 // The term 'c' got totally removed here. Let's compact the terms
 // in SP and in 'this' FMAExpr.
-void FMAExpr::compactTerms(FMAExprSP &SP) {
+SmallSetVector<FMATerm *, 16u> FMAExpr::compactTerms(FMAExprSP &SP) {
+  SmallSetVector<FMATerm *, 16u> UsedTermsBackup = UsedTerms;
   if (auto TermsMapping = SP.getTermsMappingToCompactTerms()) {
     LLVM_DEBUG(FMADbg::match() << "  Need to compact terms in EXPR: "
                                << *this << "\n");
@@ -617,6 +618,7 @@ void FMAExpr::compactTerms(FMAExprSP &SP) {
       TermsMappingIndex++;
     }
   }
+  return UsedTermsBackup;
 }
 
 void FMAExpr::replaceAllUsesOfWith(FMANode *Old, FMANode *New) {
@@ -862,7 +864,7 @@ bool GlobalFMA::optBasicBlock(MachineBasicBlock &MBB) {
 }
 
 std::unique_ptr<FMADag>
-GlobalFMA::getDagForExpression(FMAExpr &Expr, bool DoCompactTerms) const {
+GlobalFMA::getDagForExpression(FMAExpr &Expr, bool CanChangeExpr) const {
   LLVM_DEBUG(FMADbg::match() << "    Find DAG for FMA EXPR:\n";
              FMADbg::match() << "    " << Expr << "\n");
   auto SP = Expr.generateSP();
@@ -877,13 +879,15 @@ GlobalFMA::getDagForExpression(FMAExpr &Expr, bool DoCompactTerms) const {
   // the returned SP may be shorter and the term 'c' is not used anymore:
   //   +ab+d
   // Let's compact the terms in SP and in 'this' FMAExpr.
-  if (DoCompactTerms)
-    Expr.compactTerms(*SP);
+  auto UsedTermsBackup = Expr.compactTerms(*SP);
 
   LLVM_DEBUG(FMADbg::match() << "Computed SP is: " << *SP);
   LLVM_DEBUG(FMADbg::match() << "SHAPE: " << format_hex(SP->Shape, 2) << "\n");
 
-  return Patterns->getDagForBestSPMatch(*SP);
+  auto Dag = Patterns->getDagForBestSPMatch(*SP);
+  if (!CanChangeExpr)
+    Expr.restoreUsedTerms(UsedTermsBackup);
+  return Dag;
 }
 
 std::unique_ptr<FMADag>
@@ -1098,6 +1102,21 @@ bool GlobalFMA::doFWSAndConsumeIfProfitable(
     // TODO: vklochko: The 2nd and 3rd arguments of the next call must depend
     // on the existence of recurrent terms used by the fused expression.
     // Currently, such analysis are not available.
+    //
+    // TODO: In some very rare cases on Haswell the found DAG for the original
+    // expression might be worse then the original expression. That is because
+    // the FMA patterns table might not have the most efficient pattern in it
+    // (in terms of latency), which is because FMA table gen does not consider
+    // Haswell latencies (where MUL & FMA are more expensive than ADD & SUB).
+    // The easy solutions for Haswell could be to additionally compute
+    // FMAPerfDesc for the original expressions, then chose the best DAG, e.g.:
+    //    FMAPerfDesc OriginalDesc = getDagPerfDesc(*OriginalDag);
+    //    if (IsHaswell) {
+    //      FMAPerfDesc OriginalExprDesc = <get it for UserExpr, not DAG>;
+    //      if (OriginalExprDesc.isBetterThan(OriginalDesc))
+    //        OriginalDesc = OriginalExprDesc;
+    //    }
+    // Example of such expressions is: ((a - b) + c) * (d * e).
     if (!FusedDesc.isBetterThan(OriginalDesc, false /*TuneForLatency */,
                                 false /*TuneForThroughput*/)) {
       // UserExpr and FWSExpr potentially can be fused, but the DAG for
@@ -1214,7 +1233,7 @@ bool GlobalFMA::doFWSAndConsumeIfProfitable(
     // Fusing produces same or better expressions because one of these is true:
     // a) better: fused exprs have less operations than the original
     //    expr(s) + fws expr;
-    // b) same-or-better: fusing keeps the smae number of operations,
+    // b) same-or-better: fusing keeps the same number of operations,
     //    but it does not increase the number of heavy FMAs.
     ;
   }
@@ -1266,7 +1285,7 @@ bool GlobalFMA::doFWSAndConsumeIfProfitable(
   LLVM_DEBUG(FMADbg::fws() << "  Fusing into " << NumOtherFMAUsers
                            << " neutral user(s) seems efficient.\n");
   bool MarkAsMustBeOptimized =
-      NumOtherFMAUsers > 1 || FWSExpr.isMustBeOptimized();
+      UsersSet.size() > 1 || FWSExpr.isMustBeOptimized();
   for (auto E : NeutralUsersSet) {
     LLVM_DEBUG(FMADbg::fws() << "  Fuse with the neutral user #"
                              << NumOtherFMAUsers << ": " << *E << "\n");
@@ -1276,6 +1295,14 @@ bool GlobalFMA::doFWSAndConsumeIfProfitable(
     if (MarkAsMustBeOptimized)
       E->markAsMustBeOptimized();
   }
+  // If there are expressions that immediately consumed FWSExpr in the very
+  // beginning (named good users), then mark them with IsMustBeOptimized too
+  // because they need special tracking during the later FWS steps.
+  // Here there is no need to additionally check for (UsersSet.size() > 1)
+  // because this place is reachable only when there is at least one Neutral
+  // user and having any of "good users" guarantees the total users num > 1.
+  for (auto GoodUser : GoodUsersSet)
+    GoodUser->markAsMustBeOptimized();
   FWSExpr.markAsFullyConsumedByKnownExpressions();
   return Consumed;
 }
