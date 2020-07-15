@@ -44,6 +44,7 @@ protected:
   std::unique_ptr<ScalarEvolution> SE;
   std::unique_ptr<PredicatedScalarEvolution> PSE;
   std::unique_ptr<VPOVectorizationLegality> Legal;
+  std::unique_ptr<VPExternalValues> Externals;
 
   VPlanTestBase() : Ctx(new LLVMContext) {}
 
@@ -65,13 +66,14 @@ protected:
     SE.reset(new ScalarEvolution(F, *TLI, *AC, *DT, *LI));
     PSE.reset(new PredicatedScalarEvolution(*SE, *Loop));
     Legal.reset(new VPOVectorizationLegality(Loop, *PSE, &F));
+    Externals.reset(new VPExternalValues(Ctx.get(), DL.get()));
   }
 
   std::unique_ptr<VPlan> buildHCFG(BasicBlock *LoopHeader) {
     auto F = LoopHeader->getParent();
     doAnalysis(*F, LoopHeader);
 
-    auto Plan = std::make_unique<VPlan>(Ctx.get(), DL.get());
+    auto Plan = std::make_unique<VPlan>(*Externals);
     VPlanHCFGBuilder HCFGBuilder(LI->getLoopFor(LoopHeader), LI.get(), *DL,
                                  nullptr /*WRLp */, Plan.get(), Legal.get());
     HCFGBuilder.buildHierarchicalCFG();

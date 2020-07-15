@@ -87,8 +87,9 @@ public:
   VPlanFunctionVectorizer(Function &F) : F(F) {}
 
   bool run() {
-    auto Plan = std::make_unique<VPlan>(&F.getContext(),
-                                        &F.getParent()->getDataLayout());
+    auto Externals = std::make_unique<VPExternalValues>(
+        &F.getContext(), &F.getParent()->getDataLayout());
+    auto Plan = std::make_unique<VPlan>(*Externals);
     VPlanFunctionCFGBuilder Builder(Plan.get(), F);
     Builder.buildCFG();
     Plan->setName(F.getName());
