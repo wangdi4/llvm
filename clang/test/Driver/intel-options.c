@@ -22,6 +22,11 @@
 // CHECK-TUNE-NOT: no such file or directory
 // CHECK-TUNE-NOT: unknown argument ignored
 
+// /masm support
+// RUN: %clang_cl -### -S /masm:intel %s 2>&1 | \
+// RUN:  FileCheck -check-prefix=CHECK-MASM-INTEL %s
+// CHECK-MASM-INTEL: "-mllvm" "-x86-asm-syntax=intel"
+
 // -ZI support (same as /Zi and /Z7)
 // RUN: %clang_cl -### /c /ZI %s 2>&1 | FileCheck -check-prefix=CHECK-ZI %s
 // CHECK-ZI: "-gcodeview"

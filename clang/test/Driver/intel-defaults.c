@@ -22,6 +22,11 @@
 // RUN: %clang_cl -### -c --intel %s 2>&1 | FileCheck -check-prefixes=CHECK-INTEL-GS %s
 // CHECK-INTEL-GS-NOT: "-stack-protector"
 
+// -S does implies -fno-verbose-asm and does not set syntax=intel
+// RUN: %clang_cl -### -S --intel %s 2>&1 | FileCheck -check-prefixes=CHECK-INTEL-ASM %s
+// CHECK-INTEL-ASM: "-fno-verbose-asm"
+// CHECK-INTEL-ASM-NOT: "-x86-asm-syntax=intel"
+
 // default header behavior with --intel
 // RUN: %clang -### -c --intel -target x86_64-unknown-linux-gnu %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-HEADER %s
 // RUN: %clang_cl -### -c --intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-HEADER %s

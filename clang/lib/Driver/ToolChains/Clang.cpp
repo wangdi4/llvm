@@ -2112,7 +2112,9 @@ void Clang::AddX86TargetArgs(const ArgList &Args,
       D.Diag(diag::err_drv_unsupported_option_argument)
           << A->getOption().getName() << Value;
     }
-  } else if (D.IsCLMode()) {
+#if INTEL_CUSTOMIZATION
+  } else if (D.IsCLMode() && !Args.hasArg(options::OPT__intel)) {
+#endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-mllvm");
     CmdArgs.push_back("-x86-asm-syntax=intel");
   }
@@ -4929,7 +4931,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   // toolchains which have the integrated assembler on by default.
   bool IsIntegratedAssemblerDefault = TC.IsIntegratedAssemblerDefault();
   if (!Args.hasFlag(options::OPT_fverbose_asm, options::OPT_fno_verbose_asm,
-                    IsIntegratedAssemblerDefault))
+#if INTEL_CUSTOMIZATION
+                    IsIntegratedAssemblerDefault &&
+                    !(Args.hasArg(options::OPT__intel) && D.IsCLMode())))
+#endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-fno-verbose-asm");
 
   if (!TC.useIntegratedAs())
