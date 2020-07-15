@@ -170,17 +170,14 @@ add_llvm_component_library(LLVMAnalysis
 
   DEPENDS
   intrinsics_gen
-<<<<<<< HEAD
 # INTEL_COLLAB
   directives_gen
 # end INTEL_COLLAB
   intel_svml_gen          #INTEL_CUSTOMIZATION -- TODO: VEC to COLLAB
   intel_libmvec_gen       #INTEL_CUSTOMIZATION
-=======
 
   LINK_LIBS
   ${MLLinkDeps}
->>>>>>> caf395ee8c28028d5af0f1455cd5ef134432124c
   )
 
 add_subdirectory(Intel_LoopAnalysis)  #INTEL_CUSTOMIZATION

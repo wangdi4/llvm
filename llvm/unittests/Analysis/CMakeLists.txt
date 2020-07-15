@@ -28,13 +28,10 @@ add_llvm_unittest_with_input_files(AnalysisTests
   DomTreeUpdaterTest.cpp
   GlobalsModRefTest.cpp
   InlineFeaturesAnalysisTest.cpp
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
   Intel_VectorVariantTest.cpp
 # end INTEL_CUSTOMIZATION
-=======
   InlineSizeEstimatorAnalysisTest.cpp
->>>>>>> caf395ee8c28028d5af0f1455cd5ef134432124c
   IVDescriptorsTest.cpp
   LazyCallGraphTest.cpp
   LoadsTest.cpp
