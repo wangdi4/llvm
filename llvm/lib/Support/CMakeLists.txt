@@ -1,7 +1,7 @@
-if(LLVM_ENABLE_ZLIB)
-  set(imported_libs ZLIB::ZLIB)
+set(system_libs)
+if ( LLVM_ENABLE_ZLIB AND HAVE_LIBZ )
+  set(system_libs ${system_libs} ${ZLIB_LIBRARIES})
 endif()
-
 if( MSVC OR MINGW )
   # libuuid required for FOLDERID_Profile usage in lib/Support/Windows/Path.inc.
   # advapi32 required for CryptAcquireContextW in lib/Support/Windows/Path.inc.
@@ -202,9 +202,10 @@ set (SUPPORT_SOURCES
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/ADT
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Support
   ${Backtrace_INCLUDE_DIRS}
-  LINK_LIBS ${system_libs} ${imported_libs} ${delayload_flags} ${Z3_LINK_FILES}
+  LINK_LIBS ${system_libs} ${delayload_flags} ${Z3_LINK_FILES}
   )
 
+<<<<<<< HEAD
 set(llvm_system_libs ${system_libs})
 
 if(LLVM_ENABLE_ZLIB)
@@ -232,6 +233,9 @@ endif()
 # INTEL_CUSTOMIZATION
 add_llvm_component_library(LLVMSupport ${SUPPORT_SOURCES})
 set_property(TARGET LLVMSupport PROPERTY LLVM_SYSTEM_LIBS "${llvm_system_libs}")
+=======
+set_property(TARGET LLVMSupport PROPERTY LLVM_SYSTEM_LIBS "${system_libs}")
+>>>>>>> bcd27d9d73f74f291fbd8b0fd1182e69a327be88
 
 if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
   add_llvm_component_library(LLVMSupport_stdcpp ${SUPPORT_SOURCES}
