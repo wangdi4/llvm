@@ -1417,6 +1417,14 @@ VPOParoptTransform::genDependInitForTask(WRegionNode *W,
     Value *BasePtr = Orig;
     Type *IntPtrTy = Builder.getIntPtrTy(DL);
 
+    // If the dep value is output-only with no uses, outlining may have
+    // wrapped it. Make a replacement alloca.
+    if (auto *AI = dyn_cast<AllocaInst>(Orig))
+      if (AI->getFunction() != InsertBefore->getFunction()) {
+        Orig = Builder.CreateAlloca(Orig->getType(), nullptr, AI->getName());
+        BasePtr = Orig;
+      }
+
     // TODO: Paropt doesn't support code generation for non-contiguous sections,
     // the plan is for the frontend to send us an array section in this form:
     // "(0, i64 %number_of_elements_from_start_to_end, 1)
