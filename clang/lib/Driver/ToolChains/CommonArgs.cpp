@@ -570,20 +570,56 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
 }
 
 #if INTEL_CUSTOMIZATION
+static void AddllvmOption(const ToolChain &TC, const char *Opt, bool IsLink,
+                          const llvm::opt::ArgList &Args,
+                          llvm::opt::ArgStringList &CmdArgs) {
+  bool IsMSVC = TC.getTriple().isKnownWindowsMSVCEnvironment();
+  if (IsLink) {
+    StringRef LinkOpt = (IsMSVC ? "-mllvm:" : "-plugin-opt=");
+    CmdArgs.push_back(Args.MakeArgString(LinkOpt + Twine(Opt)));
+  } else {
+    CmdArgs.push_back("-mllvm");
+    CmdArgs.push_back(Opt);
+  }
+}
+
+static void RenderOptReportOptions(const ToolChain &TC, bool IsLink,
+                                   const llvm::opt::ArgList &Args,
+                                   llvm::opt::ArgStringList &CmdArgs) {
+  const Arg *A = Args.getLastArg(options::OPT_qopt_report_EQ);
+  if (!A)
+    return;
+  auto addllvmOption = [&](const char *Opt) {
+    AddllvmOption(TC, Opt, IsLink, Args, CmdArgs);
+  };
+  StringRef ReportLevel;
+  ReportLevel = llvm::StringSwitch<StringRef>(A->getValue())
+                    .Case("0", "disable")
+                    .Cases("1", "min", "low")
+                    .Cases("2", "med", "medium")
+                    .Cases("3", "max", "high")
+                    .Default("");
+  if (ReportLevel.empty()) {
+    TC.getDriver().Diag(clang::diag::warn_drv_unused_argument)
+        << A->getAsString(Args);
+    return;
+  }
+  if (ReportLevel == "disable")
+    return;
+  addllvmOption("-intel-loop-optreport-emitter=ir");
+  addllvmOption("-enable-ra-report");
+  addllvmOption(
+      Args.MakeArgString(Twine("-intel-loop-optreport=") + ReportLevel));
+  addllvmOption(
+      Args.MakeArgString(Twine("-intel-ra-spillreport=") + ReportLevel));
+}
+
 void tools::addIntelOptimizationArgs(const ToolChain &TC,
                                      const llvm::opt::ArgList &Args,
                                      llvm::opt::ArgStringList &CmdArgs,
                                      bool IsLink) {
-  bool IsMSVC = TC.getTriple().isKnownWindowsMSVCEnvironment();
-
   auto addllvmOption = [&](const char *Opt) {
-    if (IsLink) {
-      StringRef LinkOpt = (IsMSVC ? "-mllvm:" : "-plugin-opt=");
-      CmdArgs.push_back(Args.MakeArgString(LinkOpt + Twine(Opt)));
-    } else {
-      CmdArgs.push_back("-mllvm");
-      CmdArgs.push_back(Opt);
-    }
+    AddllvmOption(TC, Opt, IsLink, Args, CmdArgs);
   };
   StringRef MLTVal;
   if (const Arg *A = Args.getLastArg(options::OPT_qopt_mem_layout_trans_EQ)) {
@@ -633,7 +669,9 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
       addllvmOption("-vplan-vls-level=never");
   }
 
- // Handle --intel defaults
+  RenderOptReportOptions(TC, IsLink, Args, CmdArgs);
+
+  // Handle --intel defaults
   if (Args.hasArg(options::OPT__intel)) {
     if (!Args.hasArg(options::OPT_ffreestanding))
       addllvmOption("-intel-libirc-allowed");

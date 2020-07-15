@@ -22,6 +22,11 @@
 // CHECK-TUNE-NOT: no such file or directory
 // CHECK-TUNE-NOT: unknown argument ignored
 
+// /masm support
+// RUN: %clang_cl -### -S /masm:intel %s 2>&1 | \
+// RUN:  FileCheck -check-prefix=CHECK-MASM-INTEL %s
+// CHECK-MASM-INTEL: "-mllvm" "-x86-asm-syntax=intel"
+
 // -ZI support (same as /Zi and /Z7)
 // RUN: %clang_cl -### /c /ZI %s 2>&1 | FileCheck -check-prefix=CHECK-ZI %s
 // CHECK-ZI: "-gcodeview"
@@ -461,3 +466,28 @@
 // RUN: touch %t.h
 // RUN: %clang -### -pch-use %t.h %s 2>&1 | FileCheck -check-prefix CHECK-PCH-USE %s
 // CHECK-PCH-USE: "-include-pch"
+
+// Behavior with -qopt-report
+// RUN: %clang -### -qopt-report -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
+// RUN: %clang_cl -### -Qopt-report -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
+// RUN: %clang -### -qopt-report=2 -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
+// RUN: %clang_cl -### -Qopt-report:2 -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
+// RUN: %clang -### -qopt-report=med -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
+// RUN: %clang_cl -### -Qopt-report:med -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT %s
+// CHECK-OPT-REPORT: "-debug-info-kind=line-tables-only"
+// CHECK-OPT-REPORT: "-opt-record-file" "{{.*}}.yaml"
+// CHECK-OPT-REPORT: "-opt-record-format" "yaml"
+// CHECK-OPT-REPORT: "-mllvm" "-intel-loop-optreport-emitter=ir"
+// CHECK-OPT-REPORT: "-mllvm" "-enable-ra-report"
+// CHECK-OPT-REPORT: "-mllvm" "-intel-loop-optreport=medium"
+// CHECK-OPT-REPORT: "-mllvm" "-intel-ra-spillreport=medium"
+
+// RUN: %clang -### -qopt-report=min -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-MIN %s
+// RUN: %clang_cl -### -Qopt-report:min -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-MIN %s
+// CHECK-OPT-REPORT-MIN: "-mllvm" "-intel-loop-optreport=low"
+// CHECK-OPT-REPORT-MIN: "-mllvm" "-intel-ra-spillreport=low"
+
+// RUN: %clang -### -qopt-report=max -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-MAX %s
+// RUN: %clang_cl -### -Qopt-report:max -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-MAX %s
+// CHECK-OPT-REPORT-MAX: "-mllvm" "-intel-loop-optreport=high"
+// CHECK-OPT-REPORT-MAX: "-mllvm" "-intel-ra-spillreport=high"

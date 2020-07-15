@@ -7105,5 +7105,11 @@ bool clang::driver::willEmitRemarks(const ArgList &Args) {
   if (Args.hasFlag(options::OPT_foptimization_record_passes_EQ,
                    options::OPT_fno_save_optimization_record, false))
     return true;
+
+#if INTEL_CUSTOMIZATION
+  if (const Arg *A = Args.getLastArg(options::OPT_qopt_report_EQ))
+    if (A->getValue() != StringRef("0"))
+      return true;
+#endif // INTEL_CUSTOMIZATION
   return false;
 }
