@@ -159,12 +159,12 @@ class VPInduction
 
 public:
   VPInduction(VPValue *Start, InductionKind K, VPValue *Step,
-              VPInstruction *InductionBinOp, bool IsMemOnly = false,
+              VPInstruction *InductionOp, bool IsMemOnly = false,
               unsigned int Opc = Instruction::BinaryOpsEnd)
       : VPLoopEntity(Induction, IsMemOnly),
-        InductionDescriptorTempl(Start, K, InductionBinOp), Step(Step),
-        BinOpcode(Opc) {
-    assert((getInductionBinOp() || BinOpcode != Instruction::BinaryOpsEnd) &&
+        InductionDescriptorTempl(Start, K, InductionOp), Step(Step),
+        IndOpcode(Opc) {
+    assert((getInductionBinOp() || IndOpcode != Instruction::BinaryOpsEnd) &&
            "Induction opcode should be set");
   }
 
@@ -208,7 +208,7 @@ public:
 #endif
 private:
   VPValue *Step;
-  unsigned int BinOpcode; // Explicitly set opcode.
+  unsigned int IndOpcode; // Explicitly set opcode.
   bool NeedCloseForm = false;
 };
 
@@ -338,11 +338,11 @@ public:
                                       bool ValidMemOnly = false);
 
   /// Add induction of kind \p K, with opcode \p Opc or binary operation
-  /// \p InductionBinOp, starting instruction \pStart, incoming value
+  /// \p InductionOp, starting instruction \pStart, incoming value
   /// \p Incoming, stride \p Step, and alloca-instruction \p AI.
   VPInduction *addInduction(VPInstruction *Start, VPValue *Incoming,
                             InductionKind K, VPValue *Step,
-                            VPInstruction *InductionBinOp, unsigned int Opc,
+                            VPInstruction *InductionOp, unsigned int Opc,
                             VPValue *AI = nullptr, bool ValidMemOnly = false);
 
   /// Add private corresponding to \p Alloca along with the final store
@@ -805,15 +805,15 @@ public:
   InductionKind getKind() const { return K; }
   VPValue *getStart() const { return Start; }
   VPValue *getStep() const { return Step; }
-  VPInstruction *getInductionBinOp() const { return InductionBinOp; }
-  unsigned getBinOpcode() const { return BinOpcode; }
+  VPInstruction *getInductionOp() const { return InductionOp; }
+  unsigned getIndOpcode() const { return IndOpcode; }
 
   void setStartPhi(VPInstruction *V) { StartPhi = V; }
   void setKind(InductionKind V) { K = V; }
   void setStart(VPValue *V) { Start = V; }
   void setStep(VPValue *V) { Step = V; }
-  void setInductionBinOp(VPInstruction *V) { InductionBinOp = V; }
-  void setBinOpcode(unsigned V) { BinOpcode = V; }
+  void setInductionOp(VPInstruction *V) { InductionOp = V; }
+  void setIndOpcode(unsigned V) { IndOpcode = V; }
   void setIsExplicitInduction(bool V) { IsExplicitInduction = V; }
 
   // Get InductionKind and default induction opcode for the data type \p IndTy.
@@ -838,7 +838,7 @@ public:
     VPInduction::InductionKind Kind;
     std::tie(Opc, Kind) = getKindAndOpcodeFromTy(IndTy);
     setKind(Kind);
-    setBinOpcode(Opc);
+    setIndOpcode(Opc);
   }
 
   /// Clear the content.
@@ -848,8 +848,8 @@ public:
     K = InductionKind::IK_NoInduction;
     Start = nullptr;
     Step = nullptr;
-    InductionBinOp = nullptr;
-    BinOpcode = Instruction::BinaryOpsEnd;
+    InductionOp = nullptr;
+    IndOpcode = Instruction::BinaryOpsEnd;
   }
   /// Check for all non-null VPInstructions in the descriptor are in the \p
   /// Loop.
@@ -881,9 +881,9 @@ private:
   InductionKind K = InductionKind::IK_NoInduction;
   VPValue *Start = nullptr;
   VPValue *Step = nullptr;
-  VPInstruction *InductionBinOp =nullptr;
+  VPInstruction *InductionOp =nullptr;
   SmallVector<VPInstruction *, 4> UpdateVPInsts; // TODO: unpopulated
-  unsigned BinOpcode = Instruction::BinaryOpsEnd;
+  unsigned IndOpcode = Instruction::BinaryOpsEnd;
   bool IsExplicitInduction = false; // TODO: unpopulated
 };
 

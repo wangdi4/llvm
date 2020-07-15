@@ -2033,7 +2033,7 @@ public:
 // Other binary operations are not induction-compatible.
 class VPInductionInit : public VPInstruction {
 public:
-  VPInductionInit(VPValue *Start, VPValue *Step, Instruction::BinaryOps Opc)
+  VPInductionInit(VPValue *Start, VPValue *Step, unsigned Opc)
       : VPInstruction(VPInstruction::InductionInit, Start->getType(),
                       {Start, Step}),
         BinOpcode(Opc) {}
@@ -2048,12 +2048,12 @@ public:
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
   }
 
-  Instruction::BinaryOps getBinOpcode() const { return BinOpcode; }
+  unsigned getBinOpcode() const { return BinOpcode; }
 
   VPValue *getStep() const { return getOperand(1); }
 
 private:
-  Instruction::BinaryOps BinOpcode;
+  unsigned BinOpcode;
 };
 
 // VPInstruction to initialize vector for induction step.
