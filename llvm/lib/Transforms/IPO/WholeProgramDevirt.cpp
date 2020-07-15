@@ -2642,27 +2642,15 @@ void DevirtModule::scanTypeTestUsers(
         CallSlots[{TypeId, Call.Offset}].addCallSite(Ptr, Call.CB, nullptr);
     }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     Value *PtrCast = CI->getArgOperand(0);
     BitCastInst *PtrInst = dyn_cast<BitCastInst>(PtrCast);
-#endif // INTEL_CUSTOMIZATION
 
-    // We no longer need the assumes or the type test.
-    for (auto Assume : Assumes)
-      Assume->eraseFromParent();
-    // We can't use RecursivelyDeleteTriviallyDeadInstructions here because we
-    // may use the vtable argument later.
-    if (CI->use_empty())
-      CI->eraseFromParent();
-
-#if INTEL_CUSTOMIZATION
     // Delete the bitcast for the vtable if there is no use of it.
     if (IsWholeProgramSafe && PtrInst && PtrInst->use_empty())
       PtrInst->eraseFromParent();
-#endif
+#endif // INTEL_CUSTOMIZATION
 
-=======
     auto RemoveTypeTestAssumes = [&]() {
       // We no longer need the assumes or the type test.
       for (auto Assume : Assumes)
@@ -2707,7 +2695,6 @@ void DevirtModule::scanTypeTestUsers(
         // the type id was used on a global.
         assert(TidSummary->TTRes.TheKind != TypeTestResolution::Unsat);
     }
->>>>>>> 6014c46c80cafa3dd817497c59224adb9727fbb0
   }
 }
 
@@ -2899,17 +2886,15 @@ bool DevirtModule::run() {
       (!TypeCheckedLoadFunc || TypeCheckedLoadFunc->use_empty()))
     return false;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Find the possible places where a downcasting can occur
   filterDowncasting(AssumeFunc);
 #endif // INTEL_CUSTOMIZATION
-=======
+
   // Rebuild type metadata into a map for easy lookup.
   std::vector<VTableBits> Bits;
   DenseMap<Metadata *, std::set<TypeMemberInfo>> TypeIdMap;
   buildTypeIdentifierMap(Bits, TypeIdMap);
->>>>>>> 6014c46c80cafa3dd817497c59224adb9727fbb0
 
   if (TypeTestFunc && AssumeFunc)
     scanTypeTestUsers(TypeTestFunc, TypeIdMap);
