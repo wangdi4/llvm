@@ -143,4 +143,14 @@ void WRegionInfo::print(raw_ostream &OS) const {
   }
 }
 
+bool WRegionInfo::invalidate(Function &F, const PreservedAnalyses &PA,
+                             FunctionAnalysisManager::Invalidator &Inv) {
+  // We do not care if the analysis is not preserved or CFG was modified,
+  // because buildWRGraph() will recompute the graph anyway.
+  // We only care about the analysis references that we keep in
+  // WRegionCollection.
+  return Inv.invalidate<WRegionCollectionAnalysis>(F, PA) ||
+      Inv.invalidate<OptimizationRemarkEmitterAnalysis>(F, PA);
+}
+
 #endif // INTEL_COLLAB

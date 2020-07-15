@@ -64,6 +64,13 @@ static cl::opt<bool> EnableDataSharingOptForReduction(
     "vpo-paropt-opt-data-sharing-for-reduction", cl::Hidden, cl::init(true),
     cl::desc("Optimize REDUCTION OpenMP clauses."));
 
+// FIXME: remove
+// Temporary switch for IGC to reproduce the problem with
+// parallel regions.
+static cl::opt<bool> ForceDataSharingOptForReduction(
+    "vpo-paropt-force-opt-data-sharing-for-reduction", cl::Hidden,
+    cl::init(false), cl::desc("Engineering switch."));
+
 // Integer control to limit the number of optimized items
 // for each function.
 static cl::opt<int> DataSharingOptNumCase(
@@ -121,8 +128,18 @@ static bool optimizeDataSharing(
 #endif  // INTEL_CUSTOMIZATION
                         ORE, 2, false);
 
-  Changed |= VP.optimizeDataSharingForPrivateItems();
-  Changed |= VP.optimizeDataSharingForReductionItems();
+  BBToWRNMapTy BBToWRNMap;
+  // Track the number of optimized items for DataSharingOptNumCase control.
+  int NumOptimizedItems = 0;
+
+  // TODO: expose just one entry point in VPOParoptTransform,
+  //       and make these functions private to this file.
+  //       We need to get rid of WRegionList dependency inside
+  //       these functions.
+  Changed |= VP.optimizeDataSharingForPrivateItems(BBToWRNMap,
+                                                   NumOptimizedItems);
+  Changed |= VP.optimizeDataSharingForReductionItems(BBToWRNMap,
+                                                     NumOptimizedItems);
 
   return Changed;
 }
@@ -190,29 +207,14 @@ PreservedAnalyses VPOParoptOptimizeDataSharingPass::run(
 // it adds "WILOCAL" modifier for the PRIVATE/FIRSTPRIVATE clause
 // specifying this item. VPOParoptTransform will use the modifier
 // to choose the optimal address space for the item.
-bool VPOParoptTransform::optimizeDataSharingForPrivateItems() {
+bool VPOParoptTransform::optimizeDataSharingForPrivateItems(
+    BBToWRNMapTy &BBToWRNMap, int &NumOptimizedItems) {
   bool Changed = false;
 
   if (!EnableDataSharingOptForPrivate)
     return Changed;
 
-  bool NeedTID, NeedBID;
-  gatherWRegionNodeList(NeedTID, NeedBID);
-
-  // Create a map between the BasicBlocks and the corresponding
-  // innermost WRegionNodes owning the blocks.
-  std::unordered_map<const BasicBlock *, WRegionNode *> BBToWRNMap;
-
-  for (auto I = WRegionList.begin(), E = WRegionList.end(); I != E; ++I) {
-    WRegionNode *W = *I;
-    assert(W->isBBSetEmpty() &&
-           "WRNs should not have BBSet populated initially.");
-
-    SmallVector<BasicBlock *, 16> BBSet;
-    GeneralUtils::collectBBSet(W->getEntryBBlock(), W->getExitBBlock(), BBSet);
-    for (auto *BB : BBSet)
-      BBToWRNMap.emplace(BB, W);
-  }
+  initializeBlocksToRegionsMap(BBToWRNMap);
 
   // InnerW is one of descendants of OuterW. The lambda returns true,
   // if value V is privatized by any descendant of OuterW, which is not
@@ -339,9 +341,6 @@ bool VPOParoptTransform::optimizeDataSharingForPrivateItems() {
     return false;
   };
 
-  // Track the number of optimized items for DataSharingOptNumCase control.
-  int NumOptimizedItems = 0;
-
   for (auto I = WRegionList.begin(), E = WRegionList.end(); I != E; ++I) {
     WRegionNode *W = *I;
 
@@ -429,6 +428,7 @@ bool VPOParoptTransform::optimizeDataSharingForPrivateItems() {
           else {
             ++NumOptimizedItems;
             ModifierAdded = true;
+            Changed = true;
           }
       }
 
@@ -456,7 +456,6 @@ bool VPOParoptTransform::optimizeDataSharingForPrivateItems() {
     W->setEntryDirective(NewEntryCI);
   }
 
-  Changed = (NumOptimizedItems > 0);
   return Changed;
 }
 
@@ -483,12 +482,287 @@ bool VPOParoptTransform::optimizeDataSharingForPrivateItems() {
 // the global storage only once. But implementing this for SPIR-V
 // target requires a barrier after the enclosed region, and this
 // results in up to 3x slowdowns (CMPLRLLVM-20537).
-bool VPOParoptTransform::optimizeDataSharingForReductionItems() {
+bool VPOParoptTransform::optimizeDataSharingForReductionItems(
+    BBToWRNMapTy &BBToWRNMap, int &NumOptimizedItems) {
   bool Changed = false;
 
   if (!EnableDataSharingOptForReduction || !isTargetSPIRV())
     return Changed;
 
-  // TODO: implement.
+  initializeBlocksToRegionsMap(BBToWRNMap);
+
+  // InnerW is one of descendants of OuterW. The lambda returns true,
+  // if value V is privatized or reduced by any descendant of OuterW,
+  // which is not a descendant of InnerW. In other words, if value V
+  // is privatized or reduced by InnerW or any of its ancestors
+  // (not including OuterW and the ancestors of OuterW), then the lambda
+  // will return true.
+  auto ValueIsPrivatizedOrReducedByInnerRegion = [&](WRegionNode *OuterW,
+                                                     WRegionNode *InnerW,
+                                                     Value *V) {
+    if (OuterW == InnerW)
+      return false;
+
+    do {
+      assert(InnerW && "Expected region not found in ancestors.");
+
+      if (InnerW->canHavePrivate() &&
+          WRegionUtils::wrnSeenAsPrivate(InnerW, V))
+        return true;
+
+      if (InnerW->canHaveFirstprivate() &&
+          WRegionUtils::wrnSeenAsFirstprivate(InnerW, V))
+        return true;
+
+      if (!isa<WRNVecLoopNode>(InnerW) &&
+          // Temporary disable this for inner parallel regions.
+          // There seems to be a bug in IGC (JIRA TBD).
+          (!isa<WRNParallelNode>(InnerW) ||
+           !ForceDataSharingOptForReduction)) {
+        // Reduction update for SIMD loops is not atomic,
+        // so we cannot assume that a SIMD loop may reduce
+        // correct value to the global storage.
+        if (InnerW->canHaveReduction() &&
+            WRegionUtils::wrnSeenAsReduction(InnerW, V))
+          return true;
+      }
+
+      if (InnerW->getIsOmpLoop()) {
+        auto &LI = InnerW->getWRNLoopInfo();
+        for (unsigned Idx = 0; Idx < LI.getNormUBSize(); ++Idx)
+          if (V == LI.getNormUB(Idx) || V == LI.getNormIV(Idx))
+            return true;
+      }
+
+      InnerW = InnerW->getParent();
+    } while (InnerW != OuterW);
+
+    return false;
+  };
+
+  // Return true, if the reduction value cannot be computed solely by
+  // the inner regions. The lambda traces the value uses within
+  // the given region and checks several conditions (see below).
+  auto CannotBeReducedByInnerRegions = [&](WRegionNode *W, Value *V) {
+
+    if (isa<Constant>(V))
+      // TODO: we do not handle constants yet.
+      return true;
+
+    std::queue<Value *> Derivatives;
+    Derivatives.push(V);
+
+    while (!Derivatives.empty()) {
+      Value *DV = Derivatives.front();
+      Derivatives.pop();
+
+      SmallVector<Instruction *, 8> Users;
+      WRegionUtils::findUsersInRegion(W, DV, &Users, false);
+      for (auto *U : Users) {
+        if (auto *GEP = dyn_cast<GEPOperator>(U))
+          Derivatives.push(GEP);
+        else if (auto *BCO = dyn_cast<BitCastOperator>(U))
+          Derivatives.push(BCO);
+        else if (Operator::getOpcode(U) == Instruction::AddrSpaceCast)
+          Derivatives.push(U);
+        else if (auto *LI = dyn_cast<LoadInst>(U)) {
+          auto *BB = LI->getParent();
+          auto MapIt = BBToWRNMap.find(BB);
+          if (MapIt == BBToWRNMap.end()) {
+            // This should not happen, but we just return true conservatively.
+            LLVM_DEBUG(dbgs() << "WARNING: BasicBlock '";
+                       BB->printAsOperand(dbgs());
+                       dbgs() << "' does not belong to any region.\n");
+            return true;
+          }
+          // Get the owning WRegionNode for the load instruction.
+          WRegionNode *LoadWRN = MapIt->second;
+          if (LoadWRN == W)
+            // #pragma omp target teams reduction(+: sum)
+            // {
+            // #pragma omp parallel for reduction(+: sum)
+            //   for (int i = 0; i < 100; ++i) { ... }
+            //
+            //   ... = sum;
+            // }
+            //
+            // The read of sum inside the teams region assumes that the team
+            // local value is read, so we have to handle reduction for
+            // the teams region. If we make it shared, then the read of sum
+            // will return some intermediate reduction value computed across
+            // the teams.
+            return true;
+
+          if (!ValueIsPrivatizedOrReducedByInnerRegion(W, LoadWRN, DV))
+            // The value is not privatized by any region enclosed
+            // into W, so we cannot optimize it.
+            return true;
+        } else if (auto *SI = dyn_cast<StoreInst>(U)) {
+          if (DV != SI->getPointerOperand())
+            // This may be a capture.
+            return true;
+
+          auto *BB = SI->getParent();
+          auto MapIt = BBToWRNMap.find(BB);
+          if (MapIt == BBToWRNMap.end()) {
+            // This should not happen, but we just return true conservatively.
+            LLVM_DEBUG(dbgs() << "WARNING: BasicBlock '";
+                       BB->printAsOperand(dbgs());
+                       dbgs() << "' does not belong to any region.\n");
+            return true;
+          }
+          // Get the owning WRegionNode for the store instruction.
+          WRegionNode *StoreWRN = MapIt->second;
+          if (StoreWRN == W)
+            return true;
+          if (!ValueIsPrivatizedOrReducedByInnerRegion(W, StoreWRN, DV))
+            return true;
+        } else if (auto *II = dyn_cast<IntrinsicInst>(U)) {
+          if (II->getIntrinsicID() != Intrinsic::directive_region_entry)
+            return true;
+        } else {
+          // Unknown user, so assume the worst.
+          return true;
+        }
+      }
+    }
+
+    return false;
+  };
+
+  for (auto *W : WRegionList) {
+
+    if (!isa<WRNTeamsNode>(W))
+      // Optimize REDUCTION clauses of "teams" regions.
+      continue;
+
+    // No need to reset the BBSets afterwards.
+    W->populateBBSet();
+
+    SmallPtrSet<Value *, 8> OptimizableItems;
+
+    if (W->canHaveReduction()) {
+      for (auto *Item : W->getRed().items()) {
+        if (Item->getIsArraySection())
+          // TODO: figure out handling for array reductions.
+          continue;
+
+        if (Item->getType() == ReductionItem::WRNReductionUdr)
+          // Do not optimize UDR.
+          continue;
+
+        Type *AllocaTy;
+        Value *NumElements;
+        std::tie(AllocaTy, NumElements, std::ignore) = getItemInfo(Item);
+
+        Type *ScalarTy = AllocaTy->getScalarType();
+
+        // FIXME: remove ForceDataSharingOptForReduction check,
+        //        when IGC is fixed.
+        if (!ForceDataSharingOptForReduction &&
+            !ScalarTy->isDoubleTy())
+          // FIXME: optimize only 'double' reductions now, which
+          //        require critical section.
+          //        Other types may use atomic updates,
+          //        and hierarchical reductions show better results
+          //        for them (on micro kernels).
+          //        Some non-double reductions may still require critical
+          //        section, so we need to figure out how to distinguish
+          //        them here.
+          continue;
+
+        if (!CannotBeReducedByInnerRegions(W, Item->getOrig()))
+          OptimizableItems.insert(Item->getOrig());
+      }
+    }
+
+    if (OptimizableItems.empty())
+      // Nothing to do.
+      continue;
+
+    LLVM_DEBUG(dbgs() << "REDUCTION optimizable items:\n";
+               for (auto *V : OptimizableItems)
+                 dbgs() << *V << "\n");
+
+    // Add LOCAL modifiers to PRIVATE/FIRSTPRIVATE clauses.
+    SmallVector<OperandBundleDef, 16> OpBundles;
+    auto *EntryCI = cast<CallInst>(W->getEntryDirective());
+    EntryCI->getOperandBundlesAsDefs(OpBundles);
+    SmallVector<OperandBundleDef, 16> NewOpBundles;
+    bool ClauseModified = false;
+    StringRef SharedClauseString =
+        VPOAnalysisUtils::getClauseString(QUAL_OMP_SHARED);
+
+    for (unsigned OI = 0; OI < OpBundles.size(); ++OI) {
+      StringRef ClauseString = OpBundles[OI].getTag();
+
+      // FIXME: we currently handle clauses with just one item.
+      //        This also means that array reductions are not supported.
+      if (OpBundles[OI].input_size() == 1) {
+        Value *ClauseItem = OpBundles[OI].inputs()[0];
+
+        ClauseSpecifier ClauseInfo(ClauseString);
+        int ClauseId = ClauseInfo.getId();
+
+        if (VPOAnalysisUtils::isReductionClause(ClauseId) &&
+            OptimizableItems.count(ClauseItem) != 0 &&
+            (DataSharingOptNumCase < 0 ||
+             NumOptimizedItems < DataSharingOptNumCase)) {
+          // This is a REDUCTION clause with an optimizable item.
+          LLVM_DEBUG(dbgs() << "Will transform to SHARED: " << *ClauseItem <<
+                     "\n");
+          ClauseString = SharedClauseString;
+          ++NumOptimizedItems;
+          Changed = true;
+          ClauseModified = true;
+        }
+      }
+
+      OperandBundleDef B(ClauseString.str(), OpBundles[OI].inputs());
+      NewOpBundles.push_back(B);
+    }
+
+    if (!ClauseModified)
+      continue;
+
+    // Recreate the directive call.
+    SmallVector<Value *, 8> Args(EntryCI->arg_begin(), EntryCI->arg_end());
+    auto *NewEntryCI = CallInst::Create(EntryCI->getFunctionType(),
+                                        EntryCI->getCalledOperand(), Args,
+                                        NewOpBundles, "", EntryCI);
+    NewEntryCI->takeName(EntryCI);
+    NewEntryCI->setCallingConv(EntryCI->getCallingConv());
+    NewEntryCI->setAttributes(EntryCI->getAttributes());
+    NewEntryCI->setDebugLoc(EntryCI->getDebugLoc());
+    EntryCI->replaceAllUsesWith(NewEntryCI);
+    EntryCI->eraseFromParent();
+    W->setEntryDirective(NewEntryCI);
+  }
+
   return Changed;
+}
+
+// Create a map between the BasicBlocks and the corresponding
+// innermost WRegionNodes owning the blocks.
+// The side effect of this function is that it computes WRegionList.
+void VPOParoptTransform::initializeBlocksToRegionsMap(
+    BBToWRNMapTy &BBToWRNMap) {
+  // The map is kept valid across transformations, so we do not recompute
+  // it, if it was computed before.
+  if (!BBToWRNMap.empty())
+    return;
+
+  bool NeedTID, NeedBID;
+  gatherWRegionNodeList(NeedTID, NeedBID);
+
+  for (auto I = WRegionList.begin(), E = WRegionList.end(); I != E; ++I) {
+    WRegionNode *W = *I;
+    assert(W->isBBSetEmpty() &&
+           "WRNs should not have BBSet populated initially.");
+
+    SmallVector<BasicBlock *, 16> BBSet;
+    GeneralUtils::collectBBSet(W->getEntryBBlock(), W->getExitBBlock(), BBSet);
+    for (auto *BB : BBSet)
+      BBToWRNMap.emplace(BB, W);
+  }
 }

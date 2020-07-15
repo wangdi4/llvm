@@ -110,6 +110,10 @@ public:
 
   /// \brief Returns true if the WRGraph is empty.
   bool WRGraphIsEmpty() const { return getWRGraph()->empty(); }
+
+  /// Return true, if WRegionInfoAnalysis must be invalidated.
+  bool invalidate(Function &F, const PreservedAnalyses &PA,
+                  FunctionAnalysisManager::Invalidator &Inv);
 };
 
 /// \brief WRegionInfo Pass for the legacy Pass Manager.

@@ -66,6 +66,7 @@
 #endif  // INTEL_CUSTOMIZATION
 
 #include <queue>
+#include <unordered_map>
 
 namespace llvm {
 
@@ -81,6 +82,7 @@ enum AddressSpace {
 };
 
 typedef SmallVector<WRegionNode *, 32> WRegionListTy;
+typedef std::unordered_map<const BasicBlock *, WRegionNode *> BBToWRNMapTy;
 
 class VPOParoptModuleTransform;
 
@@ -157,8 +159,13 @@ public:
 
 #if INTEL_CUSTOMIZATION
   /// Interfaces for data sharing optimization.
-  bool optimizeDataSharingForPrivateItems();
-  bool optimizeDataSharingForReductionItems();
+  bool optimizeDataSharingForPrivateItems(
+      BBToWRNMapTy &BBToWRNMap, int &NumOptimizedItems);
+  bool optimizeDataSharingForReductionItems(
+      BBToWRNMapTy &BBToWRNMap, int &NumOptimizedItems);
+  /// Create a map between the BasicBlocks and the corresponding
+  /// innermost WRegionNodes owning the blocks.
+  void initializeBlocksToRegionsMap(BBToWRNMapTy &BBToWRNMap);
 #endif  // INTEL_CUSTOMIZATION
 
 private:
