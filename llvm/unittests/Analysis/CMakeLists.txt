@@ -6,13 +6,7 @@ set(LLVM_LINK_COMPONENTS
   TransformUtils
   )
 
-if (DEFINED LLVM_HAVE_TF_API)
-  LIST(APPEND EXTRA_TESTS TFUtilsTest.cpp)
-else()
-  LIST(APPEND LLVM_OPTIONAL_SOURCES TFUtilsTest.cpp)
-endif()
-
-add_llvm_unittest_with_input_files(AnalysisTests
+add_llvm_unittest(AnalysisTests
   AliasAnalysisTest.cpp
   AliasSetTrackerTest.cpp
   AssumeBundleQueriesTest.cpp
@@ -28,10 +22,13 @@ add_llvm_unittest_with_input_files(AnalysisTests
   DomTreeUpdaterTest.cpp
   GlobalsModRefTest.cpp
   InlineFeaturesAnalysisTest.cpp
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
   Intel_VectorVariantTest.cpp
 # end INTEL_CUSTOMIZATION
   InlineSizeEstimatorAnalysisTest.cpp
+=======
+>>>>>>> 9908a3b9f521c954cbf6adcec35b14b2f6c8da49
   IVDescriptorsTest.cpp
   LazyCallGraphTest.cpp
   LoadsTest.cpp
@@ -50,7 +47,4 @@ add_llvm_unittest_with_input_files(AnalysisTests
   ValueLatticeTest.cpp
   ValueTrackingTest.cpp
   VectorUtilsTest.cpp
-  ${EXTRA_TESTS}
   )
-
- target_link_libraries(AnalysisTests PRIVATE LLVMTestingSupport)
