@@ -103,17 +103,13 @@ private:
 
 } // namespace
 
-<<<<<<< HEAD
-std::unique_ptr<InlineAdvice>
-#if INTEL_CUSTOMIZATION
-DefaultInlineAdvisor::getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
-                                InlineReport *Report) {
-#endif // INTEL_CUSTOMIZATION
-=======
 llvm::Optional<llvm::InlineCost>
+#if INTEL_CUSTOMIZATION
 getDefaultInlineAdvice(CallBase &CB, FunctionAnalysisManager &FAM,
-                       const InlineParams &Params) {
->>>>>>> 11046ef69e3e9ec3ae9f5f4caadf965b7f1e22c8
+                       InlineParams &Params,
+                       InliningLoopInfoCache *ILIC,
+                       InlineReport *Report) {
+#endif // INTEL_CUSTOMIZATION
   Function &Caller = *CB.getCaller();
   ProfileSummaryInfo *PSI =
       FAM.getResult<ModuleAnalysisManagerFunctionProxy>(Caller)
@@ -145,23 +141,20 @@ getDefaultInlineAdvice(CallBase &CB, FunctionAnalysisManager &FAM,
                          GetBFI, PSI, RemarksEnabled ? &ORE : nullptr, // INTEL
                          ILIC);                                        // INTEL
   };
-<<<<<<< HEAD
-  auto OIC = llvm::shouldInline(CB, GetInlineCost, ORE, Report, // INTEL
-                                Params.EnableDeferral.hasValue() &&
-                                    Params.EnableDeferral.getValue());
-  return std::make_unique<DefaultInlineAdvice>(this, CB, OIC, ORE);
-=======
-  return llvm::shouldInline(CB, GetInlineCost, ORE,
+  return llvm::shouldInline(CB, GetInlineCost, ORE, Report, // INTEL
                             Params.EnableDeferral.hasValue() &&
                                 Params.EnableDeferral.getValue());
 }
 
-std::unique_ptr<InlineAdvice> DefaultInlineAdvisor::getAdvice(CallBase &CB) {
-  auto OIC = getDefaultInlineAdvice(CB, FAM, Params);
+#if INTEL_CUSTOMIZATION
+std::unique_ptr<InlineAdvice>
+DefaultInlineAdvisor::getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
+                                InlineReport *Report) {
+#endif // INTEL_CUSTOMIZATION
+  auto OIC = getDefaultInlineAdvice(CB, FAM, Params, ILIC, Report); // INTEL
   return std::make_unique<DefaultInlineAdvice>(
       this, CB, OIC,
       FAM.getResult<OptimizationRemarkEmitterAnalysis>(*CB.getCaller()));
->>>>>>> 11046ef69e3e9ec3ae9f5f4caadf965b7f1e22c8
 }
 
 InlineAdvice::InlineAdvice(InlineAdvisor *Advisor, CallBase &CB,
