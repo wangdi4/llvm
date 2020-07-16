@@ -7470,21 +7470,14 @@ private:
     return ConstLength.getSExtValue() != 1;
   }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
 public:
 #endif // INTEL_COLLAB
-  /// Generate the base pointers, section pointers, sizes and map type
-  /// bits for the provided map type, map modifier, and expression components.
-  /// \a IsFirstComponent should be set to true if the provided set of
-  /// components is the first associated with a capture.
-=======
   /// Generate the base pointers, section pointers, sizes, map type bits, and
   /// user-defined mappers (all included in \a CombinedInfo) for the provided
   /// map type, map modifier, and expression components. \a IsFirstComponent
   /// should be set to true if the provided set of components is the first
   /// associated with a capture.
->>>>>>> 537b16e9b8da97054663daf638a6c55026af2fe4
   void generateInfoForComponentList(
       OpenMPMapClauseKind MapType, ArrayRef<OpenMPMapModifierKind> MapModifiers,
       OMPClauseMappableExprCommon::MappableExprComponentListRef Components,
@@ -7880,8 +7873,7 @@ public:
         }
         llvm::Value *Size = getExprTypeSize(I->getAssociatedExpression());
         if (!IsMemberPointerOrAddr) {
-<<<<<<< HEAD
-          BasePointers.push_back(BP.getPointer());
+          CombinedInfo.BasePointers.push_back(BP.getPointer());
 #if INTEL_COLLAB
           if (CGF.CGM.getLangOpts().OpenMPLateOutline &&
               I->getAssociatedExpression()->getType()
@@ -7890,17 +7882,12 @@ public:
             // [0:].
             llvm::Value *Idx =
                 llvm::ConstantInt::getNullValue(CGF.CGM.IntPtrTy);
-            Pointers.push_back(CGF.Builder.CreateInBoundsGEP(LB.getPointer(),
-                                                             Idx, "arrayidx"));
+            CombinedInfo.Pointers.push_back(CGF.Builder.CreateInBoundsGEP(
+                LB.getPointer(), Idx, "arrayidx"));
           } else
 #endif //INTEL_COLLAB
-          Pointers.push_back(LB.getPointer());
-          Sizes.push_back(
-=======
-          CombinedInfo.BasePointers.push_back(BP.getPointer());
           CombinedInfo.Pointers.push_back(LB.getPointer());
           CombinedInfo.Sizes.push_back(
->>>>>>> 537b16e9b8da97054663daf638a6c55026af2fe4
               CGF.Builder.CreateIntCast(Size, CGF.Int64Ty, /*isSigned=*/true));
 
           // If Mapper is valid, the last component inherits the mapper.
@@ -8152,7 +8139,6 @@ public:
       setCorrectMemberOfFlag(M, MemberOfFlag);
   }
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
   static SmallVector<OpenMPMapModifierKind, 1>
   getMapModifiers(MappableExprsHandler::OpenMPOffloadMappingFlags Types) {
@@ -8179,27 +8165,18 @@ public:
   }
 #endif  // INTEL_COLLAB
 
-  /// Generate all the base pointers, section pointers, sizes and map
-  /// types for the extracted mappable expressions. Also, for each item that
-  /// relates with a device pointer, a pair of the relevant declaration and
-  /// index where it occurs is appended to the device pointers info array.
-  void generateAllInfo(MapBaseValuesArrayTy &BasePointers,
-                       MapValuesArrayTy &Pointers, MapValuesArrayTy &Sizes,
-#if INTEL_COLLAB
-                       MapFlagsArrayTy &Types,
-                       llvm::SmallVectorImpl<std::pair<const VarDecl *, bool>>
-                           *VarChain = nullptr) const {
-#else
-                       MapFlagsArrayTy &Types) const {
-#endif  // INTEL_COLLAB
-=======
   /// Generate all the base pointers, section pointers, sizes, map types, and
   /// mappers for the extracted mappable expressions (all included in \a
   /// CombinedInfo). Also, for each item that relates with a device pointer, a
   /// pair of the relevant declaration and index where it occurs is appended to
   /// the device pointers info array.
+#if INTEL_COLLAB
+  void generateAllInfo(MapCombinedInfoTy &CombinedInfo,
+                       llvm::SmallVectorImpl<std::pair<const VarDecl *, bool>>
+                           *VarChain = nullptr) const {
+#else
   void generateAllInfo(MapCombinedInfoTy &CombinedInfo) const {
->>>>>>> 537b16e9b8da97054663daf638a6c55026af2fe4
+#endif // INTEL_COLLAB
     // We have to process the component lists that relate with the same
     // declaration in a single chunk so that we can generate the map flags
     // correctly. Therefore, we organize all lists in a map.
@@ -8296,17 +8273,6 @@ public:
         } else {
           llvm::Value *Ptr =
               CGF.EmitLoadOfScalar(CGF.EmitLValue(IE), IE->getExprLoc());
-<<<<<<< HEAD
-          BasePointers.emplace_back(Ptr, VD);
-          Pointers.push_back(Ptr);
-          Sizes.push_back(llvm::Constant::getNullValue(CGF.Int64Ty));
-          Types.push_back(OMP_MAP_RETURN_PARAM | OMP_MAP_TARGET_PARAM);
-#if INTEL_COLLAB
-          if (VarChain)
-            VarChain->push_back(
-                std::make_pair(cast_or_null<VarDecl>(VD), false));
-#endif  // INTEL_COLLAB
-=======
           CombinedInfo.BasePointers.emplace_back(Ptr, VD);
           CombinedInfo.Pointers.push_back(Ptr);
           CombinedInfo.Sizes.push_back(
@@ -8314,7 +8280,12 @@ public:
           CombinedInfo.Types.push_back(OMP_MAP_RETURN_PARAM |
                                        OMP_MAP_TARGET_PARAM);
           CombinedInfo.Mappers.push_back(nullptr);
->>>>>>> 537b16e9b8da97054663daf638a6c55026af2fe4
+
+#if INTEL_COLLAB
+          if (VarChain)
+            VarChain->push_back(
+                std::make_pair(cast_or_null<VarDecl>(VD), false));
+#endif  // INTEL_COLLAB
         }
       }
     }
@@ -8376,23 +8347,16 @@ public:
             Ptr = CGF.EmitLValue(IE).getPointer(CGF);
           else
             Ptr = CGF.EmitScalarExpr(IE);
-<<<<<<< HEAD
-          BasePointers.emplace_back(Ptr, VD);
-          Pointers.push_back(Ptr);
-          Sizes.push_back(llvm::Constant::getNullValue(CGF.Int64Ty));
-          Types.push_back(OMP_MAP_RETURN_PARAM | OMP_MAP_TARGET_PARAM);
-#if INTEL_COLLAB
-          if (VarChain)
-            VarChain->push_back(
-                std::make_pair(cast_or_null<VarDecl>(VD), false));
-#endif  // INTEL_COLLAB
-=======
           CombinedInfo.BasePointers.emplace_back(Ptr, VD);
           CombinedInfo.Pointers.push_back(Ptr);
           CombinedInfo.Sizes.push_back(llvm::Constant::getNullValue(CGF.Int64Ty));
           CombinedInfo.Types.push_back(OMP_MAP_RETURN_PARAM | OMP_MAP_TARGET_PARAM);
           CombinedInfo.Mappers.push_back(nullptr);
->>>>>>> 537b16e9b8da97054663daf638a6c55026af2fe4
+#if INTEL_COLLAB
+          if (VarChain)
+            VarChain->push_back(
+                std::make_pair(cast_or_null<VarDecl>(VD), false));
+#endif  // INTEL_COLLAB
         }
       }
     }
@@ -8479,7 +8443,7 @@ public:
         VarChain->push_back(
             std::make_pair(cast_or_null<VarDecl>(M.first), false));
         for (int I = PartialStruct.Base.isValid() ? 0 : 1,
-                 E = CurBasePointers.size();
+                 E = CurInfo.BasePointers.size();
              I < E; ++I)
           VarChain->push_back(std::make_pair(nullptr, true));
       }
@@ -9112,13 +9076,11 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
                                    llvm::SmallVectorImpl<LOMapInfo> *Info) {
   MappableExprsHandler MEHandler(Dir, CGF);
 
-  MappableExprsHandler::MapBaseValuesArrayTy BasePointers;
-  MappableExprsHandler::MapValuesArrayTy Pointers, Sizes;
-  MappableExprsHandler::MapFlagsArrayTy Types;
+  MappableExprsHandler::MapCombinedInfoTy CombinedInfo;
   llvm::SmallVector<std::pair<const  VarDecl *, bool>, 4> VarChain;
 
   if (!isOpenMPTargetExecutionDirective(Dir.getDirectiveKind())) {
-    MEHandler.generateAllInfo(BasePointers, Pointers, Sizes, Types, &VarChain);
+    MEHandler.generateAllInfo(CombinedInfo, &VarChain);
   } else {
     llvm::DenseMap<llvm::Value *, llvm::Value *> LambdaPointers;
     const CapturedStmt &CS = *Dir.getCapturedStmt(OMPD_target);
@@ -9135,56 +9097,56 @@ void CGOpenMPRuntime::getLOMapInfo(const OMPExecutableDirective &Dir,
         continue;
       }
 
-      MappableExprsHandler::MapBaseValuesArrayTy CurBasePointers;
-      MappableExprsHandler::MapValuesArrayTy CurPointers, CurSizes;
-      MappableExprsHandler::MapFlagsArrayTy CurMapTypes;
+      MappableExprsHandler::MapCombinedInfoTy CurInfo;
       MappableExprsHandler::StructRangeInfoTy PartialStruct;
 
       // Generate all the expressions related to CI capture for map clauses.
       // *CV may be a nullptr for non-pointer scalars, as set in
       // GenerateOpenMPCapturedVars, but since it is only used for
       // 'is_device_ptr' it won't be a problem here.
-      MEHandler.generateInfoForCapture(CI, *CV, CurBasePointers, CurPointers,
-                                       CurSizes, CurMapTypes, PartialStruct);
+      MEHandler.generateInfoForCapture(CI, *CV, CurInfo, PartialStruct);
 
       // Generate default map information for a given capture
-      if (CurBasePointers.empty()) {
+      if (CurInfo.BasePointers.empty()) {
         // Skip captures without CapturedVar. This happens if we've decided in
         // GenerateOpenMPCapturedVars that we don't want default map info for
         // the Var.
         if (!*CV)
           continue;
-        MEHandler.generateDefaultMapInfo(*CI, **RI, *CV, CurBasePointers,
-                                         CurPointers, CurSizes, CurMapTypes);
+        MEHandler.generateDefaultMapInfo(*CI, **RI, *CV, CurInfo);
       }
 
       if (PartialStruct.Base.isValid())
         // The partial struct case requires two steps.  The step above generates
         // expressions for each partial piece.  The call to emitCombinedEntry
         // creates the base that covers all the pieces.
-        MEHandler.emitCombinedEntry(BasePointers, Pointers, Sizes, Types,
-                                    CurMapTypes, PartialStruct);
+        MEHandler.emitCombinedEntry(CombinedInfo, CurInfo.Types, PartialStruct);
 
       const VarDecl *VD = nullptr;
       if (!CI->capturesThis())
         VD = CI->getCapturedVar();
       VarChain.push_back(std::make_pair(VD, false));
       for (int I = PartialStruct.Base.isValid() ? 0 : 1,
-               E = CurBasePointers.size();
+               E = CurInfo.BasePointers.size();
            I < E; ++I)
         VarChain.push_back(std::make_pair(nullptr, true));
-      BasePointers.append(CurBasePointers.begin(), CurBasePointers.end());
-      Pointers.append(CurPointers.begin(), CurPointers.end());
-      Sizes.append(CurSizes.begin(), CurSizes.end());
-      Types.append(CurMapTypes.begin(), CurMapTypes.end());
+      CombinedInfo.BasePointers.append(CurInfo.BasePointers.begin(),
+                                       CurInfo.BasePointers.end());
+      CombinedInfo.Pointers.append(CurInfo.Pointers.begin(),
+                                   CurInfo.Pointers.end());
+      CombinedInfo.Sizes.append(CurInfo.Sizes.begin(), CurInfo.Sizes.end());
+      CombinedInfo.Types.append(CurInfo.Types.begin(),
+                                CurInfo.Types.end());
     }
   }
-  for (int I = 0, E = BasePointers.size(); I < E; ++I) {
-    Info->push_back({*BasePointers[I], Pointers[I], Sizes[I],
-                     llvm::ConstantInt::get(CGF.CGM.Int64Ty, Types[I]),
-                     MEHandler.getMapModifiers(Types[I]),
-                     MEHandler.getMapType(Types[I]), VarChain[I].first,
-                     VarChain[I].second});
+  for (int I = 0, E = CombinedInfo.BasePointers.size(); I < E; ++I) {
+    Info->push_back(
+        {*CombinedInfo.BasePointers[I], CombinedInfo.Pointers[I],
+         CombinedInfo.Sizes[I],
+         llvm::ConstantInt::get(CGF.CGM.Int64Ty, CombinedInfo.Types[I]),
+         MEHandler.getMapModifiers(CombinedInfo.Types[I]),
+         MEHandler.getMapType(CombinedInfo.Types[I]), VarChain[I].first,
+         VarChain[I].second});
   }
 }
 #endif // INTEL_COLLAB
