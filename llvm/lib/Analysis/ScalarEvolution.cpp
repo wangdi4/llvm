@@ -2094,37 +2094,89 @@ CollectAddOperandsWithScales(DenseMap<const SCEV *, APInt> &M,
 }
 
 #if INTEL_CUSTOMIZATION
-using OperandSubset = std::multiset<const SCEV*>;
-using OperandPartition = std::multiset<OperandSubset>;
-// Use std::set as the backing-set, DenseSet requires isEquals() implementation
-using OperandPartitionSet =
-    SetVector<OperandPartition, SmallVector<OperandPartition, 4>,
-              std::set<OperandPartition>>;
+// This is a helper class to deterministically enumerate all possible
+// partitions of two subsets for the List in question. After construction with
+// a list of operands, "getCurrentPartition" returns the current permutation
+// and "nextPartitionOfSizeTwo" generates the next partition. This class stores
+// only an ArrayRef to the list of operands, and so a user of this class must
+// not modify the list.
+//
+// The entire enumerated collection is actually a set of multisets of multisets
+// (A set of OperandPartitions of OperandSubsets.) .  E.g., {{1}, {2, 3}} and
+// {{3, 2}, {1}} are equivalent partitions, but {{1}, {2}} and {{1, 1}, {2}}
+// are not equivalent.
+//
+// However, for the sake of determinism and performance we do not implement
+// OperandPartitions or OperandSubsets as multisets; they are vectors. This
+// means that some generated combinations actually correspond to identical
+// multisets.
+class OperandPartitionPermuter {
+public:
+  using OperandSubset = SmallVector<const SCEV *, 4>;
+  using OperandPartition = std::array<OperandSubset, 2>;
 
-// Enumerate all possible partitions into two multisets for the List in
-// question. Note that the List is an ordered collection, but the enumerated
-// collection is a set of multisets. E.g., {{1}, {2, 3}} and {{3, 2}, {1}} are
-// equivalent partitions, but {{1}, {2}} and {{1, 1}, {2}} are not equivalent.
-static OperandPartitionSet
-enumeratePartitionsOfSizeTwo(const ArrayRef<const SCEV *> List) {
-  unsigned ListSize = List.size();
-  OperandPartitionSet Partitions;
-
-  for (unsigned LeftSetSize=1, MaxLeftSetSize=ListSize/2;
-      LeftSetSize<=MaxLeftSetSize; LeftSetSize++){
-    SmallVector<bool,4> LeftSelector(ListSize);
-    std::fill(LeftSelector.end()-LeftSetSize, LeftSelector.end(), true);
-
-    do {
-      OperandSubset LeftSet, RightSet;
-      for (unsigned Idx=0; Idx<ListSize; Idx++)
-        (LeftSelector[Idx] ? LeftSet : RightSet).insert(List[Idx]);
-
-      Partitions.insert({LeftSet, RightSet});
-    } while (std::next_permutation(LeftSelector.begin(), LeftSelector.end()));
+  OperandPartitionPermuter(const ArrayRef<const SCEV *> Operands)
+      : Ops(Operands), LeftSelector(Operands.size()), CurrentLeftSetSize(1),
+        OperandListSize(Operands.size()) {
+    // Initialize the LeftSelector for subsets of size 1.
+    initializeLeftSelector(1);
+    CurrentPartition = computePartition();
   }
-  return Partitions;
-}
+
+  // Return a reference to the internal current partition.
+  OperandPartition &getCurrentPartition() { return CurrentPartition; }
+
+  // Generate a new partition, potentially wrapping back around to the first
+  // partition if all possible partitions have already been generated. When the
+  // generated partition has wrapped back around the return value is false. The
+  // return value is true otherwise.
+  bool nextPartitionOfSizeTwo() {
+    bool Increasing = true;
+    if (!std::next_permutation(LeftSelector.begin(), LeftSelector.end())) {
+      if (CurrentLeftSetSize == OperandListSize / 2) {
+        // We're wrapping back around to the first partition, which has a left
+        // subset of size 1.
+        initializeLeftSelector(1);
+        Increasing = false;
+      } else {
+        // Move along to the next chunk of partitions, which have one
+        // additional value in the left subset.
+        initializeLeftSelector(CurrentLeftSetSize + 1);
+        Increasing = true;
+      }
+    }
+
+    // Compute the next partition.
+    CurrentPartition = computePartition();
+    return Increasing;
+  }
+
+private:
+  const ArrayRef<const SCEV *> Ops;
+  SmallVector<bool, 4> LeftSelector;
+  unsigned CurrentLeftSetSize;
+  unsigned OperandListSize;
+  OperandPartition CurrentPartition;
+
+  void initializeLeftSelector(unsigned NewLeftSetSize) {
+    CurrentLeftSetSize = NewLeftSetSize;
+    // Fill the selector with the correct number of true values.
+    std::fill(LeftSelector.begin(), LeftSelector.end(), false);
+    std::fill(LeftSelector.begin(), LeftSelector.begin() + CurrentLeftSetSize,
+              true);
+    // Sort the LeftSelector; this is necessary to ensure that
+    // std::next_permutation also considers this to be the first permutation
+    // of the selector with this number of "true" values.
+    std::sort(LeftSelector.begin(), LeftSelector.end());
+  }
+
+  OperandPartition computePartition() {
+    OperandSubset LeftSet, RightSet;
+    for (unsigned Idx = 0; Idx < OperandListSize; Idx++)
+      (LeftSelector[Idx] ? LeftSet : RightSet).push_back(Ops[Idx]);
+    return {LeftSet, RightSet};
+  }
+};
 
 // Given an OperandPartition, try to prove additional NoWrapFlags for operation
 // \p Type assuming that the final binary operation combines the two subsets.
@@ -2137,8 +2189,10 @@ enumeratePartitionsOfSizeTwo(const ArrayRef<const SCEV *> List) {
 //   p1) Neither subset is a potentially wrapping instance of the operation
 //   p2) The makeGuaranteedNoWrapRegion test proves that the operation on the
 //   two partitions doesn't wrap
-static SCEV::NoWrapFlags proveNoWrapForBinaryCombination(ScalarEvolution *SE,
-    SCEVTypes Type, const OperandPartition& Partition, SCEV::NoWrapFlags KnownFlags) {
+static SCEV::NoWrapFlags proveNoWrapForBinaryCombination(
+    ScalarEvolution *SE, SCEVTypes Type,
+    const OperandPartitionPermuter::OperandPartition &Partition,
+    SCEV::NoWrapFlags KnownFlags) {
   using OBO = OverflowingBinaryOperator;
 
   if ((KnownFlags & SCEV::FlagNSW) && (KnownFlags & SCEV::FlagNUW))
@@ -2156,8 +2210,10 @@ static SCEV::NoWrapFlags proveNoWrapForBinaryCombination(ScalarEvolution *SE,
   SCEV::NoWrapFlags Flags = KnownFlags;
 
   // Get the SCEV of the operation over the two operand subsets.
-  const OperandSubset &LeftSubset = *(Partition.begin());
-  const OperandSubset &RightSubset = *std::next(Partition.begin());
+  const OperandPartitionPermuter::OperandSubset &LeftSubset =
+      *(Partition.begin());
+  const OperandPartitionPermuter::OperandSubset &RightSubset =
+      *std::next(Partition.begin());
   SmallVector<const SCEV*, 4> LeftOps(LeftSubset.begin(), LeftSubset.end());
   SmallVector<const SCEV*, 4> RightOps(RightSubset.begin(), RightSubset.end());
   const SCEV *LeftTerms, *RightTerms;
@@ -2286,17 +2342,21 @@ StrengthenNoWrapFlags(ScalarEvolution *SE, SCEVTypes Type,
     if (SignOrUnsignWrap & SCEV::FlagNUW)
       ProvingNUW = false;
 
-    for (const OperandPartition &Part : enumeratePartitionsOfSizeTwo(Ops)) {
+    OperandPartitionPermuter Permuter(Ops);
+    do {
+      OperandPartitionPermuter::OperandPartition &Part =
+          Permuter.getCurrentPartition();
+
       SCEV::NoWrapFlags PartFlags =
         proveNoWrapForBinaryCombination(SE, Type, Part, SignOrUnsignWrap);
       if (!(PartFlags & SCEV::FlagNSW))
-          ProvingNSW = false;
+        ProvingNSW = false;
       if (!(PartFlags & SCEV::FlagNUW))
-          ProvingNUW = false;
+        ProvingNUW = false;
 
       if (!ProvingNSW && !ProvingNUW)
         break;
-    }
+    } while (Permuter.nextPartitionOfSizeTwo());
 
     if (ProvingNSW)
       Flags = ScalarEvolution::setFlags(Flags, SCEV::FlagNSW);
