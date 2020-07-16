@@ -19,11 +19,8 @@
 #include "llvm/ADT/SCCIterator.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/CallGraph.h"
-<<<<<<< HEAD
 #include "llvm/Analysis/Intel_WP.h"       // INTEL
-=======
 #include "llvm/IR/AbstractCallSite.h"
->>>>>>> 64d99a1d0476b8a451c3b36d900e84bc5707c061
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/Intrinsics.h"
