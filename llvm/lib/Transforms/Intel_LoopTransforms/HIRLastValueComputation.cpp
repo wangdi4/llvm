@@ -1,5 +1,4 @@
-//===- HIRLastValueComputation.cpp - Implements LastValueComputation class
-//------------===//
+//===- HIRLastValueComputation.cpp - Implements LastValueComputation class ------------===//
 //
 // Copyright (C) 2015-2020 Intel Corporation. All rights reserved.
 //
@@ -56,7 +55,7 @@ bool HIRLastValueComputation::isLegalAndProfitable(HLLoop *Lp, HLInst *HInst,
                                                    unsigned LoopLevel,
                                                    CanonExpr *UBCE,
                                                    bool IsUpperBoundComplicated,
-                                                   bool IsNSW) {
+                                                   bool IsNSW, bool &HasIV) {
   if (!HInst || HInst->isCallInst()) {
     return false;
   }
@@ -85,6 +84,7 @@ bool HIRLastValueComputation::isLegalAndProfitable(HLLoop *Lp, HLInst *HInst,
     }
 
     if (OpRef->hasIV(LoopLevel)) {
+      HasIV = true;
 
       if (IsUpperBoundComplicated) {
 
@@ -229,14 +229,18 @@ bool HIRLastValueComputation::doLastValueComputation(HLLoop *Lp) {
 
   bool IsUpperBoundComplicated =
       UBCE->getNumOperations() > NumOperationsThreshold;
+  bool ContainIV = false;
 
   for (auto It = Lp->child_rbegin(), End = Lp->child_rend(); It != End; ++It) {
     auto HInst = dyn_cast<HLInst>(&*It);
+    bool HasIV = false;
 
     if (!isLegalAndProfitable(Lp, HInst, LoopLevel, UBCE,
-                              IsUpperBoundComplicated, IsNSW)) {
+                              IsUpperBoundComplicated, IsNSW, HasIV)) {
       continue;
     }
+
+    ContainIV |= HasIV;
 
     CandidateInsts.push_back(HInst);
   }
@@ -248,7 +252,10 @@ bool HIRLastValueComputation::doLastValueComputation(HLLoop *Lp) {
   SmallVector<HLGoto *, 16> Gotos;
 
   bool IsMultiExit = Lp->getNumExits() > 1;
-  bool ShouldGenCode = !IsUpperBoundComplicated ||
+
+  // If the loop is not an empty node after the transformation and all the
+  // candidate insts are without iv, the code generation will be suppressed
+  bool ShouldGenCode = (!IsUpperBoundComplicated && ContainIV) ||
                        (CandidateInsts.size() == Lp->getNumChildren());
 
   if (IsMultiExit) {
