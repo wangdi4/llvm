@@ -174,7 +174,7 @@ void OpenMPIRBuilder::finalize() {
       assert(OI.EntryBB->getUniquePredecessor() == &ArtificialEntry);
 #if INTEL_COLLAB
       if (!ArtificialEntry.empty()) {
-        Instruction *PrevInst = &(RegEntryBB->front());
+        Instruction *PrevInst = &(OI.EntryBB->front());
         Instruction *CurrInst = &(ArtificialEntry.front());
 
         while (!CurrInst->isTerminator()) {
