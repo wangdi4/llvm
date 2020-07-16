@@ -1450,11 +1450,7 @@ static void UpdateCallGraphAfterInlining(CallBase &CB,
   }
 
   for (; I != E; ++I) {
-    // Skip 'refererence' call records.
-    if (!I->first)
-      continue;
-
-    const Value *OrigCall = *I->first;
+    const Value *OrigCall = I->first;
 
     ValueToValueMapTy::iterator VMI = VMap.find(OrigCall);
     // Only copy the edge if the call was inlined!

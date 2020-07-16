@@ -250,6 +250,7 @@ bool CGPassManager::RefreshCallGraph(const CallGraphSCC &CurSCC, CallGraph &CG,
     };
 
     // Get the set of call sites currently in the function.
+<<<<<<< HEAD
     for (CallGraphNode::iterator I = CGN->begin(); I != CGNEnd;) {
       // Delete "reference" call records that do not have call instruction. We
       // reinsert them as needed later. However, keep them in checking mode.
@@ -263,9 +264,12 @@ bool CGPassManager::RefreshCallGraph(const CallGraphSCC &CurSCC, CallGraph &CG,
         continue;
       }
 
+=======
+    for (CallGraphNode::iterator I = CGN->begin(), E = CGN->end(); I != E; ) {
+>>>>>>> 9627a04656ca1eaa14faefd41be41651bac1c186
       // If this call site is null, then the function pass deleted the call
       // entirely and the WeakTrackingVH nulled it out.
-      auto *Call = dyn_cast_or_null<CallBase>(*I->first);
+      auto *Call = dyn_cast_or_null<CallBase>(I->first);
       if (!Call ||
           // If we've already seen this call site, then the FunctionPass RAUW'd
           // one call with another, which resulted in two "uses" in the edge
