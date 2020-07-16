@@ -1,6 +1,6 @@
 // INTEL_COLLAB
 //RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
-//RUN:   -triple x86_64-unknown-linux-gnu %s | FileCheck %s
+//RUN:   -triple x86_64-unknown-linux-gnu -fopenmp-version=45 %s | FileCheck %s
 
 int bar(int i);
 //CHECK: define{{.*}}foo1

@@ -83,8 +83,8 @@ void VPOParopt::getAnalysisUsage(AnalysisUsage &AU) const {
 }
 
 bool VPOParopt::runOnModule(Module &M) {
-  auto WRegionInfoGetter = [&](Function &F) -> WRegionInfo & {
-    return getAnalysis<WRegionInfoWrapperPass>(F).getWRegionInfo();
+  auto WRegionInfoGetter = [&](Function &F, bool *Changed) -> WRegionInfo & {
+    return getAnalysis<WRegionInfoWrapperPass>(F, Changed).getWRegionInfo();
   };
 
   auto TLIGetter = [&](Function &F) -> TargetLibraryInfo & {
@@ -101,7 +101,7 @@ bool VPOParopt::runOnModule(Module &M) {
 }
 
 PreservedAnalyses VPOParoptPass::run(Module &M, ModuleAnalysisManager &AM) {
-  auto WRegionInfoGetter = [&](Function &F) -> WRegionInfo & {
+  auto WRegionInfoGetter = [&](Function &F, bool *Changed) -> WRegionInfo & {
     auto &FAM =
         AM.getResult<FunctionAnalysisManagerModuleProxy>(M).getManager();
     return FAM.getResult<WRegionInfoAnalysis>(F);
@@ -130,7 +130,8 @@ PreservedAnalyses VPOParoptPass::run(Module &M, ModuleAnalysisManager &AM) {
 // paropt's function and module level transformations.
 bool VPOParoptPass::runImpl(
     Module &M,
-    std::function<vpo::WRegionInfo &(Function &F)> WRegionInfoGetter,
+    std::function<vpo::WRegionInfo &(Function &F, bool *Changed)>
+        WRegionInfoGetter,
     std::function<TargetLibraryInfo &(Function &F)> TLIGetter,
     unsigned OptLevel) {
 

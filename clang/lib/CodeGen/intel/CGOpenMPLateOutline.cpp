@@ -203,7 +203,7 @@ llvm::Value *OpenMPLateOutliner::emitOpenMPCopyConstructor(const Expr *IPriv) {
                               VK_RValue);
     UnaryOperator *SRC = UnaryOperator::Create(
         C, &CastExpr, UO_Deref, ElemType, VK_LValue, OK_Ordinary,
-        SourceLocation(), /*CanOverflow=*/false, FPOptions(C.getLangOpts()));
+        SourceLocation(), /*CanOverflow=*/false, FPOptionsOverride());
 
     QualType CTy = ElemType;
     CTy.addConst();
@@ -2170,6 +2170,8 @@ operator<<(ArrayRef<OMPClause *> Clauses) {
 #define OMP_CLAUSE_NO_CLASS(Enum, Str)                                         \
   case llvm::omp::Clause::Enum:                                                \
     llvm_unreachable("Clause not allowed");
+  default:
+    break;
 #include "llvm/Frontend/OpenMP/OMPKinds.def"
     }
   }
@@ -2311,7 +2313,8 @@ bool OpenMPLateOutliner::needsVLAExprEmission() {
   case OMPD_scan:
     return false;
   case OMPD_unknown:
-    llvm_unreachable("Unexpected directive.");
+  default:
+  llvm_unreachable("Unexpected directive.");
   }
   return true;
 }
@@ -2754,6 +2757,7 @@ void CodeGenFunction::EmitLateOutlineOMPDirective(
   case OMPD_parallel_master_taskloop:
   case OMPD_parallel_master_taskloop_simd:
   case OMPD_parallel_loop:
+  default:
     llvm_unreachable("Combined directives not handled here");
   }
   Outliner << S.clauses();

@@ -121,6 +121,62 @@ CompilerInvocationBase::CompilerInvocationBase(const CompilerInvocationBase &X)
 CompilerInvocationBase::~CompilerInvocationBase() = default;
 
 //===----------------------------------------------------------------------===//
+// Normalizers
+//===----------------------------------------------------------------------===//
+
+#define SIMPLE_ENUM_VALUE_TABLE
+#include "clang/Driver/Options.inc"
+#undef SIMPLE_ENUM_VALUE_TABLE
+
+static llvm::Optional<unsigned> normalizeSimpleEnum(OptSpecifier Opt,
+                                                    unsigned TableIndex,
+                                                    const ArgList &Args,
+                                                    DiagnosticsEngine &Diags) {
+  assert(TableIndex < SimpleEnumValueTablesSize);
+  const SimpleEnumValueTable &Table = SimpleEnumValueTables[TableIndex];
+
+  auto *Arg = Args.getLastArg(Opt);
+  if (!Arg)
+    return None;
+
+  StringRef ArgValue = Arg->getValue();
+  for (int I = 0, E = Table.Size; I != E; ++I)
+    if (ArgValue == Table.Table[I].Name)
+      return Table.Table[I].Value;
+
+  Diags.Report(diag::err_drv_invalid_value)
+      << Arg->getAsString(Args) << ArgValue;
+  return None;
+}
+
+static const char *denormalizeSimpleEnum(CompilerInvocation::StringAllocator SA,
+                                         unsigned TableIndex, unsigned Value) {
+  assert(TableIndex < SimpleEnumValueTablesSize);
+  const SimpleEnumValueTable &Table = SimpleEnumValueTables[TableIndex];
+  for (int I = 0, E = Table.Size; I != E; ++I)
+    if (Value == Table.Table[I].Value)
+      return Table.Table[I].Name;
+
+  llvm_unreachable("The simple enum value was not correctly defined in "
+                   "the tablegen option description");
+}
+
+static const char *denormalizeString(CompilerInvocation::StringAllocator SA,
+                                     unsigned TableIndex,
+                                     const std::string &Value) {
+  return SA(Value);
+}
+
+static Optional<std::string> normalizeTriple(OptSpecifier Opt, int TableIndex,
+                                             const ArgList &Args,
+                                             DiagnosticsEngine &Diags) {
+  auto *Arg = Args.getLastArg(Opt);
+  if (!Arg)
+    return None;
+  return llvm::Triple::normalize(Arg->getValue());
+}
+
+//===----------------------------------------------------------------------===//
 // Deserialization (from args)
 //===----------------------------------------------------------------------===//
 
@@ -532,25 +588,6 @@ static void ParseCommentArgs(CommentOptions &Opts, ArgList &Args) {
   Opts.ParseAllComments = Args.hasArg(OPT_fparse_all_comments);
 }
 
-static llvm::Reloc::Model getRelocModel(ArgList &Args,
-                                        DiagnosticsEngine &Diags) {
-  if (Arg *A = Args.getLastArg(OPT_mrelocation_model)) {
-    StringRef Value = A->getValue();
-    auto RM = llvm::StringSwitch<llvm::Optional<llvm::Reloc::Model>>(Value)
-                  .Case("static", llvm::Reloc::Static)
-                  .Case("pic", llvm::Reloc::PIC_)
-                  .Case("ropi", llvm::Reloc::ROPI)
-                  .Case("rwpi", llvm::Reloc::RWPI)
-                  .Case("ropi-rwpi", llvm::Reloc::ROPI_RWPI)
-                  .Case("dynamic-no-pic", llvm::Reloc::DynamicNoPIC)
-                  .Default(None);
-    if (RM.hasValue())
-      return *RM;
-    Diags.Report(diag::err_drv_invalid_value) << A->getAsString(Args) << Value;
-  }
-  return llvm::Reloc::PIC_;
-}
-
 /// Create a new Regex instance out of the string value in \p RpassArg.
 /// It returns a pointer to the newly generated Regex instance.
 static std::shared_ptr<llvm::Regex>
@@ -763,7 +800,7 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
       Opts.setDebuggerTuning(static_cast<llvm::DebuggerKind>(Val));
   }
   Opts.DwarfVersion = getLastArgIntValue(Args, OPT_dwarf_version_EQ, 0, Diags);
-  Opts.DebugColumnInfo = Args.hasArg(OPT_dwarf_column_info);
+  Opts.DebugColumnInfo = !Args.hasArg(OPT_gno_column_info);
   Opts.EmitCodeView = Args.hasArg(OPT_gcodeview);
   Opts.CodeViewGHash = Args.hasArg(OPT_gcodeview_ghash);
 #if INTEL_CUSTOMIZATION
@@ -925,7 +962,7 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   Opts.StrictFloatCastOverflow =
       !Args.hasArg(OPT_fno_strict_float_cast_overflow);
 
-  Opts.NoZeroInitializedInBSS = Args.hasArg(OPT_mno_zero_initialized_in_bss);
+  Opts.NoZeroInitializedInBSS = Args.hasArg(OPT_fno_zero_initialized_in_bss);
   Opts.NumRegisterParameters = getLastArgIntValue(Args, OPT_mregparm, 0, Diags);
   Opts.NoExecStack = Args.hasArg(OPT_mno_exec_stack);
   Opts.SmallDataLimit =
@@ -947,7 +984,6 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   Opts.StrictVTablePointers = Args.hasArg(OPT_fstrict_vtable_pointers);
   Opts.ForceEmitVTables = Args.hasArg(OPT_fforce_emit_vtables);
   Opts.UnwindTables = Args.hasArg(OPT_munwind_tables);
-  Opts.RelocationModel = getRelocModel(Args, Diags);
   Opts.ThreadModel =
       std::string(Args.getLastArgValue(OPT_mthread_model, "posix"));
   if (Opts.ThreadModel != "posix" && Opts.ThreadModel != "single")
@@ -1715,6 +1751,9 @@ bool clang::ParseDiagnosticArgs(DiagnosticOptions &Opts, ArgList &Args,
   }
   Opts.MessageLength =
       getLastArgIntValue(Args, OPT_fmessage_length_EQ, 0, Diags);
+
+  Opts.UndefPrefixes = Args.getAllArgValues(OPT_Wundef_prefix_EQ);
+
   addDiagnosticArgs(Args, OPT_W_Group, OPT_W_value_Group, Opts.Warnings);
   addDiagnosticArgs(Args, OPT_R_Group, OPT_R_value_Group, Opts.Remarks);
 
@@ -2170,7 +2209,6 @@ static void ParseHeaderSearchArgs(HeaderSearchOptions &Opts, ArgList &Args,
     Opts.AddPrebuiltModulePath(A->getValue());
   Opts.DisableModuleHash = Args.hasArg(OPT_fdisable_module_hash);
   Opts.ModulesHashContent = Args.hasArg(OPT_fmodules_hash_content);
-  Opts.ModulesStrictContextHash = Args.hasArg(OPT_fmodules_strict_context_hash);
   Opts.ModulesValidateDiagnosticOptions =
       !Args.hasArg(OPT_fmodules_disable_diagnostic_validation);
   Opts.ImplicitModuleMaps = Args.hasArg(OPT_fimplicit_module_maps);
@@ -3288,7 +3326,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   }
 
   // Check if -fopenmp is specified.
-  Opts.OpenMP = Args.hasArg(options::OPT_fopenmp) ? 45 : 0;
+  Opts.OpenMP = Args.hasArg(options::OPT_fopenmp) ? 50 : 0;
 #if INTEL_CUSTOMIZATION
   Opts.OpenMPSimdOnly = false;
   Opts.OpenMPSimdDisabled = false;
@@ -3356,10 +3394,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   if (Opts.OpenMP || Opts.OpenMPSimd) {
     if (int Version = getLastArgIntValue(
             Args, OPT_fopenmp_version_EQ,
-            (IsSimdSpecified || IsTargetSpecified) ? 45 : Opts.OpenMP, Diags))
+            (IsSimdSpecified || IsTargetSpecified) ? 50 : Opts.OpenMP, Diags))
       Opts.OpenMP = Version;
-    else if (IsSimdSpecified || IsTargetSpecified)
-      Opts.OpenMP = 45;
     // Provide diagnostic when a given target is not expected to be an OpenMP
     // device or host.
     if (!Opts.OpenMPIsDevice) {
@@ -3445,6 +3481,12 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   // Set CUDA mode for OpenMP target NVPTX/AMDGCN if specified in options
   Opts.OpenMPCUDAMode = Opts.OpenMPIsDevice && (T.isNVPTX() || T.isAMDGCN()) &&
                         Args.hasArg(options::OPT_fopenmp_cuda_mode);
+
+  // Set CUDA support for parallel execution of target regions for OpenMP target
+  // NVPTX/AMDGCN if specified in options.
+  Opts.OpenMPCUDATargetParallel =
+      Opts.OpenMPIsDevice && (T.isNVPTX() || T.isAMDGCN()) &&
+      Args.hasArg(options::OPT_fopenmp_cuda_parallel_target_regions);
 
   // Set CUDA mode for OpenMP target NVPTX/AMDGCN if specified in options
   Opts.OpenMPCUDAForceFullRuntime =
@@ -3899,11 +3941,6 @@ static void ParseTargetArgs(TargetOptions &Opts, ArgList &Args,
   Opts.FeaturesAsWritten = Args.getAllArgValues(OPT_target_feature);
   Opts.LinkerVersion =
       std::string(Args.getLastArgValue(OPT_target_linker_version));
-  Opts.Triple = std::string(Args.getLastArgValue(OPT_triple));
-  // Use the default target triple if unspecified.
-  if (Opts.Triple.empty())
-    Opts.Triple = llvm::sys::getDefaultTargetTriple();
-  Opts.Triple = llvm::Triple::normalize(Opts.Triple);
   Opts.OpenCLExtensionsAsWritten = Args.getAllArgValues(OPT_cl_ext_EQ);
   Opts.ForceEnableInt128 = Args.hasArg(OPT_fforce_enable_int128);
   Opts.NVPTXUseShortPointers = Args.hasFlag(
@@ -3916,6 +3953,31 @@ static void ParseTargetArgs(TargetOptions &Opts, ArgList &Args,
     else
       Opts.SDKVersion = Version;
   }
+}
+
+bool CompilerInvocation::parseSimpleArgs(const ArgList &Args,
+                                         DiagnosticsEngine &Diags) {
+#define OPTION_WITH_MARSHALLING_FLAG(PREFIX_TYPE, NAME, ID, KIND, GROUP,       \
+                                     ALIAS, ALIASARGS, FLAGS, PARAM, HELPTEXT, \
+                                     METAVAR, VALUES, SPELLING, ALWAYS_EMIT,   \
+                                     KEYPATH, DEFAULT_VALUE, IS_POSITIVE)      \
+  this->KEYPATH = Args.hasArg(OPT_##ID) && IS_POSITIVE;
+
+#define OPTION_WITH_MARSHALLING_STRING(                                        \
+    PREFIX_TYPE, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,        \
+    HELPTEXT, METAVAR, VALUES, SPELLING, ALWAYS_EMIT, KEYPATH, DEFAULT_VALUE,  \
+    TYPE, NORMALIZER, DENORMALIZER, TABLE_INDEX)                               \
+  {                                                                            \
+    if (auto MaybeValue = NORMALIZER(OPT_##ID, TABLE_INDEX, Args, Diags))      \
+      this->KEYPATH = static_cast<TYPE>(*MaybeValue);                          \
+    else                                                                       \
+      this->KEYPATH = DEFAULT_VALUE;                                           \
+  }
+
+#include "clang/Driver/Options.inc"
+#undef OPTION_WITH_MARSHALLING_STRING
+#undef OPTION_WITH_MARSHALLING_FLAG
+  return true;
 }
 
 bool CompilerInvocation::CreateFromArgs(CompilerInvocation &Res,
@@ -3951,6 +4013,7 @@ bool CompilerInvocation::CreateFromArgs(CompilerInvocation &Res,
     Success = false;
   }
 
+  Success &= Res.parseSimpleArgs(Args, Diags);
   Success &= ParseAnalyzerArgs(*Res.getAnalyzerOpts(), Args, Diags);
   Success &= ParseMigratorArgs(Res.getMigratorOpts(), Args);
   ParseDependencyOutputArgs(Res.getDependencyOutputOpts(), Args);
@@ -4166,6 +4229,33 @@ std::string CompilerInvocation::getModuleHash() const {
     code = hash_combine(code, SanHash.Mask);
 
   return llvm::APInt(64, code).toString(36, /*Signed=*/false);
+}
+
+void CompilerInvocation::generateCC1CommandLine(
+    SmallVectorImpl<const char *> &Args, StringAllocator SA) const {
+#define OPTION_WITH_MARSHALLING_FLAG(PREFIX_TYPE, NAME, ID, KIND, GROUP,       \
+                                     ALIAS, ALIASARGS, FLAGS, PARAM, HELPTEXT, \
+                                     METAVAR, VALUES, SPELLING, ALWAYS_EMIT,   \
+                                     KEYPATH, DEFAULT_VALUE, IS_POSITIVE)      \
+  if ((FLAGS) & options::CC1Option &&                                            \
+      (ALWAYS_EMIT || this->KEYPATH != DEFAULT_VALUE))                         \
+    Args.push_back(SPELLING);
+
+#define OPTION_WITH_MARSHALLING_STRING(                                        \
+    PREFIX_TYPE, NAME, ID, KIND, GROUP, ALIAS, ALIASARGS, FLAGS, PARAM,        \
+    HELPTEXT, METAVAR, VALUES, SPELLING, ALWAYS_EMIT, KEYPATH, DEFAULT_VALUE,  \
+    NORMALIZER_RET_TY, NORMALIZER, DENORMALIZER, TABLE_INDEX)                  \
+  if (((FLAGS) & options::CC1Option) &&                                          \
+      (ALWAYS_EMIT || this->KEYPATH != DEFAULT_VALUE)) {                       \
+    if (Option::KIND##Class == Option::SeparateClass) {                        \
+      Args.push_back(SPELLING);                                                \
+      Args.push_back(DENORMALIZER(SA, TABLE_INDEX, this->KEYPATH));            \
+    }                                                                          \
+  }
+
+#include "clang/Driver/Options.inc"
+#undef OPTION_WITH_MARSHALLING_STRING
+#undef OPTION_WITH_MARSHALLING_FLAG
 }
 
 namespace clang {

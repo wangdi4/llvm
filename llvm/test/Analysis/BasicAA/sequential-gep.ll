@@ -1,7 +1,7 @@
-; RUN: opt < %s -basicaa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -basic-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 ; INTEL
-; RUN: opt < %s -basicaa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck --check-prefix=CHECK-GEP %s
-; RUN: opt -convert-to-subscript -S < %s | opt -basicaa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -basic-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck --check-prefix=CHECK-GEP %s
+; RUN: opt -convert-to-subscript -S < %s | opt -basic-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 
 ; INTEL
 ; aliasSameBasePointerGEPs

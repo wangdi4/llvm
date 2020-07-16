@@ -88,11 +88,11 @@ public:
   ~VPOParoptPass(){};
 
   PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
-  bool
-  runImpl(Module &M,
-          std::function<vpo::WRegionInfo &(Function &F)> WRegionInfoGetter,
-          std::function<TargetLibraryInfo &(Function &F)> TLIGetter,
-          unsigned OptLevel);
+  bool runImpl(Module &M,
+               std::function<vpo::WRegionInfo &(Function &F, bool *Changed)>
+                   WRegionInfoGetter,
+               std::function<TargetLibraryInfo &(Function &F)> TLIGetter,
+               unsigned OptLevel);
 
 private:
   // Paropt mode.

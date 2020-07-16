@@ -183,7 +183,6 @@ pi_result piextPlatformCreateWithNativeHandle(pi_native_handle nativeHandle,
   return PI_SUCCESS;
 }
 
-// Example of a PI interface that does not map exactly to an OpenCL one.
 pi_result piDevicesGet(pi_platform platform, pi_device_type device_type,
                        pi_uint32 num_entries, pi_device *devices,
                        pi_uint32 *num_devices) {
@@ -273,8 +272,7 @@ pi_result piextDeviceSelectBinary(pi_device device, pi_device_binary *images,
 }
 
 pi_result piextDeviceCreateWithNativeHandle(pi_native_handle nativeHandle,
-                                            pi_platform platform, // unused // INTEL
-                                            pi_device *piDevice) {
+                                            pi_platform, pi_device *piDevice) {
   assert(piDevice != nullptr);
   *piDevice = reinterpret_cast<pi_device>(nativeHandle);
   return PI_SUCCESS;
@@ -321,8 +319,7 @@ pi_result piQueueCreate(pi_context context, pi_device device,
 }
 
 pi_result piextQueueCreateWithNativeHandle(pi_native_handle nativeHandle,
-                                           pi_context context, // unused // INTEL
-                                           pi_queue *piQueue) {
+                                           pi_context, pi_queue *piQueue) {
   assert(piQueue != nullptr);
   *piQueue = reinterpret_cast<pi_queue>(nativeHandle);
   return PI_SUCCESS;
@@ -407,7 +404,7 @@ pi_result piProgramCreate(pi_context context, const void *il, size_t length,
 }
 
 pi_result piextProgramCreateWithNativeHandle(pi_native_handle nativeHandle,
-                                             pi_context, // INTEL
+                                             pi_context,
                                              pi_program *piProgram) {
   assert(piProgram != nullptr);
   *piProgram = reinterpret_cast<pi_program>(nativeHandle);
@@ -450,6 +447,13 @@ pi_result piextKernelSetArgMemObj(pi_kernel kernel, pi_uint32 arg_index,
   return cast<pi_result>(
       clSetKernelArg(cast<cl_kernel>(kernel), cast<cl_uint>(arg_index),
                      sizeof(arg_value), cast<const cl_mem *>(arg_value)));
+}
+
+pi_result piextKernelSetArgSampler(pi_kernel kernel, pi_uint32 arg_index,
+                                   const pi_sampler *arg_value) {
+  return cast<pi_result>(
+      clSetKernelArg(cast<cl_kernel>(kernel), cast<cl_uint>(arg_index),
+                     sizeof(cl_sampler), cast<const cl_sampler *>(arg_value)));
 }
 
 pi_result piextGetDeviceFunctionPointer(pi_device device, pi_program program,
@@ -1237,6 +1241,7 @@ pi_result piPluginInit(pi_plugin *PluginInit) {
   _PI_CL(piextUSMGetMemAllocInfo, piextUSMGetMemAllocInfo)
 
   _PI_CL(piextKernelSetArgMemObj, piextKernelSetArgMemObj)
+  _PI_CL(piextKernelSetArgSampler, piextKernelSetArgSampler)
 
 
 #undef _PI_CL

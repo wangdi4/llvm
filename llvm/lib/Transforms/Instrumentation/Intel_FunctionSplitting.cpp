@@ -301,7 +301,7 @@ void FunctionSplitter::identifySplinterRegions(RegionSplitter &Splitter) {
 
     // Check the immediately dominated nodes of the current block as
     // candidates to split out of the function.
-    for (auto &Child : CurNode->getChildren()) {
+    for (auto &Child : CurNode->children()) {
       const BasicBlock *BB = Child->getBlock();
       if (BlockToRegionMapping.count(BB))
         continue;
@@ -351,7 +351,7 @@ void FunctionSplitter::populateCandidateRegion(const DomTreeNode *Node,
   BasicBlock *BB = Node->getBlock();
 
   Region.insert(BB);
-  for (auto &Child : Node->getChildren()) {
+  for (auto &Child : Node->children()) {
     populateCandidateRegion(Child, Region);
   }
 }

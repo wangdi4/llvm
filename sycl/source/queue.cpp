@@ -64,7 +64,7 @@ queue::queue(const device &syclDevice, const async_handler &asyncHandler,
 queue::queue(cl_command_queue clQueue, const context &syclContext,
              const async_handler &asyncHandler) {
   impl = std::make_shared<detail::queue_impl>(
-      reinterpret_cast<RT::PiQueue>(clQueue), // INTEL
+      reinterpret_cast<RT::PiQueue>(clQueue),
       detail::getSyclObjImpl(syclContext), asyncHandler);
 }
 

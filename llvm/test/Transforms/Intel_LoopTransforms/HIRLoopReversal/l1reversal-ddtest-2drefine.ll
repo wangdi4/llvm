@@ -68,63 +68,12 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-loop-reversal,print<hir>" -aa-pipeline="basic-aa" -S 2>&1 < %s  | FileCheck %s -check-prefix=AFTER
 ;
 ;
-; === -------------------------------------- ===
-; *** Tests0: W/O HIR Loop Reversal Output ***
-; === -------------------------------------- ===
-; Expected output before Loop Reversal
-;
 ; Loop0: (*,*)
 ;          BEGIN REGION { }
-;<88>         + DO i1 = 0, 9, 1   <DO_LOOP>
-;<3>          |   %rem = i1 + 1  %  3;
-;<10>         |   %3 = (%A)[sext.i32.i64(%rem) + %indvars.iv175 + -1];
-;<12>         |   %4 = (%3)[i1 + %rem];
-;<14>         |   (%0)[i1 + 1] = %4;
-;<88>         + END LOOP
-;          END REGION
-;
-; Loop1: (<=, *)
-;          BEGIN REGION { }
-;<89>         + DO i1 = 0, 9, 1   <DO_LOOP>
-;<24>         |   %rem22 = i1 + 1  %  3;
-;<30>         |   %11 = (%6)[i1 + %rem22];
-;<32>         |   (%7)[i1 + 1] = %11;
-;<89>         + END LOOP
-;          END REGION
-;
-; Loop2: (>=, *)
-;          BEGIN REGION { }
-;<90>         + DO i1 = 0, 9, 1   <DO_LOOP>
-;<42>         |   %rem47 = i1 + 1  %  3;
-;<48>         |   %18 = (%13)[i1 + %rem47];
-;<50>         |   (%14)[i1 + 1] = %18;
-;<90>         + END LOOP
-;          END REGION
-;
-; Loop3: (<>, *)
-;          BEGIN REGION { }
-;<91>         + DO i1 = 0, 9, 1   <DO_LOOP>
-;<60>         |   %20 = (%A)[i1 + 1];
-;<92>         |   + DO i2 = 0, 9, 1   <DO_LOOP>
-;<65>         |   |   %rem72 = i2 + 1  %  3;
-;<71>         |   |   %24 = (%19)[i2 + %rem72];
-;<73>         |   |   (%20)[i2 + 1] = %24;
-;<92>         |   + END LOOP
-;<83>         |   %19 = &((%20)[0]);
-;<91>         + END LOOP
-;          END REGION
-;
-;
-;***
-;***
-;***
-;
-; Loop0: (*,*)
-;          BEGIN REGION { }
-; BEFORE:         + DO i1 = 0, 9, 1   <DO_LOOP>
-; BEFORE:      |   %rem = i1 + 1  %  3;
-; BEFORE:     |   %3 = (%A)[sext.i32.i64(%rem) + %indvars.iv175 + -1];
-; BEFORE:     |   %4 = (%3)[i1 + %rem];
+; BEFORE:     + DO i1 = 0, 9, 1   <DO_LOOP>
+; BEFORE:     |   %2 = trunc.i64.i32(i1 + 1);
+; BEFORE:     |   %3 = (%A)[i1 + sext.i32.i64((-3 * (%2 /u 3))) + %indvars.iv175];
+; BEFORE:     |   %4 = (%3)[2 * i1 + -3 * (%2 /u 3) + 1];
 ; BEFORE:     |   (%0)[i1 + 1] = %4;
 ; BEFORE:     + END LOOP
 ; BEFORE:  END REGION
@@ -132,8 +81,8 @@
 ; Loop1: (<=, *)
 ; BEFORE:  BEGIN REGION { }
 ; BEFORE:     + DO i1 = 0, 9, 1   <DO_LOOP>
-; BEFORE:     |   %rem22 = i1 + 1  %  3;
-; BEFORE:     |   %11 = (%6)[i1 + %rem22];
+; BEFORE:     |   %8 = trunc.i64.i32(i1 + 1);
+; BEFORE:     |   %11 = (%6)[2 * i1 + -3 * (%8 /u 3) + 1];
 ; BEFORE:     |   (%7)[i1 + 1] = %11;
 ; BEFORE:     + END LOOP
 ; BEFORE:  END REGION
@@ -141,8 +90,8 @@
 ; Loop2: (>=, *)
 ; BEFORE:  BEGIN REGION { }
 ; BEFORE:     + DO i1 = 0, 9, 1   <DO_LOOP>
-; BEFORE:     |   %rem47 = i1 + 1  %  3;
-; BEFORE:     |   %18 = (%13)[i1 + %rem47];
+; BEFORE:     |   %15 = trunc.i64.i32(i1 + 1);
+; BEFORE:     |   %18 = (%13)[2 * i1 + -3 * (%15 /u 3) + 1];
 ; BEFORE:     |   (%14)[i1 + 1] = %18;
 ; BEFORE:     + END LOOP
 ; BEFORE:  END REGION
@@ -152,8 +101,8 @@
 ; BEFORE:     + DO i1 = 0, 9, 1   <DO_LOOP>
 ; BEFORE:     |   %20 = (%A)[i1 + 1];
 ; BEFORE:     |   + DO i2 = 0, 9, 1   <DO_LOOP>
-; BEFORE:     |   |   %rem72 = i2 + 1  %  3;
-; BEFORE:     |   |   %24 = (%19)[i2 + %rem72];
+; BEFORE:     |   |   %21 = trunc.i64.i32(i2 + 1);
+; BEFORE:     |   |   %24 = (%19)[2 * i2 + -3 * (%21 /u 3) + 1];
 ; BEFORE:     |   |   (%20)[i2 + 1] = %24;
 ; BEFORE:     |   + END LOOP
 ; BEFORE:     |   %19 = &((%20)[0]);
@@ -161,61 +110,12 @@
 ; BEFORE:  END REGION
 ;
 ;
-; === -------------------------------------- ===
-; *** Tests1: With HIR Loop Reversal Output ***
-; === -------------------------------------- ===
-;
-; Expected HIR output after Loop-Reversal is enabled: Not reversal ever happened in this given input!
-;
-;
-;          BEGIN REGION { }
-;<88>         + DO i1 = 0, 9, 1   <DO_LOOP>
-;<3>          |   %rem = i1 + 1  %  3;
-;<10>         |   %3 = (%A)[sext.i32.i64(%rem) + %indvars.iv175 + -1];
-;<12>         |   %4 = (%3)[i1 + %rem];
-;<14>         |   (%0)[i1 + 1] = %4;
-;<88>         + END LOOP
-;          END REGION
-;
-;          BEGIN REGION { }
-;<89>         + DO i1 = 0, 9, 1   <DO_LOOP>
-;<24>         |   %rem22 = i1 + 1  %  3;
-;<30>         |   %11 = (%6)[i1 + %rem22];
-;<32>         |   (%7)[i1 + 1] = %11;
-;<89>         + END LOOP
-;          END REGION
-;
-;          BEGIN REGION { }
-;<90>         + DO i1 = 0, 9, 1   <DO_LOOP>
-;<42>         |   %rem47 = i1 + 1  %  3;
-;<48>         |   %18 = (%13)[i1 + %rem47];
-;<50>         |   (%14)[i1 + 1] = %18;
-;<90>         + END LOOP
-;          END REGION
-;
-;          BEGIN REGION { }
-;<91>         + DO i1 = 0, 9, 1   <DO_LOOP>
-;<60>         |   %20 = (%A)[i1 + 1];
-;<92>         |   + DO i2 = 0, 9, 1   <DO_LOOP>
-;<65>         |   |   %rem72 = i2 + 1  %  3;
-;<71>         |   |   %24 = (%19)[i2 + %rem72];
-;<73>         |   |   (%20)[i2 + 1] = %24;
-;<92>         |   + END LOOP
-;<83>         |   %19 = &((%20)[0]);
-;<91>         + END LOOP
-;          END REGION
-;
-;
-;***
-;***
-;***
-;
 ; Loop0: (*,*)
 ;          BEGIN REGION { }
-; AFTER:         + DO i1 = 0, 9, 1   <DO_LOOP>
-; AFTER:      |   %rem = i1 + 1  %  3;
-; AFTER:     |   %3 = (%A)[sext.i32.i64(%rem) + %indvars.iv175 + -1];
-; AFTER:     |   %4 = (%3)[i1 + %rem];
+; AFTER:     + DO i1 = 0, 9, 1   <DO_LOOP>
+; AFTER:     |   %2 = trunc.i64.i32(i1 + 1);
+; AFTER:     |   %3 = (%A)[i1 + sext.i32.i64((-3 * (%2 /u 3))) + %indvars.iv175];
+; AFTER:     |   %4 = (%3)[2 * i1 + -3 * (%2 /u 3) + 1];
 ; AFTER:     |   (%0)[i1 + 1] = %4;
 ; AFTER:     + END LOOP
 ; AFTER:  END REGION
@@ -223,8 +123,8 @@
 ; Loop1: (<=, *)
 ; AFTER:  BEGIN REGION { }
 ; AFTER:     + DO i1 = 0, 9, 1   <DO_LOOP>
-; AFTER:     |   %rem22 = i1 + 1  %  3;
-; AFTER:     |   %11 = (%6)[i1 + %rem22];
+; AFTER:     |   %8 = trunc.i64.i32(i1 + 1);
+; AFTER:     |   %11 = (%6)[2 * i1 + -3 * (%8 /u 3) + 1];
 ; AFTER:     |   (%7)[i1 + 1] = %11;
 ; AFTER:     + END LOOP
 ; AFTER:  END REGION
@@ -232,8 +132,8 @@
 ; Loop2: (>=, *)
 ; AFTER:  BEGIN REGION { }
 ; AFTER:     + DO i1 = 0, 9, 1   <DO_LOOP>
-; AFTER:     |   %rem47 = i1 + 1  %  3;
-; AFTER:     |   %18 = (%13)[i1 + %rem47];
+; AFTER:     |   %15 = trunc.i64.i32(i1 + 1);
+; AFTER:     |   %18 = (%13)[2 * i1 + -3 * (%15 /u 3) + 1];
 ; AFTER:     |   (%14)[i1 + 1] = %18;
 ; AFTER:     + END LOOP
 ; AFTER:  END REGION
@@ -243,8 +143,8 @@
 ; AFTER:     + DO i1 = 0, 9, 1   <DO_LOOP>
 ; AFTER:     |   %20 = (%A)[i1 + 1];
 ; AFTER:     |   + DO i2 = 0, 9, 1   <DO_LOOP>
-; AFTER:     |   |   %rem72 = i2 + 1  %  3;
-; AFTER:     |   |   %24 = (%19)[i2 + %rem72];
+; AFTER:     |   |   %21 = trunc.i64.i32(i2 + 1);
+; AFTER:     |   |   %24 = (%19)[2 * i2 + -3 * (%21 /u 3) + 1];
 ; AFTER:     |   |   (%20)[i2 + 1] = %24;
 ; AFTER:     |   + END LOOP
 ; AFTER:     |   %19 = &((%20)[0]);

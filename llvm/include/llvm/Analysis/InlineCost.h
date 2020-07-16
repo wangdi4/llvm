@@ -55,6 +55,9 @@ const int ColdccPenalty = 2000;
 /// when the caller is recursive.
 const unsigned TotalAllocaSizeRecursiveCaller = 1024;
 const unsigned BasicBlockSuccRatio = 210; // INTEL
+/// Do not inline dynamic allocas that have been constant propagated to be
+/// static allocas above this amount in bytes.
+const uint64_t MaxSimplifiedDynamicAllocaToInline = 65536;
 } // namespace InlineConstants
 
 #if INTEL_CUSTOMIZATION
@@ -488,6 +491,18 @@ Optional<int> getInliningCostEstimate(
 
 /// Minimal filter to detect invalid constructs for inlining.
 InlineResult isInlineViable(Function &Callee);
+
+// This pass is used to annotate instructions during the inline process for
+// debugging and analysis. The main purpose of the pass is to see and test
+// inliner's decisions when creating new optimizations to InlineCost.
+struct InlineCostAnnotationPrinterPass
+    : PassInfoMixin<InlineCostAnnotationPrinterPass> {
+  raw_ostream &OS;
+
+public:
+  explicit InlineCostAnnotationPrinterPass(raw_ostream &OS) : OS(OS) {}
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &FAM);
+};
 } // namespace llvm
 
 #endif

@@ -174,6 +174,27 @@ void NDTransferOpHelper<ConcreteOp>::emitLoops(Lambda loopBodyBuilder) {
   }
 }
 
+static Optional<int64_t> extractConstantIndex(Value v) {
+  if (auto cstOp = v.getDefiningOp<ConstantIndexOp>())
+    return cstOp.getValue();
+  if (auto affineApplyOp = v.getDefiningOp<AffineApplyOp>())
+    if (affineApplyOp.getAffineMap().isSingleConstant())
+      return affineApplyOp.getAffineMap().getSingleConstantResult();
+  return None;
+}
+
+// Missing foldings of scf.if make it necessary to perform poor man's folding
+// eagerly, especially in the case of unrolling. In the future, this should go
+// away once scf.if folds properly.
+static Value onTheFlyFoldSLT(Value v, Value ub) {
+  using namespace mlir::edsc::op;
+  auto maybeCstV = extractConstantIndex(v);
+  auto maybeCstUb = extractConstantIndex(ub);
+  if (maybeCstV && maybeCstUb && *maybeCstV < *maybeCstUb)
+    return Value();
+  return slt(v, ub);
+}
+
 template <typename ConcreteOp>
 Value NDTransferOpHelper<ConcreteOp>::emitInBoundsCondition(
     ValueRange majorIvs, ValueRange majorOffsets,
@@ -187,9 +208,11 @@ Value NDTransferOpHelper<ConcreteOp>::emitInBoundsCondition(
     using namespace mlir::edsc::op;
     majorIvsPlusOffsets.push_back(iv + off);
     if (xferOp.isMaskedDim(leadingRank + idx)) {
-      Value inBounds = majorIvsPlusOffsets.back() < ub;
-      inBoundsCondition =
-          (inBoundsCondition) ? (inBoundsCondition && inBounds) : inBounds;
+      Value inBoundsCond = onTheFlyFoldSLT(majorIvsPlusOffsets.back(), ub);
+      if (inBoundsCond)
+        inBoundsCondition = (inBoundsCondition)
+                                ? (inBoundsCondition && inBoundsCond)
+                                : inBoundsCond;
     }
     ++idx;
   }
@@ -433,16 +456,16 @@ clip(TransferOpTy transfer, MemRefBoundsCapture &bounds, ArrayRef<Value> ivs) {
     auto i = memRefAccess[memRefDim];
     if (loopIndex < 0) {
       auto N_minus_1 = N - one;
-      auto select_1 = std_select(i < N, i, N_minus_1);
+      auto select_1 = std_select(slt(i, N), i, N_minus_1);
       clippedScalarAccessExprs[memRefDim] =
-          std_select(i < zero, zero, select_1);
+          std_select(slt(i, zero), zero, select_1);
     } else {
       auto ii = ivs[loopIndex];
       auto i_plus_ii = i + ii;
       auto N_minus_1 = N - one;
-      auto select_1 = std_select(i_plus_ii < N, i_plus_ii, N_minus_1);
+      auto select_1 = std_select(slt(i_plus_ii, N), i_plus_ii, N_minus_1);
       clippedScalarAccessExprs[memRefDim] =
-          std_select(i_plus_ii < zero, zero, select_1);
+          std_select(slt(i_plus_ii, zero), zero, select_1);
     }
   }
 

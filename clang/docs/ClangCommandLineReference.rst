@@ -3127,15 +3127,13 @@ X86
 
 .. option:: -maes, -mno-aes
 
-.. INTEL_CUSTOMIZATION
-.. INTEL_FEATURE_ISA_AMX
 .. option:: -mamx-bf16, -mno-amx-bf16
 
 .. option:: -mamx-int8, -mno-amx-int8
 
 .. option:: -mamx-tile, -mno-amx-tile
 
-.. end INTEL_FEATURE_ISA_AMX
+.. INTEL_CUSTOMIZATION
 .. INTEL_FEATURE_ISA_AMX_FUTURE
 .. option:: -mamx-reduce, -mno-amx-reduce
 

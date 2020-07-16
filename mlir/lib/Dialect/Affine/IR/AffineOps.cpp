@@ -141,9 +141,8 @@ bool mlir::isValidDim(Value value) {
   // This value has to be a block argument for an op that has the
   // `AffineScope` trait or for an affine.for or affine.parallel.
   auto *parentOp = value.cast<BlockArgument>().getOwner()->getParentOp();
-  return parentOp &&
-         (parentOp->hasTrait<OpTrait::AffineScope>() ||
-          isa<AffineForOp>(parentOp) || isa<AffineParallelOp>(parentOp));
+  return parentOp && (parentOp->hasTrait<OpTrait::AffineScope>() ||
+                      isa<AffineForOp, AffineParallelOp>(parentOp));
 }
 
 // Value can be used as a dimension id iff it meets one of the following
@@ -165,7 +164,7 @@ bool mlir::isValidDim(Value value, Region *region) {
     // This value has to be a block argument for an affine.for or an
     // affine.parallel.
     auto *parentOp = value.cast<BlockArgument>().getOwner()->getParentOp();
-    return isa<AffineForOp>(parentOp) || isa<AffineParallelOp>(parentOp);
+    return isa<AffineForOp, AffineParallelOp>(parentOp);
   }
 
   // Affine apply operation is ok if all of its operands are ok.
@@ -1811,13 +1810,6 @@ static LogicalResult verify(AffineIfOp op) {
                                            condition.getNumDims())))
     return failure();
 
-  // Verify that the entry of each child region does not have arguments.
-  for (auto &region : op.getOperation()->getRegions()) {
-    for (auto &b : region)
-      if (b.getNumArguments() != 0)
-        return op.emitOpError(
-            "requires that child entry blocks have no arguments");
-  }
   return success();
 }
 

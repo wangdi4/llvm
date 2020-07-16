@@ -136,6 +136,11 @@ static cl::opt<unsigned> MaxSpeculationDepth(
     cl::desc("Limit maximum recursion depth when calculating costs of "
              "speculatively executed instructions"));
 
+static cl::opt<int>
+MaxSmallBlockSize("simplifycfg-max-small-block-size", cl::Hidden, cl::init(10),
+                  cl::desc("Max size of a block which is still considered "
+                           "small enough to thread through"));
+
 STATISTIC(NumBitMaps, "Number of switch instructions turned into bitmaps");
 STATISTIC(NumLinearMaps,
           "Number of switch instructions turned into linear mapping");
@@ -2168,9 +2173,14 @@ bool SimplifyCFGOpt::SpeculativelyExecuteBB(BranchInst *BI, BasicBlock *ThenBB,
   }
 
   // Metadata can be dependent on the condition we are hoisting above.
-  // Conservatively strip all metadata on the instruction.
-  for (auto &I : *ThenBB)
+  // Conservatively strip all metadata on the instruction. Drop the debug loc
+  // to avoid making it appear as if the condition is a constant, which would
+  // be misleading while debugging.
+  for (auto &I : *ThenBB) {
+    if (!SpeculatedStoreValue || &I != SpeculatedStore)
+      I.setDebugLoc(DebugLoc());
     I.dropUnknownNonDebugMetadata();
+  }
 
   // Hoist the instructions.
   BB->getInstList().splice(BI->getIterator(), ThenBB->getInstList(),
@@ -2211,10 +2221,10 @@ bool SimplifyCFGOpt::SpeculativelyExecuteBB(BranchInst *BI, BasicBlock *ThenBB,
 
 /// Return true if we can thread a branch across this block.
 static bool BlockIsSimpleEnoughToThreadThrough(BasicBlock *BB) {
-  unsigned Size = 0;
+  int Size = 0;
 
   for (Instruction &I : BB->instructionsWithoutDebug()) {
-    if (Size > 10)
+    if (Size > MaxSmallBlockSize)
       return false; // Don't clone large BB's.
 
 #if INTEL_COLLAB
@@ -2222,7 +2232,10 @@ static bool BlockIsSimpleEnoughToThreadThrough(BasicBlock *BB) {
       return false;
 #endif // INTEL_COLLAB
 
-    ++Size;
+    // We will delete Phis while threading, so Phis should not be accounted in
+    // block's size
+    if (!isa<PHINode>(I))
+      ++Size;
 
     // We can only support instructions that do not define values that are
     // live outside of the current basic block.
@@ -3237,7 +3250,7 @@ bool llvm::FoldBranchToCommonDest(BranchInst *BI, MemorySSAUpdater *MSSAU,
             }
             // Quit if we can't remove this instruction.
             if (!tryCSEWithPredecessor(Curr, PB))
-              return false;
+              return Changed;
             Changed = true;
           }
         }
@@ -3731,29 +3744,11 @@ static bool mergeConditionalStoreToAddress(BasicBlock *PTB, BasicBlock *PFB,
   PStore->getAAMetadata(AAMD, /*Merge=*/false);
   PStore->getAAMetadata(AAMD, /*Merge=*/true);
   SI->setAAMetadata(AAMD);
-  unsigned PAlignment = PStore->getAlignment();
-  unsigned QAlignment = QStore->getAlignment();
-  unsigned TypeAlignment =
-      DL.getABITypeAlignment(SI->getValueOperand()->getType());
-  unsigned MinAlignment;
-  unsigned MaxAlignment;
-  std::tie(MinAlignment, MaxAlignment) = std::minmax(PAlignment, QAlignment);
   // Choose the minimum alignment. If we could prove both stores execute, we
   // could use biggest one.  In this case, though, we only know that one of the
   // stores executes.  And we don't know it's safe to take the alignment from a
   // store that doesn't execute.
-  if (MinAlignment != 0) {
-    // Choose the minimum of all non-zero alignments.
-    SI->setAlignment(Align(MinAlignment));
-  } else if (MaxAlignment != 0) {
-    // Choose the minimal alignment between the non-zero alignment and the ABI
-    // default alignment for the type of the stored value.
-    SI->setAlignment(Align(std::min(MaxAlignment, TypeAlignment)));
-  } else {
-    // If both alignments are zero, use ABI default alignment for the type of
-    // the stored value.
-    SI->setAlignment(Align(TypeAlignment));
-  }
+  SI->setAlignment(std::min(PStore->getAlign(), QStore->getAlign()));
 
   QStore->eraseFromParent();
   PStore->eraseFromParent();

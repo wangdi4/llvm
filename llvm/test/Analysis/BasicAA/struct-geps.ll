@@ -1,8 +1,8 @@
-; RUN: opt < %s -basicaa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -basic-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 ; INTEL
-; RUN: opt < %s -basicaa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck --check-prefix=CHECK-GEP %s
-; RUN: opt -convert-to-subscript -S < %s | opt -basicaa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
-; RUN: opt -convert-to-subscript -S < %s | opt -basicaa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck --check-prefix=CHECK-SUBS %s
+; RUN: opt < %s -basic-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck --check-prefix=CHECK-GEP %s
+; RUN: opt -convert-to-subscript -S < %s | opt -basic-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
+; RUN: opt -convert-to-subscript -S < %s | opt -basic-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck --check-prefix=CHECK-SUBS %s
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 

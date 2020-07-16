@@ -1,9 +1,9 @@
 ; This testcase ensures that gep result does not alias gep indices
 
-; RUN: opt < %s -disable-basicaa -cfl-steens-aa -aa-eval -print-no-aliases -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -disable-basic-aa -cfl-steens-aa -aa-eval -print-no-aliases -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -aa-pipeline=cfl-steens-aa -passes=aa-eval -print-no-aliases -disable-output 2>&1 | FileCheck %s
 ; INTEL_CUSTOMIZATION
-; RUN: opt < %s -convert-to-subscript -S | opt -disable-basicaa -cfl-steens-aa -aa-eval -print-no-aliases -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -convert-to-subscript -S | opt -disable-basic-aa -cfl-steens-aa -aa-eval -print-no-aliases -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -convert-to-subscript -S | opt -aa-pipeline=cfl-steens-aa -passes=aa-eval -print-no-aliases -disable-output 2>&1 | FileCheck %s
 ; end INTEL_CUSTOMIZATION
 

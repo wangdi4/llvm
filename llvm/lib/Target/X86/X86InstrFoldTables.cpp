@@ -7242,6 +7242,14 @@ static const X86MemoryFoldTableEntry BroadcastFoldTable3[] = {
   { X86::VPSUBQZ128rrkz,       X86::VPSUBQZ128rmbkz,      TB_BCAST_Q },
   { X86::VPSUBQZ256rrkz,       X86::VPSUBQZ256rmbkz,      TB_BCAST_Q },
   { X86::VPSUBQZrrkz,          X86::VPSUBQZrmbkz,         TB_BCAST_Q },
+#endif // INTEL_CUSTOMIZATION
+  { X86::VPTERNLOGDZ128rri,    X86::VPTERNLOGDZ128rmbi,   TB_BCAST_D },
+  { X86::VPTERNLOGDZ256rri,    X86::VPTERNLOGDZ256rmbi,   TB_BCAST_D },
+  { X86::VPTERNLOGDZrri,       X86::VPTERNLOGDZrmbi,      TB_BCAST_D },
+  { X86::VPTERNLOGQZ128rri,    X86::VPTERNLOGQZ128rmbi,   TB_BCAST_Q },
+  { X86::VPTERNLOGQZ256rri,    X86::VPTERNLOGQZ256rmbi,   TB_BCAST_Q },
+  { X86::VPTERNLOGQZrri,       X86::VPTERNLOGQZrmbi,      TB_BCAST_Q },
+#if INTEL_CUSTOMIZATION
   { X86::VPTESTMDZ128rrk,      X86::VPTESTMDZ128rmbk,     TB_BCAST_D },
   { X86::VPTESTMDZ256rrk,      X86::VPTESTMDZ256rmbk,     TB_BCAST_D },
   { X86::VPTESTMDZrrk,         X86::VPTESTMDZrmbk,        TB_BCAST_D },

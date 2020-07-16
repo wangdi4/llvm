@@ -790,16 +790,6 @@ _storebe_i64(void * __P, long long __D) {
 #endif
 /* end INTEL_FEATURE_ISA_HRESET */
 
-/* INTEL_FEATURE_ISA_AMX */
-#if defined(__AMX_SUPPORTED__)
-#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AMXTILE__) || defined(__AMXINT8__) || defined(__AMXBF16__) ||    \
-    defined(__M_INTRINSIC_PROMOTE__)
-#include <Intel_amxintrin.h>
-#endif
-#endif
-/* end INTEL_FEATURE_ISA_AMX */
-
 /* INTEL_FEATURE_ISA_AMX_FUTURE */
 #if defined(__AMX_FUTURE_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
@@ -912,10 +902,13 @@ _storebe_i64(void * __P, long long __D) {
 /* end INTEL_FEATURE_ISA_KEYLOCKER */
 /* end INTEL_CUSTOMIZATION */
 
-/* INTEL_CUSTOMIZATION */
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
-    defined(__AVX512VP2INTERSECT__) || defined(__M_INTRINSIC_PROMOTE__)
-/* end INTEL_CUSTOMIZATION */
+    defined(__AMXTILE__) || defined(__AMXINT8__) || defined(__AMXBF16__)
+#include <amxintrin.h>
+#endif
+
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AVX512VP2INTERSECT__)
 #include <avx512vp2intersectintrin.h>
 #endif
 

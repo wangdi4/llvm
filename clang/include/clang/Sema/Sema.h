@@ -725,10 +725,41 @@ public:
             PragmaLocation(PragmaLocation),
             PragmaPushLocation(PragmaPushLocation) {}
     };
-    void Act(SourceLocation PragmaLocation,
-             PragmaMsStackAction Action,
-             llvm::StringRef StackSlotLabel,
-             ValueType Value);
+
+    void Act(SourceLocation PragmaLocation, PragmaMsStackAction Action,
+             llvm::StringRef StackSlotLabel, ValueType Value) {
+      if (Action == PSK_Reset) {
+        CurrentValue = DefaultValue;
+        CurrentPragmaLocation = PragmaLocation;
+        return;
+      }
+      if (Action & PSK_Push)
+        Stack.emplace_back(StackSlotLabel, CurrentValue, CurrentPragmaLocation,
+                           PragmaLocation);
+      else if (Action & PSK_Pop) {
+        if (!StackSlotLabel.empty()) {
+          // If we've got a label, try to find it and jump there.
+          auto I = llvm::find_if(llvm::reverse(Stack), [&](const Slot &x) {
+            return x.StackSlotLabel == StackSlotLabel;
+          });
+          // If we found the label so pop from there.
+          if (I != Stack.rend()) {
+            CurrentValue = I->Value;
+            CurrentPragmaLocation = I->PragmaLocation;
+            Stack.erase(std::prev(I.base()), Stack.end());
+          }
+        } else if (!Stack.empty()) {
+          // We do not have a label, just pop the last entry.
+          CurrentValue = Stack.back().Value;
+          CurrentPragmaLocation = Stack.back().PragmaLocation;
+          Stack.pop_back();
+        }
+      }
+      if (Action & PSK_Set) {
+        CurrentValue = Value;
+        CurrentPragmaLocation = PragmaLocation;
+      }
+    }
 
     // MSVC seems to add artificial slots to #pragma stacks on entering a C++
     // method body to restore the stacks on exit, so it works like this:
@@ -792,6 +823,15 @@ public:
 
   // This stack tracks the current state of Sema.CurFPFeatures.
   PragmaStack<unsigned> FpPragmaStack;
+  FPOptionsOverride CurFPFeatureOverrides() {
+    FPOptionsOverride result;
+    if (!FpPragmaStack.hasValue()) {
+      result = FPOptionsOverride();
+    } else {
+      result = FPOptionsOverride(FpPragmaStack.CurrentValue);
+    }
+    return result;
+  }
 
   // RAII object to push / pop sentinel slots for all MS #pragma stacks.
   // Actions should be performed only if we enter / exit a C++ method body.
@@ -1593,12 +1633,19 @@ public:
   /// statements.
   class FPFeaturesStateRAII {
   public:
-    FPFeaturesStateRAII(Sema &S) : S(S), OldFPFeaturesState(S.CurFPFeatures) {}
-    ~FPFeaturesStateRAII() { S.CurFPFeatures = OldFPFeaturesState; }
+    FPFeaturesStateRAII(Sema &S) : S(S), OldFPFeaturesState(S.CurFPFeatures) {
+      OldOverrides = S.FpPragmaStack.CurrentValue;
+    }
+    ~FPFeaturesStateRAII() {
+      S.CurFPFeatures = OldFPFeaturesState;
+      S.FpPragmaStack.CurrentValue = OldOverrides;
+    }
+    unsigned getOverrides() { return OldOverrides; }
 
   private:
     Sema& S;
     FPOptions OldFPFeaturesState;
+    unsigned OldOverrides;
   };
 
   void addImplicitTypedef(StringRef Name, QualType T);
@@ -3119,8 +3166,6 @@ public:
                      Decl *EnumDecl, ArrayRef<Decl *> Elements, Scope *S,
                      const ParsedAttributesView &Attr);
 
-  DeclContext *getContainingDC(DeclContext *DC);
-
   /// Set the current declaration context until it gets popped.
   void PushDeclContext(Scope *S, DeclContext *DC);
   void PopDeclContext();
@@ -3129,6 +3174,11 @@ public:
   /// of a declarator's nested name specifier.
   void EnterDeclaratorContext(Scope *S, DeclContext *DC);
   void ExitDeclaratorContext(Scope *S);
+
+  /// Enter a template parameter scope, after it's been associated with a particular
+  /// DeclContext. Causes lookup within the scope to chain through enclosing contexts
+  /// in the correct order.
+  void EnterTemplatedContext(Scope *S, DeclContext *DC);
 
   /// Push the parameters of D, which must be a function, into scope.
   void ActOnReenterFunctionContext(Scope* S, Decl* D);
@@ -7091,7 +7141,8 @@ public:
   void ActOnFinishCXXNonNestedClass();
 
   void ActOnReenterCXXMethodParameter(Scope *S, ParmVarDecl *Param);
-  unsigned ActOnReenterTemplateScope(Scope *S, Decl *Template);
+  unsigned ActOnReenterTemplateScope(Decl *Template,
+                                     llvm::function_ref<Scope *()> EnterScope);
   void ActOnStartDelayedMemberDeclarations(Scope *S, Decl *Record);
   void ActOnStartDelayedCXXMethodDeclaration(Scope *S, Decl *Method);
   void ActOnDelayedCXXMethodParameter(Scope *S, Decl *Param);
@@ -9904,10 +9955,10 @@ public:
 
   /// Are precise floating point semantics currently enabled?
   bool isPreciseFPEnabled() {
-    return !CurFPFeatures.allowAssociativeMath() &&
-           !CurFPFeatures.noSignedZeros() &&
-           !CurFPFeatures.allowReciprocalMath() &&
-           !CurFPFeatures.allowApproximateFunctions();
+    return !CurFPFeatures.getAllowFPReassociate() &&
+           !CurFPFeatures.getNoSignedZero() &&
+           !CurFPFeatures.getAllowReciprocal() &&
+           !CurFPFeatures.getAllowApproxFunc();
   }
 
   /// ActOnPragmaFloatControl - Call on well-formed \#pragma float_control
@@ -9950,21 +10001,21 @@ public:
   /// ActOnPragmaFPContract - Called on well formed
   /// \#pragma {STDC,OPENCL} FP_CONTRACT and
   /// \#pragma clang fp contract
-  void ActOnPragmaFPContract(LangOptions::FPModeKind FPC);
+  void ActOnPragmaFPContract(SourceLocation Loc, LangOptions::FPModeKind FPC);
 
   /// Called on well formed
   /// \#pragma clang fp reassociate
-  void ActOnPragmaFPReassociate(bool IsEnabled);
+  void ActOnPragmaFPReassociate(SourceLocation Loc, bool IsEnabled);
 
   /// ActOnPragmaFenvAccess - Called on well formed
   /// \#pragma STDC FENV_ACCESS
   void ActOnPragmaFEnvAccess(SourceLocation Loc, bool IsEnabled);
 
   /// Called to set rounding mode for floating point operations.
-  void setRoundingMode(llvm::RoundingMode);
+  void setRoundingMode(SourceLocation Loc, llvm::RoundingMode);
 
   /// Called to set exception behavior for floating point operations.
-  void setExceptionMode(LangOptions::FPExceptionModeKind);
+  void setExceptionMode(SourceLocation Loc, LangOptions::FPExceptionModeKind);
 
   /// AddAlignmentAttributesForRecord - Adds any needed alignment attributes to
   /// a the record decl, to handle '\#pragma pack' and '\#pragma options align'.
@@ -10106,6 +10157,8 @@ public:
   void addSYCLIntelPipeIOAttr(Decl *D, const AttributeCommonInfo &CI, Expr *ID);
 
   bool checkNSReturnsRetainedReturnType(SourceLocation loc, QualType type);
+  bool checkAllowedSYCLInitializer(VarDecl *VD,
+                                   bool CheckValueDependent = false);
 
   // Adds an intel_reqd_sub_group_size attribute to a particular declaration.
   void addIntelReqdSubGroupSizeAttr(Decl *D, const AttributeCommonInfo &CI,
@@ -10133,6 +10186,9 @@ public:
   void CheckCompletedCoroutineBody(FunctionDecl *FD, Stmt *&Body);
   ClassTemplateDecl *lookupCoroutineTraits(SourceLocation KwLoc,
                                            SourceLocation FuncLoc);
+  /// Check that the expression co_await promise.final_suspend() shall not be
+  /// potentially-throwing.
+  bool checkFinalSuspendNoThrow(const Stmt *FinalSuspend);
 
   //===--------------------------------------------------------------------===//
   // OpenCL extensions.
@@ -12327,7 +12383,7 @@ public:
   void CodeCompleteDesignator(const QualType BaseType,
                               llvm::ArrayRef<Expr *> InitExprs,
                               const Designation &D);
-  void CodeCompleteAfterIf(Scope *S);
+  void CodeCompleteAfterIf(Scope *S, bool IsBracedThen);
 
   void CodeCompleteQualifiedId(Scope *S, CXXScopeSpec &SS, bool EnteringContext,
                                bool IsUsingDeclaration, QualType BaseType,
@@ -12343,6 +12399,7 @@ public:
 
   void CodeCompleteLambdaIntroducer(Scope *S, LambdaIntroducer &Intro,
                                     bool AfterAmpersand);
+  void CodeCompleteAfterFunctionEquals(Declarator &D);
 
   void CodeCompleteObjCAtDirective(Scope *S);
   void CodeCompleteObjCAtVisibility(Scope *S);
@@ -12500,6 +12557,14 @@ private:
   bool CheckX86BuiltinTileRangeAndDuplicate(CallExpr *TheCall,
                                             ArrayRef<int> ArgNums, int Low = 0,
                                             int High = 15);
+#else // INTEL_FEATURE_ISA_AMX
+  bool CheckX86BuiltinTileArguments(unsigned BuiltinID, CallExpr *TheCall);
+  bool CheckX86BuiltinTileArgumentsRange(CallExpr *TheCall,
+                                         ArrayRef<int> ArgNums);
+  bool CheckX86BuiltinTileArgumentsRange(CallExpr *TheCall, int ArgNum);
+  bool CheckX86BuiltinTileDuplicate(CallExpr *TheCall, ArrayRef<int> ArgNums);
+  bool CheckX86BuiltinTileRangeAndDuplicate(CallExpr *TheCall,
+                                            ArrayRef<int> ArgNums);
 #endif // INTEL_FEATURE_ISA_AMX
 #endif // INTEL_CUSTOMIZATION
   bool CheckX86BuiltinFunctionCall(const TargetInfo &TI, unsigned BuiltinID,
@@ -12935,7 +13000,8 @@ public:
     KernelUseAssembly,
     KernelCallDllimportFunction,
     KernelCallVariadicFunction,
-    KernelCallUndefinedFunction
+    KernelCallUndefinedFunction,
+    KernelConstStaticVariable
   };
 
   bool isKnownGoodSYCLDecl(const Decl *D);

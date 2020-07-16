@@ -174,13 +174,6 @@ static InstrUID decode(OpcodeType type, InstructionContext insnContext,
     if (modFromModRM(modRM) == 0x3)
       return modRMTable[dec->instructionIDs + ((modRM & 0x38) >> 3) + 8];
     return modRMTable[dec->instructionIDs + ((modRM & 0x38) >> 3)];
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX
-  case MODRM_SPLITREGM:
-    assert(modFromModRM(modRM) == 0x3);
-    return modRMTable[dec->instructionIDs+(modRM & 0x7)];
-#endif // INTEL_FEATURE_ISA_AMX
-#endif // INTEL_CUSTOMIZATION
   case MODRM_SPLITMISC:
     if (modFromModRM(modRM) == 0x3)
       return modRMTable[dec->instructionIDs + (modRM & 0x3f) + 8];
@@ -777,7 +770,11 @@ static int readModRM(struct InternalInstruction *insn) {
     case TYPE_TMM_PAIR:                                                        \
       return prefix##_TMM0_TMM1 + (index / 2 );
 #else // INTEL_FEATURE_ISA_AMX
-#define TMM_TYPE(prefix)
+#define TMM_TYPE(prefix)                                                       \
+    case TYPE_TMM:                                                             \
+      if (index > 7)                                                           \
+        *valid = 0;                                                            \
+      return prefix##_TMM0 + index;
 #define TMM_TYPE_PAIR(prefix)
 #endif // INTEL_FEATURE_ISA_AMX
 
@@ -919,6 +916,7 @@ static int fixupReg(struct InternalInstruction *insn,
     if (!valid)
       return -1;
     break;
+  CASE_ENCODING_SIB: // INTEL
   CASE_ENCODING_RM:
     if (insn->eaBase >= insn->eaRegBase) {
       insn->eaBase = (EABase)fixupRMValue(
@@ -1683,6 +1681,15 @@ static int readOperands(struct InternalInstruction *insn) {
       if (Op.encoding != ENCODING_REG && insn->eaDisplacement == EA_DISP_8)
         insn->displacement *= 1 << (Op.encoding - ENCODING_VSIB);
       break;
+    CASE_ENCODING_SIB: // INTEL
+      // Reject if SIB wasn't used.
+      if (insn->eaBase != EA_BASE_sib && insn->eaBase != EA_BASE_sib64)
+        return -1;
+      if (readModRM(insn))
+        return -1;
+      if (fixupReg(insn, &Op))
+        return -1;
+      break;
     case ENCODING_REG:
     CASE_ENCODING_RM:
       if (readModRM(insn))
@@ -2171,9 +2178,11 @@ static bool translateRMRegister(MCInst &mcInst,
 /// @param mcInst       - The MCInst to append to.
 /// @param insn         - The instruction to extract Mod, R/M, and SIB fields
 ///                       from.
+/// @param ForceSIB     - The instruction must use SIB.
 /// @return             - 0 on success; nonzero otherwise
 static bool translateRMMemory(MCInst &mcInst, InternalInstruction &insn,
-                              const MCDisassembler *Dis) {
+                              const MCDisassembler *Dis,
+                              bool ForceSIB = false) {
   // Addresses in an MCInst are represented as five operands:
   //   1. basereg       (register)  The R/M base, or (if there is a SIB) the
   //                                SIB base
@@ -2232,11 +2241,12 @@ static bool translateRMMemory(MCInst &mcInst, InternalInstruction &insn,
       // -Any base register used other than ESP/RSP/R12D/R12. Using these as a
       //  base always requires a SIB byte.
       // -A scale other than 1 is used.
-      if (insn.sibScale != 1 ||
-          (insn.sibBase == SIB_BASE_NONE && insn.mode != MODE_64BIT) ||
-          (insn.sibBase != SIB_BASE_NONE &&
-           insn.sibBase != SIB_BASE_ESP && insn.sibBase != SIB_BASE_RSP &&
-           insn.sibBase != SIB_BASE_R12D && insn.sibBase != SIB_BASE_R12)) {
+      if (!ForceSIB &&
+          (insn.sibScale != 1 ||
+           (insn.sibBase == SIB_BASE_NONE && insn.mode != MODE_64BIT) ||
+           (insn.sibBase != SIB_BASE_NONE &&
+            insn.sibBase != SIB_BASE_ESP && insn.sibBase != SIB_BASE_RSP &&
+            insn.sibBase != SIB_BASE_R12D && insn.sibBase != SIB_BASE_R12))) {
         indexReg = MCOperand::createReg(insn.addressSize == 4 ? X86::EIZ :
                                                                 X86::RIZ);
       } else
@@ -2349,7 +2359,6 @@ static bool translateRM(MCInst &mcInst, const OperandSpecifier &operand,
   case TYPE_ZMM:
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
-  case TYPE_TMM:
   case TYPE_TMM_PAIR:
 #endif // INTEL_FEATURE_ISA_AMX
 #if INTEL_FEATURE_ISA_AMX_LNC
@@ -2359,6 +2368,7 @@ static bool translateRM(MCInst &mcInst, const OperandSpecifier &operand,
   case TYPE_TMM_QUAD:
 #endif // INTEL_FEATURE_ISA_AMX_TRANSPOSE2
 #endif // INTEL_CUSTOMIZATION
+  case TYPE_TMM:
   case TYPE_VK_PAIR:
   case TYPE_VK:
   case TYPE_DEBUGREG:
@@ -2375,6 +2385,8 @@ static bool translateRM(MCInst &mcInst, const OperandSpecifier &operand,
   case TYPE_MVSIBY:
   case TYPE_MVSIBZ:
     return translateRMMemory(mcInst, insn, Dis);
+  case TYPE_MSIB:
+    return translateRMMemory(mcInst, insn, Dis, true);
   }
 }
 
@@ -2424,6 +2436,7 @@ static bool translateOperand(MCInst &mcInst, const OperandSpecifier &operand,
     return false;
   case ENCODING_WRITEMASK:
     return translateMaskRegister(mcInst, insn.writemask);
+  CASE_ENCODING_SIB: // INTEL
   CASE_ENCODING_RM:
   CASE_ENCODING_VSIB:
     return translateRM(mcInst, operand, insn, Dis);

@@ -691,9 +691,8 @@ bool Float128Expand::PerformFp128Transform(DomTreeNode *Node) {
   do {
     Node = WorkList.pop_back_val();
     Scopes.push_back(Node);
-    const std::vector<DomTreeNode *> &Children = Node->getChildren();
-    OpenChildren[Node] = Children.size();
-    for (DomTreeNode *Child : Children)
+    OpenChildren[Node] = Node->getNumChildren();
+    for (DomTreeNode *Child : Node->children())
       WorkList.push_back(Child);
   } while (!WorkList.empty());
 

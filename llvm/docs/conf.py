@@ -26,11 +26,16 @@ from datetime import date
 
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
+extensions = ['sphinx.ext.intersphinx', 'sphinx.ext.todo']
+
+import sphinx
+if sphinx.version_info >= (3, 0):
+  # This requires 0.5 or later.
 # INTEL_CUSTOMIZATION
-extensions = ['sphinx.ext.intersphinx', 'sphinx.ext.todo',
-              'sphinx.ext.mathjax', 'sphinx.ext.graphviz',
-              'recommonmark']
+  extensions.extend(['recommonmark', 'sphinx.ext.mathjax', 'sphinx.ext.graphviz'])
 # // INTEL_CUSTOMIZATION
+else:
+  source_parsers = {'.md': 'recommonmark.parser.CommonMarkParser'}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

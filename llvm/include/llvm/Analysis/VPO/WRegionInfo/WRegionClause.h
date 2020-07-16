@@ -20,7 +20,7 @@
 #include "llvm/Analysis/VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/CommandLine.h" // INTEL
 #include <tuple>
 #include <vector>
 #if INTEL_CUSTOMIZATION

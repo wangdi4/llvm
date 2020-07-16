@@ -6177,8 +6177,8 @@ let TargetPrefix = "x86" in {
                   [ IntrNoMem, ImmArg<ArgIndex<4>> ]>;
 }
 #endif // INTEL_FEATURE_ISA_FP16
+#endif // INTEL_CUSTOMIZATION
 
-#if INTEL_FEATURE_ISA_AMX
 //===----------------------------------------------------------------------===//
 // AMX - Intel AMX extensions
 
@@ -6208,8 +6208,8 @@ let TargetPrefix = "x86" in {
   def int_x86_tdpbf16ps : GCCBuiltin<"__builtin_ia32_tdpbf16ps">,
               Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], []>;
 }
-#endif // INTEL_FEATURE_ISA_AMX
 
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ICECODE
 //===----------------------------------------------------------------------===//
 // IceCode

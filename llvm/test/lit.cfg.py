@@ -219,6 +219,9 @@ else:
 if not config.build_shared_libs and not config.link_llvm_dylib:
     config.available_features.add('static-libs')
 
+if config.have_tf_aot:
+    config.available_features.add("have_tf_aot")
+
 # INTEL_CUSTOMIZATION
 llvm_config.add_intel_features()
 # end INTEL_CUSTOMIZATION

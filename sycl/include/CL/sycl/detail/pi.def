@@ -72,7 +72,6 @@ _PI_API(piextProgramCreateWithNativeHandle)
 // Kernel
 _PI_API(piKernelCreate)
 _PI_API(piKernelSetArg)
-_PI_API(piextKernelSetArgMemObj)
 _PI_API(piKernelGetInfo)
 _PI_API(piKernelGetGroupInfo)
 _PI_API(piKernelGetSubGroupInfo)
@@ -125,4 +124,6 @@ _PI_API(piextUSMEnqueuePrefetch)
 _PI_API(piextUSMEnqueueMemAdvise)
 _PI_API(piextUSMGetMemAllocInfo)
 
+_PI_API(piextKernelSetArgMemObj)
+_PI_API(piextKernelSetArgSampler)
 #undef _PI_API

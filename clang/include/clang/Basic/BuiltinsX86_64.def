@@ -126,7 +126,6 @@ TARGET_BUILTIN(__builtin_ia32_testui, "Uc", "n", "uli")
 TARGET_BUILTIN(__builtin_ia32_senduipi, "vUWi", "n", "uli")
 #endif // INTEL_FEATURE_ISA_ULI
 
-#if INTEL_FEATURE_ISA_AMX
 // AMX
 TARGET_BUILTIN(__builtin_ia32_tile_loadconfig, "vvC*", "n", "amx-tile")
 TARGET_BUILTIN(__builtin_ia32_tile_storeconfig, "vvC*", "n", "amx-tile")
@@ -142,7 +141,6 @@ TARGET_BUILTIN(__builtin_ia32_tdpbsud, "vIUcIUcIUc", "n", "amx-int8")
 TARGET_BUILTIN(__builtin_ia32_tdpbusd, "vIUcIUcIUc", "n", "amx-int8")
 TARGET_BUILTIN(__builtin_ia32_tdpbuud, "vIUcIUcIUc", "n", "amx-int8")
 TARGET_BUILTIN(__builtin_ia32_tdpbf16ps, "vIUcIUcIUc", "n", "amx-bf16")
-#endif // INTEL_FEATURE_ISA_AMX
 
 #if INTEL_FEATURE_ISA_AMX_FUTURE
 // AMX_FUTURE Reduce

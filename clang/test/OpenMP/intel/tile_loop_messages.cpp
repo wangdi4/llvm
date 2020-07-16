@@ -64,12 +64,15 @@ void tile_test(int v_ptr[M][N])
 
   //CHECK: OMPParallelForDirective
   //CHECK-NEXT: OMPTileClause
-  //CHECK-NEXT: ConstantExpr{{.*}} 8{{$}}
+  //CHECK-NEXT: ConstantExpr{{.*}}
+  //CHECK-NEXT: value: Int 8
   //CHECK-NEXT: IntegerLiteral{{.*}} 8{{$}}
-  //CHECK-NEXT: ConstantExpr{{.*}} 16{{$}}
+  //CHECK-NEXT: ConstantExpr{{.*}}
+  //CHECK-NEXT: value: Int 16
   //CHECK-NEXT: IntegerLiteral{{.*}} 16{{$}}
   //CHECK: OMPCollapseClause{{.*}}<implicit>
-  //CHECK-NEXT: ConstantExpr{{.*}} 2{{$}}
+  //CHECK-NEXT: ConstantExpr{{.*}}
+  //CHECK-NEXT: value: Int 2
   //CHECK-NEXT: IntegerLiteral{{.*}} 2{{$}}
   #pragma omp parallel for tile(8,16)
   LOOP

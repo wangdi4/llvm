@@ -28,6 +28,7 @@
 #include "llvm/IR/Value.h"
 #include "llvm/Support/AlignOf.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/Support/CommandLine.h" // INTEL
 #include "llvm/Support/KnownBits.h"
 #include <cassert>
 #include <utility>

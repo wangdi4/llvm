@@ -452,7 +452,8 @@ void VPOParoptModuleTransform::replaceSincosWithOCLBuiltin(Function *F,
 // do necessary code cleanup (f.e. remove functions/globals which should not be
 // generated for the target).
 bool VPOParoptModuleTransform::doParoptTransforms(
-    std::function<vpo::WRegionInfo &(Function &F)> WRegionInfoGetter,
+    std::function<vpo::WRegionInfo &(Function &F, bool *Changed)>
+        WRegionInfoGetter,
     std::function<TargetLibraryInfo &(Function &F)> TLIGetter) {
 
   bool Changed = false;
@@ -527,7 +528,7 @@ bool VPOParoptModuleTransform::doParoptTransforms(
     }
 
     // Walk the W-Region Graph top-down, and create W-Region List
-    WRegionInfo &WI = WRegionInfoGetter(*F);
+    WRegionInfo &WI = WRegionInfoGetter(*F, &Changed);
     WI.buildWRGraph();
 
     if (WI.WRGraphIsEmpty()) {

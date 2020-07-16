@@ -51,6 +51,8 @@ OMPClause::child_range OMPClause::used_children() {
   case OMPC_match:
   case OMPC_unknown:
     break;
+  default:
+    break;
   }
   llvm_unreachable("unknown OMPClause");
 }
@@ -164,6 +166,8 @@ const OMPClauseWithPreInit *OMPClauseWithPreInit::get(const OMPClause *C) {
   case OMPC_uses_allocators:
   case OMPC_affinity:
     break;
+  default:
+    break;
   }
 
   return nullptr;
@@ -264,6 +268,8 @@ const OMPClauseWithPostUpdate *OMPClauseWithPostUpdate::get(const OMPClause *C) 
   case OMPC_dataflow:
 #endif // INTEL_FEATURE_CSA
 #endif // INTEL_CUSTOMIZATION
+    break;
+  default:
     break;
   }
 

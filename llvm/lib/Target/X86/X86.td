@@ -58,13 +58,16 @@ def FeatureXSAVE   : SubtargetFeature<"xsave", "HasXSAVE", "true",
                                        "Support xsave instructions">;
 
 def FeatureXSAVEOPT: SubtargetFeature<"xsaveopt", "HasXSAVEOPT", "true",
-                                       "Support xsaveopt instructions">;
+                                       "Support xsaveopt instructions",
+                                       [FeatureXSAVE]>;
 
 def FeatureXSAVEC  : SubtargetFeature<"xsavec", "HasXSAVEC", "true",
-                                       "Support xsavec instructions">;
+                                       "Support xsavec instructions",
+                                       [FeatureXSAVE]>;
 
 def FeatureXSAVES  : SubtargetFeature<"xsaves", "HasXSAVES", "true",
-                                       "Support xsaves instructions">;
+                                       "Support xsaves instructions",
+                                       [FeatureXSAVE]>;
 
 def FeatureSSE1    : SubtargetFeature<"sse", "X86SSELevel", "SSE1",
                                       "Enable SSE instructions">;
@@ -328,17 +331,15 @@ def FeaturePTWRITE  : SubtargetFeature<"ptwrite", "HasPTWRITE", "true",
 // target-feature attribute.
 def FeatureDeprecatedMPX : SubtargetFeature<"mpx", "DeprecatedHasMPX", "false",
                                       "Deprecated. Support MPX instructions">;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX
 def FeatureAMXTILE     : SubtargetFeature<"amx-tile", "HasAMXTILE", "true",
-                                      "Support AMX tile instructions">;
+                                      "Support AMX-TILE instructions">;
 def FeatureAMXINT8     : SubtargetFeature<"amx-int8", "HasAMXINT8", "true",
-                                      "Support AMX amx-int8 instructions",
+                                      "Support AMX-INT8 instructions",
                                       [FeatureAMXTILE]>;
 def FeatureAMXBF16     : SubtargetFeature<"amx-bf16", "HasAMXBF16", "true",
-                                      "Support AMX amx-bf16 instructions",
+                                      "Support AMX-BF16 instructions",
                                       [FeatureAMXTILE]>;
-#endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX_FUTURE
 def FeatureAMXELEMENT     : SubtargetFeature<"amx-element", "HasAMXELEMENT", "true",
                                       "Support AMX amx-element instructions",
@@ -1145,6 +1146,7 @@ def ProcessorFeatures {
                                                          FeatureFXSR,
                                                          FeatureNOPL,
                                                          FeatureCMPXCHG16B,
+                                                         FeaturePRFCHW,
                                                          FeatureLZCNT,
                                                          FeaturePOPCNT,
                                                          FeatureSlowSHLD,
@@ -1240,6 +1242,8 @@ def ProcessorFeatures {
   // Excavator
   list<SubtargetFeature> BdVer4AdditionalFeatures = [FeatureAVX2,
                                                      FeatureBMI2,
+                                                     FeatureMOVBE,
+                                                     FeatureRDRAND,
                                                      FeatureMWAITX];
   list<SubtargetFeature> BdVer4InheritableFeatures =
     !listconcat(BdVer3InheritableFeatures, BdVer4AdditionalFeatures);

@@ -306,7 +306,6 @@ struct _pi_event : _pi_object {
 };
 
 struct _pi_program : _pi_object {
-#if INTEL_CUSTOMIZATION
   _pi_program(ze_module_handle_t Module, ze_module_desc_t ModuleDesc,
               pi_context Context)
       : ZeModuleDesc(ModuleDesc), ZeModule{Module},
@@ -314,28 +313,24 @@ struct _pi_program : _pi_object {
 
   // L0 module descriptor.
   ze_module_desc_t ZeModuleDesc;
-#endif // INTEL_CUSTOMIZATION
 
   // L0 module handle.
   ze_module_handle_t ZeModule;
-#if INTEL_CUSTOMIZATION
   // L0 module specialization constants
   std::mutex ZeSpecConstantsMutex;
   std::unordered_map<uint32_t, uint64_t> ZeSpecConstants;
 
   // L0 build log.
   ze_module_build_log_handle_t ZeBuildLog;
-#endif // INTEL_CUSTOMIZATION
+
   // Keep the context of the program.
   pi_context Context;
 };
 
 struct _pi_kernel : _pi_object {
-#if INTEL_CUSTOMIZATION
   _pi_kernel(ze_kernel_handle_t Kernel, pi_program Program,
              const char *KernelName)
       : ZeKernel{Kernel}, Program{Program}, KernelName(KernelName) {}
-#endif // INTEL_CUSTOMIZATION
 
   // L0 function handle.
   ze_kernel_handle_t ZeKernel;
@@ -343,12 +338,12 @@ struct _pi_kernel : _pi_object {
   // Keep the program of the kernel.
   pi_program Program;
 
-#if INTEL_CUSTOMIZATION
   // TODO: remove when bug in the L0 runtime will be fixed.
-  // See:
+#if INTEL_CUSTOMIZATION
+  // Details:
   // https://gitlab.devtools.intel.com/one-api/level_zero_gpu_driver/issues/72
-  std::string KernelName;
 #endif // INTEL_CUSTOMIZATION
+  std::string KernelName;
 };
 
 #if INTEL_CUSTOMIZATION

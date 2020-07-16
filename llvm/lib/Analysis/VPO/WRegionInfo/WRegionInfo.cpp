@@ -101,7 +101,7 @@ void WRegionInfoWrapperPass::releaseMemory() { WRI.reset(); }
 WRegionInfo::WRegionInfo(Function *F, DominatorTree *DT, LoopInfo *LI,
                          ScalarEvolution *SE, const TargetTransformInfo *TTI,
                          AssumptionCache *AC, const TargetLibraryInfo *TLI,
-                         AliasAnalysis *AA, WRegionCollection *WRC,
+                         AAResults *AA, WRegionCollection *WRC,
                          OptimizationRemarkEmitter &ORE)
     : Func(F), DT(DT), LI(LI), SE(SE), TTI(TTI), AC(AC), TLI(TLI), AA(AA),
       WRC(WRC), ORE(ORE) {}

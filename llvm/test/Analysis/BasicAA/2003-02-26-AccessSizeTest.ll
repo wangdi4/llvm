@@ -2,9 +2,9 @@
 ; is performed.  It is not legal to delete the second load instruction because
 ; the value computed by the first load instruction is changed by the store.
 
-; RUN: opt < %s -basicaa -gvn -instcombine -S | FileCheck %s
+; RUN: opt < %s -basic-aa -gvn -instcombine -S | FileCheck %s
 ; INTEL
-; RUN: opt -convert-to-subscript -S < %s | opt -basicaa -gvn -instcombine -S | FileCheck %s
+; RUN: opt -convert-to-subscript -S < %s | opt -basic-aa -gvn -instcombine -S | FileCheck %s
 
 define i32 @test() {
 ; CHECK: %Y.DONOTREMOVE = load i32, i32* %A

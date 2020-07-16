@@ -5243,6 +5243,10 @@ void Sema::InstantiateVariableInitializer(
 
   if (getLangOpts().CUDA)
     checkAllowedCUDAInitializer(Var);
+
+  if (getLangOpts().SYCLIsDevice && !checkAllowedSYCLInitializer(Var))
+    SYCLDiagIfDeviceCode(Var->getLocation(), diag::err_sycl_restrict)
+        << Sema::KernelConstStaticVariable;
 }
 
 /// Instantiate the definition of the given variable from its
@@ -5397,7 +5401,10 @@ void Sema::InstantiateVariableDefinition(SourceLocation PointOfInstantiation,
       // Do not explicitly emit non-const static data member definitions
       // on SYCL device.
       if (!SemaRef.getLangOpts().SYCLIsDevice || !Var->isStaticDataMember() ||
-          Var->isConstexpr() || Var->getType().isConstQualified())
+          Var->isConstexpr() ||
+          (Var->getType().isConstQualified() && Var->getInit() &&
+           Var->getInit()->isConstantInitializer(SemaRef.getASTContext(),
+                                                 false)))
         Consumer.HandleCXXStaticMemberVarInstantiation(Var);
     }
   } PassToConsumerRAII(*this, Consumer, Var);

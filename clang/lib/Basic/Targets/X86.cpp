@@ -90,6 +90,8 @@ static const char *const GCCRegNames[] = {
     "tmm0",  "tmm1",  "tmm2",  "tmm3",  "tmm4",    "tmm5",  "tmm6",  "tmm7",
     // Just align with ICC for tmm8-15
     "tmm8",  "tmm9",  "tmm10", "tmm11", "tmm12",   "tmm13", "tmm14", "tmm15",
+#else // INTEL_FEATURE_ISA_AMX
+    "tmm0",  "tmm1",  "tmm2",  "tmm3",  "tmm4",    "tmm5",  "tmm6",  "tmm7",
 #endif // INTEL_FEATURE_ISA_AMX
 #endif // INTEL_CUSTOMIZATION
 };
@@ -163,433 +165,12 @@ bool X86TargetInfo::initFeatureMap(
 #endif // INTEL_CUSTOMIZATION
 
   using namespace llvm::X86;
-  const enum CPUKind Kind = parseArchX86(CPU);
 
-  // Enable X87 for all X86 processors but Lakemont.
-  if (Kind != CK_Lakemont)
-    setFeatureEnabledImpl(Features, "x87", true);
+  SmallVector<StringRef, 16> CPUFeatures;
+  getFeaturesForCPU(CPU, CPUFeatures);
+  for (auto &F : CPUFeatures)
+    setFeatureEnabledImpl(Features, F, true);
 
-  // Enable cmpxchg8 for i586 and greater CPUs. Include generic for backwards
-  // compatibility.
-  if (Kind >= CK_i586 || Kind == CK_None)
-    setFeatureEnabledImpl(Features, "cx8", true);
-
-#if INTEL_CUSTOMIZATION
-  SmallVector<StringRef, 16> AnonymousCPU1Features;
-#if INTEL_FEATURE_ISA_AMX
-  AnonymousCPU1Features.push_back("amx-tile");
-  AnonymousCPU1Features.push_back("amx-int8");
-  AnonymousCPU1Features.push_back("amx-bf16");
-#endif // INTEL_FEATURE_ISA_AMX
-#if INTEL_FEATURE_ISA_AVX_VNNI
-  AnonymousCPU1Features.push_back("avxvnni");
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
-#if INTEL_FEATURE_ISA_HRESET
-  AnonymousCPU1Features.push_back("hreset");
-#endif // INTEL_FEATURE_ISA_HRESET
-#if INTEL_FEATURE_ISA_FP16
-  AnonymousCPU1Features.push_back("avx512fp16");
-#endif // INTEL_FEATURE_ISA_FP16
-  AnonymousCPU1Features.push_back("sse2"); // To avoid unused variable error.
-#endif // INTEL_CUSTOMIZATION
-
-#if INTEL_CUSTOMIZATION
-  SmallVector<StringRef, 8> AnonymousCPU2Features;
-#if INTEL_FEATURE_ISA_AVX_VNNI
-  AnonymousCPU2Features.push_back("avxvnni");
-#endif // INTEL_FEATURE_ISA_AVX_VNNI
-#if INTEL_FEATURE_ISA_HRESET
-  AnonymousCPU2Features.push_back("hreset");
-#endif // INTEL_FEATURE_ISA_HRESET
-#if INTEL_FEATURE_ISA_KEYLOCKER
-  AnonymousCPU2Features.push_back("keylocker");
-#endif // INTEL_FEATURE_ISA_KEYLOCKER
-  AnonymousCPU2Features.push_back("sse2"); // To avoid unused variable error.
-#endif // INTEL_CUSTOMIZATION
-
-  switch (Kind) {
-  case CK_None:
-  case CK_i386:
-  case CK_i486:
-  case CK_i586:
-  case CK_Pentium:
-  case CK_PentiumPro:
-  case CK_i686:
-  case CK_Lakemont:
-    break;
-
-  case CK_Cooperlake:
-    // CPX inherits all CLX features plus AVX512BF16
-    setFeatureEnabledImpl(Features, "avx512bf16", true);
-    LLVM_FALLTHROUGH;
-  case CK_Cascadelake:
-    // CLX inherits all SKX features plus AVX512VNNI
-    setFeatureEnabledImpl(Features, "avx512vnni", true);
-    LLVM_FALLTHROUGH;
-  case CK_SkylakeServer:
-    setFeatureEnabledImpl(Features, "avx512f", true);
-    setFeatureEnabledImpl(Features, "avx512cd", true);
-    setFeatureEnabledImpl(Features, "avx512dq", true);
-    setFeatureEnabledImpl(Features, "avx512bw", true);
-    setFeatureEnabledImpl(Features, "avx512vl", true);
-    setFeatureEnabledImpl(Features, "clwb", true);
-    setFeatureEnabledImpl(Features, "pku", true);
-    // SkylakeServer cores inherits all SKL features, except SGX
-    goto SkylakeCommon;
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_SPR
-  case CK_SapphireRapids:
-    for (auto Feature : AnonymousCPU1Features)
-      setFeatureEnabledImpl(Features, Feature, true);
-    setFeatureEnabledImpl(Features, "cldemote", true);
-    setFeatureEnabledImpl(Features, "avx512bf16", true);
-    setFeatureEnabledImpl(Features, "waitpkg", true);
-    setFeatureEnabledImpl(Features, "ptwrite", true);
-    setFeatureEnabledImpl(Features, "uli", true);
-    setFeatureEnabledImpl(Features, "serialize", true);
-    setFeatureEnabledImpl(Features, "tsxldtrk", true);
-    setFeatureEnabledImpl(Features, "enqcmd", true);
-    // Add the icelake server features.
-    setFeatureEnabledImpl(Features, "pconfig", true);
-    setFeatureEnabledImpl(Features, "wbnoinvd", true);
-    goto TGLExceptKeylocker;
-#endif // INTEL_FEATURE_CPU_SPR
-#endif // INTEL_CUSTOMIZATION
-  case CK_Tigerlake:
-#if INTEL_CUSTOMIZATION
-    TGLXFEATURE1
-#endif // INTEL_CUSTOMIZATION
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_SPR
-TGLExceptKeylocker:
-#endif // INTEL_FEATURE_CPU_SPR
-#endif // INTEL_CUSTOMIZATION
-    setFeatureEnabledImpl(Features, "avx512vp2intersect", true);
-    setFeatureEnabledImpl(Features, "movdiri", true);
-    setFeatureEnabledImpl(Features, "movdir64b", true);
-    setFeatureEnabledImpl(Features, "shstk", true);
-    // Tigerlake cores inherits IcelakeClient, except pconfig and wbnoinvd
-    goto IcelakeCommon;
-
-  case CK_IcelakeServer:
-    setFeatureEnabledImpl(Features, "pconfig", true);
-    setFeatureEnabledImpl(Features, "wbnoinvd", true);
-    LLVM_FALLTHROUGH;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_RKL
-  case CK_Rocketlake:
-#endif // INTEL_FEATURE_CPU_RKL
-#endif // INTEL_CUSTOMIZATION
-  case CK_IcelakeClient:
-IcelakeCommon:
-    setFeatureEnabledImpl(Features, "vaes", true);
-    setFeatureEnabledImpl(Features, "gfni", true);
-    setFeatureEnabledImpl(Features, "vpclmulqdq", true);
-    setFeatureEnabledImpl(Features, "avx512bitalg", true);
-    setFeatureEnabledImpl(Features, "avx512vbmi2", true);
-    setFeatureEnabledImpl(Features, "avx512vnni", true);
-    setFeatureEnabledImpl(Features, "avx512vpopcntdq", true);
-    setFeatureEnabledImpl(Features, "rdpid", true);
-    setFeatureEnabledImpl(Features, "clwb", true);
-    LLVM_FALLTHROUGH;
-  case CK_Cannonlake:
-    setFeatureEnabledImpl(Features, "avx512f", true);
-    setFeatureEnabledImpl(Features, "avx512cd", true);
-    setFeatureEnabledImpl(Features, "avx512dq", true);
-    setFeatureEnabledImpl(Features, "avx512bw", true);
-    setFeatureEnabledImpl(Features, "avx512vl", true);
-    setFeatureEnabledImpl(Features, "avx512ifma", true);
-    setFeatureEnabledImpl(Features, "avx512vbmi", true);
-    setFeatureEnabledImpl(Features, "pku", true);
-    setFeatureEnabledImpl(Features, "sha", true);
-    LLVM_FALLTHROUGH;
-  case CK_SkylakeClient:
-    setFeatureEnabledImpl(Features, "sgx", true);
-    // SkylakeServer cores inherits all SKL features, except SGX
-SkylakeCommon:
-    setFeatureEnabledImpl(Features, "xsavec", true);
-    setFeatureEnabledImpl(Features, "xsaves", true);
-    setFeatureEnabledImpl(Features, "clflushopt", true);
-    setFeatureEnabledImpl(Features, "aes", true);
-    LLVM_FALLTHROUGH;
-  case CK_Broadwell:
-    setFeatureEnabledImpl(Features, "rdseed", true);
-    setFeatureEnabledImpl(Features, "adx", true);
-    setFeatureEnabledImpl(Features, "prfchw", true);
-    LLVM_FALLTHROUGH;
-  case CK_Haswell:
-    setFeatureEnabledImpl(Features, "avx2", true);
-    setFeatureEnabledImpl(Features, "lzcnt", true);
-    setFeatureEnabledImpl(Features, "bmi", true);
-    setFeatureEnabledImpl(Features, "bmi2", true);
-    setFeatureEnabledImpl(Features, "fma", true);
-    setFeatureEnabledImpl(Features, "invpcid", true);
-    setFeatureEnabledImpl(Features, "movbe", true);
-    LLVM_FALLTHROUGH;
-  case CK_IvyBridge:
-    setFeatureEnabledImpl(Features, "rdrnd", true);
-    setFeatureEnabledImpl(Features, "f16c", true);
-    setFeatureEnabledImpl(Features, "fsgsbase", true);
-    LLVM_FALLTHROUGH;
-  case CK_SandyBridge:
-    setFeatureEnabledImpl(Features, "avx", true);
-    setFeatureEnabledImpl(Features, "xsave", true);
-    setFeatureEnabledImpl(Features, "xsaveopt", true);
-    LLVM_FALLTHROUGH;
-  case CK_Westmere:
-    setFeatureEnabledImpl(Features, "pclmul", true);
-    LLVM_FALLTHROUGH;
-  case CK_Nehalem:
-    setFeatureEnabledImpl(Features, "sse4.2", true);
-    LLVM_FALLTHROUGH;
-  case CK_Penryn:
-    setFeatureEnabledImpl(Features, "sse4.1", true);
-    LLVM_FALLTHROUGH;
-  case CK_Core2:
-    setFeatureEnabledImpl(Features, "ssse3", true);
-    setFeatureEnabledImpl(Features, "sahf", true);
-    LLVM_FALLTHROUGH;
-  case CK_Nocona:
-    setFeatureEnabledImpl(Features, "cx16", true);
-    LLVM_FALLTHROUGH;
-  case CK_Yonah:
-  case CK_Prescott:
-    setFeatureEnabledImpl(Features, "sse3", true);
-    LLVM_FALLTHROUGH;
-  case CK_PentiumM:
-  case CK_Pentium4:
-  case CK_x86_64:
-    setFeatureEnabledImpl(Features, "sse2", true);
-    LLVM_FALLTHROUGH;
-  case CK_Pentium3:
-  case CK_C3_2:
-    setFeatureEnabledImpl(Features, "sse", true);
-    LLVM_FALLTHROUGH;
-  case CK_Pentium2:
-    setFeatureEnabledImpl(Features, "fxsr", true);
-    LLVM_FALLTHROUGH;
-  case CK_PentiumMMX:
-  case CK_K6:
-  case CK_WinChipC6:
-    setFeatureEnabledImpl(Features, "mmx", true);
-    break;
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_ADL
-  case CK_Alderlake:
-    for (auto Feature : AnonymousCPU2Features)
-      setFeatureEnabledImpl(Features, Feature, true);
-    setFeatureEnabledImpl(Features, "avx2", true);
-    // TODO: set "aes" when confirm if goldmont shouldn't set "aes", else delete me
-    setFeatureEnabledImpl(Features, "vaes", true);
-    setFeatureEnabledImpl(Features, "fma", true);
-    setFeatureEnabledImpl(Features, "vpclmulqdq", true);
-    setFeatureEnabledImpl(Features, "invpcid", true);
-    setFeatureEnabledImpl(Features, "f16c", true);
-    setFeatureEnabledImpl(Features, "bmi", true);
-    setFeatureEnabledImpl(Features, "bmi2", true);
-    setFeatureEnabledImpl(Features, "lzcnt", true);
-    setFeatureEnabledImpl(Features, "serialize", true);
-    setFeatureEnabledImpl(Features, "pku", true);
-    setFeatureEnabledImpl(Features, "pconfig", true);
-    setFeatureEnabledImpl(Features, "shstk", true);
-    setFeatureEnabledImpl(Features, "adx", true);
-    setFeatureEnabledImpl(Features, "gfni", true);
-    // TODO: set feature of RAO-INT when it's ready
-    // FIXME: delete features below when Snow Ridge is ready
-    setFeatureEnabledImpl(Features, "movdiri", true);
-    setFeatureEnabledImpl(Features, "movdir64b", true);
-    setFeatureEnabledImpl(Features, "waitpkg", true);
-    setFeatureEnabledImpl(Features, "cldemote", true);
-    LLVM_FALLTHROUGH;
-#endif // INTEL_FEATURE_CPU_ADL
-#endif // INTEL_CUSTOMIZATION
-  case CK_Tremont:
-    setFeatureEnabledImpl(Features, "clwb", true);
-    setFeatureEnabledImpl(Features, "gfni", true);
-    LLVM_FALLTHROUGH;
-  case CK_GoldmontPlus:
-    setFeatureEnabledImpl(Features, "ptwrite", true);
-    setFeatureEnabledImpl(Features, "rdpid", true);
-    setFeatureEnabledImpl(Features, "sgx", true);
-    LLVM_FALLTHROUGH;
-  case CK_Goldmont:
-    setFeatureEnabledImpl(Features, "sha", true);
-    setFeatureEnabledImpl(Features, "rdseed", true);
-    setFeatureEnabledImpl(Features, "xsave", true);
-    setFeatureEnabledImpl(Features, "xsaveopt", true);
-    setFeatureEnabledImpl(Features, "xsavec", true);
-    setFeatureEnabledImpl(Features, "xsaves", true);
-    setFeatureEnabledImpl(Features, "clflushopt", true);
-    setFeatureEnabledImpl(Features, "fsgsbase", true);
-    setFeatureEnabledImpl(Features, "aes", true);
-    LLVM_FALLTHROUGH;
-  case CK_Silvermont:
-    setFeatureEnabledImpl(Features, "rdrnd", true);
-    setFeatureEnabledImpl(Features, "pclmul", true);
-    setFeatureEnabledImpl(Features, "sse4.2", true);
-    setFeatureEnabledImpl(Features, "prfchw", true);
-    LLVM_FALLTHROUGH;
-  case CK_Bonnell:
-    setFeatureEnabledImpl(Features, "movbe", true);
-    setFeatureEnabledImpl(Features, "ssse3", true);
-    setFeatureEnabledImpl(Features, "fxsr", true);
-    setFeatureEnabledImpl(Features, "cx16", true);
-    setFeatureEnabledImpl(Features, "sahf", true);
-    setFeatureEnabledImpl(Features, "mmx", true);
-    break;
-
-  case CK_KNM:
-    // TODO: Add avx5124fmaps/avx5124vnniw.
-    setFeatureEnabledImpl(Features, "avx512vpopcntdq", true);
-    LLVM_FALLTHROUGH;
-  case CK_KNL:
-#if INTEL_CUSTOMIZATION
-    setFeatureEnabledImpl(Features, "avx512er", true);
-    setFeatureEnabledImpl(Features, "avx512pf", true);
-    setFeatureEnabledImpl(Features, "prefetchwt1", true);
-    LLVM_FALLTHROUGH;
-  case CK_CommonAVX512:
-    setFeatureEnabledImpl(Features, "avx512cd", true);
-    setFeatureEnabledImpl(Features, "avx512f", true);
-    setFeatureEnabledImpl(Features, "prfchw", true);
-#endif // INTEL_CUSTOMIZATION
-    setFeatureEnabledImpl(Features, "fxsr", true);
-    setFeatureEnabledImpl(Features, "rdseed", true);
-    setFeatureEnabledImpl(Features, "adx", true);
-    setFeatureEnabledImpl(Features, "lzcnt", true);
-    setFeatureEnabledImpl(Features, "bmi", true);
-    setFeatureEnabledImpl(Features, "bmi2", true);
-    setFeatureEnabledImpl(Features, "fma", true);
-    setFeatureEnabledImpl(Features, "rdrnd", true);
-    setFeatureEnabledImpl(Features, "f16c", true);
-    setFeatureEnabledImpl(Features, "fsgsbase", true);
-    setFeatureEnabledImpl(Features, "aes", true);
-    setFeatureEnabledImpl(Features, "pclmul", true);
-    setFeatureEnabledImpl(Features, "cx16", true);
-    setFeatureEnabledImpl(Features, "xsaveopt", true);
-    setFeatureEnabledImpl(Features, "xsave", true);
-    setFeatureEnabledImpl(Features, "movbe", true);
-    setFeatureEnabledImpl(Features, "sahf", true);
-    setFeatureEnabledImpl(Features, "mmx", true);
-    break;
-
-  case CK_K6_2:
-  case CK_K6_3:
-  case CK_WinChip2:
-  case CK_C3:
-    setFeatureEnabledImpl(Features, "3dnow", true);
-    break;
-
-  case CK_AMDFAM10:
-    setFeatureEnabledImpl(Features, "sse4a", true);
-    setFeatureEnabledImpl(Features, "lzcnt", true);
-    setFeatureEnabledImpl(Features, "popcnt", true);
-    setFeatureEnabledImpl(Features, "sahf", true);
-    LLVM_FALLTHROUGH;
-  case CK_K8SSE3:
-    setFeatureEnabledImpl(Features, "sse3", true);
-    LLVM_FALLTHROUGH;
-  case CK_K8:
-    setFeatureEnabledImpl(Features, "sse2", true);
-    LLVM_FALLTHROUGH;
-  case CK_AthlonXP:
-    setFeatureEnabledImpl(Features, "sse", true);
-    setFeatureEnabledImpl(Features, "fxsr", true);
-    LLVM_FALLTHROUGH;
-  case CK_Athlon:
-  case CK_Geode:
-    setFeatureEnabledImpl(Features, "3dnowa", true);
-    break;
-
-  case CK_BTVER2:
-    setFeatureEnabledImpl(Features, "avx", true);
-    setFeatureEnabledImpl(Features, "aes", true);
-    setFeatureEnabledImpl(Features, "pclmul", true);
-    setFeatureEnabledImpl(Features, "bmi", true);
-    setFeatureEnabledImpl(Features, "f16c", true);
-    setFeatureEnabledImpl(Features, "xsaveopt", true);
-    setFeatureEnabledImpl(Features, "movbe", true);
-    LLVM_FALLTHROUGH;
-  case CK_BTVER1:
-    setFeatureEnabledImpl(Features, "ssse3", true);
-    setFeatureEnabledImpl(Features, "sse4a", true);
-    setFeatureEnabledImpl(Features, "lzcnt", true);
-    setFeatureEnabledImpl(Features, "popcnt", true);
-    setFeatureEnabledImpl(Features, "prfchw", true);
-    setFeatureEnabledImpl(Features, "cx16", true);
-    setFeatureEnabledImpl(Features, "fxsr", true);
-    setFeatureEnabledImpl(Features, "sahf", true);
-    setFeatureEnabledImpl(Features, "mmx", true);
-    break;
-
-  case CK_ZNVER2:
-    setFeatureEnabledImpl(Features, "clwb", true);
-    setFeatureEnabledImpl(Features, "rdpid", true);
-    setFeatureEnabledImpl(Features, "wbnoinvd", true);
-    LLVM_FALLTHROUGH;
-  case CK_ZNVER1:
-    setFeatureEnabledImpl(Features, "adx", true);
-    setFeatureEnabledImpl(Features, "aes", true);
-    setFeatureEnabledImpl(Features, "avx2", true);
-    setFeatureEnabledImpl(Features, "bmi", true);
-    setFeatureEnabledImpl(Features, "bmi2", true);
-    setFeatureEnabledImpl(Features, "clflushopt", true);
-    setFeatureEnabledImpl(Features, "clzero", true);
-    setFeatureEnabledImpl(Features, "cx16", true);
-    setFeatureEnabledImpl(Features, "f16c", true);
-    setFeatureEnabledImpl(Features, "fma", true);
-    setFeatureEnabledImpl(Features, "fsgsbase", true);
-    setFeatureEnabledImpl(Features, "fxsr", true);
-    setFeatureEnabledImpl(Features, "lzcnt", true);
-    setFeatureEnabledImpl(Features, "mmx", true);
-    setFeatureEnabledImpl(Features, "mwaitx", true);
-    setFeatureEnabledImpl(Features, "movbe", true);
-    setFeatureEnabledImpl(Features, "pclmul", true);
-    setFeatureEnabledImpl(Features, "popcnt", true);
-    setFeatureEnabledImpl(Features, "prfchw", true);
-    setFeatureEnabledImpl(Features, "rdrnd", true);
-    setFeatureEnabledImpl(Features, "rdseed", true);
-    setFeatureEnabledImpl(Features, "sahf", true);
-    setFeatureEnabledImpl(Features, "sha", true);
-    setFeatureEnabledImpl(Features, "sse4a", true);
-    setFeatureEnabledImpl(Features, "xsave", true);
-    setFeatureEnabledImpl(Features, "xsavec", true);
-    setFeatureEnabledImpl(Features, "xsaveopt", true);
-    setFeatureEnabledImpl(Features, "xsaves", true);
-    break;
-
-  case CK_BDVER4:
-    setFeatureEnabledImpl(Features, "avx2", true);
-    setFeatureEnabledImpl(Features, "bmi2", true);
-    setFeatureEnabledImpl(Features, "mwaitx", true);
-    LLVM_FALLTHROUGH;
-  case CK_BDVER3:
-    setFeatureEnabledImpl(Features, "fsgsbase", true);
-    setFeatureEnabledImpl(Features, "xsaveopt", true);
-    LLVM_FALLTHROUGH;
-  case CK_BDVER2:
-    setFeatureEnabledImpl(Features, "bmi", true);
-    setFeatureEnabledImpl(Features, "fma", true);
-    setFeatureEnabledImpl(Features, "f16c", true);
-    setFeatureEnabledImpl(Features, "tbm", true);
-    LLVM_FALLTHROUGH;
-  case CK_BDVER1:
-    // xop implies avx, sse4a and fma4.
-    setFeatureEnabledImpl(Features, "xop", true);
-    setFeatureEnabledImpl(Features, "lwp", true);
-    setFeatureEnabledImpl(Features, "lzcnt", true);
-    setFeatureEnabledImpl(Features, "aes", true);
-    setFeatureEnabledImpl(Features, "pclmul", true);
-    setFeatureEnabledImpl(Features, "prfchw", true);
-    setFeatureEnabledImpl(Features, "cx16", true);
-    setFeatureEnabledImpl(Features, "fxsr", true);
-    setFeatureEnabledImpl(Features, "xsave", true);
-    setFeatureEnabledImpl(Features, "sahf", true);
-    setFeatureEnabledImpl(Features, "mmx", true);
-    break;
-  }
   if (!TargetInfo::initFeatureMap(Features, Diags, CPU, FeaturesVec))
     return false;
 
@@ -602,18 +183,18 @@ SkylakeCommon:
       llvm::find(FeaturesVec, "-popcnt") == FeaturesVec.end())
     Features["popcnt"] = true;
 
-  // Enable prfchw if 3DNow! is enabled and prfchw is not explicitly disabled.
-  I = Features.find("3dnow");
-  if (I != Features.end() && I->getValue() &&
-      llvm::find(FeaturesVec, "-prfchw") == FeaturesVec.end())
-    Features["prfchw"] = true;
-
   // Additionally, if SSE is enabled and mmx is not explicitly disabled,
   // then enable MMX.
   I = Features.find("sse");
   if (I != Features.end() && I->getValue() &&
       llvm::find(FeaturesVec, "-mmx") == FeaturesVec.end())
     Features["mmx"] = true;
+
+  // Enable xsave if avx is enabled and xsave is not explicitly disabled.
+  I = Features.find("avx");
+  if (I != Features.end() && I->getValue() &&
+      llvm::find(FeaturesVec, "-xsave") == FeaturesVec.end())
+    Features["xsave"] = true;
 
   return true;
 }
@@ -632,7 +213,6 @@ void X86TargetInfo::setSSELevel(llvm::StringMap<bool> &Features,
       LLVM_FALLTHROUGH;
     case AVX:
       Features["avx"] = true;
-      Features["xsave"] = true;
       LLVM_FALLTHROUGH;
     case SSE42:
       Features["sse4.2"] = true;
@@ -687,8 +267,7 @@ void X86TargetInfo::setSSELevel(llvm::StringMap<bool> &Features,
     LLVM_FALLTHROUGH;
   case AVX:
     Features["fma"] = Features["avx"] = Features["f16c"] = false;
-    Features["xsave"] = Features["xsaveopt"] = Features["vaes"] = false;
-    Features["vpclmulqdq"] = false;
+    Features["vaes"] = Features["vpclmulqdq"] = false;
     setXOPLevel(Features, FMA4, false);
     LLVM_FALLTHROUGH;
   case AVX2:
@@ -813,11 +392,18 @@ void X86TargetInfo::setXOPLevel(llvm::StringMap<bool> &Features, XOPEnum Level,
 
 void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
                                           StringRef Name, bool Enabled) {
-  // This is a bit of a hack to deal with the sse4 target feature when used
-  // as part of the target attribute. We handle sse4 correctly everywhere
-  // else. See below for more information on how we handle the sse4 options.
-  if (Name != "sse4")
-    Features[Name] = Enabled;
+  if (Name == "sse4") {
+    // We can get here via the __target__ attribute since that's not controlled
+    // via the -msse4/-mno-sse4 command line alias. Handle this the same way
+    // here - turn on the sse4.2 if enabled, turn off the sse4.1 level if
+    // disabled.
+    if (Enabled)
+      Name = "sse4.2";
+    else
+      Name = "sse4.1";
+  }
+
+  Features[Name] = Enabled;
 
   if (Name == "mmx") {
     setMMXLevel(Features, MMX, Enabled);
@@ -983,27 +569,15 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
   } else if (Name == "sha") {
     if (Enabled)
       setSSELevel(Features, SSE2, Enabled);
-  } else if (Name == "sse4") {
-    // We can get here via the __target__ attribute since that's not controlled
-    // via the -msse4/-mno-sse4 command line alias. Handle this the same way
-    // here - turn on the sse4.2 if enabled, turn off the sse4.1 level if
-    // disabled.
-    if (Enabled)
-      setSSELevel(Features, SSE42, Enabled);
-    else
-      setSSELevel(Features, SSE41, Enabled);
   } else if (Name == "xsave") {
     if (!Enabled)
-      Features["xsaveopt"] = false;
+      Features["xsaveopt"] = Features["xsavec"] = Features["xsaves"] = false;
   } else if (Name == "xsaveopt" || Name == "xsavec" || Name == "xsaves") {
     if (Enabled)
       Features["xsave"] = true;
-  }
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX
-  else if (Name == "amx-tile" && !Enabled) {
+  } else if (Name == "amx-tile" && !Enabled) {
     Features["amx-bf16"] = Features["amx-int8"] = false;
-#endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX_FUTURE
     Features["amx-reduce"] = Features["amx-memory"] =
     Features["amx-format"] = Features["amx-element"] = false;
@@ -1038,11 +612,8 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
 #if INTEL_FEATURE_ISA_AMX_TILE2
     Features["amx-tile2"] = false;
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
-#if INTEL_FEATURE_ISA_AMX
-  }
-  else if ((Name == "amx-bf16" || Name == "amx-int8") && Enabled)
+  } else if ((Name == "amx-bf16" || Name == "amx-int8") && Enabled)
     Features["amx-tile"] = true;
-#endif // INTEL_FEATURE_ISA_AMX
 #if INTEL_FEATURE_ISA_AMX_FUTURE
   else if ((Name == "amx-reduce" || Name == "amx-memory" ||
             Name == "amx-format" || Name == "amx-element") && Enabled)
@@ -1282,14 +853,12 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     } else if (Feature == "+hreset") {
       HasHRESET = true;
 #endif // INTEL_FEATURE_ISA_HRESET
-#if INTEL_FEATURE_ISA_AMX
     } else if (Feature == "+amx-bf16") {
       HasAMXBF16 = true;
     } else if (Feature == "+amx-int8") {
       HasAMXINT8 = true;
     } else if (Feature == "+amx-tile") {
       HasAMXTILE = true;
-#endif // INTEL_FEATURE_ISA_AMX
 #if INTEL_FEATURE_ISA_AMX_FUTURE
     } else if (Feature == "+amx-reduce") {
       HasAMXREDUCE = true;
@@ -1838,7 +1407,6 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__HRESET__");
   Builder.defineMacro("__HRESET_SUPPORTED__");
 #endif // INTEL_FEATURE_ISA_HRESET
-#if INTEL_FEATURE_ISA_AMX
   if (HasAMXTILE)
     Builder.defineMacro("__AMXTILE__");
   if (HasAMXINT8)
@@ -1846,7 +1414,6 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   if (HasAMXBF16)
     Builder.defineMacro("__AMXBF16__");
   Builder.defineMacro("__AMX_SUPPORTED__");
-#endif // INTEL_FEATURE_ISA_AMX
 #if INTEL_FEATURE_ISA_AMX_MEMORY2
   if (HasAMXMEMORY2)
     Builder.defineMacro("__AMX_MEMORY2__");
@@ -2079,12 +1646,10 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("3dnowa", true)
       .Case("adx", true)
       .Case("aes", true)
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX
       .Case("amx-bf16", true)
       .Case("amx-int8", true)
       .Case("amx-tile", true)
-#endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX_FUTURE
       .Case("amx-reduce", true)
       .Case("amx-memory", true)
@@ -2261,12 +1826,10 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
   return llvm::StringSwitch<bool>(Feature)
       .Case("adx", HasADX)
       .Case("aes", HasAES)
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX
       .Case("amx-bf16", HasAMXBF16)
       .Case("amx-int8", HasAMXINT8)
       .Case("amx-tile", HasAMXTILE)
-#endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX_FUTURE
       .Case("amx-reduce", HasAMXREDUCE)
       .Case("amx-memory", HasAMXMEMORY)
@@ -2454,7 +2017,7 @@ bool X86TargetInfo::validateCpuSupports(StringRef FeatureStr) const {
 
 static llvm::X86::ProcessorFeatures getFeature(StringRef Name) {
   return llvm::StringSwitch<llvm::X86::ProcessorFeatures>(Name)
-#define X86_FEATURE_COMPAT(ENUM, STR) .Case(STR, llvm::X86::ENUM)
+#define X86_FEATURE_COMPAT(ENUM, STR) .Case(STR, llvm::X86::FEATURE_##ENUM)
 #include "llvm/Support/X86TargetParser.def"
       ;
   // Note, this function should only be used after ensuring the value is
@@ -2482,15 +2045,8 @@ unsigned X86TargetInfo::multiVersionSortPriority(StringRef Name) const {
   using namespace llvm::X86;
   CPUKind Kind = parseArchX86(Name);
   if (Kind != CK_None) {
-    switch (Kind) {
-    default:
-      llvm_unreachable(
-          "CPU Type without a key feature used in 'target' attribute");
-#define PROC_WITH_FEAT(ENUM, STR, IS64, KEY_FEAT)                              \
-  case CK_##ENUM:                                                              \
-    return (getFeaturePriority(llvm::X86::KEY_FEAT) << 1) + 1;
-#include "llvm/Support/X86TargetParser.def"
-    }
+    ProcessorFeatures KeyFeature = getKeyFeature(Kind);
+    return (getFeaturePriority(KeyFeature) << 1) + 1;
   }
 
   // Now we know we have a feature, so get its priority and shift it a few so

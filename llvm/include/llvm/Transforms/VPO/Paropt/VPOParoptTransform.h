@@ -95,7 +95,7 @@ public:
                      Function *F, WRegionInfo *WI, DominatorTree *DT,
                      LoopInfo *LI, ScalarEvolution *SE,
                      const TargetTransformInfo *TTI, AssumptionCache *AC,
-                     const TargetLibraryInfo *TLI, AliasAnalysis *AA, int Mode,
+                     const TargetLibraryInfo *TLI, AAResults *AA, int Mode,
 #if INTEL_CUSTOMIZATION
                      OptReportVerbosity::Level ORVerbosity,
 #endif  // INTEL_CUSTOMIZATION
@@ -190,7 +190,7 @@ private:
   /// Get the target library information for the loop candidates.
   const TargetLibraryInfo *TLI;
 
-  AliasAnalysis *AA;
+  AAResults *AA;
 
   /// Paropt compilation mode
   int Mode;

@@ -373,15 +373,7 @@ ExtIntType::ExtIntType(bool IsUnsigned, unsigned NumBits)
 DependentExtIntType::DependentExtIntType(const ASTContext &Context,
                                          bool IsUnsigned, Expr *NumBitsExpr)
     : Type(DependentExtInt, QualType{},
-           ((NumBitsExpr->isValueDependent() || NumBitsExpr->isTypeDependent())
-                ? TypeDependence::Dependent
-                : TypeDependence::None) |
-               (NumBitsExpr->isInstantiationDependent()
-                    ? TypeDependence::Instantiation
-                    : TypeDependence::None) |
-               (NumBitsExpr->containsUnexpandedParameterPack()
-                    ? TypeDependence::VariablyModified
-                    : TypeDependence::None)),
+           toTypeDependence(NumBitsExpr->getDependence())),
       Context(Context), ExprAndUnsigned(NumBitsExpr, IsUnsigned) {}
 
 bool DependentExtIntType::isUnsigned() const {
@@ -3098,6 +3090,12 @@ StringRef BuiltinType::getName(const PrintingPolicy &Policy) const {
   case Id: \
     return "__" #Access " " #ImgType "_t";
 #include "clang/Basic/OpenCLImageTypes.def"
+#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix)                   \
+  case Sampled##Id:                                                            \
+    return "__ocl_sampled_" #ImgType "_" #Suffix "_t";
+#define IMAGE_WRITE_TYPE(Type, Id, Ext)
+#define IMAGE_READ_WRITE_TYPE(Type, Id, Ext)
+#include "clang/Basic/OpenCLImageTypes.def"
   case OCLSampler:
     return "sampler_t";
   case OCLEvent:
@@ -3683,7 +3681,7 @@ TemplateSpecializationType::TemplateSpecializationType(
 
   auto *TemplateArgs = reinterpret_cast<TemplateArgument *>(this + 1);
   for (const TemplateArgument &Arg : Args) {
-    // Update instantiation-dependent and variably-modified bits.
+    // Update instantiation-dependent, variably-modified, and error bits.
     // If the canonical type exists and is non-dependent, the template
     // specialization type can be non-dependent even if one of the type
     // arguments is. Given:
@@ -4147,6 +4145,11 @@ bool Type::canHaveNullability(bool ResultIfUnknown) const {
     case BuiltinType::ObjCSel:
 #define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
     case BuiltinType::Id:
+#include "clang/Basic/OpenCLImageTypes.def"
+#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix)                   \
+  case BuiltinType::Sampled##Id:
+#define IMAGE_WRITE_TYPE(Type, Id, Ext)
+#define IMAGE_READ_WRITE_TYPE(Type, Id, Ext)
 #include "clang/Basic/OpenCLImageTypes.def"
 #define EXT_OPAQUE_TYPE(ExtType, Id, Ext) \
     case BuiltinType::Id:

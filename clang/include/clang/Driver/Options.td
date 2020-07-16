@@ -578,6 +578,9 @@ def Wnonportable_cfstrings : Joined<["-"], "Wnonportable-cfstrings">, Group<W_Gr
 def Wp_COMMA : CommaJoined<["-"], "Wp,">,
   HelpText<"Pass the comma separated arguments in <arg> to the preprocessor">,
   MetaVarName<"<arg>">, Group<Preprocessor_Group>;
+def Wundef_prefix_EQ : CommaJoined<["-"], "Wundef-prefix=">, Group<W_value_Group>,
+  Flags<[CC1Option, CoreOption, HelpHidden]>, MetaVarName<"<arg>">,
+  HelpText<"Enable warnings for undefined macros with a prefix in the comma separated list <arg>">;
 def Wwrite_strings : Flag<["-"], "Wwrite-strings">, Group<W_Group>, Flags<[CC1Option, HelpHidden]>;
 def Wno_write_strings : Flag<["-"], "Wno-write-strings">, Group<W_Group>, Flags<[CC1Option, HelpHidden]>;
 def W_Joined : Joined<["-"], "W">, Group<W_Group>, Flags<[CC1Option, CoreOption]>,
@@ -1791,7 +1794,6 @@ def fno_unwind_tables : Flag<["-"], "fno-unwind-tables">, Group<f_Group>;
 def fno_verbose_asm : Flag<["-"], "fno-verbose-asm">, Group<f_Group>, Flags<[CC1Option]>;
 def fno_working_directory : Flag<["-"], "fno-working-directory">, Group<f_Group>;
 def fno_wrapv : Flag<["-"], "fno-wrapv">, Group<f_Group>;
-def fno_zero_initialized_in_bss : Flag<["-"], "fno-zero-initialized-in-bss">, Group<f_Group>;
 def fobjc_arc : Flag<["-"], "fobjc-arc">, Group<f_Group>, Flags<[CC1Option]>,
   HelpText<"Synthesize retain and release calls for Objective-C pointers">;
 def fno_objc_arc : Flag<["-"], "fno-objc-arc">, Group<f_Group>;
@@ -1926,6 +1928,12 @@ def qno_openmp_simd: Flag<["-"], "qno-openmp-simd">, Alias<fno_openmp_simd>,
 // INTEL_COLLAB
 def fiopenmp : Flag<["-"], "fiopenmp">, Group<f_Group>, Flags<[NoArgumentUnused]>;
 // end INTEL_COLLAB
+def fopenmp_cuda_parallel_target_regions : Flag<["-"], "fopenmp-cuda-parallel-target-regions">, Group<f_Group>,
+  Flags<[CC1Option, NoArgumentUnused, HelpHidden]>,
+  HelpText<"Support parallel execution of target regions on Cuda-based devices.">;
+def fno_openmp_cuda_parallel_target_regions : Flag<["-"], "fno-openmp-cuda-parallel-target-regions">, Group<f_Group>,
+  Flags<[NoArgumentUnused, HelpHidden]>,
+  HelpText<"Support only serial execution of target regions on Cuda-based devices.">;
 def fno_optimize_sibling_calls : Flag<["-"], "fno-optimize-sibling-calls">, Group<f_Group>;
 def foptimize_sibling_calls : Flag<["-"], "foptimize-sibling-calls">, Group<f_Group>;
 def fno_escaping_block_tail_calls : Flag<["-"], "fno-escaping-block-tail-calls">, Group<f_Group>, Flags<[CC1Option]>;
@@ -2214,7 +2222,7 @@ def fwrapv : Flag<["-"], "fwrapv">, Group<f_Group>, Flags<[CC1Option]>,
   HelpText<"Treat signed integer overflow as two's complement">;
 def fwritable_strings : Flag<["-"], "fwritable-strings">, Group<f_Group>, Flags<[CC1Option]>,
   HelpText<"Store string literals as writable data">;
-def fzero_initialized_in_bss : Flag<["-"], "fzero-initialized-in-bss">, Group<f_Group>;
+defm zero_initialized_in_bss : OptOutFFlag<"zero-initialized-in-bss", "", "Don't place zero initialized data in BSS">;
 defm function_sections : OptInFFlag<"function-sections", "Place each function in its own section">;
 def fbasic_block_sections_EQ : Joined<["-"], "fbasic-block-sections=">, Group<f_Group>,
   Flags<[CC1Option, CC1AsOption]>,
@@ -2331,7 +2339,7 @@ def : Flag<["-"], "gno-record-gcc-switches">, Alias<gno_record_command_line>;
 def gstrict_dwarf : Flag<["-"], "gstrict-dwarf">, Group<g_flags_Group>;
 def gno_strict_dwarf : Flag<["-"], "gno-strict-dwarf">, Group<g_flags_Group>;
 def gcolumn_info : Flag<["-"], "gcolumn-info">, Group<g_flags_Group>, Flags<[CoreOption]>;
-def gno_column_info : Flag<["-"], "gno-column-info">, Group<g_flags_Group>, Flags<[CoreOption]>;
+def gno_column_info : Flag<["-"], "gno-column-info">, Group<g_flags_Group>, Flags<[CoreOption, CC1Option]>;
 def gsplit_dwarf : Flag<["-"], "gsplit-dwarf">, Group<g_flags_Group>;
 def gsplit_dwarf_EQ : Joined<["-"], "gsplit-dwarf=">, Group<g_flags_Group>,
   HelpText<"Set DWARF fission mode to either 'split' or 'single'">,
@@ -3035,6 +3043,8 @@ def nostdincxx : Flag<["-"], "nostdinc++">, Flags<[CC1Option]>,
   HelpText<"Disable standard #include directories for the C++ standard library">;
 def nostdlib : Flag<["-"], "nostdlib">;
 def nostdlibxx : Flag<["-"], "nostdlib++">;
+def nolibsycl : Flag<["-"], "nolibsycl">, Flags<[DriverOption, CoreOption]>,
+  HelpText<"Do not link SYCL runtime library">;
 def object : Flag<["-"], "object">;
 def o : JoinedOrSeparate<["-"], "o">, Flags<[DriverOption, RenderAsInput, CC1Option, CC1AsOption]>,
   HelpText<"Write output to <file>">, MetaVarName<"<file>">;
@@ -3428,15 +3438,13 @@ def m3dnow : Flag<["-"], "m3dnow">, Group<m_x86_Features_Group>;
 def mno_3dnow : Flag<["-"], "mno-3dnow">, Group<m_x86_Features_Group>;
 def m3dnowa : Flag<["-"], "m3dnowa">, Group<m_x86_Features_Group>;
 def mno_3dnowa : Flag<["-"], "mno-3dnowa">, Group<m_x86_Features_Group>;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX
 def mamx_bf16 : Flag<["-"], "mamx-bf16">, Group<m_x86_Features_Group>;
 def mno_amx_bf16 : Flag<["-"], "mno-amx-bf16">, Group<m_x86_Features_Group>;
 def mtamx_int8 : Flag<["-"], "mamx-int8">, Group<m_x86_Features_Group>;
 def mno_amx_int8 : Flag<["-"], "mno-amx-int8">, Group<m_x86_Features_Group>;
 def mamx_tile : Flag<["-"], "mamx-tile">, Group<m_x86_Features_Group>;
 def mno_amx_tile : Flag<["-"], "mno-amx-tile">, Group<m_x86_Features_Group>;
-#endif // INTEL_FEATURE_ISA_AMX
+#if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX_FUTURE
 def mamx_reduce : Flag<["-"], "mamx-reduce">, Group<m_x86_Features_Group>;
 def mno_amx_reduce : Flag<["-"], "mno-amx-reduce">, Group<m_x86_Features_Group>;

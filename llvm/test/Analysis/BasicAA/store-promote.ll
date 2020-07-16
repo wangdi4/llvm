@@ -2,10 +2,10 @@
 ; disambiguating some obvious cases.  If LICM is able to disambiguate the
 ; two pointers, then the load should be hoisted, and the store sunk.
 
-; RUN: opt < %s -basicaa -licm -enable-mssa-loop-dependency=false -S | FileCheck %s -check-prefixes=CHECK,AST
-; RUN: opt < %s -basicaa -licm -enable-mssa-loop-dependency=true  -S | FileCheck %s -check-prefixes=CHECK,MSSA
+; RUN: opt < %s -basic-aa -licm -enable-mssa-loop-dependency=false -S | FileCheck %s -check-prefixes=CHECK,AST
+; RUN: opt < %s -basic-aa -licm -enable-mssa-loop-dependency=true  -S | FileCheck %s -check-prefixes=CHECK,MSSA
 ; INTEL
-; RUN: opt -convert-to-subscript -S < %s | opt -basicaa -licm -enable-mssa-loop-dependency=false -S | FileCheck %s -check-prefixes=CHECK,AST
+; RUN: opt -convert-to-subscript -S < %s | opt -basic-aa -licm -enable-mssa-loop-dependency=false -S | FileCheck %s -check-prefixes=CHECK,AST
 
 target datalayout = "E-p:64:64:64-a0:0:8-f32:32:32-f64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-v64:64:64-v128:128:128"
 
@@ -25,7 +25,7 @@ Loop:           ; preds = %Loop, %0
 Out:            ; preds = %Loop
         %X = sub i32 %ToRemove, %Atmp           ; <i32> [#uses=1]
         ret i32 %X
-        
+
 ; The Loop block should be empty after the load/store are promoted.
 ; CHECK:     @test1
 ; CHECK:        load i32, i32* @A

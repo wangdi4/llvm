@@ -351,7 +351,7 @@ unsigned VPlanCostModel::getLoadStoreCost(const VPInstruction *VPInst) {
     }
 
     Cost += IsMasked ?
-      Scale * TTI->getMaskedMemoryOpCost(Opcode, VecTy, Alignment, AddrSpace) :
+      Scale * TTI->getMaskedMemoryOpCost(Opcode, VecTy, Align(Alignment), AddrSpace) :
       Scale * TTI->getMemoryOpCost(Opcode, VecTy,
                                    Alignment ? Align(Alignment): Align(),
                                    AddrSpace);

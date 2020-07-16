@@ -386,9 +386,9 @@ namespace X86Disassembler {
   ENTRY(BND2)         \
   ENTRY(BND3)
 
+#undef  REGS_TMM
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_AMX
-#undef  REGS_TMM
 #define REGS_TMM  \
   ENTRY(TMM0)     \
   ENTRY(TMM1)     \
@@ -422,7 +422,21 @@ namespace X86Disassembler {
   ENTRY(TMM29)    \
   ENTRY(TMM30)    \
   ENTRY(TMM31)
+#else // INTEL_FEATURE_ISA_AMX
+#define REGS_TMM  \
+  ENTRY(TMM0)     \
+  ENTRY(TMM1)     \
+  ENTRY(TMM2)     \
+  ENTRY(TMM3)     \
+  ENTRY(TMM4)     \
+  ENTRY(TMM5)     \
+  ENTRY(TMM6)     \
+  ENTRY(TMM7)
+#endif // INTEL_FEATURE_ISA_AMX
+#endif // INTEL_CUSTOMIZATION
 
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX
 #define REGS_TMM_PAIRS  \
   ENTRY(TMM0_TMM1)     \
   ENTRY(TMM2_TMM3)     \
@@ -481,9 +495,9 @@ namespace X86Disassembler {
   REGS_DEBUG          \
   REGS_CONTROL        \
   REGS_BOUND          \
-  TMM_REGS            \
   TMM_REGS_PAIRS      \
   TMM_REGS_QUADS      \
+  REGS_TMM            \
   ENTRY(RIP)
 #endif // INTEL_CUSTOMIZATION
 /// All possible values of the base field for effective-address

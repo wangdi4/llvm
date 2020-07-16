@@ -227,6 +227,12 @@ bool Sema::DiagnoseUseOfDecl(NamedDecl *D, ArrayRef<SourceLocation> Locs,
                VD->hasGlobalStorage() && !isa<ParmVarDecl>(VD))
         SYCLDiagIfDeviceCode(*Locs.begin(), diag::err_sycl_restrict)
             << Sema::KernelGlobalVariable;
+      // Disallow const statics and globals that are not zero-initialized
+      // or constant-initialized.
+      else if (IsConst && VD->hasGlobalStorage() && !VD->isConstexpr() &&
+               !checkAllowedSYCLInitializer(VD, /*CheckValueDependent =*/true))
+        SYCLDiagIfDeviceCode(*Locs.begin(), diag::err_sycl_restrict)
+            << Sema::KernelConstStaticVariable;
     }
   }
 
@@ -982,6 +988,11 @@ ExprResult Sema::DefaultVariadicArgumentPromotion(Expr *E, VariadicCallType CT,
   ExprResult ExprRes = DefaultArgumentPromotion(E);
   if (ExprRes.isInvalid())
     return ExprError();
+
+  // Copy blocks to the heap.
+  if (ExprRes.get()->getType()->isBlockPointerType())
+    maybeExtendBlockObject(ExprRes);
+
   E = ExprRes.get();
 
   // Diagnostics regarding non-POD argument types are
@@ -6000,9 +6011,6 @@ bool Sema::GatherArgumentsForCall(SourceLocation CallLoc, FunctionDecl *FDecl,
       for (Expr *A : Args.slice(ArgIx)) {
         ExprResult Arg = DefaultVariadicArgumentPromotion(A, CallType, FDecl);
         Invalid |= Arg.isInvalid();
-        // Copy blocks to the heap.
-        if (A->getType()->isBlockPointerType())
-          maybeExtendBlockObject(Arg);
         AllArgs.push_back(Arg.get());
       }
     }
@@ -6099,6 +6107,11 @@ static bool isPlaceholderToRemoveAsArg(QualType type) {
   // Ignore all the non-placeholder types.
 #define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
   case BuiltinType::Id:
+#include "clang/Basic/OpenCLImageTypes.def"
+#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix)                   \
+  case BuiltinType::Sampled##Id:
+#define IMAGE_WRITE_TYPE(Type, Id, Ext)
+#define IMAGE_READ_WRITE_TYPE(Type, Id, Ext)
 #include "clang/Basic/OpenCLImageTypes.def"
 #define EXT_OPAQUE_TYPE(ExtType, Id, Ext) \
   case BuiltinType::Id:
@@ -14046,7 +14059,7 @@ static ExprResult convertHalfVecBinOp(Sema &S, ExprResult LHS, ExprResult RHS,
                                       BinaryOperatorKind Opc, QualType ResultTy,
                                       ExprValueKind VK, ExprObjectKind OK,
                                       bool IsCompAssign, SourceLocation OpLoc,
-                                      FPOptions FPFeatures) {
+                                      FPOptionsOverride FPFeatures) {
   auto &Context = S.getASTContext();
   assert((isVector(ResultTy, Context.HalfTy) ||
           isVector(ResultTy, Context.ShortTy)) &&
@@ -14372,9 +14385,9 @@ ExprResult Sema::CreateBuiltinBinOp(SourceLocation OpLoc,
   if (CompResultTy.isNull()) {
     if (ConvertHalfVec)
       return convertHalfVecBinOp(*this, LHS, RHS, Opc, ResultTy, VK, OK, false,
-                                 OpLoc, CurFPFeatures);
+                                 OpLoc, CurFPFeatureOverrides());
     return BinaryOperator::Create(Context, LHS.get(), RHS.get(), Opc, ResultTy,
-                                  VK, OK, OpLoc, CurFPFeatures);
+                                  VK, OK, OpLoc, CurFPFeatureOverrides());
   }
 
   // Handle compound assignments.
@@ -14392,11 +14405,11 @@ ExprResult Sema::CreateBuiltinBinOp(SourceLocation OpLoc,
 
   if (ConvertHalfVec)
     return convertHalfVecBinOp(*this, LHS, RHS, Opc, ResultTy, VK, OK, true,
-                               OpLoc, CurFPFeatures);
+                               OpLoc, CurFPFeatureOverrides());
 
-  return CompoundAssignOperator::Create(Context, LHS.get(), RHS.get(), Opc,
-                                        ResultTy, VK, OK, OpLoc, CurFPFeatures,
-                                        CompLHSTy, CompResultTy);
+  return CompoundAssignOperator::Create(
+      Context, LHS.get(), RHS.get(), Opc, ResultTy, VK, OK, OpLoc,
+      CurFPFeatureOverrides(), CompLHSTy, CompResultTy);
 }
 
 /// DiagnoseBitwisePrecedence - Emit a warning when bitwise and comparison
@@ -14996,8 +15009,9 @@ ExprResult Sema::CreateBuiltinUnaryOp(SourceLocation OpLoc,
   if (Opc != UO_AddrOf && Opc != UO_Deref)
     CheckArrayAccess(Input.get());
 
-  auto *UO = UnaryOperator::Create(Context, Input.get(), Opc, resultType, VK,
-                                   OK, OpLoc, CanOverflow, CurFPFeatures);
+  auto *UO =
+      UnaryOperator::Create(Context, Input.get(), Opc, resultType, VK, OK,
+                            OpLoc, CanOverflow, CurFPFeatureOverrides());
 
   if (Opc == UO_Deref && UO->getType()->hasAttr(attr::NoDeref) &&
       !isa<ArrayType>(UO->getType().getDesugaredType(Context)))
@@ -19591,6 +19605,11 @@ ExprResult Sema::CheckPlaceholderExpr(Expr *E) {
   // Everything else should be impossible.
 #define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
   case BuiltinType::Id:
+#include "clang/Basic/OpenCLImageTypes.def"
+#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix)                   \
+  case BuiltinType::Sampled##Id:
+#define IMAGE_WRITE_TYPE(Type, Id, Ext)
+#define IMAGE_READ_WRITE_TYPE(Type, Id, Ext)
 #include "clang/Basic/OpenCLImageTypes.def"
 #define EXT_OPAQUE_TYPE(ExtType, Id, Ext) \
   case BuiltinType::Id:

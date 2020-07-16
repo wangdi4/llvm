@@ -229,17 +229,17 @@ public:
 };
 
 #if INTEL_CUSTOMIZATION
-/// Apply function Func to each CB's callback call site.
-template <typename UnaryFunction>
-void forEachCallbackCallSite(const CallBase &CB, UnaryFunction Func) {
-  SmallVector<const Use *, 4u> CallbackUses;
-  AbstractCallSite::getCallbackUses(CB, CallbackUses);
-  for (const Use *U : CallbackUses) {
-    AbstractCallSite ACS(U);
-    assert(ACS && ACS.isCallbackCall() && "must be a callback call");
-    Func(ACS);
-  }
-}
+    /// Apply function Func to each CB's callback call site.
+    template <typename UnaryFunction>
+    void forEachCallbackCallSite(const CallBase &CB, UnaryFunction Func) {
+        SmallVector<const Use *, 4u> CallbackUses;
+        AbstractCallSite::getCallbackUses(CB, CallbackUses);
+        for (const Use *U : CallbackUses) {
+            AbstractCallSite ACS(U);
+            assert(ACS && ACS.isCallbackCall() && "must be a callback call");
+            Func(ACS);
+        }
+    }
 #endif // INTEL_CUSTOMIZATION
 
 } // end namespace llvm

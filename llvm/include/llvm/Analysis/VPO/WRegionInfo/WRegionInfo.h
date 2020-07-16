@@ -23,6 +23,7 @@
 
 namespace llvm {
 
+class AAResults;
 class Function;
 class DominatorTree;
 class PostDominatorTree;
@@ -56,7 +57,7 @@ private:
   const TargetTransformInfo *TTI;
   AssumptionCache *AC;
   const TargetLibraryInfo *TLI;
-  AliasAnalysis *AA;
+  AAResults *AA;
   WRegionCollection *WRC;
   OptimizationRemarkEmitter &ORE;
 
@@ -66,7 +67,7 @@ private:
 public:
   WRegionInfo(Function *F, DominatorTree *DT, LoopInfo *LI, ScalarEvolution *SE,
               const TargetTransformInfo *TTI, AssumptionCache *AC,
-              const TargetLibraryInfo *TLI, AliasAnalysis *AA,
+              const TargetLibraryInfo *TLI, AAResults *AA,
               WRegionCollection *WRC, OptimizationRemarkEmitter &ORE);
 
   void print(raw_ostream &OS) const;
@@ -90,7 +91,7 @@ public:
   const TargetTransformInfo *getTargetTransformInfo() { return TTI; }
   AssumptionCache *getAssumptionCache() { return AC; }
   const TargetLibraryInfo *getTargetLibraryInfo() { return TLI; }
-  AliasAnalysis *getAliasAnalysis() { return AA; }
+  AAResults *getAliasAnalysis() { return AA; }
   OptimizationRemarkEmitter &getORE() { return ORE; }
 
   /// WRN Graph iterator methods

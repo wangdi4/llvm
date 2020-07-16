@@ -591,7 +591,6 @@ MachineVerifier::visitMachineBasicBlockBefore(const MachineBasicBlock *MBB) {
     // it is an entry block or landing pad.
     for (const auto &LI : MBB->liveins()) {
       if (isAllocatable(LI.PhysReg) && !MBB->isEHPad() &&
-          !MBB->isInlineAsmBrDefaultTarget() &&
           MBB->getIterator() != MBB->getParent()->begin()) {
         report("MBB has allocatable live-in, but isn't entry or landing-pad.", MBB);
         report_context(LI.PhysReg);
@@ -737,7 +736,7 @@ MachineVerifier::visitMachineBasicBlockBefore(const MachineBasicBlock *MBB) {
         continue;
       // Also accept successors which are for exception-handling or might be
       // inlineasm_br targets.
-      if (SuccMBB->isEHPad() || MBB->isInlineAsmBrIndirectTarget(SuccMBB))
+      if (SuccMBB->isEHPad() || SuccMBB->isInlineAsmBrIndirectTarget())
         continue;
       report("MBB has unexpected successors which are not branch targets, "
              "fallthrough, EHPads, or inlineasm_br targets.",
@@ -1701,6 +1700,15 @@ MachineVerifier::visitMachineOperand(const MachineOperand *MO, unsigned MONum) {
       const TargetRegisterClass *RC = MRI->getRegClassOrNull(Reg);
       if (!RC) {
         // This is a generic virtual register.
+
+        // Do not allow undef uses for generic virtual registers. This ensures
+        // getVRegDef can never fail and return null on a generic register.
+        //
+        // FIXME: This restriction should probably be broadened to all SSA
+        // MIR. However, DetectDeadLanes/ProcessImplicitDefs technically still
+        // run on the SSA function just before phi elimination.
+        if (MO->isUndef())
+          report("Generic virtual register use cannot be undef", MO, MONum);
 
         // If we're post-Select, we can't have gvregs anymore.
         if (isFunctionSelected) {

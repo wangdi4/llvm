@@ -150,11 +150,6 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
 #if INTEL_FEATURE_ISA_HRESET
   bool HasHRESET = false;
 #endif // INTEL_FEATURE_ISA_HRESET
-#if INTEL_FEATURE_ISA_AMX
-  bool HasAMXTILE = false;
-  bool HasAMXINT8 = false;
-  bool HasAMXBF16 = false;
-#endif // INTEL_FEATURE_ISA_AMX
 #if INTEL_FEATURE_ISA_AMX_FUTURE
   bool HasAMXREDUCE = false;
   bool HasAMXMEMORY = false;
@@ -217,6 +212,9 @@ class LLVM_LIBRARY_VISIBILITY X86TargetInfo : public TargetInfo {
   bool HasAVXCOMPRESS = false;
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
 #endif // INTEL_CUSTOMIZATION
+  bool HasAMXTILE = false;
+  bool HasAMXINT8 = false;
+  bool HasAMXBF16 = false;
   bool HasSERIALIZE = false;
   bool HasTSXLDTRK = false;
 

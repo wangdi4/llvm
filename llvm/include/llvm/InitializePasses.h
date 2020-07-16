@@ -105,6 +105,7 @@ void initializeAlignmentFromAssumptionsPass(PassRegistry&);
 void initializeAlwaysInlinerLegacyPassPass(PassRegistry&);
 void initializeAndersensAAWrapperPassPass(PassRegistry&); // INTEL
 void initializeAssumeSimplifyPassLegacyPassPass(PassRegistry &);
+void initializeAssumeBuilderPassLegacyPassPass(PassRegistry &);
 void initializeOpenMPOptLegacyPassPass(PassRegistry &);
 void initializeArgNoAliasPropPass(PassRegistry &); // INTEL
 void initializeArgPromotionPass(PassRegistry&);
@@ -470,6 +471,7 @@ void initializeStripNonLineTableDebugInfoPass(PassRegistry&);
 void initializeStripSymbolsPass(PassRegistry&);
 void initializeStructurizeCFGPass(PassRegistry&);
 void initializeSYCLLowerWGScopeLegacyPassPass(PassRegistry &);
+void initializeSYCLLowerESIMDLegacyPassPass(PassRegistry &);
 void initializeTailCallElimPass(PassRegistry&);
 void initializeTailDuplicatePass(PassRegistry&);
 void initializeTargetLibraryInfoWrapperPassPass(PassRegistry&);

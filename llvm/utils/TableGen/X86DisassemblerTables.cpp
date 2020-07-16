@@ -647,11 +647,6 @@ static ModRMDecisionType getDecisionType(ModRMDecision &decision) {
   bool satisfiesOneEntry = true;
   bool satisfiesSplitRM = true;
   bool satisfiesSplitReg = true;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX
-  bool satisfiesSplitRegM = true;
-#endif // INTEL_FEATURE_ISA_AMX
-#endif // INTEL_CUSTOMIZATION
   bool satisfiesSplitMisc = true;
 
   for (unsigned index = 0; index < 256; ++index) {
@@ -673,14 +668,6 @@ static ModRMDecisionType getDecisionType(ModRMDecision &decision) {
     if (((index & 0xc0) != 0xc0) &&
        (decision.instructionIDs[index] != decision.instructionIDs[index&0x38]))
       satisfiesSplitMisc = false;
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX
-    if (((index & 0xc0) == 0xc0) &&
-       (decision.instructionIDs[index] != decision.instructionIDs[index&0xc7]))
-      satisfiesSplitRegM = false;
-#endif // INTEL_FEATURE_ISA_AMX
-#endif // INTEL_CUSTOMIZATION
   }
 
   if (satisfiesOneEntry)
@@ -691,13 +678,6 @@ static ModRMDecisionType getDecisionType(ModRMDecision &decision) {
 
   if (satisfiesSplitReg && satisfiesSplitMisc)
     return MODRM_SPLITREG;
-
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX
-  if (satisfiesSplitRegM)
-    return MODRM_SPLITREGM;
-#endif // INTEL_FEATURE_ISA_AMX
-#endif // INTEL_CUSTOMIZATION
 
   if (satisfiesSplitMisc)
     return MODRM_SPLITMISC;
@@ -763,14 +743,6 @@ void DisassemblerTables::emitModRMDecision(raw_ostream &o1, raw_ostream &o2,
       for (unsigned index = 0xc0; index < 256; index += 8)
         ModRMDecision.push_back(decision.instructionIDs[index]);
       break;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX
-    case MODRM_SPLITREGM:
-      for (unsigned index = 0xc0; index < 256; index += 8)
-        ModRMDecision.push_back(decision.instructionIDs[index]);
-      break;
-#endif // INTEL_FEATURE_ISA_AMX
-#endif // INTEL_CUSTOMIZATION
     case MODRM_SPLITMISC:
       for (unsigned index = 0; index < 64; index += 8)
         ModRMDecision.push_back(decision.instructionIDs[index]);
@@ -812,13 +784,6 @@ void DisassemblerTables::emitModRMDecision(raw_ostream &o1, raw_ostream &o2,
     case MODRM_SPLITREG:
       sEntryNumber += 16;
       break;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_AMX
-    case MODRM_SPLITREGM:
-      sEntryNumber += 8;
-      break;
-#endif // INTEL_FEATURE_ISA_AMX
-#endif // INTEL_CUSTOMIZATION
     case MODRM_SPLITMISC:
       sEntryNumber += 8 + 64;
       break;

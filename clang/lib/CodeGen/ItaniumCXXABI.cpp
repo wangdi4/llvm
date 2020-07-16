@@ -228,6 +228,12 @@ public:
                                                bool ForVirtualBase,
                                                bool Delegating) override;
 
+  llvm::Value *getCXXDestructorImplicitParam(CodeGenFunction &CGF,
+                                             const CXXDestructorDecl *DD,
+                                             CXXDtorType Type,
+                                             bool ForVirtualBase,
+                                             bool Delegating) override;
+
   void EmitDestructorCall(CodeGenFunction &CGF, const CXXDestructorDecl *DD,
                           CXXDtorType Type, bool ForVirtualBase,
                           bool Delegating, Address This,
@@ -1693,13 +1699,21 @@ CGCXXABI::AddedStructorArgs ItaniumCXXABI::getImplicitConstructorArgs(
   return AddedStructorArgs::prefix({{VTT, VTTTy}});
 }
 
+llvm::Value *ItaniumCXXABI::getCXXDestructorImplicitParam(
+    CodeGenFunction &CGF, const CXXDestructorDecl *DD, CXXDtorType Type,
+    bool ForVirtualBase, bool Delegating) {
+  GlobalDecl GD(DD, Type);
+  return CGF.GetVTTParameter(GD, ForVirtualBase, Delegating);
+}
+
 void ItaniumCXXABI::EmitDestructorCall(CodeGenFunction &CGF,
                                        const CXXDestructorDecl *DD,
                                        CXXDtorType Type, bool ForVirtualBase,
                                        bool Delegating, Address This,
                                        QualType ThisTy) {
   GlobalDecl GD(DD, Type);
-  llvm::Value *VTT = CGF.GetVTTParameter(GD, ForVirtualBase, Delegating);
+  llvm::Value *VTT =
+      getCXXDestructorImplicitParam(CGF, DD, Type, ForVirtualBase, Delegating);
   QualType VTTTy = getContext().getPointerType(getContext().VoidPtrTy);
 
   CGCallee Callee;
@@ -3066,6 +3080,11 @@ static bool TypeInfoIsInStandardLibrary(const BuiltinType *Ty) {
 
 #define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
     case BuiltinType::Id:
+#include "clang/Basic/OpenCLImageTypes.def"
+#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix)                   \
+  case BuiltinType::Sampled##Id:
+#define IMAGE_WRITE_TYPE(Type, Id, Ext)
+#define IMAGE_READ_WRITE_TYPE(Type, Id, Ext)
 #include "clang/Basic/OpenCLImageTypes.def"
 #define EXT_OPAQUE_TYPE(ExtType, Id, Ext) \
     case BuiltinType::Id:

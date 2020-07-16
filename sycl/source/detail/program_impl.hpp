@@ -316,9 +316,12 @@ public:
 
   /// Tells whether a specialization constant has been set for this program.
   bool hasSetSpecConstants() const { return !SpecConstRegistry.empty(); }
-  
-  /// Returns the native plugin handle. // INTEL
-  pi_native_handle getNative() const;   // INTEL
+
+  /// \return true if caching is allowed for this program.
+  bool is_cacheable() const { return MProgramAndKernelCachingAllowed; }
+
+  /// Returns the native plugin handle.
+  pi_native_handle getNative() const;
 
 private:
   // Deligating Constructor used in Implementation.
@@ -369,9 +372,6 @@ private:
 
   /// \return a vector of devices managed by the plugin.
   vector_class<RT::PiDevice> get_pi_devices() const;
-
-  /// \return true if caching is allowed for this program.
-  bool is_cacheable() const { return MProgramAndKernelCachingAllowed; }
 
   /// \param Options is a string containing OpenCL C build options.
   /// \return true if caching is allowed for this program and build options.

@@ -1,6 +1,6 @@
-; RUN: opt < %s -basicaa -aa-eval -print-all-alias-modref-info -S 2>&1 | FileCheck %s
+; RUN: opt < %s -basic-aa -aa-eval -print-all-alias-modref-info -S 2>&1 | FileCheck %s
 ; INTEL_CUSTOMIZATION
-; RUN: opt -convert-to-subscript -S < %s | opt -basicaa -aa-eval -print-all-alias-modref-info -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHKSS
+; RUN: opt -convert-to-subscript -S < %s | opt -basic-aa -aa-eval -print-all-alias-modref-info -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHKSS
 ; end INTEL_CUSTOMIZATION
 target datalayout = "e-p:32:32:32-i1:8:32-i8:8:32-i16:16:32-i32:32:32-i64:32:32-f32:32:32-f64:32:32-v64:32:64-v128:32:128-a0:0:32-n32"
 target triple = "arm-apple-ios"
