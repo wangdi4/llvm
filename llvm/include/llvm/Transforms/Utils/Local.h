@@ -162,7 +162,9 @@ bool wouldInstructionBeTriviallyDead(Instruction *I,
 /// recursively. Return true if any instructions were deleted.
 bool RecursivelyDeleteTriviallyDeadInstructions(
     Value *V, const TargetLibraryInfo *TLI = nullptr,
-    MemorySSAUpdater *MSSAU = nullptr);
+    MemorySSAUpdater *MSSAU = nullptr,
+    std::function<void(Value *)> AboutToDeleteCallback =
+        std::function<void(Value *)>());
 
 /// Delete all of the instructions in `DeadInsts`, and all other instructions
 /// that deleting these in turn causes to be trivially dead.
@@ -174,7 +176,9 @@ bool RecursivelyDeleteTriviallyDeadInstructions(
 /// empty afterward.
 void RecursivelyDeleteTriviallyDeadInstructions(
     SmallVectorImpl<WeakTrackingVH> &DeadInsts,
-    const TargetLibraryInfo *TLI = nullptr, MemorySSAUpdater *MSSAU = nullptr);
+    const TargetLibraryInfo *TLI = nullptr, MemorySSAUpdater *MSSAU = nullptr,
+    std::function<void(Value *)> AboutToDeleteCallback =
+        std::function<void(Value *)>());
 
 /// Same functionality as RecursivelyDeleteTriviallyDeadInstructions, but allow
 /// instructions that are not trivially dead. These will be ignored.
@@ -182,7 +186,9 @@ void RecursivelyDeleteTriviallyDeadInstructions(
 /// were found and deleted.
 bool RecursivelyDeleteTriviallyDeadInstructionsPermissive(
     SmallVectorImpl<WeakTrackingVH> &DeadInsts,
-    const TargetLibraryInfo *TLI = nullptr, MemorySSAUpdater *MSSAU = nullptr);
+    const TargetLibraryInfo *TLI = nullptr, MemorySSAUpdater *MSSAU = nullptr,
+    std::function<void(Value *)> AboutToDeleteCallback =
+        std::function<void(Value *)>());
 
 /// If the specified value is an effectively dead PHI node, due to being a
 /// def-use chain of single-use nodes that either forms a cycle or is terminated

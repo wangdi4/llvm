@@ -1594,6 +1594,12 @@ struct DSEState {
           break;
         }
       }
+      switch (CB->getIntrinsicID()) {
+      case Intrinsic::init_trampoline:
+        return {MemoryLocation(CB->getArgOperand(0))};
+      default:
+        break;
+      }
       return None;
     }
 
