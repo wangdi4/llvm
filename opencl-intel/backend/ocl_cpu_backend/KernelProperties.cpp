@@ -131,7 +131,7 @@ void KernelProperties::Serialize(IOutputStream& ost, SerializationStatus* stats)
     Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
 }
 
-void KernelProperties::Deserialize(IInputStream& ist, SerializationStatus* stats)
+void KernelProperties::Deserialize(IInputStream& ist, SerializationStatus* stats, size_t maxPrivateMemSize)
 {
     // Need to revert dbgPrint flag
     //Serializer::DeserialPrimitive<bool>(&m_dbgPrint, ist);
@@ -167,7 +167,8 @@ void KernelProperties::Deserialize(IInputStream& ist, SerializationStatus* stats
     Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
     m_privateMemorySize = (size_t)tmp;
     Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
-    m_maxPrivateMemorySize = (size_t)tmp;
+    m_maxPrivateMemorySize =
+      maxPrivateMemSize ? maxPrivateMemSize : (size_t)tmp;
     Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
     m_reqdNumSG = (size_t)tmp;
     Serializer::DeserialPrimitive<bool>(&m_isVectorizedWithTail, ist);

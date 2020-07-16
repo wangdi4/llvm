@@ -59,7 +59,8 @@ public:
     /**
      * Serialization methods for the class (used by the serialization service)
      */
-    virtual void Deserialize(IInputStream& ist, SerializationStatus* stats);
+    virtual void Deserialize(IInputStream& ist, SerializationStatus* stats,
+                             size_t maxPrivateMemSize = 0);
 
     void SetObjectCache(ObjectCodeCache *);
 

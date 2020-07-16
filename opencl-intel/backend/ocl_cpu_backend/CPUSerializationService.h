@@ -41,7 +41,8 @@ public:
     virtual cl_dev_err_code ReloadProgram(
         cl_serialization_type serializationType, 
         ICLDevBackendProgram_* pProgram, 
-        const void* pBlob, size_t blobSize) const;
+        const void* pBlob, size_t blobSize,
+        size_t maxPrivateMemSize) const;
 
     virtual cl_dev_err_code DeSerializeProgram(
         cl_serialization_type serializationType, 
