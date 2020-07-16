@@ -278,6 +278,14 @@ void __tgt_target_data_begin_nowait(int64_t device_id, int32_t arg_num,
                                     int32_t depNum, void *depList,
                                     int32_t noAliasDepNum,
                                     void *noAliasDepList);
+void __tgt_target_data_begin_mapper(int64_t device_id, int32_t arg_num,
+                                    void **args_base, void **args,
+                                    int64_t *arg_sizes, int64_t *arg_types,
+                                    void **arg_mappers);
+void __tgt_target_data_begin_nowait_mapper(
+    int64_t device_id, int32_t arg_num, void **args_base, void **args,
+    int64_t *arg_sizes, int64_t *arg_types, void **arg_mappers, int32_t depNum,
+    void *depList, int32_t noAliasDepNum, void *noAliasDepList);
 
 // passes data from the target, release target memory and destroys the
 // host-target mapping (top entry from the stack of data maps) created by
@@ -295,6 +303,16 @@ void __tgt_target_data_end_nowait(int64_t device_id, int32_t arg_num,
                                   int64_t *arg_sizes, int64_t *arg_types,
                                   int32_t depNum, void *depList,
                                   int32_t noAliasDepNum, void *noAliasDepList);
+void __tgt_target_data_end_mapper(int64_t device_id, int32_t arg_num,
+                                  void **args_base, void **args,
+                                  int64_t *arg_sizes, int64_t *arg_types,
+                                  void **arg_mappers);
+void __tgt_target_data_end_nowait_mapper(int64_t device_id, int32_t arg_num,
+                                         void **args_base, void **args,
+                                         int64_t *arg_sizes, int64_t *arg_types,
+                                         void **arg_mappers, int32_t depNum,
+                                         void *depList, int32_t noAliasDepNum,
+                                         void *noAliasDepList);
 
 /// passes data to/from the target
 #if INTEL_COLLAB
@@ -312,6 +330,14 @@ void __tgt_target_data_update_nowait(int64_t device_id, int32_t arg_num,
                                      int32_t depNum, void *depList,
                                      int32_t noAliasDepNum,
                                      void *noAliasDepList);
+void __tgt_target_data_update_mapper(int64_t device_id, int32_t arg_num,
+                                     void **args_base, void **args,
+                                     int64_t *arg_sizes, int64_t *arg_types,
+                                     void **arg_mappers);
+void __tgt_target_data_update_nowait_mapper(
+    int64_t device_id, int32_t arg_num, void **args_base, void **args,
+    int64_t *arg_sizes, int64_t *arg_types, void **arg_mappers, int32_t depNum,
+    void *depList, int32_t noAliasDepNum, void *noAliasDepList);
 
 // Performs the same actions as data_begin in case arg_num is non-zero
 // and initiates run of offloaded region on target platform; if arg_num
@@ -332,6 +358,15 @@ int __tgt_target_nowait(int64_t device_id, void *host_ptr, int32_t arg_num,
                         void **args_base, void **args, int64_t *arg_sizes,
                         int64_t *arg_types, int32_t depNum, void *depList,
                         int32_t noAliasDepNum, void *noAliasDepList);
+int __tgt_target_mapper(int64_t device_id, void *host_ptr, int32_t arg_num,
+                        void **args_base, void **args, int64_t *arg_sizes,
+                        int64_t *arg_types, void **arg_mappers);
+int __tgt_target_nowait_mapper(int64_t device_id, void *host_ptr,
+                               int32_t arg_num, void **args_base, void **args,
+                               int64_t *arg_sizes, int64_t *arg_types,
+                               void **arg_mappers, int32_t depNum,
+                               void *depList, int32_t noAliasDepNum,
+                               void *noAliasDepList);
 
 #if INTEL_COLLAB
 EXTERN
@@ -349,9 +384,23 @@ int __tgt_target_teams_nowait(int64_t device_id, void *host_ptr,
                               int32_t num_teams, int32_t thread_limit,
                               int32_t depNum, void *depList,
                               int32_t noAliasDepNum, void *noAliasDepList);
+<<<<<<< HEAD
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
+=======
+int __tgt_target_teams_mapper(int64_t device_id, void *host_ptr,
+                              int32_t arg_num, void **args_base, void **args,
+                              int64_t *arg_sizes, int64_t *arg_types,
+                              void **arg_mappers, int32_t num_teams,
+                              int32_t thread_limit);
+int __tgt_target_teams_nowait_mapper(
+    int64_t device_id, void *host_ptr, int32_t arg_num, void **args_base,
+    void **args, int64_t *arg_sizes, int64_t *arg_types, void **arg_mappers,
+    int32_t num_teams, int32_t thread_limit, int32_t depNum, void *depList,
+    int32_t noAliasDepNum, void *noAliasDepList);
+
+>>>>>>> 140ab574a1c81e0878b3238520302509457242d0
 void __kmpc_push_target_tripcount(int64_t device_id, uint64_t loop_tripcount);
 #if INTEL_COLLAB
 EXTERN
