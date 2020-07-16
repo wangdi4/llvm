@@ -170,9 +170,8 @@ void OpenMPIRBuilder::finalize() {
     // made our own entry block after all.
     {
       BasicBlock &ArtificialEntry = OutlinedFn->getEntryBlock();
-<<<<<<< HEAD
-      assert(ArtificialEntry.getUniqueSuccessor() == RegEntryBB);
-      assert(RegEntryBB->getUniquePredecessor() == &ArtificialEntry);
+      assert(ArtificialEntry.getUniqueSuccessor() == OI.EntryBB);
+      assert(OI.EntryBB->getUniquePredecessor() == &ArtificialEntry);
 #if INTEL_COLLAB
       if (!ArtificialEntry.empty()) {
         Instruction *PrevInst = &(RegEntryBB->front());
@@ -184,12 +183,7 @@ void OpenMPIRBuilder::finalize() {
         }
       }
 #endif // INTEL_COLLAB
-      RegEntryBB->moveBefore(&ArtificialEntry);
-=======
-      assert(ArtificialEntry.getUniqueSuccessor() == OI.EntryBB);
-      assert(OI.EntryBB->getUniquePredecessor() == &ArtificialEntry);
       OI.EntryBB->moveBefore(&ArtificialEntry);
->>>>>>> 7af287d0d921471f18b5c3054ce42381c0f973ed
       ArtificialEntry.eraseFromParent();
     }
     assert(&OutlinedFn->getEntryBlock() == OI.EntryBB);
