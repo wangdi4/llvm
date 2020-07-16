@@ -966,11 +966,15 @@ std::string AttributeSetNode::getAsString(bool InAttrGrp) const {
 // AttributeListImpl Definition
 //===----------------------------------------------------------------------===//
 
+#if INTEL_CUSTOMIZATION
 /// Map from AttributeList index to the internal array index. Adding one happens
-/// to work, because -1 wraps around to 0.
+/// to work, but it relies on unsigned integer wrapping. MSVC warns about
+/// unsigned wrapping in constexpr functions, so write out the conditional. LLVM
+/// folds it to add anyway.
 static constexpr unsigned attrIdxToArrayIdx(unsigned Index) {
-  return Index + 1;
+  return Index == AttributeList::FunctionIndex ? 0 : Index + 1;
 }
+#endif // INTEL_CUSTOMIZATION
 
 AttributeListImpl::AttributeListImpl(ArrayRef<AttributeSet> Sets)
     : NumAttrSets(Sets.size()) {
