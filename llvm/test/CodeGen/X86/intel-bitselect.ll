@@ -101,3 +101,39 @@ define <8 x i64> @bitselectxor_v8i64_bitcast(<8 x i64> %x, <8 x i64> %y) {
   %e = mul <8 x i64> %c, %d
   ret <8 x i64> %e
 }
+
+; make sure we recognize the (y ^ ((x ^ y) & m) and (x ^ ((x ^ y) & m)) as
+; two blend instructions. We need to test both at the same time so the AND will
+; have two uses. There is a generic DAG combine to rewrite (y ^ ((x ^ y) & m) to
+; (x & m) | (y & ~m) which will get turned into a blend shuffle. That combine
+; doesn't kick in if the AND has 2 uses so we end up converting just the AND
+; to a blend with zero. So we have an X86 DAG combine to fix it.
+define <2 x i64> @bitselectblend_v2i64(<2 x i64> %x, <2 x i64> %y, <2 x i64> %m) {
+; CHECK-LABEL: bitselectblend_v2i64:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpblendd {{.*#+}} xmm2 = xmm1[0],xmm0[1],xmm1[2],xmm0[3]
+; CHECK-NEXT:    vpblendd {{.*#+}} xmm0 = xmm0[0],xmm1[1],xmm0[2],xmm1[3]
+; CHECK-NEXT:    vpmullq %xmm0, %xmm2, %xmm0
+; CHECK-NEXT:    retq
+  %a = xor <2 x i64> %x, %y
+  %b = and <2 x i64> %a, <i64 4294967295, i64 4294967295>
+  %c = xor <2 x i64> %b, %x
+  %d = xor <2 x i64> %b, %y
+  %e = mul <2 x i64> %c, %d ; just to combine the two xors
+  ret <2 x i64> %e
+}
+
+define <4 x i64> @bitselectblend_v4i64(<4 x i64> %x, <4 x i64> %y, <4 x i64> %m) {
+; CHECK-LABEL: bitselectblend_v4i64:
+; CHECK:       # %bb.0:
+; CHECK-NEXT:    vpblendw {{.*#+}} ymm2 = ymm0[0],ymm1[1,2,3],ymm0[4],ymm1[5,6,7],ymm0[8],ymm1[9,10,11],ymm0[12],ymm1[13,14,15]
+; CHECK-NEXT:    vpblendw {{.*#+}} ymm0 = ymm1[0],ymm0[1,2,3],ymm1[4],ymm0[5,6,7],ymm1[8],ymm0[9,10,11],ymm1[12],ymm0[13,14,15]
+; CHECK-NEXT:    vpmullq %ymm0, %ymm2, %ymm0
+; CHECK-NEXT:    retq
+  %a = xor <4 x i64> %x, %y
+  %b = and <4 x i64> %a, <i64 -65536, i64 -65536, i64 -65536, i64 -65536>
+  %c = xor <4 x i64> %b, %x
+  %d = xor <4 x i64> %b, %y
+  %e = mul <4 x i64> %c, %d ; just to combine the two xors
+  ret <4 x i64> %e
+}

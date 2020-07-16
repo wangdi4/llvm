@@ -47469,6 +47469,54 @@ static SDValue combineBitSelectXor(SDNode *N, SelectionDAG &DAG,
   return DAG.getNode(X86ISD::VPTERNLOG, dl, VT, DAG.getBitcast(VT, M),
                      DAG.getBitcast(VT, X), DAG.getBitcast(VT, Y), Imm);
 }
+
+// Look for (Y ^ (blend (X ^ Y), zero, C)) and replace with (blend X, Y, C).
+static SDValue combineXorBlend(SDNode *N, SelectionDAG &DAG) {
+  assert(N->getOpcode() == ISD::XOR && "Unexpected Opcode");
+
+  MVT VT = N->getSimpleValueType(0);
+  if (!VT.isVector() || (VT.getScalarSizeInBits() % 8) != 0)
+    return SDValue();
+
+  auto matchBlend = [&](SDValue Op, SDValue Y) {
+    SDValue Blend = peekThroughOneUseBitcasts(Op);
+    if (Blend.getOpcode() != X86ISD::BLENDI ||
+        !ISD::isBuildVectorAllZeros(Blend.getOperand(1).getNode()))
+      return SDValue();
+
+    SDValue Xor = peekThroughBitcasts(Blend.getOperand(0));
+    if (Xor.getOpcode() != ISD::XOR)
+      return SDValue();
+
+    SDValue Xor0 = Xor.getOperand(0);
+    SDValue Xor1 = Xor.getOperand(1);
+
+    // One of the operands needs to match Y, the other operand is our X.
+    if (Y == Xor0)
+      std::swap(Xor0, Xor1);
+    else if (Y != Xor1)
+      return SDValue();
+
+    SDLoc dl(N);
+
+    MVT BlendVT = Blend.getSimpleValueType();
+    Blend = DAG.getNode(X86ISD::BLENDI, dl, BlendVT,
+                        DAG.getBitcast(BlendVT, Xor0),
+                        DAG.getBitcast(BlendVT, Y),
+                        Blend.getOperand(2));
+    return DAG.getBitcast(VT, Blend);
+  };
+
+  SDValue N0 = N->getOperand(0);
+  SDValue N1 = N->getOperand(1);
+
+  if (SDValue V = matchBlend(N0, N1))
+    return V;
+  if (SDValue V = matchBlend(N1, N0))
+    return V;
+
+  return SDValue();
+}
 #endif // INTEL_CUSTOMIZATION
 
 static SDValue combineXor(SDNode *N, SelectionDAG &DAG,
@@ -47504,7 +47552,10 @@ static SDValue combineXor(SDNode *N, SelectionDAG &DAG,
 #if INTEL_CUSTOMIZATION
   if (SDValue V = combineBitSelectXor(N, DAG, Subtarget))
     return V;
-#endif
+
+  if (SDValue V = combineXorBlend(N, DAG))
+    return V;
+#endif // INTEL_CUSTOMIZATION
 
   return combineFneg(N, DAG, DCI, Subtarget);
 }
