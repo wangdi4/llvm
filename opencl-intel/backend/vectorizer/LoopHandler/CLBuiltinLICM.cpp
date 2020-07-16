@@ -72,8 +72,7 @@ void CLBuiltinLICM::ScanLoop(DomTreeNode *N) {
   }
 
   // Go over blocks recursively according to Dominator tree.
-  const std::vector<DomTreeNode*> &Children = N->getChildren();
-  for (unsigned i = 0, e = Children.size(); i != e; ++i) ScanLoop(Children[i]);
+  for (DomTreeNode *Children : N->children()) ScanLoop(Children);
 }
 
 bool CLBuiltinLICM::hoistCLBuiltin(CallInst *CI) {

@@ -19,6 +19,7 @@
 #include <llvm/IR/Module.h>
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Operator.h>
+#include <llvm/Support/CommandLine.h>
 #include <map>
 #include <iostream>
 

@@ -45,7 +45,7 @@ public:
     // Loop over CFG successors to calculate DFlocal[Node]
     llvm::BasicBlock *BB = Node->getBlock();
     DomSetType &S = this->Frontiers[BB];       // The new set to fill in...
-    if (DT.getRoots().empty()) return S;
+    if (DT.root_size() == 0) return S;
 
     if (BB)
       for (llvm::pred_iterator SI = pred_begin(BB), SE = pred_end(BB);
