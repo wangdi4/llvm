@@ -1243,7 +1243,7 @@ define void @test_blend_splitting_for_early_path_join(i32* %a, i32 %b) local_unn
 ; CHECK-NEXT:    PREDECESSORS(2): [[BLEND_BB0]] [[BLEND_BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB9]]:
-; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI_BLEND_BB7:%.*]] = blend [ i32 [[VP_BB5_ADD]], i1 [[VP2]] ], [ i32 [[VP_PHI_PHI_BB7]], i1 [[VP2]] ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_PHI_BLEND_BB7:%.*]] = blend [ i32 [[VP_PHI_PHI_BB7]], i1 true ], [ i32 [[VP_BB5_ADD]], i1 [[VP2]] ]
 ; CHECK-NEXT:     [DA: Div] i32 [[VP_BB6_ADD:%.*]] = add i32 [[VP_LD]] i32 6
 ; CHECK-NEXT:     [DA: Div] void [[VP4:%.*]] = ret
 ; CHECK-NEXT:    no SUCCESSORS
@@ -1410,9 +1410,9 @@ define void @test_not_of_phi() {
 ; CHECK-NEXT:    no PREDECESSORS
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]:
-; CHECK-NEXT:     [DA: Div] i1 [[VP_COND_BLEND_BB1:%.*]] = blend [ i1 [[VP_VARYING]], i1 true ]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_SOME_BLEND_BB1:%.*]] = blend [ i32 0, i1 true ]
-; CHECK-NEXT:     [DA: Div] i1 [[VP_COND_NOT:%.*]] = not i1 [[VP_COND_BLEND_BB1]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_COND:%.*]] = blend [ i1 [[VP_VARYING]], i1 true ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_SOME:%.*]] = blend [ i32 0, i1 true ]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_COND_NOT:%.*]] = not i1 [[VP_COND]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB2:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
 ; CHECK-EMPTY:
@@ -1422,7 +1422,7 @@ define void @test_not_of_phi() {
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB3]]:
-; CHECK-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_COND_BLEND_BB1]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_COND]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
@@ -1448,6 +1448,74 @@ bb2:
   br label %exit
 
 exit:
+  ret void
+}
+
+define void @no_blend_on_edge(i32 %b) {
+; CHECK-LABEL:  VPlan IR for: no_blend_on_edge
+; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
+; CHECK-NEXT:     [DA: Div] i32 [[VP_LANE:%.*]] = induction-init{add} i32 0 i32 1
+; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING:%.*]] = icmp i32 [[VP_LANE]] i32 3
+; CHECK-NEXT:     [DA: Uni] i1 [[VP_UNIFORM:%.*]] = icmp i32 [[B0:%.*]] i32 42
+; CHECK-NEXT:    SUCCESSORS(2):[[BB1:BB[0-9]+]](i1 [[VP_UNIFORM]]), [[BB2:BB[0-9]+]](!i1 [[VP_UNIFORM]])
+; CHECK-NEXT:    no PREDECESSORS
+; CHECK-EMPTY:
+; CHECK-NEXT:      [[BB2]]:
+; CHECK-NEXT:       [DA: Uni] i32 [[VP_DEF1:%.*]] = add i32 [[B0]] i32 1
+; CHECK-NEXT:      SUCCESSORS(1):[[BB3:BB[0-9]+]]
+; CHECK-NEXT:      PREDECESSORS(1): [[BB0]]
+; CHECK-EMPTY:
+; CHECK-NEXT:      [[BB3]]:
+; CHECK-NEXT:       [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_VARYING]]
+; CHECK-NEXT:       [DA: Uni] i32 [[VP_DEF2:%.*]] = add i32 [[B0]] i32 2
+; CHECK-NEXT:      SUCCESSORS(1):[[BB1]]
+; CHECK-NEXT:      PREDECESSORS(1): [[BB2]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB1]]:
+; CHECK-NEXT:     [DA: Div] i32 [[VP_P_PHI_BB2:%.*]] = phi  [ i32 undef, [[BB0]] ],  [ i32 [[VP_DEF1]], [[BB3]] ]
+; CHECK-NEXT:     [DA: Div] i1 [[VP_VARYING_PHI_BB2:%.*]] = phi  [ i1 false, [[BB0]] ],  [ i1 [[VP_VARYING]], [[BB3]] ]
+; CHECK-NEXT:     [DA: Div] i1 [[VP1:%.*]] = or i1 [[VP_UNIFORM]] i1 [[VP_VARYING_PHI_BB2]]
+; CHECK-NEXT:     [DA: Div] i1 [[VP2:%.*]] = block-predicate i1 [[VP1]]
+; CHECK-NEXT:     [DA: Uni] i32 [[VP_DEF3:%.*]] = add i32 [[B0]] i32 3
+; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB0]] [[BB3]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB4]]:
+; CHECK-NEXT:     [DA: Div] i32 [[VP_P_BLEND_BB2:%.*]] = blend [ i32 [[VP_P_PHI_BB2]], i1 true ], [ i32 [[VP_DEF3]], i1 [[VP1]] ]
+; CHECK-NEXT:     [DA: Div] void [[VP3:%.*]] = ret
+; CHECK-NEXT:    no SUCCESSORS
+; CHECK-NEXT:    PREDECESSORS(1): [[BB1]]
+;
+entry:
+;  Before linearization | After
+;      entry (U)        |     entry
+;     /    \            |      |  |
+;    /      \           |      | bb1
+;  bb3<-bb2<-bb1        |      |  |
+;     \     /           |      | bb2
+;      \   /            |      | /
+;       bb4             |      bb3 ;  merge-phi = phi [undef, %def1]
+;                       |       |
+;                       |      bb4 ; blend merge-phi, true, %def3, bb3.pred
+  %lane = call i32 @llvm.vplan.laneid()
+  %varying = icmp eq i32 %lane,  3
+  %uniform = icmp eq i32 %b,  42
+  br i1 %uniform, label %bb3, label %bb1
+
+bb1:
+  %def1 = add i32 %b, 1
+  br i1 %varying, label %bb2, label %bb4
+
+bb2:
+  %def2 = add i32 %b, 2
+  br label %bb3
+
+bb3:
+  %def3 = add i32 %b, 3
+  br label %bb4
+
+bb4:
+  %p = phi i32 [ %def1, %bb1 ], [ %def3, %bb3]
   ret void
 }
 

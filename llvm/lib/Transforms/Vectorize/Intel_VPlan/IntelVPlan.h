@@ -1305,6 +1305,13 @@ public:
     removeOperand(Idx);
   }
 
+  void clear() {
+    int NumOps = getNumIncomingValues();
+    for (int Idx = 0; Idx < NumOps; ++Idx)
+      removeOperand(NumOps - 1 - Idx);
+    VPBBUsers.clear();
+  }
+
   /// Return index for a given \p Block.
   int getBlockIndex(const VPBasicBlock *BB) const {
     auto It = llvm::find(make_range(block_begin(), block_end()), BB);
