@@ -31,11 +31,15 @@ endfunction(clang_tablegen)
 macro(set_clang_windows_version_resource_properties name)
   if(DEFINED windows_resource_file)
     set_windows_version_resource_properties(${name} ${windows_resource_file}
-      VERSION_MAJOR ${CLANG_VERSION_MAJOR}
-      VERSION_MINOR ${CLANG_VERSION_MINOR}
+# INTEL_CUSTOMIZATION
+      VERSION_MAJOR ${DPCPP_VERSION_MAJOR}
+      VERSION_MINOR ${DPCPP_VERSION_MINOR}
       VERSION_PATCHLEVEL ${CLANG_VERSION_PATCHLEVEL}
-      VERSION_STRING "${CLANG_VERSION} (${BACKEND_PACKAGE_STRING})"
-      PRODUCT_NAME "clang")
+      VERSION_STRING "${DPCPP_VERSION_MAJOR} (${DPCPP_VERSION_MINOR})"
+      PRODUCT_VERSION "${DPCPP_VERSION_STR}"
+      PRODUCT_NAME "${DPCPP_PRODUCT_NAME}"
+#end INTEL_CUSTOMIZATION
+    )
   endif()
 endmacro()
 

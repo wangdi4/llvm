@@ -282,17 +282,20 @@ bool VPOVectorizationLegality::isEntityAliasingSafe(
       auto *HeadI = WL.pop_back_val();
       for (auto *Use : HeadI->users()) {
         Instruction *UseInst = cast<Instruction>(Use);
+
+        // We only want to analyze the blocks between the region-entry and the
+        // loop-block (typically just simd.loop.preheader). This means we won't
+        // loop on cycle-causing PHIs.
+        if (!IsAliasInRelevantScope(UseInst))
+          continue;
+
         // If this is a store of private pointer or any of its alias to an
         // external memory, treat the loop as unsafe for vectorization and
         // return false.
         if (StoreInst *SI = dyn_cast<StoreInst>(UseInst))
           if (SI->getValueOperand() == HeadI)
             return false;
-        // We only want to analyze the blocks between the region-entry and the
-        // loop-block (typically just simd.loop.preheader). This means we won't
-        // loop on cycle-causing PHIs.
-        if (IsAliasInRelevantScope(UseInst) &&
-            isTrivialPointerAliasingInst(UseInst))
+        if (isTrivialPointerAliasingInst(UseInst))
           WL.insert(UseInst);
       }
     }

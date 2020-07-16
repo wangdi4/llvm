@@ -3,6 +3,7 @@
 //RUN:   -triple x86_64-unknown-linux-gnu -fopenmp-version=45 %s | FileCheck %s
 
 int bar(int i);
+void cmplx(_Complex double x);
 //CHECK: define{{.*}}foo1
 //CHECK: [[N1_ADDR:%.+]] = alloca i64,
 //CHECK: [[N2_ADDR:%.+]] = alloca i64,
@@ -14,9 +15,11 @@ int bar(int i);
 //CHECK: [[N8_ADDR:%.+]] = alloca i64,
 //CHECK: [[N9_ADDR:%.+]] = alloca i64,
 //CHECK: [[N10_ADDR:%.+]] = alloca i64,
+//CHECK: [[X_ADDR:%.+]] = alloca { double, double },
 void foo1(int *d) {
   long int n1=0, n2=1000, n3=1, n4=982, n5=0,
            n6=0, n7=0, n8=0, n9=0, n10=999;
+  double _Complex x;
 
 //CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASKGROUP"()
@@ -30,6 +33,7 @@ void foo1(int *d) {
 //CHECK-SAME: "QUAL.OMP.REDUCTION.OR"(i64* [[N8_ADDR]])
 //CHECK-SAME: "QUAL.OMP.REDUCTION.MAX"(i64* [[N9_ADDR]])
 //CHECK-SAME: "QUAL.OMP.REDUCTION.MIN"(i64* [[N10_ADDR]])
+//CHECK-SAME: "QUAL.OMP.REDUCTION.ADD:CMPLX"({ double, double }* [[X_ADDR]])
 
   #pragma omp taskgroup \
                task_reduction(+:n1)   \
@@ -41,7 +45,8 @@ void foo1(int *d) {
                task_reduction(&&:n7)  \
                task_reduction(||:n8)  \
                task_reduction(max:n9) \
-               task_reduction(min:n10)
+               task_reduction(min:n10) \
+               task_reduction(+:x)
   {
 //CHECK: [[TOK1:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.PARALLEL"()
@@ -134,6 +139,13 @@ void foo1(int *d) {
 //CHECK-SAME: [ "DIR.OMP.END.TASK"() ]
       #pragma omp task in_reduction(min:n10)
       n10 = bar(10);
+//CHECK: [[TOK24:%[0-9]*]] = call token @llvm.directive.region.entry()
+//CHECK-SAME: "DIR.OMP.TASK"()
+//CHECK-SAME: "QUAL.OMP.INREDUCTION.ADD:CMPLX"({ double, double }* [[X_ADDR]])
+//CHECK: call void @llvm.directive.region.exit(token [[TOK24]])
+//CHECK-SAME: [ "DIR.OMP.END.TASK"() ]
+      #pragma omp task in_reduction(+:x)
+        cmplx(x);
     }
 //CHECK: call void @llvm.directive.region.exit(token [[TOK1]])
 //CHECK-SAME: [ "DIR.OMP.END.PARALLEL"() ]
@@ -153,9 +165,11 @@ void foo1(int *d) {
 //CHECK: [[N8_ADDR:%.+]] = alloca i64,
 //CHECK: [[N9_ADDR:%.+]] = alloca i64,
 //CHECK: [[N10_ADDR:%.+]] = alloca i64,
+//CHECK: [[X_ADDR:%.+]] = alloca { double, double },
 void foo2(int *d) {
   long int n1=0, n2=1000, n3=1, n4=982, n5=0,
            n6=0, n7=0, n8=0, n9=0, n10=999;
+  double _Complex x;
 //CHECK: [[TOK0:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASKGROUP"()
 //CHECK-SAME: "QUAL.OMP.REDUCTION.ADD"(i64* [[N1_ADDR]])
@@ -168,6 +182,7 @@ void foo2(int *d) {
 //CHECK-SAME: "QUAL.OMP.REDUCTION.OR"(i64* [[N8_ADDR]])
 //CHECK-SAME: "QUAL.OMP.REDUCTION.MAX"(i64* [[N9_ADDR]])
 //CHECK-SAME: "QUAL.OMP.REDUCTION.MIN"(i64* [[N10_ADDR]])
+//CHECK-SAME: "QUAL.OMP.REDUCTION.MUL:CMPLX"({ double, double }* [[X_ADDR]])
   #pragma omp taskgroup \
                task_reduction(+:n1)   \
                task_reduction(-:n2)   \
@@ -178,7 +193,8 @@ void foo2(int *d) {
                task_reduction(&&:n7)  \
                task_reduction(||:n8)  \
                task_reduction(max:n9) \
-               task_reduction(min:n10)
+               task_reduction(min:n10) \
+               task_reduction(*:x)
   {
 //CHECK: [[TOK6:%[0-9]*]] = call token @llvm.directive.region.entry()
 //CHECK-SAME: "DIR.OMP.TASKLOOP"()
@@ -284,6 +300,15 @@ void foo2(int *d) {
   }
 //CHECK: call void @llvm.directive.region.exit(token [[TOK16]])
 //CHECK-SAME: [ "DIR.OMP.END.PARALLEL.LOOP"() ]
+
+//CHECK: [[TOK17:%[0-9]*]] = call token @llvm.directive.region.entry()
+//CHECK-SAME: "DIR.OMP.TASKLOOP"()
+//CHECK-SAME: "QUAL.OMP.INREDUCTION.MUL:CMPLX"({ double, double }* [[X_ADDR]])
+//CHECK: call void @llvm.directive.region.exit(token [[TOK17]])
+//CHECK-SAME: [ "DIR.OMP.END.TASKLOOP"() ]
+  #pragma omp taskloop in_reduction(*:x)
+  for(int i=0;i<20;++i)
+    cmplx(x);
 }
 
 struct A {

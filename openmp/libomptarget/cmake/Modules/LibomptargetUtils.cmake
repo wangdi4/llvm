@@ -35,6 +35,7 @@ macro(libomptarget_add_resource_file target)
     find_file(omptarget_rc omptarget.rc PATHS ${target_include})
     set(rc_flags
         -I${CMAKE_SOURCE_DIR}/../clang/include
+        -I${LLVM_INCLUDE_DIR}
         -DINTEL_CUSTOMIZATION=1
         -DLIBRARY_NAME="${library_name}"
         -Fo${resource_file}

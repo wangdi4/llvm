@@ -1060,6 +1060,8 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
       }
       break;
     }
+    if (PVD->getType()->isAnyComplexType())
+      CSB.add(":CMPLX");
     if (IsRef)
       CSB.setByRef();
     if (isa<ArraySubscriptExpr>(E->IgnoreParenImpCasts()) ||

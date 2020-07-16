@@ -15,6 +15,7 @@
 #include "clang/Config/config.h"
 #include "llvm/Support/raw_ostream.h"
 #include "clang/Basic/intel/versparm.h" // INTEL
+#include "llvm/Config/dpcpp.version.info.h" // INTEL
 #include <cstdlib>
 #include <cstring>
 
@@ -115,16 +116,6 @@ std::string getICXVersionString() {
     return OS.str();
   }
   return XMAIN_VERSION_STRING;
-}
-
-std::string getDPCPPVersionString() {
-  std::string buf;
-  llvm::raw_string_ostream OS(buf);
-  OS << DPCPP_VERSION_MAJOR_STR << "." << DPCPP_VERSION_MINOR_STR;
-  StringRef Q(DPCPP_VERSION_QUALITY);
-  if (!Q.empty())
-    OS << "-" << Q;
-  return OS.str();
 }
 
 std::string getDPCPPProductName() {
