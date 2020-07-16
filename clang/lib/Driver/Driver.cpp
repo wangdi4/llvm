@@ -438,7 +438,7 @@ void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
     if (Args.hasArg(options::OPT_flto) &&
         !Args.hasArg(options::OPT_fuse_ld_EQ)) {
       Arg *A = Args.getLastArg(options::OPT_flto);
-      StringRef Opt(A->getAsString(Args));
+      StringRef Opt(Args.MakeArgString(A->getAsString(Args)));
       // TODO - improve determination of last phase
       if (Opt.contains("Qipo") && !Args.hasArg(options::OPT_c, options::OPT_S))
         addClaim(options::OPT_fuse_ld_EQ, "lld");
@@ -477,6 +477,20 @@ void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
         Diag(diag::err_drv_unsupported_option_argument)
             << A->getOption().getName() << A->getValue();
     }
+  }
+
+  // When dealing with -fast, the behavior is the same as -Ofast, except
+  // that -xHOST is implied.
+  // TODO: Make LTO the default with -fast as well.
+  if (Arg *A = Args.getLastArg(options::OPT_Ofast)) {
+    StringRef Opt(Args.MakeArgString(A->getAsString(Args)));
+    bool hasXOpt = false;
+    if (Arg *A = Args.getLastArg(options::OPT_x)) {
+      StringRef Arch = A->getValue();
+      hasXOpt = !types::lookupTypeForTypeSpecifier(Arch.data());
+    }
+    if (!Opt.contains("O") && !hasXOpt)
+      addClaim(options::OPT_x, "HOST");
   }
 
   if (Arg *VA = Args.getLastArg(options::OPT_HASH_x, options::OPT__HASH,
