@@ -5204,6 +5204,8 @@ def : CLCommaJoined<"device-math-lib:">, Alias<device_math_lib_EQ>,
   HelpText<"Control the addition of device math libraries when compiling for "
   "other devices.  Valid arguments are fp64, fp32">;
 def : CLCommaJoined<"device-math-lib=">, Alias<device_math_lib_EQ>;
+def : CLJoined<"masm=">, Alias<masm_EQ>;
+def : CLJoined<"masm:">, Alias<masm_EQ>;
 def : CLCommaJoined<"no-device-math-lib:">, Alias<no_device_math_lib_EQ>;
 def : CLCommaJoined<"no-device-math-lib=">, Alias<no_device_math_lib_EQ>;
 def _SLASH_Qansi_alias : CLFlag<"Qansi-alias">, Alias<fstrict_aliasing>,
