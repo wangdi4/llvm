@@ -384,11 +384,9 @@ int __tgt_target_teams_nowait(int64_t device_id, void *host_ptr,
                               int32_t num_teams, int32_t thread_limit,
                               int32_t depNum, void *depList,
                               int32_t noAliasDepNum, void *noAliasDepList);
-<<<<<<< HEAD
 #if INTEL_COLLAB
 EXTERN
 #endif  // INTEL_COLLAB
-=======
 int __tgt_target_teams_mapper(int64_t device_id, void *host_ptr,
                               int32_t arg_num, void **args_base, void **args,
                               int64_t *arg_sizes, int64_t *arg_types,
@@ -400,7 +398,6 @@ int __tgt_target_teams_nowait_mapper(
     int32_t num_teams, int32_t thread_limit, int32_t depNum, void *depList,
     int32_t noAliasDepNum, void *noAliasDepList);
 
->>>>>>> 140ab574a1c81e0878b3238520302509457242d0
 void __kmpc_push_target_tripcount(int64_t device_id, uint64_t loop_tripcount);
 #if INTEL_COLLAB
 EXTERN
