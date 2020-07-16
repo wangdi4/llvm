@@ -369,7 +369,7 @@ function(set_windows_version_resource_properties name resource_file)
   endif()
 
   if (NOT DEFINED ARG_PRODUCT_NAME)
-    set(ARG_PRODUCT_NAME "LLVM")
+    set(ARG_PRODUCT_NAME "Intel(R) oneAPI DPC++ Compiler")
   endif()
 
   set_property(SOURCE ${resource_file}
@@ -2260,6 +2260,7 @@ macro(dpcpptarget_add_resource_file target binary_name product_name file_descrip
     set(dpcpp_rc ${LLVM_SOURCE_DIR}/resources/dpcpp.rc)
     set(rc_flags
         /I${LLVM_SOURCE_DIR}/../clang/include
+        /I${LLVM_INCLUDE_DIR}
         /DINTEL_CUSTOMIZATION=1
         /DBINARY_NAME="${binary_name}"
         /DPRODUCT_NAME="${product_name}"

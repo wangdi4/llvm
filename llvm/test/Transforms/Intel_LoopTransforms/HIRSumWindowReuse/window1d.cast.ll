@@ -2,7 +2,7 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-sum-window-reuse,print<hir>" -aa-pipeline="basic-aa" -debug-only=hir-sum-window-reuse < %s -disable-output 2>&1 | FileCheck %s
 
 ; This test checks that HIRSumWindowReuse is able to optimize a simple window
-; sliding window sum.
+; sliding window sum with a term load that involves a cast.
 
 ; Currently, this transform is not yet implemented and so for now this test just
 ; checks that the initial analysis correctly identifies the sum for
@@ -17,7 +17,7 @@
 ; CHECK:       |   %sum = 0.000000e+00;
 ; CHECK:       |
 ; CHECK:       |   + DO i2 = 0, 7, 1   <DO_LOOP>
-; CHECK:       |   |   %sum = %sum  +  (%A)[i1 + i2];
+; CHECK:       |   |   %sum = %sum  +  (double*)(%A)[i1 + i2];
 ; CHECK:       |   + END LOOP
 ; CHECK:       |
 ; CHECK:       |   (%B)[i1] = %sum;
@@ -27,12 +27,12 @@
 ; Debug output:
 
 ; CHECK: Identified these window sums for optimization:
-; CHECK:   %sum = %sum  +  (%A)[i1 + i2];
+; CHECK:   %sum = %sum  +  (double*)(%A)[i1 + i2];
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-define void @window1d(double* %A, double*noalias %B) {
+define void @window1d(i64* %A, double*noalias %B) {
 
 entry:
   br label %L1
@@ -45,8 +45,9 @@ L2:
   %j = phi i64 [ 0, %L1 ], [ %j.next, %L2 ]
   %sum = phi double [ 0.0, %L1 ], [ %sum.next, %L2 ]
   %ij = add nsw nuw i64 %i, %j
-  %Aijptr = getelementptr inbounds double, double* %A, i64 %ij
-  %Aij = load double, double* %Aijptr, align 8
+  %Aijptr = getelementptr inbounds i64, i64* %A, i64 %ij
+  %Aijdoubleptr = bitcast i64* %Aijptr to double*
+  %Aij = load double, double* %Aijdoubleptr, align 8
   %sum.next = fadd fast double %sum, %Aij
   %j.next = add nsw nuw i64 %j, 1
   %cond.L2 = icmp ne i64 %j.next, 8
