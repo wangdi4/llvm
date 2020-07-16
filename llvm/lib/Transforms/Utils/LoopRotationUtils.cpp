@@ -44,6 +44,8 @@ using namespace llvm;
 
 #define DEBUG_TYPE "loop-rotate"
 
+STATISTIC(NumNotRotatedDueToHeaderSize,
+          "Number of loops not rotated due to the header size");
 STATISTIC(NumRotated, "Number of loops rotated");
 
 static cl::opt<bool>
@@ -458,6 +460,7 @@ bool LoopRotate::rotateLoop(Loop *L, bool SimplifiedLatch) {
                           << " instructions, which is more than the threshold ("
                           << MaxHeaderSize << " instructions): ";
                    L->dump());
+        ++NumNotRotatedDueToHeaderSize;
         return Rotated;
       }
     }
