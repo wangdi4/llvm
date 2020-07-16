@@ -119,9 +119,9 @@ static HLInst *findReplacementCandidate(HLLoop *Lp, RegDDRef *LoadRef,
     return nullptr;
   }
 
-  RegDDRef *MemRef = MulInst->getOperandDDRef(3 - OperandNum);
+  RegDDRef *MemRefInMulInst = MulInst->getOperandDDRef(3 - OperandNum);
 
-  if (!MemRef->isMemRef()) {
+  if (!MemRefInMulInst->isMemRef()) {
     return nullptr;
   }
 
@@ -141,6 +141,7 @@ static HLInst *findReplacementCandidate(HLLoop *Lp, RegDDRef *LoadRef,
 
   RegDDRef *OperandRef1 = SumInst->getOperandDDRef(1);
   RegDDRef *OperandRef2 = SumInst->getOperandDDRef(2);
+  RegDDRef *MemRefInAddInst = nullptr;
 
   if (MulLvalRef->getSymbase() == OperandRef1->getSymbase()) {
     // If it is a subtraction operation, we need to have the pattern C[i1][i3]
@@ -149,10 +150,15 @@ static HLInst *findReplacementCandidate(HLLoop *Lp, RegDDRef *LoadRef,
       return nullptr;
     }
 
-    MemRef = OperandRef2;
+    MemRefInAddInst = OperandRef2;
   } else if (MulLvalRef->getSymbase() == OperandRef2->getSymbase()) {
-    MemRef = OperandRef1;
+    MemRefInAddInst = OperandRef1;
   } else {
+    return nullptr;
+  }
+
+  // A[i2][i3] cannot have the same symbase as C[i1][i3]
+  if (MemRefInAddInst->getSymbase() == MemRefInMulInst->getSymbase()) {
     return nullptr;
   }
 
@@ -175,7 +181,7 @@ static HLInst *findReplacementCandidate(HLLoop *Lp, RegDDRef *LoadRef,
     return nullptr;
   }
 
-  if (!DDRefUtils::areEqual(StoreRef, MemRef)) {
+  if (!DDRefUtils::areEqual(StoreRef, MemRefInAddInst)) {
     return nullptr;
   }
 
