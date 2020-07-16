@@ -243,8 +243,8 @@ unsigned VPReduction::getReductionOpcode(RecurrenceKind K,
 
 unsigned int VPInduction::getInductionOpcode() const {
   // If the opode was set explicitly return it.
-  if (BinOpcode != Instruction::BinaryOpsEnd)
-    return BinOpcode;
+  if (IndOpcode != Instruction::BinaryOpsEnd)
+    return IndOpcode;
 
   // Otherwise get opcode from instruction.
   VPInstruction* IndUpdate = getInductionBinOp();
@@ -337,16 +337,16 @@ VPIndexReduction *VPLoopEntityList::addIndexReduction(
 VPInduction *VPLoopEntityList::addInduction(VPInstruction *Start,
                                             VPValue *Incoming,
                                             InductionKind Kind, VPValue *Step,
-                                            VPInstruction *InductionBinOp,
+                                            VPInstruction *InductionOp,
                                             unsigned int Opc, VPValue *AI,
                                             bool ValidMemOnly) {
   //  assert(Start && "null starting instruction");
   VPInduction *Ind =
-      new VPInduction(Incoming, Kind, Step, InductionBinOp, ValidMemOnly, Opc);
+      new VPInduction(Incoming, Kind, Step, InductionOp, ValidMemOnly, Opc);
   InductionList.emplace_back(Ind);
   linkValue(InductionMap, Ind, Start);
-  if (InductionBinOp) {
-    linkValue(InductionMap, Ind, InductionBinOp);
+  if (InductionOp) {
+    linkValue(InductionMap, Ind, InductionOp);
   }
   createMemDescFor(Ind, AI);
   return Ind;
@@ -1347,12 +1347,12 @@ void InductionDescr::checkParentVPLoop(const VPlan *Plan,
                                        const VPLoop *Loop) const {
   assert((checkInstructionInLoop(StartPhi, Plan, Loop) &&
           checkInstructionInLoop(Start, Plan, Loop) &&
-          checkInstructionInLoop(InductionBinOp, Plan, Loop)) &&
+          checkInstructionInLoop(InductionOp, Plan, Loop)) &&
          "Parent loop does not match instruction");
 }
 
 bool InductionDescr::isIncomplete() const {
-  return StartPhi == nullptr || InductionBinOp == nullptr || Step == nullptr;
+  return StartPhi == nullptr || InductionOp == nullptr || Step == nullptr;
 }
 
 bool InductionDescr::isDuplicate(const VPlan *Plan, const VPLoop *Loop) const {
@@ -1384,8 +1384,8 @@ bool InductionDescr::isDuplicate(const VPlan *Plan, const VPLoop *Loop) const {
 
   const VPLoopEntityList *LE = Plan->getLoopEntities(Loop);
 
-  if (LE && InductionBinOp) {
-    if (const VPInduction *OtherInd = LE->getInduction(InductionBinOp)) {
+  if (LE && InductionOp) {
+    if (const VPInduction *OtherInd = LE->getInduction(InductionOp)) {
       if (OtherInd->getStartValue() == Start) {
         // Record that current induction descriptor's PHI node duplicates
         // another induction descriptor (OtherInd)
@@ -1459,10 +1459,10 @@ bool InductionDescr::inductionNeedsCloseForm(const VPLoop *Loop) const {
     // blend them. There might be uses between the updates.
     return true;
 
-  VPInstruction *IndIncrementVPI = InductionBinOp;
+  VPInstruction *IndIncrementVPI = InductionOp;
 
   if (IndIncrementVPI) {
-    if (!isConsistentInductionUpdate(IndIncrementVPI, getBinOpcode(),
+    if (!isConsistentInductionUpdate(IndIncrementVPI, getIndOpcode(),
                                         getStep()))
       // The update instruction is inconsistent.
       return true;
@@ -1513,7 +1513,7 @@ void InductionDescr::passToVPlan(VPlan *Plan, const VPLoop *Loop) {
 
   VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(Loop);
   VPInduction *VPInd =
-      LE->addInduction(StartPhi, Start, K, Step, InductionBinOp, BinOpcode,
+      LE->addInduction(StartPhi, Start, K, Step, InductionOp, IndOpcode,
                        AllocaInst, ValidMemOnly);
   if (inductionNeedsCloseForm(Loop))
     VPInd->setNeedCloseForm(true);
@@ -1522,7 +1522,7 @@ void InductionDescr::passToVPlan(VPlan *Plan, const VPLoop *Loop) {
 void InductionDescr::tryToCompleteByVPlan(const VPlan *Plan,
                                           const VPLoop *Loop) {
   if (StartPhi == nullptr) {
-    VPValue *V = InductionBinOp ? InductionBinOp : Start;
+    VPValue *V = InductionOp ? InductionOp : Start;
     for (auto User : V->users())
       if (auto Instr = dyn_cast<VPInstruction>(User))
         if (isa<VPPHINode>(Instr) && Loop->contains(Instr->getParent()) &&
@@ -1533,7 +1533,7 @@ void InductionDescr::tryToCompleteByVPlan(const VPlan *Plan,
     if (StartPhi == nullptr) {
       // No phi was found. That can happen only for explicit inductions.
       // Start should represent AllocaIns.
-      assert((isa<VPExternalDef>(Start) && InductionBinOp == nullptr) &&
+      assert((isa<VPExternalDef>(Start) && InductionOp == nullptr) &&
              "Induction is not properly defined");
       Start = findMemoryUses(Start, Loop);
     }
@@ -1541,23 +1541,23 @@ void InductionDescr::tryToCompleteByVPlan(const VPlan *Plan,
 
   if (StartPhi != nullptr)
     if (isa<VPPHINode>(StartPhi)) {
-      if (InductionBinOp == nullptr)
-        InductionBinOp = dyn_cast<VPInstruction>(
+      if (InductionOp == nullptr)
+        InductionOp = dyn_cast<VPInstruction>(
             StartPhi->getOperand(0) == Start ? StartPhi->getOperand(1)
                                              : StartPhi->getOperand(0));
       else if (Start == nullptr)
-        Start = (StartPhi->getOperand(0) == InductionBinOp
+        Start = (StartPhi->getOperand(0) == InductionOp
                      ? StartPhi->getOperand(1)
                      : StartPhi->getOperand(0));
     }
 
   if (Step == nullptr) {
     // Induction variable with variable step
-    assert((StartPhi && InductionBinOp) &&
+    assert((StartPhi && InductionOp) &&
            "Variable step occurs only for auto-recognized inductions.");
-    int PhiOpIdx = InductionBinOp->getOperandIndex(StartPhi);
-    assert(PhiOpIdx != -1 && "InductionBinOp does not use starting PHI node.");
+    int PhiOpIdx = InductionOp->getOperandIndex(StartPhi);
+    assert(PhiOpIdx != -1 && "InductionOp does not use starting PHI node.");
     unsigned StepOpIdx = PhiOpIdx == 0 ? 1 : 0;
-    Step = InductionBinOp->getOperand(StepOpIdx);
+    Step = InductionOp->getOperand(StepOpIdx);
   }
 }

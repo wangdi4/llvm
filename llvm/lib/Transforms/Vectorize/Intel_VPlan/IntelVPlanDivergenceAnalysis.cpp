@@ -65,6 +65,10 @@ static cl::opt<bool>
 static cl::opt<bool>
     DumpDA("vplan-dump-da", cl::init(false), cl::Hidden,
            cl::desc("Print detailed DA dump after analysis is done."));
+static cl::opt<bool> DumpPlanDA(
+    "vplan-dump-plan-da", cl::init(false), cl::Hidden,
+    cl::desc(
+        "Print detailed DA dump for the entire VPlan after analysis is done."));
 #define DA_FVERIFY_INIT true
 #else
 #define DA_FVERIFY_INIT false
@@ -1299,8 +1303,29 @@ VPVectorShape VPlanDivergenceAnalysis::computeVectorShapeForInductionInit(
   // If this is a pointer induction, compute the step-size in terms of
   // bytes, using the size of the pointee.
   if (isa<PointerType>(Init->getType())) {
-    unsigned TypeSizeInBytes =
-        getTypeSizeInBytes(Init->getType()->getPointerElementType());
+    unsigned TypeSizeInBytes;
+
+    // Handle strides for pointer-inductions appropriately.
+    // A 'uniform' pointer-shape indicates that we are dealing with non-private
+    // data. Private-data, and its aliases (via casts and GEPs) will have
+    // non-'uniform' shape and the stride would be the same as that of 'alloca'
+    // given that we are dealing with these instructions in the loop-preheader.
+    if (Init->getBinOpcode() == Instruction::GetElementPtr) {
+      auto InitShape = getVectorShape(Init->getOperand(0));
+
+      // We can have strided-shape with unknown-stride. Return random vector
+      // shape in such scenario.
+      if (!InitShape.hasKnownStride())
+        return getRandomVectorShape();
+
+      TypeSizeInBytes =
+          InitShape.isUniform()
+              ? getTypeSizeInBytes(Init->getType()->getPointerElementType())
+              : InitShape.getStrideVal();
+    } else
+      TypeSizeInBytes =
+          getTypeSizeInBytes(Init->getType()->getPointerElementType());
+
     StepInt = TypeSizeInBytes * StepConst->getZExtValue();
   } else
     StepInt = StepConst->getZExtValue();
@@ -1479,6 +1504,8 @@ void VPlanDivergenceAnalysis::compute(VPlan *P, VPLoop *CandidateLoop,
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   if (DumpDA)
     print(dbgs(), RegionLoop);
+  if (DumpPlanDA)
+    print(dbgs());
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 }
 
