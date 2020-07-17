@@ -486,6 +486,9 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
   if (canHaveAligned())
     PrintedSomething |= getAligned().print(OS, Depth, Verbosity);
 
+  if (canHaveNontemporal())
+    PrintedSomething |= getNontemporal().print(OS, Depth, Verbosity);
+
   if (canHaveFlush())
     PrintedSomething |= getFlush().print(OS, Depth, Verbosity);
 
@@ -1434,6 +1437,10 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     }
     break;
   }
+  case QUAL_OMP_NONTEMPORAL:
+    extractQualOpndList<NontemporalClause>(Args, NumArgs, ClauseID,
+                                           getNontemporal());
+    break;
   case QUAL_OMP_FLUSH: {
     extractQualOpndList<FlushSet>(Args, NumArgs, ClauseID, getFlush());
     break;
@@ -1821,6 +1828,11 @@ bool WRegionNode::canHaveUniform() const {
 
 bool WRegionNode::canHaveAligned() const {
   // only SIMD can have an Aligned clause
+  return canHaveUniform();
+}
+
+bool WRegionNode::canHaveNontemporal() const {
+  // only SIMD can have an Nontemporal clause
   return canHaveUniform();
 }
 
