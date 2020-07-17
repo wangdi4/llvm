@@ -205,6 +205,14 @@ __SYCL_CONVERGENT__ extern SYCL_EXTERNAL void
 __spirv_SubgroupBlockWriteINTEL(__attribute__((opencl_global)) uint32_t *Ptr,
                                 dataT Data) noexcept;
 
+template <typename dataT>
+__SYCL_CONVERGENT__ extern SYCL_EXTERNAL dataT __spirv_SubgroupBlockReadINTEL(
+    const __attribute__((opencl_global)) uint64_t *Ptr) noexcept;
+
+template <typename dataT>
+__SYCL_CONVERGENT__ extern SYCL_EXTERNAL void
+__spirv_SubgroupBlockWriteINTEL(__attribute__((opencl_global)) uint64_t *Ptr,
+                                dataT Data) noexcept;
 template <int W, int rW>
 extern SYCL_EXTERNAL ap_int<rW>
 __spirv_FixedSqrtINTEL(ap_int<W> a, bool S, int32_t I, int32_t rI,
@@ -256,7 +264,10 @@ extern SYCL_EXTERNAL ap_int<rW>
 __spirv_FixedExpINTEL(ap_int<W> a, bool S, int32_t I, int32_t rI,
                       int32_t Quantization = 0, int32_t Overflow = 0) noexcept;
 
+<<<<<<< HEAD
 // INTEL_COLLAB
+=======
+>>>>>>> 0a8e7d30b111069b3a9117fc9708f43de3837f04
 // In the following built-ins width of arbitrary precision integer type for
 // a floating point variable should be equal to sum of corresponding
 // exponent width E, mantissa width M and 1 for sign bit. I.e. WA = EA + MA + 1.
@@ -478,6 +489,7 @@ extern SYCL_EXTERNAL ap_int<Wout> __spirv_ArbitraryFloatPowRINTEL(
 // point number and `B` is arbitrary precision integer, i.e. its width doesn't
 // depend on sum of exponent and mantissa.
 template <int WA, int WB, int Wout>
+<<<<<<< HEAD
 extern SYCL_EXTERNAL ap_int<Wout> __spirv_ArbitraryFloatPowNINTEL(
     ap_int<WA> A, int32_t MA, ap_int<WB> B, int32_t Mout,
     int32_t EnableSubnormals = 0, int32_t RoundingMode = 0,
@@ -492,6 +504,13 @@ template <typename dataT>
 __SYCL_CONVERGENT__ extern SYCL_EXTERNAL void
 __spirv_SubgroupBlockWriteINTEL(__attribute__((opencl_global)) uint64_t *Ptr,
                                 dataT Data) noexcept;
+=======
+extern SYCL_EXTERNAL ap_int<Wout>
+__spirv_ArbitraryFloatPowNINTEL(ap_int<WA> A, int32_t MA, ap_int<WB> B,
+                                int32_t Mout, int32_t EnableSubnormals = 0,
+                                int32_t RoundingMode = 0,
+                                int32_t RoundingAccuracy = 0) noexcept;
+>>>>>>> 0a8e7d30b111069b3a9117fc9708f43de3837f04
 
 template <typename dataT>
 extern SYCL_EXTERNAL int32_t __spirv_ReadPipe(RPipeTy<dataT> Pipe, dataT *Data,
