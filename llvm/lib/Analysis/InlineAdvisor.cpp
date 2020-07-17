@@ -103,6 +103,7 @@ private:
 
 } // namespace
 
+<<<<<<< HEAD
 llvm::Optional<llvm::InlineCost>
 #if INTEL_CUSTOMIZATION
 getDefaultInlineAdvice(CallBase &CB, FunctionAnalysisManager &FAM,
@@ -110,6 +111,10 @@ getDefaultInlineAdvice(CallBase &CB, FunctionAnalysisManager &FAM,
                        InliningLoopInfoCache *ILIC,
                        InlineReport *Report) {
 #endif // INTEL_CUSTOMIZATION
+=======
+llvm::Optional<llvm::InlineCost> static getDefaultInlineAdvice(
+    CallBase &CB, FunctionAnalysisManager &FAM, const InlineParams &Params) {
+>>>>>>> 9a0689e072da1a60c8b858e829d57d5b1136bd30
   Function &Caller = *CB.getCaller();
   ProfileSummaryInfo *PSI =
       FAM.getResult<ModuleAnalysisManagerFunctionProxy>(Caller)

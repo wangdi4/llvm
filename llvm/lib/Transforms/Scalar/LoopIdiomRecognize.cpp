@@ -1032,6 +1032,7 @@ bool LoopIdiomRecognize::processLoopStridedStore(
   return true;
 }
 
+namespace {
 class ExpandedValuesCleaner {
   SCEVExpander &Expander;
   TargetLibraryInfo *TLI;
@@ -1054,6 +1055,7 @@ public:
     }
   }
 };
+} // namespace
 
 /// If the stored value is a strided load in the same loop with the same stride
 /// this may be transformable into a memcpy.  This kicks in for stuff like
