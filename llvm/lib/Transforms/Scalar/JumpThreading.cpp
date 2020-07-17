@@ -389,7 +389,6 @@ PreservedAnalyses JumpThreadingPass::run(Function &F,
   PA.preserve<WholeProgramAnalysis>();// INTEL
   return PA;
 }
-
 bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
                                 LazyValueInfo *LVI_, AliasAnalysis *AA_,
                                 DomTreeUpdater *DTU_, bool HasProfileData_,
@@ -436,6 +435,10 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
   if (!ThreadAcrossLoopHeaders)
     FindLoopHeaders(F);
 
+#if INTEL_CUSTOMIZATION
+  unsigned FnSize = F.size(); // linear time
+#endif // INTEL_CUSTOMIZATION
+
   bool EverChanged = false;
   bool Changed;
   do {
@@ -443,6 +446,20 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
     for (auto &BB : F) {
       if (Unreachable.count(&BB))
         continue;
+#if INTEL_CUSTOMIZATION
+      // If the function is over a certain size, and the number of CFG
+      // transforms exceeds the number of blocks in the function by 10X,
+      // we may be stuck in a degenerate N^2 case. This will rapidly consume
+      // memory with DT updates. Stop jump threading completely.
+      if ((FnSize > 100) && (DTU->numPendingUpdates() > (FnSize * 10))) {
+        LLVM_DEBUG(dbgs() << "  JT: Too many DT updates. "
+                          << DTU->numPendingUpdates() << ", Fsize: " << F.size()
+                          << "\n");
+        EverChanged |= Changed;
+        Changed = false;
+        break;
+      }
+#endif // INTEL_CUSTOMIZATION
       while (ProcessBlock(&BB)) // Thread all of the branches we can over BB.
         Changed = true;
 

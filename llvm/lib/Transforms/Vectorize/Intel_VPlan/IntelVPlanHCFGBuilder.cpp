@@ -556,16 +556,16 @@ public:
       Descriptor.setStep(nullptr);
     }
     if (ID.getInductionBinOp()) {
-      Descriptor.setInductionBinOp(dyn_cast<VPInstruction>(
+      Descriptor.setInductionOp(dyn_cast<VPInstruction>(
           Builder.getOrCreateVPOperand(ID.getInductionBinOp())));
-      Descriptor.setBinOpcode(Instruction::BinaryOpsEnd);
+      Descriptor.setIndOpcode(Instruction::BinaryOpsEnd);
     } else {
       assert(Descriptor.getStartPhi() &&
              "Induction descriptor does not have starting PHI.");
       Type *IndTy = Descriptor.getStartPhi()->getType();
       assert((IndTy->isIntegerTy() || IndTy->isPointerTy()) &&
              "unexpected induction type");
-      Descriptor.setInductionBinOp(nullptr);
+      Descriptor.setInductionOp(nullptr);
       Descriptor.setKindAndOpcodeFromTy(IndTy);
     }
     Descriptor.setAllocaInst(nullptr);
@@ -599,7 +599,7 @@ public:
     Value *Cstep = ConstantInt::get(StepTy, CurValue.second);
     Descriptor.setStep(Builder.getOrCreateVPOperand(Cstep));
 
-    Descriptor.setInductionBinOp(nullptr);
+    Descriptor.setInductionOp(nullptr);
     assertIsSingleElementAlloca(CurValue.first);
     // Initialize the AllocaInst of the descriptor with the induction start
     // value. Explicit inductions always have a valid memory allocation.

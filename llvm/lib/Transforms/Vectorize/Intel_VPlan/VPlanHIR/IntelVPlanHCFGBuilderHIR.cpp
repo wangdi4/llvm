@@ -1053,9 +1053,9 @@ public:
   void operator()(InductionDescr &Descriptor,
                   const InductionList::value_type &CurValue) {
     VPDecomposerHIR::VPInductionHIR *ID = CurValue.get();
-    Descriptor.setInductionBinOp(ID->getUpdateInstr());
-    Descriptor.setBinOpcode(Instruction::BinaryOpsEnd);
-    Type *IndTy = Descriptor.getInductionBinOp()->getType();
+    Descriptor.setInductionOp(ID->getUpdateInstr());
+    Descriptor.setIndOpcode(Instruction::BinaryOpsEnd);
+    Type *IndTy = Descriptor.getInductionOp()->getType();
     VPInduction::InductionKind Kind;
     std::tie(std::ignore, Kind) = Descriptor.getKindAndOpcodeFromTy(IndTy);
     Descriptor.setKind(Kind);
@@ -1096,7 +1096,7 @@ public:
     } else
       Cstep = ConstantInt::get(IndTy, Stride);
     Descriptor.setStep(Decomposer.getVPValueForConst(Cstep));
-    Descriptor.setInductionBinOp(nullptr);
+    Descriptor.setInductionOp(nullptr);
     Descriptor.setAllocaInst(Descriptor.getStart());
   }
 };

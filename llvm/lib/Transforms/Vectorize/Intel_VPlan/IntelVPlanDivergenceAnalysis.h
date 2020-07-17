@@ -91,7 +91,7 @@ public:
   bool updateVectorShape(const VPValue *V, VPVectorShape Shape);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void print(raw_ostream &OS, const VPLoop *VPLp);
+  void print(raw_ostream &OS, const VPLoop *VPLp = nullptr);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
 
