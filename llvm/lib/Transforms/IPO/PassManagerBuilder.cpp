@@ -556,6 +556,7 @@ void PassManagerBuilder::populateFunctionPassManager(
   if (LibraryInfo)
     FPM.add(new TargetLibraryInfoWrapperPass(*LibraryInfo));
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   FPM.add(createXmainOptLevelWrapperPass(OptLevel));
 #endif // INTEL_CUSTOMIZATION
@@ -585,6 +586,14 @@ void PassManagerBuilder::populateFunctionPassManager(
     }
   }
 #endif // INTEL_COLLAB
+=======
+  // The backends do not handle matrix intrinsics currently.
+  // Make sure they are also lowered in O0.
+  // FIXME: A lightweight version of the pass should run in the backend
+  //        pipeline on demand.
+  if (EnableMatrix)
+    FPM.add(createLowerMatrixIntrinsicsPass());
+>>>>>>> cbe0e539e79eaa30d7d0d6f39b9ea4e45f923141
 
   if (OptLevel == 0) return;
 
