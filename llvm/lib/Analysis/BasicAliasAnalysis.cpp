@@ -1942,19 +1942,8 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
       return MayAlias;
     // Add the values to V1Srcs
     for (Value *PV1 : PhiValueSet) {
-<<<<<<< HEAD
-      if (EnableRecPhiAnalysis) {
-        if (GEPOperator *PV1GEP = dyn_cast<GEPOperator>(PV1)) {
-          // Check whether the incoming value is a GEP that advances the pointer
-          // result of this PHI node (e.g. in a loop). If this is the case, we
-          // would recurse and always get a MayAlias. Handle this case specially
-          // below.
-          if (PV1GEP->getPointerOperand() == PN && PV1GEP->getNumIndices() == 1 &&
-              isa<ConstantInt>(PV1GEP->idx_begin())) {
-            isRecursive = true;
-            continue;
-          }
-        }
+      if (CheckForRecPhi(PV1))
+        continue;
 #if INTEL_CUSTOMIZATION
         // FIXME: limited support of recursive updates. phi-loop.ll
         if (auto *PV1Subs = dyn_cast<SubscriptInst>(PV1)) {
@@ -1971,11 +1960,6 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
           }
         }
 #endif // INTEL_CUSTOMIZATION
-      }
-=======
-      if (CheckForRecPhi(PV1))
-        continue;
->>>>>>> 311fafd2c90aed5b3fed9566503eebe629f1e979
       V1Srcs.push_back(PV1);
     }
   } else {
@@ -1990,19 +1974,8 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
         // and 'n' are the number of PHI sources.
         return MayAlias;
 
-<<<<<<< HEAD
-      if (EnableRecPhiAnalysis)
-        if (GEPOperator *PV1GEP = dyn_cast<GEPOperator>(PV1)) {
-          // Check whether the incoming value is a GEP that advances the pointer
-          // result of this PHI node (e.g. in a loop). If this is the case, we
-          // would recurse and always get a MayAlias. Handle this case specially
-          // below.
-          if (PV1GEP->getPointerOperand() == PN && PV1GEP->getNumIndices() == 1 &&
-              isa<ConstantInt>(PV1GEP->idx_begin())) {
-            isRecursive = true;
-            continue;
-          }
-        }
+      if (CheckForRecPhi(PV1))
+        continue;
 #if INTEL_CUSTOMIZATION
       if (EnableRecPhiAnalysis) {
         // FIXME: limited support of recursive updates. phi-loop.ll
@@ -2021,10 +1994,6 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
         }
       }
 #endif // INTEL_CUSTOMIZATION
-=======
-      if (CheckForRecPhi(PV1))
-        continue;
->>>>>>> 311fafd2c90aed5b3fed9566503eebe629f1e979
 
       if (UniqueSrc.insert(PV1).second)
         V1Srcs.push_back(PV1);
