@@ -49957,7 +49957,6 @@ static SDValue matchPMADDWD_2(SelectionDAG &DAG, SDValue N0, SDValue N1,
                           PMADDBuilder);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // Look for (vXi32 (add (sub A, B), (shl (sub C, D), 16))). See if we can
 // determine a relationship between A, C, B, and D that would allow us to
@@ -50095,7 +50094,6 @@ static SDValue combinePseudoi16VecAdd(SDNode *N, SelectionDAG &DAG,
   return DAG.getNode(ISD::SUB, dl, MVT::v8i32, LHS, RHS);
 }
 #endif
-=======
 static SDValue combineAddOrSubToHADDorHSUB(SDNode *N, SelectionDAG &DAG,
                                            const X86Subtarget &Subtarget) {
   EVT VT = N->getValueType(0);
@@ -50119,7 +50117,6 @@ static SDValue combineAddOrSubToHADDorHSUB(SDNode *N, SelectionDAG &DAG,
 
   return SDValue();
 }
->>>>>>> 5408024fa87e0b23b169fec07913bd4357acdbc4
 
 static SDValue combineAdd(SDNode *N, SelectionDAG &DAG,
                           TargetLowering::DAGCombinerInfo &DCI,
