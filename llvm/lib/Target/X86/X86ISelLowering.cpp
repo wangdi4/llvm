@@ -46579,6 +46579,8 @@ static SDValue combineFaddFsub(SDNode *N, SelectionDAG &DAG,
       isHorizontalBinOp(LHS, RHS, DAG, Subtarget, IsFadd))
     return DAG.getNode(HorizOpcode, SDLoc(N), VT, LHS, RHS);
 
+  // NOTE: isHorizontalBinOp may have changed LHS/RHS variables.
+
   return SDValue();
 }
 
