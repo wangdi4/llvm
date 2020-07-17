@@ -2154,11 +2154,6 @@ Value *VPOParoptTransform::genReductionMinMaxInit(ReductionItem *RedI,
     LLVMContext &C = F->getContext();
     bool IsUnsigned = RedI->getIsUnsigned();
     V = VPOParoptUtils::getMinMaxIntVal(C, Ty, IsUnsigned, !IsMax);
-#if 0
-    uint64_t val = IsMax ? VPOParoptUtils::getMinInt(Ty, IsUnsigned) :
-                           VPOParoptUtils::getMaxInt(Ty, IsUnsigned);
-    V = ConstantInt::get(Ty, val);
-#endif
   }
   else if (Ty->isFPOrFPVectorTy())
     V = IsMax ? ConstantFP::getInfinity(Ty, true) :  // max: negative inf
@@ -2207,12 +2202,18 @@ Value *VPOParoptTransform::genReductionScalarInit(ReductionItem *RedI,
     }
     break;
   case ReductionItem::WRNReductionAnd:
+    V = ScalarTy->isIntOrIntVectorTy() ? ConstantInt::get(ScalarTy, 1)
+                                       : ConstantFP::get(ScalarTy, 1.0);
+    break;
 #if INTEL_CUSTOMIZATION
   case ReductionItem::WRNReductionEqv:
-#endif // INTEL_CUSTOMIZATION
     V = ConstantInt::get(ScalarTy, 1);
     break;
+#endif // INTEL_CUSTOMIZATION
   case ReductionItem::WRNReductionOr:
+    V = ScalarTy->isIntOrIntVectorTy() ? ConstantInt::get(ScalarTy, 0)
+                                       : ConstantFP::get(ScalarTy, 0.0);
+    break;
   case ReductionItem::WRNReductionBxor:
   case ReductionItem::WRNReductionBor:
 #if INTEL_CUSTOMIZATION
@@ -2236,130 +2237,61 @@ Value *VPOParoptTransform::genReductionScalarInit(ReductionItem *RedI,
 }
 
 // Generate the reduction fini code for bool and/or.
-// Given the directive pragma omp parallel reduction( +: a1 ) reduction(&&: a2
-// ), here is the output for bool "and" opererator.
+// Example 1 for bool and with char type
+//   char v3 = 1;
+//   #pragma omp parallel for reduction(&&: v3)
+//   for( i = 0; i < 3; i++ ) {
+//     v3 = v3 && 1;
+//   }
+// IR for reduction fini code
+//   %7 = load i8, i8* %v3.fast_red, align 1
+//   %8 = load i8, i8* %v3, align 1
+//   %orig.bool = icmp ne i8 %8, 0                               ; (1)
+//   %red.bool = icmp ne i8 %7, 0                                ; (2)
+//   %9 = select i1 %orig.bool, i1 %red.bool, i1 %orig.bool      ; (3)
+//   %10 = zext i1 %9 to i8                                      ; (4)
+//   store i8 %10, i8* %v3, align 1
 //
-//  if.end5:                                          ; preds = %if.then4,
-//  %if.end
-//    %my.tid = load i32, i32* %tid, align 4
-//    call void @__kmpc_critical({ i32, i32, i32, i32, i8* }* @.kmpc_loc.0.0.3,
-//    i32 %my.tid, [8 x i32]* @.gomp_critical_user_.var)
-//    br label %if.end5.split
+// Example 2 for bool or with char type
+//   char v3 = 1;
+//   #pragma omp parallel for reduction(||: v3)
+//   for( i = 0; i < 3; i++ ) {
+//     v3 = v3 || 0;
+//   }
+// IR for reduction fini code
+//  %7 = load i8, i8* %v3.fast_red, align 1
+//  %8 = load i8, i8* %v3, align 1
+//  %orig.bool = icmp ne i8 %8, 0                                ; (1)
+//  %red.bool = icmp ne i8 %7, 0                                 ; (2)
+//  %9 = select i1 %orig.bool, i1 %orig.bool, i1 %red.bool       ; (3)
+//  %10 = zext i1 %9 to i8                                       ; (4)
+//  store i8 %10, i8* %v3, align 1
 //
-//  if.end5.split:                                    ; preds = %if.end5
-//    %1 = load i8, i8* %a1
-//    %2 = load i8, i8* %a1.red
-//    %3 = add i8 %1, %2
-//    store i8 %3, i8* %a1
-//    br label %if.end5.split.split
-//
-//  if.end5.split.split:                              ; preds = %if.end5.split
-//    %4 = load i8, i8* %a2
-//    %5 = load i8, i8* %a2.red
-//    %6 = sext i8 %4 to i32
-//    %tobool = icmp ne i32 %6, 0
-//    br i1 %tobool, label %land.rhs, label %land.end
-//
-//  land.rhs:                                         ; preds =
-//  %if.end5.split.split
-//    %7 = sext i8 %5 to i32
-//    %tobool15 = icmp ne i32 %7, 0
-//    br label %land.end
-//
-//  land.end:                                         ; preds =
-//  %if.end5.split.split, %land.rhs
-//    %8 = phi i1 [ false, %if.end5.split.split ], [ %tobool15, %land.rhs ]
-//    %9 = zext i1 %8 to i32
-//    %10 = trunc i32 %9 to i8
-//    store i8 %10, i8* %a2
-//    br label %if.end5.split.split.split
-//
-//  if.end5.split.split.split:                        ; preds = %land.end
-//    %my.tid16 = load i32, i32* %tid, align 4
-//    call void @__kmpc_end_critical({ i32, i32, i32, i32, i8* }*
-//    @.kmpc_loc.0.0.5, i32 %my.tid16, [8 x i32]* @.gomp_critical_user_.var)
-//  br label %exitStub
-//
-// Similiarly, here is the output for bool "or" operator given the direcitive in
-// the form of #pragma omp parallel reduction( +: a1 ) reducion( ||: a2 ).
-//
-//  if.end5:                                          ; preds = %if.then4,
-//  %if.end
-//    %my.tid = load i32, i32* %tid, align 4
-//    call void @__kmpc_critical({ i32, i32, i32, i32, i8* }* @.kmpc_loc.0.0.3,
-//    i32 %my.tid, [8 x i32]* @.gomp_critical_user_.var)
-//    br label %if.end5.split
-//
-//  if.end5.split:                                    ; preds = %if.end5
-//    %1 = load i8, i8* %a1
-//    %2 = load i8, i8* %a1.red
-//    %3 = add i8 %1, %2
-//    store i8 %3, i8* %a1
-//    br label %if.end5.split.split
-//
-//  if.end5.split.split:                              ; preds = %if.end5.split
-//    %4 = load i8, i8* %a2
-//    %5 = load i8, i8* %a2.red
-//    %6 = sext i8 %4 to i32
-//    %tobool = icmp ne i32 %6, 0
-//    br i1 %tobool, label %lor.end, label %lor.rhs
-//
-//  lor.end:                                          ; preds =
-//  %if.end5.split.split, %lor.rhs
-//    %7 = phi i1 [ false, %if.end5.split.split ], [ %tobool15, %lor.rhs ]
-//    %8 = zext i1 %7 to i32
-//    %9 = trunc i32 %8 to i8
-//    store i8 %9, i8* %a2
-//    br label %if.end5.split.split.split
-//
-//  lor.rhs:                                          ; preds =
-//  %if.end5.split.split
-//    %10 = sext i8 %5 to i32
-//    %tobool15 = icmp ne i32 %10, 0
-//    br label %lor.end
-//
-//  if.end5.split.split.split:                        ; preds = %lor.end
-//    %my.tid16 = load i32, i32* %tid, align 4
-//    call void @__kmpc_end_critical({ i32, i32, i32, i32, i8* }*
-//    @.kmpc_loc.0.0.5, i32 %my.tid16, [8 x i32]* @.gomp_critical_user_.var)
-//    br label %exitStub
-//
-Value *VPOParoptTransform::genReductionFiniForBoolOps(
-    ReductionItem *RedI, Value *Rhs1, Value *Rhs2, Type *ScalarTy,
-    IRBuilder<> &Builder, DominatorTree *DT, bool IsAnd) {
-  LLVMContext &C = F->getContext();
-  // FIXME: handle FP types here, and also make sure that
-  //        significant bits are not truncated before
-  //        comparing the value with zero.
-  auto Conv = Builder.CreateSExtOrTrunc(Rhs1, Type::getInt32Ty(C));
-  ConstantInt *ValueZero = ConstantInt::get(Type::getInt32Ty(C), 0);
-  auto IsTrue = Builder.CreateICmpNE(Conv, ValueZero, "tobool");
-  auto EntryBB = Builder.GetInsertBlock();
-  Instruction *InsertPt = &*Builder.GetInsertPoint();
-  auto ContBB = SplitBlock(EntryBB, InsertPt, DT, LI);
-  ContBB->setName(IsAnd ? "land.rhs" : "lor.rhs");
+Value *VPOParoptTransform::genReductionFiniForBoolOps(Value *Rhs1, Value *Rhs2,
+                                                      Type *ScalarTy,
+                                                      IRBuilder<> &Builder,
+                                                      bool IsAnd) {
+  bool IsInteger;
+  if (ScalarTy->isIntOrIntVectorTy())
+    IsInteger = true;
+  else if (ScalarTy->isFPOrFPVectorTy())
+    IsInteger = false;
+  else
+    llvm_unreachable("Unsupported type in reduction operation (bool and/or).");
 
-  auto RhsBB = SplitBlock(ContBB, ContBB->getTerminator(), DT, LI);
-  RhsBB->setName(IsAnd ? "land.end" : "lor.end");
+  Value *ValueZero = IsInteger ? ConstantInt::get(ScalarTy, 0)
+                               : ConstantFP::get(ScalarTy, 0.0);
+  auto IsTrue =
+      IsInteger ? Builder.CreateICmpNE(Rhs1, ValueZero, "orig.bool")
+                : Builder.CreateFCmpUNE(Rhs1, ValueZero, "orig.bool"); // (1)
+  auto IsTrueRed =
+      IsInteger ? Builder.CreateICmpNE(Rhs2, ValueZero, "red.bool")
+                : Builder.CreateFCmpUNE(Rhs2, ValueZero, "red.bool"); // (2)
+  auto BoolVal = Builder.CreateSelect(IsTrue, IsAnd ? IsTrueRed : IsTrue,
+                                      IsAnd ? IsTrue : IsTrueRed); // (3)
 
-  EntryBB->getTerminator()->eraseFromParent();
-  Builder.SetInsertPoint(EntryBB);
-  Builder.CreateCondBr(IsTrue, IsAnd ? ContBB : RhsBB, IsAnd ? RhsBB : ContBB);
-  if (DT)
-    DT->changeImmediateDominator(RhsBB, EntryBB);
-
-  Builder.SetInsertPoint(ContBB->getTerminator());
-  auto ConvRed = Builder.CreateSExtOrTrunc(Rhs2, Type::getInt32Ty(C));
-  auto IsTrueRed = Builder.CreateICmpNE(ConvRed, ValueZero, "tobool");
-
-  Builder.SetInsertPoint(RhsBB->getTerminator());
-  PHINode *PN = Builder.CreatePHI(Type::getInt1Ty(C), 2, "");
-  auto PhiEntryBBVal = IsAnd ? ConstantInt::getFalse(C) :
-                               ConstantInt::getTrue(C);
-  PN->addIncoming(PhiEntryBBVal, EntryBB);
-  PN->addIncoming(IsTrueRed, ContBB);
-  auto Ext = Builder.CreateZExtOrBitCast(PN, Type::getInt32Ty(C));
-  auto ConvFini = Builder.CreateSExtOrTrunc(Ext, ScalarTy);
+  auto ConvFini = IsInteger ? Builder.CreateZExtOrBitCast(BoolVal, ScalarTy)
+                            : Builder.CreateUIToFP(BoolVal, ScalarTy); // (4)
 
   return ConvFini;
 }
@@ -2478,12 +2410,10 @@ bool VPOParoptTransform::genReductionScalarFini(
     Res = Builder.CreateXor(Rhs1, Rhs2);
     break;
   case ReductionItem::WRNReductionAnd:
-    Res = genReductionFiniForBoolOps(RedI, Rhs1, Rhs2, ScalarTy, Builder, DT,
-                                     true);
+    Res = genReductionFiniForBoolOps(Rhs1, Rhs2, ScalarTy, Builder, true);
     break;
   case ReductionItem::WRNReductionOr:
-    Res = genReductionFiniForBoolOps(RedI, Rhs1, Rhs2, ScalarTy, Builder, DT,
-                                     false);
+    Res = genReductionFiniForBoolOps(Rhs1, Rhs2, ScalarTy, Builder, false);
     break;
   case ReductionItem::WRNReductionMax:
     Res = genReductionMinMaxFini(RedI, Rhs1, Rhs2, ScalarTy, Builder, true);
@@ -2500,6 +2430,7 @@ bool VPOParoptTransform::genReductionScalarFini(
   default:
     llvm_unreachable("Reduction operator not yet supported!");
   }
+
   Instruction *Tmp0 = Builder.CreateStore(Res, ReductionVar);
 
   if (isa<WRNVecLoopNode>(W))
@@ -2630,9 +2561,8 @@ bool VPOParoptTransform::genReductionFini(WRegionNode *W, ReductionItem *RedI,
                                       InsertPt->getModule()->getDataLayout()) ||
           RedI->getIsComplex()) &&
          "genReductionFini: Expect incoming scalar/complex type.");
-  Type *ScalarTy = AllocaTy->getScalarType();
 
-  return genReductionScalarFini(W, RedI, OldV, NewV, ScalarTy, Builder, DT);
+  return genReductionScalarFini(W, RedI, OldV, NewV, AllocaTy, Builder, DT);
 }
 
 // Generate the reduction initialization/update for array.

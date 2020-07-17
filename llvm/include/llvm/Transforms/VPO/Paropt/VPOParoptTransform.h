@@ -649,10 +649,8 @@ private:
                                  bool NoNeedToOffsetOrDerefOldV = false);
 
   /// Generate the reduction fini code for bool and/or.
-  Value *genReductionFiniForBoolOps(ReductionItem *RedI, Value *Rhs1,
-                                    Value *Rhs2, Type *ScalarTy,
-                                    IRBuilder<> &Builder, DominatorTree *DT,
-                                    bool IsAnd);
+  Value *genReductionFiniForBoolOps(Value *Rhs1, Value *Rhs2, Type *ScalarTy,
+                                    IRBuilder<> &Builder, bool IsAnd);
   /// @}
 
   /// Generate the firstprivate initialization code.
