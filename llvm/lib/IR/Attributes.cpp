@@ -969,11 +969,17 @@ std::string AttributeSetNode::getAsString(bool InAttrGrp) const {
 
 #if INTEL_CUSTOMIZATION
 /// Map from AttributeList index to the internal array index. Adding one happens
+<<<<<<< HEAD
 /// to work, but it relies on unsigned integer wrapping. MSVC warns about
 /// unsigned wrapping in constexpr functions, so write out the conditional. LLVM
 /// folds it to add anyway.
 static constexpr unsigned attrIdxToArrayIdx(unsigned Index) {
   return Index == AttributeList::FunctionIndex ? 0 : Index + 1;
+=======
+/// to work, because -1 wraps around to 0.
+static unsigned attrIdxToArrayIdx(unsigned Index) {
+  return Index + 1;
+>>>>>>> f7dce88915ad1629df2d19cd41e45a5e64f2664c
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -986,9 +992,7 @@ AttributeListImpl::AttributeListImpl(ArrayRef<AttributeSet> Sets)
 
   // Initialize AvailableFunctionAttrs and AvailableSomewhereAttrs
   // summary bitsets.
-  static_assert(attrIdxToArrayIdx(AttributeList::FunctionIndex) == 0U,
-                "function should be stored in slot 0");
-  for (const auto &I : Sets[0])
+  for (const auto &I : Sets[attrIdxToArrayIdx(AttributeList::FunctionIndex)])
     if (!I.isStringAttribute())
       AvailableFunctionAttrs.addAttribute(I.getKindAsEnum());
 
