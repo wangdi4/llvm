@@ -222,14 +222,11 @@ if not config.build_shared_libs and not config.link_llvm_dylib:
 if config.have_tf_aot:
     config.available_features.add("have_tf_aot")
 
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 llvm_config.add_intel_features()
 # end INTEL_CUSTOMIZATION
-=======
 if config.have_tf_api:
     config.available_features.add("have_tf_api")
->>>>>>> 9870f77441c58d4a2dfefe69c6c103b0a03d940a
 
 def have_cxx_shared_library():
     readobj_exe = lit.util.which('llvm-readobj', config.llvm_tools_dir)
