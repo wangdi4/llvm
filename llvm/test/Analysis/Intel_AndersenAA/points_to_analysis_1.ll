@@ -1,4 +1,5 @@
 ; RUN: opt < %s -anders-aa -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -anders-aa -aa-eval -evaluate-loopcarried-alias -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 @p1 = internal unnamed_addr global i32* null, align 8
 @p2 = internal global i32* null, align 8
 

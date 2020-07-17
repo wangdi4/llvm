@@ -2,7 +2,9 @@
 ; stdout and nout, which are external variables.
 
 ; RUN: opt < %s -wholeprogramanalysis -anders-aa -whole-program-assume -aa-eval -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -wholeprogramanalysis -anders-aa -whole-program-assume -aa-eval -evaluate-loopcarried-alias -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -passes='require<wholeprogram>,require<anders-aa>,function(aa-eval)'  -whole-program-assume -aa-pipeline=anders-aa -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -passes='require<wholeprogram>,require<anders-aa>,function(aa-eval)'  -whole-program-assume -aa-pipeline=anders-aa -evaluate-loopcarried-alias -print-all-alias-modref-info -disable-output 2>&1 | FileCheck %s
 
 ; CHECK-NOT: NoAlias:     %struct._IO_FILE* %p0, %struct._IO_FILE* %p1
 

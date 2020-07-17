@@ -1061,7 +1061,7 @@ void OpenMPLateOutliner::emitOMPReductionClauseCommon(const RedClause *Cl,
       break;
     }
     if (PVD->getType()->isAnyComplexType())
-      CSB.add(":CMPLX");
+      CSB.setCmplx();
     if (IsRef)
       CSB.setByRef();
     if (isa<ArraySubscriptExpr>(E->IgnoreParenImpCasts()) ||
@@ -1570,19 +1570,13 @@ void OpenMPLateOutliner::buildMapQualifier(
     CSB.add("RELEASE");
     break;
   }
-  bool IsFirstModifier = true;
   for (auto MD : Modifiers) {
-    if (IsFirstModifier)
-      CSB.add(":");
-    else
-      CSB.add(".");
-    IsFirstModifier = false;
     switch (MD) {
       case OMPC_MAP_MODIFIER_always:
-        CSB.add("ALWAYS");
+        CSB.setAlways();
         break;
       case OMPC_MAP_MODIFIER_close:
-        CSB.add("CLOSE");
+        CSB.setClose();
         break;
       case OMPC_MAP_MODIFIER_unknown:
         break;
@@ -1623,7 +1617,7 @@ void OpenMPLateOutliner::emitOMPAllMapClauses() {
     ClauseStringBuilder &CSB = CEH.getBuilder();
     buildMapQualifier(CSB, I.MapType, I.Modifiers);
     if (I.IsChain)
-      CSB.add(":CHAIN");
+      CSB.setChain();
     else if (I.Var) {
       QualType Ty = I.Var->getType();
       if (!isImplicitTask(OMPD_task))

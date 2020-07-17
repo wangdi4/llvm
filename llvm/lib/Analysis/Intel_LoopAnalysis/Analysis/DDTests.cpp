@@ -97,6 +97,21 @@ static cl::opt<LoopCarriedDepMode> AssumeNoLoopCarriedDep(
             LoopCarriedDepMode::All, "2",
             "Assumes no loop carried dependencies exist for all loops")));
 
+enum class VaryingBaseMode { QueryAlias, AssumeAlias, QueryLoopCarriedAlias };
+
+static cl::opt<VaryingBaseMode> VaryingBaseHandling(
+    "hir-dd-test-varying-base-mode",
+    cl::init(VaryingBaseMode::QueryLoopCarriedAlias), cl::ReallyHidden,
+    cl::desc("Influence how we use AA when encountering pointers with varying "
+             "bases"),
+    cl::values(clEnumValN(VaryingBaseMode::QueryAlias, "query-alias",
+                          "Query the alias() interface, possibly incorrectly"),
+               clEnumValN(VaryingBaseMode::AssumeAlias, "assume-alias",
+                          "Conservatively assume MayAlias"),
+               clEnumValN(VaryingBaseMode::QueryLoopCarriedAlias,
+                          "query-loopcarried",
+                          "Query the loopCarriedAlias() interface")));
+
 #define DEBUG_TYPE "hir-dd-test"
 #define DEBUG_AA(X) DEBUG_WITH_TYPE("hir-dd-test-aa", X)
 
@@ -4182,15 +4197,36 @@ bool DDTest::queryAAIndep(const RegDDRef *SrcDDRef, const RegDDRef *DstDDRef) {
     return false;
   }
 
+  // Alias analysis only reasons about a pair of contemporary SSA values. In
+  // order to use its results to break dependencies across a loop, we must
+  // prove that the values are invariant for that loop.
+  bool InvariantBase = SrcDDRef->getBaseCE()->isProperLinear() &&
+                       DstDDRef->getBaseCE()->isProperLinear();
+
+  // Note that we do not check that the indexing is also invariant because
+  // RegDDRef::getMemoryLocation guarantees that a precise (i.e., known size)
+  // footprint is returned only when the pointer is completely region
+  // invariant. This ensures that the MemoryLocations are loop invariant if the
+  // base is invariant.
+  MemoryLocation SrcLoc = SrcDDRef->getMemoryLocation();
+  MemoryLocation DstLoc = DstDDRef->getMemoryLocation();
+
   DEBUG_AA(dbgs() << "call queryAAIndep():\n");
   DEBUG_AA(SrcDDRef->dump());
   DEBUG_AA(dbgs() << "\n");
   DEBUG_AA(DstDDRef->dump());
   DEBUG_AA(dbgs() << "\nR: ");
 
-  if (AAR.isNoAlias(SrcDDRef->getMemoryLocation(),
-                    DstDDRef->getMemoryLocation())) {
-    DEBUG_AA(dbgs() << "No Alias\n\n");
+  if (VaryingBaseHandling == VaryingBaseMode::QueryAlias || InvariantBase) {
+    if (AAR.isNoAlias(SrcLoc, DstLoc)) {
+      DEBUG_AA(dbgs() << "No Alias\n\n");
+      return true;
+    }
+  } else if (VaryingBaseHandling == VaryingBaseMode::QueryLoopCarriedAlias &&
+             AAR.isLoopCarriedNoAlias(SrcLoc, DstLoc)) {
+    // If the base pointer is not invariant to the loop, then we need to query
+    // a stronger AA interface.
+    DEBUG_AA(dbgs() << "Loop-carried No Alias\n\n");
     return true;
   }
 

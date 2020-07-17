@@ -48,6 +48,12 @@ static cl::opt<unsigned>
                         cl::desc("The maximum number of pointers may-alias "
                                  "sets may contain before degradation"));
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool> PrintLoopCarriedAliasSets(
+    "print-loopcarried-alias-sets", cl::Hidden, cl::init(false),
+    cl::desc("Use loopCarriedAlias disamiguation when printing alias sets"));
+#endif // INTEL_CUSTOMIZATION
+
 /// mergeSetIn - Merge the specified alias set into this alias set.
 ///
 void AliasSet::mergeSetIn(AliasSet &AS, AliasSetTracker &AST) {
@@ -68,7 +74,7 @@ void AliasSet::mergeSetIn(AliasSet &AS, AliasSetTracker &AST) {
     PointerRec *R = AS.getSomePointer();
 
     // If the pointers are not a must-alias pair, this set becomes a may alias.
-    if (AA.alias(MemoryLocation(L->getValue(), L->getSize(), L->getAAInfo()),
+    if (queryAA(AA, MemoryLocation(L->getValue(), L->getSize(), L->getAAInfo()), // INTEL
                  MemoryLocation(R->getValue(), R->getSize(), R->getAAInfo())) !=
         MustAlias)
       Alias = SetMayAlias;
@@ -143,7 +149,7 @@ void AliasSet::addPointer(AliasSetTracker &AST, PointerRec &Entry,
     if (PointerRec *P = getSomePointer()) {
       if (!KnownMustAlias) {
         AliasAnalysis &AA = AST.getAliasAnalysis();
-        AliasResult Result = AA.alias(
+        AliasResult Result = queryAA(AA, // INTEL
             MemoryLocation(P->getValue(), P->getSize(), P->getAAInfo()),
             MemoryLocation(Entry.getValue(), Size, AAInfo));
         if (Result != MustAlias) {
@@ -209,7 +215,7 @@ AliasResult AliasSet::aliasesPointer(const Value *Ptr, LocationSize Size,
     // SOME value in the set.
     PointerRec *SomePtr = getSomePointer();
     assert(SomePtr && "Empty must-alias set??");
-    return AA.alias(MemoryLocation(SomePtr->getValue(), SomePtr->getSize(),
+    return queryAA(AA, MemoryLocation(SomePtr->getValue(), SomePtr->getSize(), // INTEL
                                    SomePtr->getAAInfo()),
                     MemoryLocation(Ptr, Size, AAInfo));
   }
@@ -217,7 +223,7 @@ AliasResult AliasSet::aliasesPointer(const Value *Ptr, LocationSize Size,
   // If this is a may-alias set, we have to check all of the pointers in the set
   // to be sure it doesn't alias the set...
   for (iterator I = begin(), E = end(); I != E; ++I)
-    if (AliasResult AR = AA.alias(
+    if (AliasResult AR = queryAA(AA, // INTEL
             MemoryLocation(Ptr, Size, AAInfo),
             MemoryLocation(I.getPointer(), I.getSize(), I.getAAInfo())))
       return AR;
@@ -396,7 +402,7 @@ AliasSet &AliasSetTracker::getAliasSetFor(const MemoryLocation &MemLoc) {
   }
 
   // Otherwise create a new alias set to hold the loaded pointer.
-  AliasSets.push_back(new AliasSet());
+  AliasSets.push_back(new AliasSet(LoopCarriedDisam)); // INTEL
   AliasSets.back().addPointer(*this, Entry, Size, AAInfo, true);
   return AliasSets.back();
 }
@@ -454,7 +460,7 @@ void AliasSetTracker::addUnknown(Instruction *Inst) {
     AS->addUnknownInst(Inst, AA);
     return;
   }
-  AliasSets.push_back(new AliasSet());
+  AliasSets.push_back(new AliasSet(LoopCarriedDisam)); // INTEL
   AliasSets.back().addUnknownInst(Inst, AA);
 }
 
@@ -621,7 +627,7 @@ AliasSet &AliasSetTracker::mergeAllAliasSets() {
 
   // Copy all instructions and pointers into a new set, and forward all other
   // sets to it.
-  AliasSets.push_back(new AliasSet());
+  AliasSets.push_back(new AliasSet(LoopCarriedDisam)); // INTEL
   AliasAnyAS = &AliasSets.back();
   AliasAnyAS->Alias = AliasSet::SetMayAlias;
   AliasAnyAS->Access = AliasSet::ModRefAccess;
@@ -761,7 +767,8 @@ namespace {
 
     bool runOnFunction(Function &F) override {
       auto &AAWP = getAnalysis<AAResultsWrapperPass>();
-      Tracker = new AliasSetTracker(AAWP.getAAResults());
+      Tracker = new AliasSetTracker(AAWP.getAAResults(),
+                                    PrintLoopCarriedAliasSets); // INTEL
       errs() << "Alias sets for function '" << F.getName() << "':\n";
       for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I)
         Tracker->add(&*I);

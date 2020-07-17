@@ -1861,6 +1861,11 @@ AliasResult BasicAAResult::aliasPHI(const PHINode *PN, LocationSize PNSize,
   // If the values are PHIs in the same block, we can do a more precise
   // as well as efficient check: just check for aliases between the values
   // on corresponding edges.
+  // INTEL: This logic is disabled for loopCarriedAlias. In particular, it can
+  // INTEL: reason that loop header PHIs with NoAlias header inputs and NoAlias
+  // INTEL: latch inputs NoAlias; this is unsafe because it only holds for any
+  // INTEL: single execution point; between iterations there may be aliasing.
+  if (!AAQI.NeedLoopCarried) // INTEL
   if (const PHINode *PN2 = dyn_cast<PHINode>(V2))
     if (PN2->getParent() == PN->getParent()) {
       AAQueryInfo::LocPair Locs(MemoryLocation(PN, PNSize, PNAAInfo),
@@ -2369,6 +2374,21 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
     }
   }
 
+#if INTEL_CUSTOMIZATION
+  if (AAQI.NeedLoopCarried) {
+    // For loopCarriedAlias we'll stop analysis here. Rather than return
+    // MayAlias, check if any other AA has a better response. Recurse back into
+    // the best AA results we have, potentially with refined memory locations.
+    // We have already ensured that BasicAA has a MayAlias cache result for
+    // these, so any recursion back into BasicAA won't loop.
+    AliasResult Result =
+        getBestAAResults().loopCarriedAlias(Locs.first, Locs.second, AAQI);
+    Pair = AAQI.AliasCache.try_emplace(Locs, Result);
+    assert(!Pair.second && "Entry must have existed");
+    return Pair.first->second = Result;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   if (isa<SelectInst>(V2) && !isa<SelectInst>(V1)) {
     std::swap(V1, V2);
     std::swap(O1, O2);
@@ -2404,6 +2424,19 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, LocationSize V1Size,
   assert(!Pair.second && "Entry must have existed");
   return Pair.first->second = Result;
 }
+
+#if INTEL_CUSTOMIZATION
+AliasResult BasicAAResult::loopCarriedAlias(const MemoryLocation &LocA,
+                                            const MemoryLocation &LocB,
+                                            AAQueryInfo &AAQI) {
+  assert(AAQI.NeedLoopCarried && "Unexpectedly missing dynamic query flag");
+  AliasResult Alias = aliasCheck(LocA.Ptr, LocA.Size, LocA.AATags, LocB.Ptr,
+                                 LocB.Size, LocB.AATags, AAQI);
+
+  VisitedPhiBBs.clear();
+  return Alias;
+}
+#endif // INTEL_CUSTOMIZATION
 
 /// Check whether two Values can be considered equivalent.
 ///

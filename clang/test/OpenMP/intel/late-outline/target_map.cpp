@@ -317,12 +317,12 @@ void foo_five(SP *p) {
   // CHECK-SAME: "QUAL.OMP.MAP.TOFROM"(%struct.SP* [[L30]], i32* [[F17]], i64 [[L42]], i64 32)
   // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:CHAIN"(%struct.SP* [[L30]], i32* [[F17]], i64 4, i64 281474976710659)
   // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:CHAIN"(%struct.SP* [[L32]], i32* [[F28]], i64 4, i64 281474976710659)
-  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:CHAIN"(%struct.SP* [[L34]], i32* [[F3]], i64 4, i64 281474976710659)
+  // CHECK-SAME: "QUAL.OMP.MAP.TOFROM:ALWAYS.CHAIN"(%struct.SP* [[L34]], i32* [[F3]], i64 4, i64 281474976710663)
   // CHECK-SAME: "QUAL.OMP.PRIVATE"(%struct.SP** [[P_MAP9]])
   // CHECK: store %struct.SP* %30, %struct.SP** [[P_MAP9]]
   // CHECK: load %struct.SP*, %struct.SP** [[P_MAP9]]
   // CHECK: region.exit(token [[TV76]]) [ "DIR.OMP.END.TARGET"() ]
-  #pragma omp target map(p->f1, p->f2) map(p->f3)
+  #pragma omp target map(p->f1, p->f2) map(always tofrom: p->f3)
   {
     p->f1 = 0;
   }

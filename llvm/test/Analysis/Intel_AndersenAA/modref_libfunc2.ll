@@ -1,4 +1,5 @@
 ; RUN: opt < %s -anders-aa -aa-eval -disable-basic-aa -print-all-alias-modref-info -whole-program-assume -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -anders-aa -aa-eval -evaluate-loopcarried-alias -disable-basic-aa -print-all-alias-modref-info -whole-program-assume -disable-output 2>&1 | FileCheck %s
 
 ; Test ModRef modeling for library function calls
 
