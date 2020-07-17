@@ -240,10 +240,6 @@ static SanitizerMask parseSanitizeTrapArgs(const Driver &D,
   return TrappingKinds;
 }
 
-bool SanitizerArgs::needsFuzzerInterceptors() const {
-  return needsFuzzer() && !needsAsanRt() && !needsTsanRt() && !needsMsanRt();
-}
-
 bool SanitizerArgs::needsUbsanRt() const {
   // All of these include ubsan.
   if (needsAsanRt() || needsMsanRt() || needsHwasanRt() || needsTsanRt() ||
