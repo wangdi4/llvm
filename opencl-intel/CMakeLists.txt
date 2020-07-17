@@ -363,10 +363,6 @@ if (NOT OPENCL_INTREE_BUILD)
   endif (WIN32 AND NOT CYGWIN)
 endif()
 
-if (OPENCL_RT_INCLUDE_TESTS)
-    add_subdirectory( tests )
-endif (OPENCL_RT_INCLUDE_TESTS)
-
 # The conformance tests must be compiled with the headers located in
 # ${OCL_CONFORMANCE_INCLUDE} and not the ones in ${OCL_GLOBAL_INCLUDE}.
 # Therefore, it must be added to the include directories only after
@@ -394,6 +390,10 @@ add_subdirectory( externals )
 if ( INCLUDE_CMRT )
   add_subdirectory ( common_runtime )
 endif( INCLUDE_CMRT )
+
+if (OPENCL_RT_INCLUDE_TESTS)
+    add_subdirectory( tests )
+endif (OPENCL_RT_INCLUDE_TESTS)
 
 # An umbrella target for all tests under LIT infra.
 # Add a global check rule now that all subdirectories have been traversed

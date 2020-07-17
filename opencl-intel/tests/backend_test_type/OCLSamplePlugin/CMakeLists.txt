@@ -29,6 +29,7 @@ target_link_libraries(${TARGET_NAME} OclBackendUtils)
 
 set_target_properties(${TARGET_NAME}
   PROPERTIES
+    FOLDER Backend/validation/tests
     RUNTIME_OUTPUT_DIRECTORY ${BE_TESTS_BINARY_DIR}
     LIBRARY_OUTPUT_DIRECTORY ${BE_TESTS_BINARY_DIR}
     ARCHIVE_OUTPUT_DIRECTORY ${BE_TESTS_BINARY_DIR}

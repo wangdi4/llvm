@@ -40,8 +40,23 @@ set_source_files_properties( cl_device_local_mem_size.cpp PROPERTIES COMPILE_DEF
 # size equals to 17MB.
 set_source_files_properties( cl_device_private_mem_size.cpp PROPERTIES COMPILE_DEFINITIONS STACK_SIZE=17825792 )
 
-add_ocl_unittest( ${TARGET} SOURCE_FILES ${TARGET_SOURCES}
-    LINK_LIBRARIES ${TARGET_LIBS} )
+set(INPUT_FILE test.cl)
+set(SPIRV_OUTPUT_FILE test.spv)
+set(INV_BC_OUTPUT_FILE inv_test.bc)
+set(INV_SPIRV_OUTPUT_FILE inv_test.spv)
+set(TEST_SPV_FILES ${TARGET}_test_spv)
+compile_spv(${INPUT_FILE} ${SPIRV_OUTPUT_FILE}
+  EXTRA_CLANG_FLAGS -cl-kernel-arg-info)
+compile_spv(${INPUT_FILE} ${INV_SPIRV_OUTPUT_FILE}
+  EXTRA_CLANG_FLAGS -cl-kernel-arg-info
+  BC_OUTPUT_FILE ${INV_BC_OUTPUT_FILE}
+  BUILD_INV)
+add_custom_target(${TEST_SPV_FILES}
+  DEPENDS ${SPIRV_OUTPUT_FILE} ${INV_SPIRV_OUTPUT_FILE})
+
+add_ocl_unittest( ${TARGET}
+  SOURCE_FILES ${TARGET_SOURCES}
+  LINK_LIBRARIES ${TARGET_LIBS})
 
 if (WIN32)
   set_target_properties(${TARGET} PROPERTIES
@@ -54,60 +69,6 @@ if (WIN32)
 endif (WIN32)
 
 
-set( INCLUDE_HEADERS_PATH ${CCLANG_USER_INCLUDE_DIRS})
-
-set( INPUT_FILE test.cl )
-set( SPIR_OUTPUT_FILE test.bc )
-set( SPIRV_OUTPUT_FILE test.spv )
-set( INV_SPIR_OUTPUT_FILE inv_test.bc )
-
-if (BUILD_X64)
-set (
-  SPIR_OPT
-  -triple spir64-unknown-unknown -cl-kernel-arg-info -D __x86_64__
-)
-set (
-  INV_SPIR_OPT
-  -triple spir-unknown-unknown -cl-kernel-arg-info -D __i386__
-)
-set( REQD_NUM_SG_INPUT_FILE reqd_num_sub_groups_64.bc )
-else (BUILD_X64)
-set (
-  SPIR_OPT
-  -triple spir-unknown-unknown -cl-kernel-arg-info -D __i386__
-)
-set (
-  INV_SPIR_OPT
-  -triple spir64-unknown-unknown -cl-kernel-arg-info -D __x86_64__
-)
-set( REQD_NUM_SG_INPUT_FILE reqd_num_sub_groups_32.bc )
-endif(BUILD_X64)
-
-add_custom_command( TARGET ${TARGET}
-  POST_BUILD
-  COMMAND ${CLANG} -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
-  -I ${INCLUDE_HEADERS_PATH} -emit-llvm-bc
-  ${SPIR_OPT} -disable-llvm-passes -disable-intel-proprietary-opts
-  -include opencl-c.h -o ${CMAKE_CURRENT_BINARY_DIR}/${SPIR_OUTPUT_FILE}
-  COMMAND ${CLANG} -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
-  -I ${INCLUDE_HEADERS_PATH} -emit-llvm-bc
-  ${INV_SPIR_OPT} -disable-llvm-passes -disable-intel-proprietary-opts
-  -include opencl-c.h -o ${CMAKE_CURRENT_BINARY_DIR}/${INV_SPIR_OUTPUT_FILE}
-  MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
-  DEPENDS ${INCLUDE_HEADERS_PATH}/opencl-c.h
-  BYPRODUCTS ${SPIR_OUTPUT_FILE} ${INV_SPIR_OUTPUT_FILE}
-  COMMENT "Generate spir binary files for framework_test_type:  ${SPIR_OUTPUT_FILE}, ${INV_SPIR_OUTPUT_FILE}"
-  VERBATIM
-)
-
-add_custom_command( TARGET ${TARGET}
-  POST_BUILD
-  COMMAND ${SPIRV_CONVERTER} -o ${SPIRV_OUTPUT_FILE} ${CMAKE_CURRENT_BINARY_DIR}/${SPIR_OUTPUT_FILE}
-  DEPENDS ${SPIR_OUTPUT_FILE}
-  BYPRODUCTS ${SPIRV_OUTPUT_FILE}
-  COMMENT "Generate spirv binary files for framework_test_type:  ${SPIRV_OUTPUT_FILE}"
-  VERBATIM
-)
 
 add_ocl_unittest_artifacts(
   FILES
@@ -118,4 +79,8 @@ add_ocl_unittest_artifacts(
     spec_const.spv
 )
 
-add_dependencies( ${TARGET} clang_compiler${BUILD_PLATFORM} )
+add_dependencies(${TARGET}
+  clang_compiler${BUILD_PLATFORM}
+  OclCpuBackEnd${BUILD_PLATFORM}
+  cpu_device${BUILD_PLATFORM}
+  ${OCL_RT_TEST_DEPS} ${TEST_SPV_FILES})
