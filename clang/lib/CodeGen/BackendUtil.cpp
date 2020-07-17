@@ -42,7 +42,6 @@
 #include "llvm/Passes/StandardInstrumentations.h"
 #include "llvm/Support/BuryPointer.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Debug.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/TargetRegistry.h"
@@ -83,11 +82,6 @@
 #include "llvm/Transforms/Utils/SymbolRewriter.h"
 #include "llvm/Transforms/Utils/UniqueInternalLinkageNames.h"
 #include <memory>
-
-namespace SPIRV {
-  extern llvm::cl::opt<bool> SPIRVNoDerefAttr;
-}
-
 using namespace clang;
 using namespace llvm;
 
@@ -626,6 +620,7 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
          CodeGenOpts.PrepareForThinLTO), CodeGenOpts.PrepareForLTO); // INTEL
   }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   PMBuilder.DisableIntelProprietaryOpts =
     CodeGenOpts.DisableIntelProprietaryOpts;
@@ -679,6 +674,24 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
     PMBuilder.PrepareForLTO = CodeGenOpts.PrepareForLTO;
     PMBuilder.RerollLoops = CodeGenOpts.RerollLoops;
   }
+=======
+  PMBuilder.OptLevel = CodeGenOpts.OptimizationLevel;
+  PMBuilder.SizeLevel = CodeGenOpts.OptimizeSize;
+  PMBuilder.SLPVectorize = CodeGenOpts.VectorizeSLP;
+  PMBuilder.LoopVectorize = CodeGenOpts.VectorizeLoop;
+  // Only enable CGProfilePass when using integrated assembler, since
+  // non-integrated assemblers don't recognize .cgprofile section.
+  PMBuilder.CallGraphProfile = !CodeGenOpts.DisableIntegratedAS;
+
+  PMBuilder.DisableUnrollLoops = !CodeGenOpts.UnrollLoops;
+  // Loop interleaving in the loop vectorizer has historically been set to be
+  // enabled when loop unrolling is enabled.
+  PMBuilder.LoopsInterleaved = CodeGenOpts.UnrollLoops;
+  PMBuilder.MergeFunctions = CodeGenOpts.MergeFunctions;
+  PMBuilder.PrepareForThinLTO = CodeGenOpts.PrepareForThinLTO;
+  PMBuilder.PrepareForLTO = CodeGenOpts.PrepareForLTO;
+  PMBuilder.RerollLoops = CodeGenOpts.RerollLoops;
+>>>>>>> 97a3150bcdea3c665f67b2b7d045b423c04658dc
 
   MPM.add(new TargetLibraryInfoWrapperPass(*TLII));
 
