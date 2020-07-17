@@ -49957,6 +49957,7 @@ static SDValue matchPMADDWD_2(SelectionDAG &DAG, SDValue N0, SDValue N1,
                           PMADDBuilder);
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // Look for (vXi32 (add (sub A, B), (shl (sub C, D), 16))). See if we can
 // determine a relationship between A, C, B, and D that would allow us to
@@ -50094,6 +50095,31 @@ static SDValue combinePseudoi16VecAdd(SDNode *N, SelectionDAG &DAG,
   return DAG.getNode(ISD::SUB, dl, MVT::v8i32, LHS, RHS);
 }
 #endif
+=======
+static SDValue combineAddOrSubToHADDorHSUB(SDNode *N, SelectionDAG &DAG,
+                                           const X86Subtarget &Subtarget) {
+  EVT VT = N->getValueType(0);
+  SDValue Op0 = N->getOperand(0);
+  SDValue Op1 = N->getOperand(1);
+  bool IsAdd = N->getOpcode() == ISD::ADD;
+  assert((IsAdd || N->getOpcode() == ISD::SUB) && "Wrong opcode");
+
+  if ((VT == MVT::v8i16 || VT == MVT::v4i32 || VT == MVT::v16i16 ||
+       VT == MVT::v8i32) &&
+      Subtarget.hasSSSE3() &&
+      isHorizontalBinOp(Op0, Op1, DAG, Subtarget, IsAdd)) {
+    auto HOpBuilder = [IsAdd](SelectionDAG &DAG, const SDLoc &DL,
+                              ArrayRef<SDValue> Ops) {
+      return DAG.getNode(IsAdd ? X86ISD::HADD : X86ISD::HSUB,
+                         DL, Ops[0].getValueType(), Ops);
+    };
+    return SplitOpsAndApply(DAG, Subtarget, SDLoc(N), VT, {Op0, Op1},
+                            HOpBuilder);
+  }
+
+  return SDValue();
+}
+>>>>>>> 5408024fa87e0b23b169fec07913bd4357acdbc4
 
 static SDValue combineAdd(SDNode *N, SelectionDAG &DAG,
                           TargetLowering::DAGCombinerInfo &DCI,
@@ -50114,17 +50140,8 @@ static SDValue combineAdd(SDNode *N, SelectionDAG &DAG,
 #endif
 
   // Try to synthesize horizontal adds from adds of shuffles.
-  if ((VT == MVT::v8i16 || VT == MVT::v4i32 || VT == MVT::v16i16 ||
-       VT == MVT::v8i32) &&
-      Subtarget.hasSSSE3() &&
-      isHorizontalBinOp(Op0, Op1, DAG, Subtarget, true)) {
-    auto HADDBuilder = [](SelectionDAG &DAG, const SDLoc &DL,
-                          ArrayRef<SDValue> Ops) {
-      return DAG.getNode(X86ISD::HADD, DL, Ops[0].getValueType(), Ops);
-    };
-    return SplitOpsAndApply(DAG, Subtarget, SDLoc(N), VT, {Op0, Op1},
-                            HADDBuilder);
-  }
+  if (SDValue V = combineAddOrSubToHADDorHSUB(N, DAG, Subtarget))
+    return V;
 
   // If vectors of i1 are legal, turn (add (zext (vXi1 X)), Y) into
   // (sub Y, (sext (vXi1 X))).
@@ -50297,18 +50314,8 @@ static SDValue combineSub(SDNode *N, SelectionDAG &DAG,
   }
 
   // Try to synthesize horizontal subs from subs of shuffles.
-  EVT VT = N->getValueType(0);
-  if ((VT == MVT::v8i16 || VT == MVT::v4i32 || VT == MVT::v16i16 ||
-       VT == MVT::v8i32) &&
-      Subtarget.hasSSSE3() &&
-      isHorizontalBinOp(Op0, Op1, DAG, Subtarget, false)) {
-    auto HSUBBuilder = [](SelectionDAG &DAG, const SDLoc &DL,
-                          ArrayRef<SDValue> Ops) {
-      return DAG.getNode(X86ISD::HSUB, DL, Ops[0].getValueType(), Ops);
-    };
-    return SplitOpsAndApply(DAG, Subtarget, SDLoc(N), VT, {Op0, Op1},
-                            HSUBBuilder);
-  }
+  if (SDValue V = combineAddOrSubToHADDorHSUB(N, DAG, Subtarget))
+    return V;
 
   // Try to create PSUBUS if SUB's argument is max/min
   if (SDValue V = combineSubToSubus(N, DAG, Subtarget))
