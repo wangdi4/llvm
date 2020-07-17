@@ -30,12 +30,9 @@
 #include "llvm/IR/Value.h"
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/Support/Casting.h"
-<<<<<<< HEAD
 #include "llvm/Transforms/IPO/Intel_InlineReport.h"       // INTEL
 #include "llvm/Transforms/IPO/Intel_MDInlineReport.h"     // INTEL
-=======
 #include "llvm/Transforms/Utils/SimplifyCFGOptions.h"
->>>>>>> fb432a51f430e3f2324c6a180bdbaa3627e0a0c8
 #include <cstdint>
 #include <limits>
 
