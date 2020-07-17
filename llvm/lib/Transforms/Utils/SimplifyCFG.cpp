@@ -2449,6 +2449,7 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
     bool CanBeSimplified = true;
     unsigned NumPhis = 0;
 
+<<<<<<< HEAD
     for (BasicBlock::iterator II = BB->begin(); isa<PHINode>(II);) {
       PHINode *PN = cast<PHINode>(II++);
       if (Value *V = SimplifyInstruction(PN, {DL, PN})) {
@@ -2485,6 +2486,31 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
     if (NumPhis > 2) {
       continue;
     }
+=======
+  // Loop over the PHI's seeing if we can promote them all to select
+  // instructions.  While we are at it, keep track of the instructions
+  // that need to be moved to the dominating block.
+  SmallPtrSet<Instruction *, 4> AggressiveInsts;
+  int BudgetRemaining =
+      TwoEntryPHINodeFoldingThreshold * TargetTransformInfo::TCC_Basic;
+
+  bool Changed = false;
+  for (BasicBlock::iterator II = BB->begin(); isa<PHINode>(II);) {
+    PHINode *PN = cast<PHINode>(II++);
+    if (Value *V = SimplifyInstruction(PN, {DL, PN})) {
+      PN->replaceAllUsesWith(V);
+      PN->eraseFromParent();
+      Changed = true;
+      continue;
+    }
+
+    if (!DominatesMergePoint(PN->getIncomingValue(0), BB, AggressiveInsts,
+                             BudgetRemaining, TTI) ||
+        !DominatesMergePoint(PN->getIncomingValue(1), BB, AggressiveInsts,
+                             BudgetRemaining, TTI))
+      return Changed;
+  }
+>>>>>>> a0537fc35f0e72123e426ced7879188aaab6f76b
 
     // If we folded the first phi, PN dangles at this point.  Refresh it.  If
     // we ran out of PHIs then we simplified them all.
@@ -2496,6 +2522,7 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
     Value *TrueVal = PN->getIncomingValueForBlock(IfTrue);
     Value *FalseVal = PN->getIncomingValueForBlock(IfFalse);
 
+<<<<<<< HEAD
     // Return true if at least one of these is a 'not', and another is either
     // a 'not' too, or a constant.
     auto CanHoistNotFromBothValues = [](Value *V0, Value *V1) {
@@ -2538,6 +2565,36 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
           CanBeSimplified = false;
           break;
         }
+=======
+  // Don't fold i1 branches on PHIs which contain binary operators, unless one
+  // of the incoming values is an 'not' and another one is freely invertible.
+  // These can often be turned into switches and other things.
+  if (PN->getType()->isIntegerTy(1) &&
+      (isa<BinaryOperator>(PN->getIncomingValue(0)) ||
+       isa<BinaryOperator>(PN->getIncomingValue(1)) ||
+       isa<BinaryOperator>(IfCond)) &&
+      !CanHoistNotFromBothValues(PN->getIncomingValue(0),
+                                 PN->getIncomingValue(1)))
+    return Changed;
+
+  // If all PHI nodes are promotable, check to make sure that all instructions
+  // in the predecessor blocks can be promoted as well. If not, we won't be able
+  // to get rid of the control flow, so it's not worth promoting to select
+  // instructions.
+  BasicBlock *DomBlock = nullptr;
+  BasicBlock *IfBlock1 = PN->getIncomingBlock(0);
+  BasicBlock *IfBlock2 = PN->getIncomingBlock(1);
+  if (cast<BranchInst>(IfBlock1->getTerminator())->isConditional()) {
+    IfBlock1 = nullptr;
+  } else {
+    DomBlock = *pred_begin(IfBlock1);
+    for (BasicBlock::iterator I = IfBlock1->begin(); !I->isTerminator(); ++I)
+      if (!AggressiveInsts.count(&*I) && !isa<DbgInfoIntrinsic>(I)) {
+        // This is not an aggressive instruction that we can promote.
+        // Because of this, we won't be able to get rid of the control flow, so
+        // the xform is not worth it.
+        return Changed;
+>>>>>>> a0537fc35f0e72123e426ced7879188aaab6f76b
       }
     }
     if (!CanBeSimplified) {
@@ -2545,6 +2602,7 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
       continue;
     }
 
+<<<<<<< HEAD
     if (cast<BranchInst>(IfBlock2->getTerminator())->isConditional()) {
       IfBlock2 = nullptr;
     } else {
@@ -2558,6 +2616,18 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
           CanBeSimplified = false;
           break;
         }
+=======
+  if (cast<BranchInst>(IfBlock2->getTerminator())->isConditional()) {
+    IfBlock2 = nullptr;
+  } else {
+    DomBlock = *pred_begin(IfBlock2);
+    for (BasicBlock::iterator I = IfBlock2->begin(); !I->isTerminator(); ++I)
+      if (!AggressiveInsts.count(&*I) && !isa<DbgInfoIntrinsic>(I)) {
+        // This is not an aggressive instruction that we can promote.
+        // Because of this, we won't be able to get rid of the control flow, so
+        // the xform is not worth it.
+        return Changed;
+>>>>>>> a0537fc35f0e72123e426ced7879188aaab6f76b
       }
     }
 
