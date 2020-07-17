@@ -85,6 +85,7 @@ set(LLVM_TEST_DEPENDS
           llvm-install-name-tool
           llvm-jitlink
           llvm-lib
+          llvm-libtool-darwin
           llvm-link
           llvm-lipo
           llvm-locstats
