@@ -60,7 +60,6 @@ STATISTIC(
 static constexpr auto TAG = "[" DEBUG_TYPE "]";
 #endif
 
-<<<<<<< HEAD
 /// Apply \p CB to all uses of \p F. If \p LookThroughConstantExprUses is
 /// true, constant expression users are not given to \p CB but their uses are
 /// traversed transitively.
@@ -120,9 +119,9 @@ template <> struct DenseMapInfo<ICVValue> {
 
 } // end namespace llvm
 
-=======
->>>>>>> 9627a04656ca1eaa14faefd41be41651bac1c186
 namespace {
+
+struct AAICVTracker;
 
 /// OpenMP specific information. For now, stores RFIs and ICVs also needed for
 /// Attributor runs.
@@ -198,9 +197,9 @@ struct OMPInformationCache : public InformationCache {
 
     /// Return the vector of uses in function \p F.
     UseVector &getOrCreateUseVector(Function *F) {
-      std::unique_ptr<UseVector> &UV = UsesMap[F];
+      std::shared_ptr<UseVector> &UV = UsesMap[F];
       if (!UV)
-        UV = std::make_unique<UseVector>();
+        UV = std::make_shared<UseVector>();
       return *UV;
     }
 
@@ -256,7 +255,7 @@ struct OMPInformationCache : public InformationCache {
   private:
     /// Map from functions to all uses of this runtime function contained in
     /// them.
-    DenseMap<Function *, std::unique_ptr<UseVector>> UsesMap;
+    DenseMap<Function *, std::shared_ptr<UseVector>> UsesMap;
   };
 
   /// Initialize the ModuleSlice member based on \p SCC. ModuleSlices contains
@@ -480,9 +479,9 @@ struct OpenMPOpt {
 
   OpenMPOpt(SmallVectorImpl<Function *> &SCC, CallGraphUpdater &CGUpdater,
             OptimizationRemarkGetter OREGetter,
-            OMPInformationCache &OMPInfoCache)
+            OMPInformationCache &OMPInfoCache, Attributor &A)
       : M(*(*SCC.begin())->getParent()), SCC(SCC), CGUpdater(CGUpdater),
-        OREGetter(OREGetter), OMPInfoCache(OMPInfoCache) {}
+        OREGetter(OREGetter), OMPInfoCache(OMPInfoCache), A(A) {}
 
   /// Run all OpenMP optimizations on the underlying SCC/ModuleSlice.
   bool run() {
@@ -502,14 +501,11 @@ struct OpenMPOpt {
 
     Changed |= rewriteDeviceCodeStateMachine();
 
-<<<<<<< HEAD
     Changed |= runAttributor();
 
     // Recollect uses, in case Attributor deleted any.
     OMPInfoCache.recollectUses();
 
-=======
->>>>>>> 9627a04656ca1eaa14faefd41be41651bac1c186
     Changed |= deduplicateRuntimeCalls();
     Changed |= deleteParallelRegions();
 
@@ -933,7 +929,6 @@ private:
 
   /// OpenMP-specific information cache. Also Used for Attributor runs.
   OMPInformationCache &OMPInfoCache;
-<<<<<<< HEAD
 
   /// Attributor instance.
   Attributor &A;
@@ -1309,10 +1304,30 @@ struct AAICVTrackerFunction : public AAICVTracker {
     // No value was tracked.
     return nullptr;
   }
-=======
->>>>>>> 9627a04656ca1eaa14faefd41be41651bac1c186
 };
 } // namespace
+
+const char AAICVTracker::ID = 0;
+
+AAICVTracker &AAICVTracker::createForPosition(const IRPosition &IRP,
+                                              Attributor &A) {
+  AAICVTracker *AA = nullptr;
+  switch (IRP.getPositionKind()) {
+  case IRPosition::IRP_INVALID:
+  case IRPosition::IRP_FLOAT:
+  case IRPosition::IRP_ARGUMENT:
+  case IRPosition::IRP_RETURNED:
+  case IRPosition::IRP_CALL_SITE_RETURNED:
+  case IRPosition::IRP_CALL_SITE_ARGUMENT:
+  case IRPosition::IRP_CALL_SITE:
+    llvm_unreachable("ICVTracker can only be created for function position!");
+  case IRPosition::IRP_FUNCTION:
+    AA = new (A.Allocator) AAICVTrackerFunction(IRP, A);
+    break;
+  }
+
+  return *AA;
+}
 
 PreservedAnalyses OpenMPOptPass::run(LazyCallGraph::SCC &C,
                                      CGSCCAnalysisManager &AM,
@@ -1347,8 +1362,10 @@ PreservedAnalyses OpenMPOptPass::run(LazyCallGraph::SCC &C,
   OMPInformationCache InfoCache(*(Functions.back()->getParent()), AG, Allocator,
                                 /*CGSCC*/ Functions, OMPInModule.getKernels());
 
+  Attributor A(Functions, InfoCache, CGUpdater);
+
   // TODO: Compute the module slice we are allowed to look at.
-  OpenMPOpt OMPOpt(SCC, CGUpdater, OREGetter, InfoCache);
+  OpenMPOpt OMPOpt(SCC, CGUpdater, OREGetter, InfoCache, A);
   bool Changed = OMPOpt.run();
   if (Changed)
     return PreservedAnalyses::none();
@@ -1411,8 +1428,10 @@ struct OpenMPOptLegacyPass : public CallGraphSCCPass {
         *(Functions.back()->getParent()), AG, Allocator,
         /*CGSCC*/ Functions, OMPInModule.getKernels());
 
+    Attributor A(Functions, InfoCache, CGUpdater);
+
     // TODO: Compute the module slice we are allowed to look at.
-    OpenMPOpt OMPOpt(SCC, CGUpdater, OREGetter, InfoCache);
+    OpenMPOpt OMPOpt(SCC, CGUpdater, OREGetter, InfoCache, A);
     return OMPOpt.run();
   }
 
