@@ -264,8 +264,8 @@ private:
   /// The GEP Inst is cached for reuse.
   GetElementPtrInst *getOrCreateLocationGEP() const;
 
-  void printImpl(formatted_raw_ostream &OS, bool Detailed, bool DimDetails)
-    const;
+  void printImpl(formatted_raw_ostream &OS, bool Detailed,
+                 bool DimDetails) const;
 
 public:
   /// Returns HLDDNode this DDRef is attached to.
@@ -945,8 +945,9 @@ public:
 
   /// Replaces temp blobs using pairs (OldIndex, NewIndex) in \p BlobMap.
   /// Returns true if any blob is replaced.
-  bool replaceTempBlobs(SmallVectorImpl<std::pair<unsigned, unsigned>> &BlobMap,
-                        bool AssumeLvalIfDetached = false);
+  bool replaceTempBlobs(
+      const SmallVectorImpl<std::pair<unsigned, unsigned>> &BlobMap,
+      bool AssumeLvalIfDetached = false);
 
   /// Removes all blob DDRefs attached to this DDRef.
   void removeAllBlobDDRefs();
