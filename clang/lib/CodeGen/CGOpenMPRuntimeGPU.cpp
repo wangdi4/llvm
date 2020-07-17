@@ -801,6 +801,14 @@ static bool hasNestedSPMDDirective(ASTContext &Ctx,
     case OMPD_end_declare_variant:
     case OMPD_declare_target:
     case OMPD_end_declare_target:
+#if INTEL_COLLAB
+    case OMPD_target_variant_dispatch:
+    case OMPD_loop:
+    case OMPD_teams_loop:
+    case OMPD_target_teams_loop:
+    case OMPD_parallel_loop:
+    case OMPD_target_parallel_loop:
+#endif // INTEL_COLLAB
     case OMPD_declare_reduction:
     case OMPD_declare_mapper:
     case OMPD_taskloop:
@@ -882,6 +890,14 @@ static bool supportsSPMDExecutionMode(ASTContext &Ctx,
   case OMPD_end_declare_variant:
   case OMPD_declare_target:
   case OMPD_end_declare_target:
+#if INTEL_COLLAB
+  case OMPD_target_variant_dispatch:
+  case OMPD_loop:
+  case OMPD_teams_loop:
+  case OMPD_target_teams_loop:
+  case OMPD_parallel_loop:
+  case OMPD_target_parallel_loop:
+#endif // INTEL_COLLAB
   case OMPD_declare_reduction:
   case OMPD_declare_mapper:
   case OMPD_taskloop:
@@ -1057,6 +1073,14 @@ static bool hasNestedLightweightDirective(ASTContext &Ctx,
     case OMPD_declare_target:
     case OMPD_end_declare_target:
     case OMPD_declare_reduction:
+#if INTEL_COLLAB
+    case OMPD_target_variant_dispatch:
+    case OMPD_loop:
+    case OMPD_teams_loop:
+    case OMPD_target_teams_loop:
+    case OMPD_parallel_loop:
+    case OMPD_target_parallel_loop:
+#endif // INTEL_COLLAB
     case OMPD_declare_mapper:
     case OMPD_taskloop:
     case OMPD_taskloop_simd:
@@ -1143,6 +1167,14 @@ static bool supportsLightweightRuntime(ASTContext &Ctx,
   case OMPD_end_declare_variant:
   case OMPD_declare_target:
   case OMPD_end_declare_target:
+#if INTEL_COLLAB
+  case OMPD_target_variant_dispatch:
+  case OMPD_loop:
+  case OMPD_teams_loop:
+  case OMPD_target_teams_loop:
+  case OMPD_parallel_loop:
+  case OMPD_target_parallel_loop:
+#endif // INTEL_COLLAB
   case OMPD_declare_reduction:
   case OMPD_declare_mapper:
   case OMPD_taskloop:
