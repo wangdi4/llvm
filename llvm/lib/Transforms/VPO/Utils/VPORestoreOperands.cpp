@@ -346,7 +346,7 @@ bool VPOUtils::restoreOperands(Function &F) {
     }   // For all instructons in BB
 
   for (CallInst *CI : DirectivesToUpdate)
-    VPOParoptUtils::removeOperandBundlesFromCall(CI, {OperandAddrClauseString});
+    VPOUtils::removeOperandBundlesFromCall(CI, {OperandAddrClauseString});
 
   return Changed;
 }
@@ -496,7 +496,7 @@ bool VPOUtils::removeBranchesFromBeginToEndDirective(
     }   // For all instructons in BB
 
   for (CallInst *CI : DirectivesToUpdate)
-    VPOParoptUtils::removeOperandBundlesFromCall(CI, {ClauseString});
+    VPOUtils::removeOperandBundlesFromCall(CI, {ClauseString});
 
   return Changed;
 }

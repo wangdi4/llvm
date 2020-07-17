@@ -23,7 +23,7 @@
 #include "llvm/IR/User.h"
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Transforms/VPO/Paropt/VPOParoptUtils.h"
+#include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 #include "llvm/Transforms/Vectorize.h"
 #include <unordered_map>
 
@@ -196,7 +196,7 @@ static bool combineSinCos(CallInst *Call, StringRef OCLSinCosName,
 
   // This stack temp needs to be declared private, if the sin/cos are inside
   // an OMP region.
-  VPOParoptUtils::addPrivateToEnclosingRegion(CosTmp, Call, DT);
+  VPOUtils::addPrivateToEnclosingRegion(CosTmp, Call->getParent(), DT, false);
 
   // The rest of the sincos code will be inserted above the most dominating
   // candidate.

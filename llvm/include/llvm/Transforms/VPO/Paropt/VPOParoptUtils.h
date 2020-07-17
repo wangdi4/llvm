@@ -1021,22 +1021,6 @@ public:
                                               Value *Load,
                                               Instruction *InsertPt);
 
-  /// Creates a clone of \p CI, and adds \p OpBundlesToAdd the new
-  /// CallInst. \returns the created CallInst, if it created one, \p CI
-  /// otherwise (when \p OpBundlesToAdd is empty).
-  static CallInst *addOperandBundlesInCall(
-      CallInst *CI,
-      ArrayRef<std::pair<StringRef, ArrayRef<Value *>>> OpBundlesToAdd);
-
-  /// Creates a clone of \p CI without any operand bundles whose tags match an
-  /// entry in \p OpBundlesToRemove. Replaces all uses of the original \p CI
-  /// with the new Instruction created.
-  /// \returns the created CallInst, if it created one, \p CI otherwise (when \p
-  /// OpBundlesToRemove is empty, or has no matching bundle on \p CI).
-  static CallInst *
-  removeOperandBundlesFromCall(CallInst *CI,
-                               ArrayRef<StringRef> OpBundlesToRemove);
-
   /// Returns true, if the given \p V value may be rematerialized
   /// before the given \p W region (i.e. right before the \p W region's
   /// entry block).
@@ -1574,14 +1558,6 @@ public:
   static Instruction *getInsertionPtForAllocas(WRegionNode *W,
                                                Function *F,
                                                bool OutsideRegion = true);
-
-  /// Find the first directive that supports the private clause, that dominates
-  /// \p PosInst. Add a private clause for \p I into that directive.
-  /// Return false if no directive was found. Intended to be called outside
-  /// VPO, where no region information is available. It is an error if "I"
-  /// is already used in a llvm.directive.region.entry (checked by assertion).
-  static bool addPrivateToEnclosingRegion(Instruction *I, Instruction *PosInst,
-                                          DominatorTree &DT);
 
 #ifndef NDEBUG
   /// Run some Paropt related verifications to make sure IR after FE
