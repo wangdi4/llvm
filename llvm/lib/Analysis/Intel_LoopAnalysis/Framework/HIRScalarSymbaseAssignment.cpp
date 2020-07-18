@@ -555,3 +555,57 @@ void HIRScalarSymbaseAssignment::print(raw_ostream &OS) const {
     OS << "\n";
   }
 }
+
+const Loop *
+HIRScalarSymbaseAssignment::getDeepestSCCLoop(const Instruction *BaseInst,
+                                              const Loop *UseLoop,
+                                              const IRRegion &IRReg) const {
+  assert(UseLoop && "UseLoop is null!");
+
+  auto CurRegIt = RI.begin();
+  bool Found = false;
+
+  // Unfortunately, SCCs are only available through region iterators.
+  // This is possibly because SCCFormation data structures were over-engineered.
+  for (auto EndRegIt = RI.end(); CurRegIt != EndRegIt; ++CurRegIt) {
+    if (&*CurRegIt == &IRReg) {
+      Found = true;
+      break;
+    }
+  }
+
+  assert(Found && "Region iterator not found!");
+
+  // Check if BaseInst belong to one of the region SCCs. If not, we return
+  // nullptr.
+  Found = false;
+  auto CurSCCIt = SCCF.begin(CurRegIt);
+
+  for (auto EndIt = SCCF.end(CurRegIt); CurSCCIt != EndIt; ++CurSCCIt) {
+    if (CurSCCIt->getRoot() == BaseInst) {
+      Found = true;
+      break;
+    }
+  }
+
+  if (!Found) {
+    return nullptr;
+  }
+
+  // Iterate through all SCC insts and set the deepest loop w.r.t UseLoop.
+  Loop *DeepestLoop = nullptr;
+  for (auto SCCInstIt = CurSCCIt->begin(), EndIt = CurSCCIt->end();
+       SCCInstIt != EndIt; ++SCCInstIt) {
+    auto *CurLoop = LI.getLoopFor((*SCCInstIt)->getParent());
+    assert(CurLoop && "Cannot find loop of scc inst!");
+
+    if (!DeepestLoop || DeepestLoop->contains(CurLoop) ||
+        // This is the case where CurLoop and DeepestLoop are sibling loops but
+        // CurLoop is the parent loop of UseLoop.
+        (CurLoop->contains(UseLoop) && !DeepestLoop->contains(UseLoop))) {
+      DeepestLoop = CurLoop;
+    }
+  }
+
+  return DeepestLoop;
+}

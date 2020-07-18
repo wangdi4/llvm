@@ -1603,7 +1603,7 @@ unsigned HIRParser::processInstBlob(const Instruction *Inst,
   // livein/liveout analysis or setting the def level.
   //
   //          livein/liveout       def level
-  // 1)          BaseInst            Inst
+  // 1)          BaseInst            getDeepestSCCLoop()
   // 2)          BaseInst            Inst
   // 3)          BaseInst            BaseInst
   //
@@ -1626,7 +1626,20 @@ unsigned HIRParser::processInstBlob(const Instruction *Inst,
       (BaseInst->getParent() == DefLLVMLoop->getHeader());
   bool BaseIsDeconstructedPhi =
       ScopedSE.getHIRMetadata(BaseInst, ScalarEvolution::HIRLiveKind::LiveIn);
-  unsigned DefLevel = 0;
+
+  // Set the reaching definition loop based on cases 1), 2) or 3) described in
+  // the comment section above.
+  const Loop *SCCDefLoop = nullptr;
+  HLLoop *ReachingDefLoop = nullptr;
+  if (BaseIsLoopHeaderPhi && UseLoop &&
+      (SCCDefLoop = ScalarSA.getDeepestSCCLoop(BaseInst, UseLoop->getLLVMLoop(),
+                                               CurRegion->getIRRegion()))) {
+    ReachingDefLoop = LF.findHLLoop(SCCDefLoop);
+  } else if (BaseIsDeconstructedPhi) {
+    ReachingDefLoop = OrigDefLoop;
+  } else {
+    ReachingDefLoop = DefLoop;
+  }
 
   // Given a blob definition and a use in some HLLoop, the defined at level for
   // that use should be the lowest common ancestor loop level. For example-
@@ -1641,10 +1654,9 @@ unsigned HIRParser::processInstBlob(const Instruction *Inst,
   //   END DO
   // END DO
   //
-  if (auto *DefLevelLoop = HLNodeUtils::getLowestCommonAncestorLoop(
-          (BaseIsLoopHeaderPhi || BaseIsDeconstructedPhi) ? OrigDefLoop
-                                                          : DefLoop,
-          UseLoop)) {
+  unsigned DefLevel = 0;
+  if (auto *DefLevelLoop =
+          HLNodeUtils::getLowestCommonAncestorLoop(ReachingDefLoop, UseLoop)) {
     DefLevel = DefLevelLoop->getNestingLevel();
   }
 
