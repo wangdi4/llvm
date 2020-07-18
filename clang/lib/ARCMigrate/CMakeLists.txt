@@ -2,6 +2,7 @@ set(LLVM_LINK_COMPONENTS
   Support
   )
 
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 if (MSVC)
   set_source_files_properties(TransAutoreleasePool.cpp PROPERTIES COMPILE_FLAGS /bigobj)
@@ -9,6 +10,13 @@ if (MSVC)
   set_source_files_properties(ObjCMT.cpp PROPERTIES COMPILE_FLAGS /bigobj)
 endif()
 # end INTEL_CUSTOMIZATION
+=======
+# By default MSVC has a 2^16 limit on the number of sections in an object
+# file, and Transforms.cpp needs more than that.
+if (MSVC)
+  set_source_files_properties(Transforms.cpp PROPERTIES COMPILE_FLAGS /bigobj)
+endif()
+>>>>>>> 14dde438d69c81ab4651157a94d32e5555e804ff
 
 add_clang_library(clangARCMigrate
   ARCMT.cpp
