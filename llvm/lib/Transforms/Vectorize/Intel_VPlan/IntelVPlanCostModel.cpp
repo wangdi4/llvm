@@ -264,13 +264,21 @@ unsigned VPlanCostModel::getArithmeticInstructionCost(const unsigned Opcode,
     return UnknownCost;
   Type *VecTy = getWidenedType(const_cast<Type *>(ScalarTy), VF);
 
-  auto IsPowerOf2 = [](const VPValue *Val) -> bool {
-    if (const VPConstant *VPConst = dyn_cast<VPConstant>(Val))
+  auto SetOperandValueFeatures = [](
+    const VPValue *Val,
+    TargetTransformInfo::OperandValueKind& OpVK,
+    TargetTransformInfo::OperandValueProperties& OpVP) -> void {
+    if (const VPConstant *VPConst = dyn_cast<VPConstant>(Val)) {
+      OpVK = TargetTransformInfo::OK_UniformConstantValue;
       if (const ConstantInt *IntConst =
-            dyn_cast<ConstantInt>(VPConst->getConstant()))
+          dyn_cast<ConstantInt>(VPConst->getConstant())) {
         if (IntConst->getValue().isPowerOf2())
-          return true;
-    return false;
+          OpVP = TargetTransformInfo::OP_PowerOf2;
+        else if ((IntConst->getValue() + 1).isPowerOf2() ||
+                 (IntConst->getValue() - 1).isPowerOf2())
+          OpVP = TargetTransformInfo::OP_PowerOf2_PlusMinus1;
+      }
+    }
   };
 
   TargetTransformInfo::OperandValueKind Op1VK =
@@ -282,18 +290,12 @@ unsigned VPlanCostModel::getArithmeticInstructionCost(const unsigned Opcode,
   TargetTransformInfo::OperandValueProperties Op2VP =
     TargetTransformInfo::OP_None;
 
-  if (IsPowerOf2(Op1)) {
-    Op1VP = TargetTransformInfo::OP_PowerOf2;
-    Op1VK = TargetTransformInfo::OK_UniformConstantValue;
-  }
+  SetOperandValueFeatures(Op1, Op1VK, Op1VP);
+  if (Op2)
+    SetOperandValueFeatures(Op2, Op2VK, Op2VP);
 
-  if (Op2 && IsPowerOf2(Op2)) {
-    Op2VP = TargetTransformInfo::OP_PowerOf2;
-    Op2VK = TargetTransformInfo::OK_UniformConstantValue;
-  }
-
-  return TTI->getArithmeticInstrCost(Opcode, VecTy, TTI::TCK_RecipThroughput,
-                                     Op1VK, Op2VK, Op1VP, Op2VP);
+  return TTI->getArithmeticInstrCost(Opcode, VecTy,
+    TTI::TCK_RecipThroughput, Op1VK, Op2VK, Op1VP, Op2VP);
 }
 
 unsigned VPlanCostModel::getLoadStoreCost(const VPInstruction *VPInst) {
