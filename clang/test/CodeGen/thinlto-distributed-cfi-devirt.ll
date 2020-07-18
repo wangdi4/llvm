@@ -97,7 +97,9 @@ cont2:
   ; CHECK-IR: br i1 {{.*}}, label %trap
 
   ; We still have to call it as virtual.
-  ; CHECK-IR: %call3 = tail call i32 %7
+; INTEL_CUSTOMIZATION
+  ; CHECK-IR: %call3 = tail call i32 %8
+; end INTEL_CUSTOMIZATION
   %call3 = tail call i32 %8(%struct.A* nonnull %obj, i32 %call)
   ret i32 %call3
 }
