@@ -3081,6 +3081,12 @@ static bool foldFcmpLadder(BranchInst *BI) {
     return count > 2;
   };
 
+  // Blender pattern has memory/memory compares before constant compares.
+  if (fcmpHasConst(Compares[0].FCmpI)) {
+    LLVM_DEBUG(dbgs() << "Ladder already sorted.\n");
+    return false;
+  }
+
   // First we must fix the first block in the ladder.
   // Split the unrelated instructions away from the ladder.
   FCmpInst *Compare0 = Compares[0].FCmpI;
@@ -3093,9 +3099,8 @@ static bool foldFcmpLadder(BranchInst *BI) {
     return false;
   }
 
-  didSomething = true;
-
   Load0->getParent()->splitBasicBlock(Load0, "ladder");
+  didSomething = true;
 
   // Then, move the fcmp const blocks to the top of the ladder.
   unsigned IPoint = 0;
