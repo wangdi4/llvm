@@ -1673,12 +1673,19 @@ void OpenMPLateOutliner::emitOMPSIMDClause(const OMPSIMDClause *) {
 
 void OpenMPLateOutliner::emitOMPAllocateClause(const OMPAllocateClause *Cl) {
   const Expr *A = Cl->getAllocator();
+  llvm::Value *Allocator = nullptr;
+  // Allocator must always be i64.
+  if (A) {
+    A = A->IgnoreImpCasts();
+    Allocator = CGF.Builder.CreateIntCast(CGF.EmitScalarExpr(A), CGF.Int64Ty,
+                                          /*isSigned=*/false);
+  }
   for (const auto *E : Cl->varlists()) {
     ClauseEmissionHelper CEH(*this, OMPC_allocate);
     addArg("QUAL.OMP.ALLOCATE");
     addArg(E);
-    if (A)
-      addArg(CGF.EmitScalarExpr(A));
+    if (Allocator)
+      addArg(Allocator);
   }
 }
 
