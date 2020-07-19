@@ -1053,6 +1053,11 @@ public:
   static Value *genAddrSpaceCast(Value *Ptr, Instruction *InsertPt,
                                  unsigned AddrSpace);
 
+  /// build the CFG for if clause.
+  static void buildCFGForIfClause(Value *Cmp, Instruction *&ThenTerm,
+                                  Instruction *&ElseTerm, Instruction *InsertPt,
+                                  DominatorTree *DT);
+
   /// Generate a call to `__kmpc_omp_task_alloc`. Example:
   /// \code
   ///   i8* @__kmpc_omp_task_alloc({ i32, i32, i32, i32, i8* }*, i32, i32,
@@ -1060,9 +1065,9 @@ public:
   /// \endcode
   static CallInst *
   genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy, Value *TidPtr,
-                   Value *KmpTaskTTWithPrivatesTySz, int KmpSharedTySz,
-                   PointerType *KmpRoutineEntryPtrTy, Function *MicroTaskFn,
-                   Instruction *InsertPt, bool UseTbb);
+                   DominatorTree *DT, Value *KmpTaskTTWithPrivatesTySz,
+                   int KmpSharedTySz, PointerType *KmpRoutineEntryPtrTy,
+                   Function *MicroTaskFn, Instruction *InsertPt, bool UseTbb);
 
   /// Generate a call to `__kmpc_omp_task_alloc` to be used as an AsyncObj
   /// for the TARGET VARIANT DISPATCH NOWAIT construct corresponding to \p W

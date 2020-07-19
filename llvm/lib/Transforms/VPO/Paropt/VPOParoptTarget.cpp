@@ -960,7 +960,7 @@ bool VPOParoptTransform::genTargetOffloadingCode(WRegionNode *W) {
     Builder.SetInsertPoint(NewCall);
     Value *Cmp = Builder.CreateICmpNE(VIf, ConstantInt::get(VIf->getType(), 0));
     Instruction *ThenTerm, *ElseTerm;
-    buildCFGForIfClause(Cmp, ThenTerm, ElseTerm, InsertPt);
+    VPOParoptUtils::buildCFGForIfClause(Cmp, ThenTerm, ElseTerm, InsertPt, DT);
     InsertPt = ThenTerm;
     Call = genTargetInitCode(W, NewCall, RegionId, InsertPt);
     Builder.SetInsertPoint(ElseTerm);
@@ -3124,7 +3124,8 @@ bool VPOParoptTransform::genTargetVariantDispatchCode(WRegionNode *W) {
   //   %callphi = phi i32 [%variant, %variant.call], [%call, %base.call]    (6)
 
   Instruction *ThenTerm, *ElseTerm;
-  buildCFGForIfClause(DispatchTmp, ThenTerm, ElseTerm, InsertPt);        // (3)
+  VPOParoptUtils::buildCFGForIfClause(DispatchTmp, ThenTerm, ElseTerm, InsertPt,
+                                      DT); // (3)
 
   // Create the interop object for
   // (1) Asynchronous case (i.e., NOWAIT is present), or

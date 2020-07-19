@@ -1547,11 +1547,34 @@ CallInst *genKmpcTaskAllocImpl(WRegionNode *W, StructType *IdentTy, Value *Tid,
   return TaskAllocCall;
 }
 
+// build the CFG for if clause.
+void VPOParoptUtils::buildCFGForIfClause(Value *Cmp, Instruction *&ThenTerm,
+                                         Instruction *&ElseTerm,
+                                         Instruction *InsertPt,
+                                         DominatorTree *DT) {
+  BasicBlock *SplitBeforeBB = InsertPt->getParent();
+  SplitBlockAndInsertIfThenElse(Cmp, InsertPt, &ThenTerm, &ElseTerm);
+  ThenTerm->getParent()->setName("if.then");
+  ElseTerm->getParent()->setName("if.else");
+  InsertPt->getParent()->setName("if.end");
+
+  DT->addNewBlock(ThenTerm->getParent(), SplitBeforeBB);
+  DT->addNewBlock(ElseTerm->getParent(), SplitBeforeBB);
+  DT->addNewBlock(InsertPt->getParent(), SplitBeforeBB);
+
+  DT->changeImmediateDominator(ThenTerm->getParent(), SplitBeforeBB);
+  DT->changeImmediateDominator(ElseTerm->getParent(), SplitBeforeBB);
+  BasicBlock *NextBB = InsertPt->getParent()->getSingleSuccessor();
+  assert(NextBB && "Null Next BB.");
+  if (NextBB->getUniquePredecessor())
+    DT->changeImmediateDominator(NextBB, InsertPt->getParent());
+}
+
 // This function generates a call as follows.
 //    i8* @__kmpc_omp_task_alloc({ i32, i32, i32, i32, i8* }*, i32, i32,
 //    size_t, size_t, i32 (i32, i8*)*)
 CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
-                                           Value *TidPtr,
+                                           Value *TidPtr, DominatorTree *DT,
                                            Value *KmpTaskTTWithPrivatesTySz,
                                            int KmpSharedTySz,
                                            PointerType *KmpRoutineEntryPtrTy,
@@ -1562,6 +1585,73 @@ CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
 
   Value *Tid = Builder.CreateLoad(TidPtr);
   Value *TaskFlags = ConstantInt::get(Int32Ty, W->getTaskFlag());
+
+  Value *VFinal = W->getFinal();
+  if (VFinal) {
+    // If task construct has final clause, the compiler will set related flag
+    // bit in 3rd argument of __kmpc_omp_task_alloc (for final clause with
+    // non-zero constant), or generate a if-then-else statement (for final
+    // clause with conditional expression), to set the flag bit if the
+    // expression is evaluated to true.
+    //
+    // Example:
+    //   #pragma omp task final(n <= 10)
+    // IR:
+    //   ...
+    //   %n.addr = alloca i32, align 4
+    //   store i32 %n, i32* %n.addr, align 4
+    //   %1 = load i32, i32* %n.addr, align 4
+    //   %cmp = icmp sle i32 %1, 10
+    //   %conv = zext i1 %cmp to i32
+    //   br lablel %codeRepl
+    //
+    // codeRepl:
+    //   %3 = alloca i32, align 4                                     ; (1)
+    //   store i32 1, i32* %3, align 4                                ; (2)
+    //   %4 = icmp ne i32 %conv, 0                                    ; (3)
+    //   br i1 %4, label %if.then, label %if.else                     ; (4)
+    //
+    // if.then:                                          ; preds = %codeRepl
+    //   store i32 3, i32* %3, align 4                                ; (5)
+    //   br label %if.end
+    //
+    // if.else:                                          ; preds = %codeRepl
+    //   br label %if.end
+    //
+    // if.end:                                           ; preds = %if.else,
+    // %if.then
+    //   %5 = load i32, i32* %3, align 4                              ; (6)
+    //   %.task.alloc = call i8* @__kmpc_omp_task_alloc(%struct.ident_t*
+    //     @.kmpc_loc.0.0.7, i32 %2, i32 %5, i64 80, i64 0, i32 (i32, i8*)*
+    //     bitcast (void (i32, i32, %__struct.kmp_task_t_with_privates*)*
+    //     @foo.DIR.OMP.TASK.2.split to i32 (i32, i8*)*))
+    //   ...
+    //
+    const int FinalFlagBit = 0x2;
+
+    if (Constant *CFinal = dyn_cast<Constant>(VFinal)) {
+      if (!CFinal->isZeroValue()) {
+        W->setTaskFlag(W->getTaskFlag() | FinalFlagBit);
+        TaskFlags = ConstantInt::get(Int32Ty, W->getTaskFlag());
+      }
+    } else {
+      auto TaskFlagsAlloca = Builder.CreateAlloca(Int32Ty); // (1)
+      Builder.CreateStore(TaskFlags, TaskFlagsAlloca);      // (2)
+      Value *Cmp = Builder.CreateICmpNE(
+          VFinal, ConstantInt::get(VFinal->getType(), 0)); // (3)
+
+      Instruction *ThenTerm, *ElseTerm;
+      buildCFGForIfClause(Cmp, ThenTerm, ElseTerm, InsertPt, DT); // (4)
+      Builder.SetInsertPoint(ThenTerm);
+      W->setTaskFlag(W->getTaskFlag() | FinalFlagBit);
+      Builder.CreateStore(Builder.getInt32(W->getTaskFlag()),
+                          TaskFlagsAlloca); // (5)
+
+      Builder.SetInsertPoint(InsertPt);
+      TaskFlags = Builder.CreateLoad(TaskFlagsAlloca); // (6)
+    }
+  }
+
   Value *TaskEntry = Builder.CreateBitCast(MicroTaskFn, KmpRoutineEntryPtrTy);
 
   CallInst *TaskAllocCall = genKmpcTaskAllocImpl(

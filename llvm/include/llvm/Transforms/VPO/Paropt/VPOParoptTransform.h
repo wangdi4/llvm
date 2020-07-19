@@ -1051,10 +1051,6 @@ private:
   // and replace the global variable with the stack variable.
   bool genGlobalPrivatizationLaunderIntrin(WRegionNode *W);
 
-  /// build the CFG for if clause.
-  void buildCFGForIfClause(Value *Cmp, Instruction *&ThenTerm,
-                           Instruction *&ElseTerm, Instruction *InsertPt);
-
   /// Generate the sizes and map type flags for the given map type, map
   /// modifier and the expression V.
   /// \param [in]     W               incoming WRegionNode.
