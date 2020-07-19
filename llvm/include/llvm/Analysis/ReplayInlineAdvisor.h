@@ -26,7 +26,12 @@ class ReplayInlineAdvisor : public InlineAdvisor {
 public:
   ReplayInlineAdvisor(FunctionAnalysisManager &FAM, LLVMContext &Context,
                       StringRef RemarksFile);
-  std::unique_ptr<InlineAdvice> getAdvice(CallBase &CB) override;
+#if INTEL_CUSTOMIZATION
+  std::unique_ptr<InlineAdvice>
+  getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC = nullptr,
+            InlineReport *Report = nullptr) override;
+#endif // INTEL_CUSTOMIZATION
+
   bool areReplayRemarksLoaded() const { return HasReplayRemarks; }
 
 private:

@@ -46,7 +46,11 @@ ReplayInlineAdvisor::ReplayInlineAdvisor(FunctionAnalysisManager &FAM,
   HasReplayRemarks = true;
 }
 
-std::unique_ptr<InlineAdvice> ReplayInlineAdvisor::getAdvice(CallBase &CB) {
+#if INTEL_CUSTOMIZATION
+  std::unique_ptr<InlineAdvice>
+  ReplayInlineAdvisor::getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
+            InlineReport *Report) {
+#endif // INTEL_CUSTOMIZATION
   assert(HasReplayRemarks);
 
   Function &Caller = *CB.getCaller();
