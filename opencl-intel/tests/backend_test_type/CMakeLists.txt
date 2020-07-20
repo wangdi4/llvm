@@ -67,6 +67,6 @@ add_ocl_unittest_artifacts(
 
 add_dependencies(${TARGET_NAME}
   OclCpuBackEnd${BUILD_PLATFORM}
-  OCLSamplePlugin${BUILD_PLATFORM}
+  OCLSamplePlugin
   ${OCL_RT_TEST_DEPS}
   ${TEST_BC_FILES})
