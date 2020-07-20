@@ -902,13 +902,8 @@ declare void @__kmpc_proxy_task_completed_ooo(i8*)
 ; CHECK: ; Function Attrs: nounwind
 ; CHECK-NEXT: declare void @__kmpc_flush(%struct.ident_t*) #0
 
-<<<<<<< HEAD
 ; CHECK: Function Attrs: nounwind
 ; CHECK-NEXT: declare i32 @__kmpc_global_thread_num(%struct.ident_t* nocapture readonly) ;INTEL
-=======
-; CHECK: ; Function Attrs: nounwind
-; CHECK-NEXT: declare i32 @__kmpc_global_thread_num(%struct.ident_t*) #0
->>>>>>> 09fe0c5ab9ca5846d6cb625e9be47fdcfe49b93c
 
 ; CHECK: ; Function Attrs: nounwind
 ; CHECK-NEXT: declare void @__kmpc_fork_call(%struct.ident_t*, i32, void (i32*, i32*, ...)*, ...) #0
@@ -970,7 +965,6 @@ declare void @__kmpc_proxy_task_completed_ooo(i8*)
 ; CHECK: ; Function Attrs: nounwind
 ; CHECK-NEXT: declare void @__kmpc_end_ordered(%struct.ident_t*, i32) #0
 
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; CHECK: Function Attrs: nofree nounwind
 ; CHECK-NEXT: declare void @__kmpc_for_static_init_4(%struct.ident_t* nocapture readonly, i32, i32, i32* nocapture, i32* nocapture, i32* nocapture, i32* nocapture, i32, i32)
@@ -987,22 +981,6 @@ declare void @__kmpc_proxy_task_completed_ooo(i8*)
 ; CHECK: Function Attrs: nofree nounwind
 ; CHECK-NEXT: declare void @__kmpc_for_static_fini(%struct.ident_t* nocapture readonly, i32)
 ; end INTEL_CUSTOMIZATION
-=======
-; CHECK: ; Function Attrs: nounwind
-; CHECK-NEXT: declare void @__kmpc_for_static_init_4(%struct.ident_t*, i32, i32, i32*, i32*, i32*, i32*, i32, i32) #0
-
-; CHECK: ; Function Attrs: nounwind
-; CHECK-NEXT: declare void @__kmpc_for_static_init_4u(%struct.ident_t*, i32, i32, i32*, i32*, i32*, i32*, i32, i32) #0
-
-; CHECK: ; Function Attrs: nounwind
-; CHECK-NEXT: declare void @__kmpc_for_static_init_8(%struct.ident_t*, i32, i32, i32*, i64*, i64*, i64*, i64, i64) #0
-
-; CHECK: ; Function Attrs: nounwind
-; CHECK-NEXT: declare void @__kmpc_for_static_init_8u(%struct.ident_t*, i32, i32, i32*, i64*, i64*, i64*, i64, i64) #0
-
-; CHECK: ; Function Attrs: nounwind
-; CHECK-NEXT: declare void @__kmpc_for_static_fini(%struct.ident_t*, i32) #0
->>>>>>> 09fe0c5ab9ca5846d6cb625e9be47fdcfe49b93c
 
 ; CHECK: ; Function Attrs: nounwind
 ; CHECK-NEXT: declare void @__kmpc_team_static_init_4(%struct.ident_t*, i32, i32*, i32*, i32*, i32*, i32, i32) #0
@@ -1445,12 +1423,8 @@ declare void @__kmpc_proxy_task_completed_ooo(i8*)
 ; OPTIMISTIC: ; Function Attrs: inaccessiblememonly nofree nosync nounwind readonly willreturn
 ; OPTIMISTIC-NEXT: declare dso_local i32 @omp_get_supported_active_levels() #1
 
-<<<<<<< HEAD
-; OPTIMISTIC: ; Function Attrs: inaccessiblememonly nofree nosync nounwind readonly
-; OPTIMISTIC-NEXT: declare i32 @__kmpc_global_thread_num(%struct.ident_t* nocapture readonly) ;INTEL
-=======
 ; OPTIMISTIC: ; Function Attrs: inaccessiblememonly nofree nosync nounwind readonly willreturn
-; OPTIMISTIC-NEXT: declare i32 @__kmpc_global_thread_num(%struct.ident_t* nocapture nofree readonly)
+; OPTIMISTIC-NEXT: declare i32 @__kmpc_global_thread_num(%struct.ident_t* nocapture readonly) ;INTEL
 
 ; OPTIMISTIC: ; Function Attrs: nounwind
 ; OPTIMISTIC-NEXT: declare void @__kmpc_fork_call(%struct.ident_t* nocapture nofree readonly, i32, void (i32*, i32*, ...)* nocapture nofree readonly, ...)
@@ -1512,20 +1486,22 @@ declare void @__kmpc_proxy_task_completed_ooo(i8*)
 ; OPTIMISTIC: ; Function Attrs: nounwind
 ; OPTIMISTIC-NEXT: declare void @__kmpc_end_ordered(%struct.ident_t* nocapture nofree readonly, i32)
 
-; OPTIMISTIC: ; Function Attrs: inaccessiblemem_or_argmemonly nofree nosync nounwind willreturn
-; OPTIMISTIC-NEXT: declare void @__kmpc_for_static_init_4(%struct.ident_t* nocapture nofree readonly, i32, i32, i32* nocapture nofree, i32* nocapture nofree, i32* nocapture nofree, i32* nocapture nofree, i32, i32)
+; INTEL_CUSTOMIZATION
+; OPTIMISTIC: Function Attrs: nofree nounwind
+; OPTIMISTIC-NEXT: declare void @__kmpc_for_static_init_4(%struct.ident_t* nocapture readonly, i32, i32, i32* nocapture, i32* nocapture, i32* nocapture, i32* nocapture, i32, i32)
 
-; OPTIMISTIC: ; Function Attrs: inaccessiblemem_or_argmemonly nofree nosync nounwind willreturn
-; OPTIMISTIC-NEXT: declare void @__kmpc_for_static_init_4u(%struct.ident_t* nocapture nofree readonly, i32, i32, i32* nocapture nofree, i32* nocapture nofree, i32* nocapture nofree, i32* nocapture nofree, i32, i32)
+; OPTIMISTIC: Function Attrs: nofree nounwind
+; OPTIMISTIC-NEXT: declare void @__kmpc_for_static_init_4u(%struct.ident_t* nocapture readonly, i32, i32, i32* nocapture, i32* nocapture, i32* nocapture, i32* nocapture, i32, i32)
 
-; OPTIMISTIC: ; Function Attrs: inaccessiblemem_or_argmemonly nofree nosync nounwind willreturn
-; OPTIMISTIC-NEXT: declare void @__kmpc_for_static_init_8(%struct.ident_t* nocapture nofree readonly, i32, i32, i32* nocapture nofree, i64* nocapture nofree, i64* nocapture nofree, i64* nocapture nofree, i64, i64)
+; OPTIMISTIC: Function Attrs: nofree nounwind
+; OPTIMISTIC-NEXT: declare void @__kmpc_for_static_init_8(%struct.ident_t* nocapture readonly, i32, i32, i32* nocapture, i64* nocapture, i64* nocapture, i64* nocapture, i64, i64)
 
-; OPTIMISTIC: ; Function Attrs: inaccessiblemem_or_argmemonly nofree nosync nounwind willreturn
-; OPTIMISTIC-NEXT: declare void @__kmpc_for_static_init_8u(%struct.ident_t* nocapture nofree readonly, i32, i32, i32* nocapture nofree, i64* nocapture nofree, i64* nocapture nofree, i64* nocapture nofree, i64, i64)
+; OPTIMISTIC: Function Attrs: nofree nounwind
+; OPTIMISTIC-NEXT: declare void @__kmpc_for_static_init_8u(%struct.ident_t* nocapture readonly, i32, i32, i32* nocapture, i64* nocapture, i64* nocapture, i64* nocapture, i64, i64)
 
-; OPTIMISTIC: ; Function Attrs: inaccessiblemem_or_argmemonly nofree nosync nounwind willreturn
-; OPTIMISTIC-NEXT: declare void @__kmpc_for_static_fini(%struct.ident_t* nocapture nofree readonly, i32)
+; OPTIMISTIC: Function Attrs: nofree nounwind
+; OPTIMISTIC-NEXT: declare void @__kmpc_for_static_fini(%struct.ident_t* nocapture readonly, i32)
+; end INTEL_CUSTOMIZATION
 
 ; OPTIMISTIC: ; Function Attrs: inaccessiblemem_or_argmemonly nofree nosync nounwind willreturn
 ; OPTIMISTIC-NEXT: declare void @__kmpc_team_static_init_4(%struct.ident_t* nocapture nofree readonly, i32, i32* nocapture nofree, i32* nocapture nofree, i32* nocapture nofree, i32* nocapture nofree, i32, i32)
@@ -1742,4 +1718,3 @@ declare void @__kmpc_proxy_task_completed_ooo(i8*)
 
 ; OPTIMISTIC: ; Function Attrs: nofree nosync nounwind willreturn
 ; OPTIMISTIC-NEXT: declare void @__kmpc_proxy_task_completed_ooo(i8*)
->>>>>>> 09fe0c5ab9ca5846d6cb625e9be47fdcfe49b93c

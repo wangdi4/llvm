@@ -749,50 +749,6 @@ __OMP_ATTRS_SET(ReturnAlignedPtrAttrs,
 #define __OMP_RTL_ATTRS(Name, FnAttrSet, RetAttrSet, ArgAttrSets)              \
   OMP_RTL_ATTRS(OMPRTL_##Name, FnAttrSet, RetAttrSet, ArgAttrSets)
 
-<<<<<<< HEAD
-__OMP_RTL_ATTRS(__kmpc_barrier, AttributeSet(), AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_cancel,
-                AttributeSet(EnumAttr(InaccessibleMemOrArgMemOnly)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_cancel_barrier, AttributeSet(), AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_flush, AttributeSet(), AttributeSet(), {})
-#if INTEL_CUSTOMIZATION
-__OMP_RTL_ATTRS(__kmpc_global_thread_num, GetterAttrs, AttributeSet(),
-                ArrayRef<AttributeSet>({AttributeSet(EnumAttr(NoCapture),
-                                                     EnumAttr(ReadOnly))}))
-#endif // INTEL_CUSTOMIZATION
-__OMP_RTL_ATTRS(__kmpc_fork_call, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_omp_taskwait, AttributeSet(), AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_omp_taskyield,
-                AttributeSet(EnumAttr(InaccessibleMemOrArgMemOnly)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_push_num_threads,
-                AttributeSet(EnumAttr(InaccessibleMemOrArgMemOnly)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_push_proc_bind,
-                AttributeSet(EnumAttr(InaccessibleMemOrArgMemOnly)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_serialized_parallel,
-                AttributeSet(EnumAttr(InaccessibleMemOrArgMemOnly)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_end_serialized_parallel,
-                AttributeSet(EnumAttr(InaccessibleMemOrArgMemOnly)),
-                AttributeSet(), {})
-
-__OMP_RTL_ATTRS(omp_get_thread_num, GetterAttrs, AttributeSet(), {})
-__OMP_RTL_ATTRS(omp_get_num_threads, GetterAttrs, AttributeSet(), {})
-__OMP_RTL_ATTRS(omp_get_max_threads, GetterAttrs, AttributeSet(), {})
-__OMP_RTL_ATTRS(omp_in_parallel, GetterAttrs, AttributeSet(), {})
-__OMP_RTL_ATTRS(omp_get_dynamic, GetterAttrs, AttributeSet(), {})
-__OMP_RTL_ATTRS(omp_get_cancellation, GetterAttrs, AttributeSet(), {})
-__OMP_RTL_ATTRS(omp_get_nested, GetterAttrs, AttributeSet(), {})
-__OMP_RTL_ATTRS(omp_get_schedule, GetterArgWriteAttrs, AttributeSet(),
-                ArrayRef<AttributeSet>(
-                    {AttributeSet(EnumAttr(NoCapture), EnumAttr(WriteOnly)),
-                     AttributeSet(EnumAttr(NoCapture), EnumAttr(WriteOnly))}))
-__OMP_RTL_ATTRS(omp_get_thread_limit, GetterAttrs, AttributeSet(), {})
-=======
 __OMP_RTL_ATTRS(__kmpc_barrier, BarrierAttrs, AttributeSet(),
                 ParamAttrs(ReadOnlyPtrAttrs))
 __OMP_RTL_ATTRS(__kmpc_cancel, InaccessibleArgOnlyAttrs, AttributeSet(),
@@ -801,8 +757,11 @@ __OMP_RTL_ATTRS(__kmpc_cancel_barrier, BarrierAttrs, AttributeSet(),
                 ParamAttrs(ReadOnlyPtrAttrs))
 __OMP_RTL_ATTRS(__kmpc_flush, BarrierAttrs, AttributeSet(),
                 ParamAttrs(ReadOnlyPtrAttrs))
+#if INTEL_CUSTOMIZATION
 __OMP_RTL_ATTRS(__kmpc_global_thread_num, GetterAttrs, AttributeSet(),
-                ParamAttrs(ReadOnlyPtrAttrs))
+                ArrayRef<AttributeSet>({AttributeSet(EnumAttr(NoCapture),
+                                                     EnumAttr(ReadOnly))}))
+#endif // INTEL_CUSTOMIZATION
 __OMP_RTL_ATTRS(__kmpc_fork_call, ForkAttrs, AttributeSet(),
                 ParamAttrs(ReadOnlyPtrAttrs, AttributeSet(), ReadOnlyPtrAttrs))
 __OMP_RTL_ATTRS(__kmpc_omp_taskwait, BarrierAttrs, AttributeSet(),
@@ -833,7 +792,6 @@ __OMP_RTL_ATTRS(
     ParamAttrs(AttributeSet(EnumAttr(NoCapture), EnumAttr(WriteOnly)),
                AttributeSet(EnumAttr(NoCapture), EnumAttr(WriteOnly))))
 __OMP_RTL_ATTRS(omp_get_thread_limit, GetterAttrs, AttributeSet(), ParamAttrs())
->>>>>>> 09fe0c5ab9ca5846d6cb625e9be47fdcfe49b93c
 __OMP_RTL_ATTRS(omp_get_supported_active_levels, GetterAttrs, AttributeSet(),
                 ParamAttrs())
 __OMP_RTL_ATTRS(omp_get_max_active_levels, GetterAttrs, AttributeSet(),
@@ -848,272 +806,6 @@ __OMP_RTL_ATTRS(omp_get_proc_bind, GetterAttrs, AttributeSet(), ParamAttrs())
 __OMP_RTL_ATTRS(omp_get_num_places, GetterAttrs, AttributeSet(), ParamAttrs())
 __OMP_RTL_ATTRS(omp_get_num_procs, GetterAttrs, AttributeSet(), ParamAttrs())
 __OMP_RTL_ATTRS(omp_get_place_proc_ids, GetterArgWriteAttrs, AttributeSet(),
-<<<<<<< HEAD
-                ArrayRef<AttributeSet>({AttributeSet(),
-                                        AttributeSet(EnumAttr(NoCapture),
-                                                     EnumAttr(WriteOnly))}))
-__OMP_RTL_ATTRS(omp_get_place_num, GetterAttrs, AttributeSet(), {})
-__OMP_RTL_ATTRS(omp_get_partition_num_places, GetterAttrs, AttributeSet(), {})
-__OMP_RTL_ATTRS(omp_get_partition_place_nums, GetterAttrs, AttributeSet(), {})
-
-__OMP_RTL_ATTRS(omp_set_num_threads, SetterAttrs, AttributeSet(), {})
-__OMP_RTL_ATTRS(omp_set_dynamic, SetterAttrs, AttributeSet(), {})
-__OMP_RTL_ATTRS(omp_set_nested, SetterAttrs, AttributeSet(), {})
-__OMP_RTL_ATTRS(omp_set_schedule, SetterAttrs, AttributeSet(), {})
-__OMP_RTL_ATTRS(omp_set_max_active_levels, SetterAttrs, AttributeSet(), {})
-
-__OMP_RTL_ATTRS(__kmpc_master,
-                AttributeSet(EnumAttr(InaccessibleMemOrArgMemOnly)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_end_master,
-                AttributeSet(EnumAttr(InaccessibleMemOrArgMemOnly)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_critical,
-                AttributeSet(EnumAttr(InaccessibleMemOrArgMemOnly)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_critical_with_hint,
-                AttributeSet(EnumAttr(InaccessibleMemOrArgMemOnly)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_end_critical,
-                AttributeSet(EnumAttr(InaccessibleMemOrArgMemOnly)),
-                AttributeSet(), {})
-
-__OMP_RTL_ATTRS(__kmpc_begin, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_end, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-
-__OMP_RTL_ATTRS(__kmpc_reduce, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_reduce_nowait, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_end_reduce, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_end_reduce_nowait, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-
-__OMP_RTL_ATTRS(__kmpc_ordered, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_end_ordered, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-
-#if INTEL_CUSTOMIZATION
-__OMP_RTL_ATTRS(
-    __kmpc_for_static_init_4,
-    AttributeSet(EnumAttr(NoUnwind), EnumAttr(NoFree)), AttributeSet(),
-    ArrayRef<AttributeSet>(
-        {AttributeSet(EnumAttr(NoCapture), EnumAttr(ReadOnly)), AttributeSet(),
-         AttributeSet(), AttributeSet(EnumAttr(NoCapture)),
-         AttributeSet(EnumAttr(NoCapture)), AttributeSet(EnumAttr(NoCapture)),
-         AttributeSet(EnumAttr(NoCapture)), AttributeSet(), AttributeSet()}))
-__OMP_RTL_ATTRS(
-    __kmpc_for_static_init_4u,
-    AttributeSet(EnumAttr(NoUnwind), EnumAttr(NoFree)), AttributeSet(),
-    ArrayRef<AttributeSet>(
-        {AttributeSet(EnumAttr(NoCapture), EnumAttr(ReadOnly)), AttributeSet(),
-         AttributeSet(), AttributeSet(EnumAttr(NoCapture)),
-         AttributeSet(EnumAttr(NoCapture)), AttributeSet(EnumAttr(NoCapture)),
-         AttributeSet(EnumAttr(NoCapture)), AttributeSet(), AttributeSet()}))
-__OMP_RTL_ATTRS(
-    __kmpc_for_static_init_8,
-    AttributeSet(EnumAttr(NoUnwind), EnumAttr(NoFree)), AttributeSet(),
-    ArrayRef<AttributeSet>(
-        {AttributeSet(EnumAttr(NoCapture), EnumAttr(ReadOnly)), AttributeSet(),
-         AttributeSet(), AttributeSet(EnumAttr(NoCapture)),
-         AttributeSet(EnumAttr(NoCapture)), AttributeSet(EnumAttr(NoCapture)),
-         AttributeSet(EnumAttr(NoCapture)), AttributeSet(), AttributeSet()}))
-__OMP_RTL_ATTRS(
-    __kmpc_for_static_init_8u,
-    AttributeSet(EnumAttr(NoUnwind), EnumAttr(NoFree)), AttributeSet(),
-    ArrayRef<AttributeSet>(
-        {AttributeSet(EnumAttr(NoCapture), EnumAttr(ReadOnly)), AttributeSet(),
-         AttributeSet(), AttributeSet(EnumAttr(NoCapture)),
-         AttributeSet(EnumAttr(NoCapture)), AttributeSet(EnumAttr(NoCapture)),
-         AttributeSet(EnumAttr(NoCapture)), AttributeSet(), AttributeSet()}))
-__OMP_RTL_ATTRS(__kmpc_for_static_fini,
-                AttributeSet(EnumAttr(NoUnwind), EnumAttr(NoFree)),
-                AttributeSet(),
-                ArrayRef<AttributeSet>({AttributeSet(EnumAttr(NoCapture),
-                                                     EnumAttr(ReadOnly)),
-                                        AttributeSet()}))
-#endif // INTEL_CUSTOMIZATION
-__OMP_RTL_ATTRS(__kmpc_dist_dispatch_init_4, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_dist_dispatch_init_4u, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_dist_dispatch_init_8, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_dist_dispatch_init_8u, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_dispatch_init_4, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_dispatch_init_4u, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_dispatch_init_8, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_dispatch_init_8u, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_dispatch_next_4, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_dispatch_next_4u, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_dispatch_next_8, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_dispatch_next_8u, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_dispatch_fini_4, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_dispatch_fini_4u, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_dispatch_fini_8, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_dispatch_fini_8u, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_team_static_init_4, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_team_static_init_4u, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_team_static_init_8, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_team_static_init_8u, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_dist_for_static_init_4, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_dist_for_static_init_4u, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_dist_for_static_init_8, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_dist_for_static_init_8u, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-
-__OMP_RTL_ATTRS(__kmpc_single, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_end_single, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-
-__OMP_RTL_ATTRS(__kmpc_omp_task_alloc, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_omp_task, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_end_taskgroup, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_taskgroup, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_omp_task_begin_if0, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_omp_task_complete_if0, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_omp_task_with_deps, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_taskloop, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_omp_target_task_alloc,
-                AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_taskred_modifier_init,
-                AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_taskred_init,
-                AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_task_reduction_modifier_fini,
-                AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_task_reduction_get_th_data,
-                AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_task_reduction_init,
-                AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_task_reduction_modifier_init,
-                AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_proxy_task_completed_ooo,
-                AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-
-__OMP_RTL_ATTRS(__kmpc_omp_wait_deps, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_cancellationpoint, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-
-__OMP_RTL_ATTRS(__kmpc_fork_teams, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_push_num_teams, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-
-__OMP_RTL_ATTRS(__kmpc_copyprivate, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_threadprivate_cached, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_threadprivate_register, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-
-__OMP_RTL_ATTRS(__kmpc_doacross_init, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_doacross_post, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_doacross_wait, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_doacross_fini, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-
-__OMP_RTL_ATTRS(__kmpc_alloc, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_free, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-
-__OMP_RTL_ATTRS(__kmpc_init_allocator, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_destroy_allocator, AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-
-__OMP_RTL_ATTRS(__kmpc_push_target_tripcount,
-                AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__tgt_target_mapper,
-                AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__tgt_target_nowait_mapper,
-                AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__tgt_target_teams_mapper,
-                AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__tgt_target_teams_nowait_mapper,
-                AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__tgt_register_requires,
-                AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__tgt_target_data_begin_mapper,
-                AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__tgt_target_data_begin_nowait_mapper,
-                AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__tgt_target_data_end_mapper,
-                AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__tgt_target_data_end_nowait_mapper,
-                AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__tgt_target_data_update_mapper,
-                AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__tgt_target_data_update_nowait_mapper,
-                AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__tgt_mapper_num_components,
-                AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__tgt_push_mapper_component,
-                AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-__OMP_RTL_ATTRS(__kmpc_task_allow_completion_event,
-                AttributeSet(EnumAttr(NoUnwind)),
-                AttributeSet(), {})
-=======
                 ParamAttrs(AttributeSet(), AttributeSet(EnumAttr(NoCapture),
                                                         EnumAttr(WriteOnly))))
 __OMP_RTL_ATTRS(omp_get_place_num, GetterAttrs, AttributeSet(), ParamAttrs())
@@ -1162,24 +854,46 @@ __OMP_RTL_ATTRS(__kmpc_ordered, BarrierAttrs, AttributeSet(),
 __OMP_RTL_ATTRS(__kmpc_end_ordered, BarrierAttrs, AttributeSet(),
                 ParamAttrs(ReadOnlyPtrAttrs))
 
-__OMP_RTL_ATTRS(__kmpc_for_static_init_4, GetterArgWriteAttrs, AttributeSet(),
-                ParamAttrs(ReadOnlyPtrAttrs, AttributeSet(), AttributeSet(),
-                           ArgPtrAttrs, ArgPtrAttrs, ArgPtrAttrs, ArgPtrAttrs,
-                           AttributeSet(), AttributeSet()))
-__OMP_RTL_ATTRS(__kmpc_for_static_init_4u, GetterArgWriteAttrs, AttributeSet(),
-                ParamAttrs(ReadOnlyPtrAttrs, AttributeSet(), AttributeSet(),
-                           ArgPtrAttrs, ArgPtrAttrs, ArgPtrAttrs, ArgPtrAttrs,
-                           AttributeSet(), AttributeSet()))
-__OMP_RTL_ATTRS(__kmpc_for_static_init_8, GetterArgWriteAttrs, AttributeSet(),
-                ParamAttrs(ReadOnlyPtrAttrs, AttributeSet(), AttributeSet(),
-                           ArgPtrAttrs, ArgPtrAttrs, ArgPtrAttrs, ArgPtrAttrs,
-                           AttributeSet(), AttributeSet()))
-__OMP_RTL_ATTRS(__kmpc_for_static_init_8u, GetterArgWriteAttrs, AttributeSet(),
-                ParamAttrs(ReadOnlyPtrAttrs, AttributeSet(), AttributeSet(),
-                           ArgPtrAttrs, ArgPtrAttrs, ArgPtrAttrs, ArgPtrAttrs,
-                           AttributeSet(), AttributeSet()))
-__OMP_RTL_ATTRS(__kmpc_for_static_fini, InaccessibleArgOnlyAttrs,
-                AttributeSet(), ParamAttrs(ReadOnlyPtrAttrs))
+#if INTEL_CUSTOMIZATION
+__OMP_RTL_ATTRS(
+    __kmpc_for_static_init_4,
+    AttributeSet(EnumAttr(NoUnwind), EnumAttr(NoFree)), AttributeSet(),
+    ArrayRef<AttributeSet>(
+        {AttributeSet(EnumAttr(NoCapture), EnumAttr(ReadOnly)), AttributeSet(),
+         AttributeSet(), AttributeSet(EnumAttr(NoCapture)),
+         AttributeSet(EnumAttr(NoCapture)), AttributeSet(EnumAttr(NoCapture)),
+         AttributeSet(EnumAttr(NoCapture)), AttributeSet(), AttributeSet()}))
+__OMP_RTL_ATTRS(
+    __kmpc_for_static_init_4u,
+    AttributeSet(EnumAttr(NoUnwind), EnumAttr(NoFree)), AttributeSet(),
+    ArrayRef<AttributeSet>(
+        {AttributeSet(EnumAttr(NoCapture), EnumAttr(ReadOnly)), AttributeSet(),
+         AttributeSet(), AttributeSet(EnumAttr(NoCapture)),
+         AttributeSet(EnumAttr(NoCapture)), AttributeSet(EnumAttr(NoCapture)),
+         AttributeSet(EnumAttr(NoCapture)), AttributeSet(), AttributeSet()}))
+__OMP_RTL_ATTRS(
+    __kmpc_for_static_init_8,
+    AttributeSet(EnumAttr(NoUnwind), EnumAttr(NoFree)), AttributeSet(),
+    ArrayRef<AttributeSet>(
+        {AttributeSet(EnumAttr(NoCapture), EnumAttr(ReadOnly)), AttributeSet(),
+         AttributeSet(), AttributeSet(EnumAttr(NoCapture)),
+         AttributeSet(EnumAttr(NoCapture)), AttributeSet(EnumAttr(NoCapture)),
+         AttributeSet(EnumAttr(NoCapture)), AttributeSet(), AttributeSet()}))
+__OMP_RTL_ATTRS(
+    __kmpc_for_static_init_8u,
+    AttributeSet(EnumAttr(NoUnwind), EnumAttr(NoFree)), AttributeSet(),
+    ArrayRef<AttributeSet>(
+        {AttributeSet(EnumAttr(NoCapture), EnumAttr(ReadOnly)), AttributeSet(),
+         AttributeSet(), AttributeSet(EnumAttr(NoCapture)),
+         AttributeSet(EnumAttr(NoCapture)), AttributeSet(EnumAttr(NoCapture)),
+         AttributeSet(EnumAttr(NoCapture)), AttributeSet(), AttributeSet()}))
+__OMP_RTL_ATTRS(__kmpc_for_static_fini,
+                AttributeSet(EnumAttr(NoUnwind), EnumAttr(NoFree)),
+                AttributeSet(),
+                ArrayRef<AttributeSet>({AttributeSet(EnumAttr(NoCapture),
+                                                     EnumAttr(ReadOnly)),
+                                        AttributeSet()}))
+#endif // INTEL_CUSTOMIZATION
 __OMP_RTL_ATTRS(__kmpc_dist_dispatch_init_4, GetterArgWriteAttrs,
                 AttributeSet(),
                 ParamAttrs(ReadOnlyPtrAttrs, AttributeSet(), AttributeSet(),
@@ -1356,7 +1070,6 @@ __OMP_RTL_ATTRS(__tgt_mapper_num_components, ForkAttrs, AttributeSet(), {})
 __OMP_RTL_ATTRS(__tgt_push_mapper_component, ForkAttrs, AttributeSet(), {})
 __OMP_RTL_ATTRS(__kmpc_task_allow_completion_event, DefaultAttrs,
                 ReturnPtrAttrs, ParamAttrs(ReadOnlyPtrAttrs))
->>>>>>> 09fe0c5ab9ca5846d6cb625e9be47fdcfe49b93c
 
 #undef __OMP_RTL_ATTRS
 #undef OMP_RTL_ATTRS
