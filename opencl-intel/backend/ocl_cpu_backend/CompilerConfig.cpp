@@ -30,7 +30,7 @@ const char* CPU_ARCH_AUTO = "auto";
 void GlobalCompilerConfig::LoadDefaults()
 {
     m_enableTiming = false;
-    m_disableStackDump = false;
+    m_disableStackDump = true;
     m_infoOutputFile = "";
     m_LLVMOptions = "";
 }
@@ -114,7 +114,7 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBack
     }
     m_infoOutputFile = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_TIME_PASSES, "");
     m_enableTiming = !m_infoOutputFile.empty();
-    m_disableStackDump = pBackendOptions->GetBooleanValue((int)CL_DEV_BACKEND_OPTION_DISABLE_STACKDUMP, false);
+    m_disableStackDump = pBackendOptions->GetBooleanValue((int)CL_DEV_BACKEND_OPTION_DISABLE_STACKDUMP, true);
 
     m_targetDevice = static_cast<DeviceMode>(pBackendOptions->GetIntValue(
         (int)CL_DEV_BACKEND_OPTION_DEVICE, CPU_DEVICE));
