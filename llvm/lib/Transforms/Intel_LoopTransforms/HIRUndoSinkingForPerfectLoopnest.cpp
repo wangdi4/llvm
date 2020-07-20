@@ -157,8 +157,17 @@ struct HIRUndoSinkingForPerfectLoopnest::MatchingStoreFinder final
     }
 
     auto *LvalRef = HInst->getLvalDDRef();
+    auto *RvalRef = HInst->getRvalDDRef();
 
     if (!LvalRef) {
+      return;
+    }
+
+    if (!RvalRef) {
+      return;
+    }
+
+    if (!RvalRef->isConstant()) {
       return;
     }
 
@@ -182,7 +191,7 @@ struct HIRUndoSinkingForPerfectLoopnest::MatchingStoreFinder final
     }
 
     auto &HNU = Node->getHLNodeUtils();
-    RegDDRef *RHS = HInst->getRvalDDRef()->clone();
+    RegDDRef *RHS = RvalRef->clone();
     RegDDRef *LHS = SinkedLoadInst->getLvalDDRef()->clone();
     MatchingStoreInst = HNU.createCopyInst(RHS, "copy", LHS);
     IsDone = true;
