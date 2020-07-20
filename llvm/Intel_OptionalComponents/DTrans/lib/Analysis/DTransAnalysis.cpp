@@ -4868,7 +4868,7 @@ public:
                             << "  " << *(ParentTI->getLLVMType()) << " @ "
                             << Idx << "\n"
                             << "  " << I << "\n");
-          ParentTI->setSafetyData(dtrans::FieldAddressTaken);
+          setBaseTypeInfoSafetyData(Res.first, dtrans::FieldAddressTaken);
           ParentStInfo->getField(Idx).setAddressTaken();
         }
       }
