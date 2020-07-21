@@ -9,19 +9,16 @@
 define void @foo(i32* nocapture %arr) {
 ; CHECK-LABEL: @foo(
 ; CHECK:       vector.body:
-; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i32 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP4:%.*]], [[VECTOR_BODY:%.*]] ]
-; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i32 [ 0, [[VECTOR_PH]] ], [ [[TMP3:%.*]], [[VECTOR_BODY]] ]
-; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VECTOR_PH]] ], [ [[TMP2:%.*]], [[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[UNI_PHI:%.*]] = phi i32 [ 0, [[VECTOR_PH:%.*]] ], [ [[TMP3:%.*]], [[VECTOR_BODY:%.*]] ]
+; CHECK-NEXT:    [[UNI_PHI1:%.*]] = phi i32 [ 0, [[VECTOR_PH]] ], [ [[TMP2:%.*]], [[VECTOR_BODY]] ]
+; CHECK-NEXT:    [[VEC_PHI:%.*]] = phi <4 x i32> [ <i32 0, i32 1, i32 2, i32 3>, [[VECTOR_PH]] ], [ [[TMP1:%.*]], [[VECTOR_BODY]] ]
 ; CHECK-NEXT:    [[TMP0:%.*]] = bitcast <4 x i32*> [[PRIV_VEC_BASE_ADDR:%.*]] to <4 x i8*>
-; CHECK-NEXT:    [[DOTEXTRACT_0_:%.*]] = extractelement <4 x i8*> [[TMP0]], i32 0
-; CHECK-NEXT:    [[TMP1:%.*]] = bitcast i8* [[DOTEXTRACT_0_]] to <4 x i8>*
-; FIXME: That should be a gather, because access isn't unit-strided.
-; CHECK-NEXT:    [[WIDE_LOAD:%.*]] = load <4 x i8>, <4 x i8>* [[TMP1]], align 4
-; CHECK-NEXT:    [[TMP2]] = add nuw nsw <4 x i32> [[VEC_PHI]], <i32 4, i32 4, i32 4, i32 4>
-; CHECK-NEXT:    [[TMP3]] = add nuw nsw i32 [[UNI_PHI1]], 4
-; CHECK-NEXT:    [[TMP4]] = add i32 [[UNI_PHI]], 4
-; CHECK-NEXT:    [[TMP5:%.*]] = icmp eq i32 [[TMP4]], 100
-; CHECK-NEXT:    br i1 [[TMP5]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]], !llvm.loop !0
+; CHECK-NEXT:    [[WIDE_MASKED_GATHER:%.*]] = call <4 x i8> @llvm.masked.gather.v4i8.v4p0i8(<4 x i8*> [[TMP0]], i32 4, <4 x i1> <i1 true, i1 true, i1 true, i1 true>, <4 x i8> undef)
+; CHECK-NEXT:    [[TMP1]] = add nuw nsw <4 x i32> [[VEC_PHI]], <i32 4, i32 4, i32 4, i32 4>
+; CHECK-NEXT:    [[TMP2]] = add nuw nsw i32 [[UNI_PHI1]], 4
+; CHECK-NEXT:    [[TMP3]] = add i32 [[UNI_PHI]], 4
+; CHECK-NEXT:    [[TMP4:%.*]] = icmp eq i32 [[TMP3]], 100
+; CHECK-NEXT:    br i1 [[TMP4]], label [[VPLANNEDBB:%.*]], label [[VECTOR_BODY]], !llvm.loop !0
 ;
 entry:
   %priv = alloca i32, align 4

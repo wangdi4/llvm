@@ -77,20 +77,6 @@ static const VPValue *getVPValuePrivateMemoryPtr(const VPValue *V) {
 /// stride is -1 and false otherwise.
 static bool isVPValueConsecutivePtrStride(const VPValue *Ptr, const VPlan *Plan,
                                           bool &IsNegOneStride) {
-  // TODO: Direct access to Private ptr, i.e., without an intermediate GEP would
-  // trip DA. DA would report the shape as 'Undef'. We have to copy over the
-  // shape when we 'createPrivateMemory'.
-
-  // This checks if we are dealing with a scalar-private. Return the stride-size
-  // in that case.
-  if (auto *Private = getVPValuePrivateMemoryPtr(Ptr)) {
-    IsNegOneStride = false;
-    if (isScalarPointeeTy(Private))
-      return true;
-
-    return false;
-  }
-
   return Plan->getVPlanDA()->isUnitStridePtr(Ptr, IsNegOneStride);
 }
 
