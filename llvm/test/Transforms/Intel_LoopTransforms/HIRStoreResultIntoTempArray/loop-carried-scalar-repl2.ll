@@ -14,10 +14,10 @@
 ;
 ;<0>          BEGIN REGION { }
 ;<124:36>           + DO i1 = 0, sext.i32.i64(%"jacobian_$NZ_fetch1") + -1, 1   <DO_LOOP>
-;<125:35>           |   + DO i2 = 0, sext.i32.i64((1 + %"jacobian_$NY_fetch")) + -2, 1   <DO_LOOP>
+;<125:35>           |   + DO i2 = 0, sext.i32.i64(%"jacobian_$NY_fetch") + -1, 1   <DO_LOOP>
 ;<18:17>            |   |   %mod = i2 + 3  %  %"jacobian_$NY_fetch" + 1;
 ;<126:34>           |   |
-;<126:34>           |   |   + DO i3 = 0, sext.i32.i64((1 + %"jacobian_$NX_fetch")) + -2, 1   <DO_LOOP>
+;<126:34>           |   |   + DO i3 = 0, sext.i32.i64(%"jacobian_$NX_fetch") + -1, 1   <DO_LOOP>
 ;<30:19>            |   |   |   %mod27 = i3 + 2  %  %"jacobian_$NX_fetch";
 ;<36:20>            |   |   |   %"jacobian_$Q[]53[][][]_fetch" = (%"jacobian_$Q")[i1 + 1][i2][i3][0];
 ;<37:20>            |   |   |   %div = (%"jacobian_$Q")[i1 + 1][i2][i3][1]  /  %"jacobian_$Q[]53[][][]_fetch";
@@ -51,13 +51,13 @@
 ;
 ; CHECK:      BEGIN REGION { modified }
 ; CHECK:           %call = @llvm.stacksave();
-; CHECK:           %array_size = sext.i32.i64((1 + %"jacobian_$NY_fetch"))  *  sext.i32.i64((1 + %"jacobian_$NX_fetch")) + -1;
+; CHECK:           %array_size = sext.i32.i64(%"jacobian_$NY_fetch") + 1 *  sext.i32.i64(%"jacobian_$NX_fetch");
 ; CHECK:           %array_size3 = sext.i32.i64(%"jacobian_$NZ_fetch1") + 1  *  %array_size;
 ; CHECK:           %TempArray = alloca %array_size3;
 ;
 ; CHECK:           + DO i1 = 0, sext.i32.i64(%"jacobian_$NZ_fetch1"), 1   <DO_LOOP>
-; CHECK:           |   + DO i2 = 0, sext.i32.i64((1 + %"jacobian_$NY_fetch")) + -1, 1   <DO_LOOP>
-; CHECK:           |   |   + DO i3 = 0, sext.i32.i64((1 + %"jacobian_$NX_fetch")) + -2, 1   <DO_LOOP>
+; CHECK:           |   + DO i2 = 0, sext.i32.i64(%"jacobian_$NY_fetch"), 1   <DO_LOOP>
+; CHECK:           |   |   + DO i3 = 0, sext.i32.i64(%"jacobian_$NX_fetch") + -1, 1   <DO_LOOP>
 ; CHECK:           |   |   |   %"jacobian_$Q[]53[][][]_fetch" = (%"jacobian_$Q")[i1 + 1][i2][i3][0];
 ; CHECK:           |   |   |   %div = (%"jacobian_$Q")[i1 + 1][i2][i3][1]  /  %"jacobian_$Q[]53[][][]_fetch";
 ; CHECK:           |   |   |   %div87 = (%"jacobian_$Q")[i1 + 1][i2][i3][2]  /  %"jacobian_$Q[]53[][][]_fetch";
@@ -75,10 +75,10 @@
 ;
 ;
 ; CHECK:           + DO i1 = 0, sext.i32.i64(%"jacobian_$NZ_fetch1") + -1, 1   <DO_LOOP>
-; CHECK:           |   + DO i2 = 0, sext.i32.i64((1 + %"jacobian_$NY_fetch")) + -2, 1   <DO_LOOP>
+; CHECK:           |   + DO i2 = 0, sext.i32.i64(%"jacobian_$NY_fetch") + -1, 1   <DO_LOOP>
 ; CHECK:           |   |   %mod = i2 + 3  %  %"jacobian_$NY_fetch" + 1;
 ; CHECK:           |   |
-; CHECK:           |   |   + DO i3 = 0, sext.i32.i64((1 + %"jacobian_$NX_fetch")) + -2, 1   <DO_LOOP>
+; CHECK:           |   |   + DO i3 = 0, sext.i32.i64(%"jacobian_$NX_fetch") + -1, 1   <DO_LOOP>
 ; CHECK:           |   |   |   %mod27 = i3 + 2  %  %"jacobian_$NX_fetch";
 ; CHECK:           |   |   |   %func_result = (%TempArray)[i1][i2][i3];
 ; CHECK:           |   |   |   %func_result250 = (%TempArray)[i1 + 1][%mod][zext.i32.i64(%mod27)];

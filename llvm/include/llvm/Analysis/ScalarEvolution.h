@@ -1820,13 +1820,22 @@ protected: // INTEL
   const SCEV *getNonScopedSCEV(const SCEV *SC);
 
   /// Returns true if \p Val's uses are known to be safe for propagation of
-  /// no-wrap flags. This function assumes that IR does not change during
-  /// analysis.
-  bool hasWrapSafeUses(const Value *Val, const Value *KnownSafeUse) const;
+  /// no-wrap flags. \p OrigBinOp is the original BinOp we want to propagate
+  /// flags for. \p OrigSCEV is SCEV form of OrigBinOp. \p OtherSE is another
+  /// ScalarEvolution object uses for creating SCEVs inside this function. We
+  /// cannot use the 'this' object as it will result in infinite recursion. \p
+  /// Flags are refined and returned to the caller. This function assumes that
+  /// IR does not change during analysis.
+  bool hasWrapSafeUses(const Value *Val,
+                       const OverflowingBinaryOperator *OrigBinOp,
+                       const SCEV *OrigSCEV, ScalarEvolution &OtherSE,
+                       SCEV::NoWrapFlags &Flags) const;
 
-  /// Returns true if we can safely propagate no-wrap flags from \p BinOp to it
-  /// SCEV form by analyzing its operands. This only works in immutable IR mode.
-  bool hasWrapSafeOperands(const BinaryOperator *BinOp) const;
+  /// Returns true if we can safely propagate no-wrap flags from \p BinOp to its
+  /// SCEV form by analyzing its operands. \p Flags are refined and returned to
+  /// the caller. This only works in immutable IR mode.
+  bool hasWrapSafeOperands(const BinaryOperator *BinOp,
+                           SCEV::NoWrapFlags &Flags) const;
 #endif  // INTEL_CUSTOMIZATION
 
   /// Try to match the Expr as "(L + R)<Flags>".
@@ -2252,6 +2261,7 @@ public:
   }
 
   ScalarEvolution &getOrigSE() { return OrigSE; }
+  const ScalarEvolution &getOrigSE() const { return OrigSE; }
 
   bool mayAssumeImmutableIR() const { return AssumeIRImmutability; }
 
