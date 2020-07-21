@@ -12592,6 +12592,11 @@ private:
   bool CheckIntelFPGARegBuiltinFunctionCall(unsigned BuiltinID, CallExpr *Call);
   bool CheckIntelFPGAMemBuiltinFunctionCall(CallExpr *Call);
 
+#if INTEL_CUSTOMIZATION
+  bool CheckSIMDVariantBuiltinFunctionCall(unsigned BuiltinID,
+                                           CallExpr *TheCall);
+#endif // INTEL_CUSTOMIZATION
+
   bool SemaBuiltinVAStart(unsigned BuiltinID, CallExpr *TheCall);
   bool SemaBuiltinVAStartARMMicrosoft(CallExpr *Call);
   bool SemaBuiltinUnorderedCompare(CallExpr *TheCall);

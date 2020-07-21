@@ -398,6 +398,9 @@ BUILTIN(__builtin_ctanhl, "XLdXLd", "Fne")
 BUILTIN(__builtin_complex, "v.", "nct")
 
 #if INTEL_CUSTOMIZATION
+BUILTIN(__builtin_generate_SIMD_variant, "v.", "nt")
+BUILTIN(__builtin_call_SIMD_variant, "v.", "t")
+
 // CQ#366852. MCU high-priority (according to D. Kreitzer) builtins.
 BUILTIN(__builtin_calloc,     "v*zz",   "Fnc")
 BUILTIN(__builtin_malloc,     "v*z",    "Fn")

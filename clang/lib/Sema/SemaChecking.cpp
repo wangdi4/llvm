@@ -27,6 +27,9 @@
 #include "clang/AST/ExprObjC.h"
 #include "clang/AST/ExprOpenMP.h"
 #include "clang/AST/FormatString.h"
+#if INTEL_CUSTOMIZATION
+#include "clang/AST/IntelFunctionProtoTypeFinder.h"
+#endif // INTEL_CUSTOMIZATION
 #include "clang/AST/NSAPI.h"
 #include "clang/AST/NonTrivialTypeVisitor.h"
 #include "clang/AST/OperationKinds.h"
@@ -2073,6 +2076,13 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
     if (CheckIntelFPGAMemBuiltinFunctionCall(TheCall))
       return ExprError();
     break;
+#if INTEL_CUSTOMIZATION
+  case Builtin::BI__builtin_generate_SIMD_variant:
+  case Builtin::BI__builtin_call_SIMD_variant:
+    if (CheckSIMDVariantBuiltinFunctionCall(BuiltinID, TheCall))
+      return ExprError();
+    break;
+#endif // INTEL_CUSTOMIZATION
   case Builtin::BI__builtin_frame_address:
   case Builtin::BI__builtin_return_address: {
     if (SemaBuiltinConstantArgRange(TheCall, 0, 0, 0xFFFF))
@@ -4837,6 +4847,207 @@ bool Sema::CheckIntelFPGARegBuiltinFunctionCall(unsigned BuiltinID,
     return true;
   }
 }
+
+#if INTEL_CUSTOMIZATION
+/// Check that all variant specifiers are legal.
+///
+/// \param FuncArg is the constant address of the base function and
+/// \param VariantArg is an expression containing the list of variant
+/// specifiers.
+static bool checkVariantList(Sema &S, const Expr *VariantArg,
+                             unsigned ExpectedParams, bool ExpectOneVariant) {
+  QualType VariantTypes = VariantArg->getType();
+  FunctionProtoTypeFinder PTFinder;
+  const SmallVectorImpl<const FunctionProtoType *> &PTypes =
+      PTFinder.getProtoTypes(VariantTypes);
+
+  // A non-function type was passed, so no prototypes were found.
+  if (PTypes.empty())
+    return S.Diag(VariantArg->getExprLoc(), diag::err_bad_variant_specifier)
+           << "" << 0;
+
+  // For the generate call, only one variant is expected.
+  if (ExpectOneVariant && PTypes.size() != 1)
+    return S.Diag(VariantArg->getExprLoc(), diag::err_bad_variant_specifier)
+           << "" << 0;
+
+  // Check that each prototype is a real variant specifier.
+  for (const auto *ProtoType : PTypes) {
+
+    // Return type can be "masked" or "unmasked".
+    QualType ReturnType = ProtoType->getReturnType();
+    if (const auto *RTy = ReturnType->getAs<RecordType>()) {
+      auto Name = RTy->getDecl()->getName();
+      if (Name != "masked" && Name != "unmasked")
+        return S.Diag(VariantArg->getExprLoc(), diag::err_bad_variant_specifier)
+               << RTy->getDecl() << 1;
+    } else
+      return S.Diag(VariantArg->getExprLoc(), diag::err_bad_variant_specifier)
+             << ReturnType << 1;
+
+    // Parameters must match between function and variant specifier.
+    if (!ExpectOneVariant && ExpectedParams != ProtoType->getNumParams())
+      return S.Diag(VariantArg->getExprLoc(),
+                    diag::err_wrong_num_params_in_variant_specifier)
+             << ExpectedParams << ProtoType->getNumParams();
+
+    // Parameters must be "linear", "varying", or "uniform".
+    for (auto ParamType : ProtoType->getParamTypes()) {
+      if (const auto *PTy = ParamType->getAs<RecordType>()) {
+        StringRef Name = PTy->getDecl()->getName();
+        if (Name != "linear" && Name != "varying" && Name != "uniform")
+          return S.Diag(VariantArg->getExprLoc(),
+                        diag::err_bad_variant_specifier)
+                 << PTy->getDecl() << 2;
+      } else
+        return S.Diag(VariantArg->getExprLoc(), diag::err_bad_variant_specifier)
+               << ParamType << 2;
+    }
+  }
+  return false;
+}
+
+// Used to prevent checking of SIMD variant builtin special arguments
+// with unexpanded packs. Only the first three arguments are considered since
+// any additional are normal call arguments.
+static bool isPackExpansionArgExist(CallExpr *Call) {
+  for (unsigned int I = 0; I < std::min<unsigned>(Call->getNumArgs(), 3); I++) {
+    QualType Ty = Call->getArg(I)->getType();
+    if (Ty->isPointerType())
+      Ty = Ty->getPointeeType();
+    if (const SubstTemplateTypeParmType *ST =
+            dyn_cast<SubstTemplateTypeParmType>(Ty))
+      if (ST->getReplacedParameter()->containsUnexpandedParameterPack())
+        return true;
+  }
+  return false;
+}
+
+bool Sema::CheckSIMDVariantBuiltinFunctionCall(unsigned BuiltinID,
+                                               CallExpr *TheCall) {
+  QualType RetType;
+  switch (BuiltinID) {
+  case Builtin::BI__builtin_generate_SIMD_variant: {
+    if (isPackExpansionArgExist(TheCall))
+      return true;
+    if (checkArgCount(*this, TheCall, 3))
+      return true;
+
+    // Check for valid function arg and get number of parameters for
+    // comparison with the variant.
+    Expr *FuncArg = TheCall->getArg(0);
+    QualType FunctionTy = FuncArg->getType();
+    if (FunctionTy->isPointerType())
+      FunctionTy = FunctionTy->getPointeeType();
+
+    unsigned NumParams = 0;
+    if (auto *FuncProtoType = FunctionTy->getAs<FunctionProtoType>())
+      NumParams = FuncProtoType->getNumParams();
+    else
+      return Diag(FuncArg->getBeginLoc(),
+                  diag::err_function_arg_passing) << 0;
+
+    // Check vector length, it should be a positive integer.
+    const Expr *VLengthArg = TheCall->getArg(1);
+    llvm::APSInt Result;
+    if (!VLengthArg->isValueDependent() &&
+        SemaBuiltinConstantArg(TheCall, 1, Result))
+      return true;
+    if (Result <= 0)
+      return Diag(VLengthArg->getBeginLoc(),
+                  diag::err_vector_length_passing)
+             << 0 << Result.toString(10) << 0;
+
+    // Check the user-specified variant list.
+    Expr *VariantArg = TheCall->getArg(2);
+    if (checkVariantList(*this, VariantArg, NumParams,
+                         /*ExpectOneVariant=*/true))
+      return true;
+
+    RetType = FuncArg->getType();
+    break;
+  }
+  case Builtin::BI__builtin_call_SIMD_variant: {
+    if (isPackExpansionArgExist(TheCall))
+      return true;
+    unsigned NumArgs = TheCall->getNumArgs();
+    if (NumArgs < 4)
+      return Diag(TheCall->getBeginLoc(),
+           diag::err_typecheck_call_too_few_args_at_least)
+        << 0 << 3 << NumArgs;
+
+    // Check for a valid function table pointer. This should be a pointer to
+    // the function table. Since the wrapper should handle passing the correct
+    // argument these errors should be seen only if the user calls the
+    // builtins directly (not supported or expected). This check requires
+    // the type to be a pointer to function pointer.
+    const Expr *TableExpr = TheCall->getArg(2);
+    QualType TableArgTy = TableExpr->getType();
+
+    if (const PointerType *PT = TableArgTy->getAs<PointerType>())
+      TableArgTy = PT->getPointeeType();
+    else
+      return Diag(TableExpr->getBeginLoc(),
+                  diag::err_function_arg_passing) << 1;
+
+    if (const PointerType *PT = TableArgTy->getAs<PointerType>())
+      TableArgTy = PT->getPointeeType();
+    else
+      return Diag(TableExpr->getBeginLoc(),
+                  diag::err_function_arg_passing) << 1;
+
+    unsigned NumParams = 0;
+    auto *FuncProtoType = TableArgTy->getAs<FunctionProtoType>();
+    if (FuncProtoType)
+      NumParams = FuncProtoType->getNumParams();
+    else
+      return Diag(TableExpr->getBeginLoc(),
+                  diag::err_function_arg_passing) << 1;
+
+    // Check the variant specifier list.
+    Expr *VariantsArg = TheCall->getArg(0);
+    if (checkVariantList(*this, VariantsArg, NumParams,
+                         /*ExpectOneVariant=*/false))
+      return true;
+
+    // Check vector lengths passed as template parameters
+    const Expr *VLengthArg =  TheCall->getArg(1);
+    const TemplateSpecializationType *TSType =
+        VLengthArg->getType()->getAs<TemplateSpecializationType>();
+    if (!TSType || TSType->template_arguments().empty())
+      return Diag(VLengthArg->getBeginLoc(),
+                  diag::err_vector_length_passing)
+             << 1 << 1;
+    for (const auto &TArg : TSType->template_arguments()) {
+      if (TArg.getKind() != TemplateArgument::Expression)
+        return Diag(VLengthArg->getBeginLoc(),
+                    diag::err_vector_length_passing)
+                 << 1 << 1;
+      if (!TArg.getAsExpr()->isTypeDependent() &&
+          !TArg.getAsExpr()->isValueDependent()) {
+        if (!TArg.getAsExpr()->isIntegerConstantExpr(Context))
+          return Diag(TArg.getAsExpr()->getBeginLoc(),
+                      diag::err_vector_length_passing)
+                 << 1 << 1;
+        llvm::APSInt Result =
+            *(TArg.getAsExpr()->getIntegerConstantExpr(Context));
+        if (Result <= 0)
+          return Diag(TArg.getAsExpr()->getBeginLoc(),
+                      diag::err_vector_length_passing)
+                 << 0 << Result.toString(10) << 0;
+      }
+    }
+    // The return type of the expression should be taken from the table
+    // argument.
+    RetType = FuncProtoType->getReturnType();
+    break;
+  }
+  }
+
+  TheCall->setType(RetType);
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
 
 bool Sema::CheckIntelFPGAMemBuiltinFunctionCall(CallExpr *TheCall) {
   // Make sure we have exactly 3 arguments

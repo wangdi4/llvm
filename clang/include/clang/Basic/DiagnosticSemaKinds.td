@@ -11076,4 +11076,17 @@ def err_probability_not_constant_float : Error<
 def err_probability_out_of_range : Error<
    "probability argument to __builtin_expect_with_probability is outside the "
    "range [0.0, 1.0]">;
+// #if INTEL_CUSTOMIZATION
+def err_bad_variant_specifier : Error<
+  "bad variant specifier %0, expected %select{variant_list|'masked' "
+  "or 'unmasked'|'varying', 'uniform' or 'linear'}1">;
+def err_wrong_num_params_in_variant_specifier : Error<
+  "wrong number of parameters in variant specifier, expected '%0', have '%1'">;
+def err_vector_length_passing : Error<
+  "the vector length %select{'%1' |}0must be %select{positive value|"
+  "passed as template parameter}0">;
+def err_function_arg_passing : Error<
+      "%select{function argument is not valid function|invalied function "
+      "table argument}0">;
+// #endif INTEL_CUSTOMIZATION
 } // end of sema component.

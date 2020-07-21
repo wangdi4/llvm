@@ -22,7 +22,13 @@
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"
 #include "clang/AST/Decl.h"
+#if INTEL_CUSTOMIZATION
+#include "clang/AST/IntelFunctionProtoTypeFinder.h"
+#endif  // INTEL_CUSTOMIZATION
 #include "clang/AST/OSLog.h"
+#if INTEL_CUSTOMIZATION
+#include "clang/AST/StmtVisitor.h"
+#endif  // INTEL_CUSTOMIZATION
 #include "clang/Basic/TargetBuiltins.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/CodeGen/CGFunctionInfo.h"
@@ -4893,6 +4899,12 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     return EmitIntelFPGARegBuiltin(E, ReturnValue);
   case Builtin::BI__builtin_intel_fpga_mem:
     return EmitIntelFPGAMemBuiltin(E);
+#if INTEL_CUSTOMIZATION
+  case Builtin::BI__builtin_generate_SIMD_variant:
+    return EmitBuiltinGenerateSIMDVariant(E);
+  case Builtin::BI__builtin_call_SIMD_variant:
+    return EmitBuiltinCallSIMDVariant(E);
+#endif  // INTEL_CUSTOMIZATION
   }
 
   // If this is an alias for a lib function (e.g. __builtin_sin), emit
@@ -18891,3 +18903,183 @@ RValue CodeGenFunction::EmitIntelFPGAMemBuiltin(const CallExpr *E) {
 
   return RValue::get(Ann);
 }
+
+#if INTEL_CUSTOMIZATION
+/// Generate a Vector ABI mangled name for a function.  If VLen and
+/// FuncName are known (when name is created from a real function and not a
+/// pointer) they are passed, otherwise defaults are used.
+static std::string createMangledSIMDName(const FunctionProtoType *ProtoType,
+                                         unsigned VLen = 0,
+                                         StringRef FuncName = "_$U0") {
+  std::string Buffer;
+  llvm::raw_string_ostream Out(Buffer);
+  Out << "_ZGV" << 'x';
+
+  QualType ReturnType = ProtoType->getReturnType();
+  const auto *RTy = ReturnType->getAs<RecordType>();
+  Out << llvm::StringSwitch<char>(RTy->getDecl()->getName())
+             .Case("masked", 'M')
+             .Default('N');
+  Out << VLen;
+
+  for (auto ParamType : ProtoType->getParamTypes()) {
+    const auto *PTy = ParamType->getAs<RecordType>();
+    Out << llvm::StringSwitch<char>(PTy->getDecl()->getName())
+               .Case("uniform", 'u')
+               .Case("linear", 'l')
+               .Default('v');
+  }
+
+  Out << '_' << FuncName;
+  return Out.str();
+}
+
+namespace {
+/// Locate the referenced FunctionDecl in the Expr tree.
+class FunctionFinder final : public ConstStmtVisitor<FunctionFinder, bool> {
+  const FunctionDecl *Func = nullptr;
+
+public:
+  bool VisitStmt(const Stmt *S) {
+    for (const Stmt *Child : S->children())
+      if (Child && Visit(Child))
+        return true;
+    return false;
+  }
+
+  bool VisitDeclRefExpr(const DeclRefExpr *E) {
+    if (const auto *FD = dyn_cast<FunctionDecl>(E->getDecl())) {
+      Func = FD;
+      return true;
+    }
+    return false;
+  }
+
+  const FunctionDecl *getFunction(const Expr *E) {
+    Visit(E);
+    return Func;
+  }
+};
+} // namespace
+
+RValue CodeGenFunction::EmitBuiltinGenerateSIMDVariant(const CallExpr *E) {
+  // Arg0: The constant address of the base function.
+  const Expr *FuncArg = E->getArg(0);
+
+  // Arg1: The vector length specifier, a positive integer.
+  const Expr *VLengthArg =  E->getArg(1);
+
+  // Arg2: Function type that represents the variant to generate.
+  const Expr *VariantArg = E->getArg(2);
+
+  FunctionFinder FindFunc;
+  const FunctionDecl *FD = FindFunc.getFunction(FuncArg);
+  assert(FD && "function not found building SIMD variant");
+  GlobalDecl D(FD);
+  StringRef FuncName = CGM.getMangledName(D);
+
+  Expr::EvalResult Result;
+  if (!VLengthArg->EvaluateAsInt(Result, CGM.getContext()))
+    llvm_unreachable("Sema will ensure that the parameter is constant");
+
+  unsigned VLen = Result.Val.getInt().getZExtValue();
+
+  QualType VariantFuncT = VariantArg->getType()->getPointeeType();
+
+  std::string MangledVariantName = createMangledSIMDName(
+      VariantFuncT->getAs<FunctionProtoType>(), VLen, FuncName);
+
+  Value *Arg = EmitScalarExpr(FuncArg);
+
+  llvm::FunctionType *FTy = llvm::FunctionType::get(
+      ConvertType(FuncArg->getType()), {Arg->getType()}, /*isVarArg=*/false);
+  llvm::FunctionCallee Fn =
+      CGM.CreateRuntimeFunction(FTy, CGM.GetIntelSimdVariantFnName(FTy));
+  llvm::CallInst *CI = Builder.CreateCall(Fn, {Arg});
+  CI->addAttribute(llvm::AttributeList::FunctionIndex,
+                   llvm::Attribute::get(getLLVMContext(), "vector-variant",
+                                        MangledVariantName));
+  return RValue::get(CI);
+}
+
+RValue CodeGenFunction::EmitBuiltinCallSIMDVariant(const CallExpr *E) {
+  // Arg0: Function types, passed as template arguments, representing the
+  //       variants.
+  QualType VariantTypes = E->getArg(0)->getType();
+
+  // Arg1: The vector length specifiers.  These are integers passed as
+  //       template arguments, such as int_list<4,8>
+  QualType VLengthArgType = E->getArg(1)->getType();
+
+  // Arguments startings from 2 are the arguments to the actual call.
+  unsigned FirstCallArg = 2;
+
+  FunctionProtoTypeFinder PTFinder;
+  const SmallVectorImpl<const FunctionProtoType *> &PTypes =
+    PTFinder.getProtoTypes(VariantTypes);
+
+  const TemplateSpecializationType *TST =
+      VLengthArgType->getAs<TemplateSpecializationType>();
+
+  std::string AllNames;
+  for (const auto &TArg : TST->template_arguments()) {
+    assert(TArg.getKind() == TemplateArgument::Expression);
+    Expr::EvalResult Result;
+
+    if (!TArg.getAsExpr()->EvaluateAsInt(Result, CGM.getContext()))
+      llvm_unreachable("Sema will ensure that the parameter is constant");
+
+    unsigned VLen =  Result.Val.getInt().getZExtValue();
+
+    for (const auto *ProtoType : PTypes) {
+      if (!AllNames.empty())
+        AllNames += ",";
+      AllNames += createMangledSIMDName(ProtoType, VLen);
+    }
+  }
+
+  // llvm::Types Array contains return type, and types of the call.
+  SmallVector<llvm::Type *, 8> Types;
+  SmallVector<Value*, 8> Args;
+  for (unsigned I = FirstCallArg, End = E->getNumArgs(); I < End; ++I) {
+    Value *V = EmitScalarExpr(E->getArg(I));
+    Types.push_back(V->getType());
+    Args.push_back(V);
+  }
+  llvm::FunctionType *FTy = llvm::FunctionType::get(ConvertType(E->getType()),
+                                                    Types, /*isVarArg=*/false);
+  llvm::FunctionCallee Fn =
+      CGM.CreateRuntimeFunction(FTy, CGM.GetIntelIndirectFnName(FTy));
+  llvm::CallInst *CI = Builder.CreateCall(Fn, Args);
+  CI->addAttribute(
+      llvm::AttributeList::FunctionIndex,
+      llvm::Attribute::get(getLLVMContext(), "vector-variants", AllNames));
+  return RValue::get(CI);
+}
+
+RValue CodeGenFunction::EmitBuiltinIndirectCall(
+    llvm::FunctionType *IRFuncTy,
+    const SmallVectorImpl<llvm::Value *> &IRArgs, llvm::Value *FnPtr) {
+  SmallVector<llvm::Type *, 8> Types;
+  SmallVector<Value*, 16> Args;
+  if (auto *CV = dyn_cast<llvm::LoadInst>(FnPtr)) {
+    Types.push_back(CV->getPointerOperand()->getType());
+    Args.push_back(Builder.CreatePointerBitCastOrAddrSpaceCast(
+        FnPtr, CV->getPointerOperand()->getType()));
+  } else {
+    assert("not an indirect call");
+  }
+  // llvm::Types Array contains return type, and types of the call.
+  // llvm::Arg Array contains arguments for the call.
+  for (auto Arg : IRArgs) {
+    Args.push_back(Arg);
+    Types.push_back(Arg->getType());
+  }
+  llvm::FunctionType *FTy = llvm::FunctionType::get(IRFuncTy->getReturnType(),
+                                                    Types, /*isVarArg=*/false);
+  llvm::FunctionCallee Fn =
+      CGM.CreateRuntimeFunction(FTy, CGM.GetIntelIndirectFnName(FTy));
+  llvm::Value *CI = Builder.CreateCall(Fn, Args);
+  return RValue::get(CI);
+}
+#endif  // INTEL_CUSTOMIZATION

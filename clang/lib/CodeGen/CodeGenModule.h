@@ -1028,6 +1028,17 @@ public:
       ForDefinition_t IsForDefinition = NotForDefinition);
 
 #if INTEL_CUSTOMIZATION
+private:
+  typedef llvm::DenseMap<llvm::FunctionType *, std::string> IntelGenFnMap;
+  IntelGenFnMap IntelIndirectFnMap;
+  IntelGenFnMap IntelSimdVariantFnMap;
+  StringRef GetIntelGeneratedFnName(llvm::FunctionType *, IntelGenFnMap &Map,
+                                    StringRef Prefix);
+public:
+  StringRef GetIntelIndirectFnName(llvm::FunctionType *FTy);
+  StringRef GetIntelSimdVariantFnName(llvm::FunctionType *FTy);
+  llvm::GlobalVariable *CreateSIMDFnTableVar(llvm::Constant *Init);
+
   // StdContainerOptKind describes the type of Intel intrinsic we want to
   // insert into the code to help the back end with memory disambiguation for
   // std containers.

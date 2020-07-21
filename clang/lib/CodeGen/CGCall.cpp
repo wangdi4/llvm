@@ -5006,6 +5006,14 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
   // Emit the actual call/invoke instruction.
   llvm::CallBase *CI;
   if (!InvokeDest) {
+#if INTEL_CUSTOMIZATION
+    if (getContext().getLangOpts().SYCLIsDevice &&
+        getContext().getLangOpts().EnableVariantFunctionPointers)
+      if (IRFuncTy && Callee.isOrdinary() && Callee.getFunctionPointer() &&
+          isa<llvm::LoadInst>(Callee.getFunctionPointer()))
+        return EmitBuiltinIndirectCall(IRFuncTy, IRCallArgs,
+                                       Callee.getFunctionPointer());
+#endif  // INTEL_CUSTOMIZATION
     CI = Builder.CreateCall(IRFuncTy, CalleePtr, IRCallArgs, BundleList);
   } else {
     llvm::BasicBlock *Cont = createBasicBlock("invoke.cont");

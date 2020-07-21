@@ -646,9 +646,15 @@ CGCallee ItaniumCXXABI::EmitLoadOfMemberFunctionPointer(
   // Apply the adjustment and cast back to the original struct type
   // for consistency.
   llvm::Value *This = ThisAddr.getPointer();
-  llvm::Value *Ptr = Builder.CreateBitCast(This, Builder.getInt8PtrTy());
+#if INTEL_CUSTOMIZATION
+  llvm::Value *Ptr =
+      Builder.CreatePointerBitCastOrAddrSpaceCast(This, Builder.getInt8PtrTy());
+#endif // INTEL_CUSTOMIZATION
   Ptr = Builder.CreateInBoundsGEP(Ptr, Adj);
-  This = Builder.CreateBitCast(Ptr, This->getType(), "this.adjusted");
+#if INTEL_CUSTOMIZATION
+  This = Builder.CreatePointerBitCastOrAddrSpaceCast(Ptr, This->getType(),
+                                                     "this.adjusted");
+#endif // INTEL_CUSTOMIZATION
   ThisPtrForCall = This;
 
   // Load the function pointer.
