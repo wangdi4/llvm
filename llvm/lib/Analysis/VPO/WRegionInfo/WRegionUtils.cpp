@@ -977,6 +977,12 @@ void WRegionUtils::collectNonPointerValuesToBeUsedInOutlinedRegion(
       collectIfNonPointerNonConstant(LrI->getStep());
   }
 
+  if (W->canHaveMap()) {
+    MapClause &MapClause = W->getMap();
+    for (MapItem *MapI : MapClause.items())
+      collectSizeIfVLA(MapI->getOrig());
+  }
+
   LLVM_DEBUG(
       const auto &CollectedVals = W->getDirectlyUsedNonPointerValues();
       if (CollectedVals.empty()) {
