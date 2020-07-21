@@ -70,15 +70,10 @@ void test_merge_if(int a) {
 // CHECK-NOT: call spir_func void @g()
 // CHECK: br label %[[if_end]]
 // CHECK: [[if_end]]:
-<<<<<<< HEAD
-// FIXME: SimplifyCFG is being stupid inserting this Phi. It is not supposed to be here.
-// CHECK:  %[[tobool_not_pr:.+]] = phi i1
-=======
 // INTEL_CUSTOMIZATION
-// CHECK:  %[[tobool_pr:.+]] = phi i1 [ true, %[[if_then]] ], [ false, %{{.+}} ]
->>>>>>> 34b07a5288f981e9959610ec1d606ce714ec3cd8
+// CHECK:  %[[tobool_pr:.+]] = phi i1 [ true, %[[entry:.+]] ], [ %[[tobool:.+]], %[[if_then:.+]] ]
 // CHECK:  tail call spir_func void @convfun() #[[attr4:.+]]
-// CHECK:  br i1 %[[tobool_pr]], label %[[if_then2:.+]], label %[[if_end3:.+]]
+// CHECK:  br i1 %[[tobool_pr]], label %[[if_end3:.+]], label %[[if_then2:.+]]
 // end INTEL_CUSTOMIZATION
 // CHECK: [[if_then2]]:
 // CHECK: tail call spir_func void @g()
