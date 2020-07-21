@@ -1,4 +1,17 @@
 defvar khr_shuffle_gentype = [v1i8, v1u8, v1i16, v1u16, v1i32, v1u32, v1i64, v1u64, v1f32, v1f64];
+
+let NeedForwardDecl = 1, Types = [ v1u32 ],
+   Attrs = [OVERLOADABLE] in {
+  def get_sub_group_size : OclBuiltin<"get_sub_group_size", (outs uint:$ret), (ins void), [], [], 1, 0>;
+  def get_max_sub_group_size : OclBuiltin<"get_max_sub_group_size", (outs uint:$ret), (ins void), [], [], 1, 0>;
+  def get_num_sub_groups : OclBuiltin<"get_num_sub_groups", (outs uint:$ret), (ins void), [], [], 1, 0>;
+  def get_enqueued_num_sub_groups : OclBuiltin<"get_enqueued_num_sub_groups", (outs uint:$ret), (ins void), [], [], 1, 0>;
+  def get_sub_group_id : OclBuiltin<"get_sub_group_id", (outs uint:$ret), (ins void), [], [], 1, 0>;
+  def get_sub_group_local_id : OclBuiltin<"get_sub_group_local_id", (outs uint:$ret), (ins void), [], [], 1, 0>;
+  def sub_group_barrier : OclBuiltin<"sub_group_barrier", (outs void:$ret), (ins cl_mem_fence_flags:$fence), [], [], 1, 0>;
+  def sub_group_barrier_with_scope : OclBuiltin<"sub_group_barrier", (outs void:$ret), (ins cl_mem_fence_flags:$fence, memory_scope:$scope), [], [], 1, 0>;
+}
+
 //
 // Ballot (NEO-like)
 //

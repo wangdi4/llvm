@@ -1,3 +1,12 @@
+OclBuiltinImpl get_sub_group_size_fake = OclBuiltinImpl<get_sub_group_size, [v1u32], 0, [{ return 1;}]>;
+OclBuiltinImpl get_max_sub_group_size_fake = OclBuiltinImpl<get_max_sub_group_size, [v1u32], 0, [{ return 1;}]>;
+OclBuiltinImpl get_num_sub_groups_fake = OclBuiltinImpl<get_num_sub_groups, [v1u32], 0, [{ return 1;}]>;
+OclBuiltinImpl get_enqueued_num_sub_groups_fake = OclBuiltinImpl<get_enqueued_num_sub_groups, [v1u32], 0, [{ return 1;}]>;
+OclBuiltinImpl get_sub_group_id_fake = OclBuiltinImpl<get_sub_group_id, [v1u32], 0, [{ return 0;}]>;
+OclBuiltinImpl get_sub_group_local_id_fake = OclBuiltinImpl<get_sub_group_local_id, [v1u32], 0, [{ return 0;}]>;
+OclBuiltinImpl sub_group_barrier_fake = OclBuiltinImpl<sub_group_barrier, [v1u32], 0, [{ return;}]>;
+OclBuiltinImpl sub_group_barrier_with_scope_fake = OclBuiltinImpl<sub_group_barrier_with_scope, [v1u32], 0, [{ return;}]>;
+
 list<OclType> sub_group_types_all_any_scalar = [v1i32];
 
 list<OclType> sub_group_types_broadcast_scalar = [v1i32, v1u32, v1i64, v1u64, v1f32, v1f64];
