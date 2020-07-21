@@ -764,6 +764,18 @@ public:
     return getModRefInfo(I, MemoryLocation(P, Size));
   }
 
+#if INTEL_CUSTOMIZATION
+  /// Return information about whether the instruction will alias the same
+  /// memory location. This is identical to getModRefInfo, except that the
+  /// underlying alias analysis query will override the size with parameter
+  /// passed in here.
+  ModRefInfo getSizedModRefInfo(const Instruction *I, LocationSize Size,
+                                const MemoryLocation &Loc) {
+    AAQueryInfo AAQIP;
+    return getModRefInfo(I, Loc, AAQIP, Size);
+  }
+#endif // INTEL_CUSTOMIZATION
+
   /// Return information about whether a call and an instruction may refer to
   /// the same memory locations.
   ModRefInfo getModRefInfo(Instruction *I, const CallBase *Call);
@@ -834,24 +846,31 @@ private:
   ModRefInfo getModRefInfo(const CallBase *Call1, const CallBase *Call2,
                            AAQueryInfo &AAQI);
   ModRefInfo getModRefInfo(const VAArgInst *V, const MemoryLocation &Loc,
-                           AAQueryInfo &AAQI);
+                           AAQueryInfo &AAQI, // INTEL
+                           const Optional<LocationSize> &Size = {}); // INTEL
   ModRefInfo getModRefInfo(const LoadInst *L, const MemoryLocation &Loc,
-                           AAQueryInfo &AAQI);
+                           AAQueryInfo &AAQI, // INTEL
+                           const Optional<LocationSize> &Size = {}); // INTEL
   ModRefInfo getModRefInfo(const StoreInst *S, const MemoryLocation &Loc,
-                           AAQueryInfo &AAQI);
+                           AAQueryInfo &AAQI, // INTEL
+                           const Optional<LocationSize> &Size = {}); // INTEL
   ModRefInfo getModRefInfo(const FenceInst *S, const MemoryLocation &Loc,
                            AAQueryInfo &AAQI);
   ModRefInfo getModRefInfo(const AtomicCmpXchgInst *CX,
-                           const MemoryLocation &Loc, AAQueryInfo &AAQI);
+                           const MemoryLocation &Loc,
+                           AAQueryInfo &AAQI, // INTEL
+                           const Optional<LocationSize> &Size = {}); // INTEL
   ModRefInfo getModRefInfo(const AtomicRMWInst *RMW, const MemoryLocation &Loc,
-                           AAQueryInfo &AAQI);
+                           AAQueryInfo &AAQI, // INTEL
+                           const Optional<LocationSize> &Size = {}); // INTEL
   ModRefInfo getModRefInfo(const CatchPadInst *I, const MemoryLocation &Loc,
                            AAQueryInfo &AAQI);
   ModRefInfo getModRefInfo(const CatchReturnInst *I, const MemoryLocation &Loc,
                            AAQueryInfo &AAQI);
   ModRefInfo getModRefInfo(const Instruction *I,
                            const Optional<MemoryLocation> &OptLoc,
-                           AAQueryInfo &AAQIP) {
+                           AAQueryInfo &AAQIP, // INTEL
+                           const Optional<LocationSize> &Size = {}) { // INTEL
     if (OptLoc == None) {
       if (const auto *Call = dyn_cast<CallBase>(I)) {
         return createModRefInfo(getModRefBehavior(Call));
@@ -862,17 +881,17 @@ private:
 
     switch (I->getOpcode()) {
     case Instruction::VAArg:
-      return getModRefInfo((const VAArgInst *)I, Loc, AAQIP);
+      return getModRefInfo((const VAArgInst *)I, Loc, AAQIP, Size); // INTEL
     case Instruction::Load:
-      return getModRefInfo((const LoadInst *)I, Loc, AAQIP);
+      return getModRefInfo((const LoadInst *)I, Loc, AAQIP, Size); // INTEL
     case Instruction::Store:
-      return getModRefInfo((const StoreInst *)I, Loc, AAQIP);
+      return getModRefInfo((const StoreInst *)I, Loc, AAQIP, Size); // INTEL
     case Instruction::Fence:
       return getModRefInfo((const FenceInst *)I, Loc, AAQIP);
     case Instruction::AtomicCmpXchg:
-      return getModRefInfo((const AtomicCmpXchgInst *)I, Loc, AAQIP);
+      return getModRefInfo((const AtomicCmpXchgInst *)I, Loc, AAQIP, Size); // INTEL
     case Instruction::AtomicRMW:
-      return getModRefInfo((const AtomicRMWInst *)I, Loc, AAQIP);
+      return getModRefInfo((const AtomicRMWInst *)I, Loc, AAQIP, Size); // INTEL
     case Instruction::Call:
       return getModRefInfo((const CallInst *)I, Loc, AAQIP);
     case Instruction::Invoke:
