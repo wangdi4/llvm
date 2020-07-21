@@ -1057,6 +1057,8 @@ StringRef dtrans::getStringForTransform(dtrans::Transform Trans) {
     return "soatoaos";
   case dtrans::DT_MemInitTrimDown:
     return "meminittrimdown";
+  case dtrans::DT_ArraysWithConstantEntries:
+    return "arrayswithconstantentries";
   }
   llvm_unreachable("Unexpected continuation past dtrans::Transform switch.");
   return "";
@@ -1100,6 +1102,8 @@ dtrans::SafetyData dtrans::getConditionsForTransform(dtrans::Transform Trans,
     return dtrans::SDSOAToAOS;
   case dtrans::DT_MemInitTrimDown:
     return dtrans::SDMemInitTrimDown;
+  case dtrans::DT_ArraysWithConstantEntries:
+    return dtrans::SDArraysWithConstantEntries;
   }
   llvm_unreachable("Unexpected continuation past dtrans::Transform switch.");
   return dtrans::NoIssues;
