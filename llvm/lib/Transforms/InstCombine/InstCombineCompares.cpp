@@ -5507,6 +5507,8 @@ static ICmpInst *canonicalizeCmpWithConstant(ICmpInst &I) {
   return new ICmpInst(FlippedStrictness->first, Op0, FlippedStrictness->second);
 }
 
+#if !INTEL_CUSTOMIZATION
+// See  CMPLRLLVM-21338 for details.
 /// If we have a comparison with a non-canonical predicate, if we can update
 /// all the users, invert the predicate and adjust all the users.
 static CmpInst *canonicalizeICmpPredicate(CmpInst &I) {
@@ -5547,6 +5549,7 @@ static CmpInst *canonicalizeICmpPredicate(CmpInst &I) {
 
   return &I;
 }
+#endif //INTEL_CUSTOMIZATION
 
 /// Integer compare with boolean values can always be turned into bitwise ops.
 static Instruction *canonicalizeICmpBool(ICmpInst &I,
@@ -5786,11 +5789,16 @@ Instruction *InstCombiner::visitICmpInst(ICmpInst &I) {
     if (Instruction *Res = canonicalizeICmpBool(I, Builder))
       return Res;
 
+#if INTEL_CUSTOMIZATION
+  if (ICmpInst *NewICmp = canonicalizeCmpWithConstant(I))
+    return NewICmp;
+#else
   if (Instruction *Res = canonicalizeCmpWithConstant(I))
     return Res;
 
   if (Instruction *Res = canonicalizeICmpPredicate(I))
     return Res;
+#endif // INTEL_CUSTOMIZATION
 
   if (Instruction *Res = foldICmpWithConstant(I))
     return Res;
