@@ -1528,6 +1528,24 @@ void VPDecomposerHIR::fixPhiNodes() {
   if (PhisToFix.empty())
     return;
 
+  // If the Symbase corresponding to a PHI is live-out then make the PHI
+  // live-out by creating a VPExternalUse for it. This may not be completely
+  // accurate since there could be post-dominating VPInstructions updating the
+  // same Symbase. This will however be handled by fixExternalUses transform at
+  // end of decomposer.
+  for (auto PhiIt : PhisToFix) {
+    unsigned Sym = PhiIt.first.second;
+    if (OutermostHLp->isLiveOut(Sym)) {
+      VPPHINode *Phi = PhiIt.second.first;
+      DDRef *DDR = PhiIt.second.second;
+      if (DDR == nullptr)
+        DDR = getDDRefForTrackedSymbase(Sym);
+      assert(DDR && "Sink DDRef for tracked symbase not found.");
+      VPExternalUse *ExtUser = Plan->getVPExternalUseForDDRef(DDR);
+      ExtUser->addOperand(Phi);
+    }
+  }
+
   // Preparations for fixPhiNodePass
 
   // 1. Make sure that all new PHI nodes added by decomposition are moved to the

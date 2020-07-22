@@ -85,17 +85,27 @@ private:
 
   // A map to track empty VPPhi nodes that are added during decomposition. We
   // know that there can be only one unique PHI node per VPBasicBlock for a
-  // given Symbase (corresponding to the sink DDRef). Currently we are also
-  // storing the sink DDRef that triggered the placement of this VPPhi node, but
-  // this will be removed in the future when the new algorithm to fix empty PHI
-  // nodes is implemented.
-  // TODO: Remove DDRef after implementing new VPPhi node fixing algorithm
+  // given Symbase (corresponding to the sink DDRef). We are also storing the
+  // sink DDRef that triggered the placement of this VPPhi node, which will be
+  // used to create ExternalUses of this PHI if needed.
 
   // Key for the PhisToFix map is <VPBasicBlock, Symbase>
   using PhiFixMapKey = std::pair<VPBasicBlock *, unsigned>;
   // The value mapped to the key is the VPPHINode and the ambiguous sink DDRef
   using PhiFixMapValue = std::pair<VPPHINode *, loopopt::DDRef *>;
   MapVector<PhiFixMapKey, PhiFixMapValue> PhisToFix;
+
+  // Internal helper to obtain the ambiguous sink DDRef corresponding to a
+  // tracked symbase for which empty PHIs were created.
+  loopopt::DDRef *getDDRefForTrackedSymbase(unsigned Sym) const {
+    for (auto KeyVal : PhisToFix) {
+      if (Sym == KeyVal.first.second)
+        return KeyVal.second.second;
+    }
+
+    // Symbase is not being tracked for fixing PHIs.
+    return nullptr;
+  }
 
   //////////////// Data structures for fixPhiNodePass //////////////////
 

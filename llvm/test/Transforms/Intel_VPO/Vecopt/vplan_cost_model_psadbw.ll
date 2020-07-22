@@ -12,9 +12,9 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local i32 @_Z3foov(i32 %t) {
 ;
 ; CHECK-LABEL:  HIR Cost Model for VPlan _Z3foov.19 with VF = 1:
-; CHECK-NEXT:  Total VPlan Cost: 0
+; CHECK-NEXT:  Total VPlan Cost: 5
 ; CHECK-NEXT:  VPlan Base Cost before adjustments: 11
-; CHECK-NEXT:  PSADBW pattern adjustment: -13
+; CHECK-NEXT:  PSADBW pattern adjustment: -6
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
 ; CHECK-NEXT:    Cost Unknown for i32 [[VP__RED_INIT:%.*]] = reduction-init i32 0 i32 [[S_0100:%.*]] ( PSADBW )
@@ -71,9 +71,9 @@ for.body:                                         ; preds = %for.body, %entry
 define dso_local i32 @_Z3goov() {
 ;
 ; CHECK-LABEL:  HIR Cost Model for VPlan _Z3goov.60 with VF = 1:
-; CHECK-NEXT:  Total VPlan Cost: 0
+; CHECK-NEXT:  Total VPlan Cost: 26
 ; CHECK-NEXT:  VPlan Base Cost before adjustments: 52
-; CHECK-NEXT:  PSADBW pattern adjustment: -53
+; CHECK-NEXT:  PSADBW pattern adjustment: -26
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; CHECK-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
 ; CHECK-NEXT:    Cost Unknown for i64 [[VP__RED_INIT:%.*]] = reduction-init i64 0 i64 [[S_0620:%.*]] ( PSADBW )
