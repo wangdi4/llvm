@@ -36,14 +36,8 @@ piextKernelSetArgPointer
 piextKernelSetArgSampler
 piextMemCreateWithNativeHandle
 piextMemGetNativeHandle
-<<<<<<< HEAD
-#INTEL_CUSTOMIZATION
-piextPlatformCreateWithNativeHandle
-#end INTEL_CUSTOMIZATION
-=======
 piextPlatformCreateWithNativeHandle
 piextPlatformGetNativeHandle
->>>>>>> 126b48387fc1d5dfcd9c061965457da4a3f29400
 piextProgramCreateWithNativeHandle
 piextProgramGetNativeHandle
 piextProgramSetSpecializationConstant
