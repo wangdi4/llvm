@@ -1012,6 +1012,7 @@ public:
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
   }
 
+protected:
   virtual VPCmpInst *cloneImpl() const final {
     return new VPCmpInst(getOperand(0), getOperand(1), getPredicate());
   }
@@ -1061,10 +1062,6 @@ public:
   }
   static bool classof(const VPUser *U) {
     return isa<VPInstruction>(U) && classof(cast<VPInstruction>(U));
-  }
-
-  virtual VPBranchInst *cloneImpl() const final {
-    return new VPBranchInst(getType());
   }
 
   /// Iterators and types to access Successors of terminator's
@@ -1149,6 +1146,11 @@ public:
     else if (CB)
       addOperand(CB);
   }
+
+protected:
+  virtual VPBranchInst *cloneImpl() const final {
+    return new VPBranchInst(getType());
+  }
 };
 
 /// Concrete class for blending instruction. Was previously represented as
@@ -1196,6 +1198,7 @@ public:
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
   }
 
+protected:
   /// Create new Blend and copy original incoming values to the newly created
   /// Blend. Caller is responsible to replace these values with what is
   /// needed.
@@ -1336,17 +1339,6 @@ public:
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
   }
 
-  /// Create new PHINode and copy original incoming values to the newly created
-  /// PHINode. Caller is responsible to replace these values with what is
-  /// needed.
-  virtual VPPHINode *cloneImpl() const final {
-    VPPHINode *Cloned = new VPPHINode(getType());
-    for (unsigned i = 0, e = getNumIncomingValues(); i != e; ++i) {
-      Cloned->addIncoming(getIncomingValue(i), getIncomingBlock(i));
-    }
-    return Cloned;
-  }
-
   /// Checks whether the specified PHI node always merges together the same
   /// value, assuming that undefs result in the same value as non-undefs.
   /// Adapted from the LLVM-source PHINode::hasConstantOrUndefValue().
@@ -1363,6 +1355,18 @@ public:
       }
     }
     return true;
+  }
+
+protected:
+  /// Create new PHINode and copy original incoming values to the newly created
+  /// PHINode. Caller is responsible to replace these values with what is
+  /// needed.
+  virtual VPPHINode *cloneImpl() const final {
+    VPPHINode *Cloned = new VPPHINode(getType());
+    for (unsigned i = 0, e = getNumIncomingValues(); i != e; ++i) {
+      Cloned->addIncoming(getIncomingValue(i), getIncomingBlock(i));
+    }
+    return Cloned;
   }
 };
 
@@ -1476,6 +1480,7 @@ public:
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
   }
 
+protected:
   virtual VPGEPInstruction *cloneImpl() const final {
     VPGEPInstruction *Cloned =
         new VPGEPInstruction(getType(), getOperand(0), {}, isInBounds());
@@ -1696,6 +1701,7 @@ public:
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
   }
 
+protected:
   virtual VPSubscriptInst *cloneImpl() const {
     VPSubscriptInst *Cloned = new VPSubscriptInst(*this);
     return Cloned;
@@ -1729,6 +1735,7 @@ public:
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
   }
 
+protected:
   virtual VPHIRCopyInst *cloneImpl() const {
     VPHIRCopyInst *Cloned = new VPHIRCopyInst(getOperand(0));
     Cloned->setOriginPhiId(getOriginPhiId());
@@ -2023,6 +2030,7 @@ public:
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
   }
 
+protected:
   virtual VPCallInstruction *cloneImpl() const final {
     VPCallInstruction *Cloned = new VPCallInstruction(
         getCalledValue(), ArrayRef<VPValue *>(op_begin(), op_end() - 1),
@@ -2342,6 +2350,8 @@ public:
 
   Loop *getOrigLoop() { return OrigLoop; }
   const Loop *getOrigLoop() const { return OrigLoop; }
+
+protected:
   VPInstruction *cloneImpl() const {
     llvm_unreachable("Not expected to be cloned!");
   }
@@ -2374,6 +2384,8 @@ public:
 
   unsigned getUF() const { return UF; }
   void setUF(unsigned UF) { this->UF = UF; }
+
+protected:
   VPInstruction *cloneImpl() const {
     llvm_unreachable("Not expected to be cloned!");
   }
