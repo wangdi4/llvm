@@ -185,6 +185,11 @@ public:
   /// Other modes fall back to calling gcc which in turn calls gfortran.
   bool IsFlangMode() const { return Mode == FlangMode; }
 
+#if INTEL_CUSTOMIZATION
+  /// Whether the driver should follow Intel compiler behavior.
+  bool IsIntelMode() const { return IntelMode; }
+#endif // INTEL_CUSTOMIZATION
+
   /// Only print tool bindings, don't build any jobs.
   unsigned CCCPrintBindings : 1;
 
@@ -477,6 +482,9 @@ public:
 
   /// Intel Print formating.
   unsigned IntelPrintOptions : 1;
+
+  /// Intel mode selected via --intel option.
+  unsigned IntelMode : 1;
 
 #endif // INTEL_CUSTOMIZATION
 

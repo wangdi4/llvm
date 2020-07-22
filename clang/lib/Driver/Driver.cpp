@@ -143,7 +143,8 @@ Driver::Driver(StringRef ClangExecutable, StringRef TargetTriple,
       TargetTriple(TargetTriple), CCCGenericGCCName(""), Saver(Alloc),
       CheckInputsExist(true), GenReproducer(false),
 #if INTEL_CUSTOMIZATION
-      SuppressMissingInputWarning(false), IntelPrintOptions(false) {
+      SuppressMissingInputWarning(false), IntelPrintOptions(false),
+      IntelMode(false) {
 #endif // INTEL_CUSTOMIZATION
   // Provide a sane fallback if no VFS is specified.
   if (!this->VFS)
@@ -187,6 +188,12 @@ void Driver::ParseDriverMode(StringRef ProgramName,
 }
 
 void Driver::setDriverModeFromOption(StringRef Opt) {
+#if INTEL_CUSTOMIZATION
+  if (Opt == getOpts().getOption(options::OPT__intel).getPrefixedName()) {
+    IntelMode = true;
+    return;
+  }
+#endif // INTEL_CUSTOMIZATION
   const std::string OptName =
       getOpts().getOption(options::OPT_driver_mode).getPrefixedName();
   if (!Opt.startswith(OptName))
@@ -430,7 +437,7 @@ void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
     if (Arg *A = DAL.getLastArg(Opt))
       A->claim();
   };
-  if (Args.hasArg(options::OPT__intel)) {
+  if (IsIntelMode()) {
     // The Intel compiler defaults to -O2
     if (!Args.hasArg(options::OPT_O_Group, options::OPT__SLASH_O))
       addClaim(IsCLMode() ? options::OPT__SLASH_O : options::OPT_O, "2");
@@ -453,7 +460,7 @@ void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
   // default for dpcpp compilations.  We cannot do this right now due to a
   // problem with testing (use of dpcpp on Windows, causing link problems with
   // Intel specific libs)
-  if (Args.hasArg(options::OPT__intel, options::OPT__dpcpp))
+  if (IsIntelMode() || Args.hasArg(options::OPT__dpcpp))
     // -fveclib=SVML default.
     if (!Args.hasArg(options::OPT_fveclib))
       addClaim(options::OPT_fveclib, "SVML");
@@ -569,7 +576,7 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
         continue;
       }
 #if INTEL_CUSTOMIZATION
-      if ((Args.hasArg(options::OPT__intel)) && (Value == "m")) {
+      if (IsIntelMode() && (Value == "m")) {
         DAL->AddJoinedArg(0, Opts.getOption(options::OPT_l), "imf");
       }
 #endif //INTEL_CUSTOMIZATION
@@ -841,9 +848,11 @@ Driver::OpenMPRuntimeKind Driver::getOpenMPRuntime(const ArgList &Args) const {
 
   const Arg *A = Args.getLastArg(options::OPT_fopenmp_EQ);
   if (A)
-      RuntimeName = A->getValue();
-  else if (Args.hasArg(options::OPT__intel))
-      RuntimeName = "libiomp5";
+    RuntimeName = A->getValue();
+#if INTEL_CUSTOMIZATION
+  else if (IsIntelMode())
+    RuntimeName = "libiomp5";
+#endif // INTEL_CUSTOMIZATION
 
   auto RT = llvm::StringSwitch<OpenMPRuntimeKind>(RuntimeName)
                 .Case("libomp", OMPRT_OMP)
@@ -5571,6 +5580,9 @@ void Driver::BuildJobs(Compilation &C) const {
   // Claim --driver-mode, --rsp-quoting, it was handled earlier.
   (void)C.getArgs().hasArg(options::OPT_driver_mode);
   (void)C.getArgs().hasArg(options::OPT_rsp_quoting);
+#if INTEL_CUSTOMIZATION
+  (void)C.getArgs().hasArg(options::OPT__intel);
+#endif // INTEL_CUSTOMIZATION
 
   for (Arg *A : C.getArgs()) {
     // FIXME: It would be nice to be able to send the argument to the

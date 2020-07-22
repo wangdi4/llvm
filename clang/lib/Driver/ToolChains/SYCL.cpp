@@ -119,8 +119,7 @@ const char *SYCL::Linker::constructLLVMLinkCommand(Compilation &C,
       CmdArgs.push_back(II.getFilename());
 
 #if INTEL_CUSTOMIZATION
-  if (Args.hasArg(options::OPT__intel) &&
-      JA.isDeviceOffloading(Action::OFK_OpenMP))
+  if (C.getDriver().IsIntelMode() && JA.isDeviceOffloading(Action::OFK_OpenMP))
     CmdArgs.push_back(Args.MakeArgString(C.getDriver().Dir +
                                          "/../lib/libomptarget-opencl.bc"));
 #endif // INTEL_CUSTOMIZATION
