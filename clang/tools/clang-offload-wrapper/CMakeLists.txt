@@ -1,15 +1,15 @@
 set(LLVM_LINK_COMPONENTS BitWriter Core Support TransformUtils)
 
-if(NOT CLANG_BUILT_STANDALONE)
-  set(tablegen_deps intrinsics_gen)
-endif()
-
 add_clang_tool(clang-offload-wrapper
   ClangOffloadWrapper.cpp
 
   DEPENDS
+<<<<<<< HEAD
   ${tablegen_deps}
   CUSTOM_WIN_VER
+=======
+  intrinsics_gen
+>>>>>>> 78f60bf4e7f37bf4970bb7bea95ada86e9792d72
   )
 
 set(CLANG_OFFLOAD_WRAPPER_LIB_DEPS

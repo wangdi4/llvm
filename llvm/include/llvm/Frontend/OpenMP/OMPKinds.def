@@ -694,12 +694,14 @@ __OMP_ATTRS_SET(InaccessibleArgOnlyAttrs,
                                    EnumAttr(WillReturn), EnumAttr(NoFree))
                     : AttributeSet(EnumAttr(NoUnwind)))
 
+#if 0
 __OMP_ATTRS_SET(InaccessibleOnlyAttrs,
                 OptimisticAttributes
                     ? AttributeSet(EnumAttr(NoUnwind), EnumAttr(NoSync),
                                    EnumAttr(InaccessibleMemOnly),
                                    EnumAttr(WillReturn), EnumAttr(NoFree))
                     : AttributeSet(EnumAttr(NoUnwind)))
+#endif
 
 __OMP_ATTRS_SET(AllocAttrs,
                 OptimisticAttributes
@@ -717,11 +719,13 @@ __OMP_ATTRS_SET(ReadOnlyPtrAttrs,
                                    EnumAttr(NoCapture))
                     : AttributeSet())
 
+#if 0
 __OMP_ATTRS_SET(WriteOnlyPtrAttrs,
                 OptimisticAttributes
                     ? AttributeSet(EnumAttr(WriteOnly), EnumAttr(NoFree),
                                    EnumAttr(NoCapture))
                     : AttributeSet())
+#endif
 
 __OMP_ATTRS_SET(ArgPtrAttrs,
                 OptimisticAttributes
@@ -733,11 +737,13 @@ __OMP_ATTRS_SET(ReturnPtrAttrs,
                     ? AttributeSet(EnumAttr(NoAlias))
                     : AttributeSet())
 
+#if 0
 __OMP_ATTRS_SET(ReturnAlignedPtrAttrs,
                 OptimisticAttributes
                     ? AttributeSet(EnumAttr(NoAlias), EnumAttrInt(Alignment, 8),
                                    EnumAttrInt(DereferenceableOrNull, 8))
                     : AttributeSet())
+#endif
 
 #undef __OMP_ATTRS_SET
 #undef OMP_ATTRS_SET

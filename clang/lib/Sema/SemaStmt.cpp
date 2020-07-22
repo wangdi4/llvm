@@ -3777,6 +3777,7 @@ StmtResult Sema::BuildReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp) {
   } else if (!RetValExp && !HasDependentReturnType) {
     FunctionDecl *FD = getCurFunctionDecl();
 
+<<<<<<< HEAD
     unsigned DiagID;
 #if INTEL_CUSTOMIZATION
     // Issue a warning, not error in IntelMSCompat and IntelCompat modes
@@ -3785,23 +3786,27 @@ StmtResult Sema::BuildReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp) {
       DiagID = diag::warn_return_missing_expr_no_err;
     } else
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 78f60bf4e7f37bf4970bb7bea95ada86e9792d72
     if (getLangOpts().CPlusPlus11 && FD && FD->isConstexpr()) {
       // C++11 [stmt.return]p2
-      DiagID = diag::err_constexpr_return_missing_expr;
+      Diag(ReturnLoc, diag::err_constexpr_return_missing_expr)
+          << FD << FD->isConsteval();
       FD->setInvalidDecl();
-    } else if (getLangOpts().C99) {
-      // C99 6.8.6.4p1 (ext_ since GCC warns)
-      DiagID = diag::ext_return_missing_expr;
     } else {
+      // C99 6.8.6.4p1 (ext_ since GCC warns)
       // C90 6.6.6.4p4
-      DiagID = diag::warn_return_missing_expr;
+      unsigned DiagID = getLangOpts().C99 ? diag::ext_return_missing_expr
+                                          : diag::warn_return_missing_expr;
+      // Note that at this point one of getCurFunctionDecl() or
+      // getCurMethodDecl() must be non-null (see above).
+      assert((getCurFunctionDecl() || getCurMethodDecl()) &&
+             "Not in a FunctionDecl or ObjCMethodDecl?");
+      bool IsMethod = FD == nullptr;
+      const NamedDecl *ND =
+          IsMethod ? cast<NamedDecl>(getCurMethodDecl()) : cast<NamedDecl>(FD);
+      Diag(ReturnLoc, DiagID) << ND << IsMethod;
     }
-
-    if (FD)
-      Diag(ReturnLoc, DiagID)
-          << FD->getIdentifier() << 0 /*fn*/ << FD->isConsteval();
-    else
-      Diag(ReturnLoc, DiagID) << getCurMethodDecl()->getDeclName() << 1/*meth*/;
 
     Result = ReturnStmt::Create(Context, ReturnLoc, /* RetExpr=*/nullptr,
                                 /* NRVOCandidate=*/nullptr);

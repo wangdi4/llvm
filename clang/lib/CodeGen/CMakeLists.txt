@@ -27,6 +27,7 @@ set(LLVM_LINK_COMPONENTS
   TransformUtils
   )
 
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 if (MSVC)
   set_source_files_properties(CodeGenModule.cpp PROPERTIES COMPILE_FLAGS /bigobj)
@@ -42,6 +43,8 @@ if (CLANG_BUILT_STANDALONE)
   set(codegen_deps)
 endif()
 
+=======
+>>>>>>> 78f60bf4e7f37bf4970bb7bea95ada86e9792d72
 if (MSVC)
   set_source_files_properties(CodeGenModule.cpp PROPERTIES COMPILE_FLAGS /bigobj)
 endif()
@@ -115,7 +118,7 @@ add_clang_library(clangCodeGen
 # end INTEL_CUSTOMIZATION
 
   DEPENDS
-  ${codegen_deps}
+  intrinsics_gen
 
   LINK_LIBS
   clangAnalysis
