@@ -1054,6 +1054,7 @@ def unimplemented : OclBuiltin<"unimplemented", (outs gentype:$ret), (ins gentyp
 class VectInfo<list<OclType> tys, OclBuiltin v1, OclBuiltin v4, OclBuiltin v8, OclBuiltin v16, OclBuiltin v32 = unimplemented, OclBuiltin v64 = unimplemented>{
   list<OclType> Types = tys;
   bit HandleAlias = 1;
+  bit KernelCallOnce = 1;
   bit NeedWidenTypes = 1;
   ScalarFunc v1Func = ScalarFunc<v1, Types>;
   VectorFunc v4Func = VectorFunc<v4, Types, 4, NeedWidenTypes>;
