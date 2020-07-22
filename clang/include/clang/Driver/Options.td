@@ -510,6 +510,7 @@ def Ofast : Joined<["-"], "Ofast">, Group<O_Group>, Flags<[CC1Option]>;
 def P : Flag<["-"], "P">, Flags<[CC1Option]>, Group<Preprocessor_Group>,
   HelpText<"Disable linemarker output in -E mode">;
 #if INTEL_CUSTOMIZATION
+def : Flag<["-"], "fast">, Alias<Ofast>;
 def EP : Flag<["-"], "EP">, Flags<[DriverOption]>, HelpText<"Preprocess to "
   "stdout, omitting #line directives.">;
 #endif // INTEL_CUSTOMIZATION
@@ -858,7 +859,9 @@ defm asm_blocks : OptInFFlag<"asm-blocks", "">;
 def fassume_sane_operator_new : Flag<["-"], "fassume-sane-operator-new">, Group<f_Group>;
 def fastcp : Flag<["-"], "fastcp">, Group<f_Group>;
 def fastf : Flag<["-"], "fastf">, Group<f_Group>;
+#ifndef INTEL_CUSTOMIZATION
 def fast : Flag<["-"], "fast">, Group<f_Group>;
+#endif // !INTEL_CUSTOMIZATION
 def fasynchronous_unwind_tables : Flag<["-"], "fasynchronous-unwind-tables">, Group<f_Group>;
 
 def fdouble_square_bracket_attributes : Flag<[ "-" ], "fdouble-square-bracket-attributes">,
