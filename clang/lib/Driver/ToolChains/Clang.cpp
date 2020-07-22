@@ -5574,6 +5574,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (Args.hasArg(options::OPT_fiopenmp)) {
     CmdArgs.push_back("-fopenmp-late-outline");
 #if INTEL_CUSTOMIZATION
+    CmdArgs.push_back("-fintel-openmp-region");
     if (Arg *A = Args.getLastArg(options::OPT_qopenmp_threadprivate_EQ)) {
       StringRef Value = A->getValue();
       if (Value != "compat")
@@ -6620,9 +6621,14 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   }
 
   // VFE requires whole-program-vtables, and enables it by default.
+#if INTEL_CUSTOMIZATION
+  // -fiopenmp with LTO enables whole-program-vtables
+  bool IopenmpLTO = (Args.hasArg(options::OPT_fiopenmp) && D.isUsingLTO());
   bool WholeProgramVTables = Args.hasFlag(
       options::OPT_fwhole_program_vtables,
-      options::OPT_fno_whole_program_vtables, VirtualFunctionElimination);
+      options::OPT_fno_whole_program_vtables,
+      VirtualFunctionElimination || IopenmpLTO);
+#endif // INTEL_CUSTOMIZATION
   if (VirtualFunctionElimination && !WholeProgramVTables) {
     D.Diag(diag::err_drv_argument_not_allowed_with)
         << "-fno-whole-program-vtables"

@@ -14,6 +14,7 @@
 ///
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Analysis/DomTreeUpdater.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/PassManager.h"
@@ -21,7 +22,6 @@
 #include "llvm/Pass.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/Local.h"
-
 #include "llvm/Transforms/VPO/Paropt/VPOParoptUtils.h"
 #include "llvm/Transforms/VPO/Utils/VPORestoreOperands.h"
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
@@ -375,10 +375,18 @@ bool VPOUtils::restoreOperands(Function &F) {
 /// Note: The function assumes that the conditional branch to the
 /// `END` block is the terminator instruction of the BasicBlock containing
 /// `%t.load`.
-bool VPOUtils::removeBranchesFromBeginToEndDirective(Function &F) {
+bool VPOUtils::removeBranchesFromBeginToEndDirective(
+    Function &F, const TargetLibraryInfo *TLI, DominatorTree *DT) {
   LLVM_DEBUG(dbgs() << "VPO Restore WRegions \n");
 
   bool Changed = false;
+  std::unique_ptr<DomTreeUpdater> DTU;
+
+  if (DT) {
+    // Use unique_ptr just for automatic destruction at exit.
+    DTU = std::make_unique<DomTreeUpdater>(
+        *DT, DomTreeUpdater::UpdateStrategy::Lazy);
+  }
 
   SmallPtrSet<CallInst *, 8> DirectivesToUpdate;
 
@@ -474,7 +482,9 @@ bool VPOUtils::removeBranchesFromBeginToEndDirective(Function &F) {
         }
 
         llvm::SimplifyInstructionsInBlock(BlockToSimplify);
-        llvm::ConstantFoldTerminator(BlockToSimplify);
+        llvm::ConstantFoldTerminator(BlockToSimplify,
+                                     /*DeleteDeadConditions=*/false,
+                                     TLI, DTU.get());
 
         Changed = true;
         DirectivesToUpdate.insert(CI);

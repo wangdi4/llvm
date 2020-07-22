@@ -66,6 +66,7 @@
 #endif  // INTEL_CUSTOMIZATION
 
 #include <queue>
+#include <unordered_map>
 
 namespace llvm {
 
@@ -81,6 +82,7 @@ enum AddressSpace {
 };
 
 typedef SmallVector<WRegionNode *, 32> WRegionListTy;
+typedef std::unordered_map<const BasicBlock *, WRegionNode *> BBToWRNMapTy;
 
 class VPOParoptModuleTransform;
 
@@ -157,8 +159,13 @@ public:
 
 #if INTEL_CUSTOMIZATION
   /// Interfaces for data sharing optimization.
-  bool optimizeDataSharingForPrivateItems();
-  bool optimizeDataSharingForReductionItems();
+  bool optimizeDataSharingForPrivateItems(
+      BBToWRNMapTy &BBToWRNMap, int &NumOptimizedItems);
+  bool optimizeDataSharingForReductionItems(
+      BBToWRNMapTy &BBToWRNMap, int &NumOptimizedItems);
+  /// Create a map between the BasicBlocks and the corresponding
+  /// innermost WRegionNodes owning the blocks.
+  void initializeBlocksToRegionsMap(BBToWRNMapTy &BBToWRNMap);
 #endif  // INTEL_CUSTOMIZATION
 
 private:
@@ -596,6 +603,9 @@ private:
   void genFastReduceBB(WRegionNode *W, FastReductionMode Mode,
                        StructType *FastRedStructTy, Value *FastRedVar,
                        BasicBlock *EntryBB, BasicBlock *EndBB);
+
+  /// Generate code for the aligned clause.
+  bool genAlignedCode(WRegionNode *W);
 
   /// For the given region \p W returns a BasicBlock, where
   /// new alloca instructions may be inserted.
@@ -1047,10 +1057,6 @@ private:
   // If the incoming data is global variable, create a stack variable
   // and replace the global variable with the stack variable.
   bool genGlobalPrivatizationLaunderIntrin(WRegionNode *W);
-
-  /// build the CFG for if clause.
-  void buildCFGForIfClause(Value *Cmp, Instruction *&ThenTerm,
-                           Instruction *&ElseTerm, Instruction *InsertPt);
 
   /// Generate the sizes and map type flags for the given map type, map
   /// modifier and the expression V.

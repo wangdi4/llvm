@@ -138,7 +138,14 @@ static bool isLiveOutOfEdge(unsigned Symbase, BasicBlock *SrcBB,
 }
 
 static bool isLiveOutOfNormalExit(unsigned Symbase, HLLoop *Lp) {
+
   auto *ParRegion = Lp->getParentRegion();
+
+  if (!ParRegion->isLiveOut(Symbase)) {
+    // Conservatively return true if temp is not live out of region. The current
+    // checks do not work for temps internal to the region.
+    return true;
+  }
 
   if (Lp != ParRegion->getLastChild()) {
     // This information cannot be computed easily for other cases so we give

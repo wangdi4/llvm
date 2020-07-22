@@ -611,6 +611,7 @@ class VPExternalUse : public VPUser, public FoldingSetNode {
 private:
   friend class VPExternalValues;
   friend class VPOCodeGen;
+  friend class VPOCodeGenHIR;
 
   // Hold the DDRef or IV information related to this external use.
   std::unique_ptr<VPOperandHIR> HIROperand;
@@ -670,6 +671,15 @@ public:
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump(raw_ostream &OS) const override {
+    if (auto *HIROp = getOperandHIR()) {
+      for (auto *Op : operands()) {
+        Op->printAsOperand(OS);
+        OS << " ->";
+        HIROp->printDetail(OS);
+      }
+      return;
+    }
+
     if (getUnderlyingValue())
       cast<Instruction>(getUnderlyingValue())->print(OS);
     for (unsigned I = 0, E = getNumOperands(); I < E; ++I) {

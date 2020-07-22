@@ -1006,5 +1006,4 @@ AllocateItem *WRegionUtils::getAllocateItem(Item *I) {
     return RedI->getInAllocate();
   return nullptr;
 }
-
 #endif // INTEL_COLLAB

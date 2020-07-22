@@ -195,6 +195,23 @@ static bool isDeconstructedPhi(const VPPHINode *VPPhi) {
   return true;
 }
 
+// Utility to check if given VPInstruction has no external uses.
+static bool hasNoExternalUsers(const VPInstruction *VPI) {
+  return llvm::none_of(VPI->users(),
+                       [](VPUser *U) { return isa<VPExternalUse>(U); });
+}
+
+// Utility to find the single VPExternalUse that uses the given VPInstruction.
+static VPExternalUse *getSingleExternalUse(const VPInstruction *VPI) {
+  auto Pred = [](VPUser *U) { return isa<VPExternalUse>(U); };
+  auto It = llvm::find_if(VPI->users(), Pred);
+  assert(
+      (It != VPI->user_end() && std::none_of(It + 1, VPI->user_end(), Pred)) &&
+      "VPInst has zero or more than one VPExternalUse");
+  // VPInst has single external user.
+  return cast<VPExternalUse>(*It);
+}
+
 // This class implements code generation for a nested blob.
 class NestedBlobCG : public SCEVVisitor<NestedBlobCG, RegDDRef *> {
 private:
@@ -2853,15 +2870,17 @@ void VPOCodeGenHIR::addPaddingRuntimeCheck(
 }
 
 RegDDRef *VPOCodeGenHIR::getUniformScalarRef(const VPValue *VPVal) {
-  if (!isa<VPExternalDef>(VPVal) && !isa<VPConstant>(VPVal))
-    llvm_unreachable("Expected a VPExternalDef/VPConstant");
+  assert((isa<VPExternalDef>(VPVal) || isa<VPConstant>(VPVal) ||
+          isa<VPExternalUse>(VPVal)) &&
+         "Expected a VPExternalDef/VPConstant/VPExternalUse");
 
   RegDDRef *ScalarRef = nullptr;
   if ((ScalarRef = getScalRefForVPVal(VPVal, 0)))
     return ScalarRef->clone();
 
-  if (auto *VPExtDef = dyn_cast<VPExternalDef>(VPVal)) {
-    const VPOperandHIR *HIROperand = VPExtDef->getOperandHIR();
+  auto GetScalarRefForExternal = [this](const VPOperandHIR *HIROperand,
+                                        Type *VPValTy) -> RegDDRef * {
+    RegDDRef *ScalarRef = nullptr;
 
     if (const auto *Blob = dyn_cast<VPBlob>(HIROperand)) {
       const auto *BlobRef = Blob->getBlob();
@@ -2873,7 +2892,7 @@ RegDDRef *VPOCodeGenHIR::getUniformScalarRef(const VPValue *VPVal) {
         const RegDDRef *RDDR = cast<RegDDRef>(BlobRef);
 
         // Create a RegDDREF containing blob with index BlobIndex.
-        auto *CE = CanonExprUtilities.createCanonExpr(VPExtDef->getType());
+        auto *CE = CanonExprUtilities.createCanonExpr(VPValTy);
         CE->addBlob(BlobIndex, 1);
         ScalarRef = DDRefUtilities.createScalarRegDDRef(GenericRvalSymbase, CE);
 
@@ -2890,13 +2909,22 @@ RegDDRef *VPOCodeGenHIR::getUniformScalarRef(const VPValue *VPVal) {
     } else {
       const auto *IV = cast<VPIndVar>(HIROperand);
       auto IVLevel = IV->getIVLevel();
-      auto RefDestTy = VPExtDef->getType();
 
-      auto *CE = CanonExprUtilities.createCanonExpr(RefDestTy);
+      auto *CE = CanonExprUtilities.createCanonExpr(VPValTy);
       CE->addIV(IVLevel, loopopt::InvalidBlobIndex, 1);
       ScalarRef = DDRefUtilities.createScalarRegDDRef(
           DDRefUtilities.getNewSymbase(), CE);
     }
+
+    return ScalarRef;
+  };
+
+  if (auto *VPExtDef = dyn_cast<VPExternalDef>(VPVal)) {
+    ScalarRef =
+        GetScalarRefForExternal(VPExtDef->getOperandHIR(), VPExtDef->getType());
+  } else if (auto *VPExtUse = dyn_cast<VPExternalUse>(VPVal)) {
+    ScalarRef =
+        GetScalarRefForExternal(VPExtUse->getOperandHIR(), VPExtUse->getType());
   } else {
     auto *VPConst = cast<VPConstant>(VPVal);
     ScalarRef = DDRefUtilities.createConstDDRef(VPConst->getConstant());
@@ -3217,18 +3245,17 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
       // Incoming vector types is not supported for HIR
       llvm_unreachable("Unsupported vector data type for reducing operand.");
     }
-    const VPReduction *RednEntity = VPLoopEntities->getReduction(RedFinal);
-    assert(RednEntity && "Reduction final does not have a corresponding "
-                         "VPReduction descriptor.");
+
     // Scalar result of vector reduce intrinsic should be written back to the
-    // original reduction descriptor variable.
-    // NOTE : We obtain this variable from VPLoopEntity corresponding to the
-    // reduction since reduction-final instruction may not have accumulators
-    // always.
-    // TODO: This is the only user of VPLoopEntities in CG, this should be
-    // removed once VPReductionFinal is updated to have the StartValue always.
-    RegDDRef *RednDescriptor =
-        getUniformScalarRef(RednEntity->getRecurrenceStartValue());
+    // original reduction descriptor variable, obtained from external user.
+    // If a reduction is not live-out then it's essentially dead code, finalized
+    // value can be written to a new temp since the value is not going to be
+    // used anywhere.
+    RegDDRef *RednDescriptor = nullptr;
+    if (!hasNoExternalUsers(RedFinal)) {
+      VPExternalUse *ExtUse = getSingleExternalUse(RedFinal);
+      RednDescriptor = getUniformScalarRef(ExtUse);
+    }
 
     if (RedFinal->isMinMaxIndex())
       generateMinMaxIndex(RedFinal, RednDescriptor, RedTail, WInst);

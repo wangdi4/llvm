@@ -58,7 +58,7 @@ HLLoop::HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop)
       DistributedForMemRec(false), LoopMetadata(LLVMLoop->getLoopID()),
       MaxTripCountEstimate(0), MaxTCIsUsefulForDD(false),
       HasDistributePoint(false), IsUndoSinkingCandidate(false),
-      ForcedVectorWidth(0), ForcedVectorUnrollFactor(0) {
+      IsBlocked(false), ForcedVectorWidth(0), ForcedVectorUnrollFactor(0) {
   assert(LLVMLoop && "LLVM loop cannot be null!");
 
   initialize();
@@ -82,7 +82,7 @@ HLLoop::HLLoop(HLNodeUtils &HNU, HLIf *ZttIf, RegDDRef *LowerDDRef,
       DistributedForMemRec(false), LoopMetadata(nullptr),
       MaxTripCountEstimate(0), MaxTCIsUsefulForDD(false),
       HasDistributePoint(false), IsUndoSinkingCandidate(false),
-      ForcedVectorWidth(0), ForcedVectorUnrollFactor(0) {
+      IsBlocked(false), ForcedVectorWidth(0), ForcedVectorUnrollFactor(0) {
   initialize();
   setNumExits(NumEx);
 
@@ -111,6 +111,7 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj)
       CmpDbgLoc(HLLoopObj.CmpDbgLoc), BranchDbgLoc(HLLoopObj.BranchDbgLoc),
       HasDistributePoint(HLLoopObj.HasDistributePoint),
       IsUndoSinkingCandidate(HLLoopObj.IsUndoSinkingCandidate),
+      IsBlocked(HLLoopObj.IsBlocked),
       ForcedVectorWidth(HLLoopObj.ForcedVectorWidth),
       ForcedVectorUnrollFactor(HLLoopObj.ForcedVectorUnrollFactor) {
 
@@ -147,6 +148,7 @@ HLLoop &HLLoop::operator=(HLLoop &&Lp) {
   MaxTCIsUsefulForDD = Lp.MaxTCIsUsefulForDD;
   HasDistributePoint = Lp.HasDistributePoint;
   IsUndoSinkingCandidate = Lp.IsUndoSinkingCandidate;
+  IsBlocked = Lp.IsBlocked;
   ForcedVectorWidth = Lp.ForcedVectorWidth;
   ForcedVectorUnrollFactor = Lp.ForcedVectorUnrollFactor;
 

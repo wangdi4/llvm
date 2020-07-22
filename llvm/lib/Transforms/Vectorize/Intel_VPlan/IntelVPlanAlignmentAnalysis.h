@@ -194,6 +194,7 @@ public:
 private:
   void collectCandidateMemrefs(VPlan &Plan);
   void computeCongruentMemrefs();
+  LLVM_DUMP_METHOD void dump();
 
 private:
   VPlanPeelingCostModel *CM;

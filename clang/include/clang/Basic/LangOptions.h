@@ -23,6 +23,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Triple.h"
 #if INTEL_CUSTOMIZATION
+#include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringSwitch.h"
 #include <array>
@@ -82,8 +83,10 @@ public:
 
 #if INTEL_CUSTOMIZATION
   // CQ381541: support for IMF attributes
-  typedef llvm::StringMap<std::string> IMFAttrMap;
-  typedef llvm::StringMap<IMFAttrMap> IMFAttrFuncMap;
+  typedef llvm::MapVector<std::string, std::string, llvm::StringMap<unsigned>>
+      IMFAttrMap;
+  typedef llvm::MapVector<std::string, IMFAttrMap, llvm::StringMap<unsigned>>
+      IMFAttrFuncMap;
   IMFAttrMap ImfAttrMap;
   IMFAttrFuncMap ImfAttrFuncMap;
 #include "clang/AST/IntelCust.inc"

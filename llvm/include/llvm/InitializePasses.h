@@ -560,6 +560,7 @@ void initializeHIRPreVecCompleteUnrollLegacyPassPass(PassRegistry&);
 void initializeHIRPostVecCompleteUnrollLegacyPassPass(PassRegistry&);
 void initializeHIRLoopInterchangeLegacyPassPass(PassRegistry&);
 void initializeHIRLoopBlockingLegacyPassPass(PassRegistry&);
+void initializeHIRPragmaLoopBlockingLegacyPassPass(PassRegistry&);
 void initializeHIRGenerateMKLCallLegacyPassPass(PassRegistry&);
 void initializeHIRLoopDistributionForMemRecLegacyPassPass(PassRegistry&);
 void initializeHIRLoopDistributionForLoopNestLegacyPassPass(PassRegistry&);
@@ -646,6 +647,7 @@ void initializeDataPerBarrierPass(PassRegistry&);
 void initializeDataPerValuePass(PassRegistry&);
 void initializeKernelBarrierPass(PassRegistry&);
 void initializeBarrierInFunctionPass(PassRegistry&);
+void initializePostBarrierPass(PassRegistry&);
 // Add/Sub reassociation pass
 void initializeAddSubReassociateLegacyPassPass(PassRegistry&);
 // Forced CMOV generation pass

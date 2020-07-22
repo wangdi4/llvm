@@ -183,7 +183,7 @@ public:
   /// Returns true if passed in canon cxprs are equal to each other.
   /// Ignores dest types of CE1 and CE2 if IgnoreDestType is set.
   static bool areEqual(const CanonExpr *CE1, const CanonExpr *CE2,
-                       bool RelaxedMode = false);
+                       bool RelaxedMode = false, bool IgnoreDefAtLevel = false);
 
   /// Returns true or false depending upon whether CE1 and CE2 can be added.
   static bool canAdd(const CanonExpr *CE1, const CanonExpr *CE2,

@@ -148,6 +148,8 @@ private:
 
   bool IsUndoSinkingCandidate;
 
+  bool IsBlocked;
+
   // Special field to force VF for a loop inside LoopOpt.
   unsigned ForcedVectorWidth;
   // Special field to force vector UF for a loop inside LoopOpt.
@@ -1181,6 +1183,9 @@ public:
 
   bool isUndoSinkingCandidate() const { return IsUndoSinkingCandidate; }
   void setIsUndoSinkingCandidate(bool Flag) { IsUndoSinkingCandidate = Flag; }
+
+  bool isBlocked() const { return IsBlocked; }
+  void setIsBlocked(bool Flag) { IsBlocked = Flag; }
 
   /// Shifts by \p Amount all the RegDDRefs in the body of this loop.
   void shiftLoopBodyRegDDRefs(int64_t Amount);

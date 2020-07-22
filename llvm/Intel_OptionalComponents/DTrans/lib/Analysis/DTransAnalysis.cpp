@@ -1446,6 +1446,75 @@ private:
     llvm_unreachable("Unexpected class for derived value!");
   }
 
+  // Return the structure and the index that is being accessed through
+  // a long GEP, and this GEP will be used to access information by
+  // another byte flattened GEP. For example:
+  //
+  //   %tmp = getelementptr inbounds %class.TestClass, %class.TestClass* %0,
+  //          i64 0, i32 2, i32 0, i32 0, i32 0, i32 0, i32 0
+  //   %tmp1 = getelementptr inbounds i8, i8* %tmp, i64 16
+  //
+  // In this case, the GEP in %tmp is accessing field two from the structure
+  // %class.TestClass, and the rest of the entries are zero element access.
+  // This means the GEP %tmp1 is accessing 16 bytes after the field mentioned
+  // before. Therefore, %class.TestClass@2 must be part of the local pointer
+  // information for the GEP %tmp. This kind of representation can be seen
+  // after many GEPs that are accessing element 0 are squeezed by another
+  // pass (e.g. AggressiveInstCombine).
+  std::pair<llvm::Type*, unsigned>
+  collectTypeForByteFlattenedGEP(GetElementPtrInst *GEP) {
+    if (!GEP)
+      return std::make_pair(nullptr, 0);
+
+    // It should be a GEP that is accessing nested structures
+    unsigned NumIndices = GEP->getNumIndices();
+    if (NumIndices <= 2 || !GEP->hasAllConstantIndices())
+      return std::make_pair(nullptr, 0);
+
+    // Only used for byte flattened GEPs
+    for (User *U : GEP->users()) {
+      auto *GEPUser = dyn_cast<GetElementPtrInst>(U);
+      if (!GEPUser || GEPUser->getNumIndices() != 1)
+        return std::make_pair(nullptr, 0);
+    }
+
+    llvm::Type *RetType = nullptr;
+    unsigned RetIndex = 0;
+    if (!(cast<ConstantInt>(GEP->getOperand(1))->isZero()))
+      return std::make_pair(nullptr, 0);
+
+    llvm::Type *CurrType = GEP->getSourceElementType();
+    if (!CurrType->isStructTy() && !CurrType->isArrayTy())
+      return std::make_pair(nullptr, 0);
+
+    // All entries in the GEP are accessing nested structures or arrays, except
+    // the last entry
+    for (unsigned I = 2; I < NumIndices; I++) {
+      ConstantInt *Idx = cast<ConstantInt>(GEP->getOperand(I));
+      // The last non-zero access represents which index is being accessed
+      // for a particular structure or array
+      if (!Idx->isZero()) {
+        RetType = CurrType;
+        RetIndex = Idx->getZExtValue();
+      }
+
+      if (auto *Struct = dyn_cast<llvm::StructType>(CurrType))
+        CurrType = Struct->getElementType(Idx->getZExtValue());
+      else if (auto *Array = dyn_cast<llvm::ArrayType>(CurrType))
+        CurrType = Array->getElementType();
+      else
+        return std::make_pair(nullptr, 0);
+    }
+
+    // Last entry in the GEP will be checked outside of the loop since it
+    // doesn't need to be a structure or an array, but it must be 0
+    ConstantInt *LastIdx = cast<ConstantInt>(GEP->getOperand(NumIndices));
+    if (!LastIdx->isZero())
+      return std::make_pair(nullptr, 0);
+
+    return std::make_pair(RetType, RetIndex);
+  }
+
   void analyzeElementAccess(GEPOperator *GEP, LocalPointerInfo &Info) {
     auto *Int8PtrTy = llvm::Type::getInt8PtrTy(GEP->getContext());
 
@@ -1505,6 +1574,14 @@ private:
       Info.addPointerTypeAlias(BasePointer->getType());
       return;
     }
+
+    std::pair<llvm::Type*, unsigned> TypeForByteFlattenedGEP =
+        collectTypeForByteFlattenedGEP(dyn_cast<GetElementPtrInst>(GEP));
+    if (TypeForByteFlattenedGEP.first &&
+        TypeForByteFlattenedGEP.first->isStructTy() &&
+        TypeForByteFlattenedGEP.second != 0)
+      Info.addElementPointee(TypeForByteFlattenedGEP.first,
+                             TypeForByteFlattenedGEP.second);
 
     // Find the type of the type of the last composite type being
     // indexed by this GEP.
@@ -1650,6 +1727,34 @@ private:
 
     if (HasPtrToPtrAlias)
       return true;
+
+    // It is possible that the byte flattened GEP is the result of squeezing
+    // multiple GEPs together into one GEP with multiple indices, and then
+    // the byte flattened GEP is used to access the data (two GEPs in total).
+    // In that case, we are going to check if we can collect any information
+    // from the pointees.
+    if (isa<GetElementPtrInst>(GEP->getOperand(0))) {
+      LocalPointerInfo &GEPArgInfo = LocalMap[GEP->getOperand(0)];
+      if (GEPArgInfo.getAnalyzed()) {
+        auto PointeesSet = GEPArgInfo.getElementPointeeSet();
+        for (auto &PointeePair : PointeesSet) {
+          llvm::Type *CurrTy = PointeePair.first;
+          if (auto *StructTy = dyn_cast<StructType>(CurrTy)) {
+            assert(PointeePair.second.getKind() !=
+                   LocalPointerInfo::PointeeLoc::PLK_Offset &&
+                   "Invalid use of pointee information");
+            llvm::Type *ElemTy =
+                StructTy->getElementType(PointeePair.second.getElementNum());
+            LocalPointerInfo LocalInfo;
+            if (CheckIfAllOffsetsValid(GEP, ElemTy, APOffset, LocalInfo)) {
+              Info.merge(LocalInfo);
+              return true;
+            }
+          }
+        }
+      }
+    }
+
     // If none of the aliased types was a match, we can't identify any field
     // that the GEP is trying to access.
     return false;
@@ -4868,7 +4973,7 @@ public:
                             << "  " << *(ParentTI->getLLVMType()) << " @ "
                             << Idx << "\n"
                             << "  " << I << "\n");
-          ParentTI->setSafetyData(dtrans::FieldAddressTaken);
+          setBaseTypeInfoSafetyData(Res.first, dtrans::FieldAddressTaken);
           ParentStInfo->getField(Idx).setAddressTaken();
         }
       }

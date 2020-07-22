@@ -1743,7 +1743,7 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
     W->setTaskFlag(W->getTaskFlag() | 0x8);
 
   CallInst *TaskAllocCI = VPOParoptUtils::genKmpcTaskAlloc(
-      W, IdentTy, TidPtrHolder, TotalTaskTTWithPrivatesSize, KmpSharedTySz,
+      W, IdentTy, TidPtrHolder, DT, TotalTaskTTWithPrivatesSize, KmpSharedTySz,
       KmpRoutineEntryPtrTy, MTFnCI->getCalledFunction(), NewCall,
       Mode & OmpTbb);
   TaskAllocCI->setName(".task.alloc");
@@ -1786,7 +1786,7 @@ bool VPOParoptTransform::genTaskGenericCode(WRegionNode *W,
 
       Instruction *ThenTerm, *ElseTerm;
 
-      buildCFGForIfClause(Cmp, ThenTerm, ElseTerm, NewCall);
+      VPOParoptUtils::buildCFGForIfClause(Cmp, ThenTerm, ElseTerm, NewCall, DT);
       IRBuilder<> ElseBuilder(ElseTerm);
       if (!DummyTaskTDependRec)
         VPOParoptUtils::genKmpcTask(W, IdentTy, TidPtrHolder, TaskAllocCI,
@@ -1832,29 +1832,6 @@ bool VPOParoptTransform::genTaskWaitCode(WRegionNode *W) {
   VPOParoptUtils::genKmpcTaskWait(W, IdentTy, TidPtrHolder,
                                   W->getEntryBBlock()->getTerminator());
   return true;
-}
-
-// build the CFG for if clause.
-void VPOParoptTransform::buildCFGForIfClause(Value *Cmp,
-                                             Instruction *&ThenTerm,
-                                             Instruction *&ElseTerm,
-                                             Instruction *InsertPt) {
-  BasicBlock *SplitBeforeBB = InsertPt->getParent();
-  SplitBlockAndInsertIfThenElse(Cmp, InsertPt, &ThenTerm, &ElseTerm);
-  ThenTerm->getParent()->setName("if.then");
-  ElseTerm->getParent()->setName("if.else");
-  InsertPt->getParent()->setName("if.end");
-
-  DT->addNewBlock(ThenTerm->getParent(), SplitBeforeBB);
-  DT->addNewBlock(ElseTerm->getParent(), SplitBeforeBB);
-  DT->addNewBlock(InsertPt->getParent(), SplitBeforeBB);
-
-  DT->changeImmediateDominator(ThenTerm->getParent(), SplitBeforeBB);
-  DT->changeImmediateDominator(ElseTerm->getParent(), SplitBeforeBB);
-  BasicBlock *NextBB = InsertPt->getParent()->getSingleSuccessor();
-  assert(NextBB && "Null Next BB.");
-  if (NextBB->getUniquePredecessor())
-    DT->changeImmediateDominator(NextBB, InsertPt->getParent());
 }
 
 // Generate code for OMP taskgroup construct.

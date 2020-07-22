@@ -30,11 +30,11 @@
 ; Check if min is non-linear at level 1 and linear at level 2 with def@1
 
 ; CHECK: %min = (-64 * i1 + %storemerge966 <= 63) ? -64 * i1 + %storemerge966 : 63;
-; CHECK: <LVAL-REG> NON-LINEAR i64 %min {sb:222}
+; CHECK: <LVAL-REG> NON-LINEAR i64 %min
 ; CHECK: DO i64 i2 = 0, %min, 1   <DO_LOOP>  <MAX_TC_EST = 64>
-; CHECK: <RVAL-REG> LINEAR i64 %min{def@1} {sb:222}
+; CHECK: <RVAL-REG> LINEAR i64 %min{def@1}
 ; CHECK: DO i64 i2 = 0, %min, 1   <DO_LOOP>  <MAX_TC_EST = 64>
-; CHECK: <RVAL-REG> LINEAR i64 %min{def@1} {sb:222}
+; CHECK: <RVAL-REG> LINEAR i64 %min{def@1}
 
 ; ModuleID = 'min-at-canon.ll'
 source_filename = "mathcC/opt_speed/g3d4c.c"
@@ -88,6 +88,7 @@ for.body4:                                        ; preds = %newFuncRoot, %for.b
   %inc = add nuw nsw i64 %inc939, 1
   %sub = add nsw i64 %storemerge903938, -1
   %arrayidx = getelementptr inbounds [100 x float], [100 x float]* @MAIN__.f11, i64 0, i64 %sub
+  store float 2.000000e+00, float* %arrayidx
   %0 = load float, float* %arrayidx, align 4, !tbaa !2
   %arrayidx6 = getelementptr inbounds [100 x float], [100 x float]* @MAIN__.a11, i64 0, i64 %inc939
   %1 = load float, float* %arrayidx6, align 4, !tbaa !2

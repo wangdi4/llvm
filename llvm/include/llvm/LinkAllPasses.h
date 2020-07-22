@@ -339,6 +339,7 @@ namespace {
       (void) llvm::createHIRTempCleanupPass();
       (void) llvm::createHIRLoopInterchangePass();
       (void) llvm::createHIRLoopBlockingPass();
+      (void) llvm::createHIRPragmaLoopBlockingPass();
       (void) llvm::createHIRGenerateMKLCallPass();
       (void) llvm::createHIROptPredicatePass();
       (void) llvm::createHIROptVarPredicatePass();
@@ -396,6 +397,7 @@ namespace {
       (void) llvm::createDataPerValuePass();
       (void) llvm::createKernelBarrierPass(false, false);
       (void) llvm::createBarrierInFunctionPass();
+      (void) llvm::createPostBarrierPass();
 
       // Optimize math calls
       (void) llvm::createMapIntrinToImlPass();

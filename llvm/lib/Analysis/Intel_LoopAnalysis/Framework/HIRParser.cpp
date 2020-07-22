@@ -1223,8 +1223,16 @@ bool HIRParser::BlobProcessor::isReplacable(const SCEV *OrigSCEV,
 const SCEVConstant *
 HIRParser::BlobProcessor::getSDiv(const SCEVConstant *LHS,
                                   const SCEVConstant *RHS) const {
-  return cast<SCEVConstant>(HIRP->ScopedSE.getConstant(cast<ConstantInt>(
-      ConstantExpr::getSDiv(LHS->getValue(), RHS->getValue()))));
+  auto *Const = dyn_cast<ConstantInt>(
+      ConstantExpr::getSDiv(LHS->getValue(), RHS->getValue()));
+
+  // sdiv overflows in the following scenario and returns undef-
+  // min_int /s -1
+  if (!Const) {
+    return nullptr;
+  }
+
+  return cast<SCEVConstant>(HIRP->ScopedSE.getConstant(Const));
 }
 
 const SCEVConstant *HIRParser::BlobProcessor::getPossibleMultiplier(
@@ -1255,7 +1263,7 @@ const SCEVConstant *HIRParser::BlobProcessor::getPossibleMultiplier(
 
     Mul = getSDiv(MulConstStride, ConstStride);
 
-    if (Mul->isZero()) {
+    if (!Mul || Mul->isZero()) {
       return nullptr;
     }
 
@@ -1285,7 +1293,7 @@ const SCEVConstant *HIRParser::BlobProcessor::getPossibleMultiplier(
     ConstStride = cast<SCEVConstant>(StrideOp->getOperand(0));
     Mul = getSDiv(MulConstStride, ConstStride);
 
-    if (Mul->isZero()) {
+    if (!Mul || Mul->isZero()) {
       return nullptr;
     }
   }

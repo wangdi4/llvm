@@ -481,7 +481,6 @@ void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
 
   // When dealing with -fast, the behavior is the same as -Ofast, except
   // that -xHOST is implied.
-  // TODO: Make LTO the default with -fast as well.
   if (Arg *A = Args.getLastArg(options::OPT_Ofast)) {
     StringRef Opt(Args.MakeArgString(A->getAsString(Args)));
     bool hasXOpt = false;
@@ -489,8 +488,13 @@ void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
       StringRef Arch = A->getValue();
       hasXOpt = !types::lookupTypeForTypeSpecifier(Arch.data());
     }
-    if (!Opt.contains("O") && !hasXOpt)
-      addClaim(options::OPT_x, "HOST");
+    if (!Opt.contains("O")) {
+      if (!hasXOpt)
+        addClaim(options::OPT_x, "HOST");
+      if (!Args.hasFlag(options::OPT_flto, options::OPT_flto_EQ,
+                    options::OPT_fno_lto, false))
+        addClaim(options::OPT_flto);
+    }
   }
 
   if (Arg *VA = Args.getLastArg(options::OPT_HASH_x, options::OPT__HASH,
@@ -819,9 +823,19 @@ static llvm::Triple computeTargetTriple(const Driver &D,
 // based on which -f(no-)?lto(=.*)? option occurs last.
 void Driver::setLTOMode(const llvm::opt::ArgList &Args) {
   LTOMode = LTOK_None;
+#if INTEL_CUSTOMIZATION
   if (!Args.hasFlag(options::OPT_flto, options::OPT_flto_EQ,
-                    options::OPT_fno_lto, false))
+                    options::OPT_fno_lto, false)) {
+    // When dealing with -fast, the behavior is the same as -Ofast, except
+    // that -flto is implied
+    if (Arg *A = Args.getLastArg(options::OPT_Ofast)) {
+      StringRef Opt(Args.MakeArgString(A->getAsString(Args)));
+      if (!Opt.contains("O"))
+        LTOMode = LTOK_Full;
+    }
     return;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   StringRef LTOName("full");
 

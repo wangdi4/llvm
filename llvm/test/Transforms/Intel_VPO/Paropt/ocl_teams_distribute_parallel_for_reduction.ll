@@ -1,5 +1,7 @@
-; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg  -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -switch-to-offload -S | FileCheck %s
-; RUN: opt < %s -passes='function(loop(rotate),vpo-cfg-restructuring,vpo-paropt-prepare,simplify-cfg,loop(simplify-cfg),sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt' -switch-to-offload  -S | FileCheck %s
+; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg  -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt-optimize-data-sharing -vpo-paropt -switch-to-offload -S | FileCheck --check-prefix=OPT %s
+; RUN: opt < %s -passes='function(loop(rotate),vpo-cfg-restructuring,vpo-paropt-prepare,simplify-cfg,loop(simplify-cfg),sroa,vpo-restore-operands,vpo-cfg-restructuring,vpo-paropt-optimize-data-sharing),vpo-paropt' -switch-to-offload  -S | FileCheck --check-prefix=OPT %s
+; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg  -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt-optimize-data-sharing -vpo-paropt -switch-to-offload -vpo-paropt-opt-data-sharing-for-reduction=false -S | FileCheck %s
+; RUN: opt < %s -passes='function(loop(rotate),vpo-cfg-restructuring,vpo-paropt-prepare,simplify-cfg,loop(simplify-cfg),sroa,vpo-restore-operands,vpo-cfg-restructuring,vpo-paropt-optimize-data-sharing),vpo-paropt' -switch-to-offload -vpo-paropt-opt-data-sharing-for-reduction=false -S | FileCheck %s
 
 ; Original code:
 ; double foo(double *x) {
@@ -35,6 +37,11 @@
 ; CHECK: br label %[[FALLTHRU2]]
 ; CHECK: [[FALLTHRU2]]:
 ; CHECK-NOT: call spir_func void @__kmpc_critical
+
+; OPT: call spir_func void @__kmpc_critical
+; OPT: call spir_func void @__kmpc_end_critical
+; OPT-NOT: call spir_func void @__kmpc_critical
+; OPT-NOT: call spir_func void @__kmpc_end_critical
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64"

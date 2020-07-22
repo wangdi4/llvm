@@ -347,4 +347,24 @@ void WRegionCollection::print(raw_ostream &OS) const {
   }
 }
 
+bool WRegionCollection::invalidate(Function &F, const PreservedAnalyses &PA,
+                                   FunctionAnalysisManager::Invalidator &Inv) {
+  // We do not care if the analysis is not preserved or CFG was modified,
+  // because buildWRGraph() will recompute the graph anyway.
+  // We only care about the analysis references that we keep in
+  // WRegionCollection.
+
+  // Check transitive dependencies.
+  return Inv.invalidate<DominatorTreeAnalysis>(F, PA) ||
+      Inv.invalidate<LoopAnalysis>(F, PA) ||
+      Inv.invalidate<ScalarEvolutionAnalysis>(F, PA) ||
+      Inv.invalidate<TargetIRAnalysis>(F, PA) ||
+      Inv.invalidate<AssumptionAnalysis>(F, PA) ||
+      Inv.invalidate<TargetLibraryAnalysis>(F, PA) ||
+#if INTEL_CUSTOMIZATION
+      Inv.invalidate<loopopt::HIRFrameworkAnalysis>(F, PA) ||
+#endif // INTEL_CUSTOMIZATION
+      Inv.invalidate<AAManager>(F, PA);
+}
+
 #endif // INTEL_COLLAB

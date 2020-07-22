@@ -49,6 +49,7 @@ class CallInst;
 class IntrinsicInst;
 class Constant;
 class LLVMContext;
+class TargetLibraryInfo;
 
 namespace vpo {
 
@@ -95,7 +96,8 @@ public:
 
   // Remove the branch from entry directive to end directive generated to
   // prevent deletion of end directive in case it's dead code.
-  static bool removeBranchesFromBeginToEndDirective(Function &F);
+  static bool removeBranchesFromBeginToEndDirective(
+      Function &F, const TargetLibraryInfo *TLI, DominatorTree *DT);
 
   /// If \p ValWithCasts is a CastInst, or a chain of CastInsts, the function
   /// recursively gets its operand until it encounters a non-CastInst. All

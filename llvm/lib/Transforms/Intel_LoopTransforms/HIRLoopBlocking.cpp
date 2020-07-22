@@ -38,6 +38,52 @@
 //
 //   Actual transformation is done by two utils: stripmine and permute
 //   (a.k.a stripmine and interchange)
+//
+//   Loops can also be blocked via pragma directives. Pragmas info for loop
+//   blocking contains information for level and factor. A level of 1
+//   corresponds to the immediate loop after the directive, whereas a level
+//   of 2 would refer to the 2nd loop from where the directive is declared.
+//   The blocking factor is the blocksize or stripmine size for that loop.
+//
+//   Example 1:
+//   #pragma block_loop factor (16) level (1)
+//   Do J = 1..N
+//      Do K = 1..N
+//         Do I = 1..N
+//
+//   Example 1 would block the J loop and insert a by-strip loop as outermost
+//
+//
+//   Example 2:
+//   Do J = 1..N
+//      #pragma block_loop factor (16) level (2)
+//      Do K = 1..N
+//         Do I = 1..N
+//
+//   Example 2 would block the I loop and insert its by-strip loop above the K
+//   loop like so. The by strip loop is always placed where the pragma is
+//   declared.
+//
+//   Do J = 1..N
+//      Do II = 1..N  -- by-strip loop
+//          Do K = 1..N
+//             Do I = 1..16
+//
+//   A pragma without level is the same as blocking the entire loop nest with
+//   whatever factor is declared.
+//
+//   #pragma block_loop factor (16)   <------equivalent as the line below
+//   #pragma block_loop factor (16) level (1:3) <--- blocking everything
+//   Do J = 1..N
+//      Do K = 1..N
+//         Do I = 1..N
+//
+//   Pragma TODO:
+//   1) Current blocking depends on loopnests being perfect to help prove
+//   interchange legality. Consider relaxing requirements for sinking and
+//   possibly interchange logic to facilitate pragma blocking. User specified
+//   pragmas should assume the memory refs do not alias similar to 'restrict'
+//   keyword. It should be possible to handle non-perfect loopnests this way.
 
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
@@ -68,10 +114,13 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
+#include "HIRLoopBlocking.h"
 #include "HIRStencilPattern.h"
 
 #define OPT_SWITCH "hir-loop-blocking"
 #define OPT_DESC "HIR Loop Blocking"
+#define OPT_SWITCH_PRAGMA "hir-pragma-loop-blocking"
+#define OPT_DESC_PRAGMA "HIR Loop Blocking based on Pragma"
 #define DEBUG_TYPE OPT_SWITCH
 
 // Dump, delinearizaion and stencil-related messages.
@@ -80,10 +129,15 @@
 
 using namespace llvm;
 using namespace llvm::loopopt;
+using namespace llvm::loopopt::blocking;
 
 static cl::opt<bool> DisablePass("disable-" OPT_SWITCH, cl::init(false),
                                  cl::Hidden,
                                  cl::desc("Disable " OPT_DESC " pass"));
+
+static cl::opt<bool>
+    DisablePragmaPass("disable-" OPT_SWITCH_PRAGMA, cl::init(false), cl::Hidden,
+                      cl::desc("Disable " OPT_DESC_PRAGMA " pass"));
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 // These options are for printing out information even with non-debug compiler.
@@ -164,62 +218,6 @@ static cl::opt<int> LoopBlockingStrideThreshold(OPT_SWITCH "-stride-threshold",
 
 static cl::opt<bool> OldVersion(OPT_SWITCH "-old-ver", cl::init(true),
                                 cl::Hidden, cl::desc("Old " OPT_DESC " pass"));
-namespace {
-
-enum DiagMsg {
-  NON_LINEAR_REFS,
-  NO_MISSING_IVS_OR_SMALL_STRIDES,
-  NO_PERFECTNEST,
-  INNERMOST_LOOP_ONLY,
-  INNERMOST_LOOP_NO_DO_LOOP,
-  NO_PROFITABLE_BLOCKING_FOUND,
-  MAX_DIMS_LESS_THAN_LOOP_NEST_DEPTH,
-  MAX_DIMS_LESS_THAN_LOOP_NEST_DEPTH_2,
-  NO_STRIPMINE_APPL,
-  NO_INTERCHANGE,
-  NO_KANDR,
-  NO_KANDR_DEPTH_TEST_1,
-  NO_KANDR_DEPTH_TEST_2,
-  MULTIVERSIONED_FALLBACK_LOOP,
-  NO_STENCIL_LOOP,
-  NO_STENCIL_LOOP_BODY,
-  NO_STENCIL_MEM_REFS,
-  SUCCESS_NON_SIV,
-  SUCCESS_NON_SIV_OR_NON_ADVANCED,
-  SUCCESS_BASIC_SIV,
-  SUCCESS_STENCIL,
-
-  NUM_DIAGS,
-};
-
-inline std::array<std::string, NUM_DIAGS> createDiagMap() {
-  std::array<std::string, NUM_DIAGS> Map;
-  Map[NON_LINEAR_REFS] = "nonlinear memref in the innermost loop.";
-  Map[NO_MISSING_IVS_OR_SMALL_STRIDES] =
-      "no refs with missing ivs or with small strides.";
-  Map[NO_PERFECTNEST] = "NearPerfect loop cannot become a perfect loop.";
-  Map[INNERMOST_LOOP_ONLY] = "Innermost-loop-only in the loopnest.";
-  Map[INNERMOST_LOOP_NO_DO_LOOP] = "Innermost is not Do-loop.";
-  Map[NO_PROFITABLE_BLOCKING_FOUND] = "No profitable blocking found.";
-  Map[MAX_DIMS_LESS_THAN_LOOP_NEST_DEPTH] = "max dims <= loop nest depth.";
-  Map[MAX_DIMS_LESS_THAN_LOOP_NEST_DEPTH_2] =
-      "max dims <= consecutive loop nest depth.";
-  Map[NO_STRIPMINE_APPL] = "Stripmining is not possible.";
-  Map[NO_INTERCHANGE] = "Interchange is not possible.";
-  Map[NO_KANDR] = "KandR did not work.";
-  Map[NO_KANDR_DEPTH_TEST_1] = "Failed KandR depth test 1.";
-  Map[NO_KANDR_DEPTH_TEST_2] = "Failed KandR depth test 2.";
-  Map[MULTIVERSIONED_FALLBACK_LOOP] = "The loop is mv fallback loop.";
-  Map[NO_STENCIL_LOOP] = "The loop body is not a stencil function.";
-  Map[NO_STENCIL_LOOP_BODY] = "Operations for stencil is missing.";
-  Map[NO_STENCIL_MEM_REFS] = "Memrefs are not of stencil pattern.";
-  Map[SUCCESS_NON_SIV] = "Non-Siv loop.";
-  Map[SUCCESS_NON_SIV_OR_NON_ADVANCED] = "Non-Siv loop or Non-advanced.";
-  Map[SUCCESS_BASIC_SIV] = "Basic algorithm.";
-  Map[SUCCESS_STENCIL] = "Stencil pattern.";
-
-  return Map;
-}
 
 static std::array<std::string, NUM_DIAGS> DiagMap = createDiagMap();
 
@@ -231,52 +229,6 @@ void printDiag(DiagMsg Msg, StringRef FuncName, const HLLoop *Loop = nullptr,
             DiagLevel);
 #endif
 }
-
-// Following blocksize worked best in most of pow-2 and non-pow-2
-// square matrix multiplications. Compile options used are
-// marked in the beginning part of this file.
-const unsigned DefaultBlockSize = 64;
-
-class HIRLoopBlockingLegacyPass : public HIRTransformPass {
-public:
-  static char ID;
-
-  HIRLoopBlockingLegacyPass() : HIRTransformPass(ID) {
-    initializeHIRLoopBlockingLegacyPassPass(*PassRegistry::getPassRegistry());
-  }
-
-  bool runOnFunction(Function &F) override;
-  void releaseMemory() override{};
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
-    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
-    AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
-    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
-    AU.addRequired<TargetTransformInfoWrapperPass>();
-
-    AU.setPreservesAll();
-  }
-};
-
-} // namespace
-
-char HIRLoopBlockingLegacyPass::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRLoopBlockingLegacyPass, OPT_SWITCH, OPT_DESC, false,
-                      false)
-INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
-INITIALIZE_PASS_END(HIRLoopBlockingLegacyPass, OPT_SWITCH, OPT_DESC, false,
-                    false)
-
-FunctionPass *llvm::createHIRLoopBlockingPass() {
-  return new HIRLoopBlockingLegacyPass();
-}
-
-namespace {
 
 typedef DDRefGatherer<RegDDRef, MemRefs> MemRefGatherer;
 
@@ -349,13 +301,6 @@ public:
   static bool isConstTC(uint64_t TC) { return TC > 0; };
 };
 
-// Mapping from a loop to its kind. Used for/during actual transformantion.
-// For a loop to be strimined, (will become unit-strided), holds stripmine size.
-// For a by-strip loop, holds BY_STRIP_LOOP_VAL, which is zero.
-typedef std::map<const HLLoop *, unsigned> LoopMapTy;
-
-enum LoopTypeVal { BY_STRIP_LOOP_VAL = 0, STRIPMINE_CAND_VAL = 0 };
-
 inline void addByStripLoop(HLLoop *ByStripLoop, LoopMapTy &LoopMap) {
   LoopMap.emplace(std::make_pair(ByStripLoop, BY_STRIP_LOOP_VAL));
 }
@@ -411,6 +356,87 @@ void adjustBlockSize(const LoopNestTCTy &LoopNestTC, LoopMapTy &LoopToBS) {
                            LoopNestTC.level_from_outer_end())) {
     LoopToBS[LoopNestTC.getLoop(I)] = adjustBlockSize(LoopNestTC[I]);
   }
+}
+
+// This util is used to calculate the correct loop permutation after
+// stripmine for interchange with pragma. All blocked loops have by-strip
+// loops as parents. We place the bystrip loops where the pragma is declared.
+const HLLoop *getByStripLoopatOffsetLevel(const HLLoop *Loop,
+                                          const LoopMapTy &LoopMap,
+                                          unsigned Level) {
+  const HLLoop *TargetLp = Loop;
+  const HLLoop *ParentLp = TargetLp->getParentLoop();
+  unsigned Offset = 1;
+
+  while (Offset < Level) {
+    ParentLp = TargetLp;
+    TargetLp = cast<HLLoop>(TargetLp->getFirstChild());
+    if (isNonByStripLoop(TargetLp, LoopMap)) {
+      Offset++;
+    }
+  }
+
+  assert(isBlockedLoop(TargetLp, LoopMap) && "Expected loop to be blocked!\n");
+  return ParentLp;
+}
+
+// Check the entire loopnest starting from the innermost loop for pragmas
+bool hasLoopBlockingPragma(HLLoop *InnermostLoop) {
+  HLLoop *Loop = InnermostLoop;
+
+  while (Loop) {
+    auto PragmaInfo = Loop->getBlockingPragmaLevelAndFactors();
+    if (!PragmaInfo.empty()) {
+      return true;
+    }
+    Loop = Loop->getParentLoop();
+  }
+  return false;
+}
+
+// Scan entire loopnest for blocking pragmas and return the Outermost loop
+// with such pragma. Save pragma levels and factors to LoopToPragma.
+// The reason we need this construct is because level is not required for
+// all pragmas, which cause level == -1. This implies that all loops nested
+// below the loop are blocked with the factor specified. We convey this
+// information by adding the equivalent pragmas for all nested loops.
+HLLoop *getLoopBlockingPragma(HLLoop *InnermostLoop,
+                              LoopPragmaMapTy &LoopToPragma) {
+  HLLoop *OutermostPragmaLoop = nullptr;
+
+  for (HLLoop *Loop = InnermostLoop; Loop; Loop = Loop->getParentLoop()) {
+    auto PragmaInfo = Loop->getBlockingPragmaLevelAndFactors();
+    if (PragmaInfo.empty()) {
+      continue;
+    }
+
+    OutermostPragmaLoop = Loop;
+
+    // Replace PragmaLevel == -1 with proper levels for all nested loops
+    RegDDRef *NoLevelFactor = nullptr;
+    for (auto &Info : make_range(PragmaInfo.begin(), PragmaInfo.end())) {
+      if (Info.first != -1) {
+        LoopToPragma[Loop].push_back(std::make_pair(Info.first, Info.second));
+      } else {
+        // Assume Pragmalevel == -1 can only occur once per Loop
+        assert(NoLevelFactor == nullptr &&
+               "Multiple pragmas without levels not supported\n");
+        NoLevelFactor = Info.second;
+      }
+    }
+
+    if (!NoLevelFactor) {
+      continue;
+    }
+
+    // Add Levels for -1 case
+    int NumLevels = InnermostLoop->getNestingLevel() - Loop->getNestingLevel();
+    for (int i = 0; i <= NumLevels; i++) {
+      LoopToPragma[Loop].push_back(std::make_pair(i + 1, NoLevelFactor));
+    }
+  }
+
+  return OutermostPragmaLoop;
 }
 
 // Stripmine the loops found in LoopMap,
@@ -495,6 +521,7 @@ void populatePermutation(const HLLoop *Outermost, const HLLoop *Innermost,
   unsigned Mid = ByStripSize;
   unsigned Back =
       Innermost->getNestingLevel() - Outermost->getNestingLevel() + 1;
+
   for (const HLLoop *I = Innermost, *EndLoop = Outermost->getParentLoop();
        I != EndLoop; I = I->getParentLoop()) {
     LLVM_DEBUG(dbgs() << I->getNestingLevel() << " ";);
@@ -507,6 +534,72 @@ void populatePermutation(const HLLoop *Outermost, const HLLoop *Innermost,
   }
 
   assert(Mid == 0 && Back == ByStripSize);
+
+  LLVM_DEBUG(dbgs() << "\n";);
+  LLVM_DEBUG(dbgs() << "LoopPermutation Res\n");
+  for (auto &P : LoopPermutation) {
+    LLVM_DEBUG(dbgs() << P->getNestingLevel() << " ";);
+    (void)P;
+  }
+  LLVM_DEBUG(dbgs() << "\n";);
+}
+
+// Permutation for pragma follows the order in which the pragmas occur.
+// By-strip loops are always moved to where the pragmas are declared.
+// Take this 3 nested loop:
+//
+// for i1
+//   for i2
+//     for i3
+//
+//  If we block i1 and i3, then after stripmine, we have the following setup:
+//
+//  i1  -- by-strip loop
+//    i2  -- blocked loop
+//      i3
+//        i4  -- by-strip loop
+//          i5  -- blocked loop
+//
+// However, where the pragmas occur will change the permutation order.
+// #pragma level (1)
+// #pragma level (3)
+// for i1
+//   for i2
+//     for i3
+// will result in permutation of (1,4,2,3,5)
+//
+// #pragma level (1)
+// for i1
+//   #pragma level (2)
+//   for i2
+//     for i3
+// will result in permutation of (1,2,4,3,5)
+//
+void populatePragmaPermutation(
+    const HLLoop *Outermost, const HLLoop *Innermost, const LoopMapTy &LoopMap,
+    const LoopPragmaMapTy &LoopToPragma,
+    SmallVectorImpl<const HLLoop *> &LoopPermutation) {
+  unsigned Front = 0;
+
+  // Process Loop Pragmas from outermost to innermost. Pragmas are still
+  // attached to blocked loops. When blocked loop is found, pull up all by-strip
+  // loops from pragma, then set itself to get correct ordering
+  for (const HLLoop *Lp = Outermost; Lp;
+       Lp = dyn_cast<HLLoop>(Lp->getFirstChild())) {
+    if (isNonByStripLoop(Lp, LoopMap)) {
+      // Use pragma to assign permutations to all by-strip loops
+      auto It = LoopToPragma.find(Lp);
+      if (It != LoopToPragma.end()) {
+        for (auto &Pair : It->second) {
+          const HLLoop *ByStripLoop =
+              getByStripLoopatOffsetLevel(Lp, LoopMap, Pair.first);
+          LoopPermutation[Front++] = ByStripLoop;
+        }
+      }
+
+      LoopPermutation[Front++] = Lp;
+    }
+  }
 
   LLVM_DEBUG(dbgs() << "\n";);
   LLVM_DEBUG(dbgs() << "LoopPermutation Res\n");
@@ -1462,6 +1555,124 @@ HLLoop *findLoopNestToBlock(HIRFramework &HIRF, HIRDDAnalysis &DDA,
   return nullptr;
 }
 
+// This is where pragma conflicts are resolved legality checks are performed.
+// Pragmas conflicts are prioritized in the order they appear in the program
+// All LoopToPragma entries are assumed to have positive relative offsets.
+// TODO: output warnings for pragma conflicts
+HLLoop *setupPragmaBlocking(HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
+                            HLLoop *InnermostLoop, HLLoop *OutermostPragmaLoop,
+                            StringRef Func, LoopPragmaMapTy &LoopToPragma,
+                            LoopMapTy &LoopMap) {
+
+  bool IsNearPerfect = false;
+  if (!OutermostPragmaLoop->isInnermost() &&
+      !HLNodeUtils::isPerfectLoopNest(OutermostPragmaLoop, nullptr, false,
+                                      &IsNearPerfect)) {
+    LLVM_DEBUG(
+        dbgs()
+        << "Ignoring block_loop directive because loop is not perfect\n");
+    return nullptr;
+  }
+
+  if (IsNearPerfect) {
+    LLVM_DEBUG(
+        dbgs()
+        << "Ignoring block_loop directive because loop is near perfect\n");
+    return nullptr;
+  }
+
+  // Setup loopmap here. Need to traverse the loop in order starting with
+  // OutermostPragmaLoop
+  for (HLLoop *Lp = OutermostPragmaLoop; Lp;
+       Lp = dyn_cast<HLLoop>(Lp->getFirstChild())) {
+    auto Query = LoopToPragma.find(Lp);
+    if (Query == LoopToPragma.end()) {
+      continue;
+    }
+
+    for (auto &LevelFactorPair : Query->second) {
+      int PragmaLevel = LevelFactorPair.first;
+      RegDDRef *Factor = LevelFactorPair.second;
+
+      int64_t IntBlockSize;
+      if (!Factor->isIntConstant(&IntBlockSize) && IntBlockSize > 0) {
+        // TODO : enable variable blocksizes
+
+        LLVM_DEBUG(dbgs() << "Ignoring block_loop directive due to invalid "
+                             "blocking factor\n");
+        continue;
+      }
+
+      // Get the loop that the pragma level is referring to
+      const HLLoop *TargetLp = Lp;
+      for (int i = 1; i < PragmaLevel; i++) {
+        TargetLp = cast_or_null<HLLoop>(TargetLp->getFirstChild());
+        if (!TargetLp) {
+
+          LLVM_DEBUG(dbgs() << "Ignoring block_loop directive due to invalid "
+                               "level\n");
+          continue;
+        }
+      }
+
+      if (LoopMap.find(TargetLp) == LoopMap.end()) {
+        LoopMap[TargetLp] = (unsigned)IntBlockSize;
+      } else {
+        LLVM_DEBUG(dbgs() << "Ignoring block_loop directive for size "
+                          << IntBlockSize << " due to conflict @ level : "
+                          << TargetLp->getNestingLevel() << "\n");
+      }
+    }
+  }
+
+  // Check stripmine legality
+  if (!LoopMap.empty()) {
+    for (auto It = LoopMap.begin(); It != LoopMap.end();) {
+      if (!It->first->canStripmine(It->second)) {
+        LLVM_DEBUG(dbgs() << "Ignoring block_loop directive for size "
+                          << It->second << " due to illegal blocksize\n");
+        It = LoopMap.erase(It);
+      } else {
+        It++;
+      }
+    }
+  }
+
+  if (LoopMap.empty()) {
+    printDiag(NO_STRIPMINE_APPL, Func);
+    return nullptr;
+  }
+
+  // Bailout if blocking would result in more than max loop nest level
+  if ((LoopMap.size() + InnermostLoop->getNestingLevel()) > MaxLoopNestLevel) {
+    return nullptr;
+  }
+
+  if (!isLegalToInterchange(LoopMap, OutermostPragmaLoop, InnermostLoop, DDA,
+                            SRA, false)) {
+    printDiag(NO_INTERCHANGE, Func);
+    return nullptr;
+  }
+
+  LoopOptReportBuilder &LORBuilder =
+      InnermostLoop->getHLNodeUtils().getHIRFramework().getLORBuilder();
+
+  // Add optreport
+  LORBuilder(*OutermostPragmaLoop)
+      .addRemark(OptReportVerbosity::Low, "Blocking using Pragma directives");
+
+  LLVM_DEBUG(dbgs() << "Final LoopToPragma: \n"; for (auto &P
+                                                      : LoopToPragma) {
+    dbgs() << "LoopLevel: " << P.first->getNestingLevel() << "\n";
+    for (auto &PP : P.second) {
+      dbgs() << "Level: " << PP.first << ", ";
+      PP.second->dump();
+      dbgs() << "\n";
+    }
+  });
+  return OutermostPragmaLoop;
+}
+
 // LoopVectors contains loops at levels from [OutermostLoopLevel, ..]
 // Whenever a loop's level is given, it should be adjusted by OutermostLoopLevel
 // to index the correct entry of a container.
@@ -1503,11 +1714,6 @@ void hoistMinDefs(const LoopMapTy &LoopMap,
       continue;
     }
 
-    HLLoop *LpDest =
-        CurLoopNests[getIndexForLoopVectors(DestLevel, OutermostLevel)];
-    unsigned OrigLevel = LpWithDef->getNestingLevel();
-    assert(DestLevel <= OrigLevel);
-
     // Move the first child of LpWithDef to the first child of LpDest
     // First Child is min definition
     // Second Child is unit-stride loop with min as UB
@@ -1518,6 +1724,12 @@ void hoistMinDefs(const LoopMapTy &LoopMap,
       // Strip mine size
       continue;
     }
+
+    HLLoop *LpDest =
+        CurLoopNests[getIndexForLoopVectors(DestLevel, OutermostLevel)];
+    unsigned OrigLevel = LpWithDef->getNestingLevel();
+    // For pragma, by-strip loop does not always go to outermost
+    assert(DestLevel <= OrigLevel);
 
     const HLInst *FirstInst = cast<HLInst>(FirstChild);
     assert(isa<SelectInst>(FirstInst->getLLVMInstruction()));
@@ -1564,8 +1776,9 @@ const HLLoop *getLoopForReferingInfoBeforePermutation(
 }
 
 // Do stripmine & interchange
-void doTransformation(HLLoop *OutermostLoop, HLLoop *InnermostLoop,
-                      LoopMapTy &LoopMap, StringRef FuncName) {
+void HIRLoopBlocking::doTransformation(HLLoop *InnermostLoop,
+                                       HLLoop *OutermostLoop,
+                                       LoopMapTy &LoopToBS) {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   if (PrintBlockedLoops) {
@@ -1578,15 +1791,22 @@ void doTransformation(HLLoop *OutermostLoop, HLLoop *InnermostLoop,
 
   // Stripmine
   HLLoop *NewOutermostLoop =
-      stripmineSelectedLoops(InnermostLoop, OutermostLoop, LoopMap);
+      stripmineSelectedLoops(InnermostLoop, OutermostLoop, LoopToBS);
 
   // Populate Permutation
   int TotalDepth = InnermostLoop->getNestingLevel() -
                    NewOutermostLoop->getNestingLevel() + 1;
   SmallVector<const HLLoop *, MaxLoopNestLevel> LoopPermutation(TotalDepth,
                                                                 nullptr);
-  populatePermutation(NewOutermostLoop, InnermostLoop, LoopMap,
-                      LoopPermutation);
+
+  if (HasPragma) {
+    assert(!LoopToPragma.empty() && "Expect Pragma info to be present!\n");
+    populatePragmaPermutation(NewOutermostLoop, InnermostLoop, LoopToBS,
+                              LoopToPragma, LoopPermutation);
+  } else {
+    populatePermutation(NewOutermostLoop, InnermostLoop, LoopToBS,
+                        LoopPermutation);
+  }
 
   // Interchange
   HIRTransformUtils::permuteLoopNests(NewOutermostLoop, LoopPermutation,
@@ -1603,15 +1823,15 @@ void doTransformation(HLLoop *OutermostLoop, HLLoop *InnermostLoop,
   for (auto Lp : CurLoopNests) {
     const HLLoop *OrigLoop = getLoopForReferingInfoBeforePermutation(
         Lp, LoopPermutation, CurLoopNests.front()->getNestingLevel());
-    if (isBlockedLoop(OrigLoop, LoopMap)) {
+    if (isBlockedLoop(OrigLoop, LoopToBS)) {
       LORBuilder(*Lp).addRemark(OptReportVerbosity::Low, "blocked by %d",
-                                LoopMap[OrigLoop]);
+                                LoopToBS[OrigLoop]);
     }
   }
 
   // Hoist min var's definitions to Destination Levels
   LLVM_DEBUG(NewOutermostLoop->dump(1));
-  hoistMinDefs(LoopMap, LoopPermutation, CurLoopNests);
+  hoistMinDefs(LoopToBS, LoopPermutation, CurLoopNests);
   LLVM_DEBUG(dbgs() << "after hoist\n");
   LLVM_DEBUG(NewOutermostLoop->dump());
 
@@ -1622,15 +1842,14 @@ void doTransformation(HLLoop *OutermostLoop, HLLoop *InnermostLoop,
   }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
-  // Invalidate
+  // Mark as blocked and Invalidate
+  InnermostLoop->setIsBlocked(true);
   NewOutermostLoop->getParentRegion()->setGenCode();
   HIRInvalidationUtils::invalidateLoopNestBody(NewOutermostLoop);
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(NewOutermostLoop);
-} // namespace
+}
 
-bool doLoopBlocking(HIRFramework &HIRF, HIRDDAnalysis &DDA,
-                    HIRSafeReductionAnalysis &SRA, HIRLoopStatistics &HLS,
-                    TargetTransformInfo &TTI) {
+bool HIRLoopBlocking::run(bool ForPragma) {
 
   // Collect innermost loops first
   // Many of collections of data can be applied because we are
@@ -1645,31 +1864,131 @@ bool doLoopBlocking(HIRFramework &HIRF, HIRDDAnalysis &DDA,
   bool Changed = false;
   for (auto *InnermostLoop : InnermostLoops) {
 
+    if (InnermostLoop->isBlocked()) {
+      LLVM_DEBUG(dbgs() << "Loop Already Blocked: \n");
+      continue;
+    }
+
     if (HLS.getTotalLoopStatistics(InnermostLoop)
             .hasCallsWithUnsafeSideEffects())
       continue;
 
+    FuncName = HIRF.getFunction().getName();
+
+    // Analysis phase of Blocking pass determines the OutermostLoop to block
+    // and LoopMap which contains the blocksizes per loop which is passed to
+    // the transformation step
     LoopMapTy LoopMap;
-    HLLoop *OutermostLoop =
-        findLoopNestToBlock(HIRF, DDA, SRA, InnermostLoop, Advanced, LoopMap);
+    HLLoop *OutermostLoop = nullptr;
+
+    // Pragma constructs
+    HasPragma = hasLoopBlockingPragma(InnermostLoop);
+    LoopToPragma.clear();
+
+    if (!ForPragma && !HasPragma) {
+      OutermostLoop = findLoopNestToBlock(HIRF, HDDA, SRA, InnermostLoop,
+                                          Advanced, LoopMap);
+    } else if (ForPragma && HasPragma) {
+      HLLoop *OutermostPragmaLoop =
+          getLoopBlockingPragma(InnermostLoop, LoopToPragma);
+      if (!OutermostPragmaLoop) {
+        continue;
+      }
+      OutermostLoop =
+          setupPragmaBlocking(HDDA, SRA, InnermostLoop, OutermostPragmaLoop,
+                              FuncName, LoopToPragma, LoopMap);
+      assert(!LoopToPragma.empty() && "Expect Pragma info to be present!\n");
+    } else {
+      continue;
+    }
 
     if (!OutermostLoop)
       continue;
 
     LLVM_DEBUG(dbgs() << "Loop to Block: \n");
     LLVM_DEBUG(OutermostLoop->dump());
-    assert(OutermostLoop != InnermostLoop);
-    assert(!LoopMap.empty());
 
-    doTransformation(OutermostLoop, InnermostLoop, LoopMap,
-                     HIRF.getFunction().getName());
+    doTransformation(InnermostLoop, OutermostLoop, LoopMap);
 
     Changed = true;
   }
   return Changed;
 }
 
-} // namespace
+class HIRLoopBlockingLegacyPass : public HIRTransformPass {
+public:
+  static char ID;
+
+  HIRLoopBlockingLegacyPass() : HIRTransformPass(ID) {
+    initializeHIRLoopBlockingLegacyPassPass(*PassRegistry::getPassRegistry());
+  }
+
+  bool runOnFunction(Function &F) override;
+  void releaseMemory() override{};
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
+    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
+    AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
+    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
+    AU.addRequired<TargetTransformInfoWrapperPass>();
+
+    AU.setPreservesAll();
+  }
+};
+
+class HIRPragmaLoopBlockingLegacyPass : public HIRTransformPass {
+public:
+  static char ID;
+
+  HIRPragmaLoopBlockingLegacyPass() : HIRTransformPass(ID) {
+    initializeHIRPragmaLoopBlockingLegacyPassPass(
+        *PassRegistry::getPassRegistry());
+  }
+
+  bool runOnFunction(Function &F) override;
+  void releaseMemory() override{};
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequiredTransitive<HIRFrameworkWrapperPass>();
+    AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
+    AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
+    AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
+    AU.addRequired<TargetTransformInfoWrapperPass>();
+
+    AU.setPreservesAll();
+  }
+};
+
+char HIRLoopBlockingLegacyPass::ID = 0;
+INITIALIZE_PASS_BEGIN(HIRLoopBlockingLegacyPass, OPT_SWITCH, OPT_DESC, false,
+                      false)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
+INITIALIZE_PASS_END(HIRLoopBlockingLegacyPass, OPT_SWITCH, OPT_DESC, false,
+                    false)
+
+FunctionPass *llvm::createHIRLoopBlockingPass() {
+  return new HIRLoopBlockingLegacyPass();
+}
+
+char HIRPragmaLoopBlockingLegacyPass::ID = 0;
+INITIALIZE_PASS_BEGIN(HIRPragmaLoopBlockingLegacyPass, OPT_SWITCH_PRAGMA,
+                      OPT_DESC_PRAGMA, false, false)
+INITIALIZE_PASS_DEPENDENCY(HIRFrameworkWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysisWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysisWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopStatisticsWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
+INITIALIZE_PASS_END(HIRPragmaLoopBlockingLegacyPass, OPT_SWITCH_PRAGMA,
+                    OPT_DESC_PRAGMA, false, false)
+
+FunctionPass *llvm::createHIRPragmaLoopBlockingPass() {
+  return new HIRPragmaLoopBlockingLegacyPass();
+}
 
 bool HIRLoopBlockingLegacyPass::runOnFunction(Function &F) {
   if (DisablePass || skipFunction(F)) {
@@ -1683,7 +2002,7 @@ bool HIRLoopBlockingLegacyPass::runOnFunction(Function &F) {
   auto &HIRF = getAnalysis<HIRFrameworkWrapperPass>().getHIR();
   auto &HLS = getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
   auto &TTI = getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
-  return doLoopBlocking(HIRF, DDA, SRA, HLS, TTI);
+  return HIRLoopBlocking(HIRF, DDA, SRA, HLS, TTI).run(false);
 }
 
 PreservedAnalyses HIRLoopBlockingPass::run(llvm::Function &F,
@@ -1695,12 +2014,49 @@ PreservedAnalyses HIRLoopBlockingPass::run(llvm::Function &F,
 
   LLVM_DEBUG(dbgs() << OPT_DESC " for Function : " << F.getName() << "\n");
 
-  // TODO: How to use the return boolean return value from doLoopBlocking?
-  doLoopBlocking(AM.getResult<HIRFrameworkAnalysis>(F),
-                 AM.getResult<HIRDDAnalysisPass>(F),
-                 AM.getResult<HIRSafeReductionAnalysisPass>(F),
-                 AM.getResult<HIRLoopStatisticsAnalysis>(F),
-                 AM.getResult<TargetIRAnalysis>(F));
+  HIRLoopBlocking(AM.getResult<HIRFrameworkAnalysis>(F),
+                  AM.getResult<HIRDDAnalysisPass>(F),
+                  AM.getResult<HIRSafeReductionAnalysisPass>(F),
+                  AM.getResult<HIRLoopStatisticsAnalysis>(F),
+                  AM.getResult<TargetIRAnalysis>(F))
+      .run(false);
+
+  return PreservedAnalyses::all();
+}
+
+bool HIRPragmaLoopBlockingLegacyPass::runOnFunction(Function &F) {
+  if (DisablePragmaPass || skipFunction(F)) {
+    return false;
+  }
+
+  LLVM_DEBUG(dbgs() << OPT_DESC_PRAGMA " for Function : " << F.getName()
+                    << "\n");
+
+  auto &DDA = getAnalysis<HIRDDAnalysisWrapperPass>().getDDA();
+  auto &SRA = getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR();
+  auto &HIRF = getAnalysis<HIRFrameworkWrapperPass>().getHIR();
+  auto &HLS = getAnalysis<HIRLoopStatisticsWrapperPass>().getHLS();
+  auto &TTI = getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
+  return HIRLoopBlocking(HIRF, DDA, SRA, HLS, TTI).run(true);
+}
+
+PreservedAnalyses
+HIRPragmaLoopBlockingPass::run(llvm::Function &F,
+                               llvm::FunctionAnalysisManager &AM) {
+  // TODO: Is it a right way to skip function?
+  if (DisablePass) {
+    return PreservedAnalyses::all();
+  }
+
+  LLVM_DEBUG(dbgs() << OPT_DESC_PRAGMA " for Function : " << F.getName()
+                    << "\n");
+
+  HIRLoopBlocking(AM.getResult<HIRFrameworkAnalysis>(F),
+                  AM.getResult<HIRDDAnalysisPass>(F),
+                  AM.getResult<HIRSafeReductionAnalysisPass>(F),
+                  AM.getResult<HIRLoopStatisticsAnalysis>(F),
+                  AM.getResult<TargetIRAnalysis>(F))
+      .run(true);
 
   return PreservedAnalyses::all();
 }

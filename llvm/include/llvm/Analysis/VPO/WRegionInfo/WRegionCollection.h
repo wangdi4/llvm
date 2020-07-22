@@ -171,6 +171,10 @@ public:
   const_reverse_iterator rbegin() const { return WRGraph->rbegin(); }
   reverse_iterator rend() { return WRGraph->rend(); }
   const_reverse_iterator rend() const { return WRGraph->rend(); }
+
+  /// Return true, if WRegionCollectionAnalysis must be invalidated.
+  bool invalidate(Function &F, const PreservedAnalyses &PA,
+                  FunctionAnalysisManager::Invalidator &Inv);
 };
 
 /// WRegionCollection Pass for the legacy Pass Manager.

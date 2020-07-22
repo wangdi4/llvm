@@ -95,11 +95,15 @@ void VPExternalValues::dumpExternalDefs(raw_ostream &FOS) {
 }
 
 void VPExternalValues::dumpExternalUses(raw_ostream &FOS) {
-  if (VPExternalUses.empty())
+  if (VPExternalUses.empty() && VPExternalUsesHIR.empty())
     return;
   FOS << "External Uses:\n";
   for (auto &ExtUse : VPExternalUses) {
     ExtUse.second->dump(FOS);
+    FOS << "\n";
+  }
+  for (auto &ExtUse : VPExternalUsesHIR) {
+    ExtUse.dump(FOS);
     FOS << "\n";
   }
 }

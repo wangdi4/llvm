@@ -185,7 +185,7 @@ bool HIRLoopDistribution::run() {
       processPiBlocksToHLNodes(PG, NewOrdering, DistributedLoops);
 
       // Do scalar expansion analysis.
-      ScalarExpansion SCEX(false, DistributedLoops);
+      ScalarExpansion SCEX(Lp->getNestingLevel(), false, DistributedLoops);
 
       // Can't do the following assertion because scalar expansion is allowed in
       // for some cases, for example for Sparse Array Reductions.
@@ -408,7 +408,7 @@ void HIRLoopDistribution::insertTempArrayStore(HLLoop *Lp, RegDDRef *TempRef,
 
 void HIRLoopDistribution::createTempArrayLoad(RegDDRef *TempRef,
                                               RegDDRef *TmpArrayRef,
-                                              HLDDNode *Node,
+                                              HLNode *Node,
                                               bool TempRedefined) {
 
   // tx = TEMP[i]
@@ -417,22 +417,12 @@ void HIRLoopDistribution::createTempArrayLoad(RegDDRef *TempRef,
   const std::string TempName = "scextmp";
   HLInst *LoadInst = HNU.createLoad(TmpArrayRef->clone(), TempName, TempRef);
 
-  auto TmpNode = Node;
-  HLNode *IfParent;
-
   if (TempRedefined) {
     HLLoop *Lp = Node->getParentLoop();
-    IfParent = cast<HLDDNode>(Lp->getFirstChild());
-  } else {
-    // if stmt is inside an if, insertion should be done before If
-    // because we do insert once per loop
-    do {
-      IfParent = TmpNode;
-      TmpNode = dyn_cast<HLIf>(TmpNode->getParent());
-    } while (TmpNode);
+    Node = cast<HLDDNode>(Lp->getFirstChild());
   }
 
-  HLNodeUtils::insertBefore(IfParent, LoadInst);
+  HLNodeUtils::insertBefore(Node, LoadInst);
   updateLiveInAllocaTemp(Lp, TmpArrayRef->getBasePtrSymbase());
   TempArraySB.push_back(TmpArrayRef->getSymbase());
 }
@@ -446,14 +436,13 @@ bool ScalarExpansion::isScalarExpansionCandidate(const DDRef *Ref) const {
   // functionality
 
   const RegDDRef *RegRef = dyn_cast<RegDDRef>(Ref);
-  bool IsMemRef;
-
   if (!RegRef) {
     return true;
   }
 
-  if ((IsMemRef = RegRef->isMemRef()) && HasDistributePoint &&
-      RegRef->getNumDimensions() == 1) {
+  bool IsMemRef = RegRef->isMemRef();
+
+  if (IsMemRef && HasDistributePoint && RegRef->getNumDimensions() == 1) {
     auto BaseCE = RegRef->getBaseCE();
     return !BaseCE->isNonLinear() && RegRef->getDimensionIndex(1)->isZero();
   }
@@ -461,10 +450,56 @@ bool ScalarExpansion::isScalarExpansionCandidate(const DDRef *Ref) const {
   return !IsMemRef;
 }
 
-ScalarExpansion::ScalarExpansion(bool HasDistributePoint,
+ScalarExpansion::ScalarExpansion(unsigned Level, bool HasDistributePoint,
                                  ArrayRef<HLDDNodeList> Chunks)
-    : HasDistributePoint(HasDistributePoint) {
+    : Level(Level), HasDistributePoint(HasDistributePoint) {
   analyze(Chunks);
+}
+
+// Checks if \p SrcRef may be recomputed in the destination loop chunk \p J.
+bool ScalarExpansion::isSafeToRecompute(
+    const RegDDRef *SrcRef, unsigned J, const SymbaseLoopSetTy &SymbaseLoopSet,
+    const SparseBitVector<> &ModifiedSymbases) {
+  assert(SrcRef->isLval() && "SrcRef is expected to be LVal");
+
+  const HLInst *Inst = cast<HLInst>(SrcRef->getHLDDNode());
+
+  unsigned SrcRValLevel = 0;
+  bool IsSafeToRecompute =
+      !Inst->isCallInst() || !Inst->isUnsafeSideEffectsCallInst();
+
+  if (IsSafeToRecompute) {
+    for (const RegDDRef *RVal :
+        make_range(Inst->op_ddref_begin() + 1 /* Skip LVal */,
+                   Inst->op_ddref_end())) {
+
+      unsigned RValSB = RVal->getSymbase();
+
+      // Find the level where RVal is completely defined.
+      SrcRValLevel =
+          std::max(SrcRValLevel, RVal->getDefinedAtLevel());
+
+      // Find if it has IVs greater than found level.
+      for (unsigned IV = SrcRValLevel + 1; IV <= MaxLoopNestLevel;
+           ++IV) {
+        if (RVal->hasIV(IV)) {
+          SrcRValLevel = IV;
+        }
+      }
+
+      // RVal should be either linear at Level or be scheduled to
+      // recompute and not being modified.
+      if ((!RVal->isLinearAtLevel(Level) &&
+          !SymbaseLoopSet.count({RValSB, J})) ||
+          ModifiedSymbases.test(RValSB)) {
+        IsSafeToRecompute = false;
+        break;
+      }
+    }
+  }
+
+  // It also should be safe to recompute SrcRef at level of DstRef.
+  return IsSafeToRecompute && Level >= SrcRValLevel;
 }
 
 void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
@@ -484,16 +519,24 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
   SmallVector<Gatherer::VectorTy, 8> RefGroups;
   RefGroups.reserve(Chunks.size());
 
+  SparseBitVector<> ModifiedSymbases;
+
   for (auto &HLNodeList : Chunks) {
     RefGroups.emplace_back();
+    auto &CurGroup = RefGroups.back();
 
     for (HLDDNode *Node : HLNodeList) {
-      Gatherer::gather(Node, RefGroups.back());
+      Gatherer::gather(Node, CurGroup);
     }
+
+    std::for_each(CurGroup.begin(), CurGroup.end(), [&](const DDRef *Ref) {
+      if (Ref->isLval() && !Ref->isTerminalRef()) {
+        ModifiedSymbases.set(Ref->getSymbase());
+      }
+    });
   }
 
-  // <Symbase, Loop number>
-  SmallSet<std::pair<unsigned, unsigned>, 8> SymbaseLoopSet;
+  SymbaseLoopSetTy SymbaseLoopSet;
 
   for (unsigned I = 0, E = RefGroups.size(); I < E - 1; ++I) {
     for (DDRef *SrcRef : RefGroups[I]) {
@@ -531,6 +574,11 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
           Candidate &Cand = GetCandidateForSymbase(SB);
 
           if (Cand.SrcRefs.empty() || Cand.SrcRefs.back() != SrcRegRef) {
+            if (isSafeToRecompute(SrcRegRef, J, SymbaseLoopSet,
+                                  ModifiedSymbases)) {
+              Cand.SafeToRecompute = true;
+            }
+
             Cand.SrcRefs.push_back(SrcRegRef);
           }
 
@@ -539,7 +587,9 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
             continue;
           }
 
-          Cand.DstRefs.emplace_back(DstRef, TempRedefined);
+          // Push first ref in J group, this is where SrcRegRef should be loaded
+          // or recomputed, once per group J.
+          Cand.DstRefs.push_back({DstRef, Chunks[J].front(), TempRedefined});
 
           SymbaseLoopSet.insert({SB, J});
         }
@@ -553,6 +603,23 @@ void HIRLoopDistribution::replaceWithArrayTemp(
 
   for (auto &Candidate : Candidates) {
     RegDDRef *TmpArrayRef = nullptr;
+
+    if (!Candidate.isTempRequired()) {
+      HLInst *SrcInst = cast<HLInst>(Candidate.SrcRefs.front()->getHLDDNode());
+
+      for (auto DstCand : Candidate.DstRefs) {
+        HLNode *DstNode = DstCand.FirstNode;
+
+        if (DstCand.IsTempRedefined) {
+          HLLoop *Lp = DstNode->getParentLoop();
+          DstNode = cast<HLDDNode>(Lp->getFirstChild());
+        }
+
+        HLNodeUtils::insertBefore(DstNode, SrcInst->clone());
+      }
+
+      continue;
+    }
 
     // Create TEMP[i] = tx and insert
     for (RegDDRef *SrcRef : Candidate.SrcRefs) {
@@ -570,7 +637,7 @@ void HIRLoopDistribution::replaceWithArrayTemp(
     assert(TmpArrayRef && "Temp Store missing");
 
     for (auto DstRefPair : Candidate.DstRefs) {
-      DDRef *DstRef = DstRefPair.first;
+      DDRef *DstRef = DstRefPair.Ref;
 
       // Prepare LVal for the load from temp array. SinkRef could be
       // either a temp %t or an invariant memref %a[0].
@@ -584,8 +651,8 @@ void HIRLoopDistribution::replaceWithArrayTemp(
               // Use a clone in case of memref.
               : cast<RegDDRef>(DstRef->clone());
 
-      createTempArrayLoad(SinkTempRef, TmpArrayRef, DstRef->getHLDDNode(),
-                          DstRefPair.second);
+      createTempArrayLoad(SinkTempRef, TmpArrayRef, DstRefPair.FirstNode,
+                          DstRefPair.IsTempRedefined);
     }
   }
 }
@@ -1168,7 +1235,7 @@ unsigned HIRLoopDistribution::distributeLoopForDirective(HLLoop *Lp) {
 
   SmallVector<HLDDNodeList, 8> DistributedLoops;
   collectHNodesForDirective(Lp, DistributedLoops, CurLoopHLDDNodeList);
-  ScalarExpansion SCEX(true, DistributedLoops);
+  ScalarExpansion SCEX(Lp->getNestingLevel(), true, DistributedLoops);
   distributeLoop(Lp, DistributedLoops, SCEX, HIRF.getLORBuilder(), true);
   return Success;
 }

@@ -1732,20 +1732,30 @@ void CodeGenModule::getDefaultFunctionAttributes(StringRef Name,
 #if INTEL_CUSTOMIZATION
   if (getLangOpts().isIntelCompat(LangOptions::IMFAttributes)) {
     llvm::StringSet<> FuncOwnAttrs;
-    auto FuncMapIt = getLangOpts().ImfAttrFuncMap.find(Name);
+    auto FuncMapIt = getLangOpts().ImfAttrFuncMap.find(Name.str());
     if (FuncMapIt != getLangOpts().ImfAttrFuncMap.end()) {
       // The function has its own set of attributes.
-      for (const auto &AttrPair : FuncMapIt->second) {
-        FuncAttrs.addAttribute("imf-" + AttrPair.first().str(),
+      for (const std::pair<std::string, std::string> &AttrPair :
+           FuncMapIt->second) {
+        FuncAttrs.addAttribute("imf-" + AttrPair.first,
                                AttrPair.second);
-        FuncOwnAttrs.insert(AttrPair.first());
+        FuncOwnAttrs.insert(AttrPair.first);
       }
     }
     // Add attributes not specific to any function, if that kind not explicitly
     // specified for this function.
-    for (const auto &AttrPair : getLangOpts().ImfAttrMap) {
-      if (FuncOwnAttrs.find(AttrPair.first()) == FuncOwnAttrs.end()) {
-        FuncAttrs.addAttribute("imf-" + AttrPair.first().str(),
+    for (const std::pair<std::string, std::string> &AttrPair :
+         getLangOpts().ImfAttrMap) {
+      if (FuncOwnAttrs.find(AttrPair.first) == FuncOwnAttrs.end()) {
+        FuncAttrs.addAttribute("imf-" + AttrPair.first,
+                               AttrPair.second);
+      }
+    }
+    FuncMapIt = getLangOpts().ImfAttrFuncMap.find("sqrt");
+    if (FuncMapIt != getLangOpts().ImfAttrFuncMap.end()) {
+      for (const std::pair<std::string, std::string> &AttrPair :
+           FuncMapIt->second) {
+        FuncAttrs.addAttribute("imf-" + AttrPair.first + "-sqrt",
                                AttrPair.second);
       }
     }

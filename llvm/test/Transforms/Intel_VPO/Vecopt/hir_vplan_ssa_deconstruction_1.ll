@@ -125,7 +125,7 @@ define void @foo(float* noalias nocapture %arr1, float* noalias nocapture %arr2,
 ; CHECK-NEXT:  <46>               |   [[BB3]].{{[0-9]+}}:
 ; CHECK-NEXT:  <47>               |   [[RED_VAR0]] = [[PHI_TEMP20]]  +  [[PHI_TEMP0]]
 ; CHECK-NEXT:  <26>               + END LOOP
-; CHECK-NEXT:  <48>                 [[RED_PHI0]] = @llvm.experimental.vector.reduce.v2.fadd.f32.v4f32([[RED_PHI0]],  [[RED_VAR0]])
+; CHECK-NEXT:  <48>                 [[VEC_REDUCE:%.*]] = @llvm.experimental.vector.reduce.v2.fadd.f32.v4f32([[RED_PHI0]],  [[RED_VAR0]])
 ; CHECK-NEXT:  <0>          END REGION
 ;
 

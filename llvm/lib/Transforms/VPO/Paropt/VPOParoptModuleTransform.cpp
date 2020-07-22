@@ -518,8 +518,12 @@ bool VPOParoptModuleTransform::doParoptTransforms(
     LLVM_DEBUG(dbgs() << "\n=== VPOParoptPass Process func: " << F->getName()
                       << " {\n");
 
+    WRegionInfo &WI = WRegionInfoGetter(*F, &Changed);
+
     if ((Mode & OmpPar) && (Mode & ParTrans)) {
-      Changed |= VPOUtils::removeBranchesFromBeginToEndDirective(*F);
+      auto *DT = WI.getDomTree();
+      auto *TLI = WI.getTargetLibraryInfo();
+      Changed |= VPOUtils::removeBranchesFromBeginToEndDirective(*F, TLI, DT);
       if (Changed)
         LLVM_DEBUG(
             dbgs()
@@ -528,7 +532,6 @@ bool VPOParoptModuleTransform::doParoptTransforms(
     }
 
     // Walk the W-Region Graph top-down, and create W-Region List
-    WRegionInfo &WI = WRegionInfoGetter(*F, &Changed);
     WI.buildWRGraph();
 
     if (WI.WRGraphIsEmpty()) {

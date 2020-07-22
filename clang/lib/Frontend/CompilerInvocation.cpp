@@ -2730,7 +2730,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
         if (IMFAttrElement.size() == 2) {
           std::pair<LangOptions::IMFAttrMap::iterator, bool> Res =
               Opts.ImfAttrMap.insert(
-                  {IMFAttrElement[0], std::string(IMFAttrElement[1])});
+                  {IMFAttrElement[0].str(), IMFAttrElement[1].str()});
           if (!Res.second) {
             // Update the existing attribute.
             Res.first->second = std::string(IMFAttrElement[1]);
@@ -2739,12 +2739,12 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
           SmallVector<StringRef, 30> FuncList;
           IMFAttrElement[2].split(FuncList, ',');
           for (StringRef FuncName : FuncList) {
-            auto FuncMapIt = Opts.ImfAttrFuncMap.find(FuncName);
+            auto FuncMapIt = Opts.ImfAttrFuncMap.find(FuncName.str());
             if (FuncMapIt != Opts.ImfAttrFuncMap.end()) {
               // The function is already in the map, add options to it.
               std::pair<LangOptions::IMFAttrMap::iterator, bool> Res =
                   FuncMapIt->second.insert(
-                      {IMFAttrElement[0], std::string(IMFAttrElement[1])});
+                      {IMFAttrElement[0].str(), IMFAttrElement[1].str()});
               if (!Res.second) {
                 // Update the existing attribute.
                 Res.first->second = std::string(IMFAttrElement[1]);
@@ -2752,9 +2752,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
             } else {
               // The first appearence of the function in the imf attributes.
               LangOptions::IMFAttrMap NewMap;
-              NewMap.insert(
-                  {IMFAttrElement[0], std::string(IMFAttrElement[1])});
-              Opts.ImfAttrFuncMap.insert({FuncName, std::move(NewMap)});
+              NewMap.insert({IMFAttrElement[0].str(), IMFAttrElement[1].str()});
+              Opts.ImfAttrFuncMap.insert({FuncName.str(), std::move(NewMap)});
             }
           }
         }

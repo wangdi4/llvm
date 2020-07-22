@@ -27,6 +27,7 @@ ModulePass* createDataPerBarrierPass();
 ModulePass* createDataPerValuePass();
 ModulePass* createKernelBarrierPass(bool isNativeDebug, bool useTLSGlobals);
 ModulePass* createBarrierInFunctionPass();
+ModulePass* createPostBarrierPass();
 
 } // namespace llvm
 
