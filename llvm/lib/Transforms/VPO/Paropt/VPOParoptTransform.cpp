@@ -9783,63 +9783,140 @@ bool VPOParoptTransform::collapseOmpLoops(WRegionNode *W) {
     ORE.emit(R);
   }
 
+  // IsTopLevelTargetLoop is true only if the current region
+  // is a single top-level loop region enclosed into a target region.
+  //
+  // For example:
+  // #pragma omp target teams
+  //   {
+  //     <code without OpenMP loops>
+  //     #pragma omp distribute/parallel for
+  //     for (...) ...;
+  //     <code without OpenMP loops>
+  //   }
+  // The distribute/parallel for loop is a top-level loop region.
+  //
+  // For example:
+  // #pragma omp target teams
+  //   {
+  //     <code without OpenMP loops>
+  //     #pragma omp distribute
+  //     for (...) {
+  //       <code without OpenMP loops>
+  //       #pragma omp parallel for
+  //       for (...) ...;
+  //       <code without OpenMP loops>
+  //     }
+  //     <code without OpenMP loops>
+  //   }
+  // The distribute loop is a top-level loop region.
+  // The parallel for is not a top-level loop region.
+  bool IsTopLevelTargetLoop = true;
+  if (!WTarget) {
+    IsTopLevelTargetLoop = false;
+  } else {
+    auto IsNotTargetRegion = [](WRegionNode *W) {
+                               return !isa<WRNTargetNode>(W);
+                             };
+
+    // Traverse ancestors up to the enclosing target region,
+    // or up to the last one (if there is no enclosing target
+    // region), and check if there is an enclosing loop region.
+    if (WRegionUtils::getParentRegion(W,
+            [](WRegionNode *W) {
+              return W->getIsOmpLoop();
+            },
+            IsNotTargetRegion))
+      IsTopLevelTargetLoop = false;
+
+    // Traverse ancestors up to the enclosing target region,
+    // or up to the last one (if there is no enclosing target
+    // region), and check if any of the ancestors has more than
+    // one child region.
+    // For example:
+    // #pragma omp target teams
+    //   {
+    //     #pragma omp distribute parallel for
+    //     for (...) ...;
+    //     #pragma omp distribute parallel for
+    //     for (...) ...;
+    //   }
+    // Neither of the loop regions is a top-level loop region.
+    //
+    // We could have allowed that actually. For example, if loop bounds
+    // computations may be hoisted outside of the target region for both
+    // loops, we could set two NDRANGE clauses for the target region,
+    // and then set the runtime ND-range to the maximum of the two.
+    if (WRegionUtils::getParentRegion(W,
+            [](WRegionNode *W) {
+              return W->getNumChildren() > 1;
+            },
+            IsNotTargetRegion))
+      IsTopLevelTargetLoop = false;
+  }
+
   bool HoistCombinedUBBeforeTarget = false;
   bool SetNDRange = false;
   bool Use1DRange = false;
 
-  if (NumLoops > 3 ||
-      // Always collapse "omp distribute" loop nests.
-      // Ideally, on SPIR targets each iteration of the collapsed loop nest
-      // must be run by one WG, but there is currently no way to communicate
-      // this to the runtime.
-      //
-      // TODO:
-      //   #pragma omp distribute collapse(2)
-      //   for (int i = 0; i < 10; ++i)
-      //     for (int j = 0; j < 10; ++j)
-      //
-      // When we collapse the loop, the global size becomes 100,
-      // and the local size must be 1. Then, the parallel threads
-      // running the inner "parallel" regions may be created by
-      // using another ND-range dimension, e.g. with
-      // global size (100, N), and local size (1, N).
-      // N may not exceed the kernel limitations, and this limit
-      // is only known in runtime. We need to communicate to runtime
-      // that it has to choose some N and use it both for global
-      // and local sizes for 0 dimension.
-      isa<WRNDistributeNode>(W)) {
-    // FIXME: this is a temporary limitation. We need to decide
-    //        which loops to collapse for SPIR target and leave
-    //        3 of them for 3D-range parallelization.
-    if (CanHoistCombinedUBBeforeTarget &&
-        VPOParoptUtils::getSPIRExecutionScheme() == spirv::ImplicitSIMDSPMDES) {
-      // Collapse the loop nest and use 1D range.
-      HoistCombinedUBBeforeTarget = true;
-      SetNDRange = true;
-      Use1DRange = true;
+  if (IsTopLevelTargetLoop) {
+    // Use NDRANGE clause only for top-level loops enclosed into
+    // a target region.
+    if (NumLoops > 3 ||
+        // Always collapse "omp distribute" loop nests.
+        // Ideally, on SPIR targets each iteration of the collapsed loop nest
+        // must be run by one WG, but there is currently no way to communicate
+        // this to the runtime.
+        //
+        // TODO:
+        //   #pragma omp distribute collapse(2)
+        //   for (int i = 0; i < 10; ++i)
+        //     for (int j = 0; j < 10; ++j)
+        //
+        // When we collapse the loop, the global size becomes 100,
+        // and the local size must be 1. Then, the parallel threads
+        // running the inner "parallel" regions may be created by
+        // using another ND-range dimension, e.g. with
+        // global size (100, N), and local size (1, N).
+        // N may not exceed the kernel limitations, and this limit
+        // is only known in runtime. We need to communicate to runtime
+        // that it has to choose some N and use it both for global
+        // and local sizes for 0 dimension.
+        isa<WRNDistributeNode>(W)) {
+      // FIXME: this is a temporary limitation. We need to decide
+      //        which loops to collapse for SPIR target and leave
+      //        3 of them for 3D-range parallelization.
+      if (CanHoistCombinedUBBeforeTarget &&
+          VPOParoptUtils::getSPIRExecutionScheme() ==
+          spirv::ImplicitSIMDSPMDES) {
+        // Collapse the loop nest and use 1D range.
+        HoistCombinedUBBeforeTarget = true;
+        SetNDRange = true;
+        Use1DRange = true;
+      }
+      // Otherwise, collapse the loop nest for all targets and the host
+      // and do not use any ND-range.
     }
-    // Otherwise, collapse the loop nest for all targets and the host
-    // and do not use any ND-range.
-  }
-  else if (CanHoistCombinedUBBeforeTarget &&
-           VPOParoptUtils::getSPIRExecutionScheme() ==
-           spirv::ImplicitSIMDSPMDES) {
-    // Do not collapse the loop nest for SPIR target.
-    if (isTargetSPIRV()) {
-      if (W->getCollapse() == 0)
-        LLVM_DEBUG(dbgs() <<
-                   "ND-range parallelization will be applied for loop.\n");
-      else
-        LLVM_DEBUG(dbgs() << "Loop nest left uncollapsed for SPIR target. " <<
-                   "ND-range parallelization will be applied.\n");
-      setNDRangeClause(WTarget, W, W->getWRNLoopInfo().getNormUBs());
-      return Exiter(true);
-    }
+    else if (CanHoistCombinedUBBeforeTarget &&
+             VPOParoptUtils::getSPIRExecutionScheme() ==
+             spirv::ImplicitSIMDSPMDES) {
+      // Do not collapse the loop nest for SPIR target.
+      if (isTargetSPIRV()) {
+        if (W->getCollapse() == 0)
+          LLVM_DEBUG(dbgs() <<
+                     "ND-range parallelization will be applied for loop.\n");
+        else
+          LLVM_DEBUG(dbgs() << "Loop nest left uncollapsed for SPIR target. " <<
+                     "ND-range parallelization will be applied.\n");
+        setNDRangeClause(WTarget, W, W->getWRNLoopInfo().getNormUBs());
+        return Exiter(true);
+      }
 
-    // Collapse the loop nest for all other targets and the host
-    // and use NumLoops ND-range. Note that we do not need to hoist
-    // the combined upper bound computation before the target region.
-    SetNDRange = true;
+      // Collapse the loop nest for all other targets and the host
+      // and use NumLoops ND-range. Note that we do not need to hoist
+      // the combined upper bound computation before the target region.
+      SetNDRange = true;
+    }
   }
 
   if (NumLoops == 1) {
