@@ -80,6 +80,10 @@ static cl::opt<bool> EnablePreLTOInlineCost(
     "pre-lto-inline-cost", cl::Hidden, cl::init(false),
     cl::desc("Enable pre-LTO inline cost"));
 
+static cl::opt<bool> EnableLTOInlineCost(
+    "lto-inline-cost", cl::Hidden, cl::init(false),
+    cl::desc("Enable LTO inline cost"));
+
 // Threshold to use when optsize is specified (and there is no -inline-limit).
 // CQ370998: Reduce the threshold from 75 to 15 to reduce code size.
 static cl::opt<int> OptSizeThreshold(
@@ -217,6 +221,23 @@ static cl::opt<unsigned> DummyArgsMinCallsiteCount(
     "inlining-dummy-args-min-callsite-count", cl::init(5),
     cl::ReallyHidden,
     cl::desc("Minimum callsite count for dummy-args function"));
+
+// To be considered a small application, the program should have no more than
+// this many callsites to 'defined' Functions.
+static cl::opt<unsigned> SmallAppUserCallBaseMax(
+    "inlining-small-app-user-callbase-max", cl::init(25), cl::ReallyHidden,
+    cl::desc("Maximum number calls to user functions in small app"));
+
+// No more than this many additional inlinings should be performed purely
+// because this is a small application.
+static cl::opt<unsigned> SmallAppUserMaxExtraCallBases(
+    "inlining-small-app-max-extra-callbases", cl::init(10), cl::ReallyHidden,
+    cl::desc("Maximum number of extra calls to inline in small app"));
+
+// Use this to force the opt level used for inlining heuristics in LIT tests
+static cl::opt<unsigned> ForcedInlineOptLevel(
+    "forced-inline-opt-level", cl::init(0), cl::ReallyHidden,
+    cl::desc("Forced inlining opt level"));
 
 #endif // INTEL_CUSTOMIZATION
 
@@ -3080,6 +3101,182 @@ static bool worthInliningForStackComputations(Function *F,
 }
 
 //
+// Return 'true' if 'CB' is worth inlining becuase it appears in a small
+// application. We allow more inlining in small applications because the
+// user will generally be more tolerant of longer compile time and less
+// tolerant of lower performance.
+//
+static bool worthInliningForSmallApp(CallBase &CB,
+                                     const TargetTransformInfo &CalleeTTI,
+                                     InliningLoopInfoCache &ILIC,
+                                     WholeProgramInfo *WPI,
+                                     bool LinkForLTO,
+                                     unsigned InlineOptLevel) {
+
+  //
+  // Return 'true' if the allowed number of calls to 'defined' Functions
+  // is greater than 'Limit'. This will disqualify 'CB' for inlining under
+  // the small application inlining heuristic.
+  //
+  auto SmallCallLimitExceeded = [](Module &M, unsigned Limit) -> bool {
+    unsigned CallBaseCount = 0;
+    for (auto &F : M.functions()) {
+      if (F.isDeclaration())
+        continue;
+      for (User *U : F.users()) {
+        auto CB = dyn_cast<CallBase>(U);
+        if (!CB)
+          continue;
+        if (++CallBaseCount > Limit)
+          return true;
+      }
+     }
+     return false;
+  };
+
+  //
+  // Return 'true' if the program we are compiling is considered a small
+  // application, and therefore eligible for more inlining under the small
+  // application inlining heuristic.
+  //
+  auto IsSmall = [&SmallCallLimitExceeded](Module &M) -> bool {
+    static bool IsAlreadyTested = false;
+    static bool IsSmallApp = false;
+    if (IsAlreadyTested)
+      return IsSmallApp;
+    IsSmallApp = !SmallCallLimitExceeded(M, SmallAppUserCallBaseMax);
+    IsAlreadyTested = true;
+    return IsSmallApp;
+  };
+
+  //
+  // Return 'true' if the program we are compiling passes some initial,
+  // general conditions for being a small application: A small Fortran
+  // program compiled on the link step with -O3 -flto -xCORE-AVX2, and
+  // is whole program "read".
+  //
+  auto PassesMinimalConditions = [&IsSmall](CallBase &CB,
+                                            const TargetTransformInfo
+                                                &CalleeTTI,
+                                            WholeProgramInfo *WPI,
+                                            bool LinkForLTO,
+                                            unsigned InlineOptLevel) -> bool {
+    if (!(LinkForLTO || EnableLTOInlineCost))
+      return false;
+    if (!WPI || !WPI->isWholeProgramRead())
+      return false;
+    if (!(ForcedInlineOptLevel >= 3 || InlineOptLevel >= 3))
+      return false;
+    Function *Caller = CB.getCaller();
+    Function *Callee = CB.getCalledFunction();
+    if (!Caller->isFortran() || !Callee->isFortran())
+      return false;
+    auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
+    if (!CalleeTTI.isAdvancedOptEnabled(TTIAVX2))
+      return false;
+    if (!IsSmall(*(Callee->getParent())))
+      return false;
+    return true;
+  };
+
+  //
+  // Return 'true' if 'CB' has a collection of no less than CandidateMin
+  // callsites more than CandidateMax callsites which qualify for inlining
+  // under the small application inlining heuristic. Currently, these should
+  // be calls to the same Function in the same caller, all of which are in
+  // loops. If we return 'true', put those calls into 'CBSet'.
+  //
+  auto HasSmallAppCBSet = [](CallBase &CB,
+                             InliningLoopInfoCache &ILIC,
+                             SmallPtrSetImpl<CallBase *> &CBSet,
+                             unsigned CandidateMin,
+                             unsigned CandidateMax) -> bool {
+    unsigned Count = 0;
+    Function *Caller = CB.getCaller();
+    Function *Callee = CB.getCalledFunction();
+    for (User *U : Callee->users()) {
+      auto CBX = dyn_cast<CallBase>(U);
+      if (!CBX)
+        continue;
+      Function *CallerX = CBX->getCaller();
+      if (CallerX != Caller)
+        continue;
+      LoopInfo *LI = ILIC.getLI(CallerX);
+      if (!LI->getLoopFor(CBX->getParent()))
+        continue;
+      CBSet.insert(CBX);
+      if (++Count > CandidateMax) {
+        CBSet.clear();
+        return false;
+      }
+    }
+    if (CBSet.size() < CandidateMin) {
+      CBSet.clear();
+      return false;
+    }
+    return true;
+  };
+
+  //
+  // Return 'true' if 'CB0' and 'CB1' match well enough to qualify them as
+  // a pair of callsites for inlining under the small application inlining
+  // heuristic. Currently, we are looking for callsites that have at least
+  // one matching actual parameter and for which all other matching parameters
+  // are either both fed by an AllocInst or SubscriptInst.
+  //
+  auto MatchedPair = [](CallBase &CB0, CallBase &CB1) -> bool {
+    if (CB0.getNumArgOperands() != CB1.getNumArgOperands())
+      return false;
+    bool SawMatch = false;
+    for (unsigned I = 0, E = CB0.getNumArgOperands(); I < E; I++) {
+      Value *V0 = CB0.getArgOperand(I);
+      Value *V1 = CB1.getArgOperand(I);
+      if (V0 == V1)
+        SawMatch = true;
+      if (isa<AllocaInst>(V0) && isa<AllocaInst>(V1))
+        continue;
+      if (isa<SubscriptInst>(V0) && isa<SubscriptInst>(V1))
+        continue;
+      return false;
+    }
+    return SawMatch;
+  };
+
+  //
+  // Return 'true' if each callsite in 'CBSet' matches the adjacent callsites
+  // in the set.
+  //
+  auto Matches = [&MatchedPair](SmallPtrSetImpl<CallBase *> &CBSet) -> bool {
+    for (auto I = CBSet.begin(), E = CBSet.end(), J = I; I != E; I = J) {
+      if (++J == E)
+        return true;
+      if (!MatchedPair(**I, **J))
+        return false;
+    }
+    return true;
+  };
+
+  // Main code for worthInliningForSmallApp
+  const unsigned CandidateMin = 2;
+  const unsigned CandidateMax = 3;
+  static SmallPtrSet<CallBase *, 10> QualifiedCallBases;
+  if (!PassesMinimalConditions(CB, CalleeTTI, WPI, LinkForLTO, InlineOptLevel))
+    return false;
+  if (QualifiedCallBases.count(&CB))
+    return true;
+  if (QualifiedCallBases.size() + CandidateMin > SmallAppUserMaxExtraCallBases)
+    return false;
+  SmallPtrSet<CallBase *, 3> CBSet;
+  if (!HasSmallAppCBSet(CB, ILIC, CBSet, CandidateMin, CandidateMax))
+    return false;
+  if (!Matches(CBSet))
+    return false;
+  for (CallBase *CBX : CBSet)
+    QualifiedCallBases.insert(CBX);
+  return true;
+}
+
+//
 // Test a series of special conditions to determine if it is worth inlining
 // if any of them appear. (These have been gathered together into a single
 // function to make an early exit easy to accomplish and save compile time.)
@@ -3090,8 +3287,11 @@ static int worthInliningUnderSpecialCondition(CallBase &CB,
                                                const TargetTransformInfo
                                                    &CalleeTTI,
                                                InliningLoopInfoCache &ILIC,
+                                               WholeProgramInfo *WPI,
                                                ProfileSummaryInfo *PSI,
                                                bool PrepareForLTO,
+                                               bool LinkForLTO,
+                                               unsigned InlineOptLevel,
                                                bool IsCallerRecursive,
                                                SmallPtrSetImpl<Function *>
                                                    *QueuedCallers,
@@ -3170,6 +3370,11 @@ static int worthInliningUnderSpecialCondition(CallBase &CB,
   }
   if (preferInlineAggressive(CB)) {
     YesReasonVector.push_back(InlrAggInline);
+    return -InlineConstants::InliningHeuristicBonus;
+  }
+  if (worthInliningForSmallApp(CB, CalleeTTI, ILIC, WPI, LinkForLTO,
+      InlineOptLevel)) {
+    YesReasonVector.push_back(InlrHasSmallAppBudget);
     return -InlineConstants::InliningHeuristicBonus;
   }
   return 0;
@@ -3281,7 +3486,7 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
 #if INTEL_CUSTOMIZATION
       InlineCostCallAnalyzer CA(*F, Call, IndirectCallParams, TTI,
                                 GetAssumptionCache, GetBFI, PSI, ORE, TLI, ILIC,
-                                false);
+                                WPI, false);
 #endif // INTEL_CUSTOMIZATION
       if (CA.analyze(TTI).isSuccess()) { // INTEL
         // We were able to inline the indirect call! Subtract the cost from the
@@ -3505,6 +3710,8 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
 
 #if INTEL_CUSTOMIZATION
     bool PrepareForLTO = Params.PrepareForLTO.getValueOr(false);
+    bool LinkForLTO = Params.LinkForLTO.getValueOr(false);
+    unsigned InlineOptLevel = Params.InlineOptLevel.getValueOr(0);
     Function *Callee = CandidateCall.getCalledFunction();
     if (Callee && InlineForXmain) {
       Optional<uint64_t> ProfCount = profInstrumentCount(PSI, CandidateCall);
@@ -3586,8 +3793,9 @@ class InlineCostCallAnalyzer final : public CallAnalyzer {
     if (InlineForXmain) {
       if (&F == CandidateCall.getCalledFunction()) {
         addCost(worthInliningUnderSpecialCondition(
-            CandidateCall, *TLI, CalleeTTI, *ILIC, PSI, PrepareForLTO,
-            IsCallerRecursive, &QueuedCallers, YesReasonVector));
+            CandidateCall, *TLI, CalleeTTI, *ILIC, WPI, PSI, PrepareForLTO,
+            LinkForLTO, InlineOptLevel, IsCallerRecursive, &QueuedCallers,
+            YesReasonVector));
       }
     }
 #endif // INTEL_CUSTOMIZATION
@@ -3623,7 +3831,7 @@ public:
 #if INTEL_CUSTOMIZATION
       OptimizationRemarkEmitter *ORE = nullptr,
       TargetLibraryInfo *TLI = nullptr, InliningLoopInfoCache *ILIC = nullptr,
-      bool BoostIndirect = true,
+      WholeProgramInfo *WPI = nullptr, bool BoostIndirect = true,
 #endif // INTEL_CUSTOMIZATION
       bool IgnoreThreshold = false)
       : CallAnalyzer(Callee, Call, TTI, GetAssumptionCache, GetBFI, PSI, ORE),
@@ -3633,7 +3841,7 @@ public:
         BoostIndirectCalls(BoostIndirect), IgnoreThreshold(IgnoreThreshold),
 #if INTEL_CUSTOMIZATION
         EarlyExitThreshold(INT_MAX), EarlyExitCost(INT_MAX), TLI(TLI),
-        ILIC(ILIC), SubtractedBonus(false), Writer(this) {
+        ILIC(ILIC), WPI(WPI), SubtractedBonus(false), Writer(this) {
   }
 
   // The cost and the threshold used for early exit during usual
@@ -3644,8 +3852,9 @@ public:
   int EarlyExitThreshold;
   int EarlyExitCost;
 
-  TargetLibraryInfo* TLI;
-  InliningLoopInfoCache* ILIC;
+  TargetLibraryInfo *TLI;
+  InliningLoopInfoCache *ILIC;
+  WholeProgramInfo *WPI;
 
   // Indicates that a single basic block bonus that was proposed for the
   // threshold has already been subtracted.
@@ -5429,9 +5638,9 @@ InlineCost llvm::getInlineCost(
     function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
 #if INTEL_CUSTOMIZATION
     ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE,
-    InliningLoopInfoCache *ILIC) {
+    InliningLoopInfoCache *ILIC, WholeProgramInfo *WPI) {
   return getInlineCost(Call, Call.getCalledFunction(), Params, CalleeTTI,
-                       GetAssumptionCache, GetTLI, GetBFI, PSI, ORE, ILIC);
+                       GetAssumptionCache, GetTLI, GetBFI, PSI, ORE, ILIC, WPI);
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -5441,7 +5650,8 @@ Optional<int> llvm::getInliningCostEstimate(
     function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
 #if INTEL_CUSTOMIZATION
     ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE,
-    TargetLibraryInfo *TLI, InliningLoopInfoCache *ILIC) {
+    TargetLibraryInfo *TLI, InliningLoopInfoCache *ILIC,
+    WholeProgramInfo *WPI) {
 #endif // INTEL_CUSTOMIZATION
   const InlineParams Params = {/* DefaultThreshold*/ 0,
                                /*HintThreshold*/ {},
@@ -5456,8 +5666,7 @@ Optional<int> llvm::getInliningCostEstimate(
 
   InlineCostCallAnalyzer CA(*Call.getCalledFunction(), Call, Params, CalleeTTI,
                             GetAssumptionCache, GetBFI, PSI, ORE, TLI, // INTEL
-                            ILIC, true,                                // INTEL
-                            /*IgnoreThreshold*/ true);
+                            ILIC, WPI, true, /*IgnoreThreshold*/ true);// INTEL
   auto R = CA.analyze(CalleeTTI); // INTEL
   if (!R.isSuccess())
     return None;
@@ -5554,7 +5763,7 @@ InlineCost llvm::getInlineCost(
     function_ref<BlockFrequencyInfo &(Function &)> GetBFI,
 #if INTEL_CUSTOMIZATION
     ProfileSummaryInfo *PSI, OptimizationRemarkEmitter *ORE,
-    InliningLoopInfoCache *ILIC) {
+    InliningLoopInfoCache *ILIC, WholeProgramInfo *WPI) {
 #endif // INTEL_CUSTOMIZATION
 
   auto UserDecision =
@@ -5582,7 +5791,7 @@ InlineCost llvm::getInlineCost(
   auto TLI = GetTLI(*Callee);
   InlineCostCallAnalyzer CA(*Callee, Call, Params, CalleeTTI,
                             GetAssumptionCache, GetBFI, PSI, ORE, &TLI, ILIC,
-                            true);
+                            WPI, true);
   InlineResult ShouldInline = CA.analyze(CalleeTTI);
   InlineReason Reason = ShouldInline.getIntelInlReason();
 #endif // INTEL_CUSTOMIZATION
@@ -5756,13 +5965,23 @@ InlineParams llvm::getInlineParams(unsigned OptLevel, unsigned SizeOptLevel) {
 #if INTEL_CUSTOMIZATION
 // This routine does exactly same as what "getInlineParams(unsigned OptLevel,
 // unsigned SizeOptLevel)" function does except it also sets PrepareForLTO
-// flag in "InlineParams" based on "PrepareForLTO".
+// and LinkForLTO flags in "InlineParams" based on "PrepareForLTO" and
+// "LinkForLTO".
 InlineParams llvm::getInlineParams(unsigned OptLevel, unsigned SizeOptLevel,
-                                   bool PrepareForLTO) {
+                                   bool PrepareForLTO, bool LinkForLTO) {
   InlineParams InlParams;
-
-  InlParams = getInlineParams(OptLevel, SizeOptLevel);
+  assert((!PrepareForLTO || !LinkForLTO) && "Inconsistent LTO inline opts");
+  //
+  // If 'LinkForLTO' call getInlineParams() so that the thresholds are not
+  // modified. This maintains the current behavior of the community version.
+  //
+  if (LinkForLTO)
+    InlParams = getInlineParams();
+  else
+    InlParams = getInlineParams(OptLevel, SizeOptLevel);
   InlParams.PrepareForLTO = PrepareForLTO;
+  InlParams.LinkForLTO = LinkForLTO;
+  InlParams.InlineOptLevel = OptLevel;
   return InlParams;
 }
 #endif // INTEL_CUSTOMIZATION

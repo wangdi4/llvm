@@ -108,7 +108,8 @@ Pass *createFunctionInliningPass();
 Pass *createFunctionInliningPass(int Threshold);
 Pass *createFunctionInliningPass(unsigned OptLevel, unsigned SizeOptLevel,
                                  bool DisableInlineHotCallSite, // INTEL
-                                 bool PrepareForLTO = false);   // INTEL
+                                 bool PrepareForLTO = false,    // INTEL
+                                 bool LinkForLTO = false);      // INTEL
 Pass *createFunctionInliningPass(InlineParams &Params);
 
 //===----------------------------------------------------------------------===//

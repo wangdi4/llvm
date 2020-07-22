@@ -85,7 +85,7 @@ public:
     return llvm::getInlineCost(CB, Params, TTI, GetAssumptionCache, GetTLI,
                                /*GetBFI=*/nullptr, PSI,
                                RemarksEnabled ? &ORE : nullptr, // INTEL
-                               ILIC);                           // INTEL
+                               ILIC, WPI);                      // INTEL
   }
 
   bool runOnSCC(CallGraphSCC &SCC) override;
@@ -123,9 +123,11 @@ Pass *llvm::createFunctionInliningPass(int Threshold) {
 Pass *llvm::createFunctionInliningPass(unsigned OptLevel,
                                        unsigned SizeOptLevel,
                                        bool DisableInlineHotCallSite,
-                                       bool PrepareForLTO)
+                                       bool PrepareForLTO,
+                                       bool LinkForLTO)
 {
-  auto Param = llvm::getInlineParams(OptLevel, SizeOptLevel, PrepareForLTO);
+  auto Param = llvm::getInlineParams(OptLevel, SizeOptLevel, PrepareForLTO,
+      LinkForLTO);
   if (DisableInlineHotCallSite)
     Param.HotCallSiteThreshold = 0;
   return new SimpleInliner(Param);

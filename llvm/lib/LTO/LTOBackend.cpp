@@ -308,7 +308,13 @@ static void runOldPMPasses(const Config &Conf, Module &Mod, TargetMachine *TM,
 
   PassManagerBuilder PMB;
   PMB.LibraryInfo = new TargetLibraryInfoImpl(Triple(TM->getTargetTriple()));
-  PMB.Inliner = createFunctionInliningPass();
+#if INTEL_CUSTOMIZATION
+  PMB.Inliner = createFunctionInliningPass(Conf.OptLevel,
+                                           0     /*SizeOptLevel*/,
+                                           false /*DisableInlineHotCallSite*/,
+                                           false /*PrepareForLTO*/,
+                                           true  /*LinkForLTO*/);
+#endif // INTEL_CUSTOMIZATION
   PMB.ExportSummary = ExportSummary;
   PMB.ImportSummary = ImportSummary;
   // Unconditionally verify input since it is not verified before this

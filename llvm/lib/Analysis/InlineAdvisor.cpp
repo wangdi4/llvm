@@ -106,7 +106,7 @@ private:
 std::unique_ptr<InlineAdvice>
 #if INTEL_CUSTOMIZATION
 DefaultInlineAdvisor::getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
-                                InlineReport *Report) {
+                                WholeProgramInfo *WPI, InlineReport *Report) {
 #endif // INTEL_CUSTOMIZATION
   Function &Caller = *CB.getCaller();
   ProfileSummaryInfo *PSI =
@@ -137,7 +137,7 @@ DefaultInlineAdvisor::getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
 #endif // INTEL_CUSTOMIZATION
     return getInlineCost(CB, Params, CalleeTTI, GetAssumptionCache, GetTLI,
                          GetBFI, PSI, RemarksEnabled ? &ORE : nullptr, // INTEL
-                         ILIC);                                        // INTEL
+                         ILIC, WPI);                                   // INTEL
   };
   auto OIC = llvm::shouldInline(CB, GetInlineCost, ORE, Report, // INTEL
                                 Params.EnableDeferral.hasValue() &&

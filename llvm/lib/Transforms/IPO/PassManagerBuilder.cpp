@@ -1393,8 +1393,6 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 
   // Whole Program Analysis
   if (EnableWPA) {
-    PM.add(createWholeProgramWrapperPassPass());
-    PM.add(createIntelFoldWPIntrinsicLegacyPass());
     // If whole-program-assume is enabled then we are going to call
     // the internalization pass.
     if (AssumeWholeProgram) {
@@ -1462,6 +1460,8 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
       };
       PM.add(createInternalizePass(PreserveSymbol));
     }
+    PM.add(createWholeProgramWrapperPassPass());
+    PM.add(createIntelFoldWPIntrinsicLegacyPass());
   }
 
   // IP Cloning

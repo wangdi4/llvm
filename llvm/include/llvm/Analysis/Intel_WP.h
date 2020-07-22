@@ -159,6 +159,16 @@ public:
 
   // Return the Function* that points to main
   Function *getMainFunction(Module &M);
+
+  // Handle the invalidation of this information.
+  // Once we have determined whole program status, it should be persistent
+  // for the remainder of the compilation. So we return false here. This
+  // is similar to the case of ProfileSummaryInfo.
+  bool invalidate(Module &, const PreservedAnalyses &,
+                  ModuleAnalysisManager::Invalidator &) {
+    return false;
+  }
+
 };
 
 // Analysis pass providing a never-invalidated whole program analysis result.

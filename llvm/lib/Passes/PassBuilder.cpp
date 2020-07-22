@@ -1754,8 +1754,6 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
 
 #if INTEL_CUSTOMIZATION
   if (EnableWPA) {
-    MPM.addPass(RequireAnalysisPass<WholeProgramAnalysis, Module>());
-    MPM.addPass(IntelFoldWPIntrinsicPass());
     // If whole-program-assume is enabled then we are going to call
     // the internalization pass.
     if (AssumeWholeProgram) {
@@ -1823,6 +1821,8 @@ PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level, bool DebugLogging,
       };
       MPM.addPass(InternalizePass(PreserveSymbol));
     }
+    MPM.addPass(RequireAnalysisPass<WholeProgramAnalysis, Module>());
+    MPM.addPass(IntelFoldWPIntrinsicPass());
   }
 
   if (EnableIPCloning) {

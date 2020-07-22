@@ -142,6 +142,7 @@ public:
 #if INTEL_CUSTOMIZATION
   virtual std::unique_ptr<InlineAdvice> getAdvice(CallBase &CB,
                                                   InliningLoopInfoCache *ILIC,
+                                                  WholeProgramInfo *WPI,
                                                   InlineReport *Report) = 0;
 #endif // INTEL_CUSTOMIZATION
 
@@ -191,6 +192,7 @@ private:
 #if INTEL_CUSTOMIZATION
   std::unique_ptr<InlineAdvice>
   getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC = nullptr,
+            WholeProgramInfo *WPI = nullptr,
             InlineReport *Report = nullptr) override;
 #endif // INTEL_CUSTOMIZATION
 
