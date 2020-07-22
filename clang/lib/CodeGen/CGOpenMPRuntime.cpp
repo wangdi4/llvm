@@ -8170,20 +8170,15 @@ public:
   /// CombinedInfo). Also, for each item that relates with a device pointer, a
   /// pair of the relevant declaration and index where it occurs is appended to
   /// the device pointers info array.
-<<<<<<< HEAD
-#if INTEL_COLLAB
-  void generateAllInfo(MapCombinedInfoTy &CombinedInfo,
-                       llvm::SmallVectorImpl<std::pair<const VarDecl *, bool>>
-                           *VarChain = nullptr) const {
-#else
-  void generateAllInfo(MapCombinedInfoTy &CombinedInfo) const {
-#endif // INTEL_COLLAB
-=======
   void generateAllInfo(
       MapCombinedInfoTy &CombinedInfo,
+#if INTEL_COLLAB
+      llvm::SmallVectorImpl<std::pair<const VarDecl *, bool>> *VarChain =
+      nullptr,
+#endif // INTEL_COLLAB
       const llvm::DenseSet<CanonicalDeclPtr<const Decl>> &SkipVarSet =
           llvm::DenseSet<CanonicalDeclPtr<const Decl>>()) const {
->>>>>>> 78f60bf4e7f37bf4970bb7bea95ada86e9792d72
+
     // We have to process the component lists that relate with the same
     // declaration in a single chunk so that we can generate the map flags
     // correctly. Therefore, we organize all lists in a map.
@@ -9868,7 +9863,9 @@ void CGOpenMPRuntime::emitTargetCall(
         CombinedInfo.Types);
     // Map any list items in a map clause that were not captures because they
     // weren't referenced within the construct.
-    MEHandler.generateAllInfo(CombinedInfo, MappedVarSet);
+#if INTEL_COLLAB
+    MEHandler.generateAllInfo(CombinedInfo, nullptr, MappedVarSet);
+#endif // INTEL_COLLAB
 
     TargetDataInfo Info;
     // Fill up the arrays and create the arguments.

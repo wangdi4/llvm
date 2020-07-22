@@ -850,22 +850,17 @@ TLI_DEFINE_STRING_INTERNAL("__atanhf_finite")
 /// long double __atanhl_finite(long double x);
 TLI_DEFINE_ENUM_INTERNAL(atanhl_finite)
 TLI_DEFINE_STRING_INTERNAL("__atanhl_finite")
-<<<<<<< HEAD
-
-#if INTEL_CUSTOMIZATION
-/// declare void __clang_call_terminate(i8*)
-TLI_DEFINE_ENUM_INTERNAL(clang_call_terminate)
-TLI_DEFINE_STRING_INTERNAL("__clang_call_terminate")
-#endif // INTEL_CUSTOMIZATION
-
-=======
 /// void __atomic_load(size_t size, void *mptr, void *vptr, int smodel);
 TLI_DEFINE_ENUM_INTERNAL(atomic_load)
 TLI_DEFINE_STRING_INTERNAL("__atomic_load")
 /// void __atomic_store(size_t size, void *mptr, void *vptr, int smodel);
 TLI_DEFINE_ENUM_INTERNAL(atomic_store)
 TLI_DEFINE_STRING_INTERNAL("__atomic_store")
->>>>>>> 78f60bf4e7f37bf4970bb7bea95ada86e9792d72
+#if INTEL_CUSTOMIZATION
+/// declare void __clang_call_terminate(i8*)
+TLI_DEFINE_ENUM_INTERNAL(clang_call_terminate)
+TLI_DEFINE_STRING_INTERNAL("__clang_call_terminate")
+#endif // INTEL_CUSTOMIZATION
 /// double __cosh_finite(double x);
 TLI_DEFINE_ENUM_INTERNAL(cosh_finite)
 TLI_DEFINE_STRING_INTERNAL("__cosh_finite")

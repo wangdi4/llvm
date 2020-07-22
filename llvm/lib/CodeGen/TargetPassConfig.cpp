@@ -904,18 +904,13 @@ bool TargetPassConfig::addISelPasses() {
     addPass(createLowerEmuTLSPass());
 
   addPass(createPreISelIntrinsicLoweringPass());
-<<<<<<< HEAD
-  addPass(createTargetTransformInfoWrapperPass(TM->getTargetIRAnalysis()));
-
+  PM->add(createTargetTransformInfoWrapperPass(TM->getTargetIRAnalysis()));
 #if INTEL_CUSTOMIZATION
   // This pass translates vector math intrinsics to svml/libm calls.
   if (!DisableMapIntrinToIml)
     addPass(createMapIntrinToImlPass());
 #endif // INTEL_CUSTOMIZATION
 
-=======
-  PM->add(createTargetTransformInfoWrapperPass(TM->getTargetIRAnalysis()));
->>>>>>> 78f60bf4e7f37bf4970bb7bea95ada86e9792d72
   addIRPasses();
   addCodeGenPrepare();
   addPassesToHandleExceptions();

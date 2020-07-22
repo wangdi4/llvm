@@ -4,12 +4,8 @@ add_clang_tool(clang-offload-wrapper
   ClangOffloadWrapper.cpp
 
   DEPENDS
-<<<<<<< HEAD
-  ${tablegen_deps}
-  CUSTOM_WIN_VER
-=======
   intrinsics_gen
->>>>>>> 78f60bf4e7f37bf4970bb7bea95ada86e9792d72
+  CUSTOM_WIN_VER
   )
 
 set(CLANG_OFFLOAD_WRAPPER_LIB_DEPS

@@ -1287,7 +1287,7 @@ bool VPlanDriverImpl::isVPlanCandidate(Function &Fn, Loop *Lp) {
   LoopVectorizationRequirements Requirements(*ORE);
   LoopVectorizeHints Hints(Lp, true, *ORE);
   LoopVectorizationLegality LVL(Lp, PSE, DT, TTI, TLI, AA, &Fn, GetLAA, LI, ORE,
-                                &Requirements, &Hints, DB, AC, BFI, PSI);
+                                &Requirements, &Hints, DB, AC);
 
   if (!LVL.canVectorize(false /* EnableVPlanNativePath */))
     return false;

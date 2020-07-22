@@ -3777,27 +3777,24 @@ StmtResult Sema::BuildReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp) {
   } else if (!RetValExp && !HasDependentReturnType) {
     FunctionDecl *FD = getCurFunctionDecl();
 
-<<<<<<< HEAD
-    unsigned DiagID;
-#if INTEL_CUSTOMIZATION
-    // Issue a warning, not error in IntelMSCompat and IntelCompat modes
-    // (CQ#364256).
-    if (getLangOpts().IntelMSCompat || getLangOpts().IntelCompat) {
-      DiagID = diag::warn_return_missing_expr_no_err;
-    } else
-#endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 78f60bf4e7f37bf4970bb7bea95ada86e9792d72
     if (getLangOpts().CPlusPlus11 && FD && FD->isConstexpr()) {
       // C++11 [stmt.return]p2
       Diag(ReturnLoc, diag::err_constexpr_return_missing_expr)
           << FD << FD->isConsteval();
       FD->setInvalidDecl();
     } else {
-      // C99 6.8.6.4p1 (ext_ since GCC warns)
-      // C90 6.6.6.4p4
-      unsigned DiagID = getLangOpts().C99 ? diag::ext_return_missing_expr
-                                          : diag::warn_return_missing_expr;
+#if INTEL_CUSTOMIZATION
+      unsigned DiagID;
+      // Issue a warning, not error in IntelMSCompat and IntelCompat modes
+      // (CQ#364256).
+      if (getLangOpts().IntelMSCompat || getLangOpts().IntelCompat)
+        DiagID = diag::warn_return_missing_expr_no_err;
+      else
+        // C99 6.8.6.4p1 (ext_ since GCC warns)
+        // C90 6.6.6.4p4
+        DiagID = getLangOpts().C99 ? diag::ext_return_missing_expr
+                                   : diag::warn_return_missing_expr;
+#endif // INTEL_CUSTOMIZATION
       // Note that at this point one of getCurFunctionDecl() or
       // getCurMethodDecl() must be non-null (see above).
       assert((getCurFunctionDecl() || getCurMethodDecl()) &&

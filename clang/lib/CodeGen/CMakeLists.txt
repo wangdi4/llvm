@@ -27,24 +27,6 @@ set(LLVM_LINK_COMPONENTS
   TransformUtils
   )
 
-<<<<<<< HEAD
-# INTEL_CUSTOMIZATION
-if (MSVC)
-  set_source_files_properties(CodeGenModule.cpp PROPERTIES COMPILE_FLAGS /bigobj)
-endif()
-# end INTEL_CUSTOMIZATION
-
-# In a standard Clang+LLVM build, we need to generate intrinsics before
-# building codegen. In a standalone build, LLVM is already built and we don't
-# need this dependency. Furthermore, LLVM doesn't export it so we can't have
-# this dependency.
-set(codegen_deps intrinsics_gen)
-if (CLANG_BUILT_STANDALONE)
-  set(codegen_deps)
-endif()
-
-=======
->>>>>>> 78f60bf4e7f37bf4970bb7bea95ada86e9792d72
 if (MSVC)
   set_source_files_properties(CodeGenModule.cpp PROPERTIES COMPILE_FLAGS /bigobj)
 endif()
