@@ -779,6 +779,13 @@ cl_dev_err_code ProgramService::GetKernelInfo(cl_dev_kernel      IN  kernel,
               : CPU_DEV_MAX_WG_PRIVATE_SIZE;
             if (FPGA_EMU_DEVICE == m_pCPUConfig->GetDeviceMode())
             {
+                if (m_pCPUConfig->UseAutoMemory())
+                {
+                    maxPrivateMemSize =
+                    (m_pCPUConfig->GetForcedPrivateMemSize() > 0)
+                    ? m_pCPUConfig->GetForcedPrivateMemSize()
+                    : FPGA_DEV_MAX_WG_PRIVATE_SIZE;
+                }
                 ullValue = pKernelProps->GetMaxWorkGroupSize(
                     FPGA_MAX_WORK_GROUP_SIZE, maxPrivateMemSize);
             }
@@ -862,6 +869,13 @@ cl_dev_err_code ProgramService::GetKernelInfo(cl_dev_kernel      IN  kernel,
               : CPU_DEV_MAX_WG_PRIVATE_SIZE;
             if (FPGA_EMU_DEVICE == m_pCPUConfig->GetDeviceMode())
             {
+                if (m_pCPUConfig->UseAutoMemory())
+                {
+                    maxPrivateMemSize =
+                    (m_pCPUConfig->GetForcedPrivateMemSize() > 0)
+                    ? m_pCPUConfig->GetForcedPrivateMemSize()
+                    : FPGA_DEV_MAX_WG_PRIVATE_SIZE;
+                }
                 pKernelProps->GetLocalSizeForSubGroupCount(
                     desiredSGCount,
                     FPGA_MAX_WORK_GROUP_SIZE,

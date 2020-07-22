@@ -786,7 +786,7 @@ void Kernel::Serialize(IOutputStream& ost, SerializationStatus* stats) const
   }
 }
 
-void Kernel::Deserialize(IInputStream& ist, SerializationStatus* stats)
+void Kernel::Deserialize(IInputStream& ist, SerializationStatus* stats, size_t maxPrivateMemSize)
 {
   Serializer::DeserialString(m_name, ist);
 
@@ -818,7 +818,7 @@ void Kernel::Deserialize(IInputStream& ist, SerializationStatus* stats)
   if (nullptr != m_pProps) {
     m_pProps =
         stats->GetBackendFactory()->CreateKernelProperties();
-    m_pProps->Deserialize(ist, stats);
+    m_pProps->Deserialize(ist, stats, maxPrivateMemSize);
   }
 
   Serializer::DeserialPrimitive<unsigned int>(&vectorSize, ist);

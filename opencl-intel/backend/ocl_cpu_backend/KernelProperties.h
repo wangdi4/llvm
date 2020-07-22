@@ -272,7 +272,8 @@ public:
      * Serialization methods for the class (used by the serialization service)
      */
     virtual void Serialize(IOutputStream& ost, SerializationStatus* stats) const;
-    virtual void Deserialize(IInputStream& ist, SerializationStatus* stats);
+    virtual void Deserialize(IInputStream& ist, SerializationStatus* stats,
+                             size_t maxPrivateMemSize = 0);
 
 
 protected:

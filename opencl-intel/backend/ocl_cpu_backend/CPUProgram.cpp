@@ -98,12 +98,13 @@ void CPUProgram::GetGlobalVariablePointers(const cl_prog_gv **GVs,
         *GVs = &GlobalVariables[0];
 }
 
-void CPUProgram::Deserialize(IInputStream& ist, SerializationStatus* stats)
+void CPUProgram::Deserialize(IInputStream& ist, SerializationStatus* stats,
+                             size_t maxPrivateMemSize)
 {
     void* pModule = (nullptr != m_pIRCodeContainer) ? m_pIRCodeContainer->GetModule() : nullptr;
     stats->SetPointerMark("pModule", pModule);
     stats->SetPointerMark("pProgram", this);
-    Program::Deserialize(ist, stats);
+    Program::Deserialize(ist, stats, maxPrivateMemSize);
 }
 
 void CPUProgram::SetObjectCache(ObjectCodeCache *oc) {

@@ -183,7 +183,8 @@ bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
         SERIALIZE_PERSISTENT_IMAGE,
         pProgram,
         serializationBuffer,
-        serializationSize);
+        serializationSize,
+        m_forcedPrivateMemorySize);
 
     // init refcounted runtime service shared storage between program and kernels
     RuntimeServiceSharedPtr lRuntimeService =
