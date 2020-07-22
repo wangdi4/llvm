@@ -19,16 +19,16 @@
 
 ; CHECK: Function
 
-; CHECK: %0 = (@A)[0][0];
+; CHECK: %0 =
 ; CHECK: %1 = (%B)[0];
 ; CHECK: (%B)[0] = %0 + %1;
-; CHECK: %0 = (@A)[0][1];
+; CHECK: %0 =
 ; CHECK: %1 = (%B)[1];
 ; CHECK: (%B)[1] = %0 + %1;
-; CHECK: %0 = (@A)[0][2];
+; CHECK: %0 =
 ; CHECK: %1 = (%B)[2];
 ; CHECK: (%B)[2] = %0 + %1;
-; CHECK: %0 = (@A)[0][3];
+; CHECK: %0 =
 ; CHECK: %1 = (%B)[3];
 ; CHECK: (%B)[3] = %0 + %1;
 

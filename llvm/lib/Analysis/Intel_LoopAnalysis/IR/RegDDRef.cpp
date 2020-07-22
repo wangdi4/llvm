@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/RegDDRef.h"
+#include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/CanonExpr.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLDDNode.h"
@@ -1978,4 +1979,46 @@ void RegDDRef::clear(bool AssumeLvalIfDetached) {
   if (!IsLval) {
     setSymbase(ConstantSymbase);
   }
+}
+
+RegDDRef *RegDDRef::simplifyConstArray() {
+  if (!isMemRef() || !accessesConstantArray()) {
+    return nullptr;
+  }
+
+  bool Precise;
+  auto *LocationGEP =
+      dyn_cast<GetElementPtrInst>(getLocationPtr(Precise));
+  if (!LocationGEP || !Precise) {
+    return nullptr;
+  }
+
+  auto *GV = cast<GlobalVariable>(LocationGEP->getPointerOperand());
+  if (!GV->hasDefinitiveInitializer()) {
+    return nullptr;
+  }
+
+  SmallVector<Constant *, 8> Indices;
+  // skip first index for global array
+  for (unsigned I = 2, E = LocationGEP->getNumOperands(); I != E; ++I) {
+    auto *Index = dyn_cast<Constant>(LocationGEP->getOperand(I));
+    if (!Index) {
+      return nullptr;
+    }
+    Indices.push_back(Index);
+  }
+
+  Constant *Val =
+      ConstantFoldLoadThroughGEPIndices(GV->getInitializer(), Indices);
+  if (!Val) {
+    return nullptr;
+  }
+
+  // Representable as const ref
+  if (!isa<MetadataAsValue>(Val) && !isa<ConstantData>(Val) &&
+      !isa<ConstantVector>(Val)) {
+    return nullptr;
+  }
+
+  return getDDRefUtils().createConstDDRef(Val);
 }

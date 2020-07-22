@@ -1221,3 +1221,54 @@ bool HIRTransformUtils::doIdentityMatrixSubstitution(
   }
   return true;
 }
+
+struct ConstArraySubstituter final : public HLNodeVisitorBase {
+  bool Changed;
+
+  ConstArraySubstituter() : Changed(false) {}
+
+  void postVisit(const HLNode *) {}
+
+  bool isChanged() const { return Changed; }
+
+  void visit(HLNode *Node) {}
+
+  void visit(HLDDNode *Node) {
+    bool LocalChange = false;
+    for (RegDDRef *Ref :
+         make_range(Node->rval_op_ddref_begin(), Node->rval_op_ddref_end())) {
+      RegDDRef *ConstantRef = Ref->simplifyConstArray();
+      if (!ConstantRef) {
+        continue;
+      }
+
+      if (auto *Inst = dyn_cast<HLInst>(Ref->getHLDDNode())) {
+        if (isa<LoadInst>(Inst->getLLVMInstruction())) {
+          auto *LvalRef = Inst->removeLvalDDRef();
+          auto *CopyInst = Node->getHLNodeUtils().createCopyInst(
+              ConstantRef, "GlobConstRepl", LvalRef);
+          HLNodeUtils::replace(Inst, CopyInst);
+          LLVM_DEBUG(dbgs() << "Replaced const global array load\n";);
+          LocalChange = true;
+          continue;
+        }
+      }
+
+      Ref->getHLDDNode()->replaceOperandDDRef(Ref, ConstantRef);
+      LocalChange = true;
+      LLVM_DEBUG(dbgs() << "Replaced const global array ref\n";);
+    }
+
+    if (LocalChange) {
+      LLVM_DEBUG(Node->dump(););
+      Changed = true;
+    }
+  }
+};
+
+// TODO: combine with constant prop/folding pass
+bool HIRTransformUtils::substituteConstGlobals(HLNode *Node) {
+  ConstArraySubstituter CAS;
+  HLNodeUtils::visit(CAS, Node);
+  return CAS.isChanged();
+}
