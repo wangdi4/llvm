@@ -114,6 +114,7 @@
 // -fast settings
 // RUN: %clang -### --intel -c -fast %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT-FAST %s
 // RUN: %clang_cl -### --intel -c -fast %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT-FAST %s
+// CHECK-INTEL-LOOPOPT-FAST: "-flto" "-flto-unit"
 // CHECK-INTEL-LOOPOPT-FAST: "-mllvm" "-loopopt"
 // CHECK-INTEL-LOOPOPT-FAST-NOT: "-target-cpu" "x86_64"
 // CHECK-INTEL-LOOPOPT-FAST-NOT: "-mllvm" "-enable-lv"

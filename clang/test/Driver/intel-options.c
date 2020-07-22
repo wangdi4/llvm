@@ -276,9 +276,14 @@
 // RUN: %clang_cl -### /Qopenmp-threadprivate:legacy -c %s 2>&1 | FileCheck --check-prefix=CHECK-QOPENMP-THREADPRIVATE %s
 // RUN: %clang -### -qopenmp-threadprivate=compat -fiopenmp -c %s 2>&1 | FileCheck --check-prefix=CHECK-QOPENMP-COMPAT %s
 // RUN: %clang -### -fiopenmp -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIOPENMP %s
+// RUN: %clang_cl -### /Qiopenmp -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIOPENMP %s
 // CHECK-QOPENMP-THREADPRIVATE: "-fopenmp-threadprivate-legacy"
 // CHECK-QOPENMP-COMPAT: "-fopenmp-late-outline"
-// CHECK-FIOPENMP: "-fopenmp-late-outline" "-fopenmp-threadprivate-legacy"
+// CHECK-FIOPENMP: "-fopenmp-late-outline" "-fintel-openmp-region" "-fopenmp-threadprivate-legacy"
+
+// RUN: %clang -### -fiopenmp -flto -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIOPENMP-LTO %s
+// RUN: %clang_cl -### /Qiopenmp -Qipo -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIOPENMP-LTO %s
+// CHECK-FIOPENMP-LTO: "-fwhole-program-vtables"
 
 // Behavior with QH option
 // RUN: %clang_cl -### -c /QH %s 2>&1 | FileCheck -check-prefix CHECK-QH %s
