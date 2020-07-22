@@ -186,14 +186,14 @@ endfunction ( CALCULATE_TARGET_SOURCES )
 
 #
 # Usage
-#     SET_LINUX_EXPORTS_FILE( TARGET FILE_NAME )
+#     SET_LINUX_EXPORTS_FILE( TARGET_NAME_ FILE_NAME )
 #
-function ( SET_LINUX_EXPORTS_FILE TARGET FILE_NAME )
+function ( SET_LINUX_EXPORTS_FILE TARGET_NAME_ FILE_NAME )
     if ((NOT WIN32) OR (FORCE_LINUX))
-        get_target_property( SOURCE_FILES ${TARGET_NAME} SOURCES )
+        get_target_property( SOURCE_FILES ${TARGET_NAME_} SOURCES )
         list( GET SOURCE_FILES 0 FIRST_SOURCE )
         set_source_files_properties( ${FIRST_SOURCE} PROPERTIES OBJECT_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${FILE_NAME} )
-        set_property( TARGET ${TARGET_NAME} APPEND_STRING PROPERTY
+        set_property( TARGET ${TARGET_NAME_} APPEND_STRING PROPERTY
                         LINK_FLAGS "-Wl,-Bsymbolic -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/${FILE_NAME}" )
     endif ((NOT WIN32) OR (FORCE_LINUX))
 endfunction ( SET_LINUX_EXPORTS_FILE )

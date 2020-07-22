@@ -158,6 +158,7 @@ if (WIN32)
 endif (WIN32)
 
 SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} cl_framework_linux_exports.txt )
+SET_LINUX_EXPORTS_FILE( ${TARGET_NAME_EMU} cl_framework_linux_exports.txt )
 
 set_target_properties( ${TARGET_NAME}  PROPERTIES FOLDER ${RUNTIME_FOLDER_NAME} )
 set_target_properties( ${TARGET_NAME_EMU}  PROPERTIES FOLDER ${RUNTIME_FOLDER_NAME} )
