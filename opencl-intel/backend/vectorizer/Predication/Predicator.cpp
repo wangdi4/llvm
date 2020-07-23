@@ -77,6 +77,26 @@ OCL_INITIALIZE_PASS_DEPENDENCY(OCLBranchProbability)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(Predicator, "predicate", "Predicate Function", false, false)
 
+using MDMapT = DenseMap<const Metadata *, TrackingMDRef>;
+static void ResetDebugInfo(MDMapT &MD, Instruction *I) {
+  // Avoid duplicating DILocation by remapping them to themselves.
+  if (DILocation* Loc = I->getDebugLoc().get())
+    MD[Loc].reset(Loc);
+  if (MDNode* MDloop = I->getMetadata(LLVMContext::MD_loop))
+    MD[MDloop].reset(MDloop);
+  // Remap DbgVariableIntrinsic instruction's variables to themselves to make
+  // them agree with !dbg attachments's scopes.
+  if (isa<DbgVariableIntrinsic>(I)){
+    if (DILocalVariable* Var = cast<DbgVariableIntrinsic>(I)->getVariable())
+      MD[Var].reset(Var);
+  }
+  // Remap DbgLabelInst instruction's Labels(llvm.dbg.label) to themselves.
+  if (isa<DbgLabelInst>(I)){
+    if (DILabel* Label = cast<DbgLabelInst>(I)->getLabel())
+      MD[Label].reset(Label);
+  }
+}
+
 Predicator::Predicator() :
   FunctionPass(ID),
   m_one(nullptr),
@@ -2131,7 +2151,6 @@ void Predicator::predicateFunction(Function *F) {
   // or that we turn the allones optimization off, this is needed.
   clearRemainingOriginalInstructions();
 
-
   V_ASSERT(!verifyFunction(*F) && "I broke this module");
 
   V_PRINT(predicate, "Final:"<<*F<<"\n");
@@ -2333,23 +2352,7 @@ void Predicator::insertAllOnesBypassesUCFRegion(BasicBlock * const ucfEntryBB) {
     BasicBlock * cloneBB = *bbIt;
     for (BasicBlock::iterator ii = cloneBB->begin(); ii != cloneBB->end(); ++ii){
       Instruction * I = &*ii;
-      // The source locations for the cloned instructions are already correct,
-      // avoid duplicating by remapping them to themselves.
-      if (DILocation* Loc = I->getDebugLoc().get())
-        MD[Loc].reset(Loc);
-      if (MDNode* MDloop = I->getMetadata(LLVMContext::MD_loop))
-        MD[MDloop].reset(MDloop);
-      // Remap DbgVariableIntrinsic instruction's variables to themselves, to make them
-      // agree with !dbg attachments's scopes
-      if (isa<DbgVariableIntrinsic>(I)){
-        if (DILocalVariable* Var = cast<DbgVariableIntrinsic>(I)->getVariable())
-          MD[Var].reset(Var);
-      }
-      // Remap DbgLabelInst instruction's Labels(llvm.dbg.label) to themselves
-      if (isa<DbgLabelInst>(I)){
-        if (DILabel* Label = cast<DbgLabelInst>(I)->getLabel())
-          MD[Label].reset(Label);
-      }
+      ResetDebugInfo(MD, I);
       RemapInstruction(&*ii, clonesMap, RF_IgnoreMissingLocals);
     }
   }
@@ -2378,8 +2381,10 @@ void Predicator::insertAllOnesBypassesUCFRegion(BasicBlock * const ucfEntryBB) {
   }
   outsidersMap[ucfExitBB] = allOnesEndBB;
   // Update refereneces in the outside users
+  auto &outsidersMD = outsidersMap.MD();
   for(SmallVector<Instruction *, 16>::iterator userIt = outsideUsers.begin(), userEnd = outsideUsers.end();
         userIt != userEnd; ++userIt) {
+    ResetDebugInfo(outsidersMD, *userIt);
     RemapInstruction(*userIt, outsidersMap, RF_IgnoreMissingLocals);
   }
   // Unpredicate the cloned UCF region
@@ -2931,7 +2936,6 @@ void Predicator::insertAllOnesBypasses() {
 
           }
       }
-
     }
 }
 

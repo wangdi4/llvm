@@ -1,10 +1,14 @@
-; RUN: %oclopt -presucf=true -predicate -verify -S %s | FileCheck %s
+; RUN: %oclopt -presucf=true -predicate -S %s | FileCheck %s
 
+; %sext.ucf_allones should share the same DILocation with %sext
+; CHECK: %sext = shl i64 %call, 32, !dbg [[SEXT_DBG:![0-9]+]]
+; CHECK: %outside.user = add i32 %add2ucf_allones, 3, !dbg [[OUTSIDE_DBG:![0-9]+]]
 ; CHECK: call void @llvm.dbg.value(metadata i32 %add.ucf_allones, metadata {{![0-9]+}}, metadata !DIExpression()), !dbg {{![0-9]+}}
-; CHECK: %sext.ucf_allones = shl i64 %call, 32, !dbg [[PARAM:![0-9]+]]
+; CHECK: %sext.ucf_allones = shl i64 %call, 32, !dbg [[SEXT_DBG]]
 ; CHECK: call void @llvm.dbg.label(metadata {{![0-9]+}}), !dbg {{![0-9]+}}
-; CHECK: {{![0-9]+}} = distinct !DISubprogram(name: "test",
-; CHECK: [[PARAM]] = !DILocation(line: 1, column: 142,
+; CHECK: [[SUBPROG_MD:![0-9]+]] = distinct !DISubprogram(name: "test",
+; CHECK: [[SEXT_DBG]] = !DILocation(line: 1, column: 142,
+; CHECK: [[OUTSIDE_DBG]] = !DILocation(line: 1, column: 163, scope: [[SUBPROG_MD]])
 
 ; ModuleID = 'main'
 source_filename = "1"
@@ -47,9 +51,15 @@ if.then4:                                         ; preds = %if.then
   br label %phi-split-bb, !dbg !71
 
 phi-split-bb:                                     ; preds = %if.then, %if.then4
+  %add.res = phi i32 [ %add, %if.then4 ], [ 0, %if.then ]
+  %add2 = add i32 %add.res, 1, !dbg !71
+  br label %outside.ucf
+
+outside.ucf:                                      ; preds = %phi-split-bb
+  %outside.user = add i32 %add2, 3, !dbg !72
   br label %if.end7
 
-if.end7:                                          ; preds = %phi-split-bb, %entry
+if.end7:                                          ; preds = %outside.ucf, %entry
   ret void, !dbg !72
 }
 
