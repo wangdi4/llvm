@@ -5587,7 +5587,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 #if INTEL_COLLAB
   if ((Args.hasFlag(options::OPT_fopenmp, options::OPT_fopenmp_EQ,
                     options::OPT_fno_openmp, false) ||
-       Args.hasArg(options::OPT_fiopenmp)) &&
+       Args.hasFlag(options::OPT_fiopenmp, options::OPT_fno_openmp, false)) &&
 #else
   if (Args.hasFlag(options::OPT_fopenmp, options::OPT_fopenmp_EQ,
                    options::OPT_fno_openmp, false) &&

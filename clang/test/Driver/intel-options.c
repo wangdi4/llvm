@@ -88,7 +88,11 @@
 // RUN: %clang -### -target x86_64-linux-gnu --intel -qopenmp %s -o %t 2>&1 | FileCheck %s -check-prefix CHECK-LD-IOMP5
 // Default behavior with -fopenmp should be liomp5
 // RUN: %clang -### -target x86_64-linux-gnu -fopenmp %s -o %t 2>&1 | FileCheck %s -check-prefix CHECK-LD-IOMP5
+// CHECK-QOPENMP: "-fopenmp-late-outline"
+// CHECK-QOPENMP: "-fintel-openmp-region"
+// CHECK-QOPENMP: "-fopenmp-threadprivate-legacy"
 // CHECK-QOPENMP: "-fopenmp"
+// CHECK-QOPENMP: "-mllvm" "-paropt=31"
 // CHECK-LD-IOMP5: "-liomp5"
 
 // Behavior with Qopt-jump-tables-,qno-opt-jump-tables option

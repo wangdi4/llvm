@@ -247,7 +247,7 @@ def _SLASH_Qkeep_static_consts_ : CLFlag<"Qkeep-static-consts-">,
   "allocation of variables that are not referenced in the source">;
 def _SLASH_Qno_builtin_ : CLJoined<"Qno-builtin-">, Alias<fno_builtin_>,
   HelpText<"Disable implicit builtin knowledge of a specific function">;
-def _SLASH_Qopenmp : CLFlagNoDpcpp<"Qopenmp">, Alias<fopenmp>,
+def _SLASH_Qopenmp : CLFlagNoDpcpp<"Qopenmp">, Alias<fiopenmp>,
   HelpText<"Parse OpenMP pragmas and generate parallel code.">;
 def _SLASH_QopenmpP : CLFlagNoDpcpp<"QopenmpP">, Alias<fopenmp>,
   HelpText<"Parse OpenMP pragmas and generate parallel code.">;
