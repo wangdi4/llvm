@@ -562,9 +562,9 @@ class FMAExprSPCommon {
     // Represent one product of terms. For example, (-t0*t1*t2*...*tN).
     // This is used as a building block for Sum Of Products representation.
     struct FMAExprProduct {
-      bool     Sign;
-      uint8_t  NumTerms;
-      uint8_t  Terms[MaxNumOfTermsInProduct];
+      bool     Sign = false;
+      uint8_t  NumTerms = 0;
+      uint8_t  Terms[MaxNumOfTermsInProduct] = {0};
 
       // Returns true iff the product consists of only one term TermZERO.
       bool isZero() const { return NumTerms == 1 && Terms[0] == TermZERO; }
