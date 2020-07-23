@@ -940,7 +940,7 @@ public:
     if (MapChain.empty())
       return;
 
-    llvm::for_each(MapChain, deleter<MapAggrTy>);
+    llvm::for_each(MapChain, [](MapAggrTy *V) { delete V; });
   }
 
   const MapChainTy &getMapChain() const { return MapChain; }
