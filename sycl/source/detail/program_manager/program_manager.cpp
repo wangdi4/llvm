@@ -533,6 +533,10 @@ static const char *getDeviceLibFilename(DeviceLibExt Extension) {
     return "libsycl-fallback-complex.spv";
   case DeviceLibExt::cl_intel_devicelib_complex_fp64:
     return "libsycl-fallback-complex-fp64.spv";
+#if INTEL_CUSTOMIZATION
+  case cl_intel_devicelib_dot_product:
+    return "libsycl-fallback-intel-dot-product.spv";
+#endif // INTEL_CUSTOMIZATION
   }
   throw compile_program_error("Unhandled (new?) device library extension",
                               PI_INVALID_OPERATION);
@@ -550,6 +554,10 @@ static const char *getDeviceLibExtensionStr(DeviceLibExt Extension) {
     return "cl_intel_devicelib_complex";
   case DeviceLibExt::cl_intel_devicelib_complex_fp64:
     return "cl_intel_devicelib_complex_fp64";
+#if INTEL_CUSTOMIZATION
+  case cl_intel_devicelib_dot_product:
+    return "cl_intel_devicelib_dot_product";
+#endif // INTEL_CUSTOMIZATION
   }
   throw compile_program_error("Unhandled (new?) device library extension",
                               PI_INVALID_OPERATION);
@@ -705,12 +713,23 @@ getDeviceLibPrograms(const ContextImplPtr Context,
   std::vector<RT::PiProgram> Programs;
 
   std::pair<DeviceLibExt, bool> RequiredDeviceLibExt[] = {
+<<<<<<< HEAD
       {DeviceLibExt::cl_intel_devicelib_assert,
        /* is fallback loaded? */ false},
       {DeviceLibExt::cl_intel_devicelib_math, false},
       {DeviceLibExt::cl_intel_devicelib_math_fp64, false},
       {DeviceLibExt::cl_intel_devicelib_complex, false},
       {DeviceLibExt::cl_intel_devicelib_complex_fp64, false}};
+=======
+      {cl_intel_devicelib_assert, /* is fallback loaded? */ false},
+      {cl_intel_devicelib_math, false},
+      {cl_intel_devicelib_math_fp64, false},
+      {cl_intel_devicelib_complex, false},
+#if INTEL_CUSTOMIZATION
+      {cl_intel_devicelib_dot_product, false},
+#endif // INTEL_CUSTOMIZATION
+      {cl_intel_devicelib_complex_fp64, false}};
+>>>>>>> 6a8f0a91a8673a21fda7e183c61ba691e85d98aa
 
   // Disable all devicelib extensions requiring fp64 support if at least
   // one underlying device doesn't support cl_khr_fp64.
@@ -729,6 +748,17 @@ getDeviceLibPrograms(const ContextImplPtr Context,
     std::string DevExtList =
         get_device_info<std::string, info::device::extensions>::get(
             Dev, Context->getPlugin());
+#if INTEL_CUSTOMIZATION
+    // Allow extensions to be specified as available, manually.
+    // This is useful for specifying extensions that we know are supported
+    // but which the device does not report as available yet.
+    // For example, SYCL_DEVICE_FORCE_EXTENSION=cl_intel_devicelib_dot_product
+    // to use the dot-product extension if that extension is not reported
+    // as available but we know the device supports it.
+    if (const char* Env = getenv("SYCL_DEVICE_FORCE_EXTENSION")) {
+      DevExtList.append(Env);
+    }
+#endif // INTEL_CUSTOMIZATION
     for (auto &Pair : RequiredDeviceLibExt) {
       DeviceLibExt Ext = Pair.first;
       bool &FallbackIsLoaded = Pair.second;

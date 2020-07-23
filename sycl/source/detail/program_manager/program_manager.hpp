@@ -51,7 +51,12 @@ enum class DeviceLibExt : std::uint32_t {
   cl_intel_devicelib_math,
   cl_intel_devicelib_math_fp64,
   cl_intel_devicelib_complex,
+#if INTEL_CUSTOMIZATION
+  cl_intel_devicelib_complex_fp64,
+  cl_intel_devicelib_dot_product
+#else
   cl_intel_devicelib_complex_fp64
+#endif // INTEL_CUSTOMIZATION
 };
 
 // Provides single loading and building OpenCL programs with unique contexts
