@@ -86,6 +86,7 @@ public:
     bool GetSerializeWorkGroups() const       { return m_serializeWorkGroups; }
     bool GetLoadBuiltins() const              { return m_loadBuiltins; }
     size_t GetForcedPrivateMemorySize() const { return m_forcedPrivateMemorySize; }
+    bool UseAutoMemory() const { return m_useAutoMemory; }
     std::vector<int> GetIRDumpOptionsAfter() const
     {
         if(!m_DumpIROptionAfter){
@@ -135,6 +136,7 @@ protected:
     bool m_dumpHeuristicIR;
     std::string m_statFileBaseName;
     int m_forcedPrivateMemorySize;
+    bool        m_useAutoMemory;
     bool        m_streamingAlways;
     unsigned    m_expensiveMemOpts;
     DeviceMode  m_targetDevice;

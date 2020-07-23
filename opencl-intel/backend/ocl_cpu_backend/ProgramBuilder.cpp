@@ -133,6 +133,13 @@ ProgramBuilder::ProgramBuilder(IAbstractBackendFactory* pBackendFactory, const I
     m_cpuMaxWGSize(config.GetCpuMaxWGSize()),
     m_statFileBaseName(config.GetStatFileBaseName())
 {
+
+    if (m_forcedPrivateMemorySize == 0) {
+      if (m_targetDevice == FPGA_EMU_DEVICE && config.UseAutoMemory())
+        m_forcedPrivateMemorySize = FPGA_DEV_MAX_WG_PRIVATE_SIZE;
+      else
+        m_forcedPrivateMemorySize = CPU_DEV_MAX_WG_PRIVATE_SIZE;
+    }
     // prepare default base file name for stat file in the following cases:
     // stats are enabled but the user didn't set up the base file name
     // the user set up as base file name only a directory name, i.e. it ends

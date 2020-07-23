@@ -44,6 +44,8 @@ enum cl_dev_backend_options                            // Description           
     CL_DEV_BACKEND_OPTION_STOP_BEFORE_JIT,             //!< Stops compilation before JITing     |boolean                 | (Used for early AVX3 development)
     CL_DEV_BACKEND_OPTION_IDEVICE_COMMAND_MANAGER,     //!<a pointer to IDeviceCommandManager   | IDeviceCommandManager* | pointer
     CL_DEV_BACKEND_OPTION_FORCED_PRIVATE_MEMORY_SIZE,  //!< Set additional memory size          |size_t                  |
+    CL_DEV_BACKEND_OPTION_USE_AUTO_MEMORY,             //!< Allocate memory for kernel execution|boolean                 |
+                                                       //!< automatically (FPGA Only)           |
     CL_DEV_BACKEND_OPTION_CHANNEL_DEPTH_EMULATION_MODE,//!< Set channel depth emulation mode    |int                     |
     CL_DEV_BACKEND_OPTION_VECTORIZER_TYPE,             //!< Select vectorizer                   |VectorizerType          | VOLCANO_VECTORIZER,VPO_VECTORIZER
     CL_DEV_BACKEND_OPTION_NATIVE_SUBGROUPS,            //!< Enable native subgroups             |boolean                 |

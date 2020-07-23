@@ -145,10 +145,7 @@ void Kernel::FreeAllJITs() {
 void Kernel::CreateWorkDescription(cl_uniform_kernel_args *UniformImplicitArgs,
                                    size_t numOfComputeUnits) const {
   // assumption: LocalWorkSize GlobalSize and minWorkGroup already initialized
-
-  size_t max_wg_private_size = m_pProps->GetMaxPrivateMemorySize()
-                               ? m_pProps->GetMaxPrivateMemorySize()
-                               : CPU_DEV_MAX_WG_PRIVATE_SIZE;
+  size_t max_wg_private_size = m_pProps->GetMaxPrivateMemorySize();
   size_t maxWorkGroupSize = (m_pProps->TargetDevice() == FPGA_EMU_DEVICE)
                             ? FPGA_MAX_WORK_GROUP_SIZE
                             : m_pProps->GetCpuMaxWGSize();
