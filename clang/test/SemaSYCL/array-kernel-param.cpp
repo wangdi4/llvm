@@ -76,14 +76,11 @@ int main() {
       [=]() {
         foo local = struct_array[1];
       });
-<<<<<<< HEAD
 
   a_kernel<class kernel_E>(
       [=]() {
         int local = s.a[2];
       });
-=======
->>>>>>> 4707b74434962cd6ebab18174eece3b08812eb25
 }
 
 // Check kernel_A parameters
@@ -128,13 +125,8 @@ int main() {
 // CHECK-NEXT: ParmVarDecl {{.*}} used _arg_member_acc 'cl::sycl::id<1>'
 // CHECK-NEXT: CompoundStmt
 // CHECK-NEXT: DeclStmt
-<<<<<<< HEAD
-// CHECK-NEXT: VarDecl {{.*}} used '(lambda at {{.*}}array-kernel-param.cpp:57:7)' cinit
-// CHECK-NEXT: InitListExpr {{.*}} '(lambda at {{.*}}array-kernel-param.cpp:57:7)'
-=======
 // CHECK-NEXT: VarDecl {{.*}} used '(lambda at {{.*}}array-kernel-param.cpp{{.*}})' cinit
 // CHECK-NEXT: InitListExpr {{.*}} '(lambda at {{.*}}array-kernel-param.cpp{{.*}})'
->>>>>>> 4707b74434962cd6ebab18174eece3b08812eb25
 // CHECK-NEXT: InitListExpr {{.*}} 'struct_acc_t'
 // CHECK-NEXT: InitListExpr {{.*}} 'Accessor [2]'
 // CHECK-NEXT: CXXConstructExpr {{.*}} 'Accessor [2]'
@@ -234,8 +226,6 @@ int main() {
 // CHECK-NEXT: DeclRefExpr {{.*}} 'int' lvalue ParmVar {{.*}} '_arg_foo_inner_z' 'int'
 // CHECK-NEXT: ImplicitCastExpr
 // CHECK-NEXT: DeclRefExpr {{.*}} 'int' lvalue ParmVar {{.*}} '_arg_foo_c' 'int'
-<<<<<<< HEAD
-
 // Check kernel_E parameters
 // CHECK: FunctionDecl {{.*}}kernel_E{{.*}} 'void (int, int, int)'
 // CHECK-NEXT: ParmVarDecl {{.*}} used _arg_a 'int':'int'
@@ -253,5 +243,3 @@ int main() {
 // CHECK-NEXT: DeclRefExpr {{.*}} 'int':'int'
 // CHECK-NEXT: ImplicitCastExpr {{.*}} 'int':'int'
 // CHECK-NEXT: DeclRefExpr {{.*}} 'int':'int'
-=======
->>>>>>> 4707b74434962cd6ebab18174eece3b08812eb25
