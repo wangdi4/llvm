@@ -2070,6 +2070,12 @@ public:
 
   VPValue *getStep() const { return getOperand(1); }
 
+protected:
+  // Clones VPinductionInit.
+  virtual VPInductionInit *cloneImpl() const final {
+    return new VPInductionInit(getOperand(0), getOperand(1), getBinOpcode());
+  }
+
 private:
   unsigned BinOpcode;
 };
@@ -2096,6 +2102,12 @@ public:
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
   }
   Instruction::BinaryOps getBinOpcode() const { return BinOpcode; }
+
+protected:
+  // Clones VPInductionInistStep.
+  virtual VPInductionInitStep *cloneImpl() const final {
+    return new VPInductionInitStep(getOperand(0), getBinOpcode());
+  }
 
 private:
   Instruction::BinaryOps BinOpcode = Instruction::BinaryOpsEnd;
@@ -2154,6 +2166,18 @@ public:
 
   Instruction::BinaryOps getBinOpcode() const { return BinOpcode; }
 
+protected:
+  // Clones VPInductionFinal.
+  virtual VPInductionFinal *cloneImpl() const final {
+    if (getNumOperands() == 1)
+      return new VPInductionFinal(getInductionOperand());
+    else if (getNumOperands() == 2)
+      return new VPInductionFinal(getStartValueOperand(), getStepOperand(),
+                                  getBinOpcode());
+    else
+      llvm_unreachable("Too many operands.");
+  }
+
 private:
   Instruction::BinaryOps BinOpcode = Instruction::BinaryOpsEnd;
 };
@@ -2194,6 +2218,17 @@ public:
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPValue *V) {
     return isa<VPInstruction>(V) && classof(cast<VPInstruction>(V));
+  }
+
+protected:
+  // Clones VPReductionInit.
+  virtual VPReductionInit *cloneImpl() const final {
+    if (getNumOperands() == 1)
+      return new VPReductionInit(getIdentityOperand());
+    else if (getNumOperands() == 2)
+      return new VPReductionInit(getIdentityOperand(), getStartValueOperand());
+    else
+      llvm_unreachable("Too many operands.");
   }
 };
 
@@ -2313,6 +2348,20 @@ public:
     }
   }
 
+protected:
+  // Clones VPReductionFinal.
+  virtual VPReductionFinal *cloneImpl() const final {
+    if (isMinMaxIndex())
+      return new VPReductionFinal(
+          getBinOpcode(), getReducingOperand(), getParentExitValOperand(),
+          cast<VPReductionFinal>(getParentFinalValOperand()), isSigned());
+    else if (getStartValueOperand() == nullptr)
+      return new VPReductionFinal(getBinOpcode(), getReducingOperand());
+    else
+      return new VPReductionFinal(getBinOpcode(), getReducingOperand(),
+                                  getStartValueOperand(), isSigned());
+  }
+
 private:
   unsigned BinOpcode;
   bool Signed;
@@ -2331,8 +2380,7 @@ public:
   /// assert below.
   VPOrigTripCountCalculation(Loop *OrigLoop, const VPLoop *VPL, Type *Ty)
       : VPInstruction(VPInstruction::OrigTripCountCalculation, Ty, {}),
-        OrigLoop(OrigLoop) {
-    (void)VPL;
+        OrigLoop(OrigLoop), VPL(VPL) {
     // TODO: For inner loop vectorization, that loop's trip count might be
     // dependent on VPInstructions defined in the outer loop, so we need to
     // determine which ones affect the trip count and pass to VPInstruction
@@ -2355,12 +2403,13 @@ public:
   const Loop *getOrigLoop() const { return OrigLoop; }
 
 protected:
-  VPInstruction *cloneImpl() const {
-    llvm_unreachable("Not expected to be cloned!");
+  virtual VPOrigTripCountCalculation *cloneImpl() const final {
+    return new VPOrigTripCountCalculation(OrigLoop, VPL, getType());
   }
 
 private:
   Loop *OrigLoop;
+  const VPLoop *VPL;
 };
 
 /// Instruction representing the final value of the explicit IV for the vector
@@ -2369,8 +2418,7 @@ private:
 /// vector iteration.
 class VPVectorTripCountCalculation : public VPInstruction {
 public:
-  VPVectorTripCountCalculation(VPOrigTripCountCalculation *OrigTripCount,
-                               unsigned UF = 1)
+  VPVectorTripCountCalculation(VPValue *OrigTripCount, unsigned UF = 1)
       : VPInstruction(VPInstruction::VectorTripCountCalculation,
                       OrigTripCount->getType(), {OrigTripCount}),
         UF(UF) {}
@@ -2389,8 +2437,8 @@ public:
   void setUF(unsigned UF) { this->UF = UF; }
 
 protected:
-  VPInstruction *cloneImpl() const {
-    llvm_unreachable("Not expected to be cloned!");
+  virtual VPVectorTripCountCalculation *cloneImpl() const final {
+    return new VPVectorTripCountCalculation(getOperand(0), UF);
   }
 
 private:
@@ -2753,16 +2801,15 @@ public:
   // Add a VPInstruction that needs to be erased in UnlinkedVPInsns vector.
   void addUnlinkedVPInst(VPInstruction *I) { UnlinkedVPInsns.emplace_back(I); }
 
+  // Clones VPlan.
+  std::unique_ptr<VPlan> clone();
+
 private:
   /// Add to the given dominator tree the header block and every new basic block
   /// that was created between it and the latch block, inclusive.
   static void updateDominatorTree(class DominatorTree *DT,
                                   BasicBlock *LoopPreHeaderBB,
                                   BasicBlock *LoopLatchBB);
-
-  VPlan *clone(void) const {
-    llvm_unreachable("Implement after VPlan redesign.");
-  }
 };
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)

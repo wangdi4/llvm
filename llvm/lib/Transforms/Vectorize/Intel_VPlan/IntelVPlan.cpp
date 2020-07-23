@@ -18,6 +18,7 @@
 
 #if INTEL_CUSTOMIZATION
 #include "IntelVPlan.h"
+#include "IntelVPlanClone.h"
 #include "IntelVPOCodeGen.h"
 #include "IntelVPSOAAnalysis.h"
 #include "IntelVPlanDominatorTree.h"
@@ -815,6 +816,27 @@ void VPlan::dump(raw_ostream &OS) const {
 }
 
 void VPlan::dump() const { dump(dbgs()); }
+
+std::unique_ptr<VPlan> VPlan::clone(void) {
+  // Create new VPlan
+  std::unique_ptr<VPlan> ClonedVPlan = std::make_unique<VPlan>(getExternals());
+
+  // Clone the basic blocks from the current VPlan to the new one
+  VPCloneUtils::Value2ValueMapTy OrigClonedValuesMap;
+  VPCloneUtils::cloneBlocksRange(&front(), &back(), OrigClonedValuesMap,
+                                 nullptr, "Cloned.", ClonedVPlan.get());
+
+  // Update cloned instructions' operands
+  VPValueMapper Mapper(OrigClonedValuesMap);
+  for (VPBasicBlock &OrigVPBB : *this)
+    Mapper.remapOperands(&OrigVPBB);
+
+  // Update dominator tree and post-dominator tree of new VPlan
+  ClonedVPlan->computeDT();
+  ClonedVPlan->computePDT();
+
+  return ClonedVPlan;
+}
 
 void VPlanPrinter::dump() {
 #if INTEL_CUSTOMIZATION

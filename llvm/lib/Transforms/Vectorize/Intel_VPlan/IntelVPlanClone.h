@@ -24,17 +24,22 @@ class VPCloneUtils {
 public:
   using Value2ValueMapTy = DenseMap<VPValue *, VPValue *>;
 
-  /// Clone given VPBasicBlock \p Block.
+  /// Clone given VPBasicBlock \p Block inside the current VPlan or in a
+  /// NewVPlan (if NewVPlan!=nullptr).
   static VPBasicBlock *cloneBasicBlock(VPBasicBlock *Block, const Twine &Prefix,
                                        Value2ValueMapTy &ValueMap,
                                        VPlan::iterator InsertBefore,
-                                       VPlanDivergenceAnalysis *DA = nullptr);
+                                       VPlanDivergenceAnalysis *DA = nullptr,
+                                       VPlan *NewVPlan = nullptr);
 
-  /// Clone given blocks from Begin to End
+  /// Clone given blocks from Begin to End inside the current Plan if
+  /// NewVPlan=nullptr. Otherwise, it clones the basic blocks from Begin to End
+  /// and adds them to a new VPlan.
   static VPBasicBlock *cloneBlocksRange(VPBasicBlock *Begin, VPBasicBlock *End,
                                         Value2ValueMapTy &ValueMap,
                                         VPlanDivergenceAnalysis *DA = nullptr,
-                                        const Twine &Prefix = "cloned.");
+                                        const Twine &Prefix = "cloned.",
+                                        VPlan *NewVPlan = nullptr);
 };
 
 /// VPValueMapper is responsible to remap instructions within
