@@ -675,9 +675,15 @@ TargetTransformInfo::getOperandInfo(const Value *V,
     OpInfo = OK_NonUniformConstantValue;
     if (Splat) {
       OpInfo = OK_UniformConstantValue;
-      if (auto *CI = dyn_cast<ConstantInt>(Splat))
+#if INTEL_CUSTOMIZATION
+      if (auto *CI = dyn_cast<ConstantInt>(Splat)) {
+        if ((CI->getValue() + 1).isPowerOf2() ||
+            (CI->getValue() - 1).isPowerOf2())
+          OpProps = OP_PowerOf2_PlusMinus1;
         if (CI->getValue().isPowerOf2())
           OpProps = OP_PowerOf2;
+      }
+#endif
     } else if (const auto *CDS = dyn_cast<ConstantDataSequential>(V)) {
       OpProps = OP_PowerOf2;
       for (unsigned I = 0, E = CDS->getNumElements(); I != E; ++I) {

@@ -674,6 +674,18 @@ const SafetyData SDPaddedStructures =
         BadMemFuncManipulation | AmbiguousPointerTarget | AddressTaken |
         MismatchedArgUse | UnhandledUse;
 
+// Safety conditions for arrays with constant entries
+const SafetyData SDArraysWithConstantEntries =
+    BadCasting | BadAllocSizeArg | BadPtrManipulation |
+        AmbiguousGEP | VolatileData | MismatchedElementAccess |
+        WholeStructureReference | UnsafePointerStore | FieldAddressTaken |
+        HasInitializerList | GlobalArray | GlobalInstance | UnsafePtrMerge |
+        BadMemFuncSize | MemFuncPartialWrite | BadMemFuncManipulation |
+        AmbiguousPointerTarget | AddressTaken | NoFieldsInStruct |
+        SystemObject | MismatchedArgUse | BadCastingPending |
+        BadCastingConditional | UnsafePointerStorePending |
+        UnsafePointerStoreConditional | UnhandledUse;
+
 //
 // TODO: Update the list each time we add a new safety conditions check for a
 // new transformation pass.
@@ -691,8 +703,9 @@ const Transform DT_ElimROFieldAccess = 0x0100;
 const Transform DT_DynClone = 0x0200;
 const Transform DT_SOAToAOS = 0x0400;
 const Transform DT_MemInitTrimDown = 0x0800;
-const Transform DT_Last = 0x1000;
-const Transform DT_Legal = 0x0fff;
+const Transform DT_ArraysWithConstantEntries = 0x1000;
+const Transform DT_Last = 0x2000;
+const Transform DT_Legal = 0x1fff;
 
 /// A three value enum that indicates whether for a particular Type of
 /// interest if a there is another distinct Type with which it is compatible

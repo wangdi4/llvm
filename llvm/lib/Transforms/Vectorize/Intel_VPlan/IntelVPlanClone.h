@@ -56,7 +56,10 @@ private:
     assert(!AssertForNonCloned &&
            "Either VPBB or VPInstruction was not cloned. Remapping is not "
            "possible.");
-    Map[Value] = Value;
+
+    if (dyn_cast<VPInstruction>(Value))
+      Map[Value] = Value;
+
     return Value;
   }
 
@@ -66,6 +69,12 @@ public:
       : Value2ValueMap(ValueMap), AssertForNonCloned(AssertForNonCloned) {}
 
   void remapInstruction(VPInstruction *Inst);
+
+  // Updates the operands of cloned instructions and basic blocks by replacing
+  // the original values with the cloned ones.
+  void remapOperands(VPBasicBlock *OrigVPBB,
+                     std::function<void(VPInstruction &)> UpdateFunc =
+                         [](VPInstruction &VPInst) {});
 };
 
 } // namespace vpo

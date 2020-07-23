@@ -29,6 +29,21 @@ void VPValueMapper::remapInstruction(VPInstruction *Inst) {
   }
 }
 
+void VPValueMapper::remapOperands(
+    VPBasicBlock *OrigVPBB, std::function<void(VPInstruction &)> UpdateFunc) {
+  auto *ClonedVPBB = cast<VPBasicBlock>(Value2ValueMap[OrigVPBB]);
+
+  for (VPInstruction &Inst : *ClonedVPBB) {
+    remapInstruction(&Inst);
+    UpdateFunc(Inst);
+  }
+
+  // Fix cond predicate.
+  if (VPInstruction *BlockPredicate = OrigVPBB->getBlockPredicate())
+    ClonedVPBB->setBlockPredicate(
+        cast<VPInstruction>(remapValue(Value2ValueMap, BlockPredicate)));
+}
+
 /// Clone \p Block and its instructions.
 /// Remapping happens later by VPValueMapper which must be called by user.
 VPBasicBlock *VPCloneUtils::cloneBasicBlock(VPBasicBlock *Block,
@@ -65,26 +80,8 @@ VPBasicBlock *VPCloneUtils::cloneBlocksRange(VPBasicBlock *Begin,
                                              Value2ValueMapTy &ValueMap,
                                              VPlanDivergenceAnalysis *DA,
                                              const Twine &Prefix) {
-
   for (auto *BB : sese_depth_first(Begin, End))
     cloneBasicBlock(BB, Prefix.str(), ValueMap, ++End->getIterator(), DA);
-
-  // Remap successors *inside* SESE region. Once CFG is represented through
-  // terminator VPInstruction that won't be needed here and would be done as
-  // part of ordinary remap.
-  //
-  // Can't iterate over BlockMap directly because the order won't be stable
-  // resulting in unstable predecessors order.
-  for (auto *BB : sese_depth_first(Begin, End)) {
-    // Skip last basic block.
-    if (BB == End)
-      continue;
-    auto *Clone = cast<VPBasicBlock>(ValueMap[BB]);
-    for (VPBasicBlock *OrigSucc : BB->getSuccessors()) {
-      auto *CloneSucc = cast<VPBasicBlock>(ValueMap[OrigSucc]);
-      Clone->appendSuccessor(CloneSucc);
-    }
-  }
 
   return cast<VPBasicBlock>(ValueMap[Begin]);
 }

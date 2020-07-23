@@ -14,6 +14,7 @@
 #include "Intel_DTrans/Analysis/DTrans.h"
 #include "Intel_DTrans/Analysis/DTransAllocAnalyzer.h"
 #include "Intel_DTrans/Analysis/DTransAnnotator.h"
+#include "Intel_DTrans/Analysis/DTransArraysWithConstant.h"
 #include "Intel_DTrans/Analysis/DTransImmutableAnalysis.h"
 #include "Intel_DTrans/Analysis/DTransUtils.h"
 #include "Intel_DTrans/DTransCommon.h"
@@ -143,6 +144,10 @@ static cl::opt<bool> DTransUseCRuleCompat("dtrans-usecrulecompat",
 static cl::opt<bool> DTransTestPaddedStructs("dtrans-test-padded-structs",
                                               cl::init(false),
                                               cl::ReallyHidden);
+
+// Enable the analysis process for arrays with constant entries
+static cl::opt<bool> DTransArraysWithConstEntries(
+    "dtrans-arrays-with-const-entries", cl::init(false), cl::ReallyHidden);
 
 using GetTLIFnType = std::function<const TargetLibraryInfo &(const Function &)>;
 
@@ -10872,6 +10877,12 @@ bool DTransAnalysisInfo::analyzeModule(
           StInfo->getField(I).setBottomAllocFunction();
         }
       }
+  }
+
+  if (DTransArraysWithConstEntries) {
+    // Analyze the arrays with constant information
+    dtrans::DtransArraysWithConstant DTransArraysWithConstant;
+    DTransArraysWithConstant.runArraysWithConstAnalysis(M, this);
   }
 
   DTransAnalysisRan = true;

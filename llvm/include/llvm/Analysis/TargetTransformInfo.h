@@ -865,7 +865,8 @@ public:
   };
 
   /// Additional properties of an operand's values.
-  enum OperandValueProperties { OP_None = 0, OP_PowerOf2 = 1 };
+  enum OperandValueProperties { OP_None = 0, OP_PowerOf2 = 1, // INTEL
+                                OP_PowerOf2_PlusMinus1 = 2 }; // INTEL
 
   /// \return the number of registers in the target-provided register class.
   unsigned getNumberOfRegisters(unsigned ClassID) const;

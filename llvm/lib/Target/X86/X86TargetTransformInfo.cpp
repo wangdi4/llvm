@@ -211,6 +211,31 @@ int X86TTIImpl::getArithmeticInstrCost(unsigned Opcode, Type *Ty,
                                             LT.second))
       return LT.first * Entry->Cost;
 
+#if INTEL_CUSTOMIZATION
+  if (ISD == ISD::MUL && ST->hasSSE2() && LT.second.isVector() &&
+      Op2Info == TargetTransformInfo::OK_UniformConstantValue &&
+      (LT.second.getVectorElementType() == MVT::i8 ||
+       (LT.second.getVectorElementType() == MVT::i32 && !ST->hasSSE41()) ||
+       (LT.second.getVectorElementType() == MVT::i64 && !ST->hasDQI()))) {
+    if (Opd2PropInfo == TargetTransformInfo::OP_PowerOf2) {
+      int Cost = getArithmeticInstrCost(Instruction::Shl, Ty, CostKind, Op1Info,
+                                        Op2Info, TargetTransformInfo::OP_None,
+                                        TargetTransformInfo::OP_None);
+      return Cost;
+    }
+    if (Opd2PropInfo == TargetTransformInfo::OP_PowerOf2_PlusMinus1) {
+      int Cost = getArithmeticInstrCost(Instruction::Shl, Ty, CostKind, Op1Info,
+                                        Op2Info, TargetTransformInfo::OP_None,
+                                        TargetTransformInfo::OP_None);
+      Cost += getArithmeticInstrCost(Instruction::Add, Ty, CostKind,
+                                     TargetTransformInfo::OK_AnyValue,
+                                     Op1Info, TargetTransformInfo::OP_None,
+                                     TargetTransformInfo::OP_None);
+      return Cost;
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
+
   static const CostTblEntry SLMCostTable[] = {
     { ISD::MUL,   MVT::v4i32, 11 }, // pmulld
     { ISD::MUL,   MVT::v8i16, 2  }, // pmullw
