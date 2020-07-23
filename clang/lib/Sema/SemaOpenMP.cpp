@@ -18586,6 +18586,7 @@ static void checkMappableExpressionList(
                           /*CurrentRegionOnly=*/true, CurComponents, CKind))
       break;
     if (CKind == OMPC_map &&
+        (SemaRef.getLangOpts().OpenMP <= 45 || StartLoc.isValid()) &&
         checkMapConflicts(SemaRef, DSAS, CurDeclaration, SimpleExpr,
                           /*CurrentRegionOnly=*/false, CurComponents, CKind))
       break;
@@ -20221,7 +20222,7 @@ OMPClause *Sema::ActOnOpenMPUsesAllocatorClause(
           [](const UsesAllocatorsData &D) { return D.AllocatorTraits; }) &&
       !findOMPAlloctraitT(*this, StartLoc, DSAStack))
     return nullptr;
-  llvm::SmallSet<CanonicalDeclPtr<Decl>, 4> PredefinedAllocators;
+  llvm::SmallPtrSet<CanonicalDeclPtr<Decl>, 4> PredefinedAllocators;
   for (int I = 0; I < OMPAllocateDeclAttr::OMPUserDefinedMemAlloc; ++I) {
     auto AllocatorKind = static_cast<OMPAllocateDeclAttr::AllocatorTypeTy>(I);
     StringRef Allocator =
