@@ -28,8 +28,6 @@
 #include "queue_event.h"
 #include "ocl_event.h"
 
-#pragma comment(lib, "libcl_sys_utils.a")
-
 __attribute__ ((constructor)) static void dll_init(void);
 __attribute__ ((destructor)) static void dll_fini(void);
 

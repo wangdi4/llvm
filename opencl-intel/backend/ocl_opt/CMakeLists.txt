@@ -68,7 +68,6 @@ set(OCL_BE_PASSES_DEPS
 add_opencl_executable(oclopt
   AnalysisWrappers.cpp
   BreakpointPrinter.cpp
-  Debugify.cpp
   GraphPrinters.cpp
   NewPMDriver.cpp
   PassPrinters.cpp
