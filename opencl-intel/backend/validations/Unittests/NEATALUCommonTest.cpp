@@ -587,7 +587,6 @@ public:
     
         // Test special floating point values: NaNs.
         NEATValue nan = NEATValue::NaN<T>();
-        NEATValue notSpecial = NEATValue(Arg1Min[0]);
         NEATValue testVal;
         for (uint32_t i = 0; i < (NUM_TESTS)*(vectorWidth); ++i)
         {

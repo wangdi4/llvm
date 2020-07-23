@@ -1827,6 +1827,7 @@ void PrefetchCandidateUtils::insertPF (Instruction *I) {
     callInst->setDebugLoc(I->getDebugLoc());
   }
 
+  (void)isExclusive;
   LLVM_DEBUG(dbgs() << "Generated PF in BB " << I->getParent()->getName() <<
       " type " << (isExclusive ? "ScatterPF" : "GatherPF") << "\n");
 }

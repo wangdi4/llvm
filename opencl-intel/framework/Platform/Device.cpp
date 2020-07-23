@@ -755,6 +755,7 @@ bool FissionableDevice::IsImageFormatSupported(const cl_image_format& clImgForma
     cl_uint uiNumEntries;
     bool bSupported = false;
     cl_dev_err_code clErr = GetDeviceAgent()->clDevGetSupportedImageFormats(clMemFlags, clMemObjType, 0, nullptr, &uiNumEntries);
+    (void)clErr;
     assert(CL_SUCCESS == clErr);    
     cl_image_format* const pFormats = new cl_image_format[uiNumEntries];
 

@@ -130,14 +130,13 @@ void VectorizerTableGen::run(raw_ostream& os){
   std::unique_ptr<llvm::Module> pModule = llvm::parseIRFile("decls.ll", errDiagnostic, context);
   //we now associating each BiFunc to its corresponding llvm::Function
   it = m_biMap.begin();
-  llvm::Module::const_iterator functionIt = pModule->begin(),
-    functionE = pModule->end();
+  llvm::Module::const_iterator functionIt = pModule->begin();
   while(it != e){
     it->second = std::string(functionIt->getName());
     ++it;
     ++functionIt;
   }
-  assert(functionIt == functionE &&
+  assert(functionIt == pModule->end() &&
     "the number of tblgen function and llvm functions should be the same");
   generateTable(os, ArrayRef<RowProperties>(rowProperties, numRows));
   delete[] rowProperties;

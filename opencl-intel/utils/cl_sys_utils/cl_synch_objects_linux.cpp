@@ -115,6 +115,7 @@ OclCondition::OclCondition()
 {
 	int err = 0;
 	err = pthread_cond_init(&m_condVar, nullptr);
+	(void)err;
 	assert(0 == err && "pthread_cond_init failed");
 }
 
@@ -127,6 +128,7 @@ OclCondition::~OclCondition()
 {
 	int err = 0;
 	err = pthread_cond_destroy(&m_condVar);
+	(void)err;
 	assert(0 == err && "pthread_cond_destroy failed");
 }
 

@@ -105,6 +105,7 @@ namespace{
             EXPECT_EQ(D[i],b.sample_f64());
             EXPECT_EQ(F2[i],b.sample_f32_binary());
             EXPECT_EQ(D2[i],b.sample_f64_binary());
+            EXPECT_EQ(I[i],b.sample_u64());
         }
     }
     TEST(OCLKernelDataGenerator, TestOfSeedv2)

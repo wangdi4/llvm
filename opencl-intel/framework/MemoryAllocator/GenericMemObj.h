@@ -379,6 +379,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
             {
                 cl_err_code errCode = CL_SUCCESS;
                 errCode = m_pMemObj->updateParentInt(m_destDevSharingGroupId, m_memoryUsage, m_isParent, this, m_nextStage, m_pOutEvent);
+                (void)errCode;
                 assert(CL_SUCCESS == errCode && "In case that errCode is not CL_SUCCESS ==> invalidate the event //TODO");
                 if (EVENT_STATE_DONE == GetEventState())
                 {

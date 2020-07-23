@@ -1728,6 +1728,7 @@ void PacketizeFunction::packetizeInstruction(CallInst *CI)
   if (isMangled) {
     scalarFuncName = Mangler::demangle(scalarFuncName);
     scalarFunc = m_currFunc->getParent()->getFunction(scalarFuncName);
+    (void)scalarFunc;
     V_ASSERT(scalarFunc && "Could not find function which was masked, but still exist");
   }
   V_PRINT(packetizer, "\t\t\tCalled function name (demangled): " << scalarFuncName << "\n");

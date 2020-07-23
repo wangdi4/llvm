@@ -205,6 +205,7 @@ DataP registerObject(_PROVISONAL_MallocArray_t *base, DataP obj, const char *cre
 	m.str     = creationStr;
 	m.line    = line;
 	m.cppData = wrapper;
+	(void)m;
     PROV_DEBUG_PRINT("registerObject < %s > from line %u at position %lu\n", m.str, (cl_uint)m.line, base->mallocated_pos);
 	return obj;
 }
@@ -230,6 +231,7 @@ DataP registerNewArr(_PROVISONAL_MallocArray_t *base, DataP arr, const char *cre
 	m.str     = creationStr;
 	m.line    = line;
 	m.cppData = wrapper;
+	(void)m;
 	PROV_DEBUG_PRINT("registerNewArr < %s > from line %u at position %lu\n", m.str, (cl_uint)m.line, base->mallocated_pos);
 	return arr;
 }

@@ -21,17 +21,21 @@ TEST_F(CL, Test_CreateProgramWithILKHR_Negative)
     program = clCreateProgramWithILKHR(nullptr, spirv.data(), spirv.size(), &iRet);
     ASSERT_EQ(CL_INVALID_CONTEXT, iRet)
                  << " clCreateProgramWithILKHR with invalid context expected to fail. ";
+    ASSERT_EQ(CL_INVALID_HANDLE, program);
 
     program = clCreateProgramWithILKHR(m_context, nullptr, spirv.size(), &iRet);
     ASSERT_EQ(CL_INVALID_VALUE, iRet)
                 << " clCreateProgramWithILKHR with nullptr IL buffer expected to fail. ";
+    ASSERT_EQ(CL_INVALID_HANDLE, program);
 
     program = clCreateProgramWithILKHR(m_context, spirv.data(), /*length*/0, &iRet);
     ASSERT_EQ(CL_INVALID_VALUE, iRet) << " clCreateProgramWithILKHR with 0 length expected to fail. ";
+    ASSERT_EQ(CL_INVALID_HANDLE, program);
 
     std::string wrong_IL("trash trash trash");
     program = clCreateProgramWithILKHR(m_context, &wrong_IL[0], wrong_IL.size(), &iRet);
     ASSERT_EQ(CL_INVALID_VALUE, iRet) << " clCreateProgramWithILKHR with invalid IL expected to fail. ";
+    ASSERT_EQ(CL_INVALID_HANDLE, program);
 }
 
 TEST_F(CL, Test_CreateProgramWithILKHR_FP)
@@ -54,17 +58,21 @@ TEST_F(CL, Test_CreateProgramWithILKHR_FP)
     program = create_program_with_il(nullptr, spirv.data(), spirv.size(), &iRet);
     ASSERT_EQ(CL_INVALID_CONTEXT, iRet)
                  << " clCreateProgramWithILKHR with invalid context expected to fail. ";
+    ASSERT_EQ(CL_INVALID_HANDLE, program);
 
     program = create_program_with_il(m_context, nullptr, spirv.size(), &iRet);
     ASSERT_EQ(CL_INVALID_VALUE, iRet)
                 << " clCreateProgramWithILKHR with nullptr IL buffer expected to fail. ";
+    ASSERT_EQ(CL_INVALID_HANDLE, program);
 
     program = create_program_with_il(m_context, spirv.data(), /*length*/0, &iRet);
     ASSERT_EQ(CL_INVALID_VALUE, iRet) << " clCreateProgramWithILKHR with 0 length expected to fail. ";
+    ASSERT_EQ(CL_INVALID_HANDLE, program);
 
     std::string wrong_IL("trash trash trash");
     program = create_program_with_il(m_context, &wrong_IL[0], wrong_IL.size(), &iRet);
     ASSERT_EQ(CL_INVALID_VALUE, iRet) << " clCreateProgramWithILKHR with invalid IL expected to fail. ";
+    ASSERT_EQ(CL_INVALID_HANDLE, program);
 }
 
 TEST_F(CL, Test_CreateProgramWithILKHR)

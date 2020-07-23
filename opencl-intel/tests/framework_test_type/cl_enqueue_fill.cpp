@@ -535,8 +535,6 @@ TEST_F(ImageFillTestNorm, Image)
 {
 	ASSERT_EQ(true, IsOCLReady()) << "Failed to setup OCL environment.";
 
-	cl_int iRet = 0;
-
 	// SETUP WAS OK
     m_imgFormat.image_channel_order = CL_RGBA;
     m_imgFormat.image_channel_data_type = CL_UNORM_INT8;
@@ -557,7 +555,7 @@ TEST_F(ImageFillTestNorm, Image)
         m_imgFormat.image_channel_data_type = CL_FLOAT;
         m_imgDesc.image_type = CL_MEM_OBJECT_IMAGE3D;
         EXPECT_NO_FATAL_FAILURE(
-            iRet = runSingleImageTest<cl_float4>(inputFormatColors, inputFormatColors);
+            runSingleImageTest<cl_float4>(inputFormatColors, inputFormatColors);
         );
     }
 
@@ -567,7 +565,7 @@ TEST_F(ImageFillTestNorm, Image)
         m_imgFormat.image_channel_data_type = CL_FLOAT;
         m_imgDesc.image_type = CL_MEM_OBJECT_IMAGE2D;
         EXPECT_NO_FATAL_FAILURE(
-            iRet = runSingleImageTest<cl_float4>(inputFormatColors, inputFormatColors);
+            runSingleImageTest<cl_float4>(inputFormatColors, inputFormatColors);
         );
     }
 
@@ -577,7 +575,7 @@ TEST_F(ImageFillTestNorm, Image)
         m_imgFormat.image_channel_data_type = CL_FLOAT;
         m_imgDesc.image_type = CL_MEM_OBJECT_IMAGE1D;
         EXPECT_NO_FATAL_FAILURE(
-            iRet = runSingleImageTest<cl_float4>(inputFormatColors, inputFormatColors);
+            runSingleImageTest<cl_float4>(inputFormatColors, inputFormatColors);
         );
     }
 
@@ -587,7 +585,7 @@ TEST_F(ImageFillTestNorm, Image)
 		m_imgFormat.image_channel_data_type = CL_UNORM_INT8;
 		m_imgDesc.image_type = CL_MEM_OBJECT_IMAGE3D;
 		EXPECT_NO_FATAL_FAILURE(
-				iRet = runSingleImageTest<cl_uchar4>(inputFormatColors, imgFormatColors_UNORM_INT8);
+				runSingleImageTest<cl_uchar4>(inputFormatColors, imgFormatColors_UNORM_INT8);
 		);
     }
 
@@ -597,7 +595,7 @@ TEST_F(ImageFillTestNorm, Image)
 		m_imgFormat.image_channel_data_type = CL_UNORM_INT8;
 		m_imgDesc.image_type = CL_MEM_OBJECT_IMAGE2D;
 		EXPECT_NO_FATAL_FAILURE(
-				iRet = runSingleImageTest<cl_uchar4>(inputFormatColors, imgFormatColors_UNORM_INT8);
+				runSingleImageTest<cl_uchar4>(inputFormatColors, imgFormatColors_UNORM_INT8);
 		);
     }
 
@@ -608,7 +606,7 @@ TEST_F(ImageFillTestNorm, Image)
 		m_imgFormat.image_channel_data_type = CL_UNORM_INT8;
 		m_imgDesc.image_type = CL_MEM_OBJECT_IMAGE1D;
 		EXPECT_NO_FATAL_FAILURE(
-				iRet = runSingleImageTest<cl_uchar4>(inputFormatColors, imgFormatColors_UNORM_INT8);
+				runSingleImageTest<cl_uchar4>(inputFormatColors, imgFormatColors_UNORM_INT8);
 		);
     }
 #endif
@@ -621,7 +619,7 @@ TEST_F(ImageFillTestNorm, Image)
 		m_imgFormat.image_channel_data_type = CL_UNORM_INT8;
 		m_imgDesc.image_type = CL_MEM_OBJECT_IMAGE3D;
 		EXPECT_NO_FATAL_FAILURE(
-				iRet = runSingleImageTest<cl_uchar4>(inputFormatColors, imgFormatColors_UNORM_INT8_BGRA);
+				runSingleImageTest<cl_uchar4>(inputFormatColors, imgFormatColors_UNORM_INT8_BGRA);
 		);
     }
 
@@ -631,7 +629,7 @@ TEST_F(ImageFillTestNorm, Image)
 		m_imgFormat.image_channel_data_type = CL_UNORM_INT8;
 		m_imgDesc.image_type = CL_MEM_OBJECT_IMAGE2D;
 		EXPECT_NO_FATAL_FAILURE(
-				iRet = runSingleImageTest<cl_uchar4>(inputFormatColors, imgFormatColors_UNORM_INT8_BGRA);
+				runSingleImageTest<cl_uchar4>(inputFormatColors, imgFormatColors_UNORM_INT8_BGRA);
 		);
     }
 
@@ -642,7 +640,7 @@ TEST_F(ImageFillTestNorm, Image)
 		m_imgFormat.image_channel_data_type = CL_UNORM_INT8;
 		m_imgDesc.image_type = CL_MEM_OBJECT_IMAGE1D;
 		EXPECT_NO_FATAL_FAILURE(
-				iRet = runSingleImageTest<cl_uchar4>(inputFormatColors, imgFormatColors_UNORM_INT8_BGRA);
+				runSingleImageTest<cl_uchar4>(inputFormatColors, imgFormatColors_UNORM_INT8_BGRA);
 		);
     }
 #endif
@@ -655,8 +653,6 @@ typedef ImageFillTest<cl_int4> ImageFillTestNonNormInt;
 TEST_F(ImageFillTestNonNormInt, Image)
 {
 	ASSERT_EQ(true, IsOCLReady()) << "Failed to setup OCL environment.";
-
-	cl_int iRet = 0;
 
 	// SETUP WAS OK
     m_imgFormat.image_channel_order = CL_RGBA;
@@ -679,7 +675,7 @@ TEST_F(ImageFillTestNonNormInt, Image)
 		m_imgFormat.image_channel_data_type = CL_SIGNED_INT32;
 		m_imgDesc.image_type = CL_MEM_OBJECT_IMAGE3D;
 		EXPECT_NO_FATAL_FAILURE(
-				iRet = runSingleImageTest<cl_int4>(inputFormatColors, imgFormatColors_UNORM_SIGNED_INT32);
+				runSingleImageTest<cl_int4>(inputFormatColors, imgFormatColors_UNORM_SIGNED_INT32);
 		);
     }
 
@@ -689,7 +685,7 @@ TEST_F(ImageFillTestNonNormInt, Image)
 		m_imgFormat.image_channel_data_type = CL_SIGNED_INT32;
 		m_imgDesc.image_type = CL_MEM_OBJECT_IMAGE2D;
 		EXPECT_NO_FATAL_FAILURE(
-				iRet = runSingleImageTest<cl_int4>(inputFormatColors, imgFormatColors_UNORM_SIGNED_INT32);
+				runSingleImageTest<cl_int4>(inputFormatColors, imgFormatColors_UNORM_SIGNED_INT32);
 		);
     }
 
@@ -700,7 +696,7 @@ TEST_F(ImageFillTestNonNormInt, Image)
 		m_imgFormat.image_channel_data_type = CL_SIGNED_INT32;
 		m_imgDesc.image_type = CL_MEM_OBJECT_IMAGE1D;
 		EXPECT_NO_FATAL_FAILURE(
-				iRet = runSingleImageTest<cl_int4>(inputFormatColors, imgFormatColors_UNORM_SIGNED_INT32);
+				runSingleImageTest<cl_int4>(inputFormatColors, imgFormatColors_UNORM_SIGNED_INT32);
 		);
     }
 #endif
@@ -713,7 +709,7 @@ TEST_F(ImageFillTestNonNormInt, Image)
 		m_imgFormat.image_channel_data_type = CL_SIGNED_INT8;
 		m_imgDesc.image_type = CL_MEM_OBJECT_IMAGE3D;
 		EXPECT_NO_FATAL_FAILURE(
-				iRet = runSingleImageTest<cl_char4>(inputFormatColors, imgFormatColors_UNORM_SIGNED_INT8);
+				runSingleImageTest<cl_char4>(inputFormatColors, imgFormatColors_UNORM_SIGNED_INT8);
 		);
     }
 
@@ -723,7 +719,7 @@ TEST_F(ImageFillTestNonNormInt, Image)
 		m_imgFormat.image_channel_data_type = CL_SIGNED_INT8;
 		m_imgDesc.image_type = CL_MEM_OBJECT_IMAGE2D;
 		EXPECT_NO_FATAL_FAILURE(
-				iRet = runSingleImageTest<cl_char4>(inputFormatColors, imgFormatColors_UNORM_SIGNED_INT8);
+				runSingleImageTest<cl_char4>(inputFormatColors, imgFormatColors_UNORM_SIGNED_INT8);
 		);
     }
 
@@ -734,7 +730,7 @@ TEST_F(ImageFillTestNonNormInt, Image)
 		m_imgFormat.image_channel_data_type = CL_SIGNED_INT8;
 		m_imgDesc.image_type = CL_MEM_OBJECT_IMAGE1D;
 		EXPECT_NO_FATAL_FAILURE(
-				iRet = runSingleImageTest<cl_char4>(inputFormatColors, imgFormatColors_UNORM_SIGNED_INT8);
+				runSingleImageTest<cl_char4>(inputFormatColors, imgFormatColors_UNORM_SIGNED_INT8);
 		);
     }
 #endif

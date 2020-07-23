@@ -120,7 +120,6 @@ const char *GetOpenCLVersionStr(OPENCL_VERSION ver) {
 
 int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
   bool bProfiling   = false,
-       bDebug       = false,
        bRelaxedMath = false,
        bNoOpts      = false;
 
@@ -128,7 +127,6 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
   llvm::StringRef(m_pProgDesc->pszOptions).split(splittedOptions, " ");
   for (const auto opt : splittedOptions) {
     if (opt.str() == "-profiling") bProfiling = true;
-    if (opt.str() == "-g") bDebug = true;
     if (opt.str() == "-cl-fast-relaxed-math") bRelaxedMath = true;
     if (opt.str() == "-cl-opt-disable") bNoOpts = true;
   }
