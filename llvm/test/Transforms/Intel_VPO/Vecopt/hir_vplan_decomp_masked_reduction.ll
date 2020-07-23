@@ -76,12 +76,7 @@ define dso_local float @ifsum1(i32 %N) local_unnamed_addr #0 {
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
-; FIXME: One VPExternalUse cannot have multiple operands. This should be fixed in decomposer to select
-; only the post-dominating VPInst.
-; CHECK-NEXT:  float [[VP13]] -> [[VP15:%.*]] = {%tsum.015}
-; CHECK-NEXT:  float [[VP10]] -> [[VP15]] = {%tsum.015}
-; CHECK-NEXT:  float [[VP5]] -> [[VP15]] = {%tsum.015}
-; CHECK-NEXT:  float [[VP4]] -> [[VP15]] = {%tsum.015}
+; CHECK-NEXT:  float [[VP5]] -> [[VP15:%.*]] = {%tsum.015}
 ;
 entry:
   %cmp14 = icmp sgt i32 %N, 0

@@ -285,6 +285,10 @@ public:
   /// Add operands to empty VPPHINodes added during decomposition.
   void fixPhiNodes();
 
+  // Fix operands of VPExternalUses created for live-out temps during
+  // decomposition.
+  void fixExternalUses();
+
   VPValue *getVPValueForNode(const loopopt::HLNode *Node);
 
   /// Return requested VPConstant, for components that don't have VPlan

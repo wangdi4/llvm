@@ -49,7 +49,6 @@ define dso_local i64 @getmax(i64* noalias nocapture readonly %larr) local_unname
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
 ; CHECK-NEXT:  i64 [[VP3]] -> [[VP11:%.*]] = {%max.012}
-; CHECK-NEXT:  i64 [[VP2]] -> [[VP11]] = {%max.012}
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  *** IR Dump After VPlan Vectorization Driver HIR ***
 ; CHECK-NEXT:  Function: getmax
@@ -127,7 +126,6 @@ define dso_local i64 @getmin(i64* noalias nocapture readonly %larr) local_unname
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  External Uses:
 ; CHECK-NEXT:  i64 [[VP3]] -> [[VP11:%.*]] = {%min.012}
-; CHECK-NEXT:  i64 [[VP2]] -> [[VP11]] = {%min.012}
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  *** IR Dump After VPlan Vectorization Driver HIR ***
 ; CHECK-NEXT:  Function: getmin

@@ -381,6 +381,11 @@ public:
     std::advance(It, Idx);
     Operands.erase(It);
   }
+  void removeAllOperands() {
+    int NumOps = getNumOperands();
+    for (int Idx = 0; Idx < NumOps; ++Idx)
+      removeOperand(NumOps - 1 - Idx);
+  }
   /// Return the number of operands that match \p Op.
   int getNumOperandsFrom(const VPValue *Op) const {
     return std::count(op_begin(), op_end(), Op);

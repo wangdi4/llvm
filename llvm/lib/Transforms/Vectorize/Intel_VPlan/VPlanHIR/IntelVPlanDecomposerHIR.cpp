@@ -1846,6 +1846,52 @@ void VPDecomposerHIR::fixPhiNodePass(
   }
 }
 
+// Post-processing initial VPlan CFG to fix VPExternalUses that were created for
+// live-out VPInstructions during decomposition. In HIR every VPExternalUse is
+// tied to a unique temp/symbase, so it is expected to have only one live-out
+// VPInstruction as operand. We use VPlan's PostDomTree to find out this single
+// post-dominating live-out VPInstruction for given ExternalUse and fix its
+// operands accordingly.
+void VPDecomposerHIR::fixExternalUses() {
+  Plan->computePDT();
+  const VPPostDominatorTree *PDT = Plan->getPDT();
+
+  for (auto *ExtUse : Plan->getExternals().getVPExternalUsesHIR()) {
+    // If VPExternalUse already has just one operand, then nothing to do.
+    if (ExtUse->getNumOperands() == 1)
+      continue;
+
+    // Track index of VPExternalUse's operand that post-dominates all other
+    // operands.
+    int PostDomOpIdx = -1;
+    for (unsigned Idx = 0; Idx < ExtUse->getNumOperands(); ++Idx) {
+      auto *CurrInst = cast<VPInstruction>(ExtUse->getOperand(Idx));
+      bool PostDominates =
+          llvm::all_of(ExtUse->operands(), [PDT, CurrInst](VPValue *Op) {
+            return PDT->dominates(CurrInst, cast<VPInstruction>(Op));
+          });
+
+      if (PostDominates) {
+        assert(PostDomOpIdx == -1 &&
+               "Multiple post-dominating operands for VPExternalUse.");
+        PostDomOpIdx = Idx;
+      }
+    }
+
+    if (PostDomOpIdx == -1) {
+      // Could not find any post-dominating operands for VPExternalUse. This can
+      // happen for search loops and for live-out symbases without any uses
+      // inside the loop. Check JIRA : CMPLRLLVM-21456.
+      return;
+    }
+
+    // Cache the post-dominating operand to be used after clearing operand list.
+    VPValue *PostDomOp = ExtUse->getOperand(PostDomOpIdx);
+    ExtUse->removeAllOperands();
+    ExtUse->addOperand(PostDomOp);
+  }
+}
+
 VPInstruction *
 VPDecomposerHIR::createVPInstructionsForNode(HLNode *Node,
                                              VPBasicBlock *InsPointVPBB) {
