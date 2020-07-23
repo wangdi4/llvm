@@ -4755,6 +4755,267 @@ public:
     }
   }
 
+  // Return true if the the pointers to the beginning and the end of the memory
+  // space are stored in the same structure. The input GEP represents a byte
+  // flattened GEP that points to the end of a memory allocated spaces, Offset
+  // is the offset being accessed (size of the structure), and DomAggTy is the
+  // dominant aggregate type for the allocated space. This means that we found
+  // a possible store to an STL structure (e.g. std::vector). For example:
+  //
+  //   %class.TestClass = type { i32, %"class.std::vector" }
+  //   %"class.std::vector" = type { %"struct.std::_Vector_base" }
+  //   %"struct.std::_Vector_base" = type { %"struct.std::_Vector_impl" }
+  //   %"struct.std::_Vector_impl" = type { %class.TestClass*, %class.TestClass*,
+  //                              %class.TestClass* }
+  //
+  //   %tmp1 = getelementptr inbounds %class.TestClass, %class.TestClass* %0,
+  //          i64 0, i32 1, i32 0, i32 0, i32 0
+  //   %tmp2 = getelementptr inbounds %class.TestClass, %class.TestClass* %0,
+  //           i64 0, i32 1, i32 0, i32 0, i32 1
+  //
+  //   %tmp3 = tail call noalias nonnull i8* @_Znwm(i64 32)
+  //   %tmp4 = bitcast i8* %tmp3 to %class.TestClass*
+  //
+  //   %tmp5 = bitcast %class.TestClass** %tmp1 to i8**
+  //   store i8* %tmp3, i8** %tmp5
+  //   %tmp6 = getelementptr inbounds i8, i8* %tmp3, i64 32
+  //   %tmp7 = bitcast %class.TestClass** %tmp2 to i8**
+  //   store i8* %tmp6, i8** %tmp7
+  //
+  // The GEP in %tmp6 accesses the end of the memory space allocated at %tmp3.
+  // The offset is 32, but the dominant aggregate type from %tmp3 will be
+  // %class.TestClass. First, trace where %tmp6 is being stored, which is the
+  // second entry of %"struct.std::_Vector_impl" (%tmp2). Then trace where
+  // %tmp3 will be stored, which is the first entry of
+  // %"struct.std::_Vector_impl" (%tmp1). Now we can compare %tmp1 with %tmp2,
+  // and it shows that they are in the same structure, and the fields type
+  // are pointers to the dominant aggregate type (%class.TestClass*). This
+  // means that the pointer to the end of the memory allocated space is used
+  // to trace where the information stored in %"struct.std::_Vector_impl"@0
+  // ends. %"struct.std::_Vector_impl" can be seen as a possible structure
+  // from the STL libraries.
+  //
+  // NOTE: This is conservative, we might be able to add an extra analysis
+  // which proves that the dominant aggregate type for the input GEP is
+  // DomAggTy.
+  bool isGEPUsedForStoreInSTL(GetElementPtrInst *GEP,
+                              llvm::Type *DomAggTy, uint64_t Offset) {
+
+    // Given a Type Src, return true if traversing through the dereferences
+    // it reaches InType.
+    auto CheckPointerDereference = [](llvm::Type *Src, llvm::Type *InType) {
+      if (Src == InType)
+        return true;
+
+      llvm::Type *CurrType = Src;
+      while (auto *PtrTy = dyn_cast<PointerType>(CurrType)) {
+        CurrType = PtrTy->getPointerElementType();
+        if (CurrType == InType)
+          return true;
+      }
+      return false;
+    };
+
+    // Given a Value Src, which will be the value operand of the input Store
+    // instruction, return the GEP instruction that references to the memory
+    // space where Src will be stored.
+    auto CollectStorePosition = [this, DomAggTy, &CheckPointerDereference](
+        Value *Src, StoreInst *Store) -> GetElementPtrInst* {
+
+      if (Src != Store->getValueOperand())
+        return nullptr;
+
+      // The pointer operand is casting from a pointer to the dominant aggregate
+      // type to an i8 pointer type
+      BitCastInst *BC = dyn_cast<BitCastInst>(Store->getPointerOperand());
+      if (!BC)
+        return nullptr;
+
+      if (!CheckPointerDereference(BC->getSrcTy(), DomAggTy))
+        return nullptr;
+
+      if (!CheckPointerDereference(BC->getDestTy(), Int8PtrTy))
+        return nullptr;
+
+      // GEP that points to the memory where Src is going to be stored
+      GetElementPtrInst *StoringIntoGEP =
+          dyn_cast<GetElementPtrInst>(BC->getOperand(0));
+
+      return StoringIntoGEP;
+    };
+
+    // Return true if the GEP collects from a structure, there is no
+    // prepadding and the field's type that the GEP is accessing in the
+    // structure is the same as the dominant aggregate type or a pointer
+    // to the dominant aggregate type.
+    auto AnalyzeGEP =[this, DomAggTy](GetElementPtrInst *GEP,
+                                      size_t *FieldNum,
+                                      StructType **STy) -> bool {
+      LocalPointerInfo &GEPLPI = LPA.getLocalPointerInfo(GEP);
+
+      uint64_t PrePadBytes = 0;
+
+      if (!isSimpleStructureMember(GEPLPI, STy, FieldNum, &PrePadBytes))
+        return false;
+
+      if (!STy || PrePadBytes != 0)
+        return false;
+
+      llvm::Type *DestType = (*STy)->getElementType(*FieldNum);
+      if (DestType != DomAggTy && DestType->isPointerTy())
+        DestType = DestType->getPointerElementType();
+
+      return DestType == DomAggTy;
+    };
+
+    if (!GEP)
+      return false;
+
+    // For now, we are dealing with byte flattened GEP
+    if (GEP->getNumIndices() != 1 || !GEP->hasAllConstantIndices())
+      return false;
+
+    if (!isInt8Ptr(GEP))
+      return false;
+
+    if (!DomAggTy || !DomAggTy->isStructTy())
+      return false;
+
+    // The offset must be the end of the pointer
+    uint64_t DomAggTySize = DL.getTypeStoreSize(DomAggTy);
+    if (Offset != DomAggTySize)
+      return false;
+
+    // There is only one use for the GEP and is a store
+    if (!GEP->hasOneUse())
+      return false;
+
+    StoreInst *CurrStore = dyn_cast<StoreInst>(GEP->user_back());
+    if (!CurrStore)
+      return false;
+
+    // Find the reference where GEP is going to be stored
+    GetElementPtrInst *GEPCurrRef = CollectStorePosition(GEP, CurrStore);
+    if (!GEPCurrRef || !GEPCurrRef->hasAllConstantIndices())
+      return false;
+
+    size_t CurrFieldNum = 0;
+    StructType *CurrStruct = nullptr;
+    if (!AnalyzeGEP(GEPCurrRef, &CurrFieldNum, &CurrStruct))
+      return false;
+
+    // All the fields in type found must be pointers to DomAggTy.
+    // NOTE: This is conservative, there is a chance that a structure
+    // uses the addresses to the beginning and the end of a memory
+    // allocated space for some analysis (e.g. size of the vector),
+    // and still has another field with another type for other purposes.
+    for (unsigned I = 0, E = CurrStruct->getNumElements(); I < E; I++) {
+      llvm::PointerType *FieldType =
+          dyn_cast<PointerType>(CurrStruct->getElementType(I));
+      if (!FieldType)
+        return false;
+
+      if (FieldType->getElementType() != DomAggTy)
+        return false;
+    }
+
+    unsigned NumIndices = GEPCurrRef->getNumIndices();
+
+    // The input GEP is accessing the end of a memory space and storing
+    // it in the field of a structure. We are going to find now if
+    // the pointer to the beginning of the memory space is stored in
+    // the the same structure. If so, then it means that the combination
+    // of stores represent a store into STL.
+    Value *PointerBeginning = GEP->getOperand(0);
+    for (User *U : PointerBeginning->users()) {
+      if (StoreInst *PrevStore = dyn_cast<StoreInst>(U)) {
+
+        // Find the reference to the previous field
+        GetElementPtrInst *GEPPrevRef =
+            CollectStorePosition(PointerBeginning, PrevStore);
+        if (!GEPPrevRef)
+          continue;
+
+        // If one of the indices is not constant, then we don't know
+        // where the GEP can point to
+        if (!GEPPrevRef->hasAllConstantIndices())
+          return false;
+
+        if (NumIndices != GEPPrevRef->getNumIndices())
+          continue;
+
+        // Collect the structure and the field number that is
+        // being accessed
+        size_t PreviousNumField = 0;
+        StructType *StructFound = nullptr;
+        if (!AnalyzeGEP(GEPPrevRef, &PreviousNumField, &StructFound))
+          continue;
+
+        // Make sure that the types are the same
+        if (StructFound != CurrStruct)
+          continue;
+
+        // All operands must match except the last one
+        bool AllIndicesMatches = true;
+        for (unsigned I = 0; I < NumIndices; I++) {
+          if (GEPCurrRef->getOperand(I) != GEPPrevRef->getOperand(I)) {
+            AllIndicesMatches = false;
+            break;
+          }
+        }
+
+        if (!AllIndicesMatches)
+          continue;
+
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  // Helper function that checks if the Store instruction is used for storing
+  // into a possible STL structure.
+  bool isStoringIntoSTL(StoreInst *I) {
+    if (!I)
+      return false;
+
+    // Check if the value operand of the Store instruction is a byte flattened
+    // GEP.
+    GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(I->getValueOperand());
+    if (!GEP || GEP->getNumIndices() != 1 ||
+        !GEP->hasAllConstantIndices() || !isInt8Ptr(GEP))
+      return false;
+
+    // Collect the offset
+    uint64_t Offset = cast<ConstantInt>(GEP->getOperand(1))->getSExtValue();
+    if (Offset == 0)
+      return false;
+
+    Value *Src = GEP->getPointerOperand();
+    if (!isValueOfInterest(Src))
+      return false;
+
+    // Try to find the dominant aggregate type
+    LocalPointerInfo &GEPLPI = LPA.getLocalPointerInfo(GEP);
+    llvm::Type *DomAggTy = GEPLPI.getDominantAggregateTy();
+    if (!DomAggTy && isInt8Ptr(Src)) {
+      // If there is no dominant aggregate type, then check if it is possible
+      // to collect it from GEP's pointer operand.
+      LocalPointerInfo &LPI = LPA.getLocalPointerInfo(Src);
+      DomAggTy = LPI.getDominantAggregateTy();
+    }
+
+    if (!DomAggTy)
+      return false;
+
+    if (DomAggTy->isPointerTy())
+      DomAggTy = DomAggTy->getPointerElementType();
+
+    // Now check if we can collect any information from the GEP
+    return isGEPUsedForStoreInSTL(GEP, DomAggTy, Offset);
+  }
+
   //
   // Analyze and report dtrans::UnsafePointerStore for the StoreInst with
   // the given ValOperand and PtrOperand. If I == nullptr, we are analyzing
@@ -4855,6 +5116,13 @@ public:
           LLVM_DEBUG(dbgs() << "dtrans-safety: Unsafe pointer store -- "
                             << "  Unknown store to the zero element of"
                             << " aliased ptr:\n");
+          setValueTypeInfoSafetyData(PtrOperand,
+              dtrans::UnsafePointerStoreRelatedTypes);
+        } else if (isStoringIntoSTL(I)) {
+          LLVM_DEBUG(dbgs() << "dtrans-safety: Unsafe pointer store -- "
+                            << "Pointer to the end of the memory space is "
+                            << "being stored into a possible STL "
+                            << "structure:\n");
           setValueTypeInfoSafetyData(PtrOperand,
               dtrans::UnsafePointerStoreRelatedTypes);
         } else {
@@ -5195,6 +5463,40 @@ public:
               setBaseTypeInfoSafetyData(DomAggTy, dtrans::BadPtrManipulation);
             }
           }
+        } else if (isGEPUsedForStoreInSTL(
+              dyn_cast<GetElementPtrInst>(I), DomAggTy,
+              static_cast<uint64_t>(Offset))) {
+          // NOTE: This analysis is for the case when we have byte flattened
+          // GEP pointing to the end of a memory space. There is the
+          // possibility that the GEP is not byte flattened and points
+          // to the end. For example:
+          //
+          //   %class.TestClass = type { i32, %"class.std::vector" }
+          //   %"class.std::vector" = type { %"struct.std::_Vector_base" }
+          //   %"struct.std::_Vector_base" =
+          //       type { %"struct.std::_Vector_impl" }
+          //   %"struct.std::_Vector_impl" = type { %class.TestClass*,
+          //                                        %class.TestClass*,
+          //                                        %class.TestClass* }
+          //
+          //   %tmp1 = tail call noalias nonnull i8* @_Znwm(i64 24)
+          //   %tmp2 = bitcast i8* %tmp1 to %class.TestClass*
+          //   %tmp3 = getelementptr inbounds %class.TestClass,
+          //           %class.TestClass* %tmp2, i64 1
+          //
+          // The GEP in %tmp3 won't produce a "Bad pointer manipulation",
+          // nor "Bad pointer manipulation for related types". The reason
+          // is that all checks after the conditional
+          // "!GEPLPI.pointsToSomeElement()" are related to byte flattened
+          // GEPs. Also, for this case, the local pointer analysis will find a
+          // dominant aggregate type for %tmp3.
+          LLVM_DEBUG(dbgs() << "dtrans-safety: Bad pointer manipulation "
+                            << "(related types) -- "
+                            << "Pointer to the end of the memory space is "
+                            << "being stored into a possible STL structure:\n"
+                            << "  " << I << "\n");
+          setAllAliasedTypeSafetyData(SrcLPI,
+              dtrans::BadPtrManipulationForRelatedTypes);
         } else {
           LLVM_DEBUG(dbgs() << "dtrans-safety: Bad pointer manipulation:\n"
                             << "  " << *I << "\n");
