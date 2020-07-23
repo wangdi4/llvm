@@ -82,8 +82,10 @@ EXTERN int omp_get_num_threads(void) {
 }
 
 EXTERN int omp_get_max_threads(void) {
-  if (GLOBAL.assume_simple_spmd_mode)
-    return 1;
+  if (GLOBAL.assume_simple_spmd_mode) {
+    // Distinguish sequential/parallel region
+    return omp_get_num_threads() > 1 ? 1 : omp_get_thread_limit();
+  }
 
   kmp_local_state_t *local_state = __kmp_get_local_state();
   int level = local_state->parallel_level[__kmp_get_local_id()];
