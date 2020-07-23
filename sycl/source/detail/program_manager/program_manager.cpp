@@ -534,7 +534,7 @@ static const char *getDeviceLibFilename(DeviceLibExt Extension) {
   case DeviceLibExt::cl_intel_devicelib_complex_fp64:
     return "libsycl-fallback-complex-fp64.spv";
 #if INTEL_CUSTOMIZATION
-  case cl_intel_devicelib_dot_product:
+  case DeviceLibExt::cl_intel_devicelib_dot_product:
     return "libsycl-fallback-intel-dot-product.spv";
 #endif // INTEL_CUSTOMIZATION
   }
@@ -555,7 +555,7 @@ static const char *getDeviceLibExtensionStr(DeviceLibExt Extension) {
   case DeviceLibExt::cl_intel_devicelib_complex_fp64:
     return "cl_intel_devicelib_complex_fp64";
 #if INTEL_CUSTOMIZATION
-  case cl_intel_devicelib_dot_product:
+  case DeviceLibExt::cl_intel_devicelib_dot_product:
     return "cl_intel_devicelib_dot_product";
 #endif // INTEL_CUSTOMIZATION
   }
@@ -713,23 +713,15 @@ getDeviceLibPrograms(const ContextImplPtr Context,
   std::vector<RT::PiProgram> Programs;
 
   std::pair<DeviceLibExt, bool> RequiredDeviceLibExt[] = {
-<<<<<<< HEAD
       {DeviceLibExt::cl_intel_devicelib_assert,
        /* is fallback loaded? */ false},
       {DeviceLibExt::cl_intel_devicelib_math, false},
       {DeviceLibExt::cl_intel_devicelib_math_fp64, false},
       {DeviceLibExt::cl_intel_devicelib_complex, false},
-      {DeviceLibExt::cl_intel_devicelib_complex_fp64, false}};
-=======
-      {cl_intel_devicelib_assert, /* is fallback loaded? */ false},
-      {cl_intel_devicelib_math, false},
-      {cl_intel_devicelib_math_fp64, false},
-      {cl_intel_devicelib_complex, false},
 #if INTEL_CUSTOMIZATION
-      {cl_intel_devicelib_dot_product, false},
+      {DeviceLibExt::cl_intel_devicelib_complex_fp64, false},
+      {DeviceLibExt::cl_intel_devicelib_dot_product, false}};
 #endif // INTEL_CUSTOMIZATION
-      {cl_intel_devicelib_complex_fp64, false}};
->>>>>>> 6a8f0a91a8673a21fda7e183c61ba691e85d98aa
 
   // Disable all devicelib extensions requiring fp64 support if at least
   // one underlying device doesn't support cl_khr_fp64.
