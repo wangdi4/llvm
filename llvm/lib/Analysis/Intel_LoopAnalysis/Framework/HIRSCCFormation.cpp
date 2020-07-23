@@ -777,8 +777,9 @@ bool HIRSCCFormation::isValidSCCRootNode(const NodeTy *Root,
 
   if (!UnsignedRange.isFullSet()) {
     for (auto *Node : CurSCC) {
-      if (Node != Root && (ScopedSE.getUnsignedRange(ScopedSE.getSCEV(Node)) !=
-                           UnsignedRange)) {
+      if (Node != Root && (Node->getType() == Root->getType()) &&
+          (ScopedSE.getUnsignedRange(ScopedSE.getSCEV(Node)) !=
+           UnsignedRange)) {
         return false;
       }
     }
@@ -788,7 +789,7 @@ bool HIRSCCFormation::isValidSCCRootNode(const NodeTy *Root,
 
   if (!SignedRange.isFullSet()) {
     for (auto *Node : CurSCC) {
-      if (Node != Root &&
+      if (Node != Root && (Node->getType() == Root->getType()) &&
           (ScopedSE.getSignedRange(ScopedSE.getSCEV(Node)) != SignedRange)) {
         return false;
       }
