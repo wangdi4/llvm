@@ -145,6 +145,14 @@ forAllAssociatedToolChains(Compilation &C, const JobAction &JA,
     Work(*C.getSingleOffloadToolChain<Action::OFK_Host>());
 
   if (JA.isHostOffloading(Action::OFK_OpenMP)) {
+#if INTEL_CUSTOMIZATION
+    if (RegularToolChain.getTriple().isSPIR()) {
+      // Host offloading with a target, we want to use the host toolchain
+      // information.
+      Work(*C.getSingleOffloadToolChain<Action::OFK_Host>());
+      return;
+    }
+#endif // INTEL_CUSTOMIZATION
     auto TCs = C.getOffloadToolChains<Action::OFK_OpenMP>();
     for (auto II = TCs.first, IE = TCs.second; II != IE; ++II)
       Work(*II->second);
@@ -4130,7 +4138,11 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
   // Add the "effective" target triple.
   CmdArgs.push_back("-triple");
-  if (!UseSYCLTriple && IsSYCLDevice) {
+
+#if INTEL_CUSTOMIZATION
+  if ((!UseSYCLTriple && IsSYCLDevice) || (JA.isOffloading(Action::OFK_OpenMP)
+      && !IsOpenMPDevice && RawTriple.isSPIR())) {
+#endif // INTEL_CUSTOMIZATION
     // Do not use device triple when we know the device is not SYCL
     // FIXME: We override the toolchain triple in this instance to address a
     // disconnect with fat static archives.  We should have a cleaner way of
