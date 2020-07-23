@@ -188,7 +188,7 @@ unsigned VPlanCostModel::getLoadStoreIndexSize(
   while ((VPInst = dyn_cast<VPInstruction>(Ptr)) &&
          (VPInst->getOpcode() == Instruction::BitCast ||
           VPInst->getOpcode() == Instruction::AddrSpaceCast) &&
-         TTI->getCastInstrCost(VPInst->getOpcode(), VPInst->getType(),
+         VPTTI->getCastInstrCost(VPInst->getOpcode(), VPInst->getType(),
                                VPInst->getOperand(0)->getType(),
                                TTI::CastContextHint::None) == 0)
     Ptr = VPInst->getOperand(0);
@@ -291,8 +291,8 @@ unsigned VPlanCostModel::getArithmeticInstructionCost(const unsigned Opcode,
   if (Op2)
     SetOperandValueFeatures(Op2, Op2VK, Op2VP);
 
-  return TTI->getArithmeticInstrCost(Opcode, VecTy,
-    TTI::TCK_RecipThroughput, Op1VK, Op2VK, Op1VP, Op2VP);
+  return VPTTI->getArithmeticInstrCost(Opcode, VecTy,
+    TargetTransformInfo::TCK_RecipThroughput, Op1VK, Op2VK, Op1VP, Op2VP);
 }
 
 unsigned VPlanCostModel::getLoadStoreCost(const VPInstruction *VPInst,
@@ -356,19 +356,19 @@ unsigned VPlanCostModel::getLoadStoreCost(
     if (NegativeStride) {
       assert(VF > 1 && Scale == 1 &&
              "Unexpected conditions for NegativeStride == true.");
-      Cost += TTI->getShuffleCost(TTI::SK_Reverse, cast<VectorType>(VecTy));
+      Cost += VPTTI->getShuffleCost(TTI::SK_Reverse, cast<VectorType>(VecTy));
     }
 
     Cost += IsMasked ?
-      Scale * TTI->getMaskedMemoryOpCost(Opcode, VecTy, Alignment, AddrSpace) :
-      Scale * TTI->getMemoryOpCost(Opcode, VecTy, Alignment, AddrSpace);
+      Scale * VPTTI->getMaskedMemoryOpCost(Opcode, VecTy, Alignment, AddrSpace) :
+      Scale * VPTTI->getMemoryOpCost(Opcode, VecTy, Alignment, AddrSpace);
     return Cost;
   }
 
   // TODO:
   // Currently TTI doesn't add cost of index split and data join in case
   // gather/scatter operation is implemented with two HW gathers/scatters.
-  return TTI->getGatherScatterOpCost(
+  return VPTTI->getGatherScatterOpCost(
     Opcode, VecTy, getLoadStoreIndexSize(VPInst),
     IsMasked, Alignment.value(), AddrSpace);
 }
@@ -381,7 +381,7 @@ unsigned VPlanCostModel::getInsertExtractElementsCost(
   unsigned Cost = 0;
   Type *VecTy = getWidenedType(Ty, VF);
   for(unsigned Idx = 0; Idx < VF; Idx++)
-    Cost += TTI->getVectorInstrCost(Opcode, VecTy, Idx);
+    Cost += VPTTI->getVectorInstrCost(Opcode, VecTy, Idx);
   return Cost;
 }
 
@@ -392,7 +392,7 @@ unsigned VPlanCostModel::getIntrinsicInstrCost(
   // Intrinsics which have 0 cost are not lowered to actual code during ASM CG.
   // They are meant for intermediate analysis/transforms and will be deleted
   // before CG. Do not account the cost of serializing them.
-  if (TTI->getIntrinsicInstrCost(IntrinsicCostAttributes(ID, CB, 1),
+  if (VPTTI->getIntrinsicInstrCost(IntrinsicCostAttributes(ID, CB, 1),
                                  TTI::TCK_RecipThroughput) == 0)
     return 0;
 
@@ -405,7 +405,7 @@ unsigned VPlanCostModel::getIntrinsicInstrCost(
       return UnknownCost;
     case VPCallInstruction::CallVecScenariosTy::DoNotWiden:
       return
-        TTI->getIntrinsicInstrCost(IntrinsicCostAttributes(ID, CB, 1),
+        VPTTI->getIntrinsicInstrCost(IntrinsicCostAttributes(ID, CB, 1),
                                    TTI::TCK_RecipThroughput);
     case VPCallInstruction::CallVecScenariosTy::Serialization: {
       // For a serialized call, such as: float call @foo(double arg1, int arg2)
@@ -433,7 +433,7 @@ unsigned VPlanCostModel::getIntrinsicInstrCost(
                                            ArgTy, VF) : 0);
           }) +
         // The cost of VF calls to the scalar function.
-        VF * TTI->getIntrinsicInstrCost(IntrinsicCostAttributes(ID, CB, 1),
+        VF * VPTTI->getIntrinsicInstrCost(IntrinsicCostAttributes(ID, CB, 1),
                                         TTI::TCK_RecipThroughput) +
         // The cost of 'vectorizing' function's result if any.
         (isVectorizableTy(CB.getType()) && !CB.getType()->isVoidTy() ?
@@ -452,14 +452,14 @@ unsigned VPlanCostModel::getIntrinsicInstrCost(
       // handle at least intrinsics that are vectorized using SVML. Other
       // SVML-vectorized library calls will be handled later.
       if (TLI->isSVMLEnabled() && VF > 1 && !CB.getType()->isVoidTy())
-        return TTI->getNumberOfParts(getWidenedType(CB.getType(), VF)) *
+        return VPTTI->getNumberOfParts(getWidenedType(CB.getType(), VF)) *
           VPlanCostModel::getIntrinsicInstrCost(ID, CB, 1, VS);
       break;
 
     default:
       break;
   }
-  return TTI->getIntrinsicInstrCost(
+  return VPTTI->getIntrinsicInstrCost(
     IntrinsicCostAttributes(ID, CB, VF), TTI::TCK_RecipThroughput);
 }
 
@@ -522,9 +522,9 @@ unsigned VPlanCostModel::getCostForVF(
     Type *VecCmpTy =
         getWidenedType(CmpTy, cast<VectorType>(VecOpTy)->getNumElements());
 
-    unsigned CmpCost = TTI->getCmpSelInstrCost(Instruction::ICmp, VecOpTy);
+    unsigned CmpCost = VPTTI->getCmpSelInstrCost(Instruction::ICmp, VecOpTy);
     unsigned SelectCost =
-        TTI->getCmpSelInstrCost(Instruction::Select, VecOpTy, VecCmpTy);
+        VPTTI->getCmpSelInstrCost(Instruction::Select, VecOpTy, VecCmpTy);
     return CmpCost + SelectCost;
   }
 
@@ -582,7 +582,7 @@ unsigned VPlanCostModel::getCostForVF(
       return UnknownCost;
 
     Type *VectorTy = getWidenedType(Ty, VF);
-    return TTI->getCmpSelInstrCost(Opcode, VectorTy);
+    return VPTTI->getCmpSelInstrCost(Opcode, VectorTy);
   }
   case Instruction::Select: {
     // FIXME: Due to issues in VPlan creation VPInstruction with Select opcode
@@ -605,7 +605,7 @@ unsigned VPlanCostModel::getCostForVF(
 
     Type *VecCondTy = getWidenedType(CondTy, VF);
     Type *VecOpTy = getWidenedType(OpTy, VF);
-    return TTI->getCmpSelInstrCost(Opcode, VecOpTy, VecCondTy);
+    return VPTTI->getCmpSelInstrCost(Opcode, VecOpTy, VecCondTy);
   }
   case Instruction::ZExt:
   case Instruction::SExt:
@@ -635,7 +635,7 @@ unsigned VPlanCostModel::getCostForVF(
     // such a cast can be folded into the defining load for free. We should
     // consider adding an overload accepting VPInstruction for TTI to be able to
     // analyze that.
-    return TTI->getCastInstrCost(Opcode, VecDstTy, VecSrcTy,
+    return VPTTI->getCastInstrCost(Opcode, VecDstTy, VecSrcTy,
                                  TTI::CastContextHint::None);
   }
   case Instruction::Call: {
@@ -668,7 +668,8 @@ unsigned VPlanCostModel::getCost(const VPBasicBlock *VPBB) {
 unsigned VPlanCostModel::getCost() {
   // CallVecDecisions analysis invocation.
   VPlanCallVecDecisions CallVecDecisions(*const_cast<VPlan *>(Plan));
-  CallVecDecisions.run(VF, TLI, TTI);
+  // Pass native TTI into CallVecDecisions analysis.
+  CallVecDecisions.run(VF, TLI, &VPTTI->getTTI());
 
   // Compute SVA results for current VPlan in order to compute cost accurately
   // in CM.

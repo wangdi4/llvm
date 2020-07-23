@@ -171,7 +171,9 @@ unsigned VPlanCostModelProprietary::getLoadStoreCost(
     return ProcessedOVLSGroups[Group] ? 0 : Cost;
   }
 
-  unsigned VLSGroupCost = OptVLSInterface::getGroupCost(*Group, *VLSCM);
+  /// OptVLSInterface costs are not scaled up yet.
+  unsigned VLSGroupCost =
+    VPlanTTIWrapper::Multiplier * OptVLSInterface::getGroupCost(*Group, *VLSCM);
   unsigned TTIGroupCost = 0;
   for (OVLSMemref *OvlsMemref : Group->getMemrefVec())
     TTIGroupCost += VPlanCostModel::getLoadStoreCost(
@@ -259,8 +261,8 @@ unsigned VPlanCostModelProprietary::getPsadwbPatternCost() {
 
   unsigned Cost = 0;
 
-  // PSADBW cost in terms of number of intructions.
-  const unsigned PsadbwCost = 1;
+  // Scaled PSADBW cost in terms of number of intructions.
+  const unsigned PsadbwCost = 1 * VPlanTTIWrapper::Multiplier;
   NumberOfBoolComputations = 0;
 
   const VPLoop *TopLoop = *(Plan->getVPLoopInfo()->begin());
@@ -539,8 +541,8 @@ unsigned VPlanCostModelProprietary::getSpillFillCost(
   auto PHIs = (cast<VPBasicBlock>(OuterMostVPLoop->getHeader()))->getVPPhis();
   int NumberPHIs = llvm::count_if(PHIs, [&](auto& PHI) {
     return !SkipInst(&PHI);});
-  int FreeVecHWRegsNum = TTI->getNumberOfRegisters(
-    TTI->getRegisterClassForType(VectorRegsPressure)) - NumberPHIs;
+  int FreeVecHWRegsNum = VPTTI->getNumberOfRegisters(
+    VPTTI->getRegisterClassForType(VectorRegsPressure)) - NumberPHIs;
 
   for (const VPInstruction &VPInst : reverse(*VPBlock)) {
     if (SkipInst(&VPInst))
@@ -602,7 +604,7 @@ unsigned VPlanCostModelProprietary::getSpillFillCost(
 
       if (VectorType::isValidElementType(OpScalTy))
         LiveValues[OpInst] = TranslateVPInstRPToHWRP(
-          TTI->getNumberOfParts(getWidenedType(OpInst->getType(), VF)));
+          VPTTI->getNumberOfParts(getWidenedType(OpInst->getType(), VF)));
       else
         // RP for aggregate types are modelled as if they serialized with
         // VF instructions.
@@ -651,14 +653,14 @@ unsigned VPlanCostModelProprietary::getSpillFillCost(
 
       // Check for masked unit load/store presence in HW.
       if (isUnitStrideLoadStore(&VPInst, NegativeStride)) {
-        if ((IsMasked && IsLoad  && !TTI->isLegalMaskedLoad(VTy, Alignment)) ||
-            (IsMasked && IsStore && !TTI->isLegalMaskedStore(VTy, Alignment)))
+        if ((IsMasked && IsLoad  && !VPTTI->isLegalMaskedLoad(VTy, Alignment)) ||
+            (IsMasked && IsStore && !VPTTI->isLegalMaskedStore(VTy, Alignment)))
           return true;
       }
       // Check for unsupported gather/scatter instruction.
       // Note: any gather/scatter is considered as masked.
-      else if ((IsLoad  && !TTI->isLegalMaskedGather(VTy, Alignment)) ||
-               (IsStore && !TTI->isLegalMaskedScatter(VTy, Alignment)))
+      else if ((IsLoad  && !VPTTI->isLegalMaskedGather(VTy, Alignment)) ||
+               (IsStore && !VPTTI->isLegalMaskedScatter(VTy, Alignment)))
         return true;
 
       return false;
@@ -667,7 +669,11 @@ unsigned VPlanCostModelProprietary::getSpillFillCost(
     if ((VPInst.getOpcode() == Instruction::Load ||
          VPInst.getOpcode() == Instruction::Store) &&
         SerializableLoadStore(VPInst))
-      NumberLiveValuesCur += TranslateVPInstRPToHWRP(InstCost);
+      NumberLiveValuesCur += TranslateVPInstRPToHWRP(
+        // VPlanTTIWrapper::estimateNumberOfInstructions(InstCost) gives
+        // an estimation of the number of instructions the serialized
+        // load/store is implemented with.
+        VPlanTTIWrapper::estimateNumberOfInstructions(InstCost));
 
     LLVM_DEBUG(auto LVNs = make_second_range(LiveValues);
                dbgs() << "RP = " << NumberLiveValuesCur << ", LV# = " <<
@@ -694,13 +700,13 @@ unsigned VPlanCostModelProprietary::getSpillFillCost(
     return 0;
 
   unsigned AS = DL->getAllocaAddrSpace();
-  unsigned RegBitWidth = TTI->getLoadStoreVecRegBitWidth(AS);
+  unsigned RegBitWidth = VPTTI->getLoadStoreVecRegBitWidth(AS);
   unsigned RegByteWidth = RegBitWidth / 8;
   Type *VecTy = getWidenedType(Type::getInt8Ty(*Plan->getLLVMContext()),
                                RegByteWidth);
-  unsigned StoreCost = TTI->getMemoryOpCost(
+  unsigned StoreCost = VPTTI->getMemoryOpCost(
     Instruction::Store, VecTy, Align(RegByteWidth), AS);
-  unsigned LoadCost = TTI->getMemoryOpCost(
+  unsigned LoadCost = VPTTI->getMemoryOpCost(
     Instruction::Load, VecTy, Align(RegByteWidth), AS);
 
   return NumberOfSpillsPerExtraReg *
@@ -766,7 +772,7 @@ unsigned VPlanCostModelProprietary::getCost() {
     // Without proper type information, cost model cannot properly compute the
     // cost, thus hard code VF.
     if (VF == 1)
-      return 1000;
+      return VPlanTTIWrapper::Multiplier * 1000;
     if (VF != 32)
       // Return some huge value, so that VectorCost still could be computed.
       return UnknownCost;
@@ -775,7 +781,7 @@ unsigned VPlanCostModelProprietary::getCost() {
     // Without proper type information, cost model cannot properly compute the
     // cost, thus hard code VF.
     if (VF == 1)
-      return 1000;
+      return VPlanTTIWrapper::Multiplier * 1000;
     if (VF != 4)
       // Return some huge value, so that VectorCost still could be computed.
       return UnknownCost;
