@@ -54,7 +54,7 @@ add_opencl_library (${TARGET_NAME_EMU} ${LIB_TYPE}
     )
 
 SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} cl_logger_linux_exports.txt )
-#SET_LINUX_EXPORTS_FILE( ${TARGET_NAME_EMU} cl_logger_linux_exports.txt )
+SET_LINUX_EXPORTS_FILE( ${TARGET_NAME_EMU} cl_logger_linux_exports.txt )
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${UTILS_FOLDER_NAME} )
 set_target_properties( ${TARGET_NAME_EMU} PROPERTIES FOLDER ${UTILS_FOLDER_NAME} )

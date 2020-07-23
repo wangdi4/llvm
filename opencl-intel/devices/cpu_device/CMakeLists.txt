@@ -119,7 +119,7 @@ add_opencl_library (${TARGET_NAME_EMU} SHARED
       ${OUTPUT_EMU_SUFF})
 
 SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} cpu_device_linux_exports.txt )
-#SET_LINUX_EXPORTS_FILE( ${TARGET_NAME_EMU} cpu_device_linux_exports.txt )
+SET_LINUX_EXPORTS_FILE( ${TARGET_NAME_EMU} cpu_device_linux_exports.txt )
 
 if (INCLUDE_MKL)
     target_link_libraries( ${TARGET_NAME} LINK_PRIVATE ${MKL_LINK_LIBS})
