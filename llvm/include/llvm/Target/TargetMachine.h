@@ -241,17 +241,12 @@ public:
     Options.SupportsDebugEntryValues = Enable;
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   void setIntelLibIRCAllowed(bool Value) {
     Options.IntelLibIRCAllowed = Value;
   }
 #endif // INTEL_CUSTOMIZATION
 
-  bool shouldPrintMachineCode() const { return Options.PrintMachineCode; }
-
-=======
->>>>>>> 589c646a7e5fb03223340476f7ffb67fd9628726
   bool getUniqueSectionNames() const { return Options.UniqueSectionNames; }
 
   /// Return true if unique basic block section names must be generated.

@@ -432,16 +432,10 @@ TargetPassConfig::TargetPassConfig(LLVMTargetMachine &TM, PassManagerBase &pm)
   initializeBasicAAWrapperPassPass(*PassRegistry::getPassRegistry());
   initializeAAResultsWrapperPassPass(*PassRegistry::getPassRegistry());
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   TM.Options.IntelLibIRCAllowed = IntelLibIRCAllowed;
 #endif // INTEL_CUSTOMIZATION
 
-  if (StringRef(PrintMachineInstrs.getValue()).equals(""))
-    TM.Options.PrintMachineCode = true;
-
-=======
->>>>>>> 589c646a7e5fb03223340476f7ffb67fd9628726
   if (EnableIPRA.getNumOccurrences())
     TM.Options.EnableIPRA = EnableIPRA;
   else {

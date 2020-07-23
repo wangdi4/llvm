@@ -25,7 +25,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ;   printf("sum: %d\n", sum);
 ; }
 
-; RUN: opt %s -O2 -enable-nested-blob-vec -enable-blob-coeff-vec -vplan-disable-verification -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -print-after=VPlanDriverHIR -mem2reg -o - | llc -mcpu=skx -print-machineinstrs 2>&1 | FileCheck %s
+; RUN: opt %s -O2 -enable-nested-blob-vec -enable-blob-coeff-vec -vplan-disable-verification -hir-ssa-deconstruction -hir-vec-dir-insert -VPlanDriverHIR -hir-cg -print-after=VPlanDriverHIR -mem2reg -o - | llc -mcpu=skx -print-after-isel 2>&1 | FileCheck %s
 
 ; CHECK: VPSADBW
 
