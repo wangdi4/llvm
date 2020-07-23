@@ -403,10 +403,10 @@ llvm::StringRef tools::getLTOParallelism(const ArgList &Args, const Driver &D) {
 
 // CloudABI uses -ffunction-sections and -fdata-sections by default.
 #if INTEL_CUSTOMIZATION
-bool tools::isUseSeparateSections(const ArgList &Args,
+bool tools::isUseSeparateSections(const Driver &D,
                                   const llvm::Triple &Triple) {
   // -ffunction-sections not enabled by default for Intel.
-  if (Args.hasArg(options::OPT__intel))
+  if (D.IsIntelMode())
     return false;
 #endif // INTEL_CUSTOMIZATION
   return Triple.getOS() == llvm::Triple::CloudABI;
@@ -434,7 +434,7 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
 
 #if INTEL_CUSTOMIZATION
     const char * PluginName = "LLVMgold";
-    if (Args.hasArg(options::OPT__intel))
+    if (D.IsIntelMode())
       PluginName = "icx-lto";
     SmallString<1024> Plugin;
     llvm::sys::path::native(Twine(ToolChain.getDriver().Dir) +
@@ -496,7 +496,7 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
   }
 
   bool UseSeparateSections =
-      isUseSeparateSections(Args, ToolChain.getEffectiveTriple()); // INTEL
+      isUseSeparateSections(D, ToolChain.getEffectiveTriple()); // INTEL
 
   if (Args.hasFlag(options::OPT_ffunction_sections,
                    options::OPT_fno_function_sections, UseSeparateSections)) {
@@ -562,7 +562,7 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
   addX86AlignBranchArgs(D, Args, CmdArgs, /*IsLTO=*/true);
 
 #if INTEL_CUSTOMIZATION
-  if (Args.hasArg(options::OPT__intel)) {
+  if (D.IsIntelMode()) {
     if (Arg * A = Args.getLastArg(options::OPT_fveclib))
       CmdArgs.push_back(Args.MakeArgString(
           Twine("-plugin-opt=-vector-library=") + A->getValue()));
@@ -659,8 +659,8 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
       }
     }
   }
-  if (Args.hasFlag(options::OPT_qno_opt_matmul, options::OPT__intel,
-                   options::OPT_qopt_matmul, false))
+  if (Args.hasFlag(options::OPT_qno_opt_matmul, options::OPT_qopt_matmul,
+                   TC.getDriver().IsIntelMode()))
     addllvmOption("-disable-hir-generate-mkl-call");
 
   if (Arg *A = Args.getLastArg(
@@ -677,7 +677,7 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
   RenderOptReportOptions(TC, IsLink, Args, CmdArgs);
 
   // Handle --intel defaults
-  if (Args.hasArg(options::OPT__intel)) {
+  if (TC.getDriver().IsIntelMode()) {
     if (!Args.hasArg(options::OPT_ffreestanding))
       addllvmOption("-intel-libirc-allowed");
     bool AddLoopOpt = true;

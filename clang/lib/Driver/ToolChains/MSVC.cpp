@@ -382,7 +382,7 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 #if INTEL_CUSTOMIZATION
   // Add other Intel specific libraries (libirc, svml, libdecimal)
   if (!Args.hasArg(options::OPT_nostdlib) && !C.getDriver().IsCLMode() &&
-      Args.hasArg(options::OPT__intel, options::OPT__dpcpp)) {
+      (C.getDriver().IsIntelMode() || Args.hasArg(options::OPT__dpcpp))) {
     CmdArgs.push_back("-defaultlib:libircmt");
     CmdArgs.push_back("-defaultlib:svml_dispmt");
     CmdArgs.push_back("-defaultlib:libdecimal");
@@ -640,7 +640,7 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         CmdArgs.push_back(Args.MakeArgString(Twine("-opt:lldlto=") + OOpt));
     }
     // Add any Intel defaults.
-    if (Args.hasArg(options::OPT__intel))
+    if (C.getDriver().IsIntelMode())
       if (Arg * A = Args.getLastArg(options::OPT_fveclib))
         CmdArgs.push_back(Args.MakeArgString(Twine("-mllvm:-vector-library=") +
                                              A->getValue()));
@@ -1407,7 +1407,7 @@ void MSVCToolChain::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
 
 #if INTEL_CUSTOMIZATION
   // Add Intel specific headers
-  if (DriverArgs.hasArg(clang::driver::options::OPT__intel))
+  if (getDriver().IsIntelMode())
     addSystemInclude(DriverArgs, CC1Args,
                      getDriver().Dir + "/../compiler/include");
 

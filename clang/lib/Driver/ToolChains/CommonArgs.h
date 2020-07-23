@@ -94,8 +94,7 @@ llvm::StringRef getLTOParallelism(const llvm::opt::ArgList &Args,
 bool areOptimizationsEnabled(const llvm::opt::ArgList &Args);
 
 #if INTEL_CUSTOMIZATION
-bool isUseSeparateSections(const llvm::opt::ArgList &Args,
-                           const llvm::Triple &Triple);
+bool isUseSeparateSections(const Driver &D, const llvm::Triple &Triple);
 #endif // INTEL_CUSTOMIZATION
 
 /// \p EnvVar is split by system delimiter for environment variables.

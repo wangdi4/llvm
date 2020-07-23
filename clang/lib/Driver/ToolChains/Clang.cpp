@@ -2128,7 +2128,7 @@ void Clang::AddX86TargetArgs(const ArgList &Args,
           << A->getOption().getName() << Value;
     }
 #if INTEL_CUSTOMIZATION
-  } else if (D.IsCLMode() && !Args.hasArg(options::OPT__intel)) {
+  } else if (D.IsCLMode() && !D.IsIntelMode()) {
 #endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-mllvm");
     CmdArgs.push_back("-x86-asm-syntax=intel");
@@ -4442,7 +4442,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 #if INTEL_CUSTOMIZATION
   auto AddOptLevel = [&]() {
     // Force -O0 for OpenMP device compilation for SPIRV target.
-    if (Args.hasArg(options::OPT__intel) && IsOpenMPDevice && Triple.isSPIR()) {
+    if (D.IsIntelMode() && IsOpenMPDevice && Triple.isSPIR()) {
       Args.ClaimAllArgs(options::OPT_O_Group);
       CmdArgs.push_back("-O0");
       return;
@@ -4893,11 +4893,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
       D.Diag(diag::err_drv_unsupported_opt_for_target)
           << A->getAsString(Args) << TripleStr;
 #if INTEL_CUSTOMIZATION
-  } else if (Args.hasArg(options::OPT__intel) && IsOpenMPDevice &&
-             Triple.isSPIR()) {
+  } else if (D.IsIntelMode() && IsOpenMPDevice && Triple.isSPIR())
     // -mlong-double-64 is set for spir64 offload
     CmdArgs.push_back("-mlong-double-64");
-  }
 
   if (Args.hasFlag(options::OPT__SLASH_Qlong_double,
                    options::OPT__SLASH_Qlong_double_, false))
@@ -4948,7 +4946,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (!Args.hasFlag(options::OPT_fverbose_asm, options::OPT_fno_verbose_asm,
 #if INTEL_CUSTOMIZATION
                     IsIntegratedAssemblerDefault &&
-                    !(Args.hasArg(options::OPT__intel) && D.IsCLMode())))
+                    !(D.IsIntelMode() && D.IsCLMode())))
 #endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-fno-verbose-asm");
 
@@ -5157,7 +5155,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (D.CCGenDiagnostics)
     CmdArgs.push_back("-disable-pragma-debug-crash");
 
-  bool UseSeparateSections = isUseSeparateSections(Args, Triple); // INTEL
+  bool UseSeparateSections = isUseSeparateSections(D, Triple); // INTEL
 
   if (Args.hasFlag(options::OPT_ffunction_sections,
                    options::OPT_fno_function_sections, UseSeparateSections)) {
@@ -5304,7 +5302,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 #if INTEL_CUSTOMIZATION
     // Intel compiler allows for /Qstd which is an alias -std.  We want to be
     // sure to limit valid args to C++14 or higher.
-    else if (Args.hasArg(options::OPT__intel) && IsWindowsMSVC) {
+    else if (D.IsIntelMode() && IsWindowsMSVC) {
       StringRef Val(Std->getValue());
       if (Val == "c++98" || Val == "c++03" || Val == "c++0x" ||
           Val == "c++11") {
@@ -5725,7 +5723,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   Args.AddLastArg(CmdArgs, options::OPT_ftrapv);
 #if INTEL_CUSTOMIZATION
   // -malign-double is the default for Windows Intel
-  if (Args.hasArg(options::OPT__intel) && D.IsCLMode())
+  if (D.IsIntelMode() && D.IsCLMode())
     CmdArgs.push_back("-malign-double");
   else
     Args.AddLastArg(CmdArgs, options::OPT_malign_double);
@@ -5918,7 +5916,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   // -fuse-line-directives is default for Intel Windows
   if (Args.hasFlag(options::OPT_fuse_line_directives,
                    options::OPT_fno_use_line_directives,
-                   Args.hasArg(options::OPT__intel) && D.IsCLMode()))
+                   D.IsIntelMode() && D.IsCLMode()))
 #endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-fuse-line-directives");
 
@@ -6176,7 +6174,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                           options::OPT_fno_pack_struct, false)) {
     CmdArgs.push_back("-fpack-struct=1");
 #if INTEL_CUSTOMIZATION
-  } else if (Args.hasArg(options::OPT__intel) && C.getDriver().IsCLMode())
+  } else if (C.getDriver().IsIntelMode() && C.getDriver().IsCLMode())
     // For the Intel compiler, /Zp16 is the default
     CmdArgs.push_back("-fpack-struct=16");
 #endif // INTEL_CUSTOMIZATION
@@ -6743,7 +6741,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                       !TC.getTriple().isOSNetBSD() &&
                       !Distro(D.getVFS(), TC.getTriple()).IsGentoo() &&
                       !TC.getTriple().isAndroid() &&
-                      !Args.hasArg(options::OPT__intel) &&
+#if INTEL_CUSTOMIZATION
+                      !D.IsIntelMode() &&
+#endif // INTEL_CUSTOMIZATION
                        TC.useIntegratedAs()))
     CmdArgs.push_back("-faddrsig");
 
@@ -6769,9 +6769,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
   // Disable extensions for SYCL device compilation since some of them cause
   // problems for SPIRV translator.
-  if (Args.hasArg(options::OPT__intel) && !IsSYCLOffloadDevice)
+  if (D.IsIntelMode() && !IsSYCLOffloadDevice)
     CmdArgs.push_back("-fintel-compatibility");
-  if (D.IsCLMode() && Args.hasArg(options::OPT__intel))
+  if (D.IsCLMode() && D.IsIntelMode())
     CmdArgs.push_back("-fintel-ms-compatibility");
 
   if (Args.hasFlag(options::OPT_intel_mintrinsic_promote,
@@ -7156,7 +7156,8 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
   } else {
     CmdArgs.push_back(FlagForCRT.data());
 #if INTEL_CUSTOMIZATION
-    if (Args.hasArg(options::OPT__intel, options::OPT__dpcpp)) {
+    if (getToolChain().getDriver().IsIntelMode() ||
+        Args.hasArg(options::OPT__dpcpp)) {
       CmdArgs.push_back("--dependent-lib=libircmt");
       CmdArgs.push_back(FlagForIntelSVMLLib.data());
       CmdArgs.push_back("--dependent-lib=libdecimal");
@@ -7202,7 +7203,7 @@ void Clang::AddClangCLArgs(const ArgList &Args, types::ID InputType,
   // This controls whether or not we emit stack-protector instrumentation.
   // In MSVC, Buffer Security Check (/GS) is on by default.
   if (!isNVPTX && Args.hasFlag(options::OPT__SLASH_GS, options::OPT__SLASH_GS_,
-           /*Default=*/!Args.hasArg(options::OPT__intel))) { // INTEL
+           /*Default=*/!getToolChain().getDriver().IsIntelMode())) { // INTEL
     CmdArgs.push_back("-stack-protector");
     CmdArgs.push_back(Args.MakeArgString(Twine(LangOptions::SSPStrong)));
   }

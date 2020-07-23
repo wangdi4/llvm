@@ -567,7 +567,7 @@ void Linux::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
 
 #if INTEL_CUSTOMIZATION
   // Add Intel specific headers
-  if (DriverArgs.hasArg(clang::driver::options::OPT__intel)) {
+  if (D.IsIntelMode()) {
     // deploy
     addSystemInclude(DriverArgs, CC1Args, getDriver().Dir +
                                           "/../compiler/include");

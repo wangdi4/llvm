@@ -802,7 +802,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   Args.AddAllArgs(CmdArgs, options::OPT_u);
 
 #if INTEL_CUSTOMIZATION
-  if (Args.hasArg(options::OPT__intel, options::OPT__dpcpp))
+  if (D.IsIntelMode() || Args.hasArg(options::OPT__dpcpp))
     addIntelLibPaths(CmdArgs, Args, ToolChain);
   addPerfLibPaths(CmdArgs, Args, ToolChain);
 #endif // INTEL_CUSTOMIZATION
@@ -843,7 +843,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 
 #if INTEL_CUSTOMIZATION
   if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs) ||
-      !Args.hasArg(options::OPT__intel))
+      !D.IsIntelMode())
     // The profile runtime also needs access to system libraries.
     getToolChain().addProfileRTLibs(Args, CmdArgs);
 
@@ -884,7 +884,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 #if INTEL_CUSTOMIZATION
     // Add -limf before -lm, it will be linked in the same manner as -lm so
     // don't add with addIntelLib
-    if (Args.hasArg(options::OPT__intel))
+    if (D.IsIntelMode())
       CmdArgs.push_back("-limf");
 #endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-lm");
@@ -892,9 +892,8 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 #if INTEL_CUSTOMIZATION
   // Add -lm for both C and C++ compilation
   else if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs) &&
-           (Args.hasArg(options::OPT__intel) ||
-            Args.hasArg(options::OPT_mkl_EQ))) {
-    if (Args.hasArg(options::OPT__intel))
+           (D.IsIntelMode() || Args.hasArg(options::OPT_mkl_EQ))) {
+    if (D.IsIntelMode())
       CmdArgs.push_back("-limf");
     CmdArgs.push_back("-lm");
   }
@@ -947,7 +946,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         WantPthread = true;
       // -stdlib=libc++ implies pthread
       if (ToolChain.GetCXXStdlibType(Args) == ToolChain::CST_Libcxx &&
-          Args.hasArg(options::OPT__intel))
+          D.IsIntelMode())
         WantPthread = true;
       // -debug parallel implies pthread
       if (const Arg *A = Args.getLastArg(options::OPT_intel_debug_Group))
@@ -1000,7 +999,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         CmdArgs.push_back("--no-as-needed");
       }
 #if INTEL_CUSTOMIZATION
-      if (Args.hasArg(options::OPT__intel))
+      if (D.IsIntelMode())
         addIntelLib("-lirc_s", CmdArgs, Args);
 #endif // INTEL_CUSTOMIZATION
     }
@@ -2264,8 +2263,7 @@ void Generic_GCC::GCCInstallationDetector::init(
 
   StringRef GCCToolchainDir = getGCCToolchainDir(Args, D.SysRoot);
 #if INTEL_CUSTOMIZATION
-  if (Args.hasArg(options::OPT__intel) &&
-      !Args.hasArg(options::OPT_gcc_toolchain)) {
+  if (D.IsIntelMode() && !Args.hasArg(options::OPT_gcc_toolchain)) {
     // Check the location of where gcc is being picked up.  If it is not
     // located in the expected /usr/bin, use '..' as the sysroot.  Only do
     // this for --intel
