@@ -545,18 +545,9 @@ public:
     ValueTypeInfo *PtrInfo = PTA.getValueTypeInfo(Ptr);
     ValueTypeInfo *ValInfo = PTA.getValueTypeInfo(&I);
 
-    if (!PtrInfo) {
-      DTInfo.setUnhandledPtrType(&I);
-      setAllAliasedTypeSafetyData(
-          PtrInfo, dtrans::UnhandledUse,
-          "PointerTypeAnalyzer failed to collect type for load", &I);
-
-      if (ValInfo)
-        setAllAliasedTypeSafetyData(
-            ValInfo, dtrans::UnhandledUse,
-            "PointerTypeAnalyzer could not analyze load pointer operand", &I);
-      return;
-    }
+    assert(PtrInfo &&
+           "PtrTypeAnalyzer failed to construct ValueTypeInfo for load "
+           "pointer operand");
 
     if (PtrInfo->pointsToSomeElement()) {
       analyzeElementLoadOrStore(I, *PtrInfo, ValInfo);
@@ -592,18 +583,60 @@ public:
       return;
     }
 
+    // Check the load instruction for safety. The following are safe uses for a
+    // load instruction:
+    //
+    // glossary:
+    //   <NonAggTy> - A type that is not  an aggregate type
+    //   <AggTy>    - A type that is an aggregate type or pointer to an
+    //                aggregate type
+    //   <Ty>       - Any type
+    //
+    // For the purpose these examples, the type placeholders mean the type that
+    // has been collected by the PointerTypeAnalyzer to represent the type that
+    // an object is believed to represent. Therefore, these may be different
+    // than the types seen in an IR instruction. For example: load i64, i64* %P
+    // could mean load a pointer-sized integer for the pointer-to-pointer to an
+    // aggregate type if %P is believed to be a pointer-to-pointer to an
+    // aggregate type, and pointer-sized integers are 64 bits, which would be
+    // case 5 below, because the value loaded would effectively be a pointer to
+    // an aggregate type.
+    //
+    // Note, each of these cases requires that unambiguous types can be
+    // resolved for the value loaded and pointer operand.
+    //
+    // (1)  V = load <NonAggTy>, <NonAggTy>* P
+    //       Always safe. DTrans does not care if pointers to scalars are
+    //       loaded with mismatched types. (This case should not reach here,
+    //       because the above conditions handle it.)
+    //
+    // (2)  V = load <Ty>*,   <NonAggTy>** P
+    //       Safe, provided that <Ty> is not known to alias an aggregate type.
+    //
+    // (3)  V = load <AggTy>, <AggTy>* P
+    //       Safe when AggTy loaded matches pointer's aggregate type.
+    //
+    // (4)  V = load <Ty>,    <AggTy>* P
+    //       Safe, when Ty is compatible with element zero of AggTy.
+    //       Compatible means more than just being the exact same type.
+    //       If element zero is a pointer type, then i8* or pointer-sized int
+    //       types are also compatible with it.
+    //
+    // (5)  V = load <Ty>*,   <AggTy>** P
+    //        Only safe when Ty loaded is compatible with pointer's aggregate
+    //        type.
+    //
     bool IsWholeStructureRead = false;
     bool IsMismatched = false;
-    std::string BadcastReason;
+    StringRef BadcastReason;
     DTransType *PtrDomTy = PTA.getDominantAggregateUsageType(*PtrInfo);
-    assert((!PtrDomTy || PtrDomTy->isPointerTy()) &&
-           "Unexpected dominant type");
-
     if (PtrInfo->canAliasToDirectAggregatePointer()) {
       // The only things that are valid to directly alias a load from the
       // aggregate pointer are:
       //   - A whole structure load
+      //       V = load <AggTy>, <AggTy>* P
       //   - An element zero load of an aggregate type
+      //       V = load <Ty>,    <AggTy>* P
       if (ValTy->isStructTy()) {
         setBaseTypeInfoSafetyData(ValTy, dtrans::WholeStructureReference,
                                   "load of structure type", &I);
@@ -613,8 +646,7 @@ public:
         IsMismatched = true;
         BadcastReason = "Pointer to aggregate not used as element zero load";
       }
-    } else if (PtrInfo->canAliasToAggregatePointer() &&
-               ValInfo->canAliasToAggregatePointer()) {
+    } else if (PtrInfo->canAliasToAggregatePointer()) {
       // The pointer operand must be multiple levels of indirection, so the
       // value loaded needs to be a pointer that is compatible with the pointer
       // type. Check that the dominant types are related as pointer/pointee
@@ -623,6 +655,7 @@ public:
       // - The pointer and pointee dominant types need to be properly
       //   related to allow a pointer type to be loaded from the
       //   pointer-to-pointer.
+      //     V = load <AggTy>*,   <AggTy>** P
       if (!PtrDomTy) {
         IsMismatched = true;
         BadcastReason = "Dominant type of pointer not resolved";
@@ -632,22 +665,39 @@ public:
         IsMismatched = true;
         BadcastReason =
             "Dominant types for value and pointer are not compatible";
+      } else if (!ValInfo || !ValInfo->canAliasToAggregatePointer()) {
+        // If we reach here, the pointer has multiple levels of indirection to
+        // an aggregate type, but the value loaded did not involve an aggregate
+        // type.
+        IsMismatched = true;
+        BadcastReason =
+            "Load of non-aggregate from pointer-to-pointer of aggregate";
       }
-    } else {
-      // If we reach here, the pointer has multiple levels of indirection to
-      // an aggregate type, but the value loaded did not involve an aggregate
-      // type.
+    } else if (ValInfo && ValInfo->canAliasToAggregatePointer()) {
+      // Load does not involve an aggregate for the pointer operand.
+      //   V = load <Ty>*,   <NonAggTy>** P
+      //
+      // This case can only be reached when opaque pointers are available,
+      // because that will eliminate the need to bitcast the types and allow the
+      // value type to differ from the pointer operand type.
+      //
+      // For example:
+      //   %v = alloca p0
+      //   %ld = load p0, p0 %v, align 8
+      //   %gep = getelementptr %struct.test01a, p0 %ld, i64 0, i32 0
+      //
+      // In this case, if %v were to be created as an i64*, but then loaded as a
+      // pointer to an aggregate type, it would reach this.
       IsMismatched = true;
-      BadcastReason =
-          "Load of non-aggregate from pointer-to-pointer of aggregate";
+      BadcastReason = "Load of aggregate from non-aggregate pointer";
     }
 
     if (IsMismatched) {
-      setAllAliasedTypeSafetyData(PtrInfo, dtrans::BadCasting,
-                                  BadcastReason.c_str(), &I);
+      setAllAliasedTypeSafetyData(PtrInfo, dtrans::BadCasting, BadcastReason,
+                                  &I);
       if (ValInfo)
-        setAllAliasedTypeSafetyData(ValInfo, dtrans::BadCasting,
-                                    BadcastReason.c_str(), &I);
+        setAllAliasedTypeSafetyData(ValInfo, dtrans::BadCasting, BadcastReason,
+                                    &I);
 
       TypeSize ValSize = DL.getTypeSizeInBits(I.getType());
       for (auto *PtrAliasTy :
@@ -662,7 +712,7 @@ public:
         setFieldMismatchedElementAccess(PtrAliasTy, ValSize, ValTy,
                                         /*FieldNum=*/0, I);
       }
-    } else if (!isPtrToPtr(PtrDomTy)) {
+    } else if (PtrDomTy && !isPtrToPtr(PtrDomTy)) {
       // Treat this as an element zero access if the pointer operand alias info
       // is not for a pointer-to-pointer access.
       if (auto *StructTy =
@@ -673,9 +723,10 @@ public:
           collectReadInfo(I, SI, /*FieldNum=*/0, !IsWholeStructureRead);
 
           if (IsWholeStructureRead) {
-            // Note: For whole structure reference, DTrans does not fill in all the
-            // field info details for each field, such as frequency or single value
-            // because we do not have any transforms that can handle them.
+            // Note: For whole structure reference, DTrans does not fill in all
+            // the field info details for each field, such as frequency or
+            // single value because we do not have any transforms that can
+            // handle them.
             for (auto &FI : SI->getFields()) {
               FI.setRead(I);
               FI.setValueUnused(false);
@@ -1298,9 +1349,9 @@ private:
   // based on the pointer-carried and cascading safety data rules. 'Reason' and
   // 'V' are optional parameters that provide for debug traces.
   void setBaseTypeInfoSafetyData(DTransType *Ty, dtrans::SafetyData Data,
-                                 const char *Reason, Value *V) {
+                                 StringRef Reason, Value *V) {
     DEBUG_WITH_TYPE_P(FNFilter, SAFETY_VERBOSE, {
-      if (Reason) {
+      if (!Reason.empty()) {
         dbgs() << "dtrans-safety: " << getSafetyDataName(Data) << " -- "
                << Reason << "\n";
         if (V) {
@@ -1316,17 +1367,17 @@ private:
       }
     });
 
-    setBaseTypeInfoSafetyData(Ty, Data, isCascadingSafetyCondition(Data),
-                              isPointerCarriedSafetyCondition(Data));
+    setBaseTypeInfoSafetyDataImpl(Ty, Data, isCascadingSafetyCondition(Data),
+                                  isPointerCarriedSafetyCondition(Data));
   }
 
   // Set the safety data on all the aliased types of 'PtrInfo'
   // 'Reason' and 'V' are optional parameters that provide for debug traces.
   void setAllAliasedTypeSafetyData(ValueTypeInfo *PtrInfo,
-                                   dtrans::SafetyData Data, const char *Reason,
+                                   dtrans::SafetyData Data, StringRef Reason,
                                    Value *V) {
     DEBUG_WITH_TYPE_P(FNFilter, SAFETY_VERBOSE, {
-      if (Reason) {
+      if (!Reason.empty()) {
         dbgs() << "dtrans-safety: " << getSafetyDataName(Data) << " -- "
                << Reason << "\n";
         if (V) {
@@ -1345,7 +1396,7 @@ private:
 
     for (auto *AliasTy :
          PtrInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use))
-      setBaseTypeInfoSafetyData(AliasTy, Data, nullptr, nullptr);
+      setBaseTypeInfoSafetyData(AliasTy, Data, "", nullptr);
   }
 
   // This is a helper function that retrieves the aggregate type through
@@ -1363,8 +1414,8 @@ private:
   // when a type is encountered that already contains the safety data value
   // because all elements reached from it should also already have the safety
   // bit set.
-  void setBaseTypeInfoSafetyData(DTransType *Ty, dtrans::SafetyData Data,
-                                 bool IsCascading, bool IsPointerCarried) {
+  void setBaseTypeInfoSafetyDataImpl(DTransType *Ty, dtrans::SafetyData Data,
+                                     bool IsCascading, bool IsPointerCarried) {
 
     // Get the underlying element type by stripping away the pointer levels.
     // Because we do not have TypeInfo objects for vector types, we also need to
@@ -1399,7 +1450,8 @@ private:
         return;
       // If the field is an instance of the type, propagate the condition.
       if (!FieldTy->isPointerTy()) {
-        setBaseTypeInfoSafetyData(FieldTy, Data, IsCascading, IsPointerCarried);
+        setBaseTypeInfoSafetyDataImpl(FieldTy, Data, IsCascading,
+                                      IsPointerCarried);
       } else if (IsPointerCarried) {
         // In some cases we need to propagate the condition even to fields
         // that are pointers to structures, but in order to avoid infinite
@@ -1417,8 +1469,8 @@ private:
                 << "From: " << *BaseTy << " To: " << *FieldBaseTy
                 << " :: " << dtrans::getSafetyDataName(Data) << "\n";
           });
-          setBaseTypeInfoSafetyData(FieldBaseTy, Data, IsCascading,
-                                    IsPointerCarried);
+          setBaseTypeInfoSafetyDataImpl(FieldBaseTy, Data, IsCascading,
+                                        IsPointerCarried);
         }
       }
     };
