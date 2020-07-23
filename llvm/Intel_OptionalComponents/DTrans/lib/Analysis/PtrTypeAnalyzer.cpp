@@ -1909,6 +1909,14 @@ private:
   }
 
   // Check whether the GEP is a byte-flattened GEP or an array of 'i8' elements.
+  // Returns 'true' if the GEP was processed as a byte-flattened GEP, even if it
+  // is just to mark the 'ResultInfo' as being an unknown access. This is
+  // necessary so that an access of the form:
+  //   %x = getelementptr i8, i8* %pStruct, i64 %idx
+  // does not propagate the type of %pStruct to the types collected for %x,
+  // since the result should be an element within %pStruct, not a pointer to
+  // %pStruct itself.
+  //
   bool analyzePotentialByteFlattenedGEPAccess(GEPOperator &GEP,
                                               ValueTypeInfo *ResultInfo) {
 
@@ -1987,6 +1995,7 @@ private:
                               << "Byte-flattened indices were not recoverable: "
                               << GEP << "\n");
         ResultInfo->setUnknownByteFlattenedGEP();
+        return true;
       }
 
       return false;
@@ -2021,6 +2030,7 @@ private:
             dbgs() << "Byte-flattened indices contained negative index: " << GEP
                    << "\n");
         ResultInfo->setUnknownByteFlattenedGEP();
+        return true;
       }
 
       return false;
@@ -2061,7 +2071,7 @@ private:
           dbgs() << "Byte-flattened indices did not match aliased structure: "
                  << GEP << "\n");
       ResultInfo->setUnknownByteFlattenedGEP();
-      return false;
+      return true;
     }
 
     // All offsets were valid, merge the element pointees collected into
