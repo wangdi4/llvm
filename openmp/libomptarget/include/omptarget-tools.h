@@ -1750,7 +1750,7 @@ struct OmptTraceTy {
 
   // Store code location determinted by compiler
   void pushCodeLocation(const char *location, void *returnAddress) {
-    if (!returnAddress)
+    if (!omptEnabled.enabled || !returnAddress)
       return;
     ReturnAddress = returnAddress;
     // We expect the following format from the generated code.
