@@ -13148,16 +13148,16 @@ FPGALoopAttrT *Sema::BuildSYCLIntelFPGALoopAttr(const AttributeCommonInfo &A,
     return nullptr;
 
   if (E && !E->isInstantiationDependent()) {
-    llvm::APSInt ArgVal(32);
+    Optional<llvm::APSInt> ArgVal = E->getIntegerConstantExpr(getASTContext());
 
-    if (!E->isIntegerConstantExpr(ArgVal, getASTContext())) {
+    if (!ArgVal) {
       Diag(E->getExprLoc(), diag::err_attribute_argument_type)
           << A.getAttrName() << AANT_ArgumentIntegerConstant
           << E->getSourceRange();
       return nullptr;
     }
 
-    int Val = ArgVal.getSExtValue();
+    int Val = ArgVal->getSExtValue();
 
     if (A.getParsedKind() == ParsedAttr::AT_SYCLIntelFPGAII ||
         A.getParsedKind() == ParsedAttr::AT_SYCLIntelFPGALoopCoalesce) {
