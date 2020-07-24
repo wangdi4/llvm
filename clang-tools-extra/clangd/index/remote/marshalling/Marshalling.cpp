@@ -51,7 +51,7 @@ Marshaller::Marshaller(llvm::StringRef RemoteIndexRoot,
 
 clangd::FuzzyFindRequest
 Marshaller::fromProtobuf(const FuzzyFindRequest *Request) {
-  assert(LocalIndexRoot);
+  assert(RemoteIndexRoot);
   clangd::FuzzyFindRequest Result;
   Result.Query = Request->query();
   for (const auto &Scope : Request->scopes())
@@ -61,7 +61,7 @@ Marshaller::fromProtobuf(const FuzzyFindRequest *Request) {
     Result.Limit = Request->limit();
   Result.RestrictForCodeCompletion = Request->restricted_for_code_completion();
   for (const auto &Path : Request->proximity_paths()) {
-    llvm::SmallString<256> LocalPath = llvm::StringRef(*LocalIndexRoot);
+    llvm::SmallString<256> LocalPath = llvm::StringRef(*RemoteIndexRoot);
     llvm::sys::path::append(LocalPath, Path);
     Result.ProximityPaths.push_back(std::string(LocalPath));
   }
@@ -146,7 +146,7 @@ LookupRequest Marshaller::toProtobuf(const clangd::LookupRequest &From) {
 }
 
 FuzzyFindRequest Marshaller::toProtobuf(const clangd::FuzzyFindRequest &From) {
-  assert(RemoteIndexRoot);
+  assert(LocalIndexRoot);
   FuzzyFindRequest RPCRequest;
   RPCRequest.set_query(From.Query);
   for (const auto &Scope : From.Scopes)
@@ -157,7 +157,7 @@ FuzzyFindRequest Marshaller::toProtobuf(const clangd::FuzzyFindRequest &From) {
   RPCRequest.set_restricted_for_code_completion(From.RestrictForCodeCompletion);
   for (const auto &Path : From.ProximityPaths) {
     llvm::SmallString<256> RelativePath = llvm::StringRef(Path);
-    if (llvm::sys::path::replace_path_prefix(RelativePath, *RemoteIndexRoot,
+    if (llvm::sys::path::replace_path_prefix(RelativePath, *LocalIndexRoot,
                                              ""))
       RPCRequest.add_proximity_paths(llvm::sys::path::convert_to_slash(
           RelativePath, llvm::sys::path::Style::posix));
