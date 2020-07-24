@@ -281,9 +281,9 @@
 // CHECK-QOPENMP-COMPAT: "-fopenmp-late-outline"
 // CHECK-FIOPENMP: "-fopenmp-late-outline" "-fintel-openmp-region" "-fopenmp-threadprivate-legacy"
 
-// RUN: %clang -### -fiopenmp -flto -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIOPENMP-LTO %s
-// RUN: %clang_cl -### /Qiopenmp -Qipo -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIOPENMP-LTO %s
-// CHECK-FIOPENMP-LTO: "-fwhole-program-vtables"
+// RUN: %clang -### -qopt-mem-layout-trans=4 -flto -c %s 2>&1 | FileCheck --check-prefix=CHECK-LAYOUT-LTO %s
+// RUN: %clang_cl -### /Qopt-mem-layout-trans:4 -Qipo -c %s 2>&1 | FileCheck --check-prefix=CHECK-LAYOUT-LTO %s
+// CHECK-LAYOUT-LTO: "-fwhole-program-vtables"
 
 // Behavior with QH option
 // RUN: %clang_cl -### -c /QH %s 2>&1 | FileCheck -check-prefix CHECK-QH %s
@@ -496,3 +496,8 @@
 // RUN: %clang_cl -### -Qopt-report:max -c %s 2>&1 | FileCheck -check-prefix=CHECK-OPT-REPORT-MAX %s
 // CHECK-OPT-REPORT-MAX: "-mllvm" "-intel-loop-optreport=high"
 // CHECK-OPT-REPORT-MAX: "-mllvm" "-intel-ra-spillreport=high"
+
+// RUN: %clang -### -O3 -c %s 2>&1 | FileCheck -check-prefix=CHECK-GVN %s
+// RUN: %clang -### -Ofast -c %s 2>&1 | FileCheck -check-prefix=CHECK-GVN %s
+// CHECK-GVN: "-mllvm" "-enable-gvn-hoist"
+// CHECK-GVN: "-mllvm" "-enable-npm-gvn-hoist"
