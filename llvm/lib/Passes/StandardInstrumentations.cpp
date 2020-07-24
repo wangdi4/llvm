@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Passes/StandardInstrumentations.h"
+#include "llvm/ADT/Any.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
 #include "llvm/Analysis/LazyCallGraph.h"
@@ -21,13 +22,23 @@
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassInstrumentation.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 
+<<<<<<< HEAD
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+=======
+// TODO: remove once all required passes are marked as such.
+static cl::opt<bool>
+    EnableOptnone("enable-npm-optnone", cl::init(false),
+                  cl::desc("Enable skipping optional passes optnone functions "
+                           "under new pass manager"));
+
+>>>>>>> b13b85818218aa17cee4c987cbf835208c06cf10
 namespace {
 
 /// Extracting Module out of \p IR unit. Also fills a textual description
@@ -262,10 +273,34 @@ void PrintIRInstrumentation::registerCallbacks(
 #endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 }
 
+void OptNoneInstrumentation::registerCallbacks(
+    PassInstrumentationCallbacks &PIC) {
+  PIC.registerBeforePassCallback(
+      [this](StringRef P, Any IR) { return this->skip(P, IR); });
+}
+
+bool OptNoneInstrumentation::skip(StringRef PassID, Any IR) {
+  if (!EnableOptnone)
+    return true;
+  const Function *F = nullptr;
+  if (any_isa<const Function *>(IR)) {
+    F = any_cast<const Function *>(IR);
+  } else if (any_isa<const Loop *>(IR)) {
+    F = any_cast<const Loop *>(IR)->getHeader()->getParent();
+  }
+  if (F && F->hasOptNone()) {
+    if (DebugLogging)
+      dbgs() << "Skipping pass: " << PassID << " (optnone)\n";
+    return false;
+  }
+  return true;
+}
+
 void StandardInstrumentations::registerCallbacks(
     PassInstrumentationCallbacks &PIC) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   PrintIR.registerCallbacks(PIC);
 #endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   TimePasses.registerCallbacks(PIC);
+  OptNone.registerCallbacks(PIC);
 }
