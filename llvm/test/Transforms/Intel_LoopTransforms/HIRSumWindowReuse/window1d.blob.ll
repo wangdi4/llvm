@@ -1,14 +1,8 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-sum-window-reuse -print-before=hir-sum-window-reuse -debug-only=hir-sum-window-reuse -print-after=hir-sum-window-reuse -disable-output 2>&1 < %s | FileCheck %s
-; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-sum-window-reuse,print<hir>" -aa-pipeline="basic-aa" -debug-only=hir-sum-window-reuse < %s -disable-output 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-sum-window-reuse -print-before=hir-sum-window-reuse -print-after=hir-sum-window-reuse -disable-output 2>&1 < %s | FileCheck %s
+; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-sum-window-reuse,print<hir>" -aa-pipeline="basic-aa" < %s -disable-output 2>&1 | FileCheck %s
 
-; This test checks that HIRSumWindowReuse is able to optimize a simple window
-; sliding window sum with a CE containing blob terms.
-
-; Currently, this transform is not yet implemented and so for now this test just
-; checks that the initial analysis correctly identifies the sum for
-; optimization.
-
-; REQUIRES: asserts
+; This test checks that HIRSumWindowReuse is able to optimize a simple sliding
+; window sum with a CE containing blob terms.
 
 ; Print before:
 
@@ -24,10 +18,27 @@
 ; CHECK:       + END LOOP
 ; CHECK: END REGION
 
-; Debug output:
+; Print after:
 
-; CHECK: Identified these window sums for optimization:
-; CHECK:   %sum = %sum  +  (%A)[i1 + i2 + %offset];
+; CHECK: BEGIN REGION
+; CHECK:          %[[WSUM:[A-Za-z0-9_.]+]] = 0.000000e+00;
+; CHECK:       + DO i1 = 0, 55, 1   <DO_LOOP>
+; CHECK:       |   %sum = 0.000000e+00;
+; CHECK:       |   if (i1 == 0)
+; CHECK:       |   {
+; CHECK:       |      + DO i2 = 0, 7, 1   <DO_LOOP>
+; CHECK:       |      |   %[[WSUM]] = %[[WSUM]]  +  (%A)[i2 + %offset];
+; CHECK:       |      + END LOOP
+; CHECK:       |   }
+; CHECK:       |   else
+; CHECK:       |   {
+; CHECK:       |      %[[WSUM]] = %[[WSUM]]  -  (%A)[i1 + %offset + -1];
+; CHECK:       |      %[[WSUM]] = %[[WSUM]]  +  (%A)[i1 + %offset + 7];
+; CHECK:       |   }
+; CHECK:       |   %sum = %sum  +  %[[WSUM]]
+; CHECK:       |   (%B)[i1] = %sum;
+; CHECK:       + END LOOP
+; CHECK: END REGION
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

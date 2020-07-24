@@ -2,16 +2,16 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-sum-window-reuse,print<hir>" -aa-pipeline="basic-aa" < %s -disable-output 2>&1 | FileCheck %s
 
 ; This test checks that HIRSumWindowReuse is able to optimize a simple sliding
-; window sum with a term load that involves an index truncation.
+; window sum where the operation is a subtraction.
 
 ; Print before:
 
 ; CHECK: BEGIN REGION
-; CHECK:       + DO i1 = 0, 511, 1   <DO_LOOP>
+; CHECK:       + DO i1 = 0, 55, 1   <DO_LOOP>
 ; CHECK:       |   %sum = 0.000000e+00;
 ; CHECK:       |
-; CHECK:       |   + DO i2 = 0, 255, 1   <DO_LOOP>
-; CHECK:       |   |   %sum = %sum  +  (%A)[i1 + i2];
+; CHECK:       |   + DO i2 = 0, 7, 1   <DO_LOOP>
+; CHECK:       |   |   %sum = %sum  -  (%A)[i1 + i2];
 ; CHECK:       |   + END LOOP
 ; CHECK:       |
 ; CHECK:       |   (%B)[i1] = %sum;
@@ -22,18 +22,18 @@
 
 ; CHECK: BEGIN REGION
 ; CHECK:          %[[WSUM:[A-Za-z0-9_.]+]] = 0.000000e+00;
-; CHECK:       + DO i1 = 0, 511, 1   <DO_LOOP>
+; CHECK:       + DO i1 = 0, 55, 1   <DO_LOOP>
 ; CHECK:       |   %sum = 0.000000e+00;
 ; CHECK:       |   if (i1 == 0)
 ; CHECK:       |   {
-; CHECK:       |      + DO i2 = 0, 255, 1   <DO_LOOP>
-; CHECK:       |      |   %[[WSUM]] = %[[WSUM]]  +  (%A)[i2];
+; CHECK:       |      + DO i2 = 0, 7, 1   <DO_LOOP>
+; CHECK:       |      |   %[[WSUM]] = %[[WSUM]]  -  (%A)[i2];
 ; CHECK:       |      + END LOOP
 ; CHECK:       |   }
 ; CHECK:       |   else
 ; CHECK:       |   {
-; CHECK:       |      %[[WSUM]] = %[[WSUM]]  -  (%A)[i1 + -1];
-; CHECK:       |      %[[WSUM]] = %[[WSUM]]  +  (%A)[i1 + 255];
+; CHECK:       |      %[[WSUM]] = %[[WSUM]]  +  (%A)[i1 + -1];
+; CHECK:       |      %[[WSUM]] = %[[WSUM]]  -  (%A)[i1 + 7];
 ; CHECK:       |   }
 ; CHECK:       |   %sum = %sum  +  %[[WSUM]]
 ; CHECK:       |   (%B)[i1] = %sum;
@@ -56,12 +56,11 @@ L2:
   %j = phi i64 [ 0, %L1 ], [ %j.next, %L2 ]
   %sum = phi double [ 0.0, %L1 ], [ %sum.next, %L2 ]
   %ij = add nsw nuw i64 %i, %j
-  %iji8 = trunc i64 %ij to i8
-  %Aijptr = getelementptr inbounds double, double* %A, i8 %iji8
+  %Aijptr = getelementptr inbounds double, double* %A, i64 %ij
   %Aij = load double, double* %Aijptr, align 8
-  %sum.next = fadd fast double %sum, %Aij
+  %sum.next = fsub fast double %sum, %Aij
   %j.next = add nsw nuw i64 %j, 1
-  %cond.L2 = icmp ne i64 %j.next, 256
+  %cond.L2 = icmp ne i64 %j.next, 8
   br i1 %cond.L2, label %L2, label %L1.latch
 
 L1.latch:
@@ -69,7 +68,7 @@ L1.latch:
   %Biptr = getelementptr inbounds double, double* %B, i64 %i
   store double %sum.final, double* %Biptr, align 8
   %i.next = add nsw nuw i64 %i, 1
-  %cond.L1 = icmp ne i64 %i.next, 512
+  %cond.L1 = icmp ne i64 %i.next, 56
   br i1 %cond.L1, label %L1, label %exit
 
 exit:
