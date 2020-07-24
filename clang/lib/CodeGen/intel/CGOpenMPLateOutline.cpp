@@ -359,7 +359,7 @@ OpenMPLateOutliner::emitArraySectionData(const Expr *E, CodeGenFunction &CGF) {
         Length = nullptr;
     } else {
       auto *CAT = C.getAsConstantArrayType(BaseTy);
-      *ConstLength = CAT->getSize();
+      ConstLength = llvm::APSInt{CAT->getSize()};
     }
     llvm::Value *LengthVal;
     if (Length) {
