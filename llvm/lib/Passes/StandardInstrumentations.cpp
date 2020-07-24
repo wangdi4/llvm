@@ -29,16 +29,13 @@
 
 using namespace llvm;
 
-<<<<<<< HEAD
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-=======
 // TODO: remove once all required passes are marked as such.
 static cl::opt<bool>
     EnableOptnone("enable-npm-optnone", cl::init(false),
                   cl::desc("Enable skipping optional passes optnone functions "
                            "under new pass manager"));
 
->>>>>>> b13b85818218aa17cee4c987cbf835208c06cf10
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 namespace {
 
 /// Extracting Module out of \p IR unit. Also fills a textual description
