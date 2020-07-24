@@ -6798,8 +6798,7 @@ void CodeGenFunction::EnsureAddressableClauseExpr(const OMPClause *C) {
     return;
 
   // Constants are okay to emit as rvalues.
-  llvm::APSInt ConstLength;
-  if (E->isIntegerConstantExpr(ConstLength, getContext()))
+  if (E->isIntegerConstantExpr(getContext()))
     return;
 
   // Use the lvalue directly.

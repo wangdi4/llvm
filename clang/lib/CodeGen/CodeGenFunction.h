@@ -1723,8 +1723,8 @@ public:
         if (Field->hasCapturedVLAType()) {
           const VariableArrayType *VAT = Field->getCapturedVLAType();
           const Expr *E = VAT->getSizeExpr();
-          llvm::APSInt ConstLength;
-          if (E->isIntegerConstantExpr(ConstLength, CGF.getContext()))
+
+          if (E->isIntegerConstantExpr(CGF.getContext()))
             continue;
 
           Address A =

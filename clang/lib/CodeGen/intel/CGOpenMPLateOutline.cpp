@@ -351,14 +351,15 @@ OpenMPLateOutliner::emitArraySectionData(const Expr *E, CodeGenFunction &CGF) {
         CGF.EmitScalarConversion(CGF.EmitScalarExpr(Length), Length->getType(),
                                  C.getSizeType(), Length->getExprLoc());
   } else {
-    llvm::APSInt ConstLength;
+    Optional<llvm::APSInt> ConstLength;
     if (auto *VAT = C.getAsVariableArrayType(BaseTy)) {
       Length = VAT->getSizeExpr();
-      if (Length->isIntegerConstantExpr(ConstLength, C))
+      ConstLength = Length->getIntegerConstantExpr(C);
+      if (ConstLength)
         Length = nullptr;
     } else {
       auto *CAT = C.getAsConstantArrayType(BaseTy);
-      ConstLength = CAT->getSize();
+      *ConstLength = CAT->getSize();
     }
     llvm::Value *LengthVal;
     if (Length) {
@@ -366,7 +367,7 @@ OpenMPLateOutliner::emitArraySectionData(const Expr *E, CodeGenFunction &CGF) {
                                            Length->getType(), C.getSizeType(),
                                            Length->getExprLoc());
     } else {
-      LengthVal = llvm::ConstantInt::get(CGF.SizeTy, ConstLength.getExtValue());
+      LengthVal = llvm::ConstantInt::get(CGF.SizeTy, ConstLength->getExtValue());
     }
     Data.Length = CGF.Builder.CreateSub(LengthVal, Data.LowerBound);
   }

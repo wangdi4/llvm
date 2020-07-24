@@ -2976,16 +2976,15 @@ static void handleNumComputeUnitsAttr(Sema &S, Decl *D,
   int NumComputeUnits[3];
   for (unsigned i = 0; i < Attr.getNumArgs(); ++i) {
     const Expr *E = Attr.getArgAsExpr(i);
-    llvm::APSInt ArgVal(32);
+    Optional<llvm::APSInt> ArgVal = E->getIntegerConstantExpr(S.Context);
 
-    if (!E->isIntegerConstantExpr(ArgVal, S.Context)) {
+    if (!ArgVal) {
       S.Diag(Attr.getLoc(), diag::err_attribute_argument_type)
-          << Attr << AANT_ArgumentIntegerConstant
-          << E->getSourceRange();
+          << Attr << AANT_ArgumentIntegerConstant << E->getSourceRange();
       return;
     }
 
-    int Val = ArgVal.getSExtValue();
+    int Val = ArgVal->getSExtValue();
 
     if (Val < 1 || Val > 16384) {
       S.Diag(E->getSourceRange().getBegin(),

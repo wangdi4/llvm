@@ -62,14 +62,15 @@ static bool HandleLoopFuseAttrArg(Sema &S, ArgsUnion AU,
     if (!E)
       return true;
 
-    llvm::APSInt ArgVal;
-    if (E->isIntegerConstantExpr(ArgVal, S.getASTContext())) {
-      if (!ArgVal.isStrictlyPositive()) {
+    Optional<llvm::APSInt> ArgVal =
+        E->getIntegerConstantExpr(S.getASTContext());
+    if (ArgVal) {
+      if (!ArgVal->isStrictlyPositive()) {
         S.Diag(E->getExprLoc(), diag::err_attribute_requires_positive_integer)
             << "'loop_fuse'" << /* positive */ 0;
         return false;
       }
-      DepthValue = ArgVal.getZExtValue();
+      DepthValue = ArgVal->getZExtValue();
       return true;
     }
     S.Diag(E->getExprLoc(), diag::err_loop_fuse_unknown_arg);
@@ -78,7 +79,6 @@ static bool HandleLoopFuseAttrArg(Sema &S, ArgsUnion AU,
     if (!IE)
       return true;
     Independent = true;
-    return true;
   }
   return true;
 }

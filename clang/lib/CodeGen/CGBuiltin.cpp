@@ -1697,28 +1697,24 @@ static llvm::Value *MayIUseCpuFeatureHelper(CodeGenFunction &CGF,
 }
 
 llvm::Value *CodeGenFunction::EmitX86MayIUseCpuFeature(const CallExpr *E) {
-  llvm::APSInt CompareFeatures;
-  bool IsConst =
-      E->getArg(0)->isIntegerConstantExpr(CompareFeatures, getContext());
-  assert(IsConst && "Constant arg isn't actually constant?"); (void)IsConst;
+  Optional<llvm::APSInt> CompareFeatures =
+      E->getArg(0)->getIntegerConstantExpr(getContext());
+  assert(CompareFeatures.hasValue() && "Constant arg isn't actually constant?");
 
-  return MayIUseCpuFeatureHelper(*this, CompareFeatures,
+  return MayIUseCpuFeatureHelper(*this, *CompareFeatures,
                                  APSInt{APInt(64, 0), true});
 }
 
 llvm::Value *CodeGenFunction::EmitX86MayIUseCpuFeatureExt(const CallExpr *E) {
-  llvm::APSInt CompareFeatures;
-  bool IsConst =
-      E->getArg(0)->isIntegerConstantExpr(CompareFeatures, getContext());
-  assert(IsConst && "Constant arg isn't actually constant?");
-  (void)IsConst;
+  Optional<llvm::APSInt> CompareFeatures =
+      E->getArg(0)->getIntegerConstantExpr(getContext());
+  assert(CompareFeatures.hasValue() && "Constant arg isn't actually constant?");
 
-  llvm::APSInt Page;
-  IsConst = E->getArg(1)->isIntegerConstantExpr(Page, getContext());
-  assert(IsConst && "Constant arg isn't actually constant?");
-  (void)IsConst;
+  Optional<llvm::APSInt> Page =
+      E->getArg(1)->getIntegerConstantExpr(getContext());
+  assert(Page.hasValue() && "Constant arg isn't actually constant?");
 
-  return MayIUseCpuFeatureHelper(*this, CompareFeatures, Page);
+  return MayIUseCpuFeatureHelper(*this, *CompareFeatures, *Page);
 }
 
 llvm::Value *CodeGenFunction::EmitX86MayIUseCpuFeatureStr(const CallExpr *E) {

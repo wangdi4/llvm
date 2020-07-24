@@ -2257,15 +2257,15 @@ QualType Sema::BuildArbPrecIntType(QualType T, Expr *NumBitsExpr,
   }
 
   if (!NumBitsExpr->isTypeDependent() && !NumBitsExpr->isValueDependent()) {
-    llvm::APSInt Bits(32);
-    if (!NumBitsExpr->isIntegerConstantExpr(Bits, Context)) {
+    Optional<llvm::APSInt> Bits = NumBitsExpr->getIntegerConstantExpr(Context);
+    if (!Bits) {
       Diag(AttrLoc, diag::err_attribute_argument_type)
           << "__ap_int" << AANT_ArgumentIntegerConstant
           << NumBitsExpr->getSourceRange();
       return QualType();
     }
 
-    int64_t NumBits = Bits.getSExtValue();
+    int64_t NumBits = Bits->getSExtValue();
     if (!T->isDependentType() && T->isSignedIntegerOrEnumerationType() &&
         NumBits < 2) {
       Diag(AttrLoc, diag::err_ap_int_bad_size) << 0;
