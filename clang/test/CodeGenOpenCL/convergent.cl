@@ -70,11 +70,17 @@ void test_merge_if(int a) {
 // CHECK-NOT: call spir_func void @g()
 // CHECK: br label %[[if_end]]
 // CHECK: [[if_end]]:
+<<<<<<< HEAD
 // INTEL_CUSTOMIZATION
 // CHECK:  %[[tobool_pr:.+]] = phi i1 [ %[[tobool:.+]], %[[if_then:.+]] ], [ true, %[[entry:.+]] ]
 // CHECK:  tail call spir_func void @convfun() #[[attr4:.+]]
 // CHECK:  br i1 %[[tobool_pr]], label %[[if_end3:.+]], label %[[if_then2:.+]]
 // end INTEL_CUSTOMIZATION
+=======
+// CHECK-NOT: phi i1
+// CHECK:  tail call spir_func void @convfun() #[[attr4:.+]]
+// CHECK:  br i1 %[[tobool]], label %[[if_end3:.+]], label %[[if_then2:.+]]
+>>>>>>> 360ab707127d7f1718cf0fe0520b5a38ef207bc1
 // CHECK: [[if_then2]]:
 // CHECK: tail call spir_func void @g()
 // CHECK:  br label %[[if_end3:.+]]
