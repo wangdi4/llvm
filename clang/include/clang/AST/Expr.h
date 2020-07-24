@@ -4689,6 +4689,13 @@ public:
       setDependence(getDependence() | expr->getDependence());
   }
 
+  /// Mark the semantic form of the InitListExpr as error when the semantic
+  /// analysis fails.
+  void markError() {
+    assert(isSemanticForm());
+    setDependence(getDependence() | ExprDependence::ErrorDependent);
+  }
+
   /// Reserve space for some number of initializers.
   void reserveInits(const ASTContext &C, unsigned NumInits);
 
