@@ -154,6 +154,9 @@ def : CLFlag<"O1">, Alias<_SLASH_O>, AliasArgs<["1"]>,
 def : CLFlag<"O2">, Alias<_SLASH_O>, AliasArgs<["2"]>,
   HelpText<"Optimize for speed (like /Og /Oi /Ot /Oy /Ob2 /GF /Gy)">;
 #if INTEL_CUSTOMIZATION
+def : CLFlag<"O3">, Alias<_SLASH_O>, AliasArgs<["3"]>,
+  HelpText<"Optimize for maximum speed and enable more aggressive optimizations"
+  " that may not improve performance on some programs">;
 def _SLASH_Oa :CLFlag<"Oa">, Alias<fno_alias>,
   HelpText<"Enables 'noalias' attribute for all pointer-type arguments">;
 def _SLASH_Ofast : CLFlag<"Ofast">, Alias<Ofast>;

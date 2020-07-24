@@ -110,6 +110,9 @@
 // CHECK-INTEL-LOOPOPT-LIGHT: "-mllvm" "-loopopt=1"
 // CHECK-INTEL-LOOPOPT-LIGHT-NOT: "-mllvm" "-enable-lv"
 
+// RUN: %clang_cl -### --intel -c -O3 %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-O3 %s
+// CHECK-INTEL-O3: "-O3"
+
 // -fast settings
 // RUN: %clang -### --intel -c -fast %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT-FAST %s
 // RUN: %clang_cl -### --intel -c -fast %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT-FAST %s
