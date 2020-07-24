@@ -4973,10 +4973,7 @@ bool llvm::isGuaranteedNotToBeUndefOrPoison(const Value *V,
         return true;
     }
 
-    if (canCreateUndefOrPoison(Opr))
-      return false;
-
-    if (all_of(Opr->operands(), OpCheck))
+    if (!canCreateUndefOrPoison(Opr) && all_of(Opr->operands(), OpCheck))
       return true;
   }
 

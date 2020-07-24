@@ -833,6 +833,7 @@ public:
   bool foundCallExpr() { return FoundCallExpr; }
 
   void VisitCallExpr(const CallExpr *E) { FoundCallExpr = true; }
+  void VisitAsmStmt(const AsmStmt *S) { FoundCallExpr = true; }
 
   void Visit(const Stmt *St) {
     if (!St)
