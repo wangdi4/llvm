@@ -990,14 +990,7 @@ bool LoopIdiomRecognize::processLoopStridedStore(
   Changed = true;
 
   if (mayLoopAccessLocation(BasePtr, ModRefInfo::ModRef, CurLoop, BECount,
-<<<<<<< HEAD
-                            StoreSize, *AA, Stores, nullptr)) {  // INTEL
-    Expander.clear();
-    // If we generated new code for the base pointer, clean up.
-    RecursivelyDeleteTriviallyDeadInstructions(BasePtr, TLI);
-=======
-                            StoreSize, *AA, Stores))
->>>>>>> dc09c65f638f177265f47d897469888cfa011041
+                            StoreSize, *AA, Stores, nullptr))  // INTEL
     return Changed;
 
   if (avoidLIRForMultiBlockLoop(/*IsMemset=*/true, IsLoopMemset))
