@@ -13,8 +13,9 @@
 // This pass implements non-zero sinking for perfect loopnest to facilitate
 // loop  blocking or unroll & jam.
 //
-// We are transforming this-
+// Case 1:
 //
+// We are transforming this-
 // do i1
 //   %t = A[0][i1];
 //   if(%t != 0){
@@ -35,6 +36,30 @@
 //   enddo
 // enddo/
 //
+// Case 2:
+//
+// We are transforming this-
+// do i1
+//   %t1 = A[0][i1];
+//   if(%t1 != 0){
+//     %t = %t1 * D[i1];
+//     do i2
+//       %mul = %t * B[i1][i2];
+//       %add = C[0][i2] +/- %mul;
+//       C[0][i2] = %add;
+//     enddo
+//   }
+// enddo
+//
+// To-
+// do i1
+//   %t = A[0][i1] * %D[i1];
+//   do i2
+//     %mul = %t * B[i1][i2];
+//     %add = C[0][i2] +/- %mul;
+//     C[0][i2] = %add;
+//   enddo
+// enddo
 //===----------------------------------------------------------------------===//
 #include "llvm/Transforms/Intel_LoopTransforms/HIRNonZeroSinkingForPerfectLoopnest.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
@@ -89,7 +114,7 @@ private:
 // enddo
 // Go through the loop children and check whether the pattern can be matched
 static HLInst *findReplacementCandidate(HLLoop *Lp, RegDDRef *LoadRef,
-                                        const RegDDRef *LHSPredRef) {
+                                        const RegDDRef *TerminalRef) {
   HLNode *FirstChild = Lp->getFirstChild();
 
   // Get %mul = %temp * A[i2][i3];
@@ -115,7 +140,7 @@ static HLInst *findReplacementCandidate(HLLoop *Lp, RegDDRef *LoadRef,
 
   RegDDRef *TempRef = MulInst->getOperandDDRef(OperandNum);
 
-  if (TempRef->getSymbase() != LHSPredRef->getSymbase()) {
+  if (TempRef->getSymbase() != TerminalRef->getSymbase()) {
     return nullptr;
   }
 
@@ -240,12 +265,15 @@ bool HIRNonZeroSinkingForPerfectLoopnest::doAnalysis(HLLoop *InnermostLp,
     return false;
   }
 
-  // Check there is no node before and after innermost loop
-  if (IfNode->getNumThenChildren() != 1) {
+  // Check there are at most two nodes in the IfNode, and there must be one
+  // loop.
+  unsigned NumThenChildren = IfNode->getNumThenChildren();
+
+  if (!(NumThenChildren == 1 || NumThenChildren == 2)) {
     return false;
   }
 
-  if (!isa<HLLoop>(IfNode->getFirstThenChild())) {
+  if (!isa<HLLoop>(IfNode->getLastThenChild())) {
     return false;
   }
 
@@ -254,22 +282,57 @@ bool HIRNonZeroSinkingForPerfectLoopnest::doAnalysis(HLLoop *InnermostLp,
   const RegDDRef *LHSPredRef = IfNode->getPredicateOperandDDRef(PredI, true);
   const RegDDRef *RHSPredRef = IfNode->getPredicateOperandDDRef(PredI, false);
 
-  unsigned LvalRefSB = FirstInst->getLvalDDRef()->getSymbase();
-
-  if (ParentLp->isLiveOut(LvalRefSB)) {
-    return false;
-  }
-
-  if (LHSPredRef->getSymbase() != LvalRefSB) {
-    return false;
-  }
-
   if (!RHSPredRef->isZero()) {
     return false;
   }
 
-  CandidateInst = findReplacementCandidate(
-      InnermostLp, FirstInst->getRvalDDRef(), LHSPredRef);
+  unsigned FirstInstLvalSB = FirstInst->getLvalDDRef()->getSymbase();
+
+  if (ParentLp->isLiveOut(FirstInstLvalSB)) {
+    return false;
+  }
+
+  RegDDRef *FirstInstRval = FirstInst->getRvalDDRef();
+
+  // Case 2:
+  if (NumThenChildren == 2) {
+    HLInst *InstBeforeInnermostLp =
+        dyn_cast<HLInst>(IfNode->getFirstThenChild());
+
+    if (!InstBeforeInnermostLp) {
+      return false;
+    }
+
+    unsigned Opcode = InstBeforeInnermostLp->getLLVMInstruction()->getOpcode();
+
+    if (Opcode != Instruction::Mul && Opcode != Instruction::FMul) {
+      return false;
+    }
+
+    RegDDRef *Operand1 = InstBeforeInnermostLp->getOperandDDRef(1);
+    RegDDRef *Operand2 = InstBeforeInnermostLp->getOperandDDRef(2);
+
+    if (Operand1->getSymbase() != LHSPredRef->getSymbase() &&
+        Operand2->getSymbase() != LHSPredRef->getSymbase()) {
+      return false;
+    }
+
+    if (!findReplacementCandidate(InnermostLp, FirstInstRval,
+                                  InstBeforeInnermostLp->getLvalDDRef())) {
+      return false;
+    }
+
+    CandidateInst = InstBeforeInnermostLp;
+    return true;
+  }
+
+  // Case 1:
+  if (LHSPredRef->getSymbase() != FirstInstLvalSB) {
+    return false;
+  }
+
+  CandidateInst =
+      findReplacementCandidate(InnermostLp, FirstInstRval, LHSPredRef);
 
   if (!CandidateInst) {
     return false;
