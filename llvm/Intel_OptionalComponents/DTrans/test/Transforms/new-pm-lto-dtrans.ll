@@ -21,17 +21,20 @@
 ; CHECK-NEXT: Running pass: InlineReportSetupPass
 ; CHECK-NEXT: Running pass: XmainOptLevelAnalysisInit
 ; CHECK-NEXT: Running analysis: XmainOptLevelAnalysis
-; CHECK-NEXT: GlobalDCEPass
+; CHECK-NEXT: Running pass: GlobalDCEPass
+; CHECK-NEXT: Running pass: InternalizePass
 ; CHECK: Running analysis: WholeProgramAnalysis
-; CHECK: Running analysis: TargetLibraryAnalysis
-; CHECK: Running pass: InternalizePass
-; CHECK: Running pass: IPSCCPPass
 ; CHECK-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}Module{{.*}}>
-; CHECK-NEXT: Running analysis: DominatorTreeAnalysis on foo
+; CHECK-NEXT: Running analysis: TargetLibraryAnalysis on bar
+; CHECK-NEXT: Running analysis: PassInstrumentationAnalysis on bar
+; CHECK-NEXT: Running analysis: TargetIRAnalysis on foo
 ; CHECK-NEXT: Running analysis: PassInstrumentationAnalysis on foo
+; CHECK-NEXT: Running analysis: TargetIRAnalysis on main
+; CHECK-NEXT: Running analysis: PassInstrumentationAnalysis on main
+; CHECK: Running pass: IPSCCPPass
+; CHECK-NEXT: Running analysis: DominatorTreeAnalysis on foo
 ; CHECK-NEXT: Running analysis: AssumptionAnalysis on foo
 ; CHECK-NEXT: Running analysis: DominatorTreeAnalysis on main
-; CHECK-NEXT: Running analysis: PassInstrumentationAnalysis on main
 ; CHECK-NEXT: Running analysis: AssumptionAnalysis on main
 ; CHECK-NEXT: Running pass: IPCloningPass
 ; CHECK-NEXT: Running pass: ForceFunctionAttrsPass

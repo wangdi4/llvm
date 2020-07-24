@@ -15,6 +15,7 @@
 
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
+#include "llvm/Analysis/Intel_WP.h"           // INTEL
 #include "llvm/Analysis/LoopInfo.h"           // INTEL
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/ADT/SmallSet.h"                // INTEL
@@ -132,6 +133,7 @@ typedef enum {
    InlrArrayStructArgs,
    InlrPreferTileChoice,
    InlrManyRecursiveCallsSplitting,
+   InlrHasSmallAppBudget,
    InlrProfitable,
    InlrLast, // Just a marker placed after the last inlining reason
    NinlrFirst, // Just a marker placed before the first non-inlining reason
@@ -380,6 +382,15 @@ struct InlineParams {
   /// This flag indicates that it is LTO compile phase. This flag is
   /// set when PrepareForLTO flag in PassManagerBuilder is true. .
   Optional<bool> PrepareForLTO;
+
+  /// This flag indicates that it is LTO link phase. This flag is
+  /// set by the LTO backend.  No more than one of PrepareForLTO and
+  //  LinkForLTO should be true.
+  Optional<bool> LinkForLTO;
+
+  // Opt Level used for selection of inlining heuristics, not for setting
+  // inlining thresholds.
+  Optional<unsigned> InlineOptLevel;
 #endif // INTEL_CUSTOMIZATION
 
   /// Threshold to use when the callsite is considered hot relative to function
@@ -417,9 +428,10 @@ InlineParams getInlineParams(unsigned OptLevel, unsigned SizeOptLevel);
 /// Generate the parameters to tune the inline cost analysis based on command
 /// line options. It does exactly same as what "getInlineParams(unsigned
 /// OptLevel, unsigned SizeOptLevel)" routine does except it also sets
-/// PrepareForLTO flag in InlineParams based on \p PrepareForLTO.
+/// PrepareForLTO and InlineOptLevel flags in InlineParams based on
+/// \p PrepareForLTO and \p InlineOptLevel.
 InlineParams getInlineParams(unsigned OptLevel, unsigned SizeOptLevel,
-                             bool PrepareForLTO);
+                             bool PrepareForLTO, bool InlineOptLevel);
 #endif // INTEL_CUSTOMIZATION
 
 /// Return the cost associated with a callsite, including parameter passing
@@ -445,7 +457,8 @@ getInlineCost(CallBase &Call, const InlineParams &Params,
               function_ref<BlockFrequencyInfo &(Function &)> GetBFI = nullptr,
               ProfileSummaryInfo *PSI = nullptr,
               OptimizationRemarkEmitter *ORE = nullptr,               // INTEL
-              InliningLoopInfoCache *ILIC = nullptr);                 // INTEL
+              InliningLoopInfoCache *ILIC = nullptr,                  // INTEL
+              WholeProgramInfo *WPI = nullptr);                       // INTEL
 
 /// Get an InlineCost with the callee explicitly specified.
 /// This allows you to calculate the cost of inlining a function via a
@@ -460,7 +473,8 @@ getInlineCost(CallBase &Call, Function *Callee, const InlineParams &Params,
               function_ref<BlockFrequencyInfo &(Function &)> GetBFI = nullptr,
               ProfileSummaryInfo *PSI = nullptr,
               OptimizationRemarkEmitter *ORE = nullptr,               // INTEL
-              InliningLoopInfoCache *ILIC = nullptr);                 // INTEL
+              InliningLoopInfoCache *ILIC = nullptr,                  // INTEL
+              WholeProgramInfo *WPI = nullptr);                       // INTEL
 
 /// Returns InlineResult::success() if the call site should be always inlined
 /// because of user directives, and the inlining is viable. Returns
@@ -487,7 +501,8 @@ Optional<int> getInliningCostEstimate(
     ProfileSummaryInfo *PSI = nullptr,
     OptimizationRemarkEmitter *ORE = nullptr,               // INTEL
     TargetLibraryInfo *TLI = nullptr,                       // INTEL
-    InliningLoopInfoCache *ILIC = nullptr);                 // INTEL
+    InliningLoopInfoCache *ILIC = nullptr,                  // INTEL
+    WholeProgramInfo *WPI = nullptr);                       // INTEL
 
 /// Minimal filter to detect invalid constructs for inlining.
 InlineResult isInlineViable(Function &Callee);

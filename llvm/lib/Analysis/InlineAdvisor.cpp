@@ -105,8 +105,13 @@ private:
 
 llvm::Optional<llvm::InlineCost> static getDefaultInlineAdvice(
 #if INTEL_CUSTOMIZATION
+<<<<<<< HEAD
     CallBase &CB, FunctionAnalysisManager &FAM, InlineParams &Params,
     InliningLoopInfoCache *ILIC, InlineReport *Report) {
+=======
+DefaultInlineAdvisor::getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
+                                WholeProgramInfo *WPI, InlineReport *Report) {
+>>>>>>> 180a04f110312f18536b5be843c2b9a7bb946083
 #endif // INTEL_CUSTOMIZATION
   Function &Caller = *CB.getCaller();
   ProfileSummaryInfo *PSI =
@@ -137,7 +142,7 @@ llvm::Optional<llvm::InlineCost> static getDefaultInlineAdvice(
 #endif // INTEL_CUSTOMIZATION
     return getInlineCost(CB, Params, CalleeTTI, GetAssumptionCache, GetTLI,
                          GetBFI, PSI, RemarksEnabled ? &ORE : nullptr, // INTEL
-                         ILIC);                                        // INTEL
+                         ILIC, WPI);                                   // INTEL
   };
   return llvm::shouldInline(CB, GetInlineCost, ORE, Report, // INTEL
                             Params.EnableDeferral.hasValue() &&

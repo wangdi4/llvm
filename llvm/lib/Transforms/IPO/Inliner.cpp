@@ -135,6 +135,7 @@ void LegacyInlinerBase::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<AssumptionCacheTracker>();
   AU.addRequired<ProfileSummaryInfoWrapperPass>();
   AU.addRequired<TargetLibraryInfoWrapperPass>();
+  AU.addUsedIfAvailable<WholeProgramWrapperPass>();   // INTEL
   getAAResultsAnalysisUsage(AU);
   CallGraphSCCPass::getAnalysisUsage(AU);
 }
@@ -266,7 +267,7 @@ static void mergeInlinedArrayAllocas(Function *Caller, InlineFunctionInfo &IFI,
 /// any new allocas to the set if not possible.
 static InlineResult inlineCallIfPossible(
     CallBase &CB, InlineFunctionInfo &IFI, InlineReport *IRep,    // INTEL
-    InlineReportBuilder *MDIRep,    // INTEL
+    InlineReportBuilder *MDIRep,                                  // INTEL
     InlinedArrayAllocasTy &InlinedArrayAllocas, int InlineHistory,
     bool InsertLifetime, function_ref<AAResults &(Function &)> &AARGetter,
     ImportedFunctionsInliningStatistics &ImportedFunctionsStats) {
@@ -438,9 +439,10 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
                 function_ref<InlineCost(CallBase &CB)> GetInlineCost,
                 function_ref<AAResults &(Function &)> AARGetter,
                 ImportedFunctionsInliningStatistics &ImportedFunctionsStats,
-                InliningLoopInfoCache *ILIC, // INTEL
-                InlineReport& IR,            // INTEL
-                InlineReportBuilder& MDIR) { // INTEL
+                InliningLoopInfoCache *ILIC,  // INTEL
+                WholeProgramInfo *WPI,        // INTEL
+                InlineReport& IR,             // INTEL
+                InlineReportBuilder& MDIR) {  // INTEL
   SmallPtrSet<Function *, 8> SCCFunctions;
   LLVM_DEBUG(dbgs() << "Inliner visiting SCC:");
   for (CallGraphNode *Node : SCC) {
@@ -620,8 +622,8 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
         if (Caller == Callee)
           RecursiveCallCountOld = recursiveCallCount(*Caller);
         InlineResult LIR = inlineCallIfPossible(
-            CB, InlineInfo, &IR, &MDIR, InlinedArrayAllocas, InlineHistoryID,
-            InsertLifetime, AARGetter, ImportedFunctionsStats);
+            CB, InlineInfo, &IR, &MDIR, InlinedArrayAllocas,
+            InlineHistoryID, InsertLifetime, AARGetter, ImportedFunctionsStats);
         InlineReason Reason = LIR.getIntelInlReason();
         if (!LIR.isSuccess()) {
           IR.endUpdate();
@@ -755,6 +757,11 @@ bool LegacyInlinerBase::inlineCalls(CallGraphSCC &SCC) {
   CallGraph &CG = getAnalysis<CallGraphWrapperPass>().getCallGraph();
   ACT = &getAnalysis<AssumptionCacheTracker>();
   PSI = &getAnalysis<ProfileSummaryInfoWrapperPass>().getPSI();
+#if INTEL_CUSTOMIZATION
+  WholeProgramWrapperPass *WPA
+      = getAnalysisIfAvailable<WholeProgramWrapperPass>();
+  WPI = WPA ? &WPA->getResult() : nullptr;
+#endif // INTEL_CUSTOMIZATION
   GetTLI = [&](Function &F) -> const TargetLibraryInfo & {
     return getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
   };
@@ -766,7 +773,7 @@ bool LegacyInlinerBase::inlineCalls(CallGraphSCC &SCC) {
   bool rv = inlineCallsImpl(      // INTEL
       SCC, CG, GetAssumptionCache, PSI, GetTLI, InsertLifetime,
       [&](CallBase &CB) { return getInlineCost(CB); }, LegacyAARGetter(*this),
-      ImportedFunctionsStats, ILIC, getReport(), getMDReport()); // INTEL
+      ImportedFunctionsStats, ILIC, WPI, getReport(), getMDReport()); // INTEL
   delete ILIC;    // INTEL
   ILIC = nullptr; // INTEL
   return rv;      // INTEL
@@ -935,6 +942,8 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
   assert(InitialC.size() > 0 && "Cannot handle an empty SCC!");
   Module &M = *InitialC.begin()->getFunction().getParent();
   ProfileSummaryInfo *PSI = MAMProxy.getCachedResult<ProfileSummaryAnalysis>(M);
+  WholeProgramInfo *WPI                                         // INTEL
+      = MAMProxy.getCachedResult<WholeProgramAnalysis>(M);      // INTEL
   CG.registerCGReport(&Report); // INTEL
   CG.registerCGReport(MDReport); // INTEL
 
@@ -1117,7 +1126,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
         continue;
       }
 
-      auto Advice = Advisor.getAdvice(*CB, ILIC, &Report); // INTEL
+      auto Advice = Advisor.getAdvice(*CB, ILIC, WPI, &Report); // INTEL
       // Check whether we want to inline this callsite.
       if (!Advice->isInliningRecommended()) {
         Advice->recordUnattemptedInlining();

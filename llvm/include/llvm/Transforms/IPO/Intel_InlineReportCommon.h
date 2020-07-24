@@ -144,6 +144,8 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtCost, "Callsite inlined to enable tiling"},
     // InlrManyRecursiveCallsSplitting
     {InlPrtCost, "Callsite inlined for many recursive calls splitting"},
+    // InlrHasSmallAppBudget
+    {InlPrtCost, "Has inline budget for small application"},
     // InlrProfitable,
     {InlPrtCost, "Inlining is profitable"},
     // InlrLast,
