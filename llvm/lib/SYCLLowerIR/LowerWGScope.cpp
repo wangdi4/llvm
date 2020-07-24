@@ -961,7 +961,11 @@ Value *spirv::genPseudoLocalID(Instruction &Before, const Triple &TT) {
                              // asUInt(spirv::AddrSpace::Input) // AddressSpace
                              asUInt(spirv::AddrSpace::Global) // AddressSpace
       );
+<<<<<<< HEAD
       Align Alignment= M.getDataLayout().getPreferredAlign(G);
+=======
+      Align Alignment = M.getDataLayout().getPreferredAlign(G);
+>>>>>>> 4cc1da1006283d5c7e9bb87796059a52c0b35892
       G->setAlignment(MaybeAlign(Alignment));
     }
     Value *Res = new LoadInst(G->getType()->getElementType(), G, "", &Before);
