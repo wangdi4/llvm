@@ -2176,6 +2176,9 @@ public:
     return getOperand(1);
   }
 
+  bool isLastValPreIncrement() const { return LastValPreIncrement; }
+  void setLastValPreIncrement(bool V) { LastValPreIncrement = V; }
+
   // Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPInstruction *V) {
     return V->getOpcode() == VPInstruction::InductionFinal;
@@ -2201,6 +2204,8 @@ protected:
   }
 
 private:
+  // Tracks if induction's last value is computed before increment.
+  bool LastValPreIncrement = false;
   Instruction::BinaryOps BinOpcode = Instruction::BinaryOpsEnd;
 };
 

@@ -7,8 +7,7 @@
 define dso_local i32 @foo(i64 %n) local_unnamed_addr {
 ; CHECK-LABEL:  VPlan after insertion VPEntities instructions:
 ; CHECK:          i64 [[VP_INDVARS_IV_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
-; FIXME: %other.iv is live-out before increment, should be refelected in VPInductionFinal.
-; CHECK-NEXT:     i32 [[VP_OTHER_IV_IND_FINAL:%.*]] = induction-final{add} i32 42 i32 3
+; CHECK-NEXT:     i32 [[VP_OTHER_IV_IND_FINAL:%.*]] = induction-final{add} i32 42 i32 3, LastValPreInc = 1
 ;
 ; CHECK-LABEL: @foo(
 ; CHECK:       vector.body:
@@ -28,11 +27,10 @@ define dso_local i32 @foo(i64 %n) local_unnamed_addr {
 ; CHECK-NEXT:  VPlannedBB:
 ; CHECK-NEXT:    [[TMP6:%.*]] = mul i64 1, [[N_VEC0]]
 ; CHECK-NEXT:    [[TMP7:%.*]] = add i64 0, [[TMP6]]
-; FIXME: Finalization for %other.iv is done incorrectly using %n here, it should use %n-1.
-; CHECK-NEXT:    [[CAST_CRD0:%.*]] = trunc i64 [[N_VEC0]] to i32
-; CHECK-NEXT:    [[TMP8:%.*]] = mul i32 3, [[CAST_CRD0]]
-; CHECK-NEXT:    [[TMP9:%.*]] = add i32 42, [[TMP8]]
-; CHECK-NEXT:    br label [[MIDDLE_BLOCK0:%.*]]
+; CHECK-NEXT:    [[TMP8:%.*]] = sub i64 [[N_VEC0]], 1
+; CHECK-NEXT:    [[CAST_CRD0:%.*]] = trunc i64 [[TMP8]] to i32
+; CHECK-NEXT:    [[TMP9:%.*]] = mul i32 3, [[CAST_CRD0]]
+; CHECK-NEXT:    [[TMP10:%.*]] = add i32 42, [[TMP9]]
 ;
 entry:
   br label %DIR.OMP.SIMD.1
