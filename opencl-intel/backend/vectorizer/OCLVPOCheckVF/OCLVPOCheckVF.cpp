@@ -121,9 +121,9 @@ bool OCLVPOCheckVF::hasUnsupportedPatterns(Function *F) {
 
   if (!VecLenHint.hasValue() && VecTypeHint.hasValue()) {
     Type *VTHTy = VecTypeHint.getType();
-    if (!VTHTy->isFloatTy() && !VTHTy->isDoubleTy() &&
-        !VTHTy->isIntegerTy(8) && !VTHTy->isIntegerTy(16) &&
-        !VTHTy->isIntegerTy(32) && !VTHTy->isIntegerTy(64)) {
+    if (!VTHTy->isFloatTy() && !VTHTy->isDoubleTy() && !VTHTy->isIntegerTy(8) &&
+        !VTHTy->isIntegerTy(16) && !VTHTy->isIntegerTy(32) &&
+        !VTHTy->isIntegerTy(64)) {
       m_kernelToVF[F] = 1;
       return true;
     }
@@ -133,7 +133,7 @@ bool OCLVPOCheckVF::hasUnsupportedPatterns(Function *F) {
 
 static inline void
 collectSubGroupIndirectUsers(Module *pModule,
-                         std::set<Function *> &sgIndirectUsers) {
+                             std::set<Function *> &sgIndirectUsers) {
   std::set<Function *> sgFuncs;
   for (Function &Fn : *pModule) {
     if (Fn.isDeclaration() && Fn.getName().contains("sub_group"))
@@ -182,18 +182,23 @@ OCLVPOCheckVF::checkHorizontalOps(Function *F) {
         continue;
       StringRef calleeName = pCallee->getName();
       // Check subgroup calls.
-      if (calleeName.contains("sub_group") && !calleeName.contains("barrier") &&
-          m_cpuId.isTransposeSizeSupported((ETransposeSize)VF) !=
-              Intel::SUPPORTED) {
-        if (m_canFallBack) {
-          VF = KIMD.OclRecommendedVectorLength.get();
-          m_checkState[std::string(F->getName())].isVFFalledBack = true;
-        } else {
-          unimplementBuiltins.push_back({std::string(calleeName), VF});
+      if (calleeName.contains("sub_group") && !calleeName.contains("barrier")) {
+        // 1. VF must be supported for the current arch.
+        // 2. AVX has only x4 subgroup builtins.
+        if (m_cpuId.isTransposeSizeSupported((ETransposeSize)VF) !=
+                Intel::SUPPORTED ||
+            (!m_cpuId.HasAVX2() && VF == TRANSPOSE_SIZE_8)) {
+          if (m_canFallBack) {
+            VF = KIMD.OclRecommendedVectorLength.get();
+            m_checkState[std::string(F->getName())].isVFFalledBack = true;
+          } else {
+            unimplementBuiltins.push_back({std::string(calleeName), VF});
+          }
         }
       }
       // Check workgroup calls.
-      if (calleeName.contains("work_group") && !calleeName.contains("barrier") &&
+      if (calleeName.contains("work_group") &&
+          !calleeName.contains("barrier") &&
           (VF != TRANSPOSE_SIZE_1 && VF != TRANSPOSE_SIZE_4 &&
            VF != TRANSPOSE_SIZE_8 && VF != TRANSPOSE_SIZE_16)) {
         if (m_canFallBack) {
@@ -230,7 +235,7 @@ bool OCLVPOCheckVF::runOnModule(Module &M) {
     applyVFConstraints(kernel);
 
     m_checkState[kernelName].hasUnsupportedPatterns =
-      hasUnsupportedPatterns(kernel);
+        hasUnsupportedPatterns(kernel);
 
     if (!checkSGSemantics(kernel, sgIndirectUsers)) {
       m_checkState[kernelName].isSubGroupBroken = true;
@@ -266,8 +271,8 @@ bool OCLVPOCheckVF::runOnModule(Module &M) {
 }
 } // namespace intel
 
-extern "C" Pass *createOCLVPOCheckVFPass(
-    const intel::OptimizerConfig &config,
-    Intel::OpenCL::DeviceBackend::TStringToVFState &state) {
+extern "C" Pass *
+createOCLVPOCheckVFPass(const intel::OptimizerConfig &config,
+                        Intel::OpenCL::DeviceBackend::TStringToVFState &state) {
   return new intel::OCLVPOCheckVF(config, state);
 }
