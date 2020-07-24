@@ -35,11 +35,8 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/ValueLattice.h"
 #include "llvm/Analysis/ValueLatticeUtils.h"
-<<<<<<< HEAD
 #include "llvm/IR/AbstractCallSite.h" // INTEL
-=======
 #include "llvm/Analysis/ValueTracking.h"
->>>>>>> 752fea7c27b66b7d34925335541f843eb46f16d6
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
