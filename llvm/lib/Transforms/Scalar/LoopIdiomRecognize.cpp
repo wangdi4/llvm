@@ -305,6 +305,31 @@ static void deleteDeadInstruction(Instruction *I) {
   I->eraseFromParent();
 }
 
+namespace {
+class ExpandedValuesCleaner {
+  SCEVExpander &Expander;
+  TargetLibraryInfo *TLI;
+  SmallVector<Value *, 4> ExpandedValues;
+  bool Commit = false;
+
+public:
+  ExpandedValuesCleaner(SCEVExpander &Expander, TargetLibraryInfo *TLI)
+      : Expander(Expander), TLI(TLI) {}
+
+  void add(Value *V) { ExpandedValues.push_back(V); }
+
+  void commit() { Commit = true; }
+
+  ~ExpandedValuesCleaner() {
+    if (!Commit) {
+      Expander.clear();
+      for (auto *V : ExpandedValues)
+        RecursivelyDeleteTriviallyDeadInstructions(V, TLI);
+    }
+  }
+};
+} // namespace
+
 //===----------------------------------------------------------------------===//
 //
 //          Implementation of LoopIdiomRecognize
@@ -930,6 +955,7 @@ bool LoopIdiomRecognize::processLoopStridedStore(
   BasicBlock *Preheader = CurLoop->getLoopPreheader();
   IRBuilder<> Builder(Preheader->getTerminator());
   SCEVExpander Expander(*SE, *DL, "loop-idiom");
+  ExpandedValuesCleaner EVC(Expander, TLI);
 
   Type *DestInt8PtrTy = Builder.getInt8PtrTy(DestAS);
   Type *IntIdxTy = DL->getIndexType(DestPtr->getType());
@@ -952,6 +978,7 @@ bool LoopIdiomRecognize::processLoopStridedStore(
   // base pointer and checking the region.
   Value *BasePtr =
       Expander.expandCodeFor(Start, DestInt8PtrTy, Preheader->getTerminator());
+  EVC.add(BasePtr);
 
   // From here on out, conservatively report to the pass manager that we've
   // changed the IR, even if we later clean up these added instructions. There
@@ -963,12 +990,15 @@ bool LoopIdiomRecognize::processLoopStridedStore(
   Changed = true;
 
   if (mayLoopAccessLocation(BasePtr, ModRefInfo::ModRef, CurLoop, BECount,
+<<<<<<< HEAD
                             StoreSize, *AA, Stores, nullptr)) {  // INTEL
     Expander.clear();
     // If we generated new code for the base pointer, clean up.
     RecursivelyDeleteTriviallyDeadInstructions(BasePtr, TLI);
+=======
+                            StoreSize, *AA, Stores))
+>>>>>>> dc09c65f638f177265f47d897469888cfa011041
     return Changed;
-  }
 
   if (avoidLIRForMultiBlockLoop(/*IsMemset=*/true, IsLoopMemset))
     return Changed;
@@ -1040,33 +1070,9 @@ bool LoopIdiomRecognize::processLoopStridedStore(
   if (MSSAU && VerifyMemorySSA)
     MSSAU->getMemorySSA()->verifyMemorySSA();
   ++NumMemSet;
+  EVC.commit();
   return true;
 }
-
-namespace {
-class ExpandedValuesCleaner {
-  SCEVExpander &Expander;
-  TargetLibraryInfo *TLI;
-  SmallVector<Value *, 4> ExpandedValues;
-  bool Commit = false;
-
-public:
-  ExpandedValuesCleaner(SCEVExpander &Expander, TargetLibraryInfo *TLI)
-      : Expander(Expander), TLI(TLI) {}
-
-  void add(Value *V) { ExpandedValues.push_back(V); }
-
-  void commit() { Commit = true; }
-
-  ~ExpandedValuesCleaner() {
-    if (!Commit) {
-      Expander.clear();
-      for (auto *V : ExpandedValues)
-        RecursivelyDeleteTriviallyDeadInstructions(V, TLI);
-    }
-  }
-};
-} // namespace
 
 /// If the stored value is a strided load in the same loop with the same stride
 /// this may be transformable into a memcpy.  This kicks in for stuff like
