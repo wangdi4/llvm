@@ -42,7 +42,6 @@ define void @test01(%struct.test01* %in) !dtrans_type !4 {
 ; CHECK-NEXT:    LocalPointerInfo:
 ; CHECK-SAME: <UNKNOWN BYTE FLATTENED GEP>
 ; CHECK-NEXT:      Aliased types:
-; CHECK-NEXT:        %struct.test01elem*{{ *$}}
 ; CHECK-NEXT:        i8*{{ *$}}
 ; CHECK-NEXT:      No element pointees.
 
@@ -66,7 +65,6 @@ define void @test02(%struct.test02* %p) !dtrans_type !8 {
 ; CHECK-NEXT:    LocalPointerInfo:
 ; CHECK-SAME: <UNKNOWN BYTE FLATTENED GEP>
 ; CHECK-NEXT:      Aliased types:
-; CHECK-NEXT:        %struct.test02*{{ *$}}
 ; CHECK-NEXT:        i8*{{ *$}}
 ; CHECK-NEXT:      No element pointees.
 
@@ -91,7 +89,6 @@ define void @test03(%struct.test03nodeimpl* %p) !dtrans_type !18 {
 ; CHECK-NEXT:    LocalPointerInfo:
 ; CHECK-SAME: <UNKNOWN BYTE FLATTENED GEP>
 ; CHECK-NEXT:      Aliased types:
-; CHECK-NEXT:        %struct.test03nodeimpl*{{ *$}}
 ; CHECK-NEXT:        i8*{{ *$}}
 ; CHECK-NEXT:      No element pointees.
 

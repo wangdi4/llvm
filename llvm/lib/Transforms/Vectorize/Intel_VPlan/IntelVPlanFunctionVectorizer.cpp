@@ -116,26 +116,17 @@ public:
                                 *Plan->getDT(), *Plan->getPDT(),
                                 false /*Not in LCSSA form*/);
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    if (DumpAfterDA)
-      Plan->dump(outs());
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
+    VPLAN_DUMP(DumpAfterDA, *Plan);
 
     VPlanLoopCFU LoopCFU(*Plan);
     LoopCFU.run();
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    if (DumpAfterLoopCFU)
-      Plan->dump(outs());
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
+    VPLAN_DUMP(DumpAfterLoopCFU, *Plan);
 
     VPlanPredicator Predicator(*Plan.get());
     Predicator.predicate();
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    if (DumpAfterPredicator)
-      Plan->dump(outs());
-#endif // !NDEBUG || LLVM_ENABLE_DUMP
+    VPLAN_DUMP(DumpAfterPredicator, *Plan);
 
     if (EnableFuncVecAllZeroBypass) {
       VPlanAllZeroBypass::AllZeroBypassRegionsTy AllZeroBypassRegions;

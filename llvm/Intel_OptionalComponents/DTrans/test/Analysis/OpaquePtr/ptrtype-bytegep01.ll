@@ -106,8 +106,14 @@ define internal void @test02() {
 
 
 ; Non-constant index value that cannot be resolved to a byte-flattened GEP
-; access. In this case, the "aliased types" field should collect the structure
-;type so that the safety analyzer can mark a safety violation for the type.
+; access. In this case, GEP should be marked as computing an unknown byte
+; flattened address so the safety analyzer can mark a safety violation for the
+; type. The "aliased results" will just contain i8*, and not the original
+; pointer type of the GEP operand because any memory accesses using the
+; instruction result are accessing the member of the aggregate. Keeping the
+; aggregate pointer on the result just results in redundant safety violations
+; for the type, rather than the root safety issue of not being able to analyze
+; the GEP.
 %struct.test03 = type { i32, i64, i32 } ; Offsets: 0, 8, 16
 define internal void @test03(i32 %x, i32 %y) {
   %local = alloca %struct.test03
@@ -124,7 +130,6 @@ define internal void @test03(i32 %x, i32 %y) {
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-SAME: UNKNOWN BYTE FLATTENED GEP
 ; CHECK-NEXT:  Aliased types:
-; CHECK-NEXT:    %struct.test03*{{ *$}}
 ; CHECK-NEXT:    i8*{{ *$}}
 ; CHECK-NEXT:  No element pointees.
 
@@ -146,7 +151,6 @@ define internal void @test04() {
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-SAME: UNKNOWN BYTE FLATTENED GEP
 ; CHECK-NEXT:  Aliased types:
-; CHECK-NEXT:    %struct.test04*{{ *$}}
 ; CHECK-NEXT:    i8*{{ *$}}
 ; CHECK-NEXT:  No element pointees.
 
@@ -277,7 +281,6 @@ define internal void @test10(i64 %idx) {
 ; CHECK-NEXT: LocalPointerInfo:
 ; CHECK-SAME: UNKNOWN BYTE FLATTENED GEP
 ; CHECK-NEXT: Aliased types:
-; CHECK-NEXT:   [10 x %struct.test10]*{{ *$}}
 ; CHECK-NEXT:   i8*{{ *$}}
 ; CHECK-NEXT: No element pointees.
 
