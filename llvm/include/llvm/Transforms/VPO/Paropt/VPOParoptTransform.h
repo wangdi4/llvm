@@ -607,6 +607,9 @@ private:
   /// Generate code for the aligned clause.
   bool genAlignedCode(WRegionNode *W);
 
+  /// Generate code for the nontemporal clause.
+  bool genNontemporalCode(WRegionNode *W);
+
   /// For the given region \p W returns a BasicBlock, where
   /// new alloca instructions may be inserted.
   /// If the region itself or one of its ancestors will be outlined,

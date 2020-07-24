@@ -1,6 +1,5 @@
-; REQUIRES: asserts
-; RUN: opt -vpo-cfg-restructuring -vpo-paropt-prepare -debug -S < %s 2>&1  | FileCheck %s
-; RUN: opt -passes='function(vpo-cfg-restructuring,vpo-paropt-prepare)' -debug -S < %s 2>&1  | FileCheck %s
+; RUN: opt < %s -loop-rotate -vpo-cfg-restructuring -vpo-paropt-prepare -simplifycfg  -sroa -vpo-restore-operands -vpo-cfg-restructuring -vpo-paropt -S | FileCheck %s
+; RUN: opt < %s -passes='function(loop(rotate),vpo-cfg-restructuring,vpo-paropt-prepare,simplify-cfg,loop(simplify-cfg),sroa,vpo-restore-operands,vpo-cfg-restructuring),vpo-paropt'  -S | FileCheck %s
 ;
 ; Test src:
 ; void test_01(float *a, float *b, int size) {
@@ -11,10 +10,9 @@
 ;   }
 ; }
 ;
-; Check that we can parse the NONTEMPORAL clause.
+; Check that we can parse the NONTEMPORAL clause and translate it into
+; !nontemporal metadata.
 ;
-; CHECK: NONTEMPORAL clause (size=2): (float** %a.addr) (float** %b.addr)
-
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -78,6 +76,7 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.cond
   %15 = load i32, i32* %i, align 4, !tbaa !6
   %idxprom = sext i32 %15 to i64
   %ptridx = getelementptr inbounds float, float* %14, i64 %idxprom
+  ; CHECK: load float, float* %ptridx, align 4, !tbaa !8, !nontemporal
   %16 = load float, float* %ptridx, align 4, !tbaa !8
   store float %16, float* %tmp3, align 4, !tbaa !8
   %17 = load float, float* %tmp3, align 4, !tbaa !8
@@ -92,6 +91,7 @@ omp.inner.for.body:                               ; preds = %omp.inner.for.cond
   %21 = load i32, i32* %i, align 4, !tbaa !6
   %idxprom8 = sext i32 %21 to i64
   %ptridx9 = getelementptr inbounds float, float* %20, i64 %idxprom8
+  ;; CHECK: store float %conv7, float* %ptridx9, align 4, !tbaa !8, !nontemporal
   store float %conv7, float* %ptridx9, align 4, !tbaa !8
   %22 = bitcast float* %tmp3 to i8*
   call void @llvm.lifetime.end.p0i8(i64 4, i8* %22) #2
