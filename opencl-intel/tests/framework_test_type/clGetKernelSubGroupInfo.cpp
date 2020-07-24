@@ -454,7 +454,7 @@ TEST_F(CL21, GetKernelSubGroupInfo_MAX_NUM_SUB_GROUPS)
         << " clGetKernelSubGroupInfo(CL_KERNEL_MAX_NUM_SUB_GROUPS query) failed. Unexpected query result. ";
 }
 
-TEST_F(CL21, DISABLED_GetKernelSubGroupInfo_COMPILE_NUM_SUB_GROUPS)
+TEST_F(CL21, GetKernelSubGroupInfo_COMPILE_NUM_SUB_GROUPS)
 {
     cl_int iRet = CL_SUCCESS;
     bool bResult = 0;
@@ -481,23 +481,23 @@ TEST_F(CL21, DISABLED_GetKernelSubGroupInfo_COMPILE_NUM_SUB_GROUPS)
 
     // open binary file
     unsigned int uiContSize = 0;
-    FILE* fout = fopen(BC_FILE, "rb");
+    FILE* fin = fopen((get_exe_dir() + BC_FILE).c_str(), "rb");
     fpos_t fileSize;
     SET_FPOS_T(fileSize, 0);
 
-    assert(fout && "Failed open file.");
-    fseek(fout, 0, SEEK_END);
-    fgetpos(fout, &fileSize);
+    assert(fin && "Failed open file.");
+    fseek(fin, 0, SEEK_END);
+    fgetpos(fin, &fileSize);
     uiContSize += (unsigned int)GET_FPOS_T(fileSize);
-    fseek(fout, 0, SEEK_SET);
+    fseek(fin, 0, SEEK_SET);
 
     assert(uiContSize > 0 && "the input file must not be empty");
     unsigned char* pCont = (unsigned char*)malloc(uiContSize);
 
     // construct program container
-    size_t ret = fread(((unsigned char*)pCont), 1, (size_t)GET_FPOS_T(fileSize), fout);
+    size_t ret = fread(((unsigned char*)pCont), 1, (size_t)GET_FPOS_T(fileSize), fin);
     ASSERT_EQ(ret, (size_t)GET_FPOS_T(fileSize)) << "Failed read file.";
-    fclose(fout);
+    fclose(fin);
 
     size_t binarySize = uiContSize;
 
