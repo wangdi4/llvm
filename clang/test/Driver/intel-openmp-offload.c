@@ -175,6 +175,17 @@
 // FOFFLOAD_STATIC_LIB_SRC: 19: assembler, {18}, object, (host-openmp)
 // FOFFLOAD_STATIC_LIB_SRC: 20: linker, {0, 5, 19}, image, (host-openmp)
 
+/// Check to be sure that the object from source fed into partial link
+/// is of the proper target
+// RUN: touch %t.a
+// RUN: %clang -target -x86_64-unknown-linux-gnu -fiopenmp -fopenmp-targets=spir64 -foffload-static-lib=%t.a -### %s 2>&1 \
+// RUN:  | FileCheck %s -check-prefix=FOFFLOAD_STATIC_LIB_SRC_PLINK
+// FOFFLOAD_STATIC_LIB_SRC_PLINK: clang{{.*}} "-cc1" "-triple" "{{(x86_64|i386|i686).*}}" "-emit-llvm-bc"
+// FOFFLOAD_STATIC_LIB_SRC_PLINK: clang{{.*}} "-cc1" "-triple" "{{(x86_64|i386|i686).*}}" "-emit-llvm-bc" {{.*}} "-o" "[[OUTPUT_BC:.+\.bc]]"
+// FOFFLOAD_STATIC_LIB_SRC_PLINK: clang{{.*}} "-cc1" "-triple" "{{(x86_64|i386|i686).*}}" "-S" {{.*}} "-o" "[[OUTPUT_S:.+\.s]]" {{.*}} "[[OUTPUT_BC]]"
+// FOFFLOAD_STATIC_LIB_SRC_PLINK: as{{.*}} "-o" "[[OUTPUT_O:.+\.o]]" "[[OUTPUT_S]]"
+// FOFFLOAD_STATIC_LIB_SRC_PLINK: ld{{.*}} "-r" {{.*}} "[[OUTPUT_O]]" "{{.*}}.a"
+
 /// check diagnostic when -fiopenmp isn't used
 // RUN: %clangxx -target x86_64-unknown-linux-gnu -fopenmp -fopenmp-targets=spir64 %s -### 2>&1 \
 // RUN:  | FileCheck %s -check-prefix=FOPENMP_ERROR

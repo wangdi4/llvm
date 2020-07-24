@@ -145,6 +145,14 @@ forAllAssociatedToolChains(Compilation &C, const JobAction &JA,
     Work(*C.getSingleOffloadToolChain<Action::OFK_Host>());
 
   if (JA.isHostOffloading(Action::OFK_OpenMP)) {
+#if INTEL_CUSTOMIZATION
+    if (RegularToolChain.getTriple().isSPIR()) {
+      // Host offloading with a target, we want to use the host toolchain
+      // information.
+      Work(*C.getSingleOffloadToolChain<Action::OFK_Host>());
+      return;
+    }
+#endif // INTEL_CUSTOMIZATION
     auto TCs = C.getOffloadToolChains<Action::OFK_OpenMP>();
     for (auto II = TCs.first, IE = TCs.second; II != IE; ++II)
       Work(*II->second);
@@ -4147,7 +4155,11 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
   // Add the "effective" target triple.
   CmdArgs.push_back("-triple");
-  if (!UseSYCLTriple && IsSYCLDevice) {
+
+#if INTEL_CUSTOMIZATION
+  if ((!UseSYCLTriple && IsSYCLDevice) || (JA.isOffloading(Action::OFK_OpenMP)
+      && !IsOpenMPDevice && RawTriple.isSPIR())) {
+#endif // INTEL_CUSTOMIZATION
     // Do not use device triple when we know the device is not SYCL
     // FIXME: We override the toolchain triple in this instance to address a
     // disconnect with fat static archives.  We should have a cleaner way of
@@ -6177,6 +6189,23 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   } else if (C.getDriver().IsIntelMode() && C.getDriver().IsCLMode())
     // For the Intel compiler, /Zp16 is the default
     CmdArgs.push_back("-fpack-struct=16");
+
+  // Enabling GVN Hoist at -O3 or -Ofast (CMPLRS-50169).
+  // FIXME: Remove this when GVN Hoist is enabled by default in LLORG.
+  if (Arg *A = Args.getLastArg(options::OPT_O_Group)) {
+    unsigned OptLevel = 0;
+    if (A->getOption().matches(options::OPT_O)) {
+      StringRef OVal(A->getValue());
+      OVal.getAsInteger(10, OptLevel);
+    }
+    if (A->getOption().matches(options::OPT_O4) || OptLevel > 2 ||
+        A->getOption().matches(options::OPT_Ofast)) {
+      CmdArgs.push_back("-mllvm");
+      CmdArgs.push_back("-enable-gvn-hoist");
+      CmdArgs.push_back("-mllvm");
+      CmdArgs.push_back("-enable-npm-gvn-hoist");
+    }
+  }
 #endif // INTEL_CUSTOMIZATION
 
   // Handle -fmax-type-align=N and -fno-type-align
@@ -6620,12 +6649,21 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
   // VFE requires whole-program-vtables, and enables it by default.
 #if INTEL_CUSTOMIZATION
-  // -fiopenmp with LTO enables whole-program-vtables
-  bool IopenmpLTO = (Args.hasArg(options::OPT_fiopenmp) && D.isUsingLTO());
+  // -qopt-mem-layout-trans > 2 with LTO enables whole-program-vtables
+  bool LayoutLTO = false;
+  if (Args.hasArg(options::OPT_qopt_mem_layout_trans_EQ) && D.isUsingLTO()) {
+    Arg *A = Args.getLastArg(options::OPT_qopt_mem_layout_trans_EQ);
+    StringRef Value(A->getValue());
+    if (!Value.empty()) {
+      int ValInt = 0;
+      if (!Value.getAsInteger(0, ValInt))
+        LayoutLTO = (ValInt > 2);
+    }
+  }
   bool WholeProgramVTables = Args.hasFlag(
       options::OPT_fwhole_program_vtables,
       options::OPT_fno_whole_program_vtables,
-      VirtualFunctionElimination || IopenmpLTO);
+      VirtualFunctionElimination || LayoutLTO);
 #endif // INTEL_CUSTOMIZATION
   if (VirtualFunctionElimination && !WholeProgramVTables) {
     D.Diag(diag::err_drv_argument_not_allowed_with)
