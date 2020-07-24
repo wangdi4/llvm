@@ -17,9 +17,11 @@
 #include "MemoryObject.h"
 #include "GenericMemObj.h"
 
-/* 'Intel::OpenCL::Framework::GenericImageArray<ELEM_IMAGE_NUM_DIM>' : inherits
-    'Intel::OpenCL::Framework::GenericMemObject::...' via dominance - don't warn, it's intended */
-#pragma warning(disable : 4250)
+#if defined (_MSC_VER)
+    /* 'Intel::OpenCL::Framework::GenericImageArray<ELEM_IMAGE_NUM_DIM>' : inherits
+        'Intel::OpenCL::Framework::GenericMemObject::...' via dominance - don't warn, it's intended */
+    #pragma warning(disable : 4250)
+#endif
 
 namespace Intel { namespace OpenCL { namespace Framework {
 
