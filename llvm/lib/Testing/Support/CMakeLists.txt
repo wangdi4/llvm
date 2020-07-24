@@ -15,6 +15,7 @@ add_llvm_library(LLVMTestingSupport
   Support
   )
 
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
   add_llvm_library(LLVMTestingSupport_stdcpp
@@ -36,6 +37,11 @@ if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
   target_link_libraries(LLVMTestingSupport_stdcpp PRIVATE gtest_stdcpp)
 endif()
 # end INTEL_CUSTOMIZATION
+=======
+if (CXX_SUPPORTS_SUGGEST_OVERRIDE_FLAG)
+  add_definitions("-Wno-suggest-override")
+endif()
+>>>>>>> 308a127a38d1111f3940420b98ff45fc1c17715f
 
 include_directories(${LLVM_MAIN_SRC_DIR}/utils/unittest/googletest/include)
 include_directories(${LLVM_MAIN_SRC_DIR}/utils/unittest/googlemock/include)
