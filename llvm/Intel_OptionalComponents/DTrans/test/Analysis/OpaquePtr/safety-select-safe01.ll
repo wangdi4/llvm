@@ -28,6 +28,10 @@ define internal void @test02(%struct.test02* %pStruct.in, i32** %other) !dtrans_
   %pStruct.in.elemzero = bitcast %struct.test02* %pStruct.in to i32**
   %chosen = select i1 undef, i32** %pStruct.in.elemzero, i32** %other
   %val = load i32*, i32** %chosen
+
+  ; This is needed because otherwise the pointer type analyzer cannot figure
+  ; out a type for the bitcast result.
+  %use = load i32, i32* %val
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
