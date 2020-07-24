@@ -77,6 +77,12 @@ protected:
     VPlanHCFGBuilder HCFGBuilder(LI->getLoopFor(LoopHeader), LI.get(), *DL,
                                  nullptr /*WRLp */, Plan.get(), Legal.get());
     HCFGBuilder.buildHierarchicalCFG();
+    Plan->setVPSE(
+        std::make_unique<VPlanScalarEvolutionLLVM>(*SE, *LI->begin()));
+    auto &VPSE =
+        *static_cast<VPlanScalarEvolutionLLVM *>(Plan.get()->getVPSE());
+    Plan->setVPVT(
+        std::make_unique<VPlanValueTrackingLLVM>(VPSE, *DL, &*AC, &*DT));
     return Plan;
   }
 };
