@@ -22,6 +22,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSparseArrayReductionAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLocalityAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGrouping.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
@@ -66,17 +67,41 @@ public:
       bool IsTempRedefined;
     };
 
-    bool SafeToRecompute = false;
+    bool SafeToRecompute = true;
+    // Instruction that should be cloned to be recomputable.
+    const HLInst *DepInstForRecompute = nullptr;
 
     SmallVector<RegDDRef *, 8> SrcRefs;
-
-    // DstRef and
     SmallVector<DstNode, 8> DstRefs;
 
-    bool getSymbase() const { return SrcRefs.front()->getSymbase(); }
+    unsigned getSymbase() const { return SrcRefs.front()->getSymbase(); }
+
     bool isTempRequired() const {
       return SrcRefs.size() != 1 || !SafeToRecompute;
     }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    LLVM_DUMP_METHOD void dump() {
+      SrcRefs.front()->dump();
+
+      dbgs() << " (sb:" << getSymbase();
+      dbgs() << ") (";
+      for (auto SrcRef : enumerate(SrcRefs)) {
+        dbgs() << SrcRef.value()->getHLDDNode()->getNumber();
+        if (SrcRef.index() != SrcRefs.size() - 1) {
+          dbgs() << ",";
+        }
+      }
+      dbgs() << ") -> (";
+      for (auto DstRef : enumerate(DstRefs)) {
+        dbgs() << DstRef.value().Ref->getHLDDNode()->getNumber();
+        if (DstRef.index() != DstRefs.size() - 1) {
+          dbgs() << ",";
+        }
+      }
+      dbgs() << ") SafeToRecompute: " << SafeToRecompute;
+    }
+#endif
   };
 
 private:
@@ -94,7 +119,7 @@ public:
 
   ArrayRef<Candidate> getCandidates() const { return Candidates; }
 
-  bool isStripmineRequired() const {
+  bool isTempRequired() const {
     return std::any_of(Candidates.begin(), Candidates.end(),
                        isTempRequiredPredicate);
   }
@@ -108,10 +133,25 @@ public:
                          isTempRequiredPredicate);
   }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  LLVM_DUMP_METHOD void dump() {
+    for (auto &Cand : Candidates) {
+      Cand.dump();
+      dbgs() << "\n";
+    }
+  }
+#endif
+
 private:
-  bool isSafeToRecompute(const RegDDRef *SrcRef, unsigned J,
+  // Find the instruction that defines \p RVal.
+  bool findDepInst(const RegDDRef *RVal, const HLInst *&DepInst);
+
+  // Check if \p SrcRef is safe to recompute in loop with \p ChunkIdx rather
+  // than use a temp.
+  bool isSafeToRecompute(const RegDDRef *SrcRef, unsigned ChunkIdx,
                          const SymbaseLoopSetTy &SymbaseLoopSet,
-                         const SparseBitVector<> &ModifiedSymbases);
+                         const SparseBitVector<> &ModifiedSymbases,
+                         const HLInst *&DepInst);
 
   void analyze(ArrayRef<HLDDNodeList> Chunks);
 
@@ -130,9 +170,10 @@ public:
   HIRLoopDistribution(HIRFramework &HIRF, HIRDDAnalysis &DDA,
                       HIRSafeReductionAnalysis &SRA,
                       HIRSparseArrayReductionAnalysis &SARA,
-                      HIRLoopResource &HLR, DistHeuristics DistCostModel)
+                      HIRLoopResource &HLR, HIRLoopLocality &HLL,
+                      DistHeuristics DistCostModel)
       : HIRF(HIRF), DDA(DDA), SRA(SRA), SARA(SARA), HNU(HIRF.getHLNodeUtils()),
-        HLR(HLR), DistCostModel(DistCostModel) {}
+        HLR(HLR), HLL(HLL), DistCostModel(DistCostModel) {}
 
   bool run();
 
@@ -143,6 +184,7 @@ private:
   HIRSparseArrayReductionAnalysis &SARA;
   HLNodeUtils &HNU;
   HIRLoopResource &HLR;
+  HIRLoopLocality &HLL;
 
   DistHeuristics DistCostModel;
   unsigned AllocaBlobIdx;
@@ -167,7 +209,7 @@ private:
   // Loop may be discarded prior to any analysis by some heuristics.
   // For example, the costmodel may consider only innermost loops, no need
   // to do potentially expensive analysis on others
-  bool loopIsCandidate(const HLLoop *L) const;
+  bool loopIsCandidate(HLLoop *L) const;
 
   // Breaks up pi graph into loops(loop is formed by a list of piblocks)
   // according to appropriate "cost model".  Very primitive and missing
@@ -180,6 +222,11 @@ private:
   // of skipping creation of potentially vectorizable loops
   void formPerfectLoopNests(std::unique_ptr<PiGraph> const &PGraph,
                             SmallVectorImpl<PiBlockList> &DistPoints) const;
+
+  void
+  splitSpatialLocalityGroups(const HLLoop *L,
+                             std::unique_ptr<PiGraph> const &PiGraph,
+                             SmallVectorImpl<PiBlockList> &DistPoints) const;
 
   // Uses ordered list of PiBlockLists to form distributed version of Loop.
   // Each PiBlockList will form a new loop(with same bounds as Loop) containing

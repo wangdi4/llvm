@@ -858,6 +858,9 @@ public:
     addRemoveLoopMetadataImpl(MDs, "", ExternalLoopMetadata);
   }
 
+  /// Function adds !{!ID, Value} metadata to the !llvm.loop MDNode.
+  void addInt32LoopMetadata(StringRef ID, unsigned Value);
+
   /// Remove !llvm.loop metadata that starts with \p ID.
   /// Function operates on \p ExternalLoopMetadata, if provided.
   void removeLoopMetadata(StringRef ID,

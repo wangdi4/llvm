@@ -6418,21 +6418,109 @@ static const Loop *getOutermostLoop(const Loop *Lp) {
   return Lp;
 }
 
-bool ScalarEvolution::hasWrapSafeUses(const Value *Val,
-                                      const Value *KnownSafeUse) const {
+bool ScalarEvolution::hasWrapSafeUses(
+    const Value *Val, const OverflowingBinaryOperator *OrigBinOp,
+    const SCEV *OrigSCEV, ScalarEvolution &OtherSE,
+    SCEV::NoWrapFlags &Flags) const {
+  // This function analyzes whether Val can 'escape' by being used in other SCEV
+  // analyzable context such that propagating wrap flags becomes invalid. It
+  // does this by recursively tracing through users of 'Val' and checking
+  // whether OrigSCEV 'escapes' through any of them. It takes 'least common
+  // denominator' of no-wrap flags from users with the same opcode and operands
+  // as OrigBinOp.
+
   if (isa<ConstantInt>(Val))
     return true;
 
-  for (auto *ValUser : Val->users()) {
-    // Check whether Val can be used in any other SCEV analyzable context. This
-    // condition can probably be relaxed further, for example when Val is used
-    // in multiple identical 'KnownSafeUse'.
-    if ((ValUser == KnownSafeUse) || isa<CmpInst>(ValUser) ||
-        !isSCEVable(ValUser->getType()))
+  SmallVector<const Value *, 8> WorkList;
+  SmallPtrSet<const Value *, 8> Visited;
+
+  WorkList.push_back(Val);
+
+  unsigned TrackLimit = 32;
+
+  auto ContainOrigSCEV = [OrigSCEV](const SCEV *S) { return S == OrigSCEV; };
+
+  auto GetRefinedFlags = [&Flags](const OverflowingBinaryOperator *UserBinOp) {
+    if (!UserBinOp->hasNoUnsignedWrap())
+      Flags = clearFlags(Flags, SCEV::FlagNUW);
+
+    if (!UserBinOp->hasNoSignedWrap())
+      Flags = clearFlags(Flags, SCEV::FlagNSW);
+
+    return Flags != SCEV::FlagAnyWrap;
+  };
+
+  do {
+    auto *CurVal = WorkList.pop_back_val();
+
+    if (!Visited.insert(CurVal).second)
       continue;
 
-    return false;
-  }
+    for (auto *ValUser : CurVal->users()) {
+      if ((ValUser == OrigBinOp) || isa<CmpInst>(ValUser) ||
+          !isSCEVable(ValUser->getType()))
+        continue;
+
+      const OverflowingBinaryOperator *UserBinOp = nullptr;
+
+      if (OrigBinOp) {
+        UserBinOp = dyn_cast<OverflowingBinaryOperator>(ValUser);
+
+        if (UserBinOp && (OrigBinOp->getOpcode() == UserBinOp->getOpcode()) &&
+            (OrigBinOp->getOperand(0) == UserBinOp->getOperand(0)) &&
+            (OrigBinOp->getOperand(1) == UserBinOp->getOperand(1))) {
+          // Refine flags using lowest common denominator flags of identical
+          // BinOps.
+          if (!GetRefinedFlags(UserBinOp))
+            return false;
+
+          // We don't need to follow the users of identical BinOps as they
+          // cannot invalidate the analysis.
+          continue;
+        }
+      }
+
+      // Keep tracing through certain instructions which we think are safe.
+      auto *UserSCEV = OtherSE.getSCEV(const_cast<User *>(ValUser));
+
+      // If the SCEV form of this user is itself, we can ignore it as 'Val'
+      // cannot escape through it.
+      if (auto *Unknown = dyn_cast<SCEVUnknown>(UserSCEV)) {
+        if (Unknown->getValue() == ValUser)
+          continue;
+      }
+
+      if (SCEVExprContains(UserSCEV, ContainOrigSCEV)) {
+        if (UserBinOp && OrigBinOp->getOpcode() == UserBinOp->getOpcode()) {
+          // We found another BinOp with the same opcode and one identical
+          // operand. Even if the same SCEV is present inside, it should still
+          // be ok to try to refine flags based on this BinOp. Example-
+          //
+          // %t1 = add nsw %s, 1   ; OrigBinOp
+          //   --> (1 + %s)
+          // %t2 = add nsw %iv, %s ; UserBinOp
+          //   --> {(1 + %s),+,1}
+          if (GetRefinedFlags(UserBinOp))
+            continue;
+        }
+        // Give up if we found OrigSCEV escaping through a non-identical
+        // BinOp.
+        return false;
+      }
+
+      // Continue tracing through this user.
+      WorkList.push_back(ValUser);
+    }
+
+    // Give up and return false if we reached the limit.
+    if (!--TrackLimit) {
+      return false;
+    }
+
+    // This is only valid for the first iteration of the loop.
+    OrigBinOp = nullptr;
+  } while (!WorkList.empty());
 
   return true;
 }
@@ -6445,7 +6533,8 @@ static bool isFortranLang(Function &F) {
   return (Lang == "fortran");
 }
 
-bool ScalarEvolution::hasWrapSafeOperands(const BinaryOperator *BinOp) const {
+bool ScalarEvolution::hasWrapSafeOperands(const BinaryOperator *BinOp,
+                                          SCEV::NoWrapFlags &Flags) const {
   // If we can assume immutable IR, deduce nowrap by analyzing uses of BinOp's
   // operands.
   auto *ScopedSE = dyn_cast<ScopedScalarEvolution>(this);
@@ -6457,8 +6546,26 @@ bool ScalarEvolution::hasWrapSafeOperands(const BinaryOperator *BinOp) const {
   if (!isFortranLang(F))
     return false;
 
-  return hasWrapSafeUses(BinOp->getOperand(0), BinOp) &&
-         hasWrapSafeUses(BinOp->getOperand(1), BinOp);
+  auto *OverflowingOp = dyn_cast<OverflowingBinaryOperator>(BinOp);
+
+  if (!OverflowingOp)
+    return false;
+
+  auto &OrigSE = const_cast<ScalarEvolution &>(ScopedSE->getOrigSE());
+  auto *OrigSCEV = OrigSE.getSCEV(const_cast<BinaryOperator *>(BinOp));
+
+  auto *NAryExpr = dyn_cast<SCEVNAryExpr>(OrigSCEV);
+
+  // If orignal ScalatEvolution simplified the SCEV to a type for which wrap
+  // flags don't apply or if wrap flags were deduced using range info, give up
+  // and do the same for immutable IR.
+  if (!NAryExpr || NAryExpr->hasNoUnsignedWrap() || NAryExpr->hasNoSignedWrap())
+    return false;
+
+  return hasWrapSafeUses(BinOp->getOperand(0), OverflowingOp, OrigSCEV, OrigSE,
+                         Flags) &&
+         hasWrapSafeUses(BinOp->getOperand(1), OverflowingOp, OrigSCEV, OrigSE,
+                         Flags);
 }
 #endif // INTEL_CUSTOMIZATION
 
@@ -6476,7 +6583,7 @@ SCEV::NoWrapFlags ScalarEvolution::getNoWrapFlagsFromUB(const Value *V) {
     return SCEV::FlagAnyWrap;
 
 #if INTEL_CUSTOMIZATION
-  return (isSCEVExprNeverPoison(BinOp) || hasWrapSafeOperands(BinOp))
+  return (isSCEVExprNeverPoison(BinOp) || hasWrapSafeOperands(BinOp, Flags))
              ? Flags
              : SCEV::FlagAnyWrap;
 #endif // INTEL_CUSTOMIZATION

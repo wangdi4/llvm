@@ -1301,15 +1301,18 @@ void HLLoop::addRemoveLoopMetadataImpl(ArrayRef<MDNode *> MDs,
     return;
   }
 
+  MDNode *NewLoopMD = nullptr;
   NewMDs.append(MDs.begin(), MDs.end());
 
-  MDNode *NewLoopMD = MDNode::get(Context, NewMDs);
-  NewLoopMD->replaceOperandWith(0, NewLoopMD);
+  if (NewMDs.size() > 1) {
+    NewLoopMD = MDNode::get(Context, NewMDs);
+    NewLoopMD->replaceOperandWith(0, NewLoopMD);
+  }
 
   if (ExternalLoopMetadata) {
     *ExternalLoopMetadata = NewLoopMD;
   } else {
-    setLoopMetadata(NewLoopMD);
+    NewLoopMD ? setLoopMetadata(NewLoopMD) : clearLoopMetadata();
   }
 }
 
@@ -2116,29 +2119,27 @@ void LoopOptReportTraits<HLLoop>::traverseChildLoopsBackward(
   }
 }
 
-static void addTripCountMetadata(HLLoop *Loop, StringRef MetadataTy,
-                                 unsigned TripCount) {
-  LLVMContext &Context = Loop->getHLNodeUtils().getHIRFramework().getContext();
+void HLLoop::addInt32LoopMetadata(StringRef ID, unsigned Value) {
+  LLVMContext &Context = getHLNodeUtils().getHIRFramework().getContext();
 
   auto *TCNode = ConstantAsMetadata::get(
-      ConstantInt::get(Type::getInt32Ty(Context), TripCount));
+      ConstantInt::get(Type::getInt32Ty(Context), Value));
 
-  auto MNode =
-      MDNode::get(Context, {MDString::get(Context, MetadataTy), TCNode});
+  auto MNode = MDNode::get(Context, {MDString::get(Context, ID), TCNode});
 
-  Loop->addLoopMetadata(MNode);
+  addLoopMetadata(MNode);
 }
 
 void HLLoop::setPragmaBasedMinimumTripCount(unsigned MinTripCount) {
-  addTripCountMetadata(this, "llvm.loop.intel.loopcount_minimum", MinTripCount);
+  addInt32LoopMetadata("llvm.loop.intel.loopcount_minimum", MinTripCount);
 }
 
 void HLLoop::setPragmaBasedMaximumTripCount(unsigned MaxTripCount) {
-  addTripCountMetadata(this, "llvm.loop.intel.loopcount_maximum", MaxTripCount);
+  addInt32LoopMetadata("llvm.loop.intel.loopcount_maximum", MaxTripCount);
 }
 
 void HLLoop::setPragmaBasedAverageTripCount(unsigned AvgTripCount) {
-  addTripCountMetadata(this, "llvm.loop.intel.loopcount_average", AvgTripCount);
+  addInt32LoopMetadata("llvm.loop.intel.loopcount_average", AvgTripCount);
 }
 
 void HLLoop::dividePragmaBasedTripCount(unsigned Factor) {

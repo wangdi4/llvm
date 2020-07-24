@@ -65,7 +65,10 @@ enum PragmaReturnCode {
   Last
 };
 
-const char *OptReportMsg[Last] = {
+const std::string DistributeLoopnestEnable =
+    "intel.loop.distribute.loopnest.enable";
+
+const std::string OptReportMsg[Last] = {
     "Distribute point pragma not processed",
     "No Distribution as requested by pragma",
     "Distribute point pragma processed",
@@ -137,6 +140,8 @@ bool HIRLoopDistribution::run() {
                         << " memory operations which makes it "
                         << (AllowScalarExpansion ? "" : "non-")
                         << "profitable for scalar expansion\n");
+    } else if (DistCostModel == DistHeuristics::NestFormation) {
+      AllowScalarExpansion = Lp->isInnermost();
     }
 
     std::unique_ptr<PiGraph> PG(new PiGraph(
@@ -186,6 +191,7 @@ bool HIRLoopDistribution::run() {
 
       // Do scalar expansion analysis.
       ScalarExpansion SCEX(Lp->getNestingLevel(), false, DistributedLoops);
+      LLVM_DEBUG(dbgs() << "Scalar Expansion analysis:\n"; SCEX.dump(););
 
       // Can't do the following assertion because scalar expansion is allowed in
       // for some cases, for example for Sparse Array Reductions.
@@ -207,11 +213,21 @@ bool HIRLoopDistribution::run() {
       // Do not do loop distribution for loopnest formation if stripmine is
       // inevitable.
       if (DistCostModel == DistHeuristics::NestFormation &&
-          SCEX.isStripmineRequired()) {
-        LLVM_DEBUG(dbgs() << "LOOP DISTRIBUTION: "
-                          << "Unable to do loop distribution for loopnest "
-                             "formation without stripmining.\n");
-        continue;
+          SCEX.isScalarExpansionRequired()) {
+        if (SCEX.isTempRequired()) {
+          LLVM_DEBUG(dbgs() << "LOOP DISTRIBUTION: "
+                            << "Unable to do loop distribution for loopnest "
+                               "formation without stripmining.\n");
+          continue;
+        }
+
+        if (!Lp->isInnermost()) {
+          LLVM_DEBUG(dbgs() << "LOOP DISTRIBUTION: "
+                            << "Unable to do loop distribution for loopnest "
+                               "formation without scalar expansion for "
+                               "non-innermost loops.\n");
+          continue;
+        }
       }
 
       distributeLoop(Lp, DistributedLoops, SCEX, LORBuilder, false);
@@ -456,13 +472,69 @@ ScalarExpansion::ScalarExpansion(unsigned Level, bool HasDistributePoint,
   analyze(Chunks);
 }
 
-// Checks if \p SrcRef may be recomputed in the destination loop chunk \p J.
+bool ScalarExpansion::findDepInst(const RegDDRef *RVal,
+                                  const HLInst *&DepInst) {
+  const HLInst *BlobNode = dyn_cast<HLInst>(RVal->getHLDDNode());
+
+  for (int I = 0; I < 2; ++I) {
+    BlobNode = dyn_cast_or_null<HLInst>(BlobNode->getPrevNode());
+    if (!BlobNode) {
+      return false;
+    }
+
+    const RegDDRef *LVal = BlobNode ? BlobNode->getLvalDDRef() : nullptr;
+    if (!LVal || LVal->getSymbase() != RVal->getSymbase()) {
+      continue;
+    }
+
+    // Should be safe to clone and equal to DepInst if one is already required.
+    if (!DepInst || DepInst == BlobNode) {
+      DepInst = BlobNode;
+      return true;
+    }
+  }
+
+  return false;
+}
+
 bool ScalarExpansion::isSafeToRecompute(
-    const RegDDRef *SrcRef, unsigned J, const SymbaseLoopSetTy &SymbaseLoopSet,
-    const SparseBitVector<> &ModifiedSymbases) {
+    const RegDDRef *SrcRef, unsigned ChunkIdx,
+    const SymbaseLoopSetTy &SymbaseLoopSet,
+    const SparseBitVector<> &ModifiedSymbases, const HLInst *&DepInst) {
   assert(SrcRef->isLval() && "SrcRef is expected to be LVal");
 
   const HLInst *Inst = cast<HLInst>(SrcRef->getHLDDNode());
+
+  auto CheckRVal = [&](const RegDDRef *RVal) -> bool {
+    unsigned SB = RVal->getSymbase();
+
+    if (ModifiedSymbases.test(SB)) {
+      return false;
+    }
+
+    if (RVal->isLinearAtLevel(Level)) {
+      return true;
+    }
+
+    if (RVal->isSelfBlob()) {
+      bool Ret = RVal->isLinearAtLevel(Level) ||
+                 SymbaseLoopSet.count({SB, ChunkIdx});
+
+      return Ret ||
+             (findDepInst(RVal, DepInst) &&
+              isSafeToRecompute(DepInst->getLvalDDRef(), ChunkIdx,
+                                SymbaseLoopSet, ModifiedSymbases, DepInst));
+    }
+
+    for (auto &Blob : make_range(RVal->blob_begin(), RVal->blob_end())) {
+      if (!Blob->isLinearAtLevel(Level) &&
+          SymbaseLoopSet.count({Blob->getSymbase(), ChunkIdx}) == 0) {
+        return false;
+      }
+    }
+
+    return true;
+  };
 
   unsigned SrcRValLevel = 0;
   bool IsSafeToRecompute =
@@ -470,14 +542,17 @@ bool ScalarExpansion::isSafeToRecompute(
 
   if (IsSafeToRecompute) {
     for (const RegDDRef *RVal :
-        make_range(Inst->op_ddref_begin() + 1 /* Skip LVal */,
-                   Inst->op_ddref_end())) {
+         make_range(Inst->rval_op_ddref_begin(), Inst->rval_op_ddref_end())) {
 
-      unsigned RValSB = RVal->getSymbase();
+      if (!CheckRVal(RVal)) {
+        IsSafeToRecompute = false;
+        break;
+      }
 
       // Find the level where RVal is completely defined.
-      SrcRValLevel =
-          std::max(SrcRValLevel, RVal->getDefinedAtLevel());
+      unsigned RValLevel = RVal->getDefinedAtLevel();
+      SrcRValLevel = std::max(SrcRValLevel,
+                              RValLevel != NonLinearLevel ? RValLevel : Level);
 
       // Find if it has IVs greater than found level.
       for (unsigned IV = SrcRValLevel + 1; IV <= MaxLoopNestLevel;
@@ -485,15 +560,6 @@ bool ScalarExpansion::isSafeToRecompute(
         if (RVal->hasIV(IV)) {
           SrcRValLevel = IV;
         }
-      }
-
-      // RVal should be either linear at Level or be scheduled to
-      // recompute and not being modified.
-      if ((!RVal->isLinearAtLevel(Level) &&
-          !SymbaseLoopSet.count({RValSB, J})) ||
-          ModifiedSymbases.test(RValSB)) {
-        IsSafeToRecompute = false;
-        break;
       }
     }
   }
@@ -566,6 +632,12 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
             continue;
           }
 
+          // If the temp is defined in the J chuck we don't need to materialize
+          // it from a temp.
+          if (DstRef->isLval()) {
+            break;
+          }
+
           if (!isScalarExpansionCandidate(DstRef)) {
             TempRedefined = true;
             continue;
@@ -574,10 +646,9 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
           Candidate &Cand = GetCandidateForSymbase(SB);
 
           if (Cand.SrcRefs.empty() || Cand.SrcRefs.back() != SrcRegRef) {
-            if (isSafeToRecompute(SrcRegRef, J, SymbaseLoopSet,
-                                  ModifiedSymbases)) {
-              Cand.SafeToRecompute = true;
-            }
+            Cand.SafeToRecompute &=
+                isSafeToRecompute(SrcRegRef, J, SymbaseLoopSet,
+                                  ModifiedSymbases, Cand.DepInstForRecompute);
 
             Cand.SrcRefs.push_back(SrcRegRef);
           }
@@ -613,6 +684,11 @@ void HIRLoopDistribution::replaceWithArrayTemp(
         if (DstCand.IsTempRedefined) {
           HLLoop *Lp = DstNode->getParentLoop();
           DstNode = cast<HLDDNode>(Lp->getFirstChild());
+        }
+
+        if (Candidate.DepInstForRecompute) {
+          HLNodeUtils::insertBefore(DstNode,
+                                    Candidate.DepInstForRecompute->clone());
         }
 
         HLNodeUtils::insertBefore(DstNode, SrcInst->clone());
@@ -711,7 +787,7 @@ void HIRLoopDistribution::distributeLoop(
   LoopLevel = Loop->getNestingLevel();
 
   bool ShouldStripmine =
-      SCEX.isStripmineRequired() && Loop->isStripmineRequired(StripmineSize);
+      SCEX.isTempRequired() && Loop->isStripmineRequired(StripmineSize);
   if (ShouldStripmine && !Loop->canStripmine(StripmineSize)) {
     // It's fine to bail out for loops without control flow dependencies.
     // Loops with such dependencies do preliminary checks.
@@ -894,7 +970,58 @@ void HIRLoopDistribution::formPerfectLoopNests(
   }
 }
 
-bool HIRLoopDistribution::loopIsCandidate(const HLLoop *Lp) const {
+void HIRLoopDistribution::splitSpatialLocalityGroups(
+    const HLLoop *Lp, std::unique_ptr<PiGraph> const &PiGraph,
+    SmallVectorImpl<PiBlockList> &DistPoints) const {
+
+  HIRLoopLocality::RefGroupVecTy SpatialGroups;
+  HLL.populateSpatialLocalityGroups(Lp, SpatialGroups);
+
+  LLVM_DEBUG(dbgs() << "Using spatial locality info:\n");
+  LLVM_DEBUG(DDRefGrouping::dump(SpatialGroups));
+
+  SmallVector<PiBlock *, 8> SpatialGroupEnds;
+
+  // Select key blocks by looking at "write" SpatialGroup's first and last ref.
+  for (auto &Group : SpatialGroups) {
+    bool IsWrite =
+        std::any_of(Group.begin(), Group.end(),
+                    [](const RegDDRef *Ref) { return Ref->isLval(); });
+    if (!IsWrite) {
+      continue;
+    }
+
+    SpatialGroupEnds.push_back(PiGraph->getPiBlockFromRef(Group.back()));
+  }
+
+  SpatialGroupEnds.pop_back();
+  SpatialGroupEnds.push_back(*std::prev(PiGraph->node_end()));
+
+  LLVM_DEBUG(dbgs() << "Will split into " << SpatialGroupEnds.size()
+                    << " groups\n");
+
+  // Find distribution points
+  auto FirstI = PiGraph->node_begin();
+  auto CutI = SpatialGroupEnds.begin();
+  for (auto I = FirstI, E = PiGraph->node_end(); I < E; ++I) {
+    if (CutI == SpatialGroupEnds.end()) {
+      break;
+    }
+
+    if (*I != *CutI) {
+      continue;
+    }
+
+    auto NextI = std::next(I);
+    PiBlockList List(FirstI, NextI);
+    DistPoints.push_back(List);
+
+    FirstI = NextI;
+    ++CutI;
+  }
+}
+
+bool HIRLoopDistribution::loopIsCandidate(HLLoop *Lp) const {
   // TODO This will miss some opportunities
   // Ex. L has 6 PiBlocks with the first 5 having an edge to 6, which is
   // comprised only of a loop, making L not the innermost. If the first 5
@@ -917,6 +1044,20 @@ bool HIRLoopDistribution::loopIsCandidate(const HLLoop *Lp) const {
   if (Lp->hasUnrollEnablingPragma() || Lp->hasVectorizeEnablingPragma() ||
       !Lp->isDo() || Lp->isInSIMDRegion()) {
     return false;
+  }
+
+  // Handle DistributeLoopnestEnable metadata for the NestFormation mode.
+  if (DistCostModel == DistHeuristics::NestFormation &&
+      Lp->getLoopStringMetadata(DistributeLoopnestEnable)) {
+    Lp->removeLoopMetadata(DistributeLoopnestEnable);
+
+    HLLoop *ParentLoop = Lp->getParentLoop();
+    if (ParentLoop &&
+        !ParentLoop->getLoopStringMetadata(DistributeLoopnestEnable)) {
+      ParentLoop->addInt32LoopMetadata(DistributeLoopnestEnable, 1);
+    }
+
+    return true;
   }
 
   if (DistCostModel == DistHeuristics::NestFormation && Lp->isInnermost()) {
@@ -1135,7 +1276,11 @@ void HIRLoopDistribution::findDistPoints(
   if (DistCostModel == DistHeuristics::BreakMemRec) {
     breakPiBlockRecurrences(Lp, PGraph, DistPoints);
   } else if (DistCostModel == DistHeuristics::NestFormation) {
-    formPerfectLoopNests(PGraph, DistPoints);
+    if (!Lp->isInnermost()) {
+      formPerfectLoopNests(PGraph, DistPoints);
+    } else {
+      splitSpatialLocalityGroups(Lp, PGraph, DistPoints);
+    }
   }
 
   LLVM_DEBUG(dbgs() << "Loop Dist proposes " << DistPoints.size()
@@ -1357,6 +1502,7 @@ void HIRLoopDistributionLegacyPass::getAnalysisUsage(
   // manager from freeing it.
   AU.addRequiredTransitive<HIRLoopStatisticsWrapperPass>();
   AU.addRequiredTransitive<HIRLoopResourceWrapperPass>();
+  AU.addRequiredTransitive<HIRLoopLocalityWrapperPass>();
   AU.addRequiredTransitive<HIRDDAnalysisWrapperPass>();
   AU.addRequiredTransitive<HIRSafeReductionAnalysisWrapperPass>();
   AU.addRequiredTransitive<HIRSparseArrayReductionAnalysisWrapperPass>();
@@ -1373,6 +1519,7 @@ bool HIRLoopDistributionLegacyPass::runOnFunction(Function &F) {
              getAnalysis<HIRSafeReductionAnalysisWrapperPass>().getHSR(),
              getAnalysis<HIRSparseArrayReductionAnalysisWrapperPass>()
                  .getHSAR(),
-             getAnalysis<HIRLoopResourceWrapperPass>().getHLR(), DistCostModel)
+             getAnalysis<HIRLoopResourceWrapperPass>().getHLR(),
+             getAnalysis<HIRLoopLocalityWrapperPass>().getHLL(), DistCostModel)
       .run();
 }
