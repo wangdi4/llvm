@@ -105,13 +105,9 @@ private:
 
 llvm::Optional<llvm::InlineCost> static getDefaultInlineAdvice(
 #if INTEL_CUSTOMIZATION
-<<<<<<< HEAD
     CallBase &CB, FunctionAnalysisManager &FAM, InlineParams &Params,
-    InliningLoopInfoCache *ILIC, InlineReport *Report) {
-=======
-DefaultInlineAdvisor::getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
-                                WholeProgramInfo *WPI, InlineReport *Report) {
->>>>>>> 180a04f110312f18536b5be843c2b9a7bb946083
+    InliningLoopInfoCache *ILIC, InlineReport *Report,
+    WholeProgramInfo *WPI) {
 #endif // INTEL_CUSTOMIZATION
   Function &Caller = *CB.getCaller();
   ProfileSummaryInfo *PSI =
@@ -152,9 +148,9 @@ DefaultInlineAdvisor::getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
 #if INTEL_CUSTOMIZATION
 std::unique_ptr<InlineAdvice>
 DefaultInlineAdvisor::getAdvice(CallBase &CB, InliningLoopInfoCache *ILIC,
-                                InlineReport *Report) {
+                                WholeProgramInfo *WPI, InlineReport *Report) {
 #endif // INTEL_CUSTOMIZATION
-  auto OIC = getDefaultInlineAdvice(CB, FAM, Params, ILIC, Report); // INTEL
+  auto OIC = getDefaultInlineAdvice(CB, FAM, Params, ILIC, Report, WPI); // INTEL
   return std::make_unique<DefaultInlineAdvice>(
       this, CB, OIC,
       FAM.getResult<OptimizationRemarkEmitterAnalysis>(*CB.getCaller()));
