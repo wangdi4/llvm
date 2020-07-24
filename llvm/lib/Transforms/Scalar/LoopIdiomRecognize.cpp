@@ -1125,18 +1125,12 @@ bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(StoreInst *SI,
       StrStart, Builder.getInt8PtrTy(StrAS), Preheader->getTerminator());
   EVC.add(StoreBasePtr);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   AAMDNodes AAInfo;
   // Pass the tbaa metadata for the store location to the alias queries.
   SI->getAAMetadata(AAInfo);
 #endif // INTEL_CUSTOMIZATION
-  SmallPtrSet<Instruction *, 1> Stores;
-  Stores.insert(SI);
-  if (mayLoopAccessLocation(StoreBasePtr, ModRefInfo::ModRef, CurLoop, BECount,
-                            StoreSize, *AA, Stores, &AAInfo)) // INTEL
-    return false;
-=======
+
   // From here on out, conservatively report to the pass manager that we've
   // changed the IR, even if we later clean up these added instructions. There
   // may be structural differences e.g. in the order of use lists not accounted
@@ -1149,9 +1143,8 @@ bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(StoreInst *SI,
   SmallPtrSet<Instruction *, 1> Stores;
   Stores.insert(SI);
   if (mayLoopAccessLocation(StoreBasePtr, ModRefInfo::ModRef, CurLoop, BECount,
-                            StoreSize, *AA, Stores))
+                            StoreSize, *AA, Stores, &AAInfo)) // INTEL
     return Changed;
->>>>>>> 4d75cc4b0a648ede4886fd98ce70d462f5d3994a
 
   const SCEV *LdStart = LoadEv->getStart();
   unsigned LdAS = LI->getPointerAddressSpace();
@@ -1167,13 +1160,8 @@ bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(StoreInst *SI,
   EVC.add(LoadBasePtr);
 
   if (mayLoopAccessLocation(LoadBasePtr, ModRefInfo::Mod, CurLoop, BECount,
-<<<<<<< HEAD
                             StoreSize, *AA, Stores, nullptr)) // INTEL
-    return false;
-=======
-                            StoreSize, *AA, Stores))
     return Changed;
->>>>>>> 4d75cc4b0a648ede4886fd98ce70d462f5d3994a
 
   if (avoidLIRForMultiBlockLoop())
     return Changed;
