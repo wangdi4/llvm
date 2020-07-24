@@ -2261,17 +2261,15 @@ static bool BlockIsSimpleEnoughToThreadThrough(BasicBlock *BB) {
     if (Size > MaxSmallBlockSize)
       return false; // Don't clone large BB's.
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
     if (IntrinsicUtils::isDirective(&I))
       return false;
 #endif // INTEL_COLLAB
-=======
+
     // Can't fold blocks that contain noduplicate or convergent calls.
     if (CallInst *CI = dyn_cast<CallInst>(&I))
       if (CI->cannotDuplicate() || CI->isConvergent())
         return false;
->>>>>>> 360ab707127d7f1718cf0fe0520b5a38ef207bc1
 
     // We will delete Phis while threading, so Phis should not be accounted in
     // block's size

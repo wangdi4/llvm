@@ -62,25 +62,21 @@ void test_merge_if(int a) {
 
 // Test two if's are not merged.
 // CHECK-LABEL: define spir_func void @test_no_merge_if(i32 %a) local_unnamed_addr #1
-// CHECK:  %[[tobool:.+]] = icmp eq i32 %a, 0
-// CHECK: br i1 %[[tobool]], label %[[if_end:.+]], label %[[if_then:.+]]
+// INTEL_CUSTOMIZATION
+// CHECK:  %[[tobool:.+]] = icmp ne i32 %a, 0
+// CHECK: br i1 %[[tobool]], label %[[if_then:.+]], label %[[if_end:.+]]
+// end INTEL_CUSTOMIZATION
 // CHECK: [[if_then]]:
 // CHECK: tail call spir_func void @f()
 // CHECK-NOT: call spir_func void @convfun()
 // CHECK-NOT: call spir_func void @g()
 // CHECK: br label %[[if_end]]
 // CHECK: [[if_end]]:
-<<<<<<< HEAD
-// INTEL_CUSTOMIZATION
-// CHECK:  %[[tobool_pr:.+]] = phi i1 [ %[[tobool:.+]], %[[if_then:.+]] ], [ true, %[[entry:.+]] ]
-// CHECK:  tail call spir_func void @convfun() #[[attr4:.+]]
-// CHECK:  br i1 %[[tobool_pr]], label %[[if_end3:.+]], label %[[if_then2:.+]]
-// end INTEL_CUSTOMIZATION
-=======
 // CHECK-NOT: phi i1
 // CHECK:  tail call spir_func void @convfun() #[[attr4:.+]]
-// CHECK:  br i1 %[[tobool]], label %[[if_end3:.+]], label %[[if_then2:.+]]
->>>>>>> 360ab707127d7f1718cf0fe0520b5a38ef207bc1
+// INTEL_CUSTOMIZATION
+// CHECK:  br i1 %[[tobool]], label %[[if_then2:.+]], label %[[if_end3:.+]]
+// end INTEL_CUSTOMIZATION
 // CHECK: [[if_then2]]:
 // CHECK: tail call spir_func void @g()
 // CHECK:  br label %[[if_end3:.+]]
