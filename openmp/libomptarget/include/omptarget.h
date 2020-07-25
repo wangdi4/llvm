@@ -53,9 +53,14 @@ enum tgt_map_type {
   OMP_TGT_MAPTYPE_IMPLICIT        = 0x200,
   // copy data to device
   OMP_TGT_MAPTYPE_CLOSE           = 0x400,
+<<<<<<< HEAD
 #if INTEL_COLLAB
   OMP_TGT_MAPTYPE_ND_DESC         = 0x800,
 #endif // INTEL_COLLAB
+=======
+  // runtime error if not already allocated
+  OMP_TGT_MAPTYPE_PRESENT         = 0x1000,
+>>>>>>> 45b8f7ec35ef653bafdf48034857222517c17781
   // member of struct, member given by [16 MSBs] - 1
   OMP_TGT_MAPTYPE_MEMBER_OF       = 0xffff000000000000
 };
