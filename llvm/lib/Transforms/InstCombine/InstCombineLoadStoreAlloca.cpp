@@ -952,7 +952,6 @@ static bool canSimplifyNullLoadOrGEP(LoadInst &LI, Value *Op) {
   return false;
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // Attempt to replace code like this with a cttz intrinsic and a select.
 //
@@ -1081,10 +1080,7 @@ static Value *matchDeBruijnTableLookup(InstCombiner &IC, LoadInst &LI) {
 }
 #endif // INTEL_CUSTOMIZATION
 
-Instruction *InstCombiner::visitLoadInst(LoadInst &LI) {
-=======
 Instruction *InstCombinerImpl::visitLoadInst(LoadInst &LI) {
->>>>>>> 2a6c871596ce8bdd23501a96fd22f0f16d3cfcad
   Value *Op = LI.getOperand(0);
 
   // Try to canonicalize the loaded type.

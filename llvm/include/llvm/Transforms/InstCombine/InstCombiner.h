@@ -56,12 +56,18 @@ public:
   using BuilderTy = IRBuilder<TargetFolder, IRBuilderCallbackInserter>;
   BuilderTy &Builder;
 
+  bool allowTypeLoweringOpts() { return TypeLoweringOpts; } // INTEL
+
 protected:
   /// A worklist of the instructions that need to be simplified.
   InstCombineWorklist &Worklist;
 
   // Mode in which we are running the combiner.
   const bool MinimizeSize;
+
+  /// INTEL Enable optimizations like GEP merging, zero element GEP removal
+  /// INTEL and pointer type bitcasts
+  const bool TypeLoweringOpts; // INTEL
 
   AAResults *AA;
 
@@ -83,14 +89,19 @@ protected:
 
 public:
   InstCombiner(InstCombineWorklist &Worklist, BuilderTy &Builder,
-               bool MinimizeSize, AAResults *AA, AssumptionCache &AC,
-               TargetLibraryInfo &TLI, TargetTransformInfo &TTI,
-               DominatorTree &DT, OptimizationRemarkEmitter &ORE,
-               BlockFrequencyInfo *BFI, ProfileSummaryInfo *PSI,
-               const DataLayout &DL, LoopInfo *LI)
-      : TTI(TTI), Builder(Builder), Worklist(Worklist),
-        MinimizeSize(MinimizeSize), AA(AA), AC(AC), TLI(TLI), DT(DT), DL(DL),
-        SQ(DL, &TLI, &DT, &AC), ORE(ORE), BFI(BFI), PSI(PSI), LI(LI) {}
+#if INTEL_CUSTOMIZATION
+               bool MinimizeSize, bool TypeLoweringOpts, AAResults *AA,
+               AssumptionCache &AC, TargetLibraryInfo &TLI,
+               TargetTransformInfo &TTI, DominatorTree &DT,
+#endif // INTEL_CUSTOMIZATION
+               OptimizationRemarkEmitter &ORE, BlockFrequencyInfo *BFI,
+               ProfileSummaryInfo *PSI, const DataLayout &DL, LoopInfo *LI)
+      : Worklist(Worklist), Builder(Builder), MinimizeSize(MinimizeSize),
+        TypeLoweringOpts(TypeLoweringOpts),                // INTEL
+        AA(AA), AC(AC), TLI(TLI),                          // INTEL
+        TTI(TTI), DT(DT), DL(DL), SQ(DL, &TLI, &DT, &AC,   // INTEL
+                                     nullptr, true, &TTI), // INTEL
+        ORE(ORE), BFI(BFI), PSI(PSI), LI(LI) {}            // INTEL
 
   virtual ~InstCombiner() {}
 
@@ -253,25 +264,21 @@ public:
   }
 
   /// Given i1 V, can every user of V be freely adapted if V is changed to !V ?
-  /// InstCombine's canonicalizeICmpPredicate() must be kept in sync with this
-  /// fn.
+#if INTEL_CUSTOMIZATION
   ///
   /// See also: isFreeToInvert()
-  static bool canFreelyInvertAllUsersOf(Value *V, Value *IgnoredUser) {
+  static inline bool canFreelyInvertAllUsersOf(Value *V, Value *IgnoredUser) {
     // Look at every user of V.
-    for (Use &U : V->uses()) {
-      if (U.getUser() == IgnoredUser)
+    for (User *U : V->users()) {
+      if (U == IgnoredUser)
         continue; // Don't consider this user.
 
-      auto *I = cast<Instruction>(U.getUser());
+      auto *I = cast<Instruction>(U);
       switch (I->getOpcode()) {
       case Instruction::Select:
-        if (U.getOperandNo() != 0) // Only if the value is used as select cond.
-          return false;
-        break;
       case Instruction::Br:
-        assert(U.getOperandNo() == 0 && "Must be branching on that value.");
         break; // Free to invert by swapping true/false values/destinations.
+#endif // INTEL_CUSTOMIZATION
       case Instruction::Xor: // Can invert 'xor' if it's a 'not', by ignoring
                              // it.
         if (!match(I, m_Not(PatternMatch::m_Value())))
@@ -365,6 +372,7 @@ public:
   BlockFrequencyInfo *getBlockFrequencyInfo() const { return BFI; }
   ProfileSummaryInfo *getProfileSummaryInfo() const { return PSI; }
   LoopInfo *getLoopInfo() const { return LI; }
+  TargetTransformInfo &getTargetTransformInfo() const { return TTI; } // INTEL
 
   // Call target specific combiners
   Optional<Instruction *> targetInstCombineIntrinsic(IntrinsicInst &II);
@@ -509,6 +517,7 @@ public:
   SimplifyDemandedVectorElts(Value *V, APInt DemandedElts, APInt &UndefElts,
                              unsigned Depth = 0,
                              bool AllowMultipleUsers = false) = 0;
+
 };
 
 } // namespace llvm

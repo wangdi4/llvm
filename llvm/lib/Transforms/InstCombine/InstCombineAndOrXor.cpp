@@ -3528,7 +3528,7 @@ static bool binOpMatchesFcmpMinMaxIdiom(Value *UOp0, Value *UOp1, Value *&A,
 ///  %cmp = fcmp nnan oge float %a, %b
 ///  %0 = select i1 %cmp, float %a, float %b
 ///  %res = fcmp nnan olt float %c, %0
-Instruction *InstCombiner::combineAndOrToFcmpMinMax(BinaryOperator &I, Value *A,
+Instruction *InstCombinerImpl::combineAndOrToFcmpMinMax(BinaryOperator &I, Value *A,
                                                     Value *B, Value *C) {
   Value *UOp0 = I.getOperand(0);
   Value *UOp1 = I.getOperand(1);
@@ -3597,7 +3597,7 @@ Instruction *InstCombiner::combineAndOrToFcmpMinMax(BinaryOperator &I, Value *A,
 }
 
 // Return true when all operands of I are available at insertion point IPt.
-bool InstCombiner::allOperandsAvailable(const Instruction *I,
+bool InstCombinerImpl::allOperandsAvailable(const Instruction *I,
                                         const Instruction *IPt) {
   for (const Use &Op : I->operands())
     if (const auto *DefInst = dyn_cast<Instruction>(&Op))
@@ -3619,7 +3619,7 @@ bool InstCombiner::allOperandsAvailable(const Instruction *I,
 ///  %cmp3 = fcmp nnan ogt float %c, %b    <== hoisted
 ///  %or.cond39 = or i1 %cmp3, %cmp        <== %d and %cmp3 exchanged
 ///  %res = or i1 %or.cond39, %d           <== %d and %cmp3 exchanged
-bool InstCombiner::hoistFcmpAndExchangeUses(Instruction *I1, Value *Op,
+bool InstCombinerImpl::hoistFcmpAndExchangeUses(Instruction *I1, Value *Op,
                                             Instruction *BinOp) {
   bool Changed = false;
   if (I1->hasOneUse() && allOperandsAvailable(I1, BinOp)) {
@@ -3649,7 +3649,7 @@ bool InstCombiner::hoistFcmpAndExchangeUses(Instruction *I1, Value *Op,
 /// we first reassociate comparisons and then do conversion.
 /// Currently depth of the tree is limited by 2, i.e. we don't
 /// go deeper if the tree is more complicated than above.
-Instruction *InstCombiner::combineAndOrTreeToFcmpMinMax(BinaryOperator &I) {
+Instruction *InstCombinerImpl::combineAndOrTreeToFcmpMinMax(BinaryOperator &I) {
   auto combineNestedLogicalOps = [&I, this](Value *OpBin,
                                             Value *OpFcmp) -> Instruction * {
     BinaryOperator *NestedBinOp = dyn_cast<BinaryOperator>(OpBin);
@@ -3708,7 +3708,7 @@ Instruction *InstCombiner::combineAndOrTreeToFcmpMinMax(BinaryOperator &I) {
 ///  (c > a | d < e) | c > b  =>
 ///  (c > a | c > b) | d < e  =>
 ///  c > min(a,b) | d < e
-Instruction *InstCombiner::recognizeFCmpMinMaxIdiom(BinaryOperator &I) {
+Instruction *InstCombinerImpl::recognizeFCmpMinMaxIdiom(BinaryOperator &I) {
   Value *UOp0 = I.getOperand(0);
   Value *UOp1 = I.getOperand(1);
   Value *A = nullptr, *B = nullptr, *C = nullptr;

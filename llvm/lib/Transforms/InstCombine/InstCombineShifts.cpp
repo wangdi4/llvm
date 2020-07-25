@@ -15,11 +15,8 @@
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/PatternMatch.h"
-<<<<<<< HEAD
 #include "llvm/Support/TypeSize.h" // INTEL
-=======
 #include "llvm/Transforms/InstCombine/InstCombiner.h"
->>>>>>> 2a6c871596ce8bdd23501a96fd22f0f16d3cfcad
 using namespace llvm;
 using namespace PatternMatch;
 

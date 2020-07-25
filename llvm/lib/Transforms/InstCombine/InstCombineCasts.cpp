@@ -1902,8 +1902,7 @@ Instruction *InstCombinerImpl::visitFPToUI(FPToUIInst &FI) {
   return commonCastTransforms(FI);
 }
 
-<<<<<<< HEAD
-Instruction *InstCombiner::visitFPToSI(FPToSIInst &FI) {
+Instruction *InstCombinerImpl::visitFPToSI(FPToSIInst &FI) {
 #if INTEL_CUSTOMIZATION
 //  [CMPLRLLVM-1509] Optimize Round2nearestinteger(fp +int) for invariants.
 //  If the parent function has "unsafe-fp-math" set, then we can
@@ -1938,9 +1937,6 @@ Instruction *InstCombiner::visitFPToSI(FPToSIInst &FI) {
   }
 #endif  // INTEL_CUSTOMIZATION
 
-=======
-Instruction *InstCombinerImpl::visitFPToSI(FPToSIInst &FI) {
->>>>>>> 2a6c871596ce8bdd23501a96fd22f0f16d3cfcad
   if (Instruction *I = foldItoFPtoI(FI))
     return I;
 

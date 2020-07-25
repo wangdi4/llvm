@@ -2405,22 +2405,16 @@ Instruction *InstCombinerImpl::foldICmpUDivConstant(ICmpInst &Cmp,
 }
 
 /// Fold icmp ({su}div X, Y), C.
-<<<<<<< HEAD
-Instruction *InstCombiner::foldICmpDivConstant(ICmpInst &Cmp,
+Instruction *InstCombinerImpl::foldICmpDivConstant(ICmpInst &Cmp,
                                                BinaryOperator *Div,
                                                const APInt &C) {
 #if INTEL_CUSTOMIZATION
   // Disabling this particular optimization before loopopt as it interferes with
-  // ztt recognition. 
+  // ztt recognition.
   if (Cmp.getParent()->getParent()->isPreLoopOpt())
     return nullptr;
 #endif // INTEL_CUSTOMIZATION
 
-=======
-Instruction *InstCombinerImpl::foldICmpDivConstant(ICmpInst &Cmp,
-                                                   BinaryOperator *Div,
-                                                   const APInt &C) {
->>>>>>> 2a6c871596ce8bdd23501a96fd22f0f16d3cfcad
   // Fold: icmp pred ([us]div X, C2), C -> range test
   // Fold this div into the comparison, producing a range check.
   // Determine, based on the divide type, what the range is being
@@ -4683,7 +4677,7 @@ static unsigned calcReducedICmpSize(Value *Op, const DataLayout &DL) {
 ///   %cmp = icmp slt i32 %a1, %b1          %cmp = icmp slt i8 %a, %b2
 /// in this case, sext is eliminated, and the trunc instruction will be ignored
 /// by code generator.
-Instruction *InstCombiner::OptimizeICmpInstSize(ICmpInst &ICI,
+Instruction *InstCombinerImpl::OptimizeICmpInstSize(ICmpInst &ICI,
                                                 Value *Op0, Value *Op1) {
   // Currently we only optimize integer comparisons, but we could extend this
   // optimization to pointer comparisons in the future.
@@ -4709,7 +4703,7 @@ Instruction *InstCombiner::OptimizeICmpInstSize(ICmpInst &ICI,
 
 /// Reduce the width of an icmp to size if possible based on range of the
 /// inputs and the signedness. Returns true if change was made. False if not.
-bool InstCombiner::ReduceICmpSizeIfPossible(ICmpInst &ICI, Value *Op0,
+bool InstCombinerImpl::ReduceICmpSizeIfPossible(ICmpInst &ICI, Value *Op0,
                                             Value *Op1, unsigned Size) {
   if (isKnownWithinIntRange(Op0, Size, ICI.isSigned(), DL, 0, &AC, &ICI, &DT) &&
       isKnownWithinIntRange(Op1, Size, ICI.isSigned(), DL, 0, &AC, &ICI, &DT)) {
