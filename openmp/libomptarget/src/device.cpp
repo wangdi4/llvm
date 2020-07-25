@@ -193,28 +193,6 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
   } else if ((lr.Flags.ExtendsBefore || lr.Flags.ExtendsAfter) && !IsImplicit) {
     // Explicit extension of mapped data - not allowed.
     DP("Explicit extension of mapping is not allowed.\n");
-<<<<<<< HEAD
-  } else if (RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
-#if INTEL_COLLAB
-             !HasCloseModifier && is_managed_ptr(HstPtrBegin)) {
-#else  // INTEL_COLLAB
-             !HasCloseModifier) {
-#endif // INTEL_COLLAB
-    // If unified shared memory is active, implicitly mapped variables that are
-    // not privatized use host address. Any explicitly mapped variables also use
-    // host address where correctness is not impeded. In all other cases maps
-    // are respected.
-    // In addition to the mapping rules above, the close map modifier forces the
-    // mapping of the variable to the device.
-    if (Size) {
-#if INTEL_COLLAB
-    DP("Return HstPtrBegin " DPxMOD " Size=%" PRId64 " RefCount=%s\n",
-#else  // INTEL_COLLAB
-    DP("Return HstPtrBegin " DPxMOD " Size=%ld RefCount=%s\n",
-#endif // INTEL_COLLAB
-       DPxPTR((uintptr_t)HstPtrBegin), Size,
-       (UpdateRefCount ? " updated" : ""));
-=======
   } else if (Size) {
     // If unified shared memory is active, implicitly mapped variables that are not
     // privatized use host address. Any explicitly mapped variables also use
@@ -222,17 +200,26 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
     // maps are respected.
     // In addition to the mapping rules above, the close map
     // modifier forces the mapping of the variable to the device.
+#if INTEL_COLLAB
     if (RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
-        !HasCloseModifier) {
+        !HasCloseModifier && is_managed_ptr(HstPtrBegin)) {
+      DP("Return HstPtrBegin " DPxMOD " Size=%" PRId64 " RefCount=%s\n",
+      DPxPTR((uintptr_t)HstPtrBegin), Size, (UpdateRefCount ? " updated" : ""));
+#else // INTEL_COLLAB
+    if (RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY && !HasCloseModifier) {
       DP("Return HstPtrBegin " DPxMOD " Size=%ld RefCount=%s\n",
-         DPxPTR((uintptr_t)HstPtrBegin), Size, (UpdateRefCount ? " updated" : ""));
->>>>>>> fc247c8f3c61c327f58ba361ab01ce72641bbdcb
+      DPxPTR((uintptr_t)HstPtrBegin), Size, (UpdateRefCount ? " updated" : ""));
+#endif // INTEL_COLLAB
       IsHostPtr = true;
       rc = HstPtrBegin;
     } else {
       // If it is not contained and Size > 0 we should create a new entry for it.
       IsNew = true;
+#if INTEL_COLLAB
+      uintptr_t tp = (uintptr_t)data_alloc_base(Size, HstPtrBegin, HstPtrBase);
+#else // INTEL_COLLAB
       uintptr_t tp = (uintptr_t)RTL->data_alloc(RTLDeviceID, Size, HstPtrBegin);
+#endif // INTEL_COLLAB
       DP("Creating new map entry: HstBase=" DPxMOD ", HstBegin=" DPxMOD ", "
          "HstEnd=" DPxMOD ", TgtBegin=" DPxMOD "\n", DPxPTR(HstPtrBase),
          DPxPTR(HstPtrBegin), DPxPTR((uintptr_t)HstPtrBegin + Size), DPxPTR(tp));
@@ -241,32 +228,6 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
                              (uintptr_t)HstPtrBegin + Size, tp));
       rc = (void *)tp;
     }
-<<<<<<< HEAD
-  } else if (HasPresentModifier) {
-    DP("Mapping required by 'present' map type modifier does not exist for "
-       "HstPtrBegin=" DPxMOD ", Size=%ld\n",
-       DPxPTR(HstPtrBegin), Size);
-    MESSAGE("device mapping required by 'present' map type modifier does not "
-            "exist for host address " DPxMOD " (%ld bytes)",
-            DPxPTR(HstPtrBegin), Size);
-  } else if (Size) {
-    // If it is not contained and Size > 0, we should create a new entry for it.
-    IsNew = true;
-#if INTEL_COLLAB
-    uintptr_t tp = (uintptr_t)data_alloc_base(Size, HstPtrBegin, HstPtrBase);
-#else // INTEL_COLLAB
-    uintptr_t tp = (uintptr_t)RTL->data_alloc(RTLDeviceID, Size, HstPtrBegin);
-#endif // INTEL_COLLAB
-    DP("Creating new map entry: HstBase=" DPxMOD ", HstBegin=" DPxMOD ", "
-       "HstEnd=" DPxMOD ", TgtBegin=" DPxMOD "\n",
-       DPxPTR(HstPtrBase), DPxPTR(HstPtrBegin),
-       DPxPTR((uintptr_t)HstPtrBegin + Size), DPxPTR(tp));
-    HostDataToTargetMap.emplace(
-        HostDataToTargetTy((uintptr_t)HstPtrBase, (uintptr_t)HstPtrBegin,
-                           (uintptr_t)HstPtrBegin + Size, tp));
-    rc = (void *)tp;
-=======
->>>>>>> fc247c8f3c61c327f58ba361ab01ce72641bbdcb
   }
 
   DataMapMtx.unlock();
