@@ -20,7 +20,6 @@
 using namespace clang;
 using namespace llvm::omp;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 bool clang::isAllowedInSimdSubset(OpenMPDirectiveKind DKind) {
   switch (DKind) {
@@ -55,13 +54,8 @@ bool clang::isAllowedInSPIRSubset(OpenMPDirectiveKind DKind) {
   }
 }
 #endif // INTEL_CUSTOMIZATION
-
-unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind,
-                                          StringRef Str) {
-=======
 unsigned clang::getOpenMPSimpleClauseType(OpenMPClauseKind Kind, StringRef Str,
                                           unsigned OpenMPVersion) {
->>>>>>> aa82c40f0a0a3f135e4761351940c3ad1a30fd8f
   switch (Kind) {
   case OMPC_default:
     return llvm::StringSwitch<unsigned>(Str)

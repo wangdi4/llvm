@@ -1277,8 +1277,8 @@ def err_omp_decl_in_declare_simd_variant : Error<
 def err_omp_unknown_map_type : Error<
   "incorrect map type, expected one of 'to', 'from', 'tofrom', 'alloc', 'release', or 'delete'">;
 def err_omp_unknown_map_type_modifier : Error<
-<<<<<<< HEAD
-  "incorrect map type modifier, expected 'always', 'close', or 'mapper'">;
+  "incorrect map type modifier, expected 'always', 'close', "
+  "%select{or 'mapper'|'mapper', or 'present'}0">;
 #if INTEL_CUSTOMIZATION
 def err_omp_unknown_lastprivate_modifier : Error<
   "incorrect lastprivate modifier, expected 'conditional'">;
@@ -1296,10 +1296,6 @@ def err_omp_bad_context_selector : Error<
 def err_omp_bad_device_selector : Error<
  "unknown or unsupported '%0' selector, expecting %1">;
 // end INTEL_COLLAB
-=======
-  "incorrect map type modifier, expected 'always', 'close', "
-  "%select{or 'mapper'|'mapper', or 'present'}0">;
->>>>>>> aa82c40f0a0a3f135e4761351940c3ad1a30fd8f
 def err_omp_map_type_missing : Error<
   "missing map type">;
 def err_omp_map_type_modifier_missing : Error<
