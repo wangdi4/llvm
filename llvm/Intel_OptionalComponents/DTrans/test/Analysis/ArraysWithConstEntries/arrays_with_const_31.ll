@@ -3,10 +3,16 @@
 ; RUN: opt < %s -whole-program-assume -dtrans-outofboundsok=false -dtrans-arrays-with-const-entries -dtransanalysis -debug-only=dtrans-arrays-with-const-entries-verbose -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -dtrans-outofboundsok=false -dtrans-arrays-with-const-entries -passes='require<dtransanalysis>' -debug-only=dtrans-arrays-with-const-entries-verbose -disable-output 2>&1 | FileCheck %s
 
-; This test case checks that field 1 in %class.TestClass is invalid since there
-; is a load to it in @baz.
+; This test case checks that entries 0 and 1 in the field 1 for
+; %class.TestClass aren't marked as constants because the encapsulating
+; structure won't pass the safety checks. The failure is caused by the
+; instruction %tmp1 in @baz. It is a GEP to field 0 in a related type,
+; but the GEP is not maked as "inbounds". The goal of this test is to
+; check that disabling inner structures (cascade) is working correctly.
 
-%class.TestClass = type <{i32, [4 x i32]}>
+%class.Outer = type <{ %class.TestClass, [4 x i8] }>
+%class.Outer.base = type <{ %class.TestClass }>
+%class.TestClass = type <{ i32, [4 x i32] }>
 
 define void @foo(%class.TestClass* %0, i32 %var) {
   %tmp1 = getelementptr inbounds %class.TestClass, %class.TestClass* %0, i64 0, i32 1
@@ -38,15 +44,26 @@ bb2:
   ret i32 %tmp3
 }
 
-define void @baz(%class.TestClass* %0) {
-  %tmp1 = getelementptr inbounds %class.TestClass, %class.TestClass* %0, i64 0, i32 1
-  %tmp2 = load [4 x i32], [4 x i32]* %tmp1
+define void @baz(%class.Outer.base* %0) {
+  %tmp1 = getelementptr %class.Outer.base, %class.Outer.base* %0, i64 0, i32 0
   ret void
 }
 
-; CHECK-LABEL: Result after data collection:
+declare void @llvm.memcpy.p0i8.p0i8.i64(i8*, i8*, i64, i1)
+
+; CHECK: Result after data collection:
+
 ; CHECK: Type: %class.TestClass = type <{ i32, [4 x i32] }>
 ; CHECK:   Is structure available: YES
 ; CHECK:   Field number: 1
-; CHECK:     Field available: NO
-; CHECK:     Constants: No constant data found
+; CHECK:     Field available: YES
+; CHECK:     Constants:
+; CHECK:       Index: i32 1      Value: i32 2
+; CHECK:       Index: i32 0      Value: i32 1
+
+; CHECK: Analyzing results:
+; CHECK:   Removing: class.TestClass
+; CHECK:   Reason: Cascading bad results from class.Outer.base
+
+; CHECK: Final result for fields that are arrays with constant entries:
+; CHECK:  No structure found

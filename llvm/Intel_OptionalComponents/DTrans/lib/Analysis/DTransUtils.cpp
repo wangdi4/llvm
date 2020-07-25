@@ -755,6 +755,26 @@ void dtrans::FieldInfo::print(raw_ostream &OS,
   }
   OS << "\n";
 
+  if (isArrayWithConstantEntries()) {
+    OS << "    Array with constant entries: [ ";
+    dtrans::printCollectionSorted(OS, getArrayWithConstantEntries().begin(),
+                                  getArrayWithConstantEntries().end(), ", ",
+                                  [](std::pair<ConstantInt *, ConstantInt*>
+                                      Pair) {
+                                    std::string OutputVal;
+                                    raw_string_ostream OutputStream(OutputVal);
+                                    OutputStream << "Index: ";
+                                    Pair.first->printAsOperand(OutputStream,
+                                                               false);
+                                    OutputStream << "  Constant: ";
+                                    Pair.second->printAsOperand(OutputStream,
+                                                                false);
+                                    OutputStream.flush();
+                                    return OutputVal;
+                                  });
+    OS << " ] \n";
+  }
+
   if (isTopAllocFunction())
     OS << "    Top Alloc Function";
   else if (isSingleAllocFunction()) {
@@ -822,6 +842,19 @@ bool dtrans::FieldInfo::processNewSingleAllocFunction(llvm::Function *F) {
     return true;
   }
   return false;
+}
+
+// Insert a new entry in ArrayConstEntries assuming that the current field
+// is an array with constant entries. Index is the entry in the array that
+// is constant and ConstVal is the constant value for that index.
+void dtrans::FieldInfo::addConstantEntryIntoTheArray(ConstantInt *Index,
+                                                     ConstantInt* ConstVal) {
+
+  assert ((Index && ConstVal) && "Inserting non-constant information into "
+                                 "a space reserved for constants");
+  assert (!Index->isNegative() && "Accessing array with negative index");
+
+  ArrayConstEntries.insert({Index, ConstVal});
 }
 
 // To represent call graph in C++ one stores outermost type,

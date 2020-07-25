@@ -3,10 +3,12 @@
 ; RUN: opt < %s -whole-program-assume -dtrans-outofboundsok=false -dtrans-arrays-with-const-entries -dtransanalysis -debug-only=dtrans-arrays-with-const-entries-verbose -disable-output 2>&1 | FileCheck %s
 ; RUN: opt < %s -whole-program-assume -dtrans-outofboundsok=false -dtrans-arrays-with-const-entries -passes='require<dtransanalysis>' -debug-only=dtrans-arrays-with-const-entries-verbose -disable-output 2>&1 | FileCheck %s
 
-; This test case checks that field 1 in %class.TestClass is invalid since there
-; is a load to it in @baz.
+; This test case checks that entries 0 and 1 in the field 1 for
+; %class.TestClass, which is an array, are collected as constants since
+; the information collected for the related type won't affect the data.
 
-%class.TestClass = type <{i32, [4 x i32]}>
+%class.TestClass = type <{i32, [4 x i32], [4 x i8]}>
+%class.TestClass.base = type <{i32, [4 x i32]}>
 
 define void @foo(%class.TestClass* %0, i32 %var) {
   %tmp1 = getelementptr inbounds %class.TestClass, %class.TestClass* %0, i64 0, i32 1
@@ -18,6 +20,12 @@ define void @foo(%class.TestClass* %0, i32 %var) {
   store i32 %var, i32* %tmp4
   %tmp5 = getelementptr inbounds [4 x i32], [4 x i32]* %tmp1, i64 0, i32 3
   store i32 %var, i32* %tmp5
+  ret void
+}
+
+define void @baz(%class.TestClass.base* %0, i32 %var) {
+  %tmp1 = getelementptr inbounds %class.TestClass.base, %class.TestClass.base* %0, i64 0, i32 0
+  store i32 %var, i32* %tmp1
   ret void
 }
 
@@ -38,15 +46,30 @@ bb2:
   ret i32 %tmp3
 }
 
-define void @baz(%class.TestClass* %0) {
-  %tmp1 = getelementptr inbounds %class.TestClass, %class.TestClass* %0, i64 0, i32 1
-  %tmp2 = load [4 x i32], [4 x i32]* %tmp1
-  ret void
-}
+; CHECK: Result after data collection:
+; CHECK-DAG: Type: %class.TestClass.base = type <{ i32, [4 x i32] }>
+; CHECK-DAG   Is structure available: YES
+; CHECK-DAG   Field number: 0
+; CHECK-DAG     Field available: NO
+; CHECK-DAG     Constants: No constant data found
 
-; CHECK-LABEL: Result after data collection:
-; CHECK: Type: %class.TestClass = type <{ i32, [4 x i32] }>
+; CHECK-DAG: Type: %class.TestClass = type <{ i32, [4 x i32], [4 x i8] }>
+; CHECK-DAG   Is structure available: YES
+; CHECK-DAG   Field number: 1
+; CHECK-DAG     Field available: YES
+; CHECK-DAG     Constants:
+; CHECK-DAG       Index: i32 1      Value: i32 2
+; CHECK-DAG       Index: i32 0      Value: i32 1
+
+; CHECK: Analyzing results:
+; CHECK:   Removing: class.TestClass.base
+; CHECK:   Reason: None of the fields qualify as array with constant entries
+
+; CHECK: Final result for fields that are arrays with constant entries:
+; CHECK: Type: %class.TestClass = type <{ i32, [4 x i32], [4 x i8] }>
 ; CHECK:   Is structure available: YES
 ; CHECK:   Field number: 1
-; CHECK:     Field available: NO
-; CHECK:     Constants: No constant data found
+; CHECK:     Field available: YES
+; CHECK:     Constants:
+; CHECK:       Index: i32 1      Value: i32 2
+; CHECK:       Index: i32 0      Value: i32 1

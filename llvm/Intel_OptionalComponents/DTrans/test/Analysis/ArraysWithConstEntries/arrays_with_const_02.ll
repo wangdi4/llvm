@@ -1,7 +1,7 @@
 ; REQUIRES: asserts
 
-; RUN: opt < %s -whole-program-assume -dtrans-outofboundsok=false -dtrans-arrays-with-const-entries -dtransanalysis -debug-only=dtrans-arrays-with-const-entries -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -whole-program-assume -dtrans-outofboundsok=false -dtrans-arrays-with-const-entries -passes='require<dtransanalysis>' -debug-only=dtrans-arrays-with-const-entries -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -dtrans-outofboundsok=false -dtrans-arrays-with-const-entries -dtransanalysis -debug-only=dtrans-arrays-with-const-entries-verbose -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -dtrans-outofboundsok=false -dtrans-arrays-with-const-entries -passes='require<dtransanalysis>' -debug-only=dtrans-arrays-with-const-entries-verbose -disable-output 2>&1 | FileCheck %s
 
 ; This test case checks that there is no constant information collected
 ; since no constant value is assigned.
@@ -38,7 +38,7 @@ bb2:
   ret i32 %tmp3
 }
 
-; CHECK-LABEL: Result after data collection:
+; CHECK: Result after data collection:
 ; CHECK: Type: %class.TestClass = type <{ i32, [4 x i32] }>
 ; CHECK:   Is structure available: YES
 ; CHECK:   Field number: 1
@@ -46,3 +46,6 @@ bb2:
 ; CHECK:     Constants:
 ; CHECK-NOT:       Index: i32 1      Value: i32 2
 ; CHECK-NOT:       Index: i32 0      Value: i32 1
+
+; CHECK: Final result for fields that are arrays with constant entries:
+; CHECK:  No structure found

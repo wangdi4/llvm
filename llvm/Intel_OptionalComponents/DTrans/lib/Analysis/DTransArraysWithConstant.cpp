@@ -75,33 +75,38 @@ using namespace llvm::PatternMatch;
 
 #define DEBUG_TYPE "dtrans-arrays-with-const-entries"
 
+// Debug type for verbose information
+#define DTRANS_ARRCONST_VERBOSE "dtrans-arrays-with-const-entries-verbose"
+
 namespace llvm {
 
 namespace dtrans {
 
 static ConstantInt *getIndexAccessedFromGEP(GetElementPtrInst *GEP);
+static ConstantInt *getFieldAndStructureAccessed(GetElementPtrInst *GEP,
+                                                 llvm::StructType **StructTy);
 
 // Implementation of the helper class FieldWithConstantArray
 
-// Set the GEP that accesses the current field, and will be used for storing
-// the constant values. If a GEPForStore is already set then we disable
-// the field for the constant array optimization.
-void dtrans::FieldWithConstantArray::setGEPForStore(
+// Collect the GEP that accesses the current field, and will be used for storing
+// the constant values.
+void dtrans::FieldWithConstantArray::addGEPForStore(
     GetElementPtrInst *GEPStore) {
-  // If GEPForStore is already set then disable the field for array with
-  // constant entries. (NOTE: This is conservative, we can assign multiple
-  // stores in different places if they don't touch the same index).
-  if (GEPForStore) {
-    disableField();
-    return;
-  }
+
   // The field number that is being accessed should match.
-  ConstantInt *FieldNum = getIndexAccessedFromGEP(GEPStore);
-  if (FieldNum != FieldNumber) {
+  llvm::StructType *Structure = nullptr;
+  ConstantInt *FieldNum = getFieldAndStructureAccessed(GEPStore, &Structure);
+  if (FieldNum != FieldNumber || !GEPStore->isInBounds()) {
     disableField();
     return;
   }
-  GEPForStore = GEPStore;
+
+  if (GEPsForStore.count(GEPStore) > 0) {
+    disableField();
+    return;
+  }
+
+  GEPsForStore.insert(GEPStore);
 }
 
 // Given the constant integers Index and ConstValue, pair them and
@@ -133,12 +138,17 @@ void dtrans::FieldWithConstantArray::addConstantEntry(ConstantInt *Index,
 // Return true if the Integer type was set or is the same as the input
 // InType, else return false.
 bool dtrans::FieldWithConstantArray::setIntegerType(llvm::IntegerType *InType) {
+  // Check that the input type is there
   if (!InType)
     return false;
+
+  // Set IntType for the first time
   if (!IntType) {
     IntType = InType;
     return true;
   }
+
+  // Check that IntType is the same as the input type
   return IntType == InType;
 }
 
@@ -146,7 +156,7 @@ bool dtrans::FieldWithConstantArray::setIntegerType(llvm::IntegerType *InType) {
 // storing any constant information
 void dtrans::FieldWithConstantArray::disableField() {
   ConstantEntries.clear();
-  GEPForStore = nullptr;
+  GEPsForStore.clear();
   LoadInstructions.clear();
   FieldDisabled = true;
   IntType = nullptr;
@@ -158,7 +168,7 @@ void dtrans::FieldWithConstantArray::printFieldFull() {
   dbgs() << "  Field number: " << FieldNumber->getZExtValue() << "\n";
   dbgs() << "    Field available: " << (!FieldDisabled ? "YES" : "NO") << "\n";
   dbgs() << "    Constants:";
-  if (ConstantEntries.empty()) {
+  if (ConstantEntries.empty() || !hasAtLeastOneConstantEntry()) {
     dbgs() << " No constant data found";
   } else {
     dbgs() << "\n";
@@ -168,11 +178,15 @@ void dtrans::FieldWithConstantArray::printFieldFull() {
                << "      Value: " << *ConstantEntry.second << "\n";
     }
   }
-  dbgs() << "\n    GEP used for store: ";
-  if (GEPForStore)
-    dbgs() << *GEPForStore;
-  else
+
+  dbgs() << "\n    GEPs used for store: ";
+  if (GEPsForStore.empty()) {
     dbgs() << "      No GEP for store found";
+  } else {
+    for (auto *GEP : GEPsForStore)
+      dbgs() << "      " << *GEP << "\n";
+  }
+
   dbgs() << "\n    Data loaded in:";
   if (LoadInstructions.empty()) {
     dbgs() << "      No load instruction found\n";
@@ -189,7 +203,7 @@ void dtrans::FieldWithConstantArray::printFieldSimple() {
   dbgs() << "  Field number: " << FieldNumber->getZExtValue() << "\n";
   dbgs() << "    Field available: " << (!FieldDisabled ? "YES" : "NO") << "\n";
   dbgs() << "    Constants:";
-  if (ConstantEntries.empty()) {
+  if (ConstantEntries.empty() || !hasAtLeastOneConstantEntry()) {
     dbgs() << " No constant data found";
   } else {
     dbgs() << "\n";
@@ -271,15 +285,19 @@ void dtrans::StructWithArrayFields::printStructureFull() {
 }
 
 // Print the structure with the fields information simplified
-void dtrans::StructWithArrayFields::printStructureSimple() {
+void dtrans::StructWithArrayFields::printStructureSimple(bool PrintAll) {
   dbgs() << "Type: " << *Struct << "\n";
   dbgs() << "  Is structure available: " << (!StructureDisabled ? "YES" : "NO")
          << "\n";
-  if (FieldsWithConstArrayVector.empty())
+  if (FieldsWithConstArrayVector.empty()) {
     dbgs() << "  Empty data\n";
-  else
-    for (auto *Field : FieldsWithConstArrayVector)
+  } else {
+    for (auto *Field : FieldsWithConstArrayVector) {
+      if (Field->isFieldDisabled() && !PrintAll)
+        continue;
       Field->printFieldSimple();
+    }
+  }
 }
 #endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
@@ -295,11 +313,89 @@ static ConstantInt *getIndexAccessedFromGEP(GetElementPtrInst *GEP) {
 
   // Make sure the first operand is 0
   unsigned NumIndices = GEP->getNumIndices();
-  if (NumIndices != 2 || !match(GEP->getOperand(1), m_Zero()))
+  if (NumIndices < 2 || !match(GEP->getOperand(1), m_Zero()))
     return nullptr;
 
   // Return the constant integer
-  return cast<ConstantInt>(GEP->getOperand(2));
+  return cast<ConstantInt>(GEP->getOperand(NumIndices));
+}
+
+// Given a GEP, check if the source type is a structure and traverse through the
+// indices of the GEP. Return the index that accesses a field in a structure
+// that is NOT a structure, or a field that is a structure that wraps an array
+// of integers. The structure found will be stored in StructTy.
+static ConstantInt *getFieldAndStructureAccessed(GetElementPtrInst *GEP,
+                                                 llvm::StructType **StructTy) {
+
+  // Return true if the input Type is a structure, with one field
+  // and that field is an array of integers.
+  auto IsWrappingStruct = [](llvm::Type *InTy) {
+    if (!InTy)
+      return false;
+
+    auto *StructTy = dyn_cast<llvm::StructType>(InTy);
+    if (!StructTy || StructTy->getNumElements() != 1)
+      return false;
+
+    auto *ArrField = dyn_cast<llvm::ArrayType>(StructTy->getElementType(0));
+    if (!ArrField || !ArrField->getElementType()->isIntegerTy())
+      return false;
+
+    return true;
+  };
+
+  if (!GEP)
+    return nullptr;
+
+  llvm::Type *SrcTy = GEP->getSourceElementType();
+
+  if (!SrcTy->isStructTy())
+    return nullptr;
+
+  unsigned NumIndices = GEP->getNumIndices();
+
+  if (NumIndices < 2)
+    return nullptr;
+
+  llvm::StructType *CurrStruct = nullptr;
+  llvm::Type *GEPType = GEP->getOperand(0)->getType();
+  if (GEPType->isPointerTy())
+    CurrStruct = dyn_cast<llvm::StructType>(GEPType->getPointerElementType());
+  if (!CurrStruct)
+    return nullptr;
+
+  // Start at index 2 since index 1 is reserved for arrays.
+  unsigned Pos = 2;
+  ConstantInt *ConstIndex = nullptr;
+  llvm::StructType *PrevStruct = CurrStruct;
+  while (CurrStruct && Pos <= NumIndices) {
+    ConstIndex = dyn_cast<ConstantInt>(GEP->getOperand(Pos));
+    if (!ConstIndex)
+      return nullptr;
+    unsigned Index = ConstIndex->getZExtValue();
+
+    if (Index > CurrStruct->getNumElements()) {
+      ConstIndex = nullptr;
+      *StructTy = PrevStruct;
+      return nullptr;
+    }
+
+    llvm::Type *FieldTy = CurrStruct->getElementType(Index);
+
+    // This is a special case to catch when a structure wraps an array
+    if (IsWrappingStruct(FieldTy)) {
+      break;
+    } if (FieldTy->isStructTy()) {
+      Pos++;
+      PrevStruct = CurrStruct;
+      CurrStruct = cast<llvm::StructType>(FieldTy);
+    } else {
+      break;
+    }
+  }
+
+  *StructTy = PrevStruct;
+  return ConstIndex;
 }
 
 // Given an GEP and the structure that the GEP is accessing, return
@@ -369,38 +465,11 @@ static GetElementPtrInst *getGEPAccessingArray(GetElementPtrInst *GEP,
   return RetGEP;
 }
 
-// Return true if the GEP is used to access an entry in an array of integers.
-// Also, this integer type must match with integer type stored in FieldData.
-static bool analyzeGEP(GetElementPtrInst *GEP,
-                       FieldWithConstantArray *FieldData) {
-  if (!GEP || !FieldData)
-    return false;
-
-  // The GEP must be accessing an entry in an array of integers
-  llvm::ArrayType *SrcTy =
-      dyn_cast<llvm::ArrayType>(GEP->getSourceElementType());
-  llvm::IntegerType *ResType =
-      dyn_cast<llvm::IntegerType>(GEP->getResultElementType());
-
-  if (!SrcTy || !ResType) {
-    FieldData->disableField();
-    return false;
-  }
-
-  if (!FieldData->setIntegerType(ResType)) {
-    // If the type couldn't be set or compared with the type in the
-    // the field, then invalidate the field
-    FieldData->disableField();
-    return false;
-  }
-
-  return true;
-}
-
 // Return true in the input store instruction doesn't invalidate the input
 // field or structure, and is used to store an integer in an array. The GEP
 // is used to find which index is being accessed in the array.
-static bool checkStoreInst(StoreInst *Store, FieldWithConstantArray *FieldData,
+static bool checkStoreInst(StoreInst *Store, llvm::ArrayType *SrcArr,
+                           FieldWithConstantArray *FieldData,
                            StructWithArrayFields *StructData,
                            GetElementPtrInst *EntryGEP) {
   if (!Store || !FieldData || !StructData || !EntryGEP)
@@ -413,15 +482,9 @@ static bool checkStoreInst(StoreInst *Store, FieldWithConstantArray *FieldData,
     return false;
   }
 
-  llvm::ArrayType *SrcTy =
-      dyn_cast<llvm::ArrayType>(EntryGEP->getSourceElementType());
   unsigned IndexAccessed = Index->getZExtValue();
-  if (!analyzeGEP(EntryGEP, FieldData)) {
-    FieldData->disableField();
-    return false;
-  }
 
-  if (IndexAccessed > SrcTy->getNumElements()) {
+  if (IndexAccessed > SrcArr->getNumElements()) {
     // the index must be within the size of the array.
     StructData->disableStructure();
     return false;
@@ -434,26 +497,259 @@ static bool checkStoreInst(StoreInst *Store, FieldWithConstantArray *FieldData,
   return true;
 }
 
-// Return true if the input load instruction doesn't invalidate the information
-// for the field and the structure, else return false. The parameter EntryGEP
-// is used to check if the GEP is accessing an entry in a array of integers.
-static bool checkLoadInst(LoadInst *Load, FieldWithConstantArray *FieldData,
+// Return false if the input GEP is used for anything else than loading or
+// storing constant integers, else return true. Also, update the information in
+// StructData and FieldData with the Load and Store instructions found.
+static bool checkGEPUsers(GetElementPtrInst *GEP, llvm::ArrayType *ArrayTy,
                           StructWithArrayFields *StructData,
-                          GetElementPtrInst *EntryGEP) {
-  if (!Load || !FieldData || !StructData || !EntryGEP)
+                          FieldWithConstantArray *FieldData, bool *StoreFound,
+                          bool *LoadFound) {
+
+  if (!GEP || !ArrayTy || !StructData || !FieldData)
     return false;
 
-  if (!analyzeGEP(EntryGEP, FieldData)) {
-    FieldData->disableField();
-    return false;
+  // Each user of the GEP that accesses the entries in the array must
+  // be a load or store instruction.
+  for (User *UserEntry : GEP->users()) {
+    if (auto *Store = dyn_cast<StoreInst>(UserEntry)) {
+      if (!checkStoreInst(Store, ArrayTy, FieldData, StructData, GEP))
+        return false;
+      *StoreFound = true;
+    } else if (auto *Load = dyn_cast<LoadInst>(UserEntry)) {
+      FieldData->insertLoadInstruction(Load);
+      *LoadFound = true;
+    } else {
+      return false;
+    }
+    // This is conservative, for now all the stores must happen in one
+    // function and all the loads must happen in other functions. In
+    // reality we can have load and stores mixed together.
+    if (*StoreFound && *LoadFound)
+      return false;
   }
 
-  // NOTE: We don't check for constant entries because there is a chance that
-  // we are loading variable entries in the array (e.g. load used inside a
-  // loop).
-
-  FieldData->insertLoadInstruction(Load);
   return true;
+}
+
+// Collect the data from a GEP that has multiple indices, for example:
+//
+//   define void @foo(%class.TestClass %0) {
+//     %tmp1 = getelementptr inbounds %class.TestClass, %class.TestClass* %0,
+//             i64 0, i32 12, i64 0
+//     store i32 1, i32* %tmp1
+//     ret void
+//   }
+//
+// In the example above, the GEP's indices represent the following:
+// field that is an array (Operand 2) and index accessed (Operand 3). This
+// means that one GEP is used to access the field in the structure that is
+// an array, and access the entry in the array.
+static void collectFromMultipleIndicesGEP(GetElementPtrInst *GEP,
+                                          llvm::StructType *Structure,
+                                          DTransAnalysisInfo *DTInfo,
+                                          StructWithArrayFields *StructData,
+                                          FieldWithConstantArray *FieldData) {
+
+  if (!GEP || !StructData || !FieldData || !Structure || !DTInfo)
+    return;
+
+  unsigned NumIndices = GEP->getNumIndices();
+
+  assert(NumIndices > 2 && "Number of indices lower than the required");
+
+  if (!match(GEP->getOperand(1), m_Zero())) {
+    StructData->disableStructure();
+    return;
+  }
+
+  unsigned FieldNum = FieldData->getFieldNumber()->getZExtValue();
+  llvm::Type *FieldType = Structure->getElementType(FieldNum);
+  llvm::IntegerType *IntType = nullptr;
+  llvm::ArrayType *ArrayTy = nullptr;
+
+  // Check if the GEP is in the following form:
+  //
+  //   %tmp1 = getelementptr inbounds %class.TestClass, %class.TestClass* %0,
+  //           i64 0, i32 12, i64 0
+  //
+  // Operand 2 in %tmp1 is the field in a structure that is an array, and
+  // Operand 3 is the index that is being accessed in the array.
+  //
+  // NOTE: This is conservative, we can relax it in the future.
+  if (auto *ArrTy = dyn_cast<llvm::ArrayType>(FieldType)) {
+    if (NumIndices != 3 || !ArrTy->getElementType()->isIntegerTy()) {
+      FieldData->disableField();
+      return;
+    }
+
+    ArrayTy = ArrTy;
+    IntType = cast<IntegerType>(ArrTy->getElementType());
+  } else if (auto *StrTy = dyn_cast<llvm::StructType>(FieldType)) {
+    // Check if the GEP is in the following form:
+    //
+    //   %tmp1 = getelementptr inbounds %class.TestClass, %class.TestClass* %0,
+    //           i64 0, i32 12, i64 0, i32 0
+    //
+    // Operand 2 in %tmp1 is the field in a structure that encapsulates another
+    // structure, Operand 3 is an array and Operand 4 is the index that is
+    // being accessed in the array. This is for handling special cases like
+    // boost arrays.
+    //
+    // NOTE: This is conservative, we can relax it in the future.
+    if (NumIndices != 4 || StrTy->getNumElements() != 1) {
+      FieldData->disableField();
+      return;
+    }
+
+    ConstantInt *GEPOperand3 = dyn_cast<ConstantInt>(GEP->getOperand(3));
+    if (!GEPOperand3 || !GEPOperand3->isZero()) {
+      FieldData->disableField();
+      return;
+    }
+
+    llvm::ArrayType *ArrTy = dyn_cast<ArrayType>(StrTy->getElementType(0));
+    if (!ArrTy || !ArrTy->getElementType()->isIntegerTy()) {
+      FieldData->disableField();
+      return;
+    }
+
+    ArrayTy = ArrTy;
+    IntType = cast<IntegerType>(ArrTy->getElementType());
+  }
+
+  // Check that the array and the integer types were found
+  if (!ArrayTy || !IntType) {
+    FieldData->disableField();
+    return;
+  }
+
+  // The GEP must be used only for store
+  bool StoreFound = false;
+  // The GEP must be used only for loads
+  bool LoadFound = false;
+
+  if (!FieldData->setIntegerType(IntType)) {
+    FieldData->disableField();
+    return;
+  }
+
+  // Check if the GEP is used for loading or storing constant integers
+  if (!checkGEPUsers(GEP, ArrayTy, StructData, FieldData, &StoreFound,
+                     &LoadFound)) {
+    FieldData->disableField();
+    return;
+  }
+
+  // Collect the GEP if it is used for storing data in an array
+  if (StoreFound && !LoadFound)
+    FieldData->addGEPForStore(GEP);
+}
+
+// Collect the data if it is inside multiple GEPs, for example:
+//
+//   define void @foo(%class.TestClass %0) {
+//     %tmp1 = getelementptr inbounds %class.TestClass, %class.TestClass* %0,
+//             i64 0, i32 12
+//     %tmp2 = getelementptr inbounds [4 x i32], [4 x i32]* %tmp1, i64 0, i64 0
+//     store i32 1, i32* %tmp2
+//     ret void
+//   }
+//
+// In the example above, we need two GEPs to access the index we want in the
+// array. The first GEP (%tmp1) accesses the field in the structure that is
+// an array and the second GEP (%tmp2) accesses the index in the array.
+static void collectFromMultipleGEPs(GetElementPtrInst *GEP,
+                                    llvm::StructType *Structure,
+                                    DTransAnalysisInfo *DTInfo,
+                                    StructWithArrayFields *StructData,
+                                    FieldWithConstantArray *FieldData) {
+
+  if (!GEP || !StructData || !FieldData || !Structure || !DTInfo)
+    return;
+
+
+  assert(GEP->getNumIndices() == 2 && "Number of indices different than "
+                                      "the required");
+
+  if (StructData->isStructureDisabled() || FieldData->isFieldDisabled())
+    return;
+
+  // If the field is an array of integers, then ArrayGEP will be GEP. Else,
+  // if the field is a structure with one field, then we need to collect
+  // the GetElementPtrInst instruction that accesses the entries in the
+  // array. For example:
+  //
+  //   %class.TestClass = type <{i32, %"class.boost::array"}>
+  //   %"class.boost::array" = type <{[4 x i32]}>
+  //
+  //   %tmp0 = getelementptr inbounds %class.TestClass, %class.TestClass* %0,
+  //           i64 0, i32 1
+  //   %tmp1 = getelementptr inbounds %"class.boost::array",
+  //           %"class.boost::array"* %tmp0, i64 0, i32 0
+  //
+  // In the example above, %tmp0 is the instruction that is accessing the field
+  // that is a structure (%class.TestClass field 1). The instruction %tmp1
+  // is the GetElementPtrInst that accesses the entry in the array. In this
+  // case, GEP will be %tmp0 and ArrayGEP will be %tmp1. If nothing is found
+  // then ArrayGEP will be nullptr. This is to catch special cases like boost
+  // libraries.
+  GetElementPtrInst *ArrayGEP = getGEPAccessingArray(GEP, Structure, DTInfo);
+  if (!ArrayGEP) {
+    FieldData->disableField();
+    return;
+  }
+
+  // The GEP must be used only for store
+  bool StoreFound = false;
+  // The GEP must be used only for loads
+  bool LoadFound = false;
+
+  // This loop checks that the users of ArrayGEP are GEPs accessing entries
+  // in an array, and they are only used for load or store instructions.
+  for (User *U : ArrayGEP->users()) {
+    // Each user of the GEP is another GEP that is accessing the entry
+    // in an array.
+    if (auto *EntryGEP = dyn_cast<GetElementPtrInst>(U)) {
+
+      if (!EntryGEP->isInBounds() ||
+          !EntryGEP->getSourceElementType()->isArrayTy()) {
+        StructData->disableStructure();
+        return;
+      }
+
+      // The GEP must be accessing an entry in an array of integers
+      llvm::ArrayType *SrcTy =
+          dyn_cast<llvm::ArrayType>(EntryGEP->getSourceElementType());
+      llvm::IntegerType *ResType =
+          dyn_cast<llvm::IntegerType>(EntryGEP->getResultElementType());
+
+      if (!SrcTy || !ResType) {
+        FieldData->disableField();
+        return;
+      }
+
+      if (!FieldData->setIntegerType(ResType)) {
+        // If the type couldn't be set or compared with the type in the
+        // the field, then invalidate the field
+        FieldData->disableField();
+        return;
+      }
+
+      // Check if EntryGEP is used for load or store constant integers
+      if (!checkGEPUsers(EntryGEP, SrcTy, StructData, FieldData, &StoreFound,
+                         &LoadFound)) {
+        FieldData->disableField();
+        return;
+      }
+    } else {
+      FieldData->disableField();
+      return;
+    }
+  }
+
+  // Collect the GEP if it is used for storing data in an array
+  if (StoreFound && !LoadFound)
+    FieldData->addGEPForStore(GEP);
 }
 
 // Given a GEP and the structure type that it is accessing, update the
@@ -482,6 +778,7 @@ static bool checkLoadInst(LoadInst *Load, FieldWithConstantArray *FieldData,
 // field 12). Else, if GEP is %tmp1 in @bar, then this function will collect
 // the GEP that is used for loading data (%tmp2 in @bar).
 static void checkAndUpdateStructure(GetElementPtrInst *GEP,
+                                    ConstantInt *FieldNumConst,
                                     StructWithArrayFields *StructData,
                                     DTransAnalysisInfo *DTInfo) {
   if (!GEP)
@@ -491,8 +788,6 @@ static void checkAndUpdateStructure(GetElementPtrInst *GEP,
   if (!StructData || StructData->isStructureDisabled())
     return;
 
-  // Collect the field that is being accessed.
-  ConstantInt *FieldNumConst = getIndexAccessedFromGEP(GEP);
   if (!FieldNumConst) {
     StructData->disableStructure();
     return;
@@ -517,79 +812,44 @@ static void checkAndUpdateStructure(GetElementPtrInst *GEP,
   if (FieldData->isFieldDisabled())
     return;
 
-  // If the field is an array of integers, then ArrayGEP will be GEP. Else,
-  // if the field is a structure with one field, then we need to collect
-  // the GetElementPtrInst instruction that accesses the entries in the
-  // array. For example:
+  // If the GEP has 2 indices, then we are going to check if the information
+  // is inside multiple GEPs
+  if (GEP->getNumIndices() == 2)
+    collectFromMultipleGEPs(GEP, Structure, DTInfo, StructData, FieldData);
+
+  // Else, if there are more than 2 indices, we are going to check if the GEP
+  // accesses the data directly
+  else if (GEP->getNumIndices() > 2)
+    collectFromMultipleIndicesGEP(GEP, Structure, DTInfo, StructData,
+                                  FieldData);
+
+  // Byte flattened GEPs or GEPs with one index aren't allowed
+  else
+    StructData->disableStructure();
+
+  // NOTE: The previous checks are conservative. We could have a byte flattened
+  // GEP that accesses the data we want, for example:
   //
-  //   %class.TestClass = type <{i32, %"class.boost::array"}>
-  //   %"class.boost::array" = type <{[4 x i32]}>
+  // %class.OuterClass = type <{ %class.TestClass }>
+  // %class.TestClass = type <{ [4 x i32], i32 }>
   //
-  //   %tmp0 = getelementptr inbounds %class.TestClass, %class.TestClass* %0,
-  //           i64 0, i32 1
-  //   %tmp1 = getelementptr inbounds %"class.boost::array",
-  //           %"class.boost::array"* %tmp0, i64 0, i32 0
+  // define i32 @foo(i64* %0) {
+  //   %tmp1 = getelementptr inbounds i64, i64* %0, i64 8
+  //   %tmp2 = bitcast i64* %tmp1 to i32*
+  //   %tmp3 = load i32, i32* %tmp2
+  //   ret i32 %tmp3
+  // }
   //
-  // In the example above, %tmp0 is the instruction that is accessing the field
-  // that is a structure (%class.TestClass field 1). The instruction %tmp1
-  // is the GetElementPtrInst that accesses the entry in the array. In this case,
-  // GEP will be %tmp0 and ArrayGEP will be %tmp1. If nothing is found then
-  // ArrayGEP will be nullptr. This is to catch special cases like boost
-  // libraries.
-  GetElementPtrInst *ArrayGEP = getGEPAccessingArray(GEP, Structure, DTInfo);
-  if (!ArrayGEP) {
-    FieldData->disableField();
-    return;
-  }
-
-  // The GEP must be used only for store
-  bool StoreFound = false;
-  // The GEP must be used only for loads
-  bool LoadFound = false;
-
-  // This loop checks that the users of ArrayGEP are GEPs accessing entries
-  // in an array, and they are only used for load or store instructions.
-  for (User *U : ArrayGEP->users()) {
-    // Each user of the GEP is another GEP that is accessing the entry
-    // in an array.
-    if (auto *EntryGEP = dyn_cast<GetElementPtrInst>(U)) {
-
-      if (!EntryGEP->isInBounds() ||
-          !EntryGEP->getSourceElementType()->isArrayTy()) {
-        StructData->disableStructure();
-        return;
-      }
-
-      // Each user of the GEP that accesses the entries in the array must
-      // be a load or store instruction.
-      for (User *UserEntry : EntryGEP->users()) {
-        if (auto *Store = dyn_cast<StoreInst>(UserEntry)) {
-          if (!checkStoreInst(Store, FieldData, StructData, EntryGEP))
-            return;
-          StoreFound = true;
-        } else if (auto *Load = dyn_cast<LoadInst>(UserEntry)) {
-          if (!checkLoadInst(Load, FieldData, StructData, EntryGEP))
-            return;
-          LoadFound = true;
-        } else {
-          FieldData->disableField();
-          return;
-        }
-        // This is conservative, for now all the stores must happen in one
-        // function and all the loads must happen in other functions. In
-        // reality we can have load and stores mixed together.
-        if (StoreFound && LoadFound)
-          FieldData->disableField();
-      }
-    } else {
-      FieldData->disableField();
-      return;
-    }
-  }
-
-  // The GEP is used for storing data in an array
-  if (StoreFound && !LoadFound)
-    FieldData->setGEPForStore(GEP);
+  // define void @bar(%class.OuterClass* %0) {
+  //   %tmp1 = bitcast %class.OuterClass* %0 to i64*
+  //   %tmp2 = call i32 @foo(i64* %tmp1)
+  //   ret void
+  // }
+  //
+  // In the example above, function @bar converts the pointer to the structure
+  // %%class.OuterClass (%0) into an i64*. Then, it calls @foo, which accesses
+  // entry 1 of the array inside %class.TestClass. This is a form of loading
+  // information from an array which is a field from a structure.
 }
 
 // Given a structure, return the StructWithArrayFields in the map
@@ -633,9 +893,8 @@ analyzeGEPInstruction(GetElementPtrInst *GEP, DTransAnalysisInfo *DTInfo,
     return;
 
   llvm::StructType *Structure = nullptr;
-  llvm::Type *GEPType = GEP->getOperand(0)->getType();
-  if (GEPType->isPointerTy())
-    Structure = dyn_cast<llvm::StructType>(GEPType->getPointerElementType());
+  // Collect the field and structure type that the GEP is accessing
+  ConstantInt *FieldNumConst = getFieldAndStructureAccessed(GEP, &Structure);
   if (!Structure)
     return;
 
@@ -644,11 +903,17 @@ analyzeGEPInstruction(GetElementPtrInst *GEP, DTransAnalysisInfo *DTInfo,
   if (!StructData || StructData->isStructureDisabled())
     return;
 
+  // If the GEP is not in bounds then we disable the structure
+  if (!GEP->isInBounds()) {
+    StructData->disableStructure();
+    return;
+  }
+
   // Check if we can collect any load or store to an array of integers,
   // which is a field of the structure Structure. If so, then
   // update the information for the structure, else invalidate the
   // information for the field or the structure.
-  checkAndUpdateStructure(GEP, StructData, DTInfo);
+  checkAndUpdateStructure(GEP, FieldNumConst, StructData, DTInfo);
 }
 
 // Check if the load or store instruction is accessing a field in a structure.
@@ -739,6 +1004,13 @@ analyzeCallInstruction(Instruction *I, DTransAnalysisInfo *DTInfo,
     }
     StructsWithConstArrays.clear();
     LLVM_DEBUG({
+      dbgs() << "Disabling collection for arrays with constant entries\n";
+      dbgs() << "  Reason: memfunc operating over an array\n";
+      dbgs() << "  Instruction: " << *I << "\n";
+      dbgs() << "  Function: " << I->getFunction()->getName() << "\n";
+    });
+
+    DEBUG_WITH_TYPE(DTRANS_ARRCONST_VERBOSE, {
       dbgs() << "Disabling collection for arrays with constant entries\n";
       dbgs() << "  Reason: memfunc operating over an array\n";
       dbgs() << "  Instruction: " << *I << "\n";
@@ -856,6 +1128,354 @@ static void collectData(Module &M, DTransAnalysisInfo *DTInfo,
   }
 }
 
+// Return true if all the data related to loading and storing of constant values
+// are set correctly for the input field. Else, return false
+static bool analyzeField(FieldWithConstantArray *Field) {
+  if (!Field)
+    return false;
+
+  if (Field->isFieldDisabled())
+    return false;
+
+  if (Field->getGEPsUsedForStore().empty())
+    return false;
+
+  auto &ConstantEntries = Field->getConstantEntires();
+  if (Field->getLoadInstructions().empty() || ConstantEntries.empty())
+    return false;
+
+  if (!Field->getIntegerType())
+    return false;
+
+  // Check if at least one entry is constant.
+  for (auto &ConstEntry : ConstantEntries) {
+    if (ConstEntry.first && ConstEntry.second)
+      return true;
+  }
+
+  return false;
+}
+
+// Given a StructType, go through the fields that are structures and disable
+// the constant data for them. Recurse to disable the information for nested
+// structures.
+static void
+cascadeBadResult(llvm::StructType *StructTy,
+                 SetVector<llvm::StructType *> VisitedStructs,
+                 DenseMap<llvm::StructType *, StructWithArrayFields *>
+                     &StructsWithConstArrays) {
+
+  if (!StructTy || StructsWithConstArrays.empty())
+    return;
+
+  if (!VisitedStructs.insert(StructTy))
+    return;
+
+  auto StructsWithConstArraysEnd = StructsWithConstArrays.end();
+
+  // Traverse through the fields
+  for (unsigned I = 0, E = StructTy->getNumElements(); I < E; I++) {
+    llvm::StructType *FieldStruct =
+        dyn_cast<llvm::StructType>(StructTy->getElementType(I));
+    if (!FieldStruct)
+      continue;
+
+    if (StructsWithConstArrays.find(FieldStruct) == StructsWithConstArraysEnd)
+      continue;
+
+    // Set the structure information for the current field as
+    // disabled
+    auto FieldStructData = StructsWithConstArrays[FieldStruct];
+    if (!FieldStructData->isStructureDisabled()) {
+      DEBUG_WITH_TYPE(DTRANS_ARRCONST_VERBOSE, {
+        dbgs() << "  Removing: " << FieldStruct->getName() << "\n"
+               << "  Reason: Cascading bad results from " << StructTy->getName()
+               << "\n\n";
+      });
+      FieldStructData->disableStructure();
+    }
+
+    // Recurse
+    cascadeBadResult(FieldStruct, VisitedStructs, StructsWithConstArrays);
+  }
+}
+
+// Return false if the input StructInfo doesn't pass the safety test
+// for arrays with constant entries, or if at least one field in
+// the structure is address taken. Else, return true.
+static bool checkStructure(dtrans::StructInfo *StrInfo) {
+  if (!StrInfo)
+    return false;
+
+  for (auto &FI : StrInfo->getFields())
+    if (FI.isAddressTaken())
+      return false;
+
+  return true;
+}
+
+// This function is used for analyzing the related types. Related types are
+// types that have a base form and a padded form. For example:
+//
+//   %class.A.base = type <{ %"class.boost::array", [2 x i8],
+//                           %"class.std::vector", i32 }>
+//   %class.A = type <{ %"class.boost::array", [2 x i8],
+//                      %"class.std::vector", i32, [4 x i8] }>
+//
+// In the example above, both types are the same, one is used as base for
+// nested structures (%class.A.base) and the other one is used when there is
+// an instantiation (%class.A).
+//
+// The following function will return false if the relationship mentioned
+// above invalidates the data for arrays with constant entries in the input
+// StructWithArrayFields. Else, return true.
+static bool
+analyzeRelatedType(dtrans::StructInfo *RelatedInfo,
+                   StructWithArrayFields *CurrStructData,
+                   DenseMap<llvm::StructType *, StructWithArrayFields *>
+                       &StructsWithConstArrays) {
+  if (!RelatedInfo || StructsWithConstArrays.empty())
+    return false;
+
+  if (!checkStructure(RelatedInfo))
+    return false;
+
+  llvm::StructType *RelatedType =
+      dyn_cast<llvm::StructType>(RelatedInfo->getLLVMType());
+  assert(RelatedType && "Related Type without a structure type");
+
+  // If the input related type is not in the map StructsWithConstArrays,
+  // then there is nothing to check
+  if (StructsWithConstArrays.find(RelatedType) == StructsWithConstArrays.end())
+    return true;
+
+  auto RelatedStructData = StructsWithConstArrays[RelatedType];
+
+  // If the data for the related structure is disabled then cascade
+  // the bad results and return false.
+  if (RelatedStructData->isStructureDisabled()) {
+    return false;
+  }
+
+  // Go through the fields in the data for RelatedType, if there is
+  // any information in that field, then invalidate the same field
+  // in CurrStructData.
+  // NOTE: This is conservative, we might be able to add an extra
+  // analysis to merge the information.
+  for (auto RelatedField : RelatedStructData->getFields()) {
+    auto *FieldNum = RelatedField->getFieldNumber();
+    auto *Field = CurrStructData->getField(FieldNum);
+    if (Field) {
+      DEBUG_WITH_TYPE(DTRANS_ARRCONST_VERBOSE, {
+        llvm::StructType *CurrStruct =
+            cast<llvm::StructType>(CurrStructData->getStructure());
+        dbgs() << "  Removing Field: " << FieldNum->getZExtValue() << " from "
+               << RelatedType->getName() << "\n"
+               << "  Reason: Mismatch with related type "
+               << CurrStruct->getName() << "\n\n";
+      });
+      RelatedField->disableField();
+      Field->disableField();
+    }
+  }
+
+  return true;
+}
+
+// Analyze the structures collected with fields that could be arrays with
+// constant entries. A structure will be invalidated if:
+//
+//   * It doesn't pass the safety checks
+//   * If a structure doesn't pass the analysis then the inner structures
+//     will be invalidated
+//   * The information collected for the related type invalidates the
+//     current structure.
+//   * All the fields in the structure aren't candidates for arrays with
+//     constant entries.
+static void analyzeData(DTransAnalysisInfo *DTInfo,
+                        DenseMap<llvm::StructType *, StructWithArrayFields *>
+                            &StructsWithConstArrays) {
+
+  auto StructsWithConstArraysEnd = StructsWithConstArrays.end();
+  SetVector<StructWithArrayFields *> StructsNotNeeded;
+
+  DEBUG_WITH_TYPE(DTRANS_ARRCONST_VERBOSE,
+                  { dbgs() << "Analyzing results:\n"; });
+
+  for (auto &StructureData : StructsWithConstArrays) {
+
+    dtrans::StructInfo *STInfo = dyn_cast_or_null<dtrans::StructInfo>(
+        DTInfo->getTypeInfo(StructureData.first));
+
+    // If there is no DTrans information for the structure then disable
+    // the data
+    if (!STInfo)
+      StructureData.second->disableStructure();
+
+    // If the structure is marked as disabled then we don't need to check it,
+    // but we need to disable the inner structures
+    if (StructureData.second->isStructureDisabled()) {
+      SetVector<llvm::StructType *> VisitedStructs;
+      cascadeBadResult(StructureData.first, VisitedStructs,
+                       StructsWithConstArrays);
+      continue;
+    }
+
+    // If the structure doesn't pass any of the safety information then
+    // disable it.
+    if (!checkStructure(STInfo)) {
+      DEBUG_WITH_TYPE(DTRANS_ARRCONST_VERBOSE, {
+        dbgs() << "  Removing: " << StructureData.first->getName() << "\n"
+               << "  Reason: Structure didn't pass check\n\n";
+      });
+      StructureData.second->disableStructure();
+      SetVector<llvm::StructType *> VisitedStructs;
+      cascadeBadResult(StructureData.first, VisitedStructs,
+                       StructsWithConstArrays);
+      continue;
+    }
+
+    // Check if there is any information in the related type that could
+    // invalidate current type
+    auto *RelatedInfo = STInfo->getRelatedType();
+    if (RelatedInfo && !analyzeRelatedType(RelatedInfo, StructureData.second,
+                                           StructsWithConstArrays)) {
+      DEBUG_WITH_TYPE(DTRANS_ARRCONST_VERBOSE, {
+        dbgs() << "  Removing: " << StructureData.first->getName() << "\n"
+               << "  Reason: Structure didn't pass the related types check\n\n";
+      });
+      StructureData.second->disableStructure();
+      SetVector<llvm::StructType *> VisitedStructs;
+      cascadeBadResult(StructureData.first, VisitedStructs,
+                       StructsWithConstArrays);
+      continue;
+    }
+
+    // If all fields are disabled, then disable the structure. This is some
+    // form of filtering.
+    bool AllFieldsDisabled = true;
+    llvm::StructType *CurrStruct =
+        cast<llvm::StructType>(STInfo->getLLVMType());
+    for (auto *Field : StructureData.second->getFields()) {
+
+      if (Field->isFieldDisabled())
+        continue;
+
+      // If the field is a structure, and the structure is marked as disabled
+      // then disable the field
+      unsigned FieldNum = Field->getFieldNumber()->getZExtValue();
+
+      llvm::StructType *FieldStruct =
+          dyn_cast<llvm::StructType>(CurrStruct->getElementType(FieldNum));
+      bool StructInfoDisabled = false;
+      if (FieldStruct &&
+          StructsWithConstArrays.find(FieldStruct) != StructsWithConstArraysEnd)
+        StructInfoDisabled =
+            StructsWithConstArrays[FieldStruct]->isStructureDisabled();
+
+      if (StructInfoDisabled || !analyzeField(Field)) {
+        DEBUG_WITH_TYPE(DTRANS_ARRCONST_VERBOSE, {
+          dbgs() << "  Removing Field: " << FieldNum << " from "
+                 << CurrStruct->getName() << "\n"
+                 << "  Reason: Field didn't pass checks\n\n";
+        });
+        Field->disableField();
+        continue;
+      }
+      AllFieldsDisabled = false;
+    }
+
+    // If all fields are disabled, then we don't need the structure. We don't
+    // mark it as disabled inside this loop, since the structure is not wrong
+    // and it could invalidate the analysis for other structures we collected.
+    // This basically means that the structure won't be needed.
+    if (AllFieldsDisabled)
+      StructsNotNeeded.insert(StructureData.second);
+  }
+
+  // NOTE: We don't need to cascade the results here because there is nothing
+  // wrong with the structures. This check is for filtering those structures
+  // where all the fields don't qualify as array with constant entries.
+  for (auto *Struct : StructsNotNeeded) {
+    DEBUG_WITH_TYPE(DTRANS_ARRCONST_VERBOSE, {
+      dbgs() << "  Removing: " << Struct->getStructure()->getName() << "\n"
+             << "  Reason: None of the fields qualify as array with "
+             << "constant entries\n\n";
+    });
+    Struct->disableStructure();
+  }
+
+  DEBUG_WITH_TYPE(DTRANS_ARRCONST_VERBOSE, {
+    dbgs() << "\n";
+    for (auto &Struct : StructsWithConstArrays) {
+      if (!Struct.second->isStructureDisabled())
+        dbgs() << "  Structure: " << Struct.first->getName() << " Pass\n";
+    }
+    dbgs() << "\n";
+  });
+}
+
+// Insert the information collected for arrays with constant values into
+// the DTransAnalysisInfo
+static void
+insertConstantData(DTransAnalysisInfo *DTInfo,
+                   DenseMap<llvm::StructType *, StructWithArrayFields *>
+                       &StructsWithConstArrays) {
+
+  if (!DTInfo || StructsWithConstArrays.empty())
+    return;
+
+  for (auto &Struct : StructsWithConstArrays) {
+    if (Struct.second->isStructureDisabled())
+      continue;
+
+    auto *STInfo =
+        dyn_cast<dtrans::StructInfo>(DTInfo->getTypeInfo(Struct.first));
+    assert(STInfo && "Inserting constant data in empty information");
+
+    for (auto *Field : Struct.second->getFields()) {
+      if (Field->isFieldDisabled())
+        continue;
+      unsigned FieldNum = Field->getFieldNumber()->getZExtValue();
+      auto &FieldInfo = STInfo->getField(FieldNum);
+      for (auto ConstEntry : Field->getConstantEntires()) {
+        if (ConstEntry.first && ConstEntry.second)
+          FieldInfo.addConstantEntryIntoTheArray(ConstEntry.first,
+                                                 ConstEntry.second);
+      }
+    }
+  }
+}
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+// Print the results stored in StructsWithConstArrays. If PrintAll is true,
+// then it will print all the information in StructsWithConstArrays. If it
+// is false, then it will only print the structures with fields that
+// are arrays with constant entries.
+void printResults(DenseMap<llvm::StructType *, StructWithArrayFields *>
+                      &StructsWithConstArrays,
+                  bool PrintAll) {
+
+  if (StructsWithConstArrays.empty()) {
+    dbgs() << " No structure found\n";
+    return;
+  }
+
+  dbgs() << "\n";
+  bool NoStructs = false;
+  for (auto Struct : StructsWithConstArrays) {
+    if (Struct.second->isStructureDisabled() && !PrintAll)
+      continue;
+    Struct.second->printStructureSimple(PrintAll);
+    NoStructs = true;
+    dbgs() << "\n";
+  }
+
+  if (!NoStructs)
+    dbgs() << " No structure found\n";
+}
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+
 // Actual implementation of constant arrays metadata
 void dtrans::DtransArraysWithConstant::runArraysWithConstAnalysis(
     Module &M, DTransAnalysisInfo *DTInfo) {
@@ -866,28 +1486,53 @@ void dtrans::DtransArraysWithConstant::runArraysWithConstAnalysis(
   DenseMap<llvm::StructType *, StructWithArrayFields *>
       TempStructsWithConstArrays;
 
+  LLVM_DEBUG({
+    dbgs() << "Analyzing fields that are arrays with constant entries\n\n";
+  });
+
+  DEBUG_WITH_TYPE(DTRANS_ARRCONST_VERBOSE, {
+    dbgs() << "Analyzing fields that are arrays with constant entries "
+           << "(verbose print)\n\n";
+  });
+
   // Collect the structures with possible fields that could be arrays with
   // constant entries
   collectData(M, DTInfo, TempStructsWithConstArrays);
 
-  LLVM_DEBUG({
+  DEBUG_WITH_TYPE(DTRANS_ARRCONST_VERBOSE, {
     dbgs() << "Result after data collection:";
-    if (TempStructsWithConstArrays.empty()) {
-      dbgs() << " No structure found\n";
-    } else {
-      dbgs() << "\n";
-      for (auto Struct : TempStructsWithConstArrays) {
-        Struct.second->printStructureSimple();
-        dbgs() << "\n";
-      }
-    }
+    printResults(TempStructsWithConstArrays, true /* PrintAll */);
   });
 
-  // TODO:
-  //   1) Add the quick analysis to filter related types
-  //   2) Filter TempStructsWithConstArrays to keep those
-  //      structures we actually need in StructsWithConstArrays
-  //   3) Write the results back to DTInfo
+  if (TempStructsWithConstArrays.empty())
+    return;
+
+  // Check if there is any information that could invalidate
+  // any possible candidate for arrays with constant entries
+  analyzeData(DTInfo, TempStructsWithConstArrays);
+
+  // Insert the information collected into the DTransAnalysis.
+  insertConstantData(DTInfo, TempStructsWithConstArrays);
+
+  LLVM_DEBUG({
+    dbgs() << "Final result for fields that are arrays with "
+           << "constant entries: ";
+    printResults(TempStructsWithConstArrays, false /* PrintAll */);
+  });
+
+  DEBUG_WITH_TYPE(DTRANS_ARRCONST_VERBOSE, {
+    dbgs() << "Final result for fields that are arrays with "
+           << "constant entries: ";
+    printResults(TempStructsWithConstArrays, false /* PrintAll */);
+  });
+
+  // Clean data since it isn't needed anymore
+  for (auto &Struct : TempStructsWithConstArrays) {
+    Struct.second->clean();
+    delete Struct.second;
+  }
+
+  TempStructsWithConstArrays.clear();
 }
 
 } // namespace dtrans

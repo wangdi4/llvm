@@ -1,7 +1,7 @@
 ; REQUIRES: asserts
 
-; RUN: opt < %s -whole-program-assume -dtrans-arrays-with-const-entries -dtransanalysis -dtrans-print-types -debug-only=dtrans-arrays-with-const-entries -disable-output 2>&1 | FileCheck %s
-; RUN: opt < %s -whole-program-assume -dtrans-arrays-with-const-entries -passes='require<dtransanalysis>' -dtrans-print-types -debug-only=dtrans-arrays-with-const-entries -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -dtrans-arrays-with-const-entries -dtransanalysis -dtrans-print-types -debug-only=dtrans-arrays-with-const-entries-verbose -disable-output 2>&1 | FileCheck %s
+; RUN: opt < %s -whole-program-assume -dtrans-arrays-with-const-entries -passes='require<dtransanalysis>' -dtrans-print-types -debug-only=dtrans-arrays-with-const-entries-verbose -disable-output 2>&1 | FileCheck %s
 
 ; This test case checks that the information for entries 0 and 1 in the
 ; array at field 1 of %class.TestClass isn't generated. The reason is
