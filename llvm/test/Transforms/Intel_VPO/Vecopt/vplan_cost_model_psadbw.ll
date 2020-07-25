@@ -215,7 +215,7 @@ for.end:                                          ; preds = %for.body
   ret i32 %conv42
 }
 
-; full unroll case: trip count is known and it is 8 or 16.
+; full unroll case: trip count is known and it is 8 or 16. No SLP is possible.
 ; vectorization should not be blocked for such case.
 define dso_local i32 @_Z3toov(i32 %t) {
 ; CHECK-LABEL:  HIR Cost Model for VPlan _Z3toov.19 with VF = 1:
@@ -267,6 +267,133 @@ for.body:                                         ; preds = %for.body, %entry
   %neg = sub nsw i32 0, %sub
   %3 = select i1 %2, i32 %neg, i32 %sub
   %add = add nuw nsw i32 %3, %s.010
+  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
+  %exitcond = icmp eq i64 %indvars.iv.next, 16
+  br i1 %exitcond, label %for.cond.cleanup, label %for.body
+}
+
+; Full unroll case: trip count is known and it is 8 or 16 but SLP is expected
+; to trigger.
+; Should not be vectorized.
+define dso_local i32 @full_unroll_with_slp(i32 %t) {
+; CHECK-LABEL:  HIR Cost Model for VPlan full_unroll_with_slp.52 with VF = 1:
+; CHECK-NEXT:  Total VPlan Cost: 38
+; CHECK-NEXT:  VPlan Base Cost before adjustments: 38
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
+; CHECK-NEXT:    Cost Unknown for i32 [[VP__RED_INIT:%.*]] = reduction-init i32 0 i32 [[S_0100:%.*]]
+; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
+; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 38
+; CHECK-NEXT:    Cost Unknown for i32 [[VP0:%.*]] = phi  [ i32 [[VP__RED_INIT]], [[BB1]] ],  [ i32 [[VP1:%.*]], [[BB2]] ]
+; CHECK-NEXT:    Cost Unknown for i64 [[VP2:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP3:%.*]], [[BB2]] ]
+; CHECK-NEXT:    Cost 0 for i8* [[VP_SUBSCRIPT:%.*]] = subscript inbounds [1024 x i8]* @a i64 0 i64 [[VP2]]
+; CHECK-NEXT:    Cost 1 for i8 [[VP4:%.*]] = load i8* [[VP_SUBSCRIPT]]
+; CHECK-NEXT:    Cost 0 for i8* [[VP_SUBSCRIPT_1:%.*]] = subscript inbounds [1024 x i8]* @b i64 0 i64 [[VP2]]
+; CHECK-NEXT:    Cost 1 for i8 [[VP5:%.*]] = load i8* [[VP_SUBSCRIPT_1]]
+; CHECK-NEXT:    Cost 1 for i32 [[VP6:%.*]] = zext i8 [[VP4]] to i32
+; CHECK-NEXT:    Cost 1 for i32 [[VP7:%.*]] = zext i8 [[VP5]] to i32
+; CHECK-NEXT:    Cost 1 for i32 [[VP8:%.*]] = mul i32 [[VP7]] i32 -1
+; CHECK-NEXT:    Cost 1 for i32 [[VP9:%.*]] = add i32 [[VP6]] i32 [[VP8]]
+; CHECK-NEXT:    Cost 2 for i32 [[VP10:%.*]] = abs i32 [[VP9]]
+; CHECK-NEXT:    Cost 0 for i8* [[VP_SUBSCRIPT_2:%.*]] = subscript inbounds [1024 x i8]* @a i64 0 i64 [[VP2]]
+; CHECK-NEXT:    Cost 1 for i8 [[VP11:%.*]] = load i8* [[VP_SUBSCRIPT_2]]
+; CHECK-NEXT:    Cost 0 for i8* [[VP_SUBSCRIPT_3:%.*]] = subscript inbounds [1024 x i8]* @b i64 0 i64 [[VP2]]
+; CHECK-NEXT:    Cost 1 for i8 [[VP12:%.*]] = load i8* [[VP_SUBSCRIPT_3]]
+; CHECK-NEXT:    Cost 1 for i32 [[VP13:%.*]] = zext i8 [[VP11]] to i32
+; CHECK-NEXT:    Cost 1 for i32 [[VP14:%.*]] = zext i8 [[VP12]] to i32
+; CHECK-NEXT:    Cost 1 for i32 [[VP15:%.*]] = mul i32 [[VP14]] i32 -1
+; CHECK-NEXT:    Cost 1 for i32 [[VP16:%.*]] = add i32 [[VP13]] i32 [[VP15]]
+; CHECK-NEXT:    Cost 2 for i32 [[VP17:%.*]] = abs i32 [[VP16]]
+; CHECK-NEXT:    Cost 0 for i8* [[VP_SUBSCRIPT_4:%.*]] = subscript inbounds [1024 x i8]* @a i64 0 i64 [[VP2]]
+; CHECK-NEXT:    Cost 1 for i8 [[VP18:%.*]] = load i8* [[VP_SUBSCRIPT_4]]
+; CHECK-NEXT:    Cost 0 for i8* [[VP_SUBSCRIPT_5:%.*]] = subscript inbounds [1024 x i8]* @b i64 0 i64 [[VP2]]
+; CHECK-NEXT:    Cost 1 for i8 [[VP19:%.*]] = load i8* [[VP_SUBSCRIPT_5]]
+; CHECK-NEXT:    Cost 1 for i32 [[VP20:%.*]] = zext i8 [[VP18]] to i32
+; CHECK-NEXT:    Cost 1 for i32 [[VP21:%.*]] = zext i8 [[VP19]] to i32
+; CHECK-NEXT:    Cost 1 for i32 [[VP22:%.*]] = mul i32 [[VP21]] i32 -1
+; CHECK-NEXT:    Cost 1 for i32 [[VP23:%.*]] = add i32 [[VP20]] i32 [[VP22]]
+; CHECK-NEXT:    Cost 2 for i32 [[VP24:%.*]] = abs i32 [[VP23]]
+; CHECK-NEXT:    Cost 0 for i8* [[VP_SUBSCRIPT_6:%.*]] = subscript inbounds [1024 x i8]* @a i64 0 i64 [[VP2]]
+; CHECK-NEXT:    Cost 1 for i8 [[VP25:%.*]] = load i8* [[VP_SUBSCRIPT_6]]
+; CHECK-NEXT:    Cost 0 for i8* [[VP_SUBSCRIPT_7:%.*]] = subscript inbounds [1024 x i8]* @b i64 0 i64 [[VP2]]
+; CHECK-NEXT:    Cost 1 for i8 [[VP26:%.*]] = load i8* [[VP_SUBSCRIPT_7]]
+; CHECK-NEXT:    Cost 1 for i32 [[VP27:%.*]] = zext i8 [[VP25]] to i32
+; CHECK-NEXT:    Cost 1 for i32 [[VP28:%.*]] = zext i8 [[VP26]] to i32
+; CHECK-NEXT:    Cost 1 for i32 [[VP29:%.*]] = mul i32 [[VP28]] i32 -1
+; CHECK-NEXT:    Cost 1 for i32 [[VP30:%.*]] = add i32 [[VP27]] i32 [[VP29]]
+; CHECK-NEXT:    Cost 2 for i32 [[VP31:%.*]] = abs i32 [[VP30]]
+; CHECK-NEXT:    Cost 1 for i32 [[VP32:%.*]] = add i32 [[VP17]] i32 [[VP10]]
+; CHECK-NEXT:    Cost 1 for i32 [[VP33:%.*]] = add i32 [[VP32]] i32 [[VP31]]
+; CHECK-NEXT:    Cost 1 for i32 [[VP34:%.*]] = add i32 [[VP33]] i32 [[VP24]]
+; CHECK-NEXT:    Cost 1 for i32 [[VP1]] = add i32 [[VP34]] i32 [[VP0]]
+; CHECK-NEXT:    Cost 1 for i64 [[VP3]] = add i64 [[VP2]] i64 [[VP__IND_INIT_STEP]]
+; CHECK-NEXT:    Cost 1 for i1 [[VP35:%.*]] = icmp i64 [[VP3]] i64 15
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB3:BB[0-9]+]], total cost: 0
+; CHECK-NEXT:    Cost Unknown for i32 [[VP__RED_FINAL:%.*]] = reduction-final{u_add} i32 [[VP1]]
+; CHECK-NEXT:    Cost Unknown for i64 [[VP__IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
+; CHECK-NEXT:  Analyzing VPBasicBlock [[BB4:BB[0-9]+]], total cost: 0
+;
+entry:
+  br label %for.body
+
+for.cond.cleanup:                                 ; preds = %for.body
+  %add.lcssa = phi i32 [ %add, %for.body ]
+  ret i32 %add.lcssa
+
+for.body:                                         ; preds = %for.body, %entry
+  %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.body ]
+  %s.010 = phi i32 [ %t, %entry ], [ %add, %for.body ]
+
+  %arrayidx1.0 = getelementptr inbounds [1024 x i8], [1024 x i8]* @a, i64 0, i64 %indvars.iv
+  %val1.0 = load i8, i8* %arrayidx1.0, align 1
+  %conv.0 = zext i8 %val1.0 to i32
+  %arrayidx2.0 = getelementptr inbounds [1024 x i8], [1024 x i8]* @b, i64 0, i64 %indvars.iv
+  %val2.0 = load i8, i8* %arrayidx2.0, align 1
+  %conv3.0 = zext i8 %val2.0 to i32
+  %sub.0 = sub nsw i32 %conv.0, %conv3.0
+  %cmp.0 = icmp slt i32 %sub.0, 0
+  %neg.0 = sub nsw i32 0, %sub.0
+  %sel.0 = select i1 %cmp.0, i32 %neg.0, i32 %sub.0
+
+  %arrayidx1.1 = getelementptr inbounds [1024 x i8], [1024 x i8]* @a, i64 0, i64 %indvars.iv
+  %val1.1 = load i8, i8* %arrayidx1.1, align 1
+  %conv.1 = zext i8 %val1.1 to i32
+  %arrayidx2.1 = getelementptr inbounds [1024 x i8], [1024 x i8]* @b, i64 0, i64 %indvars.iv
+  %val2.1 = load i8, i8* %arrayidx2.1, align 1
+  %conv3.1 = zext i8 %val2.1 to i32
+  %sub.1 = sub nsw i32 %conv.1, %conv3.1
+  %cmp.1 = icmp slt i32 %sub.1, 0
+  %neg.1 = sub nsw i32 0, %sub.1
+  %sel.1 = select i1 %cmp.1, i32 %neg.1, i32 %sub.1
+
+  %arrayidx1.2 = getelementptr inbounds [1024 x i8], [1024 x i8]* @a, i64 0, i64 %indvars.iv
+  %val1.2 = load i8, i8* %arrayidx1.2, align 1
+  %conv.2 = zext i8 %val1.2 to i32
+  %arrayidx2.2 = getelementptr inbounds [1024 x i8], [1024 x i8]* @b, i64 0, i64 %indvars.iv
+  %val2.2 = load i8, i8* %arrayidx2.2, align 1
+  %conv3.2 = zext i8 %val2.2 to i32
+  %sub.2 = sub nsw i32 %conv.2, %conv3.2
+  %cmp.2 = icmp slt i32 %sub.2, 0
+  %neg.2 = sub nsw i32 0, %sub.2
+  %sel.2 = select i1 %cmp.2, i32 %neg.2, i32 %sub.2
+
+  %arrayidx1.3 = getelementptr inbounds [1024 x i8], [1024 x i8]* @a, i64 0, i64 %indvars.iv
+  %val1.3 = load i8, i8* %arrayidx1.3, align 1
+  %conv.3 = zext i8 %val1.3 to i32
+  %arrayidx2.3 = getelementptr inbounds [1024 x i8], [1024 x i8]* @b, i64 0, i64 %indvars.iv
+  %val2.3 = load i8, i8* %arrayidx2.3, align 1
+  %conv3.3 = zext i8 %val2.3 to i32
+  %sub.3 = sub nsw i32 %conv.3, %conv3.3
+  %cmp.3 = icmp slt i32 %sub.3, 0
+  %neg.3 = sub nsw i32 0, %sub.3
+  %sel.3 = select i1 %cmp.3, i32 %neg.3, i32 %sub.3
+
+  %add.1 = add nuw nsw i32 %sel.0, %sel.1
+  %add.2 = add nuw nsw i32 %sel.2, %sel.3
+  %add.3 = add nuw nsw i32 %add.1, %add.2
+
+  %add = add nuw nsw i32 %add.3, %s.010
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 16
   br i1 %exitcond, label %for.cond.cleanup, label %for.body
