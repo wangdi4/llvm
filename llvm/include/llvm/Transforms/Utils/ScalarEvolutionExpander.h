@@ -95,8 +95,10 @@ class SCEVExpander : public SCEVVisitor<SCEVExpander, Value *> {
   bool LSRMode;
 
   typedef IRBuilder<TargetFolder> BuilderType;
+  protected: // INTEL
   BuilderType Builder;
 
+  private: // INTEL
   // RAII object that stores the current insertion point and restores it when
   // the object is destroyed. This includes the debug location.  Duplicated
   // from InsertPointGuard to add SetInsertPoint() which is used to updated
@@ -129,112 +131,6 @@ class SCEVExpander : public SCEVVisitor<SCEVExpander, Value *> {
       Builder.SetCurrentDebugLocation(DbgLoc);
     }
 
-<<<<<<< HEAD
-  /// This class uses information about analyze scalars to rewrite expressions
-  /// in canonical form.
-  ///
-  /// Clients should create an instance of this class when rewriting is needed,
-  /// and destroy it when finished to allow the release of the associated
-  /// memory.
-  class SCEVExpander : public SCEVVisitor<SCEVExpander, Value*> {
-    ScalarEvolution &SE;
-    const DataLayout &DL;
-
-    // New instructions receive a name to identify them with the current pass.
-    const char* IVName;
-
-    // InsertedExpressions caches Values for reuse, so must track RAUW.
-    DenseMap<std::pair<const SCEV *, Instruction *>, TrackingVH<Value>>
-        InsertedExpressions;
-
-    // InsertedValues only flags inserted instructions so needs no RAUW.
-    DenseSet<AssertingVH<Value>> InsertedValues;
-    DenseSet<AssertingVH<Value>> InsertedPostIncValues;
-
-    /// A memoization of the "relevant" loop for a given SCEV.
-    DenseMap<const SCEV *, const Loop *> RelevantLoops;
-
-    /// Addrecs referring to any of the given loops are expanded in post-inc
-    /// mode. For example, expanding {1,+,1}<L> in post-inc mode returns the add
-    /// instruction that adds one to the phi for {0,+,1}<L>, as opposed to a new
-    /// phi starting at 1. This is only supported in non-canonical mode.
-    PostIncLoopSet PostIncLoops;
-
-    /// When this is non-null, addrecs expanded in the loop it indicates should
-    /// be inserted with increments at IVIncInsertPos.
-    const Loop *IVIncInsertLoop;
-
-    /// When expanding addrecs in the IVIncInsertLoop loop, insert the IV
-    /// increment at this position.
-    Instruction *IVIncInsertPos;
-
-    /// Phis that complete an IV chain. Reuse
-    DenseSet<AssertingVH<PHINode>> ChainedPhis;
-
-    /// When true, SCEVExpander tries to expand expressions in "canonical" form.
-    /// When false, expressions are expanded in a more literal form.
-    ///
-    /// In "canonical" form addrecs are expanded as arithmetic based on a
-    /// canonical induction variable. Note that CanonicalMode doesn't guarantee
-    /// that all expressions are expanded in "canonical" form. For some
-    /// expressions literal mode can be preferred.
-    bool CanonicalMode;
-
-    /// When invoked from LSR, the expander is in "strength reduction" mode. The
-    /// only difference is that phi's are only reused if they are already in
-    /// "expanded" form.
-    bool LSRMode;
-
-    typedef IRBuilder<TargetFolder> BuilderType;
-#if INTEL_CUSTOMIZATION
-protected:
-#endif
-    BuilderType Builder;
-
-#if INTEL_CUSTOMIZATION
-private:
-#endif
-
-    // RAII object that stores the current insertion point and restores it when
-    // the object is destroyed. This includes the debug location.  Duplicated
-    // from InsertPointGuard to add SetInsertPoint() which is used to updated
-    // InsertPointGuards stack when insert points are moved during SCEV
-    // expansion.
-    class SCEVInsertPointGuard {
-      IRBuilderBase &Builder;
-      AssertingVH<BasicBlock> Block;
-      BasicBlock::iterator Point;
-      DebugLoc DbgLoc;
-      SCEVExpander *SE;
-
-      SCEVInsertPointGuard(const SCEVInsertPointGuard &) = delete;
-      SCEVInsertPointGuard &operator=(const SCEVInsertPointGuard &) = delete;
-
-    public:
-      SCEVInsertPointGuard(IRBuilderBase &B, SCEVExpander *SE)
-          : Builder(B), Block(B.GetInsertBlock()), Point(B.GetInsertPoint()),
-            DbgLoc(B.getCurrentDebugLocation()), SE(SE) {
-        SE->InsertPointGuards.push_back(this);
-      }
-
-      ~SCEVInsertPointGuard() {
-        // These guards should always created/destroyed in FIFO order since they
-        // are used to guard lexically scoped blocks of code in
-        // ScalarEvolutionExpander.
-        assert(SE->InsertPointGuards.back() == this);
-        SE->InsertPointGuards.pop_back();
-        Builder.restoreIP(IRBuilderBase::InsertPoint(Block, Point));
-        Builder.SetCurrentDebugLocation(DbgLoc);
-      }
-
-      BasicBlock::iterator GetInsertPoint() const { return Point; }
-      void SetInsertPoint(BasicBlock::iterator I) { Point = I; }
-    };
-
-    /// Stack of pointers to saved insert points, used to keep insert points
-    /// consistent when instructions are moved.
-    SmallVector<SCEVInsertPointGuard *, 8> InsertPointGuards;
-=======
     BasicBlock::iterator GetInsertPoint() const { return Point; }
     void SetInsertPoint(BasicBlock::iterator I) { Point = I; }
   };
@@ -242,7 +138,6 @@ private:
   /// Stack of pointers to saved insert points, used to keep insert points
   /// consistent when instructions are moved.
   SmallVector<SCEVInsertPointGuard *, 8> InsertPointGuards;
->>>>>>> f78fe57aeb383146ec336af98af606e5c25417db
 
 #ifndef NDEBUG
   const char *DebugType;
@@ -262,17 +157,10 @@ public:
 #endif
   }
 
-<<<<<<< HEAD
-    virtual ~SCEVExpander() { // INTEL
-      // Make sure the insert point guard stack is consistent.
-      assert(InsertPointGuards.empty());
-    }
-=======
-  ~SCEVExpander() {
+  virtual ~SCEVExpander() { // INTEL
     // Make sure the insert point guard stack is consistent.
     assert(InsertPointGuards.empty());
   }
->>>>>>> f78fe57aeb383146ec336af98af606e5c25417db
 
 #ifndef NDEBUG
   void setDebugType(const char *s) { DebugType = s; }
@@ -483,82 +371,12 @@ private:
   ScalarEvolution::ValueOffsetPair
   FindValueInExprValueMap(const SCEV *S, const Instruction *InsertPt);
 
-  Value *expand(const SCEV *S);
+  virtual Value *expand(const SCEV *S); // INTEL
 
   /// Determine the most "relevant" loop for the given SCEV.
   const Loop *getRelevantLoop(const SCEV *);
 
-<<<<<<< HEAD
-    void setChainedPhi(PHINode *PN) { ChainedPhis.insert(PN); }
-
-    /// Try to find existing LLVM IR value for S available at the point At.
-    Value *getExactExistingExpansion(const SCEV *S, const Instruction *At,
-                                     Loop *L);
-
-    /// Try to find the ValueOffsetPair for S. The function is mainly used to
-    /// check whether S can be expanded cheaply.  If this returns a non-None
-    /// value, we know we can codegen the `ValueOffsetPair` into a suitable
-    /// expansion identical with S so that S can be expanded cheaply.
-    ///
-    /// L is a hint which tells in which loop to look for the suitable value.
-    /// On success return value which is equivalent to the expanded S at point
-    /// At. Return nullptr if value was not found.
-    ///
-    /// Note that this function does not perform an exhaustive search. I.e if it
-    /// didn't find any value it does not mean that there is no such value.
-    ///
-    Optional<ScalarEvolution::ValueOffsetPair>
-    getRelatedExistingExpansion(const SCEV *S, const Instruction *At, Loop *L);
-
-  private:
-    LLVMContext &getContext() const { return SE.getContext(); }
-
-    /// Recursive helper function for isHighCostExpansion.
-    bool isHighCostExpansionHelper(const SCEV *S, Loop *L,
-                                   const Instruction &At, int &BudgetRemaining,
-                                   const TargetTransformInfo &TTI,
-                                   SmallPtrSetImpl<const SCEV *> &Processed,
-                                   SmallVectorImpl<const SCEV *> &Worklist);
-
-    /// Insert the specified binary operator, doing a small amount of work to
-    /// avoid inserting an obviously redundant operation, and hoisting to an
-    /// outer loop when the opportunity is there and it is safe.
-    Value *InsertBinop(Instruction::BinaryOps Opcode, Value *LHS, Value *RHS,
-                       SCEV::NoWrapFlags Flags, bool IsSafeToHoist);
-
-    /// Arrange for there to be a cast of V to Ty at IP, reusing an existing
-    /// cast if a suitable one exists, moving an existing cast if a suitable one
-    /// exists but isn't in the right place, or creating a new one.
-    Value *ReuseOrCreateCast(Value *V, Type *Ty,
-                             Instruction::CastOps Op,
-                             BasicBlock::iterator IP);
-
-    /// Insert a cast of V to the specified type, which must be possible with a
-    /// noop cast, doing what we can to share the casts.
-    Value *InsertNoopCastOfTo(Value *V, Type *Ty);
-
-    /// Expand a SCEVAddExpr with a pointer type into a GEP instead of using
-    /// ptrtoint+arithmetic+inttoptr.
-    Value *expandAddToGEP(const SCEV *const *op_begin,
-                          const SCEV *const *op_end,
-                          PointerType *PTy, Type *Ty, Value *V);
-    Value *expandAddToGEP(const SCEV *Op, PointerType *PTy, Type *Ty, Value *V);
-
-    /// Find a previous Value in ExprValueMap for expand.
-    ScalarEvolution::ValueOffsetPair
-    FindValueInExprValueMap(const SCEV *S, const Instruction *InsertPt);
-
-    virtual Value *expand(const SCEV *S);         // INTEL
-
-    /// Determine the most "relevant" loop for the given SCEV.
-    const Loop *getRelevantLoop(const SCEV *);
-
-    Value *visitConstant(const SCEVConstant *S) {
-      return S->getValue();
-    }
-=======
   Value *visitConstant(const SCEVConstant *S) { return S->getValue(); }
->>>>>>> f78fe57aeb383146ec336af98af606e5c25417db
 
   Value *visitTruncateExpr(const SCEVTruncateExpr *S);
 
@@ -582,16 +400,9 @@ private:
 
   Value *visitUMinExpr(const SCEVUMinExpr *S);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-    virtual
-#endif
-    Value *visitUnknown(const SCEVUnknown *S) {
-      return S->getValue();
-    }
-=======
-  Value *visitUnknown(const SCEVUnknown *S) { return S->getValue(); }
->>>>>>> f78fe57aeb383146ec336af98af606e5c25417db
+  virtual Value *visitUnknown(const SCEVUnknown *S) { return S->getValue(); }
+#endif // INTEL_CUSTOMIZATION
 
   void rememberInstruction(Value *I);
 
