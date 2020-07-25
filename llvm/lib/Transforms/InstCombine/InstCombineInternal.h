@@ -15,39 +15,31 @@
 #ifndef LLVM_LIB_TRANSFORMS_INSTCOMBINE_INSTCOMBINEINTERNAL_H
 #define LLVM_LIB_TRANSFORMS_INSTCOMBINE_INSTCOMBINEINTERNAL_H
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/TargetFolder.h"
 #include "llvm/Analysis/ValueTracking.h"
-#include "llvm/IR/Argument.h"
-#include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/Constant.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstVisitor.h"
-#include "llvm/IR/InstrTypes.h"
-#include "llvm/IR/Instruction.h"
-#include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/PatternMatch.h"
-#include "llvm/IR/Use.h"
-#include "llvm/IR/Value.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/KnownBits.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/InstCombine/InstCombineWorklist.h"
+#include "llvm/Transforms/InstCombine/InstCombiner.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include <cassert>
-#include <cstdint>
 
 #define DEBUG_TYPE "instcombine"
 
 using namespace llvm::PatternMatch;
+
+// As a default, let's assume that we want to be aggressive,
+// and attempt to traverse with no limits in attempt to sink negation.
+static constexpr unsigned NegatorDefaultMaxDepth = ~0U;
+
+// Let's guesstimate that most often we will end up visiting/producing
+// fairly small number of new instructions.
+static constexpr unsigned NegatorMaxNodesSSO = 16;
 
 namespace llvm {
 
@@ -66,6 +58,7 @@ class TargetLibraryInfo;
 class TargetTransformInfo; // INTEL
 class User;
 
+<<<<<<< HEAD
 /// Assign a complexity or rank value to LLVM Values. This is used to reduce
 /// the amount of pattern matching needed for compares and commutative
 /// instructions. For example, if we have:
@@ -359,12 +352,29 @@ public:
         TTI(TTI), DT(DT), DL(DL), SQ(DL, &TLI, &DT, &AC,   // INTEL
                                      nullptr, true, &TTI), // INTEL
         ORE(ORE), BFI(BFI), PSI(PSI), LI(LI) {}            // INTEL
+=======
+class LLVM_LIBRARY_VISIBILITY InstCombinerImpl final
+    : public InstCombiner,
+      public InstVisitor<InstCombinerImpl, Instruction *> {
+public:
+  InstCombinerImpl(InstCombineWorklist &Worklist, BuilderTy &Builder,
+                   bool MinimizeSize, AAResults *AA, AssumptionCache &AC,
+                   TargetLibraryInfo &TLI, TargetTransformInfo &TTI,
+                   DominatorTree &DT, OptimizationRemarkEmitter &ORE,
+                   BlockFrequencyInfo *BFI, ProfileSummaryInfo *PSI,
+                   const DataLayout &DL, LoopInfo *LI)
+      : InstCombiner(Worklist, Builder, MinimizeSize, AA, AC, TLI, TTI, DT, ORE,
+                     BFI, PSI, DL, LI) {}
+
+  virtual ~InstCombinerImpl() {}
+>>>>>>> 2a6c871596ce8bdd23501a96fd22f0f16d3cfcad
 
   /// Run the combiner over the entire worklist until it is empty.
   ///
   /// \returns true if the IR is changed.
   bool run();
 
+<<<<<<< HEAD
   AssumptionCache &getAssumptionCache() const { return AC; }
 
   const DataLayout &getDataLayout() const { return DL; }
@@ -377,6 +387,8 @@ public:
 
   TargetTransformInfo &getTargetTransformInfo() const { return TTI; } // INTEL
 
+=======
+>>>>>>> 2a6c871596ce8bdd23501a96fd22f0f16d3cfcad
   // Visitation implementation - Implement instruction combining for different
   // instruction types.  The semantics are as follows:
   // Return Value:
@@ -772,7 +784,7 @@ public:
   /// When dealing with an instruction that has side effects or produces a void
   /// value, we can't rely on DCE to delete the instruction. Instead, visit
   /// methods should return the value returned by this function.
-  Instruction *eraseInstFromFunction(Instruction &I) {
+  Instruction *eraseInstFromFunction(Instruction &I) override {
     LLVM_DEBUG(dbgs() << "IC: ERASE " << I << '\n');
     assert(I.use_empty() && "Cannot erase instruction that is used!");
     salvageDebugInfo(I);
@@ -854,10 +866,6 @@ public:
       Instruction::BinaryOps BinaryOp, bool IsSigned,
       Value *LHS, Value *RHS, Instruction *CxtI) const;
 
-  /// Maximum size of array considered when transforming.
-  uint64_t MaxArraySizeForCombine = 0;
-
-private:
   /// Performs a few simplifications for operators which are associative
   /// or commutative.
   bool SimplifyAssociativeOrCommutative(BinaryOperator &I);
@@ -903,7 +911,7 @@ private:
                                  unsigned Depth, Instruction *CxtI);
   bool SimplifyDemandedBits(Instruction *I, unsigned Op,
                             const APInt &DemandedMask, KnownBits &Known,
-                            unsigned Depth = 0);
+                            unsigned Depth = 0) override;
 
   /// Helper routine of SimplifyDemandedUseBits. It computes KnownZero/KnownOne
   /// bits. It also tries to handle simplifications that can be done based on
@@ -923,13 +931,10 @@ private:
   /// demanded bits.
   bool SimplifyDemandedInstructionBits(Instruction &Inst);
 
-  Value *simplifyAMDGCNMemoryIntrinsicDemanded(IntrinsicInst *II,
-                                               APInt DemandedElts,
-                                               int DmaskIdx = -1);
-
-  Value *SimplifyDemandedVectorElts(Value *V, APInt DemandedElts,
-                                    APInt &UndefElts, unsigned Depth = 0,
-                                    bool AllowMultipleUsers = false);
+  virtual Value *
+  SimplifyDemandedVectorElts(Value *V, APInt DemandedElts, APInt &UndefElts,
+                             unsigned Depth = 0,
+                             bool AllowMultipleUsers = false) override;
 
   /// Canonicalize the position of binops relative to shufflevector.
   Instruction *foldVectorBinop(BinaryOperator &Inst);
@@ -1079,18 +1084,6 @@ private:
 #endif // INTEL_CUSTOMIZATION
 };
 
-namespace {
-
-// As a default, let's assume that we want to be aggressive,
-// and attempt to traverse with no limits in attempt to sink negation.
-static constexpr unsigned NegatorDefaultMaxDepth = ~0U;
-
-// Let's guesstimate that most often we will end up visiting/producing
-// fairly small number of new instructions.
-static constexpr unsigned NegatorMaxNodesSSO = 16;
-
-} // namespace
-
 class Negator final {
   /// Top-to-bottom, def-to-use negated instruction tree we produced.
   SmallVector<Instruction *, NegatorMaxNodesSSO> NewInstructions;
@@ -1134,7 +1127,7 @@ public:
   /// Attempt to negate \p Root. Retuns nullptr if negation can't be performed,
   /// otherwise returns negated value.
   LLVM_NODISCARD static Value *Negate(bool LHSIsZero, Value *Root,
-                                      InstCombiner &IC);
+                                      InstCombinerImpl &IC);
 };
 
 } // end namespace llvm

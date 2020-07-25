@@ -62,7 +62,11 @@
 #include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/Analysis/TargetFolder.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+<<<<<<< HEAD
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h" // INTEL
+=======
+#include "llvm/Analysis/TargetTransformInfo.h"
+>>>>>>> 2a6c871596ce8bdd23501a96fd22f0f16d3cfcad
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Analysis/VectorUtils.h"
 #if INTEL_COLLAB
@@ -181,7 +185,41 @@ MaxArraySize("instcombine-maxarray-size", cl::init(1024),
 static cl::opt<unsigned> ShouldLowerDbgDeclare("instcombine-lower-dbg-declare",
                                                cl::Hidden, cl::init(true));
 
-Value *InstCombiner::EmitGEPOffset(User *GEP) {
+Optional<Instruction *>
+InstCombiner::targetInstCombineIntrinsic(IntrinsicInst &II) {
+  // Handle target specific intrinsics
+  if (II.getCalledFunction()->isTargetIntrinsic()) {
+    return TTI.instCombineIntrinsic(*this, II);
+  }
+  return None;
+}
+
+Optional<Value *> InstCombiner::targetSimplifyDemandedUseBitsIntrinsic(
+    IntrinsicInst &II, APInt DemandedMask, KnownBits &Known,
+    bool &KnownBitsComputed) {
+  // Handle target specific intrinsics
+  if (II.getCalledFunction()->isTargetIntrinsic()) {
+    return TTI.simplifyDemandedUseBitsIntrinsic(*this, II, DemandedMask, Known,
+                                                KnownBitsComputed);
+  }
+  return None;
+}
+
+Optional<Value *> InstCombiner::targetSimplifyDemandedVectorEltsIntrinsic(
+    IntrinsicInst &II, APInt DemandedElts, APInt &UndefElts, APInt &UndefElts2,
+    APInt &UndefElts3,
+    std::function<void(Instruction *, unsigned, APInt, APInt &)>
+        SimplifyAndSetOp) {
+  // Handle target specific intrinsics
+  if (II.getCalledFunction()->isTargetIntrinsic()) {
+    return TTI.simplifyDemandedVectorEltsIntrinsic(
+        *this, II, DemandedElts, UndefElts, UndefElts2, UndefElts3,
+        SimplifyAndSetOp);
+  }
+  return None;
+}
+
+Value *InstCombinerImpl::EmitGEPOffset(User *GEP) {
   return llvm::EmitGEPOffset(&Builder, DL, GEP);
 }
 
@@ -194,8 +232,8 @@ Value *InstCombiner::EmitGEPOffset(User *GEP) {
 /// legal to convert to, in order to open up more combining opportunities.
 /// NOTE: this treats i8, i16 and i32 specially, due to them being so common
 /// from frontend languages.
-bool InstCombiner::shouldChangeType(unsigned FromWidth,
-                                    unsigned ToWidth) const {
+bool InstCombinerImpl::shouldChangeType(unsigned FromWidth,
+                                        unsigned ToWidth) const {
   bool FromLegal = FromWidth == 1 || DL.isLegalInteger(FromWidth);
   bool ToLegal = ToWidth == 1 || DL.isLegalInteger(ToWidth);
 
@@ -222,7 +260,7 @@ bool InstCombiner::shouldChangeType(unsigned FromWidth,
 /// to a larger illegal type. i1 is always treated as a legal type because it is
 /// a fundamental type in IR, and there are many specialized optimizations for
 /// i1 types.
-bool InstCombiner::shouldChangeType(Type *From, Type *To) const {
+bool InstCombinerImpl::shouldChangeType(Type *From, Type *To) const {
   // TODO: This could be extended to allow vectors. Datalayout changes might be
   // needed to properly support that.
   if (!From->isIntegerTy() || !To->isIntegerTy())
@@ -290,7 +328,8 @@ static void ClearSubclassDataAfterReassociation(BinaryOperator &I) {
 /// cast to eliminate one of the associative operations:
 /// (op (cast (op X, C2)), C1) --> (cast (op X, op (C1, C2)))
 /// (op (cast (op X, C2)), C1) --> (op (cast X), op (C1, C2))
-static bool simplifyAssocCastAssoc(BinaryOperator *BinOp1, InstCombiner &IC) {
+static bool simplifyAssocCastAssoc(BinaryOperator *BinOp1,
+                                   InstCombinerImpl &IC) {
   auto *Cast = dyn_cast<CastInst>(BinOp1->getOperand(0));
   if (!Cast || !Cast->hasOneUse())
     return false;
@@ -348,7 +387,7 @@ static bool simplifyAssocCastAssoc(BinaryOperator *BinOp1, InstCombiner &IC) {
 ///  5. Transform: "A op (B op C)" ==> "B op (C op A)" if "C op A" simplifies.
 ///  6. Transform: "(A op C1) op (B op C2)" ==> "(A op B) op (C1 op C2)"
 ///     if C1 and C2 are constants.
-bool InstCombiner::SimplifyAssociativeOrCommutative(BinaryOperator &I) {
+bool InstCombinerImpl::SimplifyAssociativeOrCommutative(BinaryOperator &I) {
   Instruction::BinaryOps Opcode = I.getOpcode();
   bool Changed = false;
 
@@ -576,9 +615,10 @@ getBinOpsForFactorization(Instruction::BinaryOps TopOpcode, BinaryOperator *Op,
 
 /// This tries to simplify binary operations by factorizing out common terms
 /// (e. g. "(A*B)+(A*C)" -> "A*(B+C)").
-Value *InstCombiner::tryFactorization(BinaryOperator &I,
-                                      Instruction::BinaryOps InnerOpcode,
-                                      Value *A, Value *B, Value *C, Value *D) {
+Value *InstCombinerImpl::tryFactorization(BinaryOperator &I,
+                                          Instruction::BinaryOps InnerOpcode,
+                                          Value *A, Value *B, Value *C,
+                                          Value *D) {
   assert(A && B && C && D && "All values must be provided");
 
   Value *V = nullptr;
@@ -681,7 +721,7 @@ Value *InstCombiner::tryFactorization(BinaryOperator &I,
 /// (eg "(A*B)+(A*C)" -> "A*(B+C)") or expanding out if this results in
 /// simplifications (eg: "A & (B | C) -> (A&B) | (A&C)" if this is a win).
 /// Returns the simplified value, or null if it didn't simplify.
-Value *InstCombiner::SimplifyUsingDistributiveLaws(BinaryOperator &I) {
+Value *InstCombinerImpl::SimplifyUsingDistributiveLaws(BinaryOperator &I) {
   Value *LHS = I.getOperand(0), *RHS = I.getOperand(1);
   BinaryOperator *Op0 = dyn_cast<BinaryOperator>(LHS);
   BinaryOperator *Op1 = dyn_cast<BinaryOperator>(RHS);
@@ -795,8 +835,9 @@ Value *InstCombiner::SimplifyUsingDistributiveLaws(BinaryOperator &I) {
   return SimplifySelectsFeedingBinaryOp(I, LHS, RHS);
 }
 
-Value *InstCombiner::SimplifySelectsFeedingBinaryOp(BinaryOperator &I,
-                                                    Value *LHS, Value *RHS) {
+Value *InstCombinerImpl::SimplifySelectsFeedingBinaryOp(BinaryOperator &I,
+                                                        Value *LHS,
+                                                        Value *RHS) {
   Value *A, *B, *C, *D, *E, *F;
   bool LHSIsSelect = match(LHS, m_Select(m_Value(A), m_Value(B), m_Value(C)));
   bool RHSIsSelect = match(RHS, m_Select(m_Value(D), m_Value(E), m_Value(F)));
@@ -848,7 +889,7 @@ Value *InstCombiner::SimplifySelectsFeedingBinaryOp(BinaryOperator &I,
 
 /// Given a 'sub' instruction, return the RHS of the instruction if the LHS is a
 /// constant zero (which is the 'negate' form).
-Value *InstCombiner::dyn_castNegVal(Value *V) const {
+Value *InstCombinerImpl::dyn_castNegVal(Value *V) const {
   Value *NegV;
   if (match(V, m_Neg(m_Value(NegV))))
     return NegV;
@@ -909,7 +950,8 @@ static Value *foldOperationIntoSelectOperand(Instruction &I, Value *SO,
   return RI;
 }
 
-Instruction *InstCombiner::FoldOpIntoSelect(Instruction &Op, SelectInst *SI) {
+Instruction *InstCombinerImpl::FoldOpIntoSelect(Instruction &Op,
+                                                SelectInst *SI) {
   // Don't modify shared select instructions.
   if (!SI->hasOneUse())
     return nullptr;
@@ -1004,7 +1046,7 @@ static Value *foldOperationIntoPhiValue(BinaryOperator *I, Value *InV,
   return RI;
 }
 
-Instruction *InstCombiner::foldOpIntoPhi(Instruction &I, PHINode *PN) {
+Instruction *InstCombinerImpl::foldOpIntoPhi(Instruction &I, PHINode *PN) {
   unsigned NumPHIValues = PN->getNumIncomingValues();
   if (NumPHIValues == 0)
     return nullptr;
@@ -1146,7 +1188,7 @@ Instruction *InstCombiner::foldOpIntoPhi(Instruction &I, PHINode *PN) {
   return replaceInstUsesWith(I, NewPN);
 }
 
-Instruction *InstCombiner::foldBinOpIntoSelectOrPhi(BinaryOperator &I) {
+Instruction *InstCombinerImpl::foldBinOpIntoSelectOrPhi(BinaryOperator &I) {
   if (!isa<Constant>(I.getOperand(1)))
     return nullptr;
 
@@ -1164,8 +1206,9 @@ Instruction *InstCombiner::foldBinOpIntoSelectOrPhi(BinaryOperator &I) {
 /// is a sequence of GEP indices into the pointed type that will land us at the
 /// specified offset. If so, fill them into NewIndices and return the resultant
 /// element type, otherwise return null.
-Type *InstCombiner::FindElementAtOffset(PointerType *PtrTy, int64_t Offset,
-                                        SmallVectorImpl<Value *> &NewIndices) {
+Type *
+InstCombinerImpl::FindElementAtOffset(PointerType *PtrTy, int64_t Offset,
+                                      SmallVectorImpl<Value *> &NewIndices) {
   Type *Ty = PtrTy->getElementType();
   if (!Ty->isSized())
     return nullptr;
@@ -1234,6 +1277,7 @@ static bool shouldMergeGEPs(GEPOperator &GEP, GEPOperator &Src) {
 
 /// Return a value X such that Val = X * Scale, or null if none.
 /// If the multiplication is known not to overflow, then NoSignedWrap is set.
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // If TestOnly is true, then Descale will make no modifications: instead, it
 // will test whether or not Val can be Descaled. If it can be Descaled, a
@@ -1243,6 +1287,9 @@ static bool shouldMergeGEPs(GEPOperator &GEP, GEPOperator &Src) {
 Value *InstCombiner::Descale(Value *Val, APInt Scale, bool &NoSignedWrap,
                              bool TestOnly) {
 #endif // INTEL_CUSTOMIZATION
+=======
+Value *InstCombinerImpl::Descale(Value *Val, APInt Scale, bool &NoSignedWrap) {
+>>>>>>> 2a6c871596ce8bdd23501a96fd22f0f16d3cfcad
   assert(isa<IntegerType>(Val->getType()) && "Can only descale integers!");
   assert(cast<IntegerType>(Val->getType())->getBitWidth() ==
          Scale.getBitWidth() && "Scale not compatible with value!");
@@ -1592,7 +1639,7 @@ Value *InstCombiner::Descale(Value *Val, APInt Scale, bool &NoSignedWrap,
   } while (true);
 }
 
-Instruction *InstCombiner::foldVectorBinop(BinaryOperator &Inst) {
+Instruction *InstCombinerImpl::foldVectorBinop(BinaryOperator &Inst) {
   // FIXME: some of this is likely fine for scalable vectors
   if (!isa<FixedVectorType>(Inst.getType()))
     return nullptr;
@@ -1814,7 +1861,7 @@ Instruction *InstCombiner::foldVectorBinop(BinaryOperator &Inst) {
 /// Try to narrow the width of a binop if at least 1 operand is an extend of
 /// of a value. This requires a potentially expensive known bits check to make
 /// sure the narrow op does not overflow.
-Instruction *InstCombiner::narrowMathIfNoOverflow(BinaryOperator &BO) {
+Instruction *InstCombinerImpl::narrowMathIfNoOverflow(BinaryOperator &BO) {
   // We need at least one extended operand.
   Value *Op0 = BO.getOperand(0), *Op1 = BO.getOperand(1);
 
@@ -1940,7 +1987,7 @@ static Instruction *foldSelectGEP(GetElementPtrInst &GEP,
   return SelectInst::Create(Cond, NewTrueC, NewFalseC, "", nullptr, Sel);
 }
 
-Instruction *InstCombiner::visitGetElementPtrInst(GetElementPtrInst &GEP) {
+Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
   SmallVector<Value*, 8> Ops(GEP.op_begin(), GEP.op_end());
   Type *GEPType = GEP.getType();
   Type *GEPEltType = GEP.getSourceElementType();
@@ -2709,7 +2756,7 @@ static bool isAllocSiteRemovable(Instruction *AI,
   return true;
 }
 
-Instruction *InstCombiner::visitAllocSite(Instruction &MI) {
+Instruction *InstCombinerImpl::visitAllocSite(Instruction &MI) {
   // If we have a malloc call which is only used in any amount of comparisons to
   // null and free calls, delete the calls and replace the comparisons with true
   // or false as appropriate.
@@ -2868,7 +2915,7 @@ static Instruction *tryToMoveFreeBeforeNullTest(CallInst &FI,
   return &FI;
 }
 
-Instruction *InstCombiner::visitFree(CallInst &FI) {
+Instruction *InstCombinerImpl::visitFree(CallInst &FI) {
   Value *Op = FI.getArgOperand(0);
 
   // free undef -> unreachable.
@@ -2909,7 +2956,7 @@ static bool isMustTailCall(Value *V) {
   return false;
 }
 
-Instruction *InstCombiner::visitReturnInst(ReturnInst &RI) {
+Instruction *InstCombinerImpl::visitReturnInst(ReturnInst &RI) {
   if (RI.getNumOperands() == 0) // ret void
     return nullptr;
 
@@ -2932,7 +2979,7 @@ Instruction *InstCombiner::visitReturnInst(ReturnInst &RI) {
   return nullptr;
 }
 
-Instruction *InstCombiner::visitUnconditionalBranchInst(BranchInst &BI) {
+Instruction *InstCombinerImpl::visitUnconditionalBranchInst(BranchInst &BI) {
   assert(BI.isUnconditional() && "Only for unconditional branches.");
 
   // If this store is the second-to-last instruction in the basic block
@@ -2961,7 +3008,7 @@ Instruction *InstCombiner::visitUnconditionalBranchInst(BranchInst &BI) {
   return nullptr;
 }
 
-Instruction *InstCombiner::visitBranchInst(BranchInst &BI) {
+Instruction *InstCombinerImpl::visitBranchInst(BranchInst &BI) {
   if (BI.isUnconditional())
     return visitUnconditionalBranchInst(BI);
 
@@ -2999,7 +3046,7 @@ Instruction *InstCombiner::visitBranchInst(BranchInst &BI) {
   return nullptr;
 }
 
-Instruction *InstCombiner::visitSwitchInst(SwitchInst &SI) {
+Instruction *InstCombinerImpl::visitSwitchInst(SwitchInst &SI) {
   Value *Cond = SI.getCondition();
   Value *Op0;
   ConstantInt *AddRHS;
@@ -3030,7 +3077,7 @@ Instruction *InstCombiner::visitSwitchInst(SwitchInst &SI) {
   unsigned NewWidth = Known.getBitWidth() - std::max(LeadingKnownZeros, LeadingKnownOnes);
 
   // Shrink the condition operand if the new type is smaller than the old type.
-  // But do not shrink to a non-standard type, because backend can't generate 
+  // But do not shrink to a non-standard type, because backend can't generate
   // good code for that yet.
   // TODO: We can make it aggressive again after fixing PR39569.
   if (NewWidth > 0 && NewWidth < Known.getBitWidth() &&
@@ -3049,7 +3096,7 @@ Instruction *InstCombiner::visitSwitchInst(SwitchInst &SI) {
   return nullptr;
 }
 
-Instruction *InstCombiner::visitExtractValueInst(ExtractValueInst &EV) {
+Instruction *InstCombinerImpl::visitExtractValueInst(ExtractValueInst &EV) {
   Value *Agg = EV.getAggregateOperand();
 
   if (!EV.hasIndices())
@@ -3210,7 +3257,7 @@ static bool shorter_filter(const Value *LHS, const Value *RHS) {
     cast<ArrayType>(RHS->getType())->getNumElements();
 }
 
-Instruction *InstCombiner::visitLandingPadInst(LandingPadInst &LI) {
+Instruction *InstCombinerImpl::visitLandingPadInst(LandingPadInst &LI) {
   // The logic here should be correct for any real-world personality function.
   // However if that turns out not to be true, the offending logic can always
   // be conditioned on the personality function, like the catch-all logic is.
@@ -3519,7 +3566,7 @@ Instruction *InstCombiner::visitLandingPadInst(LandingPadInst &LI) {
   return nullptr;
 }
 
-Instruction *InstCombiner::visitFreeze(FreezeInst &I) {
+Instruction *InstCombinerImpl::visitFreeze(FreezeInst &I) {
   Value *Op0 = I.getOperand(0);
 
   if (Value *V = SimplifyFreezeInst(Op0, SQ.getWithInstruction(&I)))
@@ -3644,7 +3691,7 @@ static bool TryToSinkInstruction(Instruction *I, BasicBlock *DestBlock) {
   return true;
 }
 
-bool InstCombiner::run() {
+bool InstCombinerImpl::run() {
   while (!Worklist.isEmpty()) {
     // Walk deferred instructions in reverse order, and push them to the
     // worklist, which means they'll end up popped from the worklist in-order.
@@ -3927,11 +3974,17 @@ static bool prepareICWorklistFromFunction(Function &F, const DataLayout &DL,
 
 static bool combineInstructionsOverFunction(
     Function &F, InstCombineWorklist &Worklist, AliasAnalysis *AA,
+<<<<<<< HEAD
     AssumptionCache &AC, TargetLibraryInfo &TLI, // INTEL
     TargetTransformInfo &TTI, DominatorTree &DT, // INTEL
     OptimizationRemarkEmitter &ORE, BlockFrequencyInfo *BFI,
     ProfileSummaryInfo *PSI, unsigned MaxIterations, // INTEL
     bool TypeLoweringOpts, LoopInfo *LI) { // INTEL
+=======
+    AssumptionCache &AC, TargetLibraryInfo &TLI, TargetTransformInfo &TTI,
+    DominatorTree &DT, OptimizationRemarkEmitter &ORE, BlockFrequencyInfo *BFI,
+    ProfileSummaryInfo *PSI, unsigned MaxIterations, LoopInfo *LI) {
+>>>>>>> 2a6c871596ce8bdd23501a96fd22f0f16d3cfcad
   auto &DL = F.getParent()->getDataLayout();
   MaxIterations = std::min(MaxIterations, LimitMaxIterations.getValue());
   if (DisableTypeLoweringOpts)      // INTEL
@@ -3976,9 +4029,14 @@ static bool combineInstructionsOverFunction(
 
     MadeIRChange |= prepareICWorklistFromFunction(F, DL, &TLI, Worklist);
 
+<<<<<<< HEAD
     InstCombiner IC(Worklist, Builder, F.hasMinSize(),            // INTEL
                     TypeLoweringOpts, AA,                         // INTEL
                     AC, TLI, TTI, DT, ORE, BFI, PSI, DL, LI);     // INTEL
+=======
+    InstCombinerImpl IC(Worklist, Builder, F.hasMinSize(), AA, AC, TLI, TTI, DT,
+                        ORE, BFI, PSI, DL, LI);
+>>>>>>> 2a6c871596ce8bdd23501a96fd22f0f16d3cfcad
     IC.MaxArraySizeForCombine = MaxArraySize;
 
     if (!IC.run())
@@ -4008,6 +4066,7 @@ PreservedAnalyses InstCombinePass::run(Function &F,
   auto &TLI = AM.getResult<TargetLibraryAnalysis>(F);
   auto &TTI = AM.getResult<TargetIRAnalysis>(F); // INTEL
   auto &ORE = AM.getResult<OptimizationRemarkEmitterAnalysis>(F);
+  auto &TTI = AM.getResult<TargetIRAnalysis>(F);
 
   auto *LI = AM.getCachedResult<LoopAnalysis>(F);
 
@@ -4018,10 +4077,15 @@ PreservedAnalyses InstCombinePass::run(Function &F,
   auto *BFI = (PSI && PSI->hasProfileSummary()) ?
       &AM.getResult<BlockFrequencyAnalysis>(F) : nullptr;
 
+<<<<<<< HEAD
   if (!combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI, // INTEL
                                        DT, ORE, BFI, PSI,             // INTEL
                                        MaxIterations,                 // INTEL
                                        TypeLoweringOpts, LI))         // INTEL
+=======
+  if (!combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI, DT, ORE,
+                                       BFI, PSI, MaxIterations, LI))
+>>>>>>> 2a6c871596ce8bdd23501a96fd22f0f16d3cfcad
     // No changes, all analyses are preserved.
     return PreservedAnalyses::all();
 
@@ -4041,7 +4105,11 @@ void InstructionCombiningPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<AAResultsWrapperPass>();
   AU.addRequired<AssumptionCacheTracker>();
   AU.addRequired<TargetLibraryInfoWrapperPass>();
+<<<<<<< HEAD
   AU.addRequired<TargetTransformInfoWrapperPass>(); // INTEL
+=======
+  AU.addRequired<TargetTransformInfoWrapperPass>();
+>>>>>>> 2a6c871596ce8bdd23501a96fd22f0f16d3cfcad
   AU.addRequired<DominatorTreeWrapperPass>();
   AU.addRequired<OptimizationRemarkEmitterWrapperPass>();
   AU.addPreserved<DominatorTreeWrapperPass>();
@@ -4062,7 +4130,11 @@ bool InstructionCombiningPass::runOnFunction(Function &F) {
   auto AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
   auto &AC = getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
   auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
+<<<<<<< HEAD
   auto &TTI = getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F); // INTEL
+=======
+  auto &TTI = getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
+>>>>>>> 2a6c871596ce8bdd23501a96fd22f0f16d3cfcad
   auto &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   auto &ORE = getAnalysis<OptimizationRemarkEmitterWrapperPass>().getORE();
 
@@ -4076,10 +4148,15 @@ bool InstructionCombiningPass::runOnFunction(Function &F) {
       &getAnalysis<LazyBlockFrequencyInfoPass>().getBFI() :
       nullptr;
 
+<<<<<<< HEAD
   return combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI, // INTEL
                                          DT, ORE, BFI, PSI,             // INTEL
                                          MaxIterations,                 // INTEL
                                          TypeLoweringOpts, LI);         // INTEL
+=======
+  return combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, TTI, DT, ORE,
+                                         BFI, PSI, MaxIterations, LI);
+>>>>>>> 2a6c871596ce8bdd23501a96fd22f0f16d3cfcad
 }
 
 char InstructionCombiningPass::ID = 0;
@@ -4101,7 +4178,11 @@ INITIALIZE_PASS_BEGIN(InstructionCombiningPass, "instcombine",
                       "Combine redundant instructions", false, false)
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+<<<<<<< HEAD
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass) //INTEL
+=======
+INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
+>>>>>>> 2a6c871596ce8bdd23501a96fd22f0f16d3cfcad
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(GlobalsAAWrapperPass)
