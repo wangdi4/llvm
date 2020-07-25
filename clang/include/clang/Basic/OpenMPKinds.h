@@ -188,7 +188,8 @@ bool isAllowedInTBBSubset(OpenMPDirectiveKind DKind);
 bool isAllowedInSPIRSubset(OpenMPDirectiveKind DKind);
 #endif //INTEL_CUSTOMIZATION
 
-unsigned getOpenMPSimpleClauseType(OpenMPClauseKind Kind, llvm::StringRef Str);
+unsigned getOpenMPSimpleClauseType(OpenMPClauseKind Kind, llvm::StringRef Str,
+                                   unsigned OpenMPVersion);
 const char *getOpenMPSimpleClauseTypeName(OpenMPClauseKind Kind, unsigned Type);
 
 /// Checks if the specified directive is a directive with an associated
