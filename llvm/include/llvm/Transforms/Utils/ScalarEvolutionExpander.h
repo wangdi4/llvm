@@ -94,8 +94,12 @@ class SCEVExpander : public SCEVVisitor<SCEVExpander, Value *> {
   /// "expanded" form.
   bool LSRMode;
 
+<<<<<<< HEAD
   typedef IRBuilder<TargetFolder> BuilderType;
   protected: // INTEL
+=======
+  typedef IRBuilder<TargetFolder, IRBuilderCallbackInserter> BuilderType;
+>>>>>>> ecd3f853a85fcfc953046ebff774a1c47295b2ca
   BuilderType Builder;
 
   private: // INTEL
@@ -151,7 +155,9 @@ public:
                         const char *name)
       : SE(se), DL(DL), IVName(name), IVIncInsertLoop(nullptr),
         IVIncInsertPos(nullptr), CanonicalMode(true), LSRMode(false),
-        Builder(se.getContext(), TargetFolder(DL)) {
+        Builder(se.getContext(), TargetFolder(DL),
+                IRBuilderCallbackInserter(
+                    [this](Instruction *I) { rememberInstruction(I); })) {
 #ifndef NDEBUG
     DebugType = "";
 #endif
