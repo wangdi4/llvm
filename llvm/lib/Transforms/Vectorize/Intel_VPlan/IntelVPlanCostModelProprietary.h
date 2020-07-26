@@ -64,14 +64,16 @@ private:
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   // Implements basic register pressure calculation pass.
-  // Bothers vector registers only currently.
+  // Calculates the pressure of Vector Instructions only if VectorInsts is
+  // true. Calculates scalar instructions pressure otherwise.
   // LiveValues map contains the liveness of the given instruction multiplied
   // by its legalization factor.  The map contains LiveOut values for the block
   // on input of getSpillFillCost(Block, LiveValues) and the map is updated
   // by getSpillFillCost() and contains LiveIn values after the call.
   unsigned getSpillFillCost(
     const VPBasicBlock *VPBlock,
-    DenseMap<const VPInstruction*, int /* legalization factor */> &LiveValues);
+    DenseMap<const VPInstruction*, int /* legalization factor */> &LiveValues,
+    bool VectorInsts);
   unsigned getSpillFillCost(void);
 
   // Consolidates proprietary code that gets the cost of one operand or two
