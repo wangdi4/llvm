@@ -341,8 +341,13 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
 
 void LoopVectorizationPlanner::createLiveInOutLists(VPlan &Plan) {
   VPLiveInOutCreator LICreator(Plan);
-  LICreator.createInOutValues();
+  LICreator.createInOutValues(TheLoop);
   VPLAN_DUMP(LiveInOutListsDumpControl, Plan);
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  if (LiveInOutListsDumpControl.dumpPlain())
+    Plan.getExternals().dumpScalarInOuts(outs(), TheLoop);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 }
 
 void LoopVectorizationPlanner::selectBestPeelingVariants() {

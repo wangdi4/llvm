@@ -81,6 +81,9 @@ static cl::opt<bool>
                           cl::Hidden,
                           cl::desc("Enable analysis to compute scalar/vector "
                                    "nature of instructions in VPlan."));
+static cl::opt<bool> DumpVPlanLiveInsLiveOuts(
+    "vplan-dump-live-inout", cl::init(false), cl::Hidden,
+    cl::desc("Print live-ins and live-outs of main loop"));
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 raw_ostream &llvm::vpo::operator<<(raw_ostream &OS, const VPValue &V) {
@@ -848,7 +851,8 @@ void VPlan::dump(raw_ostream &OS) const {
   if (DumpExternalDefsHIR)
     Externals.dumpExternalDefs(FOS);
 
-  printLiveIns(FOS);
+  if (DumpVPlanLiveInsLiveOuts)
+    printLiveIns(FOS);
 
   for (auto EIter = LoopEntities.begin(), End = LoopEntities.end();
        EIter != End; ++EIter) {
@@ -857,6 +861,9 @@ void VPlan::dump(raw_ostream &OS) const {
   }
 
   print(FOS, 1);
+
+  if (DumpVPlanLiveInsLiveOuts)
+    printLiveOuts(FOS);
 
   Externals.dumpExternalUses(FOS, LiveOutValues.size() ? this : nullptr);
 }
@@ -874,6 +881,15 @@ void VPlan::printLiveIns(raw_ostream &OS) const {
   }
 }
 
+void VPlan::printLiveOuts(raw_ostream &OS) const {
+  if (!LiveOutValues.size())
+    return;
+  OS << "Live-out values:\n";
+  for (auto LO : liveOutValues()) {
+    if (LO)
+      LO->print(OS);
+  }
+}
 
 void VPlan::dump() const { dump(dbgs()); }
 

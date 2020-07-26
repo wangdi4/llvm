@@ -10,9 +10,6 @@ define dso_local i32 @main(i32* %x4, [100 x i32]* %u0, i64 %n) local_unnamed_add
 ; CHECK-DAG:     [[VP1:%.*]] = {%u0}
 ; CHECK-DAG:     [[VP2:%.*]] = {%n + -2}
 ; CHECK-NEXT:  External Defs End:
-; CHECK-NEXT:  Live-in values:
-; CHECK-NEXT:  ID: 1 Value: i32 [[X4_SROA_0_1400:%.*]]
-; CHECK-NEXT:  ID: 2 Value: i64 0
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
