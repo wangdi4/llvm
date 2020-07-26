@@ -187,9 +187,10 @@ const RegDDRef* VPlanCostModelProprietary::getHIRMemref(
 
 unsigned VPlanCostModelProprietary::getLoadStoreCost(
   const VPInstruction *VPInst, Align Alignment,
+  unsigned VF,
   const bool UseVLSCost) {
   unsigned Cost =
-    VPlanCostModel::getLoadStoreCost(VPInst, Alignment);
+    VPlanCostModel::getLoadStoreCost(VPInst, Alignment, VF);
 
   if (!UseOVLSCM || !VLSCM || !UseVLSCost || VF == 1)
     return Cost;
@@ -210,7 +211,7 @@ unsigned VPlanCostModelProprietary::getLoadStoreCost(
   unsigned TTIGroupCost = 0;
   for (OVLSMemref *OvlsMemref : Group->getMemrefVec())
     TTIGroupCost += VPlanCostModel::getLoadStoreCost(
-      cast<VPVLSClientMemref>(OvlsMemref)->getInstruction(), Alignment);
+      cast<VPVLSClientMemref>(OvlsMemref)->getInstruction(), Alignment, VF);
 
   if (VLSGroupCost >= TTIGroupCost) {
     LLVM_DEBUG(dbgs() << "Cost for "; VPInst->printWithoutAnalyses(dbgs());
@@ -237,7 +238,7 @@ unsigned VPlanCostModelProprietary::getCost(const VPInstruction *VPInst) {
   switch (Opcode) {
   case Instruction::Load:
   case Instruction::Store:
-    return getLoadStoreCost(VPInst, true);
+    return getLoadStoreCost(VPInst, VF, true);
   // TODO: So far there's no explicit representation for reduction
   // initializations and finalizations. Need to account overhead for such
   // instructions, until VPlan is ready to have explicit representation for
@@ -529,7 +530,7 @@ unsigned VPlanCostModelProprietary::getGatherScatterCost(
     // NOTE:
     // VLS groups are ignored here.  We may want to take into consideration
     // that some memrefs are parts of VLS groups eventually.
-    return VPlanCostModel::getLoadStoreCost(VPInst);
+    return VPlanCostModel::getLoadStoreCost(VPInst, VF);
   return 0;
 }
 
@@ -949,9 +950,9 @@ void VPlanCostModelProprietary::printForVPBasicBlock(
 
 void VPlanCostModelProprietary::print(
   raw_ostream &OS, const std::string &Header) {
+  unsigned TTICost = VPlanCostModel::getCost();
   unsigned GatherScatterCost = getGatherScatterCost();
   unsigned SpillFillCost = getSpillFillCost();
-  unsigned TTICost = VPlanCostModel::getCost();
   OS << "HIR Cost Model for VPlan " << Header << " with VF = " << VF << ":\n";
   OS << "Total VPlan Cost: " << getCost() << '\n';
   OS << "VPlan Base Cost before adjustments: " << TTICost << '\n';

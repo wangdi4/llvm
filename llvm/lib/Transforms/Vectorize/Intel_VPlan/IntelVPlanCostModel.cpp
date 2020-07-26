@@ -295,18 +295,18 @@ unsigned VPlanCostModel::getArithmeticInstructionCost(const unsigned Opcode,
     TTI::TCK_RecipThroughput, Op1VK, Op2VK, Op1VP, Op2VP);
 }
 
-unsigned VPlanCostModel::getLoadStoreCost(const VPInstruction *VPInst) {
+unsigned VPlanCostModel::getLoadStoreCost(const VPInstruction *VPInst,
+                                          unsigned VF) {
   unsigned Alignment = getMemInstAlignment(VPInst);
-  return getLoadStoreCost(VPInst, Align(Alignment));
+  return getLoadStoreCost(VPInst, Align(Alignment), VF);
 }
 
 unsigned VPlanCostModel::getLoadStoreCost(
-  const VPInstruction *VPInst, Align Alignment) {
+  const VPInstruction *VPInst, Align Alignment, unsigned VF) {
   assert(VPInst &&
          ((VPInst->getOpcode() == Instruction::Load) ||
          (VPInst->getOpcode() == Instruction::Store)) &&
          "Expect Load or Store operation!");
-
   Type *OpTy = getMemInstValueType(VPInst);
   assert(OpTy && "Can't get type of the load/store instruction!");
 
@@ -456,6 +456,11 @@ unsigned VPlanCostModel::getIntrinsicInstrCost(
 }
 
 unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
+  return getCostForVF(VPInst, VF);
+}
+
+unsigned VPlanCostModel::getCostForVF(
+  const VPInstruction *VPInst, unsigned VF) {
   // TODO: For instruction that are not contained inside the loop we're
   // vectorizing, VF should not be considered. That includes the instructions
   // that are outside of any of the loops in the loopnest. However, before
@@ -527,7 +532,7 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
 #endif // INTEL_CUSTOMIZATION
   case Instruction::Load:
   case Instruction::Store:
-    return getLoadStoreCost(VPInst);
+    return getLoadStoreCost(VPInst, VF);
   case Instruction::Add:
   case Instruction::FAdd:
   case Instruction::Sub:
