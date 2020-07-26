@@ -431,7 +431,6 @@ def OMP_Requires : Directive<"requires"> {
 }
 def OMP_TargetData : Directive<"target data"> {
   let allowedClauses = [
-    VersionedClause<OMPC_Map>,
     VersionedClause<OMPC_UseDevicePtr>,
     VersionedClause<OMPC_UseDeviceAddr, 50>
   ];
@@ -445,19 +444,20 @@ def OMP_TargetData : Directive<"target data"> {
 }
 def OMP_TargetEnterData : Directive<"target enter data"> {
   let allowedClauses = [
-    VersionedClause<OMPC_Depend>,
-    VersionedClause<OMPC_Map>
+    VersionedClause<OMPC_Depend>
   ];
   let allowedOnceClauses = [
     VersionedClause<OMPC_If>,
     VersionedClause<OMPC_Device>,
     VersionedClause<OMPC_NoWait>
   ];
+  let requiredClauses = [
+    VersionedClause<OMPC_Map>
+  ];
 }
 def OMP_TargetExitData : Directive<"target exit data"> {
   let allowedClauses = [
-    VersionedClause<OMPC_Depend>,
-    VersionedClause<OMPC_Map>
+    VersionedClause<OMPC_Depend>
   ];
   let allowedOnceClauses = [
     VersionedClause<OMPC_Device>,
