@@ -395,6 +395,7 @@ BUILTIN(__builtin_ctanh, "XdXd", "Fne")
 BUILTIN(__builtin_ctanhf, "XfXf", "Fne")
 BUILTIN(__builtin_ctanhl, "XLdXLd", "Fne")
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 // CQ#366852. MCU high-priority (according to D. Kreitzer) builtins.
 BUILTIN(__builtin_calloc,     "v*zz",   "Fnc")
@@ -428,6 +429,10 @@ BUILTIN(__builtin_intel_hls_outstream_tryWrite, "v.", "nt")
 BUILTIN(__builtin_intel_hls_mm_master_init, "v.", "nt")
 BUILTIN(__builtin_intel_hls_mm_master_load, "v.", "nt")
 #endif // INTEL_CUSTOMIZATION
+=======
+// GCC-compatible C99 CMPLX implementation.
+BUILTIN(__builtin_complex, "v.", "nct")
+>>>>>>> 6c18f7db73a08f1ae39a76a86b414c5b0c24ee86
 
 // FP Comparisons.
 BUILTIN(__builtin_isgreater     , "i.", "Fnct")
