@@ -53,9 +53,14 @@ enum tgt_map_type {
   OMP_TGT_MAPTYPE_IMPLICIT        = 0x200,
   // copy data to device
   OMP_TGT_MAPTYPE_CLOSE           = 0x400,
+<<<<<<< HEAD
 #if INTEL_COLLAB
   OMP_TGT_MAPTYPE_ND_DESC         = 0x800,
 #endif // INTEL_COLLAB
+=======
+  // runtime error if not already allocated
+  OMP_TGT_MAPTYPE_PRESENT         = 0x1000,
+>>>>>>> 708752b2f6c55eec85accf4d67b9e9da5a08ddf1
   // member of struct, member given by [16 MSBs] - 1
   OMP_TGT_MAPTYPE_MEMBER_OF       = 0xffff000000000000
 };
@@ -483,14 +488,6 @@ EXTERN int __tgt_get_num_devices(void);
 }
 #endif
 
-#ifdef OMPTARGET_DEBUG
-#include <stdio.h>
-#define DEBUGP(prefix, ...)                                                    \
-  {                                                                            \
-    fprintf(stderr, "%s --> ", prefix);                                        \
-    fprintf(stderr, __VA_ARGS__);                                              \
-  }
-
 #ifndef __STDC_FORMAT_MACROS
 #define __STDC_FORMAT_MACROS
 #endif
@@ -517,6 +514,14 @@ EXTERN int __tgt_get_num_devices(void);
  *                               // 16 digits for 64bit
  *   (uintptr_t) ptr);
  */
+
+#ifdef OMPTARGET_DEBUG
+#include <stdio.h>
+#define DEBUGP(prefix, ...)                                                    \
+  {                                                                            \
+    fprintf(stderr, "%s --> ", prefix);                                        \
+    fprintf(stderr, __VA_ARGS__);                                              \
+  }
 #else
 #define DEBUGP(prefix, ...)                                                    \
   {}
