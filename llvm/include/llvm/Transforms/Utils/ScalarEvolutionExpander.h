@@ -94,12 +94,8 @@ class SCEVExpander : public SCEVVisitor<SCEVExpander, Value *> {
   /// "expanded" form.
   bool LSRMode;
 
-<<<<<<< HEAD
-  typedef IRBuilder<TargetFolder> BuilderType;
-  protected: // INTEL
-=======
   typedef IRBuilder<TargetFolder, IRBuilderCallbackInserter> BuilderType;
->>>>>>> ecd3f853a85fcfc953046ebff774a1c47295b2ca
+  protected: // INTEL
   BuilderType Builder;
 
   private: // INTEL
