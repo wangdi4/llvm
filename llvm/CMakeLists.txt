@@ -2,12 +2,6 @@
 
 cmake_minimum_required(VERSION 3.14)
 
-if ("${CMAKE_VERSION}" VERSION_LESS "3.13.4")
-  message(FATAL_ERROR
-    "Your CMake version is ${CMAKE_VERSION}. The minimum version of CMake "
-    "required to build LLVM is now 3.13.4.")
-endif()
-
 if(POLICY CMP0068)
   cmake_policy(SET CMP0068 NEW)
   set(CMAKE_BUILD_WITH_INSTALL_NAME_DIR ON)
