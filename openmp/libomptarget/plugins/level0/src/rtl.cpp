@@ -427,6 +427,10 @@ public:
   int32_t TargetAllocKind = TARGET_ALLOC_SHARED;
   uint32_t SubscriptionRate = 4;
   uint32_t ForcedKernelWidth = 0;
+#if INTEL_INTERNAL_BUILD
+  uint32_t ForcedLocalSizes[3] = {0, 0, 0};
+  uint32_t ForcedGlobalSizes[3] = {0, 0, 0};
+#endif // INTEL_INTERNAL_BUILD
 
   // Compilation options for IGC
   // OpenCL 2.0 builtins (like atomic_load_explicit and etc.) are used by
@@ -463,6 +467,21 @@ public:
     }
     return value;
   }
+
+#if INTEL_INTERNAL_BUILD
+  void parseGroupSizes(const char *Name, const char *Value, uint32_t *Sizes) {
+    std::string str(Value);
+    if (str.front() != '{' || str.back() != '}') {
+      WARNING("Ignoring invalid %s=%s\n", Name, Value);
+      return;
+    }
+    std::istringstream strm(str.substr(1, str.size() - 2));
+    uint32_t i = 0;
+    for (std::string token; std::getline(strm, token, ','); i++)
+      if (i < 3)
+        Sizes[i] = std::stoi(token);
+  }
+#endif // INTEL_INTERNAL_BUILD
 
   void readEnvironmentVars() {
     // Debug level
@@ -582,6 +601,16 @@ public:
       if (value == 8 || value == 16 || value == 32)
         ForcedKernelWidth = value;
     }
+
+#if INTEL_INTERNAL_BUILD
+    // Force work group sizes -- for internal experiments
+    if (char *env = readEnvVar("LIBOMPTARGET_LOCAL_WG_SIZE")) {
+      parseGroupSizes("LIBOMPTARGET_LOCAL_WG_SIZE", env, ForcedLocalSizes);
+    }
+    if (char *env = readEnvVar("LIBOMPTARGET_GLOBAL_WG_SIZE")) {
+      parseGroupSizes("LIBOMPTARGET_GLOBAL_WG_SIZE", env, ForcedGlobalSizes);
+    }
+#endif // INTEL_INTERNAL_BUILD
   }
 
   ze_command_list_handle_t getCmdList(int32_t DeviceId) {
@@ -1860,6 +1889,26 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
     decideKernelGroupArguments(DeviceId, (uint32_t )NumTeams,
         (uint32_t)ThreadLimit, kernel, groupSizes, groupCounts);
   }
+
+#if INTEL_INTERNAL_BUILD
+  // Use forced group sizes. This is only for internal experiments, and we
+  // don't want to plug these numbers into the decision logic.
+  auto userLWS = DeviceInfo->ForcedLocalSizes;
+  auto userGWS = DeviceInfo->ForcedGlobalSizes;
+  if (userLWS[0] > 0) {
+    std::copy(userLWS, userLWS + 3, groupSizes);
+    DP("Forced LWS = {%" PRIu32 ", %" PRIu32 ", %" PRIu32 "}\n", userLWS[0],
+       userLWS[1], userLWS[2]);
+  }
+  if (userGWS[0] > 0) {
+    groupCounts.groupCountX = (userGWS[0] + groupSizes[0] - 1) / groupSizes[0];
+    groupCounts.groupCountY = (userGWS[1] + groupSizes[1] - 1) / groupSizes[1];
+    groupCounts.groupCountZ = (userGWS[2] + groupSizes[2] - 1) / groupSizes[2];
+    DP("Forced GWS = {%" PRIu32 ", %" PRIu32 ", %" PRIu32 "}\n", userGWS[0],
+       userGWS[1], userGWS[2]);
+  }
+#endif // INTEL_INTERNAL_BUILD
+
   DP("Group sizes = {%" PRIu32 ", %" PRIu32 ", %" PRIu32 "}\n",
      groupSizes[0], groupSizes[1], groupSizes[2]);
   DP("Group counts = {%" PRIu32 ", %" PRIu32 ", %" PRIu32 "}\n",
