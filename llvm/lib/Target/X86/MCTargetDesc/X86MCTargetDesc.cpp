@@ -44,6 +44,7 @@ using namespace llvm;
 
 std::string X86_MC::ParseX86Triple(const Triple &TT) {
   std::string FS;
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ICECODE
   if (TT.getArch() == Triple::x86_icecode || TT.getArch() == Triple::x86_64)
@@ -52,6 +53,12 @@ std::string X86_MC::ParseX86Triple(const Triple &TT) {
 #endif // INTEL_FEATURE_ICECODE
 #endif // INTEL_CUSTOMIZATION
     FS = "+64bit-mode,-32bit-mode,-16bit-mode";
+=======
+  // SSE2 should default to enabled in 64-bit mode, but can be turned off
+  // explicitly.
+  if (TT.isArch64Bit())
+    FS = "+64bit-mode,-32bit-mode,-16bit-mode,+sse2";
+>>>>>>> 945ed22f3397f52469618cd8a94207665f25bebd
   else if (TT.getEnvironment() != Triple::CODE16)
     FS = "-64bit-mode,+32bit-mode,-16bit-mode";
   else

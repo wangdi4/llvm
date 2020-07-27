@@ -234,6 +234,7 @@ void X86Subtarget::initSubtargetFeatures(StringRef CPU, StringRef FS) {
   std::string FullFS = X86_MC::ParseX86Triple(TargetTriple);
   assert(!FullFS.empty() && "Failed to parse X86 triple");
 
+<<<<<<< HEAD
   // SSE2 should default to enabled in 64-bit mode, but can be turned off
   // explicitly.
   if (TargetTriple.isArch64Bit())
@@ -245,6 +246,8 @@ void X86Subtarget::initSubtargetFeatures(StringRef CPU, StringRef FS) {
 #endif // INTEL_CUSTOMIZATION
     FullFS += ",+sse2";
 
+=======
+>>>>>>> 945ed22f3397f52469618cd8a94207665f25bebd
   if (!FS.empty())
     FullFS = (Twine(FullFS) + "," + FS).str();
 
