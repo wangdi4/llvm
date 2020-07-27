@@ -3268,22 +3268,10 @@ private:
   }
 
   bool visitIntrinsicInst(IntrinsicInst &II) {
-<<<<<<< HEAD
-    assert(II.isLifetimeStartOrEnd() ||                         //INTEL
-           II.getIntrinsicID() == Intrinsic::var_annotation);   //INTEL
-    LLVM_DEBUG(dbgs() << "    original: " << II << "\n");
-
-#if INTEL_CUSTOMIZATION
-    if (II.getIntrinsicID() == Intrinsic::var_annotation)
-        assert(II.getArgOperand(0) == OldPtr);
-    else
-        assert(II.getArgOperand(1) == OldPtr);
-#endif  //INTEL_CUSTOMIZATION
-=======
-    assert((II.isLifetimeStartOrEnd() || II.isDroppable()) &&
+    assert((II.isLifetimeStartOrEnd() || II.isDroppable() ||     // INTEL
+            II.getIntrinsicID() == Intrinsic::var_annotation) && // INTEL
            "Unexpected intrinsic!");
     LLVM_DEBUG(dbgs() << "    original: " << II << "\n");
->>>>>>> aa09db495a9b40de456e196c0deb6b98324779b9
 
     // Record this instruction for deletion.
     Pass.DeadInsts.insert(&II);
@@ -3295,7 +3283,13 @@ private:
       return true;
     }
 
-    assert(II.getArgOperand(1) == OldPtr);
+#if INTEL_CUSTOMIZATION
+    if (II.getIntrinsicID() == Intrinsic::var_annotation)
+        assert(II.getArgOperand(0) == OldPtr);
+    else
+        assert(II.getArgOperand(1) == OldPtr);
+#endif  //INTEL_CUSTOMIZATION
+
     // Lifetime intrinsics are only promotable if they cover the whole alloca.
     // Therefore, we drop lifetime intrinsics which don't cover the whole
     // alloca.
