@@ -29,7 +29,7 @@ endif()
 
 # Version of cached binary.
 # This value should be incremented each time cached binary format changes.
-add_definitions(-DOCL_CACHED_BINARY_VERSION=9)
+add_definitions(-DOCL_CACHED_BINARY_VERSION=10)
 
 remove_definitions( -D_UNICODE -DUNICODE )
 

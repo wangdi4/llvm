@@ -116,7 +116,6 @@ void KernelProperties::Serialize(IOutputStream& ost, SerializationStatus* stats)
     Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
     Serializer::SerialString(m_kernelAttributes, ost);
     Serializer::SerialPrimitive<unsigned int>(&m_minGroupSizeFactorial, ost);
-    Serializer::SerialPrimitive<bool>(&m_isVectorizedWithTail, ost);
     Serializer::SerialPrimitive<unsigned int>(&m_uiSizeT, ost);
     Serializer::SerialPrimitive<bool>(&m_bIsNonUniformWGSizeSupported, ost);
     Serializer::SerialPrimitive<bool>(&m_canUniteWG, ost);
@@ -182,7 +181,6 @@ void KernelProperties::Deserialize(IInputStream& ist, SerializationStatus* stats
     unsigned int ui_tmp;
     Serializer::DeserialPrimitive<unsigned int>(&ui_tmp, ist);
     m_minGroupSizeFactorial = ui_tmp;
-    Serializer::DeserialPrimitive<bool>(&m_isVectorizedWithTail, ist);
     Serializer::DeserialPrimitive<unsigned int>(&ui_tmp, ist);
     m_uiSizeT = ui_tmp;
     Serializer::DeserialPrimitive<bool>(&m_bIsNonUniformWGSizeSupported, ist);
