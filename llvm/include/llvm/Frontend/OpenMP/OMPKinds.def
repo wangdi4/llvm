@@ -10,9 +10,12 @@
 /// This file defines the list of supported OpenMP directives, clauses, runtime
 /// calls, and other things that need to be listed in enums.
 ///
+/// This file is under transition to OMP.td with TableGen code generation.
+///
 //===----------------------------------------------------------------------===//
 
 /// OpenMP Directives and combined directives
+<<<<<<< HEAD
 ///
 ///{
 
@@ -113,6 +116,9 @@ __OMP_DIRECTIVE(unknown)
 #undef OMP_DIRECTIVE
 
 ///}
+=======
+/// - Moved to OMP.td
+>>>>>>> 43f09110402d382b9ce7b41d1a24b117d7941695
 
 /// OpenMP Clauses
 ///
