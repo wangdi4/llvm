@@ -2604,6 +2604,21 @@ void HIRParser::parse(HLLoop *HLoop) {
       LF.reattachLoopLabelAndBottomTest(HLoop);
 
     } else {
+      // In some cases, loop is recognized as unknown in loop formation phase
+      // but recognized as countable by parsing phase due to better information
+      // (nowrap flags) in SCEV cache in the process of parsing other
+      // instructions. In such cases, we remove the loop label and bottom test
+      // here. Refer to this lit test case for an example-
+      // unknown-to-countable-loop-conversion.ll
+      if (auto *LoopLabel = dyn_cast_or_null<HLLabel>(HLoop->getFirstChild())) {
+        auto *Bottomtest = HLoop->getBottomTest();
+
+        assert(Bottomtest && "Bottom test not found!");
+
+        HLNodeUtils::erase(LoopLabel);
+        HLNodeUtils::erase(Bottomtest);
+      }
+
       // Initialize Lower to 0.
       auto LowerRef = createLowerDDRef(IVType);
       HLoop->setLowerDDRef(LowerRef);
