@@ -133,14 +133,6 @@ bool X86TargetInfo::setFPMath(StringRef Name) {
   return false;
 }
 
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ISA_KEYLOCKER
-#define TGLXFEATURE1 setFeatureEnabledImpl(Features, "keylocker", true);
-#else // INTEL_FEATURE_ISA_KEYLOCKER
-#define TGLXFEATURE1
-#endif // INTEL_FEATURE_ISA_KEYLOCKER
-#endif // INTEL_CUSTOMIZATION
-
 bool X86TargetInfo::initFeatureMap(
     llvm::StringMap<bool> &Features, DiagnosticsEngine &Diags, StringRef CPU,
     const std::vector<std::string> &FeaturesVec) const {
