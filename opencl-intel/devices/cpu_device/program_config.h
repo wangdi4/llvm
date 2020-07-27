@@ -47,6 +47,7 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
             m_useVTune(false),
             m_serializeWorkGroups(false),
             m_forcedPrivateMemorySize(0),
+            m_useAutoMemory(false),
             m_channelDepthEmulationMode(CHANNEL_DEPTH_MODE_STRICT),
             m_targetDevice(CPU_DEVICE),
             m_cpuMaxWGSize(CPU_MAX_WORK_GROUP_SIZE),
@@ -68,6 +69,8 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
                     return m_streamingAlways;
                 case CL_DEV_BACKEND_OPTION_NATIVE_SUBGROUPS:
                     return m_enableNativeSubgroups;
+                case CL_DEV_BACKEND_OPTION_USE_AUTO_MEMORY:
+                    return m_useAutoMemory;
                 default:
                     return defaultValue;
             }
@@ -120,6 +123,7 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
         bool m_useVTune;
         bool m_serializeWorkGroups;
         int  m_forcedPrivateMemorySize;
+        bool m_useAutoMemory;
         int  m_channelDepthEmulationMode;
         DeviceMode  m_targetDevice;
         size_t m_cpuMaxWGSize;

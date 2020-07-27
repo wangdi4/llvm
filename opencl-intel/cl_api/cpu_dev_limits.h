@@ -79,8 +79,8 @@
 #define CPU_DEV_MAX_WG_PRIVATE_SIZE     (CPU_DEV_MIN_WI_PRIVATE_SIZE*64)
 
 // Maximum private memory size that could be allocated for WG execution for
-// FPGA, total 512KB/WG. Only used when auto memory allocation is enabled.
-#define FPGA_DEV_MAX_WG_PRIVATE_SIZE    (512 * 1024)
+// FPGA, total 8MB/WG. Only used when auto memory allocation is enabled.
+#define FPGA_DEV_MAX_WG_PRIVATE_SIZE    (8 * 1024 * 1024)
 
 // Maximum memory size that could be allocated for WG execution. This is the
 // sum of WG Private memory size + Kernel parameters size (twice to cover the
