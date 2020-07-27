@@ -48,7 +48,7 @@ public:
     unsigned ID;
     unsigned char Kind;
     unsigned char Param;
-    unsigned short Flags;
+    unsigned Flags; // INTEL
     unsigned short GroupID;
     unsigned short AliasID;
     const char *AliasArgs;
