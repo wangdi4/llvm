@@ -6,7 +6,7 @@
 ; CHECK-DAG: (%a)[i1 + %j] --> (%a)[i1 + %i] ANTI
 ; CHECK-DAG: (%a)[i1 + %i] --> (%a)[i1 + %j] FLOW
 
-; RUN: opt -hir-ssa-deconstruction < %s | opt -scoped-noalias -analyze -hir-dd-analysis -hir-dd-analysis-verify=Region | FileCheck --check-prefix=SCOPED-AA %s
+; RUN: opt -hir-ssa-deconstruction < %s | opt -scoped-noalias-aa -analyze -hir-dd-analysis -hir-dd-analysis-verify=Region | FileCheck --check-prefix=SCOPED-AA %s
 ; RUN: opt < %s -passes="hir-ssa-deconstruction" | opt -passes="require<scoped-noalias-aa>,print<hir-dd-analysis>" -hir-dd-analysis-verify=Region -disable-output 2>&1 | FileCheck --check-prefix=SCOPED-AA %s
 
 ; SCOPED-AA-NOT: (%a)[i1 + %j] --> (%a)[i1 + %i] ANTI
