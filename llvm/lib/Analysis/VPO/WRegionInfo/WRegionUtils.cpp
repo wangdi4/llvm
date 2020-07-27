@@ -846,6 +846,25 @@ WRegionNode *WRegionUtils::getParentRegion(WRegionNode *W,
   return nullptr;
 }
 
+WRegionNode *WRegionUtils::getParentRegion(
+    WRegionNode *W,
+    std::function<bool(WRegionNode *)> IsMatch,
+    std::function<bool(WRegionNode *)> ProcessNext) {
+  while (W) {
+    WRegionNode *ParentRegion = W->getParent();
+    if (!ParentRegion)
+      break;
+    // Check if the ancestor satisfies the condition.
+    if (IsMatch(ParentRegion))
+      return ParentRegion;
+    // Check if next ancestor needs to be processed.
+    if (!ProcessNext(ParentRegion))
+      break;
+    W = ParentRegion;
+  }
+  return nullptr;
+}
+
 // Search the WRNs in the container for a Target construct.
 // The container can be the top-level WRGraph or the Children of a WRN.
 bool WRegionUtils::hasTargetDirective(WRContainerImpl &WrnContainer) {
