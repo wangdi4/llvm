@@ -89,19 +89,17 @@ protected:
 
 public:
   InstCombiner(InstCombineWorklist &Worklist, BuilderTy &Builder,
-#if INTEL_CUSTOMIZATION
-               bool MinimizeSize, bool TypeLoweringOpts, AAResults *AA,
-               AssumptionCache &AC, TargetLibraryInfo &TLI,
-               TargetTransformInfo &TTI, DominatorTree &DT,
-#endif // INTEL_CUSTOMIZATION
-               OptimizationRemarkEmitter &ORE, BlockFrequencyInfo *BFI,
-               ProfileSummaryInfo *PSI, const DataLayout &DL, LoopInfo *LI)
-      : Worklist(Worklist), Builder(Builder), MinimizeSize(MinimizeSize),
-        TypeLoweringOpts(TypeLoweringOpts),                // INTEL
-        AA(AA), AC(AC), TLI(TLI),                          // INTEL
-        TTI(TTI), DT(DT), DL(DL), SQ(DL, &TLI, &DT, &AC,   // INTEL
-                                     nullptr, true, &TTI), // INTEL
-        ORE(ORE), BFI(BFI), PSI(PSI), LI(LI) {}            // INTEL
+               bool MinimizeSize, bool TypeLoweringOpts, AAResults *AA, // INTEL
+               AssumptionCache &AC, TargetLibraryInfo &TLI,             // INTEL
+               TargetTransformInfo &TTI, DominatorTree &DT,             // INTEL
+               OptimizationRemarkEmitter &ORE, BlockFrequencyInfo *BFI, // INTEL
+               ProfileSummaryInfo *PSI, const DataLayout &DL,           // INTEL
+               LoopInfo *LI)                                            // INTEL
+      : TTI(TTI), Builder(Builder), Worklist(Worklist),                 // INTEL
+        MinimizeSize(MinimizeSize), TypeLoweringOpts(TypeLoweringOpts), // INTEL
+        AA(AA), AC(AC), TLI(TLI), DT(DT), DL(DL),                       // INTEL
+        SQ(DL, &TLI, &DT, &AC, nullptr, true, &TTI),                    // INTEL
+        ORE(ORE), BFI(BFI), PSI(PSI), LI(LI) {}                         // INTEL
 
   virtual ~InstCombiner() {}
 
