@@ -88,16 +88,14 @@ bool llvm::isAllocaPromotable(const AllocaInst *AI) {
 #endif // INTEL_CUSTOMIZATION
         return false;
     } else if (const BitCastInst *BCI = dyn_cast<BitCastInst>(U)) {
-      if (!onlyUsedByLifetimeMarkersOrDroppableInsts(BCI))
+      if (!(onlyUsedByLifetimeMarkersOrDroppableInsts(BCI) || // INTEL
+            onlyUsedByVarAnnot(BCI)))                         // INTEL
         return false;
     } else if (const GetElementPtrInst *GEPI = dyn_cast<GetElementPtrInst>(U)) {
       if (!GEPI->hasAllZeroIndices())
         return false;
-#if INTEL_CUSTOMIZATION
-      if (!onlyUsedByLifetimeAndVarAnnot(GEPI))
-        return false;
-#endif // INTEL_CUSTOMIZATION
-      if (!onlyUsedByLifetimeMarkersOrDroppableInsts(GEPI))
+      if (!(onlyUsedByLifetimeMarkersOrDroppableInsts(GEPI) || // INTEL
+            onlyUsedByVarAnnot(GEPI)))                         // INTEL
         return false;
     } else if (const AddrSpaceCastInst *ASCI = dyn_cast<AddrSpaceCastInst>(U)) {
       if (!onlyUsedByLifetimeMarkers(ASCI))

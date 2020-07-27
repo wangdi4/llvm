@@ -4472,23 +4472,23 @@ bool llvm::mustSuppressSpeculation(const LoadInst &LI) {
 }
 
 #if INTEL_CUSTOMIZATION
-/// Return true if the only users of this pointer are lifetime markers and
+/// Return true if the only users of this pointer are
 /// var.annotation intrinsics with register attribute set.
-bool llvm::onlyUsedByLifetimeAndVarAnnot(const Value *V) {
+bool llvm::onlyUsedByVarAnnot(const Value *V) {
   for (const User *U : V->users()) {
     const IntrinsicInst *II = dyn_cast<IntrinsicInst>(U);
-    if (!II) return false;
-
-    if (const auto *VAI = dyn_cast<VarAnnotIntrinsic>(II)) {
-      if (!VAI->hasRegisterAttributeSet())
-        return false;
-    } else if (II->getIntrinsicID() != Intrinsic::lifetime_start &&
-               II->getIntrinsicID() != Intrinsic::lifetime_end)
+    if (!II)
       return false;
+
+    if (const auto *VAI = dyn_cast<VarAnnotIntrinsic>(II))
+      if (VAI->hasRegisterAttributeSet())
+        continue;
+
+    return false;
   }
   return true;
 }
-#endif  //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 bool llvm::isSafeToSpeculativelyExecute(const Value *V,
                                         const Instruction *CtxI,

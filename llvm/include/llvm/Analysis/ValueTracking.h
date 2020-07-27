@@ -449,7 +449,7 @@ class Value;
   /// (isSafeToSpeculativelyExecute), this is handled internally.
   bool mustSuppressSpeculation(const LoadInst &LI);
 
-  bool onlyUsedByLifetimeAndVarAnnot(const Value *V);    //INTEL
+  bool onlyUsedByVarAnnot(const Value *V); // INTEL
 
   /// Return true if the instruction does not have any effects besides
   /// calculating the result and does not have undefined behavior.
