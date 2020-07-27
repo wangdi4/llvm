@@ -79,34 +79,25 @@ bool llvm::isAllocaPromotable(const AllocaInst *AI) {
       if (SI->isVolatile())
         return false;
     } else if (const IntrinsicInst *II = dyn_cast<IntrinsicInst>(U)) {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
       if (const VarAnnotIntrinsic *VAI = dyn_cast<VarAnnotIntrinsic>(II)) {
         if (!VAI->hasRegisterAttributeSet())
           return false;
-      } else if (!II->isLifetimeStartOrEnd() &&
+      } else if (!II->isLifetimeStartOrEnd() && !II->isDroppable() &&
                  !IntrinsicUtils::isValueUsedBySimdPrivateClause(II, AI))
 #endif // INTEL_CUSTOMIZATION
         return false;
     } else if (const BitCastInst *BCI = dyn_cast<BitCastInst>(U)) {
-      if (BCI->getType() != Type::getInt8PtrTy(U->getContext(), AS))
-        return false;
-      if (!onlyUsedByLifetimeAndVarAnnot(BCI))       //INTEL
-=======
-      if (!II->isLifetimeStartOrEnd() && !II->isDroppable())
-        return false;
-    } else if (const BitCastInst *BCI = dyn_cast<BitCastInst>(U)) {
       if (!onlyUsedByLifetimeMarkersOrDroppableInsts(BCI))
->>>>>>> ce8928f2e4e5e9d192f2c603b37d32da92214ab1
         return false;
     } else if (const GetElementPtrInst *GEPI = dyn_cast<GetElementPtrInst>(U)) {
       if (!GEPI->hasAllZeroIndices())
         return false;
-<<<<<<< HEAD
-      if (!onlyUsedByLifetimeAndVarAnnot(GEPI))     //INTEL
-=======
+#if INTEL_CUSTOMIZATION
+      if (!onlyUsedByLifetimeAndVarAnnot(GEPI))
+        return false;
+#endif // INTEL_CUSTOMIZATION
       if (!onlyUsedByLifetimeMarkersOrDroppableInsts(GEPI))
->>>>>>> ce8928f2e4e5e9d192f2c603b37d32da92214ab1
         return false;
     } else if (const AddrSpaceCastInst *ASCI = dyn_cast<AddrSpaceCastInst>(U)) {
       if (!onlyUsedByLifetimeMarkers(ASCI))
@@ -354,7 +345,6 @@ static void removeIntrinsicUsers(AllocaInst *AI) {
     if (isa<LoadInst>(I) || isa<StoreInst>(I))
       continue;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     if (vpo::VPOAnalysisUtils::isBeginDirective(I)) {
       // for SIMD region directive we only remove PRIVATE clauses
@@ -363,13 +353,11 @@ static void removeIntrinsicUsers(AllocaInst *AI) {
       continue;
     }
 #endif // INTEL_CUSTOMIZATION
-=======
     // Drop the use of AI in droppable instructions.
     if (I->isDroppable()) {
       DropUsesIn(I, AI, UI, UE);
       continue;
     }
->>>>>>> ce8928f2e4e5e9d192f2c603b37d32da92214ab1
 
     if (!I->getType()->isVoidTy()) {
       // The only users of this bitcast/GEP instruction are lifetime intrinsics.
