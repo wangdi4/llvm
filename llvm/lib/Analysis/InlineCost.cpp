@@ -223,10 +223,16 @@ static cl::opt<unsigned> DummyArgsMinCallsiteCount(
     cl::desc("Minimum callsite count for dummy-args function"));
 
 // To be considered a small application, the program should have no more than
+// this many 'defined' Functions.
+static cl::opt<unsigned> SmallAppUserFunctionMax(
+    "inlining-small-app-user-function-max", cl::init(8), cl::ReallyHidden,
+    cl::desc("Maximum number of user functions in small app"));
+
+// To be considered a small application, the program should have no more than
 // this many callsites to 'defined' Functions.
 static cl::opt<unsigned> SmallAppUserCallBaseMax(
-    "inlining-small-app-user-callbase-max", cl::init(25), cl::ReallyHidden,
-    cl::desc("Maximum number calls to user functions in small app"));
+    "inlining-small-app-user-callbase-max", cl::init(70), cl::ReallyHidden,
+    cl::desc("Maximum number of calls to user functions in small app"));
 
 // No more than this many additional inlinings should be performed purely
 // because this is a small application.
@@ -396,6 +402,11 @@ protected:
 
   /// Account SROA savings for the AllocaInst value.
   virtual void onAggregateSROAUse(AllocaInst *V) {}
+
+#if INTEL_CUSTOMIZATION
+  /// Handle special exceptions for AllocaInsts
+  virtual bool onDynamicAllocaInstException(AllocaInst &I) { return false; }
+#endif // INTEL_CUSTOMIZATION
 
   bool handleSROA(Value *V, bool DoNotDisable) {
     // Check for SROA candidates in comparisons.
@@ -3101,7 +3112,78 @@ static bool worthInliningForStackComputations(Function *F,
 }
 
 //
-// Return 'true' if 'CB' is worth inlining becuase it appears in a small
+// Return 'true' if the program we are compiling passes some initial,
+// general conditions for being a small application: A small Fortran
+// program compiled on the link step with -O3 -flto -xCORE-AVX2, and
+// is whole program "read".
+//
+static bool passesMinimalSmallAppConditions(CallBase &CB,
+                                            const TargetTransformInfo
+                                                &CalleeTTI,
+                                            WholeProgramInfo *WPI,
+                                            bool LinkForLTO,
+                                            unsigned InlineOptLevel) {
+  //
+  // Return 'true' if the allowed number of calls to 'defined' Functions
+  // is greater than 'Limit'. This will disqualify 'CB' for inlining under
+  // the small application inlining heuristic.
+  //
+  auto SmallSizeLimitExceeded = [](Module &M, unsigned FunctionLimit,
+                                   unsigned CallBaseLimit) -> bool {
+    unsigned CallBaseCount = 0;
+    unsigned FunctionCount = 0;
+    for (auto &F : M.functions()) {
+      if (F.isDeclaration())
+        continue;
+      if (++FunctionCount > FunctionLimit)
+        return true;
+      for (User *U : F.users()) {
+        auto CB = dyn_cast<CallBase>(U);
+        if (!CB)
+          continue;
+        if (++CallBaseCount > CallBaseLimit)
+          return true;
+      }
+    }
+    return false;
+  };
+
+  //
+  // Return 'true' if the program we are compiling is considered a small
+  // application, and therefore eligible for more inlining under the small
+  // application inlining heuristic.
+  //
+  auto IsSmall = [&SmallSizeLimitExceeded](Module &M) -> bool {
+    static bool IsAlreadyTested = false;
+    static bool IsSmallApp = false;
+    if (IsAlreadyTested)
+      return IsSmallApp;
+    IsSmallApp = !SmallSizeLimitExceeded(M, SmallAppUserFunctionMax,
+                                         SmallAppUserCallBaseMax);
+    IsAlreadyTested = true;
+    return IsSmallApp;
+  };
+
+  if (!(LinkForLTO || EnableLTOInlineCost))
+    return false;
+  if (!WPI || !WPI->isWholeProgramRead())
+    return false;
+  if (!(ForcedInlineOptLevel >= 3 || InlineOptLevel >= 3))
+    return false;
+  Function *Caller = CB.getCaller();
+  Function *Callee = CB.getCalledFunction();
+  if (!Caller->isFortran() || !Callee->isFortran())
+    return false;
+  auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
+  if (!CalleeTTI.isAdvancedOptEnabled(TTIAVX2))
+    return false;
+  if (!IsSmall(*(Callee->getParent())))
+    return false;
+  return true;
+}
+
+//
+// Return 'true' if 'CB' is worth inlining because it appears in a small
 // application. We allow more inlining in small applications because the
 // user will generally be more tolerant of longer compile time and less
 // tolerant of lower performance.
@@ -3112,73 +3194,6 @@ static bool worthInliningForSmallApp(CallBase &CB,
                                      WholeProgramInfo *WPI,
                                      bool LinkForLTO,
                                      unsigned InlineOptLevel) {
-
-  //
-  // Return 'true' if the allowed number of calls to 'defined' Functions
-  // is greater than 'Limit'. This will disqualify 'CB' for inlining under
-  // the small application inlining heuristic.
-  //
-  auto SmallCallLimitExceeded = [](Module &M, unsigned Limit) -> bool {
-    unsigned CallBaseCount = 0;
-    for (auto &F : M.functions()) {
-      if (F.isDeclaration())
-        continue;
-      for (User *U : F.users()) {
-        auto CB = dyn_cast<CallBase>(U);
-        if (!CB)
-          continue;
-        if (++CallBaseCount > Limit)
-          return true;
-      }
-     }
-     return false;
-  };
-
-  //
-  // Return 'true' if the program we are compiling is considered a small
-  // application, and therefore eligible for more inlining under the small
-  // application inlining heuristic.
-  //
-  auto IsSmall = [&SmallCallLimitExceeded](Module &M) -> bool {
-    static bool IsAlreadyTested = false;
-    static bool IsSmallApp = false;
-    if (IsAlreadyTested)
-      return IsSmallApp;
-    IsSmallApp = !SmallCallLimitExceeded(M, SmallAppUserCallBaseMax);
-    IsAlreadyTested = true;
-    return IsSmallApp;
-  };
-
-  //
-  // Return 'true' if the program we are compiling passes some initial,
-  // general conditions for being a small application: A small Fortran
-  // program compiled on the link step with -O3 -flto -xCORE-AVX2, and
-  // is whole program "read".
-  //
-  auto PassesMinimalConditions = [&IsSmall](CallBase &CB,
-                                            const TargetTransformInfo
-                                                &CalleeTTI,
-                                            WholeProgramInfo *WPI,
-                                            bool LinkForLTO,
-                                            unsigned InlineOptLevel) -> bool {
-    if (!(LinkForLTO || EnableLTOInlineCost))
-      return false;
-    if (!WPI || !WPI->isWholeProgramRead())
-      return false;
-    if (!(ForcedInlineOptLevel >= 3 || InlineOptLevel >= 3))
-      return false;
-    Function *Caller = CB.getCaller();
-    Function *Callee = CB.getCalledFunction();
-    if (!Caller->isFortran() || !Callee->isFortran())
-      return false;
-    auto TTIAVX2 = TargetTransformInfo::AdvancedOptLevel::AO_TargetHasAVX2;
-    if (!CalleeTTI.isAdvancedOptEnabled(TTIAVX2))
-      return false;
-    if (!IsSmall(*(Callee->getParent())))
-      return false;
-    return true;
-  };
-
   //
   // Return 'true' if 'CB' has a collection of no less than CandidateMin
   // callsites more than CandidateMax callsites which qualify for inlining
@@ -3222,7 +3237,8 @@ static bool worthInliningForSmallApp(CallBase &CB,
   // a pair of callsites for inlining under the small application inlining
   // heuristic. Currently, we are looking for callsites that have at least
   // one matching actual parameter and for which all other matching parameters
-  // are either both fed by an AllocInst or SubscriptInst.
+  // are either both fed by an AllocInst, SubscriptInst, GetElementPtrInst,
+  // or matching Arguments.
   //
   auto MatchedPair = [](CallBase &CB0, CallBase &CB1) -> bool {
     if (CB0.getNumArgOperands() != CB1.getNumArgOperands())
@@ -3236,6 +3252,10 @@ static bool worthInliningForSmallApp(CallBase &CB,
       if (isa<AllocaInst>(V0) && isa<AllocaInst>(V1))
         continue;
       if (isa<SubscriptInst>(V0) && isa<SubscriptInst>(V1))
+        continue;
+      if (isa<GetElementPtrInst>(V0) && isa<GetElementPtrInst>(V1))
+        continue;
+      if (isa<Argument>(V0) && V0 == V1)
         continue;
       return false;
     }
@@ -3260,7 +3280,8 @@ static bool worthInliningForSmallApp(CallBase &CB,
   const unsigned CandidateMin = 2;
   const unsigned CandidateMax = 3;
   static SmallPtrSet<CallBase *, 10> QualifiedCallBases;
-  if (!PassesMinimalConditions(CB, CalleeTTI, WPI, LinkForLTO, InlineOptLevel))
+  if (!passesMinimalSmallAppConditions(CB, CalleeTTI, WPI, LinkForLTO,
+      InlineOptLevel))
     return false;
   if (QualifiedCallBases.count(&CB))
     return true;
@@ -3884,6 +3905,7 @@ public:
 #if INTEL_CUSTOMIZATION
   int getEarlyExitThreshold() { return EarlyExitThreshold; }
   int getEarlyExitCost() { return EarlyExitCost; }
+  bool onDynamicAllocaInstException(AllocaInst &I);
 #endif // INTEL_CUSTOMIZATION
 
 };
@@ -3992,46 +4014,6 @@ bool CallAnalyzer::isGEPFree(GetElementPtrInst &GEP) {
 }
 
 bool CallAnalyzer::visitAlloca(AllocaInst &I) {
-#if INTEL_CUSTOMIZATION
-  // Arguments are passed to OpenMP calls indirectly. That means, original
-  // arguments are saved on stack and then addresses of the stack locations are
-  // passed as arguments as shown in the example below. This change is needed
-  // to enable inlining for OpenMP calls.
-  //
-  // Returns true if "I", which allocates either integer or pointer type,
-  // is used by only StoreInst and CallBase instructions.
-  //
-  // Ex:
-  //  %31 = alloca i32, align 4
-  //  store i32 %30, i32* %31, align 4
-  //  %32 = alloca double*, align 8
-  //  store double* %29, double** %32, align 8, !tbaa !6
-  //  call void @foo(i32* nonnull %31, i32* undef, double** nonnull %32, i64 0)
-  //           `
-  auto IsSimpleAlloca = [] (AllocaInst &I) {
-    Type *Ty = I.getAllocatedType();
-    if (!Ty->isPointerTy() && !Ty->isIntegerTy())
-      return false;
-    if (I.isArrayAllocation())
-      return false;
-    StoreInst *SingleStore = nullptr;
-    bool CallSeen = false;
-    for (User *U : I.users()) {
-      if (auto *SI = dyn_cast<StoreInst>(U)) {
-        if (SingleStore)
-          return false;
-        if (SI->getPointerOperand() != &I)
-          return false;
-        SingleStore = SI;
-      } else if (isa<CallBase>(U)) {
-        CallSeen = true;
-      } else {
-        return false;
-      }
-    }
-    return CallSeen && SingleStore;
-  };
-#endif // INTEL_CUSTOMIZATION
   // Check whether inlining will turn a dynamic alloca into a static
   // alloca and handle that case.
   if (I.isArrayAllocation()) {
@@ -4069,16 +4051,8 @@ bool CallAnalyzer::visitAlloca(AllocaInst &I) {
     return Base::visitAlloca(I);
 
 #if INTEL_CUSTOMIZATION
-  // In Fortran, dynamic allocas can be used to represent local arrays
-  // allocated on the stack. We don't want to inhibiting inlining under
-  // special circumstances.
-  if (DTransInlineHeuristics) {
-    for (User *U : I.users())
-      if (isa<SubscriptInst>(U))
-        return Base::visitAlloca(I);
-    if (IsSimpleAlloca(I))
-      return Base::visitAlloca(I);
-  }
+  if (onDynamicAllocaInstException(I))
+    return Base::visitAlloca(I);
 #endif // INTEL_CUSTOMIZATION
 
   // FIXME: This is overly conservative. Dynamic allocas are inefficient for
@@ -5555,6 +5529,70 @@ CallAnalyzer::analyze(const TargetTransformInfo &CalleeTTI) { // INTEL
   return finalizeAnalysis();
 }
 
+#if INTEL_CUSTOMIZATION
+//
+// Return 'true' if we should NOT inhibit inlining simply because the Callee
+// includes 'I'.
+//
+bool InlineCostCallAnalyzer::onDynamicAllocaInstException(AllocaInst &I) {
+
+  // Arguments are passed to OpenMP calls indirectly. That means, original
+  // arguments are saved on stack and then addresses of the stack locations are
+  // passed as arguments as shown in the example below. This change is needed
+  // to enable inlining for OpenMP calls.
+  //
+  // Returns true if "I", which allocates either integer or pointer type,
+  // is used by only StoreInst and CallBase instructions.
+  //
+  // Ex:
+  //  %31 = alloca i32, align 4
+  //  store i32 %30, i32* %31, align 4
+  //  %32 = alloca double*, align 8
+  //  store double* %29, double** %32, align 8, !tbaa !6
+  //  call void @foo(i32* nonnull %31, i32* undef, double** nonnull %32, i64 0)
+  //           `
+  auto IsSimpleAlloca = [] (AllocaInst &I) {
+    Type *Ty = I.getAllocatedType();
+    if (!Ty->isPointerTy() && !Ty->isIntegerTy())
+      return false;
+    if (I.isArrayAllocation())
+      return false;
+    StoreInst *SingleStore = nullptr;
+    bool CallSeen = false;
+    for (User *U : I.users()) {
+      if (auto *SI = dyn_cast<StoreInst>(U)) {
+        if (SingleStore)
+          return false;
+        if (SI->getPointerOperand() != &I)
+          return false;
+        SingleStore = SI;
+      } else if (isa<CallBase>(U)) {
+        CallSeen = true;
+      } else {
+        return false;
+      }
+    }
+    return CallSeen && SingleStore;
+  };
+
+  // In Fortran, dynamic allocas can be used to represent local arrays
+  // allocated on the stack. We don't want to inhibiting inlining under
+  // special circumstances. These include when we are running DTrans and
+  // when we are compiling with -O3 -flto -xCORE-AVX2 on the link step.
+  if (DTransInlineHeuristics ||
+      passesMinimalSmallAppConditions(CandidateCall, TTI, WPI,
+          Params.LinkForLTO.getValueOr(false),
+          Params.InlineOptLevel.getValueOr(false))) {
+    for (User *U : I.users())
+      if (isa<SubscriptInst>(U))
+        return true;
+    if (IsSimpleAlloca(I))
+      return true;
+  }
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
+
 void InlineCostCallAnalyzer::print() {
 #define DEBUG_PRINT_STAT(x) dbgs() << "      " #x ": " << x << "\n"
   if (PrintInstructionComments)
@@ -5981,6 +6019,11 @@ InlineParams llvm::getInlineParams(unsigned OptLevel, unsigned SizeOptLevel,
     InlParams = getInlineParams(OptLevel, SizeOptLevel);
   InlParams.PrepareForLTO = PrepareForLTO;
   InlParams.LinkForLTO = LinkForLTO;
+  //
+  // Note that the InlineOptLevel is not being set to the OptLevel in all
+  // cases right now in the inliner, only when this version of getInlineParams
+  // is called. I will change that in a future change set.
+  //
   InlParams.InlineOptLevel = OptLevel;
   return InlParams;
 }
