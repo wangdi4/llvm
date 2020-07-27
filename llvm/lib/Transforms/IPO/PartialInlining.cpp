@@ -974,9 +974,9 @@ int PartialInlinerImpl::computeBBInlineCost(BasicBlock *BB) {
 
     IntrinsicInst *IntrInst = dyn_cast<IntrinsicInst>(&I);
     if (IntrInst) {
-      if (I.isLifetimeStartOrEnd())  //INTEL
-        continue;                    //INTEL
 #if INTEL_CUSTOMIZATION
+      if (I.isLifetimeStartOrEnd())
+        continue;
       if (isa<FakeloadInst>(IntrInst))
         continue;
       if (isa<SubscriptInst>(IntrInst)) {
@@ -984,6 +984,12 @@ int PartialInlinerImpl::computeBBInlineCost(BasicBlock *BB) {
         InlineCost += InlineConstants::InstrCost;
         continue;
       }
+      //
+      // CMPLRLLVM-21453: Ignore llvm.assume intrinsics as they
+      // will generate no executable code, and will not be duplicated
+      // when extracted.
+      if (IntrInst->getIntrinsicID() == Intrinsic::assume)
+        continue;
 #endif // INTEL_CUSTOMIZATION
     }
 
