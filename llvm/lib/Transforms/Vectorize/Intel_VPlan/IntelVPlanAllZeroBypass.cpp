@@ -156,9 +156,7 @@ void VPlanAllZeroBypass::insertBypassForRegion(
   // No need to update dominator info because bypass regions are inserted from
   // the outermost region to innermost region. Any blocks inserted previously
   // will not affect the CFG of the current region.
-  BypassBegin->clearSuccessors();
-  BypassBegin->setTwoSuccessors(AllZeroCheck, BypassEnd,
-                                FirstBlockInBypassRegion);
+  BypassBegin->setTerminator(BypassEnd, FirstBlockInBypassRegion, AllZeroCheck);
 
   // Map of VPValues that are live-out of the bypass region and the
   // corresponding users to be updated after bypass insertion.

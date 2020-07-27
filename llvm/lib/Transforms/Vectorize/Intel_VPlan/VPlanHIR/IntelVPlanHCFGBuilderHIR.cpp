@@ -353,6 +353,7 @@ VPBasicBlock *PlainCFGBuilderHIR::getOrCreateVPBB(HLNode *HNode) {
   auto createVPBB = [&]() -> VPBasicBlock * {
     VPBasicBlock *NewVPBB =
         new VPBasicBlock(VPlanUtils::createUniqueName("BB"), Plan);
+    NewVPBB->setTerminator();
     Plan->insertAtBack(NewVPBB);
     return NewVPBB;
   };
@@ -385,8 +386,16 @@ VPBasicBlock *PlainCFGBuilderHIR::getOrCreateVPBB(HLNode *HNode) {
 /// Predecessors.
 void PlainCFGBuilderHIR::connectVPBBtoPreds(VPBasicBlock *VPBB) {
 
-  for (VPBasicBlock *Pred : Predecessors)
-    Pred->appendSuccessor(VPBB);
+  for (VPBasicBlock *Pred : Predecessors) {
+    VPBasicBlock *Succ = Pred->getSingleSuccessor();
+    VPValue *CondBit = Pred->getCondBit();
+    if (Succ)
+      Pred->setTerminator(Succ, VPBB, CondBit);
+    else {
+      Pred->setTerminator(VPBB);
+      Pred->setCondBit(CondBit);
+    }
+  }
 
   Predecessors.clear();
 }
@@ -476,7 +485,7 @@ void PlainCFGBuilderHIR::visit(HLLoop *HLp) {
   // Header and set Latch condition bit.
   VPValue *LatchCondBit =
       Decomposer.createLoopIVNextAndBottomTest(HLp, Preheader, Latch);
-  Latch->appendSuccessor(Header);
+  Latch->setTerminator(Header);
   Latch->setCondBit(LatchCondBit);
 
   // - Loop Exits -
@@ -614,7 +623,7 @@ void PlainCFGBuilderHIR::visit(HLGoto *HGoto) {
   }
 
   // Connect to HLGoto's VPBB to HLLabel's VPBB.
-  ActiveVPBB->appendSuccessor(LabelVPBB);
+  Decomposer.createVPBranchInstruction(ActiveVPBB, LabelVPBB, HGoto);
 
   // Force the creation of a new VPBasicBlock for the next HLNode.
   ActiveVPBB = nullptr;

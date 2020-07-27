@@ -1101,6 +1101,7 @@ public:
 // These item classes for list-type clauses are not derived from the
 // base "Item" class above.
 //
+//   SubdeviceItem (for the Subdevice clause)
 //   DependItem    (for the depend  clause in task and target constructs)
 //   DepSinkItem   (for the depend(sink:<vec>) clause in ordered constructs)
 //   DepSourceItem (for the depend(source) clause in ordered constructs)
@@ -1113,6 +1114,37 @@ public:
 // receives a single EXPR for depend(sink:sink_expr), which is already in
 // the form ' IV +/- offset'.
 //
+class SubdeviceItem
+{
+  private:
+    EXPR  Level;          // null if unspecified
+    EXPR  Start;          // null if unspecified
+    EXPR  Length;         // null if unspecified
+    EXPR  Stride;         // null if unspecified
+
+  public:
+    SubdeviceItem(const Use *Args) {
+      Level = cast<Value>(Args[0]);
+      Start = cast<Value>(Args[1]);
+      Length = cast<Value>(Args[2]);
+      Stride = cast<Value>(Args[3]);
+    }
+
+    void setLevel(EXPR Lev)     { Level = Lev;   }
+    void setStart(EXPR Sta)     { Start = Sta;   }
+    void setLength(EXPR Len)    { Length = Len;  }
+    void setStride(EXPR Str)    { Stride = Str;  }
+
+    EXPR setLevel()     const   { return Level;  }
+    EXPR getStart()     const   { return Start;  }
+    EXPR getLevel()     const   { return Length; }
+    EXPR getStride()    const   { return Stride; }
+    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+        OS << "SUBDEVICE(" << Level << ", " << Start << ", " << Length << ", "
+           << Stride << ")";
+    }
+};
+
 class DependItem
 {
   private:
@@ -1386,6 +1418,7 @@ typedef Clause<UniformItem>       UniformClause;
 typedef Clause<MapItem>           MapClause;
 typedef Clause<IsDevicePtrItem>   IsDevicePtrClause;
 typedef Clause<UseDevicePtrItem>  UseDevicePtrClause;
+typedef Clause<SubdeviceItem>     SubdeviceClause;
 typedef Clause<DependItem>        DependClause;
 typedef Clause<DepSinkItem>       DepSinkClause;
 typedef Clause<DepSourceItem>     DepSourceClause;
@@ -1406,6 +1439,7 @@ typedef std::vector<UniformItem>::iterator       UniformIter;
 typedef std::vector<MapItem>::iterator           MapIter;
 typedef std::vector<IsDevicePtrItem>::iterator   IsDevicePtrIter;
 typedef std::vector<UseDevicePtrItem>::iterator  UseDevicePtrIter;
+typedef std::vector<SubdeviceItem>::iterator     SubdeviceIter;
 typedef std::vector<DependItem>::iterator        DependIter;
 typedef std::vector<DepSinkItem>::iterator       DepSinkIter;
 typedef std::vector<DepSourceItem>::iterator     DepSourceIter;

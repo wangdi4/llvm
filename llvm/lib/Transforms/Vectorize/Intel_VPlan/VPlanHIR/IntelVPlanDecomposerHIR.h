@@ -293,6 +293,21 @@ public:
   VPInductionHIRList &getInductions(const loopopt::HLLoop *L) {
     return *(Inductions[L]);
   }
+
+  // Construct VPBranchInst instruction from a \p HGoto.
+  VPBranchInst *createVPBranchInstruction(VPBasicBlock *InsPointVPBB,
+                                          VPBasicBlock *Succ,
+                                          loopopt::HLGoto *HGoto) {
+    assert(HGoto && "HLGoto must be passed to construct VPBranchInst.");
+    InsPointVPBB->setTerminator(Succ);
+
+    VPBranchInst *BranchInst = InsPointVPBB->getTerminator();
+    BranchInst->setDebugLocation(HGoto->getDebugLoc());
+    BranchInst->HIR.setUnderlyingNode(HGoto);
+    BranchInst->HIR.setValid();
+
+    return BranchInst;
+  }
 };
 
 } // namespace vpo

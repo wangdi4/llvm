@@ -1,15 +1,9 @@
-; RUN: opt -hir-create-function-level-region -hir-ssa-deconstruction -hir-temp-cleanup -hir-sum-window-reuse -print-before=hir-sum-window-reuse -debug-only=hir-sum-window-reuse -print-after=hir-sum-window-reuse -disable-output 2>&1 < %s | FileCheck %s
-; RUN: opt -hir-create-function-level-region -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-sum-window-reuse,print<hir>" -aa-pipeline="basic-aa" -debug-only=hir-sum-window-reuse < %s -disable-output 2>&1 | FileCheck %s
+; RUN: opt -hir-create-function-level-region -hir-ssa-deconstruction -hir-temp-cleanup -hir-sum-window-reuse -print-before=hir-sum-window-reuse -print-after=hir-sum-window-reuse -disable-output 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-create-function-level-region -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-sum-window-reuse,print<hir>" -aa-pipeline="basic-aa" < %s -disable-output 2>&1 | FileCheck %s
 
-; This test checks that HIRSumWindowReuse is able to optimize a simple window
-; sliding window sum in an extreme loop structure where the outer loop is
-; an unknown loop and the inner loop's bounds vary outside of the outer loop.
-
-; Currently, this transform is not yet implemented and so for now this test just
-; checks that the initial analysis correctly identifies the sum for
-; optimization.
-
-; REQUIRES: asserts
+; This test checks that HIRSumWindowReuse is able to optimize a simple sliding
+; window sum in an extreme loop structure where the outer loop is an unknown
+; loop and the inner loop's bounds vary outside of the outer loop.
 
 ; Print before:
 
@@ -40,10 +34,45 @@
 ; CHECK:       ret ;
 ; CHECK: END REGION
 
-; Debug output:
+; Print after:
 
-; CHECK: Identified these window sums for optimization:
-; CHECK:   %sum = %sum  +  (%A)[i2 + i3];
+; CHECK: BEGIN REGION
+; CHECK:       + DO i1 = 0, 63, 1   <DO_LOOP>
+; CHECK:       |   %M = (%Ms)[i1];
+; CHECK:       |
+; CHECK:       |      %[[WSUM:[A-Za-z0-9_.]+]] = 0.000000e+00;
+; CHECK:       |   + UNKNOWN LOOP i2
+; CHECK:       |   |   <i2 = 0>
+; CHECK:       |   |   L1:
+; CHECK:       |   |   %sum.final = 0.000000e+00;
+; CHECK:       |   |   if (%M != 0)
+; CHECK:       |   |   {
+; CHECK:       |   |      %sum = 0.000000e+00;
+; CHECK:       |   |      if (i2 == 0)
+; CHECK:       |   |      {
+; CHECK:       |   |         + DO i3 = 0, %M + -1, 1   <DO_LOOP>
+; CHECK:       |   |         |   %[[WSUM]] = %[[WSUM]]  +  (%A)[i3];
+; CHECK:       |   |         + END LOOP
+; CHECK:       |   |      }
+; CHECK:       |   |      else
+; CHECK:       |   |      {
+; CHECK:       |   |         %[[WSUM]] = %[[WSUM]]  -  (%A)[i2 + -1];
+; CHECK:       |   |         %[[WSUM]] = %[[WSUM]]  +  (%A)[i2 + %M + -1];
+; CHECK:       |   |      }
+; CHECK:       |   |      %sum = %sum + %[[WSUM]];
+; CHECK:       |   |      %sum.final = %sum;
+; CHECK:       |   |   }
+; CHECK:       |   |   (%B)[i2] = %sum.final;
+; CHECK:       |   |   if ((%OuterStop)[i2] == 0)
+; CHECK:       |   |   {
+; CHECK:       |   |      <i2 = i2 + 1>
+; CHECK:       |   |      goto L1;
+; CHECK:       |   |   }
+; CHECK:       |   + END LOOP
+; CHECK:       + END LOOP
+
+; CHECK:       ret ;
+; CHECK: END REGION
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

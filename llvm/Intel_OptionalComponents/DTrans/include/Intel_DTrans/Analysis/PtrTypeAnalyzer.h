@@ -186,21 +186,24 @@ public:
     return ElementPointees[Kind];
   }
 
-  // Indicates that an element in the alias set directly points to an aggregate
-  // type.
-  bool canAliasToDirectAggregatePointer() const {
-    return DirectAggregatePointerAliasCount != 0;
+  // Indicates that an element in the alias set, specified by 'Kind', directly
+  // points to an aggregate type.
+  bool
+  canAliasToDirectAggregatePointer(ValueAnalysisType Kind = VAT_Use) const {
+    return DirectAggregatePointerAliasCount[Kind] != 0;
   }
 
-  // Indicates that an element in the alias set is an aggregate type at some
-  // level of indirection.
-  bool canAliasToAggregatePointer() const {
-    return AggregatePointerAliasCount != 0;
+  // Indicates that an element in the alias set, specified by 'Kind', is an
+  // aggregate type at some level of indirection.
+  bool canAliasToAggregatePointer(ValueAnalysisType Kind = VAT_Use) const {
+    return AggregatePointerAliasCount[Kind] != 0;
   }
 
-  // Indicates there is more than one aggregate type in the alias set.
-  bool canAliasMultipleAggregatePointers() const {
-    return AggregatePointerAliasCount > 1;
+  // Indicates there is more than one aggregate type in the alias set, specified
+  // by 'Kind'.
+  bool
+  canAliasMultipleAggregatePointers(ValueAnalysisType Kind = VAT_Use) const {
+    return AggregatePointerAliasCount[Kind] > 1;
   }
 
   // Indicates the Value is used as an element within an aggregate type.
@@ -262,13 +265,14 @@ private:
   PointerTypeAliasSet PointerTypeAliases[2];
   ElementPointeeSet ElementPointees[2];
 
-  // Number of elements in the PointerTypeAlias usage type set that are pointers
-  // to an aggregate type without additional levels of indirection.
-  unsigned DirectAggregatePointerAliasCount = 0;
+  // Number of elements in the PointerTypeAlias VAT_Decl and VAT_Use type sets
+  // that are pointers to an aggregate type without additional levels of
+  // indirection.
+  unsigned DirectAggregatePointerAliasCount[2] = {0, 0};
 
-  // Number of elements in the PointerTypeAlias usage type set that are pointers
-  // to an aggregate type (at any level of indirection).
-  unsigned AggregatePointerAliasCount = 0;
+  // Number of elements in the PointerTypeAlias VAT_Decl and VAT_Use type sets
+  // that are pointers to an aggregate type (at any level of indirection).
+  unsigned AggregatePointerAliasCount[2] = {0, 0};
 
   // An instruction that declared this value was not supported by the analysis,
   // which means the type recovery information may be incomplete.
@@ -363,6 +367,28 @@ public:
   // (i.e. canAliasToAggregatePointer() == false), or when an dominant type does
   // not exist.
   DTransType *getDominantAggregateUsageType(ValueTypeInfo &Info) const;
+
+  // Like getDominantAggregateUsageType, but allows specifying whether the
+  // VAT_Decl or VAT_Use alias set should be analyzed to find the type.
+  DTransType *
+  getDominantAggregateType(ValueTypeInfo &Info,
+                           ValueTypeInfo::ValueAnalysisType Kind) const;
+
+  // Like getDominantAggregateType, but can return a dominant type when there
+  // are no aggregate types. If there are aggregate types, it is the same as
+  // getDominantAggregateType. If there are no aggregate types, try to find the
+  // best match from pointers to scalar types. By best type, this means that if
+  // a type is aliased by a generic form (i8* or pointer sized int pointer),
+  // ignore those in preference to a non-generic form.
+  //   For examples, given the following sets of possibilities:
+  //   1)  { i8*, i32* }       -> return i32*
+  //   2)  { double*, i64* }   -> return double*
+  //   3)  { float*, double* } -> return nullptr
+  DTransType *getDominantType(ValueTypeInfo &Info,
+                              ValueTypeInfo::ValueAnalysisType Kind) const;
+
+  // Returns 'true' if the dominant type is a pointer-to-pointer type.
+  bool isPtrToPtr(ValueTypeInfo &Info) const;
 
   // Check whether the Value should have had pointer type information collected
   // for it.

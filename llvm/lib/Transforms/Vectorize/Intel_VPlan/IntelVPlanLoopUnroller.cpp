@@ -170,21 +170,14 @@ void VPlanLoopUnroller::run(VPInstUnrollPartTy *VPInstUnrollPart) {
     for (VPBasicBlock *Block : VPL->blocks())
       Mapper.remapOperands(Block, UnrollerPart);
 
-    // Insert cloned blocks into the loop.
-    ClonedLatch->clearSuccessors();
-
-    for (auto Pred : ClonedHeader->getPredecessors())
-      Pred->removeSuccessor(ClonedHeader);
-
+    // Move forward latch's condition.
     VPValue *CondBit = CurrentLatch->getCondBit();
     assert(CondBit && "The loop latch is expected to have CondBit");
 
-    VPBlockUtils::moveSuccessors(CurrentLatch, ClonedLatch);
-    CurrentLatch->appendSuccessor(ClonedHeader);
-
-    // Move forward latch's condition.
-    ClonedLatch->setCondBit(CondBit);
-    CurrentLatch->setCondBit(nullptr);
+    // Insert cloned blocks into the loop.
+    ClonedLatch->setTerminator(CurrentLatch->getSuccessor(0),
+                                  CurrentLatch->getSuccessor(1), CondBit);
+    CurrentLatch->setTerminator(ClonedHeader);
 
     CurrentLatch = ClonedLatch;
   }

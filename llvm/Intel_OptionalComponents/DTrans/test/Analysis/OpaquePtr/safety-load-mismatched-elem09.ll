@@ -37,6 +37,12 @@ define void @test03(%struct.test03* %pStruct) !dtrans_type !9 {
   %vField = load i64, i64* %pStruct.as.p64
   ret void
 }
+; This case is treated as safe because it is the equivalent of using a GEP to
+; get the address of the first field, and then casting that from i32** to i64*,
+; which is marked as safe. %vField is still being tracked as a pointer type by
+; the pointer analyzer, so any unsafe uses of that could result in a safety flag
+; getting set.
+;
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: Name: struct.test03
 ; CHECK: Safety data: No issues found

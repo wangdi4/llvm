@@ -1310,6 +1310,11 @@ void PassManagerBuilder::populateModulePassManager(
 #endif  // INTEL_CUSTOMIZATION
 
   if (!DisableUnrollLoops && (!PrepareForLTO || !isLoopOptEnabled())) { // INTEL
+#if INTEL_CUSTOMIZATION
+  // Make unaligned nontemporal stores use a wrapper function instead of
+  // scalarizing them.
+  MPM.add(createNontemporalStoreWrapperPass());
+#endif // INTEL_CUSTOMIZATION
     // LoopUnroll may generate some redundency to cleanup.
     addInstructionCombiningPass(MPM);
 
@@ -1828,6 +1833,12 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   // After vectorization, assume intrinsics may tell us more about pointer
   // alignments.
   PM.add(createAlignmentFromAssumptionsPass());
+
+#if INTEL_CUSTOMIZATION
+  // Make unaligned nontemporal stores use a wrapper function instead of
+  // scalarizing them.
+  PM.add(createNontemporalStoreWrapperPass());
+#endif // INTEL_CUSTOMIZATION
 
   // Cleanup and simplify the code after the scalar optimizations.
   addInstructionCombiningPass(PM);  // INTEL

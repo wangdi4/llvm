@@ -320,8 +320,6 @@ WRNTargetNode::WRNTargetNode(BasicBlock *BB)
   setIsTarget();
   setIf(nullptr);
   setDevice(nullptr);
-  setSubDeviceBase(nullptr);
-  setSubDeviceLength(nullptr);
   setNowait(false);
   setParLoopNdInfoAlloca(nullptr);
   setOffloadEntryIdx(-1);
@@ -344,8 +342,6 @@ WRNTargetDataNode::WRNTargetDataNode(BasicBlock *BB)
   setIsTarget();
   setIf(nullptr);
   setDevice(nullptr);
-  setSubDeviceBase(nullptr);
-  setSubDeviceLength(nullptr);
 
   LLVM_DEBUG(dbgs() << "\nCreated WRNTargetDataNode<" << getNumber() << ">\n");
 }
@@ -366,8 +362,6 @@ WRNTargetEnterDataNode::WRNTargetEnterDataNode(BasicBlock *BB)
   setIsTarget();
   setIf(nullptr);
   setDevice(nullptr);
-  setSubDeviceBase(nullptr);
-  setSubDeviceLength(nullptr);
   setNowait(false);
 
   LLVM_DEBUG(dbgs() << "\nCreated WRNTargetEnterDataNode<" << getNumber()
@@ -391,8 +385,6 @@ WRNTargetExitDataNode::WRNTargetExitDataNode(BasicBlock *BB)
   setIsTarget();
   setIf(nullptr);
   setDevice(nullptr);
-  setSubDeviceBase(nullptr);
-  setSubDeviceLength(nullptr);
   setNowait(false);
 
   LLVM_DEBUG(dbgs() << "\nCreated WRNTargetExitDataNode<" << getNumber()
@@ -416,8 +408,6 @@ WRNTargetUpdateNode::WRNTargetUpdateNode(BasicBlock *BB)
   setIsTarget();
   setIf(nullptr);
   setDevice(nullptr);
-  setSubDeviceBase(nullptr);
-  setSubDeviceLength(nullptr);
   setNowait(false);
 
   LLVM_DEBUG(dbgs() << "\nCreated WRNTargetUpdateNode<" << getNumber()
@@ -439,8 +429,6 @@ WRNTargetVariantNode::WRNTargetVariantNode(BasicBlock *BB)
     : WRegionNode(WRegionNode::WRNTargetVariant, BB) {
   setIsTarget();
   setDevice(nullptr);
-  setSubDeviceBase(nullptr);
-  setSubDeviceLength(nullptr);
   setNowait(false);
 
   LLVM_DEBUG(dbgs() << "\nCreated WRNTargetVariantNode<" << getNumber()
@@ -452,8 +440,6 @@ void WRNTargetVariantNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                       unsigned Verbosity) const {
   unsigned Indent = 2 * Depth;
   vpo::printVal("DEVICE", getDevice(), OS, Indent, Verbosity);
-  vpo::printValRange("SUBDEVICE", getSubDeviceBase(), getSubDeviceLength(), OS,
-                     Indent, Verbosity);
   vpo::printBool("NOWAIT", getNowait(), OS, 2*Depth, Verbosity);
 }
 
@@ -1034,8 +1020,6 @@ void vpo::printExtraForTarget(WRegionNode const *W, formatted_raw_ostream &OS,
   unsigned Indent = 2 * Depth;
   vpo::printVal("IF_EXPR", W->getIf(), OS, Indent, Verbosity);
   vpo::printVal("DEVICE", W->getDevice(), OS, Indent, Verbosity);
-  vpo::printValRange("SUBDEVICE", W->getSubDeviceBase(),
-                     W->getSubDeviceLength(), OS, Indent, Verbosity);
 
   // All target constructs but WRNTargetData can have the NOWAIT clause
   if (!isa<WRNTargetDataNode>(W))

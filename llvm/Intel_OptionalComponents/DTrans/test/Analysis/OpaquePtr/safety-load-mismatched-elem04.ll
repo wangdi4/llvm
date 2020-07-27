@@ -7,7 +7,8 @@
 ; These cases are for when the field type is a pointer, but a different pointer
 ; type is used for the load.
 ;
-; These cases should trigger the 'Mismatched element access' safety flag.
+; These cases should trigger the 'Mismatched element access' safety flag, unless
+; the pointer is loaded using a generic pointer type.
 ; These also trigger 'Bad casting' because the field type within the structure
 ; is a pointer.
 
@@ -17,14 +18,16 @@ define void @test01(%struct.test01* %pStruct) !dtrans_type !2 {
   %pField.as.pp8 = bitcast i32** %pField to i8**
   %vField = load i8*, i8** %pField.as.pp8
 
-  ; This instruction is needed for the pointer type analyzer to identify
-  ; %vField as being used as an i8* type.
+  ; This instruction is needed for the pointer type analyzer to identify %vField
+  ; as being used as an i8* type. This load does not trigger any safety issues
+  ; because it is accessing the members pointed to by the i32*, and not an
+  ; aggregate type. This is consistent with the legacy LocalPointerAnalyzer.
   %use = load i8, i8* %vField
   ret void
 }
 ; CHECK-LABEL: DTRANS_StructInfo:
 ; CHECK: Name: struct.test01
-; CHECK: Safety data: Bad casting | Mismatched element access{{ *$}}
+; CHECK: Safety data: No issues found
 
 
 %struct.test02 = type { i32*, i32*, i32* }

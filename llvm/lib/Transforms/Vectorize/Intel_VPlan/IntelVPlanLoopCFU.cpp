@@ -105,8 +105,7 @@ void VPlanLoopCFU::run(VPLoop *VPL) {
       VPBlockUtils::splitBlockEnd(MaskedRegionLast, VPLI, DT, PDT);
 
   // TODO: This is the only place that doesn't incrementally update DT/PDT.
-  VPLHeader->removeSuccessor(MaskedRegionStart);
-  VPLHeader->setTwoSuccessors(LoopBodyMask, MaskedRegionStart, NewLoopLatch);
+  VPLHeader->setTerminator(MaskedRegionStart, NewLoopLatch, LoopBodyMask);
 
   if (TopTest)
     LoopBodyMask->addIncoming(TopTest, VPLPreHeader);
@@ -143,8 +142,8 @@ void VPlanLoopCFU::run(VPLoop *VPL) {
   Plan.getVPlanDA()->updateDivergence(*NewCondBit);
   LoopBodyMask->addIncoming(BottomTest, NewLoopLatch);
 
-  NewLoopLatch->clearSuccessors();
-  NewLoopLatch->setTwoSuccessors(NewCondBit, VPLExitBlock, VPLHeader);
+  NewLoopLatch->setTerminator(VPLExitBlock, VPLHeader, NewCondBit);
+  Builder.setInsertPoint(NewLoopLatch);
 
   // Basic CFG and mask manipulations are finished. Now handle the live outs.
   //

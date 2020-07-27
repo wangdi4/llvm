@@ -468,6 +468,9 @@ void WRegionNode::printClauses(formatted_raw_ostream &OS,
   if (canHaveMap())
     PrintedSomething |= getMap().print(OS, Depth, Verbosity);
 
+  if (canHaveSubdevice())
+    PrintedSomething |= getSubdevice().print(OS, Depth, Verbosity);
+
   if (canHaveIsDevicePtr())
     PrintedSomething |= getIsDevicePtr().print(OS, Depth, Verbosity);
 
@@ -1326,12 +1329,6 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
                                                getLpriv());
     break;
   }
-  case QUAL_OMP_SUBDEVICE: {
-    assert(NumArgs == 2 && "SubDevice clause expects two arguments.");
-    setSubDeviceBase (Args[0]);
-    setSubDeviceLength (Args[1]);
-    break;
-  }
   case QUAL_OMP_COPYIN: {
     extractQualOpndList<CopyinClause>(Args, NumArgs, ClauseInfo, getCopyin());
     break;
@@ -1471,6 +1468,13 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
   case QUAL_OMP_SCHEDULE_DYNAMIC: {
     extractScheduleOpndList(getSchedule(), Args, ClauseInfo,
                             WRNScheduleDynamic);
+    break;
+  }
+  case QUAL_OMP_SUBDEVICE: {
+    assert(NumArgs == 4 && "Subdevice clause expects four arguments.");
+    SubdeviceItem *Item = new SubdeviceItem(Args);
+    SubdeviceClause &C = getSubdevice();
+    C.add(Item);
     break;
   }
   case QUAL_OMP_SCHEDULE_GUIDED: {
@@ -1844,6 +1848,20 @@ bool WRegionNode::canHaveNontemporal() const {
 bool WRegionNode::canHaveMap() const {
   // Only target-type constructs take map clauses
   return getIsTarget();
+}
+
+bool WRegionNode::canHaveSubdevice() const {
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNTarget:
+  case WRNTargetData:
+  case WRNTargetEnterData:
+  case WRNTargetExitData:
+  case WRNTargetUpdate:
+  case WRNTargetVariant:
+    return true;
+  }
+  return false;
 }
 
 bool WRegionNode::canHaveIsDevicePtr() const {
