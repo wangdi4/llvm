@@ -49,7 +49,7 @@ std::string X86_MC::ParseX86Triple(const Triple &TT) {
   // SSE2 is disabled in IceCode mode.
   // FIXME: Why? The frontend code forces avx512 which forces sse2.
   if (TT.getArch() == Triple::x86_icecode)
-    FS = "+64bit-mode,-32bit-mode,-16bit-mode";
+    FS = "+64bit-mode,-32bit-mode,-16bit-mode,+icecode-mode";
   else
 #else // INTEL_FEATURE_ICECODE
 #endif // INTEL_FEATURE_ICECODE

@@ -297,11 +297,6 @@ X86Subtarget::X86Subtarget(const Triple &TT, StringRef CPU, StringRef FS,
       TM(TM), TargetTriple(TT), StackAlignOverride(StackAlignOverride),
       PreferVectorWidthOverride(PreferVectorWidthOverride),
       RequiredVectorWidth(RequiredVectorWidth),
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-      InIceCodeMode(TargetTriple.getArch() == Triple::x86_icecode),
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
       InstrInfo(initializeSubtargetDependencies(CPU, FS)), TLInfo(TM, *this),
       FrameLowering(*this, getStackAlignment()) {
   // Determine the PICStyle based on the target selected.

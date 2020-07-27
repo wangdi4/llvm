@@ -1,5 +1,5 @@
 // REQUIRES: intel_feature_icecode
-// RUN: llvm-mc -triple x86_icecode-unknown-unknown -mattr=icecode-mode --show-encoding < %s  | FileCheck %s
+// RUN: llvm-mc -triple x86_icecode-unknown-unknown --show-encoding < %s  | FileCheck %s
 
 // CHECK: gmovpphysw (%rdx), %ax
 // CHECK: encoding: [0x66,0xf3,0x0f,0xb4,0x02]
