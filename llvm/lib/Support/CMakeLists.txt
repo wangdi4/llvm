@@ -205,11 +205,18 @@ set (SUPPORT_SOURCES
   LINK_LIBS ${system_libs} ${imported_libs} ${delayload_flags} ${Z3_LINK_FILES}
   )
 
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 add_llvm_component_library(LLVMSupport ${SUPPORT_SOURCES})
 set_property(TARGET LLVMSupport PROPERTY LLVM_SYSTEM_LIBS "${system_libs}")
-=======
+
+if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
+  add_llvm_component_library(LLVMSupport_stdcpp ${SUPPORT_SOURCES}
+                             STDLIB stdc++)
+  set_property(TARGET LLVMSupport_stdcpp
+               PROPERTY LLVM_SYSTEM_LIBS "${system_libs}")
+endif()
+#end INTEL_CUSTOMIZATION
+
 set(llvm_system_libs ${system_libs})
 
 if(LLVM_ENABLE_ZLIB)
@@ -235,15 +242,6 @@ if(LLVM_ENABLE_ZLIB)
 endif()
 
 set_property(TARGET LLVMSupport PROPERTY LLVM_SYSTEM_LIBS "${llvm_system_libs}")
->>>>>>> 1d09ecf36175f7910ffedd6d497c07b5c74c22fb
-
-if (LLVM_LIBCXX_USED AND NOT SYCL_USE_LIBCXX)
-  add_llvm_component_library(LLVMSupport_stdcpp ${SUPPORT_SOURCES}
-                             STDLIB stdc++)
-  set_property(TARGET LLVMSupport_stdcpp
-               PROPERTY LLVM_SYSTEM_LIBS "${system_libs}")
-endif()
-#end INTEL_CUSTOMIZATION
 
 if(LLVM_WITH_Z3)
   target_include_directories(LLVMSupport SYSTEM
