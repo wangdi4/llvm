@@ -37201,7 +37201,6 @@ static SDValue combineX86ShufflesRecursively(
   if (!VT.isVector())
     return SDValue(); // Bail if we hit a non-vector.
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ISA_FP16
   // FIXME: Just bail on f16 for now.
@@ -37210,11 +37209,6 @@ static SDValue combineX86ShufflesRecursively(
 #endif // INTEL_FEATURE_ISA_FP16
 #endif // INTEL_CUSTOMIZATION
 
-  assert(Root.getSimpleValueType().isVector() &&
-         "Shuffles operate on vector types!");
-  unsigned RootSizeInBits = Root.getSimpleValueType().getSizeInBits();
-=======
->>>>>>> 3b21823e4abb501ca0b0de7777493be56a11cb67
   assert(VT.getSizeInBits() == RootSizeInBits &&
          "Can only combine shuffles of the same vector register size.");
 
