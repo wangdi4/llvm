@@ -3571,6 +3571,15 @@ bool HIRParser::GEPChain::isCompatible(const ArrayInfo &NextArr) const {
     return CurArr.getHighestDim().isZero();
   }
 
+  // If arrays share only a highest dimension and the current highest dimension
+  // index is zero then it's okay to merge GEPs-
+  // NextArr: (double*)[0:%i:%s2*%s1] | (double*)[0:%j:%s1] |
+  //  CurArr:                           (double*)[0: 0:  8] | ...
+  if (CurArr.getMaxRank() == NextArr.getMinRank() &&
+      CurArr.getHighestDim().isZero()) {
+    return true;
+  }
+
   // Check that strides match for existing ranks.
   // Note: it's possible that NextArr will not share any ranks with CurArr.
   // For example it happens in the chain of subscripts-
@@ -3580,11 +3589,11 @@ bool HIRParser::GEPChain::isCompatible(const ArrayInfo &NextArr) const {
   unsigned MaxCommonRank = std::min(NextArr.getMaxRank(), CurArr.getMaxRank());
   unsigned MinCommonRank = std::max(NextArr.getMinRank(), CurArr.getMinRank());
   for (auto Rank = MinCommonRank; Rank <= MaxCommonRank; ++Rank) {
-    auto &R1 = CurArr.getDim(Rank);
-    auto &R2 = NextArr.getDim(Rank);
+    auto *CurDimStride = CurArr.getDim(Rank).getStride();
+    auto *NextDimStride = NextArr.getDim(Rank).getStride();
 
     // Skip gaps in current array info.
-    if (!R1.getStride()) {
+    if (!CurDimStride) {
       // Example chain for (%p)[a+x][b][c+y]:
       //   %0 = gep [10 x [10 x i8]]* %p, a, b, c
       //   %1 = subs %0, r:2, 100, x
@@ -3595,14 +3604,9 @@ bool HIRParser::GEPChain::isCompatible(const ArrayInfo &NextArr) const {
       continue;
     }
 
-    assert(R2.getStride() && "Unexpected stride gaps in NextArr");
+    assert(NextDimStride && "Unexpected stride gaps in NextArr");
 
-    // May always merge new index if current is zero.
-    if (R1.isZero()) {
-      continue;
-    }
-
-    if (R1.getStride() != R2.getStride()) {
+    if (CurDimStride != NextDimStride) {
       return false;
     }
   }

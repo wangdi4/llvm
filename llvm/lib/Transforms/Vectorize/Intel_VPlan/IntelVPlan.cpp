@@ -818,72 +818,6 @@ void VPlan::dump(raw_ostream &OS) const {
 
 void VPlan::dump() const { dump(dbgs()); }
 
-std::unique_ptr<VPlan> VPlan::clone(VPAnalysesFactory &VPAF,
-                                    bool RecalculateDA) {
-  // Create new VPlan
-  std::unique_ptr<VPlan> ClonedVPlan = std::make_unique<VPlan>(getExternals());
-
-  // Clone the basic blocks from the current VPlan to the new one
-  VPCloneUtils::Value2ValueMapTy OrigClonedValuesMap;
-  VPCloneUtils::cloneBlocksRange(&front(), &back(), OrigClonedValuesMap,
-                                 nullptr, "Cloned.", ClonedVPlan.get());
-
-  // Update cloned instructions' operands
-  VPValueMapper Mapper(OrigClonedValuesMap);
-  for (VPBasicBlock &OrigVPBB : *this)
-    Mapper.remapOperands(&OrigVPBB);
-
-  // Update FullLinearizationForced
-  if (isFullLinearizationForced())
-    ClonedVPlan->markFullLinearizationForced();
-
-  // Update ForceOuterLoopBackedgeUniformity
-  if (isBackedgeUniformityForced())
-    ClonedVPlan->markBackedgeUniformityForced();
-
-  // Set SCEV to Cloned Plan
-  ClonedVPlan->setVPSE(VPAF.createVPSE());
-
-  // Set Value Tracking to Cloned Plan
-  ClonedVPlan->setVPVT(VPAF.createVPVT(ClonedVPlan->getVPSE()));
-
-  // Update dominator tree and post-dominator tree of new VPlan
-  ClonedVPlan->computeDT();
-  ClonedVPlan->computePDT();
-
-  // Calclulate VPLoopInfo for the ClonedVPlan
-  ClonedVPlan->setVPLoopInfo(std::make_unique<VPLoopInfo>());
-  VPLoopInfo *ClonedVPLInfo = ClonedVPlan->getVPLoopInfo();
-  ClonedVPLInfo->analyze(*ClonedVPlan->getDT());
-  LLVM_DEBUG(ClonedVPLInfo->verify(*ClonedVPlan->getDT()));
-
-  // Clone DA from the original VPlan to the new one. If RecalculateDA is true,
-  // then we compute DA from scratch. If we clone VPlan after the predicator
-  // (RecalculateDA=false), then we just have to clone instructions' vector
-  // shapes.
-  if (RecalculateDA) {
-    auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
-    ClonedVPlan->setVPlanDA(std::move(VPDA));
-    auto *VPLInfo = ClonedVPlan->getVPLoopInfo();
-    VPLoop *CandidateLoop = *VPLInfo->begin();
-    ClonedVPlan->getVPlanDA()->compute(
-        ClonedVPlan.get(), CandidateLoop, VPLInfo, *ClonedVPlan->getDT(),
-        *ClonedVPlan->getPDT(), false /*Not in LCSSA form*/);
-    VPSOAAnalysis VPSOAA(*this, *CandidateLoop);
-    SmallPtrSet<VPInstruction *, 32> SOAVars;
-    VPSOAA.doSOAAnalysis(SOAVars);
-
-    if (EnableSOAAnalysis)
-      ClonedVPlan->getVPlanDA()->recomputeShapes(SOAVars);
-  } else {
-    auto ClonedVPlanDA = std::make_unique<VPlanDivergenceAnalysis>();
-    ClonedVPlan->setVPlanDA(std::move(ClonedVPlanDA));
-    getVPlanDA()->cloneVectorShapes(ClonedVPlan.get(), OrigClonedValuesMap);
-    ClonedVPlan->getVPlanDA()->disableDARecomputation();
-  }
-  return ClonedVPlan;
-}
-
 void VPlanPrinter::dump() {
 #if INTEL_CUSTOMIZATION
   if (DumpPlainVPlanIR) {
@@ -1137,3 +1071,69 @@ template void DomTreeBuilder::Calculate<VPDomTree>(VPDomTree &DT);
 using VPPostDomTree = PostDomTreeBase<VPBasicBlock>;
 template void DomTreeBuilder::Calculate<VPPostDomTree>(VPPostDomTree &PDT);
 #endif
+
+std::unique_ptr<VPlan> VPlan::clone(VPAnalysesFactory &VPAF,
+                                    bool RecalculateDA) {
+  // Create new VPlan
+  std::unique_ptr<VPlan> ClonedVPlan = std::make_unique<VPlan>(getExternals());
+
+  // Clone the basic blocks from the current VPlan to the new one
+  VPCloneUtils::Value2ValueMapTy OrigClonedValuesMap;
+  VPCloneUtils::cloneBlocksRange(&front(), &back(), OrigClonedValuesMap,
+                                 nullptr, "Cloned.", ClonedVPlan.get());
+
+  // Update cloned instructions' operands
+  VPValueMapper Mapper(OrigClonedValuesMap);
+  for (VPBasicBlock &OrigVPBB : *this)
+    Mapper.remapOperands(&OrigVPBB);
+
+  // Update FullLinearizationForced
+  if (isFullLinearizationForced())
+    ClonedVPlan->markFullLinearizationForced();
+
+  // Update ForceOuterLoopBackedgeUniformity
+  if (isBackedgeUniformityForced())
+    ClonedVPlan->markBackedgeUniformityForced();
+
+  // Set SCEV to Cloned Plan
+  ClonedVPlan->setVPSE(VPAF.createVPSE());
+
+  // Set Value Tracking to Cloned Plan
+  ClonedVPlan->setVPVT(VPAF.createVPVT(ClonedVPlan->getVPSE()));
+
+  // Update dominator tree and post-dominator tree of new VPlan
+  ClonedVPlan->computeDT();
+  ClonedVPlan->computePDT();
+
+  // Calclulate VPLoopInfo for the ClonedVPlan
+  ClonedVPlan->setVPLoopInfo(std::make_unique<VPLoopInfo>());
+  VPLoopInfo *ClonedVPLInfo = ClonedVPlan->getVPLoopInfo();
+  ClonedVPLInfo->analyze(*ClonedVPlan->getDT());
+  LLVM_DEBUG(ClonedVPLInfo->verify(*ClonedVPlan->getDT()));
+
+  // Clone DA from the original VPlan to the new one. If RecalculateDA is true,
+  // then we compute DA from scratch. If we clone VPlan after the predicator
+  // (RecalculateDA=false), then we just have to clone instructions' vector
+  // shapes.
+  if (RecalculateDA) {
+    auto VPDA = std::make_unique<VPlanDivergenceAnalysis>();
+    ClonedVPlan->setVPlanDA(std::move(VPDA));
+    auto *VPLInfo = ClonedVPlan->getVPLoopInfo();
+    VPLoop *CandidateLoop = *VPLInfo->begin();
+    ClonedVPlan->getVPlanDA()->compute(
+        ClonedVPlan.get(), CandidateLoop, VPLInfo, *ClonedVPlan->getDT(),
+        *ClonedVPlan->getPDT(), false /*Not in LCSSA form*/);
+    VPSOAAnalysis VPSOAA(*this, *CandidateLoop);
+    SmallPtrSet<VPInstruction *, 32> SOAVars;
+    VPSOAA.doSOAAnalysis(SOAVars);
+
+    if (EnableSOAAnalysis)
+      ClonedVPlan->getVPlanDA()->recomputeShapes(SOAVars);
+  } else {
+    auto ClonedVPlanDA = std::make_unique<VPlanDivergenceAnalysis>();
+    ClonedVPlan->setVPlanDA(std::move(ClonedVPlanDA));
+    getVPlanDA()->cloneVectorShapes(ClonedVPlan.get(), OrigClonedValuesMap);
+    ClonedVPlan->getVPlanDA()->disableDARecomputation();
+  }
+  return ClonedVPlan;
+}
