@@ -231,34 +231,22 @@ void X86Subtarget::initSubtargetFeatures(StringRef CPU, StringRef FS) {
   if (CPU.empty())
     CPU = "generic";
 
-<<<<<<< HEAD
-  std::string FullFS = std::string(FS);
-  if (In64BitMode) {
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_ICECODE
-    // SSE2 is disabled in IceCode mode.
-    if (!InIceCodeMode)
-#endif // INTEL_FEATURE_ICECODE
-#endif // INTEL_CUSTOMIZATION
-    // SSE2 should default to enabled in 64-bit mode, but can be turned off
-    // explicitly.
-    if (!FullFS.empty())
-      FullFS = "+sse2," + FullFS;
-    else
-      FullFS = "+sse2";
-  }
-=======
   std::string FullFS = X86_MC::ParseX86Triple(TargetTriple);
   assert(!FullFS.empty() && "Failed to parse X86 triple");
 
   // SSE2 should default to enabled in 64-bit mode, but can be turned off
   // explicitly.
   if (TargetTriple.isArch64Bit())
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ICECODE
+    // SSE2 is disabled in IceCode mode.
+    if (!InIceCodeMode)
+#endif // INTEL_FEATURE_ICECODE
+#endif // INTEL_CUSTOMIZATION
     FullFS += ",+sse2";
 
   if (!FS.empty())
     FullFS = (Twine(FullFS) + "," + FS).str();
->>>>>>> 8158f0cefe72ea7efbf41fdf4a7bfa392f6a8a2e
 
   // Parse features string and set the CPU.
   ParseSubtargetFeatures(CPU, FullFS);
@@ -320,22 +308,11 @@ X86Subtarget::X86Subtarget(const Triple &TT, StringRef CPU, StringRef FS,
       TM(TM), TargetTriple(TT), StackAlignOverride(StackAlignOverride),
       PreferVectorWidthOverride(PreferVectorWidthOverride),
       RequiredVectorWidth(RequiredVectorWidth),
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_ICECODE
       InIceCodeMode(TargetTriple.getArch() == Triple::x86_icecode),
-      In64BitMode(TargetTriple.getArch() == Triple::x86_64 ||
-                  TargetTriple.getArch() == Triple::x86_icecode),
-#else // INTEL_FEATURE_ICECODE
-      In64BitMode(TargetTriple.getArch() == Triple::x86_64),
 #endif // INTEL_FEATURE_ICECODE
 #endif // INTEL_CUSTOMIZATION
-      In32BitMode(TargetTriple.getArch() == Triple::x86 &&
-                  TargetTriple.getEnvironment() != Triple::CODE16),
-      In16BitMode(TargetTriple.getArch() == Triple::x86 &&
-                  TargetTriple.getEnvironment() == Triple::CODE16),
-=======
->>>>>>> 8158f0cefe72ea7efbf41fdf4a7bfa392f6a8a2e
       InstrInfo(initializeSubtargetDependencies(CPU, FS)), TLInfo(TM, *this),
       FrameLowering(*this, getStackAlignment()) {
   // Determine the PICStyle based on the target selected.

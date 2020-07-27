@@ -616,13 +616,9 @@ private:
   /// True if compiling for 64-bit or IceCode, false for 16-bit or 32-bit.
 #else // INTEL_FEATURE_ICECODE
   /// True if compiling for 64-bit, false for 16-bit or 32-bit.
-<<<<<<< HEAD
 #endif // INTEL_FEATURE_ICECODE
 #endif // INTEL_CUSTOMIZATION
-  bool In64BitMode;
-=======
   bool In64BitMode = false;
->>>>>>> 8158f0cefe72ea7efbf41fdf4a7bfa392f6a8a2e
 
   /// True if compiling for 32-bit, false for 16-bit or 64-bit.
   bool In32BitMode = false;
