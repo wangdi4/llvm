@@ -25,6 +25,7 @@
 #ifdef _WIN32
 #include <fcntl.h>
 #include <io.h>
+#include <windows.h>
 #else
 #include <unistd.h>
 #endif // !_WIN32
@@ -44,12 +45,6 @@ int omp_get_thread_limit(void) __attribute__((weak));
 double omp_get_wtime(void) __attribute__((weak));
 #endif
 } // extern "C"
-
-/// OMPT support
-extern thread_local OmptTraceTy *omptTracePtr;
-extern void omptInitPlugin();
-extern const char *omptDocument;
-extern ompt_interface_fn_t omptLookupEntries(const char *);
 
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 #define ABS(x) ((x) < 0 ? -(x) : (x))
@@ -812,11 +807,12 @@ static void closeRTL() {
         delete profile;
       }
     }
-    if (omptEnabled.enabled) {
+#ifndef _WIN32
+    if (OMPT_ENABLED) {
+      // Disabled for Windows to alleviate dll finalization issue.
       OMPT_CALLBACK(ompt_callback_device_unload, i, 0 /* module ID */);
       OMPT_CALLBACK(ompt_callback_device_finalize, i);
     }
-#ifndef _WIN32
     DeviceInfo->Mutexes[i].lock();
     for (auto mem : DeviceInfo->OwnedMemory[i]) {
       MEMSTAT_UPDATE(i, DeviceInfo->Driver, 0, mem);
@@ -1079,10 +1075,6 @@ int32_t __tgt_rtl_number_of_devices() {
   }
 #endif // _WIN32
 
-  if (DeviceInfo->NumDevices > 0) {
-    omptInitPlugin();
-  }
-
   return DeviceInfo->NumDevices;
 }
 
@@ -1102,7 +1094,7 @@ int32_t __tgt_rtl_init_device(int32_t DeviceId) {
   OMPT_CALLBACK(ompt_callback_device_initialize, DeviceId,
                 DeviceInfo->DeviceProperties[DeviceId].name,
                 DeviceInfo->Devices[DeviceId],
-                omptLookupEntries, omptDocument);
+                omptLookupEntries, OmptDocument);
 
   DP("Initialized Level0 device %" PRId32 "\n", DeviceId);
   return OFFLOAD_SUCCESS;
@@ -1914,12 +1906,12 @@ static int32_t runTargetTeamRegion(int32_t DeviceId, void *TgtEntryPtr,
   DP("Group counts = {%" PRIu32 ", %" PRIu32 ", %" PRIu32 "}\n",
      groupCounts.groupCountX, groupCounts.groupCountY, groupCounts.groupCountZ);
 
-  if (omptEnabled.enabled) {
+  if (OMPT_ENABLED) {
     // Push current work size
     size_t finalNumTeams = groupCounts.groupCountX * groupCounts.groupCountY *
         groupCounts.groupCountZ;
     size_t finalThreadLimit = groupSizes[0] * groupSizes[1] * groupSizes[2];
-    omptTracePtr->pushWorkSize(finalNumTeams, finalThreadLimit);
+    OmptGlobal->getTrace().pushWorkSize(finalNumTeams, finalThreadLimit);
   }
 
   CALL_ZE_RET_FAIL(zeKernelSetGroupSize, kernel, groupSizes[0], groupSizes[1],

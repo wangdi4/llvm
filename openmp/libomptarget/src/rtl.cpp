@@ -77,6 +77,10 @@ std::mutex *TrlTblMtx;
 HostPtrToTableMapTy *HostPtrToTableMap;
 std::mutex *TblMapMtx;
 
+#if INTEL_COLLAB
+OmptGlobalTy *OmptGlobal;
+#endif // INTEL_COLLAB
+
 #ifdef INTEL_CUSTOMIZATION
 #ifdef _WIN32
 #define __ATTRIBUTE__(X)
@@ -93,6 +97,9 @@ __ATTRIBUTE__(constructor(101)) void init() { // INTEL
   TrlTblMtx = new std::mutex();
   HostPtrToTableMap = new HostPtrToTableMapTy();
   TblMapMtx = new std::mutex();
+#if INTEL_COLLAB
+  OmptGlobal = new OmptGlobalTy();
+#endif // INTEL_COLLAB
 }
 
 __ATTRIBUTE__(destructor(101)) void deinit() { // INTEL
@@ -103,6 +110,9 @@ __ATTRIBUTE__(destructor(101)) void deinit() { // INTEL
   delete TrlTblMtx;
   delete HostPtrToTableMap;
   delete TblMapMtx;
+#if INTEL_COLLAB
+  delete OmptGlobal;
+#endif // INTEL_COLLAB
 }
 
 #if INTEL_CUSTOMIZATION
@@ -154,7 +164,7 @@ void RTLsTy::LoadRTLs() {
     return;
   }
 #if INTEL_COLLAB
-  omptInit();
+  OmptGlobal->init();
 #endif // INTEL_COLLAB
 
   DP("Loading RTLs...\n");
@@ -323,6 +333,9 @@ void RTLsTy::LoadRTLs() {
     if ((*((void **)&R.data_alloc_explicit) =
               dlsym(dynlib_handle, "__tgt_rtl_data_alloc_explicit")))
       DP("Optional interface: __tgt_rtl_data_alloc_explicit\n");
+    if ((*((void **)&R.init_ompt) =
+              dlsym(dynlib_handle, "__tgt_rtl_init_ompt")))
+      DP("Optional interface: __tgt_rtl_init_ompt\n");
 #endif // INTEL_COLLAB
 
     // Optional functions
@@ -349,6 +362,11 @@ void RTLsTy::LoadRTLs() {
       DP("No devices supported in this RTL\n");
       continue;
     }
+#if INTEL_COLLAB
+    // Initialize RTL's OMPT data
+    if (R.init_ompt)
+      R.init_ompt(OmptGlobal);
+#endif // INTEL_COLLAB
 
     DP("Registering RTL %s supporting %d devices!\n", R.RTLName.c_str(),
        R.NumberOfDevices);

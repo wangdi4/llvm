@@ -12,9 +12,6 @@
 //===----------------------------------------------------------------------===//
 
 #include <omptarget.h>
-#if INTEL_COLLAB
-#include "omptarget-tools.h"
-#endif // INTEL_COLLAB
 
 #include "device.h"
 #include "private.h"
@@ -26,43 +23,6 @@
 #ifdef OMPTARGET_DEBUG
 int DebugLevel = 0;
 #endif // OMPTARGET_DEBUG
-
-
-#if INTEL_COLLAB
-/// OMPT
-thread_local OmptTraceTy omptTrace;
-OmptCallbacksInternalTy omptCallbacks;
-OmptCallbacksActiveTy omptEnabled;
-std::atomic<ompt_id_t> omptTargetId = ATOMIC_VAR_INIT(1);
-std::atomic<ompt_id_t> omptHostOpId = ATOMIC_VAR_INIT(1);
-
-/// Initialize OMPT for offload
-void omptInit() {
-  static bool omptInitialized = false;
-  if (omptInitialized) {
-    DP("OMPT was already initialized\n");
-    return;
-  }
-  void (*getOmptCallbacksFn)(void **, void **) = nullptr;
-  *(void **)(&getOmptCallbacksFn) = DLSYM("__kmpc_get_ompt_callbacks");
-  if (!getOmptCallbacksFn) {
-    DP("Warning: Cannot initialize OMPT\n");
-    return;
-  }
-  OmptCallbacksInternalTy *callbacks = nullptr;
-  OmptCallbacksActiveTy *enabled = nullptr;
-  std::memset(&omptEnabled, 0, sizeof(omptEnabled));
-  getOmptCallbacksFn((void **)&callbacks, (void **)&enabled);
-  if (!callbacks || !enabled) {
-    DP("Warning: Cannot initialize OMPT\n");
-    return;
-  }
-  omptCallbacks = *callbacks;
-  omptEnabled = *enabled;
-  omptInitialized = true;
-  DP("Initialized OMPT\n");
-}
-#endif // INTEL_COLLAB
 
 /* All begin addresses for partially mapped structs must be 8-aligned in order
  * to ensure proper alignment of members. E.g.

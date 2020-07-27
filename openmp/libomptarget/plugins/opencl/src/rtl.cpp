@@ -43,11 +43,6 @@
 #include "omptarget-tools.h"
 #include "rtl-trace.h"
 
-extern thread_local OmptTraceTy *omptTracePtr;
-extern void omptInitPlugin();
-extern const char *omptDocument;
-extern ompt_interface_fn_t omptLookupEntries(const char *);
-
 int DebugLevel = 0;
 
 #if INTEL_CUSTOMIZATION
@@ -825,15 +820,15 @@ static void closeRTL() {
   for (uint32_t i = 0; i < DeviceInfo->numDevices; i++) {
     if (!DeviceInfo->Initialized[i])
       continue;
-    // Invoke OMPT callbacks
-    if (omptEnabled.enabled) {
-      OMPT_CALLBACK(ompt_callback_device_unload, i, 0 /* module ID */);
-      OMPT_CALLBACK(ompt_callback_device_finalize, i);
-    }
     if (DeviceInfo->Flags.EnableProfile)
       DeviceInfo->Profiles[i].printData(i, DeviceInfo->Names[i].data(),
                                        DeviceInfo->ProfileResolution);
 #ifndef _WIN32
+    if (OMPT_ENABLED) {
+      // Disabled for Windows to alleviate dll finalization issue.
+      OMPT_CALLBACK(ompt_callback_device_unload, i, 0 /* module ID */);
+      OMPT_CALLBACK(ompt_callback_device_finalize, i);
+    }
     // Making OpenCL calls during process exit on Windows is unsafe.
     for (auto kernel : DeviceInfo->FuncGblEntries[i].Kernels) {
       if (kernel)
@@ -1277,9 +1272,7 @@ int32_t __tgt_rtl_number_of_devices() {
     DP("Device local mem size: %zu\n", (size_t)DeviceInfo->SLMSize[i]);
     DeviceInfo->Initialized[i] = false;
   }
-  if (DeviceInfo->numDevices > 0) {
-    omptInitPlugin();
-  } else {
+  if (DeviceInfo->numDevices == 0) {
     DP("WARNING: No OpenCL devices found.\n");
   }
 
@@ -1366,7 +1359,7 @@ int32_t __tgt_rtl_init_device(int32_t device_id) {
   OMPT_CALLBACK(ompt_callback_device_initialize, device_id,
                 DeviceInfo->Names[device_id].data(),
                 DeviceInfo->deviceIDs[device_id],
-                omptLookupEntries, omptDocument);
+                omptLookupEntries, OmptDocument);
 
   DeviceInfo->Initialized[device_id] = true;
 
@@ -2718,14 +2711,14 @@ static inline int32_t run_target_team_nd_region(
   }
 #endif  // INTEL_CUSTOMIZATION
 
-  if (omptEnabled.enabled) {
+  if (OMPT_ENABLED) {
     // Push current work size
     size_t finalNumTeams =
         global_work_size[0] * global_work_size[1] * global_work_size[2];
     size_t finalThreadLimit =
         local_work_size[0] * local_work_size[1] * local_work_size[2];
     finalNumTeams /= finalThreadLimit;
-    omptTracePtr->pushWorkSize(finalNumTeams, finalThreadLimit);
+    OmptGlobal->getTrace().pushWorkSize(finalNumTeams, finalThreadLimit);
   }
 
   cl_event event;

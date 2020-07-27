@@ -691,11 +691,7 @@ EXTERN int __tgt_get_interop_property(
 }
 
 EXTERN void __tgt_push_code_location(const char *location, void *codeptr_ra) {
-  omptTrace.pushCodeLocation(location, codeptr_ra);
-}
-
-EXTERN void *__tgt_get_ompt_trace(void) {
-  return &omptTrace;
+  OmptGlobal->getTrace().pushCodeLocation(location, codeptr_ra);
 }
 
 EXTERN int __tgt_get_num_devices(void) {
