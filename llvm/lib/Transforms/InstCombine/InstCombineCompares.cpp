@@ -2638,7 +2638,28 @@ Instruction *InstCombiner::foldICmpSubConstant(ICmpInst &Cmp,
 
   return nullptr;
 }
+#if INTEL_CUSTOMIZATION
+// Use Heuristics to minimize perf regressions.
+static bool isAddFoldingProfitable(const BinaryOperator *Add,
+                                   const APInt &Op1) {
+  // Add can be eliminated with the folding so consider it profitable.
+  if (Add->hasOneUse())
+    return true;
 
+  // Add with one can easily be folded in both ztt and loop upper because of IV
+  // increment.
+  if (Op1.isOneValue())
+    return true;
+
+  // If Add is in the entry bblock, make it non-profitable as folding does not
+  // change invariance of Cmp nor is it likely to enable further simplification.
+  auto *AddBB = Add->getParent();
+  if (AddBB == &AddBB->getParent()->getEntryBlock())
+    return false;
+
+  return true;
+}
+#endif // INTEL_CUSTOMIZATION
 /// Fold icmp (add X, Y), C.
 Instruction *InstCombiner::foldICmpAddConstant(ICmpInst &Cmp,
                                                BinaryOperator *Add,
@@ -2653,6 +2674,11 @@ Instruction *InstCombiner::foldICmpAddConstant(ICmpInst &Cmp,
   Type *Ty = Add->getType();
   CmpInst::Predicate Pred = Cmp.getPredicate();
 
+#if INTEL_CUSTOMIZATION
+  // Disabling this particular optimization before loopopt as it interferes with
+  // ztt recognition unless we are cancelling 1 from both sides.
+  if (!Cmp.getFunction()->isPreLoopOpt() || isAddFoldingProfitable(Add, *C2)) {
+#endif // INTEL_CUSTOMIZATION
   // If the add does not wrap, we can always adjust the compare by subtracting
   // the constants. Equality comparisons are handled elsewhere. SGE/SLE/UGE/ULE
   // are canonicalized to SGT/SLT/UGT/ULT.
@@ -2670,7 +2696,9 @@ Instruction *InstCombiner::foldICmpAddConstant(ICmpInst &Cmp,
       // icmp Pred (add nsw X, C2), C --> icmp Pred X, (C - C2)
       return new ICmpInst(Pred, X, ConstantInt::get(Ty, NewC));
   }
-
+#if INTEL_CUSTOMIZATION
+  } // !Cmp.getParent()->getParent()->isPreLoopOpt()
+#endif // INTEL_CUSTOMIZATION
   auto CR = ConstantRange::makeExactICmpRegion(Pred, C).subtract(*C2);
   const APInt &Upper = CR.getUpper();
   const APInt &Lower = CR.getLower();
