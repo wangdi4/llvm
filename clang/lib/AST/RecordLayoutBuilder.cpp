@@ -1857,20 +1857,13 @@ void ItaniumRecordLayoutBuilder::LayoutField(const FieldDecl *D,
     FieldAlign = Context.toCharUnitsFromBits(
         Context.getTargetInfo().getPointerAlign(AS));
   } else {
-<<<<<<< HEAD
-    std::pair<CharUnits, CharUnits> FieldInfo =
-      Context.getTypeInfoInChars(D->getType());
-    EffectiveFieldSize = FieldSize = FieldInfo.first;
-    FieldAlign = FieldInfo.second;
+    setDeclInfo(false /* IsIncompleteArrayType */);
 #if INTEL_CUSTOMIZATION
     // Arbitrary precision integer sizes require extra room to llvm::alloca due to
     // their strange offset.  Thus, we need to include this in the layout size.
     if (D->getType()->isArbPrecIntType())
       EffectiveFieldSize = FieldSize = FieldSize.alignTo(FieldAlign);
 #endif // INTEL_CUSTOMIZATION
-=======
-    setDeclInfo(false /* IsIncompleteArrayType */);
->>>>>>> 05ad8e942996f36cc694478542ccd84aa5bbb80f
 
     // A potentially-overlapping field occupies its dsize or nvsize, whichever
     // is larger.
