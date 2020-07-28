@@ -90,7 +90,8 @@ entry:
   %elem0 = extractelement <2 x i1> %pred, i32 0
   %elem1 = extractelement <2 x i1> %pred, i32 1
   %res = or i1 %elem0, %elem1
-  ret i1 %res
+  %f = call i1 @__ocl_allZero(i1 %res)
+  ret i1 %f
 }
 
 define i1 @__ocl_allZero_v4(<4 x i1> %pred) nounwind readnone {

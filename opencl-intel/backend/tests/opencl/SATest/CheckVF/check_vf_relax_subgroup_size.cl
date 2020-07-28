@@ -16,3 +16,7 @@ kernel void test_2(int a, __global int *b) {
 *b = work_group_all(a);
 }
 
+__attribute__((intel_reqd_sub_group_size(8)))
+kernel void test_3(int a, __global int *b) {
+*b = sub_group_any(a);
+}

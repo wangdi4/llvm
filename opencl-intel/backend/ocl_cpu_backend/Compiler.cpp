@@ -151,7 +151,7 @@ static bool LogKernelVFState(llvm::raw_ostream &logs,
        {
            logs << "Error in kernel <" << kernelName << "> "
                 << item.first << " with vectorization factor "
-                << item.second << " is not implement!\n";
+                << item.second << " is unimplemented!\n";
            checkFailed = true;
        }
     }
