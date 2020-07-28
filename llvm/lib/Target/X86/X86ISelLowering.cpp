@@ -34434,6 +34434,21 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     return BB;
   }
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX_BF8
+  case X86::PTDPBF8PS: {
+    const DebugLoc &DL = MI.getDebugLoc();
+    unsigned Opc = X86::TDPBF8PS;
+
+    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Undef);
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(1).getImm()), RegState::Undef);
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(2).getImm()), RegState::Undef);
+
+    MI.eraseFromParent(); // The pseudo is gone now.
+    return BB;
+  }
+#endif // INTEL_FEATURE_ISA_AMX_BF8
 #if INTEL_FEATURE_ISA_AMX_FUTURE
   case X86::PTADDPS:
   case X86::PTANDND:
@@ -35217,6 +35232,44 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     return BB;
   }
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE
+  case X86::PTMOVADVISErmi:{
+    const DebugLoc &DL = MI.getDebugLoc();
+    unsigned Opc;
+    switch (MI.getOpcode()) {
+    default: llvm_unreachable("Unexpected instruction!");
+    case X86::PTMOVADVISErmi: Opc = X86::TMOVADVISErmi; break;
+    }
+    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(0).getImm()), RegState::Define);
+    MIB.add(MI.getOperand(1)); // base
+    MIB.add(MI.getOperand(2)); // scale
+    MIB.add(MI.getOperand(3)); // index
+    MIB.add(MI.getOperand(4)); // displacement
+    MIB.add(MI.getOperand(5)); // segment
+    MIB.addImm(MI.getOperand(6).getImm());
+    MI.eraseFromParent(); // The pseudo is gone now.
+    return BB;
+  }
+  case X86::PTMOVADVISEmri:{
+    const DebugLoc &DL = MI.getDebugLoc();
+    unsigned Opc;
+    switch (MI.getOpcode()) {
+    default: llvm_unreachable("Unexpected instruction!");
+    case X86::PTMOVADVISEmri: Opc = X86::TMOVADVISEmri; break;
+    }
+    MachineInstrBuilder MIB = BuildMI(*BB, MI, DL, TII->get(Opc));
+    MIB.add(MI.getOperand(0)); // base
+    MIB.add(MI.getOperand(1)); // scale
+    MIB.add(MI.getOperand(2)); // index
+    MIB.add(MI.getOperand(3)); // displacement
+    MIB.add(MI.getOperand(4)); // segment
+    MIB.addReg(TMMImmToTMMReg(MI.getOperand(5).getImm()), RegState::Undef);
+    MIB.addImm(MI.getOperand(6).getImm());
+    MI.eraseFromParent(); // The pseudo is gone now.
+    return BB;
+  }
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
 #endif // INTEL_CUSTOMIZATION
   }
 }

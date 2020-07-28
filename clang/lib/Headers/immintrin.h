@@ -790,6 +790,24 @@ _storebe_i64(void * __P, long long __D) {
 #endif
 /* end INTEL_FEATURE_ISA_HRESET */
 
+/* INTEL_FEATURE_ISA_AMX_BF8 */
+#if defined(__AMX_BF8_SUPPORTED__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AMX_BF8__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <Intel_amxbf8intrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_AMX_BF8 */
+
+/* INTEL_FEATURE_ISA_AMX_MEMADVISE */
+#if defined(__AMX_MEMADVISE_SUPPORTED__)
+#if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \
+    defined(__AMX_MEMADVISE__) || defined(__M_INTRINSIC_PROMOTE__)
+#include <Intel_amxmemadviseintrin.h>
+#endif
+#endif
+/* end INTEL_FEATURE_ISA_AMX_MEMADVISE */
+
 /* INTEL_FEATURE_ISA_AMX_FUTURE */
 #if defined(__AMX_FUTURE_SUPPORTED__)
 #if !(defined(_MSC_VER) || defined(__SCE__)) || __has_feature(modules) ||      \

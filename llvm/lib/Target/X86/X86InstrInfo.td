@@ -1140,6 +1140,13 @@ def HasAMXTRANSPOSE2 : Predicate<"Subtarget->hasAMXTRANSPOSE2()">;
 #if INTEL_FEATURE_ISA_AMX_TILE2
 def HasAMXTILE2    : Predicate<"Subtarget->hasAMXTILE2()">;
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
+
+#if INTEL_FEATURE_ISA_AMX_BF8
+def HasAMXBF8    : Predicate<"Subtarget->hasAMXBF8()">;
+#endif // INTEL_FEATURE_ISA_AMX_BF8
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE
+def HasAMXMEMADVISE    : Predicate<"Subtarget->hasAMXMEMADVISE()">;
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
 #endif // INTEL_CUSTOMIZATION
 def HasSERIALIZE : Predicate<"Subtarget->hasSERIALIZE()">;
 def HasTSXLDTRK  : Predicate<"Subtarget->hasTSXLDTRK()">;

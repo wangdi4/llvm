@@ -4828,6 +4828,56 @@ void X86DAGToDAGISel::Select(SDNode *Node) {
       return;
     }
 #endif // INTEL_FEATURE_ISA_AMX_CONVERT
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE
+    case Intrinsic::x86_tmovadvise_load: {
+      if (!Subtarget->hasAMXMEMADVISE())
+        break;
+      unsigned Opc;
+      switch (IntNo) {
+      default: llvm_unreachable("Unexpected intrinsic!");
+      case Intrinsic::x86_tmovadvise_load:   Opc = X86::PTMOVADVISErmi; break;
+      }
+      // FIXME: Match displacement and scale.
+      unsigned TIndex = Node->getConstantOperandVal(2);
+      SDValue TReg = getI8Imm(TIndex, dl);
+      SDValue Base = Node->getOperand(3);
+      SDValue Scale = getI8Imm(1, dl);
+      SDValue Index = Node->getOperand(4);
+      SDValue Disp = CurDAG->getTargetConstant(0, dl, MVT::i32);
+      SDValue Segment = CurDAG->getRegister(0, MVT::i16);
+      unsigned Op5 = Node->getConstantOperandVal(5);
+      SDValue Imm = getI8Imm(Op5, dl);
+      SDValue Chain = Node->getOperand(0);
+      SDValue Ops[] = { TReg, Base, Scale, Index, Disp, Segment, Imm, Chain };
+      MachineSDNode *CNode = CurDAG->getMachineNode(Opc, dl, MVT::Other, Ops);
+      ReplaceNode(Node, CNode);
+      return;
+    }
+    case Intrinsic::x86_tmovadvise_store: {
+      if (!Subtarget->hasAMXMEMADVISE())
+        break;
+      unsigned Opc;
+      switch (IntNo) {
+      default: llvm_unreachable("Unexpected intrinsic!");
+      case Intrinsic::x86_tmovadvise_store:   Opc = X86::PTMOVADVISEmri; break;
+      }
+      // FIXME: Match displacement and scale.
+      SDValue Base = Node->getOperand(2);
+      SDValue Scale = getI8Imm(1, dl);
+      SDValue Index = Node->getOperand(3);
+      SDValue Disp = CurDAG->getTargetConstant(0, dl, MVT::i32);
+      SDValue Segment = CurDAG->getRegister(0, MVT::i16);
+      unsigned TIndex = Node->getConstantOperandVal(4);
+      SDValue TReg = getI8Imm(TIndex, dl);
+      unsigned Op5 = Node->getConstantOperandVal(5);
+      SDValue Imm = getI8Imm(Op5, dl);
+      SDValue Chain = Node->getOperand(0);
+      SDValue Ops[] = { Base, Scale, Index, Disp, Segment, TReg, Imm, Chain };
+      MachineSDNode *CNode = CurDAG->getMachineNode(Opc, dl, MVT::Other, Ops);
+      ReplaceNode(Node, CNode);
+      return;
+    }
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
 #endif // INTEL_CUSTOMIZATION
     }
     break;

@@ -6210,6 +6210,13 @@ let TargetPrefix = "x86" in {
 }
 
 #if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_ISA_AMX_BF8
+let TargetPrefix = "x86" in {
+  def int_x86_tdpbf8ps : GCCBuiltin<"__builtin_ia32_tdpbf8ps">,
+              Intrinsic<[], [llvm_i8_ty, llvm_i8_ty, llvm_i8_ty], []>;
+}
+#endif // INTEL_FEATURE_ISA_AMX_BF8
+
 #if INTEL_FEATURE_ICECODE
 //===----------------------------------------------------------------------===//
 // IceCode
@@ -6823,4 +6830,19 @@ let TargetPrefix = "x86" in {
                   [ImmArg<ArgIndex<0>>, ImmArg<ArgIndex<1>>]>;
 }
 #endif // INTEL_FEATURE_ISA_AMX_TILE2
+
+#if INTEL_FEATURE_ISA_AMX_MEMADVISE
+//===----------------------------------------------------------------------===//
+let TargetPrefix = "x86" in {
+  def int_x86_tmovadvise_load
+      : GCCBuiltin<"__builtin_ia32_tmovadvise_load">,
+        Intrinsic<[], [llvm_i8_ty, llvm_ptr_ty, llvm_i64_ty, llvm_i8_ty],
+                  [ImmArg<ArgIndex<0>>, ImmArg<ArgIndex<3>>]>;
+  def int_x86_tmovadvise_store
+      : GCCBuiltin<"__builtin_ia32_tmovadvise_store">,
+        Intrinsic<[], [llvm_ptr_ty, llvm_i64_ty, llvm_i8_ty, llvm_i8_ty],
+                  [ImmArg<ArgIndex<2>>, ImmArg<ArgIndex<3>>]>;
+}
+#endif // INTEL_FEATURE_ISA_AMX_MEMADVISE
+
 #endif // INTEL_CUSTOMIZATION
