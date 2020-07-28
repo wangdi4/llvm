@@ -230,11 +230,15 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
   } else if (Size) {
     // If it is not contained and Size > 0, we should create a new entry for it.
     IsNew = true;
+<<<<<<< HEAD
 #if INTEL_COLLAB
     uintptr_t tp = (uintptr_t)data_alloc_base(Size, HstPtrBegin, HstPtrBase);
 #else // INTEL_COLLAB
     uintptr_t tp = (uintptr_t)RTL->data_alloc(RTLDeviceID, Size, HstPtrBegin);
 #endif // INTEL_COLLAB
+=======
+    uintptr_t tp = (uintptr_t)data_alloc(Size, HstPtrBegin);
+>>>>>>> 932316660179c1273e365d9dbbe648478bc5c4f1
     DP("Creating new map entry: HstBase=" DPxMOD ", HstBegin=" DPxMOD ", "
        "HstEnd=" DPxMOD ", TgtBegin=" DPxMOD "\n",
        DPxPTR(HstPtrBase), DPxPTR(HstPtrBegin),
@@ -326,6 +330,7 @@ int DeviceTy::deallocTgtPtr(void *HstPtrBegin, int64_t Size, bool ForceDelete,
     if (HT.decRefCount() == 0) {
       DP("Deleting tgt data " DPxMOD " of size %" PRId64 "\n",
           DPxPTR(HT.TgtPtrBegin), Size);
+<<<<<<< HEAD
 #if INTEL_COLLAB
       OMPT_TRACE(targetDataDeleteBegin(RTLDeviceID, (void *)HT.TgtPtrBegin));
 #endif // INTEL_COLLAB
@@ -333,6 +338,9 @@ int DeviceTy::deallocTgtPtr(void *HstPtrBegin, int64_t Size, bool ForceDelete,
 #if INTEL_COLLAB
       OMPT_TRACE(targetDataDeleteEnd(RTLDeviceID, (void *)HT.TgtPtrBegin));
 #endif // INTEL_COLLAB
+=======
+      data_delete((void *)HT.TgtPtrBegin);
+>>>>>>> 932316660179c1273e365d9dbbe648478bc5c4f1
       DP("Removing%s mapping with HstPtrBegin=" DPxMOD ", TgtPtrBegin=" DPxMOD
           ", Size=%" PRId64 "\n", (ForceDelete ? " (forced)" : ""),
           DPxPTR(HT.HstPtrBegin), DPxPTR(HT.TgtPtrBegin), Size);
@@ -382,6 +390,14 @@ __tgt_target_table *DeviceTy::load_binary(void *Img) {
   __tgt_target_table *rc = RTL->load_binary(RTLDeviceID, Img);
   RTL->Mtx.unlock();
   return rc;
+}
+
+void *DeviceTy::data_alloc(int64_t Size, void *HstPtr) {
+  return RTL->data_alloc(RTLDeviceID, Size, HstPtr);
+}
+
+int32_t DeviceTy::data_delete(void *TgtPtrBegin) {
+  return RTL->data_delete(RTLDeviceID, TgtPtrBegin);
 }
 
 // Submit data to device
@@ -753,6 +769,12 @@ bool DeviceTy::isDataExchangable(const DeviceTy &DstDevice) {
            (RTL->data_exchange_async != nullptr);
 
   return false;
+}
+
+int32_t DeviceTy::synchronize(__tgt_async_info *AsyncInfoPtr) {
+  if (RTL->synchronize)
+    return RTL->synchronize(RTLDeviceID, AsyncInfoPtr);
+  return OFFLOAD_SUCCESS;
 }
 
 /// Check whether a device has an associated RTL and initialize it if it's not
