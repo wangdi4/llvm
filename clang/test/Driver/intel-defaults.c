@@ -2,6 +2,7 @@
 // RUN: %clang -### -c --intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL %s
 // RUN: %clang_cl -### -c --intel %s 2>&1 | FileCheck -check-prefixes=CHECK-INTEL,CHECK-INTEL-WIN %s
 // CHECK-INTEL: "-fveclib=SVML"
+// CHECK-INTEL-NOT: "-relaxed-aliasing"
 // CHECK-INTEL-WIN: "-ffunction-sections"
 // CHECK-INTEL: "-O2"
 // CHECK-INTEL-WIN: "-Wno-c++11-narrowing"
