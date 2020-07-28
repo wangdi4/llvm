@@ -1,12 +1,9 @@
-<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 # CMPLRLLVM-20589: disable the test, while it is being settled upstream.
 # REQUIRES: llvm-64-bits
 # end INTEL_CUSTOMIZATION
-# REQUIRES: x86
-=======
 # REQUIRES: x86, shell
->>>>>>> d32e32500f92602ccedcf967df2915da6f3803d2
+
 # RUN: llvm-mc -filetype=obj -triple=x86_64-apple-darwin %s -o %t.o
 # RUN: lld -flavor darwinnew -o %t %t.o
 # RUN: (llvm-readobj --macho-segment %t; echo "Total file size"; wc -c %t) | FileCheck %s
