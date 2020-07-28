@@ -968,17 +968,12 @@ void VPlanPredicator::emitPredicates() {
 }
 
 // Entry point. The driver function for the predicator.
-void VPlanPredicator::predicate(void) {
+void VPlanPredicator::predicate() {
   bool SearchLoopHack = false;
-  if (VPLI->size() != 0) {
-    assert(VPLI->size() == 1 && "more than 1 loop?");
-    VPLoop *VPL = *VPLI->begin();
-    SmallVector<VPBasicBlock *, 4> Exits;
-    VPL->getExitBlocks(Exits);
-
-    if (Exits.size() != 1 )
-      SearchLoopHack = true;
-  }
+  if (VPLI->size() == 1 && !(*VPLI->begin())->getExitBlock())
+    // For function vectorization loop exits canonicalization have already
+    // handled it.
+    SearchLoopHack = true;
 
   // Calculate predicates for the blocks in the Plan, but don't lower them into
   // explicit VPInstructions.

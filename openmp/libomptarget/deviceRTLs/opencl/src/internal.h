@@ -20,14 +20,6 @@
 /// Basic messaging -- we don't have variadics in OpenCL
 ///
 
-#if 1 // For now, work around the printf addrspace mismatch issue by
-      // disabling asserts in libomptarget-opencl.bc
-      // TODO: Fix the printf addrspace mismatch issue.
-#define KMP_ASSERT(Check, Message)
-#define KMP_UNSUPPORTED(Feature)
-
-#else
-
 /// Just print out something if check fails
 #define KMP_ASSERT(Check, Message)                                             \
   do {                                                                         \
@@ -40,8 +32,6 @@
   do {                                                                         \
     printf("Device does not support " Feature "\n");                           \
   } while (0)
-
-#endif // Workaround for the printf issue
 
 ///
 /// Utility functions
