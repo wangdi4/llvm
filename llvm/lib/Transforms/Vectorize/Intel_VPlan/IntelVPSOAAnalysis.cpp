@@ -69,12 +69,6 @@ void VPSOAAnalysis::doSOAAnalysis(SmallPtrSetImpl<VPInstruction *> &SOAVars) {
 }
 
 // Returns true if the pointee type of the alloca-inst is a scalar value.
-bool VPSOAAnalysis::isScalarTy(Type *Ty) {
-  assert(Ty && "Expect a non-null argument to isScalarTy function.");
-  return (!(Ty->isAggregateType() || Ty->isVectorTy()));
-}
-
-// Returns true if the pointee type of the alloca-inst is a scalar value.
 bool VPSOAAnalysis::isSOASupportedTy(Type *Ty) {
 
   Type *PointeeTy = Ty->getPointerElementType();

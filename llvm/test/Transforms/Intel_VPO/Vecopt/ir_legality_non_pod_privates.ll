@@ -1,11 +1,18 @@
 ; Test if debug information for PrivDescr class are generated correctly.
 
-; RUN: opt -S -VPlanDriver -disable-output -vplan-print-legality < %s 2>&1 | FileCheck %s
+; RUN: opt -S -VPlanDriver -disable-output -vplan-print-legality -vplan-print-after-plain-cfg -vplan-entities-dump < %s 2>&1 | FileCheck %s
 
 ; CHECK: VPOLegality PrivateList:
 ; CHECK-NEXT: Ref:   %myPoint2.priv = alloca %struct.point2d, align 4
 ; CHECK: PrivDescr: {IsCond: 0, IsLast: 0}
 ; CHECK-NEXT: PrivDescrNonPOD: {Ctor: _ZTS7point2d.omp.def_constr, Dtor: _ZTS7point2d.omp.destr, Copy Assign: }
+
+; CHECK:       Private list
+; CHECK-EMPTY:
+; CHECK-NEXT:    Private tag: Non-POD
+; CHECK-NEXT:    Linked values: %struct.point2d* %myPoint2.priv,
+; CHECK-NEXT:   Memory: %struct.point2d* %myPoint2.priv
+; CHECK-EMPTY:
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

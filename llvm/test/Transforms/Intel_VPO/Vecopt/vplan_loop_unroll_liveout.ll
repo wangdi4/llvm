@@ -2,7 +2,7 @@
 ; TODO: enable cfg merge after private support enabled
 ; RUN: opt -vplan-enable-soa=false -S < %s -VPlanDriver -loop-simplify --vplan-force-vf=4\
 ; RUN: --vplan-force-uf=3 --vplan-print-after-unroll -vplan-enable-all-liveouts\
-; RUN: -vplan-enable-cfg-merge=0  -vplan-enable-new-cfg-merge | FileCheck %s
+; RUN: -vplan-enable-cfg-merge=0  -vplan-enable-new-cfg-merge -vplan-entities-dump | FileCheck %s
 
 ; int foo(int *a, int n) {
 ;   int res;
@@ -17,7 +17,14 @@
 define dso_local i32 @_Z3fooPii(i32* nocapture readonly %a, i32 %n) local_unnamed_addr #0 {
 ; CHECK-LABEL:  VPlan after VPlan loop unrolling:
 ; CHECK-NEXT:  VPlan IR for: _Z3fooPii:omp.inner.for.body
-; CHECK-NEXT:    [[BB0:BB[0-9]+]]: # preds:
+
+; CHECK:       Private list
+; CHECK-EMPTY:
+; CHECK-NEXT:    Private tag: InMemory
+; CHECK-NEXT:    Linked values: i32* [[B_PRIV0:%.*]], i32* [[VP_B_PRIV:%.*]],
+; CHECK-NEXT:   Memory: i32* [[B_PRIV0]]
+
+; CHECK:    [[BB0:BB[0-9]+]]: # preds:
 ; CHECK-NEXT:     [DA: Uni] br [[BB1:BB[0-9]+]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB1]]: # preds: [[BB0]]

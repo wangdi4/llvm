@@ -154,7 +154,30 @@ void VPInduction::dump(raw_ostream &OS) const {
   printLinkedValues(OS);
 }
 
-void VPPrivate::dump(raw_ostream &OS) const { printLinkedValues(OS); }
+void VPPrivate::dump(raw_ostream &OS) const {
+  if (hasExitInstr()) {
+    OS << "\n  Exit instr: ";
+    getExitInst()->print(OS);
+  }
+  if (hasPrivateTag()) {
+    OS << "\n  Private tag: ";
+    switch (getPrivateTag()) {
+    case PrivateTag::PTUndef:
+      OS << "(undef)";
+      break;
+    case PrivateTag::PTArray:
+      OS << "Array";
+      break;
+    case PrivateTag::PTInMemory:
+      OS << "InMemory";
+      break;
+    case PrivateTag::PTNonPod:
+      OS << "Non-POD";
+      break;
+    }
+  }
+  printLinkedValues(OS);
+}
 
 void VPLoopEntityMemoryDescriptor::dump(raw_ostream &OS) const {
   MemoryPtr->print(OS);
@@ -364,11 +387,22 @@ VPInduction *VPLoopEntityList::addInduction(VPInstruction *Start,
 
 VPPrivate *VPLoopEntityList::addPrivate(VPInstruction *FinalI,
                                         VPEntityAliasesTy &Aliases,
-                                        bool IsConditional, bool IsLast,
-                                        bool Explicit, VPValue *AI,
-                                        bool ValidMemOnly) {
-  VPPrivate *Priv = new VPPrivate(FinalI, std::move(Aliases), IsConditional,
-                                  IsLast, Explicit, ValidMemOnly);
+                                        VPPrivate::PrivateKind K, bool Explicit,
+                                        VPValue *AI, bool ValidMemOnly) {
+  VPPrivate *Priv =
+      new VPPrivate(FinalI, std::move(Aliases), K, Explicit, ValidMemOnly);
+  PrivatesList.emplace_back(Priv);
+  linkValue(PrivateMap, Priv, AI);
+  createMemDescFor(Priv, AI);
+  return Priv;
+}
+
+VPPrivate *VPLoopEntityList::addPrivate(VPPrivate::PrivateTag Tag,
+                                        VPEntityAliasesTy &Aliases,
+                                        VPPrivate::PrivateKind K, bool Explicit,
+                                        VPValue *AI, bool ValidMemOnly) {
+  VPPrivate *Priv =
+      new VPPrivate(Tag, std::move(Aliases), K, Explicit, ValidMemOnly);
   PrivatesList.emplace_back(Priv);
   linkValue(PrivateMap, Priv, AI);
   createMemDescFor(Priv, AI);
@@ -376,11 +410,10 @@ VPPrivate *VPLoopEntityList::addPrivate(VPInstruction *FinalI,
 }
 
 VPPrivateNonPOD *VPLoopEntityList::addNonPODPrivate(
-    VPEntityAliasesTy &Aliases, bool IsConditional, bool IsLast, bool Explicit,
+    VPEntityAliasesTy &Aliases, VPPrivate::PrivateKind K, bool Explicit,
     Function *Ctor, Function *Dtor, Function *CopyAssign, VPValue *AI) {
-  VPPrivateNonPOD *Priv =
-      new VPPrivateNonPOD(std::move(Aliases), IsConditional, IsLast, Explicit,
-                          Ctor, Dtor, CopyAssign);
+  VPPrivateNonPOD *Priv = new VPPrivateNonPOD(std::move(Aliases), K, Explicit,
+                                              Ctor, Dtor, CopyAssign);
   PrivatesList.emplace_back(Priv);
   linkValue(PrivateMap, Priv, AI);
   createMemDescFor(Priv, AI);
@@ -977,6 +1010,22 @@ void VPLoopEntityList::insertPrivateVPInstructions(VPBuilder &Builder,
   LLVM_DEBUG(Preheader->dump());
 }
 
+void VPLoopEntityList::analyzeImplicitLastPrivates() {
+  for (auto *BB : Loop.blocks())
+    for (VPInstruction &Inst : *BB)
+      if (Loop.isLiveOut(&Inst) && !getReduction(&Inst) &&
+          !getInduction(&Inst) && !getPrivate(&Inst)) {
+        // TODO: add phi analysis (as a separate change)
+        if (isa<VPPHINode>(&Inst))
+          continue;
+        // Add new private with empty alias list
+        VPEntityAliasesTy EmptyAliases;
+        addPrivate(&Inst, EmptyAliases, VPPrivate::PrivateKind::Last,
+                   /* Explicit */ false, /* AI */ nullptr,
+                   /* MemOnly */ false);
+      }
+}
+
 // Insert VPInstructions corresponding to the VPLoopEntities like
 // VPInductions, VPReductions and VPPrivates.
 void VPLoopEntityList::insertVPInstructions(VPBuilder &Builder) {
@@ -1471,16 +1520,23 @@ VPInstruction *ReductionDescr::getLoopExitVPInstr(const VPLoop *Loop) {
 }
 
 void PrivateDescr::passToVPlan(VPlanVector *Plan, const VPLoop *Loop) {
+  using PrivKind = VPPrivate::PrivateKind;
+  PrivKind K = !IsLast
+                   ? PrivKind::NonLast
+                   : (IsConditional ? PrivKind::Conditional : PrivKind::Last);
   VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(Loop);
   // If private has non-null constructor/destructor fields, then it is expected
   // to be of non-POD type. TODO: Add check for CopyAssign when support is added
   // to insertPrivateVPInstructions.
   if (Ctor || Dtor)
-    LE->addNonPODPrivate(PtrAliases, IsConditional, IsLast, IsExplicit, Ctor,
-                         Dtor, CopyAssign, AllocaInst);
-  else
-    LE->addPrivate(FinalInst, PtrAliases, IsConditional, IsLast, IsExplicit,
-                   AllocaInst, isMemOnly());
+    LE->addNonPODPrivate(PtrAliases, K, IsExplicit, Ctor, Dtor, CopyAssign,
+                         AllocaInst);
+  else if (PTag == VPPrivate::PrivateTag::PTUndef) {
+    assert(ExitInst && "ExitInst is expected to be non-null here.");
+    LE->addPrivate(ExitInst, PtrAliases, K, IsExplicit, AllocaInst,
+                   isMemOnly());
+  } else
+    LE->addPrivate(PTag, PtrAliases, K, IsExplicit, AllocaInst, isMemOnly());
 }
 
 void PrivateDescr::checkParentVPLoop(const VPLoop *Loop) const {
@@ -1490,16 +1546,16 @@ void PrivateDescr::checkParentVPLoop(const VPLoop *Loop) const {
 
 void PrivateDescr::tryToCompleteByVPlan(const VPlanVector *Plan,
                                         const VPLoop *Loop) {
+  setIsMemOnly(true);
 
-  for (auto User : AllocaInst->users()) {
-    if (auto Inst = dyn_cast<VPInstruction>(User)) {
-      // TODO: Need to revisit the logic. This is not quite correct. We have to
-      // get the last, i.e., the store writing into the private which
-      // post-dominates all other stores in the loop.
-      if (Inst->getOpcode() == Instruction::Store && User->hasExternalUse())
-        FinalInst = Inst;
-    }
+  if (AllocaInst->getType()->isPointerTy() &&
+      !isScalarTy(AllocaInst->getType()->getPointerElementType()) &&
+      !AllocaInst->getType()->getPointerElementType()->isVectorTy()) {
+    PTag = VPPrivate::PrivateTag::PTArray;
+    return;
   }
+
+  PTag = VPPrivate::PrivateTag::PTInMemory;
 }
 
 bool VPEntityImportDescr::isDuplicate(const VPlanVector *Plan,

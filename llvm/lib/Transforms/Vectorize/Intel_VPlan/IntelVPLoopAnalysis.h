@@ -263,29 +263,58 @@ class VPPrivate : public VPLoopEntity {
   friend class VPLoopEntityList;
 
 public:
+  enum class PrivateKind {
+    NonLast,    // A simple non-live out private.
+    Last,       // The lastvalue is used outside the loop or it was declared as
+                // "lastprivate" in directive.
+    Conditional // The assignment of last private is under condition or it's
+                // declared as "lastprivate:conditional" in the directive.
+  };
+
+  // An additional classification flag for privates without assigned exit
+  // instruction.
+  enum class PrivateTag {
+    PTUndef,    // Not specified.
+    PTArray,    // Private of an array type.
+    PTInMemory, // In-memory allocated private.
+    PTNonPod,   // Non-POD private.
+  };
+
   // Explicit destructor to drop references to alias VPInstructions. This is
   // needed to avoid memory leak in cases where aliases are not lowered into
   // instructions in VPlan CFG.
   ~VPPrivate();
 
-  // The assignment instruction.
-  // This is currently public to suppress an xmain self-build error.
-  VPInstruction *FinalInst;
-
   // Currently only used for VPPrivates. In future, this can be hoisted to
   // VPLoopEntity.
   using VPEntityAliasesTy = MapVector<VPValue *, VPInstruction *>;
 
-  VPPrivate(VPInstruction *FinalI, VPEntityAliasesTy &&InAliases,
-            bool Conditional, bool Last, bool Explicit, bool IsMemOnly = false,
-            unsigned char Id = Private)
-      : VPLoopEntity(Id, IsMemOnly), FinalInst(FinalI),
-        IsConditional(Conditional), IsLast(Last), IsExplicit(Explicit),
-        Aliases(std::move(InAliases)) {}
+  VPPrivate(VPInstruction *ExitI, VPEntityAliasesTy &&InAliases, PrivateKind K,
+            bool Explicit, bool IsMemOnly = false, unsigned char Id = Private)
+      : VPLoopEntity(Id, IsMemOnly), Kind(K), IsExplicit(Explicit),
+        TagOrExit(ExitI), Aliases(std::move(InAliases)) {}
 
-  bool isConditional() const { return IsConditional; }
-  bool isLast() const { return IsLast; }
+  VPPrivate(PrivateTag PTag, VPEntityAliasesTy &&InAliases, PrivateKind K,
+            bool Explicit, bool IsMemOnly = false, unsigned char Id = Private)
+      : VPLoopEntity(Id, IsMemOnly), Kind(K), IsExplicit(Explicit),
+        TagOrExit(PTag), Aliases(std::move(InAliases)) {}
+
+  bool isConditional() const { return Kind == PrivateKind::Conditional; }
+  bool isLast() const { return Kind != PrivateKind::NonLast; }
   bool isExplicit() const { return IsExplicit; }
+
+  PrivateTag getPrivateTag() const {
+    assert(hasPrivateTag() && "expected tag");
+    return TagOrExit.T;
+  }
+  VPInstruction *getExitInst() const {
+    assert(hasExitInstr() && "expected instruction");
+    return TagOrExit.I;
+  }
+  void setExitInst(VPInstruction *I) { TagOrExit.assignInstr(I); }
+
+  bool hasExitInstr() const { return TagOrExit.IsInstr; }
+  bool hasPrivateTag() const { return !TagOrExit.IsInstr; }
 
   // TODO: Consider making this method virtual and hence available to all
   // entities.
@@ -304,14 +333,30 @@ public:
 #endif
 
 private:
-  // The assignment is under condition.
-  bool IsConditional;
+  struct PrivData {
+    bool IsInstr : 1;
+    // Storage for the private classification flag or exit instruction.
+    union {
+      PrivateTag T;
+      VPInstruction *I;
+    };
+    PrivData(PrivateTag AT) : IsInstr(false), T(AT) {}
+    PrivData(VPInstruction *AI) : IsInstr(true), I(AI) {}
 
-  // The last-value is used outside the loop.
-  bool IsLast;
+    void assignInstr(VPInstruction *AI) {
+      assert(IsInstr && "expected instruction");
+      I = AI;
+    }
+  };
+
+  // Kind of private;
+  PrivateKind Kind;
 
   // Is defined explicitly.
   bool IsExplicit;
+
+  // The Exit Instruction or an additional classification flag
+  PrivData TagOrExit;
 
   // Map that stores the VPExternalDef->VPInstruction mapping. These are alias
   // instructions to existing loop-private, which are outside the loop-region.
@@ -320,11 +365,10 @@ private:
 
 class VPPrivateNonPOD : public VPPrivate {
 public:
-  VPPrivateNonPOD(VPEntityAliasesTy &&InAliases, bool IsConditional,
-                  bool IsLast, bool IsExplicit, Function *Ctor, Function *Dtor,
-                  Function *CopyAssign)
-      : VPPrivate(nullptr, std::move(InAliases), IsConditional, IsLast,
-                  IsExplicit, true /*IsMemOnly*/, PrivateNonPOD),
+  VPPrivateNonPOD(VPEntityAliasesTy &&InAliases, PrivateKind K, bool IsExplicit,
+                  Function *Ctor, Function *Dtor, Function *CopyAssign)
+      : VPPrivate(PrivateTag::PTNonPod, std::move(InAliases), K, IsExplicit,
+                  true /*IsMemOnly*/, PrivateNonPOD),
         Ctor(Ctor), Dtor(Dtor), CopyAssign(CopyAssign) {}
 
   Function *getCtor() const { return Ctor; }
@@ -428,14 +472,22 @@ public:
   /// instruction which writes to the private memory witin the for-loop. Also
   /// store other relavant attributes of the private like the conditional, last
   /// and explicit.
-  VPPrivate *addPrivate(VPInstruction *FinalI, VPEntityAliasesTy &PtrAliases,
-                        bool IsConditional, bool IsLast, bool Explicit,
+  VPPrivate *addPrivate(VPInstruction *ExitI, VPEntityAliasesTy &PtrAliases,
+                        VPPrivate::PrivateKind K, bool Explicit,
                         VPValue *AI = nullptr, bool ValidMemOnly = false);
 
+  /// Add private corresponding to \p Alloca along with the specified private
+  /// tag. Also store other relavant attributes of the private like the
+  /// conditional, last and explicit.
+  VPPrivate *addPrivate(VPPrivate::PrivateTag Tag,
+                        VPEntityAliasesTy &PtrAliases, VPPrivate::PrivateKind K,
+                        bool Explicit, VPValue *AI = nullptr,
+                        bool ValidMemOnly = false);
+
   VPPrivateNonPOD *addNonPODPrivate(VPEntityAliasesTy &PtrAliases,
-                                    bool IsConditional, bool IsLast,
-                                    bool Explicit, Function *Ctor,
-                                    Function *Dtor, Function *CopyAssign,
+                                    VPPrivate::PrivateKind K, bool Explicit,
+                                    Function *Ctor, Function *Dtor,
+                                    Function *CopyAssign,
                                     VPValue *AI = nullptr);
 
   /// Final stage of importing data from IR. Go through all imported descriptors
@@ -573,6 +625,11 @@ public:
 
     return false;
   }
+
+  // Find implicit last privates in the loop and add their descriptors.
+  // Implicit last private is a live out value which is assigned in the
+  // loop and is not known as reduction/induction.
+  void analyzeImplicitLastPrivates();
 
 private:
   VPlanVector &Plan;
@@ -1039,17 +1096,18 @@ public:
     BaseT::clear();
     PtrAliases.clear();
     AllocaInst = nullptr;
-    FinalInst = nullptr;
+    ExitInst = nullptr;
     IsConditional = false;
     IsLast = false;
     IsExplicit = false;
+    PTag = VPPrivate::PrivateTag::PTUndef;
   }
   /// Check for all non-null VPInstructions in the descriptor are in the \p
   /// Loop.
   void checkParentVPLoop(const VPLoop *Loop) const;
 
   /// Return true if not all data is completed.
-  bool isIncomplete() const { return FinalInst == nullptr; }
+  bool isIncomplete() const { return ExitInst == nullptr; }
 
   /// Attemp to fix incomplete data using VPlan and VPLoop.
   void tryToCompleteByVPlan(const VPlanVector *Plan, const VPLoop *Loop);
@@ -1069,7 +1127,7 @@ public:
 
 private:
   VPValue *AllocaInst = nullptr;
-  VPInstruction *FinalInst = nullptr;
+  VPInstruction *ExitInst = nullptr;
   // These are Pointer-aliases. Each Loop-private memory descriptor can have
   // multiple aliases as opposed to memory descriptors for inductions or
   // reductions. Hence, we have a separate field. TODO: consider using a
@@ -1081,6 +1139,7 @@ private:
   Function *Ctor = nullptr;
   Function *Dtor = nullptr;
   Function *CopyAssign = nullptr;
+  VPPrivate::PrivateTag PTag = VPPrivate::PrivateTag::PTUndef;
 };
 
 // Base class for loop entities converter. Used to create a list of converters

@@ -354,6 +354,11 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(MDNode *MD,
   // TODO: revisit when we build multiple VPlans.
   std::shared_ptr<VPlanVector> Plan = buildInitialVPlan(*Externals, *UnlinkedVPInsts,
                                                         VPlanName, SE);
+
+  VPLoop *MainLoop = *(Plan->getVPLoopInfo()->begin());
+  VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(MainLoop);
+  LE->analyzeImplicitLastPrivates();
+
   // Check legality of VPlan before proceeding with other transforms/analyses.
   if (!canProcessVPlan(*Plan.get())) {
     LLVM_DEBUG(dbgs() << "LVP: VPlan is not legal to process, bailing out.\n");
