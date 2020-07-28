@@ -1,15 +1,8 @@
 // RUN: %libomptarget-compile-aarch64-unknown-linux-gnu && env OMP_MAX_ACTIVE_LEVELS=2 %libomptarget-run-aarch64-unknown-linux-gnu | %fcheck-aarch64-unknown-linux-gnu
 // RUN: %libomptarget-compile-powerpc64-ibm-linux-gnu && env OMP_MAX_ACTIVE_LEVELS=2 %libomptarget-run-powerpc64-ibm-linux-gnu | %fcheck-powerpc64-ibm-linux-gnu
 // RUN: %libomptarget-compile-powerpc64le-ibm-linux-gnu && env OMP_MAX_ACTIVE_LEVELS=2 %libomptarget-run-powerpc64le-ibm-linux-gnu | %fcheck-powerpc64le-ibm-linux-gnu
-<<<<<<< HEAD
-// INTEL_CUSTOMIZATION
-// CMPLRLLVM-19993: reduce the number of threads:
-// RUN: %libomptarget-compile-x86_64-pc-linux-gnu && env OMP_MAX_ACTIVE_LEVELS=2 OMP_NUM_THREADS=16 %libomptarget-run-x86_64-pc-linux-gnu | %fcheck-x86_64-pc-linux-gnu -allow-empty
-// end INTEL_CUSTOMIZATION
-=======
 // RUN: %libomptarget-compile-x86_64-pc-linux-gnu && env OMP_MAX_ACTIVE_LEVELS=2 %libomptarget-run-x86_64-pc-linux-gnu | %fcheck-x86_64-pc-linux-gnu -allow-empty
 // RUN: %libomptarget-compile-nvptx64-nvidia-cuda && env OMP_MAX_ACTIVE_LEVELS=2 %libomptarget-run-nvptx64-nvidia-cuda | %fcheck-nvptx64-nvidia-cuda -allow-empty
->>>>>>> e2f5444c9ce2e0558a69fb32bd001017244eeebc
 #include <assert.h>
 #include <stdio.h>
 
