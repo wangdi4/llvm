@@ -266,6 +266,13 @@ private:
 #endif // INTEL_CUSTOMIZATION
   int getGSVectorCost(unsigned Opcode, Type *DataTy, const Value *Ptr,
                       Align Alignment, unsigned AddressSpace);
+<<<<<<< HEAD
+=======
+
+  int getGatherOverhead() const;
+  int getScatterOverhead() const;
+
+>>>>>>> 1a75d88b3eb4e0cc5494281f24f362ece3d4aa4a
   /// @}
 };
 
