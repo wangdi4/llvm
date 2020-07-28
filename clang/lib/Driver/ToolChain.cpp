@@ -1319,7 +1319,7 @@ bool ToolChain::isFastMathRuntimeAvailable(const ArgList &Args,
                                            std::string &Path) const {
   // Do not check for -fno-fast-math or -fno-unsafe-math when -Ofast passed
   // (to keep the linker options consistent with gcc and clang itself).
-  if (!isOptimizationLevelFast(Args)) {
+  if (!isOptimizationLevelFast(getDriver(), Args)) {
     // Check if -ffast-math or -funsafe-math.
     Arg *A =
       Args.getLastArg(options::OPT_ffast_math, options::OPT_fno_fast_math,

@@ -3300,6 +3300,94 @@ static bool OptimizeEmptyGlobalCXXDtors(Function *CXAAtExitFn) {
   return Changed;
 }
 
+#if INTEL_CUSTOMIZATION
+// Similar to OptimizeEmptyGlobalCXXDtors, this function also tries to
+// optimize destructors. On Windows, a termination function is registered
+// using atexit if destruction on exit is needed for an object whereas
+// __cxa_atexit is used on Linux to do the same.
+//
+//  @llvm.global_ctors = appending global [1 x { i32, void ()*, i8* }]
+//  [{ i32, void ()*, i8* } { i32 65535, void ()* @_GLOBAL__sub_1, i8* null }]
+//
+//  define void @_GLOBAL__sub_1() {
+//    ...
+//    atexit (void ()* @foo);
+//  }
+//
+//  define internal void @foo() {
+//  entry:
+//    ret void
+//  }
+//
+//  This function removes the empty destructor (i.e foo) only if it
+//  registered using atexit in global_ctors functions (i.e _GLOBAL__sub_1)
+//
+static bool optimizeEmptyGlobalAtexitDtors(
+    Module &M, function_ref<TargetLibraryInfo &(Function &)> GetTLI) {
+
+  // Collects global Ctors if possible by walking llvm.global_ctors
+  // GlobalVariable. Returns true if it finds ctors.
+  auto CollectGlobalCtors = [&](std::set<Function *> &CtorsList) {
+    GlobalVariable *GV = M.getGlobalVariable("llvm.global_ctors");
+    // Basic checks to make sure we have valid ctor functions.
+    if (!GV || !GV->hasUniqueInitializer() ||
+        isa<ConstantAggregateZero>(GV->getInitializer()))
+      return false;
+    ConstantArray *CA = cast<ConstantArray>(GV->getInitializer());
+    for (auto &V : CA->operands()) {
+      // Skip if entry is zero
+      if (isa<ConstantAggregateZero>(V))
+        continue;
+      ConstantStruct *CS = cast<ConstantStruct>(V);
+      // Null pointer functions are skipped.
+      if (isa<ConstantPointerNull>(CS->getOperand(1)))
+        continue;
+      // Consider only default priority (i.e 65535) ctors.
+      if (!isa<Function>(CS->getOperand(1)) ||
+          cast<ConstantInt>(CS->getOperand(0))->getZExtValue() != 65535)
+        return false;
+      Function *F = cast<Function>(CS->getOperand(1));
+      if (F->isDeclaration())
+        continue;
+      CtorsList.insert(F);
+    }
+    return !CtorsList.empty();
+  };
+
+
+  bool Changed = false;
+  std::set<Function *> CtorsList;
+  if (!CollectGlobalCtors(CtorsList))
+    return false;
+  auto *TLI = &GetTLI(**CtorsList.begin());
+
+  // Get function for atexit.
+  Function *AtExitFn = M.getFunction(TLI->getName(LibFunc_atexit));
+  if (!AtExitFn || !TLI->has(LibFunc_atexit))
+    return false;
+  for (auto U : AtExitFn->users()) {
+    CallInst *CI = dyn_cast<CallInst>(U);
+    // Make sure AtExitFn call is in global_ctors.
+    if (!CI || !CtorsList.count(CI->getFunction()))
+      continue;
+
+    Function *DtorFn =
+        dyn_cast<Function>(CI->getArgOperand(0)->stripPointerCasts());
+    if (!DtorFn || !cxxDtorIsEmpty(*DtorFn))
+      continue;
+
+    CI->replaceAllUsesWith(Constant::getNullValue(CI->getType()));
+    CI->eraseFromParent();
+
+    // NumCXXDtorsRemoved count is also used by OptimizeEmptyGlobalCXXDtors.
+    ++NumCXXDtorsRemoved;
+
+    Changed |= true;
+  }
+  return Changed;
+}
+#endif // INTEL_CUSTOMIZATION
+
 static bool optimizeGlobalsInModule(
     Module &M, const DataLayout &DL,
     function_ref<TargetLibraryInfo &(Function &)> GetTLI,
@@ -3348,6 +3436,10 @@ static bool optimizeGlobalsInModule(
     Function *CXAAtExitFn = FindCXAAtExit(M, GetTLI);
     if (CXAAtExitFn)
       LocalChange |= OptimizeEmptyGlobalCXXDtors(CXAAtExitFn);
+
+#if INTEL_CUSTOMIZATION
+    LocalChange |= optimizeEmptyGlobalAtexitDtors(M, GetTLI);
+#endif // INTEL_CUSTOMIZATION
 
     Changed |= LocalChange;
   }

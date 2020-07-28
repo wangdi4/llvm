@@ -7122,7 +7122,14 @@ Driver::getIncludeExcludeOptionFlagMasks(bool IsClCompatMode) const {
   return std::make_pair(IncludedFlagsBitmask, ExcludedFlagsBitmask);
 }
 
-bool clang::driver::isOptimizationLevelFast(const ArgList &Args) {
+#if INTEL_CUSTOMIZATION
+bool clang::driver::isOptimizationLevelFast(const Driver &D,
+                                            const ArgList &Args) {
+  // For Intel and -Ofast is given, don't override if another -O is
+  // provided on the command line.
+  if (D.IsIntelMode() && Args.hasArgNoClaim(options::OPT_Ofast))
+    return true;
+#endif // INTEL_CUSTOMIZATION
   return Args.hasFlag(options::OPT_Ofast, options::OPT_O_Group, false);
 }
 

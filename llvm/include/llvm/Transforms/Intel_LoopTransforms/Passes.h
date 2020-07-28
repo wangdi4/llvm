@@ -206,6 +206,8 @@ FunctionPass *createHIRNonZeroSinkingForPerfectLoopnestPass();
 /// Create pass that substitutes identity matrix.
 FunctionPass *createHIRIdentityMatrixSubstitutionPass();
 
+/// Create pass that marks stores as nontemporal where appropriate.
+FunctionPass *createHIRNontemporalMarkingPass();
 } // namespace llvm
 
 #endif

@@ -65,6 +65,7 @@ if (INTEL_CUSTOMIZATION)
   endif()
   set(DPCPP_PRODUCT_FULL_VERSION ${FULL_VERSION})
   set(DPCPP_PRODUCT_NAME "Intel(R) oneAPI DPC++ Compiler")
+  set(BIN_DIR "${CMAKE_CURRENT_BINARY_DIR}")
   configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/include/llvm/Config/dpcpp.version.info.in
     ${CMAKE_CURRENT_BINARY_DIR}/include/llvm/Config/dpcpp.version.info.h

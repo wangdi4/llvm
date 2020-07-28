@@ -599,6 +599,7 @@ void initializeHIRConditionalTempSinkingLegacyPassPass(PassRegistry&);
 void initializeHIRMemoryReductionSinkingLegacyPassPass(PassRegistry&);
 void initializeHIRRowWiseMVLegacyPassPass(PassRegistry &);
 void initializeHIRConditionalLoadStoreMotionLegacyPassPass(PassRegistry &);
+void initializeHIRNontemporalMarkingLegacyPassPass(PassRegistry &);
 void initializeHIRStoreResultIntoTempArrayLegacyPassPass(PassRegistry&);
 void initializeHIRSumWindowReuseLegacyPassPass(PassRegistry &);
 void initializeHIRNonZeroSinkingForPerfectLoopnestLegacyPassPass(PassRegistry&);
