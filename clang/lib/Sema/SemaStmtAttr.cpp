@@ -129,7 +129,12 @@ static Attr *handleIntelFPGALoopAttr(Sema &S, const ParsedAttr &A) {
     return nullptr;
 
   unsigned NumArgs = A.getNumArgs();
-  if (NumArgs > 1) {
+#if INTEL_CUSTOMIZATION
+  // Warn if this is not spelled as the pragma since pragma can take
+  // five arguments and SYCL form can only take one argument.
+  if ((NumArgs > 1) &&
+      (A.getSyntax() != AttributeCommonInfo::AS_Pragma)) {
+#endif // INTEL_CUSTOMIZATION
     S.Diag(A.getLoc(), diag::warn_attribute_too_many_arguments) << A << 1;
     return nullptr;
   }
@@ -144,6 +149,12 @@ static Attr *handleIntelFPGALoopAttr(Sema &S, const ParsedAttr &A) {
     }
   }
 
+#if INTEL_CUSTOMIZATION
+  if (A.getSyntax() == AttributeCommonInfo::AS_Pragma)
+    return S.BuildSYCLIntelFPGALoopAttr<FPGALoopAttrT>(
+        A, A.getArgAsExpr(3));
+  else
+#endif // INTEL_CUSTOMIZATION
   return S.BuildSYCLIntelFPGALoopAttr<FPGALoopAttrT>(
       A, A.getNumArgs() ? A.getArgAsExpr(0) : nullptr);
 }
@@ -155,7 +166,12 @@ Attr *handleIntelFPGALoopAttr<SYCLIntelFPGADisableLoopPipeliningAttr>(
     return nullptr;
 
   unsigned NumArgs = A.getNumArgs();
-  if (NumArgs > 0) {
+#if INTEL_CUSTOMIZATION
+  // Warn if this is not spelled as the pragma since pragma can take
+  // five arguments and SYCL form can take zero argument.
+  if ((NumArgs > 0) &&
+      (A.getSyntax() != AttributeCommonInfo::AS_Pragma)) {
+#endif // INTEL_CUSTOMIZATION
     S.Diag(A.getLoc(), diag::warn_attribute_too_many_arguments) << A << 0;
     return nullptr;
   }
@@ -354,11 +370,7 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
           .Cases("unroll", "nounroll", "unroll_and_jam", "nounroll_and_jam",
                  PragmaNameLoc->Ident->getName())
 #if INTEL_CUSTOMIZATION
-          .Cases("loop_coalesce", "ii", "max_concurrency", "max_interleaving",
-                 PragmaNameLoc->Ident->getName())
           .Cases("ivdep", "ii_at_most", "ii_at_least", "min_ii_at_target_fmax",
-                 PragmaNameLoc->Ident->getName())
-          .Cases("speculated_iterations", "disable_loop_pipelining",
                  PragmaNameLoc->Ident->getName())
           .Cases("force_hyperopt", "force_no_hyperopt", "nofusion", "fusion",
                  PragmaNameLoc->Ident->getName())
@@ -446,17 +458,6 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
     else
       SetHints(LoopHintAttr::UnrollAndJam, LoopHintAttr::Enable);
 #if INTEL_CUSTOMIZATION
-  } else if (PragmaName == "loop_coalesce") {
-    if (ValueExpr != nullptr)
-      SetHints(LoopHintAttr::LoopCoalesce, LoopHintAttr::Numeric);
-    else
-      SetHints(LoopHintAttr::LoopCoalesce, LoopHintAttr::Enable);
-  } else if (PragmaName == "ii") {
-    SetHints(LoopHintAttr::II, LoopHintAttr::Numeric);
-  } else if (PragmaName == "max_concurrency") {
-    SetHints(LoopHintAttr::MaxConcurrency, LoopHintAttr::Numeric);
-  } else if (PragmaName == "max_interleaving") {
-    SetHints(LoopHintAttr::MaxInterleaving, LoopHintAttr::Numeric);
   } else if (PragmaName == "ivdep") {
     bool HLSCompat =
           S.getLangOpts().HLS ||
@@ -490,10 +491,6 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const ParsedAttr &A,
     SetHints(LoopHintAttr::IIAtLeast, LoopHintAttr::Numeric);
   } else if (PragmaName == "min_ii_at_target_fmax") {
     SetHints(LoopHintAttr::MinIIAtFmax, LoopHintAttr::Enable);
-  } else if (PragmaName == "speculated_iterations") {
-    SetHints(LoopHintAttr::SpeculatedIterations, LoopHintAttr::Numeric);
-  } else if (PragmaName == "disable_loop_pipelining") {
-    SetHints(LoopHintAttr::DisableLoopPipelining, LoopHintAttr::Enable);
   } else if (PragmaName == "force_hyperopt") {
     SetHints(LoopHintAttr::ForceHyperopt, LoopHintAttr::Enable);
   } else if (PragmaName == "force_no_hyperopt") {
@@ -880,11 +877,6 @@ CheckForIncompatibleAttributes(Sema &S,
                    {nullptr, nullptr}, // IVDep
                    {nullptr, nullptr}, // IVDepLoop
                    {nullptr, nullptr}, // IVDepBack
-                   {nullptr, nullptr}, // LoopCoalesce
-                   {nullptr, nullptr}, // MaxConcurrency
-                   {nullptr, nullptr}, // MaxInterleaving
-                   {nullptr, nullptr}, // SpeculatedIterations
-                   {nullptr, nullptr}, // DisableLoopPipelining
                    {nullptr, nullptr}, // ForceHyperopt
                    {nullptr, nullptr}, // Fusion
                    {nullptr, nullptr}, // VectorAlways
@@ -900,9 +892,6 @@ CheckForIncompatibleAttributes(Sema &S,
                    {nullptr, nullptr}};// Vectorize Predicate
 #endif // INTEL_CUSTOMIZATION
 
-#if INTEL_CUSTOMIZATION
-  const LoopHintAttr *IVDepAttr = nullptr;
-#endif // INTEL_CUSTOMIZATION
   for (const auto *I : Attrs) {
     const LoopHintAttr *LH = dyn_cast<LoopHintAttr>(I);
 
@@ -912,18 +901,12 @@ CheckForIncompatibleAttributes(Sema &S,
 
     LoopHintAttr::OptionType Option = LH->getOption();
 #if INTEL_CUSTOMIZATION
-    bool IsAnIVDep = false;
     enum {
       Vectorize,
       II,
       IVDep,
       IVDepLoop,
       IVDepBack,
-      LoopCoalesce,
-      MaxConcurrency,
-      MaxInterleaving,
-      SpeculatedIterations,
-      DisableLoopPipelining,
       ForceHyperopt,
       Fusion,
       VectorAlways,
@@ -941,7 +924,6 @@ CheckForIncompatibleAttributes(Sema &S,
 #endif // INTEL_CUSTOMIZATION
     switch (Option) {
 #if INTEL_CUSTOMIZATION
-    case LoopHintAttr::II:
     case LoopHintAttr::IIAtMost:
     case LoopHintAttr::IIAtLeast:
     case LoopHintAttr::MinIIAtFmax:
@@ -950,31 +932,13 @@ CheckForIncompatibleAttributes(Sema &S,
     case LoopHintAttr::IVDep:
     case LoopHintAttr::IVDepHLS:
     case LoopHintAttr::IVDepHLSIntel:
-      IsAnIVDep = true;
       Category = IVDep;
       break;
     case LoopHintAttr::IVDepLoop:
-      IsAnIVDep = true;
       Category = IVDepLoop;
       break;
     case LoopHintAttr::IVDepBack:
-      IsAnIVDep = true;
       Category = IVDepBack;
-      break;
-    case LoopHintAttr::LoopCoalesce:
-      Category = LoopCoalesce;
-      break;
-    case LoopHintAttr::MaxConcurrency:
-      Category = MaxConcurrency;
-      break;
-    case LoopHintAttr::MaxInterleaving:
-      Category = MaxInterleaving;
-      break;
-    case LoopHintAttr::SpeculatedIterations:
-      Category = SpeculatedIterations;
-      break;
-    case LoopHintAttr::DisableLoopPipelining:
-      Category = DisableLoopPipelining;
       break;
     case LoopHintAttr::ForceHyperopt:
       Category = ForceHyperopt;
@@ -1065,9 +1029,6 @@ CheckForIncompatibleAttributes(Sema &S,
       case LoopHintAttr::AssumeSafety:
         llvm_unreachable("unexpected ivdep state");
       }
-      if (Category == IVDep)
-        IVDepAttr = LH;
-      Category = Unroll; // For multiple safelen diagnostics.
     } else if (Option == LoopHintAttr::ForceHyperopt) {
       assert(LH->getState() == LoopHintAttr::Enable ||
              LH->getState() == LoopHintAttr::Disable);
@@ -1084,15 +1045,9 @@ CheckForIncompatibleAttributes(Sema &S,
           << LH->getDiagnosticName(Policy);
         PrevAttr = nullptr; // Prevent additional diagnostics.
       }
-    } else if (Option == LoopHintAttr::II ||
-               Option == LoopHintAttr::IIAtMost ||
+    } else if (Option == LoopHintAttr::IIAtMost ||
                Option == LoopHintAttr::IIAtLeast ||
-               Option == LoopHintAttr::SpeculatedIterations ||
                Option == LoopHintAttr::MinIIAtFmax ||
-               Option == LoopHintAttr::DisableLoopPipelining ||
-               Option == LoopHintAttr::LoopCoalesce ||
-               Option == LoopHintAttr::MaxConcurrency ||
-               Option == LoopHintAttr::MaxInterleaving ||
                Option == LoopHintAttr::VectorizeAlways ||
                Option == LoopHintAttr::LoopCount ||
                Option == LoopHintAttr::LoopCountMin ||
@@ -1131,8 +1086,6 @@ CheckForIncompatibleAttributes(Sema &S,
         PrevAttr = CategoryState.NumericAttr;
         CategoryState.NumericAttr = LH;
       }
-      if (Option == LoopHintAttr::LoopCoalesce)
-        Category = Unroll;
     } else
 #endif // INTEL_CUSTOMIZATION
     if (Option == LoopHintAttr::Vectorize ||
@@ -1170,50 +1123,6 @@ CheckForIncompatibleAttributes(Sema &S,
           << CategoryState.StateAttr->getDiagnosticName(Policy)
           << CategoryState.NumericAttr->getDiagnosticName(Policy);
     }
-#if INTEL_CUSTOMIZATION
-    // Emit incompatible error for diasable_loop_pipelining
-    if (Category == DisableLoopPipelining &&
-        (HintAttrs[II].NumericAttr != nullptr ||
-         HintAttrs[SpeculatedIterations].NumericAttr != nullptr ||
-         IVDepAttr != nullptr ||
-         HintAttrs[IVDep].NumericAttr != nullptr ||
-         HintAttrs[IVDep].StateAttr != nullptr ||
-         HintAttrs[ForceHyperopt].StateAttr != nullptr ||
-         HintAttrs[MaxConcurrency].NumericAttr != nullptr ||
-         HintAttrs[MaxInterleaving].NumericAttr != nullptr)) {
-
-      const LoopHintAttr *PrevAttr = nullptr;
-      if (HintAttrs[II].NumericAttr)
-        PrevAttr = HintAttrs[II].NumericAttr;
-      else if (HintAttrs[MaxConcurrency].NumericAttr)
-        PrevAttr = HintAttrs[MaxConcurrency].NumericAttr;
-      else if (HintAttrs[MaxInterleaving].NumericAttr)
-        PrevAttr = HintAttrs[MaxInterleaving].NumericAttr;
-      else if (HintAttrs[IVDep].NumericAttr)
-        PrevAttr = HintAttrs[IVDep].NumericAttr;
-      else if (HintAttrs[IVDep].StateAttr)
-        PrevAttr = HintAttrs[IVDep].StateAttr;
-      else if (HintAttrs[SpeculatedIterations].NumericAttr)
-        PrevAttr = HintAttrs[SpeculatedIterations].NumericAttr;
-      else if (HintAttrs[ForceHyperopt].StateAttr)
-        PrevAttr = HintAttrs[ForceHyperopt].StateAttr;
-      else // IVDepAttr != nullptr.
-        PrevAttr = IVDepAttr;
-      OptionLoc = LH->getRange().getBegin();
-      S.Diag(OptionLoc, diag::err_pragma_loop_compatibility)
-              << /*Duplicate=*/false << PrevAttr->getDiagnosticName(Policy)
-              << LH->getDiagnosticName(Policy);
-    } else if (HintAttrs[DisableLoopPipelining].StateAttr != nullptr &&
-               (IsAnIVDep || Category == II || Category == MaxConcurrency ||
-                Category == MaxInterleaving ||
-                Category == SpeculatedIterations ||
-                Category == ForceHyperopt)) {
-      const LoopHintAttr *PrevAttr = HintAttrs[DisableLoopPipelining].StateAttr;
-      S.Diag(OptionLoc, diag::err_pragma_loop_compatibility)
-          << /*Duplicate=*/false << PrevAttr->getDiagnosticName(Policy)
-          << LH->getDiagnosticName(Policy);
-    }
-#endif // INTEL_CUSTOMIZATION
   }
 }
 
@@ -1251,8 +1160,16 @@ static void CheckMutualExclusionSYCLLoopAttribute(
     if (isa<LoopAttrT2>(I))
       LoopAttr2 = cast<LoopAttrT2>(I);
     if (LoopAttr && LoopAttr2) {
+      #if INTEL_CUSTOMIZATION
+      StringRef LoopAttrName = isa<LoopAttrT>(LoopAttr)
+                               ? LoopAttr->getName()
+                               : LoopAttr->getSpelling();
+      StringRef LoopAttr2Name = isa<LoopAttrT2>(LoopAttr2)
+                                ? LoopAttr2->getName()
+                                :LoopAttr2->getSpelling();
       S.Diag(Range.getBegin(), diag::err_attributes_are_not_compatible)
-          << LoopAttr->getSpelling() << LoopAttr2->getSpelling();
+          << LoopAttrName << LoopAttr2Name;
+      #endif // INTEL_CUSTOMIZATION
     }
   }
 }
@@ -1318,26 +1235,58 @@ void CheckForIncompatibleUnrollHintAttributes(
 }
 
 #if INTEL_CUSTOMIZATION
-// Emit incompatible error for diasable_loop_pipelining and #pragma ivdep
-void CheckForIncompatibleHLSIVDepAttributes(
+// Emit incompatible error for #pragma ii_at_most, #pragma ii_at_least,
+// #pragma min_ii_at_target_fmax, and #pragma force_hyperopt with
+// #pragma diasable_loop_pipelining.
+void CheckForIncompatibleHLSAttributes(
     Sema &S, const SmallVectorImpl<const Attr *> &Attrs, SourceRange Range) {
-  const SYCLIntelFPGAIVDepAttr *PragmaIVDep = nullptr;
-  const LoopHintAttr *PragmaDisable = nullptr;
+  const SYCLIntelFPGADisableLoopPipeliningAttr *PragmaDisable = nullptr;
+  const LoopHintAttr *PragmaLoopHint = nullptr;
 
   for (const auto *I : Attrs) {
-    if (auto *LH = dyn_cast<const SYCLIntelFPGAIVDepAttr>(I))
-      PragmaIVDep = LH;
+    if (auto *LH = dyn_cast<const SYCLIntelFPGADisableLoopPipeliningAttr>(I))
+      PragmaDisable = LH;
     if (auto *LH = dyn_cast<LoopHintAttr>(I)) {
       LoopHintAttr::OptionType Opt = LH->getOption();
-      if (Opt == LoopHintAttr::DisableLoopPipelining)
-        PragmaDisable = LH;
+      if ((Opt == LoopHintAttr::IIAtMost) ||
+          (Opt == LoopHintAttr::IIAtLeast) ||
+          (Opt == LoopHintAttr::MinIIAtFmax) ||
+          (Opt == LoopHintAttr::ForceHyperopt))
+        PragmaLoopHint = LH;
     }
-    if (PragmaDisable && PragmaIVDep) {
+    if (PragmaLoopHint && PragmaDisable) {
       PrintingPolicy Policy(S.Context.getLangOpts());
       SourceLocation OptionLoc = I->getRange().getBegin();
       S.Diag(OptionLoc, diag::err_pragma_loop_compatibility)
           << /*Duplicate=*/false << PragmaDisable->getDiagnosticName(Policy)
-          << PragmaIVDep->getDiagnosticName(Policy);
+          << PragmaLoopHint->getDiagnosticName(Policy);
+    }
+  }
+}
+
+// Emit duplicate error for #pragma ii_at_most, #pragma ii_at_least,
+// and #pragma min_ii_at_target_fmax with #pragma ii.
+void CheckForDuplicateHLSAttributes(
+    Sema &S, const SmallVectorImpl<const Attr *> &Attrs, SourceRange Range) {
+  const SYCLIntelFPGAIIAttr *PragmaII = nullptr;
+  const LoopHintAttr *PragmaLoopHint = nullptr;
+
+  for (const auto *I : Attrs) {
+    if (auto *LH = dyn_cast<const SYCLIntelFPGAIIAttr>(I))
+      PragmaII = LH;
+    if (auto *LH = dyn_cast<LoopHintAttr>(I)) {
+      LoopHintAttr::OptionType Opt = LH->getOption();
+      if ((Opt == LoopHintAttr::IIAtMost) ||
+          (Opt == LoopHintAttr::IIAtLeast) ||
+          (Opt == LoopHintAttr::MinIIAtFmax))
+        PragmaLoopHint = LH;
+    }
+    if (PragmaLoopHint && PragmaII) {
+      PrintingPolicy Policy(S.Context.getLangOpts());
+      SourceLocation OptionLoc = I->getRange().getBegin();
+      S.Diag(OptionLoc, diag::err_pragma_loop_compatibility)
+          << /*Duplicate=*/true << PragmaII->getDiagnosticName(Policy)
+          << PragmaLoopHint->getDiagnosticName(Policy);
     }
   }
 }
@@ -1474,7 +1423,8 @@ StmtResult Sema::ProcessStmtAttributes(Stmt *S,
   CheckForIncompatibleSYCLLoopAttributes(*this, Attrs, Range);
   CheckForIncompatibleUnrollHintAttributes(*this, Attrs, Range);
 #if INTEL_CUSTOMIZATION
-  CheckForIncompatibleHLSIVDepAttributes(*this, Attrs, Range);
+  CheckForIncompatibleHLSAttributes(*this, Attrs, Range);
+  CheckForDuplicateHLSAttributes(*this, Attrs, Range);
 #endif // INTEL_CUSTOMIZATION
 
   if (Attrs.empty())

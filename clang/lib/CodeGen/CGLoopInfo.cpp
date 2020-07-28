@@ -518,42 +518,6 @@ MDNode *LoopInfo::createMetadata(
         Ctx, {MDString::get(Ctx, "llvm.loop.parallel_accesses"), AccGroup}));
   }
 #if INTEL_CUSTOMIZATION
-  // Setting II count
-  if (Attrs.IICount > 0) {
-    LLVMContext &Ctx = Header->getContext();
-    Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.ii.count"),
-                        ConstantAsMetadata::get(ConstantInt::get(
-                            llvm::Type::getInt32Ty(Ctx), Attrs.IICount))};
-    LoopProperties.push_back(MDNode::get(Ctx, Vals));
-  }
-  // Setting max_concurrency count
-  if (Attrs.MaxConcurrencyCount > 0) {
-    LLVMContext &Ctx = Header->getContext();
-    Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.max_concurrency.count"),
-                        ConstantAsMetadata::get(ConstantInt::get(
-                            llvm::Type::getInt32Ty(Ctx),
-                            Attrs.MaxConcurrencyCount))};
-    LoopProperties.push_back(MDNode::get(Ctx, Vals));
-  }
-  // Setting max_interleaving count
-  if (Attrs.MaxInterleavingCount > 0) {
-    LLVMContext &Ctx = Header->getContext();
-    Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.max_interleaving.count"),
-                        ConstantAsMetadata::get(ConstantInt::get(
-                            llvm::Type::getInt32Ty(Ctx),
-                            Attrs.MaxInterleavingCount))};
-    LoopProperties.push_back(MDNode::get(Ctx, Vals));
-  }
-
-  // Setting loop_coalesce count
-  if (Attrs.LoopCoalesceCount > 0) {
-    LLVMContext &Ctx = Header->getContext();
-    Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.coalesce.count"),
-                        ConstantAsMetadata::get(ConstantInt::get(
-                            llvm::Type::getInt32Ty(Ctx),
-                            Attrs.LoopCoalesceCount))};
-    LoopProperties.push_back(MDNode::get(Ctx, Vals));
-  }
   if (Attrs.IIAtMost > 0) {
     LLVMContext &Ctx = Header->getContext();
     Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.intel.ii.at.most.count"),
@@ -568,24 +532,10 @@ MDNode *LoopInfo::createMetadata(
                             llvm::Type::getInt32Ty(Ctx), Attrs.IIAtLeast))};
     LoopProperties.push_back(MDNode::get(Ctx, Vals));
   }
-  if (Attrs.SpeculatedIterations >= 0) {
-    LLVMContext &Ctx = Header->getContext();
-    Metadata *Vals[] = {
-        MDString::get(Ctx, "llvm.loop.intel.speculated.iterations.count"),
-        ConstantAsMetadata::get(ConstantInt::get(llvm::Type::getInt32Ty(Ctx),
-                                                 Attrs.SpeculatedIterations))};
-    LoopProperties.push_back(MDNode::get(Ctx, Vals));
-  }
   if (Attrs.MinIIAtTargetFmaxEnable) {
     LLVMContext &Ctx = Header->getContext();
     Metadata *Vals[] = {MDString::get(Ctx,
                                       "llvm.loop.intel.min.ii.at.target.fmax")};
-    LoopProperties.push_back(MDNode::get(Ctx, Vals));
-  }
-  if (Attrs.DisableLoopPipeliningEnable) {
-    LLVMContext &Ctx = Header->getContext();
-    Metadata *Vals[] = {MDString::get(Ctx,
-                                      "llvm.loop.intel.pipelining.disable")};
     LoopProperties.push_back(MDNode::get(Ctx, Vals));
   }
   if (Attrs.ForceHyperoptEnable != LoopAttributes::Unspecified) {
@@ -594,12 +544,6 @@ MDNode *LoopInfo::createMetadata(
         MDString::get(Ctx, Attrs.ForceHyperoptEnable == LoopAttributes::Enable
                                ? "llvm.loop.intel.hyperopt"
                                : "llvm.loop.intel.nohyperopt")};
-    LoopProperties.push_back(MDNode::get(Ctx, Vals));
-  }
-  // Setting loop_coalesce
-  if (Attrs.LoopCoalesceEnable) {
-    LLVMContext &Ctx = Header->getContext();
-    Metadata *Vals[] = {MDString::get(Ctx, "llvm.loop.coalesce.enable")};
     LoopProperties.push_back(MDNode::get(Ctx, Vals));
   }
   // Setting ivdep safelen count
@@ -761,11 +705,10 @@ MDNode *LoopInfo::createMetadata(
 LoopAttributes::LoopAttributes(bool IsParallel)
     : IsParallel(IsParallel), VectorizeEnable(LoopAttributes::Unspecified),
 #if INTEL_CUSTOMIZATION
-      LoopCoalesceEnable(false), LoopCoalesceCount(0), IICount(0),
-      MaxConcurrencyCount(0), MaxInterleavingCount(0), IVDepEnable(false),
+      IVDepEnable(false),
       IVDepHLSEnable(false), IVDepHLSIntelEnable(false), IVDepCount(0),
-      IIAtMost(0), IIAtLeast(0), SpeculatedIterations(-1),
-      MinIIAtTargetFmaxEnable(false), DisableLoopPipeliningEnable(false),
+      IIAtMost(0), IIAtLeast(0),
+      MinIIAtTargetFmaxEnable(false),
       ForceHyperoptEnable(LoopAttributes::Unspecified),
       FusionEnable(LoopAttributes::Unspecified), IVDepLoop(false),
       IVDepBack(false), VectorizeAlwaysEnable(false), LoopCountMin(0),
@@ -786,16 +729,9 @@ LoopAttributes::LoopAttributes(bool IsParallel)
 void LoopAttributes::clear() {
   IsParallel = false;
 #if INTEL_CUSTOMIZATION
-  LoopCoalesceEnable = false;
-  LoopCoalesceCount = 0;
-  IICount = 0;
   IIAtMost = 0;
   IIAtLeast = 0;
-  SpeculatedIterations = -1;
   MinIIAtTargetFmaxEnable = false;
-  DisableLoopPipeliningEnable = false;
-  MaxConcurrencyCount = 0;
-  MaxInterleavingCount = 0;
   IVDepEnable = false;
   IVDepHLSEnable = false;
   IVDepHLSIntelEnable = false;
@@ -849,12 +785,9 @@ LoopInfo::LoopInfo(BasicBlock *Header, const LoopAttributes &Attrs,
 
   if (!Attrs.IsParallel && Attrs.VectorizeWidth == 0 &&
 #if INTEL_CUSTOMIZATION
-      !Attrs.LoopCoalesceEnable && Attrs.LoopCoalesceCount == 0 &&
-      Attrs.IICount == 0 && Attrs.MaxConcurrencyCount == 0 &&
-      Attrs.MaxInterleavingCount == 0 && Attrs.IVDepCount == 0 &&
+      Attrs.IVDepCount == 0 &&
       Attrs.IIAtMost == 0 && Attrs.IIAtLeast == 0 &&
-      Attrs.SpeculatedIterations == -1 && !Attrs.MinIIAtTargetFmaxEnable &&
-      !Attrs.DisableLoopPipeliningEnable &&
+      !Attrs.MinIIAtTargetFmaxEnable &&
       Attrs.ForceHyperoptEnable == LoopAttributes::Unspecified &&
       !Attrs.IVDepEnable && !Attrs.IVDepHLSEnable &&
       !Attrs.IVDepHLSIntelEnable && !Attrs.IVDepLoop && !Attrs.IVDepBack &&
@@ -863,7 +796,7 @@ LoopInfo::LoopInfo(BasicBlock *Header, const LoopAttributes &Attrs,
       Attrs.LoopCountMin == 0 && Attrs.LoopCountMax == 0 &&
       Attrs.LoopCountAvg == 0 &&
 #endif // INTEL_CUSTOMIZATION
-      Attrs.InterleaveCount == 0 && !Attrs.GlobalSYCLIVDepInfo.hasValue() &&
+      !Attrs.GlobalSYCLIVDepInfo.hasValue() &&
       Attrs.ArraySYCLIVDepInfo.empty() && Attrs.SYCLIInterval == 0 &&
       Attrs.SYCLMaxConcurrencyEnable == false &&
       Attrs.SYCLLoopCoalesceEnable == false &&
@@ -1060,20 +993,14 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::ForceHyperopt:
         setForceHyperoptEnable(false);
         break;
-      case LoopHintAttr::II:
       case LoopHintAttr::IVDep:
       case LoopHintAttr::IVDepLoop:
       case LoopHintAttr::IVDepBack:
       case LoopHintAttr::IVDepHLS:
       case LoopHintAttr::IVDepHLSIntel:
-      case LoopHintAttr::LoopCoalesce:
-      case LoopHintAttr::MaxConcurrency:
-      case LoopHintAttr::MaxInterleaving:
       case LoopHintAttr::IIAtMost:
       case LoopHintAttr::IIAtLeast:
       case LoopHintAttr::MinIIAtFmax:
-      case LoopHintAttr::SpeculatedIterations:
-      case LoopHintAttr::DisableLoopPipelining:
       case LoopHintAttr::VectorizeAlways:
       case LoopHintAttr::LoopCount:
       case LoopHintAttr::LoopCountMax:
@@ -1123,14 +1050,8 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::IVDepHLSIntel:
         setIVDepHLSIntelEnable();
         break;
-      case LoopHintAttr::LoopCoalesce:
-        setLoopCoalesceEnable();
-        break;
       case LoopHintAttr::MinIIAtFmax:
         setMinIIAtTargetFmaxEnable();
-        break;
-      case LoopHintAttr::DisableLoopPipelining:
-        setDisableLoopPipeliningEnable();
         break;
       case LoopHintAttr::ForceHyperopt:
         setForceHyperoptEnable(true);
@@ -1141,12 +1062,8 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::VectorizeAlways:
         setVectorizeAlwaysEnable();
         break;
-      case LoopHintAttr::II:
-      case LoopHintAttr::MaxConcurrency:
-      case LoopHintAttr::MaxInterleaving:
       case LoopHintAttr::IIAtMost:
       case LoopHintAttr::IIAtLeast:
-      case LoopHintAttr::SpeculatedIterations:
       case LoopHintAttr::LoopCount:
       case LoopHintAttr::LoopCountMin:
       case LoopHintAttr::LoopCountMax:
@@ -1171,20 +1088,14 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
         setVectorizeEnable(true);
         break;
 #if INTEL_CUSTOMIZATION
-      case LoopHintAttr::II:
       case LoopHintAttr::IVDep:
       case LoopHintAttr::IVDepLoop:
       case LoopHintAttr::IVDepBack:
       case LoopHintAttr::IVDepHLS:
       case LoopHintAttr::IVDepHLSIntel:
-      case LoopHintAttr::LoopCoalesce:
-      case LoopHintAttr::MaxConcurrency:
-      case LoopHintAttr::MaxInterleaving:
       case LoopHintAttr::IIAtMost:
       case LoopHintAttr::IIAtLeast:
       case LoopHintAttr::MinIIAtFmax:
-      case LoopHintAttr::SpeculatedIterations:
-      case LoopHintAttr::DisableLoopPipelining:
       case LoopHintAttr::ForceHyperopt:
       case LoopHintAttr::Fusion:
       case LoopHintAttr::VectorizeAlways:
@@ -1219,15 +1130,9 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::IVDepHLS:
         // Handled with IntelIVDepArrayHandler.
         break;
-      case LoopHintAttr::II:
-      case LoopHintAttr::LoopCoalesce:
-      case LoopHintAttr::MaxConcurrency:
-      case LoopHintAttr::MaxInterleaving:
       case LoopHintAttr::IIAtMost:
       case LoopHintAttr::IIAtLeast:
       case LoopHintAttr::MinIIAtFmax:
-      case LoopHintAttr::SpeculatedIterations:
-      case LoopHintAttr::DisableLoopPipelining:
       case LoopHintAttr::ForceHyperopt:
       case LoopHintAttr::Fusion:
       case LoopHintAttr::IVDep:
@@ -1272,26 +1177,11 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
         setPipelineInitiationInterval(ValueInt);
         break;
 #if INTEL_CUSTOMIZATION
-      case LoopHintAttr::LoopCoalesce:
-        setLoopCoalesceCount(ValueInt);
-        break;
-      case LoopHintAttr::II:
-        setIICount(ValueInt);
-        break;
-      case LoopHintAttr::MaxConcurrency:
-        setMaxConcurrencyCount(ValueInt);
-        break;
-      case LoopHintAttr::MaxInterleaving:
-        setMaxInterleavingCount(ValueInt);
-        break;
       case LoopHintAttr::IIAtMost:
         setIIAtMost(ValueInt);
         break;
       case LoopHintAttr::IIAtLeast:
         setIIAtLeast(ValueInt);
-        break;
-      case LoopHintAttr::SpeculatedIterations:
-        setSpeculatedIterations(ValueInt);
         break;
       case LoopHintAttr::IVDepHLS:
         setIVDepCount(ValueInt);
@@ -1309,7 +1199,6 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
         setLoopCountAvg(ValueInt);
         break;
       case LoopHintAttr::MinIIAtFmax:
-      case LoopHintAttr::DisableLoopPipelining:
       case LoopHintAttr::ForceHyperopt:
       case LoopHintAttr::Fusion:
       case LoopHintAttr::IVDep:
@@ -1339,15 +1228,9 @@ void LoopInfoStack::push(BasicBlock *Header, clang::ASTContext &Ctx,
       case LoopHintAttr::VectorizePredicate:
       case LoopHintAttr::InterleaveCount:
       case LoopHintAttr::UnrollCount:
-      case LoopHintAttr::II:
-      case LoopHintAttr::LoopCoalesce:
-      case LoopHintAttr::MaxConcurrency:
-      case LoopHintAttr::MaxInterleaving:
       case LoopHintAttr::IIAtMost:
       case LoopHintAttr::IIAtLeast:
       case LoopHintAttr::MinIIAtFmax:
-      case LoopHintAttr::SpeculatedIterations:
-      case LoopHintAttr::DisableLoopPipelining:
       case LoopHintAttr::ForceHyperopt:
       case LoopHintAttr::Unroll:
       case LoopHintAttr::Vectorize:
