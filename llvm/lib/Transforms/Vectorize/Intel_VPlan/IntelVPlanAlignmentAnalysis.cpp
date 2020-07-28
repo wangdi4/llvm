@@ -342,7 +342,7 @@ void VPlanPeelingAnalysis::dump() {
   for (auto &Mrf : CandidateMemrefs) {
     // Print the memref.
     dbgs() << '[' << Mrf.memref() << "] ";
-    Mrf.memref()->print(dbgs());
+    Mrf.memref()->printWithoutAnalyses(dbgs());
 
     // Print 8 low (known) bits.
     dbgs() << " | KB = 0b";
@@ -361,7 +361,7 @@ void VPlanPeelingAnalysis::dump() {
     auto &CongruentList = CongruentMemrefs[Mrf.memref()];
     for (auto &Pair : CongruentList) {
       dbgs() << "  -> [" << Pair.first << "] ";
-      Pair.first->print(dbgs());
+      Pair.first->printWithoutAnalyses(dbgs());
       dbgs() << " (A" << Pair.second.value() << ")\n";
     }
     if (CongruentList.empty())

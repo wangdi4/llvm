@@ -563,8 +563,6 @@ VPBasicBlock::getNonPredicateInstructions() const {
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void VPBasicBlock::print(raw_ostream &OS, unsigned Indent,
-                         const VPlanDivergenceAnalysis *DA,
-                         const VPlanScalVecAnalysis *SVA,
                          const Twine &NamePrefix) const {
   std::string StrIndent = std::string(2 * Indent, ' ');
   OS << StrIndent << NamePrefix << getName() << ":";
@@ -589,7 +587,7 @@ void VPBasicBlock::print(raw_ostream &OS, unsigned Indent,
           !cast<VPBranchInst>(Inst).getHLGoto())
         continue;
       OS << StrIndent << " ";
-      Inst.print(OS, DA, SVA);
+      Inst.print(OS);
       OS << '\n';
     }
   }
@@ -603,7 +601,7 @@ void VPBasicBlock::print(raw_ostream &OS, unsigned Indent,
           OS << CBI->getParent()->getName();
         }
         OS << "): ";
-        CBI->print(OS, DA, SVA);
+        CBI->print(OS);
         OS << '\n';
       }
     } else {

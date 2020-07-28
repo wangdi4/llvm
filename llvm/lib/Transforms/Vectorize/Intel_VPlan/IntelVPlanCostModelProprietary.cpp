@@ -227,7 +227,8 @@ unsigned VPlanCostModelProprietary::getLoadStoreCost(
 
   if (ProcessedOVLSGroups.count(Group) != 0) {
     // Group cost has already been assigned.
-    LLVM_DEBUG(dbgs() << "Group cost for "; VPInst->print(dbgs());
+    LLVM_DEBUG(dbgs() << "Group cost for ";
+               VPInst->printWithoutAnalyses(dbgs());
                dbgs() << " has already been taken into account.\n");
     return ProcessedOVLSGroups[Group] ? 0 : Cost;
   }
@@ -239,17 +240,18 @@ unsigned VPlanCostModelProprietary::getLoadStoreCost(
       cast<VPVLSClientMemref>(OvlsMemref)->getInstruction());
 
   if (VLSGroupCost >= TTIGroupCost) {
-    LLVM_DEBUG(dbgs() << "Cost for "; VPInst->print(dbgs());
-               dbgs() << " was not reduced from " << Cost <<
-               " (TTI group cost " << TTIGroupCost <<
-               ") to group cost " << VLSGroupCost << '\n');
+    LLVM_DEBUG(dbgs() << "Cost for "; VPInst->printWithoutAnalyses(dbgs());
+               dbgs() << " was not reduced from " << Cost << " (TTI group cost "
+                      << TTIGroupCost << ") to group cost " << VLSGroupCost
+                      << '\n');
     ProcessedOVLSGroups[Group] = false;
     return Cost;
   }
 
-  LLVM_DEBUG(dbgs() << "Reduced cost for "; VPInst->print(dbgs());
-             dbgs() << " from " << Cost << " (TTI group cost " <<
-             TTIGroupCost << " to group cost " << VLSGroupCost << '\n');
+  LLVM_DEBUG(dbgs() << "Reduced cost for ";
+             VPInst->printWithoutAnalyses(dbgs());
+             dbgs() << " from " << Cost << " (TTI group cost " << TTIGroupCost
+                    << " to group cost " << VLSGroupCost << '\n');
   ProcessedOVLSGroups[Group] = true;
   return VLSGroupCost;
 }
@@ -670,7 +672,7 @@ unsigned VPlanCostModelProprietary::getSpillFillCost(
                llvm::count_if(LVNs, [](int Elem) -> bool {
                    return Elem != 0;
                  }) << " for ";
-               VPInst.print(dbgs()); dbgs() << '\n';
+               VPInst.printWithoutAnalyses(dbgs()); dbgs() << '\n';
                dbgs() << "Live vals:";
                for (auto LiveValue : LiveValues)
                  if (LiveValue.second) {
@@ -909,7 +911,7 @@ bool VPlanCostModelProprietary::CheckForSLPExtraCost() const {
 void VPlanCostModelProprietary::printForVPInstruction(
   raw_ostream &OS, const VPInstruction *VPInst) {
   OS << "  Cost " << getCostNumberString(getCost(VPInst)) << " for ";
-  VPInst->print(OS);
+  VPInst->printWithoutAnalyses(OS);
 
   std::string Attributes = "";
 

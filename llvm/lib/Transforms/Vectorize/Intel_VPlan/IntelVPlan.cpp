@@ -382,9 +382,10 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
   }
 }
 
-void VPInstruction::print(raw_ostream &O, const VPlanDivergenceAnalysis *DA,
-                          const VPlanScalVecAnalysis *SVA) const {
-#if INTEL_CUSTOMIZATION
+void VPInstruction::print(raw_ostream &O) const {
+  const VPlan *Plan = getParent()->getParent();
+  const VPlanDivergenceAnalysis *DA = Plan->getVPlanDA();
+  const VPlanScalVecAnalysis *SVA = Plan->getVPlanSVA();
   if (DA || SVA)
     O << "[";
   // Print DA information.
@@ -407,6 +408,34 @@ void VPInstruction::print(raw_ostream &O, const VPlanDivergenceAnalysis *DA,
   if (DA || SVA)
     O << "] ";
 
+  printWithoutAnalyses(O);
+
+  // Print list of operand SVA bits.
+  if (SVA) {
+    O << " (SVAOpBits ";
+    for (unsigned OpIdx = 0; OpIdx < getNumOperands(); ++OpIdx) {
+      O << OpIdx << "->";
+      SVA->printSVAKindForOperand(O, this, OpIdx);
+      O << " ";
+    }
+    O << ")";
+  }
+
+  if (VPlanDumpDetails) {
+    O << "\n";
+    // TODO: How to get Indent here?
+    O << "    DbgLoc: ";
+    getDebugLocation().print(O);
+    O << "\n";
+    O << "    OperatorFlags -\n";
+    O << "      FMF: " << hasFastMathFlags() << ", NSW: " << hasNoSignedWrap()
+      << ", NUW: " << hasNoUnsignedWrap() << ", Exact: " << isExact() << "\n";
+    // Print other attributes here when imported.
+    O << "    end of details\n";
+  }
+}
+
+void VPInstruction::printWithoutAnalyses(raw_ostream &O) const {
   if (getOpcode() != Instruction::Store && !isa<VPBranchInst>(this)) {
     printAsOperand(O);
     O << " = ";
@@ -417,13 +446,8 @@ void VPInstruction::print(raw_ostream &O, const VPlanDivergenceAnalysis *DA,
     if (MemAddrInst->isInBounds())
       O << " inbounds";
   };
-#else
-  printAsOperand(O);
-  O << " = ";
-#endif /* INTEL_CUSTOMIZATION */
 
   switch (getOpcode()) {
-#if INTEL_CUSTOMIZATION
   case Instruction::Br:
     cast<VPBranchInst>(this)->printImpl(O);
     break;
@@ -468,7 +492,6 @@ void VPInstruction::print(raw_ostream &O, const VPlanDivergenceAnalysis *DA,
       << "}";
     break;
   }
-#endif
   default:
     O << getOpcodeName(getOpcode());
   }
@@ -477,7 +500,6 @@ void VPInstruction::print(raw_ostream &O, const VPlanDivergenceAnalysis *DA,
     O << " for original loop " << Self->getOrigLoop()->getName();
   }
 
-#if INTEL_CUSTOMIZATION
   // TODO: print type when this information will be available.
   // So far don't print anything, because PHI may not have Instruction
   if (auto *Phi = dyn_cast<const VPPHINode>(this)) {
@@ -535,12 +557,10 @@ void VPInstruction::print(raw_ostream &O, const VPlanDivergenceAnalysis *DA,
       O << " ";
       getType()->print(O);
     }
-#endif // INTEL_CUSTOMIZATION
     for (const VPValue *Operand : operands()) {
       O << " ";
       Operand->printAsOperand(O);
     }
-#if INTEL_CUSTOMIZATION
     switch (getOpcode()) {
     case Instruction::ZExt:
     case Instruction::SExt:
@@ -573,31 +593,6 @@ void VPInstruction::print(raw_ostream &O, const VPlanDivergenceAnalysis *DA,
     }
     }
   }
-
-  // Print list of operand SVA bits.
-  if (SVA) {
-    O << " (SVAOpBits ";
-    for (unsigned OpIdx = 0; OpIdx < getNumOperands(); ++OpIdx) {
-      O << OpIdx << "->";
-      SVA->printSVAKindForOperand(O, this, OpIdx);
-      O << " ";
-    }
-    O << ")";
-  }
-
-  if (VPlanDumpDetails) {
-    O << "\n";
-    // TODO: How to get Indent here?
-    O << "    DbgLoc: ";
-    getDebugLocation().print(O);
-    O << "\n";
-    O << "    OperatorFlags -\n";
-    O << "      FMF: " << hasFastMathFlags() << ", NSW: " << hasNoSignedWrap()
-      << ", NUW: " << hasNoUnsignedWrap() << ", Exact: " << isExact() << "\n";
-    // Print other attributes here when imported.
-    O << "    end of details\n";
-  }
-#endif // INTEL_CUSTOMIZATION
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
@@ -783,7 +778,7 @@ void VPlan::print(raw_ostream &OS, unsigned Indent) const {
   SuccList.insert(getEntryBlock());
   std::string StrIndent = std::string(2, ' ');
   for (const VPBasicBlock *VPBB : RPOT) {
-    VPBB->print(OS, Indent + SuccList.size() - 1, getVPlanDA(), getVPlanSVA());
+    VPBB->print(OS, Indent + SuccList.size() - 1);
     Printed.insert(VPBB);
     SuccList.remove(VPBB);
     for (auto *Succ : VPBB->getSuccessors())

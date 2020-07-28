@@ -187,7 +187,7 @@ void VPlanVLSAnalysis::dump() const {
 void VPVLSClientMemref::print(raw_ostream &OS, unsigned Indent) const {
   OVLSMemref::print(OS, Indent);
   OS << ": ";
-  Inst->print(OS);
+  Inst->printWithoutAnalyses(OS);
 }
 
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
