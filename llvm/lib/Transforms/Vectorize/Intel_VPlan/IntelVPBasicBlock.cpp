@@ -580,8 +580,8 @@ void VPBasicBlock::print(raw_ostream &OS, unsigned Indent,
   OS << "\n";
 
   // Print block body
-  if (empty() || !PrintTerminatorInst && size() == 1 &&
-                     !cast<VPBranchInst>(front()).getHLGoto()) {
+  if (empty() || (!PrintTerminatorInst && size() == 1 &&
+                  !cast<VPBranchInst>(front()).getHLGoto())) {
     OS << StrIndent << " <Empty Block>\n";
   } else {
     for (const VPInstruction &Inst : Instructions) {

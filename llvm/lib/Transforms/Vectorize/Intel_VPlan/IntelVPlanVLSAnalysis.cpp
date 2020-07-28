@@ -80,7 +80,7 @@ void VPlanVLSAnalysis::collectMemrefs(OVLSMemrefVector &MemrefVector,
 
   // VPlanVLSLevel option allows users to override TTI::isVPlanVLSProfitable().
   if (VPlanVLSLevel == VPlanVLSRunNever ||
-      VPlanVLSLevel == VPlanVLSRunAuto && !TTI->isVPlanVLSProfitable())
+      (VPlanVLSLevel == VPlanVLSRunAuto && !TTI->isVPlanVLSProfitable()))
     return;
 
   if (!TTI->isAggressiveVLSProfitable())
