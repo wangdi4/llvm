@@ -1065,7 +1065,7 @@ public:
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void print(raw_ostream &O) const;
+  void printImpl(raw_ostream &O) const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   static inline bool classof(const VPInstruction *VPI) {
@@ -1175,7 +1175,7 @@ public:
   void addIncoming(VPValue *IncomingVal, VPValue *BlockPred, VPlan *Plan = nullptr);
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void print(raw_ostream &O) const;
+  void printImpl(raw_ostream &O) const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   // Method to support type inquiry through isa, cast, and dyn_cast.
@@ -1749,7 +1749,7 @@ private:
     unsigned UseMaskedForUnmasked : 1;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-    void print(raw_ostream &OS) const {
+    void printImpl(raw_ostream &OS) const {
       std::string VecVariantName =
           MatchedVecVariant != nullptr ? MatchedVecVariant->toString() : "None";
       OS << "  VecVariant: " << VecVariantName << "\n";
@@ -1980,7 +1980,7 @@ public:
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void print(raw_ostream &O) const;
+  void printImpl(raw_ostream &O) const;
 
   void dumpVecProperties(raw_ostream &OS) const {
     OS << "For VF=" << VecProperties.VF << "\n";
@@ -2005,7 +2005,7 @@ public:
       llvm_unreachable("Unexpected VecScenario.");
     }
     OS << "\n";
-    VecProperties.print(OS);
+    VecProperties.printImpl(OS);
     OS << "\n";
   }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP

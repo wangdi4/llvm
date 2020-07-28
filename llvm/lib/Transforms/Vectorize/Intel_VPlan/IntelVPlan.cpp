@@ -425,14 +425,14 @@ void VPInstruction::print(raw_ostream &O, const VPlanDivergenceAnalysis *DA,
   switch (getOpcode()) {
 #if INTEL_CUSTOMIZATION
   case Instruction::Br:
-    cast<VPBranchInst>(this)->print(O);
+    cast<VPBranchInst>(this)->printImpl(O);
     break;
   case VPInstruction::Blend: {
-    cast<VPBlendInst>(this)->print(O);
+    cast<VPBlendInst>(this)->printImpl(O);
     break;
   }
   case Instruction::Call: {
-    cast<VPCallInstruction>(this)->print(O);
+    cast<VPCallInstruction>(this)->printImpl(O);
     break;
   }
   case Instruction::GetElementPtr:
@@ -900,7 +900,7 @@ void VPBlendInst::addIncoming(VPValue *IncomingVal, VPValue *BlockPred, VPlan *P
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void VPBlendInst::print(raw_ostream &O) const {
+void VPBlendInst::printImpl(raw_ostream &O) const {
   O << getOpcodeName(getOpcode());
   auto PrintValueWithBP = [&](const unsigned i) {
     O << " [ ";
@@ -917,7 +917,7 @@ void VPBlendInst::print(raw_ostream &O) const {
   }
 }
 
-void VPBranchInst::print(raw_ostream &O) const {
+void VPBranchInst::printImpl(raw_ostream &O) const {
   if (getNumSuccessors() == 0)
     O << "br <External Block>";
   else
@@ -941,7 +941,7 @@ void VPBranchInst::print(raw_ostream &O) const {
     }
 }
 
-void VPCallInstruction::print(raw_ostream &O) const {
+void VPCallInstruction::printImpl(raw_ostream &O) const {
   O << getOpcodeName(getOpcode());
   for (const VPValue *Arg : arg_operands()) {
     O << " ";
