@@ -501,3 +501,13 @@
 // RUN: %clang -### -Ofast -c %s 2>&1 | FileCheck -check-prefix=CHECK-GVN %s
 // CHECK-GVN: "-mllvm" "-enable-gvn-hoist"
 // CHECK-GVN: "-mllvm" "-enable-npm-gvn-hoist"
+
+// RUN: %clang --intel -Ofast -### %s 2>&1 | FileCheck -check-prefix=CHECK-OFAST %s
+// RUN: %clang --intel -O2 -Ofast -### %s 2>&1 | FileCheck -check-prefix=CHECK-OFAST %s
+// RUN: %clang --intel -Ofast -O2 -### %s 2>&1 | FileCheck -check-prefix=CHECK-OFAST-O2 %s
+// CHECK-OFAST: -cc1
+// CHECK-OFAST: -ffast-math
+// CHECK-OFAST: -O3
+// CHECK-OFAST-O2: -cc1
+// CHECK-OFAST-O2: -ffast-math
+// CHECK-OFAST-O2: -O2
