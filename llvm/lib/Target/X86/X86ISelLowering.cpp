@@ -50911,12 +50911,14 @@ static SDValue combineExtractSubvector(SDNode *N, SelectionDAG &DAG,
   unsigned IdxVal = N->getConstantOperandVal(1);
   SDValue InVecBC = peekThroughBitcasts(InVec);
   EVT InVecVT = InVec.getValueType();
+  unsigned SizeInBits = VT.getSizeInBits();
+  unsigned InSizeInBits = InVecVT.getSizeInBits();
   const TargetLowering &TLI = DAG.getTargetLoweringInfo();
 
   if (Subtarget.hasAVX() && !Subtarget.hasAVX2() &&
       TLI.isTypeLegal(InVecVT) &&
-      InVecVT.getSizeInBits() == 256 && InVecBC.getOpcode() == ISD::AND) {
-    auto isConcatenatedNot = [] (SDValue V) {
+      InSizeInBits == 256 && InVecBC.getOpcode() == ISD::AND) {
+    auto isConcatenatedNot = [](SDValue V) {
       V = peekThroughBitcasts(V);
       if (!isBitwiseNot(V))
         return false;
@@ -50959,7 +50961,7 @@ static SDValue combineExtractSubvector(SDNode *N, SelectionDAG &DAG,
       InVec.getOpcode() == ISD::INSERT_SUBVECTOR && IdxVal == 0 &&
       InVec.hasOneUse() && isNullConstant(InVec.getOperand(2)) &&
       ISD::isBuildVectorAllZeros(InVec.getOperand(0).getNode()) &&
-      InVec.getOperand(1).getValueSizeInBits() <= VT.getSizeInBits()) {
+      InVec.getOperand(1).getValueSizeInBits() <= SizeInBits) {
     SDLoc DL(N);
     return DAG.getNode(ISD::INSERT_SUBVECTOR, DL, VT,
                        getZeroVector(VT, Subtarget, DAG, DL),
@@ -50970,14 +50972,14 @@ static SDValue combineExtractSubvector(SDNode *N, SelectionDAG &DAG,
   // broadcasting to the smaller type directly, assuming this is the only use.
   // As its a broadcast we don't care about the extraction index.
   if (InVec.getOpcode() == X86ISD::VBROADCAST && InVec.hasOneUse() &&
-      InVec.getOperand(0).getValueSizeInBits() <= VT.getSizeInBits())
+      InVec.getOperand(0).getValueSizeInBits() <= SizeInBits)
     return DAG.getNode(X86ISD::VBROADCAST, SDLoc(N), VT, InVec.getOperand(0));
 
   if (InVec.getOpcode() == X86ISD::VBROADCAST_LOAD && InVec.hasOneUse()) {
     auto *MemIntr = cast<MemIntrinsicSDNode>(InVec);
-    if (MemIntr->getMemoryVT().getSizeInBits() <= VT.getSizeInBits()) {
+    if (MemIntr->getMemoryVT().getSizeInBits() <= SizeInBits) {
       SDVTList Tys = DAG.getVTList(VT, MVT::Other);
-      SDValue Ops[] = { MemIntr->getChain(), MemIntr->getBasePtr() };
+      SDValue Ops[] = {MemIntr->getChain(), MemIntr->getBasePtr()};
       SDValue BcastLd =
           DAG.getMemIntrinsicNode(X86ISD::VBROADCAST_LOAD, SDLoc(N), Tys, Ops,
                                   MemIntr->getMemoryVT(),
@@ -50992,7 +50994,7 @@ static SDValue combineExtractSubvector(SDNode *N, SelectionDAG &DAG,
   // SimplifyDemandedVectorElts do more simplifications.
   if (IdxVal != 0 && (InVec.getOpcode() == X86ISD::VBROADCAST ||
                       InVec.getOpcode() == X86ISD::VBROADCAST_LOAD))
-    return extractSubVector(InVec, 0, DAG, SDLoc(N), VT.getSizeInBits());
+    return extractSubVector(InVec, 0, DAG, SDLoc(N), SizeInBits);
 
   // If we're extracting a broadcasted subvector, just use the source.
   if (InVec.getOpcode() == X86ISD::SUBV_BROADCAST &&
@@ -51000,12 +51002,12 @@ static SDValue combineExtractSubvector(SDNode *N, SelectionDAG &DAG,
     return InVec.getOperand(0);
 
   // Attempt to extract from the source of a shuffle vector.
-  if ((InVecVT.getSizeInBits() % VT.getSizeInBits()) == 0 &&
+  if ((InSizeInBits % SizeInBits) == 0 &&
       (IdxVal % VT.getVectorNumElements()) == 0) {
     SmallVector<int, 32> ShuffleMask;
     SmallVector<int, 32> ScaledMask;
     SmallVector<SDValue, 2> ShuffleInputs;
-    unsigned NumSubVecs = InVecVT.getSizeInBits() / VT.getSizeInBits();
+    unsigned NumSubVecs = InSizeInBits / SizeInBits;
     // Decode the shuffle mask and scale it so its shuffling subvectors.
     if (getTargetShuffleInputs(InVecBC, ShuffleInputs, ShuffleMask, DAG) &&
         scaleShuffleElements(ShuffleMask, NumSubVecs, ScaledMask)) {
@@ -51015,11 +51017,11 @@ static SDValue combineExtractSubvector(SDNode *N, SelectionDAG &DAG,
       if (ScaledMask[SubVecIdx] == SM_SentinelZero)
         return getZeroVector(VT, Subtarget, DAG, SDLoc(N));
       SDValue Src = ShuffleInputs[ScaledMask[SubVecIdx] / NumSubVecs];
-      if (Src.getValueSizeInBits() == InVecVT.getSizeInBits()) {
+      if (Src.getValueSizeInBits() == InSizeInBits) {
         unsigned SrcSubVecIdx = ScaledMask[SubVecIdx] % NumSubVecs;
         unsigned SrcEltIdx = SrcSubVecIdx * VT.getVectorNumElements();
         return extractSubVector(DAG.getBitcast(InVecVT, Src), SrcEltIdx, DAG,
-                                SDLoc(N), VT.getSizeInBits());
+                                SDLoc(N), SizeInBits);
       }
     }
   }
@@ -51065,6 +51067,14 @@ static SDValue combineExtractSubvector(SDNode *N, SelectionDAG &DAG,
       SDValue Ext1 = extractSubVector(InVec.getOperand(1), 0, DAG, DL, 128);
       SDValue Ext2 = extractSubVector(InVec.getOperand(2), 0, DAG, DL, 128);
       return DAG.getNode(InOpcode, DL, VT, Ext0, Ext1, Ext2);
+    }
+    if (InOpcode == ISD::TRUNCATE && Subtarget.hasVLX() &&
+        (VT.is128BitVector() || VT.is256BitVector())) {
+      SDLoc DL(N);
+      SDValue InVecSrc = InVec.getOperand(0);
+      unsigned Scale = InVecSrc.getValueSizeInBits() / InSizeInBits;
+      SDValue Ext = extractSubVector(InVecSrc, 0, DAG, DL, Scale * SizeInBits);
+      return DAG.getNode(InOpcode, DL, VT, Ext);
     }
   }
 
