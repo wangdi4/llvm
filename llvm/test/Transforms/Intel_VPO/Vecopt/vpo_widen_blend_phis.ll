@@ -132,10 +132,10 @@ for.end:
 ; CHECK:   br label %[[VPlannedBB1:.*]]
 
 ; CHECK: [[VPlannedBB1]]:
-; CHECK:   [[VEC_PHI1:%.*]] = phi <8 x float>
 ; CHECK:   [[VEC_PHI2:%.*]] = phi <8 x float>
 ; CHECK:   [[VEC_PHI3:%.*]] = phi <2 x i64>
 ; CHECK:   [[VEC_PHI4:%.*]] = phi <2 x i1>
+; CHECK:   [[VEC_PHI1:%.*]] = phi <8 x float>
 ; CHECK:   [[AND1:%.*]] = and <2 x i1> [[CMP1]], [[VEC_PHI4]]
 ; CHECK:   [[FADD:%.*]] = fadd <8 x float> [[VEC_PHI2]], [[VEC_PHI2]]
 ; CHECK:   [[PRED0:%.*]] = extractelement <2 x i1> [[AND1]], i64 0
@@ -167,7 +167,6 @@ for.end:
 ; CHECK:   [[SHUF1:%.*]] = shufflevector <4 x float> [[PHI1]], <4 x float> [[PHI2]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
 ; CHECK:   [[ADD1:%.*]] = add <2 x i64> [[VEC_PHI3]], {{.*}}
 ; CHECK:   [[CMP3:%.*]] = icmp ult <2 x i64> [[ADD1]], {{.*}}
-; CHECK:   [[AND2:%.*]] = and <2 x i1> [[CMP3]], [[VEC_PHI4]]
 ; CHECK:   [[VEC_PHI49:%.*]] = shufflevector <2 x i1> [[VEC_PHI4]], <2 x i1> undef, <8 x i32> <i32 0, i32 0, i32 0, i32 0, i32 1, i32 1, i32 1, i32 1>
 ; CHECK:   [[WIDE_SELECT1:%.*]] = select <8 x i1> [[VEC_PHI49]], <8 x float> [[SHUF1]], <8 x float> [[VEC_PHI1]]
 ; CHECK:   br i1 {{.*}}, label %[[VPlannedBB2:.*]], label %[[VPlannedBB1]]

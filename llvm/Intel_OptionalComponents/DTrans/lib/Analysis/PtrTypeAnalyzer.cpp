@@ -1181,17 +1181,20 @@ private:
       }
     }
 
-    // Also, add any known type information about the pointer operand of the
-    // PtrToInt instruction. This is necessary to handle the cases where an i8*
-    // parameter type is being inferred, which is only used as an i8* type.
-    // For example:
+    // Also, add any known pointer type information about the pointer operand of
+    // the PtrToInt instruction. Normally, this will not add any new pointer
+    // types for the instruction, but it is necessary to handle cases where an
+    // i8* parameter type is being inferred, when it is only used as an i8* type
+    // to guarantee the inferred set contains the i8* type to prevent it from
+    // being marked as unhandled. For example, the following should propagate
+    // the i8* type to the inferred set:
     //   %as1.i64 = ptrtoint i8* %arg1 to i64
     //   %as2.i64 = ptrtoint i8* %arg2 to i64
     //   %length = sub i64 %as2.i64, %as1.i64
     ValueTypeInfo *PTIInfo = PTA.getOrCreateValueTypeInfo(PTI, 0);
     for (auto *DType : PTIInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use))
       if (auto *PtrTy = dyn_cast<DTransPointerType>(DType))
-        addInferredType(PTI, PtrTy->getPointerElementType());
+        addInferredType(PTI, PtrTy);
 
     propagateInferenceSet(PTI, ValueToInfer, DerefType::DT_SameType);
   }

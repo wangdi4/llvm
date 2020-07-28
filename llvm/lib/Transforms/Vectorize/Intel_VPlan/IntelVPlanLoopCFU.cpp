@@ -20,10 +20,18 @@
 
 #define DEBUG_TYPE "vplan-loop-cfu"
 
+static cl::opt<bool> EnableLiveOutsRematerialization(
+    "vplan-enable-liveout-remat", cl::init(true),
+    cl::desc("Enable live-outs rematerialization in inner loops to avoid extra "
+             "recurrence introduced by LoopCFU."));
+
 namespace llvm {
 namespace vpo {
 
 void VPlanLoopCFU::run(VPLoop *VPL) {
+  if (EnableLiveOutsRematerialization)
+    rematerializeLiveOuts(VPL);
+
   VPlanDivergenceAnalysis *VPDA = Plan.getVPlanDA();
   VPLoopInfo *VPLI = Plan.getVPLoopInfo();
 
@@ -174,102 +182,112 @@ void VPlanLoopCFU::run(VPLoop *VPL) {
   //    ExitBB
   //      %lcssa.live.out.phi = phi [ %LastComputed, %Latch ]
   //
-  // We don't have control over BBs iteration order and at the point we
-  // start processing Latch some blends might have been already created.
-  // Don't try to process them as that's not needed.
-  SmallSet<VPValue *, 8> CreatedBlends;
-  for (auto *BB : VPL->blocks()) {
-    // We will be adding instructions to the latch so do the copy to avoid
-    // stale iterators.
-    SmallVector<VPInstruction *, 16> Instructions(map_range(
-        *BB,
-        // Can't have a vector of references - take the address.
-        [](VPInstruction &VPInst) -> VPInstruction * { return &VPInst; }));
-    for (VPInstruction *Inst : Instructions) {
-      if (CreatedBlends.count(Inst))
-        // This instruction is a blend that we've just created, no
-        // processing needed.
-        continue;
+  assert(VPL->isLCSSAForm() && "Loop isn't in LCSSA form!");
+  assert(VPLExitBlock->getSinglePredecessor() &&
+         "Loop not in canonical form!");
+  VPBuilder BlendBuilder;
+  BlendBuilder.setInsertPointFirstNonPhi(NewLoopLatch);
+  for (VPPHINode &LCSSAPhi : VPLExitBlock->getVPPhis()) {
+    auto *LiveOut = dyn_cast<VPInstruction>(LCSSAPhi.getIncomingValue(0u));
+    if (!LiveOut || !VPL->contains(LiveOut))
+      continue;
 
-      VPPHINode *LCSSAPhi = nullptr;
-      VPValue *Blend = nullptr;
+    auto *NewPhi =
+        VPBuilder().setInsertPointFirstNonPhi(VPLHeader).createPhiInstruction(
+            LiveOut->getType(), LiveOut->getName() + ".live.out.prev");
+    VPDA->markDivergent(*NewPhi);
+    VPValue *Blend = BlendBuilder.createSelect(
+        LoopBodyMask, LiveOut, NewPhi, LiveOut->getName() + ".live.out.blend");
+    VPDA->markDivergent(*Blend);
 
-      SmallVector<VPUser *, 8> Users(Inst->user_begin(), Inst->user_end());
-      for (VPUser *U : Users) {
-        if (auto *UserInst = dyn_cast<VPInstruction>(U))
-          if (VPL->contains(UserInst))
-            // Not live-out.
-            continue;
+    // We need undef for all the predecessors except NewLoopLatch.
+    auto *VPUndef = Plan.getVPConstant(UndefValue::get(LiveOut->getType()));
+    for (VPBasicBlock *Pred : VPLHeader->getPredecessors())
+      NewPhi->addIncoming(Pred == NewLoopLatch ? Blend : VPUndef, Pred);
 
-        // Ok, Inst is live-out, need to create a proper blend for the
-        // live-out value and update the use.
-        if (!Blend) {
-          // Create a new phi and use mask for the current iteration.
-          auto *NewPhi = new VPPHINode(Inst->getType());
-          NewPhi->setName(Inst->getName() + ".live.out.prev");
-          VPDA->markDivergent(*NewPhi);
-
-          // It can be either VPLHeader or NewLoopLatch - doesn't really
-          // matter.
-          assert(VPLHeader->getNumPredecessors() == 2 &&
-                 "Expected exactly two predecessors for VPLHeader!");
-          VPLHeader->addInstructionAfter(NewPhi, nullptr /* be the first */);
-
-          // Create the blend before population NewPhi's incoming values
-          // that blend will be one of them.
-          Blend = Builder.createSelect(LoopBodyMask, Inst, NewPhi,
-                                       Inst->getName() + ".live.out.blend");
-          VPDA->markDivergent(*Blend);
-          CreatedBlends.insert(Blend);
-
-          // We need undef for all the predecessors except NewLoopLatch.
-          auto *VPUndef = Plan.getVPConstant(UndefValue::get(Inst->getType()));
-          for (VPBasicBlock *Pred : VPLHeader->getPredecessors())
-            NewPhi->addIncoming(Pred == NewLoopLatch ? Blend : VPUndef, Pred);
-
-          LLVM_DEBUG(dbgs() << "LoopCFU: Handled live-out: " << *Inst
-                            << "Created blend: " << *Blend
-                            << "and phi: " << *NewPhi << "\n";);
-        }
-
-        if (auto *Phi = dyn_cast<VPPHINode>(U)) {
-          if (Phi->getParent() == VPLExitBlock) {
-            // LCSSA phi, just update incoming value.
-            assert(Phi->getNumIncomingValues() == 1 &&
-                   "Expected single incoming value for phi!");
-
-            Phi->setIncomingValue((unsigned)0, Blend);
-            // TODO: assert for being equivalent if already set. Also, the
-            // previous value can be RAUW'ed with newly found one.
-            LCSSAPhi = Phi;
-            continue;
-          }
-        }
-
-        // This UserInst isn't an LCSSA-phi. Change it to reference a proper
-        // LCSSA-phi instead of the original non-blended live-out. This
-        // isn't really required, but we will likely decide to preserve
-        // LCSSA form through the whole VPlan pipeline, so make the IR
-        // coming out of this transformation as much LCSSA-ish as possible.
-
-        // Check if we have already found/created an LCSSA-like phi.
-        if (!LCSSAPhi) {
-          LCSSAPhi = new VPPHINode(Inst->getType());
-          LCSSAPhi->setName(Inst->getName() + ".live.out.lcssa");
-          VPDA->markDivergent(*LCSSAPhi);
-          VPLExitBlock->addInstructionAfter(LCSSAPhi,
-                                            nullptr /* be the first */);
-          LCSSAPhi->addIncoming(Blend, NewLoopLatch);
-        }
-
-        U->replaceUsesOfWith(Inst, LCSSAPhi);
-      }
-    }
+    LCSSAPhi.setIncomingValue(0u, Blend);
+    LLVM_DEBUG(dbgs() << "LoopCFU: Handled live-out: " << *LiveOut
+                      << "Created blend: " << *Blend << "and phi: " << *NewPhi
+                      << "\n";);
   }
 
   LLVM_DEBUG(
       dbgs() << "Subloop after inner loop control flow transformation\n");
   LLVM_DEBUG(VPL->printRPOT(dbgs(), Plan.getVPLoopInfo()));
+}
+
+static bool isRematerializable(const VPInstruction *Inst) {
+  switch (Inst->getOpcode()) {
+  default:
+    return false;
+  case Instruction::ICmp:
+  case Instruction::Add:
+  case Instruction::Sub:
+  case Instruction::GetElementPtr:
+  case Instruction::BitCast:
+    return true;
+  }
+}
+
+VPInstruction *VPlanLoopCFU::tryRematerializeLiveOut(VPLoop *VPL,
+                                                     VPInstruction *LiveOut) {
+  if (!isRematerializable(LiveOut))
+    return nullptr;
+
+  VPBasicBlock *Exit = VPL->getExitBlock();
+  SmallVector<std::pair<VPValue * /* OrigOperand */,
+                        VPValue * /* Rematerialization Op */>,
+              4>
+      LiveOutOps;
+
+  for (VPValue *Op : LiveOut->operands()) {
+    if (isa<VPConstant>(Op)) {
+      // TODO: Extend to anything dominating the loop.
+      LiveOutOps.emplace_back(Op, Op);
+      continue;
+    }
+    auto LCSSAIt = llvm::find_if(Op->users(), [Exit](const VPUser *U) {
+      auto *LCSSAPhi = dyn_cast<VPPHINode>(U);
+      return LCSSAPhi && LCSSAPhi->getParent() == Exit;
+    });
+    if (LCSSAIt == Op->users().end())
+      return nullptr;
+
+    LiveOutOps.emplace_back(Op, *LCSSAIt);
+  }
+
+  auto *Rematerialized = LiveOut->clone();
+  for (auto It : LiveOutOps)
+    Rematerialized->replaceUsesOfWith(It.first, It.second);
+
+  VPBuilder().setInsertPointFirstNonPhi(Exit).insert(Rematerialized);
+  LLVM_DEBUG(dbgs() << "Rematerialized " << *LiveOut << " in\n"
+                    << *LiveOut->getParent() << "\ninto " << *Rematerialized
+                    << "\n");
+  return Rematerialized;
+}
+
+void VPlanLoopCFU::rematerializeLiveOuts(VPLoop *VPL) {
+  if (!VPL->getParentLoop() && !VPL->isLCSSAForm())
+    return;
+
+  assert(VPL->isLCSSAForm() && "Loop isn't in LCSSA form!");
+  VPBasicBlock *Exit = VPL->getExitBlock();
+  assert(Exit && Exit->getSinglePredecessor() && "Loop not in canonical form!");
+  SmallVector<VPPHINode *, 4> Phis;
+  for (VPPHINode &LCSSAPhi : Exit->getVPPhis())
+    Phis.push_back(&LCSSAPhi);
+
+  for (VPPHINode *LCSSAPhi : Phis) {
+    auto *LiveOut = dyn_cast<VPInstruction>(LCSSAPhi->getIncomingValue(0u));
+    if (!LiveOut || !VPL->contains(LiveOut))
+      continue;
+
+    if (VPInstruction *Rematerialized = tryRematerializeLiveOut(VPL, LiveOut)) {
+      LCSSAPhi->replaceAllUsesWith(Rematerialized);
+      LCSSAPhi->getParent()->eraseInstruction(LCSSAPhi);
+    }
+  }
 }
 
 void VPlanLoopCFU::run() {

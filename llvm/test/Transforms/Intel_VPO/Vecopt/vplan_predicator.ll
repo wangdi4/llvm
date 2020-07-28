@@ -476,9 +476,9 @@ define dso_local void @test_divergent_loop_with_double_top_test(i32 %N, i32 *%a,
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]:
-; CHECK-NEXT:     [DA: Div] i32 [[VP_IV_LIVE_OUT_PREV:%.*]] = phi  [ i32 undef, [[BB3]] ],  [ i32 [[VP_IV_LIVE_OUT_BLEND:%.*]], [[BB5:BB[0-9]+]] ]
-; CHECK-NEXT:     [DA: Uni] i32 [[VP_IV:%.*]] = phi  [ i32 [[VP_IV_NEXT:%.*]], [[BB5]] ],  [ i32 0, [[BB3]] ]
+; CHECK-NEXT:     [DA: Uni] i32 [[VP_IV:%.*]] = phi  [ i32 [[VP_IV_NEXT:%.*]], [[BB5:BB[0-9]+]] ],  [ i32 0, [[BB3]] ]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK:%.*]] = phi  [ i1 [[VP_SECOND_TEST_NOT_1]], [[BB3]] ],  [ i1 [[VP_LOOP_MASK_NEXT:%.*]], [[BB5]] ]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_IV_LIVE_OUT_PREV:%.*]] = phi  [ i32 undef, [[BB3]] ],  [ i32 [[VP_IV_LIVE_OUT_BLEND:%.*]], [[BB5]] ]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP2:%.*]] = block-predicate i1 [[VP_BB2_BR_VP_SECOND_TEST_NOT]]
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB6:BB[0-9]+]]
 ; CHECK-NEXT:    PREDECESSORS(2): [[BB3]] [[BB5]]
@@ -500,10 +500,10 @@ define dso_local void @test_divergent_loop_with_double_top_test(i32 %N, i32 *%a,
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB5]]:
 ; CHECK-NEXT:     [DA: Div] i1 [[VP4:%.*]] = block-predicate i1 [[VP_BB2_BR_VP_SECOND_TEST_NOT]]
+; CHECK-NEXT:     [DA: Div] i32 [[VP_IV_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i32 [[VP_IV]] i32 [[VP_IV_LIVE_OUT_PREV]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_EXITCOND_NOT:%.*]] = not i1 [[VP_EXITCOND]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_LOOP_MASK_NEXT]] = and i1 [[VP_EXITCOND_NOT]] i1 [[VP_LOOP_MASK]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP5:%.*]] = all-zero-check i1 [[VP_LOOP_MASK_NEXT]]
-; CHECK-NEXT:     [DA: Div] i32 [[VP_IV_LIVE_OUT_BLEND]] = select i1 [[VP_LOOP_MASK]] i32 [[VP_IV]] i32 [[VP_IV_LIVE_OUT_PREV]]
 ; CHECK-NEXT:    SUCCESSORS(2):[[BB8:BB[0-9]+]](i1 [[VP5]]), [[BB4]](!i1 [[VP5]])
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB7]]
 ; CHECK-EMPTY:

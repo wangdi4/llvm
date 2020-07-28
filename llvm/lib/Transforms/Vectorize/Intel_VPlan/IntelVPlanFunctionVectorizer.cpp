@@ -19,6 +19,7 @@
 
 #include "IntelVPlanAllZeroBypass.h"
 #include "IntelVPlanCFGBuilder.h"
+#include "IntelVPlanLCSSA.h"
 #include "IntelVPlanLoopCFU.h"
 #include "IntelVPlanLoopExitCanonicalization.h"
 #include "IntelVPlanPredicator.h"
@@ -45,6 +46,11 @@ static cl::opt<bool> DumpAfterLoopExitsCanonicalization(
 static cl::opt<bool> DumpAfterDA(
     "print-after-vplan-func-vec-da",
     cl::desc("Print after DA analysis for VPlan Function vectorization "),
+    cl::init(false), cl::Hidden);
+
+static cl::opt<bool> DumpAfterLCSSA(
+    "print-after-vplan-func-vec-lcssa",
+    cl::desc("Print after LCSSA for VPlan Function vectorization "),
     cl::init(false), cl::Hidden);
 
 static cl::opt<bool> DumpAfterLoopCFU(
@@ -117,6 +123,9 @@ public:
                                 false /*Not in LCSSA form*/);
 
     VPLAN_DUMP(DumpAfterDA, *Plan);
+
+    formLCSSA(*Plan);
+    VPLAN_DUMP(DumpAfterLCSSA, *Plan);
 
     VPlanLoopCFU LoopCFU(*Plan);
     LoopCFU.run();

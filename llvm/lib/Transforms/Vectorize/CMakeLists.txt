@@ -33,6 +33,7 @@ add_llvm_component_library(LLVMVectorize
   Intel_VPlan/IntelVPlanFunctionVectorizer.cpp
   Intel_VPlan/IntelVPlanHCFGBuilder.cpp
   Intel_VPlan/IntelVPlanIdioms.cpp
+  Intel_VPlan/IntelVPlanLCSSA.cpp
   Intel_VPlan/IntelVPlanLoopCFU.cpp
   Intel_VPlan/IntelVPlanLoopExitCanonicalization.cpp
   Intel_VPlan/IntelVPlanLoopInfo.cpp
