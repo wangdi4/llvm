@@ -349,11 +349,18 @@ VPValue *VPDecomposerHIR::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
   // we support this in future.
   bool InvariantWithoutIV = false;
 
+  // If the loop-level is max loop-nest level, then there are no more inner
+  // loops to check.
+  bool IsInvariantAtInnerLoopLevel =
+      VecLoopLevel == loopopt::MaxLoopNestLevel
+          ? true
+          : CE->isInvariantAtLevel(VecLoopLevel + 1);
+
   // The canon expression is a candidate if we are not forcing regular
   // decomposition for this canon expression, it is linear at vec loop level and
   // invariant at any inner loop level.
   if (!ForceRegularDecomposition && CE->isLinearAtLevel(VecLoopLevel) &&
-      CE->isInvariantAtLevel(VecLoopLevel + 1)) {
+      IsInvariantAtInnerLoopLevel) {
     auto *CEClone = CE->clone();
     processIVRemoval(CEClone, VecLoopLevel);
     assert(CEClone->isInvariantAtLevel(VecLoopLevel) &&
