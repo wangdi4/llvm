@@ -1,5 +1,8 @@
 ; RUN: opt -O3 -enable-matrix -debug-pass=Structure < %s -o /dev/null 2>&1 | FileCheck %s
-
+; INTEL
+; CMPLRLLVM-21570
+; XFAIL: *
+; end INTEL
 ; REQUIRES: asserts
 
 ; CHECK-LABEL: Pass Arguments:
