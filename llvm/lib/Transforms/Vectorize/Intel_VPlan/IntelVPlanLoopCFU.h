@@ -24,6 +24,35 @@ class VPlanLoopCFU {
   VPlan &Plan;
   void run(VPLoop *VPL);
 
+  /// Rematerialize \p LiveOut instruction of a loop \p VPL in terms of other
+  /// live-outs in the \p VPL's exit, if possible.
+  ///
+  /// \Returns the newly created rematerialized instruction or nullptr.
+  ///
+  /// Example:
+  ///
+  ///   latch:
+  ///     %iv.next = <def>
+  ///     %cond = icmp eq %iv.next, 42
+  ///
+  ///   exit:
+  ///     %iv.next.lcssa = phi [ %iv.next ]
+  ///     %cond.lcssa = phi [ %cond ]
+  ///
+  /// We will replace %cond.lcssa with a
+  ///
+  ///    %rematerialized = icmp eq %iv.next.lcssa, 42
+  ///
+  /// That is needed because all live-outs from divergent loop require creation
+  /// of the recurrence phi to record the last unmasked execution for the lane.
+  /// By this rematerialization we avoid the need to create one.
+  VPInstruction *tryRematerializeLiveOut(VPLoop *VPL, VPInstruction *LiveOut);
+
+  /// Rematerialize all rematerializable live-outs of a loop \p VPL.
+  ///
+  /// See tryRematerializeLiveOut for details.
+  void rematerializeLiveOuts(VPLoop *VPL);
+
 public:
   VPlanLoopCFU(VPlan &Plan) : Plan(Plan) {}
   void run();
