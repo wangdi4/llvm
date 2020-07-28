@@ -1263,6 +1263,7 @@ void OpenMPLateOutliner::emitOMPDefaultClause(const OMPDefaultClause *Cl) {
     addArg("QUAL.OMP.DEFAULT.SHARED");
     break;
   case OMP_DEFAULT_unknown:                            // INTEL
+  default:                                             // INTEL
     llvm_unreachable("Unknown default clause");
   }
 }
