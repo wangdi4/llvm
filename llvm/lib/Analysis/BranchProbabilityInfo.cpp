@@ -156,13 +156,11 @@ static const uint32_t IH_TAKEN_WEIGHT = 1024 * 1024 - 1;
 /// instruction. This is essentially never taken.
 static const uint32_t IH_NONTAKEN_WEIGHT = 1;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// This is the probability for condition to enter abnormal deep inner loop.
 static const uint32_t ADIL_TAKEN_WEIGHT = 20;
 static const uint32_t ADIL_NONTAKEN_WEIGHT = 80;
 #endif // INTEL_CUSTOMIZATION
-=======
 BranchProbabilityInfo::SccInfo::SccInfo(const Function &F) {
   // Record SCC numbers of blocks in the CFG to identify irreducible loops.
   // FIXME: We could only calculate this if the CFG is known to be irreducible
@@ -261,7 +259,6 @@ void BranchProbabilityInfo::SccInfo::calculateSccBlockType(const BasicBlock *BB,
     assert(IsInserted && "Duplicated block in SCC");
   }
 }
->>>>>>> 3a2b05f9fe74fcf9560632cf2695058d47d8683b
 
 static void UpdatePDTWorklist(const BasicBlock *BB, PostDominatorTree *PDT,
                               SmallVectorImpl<const BasicBlock *> &WorkList,
