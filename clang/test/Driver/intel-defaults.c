@@ -2,6 +2,7 @@
 // RUN: %clang -### -c --intel %s 2>&1 | FileCheck -check-prefix CHECK-INTEL %s
 // RUN: %clang_cl -### -c --intel %s 2>&1 | FileCheck -check-prefixes=CHECK-INTEL,CHECK-INTEL-WIN %s
 // CHECK-INTEL: "-fveclib=SVML"
+// CHECK-INTEL-NOT: "-relaxed-aliasing"
 // CHECK-INTEL-WIN: "-ffunction-sections"
 // CHECK-INTEL: "-O2"
 // CHECK-INTEL-WIN: "-Wno-c++11-narrowing"
@@ -117,6 +118,7 @@
 // RUN: %clang -### --intel -c -fast %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT-FAST %s
 // RUN: %clang_cl -### --intel -c -fast %s 2>&1 | FileCheck -check-prefix CHECK-INTEL-LOOPOPT-FAST %s
 // CHECK-INTEL-LOOPOPT-FAST: "-flto" "-flto-unit"
+// CHECK-INTEL-LOOPOPT-FAST: "-O3"
 // CHECK-INTEL-LOOPOPT-FAST: "-mllvm" "-loopopt"
 // CHECK-INTEL-LOOPOPT-FAST-NOT: "-target-cpu" "x86_64"
 // CHECK-INTEL-LOOPOPT-FAST-NOT: "-mllvm" "-enable-lv"

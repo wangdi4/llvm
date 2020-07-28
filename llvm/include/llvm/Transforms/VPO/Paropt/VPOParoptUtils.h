@@ -1480,13 +1480,15 @@ public:
   /// \param InsertPt Insertion point for the call. Default is nullptr.
   /// \param IsTail This call attribute is defaulted to false.
   /// \param IsVarArg  This call attribute is defaulted to false.
-  ///
+  /// \param EmitErrorOnFnTypeMismatch Emit an error if there is an
+  /// existing function \p FnName in \p M, but with a different function type.
   /// \returns the generated CallInst.
   static CallInst *genCall(Module *M, StringRef FnName, Type *ReturnTy,
                            ArrayRef<Value *> FnArgs,
                            ArrayRef<Type *> FnArgTypes,
                            Instruction *InsertPt = nullptr, bool IsTail = false,
-                           bool IsVarArg = false);
+                           bool IsVarArg = false,
+                           bool EmitErrorOnFnTypeMismatch = false);
 
   // A genCall() interface where FnArgTypes is omitted; it will be computed
   // from FnArgs. **WARNING**: do not use this interface for VarArg functions,

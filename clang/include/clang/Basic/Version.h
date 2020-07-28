@@ -79,6 +79,7 @@ namespace clang {
 
 #if INTEL_CUSTOMIZATION
   std::string getDPCPPProductName();
+
   std::string getICXVersionNumber();
 
   std::string getICXVersionString();

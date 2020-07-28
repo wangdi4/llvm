@@ -14,6 +14,8 @@
 #include "clang/Basic/LLVM.h"
 #include "clang/Config/config.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/Path.h"          // INTEL
+#include "llvm/Support/FileSystem.h"    // INTEL
 #include "clang/Basic/intel/versparm.h" // INTEL
 #include "llvm/Config/dpcpp.version.info.h" // INTEL
 #include <cstdlib>
@@ -83,8 +85,13 @@ std::string getClangToolFullVersion(StringRef ToolName) {
   std::string buf;
   llvm::raw_string_ostream OS(buf);
 #if INTEL_CUSTOMIZATION
-  OS << getDPCPPProductName() << " " << getDPCPPVersionString() << " (" <<
-      getICXVersionString() << ")";
+  OS << BIN_DIR << "/" << "compiler-pro-auth";
+  std::string suffix;
+  if (llvm::sys::fs::exists(OS.str().data()))
+    suffix = " Pro";
+  OS.str().erase();
+  OS << getDPCPPProductName() << suffix << " " << getDPCPPVersionString()
+     << " (" << getICXVersionString() << ")";
 #endif // INTEL_CUSTOMIZATION
   return OS.str();
 }

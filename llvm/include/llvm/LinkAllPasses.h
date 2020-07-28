@@ -380,6 +380,7 @@ namespace {
       (void) llvm::createHIRMemoryReductionSinkingPass();
       (void) llvm::createHIRRowWiseMVPass();
       (void) llvm::createHIRConditionalLoadStoreMotionPass();
+      (void) llvm::createHIRNontemporalMarkingPass();
       (void) llvm::createHIRStoreResultIntoTempArrayPass();
       (void)llvm::createHIRSumWindowReusePass();
       (void) llvm::createHIRNonZeroSinkingForPerfectLoopnestPass();

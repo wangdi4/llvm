@@ -4462,9 +4462,11 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
     // Manually translate -O4 to -O3; let clang reject others.
     if (const Arg *A = Args.getLastArg(options::OPT_O_Group)) {
-      if (A->getOption().matches(options::OPT_O4)) {
+      if (A->getOption().matches(options::OPT_O4) ||
+          (A->getOption().matches(options::OPT_Ofast) && D.IsIntelMode())) {
         CmdArgs.push_back("-O3");
-        D.Diag(diag::warn_O4_is_O3);
+        if (A->getOption().matches(options::OPT_O4))
+          D.Diag(diag::warn_O4_is_O3);
       } else
         A->render(Args, CmdArgs);
     }
@@ -4540,8 +4542,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                       options::OPT_fno_optimize_sibling_calls))
       CmdArgs.push_back("-mdisable-tail-calls");
 
-    RenderFloatingPointOptions(TC, D, isOptimizationLevelFast(Args), Args,
+#if INTEL_CUSTOMIZATION
+    RenderFloatingPointOptions(TC, D, isOptimizationLevelFast(D, Args), Args,
                                CmdArgs, JA);
+#endif // INTEL_CUSTOMIZATION
 
     // Render ABI arguments
     switch (TC.getArch()) {
@@ -4840,14 +4844,14 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
                     options::OPT_fno_zero_initialized_in_bss, true))
     CmdArgs.push_back("-fno-zero-initialized-in-bss");
 
-  bool OFastEnabled = isOptimizationLevelFast(Args);
+  bool OFastEnabled = isOptimizationLevelFast(D, Args); // INTEL
   // If -Ofast is the optimization level, then -fstrict-aliasing should be
   // enabled.  This alias option is being used to simplify the hasFlag logic.
   OptSpecifier StrictAliasingAliasOption =
       OFastEnabled ? options::OPT_Ofast : options::OPT_fstrict_aliasing;
   // We turn strict aliasing off by default if we're in CL mode, since MSVC
   // doesn't do any TBAA.
-  bool TBAAOnByDefault = !D.IsCLMode();
+  bool TBAAOnByDefault = !D.IsCLMode() || D.IsIntelMode(); // INTEL
   if (!Args.hasFlag(options::OPT_fstrict_aliasing, StrictAliasingAliasOption,
                     options::OPT_fno_strict_aliasing, TBAAOnByDefault))
     CmdArgs.push_back("-relaxed-aliasing");

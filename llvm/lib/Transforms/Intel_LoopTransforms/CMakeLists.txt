@@ -55,6 +55,7 @@ add_llvm_component_library(LLVMIntel_LoopTransforms
         HIRRowWiseMV.cpp
         HIRPrintDiag.cpp
         HIRConditionalLoadStoreMotion.cpp
+        HIRNontemporalMarking.cpp
         HIRStencilPattern.cpp
         HIRStoreResultIntoTempArray.cpp
         HIRSumWindowReuse.cpp

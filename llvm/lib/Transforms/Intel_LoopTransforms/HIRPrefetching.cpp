@@ -166,6 +166,9 @@ void HIRPrefetching::collectPrefetchCandidates(
   unsigned VecNumElements = 0;
 
   const RegDDRef *ScalarRef = getScalarRef(FirstRef, VecNumElements);
+  // Nontemporal refs should not be candidates for prefetches.
+  if (ScalarRef->getMetadata(LLVMContext::MD_nontemporal))
+    return;
 
   PrefetchCandidates.push_back(ScalarRef);
 

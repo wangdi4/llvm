@@ -707,7 +707,10 @@ public:
 
 /// \return True if the last defined optimization level is -Ofast.
 /// And False otherwise.
-bool isOptimizationLevelFast(const llvm::opt::ArgList &Args);
+#if INTEL_CUSTOMIZATION
+bool isOptimizationLevelFast(const Driver &D,
+                             const llvm::opt::ArgList &Args);
+#endif // INTEL_CUSTOMIZATION
 
 /// \return True if the filename has a valid object file extension.
 bool isObjectFile(std::string FileName);

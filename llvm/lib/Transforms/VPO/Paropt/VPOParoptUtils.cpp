@@ -24,6 +24,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
@@ -3641,9 +3642,10 @@ CallInst *VPOParoptUtils::genCall(Function *Fn, ArrayRef<Value *> FnArgs,
 // If InsertPt!=null, the Call is emitted before InsertPt.
 CallInst *VPOParoptUtils::genCall(Module *M, StringRef FnName, Type *ReturnTy,
                                   ArrayRef<Value *> FnArgs,
-                                  ArrayRef<Type*> FnArgTypes,
-                                  Instruction *InsertPt,
-                                  bool IsTail, bool IsVarArg) {
+                                  ArrayRef<Type *> FnArgTypes,
+                                  Instruction *InsertPt, bool IsTail,
+                                  bool IsVarArg,
+                                  bool EmitErrorOnFnTypeMismatch) {
   assert(M != nullptr && "Module is null.");
   assert(!FnName.empty() && "Function name is empty.");
   assert(FunctionType::isValidReturnType(ReturnTy) && "Invalid Return Type");
@@ -3654,6 +3656,15 @@ CallInst *VPOParoptUtils::genCall(Module *M, StringRef FnName, Type *ReturnTy,
   // Get the function prototype from the module symbol table. If absent,
   // create and insert it into the symbol table first.
   FunctionCallee FnC = M->getOrInsertFunction(FnName, FnTy);
+  if (EmitErrorOnFnTypeMismatch && !isa<Function>(FnC.getCallee())) {
+    std::string Msg =
+        ("Function '" + FnName + "' exists, but has an unexpected type.").str();
+    if (InsertPt) {
+      Function *F = InsertPt->getFunction();
+      F->getContext().diagnose(DiagnosticInfoUnsupported(*F, Msg));
+    } else
+      report_fatal_error(Msg);
+  }
   Function *Fn = cast<Function>(FnC.getCallee());
   CallInst *Call = genCall(Fn, FnArgs, FnArgTypes, InsertPt, IsTail, IsVarArg);
   return Call;
@@ -3796,8 +3807,9 @@ CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
       // we need to update FnArgTypes accordingly.
       FnArgTypes.push_back(Int8PtrTy);
   }
-  CallInst *VariantCall = genCall(M, VariantName, ReturnTy, FnArgs, FnArgTypes,
-                                  InsertPt, IsTail, IsVarArg); // (2), (4)
+  CallInst *VariantCall =
+      genCall(M, VariantName, ReturnTy, FnArgs, FnArgTypes, InsertPt, IsTail,
+              IsVarArg, /*EmitErrorOnFnTypeMismatch=*/true); // (2), (4)
 
   // Replace each VariantCall argument that is a load from a HostPtr listed
   // on the use_device_ptr clause with a load from the corresponding
