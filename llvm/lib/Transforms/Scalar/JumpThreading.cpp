@@ -895,8 +895,8 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessorsImpl(
     if (!isa<PHINode>(Source) && !isa<CmpInst>(Source) &&
         !isa<CastInst>(Source))
       return false;
-    ComputeValueKnownInPredecessorsImpl(Source, BB, Result, Preference,
-                                        RecursionSet, CxtI);
+    ComputeValueKnownInPredecessorsImpl(Source, BB, Result, RegionInfo, // INTEL
+                                        Preference, RecursionSet, CxtI);// INTEL
 
     erase_if(Result, [](auto &Pair) {
       return !isGuaranteedNotToBeUndefOrPoison(Pair.first);
