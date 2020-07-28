@@ -382,12 +382,6 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
   }
 }
 
-void VPInstruction::print(raw_ostream &O, const Twine &Indent) const {
-  O << " +\n" << Indent << "\"EMIT ";
-  print(O);
-  O << "\\l\"";
-}
-
 #if INTEL_CUSTOMIZATION
 void VPInstruction::dump(raw_ostream &O, const VPlanDivergenceAnalysis *DA,
                          const VPlanScalVecAnalysis *SVA) const {
@@ -877,8 +871,11 @@ void VPlanPrinter::dumpBasicBlock(const VPBasicBlock *BB) {
   bumpIndent(1);
   OS << Indent << "\"" << DOT::EscapeString(BB->getName().str()) << ":\\n\"";
   bumpIndent(1);
-  for (const VPInstruction &Inst : *BB)
-    Inst.print(OS, Indent);
+  for (const VPInstruction &Inst : *BB) {
+    OS << " +\n" << Indent << "\"EMIT ";
+    Inst.print(OS);
+    OS << "\\l\"";
+  }
 #if INTEL_CUSTOMIZATION
   const VPValue *CBV = BB->getCondBit();
   // Dump the CondBit

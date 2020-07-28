@@ -971,7 +971,6 @@ public:
   virtual void executeHIR(VPOCodeGenHIR *CG);
 #endif
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  /// Dump the VPInstruction.
   using VPValue::dump;
   void dump(raw_ostream &O) const override { dump(O, nullptr, nullptr); };
   void dump(raw_ostream &O, const VPlanDivergenceAnalysis *DA,
@@ -981,10 +980,6 @@ public:
             const VPlanScalVecAnalysis *SVA) const {
     dump(dbgs(), DA, SVA);
   }
-  /// Print the VPInstruction.
-  virtual void print(raw_ostream &O, const Twine &Indent) const;
-
-  /// Print the VPInstruction.
   void print(raw_ostream &O, const VPlanDivergenceAnalysis *DA = nullptr,
              const VPlanScalVecAnalysis *SVA = nullptr) const;
   static const char *getOpcodeName(unsigned Opcode);
