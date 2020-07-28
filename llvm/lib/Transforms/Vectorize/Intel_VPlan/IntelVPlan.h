@@ -971,9 +971,7 @@ public:
   virtual void executeHIR(VPOCodeGenHIR *CG);
 #endif
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  using VPValue::dump;
-  void dump(raw_ostream &O) const override { print(O); };
-  void print(raw_ostream &O) const;
+  void print(raw_ostream &O) const override;
   void printWithoutAnalyses(raw_ostream &O) const;
   static const char *getOpcodeName(unsigned Opcode);
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
@@ -2858,7 +2856,7 @@ inline raw_ostream &operator<<(raw_ostream &OS, const VPlan &Plan) {
 
 // Set of print functions
 inline raw_ostream &operator<<(raw_ostream &OS, const VPInstruction &I) {
-  I.dump(OS);
+  I.print(OS);
   return OS;
 }
 inline raw_ostream &operator<<(raw_ostream &OS, const VPBasicBlock &BB) {

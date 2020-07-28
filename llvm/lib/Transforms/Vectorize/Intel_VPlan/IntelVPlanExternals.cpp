@@ -99,11 +99,11 @@ void VPExternalValues::dumpExternalUses(raw_ostream &FOS) {
     return;
   FOS << "External Uses:\n";
   for (auto &ExtUse : VPExternalUses) {
-    ExtUse.second->dump(FOS);
+    ExtUse.second->print(FOS);
     FOS << "\n";
   }
   for (auto &ExtUse : VPExternalUsesHIR) {
-    ExtUse.dump(FOS);
+    ExtUse.print(FOS);
     FOS << "\n";
   }
 }

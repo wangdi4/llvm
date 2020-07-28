@@ -197,8 +197,8 @@ public:
   /// for any other purpose, as the values may change as LLVM evolves.
   unsigned getVPValueID() const { return SubclassID; }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  virtual void dump(raw_ostream &OS) const { printAsOperand(OS); }
-  void dump() const { dump(errs()); }
+  virtual void print(raw_ostream &OS) const { printAsOperand(OS); }
+  void dump() const { print(errs()); }
   virtual void printAsOperand(raw_ostream &OS) const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
@@ -427,7 +427,7 @@ public:
   void printAsOperand(raw_ostream &OS) const override {
     getUnderlyingValue()->printAsOperand(OS);
   }
-  void dump(raw_ostream &OS) const override { printAsOperand(OS); }
+  void print(raw_ostream &OS) const override { printAsOperand(OS); }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
@@ -466,7 +466,7 @@ public:
   void printAsOperand(raw_ostream &OS) const override {
     getUnderlyingValue()->printAsOperand(OS);
   }
-  void dump(raw_ostream &OS) const override { printAsOperand(OS); }
+  void print(raw_ostream &OS) const override { printAsOperand(OS); }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
@@ -623,7 +623,7 @@ public:
   }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  void dump(raw_ostream &OS) const override {
+  void print(raw_ostream &OS) const override {
     if (auto *HIROp = getOperandHIR()) {
       for (auto *Op : operands()) {
         Op->printAsOperand(OS);
@@ -691,7 +691,7 @@ public:
   void printAsOperand(raw_ostream &OS) const override {
     getUnderlyingValue()->printAsOperand(OS);
   }
-  void dump(raw_ostream &OS) const override { printAsOperand(OS); }
+  void print(raw_ostream &OS) const override { printAsOperand(OS); }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.

@@ -652,7 +652,7 @@ void VPlanScalVecAnalysis::print(raw_ostream &OS, const VPInstruction *VPI) {
   OS << "[";
   printSVAKindForInst(OS, VPI);
   OS << "] ";
-  VPI->dump(OS);
+  VPI->print(OS);
 }
 
 void VPlanScalVecAnalysis::print(raw_ostream &OS, const VPBasicBlock *VPBB) {

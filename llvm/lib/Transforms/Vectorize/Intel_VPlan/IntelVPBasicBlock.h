@@ -337,11 +337,10 @@ public:
     OS << getName();
   }
 
-  void print(raw_ostream &OS, unsigned Indent = 0,
+  void print(raw_ostream &OS, unsigned Indent,
              const Twine &NamePrefix = "") const;
 
-  using VPValue::dump;
-  void dump(raw_ostream &OS) const override { print(OS); };
+  void print(raw_ostream &OS) const override { print(OS, 0); };
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   void setCBlock(BasicBlock *CB) { CBlock = CB; }
   void setFBlock(BasicBlock *FB) { FBlock = FB; }

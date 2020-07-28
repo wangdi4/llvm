@@ -84,10 +84,7 @@ static cl::opt<bool>
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 raw_ostream &llvm::vpo::operator<<(raw_ostream &OS, const VPValue &V) {
-  if (const VPInstruction *I = dyn_cast<VPInstruction>(&V))
-    I->dump(OS);
-  else
-    V.dump(OS);
+  V.print(OS);
   return OS;
 }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
