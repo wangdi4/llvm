@@ -52,8 +52,7 @@ struct RTLInfoTy {
                                             int32_t, uint64_t,
                                             __tgt_async_info *);
   typedef int64_t(init_requires_ty)(int64_t);
-<<<<<<< HEAD
-  typedef int64_t(synchronize_ty)(int64_t, __tgt_async_info *);
+  typedef int64_t(synchronize_ty)(int32_t, __tgt_async_info *);
 #if INTEL_COLLAB
   typedef int32_t(data_submit_nowait_ty)(int32_t, void *, void *, int64_t,
                                          void *);
@@ -85,9 +84,6 @@ struct RTLInfoTy {
   typedef int32_t(is_managed_ptr_ty)(int32_t, void *);
   typedef void *(data_alloc_explicit_ty)(int32_t, int64_t, int32_t);
 #endif // INTEL_COLLAB
-=======
-  typedef int64_t(synchronize_ty)(int32_t, __tgt_async_info *);
->>>>>>> 932316660179c1273e365d9dbbe648478bc5c4f1
 
   int32_t Idx = -1;             // RTL index, index is the number of devices
                                 // of other RTLs that were registered before,

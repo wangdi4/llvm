@@ -901,17 +901,12 @@ int target(int64_t device_id, void *host_ptr, int32_t arg_num,
       TgtBaseOffset = 0;
     } else if (arg_types[i] & OMP_TGT_MAPTYPE_PRIVATE) {
       // Allocate memory for (first-)private array
-<<<<<<< HEAD
 #if INTEL_COLLAB
       TgtPtrBegin = Device.data_alloc_base(arg_sizes[i], HstPtrBegin,
                                            HstPtrBase);
 #else
-      TgtPtrBegin = Device.RTL->data_alloc(Device.RTLDeviceID,
-          arg_sizes[i], HstPtrBegin);
-#endif // INTEL_COLLAB
-=======
       TgtPtrBegin = Device.data_alloc(arg_sizes[i], HstPtrBegin);
->>>>>>> 932316660179c1273e365d9dbbe648478bc5c4f1
+#endif // INTEL_COLLAB
       if (!TgtPtrBegin) {
         DP ("Data allocation for %sprivate array " DPxMOD " failed, "
             "abort target.\n",
