@@ -143,7 +143,7 @@ MODULE_PASS("print-stack-safety", StackSafetyGlobalPrinterPass(dbgs()))
 MODULE_PASS("qsortrecognizer", QsortRecognizerPass()) // INTEL
 MODULE_PASS("rewrite-statepoints-for-gc", RewriteStatepointsForGC())
 MODULE_PASS("rewrite-symbols", RewriteSymbolPass())
-MODULE_PASS("rpo-functionattrs", ReversePostOrderFunctionAttrsPass())
+MODULE_PASS("rpo-function-attrs", ReversePostOrderFunctionAttrsPass())
 MODULE_PASS("sample-profile", SampleProfileLoaderPass())
 #if INTEL_CUSTOMIZATION
 MODULE_PASS("scc-oz-module-inliner",

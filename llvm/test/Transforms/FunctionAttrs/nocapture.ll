@@ -1,9 +1,14 @@
+<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; RUN: opt -functionattrs -S < %s | FileCheck %s --check-prefixes=FNATTR,FNATTR-NO-SUBSCRIPT
 ; RUN: opt -passes=function-attrs -S < %s | FileCheck %s --check-prefixes=FNATTR,FNATTR-NO-SUBSCRIPT
 ; RUN: opt -S -convert-to-subscript < %s | opt -functionattrs -S | FileCheck %s --check-prefixes=FNATTR,FNATTR-SUBSCRIPT
 ; RUN: opt -S -passes=convert-to-subscript < %s | opt -passes=function-attrs -S | FileCheck %s --check-prefixes=FNATTR,FNATTR-SUBSCRIPT
 ; end INTEL_CUSTOMIZATION
+=======
+; RUN: opt -function-attrs -S < %s | FileCheck %s --check-prefixes=FNATTR
+; RUN: opt -passes=function-attrs -S < %s | FileCheck %s --check-prefixes=FNATTR
+>>>>>>> 2ca6c422d2d025821390260232307567191a7deb
 
 @g = global i32* null		; <i32**> [#uses=1]
 
