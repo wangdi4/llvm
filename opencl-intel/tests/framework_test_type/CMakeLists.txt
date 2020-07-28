@@ -77,6 +77,8 @@ add_ocl_unittest_artifacts(
     cached_binary_with_wrong_version.bin
     data/fp-as-kernel-arg.spv
     spec_const.spv
+    reqd_num_sub_groups_32.bc
+    reqd_num_sub_groups_64.bc
 )
 
 add_dependencies(${TARGET}
