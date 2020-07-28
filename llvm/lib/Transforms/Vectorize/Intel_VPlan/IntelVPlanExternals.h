@@ -563,6 +563,10 @@ private:
   void createInOutsReductions(const VPLoopEntityList *VPLEntityList,
                               Loop *OrigLoop);
 
+  // Create list of VPLiveInValues/VPLiveOutValues for VPlan's privates.
+  void createInOutsPrivates(const VPLoopEntityList *VPLEntityList,
+                            Loop *OrigLoop);
+
   VPLiveInValue *createLiveInValue(unsigned Id, Type *Ty) {
     VPLiveInValue *LiveIn = new VPLiveInValue(Id, Ty);
     Twine Name = "livein.";

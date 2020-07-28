@@ -3659,6 +3659,12 @@ void VPOCodeGenHIR::widenLoopEntityInst(const VPInstruction *VPInst) {
     return;
   }
 
+  case VPInstruction::PrivateFinalUncond:
+  case VPInstruction::PrivateFinalUncondMem: {
+    // TODO: Add codegen for unconditional private finalization
+    return;
+  }
+
   default:
     llvm_unreachable("Unsupported VPLoopEntity instruction.");
   }
@@ -3955,6 +3961,8 @@ void VPOCodeGenHIR::generateHIR(const VPInstruction *VPInst, RegDDRef *Mask,
   case VPInstruction::InductionInit:
   case VPInstruction::InductionInitStep:
   case VPInstruction::InductionFinal:
+  case VPInstruction::PrivateFinalUncond:
+  case VPInstruction::PrivateFinalUncondMem:
     widenLoopEntityInst(VPInst);
     return;
 

@@ -356,6 +356,15 @@ bool VPlanScalVecAnalysis::computeSpecialInstruction(
     return true;
   }
 
+  case VPInstruction::PrivateFinalUncondMem:
+  case VPInstruction::PrivateFinalUncond: {
+    // The instruction is extract. It produces a scalar return value.
+    setSVAKindForInst(Inst, SVAKind::Vector);
+    setSVAKindForAllOperands(Inst, SVAKind::Vector);
+    setSVAKindForReturnValue(Inst, SVAKind::FirstScalar);
+    return true;
+  }
+
   case VPInstruction::AllocatePrivate: {
     // We don't set any specific bits for the allocate-private instruction, it
     // will decided only based on uses of the instruction. If there are no
@@ -735,6 +744,8 @@ bool VPlanScalVecAnalysis::isSVASpecialProcessedInst(
   case VPInstruction::OrigLiveOut:
   case VPInstruction::PushVF:
   case VPInstruction::PopVF:
+  case VPInstruction::PrivateFinalUncondMem:
+  case VPInstruction::PrivateFinalUncond:
     return true;
   default:
     return false;
