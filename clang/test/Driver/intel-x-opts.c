@@ -217,4 +217,20 @@
 // XDUMMY: "-target-cpu" "dummy"
 
 // ADV_OPT-SAME: "-fintel-advanced-optim"
+// ADV_OPT-SAME: "-enable-multiversioning"
 
+// LTO check
+// RUN: %clang -### -target x86_64-unknown-linux-gnu -flto -xCORE-AVX512 %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=FLTO_XCOREAVX512 %s
+// RUN: %clang_cl -### --intel /QxCORE-AVX512 /Qipo  %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=FLTO_XCOREAVX512_WIN %s
+// RUN: %clang -### -target x86_64-unknown-linux-gnu -flto -xSKYLAKE-AVX512 %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=FLTO_XCOREAVX512 %s
+// RUN: %clang_cl -### --intel /QxSKYLAKE-AVX512 /Qipo %s 2>&1 \
+// RUN:  | FileCheck -check-prefixes=FLTO_XCOREAVX512_WIN %s
+// FLTO_XCOREAVX512: "-plugin-opt=mcpu=skylake-avx512"
+// FLTO_XCOREAVX512: "-plugin-opt=fintel-advanced-optim"
+// FLTO_XCOREAVX512: "-plugin-opt=-enable-multiversioning"
+// FLTO_XCOREAVX512_WIN: "-mllvm:-mcpu=skylake-avx512"
+// FLTO_XCOREAVX512_WIN: "-mllvm:-enable-intel-advanced-opts"
+// FLTO_XCOREAVX512_WIN: "-mllvm:-enable-multiversioning"

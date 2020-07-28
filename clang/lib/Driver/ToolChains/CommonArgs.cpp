@@ -567,6 +567,18 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
       CmdArgs.push_back(Args.MakeArgString(
           Twine("-plugin-opt=-vector-library=") + A->getValue()));
   }
+  auto addAdvancedOptimFlag = [&](const Arg &OptArg, OptSpecifier Opt) {
+    if (OptArg.getOption().matches(Opt) &&
+        x86::isValidIntelCPU(OptArg.getValue(), ToolChain.getTriple()))
+      CmdArgs.push_back("-plugin-opt=fintel-advanced-optim");
+  };
+  // Given -x, turn on advanced optimizations
+  if (Arg *A = Args.getLastArgNoClaim(options::OPT_march_EQ, options::OPT_x))
+    addAdvancedOptimFlag(*A, options::OPT_x);
+  // Additional handling for /arch and /Qx
+  if (Arg *A = Args.getLastArgNoClaim(options::OPT__SLASH_arch,
+                                      options::OPT__SLASH_Qx))
+    addAdvancedOptimFlag(*A, options::OPT__SLASH_Qx);
   addIntelOptimizationArgs(ToolChain, Args, CmdArgs, true);
   // All -mllvm flags as provided by the user will be passed through.
   for (const StringRef &AV : Args.getAllArgValues(options::OPT_mllvm))
@@ -675,6 +687,20 @@ void tools::addIntelOptimizationArgs(const ToolChain &TC,
   }
 
   RenderOptReportOptions(TC, IsLink, Args, CmdArgs);
+  auto addMultiVersionFlag = [&](const Arg &OptArg, OptSpecifier Opt) {
+    if (OptArg.getOption().matches(Opt) &&
+        x86::isValidIntelCPU(OptArg.getValue(), TC.getTriple()))
+      addllvmOption("-enable-multiversioning");
+  };
+  // Given -x, turn on multi-versioning
+  // FIXME: These checks for Intel -x and -Qx are used in many places, we
+  // should improve this by adding some kind of common check.
+  if (Arg *A = Args.getLastArgNoClaim(options::OPT_march_EQ, options::OPT_x))
+    addMultiVersionFlag(*A, options::OPT_x);
+  // Additional handling for /arch and /Qx
+  if (Arg *A = Args.getLastArgNoClaim(options::OPT__SLASH_arch,
+                                      options::OPT__SLASH_Qx))
+    addMultiVersionFlag(*A, options::OPT__SLASH_Qx);
 
   // Handle --intel defaults
   if (TC.getDriver().IsIntelMode()) {

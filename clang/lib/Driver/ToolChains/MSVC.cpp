@@ -9,6 +9,7 @@
 #include "MSVC.h"
 #include "CommonArgs.h"
 #include "Darwin.h"
+#include "Arch/X86.h" // INTEL
 #include "clang/Basic/CharInfo.h"
 #include "clang/Basic/Version.h"
 #include "clang/Driver/Compilation.h"
@@ -644,6 +645,19 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       if (Arg * A = Args.getLastArg(options::OPT_fveclib))
         CmdArgs.push_back(Args.MakeArgString(Twine("-mllvm:-vector-library=") +
                                              A->getValue()));
+    auto addAdvancedOptimFlag = [&](const Arg &OptArg, OptSpecifier Opt) {
+      if (OptArg.getOption().matches(Opt) &&
+          x86::isValidIntelCPU(OptArg.getValue(), TC.getTriple()))
+        CmdArgs.push_back("-mllvm:-enable-intel-advanced-opts");
+    };
+    // Given -x, turn on advanced optimizations
+    if (Arg *A = Args.getLastArgNoClaim(options::OPT_march_EQ, options::OPT_x))
+      addAdvancedOptimFlag(*A, options::OPT_x);
+    // Additional handling for /arch and /Qx
+    if (Arg *A = Args.getLastArgNoClaim(options::OPT__SLASH_arch,
+                                        options::OPT__SLASH_Qx))
+      addAdvancedOptimFlag(*A, options::OPT__SLASH_Qx);
+
     addIntelOptimizationArgs(TC, Args, CmdArgs, true);
     // Using lld-link and -flto, we need to add any additional -mllvm options
     // and implied options.
