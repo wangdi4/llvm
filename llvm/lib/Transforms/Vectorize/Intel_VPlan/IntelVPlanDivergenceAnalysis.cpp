@@ -754,6 +754,7 @@ void VPlanDivergenceAnalysis::print(raw_ostream &OS, const VPLoop *VPLp) {
       getVectorShape(&VPInst).print(OS);
       OS << ' ';
       VPInst.dump(OS);
+      OS << '\n';
     }
     OS << "\n";
   }

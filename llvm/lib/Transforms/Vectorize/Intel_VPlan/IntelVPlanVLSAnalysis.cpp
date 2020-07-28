@@ -105,7 +105,8 @@ void VPlanVLSAnalysis::collectMemrefs(OVLSMemrefVector &MemrefVector,
       }
 
       MemrefVector.push_back(Memref);
-      LLVM_DEBUG(dbgs() << "VLSA: Added instruction "; VPInst.dump(););
+      LLVM_DEBUG(dbgs() << "VLSA: Added instruction "; VPInst.dump();
+                 dbgs() << '\n';);
     }
   }
 }

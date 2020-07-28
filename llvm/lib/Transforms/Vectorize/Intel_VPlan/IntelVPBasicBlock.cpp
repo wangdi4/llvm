@@ -589,7 +589,8 @@ void VPBasicBlock::print(raw_ostream &OS, unsigned Indent,
           !cast<VPBranchInst>(Inst).getHLGoto())
         continue;
       OS << StrIndent << " ";
-      Inst.dump(OS, DA, SVA);
+      Inst.print(OS, DA, SVA);
+      OS << '\n';
     }
   }
   const VPValue *CB = getCondBit();
@@ -602,7 +603,8 @@ void VPBasicBlock::print(raw_ostream &OS, unsigned Indent,
           OS << CBI->getParent()->getName();
         }
         OS << "): ";
-        CBI->dump(OS, DA, SVA);
+        CBI->print(OS, DA, SVA);
+        OS << '\n';
       }
     } else {
       // We fall here if VPInstruction has no operands or Value is

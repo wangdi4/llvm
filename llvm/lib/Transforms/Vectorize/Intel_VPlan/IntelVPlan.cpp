@@ -382,25 +382,6 @@ const char *VPInstruction::getOpcodeName(unsigned Opcode) {
   }
 }
 
-#if INTEL_CUSTOMIZATION
-void VPInstruction::dump(raw_ostream &O, const VPlanDivergenceAnalysis *DA,
-                         const VPlanScalVecAnalysis *SVA) const {
-  print(O, DA, SVA);
-  O << "\n";
-  if (VPlanDumpDetails) {
-    // TODO: How to get Indent here?
-    O << "    DbgLoc: ";
-    getDebugLocation().print(O);
-    O << "\n";
-    O << "    OperatorFlags -\n";
-    O << "      FMF: " << hasFastMathFlags() << ", NSW: " << hasNoSignedWrap()
-      << ", NUW: " << hasNoUnsignedWrap() << ", Exact: " << isExact() << "\n";
-    // Print other attributes here when imported.
-    O << "    end of details\n\n";
-  }
-}
-#endif /* INTEL_CUSTOMIZATION */
-
 void VPInstruction::print(raw_ostream &O, const VPlanDivergenceAnalysis *DA,
                           const VPlanScalVecAnalysis *SVA) const {
 #if INTEL_CUSTOMIZATION
@@ -602,6 +583,19 @@ void VPInstruction::print(raw_ostream &O, const VPlanDivergenceAnalysis *DA,
       O << " ";
     }
     O << ")";
+  }
+
+  if (VPlanDumpDetails) {
+    O << "\n";
+    // TODO: How to get Indent here?
+    O << "    DbgLoc: ";
+    getDebugLocation().print(O);
+    O << "\n";
+    O << "    OperatorFlags -\n";
+    O << "      FMF: " << hasFastMathFlags() << ", NSW: " << hasNoSignedWrap()
+      << ", NUW: " << hasNoUnsignedWrap() << ", Exact: " << isExact() << "\n";
+    // Print other attributes here when imported.
+    O << "    end of details\n";
   }
 #endif // INTEL_CUSTOMIZATION
 }

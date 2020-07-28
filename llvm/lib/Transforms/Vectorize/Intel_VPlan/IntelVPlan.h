@@ -972,14 +972,7 @@ public:
 #endif
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   using VPValue::dump;
-  void dump(raw_ostream &O) const override { dump(O, nullptr, nullptr); };
-  void dump(raw_ostream &O, const VPlanDivergenceAnalysis *DA,
-            const VPlanScalVecAnalysis *SVA) const;
-
-  void dump(const VPlanDivergenceAnalysis *DA,
-            const VPlanScalVecAnalysis *SVA) const {
-    dump(dbgs(), DA, SVA);
-  }
+  void dump(raw_ostream &O) const override { print(O, nullptr, nullptr); };
   void print(raw_ostream &O, const VPlanDivergenceAnalysis *DA = nullptr,
              const VPlanScalVecAnalysis *SVA = nullptr) const;
   static const char *getOpcodeName(unsigned Opcode);
