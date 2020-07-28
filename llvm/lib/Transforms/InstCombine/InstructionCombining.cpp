@@ -1069,7 +1069,9 @@ Instruction *InstCombinerImpl::foldOpIntoPhi(Instruction &I, PHINode *PN) {
   BasicBlock *NonConstBB = nullptr;
   for (unsigned i = 0; i != NumPHIValues; ++i) {
     Value *InVal = PN->getIncomingValue(i);
-    if (isa<Constant>(InVal) && !isa<ConstantExpr>(InVal))
+    // If I is a freeze instruction, count undef as a non-constant.
+    if (isa<Constant>(InVal) && !isa<ConstantExpr>(InVal) &&
+        (!isa<FreezeInst>(I) || isGuaranteedNotToBeUndefOrPoison(InVal)))
       continue;
 
     if (isa<PHINode>(InVal)) return nullptr;  // Itself a phi.
@@ -1160,6 +1162,15 @@ Instruction *InstCombinerImpl::foldOpIntoPhi(Instruction &I, PHINode *PN) {
     for (unsigned i = 0; i != NumPHIValues; ++i) {
       Value *InV = foldOperationIntoPhiValue(BO, PN->getIncomingValue(i),
                                              Builder);
+      NewPN->addIncoming(InV, PN->getIncomingBlock(i));
+    }
+  } else if (isa<FreezeInst>(&I)) {
+    for (unsigned i = 0; i != NumPHIValues; ++i) {
+      Value *InV;
+      if (NonConstBB == PN->getIncomingBlock(i))
+        InV = Builder.CreateFreeze(PN->getIncomingValue(i), "phi.fr");
+      else
+        InV = PN->getIncomingValue(i);
       NewPN->addIncoming(InV, PN->getIncomingBlock(i));
     }
   } else {
@@ -3564,6 +3575,12 @@ Instruction *InstCombinerImpl::visitFreeze(FreezeInst &I) {
 
   if (Value *V = SimplifyFreezeInst(Op0, SQ.getWithInstruction(&I)))
     return replaceInstUsesWith(I, V);
+
+  // freeze (phi const, x) --> phi const, (freeze x)
+  if (auto *PN = dyn_cast<PHINode>(Op0)) {
+    if (Instruction *NV = foldOpIntoPhi(I, PN))
+      return NV;
+  }
 
   return nullptr;
 }

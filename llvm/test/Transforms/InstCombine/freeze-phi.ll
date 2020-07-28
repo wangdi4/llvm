@@ -20,7 +20,52 @@ B:
 C:
   %y = phi i32 [0, %A], [1, %B]
   %y.fr = freeze i32 %y
-  ret i32 %y
+  ret i32 %y.fr
+}
+
+define <2 x i32> @vec(i1 %cond) {
+; CHECK-LABEL: @vec(
+; CHECK-NEXT:    br i1 [[COND:%.*]], label [[A:%.*]], label [[B:%.*]]
+; CHECK:       A:
+; CHECK-NEXT:    br label [[C:%.*]]
+; CHECK:       B:
+; CHECK-NEXT:    br label [[C]]
+; CHECK:       C:
+; CHECK-NEXT:    [[Y:%.*]] = phi <2 x i32> [ <i32 0, i32 1>, [[A]] ], [ <i32 2, i32 3>, [[B]] ]
+; CHECK-NEXT:    ret <2 x i32> [[Y]]
+;
+  br i1 %cond, label %A, label %B
+A:
+  br label %C
+B:
+  br label %C
+C:
+  %y = phi <2 x i32> [<i32 0, i32 1>, %A], [<i32 2, i32 3>, %B]
+  %y.fr = freeze <2 x i32> %y
+  ret <2 x i32> %y.fr
+}
+
+define <2 x i32> @vec_undef(i1 %cond) {
+; CHECK-LABEL: @vec_undef(
+; CHECK-NEXT:    br i1 [[COND:%.*]], label [[A:%.*]], label [[B:%.*]]
+; CHECK:       A:
+; CHECK-NEXT:    br label [[C:%.*]]
+; CHECK:       B:
+; CHECK-NEXT:    [[PHI_FR:%.*]] = freeze <2 x i32> <i32 2, i32 undef>
+; CHECK-NEXT:    br label [[C]]
+; CHECK:       C:
+; CHECK-NEXT:    [[Y:%.*]] = phi <2 x i32> [ <i32 0, i32 1>, [[A]] ], [ [[PHI_FR]], [[B]] ]
+; CHECK-NEXT:    ret <2 x i32> [[Y]]
+;
+  br i1 %cond, label %A, label %B
+A:
+  br label %C
+B:
+  br label %C
+C:
+  %y = phi <2 x i32> [<i32 0, i32 1>, %A], [<i32 2, i32 undef>, %B]
+  %y.fr = freeze <2 x i32> %y
+  ret <2 x i32> %y.fr
 }
 
 define i32 @one(i1 %cond, i32 %x) {
@@ -29,11 +74,11 @@ define i32 @one(i1 %cond, i32 %x) {
 ; CHECK:       A:
 ; CHECK-NEXT:    br label [[C:%.*]]
 ; CHECK:       B:
+; CHECK-NEXT:    [[PHI_FR:%.*]] = freeze i32 [[X:%.*]]
 ; CHECK-NEXT:    br label [[C]]
 ; CHECK:       C:
-; CHECK-NEXT:    [[Y:%.*]] = phi i32 [ 0, [[A]] ], [ [[X:%.*]], [[B]] ]
-; CHECK-NEXT:    [[Y_FR:%.*]] = freeze i32 [[Y]]
-; CHECK-NEXT:    ret i32 [[Y_FR]]
+; CHECK-NEXT:    [[Y:%.*]] = phi i32 [ 0, [[A]] ], [ [[PHI_FR]], [[B]] ]
+; CHECK-NEXT:    ret i32 [[Y]]
 ;
   br i1 %cond, label %A, label %B
 A:
@@ -109,15 +154,15 @@ define i32 @one_undef(i8 %cond) {
 ; CHECK-NEXT:    i8 1, label [[C:%.*]]
 ; CHECK-NEXT:    ]
 ; CHECK:       A:
+; CHECK-NEXT:    [[PHI_FR:%.*]] = freeze i32 undef
 ; CHECK-NEXT:    br label [[D:%.*]]
 ; CHECK:       B:
 ; CHECK-NEXT:    br label [[D]]
 ; CHECK:       C:
 ; CHECK-NEXT:    br label [[D]]
 ; CHECK:       D:
-; CHECK-NEXT:    [[Y:%.*]] = phi i32 [ undef, [[A]] ], [ 32, [[B]] ], [ 0, [[C]] ]
-; CHECK-NEXT:    [[Y_FR:%.*]] = freeze i32 [[Y]]
-; CHECK-NEXT:    ret i32 [[Y_FR]]
+; CHECK-NEXT:    [[Y:%.*]] = phi i32 [ [[PHI_FR]], [[A]] ], [ 32, [[B]] ], [ 0, [[C]] ]
+; CHECK-NEXT:    ret i32 [[Y]]
 ;
   switch i8 %cond, label %A [
   i8 0, label %B
@@ -144,15 +189,15 @@ define i32 @one_constexpr(i8 %cond, i32 %x) {
 ; CHECK-NEXT:    i8 1, label [[C:%.*]]
 ; CHECK-NEXT:    ]
 ; CHECK:       A:
+; CHECK-NEXT:    [[PHI_FR:%.*]] = freeze i32 ptrtoint (i8* getelementptr inbounds (i8, i8* @glb, i64 2) to i32)
 ; CHECK-NEXT:    br label [[D:%.*]]
 ; CHECK:       B:
 ; CHECK-NEXT:    br label [[D]]
 ; CHECK:       C:
 ; CHECK-NEXT:    br label [[D]]
 ; CHECK:       D:
-; CHECK-NEXT:    [[Y:%.*]] = phi i32 [ ptrtoint (i8* getelementptr inbounds (i8, i8* @glb, i64 2) to i32), [[A]] ], [ 32, [[B]] ], [ 0, [[C]] ]
-; CHECK-NEXT:    [[Y_FR:%.*]] = freeze i32 [[Y]]
-; CHECK-NEXT:    ret i32 [[Y_FR]]
+; CHECK-NEXT:    [[Y:%.*]] = phi i32 [ [[PHI_FR]], [[A]] ], [ 32, [[B]] ], [ 0, [[C]] ]
+; CHECK-NEXT:    ret i32 [[Y]]
 ;
   switch i8 %cond, label %A [
   i8 0, label %B
