@@ -990,11 +990,11 @@ public:
   virtual void executeHIR(VPOCodeGenHIR *CG);
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   /// Dump the VPInstruction.
+  using VPValue::dump;
   void dump(raw_ostream &O) const override { dump(O, nullptr, nullptr); };
   void dump(raw_ostream &O, const VPlanDivergenceAnalysis *DA,
             const VPlanScalVecAnalysis *SVA) const;
 
-  void dump() const override { dump(errs()); }
   void dump(const VPlanDivergenceAnalysis *DA,
             const VPlanScalVecAnalysis *SVA) const {
     dump(dbgs(), DA, SVA);
@@ -1794,7 +1794,6 @@ private:
       OS << "  VecLibFn: " << VectorLibraryFn << "\n";
       OS << "  PumpFactor: " << PumpFactor << "\n";
     }
-    void dump() const { print(outs()); }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
   } VecProperties;
 

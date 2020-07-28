@@ -223,7 +223,7 @@ public:
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 #if INTEL_CUSTOMIZATION
   virtual void dump(raw_ostream &OS) const { printAsOperand(OS); }
-  virtual void dump() const { dump(errs()); }
+  void dump() const { dump(errs()); }
   virtual void printAsOperand(raw_ostream &OS) const;
 #endif
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
@@ -478,7 +478,6 @@ public:
     getUnderlyingValue()->printAsOperand(OS);
   }
   void dump(raw_ostream &OS) const override { printAsOperand(OS); }
-  void dump() const override { dump(errs()); }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
@@ -518,7 +517,6 @@ public:
     getUnderlyingValue()->printAsOperand(OS);
   }
   void dump(raw_ostream &OS) const override { printAsOperand(OS); }
-  void dump() const override { dump(errs()); }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
@@ -744,7 +742,6 @@ public:
     getUnderlyingValue()->printAsOperand(OS);
   }
   void dump(raw_ostream &OS) const override { printAsOperand(OS); }
-  void dump() const override { dump(errs()); }
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
