@@ -438,10 +438,11 @@ void OpenMPLateOutliner::addArg(const Expr *E, bool IsRef) {
     }
   } else {
     assert(E->isGLValue());
-    const auto *DRE = dyn_cast<DeclRefExpr>(E);
-    const VarDecl *VD = cast<VarDecl>(DRE->getDecl());
-    if (VD && CGF.isMappedRefTemp(VD))
-      IsRef = true;
+    if (const auto *DRE = dyn_cast<DeclRefExpr>(E)) {
+      const VarDecl *VD = cast<VarDecl>(DRE->getDecl());
+      if (VD && CGF.isMappedRefTemp(VD))
+        IsRef = true;
+    }
     llvm::Value *V = CGF.EmitLValue(E).getPointer(CGF);
     if (IsRef) {
       auto *LI = dyn_cast<llvm::LoadInst>(V);
@@ -1723,6 +1724,14 @@ void OpenMPLateOutliner::emitOMPUseDeviceAddrClause(
   }
 }
 
+void OpenMPLateOutliner::emitOMPNontemporalClause(
+    const OMPNontemporalClause *Cl) {
+  ClauseEmissionHelper CEH(*this, OMPC_nontemporal);
+  addArg("QUAL.OMP.NONTEMPORAL");
+  for (auto *E : Cl->varlists())
+    addArg(E);
+}
+
 void OpenMPLateOutliner::emitOMPReadClause(const OMPReadClause *) {}
 void OpenMPLateOutliner::emitOMPWriteClause(const OMPWriteClause *) {}
 void OpenMPLateOutliner::emitOMPFromClause(const OMPFromClause *) {assert(false);}
@@ -1742,7 +1751,6 @@ void OpenMPLateOutliner::emitOMPDynamicAllocatorsClause(
 void OpenMPLateOutliner::emitOMPAtomicDefaultMemOrderClause(
     const OMPAtomicDefaultMemOrderClause *) {}
 void OpenMPLateOutliner::emitOMPAllocatorClause(const OMPAllocatorClause *) {}
-void OpenMPLateOutliner::emitOMPNontemporalClause(const OMPNontemporalClause *) {}
 void OpenMPLateOutliner::emitOMPAcqRelClause(const OMPAcqRelClause *) {}
 void OpenMPLateOutliner::emitOMPAcquireClause(const OMPAcquireClause *) {}
 void OpenMPLateOutliner::emitOMPReleaseClause(const OMPReleaseClause *) {}
