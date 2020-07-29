@@ -64,8 +64,6 @@ TEST(FrameworkTestType, Test_clGetDeviceFunctionPointerINTEL) {
                                              spvBinary.size(), &error);
   ASSERT_EQ(CL_SUCCESS, error) << "clCreateProgramWithIL failed";
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic"
   typedef cl_int(CL_API_CALL * fp_t)(cl_device_id, cl_program, const char *,
                                      cl_ulong *);
 
@@ -77,7 +75,6 @@ TEST(FrameworkTestType, Test_clGetDeviceFunctionPointerINTEL) {
   ASSERT_NE(nullptr, clGetDeviceFunctionPointerINTELPtr)
       << "clGetExtensionFunctionAddress(\"clGetDeviceFunctionPointerINTEL\" "
          "failed. ";
-#pragma GCC diagnosic pop
 
   cl_ulong fp = 0;
   error = clGetDeviceFunctionPointerINTELPtr(device, program, funcName, &fp);

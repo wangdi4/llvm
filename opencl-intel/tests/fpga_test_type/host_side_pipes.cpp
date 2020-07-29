@@ -94,8 +94,6 @@ void TestHostSidePipes::SetUp() {
                            CL_MEM_HOST_WRITE_ONLY);
   ASSERT_NE(nullptr, m_pipeWrite) << "createPipe failed";
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic"
 
   read_pipe_fn = (cl_int(*)(cl_mem, void *))clGetExtensionFunctionAddress(
       "clReadPipeIntelFPGA");
@@ -117,7 +115,6 @@ void TestHostSidePipes::SetUp() {
       clGetExtensionFunctionAddress("clUnmapHostPipeIntelFPGA");
   ASSERT_NE(nullptr, unmap_pipe_fn)
       << "clGetExtensionFunctionAddress(clUnmapPipeIntelFPGA) failed";
-#pragma GCC diagnosic pop
 }
 
 void TestHostSidePipes::TearDown() {

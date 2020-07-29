@@ -93,8 +93,6 @@ void clGetKernelSubGroupInfoKHR()
 
   // Tests accessibility via clGetExtensionFunctionAddress
   {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic"
     cl_int (CL_API_CALL *get_kernel_subgroup_info) (cl_kernel, cl_device_id, cl_kernel_sub_group_info,
                                         size_t, const void*, size_t, void*, size_t*);
 
@@ -104,7 +102,6 @@ void clGetKernelSubGroupInfoKHR()
 
     ASSERT_NE(nullptr, get_kernel_subgroup_info)
       << "clGetExtensionFunctionAddress(\"clGetKernelSubGroupInfoKHR\" failed. ";
-#pragma GCC diagnosic pop
 
     // local work sizes are [20,20,20]
     size_t dummy_vec[] = {20, 20, 20};
