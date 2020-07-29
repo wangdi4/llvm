@@ -219,16 +219,11 @@ EXTERN void __tgt_target_data_end_mapper(int64_t device_id, int32_t arg_num,
   }
 #endif
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
   OMPT_TRACE(targetDataExitBegin(device_id));
 #endif // INTEL_COLLAB
-  int rc = target_data_end(Device, arg_num, args_base, args, arg_sizes,
-      arg_types, arg_mappers, nullptr);
-=======
   int rc = targetDataEnd(Device, arg_num, args_base, args, arg_sizes, arg_types,
                          arg_mappers, nullptr);
->>>>>>> 3ce69d4d50a24394eff15f92e3f4a609acc963e7
   HandleTargetOutcome(rc == OFFLOAD_SUCCESS);
 #if INTEL_COLLAB
   OMPT_TRACE(targetDataExitEnd(device_id));

@@ -216,15 +216,13 @@ struct DeviceTy {
   int32_t data_exchange(void *SrcPtr, DeviceTy DstDev, void *DstPtr,
                         int64_t Size, __tgt_async_info *AsyncInfoPtr);
 
-<<<<<<< HEAD
-  int32_t run_region(void *TgtEntryPtr, void **TgtVarsPtr,
-                     ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
-                     __tgt_async_info *AsyncInfoPtr);
-  int32_t run_team_region(void *TgtEntryPtr, void **TgtVarsPtr,
-                          ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
-                          int32_t NumTeams, int32_t ThreadLimit,
-                          uint64_t LoopTripCount,
-                          __tgt_async_info *AsyncInfoPtr);
+  int32_t runRegion(void *TgtEntryPtr, void **TgtVarsPtr, ptrdiff_t *TgtOffsets,
+                    int32_t TgtVarsSize, __tgt_async_info *AsyncInfoPtr);
+  int32_t runTeamRegion(void *TgtEntryPtr, void **TgtVarsPtr,
+                        ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
+                        int32_t NumTeams, int32_t ThreadLimit,
+                        uint64_t LoopTripCount, __tgt_async_info *AsyncInfoPtr);
+
 #if INTEL_COLLAB
   int32_t manifest_data_for_region(void *TgtEntryPtr);
   void *create_buffer(void *HstPtr);
@@ -260,14 +258,6 @@ struct DeviceTy {
   int32_t is_managed_ptr(void *Ptr);
   void *data_alloc_explicit(int64_t Size, int32_t Kind);
 #endif // INTEL_COLLAB
-=======
-  int32_t runRegion(void *TgtEntryPtr, void **TgtVarsPtr, ptrdiff_t *TgtOffsets,
-                    int32_t TgtVarsSize, __tgt_async_info *AsyncInfoPtr);
-  int32_t runTeamRegion(void *TgtEntryPtr, void **TgtVarsPtr,
-                        ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
-                        int32_t NumTeams, int32_t ThreadLimit,
-                        uint64_t LoopTripCount, __tgt_async_info *AsyncInfoPtr);
->>>>>>> 3ce69d4d50a24394eff15f92e3f4a609acc963e7
 
   /// Synchronize device/queue/event based on \p AsyncInfoPtr and return
   /// OFFLOAD_SUCCESS/OFFLOAD_FAIL when succeeds/fails.

@@ -841,23 +841,17 @@ int target(int64_t DeviceId, void *HostPtr, int32_t ArgNum, void **ArgBases,
   std::vector<void *> FPArrays;
   std::vector<int> TgtArgsPositions(ArgNum, -1);
 
-<<<<<<< HEAD
 #if INTEL_COLLAB
   void *TgtNDLoopDesc = nullptr;
 #endif // INTEL_COLLAB
 
-  for (int32_t i = 0; i < arg_num; ++i) {
-    if (!(arg_types[i] & OMP_TGT_MAPTYPE_TARGET_PARAM)) {
-#if INTEL_COLLAB
-      if (arg_types[i] & OMP_TGT_MAPTYPE_ND_DESC)
-        TgtNDLoopDesc = (void *)args[i];
-#endif // INTEL_COLLAB
-      // This is not a target parameter, do not push it into tgt_args.
-=======
   for (int32_t I = 0; I < ArgNum; ++I) {
     if (!(ArgTypes[I] & OMP_TGT_MAPTYPE_TARGET_PARAM)) {
+#if INTEL_COLLAB
+      if (ArgTypes[I] & OMP_TGT_MAPTYPE_ND_DESC)
+        TgtNDLoopDesc = (void *)Args[I];
+#endif // INTEL_COLLAB
       // This is not a target parameter, do not push it into TgtArgs.
->>>>>>> 3ce69d4d50a24394eff15f92e3f4a609acc963e7
       // Check for lambda mapping.
       if (isLambdaMapping(ArgTypes[I])) {
         assert((ArgTypes[I] & OMP_TGT_MAPTYPE_MEMBER_OF) &&
@@ -913,16 +907,12 @@ int target(int64_t DeviceId, void *HostPtr, int32_t ArgNum, void **ArgBases,
       TgtBaseOffset = 0;
     } else if (ArgTypes[I] & OMP_TGT_MAPTYPE_PRIVATE) {
       // Allocate memory for (first-)private array
-<<<<<<< HEAD
 #if INTEL_COLLAB
-      TgtPtrBegin = Device.data_alloc_base(arg_sizes[i], HstPtrBegin,
+      TgtPtrBegin = Device.data_alloc_base(ArgSizes[I], HstPtrBegin,
                                            HstPtrBase);
 #else
-      TgtPtrBegin = Device.data_alloc(arg_sizes[i], HstPtrBegin);
-#endif // INTEL_COLLAB
-=======
       TgtPtrBegin = Device.allocData(ArgSizes[I], HstPtrBegin);
->>>>>>> 3ce69d4d50a24394eff15f92e3f4a609acc963e7
+#endif // INTEL_COLLAB
       if (!TgtPtrBegin) {
         DP("Data allocation for %sprivate array " DPxMOD " failed, "
            "abort target.\n",
@@ -937,24 +927,17 @@ int target(int64_t DeviceId, void *HostPtr, int32_t ArgNum, void **ArgBases,
       DP("Allocated %" PRId64 " bytes of target memory at " DPxMOD " for "
           "%sprivate array " DPxMOD " - pushing target argument (Begin: " DPxMOD
           ", Offset: %" PRId64 ")\n",
-          arg_sizes[i], DPxPTR(TgtPtrBegin),
-          (arg_types[i] & OMP_TGT_MAPTYPE_TO ? "first-" : ""),
+          ArgSizes[I], DPxPTR(TgtPtrBegin),
+          (ArgTypes[I] & OMP_TGT_MAPTYPE_TO ? "first-" : ""),
           DPxPTR(HstPtrBegin), DPxPTR(TgtPtrBegin), TgtBaseOffset);
 #else
       void *TgtPtrBase = (void *)((intptr_t)TgtPtrBegin + TgtBaseOffset);
       DP("Allocated %" PRId64 " bytes of target memory at " DPxMOD " for "
-<<<<<<< HEAD
-          "%sprivate array " DPxMOD " - pushing target argument " DPxMOD "\n",
-          arg_sizes[i], DPxPTR(TgtPtrBegin),
-          (arg_types[i] & OMP_TGT_MAPTYPE_TO ? "first-" : ""),
-          DPxPTR(HstPtrBegin), DPxPTR(TgtPtrBase));
-#endif // INTEL_COLLAB
-=======
          "%sprivate array " DPxMOD " - pushing target argument " DPxMOD "\n",
          ArgSizes[I], DPxPTR(TgtPtrBegin),
          (ArgTypes[I] & OMP_TGT_MAPTYPE_TO ? "first-" : ""),
          DPxPTR(HstPtrBegin), DPxPTR(TgtPtrBase));
->>>>>>> 3ce69d4d50a24394eff15f92e3f4a609acc963e7
+#endif // INTEL_COLLAB
 #endif
       // If first-private, copy data from host
       if (ArgTypes[I] & OMP_TGT_MAPTYPE_TO) {
@@ -984,12 +967,8 @@ int target(int64_t DeviceId, void *HostPtr, int32_t ArgNum, void **ArgBases,
 #else
       void *TgtPtrBase = (void *)((intptr_t)TgtPtrBegin + TgtBaseOffset);
       DP("Obtained target argument " DPxMOD " from host pointer " DPxMOD "\n",
-<<<<<<< HEAD
-          DPxPTR(TgtPtrBase), DPxPTR(HstPtrBegin));
-#endif // INTEL_COLLAB
-=======
          DPxPTR(TgtPtrBase), DPxPTR(HstPtrBegin));
->>>>>>> 3ce69d4d50a24394eff15f92e3f4a609acc963e7
+#endif // INTEL_COLLAB
 #endif
     }
     TgtArgsPositions[I] = TgtArgs.size();
@@ -1007,57 +986,48 @@ int target(int64_t DeviceId, void *HostPtr, int32_t ArgNum, void **ArgBases,
   if (I != Device.LoopTripCnt.end()) {
     LoopTripCount = I->second;
     Device.LoopTripCnt.erase(I);
-<<<<<<< HEAD
 #if INTEL_COLLAB
-    DP("loop trip count is %" PRIu64 ".\n", ltc);
+    DP("loop trip count is %" PRIu64 ".\n", LoopTripCount);
 #else  // INTEL_COLLAB
-    DP("loop trip count is %lu.\n", ltc);
-#endif  // INTEL_COLLAB
-=======
     DP("loop trip count is %lu.\n", LoopTripCount);
->>>>>>> 3ce69d4d50a24394eff15f92e3f4a609acc963e7
+#endif  // INTEL_COLLAB
   }
   TblMapMtx->unlock();
 
   // Launch device execution.
   DP("Launching target execution %s with pointer " DPxMOD " (index=%d).\n",
-<<<<<<< HEAD
-      TargetTable->EntriesBegin[TM->Index].name,
-      DPxPTR(TargetTable->EntriesBegin[TM->Index].addr), TM->Index);
+     TargetTable->EntriesBegin[TM->Index].name,
+     DPxPTR(TargetTable->EntriesBegin[TM->Index].addr), TM->Index);
 #if INTEL_COLLAB
-  rc = Device.manifest_data_for_region(
+  Ret = Device.manifest_data_for_region(
       TargetTable->EntriesBegin[TM->Index].addr);
 
-  if (rc != OFFLOAD_SUCCESS) {
+  if (Ret != OFFLOAD_SUCCESS) {
     DP("Data manifestation failed.\n");
     return OFFLOAD_FAIL;
   }
 
   void **argsPtr = nullptr;
-  if (!tgt_args.empty())
-    argsPtr = (void **)&(tgt_args.data()[0]);
+  if (!TgtArgs.empty())
+    argsPtr = (void **)&(TgtArgs.data()[0]);
   ptrdiff_t *offsetsPtr = nullptr;
-  if (!tgt_offsets.empty())
-    offsetsPtr = (ptrdiff_t *)&(tgt_offsets.data()[0]);
+  if (!TgtOffsets.empty())
+    offsetsPtr = (ptrdiff_t *)&(TgtOffsets.data()[0]);
 
   if (TgtNDLoopDesc)
     // If NDRange is specified, use it.
-    rc = Device.run_team_nd_region(TargetTable->EntriesBegin[TM->Index].addr,
-                                   argsPtr, offsetsPtr, tgt_args.size(),
-                                   team_num, thread_limit,
+    Ret = Device.run_team_nd_region(TargetTable->EntriesBegin[TM->Index].addr,
+                                   argsPtr, offsetsPtr, TgtArgs.size(),
+                                   TeamNum, ThreadLimit,
                                    TgtNDLoopDesc);
   else if (IsTeamConstruct)
-    rc = Device.run_team_region(TargetTable->EntriesBegin[TM->Index].addr,
-                                argsPtr, offsetsPtr, tgt_args.size(), team_num,
-                                thread_limit, ltc, &AsyncInfo);
+    Ret = Device.runTeamRegion(TargetTable->EntriesBegin[TM->Index].addr,
+                                argsPtr, offsetsPtr, TgtArgs.size(), TeamNum,
+                                ThreadLimit, LoopTripCount, &AsyncInfo);
   else
-    rc = Device.run_region(TargetTable->EntriesBegin[TM->Index].addr,
-                           argsPtr, offsetsPtr, tgt_args.size(), &AsyncInfo);
+    Ret = Device.runRegion(TargetTable->EntriesBegin[TM->Index].addr,
+                           argsPtr, offsetsPtr, TgtArgs.size(), &AsyncInfo);
 #else  // INTEL_COLLAB
-=======
-     TargetTable->EntriesBegin[TM->Index].name,
-     DPxPTR(TargetTable->EntriesBegin[TM->Index].addr), TM->Index);
->>>>>>> 3ce69d4d50a24394eff15f92e3f4a609acc963e7
   if (IsTeamConstruct) {
     Ret = Device.runTeamRegion(TargetTable->EntriesBegin[TM->Index].addr,
                                &TgtArgs[0], &TgtOffsets[0], TgtArgs.size(),
@@ -1067,14 +1037,9 @@ int target(int64_t DeviceId, void *HostPtr, int32_t ArgNum, void **ArgBases,
         Device.runRegion(TargetTable->EntriesBegin[TM->Index].addr, &TgtArgs[0],
                          &TgtOffsets[0], TgtArgs.size(), &AsyncInfo);
   }
-<<<<<<< HEAD
 #endif // INTEL_COLLAB
-  if (rc != OFFLOAD_SUCCESS) {
-    DP ("Executing target region abort target.\n");
-=======
   if (Ret != OFFLOAD_SUCCESS) {
     DP("Executing target region abort target.\n");
->>>>>>> 3ce69d4d50a24394eff15f92e3f4a609acc963e7
     return OFFLOAD_FAIL;
   }
 
