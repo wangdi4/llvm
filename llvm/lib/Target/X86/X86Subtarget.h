@@ -574,17 +574,11 @@ class X86Subtarget final : public X86GenSubtargetInfo {
   /// Indicates target prefers AVX512 mask registers.
   bool PreferMaskRegisters = false;
 
-<<<<<<< HEAD
-  /// Threeway branch is profitable in this subtarget.
-  bool ThreewayBranchProfitable = false;
-
 #if INTEL_CUSTOMIZATION
   /// Processor supports Decoded Stream Buffer.
   bool HasDSB = false;
 #endif // INTEL_CUSTOMIZATION
 
-=======
->>>>>>> e1dd212c874c2ff01b72e9e60db6dbded9e2e6d1
   /// Use Goldmont specific floating point div/sqrt costs.
   bool UseGLMDivSqrtCosts = false;
 
@@ -869,16 +863,12 @@ public:
   bool hasWAITPKG() const { return HasWAITPKG; }
   bool hasPCONFIG() const { return HasPCONFIG; }
   bool hasSGX() const { return HasSGX; }
-<<<<<<< HEAD
-  bool threewayBranchProfitable() const { return ThreewayBranchProfitable; }
 #if INTEL_CUSTOMIZATION
   bool hasDSB() const { return HasDSB; }
   // In SKL, DSB window size is 64B. It is implemented as 2 DSBs of 32B each
   // (even and odd) that run in parallel every lookup
   unsigned getDSBWindowSize() const { return 32; }
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> e1dd212c874c2ff01b72e9e60db6dbded9e2e6d1
   bool hasINVPCID() const { return HasINVPCID; }
   bool hasENQCMD() const { return HasENQCMD; }
 #if INTEL_CUSTOMIZATION
