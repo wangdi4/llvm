@@ -1,6 +1,9 @@
 // INTEL_COLLAB
 // RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
 // RUN:   -triple x86_64-unknown-linux-gnu %s | FileCheck %s
+// RUN: %clang_cc1 -emit-llvm -o - -fopenmp -fopenmp-late-outline \
+// RUN:   -fopenmp-version=50 -DOMP50 -triple x86_64-unknown-linux-gnu %s \
+// RUN: | FileCheck %s --check-prefixes=CHECK,CHECK50
 
 struct A {
   A();
@@ -55,4 +58,50 @@ void foo()
 
 // CHECK: define internal void @_ZTS1A.omp.copy_assign
 // CHECK: define internal void @_ZTSA4_1A.omp.copy_assign
+
+#ifdef OMP50
+struct S {
+  int a, b;
+};
+
+//CHECK50-LABEL: simple_nontemporal
+void simple_nontemporal(float *a, float *b) {
+  //CHECK50: [[A:%a.*]] = alloca float*,
+  //CHECK50: [[B:%b.*]] = alloca float*,
+  //CHECK50: [[S:%s.*]] = alloca %struct.S,
+  S s, *p = &s;
+  //CHECK50: region.entry() [ "DIR.OMP.SIMD"()
+  //CHECK50-SAME: "QUAL.OMP.NONTEMPORAL"(float** [[A]], float** [[B]]
+  //CHECK50-SAME: "QUAL.OMP.NONTEMPORAL"(%struct.S* [[S]]
+  //CHECK50: region.exit{{.*}}"DIR.OMP.END.SIMD"()
+  #pragma omp simd nontemporal(a, b) nontemporal(s)
+  for (int i = 3; i < 32; i += 5) {
+    a[i] = b[i] + s.a + p->a;
+  }
+}
+
+struct NT_test {
+  int a;
+  int &ar;
+  NT_test() : ar(a) {}
+  //CHECK50-LABEL: member
+  void member() {
+    //CHECK50: [[A:%a.*]] = getelementptr {{.*}}i32 0, i32 0
+    //CHECK50: [[AR:%ar.*]] = getelementptr {{.*}}i32 0, i32 1
+    //CHECK50-NEXT: [[LAR:%[0-9].*]] = load i32*, i32** [[AR]],
+    //CHECK50: region.entry() [ "DIR.OMP.SIMD"()
+    //CHECK50-SAME: "QUAL.OMP.NONTEMPORAL"(i32* [[A]])
+    //CHECK50-SAME: "QUAL.OMP.NONTEMPORAL"(i32* [[LAR]])
+    //CHECK50: region.exit{{.*}}"DIR.OMP.END.SIMD"()
+    #pragma omp simd nontemporal(a) nontemporal(ar)
+    for (int i = 0; i < 32; i += 4) {
+      a += i; ar += i;
+    }
+  }
+};
+void callit()
+{
+  NT_test n;  n.member();
+}
+#endif
 // end INTEL_COLLAB
