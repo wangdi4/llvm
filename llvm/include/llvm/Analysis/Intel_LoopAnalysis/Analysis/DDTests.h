@@ -864,7 +864,8 @@ class DDTest {
   const CanonExpr *getNegativeDist(const CanonExpr *CE);
 
   ///  CE1 * CE2
-  const CanonExpr *getMulExpr(const CanonExpr *CE1, const CanonExpr *CE2);
+  const CanonExpr *getMulExpr(const CanonExpr *CE1, const CanonExpr *CE2,
+                              bool HasBlob = false);
 
   /// return CE from apint
   const CanonExpr *getConstantfromAPInt(Type *Ty, APInt Value);
@@ -990,7 +991,7 @@ class DDTest {
   /// updateDirection - Update direction vector entry
   /// based on the current constraint.
   void updateDirection(Dependences::DVEntry &Level,
-                       const Constraint &CurConstraint) const;
+                       const Constraint &CurConstraint);
 
   /// tryDelinearize - Delinearize subscripts into multiple dims
   /// when it is legal. Removing the symbolic stride helps DD Test.
