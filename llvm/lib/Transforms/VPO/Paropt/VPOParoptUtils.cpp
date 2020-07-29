@@ -4461,6 +4461,7 @@ CallInst *VPOParoptUtils::genConstructorCall(Function *Ctor, Value *V,
   CallInst *Call = genCall(Ctor, {V}, {ValType}, nullptr);
   Instruction *InsertAfterPt = cast<Instruction>(PrivAlloca);
   Call->insertAfter(InsertAfterPt);
+  Call->setDebugLoc(InsertAfterPt->getDebugLoc());
   LLVM_DEBUG(dbgs() << "CONSTRUCTOR: " << *Call << "\n");
   return Call;
 }
@@ -4480,6 +4481,7 @@ CallInst *VPOParoptUtils::genDestructorCall(Function *Dtor, Value *V,
   }
   CallInst *Call = genCall(Dtor, {V}, {ValType}, nullptr);
   Call->insertBefore(InsertBeforePt);
+  Call->setDebugLoc(InsertBeforePt->getDebugLoc());
   LLVM_DEBUG(dbgs() << "DESTRUCTOR: " << *Call << "\n");
   return Call;
 }
@@ -4495,6 +4497,7 @@ CallInst *VPOParoptUtils::genCopyConstructorCall(Function *Cctor, Value *D,
 
   CallInst *Call = genCall(Cctor, {D,S}, {DTy, STy}, nullptr);
   Call->insertBefore(InsertBeforePt);
+  Call->setDebugLoc(InsertBeforePt->getDebugLoc());
   LLVM_DEBUG(dbgs() << "COPY CONSTRUCTOR: " << *Call << "\n");
   return Call;
 }

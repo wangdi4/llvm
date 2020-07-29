@@ -424,6 +424,10 @@ public:
   // This is a factor applied to the number of WGs computed
   // for the execution, based on the HW characteristics.
   size_t SubscriptionRate = 1;
+#if INTEL_INTERNAL_BUILD
+  size_t ForcedLocalSizes[3] = {0, 0, 0};
+  size_t ForcedGlobalSizes[3] = {0, 0, 0};
+#endif // INTEL_INTERNAL_BUILD
 
   RTLDeviceInfoTy() : numDevices(0), DataTransferLatency(0),
       DataTransferMethod(DATA_TRANSFER_METHOD_CLMEM) {
@@ -573,6 +577,16 @@ public:
       if (env[0] == 'T' || env[0] == 't' || env[0] == '1')
         Flags.UseHostMemForUSM = 1;
     }
+
+#if INTEL_INTERNAL_BUILD
+    // Force work group sizes -- for internal experiments
+    if (env = readEnvVar("LIBOMPTARGET_LOCAL_WG_SIZE")) {
+      parseGroupSizes("LIBOMPTARGET_LOCAL_WG_SIZE", env, ForcedLocalSizes);
+    }
+    if (env = readEnvVar("LIBOMPTARGET_GLOBAL_WG_SIZE")) {
+      parseGroupSizes("LIBOMPTARGET_GLOBAL_WG_SIZE", env, ForcedGlobalSizes);
+    }
+#endif // INTEL_INTERNAL_BUILD
   }
 
   /// Read environment variable value with optional deprecated name
@@ -592,6 +606,21 @@ public:
     }
     return value;
   }
+
+#if INTEL_INTERNAL_BUILD
+  void parseGroupSizes(const char *Name, const char *Value, size_t *Sizes) {
+    std::string str(Value);
+    if (str.front() != '{' || str.back() != '}') {
+      WARNING("Ignoring invalid %s=%s\n", Name, Value);
+      return;
+    }
+    std::istringstream strm(str.substr(1, str.size() - 2));
+    uint32_t i = 0;
+    for (std::string token; std::getline(strm, token, ','); i++)
+      if (i < 3)
+        Sizes[i] = std::stoi(token);
+  }
+#endif // INTEL_INTERNAL_BUILD
 
   /// Loads the device version of the offload table for device \p DeviceId.
   /// The table is expected to have \p NumEntries entries.
@@ -2562,6 +2591,21 @@ static inline int32_t run_target_team_nd_region(
   size_t global_work_size[3];
   for (int32_t i = 0; i < 3; ++i)
     global_work_size[i] = local_work_size[i] * num_work_groups[i];
+
+#if INTEL_INTERNAL_BUILD
+  // Use forced group sizes. This is only for internal experiments, and we
+  // don't want to plug these numbers into the decision logic.
+  auto userLWS = DeviceInfo->ForcedLocalSizes;
+  auto userGWS = DeviceInfo->ForcedGlobalSizes;
+  if (userLWS[0] > 0) {
+    std::copy(userLWS, userLWS + 3, local_work_size);
+    DP("Forced LWS = {%zu, %zu, %zu}\n", userLWS[0], userLWS[1], userLWS[2]);
+  }
+  if (userGWS[0] > 0) {
+    std::copy(userGWS, userGWS + 3, global_work_size);
+    DP("Forced GWS = {%zu, %zu, %zu}\n", userGWS[0], userGWS[1], userGWS[2]);
+  }
+#endif // INTEL_INTERNAL_BUILD
 
   DP("Global work size = (%zu, %zu, %zu)\n", global_work_size[0],
      global_work_size[1], global_work_size[2]);
