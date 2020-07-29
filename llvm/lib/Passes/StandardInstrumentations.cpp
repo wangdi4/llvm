@@ -191,10 +191,14 @@ PrintIRInstrumentation::popModuleDesc(StringRef PassID) {
   return ModuleDesc;
 }
 
+<<<<<<< HEAD
 bool PrintIRInstrumentation::printBeforePass(StringRef PassID, Any IR) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+=======
+void PrintIRInstrumentation::printBeforePass(StringRef PassID, Any IR) {
+>>>>>>> 7a2e1122ae4611916c920c815a4310085ed04830
   if (PassID.startswith("PassManager<") || PassID.contains("PassAdaptor<"))
-    return true;
+    return;
 
   // Saving Module for AfterPassInvalidated operations.
   // Note: here we rely on a fact that we do not change modules while
@@ -204,12 +208,16 @@ bool PrintIRInstrumentation::printBeforePass(StringRef PassID, Any IR) {
     pushModuleDesc(PassID, IR);
 
   if (!llvm::shouldPrintBeforePass(PassID))
-    return true;
+    return;
 
   SmallString<20> Banner = formatv("*** IR Dump Before {0} ***", PassID);
   unwrapAndPrint(IR, Banner, llvm::forcePrintModuleIR());
+<<<<<<< HEAD
 #endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   return true;
+=======
+  return;
+>>>>>>> 7a2e1122ae4611916c920c815a4310085ed04830
 }
 
 void PrintIRInstrumentation::printAfterPass(StringRef PassID, Any IR) {
@@ -258,8 +266,8 @@ void PrintIRInstrumentation::registerCallbacks(
   // for later use in AfterPassInvalidated.
   StoreModuleDesc = llvm::forcePrintModuleIR() && llvm::shouldPrintAfterPass();
   if (llvm::shouldPrintBeforePass() || StoreModuleDesc)
-    PIC.registerBeforePassCallback(
-        [this](StringRef P, Any IR) { return this->printBeforePass(P, IR); });
+    PIC.registerBeforeNonSkippedPassCallback(
+        [this](StringRef P, Any IR) { this->printBeforePass(P, IR); });
 
   if (llvm::shouldPrintAfterPass()) {
     PIC.registerAfterPassCallback(
