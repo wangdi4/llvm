@@ -39,10 +39,9 @@ llvm_config.use_default_substitutions()
 llvm_config.use_lld()
 
 tool_patterns = [
-<<<<<<< HEAD
-    'extract', 'llc', 'llvm-as', 'llvm-mc', 'llvm-nm', 'llvm-objdump',
-    'llvm-pdbutil', 'llvm-dwarfdump', 'llvm-readelf', 'llvm-readobj',
-    'obj2yaml', 'yaml2obj', 'opt', 'llvm-dis']
+    'llc', 'llvm-as', 'llvm-mc', 'llvm-nm', 'llvm-objdump', 'llvm-pdbutil',
+    'llvm-dwarfdump', 'llvm-readelf', 'llvm-readobj', 'obj2yaml', 'yaml2obj',
+    'opt', 'llvm-dis']
 # INTEL_CUSTOMIZATION
 tool_patterns.append('clang-cl')
 # Note: 'clang' was added in the tools instead of 'clang++' because there is
@@ -50,11 +49,6 @@ tool_patterns.append('clang-cl')
 # as 'clang+++++++'. This issue produces a missing command failure.
 tool_patterns.append('clang')
 # end INTEL_CUSTOMIZATION
-=======
-    'llc', 'llvm-as', 'llvm-mc', 'llvm-nm', 'llvm-objdump', 'llvm-pdbutil',
-    'llvm-dwarfdump', 'llvm-readelf', 'llvm-readobj', 'obj2yaml', 'yaml2obj',
-    'opt', 'llvm-dis']
->>>>>>> 7142db9a6691718190e753faef97a80f45e5976f
 
 llvm_config.add_tool_substitutions(tool_patterns)
 
