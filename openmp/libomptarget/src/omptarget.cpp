@@ -977,27 +977,18 @@ int target(int64_t DeviceId, void *HostPtr, int32_t ArgNum, void **ArgBases,
 
   // Pop loop trip count
   uint64_t LoopTripCount = 0;
-<<<<<<< HEAD
-  TblMapMtx->lock();
-  auto I = Device.LoopTripCnt.find(__kmpc_global_thread_num(NULL));
-  if (I != Device.LoopTripCnt.end()) {
-    LoopTripCount = I->second;
-    Device.LoopTripCnt.erase(I);
-#if INTEL_COLLAB
-    DP("loop trip count is %" PRIu64 ".\n", LoopTripCount);
-#else  // INTEL_COLLAB
-    DP("loop trip count is %lu.\n", LoopTripCount);
-#endif  // INTEL_COLLAB
-=======
   {
     std::lock_guard<std::mutex> TblMapLock(*TblMapMtx);
     auto I = Device.LoopTripCnt.find(__kmpc_global_thread_num(NULL));
     if (I != Device.LoopTripCnt.end()) {
       LoopTripCount = I->second;
       Device.LoopTripCnt.erase(I);
-      DP("loop trip count is %lu.\n", LoopTripCount);
+#if INTEL_COLLAB
+    DP("loop trip count is %" PRIu64 ".\n", LoopTripCount);
+#else  // INTEL_COLLAB
+    DP("loop trip count is %lu.\n", LoopTripCount);
+#endif  // INTEL_COLLAB
     }
->>>>>>> 30440924d48cdcbdef1dd7b2791171d821a859ae
   }
 
   // Launch device execution.
