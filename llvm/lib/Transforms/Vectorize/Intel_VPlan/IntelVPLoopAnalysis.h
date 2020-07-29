@@ -639,9 +639,7 @@ class VPEntityImportDescr {
   };
 
 protected:
-  VPEntityImportDescr()
-      : AllocaInst(nullptr), ValidMemOnly(false), Importing(true),
-        HasAlias(false){};
+  VPEntityImportDescr() = default;
 
 public:
   virtual ~VPEntityImportDescr() {}
@@ -674,12 +672,12 @@ protected:
     Alias.reset();
     HasAlias = false;
   }
-  VPValue *AllocaInst;
-  bool ValidMemOnly;
-  bool Importing;
+  VPValue *AllocaInst = nullptr;
+  bool ValidMemOnly = false;
+  bool Importing = true;
   // NOTE: We assume that a descriptor can have only one valid alias
   Optional<DescrAlias> Alias;
-  bool HasAlias;
+  bool HasAlias = false;
 };
 
 /// Intermediate reduction descriptor. This is a temporary data to keep
@@ -692,7 +690,7 @@ class ReductionDescr : public VPEntityImportDescr {
   using MinMaxRecurrenceKind = VPReduction::MinMaxRecurrenceKind;
   using BaseT = VPEntityImportDescr;
 public:
-  ReductionDescr() {clear();}
+  ReductionDescr() = default;
 
   VPInstruction *getStartPhi() const { return StartPhi; }
   VPValue *getStart() const { return Start; }
@@ -799,7 +797,7 @@ class InductionDescr : public VPEntityImportDescr {
   using BaseT = VPEntityImportDescr;
 
 public:
-  InductionDescr() { clear(); }
+  InductionDescr() = default;
 
   VPInstruction *getStartPhi() const { return StartPhi; }
   InductionKind getKind() const { return K; }
@@ -850,6 +848,7 @@ public:
     Step = nullptr;
     InductionOp = nullptr;
     IndOpcode = Instruction::BinaryOpsEnd;
+    IsExplicitInduction = false;
   }
   /// Check for all non-null VPInstructions in the descriptor are in the \p
   /// Loop.
@@ -894,7 +893,7 @@ class PrivateDescr : public VPEntityImportDescr {
   using VPEntityAliasesTy = VPPrivate::VPEntityAliasesTy;
 
 public:
-  PrivateDescr() { clear(); }
+  PrivateDescr() = default;
 
   VPValue *getAllocaInst() const { return AllocaInst; }
   bool isConditional() const { return IsConditional; }
@@ -940,9 +939,9 @@ private:
   // reductions. Hence, we have a separate field. TODO: consider using a
   // single/same field for every memory descriptor.
   VPEntityAliasesTy PtrAliases;
-  bool IsConditional;
-  bool IsLast;
-  bool IsExplicit;
+  bool IsConditional = false;
+  bool IsLast = false;
+  bool IsExplicit = false;
 };
 
 // Base class for loop entities converter. Used to create a list of converters
