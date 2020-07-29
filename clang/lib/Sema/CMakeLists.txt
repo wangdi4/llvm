@@ -4,17 +4,11 @@ set(LLVM_LINK_COMPONENTS
   )
 
 if (MSVC)
-  set_source_files_properties(SemaSYCL.cpp PROPERTIES COMPILE_FLAGS /bigobj)
-<<<<<<< HEAD
-  set_source_files_properties(SemaTemplate.cpp PROPERTIES COMPILE_FLAGS /bigobj)
-  set_source_files_properties(SemaTemplateDeduction.cpp PROPERTIES COMPILE_FLAGS /bigobj)
-  set_source_files_properties(SemaOpenMP.cpp PROPERTIES COMPILE_FLAGS /bigobj)
 # INTEL_CUSTOMIZATION
+  set_source_files_properties(SemaSYCL.cpp PROPERTIES COMPILE_FLAGS /bigobj)
   set_source_files_properties(SemaAvailability.cpp PROPERTIES COMPILE_FLAGS /bigobj)
   set_source_files_properties(SemaDeclCXX.cpp PROPERTIES COMPILE_FLAGS /bigobj)
 # end INTEL_CUSTOMIZATION
-=======
->>>>>>> 4e46bd394f36d38db39c524ca6ed7ba5d279a175
 endif()
 
 clang_tablegen(OpenCLBuiltins.inc -gen-clang-opencl-builtins
