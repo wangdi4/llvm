@@ -682,12 +682,6 @@ def FeatureUseGLMDivSqrtCosts
     : SubtargetFeature<"use-glm-div-sqrt-costs", "UseGLMDivSqrtCosts", "true",
         "Use Goldmont specific floating point div/sqrt costs">;
 
-// Merge branches using three-way conditional code.
-def FeatureMergeToThreeWayBranch : SubtargetFeature<"merge-to-threeway-branch",
-                                        "ThreewayBranchProfitable", "true",
-                                        "Merge branches to a three-way "
-                                        "conditional branch">;
-
 // Enable use of alias analysis during code generation.
 def FeatureUseAA : SubtargetFeature<"use-aa", "UseAA", "true",
                                     "Use alias analysis during codegen">;
@@ -777,7 +771,6 @@ def ProcessorFeatures {
 #endif // INTEL_CUSTOMIZATION
                                                   FeatureFastScalarFSQRT,
                                                   FeatureFastSHLDRotate,
-                                                  FeatureMergeToThreeWayBranch,
                                                   FeatureFast15ByteNOP];
   list<SubtargetFeature> SNBSpecificFeatures = [FeatureSlowUAMem32,
                                                 FeaturePOPCNTFalseDeps];
