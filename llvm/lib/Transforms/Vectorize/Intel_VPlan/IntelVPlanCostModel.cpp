@@ -193,7 +193,8 @@ unsigned VPlanCostModel::getLoadStoreIndexSize(
          (VPInst->getOpcode() == Instruction::BitCast ||
           VPInst->getOpcode() == Instruction::AddrSpaceCast) &&
          TTI->getCastInstrCost(VPInst->getOpcode(), VPInst->getType(),
-                               VPInst->getOperand(0)->getType()) == 0)
+                               VPInst->getOperand(0)->getType(),
+                               TTI::CastContextHint::None) == 0)
     Ptr = VPInst->getOperand(0);
 
   const VPInstruction *VPAddrInst = dyn_cast<VPGEPInstruction>(Ptr);
@@ -615,7 +616,8 @@ unsigned VPlanCostModel::getCost(const VPInstruction *VPInst) {
     // such a cast can be folded into the defining load for free. We should
     // consider adding an overload accepting VPInstruction for TTI to be able to
     // analyze that.
-    return TTI->getCastInstrCost(Opcode, VecDstTy, VecSrcTy);
+    return TTI->getCastInstrCost(Opcode, VecDstTy, VecSrcTy,
+                                 TTI::CastContextHint::None);
   }
   case Instruction::Call: {
     auto *VPCall = cast<VPCallInstruction>(VPInst);

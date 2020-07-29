@@ -448,9 +448,10 @@ public:
 
   void visitTruncateExpr(const SCEVTruncateExpr *Trunc) {
     auto Op = Trunc->getOperand();
-    if (!TTI || (TTI->getCastInstrCost(Instruction::Trunc, Trunc->getType(),
-                                       Op->getType()) !=
-                 TargetTransformInfo::TargetCostConstants::TCC_Free)) {
+    if (!TTI ||
+        (TTI->getCastInstrCost(Instruction::Trunc, Trunc->getType(),
+                               Op->getType(), TTI::CastContextHint::None) !=
+         TargetTransformInfo::TargetCostConstants::TCC_Free)) {
       ++NumOperations;
     }
     visit(Op);
@@ -458,9 +459,10 @@ public:
 
   void visitZeroExtendExpr(const SCEVZeroExtendExpr *ZExt) {
     auto Op = ZExt->getOperand();
-    if (!TTI || (TTI->getCastInstrCost(Instruction::ZExt, ZExt->getType(),
-                                       Op->getType()) !=
-                 TargetTransformInfo::TargetCostConstants::TCC_Free)) {
+    if (!TTI ||
+        (TTI->getCastInstrCost(Instruction::ZExt, ZExt->getType(),
+                               Op->getType(), TTI::CastContextHint::None) !=
+         TargetTransformInfo::TargetCostConstants::TCC_Free)) {
       ++NumOperations;
     }
     visit(Op);
@@ -468,9 +470,10 @@ public:
 
   void visitSignExtendExpr(const SCEVSignExtendExpr *SExt) {
     auto Op = SExt->getOperand();
-    if (!TTI || (TTI->getCastInstrCost(Instruction::SExt, SExt->getType(),
-                                       Op->getType()) !=
-                 TargetTransformInfo::TargetCostConstants::TCC_Free)) {
+    if (!TTI ||
+        (TTI->getCastInstrCost(Instruction::SExt, SExt->getType(),
+                               Op->getType(), TTI::CastContextHint::None) !=
+         TargetTransformInfo::TargetCostConstants::TCC_Free)) {
       ++NumOperations;
     }
     visit(Op);
