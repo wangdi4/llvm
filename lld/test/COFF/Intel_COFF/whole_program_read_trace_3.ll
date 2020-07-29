@@ -4,8 +4,8 @@
 ; NOTE: lld will throw a exit error since the defintion of sub
 ; is not present during link time.
 
-; RUN: llvm-as -o %T/wpt3.bc %s
-; RUN: lld-link /out:%T/wpt3.exe /entry:main %T/wpt3.bc /subsystem:console  \
+; RUN: llvm-as -o %t_wpt3.bc %s
+; RUN: lld-link /out:%t_wpt3.exe /entry:main %t_wpt3.bc /subsystem:console  \
 ; RUN:     /mllvm:-debug-only=whole-program-analysis \
 ; RUN:     /mllvm:-whole-program-read-trace /force:unresolved \
 ; RUN:     2>&1 | FileCheck %s

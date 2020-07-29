@@ -3,10 +3,10 @@
 ; an executable and a library is present. Whole program seen won't be
 ; achieved since @exportfn doesn't have IR.
 
-; RUN: llvm-as -o %T/wp_dll_2.bc %p/Inputs/whole_program_dll_2_exportfn.ll
-; RUN: llvm-as -o %T/wp_dll_2_main.bc %s
-; RUN: lld-link /entry:exportfn /out:%T/wp_dll_2.dll /dll %T/wp_dll_2.bc
-; RUN: lld-link /out:%T/wp_dll_2.exe /entry:main %T/wp_dll_2_main.bc %T/wp_dll_2.lib \
+; RUN: llvm-as -o %t_wp_dll_2.bc %p/Inputs/whole_program_dll_2_exportfn.ll
+; RUN: llvm-as -o %t_wp_dll_2_main.bc %s
+; RUN: lld-link /entry:exportfn /out:%t_wp_dll_2.dll /dll %t_wp_dll_2.bc
+; RUN: lld-link /out:%t_wp_dll_2.exe /entry:main %t_wp_dll_2_main.bc %t_wp_dll_2.lib \
 ; RUN:     /subsystem:console /mllvm:-debug-only=whole-program-analysis \
 ; RUN:     2>&1 | FileCheck %s
 

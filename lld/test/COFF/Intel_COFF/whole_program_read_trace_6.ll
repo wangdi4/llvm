@@ -3,8 +3,8 @@
 ; symbols are visibile outside the module. (In other words, none of the
 ; functions are "internal".)
 
-; RUN: llvm-as -o %T/wpt6.bc %s
-; RUN: lld-link /out:%T/wpt6.exe /entry:main %T/wpt6.bc /subsystem:console  \
+; RUN: llvm-as -o %t_wpt6.bc %s
+; RUN: lld-link /out:%t_wpt6.exe /entry:main %t_wpt6.bc /subsystem:console  \
 ; RUN:     /mllvm:-debug-only=whole-program-analysis \
 ; RUN:     /mllvm:-whole-program-read-trace \
 ; RUN:     2>&1 | FileCheck %s
