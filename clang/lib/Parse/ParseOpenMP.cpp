@@ -892,7 +892,8 @@ void Parser::parseOMPTraitPropertyKind(
     return;
   }
 
-  TIProperty.Kind = getOpenMPContextTraitPropertyKind(Set, Name);
+  TIProperty.RawString = Name;
+  TIProperty.Kind = getOpenMPContextTraitPropertyKind(Set, Selector, Name);
   if (TIProperty.Kind != TraitProperty::invalid) {
     if (checkForDuplicates(*this, Name, NameLoc, Seen, CONTEXT_TRAIT_LVL))
       TIProperty.Kind = TraitProperty::invalid;
@@ -933,7 +934,7 @@ void Parser::parseOMPTraitPropertyKind(
        {TraitSet::construct, TraitSet::user, TraitSet::implementation,
         TraitSet::device}) {
     TraitProperty PropertyForName =
-        getOpenMPContextTraitPropertyKind(PotentialSet, Name);
+        getOpenMPContextTraitPropertyKind(PotentialSet, Selector, Name);
     if (PropertyForName == TraitProperty::invalid)
       continue;
     Diag(NameLoc, diag::note_omp_declare_variant_ctx_try)
@@ -972,8 +973,8 @@ static bool checkExtensionProperty(Parser &P, SourceLocation Loc,
     for (OMPTraitProperty &SeenProp : TISelector.Properties)
       if (IsMatchExtension(SeenProp)) {
         P.Diag(Loc, diag::err_omp_variant_ctx_second_match_extension);
-        StringRef SeenName =
-            llvm::omp::getOpenMPContextTraitPropertyName(SeenProp.Kind);
+        StringRef SeenName = llvm::omp::getOpenMPContextTraitPropertyName(
+            SeenProp.Kind, SeenProp.RawString);
         SourceLocation SeenLoc = Seen[SeenName];
         P.Diag(SeenLoc, diag::note_omp_declare_variant_ctx_used_here)
             << CONTEXT_TRAIT_LVL << SeenName;
@@ -1018,11 +1019,13 @@ void Parser::parseOMPContextProperty(OMPTraitSelector &TISelector,
   }
 
   Diag(PropertyLoc, diag::warn_omp_ctx_incompatible_property_for_selector)
-      << getOpenMPContextTraitPropertyName(TIProperty.Kind)
+      << getOpenMPContextTraitPropertyName(TIProperty.Kind,
+                                           TIProperty.RawString)
       << getOpenMPContextTraitSelectorName(TISelector.Kind)
       << getOpenMPContextTraitSetName(Set);
   Diag(PropertyLoc, diag::note_omp_ctx_compatible_set_and_selector_for_property)
-      << getOpenMPContextTraitPropertyName(TIProperty.Kind)
+      << getOpenMPContextTraitPropertyName(TIProperty.Kind,
+                                           TIProperty.RawString)
       << getOpenMPContextTraitSelectorName(
              getOpenMPContextTraitSelectorForProperty(TIProperty.Kind))
       << getOpenMPContextTraitSetName(
@@ -1085,8 +1088,8 @@ void Parser::parseOMPTraitSelectorKind(
   for (const auto &PotentialSet :
        {TraitSet::construct, TraitSet::user, TraitSet::implementation,
         TraitSet::device}) {
-    TraitProperty PropertyForName =
-        getOpenMPContextTraitPropertyKind(PotentialSet, Name);
+    TraitProperty PropertyForName = getOpenMPContextTraitPropertyKind(
+        PotentialSet, TraitSelector::invalid, Name);
     if (PropertyForName == TraitProperty::invalid)
       continue;
     Diag(NameLoc, diag::note_omp_declare_variant_ctx_is_a)
@@ -1180,7 +1183,8 @@ void Parser::parseOMPContextSelector(
 
   if (!RequiresProperty) {
     TISelector.Properties.push_back(
-        {getOpenMPContextTraitPropertyForSelector(TISelector.Kind)});
+        {getOpenMPContextTraitPropertyForSelector(TISelector.Kind),
+         getOpenMPContextTraitSelectorName(TISelector.Kind)});
     return;
   }
 
@@ -1197,7 +1201,8 @@ void Parser::parseOMPContextSelector(
     if (!Condition.isUsable())
       return FinishSelector();
     TISelector.ScoreOrCondition = Condition.get();
-    TISelector.Properties.push_back({TraitProperty::user_condition_unknown});
+    TISelector.Properties.push_back(
+        {TraitProperty::user_condition_unknown, "<condition>"});
     return;
   }
 
@@ -1276,8 +1281,8 @@ void Parser::parseOMPTraitSetKind(OMPTraitSet &TISet,
   for (const auto &PotentialSet :
        {TraitSet::construct, TraitSet::user, TraitSet::implementation,
         TraitSet::device}) {
-    TraitProperty PropertyForName =
-        getOpenMPContextTraitPropertyKind(PotentialSet, Name);
+    TraitProperty PropertyForName = getOpenMPContextTraitPropertyKind(
+        PotentialSet, TraitSelector::invalid, Name);
     if (PropertyForName == TraitProperty::invalid)
       continue;
     Diag(NameLoc, diag::note_omp_declare_variant_ctx_is_a)
@@ -1860,8 +1865,15 @@ Parser::DeclGroupPtrTy Parser::ParseOpenMPDeclarativeDirectiveWithExtDecl(
     VariantMatchInfo VMI;
     ASTContext &ASTCtx = Actions.getASTContext();
     TI.getAsVariantMatchInfo(ASTCtx, VMI);
-    OMPContext OMPCtx(ASTCtx.getLangOpts().OpenMPIsDevice,
-                      ASTCtx.getTargetInfo().getTriple());
+
+    std::function<void(StringRef)> DiagUnknownTrait = [this, Loc](
+                                                          StringRef ISATrait) {
+      // TODO Track the selector locations in a way that is accessible here to
+      // improve the diagnostic location.
+      Diag(Loc, diag::warn_unknown_begin_declare_variant_isa_trait) << ISATrait;
+    };
+    TargetOMPContext OMPCtx(ASTCtx, std::move(DiagUnknownTrait),
+                            /* CurrentFunctionDecl */ nullptr);
 
     if (isVariantApplicableInContext(VMI, OMPCtx, /* DeviceSetOnly */ true)) {
       Actions.ActOnOpenMPBeginDeclareVariant(Loc, TI);
