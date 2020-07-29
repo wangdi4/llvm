@@ -3616,16 +3616,15 @@ CallInst *VPOParoptUtils::genKmpcCall(WRegionNode *W, StructType *IdentTy,
   return genCall(M, IntrinsicName, ReturnTy, FnArgs, InsertPt);
 }
 
-// Genetates a CallInst for the given Function* Fn and its argument list.
-// Fn is assumed to be already declared.
+// Genetates a CallInst for the given FunctionCallee FnC and its argument list.
+// FnC is assumed to have a non-null callee.
 // If InsertPt!=null, the Call is emitted before InsertPt.
-CallInst *VPOParoptUtils::genCall(Function *Fn, ArrayRef<Value *> FnArgs,
-                                  ArrayRef<Type*> FnArgTypes,
-                                  Instruction *InsertPt,
-                                  bool IsTail, bool IsVarArg) {
-  assert(Fn != nullptr && "Function Declaration is null.");
-  FunctionType *FnTy = Fn->getFunctionType();
-  CallInst *Call = CallInst::Create(FnTy, Fn, FnArgs, "", InsertPt);
+CallInst *VPOParoptUtils::genCall(FunctionCallee FnC, ArrayRef<Value *> FnArgs,
+                                  ArrayRef<Type *> FnArgTypes,
+                                  Instruction *InsertPt, bool IsTail,
+                                  bool IsVarArg) {
+  assert(FnC.getCallee() && "Function callee is null.");
+  CallInst *Call = CallInst::Create(FnC, FnArgs, "", InsertPt);
   // Note: if InsertPt!=nullptr, Call is emitted into the IR as well.
   assert(Call != nullptr && "Failed to generate Function Call");
 
@@ -3645,29 +3644,58 @@ CallInst *VPOParoptUtils::genCall(Module *M, StringRef FnName, Type *ReturnTy,
                                   ArrayRef<Type *> FnArgTypes,
                                   Instruction *InsertPt, bool IsTail,
                                   bool IsVarArg,
+                                  bool AllowMismatchingPointerArgs,
                                   bool EmitErrorOnFnTypeMismatch) {
   assert(M != nullptr && "Module is null.");
   assert(!FnName.empty() && "Function name is empty.");
   assert(FunctionType::isValidReturnType(ReturnTy) && "Invalid Return Type");
 
   // Create the function type from the return type and argument types.
-  FunctionType *FnTy = FunctionType::get(ReturnTy, FnArgTypes, IsVarArg);
+  FunctionType *NewFnTy = FunctionType::get(ReturnTy, FnArgTypes, IsVarArg);
 
   // Get the function prototype from the module symbol table. If absent,
   // create and insert it into the symbol table first.
-  FunctionCallee FnC = M->getOrInsertFunction(FnName, FnTy);
-  if (EmitErrorOnFnTypeMismatch && !isa<Function>(FnC.getCallee())) {
-    std::string Msg =
-        ("Function '" + FnName + "' exists, but has an unexpected type.").str();
+  FunctionCallee FnC = M->getOrInsertFunction(FnName, NewFnTy);
+  Value *FnCallee = FnC.getCallee();
+
+  auto NewAndExistingFunctionsDifferOnlyByPointerTypeOfArgs = [&NewFnTy,
+                                                               &FnCallee]() {
+    Function *ExistingFn =
+        dyn_cast_or_null<Function>(FnCallee->stripPointerCasts());
+    if (!ExistingFn)
+      return false;
+
+    FunctionType *ExistingFnTy = ExistingFn->getFunctionType();
+    if (!ExistingFnTy || ExistingFnTy->isVarArg() || NewFnTy->isVarArg())
+      return false;
+
+    if (NewFnTy->getNumParams() != ExistingFnTy->getNumParams())
+      return false;
+
+    return std::equal(NewFnTy->param_begin(), NewFnTy->param_end(),
+                      ExistingFnTy->param_begin(), [](Type *T1, Type *T2) {
+                        return (T1 == T2) ||
+                               (isa<PointerType>(T1) && isa<PointerType>(T2));
+                      });
+  };
+
+  if (isa<Function>(FnCallee) ||
+      (AllowMismatchingPointerArgs &&
+       NewAndExistingFunctionsDifferOnlyByPointerTypeOfArgs()))
+    return genCall(FnC, FnArgs, FnArgTypes, InsertPt, IsTail, IsVarArg);
+
+  std::string Msg =
+      ("Function '" + FnName + "' exists, but has an unexpected type.").str();
+
+  if (EmitErrorOnFnTypeMismatch) {
     if (InsertPt) {
       Function *F = InsertPt->getFunction();
       F->getContext().diagnose(DiagnosticInfoUnsupported(*F, Msg));
     } else
       report_fatal_error(Msg);
   }
-  Function *Fn = cast<Function>(FnC.getCallee());
-  CallInst *Call = genCall(Fn, FnArgs, FnArgTypes, InsertPt, IsTail, IsVarArg);
-  return Call;
+
+  llvm_unreachable(Msg.c_str());
 }
 
 // A genCall() interface where FunArgTypes is omitted; it will be computed from
@@ -3809,7 +3837,8 @@ CallInst *VPOParoptUtils::genVariantCall(CallInst *BaseCall,
   }
   CallInst *VariantCall =
       genCall(M, VariantName, ReturnTy, FnArgs, FnArgTypes, InsertPt, IsTail,
-              IsVarArg, /*EmitErrorOnFnTypeMismatch=*/true); // (2), (4)
+              IsVarArg, /*AllowMismatchingPointerArgs=*/true,
+              /*EmitErrorOnFnTypeMismatch=*/true); //                   (2), (4)
 
   // Replace each VariantCall argument that is a load from a HostPtr listed
   // on the use_device_ptr clause with a load from the corresponding

@@ -1463,9 +1463,9 @@ public:
                                bool Insert = false,
                                bool EnableAtomicReduce = false);
 
-  /// Generate a CallInst for the given Function* \p Fn and its argument list.
-  /// \p Fn must be already declared.
-  static CallInst *genCall(Function *Fn, ArrayRef<Value *> FnArgs,
+  /// Generate a CallInst for the given FunctionCallee \p FnC and its argument
+  /// list. \p FnC must have a non-null Callee.
+  static CallInst *genCall(FunctionCallee FnC, ArrayRef<Value *> FnArgs,
                            ArrayRef<Type *> FnArgTypes, Instruction *InsertPt,
                            bool IsTail = false, bool IsVarArg = false);
 
@@ -1480,6 +1480,10 @@ public:
   /// \param InsertPt Insertion point for the call. Default is nullptr.
   /// \param IsTail This call attribute is defaulted to false.
   /// \param IsVarArg  This call attribute is defaulted to false.
+  /// \param AllowMismatchingPointerArgs If there is an existing function \p
+  /// FnName in \p M, but with arguments that are either the same as \p
+  /// FnTyArgs, or different pointer type, then allow using a cast and emit a
+  /// call to that function.
   /// \param EmitErrorOnFnTypeMismatch Emit an error if there is an
   /// existing function \p FnName in \p M, but with a different function type.
   /// \returns the generated CallInst.
@@ -1488,6 +1492,7 @@ public:
                            ArrayRef<Type *> FnArgTypes,
                            Instruction *InsertPt = nullptr, bool IsTail = false,
                            bool IsVarArg = false,
+                           bool AllowMismatchingPointerArgs = false,
                            bool EmitErrorOnFnTypeMismatch = false);
 
   // A genCall() interface where FnArgTypes is omitted; it will be computed
