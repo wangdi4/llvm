@@ -3479,6 +3479,11 @@ static void RenderCharacterOptions(const ArgList &Args, const llvm::Triple &T,
         CmdArgs.push_back("-fsigned-wchar");
     }
   }
+#if INTEL_CUSTOMIZATION
+  if (Args.hasFlag(options::OPT__SLASH_Zc_wchar_t_,
+                   options::OPT__SLASH_Zc_wchar_t, false))
+    CmdArgs.push_back("-fno-wchar");
+#endif // INTEL_CUSTOMIZATION
 }
 
 static void RenderObjCOptions(const ToolChain &TC, const Driver &D,
