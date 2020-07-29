@@ -310,9 +310,9 @@ DopeVectorAnalyzer::checkArrayPointerUses(SubscriptInstSet *SubscriptCalls) {
 
 // Forward declaration
 static bool analyzeUplevelCallArg(uint32_t ArrayRank,
-                                  SubscriptInstSet *SubscriptCalls,
-                                  Function &F,
-                                  uint64_t ArgPos, uint64_t FieldNum);
+                                  SubscriptInstSet *SubscriptCalls, Function &F,
+                                  uint64_t ArgPos, uint64_t FieldNum,
+                                  SmallPtrSetImpl<const Function *> &Visited);
 
 // This checks the uses of an uplevel variable for safety. Safe uses are:
 // - If \p DVObject is non-null, we are analyzing the function that
@@ -327,10 +327,16 @@ static bool analyzeUplevelCallArg(uint32_t ArrayRank,
 // Here 'ArrayRank' is the number of dimensions of the array represented
 // by the dope vector, and 'SubscriptCalls', if not nullptr, is the set of
 // subscript calls that reference the dope vector.
+// 'Visited' is to avoid recursive re-entry into this routine when checking
+// function calls made by 'F' that take the 'Uplevel' as a parameter.
 static bool analyzeUplevelVar(uint32_t ArrayRank,
                               SubscriptInstSet *SubscriptCalls,
-                              const Function &F,
-                              UplevelDVField &Uplevel, Value *DVObject) {
+                              const Function &F, UplevelDVField &Uplevel,
+                              Value *DVObject,
+                              SmallPtrSetImpl<const Function *> &Visited) {
+  if (!Visited.insert(&F).second)
+    return true;
+
   Value *Var = Uplevel.first;
   uint64_t FieldNum = Uplevel.second;
 
@@ -423,7 +429,7 @@ static bool analyzeUplevelVar(uint32_t ArrayRank,
   // Check all the functions that take the uplevel variable.
   for (auto &FuncArg : FuncsWithUplevelParams)
     if (!analyzeUplevelCallArg(ArrayRank, SubscriptCalls, *FuncArg.first,
-                               FuncArg.second, FieldNum))
+                               FuncArg.second, FieldNum, Visited))
       return false;
 
   return true;
@@ -434,9 +440,9 @@ static bool analyzeUplevelVar(uint32_t ArrayRank,
 // by the dope vector, and 'SubscriptCalls', if not nullptr, is the set of
 // subscript calls that reference the dope vector.
 static bool analyzeUplevelCallArg(uint32_t ArrayRank,
-                                  SubscriptInstSet *SubscriptCalls,
-                                  Function &F, uint64_t ArgPos,
-                                  uint64_t FieldNum) {
+                                  SubscriptInstSet *SubscriptCalls, Function &F,
+                                  uint64_t ArgPos, uint64_t FieldNum,
+                                  SmallPtrSetImpl<const Function *> &Visited) {
   if (F.isDeclaration())
     return false;
 
@@ -449,7 +455,8 @@ static bool analyzeUplevelCallArg(uint32_t ArrayRank,
   // not allow the called function to store a new dope vector into the field,
   // so pass 'nullptr' for the DVObject.
   UplevelDVField LocalUplevel(FormalArg, FieldNum);
-  if (!analyzeUplevelVar(ArrayRank, SubscriptCalls, F, LocalUplevel, nullptr))
+  if (!analyzeUplevelVar(ArrayRank, SubscriptCalls, F, LocalUplevel, nullptr,
+                         Visited))
     return false;
 
   return true;
@@ -989,9 +996,10 @@ DopeVectorAnalyzer::analyzeDopeVectorUseInFunction(const Function &F,
   // If there was a store of the dope vector into an uplevel variable, check
   // the uses of the uplevel variable.
   UplevelDVField Uplevel = getUplevelVar();
-  if (Uplevel.first && !analyzeUplevelVar(getRank(), SubscriptCalls, F,
-                                          Uplevel, getDVObject()))
-      return false;
+  SmallPtrSet<const Function *, 16> Visited;
+  if (Uplevel.first && !analyzeUplevelVar(getRank(), SubscriptCalls, F, Uplevel,
+                                          getDVObject(), Visited))
+    return false;
   return true;
 }
 
