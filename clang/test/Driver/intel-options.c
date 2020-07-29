@@ -511,3 +511,8 @@
 // CHECK-OFAST-O2: -cc1
 // CHECK-OFAST-O2: -ffast-math
 // CHECK-OFAST-O2: -O2
+
+// RUN: %clang_cl -### /Zc:wchar_t- -c %s 2>&1 | FileCheck -check-prefix=CHECK-NO-WCHAR_T %s
+// RUN: %clang_cl -### /Zc:wchar_t -c %s 2>&1 | FileCheck -check-prefix=CHECK-WCHAR_T %s
+// CHECK-NO-WCHAR_T: "-fno-wchar"
+// CHECK-WCHAR_T-NOT: "-fno-wchar"
