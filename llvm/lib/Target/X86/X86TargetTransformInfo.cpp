@@ -1497,6 +1497,7 @@ int X86TTIImpl::getShuffleCost(TTI::ShuffleKind Kind, VectorType *BaseTp,
 }
 
 int X86TTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src,
+                                 TTI::CastContextHint CCH,
                                  TTI::TargetCostKind CostKind,
                                  const Instruction *I) {
   int ISD = TLI->InstructionOpcodeToISD(Opcode);
@@ -2118,7 +2119,7 @@ int X86TTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src,
 
   // The function getSimpleVT only handles simple value types.
   if (!SrcTy.isSimple() || !DstTy.isSimple())
-    return AdjustCost(BaseT::getCastInstrCost(Opcode, Dst, Src, CostKind));
+    return AdjustCost(BaseT::getCastInstrCost(Opcode, Dst, Src, CCH, CostKind));
 
   MVT SimpleSrcTy = SrcTy.getSimpleVT();
   MVT SimpleDstTy = DstTy.getSimpleVT();
@@ -2179,7 +2180,8 @@ int X86TTIImpl::getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src,
       return AdjustCost(Entry->Cost);
   }
 
-  return AdjustCost(BaseT::getCastInstrCost(Opcode, Dst, Src, CostKind, I));
+  return AdjustCost(
+      BaseT::getCastInstrCost(Opcode, Dst, Src, CCH, CostKind, I));
 }
 
 int X86TTIImpl::getCmpSelInstrCost(unsigned Opcode, Type *ValTy, Type *CondTy,
