@@ -66,8 +66,8 @@ public:
       : DL(DL), DTInfo(DTInfo), PTA(PTA), TM(TM) {
     DTransI8Type = TM.getOrCreateAtomicType(llvm::Type::getInt8Ty(Ctx));
     DTransI8PtrType = TM.getOrCreatePointerType(DTransI8Type);
-    DTransPtrSizedIntType = TM.getOrCreateAtomicType(
-        llvm::Type::getIntNTy(Ctx, DL.getPointerSizeInBits()));
+    LLVMPtrSizedIntType = llvm::Type::getIntNTy(Ctx, DL.getPointerSizeInBits());
+    DTransPtrSizedIntType = TM.getOrCreateAtomicType(LLVMPtrSizedIntType);
     DTransPtrSizedIntPtrType = TM.getOrCreatePointerType(DTransPtrSizedIntType);
   }
 
@@ -77,6 +77,8 @@ public:
   DTransPointerType *getDTransPtrSizedIntPtrType() const {
     return DTransPtrSizedIntPtrType;
   }
+
+  llvm::Type *getLLVMPtrSizedIntType() const { return LLVMPtrSizedIntType; }
 
   void visitModule(Module &M) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -815,8 +817,8 @@ public:
     DTransType *PtrDomTy = PTA.getDominantAggregateUsageType(*PtrInfo);
     DTransType *ValTy = getLoadStoreValueType(*Val, ValInfo, /*IsLoad=*/false);
     if (!ValTy) {
-      // If we cannot determine a single specific type being stored, then we need
-      // to mark a safety violation.
+      // If we cannot determine a single specific type being stored, then we
+      // need to mark a safety violation.
       //
       // If the value operand or pointer operand as known to directly alias an
       // aggregate type, mark them as "unsafe pointer store" because we cannot
@@ -1469,6 +1471,226 @@ public:
     return FI;
   }
 
+  void visitBitCastInst(BitCastInst &I) {
+    // Bitcast instructions can be ignored because all the safety checks are
+    // based on how the result of the bitcast gets used.
+  }
+
+  void visitPtrToIntInst(PtrToIntInst &I) {
+    ValueTypeInfo *Info = PTA.getValueTypeInfo(&I);
+    assert(Info &&
+           "PtrTypeAnalyzer failed to construct ValueTypeInfo for ptrtoint");
+
+    if (isValueTypeInfoUnhandled(*Info))
+      DTInfo.setUnhandledPtrType(&I);
+
+    if (I.getType() != getLLVMPtrSizedIntType()) {
+      setAllAliasedTypeSafetyData(Info, dtrans::BadCasting,
+                                  "ptrtoint cast to non-ptr-sized integer type",
+                                  &I);
+    }
+
+    // If there is an aggregate type, make sure it is unambiguous.
+    if (Info->canAliasToAggregatePointer()) {
+      DTransType *DomTy = PTA.getDominantAggregateUsageType(*Info);
+      if (!DomTy)
+        setAllAliasedTypeSafetyData(Info, dtrans::BadCasting,
+                                    "ptrtoint with unknown type", &I);
+    }
+  }
+
+  void visitBinaryOperator(BinaryOperator &I) {
+    auto SetBinaryOperatorUnhandledUse = [this](BinaryOperator &I) {
+      for (Value *Arg : I.operands()) {
+        ValueTypeInfo *Info = PTA.getValueTypeInfo(Arg);
+        if (Info && !Info->empty())
+          setAllAliasedAndPointeeTypeSafetyData(
+              Info, dtrans::UnhandledUse, "Unhandled binary operator", &I);
+      }
+    };
+
+    auto HasNonDivBySizeUses = [](Value *V, uint64_t Size) {
+      for (auto *U : V->users()) {
+        if (auto *BinOp = dyn_cast<BinaryOperator>(U)) {
+          if (BinOp->getOpcode() != Instruction::SDiv &&
+              BinOp->getOpcode() != Instruction::UDiv)
+            return true;
+          if (BinOp->getOperand(0) != V)
+            return true;
+          if (!dtrans::isValueMultipleOfSize(BinOp->getOperand(1), Size))
+            return true;
+          continue;
+        }
+
+        return true;
+      }
+
+      return false;
+    };
+
+    auto AnalyzeSubtraction = [this,
+                               &HasNonDivBySizeUses](BinaryOperator &Sub) {
+      assert(Sub.getOpcode() == Instruction::Sub &&
+             "AnalyzeSubtraction() called with unexpected opcode");
+
+      Value *LHS = Sub.getOperand(0);
+      Value *RHS = Sub.getOperand(1);
+      ValueTypeInfo *LHSInfo = PTA.getValueTypeInfo(LHS);
+      ValueTypeInfo *RHSInfo = PTA.getValueTypeInfo(RHS);
+      // The PointerTypeAnalyzer may create a ValueTypeInfo for scalar types
+      // that never get used, so we need to check if they exist and are
+      // non-empty to determine whether the instruction needs to be analyzed.
+      if ((!LHSInfo || LHSInfo->empty()) && (!RHSInfo || RHSInfo->empty()))
+        return;
+
+      if (!LHSInfo || !RHSInfo) {
+        if (LHSInfo)
+          setAllAliasedAndPointeeTypeSafetyData(
+              LHSInfo, dtrans::BadPtrManipulation,
+              "Subtraction between pointer and non-pointer", &Sub);
+        if (RHSInfo)
+          setAllAliasedAndPointeeTypeSafetyData(
+              RHSInfo, dtrans::BadPtrManipulation,
+              "Subtraction between pointer and non-pointer", &Sub);
+        return;
+      }
+
+      if (LHSInfo->pointsToSomeElement() || RHSInfo->pointsToSomeElement()) {
+        setAllElementPointeeSafetyData(
+            LHSInfo, dtrans::BadPtrManipulation,
+            "Subtraction using aggregate field address", &Sub);
+        setAllElementPointeeSafetyData(
+            RHSInfo, dtrans::BadPtrManipulation,
+            "Subtraction using aggregate field address", &Sub);
+        return;
+      }
+
+      // Both operands need to be pointers to aggregate types, or neither is
+      // allowed to be a pointer to an aggregate type.
+      bool LHSIsAggregate = LHSInfo->canAliasToAggregatePointer();
+      bool RHSIsAggregate = RHSInfo->canAliasToAggregatePointer();
+      if (LHSIsAggregate != RHSIsAggregate) {
+        setAllAliasedTypeSafetyData(
+            LHSInfo, dtrans::BadPtrManipulation,
+            "Subtraction between pointer and non-pointer", &Sub);
+        setAllAliasedTypeSafetyData(
+            RHSInfo, dtrans::BadPtrManipulation,
+            "Subtraction between pointer and non-pointer", &Sub);
+        return;
+      }
+
+      // Neither operand is a pointer to an aggregate type.
+      if (!LHSIsAggregate)
+        return;
+
+      // Check that the same aggregate pointer type is being used for the same
+      // operand types.
+      DTransType *LHSDomTy = PTA.getDominantAggregateUsageType(*LHSInfo);
+      DTransType *RHSDomTy = PTA.getDominantAggregateUsageType(*RHSInfo);
+      if (!LHSDomTy || LHSDomTy != RHSDomTy) {
+        setAllAliasedTypeSafetyData(LHSInfo, dtrans::BadPtrManipulation,
+                                    "Subtraction between unrelated types",
+                                    &Sub);
+        setAllAliasedTypeSafetyData(RHSInfo, dtrans::BadPtrManipulation,
+                                    "Subtraction between unrelated types",
+                                    &Sub);
+        return;
+      }
+
+      // Next, we need to verify that the pointer arithmetic is only used to
+      // feed a computation that computes the number of elements between the two
+      // pointers by performing a division using the element's size. For
+      // ptr-to-ptr, this is not necessary because it would not be dividing by
+      // the element's size.
+      if (isPtrToPtr(LHSDomTy))
+        return;
+
+      // We expect the dominant type to be a pointer type.
+      if (!LHSDomTy->isPointerTy()) {
+        setAllAliasedTypeSafetyData(LHSInfo, dtrans::UnhandledUse,
+                                    "Unexpected aggregate type for subtraction",
+                                    &Sub);
+        setAllAliasedTypeSafetyData(LHSInfo, dtrans::UnhandledUse,
+                                    "Unexpected aggregate type for subtraction",
+                                    &Sub);
+        return;
+      }
+
+      // Check that the uses are restricted to computing an element count. If
+      // so, we treat it is as safe. We assume the arithmetic is being
+      // performed for two elements from the same allocation chunk (or static
+      // array) because that is the only case that logically makes sense to
+      // compute the distance between elements.
+      DTransType *ElementTy = LHSDomTy->getPointerElementType();
+      assert(ElementTy->isAggregateType() && "Expected aggregate type");
+      llvm::Type *LLVMElementTy = ElementTy->getLLVMType();
+      uint64_t ElementSize = DL.getTypeAllocSize(LLVMElementTy);
+      if (HasNonDivBySizeUses(&Sub, ElementSize)) {
+        setAllAliasedTypeSafetyData(
+            LHSInfo, dtrans::BadPtrManipulation,
+            "Pointer subtract result has non-divide by size use", &Sub);
+        setAllAliasedTypeSafetyData(
+            LHSInfo, dtrans::BadPtrManipulation,
+            "Pointer subtract result has non-divide by size use", &Sub);
+      }
+    };
+
+    switch (I.getOpcode()) {
+    case Instruction::Sub:
+      AnalyzeSubtraction(I);
+      break;
+    default:
+      SetBinaryOperatorUnhandledUse(I);
+      break;
+    }
+  }
+
+  void visitCallBase(CallBase &Call) {
+    // TODO: Check whether argument types are compatible with the expected type,
+    // and that no field member addresses are passed.
+  }
+
+  void visitIntrinsicInst(IntrinsicInst &I) {
+    Intrinsic::ID Intrin = I.getIntrinsicID();
+    switch (Intrin) {
+    default:
+      break;
+
+      // The following intrinsics do not affect the safety checks of
+      // the DTrans analysis for any of their arguments.
+    case Intrinsic::dbg_declare:
+    case Intrinsic::dbg_value:
+    case Intrinsic::lifetime_end:
+    case Intrinsic::lifetime_start:
+    case Intrinsic::ptr_annotation:
+    case Intrinsic::var_annotation:
+      return;
+
+      // TODO: Check memset/memcpy/memmove routines
+    }
+
+    // TODO: mark all others with unhandled use on the arguments to the
+    // intrinsic call.
+  }
+
+  void visitReturnInst(ReturnInst &I) {
+    // TODO: Check the return type matches the expected type, and that a field
+    // member address is not returned.
+  }
+
+  void visitICmpInst(ICmpInst &I) {
+    // TODO: Check that types are the same, otherwise some bad casting has
+    // occurred. i.e. pointers are to same type if aggregate pointer types.
+  }
+
+  // All instructions not handled by other visit functions.
+  void visitInstruction(Instruction &I) {
+    // TODO: If the pointer type analyzer collected types for the instruction
+    // and there were aggregate types involved, then the aliases and element
+    // pointees need to be marked as unhandled, if the instruction reaches this
+    // visit routine.
+  }
+
 private:
   // private methods
 
@@ -1713,13 +1935,9 @@ private:
     llvm_unreachable("Fully covered switch isn't fully covered?");
   }
 
-  // This function will identify the aggregate type corresponding to 'Ty',
-  // allowing for levels of pointer indirection, and set the SafetyData on the
-  // type. Nested and referenced types within the aggregate may also be set
-  // based on the pointer-carried and cascading safety data rules. 'Reason' and
-  // 'V' are optional parameters that provide for debug traces.
-  void setBaseTypeInfoSafetyData(DTransType *Ty, dtrans::SafetyData Data,
-                                 StringRef Reason, Value *V) {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void printSafetyDataDebugMessage(dtrans::SafetyData Data, StringRef Reason,
+                                   Value *V, ValueTypeInfo *Info) {
     DEBUG_WITH_TYPE_P(FNFilter, SAFETY_VERBOSE, {
       if (!Reason.empty()) {
         dbgs() << "dtrans-safety: " << getSafetyDataName(Data) << " -- "
@@ -1734,9 +1952,23 @@ private:
             dbgs() << "  [" << F->getName() << "] ";
           dbgs() << *V << "\n";
         }
+        if (Info)
+          Info->print(dbgs(), /*Combined=*/false, "    ");
       }
     });
+  }
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 
+  // This function will identify the aggregate type corresponding to 'Ty',
+  // allowing for levels of pointer indirection, and set the SafetyData on the
+  // type. Nested and referenced types within the aggregate may also be set
+  // based on the pointer-carried and cascading safety data rules. 'Reason' and
+  // 'V' are optional parameters that provide for debug traces.
+  void setBaseTypeInfoSafetyData(DTransType *Ty, dtrans::SafetyData Data,
+                                 StringRef Reason, Value *V) {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    printSafetyDataDebugMessage(Data, Reason, V, nullptr);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     setBaseTypeInfoSafetyDataImpl(Ty, Data, isCascadingSafetyCondition(Data),
                                   isPointerCarriedSafetyCondition(Data));
   }
@@ -1746,27 +1978,22 @@ private:
   void setAllAliasedTypeSafetyData(ValueTypeInfo *PtrInfo,
                                    dtrans::SafetyData Data, StringRef Reason,
                                    Value *V) {
-    DEBUG_WITH_TYPE_P(FNFilter, SAFETY_VERBOSE, {
-      if (!Reason.empty()) {
-        dbgs() << "dtrans-safety: " << getSafetyDataName(Data) << " -- "
-               << Reason << "\n";
-        if (V) {
-          Function *F = nullptr;
-          if (auto *I = dyn_cast<Instruction>(V))
-            F = I->getFunction();
-          else if (auto *Arg = dyn_cast<Argument>(V))
-            F = Arg->getParent();
-          if (F)
-            dbgs() << "  [" << F->getName() << "] ";
-          dbgs() << *V << "\n";
-        }
-        PtrInfo->print(dbgs(), /*Combined=*/false, "    ");
-      }
-    });
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    printSafetyDataDebugMessage(Data, Reason, V, PtrInfo);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    setAliasedOrPointeeTypeSafetyDataImpl(PtrInfo, Data, /*Aliases=*/true,
+                                          /*Pointees=*/false);
+  }
 
-    for (auto *AliasTy :
-         PtrInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use))
-      setBaseTypeInfoSafetyData(AliasTy, Data, "", nullptr);
+  // 'Reason' and 'V' are optional parameters that provide for debug traces.
+  void setAllElementPointeeSafetyData(ValueTypeInfo *PtrInfo,
+                                      dtrans::SafetyData Data, StringRef Reason,
+                                      Value *V) {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    printSafetyDataDebugMessage(Data, Reason, V, PtrInfo);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    setAliasedOrPointeeTypeSafetyDataImpl(PtrInfo, Data, /*Aliases=*/false,
+                                          /*Pointees=*/true);
   }
 
   // Set the safety data on all the aliased types of 'PtrInfo' and all element
@@ -1785,31 +2012,30 @@ private:
   void setAllAliasedAndPointeeTypeSafetyData(ValueTypeInfo *PtrInfo,
                                              dtrans::SafetyData Data,
                                              const char *Reason, Value *V) {
-    DEBUG_WITH_TYPE_P(FNFilter, SAFETY_VERBOSE, {
-      if (Reason) {
-        dbgs() << "dtrans-safety: " << getSafetyDataName(Data) << " -- "
-               << Reason << "\n";
-        if (V) {
-          Function *F = nullptr;
-          if (auto *I = dyn_cast<Instruction>(V))
-            F = I->getFunction();
-          else if (auto *Arg = dyn_cast<Argument>(V))
-            F = Arg->getParent();
-          if (F)
-            dbgs() << "  [" << F->getName() << "] ";
-          dbgs() << *V << "\n";
-        }
-        PtrInfo->print(dbgs(), /*Combined=*/false, "    ");
-      }
-    });
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    printSafetyDataDebugMessage(Data, Reason, V, PtrInfo);
+#endif // !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    setAliasedOrPointeeTypeSafetyDataImpl(PtrInfo, Data, /*Aliases=*/true,
+                                          /*Pointees=*/true);
+  }
 
-    for (auto *AliasTy :
-         PtrInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use))
-      setBaseTypeInfoSafetyData(AliasTy, Data, "", nullptr);
+  // Sets the safety data on either the Aliases or ElementPointees of PtrInfo
+  // depending on boolean inputs.
+  void setAliasedOrPointeeTypeSafetyDataImpl(ValueTypeInfo *PtrInfo,
+                                             dtrans::SafetyData Data,
+                                             bool Aliases, bool Pointees) {
+    assert((Aliases || Pointees) &&
+           "Expected aliases and/or pointees to be specified");
 
-    for (auto &PointeePair :
-         PtrInfo->getElementPointeeSet(ValueTypeInfo::VAT_Use))
-      setBaseTypeInfoSafetyData(PointeePair.first, Data, "", nullptr);
+    if (Aliases)
+      for (auto *AliasTy :
+           PtrInfo->getPointerTypeAliasSet(ValueTypeInfo::VAT_Use))
+        setBaseTypeInfoSafetyData(AliasTy, Data, "", nullptr);
+
+    if (Pointees)
+      for (auto &PointeePair :
+           PtrInfo->getElementPointeeSet(ValueTypeInfo::VAT_Use))
+        setBaseTypeInfoSafetyData(PointeePair.first, Data, "", nullptr);
   }
 
   // This is a helper function that retrieves the aggregate type through
@@ -1935,6 +2161,7 @@ private:
   DTransPointerType *DTransI8PtrType = nullptr;          // i8*
   DTransType *DTransPtrSizedIntType = nullptr;           // i64 or i32
   DTransPointerType *DTransPtrSizedIntPtrType = nullptr; // i64* or i32*
+  llvm::Type *LLVMPtrSizedIntType = nullptr;             // i64 or i32
 };
 
 DTransSafetyInfo::DTransSafetyInfo(DTransSafetyInfo &&Other)
