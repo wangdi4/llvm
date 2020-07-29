@@ -1369,7 +1369,8 @@ foreach P = ["pentium4", "pentium4m"] in {
 }
 
 // Intel Quark.
-def : Proc<"lakemont",        [FeatureInsertVZEROUPPER]>;
+def : Proc<"lakemont", [FeatureSlowUAMem16, FeatureCMPXCHG8B,
+                        FeatureInsertVZEROUPPER]>;
 
 // Intel Core Duo.
 def : ProcessorModel<"yonah", SandyBridgeModel,
