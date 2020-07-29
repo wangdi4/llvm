@@ -592,6 +592,7 @@ int main(int argc, char **argv) {
   initializeVPOTransforms(Registry);
 #endif // INTEL_COLLAB
   initializeESIMDLowerLoadStorePass(Registry);
+  initializeESIMDLowerVecArgLegacyPassPass(Registry);
 
 #ifdef BUILD_EXAMPLES
   initializeExampleIRTransforms(Registry);
