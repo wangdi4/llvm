@@ -298,7 +298,7 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
             m_bSupportsUsmSharedSystem = true;
     }
 
-    *((ocl_entry_points*)(&m_handle)) = *pOclEntryPoints;
+    memcpy(&m_handle, pOclEntryPoints, sizeof(ocl_entry_points));
 
     *pclErr = CL_SUCCESS;
 }

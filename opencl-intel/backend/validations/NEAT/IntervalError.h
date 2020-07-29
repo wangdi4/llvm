@@ -388,7 +388,8 @@ namespace Validation
 
         if(maxS > resMax && fabs(ComputeUlp(maxS)) <= fabs(maxS-minS))
         {
-            uint64_t maxS_mant = *(uint64_t*)&maxS;
+            uint64_t maxS_mant;
+            memcpy(&maxS_mant, &maxS, sizeof(uint64_t));
             maxS_mant &= LONG_DOUBLE_MANTISSA_MASK;
             sT lowUlp = (maxS_mant == 0) ? ComputeUlp(refMax) : ComputeUlp(maxS);
             maxS -= lowUlp;
@@ -398,7 +399,8 @@ namespace Validation
         {
             // if we are, reduce result by one ulp, calculated for
             // downcasted value
-            uint64_t minS_mant = *(uint64_t*)&minS;
+            uint64_t minS_mant;
+            memcpy(&minS_mant, &minS, sizeof(uint64_t));
             minS_mant &= LONG_DOUBLE_MANTISSA_MASK;
             sT lowUlp = (minS_mant == 0) ? ComputeUlp(refMin) : ComputeUlp(minS);
             minS += lowUlp;

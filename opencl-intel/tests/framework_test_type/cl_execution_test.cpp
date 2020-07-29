@@ -222,7 +222,7 @@ bool clExecutionTest()
         srcB[j] = 0.3f;
         dst[j] = 0.0f;
     }
-    double expexted_result = 0.06; // dst += A*B
+    double expected_result = 0.06; // dst += A*B
 
     //
     // Create buffers
@@ -328,13 +328,16 @@ bool clExecutionTest()
         //
         printf("\n ==== Validating Results ==== \n");
         double allowed_epsilon = 0.00001;
+        int expected, received;
+        memcpy(&expected, &expected_result, sizeof(int));
         for (unsigned int i=0; i<BUFFERS_LENGTH; i++)
         {
-          double diff = fabs(expexted_result - (double)dst[0]);
+          double diff = fabs(expected_result - (double)dst[0]);
           if (diff > allowed_epsilon) {
             bResult = false;
+            memcpy(&received, &dst[i], sizeof(int));
             printf("\n ERROR: Expected = 0x%x, Received = 0x%x, diff = %e\n",
-                   *(int *)&expexted_result, *(int *)(&dst[i]), diff);
+                   expected, received, diff);
             break;
           }
         }
