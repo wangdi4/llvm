@@ -203,13 +203,15 @@ const char* CPUDeviceConfig::GetExtensions() const
 
         // common Intel extensions
         m_extensions += OCL_EXT_INTEL_UNIFIED_SHARED_MEMORY " ";
-        // TODO: The switch is required until subgroup implementation passes
-        // the conformance test fully (meaning that masked kernel is integrated).
         if (GetUseNativeSubgroups()) {
+// Need to add generic implementation for the khr subgroups built-ins before
+// we claim that these extensions are supported.
+#if 0
             m_extensions += OCL_EXT_KHR_SUBGROUP_SHUFFLE " ";
             m_extensions += OCL_EXT_KHR_SUBGROUP_SHUFFLE_RELATIVE " ";
             m_extensions += OCL_EXT_KHR_SUBGROUP_EXTENDED_TYPES " ";
             m_extensions += OCL_EXT_KHR_SUBGROUP_NON_UNIFORM_ARITHMETIC " ";
+#endif
             m_extensions += OCL_EXT_INTEL_SUBGROUPS " ";
             m_extensions += OCL_EXT_INTEL_SUBGROUPS_CHAR " ";
             m_extensions += OCL_EXT_INTEL_SUBGROUPS_SHORT " ";

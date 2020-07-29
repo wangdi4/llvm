@@ -12,12 +12,16 @@ class VectorSuffixString<int len> {
                  !if(!eq(len, 12), "12",
                  !if(!eq(len, 24), "24",
                  !if(!eq(len, 48), "48",
+                 !if(!eq(len, 96), "96",
+                 !if(!eq(len, 192), "192",
                  !if(!eq(len, 16), "16",
                  !if(!eq(len, 32), "32",
                  !if(!eq(len, 64), "64",
                  !if(!eq(len, 128), "128",
                  !if(!eq(len, 256), "256",
-                 "__invalid__")))))))))))));
+                 !if(!eq(len, 512), "512",
+                 !if(!eq(len, 1024), "1024",
+                 "__invalid__")))))))))))))))));
 }
 
 class VectorVTypeSuffixString<string base, int len> {
@@ -29,12 +33,16 @@ class VectorVTypeSuffixString<string base, int len> {
                   !if(!eq(len, 12),  "v12",
                   !if(!eq(len, 24),  "v24",
                   !if(!eq(len, 48),  "v48",
+                  !if(!eq(len, 96),  "v96",
+                  !if(!eq(len, 192), "v192",
                   !if(!eq(len, 16), "v16",
                   !if(!eq(len, 32), "v32",
                   !if(!eq(len, 64), "v64",
                   !if(!eq(len, 128), "v128",
                   !if(!eq(len, 256), "v256",
-                  "__invalid__")))))))))))));
+                  !if(!eq(len, 512), "v512",
+                  !if(!eq(len, 1024), "v1024",
+                  "__invalid__")))))))))))))))));
   string TypeName = !subst("double",  "f64",
                     !subst("long",    "i64",
                     !subst("ulong",   "u64",
@@ -193,9 +201,13 @@ multiclass _OCLTYPE2_<string ss, int width, string base> {
   defm v64#NAME# : _OCLTYPE1_<!strconcat("v64", ss), 64, width, base>;
   defm v128#NAME# : _OCLTYPE1_<!strconcat("v128", ss), 128, width, base>;
   defm v256#NAME# : _OCLTYPE1_<!strconcat("v256", ss), 256, width, base>;
+  defm v512#NAME# : _OCLTYPE1_<!strconcat("v512", ss), 512, width, base>;
+  defm v1024#NAME# : _OCLTYPE1_<!strconcat("v1024", ss), 1024, width, base>;
   defm v12#NAME# : _OCLTYPE1_<!strconcat( "v12", ss),  12, width, base>;
   defm v24#NAME# : _OCLTYPE1_<!strconcat( "v24", ss),  24, width, base>;
   defm v48#NAME# : _OCLTYPE1_<!strconcat( "v48", ss),  48, width, base>;
+  defm v96#NAME# : _OCLTYPE1_<!strconcat( "v96", ss),  96, width, base>;
+  defm v192#NAME# : _OCLTYPE1_<!strconcat( "v192", ss),  192, width, base>;
 }
 defm i8  : _OCLTYPE2_<"i8",  8, "char">;
 defm u8  : _OCLTYPE2_<"u8",  8, "uchar">;
@@ -279,28 +291,28 @@ def ocl_types : TypeNameList<[
   atom_intptr_t.TypeName, atom_uintptr_t.TypeName,
 
   // Wide vectors
-  v32i64.TypeName, v64i64.TypeName, v128i64.TypeName, v256i64.TypeName,
-  v32u64.TypeName, v64u64.TypeName, v128u64.TypeName, v256u64.TypeName,
-  v32i32.TypeName, v64i32.TypeName, v128i32.TypeName, v256i32.TypeName,
-  v32u32.TypeName, v64u32.TypeName, v128u32.TypeName, v256u32.TypeName,
-  v32f32.TypeName, v64f32.TypeName, v128f32.TypeName, v256f32.TypeName,
-  v32f64.TypeName, v64f64.TypeName, v128f64.TypeName, v256f64.TypeName,
-  v32i16.TypeName, v64i16.TypeName, v128i16.TypeName, v256i16.TypeName,
-  v32u16.TypeName, v64u16.TypeName, v128u16.TypeName, v256u16.TypeName,
-  v32i8.TypeName,  v64i8.TypeName,  v128i8.TypeName, v256i8.TypeName,
-  v32u8.TypeName,  v64u8.TypeName,  v128u8.TypeName, v256u8.TypeName,
+  v32i64.TypeName, v64i64.TypeName, v128i64.TypeName, v256i64.TypeName, v512i64.TypeName, v1024i64.TypeName,
+  v32u64.TypeName, v64u64.TypeName, v128u64.TypeName, v256u64.TypeName, v512u64.TypeName, v1024u64.TypeName,
+  v32i32.TypeName, v64i32.TypeName, v128i32.TypeName, v256i32.TypeName, v512i32.TypeName, v1024i32.TypeName,
+  v32u32.TypeName, v64u32.TypeName, v128u32.TypeName, v256u32.TypeName, v512u32.TypeName, v1024u32.TypeName,
+  v32f32.TypeName, v64f32.TypeName, v128f32.TypeName, v256f32.TypeName, v512f32.TypeName, v1024f32.TypeName,
+  v32f64.TypeName, v64f64.TypeName, v128f64.TypeName, v256f64.TypeName, v512f64.TypeName, v1024f64.TypeName,
+  v32i16.TypeName, v64i16.TypeName, v128i16.TypeName, v256i16.TypeName, v512i16.TypeName, v1024i16.TypeName,
+  v32u16.TypeName, v64u16.TypeName, v128u16.TypeName, v256u16.TypeName, v512u16.TypeName, v1024u16.TypeName,
+  v32i8.TypeName,  v64i8.TypeName,  v128i8.TypeName,  v256i8.TypeName,  v512i8.TypeName,  v1024i8.TypeName,
+  v32u8.TypeName,  v64u8.TypeName,  v128u8.TypeName,  v256u8.TypeName,  v512u8.TypeName,  v1024u8.TypeName,
 
   // vec3
-  v12i64.TypeName, v24i64.TypeName, v48i64.TypeName,
-  v12u64.TypeName, v24u64.TypeName, v48u64.TypeName,
-  v12i32.TypeName, v24i32.TypeName, v48i32.TypeName,
-  v12u32.TypeName, v24u32.TypeName, v48u32.TypeName,
-  v12f32.TypeName, v24f32.TypeName, v48f32.TypeName,
-  v12f64.TypeName, v24f64.TypeName, v48f64.TypeName,
-  v12i8.TypeName, v24i8.TypeName, v48i8.TypeName,
-  v12u8.TypeName, v24u8.TypeName, v48u8.TypeName,
-  v12i16.TypeName, v24i16.TypeName, v48i16.TypeName,
-  v12u16.TypeName, v24u16.TypeName, v48u16.TypeName,
+  v12i64.TypeName, v24i64.TypeName, v48i64.TypeName, v96i64.TypeName, v192i64.TypeName,
+  v12u64.TypeName, v24u64.TypeName, v48u64.TypeName, v96u64.TypeName, v192u64.TypeName,
+  v12i32.TypeName, v24i32.TypeName, v48i32.TypeName, v96i32.TypeName, v192i32.TypeName,
+  v12u32.TypeName, v24u32.TypeName, v48u32.TypeName, v96u32.TypeName, v192u32.TypeName,
+  v12f32.TypeName, v24f32.TypeName, v48f32.TypeName, v96f32.TypeName, v192f32.TypeName,
+  v12f64.TypeName, v24f64.TypeName, v48f64.TypeName, v96f64.TypeName, v192f64.TypeName,
+  v12i8.TypeName,  v24i8.TypeName,  v48i8.TypeName,  v96i8.TypeName,  v192i8.TypeName,
+  v12u8.TypeName,  v24u8.TypeName,  v48u8.TypeName,  v96u8.TypeName,  v192u8.TypeName,
+  v12i16.TypeName, v24i16.TypeName, v48i16.TypeName, v96i16.TypeName, v192i16.TypeName,
+  v12u16.TypeName, v24u16.TypeName, v48u16.TypeName, v96u16.TypeName, v192u16.TypeName,
 
   image1d_ro.TypeName, image1d_wo.TypeName, image1d_rw.TypeName,
   image2d_ro.TypeName, image2d_wo.TypeName, image2d_rw.TypeName,
@@ -456,8 +468,31 @@ def gentype256 : OclGenType<"gentype256"> {
   list<string> T5 = !foreach(n,  T4, !subst( "v16","v256", n));
   list<string> T6 = !foreach(n,  T5, !subst( "vX", "v256", n));
   list<string> Tout = T6;
-
 }
+// gentype512: 'vNtM' -> 'v512M'
+def gentype512 : OclGenType<"gentype512"> {
+  list<string> Tin = Torig;
+  list<string> T0 = !foreach(n, Tin, !subst( "v1", "v512", n));
+  list<string> T1 = !foreach(n,  T0, !subst( "v2", "v512", n));
+  list<string> T2 = !foreach(n,  T1, !subst( "v3", "v512", n));
+  list<string> T3 = !foreach(n,  T2, !subst( "v4", "v512", n));
+  list<string> T4 = !foreach(n,  T3, !subst( "v8", "v512", n));
+  list<string> T5 = !foreach(n,  T4, !subst( "v16","v512", n));
+  list<string> Tout = T5;
+}
+// gentype1024: 'vNtM' -> 'v1024M'
+def gentype1024 : OclGenType<"gentype1024"> {
+  list<string> Tin = Torig;
+  list<string> T0 = !foreach(n, Tin, !subst( "v16","vX", n));
+  list<string> T1 = !foreach(n,  T0, !subst( "v1", "vX", n));
+  list<string> T2 = !foreach(n,  T1, !subst( "v2", "v1024", n));
+  list<string> T3 = !foreach(n,  T2, !subst( "v3", "v1024", n));
+  list<string> T4 = !foreach(n,  T3, !subst( "v4", "v1024", n));
+  list<string> T5 = !foreach(n,  T4, !subst( "v8", "v1024", n));
+  list<string> T6 = !foreach(n,  T5, !subst( "vX", "v1024", n));
+ list<string> Tout = T6;
+}
+
 // ugentype2: 'vNtM' -> 'v2uM'
 def ugentype2 : OclGenType<"ugentype2"> {
   list<string> Tin = Torig;
@@ -926,6 +961,9 @@ def vf1 : VFLength<1>;
 def vf4 : VFLength<4>;
 def vf8 : VFLength<8>;
 def vf16 : VFLength<16>;
+def vf32 : VFLength<32>;
+def vf64 : VFLength<64>;
+
 class VFType<list<OclType> types, string suffix> {
   string platform = suffix#"_";
   string vfStr =
@@ -933,11 +971,17 @@ class VFType<list<OclType> types, string suffix> {
   !subst("_avx_", "vf4",
   !subst("_avx2_", "vf8",
   !subst("_avx512_", "vf16",
-  platform))));
+  !subst("_x4_", "vf4",
+  !subst("_x8_", "vf8",
+  !subst("_x16_", "vf16",
+  !subst("_x32_", "vf32",
+  !subst("_x64_", "vf64",
+  platform)))))))));
   int vf = !cast<VFLength>(vfStr).Length;
   list<OclType> Tys = types;
   list<OclType> Tout = !foreach(ty, Tys, !cast<OclType>(VectorVTypeSuffixString<ty.BaseCTypeName, !mul(ty.VecLength, vf)>.Value));
 }
+
 
 // OclBuiltinAttr
 class OclBuiltinAttr<string attr> {

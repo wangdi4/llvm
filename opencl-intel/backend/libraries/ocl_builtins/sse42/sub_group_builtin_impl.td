@@ -1286,22 +1286,6 @@ OclBuiltinImpl sub_group_shuffle_avxv12gentype = OclBuiltinImpl<sub_group_shuffl
   }]>;
 
 //
-// Shuffle xor
-//
-OclBuiltinImpl sub_group_shuffle_xor_avx128v4ui32 = OclBuiltinImpl<sub_group_shuffle_xor_avx,
-               [v4i32, v4u32, v4f32, v4i64, v4u64, v4f64, v4i8, v4u8, v4i16, v4u16,
-                v8u32, v8i32, v8f32, v8i8, v8u8, v8i16, v8u16,
-                v12u32, v12i32, v12f32, v12i8, v12u8, v12i16, v12u16,
-                v16i32, v16u32, v16f32, v16i8, v16u8, v16i16, v16u16,
-                v32i32, v32u32, v32f32, v32i8, v32u8, v32i16, v32u16,
-                v64i32, v64u32, v64f32, v64i8, v64u8, v64i16, v64u16], 0,
-  [{
-    uint4 indexes = {0, 1, 2, 3};
-    indexes = indexes ^ $Arg1VarName;
-    return intel_sub_group_shuffle($Arg0VarName, indexes, $Arg2VarName);
-  }]>;
-
-//
 // Shuffle down
 //
 
@@ -1756,172 +1740,6 @@ OclBuiltinImpl intel_sub_group_block_write_us16_4_avx = OclBuiltinImpl<intel_sub
     vstore16(res.hi.lo, 2, $Arg0VarName);
     vstore16(res.hi.hi, 3, $Arg0VarName);
   }]>;
-
-//
-// Block read/write for image
-//
-
-list<OclType> intel_sub_group_block_read_write_us_types = [ v1u64, v1u32, v1u16, v1u8 ];
-
-code BlockReadImg1_4 =
-  [{
-    $ReturnType* p = ($ReturnType*)extract_pixel_in_byte($Arg0VarName, $Arg1VarName);
-    return *p;
-  }];
-OclBuiltinImpl intel_sub_group_block_read1_4_img_avx =  OclBuiltinImpl<intel_sub_group_block_read1_4_img, [ v1u32 ], 0, BlockReadImg1_4>;
-OclBuiltinImpl intel_sub_group_block_read1_4_img_rw_avx =  OclBuiltinImpl<intel_sub_group_block_read1_4_img_rw, [ v1u32 ], 0, BlockReadImg1_4>;
-OclBuiltinImpl intel_sub_group_block_read_us1_4_img_avx =  OclBuiltinImpl<intel_sub_group_block_read_us1_4_img, intel_sub_group_block_read_write_us_types, 0, BlockReadImg1_4>;
-OclBuiltinImpl intel_sub_group_block_read_us1_4_img_rw_avx =  OclBuiltinImpl<intel_sub_group_block_read_us1_4_img_rw, intel_sub_group_block_read_write_us_types, 0, BlockReadImg1_4>;
-
-code BlockWriteImg1_4 =
-  [{
-    $Arg2Type* p = ($Arg2Type*)extract_pixel_in_byte($Arg0VarName, $Arg1VarName);
-    *p = $Arg2VarName;
-  }];
-OclBuiltinImpl intel_sub_group_block_write1_4_img_avx =  OclBuiltinImpl<intel_sub_group_block_write1_4_img, [ v1u32 ], 0, BlockWriteImg1_4>;
-OclBuiltinImpl intel_sub_group_block_write1_4_img_rw_avx =  OclBuiltinImpl<intel_sub_group_block_write1_4_img_rw, [ v1u32 ], 0, BlockWriteImg1_4>;
-OclBuiltinImpl intel_sub_group_block_write_us1_4_img_avx =  OclBuiltinImpl<intel_sub_group_block_write_us1_4_img, intel_sub_group_block_read_write_us_types, 0, BlockWriteImg1_4>;
-OclBuiltinImpl intel_sub_group_block_write_us1_4_img_rw_avx =  OclBuiltinImpl<intel_sub_group_block_write_us1_4_img_rw, intel_sub_group_block_read_write_us_types, 0, BlockWriteImg1_4>;
-
-code BlockReadImg2_4 =
-  [{
-     $ReturnType res;
-     $ReturnBaseType#4* p1 = ($ReturnBaseType#4 *)extract_pixel_in_byte($Arg0VarName, $Arg1VarName);
-     $Arg1VarName.hi += 1;
-     $ReturnBaseType#4* p2 = ($ReturnBaseType#4 *)extract_pixel_in_byte($Arg0VarName, $Arg1VarName);
-     res.lo = *p1;
-     res.hi = *p2;
-     return ($ReturnType)(__builtin_shufflevector(res, res, 0,  4,
-                                                            1,  5,
-                                                            2,  6,
-                                                            3,  7));
-  }];
-OclBuiltinImpl intel_sub_group_block_read2_4_img_avx =  OclBuiltinImpl<intel_sub_group_block_read2_4_img, [ v1u32 ], 0, BlockReadImg2_4>;
-OclBuiltinImpl intel_sub_group_block_read2_4_img_rw_avx =  OclBuiltinImpl<intel_sub_group_block_read2_4_img_rw, [ v1u32 ], 0, BlockReadImg2_4>;
-OclBuiltinImpl intel_sub_group_block_read_us2_4_img_avx =  OclBuiltinImpl<intel_sub_group_block_read_us2_4_img, intel_sub_group_block_read_write_us_types, 0, BlockReadImg2_4>;
-OclBuiltinImpl intel_sub_group_block_read_us2_4_img_rw_avx =  OclBuiltinImpl<intel_sub_group_block_read_us2_4_img_rw, intel_sub_group_block_read_write_us_types, 0, BlockReadImg2_4>;
-
-code BlockWriteImg2_4 =
-  [{
-     $Arg2BaseType#4* p1 = ($Arg2BaseType#4 *)extract_pixel_in_byte($Arg0VarName, $Arg1VarName);
-     $Arg1VarName.hi += 1;
-     $Arg2BaseType#4* p2 = ($Arg2BaseType#4 *)extract_pixel_in_byte($Arg0VarName, $Arg1VarName);
-     $Arg2Type d = __builtin_shufflevector($Arg2VarName, $Arg2VarName, 0, 2, 4, 6,
-                                                                       1, 3, 5, 7);
-     *p1 = d.lo;
-     *p2 = d.hi;
-  }];
-OclBuiltinImpl intel_sub_group_block_write2_4_img_avx =  OclBuiltinImpl<intel_sub_group_block_write2_4_img, [ v1u32 ], 0, BlockWriteImg2_4>;
-OclBuiltinImpl intel_sub_group_block_write2_4_img_rw_avx =  OclBuiltinImpl<intel_sub_group_block_write2_4_img_rw, [ v1u32 ], 0, BlockWriteImg2_4>;
-OclBuiltinImpl intel_sub_group_block_write_us2_4_img_avx =  OclBuiltinImpl<intel_sub_group_block_write_us2_4_img, intel_sub_group_block_read_write_us_types, 0, BlockWriteImg2_4>;
-OclBuiltinImpl intel_sub_group_block_write_us2_4_img_rw_avx =  OclBuiltinImpl<intel_sub_group_block_write_us2_4_img_rw, intel_sub_group_block_read_write_us_types, 0, BlockWriteImg2_4>;
-
-code BlockReadImg4_4 =
-  [{
-     $ReturnType res;
-     $ReturnBaseType *r = ($ReturnBaseType*)&res;
-     $ReturnBaseType#4* p;
-#pragma clang unroll(full)
-     for (int i=0; i < 4; ++i) {
-       p = ($ReturnBaseType#4 *)extract_pixel_in_byte($Arg0VarName, $Arg1VarName);
-       *($ReturnBaseType#4*)&r[i * 4] = *p;
-       $Arg1VarName.hi += 1;
-     }
-    return __builtin_shufflevector(res,res, 0, 4, 8, 12,
-                                            1, 5, 9, 13,
-                                            2, 6, 10, 14,
-                                            3, 7, 11, 15);
-  }];
-OclBuiltinImpl intel_sub_group_block_read4_4_img_avx =  OclBuiltinImpl<intel_sub_group_block_read4_4_img, [ v1u32 ], 0, BlockReadImg4_4>;
-OclBuiltinImpl intel_sub_group_block_read4_4_img_rw_avx =  OclBuiltinImpl<intel_sub_group_block_read4_4_img_rw, [ v1u32 ], 0, BlockReadImg4_4>;
-OclBuiltinImpl intel_sub_group_block_read_us4_4_img_avx =  OclBuiltinImpl<intel_sub_group_block_read_us4_4_img, intel_sub_group_block_read_write_us_types, 0, BlockReadImg4_4>;
-OclBuiltinImpl intel_sub_group_block_read_us4_4_img_rw_avx =  OclBuiltinImpl<intel_sub_group_block_read_us4_4_img_rw, intel_sub_group_block_read_write_us_types, 0, BlockReadImg4_4>;
-
-code BlockWriteImg4_4 =
-  [{
-     $Arg2Type d = __builtin_shufflevector($Arg2VarName, $Arg2VarName, 0, 4, 8, 12,
-                                                                       1, 5, 9, 13,
-                                                                       2, 6, 10, 14,
-                                                                       3, 7, 11, 15);
-     $Arg2BaseType *r = ($Arg2BaseType*)&d;
-     $Arg2BaseType#4* p;
-#pragma clang unroll(full)
-     for (int i=0; i < 4; ++i) {
-       p = ($Arg2BaseType#4 *)extract_pixel_in_byte($Arg0VarName, $Arg1VarName);
-       *p = *($Arg2BaseType#4 *)&r[i * 4];
-       $Arg1VarName.hi += 1;
-     }
-  }];
-OclBuiltinImpl intel_sub_group_block_write4_4_img_avx =  OclBuiltinImpl<intel_sub_group_block_write4_4_img, [ v1u32 ], 0,BlockWriteImg4_4>;
-OclBuiltinImpl intel_sub_group_block_write4_4_img_rw_avx =  OclBuiltinImpl<intel_sub_group_block_write4_4_img_rw, [ v1u32 ], 0,BlockWriteImg4_4>;
-OclBuiltinImpl intel_sub_group_block_write_us4_4_img_avx =  OclBuiltinImpl<intel_sub_group_block_write_us4_4_img, intel_sub_group_block_read_write_us_types, 0,BlockWriteImg4_4>;
-OclBuiltinImpl intel_sub_group_block_write_us4_4_img_rw_avx =  OclBuiltinImpl<intel_sub_group_block_write_us4_4_img_rw, intel_sub_group_block_read_write_us_types, 0,BlockWriteImg4_4>;
-
-code BlockReadImg8_4 =
-  [{
-     $ReturnType res;
-     $ReturnBaseType *r = ($ReturnBaseType*)&res;
-     $ReturnBaseType#4* p;
-#pragma clang unroll(full)
-     for (int i=0; i < 8; ++i) {
-       p = ($ReturnBaseType#4 *)extract_pixel_in_byte($Arg0VarName, $Arg1VarName);
-       *($ReturnBaseType#4*)&r[i * 4] = *p;
-       $Arg1VarName.hi += 1;
-     }
-    return __ocl_shuffle_transpose_$ReturnBaseType#_4x8(res);
-  }];
-OclBuiltinImpl intel_sub_group_block_read8_4_img_avx =  OclBuiltinImpl<intel_sub_group_block_read8_4_img, [ v1u32 ], 0, BlockReadImg8_4>;
-OclBuiltinImpl intel_sub_group_block_read8_4_img_rw_avx =  OclBuiltinImpl<intel_sub_group_block_read8_4_img_rw, [ v1u32 ], 0, BlockReadImg8_4>;
-OclBuiltinImpl intel_sub_group_block_read_us8_4_img_avx =  OclBuiltinImpl<intel_sub_group_block_read_us8_4_img, intel_sub_group_block_read_write_us_types, 0, BlockReadImg8_4>;
-OclBuiltinImpl intel_sub_group_block_read_us8_4_img_rw_avx =  OclBuiltinImpl<intel_sub_group_block_read_us8_4_img_rw, intel_sub_group_block_read_write_us_types, 0, BlockReadImg8_4>;
-
-code BlockWriteImg8_4 =
-  [{
-     $Arg2Type d = __ocl_shuffle_transpose_$Arg2BaseType#_8x4($Arg2VarName);
-     $Arg2BaseType *r = ($Arg2BaseType*)&d;
-     $Arg2BaseType#4* p;
-#pragma clang unroll(full)
-     for (int i=0; i < 8; ++i) {
-       p = ($Arg2BaseType#4 *)extract_pixel_in_byte($Arg0VarName, $Arg1VarName);
-       *p = *($Arg2BaseType#4 *)&r[i * 4];
-       $Arg1VarName.hi += 1;
-     }
-  }];
-OclBuiltinImpl intel_sub_group_block_write8_4_img_avx =  OclBuiltinImpl<intel_sub_group_block_write8_4_img, [ v1u32 ], 0, BlockWriteImg8_4>;
-OclBuiltinImpl intel_sub_group_block_write8_4_img_rw_avx =  OclBuiltinImpl<intel_sub_group_block_write8_4_img_rw, [ v1u32 ], 0, BlockWriteImg8_4>;
-OclBuiltinImpl intel_sub_group_block_write_us8_4_img_avx =  OclBuiltinImpl<intel_sub_group_block_write_us8_4_img, intel_sub_group_block_read_write_us_types, 0, BlockWriteImg8_4>;
-OclBuiltinImpl intel_sub_group_block_write_us8_4_img_rw_avx =  OclBuiltinImpl<intel_sub_group_block_write_us8_4_img_rw, intel_sub_group_block_read_write_us_types, 0, BlockWriteImg8_4>;
-
-code BlockReadImg16_4 =
-  [{
-     $ReturnType res;
-     $ReturnBaseType *r = ($ReturnBaseType*)&res;
-     $ReturnBaseType#4* p;
-#pragma clang unroll(full)
-     for (int i=0; i < 16; ++i) {
-       p = ($ReturnBaseType#4 *)extract_pixel_in_byte($Arg0VarName, $Arg1VarName);
-       *($ReturnBaseType#4*)&r[i * 4] = *p;
-       $Arg1VarName.hi += 1;
-     }
-    return __ocl_shuffle_transpose_$ReturnBaseType#_4x16(res);
-  }];
-OclBuiltinImpl intel_sub_group_block_read_us16_4_img_avx =  OclBuiltinImpl<intel_sub_group_block_read_us16_4_img, [v1u8], 0, BlockReadImg16_4>;
-OclBuiltinImpl intel_sub_group_block_read_us16_4_img_rw_avx =  OclBuiltinImpl<intel_sub_group_block_read_us16_4_img_rw, [v1u8], 0, BlockReadImg16_4>;
-code BlockWriteImg16_4 =
-  [{
-     $Arg2Type d = __ocl_shuffle_transpose_$Arg2BaseType#_16x4($Arg2VarName);
-     $Arg2BaseType *r = ($Arg2BaseType*)&d;
-     $Arg2BaseType#4* p;
-#pragma clang unroll(full)
-     for (int i=0; i < 16; ++i) {
-       p = ($Arg2BaseType#4 *)extract_pixel_in_byte($Arg0VarName, $Arg1VarName);
-       *p = *($Arg2BaseType#4 *)&r[i * 4];
-       $Arg1VarName.hi += 1;
-     }
-  }];
-OclBuiltinImpl intel_sub_group_block_write_us16_4_img_avx =  OclBuiltinImpl<intel_sub_group_block_write_us16_4_img, [v1u8], 0, BlockWriteImg16_4>;
-OclBuiltinImpl intel_sub_group_block_write_us16_4_img_rw_avx =  OclBuiltinImpl<intel_sub_group_block_write_us16_4_img_rw, [v1u8], 0, BlockWriteImg16_4>;
-
 
 //
 // non uniform logical
@@ -2538,20 +2356,6 @@ OclBuiltinImpl sub_group_non_uniform_scan_exclusive_mul_v4 = OclBuiltinImpl<sub_
 OclBuiltinImpl sub_group_non_uniform_scan_exclusive_mul_v8 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_mul_vec, [v8i8, v8u8, v8i16, v8u16, v8i32, v8u32, v8f32, v8f64, v8i64, v8u64], 0, scan_exclusive_mul_v8>;
 OclBuiltinImpl sub_group_non_uniform_scan_exclusive_mul_v16 = OclBuiltinImpl<sub_group_non_uniform_scan_exclusive_mul_vec, [v16i8, v16u8, v16i16, v16u16, v16i32, v16u32, v16f32, v16f64, v16i64, v16u64], 0, scan_exclusive_mul_v16>;
 
-//
-// Broadcast
-//
-
-OclBuiltinImpl sub_group_broadcast_vector = OclBuiltinImpl<sub_group_broadcast_vec, [v4i32, v8i32, v16i32,
-                                                                                     v4u32, v8u32, v16u32,
-                                                                                     v4i64, v8i64, v16i64,
-                                                                                     v4u64, v8u64, v16u64,
-                                                                                     v4f32, v8f32, v16f32,
-                                                                                     v4f64, v8f64, v16f64],  0,
-  [{
-    return $Arg0VarName[$Arg1VarName];
-  }]>;
-
 
 OclBuiltinImpl sub_group_broadcast_ext_avx_v8 =
   OclBuiltinImpl<sub_group_broadcast_extended_avx, [v8i8, v8u8, v8i16, v8u16, v8i32, v8u32, v8i64, v8u64, v8f32, v8f64], 0,
@@ -2658,14 +2462,6 @@ OclBuiltinImpl sub_group_broadcast_ext_avx512_v256 =
   [{
      $Arg0BaseType#16 temp = *(($Arg0BaseType#16*)&$Arg0VarName + $Arg1VarName);
      return ($ReturnType)(temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp, temp);
-  }]>;
-
-OclBuiltinImpl sub_group_broadcast_vector_cs = OclBuiltinImpl<sub_group_broadcast_vec_cs, [v4i8 , v8i8 , v16i8 ,
-                                                                                           v4u8 , v8u8 , v16u8 ,
-                                                                                           v4i16, v8i16, v16i16,
-                                                                                           v4u16, v8u16, v16u16], 0,
-  [{
-    return $Arg0VarName[$Arg1VarName];
   }]>;
 
 OclBuiltinImpl sub_group_shuffle_avx512v48gentype = OclBuiltinImpl<sub_group_shuffle_avx512, [v48i8, v48u8, v48i16, v48u16, v48f32,

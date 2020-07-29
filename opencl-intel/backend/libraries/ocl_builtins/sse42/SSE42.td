@@ -12,4 +12,5 @@ include "sse42/math.td"
 include "sse42/conversion_sat.td"
 include "sse42/relational.td"
 include "sse42/transpose.td"
+include "sse42/sub_group_builtin_impl.td"
 }

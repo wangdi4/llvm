@@ -173,6 +173,9 @@ OCLVPOCheckVF::checkHorizontalOps(Function *F) {
   auto KIMD = KernelInternalMetadataAPI(F);
   unsigned &VF = m_kernelToVF[F];
 
+  static const std::set<unsigned> SupportedSubGroupVFs = {4, 8, 16, 32, 64};
+  static const std::set<unsigned> SupportedWorkGroupVFs = {1, 4, 8, 16};
+
   std::vector<std::pair<std::string, unsigned>> unimplementBuiltins;
 
   for (Instruction &inst : instructions(F)) {
@@ -182,25 +185,19 @@ OCLVPOCheckVF::checkHorizontalOps(Function *F) {
         continue;
       StringRef calleeName = pCallee->getName();
       // Check subgroup calls.
-      if (calleeName.contains("sub_group") && !calleeName.contains("barrier")) {
-        // 1. VF must be supported for the current arch.
-        // 2. AVX has only x4 subgroup builtins.
-        if (m_cpuId.isTransposeSizeSupported((ETransposeSize)VF) !=
-                Intel::SUPPORTED ||
-            (!m_cpuId.HasAVX2() && VF == TRANSPOSE_SIZE_8)) {
-          if (m_canFallBack) {
-            VF = KIMD.OclRecommendedVectorLength.get();
-            m_checkState[std::string(F->getName())].isVFFalledBack = true;
-          } else {
-            unimplementBuiltins.push_back({std::string(calleeName), VF});
-          }
+      if (calleeName.contains("sub_group") && !calleeName.contains("barrier") &&
+          SupportedSubGroupVFs.count(VF) == 0) {
+        if (m_canFallBack) {
+          VF = KIMD.OclRecommendedVectorLength.get();
+          m_checkState[std::string(F->getName())].isVFFalledBack = true;
+        } else {
+          unimplementBuiltins.push_back({std::string(calleeName), VF});
         }
       }
       // Check workgroup calls.
       if (calleeName.contains("work_group") &&
           !calleeName.contains("barrier") &&
-          (VF != TRANSPOSE_SIZE_1 && VF != TRANSPOSE_SIZE_4 &&
-           VF != TRANSPOSE_SIZE_8 && VF != TRANSPOSE_SIZE_16)) {
+          SupportedWorkGroupVFs.count(VF) == 0) {
         if (m_canFallBack) {
           VF = KIMD.OclRecommendedVectorLength.get();
           m_checkState[std::string(F->getName())].isVFFalledBack = true;
