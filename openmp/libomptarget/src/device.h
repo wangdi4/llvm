@@ -199,16 +199,16 @@ struct DeviceTy {
   /// default value of \p HstPtr is nullptr. Note: this function doesn't do
   /// pointer association. Actually, all the __tgt_rtl_data_alloc
   /// implementations ignore \p HstPtr.
-  void *data_alloc(int64_t Size, void *HstPtr = nullptr);
+  void *allocData(int64_t Size, void *HstPtr = nullptr);
   /// Deallocates memory which \p TgtPtrBegin points at and returns
   /// OFFLOAD_SUCCESS/OFFLOAD_FAIL when succeeds/fails.
-  int32_t data_delete(void *TgtPtrBegin);
+  int32_t deleteData(void *TgtPtrBegin);
 
   // Data transfer. When AsyncInfoPtr is nullptr, the transfer will be
   // synchronous.
   // Copy data from host to device
-  int32_t data_submit(void *TgtPtrBegin, void *HstPtrBegin, int64_t Size,
-                      __tgt_async_info *AsyncInfoPtr);
+  int32_t submitData(void *TgtPtrBegin, void *HstPtrBegin, int64_t Size,
+                     __tgt_async_info *AsyncInfoPtr);
   // Copy data from device back to host
   int32_t data_retrieve(void *HstPtrBegin, void *TgtPtrBegin, int64_t Size,
                         __tgt_async_info *AsyncInfoPtr);
@@ -216,6 +216,7 @@ struct DeviceTy {
   int32_t data_exchange(void *SrcPtr, DeviceTy DstDev, void *DstPtr,
                         int64_t Size, __tgt_async_info *AsyncInfoPtr);
 
+<<<<<<< HEAD
   int32_t run_region(void *TgtEntryPtr, void **TgtVarsPtr,
                      ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
                      __tgt_async_info *AsyncInfoPtr);
@@ -259,6 +260,14 @@ struct DeviceTy {
   int32_t is_managed_ptr(void *Ptr);
   void *data_alloc_explicit(int64_t Size, int32_t Kind);
 #endif // INTEL_COLLAB
+=======
+  int32_t runRegion(void *TgtEntryPtr, void **TgtVarsPtr, ptrdiff_t *TgtOffsets,
+                    int32_t TgtVarsSize, __tgt_async_info *AsyncInfoPtr);
+  int32_t runTeamRegion(void *TgtEntryPtr, void **TgtVarsPtr,
+                        ptrdiff_t *TgtOffsets, int32_t TgtVarsSize,
+                        int32_t NumTeams, int32_t ThreadLimit,
+                        uint64_t LoopTripCount, __tgt_async_info *AsyncInfoPtr);
+>>>>>>> 3ce69d4d50a24394eff15f92e3f4a609acc963e7
 
   /// Synchronize device/queue/event based on \p AsyncInfoPtr and return
   /// OFFLOAD_SUCCESS/OFFLOAD_FAIL when succeeds/fails.

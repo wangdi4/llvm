@@ -61,6 +61,7 @@ EXTERN void *omp_target_alloc(size_t size, int device_num) {
     return NULL;
   }
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
   DeviceTy &Device = Devices[device_num];
   if (RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) {
@@ -72,6 +73,9 @@ EXTERN void *omp_target_alloc(size_t size, int device_num) {
 #else // INTEL_COLLAB
   rc = Devices[device_num].data_alloc(size);
 #endif // INTEL_COLLAB
+=======
+  rc = Devices[device_num].allocData(size);
+>>>>>>> 3ce69d4d50a24394eff15f92e3f4a609acc963e7
   DP("omp_target_alloc returns device ptr " DPxMOD "\n", DPxPTR(rc));
   return rc;
 }
@@ -96,6 +100,7 @@ EXTERN void omp_target_free(void *device_ptr, int device_num) {
     return;
   }
 
+<<<<<<< HEAD
 #if INTEL_COLLAB
   DeviceTy &Device = Devices[device_num];
   if (Device.is_managed_ptr(device_ptr)) {
@@ -106,6 +111,9 @@ EXTERN void omp_target_free(void *device_ptr, int device_num) {
   }
 #endif // INTEL_COLLAB
   Devices[device_num].data_delete(device_ptr);
+=======
+  Devices[device_num].deleteData(device_ptr);
+>>>>>>> 3ce69d4d50a24394eff15f92e3f4a609acc963e7
   DP("omp_target_free deallocated device ptr\n");
 }
 
@@ -182,7 +190,7 @@ EXTERN int omp_target_memcpy(void *dst, void *src, size_t length,
   } else if (src_device == omp_get_initial_device()) {
     DP("copy from host to device\n");
     DeviceTy& DstDev = Devices[dst_device];
-    rc = DstDev.data_submit(dstAddr, srcAddr, length, nullptr);
+    rc = DstDev.submitData(dstAddr, srcAddr, length, nullptr);
   } else if (dst_device == omp_get_initial_device()) {
     DP("copy from device to host\n");
     DeviceTy& SrcDev = Devices[src_device];
@@ -202,7 +210,7 @@ EXTERN int omp_target_memcpy(void *dst, void *src, size_t length,
     void *buffer = malloc(length);
     rc = SrcDev.data_retrieve(buffer, srcAddr, length, nullptr);
     if (rc == OFFLOAD_SUCCESS)
-      rc = DstDev.data_submit(dstAddr, buffer, length, nullptr);
+      rc = DstDev.submitData(dstAddr, buffer, length, nullptr);
     free(buffer);
   }
 
