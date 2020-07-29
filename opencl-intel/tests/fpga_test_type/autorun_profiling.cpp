@@ -24,8 +24,6 @@
 class TestAutorunProfilerAPI : public OCLFPGABaseFixture {};
 
 TEST_F(TestAutorunProfilerAPI, Basic) {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic"
   cl_int (*get_profile_data_device) (cl_device_id, cl_program, cl_bool, cl_bool,
                                      cl_bool, size_t, void *, size_t *,
                                      cl_int *);
@@ -36,7 +34,6 @@ TEST_F(TestAutorunProfilerAPI, Basic) {
   ASSERT_NE(nullptr, get_profile_data_device)
       << " clGetExtensionFunctionAddress(\"clGetProfileDataDeviceIntelFPGA\") "
          "failed";
-#pragma GCC diagnosic pop
 
   cl_int error = CL_SUCCESS;
   get_profile_data_device(/*device_id*/ device(),

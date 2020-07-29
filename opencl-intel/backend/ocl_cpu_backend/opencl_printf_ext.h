@@ -19,7 +19,9 @@
     #include <process.h>
 #endif
 
-#pragma warning(disable:654)
+#if defined (_MSC_VER)
+    #pragma warning(disable:654)
+#endif
 
 class OutputAccumulator
 {
