@@ -191,12 +191,8 @@ PrintIRInstrumentation::popModuleDesc(StringRef PassID) {
   return ModuleDesc;
 }
 
-<<<<<<< HEAD
-bool PrintIRInstrumentation::printBeforePass(StringRef PassID, Any IR) {
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-=======
 void PrintIRInstrumentation::printBeforePass(StringRef PassID, Any IR) {
->>>>>>> 7a2e1122ae4611916c920c815a4310085ed04830
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   if (PassID.startswith("PassManager<") || PassID.contains("PassAdaptor<"))
     return;
 
@@ -212,12 +208,8 @@ void PrintIRInstrumentation::printBeforePass(StringRef PassID, Any IR) {
 
   SmallString<20> Banner = formatv("*** IR Dump Before {0} ***", PassID);
   unwrapAndPrint(IR, Banner, llvm::forcePrintModuleIR());
-<<<<<<< HEAD
 #endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-  return true;
-=======
   return;
->>>>>>> 7a2e1122ae4611916c920c815a4310085ed04830
 }
 
 void PrintIRInstrumentation::printAfterPass(StringRef PassID, Any IR) {
