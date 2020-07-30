@@ -10,17 +10,15 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
 define dso_local i32 @main() #0 {
-; CHECK:       Printing Divergence info for Loop at depth 1 containing: [[BB0:BB[0-9]+]]<header>,[[BB1:BB[0-9]+]],[[BB2:BB[0-9]+]],[[BB3:BB[0-9]+]],[[BB4:BB[0-9]+]],[[BB5:BB[0-9]+]],[[BB6:BB[0-9]+]],[[BB7:BB[0-9]+]],[[BB8:BB[0-9]+]]<latch><exiting>,[[BB9:BB[0-9]+]],[[NEW_LOOP_LATCH0:new.loop.latch[0-9]+]],[[INTERMEDIATE_BB0:intermediate.bb[0-9]+]],[[INTERMEDIATE_BB1:intermediate.bb[0-9]+]],[[CASCADED_IF_BLOCK0:cascaded.if.block[0-9]+]],[[CASCADED_IF_BLOCK1:cascaded.if.block[0-9]+]],[[BB10:BB[0-9]+]]
+; CHECK:       Printing Divergence info for Loop at depth 1 containing: [[BB0:BB[0-9]+]]<header>,[[BB1:BB[0-9]+]],[[BB2:BB[0-9]+]],[[BB3:BB[0-9]+]],[[BB4:BB[0-9]+]],[[BB5:BB[0-9]+]],[[BB6:BB[0-9]+]],[[BB7:BB[0-9]+]],[[BB8:BB[0-9]+]]<latch><exiting>,[[NEW_LOOP_LATCH0:new.loop.latch[0-9]+]],[[INTERMEDIATE_BB0:intermediate.bb[0-9]+]],[[INTERMEDIATE_BB1:intermediate.bb[0-9]+]],[[CASCADED_IF_BLOCK0:cascaded.if.block[0-9]+]],[[CASCADED_IF_BLOCK1:cascaded.if.block[0-9]+]]
 ; CHECK-NEXT:      Loop at depth 2 containing: [[BB1]]<header>,[[BB3]],[[BB6]],[[NEW_LOOP_LATCH0]]<latch><exiting>,[[INTERMEDIATE_BB0]],[[INTERMEDIATE_BB1]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB0]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i32 0, [[BB11:BB[0-9]+]] ],  [ i32 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB8]] ]
-; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[VP_PHI_OUTER_LOOP_INDUCTION:%.*]] = phi  [ i32 [[VP_PHI_OUTER_LOOP_INDUCTION_IND_INIT:%.*]], [[BB11]] ],  [ i32 [[VP_OUTER_LOOP_INDUCTION:%.*]], [[BB8]] ]
-; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB9]]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i32 0, [[BB9:BB[0-9]+]] ],  [ i32 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB8]] ]
+; CHECK-NEXT:  Divergent: [Shape: Unit Stride, Stride: i32 1] i32 [[VP_PHI_OUTER_LOOP_INDUCTION:%.*]] = phi  [ i32 [[VP_PHI_OUTER_LOOP_INDUCTION_IND_INIT:%.*]], [[BB9]] ],  [ i32 [[VP_OUTER_LOOP_INDUCTION:%.*]], [[BB8]] ]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[BB1]]
-; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_PHI_INNER_LOOP_INDUCTION:%.*]] = phi  [ i32 0, [[BB9]] ],  [ i32 [[VP_INNER_LOOP_INDUCTION_SSA_PHI:%.*]], [[NEW_LOOP_LATCH0]] ]
+; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_PHI_INNER_LOOP_INDUCTION:%.*]] = phi  [ i32 0, [[BB0]] ],  [ i32 [[VP_INNER_LOOP_INDUCTION_SSA_PHI:%.*]], [[NEW_LOOP_LATCH0]] ]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_INC1:%.*]] = add i32 [[VP_PHI_INNER_LOOP_INDUCTION]] i32 1
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_CMP1:%.*]] = icmp i32 [[VP_INC1]] i32 16
 ; CHECK-EMPTY:
@@ -48,8 +46,6 @@ define dso_local i32 @main() #0 {
 ; CHECK-NEXT:  Basic Block: [[CASCADED_IF_BLOCK1]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP0:%.*]] = icmp i32 [[VP_EXIT_ID_PHI]] i32 1
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB10]]
-; CHECK-EMPTY:
 ; CHECK-NEXT:  Basic Block: [[CASCADED_IF_BLOCK0]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP1:%.*]] = icmp i32 [[VP_EXIT_ID_PHI]] i32 2
 ; CHECK-EMPTY:
@@ -68,10 +64,10 @@ define dso_local i32 @main() #0 {
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_VECTOR_LOOP_IV_NEXT]] = add i32 [[VP_VECTOR_LOOP_IV]] i32 [[VP_VF:%.*]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp i32 [[VP_VECTOR_LOOP_IV_NEXT]] i32 [[VP_VECTOR_TRIP_COUNT:%.*]]
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB12:BB[0-9]+]]
+; CHECK-NEXT:  Basic Block: [[BB10:BB[0-9]+]]
 ; CHECK-NEXT:  Uniform: [Shape: Uniform] i32 [[VP_PHI_OUTER_LOOP_INDUCTION_IND_FINAL:%.*]] = induction-final{add} i32 0 i32 1
 ; CHECK-EMPTY:
-; CHECK-NEXT:  Basic Block: [[BB13:BB[0-9]+]]
+; CHECK-NEXT:  Basic Block: [[BB11:BB[0-9]+]]
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
@@ -81,8 +77,8 @@ entry:
 ;-------------------------------------------------------------------------------
 ; +------>outer.loop                     +---------->outer.loop(BB2)
 ; |           |                          |               |
-; |  +--->inner.loop(U)--------+         |              BB4(added by
-; |  |       /                 |         |               |  simplifyPlainCFG())
+; |  +--->inner.loop(U)--------+         |               |
+; |  |       /                 |         |               |
 ; |  |   bb1(U)--------------+ exit.bb1  | +-------->inner.loop(BB5)
 ; |  |     |                 |       |   | |            /       \
 ; |  +--inner.loop.latch(U) exit.bb2 |   | |      bb1(BB6)  INTERMEDIATE_BB0
@@ -94,8 +90,7 @@ entry:
 ;                                        |                |
 ;                                        |        CASCADED_IF_BLOCK0
 ;                                        |                 |
-;                                        |                BB8(added by
-;                                        |                 | simplifyPlainCFG())
+;                                        |                 |
 ;                                        |                / \
 ;                                        |    exit.bb1(BB9) CASCADED_IF_BLOCK1
 ;                                        |        \                 /  \

@@ -84,9 +84,7 @@ protected:
 
   virtual void passEntitiesToVPlan(VPLoopEntityConverterList &Cvts);
 
-  void simplifyPlainCFG();
-  void splitLoopsPreheader(VPLoop *VPLp);
-  void splitLoopsExit(VPLoop *VPLp);
+  void doLoopMassaging();
 
 public:
   VPlanHCFGBuilder(Loop *Lp, LoopInfo *LI, const DataLayout &DL,

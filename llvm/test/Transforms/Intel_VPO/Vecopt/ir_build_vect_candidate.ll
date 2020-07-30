@@ -11,7 +11,7 @@
 ; Removed unnecessary auto-generated checks in generated vector code.
 ;
 define void @foo(i64* nocapture %larr) {
-; CHECK-LABEL:  VPlan after predication and linearization
+; CHECK-LABEL:  VPlan after predication and linearization:
 ; CHECK-NEXT:    [[BB0:BB[0-9]+]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    SUCCESSORS(1):[[BB1:BB[0-9]+]]
@@ -27,48 +27,43 @@ define void @foo(i64* nocapture %larr) {
 ; CHECK-NEXT:    PREDECESSORS(1): [[BB0]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB2]]:
-; CHECK-NEXT:     <Empty Block>
-; CHECK-NEXT:    SUCCESSORS(1):[[BB3:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB1]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB3]]:
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB2]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB4:BB[0-9]+]] ]
-; CHECK-NEXT:     [DA: Div] i64 [[VP_L1:%.*]] = phi  [ i64 [[VP_L1_IND_INIT]], [[BB2]] ],  [ i64 [[VP_INC:%.*]], [[BB4]] ]
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB3:BB[0-9]+]] ]
+; CHECK-NEXT:     [DA: Div] i64 [[VP_L1:%.*]] = phi  [ i64 [[VP_L1_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INC:%.*]], [[BB3]] ]
 ; CHECK-NEXT:     [DA: Div] i64* [[VP_ARRAYIDX:%.*]] = getelementptr inbounds i64* [[LARR0:%.*]] i64 [[VP_L1]]
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_LDVAL:%.*]] = load i64* [[VP_ARRAYIDX]]
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_LDVALCMP:%.*]] = icmp i64 [[VP_LDVAL]] i64 1111
 ; CHECK-NEXT:     [DA: Div] i1 [[VP_LDVALCMP_NOT:%.*]] = not i1 [[VP_LDVALCMP]]
-; CHECK-NEXT:    SUCCESSORS(1):[[BB5:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(2): [[BB4]] [[BB2]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB5]]:
-; CHECK-NEXT:     [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_LDVALCMP_NOT]]
-; CHECK-NEXT:     [DA: Div] store i64 2222 i64* [[VP_ARRAYIDX]]
-; CHECK-NEXT:    SUCCESSORS(1):[[BB6:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB6]]:
-; CHECK-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_LDVALCMP]]
-; CHECK-NEXT:     [DA: Div] store i64 3333 i64* [[VP_ARRAYIDX]]
-; CHECK-NEXT:    SUCCESSORS(1):[[BB4]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
+; CHECK-NEXT:    SUCCESSORS(1):[[BB4:BB[0-9]+]]
+; CHECK-NEXT:    PREDECESSORS(2): [[BB1]] [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB4]]:
+; CHECK-NEXT:     [DA: Div] i1 [[VP0:%.*]] = block-predicate i1 [[VP_LDVALCMP_NOT]]
+; CHECK-NEXT:     [DA: Div] store i64 2222 i64* [[VP_ARRAYIDX]]
+; CHECK-NEXT:    SUCCESSORS(1):[[BB5:BB[0-9]+]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB2]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB5]]:
+; CHECK-NEXT:     [DA: Div] i1 [[VP1:%.*]] = block-predicate i1 [[VP_LDVALCMP]]
+; CHECK-NEXT:     [DA: Div] store i64 3333 i64* [[VP_ARRAYIDX]]
+; CHECK-NEXT:    SUCCESSORS(1):[[BB3]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB4]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB3]]:
 ; CHECK-NEXT:     [DA: Div] i64 [[VP_INC]] = add i64 [[VP_L1]] i64 [[VP_L1_IND_INIT_STEP]]
 ; CHECK-NEXT:     [DA: Uni] i64 [[VP_VECTOR_LOOP_IV_NEXT]] = add i64 [[VP_VECTOR_LOOP_IV]] i64 [[VP_VF]]
 ; CHECK-NEXT:     [DA: Uni] i1 [[VP_VECTOR_LOOP_EXITCOND:%.*]] = icmp i64 [[VP_VECTOR_LOOP_IV_NEXT]] i64 [[VP_VECTOR_TRIP_COUNT]]
-; CHECK-NEXT:    SUCCESSORS(2):[[BB7:BB[0-9]+]](i1 [[VP_VECTOR_LOOP_EXITCOND]]), [[BB3]](!i1 [[VP_VECTOR_LOOP_EXITCOND]])
-; CHECK-NEXT:    PREDECESSORS(1): [[BB6]]
+; CHECK-NEXT:    SUCCESSORS(2):[[BB6:BB[0-9]+]](i1 [[VP_VECTOR_LOOP_EXITCOND]]), [[BB2]](!i1 [[VP_VECTOR_LOOP_EXITCOND]])
+; CHECK-NEXT:    PREDECESSORS(1): [[BB5]]
+; CHECK-EMPTY:
+; CHECK-NEXT:    [[BB6]]:
+; CHECK-NEXT:     [DA: Uni] i64 [[VP_L1_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
+; CHECK-NEXT:    SUCCESSORS(1):[[BB7:BB[0-9]+]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB3]]
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    [[BB7]]:
-; CHECK-NEXT:     [DA: Uni] i64 [[VP_L1_IND_FINAL:%.*]] = induction-final{add} i64 0 i64 1
-; CHECK-NEXT:    SUCCESSORS(1):[[BB8:BB[0-9]+]]
-; CHECK-NEXT:    PREDECESSORS(1): [[BB4]]
-; CHECK-EMPTY:
-; CHECK-NEXT:    [[BB8]]:
 ; CHECK-NEXT:     <Empty Block>
 ; CHECK-NEXT:    no SUCCESSORS
-; CHECK-NEXT:    PREDECESSORS(1): [[BB7]]
+; CHECK-NEXT:    PREDECESSORS(1): [[BB6]]
 ;
 ; CHECK:  define void @foo(i64* nocapture [[LARR0]]) {
 ; CHECK:       vector.body:
