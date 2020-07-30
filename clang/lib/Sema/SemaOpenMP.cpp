@@ -7309,6 +7309,7 @@ tryBuildCapture(Sema &SemaRef, Expr *Capture,
 static Expr *
 calculateNumIters(Sema &SemaRef, Scope *S, SourceLocation DefaultLoc,
                   Expr *Lower, Expr *Upper, Expr *Step, QualType LCTy,
+                  bool StepIsPositive, // INTEL
                   bool TestIsStrictOp, bool RoundToStep,
                   llvm::MapVector<const Expr *, DeclRefExpr *> &Captures) {
   ExprResult NewStep = tryBuildCapture(SemaRef, Step, Captures);
@@ -7327,6 +7328,15 @@ calculateNumIters(Sema &SemaRef, Scope *S, SourceLocation DefaultLoc,
   bool NoNeedToConvert = IsLowerConst && !RoundToStep &&
                          ((!TestIsStrictOp && LRes.isNonNegative()) ||
                           (TestIsStrictOp && LRes.isStrictlyPositive()));
+#if INTEL_CUSTOMIZATION
+    // If the lower bound is zero with a positive step, don't convert to
+    // unsigned since we will assume it will not overflow. This changes the
+    // behavior only for the number of iterations = INT_MAX+1 case.
+    // See CMPLRLLVM-21314.
+    if (SemaRef.getLangOpts().OpenMPLateOutline && IsLowerConst && LRes == 0 &&
+        StepIsPositive)
+      NoNeedToConvert = true;
+#endif // INTEL_CUSTOMIZATION
   bool NeedToReorganize = false;
   // Check if any subexpressions in Lower -Step [+ 1] lead to overflow.
   if (!NoNeedToConvert && IsLowerConst &&
@@ -7651,8 +7661,13 @@ Expr *OpenMPIterationSpaceChecker::buildNumIterations(
   if (!Upper || !Lower)
     return nullptr;
 
+#if INTEL_CUSTOMIZATION
+  bool StepIsPositive = !SubtractStep &&
+      Step->isIntegerConstantExpr(SemaRef.Context);
+#endif // INTEL_CUSTOMIZATION
   ExprResult Diff =
       calculateNumIters(SemaRef, S, DefaultLoc, Lower, Upper, Step, VarType,
+                        StepIsPositive, // INTEL
                         TestIsStrictOp, /*RoundToStep=*/true, Captures);
   if (!Diff.isUsable())
     return nullptr;
@@ -7731,6 +7746,7 @@ std::pair<Expr *, Expr *> OpenMPIterationSpaceChecker::buildMinMaxValues(
 
   ExprResult Diff =
       calculateNumIters(SemaRef, S, DefaultLoc, Lower, Upper, Step, VarType,
+                        /*StepIsPositive=*/false, // INTEL
                         TestIsStrictOp, /*RoundToStep=*/false, Captures);
   if (!Diff.isUsable())
     return std::make_pair(nullptr, nullptr);
@@ -7922,7 +7938,10 @@ Expr *OpenMPIterationSpaceChecker::buildOrderedLoopData(
     return nullptr;
 
   ExprResult Diff = calculateNumIters(SemaRef, S, DefaultLoc, Lower, Upper,
-                                      Step, VarType, /*TestIsStrictOp=*/false,
+#if INTEL_CUSTOMIZATION
+                                      Step, VarType, /*StepIsPositive=*/false,
+                                      /*TestIsStrictOp=*/false,
+#endif // INTEL_CUSTOMIZATION
                                       /*RoundToStep=*/false, Captures);
   if (!Diff.isUsable())
     return nullptr;
