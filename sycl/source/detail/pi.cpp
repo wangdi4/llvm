@@ -215,11 +215,16 @@ bool findPlugins(vector_class<std::pair<std::string, backend>> &PluginNames) {
   // env only.
   //
   PluginNames.emplace_back(OPENCL_PLUGIN_NAME, backend::opencl);
+<<<<<<< HEAD
   PluginNames.emplace_back(LEVEL0_PLUGIN_NAME, backend::level0);
 #if INTEL_CUSTOMIZATION
   // Deliberatly disable CUDA plugin per CMPLRLLVM-16249.
   // PluginNames.emplace_back(CUDA_PLUGIN_NAME, backend::cuda);
 #endif // INTEL_CUSTOMIZATION
+=======
+  PluginNames.emplace_back(LEVEL_ZERO_PLUGIN_NAME, backend::level_zero);
+  PluginNames.emplace_back(CUDA_PLUGIN_NAME, backend::cuda);
+>>>>>>> d5f75bd8f663cc4c1ca658733e86fe085533e401
   return true;
 }
 
@@ -323,13 +328,19 @@ static void initializePlugins(vector_class<plugin> *Plugins) {
                PluginNames[I].first.find("cuda") != std::string::npos)
       // Use the CUDA plugin as the GlobalPlugin
       GlobalPlugin = std::make_shared<plugin>(PluginInformation, backend::cuda);
+<<<<<<< HEAD
 #endif
 #endif // INTEL_CUSTOMIZATION
     } else if (InteropBE == backend::level0 &&
                PluginNames[I].first.find("level0") != std::string::npos) {
       // Use the LEVEL0 plugin as the GlobalPlugin
+=======
+    } else if (InteropBE == backend::level_zero &&
+               PluginNames[I].first.find("level_zero") != std::string::npos) {
+      // Use the LEVEL_ZERO plugin as the GlobalPlugin
+>>>>>>> d5f75bd8f663cc4c1ca658733e86fe085533e401
       GlobalPlugin =
-          std::make_shared<plugin>(PluginInformation, backend::level0);
+          std::make_shared<plugin>(PluginInformation, backend::level_zero);
     }
     Plugins->emplace_back(plugin(PluginInformation, PluginNames[I].second));
     if (trace(TraceLevel::PI_TRACE_BASIC))
@@ -403,7 +414,7 @@ template <backend BE> const plugin &getPlugin() {
 }
 
 template const plugin &getPlugin<backend::opencl>();
-template const plugin &getPlugin<backend::level0>();
+template const plugin &getPlugin<backend::level_zero>();
 
 // Report error and no return (keeps compiler from printing warnings).
 // TODO: Probably change that to throw a catchable exception,

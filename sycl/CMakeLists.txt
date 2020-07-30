@@ -14,7 +14,7 @@ include(AddSYCLExecutable)
 set(SYCL_MAJOR_VERSION 2)
 set(SYCL_MINOR_VERSION 1)
 set(SYCL_PATCH_VERSION 0)
-set(SYCL_DEV_ABI_VERSION 3)
+set(SYCL_DEV_ABI_VERSION 4)
 if (SYCL_ADD_DEV_VERSION_POSTFIX)
   set(SYCL_VERSION_POSTFIX "-${SYCL_DEV_ABI_VERSION}")
 endif()
@@ -414,7 +414,7 @@ set( SYCL_TOOLCHAIN_DEPLOY_COMPONENTS
      sycl-headers-extras
      sycl
      pi_opencl
-     pi_level0
+     pi_level_zero
      libsycldevice
 # INTEL_CUSTOMIZATION
      # Please add xmain specific deploy components

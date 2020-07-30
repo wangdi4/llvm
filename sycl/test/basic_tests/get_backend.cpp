@@ -15,7 +15,7 @@ using namespace cl::sycl;
 bool check(backend be) {
   switch (be) {
   case backend::opencl:
-  case backend::level0:
+  case backend::level_zero:
   case backend::cuda:
   case backend::host:
     return true;
