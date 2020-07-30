@@ -16,7 +16,6 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/StringSet.h"
-#include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Pass.h"
@@ -56,22 +55,33 @@ private:
   bool MainDefSeen;
 
   // Go through the module M and check that all aliases were resolved
-  bool analyzeAndResolveAliases(
-      Module &M, std::function<const TargetLibraryInfo &(Function &F)> GetTLI);
+  bool analyzeAndResolveAliases();
 
   // Go through the module M and check that all Functions were resolved
-  bool analyzeAndResolveFunctions(
-      Module &M, std::function<const TargetLibraryInfo &(Function &F)> GetTLI);
+  bool analyzeAndResolveFunctions();
+
+  // Collect the following globals from the Module M and store them in the
+  // SetVector LLVMSpecialGlobalVars:
+  //
+  //   llvm.used:          Treat the symbol as if it needs to be retained in the
+  //                       module, even if it appears it could be removed.
+  //   llvm.compiler.used: Same as llvm.used but the compiler shouldn't touch the
+  //                         function
+  //   llvm.global_ctors:  Everything executed before main
+  //   llvm.global_dtors:  Everything executed after main
+  //
+  // These globals are arrays that contain Functions needed by the whole program
+  // analysis but we can't reach them from main.
+  void collectLLVMSpecialGlobalVars(
+      SetVector<const GlobalVariable *> &LLVMSpecialGlobalVars);
 
   // Go through the callsites in Function F and check if the called
   // Functions are resolved
   bool collectAndResolveCallSites(
-      const Function *F, std::queue<const Function *> &CallsitesFuncs,
-      std::function<const TargetLibraryInfo &(Function &)> GetTLI);
+      const Function *F, std::queue<const Function *> &CallsitesFuncs);
 
   // Compute the values of IsAdvancedOptEnabled[].
-  void computeIsAdvancedOptEnabled(
-      Module &M, function_ref<TargetTransformInfo &(Function &)> GTTI);
+  void computeIsAdvancedOptEnabled();
 
   // Return true if the input Function has one of the following properties:
   //   * is main (or one of its form)
@@ -81,8 +91,7 @@ private:
   //   * is an intrinsic
   //   * is a branch funnel
   bool
-  isValidFunction(const Function *F,
-                  std::function<const TargetLibraryInfo &(Function &)> GetTLI);
+  isValidFunction(const Function *F);
 
   // Store the following global variables if they are available in the Module
   //   llvm.used
@@ -93,6 +102,16 @@ private:
 
   // Store the Functions that must be traversed
   SetVector<const Function *> FuncsCollected;
+
+  // Current Module
+  Module *M;
+
+  // Lambda function used for collecting library function
+  std::function<const TargetLibraryInfo &(Function &)> GetTLI;
+
+  // Lambda function used for collecting information from
+  // TargetTransformInfo analysis pass.
+  function_ref<TargetTransformInfo &(Function &)> GTTI;
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   // SetVectors used for tracing the libfuncs
@@ -120,18 +139,16 @@ private:
 
 public:
 
-  // TODO: Make the Module and TargetLibraryInfo variables (M and GetTLI) as
-  // fields of the class rather than pass them as function arguments.
-  WholeProgramInfo();
+  WholeProgramInfo(Module *M,
+      std::function<const TargetLibraryInfo &(Function &F)> GetTLI,
+      function_ref<TargetTransformInfo &(Function &)> GTTI);
   ~WholeProgramInfo();
 
-  static WholeProgramInfo analyzeModule(
-      Module &M, std::function<const TargetLibraryInfo &(Function &F)> GetTLI,
-      function_ref<TargetTransformInfo &(Function &)> GTTI, CallGraph *CG);
+  void analyzeModule();
 
   // Return true if the input GlobName is a form of main,
   // else return false.
-  static bool isMainEntryPoint(llvm::StringRef GlobName);
+  bool isMainEntryPoint(llvm::StringRef GlobName);
 
   // Return true if all functions were resolved, linking for executable and
   // main was found, else return false
@@ -154,11 +171,10 @@ public:
 
   bool isAdvancedOptEnabled(TargetTransformInfo::AdvancedOptLevel AO);
 
-  void wholeProgramAllExternsAreIntrins(
-      Module &M, std::function<const TargetLibraryInfo &(Function &F)> GetTLI);
+  void wholeProgramAllExternsAreIntrins();
 
   // Return the Function* that points to main
-  Function *getMainFunction(Module &M);
+  Function *getMainFunction();
 
   // Handle the invalidation of this information.
   // Once we have determined whole program status, it should be persistent
@@ -168,7 +184,6 @@ public:
                   ModuleAnalysisManager::Invalidator &) {
     return false;
   }
-
 };
 
 // Analysis pass providing a never-invalidated whole program analysis result.

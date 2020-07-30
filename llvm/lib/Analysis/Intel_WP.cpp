@@ -12,7 +12,6 @@
 
 #include "llvm/Analysis/Intel_WP.h"
 #include "llvm/ADT/StringSwitch.h"
-#include "llvm/Analysis/CallGraph.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
@@ -109,20 +108,21 @@ bool WholeProgramWrapperPass::runOnModule(Module &M) {
     return this->getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
   };
 
-  CallGraphWrapperPass *CGPass = getAnalysisIfAvailable<CallGraphWrapperPass>();
-  CallGraph *CG = CGPass ? &CGPass->getCallGraph() : nullptr;
-
   auto GetTLI = [this](Function &F) -> TargetLibraryInfo & {
     return this->getAnalysis<TargetLibraryInfoWrapperPass>().getTLI(F);
   };
 
-  Result.reset(new WholeProgramInfo(
-      WholeProgramInfo::analyzeModule(M, GetTLI, GTTI, CG)));
+  WholeProgramInfo *WPAResult = new WholeProgramInfo(&M, GetTLI, GTTI);
+  WPAResult->analyzeModule();
+
+  Result.reset(WPAResult);
 
   return false;
 }
 
-WholeProgramInfo::WholeProgramInfo() {
+WholeProgramInfo::WholeProgramInfo(Module *M,
+    std::function<const TargetLibraryInfo &(Function &F)> GetTLI,
+    function_ref<TargetTransformInfo &(Function &)> GTTI) {
   // WholeProgramSafe: WholeProgramRead && WholeProgramSeen &&
   //                   LinkingForExecutable
   WholeProgramSafe = false;
@@ -143,6 +143,10 @@ WholeProgramInfo::WholeProgramInfo() {
 
   // Another important term:
   // WholeProgramRead: All symbols were resolved by the linker.
+
+  this->M = M;
+  this->GetTLI = GetTLI;
+  this->GTTI = GTTI;
 
   auto EE = TargetTransformInfo::AdvancedOptLevel::AO_TargetNumLevels;
   unsigned E = static_cast<unsigned>(EE);
@@ -280,17 +284,11 @@ void WholeProgramInfo::printWholeProgramTrace() {
 }
 #endif // USING_DEBUG_MODE
 
-WholeProgramInfo WholeProgramInfo::analyzeModule(
-    Module &M, std::function<const TargetLibraryInfo &(Function &)> GetTLI,
-    function_ref<TargetTransformInfo &(Function &)> GTTI, CallGraph *CG) {
+void WholeProgramInfo::analyzeModule() {
 
-  WholeProgramInfo Result;
+  wholeProgramAllExternsAreIntrins();
 
-  Result.wholeProgramAllExternsAreIntrins(M, GetTLI);
-
-  Result.computeIsAdvancedOptEnabled(M, GTTI);
-
-  return Result;
+  computeIsAdvancedOptEnabled();
 }
 
 // This analysis depends on TargetLibraryInfo and TargetTransformInfo.
@@ -313,11 +311,11 @@ void WholeProgramWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
 //
 // These globals are arrays that contain Functions needed by the whole program
 // analysis but we can't reach them from main.
-static void collectLLVMSpecialGlobalVars(
-    Module &M, SetVector<const GlobalVariable *> &LLVMSpecialGlobalVars) {
+void WholeProgramInfo::collectLLVMSpecialGlobalVars(
+    SetVector<const GlobalVariable *> &LLVMSpecialGlobalVars) {
 
-  auto CollectGlobal = [&M, &LLVMSpecialGlobalVars](StringRef GlobName) {
-    if (const GlobalVariable *Glob = M.getGlobalVariable(GlobName))
+  auto CollectGlobal = [this, &LLVMSpecialGlobalVars](StringRef GlobName) {
+    if (const GlobalVariable *Glob = M->getGlobalVariable(GlobName))
       LLVMSpecialGlobalVars.insert(Glob);
   };
 
@@ -390,9 +388,7 @@ hasMeaningfulUse(const Value *V, SetVector<const Function *> &FuncsCollected,
 //   * is a branch funnel
 //
 // Else, return false.
-bool WholeProgramInfo::isValidFunction(
-    const Function *F,
-    std::function<const TargetLibraryInfo &(Function &)> GetTLI) {
+bool WholeProgramInfo::isValidFunction(const Function *F) {
 
 #ifdef USING_DEBUG_MODE
   // Store the input function in the corresponding SetVector for
@@ -515,13 +511,12 @@ bool WholeProgramInfo::isValidFunction(
 // The TargetLibraryInfo GetTLI is used to check if the called functions are
 // LibFuncs or not.
 bool WholeProgramInfo::collectAndResolveCallSites(
-    const Function *F, std::queue<const Function *> &CallsitesFuncs,
-    std::function<const TargetLibraryInfo &(Function &)> GetTLI) {
+    const Function *F, std::queue<const Function *> &CallsitesFuncs) {
 
   // Return true if the input Callee is a valid function for whole program,
   // else return false.
-  auto CheckCallee = [this, F, GetTLI](const Function *Callee) -> bool {
-    bool FuncResolved = isValidFunction(Callee, GetTLI);
+  auto CheckCallee = [this, F](const Function *Callee) -> bool {
+    bool FuncResolved = isValidFunction(Callee);
 
     //
     // If the Caller is not Fortran, but the Callee is Fortran, do not
@@ -589,17 +584,16 @@ bool WholeProgramInfo::collectAndResolveCallSites(
 //   * is a branch funnel
 //
 // Else return false.
-bool WholeProgramInfo::analyzeAndResolveFunctions(
-    Module &M, std::function<const TargetLibraryInfo &(Function &)> GetTLI) {
+bool WholeProgramInfo::analyzeAndResolveFunctions() {
 
   // Given a Function F, return true if it can be resolved. Also collect
   // the called functions and check if they can be resolved too. These called
   // functions will be stored in FuncsCollected. Else return false.
   auto AnalyzeFunction =
-      [this, GetTLI](const Function *F,
+      [this](const Function *F,
                      SetVector<const Function *> &FuncsCollected) -> bool {
     bool AllResolved = true;
-    if (!isValidFunction(F, GetTLI)) {
+    if (!isValidFunction(F)) {
       AllResolved = false;
 #ifndef USING_DEBUG_MODE
       return false;
@@ -620,7 +614,7 @@ bool WholeProgramInfo::analyzeAndResolveFunctions(
         continue;
 
       AllResolved &=
-          collectAndResolveCallSites(CurrFunc, CallsitesFuncs, GetTLI);
+          collectAndResolveCallSites(CurrFunc, CallsitesFuncs);
 #ifndef USING_DEBUG_MODE
       // If we are not debugging then we can return early
       if (!AllResolved)
@@ -637,7 +631,7 @@ bool WholeProgramInfo::analyzeAndResolveFunctions(
 #endif // USING_DEBUG_MODE
 
   SetVector<const Function *> AddressTakenFuncs;
-  const Function *MainFunc = getMainFunction(M);
+  const Function *MainFunc = getMainFunction();
 
   // If main wasn't found then there is no need to keep checking.
   if (MainFunc)
@@ -646,7 +640,7 @@ bool WholeProgramInfo::analyzeAndResolveFunctions(
     return false;
 
   // Find the special global variables
-  collectLLVMSpecialGlobalVars(M, LLVMSpecialGlobalVars);
+  collectLLVMSpecialGlobalVars(LLVMSpecialGlobalVars);
 
   // Collect all the functions that can be reached by walking main
   Resolved &= AnalyzeFunction(MainFunc, FuncsCollected);
@@ -659,7 +653,7 @@ bool WholeProgramInfo::analyzeAndResolveFunctions(
 
   // Find all address taken functions that we missed when main was checked
   // (indirect calls).
-  for (auto &F : M)
+  for (auto &F : *M)
     if (F.hasAddressTaken() && !F.user_empty() && FuncsCollected.count(&F) == 0)
       AddressTakenFuncs.insert(&F);
 
@@ -709,12 +703,11 @@ bool WholeProgramInfo::analyzeAndResolveFunctions(
 //   * aliasees that are aliases must be resolved
 //
 // Else, return false.
-bool WholeProgramInfo::analyzeAndResolveAliases(
-    Module &M, std::function<const TargetLibraryInfo &(Function &F)> GetTLI) {
+bool WholeProgramInfo::analyzeAndResolveAliases() {
 
   // Walk through all aliases to find unresolved aliases.
   bool AllAliasesResolved = true;
-  for (auto &GA : M.aliases()) {
+  for (auto &GA : M->aliases()) {
     if (GA.hasLocalLinkage())
       continue;
 
@@ -744,11 +737,10 @@ bool WholeProgramInfo::analyzeAndResolveAliases(
 
 // Detect whole program using intrinsic table.
 //
-void WholeProgramInfo::wholeProgramAllExternsAreIntrins(
-    Module &M, std::function<const TargetLibraryInfo &(Function &)> GetTLI) {
+void WholeProgramInfo::wholeProgramAllExternsAreIntrins() {
 
-  bool AllResolved = analyzeAndResolveFunctions(M, GetTLI);
-  AllResolved &= analyzeAndResolveAliases(M, GetTLI);
+  bool AllResolved = analyzeAndResolveFunctions();
+  AllResolved &= analyzeAndResolveAliases();
 
   if (AllResolved)
     WholeProgramSeen = true;
@@ -761,9 +753,8 @@ void WholeProgramInfo::wholeProgramAllExternsAreIntrins(
 
 // Compute and store the value of isAdvancedOptEnabled(AO) for all
 // possible values of the argument AO.
-void WholeProgramInfo::computeIsAdvancedOptEnabled(
-    Module &M, function_ref<TargetTransformInfo &(Function &)> GTTI) {
-  for (Function &F : M) {
+void WholeProgramInfo::computeIsAdvancedOptEnabled() {
+  for (Function &F : *M) {
     if (F.isDeclaration())
       continue;
     TargetTransformInfo &TTI = GTTI(F);
@@ -836,12 +827,12 @@ bool WholeProgramInfo::isLinkedAsExecutable() {
 
 // Return the Function* that points to "main" or any of its forms,
 // else return nullptr
-Function *WholeProgramInfo::getMainFunction(Module &M) {
+Function *WholeProgramInfo::getMainFunction() {
 
   Function *Main = nullptr;
 
   for (auto Name : WPUtils.getMainNames()) {
-    Main = M.getFunction(Name);
+    Main = M->getFunction(Name);
 
     if (Main)
       break;
@@ -867,6 +858,8 @@ WholeProgramInfo WholeProgramAnalysis::run(Module &M,
     return FAM.getResult<TargetLibraryAnalysis>(F);
   };
 
-  return WholeProgramInfo::analyzeModule(
-      M, GetTLI, GTTI, AM.getCachedResult<CallGraphAnalysis>(M));
+  WholeProgramInfo WPAResult(&M, GetTLI, GTTI);
+  WPAResult.analyzeModule();
+
+  return WPAResult;
 }
