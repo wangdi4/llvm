@@ -5755,6 +5755,12 @@ Optional<InlineResult> llvm::getAttributeBasedInliningDecision(
                "inapplicable always inline recursive attribute")
         .setIntelInlReason(IsViable.getIntelInlReason());
   }
+  bool CallerIsFort = Call.getCaller()->isFortran();
+  bool CalleeIsFort = Callee->isFortran();
+  if (CallerIsFort && !CalleeIsFort || !CallerIsFort && CalleeIsFort)
+    return InlineResult::failure("is cross language")
+        .setIntelInlReason(NinlrIsCrossLanguage);
+
 #endif // INTEL_CUSTOMIZATION
 
   // Never inline functions with conflicting attributes (unless callee has

@@ -5,20 +5,21 @@
 ; RUN: opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -wholeprogramanalysis -whole-program-assume-read -inline -lto-inline-cost -inline-report=0x86 -forced-inline-opt-level=3  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S | opt -inlinereportemitter -inline-report=0x86 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-AFTER
 ; RUN: opt -inlinereportsetup -inline-report=0x86 < %s -S | opt -passes='require<wholeprogram>,cgscc(inline)' -whole-program-assume-read -lto-inline-cost -inline-report=0x86 -forced-inline-opt-level=3  -enable-intel-advanced-opts -mtriple=i686-- -mattr=+avx2 -S | opt -inlinereportemitter -inline-report=0x86 -S 2>&1 | FileCheck %s --check-prefixes=CHECK,CHECK-AFTER
 
-; Check that all instances of @sw_IP_ddx_ and @sw_IP_ddy_ are inlined
-; due to the inline budget and single callsite local linkage heuristics.
+; Check that no instances of @sw_IP_ddx_ and @sw_IP_ddy_ are inlined
+; because the calls to each of @sw_IP_ddx_ and @sw_IP_ddy_ have no matching
+; actual parameters.
 
 %uplevel_type = type { i32, i32 }
 %"QNCA_a0$double*$rank2$.3" = type { double*, i64, i64, i64, i64, i64, [2 x { i64, i64, i64 }] }
 
-; CHECK-BEFORE-NOT: call{{.*}}sw_IP_ddx_
-; CHECK-BEFORE-NOT: call{{.*}}sw_IP_ddy_
-; CHECK-DAG: INLINE: sw_IP_ddx_{{.*}}Has inline budget for small application
-; CHECK-DAG: INLINE: sw_IP_ddy_{{.*}}Has inline budget for small application
-; CHECK-DAG: INLINE: sw_IP_ddx_{{.*}}Callee has single callsite and local linkage
-; CHECK-DAG: INLINE: sw_IP_ddy_{{.*}}Callee has single callsite and local linkage
-; CHECK-AFTER-NOT: call{{.*}}sw_IP_ddx_
-; CHECK-AFTER-NOT: call{{.*}}sw_IP_ddy_
+; CHECK-BEFORE: call{{.*}}sw_IP_ddx_
+; CHECK-BEFORE: call{{.*}}sw_IP_ddy_
+; CHECK-NOT: INLINE: sw_IP_ddx_{{.*}}Has inline budget for small application
+; CHECK-NOT: INLINE: sw_IP_ddy_{{.*}}Has inline budget for small application
+; CHECK-NOT: INLINE: sw_IP_ddx_{{.*}}Callee has single callsite and local linkage
+; CHECK-NOT: INLINE: sw_IP_ddy_{{.*}}Callee has single callsite and local linkage
+; CHECK-AFTER: call{{.*}}sw_IP_ddx_
+; CHECK-AFTER: call{{.*}}sw_IP_ddy_
 
 ; Function Attrs: nofree nounwind uwtable
 define internal fastcc void @sw_IP_ddx_(%uplevel_type* noalias nocapture %0, %"QNCA_a0$double*$rank2$.3"* noalias nocapture readonly dereferenceable(96) %1, %"QNCA_a0$double*$rank2$.3"* noalias nocapture readonly dereferenceable(96) "ptrnoalias" %2) unnamed_addr #0 {
@@ -265,6 +266,7 @@ define internal fastcc void @sw_IP_ddy_(%uplevel_type* noalias nocapture %0, %"Q
 define dso_local void @MAIN__() local_unnamed_addr #0 {
 entry:
   %t2 = alloca %uplevel_type, align 8
+  %t3 = alloca %uplevel_type, align 8
   %t176 = alloca %"QNCA_a0$double*$rank2$.3", align 8
   %t177 = alloca %"QNCA_a0$double*$rank2$.3", align 8
   %t178 = alloca %"QNCA_a0$double*$rank2$.3", align 8
@@ -279,8 +281,8 @@ L1161:                                             ; preds = %1461, %1104
   %t1164 = phi i32 [ 1, %entry ], [ %t1462, %L1161 ]
   call fastcc void @sw_IP_ddx_(%uplevel_type* nonnull %t2, %"QNCA_a0$double*$rank2$.3"* nonnull %t177, %"QNCA_a0$double*$rank2$.3"* nonnull %t176)
   call fastcc void @sw_IP_ddy_(%uplevel_type* nonnull %t2, %"QNCA_a0$double*$rank2$.3"* nonnull %t179, %"QNCA_a0$double*$rank2$.3"* nonnull %t178)
-  call fastcc void @sw_IP_ddx_(%uplevel_type* nonnull %t2, %"QNCA_a0$double*$rank2$.3"* nonnull %t181, %"QNCA_a0$double*$rank2$.3"* nonnull %t180)
-  call fastcc void @sw_IP_ddy_(%uplevel_type* nonnull %t2, %"QNCA_a0$double*$rank2$.3"* nonnull %t183, %"QNCA_a0$double*$rank2$.3"* nonnull %t182)
+  call fastcc void @sw_IP_ddx_(%uplevel_type* nonnull %t3, %"QNCA_a0$double*$rank2$.3"* nonnull %t181, %"QNCA_a0$double*$rank2$.3"* nonnull %t180)
+  call fastcc void @sw_IP_ddy_(%uplevel_type* nonnull %t3, %"QNCA_a0$double*$rank2$.3"* nonnull %t183, %"QNCA_a0$double*$rank2$.3"* nonnull %t182)
   %t1462 = add nuw nsw i32 %t1164, 1
   %t1463 = icmp eq i32 %t1462, 6481
   br i1 %t1463, label %L1464, label %L1161

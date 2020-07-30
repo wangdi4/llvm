@@ -240,6 +240,8 @@ const static InlPrtRecord InlineReasonText[] = {
     {InlPrtSimple, "Outlined function from partial inlining"},
     // NinlrCalleeHasExceptionHandling
     {InlPrtSimple, "Callee has exception handling"},
+    // NinlrIsCrossLanguage
+    {InlPrtSimple, "Caller and Callee have different source languages"},
     // NinlrLast
     {InlPrtNone, nullptr}};
 

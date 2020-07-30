@@ -55,7 +55,7 @@
 define void @foo() local_unnamed_addr #0 {
 ;
 ; VPLAN-CM-VF4-LABEL:  Cost Model for VPlan foo.for.body with VF = 4:
-; VPLAN-CM-VF4-NEXT:  Total Cost: 743
+; VPLAN-CM-VF4-NEXT:  Total Cost: 607
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
 ; VPLAN-CM-VF4-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV_IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
@@ -63,7 +63,7 @@ define void @foo() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-NEXT:    Cost Unknown for i64 [[VP_VF:%.*]] = induction-init-step{add} i64 1
 ; VPLAN-CM-VF4-NEXT:    Cost Unknown for i64 [[VP_ORIG_TRIP_COUNT:%.*]] = orig-trip-count for original loop for.body
 ; VPLAN-CM-VF4-NEXT:    Cost Unknown for i64 [[VP_VECTOR_TRIP_COUNT:%.*]] = vector-trip-count i64 [[VP_ORIG_TRIP_COUNT]], UF = 1
-; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 743
+; VPLAN-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 607
 ; VPLAN-CM-VF4-NEXT:    Cost Unknown for i64 [[VP_VECTOR_LOOP_IV:%.*]] = phi  [ i64 0, [[BB1]] ],  [ i64 [[VP_VECTOR_LOOP_IV_NEXT:%.*]], [[BB2]] ]
 ; VPLAN-CM-VF4-NEXT:    Cost Unknown for i64 [[VP_INDVARS_IV:%.*]] = phi  [ i64 [[VP_INDVARS_IV_IND_INIT]], [[BB1]] ],  [ i64 [[VP_INDVARS_IV_NEXT:%.*]], [[BB2]] ]
 ; VPLAN-CM-VF4-NEXT:    Cost 0 for i32* [[VP_LD_IDX:%.*]] = getelementptr inbounds [1024 x i32]* @arr.i32.1 i64 0 i64 [[VP_INDVARS_IV]]
@@ -83,16 +83,16 @@ define void @foo() local_unnamed_addr #0 {
 ; VPLAN-CM-VF4-NEXT:    Cost 2 for i32 [[VP_MUL:%.*]] = mul i32 [[VP_ADD]] i32 [[VP_LD]]
 ; VPLAN-CM-VF4-NEXT:    Cost 2 for i32 [[VP_MUL3:%.*]] = mul i32 3 i32 [[VP_MUL]]
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for i32 [[VP_FMA:%.*]] = add i32 [[VP_MUL3]] i32 [[VP_LD2]]
-; VPLAN-CM-VF4-NEXT:    Cost 80 for i32 [[VP_UDIV_BY_CONST:%.*]] = udiv i32 [[VP_FMA]] i32 7
+; VPLAN-CM-VF4-NEXT:    Cost 15 for i32 [[VP_UDIV_BY_CONST:%.*]] = udiv i32 [[VP_FMA]] i32 7
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for i32 [[VP_UDIV_BY_POWER2:%.*]] = udiv i32 [[VP_UDIV_BY_CONST]] i32 16
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for i32 [[VP_LSHR:%.*]] = lshr i32 [[VP_UDIV_BY_POWER2]] i32 4
 ; VPLAN-CM-VF4-NEXT:    Cost 80 for i32 [[VP_UDIV:%.*]] = udiv i32 [[VP_LSHR]] i32 [[VP_ADD]]
-; VPLAN-CM-VF4-NEXT:    Cost 80 for i32 [[VP_SDIV_BY_CONST:%.*]] = sdiv i32 [[VP_UDIV]] i32 -7
+; VPLAN-CM-VF4-NEXT:    Cost 15 for i32 [[VP_SDIV_BY_CONST:%.*]] = sdiv i32 [[VP_UDIV]] i32 -7
 ; VPLAN-CM-VF4-NEXT:    Cost 4 for i32 [[VP_SDIV_BY_POWER2:%.*]] = sdiv i32 [[VP_SDIV_BY_CONST]] i32 16
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for i32 [[VP_ASHR:%.*]] = ashr i32 [[VP_SDIV_BY_POWER2]] i32 4
 ; VPLAN-CM-VF4-NEXT:    Cost 80 for i32 [[VP_SDIV:%.*]] = sdiv i32 [[VP_ASHR]] i32 [[VP_ADD]]
 ; VPLAN-CM-VF4-NEXT:    Cost 80 for i64 [[VP_UDIV64_BY_CONST:%.*]] = udiv i64 [[VP_LD_64]] i64 7
-; VPLAN-CM-VF4-NEXT:    Cost 8 for i64 [[VP_MUL3_64:%.*]] = mul i64 [[VP_UDIV64_BY_CONST]] i64 3
+; VPLAN-CM-VF4-NEXT:    Cost 2 for i64 [[VP_MUL3_64:%.*]] = mul i64 [[VP_UDIV64_BY_CONST]] i64 3
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for i64 [[VP_UDIV64_BY_POWER2:%.*]] = udiv i64 [[VP_MUL3_64]] i64 16
 ; VPLAN-CM-VF4-NEXT:    Cost 1 for i64 [[VP_LSHR64:%.*]] = lshr i64 [[VP_UDIV64_BY_POWER2]] i64 4
 ; VPLAN-CM-VF4-NEXT:    Cost 80 for i64 [[VP_UDIV64:%.*]] = udiv i64 [[VP_LSHR64]] i64 [[VP_LD2_64]]
@@ -189,15 +189,15 @@ define void @foo() local_unnamed_addr #0 {
 ; VPLAN-CM-VF1-NEXT:  Analyzing VPBasicBlock [[BB4:BB[0-9]+]], total cost: 0
 ;
 ; VPLAN-HIR-CM-VF4-LABEL:  HIR Cost Model for VPlan foo.63 with VF = 4:
-; VPLAN-HIR-CM-VF4-NEXT:  Total VPlan Cost: 224
-; VPLAN-HIR-CM-VF4-NEXT:  VPlan Base Cost before adjustments: 176
+; VPLAN-HIR-CM-VF4-NEXT:  Total VPlan Cost: 218
+; VPLAN-HIR-CM-VF4-NEXT:  VPlan Base Cost before adjustments: 170
 ; VPLAN-HIR-CM-VF4-NEXT:  VPlan Base Cost includes Total VPlan GS Cost: 36
 ; VPLAN-HIR-CM-VF4-NEXT:  Total VPlan spill/fill cost: +48
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB0:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB1:BB[0-9]+]], total cost: 0
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i64 [[VP__IND_INIT:%.*]] = induction-init{add} i64 0 i64 1
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i64 [[VP__IND_INIT_STEP:%.*]] = induction-init-step{add} i64 1
-; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 176
+; VPLAN-HIR-CM-VF4-NEXT:  Analyzing VPBasicBlock [[BB2:BB[0-9]+]], total cost: 170
 ; VPLAN-HIR-CM-VF4-NEXT:  total cost includes GS Cost: 36
 ; VPLAN-HIR-CM-VF4-NEXT:  Block spill/fill approximate cost (not included into total cost): 48
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost Unknown for i64 [[VP0:%.*]] = phi  [ i64 [[VP__IND_INIT]], [[BB1]] ],  [ i64 [[VP1:%.*]], [[BB2]] ]
@@ -230,7 +230,7 @@ define void @foo() local_unnamed_addr #0 {
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for i32 [[VP22:%.*]] = add i32 [[VP2]] i32 [[VP6]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 3 for i32 [[VP23:%.*]] = sdiv i32 [[VP21]] i32 [[VP22]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 8 for i64 [[VP24:%.*]] = udiv i64 [[VP4]] i64 7
-; VPLAN-HIR-CM-VF4-NEXT:    Cost 8 for i64 [[VP25:%.*]] = mul i64 [[VP24]] i64 3
+; VPLAN-HIR-CM-VF4-NEXT:    Cost 2 for i64 [[VP25:%.*]] = mul i64 [[VP24]] i64 3
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 1 for i64 [[VP26:%.*]] = udiv i64 [[VP25]] i64 256
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 8 for i64 [[VP27:%.*]] = udiv i64 [[VP26]] i64 [[VP9]]
 ; VPLAN-HIR-CM-VF4-NEXT:    Cost 8 for i64 [[VP28:%.*]] = sdiv i64 [[VP27]] i64 -7
