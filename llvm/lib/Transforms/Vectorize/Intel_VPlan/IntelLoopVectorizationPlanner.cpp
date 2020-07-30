@@ -25,6 +25,7 @@
 #include "IntelVPlanCostModel.h"
 #include "IntelVPlanCostModelProprietary.h"
 #include "IntelVPlanDominatorTree.h"
+#include "IntelVPlanEvaluator.h"
 #include "IntelVPlanHCFGBuilder.h"
 #include "IntelVPlanIdioms.h"
 #include "IntelVPlanLCSSA.h"
@@ -121,6 +122,11 @@ static cl::opt<bool, true>
     EnableSOAAnalysisOpt("vplan-enable-soa", cl::Hidden,
                          cl::location(EnableSOAAnalysis),
                          cl::desc("Enable VPlan SOAAnalysis."));
+
+static cl::opt<bool>
+    PrintAfterEvaluator("vplan-print-after-evaluator", cl::init(false),
+                        cl::Hidden, cl::desc("Print VPlan after evaluator."));
+
 #else
 static constexpr bool PrintAfterCallVecDecisionsOpt = false;
 static constexpr bool PrintSVAResultsOpt = false;
@@ -454,26 +460,37 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
 
     VPlan *Plan = getVPlanForVF(VF);
 
-    // FIXME: The remainder loop should be an explicit part of VPlan and the
-    // cost model should just do the right thing calulating the cost of the
-    // plan. However this is not the case yet so do some simple heuristic.
-#if INTEL_CUSTOMIZATION
-    CostModelTy VectorCM(Plan, VF, TTI, TLI, DL, VLSA);
-#else
-    CostModelTy VectorCM(Plan, VF, TTI, TLI, DL);
-#endif // INTEL_CUSTOMIZATION
-    const unsigned VectorIterationCost = VectorCM.getCost();
-    if (VectorIterationCost == CostModelTy::UnknownCost) {
+    // Calculate cost for one iteration of the main loop.
+    CostModelTy MainLoopCM(Plan, VF, TTI, TLI, DL, VLSA);
+    const unsigned MainLoopIterationCost = MainLoopCM.getCost();
+    if (MainLoopIterationCost == CostModelTy::UnknownCost) {
       LLVM_DEBUG(dbgs() << "Cost for VF = " << VF << " is unknown. Skip it.\n");
       continue;
     }
 
-    const decltype(TripCount) VectorTripCount = TripCount / VF;
-    const decltype(TripCount) RemainderTripCount = TripCount % VF;
-    // TODO: Take into account overhead for some instructions until explicit
-    // representation of peel/remainder not ready.
-    uint64_t VectorCost = VectorIterationCost * VectorTripCount +
-                          ScalarIterationCost * RemainderTripCount;
+    // Calculate the total cost of peel loop if there is one.
+    VPlanPeelEvaluator PeelEvaluator(
+        nullptr /*currently, we do not support masked peel variant*/,
+        ScalarIterationCost, TLI, TTI, DL, VLSA, VF,
+        Plan->getPreferredPeeling(VF));
+
+    // Calculate the total cost of remainder loop if there is one.
+    VPlanRemainderEvaluator RemainderEvaluator(
+        nullptr /*currently, we do not support masked remainder*/,
+        ScalarIterationCost, TLI, TTI, DL, VLSA, Plan, TripCount,
+        PeelEvaluator.getTripCount(), VF, BestUF);
+
+    // Calculate main loop's trip count. Currently, the unroll factor is set to
+    // 1 because VPlan's loop unroller is called after selecting the best VF.
+    const decltype(TripCount) MainLoopTripCount =
+        (TripCount - PeelEvaluator.getTripCount()) / (VF * BestUF);
+
+    // The total vector cost is calculated by adding the total cost of peel,
+    // main and remainder loops.
+    uint64_t VectorCost = PeelEvaluator.getLoopCost() +
+                          MainLoopIterationCost * MainLoopTripCount +
+                          RemainderEvaluator.getLoopCost();
+
     if (0 < VecThreshold && VecThreshold < 100) {
       LLVM_DEBUG(dbgs() << "Applying threshold " << VecThreshold << " for VF "
                         << VF << ". Original cost = " << VectorCost << '\n');
@@ -482,12 +499,33 @@ unsigned LoopVectorizationPlanner::selectBestPlan() {
     const char CmpChar =
         ScalarCost < VectorCost ? '<' : ScalarCost == VectorCost ? '=' : '>';
     (void)CmpChar;
-    LLVM_DEBUG(dbgs() << "Scalar Cost = " << TripCount << " x "
-                      << ScalarIterationCost << " = " << ScalarCost << ' '
-                      << CmpChar << " VectorCost = " << VectorTripCount << "[x"
-                      << VF << "] x " << VectorIterationCost << " + "
-                      << ScalarIterationCost << " x " << RemainderTripCount
-                      << " = " << VectorCost << '\n';);
+    LLVM_DEBUG(
+        dbgs() << "Scalar Cost = " << TripCount << " x " << ScalarIterationCost
+               << " = " << ScalarCost << ' ' << CmpChar
+               << " VectorCost = " << PeelEvaluator.getLoopCost() << " + "
+               << MainLoopTripCount << " x " << MainLoopIterationCost << " + "
+               << RemainderEvaluator.getLoopCost() << " = " << VectorCost
+               << '\n'
+               << "Peel loop cost = " << PeelEvaluator.getLoopCost() << " ("
+               << PeelEvaluator.getPeelLoopKindStr() << ")"
+               << "\n"
+               << "Main loop vector cost = "
+               << MainLoopTripCount * MainLoopIterationCost << "\n"
+               << "Remainder loop cost = " << RemainderEvaluator.getLoopCost()
+               << " (" << RemainderEvaluator.getRemainderLoopKindStr() << ")"
+               << "\n";);
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    if (PrintAfterEvaluator) {
+      PeelEvaluator.dump();
+      dbgs() << "The main loop is vectorized with vector factor " << VF
+             << ". The vector cost is "
+             << MainLoopTripCount * MainLoopIterationCost << "("
+             << MainLoopTripCount << " x " << MainLoopIterationCost << "). \n";
+      RemainderEvaluator.dump();
+    }
+#endif // !NDEBUG || LLVM_ENABLE_DUMP
+
     if (VectorCost < BestCost) {
       BestCost = VectorCost;
       BestVF = VF;
