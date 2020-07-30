@@ -20,6 +20,11 @@
 /// Extend tbb::task_group with reserve/release_wait functions
 class task_group_with_reference : public tbb::task_group {
 public:
+  virtual ~task_group_with_reference() {
+    // Method wait must be called before destroying a task_group, otherwise the
+    // destructor throws an exception.
+    wait();
+  }
   void reserve_wait() { m_wait_ctx.reserve(); }
   void release_wait() { m_wait_ctx.release(); }
   unsigned ref_count() const { return m_wait_ctx.reference_count(); }
