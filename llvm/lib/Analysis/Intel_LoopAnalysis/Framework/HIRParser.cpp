@@ -3187,7 +3187,7 @@ public:
   LLVM_DUMP_METHOD
   void print(raw_ostream &OS) const {
     OS << "(";
-    Ty->print(OS);
+    Ty ? Ty->print(OS) : (void)(OS << Ty);
     OS << ")";
     OS << "[";
     for (auto *IdxLB : IndicesLB) {
@@ -3200,7 +3200,7 @@ public:
       OS << ",";
     }
     OS << ":";
-    Stride->printAsOperand(OS, false);
+    Stride ? Stride->printAsOperand(OS, false) : (void)(OS << Stride);
     OS << "]";
   }
 
@@ -3611,7 +3611,10 @@ bool HIRParser::GEPChain::isCompatible(const ArrayInfo &NextArr) const {
     }
   }
 
-  return true;
+  // For multi-dim NextArr allow merging only into existing dimensions or create
+  // new outer dimensions.
+  return NextArr.getMinRank() == NextArr.getMaxRank() ||
+         NextArr.getMinRank() >= CurArr.getMinRank();
 }
 
 // Parses the \p GEPOp and updates chain state if GEPOp is compatible.
