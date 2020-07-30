@@ -992,19 +992,17 @@ bool VPLoopEntityList::isReductionPhi(const VPPHINode *VPhi) const {
   return false;
 }
 
-static bool checkInstructionInLoop(const VPValue *V, const VPlan *Plan,
-                                   const VPLoop *Loop) {
+static bool checkInstructionInLoop(const VPValue *V, const VPLoop *Loop) {
   // Check for null and VPInstruction here to avoid these checks at caller(s)
   // side
   return V == nullptr || !isa<VPInstruction>(V) ||
          Loop->contains(cast<VPInstruction>(V)->getParent());
 }
 
-void ReductionDescr::checkParentVPLoop(const VPlan *Plan,
-                                       const VPLoop *Loop) const {
-  assert((checkInstructionInLoop(StartPhi, Plan, Loop) &&
-          checkInstructionInLoop(Exit, Plan, Loop) &&
-          checkInstructionInLoop(LinkPhi, Plan, Loop)) &&
+void ReductionDescr::checkParentVPLoop(const VPLoop *Loop) const {
+  assert((checkInstructionInLoop(StartPhi, Loop) &&
+          checkInstructionInLoop(Exit, Loop) &&
+          checkInstructionInLoop(LinkPhi, Loop)) &&
          "Parent loop does not match instruction");
 }
 
@@ -1032,6 +1030,64 @@ bool ReductionDescr::isDuplicate(const VPlan *Plan, const VPLoop *Loop) const {
   return false;
 }
 
+VPPHINode *ReductionDescr::getLastNonheaderPHIUser(VPInstruction *VPInst,
+                                                   const VPLoop *Loop) {
+  SetVector<VPPHINode *> Worklist;
+  auto AddPHIUsersToWorklist = [&Worklist, Loop](VPInstruction *VPI) -> void {
+    for (auto *U : VPI->users()) {
+      if (auto *PhiUser = dyn_cast<VPPHINode>(U))
+        if (checkInstructionInLoop(PhiUser, Loop) &&
+            PhiUser->getParent() != Loop->getHeader())
+          Worklist.insert(PhiUser);
+    }
+  };
+  AddPHIUsersToWorklist(VPInst);
+
+  VPPHINode *LastNonheaderPHI = nullptr;
+  while (!Worklist.empty()) {
+    VPPHINode *CurrPHI = Worklist.pop_back_val();
+    // Add CurrPHI to linked VPValues and recurse on its PHI users.
+    LinkedVPVals.push_back(CurrPHI);
+    LastNonheaderPHI = CurrPHI;
+    AddPHIUsersToWorklist(CurrPHI);
+  }
+
+  return LastNonheaderPHI;
+}
+
+// This method tries to populate missing data in a ReductionDescr by using
+// additional knowledge from the VPlan CFG (def-use chains) that this reduction
+// belongs to. Following is the series of checks and cases handled -
+//
+// 1. Unknown loop exit instruction
+//    - In case of explicit reductions, additional analysis is performed to
+//      identify reduction's loop exit instruction.
+//    - Replacing original descriptor with an alias is done here if needed.
+//    - Exit instruction is expected to be live-out (nullptr otherwise).
+//    - Masked reduction scenario is also accounted for here.
+//
+// 2. Unknown recurrence PHI when loop exit instruction is known
+//    - Given that Exit is known we try to find recurrence PHI for this
+//      reduction based on users of Exit.
+//    - Exit can be non-liveout in cases like masked HIR SafeReductions.
+//    - Masked reduction pattern is also accounted for here.
+//
+// 3. Unknown recurrence PHI based on linked VPValues
+//    - If checks in Case 2 fail then we try to identify recurrence PHI based on
+//      users of reduction's linked VPValues.
+//
+// 4. Pure in-memory reduction pattern
+//    - If checks in both Case 2 and Case 3 fail, then we are dealing with an
+//      in-memory reduction.
+//    - Memory uses (load/store) of reduction's Start value inside the loop are
+//      identified.
+//
+// 5. Unknown Start value when recurrence PHI is known
+//    - Live-in or const operand of recurrence PHI is identified as reduction's
+//      Start value.
+//
+// 6. Unknown recurrence type
+//    - Determined based on type of reduction's Exit/recurrence PHI/Start value.
 void ReductionDescr::tryToCompleteByVPlan(const VPlan *Plan,
                                           const VPLoop *Loop) {
   if (!Exit) {
@@ -1043,30 +1099,29 @@ void ReductionDescr::tryToCompleteByVPlan(const VPlan *Plan,
     Exit = getLoopExitVPInstr(Loop);
   }
   if (StartPhi == nullptr && Exit != nullptr) {
-    SetVector<VPPHINode *> Worklist;
-    auto AddPHIUsersToWorklist = [&Worklist](VPInstruction *VPI) -> void {
-      for (auto *U : VPI->users()) {
-        if (auto *PhiUser = dyn_cast<VPPHINode>(U))
-          Worklist.insert(PhiUser);
+    if (!Loop->isLiveOut(Exit)) {
+      // Check if loop exit is used by any non-header PHIs (masked reduction
+      // scenarios).
+      if (auto *Phi = getLastNonheaderPHIUser(Exit, Loop)) {
+        LinkedVPVals.push_back(Exit);
+        Exit = Phi;
       }
-    };
-    AddPHIUsersToWorklist(Exit);
+    }
 
-    while (!Worklist.empty()) {
-      VPPHINode *CurrPHI = Worklist.pop_back_val();
+    // Find out if Exit is used in a potential StartPhi.
+    for (auto *U : Exit->users()) {
+      auto *PhiUser = dyn_cast<VPPHINode>(U);
+      if (!PhiUser)
+        continue;
+
       // Reduction's StartPhi will be in loop's header block and blends a
       // live-in or const operand.
-      if (checkInstructionInLoop(CurrPHI, Plan, Loop) &&
-          CurrPHI->getParent() == Loop->getHeader() &&
-          hasLiveInOrConstOperand(CurrPHI, *Loop)) {
-        StartPhi = CurrPHI;
+      if (checkInstructionInLoop(PhiUser, Loop) &&
+          PhiUser->getParent() == Loop->getHeader() &&
+          hasLiveInOrConstOperand(PhiUser, *Loop)) {
+        StartPhi = PhiUser;
         break;
       }
-
-      // CurrPHI doesn't match StartPhi requirements, recurse on its PHI users.
-      LinkedVPVals.push_back(Exit);
-      Exit = CurrPHI;
-      AddPHIUsersToWorklist(Exit);
     }
 
     if (StartPhi) {
@@ -1083,7 +1138,8 @@ void ReductionDescr::tryToCompleteByVPlan(const VPlan *Plan,
     for (auto *LVPV : LinkedVPVals) {
       for (auto *User : LVPV->users()) {
         if (auto Instr = dyn_cast<VPInstruction>(User))
-          if (isa<VPPHINode>(Instr) && Loop->contains(Instr->getParent()) &&
+          if (isa<VPPHINode>(Instr) &&
+              Instr->getParent() == Loop->getHeader() &&
               hasLiveInOrConstOperand(Instr, *Loop) &&
               Instr->getNumOperandsFrom(Start) > 0) {
             StartPhi = Instr;
@@ -1235,6 +1291,15 @@ VPInstruction *ReductionDescr::getLoopExitVPInstr(const VPLoop *Loop) {
       assert(LoopExitVPI && "Input for copy is not a VPInstruction.");
     }
 
+    // Check if loop exit VPI is used by any non-header PHIs (masked reduction
+    // scenarios).
+    if (!Loop->isLiveOut(LoopExitVPI)) {
+      if (auto *Phi = getLastNonheaderPHIUser(LoopExitVPI, Loop)) {
+        LinkedVPVals.push_back(LoopExitVPI);
+        LoopExitVPI = Phi;
+      }
+    }
+
     // If the final loop exit VPI is still not live-out then store the VPI to
     // linked VPVals and return null, as private memory will be needed to
     // perform this reduction. Example test -
@@ -1254,8 +1319,7 @@ void PrivateDescr::passToVPlan(VPlan *Plan, const VPLoop *Loop) {
                  AllocaInst, isMemOnly());
 }
 
-void PrivateDescr::checkParentVPLoop(const VPlan *Plan,
-                                     const VPLoop *Loop) const {
+void PrivateDescr::checkParentVPLoop(const VPLoop *Loop) const {
   // TODO: Add robust check for FinalI and some more checks related to
   // AllocaInst in this function.
 }
@@ -1359,11 +1423,10 @@ VPValue *VPEntityImportDescr::findMemoryUses(VPValue *Start,
   return Start;
 }
 
-void InductionDescr::checkParentVPLoop(const VPlan *Plan,
-                                       const VPLoop *Loop) const {
-  assert((checkInstructionInLoop(StartPhi, Plan, Loop) &&
-          checkInstructionInLoop(Start, Plan, Loop) &&
-          checkInstructionInLoop(InductionOp, Plan, Loop)) &&
+void InductionDescr::checkParentVPLoop(const VPLoop *Loop) const {
+  assert((checkInstructionInLoop(StartPhi, Loop) &&
+          checkInstructionInLoop(Start, Loop) &&
+          checkInstructionInLoop(InductionOp, Loop)) &&
          "Parent loop does not match instruction");
 }
 
