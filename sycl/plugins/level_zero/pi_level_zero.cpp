@@ -848,11 +848,7 @@ pi_result piDeviceGetInfo(pi_device Device, pi_device_info ParamName,
     return ReturnValue(pi_uint32{Device->RefCount});
   case PI_DEVICE_INFO_PARTITION_PROPERTIES: {
     // It is debatable if SYCL sub-device and partitioning APIs sufficient to
-<<<<<<< HEAD:sycl/plugins/level_zero/pi_level0.cpp
-    // expose Level0 sub-devices / tiles?  We start with support of // INTEL
-=======
-    // expose Level Zero sub-devices?  We start with support of
->>>>>>> d5f75bd8f663cc4c1ca658733e86fe085533e401:sycl/plugins/level_zero/pi_level_zero.cpp
+    // expose Level Zero sub-devices / tiles?  We start with support of // INTEL
     // "partition_by_affinity_domain" and "numa" but if that doesn't seem to
     // be a good fit we could look at adding a more descriptive partitioning
     // type.
@@ -1005,60 +1001,39 @@ pi_result piDeviceGetInfo(pi_device Device, pi_device_info ParamName,
     return ReturnValue(pi_uint64{DoubleFPValue});
   }
   case PI_DEVICE_INFO_IMAGE2D_MAX_WIDTH:
-<<<<<<< HEAD:sycl/plugins/level_zero/pi_level0.cpp
 #if INTEL_CUSTOMIZATION
     // TODO: https://gitlab.devtools.intel.com/one-api/level_zero/issues/288
 #endif // INTEL_CUSTOMIZATION
-    // Until L0 provides needed info, hardcode default minimum values required
-    // by the SYCL specification.
+    // Until Level Zero provides needed info, hardcode default minimum values
+    // required by the SYCL specification.
     return ReturnValue(size_t{8192});
   case PI_DEVICE_INFO_IMAGE2D_MAX_HEIGHT:
 #if INTEL_CUSTOMIZATION
     // TODO: https://gitlab.devtools.intel.com/one-api/level_zero/issues/288
 #endif // INTEL_CUSTOMIZATION
-    // Until L0 provides needed info, hardcode default minimum values required
-    // by the SYCL specification.
+    // Until Level Zero provides needed info, hardcode default minimum values
+    // required by the SYCL specification.
     return ReturnValue(size_t{8192});
   case PI_DEVICE_INFO_IMAGE3D_MAX_WIDTH:
 #if INTEL_CUSTOMIZATION
     // TODO: https://gitlab.devtools.intel.com/one-api/level_zero/issues/288
 #endif // INTEL_CUSTOMIZATION
-    // Until L0 provides needed info, hardcode default minimum values required
-    // by the SYCL specification.
+    // Until Level Zero provides needed info, hardcode default minimum values
+    // required by the SYCL specification.
     return ReturnValue(size_t{2048});
   case PI_DEVICE_INFO_IMAGE3D_MAX_HEIGHT:
 #if INTEL_CUSTOMIZATION
     // TODO: https://gitlab.devtools.intel.com/one-api/level_zero/issues/288
 #endif // INTEL_CUSTOMIZATION
-    // Until L0 provides needed info, hardcode default minimum values required
-    // by the SYCL specification.
+    // Until Level Zero provides needed info, hardcode default minimum values
+    // required by the SYCL specification.
     return ReturnValue(size_t{2048});
   case PI_DEVICE_INFO_IMAGE3D_MAX_DEPTH:
 #if INTEL_CUSTOMIZATION
     // TODO: https://gitlab.devtools.intel.com/one-api/level_zero/issues/288
 #endif // INTEL_CUSTOMIZATION
-    // Until L0 provides needed info, hardcode default minimum values required
-    // by the SYCL specification.
-=======
     // Until Level Zero provides needed info, hardcode default minimum values
     // required by the SYCL specification.
-    return ReturnValue(size_t{8192});
-  case PI_DEVICE_INFO_IMAGE2D_MAX_HEIGHT:
-    // Until Level Zero provides needed info, hardcode default minimum values
-    // required by the SYCL specification.
-    return ReturnValue(size_t{8192});
-  case PI_DEVICE_INFO_IMAGE3D_MAX_WIDTH:
-    // Until Level Zero provides needed info, hardcode default minimum values
-    // required by the SYCL specification.
-    return ReturnValue(size_t{2048});
-  case PI_DEVICE_INFO_IMAGE3D_MAX_HEIGHT:
-    // Until Level Zero provides needed info, hardcode default minimum values
-    // required by the SYCL specification.
-    return ReturnValue(size_t{2048});
-  case PI_DEVICE_INFO_IMAGE3D_MAX_DEPTH:
-    // Until Level Zero provides needed info, hardcode default minimum values
-    // required by the SYCL specification.
->>>>>>> d5f75bd8f663cc4c1ca658733e86fe085533e401:sycl/plugins/level_zero/pi_level_zero.cpp
     return ReturnValue(size_t{2048});
   case PI_DEVICE_INFO_IMAGE_MAX_BUFFER_SIZE:
     return ReturnValue(size_t{ZeDeviceImageProperties.maxImageBufferSize});
@@ -1712,14 +1687,9 @@ pi_result piProgramCreate(pi_context Context, const void *IL, size_t Length,
 
   assert(Context);
   assert(Program);
-<<<<<<< HEAD:sycl/plugins/level_zero/pi_level0.cpp
-  // NOTE: the L0 module creation is also building the program, so we are
-  // deferring it until the program is ready to be built in piProgramBuild
-=======
 
   // NOTE: the Level Zero module creation is also building the program, so we
   // are deferring it until the program is ready to be built in piProgramBuild
->>>>>>> d5f75bd8f663cc4c1ca658733e86fe085533e401:sycl/plugins/level_zero/pi_level_zero.cpp
   // and piProgramCompile. Also it is only then we know the build options.
   //
   ze_module_desc_t ZeModuleDesc = {};
@@ -1822,12 +1792,8 @@ pi_result piProgramGetInfo(pi_program Program, pi_program_info ParamName,
   case PI_PROGRAM_INFO_KERNEL_NAMES:
     try {
       // There are extra allocations/copying here dictated by the difference
-<<<<<<< HEAD:sycl/plugins/level_zero/pi_level0.cpp
-      // in L0 and PI interfaces.
-      // https://gitlab.devtools.intel.com/one-api/level_zero/issues/305. // INTEL
-=======
       // in Level Zero and PI interfaces.
->>>>>>> d5f75bd8f663cc4c1ca658733e86fe085533e401:sycl/plugins/level_zero/pi_level_zero.cpp
+      // https://gitlab.devtools.intel.com/one-api/level_zero/issues/305. // INTEL
       uint32_t Count = 0;
       ZE_CALL(zeModuleGetKernelNames(Program->ZeModule, &Count, nullptr));
       char **PNames = new char *[Count];
@@ -2116,19 +2082,13 @@ pi_result piKernelGetInfo(pi_kernel Kernel, pi_kernel_info ParamName,
   case PI_KERNEL_INFO_PROGRAM:
     return ReturnValue(pi_program{Kernel->Program});
   case PI_KERNEL_INFO_FUNCTION_NAME:
-<<<<<<< HEAD:sycl/plugins/level_zero/pi_level0.cpp
-    // TODO: Replace with the line in the comment once bug in the L0 driver will
-    // be fixed. Problem is that currently L0 driver truncates name of the
-    // returned kernel if it is longer than 256 symbols.
+    // TODO: Replace with the line in the comment once bug in the Level Zero
+    // driver will be fixed. Problem is that currently Level Zero driver
+    // truncates name of the returned kernel if it is longer than 256 symbols.
 #if INTEL_CUSTOMIZATION
     // Details:
     // https://gitlab.devtools.intel.com/one-api/level_zero_gpu_driver/issues/72
 #endif // INTEL_CUSTOMIZATION
-=======
-    // TODO: Replace with the line in the comment once bug in the Level Zero
-    // driver will be fixed. Problem is that currently Level Zero driver
-    // truncates name of the returned kernel if it is longer than 256 symbols.
->>>>>>> d5f75bd8f663cc4c1ca658733e86fe085533e401:sycl/plugins/level_zero/pi_level_zero.cpp
     //
     // return ReturnValue(ZeKernelProperties.name);
     return ReturnValue(Kernel->KernelName.c_str());
@@ -2471,12 +2431,8 @@ pi_result piEventGetProfilingInfo(pi_event Event, pi_profiling_info ParamName,
   }
   case PI_PROFILING_INFO_COMMAND_QUEUED:
   case PI_PROFILING_INFO_COMMAND_SUBMIT:
-<<<<<<< HEAD:sycl/plugins/level_zero/pi_level0.cpp
-    // TODO: Support these when L0 supported is added.
-    // https://gitlab.devtools.intel.com/one-api/level_zero/issues/373 // INTEL
-=======
     // TODO: Support these when Level Zero supported is added.
->>>>>>> d5f75bd8f663cc4c1ca658733e86fe085533e401:sycl/plugins/level_zero/pi_level_zero.cpp
+    // https://gitlab.devtools.intel.com/one-api/level_zero/issues/373 // INTEL
     return ReturnValue(uint64_t{0});
   default:
     zePrint("piEventGetProfilingInfo: not supported ParamName\n");
@@ -3116,14 +3072,9 @@ piEnqueueMemBufferMap(pi_queue Queue, pi_mem Buffer, pi_bool BlockingMap,
   ZE_CALL(zeCommandListAppendWaitOnEvents(ZeCommandList, NumEventsInWaitList,
                                           ZeEventWaitList));
 
-<<<<<<< HEAD:sycl/plugins/level_zero/pi_level0.cpp
-  // TODO: L0 is missing the memory "mapping" capabilities, so we are left
-  // to doing new memory allocation and a copy (read).
-  // See https://gitlab.devtools.intel.com/one-api/level_zero/issues/293. // INTEL
-=======
   // TODO: Level Zero is missing the memory "mapping" capabilities, so we are
   // left to doing new memory allocation and a copy (read).
->>>>>>> d5f75bd8f663cc4c1ca658733e86fe085533e401:sycl/plugins/level_zero/pi_level_zero.cpp
+  // See https://gitlab.devtools.intel.com/one-api/level_zero/issues/293. // INTEL
   //
   // TODO: check if the input buffer is already allocated in shared
   // memory and thus is accessible from the host as is. Can we get SYCL RT
@@ -3193,14 +3144,9 @@ pi_result piEnqueueMemUnmap(pi_queue Queue, pi_mem MemObj, void *MappedPtr,
   ZE_CALL(zeCommandListAppendWaitOnEvents(ZeCommandList, NumEventsInWaitList,
                                           ZeEventWaitList));
 
-<<<<<<< HEAD:sycl/plugins/level_zero/pi_level0.cpp
-  // TODO: L0 is missing the memory "mapping" capabilities, so we are left
-  // to doing copy (write back to the device).
-  // See https://gitlab.devtools.intel.com/one-api/level_zero/issues/293. // INTEL
-=======
   // TODO: Level Zero is missing the memory "mapping" capabilities, so we are
   // left to doing copy (write back to the device).
->>>>>>> d5f75bd8f663cc4c1ca658733e86fe085533e401:sycl/plugins/level_zero/pi_level_zero.cpp
+  // See https://gitlab.devtools.intel.com/one-api/level_zero/issues/293. // INTEL
   //
   // NOTE: Keep this in sync with the implementation of
   // piEnqueueMemBufferMap/piEnqueueMemImageMap.
@@ -3316,12 +3262,8 @@ enqueueMemImageCommandHelper(pi_command_type CommandType, pi_queue Queue,
     const ze_image_region_t ZeSrcRegion =
         getImageRegionHelper(SrcMem, SrcOrigin, Region);
 
-<<<<<<< HEAD:sycl/plugins/level_zero/pi_level0.cpp
-    // TODO: L0 does not support row_pitch/slice_pitch for images yet.
-    // https://gitlab.devtools.intel.com/one-api/level_zero/issues/303 // INTEL
-=======
     // TODO: Level Zero does not support row_pitch/slice_pitch for images yet.
->>>>>>> d5f75bd8f663cc4c1ca658733e86fe085533e401:sycl/plugins/level_zero/pi_level_zero.cpp
+    // https://gitlab.devtools.intel.com/one-api/level_zero/issues/303 // INTEL
     // Check that SYCL RT did not want pitch larger than default.
 #ifndef NDEBUG
     assert(SrcMem->isImage());
@@ -3346,12 +3288,8 @@ enqueueMemImageCommandHelper(pi_command_type CommandType, pi_queue Queue,
     const ze_image_region_t ZeDstRegion =
         getImageRegionHelper(DstMem, DstOrigin, Region);
 
-<<<<<<< HEAD:sycl/plugins/level_zero/pi_level0.cpp
-    // TODO: L0 does not support row_pitch/slice_pitch for images yet.
-    // https://gitlab.devtools.intel.com/one-api/level_zero/issues/303 // INTEL
-=======
     // TODO: Level Zero does not support row_pitch/slice_pitch for images yet.
->>>>>>> d5f75bd8f663cc4c1ca658733e86fe085533e401:sycl/plugins/level_zero/pi_level_zero.cpp
+    // https://gitlab.devtools.intel.com/one-api/level_zero/issues/303 // INTEL
     // Check that SYCL RT did not want pitch larger than default.
 #ifndef NDEBUG
     assert(DstMem->isImage());

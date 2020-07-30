@@ -8,6 +8,15 @@ else()
       "${LLVM_LIBRARY_OUTPUT_INTDIR}/${CMAKE_SHARED_LIBRARY_PREFIX}ze_loader${CMAKE_SHARED_LIBRARY_SUFFIX}")
 endif()
 
+if (INTEL_CUSTOMIZATION)
+  if (DEFINED L0_LIBRARY)
+    set(LEVEL_ZERO_LIBRARY ${L0_LIBRARY})
+  endif()
+  if (DEFINED L0_INCLUDE_DIR)
+    set(LEVEL_ZERO_INCLUDE_DIR ${L0_INCLUDE_DIR})
+  endif()
+endif (INTEL_CUSTOMIZATION)
+
 if (NOT DEFINED LEVEL_ZERO_LIBRARY OR NOT DEFINED LEVEL_ZERO_INCLUDE_DIR)
   message(STATUS "Download Level Zero loader and headers from github.com")
   if (CMAKE_C_COMPILER)
@@ -99,18 +108,14 @@ endif()
 
   target_link_libraries(pi_level_zero PRIVATE "${LEVEL_ZERO_LOADER}")
 if (UNIX)
-<<<<<<< HEAD
-  target_link_libraries(pi_level0 PRIVATE pthread)
+  target_link_libraries(pi_level_zero PRIVATE pthread)
 else()
   if (INTEL_CUSTOMIZATION)
-    dpcpptarget_add_resource_file(pi_level0
-                                  "pi_level0.dll"
+    dpcpptarget_add_resource_file(pi_level_zero
+                                  "pi_level_zero.dll"
                                   "Intel(R) oneAPI DPC++ Library"
                                   "Intel(R) oneAPI DPC++ Library")
   endif()
-=======
-  target_link_libraries(pi_level_zero PRIVATE pthread)
->>>>>>> d5f75bd8f663cc4c1ca658733e86fe085533e401
 endif()
 
 add_common_options(pi_level_zero)

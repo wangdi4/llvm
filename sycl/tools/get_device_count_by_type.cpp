@@ -239,10 +239,11 @@ int main(int argc, char *argv[]) {
 #if INTEL_CUSTOMIZATION
   // TODO: rewrite this utility in SYCL so all SYCL PI plugins are queried.
   // TODO: Remove PI_OTHER, if it does not may to Level0.
-  // TODO: Use a Level0 low level API.
-  if (backend == "pi_level0" || backend == "pi_other") {
+  // TODO: Use a Level_zero low level API.
+  if (backend == "pi_level_zero" || backend == "pi_other") {
     if (type == "gpu") {
-      std::cout << "1:L0 GPU assumed under SYCL_BE=PI_LEVEL0" << std::endl;
+      std::cout << "1:Level Zero GPU assumed under SYCL_BE=PI_LEVEL_ZERO"
+                << std::endl;
       return EXIT_SUCCESS;
     }
   }

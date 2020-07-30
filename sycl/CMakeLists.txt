@@ -430,7 +430,7 @@ if(INTEL_CUSTOMIZATION)
   # Add xmain specific deploy components here.
   list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS sycl-config-file)
   if (CMAKE_SYCL_USE_LEVEL0)
-    list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS pi_level0)
+    list(APPEND SYCL_TOOLCHAIN_DEPLOY_COMPONENTS pi_level_zero)
   endif()
 endif(INTEL_CUSTOMIZATION)
 

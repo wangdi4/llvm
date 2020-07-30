@@ -248,7 +248,7 @@ static bool isDeviceBinaryTypeSupported(const context &C,
 
 #if INTEL_CUSTOMIZATION
   // TODO: can we just query piDeviceGetInfo(PI_DEVICE_INFO_COMPILER_AVAILABLE)?
-  if (ContextBackend == backend::level0)
+  if (ContextBackend == backend::level_zero)
     return true;
 #endif // INTEL_CUSTOMIZATION
 

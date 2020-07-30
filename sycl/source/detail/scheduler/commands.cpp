@@ -1676,7 +1676,7 @@ pi_result ExecCGCommand::SetKernelParamsAndLaunch(
       RT::PiSampler Sampler = detail::getSyclObjImpl(*SamplerPtr)
                                   ->getOrCreateSampler(MQueue->get_context());
 #if INTEL_CUSTOMIZATION
-      if (Plugin.getBackend() == (backend::level0)) {
+      if (Plugin.getBackend() == (backend::level_zero)) {
         // TODO: This is a workaround and should be reworked when
         // piextDeviceGetNativeHandle will be implemented.
         Plugin.call<PiApiKind::piKernelSetArg>(Kernel, Arg.MIndex,

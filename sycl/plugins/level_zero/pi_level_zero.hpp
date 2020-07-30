@@ -339,15 +339,11 @@ struct _pi_kernel : _pi_object {
   // Keep the program of the kernel.
   pi_program Program;
 
-<<<<<<< HEAD:sycl/plugins/level_zero/pi_level0.hpp
-  // TODO: remove when bug in the L0 runtime will be fixed.
+  // TODO: remove when bug in the Level Zero runtime will be fixed.
 #if INTEL_CUSTOMIZATION
   // Details:
   // https://gitlab.devtools.intel.com/one-api/level_zero_gpu_driver/issues/72
 #endif // INTEL_CUSTOMIZATION
-=======
-  // TODO: remove when bug in the Level Zero runtime will be fixed.
->>>>>>> d5f75bd8f663cc4c1ca658733e86fe085533e401:sycl/plugins/level_zero/pi_level_zero.hpp
   std::string KernelName;
 };
 
