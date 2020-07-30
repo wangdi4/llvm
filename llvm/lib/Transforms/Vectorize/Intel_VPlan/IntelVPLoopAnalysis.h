@@ -732,7 +732,7 @@ public:
   }
   /// Check for that all non-null VPInstructions in the descriptor are in the \p
   /// Loop.
-  void checkParentVPLoop(const VPlan *Plan, const VPLoop *Loop) const;
+  void checkParentVPLoop(const VPLoop *Loop) const;
 
   /// Return true if not all data is completed.
   bool isIncomplete() const;
@@ -758,6 +758,10 @@ private:
   /// current reduction. Currently we invalidate instructions in StartPhi, Exit
   /// and LinkedVPVals.
   void invalidateReductionInstructions();
+  /// Utility to identify last non-header PHI node in the users-chain of VPInst.
+  /// Checks are performed recursively using worklist approach to account for
+  /// nested control flow.
+  VPPHINode *getLastNonheaderPHIUser(VPInstruction *VPInst, const VPLoop *Loop);
 
   VPInstruction *StartPhi = nullptr; // TODO: Consider changing to VPPHINode.
   VPValue *Start = nullptr;
@@ -852,7 +856,7 @@ public:
   }
   /// Check for all non-null VPInstructions in the descriptor are in the \p
   /// Loop.
-  void checkParentVPLoop(const VPlan *Plan, const VPLoop *Loop) const;
+  void checkParentVPLoop(const VPLoop *Loop) const;
 
   /// Return true if not all data is completed.
   bool isIncomplete() const;
@@ -913,7 +917,7 @@ public:
   }
   /// Check for all non-null VPInstructions in the descriptor are in the \p
   /// Loop.
-  void checkParentVPLoop(const VPlan *Plan, const VPLoop *Loop) const;
+  void checkParentVPLoop(const VPLoop *Loop) const;
 
   /// Return true if not all data is completed.
   bool isIncomplete() const { return FinalInst == nullptr; }
@@ -1017,7 +1021,7 @@ public:
       const VPLoop *Loop = M[LLItem.first];
       assert(Loop != nullptr && "Can't find corresponding VPLoop");
       for (auto &Descr : LLItem.second) {
-        Descr.checkParentVPLoop(Plan, Loop);
+        Descr.checkParentVPLoop(Loop);
         if (Descr.isIncomplete())
           Descr.tryToCompleteByVPlan(Plan, Loop);
         if (Descr.isDuplicate(Plan, Loop))
