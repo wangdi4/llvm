@@ -198,7 +198,7 @@ public:
   unsigned getVPValueID() const { return SubclassID; }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   virtual void print(raw_ostream &OS) const { printAsOperand(OS); }
-  void dump() const { print(errs()); }
+  void dump() const { print(errs()); errs()<< '\n'; }
   virtual void printAsOperand(raw_ostream &OS) const;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 
