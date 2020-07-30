@@ -1,7 +1,6 @@
 // INTEL_COLLAB
 // RUN: %clang -target x86_64-linux-gnu -fiopenmp -c %s -### 2>&1 | FileCheck %s --check-prefix=CHECK-CC1-OPENMP --check-prefix=CHECK-PAR-DEFAULT
 // RUN: %clang -target x86_64-linux-gnu -fiopenmp -fopenmp=libiomp5 -c %s -### 2>&1 | FileCheck %s --check-prefix=CHECK-CC1-OPENMP --check-prefix=CHECK-PAR-DEFAULT
-// RUN: %clang -target x86_64-linux-gnu -fiopenmp -fno-openmp -c %s -### 2>&1 | FileCheck %s --check-prefix=CHECK-CC1-OPENMP
 // RUN: %clang -target x86_64-linux-gnu -fiopenmp -mllvm -paropt=4 -c %s -### 2>&1 | FileCheck %s --check-prefix=CHECK-CC1-OPENMP --check-prefix=CHECK-PAR4
 //
 // CHECK-CC1-OPENMP: "-cc1"
@@ -12,6 +11,9 @@
 // CHECK-PAR-DEFAULT: "-mllvm" "-paropt=31"
 //
 // CHECK-PAR4: "-mllvm" "-paropt=4"
+
+// RUN: %clang -target x86_64-linux-gnu -fiopenmp -fno-openmp -c %s -### 2>&1 | FileCheck %s --check-prefix=CHECK-CC1-NOOPENMP
+// CHECK-CC1-NOOPENMP-NOT: "-fopenmp"
 //
 // RUN: %clang -target x86_64-linux-gnu -fiopenmp -fopenmp=libomp %s -o %t -### 2>&1 | FileCheck %s --check-prefix=CHECK-LD-OMP
 // RUN: %clang -target x86_64-linux-gnu -fiopenmp -fopenmp=libgomp %s -o %t -### 2>&1 | FileCheck %s --check-prefix=CHECK-LD-GOMP --check-prefix=CHECK-LD-GOMP-RT
