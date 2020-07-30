@@ -158,12 +158,8 @@ void initializeDAEPass(PassRegistry&);
 void initializeDAHPass(PassRegistry&);
 void initializeDCELegacyPassPass(PassRegistry&);
 void initializeDSELegacyPassPass(PassRegistry&);
-<<<<<<< HEAD
-void initializeDataFlowSanitizerPass(PassRegistry&);
-void initializeDeadArrayOpsEliminationLegacyPassPass(PassRegistry&); // INTEL
-=======
 void initializeDataFlowSanitizerLegacyPassPass(PassRegistry &);
->>>>>>> 71d0a2b8a31344ab29d1afd0c54d89873fb3cc9e
+void initializeDeadArrayOpsEliminationLegacyPassPass(PassRegistry&); // INTEL
 void initializeDeadInstEliminationPass(PassRegistry&);
 void initializeDeadMachineInstructionElimPass(PassRegistry&);
 void initializeDebugifyMachineModulePass(PassRegistry &);
