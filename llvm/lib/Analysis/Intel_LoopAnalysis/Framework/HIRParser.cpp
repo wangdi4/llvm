@@ -3773,6 +3773,10 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
         std::unique_ptr<CanonExpr> LCE(
             parse(std::get<1>(PairV), Level, IsTop, OffsetTy));
 
+        if (LCE->hasIV()) {
+          LCE.reset(parseAsBlob(std::get<1>(PairV), Level, OffsetTy));
+        }
+
         if (IndexCE) {
           mergeIndexCE(IndexCE, ICE.get());
           mergeIndexCE(LowerCE, LCE.get());
@@ -3794,6 +3798,10 @@ void HIRParser::populateRefDimensions(RegDDRef *Ref,
       }
 
       CanonExpr *StrideCE = parse(Dim.getStride(), Level, true, OffsetTy);
+      if (StrideCE->hasIV()) {
+        getCanonExprUtils().destroy(StrideCE);
+        StrideCE = parseAsBlob(Dim.getStride(), Level, OffsetTy);
+      }
 
       ArrayRef<unsigned> StructOffsets;
       if (&Dim == &Arr.getLowestDim()) {
