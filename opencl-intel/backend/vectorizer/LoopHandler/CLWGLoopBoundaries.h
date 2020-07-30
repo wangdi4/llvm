@@ -176,18 +176,14 @@ private:
   SmallVector<UniDesc, 4> m_UniDesc;
   ///@brief indicates wether there are calls to get***id with non-constant argument.
   bool m_hasVariableTid;
-  ///@brief contains calls to get***id with varibale argument.
-  SmallPtrSet<CallInst *, 2> m_varibaleTIDCalls;
+  ///@brief contains calls to get***id with variable argument.
+  SmallPtrSet<CallInst *, 2> m_variableTIDCalls;
   ///@brief the dim's entry holds the get***id of dimension dim.
   SmallVector<SmallVector<CallInst *, 4>, 4> m_TIDByDim;
   ///@brief holds instruction marked for removal.
   SmallPtrSet<Instruction *, 8> m_toRemove;
-  ///@brief true iff the function call is an atomic or pipe built-in
-  bool m_hasWIUniqueCalls;
   ///@brief Users of atomic/pipe functions.
   std::set<llvm::Function *> m_WIUniqueFuncUsers;
-  ///@brief OpenCL C version the module is compiled for
-  unsigned m_oclVersion;
   ///@brief true iff upper bound was set to be inclusive.
   bool m_rightBoundInc;
 
@@ -200,10 +196,6 @@ private:
 
   ///@brief Collect kernels MaxD WG loop boundaries must be always created for.
   void collectWIUniqueFuncUsers(llvm::Module &M);
-
-  ///@brief checks if the current function has an atomic/pipe call.
-  ///@returns returns true if the current function has an atomic/pipe call.
-  bool currentFunctionHasWIUniqueCalls() const;
 
   ///@brief in case entry block branch is an early exit branch, remove the
   ///       branch and create early exit description\s.
