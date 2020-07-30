@@ -197,10 +197,11 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
     DP("Explicit extension of mapping is not allowed.\n");
   } else if (RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
 #if INTEL_COLLAB
-             !HasCloseModifier && is_managed_ptr(HstPtrBegin)) {
-#else // INTEL_COLLAB
-             !HasCloseModifier) {
+             // If the device does not support the concept of managed memory,
+             // do not take into account the result of is_managed_ptr().
+             (is_managed_ptr(HstPtrBegin) || !managed_memory_supported()) &&
 #endif // INTEL_COLLAB
+             !HasCloseModifier) {
     // If unified shared memory is active, implicitly mapped variables that are
     // not privatized use host address. Any explicitly mapped variables also use
     // host address where correctness is not impeded. In all other cases maps
@@ -275,8 +276,10 @@ void *DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
     rc = (void *)tp;
 #if INTEL_COLLAB
   } else if (RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
-             is_managed_ptr(HstPtrBegin)) {
-#else // INTEL_COLLAB
+             // If the device does not support the concept of managed memory,
+             // do not take into account the result of is_managed_ptr().
+             (is_managed_ptr(HstPtrBegin) || !managed_memory_supported())) {
+#else  // INTEL_COLLAB
   } else if (RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) {
 #endif // INTEL_COLLAB
     // If the value isn't found in the mapping and unified shared memory
@@ -309,9 +312,12 @@ void *DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size) {
 int DeviceTy::deallocTgtPtr(void *HstPtrBegin, int64_t Size, bool ForceDelete,
                             bool HasCloseModifier) {
 #if INTEL_COLLAB
-  if (RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY && !HasCloseModifier &&
-      is_managed_ptr(HstPtrBegin))
-#else // INTEL_COLLAB
+  if (RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY &&
+      !HasCloseModifier &&
+      // If the device does not support the concept of managed memory,
+      // do not take into account the result of is_managed_ptr().
+      (is_managed_ptr(HstPtrBegin) || !managed_memory_supported()))
+#else  // INTEL_COLLAB
   if (RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY && !HasCloseModifier)
 #endif // INTEL_COLLAB
     return OFFLOAD_SUCCESS;
@@ -733,6 +739,10 @@ int32_t DeviceTy::is_managed_ptr(void *Ptr) {
     return RTL->is_managed_ptr(RTLDeviceID, Ptr);
   else
     return 0;
+}
+
+int32_t DeviceTy::managed_memory_supported() {
+  return RTL->is_managed_ptr != nullptr;
 }
 
 void *DeviceTy::data_alloc_explicit(int64_t Size, int32_t Kind) {

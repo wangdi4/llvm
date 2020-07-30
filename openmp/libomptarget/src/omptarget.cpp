@@ -412,7 +412,11 @@ int target_data_begin(DeviceTy &Device, int32_t arg_num, void **args_base,
       bool copy = false;
 #if INTEL_COLLAB
       if (!(RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) ||
-          !Device.is_managed_ptr(HstPtrBegin) || HasCloseModifier) {
+          // If the device does not support the concept of managed memory,
+          // do not take into account the result of is_managed_ptr().
+          !(Device.is_managed_ptr(HstPtrBegin) ||
+            !Device.managed_memory_supported()) ||
+          HasCloseModifier) {
 #else // INTEL_COLLAB
       if (!(RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) ||
           HasCloseModifier) {
@@ -554,7 +558,11 @@ int target_data_end(DeviceTy &Device, int32_t arg_num, void **args_base,
         bool CopyMember = false;
 #if INTEL_COLLAB
         if (!(RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) ||
-            !Device.is_managed_ptr(HstPtrBegin) || HasCloseModifier) {
+            // If the device does not support the concept of managed memory,
+            // do not take into account the result of is_managed_ptr().
+            !(Device.is_managed_ptr(HstPtrBegin) ||
+              !Device.managed_memory_supported()) ||
+            HasCloseModifier) {
 #else // INTEL_COLLAB
         if (!(RTLs->RequiresFlags & OMP_REQ_UNIFIED_SHARED_MEMORY) ||
             HasCloseModifier) {
