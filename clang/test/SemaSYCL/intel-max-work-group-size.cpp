@@ -1,6 +1,6 @@
-// RUN: %clang_cc1 %s -fsyntax-only -fsycl -fsycl-is-device -Wno-sycl-2017-compat -triple spir64 -DTRIGGER_ERROR -verify
-// RUN: %clang_cc1 %s -fsyntax-only -ast-dump -fsycl -fsycl-is-device -Wno-sycl-2017-compat -triple spir64 | FileCheck %s
-// RUN: %clang_cc1 -fsycl -fsycl-is-host -fsyntax-only -Wno-sycl-2017-compat -verify %s
+// RUN: %clang_cc1 %s -fsyntax-only -fsycl -fsycl-is-device -triple spir64 -DTRIGGER_ERROR -verify
+// RUN: %clang_cc1 %s -fsyntax-only -ast-dump -fsycl -fsycl-is-device -triple spir64 | FileCheck %s
+// RUN: %clang_cc1 -fsycl -fsycl-is-host -fsyntax-only -verify %s
 
 // INTEL_CUSTOMIZATION
 // UNSUPPORTED: intel_opencl && i686-pc-windows
@@ -9,12 +9,11 @@
 #ifndef __SYCL_DEVICE_ONLY__
 struct FuncObj {
   [[intelfpga::max_work_group_size(1, 1, 1)]] // expected-no-diagnostics
-  void
-  operator()() const {}
+  void operator()() {}
 };
 
 template <typename name, typename Func>
-void kernel(const Func &kernelFunc) {
+void kernel(Func kernelFunc) {
   kernelFunc();
 }
 
@@ -28,20 +27,20 @@ void foo() {
 [[intelfpga::max_work_group_size(2, 2, 2)]] void func_do_not_ignore() {}
 
 struct FuncObj {
-  [[intelfpga::max_work_group_size(4, 4, 4)]] void operator()() const {}
+  [[intelfpga::max_work_group_size(4, 4, 4)]]
+  void operator()() {}
 };
 
 #ifdef TRIGGER_ERROR
 struct DAFuncObj {
   [[intelfpga::max_work_group_size(4, 4, 4)]]
   [[cl::reqd_work_group_size(8, 8, 4)]] // expected-error{{'reqd_work_group_size' attribute conflicts with 'max_work_group_size' attribute}}
-  void
-  operator()() const {}
+  void operator()() {}
 };
 #endif // TRIGGER_ERROR
 
 template <typename name, typename Func>
-__attribute__((sycl_kernel)) void kernel(const Func &kernelFunc) {
+__attribute__((sycl_kernel)) void kernel(Func kernelFunc) {
   kernelFunc();
 }
 

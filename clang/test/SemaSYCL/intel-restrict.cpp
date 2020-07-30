@@ -1,15 +1,21 @@
+<<<<<<< HEAD
 // UNSUPPORTED: intel_opencl && i686-pc-windows
 // RUN: %clang_cc1 %s -fsyntax-only -fsycl -fsycl-is-device -Wno-sycl-2017-compat -triple spir64 -DCHECKDIAG -verify
 // RUN: %clang_cc1 %s -fsyntax-only -ast-dump -fsycl -fsycl-is-device -Wno-sycl-2017-compat -triple spir64 | FileCheck %s
+=======
+// RUN: %clang_cc1 %s -fsyntax-only -fsycl -fsycl-is-device -triple spir64 -DCHECKDIAG -verify
+// RUN: %clang_cc1 %s -fsyntax-only -ast-dump -fsycl -fsycl-is-device -triple spir64 | FileCheck %s
+>>>>>>> 8ac87a33585496fbb4d961adabfd58d674f3889f
 
 [[intel::kernel_args_restrict]] void func_do_not_ignore() {}
 
 struct FuncObj {
-  [[intel::kernel_args_restrict]] void operator()() const {}
+  [[intel::kernel_args_restrict]]
+  void operator()() {}
 };
 
 template <typename name, typename Func>
-__attribute__((sycl_kernel)) void kernel(const Func &kernelFunc) {
+__attribute__((sycl_kernel)) void kernel(Func kernelFunc) {
   kernelFunc();
 #ifdef CHECKDIAG
   [[intel::kernel_args_restrict]] int invalid = 42; // expected-error{{'kernel_args_restrict' attribute only applies to functions}}
