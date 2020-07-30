@@ -12,7 +12,7 @@
 //
 // CHECK-PAR4: "-mllvm" "-paropt=4"
 
-// RUN: %clang -target x86_64-linux-gnu -fiopenmp -fno-openmp -c %s -### 2>&1 | FileCheck %s --check-prefix=CHECK-CC1-NOOPENMP
+// RUN: %clang -target x86_64-linux-gnu -fiopenmp -fno-iopenmp -c %s -### 2>&1 | FileCheck %s --check-prefix=CHECK-CC1-NOOPENMP
 // CHECK-CC1-NOOPENMP-NOT: "-fopenmp"
 //
 // RUN: %clang -target x86_64-linux-gnu -fiopenmp -fopenmp=libomp %s -o %t -### 2>&1 | FileCheck %s --check-prefix=CHECK-LD-OMP

@@ -280,6 +280,8 @@
 // RUN: %clang_cl -### /Qopenmp-threadprivate:legacy -c %s 2>&1 | FileCheck --check-prefix=CHECK-QOPENMP-THREADPRIVATE %s
 // RUN: %clang -### -qopenmp-threadprivate=compat -fiopenmp -c %s 2>&1 | FileCheck --check-prefix=CHECK-QOPENMP-COMPAT %s
 // RUN: %clang -### -fiopenmp -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIOPENMP %s
+// RUN: %clang -### -qopenmp -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIOPENMP %s
+// RUN: %clang_cl -### /Qopenmp -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIOPENMP %s
 // RUN: %clang_cl -### /Qiopenmp -c %s 2>&1 | FileCheck --check-prefix=CHECK-FIOPENMP %s
 // CHECK-QOPENMP-THREADPRIVATE: "-fopenmp-threadprivate-legacy"
 // CHECK-QOPENMP-COMPAT: "-fopenmp-late-outline"
@@ -304,7 +306,7 @@
 // RUN: %clang -### -c -qno-openmp-simd %s 2>&1 | FileCheck -check-prefix CHECK-NO-QOPENMP-SIMD %s
 // RUN: %clang_cl -### -c /Qopenmp-simd- %s 2>&1 | FileCheck -check-prefix CHECK-NO-QOPENMP-SIMD %s
 // CHECK-QOPENMP-SIMD: "-fopenmp-simd"
-// CHECK-NO-QOPENMP-SIMD: "-fno-openmp-simd"
+// CHECK-NO-QOPENMP-SIMD-NOT: "-fopenmp-simd"
 
 // Behavior with Qtemplate-depth option
 // RUN: %clang_cl -### -c /Qtemplate-depth:5 %s 2>&1 | FileCheck -check-prefix CHECK-TEMPLATE-DEPTH %s
@@ -330,7 +332,9 @@
 
 // Behavior with fiopenmp-simd/Qiopenmp-simd option
 // RUN: %clang -### -c -fiopenmp-simd %s 2>&1 | FileCheck -check-prefix CHECK-QIOPENMP-SIMD %s
+// RUN: %clang -### -c -qopenmp-simd %s 2>&1 | FileCheck -check-prefix CHECK-QIOPENMP-SIMD %s
 // RUN: %clang_cl -### -c /Qiopenmp-simd %s 2>&1 | FileCheck -check-prefix CHECK-QIOPENMP-SIMD %s
+// RUN: %clang_cl -### -c /Qopenmp-simd %s 2>&1 | FileCheck -check-prefix CHECK-QIOPENMP-SIMD %s
 // CHECK-QIOPENMP-SIMD: "-fopenmp-simd" "-fopenmp-late-outline"{{.*}} "-mllvm" "-paropt=11"
 
 // Behavior with fkeep-static-consts/Qkeep-static-consts option

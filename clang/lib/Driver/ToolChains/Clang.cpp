@@ -5508,7 +5508,8 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   }
 
 #if INTEL_CUSTOMIZATION
-  if (Args.hasArg(options::OPT_fiopenmp_simd)) {
+  if (Args.hasFlag(options::OPT_fiopenmp_simd, options::OPT_fno_iopenmp_simd,
+                   false)) {
     // FIXME: Add better interactions with -fopenmp-simd.
     CmdArgs.push_back("-fopenmp-simd");
     CmdArgs.push_back("-fopenmp-late-outline");
@@ -5590,7 +5591,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   Args.AddLastArg(CmdArgs, options::OPT_fdiagnostics_show_template_tree);
   Args.AddLastArg(CmdArgs, options::OPT_fno_elide_type);
 #if INTEL_COLLAB
-  if (Args.hasArg(options::OPT_fiopenmp)) {
+  if (Args.hasFlag(options::OPT_fiopenmp, options::OPT_fno_iopenmp, false)) {
     CmdArgs.push_back("-fopenmp-late-outline");
 #if INTEL_CUSTOMIZATION
     CmdArgs.push_back("-fintel-openmp-region");
@@ -5609,7 +5610,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 #if INTEL_COLLAB
   if ((Args.hasFlag(options::OPT_fopenmp, options::OPT_fopenmp_EQ,
                     options::OPT_fno_openmp, false) ||
-       Args.hasFlag(options::OPT_fiopenmp, options::OPT_fno_openmp, false)) &&
+       Args.hasFlag(options::OPT_fiopenmp, options::OPT_fno_iopenmp, false)) &&
 #else
   if (Args.hasFlag(options::OPT_fopenmp, options::OPT_fopenmp_EQ,
                    options::OPT_fno_openmp, false) &&
@@ -6578,7 +6579,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   }
 #if INTEL_COLLAB
   // fixup -paropt value
-  if (Args.hasArg(options::OPT_fiopenmp, options::OPT_fiopenmp_simd)) {
+  if (Args.hasFlag(options::OPT_fiopenmp, options::OPT_fno_iopenmp, false) ||
+      Args.hasFlag(options::OPT_fiopenmp_simd, options::OPT_fno_iopenmp_simd,
+                   false)) {
     int paroptVal = IsOpenMPDevice ? 0x20 : 0x0;
     bool paroptSeen = false;
     StringRef paropt = Args.hasArg(options::OPT_fiopenmp) ? "31" : "11";

@@ -1877,8 +1877,6 @@ def fopenmp : Flag<["-"], "fopenmp">, Group<f_Group>,
   Flags<[CC1Option, NoArgumentUnused, DpcppUnsupported]>,
   HelpText<"Parse OpenMP pragmas and generate parallel code.">;
 def fno_openmp : Flag<["-"], "fno-openmp">, Group<f_Group>, Flags<[NoArgumentUnused, DpcppUnsupported]>;
-def qno_openmp : Flag<["-"], "qno-openmp">, Group<f_Group>, Flags<[NoArgumentUnused, DpcppUnsupported]>, Alias<fno_openmp>,
-  HelpText<"Disable OpenMP support">;
 def fopenmp_version_EQ : Joined<["-"], "fopenmp-version=">, Group<f_Group>,
   Flags<[CC1Option, NoArgumentUnused, DpcppUnsupported]>,
   HelpText<"Choose which OpenMP version to link with.">;
@@ -1904,6 +1902,7 @@ def fopenmp_simd : Flag<["-"], "fopenmp-simd">, Group<f_Group>, Flags<[CC1Option
   HelpText<"Emit OpenMP code only for SIMD-based constructs.">;
 #if INTEL_CUSTOMIZATION
 def fiopenmp_simd : Flag<["-"], "fiopenmp-simd">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused, DpcppUnsupported]>;
+def fno_iopenmp_simd : Flag<["-"], "fno-iopenmp-simd">, Group<f_Group>, Flags<[NoArgumentUnused, DpcppUnsupported]>;
 def fopenmp_stable_file_id : Flag<["-"], "fopenmp-stable-file-id">,
     Group<f_Group>, Flags<[CC1Option, NoArgumentUnused, CoreOption, HelpHidden]>;
 #endif // INTEL_CUSTOMIZATION
@@ -1930,15 +1929,17 @@ def fno_openmp_optimistic_collapse : Flag<["-"], "fno-openmp-optimistic-collapse
   Flags<[NoArgumentUnused, HelpHidden]>;
 // INTEL_COLLAB
 def fiopenmp : Flag<["-"], "fiopenmp">, Group<f_Group>, Flags<[NoArgumentUnused]>;
+def fno_iopenmp : Flag<["-"], "fno-iopenmp">, Group<f_Group>, Flags<[NoArgumentUnused]>;
 // end INTEL_COLLAB
 #if INTEL_CUSTOMIZATION
 def static_openmp: Flag<["-"], "static-openmp">, Flags<[DpcppUnsupported]>,
   HelpText<"Use the static host OpenMP runtime while linking.">;
-def qopenmp_simd: Flag<["-"], "qopenmp-simd">, Alias<fopenmp_simd>,
-  Flags<[DpcppUnsupported]>, HelpText<" Emit OpenMP code only for SIMD-based"
-  " constructs.">;
-def qno_openmp_simd: Flag<["-"], "qno-openmp-simd">, Alias<fno_openmp_simd>,
+def qopenmp_simd: Flag<["-"], "qopenmp-simd">, Alias<fiopenmp_simd>,
+  Flags<[DpcppUnsupported]>, HelpText<"Emit OpenMP code only for SIMD-based "
+  "constructs.">;
+def qno_openmp_simd: Flag<["-"], "qno-openmp-simd">, Alias<fno_iopenmp_simd>,
   Flags<[DpcppUnsupported]>;
+def qno_openmp : Flag<["-"], "qno-openmp">, Group<f_Group>, Flags<[NoArgumentUnused, DpcppUnsupported]>, Alias<fno_iopenmp>, HelpText<"Disable OpenMP support">;
 def qopenmp: Flag<["-"], "qopenmp">, Alias<fiopenmp>, Flags<[DpcppUnsupported]>,
   HelpText<"Parse OpenMP pragmas and generate parallel code.">;
 #endif // INTEL_CUSTOMIZATION
