@@ -977,7 +977,8 @@ void Driver::CreateOffloadingDeviceToolChains(Compilation &C,
           options::OPT_fopenmp, options::OPT_fopenmp_EQ,
 #if INTEL_COLLAB
           options::OPT_fno_openmp, false) ||
-          C.getInputArgs().hasArg(options::OPT_fiopenmp);
+          C.getInputArgs().hasFlag(options::OPT_fiopenmp,
+                                   options::OPT_fno_openmp, false);
 #else
           options::OPT_fno_openmp, false);
 #endif // INTEL_COLLAB
