@@ -3366,6 +3366,8 @@ static bool optimizeEmptyGlobalAtexitDtors(
   Function *AtExitFn = M.getFunction(TLI->getName(LibFunc_atexit));
   if (!AtExitFn || !TLI->has(LibFunc_atexit))
     return false;
+
+  SmallPtrSet<CallInst*, 32> CallsToDelete;
   for (auto U : AtExitFn->users()) {
     CallInst *CI = dyn_cast<CallInst>(U);
     // Make sure AtExitFn call is in global_ctors.
@@ -3377,6 +3379,10 @@ static bool optimizeEmptyGlobalAtexitDtors(
     if (!DtorFn || !cxxDtorIsEmpty(*DtorFn))
       continue;
 
+    CallsToDelete.insert(CI);
+  }
+
+  for (auto CI : CallsToDelete) {
     CI->replaceAllUsesWith(Constant::getNullValue(CI->getType()));
     CI->eraseFromParent();
 
