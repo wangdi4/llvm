@@ -3,7 +3,12 @@
 :entry_first
 foo
 # Func Hash:
-47485104005
+# INTEL_CUSTOMIZATION
+# CFG is changed. (same change was done for indirectbr.proftext in
+# changeset: f5e1ee20dcb70ea55e5d091b7a157d3e5c58d5ea due to
+# changes made for critical edge splitting during CodeGen processing)
+43592973625
+# end INTEL_CUSTOMIZATION
 # Num Counters:
 4
 # Counter Values:
