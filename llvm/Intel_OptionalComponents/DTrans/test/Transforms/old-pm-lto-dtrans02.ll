@@ -8,7 +8,6 @@
 ; RUN: opt -disable-verify -debug-pass=Executions -debug-only=dtransanalysis \
 ; RUN:     -whole-program-assume -enable-dtrans-soatoaos                     \
 ; RUN      -enable-dtrans-deletefield -enable-resolve-types                  \
-; RUN:     -enable-dtrans-const-arrays-metadata                              \
 ; RUN:     -std-link-opts -S  %s -enable-dtrans                              \
 ; RUN:     2>&1 \
 ; RUN:     | FileCheck %s
@@ -37,7 +36,6 @@
 ; CHECK: Executing Pass 'DTrans dynamic cloning'
 ; CHECK-NOT: Running DTransAnalysisInfo::analyzeModule
 ; CHECK: Executing Pass 'DTrans annotator cleaner'
-; CHECK: Executing Pass 'DTrans constant arrays metadata'
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

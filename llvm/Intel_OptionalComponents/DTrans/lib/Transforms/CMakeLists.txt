@@ -19,7 +19,6 @@ add_llvm_component_library(LLVMIntel_DTransOpt
   ResolveTypes.cpp
   EliminateROFieldAccess.cpp
   DynClone.cpp
-  DTransConstantArraysMetadata.cpp
   DTransOptBase.cpp
   DTransOptBaseTest.cpp
   DTransOptUtils.cpp
