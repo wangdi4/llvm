@@ -119,6 +119,7 @@ void initializeScalarizeFunctionPass(llvm::PassRegistry &);
 void initializeRemoveAtExitPass(llvm::PassRegistry &);
 void initializeAddNTAttrPass(llvm::PassRegistry &);
 void initializeChooseVectorizationDimensionModulePassPass(llvm::PassRegistry &);
+void initializeCoerceWin64TypesPass(llvm::PassRegistry &);
 }
 
 #endif
