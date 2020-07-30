@@ -273,7 +273,7 @@ bool VPLoopEntityList::isInductionLastValPreInc(const VPInduction *Ind) const {
     return false;
   if (Instr == Ind->getInductionBinOp())
     return false;
-  if (isa<VPPHINode>(Instr) && Instr->getParent() == Loop.getLoopPreheader())
+  if (isa<VPPHINode>(Instr) && Instr->getParent() == Loop.getHeader())
     return true;
 
   return false;
@@ -771,6 +771,10 @@ void VPLoopEntityList::insertInductionVPInstructions(VPBuilder &Builder,
             ? Builder.createInductionFinal(Exit, Name + ".ind.final")
             : Builder.createInductionFinal(Start, Induction->getStep(), Opc,
                                            Name + ".ind.final");
+    // Check if induction's last value is live-out of penultimate loop
+    // iteration.
+    cast<VPInductionFinal>(Final)->setLastValPreIncrement(
+        isInductionLastValPreInc(Induction));
     processFinalValue(*Induction, AI, Builder, *Final, Ty, Exit);
   }
 }

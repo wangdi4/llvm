@@ -455,10 +455,6 @@ public:
 #endif
   const VPLoop &getLoop() const { return Loop; }
 
-  /// Return true if live out value of the induction \p Ind is calculated on the
-  /// penultimate iteration of the loop.
-  bool isInductionLastValPreInc(const VPInduction *Ind) const;
-
   VPPHINode *findInductionStartPhi(const VPInduction *Induction) const;
 
   // Record that PHI node \p Duplicate is exactly identical to the original
@@ -609,6 +605,10 @@ private:
                                 VPValue &PrivateMem);
 
   VPInstruction *getInductionLoopExitInstr(const VPInduction *Induction) const;
+
+  /// Return true if live out value of the induction \p Ind is calculated on the
+  /// penultimate iteration of the loop.
+  bool isInductionLastValPreInc(const VPInduction *Ind) const;
 
   // Insert VPInstructions related to VPReductions.
   void insertReductionVPInstructions(VPBuilder &Builder,
