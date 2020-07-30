@@ -1,11 +1,6 @@
-<<<<<<< HEAD
 // UNSUPPORTED: intel_opencl && i686-pc-windows
-// RUN: %clang_cc1 %s -fsyntax-only -fsycl -fsycl-is-device -Wno-sycl-2017-compat -triple spir64 -DCHECKDIAG -verify
-// RUN: %clang_cc1 %s -fsyntax-only -ast-dump -fsycl -fsycl-is-device -Wno-sycl-2017-compat -triple spir64 | FileCheck %s
-=======
 // RUN: %clang_cc1 %s -fsyntax-only -fsycl -fsycl-is-device -triple spir64 -DCHECKDIAG -verify
 // RUN: %clang_cc1 %s -fsyntax-only -ast-dump -fsycl -fsycl-is-device -triple spir64 | FileCheck %s
->>>>>>> 8ac87a33585496fbb4d961adabfd58d674f3889f
 
 [[intel::kernel_args_restrict]] void func_do_not_ignore() {}
 
