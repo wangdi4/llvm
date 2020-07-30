@@ -1867,7 +1867,8 @@ unsigned RegDDRef::getNumDimensionElements(unsigned DimensionNum) const {
     int64_t CurDimStride, NextDimStride;
 
     if (!getDimensionStride(DimensionNum)->isIntConstant(&CurDimStride) ||
-        !getDimensionStride(DimensionNum + 1)->isIntConstant(&NextDimStride)) {
+        !getDimensionStride(DimensionNum + 1)->isIntConstant(&NextDimStride) ||
+        CurDimStride == 0) {
       return 0;
     }
 
