@@ -552,6 +552,10 @@ static size_t GetInstructionSize(uptr address, size_t* rel_offset = nullptr) {
   }
 
   switch (*(u32*)(address)) {
+#if INTEL_CUSTOMIZATION
+    case 0xfa1e0ff3:  // F3 0F 1E FA : endbr64
+      return 4;
+#endif // INTEL_CUSTOMIZATION
     case 0x24448b48:  // 48 8b 44 24 XX : mov rax, QWORD ptr [rsp + XX]
     case 0x246c8948:  // 48 89 6C 24 XX : mov QWORD ptr [rsp + XX], rbp
     case 0x245c8948:  // 48 89 5c 24 XX : mov QWORD PTR [rsp + XX], rbx
@@ -598,6 +602,10 @@ static size_t GetInstructionSize(uptr address, size_t* rel_offset = nullptr) {
   }
 
   switch (*(u32*)address) {
+#if INTEL_CUSTOMIZATION
+    case 0xFB1E0FF3:  // F3 0F 1E FB : endbr32
+      return 4;
+#endif  // INTEL_CUSTOMIZATION
     case 0x2444B60F:  // 0F B6 44 24 XX : movzx eax, byte ptr [esp + XX]
       return 5;
   }
