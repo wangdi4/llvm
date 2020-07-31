@@ -339,7 +339,11 @@ public:
   static bool doIdentityMatrixSubstitution(HLLoop *Loop,
                                            const RegDDRef *IdentityRef);
 
-  static bool substituteConstGlobals(HLNode *Node);
+  /// Substitutes constant global refs with equivalent constants.
+  static bool doConstantArraySubstitution(HLNode *Node);
+
+  /// Propagates constants to refs and does constant folding for instructions.
+  static bool doConstantPropagation(HLNode *Node);
 
   /// Conduct Array Scalarization for all memrefs provided in a set of symbases.
   ///

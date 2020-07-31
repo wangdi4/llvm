@@ -613,6 +613,13 @@ public:
     return isTerminalRef() && getSingleCanonExpr()->isConstant();
   }
 
+  /// Returns true if ref is able to safely propagate a constant from lval
+  /// to future rval. Currently supports scalar/vector types.
+  ///
+  bool isFoldableConstant() const {
+    return isTerminalRef() && getSingleCanonExpr()->isFoldableConstant();
+  }
+
   /// Returns the number of dimensions of the DDRef.
   unsigned getNumDimensions() const { return CanonExprs.size(); }
 
@@ -781,6 +788,11 @@ public:
     return isTerminalRef() && getSingleCanonExpr()->isOne();
   }
 
+  /// Return true if the DDRef represents a constant -1.
+  bool isMinusOne() const {
+    return isTerminalRef() && getSingleCanonExpr()->isMinusOne();
+  }
+
   /// Returns true if this DDRef contains undefined canon expressions.
   bool containsUndef() const override;
 
@@ -910,8 +922,11 @@ public:
   //  CanonExprs.erase(CanonExprs.begin() + (DimensionNum - 1));
   // }
 
-  /// Replaces existing self blob index with \p NewIndex.
+  /// Replaces existing self blob index with \p NewIndex and corresponding SB.
   void replaceSelfBlobIndex(unsigned NewIndex);
+
+  /// Replaces existing self blob index with \p NewIndex and Constant SB.
+  void replaceSelfBlobByConstBlob(unsigned NewIndex);
 
   /// Converts a terminal lval ref into a self blob ref using its symbase.
   /// For example, if we have t1 = t2 + t3, where t1's canonical form is (1 * t2
@@ -935,11 +950,15 @@ public:
   /// Removes and returns blob DDRef corresponding to CBlobI iterator.
   BlobDDRef *removeBlobDDRef(const_blob_iterator CBlobI);
 
+  /// Remove and return attached BlobDDRef based on Blob Index
+  BlobDDRef *removeBlobDDRefWithIndex(unsigned Index);
+
   /// Replaces temp blob with \p OldIndex by new temp blob with \p NewIndex, if
   /// it exists in DDRef. Returns true if it is replaced.
   /// If the ref is a terminal lval ref and \p OldIndex corresponds to the
   /// symbase of the Ref, it is assumed as a use of the temp. This is relavant
   /// for instructions such as: t = i1 + 1, where 't' has a linear form.
+  /// For constants, see replaceSelfBlobByConstBlob()
   bool replaceTempBlob(unsigned OldIndex, unsigned NewIndex,
                        bool AssumeLvalIfDetached = false);
 
@@ -948,6 +967,9 @@ public:
   bool replaceTempBlobs(
       const SmallVectorImpl<std::pair<unsigned, unsigned>> &BlobMap,
       bool AssumeLvalIfDetached = false);
+
+  /// Replaces temp blob with int constant
+  bool replaceTempBlobByConstant(unsigned OldIndex, int64_t Constant);
 
   /// Removes all blob DDRefs attached to this DDRef.
   void removeAllBlobDDRefs();
@@ -1109,8 +1131,7 @@ public:
   /// Does constant folding for the ref if it is a global const.
   /// If the ref can be replaced with a constant value, that constant
   /// ref is returned, otherwise nullptr if no constant equivalent found.
-  RegDDRef* simplifyConstArray();
-
+  RegDDRef *simplifyConstArray();
 
   /// Verifies RegDDRef integrity.
   virtual void verify() const override;

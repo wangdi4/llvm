@@ -806,6 +806,14 @@ void RegDDRef::replaceSelfBlobIndex(unsigned NewIndex) {
   setSymbase(getBlobUtils().getTempBlobSymbase(NewIndex));
 }
 
+void RegDDRef::replaceSelfBlobByConstBlob(unsigned NewIndex) {
+  assert(isSelfBlob() && "DDRef is not a self blob!");
+  auto CE = getSingleCanonExpr();
+  CE->replaceSingleBlobIndex(NewIndex);
+  CE->setDefinedAtLevel(0);
+  setSymbase(ConstantSymbase);
+}
+
 void RegDDRef::makeSelfBlob(bool AssumeLvalIfDetached) {
   bool IsLval = getHLDDNode() ? isLval() : AssumeLvalIfDetached;
   (void)IsLval;
@@ -1133,8 +1141,53 @@ BlobDDRef *RegDDRef::removeBlobDDRef(const_blob_iterator CBlobI) {
   return BRef;
 }
 
+BlobDDRef *RegDDRef::removeBlobDDRefWithIndex(unsigned Index) {
+
+  for (auto BI = blob_begin(), E = blob_end(); BI != E; ++BI) {
+    if ((*BI)->getBlobIndex() == Index) {
+      return removeBlobDDRef(BI);
+    }
+  }
+
+  llvm_unreachable("Could not find blobindex to remove!\n");
+  return nullptr;
+}
+
+bool RegDDRef::replaceTempBlobByConstant(unsigned OldIndex, int64_t Constant) {
+  if (!usesTempBlob(OldIndex)) {
+    return false;
+  }
+
+  bool Replaced = false;
+  bool HasGEPInfo = hasGEPInfo();
+
+  for (unsigned I = 1, NumDims = getNumDimensions(); I <= NumDims; ++I) {
+    if (getDimensionIndex(I)->replaceTempBlobByConstant(OldIndex, Constant,
+                                                        true)) {
+      Replaced = true;
+    }
+
+    if (HasGEPInfo) {
+      if (getDimensionLower(I)->replaceTempBlobByConstant(OldIndex, Constant,
+                                                          true)) {
+        Replaced = true;
+      }
+
+      if (getDimensionStride(I)->replaceTempBlobByConstant(OldIndex, Constant,
+                                                           true)) {
+        Replaced = true;
+      }
+    }
+  }
+
+  assert(Replaced && "Inconsistent DDRef found!");
+  makeConsistent();
+  return Replaced;
+}
+
 bool RegDDRef::replaceTempBlob(unsigned OldIndex, unsigned NewIndex,
                                bool AssumeLvalIfDetached) {
+
   if (!usesTempBlob(OldIndex)) {
     return false;
   }
@@ -1177,12 +1230,9 @@ bool RegDDRef::replaceTempBlob(unsigned OldIndex, unsigned NewIndex,
   }
 
   auto BRef = getBlobDDRef(OldIndex);
-  assert(Replaced && BRef && "Inconsistent DDRef found!");
-  (void)Replaced;
-
+  assert(Replaced && BRef && "Inconsistent DDRef found!\n");
   BRef->replaceBlob(NewIndex);
-
-  return true;
+  return Replaced;
 }
 
 bool RegDDRef::replaceTempBlobs(
@@ -2011,12 +2061,6 @@ RegDDRef *RegDDRef::simplifyConstArray() {
   Constant *Val =
       ConstantFoldLoadThroughGEPIndices(GV->getInitializer(), Indices);
   if (!Val) {
-    return nullptr;
-  }
-
-  // Representable as const ref
-  if (!isa<MetadataAsValue>(Val) && !isa<ConstantData>(Val) &&
-      !isa<ConstantVector>(Val)) {
     return nullptr;
   }
 

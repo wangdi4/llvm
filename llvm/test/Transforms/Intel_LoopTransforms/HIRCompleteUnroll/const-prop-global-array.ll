@@ -1,12 +1,11 @@
-; TODO; enable when const prop turned on
-;  XFAIL: *
-;
 ; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-pre-vec-complete-unroll -print-before=hir-pre-vec-complete-unroll -disable-output -print-after=hir-pre-vec-complete-unroll 2>&1 < %s | FileCheck %s
 
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-pre-vec-complete-unroll,print<hir>" -disable-output 2>&1 < %s | FileCheck %s
 
 ; Verify constant array access is replaced after unrolling and downstream code is
-; simplified and removed.
+; simplified and removed. Note: constant definitions are leftover due to the ifs.
+; They could not be optimized away until after the constant propagation pass, so we
+; could not prove domination at the time.
 
 ; Source Code:
 
@@ -39,20 +38,12 @@
 ; CHECK: Function:
 ; CHECK: BEGIN REGION { modified }
 ; CHECK: + DO i1 = 0, 9, 1
-; CHECK: |   %0 = 1;
-; CHECK-NOT: if
-; CHECK: |   %1 = 1;
-; CHECK: |   %sum.addr.043 = (%0 * %1)  +  %sum.addr.043;
-; CHECK: |   %0 = 2;
-; CHECK-NOT: if
-; CHECK: |   %1 = 3;
-; CHECK: |   %sum.addr.043 = (%0 * %1)  +  %sum.addr.043;
-; CHECK: |   %0 = 3;
-; CHECK-NOT: if
-; CHECK: |   %1 = 2;
-; CHECK: |   %sum.addr.043 = (%0 * %1)  +  %sum.addr.043;
-; CHECK: |   %0 = 0;
-; CHECK-NOT: if
+;        |   %2 = 1;
+; CHECK: |   %sum.addr.043 = 1  +  %sum.addr.043;
+;        |   %2 = 3;
+; CHECK: |   %sum.addr.043 = 6  +  %sum.addr.043;
+;        |   %2 = 2;
+; CHECK: |   %sum.addr.043 = 6  +  %sum.addr.043;
 ; CHECK: + END LOOP
 ; CHECK: END REGION
 

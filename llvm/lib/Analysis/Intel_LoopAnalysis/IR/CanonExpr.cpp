@@ -345,7 +345,8 @@ bool CanonExpr::isIntVectorConstant(Constant **Val) const {
 
       ConstVal = ConstantInt::get(getDestType()->getScalarType(), ConstIntVal);
       *Val = ConstantVector::getSplat(
-          ElementCount::getFixed(cast<VectorType>(getDestType())->getNumElements()),
+          ElementCount::getFixed(
+              cast<VectorType>(getDestType())->getNumElements()),
           ConstVal);
     }
 
@@ -369,7 +370,8 @@ bool CanonExpr::isFPVectorConstant(Constant **Val) const {
 
       ConstVal = ConstFPVal;
       *Val = ConstantVector::getSplat(
-          ElementCount::getFixed(cast<VectorType>(getDestType())->getNumElements()),
+          ElementCount::getFixed(
+              cast<VectorType>(getDestType())->getNumElements()),
           ConstVal);
     }
 
@@ -1011,7 +1013,6 @@ bool CanonExpr::replaceTempBlobImpl(unsigned TempIndex, T Operand) {
   for (auto &Blob : NewBlobs) {
     addBlob(Blob.Index, Blob.Coeff);
   }
-
   return Replaced;
 }
 
@@ -1019,9 +1020,13 @@ bool CanonExpr::replaceTempBlob(unsigned TempIndex, unsigned NewTempIndex) {
   return replaceTempBlobImpl<false>(TempIndex, NewTempIndex);
 }
 
-bool CanonExpr::replaceTempBlobByConstant(unsigned TempIndex,
-                                          int64_t Constant) {
-  return replaceTempBlobImpl<true>(TempIndex, Constant);
+bool CanonExpr::replaceTempBlobByConstant(unsigned TempIndex, int64_t Constant,
+                                          bool Simplify) {
+  bool Replaced = replaceTempBlobImpl<true>(TempIndex, Constant);
+  if (Simplify && Replaced) {
+    simplify(true, false);
+  }
+  return Replaced;
 }
 
 void CanonExpr::clear() {

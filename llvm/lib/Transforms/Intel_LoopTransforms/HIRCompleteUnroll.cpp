@@ -3040,8 +3040,10 @@ void HIRCompleteUnroll::transformLoops() {
     doUnroll(Loop);
 
     if (IsPreVec && HasParentLoop) {
-      HIRTransformUtils::substituteConstGlobals(ParentNode);
+      HIRTransformUtils::doConstantArraySubstitution(ParentNode);
+      HIRTransformUtils::doConstantPropagation(ParentNode);
     }
+
     HLNodeUtils::removeRedundantNodes(ParentNode);
   }
 }

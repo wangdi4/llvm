@@ -3,7 +3,7 @@
 ; RUN: opt -passes="hir-ssa-deconstruction,hir-temp-cleanup,print<hir>,hir-pre-vec-complete-unroll,print<hir>" -disable-output 2>&1 < %s | FileCheck %s
 
 ; Verify constant array access is replaced after unrolling and downstream code is
-; simplified and removed.
+; simplified.
 
 ; Source Code:
 ;int const glob[2][2] = {{1,2},{3,0}};
@@ -35,19 +35,14 @@
 ; CHECK: Function:
 ; CHECK: BEGIN REGION { modified }
 ; CHECK: + DO i1 = 0, 9, 1
-; CHECK: |   %1 = 1;
-; CHECK-NOT: if
-; CHECK: |   %2 = 1;
-; CHECK: |   %sum.addr.043 = (%1 * %2)  +  %sum.addr.043;
-; CHECK: |   %1 = 1;
-; CHECK-NOT: if
-; CHECK: |   %2 = 0;
-; CHECK: |   %sum.addr.043 = (%1 * %2)  +  %sum.addr.043;
-; CHECK: |   %1 = 0;
-; CHECK-NOT: if
-; CHECK: |   %2 = 1;
-; CHECK: |   %sum.addr.043 = (%1 * %2)  +  %sum.addr.043;
-; CHECK-NOT: if
+;        |   %1 = 1;
+;        |   %2 = 1;
+; CHECK  |   %sum.addr.043 = 1  +  %sum.addr.043;
+; CHECK-NOT: |   %sum.addr.043 = %sum.addr.043;
+;        |   %1 = 1;
+;        |   %2 = 0;
+;        |   %1 = 0;
+;        |   %2 = 1;
 ; CHECK: + END LOOP
 ; CHECK: END REGION
 
