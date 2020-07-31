@@ -337,6 +337,9 @@ public:
   /// constant.
   static bool doIdentityMatrixSubstitution(HLLoop *Loop,
                                            const RegDDRef *IdentityRef);
+
+  static bool substituteConstGlobals(HLNode *Node);
+
 };
 
 } // End namespace loopopt
