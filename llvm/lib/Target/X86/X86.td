@@ -758,22 +758,11 @@ def ProcessorFeatures {
   // Sandybridge
   list<SubtargetFeature> SNBAdditionalFeatures = [FeatureAVX,
                                                   FeatureXSAVE,
-<<<<<<< HEAD
-                                                  FeatureXSAVEOPT,
-                                                  FeatureSlow3OpsLEA,
-#if INTEL_CUSTOMIZATION
-                                                  FeatureHasDSB,
-#endif // INTEL_CUSTOMIZATION
-                                                  FeatureFastScalarFSQRT,
-                                                  FeatureFastSHLDRotate,
-                                                  FeatureFast15ByteNOP];
-  list<SubtargetFeature> SNBSpecificFeatures = [FeatureSlowUAMem32,
-                                                FeaturePOPCNTFalseDeps];
-  list<SubtargetFeature> SNBInheritableFeatures =
-    !listconcat(WSMInheritableFeatures, SNBAdditionalFeatures);
-=======
                                                   FeatureXSAVEOPT];
   list<SubtargetFeature> SNBTuning = [FeatureMacroFusion,
+#if INTEL_CUSTOMIZATION
+                                      FeatureHasDSB,
+#endif // INTEL_CUSTOMIZATION
                                       FeatureSlow3OpsLEA,
                                       FeatureSlowDivide64,
                                       FeatureSlowUAMem32,
@@ -782,7 +771,6 @@ def ProcessorFeatures {
                                       FeatureFast15ByteNOP,
                                       FeaturePOPCNTFalseDeps,
                                       FeatureInsertVZEROUPPER];
->>>>>>> 3ad09fd03c51823aeb0bcbd7898aada33e9228d6
   list<SubtargetFeature> SNBFeatures =
     !listconcat(WSMFeatures, SNBAdditionalFeatures);
 
@@ -804,6 +792,9 @@ def ProcessorFeatures {
                                                   FeatureLZCNT,
                                                   FeatureMOVBE];
   list<SubtargetFeature> HSWTuning = [FeatureMacroFusion,
+#if INTEL_CUSTOMIZATION
+                                      FeatureHasDSB,
+#endif // INTEL_CUSTOMIZATION
                                       FeatureSlow3OpsLEA,
                                       FeatureSlowDivide64,
                                       FeatureFastScalarFSQRT,
@@ -832,6 +823,9 @@ def ProcessorFeatures {
                                                   FeatureSGX];
   list<SubtargetFeature> SKLTuning = [FeatureHasFastGather,
                                       FeatureMacroFusion,
+#if INTEL_CUSTOMIZATION
+                                      FeatureHasDSB,
+#endif // INTEL_CUSTOMIZATION
                                       FeatureSlow3OpsLEA,
                                       FeatureSlowDivide64,
                                       FeatureFastScalarFSQRT,
@@ -858,6 +852,9 @@ def ProcessorFeatures {
                                                   FeatureCLWB];
   list<SubtargetFeature> SKXTuning = [FeatureHasFastGather,
                                       FeatureMacroFusion,
+#if INTEL_CUSTOMIZATION
+                                      FeatureHasDSB,
+#endif // INTEL_CUSTOMIZATION
                                       FeatureSlow3OpsLEA,
                                       FeatureSlowDivide64,
                                       FeatureFastScalarFSQRT,
@@ -873,13 +870,11 @@ def ProcessorFeatures {
 
 #if INTEL_CUSTOMIZATION
   // Broadwell ISA, AVX512F+CD and SKX tuning flags.
-  list<SubtargetFeature> CommonAVX512SpecificFeatures = [FeatureAVX512,
-                                                        FeaturePrefer256Bit,
-                                                        FeatureCDI,
-                                                        FeatureHasFastGather,
-                                                        FeaturePOPCNTFalseDeps];
+  list<SubtargetFeature> CommonAVX512AdditionalFeatures = [FeatureAVX512,
+                                                           FeatureCDI];
   list<SubtargetFeature> CommonAVX512Features =
-    !listconcat(BDWInheritableFeatures, CommonAVX512SpecificFeatures);
+    !listconcat(BDWFeatures, CommonAVX512AdditionalFeatures);
+  list<SubtargetFeature> CommonAVX512Tuning = SKXTuning;
 #endif
 
   // Cascadelake
@@ -906,6 +901,9 @@ def ProcessorFeatures {
                                                   FeatureSHA];
   list<SubtargetFeature> CNLTuning = [FeatureHasFastGather,
                                       FeatureMacroFusion,
+#if INTEL_CUSTOMIZATION
+                                      FeatureHasDSB,
+#endif // INTEL_CUSTOMIZATION
                                       FeatureSlow3OpsLEA,
                                       FeatureSlowDivide64,
                                       FeatureFastScalarFSQRT,
@@ -965,8 +963,6 @@ def ProcessorFeatures {
 #endif // INTEL_FEATURE_ISA_FP16
     FeatureBF16,
     FeatureSERIALIZE,
-    FeaturePCONFIG,
-    FeatureWBNOINVD,
     FeatureCLDEMOTE,
     FeatureWAITPKG,
     FeaturePTWRITE,
@@ -978,18 +974,18 @@ def ProcessorFeatures {
 #if INTEL_FEATURE_ISA_AVX_VNNI
     FeatureAVXVNNI,
 #endif // INTEL_FEATURE_ISA_AVX_VNNI
-    FeatureSHSTK,
-    FeatureVP2INTERSECT,
-    FeatureMOVDIRI,
-    FeatureMOVDIR64B,
 #if INTEL_FEATURE_ISA_HRESET
     FeatureHRESET,
 #endif // INTEL_FEATURE_ISA_HRESET
-    FeatureHasFastGather
+    FeatureSHSTK,
+    FeatureVP2INTERSECT,
+    FeatureMOVDIRI,
+    FeatureMOVDIR64B
   ];
-  // TODO: inherit from Willowcove instead of ICL.
+  // TODO: inherit from Willowcove instead of ICX.
   list<SubtargetFeature> IntelAnonymous1Features =
-    !listconcat(ICLInheritableFeatures, IntelAnonymous1AdditionalFeatures);
+    !listconcat(ICXFeatures, IntelAnonymous1AdditionalFeatures);
+  list<SubtargetFeature> IntelAnonymous1Tuning = ICXTuning;
 #endif // INTEL_CUSTOMIZATION
 
   // Atom
@@ -1087,7 +1083,6 @@ def ProcessorFeatures {
     FeatureAES,
     FeatureVAES,
     FeatureVPCLMULQDQ,
-    FeatureGFNI,
     FeatureF16C,
     FeatureBMI,
     FeatureBMI2,
@@ -1101,7 +1096,6 @@ def ProcessorFeatures {
 #if INTEL_FEATURE_ISA_HRESET
     FeatureHRESET,
 #endif // INTEL_FEATURE_ISA_HRESET
-    // Inherit Tremont
     FeatureCLDEMOTE,
     FeatureMOVDIRI,
     FeatureMOVDIR64B,
@@ -1109,7 +1103,12 @@ def ProcessorFeatures {
   ];
   // TODO: inherit from Snow Ridge when it's ready
   list<SubtargetFeature> IntelAnonymous2Features =
-    !listconcat(GLPInheritableFeatures, IntelAnonymous2AdditionalFeatures);
+    !listconcat(TRMFeatures, IntelAnonymous2AdditionalFeatures);
+  // TODO: Is this correct tuning. It's GLP minus FeatureUseGLMDivSqrtCosts.
+  list<SubtargetFeature> IntelAnonymous2Tuning = [FeatureSlowTwoMemOps,
+                                                  FeatureSlowLEA,
+                                                  FeatureSlowIncDec,
+                                                  FeatureInsertVZEROUPPER];
 #endif // INTEL_CUSTOMIZATION
 
   // Knights Landing
@@ -1469,24 +1468,19 @@ foreach P = ["silvermont", "slm"] in {
                   ProcessorFeatures.SLMTuning>;
 }
 
-<<<<<<< HEAD
-def : ProcessorModel<"goldmont", SLMModel, ProcessorFeatures.GLMFeatures>;
-def : ProcessorModel<"goldmont-plus", SLMModel, ProcessorFeatures.GLPFeatures>;
-def : ProcessorModel<"tremont", SLMModel, ProcessorFeatures.TRMFeatures>;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_ADL
-def : ProcessorModel<"alderlake", SLMModel,
-                     ProcessorFeatures.IntelAnonymous2Features>;
-#endif // INTEL_FEATURE_CPU_ADL
-#endif // INTEL_CUSTOMIZATION
-=======
 def : ProcModel<"goldmont", SLMModel, ProcessorFeatures.GLMFeatures,
                 ProcessorFeatures.GLMTuning>;
 def : ProcModel<"goldmont-plus", SLMModel, ProcessorFeatures.GLPFeatures,
                 ProcessorFeatures.GLPTuning>;
 def : ProcModel<"tremont", SLMModel, ProcessorFeatures.TRMFeatures,
                 ProcessorFeatures.TRMTuning>;
->>>>>>> 3ad09fd03c51823aeb0bcbd7898aada33e9228d6
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_ADL
+def : ProcModel<"alderlake", SLMModel,
+                ProcessorFeatures.IntelAnonymous2Features,
+                ProcessorFeatures.IntelAnonymous2Tuning>;
+#endif // INTEL_FEATURE_CPU_ADL
+#endif // INTEL_CUSTOMIZATION
 
 // "Arrandale" along with corei3 and corei5
 foreach P = ["nehalem", "corei7"] in {
@@ -1530,31 +1524,12 @@ foreach P = ["skylake-avx512", "skx"] in {
                   ProcessorFeatures.SKXTuning>;
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-def : ProcessorModel<"common-avx512", SkylakeServerModel,
-                     ProcessorFeatures.CommonAVX512Features>;
+def : ProcModel<"common-avx512", SkylakeServerModel,
+                ProcessorFeatures.CommonAVX512Features,
+                ProcessorFeatures.CommonAVX512Tuning>;
 #endif
 
-def : ProcessorModel<"cascadelake", SkylakeServerModel,
-                     ProcessorFeatures.CLXFeatures>;
-def : ProcessorModel<"cooperlake", SkylakeServerModel,
-                     ProcessorFeatures.CPXFeatures>;
-def : ProcessorModel<"cannonlake", SkylakeServerModel,
-                     ProcessorFeatures.CNLFeatures>;
-def : ProcessorModel<"icelake-client", SkylakeServerModel,
-                     ProcessorFeatures.ICLFeatures>;
-#if INTEL_CUSTOMIZATION
-#if INTEL_FEATURE_CPU_RKL
-def : ProcessorModel<"rocketlake", SkylakeServerModel,
-                     ProcessorFeatures.ICLFeatures>;
-#endif // INTEL_FEATURE_CPU_RKL
-#endif // INTEL_CUSTOMIZATION
-def : ProcessorModel<"icelake-server", SkylakeServerModel,
-                     ProcessorFeatures.ICXFeatures>;
-def : ProcessorModel<"tigerlake", SkylakeServerModel,
-                     ProcessorFeatures.TGLFeatures>;
-=======
 def : ProcModel<"cascadelake", SkylakeServerModel,
                 ProcessorFeatures.CLXFeatures, ProcessorFeatures.CLXTuning>;
 def : ProcModel<"cooperlake", SkylakeServerModel,
@@ -1563,16 +1538,23 @@ def : ProcModel<"cannonlake", SkylakeServerModel,
                 ProcessorFeatures.CNLFeatures, ProcessorFeatures.CNLTuning>;
 def : ProcModel<"icelake-client", SkylakeServerModel,
                 ProcessorFeatures.ICLFeatures, ProcessorFeatures.ICLTuning>;
+#if INTEL_CUSTOMIZATION
+#if INTEL_FEATURE_CPU_RKL
+def : ProcModel<"rocketlake", SkylakeServerModel,
+                ProcessorFeatures.ICLFeatures,
+                ProcessorFeatures.ICLTuning>;
+#endif // INTEL_FEATURE_CPU_RKL
+#endif // INTEL_CUSTOMIZATION
 def : ProcModel<"icelake-server", SkylakeServerModel,
                 ProcessorFeatures.ICXFeatures, ProcessorFeatures.ICXTuning>;
 def : ProcModel<"tigerlake", SkylakeServerModel,
                 ProcessorFeatures.TGLFeatures, ProcessorFeatures.TGLTuning>;
->>>>>>> 3ad09fd03c51823aeb0bcbd7898aada33e9228d6
 
 #if INTEL_CUSTOMIZATION
 #if INTEL_FEATURE_CPU_SPR
-def : ProcessorModel<"sapphirerapids", SkylakeServerModel,
-                     ProcessorFeatures.IntelAnonymous1Features>;
+def : ProcModel<"sapphirerapids", SkylakeServerModel,
+                ProcessorFeatures.IntelAnonymous1Features,
+                ProcessorFeatures.IntelAnonymous1Tuning>;
 #endif // INTEL_FEATURE_CPU_SPR
 #endif // INTEL_CUSTOMIZATION
 
