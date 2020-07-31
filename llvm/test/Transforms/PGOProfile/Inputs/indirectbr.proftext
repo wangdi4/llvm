@@ -2,10 +2,14 @@
 :ir
 foo
 # Func Hash:
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION
 # CFG is changed.
 43592973625
 # end INTEL_CUSTOMIZATION
+=======
+47485104005
+>>>>>>> ae7589e1f100b30a4ae13da713c9273733e69fe1
 # Num Counters:
 4
 # Counter Values:
