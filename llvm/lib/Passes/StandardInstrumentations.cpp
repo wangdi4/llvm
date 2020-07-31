@@ -26,6 +26,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/raw_ostream.h"
+#include <vector>
 
 using namespace llvm;
 
@@ -35,7 +36,17 @@ static cl::opt<bool>
                   cl::desc("Enable skipping optional passes optnone functions "
                            "under new pass manager"));
 
+<<<<<<< HEAD
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+=======
+// FIXME: Change `-debug-pass-manager` from boolean to enum type. Similar to
+// `-debug-pass` in legacy PM.
+static cl::opt<bool>
+    DebugPMVerbose("debug-pass-manager-verbose", cl::Hidden, cl::init(false),
+                   cl::desc("Print all pass management debugging information. "
+                            "`-debug-pass-manager` must also be specified"));
+
+>>>>>>> 555cf42f380d86f35e761c3a2179c761356ab152
 namespace {
 
 /// Extracting Module out of \p IR unit. Also fills a textual description
@@ -79,14 +90,25 @@ Optional<std::pair<const Module *, std::string>> unwrapModule(Any IR) {
   llvm_unreachable("Unknown IR unit");
 }
 
-void printIR(const Function *F, StringRef Banner,
-             StringRef Extra = StringRef()) {
+void printIR(const Function *F, StringRef Banner, StringRef Extra = StringRef(),
+             bool Brief = false) {
+  if (Brief) {
+    dbgs() << F->getName() << '\n';
+    return;
+  }
+
   if (!llvm::isFunctionInPrintList(F->getName()))
     return;
   dbgs() << Banner << Extra << "\n" << static_cast<const Value &>(*F);
 }
 
-void printIR(const Module *M, StringRef Banner, StringRef Extra = StringRef()) {
+void printIR(const Module *M, StringRef Banner, StringRef Extra = StringRef(),
+             bool Brief = false) {
+  if (Brief) {
+    dbgs() << M->getName() << '\n';
+    return;
+  }
+
   if (llvm::isFunctionInPrintList("*") || llvm::forcePrintModuleIR()) {
     dbgs() << Banner << Extra << "\n";
     M->print(dbgs(), nullptr, false);
@@ -98,7 +120,12 @@ void printIR(const Module *M, StringRef Banner, StringRef Extra = StringRef()) {
 }
 
 void printIR(const LazyCallGraph::SCC *C, StringRef Banner,
-             StringRef Extra = StringRef()) {
+             StringRef Extra = StringRef(), bool Brief = false) {
+  if (Brief) {
+    dbgs() << *C << '\n';
+    return;
+  }
+
   bool BannerPrinted = false;
   for (const LazyCallGraph::Node &N : *C) {
     const Function &F = N.getFunction();
@@ -111,7 +138,13 @@ void printIR(const LazyCallGraph::SCC *C, StringRef Banner,
     }
   }
 }
-void printIR(const Loop *L, StringRef Banner) {
+
+void printIR(const Loop *L, StringRef Banner, bool Brief = false) {
+  if (Brief) {
+    dbgs() << *L;
+    return;
+  }
+
   const Function *F = L->getHeader()->getParent();
   if (!llvm::isFunctionInPrintList(F->getName()))
     return;
@@ -120,7 +153,8 @@ void printIR(const Loop *L, StringRef Banner) {
 
 /// Generic IR-printing helper that unpacks a pointer to IRUnit wrapped into
 /// llvm::Any and does actual print job.
-void unwrapAndPrint(Any IR, StringRef Banner, bool ForceModule = false) {
+void unwrapAndPrint(Any IR, StringRef Banner, bool ForceModule = false,
+                    bool Brief = false) {
   if (ForceModule) {
     if (auto UnwrappedModule = unwrapModule(IR))
       printIR(UnwrappedModule->first, Banner, UnwrappedModule->second);
@@ -130,14 +164,14 @@ void unwrapAndPrint(Any IR, StringRef Banner, bool ForceModule = false) {
   if (any_isa<const Module *>(IR)) {
     const Module *M = any_cast<const Module *>(IR);
     assert(M && "module should be valid for printing");
-    printIR(M, Banner);
+    printIR(M, Banner, "", Brief);
     return;
   }
 
   if (any_isa<const Function *>(IR)) {
     const Function *F = any_cast<const Function *>(IR);
     assert(F && "function should be valid for printing");
-    printIR(F, Banner);
+    printIR(F, Banner, "", Brief);
     return;
   }
 
@@ -145,14 +179,14 @@ void unwrapAndPrint(Any IR, StringRef Banner, bool ForceModule = false) {
     const LazyCallGraph::SCC *C = any_cast<const LazyCallGraph::SCC *>(IR);
     assert(C && "scc should be valid for printing");
     std::string Extra = std::string(formatv(" (scc: {0})", C->getName()));
-    printIR(C, Banner, Extra);
+    printIR(C, Banner, Extra, Brief);
     return;
   }
 
   if (any_isa<const Loop *>(IR)) {
     const Loop *L = any_cast<const Loop *>(IR);
     assert(L && "Loop should be valid for printing");
-    printIR(L, Banner);
+    printIR(L, Banner, Brief);
     return;
   }
   llvm_unreachable("Unknown wrapped IR type");
@@ -293,11 +327,39 @@ bool OptNoneInstrumentation::skip(StringRef PassID, Any IR) {
   return true;
 }
 
+void PrintPassInstrumentation::registerCallbacks(
+    PassInstrumentationCallbacks &PIC) {
+  if (!DebugLogging)
+    return;
+
+  std::vector<StringRef> SpecialPasses = {"PassManager"};
+  if (!DebugPMVerbose)
+    SpecialPasses.emplace_back("PassAdaptor");
+
+  PIC.registerBeforeNonSkippedPassCallback(
+      [SpecialPasses](StringRef PassID, Any IR) {
+        if (isSpecialPass(PassID, SpecialPasses))
+          return;
+
+        dbgs() << "Running pass: " << PassID << " on ";
+        unwrapAndPrint(IR, "", false, true);
+      });
+
+  PIC.registerBeforeAnalysisCallback([](StringRef PassID, Any IR) {
+    dbgs() << "Running analysis: " << PassID << " on ";
+    unwrapAndPrint(IR, "", false, true);
+  });
+}
+
 void StandardInstrumentations::registerCallbacks(
     PassInstrumentationCallbacks &PIC) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   PrintIR.registerCallbacks(PIC);
+<<<<<<< HEAD
 #endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
+=======
+  PrintPass.registerCallbacks(PIC);
+>>>>>>> 555cf42f380d86f35e761c3a2179c761356ab152
   TimePasses.registerCallbacks(PIC);
   OptNone.registerCallbacks(PIC);
 }
