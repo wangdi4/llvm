@@ -5288,16 +5288,16 @@ def _SLASH_Qno_builtin_ : CLJoined<"Qno-builtin-">, Alias<fno_builtin_>,
   HelpText<"Disable implicit builtin knowledge of a specific function">;
 def _SLASH_Qopenmp : CLFlagNoDpcpp<"Qopenmp">, Alias<fiopenmp>,
   HelpText<"Parse OpenMP pragmas and generate parallel code.">;
-def _SLASH_QopenmpP : CLFlagNoDpcpp<"QopenmpP">, Alias<fopenmp>,
+def _SLASH_QopenmpP : CLFlagNoDpcpp<"QopenmpP">, Alias<fiopenmp>,
   HelpText<"Parse OpenMP pragmas and generate parallel code.">;
-def _SLASH_Qopenmp_ : CLFlagNoDpcpp<"Qopenmp-">, Alias<fno_openmp>,
+def _SLASH_Qopenmp_ : CLFlagNoDpcpp<"Qopenmp-">, Alias<fno_iopenmp>,
   HelpText<"Disable OpenMP support">;
-def _SLASH_QopenmpP_ : CLFlagNoDpcpp<"QopenmpP-">, Alias<fno_openmp>,
+def _SLASH_QopenmpP_ : CLFlagNoDpcpp<"QopenmpP-">, Alias<fno_iopenmp>,
   HelpText<"Disable OpenMP support">;
 def _SLASH_Qiopenmp : CLFlag<"Qiopenmp">, Alias<fiopenmp>;
-def _SLASH_Qopenmp_simd : CLFlagNoDpcpp<"Qopenmp-simd">, Alias<fopenmp_simd>,
+def _SLASH_Qopenmp_simd : CLFlagNoDpcpp<"Qopenmp-simd">, Alias<fiopenmp_simd>,
   HelpText<"Emit OpenMP code only for SIMD-based constructs.">;
-def _SLASH_Qopenmp_simd_ : CLFlagNoDpcpp<"Qopenmp-simd-">, Alias<fno_openmp_simd>;
+def _SLASH_Qopenmp_simd_ : CLFlagNoDpcpp<"Qopenmp-simd-">, Alias<fno_iopenmp_simd>;
 def _SLASH_Qpc : CLJoined<"Qpc">, Alias<pc>, HelpText<"Initialize X87 "
   "floating point precision to single, double or double extended.  Valid "
   "values of 32, 64, and 80.">;
