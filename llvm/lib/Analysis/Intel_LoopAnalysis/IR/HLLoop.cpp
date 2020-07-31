@@ -54,7 +54,7 @@ void HLLoop::initialize() {
 // IsInnermost flag is initialized to true, please refer to the header file.
 HLLoop::HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop)
     : HLDDNode(HNU, HLNode::HLLoopVal), OrigLoop(LLVMLoop), Ztt(nullptr),
-      NestingLevel(0), IsInnermost(true), IVType(nullptr), IsNSW(false),
+      NestingLevel(0), IsInnermost(true), IVType(nullptr), HasSignedIV(false),
       DistributedForMemRec(false), LoopMetadata(LLVMLoop->getLoopID()),
       MaxTripCountEstimate(0), MaxTCIsUsefulForDD(false),
       HasDistributePoint(false), IsUndoSinkingCandidate(false),
@@ -78,7 +78,7 @@ HLLoop::HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop)
 HLLoop::HLLoop(HLNodeUtils &HNU, HLIf *ZttIf, RegDDRef *LowerDDRef,
                RegDDRef *UpperDDRef, RegDDRef *StrideDDRef, unsigned NumEx)
     : HLDDNode(HNU, HLNode::HLLoopVal), OrigLoop(nullptr), Ztt(nullptr),
-      NestingLevel(0), IsInnermost(true), IsNSW(false),
+      NestingLevel(0), IsInnermost(true), HasSignedIV(false),
       DistributedForMemRec(false), LoopMetadata(nullptr),
       MaxTripCountEstimate(0), MaxTCIsUsefulForDD(false),
       HasDistributePoint(false), IsUndoSinkingCandidate(false),
@@ -102,7 +102,7 @@ HLLoop::HLLoop(HLNodeUtils &HNU, HLIf *ZttIf, RegDDRef *LowerDDRef,
 HLLoop::HLLoop(const HLLoop &HLLoopObj)
     : HLDDNode(HLLoopObj), OrigLoop(HLLoopObj.OrigLoop), Ztt(nullptr),
       NumExits(HLLoopObj.NumExits), NestingLevel(0), IsInnermost(true),
-      IVType(HLLoopObj.IVType), IsNSW(HLLoopObj.IsNSW),
+      IVType(HLLoopObj.IVType), HasSignedIV(HLLoopObj.HasSignedIV),
       LiveInSet(HLLoopObj.LiveInSet), LiveOutSet(HLLoopObj.LiveOutSet),
       DistributedForMemRec(HLLoopObj.DistributedForMemRec),
       LoopMetadata(HLLoopObj.LoopMetadata),
@@ -141,7 +141,7 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj)
 HLLoop &HLLoop::operator=(HLLoop &&Lp) {
   OrigLoop = Lp.OrigLoop;
   IVType = Lp.IVType;
-  IsNSW = Lp.IsNSW;
+  HasSignedIV = Lp.HasSignedIV;
   DistributedForMemRec = Lp.DistributedForMemRec;
   LoopMetadata = Lp.LoopMetadata;
   MaxTripCountEstimate = Lp.MaxTripCountEstimate;
@@ -254,7 +254,7 @@ void HLLoop::printDetails(formatted_raw_ostream &OS, unsigned Depth,
   OS << "+ Innermost: " << (isInnermost() ? "Yes\n" : "No\n");
 
   indent(OS, Depth);
-  OS << "+ NSW: " << (isNSW() ? "Yes\n" : "No\n");
+  OS << "+ NSW: " << (hasSignedIV() ? "Yes\n" : "No\n");
 
   bool First = true;
 
@@ -1109,8 +1109,8 @@ void HLLoop::replaceByFirstIteration(bool ExtractPostexit) {
           }
 
           // Expected to be always successful.
-          DDRefUtils::replaceIVByCanonExpr(Ref, Level, IVReplacement, IsNSW,
-                                           false);
+          DDRefUtils::replaceIVByCanonExpr(Ref, Level, IVReplacement,
+                                           HasSignedIV, false);
         }
 
         unsigned RefLevel = demoteRef(Ref, this, LB, InnerLoops);
@@ -1450,8 +1450,8 @@ bool HLLoop::normalize() {
   std::unique_ptr<CanonExpr> NewIV(LowerCE->clone());
   NewIV->addIV(Level, InvalidBlobIndex, Stride, false);
 
-  bool IsNSW = isNSW();
-  auto UpdateCE = [&NewIV, Level, IsNSW](CanonExpr *CE) {
+  bool HasSignedIV = hasSignedIV();
+  auto UpdateCE = [&NewIV, Level, HasSignedIV](CanonExpr *CE) {
     if (!CE->hasIV(Level)) {
       return;
     }
@@ -1466,8 +1466,8 @@ bool HLLoop::normalize() {
     // correct src type to the NewIV.
     NewIV->setSrcType(CE->getSrcType());
 
-    if (!CanonExprUtils::replaceIVByCanonExpr(CE, Level, NewIV.get(), IsNSW,
-                                              true)) {
+    if (!CanonExprUtils::replaceIVByCanonExpr(CE, Level, NewIV.get(),
+                                              HasSignedIV, true)) {
       llvm_unreachable("[HIR-NORMALIZE] Can not replace IV by Lower");
     }
   };
@@ -1831,7 +1831,7 @@ HLLoop *HLLoop::peelFirstIteration(bool UpdateMainLoop) {
 
       // Original loop requires a new ztt because it may only have a single
       // iteration, now executed by the peel loop.
-      createZtt(false /*IsOverWrite*/, isNSW());
+      createZtt(false /*IsOverWrite*/, hasSignedIV());
 
     } else {
       // Clone of the bottom test can act as the ztt for rest of the iterations
@@ -1970,7 +1970,7 @@ HLLoop *HLLoop::generatePeelLoop(const RegDDRef *PeelArrayRef, unsigned VF) {
   // %peel_fctr = (TC <= %peel_fctr) ? TC : %peel_fctr
   HLInst *PeelFactorMin = HNU.createMin(
       getTripCountDDRef()->clone(), PeelFactorShr->getLvalDDRef()->clone(),
-      PeelFactorShr->getLvalDDRef()->clone(), isNSW());
+      PeelFactorShr->getLvalDDRef()->clone(), hasSignedIV());
   PeelLoopInsts.push_back(*PeelFactorMin);
   auto PeelFactorSym = PeelFactorMin->getLvalDDRef()->getSymbase();
 

@@ -251,10 +251,10 @@ public:
   /// Replaces IV in \p CE1 at the loop \p Level by the \p CE2.
   /// If CE2 is not mergeable with CE1 it will be converted to a standalone
   /// blob and casted to CE1 src type using truncation or sign/zero extension
-  /// based on \p IsNSW flag. This flag can be obtained from the loop in
+  /// based on \p IsSigned flag. This flag can be obtained from the loop in
   /// question.
   static bool replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
-                                   const CanonExpr *CE2, bool IsNSW,
+                                   const CanonExpr *CE2, bool IsSigned,
                                    bool RelaxedMode = false);
 
   /// Returns true if CE1 - CE2 is a constant and returns the diff in \p

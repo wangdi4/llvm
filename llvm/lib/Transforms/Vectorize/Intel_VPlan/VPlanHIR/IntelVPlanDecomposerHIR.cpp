@@ -222,7 +222,7 @@ VPValue *VPDecomposerHIR::decomposeIV(RegDDRef *RDDR, CanonExpr *CE,
   if (Ty != IVTy) {
     assert(Ty->isIntegerTy() && "Expected integer type");
     if (Ty->getPrimitiveSizeInBits() > IVTy->getPrimitiveSizeInBits()) {
-      bool IsNSW = OutermostHLp->isNSW();
+      bool IsNSW = OutermostHLp->hasSignedIV();
       VPIndVar = IsNSW ? decomposeConversion(VPIndVar, Instruction::SExt, Ty)
                        : decomposeConversion(VPIndVar, Instruction::ZExt, Ty);
     } else

@@ -967,7 +967,7 @@ static bool widenIVIfNeeded(HLLoop *Lp, unsigned Multiplier) {
   bool HasMax = (UpperCE->isIntConstant(&MaxVal) ||
                  HLNodeUtils::getMaxValue(UpperCE, Lp, MaxVal));
 
-  bool HasSignedIV = Lp->isNSW();
+  bool HasSignedIV = Lp->hasSignedIV();
 
   if (HasMax) {
     int64_t MaxValForSize =
