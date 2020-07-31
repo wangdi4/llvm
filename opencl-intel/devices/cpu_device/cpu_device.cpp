@@ -1984,6 +1984,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                 }
                 return CL_DEV_SUCCESS;
             }
+            return CL_DEV_INVALID_VALUE;
         case CL_DEVICE_MAX_NUM_SUB_GROUPS:
             if (ver >= OPENCL_VERSION_2_1)
             {
@@ -2000,6 +2001,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                 }
                 return CL_DEV_SUCCESS;
             }
+            return CL_DEV_INVALID_VALUE;
         case(CL_DEVICE_HALF_FP_CONFIG):
         {
             if (isCPUDeviceMode)
