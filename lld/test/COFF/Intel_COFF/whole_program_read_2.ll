@@ -3,10 +3,10 @@
 ; definition for @sub is missing in the IR. Whole program read
 ; can still be achieved.
 
-; RUN: llvm-as -o %T/wp2.bc %s
-; RUN: llc %p/Inputs/whole_program_read_2_sub.ll -o %T/foo.obj \
+; RUN: llvm-as -o %t_wp2.bc %s
+; RUN: llc %p/Inputs/whole_program_read_2_sub.ll -o %t_foo.obj \
 ; RUN:          -filetype=obj
-; RUN: lld-link /out:%T/wp2.exe /entry:main %T/wp2.bc %T/foo.obj /subsystem:console  \
+; RUN: lld-link /out:%t_wp2.exe /entry:main %t_wp2.bc %t_foo.obj /subsystem:console  \
 ; RUN:     /mllvm:-debug-only=whole-program-analysis \
 ; RUN:     2>&1 | FileCheck %s
 

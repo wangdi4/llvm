@@ -585,10 +585,17 @@ void VPInstruction::print(raw_ostream &O, const VPlanDivergenceAnalysis *DA,
     case VPInstruction::HIRCopy:
       O << " , OriginPhiId: " << cast<VPHIRCopyInst>(this)->getOriginPhiId();
       break;
-    case VPInstruction::VectorTripCountCalculation:
+    case VPInstruction::VectorTripCountCalculation: {
       auto *Self = cast<VPVectorTripCountCalculation>(this);
       O << ", UF = " << Self->getUF();
       break;
+    }
+    case VPInstruction::InductionFinal: {
+      auto *Self = cast<VPInductionFinal>(this);
+      if (Self->isLastValPreIncrement())
+        O << ", LastValPreInc = 1";
+      break;
+    }
     }
   }
 

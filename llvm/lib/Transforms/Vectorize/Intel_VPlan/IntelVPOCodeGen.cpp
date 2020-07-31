@@ -3455,7 +3455,7 @@ void VPOCodeGen::vectorizeInductionFinal(VPInductionFinal *VPInst) {
     unsigned StepOpc = IsFloat ? Instruction::FMul : Instruction::Mul;
     Type *StepType = Step->getType();
     Value *TripCnt = VectorTripCount;
-    if (VPEntities->isInductionLastValPreInc(cast<VPInduction>(Entity)))
+    if (VPInst->isLastValPreIncrement())
       TripCnt =
           Builder.CreateSub(TripCnt, ConstantInt::get(TripCnt->getType(), 1));
     Instruction::CastOps CastOp =
