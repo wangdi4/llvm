@@ -1092,6 +1092,11 @@ list(APPEND features_enabled_by_default
       list(APPEND features_enabled_by_default
            ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_COMPRESS)
 # end INTEL_FEATURE_ISA_AVX_COMPRESS
+
+# INTEL_FEATURE_ISA_AVX_MEMADVISE
+      list(APPEND features_enabled_by_default
+           ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_MEMADVISE)
+# end INTEL_FEATURE_ISA_AVX_MEMADVISE
     endif()
 
     set(LLVM_INTEL_FEATURES "${features_enabled_by_default}"

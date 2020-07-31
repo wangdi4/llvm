@@ -1022,6 +1022,10 @@ def NoVLX_Or_NoCONVERT : Predicate<"!Subtarget->hasVLX() || !Subtarget->hasCONVE
 #if INTEL_FEATURE_ISA_AVX_COMPRESS
 def HasAVXCOMPRESS   : Predicate<"Subtarget->hasAVXCOMPRESS()">;
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#if INTEL_FEATURE_ISA_AVX_MEMADVISE
+def HasAVXMEMADVISE   : Predicate<"Subtarget->hasAVXMEMADVISE()">;
+def HasAVX512MEMADVISE   : Predicate<"Subtarget->hasAVX512MEMADVISE()">;
+#endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
 #endif // INTEL_CUSTOMIZATION
 
 def HasBITALG    : Predicate<"Subtarget->hasBITALG()">;

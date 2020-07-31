@@ -985,7 +985,11 @@ namespace X86II {
 #if INTEL_CUSTOMIZATION
     // Force VEX encoding
     ExplicitVEXShift = NoTrackShift + 1,
-    ExplicitVEXPrefix = 1ULL << ExplicitVEXShift
+    ExplicitVEXPrefix = 1ULL << ExplicitVEXShift,
+
+    // Force EVEX encoding
+    ExplicitEVEXShift = ExplicitVEXShift + 1,
+    ExplicitEVEXPrefix = 1ULL << ExplicitEVEXShift
 #endif // INTEL_CUSTOMIZATION
   };
 

@@ -106,6 +106,21 @@ TARGET_BUILTIN(__builtin_ia32_vcvtsi642sh, "V8gV8gOiIi", "ncV:128:", "avx512fp16
 TARGET_BUILTIN(__builtin_ia32_vcvttsh2si64, "OiV8gIi", "ncV:128:", "avx512fp16")
 TARGET_BUILTIN(__builtin_ia32_vcvttsh2usi64, "UOiV8gIi", "ncV:128:", "avx512fp16")
 #endif // INTEL_FEATURE_ISA_FP16
+
+#if INTEL_FEATURE_ISA_AVX_MEMADVISE
+TARGET_BUILTIN(__builtin_ia32_vmovadvisew_load_128, "V4iV4iC*Ic", "nV:128:", "avxmemadvise")
+TARGET_BUILTIN(__builtin_ia32_vmovadvisew_store_128, "vV4i*V4iIc", "nV:128:", "avxmemadvise")
+TARGET_BUILTIN(__builtin_ia32_vmovadvisew_load_256, "V8iV8iC*Ic", "nV:256:", "avxmemadvise")
+TARGET_BUILTIN(__builtin_ia32_vmovadvisew_store_256, "vV8i*V8iIc", "nV:256:", "avxmemadvise")
+
+TARGET_BUILTIN(__builtin_ia32_vmovadvisew_loade_128, "V4iV4iC*Ic", "nV:128:", "avx512memadvise,avx512vl")
+TARGET_BUILTIN(__builtin_ia32_vmovadvisew_storee_128, "vV4i*V4iIc", "nV:128:", "avx512memadvise,avx512vl")
+TARGET_BUILTIN(__builtin_ia32_vmovadvisew_loade_256, "V8iV8iC*Ic", "nV:256:", "avx512memadvise,avx512vl")
+TARGET_BUILTIN(__builtin_ia32_vmovadvisew_storee_256, "vV8i*V8iIc", "nV:256:", "avx512memadvise,avx512vl")
+TARGET_BUILTIN(__builtin_ia32_vmovadvisew_loade_512, "V16iV16iC*Ic", "nV:512:", "avx512memadvise")
+TARGET_BUILTIN(__builtin_ia32_vmovadvisew_storee_512, "vV16i*V16iIc", "nV:512:", "avx512memadvise")
+#endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
+
 #endif // INTEL_CUSTOMIZATION
 TARGET_BUILTIN(__builtin_ia32_directstore_u64, "vULi*ULi", "n", "movdiri")
 

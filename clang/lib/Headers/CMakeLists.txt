@@ -226,6 +226,16 @@ intel_add_file(INTEL_HEADERS
   Intel_Headers/avxcompress/avxcompressintrin.h
   )
 # end INTEL_FEATURE_ISA_AVX_COMPRESS
+# INTEL_FEATURE_ISA_AVX_MEMADVISE
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_MEMADVISE
+  Intel_Headers/avxmemadvise/avxmemadviseintrin.h
+  )
+intel_add_file(INTEL_HEADERS
+  FEATURE ${LLVM_INTELFEATURE_PREFIX}_ISA_AVX_MEMADVISE
+  Intel_Headers/avxmemadvise/avx512memadviseintrin.h
+  )
+# end INTEL_FEATURE_ISA_AVX_MEMADVISE
 # end INTEL_CUSTOMIZATION
 
 set(files

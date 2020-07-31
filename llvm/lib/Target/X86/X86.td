@@ -261,6 +261,14 @@ def FeatureAVXCOMPRESS    : SubtargetFeature<"avxcompress", "HasAVXCOMPRESS", "t
                            "Enable AVX-COMPRESS",
                            [FeatureAVX2]>;
 #endif // INTEL_FEATURE_ISA_AVX_COMPRESS
+#if INTEL_FEATURE_ISA_AVX_MEMADVISE
+def FeatureAVXMEMADVISE   : SubtargetFeature<"avxmemadvise", "HasAVXMEMADVISE", "true",
+                           "Enable AVX-MEMADVISE",
+                           [FeatureAVX2]>;
+def FeatureAVX512MEMADVISE  : SubtargetFeature<"avx512memadvise", "HasAVX512MEMADVISE", "true",
+                            "Enable AVX512-MEMADVISE",
+                            [FeatureAVX512]>;
+#endif // INTEL_FEATURE_ISA_AVX_MEMADVISE
 #endif // INTEL_CUSTOMIZATION
 
 def FeaturePCLMUL  : SubtargetFeature<"pclmul", "HasPCLMUL", "true",
