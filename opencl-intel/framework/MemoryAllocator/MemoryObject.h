@@ -296,8 +296,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         * Author:        Evgeny Fiksman
         * Date:            November 2010
         ******************************************************************************************/
-        virtual cl_err_code CreateSubBuffer(cl_mem_flags clFlags, cl_buffer_create_type buffer_create_type,
-            const void * buffer_create_info, SharedPtr<MemoryObject>* ppBuffer) = 0;
+        virtual cl_err_code CreateSubBuffer(
+            cl_mem_flags clFlags, cl_buffer_create_type buffer_create_type,
+            const void *buffer_create_info, SharedPtr<MemoryObject> *ppBuffer,
+            bool RequireAlign) = 0;
 
         /******************************************************************************************
         * Function:     GetParent

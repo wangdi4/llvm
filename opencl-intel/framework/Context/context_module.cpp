@@ -1784,7 +1784,9 @@ cl_mem ContextModule::CreateBufferImpl(cl_context clContext,
         cl_buffer_region bufRegion;
         bufRegion.origin = (char*)pHostPtr - (char*)pSvmBuf->GetAddr();
         bufRegion.size = szSize;
-        clErr = pContext->CreateSubBuffer(pSvmBuf, clFlags, CL_BUFFER_CREATE_TYPE_REGION, &bufRegion, &pBuffer);
+        clErr = pContext->CreateSubBuffer(
+            pSvmBuf, clFlags, CL_BUFFER_CREATE_TYPE_REGION, &bufRegion,
+            &pBuffer, /*RequireAlign*/ false);
         if (CL_SUCCEEDED(clErr))
         {
             pBuffer->UpdateHostPtr(pBuffer->GetFlags(), pHostPtr);
@@ -1880,7 +1882,9 @@ cl_mem ContextModule::CreateSubBuffer(cl_mem                clBuffer,
     }
 
     SharedPtr<MemoryObject> pBuffer = nullptr;
-    cl_err_code clErr = pContext->CreateSubBuffer(pMemObj, clFlags, buffer_create_type, buffer_create_info, &pBuffer);
+    cl_err_code clErr = pContext->CreateSubBuffer(
+        pMemObj, clFlags, buffer_create_type, buffer_create_info, &pBuffer,
+        /*RequireAlign*/ true);
     if (CL_FAILED(clErr))
     {        
         iErr = CL_ERR_OUT(clErr);        
