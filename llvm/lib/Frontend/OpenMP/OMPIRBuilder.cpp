@@ -408,9 +408,10 @@ void OpenMPIRBuilder::emitCancelationCheckImpl(
 }
 
 IRBuilder<>::InsertPoint OpenMPIRBuilder::CreateParallel(
-    const LocationDescription &Loc, BodyGenCallbackTy BodyGenCB,
-    PrivatizeCallbackTy PrivCB, FinalizeCallbackTy FiniCB, Value *IfCondition,
-    Value *NumThreads, omp::ProcBindKind ProcBind, bool IsCancellable) {
+    const LocationDescription &Loc, InsertPointTy OuterAllocaIP,
+    BodyGenCallbackTy BodyGenCB, PrivatizeCallbackTy PrivCB,
+    FinalizeCallbackTy FiniCB, Value *IfCondition, Value *NumThreads,
+    omp::ProcBindKind ProcBind, bool IsCancellable) {
   if (!updateToLocation(Loc))
     return Loc.IP;
 
@@ -443,7 +444,9 @@ IRBuilder<>::InsertPoint OpenMPIRBuilder::CreateParallel(
   // we want to delete at the end.
   SmallVector<Instruction *, 4> ToBeDeleted;
 
-  Builder.SetInsertPoint(OuterFn->getEntryBlock().getFirstNonPHI());
+  // Change the location to the outer alloca insertion point to create and
+  // initialize the allocas we pass into the parallel region.
+  Builder.restoreIP(OuterAllocaIP);
   AllocaInst *TIDAddr = Builder.CreateAlloca(Int32, nullptr, "tid.addr");
   AllocaInst *ZeroAddr = Builder.CreateAlloca(Int32, nullptr, "zero.addr");
 
@@ -495,9 +498,9 @@ IRBuilder<>::InsertPoint OpenMPIRBuilder::CreateParallel(
 
   // Generate the privatization allocas in the block that will become the entry
   // of the outlined function.
-  InsertPointTy AllocaIP(PRegEntryBB,
-                         PRegEntryBB->getTerminator()->getIterator());
-  Builder.restoreIP(AllocaIP);
+  Builder.SetInsertPoint(PRegEntryBB->getTerminator());
+  InsertPointTy InnerAllocaIP = Builder.saveIP();
+
   AllocaInst *PrivTIDAddr =
       Builder.CreateAlloca(Int32, nullptr, "tid.addr.local");
   Instruction *PrivTID = Builder.CreateLoad(PrivTIDAddr, "tid");
@@ -526,7 +529,7 @@ IRBuilder<>::InsertPoint OpenMPIRBuilder::CreateParallel(
   // Let the caller create the body.
   assert(BodyGenCB && "Expected body generation callback!");
   InsertPointTy CodeGenIP(PRegBodyBB, PRegBodyBB->begin());
-  BodyGenCB(AllocaIP, CodeGenIP, *PRegPreFiniBB);
+  BodyGenCB(InnerAllocaIP, CodeGenIP, *PRegPreFiniBB);
 
   LLVM_DEBUG(dbgs() << "After  body codegen: " << *OuterFn << "\n");
 
@@ -685,7 +688,7 @@ IRBuilder<>::InsertPoint OpenMPIRBuilder::CreateParallel(
       ReplacementValue = PrivTID;
     } else {
       Builder.restoreIP(
-          PrivCB(AllocaIP, Builder.saveIP(), V, ReplacementValue));
+          PrivCB(InnerAllocaIP, Builder.saveIP(), V, ReplacementValue));
       assert(ReplacementValue &&
              "Expected copy/create callback to set replacement value!");
       if (ReplacementValue == &V)
@@ -700,6 +703,10 @@ IRBuilder<>::InsertPoint OpenMPIRBuilder::CreateParallel(
     LLVM_DEBUG(dbgs() << "Captured input: " << *Input << "\n");
     PrivHelper(*Input);
   }
+  LLVM_DEBUG({
+    for (Value *Output : Outputs)
+      LLVM_DEBUG(dbgs() << "Captured output: " << *Output << "\n");
+  });
   assert(Outputs.empty() &&
          "OpenMP outlining should not produce live-out values!");
 
