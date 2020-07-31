@@ -473,24 +473,10 @@ void TEDevice::on_scheduler_exit( bool bIsWorker, ArenaHandler& arena )
 
     unsigned int curr_arena_level = arena.GetArenaLevel();
 
-    if (curr_arena_level > tls->attach_level )
+    if (curr_arena_level != tls->attach_level )
     {
-        // we are leaving low level arena but still inside device - preserve all resources and do not report
-        return;
-    }
-
-    if (curr_arena_level < tls->attach_level)
-    {
-        // oops - we are leaving arena above attach level?
-        assert( false && "oops - we are leaving arena above attach level?" );
-        free_thread_arenas_resources( tls, tls->attach_level );
-        tls->reset();
-        thread_manager.UnregisterCurrentThread();
-        if (--m_numOfActiveThreads < 0)
-        {
-            assert( false && "Thread exits device while device already does not contain running threads while leaving above attach level" );
-            ++m_numOfActiveThreads;
-        }
+        // We are leaving low level arena but still inside device or leaving
+        // arena above attach level, preserve all resources and do not report.
         return;
     }
 
