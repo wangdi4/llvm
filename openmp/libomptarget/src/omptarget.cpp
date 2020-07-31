@@ -812,7 +812,11 @@ uint64_t getLoopTripCount(int64_t DeviceId) {
     if (I != Device.LoopTripCnt.end()) {
       LoopTripCount = I->second;
       Device.LoopTripCnt.erase(I);
+#if INTEL_COLLAB
+      DP("loop trip count is %" PRIu64 ".\n", LoopTripCount);
+#else  // INTEL_COLLAB
       DP("loop trip count is %lu.\n", LoopTripCount);
+#endif  // INTEL_COLLAB
     }
   }
 
@@ -828,7 +832,12 @@ int processDataBefore(int64_t DeviceId, void *HostPtr, int32_t ArgNum,
                       std::vector<void *> &TgtArgs,
                       std::vector<ptrdiff_t> &TgtOffsets,
                       std::vector<void *> &FPArrays,
+#if INTEL_COLLAB
+                      __tgt_async_info *AsyncInfo, void **TgtNDLoopDesc) {
+#else  // INTEL_COLLAB
                       __tgt_async_info *AsyncInfo) {
+#endif // INTEL_COLLAB
+
   DeviceTy &Device = Devices[DeviceId];
   int Ret = targetDataBegin(Device, ArgNum, ArgBases, Args, ArgSizes, ArgTypes,
                             ArgMappers, AsyncInfo);
@@ -840,15 +849,11 @@ int processDataBefore(int64_t DeviceId, void *HostPtr, int32_t ArgNum,
   // List of (first-)private arrays allocated for this target region
   std::vector<int> TgtArgsPositions(ArgNum, -1);
 
-#if INTEL_COLLAB
-  void *TgtNDLoopDesc = nullptr;
-#endif // INTEL_COLLAB
-
   for (int32_t I = 0; I < ArgNum; ++I) {
     if (!(ArgTypes[I] & OMP_TGT_MAPTYPE_TARGET_PARAM)) {
 #if INTEL_COLLAB
       if (ArgTypes[I] & OMP_TGT_MAPTYPE_ND_DESC)
-        TgtNDLoopDesc = (void *)Args[I];
+        *TgtNDLoopDesc = (void *)Args[I];
 #endif // INTEL_COLLAB
       // This is not a target parameter, do not push it into TgtArgs.
       // Check for lambda mapping.
@@ -973,68 +978,6 @@ int processDataBefore(int64_t DeviceId, void *HostPtr, int32_t ArgNum,
   assert(TgtArgs.size() == TgtOffsets.size() &&
          "Size mismatch in arguments and offsets");
 
-<<<<<<< HEAD
-  // Pop loop trip count
-  uint64_t LoopTripCount = 0;
-  {
-    std::lock_guard<std::mutex> TblMapLock(*TblMapMtx);
-    auto I = Device.LoopTripCnt.find(__kmpc_global_thread_num(NULL));
-    if (I != Device.LoopTripCnt.end()) {
-      LoopTripCount = I->second;
-      Device.LoopTripCnt.erase(I);
-#if INTEL_COLLAB
-    DP("loop trip count is %" PRIu64 ".\n", LoopTripCount);
-#else  // INTEL_COLLAB
-    DP("loop trip count is %lu.\n", LoopTripCount);
-#endif  // INTEL_COLLAB
-    }
-  }
-
-  // Launch device execution.
-  DP("Launching target execution %s with pointer " DPxMOD " (index=%d).\n",
-     TargetTable->EntriesBegin[TM->Index].name,
-     DPxPTR(TargetTable->EntriesBegin[TM->Index].addr), TM->Index);
-#if INTEL_COLLAB
-  Ret = Device.manifest_data_for_region(
-      TargetTable->EntriesBegin[TM->Index].addr);
-
-  if (Ret != OFFLOAD_SUCCESS) {
-    DP("Data manifestation failed.\n");
-    return OFFLOAD_FAIL;
-  }
-
-  void **argsPtr = nullptr;
-  if (!TgtArgs.empty())
-    argsPtr = (void **)&(TgtArgs.data()[0]);
-  ptrdiff_t *offsetsPtr = nullptr;
-  if (!TgtOffsets.empty())
-    offsetsPtr = (ptrdiff_t *)&(TgtOffsets.data()[0]);
-
-  if (TgtNDLoopDesc)
-    // If NDRange is specified, use it.
-    Ret = Device.run_team_nd_region(TargetTable->EntriesBegin[TM->Index].addr,
-                                   argsPtr, offsetsPtr, TgtArgs.size(),
-                                   TeamNum, ThreadLimit,
-                                   TgtNDLoopDesc);
-  else if (IsTeamConstruct)
-    Ret = Device.runTeamRegion(TargetTable->EntriesBegin[TM->Index].addr,
-                                argsPtr, offsetsPtr, TgtArgs.size(), TeamNum,
-                                ThreadLimit, LoopTripCount, &AsyncInfo);
-  else
-    Ret = Device.runRegion(TargetTable->EntriesBegin[TM->Index].addr,
-                           argsPtr, offsetsPtr, TgtArgs.size(), &AsyncInfo);
-#else  // INTEL_COLLAB
-  if (IsTeamConstruct) {
-    Ret = Device.runTeamRegion(TargetTable->EntriesBegin[TM->Index].addr,
-                               &TgtArgs[0], &TgtOffsets[0], TgtArgs.size(),
-                               TeamNum, ThreadLimit, LoopTripCount, &AsyncInfo);
-  } else {
-    Ret =
-        Device.runRegion(TargetTable->EntriesBegin[TM->Index].addr, &TgtArgs[0],
-                         &TgtOffsets[0], TgtArgs.size(), &AsyncInfo);
-  }
-#endif // INTEL_COLLAB
-=======
   return OFFLOAD_SUCCESS;
 }
 
@@ -1052,7 +995,6 @@ int processDataAfter(int64_t DeviceId, void *HostPtr, int32_t ArgNum,
   // Move data from device.
   int Ret = targetDataEnd(Device, ArgNum, ArgBases, Args, ArgSizes, ArgTypes,
                           ArgMappers, AsyncInfo);
->>>>>>> 8218eee269c382472b9809cb3cce7a98eed7a31b
   if (Ret != OFFLOAD_SUCCESS) {
     DP("Call to targetDataEnd failed, abort targe.\n");
     return OFFLOAD_FAIL;
@@ -1106,10 +1048,18 @@ int target(int64_t DeviceId, void *HostPtr, int32_t ArgNum, void **ArgBases,
   std::vector<ptrdiff_t> TgtOffsets;
   std::vector<void *> FPArrays;
 
+#if INTEL_COLLAB
+  void *TgtNDLoopDesc = nullptr;
+#endif // INTEL_COLLAB
+
   // Process data, such as data mapping, before launching the kernel
   int Ret = processDataBefore(DeviceId, HostPtr, ArgNum, ArgBases, Args,
                               ArgSizes, ArgTypes, ArgMappers, TgtArgs,
+#if INTEL_COLLAB
+                              TgtOffsets, FPArrays, &AsyncInfo, &TgtNDLoopDesc);
+#else  // INTEL_COLLAB
                               TgtOffsets, FPArrays, &AsyncInfo);
+#endif // INTEL_COLLAB
   if (Ret != OFFLOAD_SUCCESS) {
     DP("Failed to process data before launching the kernel.\n");
     return OFFLOAD_FAIL;
@@ -1123,6 +1073,34 @@ int target(int64_t DeviceId, void *HostPtr, int32_t ArgNum, void **ArgBases,
   DP("Launching target execution %s with pointer " DPxMOD " (index=%d).\n",
      TargetTable->EntriesBegin[TM->Index].name, DPxPTR(TgtEntryPtr), TM->Index);
 
+#if INTEL_COLLAB
+  Ret = Device.manifest_data_for_region(
+      TargetTable->EntriesBegin[TM->Index].addr);
+
+  if (Ret != OFFLOAD_SUCCESS) {
+    DP("Data manifestation failed.\n");
+    return OFFLOAD_FAIL;
+  }
+
+  void **argsPtr = nullptr;
+  if (!TgtArgs.empty())
+    argsPtr = (void **)&(TgtArgs.data()[0]);
+  ptrdiff_t *offsetsPtr = nullptr;
+  if (!TgtOffsets.empty())
+    offsetsPtr = (ptrdiff_t *)&(TgtOffsets.data()[0]);
+
+  if (TgtNDLoopDesc)
+    // If NDRange is specified, use it.
+    Ret = Device.run_team_nd_region(TgtEntryPtr, argsPtr, offsetsPtr,
+                                    TgtArgs.size(), TeamNum, ThreadLimit,
+                                    TgtNDLoopDesc);
+  else if (IsTeamConstruct)
+    Ret = Device.runTeamRegion(TgtEntryPtr, argsPtr, offsetsPtr, TgtArgs.size(),
+                               TeamNum, ThreadLimit, LoopTripCount, &AsyncInfo);
+  else
+    Ret = Device.runRegion(TgtEntryPtr, argsPtr, offsetsPtr, TgtArgs.size(),
+                           &AsyncInfo);
+#else // INTEL_COLLAB
   if (IsTeamConstruct)
     Ret = Device.runTeamRegion(TgtEntryPtr, &TgtArgs[0], &TgtOffsets[0],
                                TgtArgs.size(), TeamNum, ThreadLimit,
@@ -1130,6 +1108,7 @@ int target(int64_t DeviceId, void *HostPtr, int32_t ArgNum, void **ArgBases,
   else
     Ret = Device.runRegion(TgtEntryPtr, &TgtArgs[0], &TgtOffsets[0],
                            TgtArgs.size(), &AsyncInfo);
+#endif // INTEL_COLLAB
 
   if (Ret != OFFLOAD_SUCCESS) {
     DP("Executing target region abort target.\n");
