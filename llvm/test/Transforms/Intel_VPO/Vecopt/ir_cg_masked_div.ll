@@ -8,12 +8,34 @@ define void @masked_divergent_div(i32 *%p, i64 %n) {
 ; CHECK-LABEL: @masked_divergent_div(
 ; CHECK:       vector.body:
 ; CHECK:         [[WIDE_LOAD:%.*]] = load <2 x i32>, <2 x i32>* [[TMP0:%.*]], align 4
+; CHECK-NEXT:    [[WIDE_LOAD_EXTRACT_1_:%.*]] = extractelement <2 x i32> [[WIDE_LOAD]], i32 1
+; CHECK-NEXT:    [[WIDE_LOAD_EXTRACT_0_:%.*]] = extractelement <2 x i32> [[WIDE_LOAD]], i32 0
 ; CHECK-NEXT:    [[TMP1:%.*]] = icmp eq <2 x i32> [[WIDE_LOAD]], zeroinitializer
 ; CHECK-NEXT:    [[TMP2:%.*]] = xor <2 x i1> [[TMP1]], <i1 true, i1 true>
-; FIXME: That must be masked!
-; CHECK-NEXT:    [[TMP3:%.*]] = sdiv <2 x i32> <i32 42, i32 42>, [[WIDE_LOAD]]
-; CHECK-NEXT:    [[TMP4:%.*]] = bitcast i32* [[SCALAR_GEP:%.*]] to <2 x i32>*
-; CHECK-NEXT:    call void @llvm.masked.store.v2i32.p0v2i32(<2 x i32> [[TMP3]], <2 x i32>* [[TMP4]], i32 4, <2 x i1> [[TMP2]])
+; CHECK-NEXT:    [[PREDICATE:%.*]] = extractelement <2 x i1> [[TMP2]], i64 0
+; CHECK-NEXT:    [[TMP3:%.*]] = icmp eq i1 [[PREDICATE]], true
+; CHECK-NEXT:    br i1 [[TMP3]], label [[PRED_SDIV_IF:%.*]], label [[TMP6:%.*]]
+; CHECK:       pred.sdiv.if:
+; CHECK-NEXT:    [[TMP4:%.*]] = sdiv i32 42, [[WIDE_LOAD_EXTRACT_0_]]
+; CHECK-NEXT:    [[TMP5:%.*]] = insertelement <2 x i32> undef, i32 [[TMP4]], i32 0
+; CHECK-NEXT:    br label [[TMP6]]
+; CHECK:       6:
+; CHECK-NEXT:    [[TMP7:%.*]] = phi <2 x i32> [ undef, [[VECTOR_BODY:%.*]] ], [ [[TMP5]], [[PRED_SDIV_IF]] ]
+; CHECK-NEXT:    br label [[PRED_SDIV_CONTINUE:%.*]]
+; CHECK:       pred.sdiv.continue:
+; CHECK-NEXT:    [[PREDICATE2:%.*]] = extractelement <2 x i1> [[TMP2]], i64 1
+; CHECK-NEXT:    [[TMP8:%.*]] = icmp eq i1 [[PREDICATE2]], true
+; CHECK-NEXT:    br i1 [[TMP8]], label [[PRED_SDIV_IF3:%.*]], label [[TMP11:%.*]]
+; CHECK:       pred.sdiv.if3:
+; CHECK-NEXT:    [[TMP9:%.*]] = sdiv i32 42, [[WIDE_LOAD_EXTRACT_1_]]
+; CHECK-NEXT:    [[TMP10:%.*]] = insertelement <2 x i32> [[TMP7]], i32 [[TMP9]], i32 1
+; CHECK-NEXT:    br label [[TMP11]]
+; CHECK:       11:
+; CHECK-NEXT:    [[TMP12:%.*]] = phi <2 x i32> [ [[TMP7]], [[PRED_SDIV_CONTINUE]] ], [ [[TMP10]], [[PRED_SDIV_IF3]] ]
+; CHECK-NEXT:    br label [[PRED_SDIV_CONTINUE4:%.*]]
+; CHECK:       pred.sdiv.continue4:
+; CHECK-NEXT:    [[TMP13:%.*]] = bitcast i32* [[SCALAR_GEP:%.*]] to <2 x i32>*
+; CHECK-NEXT:    call void @llvm.masked.store.v2i32.p0v2i32(<2 x i32> [[TMP12]], <2 x i32>* [[TMP13]], i32 4, <2 x i1> [[TMP2]])
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]
@@ -51,12 +73,20 @@ define void @masked_uniform_div(i32 *%p, i64 %n, i32 %val) {
 ; CHECK-NEXT:    [[TMP2:%.*]] = icmp eq <2 x i32> [[WIDE_LOAD]], <i32 42, i32 42>
 ; CHECK-NEXT:    [[TMP3:%.*]] = or <2 x i1> [[BROADCAST_SPLAT]], [[TMP2]]
 ; CHECK-NEXT:    [[TMP4:%.*]] = xor <2 x i1> [[TMP3]], <i1 true, i1 true>
-; FIXME: That must still be masked!
-; CHECK-NEXT:    [[TMP5:%.*]] = sdiv i32 42, [[VAL]]
-; CHECK-NEXT:    [[BROADCAST_SPLATINSERT2:%.*]] = insertelement <2 x i32> undef, i32 [[TMP5]], i32 0
-; CHECK-NEXT:    [[BROADCAST_SPLAT3:%.*]] = shufflevector <2 x i32> [[BROADCAST_SPLATINSERT2]], <2 x i32> undef, <2 x i32> zeroinitializer
-; CHECK-NEXT:    [[TMP6:%.*]] = bitcast i32* [[SCALAR_GEP]] to <2 x i32>*
-; CHECK-NEXT:    call void @llvm.masked.store.v2i32.p0v2i32(<2 x i32> [[BROADCAST_SPLAT3]], <2 x i32>* [[TMP6]], i32 4, <2 x i1> [[TMP4]])
+; CHECK-NEXT:    [[TMP5:%.*]] = bitcast <2 x i1> [[TMP4]] to i2
+; CHECK-NEXT:    [[TMP6:%.*]] = icmp ne i2 [[TMP5]], 0
+; CHECK-NEXT:    br i1 [[TMP6]], label [[PRED_SDIV_IF:%.*]], label [[TMP8:%.*]]
+; CHECK:       pred.sdiv.if:
+; CHECK-NEXT:    [[TMP7:%.*]] = sdiv i32 42, [[VAL]]
+; CHECK-NEXT:    [[BROADCAST_SPLATINSERT2:%.*]] = insertelement <2 x i32> undef, i32 [[TMP7]], i32 0
+; CHECK-NEXT:    br label [[TMP8]]
+; CHECK:       8:
+; CHECK-NEXT:    [[TMP9:%.*]] = phi <2 x i32> [ undef, [[VECTOR_BODY]] ], [ [[BROADCAST_SPLATINSERT2]], [[PRED_SDIV_IF]] ]
+; CHECK-NEXT:    br label [[PRED_SDIV_CONTINUE]]
+; CHECK:       pred.sdiv.continue:
+; CHECK-NEXT:    [[BROADCAST_SPLAT3:%.*]] = shufflevector <2 x i32> [[TMP9]], <2 x i32> undef, <2 x i32> zeroinitializer
+; CHECK-NEXT:    [[TMP10:%.*]] = bitcast i32* [[SCALAR_GEP]] to <2 x i32>*
+; CHECK-NEXT:    call void @llvm.masked.store.v2i32.p0v2i32(<2 x i32> [[BROADCAST_SPLAT3]], <2 x i32>* [[TMP10]], i32 4, <2 x i1> [[TMP4]])
 ;
 entry:
   %tok = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"() ]

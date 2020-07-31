@@ -733,17 +733,26 @@ void VPOCodeGen::vectorizeInstruction(VPInstruction *VPInst) {
     return;
   }
 
+  case Instruction::UDiv:
+  case Instruction::SDiv:
+  case Instruction::URem:
+  case Instruction::SRem: {
+    if (MaskValue) {
+      if (isVPValueUniform(VPInst, Plan))
+        serializePredicatedUniformInstruction(VPInst);
+      else
+        serializeWithPredication(VPInst);
+      return;
+    }
+    LLVM_FALLTHROUGH;
+  }
   case Instruction::Add:
   case Instruction::FAdd:
   case Instruction::Sub:
   case Instruction::FSub:
   case Instruction::Mul:
   case Instruction::FMul:
-  case Instruction::UDiv:
-  case Instruction::SDiv:
   case Instruction::FDiv:
-  case Instruction::URem:
-  case Instruction::SRem:
   case Instruction::FRem:
   case Instruction::Shl:
   case Instruction::LShr:
