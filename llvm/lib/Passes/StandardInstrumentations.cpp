@@ -36,9 +36,6 @@ static cl::opt<bool>
                   cl::desc("Enable skipping optional passes optnone functions "
                            "under new pass manager"));
 
-<<<<<<< HEAD
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-=======
 // FIXME: Change `-debug-pass-manager` from boolean to enum type. Similar to
 // `-debug-pass` in legacy PM.
 static cl::opt<bool>
@@ -46,7 +43,7 @@ static cl::opt<bool>
                    cl::desc("Print all pass management debugging information. "
                             "`-debug-pass-manager` must also be specified"));
 
->>>>>>> 555cf42f380d86f35e761c3a2179c761356ab152
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 namespace {
 
 /// Extracting Module out of \p IR unit. Also fills a textual description
@@ -329,6 +326,7 @@ bool OptNoneInstrumentation::skip(StringRef PassID, Any IR) {
 
 void PrintPassInstrumentation::registerCallbacks(
     PassInstrumentationCallbacks &PIC) {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   if (!DebugLogging)
     return;
 
@@ -349,17 +347,15 @@ void PrintPassInstrumentation::registerCallbacks(
     dbgs() << "Running analysis: " << PassID << " on ";
     unwrapAndPrint(IR, "", false, true);
   });
+#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
 }
 
 void StandardInstrumentations::registerCallbacks(
     PassInstrumentationCallbacks &PIC) {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   PrintIR.registerCallbacks(PIC);
-<<<<<<< HEAD
-#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
-=======
   PrintPass.registerCallbacks(PIC);
->>>>>>> 555cf42f380d86f35e761c3a2179c761356ab152
+#endif //!defined(NDEBUG) || defined(LLVM_ENABLE_DUMP) // INTEL
   TimePasses.registerCallbacks(PIC);
   OptNone.registerCallbacks(PIC);
 }

@@ -34,7 +34,6 @@
 ; CHECK-O-NEXT: Running analysis: WholeProgramAnalysis
 ; CHECK-O-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}Function
 ; CHECK-O-NEXT: Running analysis: TargetIRAnalysis
-; CHECK-O-NEXT: Running analysis: PassInstrumentationAnalysis
 ; CHECK-O-NEXT: Running pass: IntelFoldWPIntrinsicPass
 ; CHECK-O-NEXT: Running pass: IPCloningPass
 ; end INTEL_CUSTOMIZATION
@@ -42,23 +41,15 @@
 ; CHECK-O-NEXT: Running pass: InferFunctionAttrsPass
 ; INTEL_CUSTOMIZATION
 ; CHECK-O-NEXT: Running analysis: TargetLibraryAnalysis
-<<<<<<< HEAD
 ; The TargetLibraryAnalysis is required by the Intel WholeProgramAnalysis.
 ; It will run during O1. The following CHECK won't be executed.
 ; CHECK-O-NEXT-: Running analysis: InnerAnalysisManagerProxy<{{.*}}Module
 ; CHECK-O-NEXT-: Running analysis: TargetLibraryAnalysis
-; CHECK-O-NEXT: Running analysis: PassInstrumentationAnalysis
-; end INTEL_CUSTOMIZATION
-; CHECK-O1-NEXT: Running pass: ModuleToPostOrderCGSCCPassAdaptor<{{.*}}PostOrderFunctionAttrsPass>
-; CHECK-O2-NEXT: Running pass: ModuleToFunctionPassAdaptor<{{.*}}PassManager{{.*}}>
-; INTEL_CUSTOMIZATION
 ; The InnerAnalysisManagerProxy and the PassInstrumentationAnalysis is needed
 ; for the Intel WholeProgramAnalysis. It will run with O1. The following CHECK
 ; won't be executed. The following two CHECKs won't be executed.
 ; CHECK-O2-NEXT-: Running analysis: PassInstrumentationAnalysis
 ; end INTEL_CUSTOMIZATION
-=======
->>>>>>> 555cf42f380d86f35e761c3a2179c761356ab152
 ; CHECK-O2-NEXT: Starting llvm::Function pass manager run.
 ; CHECK-O2-NEXT: Running pass: CallSiteSplittingPass on foo
 ; CHECK-O2-NEXT: Running analysis: TargetLibraryAnalysis on foo
@@ -78,15 +69,12 @@
 ; CHECK-O-NEXT: Running analysis: InnerAnalysisManagerProxy<{{.*}}SCC
 ; CHECK-O-NEXT: Running analysis: LazyCallGraphAnalysis
 ; CHECK-O1-NEXT: Running analysis: TargetLibraryAnalysis
-<<<<<<< HEAD
 ; INTEL_CUSTOMIZATION
 ; The PassInstrumentationAnalysis isn't needed for the Intel
 ; WholeProgramAnalysis. It should run at O1. The following CHECKs
 ; won't be executed.
 ; CHECK-O1-NEXT-: Running analysis: PassInstrumentationAnalysis
 ; end INTEL_CUSTOMIZATION
-=======
->>>>>>> 555cf42f380d86f35e761c3a2179c761356ab152
 ; CHECK-O-NEXT: Running analysis: FunctionAnalysisManagerCGSCCProxy
 ; CHECK-O-NEXT: Running analysis: OuterAnalysisManagerProxy<{{.*}}LazyCallGraph{{.*}}>
 ; CHECK-O-NEXT: Running pass: PostOrderFunctionAttrsPass
@@ -111,8 +99,8 @@
 ; CHECK-O2-NEXT: Running pass: InlineListsPass                                        ;INTEL
 ; CHECK-O2-NEXT: Running pass: RequireAnalysisPass<{{.*}}AndersensAA                  ;INTEL
 ; CHECK-O2-NEXT: Running analysis: AndersensAA                                        ;INTEL
-; CHECK-O2-NEXT: Running pass: ModuleToFunctionPassAdaptor<{{.*}}IndirectCallConvPass ;INTEL
-; CHECK-O2-NEXT: Running pass: AggInlinerPass ;INTEL
+; CHECK-O2-NEXT: Running pass: IndirectCallConvPass                                   ;INTEL
+; CHECK-O2-NEXT: Running pass: AggInlinerPass                                         ;INTEL
 ; CHECK-O2-NEXT: Running pass: ModuleInlinerWrapperPass
 ; CHECK-O2-NEXT: Running analysis: InlineAdvisorAnalysis
 ; CHECK-O2-NEXT: Starting llvm::Module pass manager run.
@@ -127,12 +115,8 @@
 ; END INTEL_CUSTOMIZATION
 ; CHECK-O2-NEXT: Running pass: IPCloningPass ;INTEL
 ; CHECK-O2-NEXT: Running pass: GlobalDCEPass
-<<<<<<< HEAD
 ; CHECK-O2-NEXT: Running pass: IPArrayTransposePass ;INTEL
 ; CHECK-O2-NEXT: Running pass: DeadArrayOpsEliminationPass ;INTEL
-; CHECK-O2-NEXT: Running pass: ModuleToFunctionPassAdaptor<{{.*}}PassManager{{.*}}>
-=======
->>>>>>> 555cf42f380d86f35e761c3a2179c761356ab152
 ; CHECK-O2-NEXT: Starting llvm::Function pass manager run.
 ; CHECK-O2-NEXT: Running pass: InstCombinePass
 ; CHECK-EP-Peephole-NEXT: Running pass: NoOpFunctionPass
