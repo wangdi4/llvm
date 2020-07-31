@@ -25,6 +25,10 @@ namespace vpo {
 /// cases clones of one created at the beginning of vectorization. All the
 /// external definitions in these case are common and not needed to be cloned.
 class VPExternalValues {
+  // HIRDecomposer fixes VPExternalUses with multiple operands after building
+  // initial plain CFG. Friendship is needed to get non-const iterator range to
+  // VPExternalUsesHIR container.
+  friend class VPDecomposerHIR;
 
   const DataLayout *DL = nullptr;
 
@@ -58,6 +62,13 @@ class VPExternalValues {
   /// in this VPlan. The key is the underlying HIR information that uniquely
   /// identifies each external use.
   FoldingSet<VPExternalUse> VPExternalUsesHIR;
+
+  /// Return non-const iterator range for external uses in VPExternalUsesHIR.
+  decltype(auto) getVPExternalUsesHIR() {
+    return map_range(
+        make_range(VPExternalUsesHIR.begin(), VPExternalUsesHIR.end()),
+        [](VPExternalUse &Use) { return &Use; });
+  }
 
   /// Holds all the VPMetadataAsValues created for this VPlan.
   DenseMap<MetadataAsValue *, std::unique_ptr<VPMetadataAsValue>>

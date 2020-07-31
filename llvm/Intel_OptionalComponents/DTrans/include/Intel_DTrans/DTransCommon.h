@@ -29,7 +29,6 @@
 #include "Intel_DTrans/Analysis/TypeMetadataReader.h"
 #include "Intel_DTrans/Transforms/AOSToSOA.h"
 #include "Intel_DTrans/Transforms/AnnotatorCleaner.h"
-#include "Intel_DTrans/Transforms/DTransConstantArraysMetadata.h"
 #include "Intel_DTrans/Transforms/DTransPaddedMalloc.h"
 #include "Intel_DTrans/Transforms/DeleteField.h"
 #include "Intel_DTrans/Transforms/DynClone.h"
@@ -64,7 +63,6 @@ void initializeDTransSafetyAnalyzerWrapperPass(PassRegistry&);
 
 // Transform passes
 void initializeDTransAOSToSOAWrapperPass(PassRegistry&);
-void initializeDTransConstantArraysMetadataWrapperPass(PassRegistry&);
 void initializeDTransDeleteFieldWrapperPass(PassRegistry&);
 void initializeDTransPaddedMallocWrapperPass(PassRegistry&);
 void initializeDTransReorderFieldsWrapperPass(PassRegistry&);

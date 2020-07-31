@@ -691,6 +691,11 @@ void PlainCFGBuilderHIR::buildPlainCFG() {
   // VPInstructions have been created for the loop nest. It's time to fix
   // VPInstructions representing a PHI operation.
   Decomposer.fixPhiNodes();
+
+  // Initial plain CFG is ready at this point. Do post-processing to fix
+  // VPExternalUses that have multiple operands i.e. multiple live-out
+  // VPInstructions for single temp/symbase.
+  Decomposer.fixExternalUses();
   return;
 }
 
