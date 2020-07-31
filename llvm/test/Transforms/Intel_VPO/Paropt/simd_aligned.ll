@@ -105,7 +105,7 @@ attributes #1 = { nounwind }
 !llvm.ident = !{!1}
 
 !0 = !{i32 1, !"wchar_size", i32 4}
-!1 = !{!"Intel(R) oneAPI DPC++ Compiler 2021.1 (YYYY.x.0.MMDD)"}
+!1 = !{!"clang version 10.0.0"}
 !2 = !{!3, !3, i64 0}
 !3 = !{!"pointer@_ZTSPi", !4, i64 0}
 !4 = !{!"omnipotent char", !5, i64 0}

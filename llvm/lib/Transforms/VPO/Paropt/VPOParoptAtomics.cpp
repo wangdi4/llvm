@@ -1804,6 +1804,11 @@ const std::map<VPOParoptAtomics::AtomicOperationTy, const std::string>
         {{Instruction::FSub, {F32, F32}}, "__kmpc_atomic_float4_sub_cpt"},
         {{Instruction::FMul, {F32, F32}}, "__kmpc_atomic_float4_mul_cpt"},
         {{Instruction::FDiv, {F32, F32}}, "__kmpc_atomic_float4_div_cpt"},
+        // F64 = F64 op F64
+        {{Instruction::FAdd, {F64, F64}}, "__kmpc_atomic_float8_add_cpt"},
+        {{Instruction::FSub, {F64, F64}}, "__kmpc_atomic_float8_sub_cpt"},
+        {{Instruction::FMul, {F64, F64}}, "__kmpc_atomic_float8_mul_cpt"},
+        {{Instruction::FDiv, {F64, F64}}, "__kmpc_atomic_float8_div_cpt"},
 };
 
 const std::map<VPOParoptAtomics::AtomicOperationTy, const std::string>
