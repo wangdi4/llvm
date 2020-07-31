@@ -289,7 +289,7 @@ unsigned LoopVectorizationPlanner::buildInitialVPlans(LLVMContext *Context,
     // TODO: Insert initial run of SVA here for any new users before CM & CG.
 
     for (unsigned TmpVF = StartRangeVF; TmpVF < EndRangeVF; TmpVF *= 2)
-      VPlans[TmpVF] = Plan;
+      VPlans[TmpVF] = {Plan, nullptr};
 
     StartRangeVF = EndRangeVF;
     EndRangeVF = MaxVF + 1;
@@ -309,7 +309,7 @@ void LoopVectorizationPlanner::selectBestPeelingVariants() {
 
   for (auto &Pair : VPlans) {
     auto VF = Pair.first;
-    VPlan &Plan = *Pair.second;
+    VPlan &Plan = *Pair.second.MainPlan;
 
     if (VF == 1)
       continue;
@@ -480,7 +480,7 @@ void LoopVectorizationPlanner::predicate() {
   for (auto It : VPlans) {
     if (It.first == 1)
       continue; // Ignore Scalar VPlan;
-    VPlan *VPlan = It.second.get();
+    VPlan *VPlan = It.second.MainPlan.get();
     if (PredicatedVPlans.count(VPlan))
       continue; // Already predicated.
 

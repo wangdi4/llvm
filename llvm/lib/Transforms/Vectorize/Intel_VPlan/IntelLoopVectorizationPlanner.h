@@ -131,7 +131,7 @@ public:
 
   VPlan *getVPlanForVF(unsigned VF) const {
     auto It = VPlans.find(VF);
-    return It != VPlans.end() ? It->second.get() : nullptr;
+    return It != VPlans.end() ? It->second.MainPlan.get() : nullptr;
   }
 
   VPlan *getScalarVPlan(void) const { return getVPlanForVF(1); }
@@ -141,6 +141,11 @@ public:
   auto getAllVPlans() const {
     return make_range(VPlans.begin(), VPlans.end());
   }
+
+  struct VPlanPair {
+    std::shared_ptr<VPlan> MainPlan;
+    std::shared_ptr<VPlan> MaskedModeLoop;
+  };
 
 protected:
   /// Build an initial VPlan according to the information gathered by Legal
@@ -226,7 +231,7 @@ private:
   // InnerLoopVectorizer *ILV = nullptr;
 
   /// VPlans are shared between VFs, use smart pointers.
-  DenseMap<unsigned, std::shared_ptr<VPlan>> VPlans;
+  DenseMap<unsigned, VPlanPair> VPlans;
 };
 
 } // namespace vpo
