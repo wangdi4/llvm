@@ -9350,8 +9350,8 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
     SmallVector<Instruction *, 8u> Worklist{Users.begin(), Users.end()};
     while (!Worklist.empty()) {
       Instruction *I = Worklist.pop_back_val();
-      if (auto *BCI = dyn_cast<BitCastInst>(I)) {
-        WRegionUtils::findUsersInRegion(W, BCI, &Worklist, true);
+      if (isa<BitCastInst>(I) || isa<GetElementPtrInst>(I)) {
+        WRegionUtils::findUsersInRegion(W, I, &Worklist, true);
         continue;
       }
       if (!isa<LoadInst>(I))
@@ -9366,36 +9366,42 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
   };
 #endif // NDEBUG
 
+  auto IsPrivatizationCandidate = [&](AllocaInst *AI) {
+    // Do not attempt to promote arrays or structures.
+    if (AI->isArrayAllocation() ||
+        !AI->getType()->getElementType()->isSingleValueType()) {
+      LLVM_DEBUG(reportSkipped(AI, "not a single value type"));
+      return false;
+    }
+    Optional<uint64_t> Size =
+        AI->getAllocationSizeInBits(F->getParent()->getDataLayout());
+    if (!Size) {
+      LLVM_DEBUG(reportSkipped(AI, "unknown size"));
+      return false;
+    }
+
+    // Check if item's memory is modified inside the region. If not then it
+    // should be safe to privatize it.
+    MemoryLocation Loc{AI, LocationSize::precise(*Size)};
+    if (any_of(W->blocks(), [&](const BasicBlock *BB) {
+          if (BB == W->getEntryBBlock() || BB == W->getExitBBlock())
+            return false;
+          if (!AA->canBasicBlockModify(*BB, Loc))
+            return false;
+          LLVM_DEBUG(reportSkipped(AI, "is modified in " + BB->getName()));
+          return true;
+        }))
+      return false;
+    return true;
+  };
+
   // Find "shared" candidates that can be privatized.
   using ItemData = std::pair<AllocaInst *, SmallVector<Instruction *, 8>>;
   SmallVector<ItemData, 8> ToPrivatize;
   for (SharedItem *I : W->getShared().items()) {
     if (auto *AI = dyn_cast<AllocaInst>(I->getOrig())) {
-      // Do not attempt to promote arrays or structures.
-      if (AI->isArrayAllocation() ||
-          !AI->getType()->getElementType()->isSingleValueType()) {
-        LLVM_DEBUG(reportSkipped(AI, "not a single value type"));
-        continue;
-      }
-      Optional<uint64_t> Size =
-          AI->getAllocationSizeInBits(F->getParent()->getDataLayout());
-      if (!Size) {
-        LLVM_DEBUG(reportSkipped(AI, "unknown size"));
-        continue;
-      }
-
-      // Check if item's memory is modified inside the region. If not then it
-      // should be safe to privatize it.
-      MemoryLocation Loc{AI, LocationSize::precise(*Size)};
-      if (any_of(W->blocks(), [&](const BasicBlock *BB) {
-            if (BB == W->getEntryBBlock() || BB == W->getExitBBlock())
-              return false;
-            if (!AA->canBasicBlockModify(*BB, Loc))
-              return false;
-            LLVM_DEBUG(reportSkipped(AI, "is modified in " + BB->getName()));
-            return true;
-          }))
-        continue;
+      if (!IsPrivatizationCandidate(AI))
+      continue;
 
       SmallVector<Instruction *, 8> Users;
       if (!WRegionUtils::findUsersInRegion(W, AI, &Users, true)) {
@@ -9403,15 +9409,54 @@ bool VPOParoptTransform::privatizeSharedItems(WRegionNode *W) {
         continue;
       }
 
-      // Check if item has users other then loads or bitcasts + loads.
+      // Check if item has no users other than loads or bitcasts/GEPs + loads.
       if (!allUsersAreLoads(Users)) {
         LLVM_DEBUG(reportSkipped(AI, "address escapes"));
         continue;
       }
 
       ToPrivatize.emplace_back(AI, std::move(Users));
-    } else
-      LLVM_DEBUG(reportSkipped(I->getOrig(), "not an local pointer"));
+      continue;
+    }
+
+    // Check if shared item is a bitcasted alloca instruction that can be
+    // privatized. If so move bitcast into the work region and change shared
+    // item to alloca instruction.
+    if (auto *BCI = dyn_cast<BitCastInst>(I->getOrig()))
+      if (auto *AI = dyn_cast<AllocaInst>(BCI->getOperand(0))) {
+        if (!IsPrivatizationCandidate(AI))
+          continue;
+
+        SmallVector<Instruction *, 8> Users;
+        if (!WRegionUtils::findUsersInRegion(W, BCI, &Users)) {
+          LLVM_DEBUG(reportSkipped(BCI, "no users in the region"));
+          continue;
+        }
+
+        if (!allUsersAreLoads(BCI)) {
+          LLVM_DEBUG(reportSkipped(BCI, "address escapes"));
+          continue;
+        }
+
+        // Change shared value to alloca instruction.
+        auto *EntryDir = cast<IntrinsicInst>(W->getEntryDirective());
+        EntryDir->replaceUsesOfWith(BCI, AI);
+        I->setOrig(AI);
+
+        // And move bitcast into the region.
+        auto *NewBCI = cast<BitCastInst>(BCI->clone());
+        NewBCI->insertAfter(EntryDir);
+
+        for (auto *User : Users)
+          User->replaceUsesOfWith(BCI, NewBCI);
+
+        // Add alloca to the provatization list. Bitcast is the only user of
+        // alloca inside the region.
+        ToPrivatize.emplace_back(AI, SmallVector<Instruction *, 1>({NewBCI}));
+        continue;
+      }
+
+    LLVM_DEBUG(reportSkipped(I->getOrig(), "not an local pointer"));
   }
 
   // Clear blocks.
