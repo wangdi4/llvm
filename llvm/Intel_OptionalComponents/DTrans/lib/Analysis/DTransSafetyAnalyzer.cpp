@@ -367,7 +367,7 @@ public:
       return;
     }
 
-    if (PtrInfo->getUnhandled() || PtrInfo->getDependsOnUnhandled()) {
+    if (isValueTypeInfoUnhandled(*PtrInfo)) {
       DTInfo.setUnhandledPtrType(GEP);
       setAllAliasedTypeSafetyData(PtrInfo, dtrans::UnhandledUse,
                                   "PointerTypeAnalyzer could not resolve all "
@@ -506,23 +506,36 @@ public:
     }
   }
 
-  void visitSelectInst(SelectInst &Sel) { analyzeSelectOrPhi(&Sel); }
+  void visitSelectInst(SelectInst &Sel) {
+    SmallVector<Value *, 4> IncomingVals;
+    IncomingVals.push_back(Sel.getTrueValue());
+    IncomingVals.push_back(Sel.getFalseValue());
 
-  void visitPHINode(PHINode &Phi) { analyzeSelectOrPhi(&Phi); }
+    analyzeSelectOrPhi(&Sel, IncomingVals);
+  }
+
+  void visitPHINode(PHINode &Phi) {
+    SmallVector<Value *, 4> IncomingVals;
+    for (Value *Val : Phi.incoming_values())
+      IncomingVals.push_back(Val);
+
+    analyzeSelectOrPhi(&Phi, IncomingVals);
+  }
 
   // If the select or phi involves pointer types or element pointees, then
   // the ValueTypeInfo for the instruction will hold the merge results of all
   // the source operands. For type safety, if there are aggregate types
   // involved, we need to be sure there is a unique dominant type when aggregate
   // types are involved, otherwise it is an unsafe pointer merge.
-  void analyzeSelectOrPhi(Instruction *I) {
+  void analyzeSelectOrPhi(Instruction *I,
+                          SmallVectorImpl<Value *> &IncomingVals) {
     // If the select/phi instruction was not identified as a type of interest by
     // the PtrTypeAnalyzer there will not be a ValueTypeInfo collected for it.
     ValueTypeInfo *Info = PTA.getValueTypeInfo(I);
     if (!Info || Info->empty())
       return;
 
-    if (Info->getUnhandled() || Info->getDependsOnUnhandled())
+    if (isValueTypeInfoUnhandled(*Info))
       DTInfo.setUnhandledPtrType(I);
 
     if (!Info->canAliasToAggregatePointer())
@@ -531,6 +544,36 @@ public:
     if (!PTA.getDominantAggregateUsageType(*Info))
       setAllAliasedTypeSafetyData(Info, dtrans::UnsafePtrMerge,
                                   "Merge of conflicting pointer types", I);
+
+    // The merge is taking place on a type that was known to alias a pointer to
+    // an aggregate type. If this is being done with the pointer having been
+    // converted to an integer, check to ensure that all Values being merged
+    // were for pointers to aggregate types. There is no need to check the
+    // specific types of the aliases because the above check for the dominant
+    // type would have determined that. For example, the following would be
+    // unsafe because %n was not known to be an aggregate type.
+    //   define void @test01(%struct.test01* %pStruct1, i64 %n) {
+    //     %tmp = ptrtoint % struct.test01* %pStruct1 to i64
+    //     %sel = select i1 undef, i64 %tmp, i64 %n
+    //     ret void
+    //   }
+    if (!I->getType()->isPointerTy())
+      for (auto *ValIn : IncomingVals) {
+        if (isa<ConstantData>(ValIn)) {
+          setAllAliasedTypeSafetyData(
+              Info, dtrans::UnsafePtrMerge,
+              "Merge of conflicting types during integer merge", I);
+          return;
+        }
+
+        ValueTypeInfo *SrcInfo = PTA.getValueTypeInfo(ValIn);
+        if (!SrcInfo || !SrcInfo->canAliasToAggregatePointer()) {
+          setAllAliasedTypeSafetyData(
+              Info, dtrans::UnsafePtrMerge,
+            "Merge of conflicting types during integer merge", I);
+          return;
+        }
+      }
   }
 
   // Check whether the type the value loaded gets used as is compatible with the
