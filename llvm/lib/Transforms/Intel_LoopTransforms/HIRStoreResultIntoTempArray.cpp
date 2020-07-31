@@ -1056,6 +1056,23 @@ static void removeDependentInsts(HLInst *HInst, DDGraph &DDG,
   return;
 }
 
+// If the dimension lower bounds of MemRef do not start from 0, we need to
+// change the use of temp array's dimension lower bounds
+static void adjustLowerDimsForAllocaRef(RegDDRef *MemRef, RegDDRef *AllocaRef) {
+  unsigned Dim = MemRef->getNumDimensions();
+
+  while (Dim > 1) {
+    CanonExpr *MemRefLowerDimCE = MemRef->getDimensionLower(Dim);
+
+    if (!MemRefLowerDimCE->isZero()) {
+      AllocaRef->getDimensionLower(Dim - 1)->setConstant(
+          MemRefLowerDimCE->getConstant());
+    }
+
+    --Dim;
+  }
+}
+
 bool HIRStoreResultIntoTempArray::doLoopCarriedScalarReplacement(
     HLLoop *Lp, SmallVectorImpl<HLInst *> &ExpensiveInsts) {
   DDGraph DDG = DDA.getGraph(Lp);
@@ -1115,6 +1132,8 @@ bool HIRStoreResultIntoTempArray::doLoopCarriedScalarReplacement(
 
     RegDDRef *AllocaRef = addDimensionForAllocaMemRef(
         ExtractedLoop, Lp, AllocaDDRef->clone(), MemRef, TypeSize, Offsets);
+
+    adjustLowerDimsForAllocaRef(MemRef, AllocaRef);
 
     // Create a load inst to replace the expensive inst, like -
     // transfer from -
