@@ -3030,13 +3030,18 @@ void HIRCompleteUnroll::transformLoops() {
       continue;
     }
 
+    bool HasParentLoop = true;
     HLNode *ParentNode = Loop->getParentLoop();
     if (!ParentNode) {
+      HasParentLoop = false;
       ParentNode = Loop->getParentRegion();
     }
 
     doUnroll(Loop);
 
+    if (IsPreVec && HasParentLoop) {
+      HIRTransformUtils::substituteConstGlobals(ParentNode);
+    }
     HLNodeUtils::removeRedundantNodes(ParentNode);
   }
 }
