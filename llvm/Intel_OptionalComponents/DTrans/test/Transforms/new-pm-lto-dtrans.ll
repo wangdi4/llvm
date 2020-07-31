@@ -7,7 +7,7 @@
 
 ; RUN: opt -disable-verify -debug-pass-manager -whole-program-assume    \
 ; RUN:     -enable-dtrans-soatoaos -enable-dtrans-deletefield           \
-; RUN:     -enable-resolve-types -enable-dtrans-const-arrays-metadata   \
+; RUN:     -enable-resolve-types                                        \
 ; RUN:     -passes='lto<O2>,internalize'  -internalize-public-api-list main \
 ; RUN:     -S  %s -enable-npm-dtrans                  \
 ; RUN:     2>&1 \
@@ -66,7 +66,6 @@
 ; CHECK-NEXT: Running pass: dtrans::AnnotatorCleaner
 ; CHECK-NEXT: Running pass: DopeVectorConstProp
 ; CHECK-NEXT: Running pass: OptimizeDynamicCastsPass
-; CHECK: Running pass: dtrans::ConstantArraysMetadataPass
 ; CHECK: Running pass: IntelArgumentAlignmentPass
 ; CHECK: Running pass: QsortRecognizerPass
 ; CHECK: Running pass: TileMVInlMarkerPass

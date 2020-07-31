@@ -52,10 +52,6 @@ static cl::opt<bool> EnableDeleteFields("enable-dtrans-deletefield",
                                         cl::init(true), cl::Hidden,
                                         cl::desc("Enable DTrans delete field"));
 
-// Enable constant arrays metadata
-static cl::opt<bool> EnableConstArrays("enable-dtrans-const-arrays-metadata",
-                                       cl::init(false), cl::ReallyHidden);
-
 // Valid values for the dump-module-after-dtrans and dump-module-before-dtrans
 // options:
 //   early -> dump before/after early DTrans passes
@@ -190,7 +186,6 @@ void llvm::initializeDTransPasses(PassRegistry &PR) {
   initializeDTransWeakAlignWrapperPass(PR);
   initializeDTransMemInitTrimDownWrapperPass(PR);
   initializeDTransTransposeWrapperPass(PR);
-  initializeDTransConstantArraysMetadataWrapperPass(PR);
 
 #if !INTEL_PRODUCT_RELEASE
   initializeDTransOptBaseTestWrapperPass(PR);
@@ -305,9 +300,6 @@ void llvm::addLateDTransPasses(ModulePassManager &MPM) {
 
   MPM.addPass(dtrans::PaddedMallocPass());
 
-  if (EnableConstArrays)
-    MPM.addPass(dtrans::ConstantArraysMetadataPass());
-
   if (hasDumpModuleAfterDTransValue(late))
     MPM.addPass(PrintModulePass(dbgs(), "; Module After Late DTrans\n"));
 }
@@ -322,9 +314,6 @@ void llvm::addLateDTransLegacyPasses(legacy::PassManagerBase &PM) {
 
   PM.add(createDTransPaddedMallocWrapperPass());
 
-  if (EnableConstArrays)
-    PM.add(createDTransConstantArraysMetadataWrapperPass());
-
   if (hasDumpModuleAfterDTransValue(late))
     PM.add(createPrintModulePass(dbgs(), "; Module After Late DTrans\n"));
 }
@@ -335,7 +324,6 @@ void llvm::createDTransPasses() {
   (void)llvm::createDTransDeleteFieldWrapperPass();
   (void)llvm::createDTransAOSToSOAWrapperPass();
   (void)llvm::createDTransAnnotatorCleanerWrapperPass();
-  (void)llvm::createDTransConstantArraysMetadataWrapperPass();
   (void)llvm::createDTransReorderFieldsWrapperPass();
   (void)llvm::createDTransPaddedMallocWrapperPass();
   (void)llvm::createDTransEliminateROFieldAccessWrapperPass();
