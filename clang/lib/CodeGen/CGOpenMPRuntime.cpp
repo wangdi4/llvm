@@ -8341,21 +8341,15 @@ public:
           UseDevicePtrCombinedInfo.Pointers.push_back(Ptr);
           UseDevicePtrCombinedInfo.Sizes.push_back(
               llvm::Constant::getNullValue(CGF.Int64Ty));
-<<<<<<< HEAD
-          CombinedInfo.Types.push_back(OMP_MAP_RETURN_PARAM |
-                                       OMP_MAP_TARGET_PARAM);
-          CombinedInfo.Mappers.push_back(nullptr);
+          UseDevicePtrCombinedInfo.Types.push_back(OMP_MAP_RETURN_PARAM |
+                                                   OMP_MAP_TARGET_PARAM);
+          UseDevicePtrCombinedInfo.Mappers.push_back(nullptr);
 
 #if INTEL_COLLAB
           if (VarChain)
             VarChain->push_back(
                 std::make_pair(cast_or_null<VarDecl>(VD), false));
 #endif  // INTEL_COLLAB
-=======
-          UseDevicePtrCombinedInfo.Types.push_back(OMP_MAP_RETURN_PARAM |
-                                                   OMP_MAP_TARGET_PARAM);
-          UseDevicePtrCombinedInfo.Mappers.push_back(nullptr);
->>>>>>> 142d0d3ed8e07aca2476bc4ecc1a12d15577a84a
         }
       }
     }
