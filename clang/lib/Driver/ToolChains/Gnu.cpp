@@ -926,9 +926,16 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 
       bool WantPthread = Args.hasArg(options::OPT_pthread) ||
                          Args.hasArg(options::OPT_pthreads);
-
+#if INTEL_CUSTOMIZATION
+      bool IntelStatic = false;
+      if (Arg *A = Args.getLastArg(options::OPT_qopenmp_link_EQ)) {
+        if (A->getValue() == StringRef("static"))
+          IntelStatic = true;
+      }
       // Use the static OpenMP runtime with -static-openmp
-      bool StaticOpenMP = Args.hasArg(options::OPT_static_openmp) &&
+      bool StaticOpenMP =
+          (IntelStatic || Args.hasArg(options::OPT_static_openmp)) &&
+#endif // INTEL_CUSTOMIZATION
                           !Args.hasArg(options::OPT_static);
 
       // FIXME: Only pass GompNeedsRT = true for platforms with libgomp that

@@ -1930,6 +1930,12 @@ def qno_openmp_simd: Flag<["-"], "qno-openmp-simd">, Alias<fno_iopenmp_simd>,
 def qno_openmp : Flag<["-"], "qno-openmp">, Group<f_Group>, Flags<[NoArgumentUnused, DpcppUnsupported]>, Alias<fno_iopenmp>, HelpText<"Disable OpenMP support">;
 def qopenmp: Flag<["-"], "qopenmp">, Alias<fiopenmp>, Flags<[DpcppUnsupported]>,
   HelpText<"Parse OpenMP pragmas and generate parallel code.">;
+def qopenmp_stubs : Flag<["-"], "qopenmp-stubs">, Flags<[DpcppUnsupported]>,
+  HelpText<"enables the user to compile OpenMP programs in sequential mode. "
+  "The OpenMP directives are ignored and a stub OpenMP library is linked.">;
+def qopenmp_link_EQ : Joined<["-"], "qopenmp-link=">, Flags<[DpcppUnsupported]>,
+  HelpText<"Choose whether to link with the static or dynamic OpenMP "
+  "libraries. Default is dynamic.">;
 #endif // INTEL_CUSTOMIZATION
 def fopenmp_cuda_parallel_target_regions : Flag<["-"], "fopenmp-cuda-parallel-target-regions">, Group<f_Group>,
   Flags<[CC1Option, NoArgumentUnused, HelpHidden]>,

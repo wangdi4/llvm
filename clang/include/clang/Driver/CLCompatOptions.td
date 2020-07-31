@@ -255,6 +255,9 @@ def _SLASH_Qopenmp_ : CLFlagNoDpcpp<"Qopenmp-">, Alias<fno_iopenmp>,
   HelpText<"Disable OpenMP support">;
 def _SLASH_QopenmpP_ : CLFlagNoDpcpp<"QopenmpP-">, Alias<fno_iopenmp>,
   HelpText<"Disable OpenMP support">;
+def _SLASH_QopenmpS : CLFlagNoDpcpp<"QopenmpS">, Alias<qopenmp_stubs>,
+  HelpText<"Enables the user to compile OpenMP programs in seqential mode. "
+  "The OpenMP directives are ignored and a stub OpenMP library is linked.">;
 def _SLASH_Qiopenmp : CLFlag<"Qiopenmp">, Alias<fiopenmp>;
 def _SLASH_Qopenmp_simd : CLFlagNoDpcpp<"Qopenmp-simd">, Alias<fiopenmp_simd>,
   HelpText<"Emit OpenMP code only for SIMD-based constructs.">;

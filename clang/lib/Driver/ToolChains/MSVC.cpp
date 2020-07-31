@@ -540,9 +540,20 @@ void visualstudio::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     }
   }
 
-  if (Args.hasFlag(options::OPT_fopenmp, options::OPT_fopenmp_EQ,
-                   options::OPT_fno_openmp, false) || // INTEL
-      Args.hasArg(options::OPT_fiopenmp)) {           // INTEL
+#if INTEL_CUSTOMIZATION
+  bool StubsAdded = false;
+  if (Arg *A = Args.getLastArg(options::OPT_qopenmp_stubs,
+      options::OPT_fopenmp, options::OPT_fopenmp_EQ, options::OPT_fiopenmp)) {
+    if (A->getOption().matches(options::OPT_qopenmp_stubs)) {
+      CmdArgs.push_back("-defaultlib:libiompstubs5md.lib");
+      StubsAdded = true;
+    }
+  }
+  if (!StubsAdded && (Args.hasFlag(options::OPT_fopenmp,
+                                   options::OPT_fopenmp_EQ,
+                                   options::OPT_fno_openmp, false)) ||
+      Args.hasArg(options::OPT_fiopenmp)) {
+#endif // INTEL_CUSTOMIZATION
     CmdArgs.push_back("-nodefaultlib:vcomp.lib");
     CmdArgs.push_back("-nodefaultlib:vcompd.lib");
     CmdArgs.push_back(Args.MakeArgString(std::string("-libpath:") +
