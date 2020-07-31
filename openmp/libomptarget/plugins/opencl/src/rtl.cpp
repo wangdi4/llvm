@@ -2054,10 +2054,6 @@ void *__tgt_rtl_data_alloc_base(int32_t device_id, int64_t size, void *hst_ptr,
 // Create a buffer from the given SVM pointer.
 EXTERN
 void *__tgt_rtl_create_buffer(int32_t device_id, void *tgt_ptr) {
-  if (DeviceInfo->DeviceType != CL_DEVICE_TYPE_GPU) {
-    DP("Attemping to create buffer for cpu offloading.\n");
-    return nullptr;
-  }
   if (DeviceInfo->Buffers[device_id].count(tgt_ptr) == 0) {
     DP("Error: Cannot create buffer from unknown device pointer " DPxMOD "\n",
        DPxPTR(tgt_ptr));

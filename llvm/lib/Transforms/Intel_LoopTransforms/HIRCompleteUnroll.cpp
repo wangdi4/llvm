@@ -2832,7 +2832,7 @@ HIRCompleteUnroll::computeAvgTripCount(const HLLoop *Loop) {
   }
 
   // Negative upper implies a big trip count for loops with unsigned IVs.
-  if ((MinUpper < 0) && !Loop->isNSW()) {
+  if ((MinUpper < 0) && !Loop->hasSignedIV()) {
     return std::make_pair(-1, DepLevel);
   }
 
@@ -2848,7 +2848,7 @@ HIRCompleteUnroll::computeAvgTripCount(const HLLoop *Loop) {
   // Loop never executes.
   if (MaxUpper < 0) {
     // Negative upper implies a big trip count for loops with unsigned IVs.
-    if (!Loop->isNSW()) {
+    if (!Loop->hasSignedIV()) {
       return std::make_pair(-1, DepLevel);
     }
     AvgTripCnt = 0;

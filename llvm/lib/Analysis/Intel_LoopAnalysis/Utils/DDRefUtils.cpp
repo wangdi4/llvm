@@ -640,12 +640,12 @@ bool DDRefUtils::canReplaceIVByCanonExpr(const RegDDRef *Ref,
 }
 
 void DDRefUtils::replaceIVByCanonExpr(RegDDRef *Ref, unsigned LoopLevel,
-                                      const CanonExpr *CE, bool IsNSW,
+                                      const CanonExpr *CE, bool IsSigned,
                                       bool RelaxedMode) {
 
   for (auto I = Ref->canon_begin(), E = Ref->canon_end(); I != E; ++I) {
-    auto Res = CanonExprUtils::replaceIVByCanonExpr((*I), LoopLevel, CE, IsNSW,
-                                                    RelaxedMode);
+    auto Res = CanonExprUtils::replaceIVByCanonExpr((*I), LoopLevel, CE,
+                                                    IsSigned, RelaxedMode);
     (void)Res;
     assert(Res && "Replacement failed, caller should call "
                   "DDRefUtils::canReplaceIVByCanonExpr() first!");
