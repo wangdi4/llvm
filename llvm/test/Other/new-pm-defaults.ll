@@ -227,7 +227,7 @@
 ; CHECK-O-NEXT: Starting llvm::Module pass manager run.
 ; CHECK-O-NEXT: Running pass: GlobalOptPass
 ; CHECK-O-NEXT: Running pass: GlobalDCEPass
-; CHECK-O-NEXT: Running pass: ModuleToFunctionPassAdaptor<{{.*}}CleanupFakeLoadsPass{{.*}}> ;INTEL
+; CHECK-O-NEXT: Running pass: CleanupFakeLoadsPass{{.*}} ;INTEL
 ; CHECK-O2-LTO-NOT: Running pass: EliminateAvailableExternallyPass
 ; CHECK-O: Running pass: ReversePostOrderFunctionAttrsPass
 ; CHECK-O-NEXT: Running pass: RequireAnalysisPass<{{.*}}AndersensAA                      ;INTEL
