@@ -65,11 +65,12 @@ public:
       DDRef *Ref;
       HLNode *FirstNode;
       bool IsTempRedefined;
+
+      // Instruction that should be cloned to be recomputable.
+      const HLInst *DepInstForRecompute;
     };
 
     bool SafeToRecompute = true;
-    // Instruction that should be cloned to be recomputable.
-    const HLInst *DepInstForRecompute = nullptr;
 
     SmallVector<RegDDRef *, 8> SrcRefs;
     SmallVector<DstNode, 8> DstRefs;

@@ -645,11 +645,11 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
 
           Candidate &Cand = GetCandidateForSymbase(SB);
 
-          if (Cand.SrcRefs.empty() || Cand.SrcRefs.back() != SrcRegRef) {
-            Cand.SafeToRecompute &=
-                isSafeToRecompute(SrcRegRef, J, SymbaseLoopSet,
-                                  ModifiedSymbases, Cand.DepInstForRecompute);
+          const HLInst *DepInst = nullptr;
+          Cand.SafeToRecompute &= isSafeToRecompute(
+              SrcRegRef, J, SymbaseLoopSet, ModifiedSymbases, DepInst);
 
+          if (Cand.SrcRefs.empty() || Cand.SrcRefs.back() != SrcRegRef) {
             Cand.SrcRefs.push_back(SrcRegRef);
           }
 
@@ -660,7 +660,8 @@ void ScalarExpansion::analyze(ArrayRef<HLDDNodeList> Chunks) {
 
           // Push first ref in J group, this is where SrcRegRef should be loaded
           // or recomputed, once per group J.
-          Cand.DstRefs.push_back({DstRef, Chunks[J].front(), TempRedefined});
+          Cand.DstRefs.push_back(
+              {DstRef, Chunks[J].front(), TempRedefined, DepInst});
 
           SymbaseLoopSet.insert({SB, J});
         }
@@ -686,9 +687,9 @@ void HIRLoopDistribution::replaceWithArrayTemp(
           DstNode = cast<HLDDNode>(Lp->getFirstChild());
         }
 
-        if (Candidate.DepInstForRecompute) {
+        if (DstCand.DepInstForRecompute) {
           HLNodeUtils::insertBefore(DstNode,
-                                    Candidate.DepInstForRecompute->clone());
+                                    DstCand.DepInstForRecompute->clone());
         }
 
         HLNodeUtils::insertBefore(DstNode, SrcInst->clone());
