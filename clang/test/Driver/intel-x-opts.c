@@ -217,7 +217,7 @@
 // XDUMMY: "-target-cpu" "dummy"
 
 // ADV_OPT-SAME: "-fintel-advanced-optim"
-// ADV_OPT-SAME: "-enable-multiversioning"
+// ADV_OPT-NOT: "-enable-multiversioning"
 
 // LTO check
 // RUN: %clang -### -target x86_64-unknown-linux-gnu -flto -xCORE-AVX512 %s 2>&1 \

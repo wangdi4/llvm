@@ -454,6 +454,8 @@ void Driver::addIntelArgs(DerivedArgList &DAL, const InputArgList &Args,
     if (IsCLMode() && !Args.hasArg(options::OPT_Wcxx11_narrowing,
                                    options::OPT_Wno_cxx11_narrowing))
       addClaim(options::OPT_Wno_cxx11_narrowing);
+    if (!IsCLMode())
+      addClaim(options::OPT_fheinous_gnu_extensions);
   }
   // Make SVML the default for dpcpp and --intel.
   // FIXME: This is temporary, as moving forward --intel should be the
