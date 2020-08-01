@@ -167,9 +167,9 @@ private:
 /// model.
 class VPlanPeelingAnalysis final {
 public:
-  VPlanPeelingAnalysis(VPlanPeelingCostModel &CM, VPlanScalarEvolution &VPSE,
-                       VPlanValueTracking &VPVT, const DataLayout &DL)
-      : CM(&CM), VPSE(&VPSE), VPVT(&VPVT), DL(&DL) {}
+  VPlanPeelingAnalysis(VPlanScalarEvolution &VPSE, VPlanValueTracking &VPVT,
+                       const DataLayout &DL)
+      : VPSE(&VPSE), VPVT(&VPVT), DL(&DL) {}
   VPlanPeelingAnalysis(const VPlanPeelingAnalysis &) = delete;
   VPlanPeelingAnalysis &operator=(const VPlanPeelingAnalysis &) = delete;
   VPlanPeelingAnalysis(VPlanPeelingAnalysis &&) = default;
@@ -180,17 +180,19 @@ public:
   void collectMemrefs(VPlan &Plan);
 
   /// Find the most profitable peeling variant for a particular \p VF.
-  std::unique_ptr<VPlanPeelingVariant> selectBestPeelingVariant(int VF);
+  std::unique_ptr<VPlanPeelingVariant>
+  selectBestPeelingVariant(int VF, VPlanPeelingCostModel &CM);
 
   /// Returns best static peeling variant and its profit. The algorithm for
   /// selecting best peeling variant always succeeds. In the worst case
   /// {StaticPeeling(0), 0} is returned.
-  std::pair<VPlanStaticPeeling, int> selectBestStaticPeelingVariant(int VF);
+  std::pair<VPlanStaticPeeling, int>
+  selectBestStaticPeelingVariant(int VF, VPlanPeelingCostModel &CM);
 
   /// Returns best dynamic peeling variant and its profit. None is returned when
   /// there's no analyzable memrefs in the loop.
   Optional<std::pair<VPlanDynamicPeeling, int>>
-  selectBestDynamicPeelingVariant(int VF);
+  selectBestDynamicPeelingVariant(int VF, VPlanPeelingCostModel &CM);
 
 private:
   void collectCandidateMemrefs(VPlan &Plan);
@@ -198,7 +200,6 @@ private:
   LLVM_DUMP_METHOD void dump();
 
 private:
-  VPlanPeelingCostModel *CM;
   VPlanScalarEvolution *VPSE;
   VPlanValueTracking *VPVT;
   const DataLayout *DL;
