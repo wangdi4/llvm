@@ -126,7 +126,7 @@ class HIRLoopFusion {
                               ArrayRef<HLLoop *> Candidates,
                               SmallDenseSet<unsigned> &IndexSet);
 
-  HLLoop *fuseLoops(const SmallVectorImpl<HLLoop *> &Candidates);
+  HLLoop *fuseLoops(ArrayRef<HLLoop *> Candidates);
 
   void sortHLNodes(const FuseGraph &FG);
 
@@ -315,10 +315,9 @@ bool HIRLoopFusion::generatePreOrPostLoops(HLNode *AnchorNode,
 // Update the pragma trip count metadata information for the loop after loop
 // fusion. Only preserve the trip count metadata for the fused loop if there
 // is no peeled loop and the loops have the same pragma trip count metadata
-static void
-updatePragmaTripCountInfo(HLLoop *FirstLoop,
-                          const SmallVectorImpl<HLLoop *> &Candidates,
-                          bool HasPeeledLoop) {
+static void updatePragmaTripCountInfo(HLLoop *FirstLoop,
+                                      ArrayRef<HLLoop *> Candidates,
+                                      bool HasPeeledLoop) {
 
   // If there exists peeled loop, pragma trip count metadata will be removed
   if (HasPeeledLoop) {
@@ -383,7 +382,7 @@ updatePragmaTripCountInfo(HLLoop *FirstLoop,
   }
 }
 
-HLLoop *HIRLoopFusion::fuseLoops(const SmallVectorImpl<HLLoop *> &Candidates) {
+HLLoop *HIRLoopFusion::fuseLoops(ArrayRef<HLLoop *> Candidates) {
   // The crucial problem of the fuseLoops mechanics that we must address
   // candidate loop mismatches in the upper and lower bounds. The basic idea is
   // to sort the lower bounds and upper bounds into a non-decreasing sequences
@@ -584,7 +583,13 @@ void HIRLoopFusion::sortHLNodes(const FuseGraph &FG) {
     if (PtrNode == SortedNode) {
       NeedNextPtr = true;
     } else {
-      HLNodeUtils::moveBefore(PtrNode, SortedNode);
+      if (Node->isGoodNode()) {
+        for (auto *LoopNode : Node->loops()) {
+          HLNodeUtils::moveBefore(PtrNode, LoopNode);
+        }
+      } else {
+        HLNodeUtils::moveBefore(PtrNode, SortedNode);
+      }
     }
   }
 }
@@ -625,7 +630,15 @@ void HIRLoopFusion::runOnNodeRange(HLNode *ParentNode, HLNodeRangeTy Range) {
 
   LLVM_DEBUG(dbgs() << "\nFinal Fusion Nodes:\n");
 
-  HLLoop *LastLoopFused = nullptr;
+  bool WillFuseLoops =
+      std::any_of(FG.getFuseNodes().begin(), FG.getFuseNodes().end(),
+                  [](const FuseNode &FN) {
+                    return !FN.isBadNode() && FN.loops().size() > 1;
+                  });
+  if (WillFuseLoops) {
+    sortHLNodes(FG);
+  }
+
   for (const FuseNode &FNode : FG.getFuseNodes()) {
     if (FNode.isBadNode()) {
       continue;
@@ -691,7 +704,6 @@ void HIRLoopFusion::runOnNodeRange(HLNode *ParentNode, HLNodeRangeTy Range) {
 
       LORBuilder(*NextLoop).addRemark(OptReportVerbosity::Low,
                                       "Loops have been fused %s", FuseLoopNums);
-      LastLoopFused = NextLoop;
     } else {
       NextLoop = FNode.pilotLoop();
     }
@@ -711,11 +723,14 @@ void HIRLoopFusion::runOnNodeRange(HLNode *ParentNode, HLNodeRangeTy Range) {
     }
   }
 
-  if (LastLoopFused) {
-    sortHLNodes(FG);
-
-    HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(LastLoopFused);
-    LastLoopFused->getParentRegion()->setGenCode();
+  if (WillFuseLoops) {
+    if (HLRegion *PerentRegion = dyn_cast<HLRegion>(ParentNode)) {
+      HIRInvalidationUtils::invalidateNonLoopRegion(PerentRegion);
+      PerentRegion->setGenCode();
+    } else {
+      HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(ParentNode);
+      ParentNode->getParentRegion()->setGenCode();
+    }
   }
 }
 
