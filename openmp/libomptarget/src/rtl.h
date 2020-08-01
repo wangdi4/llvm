@@ -83,6 +83,7 @@ struct RTLInfoTy {
   typedef int32_t(data_delete_managed_ty)(int32_t, void *);
   typedef int32_t(is_managed_ptr_ty)(int32_t, void *);
   typedef void *(data_alloc_explicit_ty)(int32_t, int64_t, int32_t);
+  typedef void (init_ompt_ty)(void *);
 #endif // INTEL_COLLAB
 
   int32_t Idx = -1;             // RTL index, index is the number of devices
@@ -142,6 +143,7 @@ struct RTLInfoTy {
   data_delete_managed_ty *data_delete_managed = nullptr;
   is_managed_ptr_ty *is_managed_ptr = nullptr;
   data_alloc_explicit_ty *data_alloc_explicit = nullptr;
+  init_ompt_ty *init_ompt = nullptr;
 #endif // INTEL_COLLAB
 
   // Are there images associated with this RTL.
@@ -205,6 +207,7 @@ struct RTLInfoTy {
     data_delete_managed = r.data_delete_managed;
     is_managed_ptr = r.is_managed_ptr;
     data_alloc_explicit = r.data_alloc_explicit;
+    init_ompt = r.init_ompt;
 #endif // INTEL_COLLAB
     isUsed = r.isUsed;
     synchronize = r.synchronize;

@@ -108,7 +108,7 @@ private:
   Type *IVType;
 
   // Indicates whether loop's IV is in signed range.
-  bool IsNSW;
+  bool HasSignedIV;
 
   // Tag to mark loop as multiversioned.
   unsigned MVTag = 0;
@@ -278,9 +278,9 @@ public:
   void setIVType(Type *Ty) { IVType = Ty; }
 
   /// Returns true if loop's IV is in signed range.
-  bool isNSW() const { return IsNSW; }
-  /// Sets/resets IsNSW flag.
-  void setNSW(bool IsNSW) { this->IsNSW = IsNSW; }
+  bool hasSignedIV() const { return HasSignedIV; }
+  /// Sets/resets HasSignedIV flag.
+  void setHasSignedIV(bool IsSigned) { HasSignedIV = IsSigned; }
 
   /// Returns true if ztt is present.
   bool hasZtt() const { return Ztt != nullptr; }

@@ -43,7 +43,7 @@ private:
 
   bool isLegalAndProfitable(HLLoop *Lp, HLInst *HInst, unsigned LoopLevel,
                             CanonExpr *UBCE, bool IsUpperBoundComplicated,
-                            bool IsNSW, bool &HasIV);
+                            bool HasSignedIV, bool &HasIV);
 };
 
 //

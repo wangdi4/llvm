@@ -475,9 +475,6 @@ EXTERN int __tgt_set_interop_property(
 // Set code location information
 EXTERN void __tgt_push_code_location(const char *location, void *codeptr_ra);
 
-// Return OMPT trace object
-EXTERN void *__tgt_get_ompt_trace(void);
-
 // Return number of devices
 EXTERN int __tgt_get_num_devices(void);
 #endif // INTEL_COLLAB

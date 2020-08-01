@@ -1568,6 +1568,13 @@ void ompd_dll_locations_valid(void);
 #error Requires a C++ compiler
 #endif
 
+#include <atomic>
+#include <string>
+#include <cstring>
+#include <map>
+#include <mutex>
+#include "omptarget.h"
+
 #ifndef OMPT_SUPPORT
 #define OMPT_SUPPORT 1
 #endif
@@ -1577,13 +1584,23 @@ void ompd_dll_locations_valid(void);
 #define HOST_DEVICE -10
 #endif
 
+extern "C" {
+#ifdef _WIN32
+int32_t __cdecl __kmpc_global_thread_num(void *);
+void __kmpc_get_ompt_callbacks(void **, void **);
+#else
+int32_t __kmpc_global_thread_num(void *) __attribute__((weak));
+void __kmpc_get_ompt_callbacks(void **, void **) __attribute__((weak));
+#endif
+}
+
 // Internal data structure to store callbacks
 typedef struct {
 #define OMPT_EVENT_FN(event, callback, event_id)                               \
   callback event;
   FOREACH_OMPT_EVENT(OMPT_EVENT_FN)
 #undef OMPT_EVENT_FN
-} OmptCallbacksInternalTy;
+} OmptCallbacksTy;
 
 // Internal data structure to store callbacks' state
 typedef struct {
@@ -1592,25 +1609,69 @@ typedef struct {
   uint32_t event : 1;
   FOREACH_OMPT_EVENT(OMPT_EVENT_FN)
 #undef OMPT_EVENT_FN
-} OmptCallbacksActiveTy;
+} OmptEnabledTy;
 
-extern OmptCallbacksInternalTy omptCallbacks;
-extern OmptCallbacksActiveTy omptEnabled;
+#define OMPT_ENABLED (OmptGlobal && OmptGlobal->Enabled.enabled)
 
 #define OMPT_CALLBACK(event, ...)                                              \
   do {                                                                         \
-    if (omptEnabled.enabled && omptEnabled.event)                              \
-      omptCallbacks.event(__VA_ARGS__);                                        \
+    if (OMPT_ENABLED && OmptGlobal->Enabled.event)                             \
+      OmptGlobal->Callbacks.event(__VA_ARGS__);                                \
   } while (0)
 
-#include <atomic>
-#include <string>
-#include <cstring>
-#include <map>
+#define OMPT_TRACE(Event)                                                      \
+  do {                                                                         \
+    if (OMPT_ENABLED) {                                                        \
+      OmptGlobal->getTrace().Event;                                            \
+    }                                                                          \
+  } while (0)
 
-extern std::atomic<ompt_id_t> omptTargetId;
-extern std::atomic<ompt_id_t> omptHostOpId;
-extern void omptInit();
+#ifdef OMPTARGET_DEBUG
+extern int DebugLevel;
+#define DPOMPT(...)                                                            \
+  do {                                                                         \
+    if (DebugLevel > 0) {                                                      \
+      DEBUGP("Libomptarget", __VA_ARGS__);                                     \
+    }                                                                          \
+  } while (0)
+#else // OMPTARGET_DEBUG
+#define DPOMPT(...) {}
+#endif // OMPTARGET_DEBUG
+
+struct OmptTraceTy;
+
+struct OmptGlobalTy {
+  std::atomic<ompt_id_t> TargetId;
+  std::atomic<ompt_id_t> HostOpId;
+  std::mutex Mutex;
+  std::map<int32_t, OmptTraceTy> Traces; // per-thread trace
+  OmptCallbacksTy Callbacks;
+  OmptEnabledTy Enabled;
+
+  explicit OmptGlobalTy() = default;
+  OmptGlobalTy(const OmptGlobalTy &) = delete;
+
+  void init() {
+    TargetId = 1;
+    HostOpId = 1;
+    // Call host runtime to get Callbacks, Enabled
+    OmptCallbacksTy *pCallbacks = nullptr;
+    OmptEnabledTy *pEnabled = nullptr;
+    std::memset(&Enabled, 0, sizeof(Enabled));
+    __kmpc_get_ompt_callbacks((void **)&pCallbacks, (void **)&pEnabled);
+    if (!pCallbacks || !pEnabled) {
+      DPOMPT("Warning: cannot initialize OMPT\n");
+      return;
+    }
+    Enabled = *pEnabled;
+    Callbacks = *pCallbacks;
+    DPOMPT("Initialized OMPT\n");
+  }
+
+  OmptTraceTy &getTrace();
+};
+
+extern OmptGlobalTy *OmptGlobal;
 
 /// Callback interface. This is based on community code (tool's committee) which
 /// relies on forthcoming changes to the callback signatures.
@@ -1623,7 +1684,7 @@ struct OmptTraceTy {
   std::map<const void *, std::string> CodeLocation;
 
   void targetDataAllocBegin(int64_t deviceId, size_t bytes) {
-    HostOpId = omptHostOpId.fetch_add(1);
+    HostOpId = OmptGlobal->HostOpId.fetch_add(1);
     OMPT_CALLBACK(ompt_callback_target_data_op, ompt_scope_begin, TargetId,
                   HostOpId, ompt_target_data_alloc, nullptr, deviceId, nullptr,
                   deviceId, bytes, ReturnAddress);
@@ -1637,7 +1698,7 @@ struct OmptTraceTy {
   }
 
   void targetDataDeleteBegin(int64_t deviceId, void *ptr) {
-    HostOpId = omptHostOpId.fetch_add(1);
+    HostOpId = OmptGlobal->HostOpId.fetch_add(1);
     OMPT_CALLBACK(ompt_callback_target_data_op, ompt_scope_begin, TargetId,
                   HostOpId, ompt_target_data_delete, ptr, deviceId, ptr,
                   deviceId, 0, ReturnAddress);
@@ -1652,7 +1713,7 @@ struct OmptTraceTy {
 
   void targetDataSubmitBegin(
       int64_t deviceId, void *tgtPtr, void *hstPtr, size_t bytes) {
-    HostOpId = omptHostOpId.fetch_add(1);
+    HostOpId = OmptGlobal->HostOpId.fetch_add(1);
     OMPT_CALLBACK(ompt_callback_target_data_op, ompt_scope_begin, TargetId,
                   HostOpId, ompt_target_data_transfer_to_device, hstPtr,
                   HOST_DEVICE, tgtPtr, deviceId, bytes, ReturnAddress);
@@ -1668,7 +1729,7 @@ struct OmptTraceTy {
 
   void targetDataRetrieveBegin(
       int64_t deviceId, void *hstPtr, void *tgtPtr, size_t bytes) {
-    HostOpId = omptHostOpId.fetch_add(1);
+    HostOpId = OmptGlobal->HostOpId.fetch_add(1);
     OMPT_CALLBACK(ompt_callback_target_data_op, ompt_scope_begin, TargetId,
                   HostOpId, ompt_target_data_transfer_from_device, tgtPtr,
                   deviceId, hstPtr, HOST_DEVICE, bytes, ReturnAddress);
@@ -1683,7 +1744,7 @@ struct OmptTraceTy {
   }
 
   void targetSubmitBegin(int64_t deviceId, uint32_t numTeams) {
-    HostOpId = omptHostOpId.fetch_add(1);
+    HostOpId = OmptGlobal->HostOpId.fetch_add(1);
     OMPT_CALLBACK(ompt_callback_target_submit, ompt_scope_begin, TargetId,
                   HostOpId, numTeams);
   }
@@ -1695,7 +1756,7 @@ struct OmptTraceTy {
   }
 
   void targetDataEnterBegin(int64_t deviceId) {
-    TargetId = omptTargetId.fetch_add(1);
+    TargetId = OmptGlobal->TargetId.fetch_add(1);
     OMPT_CALLBACK(ompt_callback_target, ompt_target_enter_data,
                   ompt_scope_begin, deviceId, nullptr /* TODO: task_data */,
                   TargetId, ReturnAddress);
@@ -1709,7 +1770,7 @@ struct OmptTraceTy {
   }
 
   void targetDataExitBegin(int64_t deviceId) {
-    TargetId = omptTargetId.fetch_add(1);
+    TargetId = OmptGlobal->TargetId.fetch_add(1);
     OMPT_CALLBACK(ompt_callback_target, ompt_target_exit_data, ompt_scope_begin,
                   deviceId, nullptr /* TODO: task_data */, TargetId,
                   ReturnAddress);
@@ -1723,7 +1784,7 @@ struct OmptTraceTy {
   }
 
   void targetDataUpdateBegin(int64_t deviceId) {
-    TargetId = omptTargetId.fetch_add(1);
+    TargetId = OmptGlobal->TargetId.fetch_add(1);
     OMPT_CALLBACK(ompt_callback_target, ompt_target_update, ompt_scope_begin,
                   deviceId, nullptr /* TODO: task_data */, TargetId,
                   ReturnAddress);
@@ -1737,7 +1798,7 @@ struct OmptTraceTy {
   }
 
   void targetBegin(int64_t deviceId) {
-    TargetId = omptTargetId.fetch_add(1);
+    TargetId = OmptGlobal->TargetId.fetch_add(1);
     OMPT_CALLBACK(ompt_callback_target, ompt_target, ompt_scope_begin, deviceId,
                   nullptr /* TODO: task data */, TargetId, ReturnAddress);
   }
@@ -1750,7 +1811,7 @@ struct OmptTraceTy {
 
   // Store code location determinted by compiler
   void pushCodeLocation(const char *location, void *returnAddress) {
-    if (!omptEnabled.enabled || !returnAddress)
+    if (!OmptGlobal->Enabled.enabled || !returnAddress)
       return;
     ReturnAddress = returnAddress;
     // We expect the following format from the generated code.
@@ -1791,43 +1852,18 @@ struct OmptTraceTy {
   }
 };
 
-extern thread_local OmptTraceTy omptTrace;
-
-#define OMPT_TRACE(Event)                                                      \
-  do {                                                                         \
-    if (omptEnabled.enabled) {                                                 \
-      omptTrace.Event;                                                         \
-    }                                                                          \
-  } while (0)
-
-/// DL utilities
-#ifdef _WIN32
-#include <windows.h>
-#include <psapi.h>
-#include <vector>
-/// Find symbol from the loaded modules
-static void *findSymbol(const char *name) {
-  HANDLE process = GetCurrentProcess();
-  std::vector<HMODULE> modules;
-  DWORD needed;
-  if (!EnumProcessModules(process, modules.data(), 0, &needed))
-    return nullptr;
-  DWORD numModules = needed / sizeof(HMODULE);
-  modules.resize(numModules);
-  if (!EnumProcessModules(process, modules.data(), needed, &needed))
-    return nullptr;
-  for (uint32_t i = 0; i < numModules; i++) {
-    void *func = GetProcAddress(modules[i], name);
-    if (func)
-      return func;
-  }
-  return nullptr;
+inline OmptTraceTy &OmptGlobalTy::getTrace() {
+    int gtid = __kmpc_global_thread_num(nullptr);
+    Mutex.lock();
+    if (Traces.count(gtid) == 0)
+      Traces.emplace(gtid, OmptTraceTy());
+    auto &trace = Traces[gtid];
+    Mutex.unlock();
+    return trace;
 }
-#define DLSYM(name) findSymbol(name)
-#else
-#include <dlfcn.h>
-#define DLSYM(name) dlsym(RTLD_DEFAULT, name)
-#endif
+
+extern const char *OmptDocument;
+extern ompt_interface_fn_t omptLookupEntries(const char *);
 
 #endif // _OMPTARGET_TOOLS_H_
 #endif // INTEL_COLLAB

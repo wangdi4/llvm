@@ -131,7 +131,7 @@ public:
 
   CGVisitor(HIRFramework &HIRF, ScalarEvolution &SE, LoopOptReportBuilder &LORB)
       : F(HIRF.getFunction()), HIRF(HIRF), SE(SE), CurRegion(nullptr),
-        CurLoopIsNSW(false), Builder(HIRF.getContext()),
+        CurLoopHasSignedIV(false), Builder(HIRF.getContext()),
         Expander(SE, HIRF.getDataLayout(), "i", *this), LORBuilder(LORB) {}
 
 private:
@@ -333,7 +333,7 @@ private:
   HIRFramework &HIRF;
   ScalarEvolution &SE;
   HLRegion *CurRegion;
-  bool CurLoopIsNSW;
+  bool CurLoopHasSignedIV;
   IRBuilder<> Builder;
   HIRSCEVExpander Expander;
   const LoopOptReportBuilder &LORBuilder;
@@ -1423,9 +1423,9 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
          "Preheader/Postexit should have been extracted!");
 
   bool IsUnknownLoop = Lp->isUnknown();
-  bool IsNSW = Lp->isNSW();
+  bool HasSignedIV = Lp->hasSignedIV();
 
-  CurLoopIsNSW = IsNSW;
+  CurLoopHasSignedIV = HasSignedIV;
 
 #if INTEL_FEATURE_CSA
   // Helper for creating intrinsic calls.
@@ -1518,8 +1518,9 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
   // NSW.
   // NOTE: We do not try to deduce NUW flag for unknown loops so we may be
   // losing info in some cases.
-  Value *NextVar = Builder.CreateAdd(CurVar, StepVal, "nextiv" + LName,
-                                     (IsNSW || !IsUnknownLoop), IsNSW);
+  Value *NextVar =
+      Builder.CreateAdd(CurVar, StepVal, "nextiv" + LName,
+                        (HasSignedIV || !IsUnknownLoop), HasSignedIV);
 
   // Attach metadata to the resulting loop; Exclude opt report field
   // if there was any.
@@ -1558,9 +1559,9 @@ Value *CGVisitor::visitLoop(HLLoop *Lp) {
           Builder.CreateICmp(CmpInst::ICMP_NE, CurVar, Upper, "cond" + LName);
     } else {
       // Generates: (i+1 <= upper).
-      EndCond =
-          Builder.CreateICmp(IsNSW ? CmpInst::ICMP_SLE : CmpInst::ICMP_ULE,
-                             NextVar, Upper, "cond" + LName);
+      EndCond = Builder.CreateICmp(HasSignedIV ? CmpInst::ICMP_SLE
+                                               : CmpInst::ICMP_ULE,
+                                   NextVar, Upper, "cond" + LName);
     }
 
     BasicBlock *AfterBB =
@@ -2103,8 +2104,8 @@ Value *CGVisitor::IVPairCG(CanonExpr *CE, CanonExpr::iv_iterator IVIt,
   if (IV->getType() != Ty) {
     if (Ty->getPrimitiveSizeInBits() >
         IV->getType()->getPrimitiveSizeInBits()) {
-      IV = CurLoopIsNSW ? Builder.CreateSExt(IV, Ty)
-                        : Builder.CreateZExt(IV, Ty);
+      IV = CurLoopHasSignedIV ? Builder.CreateSExt(IV, Ty)
+                              : Builder.CreateZExt(IV, Ty);
     } else {
       IV = Builder.CreateTrunc(IV, Ty);
     }

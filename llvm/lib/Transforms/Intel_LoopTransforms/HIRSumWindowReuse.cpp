@@ -535,9 +535,9 @@ static void transformLoopWindowSums(const LoopSlidingWindowSums &LoopSums) {
     // + END LOOP
     RegDDRef *const CurEnd = Sum.TermLoad->clone();
     DDRefUtils::replaceIVByCanonExpr(
-      CurEnd, InnerLevel,
-      LoopSums.InnerLoop->getUpperDDRef()->getSingleCanonExpr(),
-      LoopSums.InnerLoop->isNSW());
+        CurEnd, InnerLevel,
+        LoopSums.InnerLoop->getUpperDDRef()->getSingleCanonExpr(),
+        LoopSums.InnerLoop->hasSignedIV());
     HLInst *const AddEndInst = HNU.createBinaryHLInst(
       Sum.Opcode, WSum->clone(), CurEnd, "", WSum->clone(), SumInstBinOp);
     HLNodeUtils::insertAsLastElseChild(FirstIterIf, AddEndInst);

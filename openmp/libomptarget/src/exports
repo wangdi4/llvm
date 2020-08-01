@@ -37,7 +37,6 @@ VERS1.0 {
     __tgt_set_interop_property;
     __tgt_offload_proxy_task_complete_ooo;
     __tgt_push_code_location;
-    __tgt_get_ompt_trace;
     __tgt_get_num_devices;
 # end INTEL_COLLAB
     omp_get_num_devices;

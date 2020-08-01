@@ -160,7 +160,7 @@ static bool replaceIVsByBound(CanonExpr *CE, unsigned Level,
 
   return CanonExprUtils::replaceIVByCanonExpr(
       CE, Level, IsLowerCE ? Lp->getLowerCanonExpr() : Lp->getUpperCanonExpr(),
-      Lp->isNSW(), true);
+      Lp->hasSignedIV(), true);
 }
 
 static ArraySectionInfo

@@ -311,7 +311,7 @@ public:
   ///
   /// See Also: CanonExprUtils::replaceIVByCanonExpr().
   static void replaceIVByCanonExpr(RegDDRef *Ref, unsigned LoopLevel,
-                                   const CanonExpr *CE, bool IsNSW,
+                                   const CanonExpr *CE, bool IsSigned,
                                    bool RelaxedMode = true);
 
   /// Transform input single-dimension gep \p Refs to the multi-dimensional \p

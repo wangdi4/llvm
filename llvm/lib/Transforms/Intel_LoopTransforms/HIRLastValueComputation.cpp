@@ -51,11 +51,9 @@ static cl::opt<unsigned>
                        cl::desc("Minimum trip count of the multi exit loop "
                                 "which triggers code generation"));
 
-bool HIRLastValueComputation::isLegalAndProfitable(HLLoop *Lp, HLInst *HInst,
-                                                   unsigned LoopLevel,
-                                                   CanonExpr *UBCE,
-                                                   bool IsUpperBoundComplicated,
-                                                   bool IsNSW, bool &HasIV) {
+bool HIRLastValueComputation::isLegalAndProfitable(
+    HLLoop *Lp, HLInst *HInst, unsigned LoopLevel, CanonExpr *UBCE,
+    bool IsUpperBoundComplicated, bool HasSignedIV, bool &HasIV) {
   if (!HInst || HInst->isCallInst()) {
     return false;
   }
@@ -100,7 +98,8 @@ bool HIRLastValueComputation::isLegalAndProfitable(HLLoop *Lp, HLInst *HInst,
 
       // TODO: creating an instruction of the form t1 = UB in the postexit and
       // replacing IV by t1.
-      if (!DDRefUtils::canReplaceIVByCanonExpr(OpRef, LoopLevel, UBCE, IsNSW)) {
+      if (!DDRefUtils::canReplaceIVByCanonExpr(OpRef, LoopLevel, UBCE,
+                                               HasSignedIV)) {
         return false;
       }
     }
@@ -231,7 +230,7 @@ bool HIRLastValueComputation::doLastValueComputation(HLLoop *Lp) {
   CanonExpr *UBCE = Lp->getUpperCanonExpr();
 
   unsigned LoopLevel = Lp->getNestingLevel();
-  bool IsNSW = Lp->isNSW();
+  bool HasSignedIV = Lp->hasSignedIV();
   SmallVector<HLInst *, 64> CandidateInsts;
 
   bool IsUpperBoundComplicated =
@@ -243,7 +242,7 @@ bool HIRLastValueComputation::doLastValueComputation(HLLoop *Lp) {
     bool HasIV = false;
 
     if (!isLegalAndProfitable(Lp, HInst, LoopLevel, UBCE,
-                              IsUpperBoundComplicated, IsNSW, HasIV)) {
+                              IsUpperBoundComplicated, HasSignedIV, HasIV)) {
       continue;
     }
 
@@ -303,7 +302,7 @@ bool HIRLastValueComputation::doLastValueComputation(HLLoop *Lp) {
          I++) {
       RegDDRef *OpRef = *I;
 
-      DDRefUtils::replaceIVByCanonExpr(OpRef, LoopLevel, UBCE, IsNSW);
+      DDRefUtils::replaceIVByCanonExpr(OpRef, LoopLevel, UBCE, HasSignedIV);
       OpRef->makeConsistent(Aux, LoopLevel - 1);
     }
 

@@ -280,8 +280,8 @@ void HIRLoopFormation::setIVType(HLLoop *HLoop, const SCEV *BECount) const {
 
   HLoop->setIVType(IVType);
 
-  auto IsNSW = hasNSWSemantics(Lp, IVType, BECount);
-  HLoop->setNSW(IsNSW);
+  bool IsSigned = hasNSWSemantics(Lp, IVType, BECount);
+  HLoop->setHasSignedIV(IsSigned);
 }
 
 bool HIRLoopFormation::populatedPreheaderPostexitNodes(
