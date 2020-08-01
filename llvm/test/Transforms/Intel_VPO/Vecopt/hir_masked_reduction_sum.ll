@@ -17,8 +17,8 @@
 ;       @llvm.directive.region.exit(%entry.region); [ DIR.VPO.END.AUTO.VEC() ]
 ; END REGION
 
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-entities-dump -vplan-print-after-hcfg -print-after=VPlanDriverHIR -vplan-force-vf=4 -enable-vp-value-codegen-hir=0 -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=ENTITY,CHECK
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-entities-dump -vplan-print-after-hcfg -print-after=VPlanDriverHIR -vplan-force-vf=4 -enable-vp-value-codegen-hir -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=ENTITY,VPCHECK
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-entities-dump -vplan-print-after-initial-transforms -print-after=VPlanDriverHIR -vplan-force-vf=4 -enable-vp-value-codegen-hir=0 -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=ENTITY,CHECK
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-vec-dir-insert -VPlanDriverHIR -vplan-entities-dump -vplan-print-after-initial-transforms -print-after=VPlanDriverHIR -vplan-force-vf=4 -enable-vp-value-codegen-hir -disable-output < %s 2>&1 | FileCheck %s --check-prefixes=ENTITY,VPCHECK
 
 ; Check that reduction is imported as VPEntity.
 ; ENTITY-LABEL: Reduction list

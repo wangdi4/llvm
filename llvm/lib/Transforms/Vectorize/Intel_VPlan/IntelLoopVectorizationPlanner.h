@@ -51,6 +51,7 @@ class VPlanCostModel;
 
 extern bool PrintSVAResults;
 extern bool PrintAfterCallVecDecisions;
+extern bool LoopMassagingEnabled;
 
 /// LoopVectorizationPlanner - builds and optimizes the Vectorization Plans
 /// which record the decisions how to vectorize the given loop.
@@ -159,6 +160,9 @@ protected:
                                                    unsigned &EndRangeVF,
                                                    VPExternalValues &Ext);
 
+  /// Transform to emit explict uniform Vector loop iv.
+  virtual void emitVecSpecifics(VPlan *Plan);
+
   /// \Returns a pair of the <min, max> types' width used in the underlying loop.
   /// Doesn't take into account i1 type.
   virtual std::pair<unsigned, unsigned> getTypesWidthRangeInBits() const;
@@ -210,6 +214,36 @@ private:
   /// Iteratively sink the scalarized operands of a predicated instruction into
   /// the block that was created for it.
   // void sinkScalarOperands(Instruction *PredInst, VPlan *Plan);
+
+  void runInitialVecSpecificTransforms(VPlan *Plan);
+
+  /// Main function that canonicalizes the CFG and applyies loop massaging
+  /// transformations like mergeLoopExits transform.
+  void doLoopMassaging(VPlan *Plan);
+
+  /// Use results from VPEntity analysis to emit explicit VPInstruction-based
+  /// representation. The analysis results can be invalidated/stale after this
+  /// transform.
+  void emitVPEntityInstrs(VPlan *Plan);
+
+  /// Emit uniform IV for the vector loop and rewrite backedge condition to use
+  /// it.
+  //
+  //   header:
+  //     %iv = phi [ 0, preheader ], [ iv.next, latch ]
+  //
+  //   latch:
+  //     %iv.next = %iv + VF
+  //     %cond = %iv.next `icmp` TripCount
+  //     br i1 %cond
+  //
+  // The order of latch's successors isn't changed which is ensured by selecting
+  // proper icmp predicate (eq/ne). Original latch's CondBit is erased if there
+  // are no remaining uses of it after the transformation above.
+  void emitVectorLoopIV(VPlan *Plan, VPValue *TripCount, VPValue *VF);
+
+  /// Utility to dump and verify VPlan details after initial set of transforms.
+  void printAndVerifyAfterInitialTransforms(VPlan *Plan);
 
   /// The loop that we evaluate.
   Loop *TheLoop;

@@ -2,7 +2,7 @@
 ; RUN: opt -S -VPlanDriver -vpo-vplan-build-stress-test -debug < %s 2>&1 | FileCheck %s
 ; RUN: opt -S -passes="vplan-driver" -vpo-vplan-build-stress-test -debug < %s 2>&1 | FileCheck %s
 ; REQUIRES: asserts
-; CHECK: Vectorization Plan{{.*}} After building HCFG
+; CHECK: Vectorization Plan{{.*}} Plain CFG
 ; CHECK-LABEL: @foo(
 ; CHECK: ret
 %struct.S1 = type { i32, %struct.S1* }

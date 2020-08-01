@@ -23,7 +23,6 @@
 #include "IntelVPlanCFGBuilder.h"
 #include "IntelVPlanDivergenceAnalysis.h"
 #include "IntelVPlanDominatorTree.h"
-#include "IntelVPlanLoopExitCanonicalization.h"
 #include "IntelVPlanLoopInfo.h"
 #include "IntelVPlanSyncDependenceAnalysis.h"
 #include "IntelVPlanUtils.h"
@@ -40,23 +39,9 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
-bool LoopMassagingEnabled = true;
-static cl::opt<bool, true> LoopMassagingEnabledOpt(
-    "vplan-enable-loop-massaging", cl::location(LoopMassagingEnabled),
-    cl::Hidden,
-    cl::desc("Enable loop massaging in VPlan (Multiple to Singular Exit)"));
-
 #if INTEL_CUSTOMIZATION
 extern cl::opt<bool> EnableVPValueCodegen;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-static cl::opt<bool> VPlanPrintAfterLoopMassaging(
-    "vplan-print-after-loop-massaging", cl::init(false),
-    cl::desc("Print plain dump after loop massaging"));
-
-static cl::opt<bool>
-    VPlanPrintHCFG("vplan-print-after-hcfg", cl::init(false),
-                   cl::desc("Print plain dump after build VPlan H-CFG."));
-
 static cl::opt<bool>
     VPlanPrintPlainCFG("vplan-print-plain-cfg", cl::init(false),
                        cl::desc("Print plain dump after VPlan buildPlainCFG."));
@@ -64,21 +49,9 @@ static cl::opt<bool>
 static cl::opt<bool> VPlanDotPlainCFG(
     "vplan-dot-plain-cfg", cl::init(false), cl::Hidden,
     cl::desc("Print VPlan digraph after VPlan buildPlainCFG."));
-
-static cl::opt<bool> VPlanDotLoopMassaging(
-    "vplan-dot-loop-massaging", cl::init(false), cl::Hidden,
-    cl::desc("Print VPlan digraph after loop massaging."));
-
-static cl::opt<bool> DumpAfterVPEntityInstructions(
-    "vplan-print-after-vpentity-instrs", cl::init(false), cl::Hidden,
-    cl::desc("Print VPlan after insertion of VPEntity instructions."));
 #else
-static constexpr bool VPlanPrintHCFG = false;
 static constexpr bool VPlanPrintPlainCFG = false;
 static constexpr bool VPlanDotPlainCFG = false;
-static constexpr bool VPlanDotLoopMassaging = false;
-static constexpr bool DumpAfterVPEntityInstructions = false;
-static constexpr bool VPlanPrintAfterLoopMassaging = false;
 #endif // !NDEBUG || LLVM_ENABLE_DUMP
 #endif // INTEL_CUSTOMIZATION
 
@@ -119,39 +92,6 @@ static VPBasicBlock *getNearestCommonPostDom(
   return NearestDom;
 }
 #endif // INTEL_CUSTOMIZATION
-
-// Main function that canonicalizes the plain CFG and applyies loop massaging
-// transformations like mergeLoopExits transform.
-void VPlanHCFGBuilder::doLoopMassaging() {
-  VPLoopInfo *VPLInfo = Plan->getVPLoopInfo();
-
-  assert((VPLInfo->size() == 1) && "Expected only 1 top-level loop");
-  VPLoop *TopLoop = *VPLInfo->begin();
-  auto &VPDomTree = *Plan->getDT();
-  (void)VPDomTree;
-
-  LLVM_DEBUG(dbgs() << "Dominator Tree Before mergeLoopExits\n";
-             VPDomTree.print(dbgs()));
-
-  if (LoopMassagingEnabled) {
-    // TODO: Bail-out loop massaging for uniform inner loops.
-    for (auto *VPL : post_order(TopLoop)) {
-      if (VPL == TopLoop) {
-        // TODO: Uncomment after search loops are supported without hacks.
-        // assert(VPL->getLoopLatch() == VPL->getExitingBlock() &&
-        //        "Top level loop is expected to be in canonical form!");
-        continue;
-      }
-      singleExitWhileLoopCanonicalization(VPL);
-      mergeLoopExits(VPL);
-      LLVM_DEBUG(Verifier->verifyLoops(Plan, VPDomTree, Plan->getVPLoopInfo()));
-    }
-    VPLAN_DUMP(VPlanPrintAfterLoopMassaging, "loop massaging", Plan);
-    VPLAN_DOT(VPlanDotLoopMassaging, Plan);
-    LLVM_DEBUG(dbgs() << "Dominator Tree After mergeLoopExits\n";
-               VPDomTree.print(dbgs()));
-  }
-}
 
 static TripCountInfo readIRLoopMetadata(Loop *Lp) {
   TripCountInfo TCInfo;
@@ -245,42 +185,6 @@ void VPlanHCFGBuilder::buildHierarchicalCFG() {
 
   VPLAN_DUMP(VPlanPrintPlainCFG, "importing plain CFG", Plan);
   VPLAN_DOT(VPlanDotPlainCFG, Plan);
-
-  // FIXME: Split Move everything after initial CFG construction into separate
-  // transformation "passes" and schedule them in the planner/driver instead. We
-  // want to lower LoopEntites early in the pipeline so have to call them in
-  // this file for the time being awaiting VPlan pipeline refactoring.
-  VPLoop *MainLoop = *(Plan->getVPLoopInfo()->begin());
-  VPLoopEntityList *LE = Plan->getOrCreateLoopEntities(MainLoop);
-  VPBuilder VPIRBuilder;
-  LE->insertVPInstructions(VPIRBuilder);
-
-  VPLAN_DUMP(DumpAfterVPEntityInstructions, "insertion VPEntities instructions",
-             Plan);
-
-  emitVecSpecifics();
-
-  doLoopMassaging();
-
-  LLVM_DEBUG(Plan->setName("HCFGBuilder: After loop massaging\n");
-             dbgs() << *Plan);
-  LLVM_DEBUG(dbgs() << "Dominator Tree After loop massaging\n";
-             VPDomTree.print(dbgs()));
-  LLVM_DEBUG(dbgs() << "PostDominator Tree After loop massaging:\n";
-             Plan->getPDT()->print(dbgs()));
-  LLVM_DEBUG(dbgs() << "VPLoop Info After loop massaging:\n";
-             VPLInfo->print(dbgs()));
-
-#if INTEL_CUSTOMIZATION
-  LLVM_DEBUG(Verifier->verifyLoops(Plan, VPDomTree, Plan->getVPLoopInfo()));
-#else
-  LLVM_DEBUG(Verifier->verifyLoops(VPDomTree, Plan->getVPLoopInfo()));
-#endif
-
-  LLVM_DEBUG(Plan->setName("HCFGBuilder: After building HCFG\n");
-             dbgs() << *Plan;);
-
-  VPLAN_DUMP(VPlanPrintHCFG, "building H-CFG", Plan);
 }
 
 class PrivatesListCvt;
@@ -733,70 +637,4 @@ void VPlanHCFGBuilder::passEntitiesToVPlan(VPLoopEntityConverterList &Cvts) {
     BaseConverter *Converter = dyn_cast<BaseConverter>(Cvt.get());
     Converter->passToVPlan(Plan, Mapper);
   }
-}
-
-void VPlanHCFGBuilder::emitVecSpecifics() {
-  auto *VPLInfo = Plan->getVPLoopInfo();
-  VPLoop *CandidateLoop = *VPLInfo->begin();
-
-  auto *PreHeader = CandidateLoop->getLoopPreheader();
-  assert(PreHeader && "Single pre-header is expected!");
-
-  Type *VectorLoopIVType = Legal->getWidestInductionType();
-  if (!VectorLoopIVType) {
-    // Ugly workaround for tests forcing VPlan build when we can't actually do
-    // that. Shouldn't happen outside stress/forced pipeline.
-    VectorLoopIVType = Type::getInt64Ty(*Plan->getLLVMContext());
-  }
-  auto *VPOne = Plan->getVPConstant(ConstantInt::get(VectorLoopIVType, 1));
-
-  VPBuilder Builder;
-  Builder.setInsertPoint(PreHeader);
-  auto *VF = Builder.create<VPInductionInitStep>("VF", VPOne, Instruction::Add);
-
-  auto *OrigTC = Builder.create<VPOrigTripCountCalculation>(
-      "orig.trip.count", TheLoop, CandidateLoop, VectorLoopIVType);
-  auto *TC =
-      Builder.create<VPVectorTripCountCalculation>("vector.trip.count", OrigTC);
-
-  emitVectorLoopIV(TC, VF);
-}
-
-void VPlanHCFGBuilder::emitVectorLoopIV(VPValue *TripCount, VPValue *VF) {
-  auto *VPLInfo = Plan->getVPLoopInfo();
-  VPLoop *CandidateLoop = *VPLInfo->begin();
-
-  auto *PreHeader = CandidateLoop->getLoopPreheader();
-  auto *Header = CandidateLoop->getHeader();
-  auto *Latch = CandidateLoop->getLoopLatch();
-  assert(PreHeader && "Single pre-header is expected!");
-  assert(Latch && "Single loop latch is expected!");
-
-  Type *VectorLoopIVType = TripCount->getType();
-  auto *VPZero =
-      Plan->getVPConstant(ConstantInt::getNullValue(VectorLoopIVType));
-
-  VPBuilder Builder;
-  Builder.setInsertPoint(Header, Header->begin());
-  auto *IV = Builder.createPhiInstruction(VectorLoopIVType, "vector.loop.iv");
-  IV->addIncoming(VPZero, PreHeader);
-  Builder.setInsertPoint(Latch);
-  auto *IVUpdate = Builder.createAdd(IV, VF, "vector.loop.iv.next");
-  IV->addIncoming(IVUpdate, Latch);
-  auto *ExitCond = Builder.createCmpInst(
-      Latch->getSuccessor(0) == Header ? CmpInst::ICMP_NE : CmpInst::ICMP_EQ,
-      IVUpdate, TripCount, "vector.loop.exitcond");
-
-  VPValue *OrigExitCond = Latch->getCondBit();
-  if (Latch->getNumSuccessors() > 1)
-    Latch->setCondBit(ExitCond);
-
-  // If original exit condition had single use, remove it - we calculate exit
-  // condition differently now.
-  // FIXME: "_or_null" here is due to broken stess pipeline that must really
-  // stop right after CFG is imported, before *any* transformation is tried on
-  // it.
-  if (auto *Inst = dyn_cast_or_null<VPInstruction>(OrigExitCond))
-    if (Inst->getNumUsers() == 0)
-      Latch->eraseInstruction(Inst);
 }
